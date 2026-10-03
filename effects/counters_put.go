@@ -820,6 +820,8 @@ func putCounterSplit(h Host, total int32, kind string, ts []state.Target) []stat
 	return placed
 }
 
+// The result is never nil: it rides Decision.ResumeChoices as a payload
+// (PayloadTargets).
 func objTargets(ids []state.ObjID) []state.Target {
 	out := make([]state.Target, 0, len(ids))
 	for _, id := range ids {

@@ -153,7 +153,7 @@ func tapeDualContext(tape, legacy *rules.Engine, seq int) string {
 		if o := tape.G.Obj(ev.Obj); o != nil && o.Card != nil && len(o.Card.Faces) > 0 {
 			name = o.Card.Faces[0].Name
 		}
-		return fmt.Sprintf("%v obj=%d(%s) p=%d amt=%d ctr=%q text=%q ids=%v", ev.Kind, ev.Obj, name, ev.Player, ev.Amount, ev.Counter, ev.Text, ev.IDs)
+		return fmt.Sprintf("%v obj=%d(%s) p=%d amt=%d ctr=%q text=%q ids=%v from=%v to=%v", ev.Kind, ev.Obj, name, ev.Player, ev.Amount, ev.Counter, ev.Text, ev.IDs, ev.From, ev.To)
 	}
 	for i := max(seq-30, 0); i < seq+6; i++ {
 		t, l := "-", "-"

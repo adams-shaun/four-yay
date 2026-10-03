@@ -142,6 +142,25 @@ func chosenDirectionForResume(c *effects.Ctx) string {
 	return c.ChosenDirection
 }
 
+// resumeChosenBinding is the chosen-card binding a mid-resolution ask's
+// resume rebuilds its Ctx with. An asking site that rides a binding of its
+// own (Decision.ResumeChoices/ResumeChosenValid) keeps it, and so does a site
+// whose ResumeChoices is its arm's own payload (never nil:
+// effects.PayloadTargets). One that rides nothing resumes with the chain's
+// binding as it stood when it asked: the first pass resolved in ONE Ctx whose
+// ChooseCard answer the rest of the chain still reads, and a rebuilt Ctx
+// without it fails the Card.ChosenCard predicate closed (Whiskervale
+// Forerunner's "if you don't put it onto the battlefield" gate passed after
+// its Optional$ fetch's confirm, so the put-into-hand leg ran too; cardfuzz
+// dual run, seed 11101). The resolution kernel's re-execution keeps that Ctx
+// by construction.
+func resumeChosenBinding(d *decision.Decision, chain *effects.Ctx) ([]state.Target, bool) {
+	if d.ResumeChoices != nil || d.ResumeChosenValid || chain == nil {
+		return append([]state.Target(nil), d.ResumeChoices...), d.ResumeChosenValid
+	}
+	return append([]state.Target(nil), chain.Chosen...), chain.ChosenValid
+}
+
 // buildAskResume builds the resume point of the mid-resolution ask d from
 // the engine's ambient resolution state at the moment the ask is posed (or
 // deferred). See Engine.Ask.
@@ -234,6 +253,7 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		// resume with the stack object's stale seed (a trigger capture).
 		remembered = append([]state.Target{}, e.resolutionCtx.Remembered...)
 	}
+	choices, chosenValid := resumeChosenBinding(d, e.resolutionCtx)
 	return &resumePoint{kind: kind, obj: obj, sa: d.ResumeSA, replSource: replSource,
 		replacement: e.applyingReplacement, replaced: e.replReplaced, action: e.replAction,
 		replacedCards:     append([]state.ObjID(nil), e.replReplacedCards...),
@@ -245,8 +265,8 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		before:            e.retainTriggerBefore(), target: d.ResumeTarget, player: d.Acting(),
 		chosenDirection: chosenDirectionForResume(e.resolutionCtx),
 		direct:          direct, ownResolution: ownResolution, rolls: rollResume{dice: d.Rolls, ride: effects.RollRideOf(e.resolutionCtx)}, clash: cloneClashResume(d.ResumeClash),
-		choices:     append([]state.Target(nil), d.ResumeChoices...),
-		chosenValid: d.ResumeChosenValid, remembered: remembered,
+		choices:     choices,
+		chosenValid: chosenValid, remembered: remembered,
 		pendingDamage:       effects.ClonePendingDamage(e.resolutionPendingDamage()),
 		parentLinks:         parentLinks,
 		linkAnswer:          linkAnswer,

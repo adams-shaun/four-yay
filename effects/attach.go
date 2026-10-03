@@ -667,7 +667,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			// The resolved destination list rides the ask: a RepeatEach
 			// body's Defined$ Imprinted binding does not survive the
 			// suspension, so the re-entry never re-derives it.
-			ResumeChoices: copyTargets(legalT),
+			ResumeChoices: PayloadTargets(legalT),
 			Prompt:        ap.ChoicePrompt}
 		for i, t := range pool {
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "card", Obj: t.Obj, Player: c.Controller})

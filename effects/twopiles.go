@@ -374,6 +374,8 @@ func restOf(ids []state.ObjID, in map[state.ObjID]bool) []state.ObjID {
 
 // twoPilesTargets is the object-Target copy a decision's ResumeRemembered /
 // ResumeChoices ride.
+// The result is never nil: it rides Decision.ResumeChoices as a payload
+// (PayloadTargets).
 func twoPilesTargets(ids []state.ObjID) []state.Target {
 	out := make([]state.Target, 0, len(ids))
 	for _, id := range ids {

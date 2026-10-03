@@ -244,7 +244,7 @@ func effPlayerVote(h Host, c *Ctx, sa *cards.SA) {
 		}
 		d := &decision.Decision{Player: voter, Kind: decision.KChoose, Source: c.Source,
 			Min: 1, Max: 1, ResumeKind: "vote", ResumeSA: sa, ResumeTarget: i,
-			ResumeChoices: append([]state.Target(nil), picks...), Prompt: "Vote for a player"}
+			ResumeChoices: PayloadTargets(picks), Prompt: "Vote for a player"}
 		for j, p := range opts {
 			d.Options = append(d.Options, decision.Option{Index: j, Kind: "player", Player: p,
 				Label: votePlayerLabel(g, p)})

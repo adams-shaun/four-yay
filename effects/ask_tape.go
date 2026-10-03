@@ -1,6 +1,9 @@
 package effects
 
-import "github.com/adams-shaun/gorge/decision"
+import (
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/state"
+)
 
 // AskTape is the resolution kernel's converted ask boundary (lasagna spec
 // §7, W3; rules/resolve): a converted asking primitive calls it before its
@@ -34,4 +37,15 @@ func AskTapeIntent(h Host, d *decision.Decision) (decision.Intent, bool) {
 		return s.TapeAnswer(d)
 	}
 	return decision.Intent{}, false
+}
+
+// PayloadTargets is a Decision.ResumeChoices ride that is a payload of its
+// own resume arm (a vote's ballots so far, an attach destination list, a
+// pile, a counter recipient pick) rather than the chain's chosen-card
+// binding: a copy that is never nil, empty included. A legacy resume reads a
+// nil ResumeChoices with ResumeChosenValid false as "this site rides no
+// binding" and restores the chain's own (rules' resumeChosenBinding), which a
+// payload arm must never receive in place of its payload.
+func PayloadTargets(ts []state.Target) []state.Target {
+	return append(make([]state.Target, 0, len(ts)), ts...)
 }
