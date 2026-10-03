@@ -229,7 +229,7 @@ var auraEntryCensusEffects = map[string]string{
 	"incubate.go:incubateLoop":                  "token: Incubator mint",
 	"investigate.go:investigateFor":             "token: Clue mint",
 	"misc.go:effWard":                           "noentry: counters to graveyard",
-	"myriad.go:effMyriad":                       "token: CopyToken attacking copies",
+	"myriad.go:myriadCreate":                    "token: CopyToken attacking copies",
 	"recruit.go:effRecruit":                     "noentry: library to hand",
 	"resolve.go:effCounter":                     "stack: countered spell leaves the stack",
 	"token.go:applyTokenMintRiders":             "token: AttachedTo$ rider after the mint; auraTokenWithheld refuses an Aura token whose named bearer is gone",
