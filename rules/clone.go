@@ -398,7 +398,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		c.resume = remap.resume(e.resume)
 	}
 	c.controlGrants = append([]controlGrant(nil), e.controlGrants...)
-	// A parked ExchangeLife transaction (stack_helpers.go): parked exactly
+	// A parked ExchangeLife transaction (life_exchange.go): parked exactly
 	// when a side's life change suspended on a decision, so it is live at the
 	// intent boundary that decision makes, and Submit's tail settles it
 	// (settlePendingLifeExchange). The clone owns the transaction and its

@@ -32,3 +32,16 @@ func (e *Engine) Chars(id state.ObjID) *effects.Chars {
 	e.charsScratch = e.derivedCompute(id, 0)
 	return &e.charsScratch
 }
+
+func (e *Engine) Game() *state.Game { return e.G }
+
+func (e *Engine) ObjectColors(o *state.Object) string { return e.objColors(o) }
+
+// CastProhibited is effects' optional castProhibitedHost read (task
+// play-prohibited-election): the same CantBeCast gate beginPlay enforces
+// (rules/statics.go castRestricted), exposed so effPlay's Play election never
+// OFFERS a cast that CR 601.3 would refuse. It is a pure read -- no event,
+// no state change -- and the beginPlay recheck stays the enforcement site.
+func (e *Engine) CastProhibited(p state.PlayerID, id state.ObjID) bool {
+	return e.castRestricted(p, id)
+}
