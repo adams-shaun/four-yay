@@ -87,8 +87,8 @@ func TestClassifyAppliesAndReverts(t *testing.T) {
 	}
 	// Narrowed to another API: no match, and the automatic ruling reverts.
 	rs[0].Match.API = []string{"Surveil*"}
-	r.CanonSHA = "frozen"
-	if m, _, changed := Classify(&r, rs, "-"); m != nil || !changed || r.Status != compliance.StatusDiverge || r.RulingID != "" || r.CanonSHA != "" {
+	r.Frozen = []compliance.Frozen{{Field: "checkpoints", Value: "x"}}
+	if m, _, changed := Classify(&r, rs, "-"); m != nil || !changed || r.Status != compliance.StatusDiverge || r.RulingID != "" || r.HasExpectation() {
 		t.Fatalf("not reverted: %+v", r)
 	}
 	// A hand ruling is never touched.

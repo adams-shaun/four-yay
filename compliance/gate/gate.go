@@ -19,6 +19,7 @@ import (
 	"github.com/adams-shaun/gorge/compliance"
 	"github.com/adams-shaun/gorge/compliance/oraclediff"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/compliance/oraclegen/templates"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/rules"
 )
@@ -42,7 +43,8 @@ func ItemSHA(it oraclegen.Item) string {
 }
 
 // GorgeCanon replays a generated scenario in gorge and returns the hash of
-// its canonical snapshots.
+// its canonical snapshots: the legacy whole-snapshot expectation
+// (VerdictRow.CanonSHA), superseded by Freeze.
 func GorgeCanon(reg *cards.Registry, it oraclegen.Item) (string, error) {
 	res, err := rules.RunOracleScenarioJSON(reg, it.Raw())
 	if err != nil {
@@ -174,7 +176,7 @@ func Check(reg *cards.Registry, root, set, level string) ([]Problem, error) {
 			bad(name, "XMage does not implement it; needs a hand-authored oracle scenario")
 			continue
 		}
-		it, skip := oraclegen.Generate(reg, name)
+		it, skip := templates.Generate(reg, name)
 		if skip != nil {
 			bad(name, "no generated scenario (%s) and no hand oracle scenario", skip.Reason)
 			continue

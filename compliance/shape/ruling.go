@@ -194,7 +194,7 @@ func Classify(r *compliance.VerdictRow, rs []Ruling, api string) (applied *Rulin
 		if r.Status != compliance.StatusHarness {
 			r.Status = compliance.StatusDiverge
 		}
-		r.Ruling, r.RulingID, r.Review, r.CanonSHA = "", "", "", ""
+		r.Ruling, r.RulingID, r.Review, r.CanonSHA, r.Frozen = "", "", "", "", nil
 		return nil, nil, true
 	}
 	for _, m := range ms[1:] {
@@ -209,7 +209,7 @@ func Classify(r *compliance.VerdictRow, rs []Ruling, api string) (applied *Rulin
 	}
 	r.Status, r.Ruling, r.RulingID = m.Status, m.Text(), m.ID
 	if r.Status != compliance.StatusXMageWrong {
-		r.CanonSHA = ""
+		r.CanonSHA, r.Frozen = "", nil
 	}
 	return &m, overlap, !reflect.DeepEqual(*r, before)
 }

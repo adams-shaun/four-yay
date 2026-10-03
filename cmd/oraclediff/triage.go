@@ -13,7 +13,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance"
 	"github.com/adams-shaun/gorge/compliance/gate"
-	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/compliance/oraclegen/templates"
 	"github.com/adams-shaun/gorge/compliance/shape"
 )
 
@@ -52,15 +52,15 @@ func printedSets(root string) map[string][]string {
 // row's scenario is no longer what the generator makes: it needs a pass
 // before a ruling can freeze anything.
 func freezeRuled(reg *cards.Registry, r *compliance.VerdictRow) bool {
-	it, skip := oraclegen.Generate(reg, r.Card)
+	it, skip := templates.Generate(reg, r.Card)
 	if skip != nil || it.Template != r.Template || gate.ItemSHA(it) != r.ScenarioSHA {
 		return false
 	}
-	canon, err := gate.GorgeCanon(reg, it)
+	fz, err := gate.Freeze(reg, it)
 	if err != nil {
 		return false
 	}
-	r.CanonSHA = canon
+	r.Frozen, r.CanonSHA = fz, ""
 	return true
 }
 
@@ -105,7 +105,7 @@ func runTriage(dir, verdictDir, rulingDir, outDir string, apply bool) error {
 			if len(ov) > 0 {
 				overlaps = append(overlaps, fmt.Sprintf("%s (%s): %s also matches %v", card, t, applied.ID, ov))
 			}
-			if ch && work.Status == compliance.StatusXMageWrong && work.CanonSHA == "" {
+			if ch && work.Status == compliance.StatusXMageWrong && !work.HasExpectation() {
 				if !freezeRuled(reg, &work) {
 					stale = append(stale, fmt.Sprintf("%s (%s): ruling %s, but the scenario changed since the verdict; run a pass", card, t, applied.ID))
 					work = r

@@ -2,12 +2,13 @@ package gate
 
 import (
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance"
 	"github.com/adams-shaun/gorge/compliance/oraclediff"
-	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/compliance/oraclegen/templates"
 )
 
 func corpus(t *testing.T) *cards.Registry {
@@ -24,17 +25,17 @@ func corpus(t *testing.T) *cards.Registry {
 // other one, and replays in XMage only what the cache lacks (C1).
 func TestPlanItemRerunsOnlyStaleRows(t *testing.T) {
 	reg := corpus(t)
-	it, skip := oraclegen.Generate(reg, "Shock")
+	it, skip := templates.Generate(reg, "Shock")
 	if skip != nil {
 		t.Fatal(skip.Reason)
 	}
-	canon, err := GorgeCanon(reg, it)
+	fz, err := Freeze(reg, it)
 	if err != nil {
 		t.Fatal(err)
 	}
 	const ref = "ref1"
 	pass := compliance.VerdictRow{Card: it.Card, Template: it.Template, ID: it.ID, ScenarioSHA: ItemSHA(it),
-		XMageRef: ref, Status: compliance.StatusAgree, CanonSHA: canon}
+		XMageRef: ref, Status: compliance.StatusAgree, Frozen: fz}
 	cache := oraclediff.Cache{Dir: t.TempDir()}
 	if n, why := PlanItem(reg, it, pass, true, ref, cache); n != Fresh {
 		t.Fatalf("passing row: %v (%s), want fresh", n, why)
@@ -50,8 +51,12 @@ func TestPlanItemRerunsOnlyStaleRows(t *testing.T) {
 	r.Status = compliance.StatusDiverge
 	stale["status diverge"] = r
 	r = pass
-	r.CanonSHA = "moved"
-	stale["gorge no longer meets the frozen expectation"] = r
+	r.Frozen = append([]compliance.Frozen(nil), fz...)
+	r.Frozen[len(r.Frozen)-1].Value = "moved"
+	stale["gorge no longer meets the frozen expectation: "+r.Frozen[len(r.Frozen)-1].At+" "+r.Frozen[len(r.Frozen)-1].Field+": gorge now "+strconv.Quote(fz[len(fz)-1].Value)+", frozen \"moved\""] = r
+	r = pass
+	r.Frozen = nil
+	stale["no frozen expectation"] = r
 	for want, row := range stale {
 		if n, why := PlanItem(reg, it, row, true, ref, cache); n != Replay || why != want {
 			t.Errorf("%s: got %v (%s), want replay", want, n, why)

@@ -5,6 +5,7 @@ import (
 	"github.com/adams-shaun/gorge/compliance"
 	"github.com/adams-shaun/gorge/compliance/oraclediff"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/rules"
 )
 
 // Need is what a compliance pass must do for one generated scenario
@@ -66,14 +67,34 @@ func PlanItem(reg *cards.Registry, it oraclegen.Item, row compliance.VerdictRow,
 }
 
 // StillMeets reports whether gorge at this head still produces the result a
-// passing verdict row froze, and if not, why.
+// passing verdict row froze, and if not, why. A row checks its frozen
+// fields (section 11.3 C3); a legacy row its whole-snapshot hash.
 func StillMeets(reg *cards.Registry, it oraclegen.Item, row compliance.VerdictRow) (bool, string) {
-	canon, err := GorgeCanon(reg, it)
+	if len(row.Frozen) == 0 && row.CanonSHA == "" {
+		return false, "no frozen expectation"
+	}
+	res, err := rules.RunOracleScenarioJSON(reg, it.Raw())
 	if err != nil {
 		return false, "gorge replay: " + err.Error()
 	}
-	if canon != row.CanonSHA {
+	if len(row.Frozen) > 0 {
+		if ok, why := oraclediff.Meets(row.Frozen, res, it.Ignore...); !ok {
+			return false, "gorge no longer meets the frozen expectation: " + why
+		}
+		return true, ""
+	}
+	if Hash([]byte(oraclediff.Canonical(res.Snapshots, it.Ignore...))) != row.CanonSHA {
 		return false, "gorge no longer meets the frozen expectation"
 	}
 	return true, ""
+}
+
+// Freeze replays a generated scenario in gorge and returns its frozen
+// expectation (oraclediff.Freeze).
+func Freeze(reg *cards.Registry, it oraclegen.Item) ([]compliance.Frozen, error) {
+	res, err := rules.RunOracleScenarioJSON(reg, it.Raw())
+	if err != nil {
+		return nil, err
+	}
+	return oraclediff.Freeze(res, it.Ignore...), nil
 }
