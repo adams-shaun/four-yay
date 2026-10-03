@@ -297,6 +297,15 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 
 	wins, losses := int32(0), int32(0)
 	noCall := strings.EqualFold(sa.Params["NoCall"], "True")
+	// A NoCall$ deferred-outcome resume: every flip was already made, so the
+	// flip loop is skipped and the deferred calls continue at the cursor.
+	noCallSide, noCallNext := int8(0), int32(0)
+	if rest != nil && rest.NoCallSide != 0 {
+		noCallSide, noCallNext = rest.NoCallSide, rest.NoCallNext
+		wins, losses = rest.Wins, rest.Losses
+		c.X = wins // the flip loop's heads tally, as the suspended pass left it
+		playerIndex = len(players)
+	}
 	for pi := playerIndex; pi < len(players); pi++ {
 		p := players[pi]
 		if int(p) < 0 || int(p) >= len(g.Players) || g.Players[p].Lost {
@@ -367,10 +376,17 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 	// X-dependent branches need one call with the final tally (e.g. Ral
 	// Zarek's NumTurns$ X); branches independent of X are still per-outcome
 	// effects (e.g. Urza Academy Headmaster grants one extra turn per head).
-	// A suspended branch resumes as an ordinary chained resolution: all flips
-	// already happened, so no FlipRest cursor is owed.
+	// A call that suspends on an ask reports the deferred-call cursor
+	// (SuspendFlipRest with NoCallSide set) whenever calls remain on its
+	// side or the tails side is still owed, so the answered ask re-enters
+	// here and the remaining calls run (CR 608.2c) instead of the chain
+	// falling through to the FlipCoin's Sub.
 	if noCall && c.SVars != nil {
-		resolveOutcome := func(name string, count int32) bool {
+		if noCallSide == 0 {
+			noCallSide = NoCallWin
+		}
+		loseOwed := loseName != "" && losses > 0
+		resolveOutcome := func(side int8, name string, count, start int32) bool {
 			if name == "" || count == 0 {
 				return false
 			}
@@ -383,18 +399,35 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 				calls = 1
 				c.X = count
 			}
-			for i := int32(0); i < calls; i++ {
+			for i := start; i < calls; i++ {
 				Resolve(h, c, branch)
 				if h.Suspended() {
+					// Owed: a later call on this side, else the whole tails
+					// side after the heads side. Nothing owed reports no frame
+					// (the plain continuation walks the FlipCoin's Sub).
+					owed, nextSide, next := i+1 < calls, side, i+1
+					if !owed && side == NoCallWin && loseOwed {
+						owed, nextSide, next = true, NoCallLose, 0
+					}
+					if owed {
+						h.SuspendFlipRest(sa, FlipRest{
+							Players: append([]state.PlayerID(nil), players...), PlayerIndex: len(players),
+							Amount: amount, UntilLose: untilLose,
+							NoCallSide: nextSide, NoCallNext: next, Wins: wins, Losses: losses,
+						})
+					}
 					return true
 				}
 			}
 			return false
 		}
-		if resolveOutcome(winName, wins) {
-			return
+		if noCallSide == NoCallWin {
+			if resolveOutcome(NoCallWin, winName, wins, noCallNext) {
+				return
+			}
+			noCallNext = 0
 		}
-		if resolveOutcome(loseName, losses) {
+		if resolveOutcome(NoCallLose, loseName, losses, noCallNext) {
 			return
 		}
 	}

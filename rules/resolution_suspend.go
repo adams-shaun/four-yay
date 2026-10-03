@@ -233,14 +233,9 @@ func (e *Engine) SuspendFlipRest(sa *cards.SA, rest effects.FlipRest) {
 	if e.resume == nil {
 		return
 	}
-	e.contChain = append(e.contChain, contFrame{sa: sa, flipRest: true,
-		flipCursor: effects.FlipRest{
-			Players:     append([]state.PlayerID(nil), rest.Players...),
-			PlayerIndex: rest.PlayerIndex,
-			Iter:        rest.Iter,
-			Amount:      rest.Amount,
-			UntilLose:   rest.UntilLose,
-		}})
+	cursor := rest
+	cursor.Players = append([]state.PlayerID(nil), rest.Players...)
+	e.contChain = append(e.contChain, contFrame{sa: sa, flipRest: true, flipCursor: cursor})
 	e.repeatReported = sa
 }
 
