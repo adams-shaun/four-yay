@@ -128,6 +128,44 @@ var DrawFiles = []string{"effects/draw.go"}
 // DrawOnlyKeys are the parameter keys only Draw's compiler reads.
 var DrawOnlyKeys = []string{"RememberDrawn", "Upto"}
 
+// ReplaceEffectCompilerFile is api:ReplaceEffect's parameter compiler (W4
+// step 3).
+const ReplaceEffectCompilerFile = "effects/replaceeffect_params.go"
+
+// ReplaceEffectFiles are ReplaceEffect's own resolution files: no parameter
+// read of any key.
+var ReplaceEffectFiles = []string{"effects/replacement.go"}
+
+// ReplaceEffectOnlyKeys are the parameter keys only ReplaceEffect's compiler
+// reads (rules' Scry and count-operator readers of a ReplaceWith$ body read
+// them through it).
+var ReplaceEffectOnlyKeys = []string{"VarName", "VarValue"}
+
+// ManaCompilerFile is api:Mana's production-parameter compiler (W4 step 3).
+const ManaCompilerFile = "effects/mana_params.go"
+
+// ManaFiles are Mana's own resolution files: no parameter read of any key.
+var ManaFiles = []string{"effects/mana_effect.go"}
+
+// ManaOnlyKeys are the parameter keys only Mana's compiler reads (the
+// production riders; Produced$/Amount$/RestrictValid$ are read through it by
+// every mana path too, but ManaReflected's compiler and the TapsForMana
+// trigger matcher read their own keys of the same names).
+var ManaOnlyKeys = []string{"AddsCounters", "AddsNoCounter", "PersistentMana",
+	"PersistentUntilEndOfCombat", "TriggersWhenSpent"}
+
+// ManaReflectedCompilerFile is api:ManaReflected's parameter compiler (W4
+// step 3).
+const ManaReflectedCompilerFile = "effects/manareflected_params.go"
+
+// ManaReflectedFiles are ManaReflected's own resolution files: no parameter
+// read of any key.
+var ManaReflectedFiles = []string{"effects/mana_reflected.go"}
+
+// ManaReflectedOnlyKeys are the parameter keys only ManaReflected's compiler
+// reads.
+var ManaReflectedOnlyKeys = []string{"ColorOrType", "ReflectProperty"}
+
 // DealDamageCompilerFile is api:DealDamage's parameter compiler (W4 step 3):
 // the one file allowed to read a DealDamage ability's parameters.
 const DealDamageCompilerFile = "effects/dealdamage_params.go"
@@ -276,6 +314,18 @@ type Metrics struct {
 	PumpLeaks       []string `json:"pump_leaks"`
 	DrawParamLeaks  int      `json:"draw_param_leaks"`
 	DrawLeaks       []string `json:"draw_leaks"`
+	// ReplaceEffectParamLeaks is the same census for api:ReplaceEffect
+	// (ReplaceEffect* CompilerFile/Files/OnlyKeys).
+	ReplaceEffectParamLeaks int      `json:"replace_effect_param_leaks"`
+	ReplaceEffectLeaks      []string `json:"replace_effect_leaks"`
+	// ManaParamLeaks is the same census for api:Mana (Mana* CompilerFile/
+	// Files/OnlyKeys).
+	ManaParamLeaks int      `json:"mana_param_leaks"`
+	ManaLeaks      []string `json:"mana_leaks"`
+	// ManaReflectedParamLeaks is the same census for api:ManaReflected
+	// (ManaReflected* CompilerFile/Files/OnlyKeys).
+	ManaReflectedParamLeaks int      `json:"mana_reflected_param_leaks"`
+	ManaReflectedLeaks      []string `json:"mana_reflected_leaks"`
 	// DealDamageParamLeaks is the same census for api:DealDamage
 	// (DealDamageCompilerFile, DealDamageFiles, DealDamageOnlyKeys).
 	DealDamageParamLeaks int      `json:"deal_damage_param_leaks"`
@@ -400,6 +450,12 @@ func Measure(root string) (Metrics, error) {
 				TypedParamCompiler{PumpCompilerFile, PumpFiles, PumpOnlyKeys})...)
 			m.DrawLeaks = append(m.DrawLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{DrawCompilerFile, DrawFiles, DrawOnlyKeys})...)
+			m.ReplaceEffectLeaks = append(m.ReplaceEffectLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{ReplaceEffectCompilerFile, ReplaceEffectFiles, ReplaceEffectOnlyKeys})...)
+			m.ManaLeaks = append(m.ManaLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{ManaCompilerFile, ManaFiles, ManaOnlyKeys})...)
+			m.ManaReflectedLeaks = append(m.ManaReflectedLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{ManaReflectedCompilerFile, ManaReflectedFiles, ManaReflectedOnlyKeys})...)
 			m.DealDamageLeaks = append(m.DealDamageLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{DealDamageCompilerFile, DealDamageFiles, DealDamageOnlyKeys})...)
 			m.PutCounterLeaks = append(m.PutCounterLeaks, paramLeaks(fset, f, rel,
@@ -464,6 +520,9 @@ func Measure(root string) (Metrics, error) {
 	m.CharmParamLeaks, m.CharmLeaks = finishLeaks(m.CharmLeaks)
 	m.PumpParamLeaks, m.PumpLeaks = finishLeaks(m.PumpLeaks)
 	m.DrawParamLeaks, m.DrawLeaks = finishLeaks(m.DrawLeaks)
+	m.ReplaceEffectParamLeaks, m.ReplaceEffectLeaks = finishLeaks(m.ReplaceEffectLeaks)
+	m.ManaParamLeaks, m.ManaLeaks = finishLeaks(m.ManaLeaks)
+	m.ManaReflectedParamLeaks, m.ManaReflectedLeaks = finishLeaks(m.ManaReflectedLeaks)
 	m.DealDamageParamLeaks, m.DealDamageLeaks = finishLeaks(m.DealDamageLeaks)
 	m.PutCounterParamLeaks, m.PutCounterLeaks = finishLeaks(m.PutCounterLeaks)
 	m.EffectParamLeaks, m.EffectLeaks = finishLeaks(m.EffectLeaks)

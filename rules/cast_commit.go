@@ -1095,7 +1095,7 @@ func (e *Engine) fireManaSpentTriggers(ev events.Event, lki *state.Object) {
 		}
 		f := o.Face()
 		for _, ma := range f.ManaAbilities() {
-			rider := strings.TrimSpace(ma.Params["TriggersWhenSpent"])
+			rider := effects.ManaOf(ma).TriggersWhenSpent
 			if rider == "" {
 				continue
 			}

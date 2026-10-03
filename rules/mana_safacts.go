@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -79,12 +80,10 @@ type manaStaticFacts struct {
 	tap, untap    bool  // cost.Tap, cost.Untap
 }
 
-func computeManaStaticFacts(ab *cards.SA, cost *Cost) manaStaticFacts {
-	f := manaStaticFacts{produced: strings.TrimSpace(ab.ParamStr(cards.PKProduced)), amount: availableAmount(ab),
-		restrictValid: strings.TrimSpace(ab.ParamStr(cards.PKRestrictValid)) != "",
-		freeCost:      manaFreeCost(*cost), tapOnly: paymentPlanTapOnlyCost(*cost), tap: cost.Tap, untap: cost.Untap}
-	f.counts, f.any = cards.ProducedCounts(ab.ParamStr(cards.PKProduced))
-	return f
+func computeManaStaticFacts(mp *effects.ManaParams, cost *Cost) manaStaticFacts {
+	return manaStaticFacts{produced: mp.Produced, amount: availableAmountOf(mp),
+		restrictValid: mp.RestrictValid != "", counts: mp.Counts, any: mp.CountsAny,
+		freeCost: manaFreeCost(*cost), tapOnly: paymentPlanTapOnlyCost(*cost), tap: cost.Tap, untap: cost.Untap}
 }
 
 // manaStaticOf is ab's census text reads: its configured facts', or read
@@ -93,23 +92,23 @@ func (e *Engine) manaStaticOf(ab *cards.SA) manaStaticFacts {
 	if f := e.manaFactsOf(ab); f != nil {
 		if manaSAFactsVerify {
 			c := e.parseCost(ab.ParamStr(cards.PKCost))
-			if fresh := computeManaStaticFacts(ab, &c); fresh != f.static {
+			if fresh := computeManaStaticFacts(effects.ManaOf(ab), &c); fresh != f.static {
 				panic(fmt.Sprintf("rules: configured census facts for %q disagree with a recompute", ab.Line))
 			}
 		}
 		return f.static
 	}
 	c := e.parseCost(ab.ParamStr(cards.PKCost))
-	return computeManaStaticFacts(ab, &c)
+	return computeManaStaticFacts(effects.ManaOf(ab), &c)
 }
 
 // manaSAFactsVerify: see derivedMemoVerify. Set by the rules test binary.
 var manaSAFactsVerify = derivedMemoVerifyFlag != ""
 
-// buildManaSAFactsValue computes ab's mana facts by value: buildSAFacts
-// takes its heap copy, and the verify-mode recompute in manaFactsOf only
-// compares it.
-func buildManaSAFactsValue(ab *cards.SA, costOf func(string) *compiledCost) manaSAFacts {
+// buildManaSAFactsValue computes ab's mana facts by value from its compiled
+// production parameters mp (effects.ManaOf(ab)): buildSAFacts takes its heap
+// copy, and the verify-mode recompute in manaFactsOf only compares it.
+func buildManaSAFactsValue(ab *cards.SA, mp *effects.ManaParams, costOf func(string) *compiledCost) manaSAFacts {
 	f := manaSAFacts{cost: costOf(ab.ParamStr(cards.PKCost))}
 	f.zoneOK = abilityZoneMask(ab)
 	raw := ab.ParamStr(cards.PKCost)
@@ -137,9 +136,9 @@ func buildManaSAFactsValue(ab *cards.SA, costOf func(string) *compiledCost) mana
 	f.noCheckSVar = !check
 	_, limited := ab.Param(cards.PKActivationLimit)
 	f.noLimit = !limited && ab.ParamStr(cards.PKGameActivationLimit) == ""
-	f.plainSym, f.plainAmt = plainManaShape(ab)
-	f.static = computeManaStaticFacts(ab, &f.cost.Cost)
-	f.potential = computePotentialManaAdd(ab)
+	f.plainSym, f.plainAmt = plainManaShape(ab, mp)
+	f.static = computeManaStaticFacts(mp, &f.cost.Cost)
+	f.potential = computePotentialManaAdd(mp)
 	if tier, c, detail, rider := paymentPlanShapeTierOf(ab, f.cost.Cost); !rider {
 		f.shapeKnown, f.shapeTier, f.shapeCons, f.shapeDetail = true, tier, c, detail
 	}
@@ -159,7 +158,7 @@ func (e *Engine) manaFactsOf(ab *cards.SA) *manaSAFacts {
 	}
 	f := manaHalf(sf)
 	if manaSAFactsVerify {
-		fresh := buildManaSAFactsValue(ab, e.compiledCostOf)
+		fresh := buildManaSAFactsValue(ab, effects.ManaOf(ab), e.compiledCostOf)
 		if (fresh.cost != f.cost && !sameCompiledCost(fresh.cost, f.cost)) || !sameFactsIgnoringCost(fresh, *f) {
 			panic(fmt.Sprintf("rules: configured mana facts for %q disagree with a recompute (%+v vs %+v)", ab.Line, *f, fresh))
 		}

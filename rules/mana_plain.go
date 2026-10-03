@@ -2,8 +2,6 @@ package rules
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
@@ -45,55 +43,13 @@ var manaPlainVerify = derivedMemoVerifyFlag != ""
 // plainManaShape reports the symbol and amount of a plain AB$ Mana ability:
 // no sub-ability, a single W/U/B/R/G/C Produced$, an absent or positive
 // literal Amount$, and no parameter beyond those, Cost$ and the
-// presentation/AI keys. It returns 0 for any other ability.
-func plainManaShape(ab *cards.SA) (byte, int32) {
+// presentation/AI keys (the parameter half is compiled once, mp's
+// PlainSym/PlainAmt). It returns 0 for any other ability.
+func plainManaShape(ab *cards.SA, mp *effects.ManaParams) (byte, int32) {
 	if ab == nil || ab.API != "Mana" || ab.Sub != nil {
 		return 0, 0
 	}
-	produced, ok := ab.Param(cards.PKProduced)
-	if !ok {
-		return 0, 0
-	}
-	// Each key spelled out, so the parameter census sees static keys.
-	n := 1
-	if _, ok := ab.Param(cards.PKCost); ok {
-		n++
-	}
-	if _, ok := ab.Param(cards.PKSpellDescription); ok {
-		n++
-	}
-	if _, ok := ab.Params["AILogic"]; ok {
-		n++
-	}
-	if _, ok := ab.Params["AINoRecursiveCheck"]; ok {
-		n++
-	}
-	if _, ok := ab.Params["CostDesc"]; ok {
-		n++
-	}
-	if _, ok := ab.Params["PrecostDesc"]; ok {
-		n++
-	}
-	if _, ok := ab.Params["StackDescription"]; ok {
-		n++
-	}
-	amt := int32(1)
-	if raw, ok := ab.Param(cards.PKAmount); ok {
-		n++
-		v, err := strconv.Atoi(strings.TrimSpace(raw))
-		if err != nil || v < 1 || v > 1<<20 {
-			return 0, 0
-		}
-		amt = int32(v)
-	}
-	if n != len(ab.Params) {
-		return 0, 0
-	}
-	produced = strings.TrimSpace(produced)
-	if len(produced) != 1 || !strings.Contains("WUBRGC", produced) {
-		return 0, 0
-	}
-	return produced[0], amt
+	return mp.PlainSym, mp.PlainAmt
 }
 
 // plainManaAdd returns the one event a plain mana ability's resolution

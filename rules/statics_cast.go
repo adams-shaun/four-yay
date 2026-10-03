@@ -326,7 +326,7 @@ func activatedMatchesValidSA(ab *cards.SA, validSA string) bool {
 				if j := strings.IndexByte(inner, ':'); j >= 0 {
 					color = inner[j+1:]
 				}
-				produced := strings.TrimSpace(ab.ParamStr(cards.PKProduced))
+				produced := effects.ManaOf(ab).Produced
 				if produced == "" {
 					produced = "C"
 				}
