@@ -40,6 +40,19 @@ func effExtort(h Host, c *Ctx, sa *cards.SA) {
 				{Index: 0, Kind: "mode", Label: "Pay {W/B} — each opponent loses 1", Obj: c.Source, Player: c.Controller},
 				{Index: 1, Kind: "mode", Label: "Don't pay", Obj: c.Source, Player: c.Controller},
 			}}
+		g := h.Game()
+		pool := extortPoolPips(g, c.Controller)
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand. Its record (the
+			// "extort" answer record rules shares with the resume arm)
+			// charged the pip on a "pay" when the pool held one; the drain
+			// runs exactly when that charge was made.
+			if len(ans) == 0 || ans[0].Index != 0 || extortPoolPips(g, c.Controller) >= pool {
+				return
+			}
+			extortDrain(h, g, c.Controller)
+			return
+		}
 		if h.Ask(d) {
 			return // resolution suspended; the answer re-enters this effect.
 		}
@@ -48,18 +61,31 @@ func effExtort(h Host, c *Ctx, sa *cards.SA) {
 			Text: "Extort declined (no engine host to ask)"})
 		return
 	}
-	g := h.Game()
+	extortDrain(h, h.Game(), c.Controller)
+}
+
+// extortDrain is a paid Extort's drain: each opponent loses 1 life and the
+// controller gains that much.
+func extortDrain(h Host, g *state.Game, controller state.PlayerID) {
 	n := int32(0)
-	for _, p := range g.AliveFrom(c.Controller) {
-		if p == c.Controller {
+	for _, p := range g.AliveFrom(controller) {
+		if p == controller {
 			continue
 		}
 		h.Emit(events.Event{Kind: events.LifeChange, Player: p, Amount: -1})
 		n++
 	}
 	if n > 0 {
-		h.Emit(events.Event{Kind: events.LifeChange, Player: c.Controller, Amount: n})
+		h.Emit(events.Event{Kind: events.LifeChange, Player: controller, Amount: n})
 	}
+}
+
+// extortPoolPips counts the units in p's pool that can pay the {W/B} pip.
+func extortPoolPips(g *state.Game, p state.PlayerID) int32 {
+	if int(p) >= len(g.Players) {
+		return 0
+	}
+	return int32(g.Players[p].Pool[state.MW]) + int32(g.Players[p].Pool[state.MB])
 }
 
 // ManaPaysExtort reports whether p has at least one W or B in the pool to

@@ -60,11 +60,19 @@ func effPlaneswalk(h Host, c *Ctx, sa *cards.SA) {
 					{Index: 0, Kind: "yes", Label: "Yes — planeswalk", Player: c.Controller},
 					{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
 				}}
-			if Ask(h, d) == AskAsked {
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: the
+				// "planeswalk_optional" arm's yes/no.
+				answer = "no"
+				if len(ans) > 0 && ans[0].Kind == "yes" {
+					answer = "yes"
+				}
+			} else if Ask(h, d) == AskAsked {
 				return
+			} else {
+				// R-9: a host without a decision channel deterministically declines.
+				answer = "no"
 			}
-			// R-9: a host without a decision channel deterministically declines.
-			answer = "no"
 		}
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "planeswalk election: " + answer})

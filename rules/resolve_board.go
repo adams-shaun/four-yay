@@ -82,7 +82,11 @@ func (b *resolveBoard) Pending() *decision.Decision { return b.pending }
 
 func (b *resolveBoard) Busy() bool {
 	e := (*Engine)(b)
-	return e.resume != nil || e.Suspended()
+	// An off-stack mana resolution (CR 605.3: a mana ability never uses the
+	// stack) routes its asks through its own activation continuation
+	// (askOffStackMana), not the resolution's: a converted site inside one
+	// asks through the legacy path.
+	return e.resume != nil || e.Suspended() || e.offStackMana != nil
 }
 
 func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent) bool {
