@@ -123,6 +123,9 @@ func TestEveryConfiguredAbilityHasItsFactsRecord(t *testing.T) {
 			if (f.RemoveCounter != nil) != (sa.API == "RemoveCounter") {
 				t.Errorf("%s: %q (API %s): RemoveCounter half present=%v", c.Path, sa.Line, sa.API, f.RemoveCounter != nil)
 			}
+			if (f.Token != nil) != (sa.API == "Token") {
+				t.Errorf("%s: %q (API %s): Token half present=%v", c.Path, sa.Line, sa.API, f.Token != nil)
+			}
 		}
 	}
 	visit := func(c *cards.Card) {

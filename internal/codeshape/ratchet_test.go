@@ -82,7 +82,9 @@ const (
 	// reads and withheld-rider list compiled once): 581 -> 568.
 	// The RemoveCounter compiler (effRemoveCounter moved to removecounter.go;
 	// CounterNumShared$/ChoiceNum$/RememberRemoved$ read once): 568 -> 564.
-	stringParamReads = 564
+	// The Token compiler (effToken's literal reads compiled once; the
+	// TokenRemembered$ helper takes each compiler's value): 564 -> 563.
+	stringParamReads = 563
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.
@@ -182,6 +184,10 @@ const (
 	// effects/removecounter_params.go (codeshape.RemoveCounterFiles, codeshape.RemoveCounterOnlyKeys). It landed at
 	// zero.
 	removeCounterParamLeaks = 0
+	// tokenParamLeaks is the same census for api:Token's compiler,
+	// effects/token_params.go (codeshape.TokenFiles, codeshape.TokenOnlyKeys). It landed at
+	// zero.
+	tokenParamLeaks = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -386,6 +392,11 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"field to compileRemoveCounter in effects/removecounter_params.go) instead of reading the ability's Params in " +
 				"effects/removecounter.go or a RemoveCounter-only key elsewhere. " +
 				"Leaks: " + strings.Join(m.RemoveCounterLeaks, ", ")},
+		{"tokenParamLeaks", m.TokenParamLeaks, tokenParamLeaks,
+			"Read the parameter through effects.TokenOf's compiled TokenParams (add a " +
+				"field to compileToken in effects/token_params.go) instead of reading the ability's Params in " +
+				"effects/token.go or a Token-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.TokenLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +

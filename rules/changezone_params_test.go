@@ -86,6 +86,12 @@ func TestRemoveCounterKnownKeysMatchTheCensus(t *testing.T) {
 	checkKnownKeysMatchTheCensus(t, "RemoveCounter", effects.RemoveCounterKnownKeys())
 }
 
+// TestTokenKnownKeysMatchTheCensus is the same check for api:Token
+// (effects.tokenKnownKeys).
+func TestTokenKnownKeysMatchTheCensus(t *testing.T) {
+	checkKnownKeysMatchTheCensus(t, "Token", effects.TokenKnownKeys())
+}
+
 // checkKnownKeysMatchTheCensus holds an API compiler's known-key table equal
 // to the census's measured read set for api plus its ignored and structural
 // keys.
