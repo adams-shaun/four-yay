@@ -256,6 +256,7 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		genericChoosers:         append([]state.Target(nil), d.ResumeGenericChoosers...),
 		genericChooserIndex:     d.ResumeGenericChooserIndex,
 		numberPicks:             append([]int32(nil), d.ResumeNumberPicks...),
+		publishedSVars:          effects.PublishedSVarsOf(e.resolutionCtx),
 		villainousRemembered:    append([]state.Target(nil), e.villainousRemembered...),
 		villainousRememberedSet: e.villainousRememberedSet,
 		targetsUnique:           e.targetsUniqueRide(d),

@@ -515,6 +515,12 @@ type Ctx struct {
 	// Both are bound by the rules package when it builds the context.
 	SVars map[string]string
 	X     int32
+	// PublishedSVars records, in publication order, the resolution-scoped
+	// SVar bindings an effect published into SVars for a chained
+	// SubAbility$ to read (DealDamage's ExcessSVar$). It rides a suspended
+	// resolution's resume point, so the rebuilt Ctx re-binds them over the
+	// face table (RebindPublishedSVars) instead of losing them across an ask.
+	PublishedSVars []SVarBinding
 	// XAnnounced marks that X above IS a real CR 601.2b/107.3i announcement
 	// (the resolving spell or ability paid a {X} cost, possibly zero), set by
 	// the rules package at the same sites that bind X from the stack object's

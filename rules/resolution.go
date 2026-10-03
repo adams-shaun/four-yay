@@ -651,6 +651,9 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		}
 	}
 	effects.SetSVars(ctx, svars)
+	// The chain's published resolution-scoped bindings (ExcessSVar$) survive
+	// the suspension: the face table above does not carry them.
+	effects.RebindPublishedSVars(ctx, rp.publishedSVars)
 	// An accepted optional trigger may itself carry Cost$ (Mana Vault's
 	// "you may pay {4}; if you do" untap). The optional answer chooses to
 	// attempt the effect; payment is a separate resolution-time window with

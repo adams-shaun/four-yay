@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -256,4 +257,32 @@ func TestTapeConvertFlowDigUntil(t *testing.T) {
 		{name: "Tape Aura Maybe", src: "A:SP$ DigUntil | Valid$ Card.Aura | FoundDestination$ Battlefield | OptionalFoundMove$ True | RevealedDestination$ Graveyard",
 			kinds: []string{"diguntil_move"}, served: 1, extra: []string{tapeAuraSrc, tapeBearASrc, tapeBearBSrc}, setup: auraBoard},
 	})
+}
+
+// A published resolution-scoped SVar (DealDamage's ExcessSVar$) read by a
+// later sub-ability that ASKS (Nahiri's Warcrafting's DigNum$ X): the
+// legacy resume rebuilt the Ctx's SVar table from the face and lost the
+// binding, so the re-entered Dig saw an empty window and dropped the
+// answered exile. The resume point now carries the published bindings;
+// the tape path, continuing in place, always had them.
+func TestTapeConvertFlowExcessSVarAcrossAsk(t *testing.T) {
+	onField := func(t *testing.T, e *Engine) { moveByName(t, e, 0, "Tape Bear A", state.ZBattlefield) }
+	src := "A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 5 | ExcessSVar$ X | SubAbility$ DBDig\n" +
+		"SVar:DBDig:DB$ Dig | DigNum$ X | ChangeNum$ 1 | Optional$ True | DestinationZone$ Exile | RestRandomOrder$ True"
+	runTapeFlowCases(t, 39000, 3, []tapeFlowCase{
+		{name: "Tape Warcrafting", src: src, kinds: []string{"dig"}, served: 1,
+			extra: []string{tapeBearASrc}, setup: onField},
+	})
+	e, _ := tapeFixture(t, 2, 39000, false, "Name:Tape Warcrafting\nManaCost:U\nTypes:Sorcery\n"+src+"\nOracle:x\n", tapeBearASrc)
+	onField(t, e)
+	tapeCastAndResolveKinds(t, e, "Tape Warcrafting", "U", map[string]int{})
+	exiled := 0
+	for _, ev := range e.L.Events {
+		if ev.Kind == events.MoveZone && ev.From == state.ZLibrary && ev.To == state.ZExile {
+			exiled++
+		}
+	}
+	if exiled != 1 {
+		t.Fatalf("legacy: the answered Dig exiled %d cards, want 1 (the ExcessSVar$ binding was lost across the ask)", exiled)
+	}
 }

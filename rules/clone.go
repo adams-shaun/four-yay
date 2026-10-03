@@ -1448,6 +1448,7 @@ func cloneResumeWith(rp *resumePoint, m *cloneRemap) *resumePoint {
 	cp.genericChoosers = append([]state.Target(nil), rp.genericChoosers...)
 	cp.genericRemembered = append([]state.Target(nil), rp.genericRemembered...)
 	cp.numberPicks = append([]int32(nil), rp.numberPicks...)
+	cp.publishedSVars = append([]effects.SVarBinding(nil), rp.publishedSVars...)
 	cp.tokenRest = rp.tokenRest.Clone()
 	if rp.repeat != nil {
 		cur := *rp.repeat
