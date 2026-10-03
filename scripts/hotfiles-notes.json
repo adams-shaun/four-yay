@@ -183,5 +183,13 @@
       "docs/agents/repo-map.md"
     ],
     "note": "the 2026-10-01 docs/agents/repo-map.md contention was CLOSED by the per-domain split: repo-map.md is now the INDEX, and every package/path row lives in exactly one of repo-map-engine.md, repo-map-internal.md, repo-map-research.md or repo-map-paths.md. Future package-doc edits go to the editor's own domain file, so a docs-heavy workstream appends to a narrower file; repo-map.md itself changes only when a new DOMAIN appears, not when a package does. The hotspots tool renders per-FILE, so this note names both the new domain files and the old docs/agents/repo-map.md for dedupe; dedupe against cli-20261002T013609Z-24e33ade and the earlier cli-20261001T042757Z-fcbaaa35 / cli-20261001T022457Z-f9dc4b92 notes."
+  },
+  {
+    "files": [
+      "rules/cast_commit.go",
+      "rules/testdata/oracle/spell-conditional/known-divergent.json",
+      "state/object.go"
+    ],
+    "note": "Measured 2026-10-02 against main for the briefed cr601-subtargets / fdn-fix2 branches: cr601-subtargets changes all three paths; fdn-fix2 changes only the spell-conditional known-divergent fixture. There are no issue files to express a Depends-On chain, so the controller must sequence those branch landings. NO HONEST SPLIT: cast_commit.go is part of the cohesive cast-commit legality flow; known-divergent.json is one oracle fixture document and splitting it would fragment its schema; state/object.go owns the central Object representation, not an independent concern these two branches can be separated into. Re-measured on the current main snapshot, hotspots no longer lists state/object.go or this old branch pair; cast_commit.go and the fixture remain contended by newer live branches (cr601-ship/fdn-fix5/fdn-fix6 and cr601-ship/reflex-ship respectively), so sequence those landings too rather than moving code or dividing the fixture."
   }
 ]
