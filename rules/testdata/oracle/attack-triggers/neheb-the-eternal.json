@@ -1,0 +1,59 @@
+{
+ "card": "Neheb, the Eternal",
+ "family": "attack-triggers",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "3ddbcaf07dc4",
+ "scenarios": [
+  {
+   "name": "postcombat-main-adds-red-for-life-opponents-lost",
+   "cr": ["603.2", "106.4"],
+   "why": "At the beginning of your postcombat main phase add {R} for each 1 life your opponents have lost this turn: with an opponent having lost 3 life this turn, three red mana is added.",
+   "setup": {
+    "p0": {"battlefield": ["Neheb, the Eternal"]},
+    "p1": {"life": 20}
+   },
+   "steps": [
+    {"op": "life", "seat": 1, "amount": -3},
+    {"op": "pass_to", "step": "main2", "active": "p0"},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"pool": {"p0": "RRR"}}
+   ]
+  },
+  {
+   "name": "no-life-lost-means-no-red",
+   "cr": ["603.2"],
+   "why": "With no life lost by opponents this turn the postcombat-main trigger adds nothing.",
+   "setup": {
+    "p0": {"battlefield": ["Neheb, the Eternal"]},
+    "p1": {"life": 20}
+   },
+   "steps": [
+    {"op": "pass_to", "step": "main2", "active": "p0"}
+   ],
+   "expect": [
+    {"pool": {"p0": ""}}
+   ]
+  },
+  {
+   "name": "afflict-three-when-neheb-becomes-blocked",
+   "cr": ["702.130a", "509.1"],
+   "why": "Afflict 3: whenever this creature becomes blocked, the defending player loses 3 life. A blocked Neheb therefore drops the defender from 20 to 17.",
+   "setup": {
+    "p0": {"battlefield": ["Neheb, the Eternal"]},
+    "p1": {"battlefield": ["Grizzly Bears"], "life": 20}
+   },
+   "steps": [
+    {"op": "attack", "seat": 0, "attackers": ["p0:Neheb, the Eternal"], "defender": "p1"},
+    {"op": "pass_to", "decision": "blockers"},
+    {"op": "block", "seat": 1, "blocks": [["p1:Grizzly Bears", "p0:Neheb, the Eternal"]]},
+    {"op": "pass_to", "step": "end"}
+   ],
+   "expect": [
+    {"life": {"p1": 17}},
+    {"card": "p1:Grizzly Bears", "zone": "graveyard"}
+   ]
+  }
+ ]
+}

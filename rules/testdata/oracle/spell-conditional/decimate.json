@@ -1,0 +1,42 @@
+{
+ "card": "Decimate",
+ "family": "spell-conditional",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "0f174f846b7e",
+ "scenarios": [
+  {
+   "name": "destroys-all-four-named-permanent-types",
+   "cr": ["601.2c", "608.2b"],
+   "why": "Decimate destroys one target artifact, one target creature, one target enchantment and one target land. All four are announced on cast; on resolution all four are destroyed.",
+   "setup": {
+    "p0": {"hand": ["Decimate"]},
+    "p1": {"battlefield": ["Sol Ring", "Grizzly Bears", "Ghostly Prison", "Forest"]}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Decimate", "mana": "CCRG", "targets": ["p1:Sol Ring", "p1:Grizzly Bears", "p1:Ghostly Prison", "p1:Forest"]},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p1:Sol Ring", "zone": "graveyard"},
+    {"card": "p1:Grizzly Bears", "zone": "graveyard"},
+    {"card": "p1:Ghostly Prison", "zone": "graveyard"},
+    {"card": "p1:Forest", "zone": "graveyard"}
+   ]
+  },
+  {
+   "name": "not-castable-when-one-required-target-is-missing",
+   "cr": ["601.2c", "608.2b"],
+   "why": "Each of the four targets is required. With no enchantment on the battlefield there is no legal target set, so Decimate cannot be cast.",
+   "setup": {
+    "p0": {"hand": ["Decimate"]},
+    "p1": {"battlefield": ["Sol Ring", "Grizzly Bears", "Forest"]}
+   },
+   "steps": [
+    {"op": "mana", "seat": 0, "mana": "CCRG"}
+   ],
+   "expect": [
+    {"offered": {"seat": 0, "kind": "cast", "card": "p0:Decimate"}, "want": false}
+   ]
+  }
+ ]
+}
