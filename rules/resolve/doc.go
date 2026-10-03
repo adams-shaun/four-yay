@@ -27,7 +27,7 @@
 //     The event log's verify window (events.Log.RewindTo) checks every
 //     re-executed event of the recorded prefix byte for byte.
 //   - There is no legacy path to fall back to: an ask that reaches the
-//     engine's ask directly from inside a tape run (Board.Unserved) fails the
+//     engine's ask directly from inside a tape run (Kernel.Unserved) fails the
 //     run with a Divergence, and one during an exempted resolution is a
 //     predicate miss (MissFailure). Every ask a resolution can pose is a
 //     converted site.
