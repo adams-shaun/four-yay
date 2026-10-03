@@ -94,8 +94,8 @@ func (e *Engine) attackUnlessCharge(sv staticView, attacker state.ObjID) (blockC
 		}
 		return blockCharge{mana: int32(n)}, true
 	}
-	ctx := &effects.Ctx{Source: sv.Source, Controller: sv.Controller, SVars: sv.SVars,
-		ChosenNumber: sv.ChosenNumber, ChosenNumberBound: sv.chosenNumberBound}
+	ctx := effects.NewCtxPtr(sv.Source, sv.Controller, effects.CtxInit{SVars: sv.SVars,
+		ChosenNumber: sv.ChosenNumber, ChosenNumberBound: sv.chosenNumberBound})
 	// RememberingAttacker$ True makes the attacking creature the resolution's
 	// Remembered referent (Forge's CostRememberingAttacker convention), so an
 	// SVar body such as Nils's `Remembered$CardCounters.ALL` prices the charge
@@ -341,8 +341,8 @@ func (e *Engine) blockUnlessCharge(sv staticView) (blockCharge, bool) {
 	if raw == "" {
 		return blockCharge{}, false
 	}
-	ctx := &effects.Ctx{Source: sv.Source, Controller: sv.Controller, SVars: sv.SVars,
-		ChosenNumber: sv.ChosenNumber, ChosenNumberBound: sv.chosenNumberBound}
+	ctx := effects.NewCtxPtr(sv.Source, sv.Controller, effects.CtxInit{SVars: sv.SVars,
+		ChosenNumber: sv.ChosenNumber, ChosenNumberBound: sv.chosenNumberBound})
 	if n, err := strconv.Atoi(raw); err == nil {
 		if n < 0 {
 			return blockCharge{}, false

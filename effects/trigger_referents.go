@@ -570,65 +570,6 @@ func matchTargetedPlayerField(g *state.Game, o *state.Object, sc SpecContext, op
 	return false, true
 }
 
-// SpecContext binds a resolution's filter without adding a numeric resolver
-// that the old MatchesSpecFrom call sites did not have. That grammar is
-// independent of trigger provenance.
-func (c *Ctx) SpecContext(you state.PlayerID) SpecContext {
-	sc := SpecContext{You: you, Source: c.Source, TriggerContext: c.TriggerContext,
-		ResolutionTargets: c.Targets, Remembered: c.Remembered, Chosen: c.Chosen, ChosenValid: c.ChosenValid, Resolving: true,
-		// The layer-3 rename table rules published at Resolve entry, so a
-		// resolving effect's name filter agrees with the layer walk. A field
-		// copy of immutable data: no callable, no back-pointer.
-		EffectiveNames: c.EffectiveNames,
-		// The layer-4 derived type table rules published alongside it, so a
-		// resolving effect's ordinary type filter (target offer, Count$Valid,
-		// CantTarget) agrees with the layer walk. Also a field copy of
-		// immutable data.
-		DerivedTypes: c.EffectiveTypes, StaticGoads: c.StaticGoads, LayerTables: c.LayerTables,
-		TargetableObjects:           c.TargetableObjects,
-		ExcludeFromBattlefieldCount: c.ExcludeFromBattlefieldCount}
-	// Numeric-RHS resolution for a resolution-time filter spec, in priority
-	// order:
-	//
-	//  1. a DB$ RollDice publication of this same resolution
-	//     (effects/dice.go) -- Valiant Endeavor's Creature.powerGEX (destroy
-	//     each creature with power greater than or equal to the CHOSEN roll)
-	//     and Arcane Endeavor's Instant.cmcLEY (cast for free up to the OTHER
-	//     roll) read the published roll through here.
-	//  2. the bare name "X": the two-shape SVar:X reading fixLifeXCost
-	//     established (rules/mana.go) -- body Count$xPaid (Whir of
-	//     Invention) is the paid X itself; any OTHER resolvable body
-	//     (Nightmare Unmaking's SVar:X:Count$ValidHand Card.YouOwn) is a
-	//     fixed value evaluated through EvalCountOK with the resolving Host;
-	//     no SVar:X at all is the paid X (0 when unpaid), the same reading
-	//     the roll closure always gave. An unresolvable body fails closed:
-	//     the recognised-shape-never-matches contract, never a guessed zero.
-	//  3. any other name: the SVar table -> EvalCountOK (resolveNumericRHS),
-	//     same fail-closed verdict.
-	//
-	// Wired only when something can resolve -- a roll published, or the
-	// context came through effects.Resolve with a paid X or an SVar table
-	// (the numericRHS flag Resolve computes on entry; the resolver itself
-	// decides per name and fails closed on a name with no resolvable body,
-	// so the broad flag never widens a match) -- so every other card keeps
-	// building the plain resolver-free SpecContext it always built.
-	// Hand-built contexts (the direct Num/EvalCount probes) never carry the
-	// flag. The gate must also stay inline-budget small AND the resolver
-	// must be installed through a func literal that calls the method (never
-	// the method value c.resolveNumericRHS itself): the escape-analysis pin
-	// this caller answers to (rules/layers_test.go's warm Derived pin, zero
-	// heap allocations per Derived call) needs (*Ctx).SpecContext to remain
-	// inlinable, and the method value both blows the cost budget and leaks
-	// the receiver. See also the hot statics/layer walk, which builds its
-	// SpecContexts directly and never routes through here.
-	if c.LastRollName != "" || len(c.RollPubs) > 0 || c.numericRHS {
-		sc.Resolve = func(name string) (int32, bool) {
-			return c.resolveNumericRHS(name)
-		}
-	}
-	return sc
-}
-
 // MatchSpec evaluates a resolution-time filter with the chain's layer-3
 // rename table bound: MatchesSpecFrom's grammar (You/Source only, no
 // numeric-RHS resolver) PLUS Ctx.EffectiveNames, so a resolving effect's
@@ -636,9 +577,7 @@ func (c *Ctx) SpecContext(you state.PlayerID) SpecContext {
 // MatchesSpecFrom inside an effect body -- the bare form carries no renames
 // and reads the printed face.
 func (c *Ctx) MatchSpec(g *state.Game, spec string, id state.ObjID, you state.PlayerID) bool {
-	return MatchesSpecCtx(g, spec, id, SpecContext{You: you, Source: c.Source,
-		EffectiveNames: c.EffectiveNames, DerivedTypes: c.EffectiveTypes, StaticGoads: c.StaticGoads,
-		LayerTables: c.LayerTables})
+	return MatchesSpecCtx(g, spec, id, c.TableSpecContext(you))
 }
 
 // resolveNumericRHS is the numeric-RHS resolver the gate in (*Ctx).SpecContext

@@ -343,7 +343,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 								gg.GainedFaces = e.gainedFacesForSpec(st, spec, id, o.Controller)
 							}
 							if spec := strings.TrimSpace(st.Params["GainsAbilitiesOfDefined"]); spec != "" {
-								ctx := &effects.Ctx{Source: id, Controller: o.Controller}
+								ctx := effects.NewCtxPtr(id, o.Controller, effects.CtxInit{})
 								gg.GainedFaces = append(gg.GainedFaces, effects.GainedFacesOfDefined(e, ctx, spec)...)
 							}
 							if spec := strings.TrimSpace(st.Params["GainsTriggerAbsOf"]); spec != "" {

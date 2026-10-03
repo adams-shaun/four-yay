@@ -296,7 +296,7 @@ func (e *Engine) answerNestedManaColor(ma *manaColorActivation, chosen []decisio
 	if ma.trigger != nil {
 		ctx = ma.trigger.Ctx
 	} else {
-		ctx = effects.Ctx{Source: ma.source, Controller: ma.player}
+		ctx = effects.NewCtx(ma.source, ma.player, effects.CtxInit{})
 		ctx.ResolvedThisTurn = e.resolvedAbilityTallyFor(ma.source, ma.ability)
 		ctx.ActivationsThisTurn = e.activationsThisTurnFor(ma.source, ma.ability)
 		if o := e.G.Obj(ma.source); o != nil && o.Face() != nil {
@@ -554,7 +554,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	var recipientCtx *effects.Ctx
 	recipient := func() *effects.Ctx {
 		if recipientCtx == nil {
-			recipientCtx = &effects.Ctx{Source: id, Controller: p, SVars: f.SVars}
+			recipientCtx = effects.NewCtxPtr(id, p, effects.CtxInit{SVars: f.SVars})
 		}
 		return recipientCtx
 	}
@@ -729,7 +729,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		var faceSVars map[string]string
 		faceCtxFn := func() *effects.Ctx {
 			if faceCtx == nil {
-				faceCtx = &effects.Ctx{Source: id, Controller: p, SVars: faceSVars}
+				faceCtx = effects.NewCtxPtr(id, p, effects.CtxInit{SVars: faceSVars})
 			}
 			return faceCtx
 		}
@@ -2770,8 +2770,8 @@ func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *car
 			}
 			return nil
 		}()
-		ctx := &effects.Ctx{Source: source, Controller: p, SVars: svars,
-			CostUntapped: append([]state.ObjID(nil), untaps...)}
+		ctx := effects.NewCtxPtr(source, p, effects.CtxInit{SVars: svars})
+		ctx.CostUntapped = append([]state.ObjID(nil), untaps...)
 		for _, id := range sacs {
 			ctx.Remembered = append(ctx.Remembered, state.Target{Obj: id})
 		}
@@ -2854,7 +2854,7 @@ func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *car
 // resume point, but their payer still receives an ordinary KModes decision
 // and rules charges exactly the same parsed cost on a "pay" answer.
 func (e *Engine) askManaUnless(p state.PlayerID, source state.ObjID, ma *cards.SA, cast, cumulative bool, triggers []pendingTrigger, sacs []state.ObjID, gained gainedManaRef) {
-	ctx := &effects.Ctx{Source: source, Controller: p}
+	ctx := effects.NewCtxPtr(source, p, effects.CtxInit{})
 	var payers []state.PlayerID
 	for _, t := range effects.UnlessPayers(e, ctx, ma) {
 		if t.IsPlayer {
@@ -2908,10 +2908,10 @@ func (e *Engine) answerManaUnless(chosen []decision.Option) bool {
 				// Activated mana stays off stack, but a sacrifice/discard/return/
 				// reveal/behold in its unless cost is still a real payer choice. The
 				// payment continuation returns through finishManaUnlessPayment.
-				e.beginUnlessPayment(payer, cost, &effects.Ctx{Source: m.source, Controller: m.player}, m.source, nil)
+				e.beginUnlessPayment(payer, cost, effects.NewCtxPtr(m.source, m.player, effects.CtxInit{}), m.source, nil)
 				return m.cast
 			}
-			paid = e.payUnlessCost(payer, cost, &effects.Ctx{Source: m.source, Controller: m.player}, m.source)
+			paid = e.payUnlessCost(payer, cost, effects.NewCtxPtr(m.source, m.player, effects.CtxInit{}), m.source)
 		}
 	}
 	e.finishManaUnlessPayment(paid)
@@ -3044,18 +3044,6 @@ func (e *Engine) manaEffectAmount(p state.PlayerID, source state.ObjID, ma *card
 		return 0
 	}
 	return amount
-}
-
-// manaAmountCtx is the Ctx a mana ability's Amount$ is priced in outside its
-// own resolution (the payment planner's castWindowAmount, a Combo
-// allocation's manaEffectAmount). It binds the same layer-3 name and layer-4
-// type tables effects.Resolve binds at the top of the ability's actual walk,
-// so a count over a type or name (Cloudpost's Count$Valid Locus reading
-// Planar Nexus's "every nonbasic land type") prices exactly what effMana will
-// add.
-func (e *Engine) manaAmountCtx(p state.PlayerID, source state.ObjID) *effects.Ctx {
-	return &effects.Ctx{Source: source, Controller: p,
-		EffectiveNames: e.EffectiveNames(), EffectiveTypes: e.EffectiveTypes()}
 }
 
 func (e *Engine) resolveManaEffectColor(p state.PlayerID, source state.ObjID, ma *cards.SA, produced string, gained gainedManaRef, sacs []state.ObjID) {

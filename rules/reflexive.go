@@ -70,25 +70,9 @@ func (e *Engine) QueueReflexiveTrigger(c *effects.Ctx, execute string, body *car
 		DelayedID:  ^uint32(0),
 		Execute:    execute,
 		SA:         sa,
-		Ctx: effects.Ctx{
-			Source:                   c.Source,
-			Controller:               c.Controller,
-			Remembered:               append([]state.Target(nil), remembered...),
-			TriggerContext:           tc,
-			EffectFrame:              c.EffectFrame,
-			LKI:                      c.LKI,
-			LKIPower:                 c.LKIPower,
-			LKIToughness:             c.LKIToughness,
-			LKIPTValid:               c.LKIPTValid,
-			SourceLifelinkLKI:        c.SourceLifelinkLKI,
-			SourceLifelinkLKIValid:   c.SourceLifelinkLKIValid,
-			SourceControllerLKI:      c.SourceControllerLKI,
-			SourceControllerLKIValid: c.SourceControllerLKIValid,
-			Sacrificed:               append([]state.SacrificedInfo(nil), c.Sacrificed...),
-			Exiled:                   append([]state.ObjID(nil), c.Exiled...),
-			Revealed:                 append([]state.ObjID(nil), c.Revealed...),
-		},
+		Ctx:        c.ForTrigger(tc),
 	}
+	pt.Ctx.Remembered = append([]state.Target(nil), remembered...)
 	e.pendingTriggers = append(e.pendingTriggers, pt)
 	return true
 }

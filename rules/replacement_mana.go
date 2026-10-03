@@ -73,8 +73,8 @@ func (e *Engine) applyOneManaReplacement(ev events.Event, m replMatch, color str
 	if m.repl.With == nil {
 		return ev
 	}
-	ctx := &effects.Ctx{Source: m.id, Controller: e.controllerOf(m.id),
-		ManaAmount: ev.Amount, ManaType: ev.Counter, ManaChoice: color}
+	ctx := effects.NewCtxPtr(m.id, e.controllerOf(m.id), effects.CtxInit{})
+	ctx.ManaAmount, ctx.ManaType, ctx.ManaChoice = ev.Amount, ev.Counter, color
 	if m.face != nil {
 		effects.SetSVars(ctx, m.face.SVars)
 	}

@@ -170,7 +170,7 @@ func (e *Engine) applyOpeningEffect(ef openingEffect) {
 		// ordinary effect registry too. The FromHand battlefield shape below
 		// is split out only because Gemstone's mandatory follow-up needs its
 		// own pregame card-choice continuation.
-		ctx := &effects.Ctx{Source: ef.card, Controller: ef.player}
+		ctx := effects.NewCtxPtr(ef.card, ef.player, effects.CtxInit{})
 		effects.SetSVars(ctx, o.Face().SVars)
 		effects.Resolve(e, ctx, sa)
 		e.registerOpeningEffectTriggers(ef, sa)
@@ -179,7 +179,7 @@ func (e *Engine) applyOpeningEffect(ef openingEffect) {
 	e.emit(events.Event{Kind: events.MoveZone, Obj: ef.card, From: state.ZHand, To: state.ZBattlefield, Text: "opening hand effect"})
 	sub := sa.Sub
 	if sub != nil && sub.API == "PutCounter" {
-		n := effects.Num(e, &effects.Ctx{Source: ef.card, Controller: ef.player}, sub, "CounterNum", 1)
+		n := effects.Num(e, effects.NewCtxPtr(ef.card, ef.player, effects.CtxInit{}), sub, "CounterNum", 1)
 		// A pregame opening-hand counter is put by the effect's player, with
 		// no stack cause: publish the adder for the AddCounter class.
 		prevAdder := e.SetCounterAdder(ef.player)
@@ -340,7 +340,7 @@ func (e *Engine) registerOpeningEffectTriggers(ef openingEffect, first *cards.SA
 // selectors fail closed (an empty list registers nothing) rather than
 // guessing a player set.
 func (e *Engine) openingEffectOwners(sa *cards.SA, you state.PlayerID) []state.PlayerID {
-	ps, _ := effects.EffectOwnerPlayers(e, &effects.Ctx{Controller: you}, sa.Params["EffectOwner"])
+	ps, _ := effects.EffectOwnerPlayers(e, effects.NewCtxPtr(0, you, effects.CtxInit{}), sa.Params["EffectOwner"])
 	return ps
 }
 

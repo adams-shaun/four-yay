@@ -219,11 +219,9 @@ func (e *Engine) queuePlaneMode(plane state.ObjID, mode string) {
 			Controller: controller,
 			Idx:        ti,
 			SA:         t.Effect,
-			Ctx: effects.Ctx{
-				Source:         plane,
-				Controller:     controller,
+			Ctx: effects.NewCtx(plane, controller, effects.CtxInit{
 				TriggerContext: effects.TriggerContext{TriggerCard: plane},
-			},
+			}),
 		})
 	}
 }
@@ -290,11 +288,9 @@ func (e *Engine) checkChaosEnsuesTriggers(ev events.Event) {
 			Controller: controller,
 			Idx:        ti,
 			SA:         t.Effect,
-			Ctx: effects.Ctx{
-				Source:         ev.Obj,
-				Controller:     controller,
+			Ctx: effects.NewCtx(ev.Obj, controller, effects.CtxInit{
 				TriggerContext: effects.TriggerContext{TriggerCard: ev.Obj},
-			},
+			}),
 		})
 	}
 }

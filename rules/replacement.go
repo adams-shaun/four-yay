@@ -547,7 +547,7 @@ type replMatch struct {
 // the predicates fail closed exactly as before. Nil ids yield the plain
 // context every caller without a remembered set already built.
 func (e *Engine) rememberedSpecContext(you state.PlayerID, source state.ObjID, remembered []state.ObjID) effects.SpecContext {
-	sc := e.withNames(effects.SpecContext{You: you, Source: source})
+	sc := e.withNames(effects.NewSpecContext(you, source))
 	if chosen := effects.ChosenTargetsFrom(e.G, source); len(chosen) > 0 {
 		sc.Chosen = chosen
 		sc.ChosenValid = true
@@ -790,8 +790,10 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 		target = state.Target{Player: ev.Player, IsPlayer: true}
 	}
 	if o == nil {
-		ctx := &effects.Ctx{Source: m.id, ReplacementTarget: target,
-			ReplacementSource: e.protectionSource(e.damaging), ReplacementAmount: drawMatchAmount(ev)}
+		// No live source object: no controller (seat 0).
+		ctx := effects.NewCtxPtr(m.id, 0, effects.CtxInit{})
+		ctx.ReplacementTarget = target
+		ctx.ReplacementSource, ctx.ReplacementAmount = e.protectionSource(e.damaging), drawMatchAmount(ev)
 		if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield {
 			ctx.ExcludeFromBattlefieldCount = ev.Obj
 		}
@@ -802,9 +804,7 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 	if m.frozenController {
 		controller = m.controller
 	}
-	ctx := &effects.Ctx{Source: m.id, Controller: controller,
-		ReplacementTarget: target, ReplacementSource: e.protectionSource(e.damaging),
-		ReplacementAmount: drawMatchAmount(ev),
+	ctx := effects.NewCtxPtr(m.id, controller, effects.CtxInit{
 		// X is the {X} paid for the moving object, so an ETB replacement that
 		// reads it (etbCounter's CounterNum$ X, e.g. Endless One / Walking
 		// Ballista / Chalice of the Void) sees the value the player actually
@@ -812,13 +812,15 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 		// apply.go, the "hand/stack -> battlefield must NOT reset them"
 		// comment), so o.X is the cast-time value here.
 		X:        o.X,
-		Captured: []state.Target{{Obj: ev.Obj}},
-		// Replaced names the object the replaced event (ev) was about, so a
-		// ReplaceWith$ that says Defined$ ReplacedCard (the Rest in Peace /
-		// Dryad Militant / Leyline of the Void shape: "exile it instead") can
-		// act on exactly the card being kept out of the graveyard -- not the
-		// source that owns the replacement.
-		Replaced: ev.Obj}
+		Captured: []state.Target{{Obj: ev.Obj}}})
+	ctx.ReplacementTarget = target
+	ctx.ReplacementSource, ctx.ReplacementAmount = e.protectionSource(e.damaging), drawMatchAmount(ev)
+	// Replaced names the object the replaced event (ev) was about, so a
+	// ReplaceWith$ that says Defined$ ReplacedCard (the Rest in Peace /
+	// Dryad Militant / Leyline of the Void shape: "exile it instead") can
+	// act on exactly the card being kept out of the graveyard -- not the
+	// source that owns the replacement.
+	ctx.Replaced = ev.Obj
 	if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield {
 		ctx.ExcludeFromBattlefieldCount = ev.Obj
 	}

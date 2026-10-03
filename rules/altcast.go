@@ -80,7 +80,7 @@ func (e *Engine) altCostEnter(ev events.Event) {
 			// the receiver rides the push payload instead of being re-read at
 			// resolution.
 			GiftTo: o.GiftPromisedTo,
-			Ctx:    effects.Ctx{Source: ev.Obj, Controller: o.Controller},
+			Ctx:    effects.NewCtx(ev.Obj, o.Controller, effects.CtxInit{}),
 		})
 	}
 	if o.CastFlags&state.FlagEvoked != 0 {
@@ -88,10 +88,7 @@ func (e *Engine) altCostEnter(ev events.Event) {
 			Source:     ev.Obj,
 			Controller: o.Controller,
 			Evoke:      true,
-			Ctx: effects.Ctx{
-				Source:     ev.Obj,
-				Controller: o.Controller,
-			},
+			Ctx:        effects.NewCtx(ev.Obj, o.Controller, effects.CtxInit{}),
 		})
 	}
 	if o.CastFlags&state.FlagDashed != 0 {
@@ -286,10 +283,7 @@ func (e *Engine) offerMadness(ev events.Event) {
 		Source:     ev.Obj,
 		Controller: owner,
 		Madness:    true,
-		Ctx: effects.Ctx{
-			Source:     ev.Obj,
-			Controller: owner,
-		},
+		Ctx:        effects.NewCtx(ev.Obj, owner, effects.CtxInit{}),
 	})
 }
 

@@ -394,11 +394,13 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		if len(parts) == 3 && c.Controller >= 0 && countersAddedThisTurnArgsKnown(parts[0], parts[1], parts[2]) {
 			// The measured grammar needs only You and Source: Card.Self and
 			// Card.EffectSource resolve from Source, while the other forms are
-			// object/player predicates. Do not pass c.SpecContext here: handing
-			// its resolution slices through the Host interface makes c escape,
-			// allocating on the Derived hot path.
-			sc := SpecContext{You: c.Controller, Source: c.Source,
-				EffectiveNames: c.EffectiveNames, DerivedTypes: c.EffectiveTypes}
+			// object/player predicates (countersAddedThisTurnArgsKnown's five
+			// specs, none of which reads a colour, keyword or goad table).
+			// Do not pass c.SpecContext here: its numeric-RHS resolver closes
+			// over c, and handing that through the Host interface makes c
+			// escape, allocating on the Derived hot path. TableSpecContext is
+			// closure-free field copies.
+			sc := c.TableSpecContext(c.Controller)
 			return h.CountersAddedThisTurn(parts[0], parts[1], parts[2], sc), true, true
 		}
 	case "CountersRemovedThisTurn":

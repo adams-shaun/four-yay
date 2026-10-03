@@ -34,6 +34,14 @@ const (
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	stringCaseLiterals = 2886
+	// ctxLiterals, specContextLiterals and triggerContextLiterals are the
+	// effects.Ctx / SpecContext / TriggerContext composite literals in rules/
+	// and effects/ non-test files outside codeshape.CtxConstructorFiles (W1c,
+	// spec section 5). Measured 108 / 22 / 19 on main at c49d04e14 before the
+	// constructors landed.
+	ctxLiterals            = 0
+	specContextLiterals    = 0
+	triggerContextLiterals = 14
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -106,5 +114,21 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 		{"stringCaseLiterals", m.StringCaseLiterals, stringCaseLiterals,
 			"Dispatch on a compiled enum, a bitmask or a registry entry rather than a " +
 				"new `case \"Literal\":` arm."},
+		{"ctxLiterals", m.CtxLiterals, ctxLiterals,
+			"Build an effects.Ctx with effects.NewCtx / NewCtxPtr (seeded by a CtxInit, " +
+				"other fields assigned on the result), derive one from a resolving context " +
+				"with (*Ctx).Child or (*Ctx).ForTrigger, or add a constructor to " +
+				"effects/ctx_new.go (rules/ctx_new.go for one that binds engine-owned " +
+				"tables). A hand-written literal that copies another context's fields drops " +
+				"the next field added to Ctx."},
+		{"specContextLiterals", m.SpecContextLiterals, specContextLiterals,
+			"Build a SpecContext with effects.NewSpecContext, derive it from a resolving " +
+				"Ctx with (*Ctx).SpecContext / (*Ctx).TableSpecContext, or bind rules' layer " +
+				"tables through Engine.withNames / specCtxSVars."},
+		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
+			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
+				"copy an existing TriggerContext and set the fields that differ; a " +
+				"synthesized trigger's record can be declared `var tc effects.TriggerContext` " +
+				"and filled field by field."},
 	})
 }

@@ -34,6 +34,16 @@ const LongFuncLines = 300
 // move of code into a rules/* subpackage stays inside the census.
 var ScannedDirs = []string{"rules", "effects"}
 
+// CtxConstructorFiles are the designated context-constructor files of the W1c
+// ratchet (rules-engine refactor spec section 5): the only non-test files in
+// which an effects.Ctx / effects.SpecContext / effects.TriggerContext
+// composite literal is not counted. Repo-relative, slash-separated.
+var CtxConstructorFiles = []string{"effects/ctx_new.go", "rules/ctx_new.go"}
+
+// effectsImportPath is the import path whose Ctx, SpecContext and
+// TriggerContext types the context-literal census counts.
+const effectsImportPath = "github.com/adams-shaun/gorge/effects"
+
 // Func is one function declaration over LongFuncLines.
 type Func struct {
 	Name  string `json:"name"`  // receiver-qualified: "(*Engine).payCast" or "effEffect"
@@ -74,6 +84,17 @@ type Metrics struct {
 	// clause body is NOT counted -- unlike the spec's grep figures, which
 	// counted string literals on case lines.
 	StringCaseLiterals int `json:"string_case_literals"`
+	// CtxLiterals, SpecContextLiterals and TriggerContextLiterals count, in
+	// rules/ and effects/ non-test files other than CtxConstructorFiles, the
+	// composite literals of effects.Ctx, effects.SpecContext and
+	// effects.TriggerContext (`effects.Ctx{...}` / `&effects.Ctx{...}`, the
+	// bare `Ctx{...}` inside package effects, and a type-elided element of a
+	// []Ctx / map[K]Ctx literal). A literal that copies fields from another
+	// context is the RC2 hand-synced copy that drops a later field; build
+	// through effects.NewCtx / NewSpecContext and the (*Ctx) derivations.
+	CtxLiterals            int `json:"ctx_literals"`
+	SpecContextLiterals    int `json:"spec_context_literals"`
+	TriggerContextLiterals int `json:"trigger_context_literals"`
 	// Files is how many non-test .go files were parsed.
 	Files int `json:"files"`
 	// LongFuncs lists every function counted by FuncsOver300, longest first
@@ -102,6 +123,9 @@ func Measure(root string) (Metrics, error) {
 			}
 			m.Files++
 			inEffectsTop := dir == "effects" && strings.Count(rel, "/") == 1
+			if !isCtxConstructorFile(rel) {
+				countCtxLiterals(f, inEffectsTop, &m)
+			}
 			for _, decl := range f.Decls {
 				switch d := decl.(type) {
 				case *ast.FuncDecl:
@@ -198,6 +222,107 @@ func Measure(root string) (Metrics, error) {
 		m.LongFuncs = []Func{}
 	}
 	return m, nil
+}
+
+// isCtxConstructorFile reports whether rel is one of CtxConstructorFiles.
+func isCtxConstructorFile(rel string) bool {
+	for _, c := range CtxConstructorFiles {
+		if rel == c {
+			return true
+		}
+	}
+	return false
+}
+
+// countCtxLiterals adds f's context composite literals to m. inEffects is
+// true for a file of package effects itself, where the types are named bare.
+func countCtxLiterals(f *ast.File, inEffects bool, m *Metrics) {
+	// The file's local names for the effects package (an import may be
+	// aliased, or repeated under two names).
+	var locals []string
+	for _, imp := range f.Imports {
+		if path, err := strconv.Unquote(imp.Path.Value); err == nil && path == effectsImportPath {
+			name := "effects"
+			if imp.Name != nil {
+				name = imp.Name.Name
+			}
+			locals = append(locals, name)
+		}
+	}
+	isEffects := func(name string) bool {
+		for _, l := range locals {
+			if l == name && l != "_" && l != "." {
+				return true
+			}
+		}
+		return false
+	}
+	// ctxType names the context type expr denotes ("" for any other type),
+	// looking through one pointer for an elided &T element.
+	ctxType := func(expr ast.Expr) string {
+		if s, ok := expr.(*ast.StarExpr); ok {
+			expr = s.X
+		}
+		switch x := expr.(type) {
+		case *ast.Ident:
+			if inEffects {
+				return ctxTypeName(x.Name)
+			}
+		case *ast.SelectorExpr:
+			if id, ok := x.X.(*ast.Ident); ok && isEffects(id.Name) {
+				return ctxTypeName(x.Sel.Name)
+			}
+		}
+		return ""
+	}
+	tally := func(name string) {
+		switch name {
+		case "Ctx":
+			m.CtxLiterals++
+		case "SpecContext":
+			m.SpecContextLiterals++
+		case "TriggerContext":
+			m.TriggerContextLiterals++
+		}
+	}
+	ast.Inspect(f, func(n ast.Node) bool {
+		cl, ok := n.(*ast.CompositeLit)
+		if !ok || cl.Type == nil {
+			return true
+		}
+		tally(ctxType(cl.Type))
+		// A type-elided element of a slice, array or map literal of a
+		// context type is a literal of that type too.
+		var elem ast.Expr
+		switch t := cl.Type.(type) {
+		case *ast.ArrayType:
+			elem = t.Elt
+		case *ast.MapType:
+			elem = t.Value
+		}
+		if name := ctxType(elem); elem != nil && name != "" {
+			for _, el := range cl.Elts {
+				if kv, ok := el.(*ast.KeyValueExpr); ok {
+					el = kv.Value
+				}
+				if u, ok := el.(*ast.UnaryExpr); ok && u.Op == token.AND {
+					el = u.X
+				}
+				if inner, ok := el.(*ast.CompositeLit); ok && inner.Type == nil {
+					tally(name)
+				}
+			}
+		}
+		return true
+	})
+}
+
+func ctxTypeName(name string) string {
+	switch name {
+	case "Ctx", "SpecContext", "TriggerContext":
+		return name
+	}
+	return ""
 }
 
 // goFiles returns the non-test .go files under root/dir, repo-relative and

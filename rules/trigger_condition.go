@@ -300,7 +300,7 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 				svars = mf.SVars
 			}
 		}
-		ctx := &effects.Ctx{Source: source, Controller: you, SVars: svars}
+		ctx := effects.NewCtxPtr(source, you, effects.CtxInit{SVars: svars})
 		holds, evaluated := effects.CheckSVarHolds(e, ctx, name, strings.TrimSpace(t.Params["SVarCompare"]))
 		if !evaluated || !holds {
 			return false
@@ -438,14 +438,13 @@ func (e *Engine) presentClauseHolds(t cards.Trigger, source state.ObjID, you sta
 			remembered = append([]state.Target(nil), tc.DelayedRemembered...)
 		}
 		sc.Remembered = remembered
-		resolverContext := effects.TriggerContext{}
+		var resolverContext effects.TriggerContext
 		if tc != nil {
 			// Defined selectors resolve against the event captured by this
 			// trigger, not the source object's unrelated or persistent context.
 			resolverContext = *tc
 		}
-		ctx := &effects.Ctx{Source: source, Controller: you,
-			Remembered: remembered, TriggerContext: resolverContext}
+		ctx := effects.NewCtxPtr(source, you, effects.CtxInit{Remembered: remembered, TriggerContext: resolverContext})
 		group := effects.Defined(e, ctx, &cards.SA{Params: map[string]string{"Defined": pd}})
 		n := 0
 		for _, target := range group {
@@ -547,7 +546,7 @@ func (e *Engine) presentCompareFor(cmp string, source state.ObjID, you state.Pla
 	if !ok {
 		return cmp
 	}
-	v, ok := effects.EvalCountOK(e, &effects.Ctx{Source: source, Controller: you, SVars: o.Face().SVars}, body)
+	v, ok := effects.EvalCountOK(e, effects.NewCtxPtr(source, you, effects.CtxInit{SVars: o.Face().SVars}), body)
 	if !ok {
 		return cmp
 	}

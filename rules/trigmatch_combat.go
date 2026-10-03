@@ -241,7 +241,7 @@ func (e *Engine) attackersDeclaredOneTargetMatches(t cards.Trigger, source state
 		ids = e.declaredAttackers
 	}
 	attacker := e.controllerOf(ids[0])
-	ctx := &effects.Ctx{Source: source, Controller: ctrl}
+	ctx := effects.NewCtxPtr(source, ctrl, effects.CtxInit{})
 	if src := e.G.Obj(source); src != nil && src.Face() != nil {
 		ctx.SVars = src.Face().SVars
 	}
@@ -443,9 +443,7 @@ func (e *Engine) queueGrantedFlanking(id state.ObjID, o *state.Object, ev events
 				Controller: o.Controller,
 				Idx:        -1,
 				Flanking:   true,
-				Ctx: effects.Ctx{
-					Source:     id,
-					Controller: o.Controller,
+				Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 					Remembered: []state.Target{{Obj: bid}},
 					Captured:   []state.Target{{Obj: bid}},
 					TriggerContext: effects.TriggerContext{
@@ -453,7 +451,7 @@ func (e *Engine) queueGrantedFlanking(id state.ObjID, o *state.Object, ev events
 						TriggerSource:  pr[0],
 						TriggerBlocker: bid,
 					},
-				},
+				}),
 			})
 		}
 	}
@@ -589,16 +587,14 @@ func (e *Engine) queueAttackerBlockedTrigger(t cards.Trigger, source state.ObjID
 					Granted:    granted,
 					Grantor:    grantor,
 					Execute:    t.Params["Execute"],
-					Ctx: effects.Ctx{
-						Source:     source,
-						Controller: controller,
+					Ctx: effects.NewCtx(source, controller, effects.CtxInit{
 						Remembered: []state.Target{{Obj: bid}},
 						Captured:   []state.Target{{Obj: bid}},
 						TriggerContext: effects.TriggerContext{
 							TriggerCard:   bid,
 							TriggerSource: pr[0],
 						},
-					},
+					}),
 				})
 			}
 		}
@@ -619,9 +615,7 @@ func (e *Engine) queueAttackerBlockedTrigger(t cards.Trigger, source state.ObjID
 			Granted:    granted,
 			Grantor:    grantor,
 			Execute:    t.Params["Execute"],
-			Ctx: effects.Ctx{
-				Source:     source,
-				Controller: controller,
+			Ctx: effects.NewCtx(source, controller, effects.CtxInit{
 				Remembered: []state.Target{{Obj: aid}},
 				Captured:   []state.Target{{Obj: aid}},
 				TriggerContext: effects.TriggerContext{
@@ -630,7 +624,7 @@ func (e *Engine) queueAttackerBlockedTrigger(t cards.Trigger, source state.ObjID
 					AttackingPlayer: pt(e.controllerOf(aid)),
 					DefendingPlayer: defender,
 				},
-			},
+			}),
 		})
 	}
 }
@@ -798,14 +792,13 @@ func (e *Engine) queueAttackerUnblockedTrigger(t cards.Trigger, source state.Obj
 			e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
 				Source: source, Controller: controller, Idx: idx, SA: t.Effect,
 				Granted: granted, Grantor: grantor, Execute: t.Params["Execute"],
-				Ctx: effects.Ctx{
-					Source: source, Controller: controller,
+				Ctx: effects.NewCtx(source, controller, effects.CtxInit{
 					Remembered: []state.Target{{Obj: aid}}, Captured: []state.Target{{Obj: aid}},
 					TriggerContext: effects.TriggerContext{
 						TriggerCard: aid, TriggerSource: aid,
 						AttackingPlayer: pt(e.controllerOf(aid)), DefendingPlayer: pt(a.Attacking),
 					},
-				},
+				}),
 			})
 			if e.triggerFireCount[key] >= maxTriggerFires {
 				return
@@ -935,9 +928,7 @@ func (e *Engine) checkAttackerUnblockedOnceTriggers() {
 				Controller: o.Controller,
 				Idx:        ti,
 				SA:         t.Effect,
-				Ctx: effects.Ctx{
-					Source:     id,
-					Controller: o.Controller,
+				Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 					Remembered: remembered,
 					Captured:   remembered,
 					TriggerContext: effects.TriggerContext{
@@ -946,7 +937,7 @@ func (e *Engine) checkAttackerUnblockedOnceTriggers() {
 						AttackingPlayer: pt(firstCtrl),
 						DefendingPlayer: pt(o.Controller),
 					},
-				},
+				}),
 			})
 		}
 	})
@@ -1070,9 +1061,7 @@ func (e *Engine) checkBlocksTriggers(ev events.Event) {
 					Controller: o.Controller,
 					Idx:        ti,
 					SA:         t.Effect,
-					Ctx: effects.Ctx{
-						Source:     id,
-						Controller: o.Controller,
+					Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 						Remembered: []state.Target{{Obj: attacker}},
 						Captured:   []state.Target{{Obj: attacker}},
 						TriggerContext: effects.TriggerContext{
@@ -1082,7 +1071,7 @@ func (e *Engine) checkBlocksTriggers(ev events.Event) {
 							AttackingPlayer: pt(e.controllerOf(attacker)),
 							DefendingPlayer: defender,
 						},
-					},
+					}),
 				})
 			}
 		}

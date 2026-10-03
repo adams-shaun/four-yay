@@ -95,7 +95,7 @@ func statIsPowerKey(key string) (power, ok bool) {
 // silently erase the damage it was supposed to partially prevent.
 func NumResolved(h Host, c *Ctx, sa *cards.SA, key string, def int32) (int32, bool) {
 	if c == nil {
-		c = &Ctx{}
+		c = new(Ctx)
 	}
 	raw, ok := sa.Params[key]
 	if !ok {
@@ -398,7 +398,7 @@ func evalCountExprOK(h Host, c *Ctx, expr string, depth int) (int32, bool) {
 				if o == nil {
 					continue
 				}
-				sub := &Ctx{Source: o.ID, Controller: o.Controller, X: o.X}
+				sub := NewCtxPtr(o.ID, o.Controller, CtxInit{X: o.X})
 				if f := o.Face(); f != nil {
 					sub.SVars = f.SVars
 				}
@@ -583,7 +583,7 @@ func evalCountExprOK(h Host, c *Ctx, expr string, depth int) (int32, bool) {
 // does not model degrades to zero, exactly as EvalCount does.
 func EvalCountOnObject(h Host, c *Ctx, expr string, obj state.ObjID) int32 {
 	if c == nil {
-		c = &Ctx{}
+		c = new(Ctx)
 	}
 	cc := *c
 	cc.Source = obj

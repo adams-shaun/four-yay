@@ -546,7 +546,7 @@ func (e *Engine) resolveActivationLimitAt(id state.ObjID, p state.PlayerID, raw 
 		return 0, false
 	}
 	svars := e.pileSVars(id, merged)
-	ctx := &effects.Ctx{Source: id, Controller: p, SVars: svars}
+	ctx := effects.NewCtxPtr(id, p, effects.CtxInit{SVars: svars})
 	if strings.HasPrefix(raw, "Count$") {
 		return int(effects.EvalCount(e, ctx, raw)), true
 	}

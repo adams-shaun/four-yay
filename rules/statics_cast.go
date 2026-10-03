@@ -116,7 +116,7 @@ func (e *Engine) surveilNumValue(sv staticView) (int32, bool) {
 	if !ok {
 		return 0, false
 	}
-	v, ok := effects.EvalCountOK(e, &effects.Ctx{Source: sv.Source, Controller: sv.Controller, SVars: sv.SVars}, body)
+	v, ok := effects.EvalCountOK(e, effects.NewCtxPtr(sv.Source, sv.Controller, effects.CtxInit{SVars: sv.SVars}), body)
 	if !ok || v < 0 {
 		return 0, false
 	}

@@ -162,7 +162,7 @@ func (e *Engine) targetControlsChooser(p state.PlayerID, source state.ObjID, sa 
 	// the trigger context stored for the asking object. An unknown, unbound
 	// or dead referent fails closed to the controller, the same shape
 	// targetChooserCore keeps the ask with the controller for.
-	tc := effects.TriggerContext{}
+	var tc effects.TriggerContext
 	if ctx, ok := e.triggerContexts[source]; ok {
 		tc = ctx
 	}
@@ -257,7 +257,7 @@ func (e *Engine) recordTpControlsChooser(obj state.ObjID, sa *cards.SA, chooser 
 // Returns (controller, false, false) when sa names no chooser, or the spec
 // is unknown, unbound or dead, so the ask stays with the controller.
 func (e *Engine) targetAskChooser(controller state.PlayerID, source state.ObjID, sa *cards.SA) (state.PlayerID, bool, bool) {
-	tc := effects.TriggerContext{}
+	var tc effects.TriggerContext
 	if triggerContext, ok := e.triggerContexts[source]; ok {
 		tc = triggerContext
 	}

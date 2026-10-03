@@ -53,10 +53,7 @@ func (e *Engine) offerMiracle(ev events.Event) {
 		Source:     ev.Obj,
 		Controller: o.Controller,
 		Miracle:    true,
-		Ctx: effects.Ctx{
-			Source:     ev.Obj,
-			Controller: o.Controller,
-		},
+		Ctx:        effects.NewCtx(ev.Obj, o.Controller, effects.CtxInit{}),
 	})
 }
 

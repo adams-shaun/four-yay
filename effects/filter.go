@@ -274,7 +274,7 @@ var predicates = map[string]predFn{
 	// name instead -- the same split typePredicate keeps for ExtraTypes.
 	"NamedCard": func(g *state.Game, o *state.Object, _ state.PlayerID, src state.ObjID) bool {
 		s := g.Obj(src)
-		return s != nil && s.ChosenName != "" && sharesName(o, s.ChosenName, SpecContext{})
+		return s != nil && s.ChosenName != "" && sharesName(o, s.ChosenName, NewSpecContext(0, 0))
 	},
 	"ChosenType": func(g *state.Game, o *state.Object, _ state.PlayerID, src state.ObjID) bool {
 		s := g.Obj(src)
@@ -1084,7 +1084,7 @@ func positiveRecognisedWord(p string) bool {
 	if _, ok := predicates[p]; ok {
 		return true
 	}
-	if _, ok := numericPred(p, nil, &state.Object{}, SpecContext{}); ok {
+	if _, ok := numericPred(p, nil, &state.Object{}, NewSpecContext(0, 0)); ok {
 		return true
 	}
 	if _, _, ok := nonPredicate(p); ok {
@@ -1765,7 +1765,7 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 			return false, true
 		}
 		return MatchesSpecCtx(g, strings.TrimSpace(sa.Params["ValidTgts"]), o.ID,
-			SpecContext{You: spell.Controller, Source: spell.ID}), true
+			NewSpecContext(spell.Controller, spell.ID)), true
 	}
 	if p == "TriggeredNewCard" || p == "TriggeredCard" {
 		// Forge's bare TriggeredNewCard / TriggeredCard property
@@ -2853,12 +2853,14 @@ func matchesBaseInZone(g *state.Game, base string, o *state.Object, sc SpecConte
 // CARDNAME base and Self/Other predicates are relative to, and no numeric-RHS
 // resolver.
 func MatchesSpecFrom(g *state.Game, spec string, id state.ObjID, you state.PlayerID, source state.ObjID) bool {
-	return MatchesSpecCtx(g, spec, id, SpecContext{You: you, Source: source})
+	return MatchesSpecCtx(g, spec, id, NewSpecContext(you, source))
 }
 
 // MatchesSpec reports whether an object matches a Forge filter spec.
 func MatchesSpec(g *state.Game, spec string, id state.ObjID, you state.PlayerID) bool {
-	return MatchesSpecFrom(g, spec, id, you, 0)
+	// MatchesSpecFrom with no source, spelled out so this wrapper stays
+	// within the inlining budget.
+	return MatchesSpecCtx(g, spec, id, NewSpecContext(you, 0))
 }
 
 // SearchStatesQuality reports whether a search's card filter (a ChangeType

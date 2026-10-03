@@ -211,7 +211,7 @@ func (e *Engine) fixLifeXCost(p state.PlayerID, id state.ObjID, c Cost) (Cost, b
 			return c, false
 		}
 	}
-	ctx := &effects.Ctx{Source: id, Controller: p, SVars: o.Face().SVars}
+	ctx := effects.NewCtxPtr(id, p, effects.CtxInit{SVars: o.Face().SVars})
 	n, resolvable := effects.EvalCountOK(e, ctx, body)
 	if !resolvable || n < 0 {
 		return c, false
@@ -256,7 +256,7 @@ func (e *Engine) drawCostCountTrig(id state.ObjID, you state.PlayerID, part Cost
 	if !present {
 		return 0, false
 	}
-	ctx := &effects.Ctx{Source: id, Controller: you, SVars: o.Face().SVars}
+	ctx := effects.NewCtxPtr(id, you, effects.CtxInit{SVars: o.Face().SVars})
 	if tcx != nil {
 		ctx.TriggerContext = *tcx
 	}

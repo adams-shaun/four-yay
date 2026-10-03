@@ -186,7 +186,7 @@ func (e *Engine) replacementCondition(source state.ObjID, r *cards.Repl) bool {
 	if name == "" {
 		return true
 	}
-	value := effects.EvalCount(e, &effects.Ctx{Source: source, Controller: o.Controller, SVars: o.Face().SVars}, o.Face().SVars[name])
+	value := effects.EvalCount(e, effects.NewCtxPtr(source, o.Controller, effects.CtxInit{SVars: o.Face().SVars}), o.Face().SVars[name])
 	return compareLife(value, r.Params["SVarCompare"])
 }
 
@@ -206,7 +206,7 @@ func (e *Engine) replaceCount(source state.ObjID, r *cards.Repl, name string, am
 		return amount + int32(n), true
 	}
 	if arg, ok := strings.CutPrefix(op, "/LimitMax."); ok {
-		limit := effects.EvalCount(e, &effects.Ctx{Source: source, Controller: o.Controller, SVars: o.Face().SVars}, o.Face().SVars[arg])
+		limit := effects.EvalCount(e, effects.NewCtxPtr(source, o.Controller, effects.CtxInit{SVars: o.Face().SVars}), o.Face().SVars[arg])
 		if limit < 0 {
 			limit = 0
 		}

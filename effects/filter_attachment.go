@@ -293,7 +293,7 @@ func sharesTypeReferents(g *state.Game, sc SpecContext, ref string) []state.Targ
 		// (Iterables.getFirst(source.getImprintedCards())), so only that one
 		// is the referent. A source with nothing imprinted binds nothing and
 		// the predicate fails closed.
-		if pile := imprintPileTargets(g, &Ctx{Source: sc.Source}); len(pile) > 0 {
+		if pile := imprintPileTargets(g, NewCtxPtr(sc.Source, 0, CtxInit{})); len(pile) > 0 {
 			ts = append(ts, pile[0])
 		}
 	}

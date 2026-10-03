@@ -306,18 +306,6 @@ func (e *Engine) cdaValue(ctx *effects.Ctx, raw string) (int32, bool) {
 // why it is read directly off the face in derivedScalar rather than emitted
 // from the battlefield-only static scan. A face with no usable CDA degrades
 // to no claim (the printed P/T stands).
-// cdaEvalCtx builds the Ctx a CDA's value expression resolves through. It
-// carries the published layer-4 derived-type table (Engine.EffectiveTypes,
-// the same one effects.Resolve binds via the typeTableHost) so a type-based
-// Count$Valid value sees types other continuous effects GRANTED (CR 604.3/
-// 613.1f: a CDA is evaluated against the characteristics the object actually
-// has, and the layer-4 type grant is already in effect at layer 7a). Without
-// it the count falls through to the printed face. Every CDA Ctx construction
-// site goes through this helper so the reads cannot diverge.
-func (e *Engine) cdaEvalCtx(o *state.Object, f *cards.Face) *effects.Ctx {
-	return &effects.Ctx{Source: o.ID, Controller: o.Controller, SVars: f.SVars, EffectiveTypes: e.EffectiveTypes()}
-}
-
 func (e *Engine) cdaSetPT(o *state.Object) (p, t int32, hasP, hasT bool) {
 	f := o.Face()
 	if f == nil {
@@ -578,7 +566,7 @@ func (e *Engine) staticAmountOn(ce *ContinuousEffect, expr string, anchor state.
 		svars = src.Face().SVars
 	}
 	sa := &cards.SA{Params: map[string]string{"Amount": expr}}
-	ctx := &effects.Ctx{Source: anchor, Controller: ce.Controller, SVars: svars}
+	ctx := effects.NewCtxPtr(anchor, ce.Controller, effects.CtxInit{SVars: svars})
 	if strings.Contains(expr, "Count$ValidSelf Card$CreatureType") || strings.Contains(svars[expr], "Count$ValidSelf Card$CreatureType") {
 		e.refreshDerivedTypes()
 		ctx.EffectiveTypes = e.EffectiveTypes()

@@ -429,8 +429,8 @@ func (e *Engine) checkSVarHoldsFor(sv staticView, sub costSubject, targets []sta
 	if svars == nil {
 		svars = o.Face().SVars
 	}
-	ctx := &effects.Ctx{Source: sv.Source, Controller: sv.Controller, SVars: svars,
-		AffectedObj: sub.id, AffectedAbility: sub.ab, Targets: targets}
+	ctx := effects.NewCtxPtr(sv.Source, sv.Controller, effects.CtxInit{SVars: svars, Targets: targets})
+	ctx.AffectedObj, ctx.AffectedAbility = sub.id, sub.ab
 	holds, evaluated := effects.CheckSVarHolds(e, ctx, raw, sv.Params["SVarCompare"])
 	if !evaluated {
 		// The statics' shipped convention: an unreadable gate body (an

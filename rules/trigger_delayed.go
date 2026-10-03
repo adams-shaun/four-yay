@@ -264,9 +264,7 @@ func (e *Engine) checkDelayedTriggers(ev events.Event) {
 			DelayedID:  dt.ID,
 			Execute:    dt.Execute,
 			SA:         sa,
-			Ctx: effects.Ctx{
-				Source:     dt.Source,
-				Controller: dt.Controller,
+			Ctx: effects.NewCtx(dt.Source, dt.Controller, effects.CtxInit{
 				Remembered: append([]state.Target(nil), dt.Remembered...),
 				Captured:   append([]state.Target(nil), dt.Remembered...),
 				// A phase registration has no firing event, so its capture
@@ -275,7 +273,7 @@ func (e *Engine) checkDelayedTriggers(ev events.Event) {
 					DelayedRemembered: append([]state.Target(nil), dt.Remembered...),
 					OptionalSpec:      dt.OptionalSpec,
 				},
-			},
+			}),
 		})
 	}
 	for _, id := range remove {
@@ -617,13 +615,12 @@ func (e *Engine) checkEventDelayedTriggers(ev events.Event, lki *state.Object) {
 			e.emit(events.Event{Kind: events.DelayedPush, Obj: dt.Source,
 				Player: dt.Controller, Amount: int32(dt.ID), Counter: dt.Execute,
 				Text: "static"})
-			ctx := effects.Ctx{Source: dt.Source, Controller: dt.Controller,
-				Remembered:     f.remembered,
+			ctx := effects.NewCtx(dt.Source, dt.Controller, effects.CtxInit{Remembered: f.remembered,
 				Captured:       f.remembered,
 				SVars:          f.svars,
 				EffectFrame:    effectDelayedFrame(dt),
 				TriggerContext: f.referents,
-			}
+			})
 			effects.Resolve(e, &ctx, f.sa)
 			continue
 		}
@@ -636,9 +633,7 @@ func (e *Engine) checkEventDelayedTriggers(ev events.Event, lki *state.Object) {
 			SA:           f.sa,
 			Trigger:      f.trigger,
 			TriggerSVars: f.svars,
-			Ctx: effects.Ctx{
-				Source:     dt.Source,
-				Controller: dt.Controller,
+			Ctx: effects.NewCtx(dt.Source, dt.Controller, effects.CtxInit{
 				Remembered: f.remembered,
 				Captured:   f.remembered,
 				// An Effect-created trigger body resolves under the Effect's OWN
@@ -654,7 +649,7 @@ func (e *Engine) checkEventDelayedTriggers(ev events.Event, lki *state.Object) {
 				// so the fired ability resolves TriggeredActivator/
 				// TriggeredSource exactly as a face trigger would.
 				TriggerContext: f.referents,
-			},
+			}),
 		})
 	}
 }

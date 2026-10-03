@@ -1050,10 +1050,9 @@ func (e *Engine) queueRingEmblem(p state.PlayerID, level int, bearer state.ObjID
 	e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
 		Controller: p,
 		RingEmblem: level,
-		Ctx: effects.Ctx{
-			Controller:     p,
+		Ctx: effects.NewCtx(0, p, effects.CtxInit{
 			TriggerContext: effects.TriggerContext{TriggerCard: bearer},
-		},
+		}),
 	})
 }
 
@@ -1109,10 +1108,7 @@ func (e *Engine) checkExertTriggers(ev events.Event) {
 			SA:         sa,
 			Granted:    true,
 			Execute:    exec,
-			Ctx: effects.Ctx{
-				Source:     ev.Obj,
-				Controller: o.Controller,
-			},
+			Ctx:        effects.NewCtx(ev.Obj, o.Controller, effects.CtxInit{}),
 		})
 	}
 }
@@ -1755,9 +1751,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 					Controller: controller,
 					Idx:        ti,
 					SA:         t.Effect,
-					Ctx: effects.Ctx{
-						Source:         id,
-						Controller:     controller,
+					Ctx: effects.NewCtx(id, controller, effects.CtxInit{
 						Remembered:     e.triggerRememberedFor(t, *ev, id),
 						Captured:       e.triggerRememberedFor(t, *ev, id),
 						LKI:            objLKI,
@@ -1765,7 +1759,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 						LKIToughness:   lkiToughness,
 						LKIPTValid:     objLKI != nil && lkiPTValid,
 						TriggerContext: observer.triggerReferents(t, id, *ev, objLKI),
-					},
+					}),
 				}
 				switch {
 				case fc.merged > 0:
@@ -2605,8 +2599,8 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 			lkiObj = lki
 			tc.TriggerCardController = state.Target{Player: lki.Controller, IsPlayer: true}
 		}
-		ctx := &effects.Ctx{Source: ev.Obj, Controller: e.controllerOf(source), SVars: svars,
-			TriggerContext: tc, LKI: lkiObj}
+		ctx := effects.NewCtxPtr(ev.Obj, e.controllerOf(source), effects.CtxInit{SVars: svars,
+			TriggerContext: tc, LKI: lkiObj})
 		if holds, evaluated := effects.CheckSVarHolds(e, ctx, parts[0], parts[1]); !evaluated || !holds {
 			return false
 		}

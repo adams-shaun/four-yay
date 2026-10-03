@@ -166,8 +166,10 @@ func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
 		// A FRESH Ctx carrying ONLY the pile (the Remembered aliasing
 		// hazard cardflow.go documents): the pile body's ChangeZone reads
 		// exactly these cards and its riders land on the fresh slice, never
-		// on the outer resolution's Remembered.
-		sc := &Ctx{Source: c.Source, Controller: c.Controller, SVars: c.SVars}
+		// on the outer resolution's Remembered. Child keeps the script
+		// table (and the layer tables Resolve rebinds on entry anyway).
+		k := c.Child(c.Source, c.Controller)
+		sc := &k
 		sc.Remembered = make([]state.Target, 0, len(pile))
 		for _, id := range pile {
 			sc.Remembered = append(sc.Remembered, state.Target{Obj: id})

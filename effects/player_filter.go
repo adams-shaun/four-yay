@@ -477,8 +477,8 @@ func playerDamageByRefThisGame(g *state.Game, p, you state.PlayerID, pc PlayerSp
 	if int(p) >= len(g.Players) {
 		return false
 	}
-	sc := SpecContext{You: you, Source: pc.Source,
-		TriggerContext: TriggerContext{DefendingPlayer: pc.DefendingPlayer}}
+	sc := NewSpecContext(you, pc.Source)
+	sc.DefendingPlayer = pc.DefendingPlayer
 	for _, t := range sharesTypeReferents(g, sc, strings.TrimSpace(ref)) {
 		if t.IsPlayer {
 			continue
@@ -574,16 +574,13 @@ func splitCountCompare(rem string) (string, string, int32, bool) {
 func playerControlsMatches(g *state.Game, p state.PlayerID, you state.PlayerID, pc PlayerSpecCtx, objBase, rem string) bool {
 	spec, op, want, counted := splitCountCompare(rem)
 	spec = objBase + "." + spec
-	sc := SpecContext{
-		You: you, Source: pc.Source,
-		TriggerContext: TriggerContext{DelayedRemembered: pc.DelayedRemembered},
-		// The nested object filter must see the same layer-3/layer-4
-		// derived characteristics every ordinary filter site does; a
-		// controlsCreature/controlsPermanent spec otherwise reads the
-		// printed face alone.
-		EffectiveNames: pc.EffectiveNames,
-		DerivedTypes:   pc.DerivedTypes,
-	}
+	sc := NewSpecContext(you, pc.Source)
+	sc.DelayedRemembered = pc.DelayedRemembered
+	// The nested object filter must see the same layer-3/layer-4
+	// derived characteristics every ordinary filter site does; a
+	// controlsCreature/controlsPermanent spec otherwise reads the
+	// printed face alone.
+	sc.EffectiveNames, sc.DerivedTypes = pc.EffectiveNames, pc.DerivedTypes
 	n := int32(0)
 	for _, id := range g.Zone(state.ZBattlefield, p) {
 		if MatchesObjectCtx(g, spec, g.Obj(id), sc) {

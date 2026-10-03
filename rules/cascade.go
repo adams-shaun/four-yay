@@ -57,7 +57,7 @@ func (e *Engine) queueCascadeTriggers(stackObj state.ObjID, p state.PlayerID) {
 			Controller: p,
 			Idx:        -1,
 			Cascade:    true,
-			Ctx:        effects.Ctx{Source: stackObj, Controller: p},
+			Ctx:        effects.NewCtx(stackObj, p, effects.CtxInit{}),
 		})
 	}
 }

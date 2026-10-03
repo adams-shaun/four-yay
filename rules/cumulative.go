@@ -777,7 +777,7 @@ func (e *Engine) triggeredCostDrawCounts(tc *triggeredEffectCost) ([]int32, bool
 // resolvable=false means the body is unresolvable (fail closed, the
 // decline-only hard-decline convention, never a silent zero).
 func (e *Engine) evalTriggerCostFixedX(tc *triggeredEffectCost, o *state.Object, body string) (int32, bool) {
-	ctx := &effects.Ctx{Source: tc.source, Controller: tc.player, SVars: o.Face().SVars}
+	ctx := effects.NewCtxPtr(tc.source, tc.player, effects.CtxInit{SVars: o.Face().SVars})
 	if tcx, ok := e.triggerContexts[tc.resume.obj]; ok {
 		ctx.TriggerContext = tcx
 	}
@@ -1631,7 +1631,8 @@ func (e *Engine) triggeredMandatoryCandidatesWith(tc *triggeredEffectCost, idx i
 	// cost spec naming a trigger referent (Card.TriggeredNewCard -- the
 	// "you may exile it" family) resolves the card the triggering event
 	// captured. A zero context is the filter's fail-closed default.
-	sc := e.withNames(effects.SpecContext{You: tc.player, Source: tc.source, TriggerContext: tc.trig})
+	sc := e.withNames(effects.NewSpecContext(tc.player, tc.source))
+	sc.TriggerContext = tc.trig
 	var out []state.ObjID
 	for _, id := range e.G.Zone(zone, tc.player) {
 		if used[id] {

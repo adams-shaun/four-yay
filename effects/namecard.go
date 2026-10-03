@@ -275,7 +275,7 @@ func nameUniverseSnapshot(universe []*cards.Card, snapshot []string) []string {
 // (and zero resolver) the printed-face-only walk has always built.
 func specCtx(sc *SpecContext) SpecContext {
 	if sc == nil {
-		return SpecContext{}
+		return NewSpecContext(0, 0)
 	}
 	return *sc
 }

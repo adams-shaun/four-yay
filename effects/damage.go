@@ -390,7 +390,7 @@ func emitFromEachSource(h Host, c *Ctx, sa *cards.SA, sources []state.ObjID, n i
 		if o == nil || o.Zone != state.ZBattlefield {
 			continue
 		}
-		pc := &Ctx{Source: src, Controller: o.Controller, SVars: c.SVars}
+		pc := NewCtxPtr(src, o.Controller, CtxInit{SVars: c.SVars})
 		recips := shared
 		if relative {
 			recips = Defined(h, pc, sa)
@@ -1393,7 +1393,7 @@ func effEachDamage(h Host, c *Ctx, sa *cards.SA) {
 		// g.Obj(c.Source), so the per-damager Ctx anchors Source on the
 		// damager; the resolution's SVar table is kept so an SVar-named
 		// amount (Nissa's Judgment's NumDmg$ X) still resolves.
-		pc := &Ctx{Source: d, Controller: o.Controller, SVars: c.SVars}
+		pc := NewCtxPtr(d, o.Controller, CtxInit{SVars: c.SVars})
 		n, amountResolved := NumResolved(h, pc, sa, "NumDmg", 1)
 		if !amountResolved {
 			if _, present := sa.Params["NumDmg"]; !present {
