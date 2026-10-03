@@ -3605,13 +3605,7 @@ func effHideaway(h Host, c *Ctx, sa *cards.SA) {
 		id := c.Hideaway
 		c.Hideaway = 0
 		c.HideawayPicked = false
-		lib := zoneOf(g, state.ZLibrary, c.Controller)
-		if id == 0 || !containsObj(lib, id) {
-			return
-		}
-		h.Emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZLibrary, To: state.ZExile,
-			Counter: "exiled_with_face_down", Amount: int32(c.Source), Secret: true})
-		hideawayBottom(h, c, sa)
+		hideawayPicked(h, c, sa, id)
 		return
 	}
 	n := int(Num(h, c, sa, "Amount", 4))
@@ -3631,12 +3625,38 @@ func effHideaway(h Host, c *Ctx, sa *cards.SA) {
 	for i, id := range lib[:n] {
 		d.Options = append(d.Options, decision.Option{Index: i, Kind: "hideaway", Label: objName(g, id), Obj: id, Player: c.Controller})
 	}
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: the "hideaway_pick"
+		// re-entry's exile and bottom arrange.
+		id := state.ObjID(0)
+		if len(ans) == 1 {
+			id = ans[0].Obj
+		}
+		hideawayPicked(h, c, sa, id)
+		return
+	}
 	if h.Ask(d) {
 		return
 	}
 	// The no-host degradation chooses the first card, then retains the offered
 	// order for the rest on the bottom.
 	h.Emit(events.Event{Kind: events.MoveZone, Obj: lib[0], From: state.ZLibrary, To: state.ZExile,
+		Counter: "exiled_with_face_down", Amount: int32(c.Source), Secret: true})
+	hideawayBottom(h, c, sa)
+}
+
+// hideawayPicked exiles the answered Hideaway card face down (validated
+// against the library: a card that left meanwhile is not moved, and nothing
+// follows) and then arranges the rest on the bottom. The one home of the
+// "hideaway_pick" answer, shared by the re-entry and the resolution
+// kernel's tape answer. Moving the card first leaves precisely the remaining
+// cards at the top of the library for the KArrange handler.
+func hideawayPicked(h Host, c *Ctx, sa *cards.SA, id state.ObjID) {
+	lib := zoneOf(h.Game(), state.ZLibrary, c.Controller)
+	if id == 0 || !containsObj(lib, id) {
+		return
+	}
+	h.Emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZLibrary, To: state.ZExile,
 		Counter: "exiled_with_face_down", Amount: int32(c.Source), Secret: true})
 	hideawayBottom(h, c, sa)
 }
@@ -3658,6 +3678,12 @@ func hideawayBottom(h Host, c *Ctx, sa *cards.SA) {
 		Prompt: "Put the remaining Hideaway cards on the bottom in any order"}
 	for i, id := range lib[:n] {
 		d.Options = append(d.Options, decision.Option{Index: i, Kind: "hideaway_bottom", Label: objName(h.Game(), id), Obj: id, Player: c.Controller})
+	}
+	if _, ok := AskTapeIntent(h, d); ok {
+		// The resolution kernel served the order and its record (the
+		// KArrange answer record's hideaway_bottom) applied it: done, as the
+		// "hideaway_arrange" re-entry is.
+		return
 	}
 	if h.Ask(d) {
 		return

@@ -176,3 +176,10 @@ func TestTapeConvertFlowSurveilLook(t *testing.T) {
 			kinds: []string{"surveil_look_optional", "arrange"}, served: 2, extra: []string{tapeEnhancedSrc}, setup: onField},
 	})
 }
+
+func TestTapeConvertFlowHideaway(t *testing.T) {
+	runTapeFlowCases(t, 35000, 2, []tapeFlowCase{
+		{name: "Tape Hideaway", src: "A:SP$ Hideaway | Amount$ 4 | SubAbility$ DBGain\nSVar:DBGain:DB$ GainLife | LifeAmount$ 2",
+			kinds: []string{"hideaway_pick", "hideaway_arrange"}, served: 2},
+	})
+}
