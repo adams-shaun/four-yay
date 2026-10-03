@@ -22,7 +22,6 @@ package rules
 // so the per-resolution cost is a few loads.
 
 import (
-	"strings"
 	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -131,9 +130,9 @@ func mayAskOnBoard(e *Engine, st uint32) bool {
 }
 
 // tapeReplMayAsk is a board gate: a replacement on event that elects
-// (Optional$; for CreateToken also a chosen-copy body -- Esix, Moonlit
-// Meditation -- or a body other than ReplaceToken), or two of them at once
-// (a CR 616.1 order choice), can ask as the event happens. Read only for an
+// (cards.ReplMayElect), or two of them at once (a CR 616.1 order choice),
+// can ask as the event happens. An Effect-created CreateToken replacement
+// always counts as electing. Read only for an
 // otherwise ask-free resolution that opens the gate, through the
 // replacement-source zone masks.
 func tapeReplMayAsk(e *Engine, event string) bool {
@@ -142,7 +141,7 @@ func tapeReplMayAsk(e *Engine, event string) bool {
 	// Echo's per-upkeep damage shield) live on the continuous effects.
 	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
 		if ce := &ceL[ceI]; ce.ReplacementEvent == event {
-			if n++; n > 1 || event == "CreateToken" || ce.ReplacementParams["Optional"] != "" {
+			if n++; n > 1 || event == "CreateToken" || cards.ReplParamsMayElect(ce.ReplacementParams) {
 				return true
 			}
 		}
@@ -161,10 +160,7 @@ func tapeReplMayAsk(e *Engine, event string) bool {
 			if r.Event != event {
 				continue
 			}
-			n++
-			if n > 1 || r.HasParam(cards.PKOptional) || r.HasParam(cards.PKOptionalDecider) ||
-				(event == "CreateToken" && (r.With == nil || r.With.API != "ReplaceToken" ||
-					r.With.HasParam(cards.PKValidChoices) || strings.EqualFold(strings.TrimSpace(r.With.ParamStr(cards.PKTokenScript)), "Chosen"))) {
+			if n++; n > 1 || cards.ReplMayElect(r) {
 				ask = true
 				return
 			}

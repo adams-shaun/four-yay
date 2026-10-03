@@ -312,3 +312,27 @@ func saChainBoardGates(sa *SA, svars map[string]string, depth int) uint8 {
 	}
 	return g
 }
+
+// ReplMayElect reports whether a replacement line's own text elects as it
+// applies: Optional$ / OptionalDecider$, or a CreateToken body other than a
+// plain ReplaceToken (a chosen-copy election: Esix, Moonlit Meditation's
+// ValidChoices$ / TokenScript$ Chosen). The board gate of the rules half;
+// a presence test, never a read that honours the parameter.
+func ReplMayElect(r *Repl) bool {
+	if r.HasParam(PKOptional) || r.HasParam(PKOptionalDecider) {
+		return true
+	}
+	if r.Event != "CreateToken" {
+		return false
+	}
+	return r.With == nil || r.With.API != "ReplaceToken" || r.With.HasParam(PKValidChoices) ||
+		strings.EqualFold(strings.TrimSpace(r.With.ParamStr(PKTokenScript)), "Chosen")
+}
+
+// ReplParamsMayElect is ReplMayElect's Optional$ test over an Effect-created
+// replacement's raw parameter map.
+func ReplParamsMayElect(params map[string]string) bool {
+	_, opt := params["Optional"]
+	_, dec := params["OptionalDecider"]
+	return opt || dec
+}

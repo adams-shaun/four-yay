@@ -2056,34 +2056,8 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 		// and the answer names a permutation of it. A no-host host (R-9) keeps
 		// that scan order as its deterministic stand-in.
 		if cardsSubjects && len(subjects) > 1 && strings.TrimSpace(sa.ParamStr(cards.PKChooseOrder)) != "" {
-			chooser := c.Controller
-			if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKChooseOrder)), "True") {
-				if ps := definedPlayerIDs(h, c, strings.TrimSpace(sa.ParamStr(cards.PKChooseOrder))); len(ps) > 0 {
-					chooser = ps[0]
-				}
-			}
-			d := &decision.Decision{Player: chooser, Kind: decision.KChoose,
-				Min: len(subjects), Max: len(subjects), Source: c.Source,
-				ResumeKind: "repeat_choose_order", ResumeSA: sa,
-				Prompt: "Choose the order the repeated ability processes these in"}
-			for i, t := range subjects {
-				o := decision.Option{Index: i, Kind: "order", Player: PlayerOf(h, c, t)}
-				if t.IsPlayer {
-					o.Label = "player " + strconv.Itoa(int(t.Player))
-				} else if obj := h.Game().Obj(t.Obj); obj != nil && obj.Face() != nil {
-					o.Obj, o.Label = t.Obj, obj.Face().Name
-				}
-				d.Options = append(d.Options, o)
-			}
-			if Ask(h, d) == AskAsked {
-				h.SuspendRepeat(RepeatSuspension{
-					RepeatCursor: RepeatCursor{SA: sa, Subjects: copyTargets(subjects), Next: 0, ChooseOrder: true},
-					Body:         copyTargets(c.Remembered),
-					Outer:        copyTargets(c.Remembered),
-					Chosen:       copyTargets(c.Chosen),
-					ChosenValid:  c.ChosenValid,
-					VoteCounts:   append([]VoteCount(nil), c.VoteCounts...),
-				})
+			var suspended bool
+			if subjects, suspended = repeatEachChooseOrder(h, c, sa, subjects); suspended {
 				return
 			}
 		}
@@ -2115,10 +2089,19 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 				// This subject has not been offered yet: pose its election.
 				// A yes re-enters at i and runs the body below; a no is the
 				// skip above. R-9: a host with no decision channel declines.
-				if !poseRepeatEachElection(h, c, sa, t, i, subjects, optionalMsg) {
-					continue
+				if ans, ok := AskTape(h, repeatEachElectionDecision(h, c, sa, t, i, optionalMsg)); ok {
+					// The resolution kernel's answer in hand (the
+					// "repeat_each_optional" arm's Accept): a decline skips
+					// this subject, a yes runs its body below.
+					if len(ans) == 0 || ans[0].Kind != "yes" {
+						continue
+					}
+				} else {
+					if !poseRepeatEachElection(h, c, sa, t, i, subjects, optionalMsg) {
+						continue
+					}
+					return
 				}
-				return
 			}
 		}
 		cc := *c
@@ -2207,18 +2190,7 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 // the loop continues. RepeatOptionalMessage$ is the prompt when the line
 // carries one.
 func poseRepeatEachElection(h Host, c *Ctx, sa *cards.SA, subj state.Target, idx int, subjects []state.Target, msg string) bool {
-	if msg == "" {
-		msg = "Accept this offer?"
-	}
-	player := PlayerOf(h, c, subj)
-	d := &decision.Decision{Player: player, Kind: decision.KChoose, Min: 1, Max: 1,
-		Prompt: msg, Source: c.Source,
-		ResumeKind: "repeat_each_optional", ResumeSA: sa, ResumeRepeatNext: int32(idx),
-		Options: []decision.Option{
-			{Index: 0, Kind: "yes", Label: "Yes", Player: player},
-			{Index: 1, Kind: "no", Label: "No", Player: player},
-		}}
-	if Ask(h, d) != AskAsked {
+	if Ask(h, repeatEachElectionDecision(h, c, sa, subj, idx, msg)) != AskAsked {
 		return false
 	}
 	// The loop cursor rides the existing RepeatEach suspension so the subjects
@@ -2237,6 +2209,68 @@ func poseRepeatEachElection(h Host, c *Ctx, sa *cards.SA, subj state.Target, idx
 		VoteCounts:   append([]VoteCount(nil), c.VoteCounts...),
 	})
 	return true
+}
+
+// repeatEachChooseOrder poses a RepeatEach ChooseOrder$ ordering ask over
+// subjects (see effRepeatEach) and returns the loop order: the answered
+// permutation when the resolution kernel serves it, the offered order for a
+// no-host stand-in, or suspended after a legacy ask (the loop cursor parked
+// on SuspendRepeat).
+func repeatEachChooseOrder(h Host, c *Ctx, sa *cards.SA, subjects []state.Target) ([]state.Target, bool) {
+	chooser := c.Controller
+	if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKChooseOrder)), "True") {
+		if ps := definedPlayerIDs(h, c, strings.TrimSpace(sa.ParamStr(cards.PKChooseOrder))); len(ps) > 0 {
+			chooser = ps[0]
+		}
+	}
+	d := &decision.Decision{Player: chooser, Kind: decision.KChoose,
+		Min: len(subjects), Max: len(subjects), Source: c.Source,
+		ResumeKind: "repeat_choose_order", ResumeSA: sa,
+		Prompt: "Choose the order the repeated ability processes these in"}
+	for i, t := range subjects {
+		o := decision.Option{Index: i, Kind: "order", Player: PlayerOf(h, c, t)}
+		if t.IsPlayer {
+			o.Label = "player " + strconv.Itoa(int(t.Player))
+		} else if obj := h.Game().Obj(t.Obj); obj != nil && obj.Face() != nil {
+			o.Obj, o.Label = t.Obj, obj.Face().Name
+		}
+		d.Options = append(d.Options, o)
+	}
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: permute the
+		// subjects exactly as the "repeat_choose_order" arm does (a
+		// malformed answer, unreachable past validation, keeps the
+		// offered order), and run the loop in that order.
+		return repeatChooseOrderApply(subjects, ans), false
+	}
+	if Ask(h, d) == AskAsked {
+		h.SuspendRepeat(RepeatSuspension{
+			RepeatCursor: RepeatCursor{SA: sa, Subjects: copyTargets(subjects), Next: 0, ChooseOrder: true},
+			Body:         copyTargets(c.Remembered),
+			Outer:        copyTargets(c.Remembered),
+			Chosen:       copyTargets(c.Chosen),
+			ChosenValid:  c.ChosenValid,
+			VoteCounts:   append([]VoteCount(nil), c.VoteCounts...),
+		})
+		return nil, true
+	}
+	return subjects, false
+}
+
+// repeatEachElectionDecision is subject subj's (loop index idx)
+// RepeatOptionalForEachPlayer$ offer.
+func repeatEachElectionDecision(h Host, c *Ctx, sa *cards.SA, subj state.Target, idx int, msg string) *decision.Decision {
+	if msg == "" {
+		msg = "Accept this offer?"
+	}
+	player := PlayerOf(h, c, subj)
+	return &decision.Decision{Player: player, Kind: decision.KChoose, Min: 1, Max: 1,
+		Prompt: msg, Source: c.Source,
+		ResumeKind: "repeat_each_optional", ResumeSA: sa, ResumeRepeatNext: int32(idx),
+		Options: []decision.Option{
+			{Index: 0, Kind: "yes", Label: "Yes", Player: player},
+			{Index: 1, Kind: "no", Label: "No", Player: player},
+		}}
 }
 
 // iterationBase is what an iteration's Remembered holds besides its subject.
@@ -2328,4 +2362,25 @@ func effBranch(h Host, c *Ctx, sa *cards.SA) {
 	if sub := cards.ResolveSVar(c.SVars, name); sub != nil {
 		Resolve(h, c, sub)
 	}
+}
+
+// repeatChooseOrderApply is a RepeatEach ChooseOrder$ answer applied to the
+// offered subjects: option Index names the subject's offered position, the
+// answer's order is the loop order (rules' "repeat_choose_order" arm reads
+// it the same way). A malformed answer -- not a permutation -- keeps the
+// offered order rather than dropping or duplicating a subject.
+func repeatChooseOrderApply(subjects []state.Target, chosen []decision.Option) []state.Target {
+	ordered := copyTargets(subjects)
+	if len(chosen) != len(ordered) {
+		return ordered
+	}
+	seen := make([]bool, len(ordered))
+	for pos, o := range chosen {
+		if o.Index < 0 || o.Index >= len(ordered) || seen[o.Index] {
+			return copyTargets(subjects)
+		}
+		seen[o.Index] = true
+		ordered[pos] = subjects[o.Index]
+	}
+	return ordered
 }

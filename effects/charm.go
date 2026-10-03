@@ -308,23 +308,8 @@ func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
 	if c.Modes != nil {
 		names := c.Modes
 		c.Modes = nil
-		for _, name := range names {
-			if sub := cards.ResolveSVar(c.SVars, name); sub != nil {
-				Resolve(h, c, sub)
-			}
-			if h.Suspended() {
-				// The chosen body posed a nested mid-resolution ask (DBSac's
-				// sacrifice picker is the live carrier). Record this
-				// primitive's own continuation so the remaining victims are
-				// still asked once that ask's chain completes, instead of
-				// being stranded: the enclosing Resolve loop would otherwise
-				// resume only sa.Sub (nil for a VillainousChoice) and the
-				// outer levels would degrade to no-sub-ability Notes.
-				h.SuspendVillainousRest(sa, VillainousRest{
-					Victims: append([]state.Target(nil), c.VillainousVictims...),
-					Next:    c.VillainousIndex + 1})
-				return
-			}
+		if villainousRunChoice(h, c, sa, names) {
+			return
 		}
 		c.VillainousIndex++
 	}
@@ -354,6 +339,20 @@ func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
 				Label: CharmModeLabel(cards.ResolveSVar(c.SVars, name), name),
 				Obj:   c.Source, Player: victim.Player})
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: run the victim's chosen
+			// body (the "villainous" resume arm's choice, ResumeModes order)
+			// and go on to the next victim.
+			var names []string
+			if len(ans) > 0 && ans[0].Index >= 0 && ans[0].Index < len(choices) {
+				names = []string{choices[ans[0].Index]}
+			}
+			if villainousRunChoice(h, c, sa, names) {
+				return
+			}
+			c.VillainousIndex++
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return
 		}
@@ -373,6 +372,29 @@ func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
 	// exhausted cursor and asks nobody.
 	c.VillainousVictims = nil
 	c.VillainousIndex = 0
+}
+
+// villainousRunChoice runs the current victim's chosen body (names) and
+// reports a legacy suspension inside it, on which it records the primitive's
+// own continuation: the chosen body posed a nested mid-resolution ask
+// (DBSac's sacrifice picker is the live carrier), so the remaining victims
+// are still asked once that ask's chain completes, instead of being
+// stranded (the enclosing Resolve loop would otherwise resume only sa.Sub,
+// nil for a VillainousChoice, and the outer levels would degrade to
+// no-sub-ability Notes).
+func villainousRunChoice(h Host, c *Ctx, sa *cards.SA, names []string) bool {
+	for _, name := range names {
+		if sub := cards.ResolveSVar(c.SVars, name); sub != nil {
+			Resolve(h, c, sub)
+		}
+		if h.Suspended() {
+			h.SuspendVillainousRest(sa, VillainousRest{
+				Victims: append([]state.Target(nil), c.VillainousVictims...),
+				Next:    c.VillainousIndex + 1})
+			return true
+		}
+	}
+	return false
 }
 
 // charmDistinctTargetRun runs a distinct modal Charm with one target group
@@ -621,6 +643,30 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 				Label: CharmModeLabel(cards.ResolveSVar(c.SVars, name), name),
 				Obj:   c.Source, Player: chooser.Player})
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: run this chooser's
+			// chosen body (the "generic_players" arm's choice, ResumeModes
+			// order) exactly as the answered re-entry does, then go on to
+			// the next chooser.
+			name := ""
+			if len(ans) > 0 && ans[0].Index >= 0 && ans[0].Index < len(available) {
+				name = available[ans[0].Index]
+			}
+			if tempRemember {
+				c.Remembered = []state.Target{chooser}
+			}
+			suspended := runBody(name)
+			c.Remembered = append([]state.Target(nil), baselineRemembered...)
+			if suspended {
+				h.SuspendGenericChoiceRest(sa, GenericChoiceRest{
+					Choosers:   append([]state.Target(nil), c.GenericChoosers...),
+					Next:       c.GenericChooserIndex + 1,
+					Remembered: append([]state.Target(nil), baselineRemembered...)})
+				return true
+			}
+			c.GenericChooserIndex++
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return true
 		}
@@ -718,80 +764,7 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 		// to the Charm that asked for it.
 		names := c.Modes
 		c.Modes = nil
-		if charmDistinctTargetRun(h, c, sa, names) {
-			return
-		}
-		if charmCrossModeRun(h, c, sa, names) {
-			return
-		}
-		// Task mvts1, two guards the generic ValidTgts$ pre-ask needs here.
-		//
-		// Coverage: a placement-announced modal resolution asked every CHOSEN
-		// target-bearing mode's targeting in its placement ask (the combined
-		// per-mode ask), but a resume ctx carries only the FIRST of them as
-		// Ctx.OfferedSA (rules' offeredTargetSA returns the first
-		// target-bearing chosen mode). modalOffered detects that derivation
-		// -- OfferedSA set and NOT the Charm root itself -- and marks each
-		// target-bearing mode as covered while it dispatches, so the pre-ask
-		// cannot re-pose the placement question per mode. A mid-resolution
-		// Charm (its own KModes answered) has no modal derivation -- its
-		// OfferedSA is nil or the root's own covered SA -- and its
-		// target-bearing modes keep their real asks.
-		modalOffered := c.OfferedSA != nil && c.OfferedSA.Line != sa.Line
-		// CanRepeatModes$ (CR 601.2b): the covering ask -- the cast
-		// announcement's or the placement ask's ONE target list -- covers the
-		// FIRST occurrence of each target-bearing mode only. A later occurrence
-		// of the same mode must keep its own targeting: OfferedSA is dropped
-		// for the dispatch (chosenTargetsFor's Line match would otherwise skip
-		// it) and the root TargetsOffered marker is shed for it (both pre-ask
-		// gates read it at depth 0), so the mode's own mid-resolution ask --
-		// chosenTargetsFor's for every API, changeZoneChosenTargets's for an
-		// API$ ChangeZone body, which also needs the shared list out of sight
-		// (its len(c.Targets) > 0 placement guard) -- poses for THIS instance.
-		// "Return target creature to its owner's hand" chosen three times then
-		// asks three targets and returns three creatures, instead of silently
-		// re-running the mode against the one shared target. The seen-set is
-		// seeded from Ctx.ModesSeen (rules' charm_rest arm): after a suspension
-		// the re-entry walks only the REST of the multiset, so "first occurrence
-		// in this walk" alone cannot see the instances the earlier passes
-		// already ran.
-		seen := make(map[string]bool, len(names))
-		for _, n := range c.ModesSeen {
-			seen[n] = true
-		}
-		for i, name := range names {
-			if sub := cards.ResolveSVar(c.SVars, name); sub != nil {
-				savedOffered, savedTargets, savedMark := c.OfferedSA, c.Targets, c.TargetsOffered
-				first := !seen[name]
-				seen[name] = true
-				if modalOffered && ModeTargetSpec(sub) != "" {
-					if first {
-						c.OfferedSA = sub
-					} else {
-						c.OfferedSA = nil
-						c.TargetsOffered = false
-						if sub.CompiledAPI() == cards.APIChangeZone || sub.API == "ChangeZone" {
-							c.Targets = nil
-						}
-					}
-				}
-				Resolve(h, c, sub)
-				c.OfferedSA, c.Targets, c.TargetsOffered = savedOffered, savedTargets, savedMark
-			}
-			if h.Suspended() {
-				// A mode's own chain posed a mid-resolution ask: never run the
-				// remaining modes while a decision is pending (Engine.ask
-				// panics on the overwrite). Report the rest as a charm-rest
-				// continuation, the same report the cross-mode runner makes,
-				// so they run once the answer lands. An empty rest (this was
-				// the LAST mode) is reported too, so the Charm re-enters to
-				// walk its own Sub instead of the enclosing loop recording a
-				// plain continuation that degrades to a false no-sub-ability
-				// Note.
-				h.SuspendCharmRest(sa, names[i+1:])
-				return
-			}
-		}
+		charmRunModes(h, c, sa, names)
 		return
 	}
 	// Subs is resolved once per choice, so the label (SpellDescription$ on
@@ -858,6 +831,19 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 			Index: i, Kind: "mode", Label: CharmModeLabel(subs[i], name),
 			Obj: c.Source, Player: c.Controller})
 	}
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand (its record wrote the
+		// ModeChosen marker): run the chosen modes, named exactly as the
+		// "modes" resume arm names them (modeAnswerNames: Choices$ order).
+		names := make([]string, 0, len(ans))
+		for _, o := range ans {
+			if o.Index >= 0 && o.Index < len(cp.Modes) {
+				names = append(names, cp.Modes[o.Index])
+			}
+		}
+		charmRunModes(h, c, sa, names)
+		return
+	}
 	if Ask(h, d) == AskAsked {
 		return // resolution suspended; the answer re-enters this effect with Ctx.Modes set.
 	}
@@ -870,6 +856,88 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 		Text: "chose its first mode (no engine host to ask)"})
 	if subs[0] != nil {
 		Resolve(h, c, subs[0])
+	}
+}
+
+// charmRunModes runs a Charm's chosen modes (names, in execution order) and,
+// when a mode's chain suspends on a legacy ask, reports the rest as a
+// charm-rest continuation. It is the answered-modes half of effCharm, shared
+// by the legacy re-entry (Ctx.Modes set by the resume arm) and the
+// resolution kernel's tape answer.
+func charmRunModes(h Host, c *Ctx, sa *cards.SA, names []string) {
+	if charmDistinctTargetRun(h, c, sa, names) {
+		return
+	}
+	if charmCrossModeRun(h, c, sa, names) {
+		return
+	}
+	// Task mvts1, two guards the generic ValidTgts$ pre-ask needs here.
+	//
+	// Coverage: a placement-announced modal resolution asked every CHOSEN
+	// target-bearing mode's targeting in its placement ask (the combined
+	// per-mode ask), but a resume ctx carries only the FIRST of them as
+	// Ctx.OfferedSA (rules' offeredTargetSA returns the first
+	// target-bearing chosen mode). modalOffered detects that derivation
+	// -- OfferedSA set and NOT the Charm root itself -- and marks each
+	// target-bearing mode as covered while it dispatches, so the pre-ask
+	// cannot re-pose the placement question per mode. A mid-resolution
+	// Charm (its own KModes answered) has no modal derivation -- its
+	// OfferedSA is nil or the root's own covered SA -- and its
+	// target-bearing modes keep their real asks.
+	modalOffered := c.OfferedSA != nil && c.OfferedSA.Line != sa.Line
+	// CanRepeatModes$ (CR 601.2b): the covering ask -- the cast
+	// announcement's or the placement ask's ONE target list -- covers the
+	// FIRST occurrence of each target-bearing mode only. A later occurrence
+	// of the same mode must keep its own targeting: OfferedSA is dropped
+	// for the dispatch (chosenTargetsFor's Line match would otherwise skip
+	// it) and the root TargetsOffered marker is shed for it (both pre-ask
+	// gates read it at depth 0), so the mode's own mid-resolution ask --
+	// chosenTargetsFor's for every API, changeZoneChosenTargets's for an
+	// API$ ChangeZone body, which also needs the shared list out of sight
+	// (its len(c.Targets) > 0 placement guard) -- poses for THIS instance.
+	// "Return target creature to its owner's hand" chosen three times then
+	// asks three targets and returns three creatures, instead of silently
+	// re-running the mode against the one shared target. The seen-set is
+	// seeded from Ctx.ModesSeen (rules' charm_rest arm): after a suspension
+	// the re-entry walks only the REST of the multiset, so "first occurrence
+	// in this walk" alone cannot see the instances the earlier passes
+	// already ran.
+	seen := make(map[string]bool, len(names))
+	for _, n := range c.ModesSeen {
+		seen[n] = true
+	}
+	for i, name := range names {
+		if sub := cards.ResolveSVar(c.SVars, name); sub != nil {
+			savedOffered, savedTargets, savedMark := c.OfferedSA, c.Targets, c.TargetsOffered
+			first := !seen[name]
+			seen[name] = true
+			if modalOffered && ModeTargetSpec(sub) != "" {
+				if first {
+					c.OfferedSA = sub
+				} else {
+					c.OfferedSA = nil
+					c.TargetsOffered = false
+					if sub.CompiledAPI() == cards.APIChangeZone || sub.API == "ChangeZone" {
+						c.Targets = nil
+					}
+				}
+			}
+			Resolve(h, c, sub)
+			c.OfferedSA, c.Targets, c.TargetsOffered = savedOffered, savedTargets, savedMark
+		}
+		if h.Suspended() {
+			// A mode's own chain posed a mid-resolution ask: never run the
+			// remaining modes while a decision is pending (Engine.ask
+			// panics on the overwrite). Report the rest as a charm-rest
+			// continuation, the same report the cross-mode runner makes,
+			// so they run once the answer lands. An empty rest (this was
+			// the LAST mode) is reported too, so the Charm re-enters to
+			// walk its own Sub instead of the enclosing loop recording a
+			// plain continuation that degrades to a false no-sub-ability
+			// Note.
+			h.SuspendCharmRest(sa, names[i+1:])
+			return
+		}
 	}
 }
 

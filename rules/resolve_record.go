@@ -9,7 +9,10 @@ package rules
 // continues with the answer.
 
 import (
+	"strings"
+
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
 )
 
 // tapeAnswerRecord writes d's answer record for the acting intent in (the
@@ -21,7 +24,15 @@ func tapeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent) {
 		if n := len(e.G.Stack); n > 0 {
 			obj = e.G.Stack[n-1] // the resolving object stays on the stack
 		}
-		recordModesAnswer(e, d, in.Player, d.Chosen(in), obj)
+		if k := d.ResumeKind; k == "villainous" || k == "generic_players" {
+			// A per-victim / per-chooser pick: handleModes' own arms
+			// record only the ModeChosen marker (no SetChosenMode, no
+			// ChoiceRestriction$ record).
+			e.emit(events.Event{Kind: events.ModeChosen, Obj: obj, Player: in.Player,
+				Text: strings.Join(chosenModeLabels(d.Chosen(in)), ",")})
+		} else {
+			recordModesAnswer(e, d, in.Player, d.Chosen(in), obj)
+		}
 	case decision.KArrange:
 		arrangeAnswerRecord(e, d, in, d.ResumeSA)
 	}

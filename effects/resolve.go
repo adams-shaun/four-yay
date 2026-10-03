@@ -793,10 +793,19 @@ func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 				// Pose the repeat election that iteration i's body has not
 				// yet earned (CR 608.2c's do/while). The election concerns
 				// iteration i, so a yes resumes the body at i, not i+1.
-				if !poseRepeatOptionalElection(h, c, sa, i) {
-					return // R-9: a host that cannot answer stops here.
+				if yes, tape := repeatOptionalElectionTape(h, c, sa, i); tape {
+					// The resolution kernel's answer in hand: a yes runs
+					// iteration i's body now (the "repeat_optional" arm's
+					// continuation), a no ends the loop.
+					if !yes {
+						return
+					}
+				} else {
+					if !poseRepeatOptionalElection(h, c, sa, i) {
+						return // R-9: a host that cannot answer stops here.
+					}
+					return
 				}
-				return
 			}
 			// A counted or gated Repeat owes no election: iteration i runs.
 		}
@@ -851,6 +860,15 @@ func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 					Text: "the repeated process changed nothing; it is not offered again"})
 				return
 			}
+			if yes, tape := repeatOptionalElectionTape(h, c, sa, i+1); tape {
+				// The resolution kernel's answer in hand: a yes runs
+				// iteration i+1's body (the "repeat_optional" arm's
+				// continuation), a no ends the loop.
+				if !yes {
+					return
+				}
+				continue
+			}
 			if !poseRepeatOptionalElection(h, c, sa, i+1) {
 				return // R-9: a host that cannot answer stops after one pass.
 			}
@@ -889,6 +907,22 @@ func repeatGateEvaluates(h Host, c *Ctx, sa *cards.SA, check, cmp, defined, pres
 // one. It returns h.Ask(d): false when the host cannot answer, the R-9
 // deterministic stop after one pass.
 func poseRepeatOptionalElection(h Host, c *Ctx, sa *cards.SA, next int32) bool {
+	return h.Ask(repeatOptionalDecision(c, sa, next))
+}
+
+// repeatOptionalElectionTape asks the same election through the resolution
+// kernel (AskTape): tape reports that the answer is in hand, and yes is it.
+// !tape means the caller takes the legacy ask.
+func repeatOptionalElectionTape(h Host, c *Ctx, sa *cards.SA, next int32) (yes, tape bool) {
+	ans, ok := AskTape(h, repeatOptionalDecision(c, sa, next))
+	if !ok {
+		return false, false
+	}
+	return len(ans) > 0 && ans[0].Kind == "yes", true
+}
+
+// repeatOptionalDecision is the RepeatOptional$ election for iteration next.
+func repeatOptionalDecision(c *Ctx, sa *cards.SA, next int32) *decision.Decision {
 	player := c.Controller
 	if strings.TrimSpace(sa.Params["RepeatOptionalDecider"]) == "Remembered" {
 		for _, t := range c.Remembered {
@@ -904,7 +938,7 @@ func poseRepeatOptionalElection(h Host, c *Ctx, sa *cards.SA, next int32) bool {
 		ResumeRepeatNext: next,
 		Options: []decision.Option{{Index: 0, Kind: "yes", Label: "Repeat", Player: player},
 			{Index: 1, Kind: "no", Label: "Stop", Player: player}}}
-	return h.Ask(d)
+	return d
 }
 
 // repeatGateHolds evaluates one Repeat's between-iteration gate -- the
