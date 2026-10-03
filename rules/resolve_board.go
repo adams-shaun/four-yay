@@ -50,6 +50,13 @@ type engineResolveKernel struct {
 	// through the kernel (windowAsk): its own holder is open by design, so
 	// Busy looks past it. Transient within one ask.
 	tapeWindowAsking bool `clone:"reset"`
+	// tapeEpoch counts the kernel's restores of this engine. A restore
+	// rewinds the engine's state in place under the same Game and Log
+	// pointers and the re-run then logs past the recorded prefix again, so a
+	// reader that caches derived facts by log position (botpolicy's
+	// incremental board, through BoardReadKey) cannot see the rewind; the
+	// epoch is part of that key.
+	tapeEpoch uint32 `clone:"deep"`
 }
 
 // resolveBoard is the Engine itself under the kernel's method set: asResolve
@@ -156,7 +163,7 @@ func (b *resolveBoard) Restore(cp *resolve.Checkpoint, evEnd int) {
 	s0 := cp.S0.(*Engine)
 	g, l := e.G, e.L
 	arenaOn := e.decArena != nil && e.decArena.owner == e && e.decArena.on
-	kernel := e.tape
+	kernel, epoch := e.tape, e.tapeEpoch+1
 	hook, stats := e.ManaAbilityHook, e.paymentStats
 	if hook == nil && stats == nil {
 		hook, stats = e.tapeHeldHook, e.tapeHeldStats // already parked
@@ -186,7 +193,7 @@ func (b *resolveBoard) Restore(cp *resolve.Checkpoint, evEnd int) {
 	sc.L = l
 	*e = *sc
 	e.G, e.L = g, l
-	e.tape = kernel
+	e.tape, e.tapeEpoch = kernel, epoch
 	if arena != nil {
 		e.decArena = arena
 	}
