@@ -66,19 +66,20 @@ func (e *Engine) paradigmMayPlay(p state.PlayerID, o *state.Object) bool {
 	if e.G.Step != state.StepMain1 || e.G.Active != p {
 		return false
 	}
-	if e.putOnStackThisTurn(o.ID) {
+	if putOnStackThisTurn(e.L.Events, o.ID) {
 		return false
 	}
 	return e.paradigmResolved(p, o.Face().Name)
 }
 
 // putOnStackThisTurn reports whether the object id was put on the stack (cast)
-// since the last TurnChange. Log-derived, like spellsCastThisTurn, so a
+// since the last TurnChange in log. Log-derived, like spellsCastThisTurn, so a
 // replayed game derives the same answer. The card keeps its id across
-// exile -> stack -> exile, so its own PutOnStack names it.
-func (e *Engine) putOnStackThisTurn(id state.ObjID) bool {
-	for i := len(e.L.Events) - 1; i >= 0; i-- {
-		ev := e.L.Events[i]
+// exile -> stack -> exile, so its own PutOnStack names it. A free function,
+// not an Engine method (the engineMethodCount ratchet).
+func putOnStackThisTurn(log []events.Event, id state.ObjID) bool {
+	for i := len(log) - 1; i >= 0; i-- {
+		ev := log[i]
 		if ev.Kind == events.TurnChange {
 			return false
 		}
