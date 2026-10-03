@@ -53,8 +53,8 @@ const (
 	// 1302 -> 814. The same rewrite over rules/trigmatch's moved matchers
 	// (W5 E3, ValidSA/Static): 805 -> 798. W4 slice 4 added 56 keys (250 of
 	// the 254 a uint8 ParamKey can name) and migrated rules/chars too:
-	// 798 -> 630.
-	stringParamReads = 630
+	// 798 -> 630 -> 629 (loop-bugs: effReveal reads RevealDefined$ once).
+	stringParamReads = 629
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	stringCaseLiterals = 2886
