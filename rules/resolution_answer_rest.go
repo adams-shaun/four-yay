@@ -1,4 +1,4 @@
-// resolution_answer_rest.go holds the second half of resumeResolution's answer-binding switch: the counter, hidden-pick, arrange, token/rest and optional arms, plus the "modes"/"" default arm.
+// resolution_answer_rest.go holds the second half of resumeResolution's answer-binding switch: the counter, hidden-pick, arrange, token/rest and optional arms, plus the mode-answer default arm.
 
 // Code moved verbatim out of rules/resolution.go (moving code only; the
 // suspension/resumption mechanism is documented at the top of resolution.go).
@@ -7,7 +7,6 @@ package rules
 import (
 	"strings"
 
-	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
@@ -18,8 +17,7 @@ import (
 // into the resumed Ctx. It never stops the resolution itself; the caller
 // continues with its completion tail either way. It is invoked ONLY for a
 // kind resumeAnswerBinding does not own (its handled=false) — an owned kind
-// must never be re-bound here, or its arm would run twice and the default
-// arm below would clobber Ctx.Modes to [""] for SAs without Choices$.
+// must never be re-bound here, or its arm would run twice.
 func (e *Engine) resumeAnswerBindingRest(rp *resumePoint, o *state.Object, ctx *effects.Ctx, chosen []decision.Option) {
 	switch rp.kind {
 	case "counter_dist":
@@ -731,20 +729,19 @@ func (e *Engine) resumeAnswerBindingRest(rp *resumePoint, o *state.Object, ctx *
 				}
 			}
 		}
-	default: // "modes", and "" (a pure outer continuation with no answer)
-		// A KWChoice$ pump's modes are keyword labels, not SVar names:
-		// when the asking SA carries no Choices$ but a KWChoice$, the
-		// chosen indexes map against THAT list (effects' effPump re-entry
-		// consumes them as the granted keywords).
-		eligible := []string(nil)
-		if strings.TrimSpace(rp.sa.ParamStr(cards.PKChoices)) == "" {
-			if kw := strings.TrimSpace(rp.sa.Params["KWChoice"]); kw != "" {
-				eligible = strings.Split(kw, ",")
-				for i := range eligible {
-					eligible[i] = strings.TrimSpace(eligible[i])
-				}
-			}
+	default:
+		// Only a mode answer may write Ctx.Modes: it is a one-shot answer
+		// the FIRST mode reader of the walk consumes (rules/resume_modes.go,
+		// TestResumeModesBoundOnlyByModeAnswers). Every other kind -- ""
+		// (a pure outer continuation), the RepeatOptional$ yes/no, a
+		// NameCard answer -- keeps what resumeResolution seeded. They used to
+		// fall into this binding too, which wrote modeChoiceNames(an SA
+		// without Choices$, the answer) = [""]: the next mode reader on the
+		// walk took it as its own already-chosen modes, so Forbidden Ritual's
+		// repeated GenericChoice read chooser index -1 and panicked (cardfuzz
+		// seed 18319407183030670816) and Liar's Pendulum's guess ran nothing.
+		if isModeAnswerKind(rp.kind) {
+			ctx.Modes = modeAnswerNames(rp.sa, chosen)
 		}
-		ctx.Modes = modeChoiceNames(rp.sa, chosen, eligible)
 	}
 }

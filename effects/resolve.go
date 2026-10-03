@@ -713,6 +713,13 @@ func encodeRemembered(remembered []state.Target) []state.ObjID {
 // sharesCardTypeWithOther one, so those repeat while two milled cards share
 // a colour (a card type), capped by MaxRepeat$ CardsInLibrary.
 func effRepeat(h Host, c *Ctx, sa *cards.SA) {
+	// The RepeatOptional$ continuation is this Repeat's own one-shot answer
+	// (the resume re-enters rp.sa = this Repeat, so it is the first reader):
+	// consume it here, so a later Repeat on the same Ctx -- the next link of
+	// the chain, or one nested in the body -- never reads this election's
+	// answer as its own (a "Stop" used to stop the chained Repeat too).
+	cont := c.RepeatOptional
+	c.RepeatOptional = nil
 	check := strings.TrimSpace(sa.Params["RepeatCheckSVar"])
 	cmp := strings.TrimSpace(sa.Params["RepeatSVarCompare"])
 	defined := strings.TrimSpace(sa.Params["RepeatDefined"])
@@ -757,12 +764,12 @@ func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 	// is distinct from a completed election answered yes, which begins the
 	// next body with no further election (see RepeatOptionalContinuation).
 	askElection := false
-	if c.RepeatOptional != nil {
-		if !c.RepeatOptional.Continue {
+	if cont != nil {
+		if !cont.Continue {
 			return
 		}
-		start = c.RepeatOptional.Next
-		askElection = c.RepeatOptional.AskElection
+		start = cont.Next
+		askElection = cont.AskElection
 	}
 	for i := start; i < n; i++ {
 		if askElection {
