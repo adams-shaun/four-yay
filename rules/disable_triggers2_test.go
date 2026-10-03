@@ -38,6 +38,16 @@ const nowhereToRunStaticFixture = "Name:Nowhere Gate\nTypes:Enchantment\n" +
 // wardCreatureFixture prints no Ward; the grant is added by wardQueueGame.
 const wardCreatureFixture = "Name:Warded Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 
+// printedETBCreatureFixture carries a PRINTED, non-Ward trigger (an enter-the-
+// battlefield draw). Under Nowhere to Run's `ValidTrigger$ Triggered.Ward`
+// static, a ValidCard$-matched opponent's creature must keep this trigger:
+// that is what separates reading ValidTrigger$ from the naive fix (adding the
+// key to the known params and dropping the gate), which would blanket-
+// suppress EVERY trigger of the matched creature.
+const printedETBCreatureFixture = "Name:ETB Bear\nTypes:Creature Bear\n" +
+	"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ TrigDraw | TriggerDescription$ When this enters, draw a card.\n" +
+	"SVar:TrigDraw:DB$ Draw | NumCards$ 1\nOracle:x\n"
+
 // wardQueueGame parks the static (when present) under seat 0 and one warded
 // creature per requested seat on the battlefield, granting each Ward:2 with a
 // layer-6 continuous effect so checkGrantedWardTriggers synthesizes the
@@ -119,6 +129,40 @@ func TestDisableTriggersNowhereToRunSuppressesOpponentWard(t *testing.T) {
 	}
 	if n := wardTriggerCount(t, cE, cIDs[0], 0); n != 1 {
 		t.Fatalf("without the static the opponent's Ward queued %d trigger(s), want 1", n)
+	}
+
+	// D: the anti-blanket assertion that distinguishes this fix from the
+	// naive one. With the SAME Triggered.Ward static out, an OPPONENT's
+	// ValidCard$-matched creature that carries a PRINTED non-Ward trigger
+	// must keep it: ValidTrigger$ is positively matched, it does not turn the
+	// static into "suppress every trigger of the matched creature". A naive
+	// fix (ValidTrigger added to the known params, gate removed) suppresses
+	// this ETB and fails here.
+	dE := newSeats(t, 2)
+	gate := parkObj(t, dE, card(t, nowhereToRunStaticFixture), 0, state.ZBattlefield)
+	if len(dE.activeStatics("DisableTriggers")) != 1 {
+		t.Fatalf("precondition: Triggered.Ward static from %d is not active", gate)
+	}
+	etbCard := card(t, printedETBCreatureFixture)
+	// Precondition: the printed trigger is a NON-Ward trigger (that is what
+	// makes this case sensitive to the trigger-kind gate).
+	if trs := etbCard.Faces[0].Triggers; len(trs) != 1 || trs[0].Params["Ward"] == "True" {
+		t.Fatalf("precondition: ETB creature's printed trigger is not a non-Ward trigger: %+v", trs)
+	}
+	// Precondition: an opponent's battlefield creature really is ValidCard$-
+	// matched, so the only reason this ETB can survive is the ValidTrigger$
+	// gate. Probe with a triggerless OppCtrl permanent, since the ETB source
+	// is still in hand and inZoneBattlefield cannot match it yet.
+	probe := parkObj(t, dE, card(t, "Name:Probe Permanent\nTypes:Creature\nOracle:x\n"), 1, state.ZBattlefield)
+	if !dE.matchesSpec("Creature.OppCtrl+inZoneBattlefield", probe, dE.specCtx(gate, 0)) {
+		t.Fatalf("precondition: opponent's battlefield permanent %d is not ValidCard$-matched", probe)
+	}
+	etbID := parkObj(t, dE, etbCard, 1, state.ZHand)
+	if n := countQueued(dE, etbID, state.ZHand, state.ZBattlefield); n != 1 {
+		t.Fatalf("Triggered.Ward static suppressed a non-Ward printed trigger of the matched creature (queued %d, want 1)", n)
+	}
+	if o := dE.G.Obj(etbID); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("precondition: ETB creature did not enter the battlefield: %+v", o)
 	}
 }
 
