@@ -40,7 +40,7 @@ func GenericChoiceAtRandom(sa *cards.SA) bool {
 	if sa == nil || sa.API != "GenericChoice" {
 		return false
 	}
-	v := strings.TrimSpace(sa.ParamStr(cards.PKAtRandom))
+	v := CharmOf(sa).AtRandom
 	return strings.EqualFold(v, "True") || v == "Urza"
 }
 
@@ -52,7 +52,7 @@ func GenericChoiceAtRandom(sa *cards.SA) bool {
 // consuming the rng.
 func genericChoiceRandomPick(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID, names []string) string {
 	pool := names
-	if strings.TrimSpace(sa.ParamStr(cards.PKAtRandom)) == "Urza" {
+	if CharmOf(sa).AtRandom == "Urza" {
 		pool = make([]string, 0, len(names))
 		for _, name := range names {
 			if genericChoiceTargetsFeasible(h, c, chooser, cards.ResolveSVar(c.SVars, name)) {
@@ -139,5 +139,5 @@ func ChooseTypeAtRandom(sa *cards.SA) bool {
 // chooses); it rides the ask as decision.Decision.AIRandom so unattended
 // bots answer from their own seeded rng.
 func aiLogicRandom(sa *cards.SA) bool {
-	return sa != nil && strings.TrimSpace(sa.ParamStr(cards.PKAILogic)) == "Random"
+	return sa != nil && CharmOf(sa).AILogicRandom
 }
