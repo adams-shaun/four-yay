@@ -142,7 +142,7 @@ func (e *Engine) disableTriggersExcludes(t cards.Trigger, source state.ObjID, ev
 // among the corpus's DisableTriggers carriers -- is modelled, and it names
 // the Ward trigger checkGrantedWardTriggers synthesizes from the derived
 // keyword list, which the engine marks with Params["Ward"] == "True"
-// (rules/trigmatch_misc.go). Any other qualifier is unmodelled and fails
+// (rules/trigmatch/actions.go). Any other qualifier is unmodelled and fails
 // closed, so an unknown value makes the whole static fail open rather than
 // blanket-suppress every trigger of the matched creature -- the same
 // discipline replacement_match.go's Triggered.Modular branch follows.

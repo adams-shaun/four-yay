@@ -19,7 +19,6 @@ package rules
 import (
 	"fmt"
 
-	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
@@ -219,26 +218,6 @@ func (e *Engine) applyEnlist(attacker, enlisted state.ObjID) {
 	})
 }
 
-// enlistedMatches implements Mode$ Enlisted ("Whenever CARDNAME enlists a
-// creature"): the Enlist event's Obj is the ATTACKING creature that enlisted
-// (ValidCard$ Card.Self names the trigger's own source), and its IDs[0] the
-// creature it tapped, which ValidEnlisted$ filters (Goblin Morale Sergeant's
-// Creature.!token).
-func (e *Engine) enlistedMatches(t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
-	if ev.Kind != events.Enlist || len(ev.IDs) == 0 {
-		return false
-	}
-	ctrl := e.controllerOf(source)
-	sc := e.specCtx(source, ctrl)
-	if v := t.ParamStr(cards.PKValidCard); v != "" && !e.matchesSpec(v, ev.Obj, sc) {
-		return false
-	}
-	if v := t.Params["ValidEnlisted"]; v != "" && !e.matchesSpec(v, ev.IDs[0], sc) {
-		return false
-	}
-	return true
-}
-
 func init() {
 	// enlist1: the `K:Enlist` keyword (CR 702.160) is engine-owned -- the
 	// election, the Enlist event and the +X/+0 pump live in this file, and
@@ -246,5 +225,4 @@ func init() {
 	// Registered as non-API primitives so the coverage census reads the
 	// carriers as playable.
 	effects.RegisterNonAPI("kw:Enlist", "trig:Enlisted")
-	registerTrigMatcher((*Engine).enlistedMatches, "Enlisted")
 }

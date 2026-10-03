@@ -30,7 +30,6 @@ var sizeOnlyFileNamesAllowed = map[string]bool{
 	"rules/raise_cost_extra.go":       true,
 	"rules/resolution_answer_rest.go": true,
 	"rules/token_rest.go":             true,
-	"rules/trigmatch_misc.go":         true,
 }
 
 // TestNoNewSizeOnlyFileNames is the rules-engine refactor spec's W0 file-name

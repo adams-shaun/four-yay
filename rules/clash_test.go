@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -203,19 +204,19 @@ func TestClashTriggerModeReadsWonOrientation(t *testing.T) {
 		t.Fatal("test precondition: win and loss events carry the same amount")
 	}
 
-	if !e.clashMatches(winTrue, src, win0, nil) {
+	if !trigmatch.ClashMatches(boardOf(e), winTrue, src, win0, nil) {
 		t.Error("Won$ True line rejected the matching win")
 	}
-	if e.clashMatches(winTrue, src, loss0, nil) {
+	if trigmatch.ClashMatches(boardOf(e), winTrue, src, loss0, nil) {
 		t.Error("Won$ True line accepted a loss")
 	}
-	if e.clashMatches(winTrue, src, win1, nil) {
+	if trigmatch.ClashMatches(boardOf(e), winTrue, src, win1, nil) {
 		t.Error("ValidPlayer$ You line accepted another seat's win")
 	}
-	if !e.clashMatches(winFalse, src, loss0, nil) {
+	if !trigmatch.ClashMatches(boardOf(e), winFalse, src, loss0, nil) {
 		t.Error("Won$ False line rejected the matching loss")
 	}
-	if e.clashMatches(winFalse, src, win0, nil) {
+	if trigmatch.ClashMatches(boardOf(e), winFalse, src, win0, nil) {
 		t.Error("Won$ False line accepted a win")
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -161,7 +162,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		}
 		c.TriggerSource = c.TriggerCard
 	case "Taps":
-		c.TriggerActivator = player(e.tapActor(ev))
+		c.TriggerActivator = player(trigmatch.TapActor(boardOf(e), ev))
 	case "ChangesZone", "LandPlayed":
 		c.TriggerCard = ev.Obj
 	case "Milled", "MilledAll":
@@ -335,7 +336,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		// the Taps case above binds it; a Tap emitted outside emitTap falls
 		// back to the permanent's controller.
 		c.TriggerPlayer = player(ev.Player)
-		c.TriggerActivator = player(e.tapActor(ev))
+		c.TriggerActivator = player(trigmatch.TapActor(boardOf(e), ev))
 		c.TriggerCard = ev.Obj
 		c.TriggerSource = ev.Obj
 		c.TriggerMana = ev.Counter

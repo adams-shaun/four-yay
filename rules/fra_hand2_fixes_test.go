@@ -11,6 +11,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -48,8 +49,11 @@ func TestAbilityCastValidSALoyaltyTerms(t *testing.T) {
 		{"unknown term fails closed", minus3, "Activated.Loyalty+Bogus", 3, 0, false},
 		{"crew vehicle still unread", tap, "Activated.Crew+Vehicle", 0, 0, false},
 	}
+	// The classifier reads only IsLoyaltyAbility/IsManaAbilityAPI, which
+	// touch no engine state.
+	b := boardOf(&Engine{})
 	for _, c := range cases {
-		if got := abilityCastValidSA(c.ab, c.valid, c.abCtrl, 0, c.removed); got != c.want {
+		if got := trigmatch.AbilityCastValidSA(b, c.ab, c.valid, c.abCtrl, 0, c.removed); got != c.want {
 			t.Errorf("%s: abilityCastValidSA(%q, removed %d) = %v, want %v", c.name, c.valid, c.removed, got, c.want)
 		}
 	}

@@ -24,7 +24,10 @@ and `cmd/gorged` never import `internal/testutil`. Inside the engine, the
 lasagna packages (spec `2026-10-03-rules-engine-lasagna-design.md` §3) are
 pinned as they land: `rules/cost`, the cost vocabulary leaf, imports only
 `state` (`TestCostVocabularyIsALeaf`) and never `rules`, `effects` or a rules
-subsystem package.
+subsystem package; `rules/trigmatch`, the L5 trigger matchers, reads the engine
+only through `trigmatch.Board`, imports only `cards`, `state`, `events`,
+`effects` and `rules/cost` (`TestTrigmatchImportsStayBelowL5`) and never
+`rules` or a sibling L5/L6 package.
 
 - **Why:** the engine core stays testable without the server, and a client can
   never be handed rules knowledge.

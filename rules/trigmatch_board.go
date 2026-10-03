@@ -63,20 +63,25 @@ func (b *trigBoard) FaceDownPrintedHides(o *state.Object) bool {
 	return b.eng().faceDownPrintedHides(o)
 }
 
-func (b *trigBoard) SpecCtx(source state.ObjID, you state.PlayerID) effects.SpecContext {
-	return b.eng().specCtx(source, you)
-}
-
 func (b *trigBoard) PlayerSpecCtx(source state.ObjID) effects.PlayerSpecCtx {
 	return b.eng().playerSpecCtx(source)
 }
 
-func (b *trigBoard) MatchesSpec(spec string, id state.ObjID, sc effects.SpecContext) bool {
-	return b.eng().matchesSpec(spec, id, sc)
+// MatchesSpec and MatchesObject build the filter context here, where it stays
+// on the stack (specCtx inlines and matchesSpec / MatchesObjectCtx do not
+// leak it), and apply the matcher's overrides to it.
+func (b *trigBoard) MatchesSpec(spec string, id, source state.ObjID, you state.PlayerID, o trigmatch.SpecOpts) bool {
+	e := b.eng()
+	sc := e.specCtx(source, you)
+	sc.DelayedRemembered, sc.ExtraTypes, sc.Layers.StaticGoads = o.DelayedRemembered, o.ExtraTypes, o.StaticGoads
+	return e.matchesSpec(spec, id, sc)
 }
 
-func (b *trigBoard) MatchesSpecFrom(spec string, id state.ObjID, you state.PlayerID, source state.ObjID) bool {
-	return b.eng().matchesSpecFrom(spec, id, you, source)
+func (b *trigBoard) MatchesObject(spec string, obj *state.Object, source state.ObjID, you state.PlayerID, o trigmatch.SpecOpts) bool {
+	e := b.eng()
+	sc := e.specCtx(source, you)
+	sc.DelayedRemembered, sc.ExtraTypes, sc.Layers.StaticGoads = o.DelayedRemembered, o.ExtraTypes, o.StaticGoads
+	return effects.MatchesObjectCtx(e.G, spec, obj, sc)
 }
 
 func (b *trigBoard) BoardLayers() effects.LayerTables { return b.eng().boardLayers() }

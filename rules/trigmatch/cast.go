@@ -7,7 +7,7 @@
 // colliding on one file. Registration is at the bottom; a duplicate mode
 // panics (registerTrigMatcher).
 
-package rules
+package trigmatch
 
 import (
 	"strconv"
@@ -17,6 +17,8 @@ import (
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
+
+	costvocab "github.com/adams-shaun/gorge/rules/cost"
 )
 
 // spellCastMatches implements Mode$ SpellCast: ValidCard$ and
@@ -29,11 +31,11 @@ import (
 // ValidSAonCard$ carries the SAME mana comparison over the cast spell
 // (Ancient Cellarspawn's Spell.ManaSpent LTX); see
 // spellValidSAonCardMatches.
-func (e *Engine) spellCastMatches(t cards.Trigger, source state.ObjID, ev events.Event) bool {
+func spellCastMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event) bool {
 	if ev.Kind != events.PutOnStack {
 		return false
 	}
-	return e.spellCastEval(t, source, ev)
+	return SpellCastEval(e, t, source, ev)
 }
 
 // spellCopyMatches is the copy half of the spell-cast family: Mode$
@@ -48,21 +50,21 @@ func (e *Engine) spellCastMatches(t cards.Trigger, source state.ObjID, ev events
 // (a copy is not a cast) and a SpellCastOrCopy/SpellCopy trigger does not
 // fire on the cast of the spell itself -- that half of the division is
 // spellCastMatches'.
-func (e *Engine) spellCopyMatches(t cards.Trigger, source state.ObjID, ev events.Event) bool {
+func spellCopyMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event) bool {
 	if ev.Kind != events.StackCopy {
 		return false
 	}
-	return e.spellCastEval(t, source, ev)
+	return SpellCastEval(e, t, source, ev)
 }
 
-// spellCastEval is the spell evaluation spellCastMatches and
+// SpellCastEval is the spell evaluation spellCastMatches and
 // spellCopyMatches share, minus the entering-the-stack guard each mode owns:
 // ValidCard$ (through the trigger-side cast alternatives and the
 // cast-provenance qualifiers), ValidActivatingPlayer$, the
 // ActivatorThisTurnCast[Each] counts, ValidSA$ and HasXManaCost$ -- read off
 // ev.Obj (the spell being cast, or the original being copied) and ev.Player
 // (the cast's or the copy's controller) exactly alike.
-func (e *Engine) spellCastEval(t cards.Trigger, source state.ObjID, ev events.Event) bool {
+func SpellCastEval(e Board, t cards.Trigger, source state.ObjID, ev events.Event) bool {
 	// Casting a spell means an actual card entering the stack (a copy
 	// evaluates the ORIGINAL, which Apply's StackCopy case guarantees is on
 	// the stack). This build also uses PutOnStack-shaped Move()s for nothing else today (triggered
@@ -72,11 +74,11 @@ func (e *Engine) spellCastEval(t cards.Trigger, source state.ObjID, ev events.Ev
 	// ValidCard$ regardless (matchesBase's Spell/Any cases don't consult
 	// Face()), so this guard holds regardless of how a future ability-object
 	// path might reach here. Ruling F3.
-	obj := e.G.Obj(ev.Obj)
+	obj := e.Game().Obj(ev.Obj)
 	if obj == nil || obj.Face() == nil {
 		return false
 	}
-	ctrl := e.controllerOf(source)
+	ctrl := e.ControllerOf(source)
 	// The ValidCard alternatives (post trigger-side self-cast exclusion) are
 	// computed ONCE: the cast's own match below and the
 	// ActivatorThisTurnCastEach$ tally must read the same surviving set, so
@@ -84,7 +86,7 @@ func (e *Engine) spellCastEval(t cards.Trigger, source state.ObjID, ev events.Ev
 	// block computed).
 	var castAlts []triggerCastAlt
 	if v, ok := t.Param(cards.PKValidCard); ok {
-		alts, ok2 := e.triggerCastAlternatives(v, source, ev.Obj)
+		alts, ok2 := triggerCastAlternatives(e, v, source, ev.Obj)
 		if !ok2 {
 			return false
 		}
@@ -98,19 +100,19 @@ func (e *Engine) spellCastEval(t cards.Trigger, source state.ObjID, ev events.Ev
 		// The bare wasCastFromYourHandByYou / wasCastByYou qualifiers (the
 		// cast-provenance families, tasks castprov1/castprov2) are split out
 		// and evaluated against the log here; the remainder matches as before.
-		spec, ok3 := e.castProvenanceAdmits(spec, ev.Obj, ctrl)
-		if !ok3 || !e.matchesSpec(spec, ev.Obj, e.specCtx(source, ctrl)) {
+		spec, ok3 := e.CastProvenanceAdmits(spec, ev.Obj, ctrl)
+		if !ok3 || !e.MatchesSpec(spec, ev.Obj, source, ctrl, SpecOpts{}) {
 			return false
 		}
 		castAlts = alts
 	}
 	if v, ok := t.Params["ValidActivatingPlayer"]; ok {
-		if !effects.MatchesPlayerSpecCtx(e.G, v, ev.Player, ctrl, e.playerSpecCtx(source)) {
+		if !effects.MatchesPlayerSpecCtx(e.Game(), v, ev.Player, ctrl, e.PlayerSpecCtx(source)) {
 			return false
 		}
 	}
 	if v, ok := t.Params["ActivatorThisTurnCast"]; ok {
-		if !compareIntCount(int32(e.spellsCastThisTurn(ev.Player)), v) {
+		if !CompareIntCount(int32(e.SpellsCastThisTurn(ev.Player)), v) {
 			return false
 		}
 	}
@@ -141,10 +143,10 @@ func (e *Engine) spellCastEval(t cards.Trigger, source state.ObjID, ev events.Ev
 		// a ValidCard$).
 		fired := false
 		for _, alt := range castAlts {
-			if !e.matchesSpec(alt.spec, ev.Obj, e.specCtx(source, ctrl)) {
+			if !e.MatchesSpec(alt.spec, ev.Obj, source, ctrl, SpecOpts{}) {
 				continue
 			}
-			if compareIntCount(int32(e.spellsCastThisTurnByMatching(ev.Player, alt.spec, alt.exclSelf, source)), v) {
+			if CompareIntCount(int32(spellsCastThisTurnByMatching(e, ev.Player, alt.spec, alt.exclSelf, source)), v) {
 				fired = true
 				break
 			}
@@ -154,7 +156,7 @@ func (e *Engine) spellCastEval(t cards.Trigger, source state.ObjID, ev events.Ev
 		}
 	}
 	if v, ok := t.Params["ValidSA"]; ok {
-		if !e.validSAMatches(source, ev, ctrl, v) {
+		if !ValidSAMatches(e, source, ev, ctrl, v) {
 			return false
 		}
 	}
@@ -168,7 +170,7 @@ func (e *Engine) spellCastEval(t cards.Trigger, source state.ObjID, ev events.Ev
 	// closed on every shape it does not model (an unsupported head stays
 	// silent rather than firing wide).
 	if v, ok := t.Params["ValidSAonCard"]; ok {
-		if !e.spellValidSAonCardMatches(obj, ev, v) {
+		if !spellValidSAonCardMatches(e, obj, ev, v) {
 			return false
 		}
 	}
@@ -182,7 +184,7 @@ func (e *Engine) spellCastEval(t cards.Trigger, source state.ObjID, ev events.Ev
 	// SpellCast gates, the Dethrone/Training precedent read by their own
 	// matchers.
 	if v, ok := t.Params["Increment"]; ok && strings.EqualFold(strings.TrimSpace(v), "True") {
-		if !e.incrementAdmits(source, ev) {
+		if !incrementAdmits(e, source, ev) {
 			return false
 		}
 	}
@@ -193,7 +195,7 @@ func (e *Engine) spellCastEval(t cards.Trigger, source state.ObjID, ev events.Ev
 	// something else. The spell's targets were recorded onto the stack object
 	// by handleTarget BEFORE payCast emitted this PutOnStack (CR 601.2c:
 	// targets are chosen before costs), so obj.Targets is the completed list.
-	if !e.targetShapeMatches(t, obj.Targets, source, ctrl) {
+	if !TargetShapeMatches(e, t, obj.Targets, source, ctrl) {
 		return false
 	}
 	if !hasXManaCostGate(t.Params, obj.Face().ManaCost, nil) {
@@ -202,7 +204,7 @@ func (e *Engine) spellCastEval(t cards.Trigger, source state.ObjID, ev events.Ev
 	return true
 }
 
-// targetShapeMatches implements the two target-shape parameters the
+// TargetShapeMatches implements the two target-shape parameters the
 // cast/activation trigger family carries (task targetsvalid1): TargetsValid$
 // and IsSingleTarget$. Both are read at every trigger arm the family has --
 // the SpellCast/SpellCastOrCopy/SpellCopy arm (spellCastEval), the
@@ -227,7 +229,7 @@ func (e *Engine) spellCastEval(t cards.Trigger, source state.ObjID, ev events.Ev
 // target. A present param with any other value fails closed (the trigger
 // stays silent), per the repo's unreadable-condition convention; a param
 // absent leaves the trigger's behaviour unchanged.
-func (e *Engine) targetShapeMatches(t cards.Trigger, targets []state.Target, source state.ObjID, ctrl state.PlayerID) bool {
+func TargetShapeMatches(e Board, t cards.Trigger, targets []state.Target, source state.ObjID, ctrl state.PlayerID) bool {
 	if v, ok := t.Params["IsSingleTarget"]; ok {
 		if !strings.EqualFold(strings.TrimSpace(v), "True") {
 			return false
@@ -241,7 +243,7 @@ func (e *Engine) targetShapeMatches(t cards.Trigger, targets []state.Target, sou
 			return false
 		}
 		for _, tgt := range targets {
-			if !e.targetMatchesTargetsValid(v, tgt, source, ctrl) {
+			if !targetMatchesTargetsValid(e, v, tgt, source, ctrl) {
 				return false
 			}
 		}
@@ -258,19 +260,19 @@ func (e *Engine) targetShapeMatches(t cards.Trigger, targets []state.Target, sou
 // source-relative predicates read the trigger's own permanent. An object
 // target never matches a player-base alternative and vice versa -- each
 // filter simply answers false for the other's bases.
-func (e *Engine) targetMatchesTargetsValid(spec string, tgt state.Target, source state.ObjID, ctrl state.PlayerID) bool {
+func targetMatchesTargetsValid(e Board, spec string, tgt state.Target, source state.ObjID, ctrl state.PlayerID) bool {
 	for alt := range effects.FilterAlternatives(spec) {
 		alt = strings.TrimSpace(alt)
 		if alt == "" {
 			continue
 		}
 		if tgt.IsPlayer {
-			if effects.MatchesPlayerSpecFrom(e.G, alt, tgt.Player, ctrl, source) {
+			if effects.MatchesPlayerSpecFrom(e.Game(), alt, tgt.Player, ctrl, source) {
 				return true
 			}
 			continue
 		}
-		if tgt.Obj != 0 && e.matchesSpec(alt, tgt.Obj, e.specCtx(source, ctrl)) {
+		if tgt.Obj != 0 && e.MatchesSpec(alt, tgt.Obj, source, ctrl, SpecOpts{}) {
 			return true
 		}
 	}
@@ -292,17 +294,17 @@ func (e *Engine) targetMatchesTargetsValid(spec string, tgt state.Target, source
 // future carrier's card restriction cannot silently widen. The cast-count
 // clauses (ActivatorThisTurnCast*) remain SpellCast-mode parameters no
 // SpellAbilityCast carrier carries.
-func (e *Engine) spellAbilityCastSpellMatches(t cards.Trigger, source state.ObjID, ev events.Event) bool {
-	obj := e.G.Obj(ev.Obj)
+func spellAbilityCastSpellMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event) bool {
+	obj := e.Game().Obj(ev.Obj)
 	if obj == nil || obj.Face() == nil {
 		return false
 	}
-	ctrl := e.controllerOf(source)
+	ctrl := e.ControllerOf(source)
 	if v, ok := t.Params["ValidActivatingPlayer"]; ok {
 		// ev.Player is the player who cast the spell; MatchesPlayerSpecCtx
 		// resolves "You" as the trigger's controller and
 		// Player.EnchantedController against the trigger's source permanent.
-		if !effects.MatchesPlayerSpecCtx(e.G, v, ev.Player, ctrl, e.playerSpecCtx(source)) {
+		if !effects.MatchesPlayerSpecCtx(e.Game(), v, ev.Player, ctrl, e.PlayerSpecCtx(source)) {
 			return false
 		}
 	}
@@ -313,20 +315,20 @@ func (e *Engine) spellAbilityCastSpellMatches(t cards.Trigger, source state.ObjI
 		// corpus's one SpellAbilityCast carrier with the param is the trivial
 		// `Card` (vazi_keen_negotiator), so no live behaviour changes; the
 		// read keeps the first future carrier from widening silently.
-		v, ok := e.castProvenanceAdmits(v, ev.Obj, ctrl)
+		v, ok := e.CastProvenanceAdmits(v, ev.Obj, ctrl)
 		if !ok {
 			return false
 		}
-		if !e.matchesSpec(spellCastPermanentSpec(v), ev.Obj, e.specCtx(source, ctrl)) {
+		if !e.MatchesSpec(SpellCastPermanentSpec(v), ev.Obj, source, ctrl, SpecOpts{}) {
 			return false
 		}
 	}
 	if v, ok := t.Params["ValidSA"]; ok {
-		if !e.spellAbilityCastSpellValidSA(obj, v, ctrl, e.specCtx(source, ctrl)) {
+		if !spellAbilityCastSpellValidSA(e, obj, v, source, ctrl) {
 			return false
 		}
 	}
-	if !e.targetShapeMatches(t, obj.Targets, source, ctrl) {
+	if !TargetShapeMatches(e, t, obj.Targets, source, ctrl) {
 		return false
 	}
 	if !hasXManaCostGate(t.Params, obj.Face().ManaCost, nil) {
@@ -355,7 +357,7 @@ func (e *Engine) spellAbilityCastSpellMatches(t cards.Trigger, source state.ObjI
 // An alternative this reading cannot resolve is skipped; the trigger fires
 // only when at least one alternative matches (an unresolvable clause fails
 // closed, the repo's convention).
-func (e *Engine) spellAbilityCastSpellValidSA(obj *state.Object, validSA string, ctrl state.PlayerID, sc effects.SpecContext) bool {
+func spellAbilityCastSpellValidSA(e Board, obj *state.Object, validSA string, source state.ObjID, ctrl state.PlayerID) bool {
 	v := strings.TrimSpace(validSA)
 	if v == "" {
 		return true
@@ -385,7 +387,7 @@ func (e *Engine) spellAbilityCastSpellValidSA(obj *state.Object, validSA string,
 		default:
 			// Spell / Instant / Sorcery / Card / Permanent / no kind -- the
 			// ordinary object filter over the cast spell.
-			if e.matchesSpec(alt, obj.ID, sc) {
+			if e.MatchesSpec(alt, obj.ID, source, ctrl, SpecOpts{}) {
 				return true
 			}
 		}
@@ -393,18 +395,18 @@ func (e *Engine) spellAbilityCastSpellValidSA(obj *state.Object, validSA string,
 	return false
 }
 
-// spellAbilityCastMatches is Mode$ SpellAbilityCast's dispatcher (the
+// SpellAbilityCastMatches is Mode$ SpellAbilityCast's dispatcher (the
 // spell-or-activate union): an AbilityPush or KeywordAbilityPush event routes
 // to the activation arm, a PutOnStack to the spell arm. A named
 // method, not an inline func literal, so the param census (the rot guard)
 // attributes both arms' trigger-param reads to this mode through the one
 // dispatch function.
-func (e *Engine) spellAbilityCastMatches(t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+func SpellAbilityCastMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
 	switch ev.Kind {
 	case events.AbilityPush, events.KeywordAbilityPush:
-		return e.abilityCastMatches(t, source, ev)
+		return abilityCastMatches(e, t, source, ev)
 	case events.PutOnStack:
-		return e.spellAbilityCastSpellMatches(t, source, ev)
+		return spellAbilityCastSpellMatches(e, t, source, ev)
 	}
 	return false
 }
@@ -423,19 +425,19 @@ func (e *Engine) spellAbilityCastMatches(t cards.Trigger, source state.ObjID, ev
 // card whose face has no Abilities at the recorded index (stale data) is
 // a no-op, never a panic. A keyword line without a synthesizable ability
 // also fails closed.
-func (e *Engine) abilityCastMatches(t cards.Trigger, source state.ObjID, ev events.Event) bool {
+func abilityCastMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event) bool {
 	if ev.Kind != events.AbilityPush && ev.Kind != events.KeywordAbilityPush {
 		return false
 	}
-	obj := e.G.Obj(ev.Obj)
+	obj := e.Game().Obj(ev.Obj)
 	if obj == nil || obj.Face() == nil {
 		return false
 	}
-	ctrl := e.controllerOf(source)
+	ctrl := e.ControllerOf(source)
 	if v, ok := t.Params["ValidActivatingPlayer"]; ok {
 		// ev.Player is the player who activated the ability;
 		// MatchesPlayerSpecCtx resolves "You" as the trigger's controller.
-		if !effects.MatchesPlayerSpecCtx(e.G, v, ev.Player, ctrl, e.playerSpecCtx(source)) {
+		if !effects.MatchesPlayerSpecCtx(e.Game(), v, ev.Player, ctrl, e.PlayerSpecCtx(source)) {
 			return false
 		}
 	}
@@ -463,21 +465,21 @@ func (e *Engine) abilityCastMatches(t cards.Trigger, source state.ObjID, ev even
 	// activated. It is distinct from the trigger source: Avalanche of Sector
 	// 7's Artifact restriction must reject an ability from a non-artifact.
 	if v, ok := t.Param(cards.PKValidCard); ok {
-		if !e.matchesSpec(v, obj.ID, e.specCtx(source, ctrl)) {
+		if !e.MatchesSpec(v, obj.ID, source, ctrl, SpecOpts{}) {
 			return false
 		}
 	}
 	removed := int32(-1)
 	if strings.Contains(t.Params["ValidSA"], "CountersRemovedToPay") || strings.Contains(t.Params["ValidSAonCard"], "CountersRemovedToPay") {
-		removed = e.activationCountersRemoved(ev, ab)
+		removed = activationCountersRemoved(e, ev, ab)
 	}
 	if v, ok := t.Params["ValidSA"]; ok {
-		if ab == nil || !abilityCastValidSA(ab, v, obj.Controller, ctrl, removed) {
+		if ab == nil || !AbilityCastValidSA(e, ab, v, obj.Controller, ctrl, removed) {
 			return false
 		}
 	}
 	if v, ok := t.Params["ValidSAonCard"]; ok {
-		if ab == nil || !abilityCastValidSA(ab, v, ev.Player, obj.Controller, removed) {
+		if ab == nil || !AbilityCastValidSA(e, ab, v, ev.Player, obj.Controller, removed) {
 			return false
 		}
 	}
@@ -490,14 +492,14 @@ func (e *Engine) abilityCastMatches(t cards.Trigger, source state.ObjID, ev even
 	// targets; at that point read the minted ability stack object's event-backed
 	// Targets rather than the source permanent's (unrelated) target list.
 	tgts := obj.Targets
-	if pc := e.cast; pc != nil && pc.isAbility() && pc.card == ev.Obj {
-		tgts = pc.targets
-	} else if stack := e.abilityCastStackObject(ev.Obj); stack != 0 {
-		if stackObj := e.G.Obj(stack); stackObj != nil {
+	if act, ok := e.LiveActivation(ev.Obj); ok {
+		tgts = act.Targets
+	} else if stack := e.AbilityCastStackObject(ev.Obj); stack != 0 {
+		if stackObj := e.Game().Obj(stack); stackObj != nil {
 			tgts = stackObj.Targets
 		}
 	}
-	if !e.targetShapeMatches(t, tgts, source, ctrl) {
+	if !TargetShapeMatches(e, t, tgts, source, ctrl) {
 		return false
 	}
 	// HasXManaCost$ reads the same body as ValidSA$: a printed pile index
@@ -508,7 +510,7 @@ func (e *Engine) abilityCastMatches(t cards.Trigger, source state.ObjID, ev even
 	return true
 }
 
-// abilityCastValidSA reports whether an activated ability matches a ValidSA$
+// AbilityCastValidSA reports whether an activated ability matches a ValidSA$
 // narrowing on an AbilityCast/SpellAbilityCast trigger. The grammar is Forge's
 // comma-separated OR list of "<kind>.<constraint>" values; a value whose kind
 // names a spell (Spell/Instant/Sorcery) describes a cast, not an activation,
@@ -518,7 +520,7 @@ func (e *Engine) abilityCastMatches(t cards.Trigger, source state.ObjID, ev even
 // source's controller: a YouCtrl constraint holds when the two agree
 // (bill_potts' Activated.YouCtrl; the spell half resolves its own YouCtrl
 // through the ordinary filter).
-func abilityCastValidSA(ab *cards.SA, validSA string, abCtrl, ctrl state.PlayerID, removed int32) bool {
+func AbilityCastValidSA(b Board, ab *cards.SA, validSA string, abCtrl, ctrl state.PlayerID, removed int32) bool {
 	v := strings.TrimSpace(validSA)
 	if v == "" {
 		return true
@@ -537,7 +539,7 @@ func abilityCastValidSA(ab *cards.SA, validSA string, abCtrl, ctrl state.PlayerI
 		}
 		switch kind {
 		case "SpellAbility", "Activated", "":
-			if abilityCastConstraintHolds(ab, constraint, abCtrl, ctrl, removed) {
+			if abilityCastConstraintHolds(b, ab, constraint, abCtrl, ctrl, removed) {
 				return true
 			}
 		}
@@ -556,7 +558,7 @@ func abilityCastValidSA(ab *cards.SA, validSA string, abCtrl, ctrl state.PlayerI
 // Sculptor's "if you removed two or more loyalty counters to activate it")
 // compares the counters the activation removed as its cost; removed < 0
 // means the caller could not establish that count, and the term fails closed.
-func abilityCastConstraintHolds(ab *cards.SA, constraint string, abCtrl, ctrl state.PlayerID, removed int32) bool {
+func abilityCastConstraintHolds(b Board, ab *cards.SA, constraint string, abCtrl, ctrl state.PlayerID, removed int32) bool {
 	if constraint == "" {
 		return true
 	}
@@ -564,21 +566,21 @@ func abilityCastConstraintHolds(ab *cards.SA, constraint string, abCtrl, ctrl st
 		ok := false
 		switch term {
 		case "!ManaAbility":
-			ok = !isManaAbilityAPI(ab.API)
+			ok = !b.IsManaAbilityAPI(ab.API)
 		case "ManaAbility":
-			ok = isManaAbilityAPI(ab.API)
+			ok = b.IsManaAbilityAPI(ab.API)
 		case "YouCtrl":
 			ok = abCtrl == ctrl
 		case "OppCtrl":
 			ok = abCtrl != ctrl
 		case "Loyalty":
-			ok = isLoyaltyAbility(ab)
+			ok = b.IsLoyaltyAbility(ab)
 		case "!Loyalty":
-			ok = !isLoyaltyAbility(ab)
+			ok = !b.IsLoyaltyAbility(ab)
 		default:
 			if cmp, found := strings.CutPrefix(term, "CountersRemovedToPay"); found && removed >= 0 {
-				if op, n, valid := splitCompare(cmp); valid {
-					ok = applyCompare(int(removed), op, n)
+				if op, n, valid := SplitCompare(cmp); valid {
+					ok = ApplyCompare(int(removed), op, n)
 				}
 			}
 		}
@@ -597,23 +599,15 @@ func abilityCastConstraintHolds(ab *cards.SA, constraint string, abCtrl, ctrl st
 // N, an announced (SubCounter<X/...>) part counts the announced X. With no
 // live activation for ev the printed cost answers when every part is fixed;
 // an announced part then makes the count unknown (-1, failing closed).
-func (e *Engine) activationCountersRemoved(ev events.Event, ab *cards.SA) int32 {
-	if pc := e.cast; pc != nil && pc.isAbility() && pc.card == ev.Obj {
-		var n int32
-		for _, part := range pc.cost.SubCounter {
-			if part.Announced {
-				n += pc.x
-			} else {
-				n += part.N
-			}
-		}
-		return n
+func activationCountersRemoved(e Board, ev events.Event, ab *cards.SA) int32 {
+	if act, ok := e.LiveActivation(ev.Obj); ok {
+		return act.CountersRemoved
 	}
 	if ab == nil {
 		return -1
 	}
 	var n int32
-	for _, part := range ParseCost(ab.ParamStr(cards.PKCost)).SubCounter {
+	for _, part := range costvocab.ParseCost(ab.ParamStr(cards.PKCost)).SubCounter {
 		if part.Announced {
 			return -1
 		}
@@ -652,21 +646,21 @@ func hasXManaCostGate(params map[string]string, faceCost string, ab *cards.SA) b
 		return false
 	}
 	if ab != nil {
-		return ParseCost(ab.ParamStr(cards.PKCost)).X > 0
+		return costvocab.ParseCost(ab.ParamStr(cards.PKCost)).X > 0
 	}
-	return ParseCost(faceCost).X > 0
+	return costvocab.ParseCost(faceCost).X > 0
 }
 
-// manaSpentForCast sums the mana the player spent casting the spell ev put
+// ManaSpentForCast sums the mana the player spent casting the spell ev put
 // on the stack: every negative ManaAdd for that player since the spell's
 // own PutOnStack. Between CR 601.2a's push and the deferred cast trigger
 // the only mana leaving a pool is this cast's payment (a mana window adds
 // mana, it never spends), and the scan reads the log, so a replay derives
 // the identical number.
-func (e *Engine) manaSpentForCast(p state.PlayerID, id state.ObjID) int32 {
+func ManaSpentForCast(e Board, p state.PlayerID, id state.ObjID) int32 {
 	var spent int32
-	for i := len(e.L.Events) - 1; i >= 0; i-- {
-		ev := e.L.Events[i]
+	for i := len(e.Log().Events) - 1; i >= 0; i-- {
+		ev := e.Log().Events[i]
 		if ev.Kind == events.PutOnStack && ev.Obj == id && ev.Player == p {
 			return spent
 		}
@@ -691,16 +685,16 @@ func (e *Engine) manaSpentForCast(p state.PlayerID, id state.ObjID) int32 {
 // never disagree. A source that is no longer a creature on the battlefield
 // when the trigger fires (it left, or became a noncreature) has no P/T to
 // compare and fails closed, as every unreadable gate in this file does.
-func (e *Engine) incrementAdmits(source state.ObjID, ev events.Event) bool {
-	src := e.G.Obj(source)
+func incrementAdmits(e Board, source state.ObjID, ev events.Event) bool {
+	src := e.Game().Obj(source)
 	if src == nil || src.Face() == nil {
 		return false
 	}
-	spent := e.manaSpentForCast(ev.Player, ev.Obj)
+	spent := ManaSpentForCast(e, ev.Player, ev.Obj)
 	return spent > e.Power(source) || spent > e.Toughness(source)
 }
 
-// validSAMatches evaluates a SpellCast trigger's ValidSA$ clause. The
+// ValidSAMatches evaluates a SpellCast trigger's ValidSA$ clause. The
 // measured grammar is the mana comparison family, "Spell.ManaSpent <OP><N>"
 // (Roiling Vortex's EQ0 -- no mana was spent to cast that spell; Raggadragga
 // and the emperor's GE7/EQ0 shapes read the same head): the value is the
@@ -709,14 +703,14 @@ func (e *Engine) incrementAdmits(source state.ObjID, ev events.Event) bool {
 // Self, YouCtrl) or carrying no comparison is evaluated as a plain spec
 // filter over the cast spell when it is a single field, and fails closed
 // otherwise.
-func (e *Engine) validSAMatches(source state.ObjID, ev events.Event, ctrl state.PlayerID, clause string) bool {
+func ValidSAMatches(e Board, source state.ObjID, ev events.Event, ctrl state.PlayerID, clause string) bool {
 	fields := strings.Fields(strings.TrimSpace(clause))
 	switch len(fields) {
 	case 1:
-		return e.matchesSpec(fields[0], ev.Obj, e.specCtx(source, ctrl))
+		return e.MatchesSpec(fields[0], ev.Obj, source, ctrl, SpecOpts{})
 	case 2:
 		if fields[0] == "Spell.ManaSpent" {
-			return compareIntCount(e.manaSpentForCast(ev.Player, ev.Obj), fields[1])
+			return CompareIntCount(ManaSpentForCast(e, ev.Player, ev.Obj), fields[1])
 		}
 		return false
 	}
@@ -742,7 +736,7 @@ func (e *Engine) validSAMatches(source state.ObjID, ev events.Event, ctrl state.
 // the repo's unreadable-condition convention; broadening the grammar is out
 // of this fix's scope. A copy reads the ORIGINAL spell's spend through
 // manaSpentForCast, the same reading validSAMatches gives a copy today.
-func (e *Engine) spellValidSAonCardMatches(obj *state.Object, ev events.Event, clause string) bool {
+func spellValidSAonCardMatches(e Board, obj *state.Object, ev events.Event, clause string) bool {
 	fields := strings.Fields(strings.TrimSpace(clause))
 	if len(fields) != 2 || fields[0] != "Spell.ManaSpent" {
 		return false
@@ -759,17 +753,17 @@ func (e *Engine) spellValidSAonCardMatches(obj *state.Object, ev events.Event, c
 			if obj == nil || obj.Face() == nil {
 				return false
 			}
-			return compareIntCount(e.manaSpentForCast(ev.Player, ev.Obj),
+			return CompareIntCount(ManaSpentForCast(e, ev.Player, ev.Obj),
 				op+strconv.Itoa(int(obj.Face().ManaValue())))
 		}
 		// A literal (or any non-X value) goes through the shared comparison
 		// grammar, which fails closed on a value it cannot parse.
-		return compareIntCount(e.manaSpentForCast(ev.Player, ev.Obj), expr)
+		return CompareIntCount(ManaSpentForCast(e, ev.Player, ev.Obj), expr)
 	}
 	return false
 }
 
-// spellCastPermanentSpec rewrites the leading `Permanent` base token of
+// SpellCastPermanentSpec rewrites the leading `Permanent` base token of
 // every comma-alternative in a SpellCast trigger's ValidCard$ spec to
 // `PermanentCard`, so the "whenever you cast a permanent spell" family
 // (Unbound Flourishing, the Defiler cycle, Archmage of Echoes) reads the
@@ -787,7 +781,7 @@ func (e *Engine) spellValidSAonCardMatches(obj *state.Object, ev events.Event, c
 // rewritten text is not the original spec, so the compiled sidecar's
 // byText lookup misses and the textual oracle answers it -- which after the
 // matchesBase/matchesCompiledBase relaxation is correct.
-func spellCastPermanentSpec(spec string) string {
+func SpellCastPermanentSpec(spec string) string {
 	// Comma-split at angle-bracket depth 0: a named<X, Y> name argument's
 	// printed comma is not an alternative boundary (the same distinction
 	// effects.filterAlternatives draws).
@@ -836,28 +830,6 @@ func spellCastLeadingPermanentToCard(alt string) string {
 	return alt
 }
 
-// triggerSnapshot is immutable look-back state. Parked replacement choices
-// may retain it across intent/Clone boundaries; each matching walk constructs
-// its own Engine scratch caches, never mutating or sharing the snapshot's.
-type triggerSnapshot struct {
-	game       *state.Game
-	continuous []ContinuousEffect
-	// retained marks a snapshot a parked record holds (retainTriggerBefore):
-	// it outlives the window that took it, so its window never recycles its
-	// arena (trigger_snapshot_pool.go). Set only while the snapshot is still
-	// private to the engine that took it, so a snapshot Clone shares is
-	// never written.
-	retained bool
-	// noLookBack: the board was proven inert for the look-back walk when the
-	// window opened (lookBackNoopBoard); see noLookBackSnapshot.
-	noLookBack bool
-	// staticOwner/staticSeq record the taking engine's static memo when it
-	// was current and quiet for exactly this board (lookback_static.go):
-	// the observer adopts that engine's memo while it is still that build.
-	staticOwner *Engine
-	staticSeq   uint64
-}
-
 // triggerCastAlternatives splits a Mode$ SpellCast trigger's ValidCard$ into
 // its comma alternatives and applies the trigger-side bare !CastSaSource
 // reading (task castprov2, Alania, Divergent Storm — measured: exactly 1
@@ -870,13 +842,13 @@ type triggerSnapshot struct {
 // alternative and does not trigger); the token is otherwise stripped and the
 // alternative kept for the ordinary filter. ok is false when no alternative
 // survives.
-func (e *Engine) triggerCastAlternatives(rawSpec string, source, castObj state.ObjID) ([]triggerCastAlt, bool) {
-	spec := spellCastPermanentSpec(rawSpec)
+func triggerCastAlternatives(e Board, rawSpec string, source, castObj state.ObjID) ([]triggerCastAlt, bool) {
+	spec := SpellCastPermanentSpec(rawSpec)
 	sourceName, castName := "", ""
-	if o := e.G.Obj(source); o != nil && o.Face() != nil {
+	if o := e.Game().Obj(source); o != nil && o.Face() != nil {
 		sourceName = o.Face().Name
 	}
-	if o := e.G.Obj(castObj); o != nil && o.Face() != nil {
+	if o := e.Game().Obj(castObj); o != nil && o.Face() != nil {
 		castName = o.Face().Name
 	}
 	isSelf := sourceName != "" && castName == sourceName
@@ -902,39 +874,111 @@ func (e *Engine) triggerCastAlternatives(rawSpec string, source, castObj state.O
 // The current cast is INCLUDED — it is already in the log when the deferred
 // trigger fires, and the oracle's "first ... you've cast this turn" counts
 // it (EQ1 = this cast is the first).
-func (e *Engine) spellsCastThisTurnByMatching(p state.PlayerID, spec string, exclSelf bool, source state.ObjID) int {
+func spellsCastThisTurnByMatching(e Board, p state.PlayerID, spec string, exclSelf bool, source state.ObjID) int {
 	selfName := ""
 	if exclSelf {
-		if o := e.G.Obj(source); o != nil && o.Face() != nil {
+		if o := e.Game().Obj(source); o != nil && o.Face() != nil {
 			selfName = o.Face().Name
 		}
 	}
 	n := 0
-	for i := len(e.L.Events) - 1; i >= 0; i-- {
-		ev := e.L.Events[i]
+	for i := len(e.Log().Events) - 1; i >= 0; i-- {
+		ev := e.Log().Events[i]
 		if ev.Kind == events.TurnChange {
 			break
 		}
 		if ev.Kind != events.PutOnStack || ev.Player != p {
 			continue
 		}
-		o := e.G.Obj(ev.Obj)
+		o := e.Game().Obj(ev.Obj)
 		if o == nil || o.Face() == nil {
 			continue
 		}
 		if selfName != "" && o.Face().Name == selfName {
 			continue
 		}
-		if e.matchesSpecFrom(spec, ev.Obj, p, ev.Obj) {
+		if e.MatchesSpec(spec, ev.Obj, ev.Obj, p, SpecOpts{}) {
 			n++
 		}
 	}
 	return n
 }
 
+// ManaExpendMatches implements Mode$ ManaExpend. See the registration above
+// for the crossing contract; manaExpendReaderOut (rules/cast.go) is the
+// heads-safety gate that makes the matched event exist at all.
+//
+// The crossing base is e.manaExpendTotal -- the engine's per-turn tally,
+// which payCast updates on EVERY paid cast (manaExpendAdd), not just casts
+// made while a carrier was out. Reading it, rather than a gated event fold,
+// is what makes a carrier that entered mid-turn see the casts made before it
+// entered: the pre-entry spend is in `total` but not in `ev.Amount`, so
+// `prev = total - ev.Amount` is the true pre-payment tally for this cast and
+// the crossing test is exact in both directions.
+func ManaExpendMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+	if ev.Kind != events.CastInfo || events.FlagsFrom(ev.Counter)&state.FlagManaExpendCast == 0 {
+		return false
+	}
+	ctrl := e.ControllerOf(source)
+	if int(ev.Player) >= len(e.Game().Players) {
+		return false
+	}
+	// An omitted Player$ means the trigger's own controller (Forge's default
+	// for the "whenever YOU expend" family), not "any player". Match the
+	// selector through the shared player-spec grammar either way: explicit
+	// Player$ Opponent/Player forms resolve here, and an absent one is spelled
+	// as You so the controller check is not skipped.
+	player := strings.TrimSpace(t.Params["Player"])
+	if player == "" {
+		player = "You"
+	}
+	if !effects.MatchesPlayerSpecCtx(e.Game(), player, ev.Player, ctrl, e.PlayerSpecCtx(source)) {
+		return false
+	}
+	n, ok := manaExpendAmount(e, source, t.ParamStr(cards.PKAmount), ctrl)
+	if !ok || n <= 0 {
+		// An unreadable or non-positive Amount$ is a threshold this engine
+		// cannot evaluate: fail closed, never fire wide.
+		return false
+	}
+	total := e.ManaExpendTotal(ev.Player)
+	prev := total - ev.Amount
+	return prev < n && total >= n
+}
+
+// manaExpendAmount resolves a literal, source SVar, or inline Count$ amount.
+// EvalCountOK preserves the distinction between an understood zero and an
+// expression this engine cannot read; both remain no-fire thresholds here.
+func manaExpendAmount(e Board, source state.ObjID, raw string, controller state.PlayerID) (int32, bool) {
+	raw = strings.TrimSpace(raw)
+	if n, err := strconv.ParseInt(raw, 10, 32); err == nil {
+		return int32(n), true
+	}
+	obj := e.Game().Obj(source)
+	if obj == nil || obj.Face() == nil {
+		return 0, false
+	}
+	svars := obj.Face().SVars
+	if body, ok := svars[raw]; ok {
+		raw = body
+	}
+	ctx := effects.NewCtxPtr(source, controller, effects.CtxInit{SVars: svars})
+	return effects.EvalCountOK(e.Host(), ctx, raw)
+}
+
+// triggerCastAlt is one surviving ValidCard$ alternative of a Mode$
+// SpellCast trigger after the trigger-side self-cast exclusion was applied:
+// spec is the token-stripped filter text, exclSelf whether the alternative
+// carried the bare !CastSaSource token — its ActivatorThisTurnCastEach$
+// tally must also skip the trigger source's own printed-name casts.
+type triggerCastAlt struct {
+	spec     string
+	exclSelf bool
+}
+
 func init() {
-	registerTrigMatcher(func(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
-		return e.spellCastMatches(t, source, ev)
+	registerTrigMatcher(func(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+		return spellCastMatches(e, t, source, ev)
 	}, "SpellCast")
 	// The magecraft family: the cast half is the ordinary SpellCast evaluation
 	// on the PutOnStack event; the copy half delegates a StackCopy event to
@@ -942,16 +986,16 @@ func init() {
 	// effects/copy.go emits events.StackCopy naming the original -- so
 	// spellCastMatches' entering-the-stack guard would keep the copy half dead
 	// if the whole mode fell through to it.
-	registerTrigMatcher(func(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+	registerTrigMatcher(func(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
 		if ev.Kind == events.StackCopy {
-			return e.spellCopyMatches(t, source, ev)
+			return spellCopyMatches(e, t, source, ev)
 		}
-		return e.spellCastMatches(t, source, ev)
+		return spellCastMatches(e, t, source, ev)
 	}, "SpellCastOrCopy")
 	// The copy-only mode ("Whenever you copy a spell, ..."): plain casts are not
 	// copies, so a PutOnStack event must not fire it.
-	registerTrigMatcher(func(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
-		return e.spellCopyMatches(t, source, ev)
+	registerTrigMatcher(func(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+		return spellCopyMatches(e, t, source, ev)
 	}, "SpellCopy")
 	// The activation-cast family, split (targetsvalid1): Mode$ AbilityCast is
 	// "whenever you activate an ability" -- AbilityPush or KeywordAbilityPush,
@@ -960,10 +1004,10 @@ func init() {
 	// PutOnStack takes the spell arm
 	// (spellAbilityCastSpellMatches). triggerModeEvents and the compiled
 	// triggerInterestForMode mirror this split.
-	registerTrigMatcher(func(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
-		return e.abilityCastMatches(t, source, ev)
+	registerTrigMatcher(func(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+		return abilityCastMatches(e, t, source, ev)
 	}, "AbilityCast")
-	registerTrigMatcher((*Engine).spellAbilityCastMatches, "SpellAbilityCast")
+	registerTrigMatcher(SpellAbilityCastMatches, "SpellAbilityCast")
 	// ManaExpend (CR-expend, Bloomburrow Commander): "Whenever you expend N
 	// ..." fires when its controller's per-turn cast-spend tally CROSSES the
 	// trigger's Amount$ N. payCast (rules/cast.go) folds every paid cast into
@@ -978,67 +1022,5 @@ func init() {
 	// explicit Opponent/Player selector is honoured; an ABSENT Player$ keeps
 	// the historical You-only reading (the trigger's controller must be the
 	// payer), and an unresolvable selector fails closed.
-	registerTrigMatcher((*Engine).manaExpendMatches, "ManaExpend")
-}
-
-// manaExpendMatches implements Mode$ ManaExpend. See the registration above
-// for the crossing contract; manaExpendReaderOut (rules/cast.go) is the
-// heads-safety gate that makes the matched event exist at all.
-//
-// The crossing base is e.manaExpendTotal -- the engine's per-turn tally,
-// which payCast updates on EVERY paid cast (manaExpendAdd), not just casts
-// made while a carrier was out. Reading it, rather than a gated event fold,
-// is what makes a carrier that entered mid-turn see the casts made before it
-// entered: the pre-entry spend is in `total` but not in `ev.Amount`, so
-// `prev = total - ev.Amount` is the true pre-payment tally for this cast and
-// the crossing test is exact in both directions.
-func (e *Engine) manaExpendMatches(t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
-	if ev.Kind != events.CastInfo || events.FlagsFrom(ev.Counter)&state.FlagManaExpendCast == 0 {
-		return false
-	}
-	ctrl := e.controllerOf(source)
-	if int(ev.Player) >= len(e.G.Players) {
-		return false
-	}
-	// An omitted Player$ means the trigger's own controller (Forge's default
-	// for the "whenever YOU expend" family), not "any player". Match the
-	// selector through the shared player-spec grammar either way: explicit
-	// Player$ Opponent/Player forms resolve here, and an absent one is spelled
-	// as You so the controller check is not skipped.
-	player := strings.TrimSpace(t.Params["Player"])
-	if player == "" {
-		player = "You"
-	}
-	if !effects.MatchesPlayerSpecCtx(e.G, player, ev.Player, ctrl, e.playerSpecCtx(source)) {
-		return false
-	}
-	n, ok := e.manaExpendAmount(source, t.ParamStr(cards.PKAmount), ctrl)
-	if !ok || n <= 0 {
-		// An unreadable or non-positive Amount$ is a threshold this engine
-		// cannot evaluate: fail closed, never fire wide.
-		return false
-	}
-	total := e.manaExpendTotal(ev.Player)
-	prev := total - ev.Amount
-	return prev < n && total >= n
-}
-
-// manaExpendAmount resolves a literal, source SVar, or inline Count$ amount.
-// EvalCountOK preserves the distinction between an understood zero and an
-// expression this engine cannot read; both remain no-fire thresholds here.
-func (e *Engine) manaExpendAmount(source state.ObjID, raw string, controller state.PlayerID) (int32, bool) {
-	raw = strings.TrimSpace(raw)
-	if n, err := strconv.ParseInt(raw, 10, 32); err == nil {
-		return int32(n), true
-	}
-	obj := e.G.Obj(source)
-	if obj == nil || obj.Face() == nil {
-		return 0, false
-	}
-	svars := obj.Face().SVars
-	if body, ok := svars[raw]; ok {
-		raw = body
-	}
-	ctx := effects.NewCtxPtr(source, controller, effects.CtxInit{SVars: svars})
-	return effects.EvalCountOK(e, ctx, raw)
+	registerTrigMatcher(ManaExpendMatches, "ManaExpend")
 }

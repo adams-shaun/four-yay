@@ -9,6 +9,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -113,7 +114,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 			// exactly as the "cast a permanent spell" trigger matcher reads
 			// it (spellCastPermanentSpec). Beluna Grandsquall's
 			// `Permanent.AdventureCard` was otherwise dead.
-			spec = spellCastPermanentSpec(spec)
+			spec = trigmatch.SpellCastPermanentSpec(spec)
 		}
 		if !e.matchesSpec(spec, id, e.costStaticSpecCtx(sv, id)) {
 			return false, true

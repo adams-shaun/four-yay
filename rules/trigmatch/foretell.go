@@ -27,7 +27,7 @@
 // stop colliding on one file. Registration is at the bottom; a duplicate
 // mode panics (registerTrigMatcher).
 
-package rules
+package trigmatch
 
 import (
 	"github.com/adams-shaun/gorge/cards"
@@ -45,7 +45,7 @@ import (
 // replay-stable way to name the foreteller). An effect that designates an
 // exiled card foretold from someone else's hand therefore names THAT hand's
 // owner, never the exiling effect's controller.
-func (e *Engine) foretellMatches(t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+func foretellMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
 	var o *state.Object
 	switch ev.Kind {
 	case events.CastInfo:
@@ -56,7 +56,7 @@ func (e *Engine) foretellMatches(t cards.Trigger, source state.ObjID, ev events.
 		if events.FlagsFrom(ev.Counter)&state.FlagForetold == 0 {
 			return false
 		}
-		o = e.G.Obj(ev.Obj)
+		o = e.Game().Obj(ev.Obj)
 		if o == nil || o.Zone != state.ZHand {
 			return false
 		}
@@ -70,29 +70,29 @@ func (e *Engine) foretellMatches(t cards.Trigger, source state.ObjID, ev events.
 				ev.Counter != "exiled_with_face_down_maylook_foretold") {
 			return false
 		}
-		o = e.G.Obj(ev.Obj)
+		o = e.Game().Obj(ev.Obj)
 		if o == nil {
 			return false
 		}
 	default:
 		return false
 	}
-	if int(o.Controller) >= len(e.G.Players) {
+	if int(o.Controller) >= len(e.Game().Players) {
 		return false
 	}
-	ctrl := e.controllerOf(source)
+	ctrl := e.ControllerOf(source)
 	if v := t.ParamStr(cards.PKValidPlayer); v != "" &&
-		!effects.MatchesPlayerSpec(e.G, v, o.Controller, ctrl) {
+		!effects.MatchesPlayerSpec(e.Game(), v, o.Controller, ctrl) {
 		return false
 	}
 	if v := t.ParamStr(cards.PKValidCard); v != "" &&
-		!e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
+		!e.MatchesSpec(v, ev.Obj, source, ctrl, SpecOpts{}) {
 		return false
 	}
 	return true
 }
 
 func init() {
-	registerTrigMatcher((*Engine).foretellMatches, "Foretell")
+	registerTrigMatcher(foretellMatches, "Foretell")
 	effects.RegisterNonAPI("trig:Foretell")
 }

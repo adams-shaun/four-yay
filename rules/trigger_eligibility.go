@@ -211,7 +211,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// MoveZone markers (applyFaceDownMarker's Foretold$ True
 		// composition); both shapes existed before the mode did. The exact
 		// event shapes are the full matcher's (foretellMatches,
-		// rules/trigmatch_foretell.go) -- the MoveZone bit is needed for the
+		// rules/trigmatch/foretell.go) -- the MoveZone bit is needed for the
 		// designation arm and is over-approximate for every other zone
 		// change, which the mask is for by design. Naming the mode here
 		// rather than letting it fall to the allTriggerEvents default keeps
@@ -307,7 +307,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// CR 709.5's "whenever you fully unlock a Room" (task
 		// agent-20260919T191104Z-95f1e316): the Eerie enchantments' other-
 		// permanent half, matched by fullyUnlockMatches (rules/
-		// trigmatch_room.go). It fires on the single DoorUnlock transition
+		// trigmatch/room.go). It fires on the single DoorUnlock transition
 		// event the unlock activation emits, whose ordinal (41) is inside the
 		// 64-bit mask's reach, so an exact bit is encodable -- naming the mode
 		// rather than letting it fall to the allTriggerEvents default keeps a

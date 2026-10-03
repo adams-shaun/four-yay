@@ -53,16 +53,18 @@ type Board interface {
 	// hidden by a face-down state (CR 708.2).
 	FaceDownPrintedHides(o *state.Object) bool
 
-	// SpecCtx is the filter context for source controlled by you, with
-	// rules' layer tables bound.
-	SpecCtx(source state.ObjID, you state.PlayerID) effects.SpecContext
+	// MatchesSpec evaluates a ValidCard$-style filter against the live object
+	// id, from source's perspective with you as its controller (rules'
+	// specCtx, with opts applied, then matchesSpec). MatchesObject is the
+	// same filter over an object snapshot (an LKI, a would-be token) through
+	// effects.MatchesObjectCtx. The filter context is built inside the
+	// implementation, never returned: a SpecContext carries a Resolve closure
+	// that would escape to the heap if it crossed this interface, so a
+	// matcher describes its overrides as SpecOpts instead.
+	MatchesSpec(spec string, id state.ObjID, source state.ObjID, you state.PlayerID, opts SpecOpts) bool
+	MatchesObject(spec string, obj *state.Object, source state.ObjID, you state.PlayerID, opts SpecOpts) bool
 	// PlayerSpecCtx is the player-filter context for source.
 	PlayerSpecCtx(source state.ObjID) effects.PlayerSpecCtx
-	// MatchesSpec evaluates a ValidCard$-style filter against id.
-	MatchesSpec(spec string, id state.ObjID, sc effects.SpecContext) bool
-	// MatchesSpecFrom evaluates spec against id from you's perspective with
-	// source as the filter's self.
-	MatchesSpecFrom(spec string, id state.ObjID, you state.PlayerID, source state.ObjID) bool
 	// BoardLayers is the current layer tables (names, types, static goads).
 	BoardLayers() effects.LayerTables
 	// StaticallyGoadedWithLKI is the statically goaded set, with lki standing
@@ -137,6 +139,19 @@ type Facts struct {
 	FinishingLifeLossBatch bool
 	// TappedTurn maps a permanent to the turn it last became tapped.
 	TappedTurn map[state.ObjID]int32
+}
+
+// SpecOpts are a matcher's overrides on the filter context Board.MatchesSpec
+// and Board.MatchesObject build: each field replaces the SpecContext field of
+// the same name (StaticGoads is Layers.StaticGoads), and the zero value is
+// the plain context. The slices and map are read-only.
+type SpecOpts struct {
+	// DelayedRemembered is a delayed registration's captured objects.
+	DelayedRemembered []state.Target
+	// ExtraTypes are derived types the filter reads beside the printed face.
+	ExtraTypes []string
+	// StaticGoads is the statically goaded set an IsGoaded term reads.
+	StaticGoads map[state.ObjID]bool
 }
 
 // Activation is an in-flight activation's facts while its cast flow is open:

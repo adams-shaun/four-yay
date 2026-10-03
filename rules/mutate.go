@@ -150,45 +150,10 @@ func (e *Engine) resolveMutate(o *state.Object, targets []state.Target) {
 		Text: place, Amount: 1})
 }
 
-// mutatesMatches implements Forge's Mode$ Mutates trigger (CR 702.140f,
-// "whenever this creature mutates" / "whenever a creature you control
-// mutates"). The event's Obj is the surviving permanent (the mutated pile);
-// it is the object ValidCard$ is matched against, NOT the trigger's own
-// source. That distinction matters for the two ValidCard$ shapes the corpus
-// uses: `Card.Self` (the pile IS the scanning source -- the instance that
-// mutated) and `Creature.YouCtrl` (Essence Symbiote's "whenever a creature
-// you control mutates": the scanning source is the lord, the event's Obj is
-// the pile its controller owns). Requiring `ev.Obj == source` here would make
-// the lord shape dead -- the pile is never the lord -- while still registering
-// the mode, so the card would report supported and silently do nothing.
-//
-// The `you` for the spec context stays the TRIGGER's controller (the lord's),
-// never the pile's, so a `YouCtrl` qualifier reads from the right player. The
-// Mutate event is folded before triggers run, so the pile's top card and
-// merged list are already current, and triggerRemembered binds the event's Obj
-// so Defined$ TriggeredCardLKICopy resolves to the pile.
-func (e *Engine) mutatesMatches(t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
-	if ev.Kind != events.Mutate {
-		return false
-	}
-	o := e.G.Obj(ev.Obj)
-	if o == nil || o.Zone != state.ZBattlefield || e.faceDownPrintedHides(o) {
-		return false
-	}
-	if v := strings.TrimSpace(t.ParamStr(cards.PKValidCard)); v != "" {
-		ctrl := e.controllerOf(source)
-		if !e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
-			return false
-		}
-	}
-	return true
-}
-
 func init() {
 	// Coverage: the keyword head cards/primitive.go derives for every
 	// K:Mutate line is now engine-supported (the mutate cast mode, the merged
 	// pile and the Mutates trigger all live in rules), and the trigger mode is
 	// registered so a Mode$ Mutates line no longer reports unsupported.
 	effects.RegisterNonAPI("kw:Mutate", "trig:Mutates")
-	registerTrigMatcher((*Engine).mutatesMatches, "Mutates")
 }

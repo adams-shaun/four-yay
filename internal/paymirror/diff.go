@@ -60,12 +60,18 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "derivedTypes"}:         true,
 	{"rules.Engine", "derivedDepth"}:         true,
 	{"rules.Engine", "derivedPTFrames"}:      true,
-	{"rules.Engine", "boardStaticsCache"}:    true,
-	{"rules.Engine", "activeStaticsCache"}:   true,
-	{"rules.Engine", "activeStaticsScan"}:    true,
-	{"rules.Engine", "boardScanBuf"}:         true,
-	{"rules.Engine", "actIndex"}:             true,
-	{"rules.Engine", "mayPlaysCache"}:        true,
+	// Engine.Chars's answer record (host_read.go): overwritten by every Chars
+	// call outside a memo scope and valid only until the next one; Clone
+	// resets it. The trigger matchers read characteristics through Chars
+	// since W5 E3 (trigmatch.Board), so a live engine holds the last read
+	// while its control clone holds none (round-9 paymirror, seed 8175).
+	{"rules.Engine", "charsScratch"}:       true,
+	{"rules.Engine", "boardStaticsCache"}:  true,
+	{"rules.Engine", "activeStaticsCache"}: true,
+	{"rules.Engine", "activeStaticsScan"}:  true,
+	{"rules.Engine", "boardScanBuf"}:       true,
+	{"rules.Engine", "actIndex"}:           true,
+	{"rules.Engine", "mayPlaysCache"}:      true,
 	// The posed decision's shared potential walk (potential_walk_cache.go):
 	// keyed by an ask serial and the log; Clone copies none.
 	{"rules.Engine", "potentialWalk"}:       true,

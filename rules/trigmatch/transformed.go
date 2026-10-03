@@ -8,7 +8,8 @@
 // type/control predicate for a watcher (Cult of the Waxing Moon,
 // Corruption of Towashi, Norn's Inquisitor) or an attachment predicate
 // (Neglected Heirloom's Creature.EquippedBy).
-package rules
+
+package trigmatch
 
 import (
 	"github.com/adams-shaun/gorge/cards"
@@ -16,17 +17,17 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-func (e *Engine) transformedMatches(t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+func TransformedMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
 	if ev.Kind != events.FlipFace || ev.Text != "Transformed" || ev.Obj == 0 {
 		return false
 	}
-	o := e.G.Obj(ev.Obj)
+	o := e.Game().Obj(ev.Obj)
 	if o == nil || o.Zone != state.ZBattlefield || o.Card == nil || len(o.Card.Faces) < 2 {
 		return false
 	}
-	return e.eventCardAndPlayerMatch(t, source, ev.Obj, o.Controller)
+	return eventCardAndPlayerMatch(e, t, source, ev.Obj, o.Controller)
 }
 
 func init() {
-	registerTrigMatcher((*Engine).transformedMatches, "Transformed")
+	registerTrigMatcher(TransformedMatches, "Transformed")
 }

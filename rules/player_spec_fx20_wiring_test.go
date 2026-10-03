@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -72,11 +73,11 @@ func TestPlayerSpecFx20MindWhipEnchantedController(t *testing.T) {
 	trig := fx20TriggerWithParam(t, e, aura, "Player.EnchantedController")
 
 	e.G.Active = 1
-	if !e.phaseMatches(trig, aura, events.Event{Kind: events.StepChange}) {
+	if !trigmatch.PhaseMatches(boardOf(e), trig, aura, events.Event{Kind: events.StepChange}) {
 		t.Fatal("the enchanted creature's controller's upkeep must fire the trigger")
 	}
 	e.G.Active = 0
-	if e.phaseMatches(trig, aura, events.Event{Kind: events.StepChange}) {
+	if trigmatch.PhaseMatches(boardOf(e), trig, aura, events.Event{Kind: events.StepChange}) {
 		t.Fatal("seat 0's upkeep must not fire the trigger")
 	}
 }
@@ -101,11 +102,11 @@ func TestPlayerSpecFx20MissHighwaterPlayerCounters(t *testing.T) {
 	e.combatDamaging = true
 	e.dmgSrcOverride = mhw
 
-	if !e.damageMatches(trig, mhw, events.Event{Kind: events.Damage, Player: 1}) {
+	if !trigmatch.DamageMatches(boardOf(e), trig, mhw, events.Event{Kind: events.Damage, Player: 1}) {
 		t.Fatal("combat damage to a player with no contract counter must match")
 	}
 	e.G.Players[1].AddCounter("Contract", 1)
-	if e.damageMatches(trig, mhw, events.Event{Kind: events.Damage, Player: 1}) {
+	if trigmatch.DamageMatches(boardOf(e), trig, mhw, events.Event{Kind: events.Damage, Player: 1}) {
 		t.Fatal("combat damage to a player WITH a contract counter must not match")
 	}
 }
@@ -130,7 +131,7 @@ func TestPlayerSpecFx20LatullasOrdersDefendingPlayer(t *testing.T) {
 	e.combatDamaging = true
 	e.dmgSrcOverride = bear
 
-	if !e.damageMatches(trig, aura, events.Event{Kind: events.Damage, Player: 1}) {
+	if !trigmatch.DamageMatches(boardOf(e), trig, aura, events.Event{Kind: events.Damage, Player: 1}) {
 		t.Fatal("combat damage to seat 1 must read seat 1 as the defending player")
 	}
 }

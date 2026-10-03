@@ -1,4 +1,4 @@
-package rules
+package trigmatch
 
 import (
 	"strings"
@@ -9,7 +9,7 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// becomeMonarchMatches implements Mode$ BecomeMonarch (trig:BecomeMonarch),
+// BecomeMonarchMatches implements Mode$ BecomeMonarch (trig:BecomeMonarch),
 // the "whenever a player becomes the monarch" trigger. It fires on the
 // events.MonarchChange transition effects' api:BecomeMonarch emits (the
 // designation is folded game-level state, so a replay re-derives it), and
@@ -39,16 +39,16 @@ import (
 //     snapshot events/apply.go folds at every TurnChange (the CombatsThisTurn
 //     shape, no new event or field), so it is exact at the moment the trigger
 //     is checked (CR 603.4) and rebuilt identically by replay.
-func (e *Engine) becomeMonarchMatches(t cards.Trigger, source state.ObjID, ev events.Event) bool {
+func BecomeMonarchMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event) bool {
 	if ev.Kind != events.MonarchChange {
 		return false
 	}
-	ctrl := e.controllerOf(source)
-	if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
+	ctrl := e.ControllerOf(source)
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.Game(), v, ev.Player, ctrl) {
 		return false
 	}
 	if v := strings.TrimSpace(t.Params["BeginTurn"]); v != "" {
-		if !strings.EqualFold(v, "You") || !e.G.WasMonarchAtTurnStart(ctrl) {
+		if !strings.EqualFold(v, "You") || !e.Game().WasMonarchAtTurnStart(ctrl) {
 			return false
 		}
 	}
@@ -56,9 +56,8 @@ func (e *Engine) becomeMonarchMatches(t cards.Trigger, source state.ObjID, ev ev
 }
 
 func init() {
-	registerTrigMatcher(func(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
-		return e.becomeMonarchMatches(t, source, ev)
+	registerTrigMatcher(func(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+		return BecomeMonarchMatches(e, t, source, ev)
 	}, "BecomeMonarch")
-
 	effects.RegisterNonAPI("trig:BecomeMonarch")
 }

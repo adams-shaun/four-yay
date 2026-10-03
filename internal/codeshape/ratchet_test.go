@@ -19,7 +19,9 @@ const (
 	// effects/ spanning more than 300 lines.
 	maxFuncLinesOver300 = 54
 	// engineMethodCount is the number of non-test methods on rules.Engine.
-	engineMethodCount = 2159
+	// W5 E3 moved the trigger matchers onto rules/trigmatch's Board: 2159 ->
+	// 2055.
+	engineMethodCount = 2055
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
 	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94.
@@ -61,8 +63,11 @@ const (
 	// trigmatchBoardMethods is the method count of trigmatch.Board, the
 	// read-only view rules/trigmatch's matchers read the engine through (W5
 	// E3). It replaced 21 distinct *Engine methods, 15 Engine fields and
-	// pendingCast that the matcher closure reached directly.
-	trigmatchBoardMethods = 29
+	// pendingCast that the matcher closure reached directly. The move folded
+	// SpecCtx/MatchesSpec/MatchesSpecFrom into MatchesSpec/MatchesObject with
+	// SpecOpts (a SpecContext's Resolve closure must not cross the
+	// interface): 29 -> 28.
+	trigmatchBoardMethods = 28
 )
 
 func measureRepo(t *testing.T) Metrics {

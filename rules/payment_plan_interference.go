@@ -32,6 +32,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -376,13 +377,13 @@ func (e *Engine) paymentPlanDelayedTapObserver(id state.ObjID, ev events.Event) 
 		if !ok || t.Mode != dt.EventMode {
 			continue
 		}
-		fn := trigMatchers[t.Mode]
+		fn := trigmatch.Lookup(t.Mode)
 		if fn == nil || !triggerModeEvents(t.Mode).allows(ev.Kind) {
 			continue
 		}
 		e.effectMatchSource, e.effectMatchController = dt.Source, dt.Controller
 		e.effectMatchRemembered, e.effectMatchOverride = dt.Remembered, true
-		if fn(e, t, dt.Source, ev, nil) {
+		if fn(boardOf(e), t, dt.Source, ev, nil) {
 			return dt.Source, true
 		}
 	}

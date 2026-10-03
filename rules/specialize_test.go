@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -106,7 +107,7 @@ SVar:Trig:DB$ PutCounter | CounterType$ P1P1 | CounterNum$ 1 | Defined$ Self
 		t.Fatal("specialize transition was not event sourced")
 	}
 	tr := o.Face().Triggers[0]
-	if !trigMatchers["Specializes"](e, tr, o.ID, events.Event{Kind: events.Specialize, Obj: o.ID}, nil) {
+	if !trigmatch.Lookup("Specializes")(boardOf(e), tr, o.ID, events.Event{Kind: events.Specialize, Obj: o.ID}, nil) {
 		t.Fatal("Mode$ Specializes matcher did not match its own object's transition")
 	}
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -24,7 +25,7 @@ import (
 // uses. Effect registration refuses unknown modes rather than storing an inert
 // registration that would make the card appear supported.
 func (e *Engine) TriggerModeSupported(mode string) bool {
-	return trigMatchers[mode] != nil
+	return trigmatch.Lookup(mode) != nil
 }
 
 // checkTriggers is called from emit after every event. It walks every
@@ -442,7 +443,7 @@ func (e *Engine) checkEventDelayedTriggers(ev events.Event, lki *state.Object) {
 				}
 				delete(t.Params, "ValidPlayer")
 			}
-			if !e.becomeMonarchMatches(t, dt.Source, ev) {
+			if !trigmatch.BecomeMonarchMatches(boardOf(e), t, dt.Source, ev) {
 				continue
 			}
 			referentsArg = nil
@@ -460,7 +461,7 @@ func (e *Engine) checkEventDelayedTriggers(ev events.Event, lki *state.Object) {
 				}
 				delete(t.Params, "Destination")
 			}
-			if !e.zoneChangeMatchesWithCapture(t, dt.Source, ev, lki, dt.Remembered) {
+			if !trigmatch.ZoneChangeMatchesWithCapture(boardOf(e), t, dt.Source, ev, lki, dt.Remembered) {
 				continue
 			}
 			if vp := strings.TrimSpace(t.ParamStr(cards.PKValidPlayer)); vp != "" {
@@ -494,9 +495,9 @@ func (e *Engine) checkEventDelayedTriggers(ev events.Event, lki *state.Object) {
 			// skip the printed-face zone gate (the creating spell may already
 			// be in the graveyard). The event mask prevents a mismatched event
 			// from reaching a matcher that assumes its own event shape.
-			fn := trigMatchers[t.Mode]
+			fn := trigmatch.Lookup(t.Mode)
 			if fn == nil || !triggerModeEvents(t.Mode).allows(ev.Kind) ||
-				!fn(e, t, dt.Source, ev, lki) {
+				!fn(boardOf(e), t, dt.Source, ev, lki) {
 				continue
 			}
 		} else {
@@ -694,9 +695,9 @@ func (e *Engine) delayedEventMatches(t cards.Trigger, dt *state.DelayedTrigger, 
 	case "ChangesController":
 		return e.delayedChangesControllerMatches(t, dt, ev, lki)
 	case "DamageDone":
-		return e.damageMatchesWithCapture(t, dt.Source, ev, dt.Remembered)
+		return trigmatch.DamageMatchesWithCapture(boardOf(e), t, dt.Source, ev, dt.Remembered)
 	case "AttackersDeclared":
-		return e.attackersDeclaredOneTargetMatches(t, dt.Source, ev, dt.Remembered)
+		return trigmatch.AttackersDeclaredOneTargetMatches(boardOf(e), t, dt.Source, ev, dt.Remembered)
 	default:
 		return false
 	}
@@ -720,7 +721,7 @@ func (e *Engine) delayedEventPlayer(t cards.Trigger, ev events.Event, lki *state
 		if ev.Obj == 0 {
 			return ev.Player, int(ev.Player) < len(e.G.Players)
 		}
-		if src := e.damageEventSource(); src != 0 {
+		if src := trigmatch.DamageEventSource(boardOf(e)); src != 0 {
 			return e.controllerOf(src), true
 		}
 	case "AttackersDeclared":
@@ -790,7 +791,7 @@ func (e *Engine) eventDelayedSpellCastMatches(t cards.Trigger, dt *state.Delayed
 		if !ok {
 			return false
 		}
-		if !e.matchesSpec(spellCastPermanentSpec(v), ev.Obj, delayedSpecCtx(e.specCtx(dt.Source, dt.Controller), dt.Remembered)) {
+		if !e.matchesSpec(trigmatch.SpellCastPermanentSpec(v), ev.Obj, delayedSpecCtx(e.specCtx(dt.Source, dt.Controller), dt.Remembered)) {
 			return false
 		}
 	}
@@ -803,12 +804,12 @@ func (e *Engine) eventDelayedSpellCastMatches(t cards.Trigger, dt *state.Delayed
 	// so a stored body carrying either stays fire-time-correct (the "you"
 	// the activator clauses measure is the event's caster either way).
 	if v, ok := t.Params["ActivatorThisTurnCast"]; ok {
-		if !compareIntCount(int32(e.spellsCastThisTurn(ev.Player)), v) {
+		if !trigmatch.CompareIntCount(int32(e.spellsCastThisTurn(ev.Player)), v) {
 			return false
 		}
 	}
 	if v, ok := t.Params["ValidSA"]; ok {
-		if !e.validSAMatches(dt.Source, ev, dt.Controller, v) {
+		if !trigmatch.ValidSAMatches(boardOf(e), dt.Source, ev, dt.Controller, v) {
 			return false
 		}
 	}
@@ -819,7 +820,7 @@ func (e *Engine) eventDelayedSpellCastMatches(t cards.Trigger, dt *state.Delayed
 	// grammar mirrors spellCastMatches' clauses one for one and the read is
 	// honest here -- the spell is already on the stack with its recorded
 	// targets, so a future registration cannot widen silently.
-	if !e.targetShapeMatches(t, obj.Targets, dt.Source, dt.Controller) {
+	if !trigmatch.TargetShapeMatches(boardOf(e), t, obj.Targets, dt.Source, dt.Controller) {
 		return false
 	}
 	return true
