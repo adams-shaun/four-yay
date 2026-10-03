@@ -126,7 +126,26 @@ func mayAskOnBoard(e *Engine, st uint32) bool {
 	}
 	g := uint8(st >> mayAskGateShift)
 	return (g&cards.GateTokens != 0 && tapeReplMayAsk(e, "CreateToken")) ||
-		(g&cards.GateDamage != 0 && tapeReplMayAsk(e, "DamageDone"))
+		(g&cards.GateDamage != 0 && tapeReplMayAsk(e, "DamageDone")) ||
+		(g&cards.GateDraw != 0 && tapeDredgeMayAsk(e))
+}
+
+// tapeDredgeMayAsk is the draw gate: a card with Dredge in any graveyard
+// (CR 702.55) can replace a draw with its election. Read only for an
+// otherwise ask-free drawing resolution.
+func tapeDredgeMayAsk(e *Engine) bool {
+	for p := range e.G.Players {
+		for _, id := range e.G.Zone(state.ZGraveyard, state.PlayerID(p)) {
+			if o := e.G.Obj(id); o != nil {
+				if f := o.Face(); f != nil {
+					if _, ok := f.KeywordParam("Dredge"); ok {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 // tapeReplMayAsk is a board gate: a replacement on event that elects
