@@ -136,9 +136,12 @@ func free()          {}
 		PutCounterLeaks:        []string{},
 		EffectLeaks:            []string{},
 		TargetLeaks:            []string{},
-		DelayedTriggerLeaks:    []string{},
-		CopyPermanentLeaks:     []string{},
-		Files:                  4,
+		// effectsSrc's two Defined$ reads are outside the Defined compiler.
+		DefinedParamLeaks:   2,
+		DefinedLeaks:        []string{"effects/registry.go:42 Defined", "effects/registry.go:43 Defined"},
+		DelayedTriggerLeaks: []string{},
+		CopyPermanentLeaks:  []string{},
+		Files:               4,
 		LongFuncs: []Func{
 			{Name: "deep", File: "rules/sub/deep.go", Line: 6, Lines: 402},
 			{Name: "long301", File: "effects/long.go", Line: 303, Lines: 301},
@@ -305,5 +308,41 @@ func dmg(sa *SA) {
 	}
 	if m.TargetParamLeaks != len(want) || !reflect.DeepEqual(m.TargetLeaks, want) {
 		t.Errorf("target leaks = %d %v, want %v", m.TargetParamLeaks, m.TargetLeaks, want)
+	}
+}
+
+// TestMeasureCountsDefinedParamLeaks pins the definedParamLeaks census: a
+// Defined-reference key read anywhere in rules/ or effects/ outside the
+// Defined compiler counts (every read form), never the compiler itself, never
+// a write, never a one-API Defined* key.
+func TestMeasureCountsDefinedParamLeaks(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"effects/registry.go": effectsSrc,
+		"effects/defined_params.go": `package effects
+
+func compile(sa *SA) { _ = sa.Param(cards.PKDefined); _ = sa.Params["DefinedPlayer"] }
+`,
+		"effects/zone.go": `package effects
+
+func z(sa *SA) {
+	_ = sa.ParamStr(cards.PKDefinedCards)
+	_ = sa.Params["DefinedMagnet"]
+	sub.Params["Defined"] = "Self"
+	_ = sa.HasParam(cards.PKDefinedTarget)
+}
+`,
+		"rules/engine.go": "package rules\n\ntype resumePoint struct{ a int }\n\nfunc f(sa *SA) { _ = sa.Params[\"Defined\"] }\n",
+	})
+	m, err := Measure(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"effects/registry.go:42 Defined", "effects/registry.go:43 Defined",
+		"effects/zone.go:4 DefinedCards", "effects/zone.go:7 DefinedTarget",
+		"rules/engine.go:5 Defined",
+	}
+	if m.DefinedParamLeaks != len(want) || !reflect.DeepEqual(m.DefinedLeaks, want) {
+		t.Errorf("defined leaks = %d %v, want %v", m.DefinedParamLeaks, m.DefinedLeaks, want)
 	}
 }

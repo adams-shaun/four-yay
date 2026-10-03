@@ -144,6 +144,11 @@ const (
 	// targeting key is read anywhere in rules/ or effects/ outside it. It
 	// landed at zero.
 	targetParamLeaks = 0
+	// definedParamLeaks is the same census for the generic Defined-reference
+	// tier's compiler, effects/defined_params.go (codeshape.DefinedOnlyKeys):
+	// no Defined$/DefinedCards$/DefinedPlayer$/DefinedTarget$ read anywhere
+	// in rules/ or effects/ outside it. It landed at zero.
+	definedParamLeaks = 0
 	// delayedTriggerParamLeaks is the same census for api:DelayedTrigger's compiler,
 	// effects/delayedtrigger_params.go (codeshape.DelayedTriggerFiles, codeshape.DelayedTriggerOnlyKeys). It landed
 	// at zero.
@@ -321,6 +326,11 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 			"Read the targeting parameter through effects.TargetsOf's compiled TargetParams " +
 				"(add a field to compileTargets in effects/targets_params.go) instead of reading " +
 				"a targeting key from the ability's Params. Leaks: " + strings.Join(m.TargetLeaks, ", ")},
+		{"definedParamLeaks", m.DefinedParamLeaks, definedParamLeaks,
+			"Read the selector through effects.DefinedOf's compiled Ref (add a field to " +
+				"compileDefined in effects/defined_params.go, or resolve selector text with " +
+				"effects.RefOf/DefinedSpec) instead of reading a Defined key from the ability's " +
+				"Params. Leaks: " + strings.Join(m.DefinedLeaks, ", ")},
 		{"delayedTriggerParamLeaks", m.DelayedTriggerParamLeaks, delayedTriggerParamLeaks,
 			"Read the parameter through effects.DelayedTriggerOf's compiled DelayedTriggerParams (add a " +
 				"field to compileDelayedTrigger in effects/delayedtrigger_params.go) instead of reading the ability's Params in " +
