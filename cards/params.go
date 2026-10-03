@@ -600,9 +600,9 @@ type ParamSet struct {
 	// bound compares identities.
 	src  map[string]string
 	n    int
-	vals []string
 	has  ParamMask
 	rank [paramMaskWords]uint16
+	vals []string
 }
 
 func mapIdentity(m map[string]string) unsafe.Pointer {
