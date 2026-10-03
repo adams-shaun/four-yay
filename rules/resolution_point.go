@@ -127,6 +127,14 @@ type resumePoint struct {
 	// an enters-the-battlefield replacement such as Hideaway). It resumes its
 	// source directly rather than requiring a stack object.
 	direct bool
+	// ownResolution marks a replacement-body frame posed while the entering
+	// permanent was ITSELF the resolving spell (a permanent spell's own
+	// Updated "as this enters" replacement asks -- Banner of Kinship's
+	// creature-type choice): the resolution suspended on this ask, so its
+	// completion owes the CR 117.3b priority-returns-to-active reset that
+	// handlePriority deferred. A land drop's or other non-resolution entry's
+	// frame leaves it false and owes nothing.
+	ownResolution bool
 	// moved is the object list a ShuffleNonMandatory$ search's first pass
 	// moved before its may-shuffle confirm suspended, ridden on the ask via
 	// Decision.ResumeMoved: the re-entry's LibraryPosition$ placement needs
@@ -333,6 +341,9 @@ type resumePoint struct {
 	// (Dismantle's DBPutCounter). Immutable once captured, cloned with the
 	// frame. Nil when the resolution has no countered object targets.
 	targetCountersLKI map[state.ObjID][]state.Counter
+	// targetPTLKI is the power/toughness half (Ctx.TargetPTLKI), carried
+	// and cloned exactly like targetCountersLKI.
+	targetPTLKI map[state.ObjID]effects.TargetPT
 	// targetSpellLKI is the stack-kind half of the same snapshot: the object
 	// targets that were SPELLS on the stack when Resolve began. A resumed
 	// continuation rebuilds its Ctx from the stack object's targets, whose

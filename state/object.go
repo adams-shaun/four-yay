@@ -744,6 +744,13 @@ type Object struct {
 	Ability           *cards.SA
 	Source            ObjID
 	SourceIncarnation uint32
+	// GrantedBy is the GRANTOR of a cross-object granted activated ability
+	// (events.GrantAbilityPush's IDs[0], CR 613.1f): the Equipment or Aura
+	// whose static gives the recipient (Source) the ability. Forge's
+	// OriginalHost names it -- Fishing Pole's "put a bait counter on Fishing
+	// Pole", Blazing Torch's "Blazing Torch deals 2 damage". Zero for every
+	// other stack object.
+	GrantedBy ObjID
 	// StackKind is stamped when an event mints this stack object. It is
 	// deliberately carried on the object rather than re-derived from Source:
 	// CR 113.7a still identifies an ability after its source has left or
