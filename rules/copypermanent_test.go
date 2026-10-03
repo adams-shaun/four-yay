@@ -166,6 +166,11 @@ func TestMoltenEchoesCopiesEnteringCreatureExilesAtNextEndStep(t *testing.T) {
 
 	// Molten Echoes is seated directly on the battlefield, so it did not pass
 	// through an entry boundary. Seed the choice with its event representation.
+	// The seating move still runs its ETBReplacement ChooseType body, which
+	// (offering every creature type, CR 205.3m) posed an ask the helper's
+	// pending reset dropped; drop its resume point too, or the next stack
+	// resolution reads the stale choosetype frame as a live suspension.
+	e.resume = nil
 	e.emit(events.Event{Kind: events.Choose, Obj: molten, Counter: "type", Text: "Bear"})
 
 	bear := searchMoveByName(t, e, "Grizzly Bears", state.ZBattlefield)

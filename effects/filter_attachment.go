@@ -154,7 +154,8 @@ func modifiedPermanent(g *state.Game, o *state.Object, _ state.PlayerID, _ state
 func sharesTypeArg(p string) (name, arg string, ok bool) {
 	name, arg, ok = strings.Cut(p, " ")
 	if !ok || (name != "sharesCardTypeWith" && name != "sharesCreatureTypeWith" &&
-		name != "sharesCardTypeWithOther" && name != "sharesAllCardTypesWithOther") {
+		name != "sharesCardTypeWithOther" && name != "sharesAllCardTypesWithOther" &&
+		name != "SharesColorWithOther") {
 		return "", "", false
 	}
 	arg = strings.TrimSpace(arg)
@@ -371,6 +372,35 @@ func sharesCardTypeWithOther(g *state.Game, o *state.Object, sc SpecContext, ref
 			if hasType(r, cardType) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// sharesColorWithOther reports whether o shares at least one COLOUR with an
+// OTHER object the referent names (Forge Card.sharesColorWith over the
+// referent minus the candidate itself): Sphinx's Tutelage's and Grindstone's
+// repeat gate `Remembered$Valid Card[.nonLand+]SharesColorWithOther
+// Remembered` counts the milled cards that share a colour with another
+// milled card, so with two milled cards it reaches 2 exactly when they share
+// a colour. Colourless shares nothing. Colours read through colorMaskCtx
+// (layer-5 derived on the battlefield, the printed face elsewhere -- a
+// milled card answers from its face). An unbound referent matches nothing.
+func sharesColorWithOther(g *state.Game, o *state.Object, sc *SpecContext, ref string) bool {
+	mine := colorMaskCtx(o, sc)
+	if mine == 0 {
+		return false
+	}
+	for _, t := range sharesTypeReferents(g, *sc, ref) {
+		if t.IsPlayer {
+			continue
+		}
+		r := g.Obj(t.Obj)
+		if r == nil || r.ID == o.ID {
+			continue
+		}
+		if colorMaskCtx(r, sc)&mine != 0 {
+			return true
 		}
 	}
 	return false

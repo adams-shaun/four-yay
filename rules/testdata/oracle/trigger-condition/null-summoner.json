@@ -1,0 +1,236 @@
+{
+ "card": "Null Summoner",
+ "family": "trigger-condition",
+ "author": "xo-hand (Oracle + CR only)",
+ "oracle_sha": "f29980d9c241",
+ "scenarios": [
+  {
+   "name": "cast-it-exiles-chosen-nonland-card",
+   "cr": [
+    "603.4",
+    "701.20a",
+    "603.3d"
+   ],
+   "why": "Null Summoner was cast, so its enters trigger makes the target opponent reveal their hand; its controller chooses the nonland Lightning Bolt and exiles it. The Mountain stays in hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Null Summoner"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt",
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Null Summoner",
+     "mana": "CCUB"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Null Summoner",
+     "zone": "battlefield",
+     "pt": "4/2"
+    },
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Mountain",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "not-cast-no-trigger",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Put onto the battlefield without being cast, the intervening-if fails and nothing is exiled.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Null Summoner"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Null Summoner",
+     "to": "battlefield"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Null Summoner",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "hand"
+    },
+    {
+     "stack_size": 0
+    }
+   ]
+  },
+  {
+   "name": "threshold-lets-caster-cast-exiled-card-with-any-mana",
+   "cr": [
+    "702.121",
+    "601.2f",
+    "609.4b"
+   ],
+   "why": "With seven cards in its controller's graveyard (threshold), the controller may cast the exiled Lightning Bolt and spend mana of any type: blue mana pays {R}, the Bolt deals 3 to the opponent and goes to its owner's graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Null Summoner"
+     ],
+     "graveyard": [
+      "Wastes",
+      "Wastes",
+      "Wastes",
+      "Wastes",
+      "Wastes",
+      "Wastes",
+      "Wastes"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Null Summoner",
+     "mana": "CCUB"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ],
+     "expect": [
+      {
+       "card": "p1:Lightning Bolt",
+       "zone": "exile"
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p1:Lightning Bolt",
+     "mana": "U",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 17
+     }
+    },
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "below-threshold-exiled-card-not-castable",
+   "cr": [
+    "702.121"
+   ],
+   "why": "With only six cards in its controller's graveyard the threshold condition is false: the exiled Lightning Bolt is not offered to cast even with red mana available.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Null Summoner"
+     ],
+     "graveyard": [
+      "Wastes",
+      "Wastes",
+      "Wastes",
+      "Wastes",
+      "Wastes",
+      "Wastes"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Null Summoner",
+     "mana": "CCUB"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R",
+     "expect": [
+      {
+       "card": "p1:Lightning Bolt",
+       "zone": "exile"
+      },
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p1:Lightning Bolt"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": []
+  }
+ ]
+}

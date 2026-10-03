@@ -487,8 +487,11 @@ func TestChangeZoneDifferentNamesRestrictsToOnePerName(t *testing.T) {
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Realms Uncharted")
 	_, d := castSearchSpell(t, e, "Realms Uncharted")
-	if d.Kind != decision.KChoose || d.Min != 0 || d.Max != 4 {
-		t.Fatalf("head search = %v %d..%d, want KChoose 0..4", d.Kind, d.Min, d.Max)
+	// "Up to four ... with different names" over a library whose lands carry
+	// only two names (Forest, Mountain): Max is the distinct-name count, the
+	// most any answer Validate accepts can hold, not the printed four.
+	if d.Kind != decision.KChoose || d.Min != 0 || d.Max != 2 {
+		t.Fatalf("head search = %v %d..%d, want KChoose 0..2", d.Kind, d.Min, d.Max)
 	}
 	if len(d.Options) < 4 {
 		t.Fatalf("head search has %d options, need 4 lands", len(d.Options))

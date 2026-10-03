@@ -697,7 +697,7 @@ func (e *Engine) planEachReservation(p state.PlayerID, id state.ObjID, cost Cost
 			cands[i] = e.sacrificeCostCandidates(p, id, pt.part, ability)
 			continue
 		}
-		for _, oid := range e.costCandidates(p, id, state.ZBattlefield, pt.part.Spec, false, true) {
+		for _, oid := range e.tapCostCandidates(p, id, pt.part) {
 			if cost.Tap && oid == id {
 				continue
 			}
@@ -798,7 +798,7 @@ func (e *Engine) planLeavesCostPayable(p state.PlayerID, id state.ObjID, cost Co
 		}
 	} else {
 		for _, part := range cost.TapPermanent {
-			if part.Dyn == "" && part.N > 0 && !enough(e.costCandidates(p, id, state.ZBattlefield, part.Spec, false, true), part.N, tapped) {
+			if part.Dyn == "" && part.N > 0 && !enough(e.tapCostCandidates(p, id, part), part.N, tapped) {
 				return false
 			}
 		}

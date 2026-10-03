@@ -1,0 +1,291 @@
+{
+ "card": "Kiora of Salt and Sand",
+ "family": "trigger-condition",
+ "author": "xo-hand (Oracle + CR only)",
+ "oracle_sha": "3f8ed7c94b43",
+ "scenarios": [
+  {
+   "name": "loyalty-activated-attack-untaps-and-makes-unblockable",
+   "cr": [
+    "603.4",
+    "506.4",
+    "509.1b",
+    "606.3"
+   ],
+   "why": "After Ajani's +1 loyalty ability this turn, attacking with Grizzly Bears and Savannah Lions triggers Kiora once; aimed at the Bears, it untaps the Bears and the Bears can't be blocked this turn: the opponent's Centaur Courser may block the (still tapped) Lions but not the Bears. Unblocked, both deal damage: 20 - 4 = 16.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kiora of Salt and Sand",
+      "Ajani Goldmane",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani Goldmane",
+     "ability": "gain 2 life"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "life": {
+        "p0": 22
+       }
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "tapped": false
+      },
+      {
+       "card": "p0:Savannah Lions",
+       "tapped": true
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Centaur Courser",
+        "attacker": "p0:Grizzly Bears"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Centaur Courser",
+        "attacker": "p0:Savannah Lions"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 1,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 16
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-loyalty-activation-no-trigger",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Without a loyalty ability activated this turn the intervening-if fails: the attacking Bears stays tapped and the opponent's Centaur Courser can block it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kiora of Salt and Sand",
+      "Ajani Goldmane",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "tapped": true
+      },
+      {
+       "stack_size": 0
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Centaur Courser",
+        "attacker": "p0:Grizzly Bears"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": []
+  },
+  {
+   "name": "planeswalker-minus-eight-makes-hexproof-leviathan",
+   "cr": [
+    "613.1f",
+    "606.6",
+    "111.1",
+    "704.5i"
+   ],
+   "why": "Kiora grants its controller's planeswalkers '[-8]: Create an 8/8 blue Leviathan creature token with hexproof.' Ajani Goldmane cast with Doubling Season out enters with 8 loyalty (CR 306.5b + Doubling Season); the granted -8 creates the token -- doubled to two by Doubling Season (CR 614.1a) -- and Ajani, at 0 loyalty, goes to the graveyard. The -8 is a cost, so Doubling Season does not touch it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kiora of Salt and Sand",
+      "Doubling Season"
+     ],
+     "hand": [
+      "Ajani Goldmane"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ajani Goldmane",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Ajani Goldmane",
+       "zone": "battlefield",
+       "counters": {
+        "loyalty": 8
+       }
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani Goldmane",
+     "ability": "Leviathan"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Leviathan",
+      "token": true
+     },
+     "eq": 2
+    },
+    {
+     "card": "p0:token:Leviathan",
+     "pt": "8/8",
+     "keywords": [
+      "Hexproof"
+     ],
+     "types": [
+      "Creature"
+     ]
+    },
+    {
+     "card": "p0:Ajani Goldmane",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "minus-eight-not-activatable-with-four-loyalty",
+   "cr": [
+    "606.6",
+    "118.3"
+   ],
+   "why": "A planeswalker with 4 loyalty counters cannot pay the granted [-8] cost, so it is not offered.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kiora of Salt and Sand"
+     ],
+     "hand": [
+      "Ajani Goldmane"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ajani Goldmane",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Ajani Goldmane",
+       "zone": "battlefield",
+       "counters": {
+        "loyalty": 4
+       }
+      },
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Ajani Goldmane",
+        "label": "Leviathan"
+       },
+       "want": false
+      },
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Ajani Goldmane",
+        "label": "gain 2 life"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": []
+  }
+ ]
+}
