@@ -671,6 +671,8 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 		// temporary chooser binding, including any enclosing player remembers.
 		c.Remembered = append([]state.Target(nil), baselineRemembered...)
 	}
+	c.GenericChoosers = nil
+	c.GenericChooserIndex = 0
 	return true
 }
 
