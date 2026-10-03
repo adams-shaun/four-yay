@@ -1035,12 +1035,14 @@ type Ctx struct {
 	// state.Game into rules. An effects test double whose Host does not
 	// implement typeTableHost leaves it nil and reads the printed face.
 	EffectiveTypes []ObjectTypes
-	// EffectiveColors is the layer-5 derived-colour table (SetColor$,
-	// AddColor$, an Animate's Colors$), published by rules for a body that
-	// names a colour word and bound onto every SpecContext
-	// (*Ctx).SpecContext builds, so a resolving effect's colour filter
-	// ("destroy all nonblack creatures") agrees with the layer walk.
-	EffectiveColors []ObjectColors
+	// LayerTables is the layer-5 derived-colour table (SetColor$, AddColor$,
+	// an Animate's Colors$; published for a body that names a colour word)
+	// and the layer-6 derived keyword table (AddKeyword$ grants, ability
+	// loss; published for a body that can name a with<Keyword> predicate),
+	// bound onto every SpecContext (*Ctx).SpecContext builds, so a resolving
+	// effect's colour or keyword filter ("destroy all nonblack creatures",
+	// "each creature without flying") agrees with the layer walk.
+	LayerTables
 	// StaticGoads is the live static-goad table (staticgoad1), published by
 	// rules for resolution-time IsGoaded filters.
 	StaticGoads map[state.ObjID]bool
@@ -2951,6 +2953,28 @@ type colorTableHost interface {
 	EffectiveColors() []ObjectColors
 }
 
+// keywordTableHost publishes rules' layer-derived keyword table for
+// resolving filters. Optional, like colorTableHost; asked only for a body
+// that can name a keyword predicate.
+type keywordTableHost interface {
+	EffectiveKeywords() []ObjectKeywords
+}
+
+// saMentionsKeywords reports whether any parameter of sa, or of a
+// sub-ability chained under it (the walk shares one Ctx), can name a
+// with<Keyword>/without<Keyword>/hasKeyword<Keyword> predicate.
+func saMentionsKeywords(sa *cards.SA) bool {
+	for depth := 0; sa != nil && depth < 32; depth++ {
+		for _, v := range sa.Params {
+			if strings.Contains(v, "with") || strings.Contains(v, "hasKeyword") {
+				return true
+			}
+		}
+		sa = sa.Sub
+	}
+	return false
+}
+
 // saMentionsColors reports whether any parameter of sa can name a colour
 // predicate (the capitalised fragments every colour word of the filter
 // grammar contains).
@@ -3090,9 +3114,14 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			c.StaticGoads = nil
 		}
 		if ch, ok := h.(colorTableHost); ok && sa != nil && saMentionsColors(sa) {
-			c.EffectiveColors = ch.EffectiveColors()
+			c.DerivedColors = ch.EffectiveColors()
 		} else {
-			c.EffectiveColors = nil
+			c.DerivedColors = nil
+		}
+		if kh, ok := h.(keywordTableHost); ok && sa != nil && saMentionsKeywords(sa) {
+			c.DerivedKeywords = kh.EffectiveKeywords()
+		} else {
+			c.DerivedKeywords = nil
 		}
 		if th, ok := h.(targetableObjectsHost); ok {
 			c.TargetableObjects = th.TargetableObjects(c.TriggerCard)
@@ -3192,9 +3221,14 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			c.StaticGoads = nil
 		}
 		if ch, ok := h.(colorTableHost); ok && saMentionsColors(sa) {
-			c.EffectiveColors = ch.EffectiveColors()
+			c.DerivedColors = ch.EffectiveColors()
 		} else {
-			c.EffectiveColors = nil
+			c.DerivedColors = nil
+		}
+		if kh, ok := h.(keywordTableHost); ok && saMentionsKeywords(sa) {
+			c.DerivedKeywords = kh.EffectiveKeywords()
+		} else {
+			c.DerivedKeywords = nil
 		}
 		if th, ok := h.(targetableObjectsHost); ok {
 			c.TargetableObjects = th.TargetableObjects(c.TriggerCard)
