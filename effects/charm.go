@@ -397,6 +397,12 @@ func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
 		}
 		c.VillainousIndex++
 	}
+	// Every victim has chosen: the cursor is spent. Reset it (the per-player
+	// GenericChoice loop's discipline), or a later VillainousChoice on the
+	// same Ctx -- the next iteration of an enclosing Repeat -- finds the
+	// exhausted cursor and asks nobody.
+	c.VillainousVictims = nil
+	c.VillainousIndex = 0
 }
 
 // charmDistinctTargetRun runs a distinct modal Charm with one target group
