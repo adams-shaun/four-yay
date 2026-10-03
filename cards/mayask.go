@@ -194,8 +194,8 @@ func saChainMayAsk(sa *SA, svars map[string]string, self *Face, root bool, depth
 			if !first || choices == "" {
 				return true // a Charm reached mid-chain picks its modes here
 			}
-			for _, n := range strings.Split(choices, ",") {
-				body := ResolveSVar(svars, strings.TrimSpace(n))
+			for _, n := range SplitModeNames(choices) {
+				body := ResolveSVar(svars, n)
 				if body == nil || saChainMayAsk(body, svars, self, false, depth+1) {
 					return true
 				}

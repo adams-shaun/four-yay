@@ -224,7 +224,7 @@ func (e *Engine) continueScryReplacements(ev events.Event, matches []replMatch, 
 			if d := strings.TrimSpace(with.ParamStr(cards.PKDefined)); d != "" && !strings.EqualFold(d, "You") {
 				break
 			}
-			if n, ok := e.scryReplacementCount(ctx, with.Params["NumCards"], ev.Amount); ok {
+			if n, ok := e.scryReplacementCount(ctx, effects.DrawOf(with).NumCards.Text, ev.Amount); ok {
 				e.lifeReplacementDraw(ev.Player, n)
 				return events.Event{}, true
 			}
