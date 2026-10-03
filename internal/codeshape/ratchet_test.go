@@ -2,6 +2,7 @@ package codeshape
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -53,8 +54,10 @@ const (
 	// 1302 -> 814. The same rewrite over rules/trigmatch's moved matchers
 	// (W5 E3, ValidSA/Static): 805 -> 798. W4 slice 4 added 56 keys (250 of
 	// the 254 a uint8 ParamKey can name) and migrated rules/chars too:
-	// 798 -> 630 -> 629 (loop-bugs: effReveal reads RevealDefined$ once).
-	stringParamReads = 629
+	// 798 -> 630. W4 step 3's ChangeZone compiler (one read per key,
+	// effects/changezone_params.go): 630 -> 628. loop-bugs: effReveal reads
+	// RevealDefined$ once: 628 -> 627.
+	stringParamReads = 627
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	stringCaseLiterals = 2886
@@ -77,6 +80,12 @@ const (
 	// escape hatch (the whole engine as an effects.Host) for the one narrow
 	// EvalCount the matchers needed: 27 -> 27.
 	trigmatchBoardMethods = 27
+	// changeZoneParamLeaks is the number of ChangeZone parameter reads
+	// outside its compiler, effects/changezone_params.go (W4 step 3, spec
+	// section 8): any read in ChangeZone's own resolution files, plus any
+	// read of a ChangeZone-only key elsewhere (codeshape.ChangeZoneFiles,
+	// codeshape.ChangeZoneOnlyKeys). It landed at zero.
+	changeZoneParamLeaks = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -180,6 +189,11 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"new fact from an existing method (Chars carries every characteristic, Facts " +
 				"every per-emit trigger context value) or pass it precomputed, instead of " +
 				"adding a method."},
+		{"changeZoneParamLeaks", m.ChangeZoneParamLeaks, changeZoneParamLeaks,
+			"Read the parameter through effects.ChangeZoneOf's compiled ChangeZoneParams " +
+				"(add a field to compileChangeZone in effects/changezone_params.go) instead " +
+				"of reading the ability's Params in a ChangeZone file or a ChangeZone-only " +
+				"key elsewhere. Leaks: " + strings.Join(m.ChangeZoneLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +

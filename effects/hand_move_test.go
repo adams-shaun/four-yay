@@ -371,8 +371,8 @@ func TestHandMoveChangeZoneEvaluatesWholeHandCounts(t *testing.T) {
 // Note path: no ask, no move, no silent no-op.
 func TestHandMoveChangeZoneRejectsOutOfRangeChangeNum(t *testing.T) {
 	const overflow = "2147483648"
-	if n, ok := handChangeNum(sa(t,
-		"DB$ ChangeZone | Origin$ Hand | Destination$ Battlefield | ChangeType$ Land | ChangeNum$ "+overflow)); ok || n != 0 {
+	if n, ok := handChangeNum(ChangeZoneOf(sa(t,
+		"DB$ ChangeZone | Origin$ Hand | Destination$ Battlefield | ChangeType$ Land | ChangeNum$ "+overflow))); ok || n != 0 {
 		t.Fatalf("handChangeNum(%s) = %d, %v; want 0, false", overflow, n, ok)
 	}
 
@@ -552,7 +552,7 @@ func TestHandMoveTextOptionalKeepsTheMayInItsOwnSentence(t *testing.T) {
 // parameters do not encode the default; only real card/script wording does.
 func TestHandMovePromptNamesOtherPlayersLibrary(t *testing.T) {
 	line := sa(t, "DB$ ChangeZone | Origin$ Hand | Destination$ Library | LibraryPosition$ -1")
-	got := handMovePromptFor(line, state.ZLibrary, 1, false)
+	got := handMovePromptFor(ChangeZoneOf(line), state.ZLibrary, 1, false)
 	if !strings.Contains(got, "that player's hand") || !strings.Contains(got, "the bottom of that player's library") {
 		t.Fatalf("prompt = %q, want the other player's hand and library", got)
 	}

@@ -21,7 +21,7 @@ func TestWithTotalCardTypesRejectsInsufficientHiddenPick(t *testing.T) {
 
 	// Both candidates are creatures, so the chosen set has only one distinct
 	// card type and must fail closed rather than exiling an invalid set.
-	applyLibrarySearch(h, c, ability, 0, state.ZExile, []state.ObjID{a.ID, b.ID}, []state.Zone{state.ZGraveyard})
+	applyLibrarySearch(h, c, ability, ChangeZoneOf(ability), 0, state.ZExile, []state.ObjID{a.ID, b.ID}, []state.Zone{state.ZGraveyard})
 	if a.Zone != state.ZGraveyard || b.Zone != state.ZGraveyard {
 		t.Fatalf("insufficient-type pick moved cards: zones = %s, %s", a.Zone, b.Zone)
 	}

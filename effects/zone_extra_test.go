@@ -21,8 +21,7 @@ func TestMalformedWithCountersAmountIsLoudNotSilent(t *testing.T) {
 	h.g.Obj(c.Source).Zone = state.ZHand
 
 	c.SVars = map[string]string{}
-	sa := &cards.SA{Params: map[string]string{
-		"API":                "ChangeZone",
+	sa := &cards.SA{API: "ChangeZone", Params: map[string]string{
 		"Defined":            "Self",
 		"Destination":        "Battlefield",
 		"WithCountersType":   "P1P1",
