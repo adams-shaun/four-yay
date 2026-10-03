@@ -77,6 +77,12 @@ type walkConfig struct {
 	// every world starts from it instead of a fresh observer clone and
 	// freshly seeded bot streams. Nil without a reuse hit.
 	resume *reuseMark
+
+	// combatSteps splits searched declarations into creature steps
+	// (Options.CombatSteps, combat.go); rootCombat is the root's progress
+	// when the root is one of those steps (nil otherwise).
+	combatSteps bool
+	rootCombat  *combatWalk
 }
 
 // priorNet is the network in-walk priors read: nil under uniformPrior.
@@ -185,6 +191,10 @@ type engineEnv struct {
 	oppObs *searchprobe.Collector
 	oppBot *seat.Bot
 	oppPCG *rand.PCG
+	// combat is the walk's progress through a split declaration
+	// (Options.CombatSteps): set while the current point is one of its
+	// creature steps, nil otherwise.
+	combat *combatWalk
 }
 
 func newEngineEnv(w World, cfg *walkConfig) (*engineEnv, error) {
@@ -221,6 +231,9 @@ func newEngineEnv(w World, cfg *walkConfig) (*engineEnv, error) {
 	}
 	if cfg.oppNodes {
 		env.initOpponent()
+	}
+	if cfg.rootCombat != nil {
+		env.combat = cfg.rootCombat.clone()
 	}
 	if cfg.resume != nil {
 		env.resumeFrom(cfg.resume)
@@ -330,6 +343,9 @@ func (e *engineEnv) Play(k Key) (pt *Point, err error) {
 	if i < 0 {
 		return nil, fmt.Errorf("%w: candidate %q is not offered here", ErrSubmit, k)
 	}
+	if e.combat != nil {
+		return e.playCombat(e.cands[i])
+	}
 	if m := e.cands[i].macro; m != nil {
 		if err := e.playMacro(m); err != nil {
 			return nil, err
@@ -387,7 +403,16 @@ func (e *engineEnv) advance() (*Point, error) {
 				in = botpolicy.Decide(b, pd, e.rngs[pd.Player])
 			}
 		}
-		if pd.Player == e.cfg.actor {
+		if e.cfg.combatSteps && combatSearched(pd, e.cfg.kinds) && (pd.Player == e.cfg.actor || (e.cfg.oppNodes && pd.Player == e.cfg.opp)) {
+			// A searched seat's declaration, split into creature steps.
+			obs, limit, opp := e.obs, e.cfg.limit, e.cfg.swapFrame
+			if pd.Player != e.cfg.actor {
+				obs, limit, opp = e.oppObs, e.cfg.oppLimit, !e.cfg.swapFrame
+			}
+			if pt, ok := e.startCombat(pd, obs, limit, opp); ok {
+				return pt, nil
+			}
+		} else if pd.Player == e.cfg.actor {
 			if cands, kind, _, ok, cut := enumerateCutInto(e.obs, e.e, pd, in, e.cfg.kinds, e.cfg.limit, e.cfg.autoPayment, e.cfg.enumBoard); ok {
 				if cut {
 					e.cfg.stats.Truncated++

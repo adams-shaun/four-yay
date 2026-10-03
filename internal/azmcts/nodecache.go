@@ -194,7 +194,7 @@ func (c *nodeCache) simulate(top *node, sim int, opts Options, st *Stats) error 
 			if l.Err != nil {
 				return l.Err
 			}
-			top.n, top.w, top.v0 = 1, l.V, l.V
+			top.n, top.w, top.v0, top.rootEval = 1, l.V, l.V, true
 		}
 		top.pt = env.Root()
 		if !validPoint(top.pt) {
@@ -392,6 +392,9 @@ type envState struct {
 	// autoPayment).
 	oppObs *searchprobe.Collector
 	opp    *rand.PCG
+	// combat is the walk's split-declaration progress (Options.CombatSteps),
+	// nil outside one.
+	combat *combatWalk
 }
 
 func (f *fixedEnvs) Save(env Env, final bool) (snap any, err error) {
@@ -408,6 +411,7 @@ func (f *fixedEnvs) Save(env Env, final bool) (snap any, err error) {
 		s.actor = &a
 	}
 	s.oppObs = ee.oppObs
+	s.combat = ee.combat.clone()
 	if ee.oppPCG != nil {
 		o := *ee.oppPCG
 		s.opp = &o
@@ -482,6 +486,7 @@ func (f *fixedEnvs) Resume(snap any) (env Env, err error) {
 	if s.oppObs != nil {
 		ee.oppObs = s.oppObs.Clone()
 	}
+	ee.combat = s.combat.clone()
 	if s.opp != nil {
 		o := *s.opp
 		ee.oppPCG = &o
