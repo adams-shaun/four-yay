@@ -180,6 +180,8 @@ var modelledValueHeads = []string{
 	"Void",
 	"YouDescendedThisTurn",
 	"YouDrewThisTurn",
+	"YouScryThisTurn",
+	"YouSurveilThisTurn",
 	"YourCountersEnergy",
 	"YourCountersExperience",
 	"YourCountersRAD",

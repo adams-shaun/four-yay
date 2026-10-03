@@ -245,17 +245,7 @@ func compiledPositive(c *compiledPred, g *state.Game, o *state.Object, sc *SpecC
 		return false, false
 	}
 	if c.hasKP {
-		has := false
-		if sc.ExtraKeywords == nil {
-			has = objectHasKeyword(o, c.kp.keyword)
-		} else {
-			for _, x := range sc.ExtraKeywords {
-				if strings.EqualFold(cards.KeywordHead(x), c.kp.keyword) {
-					has = true
-					break
-				}
-			}
-		}
+		has := keywordInCtx(o, c.kp.keyword, sc)
 		if c.kp.negated {
 			has = !has
 		}

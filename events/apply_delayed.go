@@ -413,6 +413,7 @@ func foldGrantAbilityPush(g *state.Game, e *Event) {
 	o.Ability = sa
 	o.StackKind, o.StackKindKnown = state.StackKindActivated, true
 	o.Source = e.Obj
+	o.GrantedBy = grantor.ID
 }
 
 // foldGainedAbilityPush folds Kind GainedAbilityPush into state.

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -48,9 +49,11 @@ func TestHauntingVoyageForetoldReturnsTheChosenTypeNotTheFallback(t *testing.T) 
 		d.Player != 0 || d.Min != 1 || d.Max != 1 || d.Prompt != "Choose a creature type" {
 		t.Fatalf("expected the mid-resolution creature-type ask, got %+v", d)
 	}
-	if len(d.Options) != 2 || d.Options[0].Kind != "type" || d.Options[0].Label != "Elf" ||
+	// CR 205.3m: every creature type is offered, the chooser's own (sorted)
+	// first.
+	if len(d.Options) != len(effects.CreatureTypeWordList()) || d.Options[0].Kind != "type" || d.Options[0].Label != "Elf" ||
 		d.Options[1].Kind != "type" || d.Options[1].Label != "Zombie" {
-		t.Fatalf("option list = %+v, want the sorted Elf/Zombie \"type\" options", d.Options)
+		t.Fatalf("option list = %+v, want the sorted Elf/Zombie \"type\" options leading every creature type", d.Options[:min(3, len(d.Options))])
 	}
 	idx := optionByLabel(d.Options, "Zombie")
 	if idx < 0 {
