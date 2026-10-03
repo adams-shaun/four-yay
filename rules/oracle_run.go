@@ -167,7 +167,7 @@ type oracleRun struct {
 	extraFails []string
 	snaps      []OracleSnapshot
 	decisions  []OracleDecision
-	noSnapshot bool // set by callers that only want pass/fail
+	noSnapshot bool // runOracleScenarioWith's switch
 }
 
 func (r *oracleRun) logf(format string, a ...any) {
@@ -1277,7 +1277,13 @@ func (r *oracleRun) stackDump() string {
 // pass), a transcript, and the run (for the replay check; its engine is nil
 // when setup failed before genesis).
 func runOracleScenario(reg *cards.Registry, sc oracleScenario) (fails []string, transcript []string, run *oracleRun) {
-	r := &oracleRun{reg: reg, refs: map[string]state.ObjID{}}
+	return runOracleScenarioWith(reg, sc, false)
+}
+
+// runOracleScenarioWith is runOracleScenario with snapshots switched off
+// when noSnapshot is set (the A/B check that snapshotting is read-only).
+func runOracleScenarioWith(reg *cards.Registry, sc oracleScenario, noSnapshot bool) (fails []string, transcript []string, run *oracleRun) {
+	r := &oracleRun{reg: reg, refs: map[string]state.ObjID{}, noSnapshot: noSnapshot}
 	run = r
 	defer func() {
 		if p := recover(); p != nil {

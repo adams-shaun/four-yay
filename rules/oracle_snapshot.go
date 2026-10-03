@@ -3,6 +3,7 @@ package rules
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
@@ -40,9 +41,8 @@ type OracleSnapPlayer struct {
 	Pool         string           `json:"pool"`        // WUBRGC letters
 }
 
-// OracleSnapPerm is one battlefield permanent. Ref follows the scenario ref
-// rule: "p<controller>:<name>", "#k" for the k-th (k>1) of that name the
-// seat controls in arrival (ObjID) order; tokens are "p<c>:token:<name>".
+// OracleSnapPerm is one battlefield permanent. Ref is the object's scenario
+// ref (objRef): the one a scenario step would use to name it.
 type OracleSnapPerm struct {
 	Ref        string           `json:"ref"`
 	Name       string           `json:"name"`
@@ -151,7 +151,6 @@ func (r *oracleRun) snapshot(checkpoint string) OracleSnapshot {
 		field = append(field, g.Zone(state.ZBattlefield, state.PlayerID(i))...)
 	}
 	sort.Slice(field, func(a, b int) bool { return field[a] < field[b] })
-	refs := r.snapRefs(field)
 	blocking := map[state.ObjID]bool{}
 	for _, id := range field {
 		for _, b := range g.Obj(id).BlockedBy {
@@ -165,7 +164,7 @@ func (r *oracleRun) snapshot(checkpoint string) OracleSnapshot {
 		kws := append([]string(nil), e.Keywords(id)...)
 		sort.Strings(kws)
 		p := OracleSnapPerm{
-			Ref: refs[id], Name: r.objName(o), Controller: int(o.Controller), Owner: int(o.Owner),
+			Ref: r.objRef(o), Name: r.objName(o), Controller: int(o.Controller), Owner: int(o.Owner),
 			Token: o.IsToken, Tapped: o.Tapped, FaceDown: o.FaceDown, Damage: o.Damage,
 			Counters: r.snapCounters(o.Counters), Types: types, Colors: e.Colors(id), Keywords: kws,
 			Attacking: o.IsAttacking, Blocking: blocking[id],
@@ -175,11 +174,7 @@ func (r *oracleRun) snapshot(checkpoint string) OracleSnapshot {
 		}
 		switch {
 		case o.AttachedTo != 0:
-			if ref, ok := refs[o.AttachedTo]; ok {
-				p.AttachedTo = ref
-			} else {
-				p.AttachedTo = r.objName(g.Obj(o.AttachedTo))
-			}
+			p.AttachedTo = r.objRef(g.Obj(o.AttachedTo))
 		case o.HasAttachedPlayer:
 			p.AttachedTo = fmt.Sprintf("p%d", o.AttachedPlayer)
 		}
@@ -196,46 +191,73 @@ func (r *oracleRun) snapshot(checkpoint string) OracleSnapshot {
 			it.Kind = "ability"
 			src = g.Obj(o.Source)
 		}
-		it.Source = r.stackRef(src)
+		it.Source = r.objRef(src)
 		s.Stack = append(s.Stack, it)
 	}
 	return s
 }
 
-// snapRefs assigns scenario-style refs to ids, which must be in ObjID order.
-func (r *oracleRun) snapRefs(ids []state.ObjID) map[state.ObjID]string {
-	refs := make(map[state.ObjID]string, len(ids))
-	seen := map[string]int{}
-	for _, id := range ids {
-		o := r.e.G.Obj(id)
-		base := fmt.Sprintf("p%d:%s", o.Controller, r.objName(o))
-		if o.IsToken {
-			base = fmt.Sprintf("p%d:token:%s", o.Controller, r.objName(o))
-		}
-		seen[base]++
-		if seen[base] > 1 {
-			base = fmt.Sprintf("%s#%d", base, seen[base])
-		}
-		refs[id] = base
-	}
-	return refs
-}
-
-// stackRef names a spell or ability source by the scenario ref bound at
-// setup when there is one (a card keeps its ref across zones), else by
-// "p<owner>:<name>".
-func (r *oracleRun) stackRef(o *state.Object) string {
+// objRef names o by the ref resolve maps back to o right now, so a snapshot
+// ref is the object's identity, never its position on the battlefield:
+//
+//   - a card named at setup keeps its setup ref ("p1:Grizzly Bears#2") in
+//     every zone, whoever controls it;
+//   - any other card is "p<owner>:<name>[#k]", k its rank in ObjID order
+//     among the owner's live objects of that name (resolve's own fallback;
+//     card objects never cease, so k never changes);
+//   - a token is "p<controller>:token:<name>[#k]", k its rank among that
+//     seat's battlefield tokens whose name contains <name> (resolve's token
+//     rule). Tokens are positional, as in scenarios; the comparator matches
+//     them by characteristics (spec section 7).
+func (r *oracleRun) objRef(o *state.Object) string {
 	if o == nil {
 		return ""
 	}
-	best := ""
+	bound := ""
 	for ref, id := range r.refs {
-		if id == o.ID && (best == "" || ref < best) {
-			best = ref
+		if id == o.ID && (bound == "" || ref < bound) {
+			bound = ref
 		}
 	}
-	if best != "" {
-		return best
+	if bound != "" {
+		return bound
 	}
-	return fmt.Sprintf("p%d:%s", o.Owner, r.objName(o))
+	name := r.objName(o)
+	lower := strings.ToLower(name)
+	seat, k := o.Owner, 0
+	if o.IsToken {
+		seat = o.Controller
+	}
+	for i := range r.e.G.Objs {
+		c := &r.e.G.Objs[i]
+		if c.Zone == state.ZCeased || c.Ability != nil || c.Face() == nil {
+			continue
+		}
+		if o.IsToken {
+			if !c.IsToken || c.Controller != seat || c.Zone != state.ZBattlefield || !strings.Contains(strings.ToLower(c.Face().Name), lower) {
+				continue
+			}
+		} else if c.Owner != seat || c.Face().Name != name {
+			continue
+		}
+		k++
+		if c.ID == o.ID {
+			break
+		}
+	}
+	base := fmt.Sprintf("p%d:%s", seat, name)
+	if o.IsToken {
+		base = fmt.Sprintf("p%d:token:%s", seat, name)
+	}
+	ref := base
+	if k > 1 {
+		ref = fmt.Sprintf("%s#%d", base, k)
+	}
+	// A setup ref of the same spelling bound to another object would shadow
+	// this one in resolve; "#1" is never bound at setup and still resolves
+	// positionally.
+	if id, ok := r.refs[ref]; ok && id != o.ID && k == 1 {
+		ref = base + "#1"
+	}
+	return ref
 }
