@@ -177,6 +177,11 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "lossProof"}: true,
 	// abilityLoss's per-build answer memo (abilityloss_memo.go): keyed by
 	// activeBuildSeq with a generation stamp, recycled through Spare.
+	// The resolution kernel's restore counter and recycled checkpoint
+	// storage (resolve_board.go): scratch that a clone starts without.
+	{"rules.Engine", "tape"}:           true,
+	{"rules.Engine", "tapeEpoch"}:      true,
+	{"rules.Engine", "tapeSpare"}:      true,
 	{"rules.Engine", "lossMemo"}:       true,
 	{"rules.Engine", "layer5Colors"}:   true,
 	{"rules.Engine", "colorsEpoch"}:    true,
