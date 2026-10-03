@@ -1,0 +1,336 @@
+{
+ "card": "Run Away Together",
+ "family": "spell-conditional",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "17492dcacf7c",
+ "scenarios": [
+  {
+   "name": "returns-one-creature-of-each-player",
+   "cr": [
+    "601.2c",
+    "400.3"
+   ],
+   "why": "Two target creatures controlled by different players are returned to their owners' hands.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Run Away Together"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Run Away Together",
+     "mana": "CU",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p1:Centaur Courser"
+     ],
+     "expect": [
+      {
+       "stack_size": 1
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "hand"
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Run Away Together",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "only-own-creatures-not-castable",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "The two targets must be controlled by different players: with creatures on one side only the spell cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Run Away Together"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Run Away Together"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Run Away Together",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "only-opponents-creatures-not-castable",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "Two creatures of the same opponent are not a legal pair of targets.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Run Away Together"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Run Away Together"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Run Away Together",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "one-target-gone-other-still-returned",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "One target leaves in response; the spell still resolves and returns the remaining legal target, and no other creature.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Run Away Together"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Run Away Together",
+     "mana": "CU",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "move",
+     "card": "p1:Centaur Courser",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "targeting-a-ward-creature-triggers-ward-on-cast",
+   "cr": [
+    "702.21a",
+    "601.2c"
+   ],
+   "why": "Both creatures are targets chosen on cast, so naming the opponent's Tolarian Terror triggers ward {2}; unpaid, the spell is countered and nothing is returned.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Run Away Together"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Tolarian Terror"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Run Away Together",
+     "mana": "CU",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p1:Tolarian Terror"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p1:Tolarian Terror",
+       "want": true
+      },
+      {
+       "stack_size": 2
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Don't pay"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Tolarian Terror",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Run Away Together",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "instant-on-opponents-turn",
+   "cr": [
+    "307.1"
+   ],
+   "why": "It is an instant.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Run Away Together"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Run Away Together",
+     "mana": "CU",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "hand"
+    }
+   ]
+  }
+ ]
+}

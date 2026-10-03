@@ -1,0 +1,626 @@
+{
+ "card": "Strongbox Raider",
+ "family": "trigger-condition",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "234e0ee7f8a5",
+ "scenarios": [
+  {
+   "name": "no-attack-no-trigger",
+   "cr": [
+    "603.4",
+    "207.2c"
+   ],
+   "why": "Raid: cast before attacking this turn, the enter ability does not trigger and the library is untouched.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Strongbox Raider"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Strongbox Raider",
+     "mana": "CCRR"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1,
+     "expect": [
+      {
+       "card": "p0:Strongbox Raider",
+       "zone": "battlefield",
+       "pt": "5/2"
+      },
+      {
+       "trigger_on_stack": "p0:Strongbox Raider",
+       "want": false
+      },
+      {
+       "stack_size": 0
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "attacked-exiles-two-and-the-chosen-card-is-castable",
+   "cr": [
+    "603.4",
+    "601.3b"
+   ],
+   "why": "Having attacked this turn, entering exiles the top two cards; one is chosen and may be played this turn - here cast from exile for its normal cost. The other card stays exiled.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Strongbox Raider"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Strongbox Raider",
+     "mana": "CCRR"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ],
+     "expect": [
+      {
+       "card": "p0:Lightning Bolt",
+       "zone": "exile"
+      },
+      {
+       "card": "p0:Shock",
+       "zone": "exile"
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 15
+     }
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "unchosen-card-is-not-playable",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Only the chosen card may be played: the other exiled card is not offered.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Strongbox Raider"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Strongbox Raider",
+     "mana": "CCRR"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Lightning Bolt"
+     },
+     "want": true
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Shock"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "chosen-land-can-be-played",
+   "cr": [
+    "305.1",
+    "305.2"
+   ],
+   "why": "'Play' covers lands: a chosen land card is played from exile as the turn's land play.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Strongbox Raider"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Forest",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Strongbox Raider",
+     "mana": "CCRR"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "still-playable-through-the-end-of-its-controllers-next-turn",
+   "cr": [
+    "611.2b"
+   ],
+   "why": "The permission lasts until the end of its controller's next turn: the chosen instant is still castable during the opponent's turn and on its controller's next turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Strongbox Raider"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Strongbox Raider",
+     "mana": "CCRR"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Lightning Bolt"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 15
+     }
+    }
+   ]
+  },
+  {
+   "name": "permission-expires-after-its-controllers-next-turn",
+   "cr": [
+    "611.2b",
+    "514.2"
+   ],
+   "why": "After the end of its controller's next turn the card can no longer be played and stays in exile.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Strongbox Raider"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Strongbox Raider",
+     "mana": "CCRR"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Lightning Bolt"
+     },
+     "want": false
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "exile-is-not-optional",
+   "cr": [
+    "603.5"
+   ],
+   "why": "The enter ability has no 'may' on the exile: its controller cannot decline it, so the two cards are exiled regardless.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Strongbox Raider"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Strongbox Raider",
+     "mana": "CCRR"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "trigger_optional",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "exiled-card-still-costs-mana",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "May play is not free: with no mana the chosen card is not castable.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Strongbox Raider"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Strongbox Raider",
+     "mana": "CCRR"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Lightning Bolt"
+     },
+     "want": false
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  }
+ ]
+}

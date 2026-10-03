@@ -1,0 +1,288 @@
+{
+ "card": "Quick-Draw Katana",
+ "family": "equipment",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "c0ab3e595ce2",
+ "scenarios": [
+  {
+   "name": "equipped-on-your-turn-plus-two-first-strike",
+   "cr": [
+    "301.5",
+    "611.3a",
+    "702.7a"
+   ],
+   "why": "Equip {2}: during its controller's turn the equipped creature gets +2/+0 and has first strike.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Quick-Draw Katana",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Quick-Draw Katana",
+     "mana": "CC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "Equip"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/2",
+     "keywords": [
+      "First Strike"
+     ]
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-bonus-on-opponents-turn",
+   "cr": [
+    "611.3a"
+   ],
+   "why": "'During your turn': in the opponent's turn the creature is a plain 2/2 without first strike.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Quick-Draw Katana",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Quick-Draw Katana",
+     "mana": "CC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "Equip"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "no_keywords": [
+      "First Strike"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "first-strike-kills-blocker-first",
+   "cr": [
+    "510.4",
+    "702.7b"
+   ],
+   "why": "Attacking as a 4/2 first striker, blocked by a 3/3: the blocker dies in the first-strike step and deals no damage.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Quick-Draw Katana",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Quick-Draw Katana",
+     "mana": "CC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "Equip"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "blocks": [
+      [
+       "p1:Hill Giant",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Hill Giant",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "blocking-on-opponents-turn-no-first-strike",
+   "cr": [
+    "510.2"
+   ],
+   "why": "On the opponent's turn the equipped 2/2 blocks a 3/3 without first strike: it dies and deals only 2.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Quick-Draw Katana",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Quick-Draw Katana",
+     "mana": "CC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "Equip"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Hill Giant"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "blocks": [
+      [
+       "p0:Grizzly Bears",
+       "p1:Hill Giant"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Hill Giant",
+     "zone": "battlefield",
+     "damage": 2
+    }
+   ]
+  },
+  {
+   "name": "equip-only-as-a-sorcery",
+   "cr": [
+    "702.6a"
+   ],
+   "why": "Equip only as a sorcery: not offered in the opponent's upkeep.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Quick-Draw Katana",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Quick-Draw Katana",
+      "label": "Equip"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

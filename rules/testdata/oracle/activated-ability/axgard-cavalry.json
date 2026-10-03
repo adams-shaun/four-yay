@@ -1,0 +1,289 @@
+{
+ "card": "Axgard Cavalry",
+ "family": "activated-ability",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "b8b07de2201b",
+ "scenarios": [
+  {
+   "name": "grants-haste-so-a-fresh-creature-attacks",
+   "cr": [
+    "702.10b",
+    "602.2"
+   ],
+   "why": "Tapping the Cavalry gives the target creature haste until end of turn, so a creature cast this turn can attack.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grizzly Bears"
+     ],
+     "battlefield": [
+      "Axgard Cavalry"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Axgard Cavalry",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "keywords": [
+        "Haste"
+       ]
+      },
+      {
+       "card": "p0:Axgard Cavalry",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "summoning-sick-cavalry-cannot-activate",
+   "cr": [
+    "302.6",
+    "602.5a"
+   ],
+   "why": "The cost includes {T}, so a Cavalry that came under its controller's control this turn cannot activate it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Axgard Cavalry"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Axgard Cavalry",
+     "mana": "CR"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Axgard Cavalry"
+     },
+     "want": false
+    },
+    {
+     "card": "p0:Axgard Cavalry",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "can-target-an-opponents-creature",
+   "cr": [
+    "115.1",
+    "602.2b"
+   ],
+   "why": "The target is any creature, including one an opponent controls.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Axgard Cavalry"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Axgard Cavalry",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "keywords": [
+      "Haste"
+     ]
+    },
+    {
+     "card": "p0:Axgard Cavalry",
+     "tapped": true,
+     "no_keywords": [
+      "Haste"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "haste-ends-at-end-of-turn",
+   "cr": [
+    "514.2",
+    "611.2a"
+   ],
+   "why": "The haste lasts until end of turn only.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Axgard Cavalry",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Axgard Cavalry",
+     "targets": [
+      "p0:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Savannah Lions",
+       "keywords": [
+        "Haste"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "no_keywords": [
+      "Haste"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "tapped-cavalry-cannot-activate-again",
+   "cr": [
+    "602.5a",
+    "107.5"
+   ],
+   "why": "Once tapped for its own cost the Cavalry cannot pay {T} again this turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Axgard Cavalry",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Axgard Cavalry",
+     "targets": [
+      "p0:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Axgard Cavalry"
+     },
+     "want": false
+    },
+    {
+     "card": "p0:Axgard Cavalry",
+     "tapped": true,
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "untapped-cavalry-activation-is-offered",
+   "cr": [
+    "602.1"
+   ],
+   "why": "Control: an untapped Cavalry that started the turn under its controller's control may activate while a creature exists to target.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Axgard Cavalry"
+     ]
+    }
+   },
+   "steps": [],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Axgard Cavalry"
+     },
+     "want": true
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,157 @@
+{
+ "card": "Seismic Rupture",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "a1953b097eee",
+ "scenarios": [
+  {
+   "name": "two-damage-to-each-non-flier",
+   "cr": [
+    "120.3",
+    "704.5g"
+   ],
+   "why": "2 damage to each creature without flying, either side: both Bears die, the 3/3 survives with 2 damage, the flier is untouched.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Serra Angel"
+     ],
+     "hand": [
+      "Seismic Rupture"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Seismic Rupture",
+     "mana": "RCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Hill Giant",
+     "zone": "battlefield",
+     "damage": 2
+    },
+    {
+     "card": "p0:Serra Angel",
+     "damage": 0
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "creature-given-flying-is-spared",
+   "cr": [
+    "608.2h"
+   ],
+   "why": "Flying is checked as it resolves: Bears given flying by Ajani's -3 takes no damage.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Ajani, Caller of the Pride"
+     ],
+     "hand": [
+      "Seismic Rupture"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "double strike"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Seismic Rupture",
+     "mana": "RCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "sorcery-timing",
+   "cr": [
+    "307.1"
+   ],
+   "why": "A sorcery: not castable in the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Seismic Rupture"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "RCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Seismic Rupture"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

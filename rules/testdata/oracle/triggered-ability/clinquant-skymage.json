@@ -1,0 +1,320 @@
+{
+ "card": "Clinquant Skymage",
+ "family": "triggered-ability",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "acdb4901eae7",
+ "scenarios": [
+  {
+   "name": "draw-a-card-one-counter",
+   "cr": [
+    "603.2",
+    "121.1"
+   ],
+   "why": "Drawing a card puts a +1/+1 counter on it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Opt"
+     ],
+     "battlefield": [
+      "Clinquant Skymage"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opt",
+     "mana": "U"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Clinquant Skymage",
+     "pt": "2/2",
+     "keywords": [
+      "Flying"
+     ],
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "untouched-one-one-flier",
+   "cr": [
+    "208.1"
+   ],
+   "why": "Control: a 1/1 flier.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Clinquant Skymage"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "U"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Clinquant Skymage",
+     "pt": "1/1",
+     "keywords": [
+      "Flying"
+     ],
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "draw-two-two-counters",
+   "cr": [
+    "121.2",
+    "603.2c"
+   ],
+   "why": "Drawing two cards is two draws: it triggers twice.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ],
+     "battlefield": [
+      "Clinquant Skymage"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Clinquant Skymage",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponent-drawing-does-nothing",
+   "cr": [
+    "603.2",
+    "109.5"
+   ],
+   "why": "Only its controller's draws count, including the opponent's draw step.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Clinquant Skymage"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Divination",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Clinquant Skymage",
+     "pt": "1/1",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "hand_size": {
+      "p1": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "draw-step-draw-counts",
+   "cr": [
+    "504.1",
+    "603.2"
+   ],
+   "why": "The draw-step draw on its controller's next turn triggers it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Clinquant Skymage"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Clinquant Skymage",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "card-put-into-hand-without-drawing-does-nothing",
+   "cr": [
+    "121.1"
+   ],
+   "why": "A card returned to hand is not drawn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Disentomb"
+     ],
+     "battlefield": [
+      "Clinquant Skymage"
+     ],
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Disentomb",
+     "mana": "B",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Clinquant Skymage",
+     "pt": "1/1",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "each-player-draws-only-its-controllers-draw-counts",
+   "cr": [
+    "603.2"
+   ],
+   "why": "When each player draws a card, only its controller's draw triggers it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Jace Beleren"
+     ],
+     "battlefield": [
+      "Clinquant Skymage"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Jace Beleren",
+     "mana": "CUU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Jace Beleren",
+     "ability": "Each player"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Clinquant Skymage",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1,
+      "p1": 1
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -38,6 +38,15 @@ func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, dept
 	// literal Counter("ALL") lookup can never answer because no object ever
 	// carries a counter KIND named ALL.
 	if kind, ok := strings.CutPrefix(head, "CardCounters."); ok {
+		if lki, ok := sacrificedSourceLKI(g, c); ok {
+			// The source was sacrificed by this spell/ability (a
+			// Sac<1/CARDNAME> cost): read the counters it had then.
+			scratch := state.Object{Counters: lki.Counters}
+			if strings.EqualFold(kind, "ALL") {
+				return sumCounters(scratch.Counters), true, true
+			}
+			return scratch.Counter(kind), true, true
+		}
 		if o := g.Obj(c.Source); o != nil {
 			if strings.EqualFold(kind, "ALL") {
 				return sumCounters(o.Counters), true, true

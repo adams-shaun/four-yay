@@ -1,0 +1,506 @@
+{
+ "card": "Squad Rallier",
+ "family": "activated-ability",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "c2ac1ad017de",
+ "scenarios": [
+  {
+   "name": "takes-a-power-two-creature-rest-to-the-bottom",
+   "cr": [
+    "602.2",
+    "701.20a",
+    "401.4"
+   ],
+   "why": "For {2}{W} its controller looks at the top four cards, may put a creature card with power 2 or less from among them into hand, and the other three go to the bottom: the fifth card is now on top (drawn by the next draw).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Revitalize"
+     ],
+     "battlefield": [
+      "Squad Rallier"
+     ],
+     "library_top": [
+      "Grizzly Bears",
+      "Forest",
+      "Island",
+      "Mountain",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Squad Rallier",
+     "mana": "CCW",
+     "expect": [
+      {
+       "stack_size": 1
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ],
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "zone": "hand"
+      },
+      {
+       "hand_size": {
+        "p0": 2
+       }
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Revitalize",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Island",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Mountain",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Squad Rallier",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "may-decline-to-take-anything",
+   "cr": [
+    "608.2d"
+   ],
+   "why": "The reveal is optional: taking nothing puts all four on the bottom and the hand stays empty.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Squad Rallier"
+     ],
+     "library_top": [
+      "Grizzly Bears",
+      "Forest",
+      "Island",
+      "Mountain",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Squad Rallier",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "declined-cards-go-to-the-bottom",
+   "cr": [
+    "401.4"
+   ],
+   "why": "After declining, the four looked-at cards are on the bottom, so the next card drawn is the fifth.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Revitalize"
+     ],
+     "battlefield": [
+      "Squad Rallier"
+     ],
+     "library_top": [
+      "Grizzly Bears",
+      "Forest",
+      "Island",
+      "Mountain",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Squad Rallier",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": []
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Revitalize",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "zero-power-creature-qualifies",
+   "cr": [
+    "208.1"
+   ],
+   "why": "Power 2 or less includes 0.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Squad Rallier"
+     ],
+     "library_top": [
+      "Forest",
+      "Ornithopter",
+      "Island",
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Squad Rallier",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Ornithopter"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ornithopter",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-tap-cost-can-be-activated-twice",
+   "cr": [
+    "602.2"
+   ],
+   "why": "The cost is only mana, so it can be activated again the same turn; the second activation looks at the next four cards.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Squad Rallier"
+     ],
+     "library_top": [
+      "Grizzly Bears",
+      "Forest",
+      "Island",
+      "Mountain",
+      "Savannah Lions",
+      "Plains",
+      "Swamp",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Squad Rallier",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Squad Rallier",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Savannah Lions"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "only-the-top-four-are-looked-at",
+   "cr": [
+    "701.20a"
+   ],
+   "why": "A qualifying creature that is fifth from the top is not among the cards looked at: nothing can be taken and it ends up on top.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Revitalize"
+     ],
+     "battlefield": [
+      "Squad Rallier"
+     ],
+     "library_top": [
+      "Forest",
+      "Island",
+      "Mountain",
+      "Plains",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Squad Rallier",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "hand_size": {
+        "p0": 1
+       }
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Revitalize",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "cost-needs-white",
+   "cr": [
+    "602.2b"
+   ],
+   "why": "{2}{W}: three colourless mana cannot pay it; {W} plus two can.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Squad Rallier"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCC",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Squad Rallier"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "W"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Squad Rallier"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "usable-at-instant-speed",
+   "cr": [
+    "602.5d"
+   ],
+   "why": "No timing restriction: activated in the opponent's upkeep.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Squad Rallier"
+     ],
+     "library_top": [
+      "Grizzly Bears",
+      "Forest",
+      "Island",
+      "Mountain",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Squad Rallier",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    }
+   ]
+  }
+ ]
+}

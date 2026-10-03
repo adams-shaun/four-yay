@@ -1,0 +1,328 @@
+{
+ "card": "Fiend Artisan",
+ "family": "activated-ability",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "25c5de1845c8",
+ "scenarios": [
+  {
+   "name": "cast-with-hybrid-green",
+   "cr": [
+    "107.4e",
+    "202.2d"
+   ],
+   "why": "Hybrid {B/G}{B/G} can be paid with green: cast for {G}{G}, a 1/1 with an empty graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fiend Artisan"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fiend Artisan",
+     "mana": "GG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Fiend Artisan",
+     "zone": "battlefield",
+     "pt": "1/1"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "plus-one-per-creature-card-in-your-graveyard",
+   "cr": [
+    "613.4c"
+   ],
+   "why": "+1/+1 for each creature card in its controller's graveyard: two creature cards (and an instant) make it 3/3.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fiend Artisan"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Savannah Lions",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Fiend Artisan",
+     "pt": "3/3"
+    }
+   ]
+  },
+  {
+   "name": "opponents-graveyard-does-not-count",
+   "cr": [
+    "613.4c"
+   ],
+   "why": "Only your graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fiend Artisan"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears",
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Fiend Artisan",
+     "pt": "1/1"
+    }
+   ]
+  },
+  {
+   "name": "sacrifice-to-tutor-a-creature-onto-battlefield",
+   "cr": [
+    "602.2",
+    "701.23",
+    "107.3"
+   ],
+   "why": "{X}{B/G}, {T}, sacrifice another creature (X=2): search for a creature with mana value 2 or less and put it onto the battlefield; the sacrificed creature card then pumps the Artisan.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fiend Artisan",
+      "Grizzly Bears"
+     ],
+     "library": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Fiend Artisan",
+     "mana": "BCC",
+     "ability": "Search",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "2"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "B"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Savannah Lions"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Fiend Artisan",
+     "pt": "2/2",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "mana-value-above-x-not-found",
+   "cr": [
+    "107.3",
+    "701.23"
+   ],
+   "why": "X=1: a Hill Giant (MV 4) cannot be found; it stays in the library.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fiend Artisan",
+      "Grizzly Bears"
+     ],
+     "library": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Fiend Artisan",
+     "mana": "BC",
+     "ability": "Search",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "1"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "B"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Hill Giant",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "needs-another-creature-to-sacrifice",
+   "cr": [
+    "602.2",
+    "118.3"
+   ],
+   "why": "Sacrificing ANOTHER creature is part of the cost: with no other creature it cannot be activated.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fiend Artisan"
+     ],
+     "library": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "BCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Fiend Artisan",
+      "label": "Search"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "sorcery-speed-only",
+   "cr": [
+    "602.5d"
+   ],
+   "why": "Activate only as a sorcery: not in the opponent's upkeep.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fiend Artisan",
+      "Grizzly Bears"
+     ],
+     "library": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "BCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Fiend Artisan",
+      "label": "Search"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

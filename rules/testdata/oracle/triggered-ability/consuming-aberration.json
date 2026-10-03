@@ -1,0 +1,635 @@
+{
+ "card": "Consuming Aberration",
+ "family": "triggered-ability",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "df01ae119269",
+ "scenarios": [
+  {
+   "name": "power-and-toughness-count-opponents-graveyards",
+   "cr": [
+    "604.3",
+    "208.2a"
+   ],
+   "why": "Its power and toughness equal the number of cards in its opponents' graveyards: three cards, 3/3.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Consuming Aberration"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Shock",
+      "Forest",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "U"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Consuming Aberration",
+     "pt": "3/3"
+    }
+   ]
+  },
+  {
+   "name": "own-graveyard-does-not-count",
+   "cr": [
+    "604.3",
+    "109.5"
+   ],
+   "why": "Only opponents' graveyards count.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Consuming Aberration"
+     ],
+     "graveyard": [
+      "Shock",
+      "Forest",
+      "Mind Stone",
+      "Swamp"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears",
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "U"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Consuming Aberration",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "cast-with-empty-opposing-graveyard-it-dies",
+   "cr": [
+    "704.5f",
+    "603.2"
+   ],
+   "why": "Casting it does not trigger its own ability (it is not on the battlefield yet): with nothing in the opposing graveyard it is 0/0 and dies.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Consuming Aberration"
+     ]
+    },
+    "p1": {
+     "library_top": [
+      "Shock",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Consuming Aberration",
+     "mana": "CCCUB",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Consuming Aberration",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Consuming Aberration",
+     "zone": "graveyard"
+    },
+    {
+     "graveyard_size": {
+      "p1": 0
+     }
+    },
+    {
+     "card": "p1:Shock",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "casting-a-spell-mills-the-opponent-until-a-land",
+   "cr": [
+    "603.2",
+    "701.20a"
+   ],
+   "why": "Whenever its controller casts a spell the opponent reveals cards until a land and puts them all into their graveyard: two nonlands and the land, so it grows by three. The card under the land stays.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Memnite"
+     ],
+     "battlefield": [
+      "Consuming Aberration"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Mountain"
+     ],
+     "library_top": [
+      "Shock",
+      "Grizzly Bears",
+      "Forest",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Memnite",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Consuming Aberration",
+       "want": true
+      },
+      {
+       "card": "p0:Consuming Aberration",
+       "pt": "1/1"
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Shock",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Forest",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "library"
+    },
+    {
+     "graveyard_size": {
+      "p1": 4
+     }
+    },
+    {
+     "card": "p0:Consuming Aberration",
+     "pt": "4/4"
+    },
+    {
+     "graveyard_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "land-on-top-mills-just-that-card",
+   "cr": [
+    "701.20a"
+   ],
+   "why": "If the first card revealed is a land only that card is put into the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Memnite"
+     ],
+     "battlefield": [
+      "Consuming Aberration"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Mountain"
+     ],
+     "library_top": [
+      "Forest",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Memnite"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Forest",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Shock",
+     "zone": "library"
+    },
+    {
+     "graveyard_size": {
+      "p1": 2
+     }
+    },
+    {
+     "card": "p0:Consuming Aberration",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "own-library-is-not-milled",
+   "cr": [
+    "109.5"
+   ],
+   "why": "Only opponents reveal: its controller's library is untouched.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Memnite"
+     ],
+     "battlefield": [
+      "Consuming Aberration"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Swamp"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Mountain"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Memnite"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Swamp",
+     "zone": "library"
+    },
+    {
+     "graveyard_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-spell-does-not-trigger",
+   "cr": [
+    "603.2",
+    "109.5"
+   ],
+   "why": "Only its controller's spells trigger it; the opponent's instant going to their graveyard still grows it by one.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Consuming Aberration"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ],
+     "graveyard": [
+      "Mountain"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Consuming Aberration",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "graveyard_size": {
+      "p1": 2
+     }
+    },
+    {
+     "card": "p0:Consuming Aberration",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "trigger-resolves-before-the-spell",
+   "cr": [
+    "603.3b",
+    "405.5"
+   ],
+   "why": "The trigger goes on the stack above the spell: the mill has happened while the spell is still on the stack.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Consuming Aberration"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Mountain"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ],
+     "expect": [
+      {
+       "stack_size": 2
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    }
+   ],
+   "expect": [
+    {
+     "stack_size": 1
+    },
+    {
+     "card": "p1:Forest",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Consuming Aberration",
+     "pt": "2/2"
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "shrinks-and-dies-when-the-graveyard-is-emptied",
+   "cr": [
+    "704.5f",
+    "604.3"
+   ],
+   "why": "The count is continuous: when the opposing graveyard is emptied it becomes 0/0 and dies.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Consuming Aberration"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Tormod's Crypt"
+     ],
+     "graveyard": [
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "activate",
+     "seat": 1,
+     "card": "p1:Tormod's Crypt",
+     "targets": [
+      "p1"
+     ],
+     "expect": [
+      {
+       "card": "p0:Consuming Aberration",
+       "pt": "2/2"
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p1": 0
+     }
+    },
+    {
+     "card": "p0:Consuming Aberration",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "state-based-actions-wait-until-the-spell-finishes",
+   "cr": [
+    "704.3",
+    "608.2n"
+   ],
+   "why": "An instant that exiles the only card in the opposing graveyard leaves it 0/0 only during the resolution: the instant itself then goes to that graveyard, and state-based actions are checked afterwards, when it is 1/1.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Consuming Aberration"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Cremate"
+     ],
+     "graveyard": [
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Cremate",
+     "mana": "B",
+     "targets": [
+      "p1:Mountain"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Mountain",
+     "zone": "exile"
+    },
+    {
+     "graveyard_size": {
+      "p1": 1
+     }
+    },
+    {
+     "card": "p0:Consuming Aberration",
+     "zone": "battlefield",
+     "pt": "1/1"
+    }
+   ]
+  },
+  {
+   "name": "two-spells-two-triggers",
+   "cr": [
+    "603.2c"
+   ],
+   "why": "Each spell triggers it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Memnite",
+      "Ornithopter"
+     ],
+     "battlefield": [
+      "Consuming Aberration"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Mountain"
+     ],
+     "library_top": [
+      "Forest",
+      "Swamp",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Memnite"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ornithopter"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p1": 3
+     }
+    },
+    {
+     "card": "p0:Consuming Aberration",
+     "pt": "3/3"
+    },
+    {
+     "card": "p1:Shock",
+     "zone": "library"
+    }
+   ]
+  }
+ ]
+}

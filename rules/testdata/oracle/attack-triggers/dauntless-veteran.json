@@ -1,0 +1,328 @@
+{
+ "card": "Dauntless Veteran",
+ "family": "attack-triggers",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "0bc665f95b44",
+ "scenarios": [
+  {
+   "name": "attacking-pumps-itself",
+   "cr": [
+    "603.2",
+    "611.2"
+   ],
+   "why": "Attacking, creatures its controller controls get +1/+1 until end of turn: alone it deals 3, and is 2/2 again next turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Dauntless Veteran"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Dauntless Veteran"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Dauntless Veteran",
+       "want": true
+      },
+      {
+       "card": "p0:Dauntless Veteran",
+       "pt": "2/2"
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Dauntless Veteran",
+       "pt": "3/3"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "expect": [
+      {
+       "life": {
+        "p0": 20,
+        "p1": 17
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Dauntless Veteran",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "whole-team-is-pumped-attacking-or-not",
+   "cr": [
+    "611.2"
+   ],
+   "why": "Every creature its controller controls gets the bonus, attacking or not; the opponent's creatures do not.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Dauntless Veteran",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Dauntless Veteran",
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Dauntless Veteran",
+     "pt": "3/3"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "3/2"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "pt": "3/3"
+    }
+   ]
+  },
+  {
+   "name": "veteran-staying-home-no-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "It triggers only when the Veteran itself attacks.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Dauntless Veteran",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Dauntless Veteran",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-veterans-stack",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Two attacking Veterans trigger separately: each is 4/4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Dauntless Veteran",
+      "Dauntless Veteran"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Dauntless Veteran",
+      "p0:Dauntless Veteran#2"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 12
+     }
+    }
+   ]
+  },
+  {
+   "name": "pumped-attacker-wins-a-block",
+   "cr": [
+    "510.1"
+   ],
+   "why": "The bonus applies before blockers: a 3/3 Veteran blocked by a 2/2 kills it and survives.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Dauntless Veteran"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Dauntless Veteran"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Grizzly Bears",
+       "p0:Dauntless Veteran"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Dauntless Veteran",
+     "zone": "battlefield",
+     "damage": 2
+    }
+   ]
+  },
+  {
+   "name": "creature-entering-after-resolution-is-not-pumped",
+   "cr": [
+    "611.2c"
+   ],
+   "why": "The affected set is fixed on resolution: a creature flashed in afterwards gets nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mischievous Pup"
+     ],
+     "battlefield": [
+      "Dauntless Veteran"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Dauntless Veteran"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mischievous Pup",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "target",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mischievous Pup",
+     "pt": "3/1"
+    },
+    {
+     "card": "p0:Dauntless Veteran",
+     "pt": "3/3"
+    }
+   ]
+  }
+ ]
+}

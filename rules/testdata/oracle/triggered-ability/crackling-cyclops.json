@@ -1,0 +1,513 @@
+{
+ "card": "Crackling Cyclops",
+ "family": "triggered-ability",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "7e42c7dd89e1",
+ "scenarios": [
+  {
+   "name": "noncreature-spell-gives-plus-three-power",
+   "cr": [
+    "603.2",
+    "601.2i"
+   ],
+   "why": "Casting an instant triggers it: +3/+0 until end of turn (3/4).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Crackling Cyclops"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crackling Cyclops",
+     "pt": "3/4"
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "untouched-it-is-zero-four",
+   "cr": [
+    "208.1"
+   ],
+   "why": "Control: with no spell cast it is a 0/4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Crackling Cyclops"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crackling Cyclops",
+     "pt": "0/4"
+    }
+   ]
+  },
+  {
+   "name": "trigger-resolves-before-the-spell",
+   "cr": [
+    "603.3b",
+    "405.5"
+   ],
+   "why": "The trigger goes on the stack above the spell that caused it and resolves first: the Cyclops is already 3/4 while the spell is still on the stack.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Crackling Cyclops"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Crackling Cyclops",
+       "want": true
+      },
+      {
+       "stack_size": 2
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crackling Cyclops",
+     "pt": "3/4"
+    },
+    {
+     "stack_size": 1
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "creature-spell-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A creature spell is not a noncreature spell.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grizzly Bears"
+     ],
+     "battlefield": [
+      "Crackling Cyclops"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Crackling Cyclops",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crackling Cyclops",
+     "pt": "0/4"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "artifact-spell-triggers",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A noncreature artifact spell is a noncreature spell.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mind Stone"
+     ],
+     "battlefield": [
+      "Crackling Cyclops"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mind Stone",
+     "mana": "CC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crackling Cyclops",
+     "pt": "3/4"
+    }
+   ]
+  },
+  {
+   "name": "artifact-creature-spell-does-not-trigger",
+   "cr": [
+    "603.2",
+    "205.2b"
+   ],
+   "why": "An artifact creature spell is a creature spell.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Ornithopter"
+     ],
+     "battlefield": [
+      "Crackling Cyclops"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ornithopter"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crackling Cyclops",
+     "pt": "0/4"
+    },
+    {
+     "card": "p0:Ornithopter",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "playing-a-land-is-not-casting-a-spell",
+   "cr": [
+    "305.1",
+    "116.2a"
+   ],
+   "why": "Playing a land is a special action, not a spell.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Forest"
+     ],
+     "battlefield": [
+      "Crackling Cyclops"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crackling Cyclops",
+     "pt": "0/4"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "two-spells-stack",
+   "cr": [
+    "603.2c",
+    "613.4c"
+   ],
+   "why": "Each noncreature spell triggers it separately: two spells make it 6/4.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock",
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Crackling Cyclops"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crackling Cyclops",
+     "pt": "6/4"
+    },
+    {
+     "life": {
+      "p1": 15
+     }
+    }
+   ]
+  },
+  {
+   "name": "bonus-ends-at-end-of-turn",
+   "cr": [
+    "514.2"
+   ],
+   "why": "The bonus lasts until end of turn: by the opponent's upkeep it is 0/4 again.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Crackling Cyclops"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Crackling Cyclops",
+       "pt": "3/4"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crackling Cyclops",
+     "pt": "0/4"
+    }
+   ]
+  },
+  {
+   "name": "opponents-spell-does-not-trigger",
+   "cr": [
+    "603.2",
+    "109.5"
+   ],
+   "why": "Only its controller's spells count.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Crackling Cyclops"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Crackling Cyclops",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crackling Cyclops",
+     "pt": "0/4"
+    },
+    {
+     "life": {
+      "p0": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "triggers-even-if-the-spell-is-countered",
+   "cr": [
+    "603.2",
+    "601.2i"
+   ],
+   "why": "It triggers on casting; the spell being countered afterwards does not matter.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Crackling Cyclops"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Cancel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Cancel",
+     "mana": "CUU",
+     "targets": [
+      "p0:Shock"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crackling Cyclops",
+     "pt": "3/4"
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

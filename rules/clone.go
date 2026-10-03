@@ -128,6 +128,9 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		controlStaticInPool: e.controlStaticInPool,
 	}
 	c.trigGrant = e.trigGrant.forClone()
+	// The no-ability-loss proof (abilityloss.go): same objects, its own
+	// registry copy, which it rechecks once.
+	c.lossProof = abilityLossProof{seen: e.lossProof.seen, objs: e.lossProof.objs, contLen: -1}
 	// The per-turn ledger cluster (engine_turnledger.go) is one clone
 	// class: every member is copied as a fresh slice so a clone owns its
 	// own ledgers; the detail lives on cloneTurnLedger.

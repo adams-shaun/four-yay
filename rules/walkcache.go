@@ -279,7 +279,7 @@ func (e *Engine) scanBoardStaticsPrintedLists(out boardStatics, lists []boardSca
 				// CR 708.8: a face-down battlefield permanent's printed
 				// statics do not exist -- every arm, the scanActionStatics /
 				// scanCostStatics / scanManaConvSources gate alike.
-				if z == state.ZBattlefield && e.faceDownPrintedHides(o) {
+				if z == state.ZBattlefield && e.printedAbilitiesGone(o) {
 					continue
 				}
 				for si, sn := 0, o.PileStaticCount(); si < sn; si++ {
@@ -385,7 +385,7 @@ func (e *Engine) scanManaConvSources(out []manaConvSource) []manaConvSource {
 			}
 			for _, oid := range e.staticSourceIDs(p, z) {
 				o := e.G.Obj(oid)
-				if o == nil || o.Face() == nil || (z == state.ZBattlefield && e.faceDownPrintedHides(o)) ||
+				if o == nil || o.Face() == nil || (z == state.ZBattlefield && e.printedAbilitiesGone(o)) ||
 					offBattlefieldStaticsInert(z, o) {
 					continue
 				}
@@ -525,7 +525,7 @@ func (e *Engine) scanActiveStaticsFused(now walkKey) {
 				continue
 			}
 			f := o.Face()
-			if f == nil || e.faceDownPrintedHides(o) || o.PhasedOut {
+			if f == nil || e.printedAbilitiesGone(o) || o.PhasedOut {
 				// The scan's face-down (CR 708.8) and phased-out (CR
 				// 702.25b/d) object gates.
 				continue

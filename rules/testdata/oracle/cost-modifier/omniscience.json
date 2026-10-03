@@ -1,0 +1,193 @@
+{
+ "card": "Omniscience",
+ "family": "cost-modifier",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "f16eef51ac62",
+ "scenarios": [
+  {
+   "name": "casts-from-hand-without-mana",
+   "cr": [
+    "118.9",
+    "601.2f"
+   ],
+   "why": "A spell from hand (Craw Wurm, {4}{G}{G}) is cast without paying its mana cost: no mana needed.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Omniscience"
+     ],
+     "hand": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Craw Wurm"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "battlefield"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "instant-free-too",
+   "cr": [
+    "118.9"
+   ],
+   "why": "Any spell from hand: Lightning Bolt for free.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Omniscience"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "timing-rules-still-apply",
+   "cr": [
+    "118.9a",
+    "307.1"
+   ],
+   "why": "Free casting does not change timing: a sorcery is not castable in the opponent's upkeep.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Omniscience"
+     ],
+     "hand": [
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Divination"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "graveyard-cast-not-free",
+   "cr": [
+    "118.9"
+   ],
+   "why": "Only spells from your hand: a flashback card in the graveyard still needs its flashback cost.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Omniscience"
+     ],
+     "graveyard": [
+      "Think Twice"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Think Twice"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "opponent-does-not-get-it",
+   "cr": [
+    "118.9"
+   ],
+   "why": "Only its controller: the opponent with no mana cannot cast their Grizzly Bears.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Omniscience"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 1,
+      "kind": "cast",
+      "card": "p1:Grizzly Bears"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

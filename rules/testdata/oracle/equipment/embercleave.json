@@ -1,0 +1,344 @@
+{
+ "card": "Embercleave",
+ "family": "equipment",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "c459f229bf1b",
+ "scenarios": [
+  {
+   "name": "cast-attaches-to-target-creature",
+   "cr": [
+    "603.2",
+    "301.5"
+   ],
+   "why": "Cast for {4}{R}{R}, its enters trigger attaches it to the target creature: +1/+1, double strike and trample.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Embercleave"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Embercleave",
+     "mana": "RRCCCC"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3",
+     "keywords": [
+      "Double Strike",
+      "Trample"
+     ]
+    },
+    {
+     "card": "p0:Embercleave",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "costs-one-less-per-attacker",
+   "cr": [
+    "601.2f",
+    "702.8a"
+   ],
+   "why": "With flash during combat and two attackers it costs {2}{R}{R}.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ],
+     "hand": [
+      "Embercleave"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Embercleave",
+     "mana": "RRCC"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": ""
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3"
+    },
+    {
+     "life": {
+      "p1": 12
+     }
+    }
+   ]
+  },
+  {
+   "name": "flash-after-blocks-first-strike-and-trample",
+   "cr": [
+    "702.4b",
+    "702.19e"
+   ],
+   "why": "Cast after blocks onto the blocked Bears: as a 3/3 double striker it kills the 3/3 blocker in the first-strike step and tramples 3 over in the regular step, taking no damage.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Embercleave"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "blocks": [
+      [
+       "p1:Hill Giant",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Embercleave",
+     "mana": "RRCCC"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Hill Giant",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "life": {
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-attackers-do-not-reduce",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "Only attacking creatures YOU control: in the opponent's combat it still costs six, so four mana is not enough.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Embercleave"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Hill Giant",
+      "p1:Savannah Lions"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "RRCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Embercleave"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "equip-three-moves-it",
+   "cr": [
+    "702.6a"
+   ],
+   "why": "Equip {3} moves it to another creature you control.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ],
+     "hand": [
+      "Embercleave"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Embercleave",
+     "mana": "RRCCCC"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Embercleave",
+     "mana": "CCC",
+     "targets": [
+      "p0:Savannah Lions"
+     ],
+     "ability": "Equip"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "3/2",
+     "keywords": [
+      "Double Strike"
+     ]
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "no_keywords": [
+      "Double Strike"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "no-creature-enters-unattached",
+   "cr": [
+    "603.3d"
+   ],
+   "why": "With no creature to target the trigger does nothing; Embercleave stays on the battlefield unattached.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Embercleave"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Embercleave",
+     "mana": "RRCCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Embercleave",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}

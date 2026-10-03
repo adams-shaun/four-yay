@@ -34,6 +34,12 @@ type activeSummary struct {
 	// hasManaConvert: some entry is an Effect-delivered ManaConvert static
 	// (CostStaticMode ManaConvert, manaConversionParts' registry arm).
 	hasManaConvert bool
+	// hasLColor: some entry is a layer-5 colour effect (layer5colors.go's
+	// derived-colour table is empty without one).
+	hasLColor bool
+	// hasRemoveAbilities: some entry is a layer-6 "loses all abilities"
+	// effect (abilityloss.go's gates answer "no loss" without one).
+	hasRemoveAbilities bool
 }
 
 // activeSummaryVerify: see derivedMemoVerify. Set by the rules test binary.
@@ -49,7 +55,8 @@ func (e *Engine) activeSummaryOf(ces []ContinuousEffect) activeSummary {
 	s := &e.activeSum
 	if s.valid && s.seq == e.activeBuildSeq && s.base == base && s.n == len(ces) {
 		if activeSummaryVerify {
-			if fresh := summarizeActive(ces); fresh.hasLType != s.hasLType || fresh.hasGrants != s.hasGrants || fresh.hasManaConvert != s.hasManaConvert {
+			if fresh := summarizeActive(ces); fresh.hasLType != s.hasLType || fresh.hasGrants != s.hasGrants || fresh.hasManaConvert != s.hasManaConvert ||
+				fresh.hasLColor != s.hasLColor || fresh.hasRemoveAbilities != s.hasRemoveAbilities {
 				panic(fmt.Sprintf("rules: active summary at build %d disagrees with a rescan (%+v vs %+v)", s.seq, *s, fresh))
 			}
 		}
@@ -74,7 +81,13 @@ func summarizeActive(ces []ContinuousEffect) activeSummary {
 		if ce.CostStaticMode == "ManaConvert" {
 			s.hasManaConvert = true
 		}
-		if s.hasLType && s.hasGrants && s.hasManaConvert {
+		if ce.Layer == LColor {
+			s.hasLColor = true
+		}
+		if ce.Layer == LAbilities && ce.RemoveAbilities {
+			s.hasRemoveAbilities = true
+		}
+		if s.hasLType && s.hasGrants && s.hasManaConvert && s.hasLColor && s.hasRemoveAbilities {
 			break
 		}
 	}

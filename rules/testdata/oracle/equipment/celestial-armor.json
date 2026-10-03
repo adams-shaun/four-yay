@@ -1,0 +1,658 @@
+{
+ "card": "Celestial Armor",
+ "family": "equipment",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "b6eae23aa4fd",
+ "scenarios": [
+  {
+   "name": "enters-attaches-and-grants-hexproof-indestructible-this-turn",
+   "cr": [
+    "603.6a",
+    "301.5",
+    "611.2"
+   ],
+   "why": "Entering, it attaches to a target creature its controller controls; that creature gains hexproof and indestructible until end of turn, and as the equipped creature gets +2/+0 and flying. Next turn only the equip bonus remains.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Celestial Armor"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Celestial Armor",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "pt": "4/2",
+       "keywords": [
+        "Flying",
+        "Hexproof",
+        "Indestructible"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/2",
+     "keywords": [
+      "Flying"
+     ],
+     "no_keywords": [
+      "Hexproof",
+      "Indestructible"
+     ]
+    },
+    {
+     "card": "p0:Celestial Armor",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "flash-in-response-to-removal-fizzles-it",
+   "cr": [
+    "702.8a",
+    "702.11b",
+    "608.2b"
+   ],
+   "why": "Flash: cast in response to an opponent's Murder, the trigger gives the creature hexproof, so Murder's target is illegal and the creature survives.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Celestial Armor"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Celestial Armor",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "4/2"
+    },
+    {
+     "card": "p1:Murder",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "indestructible-survives-a-sweeper",
+   "cr": [
+    "702.12b"
+   ],
+   "why": "Flashed in during the opponent's turn in response to Day of Judgment, the equipped creature is indestructible and survives while the other creature dies.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Celestial Armor"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Day of Judgment"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Day of Judgment",
+     "mana": "CCWW"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Celestial Armor",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "no-creature-enters-unattached",
+   "cr": [
+    "603.3d",
+    "301.5c"
+   ],
+   "why": "With no creature to target the trigger is removed; the Equipment stays on the battlefield unattached.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Celestial Armor"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Celestial Armor",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Celestial Armor",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "pt": "2/2",
+     "no_keywords": [
+      "Flying",
+      "Hexproof"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "target-killed-in-response-stays-unattached",
+   "cr": [
+    "608.2b",
+    "301.5c"
+   ],
+   "why": "The trigger's target dies in response: the trigger does nothing, the Equipment stays on the battlefield unattached, and no other creature gets anything.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Celestial Armor"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Celestial Armor",
+     "mana": "CCW"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Celestial Armor",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Celestial Armor",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "2/1",
+     "no_keywords": [
+      "Flying",
+      "Hexproof",
+      "Indestructible"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "equip-moves-it-for-three-and-white",
+   "cr": [
+    "702.6a",
+    "301.5"
+   ],
+   "why": "Equip {3}{W}: it moves to another creature its controller controls; the first loses the bonus, and equip grants neither hexproof nor indestructible.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Celestial Armor"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Celestial Armor",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Celestial Armor",
+     "mana": "CCCW",
+     "ability": "Equip",
+     "targets": [
+      "p0:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "4/1",
+     "keywords": [
+      "Flying"
+     ],
+     "no_keywords": [
+      "Hexproof",
+      "Indestructible"
+     ]
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "keywords": [
+      "Hexproof",
+      "Indestructible"
+     ],
+     "no_keywords": [
+      "Flying"
+     ]
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "equip-is-sorcery-speed-and-needs-white",
+   "cr": [
+    "702.6a",
+    "602.5d"
+   ],
+   "why": "Equip only as a sorcery: offered in its controller's main phase with {3}{W}, not with four colourless, and not on the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Celestial Armor"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Celestial Armor",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCC",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Celestial Armor",
+        "label": "Equip"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "W",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Celestial Armor",
+        "label": "Equip"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCW"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Celestial Armor",
+      "label": "Equip"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "flying-from-the-armor-evades-ground-blockers",
+   "cr": [
+    "702.9b"
+   ],
+   "why": "The equipped creature has flying: next turn a ground creature cannot block it and it deals 4.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Celestial Armor"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser",
+      "Wind Drake"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Celestial Armor",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Centaur Courser",
+        "attacker": "p0:Grizzly Bears"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Wind Drake",
+        "attacker": "p0:Grizzly Bears"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 16
+     }
+    }
+   ]
+  },
+  {
+   "name": "bonus-ends-when-the-armor-is-destroyed",
+   "cr": [
+    "301.5",
+    "611.3a"
+   ],
+   "why": "Destroying the Equipment ends +2/+0 and flying.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Celestial Armor"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Disenchant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Celestial Armor",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Disenchant",
+     "mana": "CW",
+     "targets": [
+      "p0:Celestial Armor"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Celestial Armor",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "no_keywords": [
+      "Flying"
+     ]
+    }
+   ]
+  }
+ ]
+}

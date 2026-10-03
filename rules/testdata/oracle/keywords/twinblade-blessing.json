@@ -1,0 +1,265 @@
+{
+ "card": "Twinblade Blessing",
+ "family": "keywords",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "0ba1c241e051",
+ "scenarios": [
+  {
+   "name": "enchanted-creature-has-double-strike",
+   "cr": [
+    "303.4",
+    "702.4a"
+   ],
+   "why": "Aura for {1}{W}{W}: the enchanted creature has double strike.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Twinblade Blessing"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Twinblade Blessing",
+     "mana": "WWC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "keywords": [
+      "Double Strike"
+     ]
+    },
+    {
+     "card": "p0:Twinblade Blessing",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "flash-after-no-blocks-doubles-damage",
+   "cr": [
+    "702.8a",
+    "702.4b"
+   ],
+   "why": "Flash: cast on an unblocked attacker in the declare blockers step, it deals 2 twice.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Twinblade Blessing"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "declare-blockers"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Twinblade Blessing",
+     "mana": "WWC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 16
+     }
+    }
+   ]
+  },
+  {
+   "name": "flash-on-opponents-turn",
+   "cr": [
+    "702.8a"
+   ],
+   "why": "Flash: castable in the opponent's upkeep.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Twinblade Blessing"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Twinblade Blessing",
+     "mana": "WWC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Twinblade Blessing",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "keywords": [
+      "Double Strike"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "aura-fizzles-if-creature-leaves",
+   "cr": [
+    "608.3b",
+    "303.4"
+   ],
+   "why": "If the target creature leaves in response, the Aura spell has no legal target and goes to the graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Twinblade Blessing"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Twinblade Blessing",
+     "mana": "WWC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Twinblade Blessing",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "aura-goes-when-creature-dies",
+   "cr": [
+    "704.5m"
+   ],
+   "why": "When the enchanted creature dies the Aura is put into the graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Twinblade Blessing",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Twinblade Blessing",
+     "mana": "WWC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Twinblade Blessing",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

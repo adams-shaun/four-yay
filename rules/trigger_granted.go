@@ -791,7 +791,7 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 		if len(ce.GainedTriggerFaces) == 0 {
 			continue
 		}
-		if !observer.matchesSpecFrom(ce.Affects, id, ce.Controller, ce.Source) {
+		if !observer.matchesSpecFrom(ce.Affects, id, ce.Controller, ce.Source) || observer.grantLostTo(ce, o) {
 			continue
 		}
 		for _, gf := range ce.GainedTriggerFaces {
@@ -873,7 +873,7 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 		if ce.AddTrigger == nil {
 			continue
 		}
-		if !observer.matchesSpecFrom(ce.Affects, id, ce.Controller, ce.Source) {
+		if !observer.matchesSpecFrom(ce.Affects, id, ce.Controller, ce.Source) || observer.grantLostTo(ce, o) {
 			continue
 		}
 		t := *ce.AddTrigger

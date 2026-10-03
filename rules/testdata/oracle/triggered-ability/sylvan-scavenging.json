@@ -1,0 +1,480 @@
+{
+ "card": "Sylvan Scavenging",
+ "family": "triggered-ability",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "08b7370641a0",
+ "scenarios": [
+  {
+   "name": "counter-mode-puts-a-counter-on-target-creature-you-control",
+   "cr": [
+    "603.3c",
+    "700.2b"
+   ],
+   "why": "At the beginning of its controller's end step, the first mode puts a +1/+1 counter on target creature they control.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sylvan Scavenging",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "counter"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Raccoon"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "raccoon-mode-with-a-power-four-creature",
+   "cr": [
+    "603.3c",
+    "608.2c"
+   ],
+   "why": "The second mode creates a 3/3 Raccoon token because its controller controls a creature with power 4 or greater.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sylvan Scavenging",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Raccoon"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Raccoon",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Raccoon",
+     "pt": "3/3",
+     "types": [
+      "Creature",
+      "Raccoon"
+     ]
+    },
+    {
+     "card": "p0:Craw Wurm",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "raccoon-mode-without-a-power-four-creature-makes-nothing",
+   "cr": [
+    "608.2c",
+    "700.2"
+   ],
+   "why": "The second mode may be chosen with only a 3/3, but its 'if' is false on resolution and no token is created.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sylvan Scavenging",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Raccoon"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Raccoon"
+     },
+     "eq": 0
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "not-on-the-opponents-end-step",
+   "cr": [
+    "603.2",
+    "513.1"
+   ],
+   "why": "It triggers only at its controller's end step: after one counter on turn 1, nothing happens at the opponent's end step.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sylvan Scavenging",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "counter"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Sylvan Scavenging",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Raccoon"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "counter-makes-power-four-then-raccoon-next-turn",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "A 3/3 given a counter on one end step is a 4/4, so on its controller's next end step the Raccoon mode creates a token.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sylvan Scavenging",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Centaur Courser"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "counter"
+       ]
+      }
+     ],
+     "expect": [
+      {
+       "card": "p0:Centaur Courser",
+       "pt": "4/4"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Raccoon"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Raccoon",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "power-four-creature-destroyed-in-response-no-raccoon",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "The condition is checked as the ability resolves: the 6/4 is destroyed in response and no token is created.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sylvan Scavenging",
+      "Craw Wurm"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Raccoon"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Raccoon"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "no-creatures-raccoon-mode-does-nothing",
+   "cr": [
+    "603.3c"
+   ],
+   "why": "With no creature the counter mode has no legal target; the Raccoon mode can still be chosen and does nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sylvan Scavenging"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Raccoon"
+     },
+     "eq": 0
+    },
+    {
+     "card": "p0:Sylvan Scavenging",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "only-one-mode-happens",
+   "cr": [
+    "700.2"
+   ],
+   "why": "Choose one: with a power-4 creature the counter mode puts a counter and creates no Raccoon.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sylvan Scavenging",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Craw Wurm"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "counter"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Craw Wurm",
+     "pt": "7/5",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Raccoon"
+     },
+     "eq": 0
+    }
+   ]
+  }
+ ]
+}

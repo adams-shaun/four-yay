@@ -74,7 +74,7 @@ func (e *Engine) assignmentStatics(mode string) []staticView {
 				if o == nil || o.Face() == nil {
 					continue
 				}
-				if e.faceDownPrintedHides(o) {
+				if e.printedAbilitiesGone(o) {
 					// CR 708.8: a face-down permanent's printed statics do not
 					// exist while it is face down.
 					continue

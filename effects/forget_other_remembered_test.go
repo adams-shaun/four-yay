@@ -28,7 +28,7 @@ func TestForgetOtherRememberedPrimitives(t *testing.T) {
 		// after the match the window match fails and the card is never taken.
 		{"DigAllExile", "DB$ Dig | Defined$ You | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True", "library", false, true},
 		{"DigAllExileIsRemembered", "DB$ Dig | Defined$ You | DigNum$ 1 | ChangeNum$ All | ChangeValid$ Card.IsRemembered | DestinationZone$ Exile | RememberChanged$ True", "library", false, true},
-		{"DigUntil", "DB$ DigUntil | Valid$ Card.IsRemembered | RememberRevealed$ True", "library", false, true},
+		{"DigUntil", "DB$ DigUntil | Valid$ Card.IsRemembered | FoundDestination$ Hand | RememberRevealed$ True", "library", false, true},
 		{"TokenDB", "DB$ Token | TokenScript$ test_token | RememberTokens$ True", "battlefield", true, true},
 		{"TokenAB", "AB$ Token | TokenScript$ test_token | RememberTokens$ True", "battlefield", true, true},
 		{"Effect", "DB$ Effect | RememberObjects$ Remembered", "battlefield", false, false},

@@ -1,0 +1,751 @@
+{
+ "card": "Witness Protection",
+ "family": "base-characteristics",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "7aefff8a0e11",
+ "scenarios": [
+  {
+   "name": "enchanted-creature-is-a-one-one-citizen-without-abilities",
+   "cr": [
+    "613.1d",
+    "613.1f",
+    "613.4b"
+   ],
+   "why": "The enchanted Serra Angel loses flying and vigilance, is a Citizen (no longer an Angel) and has base power and toughness 1/1.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Witness Protection"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Serra Angel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Witness Protection",
+     "mana": "U",
+     "targets": [
+      "p1:Serra Angel"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Witness Protection",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Serra Angel",
+     "zone": "battlefield",
+     "pt": "1/1",
+     "no_keywords": [
+      "Flying",
+      "Vigilance"
+     ],
+     "types": [
+      "Creature",
+      "Citizen"
+     ],
+     "no_types": [
+      "Angel"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "artifact-creature-loses-its-other-card-type",
+   "cr": [
+    "613.1d",
+    "205.1a"
+   ],
+   "why": "It loses all other card types and creature types: an artifact creature Thopter becomes just a Citizen creature, without flying.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Witness Protection"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Ornithopter"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Witness Protection",
+     "mana": "U",
+     "targets": [
+      "p1:Ornithopter"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Ornithopter",
+     "pt": "1/1",
+     "no_keywords": [
+      "Flying"
+     ],
+     "types": [
+      "Creature",
+      "Citizen"
+     ],
+     "no_types": [
+      "Artifact",
+      "Thopter"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "becomes-nonblack-so-doom-blade-can-target-it",
+   "cr": [
+    "613.1e",
+    "105.3"
+   ],
+   "why": "The creature is green and white and loses its other colours: a black Zombie that Doom Blade could not target becomes a legal target.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Witness Protection",
+      "Doom Blade"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Walking Corpse"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CB",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Doom Blade"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Witness Protection",
+     "mana": "U",
+     "targets": [
+      "p1:Walking Corpse"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p1:Walking Corpse",
+       "pt": "1/1",
+       "no_types": [
+        "Zombie"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CB",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Doom Blade"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Doom Blade",
+     "targets": [
+      "p1:Walking Corpse"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Walking Corpse",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Witness Protection",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "loses-triggered-ability",
+   "cr": [
+    "613.1f"
+   ],
+   "why": "Having lost all abilities, the enchanted Ajani's Pridemate gets no counter when its controller gains life.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Witness Protection"
+     ],
+     "battlefield": [
+      "Ajani's Pridemate"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Witness Protection",
+     "mana": "U",
+     "targets": [
+      "p0:Ajani's Pridemate"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "life",
+     "seat": 0,
+     "amount": 3
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ajani's Pridemate",
+     "pt": "1/1",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "life": {
+      "p0": 23
+     }
+    }
+   ]
+  },
+  {
+   "name": "loses-activated-mana-ability",
+   "cr": [
+    "613.1f"
+   ],
+   "why": "The enchanted Llanowar Elves no longer has its mana ability.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Witness Protection"
+     ],
+     "battlefield": [
+      "Llanowar Elves"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "U",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Llanowar Elves",
+        "label": "Add"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Witness Protection",
+     "targets": [
+      "p0:Llanowar Elves"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Llanowar Elves",
+      "label": "Add"
+     },
+     "want": false
+    },
+    {
+     "card": "p0:Llanowar Elves",
+     "tapped": false,
+     "pt": "1/1",
+     "no_types": [
+      "Elf",
+      "Druid"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "loses-activated-pump-ability",
+   "cr": [
+    "613.1f"
+   ],
+   "why": "The enchanted Shivan Dragon loses its {R} pump ability as well as flying.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Witness Protection"
+     ],
+     "battlefield": [
+      "Shivan Dragon"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "RU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Shivan Dragon"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Witness Protection",
+     "targets": [
+      "p0:Shivan Dragon"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Shivan Dragon"
+     },
+     "want": false
+    },
+    {
+     "card": "p0:Shivan Dragon",
+     "pt": "1/1",
+     "no_keywords": [
+      "Flying"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "loses-static-ability",
+   "cr": [
+    "613.1f"
+   ],
+   "why": "The enchanted Mocking Sprite loses its cost-reduction static ability: a {2}{U} sorcery is no longer castable for two mana.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Witness Protection",
+      "Divination"
+     ],
+     "battlefield": [
+      "Mocking Sprite"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Divination"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Witness Protection",
+     "mana": "U",
+     "targets": [
+      "p0:Mocking Sprite"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Divination"
+     },
+     "want": false
+    },
+    {
+     "card": "p0:Mocking Sprite",
+     "pt": "1/1",
+     "no_keywords": [
+      "Flying"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "characteristics-return-when-the-aura-leaves",
+   "cr": [
+    "611.3a",
+    "704.5m"
+   ],
+   "why": "The effect lasts only while the Aura is attached: once it leaves, the Angel is a 4/4 flying Angel again.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Witness Protection"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Serra Angel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Witness Protection",
+     "mana": "U",
+     "targets": [
+      "p1:Serra Angel"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p1:Serra Angel",
+       "pt": "1/1"
+      }
+     ]
+    },
+    {
+     "op": "move",
+     "card": "p0:Witness Protection",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Serra Angel",
+     "pt": "4/4",
+     "keywords": [
+      "Flying",
+      "Vigilance"
+     ],
+     "types": [
+      "Angel"
+     ],
+     "no_types": [
+      "Citizen"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "later-pump-and-keyword-apply-on-top",
+   "cr": [
+    "613.4c",
+    "613.7"
+   ],
+   "why": "Base 1/1 is set in layer 7b and abilities are removed at the Aura's timestamp: Sure Strike cast afterwards gives +3/+0 (4/1) and first strike.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Witness Protection",
+      "Sure Strike"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Serra Angel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Witness Protection",
+     "mana": "U",
+     "targets": [
+      "p1:Serra Angel"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Sure Strike",
+     "mana": "CR",
+     "targets": [
+      "p1:Serra Angel"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Serra Angel",
+     "pt": "4/1",
+     "keywords": [
+      "First Strike"
+     ],
+     "no_keywords": [
+      "Flying"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "earlier-granted-keyword-is-lost-but-pump-stays",
+   "cr": [
+    "613.7",
+    "613.4c"
+   ],
+   "why": "Sure Strike resolved first: its first strike has the earlier timestamp and is removed with all other abilities, while its +3/+0 still applies to the new base 1/1.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Witness Protection",
+      "Sure Strike"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Serra Angel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Sure Strike",
+     "mana": "CR",
+     "targets": [
+      "p1:Serra Angel"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p1:Serra Angel",
+       "pt": "7/4",
+       "keywords": [
+        "First Strike",
+        "Flying"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Witness Protection",
+     "mana": "U",
+     "targets": [
+      "p1:Serra Angel"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Serra Angel",
+     "pt": "4/1",
+     "no_keywords": [
+      "First Strike",
+      "Flying",
+      "Vigilance"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "no-creature-not-castable",
+   "cr": [
+    "303.4a",
+    "601.2c"
+   ],
+   "why": "Enchant creature: with no creature to target the Aura cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Witness Protection"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "U",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Witness Protection"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Witness Protection",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "aura-goes-to-graveyard-when-the-creature-dies",
+   "cr": [
+    "704.5m"
+   ],
+   "why": "When the enchanted creature leaves the battlefield the Aura is put into its owner's graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Witness Protection",
+      "Shock"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Serra Angel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Witness Protection",
+     "mana": "U",
+     "targets": [
+      "p1:Serra Angel"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1:Serra Angel"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Serra Angel",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Witness Protection",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

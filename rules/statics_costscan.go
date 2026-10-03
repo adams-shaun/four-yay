@@ -41,7 +41,7 @@ func (e *Engine) scanCostStatics() costStaticViews {
 		}
 		// CR 708.8: a face-down permanent has no printed cost statics
 		// (scanActionStatics' and scanActiveStatics' gate).
-		if e.faceDownPrintedHides(o) {
+		if e.printedAbilitiesGone(o) {
 			return
 		}
 		for si, sn := 0, o.PileStaticCount(); si < sn; si++ {

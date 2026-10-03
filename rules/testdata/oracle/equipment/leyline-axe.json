@@ -1,0 +1,620 @@
+{
+ "card": "Leyline Axe",
+ "family": "equipment",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "a9035ae56236",
+ "scenarios": [
+  {
+   "name": "opening-hand-begins-on-the-battlefield",
+   "cr": [
+    "103.6a"
+   ],
+   "why": "In its owner's opening hand, it may begin the game on the battlefield.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Leyline Axe"
+     ]
+    }
+   },
+   "setup_answers": [
+    {
+     "kind": "any",
+     "pick": [
+      "yes"
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Leyline Axe",
+     "zone": "battlefield"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "opening-hand-may-keep-it-in-hand",
+   "cr": [
+    "103.6a"
+   ],
+   "why": "'May': its owner can keep it in hand instead.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Leyline Axe"
+     ]
+    }
+   },
+   "setup_answers": [
+    {
+     "kind": "any",
+     "pick": [
+      "no"
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Leyline Axe",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "cast-normally-for-four",
+   "cr": [
+    "601.2"
+   ],
+   "why": "It can simply be cast for {4}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Leyline Axe"
+     ]
+    }
+   },
+   "setup_answers": [
+    {
+     "kind": "any",
+     "pick": [
+      "no"
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Leyline Axe",
+     "mana": "CCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Leyline Axe",
+     "zone": "battlefield"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "equipped-creature-gets-plus-one-double-strike-trample",
+   "cr": [
+    "301.5",
+    "702.6a"
+   ],
+   "why": "Equip {3}: the equipped creature gets +1/+1 and has double strike and trample.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Leyline Axe",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Leyline Axe",
+     "mana": "CCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3",
+     "keywords": [
+      "Double Strike",
+      "Trample"
+     ]
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "unequipped-creature-is-unchanged",
+   "cr": [
+    "301.5"
+   ],
+   "why": "Control: the Axe on the battlefield unattached gives nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Leyline Axe",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "no_keywords": [
+      "Double Strike",
+      "Trample"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "unblocked-double-strike-deals-six",
+   "cr": [
+    "702.4b",
+    "510.4"
+   ],
+   "why": "An equipped 3/3 double striker deals 3 in each combat damage step.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Leyline Axe",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Leyline Axe",
+     "mana": "CCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 14
+     }
+    }
+   ]
+  },
+  {
+   "name": "double-strike-trample-over-a-chump-blocker",
+   "cr": [
+    "702.19b",
+    "702.19d",
+    "702.4b"
+   ],
+   "why": "Blocked by a 2/2: the first-strike step assigns 2 lethal to the blocker and 1 tramples over; in the second step no creature is blocking it, so with trample all 3 goes to the player. Four in total.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Leyline Axe",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Runeclaw Bear"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Leyline Axe",
+     "mana": "CCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Runeclaw Bear",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 16
+     }
+    },
+    {
+     "card": "p1:Runeclaw Bear",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "equip-moves-to-another-creature",
+   "cr": [
+    "301.5c",
+    "702.6a"
+   ],
+   "why": "Equipping a second creature moves the Axe: the first loses the bonus.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Leyline Axe",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Leyline Axe",
+     "mana": "CCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Leyline Axe",
+     "mana": "CCC",
+     "targets": [
+      "p0:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "no_keywords": [
+      "Double Strike",
+      "Trample"
+     ]
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "3/2",
+     "keywords": [
+      "Double Strike",
+      "Trample"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "equip-needs-three-mana",
+   "cr": [
+    "602.2b"
+   ],
+   "why": "Two mana cannot pay equip {3}.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Leyline Axe",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Leyline Axe"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "equip-is-sorcery-speed",
+   "cr": [
+    "702.6a"
+   ],
+   "why": "Equip only as a sorcery: not offered on the opponent's turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Leyline Axe",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Leyline Axe"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "equipped-creature-dies-axe-stays",
+   "cr": [
+    "301.5c",
+    "704.5n"
+   ],
+   "why": "When the equipped creature dies the Axe stays on the battlefield unattached and can be equipped again.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Leyline Axe",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Leyline Axe",
+     "mana": "CCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Leyline Axe",
+     "mana": "CCC",
+     "targets": [
+      "p0:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Leyline Axe",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "3/2",
+     "keywords": [
+      "Double Strike"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "no-creature-cannot-equip",
+   "cr": [
+    "601.2c",
+    "702.6a"
+   ],
+   "why": "Equip targets a creature its controller controls: with only an opposing creature it cannot be activated.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Leyline Axe"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Leyline Axe"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "drawn-later-does-not-enter-free",
+   "cr": [
+    "103.6a"
+   ],
+   "why": "Only the opening hand: an Axe on top of the library is drawn on turn 3 and stays in hand.",
+   "setup": {
+    "p0": {
+     "library_top": [
+      "Leyline Axe"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Leyline Axe",
+     "zone": "hand"
+    }
+   ]
+  }
+ ]
+}

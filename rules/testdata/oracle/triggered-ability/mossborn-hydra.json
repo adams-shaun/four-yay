@@ -1,0 +1,258 @@
+{
+ "card": "Mossborn Hydra",
+ "family": "triggered-ability",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "5f2c07f36794",
+ "scenarios": [
+  {
+   "name": "enters-with-one-counter",
+   "cr": [
+    "614.1c",
+    "122.6"
+   ],
+   "why": "A 0/0 that enters with a +1/+1 counter: a 1/1 with trample.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mossborn Hydra"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mossborn Hydra",
+     "mana": "GCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mossborn Hydra",
+     "zone": "battlefield",
+     "pt": "1/1",
+     "keywords": [
+      "Trample"
+     ],
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "landfall-doubles-to-two",
+   "cr": [
+    "603.2",
+    "701.10e"
+   ],
+   "why": "A land you control entering doubles its +1/+1 counters: 1 becomes 2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mossborn Hydra",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mossborn Hydra",
+     "mana": "GCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mossborn Hydra",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-landfalls-quadruple",
+   "cr": [
+    "603.2",
+    "701.10e"
+   ],
+   "why": "Two lands entering in one turn (one played, one put onto the battlefield by another effect) double twice: 4 counters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mossborn Hydra",
+      "Forest",
+      "Plains"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mossborn Hydra",
+     "mana": "GCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "move",
+     "card": "p0:Plains",
+     "to": "battlefield"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mossborn Hydra",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 4
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-land-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only a land YOU control: the opponent playing a land does nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mossborn Hydra"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mossborn Hydra",
+     "mana": "GCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "play",
+     "seat": 1,
+     "card": "p1:Forest",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Mossborn Hydra",
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mossborn Hydra",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "doubling-counts-counters-on-resolution",
+   "cr": [
+    "701.10e",
+    "608.2h"
+   ],
+   "why": "Doubling uses the count at resolution: a Giant Growth in response changes P/T but not the counters, which still go 1 to 2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mossborn Hydra",
+      "Forest",
+      "Giant Growth"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mossborn Hydra",
+     "mana": "GCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Mossborn Hydra",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Mossborn Hydra"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mossborn Hydra",
+     "pt": "5/5",
+     "counters": {
+      "+1/+1": 2
+     }
+    }
+   ]
+  }
+ ]
+}

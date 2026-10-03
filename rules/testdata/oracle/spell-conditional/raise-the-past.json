@@ -1,0 +1,142 @@
+{
+ "card": "Raise the Past",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "5883c90d7884",
+ "scenarios": [
+  {
+   "name": "returns-mana-value-two-or-less",
+   "cr": [
+    "202.3",
+    "608.2c"
+   ],
+   "why": "Creature cards with mana value 2 or less return; the MV 4 creature and the instant stay.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Raise the Past"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Savannah Lions",
+      "Hill Giant",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Raise the Past",
+     "mana": "WWCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Hill Giant",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "opponents-graveyard-untouched",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "Only its controller's graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Raise the Past"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Raise the Past",
+     "mana": "WWCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "noncreature-cards-stay",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "Creature cards only: a MV 2 enchantment stays.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Raise the Past"
+     ],
+     "graveyard": [
+      "Anthem of Champions",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Raise the Past",
+     "mana": "WWCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Anthem of Champions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "battlefield",
+     "pt": "2/1"
+    }
+   ]
+  }
+ ]
+}

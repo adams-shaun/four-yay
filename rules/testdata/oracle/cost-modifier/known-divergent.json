@@ -1,0 +1,4 @@
+{
+  "Omniscience/casts-from-hand-without-mana": "CR 118.9/601.2f: with Omniscience its controller may cast spells from hand without paying their mana costs. Expected: Craw Wurm is offered and cast with no mana. Observed: the cast is not offered without mana; a control with {G}{G}{4} floating casts it but spends all six (pool empty), so the free-cast permission is never applied. Confidence high. New root, found by the FDN audit batch 6; no ticket yet.",
+  "Omniscience/instant-free-too": "Same root as casts-from-hand-without-mana: Lightning Bolt from hand is not offered without mana (expected a free cast, opponent to 17)."
+}

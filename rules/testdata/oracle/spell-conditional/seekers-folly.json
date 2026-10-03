@@ -1,0 +1,412 @@
+{
+ "card": "Seeker's Folly",
+ "family": "spell-conditional",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "ced9260ae7fc",
+ "scenarios": [
+  {
+   "name": "discard-mode-opponent-discards-two",
+   "cr": [
+    "700.2a",
+    "701.9a"
+   ],
+   "why": "First mode: the target opponent discards two cards.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Seeker's Folly"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock",
+      "Grizzly Bears",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Seeker's Folly",
+     "mana": "CCB",
+     "targets": [
+      "p1"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "discards"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p1": 1
+     }
+    },
+    {
+     "graveyard_size": {
+      "p1": 2
+     }
+    },
+    {
+     "card": "p0:Seeker's Folly",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "discard-mode-with-one-card-discards-it",
+   "cr": [
+    "701.9a",
+    "609.3"
+   ],
+   "why": "With only one card in hand the opponent discards that card.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Seeker's Folly"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Seeker's Folly",
+     "mana": "CCB",
+     "targets": [
+      "p1"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "discards"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p1": 0
+     }
+    },
+    {
+     "card": "p1:Shock",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "discard-mode-leaves-creatures-alone",
+   "cr": [
+    "700.2a"
+   ],
+   "why": "Only the chosen mode happens: the discard mode does not shrink creatures.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Seeker's Folly"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock",
+      "Forest"
+     ],
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Seeker's Folly",
+     "mana": "CCB",
+     "targets": [
+      "p1"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "discards"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p1": 0
+     }
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "battlefield",
+     "pt": "2/1"
+    }
+   ]
+  },
+  {
+   "name": "shrink-mode-opponents-creatures-get-minus-one",
+   "cr": [
+    "700.2a",
+    "613.4c",
+    "704.5f"
+   ],
+   "why": "Second mode: creatures the opponents control get -1/-1 until end of turn; a toughness-1 creature dies. Its caster's creatures are unaffected and nobody discards.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Seeker's Folly"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock",
+      "Forest"
+     ],
+     "battlefield": [
+      "Savannah Lions",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Seeker's Folly",
+     "mana": "CCB",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "-1/-1"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "pt": "2/2"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2"
+    },
+    {
+     "hand_size": {
+      "p1": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "shrink-mode-ends-at-end-of-turn",
+   "cr": [
+    "514.2"
+   ],
+   "why": "The -1/-1 lasts until end of turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Seeker's Folly"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Seeker's Folly",
+     "mana": "CCB",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "-1/-1"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p1:Centaur Courser",
+       "pt": "2/2"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "pt": "3/3"
+    }
+   ]
+  },
+  {
+   "name": "shrink-mode-does-not-affect-a-creature-that-enters-later",
+   "cr": [
+    "611.2c"
+   ],
+   "why": "The set of affected creatures is fixed when the spell resolves: a creature the opponent casts afterwards the same turn is not shrunk.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Seeker's Folly"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Ambush Viper"
+     ],
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Seeker's Folly",
+     "mana": "CCB",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "-1/-1"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Ambush Viper",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Ambush Viper",
+     "zone": "battlefield",
+     "pt": "2/1"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "shrink-mode-needs-no-target",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "The second mode has no target and can be cast with no opposing creatures and an empty opposing hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Seeker's Folly"
+     ],
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Seeker's Folly",
+     "mana": "CCB",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "-1/-1"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Seeker's Folly",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "battlefield",
+     "pt": "2/1"
+    }
+   ]
+  }
+ ]
+}

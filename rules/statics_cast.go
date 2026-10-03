@@ -24,7 +24,7 @@ func (e *Engine) SpellCopyAllowed(id state.ObjID) bool {
 			}
 			for _, source := range e.staticSourceIDs(p, z) {
 				o := e.G.Obj(source)
-				if o == nil || o.Face() == nil || offBattlefieldStaticsInert(z, o) || e.faceDownPrintedHides(o) {
+				if o == nil || o.Face() == nil || offBattlefieldStaticsInert(z, o) || e.printedAbilitiesGone(o) {
 					continue
 				}
 				for si, n := 0, o.PileStaticCount(); si < n; si++ {

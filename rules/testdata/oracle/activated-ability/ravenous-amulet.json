@@ -1,0 +1,552 @@
+{
+ "card": "Ravenous Amulet",
+ "family": "activated-ability",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "eb59256b02fe",
+ "scenarios": [
+  {
+   "name": "sacrifice-a-creature-draw-and-soul-counter",
+   "cr": [
+    "602.2",
+    "701.21a"
+   ],
+   "why": "For {1}, {T} and a sacrificed creature its controller draws a card and the Amulet gets a soul counter.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ravenous Amulet",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ravenous Amulet",
+     "mana": "C",
+     "ability": "Draw",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Ravenous Amulet",
+     "tapped": true,
+     "counters": {
+      "soul": 1
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-creature-cannot-activate",
+   "cr": [
+    "602.2b",
+    "118.3"
+   ],
+   "why": "With no creature to sacrifice the first ability cannot be activated.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ravenous Amulet"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Ravenous Amulet",
+      "label": "Draw"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "draw-ability-is-sorcery-speed",
+   "cr": [
+    "602.5d"
+   ],
+   "why": "Activate only as a sorcery: not offered on the opponent's turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ravenous Amulet",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Ravenous Amulet",
+      "label": "Draw"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "drain-with-no-counters-loses-nothing",
+   "cr": [
+    "608.2h"
+   ],
+   "why": "With no soul counters the second ability makes the opponent lose 0 life; the Amulet is sacrificed.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ravenous Amulet"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ravenous Amulet",
+     "mana": "CCCC",
+     "ability": "loses life"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Ravenous Amulet",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "drain-counts-soul-counters-as-it-last-existed",
+   "cr": [
+    "608.2h",
+    "113.7a"
+   ],
+   "why": "Two creatures sacrificed on turns 1 and 3 put two soul counters on it; on turn 5 the second ability sacrifices it and the opponent loses 2 life (its last known counter count).",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ravenous Amulet",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ravenous Amulet",
+     "mana": "C",
+     "ability": "Draw",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ravenous Amulet",
+     "mana": "C",
+     "ability": "Draw",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Savannah Lions"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Ravenous Amulet",
+       "counters": {
+        "soul": 2
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ravenous Amulet",
+     "mana": "CCCC",
+     "ability": "loses life"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 18
+     }
+    },
+    {
+     "card": "p0:Ravenous Amulet",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "tapped-amulet-cannot-use-the-second-ability",
+   "cr": [
+    "602.2b",
+    "107.5"
+   ],
+   "why": "Both abilities need {T}: after the first, the second is not available that turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ravenous Amulet",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ravenous Amulet",
+     "mana": "C",
+     "ability": "Draw",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Ravenous Amulet",
+      "label": "loses life"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "drain-ability-is-instant-speed",
+   "cr": [
+    "602.5d"
+   ],
+   "why": "The second ability has no timing restriction: it works in the opponent's upkeep.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ravenous Amulet"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ravenous Amulet",
+     "mana": "CCCC",
+     "ability": "loses life"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Ravenous Amulet",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "artifact-is-not-summoning-sick",
+   "cr": [
+    "302.6"
+   ],
+   "why": "A noncreature artifact cast this turn can use its {T} ability at once.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Ravenous Amulet"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ravenous Amulet",
+     "mana": "CC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ravenous Amulet",
+     "mana": "C",
+     "ability": "Draw",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ravenous Amulet",
+     "counters": {
+      "soul": 1
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "sacrificed-token-counts",
+   "cr": [
+    "701.21a",
+    "111.1"
+   ],
+   "why": "A creature token can be the sacrificed creature.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Raise the Alarm"
+     ],
+     "battlefield": [
+      "Ravenous Amulet"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Raise the Alarm",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ravenous Amulet",
+     "mana": "C",
+     "ability": "Draw",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:token:Soldier"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Soldier",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:Ravenous Amulet",
+     "counters": {
+      "soul": 1
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "needs-four-mana-for-the-drain",
+   "cr": [
+    "602.2b"
+   ],
+   "why": "Three mana cannot pay {4}.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ravenous Amulet"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Ravenous Amulet",
+      "label": "loses life"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

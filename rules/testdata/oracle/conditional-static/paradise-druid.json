@@ -1,0 +1,183 @@
+{
+ "card": "Paradise Druid",
+ "family": "conditional-static",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "72185e9dc384",
+ "scenarios": [
+  {
+   "name": "untapped-has-hexproof",
+   "cr": [
+    "702.11a",
+    "611.3a"
+   ],
+   "why": "While untapped it has hexproof.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Paradise Druid"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Paradise Druid",
+     "pt": "2/1",
+     "keywords": [
+      "Hexproof"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "taps-for-any-color-and-loses-hexproof",
+   "cr": [
+    "605.1a",
+    "611.3a"
+   ],
+   "why": "{T}: add one mana of any color (here blue); tapped, it no longer has hexproof.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Paradise Druid"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Paradise Druid",
+     "ability": "for mana",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "U"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "U"
+     }
+    },
+    {
+     "card": "p0:Paradise Druid",
+     "no_keywords": [
+      "Hexproof"
+     ],
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "opponent-cannot-target-untapped",
+   "cr": [
+    "702.11b"
+   ],
+   "why": "Untapped, the opponent's Murder has no legal target.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Paradise Druid"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "mana",
+     "seat": 1,
+     "mana": "BBC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 1,
+      "kind": "cast",
+      "card": "p1:Murder"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "opponent-can-target-it-once-tapped",
+   "cr": [
+    "611.3a",
+    "115.1"
+   ],
+   "why": "After it taps for mana, the opponent can Murder it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Paradise Druid"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Paradise Druid",
+     "ability": "for mana",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "G"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "BBC",
+     "targets": [
+      "p0:Paradise Druid"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Paradise Druid",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

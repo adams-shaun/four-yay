@@ -1,0 +1,403 @@
+{
+ "card": "Extravagant Replication",
+ "family": "triggered-ability",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "a1e64e932adf",
+ "scenarios": [
+  {
+   "name": "upkeep-copies-another-creature",
+   "cr": [
+    "603.2",
+    "707.2",
+    "111.10"
+   ],
+   "why": "Cast for {4}{U}{U}; at the beginning of its controller's next upkeep it creates a token copy of another target nonland permanent they control.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Extravagant Replication"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Extravagant Replication",
+     "mana": "UUCCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 2
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "copies-a-noncreature-enchantment",
+   "cr": [
+    "707.2",
+    "613.4c"
+   ],
+   "why": "Any nonland permanent: a copy of Anthem of Champions makes Grizzly Bears 4/4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Anthem of Champions",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Extravagant Replication"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Extravagant Replication",
+     "mana": "UUCCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0",
+     "targets": [
+      "p0:Anthem of Champions"
+     ]
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Anthem of Champions"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Anthem of Champions"
+     },
+     "eq": 2
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4"
+    }
+   ]
+  },
+  {
+   "name": "cannot-copy-itself-or-a-land",
+   "cr": [
+    "115.1",
+    "603.3d"
+   ],
+   "why": "'Another target nonland permanent you control': with only itself and a land (and an opponent's creature) there is no legal target, so nothing is created.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Forest"
+     ],
+     "hand": [
+      "Extravagant Replication"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Extravagant Replication",
+     "mana": "UUCCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Extravagant Replication"
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Forest"
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "not-on-opponents-upkeep",
+   "cr": [
+    "603.2"
+   ],
+   "why": "'Your upkeep': nothing triggers in the opponent's upkeep.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Extravagant Replication"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Extravagant Replication",
+     "mana": "UUCCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Extravagant Replication",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "each-upkeep-makes-another",
+   "cr": [
+    "603.2"
+   ],
+   "why": "It triggers every upkeep of its controller: two of their upkeeps make two tokens.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Extravagant Replication"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Extravagant Replication",
+     "mana": "UUCCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 3
+    }
+   ]
+  },
+  {
+   "name": "target-gone-no-token",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "If the target leaves before the trigger resolves, no token is created.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Extravagant Replication"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Extravagant Replication",
+     "mana": "UUCCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 0
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

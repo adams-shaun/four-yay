@@ -2003,7 +2003,9 @@ func digDestPhrase(dest state.Zone) string {
 // controller) in zone order until one matches Valid$, publicly reveal every
 // card turned over INCLUDING the found one (the same non-Secret ids-Note
 // shape effDig's Reveal$ arm emits), move the found card(s) to
-// FoundDestination$ (default Hand) and the revealed rest to
+// FoundDestination$ (absent: the found card stays part of the revealed pile
+// and goes wherever it goes -- Forge's reading, see foundWithRevealed) and
+// the revealed rest to
 // RevealedDestination$ (default Library; RevealedLibraryPosition$ "-1" =
 // bottom via Move's zone append, "0"/absent = the stay-in-place default so
 // no event). The cards AFTER the found card stay in the library untouched —
@@ -2059,14 +2061,30 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 		spec = "Card"
 	}
 	spec = permanentCardSpec(spec)
-	foundDestName := sa.Params["FoundDestination"]
-	if foundDestName == "" {
-		foundDestName = "Hand"
-	}
-	foundDest := ParseZone(foundDestName)
 	revDest := state.ZLibrary
 	if raw := strings.TrimSpace(sa.Params["RevealedDestination"]); raw != "" {
 		revDest = ParseZone(raw)
+	}
+	// An absent FoundDestination$ is Forge's "the found card is one of the
+	// revealed cards": it goes wherever the revealed pile goes -- the
+	// RevealedDestination$ (at RevealedLibraryPosition$, in the pile's random
+	// order), or nowhere under NoMoveRevealed$ True. Measured at the
+	// FORGE_REF pin, 25 corpus DigUntil lines carry no FoundDestination$ and
+	// every one's Oracle text agrees: the 18 with a RevealedDestination$ put
+	// "those cards" / "all cards revealed this way" -- the found land or
+	// creature included -- into the graveyard (Consuming Aberration,
+	// Balustrade Spy, Mind Funeral, Undercity Informer), onto the bottom
+	// (Goblin Charbelcher, Erratic Explosion, Amplifire) or into the hand
+	// (Treasure Hunt), and the 7 with neither (NoMoveRevealed$: Treasure
+	// Keeper, Spellshift, Plargg, The Crimson Avenger, Underdark Beholder,
+	// Neera, Dance, Pathetic Marionette) leave the found card in the library
+	// for the chained cast/choose that reads it as Remembered. The old Hand
+	// default handed the library's owner a free card in all 25.
+	foundDestName := strings.TrimSpace(sa.Params["FoundDestination"])
+	foundWithRevealed := foundDestName == ""
+	foundDest := revDest
+	if !foundWithRevealed {
+		foundDest = ParseZone(foundDestName)
 	}
 	revPos := strings.TrimSpace(sa.Params["RevealedLibraryPosition"])
 	optionalMove := strings.EqualFold(strings.TrimSpace(sa.Params["OptionalFoundMove"]), "True")
@@ -2270,6 +2288,7 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 		foundJoinedRevealed := false
 		if len(found) > 0 {
 			dest := foundDest
+			toMove := found
 			if noMoveFound {
 				// NoMoveFound$ True: the found card is not moved to its
 				// destination. Its effective destination is the library, so a
@@ -2280,7 +2299,15 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 				dest = declineDest
 				foundJoinedRevealed = dest == revDest
 			}
-			for _, id := range found {
+			if foundWithRevealed && !noMoveFound {
+				// No FoundDestination$: the found card(s) travel with the
+				// revealed pile below (see foundWithRevealed above), so the
+				// pile's NoMoveRevealed$, position and random order apply and
+				// there is no separate found move.
+				foundJoinedRevealed = true
+				toMove = nil
+			}
+			for _, id := range toMove {
 				if dest == state.ZBattlefield {
 					// An AURA face put onto the battlefield by a non-cast effect
 					// never got a cast-time target. With NO eligible bearer the

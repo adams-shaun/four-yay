@@ -1,0 +1,754 @@
+{
+ "card": "Chandra, Flameshaper",
+ "family": "activated-ability",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "1d792bfb4d4c",
+ "scenarios": [
+  {
+   "name": "enters-with-six-loyalty",
+   "cr": [
+    "306.5b"
+   ],
+   "why": "Cast for {5}{R}{R} she enters with six loyalty counters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Chandra, Flameshaper"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Chandra, Flameshaper",
+     "mana": "CCCCCRR"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Chandra, Flameshaper",
+     "zone": "battlefield",
+     "types": [
+      "Planeswalker"
+     ],
+     "counters": {
+      "loyalty": 6
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "plus-two-adds-three-red-and-exiles-three",
+   "cr": [
+    "606.4",
+    "608.2c"
+   ],
+   "why": "+2: loyalty 8, {R}{R}{R} added, the top three cards of the library exiled; the fourth stays.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Chandra, Flameshaper"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Forest",
+      "Grizzly Bears",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Chandra, Flameshaper",
+     "ability": "Add RRR"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Chandra, Flameshaper",
+     "counters": {
+      "loyalty": 8
+     }
+    },
+    {
+     "pool": {
+      "p0": "RRR"
+     }
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "plus-two-chosen-card-is-castable-this-turn",
+   "cr": [
+    "601.3",
+    "608.2c"
+   ],
+   "why": "The chosen exiled card may be played this turn: the chosen Lightning Bolt is cast from exile with the red mana.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Chandra, Flameshaper"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Forest",
+      "Grizzly Bears",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Chandra, Flameshaper",
+     "ability": "Add RRR"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 17
+     }
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": "RR"
+     }
+    }
+   ]
+  },
+  {
+   "name": "plus-two-unchosen-cards-are-not-playable",
+   "cr": [
+    "601.3"
+   ],
+   "why": "Only the chosen card is playable: the other two exiled cards are not offered.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Chandra, Flameshaper"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Forest",
+      "Grizzly Bears",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Chandra, Flameshaper",
+     "ability": "Add RRR"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "G"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Lightning Bolt"
+     },
+     "want": true
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Grizzly Bears"
+     },
+     "want": false
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "play_land",
+      "card": "p0:Forest"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "plus-two-chosen-land-can-be-played",
+   "cr": [
+    "305.1",
+    "116.2a"
+   ],
+   "why": "'Play': a chosen land card is played from exile as the turn's land drop.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Chandra, Flameshaper"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Forest",
+      "Grizzly Bears",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Chandra, Flameshaper",
+     "ability": "Add RRR"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "plus-two-permission-ends-with-the-turn",
+   "cr": [
+    "611.2a",
+    "514.2"
+   ],
+   "why": "'This turn': on the next turn the chosen card is no longer castable and stays in exile.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Chandra, Flameshaper"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Forest",
+      "Grizzly Bears",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Chandra, Flameshaper",
+     "ability": "Add RRR"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Lightning Bolt"
+     },
+     "want": false
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "plus-one-hasty-copy-attacks-and-is-sacrificed-at-end-step",
+   "cr": [
+    "707.9a",
+    "702.10b",
+    "603.7"
+   ],
+   "why": "+1: a token copy of target creature she controls with haste; it attacks the turn it is created and is sacrificed at the beginning of the end step.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Chandra, Flameshaper",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Chandra, Flameshaper",
+     "ability": "Create a token",
+     "targets": [
+      "p0:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Chandra, Flameshaper",
+       "counters": {
+        "loyalty": 7
+       }
+      },
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Craw Wurm",
+        "token": true
+       },
+       "eq": 1
+      },
+      {
+       "card": "p0:token:Craw Wurm",
+       "pt": "6/4",
+       "keywords": [
+        "Haste"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:token:Craw Wurm"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 14
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Craw Wurm",
+      "token": true
+     },
+     "eq": 0
+    },
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "plus-one-needs-a-creature-you-control",
+   "cr": [
+    "601.2c",
+    "606.3"
+   ],
+   "why": "With no creature under her control the +1 has no legal target and cannot be activated.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Chandra, Flameshaper"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Chandra, Flameshaper",
+      "label": "Create a token"
+     },
+     "want": false
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Chandra, Flameshaper",
+      "label": "Add RRR"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "minus-four-eight-damage-to-one-creature",
+   "cr": [
+    "606.4",
+    "601.2d"
+   ],
+   "why": "-4: with a single target all 8 damage is dealt to it; loyalty goes to 2.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Chandra, Flameshaper"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Colossal Dreadmaw"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Chandra, Flameshaper",
+     "ability": "deals 8 damage",
+     "targets": [
+      "p1:Colossal Dreadmaw"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Colossal Dreadmaw",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Chandra, Flameshaper",
+     "counters": {
+      "loyalty": 2
+     }
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "one-loyalty-ability-per-turn",
+   "cr": [
+    "606.3"
+   ],
+   "why": "After one loyalty ability has been activated no other can be that turn; next turn they are available again.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Chandra, Flameshaper",
+      "Craw Wurm"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Forest",
+      "Grizzly Bears",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Chandra, Flameshaper",
+     "ability": "Add RRR"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Chandra, Flameshaper",
+        "label": "Create a token"
+       },
+       "want": false
+      },
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Chandra, Flameshaper",
+        "label": "deals 8 damage"
+       },
+       "want": false
+      },
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Chandra, Flameshaper",
+        "label": "Add RRR"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Chandra, Flameshaper",
+      "label": "Create a token"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "loyalty-abilities-are-sorcery-speed",
+   "cr": [
+    "606.3"
+   ],
+   "why": "Not on the opponent's turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Chandra, Flameshaper",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Chandra, Flameshaper",
+      "label": "Add RRR"
+     },
+     "want": false
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Chandra, Flameshaper",
+      "label": "Create a token"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "minus-four-with-no-targets-deals-no-damage",
+   "cr": [
+    "115.1",
+    "601.2c"
+   ],
+   "why": "'Any number of target creatures and/or planeswalkers' includes zero and never a player: with no creature on the battlefield it can be activated with no targets, costs four loyalty and deals no damage.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Chandra, Flameshaper"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Chandra, Flameshaper",
+     "ability": "deals 8 damage"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Chandra, Flameshaper",
+     "counters": {
+      "loyalty": 2
+     }
+    }
+   ]
+  }
+ ]
+}

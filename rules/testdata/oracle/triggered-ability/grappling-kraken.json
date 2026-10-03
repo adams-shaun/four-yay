@@ -1,0 +1,440 @@
+{
+ "card": "Grappling Kraken",
+ "family": "triggered-ability",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "b28e48bc8129",
+ "scenarios": [
+  {
+   "name": "landfall-taps-and-stuns-an-opposing-creature",
+   "cr": [
+    "603.2",
+    "207.2c",
+    "122.1d"
+   ],
+   "why": "A land entering under its controller's control taps target creature an opponent controls and puts a stun counter on it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Forest"
+     ],
+     "battlefield": [
+      "Grappling Kraken"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "tapped": true,
+     "counters": {
+      "stun": 1
+     }
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "tapped": false,
+     "counters": {
+      "stun": 0
+     }
+    },
+    {
+     "card": "p0:Grappling Kraken",
+     "pt": "5/6"
+    }
+   ]
+  },
+  {
+   "name": "stun-counter-replaces-the-next-untap",
+   "cr": [
+    "122.1d",
+    "502.3"
+   ],
+   "why": "During its controller's untap step the stunned creature stays tapped and the counter is removed; it untaps on the following untap step.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Forest"
+     ],
+     "battlefield": [
+      "Grappling Kraken"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1",
+     "expect": [
+      {
+       "card": "p1:Grizzly Bears",
+       "tapped": true,
+       "counters": {
+        "stun": 0
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "tapped": false,
+     "counters": {
+      "stun": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "already-tapped-creature-still-gets-the-counter",
+   "cr": [
+    "608.2c",
+    "122.1d"
+   ],
+   "why": "A creature that is already tapped (it attacked last turn) still gets the stun counter and so does not untap on its next untap step.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Forest"
+     ],
+     "battlefield": [
+      "Grappling Kraken"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Grizzly Bears"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0",
+     "expect": [
+      {
+       "card": "p1:Grizzly Bears",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p1:Grizzly Bears",
+       "tapped": true,
+       "counters": {
+        "stun": 1
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "tapped": true,
+     "counters": {
+      "stun": 0
+     }
+    },
+    {
+     "life": {
+      "p0": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-land-does-not-trigger",
+   "cr": [
+    "603.2",
+    "109.5"
+   ],
+   "why": "Only a land entering under its controller's control triggers it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grappling Kraken"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Forest"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "play",
+     "seat": 1,
+     "card": "p1:Forest",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Grappling Kraken",
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "tapped": false,
+     "counters": {
+      "stun": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-opposing-creature-no-trigger",
+   "cr": [
+    "603.3d"
+   ],
+   "why": "With no creature an opponent controls there is no legal target and the ability is removed from the stack; its controller's own creatures are untouched.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Forest"
+     ],
+     "battlefield": [
+      "Grappling Kraken",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest",
+     "expect": [
+      {
+       "stack_size": 0
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "tapped": false,
+     "counters": {
+      "stun": 0
+     }
+    },
+    {
+     "card": "p0:Grappling Kraken",
+     "tapped": false,
+     "counters": {
+      "stun": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "nonland-permanent-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A creature entering is not a land entering.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Memnite"
+     ],
+     "battlefield": [
+      "Grappling Kraken"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Memnite",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Grappling Kraken",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "tapped": false,
+     "counters": {
+      "stun": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "target-gone-in-response-does-nothing",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "The targeted creature is returned to hand in response: the ability does nothing and does not move to another creature.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Forest"
+     ],
+     "battlefield": [
+      "Grappling Kraken"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Unsummon"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Unsummon",
+     "mana": "U",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "tapped": false,
+     "counters": {
+      "stun": 0
+     }
+    }
+   ]
+  }
+ ]
+}

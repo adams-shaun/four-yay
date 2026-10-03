@@ -1,0 +1,250 @@
+{
+ "card": "Dismal Backwater",
+ "family": "etb-ltb",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "dc2988e5a462",
+ "scenarios": [
+  {
+   "name": "enters-tapped-and-life-gain-is-a-trigger",
+   "cr": [
+    "614.1c",
+    "603.6a",
+    "305.1"
+   ],
+   "why": "It enters tapped, and its life gain is a triggered ability that uses the stack: life is still 20 with the trigger on the stack, 21 once it resolves. Tapped, it offers no mana.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dismal Backwater"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Dismal Backwater",
+     "expect": [
+      {
+       "card": "p0:Dismal Backwater",
+       "zone": "battlefield",
+       "tapped": true
+      },
+      {
+       "trigger_on_stack": "p0:Dismal Backwater",
+       "want": true
+      },
+      {
+       "life": {
+        "p0": 20
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Dismal Backwater",
+     "tapped": true
+    },
+    {
+     "life": {
+      "p0": 21,
+      "p1": 20
+     }
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Dismal Backwater",
+      "label": "Add"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "next-turn-taps-for-first-colour",
+   "cr": [
+    "605.1a",
+    "106.1"
+   ],
+   "why": "Untapped on its controller's next turn it taps for {U}; the three colours it does not name are not offered.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dismal Backwater"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Dismal Backwater"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Dismal Backwater",
+     "observe": {
+      "kind": "choose",
+      "source": "p0:Dismal Backwater",
+      "has": [
+       "Add U",
+       "Add B"
+      ],
+      "not": [
+       "Add W",
+       "Add R",
+       "Add G"
+      ]
+     },
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Add U"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "U"
+     }
+    },
+    {
+     "card": "p0:Dismal Backwater",
+     "tapped": true
+    },
+    {
+     "life": {
+      "p0": 21
+     }
+    }
+   ]
+  },
+  {
+   "name": "next-turn-taps-for-second-colour",
+   "cr": [
+    "605.1a",
+    "106.1"
+   ],
+   "why": "It may instead tap for {B}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dismal Backwater"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Dismal Backwater"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Dismal Backwater",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Add B"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "B"
+     }
+    },
+    {
+     "card": "p0:Dismal Backwater",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "opponents-land-gains-the-opponent-life",
+   "cr": [
+    "603.6a",
+    "109.5"
+   ],
+   "why": "'You' is the land's controller: the opponent playing it gains the opponent 1 life.",
+   "setup": {
+    "p1": {
+     "hand": [
+      "Dismal Backwater"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "play",
+     "seat": 1,
+     "card": "p1:Dismal Backwater"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 21
+     }
+    },
+    {
+     "card": "p1:Dismal Backwater",
+     "zone": "battlefield",
+     "tapped": true
+    }
+   ]
+  }
+ ]
+}

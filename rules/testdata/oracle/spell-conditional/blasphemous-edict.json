@@ -1,0 +1,493 @@
+{
+ "card": "Blasphemous Edict",
+ "family": "spell-conditional",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "f060b0b8e8b8",
+ "scenarios": [
+  {
+   "name": "each-player-sacrifices-all-when-fewer-than-thirteen",
+   "cr": [
+    "701.21a",
+    "608.2d"
+   ],
+   "why": "Cast for {3}{B}{B}: each player sacrifices thirteen creatures; a player with fewer sacrifices all of theirs. Noncreature permanents stay.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Blasphemous Edict"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Centaur Courser",
+      "Mind Stone"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm",
+      "Hill Giant",
+      "Savannah Lions",
+      "Glorious Anthem"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Blasphemous Edict",
+     "mana": "CCCBB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Hill Giant",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Mind Stone",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Glorious Anthem",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Blasphemous Edict",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "not-castable-for-one-black-with-few-creatures",
+   "cr": [
+    "118.9",
+    "601.2b"
+   ],
+   "why": "The {B} alternative cost needs thirteen or more creatures on the battlefield; with five, a single black mana cannot cast it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Blasphemous Edict"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm",
+      "Hill Giant",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "B"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Blasphemous Edict"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "twelve-creatures-is-not-enough",
+   "cr": [
+    "118.9"
+   ],
+   "why": "Twelve creatures across both battlefields is one short of the condition.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Blasphemous Edict"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "B"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Blasphemous Edict"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "thirteen-creatures-across-both-players-castable-for-one-black",
+   "cr": [
+    "118.9",
+    "601.2b"
+   ],
+   "why": "The condition counts every creature on the battlefield, whoever controls it: six plus seven is thirteen, and the spell is castable for {B}. Everything is sacrificed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Blasphemous Edict"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "B",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Blasphemous Edict"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Blasphemous Edict"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 0
+    },
+    {
+     "graveyard_size": {
+      "p0": 7,
+      "p1": 7
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "all-thirteen-on-the-opponents-side-counts",
+   "cr": [
+    "118.9"
+   ],
+   "why": "Thirteen creatures all controlled by the opponent satisfy the condition.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Blasphemous Edict"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "B",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Blasphemous Edict"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Blasphemous Edict"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 0
+    },
+    {
+     "graveyard_size": {
+      "p0": 1,
+      "p1": 13
+     }
+    }
+   ]
+  },
+  {
+   "name": "player-with-fourteen-keeps-one-of-their-choice",
+   "cr": [
+    "701.21a",
+    "608.2d"
+   ],
+   "why": "A player with fourteen creatures sacrifices thirteen of their choice and keeps the fourteenth.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Blasphemous Edict"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Blasphemous Edict",
+     "mana": "B"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p1:Grizzly Bears",
+        "p1:Grizzly Bears#2",
+        "p1:Grizzly Bears#3",
+        "p1:Grizzly Bears#4",
+        "p1:Grizzly Bears#5",
+        "p1:Grizzly Bears#6",
+        "p1:Grizzly Bears#7",
+        "p1:Grizzly Bears#8",
+        "p1:Grizzly Bears#9",
+        "p1:Grizzly Bears#10",
+        "p1:Grizzly Bears#11",
+        "p1:Grizzly Bears#12",
+        "p1:Grizzly Bears#13"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "battlefield"
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 0
+    },
+    {
+     "graveyard_size": {
+      "p1": 13
+     }
+    }
+   ]
+  },
+  {
+   "name": "indestructible-creature-is-sacrificed",
+   "cr": [
+    "701.21a",
+    "702.12b"
+   ],
+   "why": "Sacrifice is not destruction: an indestructible creature is sacrificed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Blasphemous Edict"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Darksteel Myr"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Blasphemous Edict",
+     "mana": "CCCBB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Darksteel Myr",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "needs-black-mana-for-the-normal-cost",
+   "cr": [
+    "601.2f",
+    "107.4"
+   ],
+   "why": "Five colourless mana cannot pay {3}{B}{B}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Blasphemous Edict"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Blasphemous Edict"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

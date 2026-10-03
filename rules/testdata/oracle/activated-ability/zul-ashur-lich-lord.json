@@ -1,0 +1,700 @@
+{
+ "card": "Zul Ashur, Lich Lord",
+ "family": "activated-ability",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "7d5eab8a5b24",
+ "scenarios": [
+  {
+   "name": "ward-paid-with-two-life",
+   "cr": [
+    "702.21a",
+    "119.4"
+   ],
+   "why": "An opponent's spell targeting it is countered unless they pay 2 life: paying lets Shock resolve and kill the 2/2.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Zul Ashur, Lich Lord"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Zul Ashur, Lich Lord"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Zul Ashur, Lich Lord",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "card": "p0:Zul Ashur, Lich Lord",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "ward-declined-counters-the-spell",
+   "cr": [
+    "702.21a"
+   ],
+   "why": "Declining to pay counters the spell.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Zul Ashur, Lich Lord"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Zul Ashur, Lich Lord"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Zul Ashur, Lich Lord",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "damage": 0
+    },
+    {
+     "card": "p1:Shock",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "ward-cannot-be-paid-at-one-life",
+   "cr": [
+    "119.4",
+    "702.21a"
+   ],
+   "why": "A player at 1 life cannot pay 2 life: the spell is countered.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Zul Ashur, Lich Lord"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ],
+     "life": 1
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Zul Ashur, Lich Lord"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 1
+     }
+    },
+    {
+     "card": "p0:Zul Ashur, Lich Lord",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "own-spell-does-not-trigger-ward",
+   "cr": [
+    "702.21a"
+   ],
+   "why": "Its controller's own spell does not trigger ward.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Zul Ashur, Lich Lord"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Zul Ashur, Lich Lord"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Zul Ashur, Lich Lord",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Zul Ashur, Lich Lord",
+     "pt": "5/5"
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "tap-to-cast-a-zombie-from-the-graveyard",
+   "cr": [
+    "602.2",
+    "601.3"
+   ],
+   "why": "It taps to let its controller cast the target Zombie creature card from their graveyard this turn, paying its cost.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Zul Ashur, Lich Lord"
+     ],
+     "graveyard": [
+      "Walking Corpse"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CB",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Walking Corpse"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Zul Ashur, Lich Lord",
+     "targets": [
+      "p0:Walking Corpse"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Walking Corpse"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Walking Corpse",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Zul Ashur, Lich Lord",
+     "tapped": true
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "the-cost-must-still-be-paid",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "The permission does not waive the cost: with no mana the Zombie is not castable.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Zul Ashur, Lich Lord"
+     ],
+     "graveyard": [
+      "Walking Corpse"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Zul Ashur, Lich Lord",
+     "targets": [
+      "p0:Walking Corpse"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Walking Corpse"
+     },
+     "want": false
+    },
+    {
+     "card": "p0:Walking Corpse",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "non-zombie-card-is-not-a-legal-target",
+   "cr": [
+    "115.1",
+    "602.2b"
+   ],
+   "why": "With only a non-Zombie creature card and a noncreature card in the graveyard the ability cannot be activated.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Zul Ashur, Lich Lord"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "B"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Zul Ashur, Lich Lord"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "opponents-graveyard-is-not-a-legal-target",
+   "cr": [
+    "115.1"
+   ],
+   "why": "'From your graveyard': a Zombie card in the opponent's graveyard is not a legal target.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Zul Ashur, Lich Lord"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Walking Corpse"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "B"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Zul Ashur, Lich Lord"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "only-the-targeted-card",
+   "cr": [
+    "115.1"
+   ],
+   "why": "The permission covers the targeted card only: another Zombie card in the graveyard is not castable.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Zul Ashur, Lich Lord"
+     ],
+     "graveyard": [
+      "Walking Corpse",
+      "Diregraf Ghoul"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Zul Ashur, Lich Lord",
+     "targets": [
+      "p0:Walking Corpse"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CB"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Walking Corpse"
+     },
+     "want": true
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Diregraf Ghoul"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "permission-ends-at-end-of-turn",
+   "cr": [
+    "514.2",
+    "611.2a"
+   ],
+   "why": "'This turn': on its controller's next turn the card is no longer castable from the graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Zul Ashur, Lich Lord"
+     ],
+     "graveyard": [
+      "Walking Corpse"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Zul Ashur, Lich Lord",
+     "targets": [
+      "p0:Walking Corpse"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CB"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Walking Corpse"
+     },
+     "want": false
+    },
+    {
+     "card": "p0:Walking Corpse",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "creature-timing-still-applies",
+   "cr": [
+    "302.1",
+    "601.3"
+   ],
+   "why": "The ability can be activated at instant speed, but the permission does not give the creature spell flash: in the opponent's upkeep it is not castable.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Zul Ashur, Lich Lord"
+     ],
+     "graveyard": [
+      "Walking Corpse"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Zul Ashur, Lich Lord",
+     "targets": [
+      "p0:Walking Corpse"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CB"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Walking Corpse"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "summoning-sick-cannot-activate",
+   "cr": [
+    "302.6"
+   ],
+   "why": "The cost is {T}: cast this turn it cannot be activated.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Zul Ashur, Lich Lord"
+     ],
+     "graveyard": [
+      "Walking Corpse"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Zul Ashur, Lich Lord",
+     "mana": "CB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Zul Ashur, Lich Lord"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "recast-zombie-that-dies-again-is-a-new-card",
+   "cr": [
+    "400.7"
+   ],
+   "why": "The permission applied to the card as it was in the graveyard: after being cast and dying again it is a new object and cannot be cast again.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Zul Ashur, Lich Lord"
+     ],
+     "graveyard": [
+      "Walking Corpse"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Zul Ashur, Lich Lord",
+     "targets": [
+      "p0:Walking Corpse"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Walking Corpse",
+     "mana": "CB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Walking Corpse"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CB"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Walking Corpse",
+     "zone": "graveyard"
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Walking Corpse"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}
