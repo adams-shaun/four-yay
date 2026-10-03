@@ -94,6 +94,19 @@ var AttachFiles = []string{"effects/attach.go"}
 // Reconfigure offer gate reads Unattach$ through it too).
 var AttachOnlyKeys = []string{"Object", "RememberAttached", "Unattach"}
 
+// DealDamageCompilerFile is api:DealDamage's parameter compiler (W4 step 3):
+// the one file allowed to read a DealDamage ability's parameters.
+const DealDamageCompilerFile = "effects/dealdamage_params.go"
+
+// DealDamageFiles are DealDamage's own resolution files: they carry no
+// parameter read of any key.
+var DealDamageFiles = []string{"effects/damage_deal.go"}
+
+// DealDamageOnlyKeys are the parameter keys only DealDamage's compiler reads
+// (Fight's unread-parameter Note names ExcessSVar$ through a variable key,
+// not a read).
+var DealDamageOnlyKeys = []string{"ExcessSVar", "ExcessSVarCondition", "RelativeTarget"}
+
 // TypedParamCompiler names one API's parameter compiler for the leak census
 // (Metrics.ChangeZoneParamLeaks and its siblings): the compiler file, the
 // API's own resolution files (no parameter read of any key there) and the
@@ -191,6 +204,10 @@ type Metrics struct {
 	// AttachFiles, AttachOnlyKeys).
 	AttachParamLeaks int      `json:"attach_param_leaks"`
 	AttachLeaks      []string `json:"attach_leaks"`
+	// DealDamageParamLeaks is the same census for api:DealDamage
+	// (DealDamageCompilerFile, DealDamageFiles, DealDamageOnlyKeys).
+	DealDamageParamLeaks int      `json:"deal_damage_param_leaks"`
+	DealDamageLeaks      []string `json:"deal_damage_leaks"`
 	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
@@ -297,6 +314,8 @@ func Measure(root string) (Metrics, error) {
 				TypedParamCompiler{ChangeZoneAllCompilerFile, ChangeZoneAllFiles, ChangeZoneAllOnlyKeys})...)
 			m.AttachLeaks = append(m.AttachLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{AttachCompilerFile, AttachFiles, AttachOnlyKeys})...)
+			m.DealDamageLeaks = append(m.DealDamageLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{DealDamageCompilerFile, DealDamageFiles, DealDamageOnlyKeys})...)
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.TypeAssertExpr:
@@ -352,6 +371,7 @@ func Measure(root string) (Metrics, error) {
 	m.ChangeZoneParamLeaks, m.ChangeZoneLeaks = finishLeaks(m.ChangeZoneLeaks)
 	m.ChangeZoneAllParamLeaks, m.ChangeZoneAllLeaks = finishLeaks(m.ChangeZoneAllLeaks)
 	m.AttachParamLeaks, m.AttachLeaks = finishLeaks(m.AttachLeaks)
+	m.DealDamageParamLeaks, m.DealDamageLeaks = finishLeaks(m.DealDamageLeaks)
 	m.FuncsOver300 = len(m.LongFuncs)
 	sort.Slice(m.LongFuncs, func(i, j int) bool {
 		a, b := m.LongFuncs[i], m.LongFuncs[j]

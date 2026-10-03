@@ -685,11 +685,11 @@ func (e *Engine) targetDamageAmount(p state.PlayerID, source state.ObjID, sa *ca
 		}
 	}
 	ctx.X = x
-	raw, present := sa.Param(cards.PKNumDmg)
-	if !present {
+	amt := effects.DamageAmount(sa)
+	if !amt.Present {
 		return 0, false
 	}
-	raw = strings.TrimSpace(raw)
+	raw := strings.TrimSpace(amt.Text)
 	if n, err := strconv.ParseInt(raw, 10, 32); err == nil {
 		return int32(n), true
 	}

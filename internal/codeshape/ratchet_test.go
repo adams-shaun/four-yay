@@ -58,8 +58,9 @@ const (
 	// 798 -> 630. W4 step 3's ChangeZone compiler (one read per key,
 	// effects/changezone_params.go): 630 -> 628. loop-bugs: effReveal reads
 	// RevealDefined$ once: 628 -> 627. W4 step 3's Attach compiler
-	// (RememberAttached$ read once): 627 -> 626.
-	stringParamReads = 626
+	// (RememberAttached$ read once): 627 -> 626. W4 step 3's DealDamage
+	// compiler (DamageSource$ read once): 626 -> 625.
+	stringParamReads = 625
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.
@@ -97,6 +98,10 @@ const (
 	// effects/attach_params.go (codeshape.AttachFiles, codeshape.AttachOnlyKeys).
 	// It landed at zero.
 	attachParamLeaks = 0
+	// dealDamageParamLeaks is the same census for api:DealDamage's compiler,
+	// effects/dealdamage_params.go (codeshape.DealDamageFiles,
+	// codeshape.DealDamageOnlyKeys). It landed at zero.
+	dealDamageParamLeaks = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -215,6 +220,11 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"field to compileAttach in effects/attach_params.go) instead of reading the " +
 				"ability's Params in effects/attach.go or an Attach-only key elsewhere. " +
 				"Leaks: " + strings.Join(m.AttachLeaks, ", ")},
+		{"dealDamageParamLeaks", m.DealDamageParamLeaks, dealDamageParamLeaks,
+			"Read the parameter through effects.DealDamageOf's compiled DealDamageParams (add " +
+				"a field to compileDealDamage in effects/dealdamage_params.go) instead of reading " +
+				"the ability's Params in effects/damage_deal.go or a DealDamage-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.DealDamageLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +
