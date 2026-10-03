@@ -35,6 +35,22 @@ func attachedToBoard(t *testing.T) (*fakeHost, *Ctx, map[string]state.ObjID) {
 	}
 }
 
+// attachedToLanded puts the fixture card id onto seat 0's battlefield: the
+// post-move AttachedTo$ rider (changeZoneAttachedTo) reads a card whose
+// battlefield entry has landed, and leaves alone one that never entered.
+func attachedToLanded(h *fakeHost, id state.ObjID) {
+	gy := h.g.Zone(state.ZGraveyard, 0)
+	keep := make([]state.ObjID, 0, len(gy))
+	for _, x := range gy {
+		if x != id {
+			keep = append(keep, x)
+		}
+	}
+	h.g.SetZone(state.ZGraveyard, 0, keep)
+	h.g.SetZone(state.ZBattlefield, 0, append(append([]state.ObjID(nil), h.g.Zone(state.ZBattlefield, 0)...), id))
+	h.g.Obj(id).Zone = state.ZBattlefield
+}
+
 // TestAttachedToValidGraveyardDefinedResolvesTheNamedZone pins the
 // zone-suffixed Valid filter family in Defined$ (definedSpec's
 // ValidGraveyard/ValidHand/... branch, the twin of count.go's countZone):
@@ -70,6 +86,7 @@ func TestAttachedToValidGraveyardDefinedResolvesTheNamedZone(t *testing.T) {
 // first creature the walk admits.
 func TestAttachedToBareCardFilterAttachesTheFirstCreature(t *testing.T) {
 	h, c, ids := attachedToBoard(t)
+	attachedToLanded(h, ids["favor"])
 	attachCreature := &cards.SA{Params: map[string]string{"AttachedTo": "Creature"}}
 	changeZoneAttachedTo(h, c, attachCreature, ChangeZoneOf(attachCreature), ids["favor"])
 	var attachs []events.Event
@@ -92,6 +109,7 @@ func TestAttachedToBareCardFilterAttachesTheFirstCreature(t *testing.T) {
 // attach to the resolving source.
 func TestAttachedToUnresolvableFilterEmitsOneNoteLeavesUnattached(t *testing.T) {
 	h, c, ids := attachedToBoard(t)
+	attachedToLanded(h, ids["favor"])
 	attachLand := &cards.SA{Params: map[string]string{"AttachedTo": "Land"}}
 	changeZoneAttachedTo(h, c, attachLand, ChangeZoneOf(attachLand), ids["favor"])
 	var attachs, notes []events.Event

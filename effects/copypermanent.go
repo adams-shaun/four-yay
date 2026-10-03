@@ -597,7 +597,9 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	// fasten the copy to a non-battlefield object the attachment SBAs cannot
 	// reason about. The check is the same battlefield gate effAttach applies.
 	var attachTo state.ObjID
-	if raw := strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo)); raw != "" {
+	attachedToRaw := strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo))
+	attachedToNamed := attachedToRaw != ""
+	if raw := attachedToRaw; raw != "" {
 		sub := *sa
 		sub.Params = map[string]string{"Defined": raw}
 		for _, t := range Defined(h, c, &sub) {
@@ -740,6 +742,12 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			// when the copy was already attached to a different bearer,
 			// so a re-attach cannot drop the Mode$ Unattached family.
 			target := g.Obj(attachTo)
+			if o := g.Obj(want); o == nil || o.Zone != state.ZBattlefield || o.AttachedTo == attachTo {
+				// Already attached as it entered, or withheld from the
+				// battlefield (an Aura copy the engine settled,
+				// rules/aura_entry.go).
+				target = nil
+			}
 			if target != nil && target.Zone == state.ZBattlefield && Attachable(g, want, attachTo) {
 				emitAttach(h, want, attachTo)
 			}
@@ -931,8 +939,23 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			// battlefield (rules' publishTokenEntry), and reports a park when
 			// the entry staged behind an entry-counter order ask.
 			wasSuspended := h.Suspended()
-			entered := h.EmitTokenCreate(events.Event{Kind: events.MoveZone, Obj: want,
-				From: state.ZLibrary, To: state.ZBattlefield})
+			entry := events.Event{Kind: events.MoveZone, Obj: want,
+				From: state.ZLibrary, To: state.ZBattlefield}
+			if attachedToNamed {
+				// AttachedTo$ names the copy's bearer: a copied Aura is
+				// settled by the engine as it enters (CR 303.4f/g) --
+				// attached to it, or not created when it is no longer
+				// something the Aura can enchant -- and postEntry then
+				// finds it already attached.
+				if o := g.Obj(want); o != nil && hasType(o, "Aura") {
+					var named []state.ObjID
+					if attachTo != 0 {
+						named = []state.ObjID{attachTo}
+					}
+					events.MarkNamedAttachEntry(&entry, named)
+				}
+			}
+			entered := h.EmitTokenCreate(entry)
 			if !wasSuspended && h.Suspended() && len(entered) == 0 {
 				if suspendMint(h, c, TokenRest{SA: sa, Next: unit, Minted: minted,
 					Players: owners, Objs: targetObjs, Amount: n, Counts: counts}) {

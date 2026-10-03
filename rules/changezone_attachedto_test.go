@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -135,13 +134,12 @@ func attachDrain(t *testing.T, e *Engine, limit int) *decision.Decision {
 // CR 704.5m SBA (rules/attach.go attachmentSBAs) does not sweep a legally
 // attached Aura.
 //
-// Known residual divergence, characterised here and recorded in the report:
-// the oracle's parenthetical "Aura cards that can't enchant a creature on
-// the battlefield remain in your graveyard" is not read -- the Utopia Sprawl
-// (K:Enchant:Forest) is attached to the Bear like every other returned Aura,
-// fails auraStillMatchesEnchant, and is swept to the graveyard by the 704.5m
-// SBA. Net zone outcome matches the oracle (graveyard); the event path
-// differs (attach + sweep instead of remain), which is observable in the log.
+// The oracle's parenthetical "Aura cards that can't enchant a creature on
+// the battlefield remain in your graveyard" is read (CR 303.4g through the
+// effect's own restriction, rules/aura_entry.go): the Utopia Sprawl
+// (K:Enchant:Forest) can enchant no creature, so it never leaves the
+// graveyard -- no move, no attach, no 704.5m sweep. (Before the CR 303.4f/g
+// entry fix it was attached to the Bear and swept back by the SBA.)
 func TestRetetherReturnsAurasAttached(t *testing.T) {
 	t.Parallel()
 	reg := searchTestRegistry(t)
@@ -185,23 +183,15 @@ func TestRetetherReturnsAurasAttached(t *testing.T) {
 		t.Fatalf("a legally attached Aura was swept (zones %s/%s)",
 			e.G.Obj(favors[0]).Zone, e.G.Obj(favors[1]).Zone)
 	}
-	// The divergence carrier: the Sprawl is attached, found illegal, and
-	// swept back to the graveyard -- the net zone the oracle's parenthetical
-	// promises, reached by the SBA rather than by remaining.
+	// The Sprawl remains in the graveyard: it never moved at all.
 	sprawl := e.G.Obj(ids["Utopia Sprawl"])
 	if sprawl == nil || sprawl.Zone != state.ZGraveyard {
-		t.Fatalf("the illegally enchantable Aura is %+v, want it back in the graveyard", sprawl)
+		t.Fatalf("the illegally enchantable Aura is %+v, want it to remain in the graveyard", sprawl)
 	}
-	swept := false
 	for _, ev := range e.L.Events {
-		if ev.Kind == events.MoveZone && ev.Obj == ids["Utopia Sprawl"] &&
-			ev.From == state.ZBattlefield && ev.To == state.ZGraveyard &&
-			strings.Contains(ev.Text, "can no longer legally enchant") {
-			swept = true
+		if ev.Kind == events.MoveZone && ev.Obj == ids["Utopia Sprawl"] && ev.To == state.ZBattlefield {
+			t.Fatalf("the Sprawl entered the battlefield (%+v); CR 303.4g says it remains in the graveyard", ev)
 		}
-	}
-	if !swept {
-		t.Fatalf("no 704.5m sweep event for the Sprawl (tail %+v)", tailEmit(e, 12))
 	}
 }
 

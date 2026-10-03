@@ -158,7 +158,9 @@ func TestGiftOfDoomFaceUpUnattachedAuraStillDies(t *testing.T) {
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Gift of Doom")
 	id := searchMoveByName(t, e, "Gift of Doom", state.ZHand)
-	e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZHand, To: state.ZBattlefield})
+	// A hand-built unattached face-up Aura (CR 303.4g keeps a real entry
+	// with nothing to enchant out of play altogether).
+	stageRawEntry(t, e, id)
 	if o := e.G.Obj(id); o == nil || o.Zone != state.ZBattlefield || o.FaceDown {
 		t.Fatalf("precondition: face-up battlefield entry missing: %+v", o)
 	}

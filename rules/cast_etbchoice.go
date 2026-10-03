@@ -100,6 +100,16 @@ func (e *Engine) entryETBChoice(ev events.Event, ordinal int) (etbChoice, bool) 
 	}
 	you := o.Controller
 	seen := 0
+	// CR 303.4f: a non-cast Aura's controller chooses what it enchants as it
+	// enters -- the first as-enters election, so every later one (and the
+	// entry's replacements) sees the Aura's bearer settled
+	// (rules/aura_entry.go).
+	if choice, ok := auraEntryChoice(e, &ev); ok {
+		if seen == ordinal {
+			return choice, true
+		}
+		seen++
+	}
 	if o.Face().HasKeyword("Riot") {
 		if seen == ordinal {
 			return etbChoice{kind: "riot", options: []decision.Option{
