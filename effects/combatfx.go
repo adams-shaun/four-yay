@@ -582,6 +582,23 @@ func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, doubleP
 			h.Emit(events.Event{Kind: events.AlterAttribute, Obj: id, Text: "Suspend", Amount: 1})
 		}
 	}
+	// CR 611.2b's next-untap-step restriction travels as runtime keyword TEXT
+	// (Frost Lynx: `KW$ HIDDEN This card doesn't untap during your next untap
+	// step.`), so the layer-6 AddKeywords grant below records it in the
+	// derived keyword list but nothing would consume it. Stamp the one-shot
+	// state flag here, at grant time, using the ONE shared reader
+	// (cards.IsHiddenUntapNextStepKeyword) so the grant site and the untap
+	// step cannot drift. The flag is consumed at the untap step, not reset at
+	// TurnChange -- the window spans the turn boundary, the ExertSkipUntap
+	// lifetime exactly.
+	for _, kw := range kws {
+		if cards.IsHiddenUntapNextStepKeyword(kw) {
+			if o := h.Game().Obj(id); o != nil && o.Zone == state.ZBattlefield && !o.CantUntapNextStep {
+				h.Emit(events.Event{Kind: events.AlterAttribute, Obj: id, Text: "CantUntapNextStep", Amount: 1})
+			}
+			break
+		}
+	}
 	permanent, untilEOT := durationTiming(sa.Params["Duration"])
 	// The move-driven lifetime of a Duration$ Permanent pump: when the pumped
 	// object leaves the zone it was pumped in, the grant ends (CR 400.7 -- it

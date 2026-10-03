@@ -96,6 +96,11 @@
     },
     {
      "op": "pass_to",
+     "step": "draw",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
      "step": "upkeep",
      "active": "p1"
     }

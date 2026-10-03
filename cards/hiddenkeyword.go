@@ -38,6 +38,28 @@ var canonicalKeywordHeads = map[string]string{
 	"cardname can't attack or block.":   "CantAttackOrBlock",
 }
 
+// HiddenUntapNextStepKeyword is the EXACT Forge sentence a Pump/PumpAll `KW$
+// HIDDEN ...` grant uses for CR 611.2b's "doesn't untap during its
+// controller's next untap step" one-shot (Frost Lynx, Kashi-Tribe Elite et
+// al.). The phrase never appears as a printed `K:` line, so it is not in the
+// canonicalKeywordHeads table: it exists only as runtime keyword TEXT, which
+// is exactly why it must be read from the derived keyword list rather than by
+// HasKeyword. The sentence is matched WHOLE -- Undiscovered Paradise's
+// "During your next untap step, ..." rider shares a prefix and must not
+// borrow this meaning.
+const HiddenUntapNextStepKeyword = "This card doesn't untap during your next untap step."
+
+// IsHiddenUntapNextStepKeyword reports whether one derived keyword line is
+// Forge's next-untap-step restriction sentence, with or without the leading
+// "HIDDEN " marker the corpus spells it both ways with. This is the ONE
+// reader both the grant site (effects, which stamps the one-shot flag) and
+// the untap step (rules, which consumes it) call, so a future equivalent
+// spelling is one arm here rather than two that can drift apart.
+func IsHiddenUntapNextStepKeyword(k string) bool {
+	head := strings.TrimSpace(strings.TrimPrefix(KeywordHead(k), "HIDDEN "))
+	return strings.EqualFold(head, HiddenUntapNextStepKeyword)
+}
+
 // CanonicalKeywordLine rewrites a keyword line whose head is a known Forge
 // sentence spelling to its canonical head, preserving any parameter the line
 // carries after its first colon. A line whose head is not in the table -- and
