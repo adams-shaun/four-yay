@@ -174,7 +174,8 @@ func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target
 		// Nothing eligible (or an explicitly zero bound): no ask, no move.
 		return noSubTargets(c, sa)
 	}
-	return poseTargetsAsk(h, c, sa, chooser, candidates, min, max, "tgts")
+	ts, ok, _ := poseTargetsAsk(h, c, sa, chooser, candidates, min, max, "tgts")
+	return ts, ok
 }
 
 // definedIsTargetReuse reports whether a Defined$ value names one of the
@@ -221,7 +222,10 @@ func definedIsTargetReuse(defined string) bool {
 // the shared Ask boundary under the "choice"-shaped resume transport the
 // caller names, with the R-9 no-host stand-in (the first max candidates in
 // offered order) when the host cannot ask. ok=true with a nil set is the
-// SUSPENDED outcome; ok=true with a non-nil set is the stand-in.
+// SUSPENDED outcome; ok=true with a non-nil set is the stand-in -- or, with
+// served set, the resolution kernel's answer, already consumed exactly as
+// both callers' answered re-entries consume theirs (the TargetUnique$
+// accumulator), so the caller continues with it.
 // targetOwnerOf is the controlling player of one target candidate: the
 // player itself, else the object's controller. A vanished object fails to
 // seat 0 -- it only merges a dead candidate's group with seat 0's, the
@@ -238,7 +242,7 @@ func targetOwnerOf(h Host, t state.Target) state.PlayerID {
 
 func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 	candidates []state.Target, min, max int32, resumeKind string,
-) ([]state.Target, bool) {
+) (ts []state.Target, ok bool, served bool) {
 	prompt := strings.TrimSpace(sa.ParamStr(cards.PKTgtPrompt))
 	if prompt == "" {
 		prompt = "Choose target"
@@ -260,7 +264,7 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 	if TargetUniqueRequested(sa) {
 		filtered := TargetUniqueFilter(sa, candidates, TargetsAlreadyChosen(c))
 		if len(filtered) == 0 {
-			return []state.Target{}, true
+			return []state.Target{}, true, false
 		}
 		candidates = filtered
 	}
@@ -271,7 +275,7 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 		min = max
 	}
 	if max <= 0 {
-		return nil, false
+		return nil, false, false
 	}
 	resumeSA := sa
 	if c.TargetAskResume != nil {
@@ -324,8 +328,19 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 		o.Label = label
 		d.Options = append(d.Options, o)
 	}
-	if Ask(h, d) == AskAsked {
-		return nil, true
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: the target set the
+		// "tgts"/"choice" arm binds, consumed as the answered re-entry
+		// consumes it (chosenTargetsFor's TargetsPickDone branch,
+		// changeZoneChosenTargetsFor's ChoiceDone branch).
+		ts := tapeAnswerTargets(ans)
+		if TargetUniqueRequested(sa) {
+			c.TargetsUnique = append(c.TargetsUnique, ts...)
+		}
+		return ts, true, true
 	}
-	return candidates[:max], true
+	if Ask(h, d) == AskAsked {
+		return nil, true, false
+	}
+	return candidates[:max], true, false
 }
