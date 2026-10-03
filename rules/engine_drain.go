@@ -9,7 +9,7 @@ package rules
 type engineDrain struct {
 	// pendingTriggers holds matched triggers not yet placed on the stack.
 	// checkTriggers appends; putTriggersOnStack drains. Task 20 (trigger.go).
-	pendingTriggers []pendingTrigger `clone:"deep"`
+	pendingTriggers []pendingTrigger `clone:"deep,pool=pending,release=clear"`
 	// trigQueueStale bounds the prefix of pendingTriggers' backing array that
 	// may hold entries a shrink left behind len (noteTrigShrink records each
 	// shrink's pre-shrink length): what the drained queue must zero so

@@ -33,13 +33,13 @@ type engineLayerCaches struct {
 	// clearing obsolete slots when it shrinks, but never reuse the nested
 	// keyword/type slices. activeBuf copies the effect values into distinct
 	// storage before sorting; neither buffer may alias a clone's scratch.
-	staticContinuous []ContinuousEffect `clone:"deep"`
-	staticEpoch      int                `clone:"deep"`
+	staticContinuous []ContinuousEffect `clone:"deep,if=cloneCarriesStaticMemo,pool=static,release=clear"`
+	staticEpoch      int                `clone:"deep,if=cloneCarriesStaticMemo"`
 	// staticVersion/staticObjs are continuousVersion and len(e.G.Objs) at the
 	// last staticEffects build: layerInertSince's reuse across a run of
 	// layer-inert events (layercache.go) additionally requires both unchanged.
-	staticVersion int `clone:"deep"`
-	staticObjs    int `clone:"deep"`
+	staticVersion int `clone:"deep,if=cloneCarriesStaticMemo,rekey=now"`
+	staticObjs    int `clone:"deep,if=cloneCarriesStaticMemo"`
 	// staticMemoGated records whether the last full staticEffects build
 	// encountered any Continuous static carrying a continuousGateKeys param
 	// (IsPresent$/IsPresent2$/Condition$/CheckSVar$/ClassBand$), whether or
@@ -49,7 +49,7 @@ type engineLayerCaches struct {
 	// refused whenever this is true: only a gate-free build's output is
 	// invariant under a static-cold token entry. Reset at the top of each
 	// full staticEffectsWalk and set at the one gate site.
-	staticMemoGated bool `clone:"deep"`
+	staticMemoGated bool `clone:"deep,if=cloneCarriesStaticMemo"`
 	// staticMemoStateRead records whether the last full staticEffects build
 	// made a read outside the static-quiet input (layercache.go's
 	// staticQuietKinds): a GainsAbilitiesOf$/GainsAbilitiesOfDefined$/
@@ -57,15 +57,15 @@ type engineLayerCaches struct {
 	// P/T count, or an ImprintedCreatureType lookup. Any of them can read
 	// state a quiet event writes, so staticSafeSince admits quiet events only
 	// when it is false. Reset and set exactly like staticMemoGated.
-	staticMemoStateRead bool `clone:"deep"`
+	staticMemoStateRead bool `clone:"deep,if=cloneCarriesStaticMemo"`
 	// staticGates is every continuous gate the last full staticEffects build
 	// evaluated, in scan order, with its outcome (static_gatememo.go): a
 	// gated, state-read-free build is re-stamped across a quiet run when
 	// every one of them re-evaluates unchanged. staticGatesKnown says the
 	// list belongs to the current memo (a clone that did not carry it, or a
 	// fresh engine, has none). Reset at the top of each full walk.
-	staticGates      []staticGateRec `clone:"deep"`
-	staticGatesKnown bool            `clone:"deep"`
+	staticGates      []staticGateRec `clone:"deep,if=cloneCarriesStaticMemo&staticGatesKnown,pool=gates,release=clear"`
+	staticGatesKnown bool            `clone:"deep,if=cloneCarriesStaticMemo"`
 	// staticBuildSeq counts staticEffects REBUILDS (never a layer-inert
 	// re-stamp or an exact hit). The memo is refreshable OUTSIDE active() --
 	// staticControlWants (control_static.go) calls refreshStaticContinuous
@@ -110,11 +110,11 @@ type engineLayerCaches struct {
 	// path, build a private list instead of clobbering the outer call's.
 	// Clone() copies none of these fields (see clone.go); a cloned engine
 	// starts with a zero key and rebuilds identically on its first Derived.
-	activeBuf []ContinuousEffect `clone:"reset"`
+	activeBuf []ContinuousEffect `clone:"reset,pool=activeBuf,release=clear"`
 	// activeSrc is active()'s build scratch: pointers to the effects a build
 	// assembles, sorted before they are copied (layers.go). Cleared after
 	// every build; recycled through a Spare, never cloned.
-	activeSrc []*ContinuousEffect `clone:"reset"`
+	activeSrc []*ContinuousEffect `clone:"reset,pool=activeSrc"`
 	// activeKWHeads is the deduplicated KeywordHead of every AddKeywords
 	// entry across activeBuf, rebuilt with it (layers.go's active()) and read
 	// by keywordmay.go's exact Derived-keyword precheck. Never cloned, like
@@ -139,7 +139,7 @@ type engineLayerCaches struct {
 	// build (or layer-inert re-stamp) was taken at. Never cloned: a clone's
 	// zero values make its first build move derivedSeq off zero.
 	derivedSeq         uint64             `clone:"reset"`
-	activeBufAlt       []ContinuousEffect `clone:"reset"`
+	activeBufAlt       []ContinuousEffect `clone:"reset,pool=activeBufAlt,release=clear"`
 	derivedPrevEpoch   int                `clone:"reset"`
 	derivedPrevVersion int                `clone:"reset"`
 	derivedPrevObjs    int                `clone:"reset"`

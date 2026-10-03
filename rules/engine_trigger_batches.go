@@ -166,7 +166,7 @@ type engineTriggerBatches struct {
 	// trigZones / trigZonesEp / trigFaceZones are the live trigger walk's
 	// per-player hidden-zone summaries (rules/trigger_zoneskip.go): pure
 	// scratch validated on every use, so Clone copies none of them.
-	trigZones     []trigZoneSummary     `clone:"deep"`
+	trigZones     []trigZoneSummary     `clone:"deep,pool=trigZones,copy=copyTrigZones,release=releasedTrigZones"`
 	trigZonesEp   int                   `clone:"deep"`
 	trigFaceZones map[*cards.Face]uint8 `clone:"reset"`
 	// trigFaceKinds is faceTrigKinds' cache for faces outside the compiled
@@ -189,7 +189,7 @@ type engineTriggerBatches struct {
 	// replZones / replZonesEp are the replacement-source walk's per-seat
 	// zone summaries (rules/repl_zoneskip.go): pure scratch validated on
 	// every use, so Clone copies neither.
-	replZones   []replZoneSummary `clone:"deep"`
+	replZones   []replZoneSummary `clone:"deep,pool=replZones,copy=copyReplZones,release=releasedReplZones"`
 	replZonesEp int               `clone:"deep"`
 	// replArena is the whole arena's replacement event-bit union
 	// (rules/repl_arena_mask.go); Clone carries it with the board.

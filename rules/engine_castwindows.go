@@ -121,13 +121,13 @@ type engineCastWindows struct {
 	// aborted proposal drops it. Each is a pointer so a Clone taken with a
 	// cast in flight copies the held event (a replay re-derives the same
 	// trigger from the recorded PutOnStack).
-	deferredPush *events.Event `clone:"deep"`
+	deferredPush *events.Event `clone:"deep,if=cloneCarriesCast,copy=cloneHeldEvent"`
 
 	// deferredPushLKI is the LKI snapshot captured for deferredPush's own
 	// Obj when pushCast emitted it, threaded into the trigger walk so a
 	// ChangesZone trigger fired by the cast (see trigmatch.spellCastMatches) can read
 	// the card as it was just before the stack move.
-	deferredPushLKI *state.Object `clone:"share"`
+	deferredPushLKI *state.Object `clone:"share,if=cloneCarriesCast"`
 
 	// noCounterSpend is the transient capture of emitRestrictedManaSpend: the
 	// id of the SPELL whose payment just consumed a batch carrying

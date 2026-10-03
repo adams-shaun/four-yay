@@ -20,8 +20,8 @@ const (
 	// effects/ spanning more than 300 lines.
 	// W4 step 3's ChangeZoneAll compiler shrank effChangeZoneAll: 54 -> 53.
 	// W1a generated Engine.cloneWith's field copies from the clone tags
-	// (rules/clone_gen.go): 53 -> 52.
-	maxFuncLinesOver300 = 52
+	// (rules/clone_gen.go): 53 -> 52. Re-measured at W1a pool/rekey/if tags: 48.
+	maxFuncLinesOver300 = 48
 	// engineMethodCount is the number of non-test methods on rules.Engine.
 	// W5 E5 moved combat legality onto rules/combat's Board (2159 -> 2126)
 	// and W5 E3 the trigger matchers onto rules/trigmatch's: -> 2022. W5 E4

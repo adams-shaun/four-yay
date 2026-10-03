@@ -60,7 +60,8 @@ type engineContinuation struct {
 	// (cast_pool.go): the last cast storage newCast handed out, and a
 	// zeroed one ready for the next cast. Never copied by Clone (a clone's
 	// cast is its own copy); castFree rides a Spare.
-	castIssued, castFree *pendingCast `clone:"reset"`
+	castIssued *pendingCast `clone:"reset"`
+	castFree   *pendingCast `clone:"reset,pool=cast,release=releaseCastFree(e)"`
 	// costCompositionEvent is the one PutOnStack event excluded from
 	// cast-count statics while the current cast's cost modifiers are composed
 	// after PutOnStack. Stored as event index + 1 (zero means none), so an
