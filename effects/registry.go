@@ -972,6 +972,10 @@ type Ctx struct {
 	ClashTop          bool
 	Source            state.ObjID
 	Controller        state.PlayerID
+	// Grantor is the object that GRANTED the resolving activated ability to
+	// Source (state.Object.GrantedBy): Forge's OriginalHost. Zero when the
+	// ability is Source's own, in which case OriginalHost is Source.
+	Grantor state.ObjID
 	// CostUntapped carries permanents untapped as an activation cost into
 	// effects whose Defined.Untapped selector refers to that paid target.
 	CostUntapped []state.ObjID
@@ -1040,12 +1044,14 @@ type Ctx struct {
 	// state.Game into rules. An effects test double whose Host does not
 	// implement typeTableHost leaves it nil and reads the printed face.
 	EffectiveTypes []ObjectTypes
-	// EffectiveColors is the layer-5 derived-colour table (SetColor$,
-	// AddColor$, an Animate's Colors$), published by rules for a body that
-	// names a colour word and bound onto every SpecContext
-	// (*Ctx).SpecContext builds, so a resolving effect's colour filter
-	// ("destroy all nonblack creatures") agrees with the layer walk.
-	EffectiveColors []ObjectColors
+	// LayerTables is the layer-5 derived-colour table (SetColor$, AddColor$,
+	// an Animate's Colors$; published for a body that names a colour word)
+	// and the layer-6 derived keyword table (AddKeyword$ grants, ability
+	// loss; published for a body that can name a with<Keyword> predicate),
+	// bound onto every SpecContext (*Ctx).SpecContext builds, so a resolving
+	// effect's colour or keyword filter ("destroy all nonblack creatures",
+	// "each creature without flying") agrees with the layer walk.
+	LayerTables
 	// StaticGoads is the live static-goad table (staticgoad1), published by
 	// rules for resolution-time IsGoaded filters.
 	StaticGoads map[state.ObjID]bool
@@ -1089,6 +1095,15 @@ type Ctx struct {
 	// entry; an object already off the battlefield, or with no counters to
 	// look back at, needs no entry.
 	TargetCountersLKI map[state.ObjID][]state.Counter
+	// TargetPTLKI is the power/toughness half of the same CR 608.2h
+	// look-back: each object target's LAYER-DERIVED power and toughness as it
+	// last existed on the battlefield. Captured, overwritten and carried
+	// exactly like TargetCountersLKI (rules refreshes it at the departure
+	// boundary; the resolution-start capture below is the fallback). Condemn's
+	// "its controller gains life equal to its toughness" and Swords to
+	// Plowshares' "equal to its power" read it once the target is in the
+	// library or exile, where the live object answers only the printed face.
+	TargetPTLKI map[state.ObjID]TargetPT
 	// TargetSpellLKI records which object targets were SPELLS on the stack at
 	// the instant this Resolve chain began. The count ref SpellTargeted (Forge
 	// AbilityUtils.calcX's `calcX[0].equals("SpellTargeted")` arm, which reads
@@ -2832,6 +2847,35 @@ func CloneTargetCountersLKI(m map[state.ObjID][]state.Counter) map[state.ObjID][
 	return out
 }
 
+// TargetPT is one TargetPTLKI entry: a departed target's last battlefield
+// power and toughness.
+type TargetPT struct{ Power, Toughness int32 }
+
+// CloneTargetPTLKI returns an independent copy of a target P/T LKI map
+// threaded across a suspension (rules' resumePoint), for the reason
+// CloneTargetCountersLKI gives.
+func CloneTargetPTLKI(m map[state.ObjID]TargetPT) map[state.ObjID]TargetPT {
+	if m == nil {
+		return nil
+	}
+	out := make(map[state.ObjID]TargetPT, len(m))
+	for id, pt := range m {
+		out[id] = pt
+	}
+	return out
+}
+
+// targetPTLKI returns a departed object target's last battlefield
+// power/toughness, when this chain captured one and the object is no longer
+// on the battlefield; a live permanent (or an uncaptured object) reads live.
+func targetPTLKI(c *Ctx, o *state.Object) (TargetPT, bool) {
+	if c == nil || c.TargetPTLKI == nil || o == nil || o.Zone == state.ZBattlefield {
+		return TargetPT{}, false
+	}
+	pt, ok := c.TargetPTLKI[o.ID]
+	return pt, ok
+}
+
 // Resolve runs an ability and every sub-ability chained beneath it.
 // effectFrameHost is implemented by the rules engine to publish the Effect
 // registration identity a resolution is currently running under, so an ask
@@ -2954,6 +2998,28 @@ type goadTableHost interface {
 // names a colour word, because rules builds the table on demand.
 type colorTableHost interface {
 	EffectiveColors() []ObjectColors
+}
+
+// keywordTableHost publishes rules' layer-derived keyword table for
+// resolving filters. Optional, like colorTableHost; asked only for a body
+// that can name a keyword predicate.
+type keywordTableHost interface {
+	EffectiveKeywords() []ObjectKeywords
+}
+
+// saMentionsKeywords reports whether any parameter of sa, or of a
+// sub-ability chained under it (the walk shares one Ctx), can name a
+// with<Keyword>/without<Keyword>/hasKeyword<Keyword> predicate.
+func saMentionsKeywords(sa *cards.SA) bool {
+	for depth := 0; sa != nil && depth < 32; depth++ {
+		for _, v := range sa.Params {
+			if strings.Contains(v, "with") || strings.Contains(v, "hasKeyword") {
+				return true
+			}
+		}
+		sa = sa.Sub
+	}
+	return false
 }
 
 // saMentionsColors reports whether any parameter of sa can name a colour
@@ -3095,9 +3161,14 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			c.StaticGoads = nil
 		}
 		if ch, ok := h.(colorTableHost); ok && sa != nil && saMentionsColors(sa) {
-			c.EffectiveColors = ch.EffectiveColors()
+			c.DerivedColors = ch.EffectiveColors()
 		} else {
-			c.EffectiveColors = nil
+			c.DerivedColors = nil
+		}
+		if kh, ok := h.(keywordTableHost); ok && sa != nil && saMentionsKeywords(sa) {
+			c.DerivedKeywords = kh.EffectiveKeywords()
+		} else {
+			c.DerivedKeywords = nil
 		}
 		if th, ok := h.(targetableObjectsHost); ok {
 			c.TargetableObjects = th.TargetableObjects(c.TriggerCard)
@@ -3133,6 +3204,22 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 				if object := h.Game().Obj(target.Obj); object != nil &&
 					object.Zone == state.ZBattlefield && len(object.Counters) > 0 {
 					c.TargetCountersLKI[target.Obj] = append([]state.Counter(nil), object.Counters...)
+				}
+			}
+		}
+		// The P/T half of the same entry capture (the fallback for a
+		// departure the host did not see; rules refreshes it at the move).
+		if c.TargetPTLKI == nil {
+			for _, target := range c.Targets {
+				if target.IsPlayer {
+					continue
+				}
+				if object := h.Game().Obj(target.Obj); object != nil && object.Zone == state.ZBattlefield &&
+					object.Face() != nil {
+					if c.TargetPTLKI == nil {
+						c.TargetPTLKI = make(map[state.ObjID]TargetPT)
+					}
+					c.TargetPTLKI[target.Obj] = TargetPT{Power: h.Power(target.Obj), Toughness: h.Toughness(target.Obj)}
 				}
 			}
 		}
@@ -3197,9 +3284,14 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			c.StaticGoads = nil
 		}
 		if ch, ok := h.(colorTableHost); ok && saMentionsColors(sa) {
-			c.EffectiveColors = ch.EffectiveColors()
+			c.DerivedColors = ch.EffectiveColors()
 		} else {
-			c.EffectiveColors = nil
+			c.DerivedColors = nil
+		}
+		if kh, ok := h.(keywordTableHost); ok && saMentionsKeywords(sa) {
+			c.DerivedKeywords = kh.EffectiveKeywords()
+		} else {
+			c.DerivedKeywords = nil
 		}
 		if th, ok := h.(targetableObjectsHost); ok {
 			c.TargetableObjects = th.TargetableObjects(c.TriggerCard)

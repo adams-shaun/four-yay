@@ -393,10 +393,17 @@ func isCreatureFace(f *cards.Face) bool {
 // "as this enters" ask (etbOptions' "type" arm) and the mid-resolution
 // ChooseType ask (Engine.TypeChoices, task ct1) BOTH offer, so the two asks
 // and the no-ask fallback can never disagree about what a creature-type
-// choice ranges over. The list is the distinct creature subtypes of every
-// object you OWN (all zones, object order), sorted alphabetically; the
-// "Human" tail keeps the list non-empty when you own no creature subtype,
-// the same totality rule the colour list carries.
+// choice ranges over. CR 205.3m: "choose a creature type" ranges over EVERY
+// creature type, not only the ones in the game, so the list is the whole
+// effects.CreatureTypeWordList vocabulary. The distinct creature subtypes of
+// every object you OWN (all zones, object order) lead it, sorted
+// alphabetically -- "Human" when you own none -- and the rest of the
+// vocabulary follows, sorted. The leading block keeps the deterministic
+// first option (the no-ask default) exactly what it was when the list was
+// owner-scoped; the tail is what lets a player name a type nobody has
+// (Banner of Kinship with no creature of the type, a type only an opponent
+// has). It used to be owner-scoped only, and a lone owned type was
+// auto-picked without asking.
 func (e *Engine) creatureTypeOptions(you state.PlayerID) []decision.Option {
 	seen := map[string]bool{}
 	types := []string{}
@@ -419,11 +426,18 @@ func (e *Engine) creatureTypeOptions(you state.PlayerID) []decision.Option {
 	}
 	if len(types) == 0 {
 		types = []string{"Human"}
+		seen["Human"] = true
 	}
 	sort.Strings(types)
-	out := make([]decision.Option, 0, len(types))
+	all := effects.CreatureTypeWordList()
+	out := make([]decision.Option, 0, len(all)+1)
 	for _, t := range types {
 		out = append(out, decision.Option{Index: len(out), Kind: "type", Label: t})
+	}
+	for _, t := range all {
+		if !seen[t] {
+			out = append(out, decision.Option{Index: len(out), Kind: "type", Label: t})
+		}
 	}
 	return out
 }

@@ -450,6 +450,74 @@ var colorLetter = map[string]string{"White": "W", "Blue": "U", "Black": "B", "Re
 // see layer-6 AddKeyword$ grants (a continuous-effect grant needs the engine's
 // layer walk, which this predicate has no access to); a counter grant is
 // answerable from the object alone.
+// ObjectKeywords is one entry of the layer-derived keyword table rules
+// publishes for resolving filters (SpecContext.DerivedKeywords): a
+// battlefield object whose current keyword list differs from what its
+// printed face and keyword counters give, with that current list.
+type ObjectKeywords struct {
+	ID       state.ObjID
+	Keywords []string
+}
+
+// LayerTables groups the board-wide derived-characteristic tables rules
+// publishes for one resolution, embedded in both Ctx and SpecContext so
+// (*Ctx).SpecContext copies them as ONE field: that constructor must stay
+// within the inlining budget (a warm caller-built Ctx must not escape --
+// TestEvalCountValidZoneScanIsAllocationFree and rules' warm Derived pin).
+type LayerTables struct {
+	// DerivedColors optionally supplies the layer-5 derived colours (CR
+	// 613.1e -- SetColor$, AddColor$, an Animate's Colors$) of the battlefield
+	// objects whose colours differ from their printed ones, keyed by id. It
+	// is what makes the colour predicates (Black, nonBlack, Colorless,
+	// MultiColor, ChosenColor, SharesColorWith) see a colour a continuous
+	// effect set. The same immutable value-slice shape as DerivedTypes, for
+	// the same reasons; nil on the overwhelmingly common board.
+	DerivedColors []ObjectColors
+	// DerivedKeywords optionally supplies the layer-derived keyword lists of
+	// the battlefield objects whose keywords differ from their printed face
+	// (rules' EffectiveKeywords table, published to a resolving Ctx). It is
+	// consulted only when ExtraKeywords is unbound: the board-wide twin of
+	// that per-candidate bind, the same immutable value-slice shape as
+	// DerivedTypes/DerivedColors and nil on the common board.
+	DerivedKeywords []ObjectKeywords
+}
+
+// keywordInCtx is THE keyword read of the with<X>/without<X> predicates. A
+// caller-bound ExtraKeywords (rules' matchesSpec, the ONE candidate's full
+// derived list) is authoritative; otherwise a published DerivedKeywords
+// entry for the object (a resolving effect's board-wide table -- Seismic
+// Rupture's "each creature without flying" walk sees Ajani's granted
+// flying); otherwise the printed face plus keyword counters.
+func keywordInCtx(o *state.Object, kw string, sc *SpecContext) bool {
+	list := sc.ExtraKeywords
+	if list == nil && o != nil {
+		for i := range sc.DerivedKeywords {
+			if sc.DerivedKeywords[i].ID == o.ID {
+				list = sc.DerivedKeywords[i].Keywords
+				if list == nil {
+					list = []string{}
+				}
+				break
+			}
+		}
+	}
+	if list == nil {
+		return objectHasKeyword(o, kw)
+	}
+	for _, x := range list {
+		if strings.EqualFold(cards.KeywordHead(x), kw) {
+			return true
+		}
+	}
+	return false
+}
+
+// PrintedHasKeyword is the printed-face-plus-keyword-counters keyword read
+// the filter falls back to when nothing derived is bound. rules' derived
+// keyword table compares against it to publish only the objects whose
+// current keywords differ.
+func PrintedHasKeyword(o *state.Object, k string) bool { return objectHasKeyword(o, k) }
+
 func objectHasKeyword(o *state.Object, k string) bool {
 	if o == nil || o.Face() == nil {
 		return false
@@ -934,8 +1002,8 @@ func triggerManaColorMask(mana string) ColorMask {
 //	TriggeredProduced's empty set takes.
 //
 //	Every other spelling -- MostProminentColor, Imprinted, Equipped,
-//	TopOfLibrary, Sacrificed, LastCastThisTurn, the bare form,
-//	SharesColorWithOther, and the `Valid <spec>` unit (alternative-level,
+//	TopOfLibrary, Sacrificed, LastCastThisTurn, the bare form, and the
+//	`Valid <spec>` unit (alternative-level,
 //	sharesColorShape) -- returns ok=false here, so a token carrying one fails
 //	closed exactly as it did before these referents were bound.
 func matchSharesColorWith(g *state.Game, p string, o *state.Object, sc SpecContext) (result, ok bool) {
@@ -988,7 +1056,7 @@ func positiveRecognised(p string) bool {
 	// <spec>` spelling is recognised at the ALTERNATIVE level, sharesColorShape
 	// (the IsTargeting precedent). Every other spelling (MostProminentColor,
 	// Imprinted, Equipped, TopOfLibrary, Sacrificed, LastCastThisTurn, the bare
-	// form, SharesColorWithOther) stays unrecognised: those carriers keep
+	// form) stays unrecognised: those carriers keep
 	// today's fail-open/closed behaviour, and UnknownPredicates keeps reporting
 	// them.
 	if arg, has := strings.CutPrefix(p, "SharesColorWith "); has {
@@ -1982,20 +2050,7 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 	// AddKeyword$ grant. Keep this before the generic predicate map so a
 	// context-aware caller never has its bound list bypassed.
 	if kp, ok := keywordPredicateFor(p); ok {
-		if sc.ExtraKeywords == nil {
-			has := objectHasKeyword(o, kp.keyword)
-			if kp.negated {
-				has = !has
-			}
-			return has, true
-		}
-		has := false
-		for _, x := range sc.ExtraKeywords {
-			if strings.EqualFold(cards.KeywordHead(x), kp.keyword) {
-				has = true
-				break
-			}
-		}
+		has := keywordInCtx(o, kp.keyword, &sc)
 		if kp.negated {
 			has = !has
 		}
@@ -2294,14 +2349,9 @@ type SpecContext struct {
 	// overwhelmingly common board), so the linear scan below is cheaper than
 	// building a map.
 	DerivedTypes []ObjectTypes
-	// DerivedColors optionally supplies the layer-5 derived colours (CR
-	// 613.1e -- SetColor$, AddColor$, an Animate's Colors$) of the battlefield
-	// objects whose colours differ from their printed ones, keyed by id. It
-	// is what makes the colour predicates (Black, nonBlack, Colorless,
-	// MultiColor, ChosenColor, SharesColorWith) see a colour a continuous
-	// effect set. The same immutable value-slice shape as DerivedTypes, for
-	// the same reasons; nil on the overwhelmingly common board.
-	DerivedColors []ObjectColors
+	// LayerTables carries the resolution-published layer-5 colour and
+	// layer-6 keyword tables (DerivedColors, DerivedKeywords: promoted).
+	LayerTables
 	// DerivedPTs optionally supplies layer-derived current power for all
 	// objects participating in a greatestPower comparison. Like DerivedTypes,
 	// this is an immutable value table, never a rules back-pointer or resolver.

@@ -707,12 +707,11 @@ func encodeRemembered(remembered []state.Target) []state.ObjID {
 // pre-gate single-iteration behaviour, never a spin: an unevaluated gate
 // must not stand in for "the condition holds" (a count body whose filter
 // predicates fail closed to 0 under an EQ0 compare would otherwise loop to
-// the cap on a number the engine cannot honestly compute). For the four
-// MaxRepeat carriers whose gate names such a body (Helm of Obedience,
-// Grindstone, Sphinx's Tutelage, The Tale of Tamiyo) this trades the
-// pre-gate loop's whole-library mill -- MaxRepeat$ is CardsInLibrary there
-// -- for one iteration, the conservative direction; every one of them sits
-// outside every repo deck and golden game.
+// the cap on a number the engine cannot honestly compute). Grindstone's and
+// Sphinx's Tutelage's `Remembered$Valid ...SharesColorWithOther Remembered`
+// gate is evaluated (wordSharesColorOther), as is The Tale of Tamiyo's
+// sharesCardTypeWithOther one, so those repeat while two milled cards share
+// a colour (a card type), capped by MaxRepeat$ CardsInLibrary.
 func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 	check := strings.TrimSpace(sa.Params["RepeatCheckSVar"])
 	cmp := strings.TrimSpace(sa.Params["RepeatSVarCompare"])
