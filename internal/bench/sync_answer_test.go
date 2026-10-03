@@ -40,7 +40,6 @@ func TestSyncAnswerMatchesLegacy(t *testing.T) {
 			cfg := rules.Config{Seed: 4100 + g, Names: p[:], Decks: [][]*cards.Card{da, db}, Tokens: reg.Tokens}
 			play := func(tape bool) *rules.Engine {
 				c := cfg
-				c.LegacyResume = !tape
 				seats := []seat.Seat{seat.NewBot(c.Seed ^ 1), seat.NewBot(c.Seed ^ 2)}
 				_, e, err := bench.PlayGame(c, seats, 60, 4000, bench.Hooks{SyncAnswer: tape})
 				if err != nil {

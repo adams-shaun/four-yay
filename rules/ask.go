@@ -25,7 +25,9 @@ func (e *Engine) ask(d *decision.Decision) {
 	// The resolution kernel (rules/resolve): a legacy ask inside a tape run
 	// ends it (legacy in place, or abort and legacy replay), and one during
 	// an exempted resolution is a predicate miss.
-	if e.tape.Watching() {
+	if e.tape.Watching() && d.Kind != decision.KCommanderZone {
+		// A CR 903.9 commander-zone choice parks its move and carries its own
+		// flow (cmdZone and its handler), mid-resolution included.
 		if tapeCastAsk(e, d) {
 			return
 		}
