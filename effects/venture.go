@@ -90,7 +90,12 @@ func effVenture(h Host, c *Ctx, sa *cards.SA) {
 			continue
 		}
 		if id := g.Players[p].DungeonObj; id != 0 {
-			ventureAdvance(h, g, c, sa, p, i, id)
+			// A posed room choice suspends the walk exactly as a posed
+			// dungeon choice does: the later players venture after the
+			// answer, from the re-entry's cursor, never before it as well.
+			if ventureAdvance(h, g, c, sa, p, i, id) {
+				return
+			}
 		} else {
 			if ventureChoose(h, g, c, sa, p, i, quality) {
 				return
