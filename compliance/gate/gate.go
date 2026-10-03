@@ -141,7 +141,12 @@ func Check(reg *cards.Registry, root, set, level string) ([]Problem, error) {
 	}
 	if pr, err := compliance.LoadPrinted(filepath.Join(root, "compliance", "printed"), set); err == nil {
 		names = pr.Cards
-	} else if !os.IsNotExist(err) {
+	} else if os.IsNotExist(err) {
+		// The XMage manifest omits the cards XMage lacks, so a claim over it
+		// would drop them silently (section 11.3 C7): the cards are still
+		// reported, but the set cannot be declared until it has a list.
+		bad("*", "no printed list (compliance/printed/%s.json): the XMage manifest omits cards XMage lacks, so the set cannot be declared", set)
+	} else {
 		return nil, err
 	}
 	for _, printed := range names {
