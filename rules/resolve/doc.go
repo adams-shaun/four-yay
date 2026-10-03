@@ -26,12 +26,11 @@
 //     live engine in place and re-executes the pass and every answer since.
 //     The event log's verify window (events.Log.RewindTo) checks every
 //     re-executed event of the recorded prefix byte for byte.
-//   - An ask site that is NOT converted (it reaches the engine's ask
-//     directly) ends the tape run: before any tape ask it simply switches
-//     this resolution to the legacy path in place (nothing has been answered
-//     from the tape, so the state is the legacy path's); after one, the
-//     re-run aborts, restores S0 and replays the tape through the legacy
-//     path (the run-time fallback of spec §7.7).
+//   - There is no legacy path to fall back to: an ask that reaches the
+//     engine's ask directly from inside a tape run (Board.Unserved) fails the
+//     run with a Divergence, and one during an exempted resolution is a
+//     predicate miss (MissFailure). Every ask a resolution can pose is a
+//     converted site.
 //   - An engine whose every seat is a policy may install a synchronous
 //     Answerer instead: a converted ask is then posed and answered inline,
 //     and no resolution needs a checkpoint at all (S3b candidate 3).
@@ -41,9 +40,7 @@
 // No state is mutated outside events.Apply: the kernel only checkpoints,
 // restores, and runs the ordinary engine code.
 //
-// The kernel is the default; rules.Config.LegacyResume (or
-// GORGE_TAPE_KERNEL=0) opts an engine out onto the legacy resume machinery,
-// which is also the kernel's run-time fallback for an ask site it cannot
-// serve. Park-and-continue asks are answered in place on the kernel (spec
-// §7.2), so the two paths differ exactly there.
+// The kernel is the only resolution path: there is no opt-out and no resume
+// machinery behind it. Park-and-continue asks are answered in place on the
+// kernel (spec §7.2).
 package resolve
