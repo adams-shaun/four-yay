@@ -154,6 +154,13 @@ func round6Game(t *testing.T, d *Decks, spec GameSpec) []*Report {
 // fdn-fix8's CR 117.3b priority reset after a permanent spell's own
 // as-enters choice adds one Priority event to 4139's game: the Incubator
 // cast moves from 6763 to 6764, still equivalent.
+// The empty-continuation-frame fix (spike S3 legacy defect 1) drops the
+// spurious "mid-resolution answer resumed with no sub-ability recorded"
+// Note a shock land's as-enters "Pay 2 life" answer logged inside a library
+// search: one event earlier in 4098's game (log index 1420) and 4129's
+// (5793), and nothing else in either stream differs (the payment hashes
+// aside), so Master of Dark Rites moves from 7685 to 7684 and Demonic Tutor
+// from 5797 to 5796, both still equivalent.
 func TestRoundSixFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -171,9 +178,9 @@ func TestRoundSixFindingsMirror(t *testing.T) {
 		// control-equivalent (the round-10 convention, seed 11828).
 		{4130, []string{"vivi-ornitier-cedh", "foundations-reign-of-dragons", "avengers-assemble", "valgavoth-endless-punishment"}, 0, ""},
 		{2138, []string{"vivi-ornitier-cedh", "hearthhull-worldseed-landfall", "pro-shaper", "foundations-keen-engineering"}, 1488, "expected:float_then_cast:float_trigger_precedes_cast"},
-		{4098, []string{"foundations-reign-of-dragons", "hearthhull-worldseed-landfall", "avengers-assemble", "rakdos-muscle-scam-exe"}, 7685, ""},
+		{4098, []string{"foundations-reign-of-dragons", "hearthhull-worldseed-landfall", "avengers-assemble", "rakdos-muscle-scam-exe"}, 7684, ""},
 		{4139, []string{"foundations-wretched-ranks", "deadly-disguise", "foundations-reign-of-dragons", "ulalek-eldrazi"}, 6764, ""},
-		{4129, []string{"rakdos-muscle-scam-exe", "pro-shaper", "foundations-reign-of-dragons", "foundations-wretched-ranks"}, 5797, ""},
+		{4129, []string{"rakdos-muscle-scam-exe", "pro-shaper", "foundations-reign-of-dragons", "foundations-wretched-ranks"}, 5796, ""},
 	} {
 		reports := round6Game(t, d, GameSpec{Seed: tc.seed, Decks: tc.decks, Commander: true, Policy: "bot"})
 		if len(reports) == 0 {

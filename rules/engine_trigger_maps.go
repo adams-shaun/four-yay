@@ -131,6 +131,15 @@ type engineTriggerMaps struct {
 	// removed when the stack object leaves the stack. A stack COPY of the
 	// spell has no entry and falls back to the mid-resolution asking path.
 	castSubTargets map[state.ObjID]map[string][]state.Target `clone:"deep"`
+	// resolutionTargets holds the target lists resolveTop resolved a stack
+	// object against when they differ from what a resume would rebuild (an
+	// overloaded spell's census, the CR 608.2b-filtered list, a modal
+	// object's rechecked per-mode groups), so a suspended chain re-enters
+	// against the same lists (rules/resolution_targets.go). Engine-only
+	// scratch in the castSubTargets discipline: rebuilt by replay because
+	// resolveTop re-executes, cloned with the engine, removed when the stack
+	// object leaves the stack.
+	resolutionTargets resolutionTargetMap `clone:"deep"`
 	// trigSub is the in-flight CR 603.3d announcement of a triggered
 	// ability's SubAbility$ chain targets (rules/trigger_subtargets.go): set
 	// by pushTrigger, advanced by each "trig_sub" target answer, and

@@ -84,7 +84,7 @@ func (e *Engine) SuspendContinuation(sa *cards.SA) {
 		e.repeatReported = nil
 		return
 	}
-	e.contChain = append(e.contChain, contFrame{sa: sa})
+	e.contChain = append(e.contChain, contFrame{sa: sa, ctx: e.resolutionCtx})
 }
 
 // SuspendRepeat implements effects.Host.SuspendRepeat. Everything recorded so
