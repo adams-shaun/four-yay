@@ -240,59 +240,12 @@ not here.
 | (kw:MayFlashSac) The keyword is implemented rules-side, not as a `cards/keywords.go` expansion: its meaning is a casting OPTION, which `expandKeywords`' own doc lists as the family rules reads directly, and the sibling `kw:MayFlashCost` landed the same way. The rider ("if you CAST it any time a sorcery couldn't have been cast") rides a pay-time `FlagMayFlashSac` CastInfo, and `state.CastProvenanceFlags` strips that bit from a stack copy, since a copy is put on the stack and never cast (CR 707.10). Deliberately NOT changed with it: the sibling entry-hook bits `FlagEvoked`/`FlagDashed`/`FlagWarped` are still inherited by a copy, because they are conditioned on an alternative COST having been paid — a cast-time choice the copy rules do carry for the comparable kicked case. | `rules/mayflashsac.go`, `rules/statics.go` (`spellTimingOK`), `rules/altcast.go` (`altCostEnter`), `state/object.go` (`CastProvenanceFlags`), `events/apply.go` (`StackCopy`) | M4 (a copy ruling for the evoke/dash/warp entry hooks) |
 
 
-## Trigger-relative filter arguments (pg2)
+## Runtime behavior details
 
-`ControlledBy <ref>` and `OwnedBy <ref>` recognise exactly `TriggeredTarget`,
-`TriggeredDefendingPlayer`, `TriggeredPlayer` and `TriggeredCard`, plus a
-`Spawner> <known-inner-ref>` chain in that argument position (resolved
-against the same riding TriggerContext); an absent binding fails closed
-(also under `!`); the `Targeted*` family stays unknown, as does every
-`Spawner>` chain outside that argument position. `effects.TriggerContext` carries event roles separately from the
-resolving ability's source, targets and Remembered, survives suspension,
-cloning and stack copying, and is rebuilt by replay without new events. Not
-implemented: `TargetingPlayer$` (Magus of the Abyss asks the trigger
-controller), LKI owner/control snapshots for a referent that changes before
-resolution (live owner/controller is read), carrying these bindings into a
-registered continuous effect, and the Self/Other target-source normalisation
-(Flickerwisp's `Permanent.Other`).
-
-## Cast-provenance filter arguments (castprov1/2/3 + wascastfrom)
-
-The `Card.wasCast*` family is a rules-side split, not a filter predicate:
-`castProvenanceAdmits` (`rules/cast_provenance.go`) strips the tokens and reads
-the log (latest PutOnStack cast wins; a copy was never cast; a never-cast card
-reads false). Hand family: `wasCastFromYourHandByYou`, `wasCastByYou`,
-`wasCastFromYourHand`. Origin-zone family: `wasCastFromExile`,
-`wasCastFromYourGraveyard` and `...ByYou` (identical here: a cast's origin zone
-is always the caster's), `wasCastFromTheirHand`. Bare `wasCastFromGraveyard`
-is the effects-side CastFlags predicate (flashback/harmonize/escape) instead.
-Wired at the trigger match walks, `Count$ThisTurnCast_<spec>`,
-`Count$wasCastFromExile`, the target walks (offer and CR 608.2b recheck) and
-the CantBeCast walk (`castOriginAdmitsAtZone` reads the pending cast's
-origin). Still open: the tokens are not evaluated by effects' own
-ConditionPresent/ConditionDefined evaluator (such a gate runs its sub
-unconditionally), there is no `Count$wasCastFromYourGraveyard` head, and the
-may-play provenance predicates (`MayPlaySource`/`CastSa`) stay fail-closed
-(see the ValidLKI row).
-
-## Host behaviour notes (embedder observer hooks, D15)
-
-`OnBurst` errors crash the match like a persist failure (D15): the table
-halts and the chain does not continue. `OnMatchEnd` errors are discarded
-because the outcome is already recorded and an error cannot un-record it, so
-an embedder that persists through `OnMatchEnd` must handle its own
-persistence failures inside the callback.
-
-## Seat-privacy boundary
-
-A seat credential names **both its table and seat**. Every current
-seat-authorised HTTP route (`view`, `events`, `pending`, `intent`, `undo`)
-goes through `host/httpapi`'s `claimForTable`; a mismatched or legacy unbound
-claim is 403 and must never reach registry state. `cmd/gorged` mints startup
-and vs-bot tokens with that pair, so after deployment old tokens stop working;
-the web client returns a rejected stale join to the lobby, where it obtains a
-fresh game claim. Stream session ids are random 128-bit values issued only in
-`hello`; `host.Session.serial`, not the public id, preserves fan-out order.
+Load-bearing filter, cast-provenance, embedder-hook and seat-privacy details
+are maintained in [docs/agents/runtime-behavior.md](docs/agents/runtime-behavior.md).
+Read that page when changing `effects.TriggerContext`, cast-provenance
+matching, host observer hooks, or seat-authorised HTTP/session handling.
 
 ## Running a gorged server while you work
 
