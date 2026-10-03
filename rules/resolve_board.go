@@ -52,6 +52,13 @@ type engineResolveKernel struct {
 	// through the kernel (windowAsk): its own holder is open by design, so
 	// Busy looks past it. Transient within one ask.
 	tapeWindowAsking bool `clone:"reset"`
+	// hostAsking is nonzero inside Engine.Ask (effects.Host.Ask): the one
+	// ask whose continuation is a resume point, never a boundary decision.
+	hostAsking int `clone:"reset"`
+	// tapeOffStackAsking is set while an off-stack mana ability's colour
+	// choice asks through the kernel (askOffStackMana): its own frame is open
+	// by design, so Busy looks past it.
+	tapeOffStackAsking bool `clone:"reset"`
 	// tapeEpoch counts the kernel's restores of this engine. A restore
 	// rewinds the engine's state in place under the same Game and Log
 	// pointers and the re-run then logs past the recorded prefix again, so a
@@ -112,7 +119,7 @@ func (b *resolveBoard) Busy() bool {
 	// stack) routes its asks through its own activation continuation
 	// (askOffStackMana), not the resolution's: a converted site inside one
 	// asks through the legacy path.
-	if e.tapeWindowAsking && e.resume == nil && e.offStackMana == nil &&
+	if e.tapeWindowAsking && e.resume == nil && (e.offStackMana == nil || e.tapeOffStackAsking) &&
 		(e.unlessPayment == nil || e.unlessPayment.tape) {
 		// windowAsk's own window: the holder it asks for is open by design.
 		return false
@@ -129,6 +136,11 @@ func (b *resolveBoard) Busy() bool {
 
 func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent) bool {
 	e := (*Engine)(b)
+	if d.Kind == decision.KChoose && e.choosing == chooseOpening && !e.Suspended() && e.resume == nil {
+		// A pregame "begin the game with" effect: its entry is asked inside
+		// this one Submit.
+		return len(in.Choices) > 0 && firstChosen(d, in).Kind == "opening_yes"
+	}
 	if d.Kind != decision.KPriority || in.Payment != nil || in.Announce != nil {
 		return false
 	}
@@ -390,7 +402,15 @@ func tapeMissed(e *Engine, d *decision.Decision) {
 	if d.ResumeKind != "" {
 		ask += "/" + d.ResumeKind
 	}
-	(*f)(tapeShape(e) + " -> " + ask)
+	nm := ""
+	if n := len(e.G.Stack); n > 0 {
+		if o := e.G.Obj(e.G.Stack[n-1]); o != nil {
+			if so := e.G.Obj(o.Source); so != nil && so.Face() != nil {
+				nm = so.Face().Name
+			}
+		}
+	}
+	(*f)(tapeShape(e) + " -> " + ask + " " + nm + " " + d.Prompt)
 }
 
 // tapeShape names the top of the stack's shape: its kind and SubAbility$

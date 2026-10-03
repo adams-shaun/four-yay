@@ -28,6 +28,14 @@ func (e *Engine) ask(d *decision.Decision) {
 		if tapeCastAsk(e, d) {
 			return
 		}
+		if e.hostAsking == 0 && e.resume == nil && e.cast == nil && !e.Suspended() && e.offStackMana == nil {
+			// An engine flow's own decision, posed with no resolution
+			// continuation behind it (the next priority, a combat damage
+			// division, a CR 616.1 order from the turn structure): the
+			// handler that answers it carries the flow on, so the tape run
+			// ends here and the decision is posed as an ordinary one.
+			e.tape.Boundary()
+		}
 		if in, aborts := e.tape.LegacyInRun(); in {
 			tapeLegacyAsked(e, d, aborts)
 		}

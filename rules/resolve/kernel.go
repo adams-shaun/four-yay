@@ -152,6 +152,15 @@ func (k *Kernel) ResolutionDone() {
 	}
 }
 
+// Boundary marks the end of the resolution at an engine flow's own decision
+// (no resolution continuation behind it): like ResolutionDone, the decision
+// is then posed as an ordinary one.
+func (k *Kernel) Boundary() {
+	if r := k.run; r != nil && !r.converting {
+		r.inRes = false
+	}
+}
+
 // LogIntent appends in to the intent log, or, inside a re-execution's verify
 // window, steps over the identical recorded intent.
 func (k *Kernel) LogIntent(l *events.Log, in decision.Intent) {

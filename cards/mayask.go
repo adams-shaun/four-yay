@@ -266,7 +266,7 @@ func changeZoneMayAsk(s *SA, self *Face) bool {
 		// The moved card's own as-enters choice is board-dependent (which
 		// card is reanimated or blinked); exempt only the source returning
 		// itself, whose face is known.
-		return defined != "Self" || self == nil || FaceEntryMayAsk(self)
+		return defined != "Self" || self == nil || FaceEntryMayAsk(self) || faceEnchants(self)
 	case "Library":
 		return s.ParamStr(PKLibraryPosition) == "" // a top/bottom order may ask
 	}
@@ -340,4 +340,15 @@ func ReplParamsMayElect(params map[string]string) bool {
 	_, opt := params["Optional"]
 	_, dec := params["OptionalDecider"]
 	return opt || dec
+}
+
+// faceEnchants reports whether f has an Enchant keyword: an Aura put onto the
+// battlefield without being cast chooses what it enchants as it enters.
+func faceEnchants(f *Face) bool {
+	for _, kw := range f.Keywords {
+		if strings.HasPrefix(kw, "Enchant") {
+			return true
+		}
+	}
+	return false
 }

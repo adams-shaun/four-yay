@@ -2311,6 +2311,7 @@ func (e *Engine) runCombatAssignments() {
 		e.combatRound.initCtrls = e.combatRound.initCtrls[:0]
 	}
 	e.closeDamageBatch()
+	e.tape.ResolutionDone()
 	e.combatRound.assignments = nil
 	e.combatRound.damageNext = 0
 	e.EndLifeLossBatch()

@@ -222,6 +222,7 @@ func (e *Engine) handleOpening(d *decision.Decision, in decision.Intent) {
 	if chosen[0].Kind == "opening_yes" && e.opening.index < len(e.opening.effects) {
 		ef := e.opening.effects[e.opening.index]
 		e.applyOpeningEffect(ef)
+		e.tape.ResolutionDone()
 		// Impatient Iguana's opening-hand effect changes the player who takes
 		// turn one. This round-local value is consumed by finishOpening.
 		if o := e.G.Obj(ef.card); o != nil && o.Face() != nil {
