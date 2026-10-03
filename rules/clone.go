@@ -157,6 +157,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	c.untapChoiceObj = e.untapChoiceObj
 	c.drainAwaitsTarget = e.drainAwaitsTarget
 	c.drainAwaitsModes = e.drainAwaitsModes
+	c.trigSub = e.trigSub.clone()
 	c.deferCastTrigger = e.deferCastTrigger
 	// blockerRound (combat.go, Task m34): the declare-blockers round's
 	// defender list and cursor, plain-value state like the mulligan round.

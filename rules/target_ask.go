@@ -654,6 +654,12 @@ func (e *Engine) handleTarget(d *decision.Decision, in decision.Intent) {
 		e.charmSeqAnswer(d, in, chosen)
 		return
 	}
+	if d.ResumeKind == "trig_sub" {
+		// A triggered ability's chain-link target, announced at placement
+		// (CR 603.3d, rules/trigger_subtargets.go).
+		e.answerTriggerSubTarget(in, chosen)
+		return
+	}
 	// A cast-flow target decision (CR 601.2c, asked by targetAsk after the
 	// object was pushed by pushCast but BEFORE any cost is paid): completing
 	// it means recording the chosen targets onto the stack object and then
@@ -739,6 +745,11 @@ func (e *Engine) handleTarget(d *decision.Decision, in decision.Intent) {
 	}
 	e.recordTpControlsChooser(d.Source, d.ResumeSA, in.Player)
 	e.recordChosenTargets(d.Source, chosen, false)
+	// The root's answer opens a placed trigger's chain-link announcement
+	// (CR 603.3d); the last link's answer resumes the drain instead.
+	if e.trigSub != nil && e.trigSub.obj == d.Source && e.askTriggerSubTargets() {
+		return
+	}
 	// A target decision asked by a trigger drain (putTriggersOnStack's
 	// pushTrigger, immediately after the trigger's TriggerPush -- Task 20's
 	// checkTriggers never asked targets, so only a spell's cast-time ask

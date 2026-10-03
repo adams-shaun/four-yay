@@ -1,6 +1,0 @@
-{
-  "card": "Uldaros Theorix",
-  "rows": {
-    "cast-exiles-and-casts-copies-for-free": "The per-card-type graveyard targets are chosen by mid-resolution sub-ability asks (not when the trigger is put on the stack, CR 603.3d), and the chained exile's Defined$ Targeted reads only the root ability's own (empty) target list, so none of the chosen cards is exiled and Play finds nothing to cast. Observed: Lightning Bolt and Grizzly Bears stay in the graveyard, p1 at 20, no Bears token; expected both exiled, the free Bolt copy deals 3 (p1 17) and the Bears copy enters as a token (CR 707.12)."
-  }
-}

@@ -1555,11 +1555,14 @@ type Ctx struct {
 	// AllTargets is the whole root/sub-ability target UNION Forge's
 	// AllTargeted$ count ref names (task alltargeted1), threaded by the
 	// cost-evaluation sites that read it before payment (ownReduceCost's
-	// CR 601.2c reprice, the CollectEvidence amount resolution). Ctx.Targets
-	// stays the resolving SA's OWN targets so Targeted/ParentTarget keep
-	// their meanings; refTargets' AllTargeted case reads this when it is
-	// non-nil and falls back to Ctx.Targets otherwise (a chain with no sub
-	// targets unions to exactly the root's own set).
+	// CR 601.2c reprice, the CollectEvidence amount resolution) and, at
+	// resolution, by rules for a stack object whose chain-link targets were
+	// announced up front (a pre-asked cast chain, a CR 603.3d placement-
+	// announced trigger chain: rules' chainTargetUnion). Ctx.Targets stays
+	// the resolving SA's OWN targets so ParentTarget keeps its meaning; the
+	// AllTargeted count ref and the Defined$ Targeted referent read this when
+	// it is non-nil and fall back to Ctx.Targets otherwise (a chain with no
+	// sub targets unions to exactly the root's own set).
 	AllTargets []state.Target
 	// ChoiceTarget is the index of the per-player chooser currently being
 	// resumed. It keeps multi-player ChooseCard/ChoosePlayer asks from
