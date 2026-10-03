@@ -324,7 +324,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 	prevCtx := e.SetResolutionCtx(ctx)
 	defer e.SetResolutionCtx(prevCtx)
 	if rp.kind == "repeat_optional" {
-		ctx.RepeatOptional = &effects.RepeatOptionalContinuation{
+		ctx.RepeatResume = &effects.RepeatContinuation{
 			Continue: len(chosen) > 0 && chosen[0].Kind == "yes",
 			Next:     rp.repeatOptionalNext,
 		}
@@ -963,6 +963,13 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			// what the answered re-entry added -- not the stack object's
 			// (spike S3's Remembered-across-a-suspension class).
 			next.remembered = append([]state.Target(nil), ctx.Remembered...)
+			if next.remembered == nil && next.kind == "repeat_body" {
+				// An EMPTY handoff is still a handoff for a Repeat loop frame:
+				// its RepeatDefined$ Remembered gate must see the body's
+				// cleared set (Cultivator Colossus's declined pick), not fall
+				// back to the stack object's stale one and loop forever.
+				next.remembered = []state.Target{}
+			}
 		}
 		if parkedDraws {
 			// CR 608.2c: a resolution's SubAbility$ continuation runs only after
