@@ -117,6 +117,9 @@ func TestEveryConfiguredAbilityHasItsFactsRecord(t *testing.T) {
 			if (f.Dig != nil) != (sa.CompiledAPI() == cards.APIDig || sa.API == "Dig") {
 				t.Errorf("%s: %q (API %s): Dig half present=%v", c.Path, sa.Line, sa.API, f.Dig != nil)
 			}
+			if (f.DigUntil != nil) != (sa.API == "DigUntil") {
+				t.Errorf("%s: %q (API %s): DigUntil half present=%v", c.Path, sa.Line, sa.API, f.DigUntil != nil)
+			}
 		}
 	}
 	visit := func(c *cards.Card) {

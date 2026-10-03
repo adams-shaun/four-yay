@@ -74,6 +74,12 @@ func TestDigKnownKeysMatchTheCensus(t *testing.T) {
 	checkKnownKeysMatchTheCensus(t, "Dig", effects.DigKnownKeys())
 }
 
+// TestDigUntilKnownKeysMatchTheCensus is the same check for api:DigUntil
+// (effects.digUntilKnownKeys).
+func TestDigUntilKnownKeysMatchTheCensus(t *testing.T) {
+	checkKnownKeysMatchTheCensus(t, "DigUntil", effects.DigUntilKnownKeys())
+}
+
 // checkKnownKeysMatchTheCensus holds an API compiler's known-key table equal
 // to the census's measured read set for api plus its ignored and structural
 // keys.

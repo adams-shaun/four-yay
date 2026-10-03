@@ -143,6 +143,7 @@ func free()          {}
 		CopyPermanentLeaks:  []string{},
 		CloneLeaks:          []string{},
 		DigLeaks:            []string{},
+		DigUntilLeaks:       []string{},
 		Files:               4,
 		LongFuncs: []Func{
 			{Name: "deep", File: "rules/sub/deep.go", Line: 6, Lines: 402},
