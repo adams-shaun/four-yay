@@ -294,9 +294,15 @@ func TestTapeConvertWindowManaChoices(t *testing.T) {
 // A copy's CR 707.10c new-target choice (AskCopyTargets) is served from the
 // tape and its continuation resolves the copy in line.
 func TestTapeConvertCopyTargets(t *testing.T) {
-	const bolt = "Name:Tape Bolt\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n"
+	for i, rider := range []string{"", " | UnlessCost$ PayLife<1> | UnlessPayer$ Player"} {
+		tapeCopyTargetsCase(t, 13900+uint64(i), rider)
+	}
+}
+
+func tapeCopyTargetsCase(t *testing.T, seed uint64, rider string) {
+	bolt := "Name:Tape Bolt\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1" + rider + "\nOracle:x\n"
 	const twin = "Name:Tape Twincast\nManaCost:U\nTypes:Instant\nA:SP$ CopySpellAbility | ValidTgts$ Card | TgtZone$ Stack | TargetType$ Spell | MayChooseTarget$ True\nOracle:x\n"
-	_, st := tapeDual(t, 2, 13900, func(t *testing.T, e *Engine) {
+	_, st := tapeDual(t, 2, seed, func(t *testing.T, e *Engine) {
 		addMana(t, e, 0, "RU")
 		submitChoices(t, e, castOptionFor(t, e, fixtureInHand(t, e, "Tape Bolt")).Index)
 		for i := 0; i < 10; i++ {
