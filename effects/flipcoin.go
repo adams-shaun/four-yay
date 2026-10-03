@@ -16,7 +16,7 @@ func init() {
 // shared encoding serves every flip: api:FlipCoin (effFlipCoin below) and the
 // cumulative-upkeep FlipCoin cost action (rules/cumulative.go, which calls
 // FlipCoinNote) both emit it, and the trig:FlippedCoin matcher
-// (rules/trigger_match.go's flippedCoinMatches) reads it — so a cost-side flip
+// (rules/trigmatch/actions.go's flippedCoinMatches) reads it — so a cost-side flip
 // fires "whenever you win/lose a coin flip" exactly like an effect-side one
 // (Karplusan Minotaur is the corpus card whose only missing primitive was the
 // trigger). The Note is a replayable event: the random draw is the engine's

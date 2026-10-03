@@ -78,7 +78,7 @@ func hasTypePrinted(o *state.Object, t string, id cards.TypeWordID) (typeDecisio
 	// creature, in every filter read (Count$Valid, target offer, cost
 	// candidates, statics' Affected$). Derived live state
 	// (state.Object.BestowedAttached); the layer walk sees the same switch
-	// through rules/layers.go's bestowedTypeSwitch, and hasTypeCtx inherits
+	// through rules/chars/types.go's bestowedTypeSwitch, and hasTypeCtx inherits
 	// this gate through the hasType call below.
 	//
 	// CR 702.114c: a card cast with its bestow ability is an Aura SPELL, not a

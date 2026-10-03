@@ -453,7 +453,7 @@ func (b *Board) ownCreature(hasCombined bool, z state.Zone, id state.ObjID) *Cre
 	return b.Creatures.Ref(id)
 }
 
-// canBlockLike is the policy's approximation of the engine's canBlock for
+// canBlockLike is the policy's approximation of the engine's combat.CanBlock for
 // creatures it is only evaluating (the defender's options during declare
 // attackers), not deciding over: the blocker must be untapped and, against
 // a flying attacker, itself fly or have Reach (CR 702.9b). The engine's

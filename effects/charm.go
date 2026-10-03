@@ -1429,7 +1429,7 @@ func effCardVote(h Host, c *Ctx, sa *cards.SA, ballot string) {
 // reigning monarch as its target is a no-op: the designation does not move
 // and no "whenever a player becomes the monarch" trigger may fire. This is
 // load-bearing for events.MonarchChange's one reader, rules'
-// becomeMonarchMatches -- it sees only the post-fold designation, so an
+// trigmatch.BecomeMonarchMatches -- it sees only the post-fold designation, so an
 // unconditional emit here would queue trig:BecomeMonarch for a repeat
 // BecomeMonarch (Custodi Lich resolving twice, two Peacekeeper Colossi, etc.).
 // Suppressing at the source rather than inventing a previous-monarch field

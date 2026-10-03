@@ -17,7 +17,7 @@ import (
 // mana-spend spellings are implemented against the payment path's own
 // encodings: a Treasure/Cave/Desert unit's spend is a tagged ManaAdd event
 // (the castfilter2 encoding) and the total spend is the plain negative
-// ManaAdd delta (manaSpentForCast's read). The "first spell" gates ride the
+// ManaAdd delta (trigmatch.ManaSpentForCast's read). The "first spell" gates ride the
 // stackGrantCast scratch: the in-flight cast's own grant walk counts PRIOR
 // casts, or the EQ0 idiom would fail for the very cast the grant is for.
 

@@ -7,7 +7,7 @@
 // split OUT of the spec text at the rules-side match sites (where the
 // Engine, and its log, is in scope) and evaluated there, with the remainder
 // matched by the ordinary filter. The precedent is the spec-rewrite helpers
-// the engine already keeps (spellCastPermanentSpec, permanentCardSpec).
+// the engine already keeps (trigmatch.SpellCastPermanentSpec, permanentCardSpec).
 //
 // The two families, and their exact semantics:
 //
@@ -396,7 +396,7 @@ func (e *Engine) castProvenanceAdmitsMasked(spec string, gate provGate, objID st
 //     Treasure/Cave/Desert/Artifact unit's spend is a tagged ManaAdd event
 //     (state.TypedManaCounter, the castfilter2 encoding — no new event
 //     needed; task mayplay-mfa added Artifact), and the cast's total spend
-//     is the plain negative ManaAdd delta (manaSpentForCast's read, Roiling
+//     is the plain negative ManaAdd delta (trigmatch.ManaSpentForCast's read, Roiling
 //     Vortex's convention). These five spellings are implemented here.
 //     Spell.ManaFromArtifact (Shadow the Hedgehog's Chaos Control -- "mana
 //     from an artifact was spent to cast it") is the artifact tag: a
@@ -486,11 +486,11 @@ func castSaTokenHolds(t castSaToken, f castSpendFacts, flags uint64) bool {
 // walking the log backward from its end, every negative ManaAdd by the
 // cast's player accumulates into that cast's facts (total and, through the
 // "TreasureC"-form Counter, the typed tags) until the object's own push is
-// found. The same window manaSpentForCast reads for the SpellCast-trigger
+// found. The same window trigmatch.ManaSpentForCast reads for the SpellCast-trigger
 // ValidSA$ family, so the card-level CastSa spellings cannot disagree with
 // the SA-level ones. A spell sitting on the stack mid-cast is exact (the
 // payment ManaAdds sit directly above the push); the shared approximation
-// with manaSpentForCast applies: the window also counts the caster's own
+// with trigmatch.ManaSpentForCast applies: the window also counts the caster's own
 // post-payment floating until the read point. Derived from the event log,
 // so a replay derives the same answer.
 func (e *Engine) castSpendWindow(obj state.ObjID) castSpendFacts {

@@ -11,16 +11,16 @@ import "strings"
 // names), the special name `Main` (both main phases), the special name `All`
 // (every step), or an `A->B` range over the turn order (an open `A->` runs to
 // Cleanup). Every phase-name consumer -- Mode$ Phase face triggers
-// (rules/trigger_match.go phaseMatches) and delayed-trigger registrations
+// (rules/trigmatch/actions.go PhaseMatches) and delayed-trigger registrations
 // (effects/misc.go effDelayedTrigger) -- must resolve names through
 // ParsePhases so the two cannot disagree; the previous two independent
-// substring parsers (phaseMatches's Contains and delayedPhaseStep's switch)
+// substring parsers (trigmatch.PhaseMatches's Contains and delayedPhaseStep's switch)
 // are the defect class this file replaces.
 //
 // The remaining narrowing versus Forge's own model: Forge has a separate
 // COMBAT_FIRST_STRIKE_DAMAGE step, which gorge's turn does not model (the
 // engine has a single combat-damage step). `First Strike Damage` therefore
-// maps to StepCombatDamage; rules/trigmatch_misc.go gates that mapping on a
+// maps to StepCombatDamage; rules/trigger_phase_gate.go gates that mapping on a
 // first/double striker being present, but cannot distinguish the first-strike
 // step from the later regular-damage step. The combat trigger still fires only
 // once at the engine's single step boundary.

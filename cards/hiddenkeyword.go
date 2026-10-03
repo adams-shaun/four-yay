@@ -15,7 +15,7 @@
 // canonical head. Runtime KW$ grants (a Pump/PumpAll's `KW$ HIDDEN CARDNAME
 // must be blocked if able.`) never pass through the K: parser, so they keep
 // the sentence form; rules reads BOTH spellings for the same meaning (see
-// rules/statics.go parseHiddenKeyword), which is why the canonical-head arm
+// rules/combat/restrictions.go ParseHiddenKeyword), which is why the canonical-head arm
 // there is additive, not a replacement.
 package cards
 
@@ -30,7 +30,7 @@ import "strings"
 //   - "CARDNAME must be blocked if able." (CR 509.1a, the attacker's
 //     requirement to receive at least one legal blocker) is read as the
 //     MustBlock keyword, the spelling rules/statics.go's
-//     hasMustBeBlockedKeyword accepts beside the Pump-granted sentence form.
+//     combat.HasMustBeBlockedKeyword accepts beside the Pump-granted sentence form.
 //   - "CARDNAME can't attack or block." is read as CantAttackOrBlock, whose
 //     two combat restrictions are both consumed by the rules readers.
 var canonicalKeywordHeads = map[string]string{

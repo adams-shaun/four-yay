@@ -32,7 +32,7 @@ func TestRepeatOptionalContinuationIsConsumedByItsRepeat(t *testing.T) {
 		"SVar:Second:DB$ TestOneShotSecondBody\nOracle:x\n")
 	h, c := fixtureHost(t)
 	SetSVars(c, card.Faces[0].SVars)
-	c.RepeatOptional = &RepeatOptionalContinuation{Continue: false, Next: 1}
+	c.RepeatResume = &RepeatContinuation{Continue: false, Next: 1}
 	Resolve(h, c, card.Faces[0].Abilities[0])
 	if first != 0 {
 		t.Fatalf("the stopped RepeatOptional ran its body %d times, want 0", first)
@@ -41,8 +41,8 @@ func TestRepeatOptionalContinuationIsConsumedByItsRepeat(t *testing.T) {
 		t.Fatalf("the chained RepeatNum$ 2 Repeat ran its body %d times, want 2 -- "+
 			"it read the previous Repeat's stop answer", second)
 	}
-	if c.RepeatOptional != nil {
-		t.Fatalf("Ctx.RepeatOptional = %+v after the walk, want consumed", c.RepeatOptional)
+	if c.RepeatResume != nil {
+		t.Fatalf("Ctx.RepeatResume = %+v after the walk, want consumed", c.RepeatResume)
 	}
 }
 

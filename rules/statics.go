@@ -537,7 +537,7 @@ func init() {
 		"stat:SurveilNum",
 		// combatrestriction1: the three combat/sacrifice restriction statics.
 		// CantAttack is enforced per (attacker, defender) pair
-		// (rules/layers.go attackBlocked, consulted by askAttackers /
+		// (rules/combat/restrictions.go AttackBlocked, consulted by askAttackers /
 		// validateAttackers / mustAttackRequired's pair gate), CantSacrifice at
 		// every sacrifice candidate choke point (rules.Engine.SacrificeBlocked,
 		// the effects.Host method), and MustAttack by the board-wide
@@ -577,8 +577,8 @@ func init() {
 		"stat:CantBlockUnless",
 		// canattackdefender1: the CR 702.3b permission static (the inverse of
 		// a restriction: it LIFTS the Defender wall per (attacker, defender)
-		// pair). rules/attack_defender.go attackAllowedThroughDefender is the
-		// read, consulted through canAttackPair from the offer list, the
+		// pair). rules/combat/defender.go AttackAllowedThroughDefender is the
+		// read, consulted through combat.CanAttackPair from the offer list, the
 		// validator and the encore gate; the Effect-granted form registers as
 		// a CanAttackDefender restriction through effEffect (the Assault
 		// Formation shape). Only the whitelisted parameter shapes are
@@ -588,7 +588,7 @@ func init() {
 		// which cannot evaluate a gate and so keeps the narrower list).
 		"stat:CanAttackDefender",
 		// minmaxblocker1: the CR 509.1a block-count restriction static
-		// (rules/statics.go minMaxBlockerBounds, enforced whole-declaration by
+		// (rules/combat/restrictions.go MinMaxBlockerBounds, enforced whole-declaration by
 		// rules/combat.go validateBlockers and consulted by askBlockers' option
 		// filter). Only the literal Min$/Max$ bounds are read; the printed
 		// StaticAbilities$ directives are the Effect-delivered form and stay
@@ -658,8 +658,8 @@ func init() {
 		// rules/additional_activations_test.go.
 		"stat:Activations")
 	// kw:MustBlock -- CR 509.1a, the ATTACKER's requirement "CARDNAME must be
-	// blocked if able.", read by hasMustBeBlockedKeyword (derivedHiddenFlags /
-	// parseHiddenKeyword in this file) and enforced by rules/combat.go
+	// blocked if able.", read by combat.HasMustBeBlockedKeyword (combat.DerivedHiddenFlags /
+	// combat.ParseHiddenKeyword, rules/combat) and enforced by rules/combat.go
 	// askBlockers/validateBlockers. The printed sentence spelling is
 	// canonicalised to this head by cards/parse.go (cards/hiddenkeyword.go), so
 	// the coverage walk interns a real registered keyword head instead of a

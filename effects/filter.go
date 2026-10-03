@@ -349,7 +349,7 @@ var predicates = map[string]predFn{
 	// (effects/compiled_predicate.go's predicateTermWasCastFromGraveyard);
 	// state.ObjectWasCastFromGraveyard is the one home, so the three cannot
 	// disagree. Ash Zealot's "whenever a player casts a spell from a
-	// graveyard" ValidCard$ reads it at spellCastMatches time — the deferred
+	// graveyard" ValidCard$ reads it at trigmatch.spellCastMatches time — the deferred
 	// cast trigger fires after payCast's CastInfo, so the bit is already
 	// stamped — as do River Kelpie's draws and Laquatus's Disdain's counter.
 	// A card never so cast never matches, and neither does a stack copy: a
@@ -2211,7 +2211,7 @@ func matchesBase(g *state.Game, base string, o *state.Object, sc SpecContext) bo
 		// This internal base spelling is selected by rules' target census
 		// (targetSpecForZone) and Dig windows (permanentCardSpec) for Forge's
 		// `Permanent` base evaluated AWAY from the battlefield, and by rules'
-		// SpellCast trigger matcher (spellCastPermanentSpec) for the permanent
+		// SpellCast trigger matcher (trigmatch.SpellCastPermanentSpec) for the permanent
 		// SPELL a "cast a permanent spell" trigger evaluates on the stack. A
 		// permanent CARD is anything whose printed face is a permanent type
 		// (CR 109.2) wherever the object sits; the bare `Permanent` case
@@ -2309,7 +2309,7 @@ type SpecContext struct {
 	// .RememberedPlayers). Resolution-time callers leave it zero -- their
 	// remembered players ride the Remembered targets above -- so its
 	// presence never changes a resolution read. rules' block consultation
-	// (blockRestricted) binds it because a static consultation never has
+	// (combat.BlockRestricted) binds it because a static consultation never has
 	// Resolving set: without the channel, the registered CantBlockBy body's
 	// ValidBlocker$ Creature.RememberedPlayerCtrl clause (The Motherlode,
 	// Excavator) would resolve nobody and fail closed.

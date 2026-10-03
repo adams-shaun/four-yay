@@ -3,7 +3,7 @@ package rules
 // The batch-amount shape of Mode$ CounterAdded (the row's "CounterAdded models
 // only the crossing gate, not the batch amount").
 //
-// counterAddedMatches already fires on the CounterChange put and already reads
+// trigmatch.counterAddedMatches already fires on the CounterChange put and already reads
 // the event's whole placement batch for its crossing gate (CounterAmount$).
 // What a plain CounterAdded trigger had no way to read was the batch itself:
 // triggerReferents bound TriggerAmount/TriggerCard for CounterAddedOnce but

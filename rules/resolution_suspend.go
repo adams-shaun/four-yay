@@ -87,26 +87,30 @@ func (e *Engine) SuspendContinuation(sa *cards.SA) {
 	e.contChain = append(e.contChain, contFrame{sa: sa, ctx: e.resolutionCtx})
 }
 
+// SuspendRepeatBody implements effects.Host.SuspendRepeatBody. The body of
+// api:Repeat iteration next-1 owns the pending ask; this frame runs only
+// after that body resumes and completes, and it re-enters the Repeat at the
+// between-iteration step for iteration next: the gate, then the do/while
+// election for a RepeatOptional$ (never that iteration's body directly --
+// the do/while owes the player the election after every process), or
+// iteration next's body for a counted or gated Repeat. count is the bound the
+// suspended pass resolved, so the re-entered loop keeps it.
+func (e *Engine) SuspendRepeatBody(sa *cards.SA, next, count int32) {
+	if e.resume == nil {
+		return
+	}
+	e.contChain = append(e.contChain, contFrame{
+		sa: sa, ctx: e.resolutionCtx,
+		repeat: &repeatCursor{next: int(next), count: int(count), body: true},
+	})
+	e.repeatReported = sa
+}
+
 // SuspendRepeat implements effects.Host.SuspendRepeat. Everything recorded so
 // far in this pass -- the pending ask and the continuation frames of loops
 // nested inside the iteration -- resumes inside that iteration, so each is
 // bound to the iteration's Remembered unless a deeper loop already bound it.
 // The loop's own frame follows them, bound to the RepeatEach's Remembered.
-// SuspendRepeatOptional implements effects.Host.SuspendRepeatOptional. The
-// body of iteration next-1 owns the pending ask; this frame runs only after
-// that body resumes and completes, and it re-enters RepeatOptional$ to pose
-// the repeat election for iteration next (never that iteration's body
-// directly -- the do/while owes the player the election after every process).
-func (e *Engine) SuspendRepeatOptional(sa *cards.SA, next int32) {
-	if e.resume == nil {
-		return
-	}
-	e.contChain = append(e.contChain, contFrame{
-		sa: sa, repeat: &repeatCursor{next: int(next), optional: true},
-	})
-	e.repeatReported = sa
-}
-
 func (e *Engine) SuspendRepeat(s effects.RepeatSuspension) {
 	if e.resume == nil {
 		return

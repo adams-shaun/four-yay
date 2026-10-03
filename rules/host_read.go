@@ -27,7 +27,7 @@ func (e *Engine) LayerTables(want effects.LayerTableSet) effects.LayerTables {
 	t := e.boardLayers()
 	if want&effects.LayerGoads != 0 {
 		// The static-goad set (staticgoad1): a resolving IsGoaded read agrees
-		// with the combat requirement's staticGoaders derivation instead of
+		// with the combat requirement's combat.staticGoaders derivation instead of
 		// seeing the event-backed goad list alone.
 		t.StaticGoads = e.staticallyGoaded()
 	}

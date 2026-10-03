@@ -101,14 +101,14 @@ func (e *Engine) drawCauseTokenAdmits(token string, o *state.Object, source stat
 
 // pendingDrawIsFirstInDrawStep reports whether a Draw about to be logged for
 // p is the first p draws since this turn entered its draw step. It is the
-// pre-emit twin of firstCardInDrawStep: replacement matching runs from
+// pre-emit twin of trigmatch.firstCardInDrawStep: replacement matching runs from
 // Engine.emit BEFORE the proposed Draw is appended to e.L.Events, so the
 // pending event itself is the "next" draw (draw count 0) rather than a
 // logged one (draw count 1). It requires p to be the ACTIVE player as well,
 // because the exempt draw CR 504.1 grants is that player's own turn-based
 // draw: a non-active player drawing during someone else's draw step is not
 // the first one they draw in each of their own draw steps, so Notion Thief
-// and Hullbreacher must still replace it. firstCardInDrawStep deliberately
+// and Hullbreacher must still replace it. trigmatch.firstCardInDrawStep deliberately
 // omits that active-player test (a trigger reads whoever drew); the two
 // cannot share a body, so they are kept adjacent with identical log-scan
 // shapes to stop the pair drifting.
@@ -204,7 +204,7 @@ func (e *Engine) actionCause() state.ObjID {
 // callers skip every ValidCause-carrying static before this helper runs,
 // because a cost payment has no causing object (actionCause would name
 // whatever unrelated spell was already on the stack when the player paid --
-// the exact misattribution discardCauseAdmits guards against with its
+// the exact misattribution trigmatch.DiscardCauseAdmits guards against with its
 // IsDiscardCost check).
 //
 // The classifier is the shared StackKindTokenOf + StackKindAdmits pair the
