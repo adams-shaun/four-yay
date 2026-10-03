@@ -2,10 +2,12 @@ package rules
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -702,6 +704,58 @@ func (e *Engine) flashbackCost(id state.ObjID) Cost {
 		return ParseCost(s)
 	}
 	return ParseCost(f.ManaCost)
+}
+
+// extraFlashbackCosts lists the raw costs of id's flashback instances
+// beyond the one flashbackCost prices, in derived keyword order and
+// deduplicated against it and each other (CR 702.34a: each instance is a
+// separate permission; two instances with the same cost are one choice). A
+// parameterless instance -- a grant with no cost of its own (Sphinx of
+// Forgotten Lore, Snapcaster Mage) -- costs the card's mana cost; a card with
+// no mana cost has no payable parameterless instance and contributes none.
+// Nil for the ordinary single-instance card.
+func (e *Engine) extraFlashbackCosts(id state.ObjID) []string {
+	o := e.G.Obj(id)
+	if o == nil || o.Face() == nil || !e.mayHaveDerivedKeywordH(id, kwhFlashback) {
+		return nil
+	}
+	f := o.Face()
+	first := strings.Join(strings.Fields(e.flashbackCostString(f)), " ")
+	var out []string
+	for _, k := range e.Derived(id).Keywords {
+		if !strings.EqualFold(cardsKeywordHead(k), kwhFlashback.s) {
+			continue
+		}
+		raw := f.ManaCost
+		if i := strings.IndexByte(k, ':'); i >= 0 {
+			raw = k[i+1:]
+		}
+		raw = strings.Join(strings.Fields(raw), " ")
+		if raw == "" || raw == first || slices.Contains(out, raw) {
+			continue
+		}
+		out = append(out, raw)
+	}
+	return out
+}
+
+// flashbackCostString is the raw cost string flashbackCost parses.
+func (e *Engine) flashbackCostString(f *cards.Face) string {
+	if s, ok := f.KeywordParam("Flashback"); ok {
+		return s
+	}
+	return f.ManaCost
+}
+
+// flashbackCostFor is the flashback cost a cast option charges: the cost it
+// carries (Option.Cost, one of extraFlashbackCosts) when it names one of the
+// card's further flashback instances, else flashbackCost. A stale Cost no
+// longer among the card's instances falls back to flashbackCost.
+func (e *Engine) flashbackCostFor(id state.ObjID, opt decision.Option) Cost {
+	if opt.Cost != "" && slices.Contains(e.extraFlashbackCosts(id), opt.Cost) {
+		return ParseCost(opt.Cost)
+	}
+	return e.flashbackCost(id)
 }
 
 // delveCredit is the most generic mana id's Delve can cover right now for a

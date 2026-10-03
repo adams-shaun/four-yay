@@ -1,0 +1,39 @@
+{
+ "card": "Talisman of Creativity",
+ "family": "activated-ability",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "91caa5d950fb",
+ "scenarios": [
+  {
+   "name": "tap-for-blue-deals-one-damage-to-you",
+   "cr": ["605.3a", "118.12a"],
+   "why": "{T}: Add {U} or {R}. Talisman of Creativity deals 1 damage to you -- the blue mode puts {U} in the pool and its controller takes 1 damage.",
+   "setup": {
+    "p0": {"battlefield": ["Talisman of Creativity"]}
+   },
+   "steps": [
+    {"op": "activate", "seat": 0, "card": "p0:Talisman of Creativity", "ability": "add u or r", "answers": [{"kind": "choose", "pick": ["u"]}]}
+   ],
+   "expect": [
+    {"card": "p0:Talisman of Creativity", "tapped": true},
+    {"pool": {"p0": "U"}},
+    {"life": {"p0": 19}}
+   ]
+  },
+  {
+   "name": "tap-for-colourless-no-damage",
+   "cr": ["605.3a"],
+   "why": "{T}: Add {C} has no rider: colourless mana enters the pool with no damage.",
+   "setup": {
+    "p0": {"battlefield": ["Talisman of Creativity"]}
+   },
+   "steps": [
+    {"op": "activate", "seat": 0, "card": "p0:Talisman of Creativity", "ability": "add c"}
+   ],
+   "expect": [
+    {"pool": {"p0": "C"}},
+    {"life": {"p0": 20}}
+   ]
+  }
+ ]
+}

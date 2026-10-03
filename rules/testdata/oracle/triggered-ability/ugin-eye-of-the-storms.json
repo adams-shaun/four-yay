@@ -1,0 +1,55 @@
+{
+ "card": "Ugin, Eye of the Storms",
+ "family": "triggered-ability",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "a85401e5ec7c",
+ "scenarios": [
+  {
+   "name": "cast-trigger-exiles-coloured-permanent",
+   "cr": [
+    "603.2",
+    "610.3"
+   ],
+   "why": "Ugin's cast trigger exiles up to one target permanent that is one or more colors; casting Ugin must exile the coloured Grizzly Bears.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Ugin, Eye of the Storms"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ugin, Eye of the Storms",
+     "mana": "CCCCCCC",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Ugin, Eye of the Storms",
+     "zone": "battlefield",
+     "counters": {
+      "loyalty": 7
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,4 +1,3 @@
 {
-  "Secluded Courtyard/chosen-type-mana-casts-creature-of-that-type": "{T}: Add one mana of any color, spend this mana only to cast a creature spell of the chosen type -- after activating for {R} with Goblin chosen, the cast option for Raging Goblin#2 is not offered at all (only pass/concede): type-restricted 'any color' mana cannot pay for a legal cast of the chosen type (CR 605.3a). The scenario's positive control (the same cast paid with unrestricted mana) passes, isolating the restriction.",
   "Vanquisher's Banner/other-type-creatures-not-pumped": "The chosen type is ignored: with Human chosen the +1/+1 lands on the NON-Human Grizzly Bears (3/3) while the Human Selfless Spirit stays 2/1 -- the continuous effect's type filter matches as if 'Bear' had been chosen for any choice (CR 604.3, 614.10). The sibling scenario with Bear chosen is the positive control and passes."
 }

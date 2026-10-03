@@ -326,6 +326,9 @@ func (e *Engine) checkStateBased() {
 		if e.ceaseDeadTokens(tried) {
 			changed = true
 		}
+		if e.sbaFacts(facts).combat && e.removeNoncreatureCombatants() {
+			changed = true
+		}
 		if e.sbaFacts(facts).attach && e.attachmentSBAs() {
 			changed = true
 		}

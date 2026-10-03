@@ -1,0 +1,119 @@
+{
+ "card": "Phyrexian Altar",
+ "family": "activated-ability",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "7ae010dabd24",
+ "scenarios": [
+  {
+   "name": "sacrifice-creature-offers-one-mana-of-any-color",
+   "cr": [
+    "602.2b",
+    "605.3",
+    "106.5"
+   ],
+   "why": "'Sacrifice a creature: Add one mana of any color' means the mana ability must offer every one of the five colors as a selectable output; sacrificing the Bears must put it in the graveyard. The full five-color offer is the Oracle-derived check; the cost is auto-paid here because the Bears is the only legal sacrifice, so the wheel is the only pending decision.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Phyrexian Altar",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Phyrexian Altar",
+     "ability": "Sacrifice",
+     "observe": {
+      "kind": "choose",
+      "has": [
+       "Add W",
+       "Add U",
+       "Add B",
+       "Add R",
+       "Add G"
+      ]
+     }
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "sacrifice-creature-picks-one-named-colour",
+   "cr": [
+    "602.2b",
+    "605.3",
+    "106.5"
+   ],
+   "why": "'Sacrifice a creature: Add one mana of any color' lets the activator choose the colour; sacrificing the Bears and choosing red must put a red mana in the pool.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Phyrexian Altar",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Phyrexian Altar",
+     "ability": "Sacrifice",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Add R"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": "R"
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-other-creature-no-offer",
+   "cr": [
+    "602.5b",
+    "602.2b"
+   ],
+   "why": "With no other creature available the creature-sacrifice cost cannot be paid, so the mana ability is not offered.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Phyrexian Altar"
+     ]
+    }
+   },
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Phyrexian Altar",
+      "label": "Sacrifice"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

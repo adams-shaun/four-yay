@@ -419,7 +419,7 @@ func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *card
 		}
 		return ParseCost(raw), true
 	case "flashback":
-		return withSpellAbilityExtras(f, e.flashbackCost(id)), true
+		return withSpellAbilityExtras(f, e.flashbackCostFor(id, o)), true
 	case "bestowed":
 		return bestowCost(f)
 	case "kicked":

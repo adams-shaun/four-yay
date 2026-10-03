@@ -1,0 +1,126 @@
+{
+ "card": "Phyrexian Obliterator",
+ "family": "triggered-ability",
+ "author": "cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "a424c07c0258",
+ "scenarios": [
+  {
+   "name": "damage-source-controller-sacrifices-that-many-permanents",
+   "cr": [
+    "603.2",
+    "701.16a"
+   ],
+   "why": "A source dealing 3 damage to the Obliterator makes that source's controller sacrifice three permanents. Lightning Bolt deals 3, so its caster (the opponent) sacrifices three permanents while the 5/5 Obliterator survives with 3 damage marked.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Phyrexian Obliterator"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Phyrexian Obliterator"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Phyrexian Obliterator",
+     "zone": "battlefield",
+     "pt": "5/5",
+     "damage": 3,
+     "keywords": [
+      "Trample"
+     ]
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "removal-spell-is-the-damage-source",
+   "cr": [
+    "603.2"
+   ],
+   "why": "The sacrificed permanents belong to the source's controller; with exactly two permanents the opponent sacrifices both, leaving none.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Phyrexian Obliterator"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Phyrexian Obliterator"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Phyrexian Obliterator",
+     "zone": "battlefield"
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 0
+    }
+   ]
+  }
+ ]
+}

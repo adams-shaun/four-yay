@@ -1,0 +1,43 @@
+{
+ "card": "Krosan Colossus",
+ "family": "morph",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "1f8e6e7cf921",
+ "scenarios": [
+  {
+   "name": "morph-into-a-nine-nine-for-morph-cost",
+   "cr": ["708.6", "702.36a"],
+   "why": "Krosan Colossus has no abilities beyond morph: cast face down for {3} it is a 2/2, and turning it face up for {6}{G}{G} makes it the printed 9/9 Beast.",
+   "setup": {
+    "p0": {"hand": ["Krosan Colossus"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Krosan Colossus", "cast_mode": "morphed", "mana": "CCC"},
+    {"op": "resolve"},
+    {"op": "mana", "seat": 0, "mana": "CCCCCCGG"},
+    {"op": "activate", "seat": 0, "card": "p0:Krosan Colossus", "ability": "Turn face up"},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:Krosan Colossus", "zone": "battlefield", "pt": "9/9"}
+   ]
+  },
+  {
+   "name": "face-down-is-two-two-not-nine-nine",
+   "cr": ["708.2"],
+   "why": "While face down it is a 2/2; the printed 9/9 is hidden until it is turned face up.",
+   "setup": {
+    "p0": {"hand": ["Krosan Colossus"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Krosan Colossus", "cast_mode": "morphed", "mana": "CCC"},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:Krosan Colossus", "zone": "battlefield", "pt": "2/2"}
+   ]
+  }
+ ]
+}

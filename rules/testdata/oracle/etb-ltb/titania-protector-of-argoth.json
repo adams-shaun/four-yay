@@ -1,0 +1,98 @@
+{
+ "card": "Titania, Protector of Argoth",
+ "family": "etb-ltb",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "c84140e3ff04",
+ "scenarios": [
+  {
+   "name": "enters-returns-land-from-graveyard",
+   "cr": [
+    "603.6a",
+    "608.2c"
+   ],
+   "why": "When Titania enters, return target land card from your graveyard to the battlefield; the Forest returns and Titania is a 5/3.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Titania, Protector of Argoth"
+     ],
+     "graveyard": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Titania, Protector of Argoth",
+     "mana": "GGGGG",
+     "targets": [
+      "p0:Forest"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Titania, Protector of Argoth",
+     "zone": "battlefield",
+     "pt": "5/3"
+    }
+   ]
+  },
+  {
+   "name": "land-dies-makes-elemental",
+   "cr": [
+    "603.6c",
+    "111.1"
+   ],
+   "why": "Whenever a land you control is put into a graveyard from the battlefield, create a 5/3 green Elemental token. Moving a Forest to the graveyard makes one 5/3 Elemental.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Titania, Protector of Argoth",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Forest",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Elemental",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Elemental",
+     "zone": "battlefield",
+     "pt": "5/3"
+    }
+   ]
+  }
+ ]
+}

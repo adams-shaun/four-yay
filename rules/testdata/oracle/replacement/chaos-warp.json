@@ -1,0 +1,25 @@
+{
+ "card": "Chaos Warp",
+ "family": "replacement",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "d3cbf33eeb6f",
+ "scenarios": [
+  {
+   "name": "creature-is-shuffled-in-and-a-permanent-top-comes-back",
+   "cr": ["701.20a", "701.16a", "400.7"],
+   "why": "The owner of the target permanent shuffles it into their library, then reveals the top card. This scenario's opponent library is all permanents (Wastes lands), so whatever is revealed is a permanent card and enters the battlefield under its owner. The shuffled-in Grizzly Bears is in the library; a Wastes now sits on the battlefield.",
+   "setup": {
+    "p0": {"hand": ["Chaos Warp"]},
+    "p1": {"battlefield": ["Grizzly Bears"], "library_top": ["Wastes", "Wastes", "Wastes"]}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Chaos Warp", "mana": "CCR", "targets": ["p1:Grizzly Bears"]},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p1:Grizzly Bears", "zone": "library"},
+    {"count": {"seat": 1, "zone": "battlefield", "name": "Wastes"}, "eq": 1}
+   ]
+  }
+ ]
+}

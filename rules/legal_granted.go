@@ -309,13 +309,15 @@ func (e *Engine) gainsValidAbilitiesAdmits(spec string, ab *cards.SA) bool {
 // activated FROM the affected object id this turn. GainedAbilityPush events
 // name all three (Obj = recipient, IDs[0] = foreign card, Amount = index), so
 // the replayable log is the memory -- the loyaltyActivationsThisTurn fold
-// pattern. TurnChange resets the count (the limit is per turn, not per
-// battlefield stint: Mairsil's caged card sits in exile and never changes
-// zones while the count matters, and the identity is the foreign ability,
-// not the recipient).
+// pattern. TurnChange resets the count, and so does the RECIPIENT's zone
+// change (CR 400.7: a Mairsil that leaves and returns is a new object, and
+// "Mairsil can activate each of those abilities only once each turn" is
+// about that object). The caged card's own zone never matters here.
 func (e *Engine) gainedActivationsThisTurn(id, foreign state.ObjID, idx int) int {
 	used := 0
-	for _, ev := range e.L.Events {
+	// CR 400.7: a recipient that changed zones is a new object with its own
+	// per-turn allowance, so only its current stint's activations count.
+	for _, ev := range e.L.Events[e.objectStintStart(id):] {
 		switch ev.Kind {
 		case events.TurnChange:
 			if int(ev.Player) < len(e.G.Players) {

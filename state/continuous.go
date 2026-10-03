@@ -318,6 +318,17 @@ type ContinuousEffect struct {
 	// captured no players. Engine-runtime only, rebuilt by re-execution on
 	// replay like every other continuous-effect field.
 	RememberedPlayers []PlayerID
+	// Chosen is the resolution's chosen-card set (the ChooseCard answer)
+	// snapshotted when an Effect-delivered may-play grant registered, and
+	// ChosenBound says a snapshot was taken. Forge's EffectEffect copies the
+	// host's chosen cards onto the effect card it creates, so the grant's
+	// Affected$ Card.ChosenCard (Strongbox Raider, Chandra, Flameshaper,
+	// Feldon, Party Thrasher) names the card chosen at creation even after
+	// the chain's ClearChosenCard$ cleanup wipes the source's list. A
+	// chosen card that leaves the grant's AffectedZone$ drops out (CR
+	// 400.7). Engine-runtime only, rebuilt by re-execution on replay.
+	Chosen      []ObjID
+	ChosenBound bool
 	// Duration is the original Duration$ value ("" means Permanent, the
 	// effEffect default) preserved for reporting and for the expiry decision
 	// in rules/layers.go. Cosmetic for a layer effect.

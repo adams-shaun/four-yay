@@ -1,0 +1,226 @@
+{
+ "card": "Midnight Reaper",
+ "family": "death-triggers",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only) + cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "83dcca8ee58d",
+ "scenarios": [
+  {
+   "name": "nontoken-creature-dies-lose-one-draw-one",
+   "cr": [
+    "603.6c",
+    "121.1"
+   ],
+   "why": "Whenever a nontoken creature you control dies, Midnight Reaper deals 1 damage to you (1 life lost) and you draw a card.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Midnight Reaper",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 19
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Midnight Reaper",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "token-death-does-not-trigger",
+   "cr": [
+    "603.6c"
+   ],
+   "why": "The dies trigger cares only about NONTOKEN creatures, so a token creature dying must not draw a card or cost life.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Midnight Reaper"
+     ],
+     "hand": [
+      "Hordeling Outburst"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hordeling Outburst",
+     "mana": "RRR"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:token:Goblin",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "own-nontoken-creature-dying-draws-and-pings",
+   "cr": [
+    "700.4",
+    "603.6c"
+   ],
+   "why": "Whenever a nontoken creature its controller controls dies, that player loses 1 life and draws a card. A Grizzly Bears dying makes p0 go to 19 and draw one card.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Midnight Reaper",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 19,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-creature-dying-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only a nontoken creature YOU control triggers it: an opponent's creature dying draws its own controller nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Midnight Reaper"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 1,
+     "card": "p1:Grizzly Bears",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "dying-token-creature-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "The Reaper watches Nontoken creatures: a token creature dying triggers nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Midnight Reaper"
+     ],
+     "hand": [
+      "Dragon Fodder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dragon Fodder",
+     "mana": "RC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:token:Goblin",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  }
+ ]
+}
