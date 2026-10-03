@@ -144,6 +144,12 @@ func (e *Engine) entryETBChoice(ev events.Event, ordinal int) (etbChoice, bool) 
 		if kind == "" {
 			continue
 		}
+		// An AtRandom$ ChooseType body (Camato Scout) is the engine's draw,
+		// not a choice: no entry ask, and the body's effChooseType picks at
+		// the re-emitted move. Skipped before the ordinal is counted.
+		if kind == "type" && effects.ChooseTypeAtRandom(r.With) {
+			continue
+		}
 		// The ETB Clone slice is deliberately narrow: offering a copy while
 		// dropping an exception rider is worse than retaining today's loud
 		// unimplemented-API fallback. A body outside the whitelist is not a
