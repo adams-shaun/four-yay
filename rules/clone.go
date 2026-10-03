@@ -645,6 +645,14 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 			c.sourceControllerLKI[id] = controller
 		}
 	}
+	if e.sourceCharLKI != nil {
+		// Each snapshot's counters slice is never written after capture, so
+		// the clone shares it.
+		c.sourceCharLKI = make(map[state.ObjID]sourceCharSnapshot, len(e.sourceCharLKI))
+		for id, snap := range e.sourceCharLKI {
+			c.sourceCharLKI[id] = snap
+		}
+	}
 	if e.damageSourceLKI != nil {
 		c.damageSourceLKI = make(map[state.ObjID]map[state.ObjID]effects.DamageSourceLKI, len(e.damageSourceLKI))
 		for stack, lki := range e.damageSourceLKI {
@@ -691,7 +699,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		}
 	}
 	if e.triggerGameFires != nil {
-		c.triggerGameFires = make(map[triggerKey]int32, len(e.triggerGameFires))
+		c.triggerGameFires = make(map[triggerKey]gameFires, len(e.triggerGameFires))
 		for k, v := range e.triggerGameFires {
 			c.triggerGameFires[k] = v
 		}
