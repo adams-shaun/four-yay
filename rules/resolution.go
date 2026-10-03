@@ -963,11 +963,13 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			// what the answered re-entry added -- not the stack object's
 			// (spike S3's Remembered-across-a-suspension class).
 			next.remembered = append([]state.Target(nil), ctx.Remembered...)
-			if next.remembered == nil && next.kind == "repeat_body" {
-				// An EMPTY handoff is still a handoff for a Repeat loop frame:
-				// its RepeatDefined$ Remembered gate must see the body's
-				// cleared set (Cultivator Colossus's declined pick), not fall
-				// back to the stack object's stale one and loop forever.
+			if next.remembered == nil {
+				// An EMPTY handoff is still a handoff: the next frame must see
+				// the cleared set this frame finished with (a Repeat loop
+				// frame's RepeatDefined$ Remembered gate after Cultivator
+				// Colossus's declined pick; a plain frame after a Cleanup
+				// ClearRemembered$), not fall back to the stack object's
+				// stale one.
 				next.remembered = []state.Target{}
 			}
 		}

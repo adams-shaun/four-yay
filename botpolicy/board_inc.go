@@ -310,6 +310,7 @@ func (b *Board) fillTablesInc(g *state.Game, ch Chars, me state.PlayerID) bool {
 				Basic:     r.basic,
 				ManaCost:  f.ManaCost,
 				Toughness: r.toughness,
+				Activated: o.ActivatedThisTurn, // public; A5 (BoardFromGameInto's foreign walk)
 			}
 		}
 	}

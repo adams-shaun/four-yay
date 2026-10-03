@@ -185,6 +185,14 @@ func knownDefinedTargets(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 	if ts, ok := definedSpec(h, c, spec); ok {
 		return ts, true
 	}
+	if alias, ok := definedAliases[spec]; ok {
+		// Read only after definedSpec missed, so the common selectors pay
+		// nothing for it. A player set is de-duplicated, Forge's
+		// PlayerCollection: "TargetedAndYou" with yourself targeted names
+		// you once.
+		ts, ok := knownDefinedTargets(h, c, alias)
+		return uniqueTargets(ts), ok
+	}
 	if !strings.Contains(spec, " & ") {
 		return nil, false
 	}
@@ -1704,6 +1712,57 @@ func eventRemember(h Host, c *Ctx, id state.ObjID) {
 		return
 	}
 	h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "remembered", IDs: []state.ObjID{id}})
+}
+
+// definedAliases spells Forge selectors that are exact compositions of
+// modelled ones:
+//   - TargetedOrController -- "the target if it is a player, else its
+//     controller" (Flaming Gambit's ChooseCard chooser; Urza's and Rakdos's
+//     Return's discard/sacrifice legs): TargetedController already maps a
+//     player target to itself and an object target to its controller.
+//   - TargetedAndYou -- the targeted players, then you (Negan's "you and
+//     target opponent each secretly choose", the three Draw lines).
+var definedAliases = map[string]string{
+	"TargetedOrController": "TargetedController",
+	"TargetedAndYou":       "TargetedController & You",
+}
+
+// uniqueTargets drops repeated entries, keeping first-occurrence order.
+func uniqueTargets(ts []state.Target) []state.Target {
+	out := ts[:0:0]
+	for _, t := range ts {
+		dup := false
+		for _, u := range out {
+			if u == t {
+				dup = true
+				break
+			}
+		}
+		if !dup {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// rememberTarget joins one chosen target -- a player or an object -- to both
+// halves of the remembered state: the resolution's Ctx.Remembered (what the
+// chain's later sub-abilities read) and the source's persistent event-backed
+// list (Player.IsRemembered, Card.IsRemembered), a player through its
+// PlayerRef id exactly as a RememberChosen$ player answer is recorded. A
+// target already in the resolution's set is not added twice.
+func rememberTarget(h Host, c *Ctx, t state.Target) {
+	for _, r := range c.Remembered {
+		if r.IsPlayer == t.IsPlayer && r.Player == t.Player && r.Obj == t.Obj {
+			return
+		}
+	}
+	c.Remembered = append(c.Remembered, t)
+	if t.IsPlayer {
+		eventRemember(h, c, state.PlayerRef(t.Player))
+		return
+	}
+	eventRemember(h, c, t.Obj)
 }
 
 // eventForgetChanged implements ForgetChanged$ True (Forge ChangeZoneEffect's
