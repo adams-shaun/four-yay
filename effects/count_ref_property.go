@@ -110,6 +110,8 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 			if f != nil {
 				if lki && c.LKIPTValid {
 					n += c.LKIPower
+				} else if pt, ok := targetPTLKI(c, o); ok && !lki {
+					n += pt.Power
 				} else {
 					n += refPower(h, o, lki)
 				}
@@ -118,6 +120,8 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 			if f != nil {
 				if lki && c.LKIPTValid {
 					n += c.LKIToughness
+				} else if pt, ok := targetPTLKI(c, o); ok && !lki {
+					n += pt.Toughness
 				} else {
 					n += refToughness(h, o, lki)
 				}

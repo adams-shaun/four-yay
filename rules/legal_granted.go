@@ -49,15 +49,29 @@ type grantedAbility struct {
 // a name whose body is missing or is not an AB degrades to no grant (the
 // same totality stance every SVar resolution takes). Order: active()'s own
 // stable layer/timestamp sort, names in the grant's own order.
+//
+// bindGrantedCostReferents binds every OriginalHost cost part of a granted
+// ability to the GRANTOR (the Equipment or Aura whose static grants it):
+// Exile<1/OriginalHost> (The Dominion Bracelet), Sac<1/OriginalHost> (Blazing
+// Torch, Spare Dagger, Ninja's Kunai and five more equipment grants) and
+// tapXType<1/OriginalHost> (Fishing Pole). The spec alone cannot name the
+// grantor -- the filter's source is the RECIPIENT carrying the ability -- so
+// before the bind these parts matched nothing and the granted ability was
+// never offered.
 func bindGrantedCostReferents(cost *Cost, grantor state.ObjID) {
 	if cost == nil || grantor == 0 {
 		return
 	}
-	for i := range cost.Exile {
-		if strings.EqualFold(strings.TrimSpace(cost.Exile[i].Spec), "OriginalHost") {
-			cost.Exile[i].Referent = grantor
+	bind := func(parts []CostPart) {
+		for i := range parts {
+			if strings.EqualFold(strings.TrimSpace(parts[i].Spec), "OriginalHost") {
+				parts[i].Referent = grantor
+			}
 		}
 	}
+	bind(cost.Exile)
+	bind(cost.Sac)
+	bind(cost.TapPermanent)
 }
 
 func (e *Engine) grantedAbilities(p state.PlayerID, id state.ObjID) []grantedAbility {

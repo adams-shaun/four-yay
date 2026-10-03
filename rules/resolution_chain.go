@@ -116,6 +116,7 @@ func (e *Engine) buildContinuationChain(frames []contFrame, obj state.ObjID, tai
 		if e.resume != nil {
 			f.targetControllerLKI = effects.CloneTargetControllerLKI(e.resume.targetControllerLKI)
 			f.targetCountersLKI = effects.CloneTargetCountersLKI(e.resume.targetCountersLKI)
+			f.targetPTLKI = effects.CloneTargetPTLKI(e.resume.targetPTLKI)
 			f.targetSpellLKI = effects.CloneTargetSpellLKI(e.resume.targetSpellLKI)
 			f.replacedCards = append([]state.ObjID(nil), e.resume.replacedCards...)
 		}

@@ -74,7 +74,6 @@
   "Planar Engineering/sacrifice-two-lands-search-four-basics-tapped": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"p0:Forest\",\"p0:Forest#2\"]}]",
   "Pursue the Past/gain-two-life-then-discard-to-draw-two": "step 1 (resolve): [{\"kind\":\"any\",\"pick\":[\"p0:Forest\"]}]",
   "Quilled Greatwurm/cast-from-graveyard-removing-six-counters": "step 2 (cast): [{\"kind\":\"any\",\"pick\":[\"p0:Quilled Greatwurm\"]}]",
-  "Raise the Palisade/chosen-type-stays-everything-else-bounces": "step 1 (resolve): [{\"kind\":\"any\",\"pick\":[\"Bear\"]}]",
   "Reclamation Sage/target-gone-in-response-does-nothing": "step 6 (resolve): [{\"kind\":\"any\",\"pick\":[\"yes\"]}]",
   "Restless Cottage/attack-creates-food-and-exiles-a-graveyard-card": "step 2 (resolve): [{\"kind\":\"choose\",\"pick\":[\"p0:Lightning Bolt\"]}]",
   "Sai, Master Thopterist/sacrifice-two-artifacts-draw": "step 4 (mana): [{\"kind\":\"choose\",\"pick\":[\"p0:token:Thopter\",\"p0:token:Thopter#2\"]}]",

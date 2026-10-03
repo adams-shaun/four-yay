@@ -76,7 +76,9 @@ import (
 // records it) moves seed 8175's Songs of the Damned cast from seq 3694 to 3695:
 // foundations-calling-all-angels runs Oblivion Ring, whose leave-the-battlefield
 // trigger now returns the card it exiled, changing the trajectory. The
-// float_trigger_precedes_cast verdict is unchanged.
+// float_trigger_precedes_cast verdict is unchanged. fdn-fix8's CR 117.3b
+// priority reset after a permanent spell's own as-enters choice adds one
+// Priority event, moving it again from 3695 to 3696, verdict unchanged.
 func TestRoundNineFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -109,7 +111,7 @@ func TestRoundNineFindingsMirror(t *testing.T) {
 		10860: {3239: ""}, // Worldly Tutor; Three Visits no longer occurs after both command-zone fixes
 		11056: {},         // the Artisan finding is no longer reached; assert a clean, control-equivalent game
 		10056: {6128: ""},
-		8175:  {3695: precedes},
+		8175:  {3696: precedes},
 	}
 	for _, spec := range specs {
 		reports := round6Game(t, d, spec)

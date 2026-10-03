@@ -369,6 +369,23 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return 0, true, true
 		}
 		return h.CardsDrawnThisTurn(c.Controller), true, true
+	case "YouScryThisTurn", "YouSurveilThisTurn":
+		// The number of times the controller SCRIED / SURVEILLED this turn
+		// (Forge's per-turn scry and surveil tallies): Desperate
+		// Futurescribe, Proctor of Potential and Surveillance Phantasm's
+		// "if you've scried or surveilled this turn" (Count$YouScryThisTurn
+		// /Plus.Y over Count$YouSurveilThisTurn) and Darkblade Agent's
+		// "as long as you've surveilled this turn". A log fold through the
+		// Host (one events.Scry / events.Surveil record per completed
+		// instruction since the last TurnChange), so a replay derives the
+		// same count; an unbound controller is a modelled zero.
+		if c.Controller < 0 {
+			return 0, true, true
+		}
+		if head == "YouScryThisTurn" {
+			return h.ScriedThisTurn(c.Controller), true, true
+		}
+		return h.SurveilledThisTurn(c.Controller), true, true
 	case "CountersAddedThisTurn":
 		// Count$CountersAddedThisTurn <KIND> <Player> <ObjectSpec>.
 		// Keep malformed or unsupported shapes unresolvable: CheckSVar
