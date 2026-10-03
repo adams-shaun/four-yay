@@ -287,9 +287,12 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		cost = Cost{}
 	case "prepared_copy":
 		// CR 722.3c: the prepared designation's exile copy is cast as a
-		// copy of the prepare spell -- free, with targets and resolution
-		// running the ordinary stages, exactly like a plotted card's cast.
-		cost = Cost{}
+		// copy of the prepare spell, with targets and resolution running the
+		// ordinary stages. It is NOT free: the reminder grants only "you may
+		// cast a copy of its spell" (no "without paying its mana cost"), so
+		// CR 601.2f charges the copy's own printed mana cost -- the default
+		// rawBaseCost above, which reads the copy's prepare-spell face (Forge's
+		// prepared effect is likewise a plain MayPlay$ True grant).
 	case "foretell":
 		// CR 702.126a: the Foretell ACTION pays {2} and exiles the card face
 		// down -- never the keyword's own colon parameter, which prices the

@@ -70,11 +70,24 @@ type OracleSnapStack struct {
 }
 
 // OracleDecision is one non-priority decision the scenario answered.
+// Step is the scenario step that posed it (-1 during setup); PickIdx and
+// PickRefs name the picks by option index and by object ref ("pN" for a
+// player), so the generator can script the same answer for XMage.
 type OracleDecision struct {
-	Seat    int      `json:"seat"`
-	Kind    string   `json:"kind"` // target, yesno, mode, choose_n, order, attackers, blockers
-	Options int      `json:"options"`
-	Picks   []string `json:"picks"`
+	Step     int      `json:"step"`
+	Seat     int      `json:"seat"`
+	Kind     string   `json:"kind"` // target, yesno, mode, choose_n, order, attackers, blockers
+	Options  int      `json:"options"`
+	Picks    []string `json:"picks"`
+	PickIdx  []int    `json:"pick_idx"`
+	PickRefs []string `json:"pick_refs"`
+	Via      string   `json:"via"` // how the runner answered: target, answer, or a fallback
+	// GorgeKind and First let a generator script the same decision for
+	// gorge's runner: the raw decision kind and option 0's label.
+	GorgeKind string `json:"gorge_kind"`
+	First     string `json:"first,omitempty"`
+	Min       int    `json:"min"`
+	Max       int    `json:"max"`
 }
 
 const oracleLibraryTopN = 5

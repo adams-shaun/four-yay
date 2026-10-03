@@ -304,7 +304,10 @@ func (w *legalWalk) battlefieldWalk() {
 						// [+2]/[0] abilities were offered, payable and repeatable
 						// without bound -- the live Jace draw-three exploit).
 						if loyal {
-							if !sorcery {
+							// A loyalty-timing grant (loyalty_flash.go: Jace's
+							// Machinations, The Wandering Emperor) lifts only the
+							// sorcery-timing half, never the per-turn limit below.
+							if !sorcery && !e.loyaltyAtInstantSpeed(p, id) {
 								continue
 							}
 							if e.loyaltyActivationsThisTurn(id) >= e.loyaltyAbilityLimit(id) {
@@ -591,7 +594,7 @@ func (w *legalWalk) battlefieldWalk() {
 					// activate it without bound (cardfuzz batch1 line 18: 20000
 					// intents of "+1" on one Jaya Ballard in one main phase).
 					if e.isLoyaltyAbility(ab) {
-						if !sorcery {
+						if !sorcery && !e.loyaltyAtInstantSpeed(p, id) {
 							continue
 						}
 						if e.loyaltyActivationsThisTurn(id) >= e.loyaltyAbilityLimit(id) {

@@ -1,0 +1,855 @@
+// Package oraclegen generates level-A oracle scenarios for one card
+// (spec 2026-10-02-xmage-compliance-oracle-design section 6): play a land,
+// or cast a spell with exactly its mana in pool and resolve it, with legal
+// targets set up on the board. Scenarios use the rules/testdata/oracle
+// schema, so gorge's runner and the XMage driver both replay them.
+//
+// The generator may run gorge to choose a fixture (which target to offer,
+// how many resolves the stack needs). That does not bias the verdict: the
+// expectation is XMage's snapshot, never gorge's.
+package oraclegen
+
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules"
+)
+
+// xValue is the X every generated X spell is cast with.
+const xValue = 2
+
+// Version is part of every scenario id: bump it when a template's output
+// changes, so cached XMage results are not reused across versions.
+const Version = 1
+
+// Seat is one player's setup.
+type Seat struct {
+	Battlefield []string `json:"battlefield,omitempty"`
+	Hand        []string `json:"hand,omitempty"`
+	Graveyard   []string `json:"graveyard,omitempty"`
+	Exile       []string `json:"exile,omitempty"`
+	Library     []string `json:"library,omitempty"`
+	LibraryTop  []string `json:"library_top,omitempty"`
+}
+
+// Step is one scenario step (a subset of the runner's op set).
+type Step struct {
+	Op      string   `json:"op"`
+	Seat    int      `json:"seat"`
+	Card    string   `json:"card,omitempty"`
+	Mana    string   `json:"mana,omitempty"`
+	Targets []string `json:"targets,omitempty"`
+	Answers []Answer `json:"answers,omitempty"`
+}
+
+// Answer is a queued answer for gorge's runner (kind = decision kind).
+type Answer struct {
+	Kind string   `json:"kind"`
+	Pick []string `json:"pick"`
+}
+
+// Scenario is one generated scenario in the runner's schema.
+type Scenario struct {
+	Name  string          `json:"name"`
+	CR    []string        `json:"cr"`
+	Why   string          `json:"why"`
+	Setup map[string]Seat `json:"setup"`
+	Steps []Step          `json:"steps"`
+}
+
+// Item is one pipeline line: the scenario plus its identity. The XMage
+// driver ignores the extra fields; Raw() strips them for gorge's runner.
+//
+// XAnswers scripts, per step, the answers XMage's strict choose mode needs
+// for the decisions the step poses (targets of a trigger, a mode, a "may").
+// They are derived from the decisions gorge's deterministic runner made, so
+// both engines answer alike; a decision only one engine poses still shows
+// up, as an XMage harness error or a gorge leftover.
+type Item struct {
+	ID       string      `json:"id"`
+	Card     string      `json:"card"`
+	Template string      `json:"template"`
+	XAnswers [][]XAnswer `json:"xmage_answers,omitempty"`
+	// Ignore names snapshot fields the comparison leaves out for this
+	// scenario: library_top after the card shuffles a library.
+	Ignore []string `json:"ignore,omitempty"`
+	Scenario
+}
+
+// XAnswer is one scripted XMage answer: Kind target (Value a card name, a
+// seat "pN", or "[target_skip]"), mode (Value the 1-based mode number), or
+// choice (Value "yes"/"no" or an option label).
+type XAnswer struct {
+	Seat  int    `json:"seat"`
+	Kind  string `json:"kind"`
+	Value string `json:"value"`
+}
+
+// Raw is the scenario alone, as gorge's runner decodes it.
+func (it Item) Raw() []byte {
+	b, _ := json.Marshal(it.Scenario)
+	return b
+}
+
+// Skip explains why a card got no scenario.
+type Skip struct {
+	Card   string `json:"card"`
+	Reason string `json:"reason"`
+}
+
+// Generate builds the level-A scenario for one card, or says why not.
+func Generate(reg *cards.Registry, name string) (Item, *Skip) {
+	c, ok := reg.Lookup(name)
+	if !ok || len(c.Faces) == 0 {
+		return Item{}, &Skip{name, "not in corpus"}
+	}
+	f := c.Faces[0]
+	if hasType(f, "Land") {
+		it := item(name, "play-land", Scenario{
+			Setup: map[string]Seat{"p0": {Hand: []string{name}}},
+			Steps: []Step{{Op: "play", Seat: 0, Card: "p0:" + name}},
+		})
+		return it, nil
+	}
+	mana, why := poolFor(f.ManaCost)
+	if why != "" {
+		return Item{}, &Skip{name, why}
+	}
+	// A charm is generated mode by mode: the first mode some fixture can
+	// cast, with the mode scripted so both engines take it.
+	type plan struct {
+		slots   []string
+		answers []Answer
+	}
+	var xAns []Answer
+	if strings.Contains(" "+f.ManaCost+" ", " X ") {
+		xAns = []Answer{{Kind: "choose", Pick: []string{fmt.Sprintf("X = %d", xValue)}}}
+	}
+	plans := []plan{{slots: targetSlots(f), answers: xAns}}
+	if modes := charmModes(f); len(modes) > 0 {
+		plans = nil
+		for _, m := range modes {
+			plans = append(plans, plan{slots: chainSlots(f, m.svar), answers: append([]Answer{{Kind: "modes", Pick: []string{m.label}}}, xAns...)})
+		}
+	}
+	if targetsSpell(f) {
+		// A counterspell: cast a spell of our own, then counter it while
+		// holding priority (CR 117.3c).
+		// The extra {1} covers an optional additional cost ("behold or pay
+		// {1}"), tried only when the bare cost cannot cast.
+		for _, m := range []string{mana, mana + "C"} {
+			for _, pre := range precasts {
+				if it, ok := counterWith(reg, f, name, m, pre, xAns); ok {
+					return it, nil
+				}
+			}
+		}
+		return Item{}, &Skip{name, "no spell fixture gorge can counter"}
+	}
+	for _, m := range []string{mana, mana + "C"} {
+		for _, pl := range plans {
+			if it, ok := castWith(reg, f, name, m, pl.slots, pl.answers); ok {
+				return it, nil
+			}
+		}
+	}
+	return Item{}, &Skip{name, fmt.Sprintf("no fixture gorge can cast (targets %v)", plans[0].slots)}
+}
+
+// castWith tries every fixture for one target plan.
+func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []string, answers []Answer) (Item, bool) {
+	// Extras satisfy casting conditions the target fixture does not: a
+	// threshold graveyard, a creature of your own to sacrifice for a cost.
+	extras := []func(*fixture){
+		func(*fixture) {},
+		func(fx *fixture) { fx.p0.Graveyard = append(fx.p0.Graveyard, repeat("Wastes", 7)...) },
+		func(fx *fixture) { fx.p0.Battlefield = append(fx.p0.Battlefield, "Llanowar Elves") },
+	}
+	var all []fixture
+	for _, extra := range extras {
+		for _, fx := range fixtures(slots) {
+			extra(&fx)
+			all = append(all, fx)
+		}
+	}
+	for _, fx := range all {
+		sc := Scenario{
+			Setup: map[string]Seat{"p0": fx.p0, "p1": fx.p1},
+			Steps: []Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: fx.targets, Answers: answers}},
+		}
+		sc.Setup["p0"] = withHand(sc.Setup["p0"], name)
+		baseline(sc.Setup, f)
+		if n, res, ok := settle(reg, sc); ok {
+			for i := 0; i < n; i++ {
+				sc.Steps = append(sc.Steps, Step{Op: "resolve"})
+			}
+			// "May" is answered yes (spec section 6): a declined optional
+			// pick is re-scripted to take the first offered option, and the
+			// scenario kept only if gorge still plays it through.
+			if yes, changed := mayYes(sc, res.Decisions); changed {
+				if res2, ok2 := playsThrough(reg, yes); ok2 {
+					sc, res = yes, res2
+				}
+			}
+			it := item(name, "cast-resolve", sc)
+			it.XAnswers = xanswers(res.Decisions, len(sc.Steps), modeNumbers(f))
+			if searchesLibrary(f) || strings.Contains(strings.ToLower(f.Oracle), "shuffle") {
+				it.Ignore = []string{"library_top"}
+			}
+			return it, true
+		}
+	}
+	return Item{}, false
+}
+
+// mayYes queues, on the step that posed it, an answer taking option 0 for
+// every decision gorge's fallback left empty although it offered options.
+func mayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
+	out := sc
+	out.Steps = append([]Step(nil), sc.Steps...)
+	changed := false
+	for _, d := range ds {
+		if d.Step < 0 || d.Step >= len(out.Steps) || len(d.PickIdx) > 0 || d.Options == 0 || d.First == "" ||
+			d.Via == "target" || d.Via == "answer" || (d.GorgeKind != "choose" && d.GorgeKind != "target") {
+			continue
+		}
+		st := out.Steps[d.Step]
+		st.Answers = append(append([]Answer(nil), st.Answers...), Answer{Kind: d.GorgeKind, Pick: []string{d.First}})
+		out.Steps[d.Step] = st
+		changed = true
+	}
+	return out, changed
+}
+
+// playsThrough replays sc exactly and reports whether gorge performed
+// every step and ended with an empty stack.
+func playsThrough(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
+	b, _ := json.Marshal(sc)
+	res, err := rules.RunOracleScenarioJSON(reg, b)
+	if err != nil || len(res.Fails) > 0 || len(res.Snapshots) != len(sc.Steps)+1 {
+		return res, false
+	}
+	return res, len(res.Snapshots[len(res.Snapshots)-1].Stack) == 0
+}
+
+// targetsSpell reports whether the spell's first target is a spell on the
+// stack (TargetType$ Spell, a Counter).
+func targetsSpell(f *cards.Face) bool {
+	for _, sa := range f.Abilities {
+		if sa.Kind == "SP" {
+			return sa.Params["TargetType"] == "Spell" || (sa.API == "Counter" && sa.Params["ValidTgts"] != "")
+		}
+	}
+	return false
+}
+
+type precast struct {
+	card, mana string
+	targets    []string
+}
+
+// precasts are the spells a counterspell scenario counters, one per
+// colour and type a counter's filter commonly names.
+var precasts = []precast{
+	{"Disfigure", "B", []string{"p1:Grizzly Bears"}},
+	{"Raise the Alarm", "CW", nil},
+	{"Shock", "R", []string{"p1"}},
+	{"Opt", "U", nil},
+	{"Giant Growth", "G", []string{"p1:Grizzly Bears"}},
+	{"Grizzly Bears", "CG", nil},
+	{"Ornithopter", "", nil},
+	{"Serra Angel", "CCCWW", nil},
+}
+
+func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre precast, answers []Answer) (Item, bool) {
+	sc := Scenario{
+		Setup: map[string]Seat{"p0": {Hand: []string{name, pre.card}}, "p1": {}},
+		Steps: []Step{
+			{Op: "cast", Seat: 0, Card: "p0:" + pre.card, Mana: pre.mana, Targets: pre.targets},
+			{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: []string{"p0:" + pre.card}, Answers: answers},
+			{Op: "resolve"},
+		},
+	}
+	baseline(sc.Setup, f)
+	res, ok := playsThrough(reg, sc)
+	if !ok {
+		return Item{}, false
+	}
+	// The countered spell must have left the stack without resolving.
+	last := res.Snapshots[len(res.Snapshots)-1]
+	_ = last
+	it := item(name, "counter-spell", sc)
+	it.XAnswers = xanswers(res.Decisions, len(sc.Steps), modeNumbers(f))
+	return it, true
+}
+
+type charmMode struct{ svar, label string }
+
+// charmModes lists the spell's charm modes in Choices$ order.
+func charmModes(f *cards.Face) []charmMode {
+	for _, sa := range f.Abilities {
+		if sa.Kind != "SP" {
+			continue
+		}
+		if sa.API != "Charm" {
+			return nil
+		}
+		var out []charmMode
+		for _, name := range strings.Split(sa.Params["Choices"], ",") {
+			if name = strings.TrimSpace(name); name != "" {
+				out = append(out, charmMode{name, effects.CharmModeLabel(cards.ResolveSVar(f.SVars, name), name)})
+			}
+		}
+		return out
+	}
+	return nil
+}
+
+// chainSlots lists the target filters along one SVar ability chain.
+func chainSlots(f *cards.Face, svar string) []string {
+	var out []string
+	for name := svar; name != ""; {
+		params := svarParams(f.SVars[name])
+		if v := params["ValidTgts"]; v != "" {
+			z := params["TgtZone"]
+			if z == "" && params["Origin"] != "" && !strings.Contains(params["Origin"], "Battlefield") {
+				z = params["Origin"]
+			}
+			if z != "" {
+				v += "@" + z
+			}
+			out = append(out, v)
+		}
+		name = params["SubAbility"]
+	}
+	return out
+}
+
+func item(card, template string, sc Scenario) Item {
+	sc.Name = fmt.Sprintf("gen%d-%s", Version, template)
+	sc.CR = []string{"601.2"}
+	sc.Why = "generated level-A scenario"
+	return Item{ID: fmt.Sprintf("%s/%s/v%d", card, template, Version), Card: card, Template: template, Scenario: sc}
+}
+
+// baseline gives every cast scenario something for "up to one target"
+// triggers and library searches to find: XMage poses those decisions even
+// with no legal choice (and strict mode then needs a scripted skip), while
+// gorge skips them. An opposing creature and a varied library top make
+// both engines ask.
+func baseline(setup map[string]Seat, f *cards.Face) {
+	p1 := setup["p1"]
+	has := false
+	for _, n := range p1.Battlefield {
+		if n == "Grizzly Bears" {
+			has = true
+		}
+	}
+	if !has {
+		p1.Battlefield = append(p1.Battlefield, "Grizzly Bears")
+	}
+	setup["p1"] = p1
+	if searchesLibrary(f) {
+		p0 := setup["p0"]
+		p0.LibraryTop = []string{"Jace Beleren", "Grizzly Bears", "Forest", "Glorious Anthem", "Shock", "Plains", "Ornithopter"}
+		setup["p0"] = p0
+	}
+}
+
+func searchesLibrary(f *cards.Face) bool {
+	for _, sa := range f.Abilities {
+		if strings.Contains(sa.Line, "Origin$ Library") {
+			return true
+		}
+	}
+	for _, body := range f.SVars {
+		if strings.Contains(body, "Origin$ Library") {
+			return true
+		}
+	}
+	for _, t := range f.Triggers {
+		if t.Effect != nil && strings.Contains(t.Effect.Line, "Origin$ Library") {
+			return true
+		}
+	}
+	return false
+}
+
+func repeat(s string, n int) []string {
+	out := make([]string, n)
+	for i := range out {
+		out[i] = s
+	}
+	return out
+}
+
+func withHand(s Seat, name string) Seat {
+	s.Hand = append([]string{name}, s.Hand...)
+	return s
+}
+
+// settle runs the cast in gorge and returns how many resolve steps empty
+// the stack (at most 4); ok is false when gorge cannot cast with this
+// fixture.
+func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) {
+	for n := 1; n <= 4; n++ {
+		try := sc
+		try.Steps = append(append([]Step(nil), sc.Steps...), make([]Step, n)...)
+		for i := len(sc.Steps); i < len(try.Steps); i++ {
+			try.Steps[i] = Step{Op: "resolve"}
+		}
+		b, _ := json.Marshal(try)
+		res, err := rules.RunOracleScenarioJSON(reg, b)
+		if err != nil || len(res.Snapshots) == 0 {
+			return 0, res, false
+		}
+		for _, f := range res.Fails {
+			if strings.HasPrefix(f, "step 0 ") || strings.Contains(f, "harness:") {
+				return 0, res, false
+			}
+		}
+		last := res.Snapshots[len(res.Snapshots)-1]
+		if len(res.Snapshots) == len(try.Steps)+1 && len(last.Stack) == 0 {
+			return n, res, true
+		}
+	}
+	return 0, rules.OracleResult{}, false
+}
+
+// xanswers turns gorge's recorded decisions into XMage's scripted answers,
+// grouped by the step that posed them.
+func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XAnswer {
+	out := make([][]XAnswer, steps)
+	any := false
+	for _, d := range ds {
+		if d.Step < 0 || d.Step >= steps || d.Via == "target" {
+			// A step's own targets reach XMage through castSpell.
+			continue
+		}
+		if d.Options <= 1 && d.Kind != "target" && d.Kind != "order" {
+			// A forced one-option ask: XMage does not pose it.
+			continue
+		}
+		var as []XAnswer
+		switch d.Kind {
+		case "target":
+			for _, ref := range d.PickRefs {
+				v := ref
+				if !isSeat(ref) {
+					v = oraclediffRefName(ref)
+				}
+				as = append(as, XAnswer{d.Seat, "target", v})
+			}
+			if len(d.PickRefs) == 0 {
+				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
+			}
+		case "mode":
+			// gorge offers only the modes with legal targets, so an option
+			// index is not the mode number; the label is.
+			for k, i := range d.PickIdx {
+				n := i + 1
+				if k < len(d.Picks) {
+					if m, ok := modes[d.Picks[k]]; ok {
+						n = m
+					}
+				}
+				as = append(as, XAnswer{d.Seat, "mode", fmt.Sprint(n)})
+			}
+		case "yesno":
+			yes := len(d.PickIdx) > 0 && d.PickIdx[0] == 0
+			if len(d.Picks) > 0 {
+				l := strings.ToLower(d.Picks[0])
+				yes = strings.HasPrefix(l, "yes") || strings.HasPrefix(l, "accept") || strings.HasPrefix(l, "pay") || l == "true"
+			}
+			as = append(as, XAnswer{d.Seat, "choice", map[bool]string{true: "yes", false: "no"}[yes]})
+		case "choose_n":
+			if payment(d.Picks) {
+				// Hybrid/phyrexian halves are payment UI; XMage pays from
+				// the pool without asking.
+				continue
+			}
+			if len(d.Picks) == 1 && strings.HasPrefix(d.Picks[0], "X = ") {
+				as = append(as, XAnswer{d.Seat, "choice", "X=" + strings.TrimPrefix(d.Picks[0], "X = ")})
+				break
+			}
+			if yn, ok := yesNo(d); ok {
+				as = append(as, XAnswer{d.Seat, "choice", yn})
+				break
+			}
+			for k, ref := range d.PickRefs {
+				label := ""
+				if k < len(d.Picks) {
+					label = d.Picks[k]
+				}
+				// An option naming an object is a card pick (XMage: a
+				// target); one whose Obj is only the source is a labelled
+				// choice.
+				if name := oraclediffRefName(ref); ref != label && strings.HasPrefix(label, name) {
+					as = append(as, XAnswer{d.Seat, "target", name})
+				} else {
+					as = append(as, XAnswer{d.Seat, "choice", label})
+				}
+			}
+			if len(d.PickRefs) == 0 {
+				// Declined: XMage may ask it as a yes/no or as an "up to"
+				// pick; script both, a leftover is harmless.
+				as = append(as, XAnswer{d.Seat, "choice", "no"}, XAnswer{d.Seat, "target", "[target_skip]"})
+			} else if d.Max > len(d.PickRefs) && len(as) > 0 && as[len(as)-1].Kind == "target" {
+				// Fewer than "up to N": stop XMage picking more.
+				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
+			}
+		case "order":
+			// Scry/surveil (arrange): XMage asks which cards to move; keeping
+			// every card where it is is a skip.
+			if d.Via != "" && len(d.PickIdx) == d.Options {
+				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
+			} else {
+				continue
+			}
+		default:
+			continue
+		}
+		out[d.Step] = append(out[d.Step], as...)
+		any = true
+	}
+	if !any {
+		return nil
+	}
+	return out
+}
+
+// modeNumbers maps each charm mode's label (as gorge's mode decision
+// shows it) to its 1-based position in its Choices$ list, for every Charm
+// on the face -- the spell's own and any modal trigger's.
+func modeNumbers(f *cards.Face) map[string]int {
+	out := map[string]int{}
+	add := func(choices string) {
+		for i, name := range strings.Split(choices, ",") {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			out[effects.CharmModeLabel(cards.ResolveSVar(f.SVars, name), name)] = i + 1
+		}
+	}
+	for _, sa := range f.Abilities {
+		if sa.API == "Charm" {
+			add(sa.Params["Choices"])
+		}
+	}
+	for _, body := range f.SVars {
+		if strings.Contains(body, "Charm") {
+			if c := svarParams(body)["Choices"]; c != "" {
+				add(c)
+			}
+		}
+	}
+	return out
+}
+
+// yesNo recognises a two-way "do it / don't" choice and returns XMage's
+// boolean answer for gorge's pick.
+func yesNo(d rules.OracleDecision) (string, bool) {
+	if d.Options != 2 || len(d.Picks) != 1 || len(d.PickRefs) != 1 || isSeat(d.PickRefs[0]) ||
+		(d.PickRefs[0] != d.Picks[0] && strings.HasPrefix(d.Picks[0], oraclediffRefName(d.PickRefs[0]))) {
+		// Only a labelled two-way choice (its option may carry the source
+		// object); a player or card pick is not a yes/no.
+		return "", false
+	}
+	l := strings.ToLower(d.Picks[0])
+	for _, neg := range []string{"do not", "don't", "no", "decline", "skip"} {
+		if strings.HasPrefix(l, neg) {
+			return "no", true
+		}
+	}
+	if len(d.PickIdx) == 1 && d.PickIdx[0] == 0 && !strings.Contains(l, "(") {
+		return "yes", true
+	}
+	return "", false
+}
+
+func payment(picks []string) bool {
+	if len(picks) == 0 {
+		return false
+	}
+	for _, p := range picks {
+		if !strings.HasPrefix(p, "Pay ") {
+			return false
+		}
+	}
+	return true
+}
+
+func isSeat(s string) bool {
+	return len(s) >= 2 && s[0] == 'p' && strings.Trim(s[1:], "0123456789") == ""
+}
+
+// oraclediffRefName strips a scenario ref to the object name.
+func oraclediffRefName(ref string) string {
+	n := ref
+	if i := strings.IndexByte(n, ':'); i >= 0 && strings.HasPrefix(n, "p") {
+		n = n[i+1:]
+	}
+	n = strings.TrimPrefix(n, "token:")
+	if j := strings.LastIndexByte(n, '#'); j >= 0 && j+1 < len(n) && strings.Trim(n[j+1:], "0123456789") == "" {
+		n = n[:j]
+	}
+	return n
+}
+
+func hasType(f *cards.Face, t string) bool {
+	for _, x := range f.Types {
+		if strings.EqualFold(x, t) {
+			return true
+		}
+	}
+	return false
+}
+
+// poolFor turns a Forge mana cost ("2 R R", "W/U", "X G") into the exact
+// pool letters that pay it: generic as colorless, hybrid as its first half.
+func poolFor(cost string) (string, string) {
+	cost = strings.TrimSpace(cost)
+	if cost == "" || strings.EqualFold(cost, "no cost") {
+		return "", "no mana cost"
+	}
+	var b strings.Builder
+	for _, sym := range strings.Fields(cost) {
+		switch {
+		case sym == "0":
+		case strings.Trim(sym, "0123456789") == "":
+			var n int
+			fmt.Sscanf(sym, "%d", &n)
+			b.WriteString(strings.Repeat("C", n))
+		case len(sym) == 1 && strings.Contains("WUBRGC", sym):
+			b.WriteString(sym)
+		case len(sym) == 2 && strings.Contains("WUBRG", sym[:1]) && strings.Contains("WUBRG", sym[1:]):
+			// Forge spells hybrid {W/B} as "WB": pay the first half.
+			b.WriteString(sym[:1])
+		case len(sym) == 2 && sym[0] == '2' && strings.Contains("WUBRG", sym[1:]):
+			// {2/W}: pay the coloured half.
+			b.WriteString(sym[1:])
+		case strings.Contains(sym, "/"):
+			h := strings.Split(sym, "/")
+			switch {
+			case strings.EqualFold(h[1], "P"):
+				b.WriteString(h[0])
+			case len(h[0]) == 1 && strings.Contains("WUBRGC", h[0]):
+				b.WriteString(h[0])
+			case strings.Trim(h[0], "0123456789") == "":
+				// {2/W}: pay the coloured half.
+				b.WriteString(h[1])
+			default:
+				return "", "mana symbol " + sym
+			}
+		case sym == "X":
+			// X = xValue, scripted for both engines (Generate).
+			b.WriteString(strings.Repeat("C", xValue))
+		default:
+			return "", "mana symbol " + sym
+		}
+	}
+	return b.String(), ""
+}
+
+// targetSlots lists the ValidTgts$ filters along the card's spell ability
+// chain (permanent spells have none), in the order the cast asks for them.
+func targetSlots(f *cards.Face) []string {
+	var out []string
+	add := func(params map[string]string) {
+		v := params["ValidTgts"]
+		if v == "" {
+			return
+		}
+		z := params["TgtZone"]
+		if z == "" && params["Origin"] != "" && !strings.Contains(params["Origin"], "Battlefield") {
+			z = params["Origin"]
+		}
+		if z != "" {
+			v += "@" + z
+		}
+		out = append(out, v)
+	}
+	for _, sa := range f.Abilities {
+		if sa.Kind != "SP" {
+			continue
+		}
+		if sa.API == "Charm" {
+			// The runner and XMage both take the first mode; its chain
+			// carries the targets.
+			if first := strings.TrimSpace(strings.Split(sa.Params["Choices"], ",")[0]); first != "" {
+				for name := first; name != ""; {
+					params := svarParams(f.SVars[name])
+					add(params)
+					name = params["SubAbility"]
+				}
+			}
+			break
+		}
+		for s := sa; s != nil; s = s.Sub {
+			add(s.Params)
+		}
+		break
+	}
+	return out
+}
+
+// svarParams splits an SVar ability body ("DB$ Pump | ValidTgts$ ...")
+// into its params.
+func svarParams(body string) map[string]string {
+	out := map[string]string{}
+	for _, part := range strings.Split(body, "|") {
+		k, v, ok := strings.Cut(strings.TrimSpace(part), "$")
+		if ok {
+			out[strings.TrimSpace(k)] = strings.TrimSpace(v)
+		}
+	}
+	return out
+}
+
+type fixture struct {
+	p0, p1  Seat
+	targets []string
+}
+
+// candidates for one target filter, most generic first. Each puts the
+// target on the board and names it.
+type cand struct {
+	seat, zone, card string // seat "p0"/"p1", zone, card; card "" = the player
+}
+
+func candidatesFor(filter string) []cand {
+	zone := ""
+	if i := strings.LastIndexByte(filter, '@'); i >= 0 {
+		filter, zone = filter[:i], strings.ToLower(filter[i+1:])
+	}
+	if zone != "" && zone != "battlefield" {
+		return zoneCandidates(filter, zone)
+	}
+	alt := strings.Split(filter, ",")
+	base := strings.ToLower(strings.SplitN(alt[0], ".", 2)[0])
+	mine := strings.Contains(filter, "YouCtrl") || strings.Contains(filter, "YouOwn")
+	opp := "p1"
+	if mine {
+		opp = "p0"
+	}
+	creatures := []cand{{opp, "battlefield", "Grizzly Bears"}, {opp, "battlefield", "Serra Angel"}, {opp, "battlefield", "Ornithopter"}, {opp, "battlefield", "Llanowar Elves"}, {opp, "battlefield", "Hill Giant"}}
+	switch base {
+	case "any":
+		return append(creatures, cand{"p1", "", ""})
+	case "creature":
+		return creatures
+	case "player", "opponent":
+		if strings.Contains(filter, "You") && !strings.Contains(filter, "Opp") {
+			return []cand{{"p0", "", ""}}
+		}
+		return []cand{{"p1", "", ""}, {"p0", "", ""}}
+	case "permanent", "card":
+		if strings.Contains(filter, "Graveyard") {
+			break
+		}
+		return append(creatures, cand{opp, "battlefield", "Glorious Anthem"}, cand{opp, "battlefield", "Forest"})
+	case "artifact":
+		return []cand{{opp, "battlefield", "Ornithopter"}, {opp, "battlefield", "Sol Ring"}}
+	case "enchantment":
+		return []cand{{opp, "battlefield", "Glorious Anthem"}}
+	case "land":
+		return []cand{{opp, "battlefield", "Forest"}}
+	case "planeswalker":
+		return []cand{{opp, "battlefield", "Jace Beleren"}}
+	case "instant", "sorcery":
+		return []cand{{opp, "graveyard", "Shock"}, {"p0", "graveyard", "Shock"}}
+	}
+	return nil
+}
+
+// zoneCandidates offers cards in a non-battlefield zone (TgtZone$): the
+// owner from YouOwn/OppOwn, else both seats.
+func zoneCandidates(filter, zone string) []cand {
+	if strings.Contains(zone, ",") {
+		zone = strings.Split(zone, ",")[0]
+	}
+	switch zone {
+	case "graveyard", "exile", "hand":
+	default:
+		return nil
+	}
+	seats := []string{"p0", "p1"}
+	switch {
+	case strings.Contains(filter, "YouOwn") || strings.Contains(filter, "YouCtrl"):
+		seats = []string{"p0"}
+	case strings.Contains(filter, "OppOwn") || strings.Contains(filter, "OppCtrl"):
+		seats = []string{"p1"}
+	}
+	var out []cand
+	for _, c := range []string{"Grizzly Bears", "Serra Angel", "Shock", "Llanowar Elves", "Glorious Anthem", "Ornithopter", "Forest", "Duress"} {
+		for _, st := range seats {
+			out = append(out, cand{st, zone, c})
+		}
+	}
+	return out
+}
+
+// fixtures is the cross product of every slot's candidates, capped.
+func fixtures(slots []string) []fixture {
+	out := []fixture{{}}
+	for _, s := range slots {
+		cs := candidatesFor(s)
+		if len(cs) == 0 {
+			return nil
+		}
+		var next []fixture
+		for _, fx := range out {
+			for _, c := range cs {
+				n := fixture{p0: clone(fx.p0), p1: clone(fx.p1), targets: append([]string(nil), fx.targets...)}
+				if c.card == "" {
+					n.targets = append(n.targets, c.seat)
+				} else {
+					s := &n.p1
+					if c.seat == "p0" {
+						s = &n.p0
+					}
+					count := 0
+					for _, x := range append(append(append(append([]string(nil), s.Battlefield...), s.Graveyard...), s.Exile...), s.Hand...) {
+						if x == c.card {
+							count++
+						}
+					}
+					switch c.zone {
+					case "battlefield":
+						s.Battlefield = append(s.Battlefield, c.card)
+					case "graveyard":
+						s.Graveyard = append(s.Graveyard, c.card)
+					case "exile":
+						s.Exile = append(s.Exile, c.card)
+					case "hand":
+						s.Hand = append(s.Hand, c.card)
+					}
+					ref := c.seat + ":" + c.card
+					if count > 0 {
+						ref = fmt.Sprintf("%s#%d", ref, count+1)
+					}
+					n.targets = append(n.targets, ref)
+				}
+				next = append(next, n)
+				if len(next) >= 24 {
+					break
+				}
+			}
+		}
+		out = next
+	}
+	return out
+}
+
+func clone(s Seat) Seat {
+	return Seat{
+		Battlefield: append([]string(nil), s.Battlefield...), Hand: append([]string(nil), s.Hand...),
+		Graveyard: append([]string(nil), s.Graveyard...), Exile: append([]string(nil), s.Exile...),
+		Library: append([]string(nil), s.Library...), LibraryTop: append([]string(nil), s.LibraryTop...),
+	}
+}
