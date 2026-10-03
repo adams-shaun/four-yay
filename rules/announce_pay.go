@@ -6,6 +6,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -129,7 +130,7 @@ func (e *Engine) announcedAbilityColours(p state.PlayerID, id state.ObjID, ma *c
 	if ma == nil || ma.API != "Mana" {
 		return nil
 	}
-	raw := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
+	raw := effects.ManaOf(ma).Produced
 	if raw != "Any" && raw != "ColorIdentity" && !paymentPlanChoiceShape(raw) {
 		return nil
 	}

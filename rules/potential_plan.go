@@ -6,6 +6,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -981,7 +982,8 @@ func (e *Engine) paymentPlanRelaxedAlternatives(p state.PlayerID, id state.ObjID
 		}
 		amt = max(live, tapped)
 	}
-	counts, any := cards.ProducedCounts(ma.ParamStr(cards.PKProduced))
+	mp := effects.ManaOf(ma)
+	counts, any := mp.Counts, mp.CountsAny
 	creature := e.IsCreature(id)
 	var out []plannedManaActivation
 	add := func(m state.Mana) {

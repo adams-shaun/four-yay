@@ -115,7 +115,7 @@ var changeZoneAllKnownKeys = [...]string{
 	"PresentCompare", "PresentDefined", "PresentZone", "RandomOrder", "ReduceAmount",
 	"ReduceCost", "RememberChanged", "RememberCostMana", "RememberLKI",
 	"RememberObjects", "ReplaceColor", "ReplaceGraveyard", "ReplaceGraveyardValid",
-	"ReplaceMana", "ReplaceOnly", "ReplaceType", "RestrictValid", "SVarCompare",
+	"ReplaceMana", "ReplaceOnly", "ReplaceType", "SVarCompare",
 	"SelectPrompt", "SetChosenMode", "SetColor", "ShowCards", "Shuffle",
 	"SorcerySpeed", "SpellDescription", "StackDescription",
 	"StaticEffect", "StaticEffectCheckSVar", "StaticEffectSVarCompare", "SubAbility",
@@ -127,11 +127,11 @@ var changeZoneAllKnownKeys = [...]string{
 	"TargetsWithEqualToughness", "TargetsWithSameCardType",
 	"TargetsWithSameController", "TargetsWithSameCreatureType",
 	"TargetsWithSharedCardType", "TargetsWithSharedTypes", "TgtPrompt", "TgtZone",
-	"TokenScript", "Transformed", "TriggerDescription", "TriggersWhenSpent", "Type",
+	"TokenScript", "Transformed", "TriggerDescription", "Type",
 	"Ultimate", "Unearth", "UnlessAI", "UnlessCost", "UnlessPayer",
 	"UnlessResolveSubs", "UnlessSwitched", "UseAllOriginZones", "ValidCard",
 	"ValidCards", "ValidCardsDesc", "ValidChoices", "ValidCounterType",
-	"ValidDescription", "ValidTgts", "VarName", "VarValue", "VoteMessage",
+	"ValidDescription", "ValidTgts", "VoteMessage",
 	"WithMayLook", "WithoutManaCost", "XMax", "XMin",
 }
 
@@ -210,15 +210,18 @@ func compileChangeZoneAll(sa *cards.SA) *ChangeZoneAllParams {
 }
 
 // unreadKeys lists, sorted, the keys present on sa that are not in known (a
-// sorted table): an API compiler's unread report (compile time only: one map
-// walk per ability).
+// sorted table): an API compiler's unread report (one map walk per compile).
+// The walk is unsorted and the result sorted, so map order never reaches it,
+// and an ability with nothing unread allocates nothing (a runtime copy -- a
+// mana ability's rewritten Produced$ -- recompiles per copy).
 func unreadKeys(sa *cards.SA, known []string) []string {
 	var out []string
-	for _, k := range sa.ParamNames() {
+	for k := range sa.Params {
 		if _, ok := slices.BinarySearch(known, k); !ok {
 			out = append(out, k)
 		}
 	}
+	slices.Sort(out)
 	return out
 }
 

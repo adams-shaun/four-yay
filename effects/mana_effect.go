@@ -9,48 +9,6 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-func effReplaceMana(_ Host, c *Ctx, sa *cards.SA) {
-	if c == nil {
-		return
-	}
-	if only := strings.TrimSpace(sa.Params["ReplaceOnly"]); only != "" && only != c.ManaType {
-		return
-	}
-	if n := Num(nil, c, sa, "ReplaceAmount", 1); n > 0 {
-		c.ManaAmount *= n
-	}
-	kind := strings.TrimSpace(sa.Params["ReplaceMana"])
-	if kind != "" {
-		c.ManaAmount = 1
-	}
-	if kind == "" {
-		kind = strings.TrimSpace(sa.Params["ReplaceType"])
-	}
-	if kind == "" {
-		kind = strings.TrimSpace(sa.Params["ReplaceColor"])
-	}
-	if kind == "" {
-		return
-	}
-	switch strings.ToLower(kind) {
-	case "white":
-		kind = "W"
-	case "blue":
-		kind = "U"
-	case "black":
-		kind = "B"
-	case "red":
-		kind = "R"
-	case "green":
-		kind = "G"
-	case "any", "chosen":
-		kind = c.ManaChoice
-	}
-	if len(kind) == 1 && strings.ContainsRune(ManaSymbols, rune(kind[0])) {
-		c.ManaType = kind
-	}
-}
-
 var manaRuneNormalizer = strings.NewReplacer("{", "", "}", "", " ", "")
 
 var manaChoiceColours = []string{"W", "U", "B", "R", "G"}
@@ -99,7 +57,7 @@ func askManaChoice(h Host, c *Ctx, sa *cards.SA, produced string) (string, bool)
 	if len(colours) <= 1 {
 		return produced, false
 	}
-	amount := Num(h, c, sa, "Amount", 1)
+	amount := ManaOf(sa).AmountNum(h, c, 1)
 	allocation := strings.HasPrefix(produced, "Combo ") && amount > 1
 	if amount <= 0 {
 		return produced, false
@@ -170,7 +128,9 @@ func ManaProducerTag(h Host, source state.ObjID) (tag string, snow bool) {
 }
 
 func effMana(h Host, c *Ctx, sa *cards.SA) {
-	produced := strings.TrimSpace(sa.ParamStr(cards.PKProduced))
+	mp := ManaOf(sa)
+	noteUnreadParams(h, c, "Mana", mp.Unread)
+	produced := mp.Produced
 	// A resumed Combo allocation supplies one concrete symbol per unit.
 	// Consume it before walking the SA so the same choice is not posed again;
 	// its units carry Amount 1 below rather than being multiplied again.
@@ -302,7 +262,7 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 	}
-	amt := Num(h, c, sa, "Amount", 1)
+	amt := mp.AmountNum(h, c, 1)
 	if allocation {
 		amt = 1
 	}
@@ -320,7 +280,7 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 	// cannot evaluate (anything but Spell./Activated.) is still retained --
 	// it matches no payment, so the mana is never spendable, the
 	// fail-closed direction.
-	restriction := strings.TrimSpace(sa.ParamStr(cards.PKRestrictValid))
+	restriction := mp.RestrictValid
 	// AddsNoCounter$ (Cavern of Souls' "that spell can't be countered",
 	// Boseiju, Delighted Halfling — 3 corpus files): the produced mana carries
 	// its can't-be-countered provenance on the same ManaAdd restriction batch
@@ -333,7 +293,7 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 	// other value is a loud Note and NO protection — an unrecognised condition
 	// must not silently promise something the engine cannot model.
 	noCounter := ""
-	switch strings.TrimSpace(sa.Params["AddsNoCounter"]) {
+	switch mp.AddsNoCounter {
 	case "":
 	case "True":
 		noCounter = "True"
@@ -341,7 +301,7 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 		noCounter = "NotPermanent"
 	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "unhandled AddsNoCounter$ " + strings.TrimSpace(sa.Params["AddsNoCounter"]) + "; the mana is ordinary"})
+			Text: "unhandled AddsNoCounter$ " + mp.AddsNoCounter + "; the mana is ordinary"})
 	}
 	// PersistentMana$ True (Rousing Refrain, Savage Ventmaw, Klauth, Kessig
 	// Naturalist: 23 corpus files / 24 raw lines, every occurrence the
@@ -353,13 +313,13 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 	// with RestrictValid$). Any other value is a loud Note and ordinary
 	// mana.
 	persistent := false
-	switch strings.TrimSpace(sa.Params["PersistentMana"]) {
+	switch mp.PersistentMana {
 	case "":
 	case "True":
 		persistent = true
 	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "unhandled PersistentMana$ " + strings.TrimSpace(sa.Params["PersistentMana"]) + "; the mana is ordinary"})
+			Text: "unhandled PersistentMana$ " + mp.PersistentMana + "; the mana is ordinary"})
 	}
 	// PersistentUntilEndOfCombat$ True is the CR 702.189a Firebending
 	// exception ("Until end of combat, you don't lose this mana as steps and
@@ -369,13 +329,13 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 	// by, and composes with, the printed keyword expansion (cards/
 	// kw_firebending.go); any other value is a loud Note and ordinary mana.
 	combat := false
-	switch strings.TrimSpace(sa.Params["PersistentUntilEndOfCombat"]) {
+	switch mp.PersistentUntilEndOfCombat {
 	case "":
 	case "True":
 		combat, persistent = true, true
 	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "unhandled PersistentUntilEndOfCombat$ " + strings.TrimSpace(sa.Params["PersistentUntilEndOfCombat"]) + "; the mana is ordinary"})
+			Text: "unhandled PersistentUntilEndOfCombat$ " + mp.PersistentUntilEndOfCombat + "; the mana is ordinary"})
 	}
 	// CR 107.4h: mana produced by a SNOW permanent is snow mana. A snow unit
 	// is tagged in the pool event itself — Counter "S<colour>" — so the pool
@@ -395,7 +355,7 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 	// ManaRestriction event encoding carries both the restriction and source
 	// provenance, so spendability and the later trigger attribution compose.
 	// The spend path dispatches the named rider after the payment completes.
-	triggersWhenSpent := strings.TrimSpace(sa.Params["TriggersWhenSpent"])
+	triggersWhenSpent := mp.TriggersWhenSpent
 	// AddsCounters$ (Opal Palace's "If you spend this mana to cast your
 	// commander, it enters with ... counters", Biophagus, Animal Attendant,
 	// Guildmages' Forum: 4 corpus files) is retained the same way: rules'
@@ -406,7 +366,7 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 	// The rider string itself is not decoded here (the plan owns the
 	// grammar); an absent or empty value is not a rider and produces ordinary
 	// mana, the fail-closed direction.
-	addsCounters := strings.TrimSpace(sa.Params["AddsCounters"])
+	addsCounters := mp.AddsCounters
 	provenanceOnly := (triggersWhenSpent != "" || addsCounters != "") && restriction == "" && noCounter == ""
 	for _, p := range ManaRecipients(h, c, sa) {
 		var emitted [256]bool
@@ -509,7 +469,7 @@ func eachColorAmongExiledWith(h Host, c *Ctx) string {
 // no activator fallback): Valleymaker's Defined$ ChosenPlayer must not hand the
 // mana to its controller when no player was chosen.
 func ManaRecipients(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
-	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "" {
+	if !ManaOf(sa).HasDefined {
 		return []state.PlayerID{c.Controller}
 	}
 	// definedPlayers applies Forge's getDefinedPlayers rule: a remembered CARD

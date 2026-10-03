@@ -2,10 +2,9 @@ package rules
 
 import (
 	"slices"
-	"strconv"
-	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -350,7 +349,8 @@ func manaAdd(a, b state.Mana) state.Mana {
 // five-colour superset for a bare "Chosen" because it has no source object;
 // the substitution here is what supplies the source-aware answer.
 func addAvailable(m *state.Mana, ma *cards.SA, chosen string) {
-	raw := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
+	mp := effects.ManaOf(ma)
+	raw := mp.Produced
 	produced := substituteChosenProduced(raw, chosen)
 	// ProducedCounts intentionally has no source and therefore exposes the
 	// WUBRG superset for a raw Chosen token. This source-aware projection has
@@ -360,7 +360,7 @@ func addAvailable(m *state.Mana, ma *cards.SA, chosen string) {
 		return
 	}
 	counts, _ := cards.ProducedCounts(produced)
-	amt := availableAmount(ma)
+	amt := availableAmountOf(mp)
 	for i, n := range counts {
 		m[state.ManaIndex(cards.ManaSymbol(i))] += n * amt
 	}
@@ -372,12 +372,14 @@ func addAvailable(m *state.Mana, ma *cards.SA, chosen string) {
 // default of 1; a literal integer is used directly (negative clamped to 0);
 // anything else is a value the projection cannot statically price, so it
 // returns 0 -- never a count the pool is not guaranteed to receive.
-func availableAmount(ma *cards.SA) int32 {
-	raw := strings.TrimSpace(ma.ParamStr(cards.PKAmount))
-	if raw == "" {
+func availableAmount(ma *cards.SA) int32 { return availableAmountOf(effects.ManaOf(ma)) }
+
+// availableAmountOf is availableAmount over compiled production parameters.
+func availableAmountOf(mp *effects.ManaParams) int32 {
+	if mp.AmountTrim == "" {
 		return 1
 	}
-	if v, err := strconv.Atoi(raw); err == nil {
+	if v := mp.AmountLit; mp.AmountIsLit {
 		if v < 0 {
 			return 0
 		}

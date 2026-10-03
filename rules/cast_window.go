@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -127,7 +126,8 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 			continue
 		}
 		for _, ma := range e.castWindowProbeAbilities(p, id) {
-			if strings.TrimSpace(ma.ParamStr(cards.PKRestrictValid)) != "" {
+			mp := effects.ManaOf(ma)
+			if mp.RestrictValid != "" {
 				continue
 			}
 			cost := e.parseCost(ma.ParamStr(cards.PKCost))
@@ -163,7 +163,7 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 			// offers R/G only, never the raw parser's WUBRG superset. Without
 			// a record it produces no colour and stays out of this window
 			// (the same fail-closed direction the shared walk takes).
-			produced := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
+			produced := mp.Produced
 			if producedNeedsChosen(produced) {
 				chosen := e.chosenProducedColour(id)
 				if chosen == "" {
@@ -183,7 +183,7 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 				// A free plain literal production is windowManaUnits' domain
 				// (already counted); a free choice-shaped one is not, and a
 				// free dynamic amount is the shape this layer adds.
-				if !any && availableAmount(ma) > 0 {
+				if !any && availableAmountOf(mp) > 0 {
 					continue
 				}
 			}
@@ -230,11 +230,12 @@ func (e *Engine) castWindowProbeAbilities(p state.PlayerID, id state.ObjID) []*c
 // A body that does not resolve deterministically, or resolves to zero or
 // less, is not priced.
 func (e *Engine) castWindowAmount(p state.PlayerID, source state.ObjID, o *state.Object, ma *cards.SA) (int32, bool) {
-	raw := strings.TrimSpace(ma.ParamStr(cards.PKAmount))
+	mp := effects.ManaOf(ma)
+	raw := mp.AmountTrim
 	if raw == "" {
 		return 1, true
 	}
-	if v, err := strconv.Atoi(raw); err == nil {
+	if v := mp.AmountLit; mp.AmountIsLit {
 		if v <= 0 {
 			return 0, false
 		}
@@ -242,7 +243,7 @@ func (e *Engine) castWindowAmount(p state.PlayerID, source state.ObjID, o *state
 	}
 	ctx := e.manaAmountCtx(p, source)
 	effects.SetSVars(ctx, o.Face().SVars)
-	n, ok := effects.NumResolvedStrict(e, ctx, ma, "Amount", 1)
+	n, ok := mp.AmountResolvedStrict(e, ctx, 1)
 	if !ok || n <= 0 {
 		return 0, false
 	}

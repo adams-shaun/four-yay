@@ -127,7 +127,7 @@ var putCounterKnownKeys = [...]string{
 	"ReduceCost", "RememberCards", "RememberCostMana", "RememberObjects",
 	"RememberPut", "Renown", "ReplaceColor", "ReplaceGraveyard",
 	"ReplaceGraveyardValid", "ReplaceMana", "ReplaceOnly", "ReplaceType",
-	"RestrictValid", "SVarCompare", "SelectPrompt", "SetChosenMode", "SetColor",
+	"SVarCompare", "SelectPrompt", "SetChosenMode", "SetColor",
 	"ShowCards", "SorcerySpeed", "SpellDescription", "StackDescription",
 	"SubAbility", "Support", "TargetMax", "TargetMin",
 	"TargetType", "TargetUnique", "TargetValidTargeting", "TargetingPlayer",
@@ -138,10 +138,10 @@ var putCounterKnownKeys = [...]string{
 	"TargetsWithSameCardType", "TargetsWithSameController",
 	"TargetsWithSameCreatureType", "TargetsWithSharedCardType",
 	"TargetsWithSharedTypes", "TgtPrompt", "TgtZone", "TokenScript",
-	"TriggerDescription", "TriggersWhenSpent", "Type", "Ultimate",
+	"TriggerDescription", "Type", "Ultimate",
 	"UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs", "UnlessSwitched",
 	"ValidCard", "ValidCards", "ValidCardsDesc", "ValidChoices", "ValidCounterType",
-	"ValidDescription", "ValidTgts", "VarName", "VarValue", "VoteMessage",
+	"ValidDescription", "ValidTgts", "VoteMessage",
 	"WithoutManaCost", "XMax", "XMin",
 }
 
