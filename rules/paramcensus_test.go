@@ -1031,6 +1031,13 @@ func (s *scan) scanRangeWhitelist(t *testing.T, fset *token.FileSet, fi *fnInfo,
 		if pkg == "effects" && fname == "saMentionsColors" {
 			return
 		}
+		// saMentionsKeywords is the same recognition for a keyword predicate
+		// (with<X>/without<X>/hasKeyword<X>) along the Sub chain, so effects
+		// can ask rules for the layer-derived keyword table. Recognition
+		// only; it consumes no SA parameter.
+		if pkg == "effects" && fname == "saMentionsKeywords" {
+			return
+		}
 		// abilityReferencesX (effects/flipcoin.go) recognizes the standalone
 		// token "X" in any parameter value along an ability's Sub chain, so a
 		// NoCall$ True coin-flip outcome branch fires once with the total
