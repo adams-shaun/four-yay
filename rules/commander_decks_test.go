@@ -105,6 +105,7 @@ func TestRepoCommanderDecksPlayAndCastTheirCommander(t *testing.T) {
 	for _, g := range repoCommanderGames {
 		this, that := g.file, g.opp
 		t.Run(this, func(t *testing.T) {
+			t.Parallel()
 			seeds := []uint64{g.seed}
 			if len(g.seeds) > 0 {
 				seeds = g.seeds
