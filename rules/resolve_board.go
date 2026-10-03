@@ -40,6 +40,12 @@ type engineResolveKernel struct {
 	// was already observed once. resolveBoard.Observe re-attaches them.
 	tapeHeldHook  func(p state.PlayerID, source state.ObjID, sa *cards.SA) `clone:"hook"`
 	tapeHeldStats *PaymentPlanStats                                        `clone:"hook"`
+	// tapeGranted is set when a converted engine-posed ask (the CR 603.5
+	// optional-trigger yes/no) completed its resolution in line through the
+	// legacy answer's continuation, whose tail already logged the CR 117.3b
+	// grant: handlePriority consumes it instead of logging a second one.
+	// Transient within one Submit.
+	tapeGranted bool `clone:"reset"`
 }
 
 // resolveBoard is the Engine itself under the kernel's method set: asResolve
@@ -210,6 +216,10 @@ func (b *resolveBoard) Record(d *decision.Decision, in decision.Intent) decision
 	e.tape.LogIntent(e.L, logged)
 	e.emit(events.Event{Kind: events.DecisionMade, Player: logged.Player, Text: decisionMadeText(d.Kind, logged.Choices)})
 	e.pending = nil
+	// An answered converted ask is an ask this engine took (effects' askSeam
+	// AskCount): a primitive that asks whether its body asked -- the legacy
+	// path's suspension -- sees the served one too.
+	e.askCount++
 	// The asking code acts for the seat the decision is asked OF (a CR 722
 	// redirect), exactly as submitCommit re-seats a handler's intent.
 	ad, _ := actingView(d, logged)

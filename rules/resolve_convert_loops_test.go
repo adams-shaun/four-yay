@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -38,6 +39,12 @@ func TestTapeConvertLoops(t *testing.T) {
 		{"Tape Generic Players Show", "A:SP$ GenericChoice | Defined$ Player | ShowChoice$ True | Choices$ DBA,DBB\n" +
 			"SVar:DBA:DB$ GainLife | Defined$ You | LifeAmount$ 2 | SpellDescription$ gain\n" +
 			"SVar:DBB:DB$ Draw | Defined$ You | NumCards$ 1 | SpellDescription$ draw", 3, 3},
+		{"Tape Generic Show Ask", "A:SP$ GenericChoice | ShowChoice$ True | Choices$ DBA,DBB\n" +
+			"SVar:DBA:DB$ Scry | ScryNum$ 2 | SpellDescription$ scry\n" +
+			"SVar:DBB:DB$ Surveil | Amount$ 1 | SpellDescription$ surveil", 2, 2},
+		{"Tape Generic Players Show Ask", "A:SP$ GenericChoice | Defined$ Player | ShowChoice$ True | Choices$ DBA,DBB\n" +
+			"SVar:DBA:DB$ Scry | Defined$ You | ScryNum$ 1 | SpellDescription$ scry\n" +
+			"SVar:DBB:DB$ Surveil | Defined$ You | Amount$ 1 | SpellDescription$ surveil", 3, 6},
 		{"Tape Villainous", "A:SP$ VillainousChoice | Defined$ Opponent | Choices$ DBA,DBB\n" +
 			"SVar:DBA:DB$ LoseLife | Defined$ Remembered | LifeAmount$ 2 | SpellDescription$ lose\n" +
 			"SVar:DBB:DB$ Draw | Defined$ You | NumCards$ 1 | SpellDescription$ draw", 3, 2},
@@ -91,5 +98,46 @@ func TestTapeConvertRepeatOptionalRepeats(t *testing.T) {
 	}
 	if !repeated {
 		t.Fatal("no seed answered the election with a repeat")
+	}
+}
+
+// CR 603.5's optional trigger at resolution (an engine-posed ask, step 2d):
+// an ETB "you may" trigger is answered from the tape, yes (then its Scry is
+// served too) and no.
+func TestTapeConvertOptionalTrigger(t *testing.T) {
+	const src = "Name:Tape Maybe Bear\nManaCost:G\nTypes:Creature Bear\nPT:2/2\n" +
+		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | OptionalDecider$ You | Execute$ TrigScry | TriggerDescription$ x\n" +
+		"SVar:TrigScry:DB$ Scry | ScryNum$ 2 | SubAbility$ DBGain\n" +
+		"SVar:DBGain:DB$ GainLife | LifeAmount$ 1\nOracle:x\n"
+	for _, yes := range []bool{true, false} {
+		t.Run(fmt.Sprint("yes=", yes), func(t *testing.T) {
+			_, st := tapeDual(t, 2, 13300, func(t *testing.T, e *Engine) {
+				addMana(t, e, 0, "G")
+				submitChoices(t, e, castOptionFor(t, e, fixtureInHand(t, e, "Tape Maybe Bear")).Index)
+				for i := 0; i < 60; i++ {
+					d := e.Pending()
+					if d == nil || (d.Kind == decision.KPriority && len(e.G.Stack) == 0) {
+						break
+					}
+					switch {
+					case d.Kind == decision.KPriority:
+						submitChoices(t, e, tapePassIndex(d))
+					case d.Kind == decision.KTriggerOptional && yes:
+						submitChoices(t, e, 0)
+					case d.Kind == decision.KTriggerOptional:
+						submitChoices(t, e, 1)
+					default:
+						submitChoices(t, e, tapePick(d)...)
+					}
+				}
+			}, src)
+			want := int64(1)
+			if yes {
+				want = 2
+			}
+			if st.Served < want || st.LegacySwitch != 0 || st.Aborts != 0 {
+				t.Fatalf("the optional trigger was not served from the tape: %+v", st)
+			}
+		})
 	}
 }

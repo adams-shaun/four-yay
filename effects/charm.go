@@ -258,6 +258,7 @@ func charmCrossModeRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 		if sub == nil {
 			continue
 		}
+		asks := askCount(h)
 		if ti < k && tbmIdx[ti] == i {
 			saved := c.Targets
 			savedOffered := c.OfferedSA
@@ -289,6 +290,7 @@ func charmCrossModeRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 			h.SuspendCharmRest(sa, names[i+1:])
 			return true
 		}
+		charmRestNote(h, c, sa, asks)
 	}
 	return true
 }
@@ -374,6 +376,20 @@ func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
 	c.VillainousIndex = 0
 }
 
+// charmRestNote mirrors, on the resolution kernel's path, the one event the
+// legacy charm-rest / generic-players-rest re-entry adds: a mode or chooser
+// body that asked suspended the legacy resolution, and its rest frame
+// re-entered effCharm from its first line, emitting the unread-parameter
+// Note again before running the remaining modes or choosers. A body whose
+// asks the kernel served (asks counted since asksBefore, no suspension) owes
+// the same Note at the same point, so the two logs stay identical; it goes
+// when step 4 deletes the rest frames.
+func charmRestNote(h Host, c *Ctx, sa *cards.SA, asksBefore uint64) {
+	if askCount(h) != asksBefore {
+		noteUnreadParams(h, c, sa.API, CharmOf(sa).Unread)
+	}
+}
+
 // villainousRunChoice runs the current victim's chosen body (names) and
 // reports a legacy suspension inside it, on which it records the primitive's
 // own continuation: the chosen body posed a nested mid-resolution ask
@@ -415,6 +431,7 @@ func charmDistinctTargetRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 		if sub == nil {
 			continue
 		}
+		asks := askCount(h)
 		savedTargets, savedOffered, savedMarker := c.Targets, c.OfferedSA, c.TargetsOffered
 		savedScope, savedScopeSA := c.CharmModeScope, c.CharmModeSA
 		if ModeTargetSpec(sub) != "" {
@@ -438,6 +455,7 @@ func charmDistinctTargetRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 			h.SuspendCharmRest(sa, names[i+1:])
 			return true
 		}
+		charmRestNote(h, c, sa, asks)
 	}
 	return true
 }
@@ -572,9 +590,14 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 		}
 		savedChoosers, savedIndex := c.GenericChoosers, c.GenericChooserIndex
 		c.GenericChoosers, c.GenericChooserIndex = nil, 0
+		asks := askCount(h)
 		Resolve(h, c, sub)
 		c.GenericChoosers, c.GenericChooserIndex = savedChoosers, savedIndex
-		return h.Suspended()
+		if h.Suspended() {
+			return true
+		}
+		charmRestNote(h, c, sa, asks)
+		return false
 	}
 	if c.Modes != nil {
 		names := c.Modes
@@ -914,6 +937,7 @@ func charmRunModes(h Host, c *Ctx, sa *cards.SA, names []string) {
 		seen[n] = true
 	}
 	for i, name := range names {
+		asks := askCount(h)
 		if sub := cards.ResolveSVar(c.SVars, name); sub != nil {
 			savedOffered, savedTargets, savedMark := c.OfferedSA, c.Targets, c.TargetsOffered
 			first := !seen[name]
@@ -945,6 +969,7 @@ func charmRunModes(h Host, c *Ctx, sa *cards.SA, names []string) {
 			h.SuspendCharmRest(sa, names[i+1:])
 			return
 		}
+		charmRestNote(h, c, sa, asks)
 	}
 }
 
