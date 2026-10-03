@@ -1,0 +1,7 @@
+{
+  "card": "Vanquisher's Banner",
+  "rows": {
+    "chosen-type-pumps-and-draws-on-cast": "step 0 (cast): [{\"kind\":\"choose\",\"pick\":[\"Bear\"]}]",
+    "other-type-creatures-not-pumped": "step 0 (cast): [{\"kind\":\"choose\",\"pick\":[\"Human\"]}]"
+  }
+}

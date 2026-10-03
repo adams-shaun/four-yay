@@ -1,0 +1,7 @@
+{
+  "card": "Manabarbs",
+  "rows": {
+    "opponent-taps-damaged": "step 1 (activate): [{\"kind\":\"any\",\"pick\":[\"G\"]}]",
+    "tapping-own-land-damages-tapper": "step 0 (activate): [{\"kind\":\"any\",\"pick\":[\"G\"]}]"
+  }
+}

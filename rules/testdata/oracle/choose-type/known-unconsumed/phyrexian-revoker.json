@@ -1,0 +1,7 @@
+{
+  "card": "Phyrexian Revoker",
+  "rows": {
+    "enters-chooses-name-shuts-that-source": "step 0 (cast): [{\"kind\":\"choose\",\"pick\":[\"Ember Hauler\"]}]",
+    "unnamed-sources-still-activate": "step 0 (cast): [{\"kind\":\"choose\",\"pick\":[\"Lotus Petal\"]}]"
+  }
+}

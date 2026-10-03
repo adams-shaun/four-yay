@@ -1,0 +1,7 @@
+{
+  "card": "Path of Ancestry",
+  "rows": {
+    "different-creature-type-no-scry": "step 0 (activate): [{\"kind\":\"choose\",\"pick\":[\"White\"]}]",
+    "shared-creature-type-scry": "step 0 (activate): [{\"kind\":\"choose\",\"pick\":[\"White\"]}]"
+  }
+}

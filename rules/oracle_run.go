@@ -1345,7 +1345,7 @@ func (r *oracleRun) stackDump() string {
 // declared a decision this step never posed (or posed on a later step), so
 // nothing matched it and the engine fell back. It is distinct from a known
 // engine divergence so the audit can excuse exactly these rows via the
-// shrinking oracleUnconsumed ratchet without hiding a real failure.
+// shrinking known-unconsumed ratchet without hiding a real failure.
 const oracleUnconsumedMarker = "unconsumed answer(s) for this step:"
 
 // oracleUnconsumedFail formats the one fail a step gets for leftovers: the

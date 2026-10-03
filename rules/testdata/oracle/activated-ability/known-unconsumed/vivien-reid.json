@@ -1,0 +1,8 @@
+{
+  "card": "Vivien Reid",
+  "rows": {
+    "plus-one-may-decline": "step 0 (activate): [{\"kind\":\"any\",\"pick\":[]}]",
+    "plus-one-may-take-a-land": "step 0 (activate): [{\"kind\":\"any\",\"pick\":[\"p0:Forest\"]}]",
+    "plus-one-takes-a-creature": "step 0 (activate): [{\"kind\":\"any\",\"pick\":[\"p0:Grizzly Bears\"]}]"
+  }
+}

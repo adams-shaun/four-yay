@@ -1,0 +1,8 @@
+{
+  "card": "Vampire Gourmand",
+  "rows": {
+    "declining-keeps-everything": "step 0 (attack): [{\"kind\":\"choose\",\"pick\":[\"Do not pay\"]}]",
+    "sacrifice-draws-and-makes-it-unblockable": "step 0 (attack): [{\"kind\":\"choose\",\"pick\":[\"Sacrifice another creature\"]},{\"kind\":\"choose\",\"pick\":[\"p0:Grizzly Bears\"]}]",
+    "sacrificed-gourmand-attack-connects": "step 0 (attack): [{\"kind\":\"choose\",\"pick\":[\"Sacrifice another creature\"]},{\"kind\":\"choose\",\"pick\":[\"p0:Grizzly Bears\"]}]; step 1 (resolve): [{\"kind\":\"choose\",\"pick\":[\"p0:Grizzly Bears\"]}]"
+  }
+}

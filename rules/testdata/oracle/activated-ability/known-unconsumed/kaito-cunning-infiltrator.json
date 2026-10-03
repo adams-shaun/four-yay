@@ -1,0 +1,6 @@
+{
+  "card": "Kaito, Cunning Infiltrator",
+  "rows": {
+    "plus-one-unblockable-then-loot": "step 0 (activate): [{\"kind\":\"any\",\"pick\":[\"p0:Forest\"]}]"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "card": "Elder Owyn Lyons",
+  "rows": {
+    "artifacts-have-ward-one": "step 1 (cast): [{\"kind\":\"choose\",\"pick\":[\"no\"]}]"
+  }
+}

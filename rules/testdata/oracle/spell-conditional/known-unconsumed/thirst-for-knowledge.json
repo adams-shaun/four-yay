@@ -1,0 +1,7 @@
+{
+  "card": "Thirst for Knowledge",
+  "rows": {
+    "discarding-an-artifact-satisfies-the-unless": "step 1 (resolve): [{\"kind\":\"choose\",\"pick\":[\"Sol Ring\"]}]",
+    "no-artifact-to-discard-means-two-discarded": "step 1 (resolve): [{\"kind\":\"choose\",\"pick\":[\"Forest\",\"Forest\"]}]"
+  }
+}

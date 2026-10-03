@@ -1,0 +1,7 @@
+{
+  "card": "Sire of Seven Deaths",
+  "rows": {
+    "ward-7-blocks-doom-blade-unless-paid": "step 4 (cast): [{\"kind\":\"any\",\"pick\":[\"no\"]}]",
+    "ward-7-pays-life-and-doom-blade-destroys": "step 4 (cast): [{\"kind\":\"any\",\"pick\":[\"yes\"]}]"
+  }
+}

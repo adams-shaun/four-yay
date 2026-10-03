@@ -1,0 +1,7 @@
+{
+  "card": "Chrome Mox",
+  "rows": {
+    "imprint-green-enables-green-mana": "step 0 (activate): [{\"kind\":\"any\",\"pick\":[\"Add {G}\"]}]",
+    "imprint-red-enables-red-mana": "step 0 (activate): [{\"kind\":\"any\",\"pick\":[\"Add {R}\"]}]"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "card": "Scroll of Fate",
+  "rows": {
+    "manifest-from-hand-face-down": "step 0 (activate): [{\"kind\":\"any\",\"pick\":[\"p0:Grizzly Bears\"]}]"
+  }
+}

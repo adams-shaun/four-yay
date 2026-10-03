@@ -1,0 +1,6 @@
+{
+  "card": "Winged Boots",
+  "rows": {
+    "ward-counters-the-opponents-spell-unless-paid": "step 3 (cast): [{\"kind\":\"choose\",\"pick\":[\"no\"]}]"
+  }
+}

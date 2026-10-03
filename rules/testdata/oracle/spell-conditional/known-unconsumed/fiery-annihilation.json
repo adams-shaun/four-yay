@@ -1,0 +1,6 @@
+{
+  "card": "Fiery Annihilation",
+  "rows": {
+    "up-to-one-equipment-may-be-zero": "step 4 (cast): [{\"kind\":\"target\",\"pick\":[]}]; step 5 (resolve): [{\"kind\":\"target\",\"pick\":[]}]"
+  }
+}

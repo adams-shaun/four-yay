@@ -1,0 +1,6 @@
+{
+  "card": "Trail of Mystery",
+  "rows": {
+    "face-down-creature-enters-and-searches-a-basic": "step 1 (resolve): [{\"kind\":\"any\",\"pick\":[\"yes\"]},{\"kind\":\"any\",\"pick\":[\"Mountain\"]}]"
+  }
+}

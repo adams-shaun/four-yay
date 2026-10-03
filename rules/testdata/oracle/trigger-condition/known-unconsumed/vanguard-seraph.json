@@ -1,0 +1,8 @@
+{
+  "card": "Vanguard Seraph",
+  "rows": {
+    "gain-before-seraph-arrived-uses-up-the-first-time": "step 5 (resolve): [{\"kind\":\"arrange\",\"pick\":[]}]",
+    "opponents-life-gain-does-not-trigger": "step 2 (resolve): [{\"kind\":\"arrange\",\"pick\":[]}]",
+    "second-life-gain-same-turn-does-not-trigger": "step 3 (resolve): [{\"kind\":\"arrange\",\"pick\":[]}]"
+  }
+}

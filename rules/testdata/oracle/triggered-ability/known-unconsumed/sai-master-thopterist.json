@@ -1,0 +1,6 @@
+{
+  "card": "Sai, Master Thopterist",
+  "rows": {
+    "sacrifice-two-artifacts-draw": "step 4 (mana): [{\"kind\":\"choose\",\"pick\":[\"p0:token:Thopter\",\"p0:token:Thopter#2\"]}]"
+  }
+}

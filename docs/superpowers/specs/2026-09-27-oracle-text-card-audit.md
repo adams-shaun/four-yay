@@ -238,17 +238,15 @@ read the script.
 | **Engine primitive** | The script is right and read, but rules machinery is wrong for every card that uses it. Examples: look-back, the command-zone walk. | Ratchet row + engine ticket that names the CR rule. Add a control scenario that localises the fault, as with Relic Vial's SBA vs destroy vs sacrifice split. |
 | **Upstream script** (rare) | The Forge script itself misstates the Oracle text. | Cannot be fixed by committing a script (GPL). Report upstream or bump `FORGE_REF`. Ratchet row meanwhile. |
 
-**Ratchet:** each family directory's `known-divergent.json`
-(`rules/testdata/oracle/<family>/known-divergent.json`, one flat JSON object)
-maps `"<card>/<scenario>"` to the observed divergence, and works in both
-directions like `knownUnsupported`. New rows always go in the family file.
-The older `oracleKnownDivergent` map in `rules/oracle_audit_test.go` holds
-legacy rows only; the two are merged, and a key listed in both, or a row in a
-family file that names another family's scenario, fails the build. (Why
-per-family files: every audit ticket appending to the one Go map made each
-merge conflict with every other in-flight audit branch, and each conflict cost
-a merge-fix round plus a full re-gate; tickets are one family each, so
-per-family files never collide.)
+**Ratchet:** one file per card per family,
+`rules/testdata/oracle/<family>/known-divergent/<slug>.json`
+(`{"card": "<Card>", "rows": {"<scenario>": "<observed divergence>"}}`),
+works in both directions like `knownUnsupported`; the leftover-answer ratchet
+uses the same shape under `known-unconsumed/`. A row naming another family's
+scenario, or a card with two files in one family, fails the build. (Why
+per-card files: every audit ticket appending to one shared map or family file
+made each merge conflict with every other in-flight audit branch, and each
+conflict cost a merge-fix round plus a full re-gate.)
 
 - A listed scenario that now passes is **stale** and fails the build until its
   row is deleted.

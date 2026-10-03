@@ -5,7 +5,7 @@ package rules
 // entry no decision on that step matched used to be dropped silently and the
 // scenario passed on the engine's fallback. runOracleScenario now fails such
 // a step loudly, tagged with oracleUnconsumedMarker, and TestOracleAudit
-// excuses exactly the rows the shrinking known-unconsumed-answers.json
+// excuses exactly the rows the shrinking testdata/oracle/<family>/known-unconsumed
 // ratchet lists.
 
 import (

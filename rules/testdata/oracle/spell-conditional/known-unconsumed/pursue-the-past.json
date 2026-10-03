@@ -1,0 +1,6 @@
+{
+  "card": "Pursue the Past",
+  "rows": {
+    "gain-two-life-then-discard-to-draw-two": "step 1 (resolve): [{\"kind\":\"any\",\"pick\":[\"p0:Forest\"]}]"
+  }
+}

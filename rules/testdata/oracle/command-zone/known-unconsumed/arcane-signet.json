@@ -1,0 +1,7 @@
+{
+  "card": "Arcane Signet",
+  "rows": {
+    "red-identity-produces-red": "step 0 (activate): [{\"kind\":\"choose\",\"pick\":[\"Red\"]}]",
+    "white-in-identity": "step 0 (activate): [{\"kind\":\"choose\",\"pick\":[\"White\"]}]"
+  }
+}

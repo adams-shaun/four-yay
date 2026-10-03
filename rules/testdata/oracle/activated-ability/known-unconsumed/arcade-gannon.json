@@ -1,0 +1,6 @@
+{
+  "card": "Arcade Gannon",
+  "rows": {
+    "tap-draw-discard-and-gain-quest-counter": "step 1 (resolve): [{\"kind\":\"choose\",\"pick\":[\"p0:Forest\"]}]"
+  }
+}

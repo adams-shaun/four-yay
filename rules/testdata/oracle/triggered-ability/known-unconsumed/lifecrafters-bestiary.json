@@ -1,0 +1,6 @@
+{
+  "card": "Lifecrafter's Bestiary",
+  "rows": {
+    "declining-the-payment-draws-nothing": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"no\"]}]"
+  }
+}

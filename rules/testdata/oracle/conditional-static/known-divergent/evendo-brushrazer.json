@@ -1,0 +1,6 @@
+{
+  "card": "Evendo Brushrazer",
+  "rows": {
+    "sacrifice-this-turn-allows-exiled-card-play": "Lightning Bolt was exiled, but casting it from exile was not offered during the turn (conditional may-play static)"
+  }
+}

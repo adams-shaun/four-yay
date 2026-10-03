@@ -1,0 +1,6 @@
+{
+  "card": "Flamewake Phoenix",
+  "rows": {
+    "power-four-creature-gone-on-resolution-no-return": "step 4 (resolve): [{\"kind\":\"any\",\"pick\":[\"yes\"]}]"
+  }
+}

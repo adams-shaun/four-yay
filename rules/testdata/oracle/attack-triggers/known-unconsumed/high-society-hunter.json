@@ -1,0 +1,6 @@
+{
+  "card": "High-Society Hunter",
+  "rows": {
+    "attack-sacrifice-another-creature-counter-and-draw": "step 1 (resolve): [{\"kind\":\"choose\",\"pick\":[\"p0:Grizzly Bears\"]}]"
+  }
+}

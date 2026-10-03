@@ -1,0 +1,6 @@
+{
+  "card": "Assaultron Dominator",
+  "rows": {
+    "declining-the-pay-puts-no-counter": "step 0 (attack): [{\"kind\":\"choose\",\"pick\":[\"no\"]}]"
+  }
+}

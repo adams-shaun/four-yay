@@ -1,0 +1,6 @@
+{
+  "card": "Fellwar Stone",
+  "rows": {
+    "opponents-mountain-produces-red": "step 2 (activate): [{\"kind\":\"any\",\"pick\":[\"R\"]}]"
+  }
+}

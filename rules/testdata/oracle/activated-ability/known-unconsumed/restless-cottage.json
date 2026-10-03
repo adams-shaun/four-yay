@@ -1,0 +1,6 @@
+{
+  "card": "Restless Cottage",
+  "rows": {
+    "attack-creates-food-and-exiles-a-graveyard-card": "step 2 (resolve): [{\"kind\":\"choose\",\"pick\":[\"p0:Lightning Bolt\"]}]"
+  }
+}

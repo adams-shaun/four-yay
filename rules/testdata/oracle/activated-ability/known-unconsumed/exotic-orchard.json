@@ -1,0 +1,6 @@
+{
+  "card": "Exotic Orchard",
+  "rows": {
+    "opponents-mountain-produces-red": "step 1 (activate): [{\"kind\":\"any\",\"pick\":[\"R\"]}]"
+  }
+}

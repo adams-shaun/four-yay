@@ -1,0 +1,6 @@
+{
+  "card": "Darksteel Monolith",
+  "rows": {
+    "once-each-turn-second-colorless-pays": "cast p0:Runed Servitor offered=true, want false"
+  }
+}

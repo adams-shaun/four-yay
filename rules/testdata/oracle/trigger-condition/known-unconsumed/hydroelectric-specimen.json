@@ -1,0 +1,6 @@
+{
+  "card": "Hydroelectric Specimen",
+  "rows": {
+    "laboratory-face-pays-three-life-or-enters-tapped": "step 0 (play): [{\"kind\":\"choose\",\"pick\":[\"life\"]}]"
+  }
+}

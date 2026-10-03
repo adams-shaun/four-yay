@@ -1,0 +1,6 @@
+{
+  "card": "Worldly Tutor",
+  "rows": {
+    "no-creature-card-reveals-nothing": "step 2 (resolve): [{\"kind\":\"choose\",\"pick\":[]}]"
+  }
+}

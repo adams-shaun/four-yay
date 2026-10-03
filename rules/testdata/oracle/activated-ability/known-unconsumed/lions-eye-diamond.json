@@ -1,0 +1,6 @@
+{
+  "card": "Lion's Eye Diamond",
+  "rows": {
+    "discard-and-sacrifice-adds-three-of-one-colour": "step 0 (activate): [{\"kind\":\"choose\",\"pick\":[\"p0:Island\",\"p0:Mountain\"]}]"
+  }
+}

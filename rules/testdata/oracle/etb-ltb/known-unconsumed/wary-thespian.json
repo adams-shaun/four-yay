@@ -1,0 +1,6 @@
+{
+  "card": "Wary Thespian",
+  "rows": {
+    "exile-is-neither-entering-nor-dying": "step 1 (resolve): [{\"kind\":\"arrange\",\"pick\":[]}]"
+  }
+}
