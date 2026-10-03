@@ -1,6 +1,9 @@
-package cards
+package state
 
-import "slices"
+import (
+	"slices"
+	"strings"
+)
 
 // StrEntry is one row of a StrTable.
 type StrEntry[T any] struct {
@@ -38,14 +41,14 @@ func (t StrTable[T]) Get(key string) (T, bool) {
 	lo, hi := 0, len(t.ents)
 	for lo < hi {
 		m := int(uint(lo+hi) >> 1)
-		if t.ents[m].Key < key {
+		switch c := strings.Compare(t.ents[m].Key, key); {
+		case c == 0:
+			return t.ents[m].Val, true
+		case c < 0:
 			lo = m + 1
-		} else {
+		default:
 			hi = m
 		}
-	}
-	if lo < len(t.ents) && t.ents[lo].Key == key {
-		return t.ents[lo].Val, true
 	}
 	var z T
 	return z, false

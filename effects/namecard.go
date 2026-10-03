@@ -278,16 +278,16 @@ func nameSet(names []string) map[string]bool {
 	return out
 }
 
-var descriptionSpecTab1 = cards.NewStrTable[string](
-	cards.StrEntry[string]{Key: "nonland", Val: "Card.nonLand"},
-	cards.StrEntry[string]{Key: "creature", Val: "Card.Creature"},
-	cards.StrEntry[string]{Key: "creature card", Val: "Card.Creature"},
-	cards.StrEntry[string]{Key: "artifact", Val: "Card.Artifact"},
-	cards.StrEntry[string]{Key: "artifact card", Val: "Card.Artifact"},
-	cards.StrEntry[string]{Key: "land", Val: "Card.Land"},
-	cards.StrEntry[string]{Key: "land card", Val: "Card.Land"},
-	cards.StrEntry[string]{Key: "nonbasic land", Val: "Card.Land+nonBasic"},
-	cards.StrEntry[string]{Key: "card other than a basic land", Val: "Card.Land+nonBasic"},
-	cards.StrEntry[string]{Key: "nonartifact, nonland", Val: "Card.nonLand+nonArtifact"},
-	cards.StrEntry[string]{Key: "noncreature, nonland", Val: "Card.nonLand+nonCreature"},
+var descriptionSpecTab1 = state.NewStrTable[string](
+	state.StrEntry[string]{Key: "nonland", Val: "Card.nonLand"},
+	state.StrEntry[string]{Key: "creature", Val: "Card.Creature"},
+	state.StrEntry[string]{Key: "creature card", Val: "Card.Creature"},
+	state.StrEntry[string]{Key: "artifact", Val: "Card.Artifact"},
+	state.StrEntry[string]{Key: "artifact card", Val: "Card.Artifact"},
+	state.StrEntry[string]{Key: "land", Val: "Card.Land"},
+	state.StrEntry[string]{Key: "land card", Val: "Card.Land"},
+	state.StrEntry[string]{Key: "nonbasic land", Val: "Card.Land+nonBasic"},
+	state.StrEntry[string]{Key: "card other than a basic land", Val: "Card.Land+nonBasic"},
+	state.StrEntry[string]{Key: "nonartifact, nonland", Val: "Card.nonLand+nonArtifact"},
+	state.StrEntry[string]{Key: "noncreature, nonland", Val: "Card.nonLand+nonCreature"},
 )

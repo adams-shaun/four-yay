@@ -627,8 +627,8 @@ func aorTapeApply(h Host, c *Ctx, sa *cards.SA, target *state.Object, ans []deci
 // consumer (the chained ImmediateTrigger's ConditionDefined$ Remembered gate)
 // reads presence, not count.
 func aorApplyAct(h Host, c *Ctx, sa *cards.SA, o *state.Object, kind, act string, amount int32) {
-	switch act {
-	case "remove":
+	switch aorApplyActa511Codes.Code(string(act)) {
+	case aorApplyActa511Remove:
 		count := o.Counter(kind)
 		removed := amount
 		if removed > count {
@@ -642,7 +642,7 @@ func aorApplyAct(h Host, c *Ctx, sa *cards.SA, o *state.Object, kind, act string
 			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "remembered",
 				IDs: []state.ObjID{o.ID}})
 		}
-	case "put":
+	case aorApplyActa511Put:
 		if amount <= 0 {
 			return
 		}
@@ -1336,3 +1336,13 @@ func counterAnswerLabels(ans []decision.Option) []string {
 	}
 	return out
 }
+
+const (
+	aorApplyActa511Remove uint16 = 1 // "remove"
+	aorApplyActa511Put    uint16 = 2 // "put"
+)
+
+var aorApplyActa511Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "remove", Val: aorApplyActa511Remove},
+	state.StrEntry[uint16]{Key: "put", Val: aorApplyActa511Put},
+)

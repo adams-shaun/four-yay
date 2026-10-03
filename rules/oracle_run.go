@@ -341,9 +341,9 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			break
 		}
 	}
-	switch sc.Format {
-	case "", "constructed":
-	case "commander":
+	switch build4d71Codes.Code(string(sc.Format)) {
+	case build4d71Empty:
+	case build4d71Commander:
 		cfg.Format = FormatCommander
 		cfg.StartingLife = 40 // CR 903.7
 		cfg.Commanders = commanders
@@ -794,10 +794,10 @@ func (r *oracleRun) do(st oracleStep) error {
 	r.answers = append([]oracleAnswer(nil), st.Answers...)
 	seat := state.PlayerID(st.Seat)
 	r.logf("step %s %s", st.Op, st.Card)
-	switch st.Op {
-	case "mana":
+	switch do4d72Codes.Code(string(st.Op)) {
+	case do4d72Mana:
 		return r.addMana(seat, st.Mana)
-	case "cast", "activate":
+	case do4d72Cast:
 		if st.Mana != "" {
 			if err := r.addMana(seat, st.Mana); err != nil {
 				return err
@@ -946,7 +946,7 @@ func (r *oracleRun) do(st oracleStep) error {
 			}
 		}
 		return r.untilPriority(st.Op)
-	case "play":
+	case do4d72Play:
 		id, err := r.resolve(st.Card)
 		if err != nil {
 			return err
@@ -964,7 +964,7 @@ func (r *oracleRun) do(st oracleStep) error {
 			}
 		}
 		return harnessf("play %s not offered: %s", st.Card, optionDump(d))
-	case "resolve":
+	case do4d72Resolve:
 		for i := 0; i < 300; i++ {
 			d := e.Pending()
 			if d == nil || e.G.Over {
@@ -978,7 +978,7 @@ func (r *oracleRun) do(st oracleStep) error {
 			}
 		}
 		return harnessf("resolve: stack never emptied")
-	case "attack":
+	case do4d72Attack:
 		def, ok := parseSeatRef(st.Defender)
 		if !ok {
 			return harnessf("attack: bad defender %q", st.Defender)
@@ -1021,7 +1021,7 @@ func (r *oracleRun) do(st oracleStep) error {
 				return err
 			}
 		}
-	case "block":
+	case do4d72Block:
 		d := e.Pending()
 		if d == nil || d.Kind != decision.KBlockers {
 			return harnessf("block: no blockers decision pending")
@@ -1053,7 +1053,7 @@ func (r *oracleRun) do(st oracleStep) error {
 			return err
 		}
 		return r.untilPriority("block")
-	case "pass":
+	case do4d72Pass:
 		// `pass` answers exactly one priority decision: the named seat must
 		// hold priority right now, or this fails loudly rather than silently
 		// passing someone else's priority (which `pass_to` does not check).
@@ -1062,7 +1062,7 @@ func (r *oracleRun) do(st oracleStep) error {
 			return err
 		}
 		return r.submit(d, []int{pickPass(d)}, "pass")
-	case "pass_to":
+	case do4d72PassTo:
 		var want state.Step
 		if st.Step != "" {
 			s, ok := state.ParseStep(st.Step)
@@ -1088,7 +1088,7 @@ func (r *oracleRun) do(st oracleStep) error {
 			}
 		}
 		return harnessf("pass_to: target never reached")
-	case "move":
+	case do4d72Move:
 		id, err := r.resolve(st.Card)
 		if err != nil {
 			return err
@@ -1100,7 +1100,7 @@ func (r *oracleRun) do(st oracleStep) error {
 		e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: e.G.Obj(id).Zone, To: to})
 		e.priorityRound()
 		return r.untilPriority("move")
-	case "life":
+	case do4d72Life:
 		e.emit(events.Event{Kind: events.LifeChange, Player: seat, Amount: st.Amount})
 		e.priorityRound()
 		return r.untilPriority("life")
@@ -1430,17 +1430,55 @@ func seatZeroStart(cfg Config) Config {
 	}
 }
 
-var oracleActivateKindTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "ability", Val: true},
-	cards.StrEntry[bool]{Key: "activate", Val: true},
-	cards.StrEntry[bool]{Key: "station", Val: true},
-	cards.StrEntry[bool]{Key: "unlock", Val: true},
-	cards.StrEntry[bool]{Key: "turn_face_up", Val: true},
+var oracleActivateKindTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "ability", Val: true},
+	state.StrEntry[bool]{Key: "activate", Val: true},
+	state.StrEntry[bool]{Key: "station", Val: true},
+	state.StrEntry[bool]{Key: "unlock", Val: true},
+	state.StrEntry[bool]{Key: "turn_face_up", Val: true},
 )
 
-var normCounterTab2 = cards.NewStrTable[string](
-	cards.StrEntry[string]{Key: "+1/+1", Val: "P1P1"},
-	cards.StrEntry[string]{Key: "p1p1", Val: "P1P1"},
-	cards.StrEntry[string]{Key: "-1/-1", Val: "M1M1"},
-	cards.StrEntry[string]{Key: "m1m1", Val: "M1M1"},
+var normCounterTab2 = state.NewStrTable[string](
+	state.StrEntry[string]{Key: "+1/+1", Val: "P1P1"},
+	state.StrEntry[string]{Key: "p1p1", Val: "P1P1"},
+	state.StrEntry[string]{Key: "-1/-1", Val: "M1M1"},
+	state.StrEntry[string]{Key: "m1m1", Val: "M1M1"},
+)
+
+const (
+	build4d71Empty     uint16 = 1 // "", "constructed"
+	build4d71Commander uint16 = 2 // "commander"
+)
+
+var build4d71Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: build4d71Empty},
+	state.StrEntry[uint16]{Key: "constructed", Val: build4d71Empty},
+	state.StrEntry[uint16]{Key: "commander", Val: build4d71Commander},
+)
+
+const (
+	do4d72Mana    uint16 = 1  // "mana"
+	do4d72Cast    uint16 = 2  // "cast", "activate"
+	do4d72Play    uint16 = 3  // "play"
+	do4d72Resolve uint16 = 4  // "resolve"
+	do4d72Attack  uint16 = 5  // "attack"
+	do4d72Block   uint16 = 6  // "block"
+	do4d72Pass    uint16 = 7  // "pass"
+	do4d72PassTo  uint16 = 8  // "pass_to"
+	do4d72Move    uint16 = 9  // "move"
+	do4d72Life    uint16 = 10 // "life"
+)
+
+var do4d72Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "mana", Val: do4d72Mana},
+	state.StrEntry[uint16]{Key: "cast", Val: do4d72Cast},
+	state.StrEntry[uint16]{Key: "activate", Val: do4d72Cast},
+	state.StrEntry[uint16]{Key: "play", Val: do4d72Play},
+	state.StrEntry[uint16]{Key: "resolve", Val: do4d72Resolve},
+	state.StrEntry[uint16]{Key: "attack", Val: do4d72Attack},
+	state.StrEntry[uint16]{Key: "block", Val: do4d72Block},
+	state.StrEntry[uint16]{Key: "pass", Val: do4d72Pass},
+	state.StrEntry[uint16]{Key: "pass_to", Val: do4d72PassTo},
+	state.StrEntry[uint16]{Key: "move", Val: do4d72Move},
+	state.StrEntry[uint16]{Key: "life", Val: do4d72Life},
 )

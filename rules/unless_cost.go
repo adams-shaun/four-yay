@@ -134,20 +134,44 @@ func unlessDrawPlayers(ctx *effects.Ctx, payer state.PlayerID, spec string) ([]s
 		}
 		return nil, false
 	}
-	switch spec {
-	case "", "You", "Player", "Self":
+	switch unlessDrawPlayers5231Codes.Code(string(spec)) {
+	case unlessDrawPlayers5231Empty:
 		return []state.PlayerID{payer}, true
-	case "Player.targetedBy", "Targeted", "TargetedPlayer":
+	case unlessDrawPlayers5231PlayerTargetedBy:
 		if len(ctx.Targets) == 0 {
 			return nil, false
 		}
 		return one(ctx.Targets[0])
-	case "Player.Activator", "TriggeredActivator":
+	case unlessDrawPlayers5231PlayerActivator:
 		return one(ctx.TriggerActivator)
-	case "Player.TriggeredPlayer", "TriggeredPlayer":
+	case unlessDrawPlayers5231PlayerTriggeredPlayer:
 		return one(ctx.TriggerPlayer)
-	case "Player.TriggeredTarget", "TriggeredTarget":
+	case unlessDrawPlayers5231PlayerTriggeredTarget:
 		return one(ctx.TriggerTarget)
 	}
 	return nil, false
 }
+
+const (
+	unlessDrawPlayers5231Empty                 uint16 = 1 // "", "You", "Player", "Self"
+	unlessDrawPlayers5231PlayerTargetedBy      uint16 = 2 // "Player.targetedBy", "Targeted", "TargetedPlayer"
+	unlessDrawPlayers5231PlayerActivator       uint16 = 3 // "Player.Activator", "TriggeredActivator"
+	unlessDrawPlayers5231PlayerTriggeredPlayer uint16 = 4 // "Player.TriggeredPlayer", "TriggeredPlayer"
+	unlessDrawPlayers5231PlayerTriggeredTarget uint16 = 5 // "Player.TriggeredTarget", "TriggeredTarget"
+)
+
+var unlessDrawPlayers5231Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: unlessDrawPlayers5231Empty},
+	state.StrEntry[uint16]{Key: "You", Val: unlessDrawPlayers5231Empty},
+	state.StrEntry[uint16]{Key: "Player", Val: unlessDrawPlayers5231Empty},
+	state.StrEntry[uint16]{Key: "Self", Val: unlessDrawPlayers5231Empty},
+	state.StrEntry[uint16]{Key: "Player.targetedBy", Val: unlessDrawPlayers5231PlayerTargetedBy},
+	state.StrEntry[uint16]{Key: "Targeted", Val: unlessDrawPlayers5231PlayerTargetedBy},
+	state.StrEntry[uint16]{Key: "TargetedPlayer", Val: unlessDrawPlayers5231PlayerTargetedBy},
+	state.StrEntry[uint16]{Key: "Player.Activator", Val: unlessDrawPlayers5231PlayerActivator},
+	state.StrEntry[uint16]{Key: "TriggeredActivator", Val: unlessDrawPlayers5231PlayerActivator},
+	state.StrEntry[uint16]{Key: "Player.TriggeredPlayer", Val: unlessDrawPlayers5231PlayerTriggeredPlayer},
+	state.StrEntry[uint16]{Key: "TriggeredPlayer", Val: unlessDrawPlayers5231PlayerTriggeredPlayer},
+	state.StrEntry[uint16]{Key: "Player.TriggeredTarget", Val: unlessDrawPlayers5231PlayerTriggeredTarget},
+	state.StrEntry[uint16]{Key: "TriggeredTarget", Val: unlessDrawPlayers5231PlayerTriggeredTarget},
+)

@@ -4,7 +4,6 @@ import (
 	"math"
 	"strings"
 
-	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -839,8 +838,8 @@ func SubCounterTargetsSource(target string) bool {
 	return false
 }
 
-var subCounterTargetsSourceTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "", Val: true},
-	cards.StrEntry[bool]{Key: "CARDNAME", Val: true},
-	cards.StrEntry[bool]{Key: "NICKNAME", Val: true},
+var subCounterTargetsSourceTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "", Val: true},
+	state.StrEntry[bool]{Key: "CARDNAME", Val: true},
+	state.StrEntry[bool]{Key: "NICKNAME", Val: true},
 )

@@ -33,14 +33,14 @@ func init() {
 // halves of an exchange also end when the object carrying them leaves the
 // battlefield, through registerTextSet's ExileOnMoved/Remembered discipline.
 func textChangeDuration(dur string, absentPermanent bool) (permanent, untilEOT bool) {
-	switch strings.ToLower(strings.TrimSpace(dur)) {
-	case "":
+	switch textChangeDurationc331Codes.Code(string(strings.ToLower(strings.TrimSpace(dur)))) {
+	case textChangeDurationc331Empty:
 		return absentPermanent, false
-	case "permanent":
+	case textChangeDurationc331Permanent:
 		return true, false
-	case "aslongasinplay", "aslongascontrolled", "untilendofcombat":
+	case textChangeDurationc331Aslongasinplay:
 		return false, false
-	case "untilendofyourturn":
+	case textChangeDurationc331Untilendofyourturn:
 		// UntilYourNextTurn/UntilTheEndOfYourNextTurn are handled by
 		// AddContinuous's turn boundary; UntilEndOfYourTurn is the ordinary
 		// end-of-turn cleanup.
@@ -80,16 +80,16 @@ func isTextChooser(token string) bool {
 // forbidden (ForbiddenNewTypes$) removes labels a card declares ineligible.
 func textChooserLabels(h Host, chooser state.PlayerID, token, forbidden string) []string {
 	var labels []string
-	switch strings.ToLower(strings.TrimSpace(token)) {
-	case "choose":
+	switch textChooserLabelsc332Codes.Code(string(strings.ToLower(strings.TrimSpace(token)))) {
+	case textChooserLabelsc332Choose:
 		for _, cl := range chooseColorLabels {
 			labels = append(labels, strings.ToLower(cl.name))
 		}
-	case "choosecreaturetype":
+	case textChooserLabelsc332Choosecreaturetype:
 		for _, o := range h.TypeChoices(chooser, "Creature") {
 			labels = append(labels, o.Label)
 		}
-	case "choosebasiclandtype":
+	case textChooserLabelsc332Choosebasiclandtype:
 		labels = append(labels, chooseBasicLandTypes...)
 	default:
 		return nil
@@ -360,8 +360,36 @@ func registerTextSet(h Host, c *Ctx, id state.ObjID, text string, keywordGrant [
 	h.AddContinuous(ceAbilities)
 }
 
-var isTextChooserTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "choose", Val: true},
-	cards.StrEntry[bool]{Key: "choosecreaturetype", Val: true},
-	cards.StrEntry[bool]{Key: "choosebasiclandtype", Val: true},
+var isTextChooserTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "choose", Val: true},
+	state.StrEntry[bool]{Key: "choosecreaturetype", Val: true},
+	state.StrEntry[bool]{Key: "choosebasiclandtype", Val: true},
+)
+
+const (
+	textChangeDurationc331Empty              uint16 = 1 // ""
+	textChangeDurationc331Permanent          uint16 = 2 // "permanent"
+	textChangeDurationc331Aslongasinplay     uint16 = 3 // "aslongasinplay", "aslongascontrolled", "untilendofcombat"
+	textChangeDurationc331Untilendofyourturn uint16 = 4 // "untilendofyourturn"
+)
+
+var textChangeDurationc331Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: textChangeDurationc331Empty},
+	state.StrEntry[uint16]{Key: "permanent", Val: textChangeDurationc331Permanent},
+	state.StrEntry[uint16]{Key: "aslongasinplay", Val: textChangeDurationc331Aslongasinplay},
+	state.StrEntry[uint16]{Key: "aslongascontrolled", Val: textChangeDurationc331Aslongasinplay},
+	state.StrEntry[uint16]{Key: "untilendofcombat", Val: textChangeDurationc331Aslongasinplay},
+	state.StrEntry[uint16]{Key: "untilendofyourturn", Val: textChangeDurationc331Untilendofyourturn},
+)
+
+const (
+	textChooserLabelsc332Choose              uint16 = 1 // "choose"
+	textChooserLabelsc332Choosecreaturetype  uint16 = 2 // "choosecreaturetype"
+	textChooserLabelsc332Choosebasiclandtype uint16 = 3 // "choosebasiclandtype"
+)
+
+var textChooserLabelsc332Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "choose", Val: textChooserLabelsc332Choose},
+	state.StrEntry[uint16]{Key: "choosecreaturetype", Val: textChooserLabelsc332Choosecreaturetype},
+	state.StrEntry[uint16]{Key: "choosebasiclandtype", Val: textChooserLabelsc332Choosebasiclandtype},
 )

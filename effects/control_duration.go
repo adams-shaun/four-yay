@@ -36,23 +36,23 @@ func (d ControlDuration) Permanent() bool { return d == ControlDuration{} }
 // because a silently permanent steal is the wrong answer for any lifetime.
 func ParseControlDuration(raw string) (d ControlDuration, unknown string) {
 	for tok := range strings.SplitSeq(raw, ",") {
-		switch strings.TrimSpace(tok) {
-		case "":
-		case "EOT":
+		switch parseControlDurationa941Codes.Code(string(strings.TrimSpace(tok))) {
+		case parseControlDurationa941Empty:
+		case parseControlDurationa941EOT:
 			d.EOT = true
-		case "EndOfCombat":
+		case parseControlDurationa941EndOfCombat:
 			d.EndOfCombat = true
-		case "UntilTheEndOfYourNextTurn":
+		case parseControlDurationa941UntilTheEndOfYourNextTurn:
 			d.NextTurn = true
-		case "LeavesPlay":
+		case parseControlDurationa941LeavesPlay:
 			d.LeavesPlay = true
-		case "Untap":
+		case parseControlDurationa941Untap:
 			d.Untap = true
-		case "LoseControl":
+		case parseControlDurationa941LoseControl:
 			d.LoseControl = true
-		case "UntilSourceUnattached":
+		case parseControlDurationa941UntilSourceUnattached:
 			d.Unattached = true
-		case "StaticCommandCheck":
+		case parseControlDurationa941StaticCommandCheck:
 			d.StaticCheck = true
 		default:
 			return ControlDuration{}, strings.TrimSpace(tok)
@@ -149,19 +149,61 @@ func ControlGrantEnded(h Host, gr ControlGrant) bool {
 }
 
 func compareCount(op string, left, right int) bool {
-	switch op {
-	case "EQ":
+	switch compareCounta942Codes.Code(string(op)) {
+	case compareCounta942EQ:
 		return left == right
-	case "NE":
+	case compareCounta942NE:
 		return left != right
-	case "LT":
+	case compareCounta942LT:
 		return left < right
-	case "LE":
+	case compareCounta942LE:
 		return left <= right
-	case "GT":
+	case compareCounta942GT:
 		return left > right
-	case "GE":
+	case compareCounta942GE:
 		return left >= right
 	}
 	return false
 }
+
+const (
+	parseControlDurationa941Empty                     uint16 = 1 // ""
+	parseControlDurationa941EOT                       uint16 = 2 // "EOT"
+	parseControlDurationa941EndOfCombat               uint16 = 3 // "EndOfCombat"
+	parseControlDurationa941UntilTheEndOfYourNextTurn uint16 = 4 // "UntilTheEndOfYourNextTurn"
+	parseControlDurationa941LeavesPlay                uint16 = 5 // "LeavesPlay"
+	parseControlDurationa941Untap                     uint16 = 6 // "Untap"
+	parseControlDurationa941LoseControl               uint16 = 7 // "LoseControl"
+	parseControlDurationa941UntilSourceUnattached     uint16 = 8 // "UntilSourceUnattached"
+	parseControlDurationa941StaticCommandCheck        uint16 = 9 // "StaticCommandCheck"
+)
+
+var parseControlDurationa941Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: parseControlDurationa941Empty},
+	state.StrEntry[uint16]{Key: "EOT", Val: parseControlDurationa941EOT},
+	state.StrEntry[uint16]{Key: "EndOfCombat", Val: parseControlDurationa941EndOfCombat},
+	state.StrEntry[uint16]{Key: "UntilTheEndOfYourNextTurn", Val: parseControlDurationa941UntilTheEndOfYourNextTurn},
+	state.StrEntry[uint16]{Key: "LeavesPlay", Val: parseControlDurationa941LeavesPlay},
+	state.StrEntry[uint16]{Key: "Untap", Val: parseControlDurationa941Untap},
+	state.StrEntry[uint16]{Key: "LoseControl", Val: parseControlDurationa941LoseControl},
+	state.StrEntry[uint16]{Key: "UntilSourceUnattached", Val: parseControlDurationa941UntilSourceUnattached},
+	state.StrEntry[uint16]{Key: "StaticCommandCheck", Val: parseControlDurationa941StaticCommandCheck},
+)
+
+const (
+	compareCounta942EQ uint16 = 1 // "EQ"
+	compareCounta942NE uint16 = 2 // "NE"
+	compareCounta942LT uint16 = 3 // "LT"
+	compareCounta942LE uint16 = 4 // "LE"
+	compareCounta942GT uint16 = 5 // "GT"
+	compareCounta942GE uint16 = 6 // "GE"
+)
+
+var compareCounta942Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "EQ", Val: compareCounta942EQ},
+	state.StrEntry[uint16]{Key: "NE", Val: compareCounta942NE},
+	state.StrEntry[uint16]{Key: "LT", Val: compareCounta942LT},
+	state.StrEntry[uint16]{Key: "LE", Val: compareCounta942LE},
+	state.StrEntry[uint16]{Key: "GT", Val: compareCounta942GT},
+	state.StrEntry[uint16]{Key: "GE", Val: compareCounta942GE},
+)

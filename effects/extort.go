@@ -26,10 +26,10 @@ func effExtort(h Host, c *Ctx, sa *cards.SA) {
 
 	ans := string("")
 
-	switch ans {
-	case "pay":
+	switch effExtort2201Codes.Code(string(ans)) {
+	case effExtort2201Pay:
 		// Re-entry, paid: drain each opponent 1 life and gain that much.
-	case "decline":
+	case effExtort2201Decline:
 		return
 	default:
 		// First pass: pose the optional payment to the caster.
@@ -98,3 +98,13 @@ func ManaPaysExtort(g *state.Game, p state.PlayerID) bool {
 	}
 	return g.Players[p].Pool[state.MW] > 0 || g.Players[p].Pool[state.MB] > 0
 }
+
+const (
+	effExtort2201Pay     uint16 = 1 // "pay"
+	effExtort2201Decline uint16 = 2 // "decline"
+)
+
+var effExtort2201Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "pay", Val: effExtort2201Pay},
+	state.StrEntry[uint16]{Key: "decline", Val: effExtort2201Decline},
+)

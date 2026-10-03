@@ -171,12 +171,12 @@ func lifeLossCauseMatches(e Board, spec string, you state.PlayerID) bool {
 		if !qualified || qualifier == "" {
 			return true
 		}
-		switch qualifier {
-		case "YouCtrl":
+		switch lifeLossCauseMatchesecd1Codes.Code(string(qualifier)) {
+		case lifeLossCauseMatchesecd1YouCtrl:
 			if cause.Controller == you {
 				return true
 			}
-		case "OppCtrl":
+		case lifeLossCauseMatchesecd1OppCtrl:
 			if cause.Controller != you {
 				return true
 			}
@@ -239,3 +239,13 @@ func init() {
 		return lifeGainedMatches(e, t, source, ev)
 	}, "LifeGained")
 }
+
+const (
+	lifeLossCauseMatchesecd1YouCtrl uint16 = 1 // "YouCtrl"
+	lifeLossCauseMatchesecd1OppCtrl uint16 = 2 // "OppCtrl"
+)
+
+var lifeLossCauseMatchesecd1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "YouCtrl", Val: lifeLossCauseMatchesecd1YouCtrl},
+	state.StrEntry[uint16]{Key: "OppCtrl", Val: lifeLossCauseMatchesecd1OppCtrl},
+)

@@ -24,8 +24,8 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 	if lki != nil && lki.ID == ev.Obj && leftBattlefield(ev) {
 		c.TriggerCardController = player(lki.Controller)
 	}
-	switch t.Mode {
-	case "RolledDie", "RolledDieOnce":
+	switch triggerReferents3641Codes.Code(string(t.Mode)) {
+	case triggerReferents3641RolledDie:
 		// The canonical roll Note (effects/dice.go): the per-die DieRollNote
 		// for Mode$ RolledDie and the per-resolution DieRollBatchNote for
 		// Mode$ RolledDieOnce. Both name the roller (ev.Player) and the
@@ -47,7 +47,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 			c.TriggerResult = result
 			c.TriggerResultMax = maxResult
 		}
-	case "BecomesTarget", "BecomesTargetOnce":
+	case triggerReferents3641BecomesTarget:
 		// This matcher fires only for its own source being targeted, even when
 		// the causing spell chose several targets. ev.Obj is that spell/ability.
 		// BecomesTargetOnce carries the same roles -- its batch latch is the
@@ -57,7 +57,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		c.TriggerTarget = state.Target{Obj: source}
 		c.TriggerSource = e.protectionSource(ev.Obj)
 		c.TriggerStack = ev.Obj
-	case "DamageDone", "DamageDealtOnce", "DamageDoneOnce", "DamageAll":
+	case triggerReferents3641DamageDone:
 		// The damage source the causing event names: the published override
 		// when a DamageSource$ emitter set one (Kediss' DamageAll with
 		// DamageSource$ TriggeredSource resolves its own execute through
@@ -73,7 +73,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		if o := e.G.Obj(e.inFlightDamageSource()); o != nil && o.IsAttacking {
 			c.DefendingPlayer = player(o.Attacking)
 		}
-	case "CounterAdded", "CounterAddedOnce":
+	case triggerReferents3641CounterAdded:
 		// The batch size the body reads as TriggerCount$Amount (Simic
 		// Ascendancy's "put that many growth counters" on CounterAddedOnce,
 		// and the same read on a plain CounterAdded line): one CounterChange
@@ -85,7 +85,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		// "that many" had nothing to read before this case named it.
 		c.TriggerCard = ev.Obj
 		c.TriggerAmount = ev.Amount
-	case "CounterPlayerAddedAll":
+	case triggerReferents3641CounterPlayerAddedAll:
 		// The batch "whenever you put one or more counters on ..." mode's
 		// roles (Generous Patron, Rikku, Kros, All Will Be One): the
 		// recipient permanent is ev.Obj -- triggerRemembered already seeds
@@ -102,7 +102,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 			c.TriggerTarget = player(ev.Player)
 		}
 		c.TriggerAmount = ev.Amount
-	case "Scry":
+	case triggerReferents3641Scry:
 		// The completed-scry marker carries the count of cards the player
 		// actually chose to put on the bottom in Amount, which is the
 		// magnitude the trigger body reads: The Temporal Anchor's
@@ -111,7 +111,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		// bottom. It is captured at fire time and carried to resolution, the
 		// same contract TriggerAmount has for every other mode.
 		c.TriggerAmount = ev.Amount
-	case "CounterRemovedOnce":
+	case triggerReferents3641CounterRemovedOnce:
 		// The removal batch, mirrored: one CounterChange with a negative
 		// Amount carries the whole removal, and the magnitude the causing
 		// event carried is POSITIVE, so TriggerCount$Amount reads -ev.Amount
@@ -124,7 +124,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		} else {
 			c.TriggerAmount = ev.Amount
 		}
-	case "DamagePreventedOnce":
+	case triggerReferents3641DamagePreventedOnce:
 		// The prevention Note carries the prevented damage in Amount and the
 		// damaged side in Obj/Player (rules/replacement.go's stored-prevention
 		// arms). TriggerCount$DamageAmount reads TriggerAmount when the
@@ -134,7 +134,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		if ev.Obj == 0 {
 			c.TriggerTarget = player(ev.Player)
 		}
-	case "Attacks", "AttackersDeclaredOneTarget", "AttackersDeclared":
+	case triggerReferents3641Attacks:
 		c.DefendingPlayer = player(ev.Player)
 		c.AttackedTarget = player(ev.Player)
 		if len(ev.IDs) > 0 {
@@ -161,11 +161,11 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 			c.TriggerCard = 0
 		}
 		c.TriggerSource = c.TriggerCard
-	case "Taps":
+	case triggerReferents3641Taps:
 		c.TriggerActivator = player(trigmatch.TapActor(boardOf(e), ev))
-	case "ChangesZone", "LandPlayed":
+	case triggerReferents3641ChangesZone:
 		c.TriggerCard = ev.Obj
-	case "Milled", "MilledAll":
+	case triggerReferents3641Milled:
 		// The milled card is ev.Obj (what ValidCard$ matched) and the player
 		// whose library was milled is ev.Player (what ValidPlayer$ matched),
 		// so TriggerPlayer names whose mill this was. One milled card is one
@@ -179,7 +179,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		if ev.Amount > 0 {
 			c.TriggerAmount = ev.Amount
 		}
-	case "DiscardedAll":
+	case triggerReferents3641DiscardedAll:
 		// The discard batch's roles mirror MilledAll's: the discarded card is
 		// ev.Obj (what ValidCard$ matched) and the discarding player is
 		// ev.Player (what ValidPlayer$ matched), so TriggerPlayer names whose
@@ -192,22 +192,22 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		c.TriggerCard = ev.Obj
 		c.TriggerPlayer = player(ev.Player)
 		c.TriggerAmount = 1
-	case "Drawn":
+	case triggerReferents3641Drawn:
 		c.TriggerCard = ev.Obj
 		c.TriggerPlayer = player(ev.Player)
-	case "LifeLost", "LifeLostAll":
+	case triggerReferents3641LifeLost:
 		if p, amount, ok := lifeLoss(ev); ok {
 			c.TriggerPlayer = player(p)
 			c.TriggerAmount = amount
 		}
-	case "LifeGained":
+	case triggerReferents3641LifeGained:
 		// The gaining player and the gained magnitude: TriggerCount$LifeAmount
 		// (Prize Pig's CounterNum$ Y) reads both off this context.
 		if ev.Kind == events.LifeChange && ev.Amount > 0 && int(ev.Player) >= 0 && int(ev.Player) < len(e.G.Players) {
 			c.TriggerPlayer = player(ev.Player)
 			c.TriggerAmount = ev.Amount
 		}
-	case "SpellCast", "AbilityCast", "SpellAbilityCast":
+	case triggerReferents3641SpellCast:
 		c.TriggerCard = ev.Obj
 		c.TriggerSource = e.protectionSource(ev.Obj)
 		// TriggeredActivator is the player who cast or activated it, the
@@ -228,7 +228,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		if ev.Kind == events.AbilityPush || ev.Kind == events.KeywordAbilityPush {
 			c.TriggerAbility = e.abilityCastStackObject(ev.Obj)
 		}
-	case "Attached":
+	case triggerReferents3641Attached:
 		// ev.Obj is the attaching Aura/Equipment, ev.IDs[0] the bearer it
 		// became attached to (trigmatch.attachedMatches guarantees a bearer-bearing
 		// Attach event reached this mode). The TriggerTarget role serves the
@@ -244,9 +244,9 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 			c.TriggerTarget = state.Target{Obj: ev.IDs[0]}
 			c.TriggerBearer = ev.IDs[0]
 		}
-	case "Phase":
+	case triggerReferents3641Phase:
 		c.TriggerPlayer = player(e.G.Active)
-	case "BecomeMonarch":
+	case triggerReferents3641BecomeMonarch:
 		// The monarch designation transition's role: the NEW monarch is the
 		// event's Player, so Defined$ TriggeredPlayer resolves the seat that
 		// just took the crown (Knights of the Black Rose's "that player loses
@@ -254,19 +254,19 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		// when a BecomeMonarch matcher accepted the event, so ev.Player is
 		// always that seat here.
 		c.TriggerPlayer = player(ev.Player)
-	case "Discover":
+	case triggerReferents3641Discover:
 		// Discover's completed-action marker carries the resolved discover
 		// value in Amount. Curator of Sun's Creation binds it as X through
 		// TriggerCount$Amount for its same-value follow-up discover.
 		c.TriggerAmount = ev.Amount
-	case "Explores":
+	case triggerReferents3641Explores:
 		// The explore record's roles (task explore1): TriggerCard is the
 		// EXPLORER (what ValidCard$ matched), the same ChangesZone read.
 		// The revealed card rode the record's IDs, but every corpus body
 		// reads the trigger's own source or asks its own targets, so no
 		// separate referent field is minted for it.
 		c.TriggerCard = ev.Obj
-	case "Exploited":
+	case triggerReferents3641Exploited:
 		// The exploit record's roles (task exploit1): the EXPLOITING creature
 		// is ev.Obj and rides TriggerSource (Colonel Autumn's team watch has
 		// its own body, but a body reading TriggeredSource/TriggeredCard gets
@@ -278,7 +278,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 			c.TriggerCard = ev.IDs[0]
 		}
 		c.TriggerPlayer = player(ev.Player)
-	case "Enlisted":
+	case triggerReferents3641Enlisted:
 		// The Enlist event names the ATTACKING creature that enlisted (ev.Obj,
 		// the trigger's source for ValidCard$ Card.Self) and the creature it
 		// tapped in ev.IDs[0]. TriggerCard is the attacker (so
@@ -292,7 +292,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		if len(ev.IDs) > 0 {
 			c.TriggerEnlisted = ev.IDs[0]
 		}
-	case "BecomeMonstrous":
+	case triggerReferents3641BecomeMonstrous:
 		// The monstrous mark's roles (task agent-20260919T190014Z):
 		// TriggerCard is the creature that just became monstrous (ev.Obj, the
 		// trigger's own source for ValidCard$ Card.Self, so
@@ -306,14 +306,14 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		if int(ev.Player) >= 0 && int(ev.Player) < len(e.G.Players) {
 			c.TriggerPlayer = player(ev.Player)
 		}
-	case "Connives":
+	case triggerReferents3641Connives:
 		// The connive record's roles (task connive1): TriggerCard is the
 		// CONNIVER (what ValidCard$ matched), the same ChangesZone read. The
 		// discarded cards rode the record's IDs, but every corpus body reads
 		// the conniving creature or asks its own targets, so no separate
 		// referent field is minted for them.
 		c.TriggerCard = ev.Obj
-	case "Exerted":
+	case triggerReferents3641Exerted:
 		// The Exert event names the exerted permanent (ev.Obj) and its
 		// controller at exert time (ev.Player). TriggerCard is the exerted
 		// permanent, so TriggeredCard/TriggeredCardLKICopy resolve against it
@@ -323,7 +323,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		// dedicated role without changing the Remembered list.
 		c.TriggerCard = ev.Obj
 		c.TriggerPlayer = player(ev.Player)
-	case "TapsForMana":
+	case triggerReferents3641TapsForMana:
 		// The ManaAdd event names the activating player, producing permanent,
 		// produced type and amount without overloading Remembered. This mode's
 		// matcher remains a separate primitive; retaining all four roles here
@@ -341,7 +341,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		c.TriggerSource = ev.Obj
 		c.TriggerMana = ev.Counter
 		c.TriggerAmount = ev.Amount
-	case "Vote":
+	case triggerReferents3641Vote:
 		// The canonical vote-finished carrier (effects/vote.go): the raw
 		// ballots ride the Note as player refs (each Pair is
 		// [PlayerRef(voter), pick+1]) and are RE-SPLIT here against the
@@ -602,3 +602,80 @@ func (e *Engine) targetSpecContext(source, stack state.ObjID, you state.PlayerID
 	// AGENTS.md row this closes).
 	return e.withNames(sc)
 }
+
+const (
+	triggerReferents3641RolledDie             uint16 = 1  // "RolledDie", "RolledDieOnce"
+	triggerReferents3641BecomesTarget         uint16 = 2  // "BecomesTarget", "BecomesTargetOnce"
+	triggerReferents3641DamageDone            uint16 = 3  // "DamageDone", "DamageDealtOnce", "DamageDoneOnce", "DamageAll"
+	triggerReferents3641CounterAdded          uint16 = 4  // "CounterAdded", "CounterAddedOnce"
+	triggerReferents3641CounterPlayerAddedAll uint16 = 5  // "CounterPlayerAddedAll"
+	triggerReferents3641Scry                  uint16 = 6  // "Scry"
+	triggerReferents3641CounterRemovedOnce    uint16 = 7  // "CounterRemovedOnce"
+	triggerReferents3641DamagePreventedOnce   uint16 = 8  // "DamagePreventedOnce"
+	triggerReferents3641Attacks               uint16 = 9  // "Attacks", "AttackersDeclaredOneTarget", "AttackersDeclared"
+	triggerReferents3641Taps                  uint16 = 10 // "Taps"
+	triggerReferents3641ChangesZone           uint16 = 11 // "ChangesZone", "LandPlayed"
+	triggerReferents3641Milled                uint16 = 12 // "Milled", "MilledAll"
+	triggerReferents3641DiscardedAll          uint16 = 13 // "DiscardedAll"
+	triggerReferents3641Drawn                 uint16 = 14 // "Drawn"
+	triggerReferents3641LifeLost              uint16 = 15 // "LifeLost", "LifeLostAll"
+	triggerReferents3641LifeGained            uint16 = 16 // "LifeGained"
+	triggerReferents3641SpellCast             uint16 = 17 // "SpellCast", "AbilityCast", "SpellAbilityCast"
+	triggerReferents3641Attached              uint16 = 18 // "Attached"
+	triggerReferents3641Phase                 uint16 = 19 // "Phase"
+	triggerReferents3641BecomeMonarch         uint16 = 20 // "BecomeMonarch"
+	triggerReferents3641Discover              uint16 = 21 // "Discover"
+	triggerReferents3641Explores              uint16 = 22 // "Explores"
+	triggerReferents3641Exploited             uint16 = 23 // "Exploited"
+	triggerReferents3641Enlisted              uint16 = 24 // "Enlisted"
+	triggerReferents3641BecomeMonstrous       uint16 = 25 // "BecomeMonstrous"
+	triggerReferents3641Connives              uint16 = 26 // "Connives"
+	triggerReferents3641Exerted               uint16 = 27 // "Exerted"
+	triggerReferents3641TapsForMana           uint16 = 28 // "TapsForMana"
+	triggerReferents3641Vote                  uint16 = 29 // "Vote"
+)
+
+var triggerReferents3641Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "RolledDie", Val: triggerReferents3641RolledDie},
+	state.StrEntry[uint16]{Key: "RolledDieOnce", Val: triggerReferents3641RolledDie},
+	state.StrEntry[uint16]{Key: "BecomesTarget", Val: triggerReferents3641BecomesTarget},
+	state.StrEntry[uint16]{Key: "BecomesTargetOnce", Val: triggerReferents3641BecomesTarget},
+	state.StrEntry[uint16]{Key: "DamageDone", Val: triggerReferents3641DamageDone},
+	state.StrEntry[uint16]{Key: "DamageDealtOnce", Val: triggerReferents3641DamageDone},
+	state.StrEntry[uint16]{Key: "DamageDoneOnce", Val: triggerReferents3641DamageDone},
+	state.StrEntry[uint16]{Key: "DamageAll", Val: triggerReferents3641DamageDone},
+	state.StrEntry[uint16]{Key: "CounterAdded", Val: triggerReferents3641CounterAdded},
+	state.StrEntry[uint16]{Key: "CounterAddedOnce", Val: triggerReferents3641CounterAdded},
+	state.StrEntry[uint16]{Key: "CounterPlayerAddedAll", Val: triggerReferents3641CounterPlayerAddedAll},
+	state.StrEntry[uint16]{Key: "Scry", Val: triggerReferents3641Scry},
+	state.StrEntry[uint16]{Key: "CounterRemovedOnce", Val: triggerReferents3641CounterRemovedOnce},
+	state.StrEntry[uint16]{Key: "DamagePreventedOnce", Val: triggerReferents3641DamagePreventedOnce},
+	state.StrEntry[uint16]{Key: "Attacks", Val: triggerReferents3641Attacks},
+	state.StrEntry[uint16]{Key: "AttackersDeclaredOneTarget", Val: triggerReferents3641Attacks},
+	state.StrEntry[uint16]{Key: "AttackersDeclared", Val: triggerReferents3641Attacks},
+	state.StrEntry[uint16]{Key: "Taps", Val: triggerReferents3641Taps},
+	state.StrEntry[uint16]{Key: "ChangesZone", Val: triggerReferents3641ChangesZone},
+	state.StrEntry[uint16]{Key: "LandPlayed", Val: triggerReferents3641ChangesZone},
+	state.StrEntry[uint16]{Key: "Milled", Val: triggerReferents3641Milled},
+	state.StrEntry[uint16]{Key: "MilledAll", Val: triggerReferents3641Milled},
+	state.StrEntry[uint16]{Key: "DiscardedAll", Val: triggerReferents3641DiscardedAll},
+	state.StrEntry[uint16]{Key: "Drawn", Val: triggerReferents3641Drawn},
+	state.StrEntry[uint16]{Key: "LifeLost", Val: triggerReferents3641LifeLost},
+	state.StrEntry[uint16]{Key: "LifeLostAll", Val: triggerReferents3641LifeLost},
+	state.StrEntry[uint16]{Key: "LifeGained", Val: triggerReferents3641LifeGained},
+	state.StrEntry[uint16]{Key: "SpellCast", Val: triggerReferents3641SpellCast},
+	state.StrEntry[uint16]{Key: "AbilityCast", Val: triggerReferents3641SpellCast},
+	state.StrEntry[uint16]{Key: "SpellAbilityCast", Val: triggerReferents3641SpellCast},
+	state.StrEntry[uint16]{Key: "Attached", Val: triggerReferents3641Attached},
+	state.StrEntry[uint16]{Key: "Phase", Val: triggerReferents3641Phase},
+	state.StrEntry[uint16]{Key: "BecomeMonarch", Val: triggerReferents3641BecomeMonarch},
+	state.StrEntry[uint16]{Key: "Discover", Val: triggerReferents3641Discover},
+	state.StrEntry[uint16]{Key: "Explores", Val: triggerReferents3641Explores},
+	state.StrEntry[uint16]{Key: "Exploited", Val: triggerReferents3641Exploited},
+	state.StrEntry[uint16]{Key: "Enlisted", Val: triggerReferents3641Enlisted},
+	state.StrEntry[uint16]{Key: "BecomeMonstrous", Val: triggerReferents3641BecomeMonstrous},
+	state.StrEntry[uint16]{Key: "Connives", Val: triggerReferents3641Connives},
+	state.StrEntry[uint16]{Key: "Exerted", Val: triggerReferents3641Exerted},
+	state.StrEntry[uint16]{Key: "TapsForMana", Val: triggerReferents3641TapsForMana},
+	state.StrEntry[uint16]{Key: "Vote", Val: triggerReferents3641Vote},
+)

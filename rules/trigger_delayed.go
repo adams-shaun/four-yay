@@ -82,17 +82,17 @@ func (e *Engine) delayedRegistrationLive(dt *state.DelayedTrigger) bool {
 	// (Chancellor of the Annex, source in hand) or an emblem/command-zone
 	// source has no battlefield incarnation to lose, so its Permanent
 	// promise is unbounded (SourceBattlefield false).
-	switch dt.EffectDuration {
-	case "permanent":
+	switch delayedRegistrationLivef3a1Codes.Code(string(dt.EffectDuration)) {
+	case delayedRegistrationLivef3a1Permanent:
 		if dt.SourceBattlefield &&
 			(src.Zone != state.ZBattlefield || src.Incarnation != dt.SourceIncarnation) {
 			return false
 		}
-	case "untilendofcombat":
+	case delayedRegistrationLivef3a1Untilendofcombat:
 		if !isCombatStep(e.G.Step) {
 			return false
 		}
-	case "untilyournextturn", "untiltheendofyournextturn":
+	case delayedRegistrationLivef3a1Untilyournextturn:
 		// Read the folded turn history through the shared turn-start cache
 		// (nextTurnFor/rescheduleNextTurnBoundaries' own source of truth),
 		// not a frozen absolute turn: late extra-turn grants and skipped
@@ -688,14 +688,14 @@ func delayedSpecCtx(sc effects.SpecContext, remembered []state.Target) effects.S
 // delayed registration. Keeping this on the ordinary matcher helpers makes a
 // delayed body and a printed T: line agree on zone, damage and attack filters.
 func (e *Engine) delayedEventMatches(t cards.Trigger, dt *state.DelayedTrigger, ev events.Event, lki *state.Object) bool {
-	switch t.Mode {
-	case "SpellCast":
+	switch delayedEventMatchesf3a2Codes.Code(string(t.Mode)) {
+	case delayedEventMatchesf3a2SpellCast:
 		return e.eventDelayedSpellCastMatches(t, dt, ev)
-	case "ChangesController":
+	case delayedEventMatchesf3a2ChangesController:
 		return e.delayedChangesControllerMatches(t, dt, ev, lki)
-	case "DamageDone":
+	case delayedEventMatchesf3a2DamageDone:
 		return trigmatch.DamageMatchesWithCapture(boardOf(e), t, dt.Source, ev, dt.Remembered)
-	case "AttackersDeclared":
+	case delayedEventMatchesf3a2AttackersDeclared:
 		return trigmatch.AttackersDeclaredOneTargetMatches(boardOf(e), t, dt.Source, ev, dt.Remembered)
 	default:
 		return false
@@ -706,24 +706,24 @@ func (e *Engine) delayedEventMatches(t cards.Trigger, dt *state.DelayedTrigger, 
 // Event modes use the event's natural actor/recipient, while a zone or control
 // change uses the pre-event controller captured in LKI.
 func (e *Engine) delayedEventPlayer(t cards.Trigger, ev events.Event, lki *state.Object) (state.PlayerID, bool) {
-	switch t.Mode {
-	case "ChangesZone", "ChangesController":
+	switch delayedEventPlayerf3a3Codes.Code(string(t.Mode)) {
+	case delayedEventPlayerf3a3ChangesZone:
 		if lki != nil {
 			return lki.Controller, true
 		}
 		if o := e.G.Obj(ev.Obj); o != nil {
 			return o.Controller, true
 		}
-	case "SpellCast":
+	case delayedEventPlayerf3a3SpellCast:
 		return ev.Player, int(ev.Player) < len(e.G.Players)
-	case "DamageDone":
+	case delayedEventPlayerf3a3DamageDone:
 		if ev.Obj == 0 {
 			return ev.Player, int(ev.Player) < len(e.G.Players)
 		}
 		if src := trigmatch.DamageEventSource(boardOf(e)); src != 0 {
 			return e.controllerOf(src), true
 		}
-	case "AttackersDeclared":
+	case delayedEventPlayerf3a3AttackersDeclared:
 		if len(ev.IDs) > 0 {
 			return e.controllerOf(ev.IDs[0]), true
 		}
@@ -848,9 +848,51 @@ func (e *Engine) clearEffectMatchScope() {
 	e.effectMatchOverride = false
 }
 
-var delayedEventModeHandledTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "SpellCast", Val: true},
-	cards.StrEntry[bool]{Key: "ChangesController", Val: true},
-	cards.StrEntry[bool]{Key: "DamageDone", Val: true},
-	cards.StrEntry[bool]{Key: "AttackersDeclared", Val: true},
+var delayedEventModeHandledTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "SpellCast", Val: true},
+	state.StrEntry[bool]{Key: "ChangesController", Val: true},
+	state.StrEntry[bool]{Key: "DamageDone", Val: true},
+	state.StrEntry[bool]{Key: "AttackersDeclared", Val: true},
+)
+
+const (
+	delayedRegistrationLivef3a1Permanent         uint16 = 1 // "permanent"
+	delayedRegistrationLivef3a1Untilendofcombat  uint16 = 2 // "untilendofcombat"
+	delayedRegistrationLivef3a1Untilyournextturn uint16 = 3 // "untilyournextturn", "untiltheendofyournextturn"
+)
+
+var delayedRegistrationLivef3a1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "permanent", Val: delayedRegistrationLivef3a1Permanent},
+	state.StrEntry[uint16]{Key: "untilendofcombat", Val: delayedRegistrationLivef3a1Untilendofcombat},
+	state.StrEntry[uint16]{Key: "untilyournextturn", Val: delayedRegistrationLivef3a1Untilyournextturn},
+	state.StrEntry[uint16]{Key: "untiltheendofyournextturn", Val: delayedRegistrationLivef3a1Untilyournextturn},
+)
+
+const (
+	delayedEventMatchesf3a2SpellCast         uint16 = 1 // "SpellCast"
+	delayedEventMatchesf3a2ChangesController uint16 = 2 // "ChangesController"
+	delayedEventMatchesf3a2DamageDone        uint16 = 3 // "DamageDone"
+	delayedEventMatchesf3a2AttackersDeclared uint16 = 4 // "AttackersDeclared"
+)
+
+var delayedEventMatchesf3a2Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "SpellCast", Val: delayedEventMatchesf3a2SpellCast},
+	state.StrEntry[uint16]{Key: "ChangesController", Val: delayedEventMatchesf3a2ChangesController},
+	state.StrEntry[uint16]{Key: "DamageDone", Val: delayedEventMatchesf3a2DamageDone},
+	state.StrEntry[uint16]{Key: "AttackersDeclared", Val: delayedEventMatchesf3a2AttackersDeclared},
+)
+
+const (
+	delayedEventPlayerf3a3ChangesZone       uint16 = 1 // "ChangesZone", "ChangesController"
+	delayedEventPlayerf3a3SpellCast         uint16 = 2 // "SpellCast"
+	delayedEventPlayerf3a3DamageDone        uint16 = 3 // "DamageDone"
+	delayedEventPlayerf3a3AttackersDeclared uint16 = 4 // "AttackersDeclared"
+)
+
+var delayedEventPlayerf3a3Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "ChangesZone", Val: delayedEventPlayerf3a3ChangesZone},
+	state.StrEntry[uint16]{Key: "ChangesController", Val: delayedEventPlayerf3a3ChangesZone},
+	state.StrEntry[uint16]{Key: "SpellCast", Val: delayedEventPlayerf3a3SpellCast},
+	state.StrEntry[uint16]{Key: "DamageDone", Val: delayedEventPlayerf3a3DamageDone},
+	state.StrEntry[uint16]{Key: "AttackersDeclared", Val: delayedEventPlayerf3a3AttackersDeclared},
 )

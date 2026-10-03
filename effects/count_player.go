@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -257,14 +256,14 @@ func objectProperty(g *state.Game, id state.ObjID, prop string) int32 {
 	if o == nil || o.Face() == nil {
 		return 0
 	}
-	switch strings.TrimSpace(prop) {
-	case "CardPower":
+	switch objectProperty7491Codes.Code(string(strings.TrimSpace(prop))) {
+	case objectProperty7491CardPower:
 		dp, _ := o.CounterPTTotals()
 		return int32(o.Face().Power()) + dp
-	case "CardToughness":
+	case objectProperty7491CardToughness:
 		_, dt := o.CounterPTTotals()
 		return int32(o.Face().Toughness()) + dt
-	case "CardManaCost":
+	case objectProperty7491CardManaCost:
 		return o.Face().ManaValue()
 	}
 	return 0
@@ -361,19 +360,19 @@ func playerCountDefinedRegistered(h Host, g *state.Game, c *Ctx, group []state.P
 	// Players$/Opponents$ arms resolve them. No corpus carrier reads a life
 	// total extreme through this head; if one ever does, widening is a
 	// one-line change with its own pin.
-	switch base {
-	case "HighestLifeLostThisTurn", "LowestLifeLostThisTurn":
+	switch playerCountDefinedRegistered7492Codes.Code(string(base)) {
+	case playerCountDefinedRegistered7492HighestLifeLostThisTurn:
 		// The life-lost extremes — Knight of the Ebon Legion's and
 		// Y'shtola's gates. playerCountExtreme's LifeLostThisTurn arm is the
 		// Host's log-derived read.
 		return playerCountExtreme(h, g, c, group, prop, arg)
-	case "HasPropertyLostLifeThisTurn":
+	case playerCountDefinedRegistered7492HasPropertyLostLifeThisTurn:
 		// "a player [other than you] lost life this turn" — the shared read
 		// every group's HasPropertyLostLifeThisTurn carrier uses. Calling the
 		// helper (rather than inlining the count) is what keeps the property
 		// from resolving on one group and failing closed on its sibling.
 		return hasPropertyLostLifeCount(h, group, prop)
-	case "HasPropertywasDealtCombatDamageThisTurnBy":
+	case playerCountDefinedRegistered7492HasPropertywasDealtCombatDam:
 		spec, op, threshold, ok := splitPropertyThreshold(arg)
 		if !ok {
 			return 0, false
@@ -593,8 +592,8 @@ func playerCountCondition(h Host, g *state.Game, c *Ctx, group []state.PlayerID,
 		return 0, false
 	}
 	op := strings.ToUpper(cond[:2])
-	switch op {
-	case "GE", "GT", "LE", "LT", "EQ":
+	switch playerCountCondition7493Codes.Code(string(op)) {
+	case playerCountCondition7493GE:
 	default:
 		return 0, false
 	}
@@ -690,17 +689,17 @@ func playerCountCondition(h Host, g *state.Game, c *Ctx, group []state.PlayerID,
 // heads can never drift apart. An unmodelled property reports (0, false) —
 // unresolvable, the caller's documented direction, never a fake zero.
 func playerMemberProperty(h Host, g *state.Game, c *Ctx, m state.PlayerID, prop string) (int32, bool) {
-	switch strings.TrimSpace(prop) {
-	case "LifeTotal":
+	switch playerMemberProperty7494Codes.Code(string(strings.TrimSpace(prop))) {
+	case playerMemberProperty7494LifeTotal:
 		if int(m) < 0 || int(m) >= len(g.Players) {
 			return 0, false
 		}
 		return g.Players[m].Life, true
-	case "CardsDrawn":
+	case playerMemberProperty7494CardsDrawn:
 		return h.CardsDrawnThisTurn(m), true
-	case "CardsDiscardedThisTurn":
+	case playerMemberProperty7494CardsDiscardedThisTurn:
 		return h.CardsDiscardedThisTurn(m), true
-	case "SpellsCastThisTurn":
+	case playerMemberProperty7494SpellsCastThisTurn:
 		return int32(h.SpellsCastThisTurnBy(m)), true
 	}
 	if rest, ok := strings.CutPrefix(strings.TrimSpace(prop), "ThisTurnEntered_"); ok {
@@ -876,25 +875,76 @@ func playerCountExtreme(h Host, g *state.Game, c *Ctx, players []state.PlayerID,
 	return best, true
 }
 
-var countersAddedThisTurnArgsKnownTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "Creature", Val: true},
-	cards.StrEntry[bool]{Key: "Creature.YouCtrl", Val: true},
-	cards.StrEntry[bool]{Key: "Permanent.YouCtrl", Val: true},
-	cards.StrEntry[bool]{Key: "Card.Self", Val: true},
-	cards.StrEntry[bool]{Key: "Card.EffectSource", Val: true},
+var countersAddedThisTurnArgsKnownTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "Creature", Val: true},
+	state.StrEntry[bool]{Key: "Creature.YouCtrl", Val: true},
+	state.StrEntry[bool]{Key: "Permanent.YouCtrl", Val: true},
+	state.StrEntry[bool]{Key: "Card.Self", Val: true},
+	state.StrEntry[bool]{Key: "Card.EffectSource", Val: true},
 )
 
-var modeledPropertyTab2 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "CardPower", Val: true},
-	cards.StrEntry[bool]{Key: "CardToughness", Val: true},
-	cards.StrEntry[bool]{Key: "CardManaCost", Val: true},
+var modeledPropertyTab2 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "CardPower", Val: true},
+	state.StrEntry[bool]{Key: "CardToughness", Val: true},
+	state.StrEntry[bool]{Key: "CardManaCost", Val: true},
 )
 
-var unreadZoneSpecKeys3 = cards.NewNameSet("Any", "Card", "Permanent", "PermanentCard", "Spell", "SpellAbility", "CARDNAME", "Affinity")
+var unreadZoneSpecKeys3 = state.NewNameSet("Any", "Card", "Permanent", "PermanentCard", "Spell", "SpellAbility", "CARDNAME", "Affinity")
 
-var playerPropertyModelledTab4 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "LifeTotal", Val: true},
-	cards.StrEntry[bool]{Key: "CardsDrawn", Val: true},
-	cards.StrEntry[bool]{Key: "CardsDiscardedThisTurn", Val: true},
-	cards.StrEntry[bool]{Key: "SpellsCastThisTurn", Val: true},
+var playerPropertyModelledTab4 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "LifeTotal", Val: true},
+	state.StrEntry[bool]{Key: "CardsDrawn", Val: true},
+	state.StrEntry[bool]{Key: "CardsDiscardedThisTurn", Val: true},
+	state.StrEntry[bool]{Key: "SpellsCastThisTurn", Val: true},
+)
+
+const (
+	objectProperty7491CardPower     uint16 = 1 // "CardPower"
+	objectProperty7491CardToughness uint16 = 2 // "CardToughness"
+	objectProperty7491CardManaCost  uint16 = 3 // "CardManaCost"
+)
+
+var objectProperty7491Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "CardPower", Val: objectProperty7491CardPower},
+	state.StrEntry[uint16]{Key: "CardToughness", Val: objectProperty7491CardToughness},
+	state.StrEntry[uint16]{Key: "CardManaCost", Val: objectProperty7491CardManaCost},
+)
+
+const (
+	playerCountDefinedRegistered7492HighestLifeLostThisTurn      uint16 = 1 // "HighestLifeLostThisTurn", "LowestLifeLostThisTurn"
+	playerCountDefinedRegistered7492HasPropertyLostLifeThisTurn  uint16 = 2 // "HasPropertyLostLifeThisTurn"
+	playerCountDefinedRegistered7492HasPropertywasDealtCombatDam uint16 = 3 // "HasPropertywasDealtCombatDamageThisTurnBy"
+)
+
+var playerCountDefinedRegistered7492Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "HighestLifeLostThisTurn", Val: playerCountDefinedRegistered7492HighestLifeLostThisTurn},
+	state.StrEntry[uint16]{Key: "LowestLifeLostThisTurn", Val: playerCountDefinedRegistered7492HighestLifeLostThisTurn},
+	state.StrEntry[uint16]{Key: "HasPropertyLostLifeThisTurn", Val: playerCountDefinedRegistered7492HasPropertyLostLifeThisTurn},
+	state.StrEntry[uint16]{Key: "HasPropertywasDealtCombatDamageThisTurnBy", Val: playerCountDefinedRegistered7492HasPropertywasDealtCombatDam},
+)
+
+const (
+	playerCountCondition7493GE uint16 = 1 // "GE", "GT", "LE", "LT", "EQ"
+)
+
+var playerCountCondition7493Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "GE", Val: playerCountCondition7493GE},
+	state.StrEntry[uint16]{Key: "GT", Val: playerCountCondition7493GE},
+	state.StrEntry[uint16]{Key: "LE", Val: playerCountCondition7493GE},
+	state.StrEntry[uint16]{Key: "LT", Val: playerCountCondition7493GE},
+	state.StrEntry[uint16]{Key: "EQ", Val: playerCountCondition7493GE},
+)
+
+const (
+	playerMemberProperty7494LifeTotal              uint16 = 1 // "LifeTotal"
+	playerMemberProperty7494CardsDrawn             uint16 = 2 // "CardsDrawn"
+	playerMemberProperty7494CardsDiscardedThisTurn uint16 = 3 // "CardsDiscardedThisTurn"
+	playerMemberProperty7494SpellsCastThisTurn     uint16 = 4 // "SpellsCastThisTurn"
+)
+
+var playerMemberProperty7494Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "LifeTotal", Val: playerMemberProperty7494LifeTotal},
+	state.StrEntry[uint16]{Key: "CardsDrawn", Val: playerMemberProperty7494CardsDrawn},
+	state.StrEntry[uint16]{Key: "CardsDiscardedThisTurn", Val: playerMemberProperty7494CardsDiscardedThisTurn},
+	state.StrEntry[uint16]{Key: "SpellsCastThisTurn", Val: playerMemberProperty7494SpellsCastThisTurn},
 )

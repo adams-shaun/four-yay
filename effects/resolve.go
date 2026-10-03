@@ -381,8 +381,8 @@ func effCounter(h Host, c *Ctx, sa *cards.SA) {
 		// than moving a spell somewhere the card text never asked for.
 		to := state.ZGraveyard
 		if dest := strings.TrimSpace(sa.ParamStr(cards.PKDestination)); dest != "" {
-			switch dest {
-			case "Hand", "Graveyard", "Exile":
+			switch effCounter84e1Codes.Code(string(dest)) {
+			case effCounter84e1Hand:
 				to, _ = parseZone(dest)
 			default:
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -770,3 +770,13 @@ func repeatDefinedGateHolds(h Host, c *Ctx, sa *cards.SA, defined, present, comp
 // mode may fill several of the CharmNum$ slots. Measured at the corpus pin:
 // 23 files, every one api:Charm, every one the literal "True" (the Confluence
 // cycle, Fiery Confluence, Moment of Reckoning, the Commands cycle).
+
+const (
+	effCounter84e1Hand uint16 = 1 // "Hand", "Graveyard", "Exile"
+)
+
+var effCounter84e1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Hand", Val: effCounter84e1Hand},
+	state.StrEntry[uint16]{Key: "Graveyard", Val: effCounter84e1Hand},
+	state.StrEntry[uint16]{Key: "Exile", Val: effCounter84e1Hand},
+)

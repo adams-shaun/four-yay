@@ -137,8 +137,8 @@ func flipRecord(h Host, c *Ctx, player state.PlayerID, win, rememberResult bool,
 // order, not seat number order.
 func forEachPlayerFlippers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool) {
 	g := h.Game()
-	switch strings.ToLower(strings.TrimSpace(spec)) {
-	case "opponent", "opponents":
+	switch forEachPlayerFlippersc8c1Codes.Code(string(strings.ToLower(strings.TrimSpace(spec)))) {
+	case forEachPlayerFlippersc8c1Opponent:
 		var out []state.PlayerID
 		for _, p := range g.AliveFrom(c.Controller) {
 			if p != c.Controller {
@@ -146,7 +146,7 @@ func forEachPlayerFlippers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool)
 			}
 		}
 		return out, true
-	case "true", "player", "players", "all":
+	case forEachPlayerFlippersc8c1True:
 		return g.AliveFrom(c.Controller), true
 	}
 	ts, ok := knownDefinedTargets(h, c, spec)
@@ -431,3 +431,17 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 }
+
+const (
+	forEachPlayerFlippersc8c1Opponent uint16 = 1 // "opponent", "opponents"
+	forEachPlayerFlippersc8c1True     uint16 = 2 // "true", "player", "players", "all"
+)
+
+var forEachPlayerFlippersc8c1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "opponent", Val: forEachPlayerFlippersc8c1Opponent},
+	state.StrEntry[uint16]{Key: "opponents", Val: forEachPlayerFlippersc8c1Opponent},
+	state.StrEntry[uint16]{Key: "true", Val: forEachPlayerFlippersc8c1True},
+	state.StrEntry[uint16]{Key: "player", Val: forEachPlayerFlippersc8c1True},
+	state.StrEntry[uint16]{Key: "players", Val: forEachPlayerFlippersc8c1True},
+	state.StrEntry[uint16]{Key: "all", Val: forEachPlayerFlippersc8c1True},
+)

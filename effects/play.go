@@ -54,8 +54,8 @@ func playValidReadsOtherHand(valid string) bool {
 	for _, token := range strings.FieldsFunc(valid, func(r rune) bool {
 		return r == '.' || r == '+' || r == ','
 	}) {
-		switch strings.ToLower(strings.TrimSpace(token)) {
-		case "isremembered", "targetedplayerctrl":
+		switch playValidReadsOtherHand6381Codes.Code(string(strings.ToLower(strings.TrimSpace(token)))) {
+		case playValidReadsOtherHand6381Isremembered:
 			return true
 		}
 	}
@@ -496,19 +496,46 @@ func validSAOK(f *cards.Face, spec string, resolve func(string) (int32, bool)) b
 // state.ZLibrary) for an unrecognised name so the caller scans nothing rather
 // than scanning every zone.
 func ZoneFromString(s string) (state.Zone, bool) {
-	switch s {
-	case "Exile":
+	switch zoneFromString6382Codes.Code(string(s)) {
+	case zoneFromString6382Exile:
 		return state.ZExile, true
-	case "Graveyard":
+	case zoneFromString6382Graveyard:
 		return state.ZGraveyard, true
-	case "Hand":
+	case zoneFromString6382Hand:
 		return state.ZHand, true
-	case "Library":
+	case zoneFromString6382Library:
 		return state.ZLibrary, true
-	case "Battlefield":
+	case zoneFromString6382Battlefield:
 		return state.ZBattlefield, true
-	case "Command":
+	case zoneFromString6382Command:
 		return state.ZCommand, true
 	}
 	return 0, false
 }
+
+const (
+	playValidReadsOtherHand6381Isremembered uint16 = 1 // "isremembered", "targetedplayerctrl"
+)
+
+var playValidReadsOtherHand6381Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "isremembered", Val: playValidReadsOtherHand6381Isremembered},
+	state.StrEntry[uint16]{Key: "targetedplayerctrl", Val: playValidReadsOtherHand6381Isremembered},
+)
+
+const (
+	zoneFromString6382Exile       uint16 = 1 // "Exile"
+	zoneFromString6382Graveyard   uint16 = 2 // "Graveyard"
+	zoneFromString6382Hand        uint16 = 3 // "Hand"
+	zoneFromString6382Library     uint16 = 4 // "Library"
+	zoneFromString6382Battlefield uint16 = 5 // "Battlefield"
+	zoneFromString6382Command     uint16 = 6 // "Command"
+)
+
+var zoneFromString6382Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Exile", Val: zoneFromString6382Exile},
+	state.StrEntry[uint16]{Key: "Graveyard", Val: zoneFromString6382Graveyard},
+	state.StrEntry[uint16]{Key: "Hand", Val: zoneFromString6382Hand},
+	state.StrEntry[uint16]{Key: "Library", Val: zoneFromString6382Library},
+	state.StrEntry[uint16]{Key: "Battlefield", Val: zoneFromString6382Battlefield},
+	state.StrEntry[uint16]{Key: "Command", Val: zoneFromString6382Command},
+)

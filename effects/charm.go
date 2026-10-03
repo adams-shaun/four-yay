@@ -1029,10 +1029,10 @@ func charmRunModes(h Host, c *Ctx, sa *cards.SA, names []string) {
 // split-braining a placement-time pick with a resolution-time run.
 func CharmRandomChosen(h Host, c *Ctx, sa *cards.SA) bool {
 	p := CharmOf(sa)
-	switch p.Random {
-	case "True":
+	switch charmRandomChosend2f1Codes.Code(string(p.Random)) {
+	case charmRandomChosend2f1True:
 		return true
-	case "Compare":
+	case charmRandomChosend2f1Compare:
 		holds, evaluated := CheckSVarHolds(h, c, p.RandomCompareSVar, p.RandomCompare)
 		return evaluated && holds
 	}
@@ -1050,12 +1050,22 @@ func charmModeLabel(choices []string, subs []*cards.SA, idx int) string {
 	return CharmModeLabel(subs[idx], choices[idx])
 }
 
-var playerRoleDefinedTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "Opponent", Val: true},
-	cards.StrEntry[bool]{Key: "Player", Val: true},
-	cards.StrEntry[bool]{Key: "Player.Opponent", Val: true},
-	cards.StrEntry[bool]{Key: "Player.Other", Val: true},
-	cards.StrEntry[bool]{Key: "You", Val: true},
-	cards.StrEntry[bool]{Key: "TriggeredPlayer", Val: true},
-	cards.StrEntry[bool]{Key: "TriggeredDefendingPlayer", Val: true},
+var playerRoleDefinedTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "Opponent", Val: true},
+	state.StrEntry[bool]{Key: "Player", Val: true},
+	state.StrEntry[bool]{Key: "Player.Opponent", Val: true},
+	state.StrEntry[bool]{Key: "Player.Other", Val: true},
+	state.StrEntry[bool]{Key: "You", Val: true},
+	state.StrEntry[bool]{Key: "TriggeredPlayer", Val: true},
+	state.StrEntry[bool]{Key: "TriggeredDefendingPlayer", Val: true},
+)
+
+const (
+	charmRandomChosend2f1True    uint16 = 1 // "True"
+	charmRandomChosend2f1Compare uint16 = 2 // "Compare"
+)
+
+var charmRandomChosend2f1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "True", Val: charmRandomChosend2f1True},
+	state.StrEntry[uint16]{Key: "Compare", Val: charmRandomChosend2f1Compare},
 )

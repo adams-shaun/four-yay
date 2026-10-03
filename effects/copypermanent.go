@@ -495,28 +495,28 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	owner := c.Controller
 	var owners []state.PlayerID
 	multiOwner := false
-	switch cp.Controller {
-	case "", "You":
-	case "Targeted", "TargetedController", "TargetedPlayer":
+	switch effCopyPermanent5251Codes.Code(string(cp.Controller)) {
+	case effCopyPermanent5251Empty:
+	case effCopyPermanent5251Targeted:
 		if ps := controllersOf(g, targets); len(ps) > 0 {
 			owner = ps[0].Player
 		}
-	case "Remembered", "RememberedController":
+	case effCopyPermanent5251Remembered:
 		if ps := controllersOf(g, rememberedWrittenByResolution(c)); len(ps) > 0 {
 			owner = ps[0].Player
 		}
-	case "TriggeredCardController":
+	case effCopyPermanent5251TriggeredCardController:
 		if p, ok := TriggeredCardController(g, c.TriggerContext, c.Remembered); ok {
 			owner = p
 		}
-	case "Opponent":
+	case effCopyPermanent5251Opponent:
 		for _, p := range g.AliveFrom(c.Controller) {
 			if p != c.Controller {
 				owner = p
 				break
 			}
 		}
-	case "NonRememberedController", "OppNonRememberedController":
+	case effCopyPermanent5251NonRememberedController:
 		multiOwner = true
 		ts, _ := definedSpec(h, c, cp.Controller)
 		for _, t := range ts {
@@ -778,8 +778,8 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			c.Remembered = append(c.Remembered, state.Target{Obj: want})
 			eventRemember(h, c, want)
 		}
-		switch atEOT {
-		case "Exile":
+		switch effCopyPermanent5252Codes.Code(string(atEOT)) {
+		case effCopyPermanent5252Exile:
 			// The registration's source IS the token, so the builtin
 			// body's Defined$ Self resolves to it -- the dash/warp
 			// precedent. TrackSource rides the __kwWarp prefix, so a copy
@@ -788,7 +788,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			// warp's end-step exile already had).
 			h.Emit(events.Event{Kind: events.DelayedRegister, Obj: want,
 				Player: owner, Step: state.StepEnd, Counter: "__kwWarpExile"})
-		case "Sacrifice":
+		case effCopyPermanent5252Sacrifice:
 			// __kwEncoreSacrifice is exactly the body this needs
 			// ("DB$ Sacrifice | Defined$ Self"); the token is its own
 			// registration source. Untracked: a sacrificed-then-returned
@@ -995,3 +995,36 @@ func rememberedWrittenByResolution(c *Ctx) []state.Target {
 	}
 	return c.Remembered[n:]
 }
+
+const (
+	effCopyPermanent5251Empty                   uint16 = 1 // "", "You"
+	effCopyPermanent5251Targeted                uint16 = 2 // "Targeted", "TargetedController", "TargetedPlayer"
+	effCopyPermanent5251Remembered              uint16 = 3 // "Remembered", "RememberedController"
+	effCopyPermanent5251TriggeredCardController uint16 = 4 // "TriggeredCardController"
+	effCopyPermanent5251Opponent                uint16 = 5 // "Opponent"
+	effCopyPermanent5251NonRememberedController uint16 = 6 // "NonRememberedController", "OppNonRememberedController"
+)
+
+var effCopyPermanent5251Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: effCopyPermanent5251Empty},
+	state.StrEntry[uint16]{Key: "You", Val: effCopyPermanent5251Empty},
+	state.StrEntry[uint16]{Key: "Targeted", Val: effCopyPermanent5251Targeted},
+	state.StrEntry[uint16]{Key: "TargetedController", Val: effCopyPermanent5251Targeted},
+	state.StrEntry[uint16]{Key: "TargetedPlayer", Val: effCopyPermanent5251Targeted},
+	state.StrEntry[uint16]{Key: "Remembered", Val: effCopyPermanent5251Remembered},
+	state.StrEntry[uint16]{Key: "RememberedController", Val: effCopyPermanent5251Remembered},
+	state.StrEntry[uint16]{Key: "TriggeredCardController", Val: effCopyPermanent5251TriggeredCardController},
+	state.StrEntry[uint16]{Key: "Opponent", Val: effCopyPermanent5251Opponent},
+	state.StrEntry[uint16]{Key: "NonRememberedController", Val: effCopyPermanent5251NonRememberedController},
+	state.StrEntry[uint16]{Key: "OppNonRememberedController", Val: effCopyPermanent5251NonRememberedController},
+)
+
+const (
+	effCopyPermanent5252Exile     uint16 = 1 // "Exile"
+	effCopyPermanent5252Sacrifice uint16 = 2 // "Sacrifice"
+)
+
+var effCopyPermanent5252Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Exile", Val: effCopyPermanent5252Exile},
+	state.StrEntry[uint16]{Key: "Sacrifice", Val: effCopyPermanent5252Sacrifice},
+)

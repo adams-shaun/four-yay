@@ -313,10 +313,10 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 // The one-sentence rule: a resolution-created one-shot pump honours the
 // duration its script declared instead of being forced to end of turn.
 func durationTiming(dur string) (permanent bool, untilEOT bool) {
-	switch strings.ToLower(strings.TrimSpace(dur)) {
-	case "permanent":
+	switch durationTimingd441Codes.Code(string(strings.ToLower(strings.TrimSpace(dur)))) {
+	case durationTimingd441Permanent:
 		return true, false
-	case "untilendofcombat":
+	case durationTimingd441Untilendofcombat:
 		return false, false
 	default:
 		return false, true
@@ -776,8 +776,8 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 //     alive after the Animator is gone (the defect this predicate exists to
 //     prevent).
 func animateHostScoped(dur string) bool {
-	switch strings.ToLower(strings.TrimSpace(dur)) {
-	case "untilhostleavesplay", "aslongasinplay":
+	switch animateHostScopedd442Codes.Code(string(strings.ToLower(strings.TrimSpace(dur)))) {
+	case animateHostScopedd442Untilhostleavesplay:
 		return true
 	}
 	return false
@@ -1209,3 +1209,22 @@ func svarTableOwner(h Host, c *Ctx) state.ObjID {
 	}
 	return c.Source
 }
+
+const (
+	durationTimingd441Permanent        uint16 = 1 // "permanent"
+	durationTimingd441Untilendofcombat uint16 = 2 // "untilendofcombat"
+)
+
+var durationTimingd441Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "permanent", Val: durationTimingd441Permanent},
+	state.StrEntry[uint16]{Key: "untilendofcombat", Val: durationTimingd441Untilendofcombat},
+)
+
+const (
+	animateHostScopedd442Untilhostleavesplay uint16 = 1 // "untilhostleavesplay", "aslongasinplay"
+)
+
+var animateHostScopedd442Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "untilhostleavesplay", Val: animateHostScopedd442Untilhostleavesplay},
+	state.StrEntry[uint16]{Key: "aslongasinplay", Val: animateHostScopedd442Untilhostleavesplay},
+)

@@ -462,10 +462,10 @@ func ActivationTierKeys() []string {
 	}
 }
 
-var activationZoneMaskTab1 = cards.NewStrTable[uint32](
-	cards.StrEntry[uint32]{Key: "Battlefield", Val: 1 << state.ZBattlefield},
-	cards.StrEntry[uint32]{Key: "Graveyard", Val: 1 << state.ZGraveyard},
-	cards.StrEntry[uint32]{Key: "Hand", Val: 1 << state.ZHand},
-	cards.StrEntry[uint32]{Key: "Exile", Val: 1 << state.ZExile},
-	cards.StrEntry[uint32]{Key: "Stack", Val: 1 << state.ZStack},
+var activationZoneMaskTab1 = state.NewStrTable[uint32](
+	state.StrEntry[uint32]{Key: "Battlefield", Val: 1 << state.ZBattlefield},
+	state.StrEntry[uint32]{Key: "Graveyard", Val: 1 << state.ZGraveyard},
+	state.StrEntry[uint32]{Key: "Hand", Val: 1 << state.ZHand},
+	state.StrEntry[uint32]{Key: "Exile", Val: 1 << state.ZExile},
+	state.StrEntry[uint32]{Key: "Stack", Val: 1 << state.ZStack},
 )

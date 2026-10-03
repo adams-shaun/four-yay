@@ -453,20 +453,20 @@ func potentialPlayKind(kind string) bool {
 	return false
 }
 
-var producedOpenTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "", Val: true},
-	cards.StrEntry[bool]{Key: "Any", Val: true},
-	cards.StrEntry[bool]{Key: "Combo Any", Val: true},
-	cards.StrEntry[bool]{Key: "Chosen", Val: true},
+var producedOpenTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "", Val: true},
+	state.StrEntry[bool]{Key: "Any", Val: true},
+	state.StrEntry[bool]{Key: "Combo Any", Val: true},
+	state.StrEntry[bool]{Key: "Chosen", Val: true},
 )
 
-var potentialPlayKindTab2 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "cast", Val: true},
-	cards.StrEntry[bool]{Key: "ability", Val: true},
-	cards.StrEntry[bool]{Key: "play_land", Val: true},
-	cards.StrEntry[bool]{Key: "granted", Val: true},
-	cards.StrEntry[bool]{Key: "unlock", Val: true},
-	cards.StrEntry[bool]{Key: "turn_face_up", Val: true},
-	cards.StrEntry[bool]{Key: "specialize", Val: true},
-	cards.StrEntry[bool]{Key: "station", Val: true},
+var potentialPlayKindTab2 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "cast", Val: true},
+	state.StrEntry[bool]{Key: "ability", Val: true},
+	state.StrEntry[bool]{Key: "play_land", Val: true},
+	state.StrEntry[bool]{Key: "granted", Val: true},
+	state.StrEntry[bool]{Key: "unlock", Val: true},
+	state.StrEntry[bool]{Key: "turn_face_up", Val: true},
+	state.StrEntry[bool]{Key: "specialize", Val: true},
+	state.StrEntry[bool]{Key: "station", Val: true},
 )

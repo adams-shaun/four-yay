@@ -605,10 +605,10 @@ func chooseTypeLabels(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID, cat 
 	if isCreatureCategory(cat) {
 		return optionLabels(h.TypeChoices(chooser, cat)), true
 	}
-	switch strings.ToLower(cat) {
-	case "shared":
+	switch chooseTypeLabels8d11Codes.Code(string(strings.ToLower(cat))) {
+	case chooseTypeLabels8d11Shared:
 		return SharedTypeLabels(h.Game(), c.Source), true
-	case "creatureintargeteddeck":
+	case chooseTypeLabels8d11Creatureintargeteddeck:
 		return CreatureInTargetedDeckLabels(h.Game(), c.Targets), true
 	}
 	if labels := TypeChoiceLabels(cat, sa.ParamStr(cards.PKValidTypes), sa.ParamStr(cards.PKInvalidTypes)); labels != nil {
@@ -675,14 +675,24 @@ func creatureTypeFallback(g *state.Game, controller state.PlayerID) string {
 // cannot offer a spell, plane, or planeswalker subtype as a creature type.
 func CreatureTypeWords(t string) bool { return creatureSubtypeWords[t] }
 
-var chooseTypePromptTab1 = cards.NewStrTable[string](
-	cards.StrEntry[string]{Key: "", Val: "Choose a creature type"},
-	cards.StrEntry[string]{Key: "creature", Val: "Choose a creature type"},
-	cards.StrEntry[string]{Key: "creatureintargeteddeck", Val: "Choose a creature type"},
-	cards.StrEntry[string]{Key: "basic land", Val: "Choose a land type"},
-	cards.StrEntry[string]{Key: "land", Val: "Choose a land type"},
-	cards.StrEntry[string]{Key: "nonbasic land", Val: "Choose a land type"},
-	cards.StrEntry[string]{Key: "card", Val: "Choose a card type"},
-	cards.StrEntry[string]{Key: "shared", Val: "Choose a card type"},
-	cards.StrEntry[string]{Key: "planeswalker", Val: "Choose a planeswalker type"},
+var chooseTypePromptTab1 = state.NewStrTable[string](
+	state.StrEntry[string]{Key: "", Val: "Choose a creature type"},
+	state.StrEntry[string]{Key: "creature", Val: "Choose a creature type"},
+	state.StrEntry[string]{Key: "creatureintargeteddeck", Val: "Choose a creature type"},
+	state.StrEntry[string]{Key: "basic land", Val: "Choose a land type"},
+	state.StrEntry[string]{Key: "land", Val: "Choose a land type"},
+	state.StrEntry[string]{Key: "nonbasic land", Val: "Choose a land type"},
+	state.StrEntry[string]{Key: "card", Val: "Choose a card type"},
+	state.StrEntry[string]{Key: "shared", Val: "Choose a card type"},
+	state.StrEntry[string]{Key: "planeswalker", Val: "Choose a planeswalker type"},
+)
+
+const (
+	chooseTypeLabels8d11Shared                 uint16 = 1 // "shared"
+	chooseTypeLabels8d11Creatureintargeteddeck uint16 = 2 // "creatureintargeteddeck"
+)
+
+var chooseTypeLabels8d11Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "shared", Val: chooseTypeLabels8d11Shared},
+	state.StrEntry[uint16]{Key: "creatureintargeteddeck", Val: chooseTypeLabels8d11Creatureintargeteddeck},
 )

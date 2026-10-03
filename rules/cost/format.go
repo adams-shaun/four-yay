@@ -6,7 +6,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -424,10 +423,10 @@ func countPhrase(n int32) string {
 // "a player" rather than echoing raw Forge filter syntax.
 func gainLifeCostPhrase(part CostPart) string {
 	who := "a player"
-	switch strings.TrimSpace(part.Spec) {
-	case "Player.Opponent":
+	switch gainLifeCostPhrasecfa1Codes.Code(string(strings.TrimSpace(part.Spec))) {
+	case gainLifeCostPhrasecfa1PlayerOpponent:
 		who = "an opponent"
-	case "Player.Other":
+	case gainLifeCostPhrasecfa1PlayerOther:
 		if part.Each {
 			who = "each other player"
 		} else {
@@ -491,13 +490,23 @@ func ManaCostBeyondTap(c Cost) bool {
 	return c.HasNonMana()
 }
 
-var specNounTab1 = cards.NewStrTable[string](
-	cards.StrEntry[string]{Key: "creature", Val: "creature"},
-	cards.StrEntry[string]{Key: "artifact", Val: "artifact"},
-	cards.StrEntry[string]{Key: "enchantment", Val: "enchantment"},
-	cards.StrEntry[string]{Key: "land", Val: "land"},
-	cards.StrEntry[string]{Key: "planeswalker", Val: "planeswalker"},
-	cards.StrEntry[string]{Key: "permanent", Val: "permanent"},
-	cards.StrEntry[string]{Key: "card", Val: "card"},
-	cards.StrEntry[string]{Key: "token", Val: "token"},
+var specNounTab1 = state.NewStrTable[string](
+	state.StrEntry[string]{Key: "creature", Val: "creature"},
+	state.StrEntry[string]{Key: "artifact", Val: "artifact"},
+	state.StrEntry[string]{Key: "enchantment", Val: "enchantment"},
+	state.StrEntry[string]{Key: "land", Val: "land"},
+	state.StrEntry[string]{Key: "planeswalker", Val: "planeswalker"},
+	state.StrEntry[string]{Key: "permanent", Val: "permanent"},
+	state.StrEntry[string]{Key: "card", Val: "card"},
+	state.StrEntry[string]{Key: "token", Val: "token"},
+)
+
+const (
+	gainLifeCostPhrasecfa1PlayerOpponent uint16 = 1 // "Player.Opponent"
+	gainLifeCostPhrasecfa1PlayerOther    uint16 = 2 // "Player.Other"
+)
+
+var gainLifeCostPhrasecfa1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Player.Opponent", Val: gainLifeCostPhrasecfa1PlayerOpponent},
+	state.StrEntry[uint16]{Key: "Player.Other", Val: gainLifeCostPhrasecfa1PlayerOther},
 )

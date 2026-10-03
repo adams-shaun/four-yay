@@ -215,8 +215,8 @@ func evalCountBodyCost(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		return n, true, true
 	}
 
-	switch head {
-	case "YouDescendedThisTurn":
+	switch evalCountBodyCost5ca1Codes.Code(string(head)) {
+	case evalCountBodyCost5ca1YouDescendedThisTurn:
 		// The number of times the resolving controller descended this turn
 		// (CR 700.11): The Mycotyrant's TokenAmount$ X and Molten Collapse's
 		// CharmNum$ Count$Compare Y GE1.2.1. Reads the same fx20 provenance
@@ -228,9 +228,9 @@ func evalCountBodyCost(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return 0, true, true
 		}
 		return descendedThisTurn(g, c.Controller), true, true
-	case "Compare":
+	case evalCountBodyCost5ca1Compare:
 		return evalCompare(h, c, arg, depth), true, true
-	case "MostCardName":
+	case evalCountBodyCost5ca1MostCardName:
 		// Forge's Count$MostCardName <spec> (task api-winsgame; 4 corpus
 		// carriers -- Mechanized Production, Endless Atlas, Chrome
 		// Replicator, Sceptre of Eternal Glory): the GREATEST number of
@@ -242,7 +242,7 @@ func evalCountBodyCost(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		// missing argument.
 		av, aok := countMostCardName(h, c, arg)
 		return av, aok, true
-	case "ResolvedThisTurn":
+	case evalCountBodyCost5ca1ResolvedThisTurn:
 		// Forge's Count$ResolvedThisTurn: how many times the resolving ability
 		// has resolved this turn, the current resolution included ("if this is
 		// the FOURTH time ... transform"). rules binds the per-ability tally
@@ -252,12 +252,12 @@ func evalCountBodyCost(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		// open and running its sub on the first resolution (the Sephiroth
 		// transform defect this head's absence caused).
 		return c.ResolvedThisTurn, true, true
-	case "CardNumColors":
+	case evalCountBodyCost5ca1CardNumColors:
 		if o := g.Obj(c.Source); o != nil {
 			return int32(len(h.ObjectColors(o))), true, true
 		}
 		return 0, true, true
-	case "ValidSelf":
+	case evalCountBodyCost5ca1ValidSelf:
 		// Forge's Count$ValidSelf <Card$property> reads a property of the
 		// source object ITSELF rather than of a scanned zone set (Diligent
 		// Zookeeper's `SVar:AffectedX:Count$ValidSelf
@@ -305,7 +305,7 @@ func evalCountBodyCost(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			}
 		}
 		return int32(len(seen)), true, true
-	case "CardNumAttacksThisTurn":
+	case evalCountBodyCost5ca1CardNumAttacksThisTurn:
 		// Forge's Count$CardNumAttacksThisTurn: how many times THIS object has
 		// attacked this turn (Moraug, Fury of Akoum's "+1/+0 for each time it
 		// has attacked this turn"). state.Object.AttacksThisTurn is the
@@ -321,7 +321,7 @@ func evalCountBodyCost(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return o.AttacksThisTurn, true, true
 		}
 		return 0, true, true
-	case "xPaid":
+	case evalCountBodyCost5ca1XPaid:
 		// CR 107.3i: the {X} paid for the resolving spell or ability. On a
 		// TRIGGER of a permanent that was cast for {X} the ability object's
 		// own X is zero (a trigger was never paid an X), so the paid value
@@ -335,7 +335,7 @@ func evalCountBodyCost(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return o.X, true, true
 		}
 		return 0, true, true
-	case "ReplicatePaid":
+	case evalCountBodyCost5ca1ReplicatePaid:
 		// CR 702.55a: the number of replicate payments the resolving spell's
 		// cast made, carried by the pay-time CastInfo's FlagReplicated Amount
 		// (rules/cast.go's replicateAsk and payCast). Read off the SOURCE --
@@ -346,7 +346,7 @@ func evalCountBodyCost(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return o.ReplicateTimes, true, true
 		}
 		return 0, true, true
-	case "SquadPaid":
+	case evalCountBodyCost5ca1SquadPaid:
 		// CR 702.66: the number of squad payments the resolving spell's cast
 		// made ("you may pay [cost] any number of times"), carried by the
 		// pay-time CastInfo's FlagSquadPaid Amount (rules/cast.go's squadAsk
@@ -362,3 +362,29 @@ func evalCountBodyCost(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 	}
 	return 0, false, false
 }
+
+const (
+	evalCountBodyCost5ca1YouDescendedThisTurn   uint16 = 1  // "YouDescendedThisTurn"
+	evalCountBodyCost5ca1Compare                uint16 = 2  // "Compare"
+	evalCountBodyCost5ca1MostCardName           uint16 = 3  // "MostCardName"
+	evalCountBodyCost5ca1ResolvedThisTurn       uint16 = 4  // "ResolvedThisTurn"
+	evalCountBodyCost5ca1CardNumColors          uint16 = 5  // "CardNumColors"
+	evalCountBodyCost5ca1ValidSelf              uint16 = 6  // "ValidSelf"
+	evalCountBodyCost5ca1CardNumAttacksThisTurn uint16 = 7  // "CardNumAttacksThisTurn"
+	evalCountBodyCost5ca1XPaid                  uint16 = 8  // "xPaid"
+	evalCountBodyCost5ca1ReplicatePaid          uint16 = 9  // "ReplicatePaid"
+	evalCountBodyCost5ca1SquadPaid              uint16 = 10 // "SquadPaid"
+)
+
+var evalCountBodyCost5ca1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "YouDescendedThisTurn", Val: evalCountBodyCost5ca1YouDescendedThisTurn},
+	state.StrEntry[uint16]{Key: "Compare", Val: evalCountBodyCost5ca1Compare},
+	state.StrEntry[uint16]{Key: "MostCardName", Val: evalCountBodyCost5ca1MostCardName},
+	state.StrEntry[uint16]{Key: "ResolvedThisTurn", Val: evalCountBodyCost5ca1ResolvedThisTurn},
+	state.StrEntry[uint16]{Key: "CardNumColors", Val: evalCountBodyCost5ca1CardNumColors},
+	state.StrEntry[uint16]{Key: "ValidSelf", Val: evalCountBodyCost5ca1ValidSelf},
+	state.StrEntry[uint16]{Key: "CardNumAttacksThisTurn", Val: evalCountBodyCost5ca1CardNumAttacksThisTurn},
+	state.StrEntry[uint16]{Key: "xPaid", Val: evalCountBodyCost5ca1XPaid},
+	state.StrEntry[uint16]{Key: "ReplicatePaid", Val: evalCountBodyCost5ca1ReplicatePaid},
+	state.StrEntry[uint16]{Key: "SquadPaid", Val: evalCountBodyCost5ca1SquadPaid},
+)

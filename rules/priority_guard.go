@@ -72,18 +72,18 @@ func (e *Engine) validatePriorityChoice(d *decision.Decision, in decision.Intent
 // priorityOptionStale returns why opt's handler would no-op at its first
 // guard, or "" when the handler proceeds.
 func (e *Engine) priorityOptionStale(p state.PlayerID, opt decision.Option) string {
-	switch opt.Kind {
-	case "pass", "concede":
+	switch priorityOptionStale4fd1Codes.Code(string(opt.Kind)) {
+	case priorityOptionStale4fd1Pass:
 		return ""
 	}
 	o := e.G.Obj(opt.Obj)
-	switch opt.Kind {
-	case "activate":
+	switch priorityOptionStale4fd2Codes.Code(string(opt.Kind)) {
+	case priorityOptionStale4fd2Activate:
 		// activateMana -> activateManaFor's own member set.
 		if e.priorityManaAbilityCount(p, opt.Obj) == 0 {
 			return "the source has no activatable mana ability"
 		}
-	case "ability":
+	case priorityOptionStale4fd2Ability:
 		if o == nil {
 			return "the object no longer exists"
 		}
@@ -114,20 +114,20 @@ func (e *Engine) priorityOptionStale(p state.PlayerID, opt decision.Option) stri
 				return "the ability index no longer resolves"
 			}
 		}
-	case "granted":
+	case priorityOptionStale4fd2Granted:
 		if o == nil {
 			return "the object no longer exists"
 		}
 		return e.grantedAnchorStale(o, opt)
-	case "play_land":
+	case priorityOptionStale4fd2PlayLand:
 		if opt.Mode == "modal_land" && modalLandBack(o) == nil {
 			return "the land has no modal back face"
 		}
-	case "unlock":
+	case priorityOptionStale4fd2Unlock:
 		if _, ok := e.unlockRoomCost(o); !ok {
 			return "the Room has no locked half to unlock"
 		}
-	case "specialize":
+	case priorityOptionStale4fd2Specialize:
 		i, err := strconv.Atoi(opt.Mode)
 		if err != nil {
 			return "the chosen specialization face is invalid"
@@ -135,18 +135,18 @@ func (e *Engine) priorityOptionStale(p state.PlayerID, opt decision.Option) stri
 		if _, ok := e.specializeLegal(p, opt.Obj, i); !ok {
 			return "the permanent cannot be specialized to that face"
 		}
-	case "station":
+	case priorityOptionStale4fd2Station:
 		if o == nil || o.Zone != state.ZBattlefield || !e.hasKeywordH(opt.Obj, kwhStation) {
 			return "the spacecraft cannot be stationed"
 		}
 		if len(e.stationCandidates(p, opt.Obj)) == 0 {
 			return "no creature can be tapped to station it"
 		}
-	case "cast":
+	case priorityOptionStale4fd2Cast:
 		if o == nil {
 			return "the card no longer exists"
 		}
-	case "turn_face_up":
+	case priorityOptionStale4fd2TurnFaceUp:
 		// rules/morph_turnup.go's morphFaceUpCost, the same predicate the
 		// offer and the handler run: the permanent must still be a face-down
 		// battlefield permanent the morph family put down (the family flag),
@@ -214,3 +214,36 @@ func (e *Engine) filterInertHeldOut(out []decision.Option) []decision.Option {
 	}
 	return kept
 }
+
+const (
+	priorityOptionStale4fd1Pass uint16 = 1 // "pass", "concede"
+)
+
+var priorityOptionStale4fd1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "pass", Val: priorityOptionStale4fd1Pass},
+	state.StrEntry[uint16]{Key: "concede", Val: priorityOptionStale4fd1Pass},
+)
+
+const (
+	priorityOptionStale4fd2Activate   uint16 = 1 // "activate"
+	priorityOptionStale4fd2Ability    uint16 = 2 // "ability"
+	priorityOptionStale4fd2Granted    uint16 = 3 // "granted"
+	priorityOptionStale4fd2PlayLand   uint16 = 4 // "play_land"
+	priorityOptionStale4fd2Unlock     uint16 = 5 // "unlock"
+	priorityOptionStale4fd2Specialize uint16 = 6 // "specialize"
+	priorityOptionStale4fd2Station    uint16 = 7 // "station"
+	priorityOptionStale4fd2Cast       uint16 = 8 // "cast"
+	priorityOptionStale4fd2TurnFaceUp uint16 = 9 // "turn_face_up"
+)
+
+var priorityOptionStale4fd2Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "activate", Val: priorityOptionStale4fd2Activate},
+	state.StrEntry[uint16]{Key: "ability", Val: priorityOptionStale4fd2Ability},
+	state.StrEntry[uint16]{Key: "granted", Val: priorityOptionStale4fd2Granted},
+	state.StrEntry[uint16]{Key: "play_land", Val: priorityOptionStale4fd2PlayLand},
+	state.StrEntry[uint16]{Key: "unlock", Val: priorityOptionStale4fd2Unlock},
+	state.StrEntry[uint16]{Key: "specialize", Val: priorityOptionStale4fd2Specialize},
+	state.StrEntry[uint16]{Key: "station", Val: priorityOptionStale4fd2Station},
+	state.StrEntry[uint16]{Key: "cast", Val: priorityOptionStale4fd2Cast},
+	state.StrEntry[uint16]{Key: "turn_face_up", Val: priorityOptionStale4fd2TurnFaceUp},
+)

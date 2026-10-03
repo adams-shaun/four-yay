@@ -573,10 +573,10 @@ func containsObjID(ids []state.ObjID, id state.ObjID) bool {
 // instant-or-sorcery mana) holds when the paying spell is not a permanent
 // spell. An unrecognised condition fails closed — no protection.
 func addsNoCounterHolds(g *state.Game, id state.ObjID, cond string) bool {
-	switch cond {
-	case "", "True":
+	switch addsNoCounterHoldsc2d1Codes.Code(string(cond)) {
+	case addsNoCounterHoldsc2d1Empty:
 		return true
-	case "NotPermanent":
+	case addsNoCounterHoldsc2d1NotPermanent:
 		o := g.Obj(id)
 		return o != nil && o.Face() != nil && !o.Face().IsPermanent()
 	default:
@@ -607,32 +607,32 @@ func (e *Engine) restrictValidMatches(p state.PlayerID, d paymentDescriptor, val
 func (e *Engine) restrictValidTermMatches(p state.PlayerID, d paymentDescriptor, term string, src state.ObjID) bool {
 	kind, spec, dotted := strings.Cut(term, ".")
 	if !dotted {
-		switch term {
-		case "Spell":
+		switch restrictValidTermMatchesc2d2Codes.Code(string(term)) {
+		case restrictValidTermMatchesc2d2Spell:
 			return d.class == paymentSpell
-		case "Activated", "nonSpell":
+		case restrictValidTermMatchesc2d2Activated:
 			return d.class == paymentActivated
-		case "CantCastNonArtifactSpells":
+		case restrictValidTermMatchesc2d2CantCastNonArtifactSpells:
 			o := e.G.Obj(d.id)
 			return d.class == paymentSpell && o != nil && o.Face() != nil && o.Face().IsArtifact()
-		case "CantCastSpellFromHand":
+		case restrictValidTermMatchesc2d2CantCastSpellFromHand:
 			_, ok := e.castProvenanceAdmitsPending("Card.!wasCastFromYourHand", d.id, p)
 			return d.class == paymentSpell && ok
-		case "CostContainsX":
+		case restrictValidTermMatchesc2d2CostContainsX:
 			// An announced X was folded into Generic (Cost.WithX clears
 			// Cost.X), so the descriptor's marker carries it — the cost the
 			// payment actually commits still contains an X component.
 			return d.cost != nil && (d.cost.X > 0 || d.xAnnounced)
-		case "CostContainsC":
+		case restrictValidTermMatchesc2d2CostContainsC:
 			return d.cost != nil && d.cost.Colored[state.ManaIndex('C')] > 0
-		case "CantPayGenericCosts":
+		case restrictValidTermMatchesc2d2CantPayGenericCosts:
 			// Read the actual resolved payment. Before its X and twobrid faces
 			// have been announced, the offer stays open if a colour / X=0 face
 			// can be selected; announceFeasible then rechecks the descriptor
 			// after that face is folded. Thus {2/W} may use this mana as {W},
 			// but not as {2}, and an X spell can choose only X=0 here.
 			return d.cost != nil && d.cost.Generic == 0
-		case "CumulativeUpkeep":
+		case restrictValidTermMatchesc2d2CumulativeUpkeep:
 			return d.class == paymentCumulativeUpkeep
 		default:
 			return false
@@ -878,3 +878,37 @@ func (e *Engine) costPayablePool(p state.PlayerID, id state.ObjID, ability bool,
 // TargetMax$ X / TargetMin$ X (with SVar:X:Count$...) resolve through
 // resolvedTargetBounds below; a token that is not a literal is silently
 // dropped here, which is today's (and the unresolvable-fallback's) semantics.
+
+const (
+	addsNoCounterHoldsc2d1Empty        uint16 = 1 // "", "True"
+	addsNoCounterHoldsc2d1NotPermanent uint16 = 2 // "NotPermanent"
+)
+
+var addsNoCounterHoldsc2d1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: addsNoCounterHoldsc2d1Empty},
+	state.StrEntry[uint16]{Key: "True", Val: addsNoCounterHoldsc2d1Empty},
+	state.StrEntry[uint16]{Key: "NotPermanent", Val: addsNoCounterHoldsc2d1NotPermanent},
+)
+
+const (
+	restrictValidTermMatchesc2d2Spell                     uint16 = 1 // "Spell"
+	restrictValidTermMatchesc2d2Activated                 uint16 = 2 // "Activated", "nonSpell"
+	restrictValidTermMatchesc2d2CantCastNonArtifactSpells uint16 = 3 // "CantCastNonArtifactSpells"
+	restrictValidTermMatchesc2d2CantCastSpellFromHand     uint16 = 4 // "CantCastSpellFromHand"
+	restrictValidTermMatchesc2d2CostContainsX             uint16 = 5 // "CostContainsX"
+	restrictValidTermMatchesc2d2CostContainsC             uint16 = 6 // "CostContainsC"
+	restrictValidTermMatchesc2d2CantPayGenericCosts       uint16 = 7 // "CantPayGenericCosts"
+	restrictValidTermMatchesc2d2CumulativeUpkeep          uint16 = 8 // "CumulativeUpkeep"
+)
+
+var restrictValidTermMatchesc2d2Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Spell", Val: restrictValidTermMatchesc2d2Spell},
+	state.StrEntry[uint16]{Key: "Activated", Val: restrictValidTermMatchesc2d2Activated},
+	state.StrEntry[uint16]{Key: "nonSpell", Val: restrictValidTermMatchesc2d2Activated},
+	state.StrEntry[uint16]{Key: "CantCastNonArtifactSpells", Val: restrictValidTermMatchesc2d2CantCastNonArtifactSpells},
+	state.StrEntry[uint16]{Key: "CantCastSpellFromHand", Val: restrictValidTermMatchesc2d2CantCastSpellFromHand},
+	state.StrEntry[uint16]{Key: "CostContainsX", Val: restrictValidTermMatchesc2d2CostContainsX},
+	state.StrEntry[uint16]{Key: "CostContainsC", Val: restrictValidTermMatchesc2d2CostContainsC},
+	state.StrEntry[uint16]{Key: "CantPayGenericCosts", Val: restrictValidTermMatchesc2d2CantPayGenericCosts},
+	state.StrEntry[uint16]{Key: "CumulativeUpkeep", Val: restrictValidTermMatchesc2d2CumulativeUpkeep},
+)

@@ -974,8 +974,8 @@ func landTypesOf(o *state.Object) []string {
 	}
 	out := make([]string, 0, len(f.Types))
 	for _, t := range f.Types {
-		switch t {
-		case "Land", "Basic", "Snow":
+		switch landTypesOfea31Codes.Code(string(t)) {
+		case landTypesOfea31Land:
 			continue
 		}
 		out = append(out, t)
@@ -1088,8 +1088,8 @@ func totalCardTypesSatisfied(g *state.Game, ids []state.ObjID, need int) bool {
 			continue
 		}
 		for _, typ := range o.Face().Types {
-			switch typ {
-			case "Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery":
+			switch totalCardTypesSatisfiedea32Codes.Code(string(typ)) {
+			case totalCardTypesSatisfiedea32Artifact:
 				seen[typ] = true
 			}
 		}
@@ -1432,3 +1432,29 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owne
 	}
 	return false
 }
+
+const (
+	landTypesOfea31Land uint16 = 1 // "Land", "Basic", "Snow"
+)
+
+var landTypesOfea31Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Land", Val: landTypesOfea31Land},
+	state.StrEntry[uint16]{Key: "Basic", Val: landTypesOfea31Land},
+	state.StrEntry[uint16]{Key: "Snow", Val: landTypesOfea31Land},
+)
+
+const (
+	totalCardTypesSatisfiedea32Artifact uint16 = 1 // "Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery"
+)
+
+var totalCardTypesSatisfiedea32Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Artifact", Val: totalCardTypesSatisfiedea32Artifact},
+	state.StrEntry[uint16]{Key: "Battle", Val: totalCardTypesSatisfiedea32Artifact},
+	state.StrEntry[uint16]{Key: "Creature", Val: totalCardTypesSatisfiedea32Artifact},
+	state.StrEntry[uint16]{Key: "Enchantment", Val: totalCardTypesSatisfiedea32Artifact},
+	state.StrEntry[uint16]{Key: "Instant", Val: totalCardTypesSatisfiedea32Artifact},
+	state.StrEntry[uint16]{Key: "Kindred", Val: totalCardTypesSatisfiedea32Artifact},
+	state.StrEntry[uint16]{Key: "Land", Val: totalCardTypesSatisfiedea32Artifact},
+	state.StrEntry[uint16]{Key: "Planeswalker", Val: totalCardTypesSatisfiedea32Artifact},
+	state.StrEntry[uint16]{Key: "Sorcery", Val: totalCardTypesSatisfiedea32Artifact},
+)

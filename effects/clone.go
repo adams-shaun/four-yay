@@ -804,12 +804,12 @@ func cloneETBTemplateLegal(g *state.Game, c *Ctx, cp *CloneParams) bool {
 // named zone spellings are matched case-insensitively, the same discipline
 // cloneDuration keeps for Duration$.
 func cloneChoiceZone(raw string) (state.Zone, bool) {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "", "battlefield":
+	switch cloneChoiceZoneaf51Codes.Code(string(strings.ToLower(strings.TrimSpace(raw)))) {
+	case cloneChoiceZoneaf51Empty:
 		return state.ZBattlefield, true
-	case "graveyard":
+	case cloneChoiceZoneaf51Graveyard:
 		return state.ZGraveyard, true
-	case "exile":
+	case cloneChoiceZoneaf51Exile:
 		return state.ZExile, true
 	default:
 		return 0, false
@@ -879,30 +879,30 @@ func clonePT(h Host, c *Ctx, p ParamText) (present bool, value int32) {
 // UntilHostLeavesPlay, UntilFacedown and EOT; 105 lines carry no Duration$
 // (a permanent copy).
 func cloneDuration(dur string) (permanent, untilEOT bool, untilTurn int32, untilUnattached bool, note string) {
-	switch strings.ToLower(strings.TrimSpace(dur)) {
-	case "", "permanent":
+	switch cloneDurationaf52Codes.Code(string(strings.ToLower(strings.TrimSpace(dur)))) {
+	case cloneDurationaf52Empty:
 		return true, false, 0, false, ""
-	case "untilendofcombat":
+	case cloneDurationaf52Untilendofcombat:
 		// durationTiming's combat scope: dropped by EndOfTurnCleanup on the
 		// same turn (the engine's UntilEndOfCombat reclamation).
 		return false, false, 0, false, ""
-	case "untileadofturn", "untilendofturn", "eot":
+	case cloneDurationaf52Untileadofturn:
 		return false, true, 0, false, ""
-	case "untilyournextturn", "untiltheendofyournextturn":
+	case cloneDurationaf52Untilyournextturn:
 		// AddContinuous computes the real turn boundary from Duration.
 		return false, false, 0, false, ""
-	case "untilyournextendstep", "untilnextendstep":
+	case cloneDurationaf52Untilyournextendstep:
 		// The engine's until-next-end-step window is this turn's cleanup, the
 		// same mapping effects.effectUntilEOT uses for this spelling (the one
 		// corpus carrier is niko_light_of_hope).
 		return false, true, 0, false, ""
-	case "untilunattached":
+	case cloneDurationaf52Untilunattached:
 		return false, false, 0, true, ""
-	case "untilhostleavesplay":
+	case cloneDurationaf52Untilhostleavesplay:
 		// Exactly the source-leaves lifetime the default arm gives an unknown
 		// duration, so no Note is needed (secret_invasion).
 		return false, false, 0, false, ""
-	case "untilfacedown", "untiltargeteduntaps":
+	case cloneDurationaf52Untilfacedown:
 		// Settled on the actual turn-down or untap event, not at cleanup.
 		return false, false, 0, false, ""
 	default:
@@ -925,3 +925,44 @@ func splitAmp(s string) []string {
 	}
 	return out
 }
+
+const (
+	cloneChoiceZoneaf51Empty     uint16 = 1 // "", "battlefield"
+	cloneChoiceZoneaf51Graveyard uint16 = 2 // "graveyard"
+	cloneChoiceZoneaf51Exile     uint16 = 3 // "exile"
+)
+
+var cloneChoiceZoneaf51Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: cloneChoiceZoneaf51Empty},
+	state.StrEntry[uint16]{Key: "battlefield", Val: cloneChoiceZoneaf51Empty},
+	state.StrEntry[uint16]{Key: "graveyard", Val: cloneChoiceZoneaf51Graveyard},
+	state.StrEntry[uint16]{Key: "exile", Val: cloneChoiceZoneaf51Exile},
+)
+
+const (
+	cloneDurationaf52Empty                uint16 = 1 // "", "permanent"
+	cloneDurationaf52Untilendofcombat     uint16 = 2 // "untilendofcombat"
+	cloneDurationaf52Untileadofturn       uint16 = 3 // "untileadofturn", "untilendofturn", "eot"
+	cloneDurationaf52Untilyournextturn    uint16 = 4 // "untilyournextturn", "untiltheendofyournextturn"
+	cloneDurationaf52Untilyournextendstep uint16 = 5 // "untilyournextendstep", "untilnextendstep"
+	cloneDurationaf52Untilunattached      uint16 = 6 // "untilunattached"
+	cloneDurationaf52Untilhostleavesplay  uint16 = 7 // "untilhostleavesplay"
+	cloneDurationaf52Untilfacedown        uint16 = 8 // "untilfacedown", "untiltargeteduntaps"
+)
+
+var cloneDurationaf52Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: cloneDurationaf52Empty},
+	state.StrEntry[uint16]{Key: "permanent", Val: cloneDurationaf52Empty},
+	state.StrEntry[uint16]{Key: "untilendofcombat", Val: cloneDurationaf52Untilendofcombat},
+	state.StrEntry[uint16]{Key: "untileadofturn", Val: cloneDurationaf52Untileadofturn},
+	state.StrEntry[uint16]{Key: "untilendofturn", Val: cloneDurationaf52Untileadofturn},
+	state.StrEntry[uint16]{Key: "eot", Val: cloneDurationaf52Untileadofturn},
+	state.StrEntry[uint16]{Key: "untilyournextturn", Val: cloneDurationaf52Untilyournextturn},
+	state.StrEntry[uint16]{Key: "untiltheendofyournextturn", Val: cloneDurationaf52Untilyournextturn},
+	state.StrEntry[uint16]{Key: "untilyournextendstep", Val: cloneDurationaf52Untilyournextendstep},
+	state.StrEntry[uint16]{Key: "untilnextendstep", Val: cloneDurationaf52Untilyournextendstep},
+	state.StrEntry[uint16]{Key: "untilunattached", Val: cloneDurationaf52Untilunattached},
+	state.StrEntry[uint16]{Key: "untilhostleavesplay", Val: cloneDurationaf52Untilhostleavesplay},
+	state.StrEntry[uint16]{Key: "untilfacedown", Val: cloneDurationaf52Untilfacedown},
+	state.StrEntry[uint16]{Key: "untiltargeteduntaps", Val: cloneDurationaf52Untilfacedown},
+)

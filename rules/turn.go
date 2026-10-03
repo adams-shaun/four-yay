@@ -1438,15 +1438,15 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		// ChooseColor are single-stage. Every arm records through an
 		// event-backed Choose fold and then releases the parked Attach exactly
 		// once through emitAttachedMove.
-		switch ch.body {
-		case "ChooseCard":
+		switch handleChoose3621Codes.Code(string(ch.body)) {
+		case handleChoose3621ChooseCard:
 			// Pick-Axe: record the chosen exiled craft card as the Choose
 			// "chosen" fold (state.Object.Chosen), which `Defined$ ChosenCard`
 			// and the replacement gate's object-backed read consume.
 			if chosen[0].Obj != 0 {
 				e.emit(events.Event{Kind: events.Choose, Obj: ch.source, Counter: "chosen", IDs: []state.ObjID{chosen[0].Obj}})
 			}
-		case "ChooseColor":
+		case handleChoose3621ChooseColor:
 			// Sanctuary Blade: record the answered colour's WUBRG letter as
 			// the Choose "color" fold (state.Object.ChosenColor), the shape
 			// every Card.ChosenColor reader already uses.
@@ -1455,7 +1455,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 				letter = "W"
 			}
 			e.emit(events.Event{Kind: events.Choose, Obj: ch.source, Counter: "color", Text: letter})
-		case "NameCard":
+		case handleChoose3621NameCard:
 			if ch.stage == 0 {
 				e.emit(events.Event{Kind: events.Choose, Obj: ch.source, Counter: "name", Text: chosen[0].Label})
 				e.askAttachedType()
@@ -1807,3 +1807,15 @@ func (e *Engine) latestUnconsumedGrant(seat state.PlayerID) (state.ObjID, string
 	}
 	return 0, "", 0
 }
+
+const (
+	handleChoose3621ChooseCard  uint16 = 1 // "ChooseCard"
+	handleChoose3621ChooseColor uint16 = 2 // "ChooseColor"
+	handleChoose3621NameCard    uint16 = 3 // "NameCard"
+)
+
+var handleChoose3621Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "ChooseCard", Val: handleChoose3621ChooseCard},
+	state.StrEntry[uint16]{Key: "ChooseColor", Val: handleChoose3621ChooseColor},
+	state.StrEntry[uint16]{Key: "NameCard", Val: handleChoose3621NameCard},
+)

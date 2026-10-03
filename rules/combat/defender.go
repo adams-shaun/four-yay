@@ -108,8 +108,8 @@ func attackedSpecHolds(b Board, spec string, defender, you state.PlayerID, remem
 			continue
 		}
 		if base := strings.TrimSuffix(part, ".attackedYouTheirLastTurn"); base != part {
-			switch base {
-			case "Player", "Any":
+			switch attackedSpecHoldse7b1Codes.Code(string(base)) {
+			case attackedSpecHoldse7b1Player:
 				// The base names the defender itself; the qualifier is the
 				// whole read. Fail closed on any other base spelling.
 				if PlayerAttackedYouTheirLastTurn(b, defender, you) {
@@ -168,3 +168,12 @@ func PlayerAttackedYouTheirLastTurn(b Board, defender, you state.PlayerID) bool 
 	}
 	return false
 }
+
+const (
+	attackedSpecHoldse7b1Player uint16 = 1 // "Player", "Any"
+)
+
+var attackedSpecHoldse7b1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Player", Val: attackedSpecHoldse7b1Player},
+	state.StrEntry[uint16]{Key: "Any", Val: attackedSpecHoldse7b1Player},
+)

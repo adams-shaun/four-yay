@@ -337,10 +337,10 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 	return candidates[:max], true, false
 }
 
-var definedIsTargetReuseTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "Targeted", Val: true},
-	cards.StrEntry[bool]{Key: "ParentTarget", Val: true},
-	cards.StrEntry[bool]{Key: "ParentTargeted", Val: true},
-	cards.StrEntry[bool]{Key: "ThisTargetedCard", Val: true},
-	cards.StrEntry[bool]{Key: "AllTargeted", Val: true},
+var definedIsTargetReuseTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "Targeted", Val: true},
+	state.StrEntry[bool]{Key: "ParentTarget", Val: true},
+	state.StrEntry[bool]{Key: "ParentTargeted", Val: true},
+	state.StrEntry[bool]{Key: "ThisTargetedCard", Val: true},
+	state.StrEntry[bool]{Key: "AllTargeted", Val: true},
 )

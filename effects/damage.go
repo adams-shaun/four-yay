@@ -423,15 +423,15 @@ func excessConditionHolds(h Host, c *Ctx, cond string, o *state.Object) bool {
 	if cond == "" {
 		return true
 	}
-	switch cond {
-	case "Card.targetedBy", "Creature.targetedBy", "Permanent.targetedBy":
+	switch excessConditionHolds4651Codes.Code(string(cond)) {
+	case excessConditionHolds4651CardTargetedBy:
 		// The damaged object is necessarily a chosen target of this
 		// resolution (Defined resolves the targets effDealDamage damages),
 		// so the targetedBy half is structural truth here.
 		return true
-	case "Creature":
+	case excessConditionHolds4651Creature:
 		return h.IsCreature(o.ID)
-	case "Creature.targetedBy+OppCtrl":
+	case excessConditionHolds4651CreatureTargetedByOppCtrl:
 		return h.IsCreature(o.ID) && o.Controller != c.Controller
 	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
@@ -810,8 +810,8 @@ func validPlayersSelectorUnknown(spec string) bool {
 			return true
 		}
 		base, _, _ := strings.Cut(clause, ".")
-		switch base {
-		case "Player", "Any", "You", "Opponent", "Other":
+		switch validPlayersSelectorUnknown4652Codes.Code(string(base)) {
+		case validPlayersSelectorUnknown4652Player:
 			return true
 		}
 		return false
@@ -1205,3 +1205,29 @@ func damageSplitAnswer(ans []decision.Option) []int32 {
 	}
 	return split
 }
+
+const (
+	excessConditionHolds4651CardTargetedBy            uint16 = 1 // "Card.targetedBy", "Creature.targetedBy", "Permanent.targetedBy"
+	excessConditionHolds4651Creature                  uint16 = 2 // "Creature"
+	excessConditionHolds4651CreatureTargetedByOppCtrl uint16 = 3 // "Creature.targetedBy+OppCtrl"
+)
+
+var excessConditionHolds4651Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Card.targetedBy", Val: excessConditionHolds4651CardTargetedBy},
+	state.StrEntry[uint16]{Key: "Creature.targetedBy", Val: excessConditionHolds4651CardTargetedBy},
+	state.StrEntry[uint16]{Key: "Permanent.targetedBy", Val: excessConditionHolds4651CardTargetedBy},
+	state.StrEntry[uint16]{Key: "Creature", Val: excessConditionHolds4651Creature},
+	state.StrEntry[uint16]{Key: "Creature.targetedBy+OppCtrl", Val: excessConditionHolds4651CreatureTargetedByOppCtrl},
+)
+
+const (
+	validPlayersSelectorUnknown4652Player uint16 = 1 // "Player", "Any", "You", "Opponent", "Other"
+)
+
+var validPlayersSelectorUnknown4652Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Player", Val: validPlayersSelectorUnknown4652Player},
+	state.StrEntry[uint16]{Key: "Any", Val: validPlayersSelectorUnknown4652Player},
+	state.StrEntry[uint16]{Key: "You", Val: validPlayersSelectorUnknown4652Player},
+	state.StrEntry[uint16]{Key: "Opponent", Val: validPlayersSelectorUnknown4652Player},
+	state.StrEntry[uint16]{Key: "Other", Val: validPlayersSelectorUnknown4652Player},
+)

@@ -225,13 +225,13 @@ func parseCumulativeAction(label string) (*cumulativeAction, bool) {
 		return nil, false
 	}
 	a := &cumulativeAction{kind: kind, n: int32(n64)}
-	switch kind {
-	case "Sac", "Discard":
+	switch parseCumulativeAction2021Codes.Code(string(kind)) {
+	case parseCumulativeAction2021Sac:
 		if len(fields) < 2 {
 			return nil, false
 		}
 		a.spec = fields[1]
-	case "AddCounter":
+	case parseCumulativeAction2021AddCounter:
 		if len(fields) < 2 {
 			return nil, false
 		}
@@ -239,30 +239,30 @@ func parseCumulativeAction(label string) (*cumulativeAction, bool) {
 		if len(fields) >= 3 {
 			a.spec += "/" + fields[2]
 		}
-	case "AddMana":
+	case parseCumulativeAction2021AddMana:
 		if len(fields) < 2 || len(fields[1]) != 1 || !strings.ContainsRune("WUBRGC", rune(fields[1][0])) {
 			return nil, false
 		}
 		a.spec = fields[1]
-	case "Draw":
+	case parseCumulativeAction2021Draw:
 		if len(fields) < 2 || fields[1] != "You" {
 			return nil, false
 		}
-	case "ExileFromTop":
+	case parseCumulativeAction2021ExileFromTop:
 		if len(fields) < 2 || fields[1] != "Card" {
 			return nil, false
 		}
-	case "FlipCoin":
-	case "GainControl":
+	case parseCumulativeAction2021FlipCoin:
+	case parseCumulativeAction2021GainControl:
 		if len(fields) < 2 {
 			return nil, false
 		}
 		a.spec = fields[1]
-	case "GainLife":
+	case parseCumulativeAction2021GainLife:
 		if len(fields) < 2 || fields[1] != "Player.Opponent" {
 			return nil, false
 		}
-	case "PutCardToLibFromSameGrave":
+	case parseCumulativeAction2021PutCardToLibFromSameGrave:
 		if len(fields) < 3 || fields[2] != "Card" {
 			return nil, false
 		}
@@ -396,27 +396,27 @@ func cumulativeActionPhrase(a *cumulativeAction) string {
 	if a.n != 1 {
 		plural = "s"
 	}
-	switch a.kind {
-	case "Sac":
+	switch cumulativeActionPhrase2022Codes.Code(string(a.kind)) {
+	case cumulativeActionPhrase2022Sac:
 		return "sacrifice " + n + " " + specNoun(a.spec, "permanent")
-	case "Discard":
+	case cumulativeActionPhrase2022Discard:
 		return "discard " + n + " card" + plural
-	case "AddCounter":
+	case cumulativeActionPhrase2022AddCounter:
 		kind, _, _ := strings.Cut(a.spec, "/")
 		return "put " + n + " " + strings.ToUpper(kind) + " counter" + plural + " on this permanent"
-	case "AddMana":
+	case cumulativeActionPhrase2022AddMana:
 		return "add " + a.spec
-	case "Draw":
+	case cumulativeActionPhrase2022Draw:
 		return "draw " + n + " card" + plural
-	case "ExileFromTop":
+	case cumulativeActionPhrase2022ExileFromTop:
 		return "exile the top " + n + " card" + plural + " of your library"
-	case "FlipCoin":
+	case cumulativeActionPhrase2022FlipCoin:
 		return "flip a coin"
-	case "GainControl":
+	case cumulativeActionPhrase2022GainControl:
 		return "gain control of " + specNoun(a.spec, "permanent")
-	case "GainLife":
+	case cumulativeActionPhrase2022GainLife:
 		return "an opponent gains " + n + " life"
-	case "PutCardToLibFromSameGrave":
+	case cumulativeActionPhrase2022PutCardToLibFromSameGrave:
 		return "put " + n + " card" + plural + " from your graveyard into your library"
 	}
 	return ""
@@ -579,26 +579,26 @@ func (e *Engine) cumulativeActionPayable(cu *cumulativeUpkeep) bool {
 		return false
 	}
 	total := int(a.n * cu.actionRemaining)
-	switch a.kind {
-	case "Sac":
+	switch cumulativeActionPayable2023Codes.Code(string(a.kind)) {
+	case cumulativeActionPayable2023Sac:
 		return len(e.cumulativeSacObjects(cu)) >= total
-	case "Discard":
+	case cumulativeActionPayable2023Discard:
 		return len(e.cumulativeObjects(cu, state.ZHand, a.spec)) >= total
-	case "Draw", "ExileFromTop":
+	case cumulativeActionPayable2023Draw:
 		return len(e.G.Zone(state.ZLibrary, cu.player)) >= total
-	case "AddMana", "FlipCoin":
+	case cumulativeActionPayable2023AddMana:
 		return true
-	case "AddCounter":
+	case cumulativeActionPayable2023AddCounter:
 		if !strings.Contains(a.spec, "/") {
 			return e.G.Obj(cu.source) != nil
 		}
 		_, targetSpec, _ := strings.Cut(a.spec, "/")
 		return len(e.cumulativeObjects(cu, state.ZBattlefield, targetSpec)) > 0
-	case "GainControl":
+	case cumulativeActionPayable2023GainControl:
 		return len(e.cumulativeObjects(cu, state.ZBattlefield, a.spec)) >= total
-	case "GainLife":
+	case cumulativeActionPayable2023GainLife:
 		return len(e.G.AliveFrom(cu.player)) > 1
-	case "PutCardToLibFromSameGrave":
+	case cumulativeActionPayable2023PutCardToLibFromSameGrave:
 		groups := 0
 		for _, p := range e.G.AliveFrom(0) {
 			groups += len(e.G.Zone(state.ZGraveyard, p)) / int(a.n)
@@ -632,20 +632,20 @@ func (e *Engine) continueCumulativeAction() {
 	}
 	a := cu.action
 	total := int(a.n * cu.actionRemaining)
-	switch a.kind {
-	case "Sac":
+	switch continueCumulativeAction2024Codes.Code(string(a.kind)) {
+	case continueCumulativeAction2024Sac:
 		e.cumulativeObjectDecision(cu, e.cumulativeSacObjects(cu), total, total,
 			"cumulative_action_sac", "Choose permanents to sacrifice for cumulative upkeep")
-	case "Discard":
+	case continueCumulativeAction2024Discard:
 		e.cumulativeObjectDecision(cu, e.cumulativeObjects(cu, state.ZHand, a.spec), total, total,
 			"cumulative_action_discard", "Choose cards to discard for cumulative upkeep")
-	case "Draw":
+	case continueCumulativeAction2024Draw:
 		for i := 0; i < total; i++ {
 			effects.DrawFor(e, cu.player)
 		}
 		cu.actionRemaining = 0
 		e.finishCumulative()
-	case "ExileFromTop":
+	case continueCumulativeAction2024ExileFromTop:
 		for i := 0; i < total; i++ {
 			lib := e.G.Zone(state.ZLibrary, cu.player)
 			if len(lib) == 0 {
@@ -655,7 +655,7 @@ func (e *Engine) continueCumulativeAction() {
 		}
 		cu.actionRemaining = 0
 		e.finishCumulative()
-	case "AddMana":
+	case continueCumulativeAction2024AddMana:
 		// Producer-type provenance: the upkeep mana is produced by the
 		// permanent paying the cumulative cost, so the same
 		// Treasure/Cave/Desert/Snow tag effMana stamps rides this ManaAdd's
@@ -670,7 +670,7 @@ func (e *Engine) continueCumulativeAction() {
 		e.emit(events.Event{Kind: events.ManaAdd, Player: cu.player, Counter: counter, Amount: int32(total)})
 		cu.actionRemaining = 0
 		e.finishCumulative()
-	case "FlipCoin":
+	case continueCumulativeAction2024FlipCoin:
 		// The canonical coin-flip result Note effects.FlipCoinNote emits —
 		// the ONE encoding the FlippedCoin trigger matcher
 		// (rules/trigmatch/actions.go's flippedCoinMatches) reads, so a
@@ -681,7 +681,7 @@ func (e *Engine) continueCumulativeAction() {
 		}
 		cu.actionRemaining = 0
 		e.finishCumulative()
-	case "AddCounter":
+	case continueCumulativeAction2024AddCounter:
 		counter, targetSpec, targeted := strings.Cut(a.spec, "/")
 		if !targeted {
 			// A cumulative-upkeep action cost is paid by cu.player, and this
@@ -696,10 +696,10 @@ func (e *Engine) continueCumulativeAction() {
 		}
 		e.cumulativeObjectDecision(cu, e.cumulativeObjects(cu, state.ZBattlefield, targetSpec), 1, 1,
 			"cumulative_action_counter", "Choose a permanent to receive a "+counter+" counter")
-	case "GainControl":
+	case continueCumulativeAction2024GainControl:
 		e.cumulativeObjectDecision(cu, e.cumulativeObjects(cu, state.ZBattlefield, a.spec), total, total,
 			"cumulative_action_control", "Choose permanents to gain control of")
-	case "GainLife":
+	case continueCumulativeAction2024GainLife:
 		d := &decision.Decision{Player: cu.player, Kind: decision.KChoose, Min: 1, Max: 1,
 			Prompt: "Choose an opponent to gain life", Source: cu.source}
 		for _, p := range e.G.AliveFrom(cu.player) {
@@ -710,7 +710,7 @@ func (e *Engine) continueCumulativeAction() {
 				Player: p, Label: seatFacingName(e.G, p)})
 		}
 		windowAsk(e, d, chooseCumulative)
-	case "PutCardToLibFromSameGrave":
+	case continueCumulativeAction2024PutCardToLibFromSameGrave:
 		var owners []state.PlayerID
 		for _, p := range e.G.AliveFrom(0) {
 			if len(e.G.Zone(state.ZGraveyard, p)) >= int(a.n) {
@@ -957,12 +957,12 @@ func (pa *pipAnnounce) fold(c Cost) Cost {
 // pay_W family), so every window and the cast flow answer the same way and a
 // replay records the same choice shape.
 func (pa *pipAnnounce) accept(kind string, amount int) bool {
-	switch kind {
-	case "pay_W", "pay_U", "pay_B", "pay_R", "pay_G", "pay_C":
+	switch accept2025Codes.Code(string(kind)) {
+	case accept2025PayW:
 		pa.color[state.ManaIndex(kind[len("pay_"):][0])]++
-	case "pay_life":
+	case accept2025PayLife:
 		pa.life += 2
-	case "pay_generic":
+	case accept2025PayGeneric:
 		pa.generic += int32(amount)
 	default:
 		return false
@@ -1298,15 +1298,15 @@ func (e *Engine) cumulativeAnswer(chosen []decision.Option) {
 		e.cumulativePaymentAsk()
 		return
 	}
-	switch chosen[0].Kind {
-	case "activate":
+	switch cumulativeAnswer2026Codes.Code(string(chosen[0].Kind)) {
+	case cumulativeAnswer2026Activate:
 		e.activatePaymentMana(cu.player, chosen[0].Obj)
 		return
-	case "done":
+	case cumulativeAnswer2026Done:
 		cu.windowDone = true
 		e.cumulativePaymentAsk()
 		return
-	case "cumulative_pay":
+	case cumulativeAnswer2026CumulativePay:
 		if cu.action != nil {
 			e.continueCumulativeAction()
 			return
@@ -1317,7 +1317,7 @@ func (e *Engine) cumulativeAnswer(chosen []decision.Option) {
 			e.finishCumulative()
 			return
 		}
-	case "cumulative_action_sac":
+	case cumulativeAnswer2026CumulativeActionSac:
 		for _, option := range chosen {
 			if o := e.G.Obj(option.Obj); o != nil && o.Zone == state.ZBattlefield {
 				e.emit(events.Event{Kind: events.MoveZone, Obj: o.ID, From: state.ZBattlefield,
@@ -1327,7 +1327,7 @@ func (e *Engine) cumulativeAnswer(chosen []decision.Option) {
 		cu.actionRemaining = 0
 		e.finishCumulative()
 		return
-	case "cumulative_action_discard":
+	case cumulativeAnswer2026CumulativeActionDiscard:
 		for _, option := range chosen {
 			if o := e.G.Obj(option.Obj); o != nil && o.Zone == state.ZHand && o.Owner == cu.player {
 				e.emit(events.Event{Kind: events.MoveZone, Obj: o.ID, From: state.ZHand,
@@ -1337,7 +1337,7 @@ func (e *Engine) cumulativeAnswer(chosen []decision.Option) {
 		cu.actionRemaining = 0
 		e.finishCumulative()
 		return
-	case "cumulative_action_counter":
+	case cumulativeAnswer2026CumulativeActionCounter:
 		counter, _, _ := strings.Cut(cu.action.spec, "/")
 		prevAdder := e.SetCounterAdder(cu.player)
 		e.emit(events.Event{Kind: events.CounterChange, Obj: chosen[0].Obj, Counter: counter, Amount: cu.action.n})
@@ -1345,24 +1345,24 @@ func (e *Engine) cumulativeAnswer(chosen []decision.Option) {
 		cu.actionRemaining--
 		e.continueCumulativeAction()
 		return
-	case "cumulative_action_control":
+	case cumulativeAnswer2026CumulativeActionControl:
 		for _, option := range chosen {
 			e.emit(events.Event{Kind: events.ControlChange, Obj: option.Obj, Player: cu.player})
 		}
 		cu.actionRemaining = 0
 		e.finishCumulative()
 		return
-	case "cumulative_action_life":
+	case cumulativeAnswer2026CumulativeActionLife:
 		e.emit(events.Event{Kind: events.LifeChange, Player: chosen[0].Player, Amount: cu.action.n})
 		cu.actionRemaining--
 		e.continueCumulativeAction()
 		return
-	case "cumulative_action_grave":
+	case cumulativeAnswer2026CumulativeActionGrave:
 		cu.actionOwner = chosen[0].Player
 		e.cumulativeObjectDecision(cu, e.G.Zone(state.ZGraveyard, cu.actionOwner), int(cu.action.n), int(cu.action.n),
 			"cumulative_action_grave_card", "Choose cards from one graveyard")
 		return
-	case "cumulative_action_grave_card":
+	case cumulativeAnswer2026CumulativeActionGraveCard:
 		for _, option := range chosen {
 			if o := e.G.Obj(option.Obj); o != nil && o.Zone == state.ZGraveyard && o.Owner == cu.actionOwner {
 				e.emit(events.Event{Kind: events.MoveZone, Obj: o.ID, From: state.ZGraveyard, To: state.ZLibrary})
@@ -1404,18 +1404,18 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 		e.triggeredCostDecline(tc)
 		return
 	}
-	switch chosen[0].Kind {
-	case "activate":
+	switch triggeredCostAnswer2027Codes.Code(string(chosen[0].Kind)) {
+	case triggeredCostAnswer2027Activate:
 		e.activatePaymentMana(tc.player, chosen[0].Obj)
 		return
-	case "done":
+	case triggeredCostAnswer2027Done:
 		tc.windowDone = true
 		e.triggeredCostPaymentAsk()
 		return
-	case "trigger_cost_tap":
+	case triggeredCostAnswer2027TriggerCostTap:
 		e.triggeredTapAnswer(tc, chosen)
 		return
-	case "trigger_cost_x":
+	case triggeredCostAnswer2027TriggerCostX:
 		// The X announcement's answer (the payer-chooses fold): the chosen
 		// value folds into the cost and the payment ask re-opens, now pricing
 		// the folded cost -- CR 601.2b's announce-then-activate ordering. The
@@ -1430,7 +1430,7 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 		tc.xPaid = x
 		e.triggeredCostPaymentAsk()
 		return
-	case "pay_W", "pay_U", "pay_B", "pay_R", "pay_G", "pay_C", "pay_life", "pay_generic":
+	case triggeredCostAnswer2027PayW:
 		// A flexible-pip announcement answer (the cast flow's own pay_W
 		// family): record the face the payer elected and advance to the next
 		// pip, then re-open the payment ask. A hybrid, twobrid or Phyrexian
@@ -1941,3 +1941,170 @@ func (e *Engine) triggeredTapAnswer(tc *triggeredEffectCost, chosen []decision.O
 func init() {
 	effects.RegisterNonAPI("kw:Cumulative upkeep", "stat:UntapOtherPlayer")
 }
+
+const (
+	parseCumulativeAction2021Sac                       uint16 = 1 // "Sac", "Discard"
+	parseCumulativeAction2021AddCounter                uint16 = 2 // "AddCounter"
+	parseCumulativeAction2021AddMana                   uint16 = 3 // "AddMana"
+	parseCumulativeAction2021Draw                      uint16 = 4 // "Draw"
+	parseCumulativeAction2021ExileFromTop              uint16 = 5 // "ExileFromTop"
+	parseCumulativeAction2021FlipCoin                  uint16 = 6 // "FlipCoin"
+	parseCumulativeAction2021GainControl               uint16 = 7 // "GainControl"
+	parseCumulativeAction2021GainLife                  uint16 = 8 // "GainLife"
+	parseCumulativeAction2021PutCardToLibFromSameGrave uint16 = 9 // "PutCardToLibFromSameGrave"
+)
+
+var parseCumulativeAction2021Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Sac", Val: parseCumulativeAction2021Sac},
+	state.StrEntry[uint16]{Key: "Discard", Val: parseCumulativeAction2021Sac},
+	state.StrEntry[uint16]{Key: "AddCounter", Val: parseCumulativeAction2021AddCounter},
+	state.StrEntry[uint16]{Key: "AddMana", Val: parseCumulativeAction2021AddMana},
+	state.StrEntry[uint16]{Key: "Draw", Val: parseCumulativeAction2021Draw},
+	state.StrEntry[uint16]{Key: "ExileFromTop", Val: parseCumulativeAction2021ExileFromTop},
+	state.StrEntry[uint16]{Key: "FlipCoin", Val: parseCumulativeAction2021FlipCoin},
+	state.StrEntry[uint16]{Key: "GainControl", Val: parseCumulativeAction2021GainControl},
+	state.StrEntry[uint16]{Key: "GainLife", Val: parseCumulativeAction2021GainLife},
+	state.StrEntry[uint16]{Key: "PutCardToLibFromSameGrave", Val: parseCumulativeAction2021PutCardToLibFromSameGrave},
+)
+
+const (
+	cumulativeActionPhrase2022Sac                       uint16 = 1  // "Sac"
+	cumulativeActionPhrase2022Discard                   uint16 = 2  // "Discard"
+	cumulativeActionPhrase2022AddCounter                uint16 = 3  // "AddCounter"
+	cumulativeActionPhrase2022AddMana                   uint16 = 4  // "AddMana"
+	cumulativeActionPhrase2022Draw                      uint16 = 5  // "Draw"
+	cumulativeActionPhrase2022ExileFromTop              uint16 = 6  // "ExileFromTop"
+	cumulativeActionPhrase2022FlipCoin                  uint16 = 7  // "FlipCoin"
+	cumulativeActionPhrase2022GainControl               uint16 = 8  // "GainControl"
+	cumulativeActionPhrase2022GainLife                  uint16 = 9  // "GainLife"
+	cumulativeActionPhrase2022PutCardToLibFromSameGrave uint16 = 10 // "PutCardToLibFromSameGrave"
+)
+
+var cumulativeActionPhrase2022Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Sac", Val: cumulativeActionPhrase2022Sac},
+	state.StrEntry[uint16]{Key: "Discard", Val: cumulativeActionPhrase2022Discard},
+	state.StrEntry[uint16]{Key: "AddCounter", Val: cumulativeActionPhrase2022AddCounter},
+	state.StrEntry[uint16]{Key: "AddMana", Val: cumulativeActionPhrase2022AddMana},
+	state.StrEntry[uint16]{Key: "Draw", Val: cumulativeActionPhrase2022Draw},
+	state.StrEntry[uint16]{Key: "ExileFromTop", Val: cumulativeActionPhrase2022ExileFromTop},
+	state.StrEntry[uint16]{Key: "FlipCoin", Val: cumulativeActionPhrase2022FlipCoin},
+	state.StrEntry[uint16]{Key: "GainControl", Val: cumulativeActionPhrase2022GainControl},
+	state.StrEntry[uint16]{Key: "GainLife", Val: cumulativeActionPhrase2022GainLife},
+	state.StrEntry[uint16]{Key: "PutCardToLibFromSameGrave", Val: cumulativeActionPhrase2022PutCardToLibFromSameGrave},
+)
+
+const (
+	cumulativeActionPayable2023Sac                       uint16 = 1 // "Sac"
+	cumulativeActionPayable2023Discard                   uint16 = 2 // "Discard"
+	cumulativeActionPayable2023Draw                      uint16 = 3 // "Draw", "ExileFromTop"
+	cumulativeActionPayable2023AddMana                   uint16 = 4 // "AddMana", "FlipCoin"
+	cumulativeActionPayable2023AddCounter                uint16 = 5 // "AddCounter"
+	cumulativeActionPayable2023GainControl               uint16 = 6 // "GainControl"
+	cumulativeActionPayable2023GainLife                  uint16 = 7 // "GainLife"
+	cumulativeActionPayable2023PutCardToLibFromSameGrave uint16 = 8 // "PutCardToLibFromSameGrave"
+)
+
+var cumulativeActionPayable2023Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Sac", Val: cumulativeActionPayable2023Sac},
+	state.StrEntry[uint16]{Key: "Discard", Val: cumulativeActionPayable2023Discard},
+	state.StrEntry[uint16]{Key: "Draw", Val: cumulativeActionPayable2023Draw},
+	state.StrEntry[uint16]{Key: "ExileFromTop", Val: cumulativeActionPayable2023Draw},
+	state.StrEntry[uint16]{Key: "AddMana", Val: cumulativeActionPayable2023AddMana},
+	state.StrEntry[uint16]{Key: "FlipCoin", Val: cumulativeActionPayable2023AddMana},
+	state.StrEntry[uint16]{Key: "AddCounter", Val: cumulativeActionPayable2023AddCounter},
+	state.StrEntry[uint16]{Key: "GainControl", Val: cumulativeActionPayable2023GainControl},
+	state.StrEntry[uint16]{Key: "GainLife", Val: cumulativeActionPayable2023GainLife},
+	state.StrEntry[uint16]{Key: "PutCardToLibFromSameGrave", Val: cumulativeActionPayable2023PutCardToLibFromSameGrave},
+)
+
+const (
+	continueCumulativeAction2024Sac                       uint16 = 1  // "Sac"
+	continueCumulativeAction2024Discard                   uint16 = 2  // "Discard"
+	continueCumulativeAction2024Draw                      uint16 = 3  // "Draw"
+	continueCumulativeAction2024ExileFromTop              uint16 = 4  // "ExileFromTop"
+	continueCumulativeAction2024AddMana                   uint16 = 5  // "AddMana"
+	continueCumulativeAction2024FlipCoin                  uint16 = 6  // "FlipCoin"
+	continueCumulativeAction2024AddCounter                uint16 = 7  // "AddCounter"
+	continueCumulativeAction2024GainControl               uint16 = 8  // "GainControl"
+	continueCumulativeAction2024GainLife                  uint16 = 9  // "GainLife"
+	continueCumulativeAction2024PutCardToLibFromSameGrave uint16 = 10 // "PutCardToLibFromSameGrave"
+)
+
+var continueCumulativeAction2024Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Sac", Val: continueCumulativeAction2024Sac},
+	state.StrEntry[uint16]{Key: "Discard", Val: continueCumulativeAction2024Discard},
+	state.StrEntry[uint16]{Key: "Draw", Val: continueCumulativeAction2024Draw},
+	state.StrEntry[uint16]{Key: "ExileFromTop", Val: continueCumulativeAction2024ExileFromTop},
+	state.StrEntry[uint16]{Key: "AddMana", Val: continueCumulativeAction2024AddMana},
+	state.StrEntry[uint16]{Key: "FlipCoin", Val: continueCumulativeAction2024FlipCoin},
+	state.StrEntry[uint16]{Key: "AddCounter", Val: continueCumulativeAction2024AddCounter},
+	state.StrEntry[uint16]{Key: "GainControl", Val: continueCumulativeAction2024GainControl},
+	state.StrEntry[uint16]{Key: "GainLife", Val: continueCumulativeAction2024GainLife},
+	state.StrEntry[uint16]{Key: "PutCardToLibFromSameGrave", Val: continueCumulativeAction2024PutCardToLibFromSameGrave},
+)
+
+const (
+	accept2025PayW       uint16 = 1 // "pay_W", "pay_U", "pay_B", "pay_R", "pay_G", "pay_C"
+	accept2025PayLife    uint16 = 2 // "pay_life"
+	accept2025PayGeneric uint16 = 3 // "pay_generic"
+)
+
+var accept2025Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "pay_W", Val: accept2025PayW},
+	state.StrEntry[uint16]{Key: "pay_U", Val: accept2025PayW},
+	state.StrEntry[uint16]{Key: "pay_B", Val: accept2025PayW},
+	state.StrEntry[uint16]{Key: "pay_R", Val: accept2025PayW},
+	state.StrEntry[uint16]{Key: "pay_G", Val: accept2025PayW},
+	state.StrEntry[uint16]{Key: "pay_C", Val: accept2025PayW},
+	state.StrEntry[uint16]{Key: "pay_life", Val: accept2025PayLife},
+	state.StrEntry[uint16]{Key: "pay_generic", Val: accept2025PayGeneric},
+)
+
+const (
+	cumulativeAnswer2026Activate                  uint16 = 1  // "activate"
+	cumulativeAnswer2026Done                      uint16 = 2  // "done"
+	cumulativeAnswer2026CumulativePay             uint16 = 3  // "cumulative_pay"
+	cumulativeAnswer2026CumulativeActionSac       uint16 = 4  // "cumulative_action_sac"
+	cumulativeAnswer2026CumulativeActionDiscard   uint16 = 5  // "cumulative_action_discard"
+	cumulativeAnswer2026CumulativeActionCounter   uint16 = 6  // "cumulative_action_counter"
+	cumulativeAnswer2026CumulativeActionControl   uint16 = 7  // "cumulative_action_control"
+	cumulativeAnswer2026CumulativeActionLife      uint16 = 8  // "cumulative_action_life"
+	cumulativeAnswer2026CumulativeActionGrave     uint16 = 9  // "cumulative_action_grave"
+	cumulativeAnswer2026CumulativeActionGraveCard uint16 = 10 // "cumulative_action_grave_card"
+)
+
+var cumulativeAnswer2026Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "activate", Val: cumulativeAnswer2026Activate},
+	state.StrEntry[uint16]{Key: "done", Val: cumulativeAnswer2026Done},
+	state.StrEntry[uint16]{Key: "cumulative_pay", Val: cumulativeAnswer2026CumulativePay},
+	state.StrEntry[uint16]{Key: "cumulative_action_sac", Val: cumulativeAnswer2026CumulativeActionSac},
+	state.StrEntry[uint16]{Key: "cumulative_action_discard", Val: cumulativeAnswer2026CumulativeActionDiscard},
+	state.StrEntry[uint16]{Key: "cumulative_action_counter", Val: cumulativeAnswer2026CumulativeActionCounter},
+	state.StrEntry[uint16]{Key: "cumulative_action_control", Val: cumulativeAnswer2026CumulativeActionControl},
+	state.StrEntry[uint16]{Key: "cumulative_action_life", Val: cumulativeAnswer2026CumulativeActionLife},
+	state.StrEntry[uint16]{Key: "cumulative_action_grave", Val: cumulativeAnswer2026CumulativeActionGrave},
+	state.StrEntry[uint16]{Key: "cumulative_action_grave_card", Val: cumulativeAnswer2026CumulativeActionGraveCard},
+)
+
+const (
+	triggeredCostAnswer2027Activate       uint16 = 1 // "activate"
+	triggeredCostAnswer2027Done           uint16 = 2 // "done"
+	triggeredCostAnswer2027TriggerCostTap uint16 = 3 // "trigger_cost_tap"
+	triggeredCostAnswer2027TriggerCostX   uint16 = 4 // "trigger_cost_x"
+	triggeredCostAnswer2027PayW           uint16 = 5 // "pay_W", "pay_U", "pay_B", "pay_R", "pay_G", "pay_C", "pay_life", "pay_generic"
+)
+
+var triggeredCostAnswer2027Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "activate", Val: triggeredCostAnswer2027Activate},
+	state.StrEntry[uint16]{Key: "done", Val: triggeredCostAnswer2027Done},
+	state.StrEntry[uint16]{Key: "trigger_cost_tap", Val: triggeredCostAnswer2027TriggerCostTap},
+	state.StrEntry[uint16]{Key: "trigger_cost_x", Val: triggeredCostAnswer2027TriggerCostX},
+	state.StrEntry[uint16]{Key: "pay_W", Val: triggeredCostAnswer2027PayW},
+	state.StrEntry[uint16]{Key: "pay_U", Val: triggeredCostAnswer2027PayW},
+	state.StrEntry[uint16]{Key: "pay_B", Val: triggeredCostAnswer2027PayW},
+	state.StrEntry[uint16]{Key: "pay_R", Val: triggeredCostAnswer2027PayW},
+	state.StrEntry[uint16]{Key: "pay_G", Val: triggeredCostAnswer2027PayW},
+	state.StrEntry[uint16]{Key: "pay_C", Val: triggeredCostAnswer2027PayW},
+	state.StrEntry[uint16]{Key: "pay_life", Val: triggeredCostAnswer2027PayW},
+	state.StrEntry[uint16]{Key: "pay_generic", Val: triggeredCostAnswer2027PayW},
+)

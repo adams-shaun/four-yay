@@ -442,8 +442,8 @@ func composedPoolFloor(m *costMods, c *Cost, taxGeneric, delve int32) int64 {
 	return n
 }
 
-var modeIsCastFaceDownTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "morphed", Val: true},
-	cards.StrEntry[bool]{Key: "megamorphed", Val: true},
-	cards.StrEntry[bool]{Key: "disguised", Val: true},
+var modeIsCastFaceDownTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "morphed", Val: true},
+	state.StrEntry[bool]{Key: "megamorphed", Val: true},
+	state.StrEntry[bool]{Key: "disguised", Val: true},
 )

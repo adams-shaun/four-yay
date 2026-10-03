@@ -748,12 +748,12 @@ func (e *Engine) payCast() {
 	// plain-Kicker carriers' scripts still read the count, and no other
 	// kicked cast gains an event.
 	mkCount := int32(0)
-	switch pc.mode {
-	case "multikicked":
+	switch payCast8721Codes.Code(string(pc.mode)) {
+	case payCast8721Multikicked:
 		mkCount = pc.multikickTimes
-	case "kicked", "kicked1", "kicked2":
+	case payCast8721Kicked:
 		mkCount = 1
-	case "kickedboth":
+	case payCast8721Kickedboth:
 		mkCount = 2
 	}
 	if mkCount > 0 && (pc.mode == "multikicked" || faceWantsTimesKicked(e.G.Obj(pc.card).Face())) {
@@ -1108,10 +1108,10 @@ func (e *Engine) fireManaSpentTriggers(ev events.Event, lki *state.Object) {
 				continue
 			}
 			matches := false
-			switch t.Mode {
-			case "SpellCast":
+			switch fireManaSpentTriggers8722Codes.Code(string(t.Mode)) {
+			case fireManaSpentTriggers8722SpellCast:
 				matches = trigmatch.SpellCastEval(boardOf(e), t, src, ev)
-			case "SpellAbilityCast":
+			case fireManaSpentTriggers8722SpellAbilityCast:
 				matches = trigmatch.SpellAbilityCastMatches(boardOf(e), t, src, ev, lki)
 			}
 			if !e.zoneGate(t, src, ev) || !e.phaseGate(t) || !matches {
@@ -1207,3 +1207,27 @@ func (e *Engine) recordCmdCast(p state.PlayerID, id state.ObjID) {
 func (e *Engine) castSuppressed(p state.PlayerID, id state.ObjID) bool {
 	return e.suppressedCast != nil && e.suppressedCast[id]
 }
+
+const (
+	payCast8721Multikicked uint16 = 1 // "multikicked"
+	payCast8721Kicked      uint16 = 2 // "kicked", "kicked1", "kicked2"
+	payCast8721Kickedboth  uint16 = 3 // "kickedboth"
+)
+
+var payCast8721Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "multikicked", Val: payCast8721Multikicked},
+	state.StrEntry[uint16]{Key: "kicked", Val: payCast8721Kicked},
+	state.StrEntry[uint16]{Key: "kicked1", Val: payCast8721Kicked},
+	state.StrEntry[uint16]{Key: "kicked2", Val: payCast8721Kicked},
+	state.StrEntry[uint16]{Key: "kickedboth", Val: payCast8721Kickedboth},
+)
+
+const (
+	fireManaSpentTriggers8722SpellCast        uint16 = 1 // "SpellCast"
+	fireManaSpentTriggers8722SpellAbilityCast uint16 = 2 // "SpellAbilityCast"
+)
+
+var fireManaSpentTriggers8722Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "SpellCast", Val: fireManaSpentTriggers8722SpellCast},
+	state.StrEntry[uint16]{Key: "SpellAbilityCast", Val: fireManaSpentTriggers8722SpellAbilityCast},
+)

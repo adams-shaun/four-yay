@@ -831,16 +831,16 @@ func (e *Engine) unlessPaymentCandidates(u *unlessPayment, zone state.Zone, kind
 }
 
 func (e *Engine) recordUnlessPaymentPick(u *unlessPayment, kind string, ids []state.ObjID) {
-	switch kind {
-	case "sacrifice":
+	switch recordUnlessPaymentPick4921Codes.Code(string(kind)) {
+	case recordUnlessPaymentPick4921Sacrifice:
 		u.sacs = append(u.sacs, ids...)
-	case "revealcost":
+	case recordUnlessPaymentPick4921Revealcost:
 		u.reveals = append(u.reveals, ids...)
-	case "beholdcost":
+	case recordUnlessPaymentPick4921Beholdcost:
 		u.beholds = append(u.beholds, ids...)
-	case "returncost":
+	case recordUnlessPaymentPick4921Returncost:
 		u.returns = append(u.returns, ids...)
-	case "exilecost":
+	case recordUnlessPaymentPick4921Exilecost:
 		u.exiles = append(u.exiles, ids...)
 	default:
 		u.discards = append(u.discards, ids...)
@@ -958,3 +958,19 @@ func (e *Engine) finishUnlessPayment(paid bool) {
 	}
 	e.finishManaUnlessPayment(paid)
 }
+
+const (
+	recordUnlessPaymentPick4921Sacrifice  uint16 = 1 // "sacrifice"
+	recordUnlessPaymentPick4921Revealcost uint16 = 2 // "revealcost"
+	recordUnlessPaymentPick4921Beholdcost uint16 = 3 // "beholdcost"
+	recordUnlessPaymentPick4921Returncost uint16 = 4 // "returncost"
+	recordUnlessPaymentPick4921Exilecost  uint16 = 5 // "exilecost"
+)
+
+var recordUnlessPaymentPick4921Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "sacrifice", Val: recordUnlessPaymentPick4921Sacrifice},
+	state.StrEntry[uint16]{Key: "revealcost", Val: recordUnlessPaymentPick4921Revealcost},
+	state.StrEntry[uint16]{Key: "beholdcost", Val: recordUnlessPaymentPick4921Beholdcost},
+	state.StrEntry[uint16]{Key: "returncost", Val: recordUnlessPaymentPick4921Returncost},
+	state.StrEntry[uint16]{Key: "exilecost", Val: recordUnlessPaymentPick4921Exilecost},
+)

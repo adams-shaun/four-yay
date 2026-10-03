@@ -175,24 +175,24 @@ func ParseZoneWord(s string) (state.Zone, bool) {
 }
 
 func parseZone(s string) (state.Zone, bool) {
-	switch strings.TrimSpace(s) {
-	case "Hand":
+	switch parseZone6781Codes.Code(string(strings.TrimSpace(s))) {
+	case parseZone6781Hand:
 		return state.ZHand, true
-	case "Battlefield":
+	case parseZone6781Battlefield:
 		return state.ZBattlefield, true
-	case "Library":
+	case parseZone6781Library:
 		return state.ZLibrary, true
-	case "Graveyard":
+	case parseZone6781Graveyard:
 		return state.ZGraveyard, true
-	case "Exile":
+	case parseZone6781Exile:
 		return state.ZExile, true
-	case "Stack":
+	case parseZone6781Stack:
 		return state.ZStack, true
-	case "Command":
+	case parseZone6781Command:
 		return state.ZCommand, true
-	case "Sideboard":
+	case parseZone6781Sideboard:
 		return state.ZSideboard, true
-	case "Ceased":
+	case parseZone6781Ceased:
 		return state.ZCeased, true
 	}
 	return 0, false
@@ -236,3 +236,27 @@ func zoneIn(zones []state.Zone, want state.Zone) bool {
 func mixedOriginIncludesHand(zones []state.Zone, all bool) bool {
 	return !all && len(zones) > 1 && zoneIn(zones, state.ZHand)
 }
+
+const (
+	parseZone6781Hand        uint16 = 1 // "Hand"
+	parseZone6781Battlefield uint16 = 2 // "Battlefield"
+	parseZone6781Library     uint16 = 3 // "Library"
+	parseZone6781Graveyard   uint16 = 4 // "Graveyard"
+	parseZone6781Exile       uint16 = 5 // "Exile"
+	parseZone6781Stack       uint16 = 6 // "Stack"
+	parseZone6781Command     uint16 = 7 // "Command"
+	parseZone6781Sideboard   uint16 = 8 // "Sideboard"
+	parseZone6781Ceased      uint16 = 9 // "Ceased"
+)
+
+var parseZone6781Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Hand", Val: parseZone6781Hand},
+	state.StrEntry[uint16]{Key: "Battlefield", Val: parseZone6781Battlefield},
+	state.StrEntry[uint16]{Key: "Library", Val: parseZone6781Library},
+	state.StrEntry[uint16]{Key: "Graveyard", Val: parseZone6781Graveyard},
+	state.StrEntry[uint16]{Key: "Exile", Val: parseZone6781Exile},
+	state.StrEntry[uint16]{Key: "Stack", Val: parseZone6781Stack},
+	state.StrEntry[uint16]{Key: "Command", Val: parseZone6781Command},
+	state.StrEntry[uint16]{Key: "Sideboard", Val: parseZone6781Sideboard},
+	state.StrEntry[uint16]{Key: "Ceased", Val: parseZone6781Ceased},
+)

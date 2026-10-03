@@ -163,14 +163,27 @@ func applyTimeTravel(h Host, id state.ObjID, choice string) {
 	if o.Zone != state.ZBattlefield && (o.Zone != state.ZExile || o.CastFlags&state.FlagSuspend == 0) {
 		return
 	}
-	switch strings.TrimSpace(choice) {
-	case "time_travel_add":
+	switch applyTimeTraveld341Codes.Code(string(strings.TrimSpace(choice))) {
+	case applyTimeTraveld341TimeTravelAdd:
 		h.Emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: "TIME", Amount: 1})
-	case "time_travel_remove":
+	case applyTimeTraveld341TimeTravelRemove:
 		h.Emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: "TIME", Amount: -1})
-	case "time_travel_skip", "":
+	case applyTimeTraveld341TimeTravelSkip:
 	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: id,
 			Text: fmt.Sprintf("TimeTravel: unknown choice %q; skipped", choice)})
 	}
 }
+
+const (
+	applyTimeTraveld341TimeTravelAdd    uint16 = 1 // "time_travel_add"
+	applyTimeTraveld341TimeTravelRemove uint16 = 2 // "time_travel_remove"
+	applyTimeTraveld341TimeTravelSkip   uint16 = 3 // "time_travel_skip", ""
+)
+
+var applyTimeTraveld341Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "time_travel_add", Val: applyTimeTraveld341TimeTravelAdd},
+	state.StrEntry[uint16]{Key: "time_travel_remove", Val: applyTimeTraveld341TimeTravelRemove},
+	state.StrEntry[uint16]{Key: "time_travel_skip", Val: applyTimeTraveld341TimeTravelSkip},
+	state.StrEntry[uint16]{Key: "", Val: applyTimeTraveld341TimeTravelSkip},
+)

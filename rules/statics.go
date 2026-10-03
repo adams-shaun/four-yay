@@ -282,18 +282,18 @@ func (e *Engine) scanActionStaticsMode(carriersOnly bool) actionStaticViews {
 					}
 					st := pst.Static
 					var dst *[]staticView
-					switch st.Mode {
-					case "CantBeCast":
+					switch scanActionStaticsModef781Codes.Code(string(st.Mode)) {
+					case scanActionStaticsModef781CantBeCast:
 						if carriersOnly || z != state.ZBattlefield {
 							continue
 						}
 						dst = &out.cantCast
-					case "CantBeActivated":
+					case scanActionStaticsModef781CantBeActivated:
 						if carriersOnly || z != state.ZBattlefield {
 							continue
 						}
 						dst = &out.cantActivate
-					case "Continuous":
+					case scanActionStaticsModef781Continuous:
 						// The EffectZone$ gate (the default is the battlefield,
 						// so every battlefield Continuous static keeps today's
 						// admission exactly): a static naming another zone is
@@ -693,4 +693,16 @@ func (sv staticView) HasParam(k cards.ParamKey) bool {
 	return ok
 }
 
-var costRememberedCaptureKeys1 = cards.NewNameSet("RaiseCost", "ReduceCost", "SetCost")
+var costRememberedCaptureKeys1 = state.NewNameSet("RaiseCost", "ReduceCost", "SetCost")
+
+const (
+	scanActionStaticsModef781CantBeCast      uint16 = 1 // "CantBeCast"
+	scanActionStaticsModef781CantBeActivated uint16 = 2 // "CantBeActivated"
+	scanActionStaticsModef781Continuous      uint16 = 3 // "Continuous"
+)
+
+var scanActionStaticsModef781Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "CantBeCast", Val: scanActionStaticsModef781CantBeCast},
+	state.StrEntry[uint16]{Key: "CantBeActivated", Val: scanActionStaticsModef781CantBeActivated},
+	state.StrEntry[uint16]{Key: "Continuous", Val: scanActionStaticsModef781Continuous},
+)

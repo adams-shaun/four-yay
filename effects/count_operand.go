@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // applyCountOpOperand applies a Count$ arithmetic suffix. Besides numeric
@@ -98,8 +98,8 @@ func countDistinctLimitMax(body, op string, n int32) (int32, bool) {
 	if !hasProp {
 		return n, false
 	}
-	switch strings.TrimSpace(prop) {
-	case "Colors", "CreatureType":
+	switch countDistinctLimitMax6951Codes.Code(string(strings.TrimSpace(prop))) {
+	case countDistinctLimitMax6951Colors:
 	default:
 		return n, false
 	}
@@ -148,8 +148,8 @@ func parseCountCompare(tok string) (op string, threshold int32, ok bool) {
 		return "", 0, false
 	}
 	op = strings.ToUpper(tok[:2])
-	switch op {
-	case "GE", "GT", "LE", "LT", "EQ":
+	switch parseCountCompare6952Codes.Code(string(op)) {
+	case parseCountCompare6952GE:
 	default:
 		return "", 0, false
 	}
@@ -163,16 +163,16 @@ func parseCountCompare(tok string) (op string, threshold int32, ok bool) {
 // countOpHolds applies a comparison against a per-player hit count, the
 // same operator set parseCountCompare recognises.
 func countOpHolds(op string, threshold, got int32) bool {
-	switch op {
-	case "GE":
+	switch countOpHolds6953Codes.Code(string(op)) {
+	case countOpHolds6953GE:
 		return got >= threshold
-	case "GT":
+	case countOpHolds6953GT:
 		return got > threshold
-	case "LE":
+	case countOpHolds6953LE:
 		return got <= threshold
-	case "LT":
+	case countOpHolds6953LT:
 		return got < threshold
-	case "EQ":
+	case countOpHolds6953EQ:
 		return got == threshold
 	}
 	return false
@@ -223,16 +223,16 @@ func evalCompare(h Host, c *Ctx, arg string, depth int) int32 {
 	ifTok, elseTok, _ := strings.Cut(branches, ".")
 	value := evalCountOperand(h, c, name, depth)
 	var hit bool
-	switch op {
-	case "GE":
+	switch evalCompare6954Codes.Code(string(op)) {
+	case evalCompare6954GE:
 		hit = value >= th
-	case "GT":
+	case evalCompare6954GT:
 		hit = value > th
-	case "EQ":
+	case evalCompare6954EQ:
 		hit = value == th
-	case "LE":
+	case evalCompare6954LE:
 		hit = value <= th
-	case "LT":
+	case evalCompare6954LT:
 		hit = value < th
 	default:
 		// Not one of the five comparison heads.
@@ -496,11 +496,64 @@ func ApplyCountOp(n int32, op string) int32 {
 	return applyCountOp(n, op)
 }
 
-var validConvokedCountOpTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "Twice", Val: true},
-	cards.StrEntry[bool]{Key: "Thrice", Val: true},
-	cards.StrEntry[bool]{Key: "HalfDown", Val: true},
-	cards.StrEntry[bool]{Key: "HalfUp", Val: true},
-	cards.StrEntry[bool]{Key: "ThirdUp", Val: true},
-	cards.StrEntry[bool]{Key: "Negative", Val: true},
+var validConvokedCountOpTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "Twice", Val: true},
+	state.StrEntry[bool]{Key: "Thrice", Val: true},
+	state.StrEntry[bool]{Key: "HalfDown", Val: true},
+	state.StrEntry[bool]{Key: "HalfUp", Val: true},
+	state.StrEntry[bool]{Key: "ThirdUp", Val: true},
+	state.StrEntry[bool]{Key: "Negative", Val: true},
+)
+
+const (
+	countDistinctLimitMax6951Colors uint16 = 1 // "Colors", "CreatureType"
+)
+
+var countDistinctLimitMax6951Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Colors", Val: countDistinctLimitMax6951Colors},
+	state.StrEntry[uint16]{Key: "CreatureType", Val: countDistinctLimitMax6951Colors},
+)
+
+const (
+	parseCountCompare6952GE uint16 = 1 // "GE", "GT", "LE", "LT", "EQ"
+)
+
+var parseCountCompare6952Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "GE", Val: parseCountCompare6952GE},
+	state.StrEntry[uint16]{Key: "GT", Val: parseCountCompare6952GE},
+	state.StrEntry[uint16]{Key: "LE", Val: parseCountCompare6952GE},
+	state.StrEntry[uint16]{Key: "LT", Val: parseCountCompare6952GE},
+	state.StrEntry[uint16]{Key: "EQ", Val: parseCountCompare6952GE},
+)
+
+const (
+	countOpHolds6953GE uint16 = 1 // "GE"
+	countOpHolds6953GT uint16 = 2 // "GT"
+	countOpHolds6953LE uint16 = 3 // "LE"
+	countOpHolds6953LT uint16 = 4 // "LT"
+	countOpHolds6953EQ uint16 = 5 // "EQ"
+)
+
+var countOpHolds6953Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "GE", Val: countOpHolds6953GE},
+	state.StrEntry[uint16]{Key: "GT", Val: countOpHolds6953GT},
+	state.StrEntry[uint16]{Key: "LE", Val: countOpHolds6953LE},
+	state.StrEntry[uint16]{Key: "LT", Val: countOpHolds6953LT},
+	state.StrEntry[uint16]{Key: "EQ", Val: countOpHolds6953EQ},
+)
+
+const (
+	evalCompare6954GE uint16 = 1 // "GE"
+	evalCompare6954GT uint16 = 2 // "GT"
+	evalCompare6954EQ uint16 = 3 // "EQ"
+	evalCompare6954LE uint16 = 4 // "LE"
+	evalCompare6954LT uint16 = 5 // "LT"
+)
+
+var evalCompare6954Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "GE", Val: evalCompare6954GE},
+	state.StrEntry[uint16]{Key: "GT", Val: evalCompare6954GT},
+	state.StrEntry[uint16]{Key: "EQ", Val: evalCompare6954EQ},
+	state.StrEntry[uint16]{Key: "LE", Val: evalCompare6954LE},
+	state.StrEntry[uint16]{Key: "LT", Val: evalCompare6954LT},
 )

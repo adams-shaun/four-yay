@@ -102,12 +102,12 @@ func atEOTInclude(h Host, c *Ctx, sa *cards.SA, id state.ObjID) bool {
 	return false
 }
 
-var atEOTBodyTab1 = cards.NewStrTable[string](
-	cards.StrEntry[string]{Key: "Exile", Val: "__kwWarpExile"},
-	cards.StrEntry[string]{Key: "YourExile", Val: "__kwWarpExile"},
-	cards.StrEntry[string]{Key: "Sacrifice", Val: "__kwEncoreSacrifice"},
-	cards.StrEntry[string]{Key: "YourSacrifice", Val: "__kwEncoreSacrifice"},
-	cards.StrEntry[string]{Key: "SacrificeCtrl", Val: "__kwEncoreSacrifice"},
-	cards.StrEntry[string]{Key: "Hand", Val: "__kwDashReturn"},
-	cards.StrEntry[string]{Key: "Destroy", Val: "__kwAtEOTDestroy"},
+var atEOTBodyTab1 = state.NewStrTable[string](
+	state.StrEntry[string]{Key: "Exile", Val: "__kwWarpExile"},
+	state.StrEntry[string]{Key: "YourExile", Val: "__kwWarpExile"},
+	state.StrEntry[string]{Key: "Sacrifice", Val: "__kwEncoreSacrifice"},
+	state.StrEntry[string]{Key: "YourSacrifice", Val: "__kwEncoreSacrifice"},
+	state.StrEntry[string]{Key: "SacrificeCtrl", Val: "__kwEncoreSacrifice"},
+	state.StrEntry[string]{Key: "Hand", Val: "__kwDashReturn"},
+	state.StrEntry[string]{Key: "Destroy", Val: "__kwAtEOTDestroy"},
 )

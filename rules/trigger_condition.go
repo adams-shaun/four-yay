@@ -329,10 +329,10 @@ func (e *Engine) checkDefinedPlayerHolds(spec string, you state.PlayerID) (holds
 		return false, false
 	}
 	var predicate func(state.PlayerID) bool
-	switch property {
-	case "isMonarch":
+	switch checkDefinedPlayerHoldsc3b1Codes.Code(string(property)) {
+	case checkDefinedPlayerHoldsc3b1IsMonarch:
 		predicate = e.G.IsMonarch
-	case "hasInitiative":
+	case checkDefinedPlayerHoldsc3b1HasInitiative:
 		// CR 726.1: the initiative designation (Loot Dispute's AttackedTarget$,
 		// Rasaad yn Bashir's / Imoen's end-step intervening-if). It reads the
 		// folded state.Initiative the InitiativeChange event maintains.
@@ -340,17 +340,17 @@ func (e *Engine) checkDefinedPlayerHolds(spec string, you state.PlayerID) (holds
 	default:
 		return false, false
 	}
-	switch base {
-	case "You":
+	switch checkDefinedPlayerHoldsc3b2Codes.Code(string(base)) {
+	case checkDefinedPlayerHoldsc3b2You:
 		return predicate(you), true
-	case "Opponent", "Other":
+	case checkDefinedPlayerHoldsc3b2Opponent:
 		for _, p := range e.G.AliveFrom(you) {
 			if p != you && predicate(p) {
 				return true, true
 			}
 		}
 		return false, true
-	case "Player", "Any":
+	case checkDefinedPlayerHoldsc3b2Player:
 		for _, p := range e.G.AliveFrom(0) {
 			if predicate(p) {
 				return true, true
@@ -370,10 +370,10 @@ func (e *Engine) lifeConditionHoldsAs(t cards.Trigger, you state.PlayerID, amoun
 	who := you
 	if v, ok := t.Param(cards.PKLifeTotal); ok {
 		v = strings.TrimSpace(v)
-		switch v {
-		case "", "You":
+		switch lifeConditionHoldsAsc3b3Codes.Code(string(v)) {
+		case lifeConditionHoldsAsc3b3Empty:
 			// the controller, which who already is
-		case "ActivePlayer":
+		case lifeConditionHoldsAsc3b3ActivePlayer:
 			who = e.G.Active
 		default:
 			return false // unevaluable player selector: fail closed
@@ -570,3 +570,38 @@ func (e *Engine) stateTriggerOutstanding(source state.ObjID, idx int) bool {
 	}
 	return false
 }
+
+const (
+	checkDefinedPlayerHoldsc3b1IsMonarch     uint16 = 1 // "isMonarch"
+	checkDefinedPlayerHoldsc3b1HasInitiative uint16 = 2 // "hasInitiative"
+)
+
+var checkDefinedPlayerHoldsc3b1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "isMonarch", Val: checkDefinedPlayerHoldsc3b1IsMonarch},
+	state.StrEntry[uint16]{Key: "hasInitiative", Val: checkDefinedPlayerHoldsc3b1HasInitiative},
+)
+
+const (
+	checkDefinedPlayerHoldsc3b2You      uint16 = 1 // "You"
+	checkDefinedPlayerHoldsc3b2Opponent uint16 = 2 // "Opponent", "Other"
+	checkDefinedPlayerHoldsc3b2Player   uint16 = 3 // "Player", "Any"
+)
+
+var checkDefinedPlayerHoldsc3b2Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "You", Val: checkDefinedPlayerHoldsc3b2You},
+	state.StrEntry[uint16]{Key: "Opponent", Val: checkDefinedPlayerHoldsc3b2Opponent},
+	state.StrEntry[uint16]{Key: "Other", Val: checkDefinedPlayerHoldsc3b2Opponent},
+	state.StrEntry[uint16]{Key: "Player", Val: checkDefinedPlayerHoldsc3b2Player},
+	state.StrEntry[uint16]{Key: "Any", Val: checkDefinedPlayerHoldsc3b2Player},
+)
+
+const (
+	lifeConditionHoldsAsc3b3Empty        uint16 = 1 // "", "You"
+	lifeConditionHoldsAsc3b3ActivePlayer uint16 = 2 // "ActivePlayer"
+)
+
+var lifeConditionHoldsAsc3b3Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: lifeConditionHoldsAsc3b3Empty},
+	state.StrEntry[uint16]{Key: "You", Val: lifeConditionHoldsAsc3b3Empty},
+	state.StrEntry[uint16]{Key: "ActivePlayer", Val: lifeConditionHoldsAsc3b3ActivePlayer},
+)

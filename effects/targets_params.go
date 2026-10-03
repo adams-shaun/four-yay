@@ -372,16 +372,16 @@ func targetZoneDecl(tgtZone string, typeStack bool) []state.Zone {
 		zones = append(zones, z)
 	}
 	for z := range strings.SplitSeq(tgtZone, ",") {
-		switch strings.TrimSpace(z) {
-		case "Battlefield":
+		switch targetZoneDecl8111Codes.Code(string(strings.TrimSpace(z))) {
+		case targetZoneDecl8111Battlefield:
 			add(state.ZBattlefield)
-		case "Graveyard":
+		case targetZoneDecl8111Graveyard:
 			add(state.ZGraveyard)
-		case "Hand":
+		case targetZoneDecl8111Hand:
 			add(state.ZHand)
-		case "Exile":
+		case targetZoneDecl8111Exile:
 			add(state.ZExile)
-		case "Stack":
+		case targetZoneDecl8111Stack:
 			add(state.ZStack)
 		}
 	}
@@ -468,3 +468,19 @@ func NumTextResolved(h Host, c *Ctx, p ParamText, def int32) (int32, bool) {
 func NumTextResolvedStrict(h Host, c *Ctx, p ParamText, def int32) (int32, bool) {
 	return numResolvedStrictText(h, c, p, def)
 }
+
+const (
+	targetZoneDecl8111Battlefield uint16 = 1 // "Battlefield"
+	targetZoneDecl8111Graveyard   uint16 = 2 // "Graveyard"
+	targetZoneDecl8111Hand        uint16 = 3 // "Hand"
+	targetZoneDecl8111Exile       uint16 = 4 // "Exile"
+	targetZoneDecl8111Stack       uint16 = 5 // "Stack"
+)
+
+var targetZoneDecl8111Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Battlefield", Val: targetZoneDecl8111Battlefield},
+	state.StrEntry[uint16]{Key: "Graveyard", Val: targetZoneDecl8111Graveyard},
+	state.StrEntry[uint16]{Key: "Hand", Val: targetZoneDecl8111Hand},
+	state.StrEntry[uint16]{Key: "Exile", Val: targetZoneDecl8111Exile},
+	state.StrEntry[uint16]{Key: "Stack", Val: targetZoneDecl8111Stack},
+)

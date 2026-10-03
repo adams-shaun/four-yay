@@ -166,10 +166,10 @@ type LivelockError struct {
 func (e *LivelockError) Error() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "livelock detected (%s): object %d, kind %s, ", e.Reason, e.Object, e.Kind)
-	switch e.Reason {
-	case "repeating cycle":
+	switch error7f81Codes.Code(string(e.Reason)) {
+	case error7f81RepeatingCycle:
 		fmt.Fprintf(&b, "cycle of %d event(s) repeated %d time(s), events %d-%d", e.CycleLen, e.Repeats, e.FirstSeq, e.LastSeq)
-	case "object cap":
+	case error7f81ObjectCap:
 		fmt.Fprintf(&b, "the object arena holds %d object(s), cap %d", e.Count, e.Cap)
 	default:
 		fmt.Fprintf(&b, "%d event(s) with no decision, step or turn change, events %d-%d", e.QuietEvents, e.FirstSeq, e.LastSeq)
@@ -763,3 +763,13 @@ func describeEvent(ev events.Event) string {
 	}
 	return s
 }
+
+const (
+	error7f81RepeatingCycle uint16 = 1 // "repeating cycle"
+	error7f81ObjectCap      uint16 = 2 // "object cap"
+)
+
+var error7f81Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "repeating cycle", Val: error7f81RepeatingCycle},
+	state.StrEntry[uint16]{Key: "object cap", Val: error7f81ObjectCap},
+)

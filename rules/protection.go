@@ -212,10 +212,10 @@ func (e *Engine) sourceHasQuality(source state.ObjID, q string) bool {
 	// than type predicates. They occur on Guardian/Frenemy of the Guildpact;
 	// keep them here with the other source-quality tests so generic
 	// kw:Protection registration covers every live K:Protection form.
-	switch strings.ToLower(q) {
-	case "card.monocolor":
+	switch sourceHasQualityf21Codes.Code(string(strings.ToLower(q))) {
+	case sourceHasQualityf21CardMonocolor:
 		return isMonoColor(e.objColors(o))
-	case "card.enemycolor":
+	case sourceHasQualityf21CardEnemycolor:
 		return hasEnemyColorPair(e.objColors(o))
 	}
 	// Parameterised protection qualities are Forge object specs (Artifact,
@@ -232,18 +232,18 @@ func (e *Engine) sourceHasQuality(source state.ObjID, q string) bool {
 		return false
 	}
 	f := o.Face()
-	switch strings.ToLower(q) {
-	case "artifacts":
+	switch sourceHasQualityf22Codes.Code(string(strings.ToLower(q))) {
+	case sourceHasQualityf22Artifacts:
 		return f.IsArtifact()
-	case "creatures":
+	case sourceHasQualityf22Creatures:
 		// CR 702.114e: a bestowed-attached card is an Aura, not a creature.
 		// CR 702.150c: an attached Reconfigure card is not a creature either.
 		return o.EffectiveIsCreature() && !o.BestowedAttached() && !o.ReconfiguredAttached()
-	case "enchantments":
+	case sourceHasQualityf22Enchantments:
 		return f.IsEnchantment()
-	case "instants":
+	case sourceHasQualityf22Instants:
 		return f.IsInstant()
-	case "sorceries":
+	case sourceHasQualityf22Sorceries:
 		return f.IsSorcery()
 	}
 	return false
@@ -398,10 +398,36 @@ func (e *Engine) permanentCastThisTurn(id state.ObjID) bool {
 	return false
 }
 
-var protecColourLetterTab1 = cards.NewStrTable[rune](
-	cards.StrEntry[rune]{Key: "white", Val: 'W'},
-	cards.StrEntry[rune]{Key: "blue", Val: 'U'},
-	cards.StrEntry[rune]{Key: "black", Val: 'B'},
-	cards.StrEntry[rune]{Key: "red", Val: 'R'},
-	cards.StrEntry[rune]{Key: "green", Val: 'G'},
+var protecColourLetterTab1 = state.NewStrTable[rune](
+	state.StrEntry[rune]{Key: "white", Val: 'W'},
+	state.StrEntry[rune]{Key: "blue", Val: 'U'},
+	state.StrEntry[rune]{Key: "black", Val: 'B'},
+	state.StrEntry[rune]{Key: "red", Val: 'R'},
+	state.StrEntry[rune]{Key: "green", Val: 'G'},
+)
+
+const (
+	sourceHasQualityf21CardMonocolor  uint16 = 1 // "card.monocolor"
+	sourceHasQualityf21CardEnemycolor uint16 = 2 // "card.enemycolor"
+)
+
+var sourceHasQualityf21Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "card.monocolor", Val: sourceHasQualityf21CardMonocolor},
+	state.StrEntry[uint16]{Key: "card.enemycolor", Val: sourceHasQualityf21CardEnemycolor},
+)
+
+const (
+	sourceHasQualityf22Artifacts    uint16 = 1 // "artifacts"
+	sourceHasQualityf22Creatures    uint16 = 2 // "creatures"
+	sourceHasQualityf22Enchantments uint16 = 3 // "enchantments"
+	sourceHasQualityf22Instants     uint16 = 4 // "instants"
+	sourceHasQualityf22Sorceries    uint16 = 5 // "sorceries"
+)
+
+var sourceHasQualityf22Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "artifacts", Val: sourceHasQualityf22Artifacts},
+	state.StrEntry[uint16]{Key: "creatures", Val: sourceHasQualityf22Creatures},
+	state.StrEntry[uint16]{Key: "enchantments", Val: sourceHasQualityf22Enchantments},
+	state.StrEntry[uint16]{Key: "instants", Val: sourceHasQualityf22Instants},
+	state.StrEntry[uint16]{Key: "sorceries", Val: sourceHasQualityf22Sorceries},
 )

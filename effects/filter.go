@@ -2186,14 +2186,14 @@ func matchesBase(g *state.Game, base string, o *state.Object, sc SpecContext) bo
 	if neg := strings.TrimPrefix(base, "non"); neg != base {
 		return !matchesBase(g, neg, o, sc)
 	}
-	switch base {
-	case "Any":
+	switch matchesBasebb01Codes.Code(string(base)) {
+	case matchesBasebb01Any:
 		return hasTypeCtx(o, "Creature", sc) || hasTypeCtx(o, "Planeswalker", sc) || hasTypeCtx(o, "Battle", sc)
-	case "Card":
+	case matchesBasebb01Card:
 		return true
-	case "Permanent":
+	case matchesBasebb01Permanent:
 		return o.Zone == state.ZBattlefield
-	case "Affinity":
+	case matchesBasebb01Affinity:
 		// CR 702.41: Forge uses the keyword name as a filter base for
 		// "a permanent with affinity" (Sojourner's Enforcermite), not as
 		// a card type. Prefer the layer-derived keyword list when rules has
@@ -2207,7 +2207,7 @@ func matchesBase(g *state.Game, base string, o *state.Object, sc SpecContext) bo
 			return false
 		}
 		return o.Face() != nil && o.Face().HasKeyword("Affinity")
-	case "PermanentCard":
+	case matchesBasebb01PermanentCard:
 		// This internal base spelling is selected by rules' target census
 		// (targetSpecForZone) and Dig windows (permanentCardSpec) for Forge's
 		// `Permanent` base evaluated AWAY from the battlefield, and by rules'
@@ -2218,9 +2218,9 @@ func matchesBase(g *state.Game, base string, o *state.Object, sc SpecContext) bo
 		// above keeps the on-the-battlefield reading every other filter
 		// depends on.
 		return o.Face() != nil && o.Face().IsPermanent()
-	case "Spell":
+	case matchesBasebb01Spell:
 		return o.Zone == state.ZStack || sc.AsStack
-	case "SpellAbility":
+	case matchesBasebb01SpellAbility:
 		// Forge's SpellAbility base (ValidSource$ SpellAbility.OppCtrl on the
 		// "becomes the target of a spell or ability" family -- Thunderbreak
 		// Regent and 51 more files): any spell or ability object on the stack.
@@ -3058,8 +3058,8 @@ func KnownPredicates() []string {
 // UnknownPredicates census share it, so an unread sub-spec
 // (Activated.otherAbility) stays unknown to both and fails closed.
 func hasAbilityToken(p string) bool {
-	switch strings.TrimPrefix(p, "hasAbility ") {
-	case "Activated", "Activated.hasTapCost", "Activated.Exhaust":
+	switch hasAbilityTokenbb02Codes.Code(string(strings.TrimPrefix(p, "hasAbility "))) {
+	case hasAbilityTokenbb02Activated:
 		return strings.HasPrefix(p, "hasAbility ")
 	}
 	return false
@@ -3076,16 +3076,16 @@ func objectHasAbility(o *state.Object, sub string) bool {
 		if a == nil || a.Kind != "AB" {
 			continue
 		}
-		switch sub {
-		case "Activated":
+		switch objectHasAbilitybb03Codes.Code(string(sub)) {
+		case objectHasAbilitybb03Activated:
 			return true
-		case "Activated.hasTapCost":
+		case objectHasAbilitybb03ActivatedHasTapCost:
 			for _, tok := range strings.Fields(ActivationOf(a).Cost) {
 				if tok == "T" {
 					return true
 				}
 			}
-		case "Activated.Exhaust":
+		case objectHasAbilitybb03ActivatedExhaust:
 			if strings.EqualFold(strings.TrimSpace(a.ParamStr(cards.PKExhaust)), "True") {
 				return true
 			}
@@ -3094,14 +3094,56 @@ func objectHasAbility(o *state.Object, sub string) bool {
 	return false
 }
 
-var possessionPredicateTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "YouOwn", Val: true},
-	cards.StrEntry[bool]{Key: "YouCtrl", Val: true},
-	cards.StrEntry[bool]{Key: "YouControl", Val: true},
-	cards.StrEntry[bool]{Key: "YourControl", Val: true},
-	cards.StrEntry[bool]{Key: "YouControlled", Val: true},
-	cards.StrEntry[bool]{Key: "OppOwn", Val: true},
-	cards.StrEntry[bool]{Key: "OppCtrl", Val: true},
-	cards.StrEntry[bool]{Key: "OpponentOwns", Val: true},
-	cards.StrEntry[bool]{Key: "OpponentControls", Val: true},
+var possessionPredicateTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "YouOwn", Val: true},
+	state.StrEntry[bool]{Key: "YouCtrl", Val: true},
+	state.StrEntry[bool]{Key: "YouControl", Val: true},
+	state.StrEntry[bool]{Key: "YourControl", Val: true},
+	state.StrEntry[bool]{Key: "YouControlled", Val: true},
+	state.StrEntry[bool]{Key: "OppOwn", Val: true},
+	state.StrEntry[bool]{Key: "OppCtrl", Val: true},
+	state.StrEntry[bool]{Key: "OpponentOwns", Val: true},
+	state.StrEntry[bool]{Key: "OpponentControls", Val: true},
+)
+
+const (
+	matchesBasebb01Any           uint16 = 1 // "Any"
+	matchesBasebb01Card          uint16 = 2 // "Card"
+	matchesBasebb01Permanent     uint16 = 3 // "Permanent"
+	matchesBasebb01Affinity      uint16 = 4 // "Affinity"
+	matchesBasebb01PermanentCard uint16 = 5 // "PermanentCard"
+	matchesBasebb01Spell         uint16 = 6 // "Spell"
+	matchesBasebb01SpellAbility  uint16 = 7 // "SpellAbility"
+)
+
+var matchesBasebb01Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Any", Val: matchesBasebb01Any},
+	state.StrEntry[uint16]{Key: "Card", Val: matchesBasebb01Card},
+	state.StrEntry[uint16]{Key: "Permanent", Val: matchesBasebb01Permanent},
+	state.StrEntry[uint16]{Key: "Affinity", Val: matchesBasebb01Affinity},
+	state.StrEntry[uint16]{Key: "PermanentCard", Val: matchesBasebb01PermanentCard},
+	state.StrEntry[uint16]{Key: "Spell", Val: matchesBasebb01Spell},
+	state.StrEntry[uint16]{Key: "SpellAbility", Val: matchesBasebb01SpellAbility},
+)
+
+const (
+	hasAbilityTokenbb02Activated uint16 = 1 // "Activated", "Activated.hasTapCost", "Activated.Exhaust"
+)
+
+var hasAbilityTokenbb02Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Activated", Val: hasAbilityTokenbb02Activated},
+	state.StrEntry[uint16]{Key: "Activated.hasTapCost", Val: hasAbilityTokenbb02Activated},
+	state.StrEntry[uint16]{Key: "Activated.Exhaust", Val: hasAbilityTokenbb02Activated},
+)
+
+const (
+	objectHasAbilitybb03Activated           uint16 = 1 // "Activated"
+	objectHasAbilitybb03ActivatedHasTapCost uint16 = 2 // "Activated.hasTapCost"
+	objectHasAbilitybb03ActivatedExhaust    uint16 = 3 // "Activated.Exhaust"
+)
+
+var objectHasAbilitybb03Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Activated", Val: objectHasAbilitybb03Activated},
+	state.StrEntry[uint16]{Key: "Activated.hasTapCost", Val: objectHasAbilitybb03ActivatedHasTapCost},
+	state.StrEntry[uint16]{Key: "Activated.Exhaust", Val: objectHasAbilitybb03ActivatedExhaust},
 )

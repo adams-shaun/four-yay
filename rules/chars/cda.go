@@ -50,34 +50,34 @@ func EffectZoneOK(v string, z state.Zone) bool {
 		return z == state.ZBattlefield
 	}
 	for name := range strings.SplitSeq(v, ",") {
-		switch strings.TrimSpace(name) {
-		case "All":
+		switch effectZoneOK51Codes.Code(string(strings.TrimSpace(name))) {
+		case effectZoneOK51All:
 			return true
-		case "Battlefield":
+		case effectZoneOK51Battlefield:
 			if z == state.ZBattlefield {
 				return true
 			}
-		case "Stack":
+		case effectZoneOK51Stack:
 			if z == state.ZStack {
 				return true
 			}
-		case "Graveyard":
+		case effectZoneOK51Graveyard:
 			if z == state.ZGraveyard {
 				return true
 			}
-		case "Hand":
+		case effectZoneOK51Hand:
 			if z == state.ZHand {
 				return true
 			}
-		case "Library":
+		case effectZoneOK51Library:
 			if z == state.ZLibrary {
 				return true
 			}
-		case "Exile":
+		case effectZoneOK51Exile:
 			if z == state.ZExile {
 				return true
 			}
-		case "Command":
+		case effectZoneOK51Command:
 			if z == state.ZCommand {
 				return true
 			}
@@ -200,3 +200,25 @@ func addPT(a, b int32) int32 {
 	}
 	return int32(n)
 }
+
+const (
+	effectZoneOK51All         uint16 = 1 // "All"
+	effectZoneOK51Battlefield uint16 = 2 // "Battlefield"
+	effectZoneOK51Stack       uint16 = 3 // "Stack"
+	effectZoneOK51Graveyard   uint16 = 4 // "Graveyard"
+	effectZoneOK51Hand        uint16 = 5 // "Hand"
+	effectZoneOK51Library     uint16 = 6 // "Library"
+	effectZoneOK51Exile       uint16 = 7 // "Exile"
+	effectZoneOK51Command     uint16 = 8 // "Command"
+)
+
+var effectZoneOK51Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "All", Val: effectZoneOK51All},
+	state.StrEntry[uint16]{Key: "Battlefield", Val: effectZoneOK51Battlefield},
+	state.StrEntry[uint16]{Key: "Stack", Val: effectZoneOK51Stack},
+	state.StrEntry[uint16]{Key: "Graveyard", Val: effectZoneOK51Graveyard},
+	state.StrEntry[uint16]{Key: "Hand", Val: effectZoneOK51Hand},
+	state.StrEntry[uint16]{Key: "Library", Val: effectZoneOK51Library},
+	state.StrEntry[uint16]{Key: "Exile", Val: effectZoneOK51Exile},
+	state.StrEntry[uint16]{Key: "Command", Val: effectZoneOK51Command},
+)

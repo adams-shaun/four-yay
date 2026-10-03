@@ -32,8 +32,8 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		mark := len(e.L.Events)
 		defer e.inertPriorityBackstop(in.Player, opt, mark)
 	}
-	switch opt.Kind {
-	case "pass":
+	switch handlePrioritye391Codes.Code(string(opt.Kind)) {
+	case handlePrioritye391Pass:
 		passes := e.G.Passes + 1
 		if passes >= int32(e.G.AliveCount()) {
 			if len(e.G.Stack) > 0 {
@@ -92,7 +92,7 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		}
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.NextAlive(e.G.Priority), Amount: passes})
 
-	case "play_land":
+	case handlePrioritye391PlayLand:
 		// A modal-land option is a face selection, not a generic land play.
 		// Revalidate it against the current object before mutating state: the
 		// priority option may have gone stale while another decision resolved.
@@ -123,11 +123,11 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		e.continueCast()
 		e.tape.ResolutionDone()
 
-	case "activate":
+	case handlePrioritye391Activate:
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
 		e.activateMana(in.Player, opt.Obj, false)
 
-	case "ability":
+	case handlePrioritye391Ability:
 		// Task 10: an activated ability (non-mana AB$) was chosen. Reset the
 		// pass count the same way every other non-pass action does, then drive
 		// the same cost flow a cast drives (rules/activate.go's
@@ -135,7 +135,7 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
 		e.beginActivation(in.Player, opt)
 
-	case "concede":
+	case handlePrioritye391Concede:
 		// M2d-3 (R-M3): choosing the concede option emits the existing
 		// PlayerLost event with Text "conceded" (CR 104.3a) -- one event,
 		// the same one a 0-life elimination emits. PlayerLost's Apply marks
@@ -153,14 +153,14 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		e.initiativeHandoffOnDeparture(in.Player)
 		e.checkStateBased()
 
-	case "station":
+	case handlePrioritye391Station:
 		// kw:Station (CR 702.150, rules/station.go): the spacecraft is
 		// stationed by tapping another creature the KChoose below names. The
 		// pass-count reset matches every other non-pass action.
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
 		e.askStation(in.Player, opt)
 
-	case "unlock":
+	case handlePrioritye391Unlock:
 		// Room unlock (CR 309.5, rules/rooms.go): pay the locked half's mana
 		// cost and emit the DoorUnlock event. The offer gated on castable,
 		// so the payment here cannot disagree with the offer; a stale option
@@ -182,24 +182,52 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		}
 		e.emit(events.Event{Kind: events.DoorUnlock, Obj: opt.Obj})
 
-	case "granted":
+	case handlePrioritye391Granted:
 		// kw:Start your engines (CR 702.179e, rules/speed.go): a max-speed
 		// static's granted ability, activated through the ordinary cost
 		// payment and the delayed-shape ability mint.
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
 		e.beginGrantedActivation(in.Player, opt)
 
-	case "specialize":
+	case handlePrioritye391Specialize:
 		e.specialize(in.Player, opt)
 
-	case "turn_face_up":
+	case handlePrioritye391TurnFaceUp:
 		// Morph-family turn face up (CR 708.6 / CR 116.2b): a special action
 		// -- no stack, no target, no response window. rules/morph_turnup.go
 		// owns the payment and the TurnFaceUp/megamorph-counter events.
 		e.turnFaceUp(in.Player, opt)
 
-	case "cast":
+	case handlePrioritye391Cast:
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
 		e.beginCast(in.Player, opt)
 	}
 }
+
+const (
+	handlePrioritye391Pass       uint16 = 1  // "pass"
+	handlePrioritye391PlayLand   uint16 = 2  // "play_land"
+	handlePrioritye391Activate   uint16 = 3  // "activate"
+	handlePrioritye391Ability    uint16 = 4  // "ability"
+	handlePrioritye391Concede    uint16 = 5  // "concede"
+	handlePrioritye391Station    uint16 = 6  // "station"
+	handlePrioritye391Unlock     uint16 = 7  // "unlock"
+	handlePrioritye391Granted    uint16 = 8  // "granted"
+	handlePrioritye391Specialize uint16 = 9  // "specialize"
+	handlePrioritye391TurnFaceUp uint16 = 10 // "turn_face_up"
+	handlePrioritye391Cast       uint16 = 11 // "cast"
+)
+
+var handlePrioritye391Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "pass", Val: handlePrioritye391Pass},
+	state.StrEntry[uint16]{Key: "play_land", Val: handlePrioritye391PlayLand},
+	state.StrEntry[uint16]{Key: "activate", Val: handlePrioritye391Activate},
+	state.StrEntry[uint16]{Key: "ability", Val: handlePrioritye391Ability},
+	state.StrEntry[uint16]{Key: "concede", Val: handlePrioritye391Concede},
+	state.StrEntry[uint16]{Key: "station", Val: handlePrioritye391Station},
+	state.StrEntry[uint16]{Key: "unlock", Val: handlePrioritye391Unlock},
+	state.StrEntry[uint16]{Key: "granted", Val: handlePrioritye391Granted},
+	state.StrEntry[uint16]{Key: "specialize", Val: handlePrioritye391Specialize},
+	state.StrEntry[uint16]{Key: "turn_face_up", Val: handlePrioritye391TurnFaceUp},
+	state.StrEntry[uint16]{Key: "cast", Val: handlePrioritye391Cast},
+)

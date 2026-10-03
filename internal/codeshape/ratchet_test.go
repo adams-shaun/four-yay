@@ -103,8 +103,11 @@ const (
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach: 2886 -> 2883. RepeatEach: 2883 -> 2876. W4 cases:
 	// constant-returning switches and param whitelists became cards.StrTable /
-	// cards.NameSet (sorted dense slices, built once at init): 2876 -> 2046.
-	stringCaseLiterals = 2046
+	// cards.NameSet (sorted dense slices, built once at init): 2876 -> 2046. Every
+	// other literal-case switch dispatches on a cards.StrCodes code (one lookup,
+	// integer switch, vocabulary in one table): 2046 -> 181. What is left is the
+	// case-whitelists the param census reads over a Params range.
+	stringCaseLiterals = 181
 	// ctxLiterals, specContextLiterals and triggerContextLiterals are the
 	// effects.Ctx / SpecContext / TriggerContext composite literals in rules/
 	// and effects/ non-test files outside codeshape.CtxConstructorFiles (W1c,

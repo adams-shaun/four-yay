@@ -102,9 +102,9 @@ func faceHasCostStatics(f *cards.Face) bool {
 	return false
 }
 
-var faceHasCostStaticsTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "RaiseCost", Val: true},
-	cards.StrEntry[bool]{Key: "ReduceCost", Val: true},
-	cards.StrEntry[bool]{Key: "SetCost", Val: true},
-	cards.StrEntry[bool]{Key: "OptionalCost", Val: true},
+var faceHasCostStaticsTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "RaiseCost", Val: true},
+	state.StrEntry[bool]{Key: "ReduceCost", Val: true},
+	state.StrEntry[bool]{Key: "SetCost", Val: true},
+	state.StrEntry[bool]{Key: "OptionalCost", Val: true},
 )

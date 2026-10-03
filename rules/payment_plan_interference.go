@@ -231,8 +231,8 @@ func paymentPlanSelfDamageTrigger(f *cards.Face, t cards.Trigger) (uint32, bool)
 		return 0, false
 	}
 	for _, k := range slices.Sorted(maps.Keys(t.Params)) {
-		switch k {
-		case "Mode", "ValidCard", "Execute", "TriggerZones", "TriggerDescription":
+		switch paymentPlanSelfDamageTrigger2821Codes.Code(string(k)) {
+		case paymentPlanSelfDamageTrigger2821Mode:
 		default:
 			return 0, false
 		}
@@ -637,4 +637,16 @@ func paymentPlanSpellTargets(f *cards.Face) bool {
 	return walk(f.SpellAbility(), 0)
 }
 
-var paymentPlanNoUntapShapeKeys1 = cards.NewNameSet("Event", "ValidCard", "Layer", "ValidStepTurnToController", "ActiveZones", "Description")
+var paymentPlanNoUntapShapeKeys1 = state.NewNameSet("Event", "ValidCard", "Layer", "ValidStepTurnToController", "ActiveZones", "Description")
+
+const (
+	paymentPlanSelfDamageTrigger2821Mode uint16 = 1 // "Mode", "ValidCard", "Execute", "TriggerZones", "TriggerDescription"
+)
+
+var paymentPlanSelfDamageTrigger2821Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Mode", Val: paymentPlanSelfDamageTrigger2821Mode},
+	state.StrEntry[uint16]{Key: "ValidCard", Val: paymentPlanSelfDamageTrigger2821Mode},
+	state.StrEntry[uint16]{Key: "Execute", Val: paymentPlanSelfDamageTrigger2821Mode},
+	state.StrEntry[uint16]{Key: "TriggerZones", Val: paymentPlanSelfDamageTrigger2821Mode},
+	state.StrEntry[uint16]{Key: "TriggerDescription", Val: paymentPlanSelfDamageTrigger2821Mode},
+)

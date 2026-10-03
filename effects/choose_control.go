@@ -62,18 +62,18 @@ func choiceZones(sa *cards.SA) map[state.Zone]bool {
 	}
 	out := map[state.Zone]bool{}
 	for z := range strings.SplitSeq(s, ",") {
-		switch strings.TrimSpace(z) {
-		case "Battlefield":
+		switch choiceZones47f1Codes.Code(string(strings.TrimSpace(z))) {
+		case choiceZones47f1Battlefield:
 			out[state.ZBattlefield] = true
-		case "Hand":
+		case choiceZones47f1Hand:
 			out[state.ZHand] = true
-		case "Library":
+		case choiceZones47f1Library:
 			out[state.ZLibrary] = true
-		case "Graveyard":
+		case choiceZones47f1Graveyard:
 			out[state.ZGraveyard] = true
-		case "Exile":
+		case choiceZones47f1Exile:
 			out[state.ZExile] = true
-		case "Stack":
+		case choiceZones47f1Stack:
 			out[state.ZStack] = true
 		}
 	}
@@ -85,21 +85,21 @@ func choiceZones(sa *cards.SA) map[state.Zone]bool {
 // targets: that would widen a constrained choice to unrelated objects.
 func definedCardPool(g *state.Game, c *Ctx, raw string) ([]state.Target, string) {
 	root, qualifier, _ := strings.Cut(strings.TrimSpace(raw), ".")
-	switch root {
-	case "Targeted", "TargetedCard":
+	switch definedCardPool47f2Codes.Code(string(root)) {
+	case definedCardPool47f2Targeted:
 		return objectsOf(c.Targets), qualifier
-	case "ParentTargeted":
+	case definedCardPool47f2ParentTargeted:
 		return objectsOf(parentLinkTargets(c)), qualifier
-	case "Remembered", "RememberedLKI":
+	case definedCardPool47f2Remembered:
 		return objectsOf(c.Remembered), qualifier
-	case "TriggeredCards", "TriggeredAttackers", "TriggeredBlockers":
+	case definedCardPool47f2TriggeredCards:
 		return objectsOf(c.Remembered), qualifier
-	case "TriggeredSources":
+	case definedCardPool47f2TriggeredSources:
 		if c.TriggerSource != 0 {
 			return []state.Target{{Obj: c.TriggerSource}}, qualifier
 		}
 		return nil, qualifier
-	case "ExiledWith":
+	case definedCardPool47f2ExiledWith:
 		// Forge's hostCard.getExiledCards is the source's ChangeZone exile
 		// association, not ImprintCards$ and not every card in the shared exile
 		// zone. The list is event-backed by Imprint's "exiled-with"
@@ -295,18 +295,18 @@ func sacrificeableAlternative(h Host, g *state.Game, c *Ctx, alt string, o *stat
 // turn order and Right the previous one. An unrecognised value offers
 // nothing rather than every object in the zone.
 func controlledByChoicePlayer(g *state.Game, c *Ctx, v string, chooser state.PlayerID, o *state.Object) bool {
-	switch strings.TrimSpace(v) {
-	case "":
+	switch controlledByChoicePlayer47f3Codes.Code(string(strings.TrimSpace(v))) {
+	case controlledByChoicePlayer47f3Empty:
 		return true
-	case "Chooser":
+	case controlledByChoicePlayer47f3Chooser:
 		return o.Controller == chooser
-	case "You":
+	case controlledByChoicePlayer47f3You:
 		return o.Controller == c.Controller
-	case "Remembered":
+	case controlledByChoicePlayer47f3Remembered:
 		return targetIn(c.Remembered, state.Target{Player: o.Controller, IsPlayer: true})
-	case "Left":
+	case controlledByChoicePlayer47f3Left:
 		return o.Controller == g.NextAlive(chooser)
-	case "Right":
+	case controlledByChoicePlayer47f3Right:
 		alive := g.AliveFrom(chooser)
 		return len(alive) > 0 && o.Controller == alive[len(alive)-1]
 	}
@@ -1029,8 +1029,8 @@ func playerTargetIn(ts []state.Target) (state.PlayerID, bool) {
 func controlPlayer(h Host, c *Ctx, sa *cards.SA) (state.PlayerID, bool) {
 	g := h.Game()
 	v := strings.TrimSpace(sa.ParamStr(cards.PKNewController))
-	switch v {
-	case "":
+	switch controlPlayer47f4Codes.Code(string(v)) {
+	case controlPlayer47f4Empty:
 		if p, ok := playerTargetIn(c.PickedTargets); ok {
 			return p, true
 		}
@@ -1038,9 +1038,9 @@ func controlPlayer(h Host, c *Ctx, sa *cards.SA) (state.PlayerID, bool) {
 			return p, true
 		}
 		return c.Controller, true
-	case "You", "True":
+	case controlPlayer47f4You:
 		return c.Controller, true
-	case "ChosenPlayer", "Player.Chosen":
+	case controlPlayer47f4ChosenPlayer:
 		for _, t := range c.Chosen {
 			if t.IsPlayer {
 				return t.Player, true
@@ -1056,14 +1056,14 @@ func controlPlayer(h Host, c *Ctx, sa *cards.SA) (state.PlayerID, bool) {
 			}
 		}
 		return 0, false
-	case "Player.IsRemembered":
+	case controlPlayer47f4PlayerIsRemembered:
 		for _, t := range c.Remembered {
 			if t.IsPlayer {
 				return t.Player, true
 			}
 		}
 		return 0, false
-	case "ImprintedController":
+	case controlPlayer47f4ImprintedController:
 		// Forge's addPlayer(host.getImprintedCards(), "ImprintedController")
 		// returns the first imprinted card's current controller.
 		if src := g.Obj(c.Source); src != nil {
@@ -1074,13 +1074,13 @@ func controlPlayer(h Host, c *Ctx, sa *cards.SA) (state.PlayerID, bool) {
 			}
 		}
 		return 0, false
-	case "TriggeredSourceController":
+	case controlPlayer47f4TriggeredSourceController:
 		// DamageDone's source: "that creature's controller".
 		if o := g.Obj(c.TriggerSource); o != nil {
 			return o.Controller, true
 		}
 		return 0, false
-	case "TriggeredTarget":
+	case controlPlayer47f4TriggeredTarget:
 		if t := c.TriggerTarget; t.IsPlayer {
 			return t.Player, true
 		} else if o := g.Obj(t.Obj); o != nil {
@@ -1116,10 +1116,8 @@ func controlPlayer(h Host, c *Ctx, sa *cards.SA) (state.PlayerID, bool) {
 		}
 		return 0, false
 	}
-	switch v {
-	case "Remembered", "RememberedController", "TriggeredPlayer", "TriggeredActivator",
-		"TriggeredAttackingPlayer", "TriggeredDefendingPlayer", "TriggeredCardController",
-		"Opponent", "Player.Opponent", "Targeted", "TargetedPlayer", "TargetedController", "ParentTarget":
+	switch controlPlayer47f5Codes.Code(string(v)) {
+	case controlPlayer47f5Remembered:
 	default:
 		// Defined() falls back to the resolution's targets for a form it does
 		// not model; that is never a meaningful new controller.
@@ -1574,8 +1572,8 @@ func effControlSpell(h Host, c *Ctx, sa *cards.SA) {
 	// direction — a control change applied to the wrong kind of object is
 	// not recoverable.
 	mode := strings.TrimSpace(sa.ParamStr(cards.PKMode))
-	switch mode {
-	case "", "Gain":
+	switch effControlSpell47f6Codes.Code(string(mode)) {
+	case effControlSpell47f6Empty:
 	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unhandled ControlSpell Mode$ " + mode})
@@ -1817,35 +1815,35 @@ func repeatPlayers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool) {
 			}
 		}
 	}
-	switch spec {
-	case "Player":
+	switch repeatPlayers47f7Codes.Code(string(spec)) {
+	case repeatPlayers47f7Player:
 		for _, p := range h.Game().AliveFrom(c.Controller) {
 			selected[p] = true
 		}
-	case "Opponent", "Player.Opponent":
+	case repeatPlayers47f7Opponent:
 		for _, p := range h.Game().AliveFrom(c.Controller) {
 			selected[p] = p != c.Controller
 		}
-	case "You", "NonOpponent":
+	case repeatPlayers47f7You:
 		selected[c.Controller] = true
-	case "Targeted", "TargetedPlayer", "TargetedController":
+	case repeatPlayers47f7Targeted:
 		add(c.Targets)
-	case "TargetedAndYou":
+	case repeatPlayers47f7TargetedAndYou:
 		add(c.Targets)
 		selected[c.Controller] = true
-	case "Remembered", "RememberedController":
+	case repeatPlayers47f7Remembered:
 		add(c.Remembered)
-	case "NonTargetedController":
+	case repeatPlayers47f7NonTargetedController:
 		add(c.Targets)
 		for _, p := range h.Game().AliveFrom(c.Controller) {
 			selected[p] = !selected[p]
 		}
-	case "OppNonRememberedController":
+	case repeatPlayers47f7OppNonRememberedController:
 		add(c.Remembered)
 		for _, p := range h.Game().AliveFrom(c.Controller) {
 			selected[p] = p != c.Controller && !selected[p]
 		}
-	case "OppNonTriggeredDefender":
+	case repeatPlayers47f7OppNonTriggeredDefender:
 		// Attacks triggers capture the player being attacked separately from
 		// the player whose action/event caused the trigger. These carriers
 		// copy the attacker for each OTHER opponent: omit the captured
@@ -1856,7 +1854,7 @@ func repeatPlayers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool) {
 		for _, p := range h.Game().AliveFrom(c.Controller) {
 			selected[p] = p != c.Controller && p != c.DefendingPlayer.Player
 		}
-	case ".Chosen,You", "Chosen,You":
+	case repeatPlayers47f7ChosenYou:
 		add(c.Chosen)
 		selected[c.Controller] = true
 	default:
@@ -1971,3 +1969,144 @@ func effBranch(h Host, c *Ctx, sa *cards.SA) {
 		Resolve(h, c, sub)
 	}
 }
+
+const (
+	choiceZones47f1Battlefield uint16 = 1 // "Battlefield"
+	choiceZones47f1Hand        uint16 = 2 // "Hand"
+	choiceZones47f1Library     uint16 = 3 // "Library"
+	choiceZones47f1Graveyard   uint16 = 4 // "Graveyard"
+	choiceZones47f1Exile       uint16 = 5 // "Exile"
+	choiceZones47f1Stack       uint16 = 6 // "Stack"
+)
+
+var choiceZones47f1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Battlefield", Val: choiceZones47f1Battlefield},
+	state.StrEntry[uint16]{Key: "Hand", Val: choiceZones47f1Hand},
+	state.StrEntry[uint16]{Key: "Library", Val: choiceZones47f1Library},
+	state.StrEntry[uint16]{Key: "Graveyard", Val: choiceZones47f1Graveyard},
+	state.StrEntry[uint16]{Key: "Exile", Val: choiceZones47f1Exile},
+	state.StrEntry[uint16]{Key: "Stack", Val: choiceZones47f1Stack},
+)
+
+const (
+	definedCardPool47f2Targeted         uint16 = 1 // "Targeted", "TargetedCard"
+	definedCardPool47f2ParentTargeted   uint16 = 2 // "ParentTargeted"
+	definedCardPool47f2Remembered       uint16 = 3 // "Remembered", "RememberedLKI"
+	definedCardPool47f2TriggeredCards   uint16 = 4 // "TriggeredCards", "TriggeredAttackers", "TriggeredBlockers"
+	definedCardPool47f2TriggeredSources uint16 = 5 // "TriggeredSources"
+	definedCardPool47f2ExiledWith       uint16 = 6 // "ExiledWith"
+)
+
+var definedCardPool47f2Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Targeted", Val: definedCardPool47f2Targeted},
+	state.StrEntry[uint16]{Key: "TargetedCard", Val: definedCardPool47f2Targeted},
+	state.StrEntry[uint16]{Key: "ParentTargeted", Val: definedCardPool47f2ParentTargeted},
+	state.StrEntry[uint16]{Key: "Remembered", Val: definedCardPool47f2Remembered},
+	state.StrEntry[uint16]{Key: "RememberedLKI", Val: definedCardPool47f2Remembered},
+	state.StrEntry[uint16]{Key: "TriggeredCards", Val: definedCardPool47f2TriggeredCards},
+	state.StrEntry[uint16]{Key: "TriggeredAttackers", Val: definedCardPool47f2TriggeredCards},
+	state.StrEntry[uint16]{Key: "TriggeredBlockers", Val: definedCardPool47f2TriggeredCards},
+	state.StrEntry[uint16]{Key: "TriggeredSources", Val: definedCardPool47f2TriggeredSources},
+	state.StrEntry[uint16]{Key: "ExiledWith", Val: definedCardPool47f2ExiledWith},
+)
+
+const (
+	controlledByChoicePlayer47f3Empty      uint16 = 1 // ""
+	controlledByChoicePlayer47f3Chooser    uint16 = 2 // "Chooser"
+	controlledByChoicePlayer47f3You        uint16 = 3 // "You"
+	controlledByChoicePlayer47f3Remembered uint16 = 4 // "Remembered"
+	controlledByChoicePlayer47f3Left       uint16 = 5 // "Left"
+	controlledByChoicePlayer47f3Right      uint16 = 6 // "Right"
+)
+
+var controlledByChoicePlayer47f3Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: controlledByChoicePlayer47f3Empty},
+	state.StrEntry[uint16]{Key: "Chooser", Val: controlledByChoicePlayer47f3Chooser},
+	state.StrEntry[uint16]{Key: "You", Val: controlledByChoicePlayer47f3You},
+	state.StrEntry[uint16]{Key: "Remembered", Val: controlledByChoicePlayer47f3Remembered},
+	state.StrEntry[uint16]{Key: "Left", Val: controlledByChoicePlayer47f3Left},
+	state.StrEntry[uint16]{Key: "Right", Val: controlledByChoicePlayer47f3Right},
+)
+
+const (
+	controlPlayer47f4Empty                     uint16 = 1 // ""
+	controlPlayer47f4You                       uint16 = 2 // "You", "True"
+	controlPlayer47f4ChosenPlayer              uint16 = 3 // "ChosenPlayer", "Player.Chosen"
+	controlPlayer47f4PlayerIsRemembered        uint16 = 4 // "Player.IsRemembered"
+	controlPlayer47f4ImprintedController       uint16 = 5 // "ImprintedController"
+	controlPlayer47f4TriggeredSourceController uint16 = 6 // "TriggeredSourceController"
+	controlPlayer47f4TriggeredTarget           uint16 = 7 // "TriggeredTarget"
+)
+
+var controlPlayer47f4Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: controlPlayer47f4Empty},
+	state.StrEntry[uint16]{Key: "You", Val: controlPlayer47f4You},
+	state.StrEntry[uint16]{Key: "True", Val: controlPlayer47f4You},
+	state.StrEntry[uint16]{Key: "ChosenPlayer", Val: controlPlayer47f4ChosenPlayer},
+	state.StrEntry[uint16]{Key: "Player.Chosen", Val: controlPlayer47f4ChosenPlayer},
+	state.StrEntry[uint16]{Key: "Player.IsRemembered", Val: controlPlayer47f4PlayerIsRemembered},
+	state.StrEntry[uint16]{Key: "ImprintedController", Val: controlPlayer47f4ImprintedController},
+	state.StrEntry[uint16]{Key: "TriggeredSourceController", Val: controlPlayer47f4TriggeredSourceController},
+	state.StrEntry[uint16]{Key: "TriggeredTarget", Val: controlPlayer47f4TriggeredTarget},
+)
+
+const (
+	controlPlayer47f5Remembered uint16 = 1 // "Remembered", "RememberedController", "TriggeredPlayer", "TriggeredActivator", "TriggeredAttackingPlayer", ...
+)
+
+var controlPlayer47f5Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Remembered", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "RememberedController", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "TriggeredPlayer", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "TriggeredActivator", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "TriggeredAttackingPlayer", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "TriggeredDefendingPlayer", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "TriggeredCardController", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "Opponent", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "Player.Opponent", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "Targeted", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "TargetedPlayer", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "TargetedController", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "ParentTarget", Val: controlPlayer47f5Remembered},
+)
+
+const (
+	effControlSpell47f6Empty uint16 = 1 // "", "Gain"
+)
+
+var effControlSpell47f6Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: effControlSpell47f6Empty},
+	state.StrEntry[uint16]{Key: "Gain", Val: effControlSpell47f6Empty},
+)
+
+const (
+	repeatPlayers47f7Player                     uint16 = 1  // "Player"
+	repeatPlayers47f7Opponent                   uint16 = 2  // "Opponent", "Player.Opponent"
+	repeatPlayers47f7You                        uint16 = 3  // "You", "NonOpponent"
+	repeatPlayers47f7Targeted                   uint16 = 4  // "Targeted", "TargetedPlayer", "TargetedController"
+	repeatPlayers47f7TargetedAndYou             uint16 = 5  // "TargetedAndYou"
+	repeatPlayers47f7Remembered                 uint16 = 6  // "Remembered", "RememberedController"
+	repeatPlayers47f7NonTargetedController      uint16 = 7  // "NonTargetedController"
+	repeatPlayers47f7OppNonRememberedController uint16 = 8  // "OppNonRememberedController"
+	repeatPlayers47f7OppNonTriggeredDefender    uint16 = 9  // "OppNonTriggeredDefender"
+	repeatPlayers47f7ChosenYou                  uint16 = 10 // ".Chosen,You", "Chosen,You"
+)
+
+var repeatPlayers47f7Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Player", Val: repeatPlayers47f7Player},
+	state.StrEntry[uint16]{Key: "Opponent", Val: repeatPlayers47f7Opponent},
+	state.StrEntry[uint16]{Key: "Player.Opponent", Val: repeatPlayers47f7Opponent},
+	state.StrEntry[uint16]{Key: "You", Val: repeatPlayers47f7You},
+	state.StrEntry[uint16]{Key: "NonOpponent", Val: repeatPlayers47f7You},
+	state.StrEntry[uint16]{Key: "Targeted", Val: repeatPlayers47f7Targeted},
+	state.StrEntry[uint16]{Key: "TargetedPlayer", Val: repeatPlayers47f7Targeted},
+	state.StrEntry[uint16]{Key: "TargetedController", Val: repeatPlayers47f7Targeted},
+	state.StrEntry[uint16]{Key: "TargetedAndYou", Val: repeatPlayers47f7TargetedAndYou},
+	state.StrEntry[uint16]{Key: "Remembered", Val: repeatPlayers47f7Remembered},
+	state.StrEntry[uint16]{Key: "RememberedController", Val: repeatPlayers47f7Remembered},
+	state.StrEntry[uint16]{Key: "NonTargetedController", Val: repeatPlayers47f7NonTargetedController},
+	state.StrEntry[uint16]{Key: "OppNonRememberedController", Val: repeatPlayers47f7OppNonRememberedController},
+	state.StrEntry[uint16]{Key: "OppNonTriggeredDefender", Val: repeatPlayers47f7OppNonTriggeredDefender},
+	state.StrEntry[uint16]{Key: ".Chosen,You", Val: repeatPlayers47f7ChosenYou},
+	state.StrEntry[uint16]{Key: "Chosen,You", Val: repeatPlayers47f7ChosenYou},
+)

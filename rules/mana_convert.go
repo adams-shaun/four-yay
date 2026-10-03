@@ -33,20 +33,20 @@ func manaColourFrom(word string) []int {
 		name, complement = rest, true
 	}
 	var base []int
-	switch strings.ToLower(name) {
-	case "anytype":
+	switch manaColourFromcf21Codes.Code(string(strings.ToLower(name))) {
+	case manaColourFromcf21Anytype:
 		base = []int{state.MW, state.MU, state.MB, state.MR, state.MG, state.MC}
-	case "w", "white":
+	case manaColourFromcf21W:
 		base = []int{state.MW}
-	case "u", "blue":
+	case manaColourFromcf21U:
 		base = []int{state.MU}
-	case "b", "black":
+	case manaColourFromcf21B:
 		base = []int{state.MB}
-	case "r", "red":
+	case manaColourFromcf21R:
 		base = []int{state.MR}
-	case "g", "green":
+	case manaColourFromcf21G:
 		base = []int{state.MG}
-	case "c", "colorless":
+	case manaColourFromcf21C:
 		base = []int{state.MC}
 	default:
 		return nil
@@ -74,40 +74,40 @@ func manaColourFrom(word string) []int {
 // conversion target leaves the static inert rather than granting everything.
 func applyManaConversionTo(conv *manaConv, from []int, word string) bool {
 	name := strings.ToLower(strings.TrimSpace(word))
-	switch name {
-	case "anycolor":
+	switch applyManaConversionTocf22Codes.Code(string(name)) {
+	case applyManaConversionTocf22Anycolor:
 		for _, i := range from {
 			conv.Wild[i] = true
 		}
-	case "anytype":
+	case applyManaConversionTocf22Anytype:
 		for _, i := range from {
 			conv.Wild[i] = true
 		}
 		conv.WildC = true
-	case "c", "colorless":
+	case applyManaConversionTocf22C:
 		// "as though it were colorless mana" as a GRANT: mana of the "from"
 		// colours may additionally pay {C} pips. Not a corpus shape today,
 		// but the same grammar the restriction side uses; kept for symmetry.
 		for _, i := range from {
 			conv.To[i][state.MC] = true
 		}
-	case "w", "white":
+	case applyManaConversionTocf22W:
 		for _, i := range from {
 			conv.To[i][state.MW] = true
 		}
-	case "u", "blue":
+	case applyManaConversionTocf22U:
 		for _, i := range from {
 			conv.To[i][state.MU] = true
 		}
-	case "b", "black":
+	case applyManaConversionTocf22B:
 		for _, i := range from {
 			conv.To[i][state.MB] = true
 		}
-	case "r", "red":
+	case applyManaConversionTocf22R:
 		for _, i := range from {
 			conv.To[i][state.MR] = true
 		}
-	case "g", "green":
+	case applyManaConversionTocf22G:
 		for _, i := range from {
 			conv.To[i][state.MG] = true
 		}
@@ -135,12 +135,12 @@ func staticSAKindMatches(validSA string, ability bool) bool {
 		if i := strings.IndexByte(kind, '.'); i >= 0 {
 			kind = kind[:i]
 		}
-		switch kind {
-		case "Spell":
+		switch staticSAKindMatchescf23Codes.Code(string(kind)) {
+		case staticSAKindMatchescf23Spell:
 			if !ability {
 				return true
 			}
-		case "Activated":
+		case staticSAKindMatchescf23Activated:
 			if ability {
 				return true
 			}
@@ -315,3 +315,67 @@ func mergeManaConv(dst *manaConv, src manaConv) {
 	}
 	dst.WildC = dst.WildC || src.WildC
 }
+
+const (
+	manaColourFromcf21Anytype uint16 = 1 // "anytype"
+	manaColourFromcf21W       uint16 = 2 // "w", "white"
+	manaColourFromcf21U       uint16 = 3 // "u", "blue"
+	manaColourFromcf21B       uint16 = 4 // "b", "black"
+	manaColourFromcf21R       uint16 = 5 // "r", "red"
+	manaColourFromcf21G       uint16 = 6 // "g", "green"
+	manaColourFromcf21C       uint16 = 7 // "c", "colorless"
+)
+
+var manaColourFromcf21Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "anytype", Val: manaColourFromcf21Anytype},
+	state.StrEntry[uint16]{Key: "w", Val: manaColourFromcf21W},
+	state.StrEntry[uint16]{Key: "white", Val: manaColourFromcf21W},
+	state.StrEntry[uint16]{Key: "u", Val: manaColourFromcf21U},
+	state.StrEntry[uint16]{Key: "blue", Val: manaColourFromcf21U},
+	state.StrEntry[uint16]{Key: "b", Val: manaColourFromcf21B},
+	state.StrEntry[uint16]{Key: "black", Val: manaColourFromcf21B},
+	state.StrEntry[uint16]{Key: "r", Val: manaColourFromcf21R},
+	state.StrEntry[uint16]{Key: "red", Val: manaColourFromcf21R},
+	state.StrEntry[uint16]{Key: "g", Val: manaColourFromcf21G},
+	state.StrEntry[uint16]{Key: "green", Val: manaColourFromcf21G},
+	state.StrEntry[uint16]{Key: "c", Val: manaColourFromcf21C},
+	state.StrEntry[uint16]{Key: "colorless", Val: manaColourFromcf21C},
+)
+
+const (
+	applyManaConversionTocf22Anycolor uint16 = 1 // "anycolor"
+	applyManaConversionTocf22Anytype  uint16 = 2 // "anytype"
+	applyManaConversionTocf22C        uint16 = 3 // "c", "colorless"
+	applyManaConversionTocf22W        uint16 = 4 // "w", "white"
+	applyManaConversionTocf22U        uint16 = 5 // "u", "blue"
+	applyManaConversionTocf22B        uint16 = 6 // "b", "black"
+	applyManaConversionTocf22R        uint16 = 7 // "r", "red"
+	applyManaConversionTocf22G        uint16 = 8 // "g", "green"
+)
+
+var applyManaConversionTocf22Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "anycolor", Val: applyManaConversionTocf22Anycolor},
+	state.StrEntry[uint16]{Key: "anytype", Val: applyManaConversionTocf22Anytype},
+	state.StrEntry[uint16]{Key: "c", Val: applyManaConversionTocf22C},
+	state.StrEntry[uint16]{Key: "colorless", Val: applyManaConversionTocf22C},
+	state.StrEntry[uint16]{Key: "w", Val: applyManaConversionTocf22W},
+	state.StrEntry[uint16]{Key: "white", Val: applyManaConversionTocf22W},
+	state.StrEntry[uint16]{Key: "u", Val: applyManaConversionTocf22U},
+	state.StrEntry[uint16]{Key: "blue", Val: applyManaConversionTocf22U},
+	state.StrEntry[uint16]{Key: "b", Val: applyManaConversionTocf22B},
+	state.StrEntry[uint16]{Key: "black", Val: applyManaConversionTocf22B},
+	state.StrEntry[uint16]{Key: "r", Val: applyManaConversionTocf22R},
+	state.StrEntry[uint16]{Key: "red", Val: applyManaConversionTocf22R},
+	state.StrEntry[uint16]{Key: "g", Val: applyManaConversionTocf22G},
+	state.StrEntry[uint16]{Key: "green", Val: applyManaConversionTocf22G},
+)
+
+const (
+	staticSAKindMatchescf23Spell     uint16 = 1 // "Spell"
+	staticSAKindMatchescf23Activated uint16 = 2 // "Activated"
+)
+
+var staticSAKindMatchescf23Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Spell", Val: staticSAKindMatchescf23Spell},
+	state.StrEntry[uint16]{Key: "Activated", Val: staticSAKindMatchescf23Activated},
+)

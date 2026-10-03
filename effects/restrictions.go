@@ -249,16 +249,16 @@ func unlessDefenderProperty(g *state.Game, property string, defender, you state.
 // unlessDefenderZone maps a Forge zone word in a HasCardsIn property to a
 // state zone, failing closed on any zone this build cannot name.
 func unlessDefenderZone(word string) (state.Zone, bool) {
-	switch word {
-	case "Battlefield":
+	switch unlessDefenderZonedbb1Codes.Code(string(word)) {
+	case unlessDefenderZonedbb1Battlefield:
 		return state.ZBattlefield, true
-	case "Graveyard":
+	case unlessDefenderZonedbb1Graveyard:
 		return state.ZGraveyard, true
-	case "Hand":
+	case unlessDefenderZonedbb1Hand:
 		return state.ZHand, true
-	case "Library":
+	case unlessDefenderZonedbb1Library:
 		return state.ZLibrary, true
-	case "Exile":
+	case unlessDefenderZonedbb1Exile:
 		return state.ZExile, true
 	}
 	return 0, false
@@ -271,8 +271,8 @@ func unlessDefenderCompare(tok string) (string, int32, bool) {
 		return "", 0, false
 	}
 	op := tok[:2]
-	switch op {
-	case "GE", "GT", "EQ", "LE", "LT":
+	switch unlessDefenderComparedbb2Codes.Code(string(op)) {
+	case unlessDefenderComparedbb2GE:
 	default:
 		return "", 0, false
 	}
@@ -733,8 +733,8 @@ func absentDurationMeansThisTurn(mode string) bool {
 // recognise the same spelling effEffect saw; the two largest values by far
 // (105 + 70 raw lines), so this closes most of the turn-spanning gap.
 func IsNextTurnDuration(dur string) bool {
-	switch strings.ToLower(strings.TrimSpace(dur)) {
-	case "untilyournextturn", "untiltheendofyournextturn":
+	switch isNextTurnDurationdbb3Codes.Code(string(strings.ToLower(strings.TrimSpace(dur)))) {
+	case isNextTurnDurationdbb3Untilyournextturn:
 		return true
 	}
 	return false
@@ -797,13 +797,13 @@ func redirectExileBody(body map[string]string, svars map[string]string) bool {
 		return false
 	}
 	for k, v := range body {
-		switch k {
-		case "DB", "Defined", "Destination", "Origin", "StackDescription":
-		case "Hidden":
+		switch redirectExileBodydbb4Codes.Code(string(k)) {
+		case redirectExileBodydbb4DB:
+		case redirectExileBodydbb4Hidden:
 			if !strings.EqualFold(v, "True") {
 				return false
 			}
-		case "SubAbility":
+		case redirectExileBodydbb4SubAbility:
 			line := svars[v]
 			if replacementBodyAPI(line) != "ChangeZone" || !selfExileIdiom(replacementBodyParams(line)) {
 				return false
@@ -1080,74 +1080,127 @@ func clauseIsRemembered(clause string) (neg, has bool) {
 	return false, false
 }
 
-var cantRestrictionParamsReadableKeys1 = cards.NewNameSet("Mode", "ValidCard", "Target", "Description", "Secondary")
+var cantRestrictionParamsReadableKeys1 = state.NewNameSet("Mode", "ValidCard", "Target", "Description", "Secondary")
 
-var cantAttackParamsReadableForRulesKeys2 = cards.NewNameSet("Mode", "ValidCard", "Target", "Description", "Secondary", "CheckSVar", "SVarCompare", "Condition", "UnlessDefender", "IsPresent", "IsPresent2", "PresentCompare", "PresentZone", "ClassBand")
+var cantAttackParamsReadableForRulesKeys2 = state.NewNameSet("Mode", "ValidCard", "Target", "Description", "Secondary", "CheckSVar", "SVarCompare", "Condition", "UnlessDefender", "IsPresent", "IsPresent2", "PresentCompare", "PresentZone", "ClassBand")
 
-var cantBlockByRestrictionParamsReadableKeys3 = cards.NewNameSet("Mode", "ValidAttacker", "ValidBlocker", "ValidCard", "Description", "Secondary")
+var cantBlockByRestrictionParamsReadableKeys3 = state.NewNameSet("Mode", "ValidAttacker", "ValidBlocker", "ValidCard", "Description", "Secondary")
 
-var mustAttackParamsReadableKeys4 = cards.NewNameSet("Mode", "ValidCreature", "MustAttack", "Description", "Secondary")
+var mustAttackParamsReadableKeys4 = state.NewNameSet("Mode", "ValidCreature", "MustAttack", "Description", "Secondary")
 
-var mustAttackParamsReadableForRulesKeys5 = cards.NewNameSet("Mode", "ValidCreature", "MustAttack", "Description", "Secondary", "IsPresent", "IsPresent2", "PresentCompare", "PresentZone", "CheckSVar", "SVarCompare", "Condition", "ClassBand")
+var mustAttackParamsReadableForRulesKeys5 = state.NewNameSet("Mode", "ValidCreature", "MustAttack", "Description", "Secondary", "IsPresent", "IsPresent2", "PresentCompare", "PresentZone", "CheckSVar", "SVarCompare", "Condition", "ClassBand")
 
-var cantBlockUnlessRestrictionParamsReadableKeys6 = cards.NewNameSet("Mode", "ValidCard", "Attacker", "Cost", "Description", "Secondary", "IsPresent", "IsPresent2", "CheckSVar", "SVarCompare", "Condition")
+var cantBlockUnlessRestrictionParamsReadableKeys6 = state.NewNameSet("Mode", "ValidCard", "Attacker", "Cost", "Description", "Secondary", "IsPresent", "IsPresent2", "CheckSVar", "SVarCompare", "Condition")
 
-var cantAttackUnlessRestrictionParamsReadableKeys7 = cards.NewNameSet("Mode", "ValidCard", "Target", "Cost", "Description", "TriggerDescription", "Secondary", "Attacker", "IsPresent", "IsPresent2", "CheckSVar", "SVarCompare", "Condition", "RememberingAttacker")
+var cantAttackUnlessRestrictionParamsReadableKeys7 = state.NewNameSet("Mode", "ValidCard", "Target", "Cost", "Description", "TriggerDescription", "Secondary", "Attacker", "IsPresent", "IsPresent2", "CheckSVar", "SVarCompare", "Condition", "RememberingAttacker")
 
-var cantSacrificeRestrictionParamsReadableKeys8 = cards.NewNameSet("Mode", "ValidCard", "Target", "Description", "Secondary", "ValidCause", "ForCost")
+var cantSacrificeRestrictionParamsReadableKeys8 = state.NewNameSet("Mode", "ValidCard", "Target", "Description", "Secondary", "ValidCause", "ForCost")
 
-var cantExileRestrictionParamsReadableKeys9 = cards.NewNameSet("Mode", "ValidCard", "ValidCards", "ValidObject", "ValidTarget", "Target", "Description", "Secondary", "ValidCause", "ForCost")
+var cantExileRestrictionParamsReadableKeys9 = state.NewNameSet("Mode", "ValidCard", "ValidCards", "ValidObject", "ValidTarget", "Target", "Description", "Secondary", "ValidCause", "ForCost")
 
-var cantPutCounterParamsReadableKeys10 = cards.NewNameSet("Mode", "ValidCard", "ValidObject", "ValidPlayer", "CounterType", "AffectedZone", "Duration", "Description", "Secondary")
+var cantPutCounterParamsReadableKeys10 = state.NewNameSet("Mode", "ValidCard", "ValidObject", "ValidPlayer", "CounterType", "AffectedZone", "Duration", "Description", "Secondary")
 
-var cantGainLifeParamsReadableKeys11 = cards.NewNameSet("Mode", "ValidPlayer", "Description", "Secondary")
+var cantGainLifeParamsReadableKeys11 = state.NewNameSet("Mode", "ValidPlayer", "Description", "Secondary")
 
-var unspentManaParamsReadableKeys12 = cards.NewNameSet("Mode", "ValidPlayer", "ManaType", "Description", "Secondary")
+var unspentManaParamsReadableKeys12 = state.NewNameSet("Mode", "ValidPlayer", "ManaType", "Description", "Secondary")
 
-var canAttackDefenderGrantParamsReadableKeys13 = cards.NewNameSet("Mode", "ValidCard", "ValidCards", "ValidTarget", "ValidAttacked", "Description", "Secondary")
+var canAttackDefenderGrantParamsReadableKeys13 = state.NewNameSet("Mode", "ValidCard", "ValidCards", "ValidTarget", "ValidAttacked", "Description", "Secondary")
 
-var manaConvertParamsReadableKeys14 = cards.NewNameSet("Mode", "ValidCard", "ValidSA", "ValidPlayer", "ManaConversion", "Optional", "EffectZone", "AffectedZone", "Description", "SpellDescription")
+var manaConvertParamsReadableKeys14 = state.NewNameSet("Mode", "ValidCard", "ValidSA", "ValidPlayer", "ManaConversion", "Optional", "EffectZone", "AffectedZone", "Description", "SpellDescription")
 
-var costStaticParamsReadableKeys15 = cards.NewNameSet("Mode", "Type", "ValidCard", "ValidSA", "ValidPlayer", "ValidSpell", "ValidTarget", "Activator", "Caster", "Amount", "Cost", "Announce", "Color", "MinMana", "IgnoreGeneric", "RaiseTo", "OnlyFirstSpell", "IsPresent", "PresentZone", "PresentCompare", "CheckSVar", "SVarCompare", "CheckSecondSVar", "SecondSVarCompare", "Condition", "EffectZone", "AffectedZone", "Secondary", "Relative", "ClassBand", "UnlessValidTarget", "PlayerTurn", "Phases", "Description", "SpellDescription")
+var costStaticParamsReadableKeys15 = state.NewNameSet("Mode", "Type", "ValidCard", "ValidSA", "ValidPlayer", "ValidSpell", "ValidTarget", "Activator", "Caster", "Amount", "Cost", "Announce", "Color", "MinMana", "IgnoreGeneric", "RaiseTo", "OnlyFirstSpell", "IsPresent", "PresentZone", "PresentCompare", "CheckSVar", "SVarCompare", "CheckSecondSVar", "SecondSVarCompare", "Condition", "EffectZone", "AffectedZone", "Secondary", "Relative", "ClassBand", "UnlessValidTarget", "PlayerTurn", "Phases", "Description", "SpellDescription")
 
-var canAttackDefenderParamsReadableKeys16 = cards.NewNameSet("Mode", "ValidCard", "ValidCards", "ValidTarget", "ValidAttacked", "Description", "Secondary", "IsPresent", "IsPresent2", "CheckSVar", "SVarCompare", "Condition")
+var canAttackDefenderParamsReadableKeys16 = state.NewNameSet("Mode", "ValidCard", "ValidCards", "ValidTarget", "ValidAttacked", "Description", "Secondary", "IsPresent", "IsPresent2", "CheckSVar", "SVarCompare", "Condition")
 
-var absentDurationMeansThisTurnTab17 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "CantPutCounter", Val: true},
-	cards.StrEntry[bool]{Key: "CantBlockBy", Val: true},
-	cards.StrEntry[bool]{Key: "CanAttackDefender", Val: true},
-	cards.StrEntry[bool]{Key: "NumLoyaltyAct", Val: true},
-	cards.StrEntry[bool]{Key: "CombatDamageToughness", Val: true},
-	cards.StrEntry[bool]{Key: "CantGainLife", Val: true},
+var absentDurationMeansThisTurnTab17 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "CantPutCounter", Val: true},
+	state.StrEntry[bool]{Key: "CantBlockBy", Val: true},
+	state.StrEntry[bool]{Key: "CanAttackDefender", Val: true},
+	state.StrEntry[bool]{Key: "NumLoyaltyAct", Val: true},
+	state.StrEntry[bool]{Key: "CombatDamageToughness", Val: true},
+	state.StrEntry[bool]{Key: "CantGainLife", Val: true},
 )
 
-var replacementRedirectsToExileKeys18 = cards.NewNameSet("Event", "ValidCard", "ValidLKI", "Origin", "Destination", "ActiveZones", "EffectZone", "ReplaceWith", "Description")
+var replacementRedirectsToExileKeys18 = state.NewNameSet("Event", "ValidCard", "ValidLKI", "Origin", "Destination", "ActiveZones", "EffectZone", "ReplaceWith", "Description")
 
-var effectOneShotDelayedModeTab19 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "SpellCast", Val: true},
-	cards.StrEntry[bool]{Key: "ChangesZone", Val: true},
-	cards.StrEntry[bool]{Key: "ChangesController", Val: true},
-	cards.StrEntry[bool]{Key: "DamageDone", Val: true},
-	cards.StrEntry[bool]{Key: "AttackersDeclared", Val: true},
+var effectOneShotDelayedModeTab19 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "SpellCast", Val: true},
+	state.StrEntry[bool]{Key: "ChangesZone", Val: true},
+	state.StrEntry[bool]{Key: "ChangesController", Val: true},
+	state.StrEntry[bool]{Key: "DamageDone", Val: true},
+	state.StrEntry[bool]{Key: "AttackersDeclared", Val: true},
 )
 
-var effectTriggerThisTurnDurationTab20 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "", Val: true},
-	cards.StrEntry[bool]{Key: "eot", Val: true},
-	cards.StrEntry[bool]{Key: "endofturn", Val: true},
-	cards.StrEntry[bool]{Key: "untilendofturn", Val: true},
-	cards.StrEntry[bool]{Key: "end of turn", Val: true},
-	cards.StrEntry[bool]{Key: "this turn", Val: true},
+var effectTriggerThisTurnDurationTab20 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "", Val: true},
+	state.StrEntry[bool]{Key: "eot", Val: true},
+	state.StrEntry[bool]{Key: "endofturn", Val: true},
+	state.StrEntry[bool]{Key: "untilendofturn", Val: true},
+	state.StrEntry[bool]{Key: "end of turn", Val: true},
+	state.StrEntry[bool]{Key: "this turn", Val: true},
 )
 
-var effectUntilEOTTab21 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "eot", Val: true},
-	cards.StrEntry[bool]{Key: "endofturn", Val: true},
-	cards.StrEntry[bool]{Key: "untilendofturn", Val: true},
-	cards.StrEntry[bool]{Key: "untilyournextendstep", Val: true},
-	cards.StrEntry[bool]{Key: "untilhostleavesplayoreot", Val: true},
-	cards.StrEntry[bool]{Key: "untilendofcombat", Val: true},
-	cards.StrEntry[bool]{Key: "end of turn", Val: true},
-	cards.StrEntry[bool]{Key: "this turn", Val: true},
-	cards.StrEntry[bool]{Key: "thisturnandnextturn", Val: true},
+var effectUntilEOTTab21 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "eot", Val: true},
+	state.StrEntry[bool]{Key: "endofturn", Val: true},
+	state.StrEntry[bool]{Key: "untilendofturn", Val: true},
+	state.StrEntry[bool]{Key: "untilyournextendstep", Val: true},
+	state.StrEntry[bool]{Key: "untilhostleavesplayoreot", Val: true},
+	state.StrEntry[bool]{Key: "untilendofcombat", Val: true},
+	state.StrEntry[bool]{Key: "end of turn", Val: true},
+	state.StrEntry[bool]{Key: "this turn", Val: true},
+	state.StrEntry[bool]{Key: "thisturnandnextturn", Val: true},
+)
+
+const (
+	unlessDefenderZonedbb1Battlefield uint16 = 1 // "Battlefield"
+	unlessDefenderZonedbb1Graveyard   uint16 = 2 // "Graveyard"
+	unlessDefenderZonedbb1Hand        uint16 = 3 // "Hand"
+	unlessDefenderZonedbb1Library     uint16 = 4 // "Library"
+	unlessDefenderZonedbb1Exile       uint16 = 5 // "Exile"
+)
+
+var unlessDefenderZonedbb1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Battlefield", Val: unlessDefenderZonedbb1Battlefield},
+	state.StrEntry[uint16]{Key: "Graveyard", Val: unlessDefenderZonedbb1Graveyard},
+	state.StrEntry[uint16]{Key: "Hand", Val: unlessDefenderZonedbb1Hand},
+	state.StrEntry[uint16]{Key: "Library", Val: unlessDefenderZonedbb1Library},
+	state.StrEntry[uint16]{Key: "Exile", Val: unlessDefenderZonedbb1Exile},
+)
+
+const (
+	unlessDefenderComparedbb2GE uint16 = 1 // "GE", "GT", "EQ", "LE", "LT"
+)
+
+var unlessDefenderComparedbb2Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "GE", Val: unlessDefenderComparedbb2GE},
+	state.StrEntry[uint16]{Key: "GT", Val: unlessDefenderComparedbb2GE},
+	state.StrEntry[uint16]{Key: "EQ", Val: unlessDefenderComparedbb2GE},
+	state.StrEntry[uint16]{Key: "LE", Val: unlessDefenderComparedbb2GE},
+	state.StrEntry[uint16]{Key: "LT", Val: unlessDefenderComparedbb2GE},
+)
+
+const (
+	isNextTurnDurationdbb3Untilyournextturn uint16 = 1 // "untilyournextturn", "untiltheendofyournextturn"
+)
+
+var isNextTurnDurationdbb3Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "untilyournextturn", Val: isNextTurnDurationdbb3Untilyournextturn},
+	state.StrEntry[uint16]{Key: "untiltheendofyournextturn", Val: isNextTurnDurationdbb3Untilyournextturn},
+)
+
+const (
+	redirectExileBodydbb4DB         uint16 = 1 // "DB", "Defined", "Destination", "Origin", "StackDescription"
+	redirectExileBodydbb4Hidden     uint16 = 2 // "Hidden"
+	redirectExileBodydbb4SubAbility uint16 = 3 // "SubAbility"
+)
+
+var redirectExileBodydbb4Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "DB", Val: redirectExileBodydbb4DB},
+	state.StrEntry[uint16]{Key: "Defined", Val: redirectExileBodydbb4DB},
+	state.StrEntry[uint16]{Key: "Destination", Val: redirectExileBodydbb4DB},
+	state.StrEntry[uint16]{Key: "Origin", Val: redirectExileBodydbb4DB},
+	state.StrEntry[uint16]{Key: "StackDescription", Val: redirectExileBodydbb4DB},
+	state.StrEntry[uint16]{Key: "Hidden", Val: redirectExileBodydbb4Hidden},
+	state.StrEntry[uint16]{Key: "SubAbility", Val: redirectExileBodydbb4SubAbility},
 )

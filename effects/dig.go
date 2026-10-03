@@ -310,10 +310,10 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 			if tapeArranged || dest != state.ZLibrary || len(primaryMoved) == 0 {
 				return
 			}
-			switch primaryPos {
-			case "", "0":
+			switch effDig4c61Codes.Code(string(primaryPos)) {
+			case effDig4c61Empty:
 				libraryOrderPlacement(h, p, primaryMoved, false)
-			case "-1":
+			case effDig4c611:
 				// MoveZone already appends the primary pile at the bottom.
 			default:
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: p,
@@ -744,3 +744,14 @@ func digRemember(c *Ctx, dp *DigParams, id state.ObjID) {
 		c.Remembered = append(c.Remembered, state.Target{Obj: id})
 	}
 }
+
+const (
+	effDig4c61Empty uint16 = 1 // "", "0"
+	effDig4c611     uint16 = 2 // "-1"
+)
+
+var effDig4c61Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: effDig4c61Empty},
+	state.StrEntry[uint16]{Key: "0", Val: effDig4c61Empty},
+	state.StrEntry[uint16]{Key: "-1", Val: effDig4c611},
+)

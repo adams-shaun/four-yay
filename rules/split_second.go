@@ -50,12 +50,12 @@ func (e *Engine) splitSecondHolds() bool {
 func (e *Engine) filterSplitSecondActions(out []decision.Option) []decision.Option {
 	kept := out[:0]
 	for _, o := range out {
-		switch o.Kind {
-		case "cast":
+		switch filterSplitSecondActions1201Codes.Code(string(o.Kind)) {
+		case filterSplitSecondActions1201Cast:
 			if o.Mode == "suspend" || o.Mode == "foretell" {
 				kept = append(kept, o)
 			}
-		case "ability", "granted":
+		case filterSplitSecondActions1201Ability:
 			// blocked outright
 		default:
 			kept = append(kept, o)
@@ -66,3 +66,14 @@ func (e *Engine) filterSplitSecondActions(out []decision.Option) []decision.Opti
 	}
 	return kept
 }
+
+const (
+	filterSplitSecondActions1201Cast    uint16 = 1 // "cast"
+	filterSplitSecondActions1201Ability uint16 = 2 // "ability", "granted"
+)
+
+var filterSplitSecondActions1201Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "cast", Val: filterSplitSecondActions1201Cast},
+	state.StrEntry[uint16]{Key: "ability", Val: filterSplitSecondActions1201Ability},
+	state.StrEntry[uint16]{Key: "granted", Val: filterSplitSecondActions1201Ability},
+)

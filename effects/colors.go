@@ -212,23 +212,23 @@ func colorLetters(list string) ([]string, bool) {
 	ok := true
 	for entry := range strings.SplitSeq(list, ",") {
 		for word := range strings.SplitSeq(strings.TrimSpace(entry), " & ") {
-			switch strings.ToLower(strings.TrimSpace(word)) {
-			case "":
-			case "all":
+			switch colorLetters8f61Codes.Code(string(strings.ToLower(strings.TrimSpace(word)))) {
+			case colorLetters8f61Empty:
+			case colorLetters8f61All:
 				set = [5]bool{true, true, true, true, true}
-			case "colorless":
+			case colorLetters8f61Colorless:
 				// The empty set; ok stays true. Whether that grant does anything
 				// (an overwrite to colourless) or nothing (an add of the empty
 				// set) is the CALLER's decision -- effAnimate notes the no-op arm.
-			case "white":
+			case colorLetters8f61White:
 				set[0] = true
-			case "blue":
+			case colorLetters8f61Blue:
 				set[1] = true
-			case "black":
+			case colorLetters8f61Black:
 				set[2] = true
-			case "red":
+			case colorLetters8f61Red:
 				set[3] = true
-			case "green":
+			case colorLetters8f61Green:
 				set[4] = true
 			default:
 				ok = false
@@ -318,3 +318,25 @@ func colourMapPredicate(p string) bool {
 	_, is := colorLetter[p]
 	return is
 }
+
+const (
+	colorLetters8f61Empty     uint16 = 1 // ""
+	colorLetters8f61All       uint16 = 2 // "all"
+	colorLetters8f61Colorless uint16 = 3 // "colorless"
+	colorLetters8f61White     uint16 = 4 // "white"
+	colorLetters8f61Blue      uint16 = 5 // "blue"
+	colorLetters8f61Black     uint16 = 6 // "black"
+	colorLetters8f61Red       uint16 = 7 // "red"
+	colorLetters8f61Green     uint16 = 8 // "green"
+)
+
+var colorLetters8f61Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: colorLetters8f61Empty},
+	state.StrEntry[uint16]{Key: "all", Val: colorLetters8f61All},
+	state.StrEntry[uint16]{Key: "colorless", Val: colorLetters8f61Colorless},
+	state.StrEntry[uint16]{Key: "white", Val: colorLetters8f61White},
+	state.StrEntry[uint16]{Key: "blue", Val: colorLetters8f61Blue},
+	state.StrEntry[uint16]{Key: "black", Val: colorLetters8f61Black},
+	state.StrEntry[uint16]{Key: "red", Val: colorLetters8f61Red},
+	state.StrEntry[uint16]{Key: "green", Val: colorLetters8f61Green},
+)

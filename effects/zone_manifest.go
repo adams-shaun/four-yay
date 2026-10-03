@@ -318,8 +318,8 @@ func effCloak(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	} else {
-		switch defined {
-		case "", "TopOfLibrary":
+		switch effCloaka141Codes.Code(string(defined)) {
+		case effCloaka141Empty:
 			// The bare top-card shape (veiled_ascension, ransom_note,
 			// cryptic_coat): the resolving controller's top card, the
 			// TopOfLibrary selector's own anchor (effects/context.go).
@@ -334,7 +334,7 @@ func effCloak(h Host, c *Ctx, sa *cards.SA) {
 				}
 				cloak(t.Obj)
 			}
-		case "Remembered":
+		case effCloaka141Remembered:
 			// The Remembered-object shape (become_anonymous,
 			// hide_in_plain_sight, expose_the_culprit): each remembered card
 			// object cloaks from wherever it sits now (library top, exile,
@@ -359,3 +359,14 @@ func effCloak(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 }
+
+const (
+	effCloaka141Empty      uint16 = 1 // "", "TopOfLibrary"
+	effCloaka141Remembered uint16 = 2 // "Remembered"
+)
+
+var effCloaka141Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: effCloaka141Empty},
+	state.StrEntry[uint16]{Key: "TopOfLibrary", Val: effCloaka141Empty},
+	state.StrEntry[uint16]{Key: "Remembered", Val: effCloaka141Remembered},
+)

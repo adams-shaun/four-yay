@@ -118,11 +118,11 @@ func effExchangeLifeVariant(h Host, c *Ctx, sa *cards.SA) {
 	mode := sa.ParamStr(cards.PKMode)
 	var oldCharacteristic int32
 	var setPower, setToughness bool
-	switch mode {
-	case "Power":
+	switch effExchangeLifeVariant5841Codes.Code(string(mode)) {
+	case effExchangeLifeVariant5841Power:
 		oldCharacteristic = h.Power(c.Source)
 		setPower = true
-	case "Toughness":
+	case effExchangeLifeVariant5841Toughness:
 		oldCharacteristic = h.Toughness(c.Source)
 		setToughness = true
 	default:
@@ -307,3 +307,13 @@ func effLoseLife(h Host, c *Ctx, sa *cards.SA) {
 	// Write even zero: the source can retain a value from an earlier resolution.
 	h.Emit(events.Event{Kind: events.StoreSVar, Obj: c.Source, Text: "AFLifeLost", Amount: total})
 }
+
+const (
+	effExchangeLifeVariant5841Power     uint16 = 1 // "Power"
+	effExchangeLifeVariant5841Toughness uint16 = 2 // "Toughness"
+)
+
+var effExchangeLifeVariant5841Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Power", Val: effExchangeLifeVariant5841Power},
+	state.StrEntry[uint16]{Key: "Toughness", Val: effExchangeLifeVariant5841Toughness},
+)

@@ -573,10 +573,10 @@ func (e *Engine) chargeObjPlan(p state.PlayerID, c blockCharge, excluded map[sta
 		return nil, nil, nil, false
 	}
 	for i, ob := range obs {
-		switch ob.kind {
-		case "tap":
+		switch chargeObjPlan1691Codes.Code(string(ob.kind)) {
+		case chargeObjPlan1691Tap:
 			taps = append(taps, picks[i]...)
-		case "sacrifice":
+		case chargeObjPlan1691Sacrifice:
 			sacs = append(sacs, picks[i]...)
 		default:
 			returns = append(returns, picks[i]...)
@@ -1008,11 +1008,11 @@ func (e *Engine) blockPayAnswer(d *decision.Decision, in decision.Intent) {
 	}
 	chosen := d.Chosen(in)
 	if len(chosen) == 1 {
-		switch chosen[0].Kind {
-		case "block_phy_colour":
+		switch blockPayAnswer1692Codes.Code(string(chosen[0].Kind)) {
+		case blockPayAnswer1692BlockPhyColour:
 			st.plan.phyDecided = true
 			st.plan.phyToLife = 0
-		case "block_phy_life":
+		case blockPayAnswer1692BlockPhyLife:
 			st.plan.phyDecided = true
 			st.plan.phyToLife = int32(len(st.plan.charge.phyrexian))
 		default:
@@ -1883,11 +1883,11 @@ func (e *Engine) attackPayAnswer(d *decision.Decision, in decision.Intent) {
 	}
 	chosen := d.Chosen(in)
 	if len(chosen) == 1 {
-		switch chosen[0].Kind {
-		case "attack_phy_colour":
+		switch attackPayAnswer1693Codes.Code(string(chosen[0].Kind)) {
+		case attackPayAnswer1693AttackPhyColour:
 			st.plan.phyDecided = true
 			st.plan.phyToLife = 0
-		case "attack_phy_life":
+		case attackPayAnswer1693AttackPhyLife:
 			st.plan.phyDecided = true
 			st.plan.phyToLife = int32(len(st.plan.charge.phyrexian))
 		default:
@@ -1919,8 +1919,38 @@ func (e *Engine) attackPayAnswer(d *decision.Decision, in decision.Intent) {
 	}
 }
 
-var producedNeedsChosenTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "Chosen", Val: true},
-	cards.StrEntry[bool]{Key: "ChosenColor", Val: true},
-	cards.StrEntry[bool]{Key: "ComboChosen", Val: true},
+var producedNeedsChosenTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "Chosen", Val: true},
+	state.StrEntry[bool]{Key: "ChosenColor", Val: true},
+	state.StrEntry[bool]{Key: "ComboChosen", Val: true},
+)
+
+const (
+	chargeObjPlan1691Tap       uint16 = 1 // "tap"
+	chargeObjPlan1691Sacrifice uint16 = 2 // "sacrifice"
+)
+
+var chargeObjPlan1691Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "tap", Val: chargeObjPlan1691Tap},
+	state.StrEntry[uint16]{Key: "sacrifice", Val: chargeObjPlan1691Sacrifice},
+)
+
+const (
+	blockPayAnswer1692BlockPhyColour uint16 = 1 // "block_phy_colour"
+	blockPayAnswer1692BlockPhyLife   uint16 = 2 // "block_phy_life"
+)
+
+var blockPayAnswer1692Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "block_phy_colour", Val: blockPayAnswer1692BlockPhyColour},
+	state.StrEntry[uint16]{Key: "block_phy_life", Val: blockPayAnswer1692BlockPhyLife},
+)
+
+const (
+	attackPayAnswer1693AttackPhyColour uint16 = 1 // "attack_phy_colour"
+	attackPayAnswer1693AttackPhyLife   uint16 = 2 // "attack_phy_life"
+)
+
+var attackPayAnswer1693Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "attack_phy_colour", Val: attackPayAnswer1693AttackPhyColour},
+	state.StrEntry[uint16]{Key: "attack_phy_life", Val: attackPayAnswer1693AttackPhyLife},
 )

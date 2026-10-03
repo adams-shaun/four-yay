@@ -549,22 +549,22 @@ func (e *Engine) turnUpAnswer(d *decision.Decision, chosen []decision.Option) {
 	if tp == nil || len(chosen) == 0 {
 		return
 	}
-	switch chosen[0].Kind {
-	case "x":
+	switch turnUpAnswer6e01Codes.Code(string(chosen[0].Kind)) {
+	case turnUpAnswer6e01X:
 		tp.x = int32(chosen[0].Amount)
-	case "sacrifice":
+	case turnUpAnswer6e01Sacrifice:
 		for _, o := range chosen {
 			tp.sacs = append(tp.sacs, o.Obj)
 		}
-	case "discard":
+	case turnUpAnswer6e01Discard:
 		for _, o := range chosen {
 			tp.discs = append(tp.discs, o.Obj)
 		}
-	case "revealcost":
+	case turnUpAnswer6e01Revealcost:
 		for _, o := range chosen {
 			tp.reveal = append(tp.reveal, o.Obj)
 		}
-	case "returncost":
+	case turnUpAnswer6e01Returncost:
 		for _, o := range chosen {
 			tp.returns = append(tp.returns, o.Obj)
 		}
@@ -887,3 +887,19 @@ func (e *Engine) abortTurnUp(tp *turnUpPay) {
 	e.emit(events.Event{Kind: events.Note, Player: tp.player, Obj: tp.card,
 		Text: "turn-face-up cost no longer payable; the special action did nothing"})
 }
+
+const (
+	turnUpAnswer6e01X          uint16 = 1 // "x"
+	turnUpAnswer6e01Sacrifice  uint16 = 2 // "sacrifice"
+	turnUpAnswer6e01Discard    uint16 = 3 // "discard"
+	turnUpAnswer6e01Revealcost uint16 = 4 // "revealcost"
+	turnUpAnswer6e01Returncost uint16 = 5 // "returncost"
+)
+
+var turnUpAnswer6e01Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "x", Val: turnUpAnswer6e01X},
+	state.StrEntry[uint16]{Key: "sacrifice", Val: turnUpAnswer6e01Sacrifice},
+	state.StrEntry[uint16]{Key: "discard", Val: turnUpAnswer6e01Discard},
+	state.StrEntry[uint16]{Key: "revealcost", Val: turnUpAnswer6e01Revealcost},
+	state.StrEntry[uint16]{Key: "returncost", Val: turnUpAnswer6e01Returncost},
+)

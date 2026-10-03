@@ -209,8 +209,8 @@ func effImmediateTrigger(h Host, c *Ctx, sa *cards.SA) {
 // shared fail-closed knownDefinedTargets resolver, so an unknown spelling is
 // ok=false here and the caller keeps the loud Note.
 func immediateRememberObjects(h Host, c *Ctx, spec string) ([]state.Target, bool) {
-	switch spec {
-	case "Targeted", "ThisTargetedCard":
+	switch immediateRememberObjects311Codes.Code(string(spec)) {
+	case immediateRememberObjects311Targeted:
 		targets := c.Targets
 		if c.PickedTargets != nil {
 			targets = c.PickedTargets
@@ -219,3 +219,12 @@ func immediateRememberObjects(h Host, c *Ctx, spec string) ([]state.Target, bool
 	}
 	return knownDefinedTargets(h, c, spec)
 }
+
+const (
+	immediateRememberObjects311Targeted uint16 = 1 // "Targeted", "ThisTargetedCard"
+)
+
+var immediateRememberObjects311Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Targeted", Val: immediateRememberObjects311Targeted},
+	state.StrEntry[uint16]{Key: "ThisTargetedCard", Val: immediateRememberObjects311Targeted},
+)
