@@ -236,7 +236,7 @@ func (e *Engine) abilityPresentHolds(p state.PlayerID, id state.ObjID, ab *cards
 // CheckSVar$/Boast$ gates it sits beside: no state can move between the
 // offer and the answer inside one priority window.
 func (e *Engine) adaptGateOK(id state.ObjID, ab *cards.SA) bool {
-	if strings.TrimSpace(ab.ParamStr(cards.PKAdapt)) == "" {
+	if !effects.IsPutCounter(ab) || !effects.PutCounterOf(ab).AdaptSet {
 		return true
 	}
 	o := e.G.Obj(id)
@@ -254,7 +254,7 @@ func (e *Engine) adaptGateOK(id state.ObjID, ab *cards.SA) bool {
 // corpus shape reaches the resolution through any other door -- no granted
 // or copied route for these abilities).
 func (e *Engine) monstrosityGateOK(id state.ObjID, ab *cards.SA) bool {
-	if strings.TrimSpace(ab.ParamStr(cards.PKMonstrosity)) == "" {
+	if !effects.IsPutCounter(ab) || !effects.PutCounterOf(ab).MonstrositySet {
 		return true
 	}
 	o := e.G.Obj(id)

@@ -53,7 +53,7 @@ func (e *Engine) resumeAnswerBindingRest(rp *resumePoint, o *state.Object, ctx *
 			}
 			ctx.CounterPickDone = true
 		}
-		if rp.sa != nil && strings.EqualFold(strings.TrimSpace(rp.sa.Params["CounterTypePerDefined"]), "True") {
+		if rp.sa != nil && effects.IsPutCounter(rp.sa) && effects.PutCounterOf(rp.sa).CounterTypePerDefined {
 			if e.counterTypeAsk == nil {
 				e.counterTypeAsk = make(map[state.ObjID]*counterTypePending)
 			}
