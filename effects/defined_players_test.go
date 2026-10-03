@@ -169,7 +169,7 @@ func TestManaRecipientsPlainRememberedExcludesCardControllers(t *testing.T) {
 func TestHandMoveOwnersPlainRememberedKeepsRememberedPlayer(t *testing.T) {
 	h, c, _ := mixedRememberedHost(t)
 	sa := &cards.SA{Params: map[string]string{"Defined": "Remembered"}}
-	owners, ok := handMoveOwners(h, c, sa)
+	owners, ok := handMoveOwners(h, c, sa, ChangeZoneOf(sa))
 	if !ok {
 		t.Fatal("handMoveOwners(Remembered) failed closed, want the remembered player")
 	}

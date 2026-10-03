@@ -43,10 +43,10 @@ func TestChooserChosenPlayerResolvesTheChosenSeat(t *testing.T) {
 
 	// No chosen answer: each chooser keeps its own default (search =
 	// controller, hidden pick = the fetch `owner`).
-	if got := searchChooser(h, c, chooserSA("ChosenPlayer")); got != 0 {
+	if got := searchChooser(h, c, ChangeZoneOf(chooserSA("ChosenPlayer"))); got != 0 {
 		t.Fatalf("searchChooser with no chosen answer = %d, want controller 0", got)
 	}
-	if got := hiddenPickChooser(h, c, chooserSA("ChosenPlayer"), 2); got != 2 {
+	if got := hiddenPickChooser(h, c, ChangeZoneOf(chooserSA("ChosenPlayer")), 2); got != 2 {
 		t.Fatalf("hiddenPickChooser with no chosen answer = %d, want owner 2", got)
 	}
 
@@ -60,42 +60,42 @@ func TestChooserChosenPlayerResolvesTheChosenSeat(t *testing.T) {
 	// pick's `owner` is deliberately 2 (a different seat), to prove the chosen
 	// answer wins over the owner fallback.
 	for _, spelling := range []string{"ChosenPlayer", "Player.Chosen"} {
-		if got := searchChooser(h, c, chooserSA(spelling)); got != 1 {
+		if got := searchChooser(h, c, ChangeZoneOf(chooserSA(spelling))); got != 1 {
 			t.Fatalf("searchChooser Chooser$ %s = %d, want chosen seat 1", spelling, got)
 		}
-		if got := hiddenPickChooser(h, c, chooserSA(spelling), 2); got != 1 {
+		if got := hiddenPickChooser(h, c, ChangeZoneOf(chooserSA(spelling)), 2); got != 1 {
 			t.Fatalf("hiddenPickChooser Chooser$ %s = %d, want chosen seat 1 (not owner 2)", spelling, got)
 		}
 	}
 
 	// A chooser with no ChosenPlayer spelling still uses the owner fallback.
-	if got := hiddenPickChooser(h, c, chooserSA("You"), 2); got != 0 {
+	if got := hiddenPickChooser(h, c, ChangeZoneOf(chooserSA("You")), 2); got != 0 {
 		t.Fatalf("hiddenPickChooser Chooser$ You = %d, want controller 0", got)
 	}
-	if got := hiddenPickChooser(h, c, &cards.SA{}, 2); got != 2 {
+	if got := hiddenPickChooser(h, c, ChangeZoneOf(&cards.SA{}), 2); got != 2 {
 		t.Fatalf("hiddenPickChooser with no Chooser$ = %d, want owner 2", got)
 	}
 
 	// The hidden-HAND mover's chooser (handMoveChooserFor) is the third
 	// player-chooser sibling: it must resolve the chosen seat too, and fail
 	// CLOSED (never to the hand owner) when the seat is unbound or gone.
-	if got, ok := handMoveChooserFor(h, c, chooserSA("ChosenPlayer"), 2); !ok || got != 1 {
+	if got, ok := handMoveChooserFor(h, c, ChangeZoneOf(chooserSA("ChosenPlayer")), 2); !ok || got != 1 {
 		t.Fatalf("handMoveChooserFor Chooser$ ChosenPlayer = (%d, %v), want chosen seat 1", got, ok)
 	}
-	if got, ok := handMoveChooserFor(h, c, &cards.SA{}, 2); !ok || got != 2 {
+	if got, ok := handMoveChooserFor(h, c, ChangeZoneOf(&cards.SA{}), 2); !ok || got != 2 {
 		t.Fatalf("handMoveChooserFor with no Chooser$ = (%d, %v), want owner fallback (2, true)", got, ok)
 	}
 
 	// A chosen seat that has left the game must not receive the ask: each
 	// chooser returns its own deterministic default instead.
 	h.g.Players[1].Lost = true
-	if got := searchChooser(h, c, chooserSA("ChosenPlayer")); got != 0 {
+	if got := searchChooser(h, c, ChangeZoneOf(chooserSA("ChosenPlayer"))); got != 0 {
 		t.Fatalf("searchChooser with a dead chosen seat = %d, want controller 0", got)
 	}
-	if got := hiddenPickChooser(h, c, chooserSA("ChosenPlayer"), 2); got != 2 {
+	if got := hiddenPickChooser(h, c, ChangeZoneOf(chooserSA("ChosenPlayer")), 2); got != 2 {
 		t.Fatalf("hiddenPickChooser with a dead chosen seat = %d, want owner 2", got)
 	}
-	if got, ok := handMoveChooserFor(h, c, chooserSA("ChosenPlayer"), 2); ok || got != 2 {
+	if got, ok := handMoveChooserFor(h, c, ChangeZoneOf(chooserSA("ChosenPlayer")), 2); ok || got != 2 {
 		t.Fatalf("handMoveChooserFor with a dead chosen seat = (%d, %v), want fail-closed (2, false)", got, ok)
 	}
 }

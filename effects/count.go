@@ -16,10 +16,17 @@ import (
 // the failure mode is "the card did nothing" rather than "the card did
 // something arbitrary".
 func Num(h Host, c *Ctx, sa *cards.SA, key string, def int32) int32 {
-	if n, ok := NumResolved(h, c, sa, key, def); ok {
+	raw, present := sa.Params[key]
+	return numText(h, c, ParamText{Text: raw, Present: present}, def)
+}
+
+// numText is Num over a compiled parameter (a typed parameter struct's
+// ParamText) instead of a key read.
+func numText(h Host, c *Ctx, p ParamText, def int32) int32 {
+	if n, ok := numResolvedText(h, c, p, def); ok {
 		return n
 	}
-	if _, present := sa.Params[key]; present {
+	if p.Present {
 		return 0 // present but unresolvable degrades to zero, not to def
 	}
 	return def
@@ -94,14 +101,19 @@ func statIsPowerKey(key string) (power, ok bool) {
 // value this build cannot price, so an unmodelled ShieldAmount frame cannot
 // silently erase the damage it was supposed to partially prevent.
 func NumResolved(h Host, c *Ctx, sa *cards.SA, key string, def int32) (int32, bool) {
+	raw, ok := sa.Params[key]
+	return numResolvedText(h, c, ParamText{Text: raw, Present: ok}, def)
+}
+
+// numResolvedText is NumResolved over a compiled parameter.
+func numResolvedText(h Host, c *Ctx, p ParamText, def int32) (int32, bool) {
 	if c == nil {
 		c = new(Ctx)
 	}
-	raw, ok := sa.Params[key]
-	if !ok {
+	if !p.Present {
 		return def, false
 	}
-	raw = strings.TrimSpace(raw)
+	raw := strings.TrimSpace(p.Text)
 	if n, err := strconv.Atoi(raw); err == nil {
 		return int32(n), true // a signed literal ("+2"/"-2") lands here: Atoi eats the sign
 	}
@@ -230,11 +242,17 @@ func NumResolved(h Host, c *Ctx, sa *cards.SA, key string, def int32) (int32, bo
 // zero reads this form so an unmodelled body falls back to its default instead
 // of a fake 0.
 func NumResolvedStrict(h Host, c *Ctx, sa *cards.SA, key string, def int32) (int32, bool) {
-	n, ok := NumResolved(h, c, sa, key, def)
+	raw, ok := sa.Params[key]
+	return numResolvedStrictText(h, c, ParamText{Text: raw, Present: ok}, def)
+}
+
+// numResolvedStrictText is NumResolvedStrict over a compiled parameter.
+func numResolvedStrictText(h Host, c *Ctx, p ParamText, def int32) (int32, bool) {
+	n, ok := numResolvedText(h, c, p, def)
 	if !ok || c == nil {
 		return n, ok
 	}
-	raw := strings.TrimSpace(sa.Params[key])
+	raw := strings.TrimSpace(p.Text)
 	if len(raw) > 1 && (raw[0] == '+' || raw[0] == '-') {
 		raw = raw[1:]
 	}

@@ -2,6 +2,7 @@ package cards
 
 import (
 	"math/bits"
+	"slices"
 	"unsafe"
 )
 
@@ -609,6 +610,33 @@ func newParamSet(m map[string]string) *ParamSet {
 		}
 	}
 	return ps
+}
+
+// SameParamMap reports whether a and b are the same Params map instance: the
+// identity rule a compiled view of a node's parameters -- a ParamSet here, a
+// downstream typed parameter struct elsewhere -- uses to answer only for the
+// exact map it was compiled from (with the map's size at compile time, which
+// the caller keeps, catching an in-place write).
+func SameParamMap(a, b map[string]string) bool {
+	return mapIdentity(a) == mapIdentity(b)
+}
+
+// ParamNames returns the ability's parameter keys, sorted (a fresh slice;
+// load-time compilers only -- a downstream unread-parameter check walks it
+// instead of ranging the map).
+func (sa *SA) ParamNames() []string {
+	out := make([]string, 0, len(sa.Params))
+	for k := range sa.Params {
+		out = append(out, k)
+	}
+	slices.Sort(out)
+	return out
+}
+
+// ParamMapIdentity is m's identity as an address, for a downstream cache
+// keyed by the map instance (compare entries with SameParamMap).
+func ParamMapIdentity(m map[string]string) uintptr {
+	return uintptr(mapIdentity(m))
 }
 
 func (ps *ParamSet) bound(m map[string]string) bool {

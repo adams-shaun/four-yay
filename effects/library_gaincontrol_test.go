@@ -56,7 +56,7 @@ func TestLibrarySearchGainControlTrueHandsPermanentToCaster(t *testing.T) {
 			h.g.Obj(fetched.ID).Owner, h.g.Obj(fetched.ID).Controller)
 	}
 
-	applyLibrarySearch(h, &Ctx{Controller: 0, Source: src.ID}, briberySA,
+	applyLibrarySearch(h, &Ctx{Controller: 0, Source: src.ID}, briberySA, ChangeZoneOf(briberySA),
 		1, state.ZBattlefield, []state.ObjID{fetched.ID}, []state.Zone{state.ZLibrary})
 
 	if got := h.g.Obj(fetched.ID).Zone; got != state.ZBattlefield {
@@ -133,7 +133,7 @@ func TestLibrarySearchGainControlTargetedHandsPermanentToNamedPlayer(t *testing.
 	}
 
 	applyLibrarySearch(h, &Ctx{Controller: 0, Source: src.ID,
-		Targets: []state.Target{{Player: 1, IsPlayer: true}}}, sa,
+		Targets: []state.Target{{Player: 1, IsPlayer: true}}}, sa, ChangeZoneOf(sa),
 		0, state.ZBattlefield, []state.ObjID{fetched.ID}, []state.Zone{state.ZLibrary})
 
 	if got := h.g.Obj(fetched.ID).Zone; got != state.ZBattlefield {

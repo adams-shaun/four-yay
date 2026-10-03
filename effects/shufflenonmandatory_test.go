@@ -198,7 +198,7 @@ func TestSearchShuffleTailFailToFindAsks(t *testing.T) {
 			if got := len(ah.g.Zone(state.ZLibrary, 0)); got != 0 {
 				t.Fatalf("precondition: library holds %d cards, want 0", got)
 			}
-			if searchShuffleTail(ah, ctx, s, 0, nil, state.ZHand) != true {
+			if searchShuffleTail(ah, ctx, s, ChangeZoneOf(s), 0, nil, state.ZHand) != true {
 				t.Fatalf("fail-to-find tail returned false, want the suspended confirm")
 			}
 			if len(ah.asks) != 1 {
@@ -222,7 +222,7 @@ func TestSearchShuffleTailFailToFindAsks(t *testing.T) {
 				ctx.SearchShuffle = "no"
 			}
 			ctx.SearchShuffleMoved = nil
-			searchShuffleTail(ah, ctx, s, 0, nil, state.ZHand)
+			searchShuffleTail(ah, ctx, s, ChangeZoneOf(s), 0, nil, state.ZHand)
 
 			want := 0
 			if accept {

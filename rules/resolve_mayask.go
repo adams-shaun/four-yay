@@ -32,7 +32,7 @@ import (
 // exempt everything, to exercise the miss fallback.
 var tapeCheckpointAll, tapeExemptAll bool
 
-// saFacts.mayAsk cache states.
+// SAFacts.MayAsk cache states.
 const (
 	mayAskUnknown uint32 = iota
 	mayAskNo
@@ -112,7 +112,7 @@ func saMayAskCached(e *Engine, sa *cards.SA, self *cards.Face) bool {
 	if f == nil {
 		return cards.SAChainMayAsk(sa, self.SVars, self, true)
 	}
-	switch atomic.LoadUint32(&f.mayAsk) {
+	switch atomic.LoadUint32(&f.MayAsk) {
 	case mayAskNo:
 		return false
 	case mayAskYes:
@@ -123,6 +123,6 @@ func saMayAskCached(e *Engine, sa *cards.SA, self *cards.Face) bool {
 	if v {
 		st = mayAskYes
 	}
-	atomic.StoreUint32(&f.mayAsk, st)
+	atomic.StoreUint32(&f.MayAsk, st)
 	return v
 }

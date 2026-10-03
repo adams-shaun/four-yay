@@ -63,7 +63,7 @@ func TestAttackingEntryRidesTheSharedSettleAndMovers(t *testing.T) {
 	h.Emit(events.Event{Kind: events.MoveZone, Obj: 2, From: state.ZBattlefield, To: state.ZGraveyard})
 	sa := &cards.SA{Params: map[string]string{"Origin": "Graveyard", "ChangeType": "Card",
 		"Mandatory": "True", "Tapped": "True", "Attacking": "True"}}
-	effHiddenPick(h, c, sa, state.ZBattlefield, []state.Zone{state.ZGraveyard}, false, true, "Graveyard")
+	effHiddenPick(h, c, sa, ChangeZoneOf(sa), state.ZBattlefield, []state.Zone{state.ZGraveyard}, false, true, "Graveyard")
 	if o := h.g.Obj(2); o == nil || o.Zone != state.ZBattlefield || !o.Tapped || !o.IsAttacking || o.Attacking != 1 {
 		t.Fatalf("hidden pick mover left object = %+v, want battlefield, tapped, attacking 1", o)
 	}
@@ -75,7 +75,8 @@ func TestAttackingEntryRidesTheSharedSettleAndMovers(t *testing.T) {
 	// Note's tapped half is the real entry state now -- exactly one Tap.
 	h2, c2 := fixtureHost(t)
 	h2.Emit(events.Event{Kind: events.MoveZone, Obj: 2, From: state.ZBattlefield, To: state.ZHand})
-	settleChangeZoneMoveAs(h2, c2, &cards.SA{Params: map[string]string{"Tapped": "True"}},
+	sa2 := &cards.SA{Params: map[string]string{"Tapped": "True"}}
+	settleChangeZoneMoveAs(h2, c2, sa2, ChangeZoneOf(sa2),
 		2, state.ZHand, state.ZBattlefield, "", 0, 1, true, nil)
 	if o := h2.g.Obj(2); o == nil || o.Zone != state.ZBattlefield || !o.Tapped || o.IsAttacking {
 		t.Fatalf("hand settle left object = %+v, want battlefield, tapped, NOT attacking", o)
@@ -97,7 +98,7 @@ func TestAttackingEntryRidesTheSharedSettleAndMovers(t *testing.T) {
 	h3.Emit(events.Event{Kind: events.MoveZone, Obj: 2, From: state.ZBattlefield, To: state.ZHand})
 	sa3 := &cards.SA{Params: map[string]string{"Tapped": "True", "Attacking": "True"}}
 	rider3 := classifyAttackingEntry(c3, sa3, state.ZBattlefield)
-	settleChangeZoneMoveAs(h3, c3, sa3, 2, state.ZHand, state.ZBattlefield, "", 0, 1, true, &rider3)
+	settleChangeZoneMoveAs(h3, c3, sa3, ChangeZoneOf(sa3), 2, state.ZHand, state.ZBattlefield, "", 0, 1, true, &rider3)
 	if o := h3.g.Obj(2); o == nil || !o.Tapped || !o.IsAttacking || o.Attacking != 1 {
 		t.Fatalf("hand settle with Attacking$ left object = %+v, want tapped and attacking 1", o)
 	}
@@ -116,8 +117,9 @@ func TestAttackingEntryRidesTheSharedSettleAndMovers(t *testing.T) {
 	c4.DefendingPlayer = state.Target{IsPlayer: true, Player: 1}
 	c4.Remembered = []state.Target{{Obj: 2}}
 	h4.Emit(events.Event{Kind: events.MoveZone, Obj: 2, From: state.ZBattlefield, To: state.ZLibrary})
-	if !moveDefinedLibraryObjects(h4, c4, &cards.SA{Params: map[string]string{
-		"Defined": "Remembered", "Tapped": "True", "Attacking": "True"}}, state.ZBattlefield) {
+	sa4 := &cards.SA{Params: map[string]string{
+		"Defined": "Remembered", "Tapped": "True", "Attacking": "True"}}
+	if !moveDefinedLibraryObjects(h4, c4, sa4, ChangeZoneOf(sa4), state.ZBattlefield) {
 		t.Fatal("moveDefinedLibraryObjects declined the Remembered fetch")
 	}
 	if o := h4.g.Obj(2); o == nil || o.Zone != state.ZBattlefield || !o.Tapped || !o.IsAttacking || o.Attacking != 1 {
