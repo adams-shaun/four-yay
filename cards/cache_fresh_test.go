@@ -183,6 +183,50 @@ func TestCorpusAbsentWhileLockIsOldIsNotServedFromCache(t *testing.T) {
 	}
 }
 
+// TestCacheIsServedForACacheOnlyDirectoryWithNoCorpusFolderOrLock pins the
+// boundary the corpus-folder rule must NOT cross: a directory that is a valid
+// cache (and segment) but has never been a fetched corpus -- no cardsfolder
+// and no cards.lock -- is not stale, so OpenCorpus and OpenCorpusSubset serve
+// it. This is the mode TestSubsetRegistryMatchesFull and
+// TestSubsetRebuildsMissingSegments exercise; treating an absent cardsfolder
+// as unconditionally newer than the cache compiled them into a failed
+// CompileDir instead.
+func TestCacheIsServedForACacheOnlyDirectoryWithNoCorpusFolderOrLock(t *testing.T) {
+	dir := t.TempDir()
+	cache := seedCacheWith(t, dir, "Island", "Basic Land Island")
+
+	// Precondition: exactly the cache-only shape -- cache present, neither a
+	// corpus folder nor a lock on disk.
+	if _, err := os.Stat(cache); err != nil {
+		t.Fatalf("precondition: cache missing: %v", err)
+	}
+	if _, err := os.Stat(CorpusDir(dir)); err == nil {
+		t.Fatal("precondition: cardsfolder unexpectedly present")
+	}
+	if _, err := os.Stat(lockPath(dir)); err == nil {
+		t.Fatal("precondition: cards.lock unexpectedly present")
+	}
+	if !cacheFresh(dir, cache) {
+		t.Fatal("cache-only directory with no lock was marked stale")
+	}
+
+	got, err := OpenCorpus(dir)
+	if err != nil {
+		t.Fatalf("OpenCorpus on a cache-only directory: %v", err)
+	}
+	if _, ok := got.Lookup("Island"); !ok {
+		t.Fatal("cache-only OpenCorpus did not serve the cached card")
+	}
+
+	sub, err := OpenCorpusSubset(dir, []string{"Island"})
+	if err != nil {
+		t.Fatalf("OpenCorpusSubset on a cache-only directory: %v", err)
+	}
+	if len(sub.Cards) != 1 || sub.Cards[0].Faces[0].Name != "Island" {
+		t.Fatalf("cache-only subset cards = %v", sub.Cards)
+	}
+}
+
 // TestSubsetSegmentFollowsTheCorpusFolderRule pins the segment path
 // (segFresh/refreshSegments) to the same rule: a segment newer than the cache
 // but older than the corpus folder must be rebuilt, so OpenCorpusSubset cannot

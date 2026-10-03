@@ -131,23 +131,39 @@ func cacheFresh(dir, cache string) bool {
 // corpusInputNewerThan reports whether any corpus input for dir is newer than
 // ref. The lock and the token-script folder are OPTIONAL -- older builds and
 // card-only fixtures lack them -- so an absent one does not by itself
-// invalidate a cache. cardsfolder is not optional: CompileDir reads it, so its
-// absence counts as newer than anything. That is deliberate during fetchRepo's
+// invalidate a cache.
+//
+// cardsfolder is treated as mandatory only when cards.lock is present, i.e.
+// when the directory claims to be a fetched corpus. In that case its absence
+// counts as newer than anything, which is deliberate during fetchRepo's
 // remove-then-rename gap: a reader then recompiles and fails loudly rather
-// than serving a coherent registry of the previous corpus.
+// than serving a coherent registry of the previous corpus. A cache-only dir
+// (no cardsfolder, no lock -- the subset tests and pre-fetch fixtures) is not
+// a fetched corpus, so its cache is still served; requiring cardsfolder there
+// would turn a legitimate cache-only open into a CompileDir error.
 //
 // It takes an os.FileInfo (not a time.Time) so the cards package imports no
 // clock: see internal/archtest's TestTimeIsImportedOnlyByTheHost.
 func corpusInputNewerThan(dir string, ref os.FileInfo) bool {
 	refTime := ref.ModTime()
-	if fi, err := os.Stat(CorpusDir(dir)); err != nil || fi.ModTime().After(refTime) {
+	_, lockErr := os.Stat(lockPath(dir))
+	hasLock := lockErr == nil
+	fi, err := os.Stat(CorpusDir(dir))
+	if err != nil {
+		// Absent cardsfolder: stale only for a fetched corpus (lock present).
+		if hasLock {
+			return true
+		}
+	} else if fi.ModTime().After(refTime) {
 		return true
 	}
 	if fi, err := os.Stat(TokensDir(dir)); err == nil && fi.ModTime().After(refTime) {
 		return true
 	}
-	if fi, err := os.Stat(lockPath(dir)); err == nil && fi.ModTime().After(refTime) {
-		return true
+	if hasLock {
+		if li, err := os.Stat(lockPath(dir)); err == nil && li.ModTime().After(refTime) {
+			return true
+		}
 	}
 	return false
 }
