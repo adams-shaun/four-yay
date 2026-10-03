@@ -1,0 +1,409 @@
+{
+ "card": "Day of Judgment",
+ "family": "spell-conditional",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "fd4a790cd3a1",
+ "scenarios": [
+  {
+   "name": "destroys-all-creatures-on-both-sides",
+   "cr": [
+    "701.8a",
+    "608.2c"
+   ],
+   "why": "Every creature is destroyed, whoever controls it; noncreature permanents stay.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Day of Judgment"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Mind Stone"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm",
+      "Centaur Courser",
+      "Glorious Anthem"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Day of Judgment",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Mind Stone",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Glorious Anthem",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Day of Judgment",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "indestructible-creature-survives",
+   "cr": [
+    "702.12b"
+   ],
+   "why": "An indestructible creature is not destroyed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Day of Judgment"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Darksteel Myr",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Day of Judgment",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Darksteel Myr",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "tokens-are-destroyed",
+   "cr": [
+    "701.8a",
+    "111.7"
+   ],
+   "why": "Creature tokens are destroyed too.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Day of Judgment",
+      "Raise the Alarm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Raise the Alarm",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Soldier",
+        "token": true
+       },
+       "eq": 2
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Day of Judgment",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Soldier"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "animated-land-is-destroyed-plain-land-is-not",
+   "cr": [
+    "701.8a",
+    "205.1b"
+   ],
+   "why": "A land that is currently a creature is destroyed; an ordinary land is not.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Day of Judgment"
+     ],
+     "battlefield": [
+      "Soulstone Sanctuary",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Soulstone Sanctuary",
+     "mana": "CCCC",
+     "ability": "becomes"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Day of Judgment",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Soulstone Sanctuary",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "dies-triggers-happen",
+   "cr": [
+    "700.4",
+    "603.6c"
+   ],
+   "why": "Destroyed creatures die: a dies ability triggers.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Day of Judgment"
+     ],
+     "battlefield": [
+      "Gleaming Barrier"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Day of Judgment",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Gleaming Barrier",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Treasure",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "empty-battlefield-resolves",
+   "cr": [
+    "608.2"
+   ],
+   "why": "With no creatures it resolves and does nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Day of Judgment"
+     ],
+     "battlefield": [
+      "Mind Stone"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Day of Judgment",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Day of Judgment",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Mind Stone",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "sorcery-timing-and-colour",
+   "cr": [
+    "307.1",
+    "601.2f"
+   ],
+   "why": "Not castable on the opponent's turn, and four colourless cannot pay {2}{W}{W}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Day of Judgment"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCC",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Day of Judgment"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCWW"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Day of Judgment"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "creature-entering-afterwards-is-untouched",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "It is a one-shot effect: a creature cast after it resolves stays.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Day of Judgment",
+      "Memnite"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Day of Judgment",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Memnite"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Memnite",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

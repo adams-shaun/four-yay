@@ -35,11 +35,12 @@ import (
 //
 //	/usr/bin/grep -rl 'Behold<' .cards/cardsfolder
 //
-// Exactly one of them (Elven Passage) carries it as an UnlessCost$; the rest
-// pay it as a cast or activation cost.
+// Two of them (Elven Passage, and Theorist's Sanctum from FORGE_REF fb4d809)
+// carry it as an UnlessCost$; the rest pay it as a cast or activation cost.
 var beholdUnlessCarriers = []string{
 	"Caustic Exhale",
 	"Celestial Reunion",
+	"Countersculpt",
 	"Dispelling Exhale",
 	"Draconic Fealty",
 	"Elven Passage",
@@ -56,6 +57,7 @@ var beholdUnlessCarriers = []string{
 	"Silvergill Mentor",
 	"Soulbright Seeker",
 	"Territorial Strike",
+	"Theorist's Sanctum",
 }
 
 // TestParseUnlessCostBehold pins the parser half: a Behold<N/Spec> token lands
@@ -150,11 +152,11 @@ func TestBeholdUnlessCensus(t *testing.T) {
 			}
 		}
 	}
-	if beholdFiles != 18 {
-		t.Errorf("corpus Behold< carriers = %d, want 18", beholdFiles)
+	if beholdFiles != 20 {
+		t.Errorf("corpus Behold< carriers = %d, want 20", beholdFiles)
 	}
-	if unlessFiles != 1 {
-		t.Errorf("corpus UnlessCost$ Behold carriers = %d, want 1 (Elven Passage)", unlessFiles)
+	if unlessFiles != 2 {
+		t.Errorf("corpus UnlessCost$ Behold carriers = %d, want 2 (Elven Passage, Theorist's Sanctum)", unlessFiles)
 	}
 	sort.Strings(names)
 	want := append([]string(nil), beholdUnlessCarriers...)

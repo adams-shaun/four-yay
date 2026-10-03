@@ -1,0 +1,6 @@
+{
+  "card": "Corpse Knight",
+  "rows": {
+    "two-knights-each-drain-for-the-same-entry": "Each permanent with the trigger triggers separately (CR 603.3d, CR 603.6): with two Corpse Knights in play, Grizzly Bears entering must push BOTH abilities and drain 2. The engine poses the trigger_order ask with both instances and the harness answers both, but only ONE trigger_push event lands (verified on the event stream: a single trigger_push for obj 2; obj 3's trigger is dropped), so the opponent loses 1 life, not 2. Observed: p1 at 17; expected p1 at 18."
+  }
+}

@@ -1,0 +1,215 @@
+{
+ "card": "Wary Thespian",
+ "family": "etb-ltb",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "c801d38a0c80",
+ "scenarios": [
+  {
+   "name": "enters-surveil-into-graveyard",
+   "cr": [
+    "701.25a",
+    "603.2"
+   ],
+   "why": "Entering triggers surveil 1: its controller looks at the top card of their library and may put it into the graveyard. A 3/1.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Wary Thespian"
+     ],
+     "library_top": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Wary Thespian",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wary Thespian",
+     "zone": "battlefield",
+     "pt": "3/1"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "enters-surveil-keeps-on-top",
+   "cr": [
+    "701.25a"
+   ],
+   "why": "The card may instead stay on top of the library.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Wary Thespian"
+     ],
+     "library_top": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Wary Thespian",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": [
+        "Grizzly Bears"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "library"
+    },
+    {
+     "graveyard_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "dies-surveil",
+   "cr": [
+    "700.4",
+    "603.6c",
+    "701.25a"
+   ],
+   "why": "Dying triggers the same surveil 1 for the player who controlled it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Wary Thespian"
+     ],
+     "library_top": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Wary Thespian"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wary Thespian",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "exile-is-neither-entering-nor-dying",
+   "cr": [
+    "700.4"
+   ],
+   "why": "Being exiled is not dying: no surveil, the top card stays put.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Wary Thespian"
+     ],
+     "library_top": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Wary Thespian",
+     "to": "exile",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Wary Thespian",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "library"
+    }
+   ]
+  }
+ ]
+}

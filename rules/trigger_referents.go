@@ -449,6 +449,11 @@ type specResolveEnv struct {
 	lkiPTValid             bool
 	x                      int32
 	ctx                    *effects.Ctx
+	// srcLKI is the source's last-known characteristics when the source has
+	// left the battlefield since the ability was created (CR 608.2h,
+	// source_char_lki.go); srcLKIValid gates it.
+	srcLKI      sourceCharSnapshot
+	srcLKIValid bool
 	// resolveFn is resolve bound to this env, made once when the env is
 	// allocated: a method value taken per call would heap-allocate its
 	// closure every time.
@@ -488,6 +493,17 @@ func (r *specResolveEnv) countCtx() *effects.Ctx {
 	return r.ctx
 }
 
+// sourceLKICount answers a source-characteristic body (Count$CardPower,
+// Count$CardToughness, Count$CardCounters.<KIND>) from the departed source's
+// last-known snapshot; ok is false when no snapshot applies or the body is
+// another head.
+func (r *specResolveEnv) sourceLKICount(body string) (int32, bool) {
+	if !r.srcLKIValid {
+		return 0, false
+	}
+	return r.srcLKI.count(body)
+}
+
 func (r *specResolveEnv) resolve(name string) (int32, bool) {
 	body, hasBody := r.svars[name]
 	if strings.EqualFold(name, "X") {
@@ -499,12 +515,18 @@ func (r *specResolveEnv) resolve(name string) (int32, bool) {
 			return r.x, true
 		}
 		if hasBody {
+			if n, ok := r.sourceLKICount(body); ok {
+				return n, true
+			}
 			return effects.EvalCountOK(r.e, r.countCtx(), body)
 		}
 		return r.x, true
 	}
 	if !hasBody || strings.TrimSpace(body) == "" {
 		return 0, false
+	}
+	if n, ok := r.sourceLKICount(body); ok {
+		return n, true
 	}
 	return effects.EvalCountOK(r.e, r.countCtx(), body)
 }
@@ -562,10 +584,11 @@ func (e *Engine) targetSpecContext(source, stack state.ObjID, you state.PlayerID
 	// The record itself is one of the engine's reusable envs (acquireSpecEnv):
 	// the caller must defer e.releaseSpecEnv() once it is done with the
 	// returned SpecContext.
+	srcLKI, srcLKIValid := e.sourceCharLKIFor(stack, source, lki, lkiPower, lkiToughness, lkiPTValid)
 	env := e.acquireSpecEnv()
 	*env = specResolveEnv{e: e, source: source, you: you, tcx: tcx, remembered: remembered,
 		svars: svars, lki: lki, lkiPower: lkiPower, lkiToughness: lkiToughness, lkiPTValid: lkiPTValid, x: x,
-		resolveFn: env.resolveFn}
+		srcLKI: srcLKI, srcLKIValid: srcLKIValid, resolveFn: env.resolveFn}
 	sc := effects.SpecContext{You: you, Source: source, TriggerContext: tcx,
 		Remembered: remembered,
 		Resolve:    env.resolveFn}

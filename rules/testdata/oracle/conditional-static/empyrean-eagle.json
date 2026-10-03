@@ -1,0 +1,321 @@
+{
+ "card": "Empyrean Eagle",
+ "family": "conditional-static",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "53e8d86ea062",
+ "scenarios": [
+  {
+   "name": "other-fliers-get-plus-one",
+   "cr": [
+    "604.1",
+    "613.4c"
+   ],
+   "why": "Other creatures its controller controls with flying get +1/+1; a creature without flying and the Eagle itself do not; the opponent's flier does not.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Empyrean Eagle",
+      "Wind Drake",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Wind Drake"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wind Drake",
+     "pt": "3/3"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2"
+    },
+    {
+     "card": "p0:Empyrean Eagle",
+     "pt": "2/3",
+     "keywords": [
+      "Flying"
+     ]
+    },
+    {
+     "card": "p1:Wind Drake",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "creature-that-gains-flying-gets-the-bonus",
+   "cr": [
+    "611.3a",
+    "613.4c"
+   ],
+   "why": "The bonus follows flying: a creature that has flying only while attacking is 2/1 before attackers, 3/2 while attacking, and 2/1 again after combat.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Empyrean Eagle",
+      "Kitesail Corsair"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "card": "p0:Kitesail Corsair",
+       "pt": "2/1",
+       "no_keywords": [
+        "Flying"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Kitesail Corsair"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Kitesail Corsair",
+       "pt": "3/2",
+       "keywords": [
+        "Flying"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kitesail Corsair",
+     "pt": "2/1"
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "bonus-ends-when-the-eagle-leaves",
+   "cr": [
+    "611.3a"
+   ],
+   "why": "A static ability applies only while the Eagle is on the battlefield.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Empyrean Eagle",
+      "Wind Drake"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Empyrean Eagle"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Empyrean Eagle",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Wind Drake",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "two-eagles-pump-each-other",
+   "cr": [
+    "613.4c"
+   ],
+   "why": "Each Eagle is another flier for the other: both are 3/4, and a third flier is 4/4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Empyrean Eagle",
+      "Empyrean Eagle",
+      "Wind Drake"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Empyrean Eagle",
+     "pt": "3/4"
+    },
+    {
+     "card": "p0:Empyrean Eagle#2",
+     "pt": "3/4"
+    },
+    {
+     "card": "p0:Wind Drake",
+     "pt": "4/4"
+    }
+   ]
+  },
+  {
+   "name": "bonus-toughness-saves-a-flier-from-damage",
+   "cr": [
+    "704.5g"
+   ],
+   "why": "With the Eagle a 2/2 flier is 3/3 and survives 2 damage.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Empyrean Eagle",
+      "Wind Drake"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Wind Drake"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wind Drake",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "damage": 2
+    }
+   ]
+  },
+  {
+   "name": "eagle-is-a-2-3-flier-in-combat",
+   "cr": [
+    "702.9b"
+   ],
+   "why": "It attacks as a 2/3 flier past a ground creature.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Empyrean Eagle"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Wind Drake"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Empyrean Eagle"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Grizzly Bears",
+        "attacker": "p0:Empyrean Eagle"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Wind Drake",
+        "attacker": "p0:Empyrean Eagle"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 18
+     }
+    }
+   ]
+  }
+ ]
+}

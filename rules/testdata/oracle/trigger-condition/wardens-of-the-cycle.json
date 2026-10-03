@@ -1,0 +1,332 @@
+{
+ "card": "Wardens of the Cycle",
+ "family": "trigger-condition",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "2fef9538964b",
+ "scenarios": [
+  {
+   "name": "morbid-gain-two-life",
+   "cr": [
+    "603.4",
+    "700.2b"
+   ],
+   "why": "A creature died this turn: at its controller's end step the first mode gains 2 life.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Wardens of the Cycle"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "gain 2 life"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 22,
+      "p1": 20
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "morbid-draw-a-card-and-lose-one-life",
+   "cr": [
+    "603.4",
+    "700.2b"
+   ],
+   "why": "The second mode: draw a card and lose 1 life.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Wardens of the Cycle"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "draw a card"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 19,
+      "p1": 20
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-death-no-trigger",
+   "cr": [
+    "603.4"
+   ],
+   "why": "No creature died: no trigger, no life, no card.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Wardens of the Cycle"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Wardens of the Cycle",
+       "want": false
+      },
+      {
+       "stack_size": 0
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-end-step-does-not-trigger",
+   "cr": [
+    "603.4",
+    "513.1"
+   ],
+   "why": "Only its controller's end step.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Wardens of the Cycle"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Wardens of the Cycle",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "it-is-a-3-4",
+   "cr": [
+    "208.1"
+   ],
+   "why": "A 3/4 with no keyword: it survives blocking a 3/3 and kills it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Wardens of the Cycle"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Centaur Courser"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p0:Wardens of the Cycle",
+       "p1:Centaur Courser"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wardens of the Cycle",
+     "zone": "battlefield",
+     "pt": "3/4",
+     "damage": 3
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

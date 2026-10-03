@@ -1,0 +1,565 @@
+{
+ "card": "Kiora, the Rising Tide",
+ "family": "etb-ltb",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "f24addf9344e",
+ "scenarios": [
+  {
+   "name": "enters-draw-two-then-discard-two",
+   "cr": [
+    "603.6a",
+    "701.9a"
+   ],
+   "why": "Entering: draw two cards, then discard two cards of its controller's choice.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Kiora, the Rising Tide",
+      "Forest"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Kiora, the Rising Tide",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Forest",
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "graveyard_size": {
+      "p0": 2
+     }
+    },
+    {
+     "card": "p0:Kiora, the Rising Tide",
+     "zone": "battlefield",
+     "pt": "3/2"
+    }
+   ]
+  },
+  {
+   "name": "empty-hand-discards-the-two-drawn",
+   "cr": [
+    "701.9a"
+   ],
+   "why": "With no other cards in hand the two drawn cards are the two discarded.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Kiora, the Rising Tide"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Kiora, the Rising Tide",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "threshold-attack-creates-scion-of-the-deep",
+   "cr": [
+    "603.4",
+    "207.2c",
+    "111.4"
+   ],
+   "why": "Five cards in the graveyard plus Kiora's two discards make seven: attacking on its next turn, its controller may create Scion of the Deep, a legendary 8/8 blue Octopus token (not attacking).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Kiora, the Rising Tide"
+     ],
+     "graveyard": [
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Kiora, the Rising Tide",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "graveyard_size": {
+        "p0": 7
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Kiora, the Rising Tide"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Kiora, the Rising Tide",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Scion of the Deep",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Scion of the Deep",
+     "pt": "8/8",
+     "types": [
+      "Legendary",
+      "Creature",
+      "Octopus"
+     ],
+     "tapped": false
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "six-cards-no-trigger",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Four cards plus the two discards make six: the intervening-if is false and attacking triggers nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Kiora, the Rising Tide"
+     ],
+     "graveyard": [
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Kiora, the Rising Tide",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "graveyard_size": {
+        "p0": 6
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Kiora, the Rising Tide"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Kiora, the Rising Tide",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Scion"
+     },
+     "eq": 0
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "threshold-token-is-optional",
+   "cr": [
+    "603.5"
+   ],
+   "why": "'You may create': declining makes no token.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Kiora, the Rising Tide"
+     ],
+     "graveyard": [
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Kiora, the Rising Tide",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Kiora, the Rising Tide"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Scion"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "second-scion-falls-to-the-legend-rule",
+   "cr": [
+    "704.5j"
+   ],
+   "why": "The token is legendary: a second Scion of the Deep created on a later attack leaves only one on the battlefield.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Kiora, the Rising Tide"
+     ],
+     "graveyard": [
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Kiora, the Rising Tide",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Kiora, the Rising Tide"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Kiora, the Rising Tide"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Scion of the Deep",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "opponents-graveyard-does-not-count",
+   "cr": [
+    "207.2c",
+    "109.5"
+   ],
+   "why": "Threshold counts its controller's graveyard: seven cards in the opponent's graveyard and two in its own do not trigger it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Kiora, the Rising Tide"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Kiora, the Rising Tide",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Kiora, the Rising Tide"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Kiora, the Rising Tide",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Scion"
+     },
+     "eq": 0
+    }
+   ]
+  }
+ ]
+}

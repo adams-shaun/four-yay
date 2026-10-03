@@ -1,0 +1,498 @@
+{
+ "card": "Heartfire Immolator",
+ "family": "activated-ability",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "5d8d5e83d810",
+ "scenarios": [
+  {
+   "name": "sacrifice-deals-its-power-to-a-creature",
+   "cr": [
+    "602.2",
+    "608.2h"
+   ],
+   "why": "{R} and sacrificing the 2/2 deals 2 damage (its last known power) to the target creature.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Heartfire Immolator"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Heartfire Immolator",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Heartfire Immolator",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "damage": 0
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-damage-does-not-kill-a-three-toughness",
+   "cr": [
+    "120.3"
+   ],
+   "why": "Unpumped it deals exactly 2: a 3/3 survives with 2 damage.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Heartfire Immolator"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Heartfire Immolator",
+     "mana": "R",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "damage": 2
+    }
+   ]
+  },
+  {
+   "name": "prowess-raises-the-damage",
+   "cr": [
+    "702.108a",
+    "608.2h"
+   ],
+   "why": "After a noncreature spell prowess makes it 3/3; sacrificed that turn it deals 3 (last known power), killing a 3/3.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Heartfire Immolator"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Heartfire Immolator",
+       "pt": "3/3"
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Heartfire Immolator",
+     "mana": "R",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "prowess-damage-marked-on-a-bigger-creature",
+   "cr": [
+    "702.108a",
+    "608.2h"
+   ],
+   "why": "Same as above against a 6/4: exactly 3 damage is marked (2 printed power + 1 from prowess).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Heartfire Immolator"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Heartfire Immolator",
+     "mana": "R",
+     "targets": [
+      "p1:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "battlefield",
+     "damage": 3
+    }
+   ]
+  },
+  {
+   "name": "pump-spell-raises-the-damage",
+   "cr": [
+    "608.2h"
+   ],
+   "why": "Giant Growth (+3/+3) plus its own prowess trigger make it 6/6; sacrificed, it deals 6, killing a 6/4.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Heartfire Immolator"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Heartfire Immolator"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Heartfire Immolator",
+       "pt": "6/6"
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Heartfire Immolator",
+     "mana": "R",
+     "targets": [
+      "p1:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "needs-red-mana",
+   "cr": [
+    "602.2b",
+    "107.4"
+   ],
+   "why": "The cost is {R}: colourless mana alone cannot pay it; red can.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Heartfire Immolator"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Heartfire Immolator"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Heartfire Immolator"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Heartfire Immolator",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "targeting-itself-does-nothing",
+   "cr": [
+    "601.2c",
+    "601.2h",
+    "608.2b"
+   ],
+   "why": "Targets are chosen before costs are paid, so the Immolator may target itself; once sacrificed the only target is illegal and the ability does nothing. No player is damaged (a player is not a legal target).",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Heartfire Immolator"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Heartfire Immolator",
+     "mana": "R",
+     "targets": [
+      "p0:Heartfire Immolator"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Heartfire Immolator",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "hits-a-planeswalker",
+   "cr": [
+    "120.3c",
+    "306.8"
+   ],
+   "why": "Damage dealt to a planeswalker removes that many loyalty counters: a 3-loyalty planeswalker dealt 2 keeps 1.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Heartfire Immolator"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Jace Beleren"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Jace Beleren",
+     "mana": "CUU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Heartfire Immolator",
+     "mana": "R",
+     "targets": [
+      "p1:Jace Beleren"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Jace Beleren",
+     "zone": "battlefield",
+     "counters": {
+      "LOYALTY": 1
+     }
+    },
+    {
+     "card": "p0:Heartfire Immolator",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "usable-while-summoning-sick",
+   "cr": [
+    "302.6",
+    "602.5a"
+   ],
+   "why": "The cost has no {T}: it can be activated the turn the Immolator enters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Heartfire Immolator"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Heartfire Immolator",
+     "mana": "CR"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Heartfire Immolator",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

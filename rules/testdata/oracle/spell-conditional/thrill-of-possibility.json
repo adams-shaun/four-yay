@@ -1,0 +1,322 @@
+{
+ "card": "Thrill of Possibility",
+ "family": "spell-conditional",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "be6c82d2ad14",
+ "scenarios": [
+  {
+   "name": "discard-is-paid-on-cast-then-draws-two",
+   "cr": [
+    "601.2h",
+    "118.8"
+   ],
+   "why": "The discard is an additional cost, paid while casting: the discarded card is in the graveyard while the spell is still on the stack. On resolution its controller draws two cards.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Thrill of Possibility",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Thrill of Possibility",
+     "mana": "CR",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ],
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "zone": "graveyard"
+      },
+      {
+       "stack_size": 1
+      },
+      {
+       "hand_size": {
+        "p0": 0
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Thrill of Possibility",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    },
+    {
+     "graveyard_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-other-card-in-hand-not-castable",
+   "cr": [
+    "601.2h",
+    "118.3"
+   ],
+   "why": "With no other card in hand the additional cost cannot be paid, so the spell cannot be cast even with the mana available.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Thrill of Possibility"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CR",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Thrill of Possibility"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Thrill of Possibility",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "with-a-card-to-discard-it-is-castable",
+   "cr": [
+    "601.2h"
+   ],
+   "why": "Control for the cost gate: with one other card in hand and {1}{R} available the cast is offered.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Thrill of Possibility",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CR",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Thrill of Possibility"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Thrill of Possibility",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "caster-chooses-which-card-to-discard",
+   "cr": [
+    "601.2h"
+   ],
+   "why": "The caster chooses the discarded card: Savannah Lions is discarded, Grizzly Bears stays in hand, and two cards are drawn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Thrill of Possibility",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Thrill of Possibility",
+     "mana": "CR",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Savannah Lions"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "countered-spell-keeps-the-discard-paid",
+   "cr": [
+    "601.2h",
+    "701.5a"
+   ],
+   "why": "Costs are not refunded when the spell is countered: the discarded card stays in the graveyard and no cards are drawn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Thrill of Possibility",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Counterspell"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Thrill of Possibility",
+     "mana": "CR",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Counterspell",
+     "mana": "UU",
+     "targets": [
+      "p0:Thrill of Possibility"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Thrill of Possibility",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "instant-on-opponents-turn",
+   "cr": [
+    "307.1",
+    "304.1"
+   ],
+   "why": "It is an instant, so it can be cast during the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Thrill of Possibility",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Thrill of Possibility",
+     "mana": "CR",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Thrill of Possibility",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  }
+ ]
+}

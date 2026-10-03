@@ -1,0 +1,47 @@
+{
+ "card": "Path to Exile",
+ "family": "spell-conditional",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "6b1199153087",
+ "scenarios": [
+  {
+   "name": "exiles-and-controller-may-fetch-a-basic-tapped",
+   "cr": ["608.2b", "701.23b", "110.5b"],
+   "why": "Path to Exile exiles the target creature, then its controller may search their library for a basic land and put it onto the battlefield tapped. Accepting the search puts the Forest onto the battlefield tapped.",
+   "setup": {
+    "p0": {"hand": ["Path to Exile"]},
+    "p1": {"battlefield": ["Grizzly Bears"], "library": ["Forest"]}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Path to Exile", "mana": "W", "targets": ["p1:Grizzly Bears"]},
+    {"op": "resolve", "answers": [
+      {"kind": "any", "pick": ["yes"]},
+      {"kind": "choose", "pick": ["Forest"]}
+    ]}
+   ],
+   "expect": [
+    {"card": "p1:Grizzly Bears", "zone": "exile"},
+    {"card": "p1:Forest", "zone": "battlefield", "tapped": true},
+    {"count": {"seat": 1, "zone": "library", "name": "Forest"}, "eq": 0}
+   ]
+  },
+  {
+   "name": "controller-may-decline-the-search",
+   "cr": ["701.23b"],
+   "why": "'May search' is optional: declining leaves the basic land in the library and puts nothing onto the battlefield.",
+   "setup": {
+    "p0": {"hand": ["Path to Exile"]},
+    "p1": {"battlefield": ["Grizzly Bears"], "library": ["Forest"]}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Path to Exile", "mana": "W", "targets": ["p1:Grizzly Bears"]},
+    {"op": "resolve", "answers": [{"kind": "any", "pick": ["no"]}]}
+   ],
+   "expect": [
+    {"card": "p1:Grizzly Bears", "zone": "exile"},
+    {"count": {"seat": 1, "zone": "library", "name": "Forest"}, "eq": 1},
+    {"count": {"seat": 1, "zone": "battlefield", "name": "Forest"}, "eq": 0}
+   ]
+  }
+ ]
+}

@@ -1,0 +1,116 @@
+{
+ "card": "Frost Lynx",
+ "family": "etb-ltb",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "b79a30e2a7ba",
+ "scenarios": [
+  {
+   "name": "enters-tapping-a-creature-an-opponent-controls",
+   "cr": [
+    "603.6a",
+    "701.26a",
+    "611.2b"
+   ],
+   "why": "Frost Lynx's enter trigger taps target creature an opponent controls. p1's Centaur Courser becomes tapped.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Frost Lynx"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Frost Lynx",
+     "mana": "CCU",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Frost Lynx",
+     "zone": "battlefield",
+     "pt": "2/2"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "does-not-untap-in-next-untap-step-then-untaps",
+   "cr": [
+    "611.2b",
+    "502.2",
+    "514.1"
+   ],
+   "why": "The tapped creature doesn't untap during its controller's next untap step (p1's turn 2), but untaps normally on the following one (turn 4).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Frost Lynx"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Frost Lynx",
+     "mana": "CCU",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1",
+     "expect": [
+      {
+       "card": "p1:Centaur Courser",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "draw",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "tapped": false
+    }
+   ]
+  }
+ ]
+}

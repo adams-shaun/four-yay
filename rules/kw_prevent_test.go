@@ -181,3 +181,69 @@ func TestChoMannoKeywordPreventsNonCombatDamage(t *testing.T) {
 		t.Fatalf("logged %d prevention Note(s) with amount 3, want 1", c)
 	}
 }
+
+// TestGrantedPreventKeywordPreventsCombatDamage: the GRANT shape (CR 615.1).
+// A pump that hands a creature the sentence only puts it on the derived
+// keyword list -- no cards-side expansion ever sees it -- so the damage
+// dispatch must read it there (rules/replacement_prevent_kw.go). Pins the
+// combat scoping, that only the granted creature is protected, and that the
+// prevention ends with the grant.
+func TestGrantedPreventKeywordPreventsCombatDamage(t *testing.T) {
+	t.Parallel()
+	e := combatEngine(t)
+	atk := onBoardCard(t, e, 0, card(t, "Name:Lifted Cub\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"))
+	blk := onBoardCard(t, e, 1, card(t, "Name:Wall Guard\nManaCost:1 W\nTypes:Creature Soldier\nPT:3/3\nOracle:x\n"))
+	e.AddContinuous(ContinuousEffect{Source: atk, Controller: 0, Affects: "Card.Self", Layer: LAbilities,
+		AddKeywords: []string{"Prevent all combat damage that would be dealt to CARDNAME."}, UntilEOT: true})
+	attackerBlockedBy(t, e, atk, blk)
+
+	e.dealCombatDamage()
+
+	if got := e.G.Obj(atk).Damage; got != 0 {
+		t.Fatalf("granted creature damage = %d, want 0: the granted sentence never prevented", got)
+	}
+	if got := e.G.Obj(blk).Damage; got != 2 {
+		t.Fatalf("blocker damage = %d, want 2 (the to-only sentence does not stop damage dealt BY it)", got)
+	}
+	if c := countPreventionNotes(e, 3); c != 1 {
+		t.Fatalf("logged %d prevention Note(s) with amount 3, want 1", c)
+	}
+
+	// Combat-scoped: a non-combat hit lands.
+	e.damaging, e.combatDamaging = blk, false
+	e.emit(events.Event{Kind: events.Damage, Obj: atk, Amount: 1})
+	e.damaging, e.combatDamaging = 0, false
+	if got := e.G.Obj(atk).Damage; got != 1 {
+		t.Fatalf("non-combat damage = %d, want 1 (the sentence prevents COMBAT damage only)", got)
+	}
+}
+
+// TestGrantedPreventKeywordDealtByDirection: the "dealt by" wordings are
+// never printed, only granted (16 corpus scripts), so they exist solely on
+// this path. The unscoped one stops combat AND non-combat damage the carrier
+// would deal, to a creature or to a player, and nothing dealt TO it.
+func TestGrantedPreventKeywordDealtByDirection(t *testing.T) {
+	t.Parallel()
+	e := combatEngine(t)
+	oaf := onBoardCard(t, e, 0, card(t, "Name:Hushed Oaf\nManaCost:2 W\nTypes:Creature Giant\nPT:3/3\nOracle:x\n"))
+	guard := onBoardCard(t, e, 1, card(t, "Name:Guard\nManaCost:1 W\nTypes:Creature Soldier\nPT:2/2\nOracle:x\n"))
+	e.AddContinuous(ContinuousEffect{Source: oaf, Controller: 0, Affects: "Card.Self", Layer: LAbilities,
+		AddKeywords: []string{"Prevent all damage that would be dealt by CARDNAME."}})
+	attackerBlockedBy(t, e, oaf, guard)
+
+	e.dealCombatDamage()
+
+	if got := e.G.Obj(guard).Damage; got != 0 {
+		t.Fatalf("blocker damage = %d, want 0: damage dealt BY the carrier was not prevented", got)
+	}
+	if got := e.G.Obj(oaf).Damage; got != 2 {
+		t.Fatalf("carrier damage = %d, want 2 (the by-only sentence does not protect it)", got)
+	}
+	life := e.G.Players[1].Life
+	e.damaging, e.combatDamaging = oaf, false
+	e.emit(events.Event{Kind: events.Damage, Player: 1, Amount: 3})
+	e.damaging, e.combatDamaging = 0, false
+	if got := e.G.Players[1].Life; got != life {
+		t.Fatalf("player life = %d, want %d: non-combat damage by the carrier was not prevented", got, life)
+	}
+}

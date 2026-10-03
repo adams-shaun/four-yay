@@ -268,6 +268,17 @@ type engineScratch struct {
 	// activeSum is active()'s per-build digest for the mana walk and
 	// grantedAbilities (active_summary.go). Clone leaves it zero.
 	activeSum activeSummary
+	// lossProof is the sticky no-"loses all abilities" proof
+	// (abilityloss.go). Clone and the look-back observer copy it.
+	lossProof abilityLossProof
+	// layer5Colors is the on-demand layer-5 derived-colour table
+	// (layer5colors.go) and its key. Clone leaves it zero.
+	layer5Colors   []effects.ObjectColors
+	colorsEpoch    int
+	colorsVersion  int
+	colorsObjs     int
+	colorsValid    bool
+	colorsBuilding bool
 	// charsSum is active()'s per-build digest for Characteristics' printed
 	// fast path (derived_printed.go). Clone leaves it zero.
 	charsSum charsSummary

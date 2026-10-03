@@ -1,0 +1,333 @@
+{
+ "card": "Meteor Golem",
+ "family": "etb-ltb",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "6db4db44ae82",
+ "scenarios": [
+  {
+   "name": "destroys-an-opposing-creature",
+   "cr": [
+    "603.6a",
+    "701.8a"
+   ],
+   "why": "Entering, it destroys a target nonland permanent an opponent controls.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Meteor Golem"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Meteor Golem",
+     "mana": "CCCCCCC"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "targets": [
+      "p1:Craw Wurm"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Meteor Golem",
+       "want": true
+      },
+      {
+       "card": "p1:Craw Wurm",
+       "zone": "battlefield"
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Meteor Golem",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "types": [
+      "Artifact",
+      "Creature",
+      "Golem"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "destroys-an-opposing-enchantment",
+   "cr": [
+    "701.8a"
+   ],
+   "why": "Any nonland permanent: an enchantment.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Meteor Golem"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Glorious Anthem",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Meteor Golem",
+     "mana": "CCCCCCC"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Glorious Anthem"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Glorious Anthem",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "destroys-an-opposing-artifact",
+   "cr": [
+    "701.8a"
+   ],
+   "why": "An artifact.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Meteor Golem"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Short Sword"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Meteor Golem",
+     "mana": "CCCCCCC"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Short Sword"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Short Sword",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "lands-are-not-targets",
+   "cr": [
+    "603.3d"
+   ],
+   "why": "With only lands on the opponent's side there is no legal target: the trigger is removed and the land stays.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Meteor Golem"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Meteor Golem",
+     "mana": "CCCCCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Forest",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Meteor Golem",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "own-permanents-are-not-targets",
+   "cr": [
+    "603.3d"
+   ],
+   "why": "It cannot target its controller's own permanents: with none on the opponent's side nothing is destroyed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Meteor Golem"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Short Sword"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Meteor Golem",
+     "mana": "CCCCCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Short Sword",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Meteor Golem",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "ward-target-counters-the-trigger-unless-paid",
+   "cr": [
+    "702.21a"
+   ],
+   "why": "The trigger is an ability an opponent controls: targeting a ward {2} creature triggers ward, and unpaid the Golem's trigger is countered.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Meteor Golem"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Tolarian Terror"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Meteor Golem",
+     "mana": "CCCCCCC"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Tolarian Terror"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Tolarian Terror",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Meteor Golem",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "seven-mana-needed",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "It costs {7}: six mana is not enough.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Meteor Golem"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCCCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Meteor Golem"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

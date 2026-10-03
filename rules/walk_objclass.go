@@ -225,6 +225,44 @@ func (c walkObjClass) withoutFP() walkObjClass {
 	return c
 }
 
+// walkClassAtLeastAsHot reports whether a is at least as hot as b in every
+// field that guards a skip: every class bit b sets, a sets too, and a's
+// ability-zone mask covers b's (an abAlways class covers every zone). It is
+// the order the two verifier branches tolerate: a face's published facts are
+// a write-once pure function of that face, so a class cached while the face
+// had no facts (classifyWalkFace's conservative nil branch) can only move to
+// a COLDER class when another engine publishes the slot -- never to a
+// hotter one. A cached class that is at least as hot as the recompute
+// therefore did not skip anything the recompute would not, so refreshing it
+// is safe; a recompute hotter than the cache is the only direction a missed
+// input can take, and that still panics. ctrDep is treated as a hotness (a
+// class that depends on a keyword counter recomputes more often), so a
+// cached ctrDep with a fresh non-dependency is tolerated.
+func walkClassAtLeastAsHot(a, b walkObjClass) bool {
+	if b.manaHot && !a.manaHot {
+		return false
+	}
+	if b.mayPlayHot && !a.mayPlayHot {
+		return false
+	}
+	if b.staticOn && !a.staticOn {
+		return false
+	}
+	if b.staticOff && !a.staticOff {
+		return false
+	}
+	if b.ctrDep && !a.ctrDep {
+		return false
+	}
+	if b.abAlways && !a.abAlways {
+		return false
+	}
+	if !a.abAlways && b.abMask&^a.abMask != 0 {
+		return false
+	}
+	return true
+}
+
 // faceMayPlayHot reports whether f carries a Continuous static or the
 // Paradigm keyword (walkObjClass.mayPlayHot's per-face half).
 func faceMayPlayHot(f *cards.Face) bool {
@@ -288,7 +326,17 @@ func (e *Engine) walkClassOfSlow(id state.ObjID) *walkObjClass {
 		// The fingerprint is compared by the catch-up's touches, not here:
 		// a field it records may move without changing the class.
 		if fresh := e.computeWalkObjClass(&e.G.Objs[i]); fresh.withoutFP() != c.withoutFP() {
-			panic(fmt.Sprintf("rules: walk class of obj %d is stale (%+v, recomputed %+v)", id, *c, fresh))
+			// Faces are immutable once configured, so a move under an
+			// unchanged fingerprint has two legitimate causes: a test that
+			// edits one in place (no event), and a class cached while the
+			// face had no facts that another engine has since published
+			// (walkClassAtLeastAsHot covers the latter, in which the fresh
+			// class can only be colder). Any other move is a missed input
+			// (see walkClassTouch, which tolerates the same cases).
+			if !e.walkFacesEdited(&e.G.Objs[i]) && !walkClassAtLeastAsHot(*c, fresh) {
+				panic(fmt.Sprintf("rules: walk class of obj %d is stale (%+v, recomputed %+v)", id, *c, fresh))
+			}
+			*c = fresh
 		}
 	}
 	return c
@@ -327,11 +375,14 @@ func (e *Engine) walkClassTouch(o *state.Object) (staticSame bool) {
 		// as classified: nothing to refresh, nothing a scan reads moved.
 		if walkSkipVerify {
 			if fresh := e.computeWalkObjClass(o); fresh != old {
-				// Faces are immutable once configured; a test that edits
-				// one in place (no event) is the only way a class moves
-				// under an unchanged fingerprint. Refresh it then; any
-				// other move is a missed input.
-				if !e.walkFacesEdited(o) {
+				// Faces are immutable once configured, so a move under an
+				// unchanged fingerprint has two legitimate causes: a test
+				// that edits one in place (no event), and a class cached
+				// while the face had no facts that another engine has
+				// since published (walkClassAtLeastAsHot covers the
+				// latter, in which the fresh class can only be colder).
+				// Any other move is a missed input.
+				if !e.walkFacesEdited(o) && !walkClassAtLeastAsHot(old, fresh) {
 					panic(fmt.Sprintf("rules: walk class of obj %d moved under an unchanged fingerprint (%+v, recomputed %+v)", o.ID, old, fresh))
 				}
 				e.walkObjCls[i] = fresh

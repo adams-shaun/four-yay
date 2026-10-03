@@ -1,0 +1,301 @@
+{
+ "card": "Elvish Regrower",
+ "family": "etb-ltb",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "db773a30cae0",
+ "scenarios": [
+  {
+   "name": "returns-a-creature-card",
+   "cr": [
+    "603.6a",
+    "400.7"
+   ],
+   "why": "Entering returns the target creature card from its controller's graveyard to hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Elvish Regrower"
+     ],
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Elvish Regrower",
+     "mana": "CCGG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elvish Regrower",
+     "zone": "battlefield",
+     "pt": "4/3"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "returns-a-land-card-chosen-among-several",
+   "cr": [
+    "110.4"
+   ],
+   "why": "Any permanent card qualifies: with a creature, a land and an instant in the graveyard the land may be chosen and only it returns.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Elvish Regrower"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Forest",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Elvish Regrower",
+     "mana": "CCGG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Forest"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "returns-an-aura-card",
+   "cr": [
+    "110.4"
+   ],
+   "why": "An enchantment card is a permanent card.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Elvish Regrower"
+     ],
+     "graveyard": [
+      "Pacifism"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Elvish Regrower",
+     "mana": "CCGG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Pacifism"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Pacifism",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "instant-card-is-not-a-permanent-card",
+   "cr": [
+    "110.4a",
+    "603.3d"
+   ],
+   "why": "Instants and sorceries are not permanent cards: with only those in the graveyard the trigger has no target and returns nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Elvish Regrower"
+     ],
+     "graveyard": [
+      "Lightning Bolt",
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Elvish Regrower",
+     "mana": "CCGG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elvish Regrower",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Divination",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-graveyard-is-not-targetable",
+   "cr": [
+    "115.1"
+   ],
+   "why": "Only cards in its controller's own graveyard are legal targets.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Elvish Regrower"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Elvish Regrower",
+     "mana": "CCGG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0,
+      "p1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "target-gone-in-response-returns-nothing",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "The targeted card leaves the graveyard in response: the trigger does nothing and does not pick another card.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Elvish Regrower"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Elvish Regrower",
+     "mana": "CCGG"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Elvish Regrower",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "move",
+     "card": "p0:Grizzly Bears",
+     "to": "exile"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "exile"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  }
+ ]
+}

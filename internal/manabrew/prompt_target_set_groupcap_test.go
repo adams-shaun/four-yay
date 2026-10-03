@@ -1,3 +1,5 @@
+//go:build manabrew
+
 package manabrew
 
 // Tests for prompt_target_set.go's per-Group CAP rule: the prefix walks must

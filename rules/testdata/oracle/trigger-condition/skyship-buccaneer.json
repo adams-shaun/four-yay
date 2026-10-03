@@ -1,0 +1,251 @@
+{
+ "card": "Skyship Buccaneer",
+ "family": "trigger-condition",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "e45c03f54150",
+ "scenarios": [
+  {
+   "name": "no-attack-this-turn-no-draw",
+   "cr": [
+    "603.4",
+    "207.2c"
+   ],
+   "why": "Without an attack this turn the raid condition is false and no card is drawn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Skyship Buccaneer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Skyship Buccaneer",
+     "mana": "CCCUU"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Skyship Buccaneer",
+       "want": false
+      },
+      {
+       "stack_size": 0
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Skyship Buccaneer",
+     "zone": "battlefield",
+     "pt": "4/3",
+     "keywords": [
+      "Flying"
+     ]
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "raid-after-attacking-draws-a-card",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Cast after its controller attacked this turn, entering draws a card.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Skyship Buccaneer"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Skyship Buccaneer",
+     "mana": "CCCUU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Skyship Buccaneer",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "attacking-after-it-entered-is-too-late",
+   "cr": [
+    "603.4"
+   ],
+   "why": "The condition is checked when it enters: an attack later in the same turn draws nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Skyship Buccaneer"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Skyship Buccaneer",
+     "mana": "CCCUU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-attack-does-not-count",
+   "cr": [
+    "603.4"
+   ],
+   "why": "'You attacked this turn' is about its controller: cast with flash-less timing on its own turn after the opponent attacked on theirs, nothing is drawn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Skyship Buccaneer"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Grizzly Bears"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Skyship Buccaneer",
+     "mana": "CCCUU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Skyship Buccaneer",
+     "zone": "battlefield"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "life": {
+      "p0": 18
+     }
+    }
+   ]
+  }
+ ]
+}

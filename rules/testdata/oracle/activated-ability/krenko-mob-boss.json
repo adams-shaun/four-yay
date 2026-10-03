@@ -1,0 +1,411 @@
+{
+ "card": "Krenko, Mob Boss",
+ "family": "activated-ability",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "6b66071f77b4",
+ "scenarios": [
+  {
+   "name": "alone-makes-one-goblin",
+   "cr": [
+    "602.2",
+    "107.3",
+    "111.4"
+   ],
+   "why": "Krenko is itself a Goblin: alone, X is 1. The token is a 1/1 red Goblin creature. Krenko is tapped.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Krenko, Mob Boss"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Krenko, Mob Boss",
+     "expect": [
+      {
+       "card": "p0:Krenko, Mob Boss",
+       "tapped": true
+      },
+      {
+       "stack_size": 1
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Goblin",
+     "pt": "1/1",
+     "types": [
+      "Creature",
+      "Goblin"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "counts-other-goblins",
+   "cr": [
+    "107.3"
+   ],
+   "why": "With two other Goblins X is 3; non-Goblin creatures do not count.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Krenko, Mob Boss",
+      "Raging Goblin",
+      "Goblin Piker",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Krenko, Mob Boss"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 3
+    }
+   ]
+  },
+  {
+   "name": "tokens-count-on-the-next-activation",
+   "cr": [
+    "107.3"
+   ],
+   "why": "Goblin tokens are Goblins: one token on turn 1, then X is 2 on the next turn - three tokens in all.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Krenko, Mob Boss"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Krenko, Mob Boss"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Krenko, Mob Boss"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 3
+    }
+   ]
+  },
+  {
+   "name": "opponents-goblins-do-not-count",
+   "cr": [
+    "109.5"
+   ],
+   "why": "Only Goblins its controller controls.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Krenko, Mob Boss"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Raging Goblin",
+      "Goblin Piker"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Krenko, Mob Boss"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "summoning-sick-cannot-tap",
+   "cr": [
+    "302.6"
+   ],
+   "why": "Cast this turn it cannot use its {T} ability; next turn it can.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Krenko, Mob Boss"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Krenko, Mob Boss",
+     "mana": "CCRR"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Krenko, Mob Boss",
+       "zone": "battlefield",
+       "pt": "3/3"
+      },
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Krenko, Mob Boss"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Krenko, Mob Boss"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "x-is-counted-on-resolution",
+   "cr": [
+    "608.2h",
+    "107.3"
+   ],
+   "why": "X is determined as the ability resolves: a Goblin killed in response is not counted.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Krenko, Mob Boss",
+      "Raging Goblin"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Krenko, Mob Boss"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Raging Goblin"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "krenko-killed-in-response-is-not-counted",
+   "cr": [
+    "608.2h",
+    "113.7a"
+   ],
+   "why": "The ability still resolves if Krenko is gone, but Krenko is no longer a Goblin its controller controls: only the other Goblin counts.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Krenko, Mob Boss",
+      "Raging Goblin"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Krenko, Mob Boss"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Krenko, Mob Boss"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Krenko, Mob Boss",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "tapped-krenko-cannot-activate-again",
+   "cr": [
+    "602.2b"
+   ],
+   "why": "Once tapped the ability is not offered again that turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Krenko, Mob Boss"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Krenko, Mob Boss"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Krenko, Mob Boss"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

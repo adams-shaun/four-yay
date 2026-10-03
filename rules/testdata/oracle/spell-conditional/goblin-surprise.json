@@ -1,0 +1,284 @@
+{
+ "card": "Goblin Surprise",
+ "family": "spell-conditional",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "01197aea4520",
+ "scenarios": [
+  {
+   "name": "pump-mode-plus-two-power",
+   "cr": [
+    "700.2",
+    "611.2c"
+   ],
+   "why": "First mode: each creature the caster controls gets +2/+0 until end of turn. The opponent's creatures do not; no tokens are made; the bonus is gone next turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Surprise"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Surprise",
+     "mana": "CCR",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "+2/+0"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "zone": "battlefield",
+       "pt": "4/2"
+      },
+      {
+       "card": "p0:Savannah Lions",
+       "zone": "battlefield",
+       "pt": "4/1"
+      },
+      {
+       "card": "p1:Centaur Courser",
+       "zone": "battlefield",
+       "pt": "3/3"
+      },
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Goblin"
+       },
+       "eq": 0
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "2/2"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "battlefield",
+     "pt": "2/1"
+    }
+   ]
+  },
+  {
+   "name": "token-mode-two-goblins",
+   "cr": [
+    "700.2",
+    "111.1"
+   ],
+   "why": "Second mode: two 1/1 Goblin creature tokens for the caster and no power bonus for anything.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Surprise"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Surprise",
+     "mana": "CCR",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Goblin"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 2
+    },
+    {
+     "card": "p0:token:Goblin",
+     "pt": "1/1",
+     "types": [
+      "Creature",
+      "Goblin"
+     ]
+    },
+    {
+     "card": "p0:token:Goblin#2",
+     "pt": "1/1"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "2/2"
+    },
+    {
+     "card": "p0:Goblin Surprise",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Goblin"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "pump-mode-misses-creatures-that-enter-later",
+   "cr": [
+    "611.2c"
+   ],
+   "why": "The set of creatures affected is fixed when the spell resolves: a creature that enters afterwards the same turn gets no bonus.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Surprise",
+      "Savannah Lions"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Surprise",
+     "mana": "CCR",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "+2/+0"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Savannah Lions",
+     "mana": "W"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "4/2"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "battlefield",
+     "pt": "2/1"
+    }
+   ]
+  },
+  {
+   "name": "pump-mode-adds-combat-damage-at-instant-speed",
+   "cr": [
+    "304.1",
+    "510.1a"
+   ],
+   "why": "Cast after blockers are declared, the pump mode makes an unblocked 2/2 deal 4.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Surprise"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Surprise",
+     "mana": "CCR",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "+2/+0"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 16
+     }
+    }
+   ]
+  }
+ ]
+}

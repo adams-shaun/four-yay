@@ -1,0 +1,6 @@
+{
+  "card": "C.A.M.P.",
+  "rows": {
+    "non-shared-color-tap-makes-counter-no-junk": "The ETB/tap trigger's 'If that creature shares a color with the mana that land produced, create a Junk token' is a Condition gate the engine does not evaluate: the shared-color check is skipped and the Junk token is always created. Observed with a fortified Plains tapped for {W} and the blue Welcoming Vampire chosen: the counter is applied (Vampire 3/4, correct) but a Junk token is created too; expected none (CR 603.2c conditions). The shared-color sibling scenario passes because W/G also share there -- this row is the only half that diverges."
+  }
+}

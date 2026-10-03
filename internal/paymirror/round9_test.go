@@ -70,7 +70,13 @@ import (
 // Damned casts to seq 6111 and 3694; both retain their recorded verdicts. The
 // crew-tracking fix (tmt-crewedthisturn, CR 702.122) emits one Crew event per
 // crewing creature, so seed 10056's trajectory renumbers: the Lagomos cast
-// moves from seq 6111 to 6128, still equivalent.
+// moves from seq 6111 to 6128, still equivalent. agent-20261003T030241Z-d3324728
+// (the exiled-with fix: `Defined$ ExiledWith` and `Card.ExiledWithSource` now
+// read the source's forward ExiledCards list over every seat, and ChangeZoneAll
+// records it) moves seed 8175's Songs of the Damned cast from seq 3694 to 3695:
+// foundations-calling-all-angels runs Oblivion Ring, whose leave-the-battlefield
+// trigger now returns the card it exiled, changing the trajectory. The
+// float_trigger_precedes_cast verdict is unchanged.
 func TestRoundNineFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -103,7 +109,7 @@ func TestRoundNineFindingsMirror(t *testing.T) {
 		10860: {3239: ""}, // Worldly Tutor; Three Visits no longer occurs after both command-zone fixes
 		11056: {},         // the Artisan finding is no longer reached; assert a clean, control-equivalent game
 		10056: {6128: ""},
-		8175:  {3694: precedes},
+		8175:  {3695: precedes},
 	}
 	for _, spec := range specs {
 		reports := round6Game(t, d, spec)

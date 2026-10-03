@@ -139,17 +139,34 @@ func (e *Engine) damageKeywordsOf(id state.ObjID) damageKeywordLKI {
 // batch, so each member's departure capture reads the pre-batch state no
 // matter where it sits in battlefield order. See batchDamageKeywords' field
 // doc for the consumption discipline.
+//
+// It also parks ONE pre-departure board for the whole batch (CR 603.10a,
+// 704.3): a leaves-the-battlefield trigger looks back in time, and the
+// members of a simultaneous batch all leave from the same board. emit's own
+// per-move window snapshots the board each move departs from, which for the
+// second member of a batch no longer holds the first -- so a permanent
+// destroyed together with another saw only its own departure (Vengeful
+// Bloodwitch under Day of Judgment triggered once, not twice). With the
+// board parked here, emit's window stands down (it opens only when none is
+// parked) and every member is matched against the one shared snapshot, the
+// discipline the state-based batches in sba.go already follow. An outer
+// window (a state-based batch, a parked replacement) keeps winning; nested
+// batches share the outermost board.
 func (e *Engine) BatchDepartures(ids []state.ObjID) {
 	e.batchDamageKeywords = make(map[state.ObjID]damageKeywordLKI, len(ids))
 	for _, id := range ids {
 		e.batchDamageKeywords[id] = e.damageKeywordsOf(id)
 	}
+	e.openBatchWindow()
 }
 
 // EndBatchDepartures closes a destruction/sacrifice batch even if one of its
 // proposed moves was prevented or replaced. Without this explicit boundary,
 // that survivor's pre-batch LKI could be consumed by an unrelated later move.
-func (e *Engine) EndBatchDepartures() { e.batchDamageKeywords = nil }
+func (e *Engine) EndBatchDepartures() {
+	e.batchDamageKeywords = nil
+	e.closeBatchWindow()
+}
 
 // captureSourceLifelinkLKI preserves CR 608.2h's pre-departure derived
 // lifelink state for every independent ability of the leaving permanent that
@@ -180,6 +197,7 @@ func (e *Engine) captureSourceLifelinkLKI(ev events.Event) (bool, damageKeywordL
 		kw = e.damageKeywordsOf(ev.Obj)
 	}
 	controller := e.G.Obj(ev.Obj).Controller
+	e.captureSourceCharLKI(ev.Obj)
 	for _, id := range e.G.Stack {
 		if o := e.G.Obj(id); o != nil && o.Ability != nil && o.Source == ev.Obj {
 			if e.sourceLifelinkLKI == nil {

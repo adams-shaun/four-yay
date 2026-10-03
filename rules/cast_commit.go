@@ -30,6 +30,18 @@ func (e *Engine) payCast() {
 		e.cast, e.choosing = nil, chooseNone
 		e.etbLandPlay, e.etbLandObj, e.etbLandPlayer = true, pc.card, pc.player
 		card := pc.card
+		// CR 305.1/110.2: the player who plays a land puts it onto the
+		// battlefield, under their control. A land another seat controls in
+		// its current zone (Tinybones's stashed opponent card, Gonti's or
+		// Opposition Agent's exiled card, an opponent's library top played
+		// through a may-play grant) comes under the player's control BEFORE
+		// the move, so it enters on that player's battlefield and their own
+		// landfall/enters triggers see it -- the land-play twin of the cast
+		// path's CR 601.2a ControlChange (cast_targets.go). An ordinary land
+		// play's card already answers to the player, so no event rides it.
+		if o := e.G.Obj(card); o != nil && o.Controller != pc.player {
+			e.emit(events.Event{Kind: events.ControlChange, Obj: card, Player: pc.player})
+		}
 		e.emit(events.Event{Kind: events.MoveZone, Obj: card, From: pc.from, To: state.ZBattlefield})
 		// The entry may never have happened: a ReplacementResult$ Replaced
 		// entry replacement discards the move entirely and the land stays in
@@ -264,8 +276,16 @@ func (e *Engine) payCast() {
 		// Sacrificed$<Property> SVar heads answer "the sacrificed creature's
 		// power/toughness/mana value" (CR 608.2g) against them.
 		var sacrificedLKI []state.SacrificedInfo
+		var selfChar sourceCharSnapshot
+		selfCharOK := false
 		for _, id := range pc.sacs {
-			sacrificedLKI = append(sacrificedLKI, state.SacrificedInfoOf(e.G, id))
+			sacrificedLKI = append(sacrificedLKI, effects.SacrificedLKI(e, id))
+			if id == pc.card && !selfCharOK {
+				// The source sacrificed as its own cost: its target filter
+				// reads this last-known snapshot (source_char_lki.go). The
+				// departure walk cannot seed it -- AbilityPush comes later.
+				selfChar, selfCharOK = e.sourceCharSnapshotOf(id), true
+			}
 		}
 		for _, id := range pc.sacs {
 			e.emit(events.Sacrifice(id))
@@ -354,6 +374,9 @@ func (e *Engine) payCast() {
 			}
 			e.sourceLifelinkLKI[pc.stackObj] = sourceKeywordLKI.lifelink
 			e.sourceControllerLKI[pc.stackObj] = sourceControllerLKI
+			if selfCharOK {
+				e.setSourceCharLKI(pc.stackObj, selfChar)
+			}
 			// The own-source fields above carry only lifelink and controller.
 			// CR 113.7a's other damage-relevant characteristics -- infect
 			// (CR 702.90b) and deathtouch (CR 702.2b) -- live in the named
@@ -480,7 +503,7 @@ func (e *Engine) payCast() {
 	// comment): the sacrificed permanents are still on the battlefield here.
 	var sacrificedLKI []state.SacrificedInfo
 	for _, id := range pc.sacs {
-		sacrificedLKI = append(sacrificedLKI, state.SacrificedInfoOf(e.G, id))
+		sacrificedLKI = append(sacrificedLKI, effects.SacrificedLKI(e, id))
 	}
 	// Casualty:X (Ob Nixilis, the Adversary): the amount is the sacrificed
 	// creature's power, read live here -- the sacrifice settles with the

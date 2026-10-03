@@ -41,6 +41,11 @@ type pendingTrigger struct {
 	Controller state.PlayerID
 	Idx        int
 	SA         *cards.SA
+	// sourceCharLKI is the source's last-known characteristics when it left
+	// the battlefield while this trigger waited (source_char_lki.go); it
+	// moves onto the stack object at TriggerPush.
+	sourceCharLKI      sourceCharSnapshot
+	sourceCharLKIValid bool
 	// Miracle marks a keyword offer (Task 18) rather than a matched T: line: a
 	// Miracle drawing queued with Idx/SA unset, which the drain treats as an
 	// optional trigger whose decider is the owner and routes a yes through
@@ -395,10 +400,22 @@ type discardBatchEntry struct {
 }
 
 // turnFires is one T: line's trigger count within the turn it last
-// triggered (Engine.triggerTurnFires).
+// triggered (Engine.triggerTurnFires). Stint is the source object's zone
+// stint (objectStintStart) the count belongs to, for the per-object limits
+// (ActivationLimit$, ResolvedLimit$): a source that changed zones is a new
+// object (CR 400.7) whose count starts over. Readers that are not
+// per-object leave it zero.
 type turnFires struct {
-	Turn int32
-	N    int32
+	Turn  int32
+	N     int32
+	Stint int
+}
+
+// gameFires is one T: line's lifetime trigger count for
+// GameActivationLimit$ within one zone stint of its source (see turnFires).
+type gameFires struct {
+	N     int32
+	Stint int
 }
 
 // combatFires is one T: line's once-per-combat latch stamp
@@ -412,10 +429,18 @@ type combatFires struct {
 
 // actionTriggerModes are the event-trigger modes the sacrifice/discard/tap/
 // crime/attack-declaration ticket registered. The trigger-level parameters
-// only they honour -- ActivationLimit$, PlayerTurn$, and a CheckDefinedPlayer$
-// predicate this build cannot evaluate failing closed -- are scoped to these
-// modes, so no trigger of another mode that fired before stops firing or
-// fires less often.
+// only they honour -- PlayerTurn$ and a CheckDefinedPlayer$ predicate this
+// build cannot evaluate failing closed -- are scoped to these modes, so no
+// trigger of another mode that fired before stops firing or fires less
+// often. ActivationLimit$ ("This ability triggers only once each turn") is
+// NOT scoped by this set any more: it is honoured on EVERY trigger mode
+// (triggerActivationLimitAllows / reserveTriggerLimits), because scoping it
+// let the corpus trigger lines of unlisted modes (ChangesZone, SpellCast,
+// CounterAdded/CounterAddedOnce, BecomesTarget, AbilityCast, Scry, ...)
+// trigger every time (72 lines over 68 scripts at the FORGE_REF pin) --
+// Exemplar of Light drew on every counter. The entry
+// comments below that cite ActivationLimit$ as a membership reason predate
+// that and now explain only the PlayerTurn$/CheckDefinedPlayer$ half.
 var actionTriggerModes = map[string]bool{
 	// Clashed joins them for the same reason: it is an event mode registered
 	// with its own marker Kind (events.Clash, task clash1), so the
@@ -584,7 +609,30 @@ func (e *Engine) triggerGameActivationLimitAllows(t cards.Trigger, key triggerKe
 	if !present {
 		return true
 	}
-	return int(e.triggerGameFires[key]) < limit
+	return int(e.triggerGameFiresNow(key).N) < limit
+}
+
+// triggerGameFiresNow is key's lifetime count for its source's CURRENT
+// object (CR 400.7): an entry from an earlier zone stint reads as zero.
+func (e *Engine) triggerGameFiresNow(key triggerKey) gameFires {
+	stint := e.objectStintStart(key.Source)
+	f := e.triggerGameFires[key]
+	if f.Stint != stint {
+		f = gameFires{Stint: stint}
+	}
+	return f
+}
+
+// triggerTurnFiresNow is key's count this turn for its source's CURRENT
+// object: an entry from an earlier turn or an earlier zone stint (CR 400.7)
+// reads as zero.
+func (e *Engine) triggerTurnFiresNow(key triggerKey) turnFires {
+	stint := e.objectStintStart(key.Source)
+	f := e.triggerTurnFires[key]
+	if f.Turn != e.G.Turn || f.Stint != stint {
+		f = turnFires{Turn: e.G.Turn, Stint: stint}
+	}
+	return f
 }
 
 // reserveTriggerGameActivationLimit commits the lifetime queue count for a
@@ -598,12 +646,14 @@ func (e *Engine) reserveTriggerGameActivationLimit(t cards.Trigger, key triggerK
 		return
 	}
 	if e.triggerGameFires == nil {
-		e.triggerGameFires = map[triggerKey]int32{}
+		e.triggerGameFires = map[triggerKey]gameFires{}
 	}
-	if int(e.triggerGameFires[key]) >= limit {
+	f := e.triggerGameFiresNow(key)
+	if int(f.N) >= limit {
 		return
 	}
-	e.triggerGameFires[key]++
+	f.N++
+	e.triggerGameFires[key] = f
 }
 
 // triggerTurnLimitFor parses a trigger's effective per-turn limit: the
@@ -646,11 +696,7 @@ func (e *Engine) triggerActivationLimitAllows(t cards.Trigger, key triggerKey) b
 	if !present {
 		return true
 	}
-	f := e.triggerTurnFires[key]
-	if f.Turn != e.G.Turn {
-		f = turnFires{Turn: e.G.Turn}
-	}
-	return int(f.N) < limit
+	return int(e.triggerTurnFiresNow(key).N) < limit
 }
 
 // reserveTriggerActivationLimit commits the per-turn queue count for a
@@ -665,10 +711,7 @@ func (e *Engine) reserveTriggerActivationLimit(t cards.Trigger, key triggerKey) 
 	if e.triggerTurnFires == nil {
 		e.triggerTurnFires = map[triggerKey]turnFires{}
 	}
-	f := e.triggerTurnFires[key]
-	if f.Turn != e.G.Turn {
-		f = turnFires{Turn: e.G.Turn}
-	}
+	f := e.triggerTurnFiresNow(key)
 	if int(f.N) >= limit {
 		return
 	}
@@ -677,15 +720,12 @@ func (e *Engine) reserveTriggerActivationLimit(t cards.Trigger, key triggerKey) 
 }
 
 // reserveTriggerLimits commits BOTH trigger-limit counts for a queue that is
-// happening, so every queue site reserves the same pair under the same
-// actionTriggerModes scoping (GameActivationLimit$ on every mode,
-// ActivationLimit$ only on the action modes) and a future queue site cannot
-// forget one half.
+// happening, so every queue site reserves the same pair (GameActivationLimit$
+// and the per-turn ActivationLimit$, both on every trigger mode) and a future
+// queue site cannot forget one half.
 func (e *Engine) reserveTriggerLimits(t cards.Trigger, key triggerKey) {
 	e.reserveTriggerGameActivationLimit(t, key)
-	if actionTriggerModes[t.Mode] {
-		e.reserveTriggerActivationLimit(t, key)
-	}
+	e.reserveTriggerActivationLimit(t, key)
 }
 
 // dieRollNumberAllows enforces a RolledDie trigger's Number$ N ("whenever
@@ -910,6 +950,9 @@ func (e *Engine) checkTriggers(ev *events.Event, lki *state.Object,
 		*observer = Engine{G: e.triggerBefore.game, L: e.L,
 			continuous: e.triggerBefore.continuous, continuousVersion: e.continuousVersion,
 			setNameInPool: e.setNameInPool, layer4InPool: e.layer4InPool}
+		// The no-ability-loss proof covers every object and registration
+		// the snapshot can hold (abilityloss.go).
+		observer.lossProof = abilityLossProof{seen: e.abilityLossPossible(), objs: e.lossProof.objs, contLen: -1}
 		// The reused observer's static memo storage, and the live memo when
 		// it is still the snapshot board's (lookback_static.go).
 		observer.staticContinuous = staticBuf
@@ -1198,6 +1241,12 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 		spec string
 	}
 	var phaseNotes []phaseNote
+	// disableNotes collects the DisableTriggers statics carrying an unread
+	// parameter (live walks only, like phaseNotes): the static fails open, so
+	// the walk must report it once per game rather than suppress silently. The
+	// observer is a scratch Engine that must never emit, and its walk is the
+	// leaving one, so the filter below skips it.
+	var disableNotes []state.ObjID
 	// Granted triggers inspect the same active-static list for every object
 	// this event visits. Matching cannot emit or mutate continuous effects;
 	// phase diagnostics emit only after the walk, so this snapshot is stable
@@ -1321,6 +1370,11 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 			// before.
 			walk = nil
 		}
+		if len(walk) != 0 && observer.printedAbilitiesLost(o) {
+			// CR 613.1f: a permanent that lost all abilities has no printed
+			// triggered ability; the granted walks below still run.
+			walk = nil
+		}
 		for _, fc := range walk {
 			if o.Unlocked && !e.objectFaceMayTrigger(id, fc.faceIdx, fc.face, ev.Kind) {
 				continue
@@ -1353,6 +1407,22 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 								e.phaseUnknownNoted[spec] = true
 								phaseNotes = append(phaseNotes, phaseNote{id: id, spec: spec})
 							}
+						}
+					}
+					// A DisableTriggers static with an unread parameter fails open.
+					// Report it once per static per game, from the live walk only, so
+					// the scratch observer never emits.
+					for _, dsv := range e.activeStatics("DisableTriggers") {
+						if len(disableTriggersUnread(dsv)) == 0 {
+							continue
+						}
+						key := fmt.Sprintf("dt:%d", dsv.Source)
+						if e.disableTriggersNoted == nil {
+							e.disableTriggersNoted = map[string]bool{}
+						}
+						if !e.disableTriggersNoted[key] {
+							e.disableTriggersNoted[key] = true
+							disableNotes = append(disableNotes, dsv.Source)
 						}
 					}
 				}
@@ -1426,7 +1496,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 				if !e.triggerGameActivationLimitAllows(t, key) {
 					continue // GameActivationLimit$: already triggered enough this game.
 				}
-				if actionTriggerModes[t.Mode] && !e.triggerActivationLimitAllows(t, key) {
+				if !e.triggerActivationLimitAllows(t, key) {
 					continue // ActivationLimit$: already triggered enough this turn.
 				}
 				// ResolvedLimit$ ("Do this only once each turn."): scoped to EVERY
@@ -1967,6 +2037,17 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 	for _, n := range phaseNotes {
 		e.emit(events.Event{Kind: events.Note, Obj: n.id,
 			Text: "Phase$ " + n.spec + " names no engine step; the trigger never fires"})
+	}
+	for _, src := range disableNotes {
+		params := ""
+		for _, sv := range e.activeStatics("DisableTriggers") {
+			if sv.Source == src {
+				params = strings.Join(disableTriggersUnread(sv), ",")
+				break
+			}
+		}
+		e.emit(events.Event{Kind: events.Note, Obj: src,
+			Text: "unmodelled DisableTriggers parameters: " + params})
 	}
 }
 
@@ -2510,6 +2591,9 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 		return false
 	}
 	if !e.zoneGate(t, source, ev) || !e.phaseGate(t) {
+		return false
+	}
+	if e.disableTriggersExcludes(t, source, ev) {
 		return false
 	}
 	// NotThisAbility$ True (task nta1): the event being matched must not

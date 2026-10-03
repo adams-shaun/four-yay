@@ -1,0 +1,119 @@
+{
+ "card": "Prideful Parent",
+ "family": "etb-ltb",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "f777b66e2a0e",
+ "scenarios": [
+  {
+   "name": "enters-with-a-cat-token",
+   "cr": [
+    "603.2",
+    "111.1"
+   ],
+   "why": "The enters trigger creates one 1/1 Cat creature token under its controller's control; the Parent is a 2/2 with vigilance.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Prideful Parent"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Prideful Parent",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Prideful Parent",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "keywords": [
+      "Vigilance"
+     ]
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Cat",
+     "pt": "1/1",
+     "types": [
+      "Creature",
+      "Cat"
+     ],
+     "no_keywords": [
+      "Vigilance"
+     ]
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Cat"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "vigilance-attacks-without-tapping",
+   "cr": [
+    "702.20b"
+   ],
+   "why": "Vigilance: attacking does not tap the Parent, and it still deals its 2 combat damage.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Prideful Parent"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Prideful Parent"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Prideful Parent",
+       "zone": "battlefield",
+       "tapped": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "card": "p0:Prideful Parent",
+     "zone": "battlefield",
+     "tapped": false
+    }
+   ]
+  }
+ ]
+}

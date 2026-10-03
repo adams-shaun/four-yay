@@ -754,8 +754,27 @@ func (e *Engine) mayPlayAltCosts(p state.PlayerID, id state.ObjID) []Cost {
 			continue
 		}
 		raw := strings.TrimSpace(sv.ParamStr(cards.PKMayPlayAltManaCost))
-		if raw == "" || strings.TrimSpace(sv.Params["MayPlay"]) != "True" || mayPlayGateRejected(sv.Params) ||
+		// MayPlayWithoutManaCost$ True over a card in HAND (Omniscience's
+		// "You may cast spells from your hand without paying their mana
+		// costs", Fires of Invention, Dracogenesis): casting without paying
+		// the mana cost is itself an alternative cost (CR 118.9), and the
+		// hand cast walk -- this function's only consumer zone -- is where
+		// it is delivered, as a free alternative. The may-play zone walks
+		// cover graveyard, exile and library and price their own free
+		// shape (mayPlayGrant), so the hand gate keeps the two from ever
+		// offering the same free cast twice.
+		free := raw == "" && o.Zone == state.ZHand &&
+			strings.EqualFold(strings.TrimSpace(sv.Params["MayPlayWithoutManaCost"]), "True")
+		if (raw == "" && !free) || strings.TrimSpace(sv.Params["MayPlay"]) != "True" || mayPlayGateRejected(sv.Params) ||
 			!e.mayPlayConditionGateHolds(sv.Params, sv.Source, sv.Controller) {
+			continue
+		}
+		// A battlefield static's permission is its controller's alone (the
+		// mayPlayGrant rule): MayPlayPlayer$ is rejected above, so no
+		// static here grants another player anything, and an Affected$ with
+		// no YouOwn/YouCtrl qualifier (Fires of Invention's
+		// Card.nonLand+cmcLEX) must not reach an opponent's hand.
+		if i < len(bf) && sv.Controller != p {
 			continue
 		}
 		// Condition$ PlayerTurn ("during each of your turns"): the static's
@@ -796,6 +815,10 @@ func (e *Engine) mayPlayAltCosts(p state.PlayerID, id state.ObjID) []Cost {
 			if n, err := strconv.Atoi(rawLimit); err == nil && n > 0 && e.mayPlayLimitReached(id, n) {
 				continue
 			}
+		}
+		if free {
+			out = append(out, Cost{})
+			continue
 		}
 		alt, ok := e.altCostParse(id, raw)
 		if !ok {
@@ -902,9 +925,23 @@ func (e *Engine) mayPlayKinds(p state.PlayerID, id state.ObjID) (plain, mutate, 
 // filter read the card's printed spell characteristics, the same way
 // mayPlayStatic evaluates a printed S: grant's ValidAfterStack$. An
 // unsupported value fails closed inside matchesSpec (no grant).
-func (e *Engine) effectGrantMatches(ce *state.ContinuousEffect, id state.ObjID) bool {
+// effectGrantSpecContext is the match context an Effect-delivered may-play
+// grant's Affects spec evaluates under: the effect's controller and source,
+// its Remembered set and, when the grant snapshotted one at creation, the
+// chosen-card set (state.ContinuousEffect.Chosen) a Card.ChosenCard spec
+// reads (Strongbox Raider, Chandra, Flameshaper).
+func (e *Engine) effectGrantSpecContext(ce *state.ContinuousEffect) effects.SpecContext {
 	sc := e.withNames(effects.SpecContext{You: ce.Controller, Source: ce.Source,
 		Remembered: rememberedTargets(ce.Remembered), Resolving: true})
+	if ce.ChosenBound {
+		sc.Chosen = rememberedTargets(ce.Chosen)
+		sc.ChosenValid = true
+	}
+	return sc
+}
+
+func (e *Engine) effectGrantMatches(ce *state.ContinuousEffect, id state.ObjID) bool {
+	sc := e.effectGrantSpecContext(ce)
 	if !e.matchesSpec(ce.Affects, id, sc) {
 		return false
 	}

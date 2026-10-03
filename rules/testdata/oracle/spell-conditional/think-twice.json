@@ -1,0 +1,251 @@
+{
+ "card": "Think Twice",
+ "family": "spell-conditional",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "c945d0739bb0",
+ "scenarios": [
+  {
+   "name": "cast-from-hand-draws-and-goes-to-graveyard",
+   "cr": [
+    "608.2n",
+    "121.1"
+   ],
+   "why": "Cast normally it draws one card and goes to the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Think Twice"
+     ],
+     "library_top": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Think Twice",
+     "mana": "CU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Think Twice",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "flashback-draws-then-exiles",
+   "cr": [
+    "702.34a"
+   ],
+   "why": "From the graveyard it can be cast for its flashback cost of three mana (one blue); it draws a card and is then exiled instead of returning to the graveyard.",
+   "setup": {
+    "p0": {
+     "graveyard": [
+      "Think Twice"
+     ],
+     "library_top": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Think Twice",
+     "mana": "CCU",
+     "cast_mode": "flashback"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Think Twice",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "flashback-costs-three-not-two",
+   "cr": [
+    "702.34a",
+    "118.9"
+   ],
+   "why": "Flashback is an alternative cost: the printed two-mana cost does not pay for a graveyard cast, three mana does.",
+   "setup": {
+    "p0": {
+     "graveyard": [
+      "Think Twice"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Think Twice"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Think Twice"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Think Twice",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "hand-then-flashback-same-turn",
+   "cr": [
+    "702.34a"
+   ],
+   "why": "After resolving from hand it is in the graveyard and can be flashed back in the same turn: two cards drawn, the card exiled.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Think Twice"
+     ],
+     "library_top": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Think Twice",
+     "mana": "CU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Think Twice",
+     "mana": "CCU",
+     "cast_mode": "flashback"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Think Twice",
+     "zone": "exile"
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "opponents-graveyard-copy-is-not-castable",
+   "cr": [
+    "702.34a"
+   ],
+   "why": "Flashback lets only the card's owner cast it from their own graveyard; the opponent's copy is not offered.",
+   "setup": {
+    "p0": {},
+    "p1": {
+     "graveyard": [
+      "Think Twice"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p1:Think Twice"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Think Twice",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

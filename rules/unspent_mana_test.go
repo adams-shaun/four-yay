@@ -275,11 +275,12 @@ func TestLeylineTyrantDeathTriggerSpendsTheBank(t *testing.T) {
 	}
 	submitChoices(t, e, pay)
 
-	// The body's "any target" ask (the mid-resolution tgts resume); take the
+	// CR 603.12: "When you do" is a reflexive triggered ability, so its "any
+	// target" is a placement target ask as it goes on the stack; take the
 	// opponent.
 	d = e.Pending()
-	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "tgts" {
-		t.Fatalf("expected the damage target ask, got %+v", d)
+	if d == nil || d.Kind != decision.KTarget {
+		t.Fatalf("expected the reflexive ability's damage target ask, got %+v", d)
 	}
 	tgt := -1
 	for _, o := range d.Options {
@@ -291,6 +292,10 @@ func TestLeylineTyrantDeathTriggerSpendsTheBank(t *testing.T) {
 		t.Fatalf("the opponent was not offered as an Any target: %+v", d.Options)
 	}
 	submitChoices(t, e, tgt)
+	if life := e.G.Players[1].Life; life != 20 {
+		t.Fatalf("opponent life = %d before the reflexive ability resolved, want 20", life)
+	}
+	passUntilStackEmpty(t, e, 20)
 
 	if life := e.G.Players[1].Life; life != 18 {
 		t.Fatalf("opponent life = %d after paying X = 2, want 18", life)

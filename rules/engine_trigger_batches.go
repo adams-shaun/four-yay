@@ -159,6 +159,12 @@ type engineTriggerBatches struct {
 	// often its trigger is walked. Cloned like the other bookkeeping maps so
 	// a branch that becomes live cannot re-emit the same Note.
 	phaseUnknownNoted map[string]bool
+	// disableTriggersNoted memoizes the DisableTriggers statics whose unread
+	// parameter grammar this engine has already reported (rules/disable_triggers.go's
+	// unmodelled diagnostic), keyed by the static's source so one static emits
+	// exactly one Note per game. Cloned like phaseUnknownNoted so a branch that
+	// becomes live cannot re-emit it.
+	disableTriggersNoted map[string]bool
 	// phaseSpecs caches pure Phase$ parsing for both diagnostics and matching.
 	// It is scratch, not replay bookkeeping: clones start with an empty cache.
 	phaseSpecs map[string]parsedPhase
@@ -231,7 +237,7 @@ type engineTriggerBatches struct {
 	triggerTurnFires map[triggerKey]turnFires
 	// triggerGameFires is the lifetime queue count for GameActivationLimit$.
 	// Unlike triggerTurnFires it is never reset at TurnChange.
-	triggerGameFires map[triggerKey]int32
+	triggerGameFires map[triggerKey]gameFires
 	// triggerTurnResolved is ResolvedLimit$'s per-turn resolution count,
 	// keyed by the trigger's SOURCE object (not its triggerKey): Forge's
 	// TriggeredAbility.resolvedThisTurn caps how many times a T: line may
@@ -248,4 +254,11 @@ type engineTriggerBatches struct {
 	triggerTurnDiceTurn int32
 	dmgSrcOverride      state.ObjID
 	batchDamageKeywords map[state.ObjID]damageKeywordLKI
+	// batchWindow is the pre-departure board BatchDepartures parked in
+	// triggerBefore for an effect's simultaneous departure batch, and
+	// batchWindowDepth the open BatchDepartures calls (nested batches share
+	// the outermost board). Engine-transient like triggerBefore: nil/zero at
+	// every intent boundary, never cloned.
+	batchWindow      *triggerSnapshot
+	batchWindowDepth int
 }

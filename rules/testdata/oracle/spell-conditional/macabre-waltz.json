@@ -1,0 +1,488 @@
+{
+ "card": "Macabre Waltz",
+ "family": "spell-conditional",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "39725273b371",
+ "scenarios": [
+  {
+   "name": "returns-two-creature-cards-then-discards",
+   "cr": [
+    "608.2c",
+    "701.9a"
+   ],
+   "why": "Both target creature cards return to hand, then its controller discards a card of their choice.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Macabre Waltz",
+      "Shock"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Macabre Waltz",
+     "mana": "CB",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Shock"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    },
+    {
+     "card": "p0:Macabre Waltz",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "may-discard-a-returned-card",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "The returned cards are in hand when the discard is chosen, so one of them may be discarded.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Macabre Waltz",
+      "Shock"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Macabre Waltz",
+     "mana": "CB",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "zero-targets-still-discards",
+   "cr": [
+    "115.1d",
+    "608.2c"
+   ],
+   "why": "Up to two: cast with no targets it still resolves and makes its controller discard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Macabre Waltz",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Macabre Waltz",
+     "mana": "CB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Macabre Waltz",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "single-returned-card-is-discarded-from-an-empty-hand",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "With no other card in hand the returned creature card is the only card to discard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Macabre Waltz"
+     ],
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Macabre Waltz",
+     "mana": "CB",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "graveyard_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "noncreature-card-is-not-targetable",
+   "cr": [
+    "115.1"
+   ],
+   "why": "Only creature cards may be targeted: an instant in the graveyard stays there.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Macabre Waltz",
+      "Shock"
+     ],
+     "graveyard": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Macabre Waltz",
+     "mana": "CB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "graveyard_size": {
+      "p0": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-graveyard-is-not-targetable",
+   "cr": [
+    "115.1"
+   ],
+   "why": "Only its controller's graveyard: the opponent's creature card stays.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Macabre Waltz",
+      "Shock"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Macabre Waltz",
+     "mana": "CB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0,
+      "p1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "all-targets-gone-no-discard",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "Its only target leaves the graveyard in response: the spell does not resolve, so nothing is discarded.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Macabre Waltz",
+      "Shock"
+     ],
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Macabre Waltz",
+     "mana": "CB",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "move",
+     "card": "p0:Grizzly Bears",
+     "to": "exile"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Shock",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Macabre Waltz",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "one-of-two-targets-gone-rest-resolves",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "One target leaves in response: the other is still returned and the discard still happens.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Macabre Waltz",
+      "Shock"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Macabre Waltz",
+     "mana": "CB",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions"
+     ]
+    },
+    {
+     "op": "move",
+     "card": "p0:Grizzly Bears",
+     "to": "exile"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Shock"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "exile"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "sorcery-not-castable-on-opponents-turn",
+   "cr": [
+    "307.1"
+   ],
+   "why": "It is a sorcery.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Macabre Waltz",
+      "Shock"
+     ],
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CB",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Macabre Waltz"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Macabre Waltz",
+     "zone": "hand"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,367 @@
+{
+ "card": "Fanatical Firebrand",
+ "family": "activated-ability",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "a423f846d214",
+ "scenarios": [
+  {
+   "name": "haste-attacks-the-turn-it-is-cast",
+   "cr": [
+    "702.10b",
+    "302.6"
+   ],
+   "why": "A 1/1 with haste can attack the turn it comes under its controller's control.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fanatical Firebrand"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fanatical Firebrand",
+     "mana": "R"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Fanatical Firebrand",
+       "zone": "battlefield",
+       "pt": "1/1",
+       "keywords": [
+        "Haste"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Fanatical Firebrand"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 19
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "tap-sacrifice-pings-a-player",
+   "cr": [
+    "602.2",
+    "120.3"
+   ],
+   "why": "Tapping and sacrificing the Firebrand deals 1 damage to the targeted player; the Firebrand is put into its owner's graveyard as a cost.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fanatical Firebrand"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Fanatical Firebrand",
+     "targets": [
+      "p1"
+     ],
+     "expect": [
+      {
+       "card": "p0:Fanatical Firebrand",
+       "zone": "graveyard"
+      },
+      {
+       "stack_size": 1
+      },
+      {
+       "life": {
+        "p1": 20
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 19,
+      "p0": 20
+     }
+    },
+    {
+     "card": "p0:Fanatical Firebrand",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "pings-a-creature",
+   "cr": [
+    "120.3",
+    "704.5g"
+   ],
+   "why": "Any target includes a creature: 1 damage kills a 2/1.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fanatical Firebrand"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Fanatical Firebrand",
+     "targets": [
+      "p1:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "one-damage-does-not-kill-two-toughness",
+   "cr": [
+    "120.3"
+   ],
+   "why": "It deals exactly 1 damage: a 2/2 survives with 1 damage marked.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fanatical Firebrand"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Fanatical Firebrand",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 1
+    }
+   ]
+  },
+  {
+   "name": "tapped-firebrand-cannot-activate",
+   "cr": [
+    "602.5",
+    "107.5"
+   ],
+   "why": "The cost includes {T}: after attacking (no vigilance) the tapped Firebrand cannot pay it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fanatical Firebrand"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Fanatical Firebrand"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Fanatical Firebrand"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Fanatical Firebrand",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Fanatical Firebrand"
+     },
+     "want": false
+    },
+    {
+     "life": {
+      "p1": 19
+     }
+    }
+   ]
+  },
+  {
+   "name": "haste-lets-it-activate-the-turn-it-enters",
+   "cr": [
+    "302.6",
+    "702.10c"
+   ],
+   "why": "Haste also lets it pay a {T} cost the turn it enters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fanatical Firebrand"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fanatical Firebrand",
+     "mana": "R"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Fanatical Firebrand",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 19
+     }
+    },
+    {
+     "card": "p0:Fanatical Firebrand",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "activates-at-instant-speed-on-opponents-turn",
+   "cr": [
+    "602.1",
+    "117.1b"
+   ],
+   "why": "The ability has no timing restriction: it can be activated during the opponent's turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fanatical Firebrand"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Fanatical Firebrand",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 19
+     }
+    }
+   ]
+  }
+ ]
+}

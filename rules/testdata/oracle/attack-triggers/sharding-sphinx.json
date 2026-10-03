@@ -1,0 +1,42 @@
+{
+  "card": "Sharding Sphinx",
+  "family": "attack-triggers",
+  "oracle_sha": "5224d9c6560c",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "artifact-creature-damage-may-create-thopter",
+      "cr": ["603.2", "510.1"],
+      "why": "Whenever an artifact creature you control deals combat damage to a player, you may create a 1/1 blue Thopter artifact creature token with flying. The Sphinx itself is an artifact creature, so its own combat damage triggers it.",
+      "setup": {
+        "p0": {"battlefield": ["Sharding Sphinx"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Sharding Sphinx"], "defender": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "end"}
+      ],
+      "expect": [
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Thopter", "token": true}, "eq": 1},
+        {"life": {"p1": 16}}
+      ]
+    },
+    {
+      "name": "nonartifact-attacker-creates-no-thopter",
+      "cr": ["603.2", "510.1"],
+      "why": "Only an ARTIFACT creature's combat damage triggers the Sphinx. A Grizzly Bears dealing combat damage does not create a Thopter.",
+      "setup": {
+        "p0": {"battlefield": ["Sharding Sphinx", "Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Grizzly Bears"], "defender": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "end"}
+      ],
+      "expect": [
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Thopter", "token": true}, "eq": 0},
+        {"life": {"p1": 18}}
+      ]
+    }
+  ]
+}

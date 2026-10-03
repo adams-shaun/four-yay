@@ -748,8 +748,12 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			o.CurCombatTurn, o.CurCombatCombat = 0, 0
 			// Exert state is the old permanent's, not the new object's
 			// (CR 400.7): a re-entering Combat Celebrant may exert again
-			// this turn and carries no untap-skip window.
+			// this turn and carries no untap-skip window. The CR 611.2b
+			// next-untap-step restriction (Frost Lynx's runtime keyword
+			// grant) is the same kind of battlefield-stint state and is
+			// cleared with it.
 			o.ExertedThisTurn, o.ExertSkipUntap = false, false
+			o.CantUntapNextStep = false
 			// CR 702.160: enlist is the old permanent's fact, not the new
 			// object's -- a re-entering creature carries no enlist stamp.
 			o.EnlistedTurn, o.EnlistedCombat = 0, 0

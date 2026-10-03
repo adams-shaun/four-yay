@@ -1,0 +1,129 @@
+{
+ "card": "Helpful Hunter",
+ "family": "etb-ltb",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "954aa7dc40bb",
+ "scenarios": [
+  {
+   "name": "enters-and-draws-one",
+   "cr": [
+    "603.2",
+    "121.1"
+   ],
+   "why": "The enters trigger draws its controller exactly one card: the top card of their library.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Helpful Hunter"
+     ],
+     "library_top": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Helpful Hunter",
+     "mana": "CW",
+     "expect": [
+      {
+       "hand_size": {
+        "p0": 0
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Helpful Hunter",
+     "zone": "battlefield",
+     "pt": "1/1"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 1,
+      "p1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "trigger-is-on-the-stack-after-it-enters",
+   "cr": [
+    "603.3b",
+    "603.6a"
+   ],
+   "why": "The draw is a triggered ability that uses the stack: once the creature spell resolves the trigger is waiting and no card has been drawn yet.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Helpful Hunter"
+     ],
+     "library_top": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Helpful Hunter",
+     "mana": "CW"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Helpful Hunter",
+       "want": true
+      },
+      {
+       "card": "p0:Helpful Hunter",
+       "zone": "battlefield"
+      },
+      {
+       "hand_size": {
+        "p0": 0
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  }
+ ]
+}

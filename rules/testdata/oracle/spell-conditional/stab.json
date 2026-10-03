@@ -1,0 +1,158 @@
+{
+ "card": "Stab",
+ "family": "spell-conditional",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "163493e09fa7",
+ "scenarios": [
+  {
+   "name": "minus-two-kills-a-two-two",
+   "cr": [
+    "704.5f",
+    "608.2"
+   ],
+   "why": "A 2/2 given -2/-2 has toughness 0 and is put into its owner's graveyard as a state-based action.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Stab"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Stab",
+     "mana": "B",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Stab",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "three-three-shrinks-until-end-of-turn",
+   "cr": [
+    "611.2a",
+    "514.2"
+   ],
+   "why": "A 3/3 becomes 1/1 and survives; the effect lasts only until end of turn, so on the next turn it is 3/3 again.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Stab"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Stab",
+     "mana": "B",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p1:Centaur Courser",
+       "zone": "battlefield",
+       "pt": "1/1"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "pt": "3/3"
+    }
+   ]
+  },
+  {
+   "name": "instant-on-opponents-turn-own-creature",
+   "cr": [
+    "304.1",
+    "115.1"
+   ],
+   "why": "Stab is an instant with no controller restriction on its target: its controller may cast it during the opponent's turn and aim it at their own creature.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Stab"
+     ],
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Stab",
+     "mana": "B",
+     "targets": [
+      "p0:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "battlefield",
+     "pt": "1/1"
+    }
+   ]
+  }
+ ]
+}

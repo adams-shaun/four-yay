@@ -1,0 +1,281 @@
+{
+ "card": "Hero's Downfall",
+ "family": "spell-conditional",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "2c7b26f4124a",
+ "scenarios": [
+  {
+   "name": "destroys-target-creature",
+   "cr": [
+    "701.8a"
+   ],
+   "why": "The target creature is destroyed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hero's Downfall"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hero's Downfall",
+     "mana": "CBB",
+     "targets": [
+      "p1:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Hero's Downfall",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "destroys-target-planeswalker",
+   "cr": [
+    "701.8a",
+    "115.1"
+   ],
+   "why": "A planeswalker is a legal target and is destroyed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hero's Downfall"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Jace Beleren"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hero's Downfall",
+     "mana": "CBB",
+     "targets": [
+      "p1:Jace Beleren"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Jace Beleren",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "no-creature-or-planeswalker-not-castable",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "An artifact and a land are not legal targets; with nothing else on the battlefield the spell cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hero's Downfall"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Bonesplitter",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CBB",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Hero's Downfall"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Hero's Downfall",
+     "zone": "hand"
+    },
+    {
+     "card": "p1:Bonesplitter",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "indestructible-creature-is-not-destroyed",
+   "cr": [
+    "702.12b"
+   ],
+   "why": "An indestructible creature may be targeted but is not destroyed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hero's Downfall"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Darksteel Myr"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hero's Downfall",
+     "mana": "CBB",
+     "targets": [
+      "p1:Darksteel Myr"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Darksteel Myr",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Hero's Downfall",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "instant-on-opponents-turn-may-target-own-creature",
+   "cr": [
+    "307.1",
+    "115.1"
+   ],
+   "why": "It is an instant and may target any creature, including its controller's own.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hero's Downfall"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hero's Downfall",
+     "mana": "CBB",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "target-gone-on-resolution-does-nothing",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "With its only target gone the spell does not resolve; no other creature is destroyed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hero's Downfall"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hero's Downfall",
+     "mana": "CBB",
+     "targets": [
+      "p1:Craw Wurm"
+     ]
+    },
+    {
+     "op": "move",
+     "card": "p1:Craw Wurm",
+     "to": "hand"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Hero's Downfall",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

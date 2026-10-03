@@ -1,0 +1,42 @@
+{
+  "card": "Myr Retriever",
+  "family": "death-triggers",
+  "oracle_sha": "100011502819",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "dies-returns-another-artifact-from-graveyard",
+      "cr": ["603.6c", "603.10a"],
+      "why": "When the Retriever dies its trigger returns ANOTHER target artifact card from your graveyard to your hand. The Retriever itself is not in the graveyard at that point and cannot be the target, but another artifact can.",
+      "setup": {
+        "p0": {"battlefield": ["Myr Retriever"], "graveyard": ["Ornithopter"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Myr Retriever", "to": "graveyard"},
+        {"op": "resolve", "targets": ["p0:Ornithopter"]}
+      ],
+      "expect": [
+        {"card": "p0:Myr Retriever", "zone": "graveyard"},
+        {"card": "p0:Ornithopter", "zone": "hand"}
+      ]
+    },
+    {
+      "name": "no-other-artifact-in-graveyard-returns-nothing",
+      "cr": ["603.3d"],
+      "why": "The target is \"another\" artifact card, so with only the Retriever entering the graveyard there is no legal target and nothing is returned.",
+      "setup": {
+        "p0": {"battlefield": ["Myr Retriever"], "graveyard": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Myr Retriever", "to": "graveyard"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Myr Retriever", "zone": "graveyard"},
+        {"card": "p0:Grizzly Bears", "zone": "graveyard"}
+      ]
+    }
+  ]
+}

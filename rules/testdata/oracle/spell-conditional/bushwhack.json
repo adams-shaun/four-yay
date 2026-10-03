@@ -1,0 +1,525 @@
+{
+ "card": "Bushwhack",
+ "family": "spell-conditional",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "e255ee23cf76",
+ "scenarios": [
+  {
+   "name": "search-mode-fetches-a-basic-land",
+   "cr": [
+    "700.2a",
+    "701.23a"
+   ],
+   "why": "The first mode searches the library for a basic land card and puts it into the caster's hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bushwhack"
+     ],
+     "library": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bushwhack",
+     "mana": "G",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Search"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Bushwhack",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "fight-mode-each-deals-damage-equal-to-power",
+   "cr": [
+    "701.14a",
+    "700.2a"
+   ],
+   "why": "The second mode: the caster's 3/3 fights the opposing 2/2 — the 2/2 dies and the 3/3 takes 2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bushwhack"
+     ],
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bushwhack",
+     "mana": "G",
+     "targets": [
+      "p0:Centaur Courser",
+      "p1:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "fights"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "battlefield",
+     "damage": 2
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "fight-mode-both-can-die",
+   "cr": [
+    "701.14a"
+   ],
+   "why": "A fight is mutual: a 2/2 fighting a 3/3 dies and leaves 2 damage on it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bushwhack"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bushwhack",
+     "mana": "G",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p1:Centaur Courser"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "fights"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "damage": 2
+    }
+   ]
+  },
+  {
+   "name": "fight-targets-are-chosen-on-cast",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "Both fighters are targets announced on cast: the opposing creature named (the second of two) is the one that fights.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bushwhack"
+     ],
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bushwhack",
+     "mana": "G",
+     "targets": [
+      "p0:Centaur Courser",
+      "p1:Savannah Lions"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "fights"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "battlefield",
+     "damage": 2
+    }
+   ]
+  },
+  {
+   "name": "fight-opposing-target-gone-no-fight",
+   "cr": [
+    "608.2b",
+    "701.14b"
+   ],
+   "why": "If the opposing target is gone on resolution no fight happens and no other creature is substituted.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bushwhack"
+     ],
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Savannah Lions",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bushwhack",
+     "mana": "G",
+     "targets": [
+      "p0:Centaur Courser",
+      "p1:Savannah Lions"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "fights"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "fight-targeting-a-ward-creature-triggers-ward",
+   "cr": [
+    "702.21a",
+    "601.2c"
+   ],
+   "why": "An opposing ward creature named as the second fight target becomes the target of an opponent's spell: ward triggers on cast and, unpaid, counters Bushwhack.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bushwhack"
+     ],
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Tolarian Terror"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bushwhack",
+     "mana": "G",
+     "targets": [
+      "p0:Centaur Courser",
+      "p1:Tolarian Terror"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "fights"
+       ]
+      }
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p1:Tolarian Terror",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Tolarian Terror",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p0:Bushwhack",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "sorcery-timing-only",
+   "cr": [
+    "307.1"
+   ],
+   "why": "A sorcery can be cast only in its controller's main phase with an empty stack: not on the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bushwhack"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "G",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Bushwhack"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "G",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Bushwhack"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Bushwhack",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "search-mode-needs-no-creatures",
+   "cr": [
+    "601.2b",
+    "700.2a"
+   ],
+   "why": "The search mode has no targets, so the spell is castable on an empty board; a card that is not a basic land stays in the library.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bushwhack"
+     ],
+     "library": [
+      "Forest",
+      "Evolving Wilds"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bushwhack",
+     "mana": "G",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Search"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Evolving Wilds",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  }
+ ]
+}

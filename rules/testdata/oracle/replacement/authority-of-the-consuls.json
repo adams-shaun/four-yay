@@ -1,0 +1,194 @@
+{
+ "card": "Authority of the Consuls",
+ "family": "replacement",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "ec9a68d77e8e",
+ "scenarios": [
+  {
+   "name": "opponents-creature-enters-tapped-and-you-gain",
+   "cr": [
+    "614.1c",
+    "603.2"
+   ],
+   "why": "An opponent's creature enters tapped and its controller's opponent gains 1 life.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Authority of the Consuls"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Grizzly Bears",
+     "mana": "GC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "life": {
+      "p0": 21,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "own-creature-untapped-no-life",
+   "cr": [
+    "614.1c",
+    "603.2"
+   ],
+   "why": "Its controller's own creature enters untapped and gains nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Authority of the Consuls"
+     ],
+     "hand": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "GC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "tapped": false
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-tokens-enter-tapped-each-gains",
+   "cr": [
+    "614.1c",
+    "603.2"
+   ],
+   "why": "Two Goblin tokens the opponent creates both enter tapped and each gains 1 life.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Authority of the Consuls"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Dragon Fodder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Dragon Fodder",
+     "mana": "RC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:token:Goblin#1",
+     "tapped": true
+    },
+    {
+     "card": "p1:token:Goblin#2",
+     "tapped": true
+    },
+    {
+     "life": {
+      "p0": 22
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-noncreature-enters-untapped",
+   "cr": [
+    "614.1c"
+   ],
+   "why": "Only creatures: the opponent's artifact enters untapped and gains no life.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Authority of the Consuls"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Quick-Draw Katana"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Quick-Draw Katana",
+     "mana": "CC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Quick-Draw Katana",
+     "tapped": false
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  }
+ ]
+}

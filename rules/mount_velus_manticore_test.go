@@ -93,7 +93,9 @@ func runManticoreCombat(t *testing.T, seed uint64, fodderSrc string) (eng *Engin
 			passOnce(t, e)
 			continue
 		}
-		if d.Kind == decision.KChoose && d.ResumeKind == "tgts" {
+		if d.Kind == decision.KTarget {
+			// CR 603.12: the reflexive "when you do" ability's own target,
+			// chosen as it is put on the stack.
 			idx := -1
 			for _, o := range d.Options {
 				if o.Kind == "player" && o.Label == "b" {

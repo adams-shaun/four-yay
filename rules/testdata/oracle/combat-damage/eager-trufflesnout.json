@@ -1,0 +1,377 @@
+{
+ "card": "Eager Trufflesnout",
+ "family": "combat-damage",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "69767b3d8633",
+ "scenarios": [
+  {
+   "name": "unblocked-deals-four-and-makes-a-food",
+   "cr": [
+    "510.1",
+    "603.2",
+    "111.10b"
+   ],
+   "why": "Combat damage to a player creates one Food token.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Eager Trufflesnout"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Eager Trufflesnout"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 16
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Food",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "fully-blocked-no-food",
+   "cr": [
+    "510.1",
+    "603.2"
+   ],
+   "why": "Blocked by a 4/4 all four damage is needed for lethal on the blocker, none reaches the player: no Food.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Eager Trufflesnout"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Air Elemental"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Eager Trufflesnout"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Air Elemental",
+       "p0:Eager Trufflesnout"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Food"
+     },
+     "eq": 0
+    },
+    {
+     "card": "p0:Eager Trufflesnout",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "trample-excess-over-a-chump-blocker-makes-a-food",
+   "cr": [
+    "702.19b",
+    "603.2"
+   ],
+   "why": "Blocked by a 2/2, trample assigns 2 to the blocker and 2 to the player; that is combat damage to a player, so a Food is created.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Eager Trufflesnout"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Eager Trufflesnout"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Grizzly Bears",
+       "p0:Eager Trufflesnout"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 18
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Food",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Eager Trufflesnout",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "food-token-gains-three-life",
+   "cr": [
+    "111.10b",
+    "602.2"
+   ],
+   "why": "The Food is an artifact token: paying {2}, tapping and sacrificing it gains its controller 3 life.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Eager Trufflesnout"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Eager Trufflesnout"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "expect": [
+      {
+       "card": "p0:token:Food",
+       "types": [
+        "Artifact",
+        "Food"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:token:Food",
+     "mana": "CC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 23,
+      "p1": 16
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Food"
+     },
+     "eq": 0
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "food-needs-two-mana",
+   "cr": [
+    "602.2b"
+   ],
+   "why": "With one mana the Food's ability is not activatable.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Eager Trufflesnout"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Eager Trufflesnout"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:token:Food"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "blocking-deals-no-damage-to-a-player",
+   "cr": [
+    "603.2"
+   ],
+   "why": "As a blocker it deals damage only to a creature: no Food.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Eager Trufflesnout"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Grizzly Bears"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p0:Eager Trufflesnout",
+       "p1:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Food"
+     },
+     "eq": 0
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Eager Trufflesnout",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

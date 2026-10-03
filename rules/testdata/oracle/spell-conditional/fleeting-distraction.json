@@ -1,0 +1,205 @@
+{
+ "card": "Fleeting Distraction",
+ "family": "spell-conditional",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "8716b74a5ebb",
+ "scenarios": [
+  {
+   "name": "minus-one-power-and-draw",
+   "cr": [
+    "611.2a",
+    "121.1"
+   ],
+   "why": "The target loses 1 power (toughness unchanged) until end of turn and the caster draws a card; next turn the creature is back to its printed power.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fleeting Distraction"
+     ],
+     "library_top": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fleeting Distraction",
+     "mana": "U",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p1:Centaur Courser",
+       "zone": "battlefield",
+       "pt": "2/3"
+      },
+      {
+       "card": "p0:Grizzly Bears",
+       "zone": "hand"
+      },
+      {
+       "hand_size": {
+        "p0": 1
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "pt": "3/3"
+    },
+    {
+     "card": "p0:Fleeting Distraction",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "illegal-target-on-resolution-draws-nothing",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "With its only target gone the spell does not resolve, so no card is drawn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fleeting Distraction",
+      "Lightning Bolt"
+     ],
+     "library_top": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fleeting Distraction",
+     "mana": "U",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "shrinks-an-attacker-mid-combat",
+   "cr": [
+    "304.1",
+    "510.1a"
+   ],
+   "why": "Cast during the opponent's combat after attackers are declared, it makes a 2/2 attacker deal only 1 combat damage.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fleeting Distraction"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Grizzly Bears"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fleeting Distraction",
+     "mana": "U",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 19
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  }
+ ]
+}

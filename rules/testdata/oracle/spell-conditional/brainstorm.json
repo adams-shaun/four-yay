@@ -1,0 +1,72 @@
+{
+ "card": "Brainstorm",
+ "family": "spell-conditional",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "565cea493e38",
+ "scenarios": [
+  {
+   "name": "draws-three-and-puts-two-back-on-top",
+   "cr": [
+    "121.1",
+    "608.2c"
+   ],
+   "why": "Brainstorm draws three cards, then puts two cards from hand on top of the library. p0 keeps the Forest and puts Island and Mountain back, leaving one card in hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Brainstorm"
+     ],
+     "library_top": [
+      "Forest",
+      "Island",
+      "Mountain"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Brainstorm",
+     "mana": "U"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Island",
+        "p0:Mountain"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Island",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Mountain",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Brainstorm",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

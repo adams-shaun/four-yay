@@ -1,0 +1,8 @@
+{
+  "card": "Bushwhack",
+  "rows": {
+    "fight-targets-are-chosen-on-cast": "CR 601.2c: both fighters are targets announced on cast. Observed: only the caster's creature is asked on cast; the opposing creature is posed as a resolution-time choose, so the creature named on cast (Savannah Lions) is ignored and the default choice (Grizzly Bears) fights. Same root as Bite Down/second-target-is-chosen-on-cast.",
+    "fight-opposing-target-gone-no-fight": "CR 608.2b/701.14b: with the opposing target (Savannah Lions) gone on resolution no fight happens. Observed: the engine picks the opposing creature on resolution, so the surviving Grizzly Bears fights and dies and Centaur Courser takes 2. Same root as Bite Down/second-target-is-chosen-on-cast.",
+    "fight-targeting-a-ward-creature-triggers-ward": "CR 702.21a: an opposing Tolarian Terror named as the fight target triggers ward {2} on cast and, unpaid, counters Bushwhack. Observed: no ward trigger (stack holds only Bushwhack) and the fight happens, because the opposing creature is never a target. Same root as Bite Down/second-target-is-chosen-on-cast."
+  }
+}

@@ -1,0 +1,668 @@
+{
+ "card": "Goblin Negotiation",
+ "family": "spell-conditional",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "0ade77085b4a",
+ "scenarios": [
+  {
+   "name": "one-excess-damage-one-goblin",
+   "cr": [
+    "120.4a",
+    "107.3a"
+   ],
+   "why": "X=3 on a 2/2: 2 is lethal, 1 is excess, one 1/1 Goblin token.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Negotiation"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Negotiation",
+     "mana": "CCCRR",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "3"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Goblin",
+     "pt": "1/1",
+     "types": [
+      "Creature",
+      "Goblin"
+     ]
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    },
+    {
+     "card": "p0:Goblin Negotiation",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "exactly-lethal-no-goblins",
+   "cr": [
+    "120.4a"
+   ],
+   "why": "X=2 on a 2/2 is exactly lethal: no excess, no tokens.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Negotiation"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Negotiation",
+     "mana": "CCRR",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "2"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "less-than-lethal-damage-marked-no-goblins",
+   "cr": [
+    "120.3e",
+    "120.4a"
+   ],
+   "why": "X=3 on a 6/4 marks 3 damage; no excess.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Negotiation"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Negotiation",
+     "mana": "CCCRR",
+     "targets": [
+      "p1:Craw Wurm"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "3"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "battlefield",
+     "damage": 3
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "big-x-many-goblins",
+   "cr": [
+    "120.4a"
+   ],
+   "why": "X=6 on a 2/2: 4 excess, four Goblins.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Negotiation"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Negotiation",
+     "mana": "CCCCCCRR",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "6"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 4
+    }
+   ]
+  },
+  {
+   "name": "damage-already-marked-counts-toward-lethal",
+   "cr": [
+    "120.4a"
+   ],
+   "why": "Excess is measured against lethal damage taking marked damage into account: a 3/3 with 2 damage needs 1 more, so X=3 has 2 excess.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Negotiation",
+      "Shock"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p1:Centaur Courser",
+       "damage": 2
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Negotiation",
+     "mana": "CCCRR",
+     "targets": [
+      "p1:Centaur Courser"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "3"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "x-zero-does-nothing",
+   "cr": [
+    "107.3a",
+    "120.8"
+   ],
+   "why": "X=0: no damage, no tokens.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Negotiation"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Negotiation",
+     "mana": "RR",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "0"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "indestructible-creature-still-takes-excess-damage",
+   "cr": [
+    "120.4a",
+    "702.12b"
+   ],
+   "why": "Excess is measured against lethal damage, not against whether the creature dies: X=3 on an indestructible 0/1 is 2 excess while the creature survives.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Negotiation"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Darksteel Myr"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Negotiation",
+     "mana": "CCCRR",
+     "targets": [
+      "p1:Darksteel Myr"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "3"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Darksteel Myr",
+     "zone": "battlefield"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "own-creature-is-a-legal-target",
+   "cr": [
+    "115.1"
+   ],
+   "why": "Any creature can be the target, including its caster's own.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Negotiation"
+     ],
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Negotiation",
+     "mana": "CCCRR",
+     "targets": [
+      "p0:Savannah Lions"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "3"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "target-gone-in-response-no-goblins",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "The target is returned to hand in response: the spell does nothing, so no damage and no tokens.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Negotiation"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Unsummon"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Negotiation",
+     "mana": "CCCCCRR",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "5"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Unsummon",
+     "mana": "U",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin"
+     },
+     "eq": 0
+    },
+    {
+     "card": "p0:Goblin Negotiation",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "no-creature-cannot-be-cast",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "With no creature on the battlefield there is no legal target.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Negotiation"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCRR"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Goblin Negotiation"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "pumped-toughness-raises-lethal",
+   "cr": [
+    "120.4a",
+    "613.4c"
+   ],
+   "why": "Lethal damage uses current toughness: a 2/2 under Giant Growth is 5/5, so X=6 has 1 excess.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Negotiation"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Negotiation",
+     "mana": "CCCCCCRR",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "6"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,70 @@
+{
+ "card": "Blue Sun's Zenith",
+ "family": "spell-conditional",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "a34ea0f7a3e6",
+ "scenarios": [
+  {
+   "name": "x-two-target-player-draws-two-then-shuffles-in",
+   "cr": [
+    "107.3",
+    "701.19a",
+    "121.1"
+   ],
+   "why": "Target player draws X cards, then Blue Sun's Zenith is shuffled into its owner's library. With X=2 p0 draws the two set-up cards and the Zenith leaves the graveyard path: it is in the library.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Blue Sun's Zenith"
+     ],
+     "library_top": [
+      "Forest",
+      "Island"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Blue Sun's Zenith",
+     "mana": "UUUCC",
+     "targets": [
+      "p0"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "2"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Island",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Blue Sun's Zenith",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  }
+ ]
+}

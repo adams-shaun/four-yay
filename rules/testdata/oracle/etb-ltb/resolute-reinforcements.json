@@ -1,0 +1,176 @@
+{
+ "card": "Resolute Reinforcements",
+ "family": "etb-ltb",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "5c272a3c90a6",
+ "scenarios": [
+  {
+   "name": "enters-creating-a-soldier",
+   "cr": [
+    "603.6a",
+    "111.1"
+   ],
+   "why": "Entering creates one 1/1 Soldier creature token.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Resolute Reinforcements"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Resolute Reinforcements",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Resolute Reinforcements",
+     "zone": "battlefield",
+     "pt": "1/1"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Soldier",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Soldier",
+     "pt": "1/1",
+     "types": [
+      "Creature",
+      "Soldier"
+     ]
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Soldier"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "flash-on-opponents-turn",
+   "cr": [
+    "702.8a"
+   ],
+   "why": "Flash: it can be cast during the opponent's turn, and its trigger still creates the token.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Resolute Reinforcements"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Resolute Reinforcements",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Resolute Reinforcements",
+     "zone": "battlefield"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Soldier",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "flash-in-response-to-a-spell",
+   "cr": [
+    "702.8a",
+    "117.1a"
+   ],
+   "why": "Flash: it can be cast with a spell on the stack, and resolves first.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Resolute Reinforcements",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Resolute Reinforcements",
+     "mana": "CW",
+     "expect": [
+      {
+       "stack_size": 2
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Resolute Reinforcements",
+     "zone": "battlefield"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Soldier",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,205 @@
+{
+ "card": "Bloom Tender",
+ "family": "activated-ability",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "8540bb74d9d4",
+ "scenarios": [
+  {
+   "name": "alone-adds-green",
+   "cr": [
+    "106.1",
+    "105.2"
+   ],
+   "why": "Alone, the only color among its controller's permanents is its own green: {G}.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Bloom Tender",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Bloom Tender",
+     "ability": "for mana"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "G"
+     }
+    },
+    {
+     "card": "p0:Bloom Tender",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "one-mana-per-color",
+   "cr": [
+    "106.1",
+    "105.2"
+   ],
+   "why": "With a white creature and another green one: {G}{W} (one per color, not per permanent).",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Bloom Tender",
+      "Savannah Lions",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Bloom Tender",
+     "ability": "for mana"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "GW"
+     }
+    }
+   ]
+  },
+  {
+   "name": "multicolored-permanent-adds-each-color",
+   "cr": [
+    "105.2"
+   ],
+   "why": "A red-and-white permanent adds both: {G}{R}{W}.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Bloom Tender",
+      "Swiftblade Vindicator"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Bloom Tender",
+     "ability": "for mana"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "GRW"
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-permanents-do-not-count",
+   "cr": [
+    "105.2"
+   ],
+   "why": "Only permanents you control.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Bloom Tender"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Bloom Tender",
+     "ability": "for mana"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "G"
+     }
+    }
+   ]
+  },
+  {
+   "name": "noncreature-colored-permanent-counts",
+   "cr": [
+    "105.2"
+   ],
+   "why": "Any permanent: a blue enchantment (Sphinx's Tutelage) adds {U}.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Bloom Tender",
+      "Sphinx's Tutelage"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Bloom Tender",
+     "ability": "for mana"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "GU"
+     }
+    }
+   ]
+  },
+  {
+   "name": "summoning-sick-cannot-tap",
+   "cr": [
+    "302.6"
+   ],
+   "why": "Cast this turn, its {T} ability cannot be activated.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bloom Tender"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bloom Tender",
+     "mana": "GC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Bloom Tender",
+      "label": "for mana"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

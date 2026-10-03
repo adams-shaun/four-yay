@@ -1,0 +1,382 @@
+{
+ "card": "Gutless Plunderer",
+ "family": "trigger-condition",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "2efbefaff9d9",
+ "scenarios": [
+  {
+   "name": "no-attack-this-turn-no-raid",
+   "cr": [
+    "603.4",
+    "207.2c"
+   ],
+   "why": "Cast before any attack, the raid condition is false: nothing is looked at and the library and graveyard are untouched.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Gutless Plunderer"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock",
+      "Giant Growth"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gutless Plunderer",
+     "mana": "CCB"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Gutless Plunderer",
+       "want": false
+      },
+      {
+       "stack_size": 0
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Gutless Plunderer",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "keywords": [
+      "Deathtouch"
+     ]
+    },
+    {
+     "graveyard_size": {
+      "p0": 0
+     }
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "raid-keeps-one-card-on-top-rest-to-graveyard",
+   "cr": [
+    "603.4",
+    "701.20"
+   ],
+   "why": "Having attacked this turn, entering looks at the top three: Shock is put back on top and the other two go to the graveyard. Shock is then the next card drawn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Gutless Plunderer"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock",
+      "Giant Growth"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gutless Plunderer",
+     "mana": "CCB"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Shock"
+       ]
+      }
+     ],
+     "expect": [
+      {
+       "card": "p0:Shock",
+       "zone": "library"
+      },
+      {
+       "card": "p0:Lightning Bolt",
+       "zone": "graveyard"
+      },
+      {
+       "card": "p0:Giant Growth",
+       "zone": "graveyard"
+      },
+      {
+       "graveyard_size": {
+        "p0": 2
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Shock",
+     "zone": "hand"
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "raid-may-put-none-back",
+   "cr": [
+    "603.4",
+    "608.2d"
+   ],
+   "why": "Putting a card back is optional: declining puts all three into the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Gutless Plunderer"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock",
+      "Giant Growth"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gutless Plunderer",
+     "mana": "CCB"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Shock",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Giant Growth",
+     "zone": "graveyard"
+    },
+    {
+     "graveyard_size": {
+      "p0": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "attacking-after-it-entered-is-too-late",
+   "cr": [
+    "603.4"
+   ],
+   "why": "The condition is checked as it enters: attacking later in the turn does not look at anything.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Gutless Plunderer"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock",
+      "Giant Growth"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gutless Plunderer",
+     "mana": "CCB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p0": 0
+     }
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "deathtouch-kills-a-bigger-blocker",
+   "cr": [
+    "702.2b",
+    "704.5h"
+   ],
+   "why": "Two turns later the 2/2 attacks into a 6/6 blocker: deathtouch destroys the blocker; the Plunderer dies to 6 damage.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Gutless Plunderer"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Colossal Dreadmaw"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gutless Plunderer",
+     "mana": "CCB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Gutless Plunderer"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 1,
+     "blocks": [
+      [
+       "p1:Colossal Dreadmaw",
+       "p0:Gutless Plunderer"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Colossal Dreadmaw",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Gutless Plunderer",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

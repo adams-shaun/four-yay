@@ -9,6 +9,7 @@ so it can stay out of every turn's context.
 | [repo-map.md](repo-map.md) (the index) and its per-domain files (`repo-map-engine.md`, `repo-map-internal.md`, `repo-map-research.md`, `repo-map-paths.md`) | Finding where something lives, or where a kind of change goes. |
 | [invariants.md](invariants.md) | Before changing engine code. It lists each design invariant, what enforces it, and the legitimate way to change it, and ends with the contributor workflow. |
 | [do-not.md](do-not.md) | Before you touch git, run a server, or merge. Every entry has happened here. |
+| [runtime-behavior.md](runtime-behavior.md) | When changing trigger-relative filters, cast provenance, host observer hooks, or seat privacy/session handling. |
 | [README § Bot player training and adoption](../../README.md#bot-player-training-and-adoption-guidelines) | Building, training or evaluating a bot policy. |
 | `docs/superpowers/specs/2026-09-22-engine-contracts.md` | Behaviour that looks like a bug but is a deliberate contract. |
 

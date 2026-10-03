@@ -1,0 +1,299 @@
+{
+ "card": "Luminous Rebuke",
+ "family": "cost-modifier",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "487a7714a0bd",
+ "scenarios": [
+  {
+   "name": "untapped-target-costs-five",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "With only untapped creatures to target there is no reduction: two mana cannot cast it, five can, and the target is destroyed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Luminous Rebuke"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CW",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Luminous Rebuke"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CC",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Luminous Rebuke"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Luminous Rebuke"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Luminous Rebuke",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    },
+    {
+     "card": "p0:Luminous Rebuke",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "tapped-attacker-costs-two",
+   "cr": [
+    "601.2f",
+    "508.1f"
+   ],
+   "why": "An attacking creature is tapped; targeting it the spell costs {3} less, so two mana destroys it before it deals damage.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Luminous Rebuke"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Centaur Courser"
+     ],
+     "defender": "p0",
+     "expect": [
+      {
+       "card": "p1:Centaur Courser",
+       "zone": "battlefield",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Luminous Rebuke",
+     "mana": "CW",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "tapped-target-one-mana-is-not-enough",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "The reduction is {3}, leaving a cost of {1}{W}: a single white mana is not enough even for a tapped target.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Luminous Rebuke"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Centaur Courser"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "W",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Luminous Rebuke"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Luminous Rebuke"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Luminous Rebuke",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "own-tapped-creature-counts",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "Any tapped creature qualifies, including the caster's own creature tapped for mana.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Luminous Rebuke"
+     ],
+     "battlefield": [
+      "Llanowar Elves"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Llanowar Elves"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Luminous Rebuke",
+     "mana": "W",
+     "targets": [
+      "p0:Llanowar Elves"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Llanowar Elves",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  }
+ ]
+}

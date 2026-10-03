@@ -184,7 +184,7 @@ func (e *Engine) resolveTop() {
 		if spec := e.triggerContexts[id].OptionalSpec; spec != "" {
 			resSpec = spec
 		} else if triggered {
-			resSpec = rt.ParamStr(cards.PKOptionalDecider)
+			resSpec = triggerOptionalSpec(rt)
 		}
 		if resSpec != "" {
 			who, askable := e.deciderFromSpec(resSpec, o.Controller, o.Remembered, e.triggerContexts[id])
@@ -400,6 +400,7 @@ func (e *Engine) resolveTop() {
 			ctx.TargetsOffered = true
 			ctx.OfferedSA = offeredSA
 		}
+		reflexiveCaptured(ctx)
 		if lki, ok := e.triggerLKI[id]; ok {
 			ctx.LKI = lki.object
 			ctx.LKIPower, ctx.LKIToughness, ctx.LKIPTValid =
@@ -1010,7 +1011,12 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 				!(o.Zone == state.ZBattlefield && e.restrictionBlocksTarget(t.Obj, you)) &&
 				!(o.Zone == state.ZBattlefield && e.shroudBlocksTarget(t.Obj)) &&
 				!(o.Zone == state.ZBattlefield && e.hexproofBlocksTarget(t.Obj, you, e.protectionSource(source))) &&
-				!e.protectedFrom(t.Obj, e.protectionSource(source)) {
+				// CR 702.16b: protection stops targeting of a PERMANENT (or a
+				// player) only -- the same battlefield gate the announcement
+				// offer applies. A spell on the stack or a card in a
+				// graveyard with protection is a legal target, so the
+				// Counterspell on a Progenitus spell must not fizzle here.
+				!(o.Zone == state.ZBattlefield && e.protectedFrom(t.Obj, e.protectionSource(source))) {
 				legal = append(legal, t)
 			}
 		}
@@ -1102,7 +1108,7 @@ func (e *Engine) resolveAbilitySacrificing(source state.ObjID, controller state.
 	ctx := e.arenaCtx()
 	*ctx = effects.Ctx{Source: source, Controller: controller, Targets: targets}
 	for _, id := range sacs {
-		ctx.Sacrificed = append(ctx.Sacrificed, state.SacrificedInfoOf(e.G, id))
+		ctx.Sacrificed = append(ctx.Sacrificed, effects.SacrificedLKI(e, id))
 	}
 	// Forge's Count$ResolvedThisTurn: the same (source, root Ability$ body)
 	// tally resolveTop's ability branch binds, so a DBTransform gated on the

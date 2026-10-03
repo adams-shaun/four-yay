@@ -1,0 +1,531 @@
+{
+ "card": "Erudite Wizard",
+ "family": "triggered-ability",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "66bf9dacc76b",
+ "scenarios": [
+  {
+   "name": "second-card-drawn-this-turn-gives-a-counter",
+   "cr": [
+    "603.2",
+    "121.2"
+   ],
+   "why": "Turn 1 has no draw step for the starting player, so Divination's two cards are the first and second card drawn this turn: one counter.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ],
+     "battlefield": [
+      "Erudite Wizard"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Erudite Wizard",
+     "pt": "3/4",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "one-card-drawn-no-counter",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A single card drawn is the first, not the second.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Opt"
+     ],
+     "battlefield": [
+      "Erudite Wizard"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opt",
+     "mana": "U"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Erudite Wizard",
+     "pt": "2/3",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "third-and-fourth-cards-do-not-trigger-again",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only the second card each turn triggers: four cards drawn in a turn still give exactly one counter.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination",
+      "Divination"
+     ],
+     "battlefield": [
+      "Erudite Wizard"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination#2",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Erudite Wizard",
+     "pt": "3/4",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 4
+     }
+    }
+   ]
+  },
+  {
+   "name": "draw-step-card-is-the-first-card",
+   "cr": [
+    "504.1",
+    "603.2"
+   ],
+   "why": "On its controller's second turn the draw-step card is the first card drawn, so a single extra draw is the second: a counter.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Opt"
+     ],
+     "battlefield": [
+      "Erudite Wizard"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opt",
+     "mana": "U",
+     "expect": [
+      {
+       "card": "p0:Erudite Wizard",
+       "counters": {
+        "+1/+1": 0
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Erudite Wizard",
+     "pt": "3/4",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "draw-step-alone-is-one-card",
+   "cr": [
+    "504.1"
+   ],
+   "why": "The draw step alone is one card: no counter.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Erudite Wizard"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Erudite Wizard",
+     "pt": "2/3",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-draws-do-not-count",
+   "cr": [
+    "603.2",
+    "109.5"
+   ],
+   "why": "'You' is the Wizard's controller: the opponent drawing three cards in a turn gives nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Erudite Wizard"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Divination",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Erudite Wizard",
+     "pt": "2/3",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "hand_size": {
+      "p1": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "triggers-again-on-a-later-turn",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Each turn: a second card on turn 1 and again a second card on its controller's next turn give two counters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination",
+      "Opt"
+     ],
+     "battlefield": [
+      "Erudite Wizard"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Erudite Wizard",
+       "counters": {
+        "+1/+1": 1
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opt",
+     "mana": "U"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Erudite Wizard",
+     "pt": "4/5",
+     "counters": {
+      "+1/+1": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "second-card-on-the-opponents-turn-counts",
+   "cr": [
+    "603.2"
+   ],
+   "why": "It is the second card its controller draws in any turn, including an opponent's: two Opts in the opponent's upkeep.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Opt",
+      "Opt"
+     ],
+     "battlefield": [
+      "Erudite Wizard"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opt",
+     "mana": "U"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Erudite Wizard",
+       "counters": {
+        "+1/+1": 0
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opt#2",
+     "mana": "U"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Erudite Wizard",
+     "pt": "3/4",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "cards-drawn-before-it-entered-count",
+   "cr": [
+    "603.2",
+    "121.2"
+   ],
+   "why": "The second card of the turn is the second card whether or not the Wizard was on the battlefield for the first: one card drawn, then the Wizard cast, then another card drawn gives a counter.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Opt",
+      "Erudite Wizard",
+      "Opt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opt",
+     "mana": "U"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Erudite Wizard",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opt#2",
+     "mana": "U"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Erudite Wizard",
+     "pt": "3/4",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "counter-ability-uses-the-stack",
+   "cr": [
+    "603.3"
+   ],
+   "why": "It is a triggered ability: after Divination resolves the trigger is on the stack and the counter is not there yet.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ],
+     "battlefield": [
+      "Erudite Wizard"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "CCU"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1,
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Erudite Wizard",
+       "want": true
+      },
+      {
+       "card": "p0:Erudite Wizard",
+       "pt": "2/3"
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Erudite Wizard",
+     "pt": "3/4"
+    }
+   ]
+  }
+ ]
+}

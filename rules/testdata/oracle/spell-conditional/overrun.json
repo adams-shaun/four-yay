@@ -1,0 +1,341 @@
+{
+ "card": "Overrun",
+ "family": "spell-conditional",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "9988f5298934",
+ "scenarios": [
+  {
+   "name": "team-gets-plus-three-and-trample-until-end-of-turn",
+   "cr": [
+    "611.2",
+    "613.4c"
+   ],
+   "why": "Every creature its caster controls gets +3/+3 and trample until end of turn; the opponent's creature does not; next turn it is gone.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Overrun"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Overrun",
+     "mana": "CCGGG"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "pt": "5/5",
+       "keywords": [
+        "Trample"
+       ]
+      },
+      {
+       "card": "p0:Savannah Lions",
+       "pt": "5/4",
+       "keywords": [
+        "Trample"
+       ]
+      },
+      {
+       "card": "p1:Centaur Courser",
+       "pt": "3/3",
+       "no_keywords": [
+        "Trample"
+       ]
+      },
+      {
+       "card": "p0:Overrun",
+       "zone": "graveyard"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "no_keywords": [
+      "Trample"
+     ]
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "2/1",
+     "no_keywords": [
+      "Trample"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "trample-carries-excess-over-a-blocker",
+   "cr": [
+    "702.19b",
+    "510.1c"
+   ],
+   "why": "A 5/5 trampler blocked by a 2/2 assigns lethal 2 to the blocker and 3 to the player.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Overrun"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Overrun",
+     "mana": "CCGGG"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Grizzly Bears",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 17
+     }
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 2
+    }
+   ]
+  },
+  {
+   "name": "creature-entering-later-is-not-affected",
+   "cr": [
+    "611.2c"
+   ],
+   "why": "The set of affected creatures is fixed as the spell resolves: a creature cast afterwards gets nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Overrun",
+      "Raging Goblin"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Overrun",
+     "mana": "CCGGG"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Raging Goblin",
+     "mana": "R"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Raging Goblin",
+     "pt": "1/1",
+     "no_keywords": [
+      "Trample"
+     ]
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "5/5"
+    }
+   ]
+  },
+  {
+   "name": "sorcery-timing",
+   "cr": [
+    "307.1"
+   ],
+   "why": "A sorcery: not castable once attackers are declared.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Overrun"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCGGG",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Overrun"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCGGG"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Overrun"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "needs-three-green",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "{2}{G}{G}{G}: two green plus three colourless cannot pay it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Overrun"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCGG"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Overrun"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "no-creatures-still-castable",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "It has no target: castable with no creatures and does nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Overrun"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Overrun",
+     "mana": "CCGGG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Overrun",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,492 @@
+{
+ "card": "Drake Hatcher",
+ "family": "combat-damage",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "4696848f3b2c",
+ "scenarios": [
+  {
+   "name": "combat-damage-to-player-adds-that-many-counters",
+   "cr": [
+    "603.2",
+    "510.3a"
+   ],
+   "why": "It deals 1 combat damage to a player and gets one incubation counter. Vigilance keeps it untapped.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Drake Hatcher"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Drake Hatcher"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Drake Hatcher",
+       "pt": "1/3",
+       "keywords": [
+        "Vigilance",
+        "Prowess"
+       ],
+       "tapped": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 19
+     }
+    },
+    {
+     "card": "p0:Drake Hatcher",
+     "tapped": false,
+     "counters": {
+      "incubation": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "prowess-on-noncreature-spell",
+   "cr": [
+    "702.108a"
+   ],
+   "why": "Prowess: a noncreature spell gives +1/+1 until end of turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock",
+      "Memnite"
+     ],
+     "battlefield": [
+      "Drake Hatcher"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Memnite"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Drake Hatcher",
+       "pt": "1/3"
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Drake Hatcher",
+       "pt": "2/4"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Drake Hatcher",
+     "pt": "1/3"
+    }
+   ]
+  },
+  {
+   "name": "pumped-damage-adds-that-many-counters",
+   "cr": [
+    "603.2",
+    "702.108a"
+   ],
+   "why": "Giant Growth during the attack gives +3/+3 and triggers prowess for +1/+1: 5 combat damage, five incubation counters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Drake Hatcher"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Drake Hatcher"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Drake Hatcher"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Drake Hatcher",
+       "pt": "5/7"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 15
+     }
+    },
+    {
+     "card": "p0:Drake Hatcher",
+     "counters": {
+      "incubation": 5
+     }
+    }
+   ]
+  },
+  {
+   "name": "blocked-no-counters",
+   "cr": [
+    "603.2",
+    "510.1c"
+   ],
+   "why": "Blocked, it deals no damage to a player and gets no counters.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Drake Hatcher"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Drake Hatcher"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Grizzly Bears",
+       "p0:Drake Hatcher"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Drake Hatcher",
+     "damage": 2,
+     "counters": {
+      "incubation": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "not-offered-with-fewer-than-three-counters",
+   "cr": [
+    "602.2b",
+    "118.3"
+   ],
+   "why": "With one counter the cost of removing three cannot be paid.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Drake Hatcher"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Drake Hatcher"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Drake Hatcher",
+     "counters": {
+      "incubation": 1
+     }
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Drake Hatcher"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "remove-three-counters-for-a-drake",
+   "cr": [
+    "602.2",
+    "111.1"
+   ],
+   "why": "With five counters, removing three creates a 2/2 Drake token with flying and leaves two counters, too few to activate again.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Drake Hatcher"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Drake Hatcher"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Drake Hatcher"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Drake Hatcher"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Drake Hatcher",
+     "counters": {
+      "incubation": 2
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Drake",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Drake",
+     "pt": "2/2",
+     "keywords": [
+      "Flying"
+     ],
+     "types": [
+      "Creature",
+      "Drake"
+     ]
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Drake Hatcher"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "noncombat-damage-adds-no-counters",
+   "cr": [
+    "603.2",
+    "510.1"
+   ],
+   "why": "Control: the turn passes without it dealing combat damage and it has no counters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Drake Hatcher"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "card": "p0:Drake Hatcher",
+     "counters": {
+      "incubation": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "counters-accumulate-across-turns",
+   "cr": [
+    "122.1"
+   ],
+   "why": "Counters stay: one on turn 1 and one on turn 3 make two.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Drake Hatcher"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Drake Hatcher"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Drake Hatcher"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "card": "p0:Drake Hatcher",
+     "counters": {
+      "incubation": 2
+     }
+    }
+   ]
+  }
+ ]
+}

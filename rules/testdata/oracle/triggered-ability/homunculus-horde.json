@@ -1,0 +1,353 @@
+{
+ "card": "Homunculus Horde",
+ "family": "triggered-ability",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "6773245da6f3",
+ "scenarios": [
+  {
+   "name": "second-draw-makes-a-copy",
+   "cr": [
+    "603.2",
+    "707.2",
+    "121.2"
+   ],
+   "why": "On turn 1 (no draw step card for the starting player) Divination draws the first and second cards this turn: the second makes a token copy.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Homunculus Horde"
+     ],
+     "hand": [
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "UCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Homunculus Horde"
+     },
+     "eq": 2
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Homunculus Horde",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Homunculus Horde",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "first-draw-alone-does-nothing",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only the second card: a single draw (Opt) this turn makes nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Homunculus Horde"
+     ],
+     "hand": [
+      "Opt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opt",
+     "mana": "U"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Homunculus Horde"
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "draw-step-card-counts-as-first",
+   "cr": [
+    "603.2",
+    "504.1"
+   ],
+   "why": "On a later turn the draw-step card is the first; one more draw (Opt) is the second and makes a copy.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Homunculus Horde"
+     ],
+     "hand": [
+      "Opt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opt",
+     "mana": "U"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Homunculus Horde"
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "third-draw-does-not-trigger-again",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only the second card each turn: Divination (cards one and two) then Opt (card three) make exactly one copy.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Homunculus Horde"
+     ],
+     "hand": [
+      "Divination",
+      "Opt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "UCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opt",
+     "mana": "U"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Homunculus Horde"
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "each-horde-triggers",
+   "cr": [
+    "603.2",
+    "707.2"
+   ],
+   "why": "Two Hordes each trigger on the second draw: two new tokens.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Homunculus Horde",
+      "Homunculus Horde"
+     ],
+     "hand": [
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "UCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Homunculus Horde"
+     },
+     "eq": 4
+    }
+   ]
+  },
+  {
+   "name": "works-on-opponents-turn",
+   "cr": [
+    "603.2"
+   ],
+   "why": "'Each turn' includes the opponent's: two instant draws (Think Twice, then its flashback) in their upkeep make a copy.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Homunculus Horde"
+     ],
+     "hand": [
+      "Think Twice"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Think Twice",
+     "mana": "UC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Think Twice",
+     "mana": "UCC",
+     "cast_mode": "flashback"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Homunculus Horde"
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "entering-after-first-draw-still-counts-it",
+   "cr": [
+    "603.2",
+    "603.10"
+   ],
+   "why": "The count is of cards drawn this turn, including one drawn before the Horde entered: Opt, then the Horde, then Opt again makes a copy.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Opt",
+      "Opt",
+      "Homunculus Horde"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opt",
+     "mana": "U"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Homunculus Horde",
+     "mana": "UCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opt#2",
+     "mana": "U"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Homunculus Horde"
+     },
+     "eq": 2
+    }
+   ]
+  }
+ ]
+}

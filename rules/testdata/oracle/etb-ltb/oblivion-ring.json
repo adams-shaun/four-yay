@@ -1,0 +1,62 @@
+{
+ "card": "Oblivion Ring",
+ "family": "etb-ltb",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "db7331fb4b50",
+ "scenarios": [
+  {
+   "name": "exiles-an-opponents-creature-and-returns-it-when-it-leaves",
+   "cr": [
+    "603.6a",
+    "610.3",
+    "400.7"
+   ],
+   "why": "Oblivion Ring's enter trigger exiles another target nonland permanent; its leave trigger returns the exiled card to the battlefield under its owner's control. It exiles p1's Centaur Courser, then moving the Ring to the graveyard brings the Courser back.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Oblivion Ring"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Oblivion Ring",
+     "mana": "CCW",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Oblivion Ring",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Oblivion Ring",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}

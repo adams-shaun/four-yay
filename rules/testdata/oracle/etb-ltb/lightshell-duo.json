@@ -1,0 +1,306 @@
+{
+ "card": "Lightshell Duo",
+ "family": "etb-ltb",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "f5a19a735208",
+ "scenarios": [
+  {
+   "name": "surveil-two-both-to-graveyard",
+   "cr": [
+    "701.25a",
+    "603.2"
+   ],
+   "why": "Entering, its controller surveils 2: both looked-at cards may go to the graveyard. No card is drawn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightshell Duo"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightshell Duo",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightshell Duo",
+     "zone": "battlefield",
+     "pt": "3/4"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "graveyard_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "surveil-two-keep-one-bin-one",
+   "cr": [
+    "701.25a"
+   ],
+   "why": "Any number may be put into the graveyard: binning one and keeping the other on top.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightshell Duo"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightshell Duo",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": [
+        "Shock"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "library"
+    },
+    {
+     "graveyard_size": {
+      "p0": 1
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "surveil-two-keep-both-reordered",
+   "cr": [
+    "701.25a"
+   ],
+   "why": "Kept cards go back on top in any order: putting the second card on top makes it the next card drawn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightshell Duo"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightshell Duo",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": [
+        "Shock",
+        "Lightning Bolt"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Shock",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "graveyard_size": {
+      "p0": 0
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "surveil-looks-at-only-two",
+   "cr": [
+    "701.25a"
+   ],
+   "why": "Only the top two cards are looked at: the third card stays in the library.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightshell Duo"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock",
+      "Giant Growth"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightshell Duo",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Giant Growth",
+     "zone": "library"
+    },
+    {
+     "graveyard_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "prowess-noncreature-spell",
+   "cr": [
+    "702.108a"
+   ],
+   "why": "Prowess: a noncreature spell gives +1/+1 until end of turn; a creature spell does not.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt",
+      "Grizzly Bears"
+     ],
+     "battlefield": [
+      "Lightshell Duo"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Lightshell Duo",
+       "pt": "3/4"
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Lightshell Duo",
+       "pt": "4/5"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightshell Duo",
+     "zone": "battlefield",
+     "pt": "3/4"
+    }
+   ]
+  }
+ ]
+}

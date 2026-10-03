@@ -1,0 +1,370 @@
+{
+ "card": "Self-Reflection",
+ "family": "clone",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "9d8d9f713e55",
+ "scenarios": [
+  {
+   "name": "copies-target-creature-you-control",
+   "cr": [
+    "707.2",
+    "111.10"
+   ],
+   "why": "Sorcery for {4}{U}{U}: a token that's a copy of the targeted creature you control is created; the original stays.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Self-Reflection"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Self-Reflection",
+     "mana": "UUCCCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 2
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Grizzly Bears",
+     "pt": "2/2",
+     "types": [
+      "Creature"
+     ]
+    },
+    {
+     "card": "p0:Self-Reflection",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-creature-you-control-means-no-cast",
+   "cr": [
+    "601.2c",
+    "115.1"
+   ],
+   "why": "'Target creature you control': with only an opponent's creature on the battlefield there is no legal target, so it cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Self-Reflection"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "UUCCCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Self-Reflection"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "copy-ignores-pump-effects",
+   "cr": [
+    "707.2"
+   ],
+   "why": "A copy takes only copiable values: the Giant Growth on the original (5/5) is not copied, so the token is 2/2.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Giant Growth",
+      "Self-Reflection"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Self-Reflection",
+     "mana": "UUCCCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears#1",
+     "pt": "5/5"
+    },
+    {
+     "card": "p0:token:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "copies-a-flying-creature-with-its-abilities",
+   "cr": [
+    "707.2",
+    "702.9a"
+   ],
+   "why": "The token copies the printed abilities too: a copy of Serra Angel is a 4/4 with flying and vigilance.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Serra Angel"
+     ],
+     "hand": [
+      "Self-Reflection"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Self-Reflection",
+     "mana": "UUCCCC",
+     "targets": [
+      "p0:Serra Angel"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:token:Serra Angel",
+     "pt": "4/4",
+     "keywords": [
+      "Flying",
+      "Vigilance"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "flashback-from-graveyard-then-exiled",
+   "cr": [
+    "702.34a"
+   ],
+   "why": "Flashback {3}{U}: cast from the graveyard, it makes the copy and is then exiled instead of going anywhere else.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "graveyard": [
+      "Self-Reflection"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Self-Reflection",
+     "mana": "UCCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "cast_mode": "flashback"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 2
+    },
+    {
+     "card": "p0:Self-Reflection",
+     "zone": "exile"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "target-gone-means-no-copy",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "If the only target is destroyed in response, the spell does nothing (no token) and goes to the graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Self-Reflection"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Self-Reflection",
+     "mana": "UUCCCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 0
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Self-Reflection",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "sorcery-timing-not-in-opponents-upkeep",
+   "cr": [
+    "307.1",
+    "702.34a"
+   ],
+   "why": "A sorcery (and its flashback) can be cast only in its controller's main phase with an empty stack: not in the opponent's upkeep.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Self-Reflection"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "UUCCCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Self-Reflection"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

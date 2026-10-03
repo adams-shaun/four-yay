@@ -1,0 +1,385 @@
+{
+ "card": "Rite of the Dragoncaller",
+ "family": "triggered-ability",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "fbdab5147555",
+ "scenarios": [
+  {
+   "name": "instant-makes-a-dragon",
+   "cr": [
+    "603.2",
+    "601.2i"
+   ],
+   "why": "Casting an instant creates a 5/5 red flying Dragon token; the instant still resolves.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rite of the Dragoncaller"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Rite of the Dragoncaller",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Dragon",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Dragon",
+     "pt": "5/5",
+     "keywords": [
+      "Flying"
+     ]
+    },
+    {
+     "life": {
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "sorcery-makes-a-dragon",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A sorcery counts too.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rite of the Dragoncaller"
+     ],
+     "hand": [
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "UCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Dragon",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "creature-spell-makes-nothing",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only instant or sorcery spells: a creature spell makes no Dragon.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rite of the Dragoncaller"
+     ],
+     "hand": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "GC",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Rite of the Dragoncaller",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Dragon",
+      "token": true
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "opponents-instant-makes-nothing",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only spells YOU cast.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rite of the Dragoncaller"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Dragon",
+      "token": true
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Dragon",
+      "token": true
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "dragon-even-if-spell-is-countered",
+   "cr": [
+    "603.2",
+    "701.6a"
+   ],
+   "why": "The trigger is on casting: countering the Bolt still leaves the Dragon.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rite of the Dragoncaller"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Counterspell"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Counterspell",
+     "mana": "UU",
+     "targets": [
+      "p0:Lightning Bolt"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Dragon",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "two-spells-two-dragons",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Each instant or sorcery cast makes one Dragon.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rite of the Dragoncaller"
+     ],
+     "hand": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Dragon",
+      "token": true
+     },
+     "eq": 2
+    },
+    {
+     "life": {
+      "p1": 15
+     }
+    }
+   ]
+  },
+  {
+   "name": "flashback-cast-counts",
+   "cr": [
+    "702.34a",
+    "603.2"
+   ],
+   "why": "Casting with flashback from the graveyard is casting a spell.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rite of the Dragoncaller"
+     ],
+     "graveyard": [
+      "Think Twice"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Think Twice",
+     "mana": "UCC",
+     "cast_mode": "flashback"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Dragon",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:Think Twice",
+     "zone": "exile"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,215 @@
+{
+ "card": "Felidar Savior",
+ "family": "etb-ltb",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "c79c45083e66",
+ "scenarios": [
+  {
+   "name": "two-other-creatures-get-counters",
+   "cr": [
+    "603.2",
+    "122.1a"
+   ],
+   "why": "The enters trigger puts one +1/+1 counter on each of the two targeted other creatures its controller controls; the Savior itself gets none.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Felidar Savior"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Felidar Savior",
+     "mana": "CCCW"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "battlefield",
+     "pt": "3/2",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "card": "p0:Felidar Savior",
+     "zone": "battlefield",
+     "pt": "2/3",
+     "counters": {
+      "+1/+1": 0
+     },
+     "keywords": [
+      "Lifelink"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "no-other-creature-zero-targets",
+   "cr": [
+    "115.1d",
+    "601.2c"
+   ],
+   "why": "Up to two: with no other creature under its controller's control the trigger has zero targets and the Savior, which is not 'other', gets no counter. The opponent's creature gets none either.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Felidar Savior"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Felidar Savior",
+     "mana": "CCCW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Felidar Savior",
+     "zone": "battlefield",
+     "pt": "2/3",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "one-target-is-allowed",
+   "cr": [
+    "115.1d"
+   ],
+   "why": "Up to two also allows exactly one target: only the chosen creature gets a counter.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Felidar Savior"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Felidar Savior",
+     "mana": "CCCW"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Savannah Lions"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "battlefield",
+     "pt": "3/2",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "lifelink-gains-on-combat-damage",
+   "cr": [
+    "702.15b"
+   ],
+   "why": "Lifelink: 2 combat damage to the defending player gains its controller 2.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Felidar Savior"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Felidar Savior"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 22,
+      "p1": 18
+     }
+    }
+   ]
+  }
+ ]
+}

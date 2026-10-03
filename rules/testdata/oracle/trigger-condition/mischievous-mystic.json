@@ -1,0 +1,368 @@
+{
+ "card": "Mischievous Mystic",
+ "family": "trigger-condition",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "18f1cf11fd9e",
+ "scenarios": [
+  {
+   "name": "second-draw-of-the-turn-makes-a-faerie",
+   "cr": [
+    "603.2",
+    "121.1"
+   ],
+   "why": "The first card drawn in a turn does nothing; the second creates one 1/1 Faerie token with flying; a third draw the same turn creates nothing more. The Mystic is a 2/1 flier.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mischievous Mystic"
+     ],
+     "hand": [
+      "Think Twice",
+      "Think Twice",
+      "Think Twice"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Think Twice",
+     "mana": "CU"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Faerie"
+       },
+       "eq": 0
+      },
+      {
+       "hand_size": {
+        "p0": 3
+       }
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Think Twice#2",
+     "mana": "CU"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Faerie",
+        "token": true
+       },
+       "eq": 1
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Think Twice#3",
+     "mana": "CU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Faerie",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Faerie",
+     "pt": "1/1",
+     "keywords": [
+      "Flying"
+     ],
+     "types": [
+      "Creature",
+      "Faerie"
+     ]
+    },
+    {
+     "card": "p0:Mischievous Mystic",
+     "zone": "battlefield",
+     "pt": "2/1",
+     "keywords": [
+      "Flying"
+     ]
+    },
+    {
+     "hand_size": {
+      "p0": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "draw-step-card-counts-as-the-first",
+   "cr": [
+    "504.1",
+    "603.2"
+   ],
+   "why": "On a later turn of its controller the draw-step card is the first draw, so a single extra draw is the second and makes the token.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mischievous Mystic"
+     ],
+     "hand": [
+      "Think Twice"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Faerie"
+       },
+       "eq": 0
+      },
+      {
+       "hand_size": {
+        "p0": 2
+       }
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Think Twice",
+     "mana": "CU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Faerie",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "works-on-the-opponents-turn-and-resets-each-turn",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Each turn counts separately and any turn qualifies: one draw on its controller's turn and one on the opponent's turn is never a second draw; two draws during the opponent's turn are.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mischievous Mystic"
+     ],
+     "hand": [
+      "Think Twice",
+      "Think Twice",
+      "Think Twice"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Think Twice",
+     "mana": "CU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Think Twice#2",
+     "mana": "CU"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Faerie"
+       },
+       "eq": 0
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Think Twice#3",
+     "mana": "CU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Faerie",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "opponents-draws-do-not-count",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only its controller's draws count: the opponent drawing for the turn and then drawing again creates no token.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mischievous Mystic"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Think Twice"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Think Twice",
+     "mana": "CU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Faerie"
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Faerie"
+     },
+     "eq": 0
+    },
+    {
+     "hand_size": {
+      "p1": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-cards-from-one-effect",
+   "cr": [
+    "121.2",
+    "603.2"
+   ],
+   "why": "A draw-two effect draws its cards one at a time, so the second of them is the second draw of the turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mischievous Mystic"
+     ],
+     "hand": [
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Faerie",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  }
+ ]
+}

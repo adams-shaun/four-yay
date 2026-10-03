@@ -117,10 +117,10 @@ func TestCountValidSelfCensus(t *testing.T) {
 	})
 
 	// Precondition: the census must actually see the carriers, or every
-	// assertion below is vacuous. The pinned corpus carries exactly six
-	// files, one ValidSelf body each.
-	if len(carriers) != 6 {
-		t.Fatalf("Count$ValidSelf carriers = %d (%+v), want 6 -- the corpus pin moved or a carrier was added/removed; re-measure and update this census", len(carriers), carriers)
+	// assertion below is vacuous. The pinned corpus (FORGE_REF fb4d809)
+	// carries exactly seven files, one ValidSelf body each.
+	if len(carriers) != 7 {
+		t.Fatalf("Count$ValidSelf carriers = %d (%+v), want 7 -- the corpus pin moved or a carrier was added/removed; re-measure and update this census", len(carriers), carriers)
 	}
 
 	wantByCard := map[string]string{
@@ -129,7 +129,11 @@ func TestCountValidSelfCensus(t *testing.T) {
 		"Kraven the Hunter":      "Creature.greatestPowerControlledByCardController",
 		"Paradox Shaper":         "Card.!IsPrepared",
 		"Stingerquill Voxmancer": "Card.!IsPrepared",
-		"Woodwork Prodigy":       "Card.!IsPrepared",
+		// New at fb4d809. Card$AllTypes is outside the filter grammar, so
+		// evalCountValidSelf fails it closed (an evaluated zero): a known
+		// gap, not a supported shape.
+		"Unique Charmed Pants": "Card$AllTypes",
+		"Woodwork Prodigy":     "Card.!IsPrepared",
 	}
 	gotByCard := map[string]string{}
 	for _, c := range carriers {

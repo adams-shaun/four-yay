@@ -1,0 +1,44 @@
+{
+ "card": "Austere Command",
+ "family": "spell-conditional",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "5f6205efe94b",
+ "scenarios": [
+  {
+   "name": "two-creature-modes-destroy-every-creature",
+   "cr": ["700.2", "608.2b"],
+   "why": "Choosing 'creatures with mana value 3 or less' and 'creatures with mana value 4 or greater' destroys every creature: Grizzly Bears (MV2) and Craw Wurm (MV6) both die, while the Sol Ring artifact is untouched.",
+   "setup": {
+    "p0": {"hand": ["Austere Command"]},
+    "p1": {"battlefield": ["Grizzly Bears", "Craw Wurm", "Sol Ring"]}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Austere Command", "mana": "CCCCWW", "answers": [{"kind": "modes", "pick": ["mana value 3 or less", "mana value 4 or greater"]}]},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p1:Grizzly Bears", "zone": "graveyard"},
+    {"card": "p1:Craw Wurm", "zone": "graveyard"},
+    {"card": "p1:Sol Ring", "zone": "battlefield"}
+   ]
+  },
+  {
+   "name": "artifact-and-enchantment-modes-leave-creatures",
+   "cr": ["700.2", "608.2b"],
+   "why": "Choosing the artifact mode and the enchantment mode destroys exactly the Sol Ring and the Ghostly Prison; the creature survives.",
+   "setup": {
+    "p0": {"hand": ["Austere Command"]},
+    "p1": {"battlefield": ["Sol Ring", "Ghostly Prison", "Grizzly Bears"]}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Austere Command", "mana": "CCCCWW", "answers": [{"kind": "modes", "pick": ["Destroy all artifacts", "Destroy all enchantments"]}]},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p1:Sol Ring", "zone": "graveyard"},
+    {"card": "p1:Ghostly Prison", "zone": "graveyard"},
+    {"card": "p1:Grizzly Bears", "zone": "battlefield"}
+   ]
+  }
+ ]
+}

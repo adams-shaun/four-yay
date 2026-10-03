@@ -1,0 +1,33 @@
+{
+  "card": "Furnace Whelp",
+  "family": "newest-mechanics",
+  "author": "cli-20261002T230428Z-067d6538 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "printed-characteristics",
+      "cr": [
+        "208.3",
+        "702.9"
+      ],
+      "why": "Oracle gives Furnace Whelp printed power/toughness 2/2 and Flying. Those characteristics apply to this battlefield creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Furnace Whelp"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Furnace Whelp",
+          "zone": "battlefield",
+          "pt": "2/2",
+          "keywords": [
+            "Flying"
+          ]
+        }
+      ]
+    }
+  ]
+}

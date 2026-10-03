@@ -1,0 +1,59 @@
+{
+  "card": "Dawnbringer Cleric",
+  "family": "etb-ltb",
+  "oracle_sha": "360fa8bc40a8",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "mode-cure-wounds-gains-two",
+      "cr": ["601.2b", "700.2"],
+      "why": "\"Choose one\" with three bulleted modes: the first mode (Cure Wounds) gains its controller 2 life, and no target is required.",
+      "setup": {
+        "p0": {"hand": ["Dawnbringer Cleric"], "life": 20},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Dawnbringer Cleric", "mana": "CW"},
+        {"op": "resolve", "answers": [{"kind": "modes", "pick": ["Cure Wounds"]}]}
+      ],
+      "expect": [
+        {"life": {"p0": 22, "p1": 20}}
+      ]
+    },
+    {
+      "name": "mode-dispel-destroys-enchantment",
+      "cr": ["601.2b", "701.7a"],
+      "why": "\"Choose one\" second mode is Dispel Magic: destroy target enchantment, so the chosen enchantment moves to its owner's graveyard.",
+      "setup": {
+        "p0": {"hand": ["Dawnbringer Cleric"], "life": 20},
+        "p1": {"battlefield": ["Banishing Light", "Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Dawnbringer Cleric", "mana": "CW"},
+        {"op": "resolve", "answers": [{"kind": "modes", "pick": ["Dispel Magic"]}], "targets": ["p1:Banishing Light"]}
+      ],
+      "expect": [
+        {"card": "p1:Banishing Light", "zone": "graveyard"},
+        {"card": "p0:Dawnbringer Cleric", "zone": "battlefield"},
+        {"life": {"p0": 20}}
+      ]
+    },
+    {
+      "name": "mode-gentle-repose-exiles-graveyard-card",
+      "cr": ["601.2b", "406.2"],
+      "why": "\"Choose one\" third mode is Gentle Repose: exile target card from a graveyard, so the chosen graveyard card moves to exile.",
+      "setup": {
+        "p0": {"hand": ["Dawnbringer Cleric"], "graveyard": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Dawnbringer Cleric", "mana": "CW"},
+        {"op": "resolve", "answers": [{"kind": "modes", "pick": ["Gentle Repose"]}], "targets": ["p0:Grizzly Bears"]}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "exile"},
+        {"life": {"p0": 20}}
+      ]
+    }
+  ]
+}

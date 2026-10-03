@@ -1,0 +1,236 @@
+{
+ "card": "Savannah Lions",
+ "family": "base-characteristics",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "e3b0c44298fc",
+ "scenarios": [
+  {
+   "name": "vanilla-2-1-cat-for-one-white",
+   "cr": [
+    "202.1",
+    "208.1",
+    "302.6"
+   ],
+   "why": "A 2/1 Cat for {W} with no abilities: no keywords, nothing triggers, and nothing to activate.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Savannah Lions",
+     "mana": "W"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1,
+     "expect": [
+      {
+       "stack_size": 0
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "battlefield",
+     "pt": "2/1",
+     "no_keywords": [
+      "Haste",
+      "Flying",
+      "First Strike",
+      "Vigilance",
+      "Lifelink",
+      "Trample"
+     ],
+     "types": [
+      "Creature",
+      "Cat"
+     ],
+     "tapped": false
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Savannah Lions"
+     },
+     "want": false
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "attacks-next-turn-for-two",
+   "cr": [
+    "302.6",
+    "508.1a",
+    "510.1"
+   ],
+   "why": "No haste: it attacks on its controller's next turn, tapping, for 2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Savannah Lions",
+     "mana": "W"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Savannah Lions",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "trades-with-a-2-2-blocker-dying-to-two-damage",
+   "cr": [
+    "510.1",
+    "704.5g"
+   ],
+   "why": "Toughness 1: blocked by a 2/2 it dies and leaves 2 damage on the blocker, which also dies.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Grizzly Bears",
+       "p0:Savannah Lions"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "needs-white-mana",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "{W}: one mana of another colour does not cast it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "G"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Savannah Lions"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

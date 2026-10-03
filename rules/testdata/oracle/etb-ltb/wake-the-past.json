@@ -1,0 +1,25 @@
+{
+ "card": "Wake the Past",
+ "family": "etb-ltb",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "f5be7990eabf",
+ "scenarios": [
+  {
+   "name": "returns-your-artifacts-with-haste",
+   "cr": ["608.2b", "702.10a"],
+   "why": "'Return all artifact cards from your graveyard to the battlefield. They gain haste until end of turn': the Sol Ring returns under its owner's control with haste.",
+   "setup": {
+    "p0": {"hand": ["Wake the Past"], "graveyard": ["Sol Ring"]},
+    "p1": {"graveyard": ["Ghostly Prison"]}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Wake the Past", "mana": "CCCCCRW"},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:Sol Ring", "zone": "battlefield", "keywords": ["Haste"]},
+    {"card": "p1:Ghostly Prison", "zone": "graveyard"}
+   ]
+  }
+ ]
+}

@@ -598,29 +598,22 @@ func (e *Engine) resumeAnswerBindingRest(rp *resumePoint, o *state.Object, ctx *
 			}
 		}
 		ctx.PlayDone = true
-		for i, id := range toPlay {
-			if i == 0 {
-				ctx.Play = id
-			}
-			from := state.Zone(0)
-			if o := e.G.Obj(id); o != nil {
-				from = o.Zone
-			}
-			e.beginPlay(player, id, free, playCost, replaceGraveyard, copyCard)
-			if imprintPlayed && from.Valid() {
-				if o := e.G.Obj(id); o != nil && o.Zone != from {
-					e.emit(events.Event{Kind: events.Imprint, Obj: ctx.Source,
-						IDs: []state.ObjID{id}})
-				}
-			}
-			if e.Suspended() || e.cast != nil {
-				if rest := toPlay[i+1:]; len(rest) > 0 {
-					e.emit(events.Event{Kind: events.Note, Obj: rp.obj,
-						Text: "Play stopped after a suspended cast; the remaining cards stay unplayed"})
-				}
-				break
-			}
+		if len(toPlay) > 0 {
+			ctx.Play = toPlay[0]
 		}
+		q := &queuedPlays{player: player, ids: toPlay, free: free, playCost: playCost,
+			replaceGraveyard: replaceGraveyard, copyCard: copyCard}
+		if imprintPlayed {
+			q.imprintOn = ctx.Source
+		}
+		e.runPlays(q)
+	case "play_resume":
+		// The continuation an Amount$ Play parked while its chosen cards were
+		// cast one at a time (rules/play_queue.go): every cast is complete,
+		// so the re-entered effPlay sees the answer as consumed and the walk
+		// continues at its SubAbility$.
+		ctx.PlayDone = true
+		ctx.Play = rp.playFirst
 	case "extort":
 		// Extort's optional {W/B} payment was answered. Option 0 is "pay";
 		// anything else is a decline. The hybrid pip is charged from the

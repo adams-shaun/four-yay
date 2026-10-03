@@ -487,6 +487,11 @@ func (e *Engine) remainingDamageReplacements(ev events.Event, used []replMatch) 
 			out = append(out, replMatch{id: id, repl: r})
 		}
 	})
+	for _, m := range e.grantedPreventMatches(ev) {
+		if !alreadyUsed(m) && !e.cantPreventDamage(e.damaging, ev.Obj) {
+			out = append(out, m)
+		}
+	}
 	return out
 }
 

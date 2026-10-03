@@ -1,0 +1,133 @@
+{
+ "card": "Rise of the Dark Realms",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "19e5c6033641",
+ "scenarios": [
+  {
+   "name": "all-graveyards-creatures-under-your-control",
+   "cr": [
+    "608.2c",
+    "110.2"
+   ],
+   "why": "Every creature card in every graveyard enters under its caster's control; noncreature cards stay.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Rise of the Dark Realms"
+     ],
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Hill Giant",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Rise of the Dark Realms",
+     "mana": "BBCCCCCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Hill Giant",
+     "zone": "battlefield"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Hill Giant"
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Hill Giant"
+     },
+     "eq": 0
+    },
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "stolen-creature-can-attack-for-you-next-turn",
+   "cr": [
+    "302.6",
+    "110.2"
+   ],
+   "why": "The opponent's former creature is its new controller's: on their next turn it attacks the opponent.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Rise of the Dark Realms"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Rise of the Dark Realms",
+     "mana": "BBCCCCCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p1:Hill Giant"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 17
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,383 @@
+{
+ "card": "Arbiter of Woe",
+ "family": "etb-ltb",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "48a0f30aa128",
+ "scenarios": [
+  {
+   "name": "sacrifice-on-cast-then-enters-draining",
+   "cr": [
+    "601.2h",
+    "603.6a"
+   ],
+   "why": "A creature is sacrificed as the spell is cast. Entering, each opponent discards a card and loses 2 life; its controller draws a card and gains 2 life.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Arbiter of Woe"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Arbiter of Woe",
+     "mana": "CCCCBB",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ],
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "zone": "graveyard"
+      },
+      {
+       "stack_size": 1
+      },
+      {
+       "life": {
+        "p0": 20,
+        "p1": 20
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Arbiter of Woe",
+     "zone": "battlefield",
+     "pt": "5/4",
+     "keywords": [
+      "Flying"
+     ]
+    },
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 22,
+      "p1": 18
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1,
+      "p1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-creature-to-sacrifice-not-castable",
+   "cr": [
+    "601.2h",
+    "118.3"
+   ],
+   "why": "Without a creature to sacrifice the additional cost cannot be paid; an opponent's creature cannot be sacrificed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Arbiter of Woe"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCCBB",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Arbiter of Woe"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Arbiter of Woe",
+     "zone": "hand"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "caster-chooses-the-sacrifice",
+   "cr": [
+    "601.2h"
+   ],
+   "why": "Its controller chooses which creature to sacrifice.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Arbiter of Woe"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Arbiter of Woe",
+     "mana": "CCCCBB",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Savannah Lions"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Arbiter of Woe",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "opponent-with-empty-hand-still-loses-life",
+   "cr": [
+    "608.2c",
+    "101.3"
+   ],
+   "why": "The opponent has no card to discard but still loses 2; its controller still draws and gains 2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Arbiter of Woe"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Arbiter of Woe",
+     "mana": "CCCCBB",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 22,
+      "p1": 18
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1,
+      "p1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponent-chooses-the-discard",
+   "cr": [
+    "701.9a"
+   ],
+   "why": "The discarding opponent chooses which card.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Arbiter of Woe"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Arbiter of Woe",
+     "mana": "CCCCBB",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p1:Shock"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Shock",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "countered-keeps-the-sacrifice-and-does-nothing",
+   "cr": [
+    "601.2h",
+    "701.5a"
+   ],
+   "why": "Countered: the sacrifice was a cost and is not undone; with no Arbiter entering nothing triggers.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Arbiter of Woe"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Counterspell",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Arbiter of Woe",
+     "mana": "CCCCBB",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Counterspell",
+     "mana": "UU",
+     "targets": [
+      "p0:Arbiter of Woe"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Arbiter of Woe",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0,
+      "p1": 1
+     }
+    }
+   ]
+  }
+ ]
+}

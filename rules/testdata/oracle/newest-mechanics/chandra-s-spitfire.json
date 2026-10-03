@@ -1,0 +1,33 @@
+{
+  "card": "Chandra's Spitfire",
+  "family": "newest-mechanics",
+  "author": "cli-20261002T230428Z-067d6538 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "printed-characteristics",
+      "cr": [
+        "208.3",
+        "702.9"
+      ],
+      "why": "Oracle gives Chandra's Spitfire printed power/toughness 1/3 and Flying. Those characteristics apply to this battlefield creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Chandra's Spitfire"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Chandra's Spitfire",
+          "zone": "battlefield",
+          "pt": "1/3",
+          "keywords": [
+            "Flying"
+          ]
+        }
+      ]
+    }
+  ]
+}

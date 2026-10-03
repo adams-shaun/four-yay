@@ -1,0 +1,745 @@
+{
+ "card": "Tinybones, Bauble Burglar",
+ "family": "activated-ability",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "e402db0028c6",
+ "scenarios": [
+  {
+   "name": "activated-discard-is-exiled-with-a-stash-counter",
+   "cr": [
+    "602.2",
+    "603.2"
+   ],
+   "why": "Its activated ability makes each opponent discard a card; the first ability then exiles that card from their graveyard with a stash counter.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tinybones, Bauble Burglar"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Tinybones, Bauble Burglar",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "exile",
+     "counters": {
+      "stash": 1
+     }
+    },
+    {
+     "hand_size": {
+      "p1": 0
+     }
+    },
+    {
+     "graveyard_size": {
+      "p1": 0
+     }
+    },
+    {
+     "card": "p0:Tinybones, Bauble Burglar",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "stashed-card-castable-with-any-type-of-mana",
+   "cr": [
+    "601.3",
+    "609.4b"
+   ],
+   "why": "During its controller's turn the stashed card can be cast from exile, and mana of any type can pay for it: green mana casts the opponent's Lightning Bolt. It goes to its owner's graveyard afterwards.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tinybones, Bauble Burglar"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Tinybones, Bauble Burglar",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p1:Lightning Bolt",
+     "mana": "G",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 17
+     }
+    },
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "graveyard_size": {
+      "p0": 0,
+      "p1": 1
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "stashed-creature-card-enters-under-the-casters-control",
+   "cr": [
+    "110.2",
+    "609.4b"
+   ],
+   "why": "A stashed creature card is cast with colourless mana and the permanent is controlled by the player who cast it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tinybones, Bauble Burglar"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Tinybones, Bauble Burglar",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p1:Grizzly Bears",
+     "mana": "CC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "stashed-land-can-be-played",
+   "cr": [
+    "305.1",
+    "116.2a",
+    "110.2"
+   ],
+   "why": "'Play' covers lands: a stashed land is played from exile as the turn's land drop and enters under the control of the player who played it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tinybones, Bauble Burglar"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Tinybones, Bauble Burglar",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p1:Forest"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Forest",
+     "zone": "battlefield"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Forest"
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Forest"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "not-playable-on-the-opponents-turn",
+   "cr": [
+    "601.3"
+   ],
+   "why": "'During your turn': on the opponent's turn the stashed instant is not castable, even with the mana.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tinybones, Bauble Burglar"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Tinybones, Bauble Burglar",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p1:Lightning Bolt"
+     },
+     "want": false
+    },
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "still-playable-on-a-later-turn",
+   "cr": [
+    "611.3a"
+   ],
+   "why": "The permission is a static ability with no expiry: the card is still castable on its controller's next turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tinybones, Bauble Burglar"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Tinybones, Bauble Burglar",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "owner-cannot-play-their-stashed-card",
+   "cr": [
+    "601.3"
+   ],
+   "why": "The permission is for Tinybones's controller and cards they do not own: the owner cannot cast their own exiled card.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tinybones, Bauble Burglar"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Tinybones, Bauble Burglar",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "mana",
+     "seat": 1,
+     "mana": "R"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 1,
+      "kind": "cast",
+      "card": "p1:Lightning Bolt"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "permission-ends-when-tinybones-leaves",
+   "cr": [
+    "611.3a"
+   ],
+   "why": "Once Tinybones is gone the card stays in exile with its counter but can no longer be played.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tinybones, Bauble Burglar"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt",
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Tinybones, Bauble Burglar",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p1:Lightning Bolt"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Tinybones, Bauble Burglar"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Tinybones, Bauble Burglar",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "exile",
+     "counters": {
+      "stash": 1
+     }
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p1:Lightning Bolt"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "discard-from-another-effect-is-exiled-too",
+   "cr": [
+    "603.2c"
+   ],
+   "why": "The first ability watches every discard by an opponent: both cards discarded to Mind Rot are exiled with stash counters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mind Rot"
+     ],
+     "battlefield": [
+      "Tinybones, Bauble Burglar"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mind Rot",
+     "mana": "CCB",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "exile",
+     "counters": {
+      "stash": 1
+     }
+    },
+    {
+     "card": "p1:Shock",
+     "zone": "exile",
+     "counters": {
+      "stash": 1
+     }
+    },
+    {
+     "graveyard_size": {
+      "p1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "own-discard-is-not-exiled",
+   "cr": [
+    "603.2",
+    "109.5"
+   ],
+   "why": "Only an opponent's discard triggers it: its controller's discarded cards stay in the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt",
+      "Shock"
+     ],
+     "battlefield": [
+      "Tinybones, Bauble Burglar"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Mind Rot"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Mind Rot",
+     "mana": "CCB",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard",
+     "counters": {
+      "stash": 0
+     }
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "activation-is-sorcery-speed",
+   "cr": [
+    "602.5d"
+   ],
+   "why": "Activate only as a sorcery: not offered on the opponent's turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tinybones, Bauble Burglar"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCB"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Tinybones, Bauble Burglar"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "summoning-sick-cannot-activate",
+   "cr": [
+    "302.6"
+   ],
+   "why": "The cost includes {T}: cast this turn it cannot be activated.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Tinybones, Bauble Burglar"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Tinybones, Bauble Burglar",
+     "mana": "CB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCB"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Tinybones, Bauble Burglar"
+     },
+     "want": false
+    },
+    {
+     "card": "p0:Tinybones, Bauble Burglar",
+     "pt": "1/3"
+    }
+   ]
+  },
+  {
+   "name": "opponent-with-empty-hand-discards-nothing",
+   "cr": [
+    "701.9a"
+   ],
+   "why": "With no cards in hand the opponent discards nothing; the ability still resolves.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tinybones, Bauble Burglar"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Tinybones, Bauble Burglar",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Tinybones, Bauble Burglar",
+     "tapped": true
+    },
+    {
+     "hand_size": {
+      "p1": 0
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  }
+ ]
+}

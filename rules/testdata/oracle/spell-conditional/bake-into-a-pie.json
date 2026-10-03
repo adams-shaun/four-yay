@@ -1,0 +1,353 @@
+{
+ "card": "Bake into a Pie",
+ "family": "spell-conditional",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "d6f71fdade69",
+ "scenarios": [
+  {
+   "name": "destroys-creature-and-makes-food",
+   "cr": [
+    "701.8a",
+    "111.10b"
+   ],
+   "why": "The target creature is destroyed and the caster gets one Food token; Food is an artifact whose ability costs two generic mana, tapping and sacrificing it, and gains its controller 3 life.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bake into a Pie"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bake into a Pie",
+     "mana": "CCBB",
+     "targets": [
+      "p1:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p1:Craw Wurm",
+       "zone": "graveyard"
+      },
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Food",
+        "token": true
+       },
+       "eq": 1
+      },
+      {
+       "card": "p0:token:Food",
+       "types": [
+        "Artifact",
+        "Food"
+       ],
+       "no_types": [
+        "Creature"
+       ]
+      },
+      {
+       "life": {
+        "p0": 20
+       }
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:token:Food",
+     "mana": "CC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 23,
+      "p1": 20
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Food",
+      "token": true
+     },
+     "eq": 0
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Food"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "food-needs-two-mana",
+   "cr": [
+    "602.2b",
+    "111.10b"
+   ],
+   "why": "The Food ability costs {2}: with one mana in the pool it cannot be activated, with two it can.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bake into a Pie"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bake into a Pie",
+     "mana": "CCBB",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:token:Food"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:token:Food"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "indestructible-target-still-makes-food",
+   "cr": [
+    "702.12b",
+    "608.2b"
+   ],
+   "why": "An indestructible creature is a legal target and is not destroyed; the spell still resolves, so the Food is still created.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bake into a Pie"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Darksteel Myr"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bake into a Pie",
+     "mana": "CCBB",
+     "targets": [
+      "p1:Darksteel Myr"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Darksteel Myr",
+     "zone": "battlefield"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Food",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:Bake into a Pie",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "illegal-target-on-resolution-makes-no-food",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "If the only target has left the battlefield before resolution the spell does not resolve at all, so no Food is created.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bake into a Pie",
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bake into a Pie",
+     "mana": "CCBB",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Food"
+     },
+     "eq": 0
+    },
+    {
+     "card": "p0:Bake into a Pie",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "instant-speed-on-opponents-turn",
+   "cr": [
+    "304.1"
+   ],
+   "why": "An instant: it can be cast when its controller has priority during the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bake into a Pie"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bake into a Pie",
+     "mana": "CCBB",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Food",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,258 @@
+{
+ "card": "Fishing Pole",
+ "family": "equipment",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "66bcd6de89fc",
+ "scenarios": [
+  {
+   "name": "equipped-creature-puts-bait-counter",
+   "cr": [
+    "702.6a",
+    "602.2"
+   ],
+   "why": "Equip {2}; the equipped creature has '{1}, {T}, tap Fishing Pole: put a bait counter on Fishing Pole'.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fishing Pole",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Fishing Pole",
+     "mana": "CC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "Equip"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "C",
+     "ability": "bait"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Fishing Pole",
+     "tapped": true,
+     "counters": {
+      "bait": 1
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "untapping-turns-bait-into-a-fish",
+   "cr": [
+    "603.2",
+    "502.3"
+   ],
+   "why": "When the equipped creature untaps in its controller's untap step, a bait counter is removed and a 1/1 blue Fish token is created.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fishing Pole",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Fishing Pole",
+     "mana": "CC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "Equip"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "C",
+     "ability": "bait"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Fishing Pole",
+     "counters": {
+      "bait": 0
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Fish",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Fish",
+     "pt": "1/1"
+    }
+   ]
+  },
+  {
+   "name": "untapping-without-bait-makes-nothing",
+   "cr": [
+    "603.2"
+   ],
+   "why": "'If you do': with no bait counter to remove, untapping after an attack creates no Fish.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fishing Pole",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Fishing Pole",
+     "mana": "CC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "Equip"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Fish"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "unequipped-creature-has-no-bait-ability",
+   "cr": [
+    "301.5"
+   ],
+   "why": "Only the equipped creature has the ability.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fishing Pole",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Grizzly Bears",
+      "label": "bait"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "equip-two",
+   "cr": [
+    "702.6a"
+   ],
+   "why": "Equip costs {2}: with one mana it cannot be equipped.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fishing Pole",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Fishing Pole",
+      "label": "Equip"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

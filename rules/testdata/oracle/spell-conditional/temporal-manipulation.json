@@ -1,0 +1,120 @@
+{
+ "card": "Temporal Manipulation",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "21dae84ac6f5",
+ "scenarios": [
+  {
+   "name": "extra-turn-before-opponent",
+   "cr": [
+    "500.7"
+   ],
+   "why": "Its caster takes an extra turn after this one: their next upkeep comes before the opponent has a turn (the opponent has drawn nothing).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Temporal Manipulation"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Temporal Manipulation",
+     "mana": "UUCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p1": 0
+     }
+    },
+    {
+     "card": "p0:Temporal Manipulation",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "then-the-opponent-takes-their-turn",
+   "cr": [
+    "500.7"
+   ],
+   "why": "After the extra turn the opponent's turn follows: in it, its caster has drawn once (the extra turn's draw).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Temporal Manipulation"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Temporal Manipulation",
+     "mana": "UUCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 1,
+      "p1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "control-no-extra-turn",
+   "cr": [
+    "500.1"
+   ],
+   "why": "Control: without the spell, the opponent's turn comes next and they draw before its controller's next upkeep.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Temporal Manipulation"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p1": 1
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,312 @@
+{
+ "card": "Infestation Sage",
+ "family": "death-triggers",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "fd0146376449",
+ "scenarios": [
+  {
+   "name": "dies-to-damage-makes-flying-insect",
+   "cr": [
+    "700.4",
+    "603.6c",
+    "111.1"
+   ],
+   "why": "When the Sage dies its controller creates one 1/1 Insect creature token with flying.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Infestation Sage"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Infestation Sage"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Infestation Sage",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Insect",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Insect",
+     "pt": "1/1",
+     "keywords": [
+      "Flying"
+     ],
+     "types": [
+      "Creature",
+      "Insect"
+     ]
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Insect"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "exiled-is-not-dying",
+   "cr": [
+    "700.4"
+   ],
+   "why": "Dies means put into a graveyard from the battlefield: a Sage that is exiled instead makes no token.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Infestation Sage"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Infestation Sage",
+     "to": "exile"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Insect"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "discarded-from-hand-is-not-dying",
+   "cr": [
+    "700.4"
+   ],
+   "why": "Going to the graveyard from the hand is not dying, so no token.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Infestation Sage"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Infestation Sage",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Insect"
+     },
+     "eq": 0
+    },
+    {
+     "card": "p0:Infestation Sage",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "token-is-black",
+   "cr": [
+    "105.1",
+    "115.1"
+   ],
+   "why": "The token is black (and green), so a spell that can target only nonblack creatures has no legal target when the token is the only creature.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Infestation Sage"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Doom Blade",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Infestation Sage"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Insect",
+        "token": true
+       },
+       "eq": 1
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "mana",
+     "seat": 1,
+     "mana": "CB",
+     "expect": [
+      {
+       "offered": {
+        "seat": 1,
+        "kind": "cast",
+        "card": "p1:Doom Blade"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Doom Blade",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "token-has-flying-and-can-block-a-flier",
+   "cr": [
+    "702.9b",
+    "509.1a"
+   ],
+   "why": "The Insect token has flying, so it can block a flying attacker, which the ground creature next to it cannot.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Infestation Sage",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Wind Drake"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Infestation Sage",
+     "to": "graveyard",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Infestation Sage",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Wind Drake"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p0:token:Insect",
+        "attacker": "p1:Wind Drake"
+       },
+       "want": true
+      },
+      {
+       "can_block": {
+        "blocker": "p0:Grizzly Bears",
+        "attacker": "p1:Wind Drake"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Insect",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  }
+ ]
+}

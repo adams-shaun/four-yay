@@ -1,0 +1,9 @@
+{"code":"PF20","name":"MagicFest 2020","released":"2020-01-01","set_type":"PROMOTIONAL","xmage_ref":"6b602a1c85e8ed738a4b40b1ef44c54845b57f68",
+"cards": [
+{"name":"Forest","numbers":["6"],"rarity":"LAND"},
+{"name":"Island","numbers":["3"],"rarity":"LAND"},
+{"name":"Mountain","numbers":["5"],"rarity":"LAND"},
+{"name":"Path to Exile","numbers":["1"],"rarity":"RARE"},
+{"name":"Plains","numbers":["2"],"rarity":"LAND"},
+{"name":"Swamp","numbers":["4"],"rarity":"LAND"}
+]}

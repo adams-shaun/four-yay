@@ -1,0 +1,537 @@
+{
+ "card": "Spinner of Souls",
+ "family": "death-triggers",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "3fa1a82500c2",
+ "scenarios": [
+  {
+   "name": "nontoken-creature-dies-reveal-until-a-creature",
+   "cr": [
+    "700.4",
+    "701.20a"
+   ],
+   "why": "Another nontoken creature its controller controls dies: they reveal cards until a creature card, put it into their hand and the other revealed cards on the bottom. A card below the creature is not touched.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Spinner of Souls",
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Forest",
+      "Centaur Courser",
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Murder",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Spinner of Souls",
+     "pt": "4/3",
+     "keywords": [
+      "Reach"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "may-decline",
+   "cr": [
+    "603.5"
+   ],
+   "why": "The reveal is optional: declining leaves the library alone.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Spinner of Souls",
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "token-dying-does-not-trigger",
+   "cr": [
+    "603.2",
+    "111.1"
+   ],
+   "why": "'Nontoken': a creature token dying does not trigger it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Raise the Alarm",
+      "Shock"
+     ],
+     "battlefield": [
+      "Spinner of Souls"
+     ],
+     "library_top": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Raise the Alarm",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:token:Soldier"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Soldier",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "itself-dying-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "'Another': its own death does not trigger it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Spinner of Souls"
+     ],
+     "library_top": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Spinner of Souls"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Spinner of Souls",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-creature-dying-does-not-trigger",
+   "cr": [
+    "603.2",
+    "109.5"
+   ],
+   "why": "Only creatures its controller controls count.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Spinner of Souls"
+     ],
+     "library_top": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-creature-card-in-library-nothing-to-hand",
+   "cr": [
+    "701.20a",
+    "608.2d"
+   ],
+   "why": "With no creature card in the library every card is revealed, none goes to hand, and all of them go back to the library.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Spinner of Souls",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "library",
+      "name": "Wastes"
+     },
+     "eq": 37
+    },
+    {
+     "graveyard_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "exiled-creature-does-not-trigger",
+   "cr": [
+    "700.4"
+   ],
+   "why": "Exile is not dying.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Spinner of Souls",
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Swords to Plowshares"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Swords to Plowshares",
+     "mana": "W",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-creatures-die-two-triggers",
+   "cr": [
+    "603.2c"
+   ],
+   "why": "Two other creatures dying trigger it twice: two creature cards end up in hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock",
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Spinner of Souls",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ],
+     "library_top": [
+      "Centaur Courser",
+      "Forest",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "dies-together-with-other-creatures-still-triggers-for-them",
+   "cr": [
+    "603.10a",
+    "603.6c"
+   ],
+   "why": "Leaves-the-battlefield abilities look back in time: when the Spinner dies in the same sweep as two other nontoken creatures it controls, it triggers once for each of them.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Day of Judgment"
+     ],
+     "battlefield": [
+      "Spinner of Souls",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ],
+     "library_top": [
+      "Centaur Courser",
+      "Forest",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Day of Judgment",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Spinner of Souls",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  }
+ ]
+}

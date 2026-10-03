@@ -1,0 +1,92 @@
+{
+ "card": "Filigree Familiar",
+ "family": "etb-ltb",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "4299ab2383d5",
+ "scenarios": [
+  {
+   "name": "enters-gaining-two-life",
+   "cr": [
+    "603.6a",
+    "119.3"
+   ],
+   "why": "Filigree Familiar is a 2/2 artifact creature; its enter trigger has its controller gain 2 life, from 20 to 22.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Filigree Familiar"
+     ],
+     "life": 20
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Filigree Familiar",
+     "mana": "CCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Filigree Familiar",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "types": [
+      "Artifact",
+      "Creature"
+     ]
+    },
+    {
+     "life": {
+      "p0": 22
+     }
+    }
+   ]
+  },
+  {
+   "name": "dies-drawing-a-card",
+   "cr": [
+    "603.6c",
+    "121.1"
+   ],
+   "why": "When Filigree Familiar dies its controller draws a card: the set-up Forest moves to hand.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Filigree Familiar"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Filigree Familiar",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Filigree Familiar",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    }
+   ]
+  }
+ ]
+}

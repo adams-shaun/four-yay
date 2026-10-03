@@ -1,0 +1,422 @@
+{
+ "card": "Needletooth Pack",
+ "family": "trigger-condition",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "83c7adfa912f",
+ "scenarios": [
+  {
+   "name": "morbid-two-counters-on-another-creature",
+   "cr": [
+    "603.4",
+    "207.2c"
+   ],
+   "why": "A creature died this turn: at its controller's end step two +1/+1 counters go on a target creature that player controls.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Needletooth Pack",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Needletooth Pack",
+       "want": true
+      },
+      {
+       "card": "p0:Grizzly Bears",
+       "pt": "2/2"
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "card": "p0:Needletooth Pack",
+     "pt": "4/5",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "morbid-may-target-itself",
+   "cr": [
+    "115.1",
+    "603.4"
+   ],
+   "why": "The Pack is a creature its controller controls and may be its own target: 6/7.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Needletooth Pack"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Needletooth Pack"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Needletooth Pack",
+     "pt": "6/7",
+     "counters": {
+      "+1/+1": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-death-no-trigger",
+   "cr": [
+    "603.4"
+   ],
+   "why": "No creature died this turn, so the ability does not trigger and nobody gets counters.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Needletooth Pack",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Needletooth Pack",
+       "want": false
+      },
+      {
+       "stack_size": 0
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Needletooth Pack",
+     "pt": "4/5",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-end-step-does-not-trigger",
+   "cr": [
+    "603.4",
+    "513.1"
+   ],
+   "why": "Only its controller's end step: a creature dying on the opponent's turn gives nothing at the opponent's end step.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Needletooth Pack"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p1:Savannah Lions",
+       "zone": "graveyard"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Needletooth Pack",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Needletooth Pack",
+     "pt": "4/5",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "target-killed-in-response-no-counters",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "The targeted creature dies with the trigger on the stack: the trigger does nothing, and the counters do not move to the Pack.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Needletooth Pack",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Needletooth Pack",
+     "pt": "4/5",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "pack-itself-entering-this-turn-after-a-death",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Morbid looks at the whole turn: a creature that died before the Pack was cast still counts at the end step.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt",
+      "Needletooth Pack"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Needletooth Pack",
+     "mana": "CCCGG"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Needletooth Pack"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Needletooth Pack",
+     "pt": "6/7",
+     "counters": {
+      "+1/+1": 2
+     }
+    }
+   ]
+  }
+ ]
+}

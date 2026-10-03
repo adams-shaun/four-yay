@@ -1,0 +1,512 @@
+{
+ "card": "Ashroot Animist",
+ "family": "attack-triggers",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "bdad3ea334c4",
+ "scenarios": [
+  {
+   "name": "attack-pumps-another-creature-by-its-power",
+   "cr": [
+    "603.2",
+    "608.2h"
+   ],
+   "why": "On attacking, another target creature its controller controls gains trample and gets +X/+X, X being the Animist's power (4): a 2/2 becomes 6/6 with trample.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ashroot Animist",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ashroot Animist",
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "6/6",
+     "keywords": [
+      "Trample"
+     ]
+    },
+    {
+     "card": "p0:Ashroot Animist",
+     "pt": "4/4",
+     "keywords": [
+      "Trample"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "target-need-not-be-attacking",
+   "cr": [
+    "115.1"
+   ],
+   "why": "The target is any other creature its controller controls, attacking or not.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ashroot Animist",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ashroot Animist"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "6/6",
+     "keywords": [
+      "Trample"
+     ],
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "bonus-ends-at-end-of-turn",
+   "cr": [
+    "514.2"
+   ],
+   "why": "Until end of turn: the creature is a plain 2/2 without trample on the next turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ashroot Animist",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ashroot Animist"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "no_keywords": [
+      "Trample"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "no-other-creature-no-trigger",
+   "cr": [
+    "603.3d"
+   ],
+   "why": "'Another target creature you control': alone, the Animist has no legal target and the ability is removed from the stack. The attack goes on.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ashroot Animist"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ashroot Animist"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "card": "p0:Ashroot Animist",
+       "pt": "4/4"
+      },
+      {
+       "card": "p1:Grizzly Bears",
+       "pt": "2/2"
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 16
+     }
+    }
+   ]
+  },
+  {
+   "name": "x-is-read-on-resolution",
+   "cr": [
+    "608.2h"
+   ],
+   "why": "X is the Animist's power as the ability resolves: pumped to 7/7 in response, it gives +7/+7.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Ashroot Animist",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ashroot Animist"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Ashroot Animist"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ashroot Animist",
+     "pt": "7/7"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "9/9",
+     "keywords": [
+      "Trample"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "x-is-locked-in-after-resolution",
+   "cr": [
+    "608.2h",
+    "611.2"
+   ],
+   "why": "Once the ability has resolved the bonus does not change when the Animist's power does.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Ashroot Animist",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ashroot Animist"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Ashroot Animist"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ashroot Animist",
+     "pt": "7/7"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "6/6"
+    }
+   ]
+  },
+  {
+   "name": "animist-destroyed-in-response-uses-last-known-power",
+   "cr": [
+    "113.7a",
+    "608.2h"
+   ],
+   "why": "The Animist is destroyed with its trigger on the stack: the ability still resolves using its last known power, 4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ashroot Animist",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ashroot Animist"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Ashroot Animist"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ashroot Animist",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "6/6",
+     "keywords": [
+      "Trample"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "granted-trample-carries-excess-damage",
+   "cr": [
+    "702.19b"
+   ],
+   "why": "The pumped 6/6 trampler blocked by a 2/2 assigns 2 to it and 4 to the player; the unblocked Animist adds 4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ashroot Animist",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Runeclaw Bear"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ashroot Animist",
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Runeclaw Bear",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 12
+     }
+    },
+    {
+     "card": "p1:Runeclaw Bear",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "target-removed-in-response-does-nothing",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "The targeted creature is destroyed in response: the ability does nothing and no other creature is pumped.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ashroot Animist",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ashroot Animist"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "2/1"
+    },
+    {
+     "card": "p0:Ashroot Animist",
+     "pt": "4/4"
+    }
+   ]
+  }
+ ]
+}

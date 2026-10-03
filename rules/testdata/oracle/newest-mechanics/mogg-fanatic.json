@@ -1,0 +1,29 @@
+{
+  "card": "Mogg Fanatic",
+  "family": "newest-mechanics",
+  "author": "cli-20261002T230428Z-067d6538 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "printed-characteristics",
+      "cr": [
+        "208.3"
+      ],
+      "why": "Oracle gives Mogg Fanatic printed power/toughness 1/1. Those characteristics apply to this battlefield creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Mogg Fanatic"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Mogg Fanatic",
+          "zone": "battlefield",
+          "pt": "1/1"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,534 @@
+{
+ "card": "Wildwood Scourge",
+ "family": "etb-ltb",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "456a7ae83a03",
+ "scenarios": [
+  {
+   "name": "x-three-enters-with-three-counters",
+   "cr": [
+    "107.3m",
+    "614.1c"
+   ],
+   "why": "Cast with X=3 it enters with three +1/+1 counters: a 3/3.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Wildwood Scourge"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Wildwood Scourge",
+     "mana": "CCCG",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "3"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wildwood Scourge",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 3
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "x-zero-dies",
+   "cr": [
+    "704.5f"
+   ],
+   "why": "Cast with X=0 it is a 0/0 and is put into the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Wildwood Scourge"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Wildwood Scourge",
+     "mana": "G",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "0"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wildwood Scourge",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "counter-on-another-non-hydra-creature-grows-it",
+   "cr": [
+    "603.2",
+    "122.6"
+   ],
+   "why": "A +1/+1 counter put on another non-Hydra creature its controller controls puts one on the Scourge.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Wildwood Scourge",
+      "Battlegrowth"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Wildwood Scourge",
+     "mana": "CCG",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "2"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Battlegrowth",
+     "mana": "G",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wildwood Scourge",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 3
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "counter-on-itself-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "'Another': a counter put on the Scourge itself adds only that one counter.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Wildwood Scourge",
+      "Battlegrowth"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Wildwood Scourge",
+     "mana": "CCG",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "2"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Battlegrowth",
+     "mana": "G",
+     "targets": [
+      "p0:Wildwood Scourge"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Wildwood Scourge",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wildwood Scourge",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "counter-on-another-hydra-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A counter put on another Hydra does not trigger it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Wildwood Scourge",
+      "Wildwood Scourge",
+      "Battlegrowth"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Wildwood Scourge",
+     "mana": "CCG",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "2"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Wildwood Scourge#2",
+     "mana": "CCG",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "2"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Battlegrowth",
+     "mana": "G",
+     "targets": [
+      "p0:Wildwood Scourge#2"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wildwood Scourge",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "card": "p0:Wildwood Scourge#2",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "counter-on-opponents-creature-does-not-trigger",
+   "cr": [
+    "603.2",
+    "109.5"
+   ],
+   "why": "Only creatures its controller controls count.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Wildwood Scourge",
+      "Battlegrowth"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Wildwood Scourge",
+     "mana": "CCG",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "2"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Battlegrowth",
+     "mana": "G",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wildwood Scourge",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "pt": "3/3"
+    }
+   ]
+  },
+  {
+   "name": "two-creatures-get-counters-two-triggers",
+   "cr": [
+    "603.2c"
+   ],
+   "why": "Counters put on two different creatures at once trigger it once for each creature.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Wildwood Scourge",
+      "Travel Preparations"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Wildwood Scourge",
+     "mana": "CCG",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "2"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Travel Preparations",
+     "mana": "CG",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p0:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wildwood Scourge",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 4
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "pt": "4/4"
+    }
+   ]
+  },
+  {
+   "name": "creature-entering-with-a-counter-triggers",
+   "cr": [
+    "122.6",
+    "603.2"
+   ],
+   "why": "A creature that enters with a +1/+1 counter has had a counter put on it: the Scourge triggers.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Wildwood Scourge",
+      "Servant of the Scale"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Wildwood Scourge",
+     "mana": "CCG",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "2"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Servant of the Scale",
+     "mana": "G"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wildwood Scourge",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 3
+     }
+    },
+    {
+     "card": "p0:Servant of the Scale",
+     "pt": "1/1"
+    }
+   ]
+  },
+  {
+   "name": "returned-from-graveyard-x-is-zero",
+   "cr": [
+    "107.3m",
+    "704.5f"
+   ],
+   "why": "Put onto the battlefield without being cast, X is 0: it enters with no counters and dies.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Zombify"
+     ],
+     "graveyard": [
+      "Wildwood Scourge"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Zombify",
+     "mana": "CCCB",
+     "targets": [
+      "p0:Wildwood Scourge"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wildwood Scourge",
+     "zone": "graveyard",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  }
+ ]
+}

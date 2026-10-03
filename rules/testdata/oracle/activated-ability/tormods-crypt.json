@@ -1,0 +1,63 @@
+{
+ "card": "Tormod's Crypt",
+ "family": "activated-ability",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "62a9740f80ce",
+ "scenarios": [
+  {
+   "name": "taps-and-sacrifices-to-exile-a-graveyard",
+   "cr": [
+    "118.12",
+    "701.16a",
+    "406.2"
+   ],
+   "why": "{T}, Sacrifice Tormod's Crypt exiles all cards from target player's graveyard. Activating it exiles p1's two graveyard cards and puts the Crypt itself into the graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tormod's Crypt"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Tormod's Crypt",
+     "ability": "Exile all cards",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "exile"
+    },
+    {
+     "graveyard_size": {
+      "p1": 0
+     }
+    },
+    {
+     "card": "p0:Tormod's Crypt",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

@@ -269,7 +269,7 @@ func (e *Engine) classifyBattlefieldAbilities(p state.PlayerID, w *windowCollect
 	sorcery := e.sorcerySpeed(p)
 	for _, id := range e.G.Zone(state.ZBattlefield, p) {
 		o := e.G.Obj(id)
-		if o == nil || o.Face() == nil || e.faceDownPrintedHides(o) || !existsOnBattlefield(o) {
+		if o == nil || o.Face() == nil || e.printedAbilitiesGone(o) || !existsOnBattlefield(o) {
 			continue
 		}
 		for i, n := 0, o.PileAbilityCount(); i < n; i++ {

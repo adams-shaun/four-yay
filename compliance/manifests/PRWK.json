@@ -1,0 +1,8 @@
+{"code":"PRWK","name":"GRN Ravnica Weekend","released":"2018-10-05","set_type":"PROMOTIONAL","xmage_ref":"6b602a1c85e8ed738a4b40b1ef44c54845b57f68",
+"cards": [
+{"name":"Forest","numbers":["A06","A09"],"rarity":"LAND"},
+{"name":"Island","numbers":["A01","A03"],"rarity":"LAND"},
+{"name":"Mountain","numbers":["A04","A07"],"rarity":"LAND"},
+{"name":"Plains","numbers":["A08","A10"],"rarity":"LAND"},
+{"name":"Swamp","numbers":["A02","A05"],"rarity":"LAND"}
+]}

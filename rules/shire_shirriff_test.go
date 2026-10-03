@@ -97,14 +97,12 @@ func shirePayThrough(t *testing.T, e *Engine, token, bear state.ObjID) {
 		t.Fatalf("the paid cost never moved the token to the graveyard (tail %+v)", tailEmit(e, 8))
 	}
 
-	// The body's placement target ask (TgtPrompt$ Select target creature an
-	// opponent controls), addressed to the controller.
+	// CR 603.12: the "when you do" half is a reflexive triggered ability, so
+	// its target is a real placement target ask (KTarget), addressed to the
+	// controller as the ability is put on the stack.
 	dt := passUntilAsk(t, e)
-	if dt == nil || dt.Kind != decision.KChoose || dt.ResumeKind != "choice" {
-		t.Fatalf("post-pay ask = %+v, want the ChangeZone body's KChoose", dt)
-	}
-	if !strings.Contains(dt.Prompt, "Select target creature an opponent controls") {
-		t.Fatalf("target ask prompt %q, want the TgtPrompt$", dt.Prompt)
+	if dt == nil || dt.Kind != decision.KTarget || dt.Player != 0 {
+		t.Fatalf("post-pay ask = %+v, want the reflexive ability's KTarget for seat 0", dt)
 	}
 	idx := -1
 	for _, o := range dt.Options {
@@ -116,11 +114,15 @@ func shirePayThrough(t *testing.T, e *Engine, token, bear state.ObjID) {
 		t.Fatalf("the opponent's bear was not offered as the exile target: %+v", dt.Options)
 	}
 	submitChoices(t, e, idx)
+	if got := e.G.Obj(bear); got == nil || got.Zone != state.ZBattlefield {
+		t.Fatalf("the bear left before the reflexive ability resolved (obj %+v)", got)
+	}
+	passUntilStackEmpty(t, e, 20)
 }
 
 // TestShireShirriffWhenYouDoPayExilesUntilItLeaves is the accepted-and-paid
-// leg: the window asks pay/decline, pay sacrifices the token, the body's
-// target ask appears mid-resolution, and the answered choice exiles the
+// leg: the window asks pay/decline, pay sacrifices the token, the reflexive
+// ability's target ask appears as it goes on the stack, and it exiles the
 // opponent's creature with a Duration$ UntilHostLeavesPlay marker on the
 // exiler.
 func TestShireShirriffWhenYouDoPayExilesUntilItLeaves(t *testing.T) {

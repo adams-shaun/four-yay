@@ -1,3 +1,5 @@
+//go:build manabrew
+
 package manabrewhttp
 
 // MBX-4's HTTP leg: the ManaBrew wire is a lossless transport for a real bot
