@@ -275,6 +275,17 @@ var CloneFiles = []string{"effects/clone.go"}
 // CloneOnlyKeys are the parameter keys only Clone's compiler reads.
 var CloneOnlyKeys = []string{"CloneTarget", "CloneZone", "CopyFromChosenName", "ExcludeChosen", "GainThisAbility", "KeepFacedown", "NewName"}
 
+// DigCompilerFile is api:Dig's parameter compiler (W4 step 3): the one
+// file allowed to read a Dig ability's parameters.
+const DigCompilerFile = "effects/dig_params.go"
+
+// DigFiles are Dig's own resolution files: they carry no parameter
+// read of any key.
+var DigFiles = []string{"effects/dig.go"}
+
+// DigOnlyKeys are the parameter keys only Dig's compiler reads.
+var DigOnlyKeys = []string{"ChangeValid", "Choser", "DestinationZone", "DestinationZone2", "DigNum", "ForceRevealToController", "FromBottom", "LibraryPosition2", "OptionalAbilityPrompt", "PromptToSkipOptionalAbility", "RestRandomOrder", "SkipReorder"}
+
 // TypedParamCompiler names one API's parameter compiler for the leak census
 // (Metrics.ChangeZoneParamLeaks and its siblings): the compiler file, the
 // API's own resolution files (no parameter read of any key there) and the
@@ -427,6 +438,10 @@ type Metrics struct {
 	// CloneFiles, CloneOnlyKeys).
 	CloneParamLeaks int      `json:"clone_param_leaks"`
 	CloneLeaks      []string `json:"clone_leaks"`
+	// DigParamLeaks is the same census for api:Dig (DigCompilerFile,
+	// DigFiles, DigOnlyKeys).
+	DigParamLeaks int      `json:"dig_param_leaks"`
+	DigLeaks      []string `json:"dig_leaks"`
 	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
@@ -561,6 +576,8 @@ func Measure(root string) (Metrics, error) {
 				TypedParamCompiler{CopyPermanentCompilerFile, CopyPermanentFiles, CopyPermanentOnlyKeys})...)
 			m.CloneLeaks = append(m.CloneLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{CloneCompilerFile, CloneFiles, CloneOnlyKeys})...)
+			m.DigLeaks = append(m.DigLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{DigCompilerFile, DigFiles, DigOnlyKeys})...)
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.TypeAssertExpr:
@@ -630,6 +647,7 @@ func Measure(root string) (Metrics, error) {
 	m.DelayedTriggerParamLeaks, m.DelayedTriggerLeaks = finishLeaks(m.DelayedTriggerLeaks)
 	m.CopyPermanentParamLeaks, m.CopyPermanentLeaks = finishLeaks(m.CopyPermanentLeaks)
 	m.CloneParamLeaks, m.CloneLeaks = finishLeaks(m.CloneLeaks)
+	m.DigParamLeaks, m.DigLeaks = finishLeaks(m.DigLeaks)
 	m.FuncsOver300 = len(m.LongFuncs)
 	sort.Slice(m.LongFuncs, func(i, j int) bool {
 		a, b := m.LongFuncs[i], m.LongFuncs[j]

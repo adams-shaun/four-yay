@@ -76,7 +76,9 @@ const (
 	// compiler (clone.go's CloneTarget$/ExcludeChosen$/CloneZone$/NewName$/
 	// GainThisAbility$/KeepFacedown$/CopyFromChosenName$/SetCreatureTypes$/
 	// RemoveSubTypes$ reads compiled once): 603 -> 593.
-	stringParamReads = 593
+	// The Dig compiler (effDig moved to dig.go; its twelve literal reads
+	// compiled once): 593 -> 581.
+	stringParamReads = 581
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.
@@ -164,6 +166,10 @@ const (
 	// effects/clone_params.go (codeshape.CloneFiles, codeshape.CloneOnlyKeys).
 	// It landed at zero.
 	cloneParamLeaks = 0
+	// digParamLeaks is the same census for api:Dig's compiler,
+	// effects/dig_params.go (codeshape.DigFiles, codeshape.DigOnlyKeys). It landed at
+	// zero.
+	digParamLeaks = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -353,6 +359,11 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"field to compileClone in effects/clone_params.go) instead of reading the ability's Params in " +
 				"effects/clone.go or a Clone-only key elsewhere. " +
 				"Leaks: " + strings.Join(m.CloneLeaks, ", ")},
+		{"digParamLeaks", m.DigParamLeaks, digParamLeaks,
+			"Read the parameter through effects.DigOf's compiled DigParams (add a " +
+				"field to compileDig in effects/dig_params.go) instead of reading the ability's Params in " +
+				"effects/dig.go or a Dig-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.DigLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +

@@ -68,6 +68,12 @@ func TestCloneKnownKeysMatchTheCensus(t *testing.T) {
 	checkKnownKeysMatchTheCensus(t, "Clone", effects.CloneKnownKeys())
 }
 
+// TestDigKnownKeysMatchTheCensus is the same check for api:Dig
+// (effects.digKnownKeys).
+func TestDigKnownKeysMatchTheCensus(t *testing.T) {
+	checkKnownKeysMatchTheCensus(t, "Dig", effects.DigKnownKeys())
+}
+
 // checkKnownKeysMatchTheCensus holds an API compiler's known-key table equal
 // to the census's measured read set for api plus its ignored and structural
 // keys.

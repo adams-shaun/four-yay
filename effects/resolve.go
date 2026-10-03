@@ -236,7 +236,7 @@ func effSetState(h Host, c *Ctx, sa *cards.SA) {
 // resolution's Remembered, where the chained SubAbility$ reads it -- Megatron,
 // Tyrant's DBMana (ConditionDefined$ Remembered), Soul Seizer's DB$ Attach, the
 // Enduring Angel lose-game gate, Lukamina's DBReturn. It is the Dig precedent,
-// digRemember (cardflow.go), and it is Ctx-only, never the persistent
+// digRemember (dig.go), and it is Ctx-only, never the persistent
 // eventRemember half: every measured consumer reads the list inside the same
 // chain and each of those chains ends in ClearRemembered$ True. Absent the
 // parameter (the corpus default) the walk adds nothing, so every pre-existing
