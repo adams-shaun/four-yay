@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // Whiskervale Forerunner's shape (cardfuzz dual run, seed 11101, game
@@ -61,4 +62,26 @@ func TestLegacyResumeKeepsChosenBindingAcrossAsk(t *testing.T) {
 		}
 	}
 	tapeDual(t, 2, 33417, legacyChosenScenario, legacyChosenAcrossAskSrc)
+}
+
+// Shrouded Lore's shape (cardfuzz dual run, seed 11101, census game
+// 177156192444407068, exposed once its UnlessCost$ election was served
+// from the tape): a ChooseCard recorded without an answered re-entry (here
+// AtRandom$) left its pick in Ctx.Choice, the ANSWER channel, so the next
+// ChooseCard on the same Ctx read a stale answer at its entry, skipped
+// Forge's setChosenCards replacement and accumulated: Defined$ ChosenCard
+// then named every card chosen so far instead of the last choice's.
+const legacyStaleChoiceSrc = "Name:Tape Twice Chosen\nManaCost:B\nTypes:Sorcery\n" +
+	"A:SP$ ChooseCard | Defined$ You | Amount$ 1 | AtRandom$ True | Choices$ Land.YouOwn | ChoiceZone$ Library | SubAbility$ PickAgain\n" +
+	"SVar:PickAgain:DB$ ChooseCard | Defined$ You | Amount$ 1 | AtRandom$ True | Choices$ Land.YouOwn | ChoiceZone$ Library | SubAbility$ Fetch\n" +
+	"SVar:Fetch:DB$ ChangeZone | Defined$ ChosenCard | Origin$ Library | Destination$ Hand\nOracle:x\n"
+
+func TestChooseCardRecordLeavesNoStaleAnswer(t *testing.T) {
+	e, _ := tapeFixture(t, 2, 33418, false, legacyStaleChoiceSrc)
+	hand := len(e.G.Zone(state.ZHand, 0))
+	tapeCastAndResolve(t, e, "Tape Twice Chosen", "B")
+	// The sorcery left the hand; exactly the second choice's card arrived.
+	if got := len(e.G.Zone(state.ZHand, 0)) - (hand - 1); got != 1 {
+		t.Fatalf("Defined$ ChosenCard fetched %d cards, want only the last choice's 1", got)
+	}
 }

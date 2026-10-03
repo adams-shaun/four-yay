@@ -386,8 +386,14 @@ func chooseCardChoosers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 	return out
 }
 
+// choiceRecord records a completed pick into the chain's chosen binding
+// (Ctx.Chosen), the Remembered set and the source's event-backed lists. It
+// leaves Ctx.Choice alone: that is the ANSWER channel a resume arm fills for
+// one re-entry (read only beside Ctx.ChoiceDone), and a pick left in it is a
+// stale answer the next choice SA on the same Ctx reads at its entry --
+// skipping the fresh-entry replacement of the earlier SA's cards, so Shrouded
+// Lore's Defined$ ChosenCard named every card chosen so far.
 func choiceRecord(h Host, c *Ctx, sa *cards.SA, picked []state.Target, playerChoice bool) {
-	c.Choice = append([]state.Target(nil), picked...)
 	if playerChoice {
 		// Forge's ChoosePlayerEffect calls host.setChosenPlayer(chosen) once
 		// per chooser: a single player field, last chooser wins, and the card
