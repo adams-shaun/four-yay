@@ -294,7 +294,9 @@ func targetZones(sa *cards.SA) []state.Zone {
 		if z, ok := originImpliedTargetZone(sa); ok {
 			zones = []state.Zone{z}
 		} else if sa.API == "Attach" {
-			if zs, ok := attachValidTgtsZones(sa.ParamStr(cards.PKValidTgts)); ok {
+			// Attach's ValidTgts$ inZone<X> zones, compiled once
+			// (effects.AttachParams.ValidTgtsZones).
+			if zs := effects.AttachOf(sa).ValidTgtsZones; len(zs) > 0 {
 				zones = zs
 			}
 		}
@@ -311,27 +313,6 @@ func targetZones(sa *cards.SA) []state.Zone {
 		}
 	}
 	return zones
-}
-
-// attachValidTgtsZones is targetZones' Attach-scoped zone inference: the
-// zones the comma-split ValidTgts$ alternatives' inZone<X> words name (the
-// same word classifier the filter tier's wordInZone uses). It reports false
-// when no alternative names a zone, leaving targetZones' existing fallbacks
-// (stack kinds, then the battlefield default) in charge.
-func attachValidTgtsZones(spec string) ([]state.Zone, bool) {
-	var zones []state.Zone
-	for alt := range strings.SplitSeq(spec, ",") {
-		for word := range strings.SplitSeq(alt, ".") {
-			z, has := strings.CutPrefix(strings.TrimSpace(word), "inZone")
-			if !has {
-				continue
-			}
-			if zn, ok := effects.ParseZoneWord(z); ok {
-				zones = appendUniqueZone(zones, zn)
-			}
-		}
-	}
-	return zones, len(zones) > 0
 }
 
 // originImpliedTargetZone reports the implicit target zone for a ChangeZone
@@ -365,7 +346,7 @@ func originImpliedTargetZone(sa *cards.SA) (state.Zone, bool) {
 		if sa.API != "Attach" {
 			return 0, false
 		}
-		if _, ok := attachValidTgtsZones(sa.ParamStr(cards.PKValidTgts)); !ok {
+		if len(effects.AttachOf(sa).ValidTgtsZones) == 0 {
 			return 0, false
 		}
 	}
@@ -383,11 +364,11 @@ func originImpliedTargetZone(sa *cards.SA) (state.Zone, bool) {
 		}
 		return state.ZGraveyard, true
 	}
-	zones, all, ok := effects.ParseZones(sa.ParamStr(cards.PKOrigin))
-	if !ok || all || len(zones) != 1 {
-		return 0, false
+	// Attach's Origin$ through its compiled parameters.
+	if a := effects.AttachOf(sa); a.OriginSingle {
+		return a.OriginZone, true
 	}
-	return zones[0], true
+	return 0, false
 }
 
 // appendUniqueZone appends z to zones when it is not already present,

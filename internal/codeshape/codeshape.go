@@ -82,6 +82,18 @@ var ChangeZoneAllFiles = []string{"effects/zone_changeall.go"}
 // reads.
 var ChangeZoneAllOnlyKeys = []string{"RandomOrder", "UseAllOriginZones"}
 
+// AttachCompilerFile is api:Attach's parameter compiler (W4 step 3): the one
+// file allowed to read an Attach ability's parameters.
+const AttachCompilerFile = "effects/attach_params.go"
+
+// AttachFiles are Attach's own resolution files: they carry no parameter read
+// of any key.
+var AttachFiles = []string{"effects/attach.go"}
+
+// AttachOnlyKeys are the parameter keys only Attach's compiler reads (the
+// Reconfigure offer gate reads Unattach$ through it too).
+var AttachOnlyKeys = []string{"Object", "RememberAttached", "Unattach"}
+
 // TypedParamCompiler names one API's parameter compiler for the leak census
 // (Metrics.ChangeZoneParamLeaks and its siblings): the compiler file, the
 // API's own resolution files (no parameter read of any key there) and the
@@ -175,6 +187,10 @@ type Metrics struct {
 	// (ChangeZoneAllCompilerFile, ChangeZoneAllFiles, ChangeZoneAllOnlyKeys).
 	ChangeZoneAllParamLeaks int      `json:"change_zone_all_param_leaks"`
 	ChangeZoneAllLeaks      []string `json:"change_zone_all_leaks"`
+	// AttachParamLeaks is the same census for api:Attach (AttachCompilerFile,
+	// AttachFiles, AttachOnlyKeys).
+	AttachParamLeaks int      `json:"attach_param_leaks"`
+	AttachLeaks      []string `json:"attach_leaks"`
 	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
@@ -279,6 +295,8 @@ func Measure(root string) (Metrics, error) {
 				TypedParamCompiler{ChangeZoneCompilerFile, ChangeZoneFiles, ChangeZoneOnlyKeys})...)
 			m.ChangeZoneAllLeaks = append(m.ChangeZoneAllLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{ChangeZoneAllCompilerFile, ChangeZoneAllFiles, ChangeZoneAllOnlyKeys})...)
+			m.AttachLeaks = append(m.AttachLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{AttachCompilerFile, AttachFiles, AttachOnlyKeys})...)
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.TypeAssertExpr:
@@ -333,6 +351,7 @@ func Measure(root string) (Metrics, error) {
 	m.StringParamKeys = len(keys)
 	m.ChangeZoneParamLeaks, m.ChangeZoneLeaks = finishLeaks(m.ChangeZoneLeaks)
 	m.ChangeZoneAllParamLeaks, m.ChangeZoneAllLeaks = finishLeaks(m.ChangeZoneAllLeaks)
+	m.AttachParamLeaks, m.AttachLeaks = finishLeaks(m.AttachLeaks)
 	m.FuncsOver300 = len(m.LongFuncs)
 	sort.Slice(m.LongFuncs, func(i, j int) bool {
 		a, b := m.LongFuncs[i], m.LongFuncs[j]

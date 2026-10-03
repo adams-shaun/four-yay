@@ -26,6 +26,12 @@ func TestChangeZoneAllKnownKeysMatchTheCensus(t *testing.T) {
 	checkKnownKeysMatchTheCensus(t, "ChangeZoneAll", effects.ChangeZoneAllKnownKeys())
 }
 
+// TestAttachKnownKeysMatchTheCensus is the same check for api:Attach
+// (effects.attachKnownKeys).
+func TestAttachKnownKeysMatchTheCensus(t *testing.T) {
+	checkKnownKeysMatchTheCensus(t, "Attach", effects.AttachKnownKeys())
+}
+
 // checkKnownKeysMatchTheCensus holds an API compiler's known-key table equal
 // to the census's measured read set for api plus its ignored and structural
 // keys.

@@ -7,6 +7,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -432,7 +433,7 @@ func (w *legalWalk) battlefieldWalk() {
 						// an unattached permanent, and a payable no-op the deterministic
 						// bot can answer identically forever is the livelock shape the
 						// offer gates exist to withhold.
-						if strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKUnattach)), "True") && o.AttachedTo == 0 {
+						if o.AttachedTo == 0 && ab.API == "Attach" && effects.AttachOf(ab).Unattach {
 							continue
 						}
 						if printedOK {

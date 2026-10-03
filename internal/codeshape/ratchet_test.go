@@ -56,11 +56,13 @@ const (
 	// (W5 E3, ValidSA/Static): 805 -> 798. W4 slice 4 added 56 keys (250 of
 	// the 254 a uint8 ParamKey can name) and migrated rules/chars too:
 	// 798 -> 630. W4 step 3's ChangeZone compiler (one read per key,
-	// effects/changezone_params.go): 630 -> 628.
-	stringParamReads = 628
+	// effects/changezone_params.go): 630 -> 628. Its Attach compiler
+	// (RememberAttached$ read once): 628 -> 627.
+	stringParamReads = 627
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
-	stringCaseLiterals = 2886
+	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.
+	stringCaseLiterals = 2883
 	// ctxLiterals, specContextLiterals and triggerContextLiterals are the
 	// effects.Ctx / SpecContext / TriggerContext composite literals in rules/
 	// and effects/ non-test files outside codeshape.CtxConstructorFiles (W1c,
@@ -90,6 +92,10 @@ const (
 	// compiler, effects/changezoneall_params.go (codeshape.ChangeZoneAllFiles,
 	// codeshape.ChangeZoneAllOnlyKeys). It landed at zero.
 	changeZoneAllParamLeaks = 0
+	// attachParamLeaks is the same census for api:Attach's compiler,
+	// effects/attach_params.go (codeshape.AttachFiles, codeshape.AttachOnlyKeys).
+	// It landed at zero.
+	attachParamLeaks = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -203,6 +209,11 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"(add a field to compileChangeZoneAll in effects/changezoneall_params.go) instead " +
 				"of reading the ability's Params in effects/zone_changeall.go or a " +
 				"ChangeZoneAll-only key elsewhere. Leaks: " + strings.Join(m.ChangeZoneAllLeaks, ", ")},
+		{"attachParamLeaks", m.AttachParamLeaks, attachParamLeaks,
+			"Read the parameter through effects.AttachOf's compiled AttachParams (add a " +
+				"field to compileAttach in effects/attach_params.go) instead of reading the " +
+				"ability's Params in effects/attach.go or an Attach-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.AttachLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +
