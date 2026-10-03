@@ -232,8 +232,8 @@ type discardRiders struct {
 
 func discardRidersOf(sa *cards.SA) discardRiders {
 	return discardRiders{
-		rememberCards:   strings.EqualFold(sa.Params["RememberDiscarded"], "True"),
-		rememberPlayers: strings.EqualFold(sa.Params["RememberDiscardingPlayers"], "True"),
+		rememberCards:   strings.EqualFold(sa.ParamStr(cards.PKRememberDiscarded), "True"),
+		rememberPlayers: strings.EqualFold(sa.ParamStr(cards.PKRememberDiscardingPlayers), "True"),
 	}
 }
 
@@ -373,9 +373,9 @@ func unlessTypeEligible(g *state.Game, c *Ctx, hand []state.ObjID, unless string
 // otherwise a plain count.
 func discardMayPrompt(sa *cards.SA, max int) string {
 	noun := "card"
-	if desc := strings.TrimSpace(sa.Params["DiscardValidDesc"]); desc != "" {
+	if desc := strings.TrimSpace(sa.ParamStr(cards.PKDiscardValidDesc)); desc != "" {
 		noun = desc
-	} else if v := strings.TrimSpace(sa.Params["DiscardValid"]); v != "" && !strings.ContainsAny(v, ".,+") && v != "Card" {
+	} else if v := strings.TrimSpace(sa.ParamStr(cards.PKDiscardValid)); v != "" && !strings.ContainsAny(v, ".,+") && v != "Card" {
 		noun = strings.ToLower(v) + " card"
 	}
 	if max <= 1 {
@@ -486,7 +486,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 		}()
 	}
 	mode := sa.ParamStr(cards.PKMode)
-	valid := sa.Params["DiscardValid"]
+	valid := sa.ParamStr(cards.PKDiscardValid)
 	if valid == "" {
 		valid = "Card"
 	}
@@ -623,7 +623,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			if tapeElected != "" {
 				elected = tapeElected
 			}
-			unlessSpec := strings.TrimSpace(sa.Params["UnlessType"])
+			unlessSpec := strings.TrimSpace(sa.ParamStr(cards.PKUnlessType))
 			if elected == "unless" && unlessSpec != "" {
 				picks := unlessTypeEligible(g, c, hand, unlessSpec)
 				if len(picks) == 1 {
@@ -972,8 +972,8 @@ func effMill(h Host, c *Ctx, sa *cards.SA) {
 	if n < 0 {
 		n = 0
 	}
-	remember := strings.EqualFold(sa.Params["RememberMilled"], "True")
-	show := strings.EqualFold(strings.TrimSpace(sa.Params["ShowMilledCards"]), "True")
+	remember := strings.EqualFold(sa.ParamStr(cards.PKRememberMilled), "True")
+	show := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKShowMilledCards)), "True")
 	// One api:Mill resolution is ONE mill action (Forge's one Mill call),
 	// so the Mode$ MilledAll batch ("whenever one or more cards are
 	// milled") must fire once for the whole call, not once per milled card.
@@ -1182,7 +1182,7 @@ func digDestPhrase(dest state.Zone) string {
 // compiled RevealHand SA today takes the whole hand. The pool is only known
 // inside the walk, so the whole-hand amount is applied per target.
 func effReveal(h Host, c *Ctx, sa *cards.SA) {
-	_, hasNum := sa.Params["NumCards"]
+	_, hasNum := sa.Param(cards.PKNumCards)
 	wholeHand := sa.API == "RevealHand" && !hasNum
 	amt := int32(1)
 	if hasNum {
@@ -1247,8 +1247,8 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 	lookAck := c.LookAck
 	lookAckTarget := c.LookAckTarget
 	c.LookAck, c.LookAckTarget = false, 0
-	look := strings.EqualFold(strings.TrimSpace(sa.Params["Look"]), "True")
-	revealType := strings.TrimSpace(sa.Params["RevealType"])
+	look := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKLook)), "True")
+	revealType := strings.TrimSpace(sa.ParamStr(cards.PKRevealType))
 	// The may-reveal ask: PeekAndReveal poses it through RevealOptional$
 	// (Delver of Secrets); the Reveal/RevealHand shapes pose it through
 	// Optional$ ("you may reveal" — Liar's Pendulum's two RevealHand lines
@@ -1257,10 +1257,10 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 	// ask is shaped to work for one anyway: a look is asked of the LOOKER
 	// (the activator gains the information), a reveal of the player whose
 	// cards would be shown.
-	optional := strings.EqualFold(strings.TrimSpace(sa.Params["RevealOptional"]), "True") ||
+	optional := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRevealOptional)), "True") ||
 		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True")
-	remember := strings.EqualFold(strings.TrimSpace(sa.Params["RememberRevealed"]), "True")
-	revealDefined := sa.Params["RevealDefined"]
+	remember := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberRevealed)), "True")
+	revealDefined := sa.ParamStr(cards.PKRevealDefined)
 	// RememberTargets$ remembers the CHOSEN targets (Forge's sa.getTargets()),
 	// so it applies only where the walk's subjects are those targets: a
 	// targeting SA with no Defined$/RevealDefined$ override.
@@ -1357,7 +1357,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			}
 			pool = filtered
 		}
-		if rv := strings.TrimSpace(sa.Params["RevealValid"]); rv != "" {
+		if rv := strings.TrimSpace(sa.ParamStr(cards.PKRevealValid)); rv != "" {
 			// RevealValid$ (Herald's Horn's Creature.ChosenType, the Kinship
 			// family's Card.sharesCreatureTypeWith): the may-reveal covers
 			// only the pool's matching subset — "if it's a creature card of
@@ -1377,7 +1377,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 		if wholeHand || int32(len(pool)) < n {
 			n = int32(len(pool))
 		}
-		if rav := strings.TrimSpace(sa.Params["RevealAllValid"]); rav != "" {
+		if rav := strings.TrimSpace(sa.ParamStr(cards.PKRevealAllValid)); rav != "" {
 			// RevealAllValid$ (Break Expectations' Card.cmcGE2+
 			// TargetedPlayerCtrl, Mind Spike's Card.nonLand+nonCreature+
 			// TargetedPlayerCtrl): the reveal covers EVERY card in the pool
@@ -1421,7 +1421,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 		// sub-ability). RevealValid$/RevealType$ narrow the pool BEFORE the
 		// pick, exactly as Forge's own filter does, so the options are the
 		// matching cards alone.
-		revealAllValid := strings.TrimSpace(sa.Params["RevealAllValid"])
+		revealAllValid := strings.TrimSpace(sa.ParamStr(cards.PKRevealAllValid))
 		pickable := zone == state.ZHand && !wholeHand && !random && !look && revealAllValid == ""
 		if pickable {
 			minPick, maxPick := n, n
@@ -1570,7 +1570,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 				// Scry/Surveil carry.
 			}
 			emitLook(h, []state.PlayerID{c.Controller}, zone, pool[:n], "")
-			if strings.EqualFold(strings.TrimSpace(sa.Params["RememberPeeked"]), "True") {
+			if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberPeeked)), "True") {
 				next := make([]state.Target, 0, len(c.Remembered)+int(n))
 				next = append(next, c.Remembered...)
 				for _, id := range pool[:n] {
@@ -1706,7 +1706,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			// this flag. The public reveal happened, so its "If you do" clause
 			// takes effect as a replayed state transition; a declined optional
 			// reveal reaches the continue above and cannot change the starter.
-			if strings.EqualFold(strings.TrimSpace(sa.Params["BecomeStartingPlayer"]), "True") {
+			if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKBecomeStartingPlayer)), "True") {
 				h.Emit(events.Event{Kind: events.StartingPlayerChange, Player: c.Controller})
 			}
 		}
@@ -1788,7 +1788,7 @@ func effRearrangeTopOfLibrary(h Host, c *Ctx, sa *cards.SA) {
 	// itself and re-enters this effect with both Arrange and MayShuffle set;
 	// the MayShuffle done-marker (consumed and cleared here, fx42 scoping)
 	// keeps that third pass from posing the ask again.
-	mayShuffle := strings.EqualFold(strings.TrimSpace(sa.Params["MayShuffle"]), "True")
+	mayShuffle := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKMayShuffle)), "True")
 	// Re-entry after rules' handleArrange applied the answered KArrange starts
 	// at the next target. If MayShuffle is present, that answer belongs to the
 	// target at LibraryTarget; otherwise the current target still needs its
@@ -2382,7 +2382,7 @@ func effNameCard(h Host, c *Ctx, sa *cards.SA) {
 	}
 	valid := sa.ParamStr(cards.PKValidCards)
 	chooseFromList := sa.ParamStr(cards.PKChooseFromList)
-	chooseFromDefined := sa.Params["ChooseFromDefinedCards"]
+	chooseFromDefined := sa.ParamStr(cards.PKChooseFromDefinedCards)
 	universeBacked := len(h.Game().NameUniverse) > 0
 	random := strings.EqualFold(sa.ParamStr(cards.PKAtRandom), "True")
 	// The resolving context's numeric-RHS resolver (paid X, a published

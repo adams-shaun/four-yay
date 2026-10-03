@@ -35,7 +35,7 @@ import (
 // value, with the body still applied (the CopyPermanent convention). A value
 // is never silently dropped.
 func scheduleAtEOT(h Host, c *Ctx, sa *cards.SA, affected []state.ObjID) {
-	value := strings.TrimSpace(sa.Params["AtEOT"])
+	value := strings.TrimSpace(sa.ParamStr(cards.PKAtEOT))
 	if value == "" {
 		return
 	}

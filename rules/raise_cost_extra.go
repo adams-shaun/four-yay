@@ -322,7 +322,7 @@ func (e *Engine) composeRaiseCost(mods *costMods, sv staticView, id state.ObjID,
 		// caller's modAmountX read, never priced as generic mana.
 		times = int(amount)
 	}
-	if word, ok := sv.Params["ForEachShard"]; ok {
+	if word, ok := sv.Param(cards.PKForEachShard); ok {
 		n, known := e.forEachShardCount(word, id, scope)
 		if !known {
 			mods.extra = mods.extra.Plus(Cost{Withheld: []string{"ForEachShard"}})
@@ -649,7 +649,7 @@ func (e *Engine) namedAnnounceAsk() bool {
 	}
 	title := "Announce " + name
 	if sa := e.pcSpellAbility(pc); sa != nil {
-		if t := strings.TrimSpace(sa.Params["AnnounceTitle"]); t != "" {
+		if t := strings.TrimSpace(sa.ParamStr(cards.PKAnnounceTitle)); t != "" {
 			title = "Choose " + t
 		}
 	}

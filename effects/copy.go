@@ -268,8 +268,8 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 	// implemented ruleset suspends stack additions -- so there is no gate to
 	// relax; the recognition read documents the parameter so the census never
 	// flags it unread (review sol2: the earlier empty if-block was dropped).
-	_ = sa.Params["IgnoreFreeze"]
-	mayChoose := strings.EqualFold(strings.TrimSpace(sa.Params["MayChooseTarget"]), "True")
+	_ = sa.ParamStr(cards.PKIgnoreFreeze)
+	mayChoose := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKMayChooseTarget)), "True")
 	// NonLegendary$ True (The Sixth Doctor's "copy it, except the copy isn't
 	// legendary", and the corpus's six-carrier CopySpellAbility family:
 	// Osgood Operation Double, Iron Man Bleeding Edge, Jackal Genius
@@ -294,7 +294,7 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 	// value cannot arise from the payload path and is ignored.
 	var riders events.StackCopyCounter
 	riders.NonLegendary = nonLegendary
-	if raw := strings.TrimSpace(sa.Params["SetLoyalty"]); raw != "" {
+	if raw := strings.TrimSpace(sa.ParamStr(cards.PKSetLoyalty)); raw != "" {
 		if n, err := strconv.Atoi(raw); err == nil && n >= 0 {
 			riders.Loyalty, riders.HasLoyalty = int32(n), true
 		}
@@ -307,7 +307,7 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 	// EVERY copy it actually made. Read once here and threaded into both
 	// emit sites below; an absent/False key leaves the remembered set
 	// untouched, exactly the historical behaviour.
-	rememberCopies := strings.EqualFold(strings.TrimSpace(sa.Params["RememberCopies"]), "True")
+	rememberCopies := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberCopies)), "True")
 	// DefinedTarget$ (Feather, Radiant Arbiter's DefinedTarget$ ChosenCard,
 	// Ivy, Gleeful Spellthief's DefinedTarget$ Self): Forge's
 	// CopySpellAbilityEffect makes ONE copy per defined target, each with

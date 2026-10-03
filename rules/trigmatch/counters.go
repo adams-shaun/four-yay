@@ -69,7 +69,7 @@ func counterAddedMatches(e Board, t cards.Trigger, source state.ObjID, ev events
 			return false
 		}
 	}
-	if cmp := t.Params["CounterAmount"]; cmp != "" {
+	if cmp := t.ParamStr(cards.PKCounterAmount); cmp != "" {
 		op, n, ok := SplitCompare(strings.TrimSpace(cmp))
 		if !ok {
 			return false
@@ -142,7 +142,7 @@ func counterRemovedMatches(e Board, t cards.Trigger, source state.ObjID, ev even
 	if t.ParamStr(cards.PKKeyword) == "Vanishing" && (lki == nil || lki.Counter("TIME") <= 0) {
 		return false
 	}
-	if want := t.Params["NewCounterAmount"]; want != "" {
+	if want := t.ParamStr(cards.PKNewCounterAmount); want != "" {
 		n, err := strconv.Atoi(strings.TrimSpace(want))
 		if err != nil {
 			return false
@@ -240,7 +240,7 @@ func counterPlayerAddedAllMatches(e Board, t cards.Trigger, source state.ObjID, 
 			return false
 		}
 	}
-	if t.Params["ValidObjectToSource"] != "" {
+	if t.ParamStr(cards.PKValidObjectToSource) != "" {
 		// Unimplemented recipient anchor (see the doc above): fail closed.
 		return false
 	}

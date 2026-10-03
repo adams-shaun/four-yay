@@ -112,28 +112,28 @@ var pumpFront [1 << 10]atomic.Pointer[PumpParams]
 // compilePump is the one reader of a Pump ability's own parameters.
 func compilePump(sa *cards.SA, dp *DefinedParams) *PumpParams {
 	p := &PumpParams{paramBinding: bindParams(sa)}
-	nn, nnOK := sa.Params["NoteNumber"]
+	nn, nnOK := sa.Param(cards.PKNoteNumber)
 	p.NoteNumber = ParamText{Text: nn, Present: nnOK}
 	p.HasNoteNumber = strings.TrimSpace(nn) != ""
-	p.ClearNotedCardsFor = splitTrimList(sa.Params["ClearNotedCardsFor"])
-	p.NoteCardsFor = strings.TrimSpace(sa.Params["NoteCardsFor"])
-	p.NoteCards = strings.TrimSpace(sa.Params["NoteCards"])
+	p.ClearNotedCardsFor = splitTrimList(sa.ParamStr(cards.PKClearNotedCardsFor))
+	p.NoteCardsFor = strings.TrimSpace(sa.ParamStr(cards.PKNoteCardsFor))
+	p.NoteCards = strings.TrimSpace(sa.ParamStr(cards.PKNoteCards))
 	p.Defined = dp.Defined.Text
 	p.Secondary = isTrue(sa.ParamStr(cards.PKSecondary))
-	kw := strings.TrimSpace(sa.Params["KWChoice"])
+	kw := strings.TrimSpace(sa.ParamStr(cards.PKKWChoice))
 	p.HasKWChoice = kw != ""
 	p.KWChoice = slices.Clip(splitTrimList(kw))
-	p.PumpZone = strings.TrimSpace(sa.Params["PumpZone"])
+	p.PumpZone = strings.TrimSpace(sa.ParamStr(cards.PKPumpZone))
 	if p.PumpZone != "" {
 		p.PumpZones, p.PumpZoneAll, p.PumpZoneOK = ParseZones(p.PumpZone)
 	}
 	p.RememberTargets = isTrue(sa.ParamStr(cards.PKRememberTargets))
 	p.RememberPumped = isTrue(sa.ParamStr(cards.PKRememberPumped))
-	na, naOK := sa.Params["NumAtt"]
+	na, naOK := sa.Param(cards.PKNumAtt)
 	p.NumAtt = ParamText{Text: na, Present: naOK}
-	nd, ndOK := sa.Params["NumDef"]
+	nd, ndOK := sa.Param(cards.PKNumDef)
 	p.NumDef = ParamText{Text: nd, Present: ndOK}
-	p.ForgetImprinted = strings.TrimSpace(sa.Params["ForgetImprinted"])
+	p.ForgetImprinted = strings.TrimSpace(sa.ParamStr(cards.PKForgetImprinted))
 	p.Grant = compilePumpGrant(sa)
 	if sa.API == "Pump" {
 		p.Unread = unreadKeys(sa, pumpKnownKeys[:])

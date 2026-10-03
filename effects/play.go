@@ -86,7 +86,7 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 		// with no new event kind. An Amount$ Play that begins SEVERAL cards
 		// still only forgets the first (ctx.Play holds one card) -- measured
 		// corpus-unreachable: every ForgetPlayed$ carrier plays one card.
-		if id := c.Play; id != 0 && strings.EqualFold(strings.TrimSpace(sa.Params["ForgetPlayed"]), "True") {
+		if id := c.Play; id != 0 && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKForgetPlayed)), "True") {
 			forgetRememberedOne(h, c, id)
 		}
 		c.PlayDone = false
@@ -124,8 +124,8 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 		// Cipher's encoded card is deliberately captured by its damage trigger:
 		// unlike DigUntil's captured event roles, it IS the Play population.
 		if (base == "Remembered" || base == "RememberedLKI" || base == "RememberedCard" || base == "DirectRemembered") &&
-			!strings.EqualFold(sa.Params["CipherCopy"], "True") &&
-			!strings.EqualFold(strings.TrimSpace(sa.Params["CopyCard"]), "True") {
+			!strings.EqualFold(sa.ParamStr(cards.PKCipherCopy), "True") &&
+			!strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKCopyCard)), "True") {
 			var kept []state.ObjID
 			for _, id := range candidates {
 				captured := false

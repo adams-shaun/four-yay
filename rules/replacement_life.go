@@ -1,12 +1,13 @@
 package rules
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
-	"strconv"
-	"strings"
 )
 
 // lifeExchangeTransaction is one ExchangeLife carried across the replacement
@@ -157,7 +158,7 @@ func (e *Engine) lifeReplacementCandidates(ev events.Event, applied []replMatch)
 	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
 		ce := &ceL[ceI]
 		if ce.ReplacementEvent != event || ce.ReplacementBody != "" ||
-			!strings.EqualFold(strings.TrimSpace(ce.ReplacementParams["Prevent"]), "True") {
+			!strings.EqualFold(strings.TrimSpace(ce.ReplacementParam(cards.PKPrevent)), "True") {
 			continue
 		}
 		r := &cards.Repl{Event: ce.ReplacementEvent, Params: ce.ReplacementParams}
@@ -206,7 +207,7 @@ func (e *Engine) lifeReplacementApplies(ev events.Event, source state.ObjID, r *
 		}
 		return r.With != nil && (r.With.API == "LoseLife" || r.With.API == "Draw")
 	}
-	if strings.EqualFold(r.Params["IsDamage"], "True") && ev.Kind != events.Damage {
+	if strings.EqualFold(r.ParamStr(cards.PKIsDamage), "True") && ev.Kind != events.Damage {
 		return false
 	}
 	if strings.EqualFold(r.ParamStr(cards.PKPlayerTurn), "True") && e.G.Active != e.controllerOf(source) {
@@ -215,7 +216,7 @@ func (e *Engine) lifeReplacementApplies(ev events.Event, source state.ObjID, r *
 	if !e.replacementCondition(source, r) {
 		return false
 	}
-	if result := r.Params["Result"]; result != "" && !compareLife(e.G.Players[p].Life-loss, result) {
+	if result := r.ParamStr(cards.PKResult); result != "" && !compareLife(e.G.Players[p].Life-loss, result) {
 		return false
 	}
 	if _, ok := e.replaceCount(source, r, "Amount", loss); ok {
@@ -237,7 +238,7 @@ func (e *Engine) lifeReplacementsCommute(ev events.Event, cands []replMatch) boo
 	}
 	kind := ""
 	for _, m := range cands {
-		if m.repl.Params["Result"] != "" {
+		if m.repl.ParamStr(cards.PKResult) != "" {
 			return false
 		}
 		k := ""
@@ -367,7 +368,7 @@ func (e *Engine) lifeGainForbidden(p state.PlayerID) bool {
 		if ce.Restriction != "CantGainLife" {
 			continue
 		}
-		if spec := strings.TrimSpace(ce.RestrictParams["ValidPlayer"]); spec != "" &&
+		if spec := strings.TrimSpace(ce.RestrictParam(cards.PKValidPlayer)); spec != "" &&
 			!restrictionPlayerSpecMatches(e.G, spec, p, ce.Controller, ce.Source, ce.RememberedPlayers) {
 			continue
 		}
@@ -390,7 +391,7 @@ func (e *Engine) drawForbidden(p state.PlayerID) bool {
 			!effects.MatchesPlayerSpec(e.G, spec, p, sv.Controller) {
 			continue
 		}
-		if limit, hasLimit := sv.Params["DrawLimit"]; hasLimit {
+		if limit, hasLimit := sv.Param(cards.PKDrawLimit); hasLimit {
 			n, err := strconv.ParseInt(strings.TrimSpace(limit), 10, 32)
 			if err != nil || n < 0 {
 				continue

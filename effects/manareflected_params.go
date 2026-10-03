@@ -87,8 +87,8 @@ var manaReflectedFront [1 << 10]atomic.Pointer[ManaReflectedParams]
 // parameters.
 func compileManaReflected(sa *cards.SA, dp *DefinedParams, ap *ActivationParams) *ManaReflectedParams {
 	p := &ManaReflectedParams{paramBinding: bindParams(sa)}
-	p.ReflectProperty = strings.TrimSpace(sa.Params["ReflectProperty"])
-	p.WidenType = strings.TrimSpace(sa.Params["ColorOrType"]) == "Type"
+	p.ReflectProperty = strings.TrimSpace(sa.ParamStr(cards.PKReflectProperty))
+	p.WidenType = strings.TrimSpace(sa.ParamStr(cards.PKColorOrType)) == "Type"
 	p.Valid = strings.TrimSpace(sa.ParamStr(cards.PKValid))
 	p.Produced = strings.TrimSpace(sa.ParamStr(cards.PKProduced))
 	amt, amtOK := sa.Param(cards.PKAmount)

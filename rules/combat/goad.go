@@ -68,7 +68,7 @@ func staticGoadLines(b Board) []staticGoadLine {
 		if ce.Restriction != "Goad" {
 			continue
 		}
-		spec := strings.TrimSpace(ce.RestrictParams["Affected"])
+		spec := strings.TrimSpace(ce.RestrictParam(cards.PKAffected))
 		if spec == "" {
 			spec = "Card.Self"
 		}

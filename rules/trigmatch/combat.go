@@ -36,7 +36,7 @@ func AttacksMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Even
 	if ev.Kind != events.DeclareAttackers {
 		return false
 	}
-	if strings.EqualFold(strings.TrimSpace(t.Params["Myriad"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKMyriad)), "True") {
 		// Myriad$ True is the myriad keyword expansion's own marker
 		// (cards/keywords.go addKeywordTrigger): the per-other-opponent token
 		// copies are the DB$ Myriad body, so the marker requires the
@@ -51,7 +51,7 @@ func AttacksMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Even
 			return false
 		}
 	}
-	if v, ok := t.Params["Alone"]; ok && strings.EqualFold(v, "True") && len(ev.IDs) != 1 {
+	if v, ok := t.Param(cards.PKAlone); ok && strings.EqualFold(v, "True") && len(ev.IDs) != 1 {
 		return false
 	}
 	// Attacked$ scopes "whenever a creature attacks <defender>" (CR 508.1c's
@@ -70,7 +70,7 @@ func AttacksMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Even
 	// player and an unmodellable permanent ("You,Planeswalker.YouCtrl") still
 	// fires on the player half -- the engine models players-only defenders,
 	// so that is the whole of the attack it can represent.
-	if v := t.Params["Attacked"]; v != "" {
+	if v := t.ParamStr(cards.PKAttacked); v != "" {
 		if !effects.MatchesPlayerSpecFrom(e.Game(), v, ev.Player, e.ControllerOf(source), source) {
 			return false
 		}
@@ -79,7 +79,7 @@ func AttacksMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Even
 	// greatest life total (tied is enough) among ALL players. Comparing only
 	// the attacker and its defender is wrong in multiplayer: a third player
 	// with more life prevents the trigger even though it was not attacked.
-	if v, ok := t.Params["Dethrone"]; ok && strings.EqualFold(v, "True") {
+	if v, ok := t.Param(cards.PKDethrone); ok && strings.EqualFold(v, "True") {
 		if !PlayerHasMostLife(e, ev.Player) {
 			return false
 		}
@@ -110,7 +110,7 @@ func AttacksMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Even
 	// scratch (a synthetic event, or a helper that emits DeclareAttackers
 	// directly without a declaration) falls back to ev.IDs, which is the
 	// declaration itself in every single-defender case.
-	if v, ok := t.Params["Training"]; ok && strings.EqualFold(v, "True") {
+	if v, ok := t.Param(cards.PKTraining); ok && strings.EqualFold(v, "True") {
 		attackers := e.Facts().DeclaredAttackers
 		if len(attackers) == 0 {
 			attackers = ev.IDs
@@ -194,7 +194,7 @@ func PlayerHasMostLife(e Board, p state.PlayerID) bool {
 // firstAttackOK reports whether the matched attacker passes the trigger's
 // FirstAttack$ gate (nil-safe: a trigger without the param always passes).
 func firstAttackOK(e Board, t cards.Trigger, id state.ObjID) bool {
-	if v, ok := t.Params["FirstAttack"]; !ok || !strings.EqualFold(strings.TrimSpace(v), "True") {
+	if v, ok := t.Param(cards.PKFirstAttack); !ok || !strings.EqualFold(strings.TrimSpace(v), "True") {
 		return true
 	}
 	o := e.Game().Obj(id)

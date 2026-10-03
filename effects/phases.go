@@ -56,14 +56,14 @@ func init() {
 // drop it anyway, but skipping here keeps the log honest.
 func effPhases(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
-	toggle := strings.TrimSpace(sa.Params["PhaseInOrOut"]) != "" &&
-		!strings.EqualFold(strings.TrimSpace(sa.Params["PhaseInOrOut"]), "False")
+	toggle := strings.TrimSpace(sa.ParamStr(cards.PKPhaseInOrOut)) != "" &&
+		!strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKPhaseInOrOut)), "False")
 	// phaseInOnly is the explicit `Phaseout$ False` override (non-Forge, no
 	// corpus carrier): an unconditional phase-in.
-	phaseInOnly := strings.EqualFold(strings.TrimSpace(sa.Params["Phaseout"]), "False")
+	phaseInOnly := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKPhaseout)), "False")
 	affected := phasesAffectedObjects(h, c, sa, toggle)
-	remember := strings.EqualFold(strings.TrimSpace(sa.Params["RememberAffected"]), "True")
-	wontPhaseIn := strings.EqualFold(strings.TrimSpace(sa.Params["WontPhaseInNormal"]), "True")
+	remember := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberAffected)), "True")
+	wontPhaseIn := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKWontPhaseInNormal)), "True")
 	// CR 702.25a: each permanent gets its own PhaseOut event, but the whole
 	// resolution is ONE "one or more permanents phase out" batch for the
 	// batch-level Mode$ PhaseOutAll trigger (The War Doctor), so its latency

@@ -57,7 +57,7 @@ func FlipNoteResult(ev events.Event) (flipper state.PlayerID, win bool, ok bool)
 // spelling can never disagree with the same spelling under Defined$. A
 // present-but-unresolvable spec names nobody: ok=false, fail closed.
 func flipperPlayers(h Host, c *Ctx, sa *cards.SA) (players []state.Target, named bool) {
-	spec := strings.TrimSpace(sa.Params["Flipper"])
+	spec := strings.TrimSpace(sa.ParamStr(cards.PKFlipper))
 	if spec == "" {
 		spec = DefinedRefOf(sa).Text
 	}
@@ -228,20 +228,20 @@ func abilityReferencesX(sa *cards.SA) bool {
 
 func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
-	untilLose := strings.EqualFold(sa.Params["FlipUntilYouLose"], "True")
-	winName := strings.TrimSpace(sa.Params["WinSubAbility"])
+	untilLose := strings.EqualFold(sa.ParamStr(cards.PKFlipUntilYouLose), "True")
+	winName := strings.TrimSpace(sa.ParamStr(cards.PKWinSubAbility))
 	if winName == "" {
-		winName = strings.TrimSpace(sa.Params["HeadsSubAbility"])
+		winName = strings.TrimSpace(sa.ParamStr(cards.PKHeadsSubAbility))
 	}
-	loseName := strings.TrimSpace(sa.Params["LoseSubAbility"])
+	loseName := strings.TrimSpace(sa.ParamStr(cards.PKLoseSubAbility))
 	if loseName == "" {
-		loseName = strings.TrimSpace(sa.Params["TailsSubAbility"])
+		loseName = strings.TrimSpace(sa.ParamStr(cards.PKTailsSubAbility))
 	}
-	rememberLoser := strings.EqualFold(sa.Params["RememberLoser"], "True")
-	rememberResult := strings.EqualFold(sa.Params["RememberResult"], "True")
-	forEach := strings.TrimSpace(sa.Params["ForEachPlayer"]) != ""
+	rememberLoser := strings.EqualFold(sa.ParamStr(cards.PKRememberLoser), "True")
+	rememberResult := strings.EqualFold(sa.ParamStr(cards.PKRememberResult), "True")
+	forEach := strings.TrimSpace(sa.ParamStr(cards.PKForEachPlayer)) != ""
 	rememberKind := ""
-	if raw := strings.TrimSpace(sa.Params["RememberNumber"]); raw != "" {
+	if raw := strings.TrimSpace(sa.ParamStr(cards.PKRememberNumber)); raw != "" {
 		if k, ok := flipRememberKind(raw); ok {
 			rememberKind = k
 		} else {
@@ -269,7 +269,7 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 		// ignores this running tally — its deferred call below sets X to the
 		// side's final total before it fires.
 		c.X = 0
-		if spec := strings.TrimSpace(sa.Params["ForEachPlayer"]); forEach {
+		if spec := strings.TrimSpace(sa.ParamStr(cards.PKForEachPlayer)); forEach {
 			ps, ok := forEachPlayerFlippers(h, c, spec)
 			if !ok {
 				return // present but unresolvable: fail closed, nobody flips
@@ -296,7 +296,7 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 	}
 
 	wins, losses := int32(0), int32(0)
-	noCall := strings.EqualFold(sa.Params["NoCall"], "True")
+	noCall := strings.EqualFold(sa.ParamStr(cards.PKNoCall), "True")
 	// A NoCall$ deferred-outcome resume: every flip was already made, so the
 	// flip loop is skipped and the deferred calls continue at the cursor.
 	noCallSide, noCallNext := int8(0), int32(0)

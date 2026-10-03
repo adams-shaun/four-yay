@@ -330,6 +330,17 @@ var VoteFiles = []string{"effects/vote.go", "effects/vote_effect.go"}
 // VoteOnlyKeys are the parameter keys only Vote's compiler reads.
 var VoteOnlyKeys = []string{"RememberVotedObjects", "StoreVoteNum", "VoteCard", "VoteMessage", "VotePlayer", "VoteSubAbility", "VoteTiedAbility"}
 
+// RepeatEachCompilerFile is api:RepeatEach's parameter compiler (W4 step 3): the one
+// file allowed to read a RepeatEach ability's parameters.
+const RepeatEachCompilerFile = "effects/repeateach_params.go"
+
+// RepeatEachFiles are RepeatEach's own resolution files: they carry no parameter
+// read of any key.
+var RepeatEachFiles = []string{"effects/repeateach.go"}
+
+// RepeatEachOnlyKeys are the parameter keys only RepeatEach's compiler reads.
+var RepeatEachOnlyKeys = []string{"AmountFromVotes", "ChangeZoneTable", "ChooseOrder", "ClearRememberedBeforeLoop", "RepeatCards", "RepeatOptionalForEachPlayer", "RepeatOptionalMessage", "RepeatPlayers", "RepeatSpellAbilities", "RepeatTargeted"}
+
 // TypedParamCompiler names one API's parameter compiler for the leak census
 // (Metrics.ChangeZoneParamLeaks and its siblings): the compiler file, the
 // API's own resolution files (no parameter read of any key there) and the
@@ -502,6 +513,10 @@ type Metrics struct {
 	// VoteFiles, VoteOnlyKeys).
 	VoteParamLeaks int      `json:"vote_param_leaks"`
 	VoteLeaks      []string `json:"vote_leaks"`
+	// RepeatEachParamLeaks is the same census for api:RepeatEach (RepeatEachCompilerFile,
+	// RepeatEachFiles, RepeatEachOnlyKeys).
+	RepeatEachParamLeaks int      `json:"repeat_each_param_leaks"`
+	RepeatEachLeaks      []string `json:"repeat_each_leaks"`
 	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
@@ -646,6 +661,8 @@ func Measure(root string) (Metrics, error) {
 				TypedParamCompiler{TokenCompilerFile, TokenFiles, TokenOnlyKeys})...)
 			m.VoteLeaks = append(m.VoteLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{VoteCompilerFile, VoteFiles, VoteOnlyKeys})...)
+			m.RepeatEachLeaks = append(m.RepeatEachLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{RepeatEachCompilerFile, RepeatEachFiles, RepeatEachOnlyKeys})...)
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.TypeAssertExpr:
@@ -720,6 +737,7 @@ func Measure(root string) (Metrics, error) {
 	m.RemoveCounterParamLeaks, m.RemoveCounterLeaks = finishLeaks(m.RemoveCounterLeaks)
 	m.TokenParamLeaks, m.TokenLeaks = finishLeaks(m.TokenLeaks)
 	m.VoteParamLeaks, m.VoteLeaks = finishLeaks(m.VoteLeaks)
+	m.RepeatEachParamLeaks, m.RepeatEachLeaks = finishLeaks(m.RepeatEachLeaks)
 	m.FuncsOver300 = len(m.LongFuncs)
 	sort.Slice(m.LongFuncs, func(i, j int) bool {
 		a, b := m.LongFuncs[i], m.LongFuncs[j]

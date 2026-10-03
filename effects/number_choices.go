@@ -82,7 +82,7 @@ const chooseNumberBoundedCeiling = 1000
 // default.
 func chooseNumberAsk(h Host, c *Ctx, sa *cards.SA) (opts []decision.Option, prompt string, ok bool) {
 	prompt = "Choose a number"
-	if title := strings.TrimSpace(sa.Params["ListTitle"]); title != "" {
+	if title := strings.TrimSpace(sa.ParamStr(cards.PKListTitle)); title != "" {
 		prompt = title
 	}
 	hasMax := sa.HasParam(cards.PKMax)

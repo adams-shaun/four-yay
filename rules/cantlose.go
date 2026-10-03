@@ -161,7 +161,7 @@ func (e *Engine) gameEventCantHappen(name string, ev events.Event) bool {
 	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
 		ce := &ceL[ceI]
 		if ce.ReplacementEvent != name || ce.ReplacementBody != "" ||
-			!strings.EqualFold(strings.TrimSpace(ce.ReplacementParams["Layer"]), "CantHappen") {
+			!strings.EqualFold(strings.TrimSpace(ce.ReplacementParam(cards.PKLayer)), "CantHappen") {
 			continue
 		}
 		r := &cards.Repl{Event: ce.ReplacementEvent, Params: ce.ReplacementParams}

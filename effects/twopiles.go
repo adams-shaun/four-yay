@@ -55,8 +55,8 @@ func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
 	c.TwoPiles, c.TwoPilesDone, c.TwoPilesPick, c.TwoPilesPickDone = nil, false, "", false
 
 	for _, p := range []struct{ name, value string }{
-		{"DefinedPiles", sa.Params["DefinedPiles"]},
-		{"LeftRightPile", sa.Params["LeftRightPile"]},
+		{"DefinedPiles", sa.ParamStr(cards.PKDefinedPiles)},
+		{"LeftRightPile", sa.ParamStr(cards.PKLeftRightPile)},
 	} {
 		if v := strings.TrimSpace(p.value); v != "" {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -119,7 +119,7 @@ func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
 
 	// The players. Separator$ (absent → the Chooser$ player) splits;
 	// Chooser$ (absent → Defined$) picks.
-	sepSpec := strings.TrimSpace(sa.Params["Separator"])
+	sepSpec := strings.TrimSpace(sa.ParamStr(cards.PKSeparator))
 	chooseSpec := strings.TrimSpace(sa.ParamStr(cards.PKChooser))
 	if chooseSpec == "" {
 		chooseSpec = DefinedRefOf(sa).Text
@@ -144,12 +144,12 @@ func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
 	// (Forge's core carriers all do); UnchosenPile$ is optional — Brilliant
 	// Ultimatum leaves the unchosen pile in exile. An unresolvable value
 	// emitted its own Note inside pileBodyFor and stops the walk.
-	chosenBody := pileBodyFor(sa.Params["ChosenPile"], "ChosenPile")
+	chosenBody := pileBodyFor(sa.ParamStr(cards.PKChosenPile), "ChosenPile")
 	if chosenBody == "" {
 		return
 	}
-	unchosenBody := pileBodyFor(sa.Params["UnchosenPile"], "UnchosenPile")
-	if strings.TrimSpace(sa.Params["UnchosenPile"]) != "" && unchosenBody == "" {
+	unchosenBody := pileBodyFor(sa.ParamStr(cards.PKUnchosenPile), "UnchosenPile")
+	if strings.TrimSpace(sa.ParamStr(cards.PKUnchosenPile)) != "" && unchosenBody == "" {
 		return
 	}
 

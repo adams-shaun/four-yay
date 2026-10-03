@@ -8,12 +8,13 @@ package rules
 import (
 	"fmt"
 
+	"strconv"
+	"strings"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
-	"strconv"
-	"strings"
 )
 
 // applyReplacements is called from emit before the event is logged. The
@@ -223,8 +224,8 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 					chosen:            ce.ChosenNumber, controller: ce.Controller, frozenController: true,
 					key: "effect:" + strconv.Itoa(int(ce.Source)) + ":" + strconv.Itoa(int(ce.Timestamp))})
 			}
-		} else if ce.ReplacementBody == "" && (strings.EqualFold(strings.TrimSpace(ce.ReplacementParams["Layer"]), "CantHappen") ||
-			(event == "DamageDone" && strings.EqualFold(ce.ReplacementParams["Prevent"], "True"))) {
+		} else if ce.ReplacementBody == "" && (strings.EqualFold(strings.TrimSpace(ce.ReplacementParam(cards.PKLayer)), "CantHappen") ||
+			(event == "DamageDone" && strings.EqualFold(ce.ReplacementParam(cards.PKPrevent), "True"))) {
 			// The Effect-created CantHappen form (Mistrise Village's AntiMagic:
 			// "the next spell you cast this turn can't be countered"): no
 			// ReplaceWith$ — stopping the event is the complete replacement,

@@ -82,7 +82,7 @@ func effDiscover(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	c.Remembered = []state.Target{{Obj: found}}
-	play := discoverPlaySA(value, strings.EqualFold(strings.TrimSpace(sa.Params["RememberDiscovered"]), "True"))
+	play := discoverPlaySA(value, strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberDiscovered)), "True"))
 	effPlay(h, c, play)
 	if !h.Suspended() {
 		// R-9's no-host fallback declines the optional Play.
@@ -99,7 +99,7 @@ func effDiscover(h Host, c *Ctx, sa *cards.SA) {
 func effDiscoverBottom(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
 	remembered := c.Remembered
-	if !strings.EqualFold(strings.TrimSpace(sa.Params["RememberDiscovered"]), "True") {
+	if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberDiscovered)), "True") {
 		c.Remembered = nil
 	}
 	for _, t := range remembered {

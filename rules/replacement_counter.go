@@ -1,12 +1,13 @@
 package rules
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
-	"strconv"
-	"strings"
 )
 
 // applyAddCounterReplacements rewrites a CounterChange/PlayerCounterChange
@@ -181,7 +182,7 @@ func (e *Engine) priceAddCounterBody(ev events.Event, m replMatch, amount int32)
 	if body == nil || body.API != "ReplaceCounter" {
 		return amount, false
 	}
-	if ct := strings.TrimSpace(body.Params["ValidCounterType"]); ct != "" && ct != ev.Counter {
+	if ct := strings.TrimSpace(body.ParamStr(cards.PKValidCounterType)); ct != "" && ct != ev.Counter {
 		return amount, false
 	}
 	hold := ev
@@ -380,7 +381,7 @@ func (e *Engine) counterReplacementMatchesAll(target, cause state.ObjID) []replM
 	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
 		ce := &ceL[ceI]
 		if ce.ReplacementEvent != "Counter" || ce.ReplacementBody != "" ||
-			!strings.EqualFold(strings.TrimSpace(ce.ReplacementParams["Layer"]), "CantHappen") {
+			!strings.EqualFold(strings.TrimSpace(ce.ReplacementParam(cards.PKLayer)), "CantHappen") {
 			continue
 		}
 		r := cards.Repl{Event: "Counter", Params: ce.ReplacementParams}

@@ -292,6 +292,436 @@ const (
 	PKWithCountersAmount
 	PKWithCountersType
 	PKZone
+	PKAIManaPref
+	PKAbilities
+	PKActivate
+	PKAddKWs
+	PKAfterPhase
+	PKAllCards
+	PKAllCounters
+	PKAmountByChosenMap
+	PKAnnihilator
+	PKAtEOT
+	PKAttacking
+	PKAttributes
+	PKBecomeStartingPlayer
+	PKBranchConditionSVar
+	PKBranchConditionSVarCompare
+	PKChangeColorWord
+	PKChangeController
+	PKChangeSingleTarget
+	PKChangeTypeWord
+	PKChoiceAmount
+	PKChoicePrompt
+	PKChooseEach
+	PKChooseFromDefinedCards
+	PKChosenPile
+	PKChosenSVar
+	PKCipherCopy
+	PKClearChosenCard
+	PKClearChosenPlayer
+	PKClearRemembered
+	PKColors
+	PKColorsFrom
+	PKControlledByPlayer
+	PKControllerUntaps
+	PKCopyCard
+	PKCounterType2
+	PKDefinedDamagers
+	PKDefinedMagnet
+	PKDefinedPiles
+	PKDiscardValid
+	PKDiscardValidDesc
+	PKDontPlaneswalkAway
+	PKDungeon
+	PKEachExistingCounter
+	PKEachToItself
+	PKEvenOddResults
+	PKExclude
+	PKExpression
+	PKExtraPhase
+	PKExtraPhaseDelayedTrigger
+	PKExtraPhaseDelayedTriggerExcute
+	PKExtraTurnDelayedTrigger
+	PKExtraTurnDelayedTriggerExecute
+	PKFaceDownSetType
+	PKFalseSubAbility
+	PKFlipUntilYouLose
+	PKFlipper
+	PKFollowedBy
+	PKForEachPlayer
+	PKForbiddenNewTypes
+	PKForgetChanged
+	PKForgetChosen
+	PKForgetOtherTargets
+	PKForgetPlayed
+	PKFound
+	PKGains
+	PKHeadsSubAbility
+	PKHiddenKeywords
+	PKIgnoreFreeze
+	PKImprintFound
+	PKInvalidTypes
+	PKKeywords
+	PKLeftRightPile
+	PKListTitle
+	PKLook
+	PKLoseControl
+	PKLoseSubAbility
+	PKMatchedAbility
+	PKMaxRollsResults
+	PKMayChooseTarget
+	PKMayShuffle
+	PKMinAmount
+	PKName
+	PKNextRoom
+	PKNoCall
+	PKNoLonger
+	PKNoRegen
+	PKNonBasicSpell
+	PKNumCards
+	PKNumPhases
+	PKOrColors
+	PKOtherSVar
+	PKOtherwiseSubAbility
+	PKOverwriteColors
+	PKPhaseInOrOut
+	PKPhaseout
+	PKPlayerChoices
+	PKPower
+	PKPreventionSubAbility
+	PKPumpZone
+	PKRandomTarget
+	PKRandomTargetRestriction
+	PKRedistribute
+	PKRememberAffected
+	PKRememberAmass
+	PKRememberAnimated
+	PKRememberChosen
+	PKRememberClasher
+	PKRememberCloaked
+	PKRememberControlled
+	PKRememberCopies
+	PKRememberCountered
+	PKRememberCounteredCMC
+	PKRememberCounteredSA
+	PKRememberDestroyed
+	PKRememberDifference
+	PKRememberDiscarded
+	PKRememberDiscardingPlayers
+	PKRememberDiscovered
+	PKRememberEach
+	PKRememberExchanged
+	PKRememberFound
+	PKRememberGoaded
+	PKRememberInvestigatingPlayers
+	PKRememberLoser
+	PKRememberManifested
+	PKRememberMilled
+	PKRememberNumber
+	PKRememberPeeked
+	PKRememberRemovedCards
+	PKRememberRemovedFromCombat
+	PKRememberResult
+	PKRememberRevealed
+	PKRememberSacrificed
+	PKRememberTapped
+	PKRememberUntapped
+	PKRemoveConditionSVar
+	PKRemoveLandTypes
+	PKRemoveTypes
+	PKRepeatCheckSVar
+	PKRepeatCompare
+	PKRepeatDefined
+	PKRepeatOptional
+	PKRepeatOptionalDecider
+	PKRepeatPresent
+	PKRepeatSVarCompare
+	PKRepeatSubAbility
+	PKReplaceColor
+	PKReplaceMana
+	PKReplaceOnly
+	PKReplaceType
+	PKReplacements
+	PKRestrictFromValid
+	PKRestrictFromZone
+	PKRestrictToRemembered
+	PKResultSVar
+	PKResultSubAbilities
+	PKRevealAllValid
+	PKRevealDefined
+	PKRevealOptional
+	PKRevealType
+	PKRevealValid
+	PKRoomName
+	PKSVar
+	PKSacValid
+	PKSeparator
+	PKSetLoyalty
+	PKShieldEffectTarget
+	PKShowMilledCards
+	PKShowSacrificedCards
+	PKSkipUntap
+	PKSource
+	PKStartingWith
+	PKStaticCommandCheckSVar
+	PKStaticCommandSVarCompare
+	PKStaticEffect
+	PKStaticEffectCheckSVar
+	PKStaticEffectSVarCompare
+	PKStrictAmount
+	PKTailsSubAbility
+	PKTapper
+	PKTapperController
+	PKTargetRestriction
+	PKToEachOther
+	PKToughness
+	PKTrueSubAbility
+	PKTwoColors
+	PKUnchosenPile
+	PKUnlessResolveSubs
+	PKUnlessType
+	PKUnmatchedAbility
+	PKUntap
+	PKUntapType
+	PKUntapUpTo
+	PKUseDifferenceBetweenRolls
+	PKUseHighestRoll
+	PKValidCards2
+	PKValidDefined
+	PKValidPlayers
+	PKValidTypes
+	PKVerb
+	PKWinSubAbility
+	PKWontPhaseInNormal
+	PKsVars
+	PKstaticAbilities
+	PKActivatorThisTurnCastEach
+	PKActivePhases
+	PKAlone
+	PKAlternateCost
+	PKAlternativeCost
+	PKAnnounceTitle
+	PKAttacked
+	PKBeginTurn
+	PKBlessing
+	PKCheckDefinedPlayer
+	PKCheckOnTriggeredCard
+	PKClassLevel
+	PKColor
+	PKControlOpponentsSearchingLibrary
+	PKCounterAmount
+	PKDamageAmount
+	PKDelirium
+	PKDescription
+	PKDethrone
+	PKDrawLimit
+	PKEcho
+	PKEnduringStory
+	PKExtraTurn
+	PKFirstAttack
+	PKFirstCardInDrawStep
+	PKFirstCombat
+	PKFirstExtraCardDrawnThisTurn
+	PKForCost
+	PKForEachShard
+	PKHellbent
+	PKIgnoreGeneric
+	PKIncrement
+	PKIsCombat
+	PKIsDamage
+	PKIsSingleTarget
+	PKKeywordLine
+	PKLifeTotal
+	PKList
+	PKManaAmount
+	PKManaConversion
+	PKMaxAttackers
+	PKMayPlayLimit
+	PKMayPlayText
+	PKMetalcraft
+	PKMinLimit
+	PKMinMana
+	PKModeCost
+	PKMustAttack
+	PKMyriad
+	PKNatural
+	PKNewCounterAmount
+	PKNoResolvingCheck
+	PKNotFirstCardInDrawStep
+	PKNum
+	PKOneOff
+	PKOrderDuplicates
+	PKPhaseCount
+	PKPhases
+	PKPlaneswalker
+	PKPlayer
+	PKPreventionShield
+	PKRaiseTo
+	PKReduceAmount
+	PKRememberCostMana
+	PKRememberingAttacker
+	PKReplaceWith
+	PKResolvedLimit
+	PKResolvedOnly
+	PKResult
+	PKRolledToVisitAttractions
+	PKSetMaxHandSize
+	PKSkip
+	PKStackDescription
+	PKTargetsValid
+	PKThisDoor
+	PKThreshold
+	PKToBottom
+	PKTraining
+	PKTrigger
+	PKTriggerController
+	PKUltimate
+	PKUnlessDefender
+	PKUnlessValidTarget
+	PKValidAttachment
+	PKValidAttacked
+	PKValidAttacker
+	PKValidAttackingPlayer
+	PKValidBlocked
+	PKValidCounterType
+	PKValidDefenders
+	PKValidEnlisted
+	PKValidExplored
+	PKValidExplorer
+	PKValidLoseReason
+	PKValidNewController
+	PKValidObjectToSource
+	PKValidOriginalController
+	PKValidResult
+	PKValidSides
+	PKValidStepTurnToController
+	PKValidTrigger
+	PKValidTurned
+	PKValue
+	PKWon
+	PKXMax
+	PKXMin
+	PKAddsCounters
+	PKAddsNoCounter
+	PKAlternativeDecider
+	PKAmountFromVotes
+	PKAtEOTTrig
+	PKAttachedToPlayer
+	PKBolster
+	PKCanRepeatModes
+	PKChangeZoneTable
+	PKCharmNum
+	PKChoiceRestriction
+	PKChooseDifferent
+	PKClearNotedCardsFor
+	PKClearRememberedBeforeLoop
+	PKColorOrType
+	PKCounterNumPerDefined
+	PKCounterTypePerDefined
+	PKDamageMap
+	PKDamageSource
+	PKDefinedName
+	PKDestAltSVarCompare
+	PKEachFromSource
+	PKEffectOwner
+	PKExactly
+	PKExcessSVar
+	PKExcessSVarCondition
+	PKExileFaceDown
+	PKExileOnMoved
+	PKFaceDownPower
+	PKFaceDownToughness
+	PKFallbackAbility
+	PKForetold
+	PKForgetCounter
+	PKForgetImprinted
+	PKForgetOnCast
+	PKForgetOnMoved
+	PKForgetOnPhasedIn
+	PKHidden
+	PKImprintOnHost
+	PKImprintTokens
+	PKKWChoice
+	PKLibraryPositionAlternative
+	PKMaxRevealed
+	PKMaxTotalTargetPower
+	PKMinCharmNum
+	PKNextTurn
+	PKNoteCards
+	PKNoteCardsFor
+	PKNoteNumber
+	PKNumAtt
+	PKNumDef
+	PKOriginAlternative
+	PKPawprint
+	PKPersistentMana
+	PKPersistentUntilEndOfCombat
+	PKPopulate
+	PKRandomCompare
+	PKRandomCompareSVar
+	PKRandomCopied
+	PKRandomNum
+	PKRandomOrder
+	PKRandomType
+	PKReflectProperty
+	PKRelativeTarget
+	PKRememberAttached
+	PKRememberCards
+	PKRememberChain
+	PKRememberDrawn
+	PKRememberOriginalTokens
+	PKRememberSearched
+	PKRememberTokens
+	PKRememberVotedObjects
+	PKRenown
+	PKReorder
+	PKRepeatCards
+	PKRepeatOptionalForEachPlayer
+	PKRepeatOptionalMessage
+	PKRepeatPlayers
+	PKRepeatSpellAbilities
+	PKRepeatTargeted
+	PKReplaceDyingDefined
+	PKReplacementEffects
+	PKSetChosenNumber
+	PKShareLandType
+	PKShuffleNonMandatory
+	PKStackable
+	PKSupport
+	PKTargetsWithDifferentNames
+	PKTargetsWithSharedTypes
+	PKTempRemember
+	PKTokenAttacking
+	PKTokenOwner
+	PKTokenRemembered
+	PKTokenTapped
+	PKTransformed
+	PKTriggersWhenSpent
+	PKUnearth
+	PKUnimprint
+	PKUpto
+	PKUseAllOriginZones
+	PKValidSupportedCopy
+	PKVoteCard
+	PKVoteMessage
+	PKVotePlayer
+	PKVoteSubAbility
+	PKVoteTiedAbility
+	PKWithDifferentNames
+	PKWithMayLook
+	PKWithTotalCMC
+	PKWithTotalCardTypes
+	PKXChoice
+	PKTgtPrompt2
+	PKSorcerySpeed2
+	PKChoose
+	PKDefinedPlayerChooses
+	PKChoiceNum
+	PKChooseCounter
+	PKCounterTypeChoice
+	PKPromptToSkipOptionalAbility
+	PKOptionalAbilityPrompt
 	paramKeyCount
 )
 
@@ -320,272 +750,702 @@ const paramMaskWords = (int(paramKeyCount) + 63) / 64
 
 // paramKeyNames maps each ParamKey to its Forge key text.
 var paramKeyNames = [paramKeyCount]string{
-	PKAILogic:                         "AILogic",
-	PKActivation:                      "Activation",
-	PKActivationAfterBlockers:         "ActivationAfterBlockers",
-	PKActivationFirstCombat:           "ActivationFirstCombat",
-	PKActivationGameTypes:             "ActivationGameTypes",
-	PKActivationLimit:                 "ActivationLimit",
-	PKActivationPhases:                "ActivationPhases",
-	PKActivationZone:                  "ActivationZone",
-	PKActivator:                       "Activator",
-	PKActivatorThisTurnCast:           "ActivatorThisTurnCast",
-	PKActiveZones:                     "ActiveZones",
-	PKAdapt:                           "Adapt",
-	PKAddAbilities:                    "AddAbilities",
-	PKAddAbility:                      "AddAbility",
-	PKAddAllCreatureTypes:             "AddAllCreatureTypes",
-	PKAddColor:                        "AddColor",
-	PKAddColors:                       "AddColors",
-	PKAddKeyword:                      "AddKeyword",
-	PKAddKeywords:                     "AddKeywords",
-	PKAddPower:                        "AddPower",
-	PKAddSVar:                         "AddSVar",
-	PKAddSVars:                        "AddSVars",
-	PKAddStaticAbilities:              "AddStaticAbilities",
-	PKAddStaticAbility:                "AddStaticAbility",
-	PKAddToughness:                    "AddToughness",
-	PKAddTrigger:                      "AddTrigger",
-	PKAddTriggers:                     "AddTriggers",
-	PKAddType:                         "AddType",
-	PKAddTypes:                        "AddTypes",
-	PKAdjustLandPlays:                 "AdjustLandPlays",
-	PKAffected:                        "Affected",
-	PKAffectedZone:                    "AffectedZone",
-	PKAllValid:                        "AllValid",
-	PKAmount:                          "Amount",
-	PKAnnounce:                        "Announce",
-	PKAnyNumber:                       "AnyNumber",
-	PKAtRandom:                        "AtRandom",
-	PKAttachedTo:                      "AttachedTo",
-	PKAttackedTarget:                  "AttackedTarget",
-	PKAttacker:                        "Attacker",
-	PKAttackingPlayer:                 "AttackingPlayer",
-	PKBoast:                           "Boast",
-	PKCantHaveKeyword:                 "CantHaveKeyword",
-	PKCaster:                          "Caster",
-	PKChangeNum:                       "ChangeNum",
-	PKChangeType:                      "ChangeType",
-	PKCharacteristicDefining:          "CharacteristicDefining",
-	PKCheckSVar:                       "CheckSVar",
-	PKCheckSecondSVar:                 "CheckSecondSVar",
-	PKChoiceOptional:                  "ChoiceOptional",
-	PKChoiceTitle:                     "ChoiceTitle",
-	PKChoiceZone:                      "ChoiceZone",
-	PKChoices:                         "Choices",
-	PKChooseFromDefined:               "ChooseFromDefined",
-	PKChooseFromList:                  "ChooseFromList",
-	PKChooseOrder:                     "ChooseOrder",
-	PKChooser:                         "Chooser",
-	PKClassBand:                       "ClassBand",
-	PKClearImprinted:                  "ClearImprinted",
-	PKCombatDamage:                    "CombatDamage",
-	PKCondition:                       "Condition",
-	PKConditionActivationLimit:        "ConditionActivationLimit",
-	PKConditionCheckSVar:              "ConditionCheckSVar",
-	PKConditionCompare:                "ConditionCompare",
-	PKConditionDefined:                "ConditionDefined",
-	PKConditionFirstCombat:            "ConditionFirstCombat",
-	PKConditionNotPresent:             "ConditionNotPresent",
-	PKConditionPhases:                 "ConditionPhases",
-	PKConditionPlayerTurn:             "ConditionPlayerTurn",
-	PKConditionPresent:                "ConditionPresent",
-	PKConditionSVarCompare:            "ConditionSVarCompare",
-	PKConditionZone:                   "ConditionZone",
-	PKController:                      "Controller",
-	PKCost:                            "Cost",
-	PKCounterNum:                      "CounterNum",
-	PKCounterType:                     "CounterType",
-	PKDefined:                         "Defined",
-	PKDefinedCards:                    "DefinedCards",
-	PKDefinedPlayer:                   "DefinedPlayer",
-	PKDefinedTarget:                   "DefinedTarget",
-	PKDestAltSVar:                     "DestAltSVar",
-	PKDestination:                     "Destination",
-	PKDestinationAlternative:          "DestinationAlternative",
-	PKDifferentNames:                  "DifferentNames",
-	PKDiscard:                         "Discard",
-	PKDividedAsYouChoose:              "DividedAsYouChoose",
-	PKDividedRandomly:                 "DividedRandomly",
-	PKDuration:                        "Duration",
-	PKETB:                             "ETB",
-	PKEffectOnly:                      "EffectOnly",
-	PKEffectZone:                      "EffectZone",
-	PKEvolve:                          "Evolve",
-	PKExcludeZone:                     "ExcludeZone",
-	PKExcludedOrigins:                 "ExcludedOrigins",
-	PKExecute:                         "Execute",
-	PKExhaust:                         "Exhaust",
-	PKFaceDown:                        "FaceDown",
-	PKFirstForetell:                   "FirstForetell",
-	PKFirstTime:                       "FirstTime",
-	PKForgetOtherRemembered:           "ForgetOtherRemembered",
-	PKFoundSearchingLibrary:           "FoundSearchingLibrary",
-	PKGainControl:                     "GainControl",
-	PKGainsAbilitiesLimitPerTurn:      "GainsAbilitiesLimitPerTurn",
-	PKGainsAbilitiesOf:                "GainsAbilitiesOf",
-	PKGainsAbilitiesOfDefined:         "GainsAbilitiesOfDefined",
-	PKGainsAbilitiesOfZones:           "GainsAbilitiesOfZones",
-	PKGainsTriggerAbsOf:               "GainsTriggerAbsOf",
-	PKGainsValidAbilities:             "GainsValidAbilities",
-	PKGameActivationLimit:             "GameActivationLimit",
-	PKGoad:                            "Goad",
-	PKImprint:                         "Imprint",
-	PKImprintCards:                    "ImprintCards",
-	PKImprintLast:                     "ImprintLast",
-	PKInstantSpeed:                    "InstantSpeed",
-	PKIntoPlayTapped:                  "IntoPlayTapped",
-	PKIsPresent:                       "IsPresent",
-	PKIsPresent2:                      "IsPresent2",
-	PKKW:                              "KW",
-	PKKeyword:                         "Keyword",
-	PKLayer:                           "Layer",
-	PKLeaveBattlefield:                "LeaveBattlefield",
-	PKLibraryPosition:                 "LibraryPosition",
-	PKLifeAmount:                      "LifeAmount",
-	PKMandatory:                       "Mandatory",
-	PKMax:                             "Max",
-	PKMaxTotalTargetCMC:               "MaxTotalTargetCMC",
-	PKMayLookAt:                       "MayLookAt",
-	PKMayPlay:                         "MayPlay",
-	PKMayPlayAltManaCost:              "MayPlayAltManaCost",
-	PKMayPlayWithoutManaCost:          "MayPlayWithoutManaCost",
-	PKMentor:                          "Mentor",
-	PKMin:                             "Min",
-	PKMode:                            "Mode",
-	PKMonstrosity:                     "Monstrosity",
-	PKNewController:                   "NewController",
-	PKNoLooking:                       "NoLooking",
-	PKNoReveal:                        "NoReveal",
-	PKNoShuffle:                       "NoShuffle",
-	PKNonLegendary:                    "NonLegendary",
-	PKNotThisAbility:                  "NotThisAbility",
-	PKNumDmg:                          "NumDmg",
-	PKNumRandomChoices:                "NumRandomChoices",
-	PKNumTurns:                        "NumTurns",
-	PKNumber:                          "Number",
-	PKObject:                          "Object",
-	PKOnlyFirstSpell:                  "OnlyFirstSpell",
-	PKOpponentTurn:                    "OpponentTurn",
-	PKOptional:                        "Optional",
-	PKOptionalDecider:                 "OptionalDecider",
-	PKOptionalPrompt:                  "OptionalPrompt",
-	PKOrigin:                          "Origin",
-	PKPhase:                           "Phase",
-	PKPlacer:                          "Placer",
-	PKPlayerTurn:                      "PlayerTurn",
-	PKPowerUp:                         "PowerUp",
-	PKPresentCompare:                  "PresentCompare",
-	PKPresentDefined:                  "PresentDefined",
-	PKPresentZone:                     "PresentZone",
-	PKPrevent:                         "Prevent",
-	PKProduced:                        "Produced",
-	PKPumpDuration:                    "PumpDuration",
-	PKPumpKeywords:                    "PumpKeywords",
-	PKRandom:                          "Random",
-	PKRandomNumTargets:                "RandomNumTargets",
-	PKReduceCost:                      "ReduceCost",
-	PKRelative:                        "Relative",
-	PKRememberAmount:                  "RememberAmount",
-	PKRememberChanged:                 "RememberChanged",
-	PKRememberDamaged:                 "RememberDamaged",
-	PKRememberLKI:                     "RememberLKI",
-	PKRememberObjects:                 "RememberObjects",
-	PKRememberOwnLoss:                 "RememberOwnLoss",
-	PKRememberPumped:                  "RememberPumped",
-	PKRememberPut:                     "RememberPut",
-	PKRememberTargets:                 "RememberTargets",
-	PKRemoveAllAbilities:              "RemoveAllAbilities",
-	PKRemoveCardTypes:                 "RemoveCardTypes",
-	PKRemoveCreatureTypes:             "RemoveCreatureTypes",
-	PKRemoveKeyword:                   "RemoveKeyword",
-	PKRemoveKeywords:                  "RemoveKeywords",
-	PKRemoveType:                      "RemoveType",
-	PKReplacementResult:               "ReplacementResult",
-	PKRestrictValid:                   "RestrictValid",
-	PKReveal:                          "Reveal",
-	PKRevolt:                          "Revolt",
-	PKSVarCompare:                     "SVarCompare",
-	PKSecondary:                       "Secondary",
-	PKSecretly:                        "Secretly",
-	PKSelectPrompt:                    "SelectPrompt",
-	PKSetColor:                        "SetColor",
-	PKSetName:                         "SetName",
-	PKSetPower:                        "SetPower",
-	PKSetToughness:                    "SetToughness",
-	PKShuffle:                         "Shuffle",
-	PKSorcerySpeed:                    "SorcerySpeed",
-	PKSpellDescription:                "SpellDescription",
-	PKStatic:                          "Static",
-	PKStaticAbilities:                 "StaticAbilities",
-	PKStoreVoteNum:                    "StoreVoteNum",
-	PKSubAbility:                      "SubAbility",
-	PKTapped:                          "Tapped",
-	PKTarget:                          "Target",
-	PKTargetMax:                       "TargetMax",
-	PKTargetMin:                       "TargetMin",
-	PKTargetType:                      "TargetType",
-	PKTargetUnique:                    "TargetUnique",
-	PKTargetValidTargeting:            "TargetValidTargeting",
-	PKTargetingPlayer:                 "TargetingPlayer",
-	PKTargetingPlayerControls:         "TargetingPlayerControls",
-	PKTargetsAtRandom:                 "TargetsAtRandom",
-	PKTargetsForEachPlayer:            "TargetsForEachPlayer",
-	PKTargetsWithControllerProperty:   "TargetsWithControllerProperty",
-	PKTargetsWithDefinedController:    "TargetsWithDefinedController",
-	PKTargetsWithDifferentCMC:         "TargetsWithDifferentCMC",
-	PKTargetsWithDifferentControllers: "TargetsWithDifferentControllers",
-	PKTargetsWithEqualToughness:       "TargetsWithEqualToughness",
-	PKTargetsWithSameCardType:         "TargetsWithSameCardType",
-	PKTargetsWithSameController:       "TargetsWithSameController",
-	PKTargetsWithSameCreatureType:     "TargetsWithSameCreatureType",
-	PKTargetsWithSharedCardType:       "TargetsWithSharedCardType",
-	PKTgtPrompt:                       "TgtPrompt",
-	PKTgtZone:                         "TgtZone",
-	PKThisTurn:                        "ThisTurn",
-	PKTokenScript:                     "TokenScript",
-	PKTriggerDescription:              "TriggerDescription",
-	PKTriggerZones:                    "TriggerZones",
-	PKTriggers:                        "Triggers",
-	PKType:                            "Type",
-	PKTypes:                           "Types",
-	PKUnattach:                        "Unattach",
-	PKUnlessCost:                      "UnlessCost",
-	PKUnlessPayer:                     "UnlessPayer",
-	PKUnlessSwitched:                  "UnlessSwitched",
-	PKUpTo:                            "UpTo",
-	PKValid:                           "Valid",
-	PKValidActivatingPlayer:           "ValidActivatingPlayer",
-	PKValidActivator:                  "ValidActivator",
-	PKValidAmountEach:                 "ValidAmountEach",
-	PKValidAttackers:                  "ValidAttackers",
-	PKValidAttackersAmount:            "ValidAttackersAmount",
-	PKValidBlocker:                    "ValidBlocker",
-	PKValidCard:                       "ValidCard",
-	PKValidCards:                      "ValidCards",
-	PKValidCause:                      "ValidCause",
-	PKValidChoices:                    "ValidChoices",
-	PKValidCreature:                   "ValidCreature",
-	PKValidDefender:                   "ValidDefender",
-	PKValidDescription:                "ValidDescription",
-	PKValidLKI:                        "ValidLKI",
-	PKValidMode:                       "ValidMode",
-	PKValidObject:                     "ValidObject",
-	PKValidPlayer:                     "ValidPlayer",
-	PKValidSA:                         "ValidSA",
-	PKValidSAonCard:                   "ValidSAonCard",
-	PKValidSource:                     "ValidSource",
-	PKValidSpell:                      "ValidSpell",
-	PKValidTarget:                     "ValidTarget",
-	PKValidTgts:                       "ValidTgts",
-	PKValidToken:                      "ValidToken",
-	PKValidZone:                       "ValidZone",
-	PKVarName:                         "VarName",
-	PKVarValue:                        "VarValue",
-	PKWard:                            "Ward",
-	PKWithCountersAmount:              "WithCountersAmount",
-	PKWithCountersType:                "WithCountersType",
-	PKZone:                            "Zone",
+	PKAILogic:                          "AILogic",
+	PKActivation:                       "Activation",
+	PKActivationAfterBlockers:          "ActivationAfterBlockers",
+	PKActivationFirstCombat:            "ActivationFirstCombat",
+	PKActivationGameTypes:              "ActivationGameTypes",
+	PKActivationLimit:                  "ActivationLimit",
+	PKActivationPhases:                 "ActivationPhases",
+	PKActivationZone:                   "ActivationZone",
+	PKActivator:                        "Activator",
+	PKActivatorThisTurnCast:            "ActivatorThisTurnCast",
+	PKActiveZones:                      "ActiveZones",
+	PKAdapt:                            "Adapt",
+	PKAddAbilities:                     "AddAbilities",
+	PKAddAbility:                       "AddAbility",
+	PKAddAllCreatureTypes:              "AddAllCreatureTypes",
+	PKAddColor:                         "AddColor",
+	PKAddColors:                        "AddColors",
+	PKAddKeyword:                       "AddKeyword",
+	PKAddKeywords:                      "AddKeywords",
+	PKAddPower:                         "AddPower",
+	PKAddSVar:                          "AddSVar",
+	PKAddSVars:                         "AddSVars",
+	PKAddStaticAbilities:               "AddStaticAbilities",
+	PKAddStaticAbility:                 "AddStaticAbility",
+	PKAddToughness:                     "AddToughness",
+	PKAddTrigger:                       "AddTrigger",
+	PKAddTriggers:                      "AddTriggers",
+	PKAddType:                          "AddType",
+	PKAddTypes:                         "AddTypes",
+	PKAdjustLandPlays:                  "AdjustLandPlays",
+	PKAffected:                         "Affected",
+	PKAffectedZone:                     "AffectedZone",
+	PKAllValid:                         "AllValid",
+	PKAmount:                           "Amount",
+	PKAnnounce:                         "Announce",
+	PKAnyNumber:                        "AnyNumber",
+	PKAtRandom:                         "AtRandom",
+	PKAttachedTo:                       "AttachedTo",
+	PKAttackedTarget:                   "AttackedTarget",
+	PKAttacker:                         "Attacker",
+	PKAttackingPlayer:                  "AttackingPlayer",
+	PKBoast:                            "Boast",
+	PKCantHaveKeyword:                  "CantHaveKeyword",
+	PKCaster:                           "Caster",
+	PKChangeNum:                        "ChangeNum",
+	PKChangeType:                       "ChangeType",
+	PKCharacteristicDefining:           "CharacteristicDefining",
+	PKCheckSVar:                        "CheckSVar",
+	PKCheckSecondSVar:                  "CheckSecondSVar",
+	PKChoiceOptional:                   "ChoiceOptional",
+	PKChoiceTitle:                      "ChoiceTitle",
+	PKChoiceZone:                       "ChoiceZone",
+	PKChoices:                          "Choices",
+	PKChooseFromDefined:                "ChooseFromDefined",
+	PKChooseFromList:                   "ChooseFromList",
+	PKChooseOrder:                      "ChooseOrder",
+	PKChooser:                          "Chooser",
+	PKClassBand:                        "ClassBand",
+	PKClearImprinted:                   "ClearImprinted",
+	PKCombatDamage:                     "CombatDamage",
+	PKCondition:                        "Condition",
+	PKConditionActivationLimit:         "ConditionActivationLimit",
+	PKConditionCheckSVar:               "ConditionCheckSVar",
+	PKConditionCompare:                 "ConditionCompare",
+	PKConditionDefined:                 "ConditionDefined",
+	PKConditionFirstCombat:             "ConditionFirstCombat",
+	PKConditionNotPresent:              "ConditionNotPresent",
+	PKConditionPhases:                  "ConditionPhases",
+	PKConditionPlayerTurn:              "ConditionPlayerTurn",
+	PKConditionPresent:                 "ConditionPresent",
+	PKConditionSVarCompare:             "ConditionSVarCompare",
+	PKConditionZone:                    "ConditionZone",
+	PKController:                       "Controller",
+	PKCost:                             "Cost",
+	PKCounterNum:                       "CounterNum",
+	PKCounterType:                      "CounterType",
+	PKDefined:                          "Defined",
+	PKDefinedCards:                     "DefinedCards",
+	PKDefinedPlayer:                    "DefinedPlayer",
+	PKDefinedTarget:                    "DefinedTarget",
+	PKDestAltSVar:                      "DestAltSVar",
+	PKDestination:                      "Destination",
+	PKDestinationAlternative:           "DestinationAlternative",
+	PKDifferentNames:                   "DifferentNames",
+	PKDiscard:                          "Discard",
+	PKDividedAsYouChoose:               "DividedAsYouChoose",
+	PKDividedRandomly:                  "DividedRandomly",
+	PKDuration:                         "Duration",
+	PKETB:                              "ETB",
+	PKEffectOnly:                       "EffectOnly",
+	PKEffectZone:                       "EffectZone",
+	PKEvolve:                           "Evolve",
+	PKExcludeZone:                      "ExcludeZone",
+	PKExcludedOrigins:                  "ExcludedOrigins",
+	PKExecute:                          "Execute",
+	PKExhaust:                          "Exhaust",
+	PKFaceDown:                         "FaceDown",
+	PKFirstForetell:                    "FirstForetell",
+	PKFirstTime:                        "FirstTime",
+	PKForgetOtherRemembered:            "ForgetOtherRemembered",
+	PKFoundSearchingLibrary:            "FoundSearchingLibrary",
+	PKGainControl:                      "GainControl",
+	PKGainsAbilitiesLimitPerTurn:       "GainsAbilitiesLimitPerTurn",
+	PKGainsAbilitiesOf:                 "GainsAbilitiesOf",
+	PKGainsAbilitiesOfDefined:          "GainsAbilitiesOfDefined",
+	PKGainsAbilitiesOfZones:            "GainsAbilitiesOfZones",
+	PKGainsTriggerAbsOf:                "GainsTriggerAbsOf",
+	PKGainsValidAbilities:              "GainsValidAbilities",
+	PKGameActivationLimit:              "GameActivationLimit",
+	PKGoad:                             "Goad",
+	PKImprint:                          "Imprint",
+	PKImprintCards:                     "ImprintCards",
+	PKImprintLast:                      "ImprintLast",
+	PKInstantSpeed:                     "InstantSpeed",
+	PKIntoPlayTapped:                   "IntoPlayTapped",
+	PKIsPresent:                        "IsPresent",
+	PKIsPresent2:                       "IsPresent2",
+	PKKW:                               "KW",
+	PKKeyword:                          "Keyword",
+	PKLayer:                            "Layer",
+	PKLeaveBattlefield:                 "LeaveBattlefield",
+	PKLibraryPosition:                  "LibraryPosition",
+	PKLifeAmount:                       "LifeAmount",
+	PKMandatory:                        "Mandatory",
+	PKMax:                              "Max",
+	PKMaxTotalTargetCMC:                "MaxTotalTargetCMC",
+	PKMayLookAt:                        "MayLookAt",
+	PKMayPlay:                          "MayPlay",
+	PKMayPlayAltManaCost:               "MayPlayAltManaCost",
+	PKMayPlayWithoutManaCost:           "MayPlayWithoutManaCost",
+	PKMentor:                           "Mentor",
+	PKMin:                              "Min",
+	PKMode:                             "Mode",
+	PKMonstrosity:                      "Monstrosity",
+	PKNewController:                    "NewController",
+	PKNoLooking:                        "NoLooking",
+	PKNoReveal:                         "NoReveal",
+	PKNoShuffle:                        "NoShuffle",
+	PKNonLegendary:                     "NonLegendary",
+	PKNotThisAbility:                   "NotThisAbility",
+	PKNumDmg:                           "NumDmg",
+	PKNumRandomChoices:                 "NumRandomChoices",
+	PKNumTurns:                         "NumTurns",
+	PKNumber:                           "Number",
+	PKObject:                           "Object",
+	PKOnlyFirstSpell:                   "OnlyFirstSpell",
+	PKOpponentTurn:                     "OpponentTurn",
+	PKOptional:                         "Optional",
+	PKOptionalDecider:                  "OptionalDecider",
+	PKOptionalPrompt:                   "OptionalPrompt",
+	PKOrigin:                           "Origin",
+	PKPhase:                            "Phase",
+	PKPlacer:                           "Placer",
+	PKPlayerTurn:                       "PlayerTurn",
+	PKPowerUp:                          "PowerUp",
+	PKPresentCompare:                   "PresentCompare",
+	PKPresentDefined:                   "PresentDefined",
+	PKPresentZone:                      "PresentZone",
+	PKPrevent:                          "Prevent",
+	PKProduced:                         "Produced",
+	PKPumpDuration:                     "PumpDuration",
+	PKPumpKeywords:                     "PumpKeywords",
+	PKRandom:                           "Random",
+	PKRandomNumTargets:                 "RandomNumTargets",
+	PKReduceCost:                       "ReduceCost",
+	PKRelative:                         "Relative",
+	PKRememberAmount:                   "RememberAmount",
+	PKRememberChanged:                  "RememberChanged",
+	PKRememberDamaged:                  "RememberDamaged",
+	PKRememberLKI:                      "RememberLKI",
+	PKRememberObjects:                  "RememberObjects",
+	PKRememberOwnLoss:                  "RememberOwnLoss",
+	PKRememberPumped:                   "RememberPumped",
+	PKRememberPut:                      "RememberPut",
+	PKRememberTargets:                  "RememberTargets",
+	PKRemoveAllAbilities:               "RemoveAllAbilities",
+	PKRemoveCardTypes:                  "RemoveCardTypes",
+	PKRemoveCreatureTypes:              "RemoveCreatureTypes",
+	PKRemoveKeyword:                    "RemoveKeyword",
+	PKRemoveKeywords:                   "RemoveKeywords",
+	PKRemoveType:                       "RemoveType",
+	PKReplacementResult:                "ReplacementResult",
+	PKRestrictValid:                    "RestrictValid",
+	PKReveal:                           "Reveal",
+	PKRevolt:                           "Revolt",
+	PKSVarCompare:                      "SVarCompare",
+	PKSecondary:                        "Secondary",
+	PKSecretly:                         "Secretly",
+	PKSelectPrompt:                     "SelectPrompt",
+	PKSetColor:                         "SetColor",
+	PKSetName:                          "SetName",
+	PKSetPower:                         "SetPower",
+	PKSetToughness:                     "SetToughness",
+	PKShuffle:                          "Shuffle",
+	PKSorcerySpeed:                     "SorcerySpeed",
+	PKSpellDescription:                 "SpellDescription",
+	PKStatic:                           "Static",
+	PKStaticAbilities:                  "StaticAbilities",
+	PKStoreVoteNum:                     "StoreVoteNum",
+	PKSubAbility:                       "SubAbility",
+	PKTapped:                           "Tapped",
+	PKTarget:                           "Target",
+	PKTargetMax:                        "TargetMax",
+	PKTargetMin:                        "TargetMin",
+	PKTargetType:                       "TargetType",
+	PKTargetUnique:                     "TargetUnique",
+	PKTargetValidTargeting:             "TargetValidTargeting",
+	PKTargetingPlayer:                  "TargetingPlayer",
+	PKTargetingPlayerControls:          "TargetingPlayerControls",
+	PKTargetsAtRandom:                  "TargetsAtRandom",
+	PKTargetsForEachPlayer:             "TargetsForEachPlayer",
+	PKTargetsWithControllerProperty:    "TargetsWithControllerProperty",
+	PKTargetsWithDefinedController:     "TargetsWithDefinedController",
+	PKTargetsWithDifferentCMC:          "TargetsWithDifferentCMC",
+	PKTargetsWithDifferentControllers:  "TargetsWithDifferentControllers",
+	PKTargetsWithEqualToughness:        "TargetsWithEqualToughness",
+	PKTargetsWithSameCardType:          "TargetsWithSameCardType",
+	PKTargetsWithSameController:        "TargetsWithSameController",
+	PKTargetsWithSameCreatureType:      "TargetsWithSameCreatureType",
+	PKTargetsWithSharedCardType:        "TargetsWithSharedCardType",
+	PKTgtPrompt:                        "TgtPrompt",
+	PKTgtZone:                          "TgtZone",
+	PKThisTurn:                         "ThisTurn",
+	PKTokenScript:                      "TokenScript",
+	PKTriggerDescription:               "TriggerDescription",
+	PKTriggerZones:                     "TriggerZones",
+	PKTriggers:                         "Triggers",
+	PKType:                             "Type",
+	PKTypes:                            "Types",
+	PKUnattach:                         "Unattach",
+	PKUnlessCost:                       "UnlessCost",
+	PKUnlessPayer:                      "UnlessPayer",
+	PKUnlessSwitched:                   "UnlessSwitched",
+	PKUpTo:                             "UpTo",
+	PKValid:                            "Valid",
+	PKValidActivatingPlayer:            "ValidActivatingPlayer",
+	PKValidActivator:                   "ValidActivator",
+	PKValidAmountEach:                  "ValidAmountEach",
+	PKValidAttackers:                   "ValidAttackers",
+	PKValidAttackersAmount:             "ValidAttackersAmount",
+	PKValidBlocker:                     "ValidBlocker",
+	PKValidCard:                        "ValidCard",
+	PKValidCards:                       "ValidCards",
+	PKValidCause:                       "ValidCause",
+	PKValidChoices:                     "ValidChoices",
+	PKValidCreature:                    "ValidCreature",
+	PKValidDefender:                    "ValidDefender",
+	PKValidDescription:                 "ValidDescription",
+	PKValidLKI:                         "ValidLKI",
+	PKValidMode:                        "ValidMode",
+	PKValidObject:                      "ValidObject",
+	PKValidPlayer:                      "ValidPlayer",
+	PKValidSA:                          "ValidSA",
+	PKValidSAonCard:                    "ValidSAonCard",
+	PKValidSource:                      "ValidSource",
+	PKValidSpell:                       "ValidSpell",
+	PKValidTarget:                      "ValidTarget",
+	PKValidTgts:                        "ValidTgts",
+	PKValidToken:                       "ValidToken",
+	PKValidZone:                        "ValidZone",
+	PKVarName:                          "VarName",
+	PKVarValue:                         "VarValue",
+	PKWard:                             "Ward",
+	PKWithCountersAmount:               "WithCountersAmount",
+	PKWithCountersType:                 "WithCountersType",
+	PKZone:                             "Zone",
+	PKAIManaPref:                       "AIManaPref",
+	PKAbilities:                        "Abilities",
+	PKActivate:                         "Activate",
+	PKAddKWs:                           "AddKWs",
+	PKAfterPhase:                       "AfterPhase",
+	PKAllCards:                         "AllCards",
+	PKAllCounters:                      "AllCounters",
+	PKAmountByChosenMap:                "AmountByChosenMap",
+	PKAnnihilator:                      "Annihilator",
+	PKAtEOT:                            "AtEOT",
+	PKAttacking:                        "Attacking",
+	PKAttributes:                       "Attributes",
+	PKBecomeStartingPlayer:             "BecomeStartingPlayer",
+	PKBranchConditionSVar:              "BranchConditionSVar",
+	PKBranchConditionSVarCompare:       "BranchConditionSVarCompare",
+	PKChangeColorWord:                  "ChangeColorWord",
+	PKChangeController:                 "ChangeController",
+	PKChangeSingleTarget:               "ChangeSingleTarget",
+	PKChangeTypeWord:                   "ChangeTypeWord",
+	PKChoiceAmount:                     "ChoiceAmount",
+	PKChoicePrompt:                     "ChoicePrompt",
+	PKChooseEach:                       "ChooseEach",
+	PKChooseFromDefinedCards:           "ChooseFromDefinedCards",
+	PKChosenPile:                       "ChosenPile",
+	PKChosenSVar:                       "ChosenSVar",
+	PKCipherCopy:                       "CipherCopy",
+	PKClearChosenCard:                  "ClearChosenCard",
+	PKClearChosenPlayer:                "ClearChosenPlayer",
+	PKClearRemembered:                  "ClearRemembered",
+	PKColors:                           "Colors",
+	PKColorsFrom:                       "ColorsFrom",
+	PKControlledByPlayer:               "ControlledByPlayer",
+	PKControllerUntaps:                 "ControllerUntaps",
+	PKCopyCard:                         "CopyCard",
+	PKCounterType2:                     "CounterType2",
+	PKDefinedDamagers:                  "DefinedDamagers",
+	PKDefinedMagnet:                    "DefinedMagnet",
+	PKDefinedPiles:                     "DefinedPiles",
+	PKDiscardValid:                     "DiscardValid",
+	PKDiscardValidDesc:                 "DiscardValidDesc",
+	PKDontPlaneswalkAway:               "DontPlaneswalkAway",
+	PKDungeon:                          "Dungeon",
+	PKEachExistingCounter:              "EachExistingCounter",
+	PKEachToItself:                     "EachToItself",
+	PKEvenOddResults:                   "EvenOddResults",
+	PKExclude:                          "Exclude",
+	PKExpression:                       "Expression",
+	PKExtraPhase:                       "ExtraPhase",
+	PKExtraPhaseDelayedTrigger:         "ExtraPhaseDelayedTrigger",
+	PKExtraPhaseDelayedTriggerExcute:   "ExtraPhaseDelayedTriggerExcute",
+	PKExtraTurnDelayedTrigger:          "ExtraTurnDelayedTrigger",
+	PKExtraTurnDelayedTriggerExecute:   "ExtraTurnDelayedTriggerExecute",
+	PKFaceDownSetType:                  "FaceDownSetType",
+	PKFalseSubAbility:                  "FalseSubAbility",
+	PKFlipUntilYouLose:                 "FlipUntilYouLose",
+	PKFlipper:                          "Flipper",
+	PKFollowedBy:                       "FollowedBy",
+	PKForEachPlayer:                    "ForEachPlayer",
+	PKForbiddenNewTypes:                "ForbiddenNewTypes",
+	PKForgetChanged:                    "ForgetChanged",
+	PKForgetChosen:                     "ForgetChosen",
+	PKForgetOtherTargets:               "ForgetOtherTargets",
+	PKForgetPlayed:                     "ForgetPlayed",
+	PKFound:                            "Found",
+	PKGains:                            "Gains",
+	PKHeadsSubAbility:                  "HeadsSubAbility",
+	PKHiddenKeywords:                   "HiddenKeywords",
+	PKIgnoreFreeze:                     "IgnoreFreeze",
+	PKImprintFound:                     "ImprintFound",
+	PKInvalidTypes:                     "InvalidTypes",
+	PKKeywords:                         "Keywords",
+	PKLeftRightPile:                    "LeftRightPile",
+	PKListTitle:                        "ListTitle",
+	PKLook:                             "Look",
+	PKLoseControl:                      "LoseControl",
+	PKLoseSubAbility:                   "LoseSubAbility",
+	PKMatchedAbility:                   "MatchedAbility",
+	PKMaxRollsResults:                  "MaxRollsResults",
+	PKMayChooseTarget:                  "MayChooseTarget",
+	PKMayShuffle:                       "MayShuffle",
+	PKMinAmount:                        "MinAmount",
+	PKName:                             "Name",
+	PKNextRoom:                         "NextRoom",
+	PKNoCall:                           "NoCall",
+	PKNoLonger:                         "NoLonger",
+	PKNoRegen:                          "NoRegen",
+	PKNonBasicSpell:                    "NonBasicSpell",
+	PKNumCards:                         "NumCards",
+	PKNumPhases:                        "NumPhases",
+	PKOrColors:                         "OrColors",
+	PKOtherSVar:                        "OtherSVar",
+	PKOtherwiseSubAbility:              "OtherwiseSubAbility",
+	PKOverwriteColors:                  "OverwriteColors",
+	PKPhaseInOrOut:                     "PhaseInOrOut",
+	PKPhaseout:                         "Phaseout",
+	PKPlayerChoices:                    "PlayerChoices",
+	PKPower:                            "Power",
+	PKPreventionSubAbility:             "PreventionSubAbility",
+	PKPumpZone:                         "PumpZone",
+	PKRandomTarget:                     "RandomTarget",
+	PKRandomTargetRestriction:          "RandomTargetRestriction",
+	PKRedistribute:                     "Redistribute",
+	PKRememberAffected:                 "RememberAffected",
+	PKRememberAmass:                    "RememberAmass",
+	PKRememberAnimated:                 "RememberAnimated",
+	PKRememberChosen:                   "RememberChosen",
+	PKRememberClasher:                  "RememberClasher",
+	PKRememberCloaked:                  "RememberCloaked",
+	PKRememberControlled:               "RememberControlled",
+	PKRememberCopies:                   "RememberCopies",
+	PKRememberCountered:                "RememberCountered",
+	PKRememberCounteredCMC:             "RememberCounteredCMC",
+	PKRememberCounteredSA:              "RememberCounteredSA",
+	PKRememberDestroyed:                "RememberDestroyed",
+	PKRememberDifference:               "RememberDifference",
+	PKRememberDiscarded:                "RememberDiscarded",
+	PKRememberDiscardingPlayers:        "RememberDiscardingPlayers",
+	PKRememberDiscovered:               "RememberDiscovered",
+	PKRememberEach:                     "RememberEach",
+	PKRememberExchanged:                "RememberExchanged",
+	PKRememberFound:                    "RememberFound",
+	PKRememberGoaded:                   "RememberGoaded",
+	PKRememberInvestigatingPlayers:     "RememberInvestigatingPlayers",
+	PKRememberLoser:                    "RememberLoser",
+	PKRememberManifested:               "RememberManifested",
+	PKRememberMilled:                   "RememberMilled",
+	PKRememberNumber:                   "RememberNumber",
+	PKRememberPeeked:                   "RememberPeeked",
+	PKRememberRemovedCards:             "RememberRemovedCards",
+	PKRememberRemovedFromCombat:        "RememberRemovedFromCombat",
+	PKRememberResult:                   "RememberResult",
+	PKRememberRevealed:                 "RememberRevealed",
+	PKRememberSacrificed:               "RememberSacrificed",
+	PKRememberTapped:                   "RememberTapped",
+	PKRememberUntapped:                 "RememberUntapped",
+	PKRemoveConditionSVar:              "RemoveConditionSVar",
+	PKRemoveLandTypes:                  "RemoveLandTypes",
+	PKRemoveTypes:                      "RemoveTypes",
+	PKRepeatCheckSVar:                  "RepeatCheckSVar",
+	PKRepeatCompare:                    "RepeatCompare",
+	PKRepeatDefined:                    "RepeatDefined",
+	PKRepeatOptional:                   "RepeatOptional",
+	PKRepeatOptionalDecider:            "RepeatOptionalDecider",
+	PKRepeatPresent:                    "RepeatPresent",
+	PKRepeatSVarCompare:                "RepeatSVarCompare",
+	PKRepeatSubAbility:                 "RepeatSubAbility",
+	PKReplaceColor:                     "ReplaceColor",
+	PKReplaceMana:                      "ReplaceMana",
+	PKReplaceOnly:                      "ReplaceOnly",
+	PKReplaceType:                      "ReplaceType",
+	PKReplacements:                     "Replacements",
+	PKRestrictFromValid:                "RestrictFromValid",
+	PKRestrictFromZone:                 "RestrictFromZone",
+	PKRestrictToRemembered:             "RestrictToRemembered",
+	PKResultSVar:                       "ResultSVar",
+	PKResultSubAbilities:               "ResultSubAbilities",
+	PKRevealAllValid:                   "RevealAllValid",
+	PKRevealDefined:                    "RevealDefined",
+	PKRevealOptional:                   "RevealOptional",
+	PKRevealType:                       "RevealType",
+	PKRevealValid:                      "RevealValid",
+	PKRoomName:                         "RoomName",
+	PKSVar:                             "SVar",
+	PKSacValid:                         "SacValid",
+	PKSeparator:                        "Separator",
+	PKSetLoyalty:                       "SetLoyalty",
+	PKShieldEffectTarget:               "ShieldEffectTarget",
+	PKShowMilledCards:                  "ShowMilledCards",
+	PKShowSacrificedCards:              "ShowSacrificedCards",
+	PKSkipUntap:                        "SkipUntap",
+	PKSource:                           "Source",
+	PKStartingWith:                     "StartingWith",
+	PKStaticCommandCheckSVar:           "StaticCommandCheckSVar",
+	PKStaticCommandSVarCompare:         "StaticCommandSVarCompare",
+	PKStaticEffect:                     "StaticEffect",
+	PKStaticEffectCheckSVar:            "StaticEffectCheckSVar",
+	PKStaticEffectSVarCompare:          "StaticEffectSVarCompare",
+	PKStrictAmount:                     "StrictAmount",
+	PKTailsSubAbility:                  "TailsSubAbility",
+	PKTapper:                           "Tapper",
+	PKTapperController:                 "TapperController",
+	PKTargetRestriction:                "TargetRestriction",
+	PKToEachOther:                      "ToEachOther",
+	PKToughness:                        "Toughness",
+	PKTrueSubAbility:                   "TrueSubAbility",
+	PKTwoColors:                        "TwoColors",
+	PKUnchosenPile:                     "UnchosenPile",
+	PKUnlessResolveSubs:                "UnlessResolveSubs",
+	PKUnlessType:                       "UnlessType",
+	PKUnmatchedAbility:                 "UnmatchedAbility",
+	PKUntap:                            "Untap",
+	PKUntapType:                        "UntapType",
+	PKUntapUpTo:                        "UntapUpTo",
+	PKUseDifferenceBetweenRolls:        "UseDifferenceBetweenRolls",
+	PKUseHighestRoll:                   "UseHighestRoll",
+	PKValidCards2:                      "ValidCards2",
+	PKValidDefined:                     "ValidDefined",
+	PKValidPlayers:                     "ValidPlayers",
+	PKValidTypes:                       "ValidTypes",
+	PKVerb:                             "Verb",
+	PKWinSubAbility:                    "WinSubAbility",
+	PKWontPhaseInNormal:                "WontPhaseInNormal",
+	PKsVars:                            "sVars",
+	PKstaticAbilities:                  "staticAbilities",
+	PKActivatorThisTurnCastEach:        "ActivatorThisTurnCastEach",
+	PKActivePhases:                     "ActivePhases",
+	PKAlone:                            "Alone",
+	PKAlternateCost:                    "AlternateCost",
+	PKAlternativeCost:                  "AlternativeCost",
+	PKAnnounceTitle:                    "AnnounceTitle",
+	PKAttacked:                         "Attacked",
+	PKBeginTurn:                        "BeginTurn",
+	PKBlessing:                         "Blessing",
+	PKCheckDefinedPlayer:               "CheckDefinedPlayer",
+	PKCheckOnTriggeredCard:             "CheckOnTriggeredCard",
+	PKClassLevel:                       "ClassLevel",
+	PKColor:                            "Color",
+	PKControlOpponentsSearchingLibrary: "ControlOpponentsSearchingLibrary",
+	PKCounterAmount:                    "CounterAmount",
+	PKDamageAmount:                     "DamageAmount",
+	PKDelirium:                         "Delirium",
+	PKDescription:                      "Description",
+	PKDethrone:                         "Dethrone",
+	PKDrawLimit:                        "DrawLimit",
+	PKEcho:                             "Echo",
+	PKEnduringStory:                    "EnduringStory",
+	PKExtraTurn:                        "ExtraTurn",
+	PKFirstAttack:                      "FirstAttack",
+	PKFirstCardInDrawStep:              "FirstCardInDrawStep",
+	PKFirstCombat:                      "FirstCombat",
+	PKFirstExtraCardDrawnThisTurn:      "FirstExtraCardDrawnThisTurn",
+	PKForCost:                          "ForCost",
+	PKForEachShard:                     "ForEachShard",
+	PKHellbent:                         "Hellbent",
+	PKIgnoreGeneric:                    "IgnoreGeneric",
+	PKIncrement:                        "Increment",
+	PKIsCombat:                         "IsCombat",
+	PKIsDamage:                         "IsDamage",
+	PKIsSingleTarget:                   "IsSingleTarget",
+	PKKeywordLine:                      "KeywordLine",
+	PKLifeTotal:                        "LifeTotal",
+	PKList:                             "List",
+	PKManaAmount:                       "ManaAmount",
+	PKManaConversion:                   "ManaConversion",
+	PKMaxAttackers:                     "MaxAttackers",
+	PKMayPlayLimit:                     "MayPlayLimit",
+	PKMayPlayText:                      "MayPlayText",
+	PKMetalcraft:                       "Metalcraft",
+	PKMinLimit:                         "MinLimit",
+	PKMinMana:                          "MinMana",
+	PKModeCost:                         "ModeCost",
+	PKMustAttack:                       "MustAttack",
+	PKMyriad:                           "Myriad",
+	PKNatural:                          "Natural",
+	PKNewCounterAmount:                 "NewCounterAmount",
+	PKNoResolvingCheck:                 "NoResolvingCheck",
+	PKNotFirstCardInDrawStep:           "NotFirstCardInDrawStep",
+	PKNum:                              "Num",
+	PKOneOff:                           "OneOff",
+	PKOrderDuplicates:                  "OrderDuplicates",
+	PKPhaseCount:                       "PhaseCount",
+	PKPhases:                           "Phases",
+	PKPlaneswalker:                     "Planeswalker",
+	PKPlayer:                           "Player",
+	PKPreventionShield:                 "PreventionShield",
+	PKRaiseTo:                          "RaiseTo",
+	PKReduceAmount:                     "ReduceAmount",
+	PKRememberCostMana:                 "RememberCostMana",
+	PKRememberingAttacker:              "RememberingAttacker",
+	PKReplaceWith:                      "ReplaceWith",
+	PKResolvedLimit:                    "ResolvedLimit",
+	PKResolvedOnly:                     "ResolvedOnly",
+	PKResult:                           "Result",
+	PKRolledToVisitAttractions:         "RolledToVisitAttractions",
+	PKSetMaxHandSize:                   "SetMaxHandSize",
+	PKSkip:                             "Skip",
+	PKStackDescription:                 "StackDescription",
+	PKTargetsValid:                     "TargetsValid",
+	PKThisDoor:                         "ThisDoor",
+	PKThreshold:                        "Threshold",
+	PKToBottom:                         "ToBottom",
+	PKTraining:                         "Training",
+	PKTrigger:                          "Trigger",
+	PKTriggerController:                "TriggerController",
+	PKUltimate:                         "Ultimate",
+	PKUnlessDefender:                   "UnlessDefender",
+	PKUnlessValidTarget:                "UnlessValidTarget",
+	PKValidAttachment:                  "ValidAttachment",
+	PKValidAttacked:                    "ValidAttacked",
+	PKValidAttacker:                    "ValidAttacker",
+	PKValidAttackingPlayer:             "ValidAttackingPlayer",
+	PKValidBlocked:                     "ValidBlocked",
+	PKValidCounterType:                 "ValidCounterType",
+	PKValidDefenders:                   "ValidDefenders",
+	PKValidEnlisted:                    "ValidEnlisted",
+	PKValidExplored:                    "ValidExplored",
+	PKValidExplorer:                    "ValidExplorer",
+	PKValidLoseReason:                  "ValidLoseReason",
+	PKValidNewController:               "ValidNewController",
+	PKValidObjectToSource:              "ValidObjectToSource",
+	PKValidOriginalController:          "ValidOriginalController",
+	PKValidResult:                      "ValidResult",
+	PKValidSides:                       "ValidSides",
+	PKValidStepTurnToController:        "ValidStepTurnToController",
+	PKValidTrigger:                     "ValidTrigger",
+	PKValidTurned:                      "ValidTurned",
+	PKValue:                            "Value",
+	PKWon:                              "Won",
+	PKXMax:                             "XMax",
+	PKXMin:                             "XMin",
+	PKAddsCounters:                     "AddsCounters",
+	PKAddsNoCounter:                    "AddsNoCounter",
+	PKAlternativeDecider:               "AlternativeDecider",
+	PKAmountFromVotes:                  "AmountFromVotes",
+	PKAtEOTTrig:                        "AtEOTTrig",
+	PKAttachedToPlayer:                 "AttachedToPlayer",
+	PKBolster:                          "Bolster",
+	PKCanRepeatModes:                   "CanRepeatModes",
+	PKChangeZoneTable:                  "ChangeZoneTable",
+	PKCharmNum:                         "CharmNum",
+	PKChoiceRestriction:                "ChoiceRestriction",
+	PKChooseDifferent:                  "ChooseDifferent",
+	PKClearNotedCardsFor:               "ClearNotedCardsFor",
+	PKClearRememberedBeforeLoop:        "ClearRememberedBeforeLoop",
+	PKColorOrType:                      "ColorOrType",
+	PKCounterNumPerDefined:             "CounterNumPerDefined",
+	PKCounterTypePerDefined:            "CounterTypePerDefined",
+	PKDamageMap:                        "DamageMap",
+	PKDamageSource:                     "DamageSource",
+	PKDefinedName:                      "DefinedName",
+	PKDestAltSVarCompare:               "DestAltSVarCompare",
+	PKEachFromSource:                   "EachFromSource",
+	PKEffectOwner:                      "EffectOwner",
+	PKExactly:                          "Exactly",
+	PKExcessSVar:                       "ExcessSVar",
+	PKExcessSVarCondition:              "ExcessSVarCondition",
+	PKExileFaceDown:                    "ExileFaceDown",
+	PKExileOnMoved:                     "ExileOnMoved",
+	PKFaceDownPower:                    "FaceDownPower",
+	PKFaceDownToughness:                "FaceDownToughness",
+	PKFallbackAbility:                  "FallbackAbility",
+	PKForetold:                         "Foretold",
+	PKForgetCounter:                    "ForgetCounter",
+	PKForgetImprinted:                  "ForgetImprinted",
+	PKForgetOnCast:                     "ForgetOnCast",
+	PKForgetOnMoved:                    "ForgetOnMoved",
+	PKForgetOnPhasedIn:                 "ForgetOnPhasedIn",
+	PKHidden:                           "Hidden",
+	PKImprintOnHost:                    "ImprintOnHost",
+	PKImprintTokens:                    "ImprintTokens",
+	PKKWChoice:                         "KWChoice",
+	PKLibraryPositionAlternative:       "LibraryPositionAlternative",
+	PKMaxRevealed:                      "MaxRevealed",
+	PKMaxTotalTargetPower:              "MaxTotalTargetPower",
+	PKMinCharmNum:                      "MinCharmNum",
+	PKNextTurn:                         "NextTurn",
+	PKNoteCards:                        "NoteCards",
+	PKNoteCardsFor:                     "NoteCardsFor",
+	PKNoteNumber:                       "NoteNumber",
+	PKNumAtt:                           "NumAtt",
+	PKNumDef:                           "NumDef",
+	PKOriginAlternative:                "OriginAlternative",
+	PKPawprint:                         "Pawprint",
+	PKPersistentMana:                   "PersistentMana",
+	PKPersistentUntilEndOfCombat:       "PersistentUntilEndOfCombat",
+	PKPopulate:                         "Populate",
+	PKRandomCompare:                    "RandomCompare",
+	PKRandomCompareSVar:                "RandomCompareSVar",
+	PKRandomCopied:                     "RandomCopied",
+	PKRandomNum:                        "RandomNum",
+	PKRandomOrder:                      "RandomOrder",
+	PKRandomType:                       "RandomType",
+	PKReflectProperty:                  "ReflectProperty",
+	PKRelativeTarget:                   "RelativeTarget",
+	PKRememberAttached:                 "RememberAttached",
+	PKRememberCards:                    "RememberCards",
+	PKRememberChain:                    "RememberChain",
+	PKRememberDrawn:                    "RememberDrawn",
+	PKRememberOriginalTokens:           "RememberOriginalTokens",
+	PKRememberSearched:                 "RememberSearched",
+	PKRememberTokens:                   "RememberTokens",
+	PKRememberVotedObjects:             "RememberVotedObjects",
+	PKRenown:                           "Renown",
+	PKReorder:                          "Reorder",
+	PKRepeatCards:                      "RepeatCards",
+	PKRepeatOptionalForEachPlayer:      "RepeatOptionalForEachPlayer",
+	PKRepeatOptionalMessage:            "RepeatOptionalMessage",
+	PKRepeatPlayers:                    "RepeatPlayers",
+	PKRepeatSpellAbilities:             "RepeatSpellAbilities",
+	PKRepeatTargeted:                   "RepeatTargeted",
+	PKReplaceDyingDefined:              "ReplaceDyingDefined",
+	PKReplacementEffects:               "ReplacementEffects",
+	PKSetChosenNumber:                  "SetChosenNumber",
+	PKShareLandType:                    "ShareLandType",
+	PKShuffleNonMandatory:              "ShuffleNonMandatory",
+	PKStackable:                        "Stackable",
+	PKSupport:                          "Support",
+	PKTargetsWithDifferentNames:        "TargetsWithDifferentNames",
+	PKTargetsWithSharedTypes:           "TargetsWithSharedTypes",
+	PKTempRemember:                     "TempRemember",
+	PKTokenAttacking:                   "TokenAttacking",
+	PKTokenOwner:                       "TokenOwner",
+	PKTokenRemembered:                  "TokenRemembered",
+	PKTokenTapped:                      "TokenTapped",
+	PKTransformed:                      "Transformed",
+	PKTriggersWhenSpent:                "TriggersWhenSpent",
+	PKUnearth:                          "Unearth",
+	PKUnimprint:                        "Unimprint",
+	PKUpto:                             "Upto",
+	PKUseAllOriginZones:                "UseAllOriginZones",
+	PKValidSupportedCopy:               "ValidSupportedCopy",
+	PKVoteCard:                         "VoteCard",
+	PKVoteMessage:                      "VoteMessage",
+	PKVotePlayer:                       "VotePlayer",
+	PKVoteSubAbility:                   "VoteSubAbility",
+	PKVoteTiedAbility:                  "VoteTiedAbility",
+	PKWithDifferentNames:               "WithDifferentNames",
+	PKWithMayLook:                      "WithMayLook",
+	PKWithTotalCMC:                     "WithTotalCMC",
+	PKWithTotalCardTypes:               "WithTotalCardTypes",
+	PKXChoice:                          "XChoice",
+	PKTgtPrompt2:                       "TgtPrompt2",
+	PKSorcerySpeed2:                    "SorcerySpeed2",
+	PKChoose:                           "Choose",
+	PKDefinedPlayerChooses:             "DefinedPlayerChooses",
+	PKChoiceNum:                        "ChoiceNum",
+	PKChooseCounter:                    "ChooseCounter",
+	PKCounterTypeChoice:                "CounterTypeChoice",
+	PKPromptToSkipOptionalAbility:      "PromptToSkipOptionalAbility",
+	PKOptionalAbilityPrompt:            "OptionalAbilityPrompt",
 }
 
 // String is the key's Forge text.

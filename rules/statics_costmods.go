@@ -353,10 +353,10 @@ func (e *Engine) costModifiersCompose(statics costStaticViews, p state.PlayerID,
 				continue
 			}
 			red := costMod{
-				ignoreGeneric: sv.Params["IgnoreGeneric"] == "True",
-				floor:         parseAmount(sv.Params["MinMana"], 0),
+				ignoreGeneric: sv.ParamStr(cards.PKIgnoreGeneric) == "True",
+				floor:         parseAmount(sv.ParamStr(cards.PKMinMana), 0),
 			}
-			if col, ok := sv.Params["Color"]; ok && strings.TrimSpace(col) != "" {
+			if col, ok := sv.Param(cards.PKColor); ok && strings.TrimSpace(col) != "" {
 				// Each listed token is reduced by the Amount$: colour letters
 				// take their pip from the cost's coloured part, and a numeric
 				// token names that many generic pips.  Numeric is deliberately

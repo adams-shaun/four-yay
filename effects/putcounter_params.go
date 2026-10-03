@@ -205,7 +205,7 @@ func compilePutCounter(sa *cards.SA) *PutCounterParams {
 	p.Adapt, p.AdaptSet = paramTextSet(adapt, adaptOK)
 	mono, monoOK := sa.Param(cards.PKMonstrosity)
 	p.Monstrosity, p.MonstrositySet = paramTextSet(mono, monoOK)
-	renown, renownOK := sa.Params["Renown"]
+	renown, renownOK := sa.Param(cards.PKRenown)
 	p.Renown, p.RenownSet = paramTextSet(renown, renownOK)
 
 	p.CounterType = sa.ParamStr(cards.PKCounterType)
@@ -219,9 +219,9 @@ func compilePutCounter(sa *cards.SA) *PutCounterParams {
 	p.Placer = strings.TrimSpace(sa.ParamStr(cards.PKPlacer))
 	optional, optionalOK := sa.Param(cards.PKOptional)
 	p.OptionalTrue = isTrue(optional)
-	bolster, bolsterOK := sa.Params["Bolster"]
+	bolster, bolsterOK := sa.Param(cards.PKBolster)
 	p.Bolster = ParamText{Text: bolster, Present: bolsterOK}
-	support, supportOK := sa.Params["Support"]
+	support, supportOK := sa.Param(cards.PKSupport)
 	p.Support = ParamText{Text: support, Present: supportOK}
 	divided, dividedOK := dividedParam(sa)
 	p.Divided = dividedOK
@@ -234,17 +234,17 @@ func compilePutCounter(sa *cards.SA) *PutCounterParams {
 	p.MinChoiceAmount = rawParamText(sa, "MinChoiceAmount")
 	p.ChoiceAmount = rawParamText(sa, "ChoiceAmount")
 	p.ETB = isTrue(sa.ParamStr(cards.PKETB))
-	eachFrom, eachFromOK := sa.Params["EachFromSource"]
+	eachFrom, eachFromOK := sa.Param(cards.PKEachFromSource)
 	p.EachFromSource = strings.TrimSpace(eachFrom)
-	perType, perTypeOK := sa.Params["CounterTypePerDefined"]
+	perType, perTypeOK := sa.Param(cards.PKCounterTypePerDefined)
 	p.CounterTypePerDefined = isTrue(perType)
-	random, randomOK := sa.Params["RandomType"]
+	random, randomOK := sa.Param(cards.PKRandomType)
 	p.RandomType = isTrue(random)
-	p.ChooseDifferent = strings.TrimSpace(sa.Params["ChooseDifferent"]) != ""
-	perNum, perNumOK := sa.Params["CounterNumPerDefined"]
+	p.ChooseDifferent = strings.TrimSpace(sa.ParamStr(cards.PKChooseDifferent)) != ""
+	perNum, perNumOK := sa.Param(cards.PKCounterNumPerDefined)
 	p.CounterNumPerDefined = strings.TrimSpace(perNum)
 	p.RememberPut = isTrue(sa.ParamStr(cards.PKRememberPut))
-	p.RememberCards = isTrue(sa.Params["RememberCards"])
+	p.RememberCards = isTrue(sa.ParamStr(cards.PKRememberCards))
 
 	p.EntryFoldBlocked = optionalOK || choicesOK || rawParamText(sa, "Divided").Present || divided.Present || dividedRandomlyOK ||
 		randomOK || bolsterOK || supportOK || p.Adapt.Present || p.Monstrosity.Present || renownOK ||

@@ -40,7 +40,7 @@ func init() {
 // resolved by the ordinary Resolve walk, not here.
 func effTapOrUntap(h Host, c *Ctx, sa *cards.SA) {
 	tapper := c.Controller
-	if spec := strings.TrimSpace(sa.Params["Tapper"]); spec != "" {
+	if spec := strings.TrimSpace(sa.ParamStr(cards.PKTapper)); spec != "" {
 		if ps := definedPlayerIDs(h, c, spec); len(ps) > 0 {
 			tapper = ps[0]
 		}

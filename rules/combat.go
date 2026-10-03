@@ -2348,7 +2348,7 @@ const unlimitedHandSize = 1 << 20
 // approximation's deterministic choice.
 func (e *Engine) maxHandSizeFor(p state.PlayerID) int {
 	for _, sv := range e.activeStatics("Continuous") {
-		raw := strings.TrimSpace(sv.Params["SetMaxHandSize"])
+		raw := strings.TrimSpace(sv.ParamStr(cards.PKSetMaxHandSize))
 		if raw == "" {
 			continue
 		}

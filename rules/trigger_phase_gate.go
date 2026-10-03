@@ -93,7 +93,7 @@ func (e *Engine) phaseGate(t cards.Trigger) bool {
 			}
 		}
 	}
-	count := strings.TrimSpace(t.Params["PhaseCount"])
+	count := strings.TrimSpace(t.ParamStr(cards.PKPhaseCount))
 	if count == "" {
 		return true
 	}

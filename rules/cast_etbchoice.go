@@ -55,7 +55,7 @@ func (e *Engine) etbPayLifeBound(o *state.Object, with *cards.SA) (int, bool) {
 	if bound < 0 {
 		bound = 0
 	}
-	if raw := strings.TrimSpace(with.Params["XMax"]); raw != "" {
+	if raw := strings.TrimSpace(with.ParamStr(cards.PKXMax)); raw != "" {
 		ctx := effects.NewCtxPtr(o.ID, o.Controller, effects.CtxInit{SVars: o.Face().SVars})
 		if cap, ok := effects.NumResolved(e, ctx, with, "XMax", 0); ok {
 			if cap < 0 {
@@ -187,7 +187,7 @@ func (e *Engine) entryETBChoice(ev events.Event, ordinal int) (etbChoice, bool) 
 			} else {
 				opts = e.etbOptions(you, o.ID, kind,
 					r.With.ParamStr(cards.PKValidCards), selector,
-					r.With.ParamStr(cards.PKType), r.With.Params["Exclude"], r.With.ParamStr(cards.PKChooseFromList))
+					r.With.ParamStr(cards.PKType), r.With.ParamStr(cards.PKExclude), r.With.ParamStr(cards.PKChooseFromList))
 			}
 			if kind == "name" && len(opts) == 0 {
 				// No name passes the filter: the legacy (no-universe) builder
@@ -212,7 +212,7 @@ func (e *Engine) entryETBChoice(ev events.Event, ordinal int) (etbChoice, bool) 
 				// enter as a copy" half; an empty template list also needs
 				// the decline, or the ask would have zero options (the
 				// totality rule in etbOptions' doc).
-				optional := strings.Contains(strings.ToLower(r.Params["KeywordLine"]), ":optional")
+				optional := strings.Contains(strings.ToLower(r.ParamStr(cards.PKKeywordLine)), ":optional")
 				if optional || len(opts) == 0 {
 					opts = append(opts, decision.Option{Index: len(opts), Kind: "clone",
 						Label: "Enter as itself", Player: you})

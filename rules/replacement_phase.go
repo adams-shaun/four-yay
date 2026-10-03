@@ -1,10 +1,11 @@
 package rules
 
 import (
+	"strings"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
-	"strings"
 )
 
 // extraTurnSkipped reports whether a live R:Event$ BeginTurn replacement
@@ -33,7 +34,7 @@ func (e *Engine) extraTurnSkipped(seat state.PlayerID) (skip, unsupported bool) 
 			if r.Event != "BeginTurn" || !e.replacementMatches(*r, id, ev) {
 				continue
 			}
-			if r.Params["Skip"] == "True" && r.With == nil {
+			if r.ParamStr(cards.PKSkip) == "True" && r.With == nil {
 				skip = true
 			} else {
 				unsupported = true
@@ -263,7 +264,7 @@ func (e *Engine) turnFaceUpCantHappen(id state.ObjID) bool {
 	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
 		ce := &ceL[ceI]
 		if ce.ReplacementEvent != "TurnFaceUp" || ce.ReplacementBody != "" ||
-			!strings.EqualFold(strings.TrimSpace(ce.ReplacementParams["Layer"]), "CantHappen") {
+			!strings.EqualFold(strings.TrimSpace(ce.ReplacementParam(cards.PKLayer)), "CantHappen") {
 			continue
 		}
 		r := &cards.Repl{Event: ce.ReplacementEvent, Params: ce.ReplacementParams}

@@ -103,7 +103,7 @@ func effImmediateTrigger(h Host, c *Ctx, sa *cards.SA) {
 		amount = 0
 	}
 	remember := strings.TrimSpace(sa.ParamStr(cards.PKRememberObjects))
-	each := strings.EqualFold(strings.TrimSpace(sa.Params["RememberEach"]), "True")
+	each := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberEach)), "True")
 	// wholeSet is the set every non-RememberEach instance's Ctx.Remembered sees
 	// (the body reads it through DelayTriggerRememberedLKI / Remembered). It
 	// defaults to the capture-excluded parent set; an EXPLICIT RememberObjects$

@@ -170,10 +170,10 @@ func compileAttach(sa *cards.SA, tp *TargetParams) *AttachParams {
 		p.objectKind = attachObjectDefined
 	}
 	p.EnchantSelf = sa.ParamStr(cards.PKKeyword) == "Enchant" && p.Object == "Self"
-	p.PlayerChoices = strings.TrimSpace(sa.Params["PlayerChoices"])
+	p.PlayerChoices = strings.TrimSpace(sa.ParamStr(cards.PKPlayerChoices))
 	p.Choices = strings.TrimSpace(sa.ParamStr(cards.PKChoices))
 	p.OptionalTrue = isTrue(sa.ParamStr(cards.PKOptional))
-	p.RememberAttached = isTrue(sa.Params["RememberAttached"])
+	p.RememberAttached = isTrue(sa.ParamStr(cards.PKRememberAttached))
 	p.ChoicePrompt = strings.TrimSpace(sa.ParamStr(cards.PKChoiceTitle))
 	if p.ChoicePrompt == "" {
 		p.ChoicePrompt = "Choose card"

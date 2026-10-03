@@ -101,7 +101,7 @@ func (e *Engine) attackUnlessCharge(sv staticView, attacker state.ObjID) (blockC
 	// Remembered referent (Forge's CostRememberingAttacker convention), so an
 	// SVar body such as Nils's `Remembered$CardCounters.ALL` prices the charge
 	// off THAT creature's counters rather than the static's own source.
-	if attacker != 0 && strings.EqualFold(strings.TrimSpace(sv.Params["RememberingAttacker"]), "True") {
+	if attacker != 0 && strings.EqualFold(strings.TrimSpace(sv.ParamStr(cards.PKRememberingAttacker)), "True") {
 		ctx.Remembered = []state.Target{{Obj: attacker}}
 	}
 	if strings.HasPrefix(raw, "Count$") {

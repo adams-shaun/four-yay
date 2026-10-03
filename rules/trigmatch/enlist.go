@@ -19,7 +19,7 @@ func EnlistedMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Eve
 	if v := t.ParamStr(cards.PKValidCard); v != "" && !e.MatchesSpec(v, ev.Obj, source, ctrl, SpecOpts{}) {
 		return false
 	}
-	if v := t.Params["ValidEnlisted"]; v != "" && !e.MatchesSpec(v, ev.IDs[0], source, ctrl, SpecOpts{}) {
+	if v := t.ParamStr(cards.PKValidEnlisted); v != "" && !e.MatchesSpec(v, ev.IDs[0], source, ctrl, SpecOpts{}) {
 		return false
 	}
 	return true

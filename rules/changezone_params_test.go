@@ -98,6 +98,12 @@ func TestVoteKnownKeysMatchTheCensus(t *testing.T) {
 	checkKnownKeysMatchTheCensus(t, "Vote", effects.VoteKnownKeys())
 }
 
+// TestRepeatEachKnownKeysMatchTheCensus is the same check for api:RepeatEach
+// (effects.repeatEachKnownKeys).
+func TestRepeatEachKnownKeysMatchTheCensus(t *testing.T) {
+	checkKnownKeysMatchTheCensus(t, "RepeatEach", effects.RepeatEachKnownKeys())
+}
+
 // checkKnownKeysMatchTheCensus holds an API compiler's known-key table equal
 // to the census's measured read set for api plus its ignored and structural
 // keys.

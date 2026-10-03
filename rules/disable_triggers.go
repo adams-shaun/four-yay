@@ -47,7 +47,7 @@ func disableTriggersUnread(sv staticView) []string {
 			unread = append(unread, key)
 		}
 	}
-	if raw := sv.Params["ValidTrigger"]; raw != "" && raw != "Triggered.Ward" {
+	if raw := sv.ParamStr(cards.PKValidTrigger); raw != "" && raw != "Triggered.Ward" {
 		unread = append(unread, "ValidTrigger="+raw)
 	}
 	if len(unread) == 0 {
@@ -128,7 +128,7 @@ func (e *Engine) disableTriggersExcludes(t cards.Trigger, source state.ObjID, ev
 			!e.matchesSpec(spec, source, e.specCtx(sv.Source, sv.Controller)) {
 			continue
 		}
-		if raw := sv.Params["ValidTrigger"]; raw != "" && !triggerKindMatches(raw, t) {
+		if raw := sv.ParamStr(cards.PKValidTrigger); raw != "" && !triggerKindMatches(raw, t) {
 			continue
 		}
 		return true

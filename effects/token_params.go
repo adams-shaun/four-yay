@@ -145,13 +145,13 @@ var tokenFront [1 << 10]atomic.Pointer[TokenParams]
 func compileToken(sa *cards.SA) *TokenParams {
 	p := &TokenParams{paramBinding: bindParams(sa)}
 	p.Amount = rawParamText(sa, "TokenAmount")
-	p.Owner = sa.Params["TokenOwner"]
+	p.Owner = sa.ParamStr(cards.PKTokenOwner)
 	for key := range strings.SplitSeq(sa.ParamStr(cards.PKTokenScript), ",") {
 		if key = strings.TrimSpace(key); key != "" {
 			p.Scripts = append(p.Scripts, key)
 		}
 	}
-	p.Remember = sa.Params["RememberTokens"] == "True" || sa.Params["RememberOriginalTokens"] == "True"
+	p.Remember = sa.ParamStr(cards.PKRememberTokens) == "True" || sa.ParamStr(cards.PKRememberOriginalTokens) == "True"
 	p.AttachedTo = strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo))
 	p.Power = rawParamText(sa, "TokenPower")
 	p.Toughness = rawParamText(sa, "TokenToughness")
@@ -160,10 +160,10 @@ func compileToken(sa *cards.SA) *TokenParams {
 	p.WithCountersAmount = ParamText{Text: wa, Present: ok}
 	p.PumpKeywords = cards.SplitKeywordList(sa.ParamStr(cards.PKPumpKeywords))
 	p.PumpDuration = strings.TrimSpace(sa.ParamStr(cards.PKPumpDuration))
-	p.Tapped = isTrue(sa.Params["TokenTapped"])
-	p.Remembered = strings.TrimSpace(sa.Params["TokenRemembered"])
-	p.Attacking = strings.TrimSpace(sa.Params["TokenAttacking"])
-	p.ImprintTokens = isTrue(sa.Params["ImprintTokens"])
+	p.Tapped = isTrue(sa.ParamStr(cards.PKTokenTapped))
+	p.Remembered = strings.TrimSpace(sa.ParamStr(cards.PKTokenRemembered))
+	p.Attacking = strings.TrimSpace(sa.ParamStr(cards.PKTokenAttacking))
+	p.ImprintTokens = isTrue(sa.ParamStr(cards.PKImprintTokens))
 	p.Unread = unreadKeys(sa, tokenKnownKeys[:])
 	return p
 }

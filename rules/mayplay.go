@@ -221,7 +221,7 @@ func (e *Engine) mayPlayPermissions(p state.PlayerID, id state.ObjID, board bool
 		if !applies || !grants {
 			continue
 		}
-		ok(strings.TrimSpace(st.Params["MayPlayText"]), id, free, raise, hasRaise, priced)
+		ok(strings.TrimSpace(st.ParamStr(cards.PKMayPlayText)), id, free, raise, hasRaise, priced)
 	}
 	if board {
 		for _, sv := range e.activeStatics("Continuous") {
@@ -232,7 +232,7 @@ func (e *Engine) mayPlayPermissions(p state.PlayerID, id state.ObjID, board bool
 			if !applies || !grants {
 				continue
 			}
-			ok(strings.TrimSpace(sv.Params["MayPlayText"]), sv.Source, free, raise, hasRaise, priced)
+			ok(strings.TrimSpace(sv.ParamStr(cards.PKMayPlayText)), sv.Source, free, raise, hasRaise, priced)
 		}
 	}
 	if untyped {
@@ -810,7 +810,7 @@ func (e *Engine) mayPlayAltCosts(p state.PlayerID, id state.ObjID) []Cost {
 		if !e.matchesSpecFrom(spec, id, sv.Controller, sv.Source) {
 			continue
 		}
-		if rawLimit := strings.TrimSpace(sv.Params["MayPlayLimit"]); rawLimit != "" {
+		if rawLimit := strings.TrimSpace(sv.ParamStr(cards.PKMayPlayLimit)); rawLimit != "" {
 			if n, err := strconv.Atoi(rawLimit); err == nil && n > 0 && e.mayPlayLimitReached(id, n) {
 				continue
 			}

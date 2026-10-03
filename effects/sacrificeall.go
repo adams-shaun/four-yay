@@ -29,7 +29,7 @@ func effSacrificeAll(h Host, c *Ctx, sa *cards.SA) {
 	if spec == "" {
 		spec = "Permanent"
 	}
-	remember := sa.Params["RememberSacrificed"] != ""
+	remember := sa.ParamStr(cards.PKRememberSacrificed) != ""
 	sacrifice := func(id state.ObjID) {
 		if h.SacrificeBlocked(id, false) {
 			// A CantSacrifice restriction (Call for Aid) or face static: the

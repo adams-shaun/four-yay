@@ -241,7 +241,7 @@ func (e *Engine) appendGrantedCostStatic(dst *[]staticView, ce *ContinuousEffect
 	add := func(id state.ObjID) {
 		o := e.G.Obj(id)
 		if o == nil || (o.Zone == state.ZBattlefield && o.PhasedOut) ||
-			!effectZoneOK(ce.CostStaticParams["EffectZone"], o.Zone) {
+			!effectZoneOK(ce.CostStaticParam(cards.PKEffectZone), o.Zone) {
 			return
 		}
 		*dst = append(*dst, staticView{Source: id, Controller: o.Controller,

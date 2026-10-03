@@ -937,7 +937,7 @@ func (e *Engine) activatePaymentMana(p state.PlayerID, source state.ObjID) {
 // priority moment -- so the ability is activatable at priority and never
 // inside a payment window.
 func (e *Engine) instantSpeedOnly(ma *cards.SA) bool {
-	return strings.EqualFold(strings.TrimSpace(ma.Params["InstantSpeed"]), "True")
+	return strings.EqualFold(strings.TrimSpace(ma.ParamStr(cards.PKInstantSpeed)), "True")
 }
 
 // availableManaAbilitiesForWindow is the member set for one window: the
@@ -2195,7 +2195,7 @@ func (e *Engine) emitManaTap(p state.PlayerID, source state.ObjID, sa *cards.SA)
 	// record where the activation's ManaAdd batch will land. The batch is
 	// read back in resolveTriggeredManaAbilities and bound onto each matched
 	// trigger's context as TriggerMana (Mana Flare's ReflectProperty$
-	// Produced). Scanning the log rather than reading sa.Params["Produced"]
+	// Produced). Scanning the log rather than reading sa.ParamStr(cards.PKProduced)
 	// makes the read the mana ACTUALLY produced, so a Produced$ Any colour
 	// choice and a ProduceMana replacement are both reflected faithfully.
 	// The pending boundary records WHICH triggers this tap queued for the

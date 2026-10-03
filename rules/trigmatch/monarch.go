@@ -47,7 +47,7 @@ func BecomeMonarchMatches(e Board, t cards.Trigger, source state.ObjID, ev event
 	if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.Game(), v, ev.Player, ctrl) {
 		return false
 	}
-	if v := strings.TrimSpace(t.Params["BeginTurn"]); v != "" {
+	if v := strings.TrimSpace(t.ParamStr(cards.PKBeginTurn)); v != "" {
 		if !strings.EqualFold(v, "You") || !e.Game().WasMonarchAtTurnStart(ctrl) {
 			return false
 		}
