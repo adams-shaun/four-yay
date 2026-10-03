@@ -232,7 +232,7 @@ type Option struct {
 	// together for Min$ All, where the attacker must be blocked by every
 	// legal blocker). They exist for the same reason Required does: the
 	// engine REJECTS a whole-declaration count outside the bounds
-	// (validateMinMaxBlockers), so a rules-ignorant client -- the bot
+	// (combat.ValidateMinMaxBlockers), so a rules-ignorant client -- the bot
 	// policy included -- needs the bound on the wire to answer legally.
 	// Both are omitted for an unbounded attacker, so every ordinary option
 	// list serialises byte-identically.
@@ -591,6 +591,17 @@ type Decision struct {
 	// PaymentActionsBuilt distinguishes an unrequested extension from a built
 	// empty extension. It is engine cache state, never part of the wire.
 	PaymentActionsBuilt bool `json:"-"`
+	// Redirected marks a decision whose answering seat (Player) was moved
+	// off the seat it is asked OF by a CR 722 control redirect: a controlled
+	// player's turn (api:ControlPlayer -- Mindslaver) or an opponent's
+	// library search (Opposition Agent). Actor is then the seat the answer
+	// acts FOR: its options were built for Actor, and the land drop, mana
+	// ability, cast or search the answer selects is Actor's own (CR 722.1:
+	// the controller makes the controlled player's choices; the controlled
+	// player still takes the actions). Acting is the one reader. Engine
+	// state, never part of the wire: the answering seat is still Player.
+	Redirected bool           `json:"-"`
+	Actor      state.PlayerID `json:"-"`
 	// PaymentFallback is populated only if execution falls back to the normal
 	// manual payment window.
 	PaymentFallback *PaymentFallback `json:"payment_fallback,omitempty"`
@@ -1296,6 +1307,26 @@ type Intent struct {
 	// the caster pays in the CR 601.2g window (announce-then-pay spec §3). It
 	// is exclusive with Choices, Rest and Payment.
 	Announce *AnnounceSelection `json:"announce,omitempty"`
+}
+
+// Acting is the seat the decision is asked OF and its answer acts for: the
+// controlled seat when a CR 722 redirect moved Player to its controller,
+// otherwise Player itself.
+func (d *Decision) Acting() state.PlayerID {
+	if d.Redirected {
+		return d.Actor
+	}
+	return d.Player
+}
+
+// RedirectTo moves the answering seat to ctl, recording the seat the decision
+// was asked of as Actor the first time (a search redirect followed by a
+// player-control redirect keeps the ORIGINAL seat as the actor).
+func (d *Decision) RedirectTo(ctl state.PlayerID) {
+	if !d.Redirected {
+		d.Redirected, d.Actor = true, d.Player
+	}
+	d.Player = ctl
 }
 
 // Validate rejects anything the engine did not offer. Everything a client can

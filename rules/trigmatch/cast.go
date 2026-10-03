@@ -207,7 +207,7 @@ func SpellCastEval(e Board, t cards.Trigger, source state.ObjID, ev events.Event
 // TargetShapeMatches implements the two target-shape parameters the
 // cast/activation trigger family carries (task targetsvalid1): TargetsValid$
 // and IsSingleTarget$. Both are read at every trigger arm the family has --
-// the SpellCast/SpellCastOrCopy/SpellCopy arm (spellCastEval), the
+// the SpellCast/SpellCastOrCopy/SpellCopy arm (SpellCastEval), the
 // AbilityCast/SpellAbilityCast activation arm (abilityCastMatches) and the
 // SpellAbilityCast spell arm (spellAbilityCastSpellMatches) -- through this
 // one helper, so the grammar cannot drift between the arms. targets is the
@@ -352,7 +352,7 @@ func spellAbilityCastSpellMatches(e Board, t cards.Trigger, source state.ObjID, 
 //     a mana ability, so !ManaAbility holds and a bare SpellAbility holds;
 //     YouCtrl checks the spell's controller; ManaAbility never holds.
 //   - Activated / Triggered name ability kinds only and never match a
-//     spell (the activation arm's abilityCastValidSA owns them there).
+//     spell (the activation arm's AbilityCastValidSA owns them there).
 //
 // An alternative this reading cannot resolve is skipped; the trigger fires
 // only when at least one alternative matches (an unresolvable clause fails
@@ -566,9 +566,9 @@ func abilityCastConstraintHolds(b Board, ab *cards.SA, constraint string, abCtrl
 		ok := false
 		switch term {
 		case "!ManaAbility":
-			ok = !b.IsManaAbilityAPI(ab.API)
+			ok = !cards.IsManaAbilityAPI(ab.API)
 		case "ManaAbility":
-			ok = b.IsManaAbilityAPI(ab.API)
+			ok = cards.IsManaAbilityAPI(ab.API)
 		case "YouCtrl":
 			ok = abCtrl == ctrl
 		case "OppCtrl":
@@ -680,7 +680,7 @@ func ManaSpentForCast(e Board, p state.PlayerID, id state.ObjID) int32 {
 // derived values Training reads for its power comparison), so a lord, a
 // counter or a pump moves the comparison exactly as it moves the creature.
 //
-// The spend comes from the SHARED manaSpentForCast log scan validSAMatches and
+// The spend comes from the SHARED ManaSpentForCast log scan ValidSAMatches and
 // spellValidSAonCardMatches read, so the three SpellCast spend readers can
 // never disagree. A source that is no longer a creature on the battlefield
 // when the trigger fires (it left, or became a noncreature) has no P/T to
@@ -720,14 +720,14 @@ func ValidSAMatches(e Board, source state.ObjID, ev events.Event, ctrl state.Pla
 // spellValidSAonCardMatches evaluates a SpellCast trigger's ValidSAonCard$
 // clause: a filter over the CAST SPELL's own ability/characteristics. The
 // one measured SpellCast shape (the corpus's five `Spell.ManaSpent` carriers)
-// is the same mana-comparison grammar validSAMatches reads for ValidSA$, with
+// is the same mana-comparison grammar ValidSAMatches reads for ValidSA$, with
 // one addition -- the value may be spelled `X`, the CAST SPELL's mana value
 // (the trigger-side `SVar:X:Count$CardManaCost` both LTX carriers define:
 // Ancient Cellarspawn and Tokka & Rahzar's "the amount of mana spent to cast
 // it was less than its mana value"). `Spell.ManaSpent GE4` (Blazing Bomb,
 // Ultros, Prompto) keeps the literal reading. The mana actually spent comes
-// from the SHARED manaSpentForCast log scan, the identical provenance
-// validSAMatches reads -- so the two comparison params of one SpellCast
+// from the SHARED ManaSpentForCast log scan, the identical provenance
+// ValidSAMatches reads -- so the two comparison params of one SpellCast
 // trigger can never disagree on the spend.
 //
 // Every other head (Dragonlord Kolaghan's
@@ -735,7 +735,7 @@ func ValidSAMatches(e Board, source state.ObjID, ev events.Event, ctrl state.Pla
 // is an unmodelled shape and FAILS CLOSED (the trigger stays silent), per
 // the repo's unreadable-condition convention; broadening the grammar is out
 // of this fix's scope. A copy reads the ORIGINAL spell's spend through
-// manaSpentForCast, the same reading validSAMatches gives a copy today.
+// ManaSpentForCast, the same reading ValidSAMatches gives a copy today.
 func spellValidSAonCardMatches(e Board, obj *state.Object, ev events.Event, clause string) bool {
 	fields := strings.Fields(strings.TrimSpace(clause))
 	if len(fields) != 2 || fields[0] != "Spell.ManaSpent" {
@@ -962,8 +962,7 @@ func manaExpendAmount(e Board, source state.ObjID, raw string, controller state.
 	if body, ok := svars[raw]; ok {
 		raw = body
 	}
-	ctx := effects.NewCtxPtr(source, controller, effects.CtxInit{SVars: svars})
-	return effects.EvalCountOK(e.Host(), ctx, raw)
+	return e.EvalCount(source, controller, svars, raw)
 }
 
 // triggerCastAlt is one surviving ValidCard$ alternative of a Mode$

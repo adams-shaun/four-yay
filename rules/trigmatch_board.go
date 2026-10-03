@@ -27,9 +27,12 @@ func boardOf(e *Engine) *trigBoard { return (*trigBoard)(e) }
 
 func (b *trigBoard) eng() *Engine { return (*Engine)(b) }
 
-func (b *trigBoard) Game() *state.Game  { return b.G }
-func (b *trigBoard) Log() *events.Log   { return b.L }
-func (b *trigBoard) Host() effects.Host { return b.eng() }
+func (b *trigBoard) Game() *state.Game { return b.G }
+func (b *trigBoard) Log() *events.Log  { return b.L }
+
+func (b *trigBoard) EvalCount(source state.ObjID, controller state.PlayerID, svars map[string]string, expr string) (int32, bool) {
+	return effects.EvalCountOK(b.eng(), effects.NewCtxPtr(source, controller, effects.CtxInit{SVars: svars}), expr)
+}
 
 func (b *trigBoard) Facts() trigmatch.Facts {
 	return trigmatch.Facts{
@@ -136,4 +139,3 @@ func (b *trigBoard) SpellsCastThisTurn(p state.PlayerID) int { return b.eng().sp
 func (b *trigBoard) ManaExpendTotal(p state.PlayerID) int32  { return b.eng().manaExpendTotal(p) }
 
 func (b *trigBoard) IsLoyaltyAbility(ab *cards.SA) bool { return isLoyaltyAbility(ab) }
-func (b *trigBoard) IsManaAbilityAPI(api string) bool   { return isManaAbilityAPI(api) }

@@ -116,7 +116,7 @@ func creatureManaItems(kind, key string, c *cards.Card) []censusItem {
 			continue
 		}
 		for ai, a := range f.Abilities {
-			if a.Kind != "AB" || !isManaAbilityAPI(a.API) {
+			if a.Kind != "AB" || !cards.IsManaAbilityAPI(a.API) {
 				continue
 			}
 			family := "activated"

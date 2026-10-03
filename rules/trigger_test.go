@@ -541,7 +541,7 @@ Oracle:x
 `
 	e := layerEngine(t)
 	id := onBoard(t, e, 0, src)
-	// Put the object itself on top of the stack so damageSource() names it.
+	// Put the object itself on top of the stack so trigmatch.damageSource() names it.
 	e.G.Stack = []state.ObjID{id}
 	for i := 0; i < maxTriggerFires+50; i++ {
 		e.emit(events.Event{Kind: events.Damage, Player: 1, Amount: 1})

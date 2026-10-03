@@ -655,16 +655,25 @@ func (t *tactical) reanimateValue(s *tstate) float64 {
 		if !isCreatureTypes(cv.Types) {
 			continue
 		}
-		p := t.profile(cv)
-		v := t.w.Body * t.profileCreValue(s, p, cv)
-		for j := range p.etb {
-			v += t.effValue(s, p, &p.etb[j], cv.ID)
-		}
-		if v > best {
+		if v := t.reanimateCardValue(s, cv); v > best {
 			best = v
 		}
 	}
 	return best
+}
+
+// reanimateCardValue is creature card cv put onto the battlefield under our
+// control: its body plus its enter-the-battlefield effects. It is the score
+// reanimateValue maximises, and the one a reanimation's target choice uses
+// (Dread Return must return Lotleth Giant, whose ETB is the kill, not the
+// biggest body).
+func (t *tactical) reanimateCardValue(s *tstate, cv *view.CardView) float64 {
+	p := t.profile(cv)
+	v := t.w.Body * t.profileCreValue(s, p, cv)
+	for j := range p.etb {
+		v += t.effValue(s, p, &p.etb[j], cv.ID)
+	}
+	return v
 }
 
 // kickerExtra is the extra generic mana a kicked pursuit needs (an estimate:

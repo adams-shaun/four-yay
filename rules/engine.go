@@ -165,6 +165,12 @@ func (e *Engine) Submit(in decision.Intent) error {
 	if err := d.Validate(in); err != nil {
 		return err
 	}
+	// The wire contract above is the ANSWERING seat's (d.Player); every
+	// engine-side check and handler below acts for the seat the decision is
+	// asked OF. They differ only under a CR 722 redirect (actingView); the
+	// log keeps the answering seat's intent exactly as submitted.
+	logged := in
+	d, in = actingView(d, in)
 	if d.Kind == decision.KAttackers {
 		// Ruling m34: the KAttackers option list offers every (attacker,
 		// defender) pair, so an intent naming the same creature twice --
@@ -247,13 +253,17 @@ func (e *Engine) Submit(in decision.Intent) error {
 	}
 	// The caller owns its intent. Keep a private witness before it becomes
 	// replay history, so a client-side mutation after Submit cannot alter it.
-	in = cloneIntentForLog(in)
-	e.L.Intents = append(e.L.Intents, in)
+	logged = cloneIntentForLog(logged)
+	e.L.Intents = append(e.L.Intents, logged)
+	// The handlers read the same private witness, re-seated on the acting
+	// seat (d is the acting view, so d.Player is that seat either way).
+	in = logged
+	in.Player = d.Player
 	made := decisionMadePaymentText(d.Kind, in.Choices, in.Payment)
 	if in.Announce != nil {
 		made = decisionMadeAnnounceText(d.Kind, in.Choices, in.Announce)
 	}
-	e.emit(events.Event{Kind: events.DecisionMade, Player: in.Player, Text: made})
+	e.emit(events.Event{Kind: events.DecisionMade, Player: logged.Player, Text: made})
 	e.pending = nil
 	if in.Announce != nil {
 		action, _ := paymentActionFor(d, in.Announce.ActionID)

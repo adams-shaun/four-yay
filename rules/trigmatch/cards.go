@@ -380,7 +380,7 @@ func DiscardedMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Ev
 //     Diviner). It is matched against ev.Obj, the discarded card, with the
 //     trigger source's controller as the filter perspective.
 //   - ValidCause$ (Pure Intentions' one SVar body, the only carrier) is read
-//     through the shared discardCauseAdmits, exactly as the per-card
+//     through the shared DiscardCauseAdmits, exactly as the per-card
 //     Discarded matcher reads it.
 //
 // FirstTime$ True (Veronica, Rielle) is deliberately NOT read here:

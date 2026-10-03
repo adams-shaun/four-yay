@@ -21,7 +21,7 @@ func init() {
 
 // DieRollNotePrefix is the canonical per-die roll Note's text prefix. ONE
 // shared encoding serves every roll: effRollDice below is the only emitter,
-// and the trig:RolledDie matcher (rules/trigmatch_misc.go's rolledDieMatches)
+// and the trig:RolledDie matcher (rules/trigmatch/actions.go's rolledDieMatches)
 // reads it -- so a die rolled by any DB$ RollDice fires "whenever you roll a
 // die / roll a 4 or higher" exactly like the roll itself. The Note is a
 // replayable event: the random draw is the engine's seeded Rand, and a replay
@@ -63,8 +63,8 @@ func DieRollResult(ev events.Event) (roller state.PlayerID, sides, natural, resu
 // DieRollBatchNotePrefix is the canonical BATCH roll Note's text prefix,
 // emitted once per DB$ RollDice resolution after every per-die Note. ONE
 // shared encoding serves every roll: effRollDice is the only emitter, and
-// the trig:RolledDieOnce matcher (rules/trigmatch_misc.go's
-// rolledDieOnceMatches) reads it -- so "whenever you roll one or more dice"
+// the trig:RolledDieOnce matcher (rules/trigmatch/actions.go's
+// trigmatch.rolledDieOnceMatches) reads it -- so "whenever you roll one or more dice"
 // fires exactly once per roll action regardless of how many dice it rolled,
 // the cadence Forge's RolledDieOnce mode has and the per-die RolledDie mode
 // does not. One Note per resolution is the batch boundary the per-die Notes

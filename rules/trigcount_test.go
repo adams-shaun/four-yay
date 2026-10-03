@@ -22,7 +22,7 @@ import (
 // because every real corpus card with this wording is not currently able to
 // fire through the engine: it either uses the unregistered DamageDoneOnce
 // mode (Metropolis Reformer, Kami of the Honored Dead) or a ValidSource$
-// the engine's damageSource() cannot satisfy for non-ability damage
+// the engine's trigmatch.damageSource() cannot satisfy for non-ability damage
 // (Kjeldoran Gargoyle) -- see the report's Issues section. The SVar body
 // (TriggerCount$DamageAmount) and the GainLife effect are the real ones; the
 // fix under test is that the head resolves to the event's amount instead of

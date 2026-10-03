@@ -314,6 +314,15 @@ func (t *tactical) permanentDelta(s *tstate, e *tEffect, tg *ttarget) float64 {
 		if cv.Tapped && cv.Produces != nil {
 			return t.w.ManaSpent
 		}
+	case effRecursion:
+		// A graveyard card coming back. Every candidate used to score 0,
+		// so the lowest option index won the tie.
+		if e.toBattlefield && isCreatureTypes(cv.Types) && !t.reanimating {
+			t.reanimating = true
+			defer func() { t.reanimating = false }()
+			return t.reanimateCardValue(s, cv)
+		}
+		return val
 	}
 	return 0
 }

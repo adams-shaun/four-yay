@@ -10,8 +10,8 @@ import (
 )
 
 // TestImprintedChangesZoneLKIBranchMatchesLeavingExile drives the actual
-// zone-change matcher's LKI branch (rules/trigmatch_zone.go,
-// zoneChangeMatchesWithCapture) for a `ValidCard$ Card.IsImprinted` spec.
+// zone-change matcher's LKI branch (rules/trigmatch/zone.go,
+// trigmatch.ZoneChangeMatchesWithCapture) for a `ValidCard$ Card.IsImprinted` spec.
 //
 // The branch runs when the trigger's source is the moved object
 // (`source == ev.Obj`, here a registration on the imprinted card itself) or the

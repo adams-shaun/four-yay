@@ -14,7 +14,7 @@ import (
 // creature whose flying comes from Levitation's layer-6
 // `AddKeyword$ Flying` grant (CR 613 orders layer 6 strictly before layer 7,
 // so the P/T applicability gate reads the finished grant stream). Before the
-// fix derivedScalarFrom bound no keyword list at all, so the withFlying gate
+// fix chars.PT bound no keyword list at all, so the withFlying gate
 // fell back to the printed face, missed the granted flying, and the bear sat
 // at its printed 2/2.
 func TestLayer7PTLordSeesGrantedKeyword(t *testing.T) {

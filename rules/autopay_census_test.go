@@ -118,7 +118,7 @@ type autopayCensus struct {
 
 func censusChainHasMana(sa *cards.SA) bool {
 	for d := 0; sa != nil && d < 32; d, sa = d+1, sa.Sub {
-		if isManaAbilityAPI(sa.API) {
+		if cards.IsManaAbilityAPI(sa.API) {
 			return true
 		}
 	}
@@ -572,7 +572,7 @@ func censusItems(kind, key string, c *cards.Card) []censusItem {
 			it := base
 			it.ident, it.sa = fmt.Sprintf("A%d", ai), a
 			switch {
-			case a.Kind == "AB" && isManaAbilityAPI(a.API):
+			case a.Kind == "AB" && cards.IsManaAbilityAPI(a.API):
 				it.family = "activated"
 				if strings.HasPrefix(a.Line, "intrinsic:") {
 					it.family = "intrinsic"
@@ -649,7 +649,7 @@ func censusItems(kind, key string, c *cards.Card) []censusItem {
 				continue
 			}
 			sa := cards.ResolveSVar(f.SVars, n)
-			if sa == nil || !isManaAbilityAPI(sa.API) {
+			if sa == nil || !cards.IsManaAbilityAPI(sa.API) {
 				continue
 			}
 			it := base

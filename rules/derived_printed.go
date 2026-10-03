@@ -26,7 +26,7 @@ import (
 //
 // The full derivation (derivedCompute) produces those three facts from:
 //
-//   - the base keyword list (derivedBaseKeywords: printed, intrinsic,
+//   - the base keyword list (chars.BaseKeywords: printed, intrinsic,
 //     marker-counter and status keywords), then every LAYER-6 effect and
 //     every CantHaveKeywords$ prohibition that matches the object;
 //   - the printed P/T, overridden by the face's own characteristic-defining
@@ -333,7 +333,7 @@ func (e *Engine) printedReach(id state.ObjID) (*state.Object, *cards.Face) {
 	return o, f
 }
 
-// printedKeywords is derivedBaseKeywords for an object that adds nothing to
+// printedKeywords is chars.BaseKeywords for an object that adds nothing to
 // its face's printed list: that list itself, capped, or a non-nil empty list
 // (the derivation's bound empty answer). own is false when the object
 // carries an intrinsic, marker-counter or status keyword (a face-down cloak

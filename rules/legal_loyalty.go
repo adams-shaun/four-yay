@@ -254,7 +254,7 @@ func (e *Engine) loyaltyActivationsFrom(o *state.Object, from int, onBattlefield
 // Shadow's PWTwice, Comet, Stellar Pup's LoyaltyAbs and Urza Assembles the
 // Titans' PWTwice register a NumLoyaltyAct registry entry (effects' effEffect),
 // read here in registry order. A granted line's own Remembered set is bound
-// for the `Card.IsRemembered` spelling, exactly as staticGoadLines binds it
+// for the `Card.IsRemembered` spelling, exactly as combat.staticGoadLines binds it
 // for Goad. Both routes share one accumulator so neither can drift from the
 // other's Twice/Additional combination rule.
 func (e *Engine) loyaltyAbilityLimit(id state.ObjID) int {
@@ -263,7 +263,7 @@ func (e *Engine) loyaltyAbilityLimit(id state.ObjID) int {
 	// apply folds one live NumLoyaltyAct line into the accumulator. The
 	// ValidCard$ spec is matched against the permanent with the static's own
 	// source, controller and remembered set bound (the same binding
-	// restrictionApplies and goadLineMatches use).
+	// restrictionApplies and combat.goadLineMatches use).
 	apply := func(params map[string]string, source state.ObjID, controller state.PlayerID, remembered []state.ObjID) {
 		sc := e.specCtx(source, controller)
 		for _, r := range remembered {

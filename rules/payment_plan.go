@@ -443,7 +443,7 @@ func (e *Engine) PaymentActionsForPriority(p state.PlayerID, seq uint64) []decis
 	// The builder's plans may be shared with the decision's cast-plan memo
 	// (planCastPaymentMemo); hand the caller its own copy, as
 	// EnsurePaymentActions does.
-	out := e.paymentActionsForPriority(p, seq, nil)
+	out := e.paymentActionsForPriority(p, p, seq, nil)
 	if out == nil {
 		return nil
 	}
@@ -456,6 +456,12 @@ func (e *Engine) PaymentActionsForPriority(p state.PlayerID, seq uint64) []decis
 // own Options, which BaseOptionIndex indexes; nil derives them with one
 // legalActions walk, and only once some action needs them.
 //
+// p is the seat the casts are planned FOR (the acting seat: its hand, mana
+// base and pool); idSeat is the seat the action and plan IDs bind, the
+// decision's ANSWERING seat, because Decision.Validate (a wire contract a
+// rules-ignorant client also runs) re-derives them from d.Player. The two
+// differ only under a CR 722 control redirect (Decision.Acting).
+//
 // Per build it runs ONE legal-action walk: the PotentialMana walk, which
 // discovers the candidates and their order and labels, casts only
 // (legalActionsWalk's castsOnly). The huge-pool walk PlanCastPayment
@@ -464,7 +470,7 @@ func (e *Engine) PaymentActionsForPriority(p state.PlayerID, seq uint64) []decis
 // sources cannot afford, which the huge-pool walk admits, so the planner
 // only ever sees the candidates it saw before. Cost statics are collected
 // once and shared by every candidate.
-func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options []decision.Option) []decision.PaymentAction {
+func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64, options []decision.Option) []decision.PaymentAction {
 	if e.G.Over {
 		return nil
 	}
@@ -548,12 +554,12 @@ func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options
 			continue
 		}
 		plan := *got.Plan
-		pid, err := decision.PaymentPlanID(seq, p, cast, plan)
+		pid, err := decision.PaymentPlanID(seq, idSeat, cast, plan)
 		if err != nil {
 			continue // impossible for a rules-built V1 witness; fail closed.
 		}
 		plan.ID = pid
-		aid, err := decision.PaymentActionID(decision.PaymentPlanV1, seq, p, cast)
+		aid, err := decision.PaymentActionID(decision.PaymentPlanV1, seq, idSeat, cast)
 		if err != nil {
 			continue
 		}

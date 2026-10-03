@@ -281,7 +281,7 @@ const (
 	// FlagManaExpendCast marks a cast whose pay-time CastInfo is the
 	// trig:ManaExpend wake-up (the FlagManaSpent pattern): the Amount is the
 	// mana the cast's payment spent (state.Mana pips summed), read by the
-	// crossing matcher (rules/trigmatch_cast.go's manaExpendMatches). Emitted
+	// crossing matcher (rules/trigmatch/cast.go's ManaExpendMatches). Emitted
 	// only when a ManaExpend trigger face is on the casting player's
 	// battlefield (rules/cast.go's manaExpendReaderOut), so every game without
 	// a carrier stays byte-identical. The cumulative per-turn tally the
@@ -567,7 +567,7 @@ type Object struct {
 	// finishUntapStep). Every reader that treats a permanent as existing
 	// gates on it: targeting (rules/stack.go candidatesFor), the layer
 	// static/level walk (rules/layers.go staticEffects/activeStatics),
-	// combat (rules/combat.go canAttack), the SBA sweep (rules/sba.go)
+	// combat (rules/combat/attack.go CanAttack), the SBA sweep (rules/sba.go)
 	// and the view projection (view). A plain value copy in CloneDeep
 	// carries it.
 	PhasedOut bool
@@ -651,7 +651,7 @@ type Object struct {
 	// attacked in this turn (events.Apply's DeclareAttackers case), reset in
 	// TurnChange's per-object loop. Extra combats within one turn share
 	// g.Turn and do NOT reset it, so a "attacks for the first time each
-	// turn" trigger (rules/trigger_match.go attacksMatches' FirstAttack$)
+	// turn" trigger (rules/trigmatch/combat.go AttacksMatches' FirstAttack$)
 	// reads count == 1 at fire time -- trigger matching runs on the FOLDED
 	// event, so the event's own attack is already counted.
 	AttacksThisTurn int32
