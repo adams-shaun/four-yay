@@ -101,3 +101,84 @@ func TestTapeConvertTriggerCost(t *testing.T) {
 		})
 	}
 }
+
+// tapeWindowUpkeep puts the fixture onto seat 0's battlefield in its first
+// main phase, then plays on under pick until seat 0's next turn reaches its
+// first main phase: the upkeep trigger (cumulative upkeep, echo) resolves on
+// the way.
+func tapeWindowUpkeep(name string, lands int, pick func(d *decision.Decision) []int) func(t *testing.T, e *Engine) {
+	return func(t *testing.T, e *Engine) {
+		t.Helper()
+		toMain1(t, e)
+		moveByName(t, e, 0, name, state.ZBattlefield)
+		for i := 0; i < lands; i++ {
+			moveByName(t, e, 0, "Mountain", state.ZBattlefield)
+		}
+		start := e.G.Turn
+		for i := 0; i < 2000; i++ {
+			if e.G.Over || (e.G.Turn >= start+2 && e.G.Step == state.StepMain1) {
+				return
+			}
+			d := e.Pending()
+			if d == nil {
+				e.Advance()
+				continue
+			}
+			ch := []int(nil)
+			if d.Kind == decision.KPriority {
+				ch = []int{tapePassIndex(d)}
+			} else if d.Kind == decision.KAttackers || d.Kind == decision.KBlockers {
+				ch = nil
+			} else {
+				ch = pick(d)
+			}
+			if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: ch}); err != nil {
+				t.Fatalf("submit %s: %v", d.Kind, err)
+			}
+		}
+		t.Fatal("never reached the next turn")
+	}
+}
+
+func TestTapeConvertUpkeepWindows(t *testing.T) {
+	cases := []struct {
+		name, src string
+		lands     int
+		pay       bool
+		served    int64
+		gone      bool
+	}{
+		{name: "Tape Glacier", src: "Name:Tape Glacier\nManaCost:B\nTypes:Enchantment\nK:Cumulative upkeep:1\nOracle:x\n", lands: 2, pay: true, served: 2},
+		{name: "Tape Glacier Melts", src: "Name:Tape Glacier Melts\nManaCost:B\nTypes:Enchantment\nK:Cumulative upkeep:1\nOracle:x\n", served: 1, gone: true},
+	}
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			seed := 13400 + uint64(i)
+			asks := 0
+			pick := tapeWindowPick(tc.pay)
+			legacy, _ := tapeFixture(t, 2, seed, false, tc.src)
+			tapeWindowUpkeep(tc.name, tc.lands, func(d *decision.Decision) []int {
+				if d.Kind == decision.KChoose && strings.Contains(d.Prompt, tc.name) {
+					asks++
+				}
+				return pick(d)
+			})(t, legacy)
+			if asks == 0 {
+				t.Fatal("legacy never posed the upkeep election")
+			}
+			onField := false
+			for _, id := range legacy.G.Zone(state.ZBattlefield, 0) {
+				if legacy.G.Obj(id).Face().Name == tc.name {
+					onField = true
+				}
+			}
+			if onField == tc.gone {
+				t.Fatalf("legacy: permanent on battlefield %v, want %v", onField, !tc.gone)
+			}
+			_, st := tapeDual(t, 2, seed, tapeWindowUpkeep(tc.name, tc.lands, pick), tc.src)
+			if st.Served < tc.served || st.LegacySwitch != 0 || st.Aborts != 0 {
+				t.Fatalf("the upkeep window was not served from the tape: %+v", st)
+			}
+		})
+	}
+}
