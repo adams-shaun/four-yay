@@ -1,0 +1,35 @@
+{
+  "card": "Archwing Dragon",
+  "family": "newest-mechanics",
+  "author": "cli-20261002T230428Z-067d6538 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "printed-characteristics",
+      "cr": [
+        "208.3",
+        "702.9",
+        "702.10"
+      ],
+      "why": "Oracle gives Archwing Dragon printed power/toughness 4/4 and Flying, Haste. Those characteristics apply to this battlefield creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Archwing Dragon"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Archwing Dragon",
+          "zone": "battlefield",
+          "pt": "4/4",
+          "keywords": [
+            "Flying",
+            "Haste"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "card": "Craterhoof Behemoth",
+  "family": "newest-mechanics",
+  "author": "cli-20261002T230428Z-067d6538 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "printed-characteristics",
+      "cr": [
+        "208.3",
+        "702.10"
+      ],
+      "why": "Oracle gives Craterhoof Behemoth printed power/toughness 5/5 and Haste. Those characteristics apply to this battlefield creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Craterhoof Behemoth"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Craterhoof Behemoth",
+          "zone": "battlefield",
+          "pt": "5/5",
+          "keywords": [
+            "Haste"
+          ]
+        }
+      ]
+    }
+  ]
+}
