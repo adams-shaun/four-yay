@@ -808,7 +808,7 @@ func TestHybridPhyrexianCostsParseAndPay(t *testing.T) {
 	// for it: the colour pips take their own units, the pip goes to life, and
 	// the generic lands on the colourless unit.
 	pay, ok := resolveMana(c, pool(1, 0, 0, 0, 1, 1), state.Mana{}, [7]state.Mana{}, 10, nil)
-	if !ok || pay.lifeSpent != 2 {
+	if !ok || pay.LifeSpent != 2 {
 		t.Fatalf("W+G+C with life must pay the compleated pip with two life: %+v ok=%v", pay, ok)
 	}
 	if !payable(c, pool(1, 0, 0, 0, 1, 1), state.Mana{}, [7]state.Mana{}, 10) {
@@ -820,7 +820,7 @@ func TestHybridPhyrexianCostsParseAndPay(t *testing.T) {
 	// Pool with no white at all, life offered: the pip goes to life.
 	c2 := ParseCost("GWP")
 	pay2, ok2 := resolveMana(c2, state.Mana{}, state.Mana{}, [7]state.Mana{}, 2, nil)
-	if !ok2 || pay2.lifeSpent != 2 {
+	if !ok2 || pay2.LifeSpent != 2 {
 		t.Fatalf("GWP with an empty pool and 2 life = %+v ok=%v, want two life", pay2, ok2)
 	}
 	if !payable(c2, state.Mana{}, state.Mana{}, [7]state.Mana{}, 2) {

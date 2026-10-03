@@ -304,12 +304,12 @@ func (m costMods) feasibleAny(c Cost, pool, snow state.Mana, typed [7]state.Mana
 		for _, alt := range announcePip(c, 0) {
 			r := c
 			switch {
-			case alt.color != 0:
-				r.Colored[state.ManaIndex(alt.color)]++
-			case alt.generic > 0:
-				r.Generic = addClampedGeneric(r.Generic, int64(alt.generic))
-			case alt.life > 0:
-				r.Life = addClampedGeneric(r.Life, int64(alt.life))
+			case alt.Color != 0:
+				r.Colored[state.ManaIndex(alt.Color)]++
+			case alt.Generic > 0:
+				r.Generic = addClampedGeneric(r.Generic, int64(alt.Generic))
+			case alt.Life > 0:
+				r.Life = addClampedGeneric(r.Life, int64(alt.Life))
 			}
 			if walk(r.DropAnnouncePrefix(1)) {
 				return true
@@ -365,7 +365,7 @@ func (e *Engine) manaFeasiblePoolP(p state.PlayerID, id state.ObjID, ability boo
 	pl := &e.G.Players[p]
 	return mods.feasibleAny(*c, pool, pl.Snow, typed, pl.Life, taxGeneric, delve,
 		e.payerGrantsPayLifeInsteadOfB(p),
-		pipRider{anyColor: e.payerGrantsIgnoreColor(p, id), anyType: e.payerGrantsIgnoreType(p, id)},
+		pipRider{AnyColor: e.payerGrantsIgnoreColor(p, id), AnyType: e.payerGrantsIgnoreType(p, id)},
 		e.paymentConv(p, id, ability))
 }
 

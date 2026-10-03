@@ -297,7 +297,7 @@ func paymentSearchEnv() pay.Env {
 	return pay.Env{
 		Settle: func(c Cost, pool state.Mana, life int32) (state.Mana, bool) {
 			paid, ok := resolveManaWith(c, pool, state.Mana{}, [7]state.Mana{}, life, false, pipRider{}, nil)
-			return paid.pool, ok
+			return paid.Pool, ok
 		},
 		Verify: walkCacheVerify,
 	}

@@ -700,8 +700,8 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	}
 	cost := e.offerCostFor(p, cast.Object, withSpellAbilityExtras(e.G.Obj(cast.Object).Face(), e.rawBaseCost(p, cast.Object)), spellScope(""))
 	payment, ok := resolveManaWith(cost, pool, state.Mana{}, [7]state.Mana{}, e.G.Players[p].Life, false, pipRider{}, nil)
-	expected := pay.Witness(cost, e.G.Players[p].Pool, produced, nil, payment.pool)
-	if !ok || pay.ManaAmount(payment.pool) != plan.PoolAfter || expected.PoolSpend != plan.PoolSpend {
+	expected := pay.Witness(cost, e.G.Players[p].Pool, produced, nil, payment.Pool)
+	if !ok || pay.ManaAmount(payment.Pool) != plan.PoolAfter || expected.PoolSpend != plan.PoolSpend {
 		return fmt.Errorf("payment witness does not settle")
 	}
 	return nil

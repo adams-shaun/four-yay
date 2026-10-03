@@ -415,12 +415,12 @@ func (e *Engine) castWindowReachable(p state.PlayerID, cost Cost, spellPool, sno
 				if !feeOK {
 					continue
 				}
-				spent := manaSub(activationPool, activationFee.pool)
-				snowSpent := manaSub(activationSnow, activationFee.snow)
+				spent := manaSub(activationPool, activationFee.Pool)
+				snowSpent := manaSub(activationSnow, activationFee.Snow)
 				nextPool := manaSub(pool, spent)
 				nextSpellSnow := manaSub(spellSnow, snowSpent)
-				nextActivation := activationFee.pool
-				nextActivationSnow := activationFee.snow
+				nextActivation := activationFee.Pool
+				nextActivationSnow := activationFee.Snow
 				produced := a.mana()
 				used[i] = true
 				found := rec(manaAdd(nextPool, produced), nextSpellSnow,
@@ -533,7 +533,7 @@ func (e *Engine) striveAffordableTargets(pc *pendingCast, max int) int {
 		}
 		convoked := e.applyConvoke(pc, cost)
 		pay := paymentForCast(pc, convoked)
-		rider := pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}
+		rider := pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}
 		if e.manaFeasibleDescriptor(pc.player, pay, convoked, costMods{}, 0, 0, rider) {
 			return true
 		}

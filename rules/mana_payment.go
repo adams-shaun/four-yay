@@ -11,12 +11,13 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
 // manaLetters is state.Mana's index order (MW, MU, MB, MR, MG, MC) spelled
 // out as the WUBRGC symbols events.ManaAdd's Counter field expects.
-var manaLetters = [...]string{"W", "U", "B", "R", "G", "C"}
+var manaLetters = pay.ManaLetters
 
 // manaTaggedLetters[t][i] is state.ManaUnitTags[t]+manaLetters[i] and
 // manaSnowLetters[i] is "S"+manaLetters[i]: the spend split's Counter forms,
@@ -141,7 +142,7 @@ func (e *Engine) payManaDescriptorForSpent(p state.PlayerID, d paymentDescriptor
 	if !ok {
 		return false, state.Mana{}, state.Mana{}, state.Mana{}, [7]state.Mana{}
 	}
-	after, afterSnow, afterTyped, lifeSpent := pay.pool, pay.snow, pay.typed, pay.lifeSpent
+	after, afterSnow, afterTyped, lifeSpent := pay.Pool, pay.Snow, pay.Typed, pay.LifeSpent
 	spent := state.Mana{}
 	spentSnow := state.Mana{}
 	spentTyped := [7]state.Mana{}
@@ -253,7 +254,7 @@ func (e *Engine) payManaDescriptorForSpent(p state.PlayerID, d paymentDescriptor
 func (e *Engine) payManaCastSpent(pc *pendingCast, cost Cost) (bool, state.Mana, state.Mana, [7]state.Mana) {
 	ok, spentAll, _, spentSnow, spentTyped := e.payManaDescriptorForSpent(pc.player, paymentForCast(pc, cost), cost,
 		e.paymentConv(pc.player, pc.card, false),
-		pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType})
+		pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType})
 	return ok, spentAll, spentSnow, spentTyped
 }
 
@@ -706,7 +707,7 @@ func (e *Engine) paymentConv(p state.PlayerID, id state.ObjID, ability bool) *ma
 	// source to apply, so both parts are empty: the nil answer, directly.
 	if len(e.manaConvPrintedSources()) == 0 && !e.activeSummaryOf(e.active()).hasManaConvert {
 		if walkCacheVerify {
-			if m, o := e.manaConversionParts(p, id, ability); !m.empty() || !o.empty() {
+			if m, o := e.manaConversionParts(p, id, ability); !m.Empty() || !o.Empty() {
 				panic(fmt.Sprintf("rules: a board with no ManaConvert source converts mana for obj %d", id))
 			}
 		}
@@ -725,7 +726,7 @@ func (e *Engine) paymentConv(p state.PlayerID, id state.ObjID, ability bool) *ma
 	} else {
 		mergeManaConv(&conv, optional)
 	}
-	if conv.empty() {
+	if conv.Empty() {
 		return nil
 	}
 	// Copy out only the non-empty conversion: returning &conv directly moved
@@ -802,7 +803,7 @@ func stackXAnnounced(o *state.Object) bool {
 // source happens to be a card object.
 func (e *Engine) costPayableOther(p state.PlayerID, id state.ObjID, cost Cost) bool {
 	return e.costPayableClass(p, paymentDescriptor{id: id, class: paymentOther, cost: &cost},
-		pipRider{anyColor: e.payerGrantsIgnoreColor(p, id), anyType: e.payerGrantsIgnoreType(p, id)}, cost)
+		pipRider{AnyColor: e.payerGrantsIgnoreColor(p, id), AnyType: e.payerGrantsIgnoreType(p, id)}, cost)
 }
 
 // costPayable is the conversion-aware equivalent of Cost.payable at the
@@ -815,7 +816,7 @@ func (e *Engine) costPayableOther(p state.PlayerID, id state.ObjID, cost Cost) b
 // K'rrik-shaped or may-play-shaped payment as well.
 func (e *Engine) costPayable(p state.PlayerID, id state.ObjID, ability bool, cost Cost) bool {
 	return e.costPayableGrant(p, id, ability, cost,
-		pipRider{anyColor: e.payerGrantsIgnoreColor(p, id), anyType: e.payerGrantsIgnoreType(p, id)})
+		pipRider{AnyColor: e.payerGrantsIgnoreColor(p, id), AnyType: e.payerGrantsIgnoreType(p, id)})
 }
 
 // costPayablePool is costPayable priced against an EXPLICIT pool instead of
@@ -843,7 +844,7 @@ func (e *Engine) costPayablePool(p state.PlayerID, id state.ObjID, ability bool,
 		if walkCacheVerify {
 			_, slow := resolveManaWith(cost, pool, e.G.Players[p].Snow, typed, e.G.Players[p].Life,
 				e.payerGrantsPayLifeInsteadOfB(p),
-				pipRider{anyColor: e.payerGrantsIgnoreColor(p, id), anyType: e.payerGrantsIgnoreType(p, id)},
+				pipRider{AnyColor: e.payerGrantsIgnoreColor(p, id), AnyType: e.payerGrantsIgnoreType(p, id)},
 				e.paymentConv(p, id, ability))
 
 			if slow != ok {
@@ -854,7 +855,7 @@ func (e *Engine) costPayablePool(p state.PlayerID, id state.ObjID, ability bool,
 	}
 	_, ok := resolveManaWith(cost, pool, e.G.Players[p].Snow, typed, e.G.Players[p].Life,
 		e.payerGrantsPayLifeInsteadOfB(p),
-		pipRider{anyColor: e.payerGrantsIgnoreColor(p, id), anyType: e.payerGrantsIgnoreType(p, id)},
+		pipRider{AnyColor: e.payerGrantsIgnoreColor(p, id), AnyType: e.payerGrantsIgnoreType(p, id)},
 		e.paymentConv(p, id, ability))
 
 	return ok

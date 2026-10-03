@@ -88,7 +88,7 @@ func (e *Engine) paymentPlanGlobalManaEffect(p state.PlayerID, id state.ObjID) (
 // inert at payment as well (manaColourFrom/applyManaConversionTo), so it can
 // invalidate nothing the solver priced.
 func paymentPlanConvRestricts(c *manaConv) bool {
-	return slices.Contains(c.onlyC[:], true)
+	return slices.Contains(c.OnlyC[:], true)
 }
 
 // paymentPlanManaConvertName names the ManaConvert static behind a global

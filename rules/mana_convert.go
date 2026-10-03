@@ -21,56 +21,6 @@ import (
 // leaves the {R} pip exactly what it was and lets the pool's white mana pay
 // it. That is why the model below annotates pool colours, not pips.
 
-// manaConv is the colour-conversion set one payment is resolved under. The
-// zero value converts nothing, which is exactly the behaviour of a game with
-// no ManaConvert static on the battlefield -- every pre-existing call site
-// degenerates to today's exact-colour match, so no golden game can move
-// merely because the machinery exists.
-type manaConv struct {
-	// wild[i] is true when the payer's mana of colour i (manaLetters order)
-	// may be spent as mana of any COLOUR (CR 608.2i's "any color"): any
-	// coloured pip or hybrid pip may be paid with it. Colourless-specific
-	// {C} pips are NOT covered -- {C} is not a colour (CR 107.4c) -- unless
-	// wildC is also set (the AnyType->AnyType wording, "mana of any type").
-	wild [6]bool
-	// wildC extends wild to the colourless-specific {C} pips. Set by the
-	// AnyType->AnyType conversion ("mana of any type can be spent..."); the
-	// corpus carries it on two script lines.
-	wildC bool
-	// to[i][j] is true when the payer's mana of colour i may be spent as
-	// though it were mana of colour j (the White->Red wording). It is a
-	// specific mapping, consulted only when the exact-colour match and wild
-	// both fail.
-	to [6][6]bool
-	// onlyC[i] is the <-C RESTRICTION ("you may spend other mana only as
-	// though it were colorless mana", the nonWhite<-C wording, one corpus
-	// occurrence): the payer's mana of colour i may pay ONLY a
-	// colourless-specific {C} pip or generic, never a coloured pip -- not
-	// even its own colour's pip, which is the whole point of the
-	// restriction.
-	onlyC [6]bool
-}
-
-// empty reports whether the conversion would change any pip match. The
-// payment sites skip the conversion path entirely on an empty conv so the
-// pure resolveMana (and with it every pre-existing game) is byte-identical.
-func (m *manaConv) empty() bool {
-	if m.wildC {
-		return false
-	}
-	for i := range m.wild {
-		if m.wild[i] || m.onlyC[i] {
-			return false
-		}
-		for j := range m.to[i] {
-			if m.to[i][j] {
-				return false
-			}
-		}
-	}
-	return true
-}
-
 // manaColourFrom maps a ManaConversion$ "from" word to the pool-colour
 // indexes it names: a colour name or letter is that colour; "AnyType" is all
 // six (any type includes colourless); "non<name>" is every colour except the
@@ -127,39 +77,39 @@ func applyManaConversionTo(conv *manaConv, from []int, word string) bool {
 	switch name {
 	case "anycolor":
 		for _, i := range from {
-			conv.wild[i] = true
+			conv.Wild[i] = true
 		}
 	case "anytype":
 		for _, i := range from {
-			conv.wild[i] = true
+			conv.Wild[i] = true
 		}
-		conv.wildC = true
+		conv.WildC = true
 	case "c", "colorless":
 		// "as though it were colorless mana" as a GRANT: mana of the "from"
 		// colours may additionally pay {C} pips. Not a corpus shape today,
 		// but the same grammar the restriction side uses; kept for symmetry.
 		for _, i := range from {
-			conv.to[i][state.MC] = true
+			conv.To[i][state.MC] = true
 		}
 	case "w", "white":
 		for _, i := range from {
-			conv.to[i][state.MW] = true
+			conv.To[i][state.MW] = true
 		}
 	case "u", "blue":
 		for _, i := range from {
-			conv.to[i][state.MU] = true
+			conv.To[i][state.MU] = true
 		}
 	case "b", "black":
 		for _, i := range from {
-			conv.to[i][state.MB] = true
+			conv.To[i][state.MB] = true
 		}
 	case "r", "red":
 		for _, i := range from {
-			conv.to[i][state.MR] = true
+			conv.To[i][state.MR] = true
 		}
 	case "g", "green":
 		for _, i := range from {
-			conv.to[i][state.MG] = true
+			conv.To[i][state.MG] = true
 		}
 	default:
 		return false
@@ -237,7 +187,7 @@ func (e *Engine) manaConversionParts(p state.PlayerID, id state.ObjID, ability b
 			if from, ok := strings.CutSuffix(tok, "<-C"); ok {
 				if froms := manaColourFrom(from); froms != nil {
 					for _, i := range froms {
-						dst.onlyC[i] = true
+						dst.OnlyC[i] = true
 					}
 				}
 			}
@@ -356,12 +306,12 @@ func (e *Engine) manaConvSubjectZone(id state.ObjID) (state.Zone, bool) {
 }
 
 func mergeManaConv(dst *manaConv, src manaConv) {
-	for i := range dst.wild {
-		dst.wild[i] = dst.wild[i] || src.wild[i]
-		dst.onlyC[i] = dst.onlyC[i] || src.onlyC[i]
-		for j := range dst.to[i] {
-			dst.to[i][j] = dst.to[i][j] || src.to[i][j]
+	for i := range dst.Wild {
+		dst.Wild[i] = dst.Wild[i] || src.Wild[i]
+		dst.OnlyC[i] = dst.OnlyC[i] || src.OnlyC[i]
+		for j := range dst.To[i] {
+			dst.To[i][j] = dst.To[i][j] || src.To[i][j]
 		}
 	}
-	dst.wildC = dst.wildC || src.wildC
+	dst.WildC = dst.WildC || src.WildC
 }

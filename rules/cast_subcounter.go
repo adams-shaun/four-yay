@@ -335,7 +335,7 @@ func (e *Engine) xAsk() bool {
 		// payment's X into Generic, and a CostContainsX batch must still see
 		// an X payment here or every X announcement would be unpayable.
 		payable := e.costPayableClass(pc.player, paymentForCast(pc, wx),
-			pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}, wx)
+			pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}, wx)
 		if !payable {
 			// A target-dependent reduction is absent from the nil-target
 			// composition pc.mods carries, so an X affordable only under it
@@ -482,7 +482,7 @@ func (e *Engine) xTargetPotentialMods(pc *pendingCast, x int32, statics costStat
 		w := e.paymentManaXUsing(pc, x, m)
 		w.Generic -= e.delveCredit(pc.player, pc.card, w.Generic)
 		return e.costPayableClass(pc.player, paymentForCast(pc, w),
-			pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}, w)
+			pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}, w)
 	})
 }
 

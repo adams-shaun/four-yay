@@ -257,12 +257,12 @@ func (e *Engine) announceFeasible(pc *pendingCast, alt pipAlt, pool, snow state.
 	c.Generic = addClampedGeneric(c.Generic, int64(pc.payGeneric))
 	c.Life = addClampedGeneric(c.Life, int64(pc.payLife))
 	switch {
-	case alt.color != 0:
-		c.Colored[state.ManaIndex(alt.color)]++
-	case alt.generic > 0:
-		c.Generic = addClampedGeneric(c.Generic, int64(alt.generic))
-	case alt.life > 0:
-		c.Life = addClampedGeneric(c.Life, int64(alt.life))
+	case alt.Color != 0:
+		c.Colored[state.ManaIndex(alt.Color)]++
+	case alt.Generic > 0:
+		c.Generic = addClampedGeneric(c.Generic, int64(alt.Generic))
+	case alt.Life > 0:
+		c.Life = addClampedGeneric(c.Life, int64(alt.Life))
 	}
 	delve := int32(0)
 	if !pc.isAbility() {
@@ -273,7 +273,7 @@ func (e *Engine) announceFeasible(pc *pendingCast, alt pipAlt, pool, snow state.
 	// for the shared primitive to enumerate.
 	c = c.DropAnnouncePrefix(pc.payIdx + 1)
 	payment := paymentForCast(pc, c)
-	rider := pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}
+	rider := pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}
 	if e.manaFeasibleDescriptor(pc.player, payment, c, pc.mods, pc.taxGeneric, delve, rider) {
 		return true
 	}
@@ -340,13 +340,13 @@ func (e *Engine) manaAsk() bool {
 		Source: pc.card}
 	addPip := func(alt pipAlt) {
 		switch {
-		case alt.color != 0:
+		case alt.Color != 0:
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options),
-				Kind: "pay_" + string(alt.color), Label: "Pay " + string(alt.color), Amount: 1})
-		case alt.generic > 0:
+				Kind: "pay_" + string(alt.Color), Label: "Pay " + string(alt.Color), Amount: 1})
+		case alt.Generic > 0:
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options),
-				Kind: "pay_generic", Label: fmt.Sprintf("Pay %d generic", alt.generic), Amount: int(alt.generic)})
-		case alt.life > 0:
+				Kind: "pay_generic", Label: fmt.Sprintf("Pay %d generic", alt.Generic), Amount: int(alt.Generic)})
+		case alt.Life > 0:
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 				Kind: "pay_life", Label: "Pay 2 life", Amount: 2})
 		}
@@ -355,15 +355,15 @@ func (e *Engine) manaAsk() bool {
 	seenGeneric := false
 	for _, alt := range alts {
 		switch {
-		case alt.color != 0:
-			if seen[alt.color] {
+		case alt.Color != 0:
+			if seen[alt.Color] {
 				continue
 			}
-			seen[alt.color] = true
+			seen[alt.Color] = true
 			if e.announceFeasible(pc, alt, pool, snow, fullLife) {
 				addPip(alt)
 			}
-		case alt.generic > 0:
+		case alt.Generic > 0:
 			if seenGeneric {
 				continue
 			}
@@ -371,7 +371,7 @@ func (e *Engine) manaAsk() bool {
 			if e.announceFeasible(pc, alt, pool, snow, fullLife) {
 				addPip(alt)
 			}
-		case alt.life > 0:
+		case alt.Life > 0:
 			if e.announceFeasible(pc, alt, pool, snow, fullLife) {
 				addPip(alt)
 			}
@@ -401,7 +401,7 @@ func (e *Engine) manaConvertAsk() bool {
 		return false
 	}
 	_, optional := e.manaConversionParts(pc.player, pc.card, pc.isAbility())
-	if optional.empty() {
+	if optional.Empty() {
 		pc.manaConvertDone = true
 		return false
 	}

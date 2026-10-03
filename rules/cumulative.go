@@ -463,7 +463,7 @@ func (e *Engine) paymentManaAsk(player state.PlayerID, source state.ObjID, amoun
 }
 
 func (e *Engine) paymentManaAskClass(player state.PlayerID, source state.ObjID, amount Cost, windowDone bool, prompt string, flow chooseFor, class paymentClass) bool {
-	rider := pipRider{anyColor: e.payerGrantsIgnoreColor(player, source), anyType: e.payerGrantsIgnoreType(player, source)}
+	rider := pipRider{AnyColor: e.payerGrantsIgnoreColor(player, source), AnyType: e.payerGrantsIgnoreType(player, source)}
 	// A pool that already pays the announced amount needs no window. The
 	// check deliberately suspends the payer's PayLifeInsteadOf:B grant
 	// (costPayableClassLife's lifeGrant false, the same suspension the CR
@@ -523,7 +523,7 @@ func (e *Engine) cumulativePaymentAsk() {
 	var opts []decision.Option
 	payable := cu.action != nil && e.cumulativeActionPayable(cu)
 	if cu.action == nil {
-		payable = announced.Priceable() && e.costPayableClass(cu.player, paymentDescriptor{id: cu.source, class: paymentCumulativeUpkeep, cost: &announced}, pipRider{anyColor: e.payerGrantsIgnoreColor(cu.player, cu.source), anyType: e.payerGrantsIgnoreType(cu.player, cu.source)}, announced)
+		payable = announced.Priceable() && e.costPayableClass(cu.player, paymentDescriptor{id: cu.source, class: paymentCumulativeUpkeep, cost: &announced}, pipRider{AnyColor: e.payerGrantsIgnoreColor(cu.player, cu.source), AnyType: e.payerGrantsIgnoreType(cu.player, cu.source)}, announced)
 	}
 	if payable {
 		opts = append(opts, decision.Option{Index: 0, Kind: "cumulative_pay", Obj: cu.source,
@@ -998,21 +998,21 @@ func (e *Engine) pipAnnounceAsk(player state.PlayerID, source state.ObjID, amoun
 	seenGeneric := false
 	for _, alt := range alts {
 		switch {
-		case alt.color != 0:
-			if seen[alt.color] {
+		case alt.Color != 0:
+			if seen[alt.Color] {
 				continue
 			}
-			seen[alt.color] = true
+			seen[alt.Color] = true
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options),
-				Kind: "pay_" + string(alt.color), Label: "Pay " + string(alt.color), Amount: 1})
-		case alt.generic > 0:
+				Kind: "pay_" + string(alt.Color), Label: "Pay " + string(alt.Color), Amount: 1})
+		case alt.Generic > 0:
 			if seenGeneric {
 				continue
 			}
 			seenGeneric = true
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options),
-				Kind: "pay_generic", Label: fmt.Sprintf("Pay %d generic", alt.generic), Amount: int(alt.generic)})
-		case alt.life > 0:
+				Kind: "pay_generic", Label: fmt.Sprintf("Pay %d generic", alt.Generic), Amount: int(alt.Generic)})
+		case alt.Life > 0:
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 				Kind: "pay_life", Label: "Pay 2 life", Amount: 2})
 		}
