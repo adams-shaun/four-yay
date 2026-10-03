@@ -246,6 +246,24 @@ type resumePoint struct {
 	// TargetUnique$ rider in the same chain still excludes the targets an
 	// earlier rider chose. Nil for every non-TargetUnique ask.
 	targetsUnique []state.Target
+	// parentLinks is the walk's parent-link record (effects/parent_targets.go)
+	// captured at ask time from the live Resolve Ctx: the answering targets of
+	// every targeting SubAbility$ link walked so far, in chain order. The
+	// record is otherwise scoped to one Resolve walk, so a resolution that
+	// suspends at a LATER link and re-enters with a fresh Ctx would lose it
+	// and a later untargeted link's ParentTarget/ParentTargeted would fall
+	// back to Ctx.Targets -- the root's list -- instead of the nearest
+	// targeting ancestor. Restored through Ctx.ResumeParentLinks. Nil when no
+	// targeting link ran before the ask.
+	parentLinks [][]state.Target
+	// linkAnswer/linkAnswered are the in-walk answer a body consumed itself
+	// (effects.noteLinkAnswer, effChangeZone's changeZoneChosenTargets) but
+	// whose recordParentLink has not run yet at ask time: the re-entered walk
+	// must still record that link as the parent, so the pending answer rides
+	// the frame. linkAnswered distinguishes an empty (Min-0) answer -- a
+	// RECORDED empty parent -- from "no answer".
+	linkAnswer   []state.Target
+	linkAnswered bool
 	// unlessResolved is the unless-cost outcome the suspended pass recorded
 	// through Host.SuspendUnless (effects.Resolve: the gate had resolved
 	// when the SA's own body posed the pending ask). "resolved-pay" and

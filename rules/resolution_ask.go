@@ -206,6 +206,7 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 			ownResolution = e.resolvingObj != 0
 		}
 	}
+	parentLinks, linkAnswer, linkAnswered := e.resolutionParentLinks()
 	return &resumePoint{kind: kind, obj: obj, sa: d.ResumeSA, replSource: replSource,
 		replacement: e.applyingReplacement, replaced: e.replReplaced, action: e.replAction,
 		replacedCards:     append([]state.ObjID(nil), e.replReplacedCards...),
@@ -220,6 +221,9 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		choices:     append([]state.Target(nil), d.ResumeChoices...),
 		chosenValid: d.ResumeChosenValid, remembered: append([]state.Target(nil), d.ResumeRemembered...),
 		pendingDamage:       effects.ClonePendingDamage(e.resolutionPendingDamage()),
+		parentLinks:         parentLinks,
+		linkAnswer:          linkAnswer,
+		linkAnswered:        linkAnswered,
 		searchKnown:         append([]state.Target(nil), d.ResumeSearchKnown...),
 		forgetOtherSnapshot: append([]state.Target(nil), d.ResumeForgetOtherSnapshot...),
 		forgetOtherOwners:   append([]state.PlayerID(nil), d.ResumeForgetOtherOwners...),
@@ -362,6 +366,20 @@ func (e *Engine) resolutionPendingDamage() []effects.PendingDamage {
 		return nil
 	}
 	return effects.ClonePendingDamage(e.resolutionCtx.PendingDamage)
+}
+
+// resolutionParentLinks is the walk's parent-link record a pending ask carries
+// onto its resume point: the live Resolve chain's record (published through
+// SetResolutionCtx), deep-copied so the frame owns its storage. It is the same
+// ride as resolutionPendingDamage -- runtime continuation state of the walk,
+// never client input -- and it is what lets a resumed resolution keep naming
+// the NEAREST targeting ancestor when a later link's ParentTarget is read.
+// Nil/empty outside a chain or when no targeting link ran before the ask.
+func (e *Engine) resolutionParentLinks() ([][]state.Target, []state.Target, bool) {
+	if e.resolutionCtx == nil {
+		return nil, nil, false
+	}
+	return e.resolutionCtx.ParentLinkRide()
 }
 
 // snapshotDepartingTargetCounters refreshes the resolving chain's target-

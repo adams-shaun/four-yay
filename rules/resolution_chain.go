@@ -119,6 +119,16 @@ func (e *Engine) buildContinuationChain(frames []contFrame, obj state.ObjID, tai
 			f.targetPTLKI = effects.CloneTargetPTLKI(e.resume.targetPTLKI)
 			f.targetSpellLKI = effects.CloneTargetSpellLKI(e.resume.targetSpellLKI)
 			f.replacedCards = append([]state.ObjID(nil), e.resume.replacedCards...)
+			// The walk's parent-link record (effects/parent_targets.go) is a
+			// property of the whole resolution, not of one frame: a continuation
+			// frame that re-enters an ENCLOSING loop of the same resolution
+			// rebuilds its Ctx from the stack object's targets, so it must
+			// inherit the record the pending point captured or a later link's
+			// ParentTarget would fall back to the root's list once more. The
+			// in-walk answer rides with it for the same reason.
+			f.parentLinks = cloneParentLinks(e.resume.parentLinks)
+			f.linkAnswer = append([]state.Target(nil), e.resume.linkAnswer...)
+			f.linkAnswered = e.resume.linkAnswered
 		}
 		// The same-resolution flip memory (Engine.Ask captured it off
 		// Engine.resolvingFlipMemory onto the pending point): a continuation

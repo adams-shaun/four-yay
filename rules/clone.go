@@ -1293,6 +1293,22 @@ func cloneCost(c Cost) Cost {
 	return c
 }
 
+// cloneParentLinks deep-copies a resume point's parent-link record, so a
+// frame's record never shares a backing array with another frame's (the same
+// rule every other sliced ride in cloneResume follows). A recorded empty
+// entry (a Min-0 parent) is preserved as an empty entry, never dropped: its
+// PRESENCE is what makes the parent empty rather than unset.
+func cloneParentLinks(links [][]state.Target) [][]state.Target {
+	if links == nil {
+		return nil
+	}
+	out := make([][]state.Target, len(links))
+	for i, ts := range links {
+		out[i] = append([]state.Target(nil), ts...)
+	}
+	return out
+}
+
 func cloneResume(rp *resumePoint) *resumePoint {
 	if rp == nil {
 		return nil
@@ -1317,6 +1333,15 @@ func cloneResume(rp *resumePoint) *resumePoint {
 	cp.targetPTLKI = effects.CloneTargetPTLKI(rp.targetPTLKI)
 	cp.targetSpellLKI = effects.CloneTargetSpellLKI(rp.targetSpellLKI)
 	cp.targetsUnique = append([]state.Target(nil), rp.targetsUnique...)
+	// The parent-link record and the pending in-walk link answer are sliced
+	// values the resumed Ctx re-binds (effects.Ctx.ResumeParentLinks), so the
+	// clone owns its own copies instead of sharing backing arrays with the
+	// original's pending frames -- the same discipline every other slice here
+	// follows. An empty recorded link (a Min-0 parent) is preserved as an
+	// entry, not dropped.
+	cp.parentLinks = cloneParentLinks(rp.parentLinks)
+	cp.linkAnswer = append([]state.Target(nil), rp.linkAnswer...)
+	cp.linkAnswered = rp.linkAnswered
 	// The VillainousChoice cursor and victim binding are sliced values the
 	// resumed Ctx re-binds, so the clone owns its own copies instead of
 	// sharing backing arrays with the original (the same discipline every

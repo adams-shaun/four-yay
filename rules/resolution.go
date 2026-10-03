@@ -579,6 +579,15 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 	if len(rp.targetsUnique) > 0 {
 		ctx.TargetsUnique = append(ctx.TargetsUnique, rp.targetsUnique...)
 	}
+	// The walk's parent-link record, captured at ask time from the live Resolve
+	// Ctx (effects/parent_targets.go). The resumed Ctx is rebuilt from the
+	// stack object's flat targets, so without this ride a later untargeted
+	// link's ParentTarget/ParentTargeted would fall back to Ctx.Targets -- the
+	// ROOT's targets -- losing the NEAREST targeting ancestor the record was
+	// introduced to name. The in-walk answer a body consumed itself
+	// (linkAnswer/linkAnswered) rides with it, because its recordParentLink
+	// has not run at ask time.
+	ctx.ResumeParentLinks(rp.parentLinks, rp.linkAnswer, rp.linkAnswered)
 	// The DamageMap$ True mark set, captured at ask time from the live
 	// resolution Ctx: a chain that marks damage and then suspends on a
 	// mid-resolution ask before its DB$ DamageResolve re-enters here, and the
