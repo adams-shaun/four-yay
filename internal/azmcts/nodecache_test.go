@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -61,6 +62,7 @@ func sameResult(a, b Result) string {
 // same Result as one without it -- visits, Q, prior, root value, choice
 // and every outcome counter -- and only the walk's cost counters differ.
 func TestNodeCacheIsExact(t *testing.T) {
+	t.Parallel()
 	roots := measureRoots(t, 18)
 	if len(roots) < 12 {
 		t.Fatalf("only %d searchable roots", len(roots))
@@ -69,50 +71,66 @@ func TestNodeCacheIsExact(t *testing.T) {
 	if testing.Short() {
 		roots, sims = roots[:4], 60
 	}
+	// Each root is searched independently, so the roots run as parallel
+	// subtests: the package's other search tests are serial, and this one's
+	// single-threaded loops left three of the gate cgroup's four CPUs idle
+	// on the module gate's critical path. Per-root failures stay attributed
+	// to their root; the cross-root assertions wait for every subtest.
+	var mu sync.Mutex
 	var saves, resumes, evicts, replayOff, replayOn int
 	for i, r := range roots {
-		for _, kind := range []string{"clairvoyant", "pimc"} {
-			run := func(cache int) Result {
-				opts := DefaultOptions()
-				opts.Sims, opts.Seed, opts.NodeCache = sims, uint64(i)*7+1, cache
-				opts.Noise = i%2 == 1 // root noise on half the roots
-				obs := searchprobe.NewCollector(r.d.Player)
-				res, err := Search(context.Background(), Root{Engine: r.e, Decision: r.d, Bot: r.bot, Observer: obs}, measureSource(kind, r.e, obs), nil, opts)
-				if err != nil {
-					t.Fatal(err)
+		t.Run(r.name, func(t *testing.T) {
+			t.Parallel()
+			var rsaves, rresumes, revicts, rreplayOff, rreplayOn int
+			for _, kind := range []string{"clairvoyant", "pimc"} {
+				run := func(cache int) Result {
+					opts := DefaultOptions()
+					opts.Sims, opts.Seed, opts.NodeCache = sims, uint64(i)*7+1, cache
+					opts.Noise = i%2 == 1 // root noise on half the roots
+					obs := searchprobe.NewCollector(r.d.Player)
+					res, err := Search(context.Background(), Root{Engine: r.e, Decision: r.d, Bot: r.bot, Observer: obs}, measureSource(kind, r.e, obs), nil, opts)
+					if err != nil {
+						t.Fatal(err)
+					}
+					return res
 				}
-				return res
+				off := run(0)
+				if off.Stats.NodeSaves != 0 {
+					t.Fatalf("%s %s: the cache ran with NodeCache 0", r.name, kind)
+				}
+				rreplayOff += off.Stats.ReplaySteps
+				for _, cache := range []int{1, 3, 17, DefaultNodeCache} {
+					on := run(cache)
+					if d := sameResult(off, on); d != "" {
+						t.Fatalf("%s %s cache %d: the cached search differs: %s", r.name, kind, cache, d)
+					}
+					if on.Stats.NodeSaves == 0 {
+						t.Fatalf("%s %s cache %d: a fixed world saved no node state", r.name, kind, cache)
+					}
+					rsaves += on.Stats.NodeSaves
+					rresumes += on.Stats.NodeResumes
+					revicts += on.Stats.NodeEvicts
+					if cache == DefaultNodeCache {
+						rreplayOn += on.Stats.ReplaySteps
+					}
+				}
 			}
-			off := run(0)
-			if off.Stats.NodeSaves != 0 {
-				t.Fatalf("%s %s: the cache ran with NodeCache 0", r.name, kind)
-			}
-			replayOff += off.Stats.ReplaySteps
-			for _, cache := range []int{1, 3, 17, DefaultNodeCache} {
-				on := run(cache)
-				if d := sameResult(off, on); d != "" {
-					t.Fatalf("%s %s cache %d: the cached search differs: %s", r.name, kind, cache, d)
-				}
-				if on.Stats.NodeSaves == 0 {
-					t.Fatalf("%s %s cache %d: a fixed world saved no node state", r.name, kind, cache)
-				}
-				saves += on.Stats.NodeSaves
-				resumes += on.Stats.NodeResumes
-				evicts += on.Stats.NodeEvicts
-				if cache == DefaultNodeCache {
-					replayOn += on.Stats.ReplaySteps
-				}
-			}
+			mu.Lock()
+			saves, resumes, evicts = saves+rsaves, resumes+rresumes, evicts+revicts
+			replayOff, replayOn = replayOff+rreplayOff, replayOn+rreplayOn
+			mu.Unlock()
+		})
+	}
+	t.Cleanup(func() {
+		if resumes == 0 || evicts == 0 {
+			t.Fatalf("the roots never exercised the cache: %d resumes, %d evictions", resumes, evicts)
 		}
-	}
-	if resumes == 0 || evicts == 0 {
-		t.Fatalf("the roots never exercised the cache: %d resumes, %d evictions", resumes, evicts)
-	}
-	if replayOn*4 > replayOff {
-		t.Fatalf("the cache re-walked %d env steps, the uncached search %d: want at most a quarter", replayOn, replayOff)
-	}
-	t.Logf("%d roots x 2 sources x 4 caps: identical; %d saves, %d resumes, %d evictions; replayed env steps %d -> %d",
-		len(roots), saves, resumes, evicts, replayOff, replayOn)
+		if replayOn*4 > replayOff {
+			t.Fatalf("the cache re-walked %d env steps, the uncached search %d: want at most a quarter", replayOn, replayOff)
+		}
+		t.Logf("%d roots x 2 sources x 4 caps: identical; %d saves, %d resumes, %d evictions; replayed env steps %d -> %d",
+			len(roots), saves, resumes, evicts, replayOff, replayOn)
+	})
 }
 
 // A source whose worlds differ between simulations never uses the cache:
@@ -264,6 +282,7 @@ func landMacros(d *decision.Decision, bot decision.Intent) ([]Macro, Key) {
 // EnvSteps and the cache's own counters is identical, the leaf-depth sums,
 // Truncated and PriorFallbacks included.
 func TestNodeCacheIsExactWithBenchKnobs(t *testing.T) {
+	t.Parallel()
 	roots := measureRoots(t, 10)
 	e, d, land := landPlayRoot(t)
 	roots = append(roots, measureRoot{name: "land-play", e: e, d: d, bot: land})
@@ -277,47 +296,62 @@ func TestNodeCacheIsExactWithBenchKnobs(t *testing.T) {
 		u     DiscountUnit
 	}
 	units := []unit{{"none", 0, 0}, {"ply", 0.97, DiscountPly}, {"action", 0.9, DiscountAction}, {"turn", 0.8, DiscountTurn}}
+	// Each root is searched independently, so the roots run as parallel
+	// subtests: this test is the azmcts package's whole critical path on the
+	// module gate, and its serial loop used one of the gate cgroup's four
+	// CPUs. Per-root failures stay attributed to their root; the cross-root
+	// assertions wait for every subtest.
+	var mu sync.Mutex
 	var macroVisits, resumes int
 	for i, r := range roots {
-		macros, botKey := landMacros(r.d, r.bot)
-		for _, kind := range []string{"clairvoyant", "pimc"} {
-			for _, un := range units {
-				run := func(cache int) Result {
-					opts := DefaultOptions()
-					opts.Sims, opts.Seed, opts.NodeCache = sims, uint64(i)*11+3, cache
-					opts.CPUCT, opts.AbsoluteUnvisitedQ, opts.UnvisitedQ = 0.5, true, 0.5
-					opts.Limit, opts.AutoPayment, opts.UniformPrior, opts.NameKeys = BenchCandidateLimit, true, true, true
-					opts.Noise, opts.Sample = false, false
-					opts.Discount, opts.DiscountUnit = un.gamma, un.u
-					obs := searchprobe.NewCollector(r.d.Player)
-					root := Root{Engine: r.e, Decision: r.d, Bot: r.bot, Observer: obs, Macros: macros, BotKey: botKey}
-					res, err := Search(context.Background(), root, measureSource(kind, r.e, obs), nil, opts)
-					if err != nil {
-						t.Fatal(err)
+		t.Run(r.name, func(t *testing.T) {
+			t.Parallel()
+			macros, botKey := landMacros(r.d, r.bot)
+			var rmacroVisits, rresumes int
+			for _, kind := range []string{"clairvoyant", "pimc"} {
+				for _, un := range units {
+					run := func(cache int) Result {
+						opts := DefaultOptions()
+						opts.Sims, opts.Seed, opts.NodeCache = sims, uint64(i)*11+3, cache
+						opts.CPUCT, opts.AbsoluteUnvisitedQ, opts.UnvisitedQ = 0.5, true, 0.5
+						opts.Limit, opts.AutoPayment, opts.UniformPrior, opts.NameKeys = BenchCandidateLimit, true, true, true
+						opts.Noise, opts.Sample = false, false
+						opts.Discount, opts.DiscountUnit = un.gamma, un.u
+						obs := searchprobe.NewCollector(r.d.Player)
+						root := Root{Engine: r.e, Decision: r.d, Bot: r.bot, Observer: obs, Macros: macros, BotKey: botKey}
+						res, err := Search(context.Background(), root, measureSource(kind, r.e, obs), nil, opts)
+						if err != nil {
+							t.Fatal(err)
+						}
+						return res
 					}
-					return res
-				}
-				off := run(0)
-				if off.Stats.Completed == 0 {
-					continue
-				}
-				for k, key := range off.Keys {
-					if IsMacroKey(key) {
-						macroVisits += off.Visits[k]
+					off := run(0)
+					if off.Stats.Completed == 0 {
+						continue
 					}
-				}
-				for _, cache := range []int{1, 3, 17, DefaultNodeCache} {
-					on := run(cache)
-					if diff := sameResult(off, on); diff != "" {
-						t.Fatalf("%s %s discount %s cache %d: the cached search differs: %s", r.name, kind, un.name, cache, diff)
+					for k, key := range off.Keys {
+						if IsMacroKey(key) {
+							rmacroVisits += off.Visits[k]
+						}
 					}
-					resumes += on.Stats.NodeResumes
+					for _, cache := range []int{1, 3, 17, DefaultNodeCache} {
+						on := run(cache)
+						if diff := sameResult(off, on); diff != "" {
+							t.Fatalf("%s %s discount %s cache %d: the cached search differs: %s", r.name, kind, un.name, cache, diff)
+						}
+						rresumes += on.Stats.NodeResumes
+					}
 				}
 			}
+			mu.Lock()
+			macroVisits, resumes = macroVisits+rmacroVisits, resumes+rresumes
+			mu.Unlock()
+		})
+	}
+	t.Cleanup(func() {
+		if macroVisits == 0 || resumes == 0 {
+			t.Fatalf("the roots never exercised a macro edge (%d visits) or a resume (%d)", macroVisits, resumes)
 		}
-	}
-	if macroVisits == 0 || resumes == 0 {
-		t.Fatalf("the roots never exercised a macro edge (%d visits) or a resume (%d)", macroVisits, resumes)
-	}
-	t.Logf("%d roots x 2 sources x %d discounts x 4 caps: identical; %d macro-edge visits, %d resumes", len(roots), len(units), macroVisits, resumes)
+		t.Logf("%d roots x 2 sources x %d discounts x 4 caps: identical; %d macro-edge visits, %d resumes", len(roots), len(units), macroVisits, resumes)
+	})
 }
