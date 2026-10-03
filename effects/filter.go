@@ -3106,7 +3106,7 @@ func objectHasAbility(o *state.Object, sub string) bool {
 		case "Activated":
 			return true
 		case "Activated.hasTapCost":
-			for _, tok := range strings.Fields(a.ParamStr(cards.PKCost)) {
+			for _, tok := range strings.Fields(ActivationOf(a).Cost) {
 				if tok == "T" {
 					return true
 				}

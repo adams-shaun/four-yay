@@ -37,8 +37,9 @@ func TryUntap(h Host, id state.ObjID) {
 }
 
 func untapBattlefieldCondition(h Host, c *Ctx, sa *cards.SA) bool {
-	spec, ok := sa.Params["ConditionPresent"]
-	if !ok || sa.ParamStr(cards.PKConditionDefined) != "" {
+	cp := &ActivationOf(sa).Cond
+	spec := cp.Present.Text
+	if !cp.Present.Present || cp.Defined != "" {
 		return true
 	}
 	if len(UnknownPredicates(spec)) > 0 {
@@ -52,7 +53,7 @@ func untapBattlefieldCondition(h Host, c *Ctx, sa *cards.SA) bool {
 	// conditions.go deliberately leaves ConditionZone$ unresolved and defers
 	// to this reader.
 	zone := state.ZBattlefield
-	if z := sa.Params["ConditionZone"]; z != "" {
+	if z := conditionZoneParam(sa); z != "" {
 		parsed, ok := parseZone(z)
 		if !ok {
 			return false
@@ -76,10 +77,10 @@ func untapBattlefieldCondition(h Host, c *Ctx, sa *cards.SA) bool {
 			}
 		}
 	}
-	op, want, ok := parseConditionCompare(sa.ParamStr(cards.PKConditionCompare))
-	if sa.ParamStr(cards.PKConditionCompare) == "" {
+	if cp.Compare.Text == "" {
 		return n > 0
 	}
+	op, want, ok := parseConditionCompare(cp.Compare.Text)
 	if !ok {
 		return false
 	}
