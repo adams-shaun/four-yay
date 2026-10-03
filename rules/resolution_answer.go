@@ -154,8 +154,11 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 	case "unless_pay":
 		_, chosePay := unlessPayChoice(chosen)
 		if rp.unlessPay != "" {
+			// The component continuation's settled outcome
+			// (finishUnlessPayment): the payer cursor is the gate's, not the
+			// body's (see the election's own UnlessNext below).
 			ctx.UnlessPay = rp.unlessPay
-			ctx.UnlessNext = rp.target
+			ctx.UnlessNext, ctx.ChoiceTarget = rp.target, 0
 			if len(rp.unlessDiscards) > 0 {
 				ctx.UnlessDiscarded = make([]state.Target, 0, len(rp.unlessDiscards))
 				for _, id := range rp.unlessDiscards {
@@ -205,7 +208,11 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 		// decline on to the next UnlessPayer$ payer, and a pay ends the
 		// ask), threaded through the decision's ResumeTarget via the
 		// resume point — the same channel the "choice" and "dig" arms use.
-		ctx.UnlessNext = rp.target
+		// That cursor is the gate's alone: the body of the re-entered SA has
+		// not run, so its own chooser walk (Ctx.ChoiceTarget, which the
+		// rebuild seeded from the same ResumeTarget) starts at zero, as it
+		// does on the first pass.
+		ctx.UnlessNext, ctx.ChoiceTarget = rp.target, 0
 	case "sacrifice_optional":
 		// Optional$ + StrictAmount$ is a disjoint choice (decline, or
 		// exactly Amount) that KChoose cannot represent. Its first KModes
@@ -240,6 +247,9 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 			return true, true
 		}
 	case "unless_mana":
+		// The window's ResumeTarget is the gate's payer cursor too: the
+		// re-entered body's chooser walk starts at zero.
+		ctx.ChoiceTarget = 0
 		if e.answerWardMana(rp, chosen, ctx) {
 			return true, true
 		}

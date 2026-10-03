@@ -85,3 +85,27 @@ func TestChooseCardRecordLeavesNoStaleAnswer(t *testing.T) {
 		t.Fatalf("Defined$ ChosenCard fetched %d cards, want only the last choice's 1", got)
 	}
 }
+
+// Rhystic Circle's shape (cardfuzz -tape, seed 11101, game
+// 281516253186263535): an UnlessCost$ with several payers in front of a
+// choosing body. The legacy re-entry rebuilt its Ctx with ChoiceTarget set
+// to the answered election's ResumeTarget -- the PAYER index -- so after the
+// second payer declined the body's own chooser walk started at chooser 1 of
+// 1 and chose nothing. The payer cursor belongs to the unless gate
+// (Ctx.UnlessNext); the body starts its own walk at zero.
+const legacyUnlessCursorSrc = "Name:Tape Rhystic Pick\nManaCost:B\nTypes:Sorcery\n" +
+	"A:SP$ ChooseCard | Defined$ You | Amount$ 1 | Choices$ Land.YouOwn | ChoiceZone$ Library | UnlessCost$ 1 | UnlessPayer$ Player | SubAbility$ Fetch\n" +
+	"SVar:Fetch:DB$ ChangeZone | Defined$ ChosenCard | Origin$ Library | Destination$ Hand\nOracle:x\n"
+
+func TestUnlessElectionCursorDoesNotReachTheBody(t *testing.T) {
+	scenario := tapeUnlessScenario("Tape Rhystic Pick", "B", 0, tapeUnlessPick(false))
+	for _, tape := range []bool{false, true} {
+		e, _ := tapeFixture(t, 2, 33419, tape, legacyUnlessCursorSrc)
+		hand := len(e.G.Zone(state.ZHand, 0))
+		scenario(t, e)
+		if got := len(e.G.Zone(state.ZHand, 0)) - (hand - 1); got != 1 {
+			t.Fatalf("tape=%v: every payer declined, so the body chooses a land and fetches it; hand gained %d", tape, got)
+		}
+	}
+	tapeDual(t, 2, 33419, scenario, legacyUnlessCursorSrc)
+}
