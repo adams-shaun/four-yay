@@ -27,8 +27,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
+
+	"github.com/adams-shaun/gorge/cards/oracletext"
+	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
 // oracleKnownDivergent is the audit's ratchet (the knownUnsupported pattern
@@ -346,4 +350,102 @@ func TestOracleScenarioFilesWellFormed(t *testing.T) {
 			}
 		}
 	}
+}
+
+// TestOracleAudit runs every Oracle-text scenario against the real corpus.
+// Filter with -run 'TestOracleAudit/<Card>/<scenario>'.
+func TestOracleAudit(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	files := loadOracleFiles(t)
+	divergent := oracleDivergent(t)
+	unconsumed := oracleUnconsumed(t)
+	paths := make([]string, 0, len(files))
+	for p := range files {
+		paths = append(paths, p)
+	}
+	sort.Strings(paths)
+	seen := map[string]bool{}
+	for _, p := range paths {
+		f := files[p]
+		c, ok := reg.Lookup(f.Card)
+		if !ok {
+			t.Errorf("%s: %q not in the corpus", p, f.Card)
+			continue
+		}
+		if f.OracleSHA != "" && f.OracleSHA != oracletext.Digest(c) {
+			t.Errorf("%s: Oracle text changed since the scenarios were written (oracle_sha %s, corpus %s): re-derive them", p, f.OracleSHA, oracletext.Digest(c))
+		}
+		for _, sc := range f.Scenarios {
+			key := f.Card + "/" + sc.Name
+			seen[key] = true
+			t.Run(key, func(t *testing.T) {
+				t.Parallel()
+				fails, transcript, run := runOracleScenario(reg, sc)
+				// Every scenario must also replay from its log alone: the setup
+				// and the stand-in ops are logged events, so a divergence here
+				// is an engine replay bug (or a runner write outside emit),
+				// independent of the Oracle verdict and never ratcheted.
+				if run.e != nil {
+					if diff := diffGames(run.e.G, replayFromLog(t, run.cfg, run.e.L.Events)); diff != "" {
+						t.Errorf("log-only replay differs:\n%s", diff)
+					}
+				}
+				row, isKnown := divergent[key]
+				known := row.reason
+				if isKnown && row.family != "" && row.family != f.Family {
+					t.Errorf("ratchet row for %s is in %s but the scenario is family %q", key, row.src, f.Family)
+				}
+				if os.Getenv("ORACLE_AUDIT_TRACE") != "" {
+					t.Logf("transcript:\n    %s", strings.Join(transcript, "\n    "))
+				}
+				// Split the fail list: a leftover step answer is excused only by
+				// the shrinking unconsumed ratchet, and only the leftover itself.
+				// Any other fail on the same scenario is still reported.
+				var leftovers, otherFails []string
+				for _, f := range fails {
+					if strings.Contains(f, oracleUnconsumedMarker) {
+						leftovers = append(leftovers, f)
+					} else {
+						otherFails = append(otherFails, f)
+					}
+				}
+				uncReason, isUnc := unconsumed[key]
+				if isUnc && len(leftovers) == 0 {
+					t.Errorf("stale unconsumed-answer row (the scenario now consumes every step answer; delete its row from %s): %s", oracleUnconsumedFile, uncReason)
+				}
+				if isUnc && len(leftovers) > 0 {
+					t.Logf("known unconsumed answer: %s\n  observed: %s", uncReason, strings.Join(leftovers, "\n  observed: "))
+				} else {
+					otherFails = append(otherFails, leftovers...)
+				}
+				fails = otherFails
+				switch {
+				case len(fails) == 0 && isKnown:
+					t.Errorf("stale known divergence (the scenario now passes; delete its row from %s): %s", row.src, known)
+				case len(fails) > 0 && isKnown:
+					t.Logf("known divergence: %s\n  observed: %s", known, strings.Join(fails, "\n  observed: "))
+				case len(fails) > 0:
+					t.Errorf("%s [%s] CR %v\n  Oracle-derived: %s\n  FAIL: %s\n  transcript:\n    %s",
+						f.Card, f.Family, sc.CR, sc.Why, strings.Join(fails, "\n  FAIL: "), strings.Join(transcript, "\n    "))
+				}
+			})
+		}
+	}
+	t.Cleanup(func() {
+		for key, row := range divergent {
+			if !seen[key] {
+				where := row.src
+				if where == "" {
+					where = "oracleKnownDivergent"
+				}
+				t.Errorf("%s row %q names no scenario", where, key)
+			}
+		}
+		for key := range unconsumed {
+			if !seen[key] {
+				t.Errorf("%s row %q names no scenario", oracleUnconsumedFile, key)
+			}
+		}
+	})
 }

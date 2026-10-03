@@ -611,7 +611,7 @@ func (e *Engine) applySiegeProtector(ev events.Event) bool {
 		Prompt:  "Choose an opponent to protect this battle",
 		Options: opts}
 	e.choosing = chooseSiege
-	e.ask(d)
+	parkAsk(e, d)
 	return true
 }
 

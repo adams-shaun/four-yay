@@ -43,6 +43,8 @@ func (e *Engine) ask(d *decision.Decision) {
 		}
 		if e.tape.Unserved() {
 			tapeLegacyAsked(e, d, true)
+			panic(resolve.Divergence{Msg: "an engine ask no tape path serves inside a resolution: " +
+				string(d.Kind) + "/" + d.ResumeKind + " " + d.Prompt})
 		}
 		if e.tape.OnAsk() {
 			tapeMissed(e, d)

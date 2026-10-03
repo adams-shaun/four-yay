@@ -22,6 +22,14 @@ func tapeLandMayAsk(e *Engine, obj state.ObjID) bool {
 	if f == nil || cards.FaceEntryMayAsk(f) {
 		return true
 	}
+	if o.Card != nil {
+		// A modal double-faced land may be played as its other face.
+		for _, cf := range o.Card.Faces {
+			if cf != nil && cards.FaceEntryMayAsk(cf) {
+				return true
+			}
+		}
+	}
 	return tapeReplMayAsk(e, "Moved")
 }
 
