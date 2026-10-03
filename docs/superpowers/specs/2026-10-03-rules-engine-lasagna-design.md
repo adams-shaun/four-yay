@@ -26,14 +26,14 @@ per-set cost all fall out of it.
 | W0 | Guardrails and shrink-only ratchets | regrowth of everything below; the size-split incentive | none, start now |
 | W1 | Generated / checked parallel structures | clone omissions; Kind-table lockstep gate failures; N-site context plumbing; printed-vs-derived bugs | none, start now |
 | W2 | Shared aggregate files to per-entry files | conflicts manufactured by heads prose and generated blocks | none, start now |
-| W3 | Resolution kernel: answer-tape re-execution | `resumePoint` cursors, `Resume*` riders, the 102-arm answer switches, ~220 `Ctx` cursor fields, the "state lost across a suspension" bug class | spike S3 must pass its exit criteria |
+| W3 | Resolution kernel: checkpoint + intent-tape re-execution | `resumePoint` cursors, `Resume*` riders, the 102-arm answer switches, ~220 `Ctx` cursor fields, the "state lost across a suspension" bug class | W1a + clone-fidelity fuzz; spike S3 must pass its exit criteria |
 | W4 | Typed parameter IR | stringly `Params["X"]` reads interpreted separately on each path; the hand-ratcheted param census | W0 ratchet in place |
 | W5 | Package extraction (the lasagna proper) | the "any of 2,162 methods can call any other" coupling | W1, and W3 for the resolution layer |
 | W6 | Pipeline and process | duplicate tickets; feature work racing a refactor in the same subsystem | none |
 | W7 | Set adoption and certification pipeline | per-set bespoke audit projects | W2 per-card files; W4 helps |
 
-Recommended order: W0, W1a, W2 and W6 immediately and in parallel (they are
-small and mechanical); spike S3 next; then W3 and W4 run as sequenced
+Recommended order: W0, W1a, W1b, W2 and W6 immediately and in parallel (they
+are small and mechanical); the clone-fidelity fuzz, then spike S3; then W3 and W4 run as sequenced
 programs; W5 follows each enabling step; W7 runs alongside from day one
 because it is mostly tooling outside `rules`.
 
@@ -65,8 +65,8 @@ These hold and are mechanically enforced; nothing in this spec weakens them:
 | `effects.Host` | **96 methods**, one implementation (`*rules.Engine`, spread over 26 files, 39 of them in `stack_helpers.go`), no `var _ effects.Host = (*Engine)(nil)` assertion |
 | `effects.Ctx` | **293 named fields** + 2 embeds (≈326 reachable); 73 core, **220 per-primitive ask/resume cursors** in ~60 families |
 | `resumePoint` | **90 fields**; `contFrame` 23 |
-| String `case "..."` literals | effects 1,333, rules 1,250 |
-| `Params["Lit"]` reads (`rules`+`effects`) | **2,146** over **693 distinct keys**; typed `ParamKey` vocabulary: 15 keys |
+| String literals on `case` lines | effects 1,333, rules 1,250 (W0 defines the exact ratchet metric) |
+| `Params["Lit"]` reads (`rules`+`effects`) | **2,146** over **693 distinct keys**; the compiled `ParamKey` set (`cards/params.go`) has 112 keys, read through 52 `.Param(cards.PK…)` call sites |
 | Commits touching `rules/` in 7 days | 1,212 |
 
 ### 1.3 Why changes are hard: the evidence
@@ -127,7 +127,7 @@ continuation. It snapshots a 90-field record (`buildAskResume`,
 `rules/resolution_ask.go:142-262`), and on Submit it rebuilds a fresh
 `effects.Ctx` from that record (`rules/resolution.go:240-647`), binds the
 answer through one of ~110 kind strings in two switches
-(`resumeAnswerBinding`, 60 arms; `resumeAnswerBindingRest`, 42 arms), and
+(`resumeAnswerBinding`, 64 arms; `resumeAnswerBindingRest`, 42 arms), and
 **re-runs the asking primitive from its first line**
 (`effects.Resolve(e, ctx, rp.sa)`, `resolution.go:828`). Enclosing loops are
 a linked chain of records (`rp.outer`).
@@ -146,8 +146,9 @@ Consequences:
   re-entry (`fusedResolving`, `windowPaidX`, `applyingReplacement`,
   `replRedirect`, `resolutionCtx`) take part in resume but live outside the
   record.
-- Seven parallel suspension mechanisms (`e.resume`, `unlessPayment`,
-  `cumulative`, `triggerCost`, `offStackMana`, `queuedPlays.cont`, `etbMove`).
+- Six suspension holders besides `e.resume` (`unlessPayment`, `cumulative`,
+  `triggerCost`, `offStackMana`, `queuedPlays.cont`, `etbMove`), and
+  engine-posed asks in 38 files that bypass `effects.Host.Ask` entirely.
 - 123 ask call sites in 94 effect functions across 54 files; 93 distinct
   `ResumeKind` literals.
 
@@ -209,26 +210,32 @@ Lasagna means **layers that import only downward**, each with a narrow
 interface to the one below, enforced by archtest rather than convention.
 
 ```
- L6  rules (orchestration)  turn/step/priority, stack, SBAs, casting flow,
+ L7  rules (orchestration)  turn/step/priority, stack, SBAs, casting flow,
                             Host implementation, Clone      — package rules
- L5  rules/resolve          resolution kernel: answer tape, ask/answer,
-                            deferred-ask ordering            (W3)
- L4  rules/trigmatch        trigger matching and queueing  ┐
+ L6  rules/resolve          resolution kernel: checkpoint, intent tape,
+                            ask/answer, deferred-ask ordering (W3)
+ L5  rules/trigmatch        trigger matching and queueing  ┐
      rules/combat           attack/block legality          │ subsystem
      rules/pay              mana + payment planning        │ packages (W5)
- L3  rules/chars            characteristic computation      ┘ (layers 1-7)
+ L4  rules/chars            characteristic computation      ┘ (layers 1-7)
+ L3  botpolicy, effects     (unchanged; chars/trigmatch use effects' filter
+                            and count evaluators: matchesSpec, CDA via Ctx)
  L2  rules/cost             Cost/CostPart vocabulary, cost parsing (leaf)
-     cards facts            typed per-API params on ExtSlot (W4)
+     per-SA facts record    typed params, may-ask, mana facts (W4)
  L1  events, state, decision                                 (unchanged)
- L0  cards IR                                                (unchanged)
+ L0  cards IR, ParamKey set                                  (unchanged)
 ```
 
 Rules for the layering:
 
-1. A lower layer never imports a higher one. Each new package gets archtest
-   rows `{module+"/rules/X", module+"/rules"}` (the `forbidden` slice in
-   `internal/archtest/arch_test.go:152-178` already skips rows whose `from`
-   package does not yet exist, so the rows can land before the package).
+1. A lower layer never imports a higher one. `{rules/X, rules}` rows are
+   redundant (Go forbids the cycle once `rules` imports X). What archtest must
+   add is **ordering between sibling packages** — `rules/cost` imports none of
+   `pay`/`chars`/`trigmatch`/`combat`/`resolve`; `chars` imports none of the
+   L5 packages — and **prefix matching**: today the `{effects, rules}` row
+   matches the exact path only, so `effects → rules/chars` would pass. The
+   `forbidden` slice (`internal/archtest/arch_test.go:152-178`) already skips
+   rows whose `from` package does not yet exist, so rows can land first.
 2. A layer reaches game state through a **read-only view** plus an **emit
    function**; it never holds `*rules.Engine`. Mutation still goes through
    `events.Apply` only.
@@ -242,6 +249,8 @@ What does **not** change: the outer chain, `events.Apply`, determinism, the
 event stream. Every step in W1–W5 is a **pure refactor that must leave
 `TestHeads`, `TestOracleAudit` and the `cmd/repro` fixtures byte-identical**
 (§9, §13). That property is what makes a large refactor safe to hand to seats.
+The single exception is W3's park-and-continue paths (§7.2), migrated last as
+a deliberate, re-pinned behaviour change.
 
 ## 4. W0 — Guardrails and shrink-only ratchets
 
@@ -272,9 +281,12 @@ Also in W0:
 - Make `potential_kinds_test.go` name-agnostic (it finds a method by name, so
   any rename or move breaks it; already filed as a follow-up in the hot-file
   notes).
-- Fix `TestResumeStateOwnedOnlyByTheResolutionMachinery` to glob
-  `rules/...` recursively so a W5 move into a subpackage does not silently
-  drop the census (`internal/archtest/arch_test.go:355`).
+- Make every census that walks `rules/*.go` recursive, so a W5 move into a
+  subpackage cannot silently drop files and run vacuously green:
+  `TestResumeStateOwnedOnlyByTheResolutionMachinery`
+  (`internal/archtest/arch_test.go:355`), `rules/paramcensus_test.go:328`,
+  `rules/choosefor_distinct_test.go:24`, `rules/potential_kinds_test.go:55`.
+  The W0 ratchets themselves walk `rules/...`.
 
 Exit: all ratchets green on `main`; the steward seed no longer mints
 size-split tickets.
@@ -300,6 +312,12 @@ size-split tickets.
    code must match the hand code's allocation profile (Spare pooling,
    `clone_cycle_bench_test.go`); if it cannot, keep hand code plus the tests.
 
+5. **Clone-fidelity fuzz:** over a cardfuzz corpus sample, clone at every
+   intent boundary, continue both engines with the same intents, and compare
+   event streams. A divergence is a clone or cache bug (a cold cache in the
+   clone behaving differently from the warm original). This becomes a live
+   correctness property under W3, so it must be green before S3.
+
 Deletes: the clone-omission class (4% of MAJOR findings; 228 `clone.go`
 commits in 30 days). Done when `clone.go` changes only via `go generate` or
 when the tests are the only thing a new field must satisfy.
@@ -321,7 +339,8 @@ Append-only ordering is unchanged: the table is indexed by the existing
 
 ### W1c. One context constructor
 
-- `effects.NewCtx(host, source, controller, sa, opts…)` and
+- `effects.NewCtx(host, source, controller, sa, extra CtxInit)` (a value
+  struct, not functional options, which allocate per call) and
   `ctx.Child(sa)` / `ctx.ForTrigger(tc)` replace the 108 literals; 18 of them
   copy 8+ fields today.
 - `SpecContext` is derived only from a `Ctx` (or a single
@@ -334,7 +353,10 @@ Append-only ordering is unchanged: the table is indexed by the existing
 
 - Add `Host.Chars(id) *Chars` returning the layer-derived characteristics
   (name, type bitset, colour mask, keyword bitset, P/T, controller) for the
-  current layer epoch, backed by the existing derived memo. Effects and
+  current layer epoch, backed by the existing derived memo. The pointer is
+  valid until the next emit (the epoch changes); callers that hold
+  characteristics across an emit copy the value. A debug build asserts the
+  epoch on access. Effects and
   filters read `Chars` by default; printed values only through an explicit
   `PrintedChars(id)`.
 - Delete the threaded tables (EffectiveNames, DerivedTypes, StaticGoads, …)
@@ -361,143 +383,243 @@ Append-only ordering is unchanged: the table is indexed by the existing
 
 Model: the oracle `known-divergent/` directories already did this.
 
-## 7. W3 — Resolution kernel: answer-tape re-execution
+## 7. W3 — Resolution kernel: checkpoint and answer-tape re-execution
+
+Revised after an adversarial review of the first draft (§14). The first
+draft snapshotted mid-`Advance`, served answers only at `effects.Host.Ask`,
+and assumed every ask stops the chain; all three were wrong. This version
+fixes each and states which paths are a deliberate behaviour change rather
+than a pure refactor.
 
 ### 7.1 Design
 
-The engine is deterministic and event-sourced. Use that instead of hand
-continuations:
+The engine is deterministic and event-sourced, and `Clone` is guaranteed
+correct only at an intent boundary (`rules/clone.go:62-64`). Build on exactly
+that:
 
-1. **Before** resolving an object whose ability chain *may* ask (a per-SA bit
-   computed once from the compiled catalog — the 94 asking primitives are
-   known — and hung on `sa.ExtSlot()`), take a snapshot `S0` of the engine
-   (Clone with Spare pooling).
-2. Run the resolution normally. Events are applied and appended as today, so
-   players see revealed cards and intermediate state before they choose —
-   **the event order and information flow are unchanged**.
-3. When a primitive needs an answer it does not have, it calls `Ask` as
-   today. The kernel records the committed event count `n` and the answer
-   tape `[a1 … ak]`, posts the decision (`DecisionAsk`, unchanged), and
-   unwinds — no locals are saved anywhere.
-4. On Submit, the kernel appends the answer to the tape, restores `S0` into a
-   scratch engine and **re-runs the whole resolution from its first line**
-   with the tape. Each `Ask` is served from the tape in order. The first `n`
-   events are **compared**, not appended: each must equal the recorded event
-   byte for byte, or the kernel panics with the first divergence (this is the
-   determinism contract made explicit). After the prefix, events apply and
-   append normally. When the run finishes or reaches the next unanswered ask,
-   the scratch engine's state is adopted.
-5. Deferred-ask ordering, `AskEmpty` silent skips, the CR 117.3b
-   priority reset and the trailing `Priority` event are properties of the
-   kernel, implemented once.
+1. **Checkpoint at the intent boundary.** When the priority pass that begins
+   a resolution is submitted, the kernel keeps `S0`: the engine as it stood at
+   that decision (an ordinary `Clone`, taken where `Clone` is legal). `S0` is
+   immutable after creation and shared by pointer — never recycled by
+   `Spare`/`Release`, never copied when the live engine is cloned.
+2. **The tape is the intents, not the answers.** Every decision posed while
+   the resolution is in progress — effect asks through `Host.Ask`, **and** the
+   engine-posed ones that bypass it (`askReplacementChoice`,
+   commander-zone choice, `replacement_etb.go`, casts made during a
+   resolution in `cast_asks.go`, mana activations, unless-cost and cumulative
+   windows, `askOffStackMana`) — is answered by one or more intents, and all
+   of them are already appended to `L.Intents`. The tape is simply
+   `L.Intents[k0:]`, where `k0` is the checkpoint. A multi-intent answer (an
+   unless-cost window with mana activations, a payment with triggered mana
+   abilities) needs no special case.
+3. **Asks become tape reads at the one choke point.** `e.ask` (the function
+   all 38 asking files funnel through) consults the tape: if the next intent
+   exists, it is consumed and returned as the answer; if not, the decision is
+   posed. Effects and engine code no longer save locals — they ask and
+   receive.
+4. **On Submit**, the new intent is appended and the kernel re-runs from
+   `S0`: a scratch engine cloned from `S0` re-executes the resolution from its
+   first line, reading answers from the tape. It applies and appends events as
+   normal (state and `Seq = len(Events)`, `events/log.go:110`, depend on it),
+   and the kernel checks `scratch.L.Events[base:base+n]` against the recorded
+   prefix byte for byte. `DecisionAsk`/`DecisionMade` are emitted at every ask
+   served from the tape exactly as `Submit` emits them today. When the run
+   reaches the next unanswered ask or finishes, the scratch engine is adopted
+   and `L.Intents` is spliced from the live log.
+5. **Unwinding at an unanswered stop-ask** is a sentinel panic recovered by
+   the kernel (Go has no other non-local exit once the 47 `Suspended()` polls
+   are gone). The unwound run's ambient Engine fields (`applyingReplacement`,
+   `fusedResolving`, `windowPaidX`, `damaging`, `resolutionCtx`, …) are not
+   trusted: every field tagged `reset` by W1a is zeroed on adopt, and the
+   posed state is the clean state the view, legal-action walk and search
+   clones read. This makes **W1a a hard prerequisite of W3**.
+6. Deferred-ask ordering, `AskEmpty` silent skips, the CR 117.3b priority
+   reset and the trailing `Priority` event become kernel properties,
+   implemented once.
 
-What this deletes: the per-primitive cursors in `resumePoint` (32) and its
-chain-shared Ctx state (23); the `Resume*` riders on `decision.Decision`
-(31); `resumeAnswerBinding`/`Rest` (102 arms); the ~220 cursor fields on
-`Ctx`; the ten `Suspend*`/`Suspended` Host methods and the 47 `h.Suspended()`
-polls; most of the ~15 side tables; and, eventually, the six parallel
-suspension mechanisms. What remains of the record is identity (object, kind,
-player, direct), the tape and `n`.
+What this deletes: the per-primitive cursors in `resumePoint` (32 fields) and
+its chain-shared Ctx state (23); the `Resume*` riders on `decision.Decision`
+(31); `resumeAnswerBinding`/`Rest` (64 + 42 arms); the ~220 cursor fields on
+`Ctx`; the nine `Suspend*`/`Suspended` Host methods and their 47 polls; most
+of the ~15 per-object side tables; and, as the migration completes, the six
+suspension holders outside `e.resume` (`unlessPayment`, `cumulative`,
+`triggerCost`, `offStackMana`, `queuedPlays.cont`, `etbMove`). What remains is
+`k0`, `S0` and the event-prefix length.
 
-Why it removes the bug class: nothing crosses a suspension except the tape.
-A primitive's locals, the ParentTarget link, Remember sets, LKI captured
-earlier in the chain — all of it is recomputed by re-running the same
-deterministic code on the same snapshot with the same answers.
+Why it removes the bug class: nothing crosses a suspension except intents
+already in the log. A primitive's locals, the ParentTarget link, Remember
+sets and LKI captured earlier in the chain are all recomputed by re-running
+the same deterministic code from the same checkpoint with the same answers —
+the property replay already relies on.
 
-Note that re-running the asking primitive from its first line is **already**
-today's behaviour; this design makes it uniform (whole chain, from the
-snapshot) instead of partial (one primitive, from a hand-rebuilt context with
-consume-and-clear guards).
+### 7.2 Ask shapes, and what is and is not a pure refactor
 
-### 7.2 Alternatives considered
+Not every ask stops the chain today:
+
+| Shape | Today | Under W3 | Event order |
+|---|---|---|---|
+| **Stop-ask** (most effect asks) | resolution suspends; the asking primitive re-runs from its first line on resume | unwind; re-run from `S0` on Submit | **identical** — pure refactor |
+| **Deferred second ask** (`resolution_ask.go:41-60`) | queued on `contChain` while the body continues | the tape run continues past the pending ask exactly as today and poses the deferred one in the same order | identical, if the kernel models "pending, continue" — S3 must prove it |
+| **Park-and-continue**: replacement choice parks the event ("never emitted, never applied") and the chain keeps running (`replacement_choice.go:10-16, 254-262`); commander-zone park (`ask.go:24-35`) | post-park events are emitted **before** the answer | the answer is available at the point of the event on re-run, so the replaced event applies **in place** | **changes** |
+
+The park paths are a deliberate behaviour change, not a refactor. Applying
+the replacement at the point the event would happen is what CR 616.1 says;
+the park is the approximation. They migrate last, in their own tickets, with
+a golden re-pin and the CR argument in the commit message. Everything else
+must be byte-identical.
+
+### 7.3 Hidden information and search
+
+Search builds hypothetical worlds at a decision: `CloneHypothetical` reseeds
+the RNG (`chance.go:189`) and `searchprobe.RedealBase` re-deals hidden cards.
+A world built while a resolution is suspended carries `S0`, which holds the
+**true** hidden cards and RNG. Re-running from it in that world would leak
+clairvoyant information into honest search — exactly what the archtest
+clairvoyant boundary forbids. If `S0` were simply redealt, the prefix check
+would panic wherever the prefix shuffled or drew.
+
+Required design (S3 exit criterion): the hypothetical world applies **the same
+redeal mapping to `S0`** as to the live engine (revealed cards stay fixed, as
+the redealer already guarantees), and the RNG is reseeded **at the draw
+counter the prefix ended on** rather than at `S0`, so prefix draws reproduce
+and post-prefix draws are fresh.
+
+### 7.4 Alternatives considered
 
 - **Explicit step machine / CPS** (`func(h, c, sa, k *Cont) Step`): rewrites
   all 94 asking functions into resumable steps; every local becomes an
-  explicit field again — the same hand-defunctionalisation, better organised.
-  Kept as the fallback if S3 fails on cost.
+  explicit field again — the same hand defunctionalisation, better organised.
+  It is the fallback if S3 fails on cost.
 - **Goroutine coroutines:** a parked goroutine cannot be cloned, which breaks
   `Clone` at a decision — the operation MCTS/azmcts and searchbench depend
   on. Rejected.
-- **Invertible events (undo log instead of snapshot):** would avoid the
-  snapshot cost but requires every event kind to carry before-values; a large
-  change to the frozen event vocabulary. Rejected for now.
+- **Invertible events (undo log instead of a checkpoint):** every event kind
+  would have to carry before-values; a large change to the frozen event
+  vocabulary. Rejected for now.
+- **Snapshot mid-`Advance` at resolution start** (the first draft): violates
+  the Clone contract — the livelock watcher's observation state is reset by
+  `cloneWith`, and in-flight `resolutionCtx`, trigger drains and the cast in
+  flight can be aliased — and it misses engine-posed asks. Rejected.
 
-### 7.3 Costs and hazards (*hypotheses* S3 must measure)
+### 7.5 Costs and hazards (*hypotheses* S3 must measure)
 
-- **Snapshot cost.** One Clone per may-ask resolution. Mitigated by the
-  may-ask bit (most resolutions never ask) and Spare pooling. Measure on the
-  perf-sb gate (`/mnt/sata/gorge-training/perf-sb`), both mana modes.
-- **Quadratic re-execution.** k asks in one resolution cost O(k²) primitive
-  runs. Typical k is 1–3; pathological loops (vote with 8 players, RepeatEach
-  over many objects) need measuring. If needed, add intermediate snapshots
-  every m asks (checkpointing) — a kernel-local change.
-- **Clone at a decision** must carry `S0` and the tape: one extra engine copy
-  per clone *while a resolution is suspended*. Measure the effect on search
-  throughput.
-- **Effects that read state outside the engine** would break replay already;
-  the prefix comparison turns any such leak into an immediate, named failure.
-- **SA pointer identity** (`sa == e.resume.sa`, `repeatReported`) disappears
-  with the frames; line-keyed matching (`charmModeTarget`) is unaffected.
+- **Checkpoint cost.** One Clone per resolution that poses any decision. A
+  per-SA "may ask" bit would have to close over SVars (Charm `Choices$`,
+  Repeat, `Execute$`, delayed triggers) and still could not predict
+  board-dependent engine asks, so it is not used for correctness. The cheap
+  path is to keep the Clone that the priority decision already permits and
+  drop it when the resolution finishes without asking. Measure on the perf-sb
+  gate, both mana modes.
+- **Re-execution cost.** k decisions in one resolution cost O(k²) primitive
+  runs (typical k is 1–3). Pathological loops (vote with 8 players, RepeatEach
+  over many objects) need measuring; if needed, add intermediate checkpoints
+  every m decisions — those are also intent boundaries, so the same rule
+  applies.
+- **Clone at a decision** shares `S0` by pointer, so search pays nothing extra
+  per clone beyond §7.3's redeal.
+- **Cold caches.** A scratch engine starts with cold caches (`rekeyVersion`,
+  the potential-walk cache, the derived memo) while the live engine's are
+  warm. A latent cache bug that is harmless today would surface as a prefix
+  divergence. Mitigation: W1a's clone-fidelity fuzz (§5) runs before S3.
+- **Divergence in production.** The prefix check catches nondeterminism by
+  name. In a hosted match it must not crash the table: it records a feedback
+  snapshot (the existing capture) and ends the match as a recorded engine
+  fault. In tests and the dual-run it fails hard.
+- **Observer hooks.** `ManaAbilityHook` and `paymentStats` are nil in a
+  clone; the kernel suppresses them during the prefix and re-attaches them
+  after it, so harness counts neither miss nor double-count.
 
-### 7.4 Spike S3 (gate for W3)
+### 7.6 Spike S3 (gate for W3)
 
-Implement the kernel behind a flag for one resolution path (spells only, no
-triggers) and convert three primitive families with different shapes: a
-single ask (ChooseColor), a loop with per-iteration asks (RepeatEach or
-Vote), and a nested chain with ParentTarget (the c21c390de scenario).
+Prerequisites: W1a steps 1–3 and the clone-fidelity fuzz green.
+
+Implement the kernel behind a flag for spell resolutions, with three converted
+families of different shapes: a single stop-ask (ChooseColor), a loop with
+per-iteration asks (RepeatEach or Vote), and a nested chain with ParentTarget
+(the c21c390de scenario). Include one engine-posed ask during a resolution (an
+"as it enters" choice via `replacement_etb.go`) to prove the tape covers the
+bypass paths.
 
 Exit criteria, all required:
 
-1. Byte-identical event streams versus the legacy kernel on: `TestHeads`, the
+1. Byte-identical event streams versus the legacy kernel on `TestHeads`, the
    oracle scenarios for those families, a 2,000-game cardfuzz sample and the
-   `cmd/repro` fixtures (dual-run harness, §7.5).
-2. Perf-sb throughput regression ≤ 3% in both mana modes, and Clone-at-decision
+   `cmd/repro` fixtures (dual-run harness, §7.7).
+2. A hypothetical world built at a suspended resolution (redeal plus
+   `CloneHypothetical`) re-runs without a prefix divergence and without
+   reading true hidden cards (§7.3).
+3. Perf-sb throughput regression ≤ 3% in both mana modes; Clone-at-decision
    cost measured.
-3. Lines deleted for the converted families ≥ lines added to the kernel.
+4. Lines deleted for the converted families ≥ lines added to the kernel.
 
-Kill criteria: (1) cannot be met without per-primitive special cases, or (2)
-exceeds 10% after checkpointing. Then fall back to the step-machine
-alternative, scoped the same way.
+Kill criteria: (1) or (2) cannot be met without per-primitive special cases,
+or (3) exceeds 10% after intermediate checkpoints. Then fall back to the
+step-machine alternative, scoped the same way.
 
-### 7.5 Migration (after S3 passes)
+### 7.7 Migration (after S3 passes)
 
-- The new kernel handles a resolution only when **every** asking primitive in
-  its chain is marked tape-ready (registry bit); otherwise the legacy path
-  runs. This lets primitives convert in batches with both kernels live.
-- **Dual-run oracle:** in tests, a resolution is run through both kernels on
-  cloned engines and the event streams compared. Every conversion batch must
-  pass it on the corpus-wide cardfuzz sample and the oracle suite.
+- The new kernel handles a resolution only when every asking site it can
+  reach is tape-ready, decided at run time: an un-migrated site reached during
+  a tape run aborts the tape run, restores the live engine and lets the legacy
+  path handle that resolution. Because engine-posed asks are board-dependent,
+  this is a run-time fallback, not a static eligibility rule.
+- **Dual-run oracle:** in tests every resolution runs through both kernels on
+  cloned engines and the event streams are compared. Every conversion batch
+  must pass it on the corpus-wide cardfuzz sample and the oracle suite.
 - Each batch deletes its `ResumeKind` arms, `Resume*` riders and Ctx cursors
   in the same commit, and lowers the W0 ratchets.
-- Order: single-ask primitives (the majority) → loops (Repeat, Vote, charm
-  rest, villainous, generic choice) → replacement-body asks → the parallel
-  mechanisms (unless-pay, cumulative, triggerCost, offStackMana, queuedPlays,
-  etbMove).
-- Old saved logs keep replaying because the event stream is identical by
-  construction and verified by the dual run.
-- The whole program runs as **one sequenced lane** (W6): no feature ticket in
-  the resolution files while a batch is open.
+- Order: single stop-asks (the majority) → loops (Repeat, Vote, charm rest,
+  villainous, generic choice) → deferred asks → the suspension holders
+  (unless-pay, cumulative, triggerCost, offStackMana, queuedPlays, etbMove) →
+  the park-and-continue paths, last, as a deliberate re-pinned behaviour
+  change (§7.2).
+- Old saved logs keep replaying for every path but the park paths; saved logs
+  that cross a park path are re-recorded or marked pre-W3 in the feedback
+  fixtures.
+- The program runs as one sequenced lane (W6): no feature ticket in the
+  resolution files while a batch is open.
 
 ## 8. W4 — Typed parameter IR
 
-- Do not change `cards/` for this: any edit there moves
-  `CompilerFingerprint` and recompiles every IR cache. Use the existing
-  **write-once `cards.ExtSlot`** pattern (already used by
-  `rules/mana_safacts.go:166` and `rules/walk_face_facts.go:297`): each API
-  gets a typed struct (`type ChangeZoneParams struct { Origin ZoneMask;
-  Destination state.Zone; ChangeType Spec; Defined Ref; … }`) compiled once
-  per SA on first use and hung on the slot.
-- The compiler for each API is the **only** reader of that API's string
-  params. Every path — offer, payment, planner, resolution — reads the typed
-  struct, so "sibling path not updated" stops being possible for parameters.
-- An unknown or unread param is detected by the compiler at load (loud
-  degrade, existing contract), so the param census becomes **derived** from
-  the compilers instead of a hand-ratcheted 3,843-line table.
-- Strings compile to masks/bitsets (invariant 12, `docs/agents/invariants.md:191`).
-- Order: by read count. Top keys today: ValidCard 95, Defined 82, ValidTgts
-  72, ValidPlayer 63, Cost 59, Choices 54, Optional 43. Start with the APIs
-  whose params are read on more than one path (costs, targets, Defined).
-- Ratchet: `stringParamReads` (W0) only falls.
+Two pieces of machinery already exist, and W4 extends them rather than adding
+a third:
+
+- **The compiled `ParamKey` set** (`cards/params.go:21+`): 112 keys stored as a
+  mask plus a popcount-ranked value slice on the hidden `sa.ps`, read through
+  `Param`/`ParamStr`/`HasParam` at 52 `.Param(cards.PK…)` call sites. The
+  2,146 `Params["X"]` literal reads over 693 keys are what has not moved onto
+  it yet.
+- **The write-once slot** (`cards/slot.go:56-89`), which hangs downstream
+  compiled facts on an IR node. There is **one** `ExtSlot` per SA, already
+  claimed for every `AB` ability by `manaSAFacts`
+  (`rules/compiled_text.go:411`); `Store` returns false silently on a second
+  claim, and the slot is nil for SAs never bound by their face's derive.
+
+Plan:
+
+1. **One rules-owned per-SA facts record** replaces the single-purpose slot
+   use: mana facts, W4's typed params and any other compiled per-SA fact live
+   in one struct hung on the slot, so nothing competes for it. Binding is made
+   total (every SA reachable at resolution is bound), with a test.
+2. **Move literal reads onto `ParamKey`** in read-count order (ValidCard 95,
+   Defined 82, ValidTgts 72, ValidPlayer 63, Cost 59, Choices 54, Optional
+   43). Adding keys edits `cards/`, which moves `CompilerFingerprint`: that is
+   a one-time IR recompile per worktree, not a blocker, so batch key additions
+   into few commits.
+3. **Per-API typed structs** (`ChangeZoneParams{Origin ZoneMask; Destination
+   state.Zone; ChangeType Spec; Defined Ref; …}`) compiled once per SA from the
+   `ParamKey` values into the facts record. The compiler for an API is the
+   **only** reader of that API's params; offer, payment, planner and resolution
+   all read the struct, so "sibling path not updated" stops being possible for
+   parameters. Start with APIs whose params are read on more than one path
+   (costs, targets, `Defined$`).
+4. An unread param is detected by the compiler at load (loud degrade, existing
+   contract), so the param census becomes **derived** from the compilers
+   instead of a hand-ratcheted 3,843-line table.
+5. Strings compile to masks/bitsets (invariant 12,
+   `docs/agents/invariants.md:191`).
+
+Ratchet: `stringParamReads` (W0) only falls.
 
 ## 9. W5 — Package extraction (the lasagna proper)
 
@@ -509,8 +631,8 @@ Extracting it first would fail. Extract leaves and low-fan-in subsystems first:
 
 | Step | Package | Why this order | Size |
 |---|---|---|---|
-| E1 | `rules/cost` | Leaf vocabulary every other subsystem uses: `Cost`, `CostPart`, `ParseCost` (72 call sites), `formatCost`, pip tables, the 30 `regexp.MustCompile` cost parsers (compile them to a table — perf rule) | small |
-| E2 | utilities out of feature files | `controllerOf` (39 callers) lives in `trigger_match.go:915`; similar shared helpers move to `rules/query` or stay in `rules` but out of subsystem files | small |
+| E1 | `rules/cost` | Leaf vocabulary every other subsystem uses: `Cost`, `CostPart`, `ParseCost` (80 call sites), `formatCost`, pip tables, the 30 `regexp.MustCompile` cost parsers (compile them to a table — perf rule) | small |
+| E2 | utilities out of feature files | `controllerOf` (124 call sites in 47 files) lives in `trigger_match.go:915`; similar shared helpers move to `rules/query` or stay in `rules` but out of subsystem files | small |
 | E3 | `rules/trigmatch` | Small inbound surface (`checkTriggers` 7 sites, `putTriggersOnStack` 3); already has a registry seam (`trigMatcher`, 64 registrations, `trigger_match.go:2545-2574`). The matcher signature changes from `*Engine` to a read-only interface | ~11k |
 | E4 | `rules/chars` | Read-only characteristic computation (`layers_derived`, `layers_types`, `layers_static`); the effect lifecycle (`layers_effect`) and caches stay in `rules`. Blocked today by the `Derived → matchesSpec → Derived` recursion and CDA evaluation through `effects.Ctx` — W1d's `Chars` query is the interface | ~6k |
 | E5 | `rules/combat` | Legality predicates (`canAttack`/`canBlock`) are only called inside `combat.go`/`attack_cost.go`; they read `attackBlocked` and Chars | ~5k |
@@ -532,9 +654,13 @@ Per step:
 
 - **Refactor lane.** W1–W5 tickets run in one lane, in sequence, with
   `Depends-On` chains. While a ticket in the lane holds a subsystem, the
-  seeder does not dispatch feature tickets that touch that subsystem's files
-  (a file-set lock in agentctl's intake). This replaces hot-file notes with
-  scheduling.
+  seeder does not dispatch feature tickets that touch that subsystem's files.
+  agentctl has no such file-set lock today (only `Depends-On` and the
+  serialized landing lane), and tickets do not declare a file footprint up
+  front, so this needs new agentctl work and a daemon restart: a ticket field
+  naming the locked path set, and an intake check against it. Until then the
+  operator holds conflicting feature tickets by hand. This replaces hot-file
+  notes with scheduling.
 - **Tickets scoped by subsystem, not by card.** A card bug triggers a class
   census for its mechanism (existing practice); the fix ticket owns the
   mechanism across all paths.
@@ -601,9 +727,10 @@ non-tournament (MakeCard, Planechase, Un-set stickers/contraptions, Draft).
    generator change (`gate.go:189-191`). One engine fix cycle staled 14 of 20
    Standard sets into a Java rerun. The spec's "freeze only the fields that
    changed" (§7) was replaced by a hash.
-3. **Templates are three functions in one file** (`compliance/oraclegen/gen.go`
-   `:112`, `:198`, `:285`), now a hot file for three live worktrees; there is
-   no per-template versioning, so any template change stales every card.
+3. **Templates are three functions in one file** (`compliance/oraclegen/gen.go`,
+   items at `:112`, `:198`, `:285`), now a hot file for three live worktrees;
+   there is one global `Version` (`gen.go:25`) and no per-template
+   versioning, so any template change stales every card.
 4. **Findings do not become tickets.** No step turns `gorge_wrong`/`unsupported`
    rows into class-scoped tickets.
 5. **Engine change cost** — every primitive or fix lands in `rules`; this is
@@ -680,8 +807,11 @@ Tracked weekly; baselines from this spec:
 - **Byte-identical replay is the safety net for everything.** It holds only
   with `.cards` present; a worktree without it runs vacuously green
   (AGENTS.md). Every lane ticket must show `TestHeads` actually ran.
-- **W3 is the large bet.** It is gated by S3 with explicit kill criteria and
-  a defined fallback.
+- **W3 is the large bet.** It is gated by W1a, the clone-fidelity fuzz and
+  S3 with explicit kill criteria and a defined fallback; its park-and-continue
+  paths are a deliberate behaviour change with a planned re-pin (§7.2).
+- **The lane lock (W6) is new agentctl work**; until it exists the operator
+  sequences conflicting feature tickets by hand.
 - **Perf.** W1a generated clone, W1c constructors and W4 typed params all sit
   on hot paths; each must pass the perf-sb gate. W4 should *improve* hot
   paths by replacing map lookups with struct fields.
@@ -690,6 +820,31 @@ Tracked weekly; baselines from this spec:
 - **Partial migrations.** Two kernels, two Host shapes, two param paths
   coexist during W3/W4. Each has a ratchet that only falls and a dual-run or
   derived check, so the legacy half cannot regrow.
+
+## 14. Review log
+
+An adversarial review (2026-10-03) checked about 30 cited facts against the
+code and attacked W3. Changes made in this revision:
+
+- **W3 redesigned** (§7). The first draft snapshotted mid-`Advance` (violates
+  the Clone contract, `clone.go:62-64`), served answers only at
+  `effects.Host.Ask` (38 files pose engine asks that bypass it), and claimed
+  byte-identical order for every ask (park-and-continue paths emit post-park
+  events before the answer). Now: checkpoint at the intent boundary, tape =
+  `L.Intents[k0:]`, tape reads at `e.ask`, sentinel-panic unwinding with W1a
+  `reset` fields zeroed on adopt, park paths migrated last as a re-pinned
+  behaviour change, and a hidden-information design for search (§7.3).
+- **W3 now depends on W1a** and a clone-fidelity fuzz (§5 step 5).
+- **W4 rebuilt on existing machinery**: the compiled `ParamKey` set has 112
+  keys, not 15; one rules-owned per-SA facts record replaces competing claims
+  on the single `ExtSlot`; editing `cards/` is a one-time recompile, not a
+  blocker.
+- **Archtest**: sibling ordering and prefix matching instead of redundant
+  `{rules/X, rules}` rows; three more non-recursive census globs listed in W0.
+- **W6** lane lock marked as new agentctl work.
+- Corrected counts: 9 Suspend/Suspended Host methods; `resumeAnswerBinding`
+  64 arms; `ParseCost` 80 call sites; `controllerOf` 124 sites in 47 files;
+  six suspension holders besides `e.resume`; case-literal metric definition.
 
 ## Appendix A. Measurement commands
 
@@ -702,7 +857,7 @@ All run from the repo root against `main` at `49bd9af8d`, with `/usr/bin/grep`
   (FuncDecl end line − start line).
 - Host methods: `awk 'NR>=37&&NR<=828&&/^\t[A-Z][A-Za-z0-9]*\(/' effects/registry.go | wc -l`
 - `Params` reads: `grep -ohE 'Params\["[A-Za-z0-9_]+"\]' rules/*.go effects/*.go` (non-test) `| wc -l`, `| sort -u | wc -l`
-- String case literals: `grep -oE 'case "[A-Z][A-Za-z]+"'` over the same files
+- String literals on case lines: all `"…"` literals on lines matching `^\s*case ` over the same files (the W0 `cmd/codeshape` metric is the authoritative definition)
 - Fix-on-fresh-lines: `git blame` of lines modified by 70 random `fix` commits
   (3–10 days old) in `rules/` and `effects/`; line age at the fix commit.
 - Pipeline rounds: `.ds4/orchestrator/journal.jsonl`; verdicts:
