@@ -326,6 +326,31 @@ func TestParseConfigOpponentNodes(t *testing.T) {
 	}
 }
 
+// The single upstream-fidelity switches are read per seat, each on its own,
+// and default to off.
+func TestParseConfigSearchSwitches(t *testing.T) {
+	keys := []string{"parent_visits", "deadline_best_child", "combat_steps", "micro_kinds"}
+	get := func(p PlayerConfig) []bool {
+		return []bool{p.ParentVisits, p.DeadlineBestChild, p.CombatSteps, p.MicroKinds}
+	}
+	for i, k := range keys {
+		src := "player_a:\n  type: mcts\n  mcts:\n    " + k + ": true\nplayer_b:\n  type: mcts\ntraining:\n  games: 1\nserver:\n  port: 1\n"
+		c, err := ParseConfig(src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		a, b := get(c.A), get(c.B)
+		for j := range keys {
+			if a[j] != (i == j) || b[j] {
+				t.Fatalf("%s: a %v b %v", k, a, b)
+			}
+		}
+		if c.A.UpstreamSearch || c.A.OpponentNodes || c.A.ReuseTree {
+			t.Fatalf("%s turned on another switch: %+v", k, c.A)
+		}
+	}
+}
+
 // TestPlayGameReuseTree: a game whose seats keep their trees between
 // decisions plays to its end reproducibly and really carries visits from
 // one search to the next; a game without reuse never counts a hit or a

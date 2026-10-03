@@ -329,6 +329,13 @@ type PlayerConfig struct {
 	// above: every upstream-fidelity switch of the seat's search at once
 	// (SeatSetup.SetUpstreamSearch). Default false.
 	UpstreamSearch bool
+	// ParentVisits, DeadlineBestChild, CombatSteps and MicroKinds are
+	// mcts.parent_visits, mcts.deadline_best_child, mcts.combat_steps and
+	// mcts.micro_kinds, gorge-only keys like the three above: one
+	// upstream-fidelity switch each (the SeatSetup fields of the same
+	// names), so a seat can run one part of upstream_search alone (an
+	// ablation). Default false.
+	ParentVisits, DeadlineBestChild, CombatSteps, MicroKinds bool
 
 	Mulligans     bool
 	ManualTapping bool
@@ -381,28 +388,32 @@ func ParseConfig(src string) (Config, error) {
 	}
 	player := func(p string) PlayerConfig {
 		return PlayerConfig{
-			DeckPath:         r.str(p+".deckPath", ""),
-			DeckPool:         r.str(p+".deck_pool", ""),
-			DeckPoolMode:     r.str(p+".deck_pool_mode", "random"),
-			Type:             r.str(p+".type", "mcts"),
-			OutputFile:       r.str(p+".output_file", ""),
-			PriorPriority:    r.boolean(p+".priors.priority", false),
-			PriorTarget:      r.boolean(p+".priors.target", false),
-			PriorBinary:      r.boolean(p+".priors.binary", false),
-			PriorOpponent:    r.boolean(p+".priors.opponent", false),
-			PriorTemperature: r.number(p+".priors.prior_temperature", 1.5),
-			NoiseEnabled:     r.boolean(p+".noise.enabled", false),
-			SearchBudget:     r.integer(p+".mcts.search_budget", 300),
-			TimeoutMS:        r.integer(p+".mcts.timeout_ms", 4000),
-			TDDiscount:       r.number(p+".mcts.td_discount", 0.95),
-			BackpropDiscount: r.number(p+".mcts.backprop_discount", 0.99),
-			OfflineMode:      r.boolean(p+".mcts.offline_mode", false),
-			OpponentNodes:    r.boolean(p+".mcts.opponent_nodes", false),
-			ReuseTree:        r.boolean(p+".mcts.reuse_tree", false),
-			UpstreamSearch:   r.boolean(p+".mcts.upstream_search", false),
-			Mulligans:        r.boolean(p+".gameplay.mulligans_enabled", true),
-			ManualTapping:    r.boolean(p+".gameplay.manual_tapping", false),
-			SeeOpponentHand:  r.boolean(p+".hiddenInfo.see_opponent_hand", true),
+			DeckPath:          r.str(p+".deckPath", ""),
+			DeckPool:          r.str(p+".deck_pool", ""),
+			DeckPoolMode:      r.str(p+".deck_pool_mode", "random"),
+			Type:              r.str(p+".type", "mcts"),
+			OutputFile:        r.str(p+".output_file", ""),
+			PriorPriority:     r.boolean(p+".priors.priority", false),
+			PriorTarget:       r.boolean(p+".priors.target", false),
+			PriorBinary:       r.boolean(p+".priors.binary", false),
+			PriorOpponent:     r.boolean(p+".priors.opponent", false),
+			PriorTemperature:  r.number(p+".priors.prior_temperature", 1.5),
+			NoiseEnabled:      r.boolean(p+".noise.enabled", false),
+			SearchBudget:      r.integer(p+".mcts.search_budget", 300),
+			TimeoutMS:         r.integer(p+".mcts.timeout_ms", 4000),
+			TDDiscount:        r.number(p+".mcts.td_discount", 0.95),
+			BackpropDiscount:  r.number(p+".mcts.backprop_discount", 0.99),
+			OfflineMode:       r.boolean(p+".mcts.offline_mode", false),
+			OpponentNodes:     r.boolean(p+".mcts.opponent_nodes", false),
+			ReuseTree:         r.boolean(p+".mcts.reuse_tree", false),
+			UpstreamSearch:    r.boolean(p+".mcts.upstream_search", false),
+			ParentVisits:      r.boolean(p+".mcts.parent_visits", false),
+			DeadlineBestChild: r.boolean(p+".mcts.deadline_best_child", false),
+			CombatSteps:       r.boolean(p+".mcts.combat_steps", false),
+			MicroKinds:        r.boolean(p+".mcts.micro_kinds", false),
+			Mulligans:         r.boolean(p+".gameplay.mulligans_enabled", true),
+			ManualTapping:     r.boolean(p+".gameplay.manual_tapping", false),
+			SeeOpponentHand:   r.boolean(p+".hiddenInfo.see_opponent_hand", true),
 		}
 	}
 	c := Config{
