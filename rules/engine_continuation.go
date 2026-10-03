@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -46,49 +45,14 @@ type engineContinuation struct {
 	// the restriction against exactly the seat that answered. Clone copies it.
 	tpCtlChooser map[state.ObjID]tpCtlAnswer `clone:"deep"`
 
-	// contChain accumulates the enclosing-loop suspension points reported by
-	// effects.Resolve during the current resumeResolution re-entry (through
-	// effects.Host.SuspendContinuation), so resumeResolution can link them as
-	// outer continuations. It is transient engine state: rebuilt on every
-	// re-entry, drained into the resume chain as soon as that re-entry
-	// suspends again, and nil whenever no re-entry is in flight — so a Clone
-	// need not carry it (the same resolution re-derives the same chain).
-	contChain []contFrame `clone:"reset"`
-	// contChainOwners counts the resolution passes in flight whose contChain
-	// will be drained into the pending resume chain when they suspend (the
-	// initial stack passes, a fused half, a resumeResolution re-entry). A
-	// second mid-resolution ask is deferred onto contChain (Engine.Ask) only
-	// while one is, so a deferred ask can never be stranded on a chain nobody
-	// consumes; outside one the overwrite guard in Engine.ask still fires.
-	// Transient, zero between intents.
-	contChainOwners int `clone:"reset"`
-	// answerParked is the resolution frame an ANSWER handler found parked on
-	// e.resume while it applies a ReplaceWith$ body outside any resolution
-	// pass (resolveReplacementBody): a CR 616.1 order choice posed mid-
-	// resolution parks the resolution that proposed the event, and the
-	// chosen body runs from handleReplacement with that frame still there.
-	// While it is the only suspension (e.resume == answerParked, nothing
-	// pending) Suspended reports false, so the body walks its own SubAbility$
-	// chain instead of stopping after its head as if it had asked.
-	// Transient, nil between intents.
-	answerParked *resumePoint `clone:"reset"`
 	// askCount counts the mid-resolution asks Engine.Ask took, posed or
 	// deferred (effects' askSeam). Transient scratch, never logged.
 	askCount uint64 `clone:"reset"`
-	// lastDeferred is the resume point of the most recent DEFERRED ask of the
-	// running pass (nil once a posed ask follows it), so SuspendUnless marks
-	// the ask that was actually just taken. Transient scratch.
-	lastDeferred *resumePoint `clone:"reset"`
 	// resolvingObj is the stack object whose resolution is running (resolveTop
 	// or a resumed resolution), kept through its final move off the stack so
 	// an entry replacement that asks can tell whether it interrupted that
 	// resolution's own move. Zero outside a resolution.
 	resolvingObj state.ObjID `clone:"reset"`
-	// repeatReported is the RepeatEach SA whose loop frame SuspendRepeat
-	// just recorded, so the enclosing Resolve loop's report of the same SA
-	// is not recorded a second time as a plain continuation.
-	repeatReported *cards.SA `clone:"reset"`
-
 	// cast holds the in-progress cast-flow state while choosing ==
 	// chooseCast (Task 9, rules/cast.go). Nil whenever no cast is mid-flow.
 	cast *pendingCast `clone:"deep"`

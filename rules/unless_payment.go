@@ -20,14 +20,11 @@ type unlessPayment struct {
 	cost     Cost
 	ctx      effects.Ctx
 	stackObj state.ObjID
-	// rp is non-nil for the ordinary stack-backed path. A nil rp belongs to
-	// an activated mana ability, whose continuation remains in
-	// manaUnlessActivation.
-	rp *resumePoint
 	// tape marks a payment the resolution kernel drives in line
 	// (tapeUnlessComponents): its asks are served from the tape and its
-	// settlement lands in the asking walk's live Ctx instead of a parked
-	// frame.
+	// settlement lands in the asking walk's live Ctx. A payment that is not
+	// tape-driven belongs to an activated mana ability, whose continuation
+	// remains in manaUnlessActivation.
 	tape     bool
 	part     int
 	sacs     []state.ObjID
@@ -372,17 +369,17 @@ func (e *Engine) unlessDrawsResolvable(p state.PlayerID, cost Cost, ctx *effects
 // Discard and Reveal components, including the exact-candidate no-ask cases,
 // so neither this path nor a future sibling can fall back to a
 // first-in-zone-order pick.
-func (e *Engine) beginUnlessPayment(payer state.PlayerID, cost Cost, ctx *effects.Ctx, stackObj state.ObjID, rp *resumePoint) {
+func (e *Engine) beginUnlessPayment(payer state.PlayerID, cost Cost, ctx *effects.Ctx, stackObj state.ObjID) {
 	// Fold the dynamic life tokens once, at continuation start: the offer
 	// gate folded the same amounts against the same payer read, and the
 	// charge below prices exactly this folded cost.
 	cost, ok := e.unlessFoldDynamic(payer, cost, ctx)
 	if !ok {
-		e.unlessPayment = &unlessPayment{payer: payer, ctx: cloneUnlessCtx(*ctx), stackObj: stackObj, rp: rp}
+		e.unlessPayment = &unlessPayment{payer: payer, ctx: cloneUnlessCtx(*ctx), stackObj: stackObj}
 		e.finishUnlessPayment(false)
 		return
 	}
-	e.unlessPayment = &unlessPayment{payer: payer, cost: cost, ctx: cloneUnlessCtx(*ctx), stackObj: stackObj, rp: rp}
+	e.unlessPayment = &unlessPayment{payer: payer, cost: cost, ctx: cloneUnlessCtx(*ctx), stackObj: stackObj}
 	e.advanceUnlessPayment()
 }
 
@@ -957,23 +954,6 @@ func (e *Engine) finishUnlessPayment(paid bool) {
 	e.choosing = chooseNone
 	if u.tape {
 		tapeUnlessSettled(e, u, paid)
-		return
-	}
-	if u.rp != nil {
-		if paid {
-			u.rp.unlessPay = "pay"
-		} else {
-			u.rp.unlessPay = "decline"
-		}
-		// The settled Discard component's picks ride the resume point (task
-		// mordorparams1): the unless_pay arm hands them to the continuing
-		// walk as Ctx.UnlessDiscarded, the ConditionDefined$ Discarded group's
-		// mid-resolution channel. A paid payment without a Discard component
-		// sets nothing (the channel stays absent).
-		if paid && len(u.discards) > 0 {
-			u.rp.unlessDiscards = append([]state.ObjID(nil), u.discards...)
-		}
-		e.resumeResolution(u.rp, nil)
 		return
 	}
 	e.finishManaUnlessPayment(paid)

@@ -813,10 +813,6 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		if pt := e.manaColorActivation.trigger; pt != nil {
 			ma.trigger = &clonePendingTriggers([]pendingTrigger{*pt})[0]
 		}
-		// A routed off-stack-mana rider ask parks its resume chain here; the
-		// clone must own its own chain (the engine's own e.resume does too),
-		// or resuming the clone would traverse the original's outer links.
-		ma.nestedResume = remap.resume(e.manaColorActivation.nestedResume)
 		c.manaColorActivation = &ma
 	}
 	if e.manaDiscardActivation != nil {
@@ -855,7 +851,6 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		u.returns = append([]state.ObjID(nil), e.unlessPayment.returns...)
 		u.exiles = append([]state.ObjID(nil), e.unlessPayment.exiles...)
 		u.ctx = remap.unlessCtx(e.unlessPayment.ctx)
-		u.rp = remap.resume(e.unlessPayment.rp)
 		c.unlessPayment = &u
 	}
 	if e.cumulative != nil {
@@ -869,7 +864,6 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	}
 	if e.triggerCost != nil {
 		tc := *e.triggerCost
-		tc.resume = remap.resume(e.triggerCost.resume)
 		tc.amount = cloneCost(e.triggerCost.amount)
 		tc.sacs = append([]state.ObjID(nil), e.triggerCost.sacs...)
 		tc.exiles = append([]state.ObjID(nil), e.triggerCost.exiles...)
@@ -882,10 +876,6 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		ef := *e.echo
 		ef.amount = cloneCost(e.echo.amount)
 		c.echo = &ef
-	}
-	if e.wardMana != nil {
-		wm := *e.wardMana
-		c.wardMana = &wm
 	}
 	// attackPay (combat.go/attack_cost.go): the declare-attackers attack-cost
 	// payment window. The chosen slice is shared with the original -- the
@@ -1038,7 +1028,6 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 			// is compared against Engine.resume by identity: both go through
 			// the remap so the clone owns them and the identities survive.
 			rc.exchange = remap.lifeExchange(rc.exchange)
-			rc.resumeAtPose = remap.resume(rc.resumeAtPose)
 			if rc.untap != nil {
 				resume := *rc.untap
 				rc.untap = &resume
@@ -1266,11 +1255,6 @@ func cloneCombatRound(cr combatRound) combatRound {
 	return cr
 }
 
-// cloneResume deep-copies a suspended resolution's resume chain (fx34): each
-// link is plain value data (kind/obj plus a *cards.SA into the shared,
-// immutable corpus), but the outer continuation chain is a linked list this
-// cloned engine must own so it can resume outward independently of the
-// original's traversal.
 // cloneCost deep-copies a Cost: every slice field is re-allocated so the
 // copy owns its own backing arrays and an append through either copy can
 // never write into the other's slot (the growth pattern
@@ -1315,105 +1299,6 @@ func cloneCost(c Cost) Cost {
 	return c
 }
 
-// cloneParentLinks deep-copies a resume point's parent-link record, so a
-// frame's record never shares a backing array with another frame's (the same
-// rule every other sliced ride in cloneResume follows). A recorded empty
-// entry (a Min-0 parent) is preserved as an empty entry, never dropped: its
-// PRESENCE is what makes the parent empty rather than unset.
-func cloneParentLinks(links [][]state.Target) [][]state.Target {
-	if links == nil {
-		return nil
-	}
-	out := make([][]state.Target, len(links))
-	for i, ts := range links {
-		out[i] = append([]state.Target(nil), ts...)
-	}
-	return out
-}
-
-func cloneResume(rp *resumePoint) *resumePoint { return cloneResumeWith(rp, nil) }
-
-// cloneResumeWith is cloneResume with the cross-engine identity remap: m nil
-// is an intra-engine copy (a continuation frame of the same resolution, which
-// keeps sharing the resolution's memories); a non-nil m is Clone's, which
-// gives the clone its own copy of every memory and frame, each copied once.
-func cloneResumeWith(rp *resumePoint, m *cloneRemap) *resumePoint {
-	if rp == nil {
-		return nil
-	}
-	if m != nil {
-		if q := m.resumes.find(rp); q != nil {
-			return q
-		}
-	}
-	cp := new(resumePoint)
-	*cp = *rp
-	if m != nil {
-		m.resumes.add(rp, cp)
-	}
-	// The resolution's coin-flip and ExchangeLife rider memories are mutated
-	// in place by the resolution after the suspension: a clone owns one copy
-	// of each, shared by all of its frames (cloneRemap).
-	cp.flipMemory = m.flipMemory(rp.flipMemory)
-	cp.exchangeMemory = m.exchangeMemory(rp.exchangeMemory)
-	cp.clash = cloneClashResume(rp.clash)
-	cp.choices = append([]state.Target(nil), rp.choices...)
-	cp.chosenValid = rp.chosenValid
-	cp.remembered = append([]state.Target(nil), rp.remembered...)
-	cp.forgetOtherSnapshot = append([]state.Target(nil), rp.forgetOtherSnapshot...)
-	cp.forgetOtherOwners = append([]state.PlayerID(nil), rp.forgetOtherOwners...)
-	cp.loopRemembered = append([]state.Target(nil), rp.loopRemembered...)
-	// The AmountFromVotes$ tally snapshot: plain value entries, copied so the
-	// clone never shares a backing array with the original's pending frames.
-	cp.voteCounts = cloneVoteCounts(rp.voteCounts)
-	cp.replacedCards = append([]state.ObjID(nil), rp.replacedCards...)
-	// The pre-move controller snapshot is immutable once captured, but a clone
-	// must not share the original's map storage: an explicit copy keeps the
-	// two engines' pending frames independent.
-	cp.targetControllerLKI = effects.CloneTargetControllerLKI(rp.targetControllerLKI)
-	cp.targetCountersLKI = effects.CloneTargetCountersLKI(rp.targetCountersLKI)
-	cp.targetPTLKI = effects.CloneTargetPTLKI(rp.targetPTLKI)
-	cp.targetSpellLKI = effects.CloneTargetSpellLKI(rp.targetSpellLKI)
-	cp.targetsUnique = append([]state.Target(nil), rp.targetsUnique...)
-	// The parent-link record and the pending in-walk link answer are sliced
-	// values the resumed Ctx re-binds (effects.Ctx.ResumeParentLinks), so the
-	// clone owns its own copies instead of sharing backing arrays with the
-	// original's pending frames -- the same discipline every other slice here
-	// follows. An empty recorded link (a Min-0 parent) is preserved as an
-	// entry, not dropped.
-	cp.parentLinks = cloneParentLinks(rp.parentLinks)
-	cp.linkAnswer = append([]state.Target(nil), rp.linkAnswer...)
-	cp.linkAnswered = rp.linkAnswered
-	// The VillainousChoice cursor and victim binding are sliced values the
-	// resumed Ctx re-binds, so the clone owns its own copies instead of
-	// sharing backing arrays with the original (the same discipline every
-	// other slice here follows).
-	cp.villainousVictims = append([]state.Target(nil), rp.villainousVictims...)
-	cp.villainousRemembered = append([]state.Target(nil), rp.villainousRemembered...)
-	// The multi-player GenericChoice chooser cursor is likewise a sliced value
-	// the resumed Ctx re-binds; the clone owns its own copy.
-	cp.genericChoosers = append([]state.Target(nil), rp.genericChoosers...)
-	cp.genericRemembered = append([]state.Target(nil), rp.genericRemembered...)
-	cp.numberPicks = append([]int32(nil), rp.numberPicks...)
-	cp.publishedSVars = append([]effects.SVarBinding(nil), rp.publishedSVars...)
-	cp.tokenRest = rp.tokenRest.Clone()
-	if rp.repeat != nil {
-		cur := *rp.repeat
-		cur.subjects = append([]state.Target(nil), rp.repeat.subjects...)
-		cur.last = append([]state.Target(nil), rp.repeat.last...)
-		cp.repeat = &cur
-	}
-	// A deferred second ask (Engine.Ask) rides its own decision and resume
-	// point; the frame re-links deferredResume.outer when posed, so the clone
-	// must own both.
-	if rp.deferredAsk != nil {
-		cp.deferredAsk = cloneDecision(rp.deferredAsk)
-	}
-	cp.deferredResume = cloneResumeWith(rp.deferredResume, m)
-	cp.outer = cloneResumeWith(rp.outer, m)
-	return cp
-}
-
 // cloneDecision deep-copies a posed (or deferred) decision's slices, so a
 // clone's answer path never writes through to the original's.
 func cloneDecision(p *decision.Decision) *decision.Decision {
@@ -1447,4 +1332,11 @@ func cloneBatchIdx[K comparable](m map[K]int) map[K]int {
 		out[k] = v
 	}
 	return out
+}
+
+func cloneClashResume(r *decision.ClashResume) *decision.ClashResume {
+	if r == nil {
+		return nil
+	}
+	return &decision.ClashResume{Players: append([]state.PlayerID(nil), r.Players...), Revealed: append([]state.ObjID(nil), r.Revealed...), Winner: r.Winner, Cursor: r.Cursor}
 }

@@ -26,7 +26,6 @@ type cloneRemap struct {
 	flips   ptrRemap[effects.FlipMemory]
 	exchs   ptrRemap[effects.ExchangeMemory]
 	txs     ptrRemap[lifeExchangeTransaction]
-	resumes ptrRemap[resumePoint]
 }
 
 // ptrRemap maps an original pointer to its clone's copy (linear search: a
@@ -107,14 +106,6 @@ func (m *cloneRemap) lifeExchange(tx *lifeExchangeTransaction) *lifeExchangeTran
 	q.rememberMemory = m.exchangeMemory(tx.rememberMemory)
 	m.txs.add(tx, q)
 	return q
-}
-
-// resume is cloneResume for a cross-engine copy: a frame reached twice
-// (Engine.resume and a parked choice's resumeAtPose, an outer link shared by
-// two chains) is copied once, so identity comparisons in the clone hold
-// exactly as they do in the original.
-func (m *cloneRemap) resume(rp *resumePoint) *resumePoint {
-	return cloneResumeWith(rp, m)
 }
 
 // unlessCtx is cloneUnlessCtx with the resolution memories the

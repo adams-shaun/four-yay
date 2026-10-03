@@ -75,18 +75,10 @@ type engineParked struct {
 	// above; Clone-copied.
 	echo *echoFlow `clone:"deep"`
 
-	// wardMana holds a CR 702.21a mana-payment window while a Ward trigger
-	// is resolving, and (one shared owner, ruling T21-e) the same CR 601.2g
-	// window for a mid-resolution UnlessCost$ (the `unless_pay` resume arm),
-	// so a payer with an untapped source -- and a stat:ManaConvert conversion
-	// -- can pay a cost its floating pool cannot cover. It is plain data so
-	// Clone preserves the suspended choice.
-	wardMana *wardManaPayment `clone:"deep"`
-
 	// attackPay holds the declare-attackers attack-cost payment window
 	// (rules/attack_cost.go): the answered KAttackers declaration, its payer
 	// and the outstanding charge, while the payer taps mana sources to cover
-	// a CantAttackUnless prop. Same plain-data class as wardMana; Clone
+	// a CantAttackUnless prop. Plain data; Clone
 	// copies the pointer.
 	attackPay *attackPayWindow `clone:"deep"`
 	// blockPay holds the declare-blockers CantBlockUnless payment window.

@@ -82,18 +82,14 @@ func windowAnswer(e *Engine, flow chooseFor, chosen []decision.Option) {
 	case chooseMana:
 		cast := e.answerManaActivation(chosen)
 		if e.pending == nil && !e.manaCostChoicePending() {
-			if e.wardMana != nil {
-				e.continueWardMana()
-			} else if cast {
+			if cast {
 				e.continueCast()
 			}
 		}
 	case chooseManaColor:
 		cast := e.answerManaColor(chosen)
 		if e.pending == nil && e.choosing != chooseManaColor {
-			if e.wardMana != nil {
-				e.continueWardMana()
-			} else if cast {
+			if cast {
 				e.continueCast()
 			}
 		}

@@ -259,8 +259,6 @@ func (e *Engine) runFusedHalves(o *state.Object, halves []*cards.Face, sas []*ca
 		ctx.Revealed = e.castRevealed[o.ID]
 		effects.SetSVars(ctx, hf.SVars)
 		ctx.Modes = o.ChosenModes
-		e.contChain = e.contChain[:0]
-		e.repeatReported = nil
 		// The half's own CR 608.2b-filtered slice is the AMBIENT resolving
 		// target for the whole of this half's chain: Ask captures it onto any
 		// mid-resolution ask posed below (root, SubAbility$ or loop body), so
@@ -273,11 +271,8 @@ func (e *Engine) runFusedHalves(o *state.Object, halves []*cards.Face, sas []*ca
 		savedFused, savedFusedSet := e.fusedResolving, e.fusedResolvingSet
 		savedSVars := e.fusedResolvingSVars
 		e.fusedResolving, e.fusedResolvingSet, e.fusedResolvingSVars = legalByHalf[i], true, hf.SVars
-		e.contChainOwners++
 		effects.Resolve(e, ctx, sa)
-		e.contChainOwners--
 		e.damaging = 0
-		e.contChain = e.contChain[:0]
 		e.fusedResolving, e.fusedResolvingSet, e.fusedResolvingSVars = savedFused, savedFusedSet, savedSVars
 	}
 	return nil, false

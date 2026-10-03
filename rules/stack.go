@@ -429,12 +429,8 @@ func (e *Engine) resolveTop() {
 		// and for any trigger the placement ask never reached.
 		ctx.Modes = o.ChosenModes
 		e.damaging = o.Source
-		e.contChain = e.contChain[:0]
-		e.repeatReported = nil
-		e.contChainOwners++
 		e.endTurnRequested = false
 		effects.Resolve(e, ctx, o.Ability)
-		e.contChainOwners--
 		e.damaging = 0
 		if e.endTurnRequested {
 			e.finishEndTurn()
@@ -456,7 +452,6 @@ func (e *Engine) resolveTop() {
 				e.emit(events.Event{Kind: events.Evolved, Obj: o.Source, Player: o.Controller})
 			}
 		}
-		e.contChain = e.contChain[:0]
 		e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZStack, To: state.ZExile})
 		e.ensureLeftTheStack(id, state.ZExile, "a replacement fully discarded this resolved "+
 			"ability's own move off the stack without relocating it anywhere; sent to exile "+
@@ -672,18 +667,13 @@ func (e *Engine) resolveTop() {
 		// targets and payment. Pre-seeding Modes makes effCharm execute exactly
 		// that announcement instead of posing its old resolution-time ask.
 		ctx.Modes = o.ChosenModes
-		e.contChain = e.contChain[:0]
-		e.repeatReported = nil
-		e.contChainOwners++
 		e.endTurnRequested = false
 		effects.Resolve(e, ctx, resolveSA)
-		e.contChainOwners--
 		e.damaging = 0
 		if e.endTurnRequested {
 			e.finishEndTurn()
 			return
 		}
-		e.contChain = e.contChain[:0]
 	}
 	e.moveResolvedOffStack(o)
 }

@@ -37,53 +37,10 @@ type mintSink struct {
 	ids []state.ObjID
 }
 
-// SuspendTokenRest implements effects' optional tokenRestHost: the Token SA's
-// last EmitTokenCreate parked this resolution (mintParkFrom), so record the
-// frame that re-enters sa with rest once the answer has minted. Every
-// continuation the park posed -- the competitions it appended to the queue,
-// the CreateToken election it parked (tokenChoice) and the as-enters election
-// its entry parked on (an etbMove/riotMove/unleashMove/siegeMove ask; tagged
-// through e.pendingMintSink for the answer arms) -- is tagged with a fresh
-// collector. Setting repeatReported suppresses the enclosing Resolve loop's
-// own SuspendContinuation report of sa (the SuspendFlipRest convention: the
-// frame re-enters the primitive itself, and its walk continues at sa.Sub).
-func (e *Engine) SuspendTokenRest(sa *cards.SA, rest effects.TokenRest) bool {
-	from := e.mintParkFrom - 1
-	election := e.mintParkElection
-	e.mintParkFrom, e.mintParkElection = 0, false
-	if from < 0 || from > len(e.replChoices) {
-		return false
-	}
-	e.mintSinkSeq++
-	id := e.mintSinkSeq
-	// A fresh election is the one this park posed: its suspension record is
-	// the resume frame the park created.
-	var choice *tokenChoiceState
-	if tc := e.tokenChoice; tc != nil && tc.mintSink == 0 {
-		choice = tc
-	}
-	tagged := e.tagMintContinuations(id, from, choice)
-	if election {
-		// The park was an as-enters election (etbMove/riotMove/unleashMove/
-		// siegeMove) posed from inside the mint's emit, not a queued
-		// competition: its answer re-emits the parked entry through the
-		// election arms' withMintSink, and publishTokenEntry must land the
-		// minted id in THIS collector. e.pendingMintSink is what the arms
-		// read; the pose itself recorded 0 (EmitTokenCreate's sink is a local
-		// buffer, never a named collector), so this overwrites it.
-		e.pendingMintSink = id
-		tagged = true
-	}
-	if !tagged {
-		return false
-	}
-	e.mintSinks = append(e.mintSinks, mintSink{id: id})
-	rest.SinkID = id
-	rest = rest.Clone()
-	e.contChain = append(e.contChain, contFrame{sa: sa, tokenRest: &rest})
-	e.repeatReported = sa
-	return true
-}
+// SuspendTokenRest implements effects' optional tokenRestHost: a mint never
+// parks on the kernel (its elections and orders are answered in place), so
+// there is no continuation to record.
+func (e *Engine) SuspendTokenRest(sa *cards.SA, rest effects.TokenRest) bool { return false }
 
 // tagMintContinuations names collector id on every mint continuation that
 // does not have one yet: the queued competitions from index from on whose

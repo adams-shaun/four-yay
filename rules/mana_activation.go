@@ -130,9 +130,6 @@ type manaColorActivation struct {
 	// nested is set when a colour choice was posed by effects.Ask from a
 	// SubAbility$ Mana effect inside an off-stack mana resolution.
 	nested *cards.SA
-	// nestedResume carries any other ask from that off-stack chain. Its resume
-	// object is the mana source (direct), never the unrelated stack top.
-	nestedResume *resumePoint
 }
 
 // offStackManaFrame is the transient (never stored across a Submit, so never
@@ -179,8 +176,6 @@ func (e *Engine) withOffStackMana(act manaColorActivation, run func()) bool {
 	e.offStackMana = f
 	// A mana ability's own chain is not a contChain-draining pass: an ask it
 	// posts must never be deferred onto the enclosing resolution's chain.
-	savedOwners := e.contChainOwners
-	e.contChainOwners = 0
 	// CR 605: a mana ability resolves immediately and is never a stack
 	// object, so inFlightCounterAdder's actionCause fallback cannot name it
 	// -- it would read whatever spell (if any) happens to sit on the stack.
@@ -192,7 +187,6 @@ func (e *Engine) withOffStackMana(act manaColorActivation, run func()) bool {
 	prevAdder := e.SetCounterAdder(act.player)
 	run()
 	e.SetCounterAdder(prevAdder)
-	e.contChainOwners = savedOwners
 	e.offStackMana = saved
 	asked := f.asked
 	*f = offStackManaFrame{}
@@ -210,7 +204,6 @@ func (e *Engine) askOffStackMana(d *decision.Decision) bool {
 	}
 	act := f.act
 	act.nested = d.ResumeSA
-	act.nestedResume = nil
 	act.allocation = d.Max > 1
 	act.triggers = append([]pendingTrigger(nil), f.act.triggers...)
 	e.manaColorActivation = &act
@@ -227,29 +220,6 @@ func (e *Engine) askOffStackMana(d *decision.Decision) bool {
 	e.choosing = chooseManaColor
 	e.ask(d)
 	return true
-}
-
-// takeOffStackManaRider detaches the mana activation and its parked resume
-// point. The decision-specific resolution handler installs that point itself:
-// e.resume is owned by the resolution machinery, not this activation helper.
-func (e *Engine) takeOffStackManaRider() (*manaColorActivation, *resumePoint) {
-	ma := e.manaColorActivation
-	if ma == nil || ma.nestedResume == nil {
-		return nil, nil
-	}
-	e.manaColorActivation = nil
-	e.choosing = chooseNone
-	ma.nestedResume = cloneResume(ma.nestedResume)
-	return ma, ma.nestedResume
-}
-
-// finishOffStackManaRider drains the remainder of a mana activation after its
-// ordinary decision handler has re-entered the parked rider.
-func (e *Engine) finishOffStackManaRider(ma *manaColorActivation, asked bool) {
-	if !asked && e.pending == nil {
-		e.resolveTriggeredManaAbilities(ma.triggers, ma.cast, ma.cumulative)
-		e.continueManaPaymentWindow(ma.cumulative)
-	}
 }
 
 // offStackSuspended is Suspended() inside an offStackManaFrame.
@@ -2087,9 +2057,7 @@ func (e *Engine) resumeManaAfterCost() {
 	if e.pending != nil || e.manaCostChoicePending() {
 		return
 	}
-	if e.wardMana != nil {
-		e.continueWardMana()
-	} else if e.unlessPayment != nil {
+	if e.unlessPayment != nil {
 		e.advanceUnlessPayment()
 	} else if r.cast {
 		e.continueCast()
@@ -2903,7 +2871,7 @@ func (e *Engine) answerManaUnless(chosen []decision.Option) bool {
 				// Activated mana stays off stack, but a sacrifice/discard/return/
 				// reveal/behold in its unless cost is still a real payer choice. The
 				// payment continuation returns through finishManaUnlessPayment.
-				e.beginUnlessPayment(payer, cost, effects.NewCtxPtr(m.source, m.player, effects.CtxInit{}), m.source, nil)
+				e.beginUnlessPayment(payer, cost, effects.NewCtxPtr(m.source, m.player, effects.CtxInit{}), m.source)
 				return m.cast
 			}
 			paid = e.payUnlessCost(payer, cost, effects.NewCtxPtr(m.source, m.player, effects.CtxInit{}), m.source)
@@ -3090,24 +3058,6 @@ func (e *Engine) answerManaColor(chosen []decision.Option) bool {
 	e.choosing = chooseNone
 	if ma == nil {
 		return false
-	}
-	if ma.nestedResume != nil {
-		// Keep the mana frame active during re-entry too: the resumed rider
-		// may itself ask again, and each such ask belongs to this activation,
-		// not to whichever unrelated object is still atop the stack.
-		template := *ma
-		template.nestedResume = nil
-		asked := e.withOffStackMana(template, func() {
-			e.resumeResolution(ma.nestedResume, chosen)
-		})
-		if asked {
-			return ma.cast
-		}
-		if e.pending == nil {
-			e.resolveTriggeredManaAbilities(ma.triggers, ma.cast, ma.cumulative)
-			e.continueManaPaymentWindow(ma.cumulative)
-		}
-		return ma.cast
 	}
 	if len(chosen) == 0 || (!ma.allocation && len(chosen) != 1) {
 		return false

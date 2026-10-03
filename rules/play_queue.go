@@ -18,9 +18,6 @@ type queuedPlays struct {
 	// imprintOn is the ImprintPlayed$ True source (0 = no imprint): every
 	// card the play actually begins is imprinted on it.
 	imprintOn state.ObjID
-	// cont is the parked resolution continuation (kind "play_resume") the
-	// queue resumes once every chosen card's cast is complete.
-	cont *resumePoint
 }
 
 func (q *queuedPlays) clone(m *cloneRemap) *queuedPlays {
@@ -29,7 +26,6 @@ func (q *queuedPlays) clone(m *cloneRemap) *queuedPlays {
 	}
 	c := *q
 	c.ids = append([]state.ObjID(nil), q.ids...)
-	c.cont = cloneResumeWith(q.cont, m)
 	return &c
 }
 
@@ -58,7 +54,7 @@ func (e *Engine) runPlays(q *queuedPlays) bool {
 			break
 		}
 	}
-	if len(q.ids) > 0 || q.cont != nil {
+	if len(q.ids) > 0 {
 		e.queuedPlays = q
 	} else {
 		e.queuedPlays = nil
@@ -80,8 +76,5 @@ func (e *Engine) startQueuedPlay() bool {
 		return true
 	}
 	e.queuedPlays = nil
-	if q.cont != nil {
-		e.resumeResolution(q.cont, nil)
-	}
 	return true
 }

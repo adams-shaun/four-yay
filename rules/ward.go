@@ -353,18 +353,13 @@ func wardManaCost(c Cost) Cost {
 	return c
 }
 
-// wardManaPayment is the resumable CR 702.21a mana-payment window. It keeps
-// the resolution frame attributes that Ask normally captures from an effects
-// call, because this window is opened by rules after an answered Ward mode.
+// wardManaPayment is the CR 702.21a mana-payment window, driven in line by
+// tapeManaWindow inside a tape run's resolution.
 type wardManaPayment struct {
-	payer       state.PlayerID
-	cost        Cost
-	obj         state.ObjID
-	sa          *cards.SA
-	outer       *resumePoint
-	replacement bool
-	replaced    state.ObjID
-	before      *triggerSnapshot
+	payer state.PlayerID
+	cost  Cost
+	obj   state.ObjID
+	sa    *cards.SA
 
 	// resumeKind is the decision's own resume kind ("ward_mana" for a Ward
 	// payment, "unless_mana" for a mid-resolution UnlessCost$). prompt is the
@@ -434,18 +429,4 @@ func wardManaDecision(e *Engine, wm *wardManaPayment) *decision.Decision {
 	}
 	d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "done", Label: "Done"})
 	return d
-}
-
-// continueWardMana reopens the payment window after one mana ability has
-// resolved, including abilities that required their own ability/colour/discard
-// decision. It serves both the Ward and the unless-cost windows, because both
-// store their state on e.wardMana.
-func (e *Engine) continueWardMana() {
-	wm := e.wardMana
-	if wm == nil {
-		return
-	}
-	cp := *wm
-	e.askWardMana(&resumePoint{obj: wm.obj, sa: wm.sa, outer: wm.outer,
-		replacement: wm.replacement, replaced: wm.replaced, before: wm.before}, &cp)
 }

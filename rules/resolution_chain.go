@@ -183,7 +183,7 @@ func (e *Engine) moveResolvedOffStack(o *state.Object) {
 		}
 		// An as-enters choice parks this move through the mid-resolution ask
 		// path. Keep the object on the stack until the answer re-emits it.
-		if e.pending != nil || e.resume != nil {
+		if e.pending != nil {
 			return
 		}
 		e.ensureLeftTheStack(id, spellRestZone(o), "an ETB replacement fully replaced this "+

@@ -1522,10 +1522,6 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 func (e *Engine) triggeredCostDecline(tc *triggeredEffectCost) {
 	rp := tc.resume
 	e.triggerCost = nil
-	if rp.outer != nil {
-		e.resumeResolution(rp.outer, nil)
-		return
-	}
 	e.finishResumption(rp.obj)
 	e.emit(events.Event{Kind: events.Priority, Player: e.G.Active})
 }
