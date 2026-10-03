@@ -91,17 +91,6 @@ func openingActionSVar(f *cards.Face, raw string) string {
 	return ""
 }
 
-func cloneOpening(o openingRound) openingRound {
-	o.effects = append([]openingEffect(nil), o.effects...)
-	// The held-back exile ask is posed later (resumeOpening -> ask, which
-	// stamps it), so each engine must pose its own Decision, never a shared
-	// one -- the deferredAsks discipline.
-	if o.exileAsk != nil {
-		o.exileAsk = cloneDecision(o.exileAsk)
-	}
-	return o
-}
-
 func (e *Engine) newOpeningRound(start state.PlayerID, mulligans int) openingRound {
 	r := openingRound{start: start, mulligans: mulligans}
 	for _, p := range e.G.AliveFrom(start) {

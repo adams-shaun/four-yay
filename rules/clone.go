@@ -4,52 +4,8 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
-	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
-
-// cloneTurnLedger copies the per-turn ledger cluster wholesale
-// (engine_turnledger.go): every member is the fresh-slice copy class, so a
-// clone never shares backing state with the original. turnStartTurns (the
-// next-turn boundary cache) is copied like turnsTaken so a clone never
-// shares the backing slice; combatHitsThisTurn (the per-turn combat-damage
-// ledger) is a plain value slice, copied like turnsTaken so an undo/DVR
-// clone owns its own ledger; crimeSeatsThisTurn and bendSeatsThisTurn are
-// plain scalars, carried by the struct copy.
-func cloneTurnLedger(t engineTurnLedger) engineTurnLedger {
-	out := t
-	out.turnsTaken = append([]int32(nil), t.turnsTaken...)
-	out.turnsTakenEpoch = t.turnsTakenEpoch
-	out.turnStartTurns = cloneTurnStartTurns(t.turnStartTurns)
-	out.turnStartEpoch = t.turnStartEpoch
-	out.combatHitsThisTurn = append([]effects.CombatDamageHit(nil), t.combatHitsThisTurn...)
-	out.counterAddsThisTurn = cloneCounterAddsThisTurn(t.counterAddsThisTurn)
-	out.activationsThisTurn = cloneActivationsThisTurn(t.activationsThisTurn)
-	return out
-}
-
-func cloneTurnStartTurns(in [][]int32) [][]int32 {
-	if in == nil {
-		return nil
-	}
-	out := make([][]int32, len(in))
-	for i, v := range in {
-		out[i] = append([]int32(nil), v...)
-	}
-	return out
-}
-
-func cloneCounterAddsThisTurn(in []counterAddedThisTurn) []counterAddedThisTurn {
-	if in == nil {
-		return nil
-	}
-	out := make([]counterAddedThisTurn, len(in))
-	for i, v := range in {
-		out[i] = v
-		out[i].object = v.object.CloneDeep()
-	}
-	return out
-}
 
 // Clone deep-copies the engine: game, log, RNG position, the pending
 // decision, continuous effects, the pending-trigger queue and the trigger
@@ -68,6 +24,8 @@ func cloneCounterAddsThisTurn(in []counterAddedThisTurn) []counterAddedThisTurn 
 // auto-pay diagnostics sink (paymentStats, SetPaymentPlanStats) stay nil on
 // the copy, so no sink pointer is ever shared between engines (payment-plan
 // spec §7) and a clone's planning never counts into the original's sink.
+//go:generate env GORGE_GEN_CLONE=1 go test . -run TestCloneGenIsUpToDate -count=1
+
 func (e *Engine) Clone() *Engine { return e.cloneWith(Spare{}) }
 
 // CloneInto is Clone drawing the copy's event log, intent, object-arena and
@@ -107,38 +65,28 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		// deckManifests; OwnDeck publishes copies, OwnDeckShared is read-only
 		// by contract), so a clone shares them instead of copying every
 		// seat's rows per clone -- the search clones a root per simulation.
-		deckManifests:     e.deckManifests,
-		L:                 e.L.CloneIntoFrom(sp.events, sp.evFrom, sp.evN, sp.evDirty, sp.intents),
-		compiledText:      e.compiledText,
-		landTypeWords:     e.landTypeWords,
-		format:            e.format,
-		rng:               e.rng.clone(),
-		mulligans:         e.mulligans,
-		windowDiagnostics: e.windowDiagnostics,
-		startingLife:      e.startingLife,
+		deckManifests: e.deckManifests,
+		L:             e.L.CloneIntoFrom(sp.events, sp.evFrom, sp.evN, sp.evDirty, sp.intents),
+		compiledText:  e.compiledText,
+		landTypeWords: e.landTypeWords,
+		rng:           e.rng.clone(),
 		// The livelock watcher (rules/livelock.go): carry the Config-given
 		// guard thresholds, reset the observation state. A clone only happens
 		// at an intent boundary -- the only moment these fields are not being
 		// written -- where the watcher holds no in-flight run or quiet count
 		// worth carrying, so a fresh watcher over the same thresholds is a
 		// faithful copy.
-		loop:                newLivelockWatcherFromGuard(e.loop.guard, sp.loopSigs, sp.loopRecent, sp.loopPrev, sp.loopHeads, sp.loopHash),
-		setNameInPool:       e.setNameInPool,
-		layer4InPool:        e.layer4InPool,
-		controlStaticInPool: e.controlStaticInPool,
+		loop: newLivelockWatcherFromGuard(e.loop.guard, sp.loopSigs, sp.loopRecent, sp.loopPrev, sp.loopHeads, sp.loopHash),
 	}
 	// The identity-preserving copy of the suspended resolution's memories,
 	// transactions and frames (clone_remap.go): stack-resident, allocating
 	// only when there is something to copy.
 	var remap cloneRemap
+	cloneEngineFields(c, e, &remap)
 	c.trigGrant = e.trigGrant.forClone()
 	// The no-ability-loss proof (abilityloss.go): same objects, its own
 	// registry copy, which it rechecks once.
 	c.lossProof = abilityLossProof{seen: e.lossProof.seen, objs: e.lossProof.objs, contLen: -1}
-	// The per-turn ledger cluster (engine_turnledger.go) is one clone
-	// class: every member is copied as a fresh slice so a clone owns its
-	// own ledgers; the detail lives on cloneTurnLedger.
-	c.engineTurnLedger = cloneTurnLedger(e.engineTurnLedger)
 	// The offer walk's incremental log indexes (legal_walk_scratch.go): the
 	// clone's log is a copy of this one, so each watermark still names the
 	// same prefix and the clone resumes the fold instead of redoing it.
@@ -162,14 +110,9 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	if sp.tapeCkpt != nil {
 		c.tapeSpare = *sp.tapeCkpt
 	}
-	c.orderedTriggers = e.orderedTriggers
-	c.applyingReplacement = e.applyingReplacement
-	c.choosing = e.choosing
-	c.untapChoiceObj = e.untapChoiceObj
-	c.drainAwaitsTarget = e.drainAwaitsTarget
-	c.drainAwaitsModes = e.drainAwaitsModes
+
 	c.trigSub = e.trigSub.clone()
-	c.deferCastTrigger = e.deferCastTrigger
+
 	// blockerRound (combat.go, Task m34): the declare-blockers round's
 	// defender list and cursor, plain-value state like the mulligan round.
 	// The order slice itself is never mutated (askBlockers only advances
@@ -177,9 +120,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// the same reference-sharing Clone already practises for
 	// orderedTriggers.
 	c.blockerRound = e.blockerRound
-	// unblockedRoundChecked (engine.go): the plain-value per-combat latch
-	// of the declare-blockers round-complete trigger walk.
-	c.unblockedRoundChecked = e.unblockedRoundChecked
+
 	// exertAskState (combat.go, task exert1): the exert election's offer
 	// list and cursor, the same plain-value class as blockerRound -- the
 	// offers slice is never mutated, so sharing the reference is safe.
@@ -189,77 +130,9 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// exertAskState -- the slices are never mutated, so sharing the
 	// references is safe.
 	c.enlistAskState = e.enlistAskState
-	// stationing (station.go): the plain-value spacecraft a pending
-	// Station tap pick belongs to; zero whenever none is outstanding.
-	c.stationing = e.stationing
-	// combatRound (combat.go, Task jj-cmb): the combat damage step's
-	// pass/division continuation state. The queue, answered divisions
-	// and the pending ask's option-split table are all written in place
-	// as a pass progresses (handleDamageDivision, askNextDivision), so a
-	// clone must own its own copies -- the cast/pendingTriggers class,
-	// not the blockerRound share class.
-	c.combatRound = cloneCombatRound(e.combatRound)
-	// pregame / mulligan (rules/mulligan.go, engine.go): the London
-	// round's own state. Both are documented on the Engine as fields
-	// Clone copies, and neither was here — so a clone taken between the
-	// opening deal and turn 1 came back with the round not running and a
-	// zero mulliganRound, and re-submitting the recorded mulligan intent
-	// found no seat in mulligan.seats and indexed kept[-1]. That is the
-	// exact path host.viewAt takes (clone a snapshot, re-Submit the
-	// intents), so every view?seq= inside the mulligan window 500'd.
-	// The three slices are re-allocated, not shared: kept and taken are
-	// written in place, so this is the cast/pendingTriggers class, not
-	// the blockerRound class above.
-	c.pregame = e.pregame
-	c.mulligan = cloneMulligan(e.mulligan)
-	c.opening = cloneOpening(e.opening)
-	// coloring / colorRound / mulligans (rules/commander_color.go): the
-	// CR 903.4b pregame colour round's state and the carried Mulligans
-	// limit. colorRound.asks is never mutated (only the cursor advances),
-	// so sharing the reference is safe -- the blockerRound class.
-	c.coloring = e.coloring
+
 	c.colorRound = e.colorRound
-	// tossChoice (rules/starting_player_choice.go) is CR 103.1's pending
-	// winner-chooses ask: a plain value (no slices, no closure), so the
-	// blockerRound share class -- Clone copies it directly, and a clone
-	// taken while the ask is outstanding re-poses the same decision for
-	// the same winner. host.viewAt clones a snapshot and re-Submits the
-	// intents, so the choice must survive like the mulligan round does.
-	c.tossChoice = e.tossChoice
-	// oppSel (rules/stack.go) is the TargetingPlayer$ Opponent selection
-	// ask's flow record -- plain scalars like tossChoice, so it is copied
-	// the same way: a clone taken while the which-opponent ask is
-	// outstanding re-poses the same selection.
-	c.oppSel = e.oppSel
-	// oppPicksMid (rules/stack.go) is the effects-tier answered-selection
-	// store, keyed by SA line. Re-allocated (not shared) so the two
-	// engines' next reads cannot collide.
-	c.oppPicksMid = cloneOppPicksMid(e.oppPicksMid)
-	// tpCtlChooser (rules/stack.go) is the TargetingPlayerControls$
-	// answered-ask record, keyed by the resolving stack object. Plain
-	// struct values, re-allocated like oppPicksMid so a clone taken
-	// between the answer and the CR 608.2b recheck still sees the seat
-	// that answered.
-	c.tpCtlChooser = cloneTpCtlChooser(e.tpCtlChooser)
-	// E2 held-out cast suppression (cast.go): the set of card ids whose
-	// cast option is held out of the current window after an unpayable
-	// decline. A clone taken at any intent boundary carries it forward so
-	// a cloned engine offers exactly the same cast options the original
-	// would (a declined card stays held out until a state change
-	// re-enables it, in both engines alike). It is a plain map of object
-	// ids, so it must be re-allocated, not shared.
-	c.suppressedCast = cloneSuppressed(e.suppressedCast)
-	// The inert backstop's held-out priority options
-	// (rules/priority_guard.go): the suppressedCast class and lifetime,
-	// so a clone offers exactly the window the original would.
-	c.inertHeldOut = cloneInertHeldOut(e.inertHeldOut)
-	// F05-2 per-card no-progress count (engine.go), carried alongside the
-	// held-out set for the same reason: a clone taken at an intent
-	// boundary must count a card's no-progress aborts exactly as the
-	// live engine does, or a clone would offer (or hold out) a cast the
-	// original would not. Same map-of-scalars class, so re-allocated, not
-	// shared.
-	c.castAborts = cloneAbortCounts(e.castAborts)
+
 	// The staticEffects memo (layercache.go), copied into recycled storage;
 	// see the staticContinuous note further down.
 	if e.staticEpoch > 0 && (e.staticVersion == e.continuousVersion || e.staticMemoQuiet()) {
@@ -281,8 +154,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		}
 		c.staticGates = sp.gates[:0]
 	}
-	c.suspendedCasts = append([]state.ObjID(nil), e.suspendedCasts...)
-	c.defeatedCasts = append([]state.ObjID(nil), e.defeatedCasts...)
+
 	c.queuedPlays = e.queuedPlays.clone(&remap)
 	// attackOffers' memo (attack_cost.go), carried under the same identical-
 	// board argument as the tables below: a search clones the engine while
@@ -333,156 +205,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	} else {
 		c.typesProbe = sp.probe[:0]
 	}
-	if e.etbMove != nil {
-		ev := *e.etbMove
-		c.etbMove = &ev
-	}
-	c.etbNext = e.etbNext
-	c.auraEntry = e.auraEntry
-	c.etbLandPlay, c.etbLandObj, c.etbLandPlayer = e.etbLandPlay, e.etbLandObj, e.etbLandPlayer
-	if e.riotMove != nil {
-		ev := *e.riotMove
-		c.riotMove = &ev
-	}
-	if e.unleashMove != nil {
-		ev := *e.unleashMove
-		c.unleashMove = &ev
-	}
-	if e.siegeMove != nil {
-		ev := *e.siegeMove
-		c.siegeMove = &ev
-	}
-	if e.entryStageDone != nil {
-		st := *e.entryStageDone
-		c.entryStageDone = &st
-	}
-	// Parked-mint collectors (rules/token_rest.go): value data keyed by id,
-	// re-allocated so a clone's answer never appends into the original's.
-	c.mintParkFrom, c.mintSinkSeq = e.mintParkFrom, e.mintSinkSeq
-	c.mintParkElection = e.mintParkElection
-	c.tokenMintSinkID, c.pendingMintSink = e.tokenMintSinkID, e.pendingMintSink
-	c.copyMintsPending = append([]state.ObjID(nil), e.copyMintsPending...)
-	if e.mintSinks != nil {
-		c.mintSinks = make([]mintSink, len(e.mintSinks))
-		for i, ms := range e.mintSinks {
-			c.mintSinks[i] = mintSink{id: ms.id, ids: append([]state.ObjID(nil), ms.ids...)}
-		}
-	}
-	if e.untapResume != nil {
-		r := *e.untapResume
-		c.untapResume = &r
-	}
-	if e.attachedChoice != nil {
-		ac := *e.attachedChoice
-		c.attachedChoice = &ac
-	}
-	c.attachedApplying = e.attachedApplying
-	if e.tokenChoice != nil {
-		tc := *e.tokenChoice
-		// plan is the slice the resume mutates in place; matches is read-only
-		// after the park (the repl pointers are immutable face entries), so
-		// only the plan is re-allocated.
-		tc.plan = append([]tokenPlanMint(nil), e.tokenChoice.plan...)
-		c.tokenChoice = &tc
-	}
-	if e.pending != nil {
-		c.pending = cloneDecision(e.pending)
-	}
-	if e.deferredAsks != nil {
-		c.deferredAsks = make([]*decision.Decision, len(e.deferredAsks))
-		for i, d := range e.deferredAsks {
-			c.deferredAsks[i] = cloneDecision(d)
-		}
-	}
-	if e.resume != nil {
-		// Plain value data (kind/obj plus a *cards.SA into the shared
-		// immutable corpus — the same pointer class every other field here
-		// shares), so one struct copy is a faithful clone (M2d-2). A clone
-		// made while a mid-resolution decision is pending sees the same
-		// suspended resolution the original does. The outer continuation
-		// chain (fx34) is a linked list of these same value frames, so it is
-		// deep-copied per-link to keep the clone independent of the
-		// original's list.
-		c.resume = remap.resume(e.resume)
-	}
-	c.controlGrants = append([]controlGrant(nil), e.controlGrants...)
-	// A parked ExchangeLife transaction (life_exchange.go): parked exactly
-	// when a side's life change suspended on a decision, so it is live at the
-	// intent boundary that decision makes, and Submit's tail settles it
-	// (settlePendingLifeExchange). The clone owns the transaction and its
-	// staged sides, and its rider memory is the clone's one copy -- the same
-	// one the clone's resume frames carry (cloneRemap), so the clone's settle
-	// reaches its own resumed reader and never the original's.
-	c.pendingLifeExchange = remap.lifeExchange(e.pendingLifeExchange)
-	if e.counterTypeAsk != nil {
-		c.counterTypeAsk = make(map[state.ObjID]*counterTypePending, len(e.counterTypeAsk))
-		for id, p := range e.counterTypeAsk {
-			if p == nil {
-				continue
-			}
-			c.counterTypeAsk[id] = &counterTypePending{sa: p.sa, answers: append([]string(nil), p.answers...)}
-		}
-	}
-	// The per-turn ManaExpend tally (engine scratch, rules/cast.go): a clone
-	// taken at an intent boundary must resume mid-turn with the original's
-	// cumulative spend, or a crossing measured after the clone would see a
-	// reset tally. Copied as a plain value slice plus its turn stamp.
-	c.manaExpended = append([]int32(nil), e.manaExpended...)
-	c.manaExpendedTurn = e.manaExpendedTurn
-	// The in-flight Resolve chain's target-controller snapshot (engine
-	// scratch, published by effects.Resolve): nil at an intent boundary, but
-	// copied as a plain map when present so the clone owns its own storage.
-	c.resolvingTargetControllerLKI = effects.CloneTargetControllerLKI(e.resolvingTargetControllerLKI)
-	if e.continuous != nil {
-		c.continuous = make([]ContinuousEffect, len(e.continuous))
-		for i, ce := range e.continuous {
-			ce.AddKeywords = append([]string(nil), ce.AddKeywords...)
-			ce.RemoveKeywords = append([]string(nil), ce.RemoveKeywords...)
-			ce.CantHaveKeywords = append([]string(nil), ce.CantHaveKeywords...)
-			ce.AddTypes = append([]string(nil), ce.AddTypes...)
-			ce.RemoveTypes = append([]string(nil), ce.RemoveTypes...)
-			if ce.RestrictParams != nil {
-				m := make(map[string]string, len(ce.RestrictParams))
-				for k, v := range ce.RestrictParams {
-					m[k] = v
-				}
-				ce.RestrictParams = m
-			}
-			if ce.AssignmentStaticParams != nil {
-				m := make(map[string]string, len(ce.AssignmentStaticParams))
-				for k, v := range ce.AssignmentStaticParams {
-					m[k] = v
-				}
-				ce.AssignmentStaticParams = m
-			}
-			if ce.AssignmentStaticSVars != nil {
-				m := make(map[string]string, len(ce.AssignmentStaticSVars))
-				for k, v := range ce.AssignmentStaticSVars {
-					m[k] = v
-				}
-				ce.AssignmentStaticSVars = m
-			}
-			ce.Remembered = append([]state.ObjID(nil), ce.Remembered...)
-			ce.RememberedPlayers = append([]state.PlayerID(nil), ce.RememberedPlayers...)
-			ce.Chosen = append([]state.ObjID(nil), ce.Chosen...)
-			// The has-all-abilities-of face lists: deep-copied like the other
-			// rider slices so an intent-boundary clone never shares a backing
-			// array the live engine may extend (the entries' Face pointers are
-			// immutable compiled faces and are shared deliberately).
-			ce.GainedFaces = append([]state.GainedFace(nil), ce.GainedFaces...)
-			ce.GainedTriggerFaces = append([]state.GainedFace(nil), ce.GainedTriggerFaces...)
-			ce.ShieldTargets = append([]state.ObjID(nil), ce.ShieldTargets...)
-			ce.ShieldTargetPlayers = append([]state.PlayerID(nil), ce.ShieldTargetPlayers...)
-			if ce.ReplacementParams != nil {
-				m := make(map[string]string, len(ce.ReplacementParams))
-				for k, v := range ce.ReplacementParams {
-					m[k] = v
-				}
-				ce.ReplacementParams = m
-			}
-			c.continuous[i] = ce
-		}
-	}
+
 	if len(e.pendingTriggers) > 0 {
 		c.pendingTriggers = clonePendingTriggers(e.pendingTriggers)
 	} else if e.pendingTriggers != nil || sp.pending != nil {
@@ -500,458 +223,12 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	c.activeBuf, c.activeBufAlt = sp.activeBuf, sp.activeBufAlt
 	c.activeSrc = sp.activeSrc
 	c.lossMemo = sp.lossMemo
-	if e.triggerContexts != nil {
-		c.triggerContexts = make(map[state.ObjID]effects.TriggerContext, len(e.triggerContexts))
-		for id, tc := range e.triggerContexts {
-			c.triggerContexts[id] = tc
-		}
-	}
-	if e.triggerEffectFrames != nil {
-		c.triggerEffectFrames = make(map[state.ObjID]effects.EffectFrame, len(e.triggerEffectFrames))
-		for id, ef := range e.triggerEffectFrames {
-			c.triggerEffectFrames[id] = ef
-		}
-	}
-	if e.triggerLines != nil {
-		c.triggerLines = make(map[state.ObjID]cards.Trigger, len(e.triggerLines))
-		for id, t := range e.triggerLines {
-			if t.Params != nil {
-				params := make(map[string]string, len(t.Params))
-				for key, value := range t.Params {
-					params[key] = value
-				}
-				t.Params = params
-			}
-			c.triggerLines[id] = t
-		}
-	}
-	if e.triggerLineSVars != nil {
-		c.triggerLineSVars = make(map[state.ObjID]map[string]string, len(e.triggerLineSVars))
-		for id, svars := range e.triggerLineSVars {
-			// Card script tables are immutable after parsing; only the lookup
-			// index is engine-owned. An undo clone retains the same owning face.
-			c.triggerLineSVars[id] = svars
-		}
-	}
-	if e.triggerLKI != nil {
-		c.triggerLKI = make(map[state.ObjID]triggerObjectLKI, len(e.triggerLKI))
-		for id, lki := range e.triggerLKI {
-			if lki.object != nil {
-				cp := lki.object.CloneDeep()
-				lki.object = &cp
-			}
-			c.triggerLKI[id] = lki
-		}
-	}
-	if e.sacrificedLKI != nil {
-		c.sacrificedLKI = make(map[state.ObjID][]state.SacrificedInfo, len(e.sacrificedLKI))
-		for id, info := range e.sacrificedLKI {
-			c.sacrificedLKI[id] = append([]state.SacrificedInfo(nil), info...)
-		}
-	}
-	if e.castExiled != nil {
-		c.castExiled = make(map[state.ObjID][]state.ObjID, len(e.castExiled))
-		for id, ids := range e.castExiled {
-			c.castExiled[id] = append([]state.ObjID(nil), ids...)
-		}
-	}
-	if e.castRevealed != nil {
-		c.castRevealed = make(map[state.ObjID][]state.ObjID, len(e.castRevealed))
-		for id, ids := range e.castRevealed {
-			c.castRevealed[id] = append([]state.ObjID(nil), ids...)
-		}
-	}
-	if e.fuseTargets != nil {
-		c.fuseTargets = make(map[state.ObjID][][]state.Target, len(e.fuseTargets))
-		for id, stages := range e.fuseTargets {
-			cp := make([][]state.Target, len(stages))
-			for i, sl := range stages {
-				cp[i] = append([]state.Target(nil), sl...)
-			}
-			c.fuseTargets[id] = cp
-		}
-	}
-	// moveCounterAsk / aorAsk (resolution.go, the movecounter1/counterchoice1
-	// discipline): the two decision-derived answer cursors keyed by the
-	// resolving stack object. Both are written by the resume arms and read by
-	// seedMoveCounter/seedAorAsk on every fresh re-entry Ctx, so a clone taken
-	// while one of these resolutions is suspended (the pending mid-resolution
-	// ask IS the intent boundary) must carry the answered entries forward or
-	// the clone re-asks an already-answered kind and the decision/event stream
-	// diverges from the original's. Both are the cast/pendingTriggers class:
-	// deep-copied, including the inner maps and pointed-to pendings, never
-	// shared.
-	if e.moveCounterAsk != nil {
-		c.moveCounterAsk = make(map[state.ObjID]*moveCounterPending, len(e.moveCounterAsk))
-		for id, p := range e.moveCounterAsk {
-			cp := *p
-			cp.targets = append([]state.Target(nil), p.targets...)
-			c.moveCounterAsk[id] = &cp
-		}
-	}
-	// targetsPickAsk (resolution.go, the general form of the same
-	// discipline): the answered generic ValidTgts$ pre-ask per resolving
-	// stack object and SA Line. Same reason as the two above -- a clone taken
-	// while such a resolution is suspended must carry the answer or the clone
-	// re-poses the pre-ask and diverges. Deep-copied to the inner map and the
-	// target slices; nothing is shared.
-	if e.targetsPickAsk != nil {
-		c.targetsPickAsk = make(map[state.ObjID]map[string][]state.Target, len(e.targetsPickAsk))
-		for id, byLine := range e.targetsPickAsk {
-			inner := make(map[string][]state.Target, len(byLine))
-			for line, ts := range byLine {
-				inner[line] = append([]state.Target(nil), ts...)
-			}
-			c.targetsPickAsk[id] = inner
-		}
-	}
-	if e.aorAsk != nil {
-		c.aorAsk = make(map[state.ObjID]map[string]bool, len(e.aorAsk))
-		for id, set := range e.aorAsk {
-			inner := make(map[string]bool, len(set))
-			for k, v := range set {
-				inner[k] = v
-			}
-			c.aorAsk[id] = inner
-		}
-	}
-	if e.castSubTargets != nil {
-		c.castSubTargets = make(map[state.ObjID]map[string][]state.Target, len(e.castSubTargets))
-		for id, lines := range e.castSubTargets {
-			cm := make(map[string][]state.Target, len(lines))
-			for line, ts := range lines {
-				cm[line] = append([]state.Target(nil), ts...)
-			}
-			c.castSubTargets[id] = cm
-		}
-	}
-	if e.resolutionTargets != nil {
-		c.resolutionTargets = make(resolutionTargetMap, len(e.resolutionTargets))
-		for id, set := range e.resolutionTargets {
-			set.flat = append([]state.Target(nil), set.flat...)
-			set.modes = cloneCharmTargetGroups(set.modes)
-			c.resolutionTargets[id] = set
-		}
-	}
-	if e.copyTargetStage != nil {
-		c.copyTargetStage = make(map[state.ObjID]int, len(e.copyTargetStage))
-		for id, stage := range e.copyTargetStage {
-			c.copyTargetStage[id] = stage
-		}
-	}
-	if e.copyAnswerTargets != nil {
-		c.copyAnswerTargets = make(map[state.ObjID][][]decision.Option, len(e.copyAnswerTargets))
-		for id, stages := range e.copyAnswerTargets {
-			cp := make([][]decision.Option, len(stages))
-			for i, sl := range stages {
-				cp[i] = append([]decision.Option(nil), sl...)
-			}
-			c.copyAnswerTargets[id] = cp
-		}
-	}
-	if e.charmTargets != nil {
-		c.charmTargets = make(map[state.ObjID][][]state.Target, len(e.charmTargets))
-		for id, groups := range e.charmTargets {
-			cp := make([][]state.Target, len(groups))
-			for i, group := range groups {
-				cp[i] = append([]state.Target(nil), group...)
-			}
-			c.charmTargets[id] = cp
-		}
-	}
-	if e.exploitedLKI != nil {
-		c.exploitedLKI = make(map[state.ObjID]state.SacrificedInfo, len(e.exploitedLKI))
-		for id, info := range e.exploitedLKI {
-			c.exploitedLKI[id] = info
-		}
-	}
-	if e.sourceLifelinkLKI != nil {
-		c.sourceLifelinkLKI = make(map[state.ObjID]bool, len(e.sourceLifelinkLKI))
-		for id, link := range e.sourceLifelinkLKI {
-			c.sourceLifelinkLKI[id] = link
-		}
-	}
-	if e.sourceControllerLKI != nil {
-		c.sourceControllerLKI = make(map[state.ObjID]state.PlayerID, len(e.sourceControllerLKI))
-		for id, controller := range e.sourceControllerLKI {
-			c.sourceControllerLKI[id] = controller
-		}
-	}
-	if e.sourceCharLKI != nil {
-		// Each snapshot's counters slice is never written after capture, so
-		// the clone shares it.
-		c.sourceCharLKI = make(map[state.ObjID]sourceCharSnapshot, len(e.sourceCharLKI))
-		for id, snap := range e.sourceCharLKI {
-			c.sourceCharLKI[id] = snap
-		}
-	}
-	if e.damageSourceLKI != nil {
-		c.damageSourceLKI = make(map[state.ObjID]map[state.ObjID]effects.DamageSourceLKI, len(e.damageSourceLKI))
-		for stack, lki := range e.damageSourceLKI {
-			c.damageSourceLKI[stack] = cloneDamageSourceLKI(lki)
-		}
-	}
-	c.triggerFireCount = cloneCounts(e.triggerFireCount)
-	if e.damageBatchOpen {
-		c.damageBatchOpen = true
-		c.damageBatchDepth = e.damageBatchDepth
-		if e.damageBatchIdx != nil {
-			c.damageBatchIdx = make(map[damageBatchKey]int, len(e.damageBatchIdx))
-			for k, v := range e.damageBatchIdx {
-				c.damageBatchIdx[k] = v
-			}
-		}
-		// Deep-copy the DamageAll batch sets: a shared backing array under two
-		// engines' appends must never leak an entry across a clone boundary.
-		c.damageBatchLog = make([]damageBatchEntry, len(e.damageBatchLog))
-		for i, ent := range e.damageBatchLog {
-			c.damageBatchLog[i] = ent
-			if len(ent.sources) > 0 {
-				c.damageBatchLog[i].sources = append([]state.ObjID(nil), ent.sources...)
-			}
-			if len(ent.targets) > 0 {
-				c.damageBatchLog[i].targets = append([]state.Target(nil), ent.targets...)
-			}
-		}
-	}
-	// The ChangeZoneTable$ zone batch and the api:Discard discard batch stay
-	// OPEN across a mid-resolution suspension (a RepeatEach/Dig loop body's
-	// ask, effDiscard's choice): the first pass opens the bracket and the pass
-	// that completes the action closes it. A clone taken at that intent
-	// boundary must carry the open bracket and its entries -- the damage
-	// batch's class -- or its resumed pass queues per move and never patches
-	// the triggers the first pass queued.
-	if e.zoneBatchOpen {
-		c.zoneBatchOpen, c.zoneBatchDepth = true, e.zoneBatchDepth
-		c.zoneBatchIdx = cloneBatchIdx(e.zoneBatchIdx)
-		if e.zoneBatchLog != nil {
-			c.zoneBatchLog = make([]zoneBatchEntry, len(e.zoneBatchLog))
-			for i, ent := range e.zoneBatchLog {
-				ent.moved = append([]state.Target(nil), ent.moved...)
-				c.zoneBatchLog[i] = ent
-			}
-		}
-	}
-	if e.discardBatchOpen {
-		c.discardBatchOpen, c.discardBatchDepth = true, e.discardBatchDepth
-		c.discardBatchIdx = cloneBatchIdx(e.discardBatchIdx)
-		if e.discardBatchLog != nil {
-			c.discardBatchLog = make([]discardBatchEntry, len(e.discardBatchLog))
-			for i, ent := range e.discardBatchLog {
-				ent.discarded = append([]state.Target(nil), ent.discarded...)
-				c.discardBatchLog[i] = ent
-			}
-		}
-	}
-	if e.phaseUnknownNoted != nil {
-		c.phaseUnknownNoted = make(map[string]bool, len(e.phaseUnknownNoted))
-		for k, v := range e.phaseUnknownNoted {
-			c.phaseUnknownNoted[k] = v
-		}
-	}
-	if e.disableTriggersNoted != nil {
-		c.disableTriggersNoted = make(map[string]bool, len(e.disableTriggersNoted))
-		for k, v := range e.disableTriggersNoted {
-			c.disableTriggersNoted[k] = v
-		}
-	}
+
 	// phaseSpecs, the unbound-face triggerEventMasks fallback and
 	// triggerObjectMasks are pure syntax caches. Leave them empty: each branch
 	// owns its writable caches, unlike diagnostic history.
 	c.triggerObjectMasks = nil
-	if e.triggerTurnFires != nil {
-		c.triggerTurnFires = make(map[triggerKey]turnFires, len(e.triggerTurnFires))
-		for k, v := range e.triggerTurnFires {
-			c.triggerTurnFires[k] = v
-		}
-	}
-	if e.triggerGameFires != nil {
-		c.triggerGameFires = make(map[triggerKey]gameFires, len(e.triggerGameFires))
-		for k, v := range e.triggerGameFires {
-			c.triggerGameFires[k] = v
-		}
-	}
-	if e.unblockedOnceFired != nil {
-		c.unblockedOnceFired = make(map[triggerKey]combatFires, len(e.unblockedOnceFired))
-		for k, v := range e.unblockedOnceFired {
-			c.unblockedOnceFired[k] = v
-		}
-	}
-	if e.attackersDeclaredFired != nil {
-		c.attackersDeclaredFired = make(map[triggerKey]combatFires, len(e.attackersDeclaredFired))
-		for k, v := range e.attackersDeclaredFired {
-			c.attackersDeclaredFired[k] = v
-		}
-	}
-	if e.triggerTurnResolved != nil {
-		c.triggerTurnResolved = make(map[state.ObjID]turnFires, len(e.triggerTurnResolved))
-		for k, v := range e.triggerTurnResolved {
-			c.triggerTurnResolved[k] = v
-		}
-	}
-	c.triggerTurnDiceTurn = e.triggerTurnDiceTurn
-	if e.triggerTurnDice != nil {
-		c.triggerTurnDice = make(map[triggerKey]turnFires, len(e.triggerTurnDice))
-		for k, v := range e.triggerTurnDice {
-			c.triggerTurnDice[k] = v
-		}
-	}
-	if e.tappedTurn != nil {
-		c.tappedTurn = make(map[state.ObjID]int32, len(e.tappedTurn))
-		for id, turn := range e.tappedTurn {
-			c.tappedTurn[id] = turn
-		}
-	}
-	if e.discardAllTurn != nil {
-		c.discardAllTurn = make(map[triggerKey]int32, len(e.discardAllTurn))
-		for k, turn := range e.discardAllTurn {
-			c.discardAllTurn[k] = turn
-		}
-	}
-	// tapObj/tapPlayer/tapEntering and tappingForMana/tappingManaProduced are
-	// emitTap's synchronous context, zero at every intent boundary.
-	// triggerBefore is scoped to a batch emission/resumption, so it is nil
-	// at intent boundaries and is deliberately not copied. Parked replacement
-	// and commander choices and resume frames retain their own immutable
-	// triggerSnapshot pointers; sharing those is safe because matching builds
-	// fresh Engine scratch caches and never applies events to the snapshot.
-	//
-	// foreachBuf / foreachDepth (Task A2) are deliberately NOT copied: they
-	// are forEachObject's scratch snapshot buffer and re-entry depth counter
-	// (engine.go), live only for the duration of a single walk. A clone is
-	// taken at an intent boundary (never mid-walk, so foreachDepth is zero);
-	// sharing the buffer field between the original and the clone would be a
-	// bug, because either one walking would clobber the other's zone snapshot
-	// mid-range. Leaving both zero lets each engine grow its own buffer on
-	// its next depth-0 forEachObject call.
-	//
-	// staticContinuous / staticEpoch are COPIED into the clone's own outer
-	// storage (below, after the struct literal): staticEffects rebuilds into
-	// the memo's reusable outer storage, so each branch must own its backing
-	// array, while the nested keyword/type slices are read-only once built
-	// and are shared. The clone's board and log are the parent's at the clone
-	// boundary, so the memo describes the clone exactly; it is carried only
-	// when it was built under the current registry (staticVersion ==
-	// continuousVersion) or read no registry state at all (staticMemoQuiet),
-	// re-keyed to the clone's own zero continuousVersion.
-	// Otherwise the zero epoch forces a fresh scan. The static-control
-	// reconcile (rules/control_static.go) derives its wanted set fresh from
-	// the same memo under the same epoch key, so it needs no copied cache
-	// either; reconcilingControlStatics (engine.go) is a transient re-entry
-	// guard, false at every intent boundary exactly like expiringControl,
-	// which Clone has never copied for the same reason.
-	//
-	// activeBuf / activeEpoch / activeVersion / activeDepth / continuousVersion
-	// (engine.go, layers.go) are likewise deliberately NOT copied, with the
-	// same precedent. activeBuf is active()'s shared sorted effect list and
-	// activeDepth its re-entry guard; a clone must grow its own buffer, never
-	// alias the original's scratch, or the copy's next rebuild would clobber
-	// the original's live cache mid-range (or vice versa). activeEpoch /
-	// activeVersion / continuousVersion start at zero in the fresh struct, so
-	// the cloned engine misses the cache and rebuilds the identical,
-	// deterministic list on its first Derived after the clone boundary.
-	//
-	// charsWalk (chars.Scratch: KW / Types / Depth, engine_scratch.go) is the
-	// same class: Derived's reusable keyword/type scratch buffers and their
-	// re-entry guard. A clone starts with nil buffers and grows its own on its
-	// first full Derived, never aliasing the original's mutable scratch — the
-	// A2 buffer / C3 digest precedent, spelled out in clone.go's contract.
-	if e.manaActivation != nil {
-		ma := *e.manaActivation
-		ma.abilities = append([]*cards.SA(nil), e.manaActivation.abilities...)
-		c.manaActivation = &ma
-	}
-	if e.manaColorActivation != nil {
-		ma := *e.manaColorActivation
-		ma.triggers = clonePendingTriggers(e.manaColorActivation.triggers)
-		if pt := e.manaColorActivation.trigger; pt != nil {
-			ma.trigger = &clonePendingTriggers([]pendingTrigger{*pt})[0]
-		}
-		// A routed off-stack-mana rider ask parks its resume chain here; the
-		// clone must own its own chain (the engine's own e.resume does too),
-		// or resuming the clone would traverse the original's outer links.
-		ma.nestedResume = remap.resume(e.manaColorActivation.nestedResume)
-		c.manaColorActivation = &ma
-	}
-	if e.manaDiscardActivation != nil {
-		ma := *e.manaDiscardActivation
-		ma.cost = cloneCost(e.manaDiscardActivation.cost)
-		ma.sacs = append([]state.ObjID(nil), e.manaDiscardActivation.sacs...)
-		ma.discards = append([]state.ObjID(nil), e.manaDiscardActivation.discards...)
-		ma.exiles = append([]state.ObjID(nil), e.manaDiscardActivation.exiles...)
-		ma.taps = append([]state.ObjID(nil), e.manaDiscardActivation.taps...)
-		ma.untaps = append([]state.ObjID(nil), e.manaDiscardActivation.untaps...)
-		ma.subCounterPays = append([]subCounterPay(nil), e.manaDiscardActivation.subCounterPays...)
-		c.manaDiscardActivation = &ma
-	}
-	if e.manaAfterCost != nil {
-		ma := *e.manaAfterCost
-		ma.triggers = clonePendingTriggers(e.manaAfterCost.triggers)
-		ma.sacs = append([]state.ObjID(nil), e.manaAfterCost.sacs...)
-		c.manaAfterCost = &ma
-	}
-	if e.manaUnlessActivation != nil {
-		ma := *e.manaUnlessActivation
-		ma.triggers = clonePendingTriggers(e.manaUnlessActivation.triggers)
-		ma.payers = append([]state.PlayerID(nil), e.manaUnlessActivation.payers...)
-		c.manaUnlessActivation = &ma
-	}
-	if e.unlessPayment != nil {
-		u := *e.unlessPayment
-		// The whole Cost is deep-copied through cloneCost so no cost component
-		// can be forgotten when one is added (this block predates Return and
-		// Exile once already); the pick slices ride alongside it.
-		u.cost = cloneCost(e.unlessPayment.cost)
-		u.sacs = append([]state.ObjID(nil), e.unlessPayment.sacs...)
-		u.discards = append([]state.ObjID(nil), e.unlessPayment.discards...)
-		u.reveals = append([]state.ObjID(nil), e.unlessPayment.reveals...)
-		u.beholds = append([]state.ObjID(nil), e.unlessPayment.beholds...)
-		u.returns = append([]state.ObjID(nil), e.unlessPayment.returns...)
-		u.exiles = append([]state.ObjID(nil), e.unlessPayment.exiles...)
-		u.ctx = remap.unlessCtx(e.unlessPayment.ctx)
-		u.rp = remap.resume(e.unlessPayment.rp)
-		c.unlessPayment = &u
-	}
-	if e.cumulative != nil {
-		cu := *e.cumulative
-		cu.amount = cloneCost(e.cumulative.amount)
-		if e.cumulative.action != nil {
-			action := *e.cumulative.action
-			cu.action = &action
-		}
-		c.cumulative = &cu
-	}
-	if e.triggerCost != nil {
-		tc := *e.triggerCost
-		tc.resume = remap.resume(e.triggerCost.resume)
-		tc.amount = cloneCost(e.triggerCost.amount)
-		tc.sacs = append([]state.ObjID(nil), e.triggerCost.sacs...)
-		tc.exiles = append([]state.ObjID(nil), e.triggerCost.exiles...)
-		tc.moveGraves = append([]state.ObjID(nil), e.triggerCost.moveGraves...)
-		c.triggerCost = &tc
-	}
-	if e.echo != nil {
-		// kw:Echo (rules/echo.go): the same plain-value class as cumulative
-		// above — the Cost's slice fields deep-copied so the clone owns them.
-		ef := *e.echo
-		ef.amount = cloneCost(e.echo.amount)
-		c.echo = &ef
-	}
-	if e.wardMana != nil {
-		wm := *e.wardMana
-		c.wardMana = &wm
-	}
-	// attackPay (combat.go/attack_cost.go): the declare-attackers attack-cost
-	// payment window. The chosen slice is shared with the original -- the
-	// enlistAsk reference-sharing class, never mutated by the window.
-	if e.attackPay != nil {
-		ap := *e.attackPay
-		c.attackPay = &ap
-	}
-	if e.blockPay != nil {
-		bp := *e.blockPay
-		c.blockPay = &bp
-	}
+
 	if e.cast != nil {
 		pc := *e.cast
 		pc.cost = cloneCost(e.cast.cost)
@@ -1040,85 +317,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		}
 		c.deferredPushLKI = e.deferredPushLKI
 	}
-	if e.turnUp != nil {
-		// The CR 708.6 turn-up payment flow (rules/morph_turnup.go): a plain
-		// value struct with four object slices, cloned like cast so a clone
-		// taken while one of its KChoose asks is outstanding re-answers it
-		// faithfully (host.viewAt clones and re-Submits the intents).
-		tp := *e.turnUp
-		tp.sacs = append([]state.ObjID(nil), e.turnUp.sacs...)
-		tp.discs = append([]state.ObjID(nil), e.turnUp.discs...)
-		tp.reveal = append([]state.ObjID(nil), e.turnUp.reveal...)
-		tp.returns = append([]state.ObjID(nil), e.turnUp.returns...)
-		tp.mods.reduces = append([]costMod(nil), e.turnUp.mods.reduces...)
-		tp.mods.raises = append([]int32(nil), e.turnUp.mods.raises...)
-		c.turnUp = &tp
-	}
-	if e.cmdZone != nil {
-		// The parked commander zone changes (CR 903.9, Task m32): a clone
-		// taken while a KCommanderZone decision is outstanding must carry the
-		// same queue the original does, or answering the copied decision
-		// would find no parked move and the commander would never move.
-		// Plain value entries, so one slice copy is a faithful clone.
-		c.cmdZone = append([]cmdZoneMove(nil), e.cmdZone...)
-	}
-	if e.legendBatch != nil {
-		// The parked CR 704.5j legend-rule application (rules/sba.go): a clone
-		// taken while the duplicate set's controller is choosing must carry
-		// the same batch, or answering the copied decision would find nothing
-		// parked and the kept permanent would be recorded against an empty
-		// flow. Plain value data plus one shared immutable snapshot, so the
-		// slices are re-allocated and `before` is shared like cmdZoneMove's.
-		lb := *e.legendBatch
-		lb.group.ids = append([]state.ObjID(nil), e.legendBatch.group.ids...)
-		lb.dead = append([]casualty(nil), e.legendBatch.dead...)
-		c.legendBatch = &lb
-	}
-	if e.replChoices != nil {
-		// Parked replacement choices (MoveZone/ProduceMana/BeginPhase order,
-		// replacement mana colour and optional phase apply/decline): same class
-		// as cmdZone. Event/scalar data copies by value;
-		// candidate pointers share immutable corpus data, while every mutable
-		// bookkeeping slice is re-allocated for the clone.
-		c.replChoices = make([]replChoice, len(e.replChoices))
-		for i, rc := range e.replChoices {
-			rc.cands = append([]replMatch(nil), rc.cands...)
-			rc.used = append([]replMatch(nil), rc.used...)
-			rc.applied = append([]bool(nil), rc.applied...)
-			rc.appliedRepls = append([]replMatch(nil), rc.appliedRepls...)
-			rc.applicable = append([]int(nil), rc.applicable...)
-			// A parked life-replacement choice's ExchangeLife transaction is
-			// the same object pendingLifeExchange may hold, and resumeAtPose
-			// is compared against Engine.resume by identity: both go through
-			// the remap so the clone owns them and the identities survive.
-			rc.exchange = remap.lifeExchange(rc.exchange)
-			rc.resumeAtPose = remap.resume(rc.resumeAtPose)
-			if rc.untap != nil {
-				resume := *rc.untap
-				rc.untap = &resume
-			}
-			if rc.stage != nil {
-				// The stage is mutable while its ask is outstanding: the
-				// completed re-drive consumes its token-plan tail and the
-				// resume appends placements. Copy the value and re-allocate
-				// the tail so a clone answered on either side cannot alias
-				// the original's continuation.
-				st := *rc.stage
-				if st.tokenPlan != nil {
-					tp := *st.tokenPlan
-					tp.plan = append([]tokenPlanMint(nil), st.tokenPlan.plan...)
-					st.tokenPlan = &tp
-				}
-				st.applied = append([]replMatch(nil), st.applied...)
-				st.placed = append([]events.EntryCounterGrant(nil), st.placed...)
-				st.bodyIDs = append([]string(nil), st.bodyIDs...)
-				rc.stage = &st
-			}
-			c.replChoices[i] = rc
-		}
-	}
-	c.madnessChoices = append([]events.Event(nil), e.madnessChoices...)
-	c.madnessSuspended = e.madnessSuspended
+
 	// A clone's Derived memo starts empty (it is not copied above); recycled
 	// tables start empty over Release-cleared capacity, the same zeroed state
 	// derivedMemoizedAt's growth relies on for a Config.Spare game.
@@ -1145,97 +344,6 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		c.sbaQuiet = k
 	}
 	return c
-}
-
-// cloneCounts copies a trigger-bookkeeping map, preserving nil (trigger.go
-// lazily allocates these on first use and checks for nil itself).
-func cloneCounts(m map[triggerKey]int32) map[triggerKey]int32 {
-	if m == nil {
-		return nil
-	}
-	out := make(map[triggerKey]int32, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
-}
-
-// cloneInertHeldOut copies the inert backstop's held-out set, preserving nil.
-func cloneInertHeldOut(m map[inertKey]bool) map[inertKey]bool {
-	if m == nil {
-		return nil
-	}
-	out := make(map[inertKey]bool, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
-}
-
-// cloneSuppressed copies the held-out cast set (suppressedCast, engine.go),
-// preserving nil (cast.go allocates it lazily; a nil set reads as empty).
-func cloneSuppressed(m map[state.ObjID]bool) map[state.ObjID]bool {
-	if m == nil {
-		return nil
-	}
-	out := make(map[state.ObjID]bool, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
-}
-
-// cloneOppPicksMid copies the TargetingPlayer$ Opponent mid-tier selection
-// store (oppPicksMid, stack.go), preserving nil; the lazily-allocated map
-// only ever carries the pin between the "opp_pick" resume arm and the
-// synchronous ChooserFor read, so a nil map reads as an empty store.
-func cloneOppPicksMid(m map[string]state.PlayerID) map[string]state.PlayerID {
-	if m == nil {
-		return nil
-	}
-	out := make(map[string]state.PlayerID, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
-}
-
-// cloneTpCtlChooser copies the TargetingPlayerControls$ answered-ask record
-// (tpCtlChooser, stack.go), preserving nil; values are plain structs, so a
-// memberwise copy is complete.
-func cloneTpCtlChooser(m map[state.ObjID]tpCtlAnswer) map[state.ObjID]tpCtlAnswer {
-	if m == nil {
-		return nil
-	}
-	out := make(map[state.ObjID]tpCtlAnswer, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
-}
-
-// cloneAbortCounts copies the F05-2 per-card no-progress count
-// (castAborts, engine.go), preserving nil; the lazily-allocated map is
-// created by abortCast and a nil map reads as an empty count.
-func cloneAbortCounts(m map[state.ObjID]int32) map[state.ObjID]int32 {
-	if m == nil {
-		return nil
-	}
-	out := make(map[state.ObjID]int32, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
-}
-
-// cloneMulligan deep-copies the London round: the phase flags and counters
-// are plain values, but seats/kept/taken are written in place while the
-// round runs (rules/mulligan.go), so the copy must own its own arrays.
-func cloneMulligan(m mulliganRound) mulliganRound {
-	m.seats = append([]state.PlayerID(nil), m.seats...)
-	m.kept = append([]bool(nil), m.kept...)
-	m.taken = append([]int(nil), m.taken...)
-	return m
 }
 
 // clonePendingTriggers gives a clone ownership of the mutable context carried
@@ -1287,39 +395,6 @@ func clonePendingTriggers(src []pendingTrigger) []pendingTrigger {
 	return out
 }
 
-// cloneCombatRound deep-copies the combat damage step's continuation state
-// (combat.go, Task jj-cmb): the division queue, answered divisions and the
-// pending ask's option-split table are all written in place while a pass
-// progresses, so a clone must own its own arrays rather than alias the
-// original's.
-func cloneCombatRound(cr combatRound) combatRound {
-	cr.queue = append([]state.ObjID(nil), cr.queue...)
-	cr.assignments = append([]assignment(nil), cr.assignments...)
-	if cr.done != nil {
-		done := make([]divChoice, len(cr.done))
-		for i, dc := range cr.done {
-			done[i] = divChoice{attacker: dc.attacker, amounts: append([]int32(nil), dc.amounts...)}
-		}
-		cr.done = done
-	}
-	if cr.askOptions != nil {
-		table := make([][]int32, len(cr.askOptions))
-		for i, row := range cr.askOptions {
-			table[i] = append([]int32(nil), row...)
-		}
-		cr.askOptions = table
-	}
-	// asunblk1: the as-unblocked election queues the same way.
-	cr.electQueue = append([]state.ObjID(nil), cr.electQueue...)
-	cr.doneElect = append([]state.ObjID(nil), cr.doneElect...)
-	// CR 726.2 pass adjudication state: the landed candidate list must not
-	// alias the original's (the holder snapshot and the bools are plain
-	// values, carried by the value copy).
-	cr.initCtrls = append([]state.PlayerID(nil), cr.initCtrls...)
-	// askElection is a plain bool, carried by the value copy.
-	return cr
-}
-
 // cloneResume deep-copies a suspended resolution's resume chain (fx34): each
 // link is plain value data (kind/obj plus a *cards.SA into the shared,
 // immutable corpus), but the outer continuation chain is a linked list this
@@ -1369,22 +444,6 @@ func cloneCost(c Cost) Cost {
 	return c
 }
 
-// cloneParentLinks deep-copies a resume point's parent-link record, so a
-// frame's record never shares a backing array with another frame's (the same
-// rule every other sliced ride in cloneResume follows). A recorded empty
-// entry (a Min-0 parent) is preserved as an empty entry, never dropped: its
-// PRESENCE is what makes the parent empty rather than unset.
-func cloneParentLinks(links [][]state.Target) [][]state.Target {
-	if links == nil {
-		return nil
-	}
-	out := make([][]state.Target, len(links))
-	for i, ts := range links {
-		out[i] = append([]state.Target(nil), ts...)
-	}
-	return out
-}
-
 func cloneResume(rp *resumePoint) *resumePoint { return cloneResumeWith(rp, nil) }
 
 // cloneResumeWith is cloneResume with the cross-engine identity remap: m nil
@@ -1405,66 +464,7 @@ func cloneResumeWith(rp *resumePoint, m *cloneRemap) *resumePoint {
 	if m != nil {
 		m.resumes.add(rp, cp)
 	}
-	// The resolution's coin-flip and ExchangeLife rider memories are mutated
-	// in place by the resolution after the suspension: a clone owns one copy
-	// of each, shared by all of its frames (cloneRemap).
-	cp.flipMemory = m.flipMemory(rp.flipMemory)
-	cp.exchangeMemory = m.exchangeMemory(rp.exchangeMemory)
-	cp.clash = cloneClashResume(rp.clash)
-	cp.choices = append([]state.Target(nil), rp.choices...)
-	cp.chosenValid = rp.chosenValid
-	cp.remembered = append([]state.Target(nil), rp.remembered...)
-	cp.forgetOtherSnapshot = append([]state.Target(nil), rp.forgetOtherSnapshot...)
-	cp.forgetOtherOwners = append([]state.PlayerID(nil), rp.forgetOtherOwners...)
-	cp.loopRemembered = append([]state.Target(nil), rp.loopRemembered...)
-	// The AmountFromVotes$ tally snapshot: plain value entries, copied so the
-	// clone never shares a backing array with the original's pending frames.
-	cp.voteCounts = cloneVoteCounts(rp.voteCounts)
-	cp.replacedCards = append([]state.ObjID(nil), rp.replacedCards...)
-	// The pre-move controller snapshot is immutable once captured, but a clone
-	// must not share the original's map storage: an explicit copy keeps the
-	// two engines' pending frames independent.
-	cp.targetControllerLKI = effects.CloneTargetControllerLKI(rp.targetControllerLKI)
-	cp.targetCountersLKI = effects.CloneTargetCountersLKI(rp.targetCountersLKI)
-	cp.targetPTLKI = effects.CloneTargetPTLKI(rp.targetPTLKI)
-	cp.targetSpellLKI = effects.CloneTargetSpellLKI(rp.targetSpellLKI)
-	cp.targetsUnique = append([]state.Target(nil), rp.targetsUnique...)
-	// The parent-link record and the pending in-walk link answer are sliced
-	// values the resumed Ctx re-binds (effects.Ctx.ResumeParentLinks), so the
-	// clone owns its own copies instead of sharing backing arrays with the
-	// original's pending frames -- the same discipline every other slice here
-	// follows. An empty recorded link (a Min-0 parent) is preserved as an
-	// entry, not dropped.
-	cp.parentLinks = cloneParentLinks(rp.parentLinks)
-	cp.linkAnswer = append([]state.Target(nil), rp.linkAnswer...)
-	cp.linkAnswered = rp.linkAnswered
-	// The VillainousChoice cursor and victim binding are sliced values the
-	// resumed Ctx re-binds, so the clone owns its own copies instead of
-	// sharing backing arrays with the original (the same discipline every
-	// other slice here follows).
-	cp.villainousVictims = append([]state.Target(nil), rp.villainousVictims...)
-	cp.villainousRemembered = append([]state.Target(nil), rp.villainousRemembered...)
-	// The multi-player GenericChoice chooser cursor is likewise a sliced value
-	// the resumed Ctx re-binds; the clone owns its own copy.
-	cp.genericChoosers = append([]state.Target(nil), rp.genericChoosers...)
-	cp.genericRemembered = append([]state.Target(nil), rp.genericRemembered...)
-	cp.numberPicks = append([]int32(nil), rp.numberPicks...)
-	cp.publishedSVars = append([]effects.SVarBinding(nil), rp.publishedSVars...)
-	cp.tokenRest = rp.tokenRest.Clone()
-	if rp.repeat != nil {
-		cur := *rp.repeat
-		cur.subjects = append([]state.Target(nil), rp.repeat.subjects...)
-		cur.last = append([]state.Target(nil), rp.repeat.last...)
-		cp.repeat = &cur
-	}
-	// A deferred second ask (Engine.Ask) rides its own decision and resume
-	// point; the frame re-links deferredResume.outer when posed, so the clone
-	// must own both.
-	if rp.deferredAsk != nil {
-		cp.deferredAsk = cloneDecision(rp.deferredAsk)
-	}
-	cp.deferredResume = cloneResumeWith(rp.deferredResume, m)
-	cp.outer = cloneResumeWith(rp.outer, m)
+	m.resumeFields(cp, rp)
 	return cp
 }
 
@@ -1490,15 +490,58 @@ func cloneDecision(p *decision.Decision) *decision.Decision {
 	return &d
 }
 
-// cloneBatchIdx copies an open trigger batch's line index (the zone and
-// discard batches), preserving nil.
-func cloneBatchIdx[K comparable](m map[K]int) map[K]int {
+// cloneSuppressed copies the held-out cast set (suppressedCast, engine.go),
+// preserving nil (cast.go allocates it lazily; a nil set reads as empty).
+func cloneSuppressed(m map[state.ObjID]bool) map[state.ObjID]bool {
 	if m == nil {
 		return nil
 	}
-	out := make(map[K]int, len(m))
+	out := make(map[state.ObjID]bool, len(m))
 	for k, v := range m {
 		out[k] = v
 	}
 	return out
+}
+
+// cloneAbortCounts copies the F05-2 per-card no-progress count
+// (castAborts, engine.go), preserving nil; the lazily-allocated map is
+// created by abortCast and a nil map reads as an empty count.
+func cloneAbortCounts(m map[state.ObjID]int32) map[state.ObjID]int32 {
+	if m == nil {
+		return nil
+	}
+	out := make(map[state.ObjID]int32, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
+// cloneParentLinks deep-copies a resume point's parent-link record, so a
+// frame's record never shares a backing array with another frame's (the same
+// rule every other sliced ride in cloneResume follows). A recorded empty
+// entry (a Min-0 parent) is preserved as an empty entry, never dropped: its
+// PRESENCE is what makes the parent empty rather than unset.
+func cloneParentLinks(links [][]state.Target) [][]state.Target {
+	if links == nil {
+		return nil
+	}
+	out := make([][]state.Target, len(links))
+	for i, ts := range links {
+		out[i] = append([]state.Target(nil), ts...)
+	}
+	return out
+}
+
+// cloneTrigger copies a compiled trigger line whose Params map the clone owns
+// (a granted or continuous trigger is shared by value otherwise).
+func cloneTrigger(t cards.Trigger) cards.Trigger {
+	if t.Params != nil {
+		params := make(map[string]string, len(t.Params))
+		for key, value := range t.Params {
+			params[key] = value
+		}
+		t.Params = params
+	}
+	return t
 }
