@@ -186,12 +186,12 @@ func countQueued(e *Engine, id state.ObjID, from, to state.Zone) int {
 
 // TestDisableTriggersUnreadParameterFailsOpen pins the fail-closed contract: a
 // DisableTriggers line carrying a parameter this build does not read (the
-// synthesized-Ward ValidTrigger$ shape) suppresses NOTHING, fires a loud
-// unmodelled Note exactly once, and leaves the trigger firing.
+// Static$ shape below) suppresses NOTHING, fires a loud unmodelled Note
+// exactly once, and leaves the trigger firing.
 func TestDisableTriggersUnreadParameterFailsOpen(t *testing.T) {
 	e := newSeats(t, 2)
-	staticCard := card(t, "Name:Ward Gate\nTypes:Artifact\n"+
-		"S:Mode$ DisableTriggers | Secondary$ True | ValidTrigger$ Triggered.Ward | ValidCard$ Creature.OppCtrl+inZoneBattlefield\nOracle:x\n")
+	staticCard := card(t, "Name:Unread Gate\nTypes:Artifact\n"+
+		"S:Mode$ DisableTriggers | Secondary$ True | Static$ True | ValidCard$ Creature.OppCtrl+inZoneBattlefield\nOracle:x\n")
 	etb := "T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | TriggerZones$ Battlefield | Execute$ TrigDraw | TriggerDescription$ When this enters, draw a card.\n" +
 		"SVar:TrigDraw:DB$ Draw | NumCards$ 1\n"
 	creature := card(t, "Name:ETB Creature\nTypes:Creature\n"+etb+"Oracle:x\n")
@@ -200,15 +200,15 @@ func TestDisableTriggersUnreadParameterFailsOpen(t *testing.T) {
 		t.Fatalf("precondition: static from %d is not active", gate)
 	}
 	id := parkObj(t, e, creature, 1, state.ZHand)
-	if got := disableTriggersUnread(e.activeStatics("DisableTriggers")[0]); len(got) != 1 || got[0] != "ValidTrigger" {
-		t.Fatalf("precondition: unread params = %v, want [ValidTrigger]", got)
+	if got := disableTriggersUnread(e.activeStatics("DisableTriggers")[0]); len(got) != 1 || got[0] != "Static" {
+		t.Fatalf("precondition: unread params = %v, want [Static]", got)
 	}
 	if n := countQueued(e, id, state.ZHand, state.ZBattlefield); n != 1 {
 		t.Fatalf("unread-parameter static suppressed the trigger (queued %d, want 1)", n)
 	}
 	notes := 0
 	for _, ev := range e.L.Events {
-		if ev.Kind == events.Note && strings.Contains(ev.Text, "unmodelled DisableTriggers parameters: ValidTrigger") {
+		if ev.Kind == events.Note && strings.Contains(ev.Text, "unmodelled DisableTriggers parameters: Static") {
 			notes++
 		}
 	}
