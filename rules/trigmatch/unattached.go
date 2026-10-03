@@ -57,7 +57,7 @@ func unattachedMatches(e Board, t cards.Trigger, source state.ObjID, ev events.E
 			return false
 		}
 	}
-	if v, ok := t.Params["ValidObject"]; ok {
+	if v, ok := t.Param(cards.PKValidObject); ok {
 		return matchesUnattachedBearer(e, v, ev.IDs[0], source, ctrl)
 	}
 	return true

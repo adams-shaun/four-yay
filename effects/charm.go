@@ -213,7 +213,7 @@ func CharmCrossModeShape(svars map[string]string, modes []string) (CharmUniqueSt
 			continue
 		}
 		tbms++
-		if strings.EqualFold(sub.Params["TargetUnique"], "True") {
+		if strings.EqualFold(sub.ParamStr(cards.PKTargetUnique), "True") {
 			anyUnique = true
 		}
 		if spec == "" {
@@ -1114,7 +1114,7 @@ func effVote(h Host, c *Ctx, sa *cards.SA) {
 // copy of the source SVar table, then resolve every option body so its numeric
 // effects consume that option's count (including zero).
 func resolveVoteOutcomes(h Host, c *Ctx, sa *cards.SA, choices []string, counts []int) {
-	if strings.EqualFold(strings.TrimSpace(sa.Params["StoreVoteNum"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKStoreVoteNum)), "True") {
 		for i, name := range choices {
 			count := 0
 			if i < len(counts) {
@@ -1367,7 +1367,7 @@ func effCardVote(h Host, c *Ctx, sa *cards.SA, ballot string) {
 	// most-votes set instead of duplicating it (no corpus carrier combines
 	// the two without StoreVoteNum$, so the dedupe is the structural guard,
 	// not a behaviour change any carrier can see).
-	storeVoteNum := strings.EqualFold(strings.TrimSpace(sa.Params["StoreVoteNum"]), "True")
+	storeVoteNum := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKStoreVoteNum)), "True")
 	rememberVoted := strings.EqualFold(strings.TrimSpace(sa.Params["RememberVotedObjects"]), "True")
 	if storeVoteNum {
 		publishVoteCounts(c, voteCountsForObjects(options, counts))

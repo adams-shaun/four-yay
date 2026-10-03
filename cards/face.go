@@ -410,13 +410,13 @@ func (f *Face) deriveColourIdentity() uint8 {
 // must not set the intrinsic flag).
 func cdaAllCreatureTypes(sts []Static) bool {
 	for _, s := range sts {
-		if s.Mode != "Continuous" || !strings.EqualFold(strings.TrimSpace(s.Params["CharacteristicDefining"]), "True") {
+		if s.Mode != "Continuous" || !strings.EqualFold(strings.TrimSpace(s.ParamStr(PKCharacteristicDefining)), "True") {
 			continue
 		}
-		if !strings.EqualFold(strings.TrimSpace(s.Params["AddAllCreatureTypes"]), "True") {
+		if !strings.EqualFold(strings.TrimSpace(s.ParamStr(PKAddAllCreatureTypes)), "True") {
 			continue
 		}
-		if aff := strings.TrimSpace(s.Params["Affected"]); aff != "" && !strings.Contains(aff, "Self") {
+		if aff := strings.TrimSpace(s.ParamStr(PKAffected)); aff != "" && !strings.Contains(aff, "Self") {
 			continue
 		}
 		return true
@@ -436,13 +436,13 @@ func cdaAllCreatureTypes(sts []Static) bool {
 // keys on.
 func (f *Face) CommanderColourChoiceCDA() bool {
 	for _, s := range f.Statics {
-		if s.Mode != "Continuous" || !strings.EqualFold(strings.TrimSpace(s.Params["CharacteristicDefining"]), "True") {
+		if s.Mode != "Continuous" || !strings.EqualFold(strings.TrimSpace(s.ParamStr(PKCharacteristicDefining)), "True") {
 			continue
 		}
-		if !strings.EqualFold(strings.TrimSpace(s.Params["SetColor"]), "ChosenColor") {
+		if !strings.EqualFold(strings.TrimSpace(s.ParamStr(PKSetColor)), "ChosenColor") {
 			continue
 		}
-		if aff := strings.TrimSpace(s.Params["Affected"]); aff != "" && !strings.Contains(aff, "Self") {
+		if aff := strings.TrimSpace(s.ParamStr(PKAffected)); aff != "" && !strings.Contains(aff, "Self") {
 			continue
 		}
 		return true
@@ -453,13 +453,13 @@ func (f *Face) CommanderColourChoiceCDA() bool {
 func cdaSetColours(sts []Static) uint8 {
 	var m uint8
 	for _, s := range sts {
-		if s.Mode != "Continuous" || s.Params["CharacteristicDefining"] != "True" {
+		if s.Mode != "Continuous" || s.ParamStr(PKCharacteristicDefining) != "True" {
 			continue
 		}
-		if !strings.Contains(s.Params["Affected"], "Self") {
+		if !strings.Contains(s.ParamStr(PKAffected), "Self") {
 			continue
 		}
-		switch strings.ToLower(s.Params["SetColor"]) {
+		switch strings.ToLower(s.ParamStr(PKSetColor)) {
 		case "all":
 			m |= ColourWhite | ColourBlue | ColourBlack | ColourRed | ColourGreen
 		case "white":

@@ -209,7 +209,7 @@ func effChangeZoneHandOwners(h Host, c *Ctx, sa *cards.SA, to state.Zone) {
 		}
 		choosers[i] = ch
 	}
-	random := strings.EqualFold(strings.TrimSpace(sa.Params["AtRandom"]), "True")
+	random := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKAtRandom)), "True")
 	handMoveOwnersWalk(h, c, sa, to, owners, count, random, func(_ Host, _ *Ctx, _ *cards.SA, owner state.PlayerID) (state.PlayerID, bool) {
 		return choosers[ownerIndex(owners, owner)], true
 	}, true)

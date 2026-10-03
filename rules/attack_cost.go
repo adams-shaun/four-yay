@@ -151,7 +151,7 @@ func (e *Engine) attackPairCharge(id state.ObjID, defender state.PlayerID, attac
 		if !e.matchesSpec(spec, id, e.specCtxSVars(sv.Source, sv.Controller, sv.SVars)) {
 			continue
 		}
-		if !combat.RestrictionTargetMatches(e.G, sv.Params["Target"], defender, sv.Controller, sv.Source, nil, attacked) {
+		if !combat.RestrictionTargetMatches(e.G, sv.ParamStr(cards.PKTarget), defender, sv.Controller, sv.Source, nil, attacked) {
 			continue
 		}
 		ch, ok := e.attackUnlessCharge(sv, id)
@@ -187,7 +187,7 @@ func (e *Engine) attackPairCharge(id state.ObjID, defender state.PlayerID, attac
 		if !e.matchesSpec(spec, id, sc) {
 			continue
 		}
-		if !combat.RestrictionTargetMatches(e.G, sv.Params["Target"], defender, ce.Controller, ce.Source, nil, attacked) {
+		if !combat.RestrictionTargetMatches(e.G, sv.ParamStr(cards.PKTarget), defender, ce.Controller, ce.Source, nil, attacked) {
 			continue
 		}
 		if ch, ok := e.attackUnlessCharge(sv, id); ok {
@@ -377,7 +377,7 @@ func (e *Engine) blockStaticMatches(sv staticView, sc effects.SpecContext, block
 	if spec := sv.ParamStr(cards.PKValidCard); spec != "" && !e.matchesSpec(spec, blocker, sc) {
 		return false
 	}
-	if spec := sv.Params["Attacker"]; spec != "" && !e.matchesSpec(spec, attacker, sc) {
+	if spec := sv.ParamStr(cards.PKAttacker); spec != "" && !e.matchesSpec(spec, attacker, sc) {
 		return false
 	}
 	return true

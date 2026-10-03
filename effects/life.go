@@ -51,7 +51,7 @@ func effExchangeLife(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	oldA, oldB := h.Game().Players[a].Life, h.Game().Players[b].Life
-	if sa.Params["RememberOwnLoss"] == "True" || sa.Params["RememberDifference"] == "True" {
+	if sa.ParamStr(cards.PKRememberOwnLoss) == "True" || sa.Params["RememberDifference"] == "True" {
 		// Lazily allocate the chain's shared ExchangeMemory (and re-publish it
 		// through the seam, the way effFlipCoin publishes a lazily allocated
 		// FlipMemory) so an ask this exchange's own walk poses LATER — a
@@ -76,11 +76,11 @@ func effExchangeLife(h Host, c *Ctx, sa *cards.SA) {
 		ExchangeLife(events.Event, events.Event, state.PlayerID, int32, *Ctx, bool)
 	}); ok {
 		beforeController := h.Game().Players[c.Controller].Life
-		exchange.ExchangeLife(first, second, c.Controller, beforeController, c, sa.Params["RememberOwnLoss"] == "True")
+		exchange.ExchangeLife(first, second, c.Controller, beforeController, c, sa.ParamStr(cards.PKRememberOwnLoss) == "True")
 	} else {
 		h.Emit(first)
 		h.Emit(second)
-		if sa.Params["RememberOwnLoss"] == "True" && (c.Controller == a || c.Controller == b) {
+		if sa.ParamStr(cards.PKRememberOwnLoss) == "True" && (c.Controller == a || c.Controller == b) {
 			before := oldA
 			if c.Controller == b {
 				before = oldB

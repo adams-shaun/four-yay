@@ -157,7 +157,7 @@ func (e *Engine) entryETBChoice(ev events.Event, ordinal int) (etbChoice, bool) 
 			// ValidDescription$ is Forge prompt text for the name kinds, not
 			// a second filter (effects.NameChoices reads it only as a safety
 			// fallback when ValidCards$ is absent).
-			selector := r.With.Params["ValidDescription"]
+			selector := r.With.ParamStr(cards.PKValidDescription)
 			if kind == "copy" {
 				selector = r.With.ParamStr(cards.PKChoices)
 			}
@@ -171,7 +171,7 @@ func (e *Engine) entryETBChoice(ev events.Event, ordinal int) (etbChoice, bool) 
 			} else {
 				opts = e.etbOptions(you, o.ID, kind,
 					r.With.ParamStr(cards.PKValidCards), selector,
-					r.With.ParamStr(cards.PKType), r.With.Params["Exclude"], r.With.Params["ChooseFromList"])
+					r.With.ParamStr(cards.PKType), r.With.Params["Exclude"], r.With.ParamStr(cards.PKChooseFromList))
 			}
 			if kind == "name" && len(opts) == 0 {
 				// No name passes the filter: the legacy (no-universe) builder
@@ -185,7 +185,7 @@ func (e *Engine) entryETBChoice(ev events.Event, ordinal int) (etbChoice, bool) 
 				// eligible names nothing, so there is no choice to pose and
 				// the entry proceeds (the body's effNameCard then returns
 				// without naming, as it does mid-resolution).
-				if len(e.G.NameUniverse) > 0 && strings.TrimSpace(r.With.Params["ChooseFromList"]) != "" {
+				if len(e.G.NameUniverse) > 0 && strings.TrimSpace(r.With.ParamStr(cards.PKChooseFromList)) != "" {
 					continue
 				}
 				opts = []decision.Option{{Index: 0, Kind: "name",

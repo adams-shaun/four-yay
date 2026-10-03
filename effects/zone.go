@@ -61,8 +61,8 @@ func effSeek(h Host, c *Ctx, sa *cards.SA) {
 		if spec == "" {
 			spec = "Card"
 		}
-		types := strings.Split(strings.TrimSpace(sa.Params["Types"]), ",")
-		if strings.TrimSpace(sa.Params["Types"]) == "" {
+		types := strings.Split(strings.TrimSpace(sa.ParamStr(cards.PKTypes)), ",")
+		if strings.TrimSpace(sa.ParamStr(cards.PKTypes)) == "" {
 			types = []string{spec}
 		}
 		selected := make([]state.ObjID, 0)

@@ -340,7 +340,7 @@ func (b *catalogBuilder) compileFace(face *Face, bindings *[]abilityBinding) (Fa
 			}
 		}
 		b.catalog.Triggers = append(b.catalog.Triggers, TriggerRow{Mode: mode, Params: params, Effect: effect, UnknownMode: unknown})
-		if strings.TrimSpace(trigger.Params["Phase"]) != "" {
+		if strings.TrimSpace(trigger.ParamStr(PKPhase)) != "" {
 			row.TriggerInterests |= TriggerInterestAny
 		} else {
 			row.TriggerInterests |= triggerInterestForMode(trigger.Mode)

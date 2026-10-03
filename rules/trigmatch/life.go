@@ -72,7 +72,7 @@ func lifeLostMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Eve
 			if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.Game(), v, player, ctrl) {
 				continue
 			}
-			if v := t.Params["ValidAmountEach"]; v != "" && !CompareLife(amount, v) {
+			if v := t.ParamStr(cards.PKValidAmountEach); v != "" && !CompareLife(amount, v) {
 				return false
 			}
 			matched = true
@@ -86,12 +86,12 @@ func lifeLostMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Eve
 	if v, ok := t.Param(cards.PKValidPlayer); ok && !effects.MatchesPlayerSpec(e.Game(), v, p, ctrl) {
 		return false
 	}
-	if v, ok := t.Params["ValidAmountEach"]; ok && !CompareLife(amount, v) {
+	if v, ok := t.Param(cards.PKValidAmountEach); ok && !CompareLife(amount, v) {
 		return false
 	}
 	// On LifeLost, LifeAmount$ describes the amount just lost, not the
 	// LifeTotal$ intervening-if grammar used by other trigger modes.
-	if v := t.Params["LifeAmount"]; v != "" && !CompareLife(amount, v) {
+	if v := t.ParamStr(cards.PKLifeAmount); v != "" && !CompareLife(amount, v) {
 		return false
 	}
 	if strings.EqualFold(t.ParamStr(cards.PKPlayerTurn), "True") && e.Game().Active != ctrl {
@@ -100,7 +100,7 @@ func lifeLostMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Eve
 	if v := t.ParamStr(cards.PKValidCause); v != "" && !lifeLossCauseMatches(e, v, ctrl) {
 		return false
 	}
-	if strings.EqualFold(t.Params["FirstTime"], "True") && !firstLifeLossThisTurn(e, p) {
+	if strings.EqualFold(t.ParamStr(cards.PKFirstTime), "True") && !firstLifeLossThisTurn(e, p) {
 		return false
 	}
 	return true
@@ -133,16 +133,16 @@ func lifeGainedMatches(e Board, t cards.Trigger, source state.ObjID, ev events.E
 	if v, ok := t.Param(cards.PKValidPlayer); ok && !effects.MatchesPlayerSpec(e.Game(), v, p, ctrl) {
 		return false
 	}
-	if v, ok := t.Params["ValidAmountEach"]; ok && !CompareLife(ev.Amount, v) {
+	if v, ok := t.Param(cards.PKValidAmountEach); ok && !CompareLife(ev.Amount, v) {
 		return false
 	}
-	if v := t.Params["LifeAmount"]; v != "" && !CompareLife(ev.Amount, v) {
+	if v := t.ParamStr(cards.PKLifeAmount); v != "" && !CompareLife(ev.Amount, v) {
 		return false
 	}
 	if strings.EqualFold(t.ParamStr(cards.PKPlayerTurn), "True") && e.Game().Active != ctrl {
 		return false
 	}
-	if strings.EqualFold(t.Params["FirstTime"], "True") && !firstLifeGainThisTurn(e, p) {
+	if strings.EqualFold(t.ParamStr(cards.PKFirstTime), "True") && !firstLifeGainThisTurn(e, p) {
 		return false
 	}
 	return true

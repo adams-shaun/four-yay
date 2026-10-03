@@ -150,7 +150,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 			// name.
 			spec := t.ParamStr(cards.PKValidCard)
 			if spec == "" && t.Mode == "AttackersDeclared" {
-				spec = t.Params["ValidAttackers"]
+				spec = t.ParamStr(cards.PKValidAttackers)
 			}
 			if (spec == "" && id == source) || (spec != "" && e.matchesSpec(spec, id, e.specCtx(source, e.controllerOf(source)))) {
 				matches++

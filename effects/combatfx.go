@@ -315,7 +315,7 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 	// AddAbility static grant structurally (the static is the grantor; the
 	// SA is not a printed line), so the recognition has no behavioural half
 	// here; the read keeps the parameter census honest.
-	_ = sa.Params["Secondary"]
+	_ = sa.ParamStr(cards.PKSecondary)
 	// KWChoice$ (30 corpus files: Angelic Skirmisher's "choose first strike,
 	// vigilance or lifelink" trigger, the equipment/ally "gains your choice
 	// of ..." family): the pump's keyword grant is not a fixed list but a
@@ -401,7 +401,7 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 		// skipped above is not added to either remembered set. The ctx half is
 		// available to chained sub-abilities; eventRemember persists the
 		// source's list for later Card.IsRemembered filters and replay.
-		if strings.EqualFold(strings.TrimSpace(sa.Params["RememberPumped"]), "True") {
+		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberPumped)), "True") {
 			c.Remembered = append(c.Remembered, t)
 			eventRemember(h, c, t.Obj)
 		}
@@ -488,7 +488,7 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 				}
 				for _, id := range g.Zone(z, p) {
 					if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) {
-						if strings.EqualFold(strings.TrimSpace(sa.Params["RememberPumped"]), "True") {
+						if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberPumped)), "True") {
 							c.Remembered = append(c.Remembered, state.Target{Obj: id})
 							eventRemember(h, c, id)
 						}
@@ -503,7 +503,7 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 		}
 		for _, id := range g.Zone(state.ZBattlefield, p) {
 			if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) {
-				if strings.EqualFold(strings.TrimSpace(sa.Params["RememberPumped"]), "True") {
+				if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberPumped)), "True") {
 					c.Remembered = append(c.Remembered, state.Target{Obj: id})
 					eventRemember(h, c, id)
 				}
@@ -848,7 +848,7 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	_, ag.hasTough = sa.Params["Toughness"]
 	ag.pw = Num(h, c, sa, "Power", 0)
 	ag.tf = Num(h, c, sa, "Toughness", 0)
-	ag.types = strings.Fields(strings.ReplaceAll(sa.Params["Types"], ",", " "))
+	ag.types = strings.Fields(strings.ReplaceAll(sa.ParamStr(cards.PKTypes), ",", " "))
 	// Colors$ names the colour set the animated object carries; with
 	// OverwriteColors$ True it REPLACES the object's colours (the manland
 	// family -- Celestial Colonnade's "white and blue" -- where the land's
@@ -881,7 +881,7 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	// grammar, applied at layer 6 BEFORE this effect's own AddKeywords
 	// (rules' LAbilities walk), so one DB$ Animate both strips the old
 	// enchant and grants the new one in the same pass.
-	ag.removeKeywords = cards.SplitKeywordList(sa.Params["RemoveKeywords"])
+	ag.removeKeywords = cards.SplitKeywordList(sa.ParamStr(cards.PKRemoveKeywords))
 	// RemoveCreatureTypes$ True strips the object's creature-type subtypes
 	// (Mishra's Factory's land base carries none, but an animated creature or
 	// planeswalker face does) before this animation's own Types$ apply.
@@ -1253,7 +1253,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 func animateAllUnreadNote(h Host, c *Ctx, sa *cards.SA) {
 	var unread []string
 	for _, key := range []struct{ name, val string }{
-		{"RemoveKeywords$", sa.Params["RemoveKeywords"]},
+		{"RemoveKeywords$", sa.ParamStr(cards.PKRemoveKeywords)},
 		{"RemoveAllAbilities$", sa.ParamStr(cards.PKRemoveAllAbilities)},
 		{"HiddenKeywords$", sa.Params["HiddenKeywords"]},
 		{"Replacements$", sa.Params["Replacements"]},

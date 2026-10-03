@@ -795,7 +795,7 @@ func (e *Engine) eventDelayedSpellCastMatches(t cards.Trigger, dt *state.Delayed
 			return false
 		}
 	}
-	if v, ok := t.Params["ValidActivatingPlayer"]; ok {
+	if v, ok := t.Param(cards.PKValidActivatingPlayer); ok {
 		if !effects.MatchesPlayerSpec(e.G, v, ev.Player, dt.Controller) {
 			return false
 		}
@@ -803,7 +803,7 @@ func (e *Engine) eventDelayedSpellCastMatches(t cards.Trigger, dt *state.Delayed
 	// The same cast-condition clauses trigmatch.spellCastMatches evaluates, mirrored
 	// so a stored body carrying either stays fire-time-correct (the "you"
 	// the activator clauses measure is the event's caster either way).
-	if v, ok := t.Params["ActivatorThisTurnCast"]; ok {
+	if v, ok := t.Param(cards.PKActivatorThisTurnCast); ok {
 		if !trigmatch.CompareIntCount(int32(e.spellsCastThisTurn(ev.Player)), v) {
 			return false
 		}

@@ -195,9 +195,9 @@ func staticMayChangeTypes(st *Static) (has, offBF bool) {
 // admits only the battlefield, and stackSelfStaticOK needs PresentZone$
 // naming Stack or AffectedZone$ Stack.
 func staticMayFunctionOffBattlefield(st *Static) bool {
-	_, ez := st.Params["EffectZone"]
-	_, xz := st.Params["ExcludeZone"]
-	return ez || xz || strings.Contains(st.Params["PresentZone"], "Stack") || st.Params["AffectedZone"] == "Stack"
+	ez := st.HasParam(PKEffectZone)
+	xz := st.HasParam(PKExcludeZone)
+	return ez || xz || strings.Contains(st.ParamStr(PKPresentZone), "Stack") || st.ParamStr(PKAffectedZone) == "Stack"
 }
 
 // deriveTypeStatics binds the layer-4 static probe to the face's current
@@ -217,7 +217,7 @@ func (f *Face) deriveTypeStatics() {
 		if st.Mode == "Continuous" && staticMayFunctionOffBattlefield(st) {
 			f.contStaticsOffBF = true
 		}
-		if _, ok := st.Params["EffectZone"]; ok {
+		if st.HasParam(PKEffectZone) {
 			f.anyStaticEZ = true
 		}
 	}
@@ -353,7 +353,7 @@ func (c *Card) SetsName() bool {
 			continue
 		}
 		for _, st := range f.Statics {
-			if _, ok := st.Params["SetName"]; ok {
+			if st.HasParam(PKSetName) {
 				return true
 			}
 		}

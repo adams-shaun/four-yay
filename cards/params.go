@@ -27,7 +27,9 @@ const (
 	PKActivationPhases
 	PKActivationZone
 	PKActivator
+	PKActivatorThisTurnCast
 	PKActiveZones
+	PKAdapt
 	PKAddAbilities
 	PKAddAbility
 	PKAddAllCreatureTypes
@@ -48,10 +50,15 @@ const (
 	PKAdjustLandPlays
 	PKAffected
 	PKAffectedZone
+	PKAllValid
 	PKAmount
 	PKAnnounce
 	PKAnyNumber
+	PKAtRandom
 	PKAttachedTo
+	PKAttackedTarget
+	PKAttacker
+	PKAttackingPlayer
 	PKBoast
 	PKCantHaveKeyword
 	PKCaster
@@ -65,11 +72,15 @@ const (
 	PKChoiceZone
 	PKChoices
 	PKChooseFromDefined
+	PKChooseFromList
+	PKChooseOrder
 	PKChooser
 	PKClassBand
 	PKClearImprinted
+	PKCombatDamage
 	PKCondition
 	PKConditionActivationLimit
+	PKConditionCompare
 	PKConditionDefined
 	PKController
 	PKCost
@@ -78,9 +89,11 @@ const (
 	PKDefined
 	PKDefinedCards
 	PKDefinedPlayer
+	PKDefinedTarget
 	PKDestAltSVar
 	PKDestination
 	PKDestinationAlternative
+	PKDifferentNames
 	PKDiscard
 	PKDividedAsYouChoose
 	PKDuration
@@ -89,9 +102,12 @@ const (
 	PKEffectZone
 	PKEvolve
 	PKExcludeZone
+	PKExcludedOrigins
 	PKExecute
 	PKExhaust
+	PKFaceDown
 	PKFirstForetell
+	PKFirstTime
 	PKForgetOtherRemembered
 	PKFoundSearchingLibrary
 	PKGainControl
@@ -111,8 +127,10 @@ const (
 	PKIsPresent2
 	PKKW
 	PKKeyword
+	PKLayer
 	PKLeaveBattlefield
 	PKLibraryPosition
+	PKLifeAmount
 	PKMandatory
 	PKMax
 	PKMaxTotalTargetCMC
@@ -126,9 +144,12 @@ const (
 	PKMonstrosity
 	PKNewController
 	PKNoLooking
+	PKNoReveal
 	PKNoShuffle
+	PKNonLegendary
 	PKNotThisAbility
 	PKNumDmg
+	PKNumber
 	PKObject
 	PKOnlyFirstSpell
 	PKOpponentTurn
@@ -137,6 +158,7 @@ const (
 	PKOptionalPrompt
 	PKOrigin
 	PKPhase
+	PKPlacer
 	PKPlayerTurn
 	PKPowerUp
 	PKPresentCompare
@@ -144,24 +166,34 @@ const (
 	PKPresentZone
 	PKPrevent
 	PKProduced
+	PKPumpDuration
+	PKPumpKeywords
 	PKRandom
 	PKReduceCost
 	PKRelative
+	PKRememberAmount
 	PKRememberChanged
+	PKRememberDamaged
 	PKRememberLKI
 	PKRememberObjects
+	PKRememberOwnLoss
+	PKRememberPumped
 	PKRememberPut
 	PKRememberTargets
 	PKRemoveAllAbilities
 	PKRemoveCardTypes
 	PKRemoveCreatureTypes
 	PKRemoveKeyword
+	PKRemoveKeywords
 	PKRemoveType
+	PKReplacementResult
 	PKRestrictValid
 	PKReveal
 	PKRevolt
 	PKSVarCompare
+	PKSecondary
 	PKSecretly
+	PKSelectPrompt
 	PKSetColor
 	PKSetName
 	PKSetPower
@@ -171,11 +203,14 @@ const (
 	PKSpellDescription
 	PKStatic
 	PKStaticAbilities
+	PKStoreVoteNum
 	PKSubAbility
 	PKTapped
+	PKTarget
 	PKTargetMax
 	PKTargetMin
 	PKTargetType
+	PKTargetUnique
 	PKTargetValidTargeting
 	PKTargetingPlayer
 	PKTargetingPlayerControls
@@ -189,27 +224,48 @@ const (
 	PKTargetsWithSameController
 	PKTargetsWithSameCreatureType
 	PKTargetsWithSharedCardType
+	PKTgtPrompt
 	PKTgtZone
 	PKThisTurn
 	PKTokenScript
+	PKTriggerDescription
 	PKTriggerZones
 	PKTriggers
 	PKType
+	PKTypes
 	PKUnattach
 	PKUnlessCost
 	PKUnlessSwitched
 	PKUpTo
+	PKValid
+	PKValidActivatingPlayer
+	PKValidActivator
+	PKValidAmountEach
+	PKValidAttackers
+	PKValidAttackersAmount
+	PKValidBlocker
 	PKValidCard
 	PKValidCards
 	PKValidCause
 	PKValidChoices
+	PKValidCreature
+	PKValidDefender
+	PKValidDescription
 	PKValidLKI
+	PKValidMode
+	PKValidObject
 	PKValidPlayer
 	PKValidSA
+	PKValidSAonCard
 	PKValidSource
 	PKValidSpell
 	PKValidTarget
 	PKValidTgts
+	PKValidToken
+	PKValidZone
+	PKVarName
+	PKVarValue
+	PKWard
 	PKWithCountersAmount
 	PKWithCountersType
 	PKZone
@@ -217,7 +273,10 @@ const (
 )
 
 // paramMaskWords is a ParamMask's width in 64-bit words: 256 keys, the whole
-// ParamKey (uint8) range, so the ordinal itself caps the vocabulary.
+// ParamKey (uint8) range, so the ordinal itself caps the vocabulary. Since
+// paramKeyCount is itself a ParamKey (at most 255) and pkNone takes ordinal
+// 0, the vocabulary holds at most 254 keys; widening past that means a wider
+// ParamKey, not just more mask words.
 const paramMaskWords = 4
 
 // A ParamMask holds every ParamKey.
@@ -233,7 +292,9 @@ var paramKeyNames = [paramKeyCount]string{
 	PKActivationPhases:                "ActivationPhases",
 	PKActivationZone:                  "ActivationZone",
 	PKActivator:                       "Activator",
+	PKActivatorThisTurnCast:           "ActivatorThisTurnCast",
 	PKActiveZones:                     "ActiveZones",
+	PKAdapt:                           "Adapt",
 	PKAddAbilities:                    "AddAbilities",
 	PKAddAbility:                      "AddAbility",
 	PKAddAllCreatureTypes:             "AddAllCreatureTypes",
@@ -254,10 +315,15 @@ var paramKeyNames = [paramKeyCount]string{
 	PKAdjustLandPlays:                 "AdjustLandPlays",
 	PKAffected:                        "Affected",
 	PKAffectedZone:                    "AffectedZone",
+	PKAllValid:                        "AllValid",
 	PKAmount:                          "Amount",
 	PKAnnounce:                        "Announce",
 	PKAnyNumber:                       "AnyNumber",
+	PKAtRandom:                        "AtRandom",
 	PKAttachedTo:                      "AttachedTo",
+	PKAttackedTarget:                  "AttackedTarget",
+	PKAttacker:                        "Attacker",
+	PKAttackingPlayer:                 "AttackingPlayer",
 	PKBoast:                           "Boast",
 	PKCantHaveKeyword:                 "CantHaveKeyword",
 	PKCaster:                          "Caster",
@@ -271,11 +337,15 @@ var paramKeyNames = [paramKeyCount]string{
 	PKChoiceZone:                      "ChoiceZone",
 	PKChoices:                         "Choices",
 	PKChooseFromDefined:               "ChooseFromDefined",
+	PKChooseFromList:                  "ChooseFromList",
+	PKChooseOrder:                     "ChooseOrder",
 	PKChooser:                         "Chooser",
 	PKClassBand:                       "ClassBand",
 	PKClearImprinted:                  "ClearImprinted",
+	PKCombatDamage:                    "CombatDamage",
 	PKCondition:                       "Condition",
 	PKConditionActivationLimit:        "ConditionActivationLimit",
+	PKConditionCompare:                "ConditionCompare",
 	PKConditionDefined:                "ConditionDefined",
 	PKController:                      "Controller",
 	PKCost:                            "Cost",
@@ -284,9 +354,11 @@ var paramKeyNames = [paramKeyCount]string{
 	PKDefined:                         "Defined",
 	PKDefinedCards:                    "DefinedCards",
 	PKDefinedPlayer:                   "DefinedPlayer",
+	PKDefinedTarget:                   "DefinedTarget",
 	PKDestAltSVar:                     "DestAltSVar",
 	PKDestination:                     "Destination",
 	PKDestinationAlternative:          "DestinationAlternative",
+	PKDifferentNames:                  "DifferentNames",
 	PKDiscard:                         "Discard",
 	PKDividedAsYouChoose:              "DividedAsYouChoose",
 	PKDuration:                        "Duration",
@@ -295,9 +367,12 @@ var paramKeyNames = [paramKeyCount]string{
 	PKEffectZone:                      "EffectZone",
 	PKEvolve:                          "Evolve",
 	PKExcludeZone:                     "ExcludeZone",
+	PKExcludedOrigins:                 "ExcludedOrigins",
 	PKExecute:                         "Execute",
 	PKExhaust:                         "Exhaust",
+	PKFaceDown:                        "FaceDown",
 	PKFirstForetell:                   "FirstForetell",
+	PKFirstTime:                       "FirstTime",
 	PKForgetOtherRemembered:           "ForgetOtherRemembered",
 	PKFoundSearchingLibrary:           "FoundSearchingLibrary",
 	PKGainControl:                     "GainControl",
@@ -317,8 +392,10 @@ var paramKeyNames = [paramKeyCount]string{
 	PKIsPresent2:                      "IsPresent2",
 	PKKW:                              "KW",
 	PKKeyword:                         "Keyword",
+	PKLayer:                           "Layer",
 	PKLeaveBattlefield:                "LeaveBattlefield",
 	PKLibraryPosition:                 "LibraryPosition",
+	PKLifeAmount:                      "LifeAmount",
 	PKMandatory:                       "Mandatory",
 	PKMax:                             "Max",
 	PKMaxTotalTargetCMC:               "MaxTotalTargetCMC",
@@ -332,9 +409,12 @@ var paramKeyNames = [paramKeyCount]string{
 	PKMonstrosity:                     "Monstrosity",
 	PKNewController:                   "NewController",
 	PKNoLooking:                       "NoLooking",
+	PKNoReveal:                        "NoReveal",
 	PKNoShuffle:                       "NoShuffle",
+	PKNonLegendary:                    "NonLegendary",
 	PKNotThisAbility:                  "NotThisAbility",
 	PKNumDmg:                          "NumDmg",
+	PKNumber:                          "Number",
 	PKObject:                          "Object",
 	PKOnlyFirstSpell:                  "OnlyFirstSpell",
 	PKOpponentTurn:                    "OpponentTurn",
@@ -343,6 +423,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKOptionalPrompt:                  "OptionalPrompt",
 	PKOrigin:                          "Origin",
 	PKPhase:                           "Phase",
+	PKPlacer:                          "Placer",
 	PKPlayerTurn:                      "PlayerTurn",
 	PKPowerUp:                         "PowerUp",
 	PKPresentCompare:                  "PresentCompare",
@@ -350,24 +431,34 @@ var paramKeyNames = [paramKeyCount]string{
 	PKPresentZone:                     "PresentZone",
 	PKPrevent:                         "Prevent",
 	PKProduced:                        "Produced",
+	PKPumpDuration:                    "PumpDuration",
+	PKPumpKeywords:                    "PumpKeywords",
 	PKRandom:                          "Random",
 	PKReduceCost:                      "ReduceCost",
 	PKRelative:                        "Relative",
+	PKRememberAmount:                  "RememberAmount",
 	PKRememberChanged:                 "RememberChanged",
+	PKRememberDamaged:                 "RememberDamaged",
 	PKRememberLKI:                     "RememberLKI",
 	PKRememberObjects:                 "RememberObjects",
+	PKRememberOwnLoss:                 "RememberOwnLoss",
+	PKRememberPumped:                  "RememberPumped",
 	PKRememberPut:                     "RememberPut",
 	PKRememberTargets:                 "RememberTargets",
 	PKRemoveAllAbilities:              "RemoveAllAbilities",
 	PKRemoveCardTypes:                 "RemoveCardTypes",
 	PKRemoveCreatureTypes:             "RemoveCreatureTypes",
 	PKRemoveKeyword:                   "RemoveKeyword",
+	PKRemoveKeywords:                  "RemoveKeywords",
 	PKRemoveType:                      "RemoveType",
+	PKReplacementResult:               "ReplacementResult",
 	PKRestrictValid:                   "RestrictValid",
 	PKReveal:                          "Reveal",
 	PKRevolt:                          "Revolt",
 	PKSVarCompare:                     "SVarCompare",
+	PKSecondary:                       "Secondary",
 	PKSecretly:                        "Secretly",
+	PKSelectPrompt:                    "SelectPrompt",
 	PKSetColor:                        "SetColor",
 	PKSetName:                         "SetName",
 	PKSetPower:                        "SetPower",
@@ -377,11 +468,14 @@ var paramKeyNames = [paramKeyCount]string{
 	PKSpellDescription:                "SpellDescription",
 	PKStatic:                          "Static",
 	PKStaticAbilities:                 "StaticAbilities",
+	PKStoreVoteNum:                    "StoreVoteNum",
 	PKSubAbility:                      "SubAbility",
 	PKTapped:                          "Tapped",
+	PKTarget:                          "Target",
 	PKTargetMax:                       "TargetMax",
 	PKTargetMin:                       "TargetMin",
 	PKTargetType:                      "TargetType",
+	PKTargetUnique:                    "TargetUnique",
 	PKTargetValidTargeting:            "TargetValidTargeting",
 	PKTargetingPlayer:                 "TargetingPlayer",
 	PKTargetingPlayerControls:         "TargetingPlayerControls",
@@ -395,27 +489,48 @@ var paramKeyNames = [paramKeyCount]string{
 	PKTargetsWithSameController:       "TargetsWithSameController",
 	PKTargetsWithSameCreatureType:     "TargetsWithSameCreatureType",
 	PKTargetsWithSharedCardType:       "TargetsWithSharedCardType",
+	PKTgtPrompt:                       "TgtPrompt",
 	PKTgtZone:                         "TgtZone",
 	PKThisTurn:                        "ThisTurn",
 	PKTokenScript:                     "TokenScript",
+	PKTriggerDescription:              "TriggerDescription",
 	PKTriggerZones:                    "TriggerZones",
 	PKTriggers:                        "Triggers",
 	PKType:                            "Type",
+	PKTypes:                           "Types",
 	PKUnattach:                        "Unattach",
 	PKUnlessCost:                      "UnlessCost",
 	PKUnlessSwitched:                  "UnlessSwitched",
 	PKUpTo:                            "UpTo",
+	PKValid:                           "Valid",
+	PKValidActivatingPlayer:           "ValidActivatingPlayer",
+	PKValidActivator:                  "ValidActivator",
+	PKValidAmountEach:                 "ValidAmountEach",
+	PKValidAttackers:                  "ValidAttackers",
+	PKValidAttackersAmount:            "ValidAttackersAmount",
+	PKValidBlocker:                    "ValidBlocker",
 	PKValidCard:                       "ValidCard",
 	PKValidCards:                      "ValidCards",
 	PKValidCause:                      "ValidCause",
 	PKValidChoices:                    "ValidChoices",
+	PKValidCreature:                   "ValidCreature",
+	PKValidDefender:                   "ValidDefender",
+	PKValidDescription:                "ValidDescription",
 	PKValidLKI:                        "ValidLKI",
+	PKValidMode:                       "ValidMode",
+	PKValidObject:                     "ValidObject",
 	PKValidPlayer:                     "ValidPlayer",
 	PKValidSA:                         "ValidSA",
+	PKValidSAonCard:                   "ValidSAonCard",
 	PKValidSource:                     "ValidSource",
 	PKValidSpell:                      "ValidSpell",
 	PKValidTarget:                     "ValidTarget",
 	PKValidTgts:                       "ValidTgts",
+	PKValidToken:                      "ValidToken",
+	PKValidZone:                       "ValidZone",
+	PKVarName:                         "VarName",
+	PKVarValue:                        "VarValue",
+	PKWard:                            "Ward",
 	PKWithCountersAmount:              "WithCountersAmount",
 	PKWithCountersType:                "WithCountersType",
 	PKZone:                            "Zone",

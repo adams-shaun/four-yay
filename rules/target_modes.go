@@ -181,7 +181,7 @@ func (e *Engine) askCharmSeqSlot(p state.PlayerID, source state.ObjID, svars map
 		if max > len(cs) {
 			max = len(cs)
 		}
-		prompt := strings.TrimSpace(sa.Params["TgtPrompt"])
+		prompt := strings.TrimSpace(sa.ParamStr(cards.PKTgtPrompt))
 		if prompt == "" {
 			prompt = "Choose a target"
 		}

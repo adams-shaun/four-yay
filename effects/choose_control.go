@@ -615,7 +615,7 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 				min = len(greedy)
 			}
 		}
-		if each == nil && strings.EqualFold(sa.Params["AtRandom"], "True") {
+		if each == nil && strings.EqualFold(sa.ParamStr(cards.PKAtRandom), "True") {
 			chooseCardRecord(h, c, sa, randomChoices(h, choices, max))
 			continue
 		}
@@ -1160,7 +1160,7 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 			}
 			choiceRecord(h, c, sa, ts, false)
 		}
-	} else if spec := sa.Params["AllValid"]; spec != "" {
+	} else if spec := sa.ParamStr(cards.PKAllValid); spec != "" {
 		for i := range g.Objs {
 			o := &g.Objs[i]
 			if o.Zone == state.ZBattlefield && MatchesObjectCtx(g, spec, o, c.SpecContext(c.Controller)) {
@@ -1261,7 +1261,7 @@ func effGainControlVariant(h Host, c *Ctx, sa *cards.SA) {
 // gainControlVariantBase validates the AllValid$/LoseControl$ shape every
 // value shares and builds the grant template each object's transfer fills in.
 func gainControlVariantBase(h Host, c *Ctx, sa *cards.SA, g *state.Game) (string, ControlGrant, bool) {
-	spec := strings.TrimSpace(sa.Params["AllValid"])
+	spec := strings.TrimSpace(sa.ParamStr(cards.PKAllValid))
 	if spec == "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "GainControlVariant has no AllValid$ filter"})
@@ -2047,10 +2047,10 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 		// are NOT silently sorted: the offered list is the selector/scan order
 		// and the answer names a permutation of it. A no-host host (R-9) keeps
 		// that scan order as its deterministic stand-in.
-		if cardsSubjects && len(subjects) > 1 && strings.TrimSpace(sa.Params["ChooseOrder"]) != "" {
+		if cardsSubjects && len(subjects) > 1 && strings.TrimSpace(sa.ParamStr(cards.PKChooseOrder)) != "" {
 			chooser := c.Controller
-			if !strings.EqualFold(strings.TrimSpace(sa.Params["ChooseOrder"]), "True") {
-				if ps := definedPlayerIDs(h, c, strings.TrimSpace(sa.Params["ChooseOrder"])); len(ps) > 0 {
+			if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKChooseOrder)), "True") {
+				if ps := definedPlayerIDs(h, c, strings.TrimSpace(sa.ParamStr(cards.PKChooseOrder))); len(ps) > 0 {
 					chooser = ps[0]
 				}
 			}

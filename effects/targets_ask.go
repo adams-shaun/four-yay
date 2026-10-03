@@ -239,7 +239,7 @@ func targetOwnerOf(h Host, t state.Target) state.PlayerID {
 func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 	candidates []state.Target, min, max int32, resumeKind string,
 ) ([]state.Target, bool) {
-	prompt := strings.TrimSpace(sa.Params["TgtPrompt"])
+	prompt := strings.TrimSpace(sa.ParamStr(cards.PKTgtPrompt))
 	if prompt == "" {
 		prompt = "Choose target"
 	}

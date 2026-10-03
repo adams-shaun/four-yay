@@ -383,7 +383,7 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (bool, bool) {
 	// neither the pay election nor a zero-cost "pay" that would copy nothing.
 	// Apply the not-paid orientation (switched: no copies) and let the
 	// SubAbility$ chain run, exactly as a decline would.
-	if sa.API == "CopySpellAbility" && strings.EqualFold(strings.TrimSpace(sa.Params["DefinedTarget"]), "ChosenCard") {
+	if sa.API == "CopySpellAbility" && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKDefinedTarget)), "ChosenCard") {
 		n := 0
 		for _, t := range resolutionChosenCards(h.Game(), c) {
 			if !t.IsPlayer {

@@ -236,7 +236,7 @@ func (e *Engine) abilityPresentHolds(p state.PlayerID, id state.ObjID, ab *cards
 // CheckSVar$/Boast$ gates it sits beside: no state can move between the
 // offer and the answer inside one priority window.
 func (e *Engine) adaptGateOK(id state.ObjID, ab *cards.SA) bool {
-	if strings.TrimSpace(ab.Params["Adapt"]) == "" {
+	if strings.TrimSpace(ab.ParamStr(cards.PKAdapt)) == "" {
 		return true
 	}
 	o := e.G.Obj(id)

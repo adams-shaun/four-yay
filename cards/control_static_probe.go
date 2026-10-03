@@ -23,7 +23,7 @@ func (c *Card) MayCarryControlStatic() bool {
 			continue
 		}
 		for _, st := range f.Statics {
-			if _, ok := st.Params["GainControl"]; ok {
+			if st.HasParam(PKGainControl) {
 				return true
 			}
 		}

@@ -84,7 +84,7 @@ type ManaProduction struct {
 // decidable (blank -> 1, literal -> literal) and diverges only where effMana
 // would need a live game, where claiming a count would be a lie.
 func manaAbilityAmount(a *SA) (int32, bool) {
-	raw := strings.TrimSpace(a.Params["Amount"])
+	raw := strings.TrimSpace(a.ParamStr(PKAmount))
 	if raw == "" {
 		return 1, true
 	}
@@ -225,7 +225,7 @@ func (mp *ManaProduction) add(a *SA) {
 		// source must never make ProducesColour true.
 		mp.Indeterminate = true
 	}
-	counts, any := ProducedCounts(a.Params["Produced"])
+	counts, any := ProducedCounts(a.ParamStr(PKProduced))
 	if any {
 		mp.Any = true
 	}

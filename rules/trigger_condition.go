@@ -134,7 +134,7 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 	// LifeLost's and LifeGained's LifeAmount$ are matched against the causing
 	// loss/gain by their matchers (trigmatch.lifeLostMatches/trigmatch.lifeGainedMatches), rather
 	// than against a player's current life total.
-	if v, ok := t.Params["LifeAmount"]; ok && t.Mode != "LifeLost" && t.Mode != "LifeLostAll" && t.Mode != "LifeGained" {
+	if v, ok := t.Param(cards.PKLifeAmount); ok && t.Mode != "LifeLost" && t.Mode != "LifeLostAll" && t.Mode != "LifeGained" {
 		if !e.lifeConditionHoldsAs(t, you, v) {
 			return false
 		}

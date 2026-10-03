@@ -19,9 +19,9 @@ package rules
 
 import (
 	"go/ast"
-	"io/fs"
 	"go/parser"
 	"go/token"
+	"io/fs"
 	"sort"
 	"strconv"
 	"strings"

@@ -144,13 +144,13 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 		}
 	} else {
 		// Population by Valid$ + ValidZone$.
-		valid := strings.TrimSpace(sa.Params["Valid"])
+		valid := strings.TrimSpace(sa.ParamStr(cards.PKValid))
 		statedValid := valid != ""
 		if valid == "" {
 			valid = "Card"
 		}
 		var zones []state.Zone
-		if z := strings.TrimSpace(sa.Params["ValidZone"]); z != "" {
+		if z := strings.TrimSpace(sa.ParamStr(cards.PKValidZone)); z != "" {
 			for part := range strings.SplitSeq(z, ",") {
 				if zn, ok := ZoneFromString(strings.TrimSpace(part)); ok {
 					zones = append(zones, zn)

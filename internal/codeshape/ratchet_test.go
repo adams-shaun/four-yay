@@ -51,8 +51,10 @@ const (
 	// expressions in rules/ and effects/ non-test files. W4 slice 3 (194
 	// ParamKeys, the 256-key mask) moved 488 reads onto the typed accessors:
 	// 1302 -> 814. The same rewrite over rules/trigmatch's moved matchers
-	// (W5 E3, ValidSA/Static): 805 -> 798.
-	stringParamReads = 798
+	// (W5 E3, ValidSA/Static): 805 -> 798. W4 slice 4 added 56 keys (250 of
+	// the 254 a uint8 ParamKey can name) and migrated rules/chars too:
+	// 798 -> 630.
+	stringParamReads = 630
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	stringCaseLiterals = 2886

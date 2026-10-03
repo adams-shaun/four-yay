@@ -33,7 +33,7 @@ import (
 // re-entry sets Ctx.OfferedSA so this pre-ask is skipped -- the two cannot
 // double-enforce.
 func TargetUniqueRequested(sa *cards.SA) bool {
-	return sa != nil && strings.EqualFold(strings.TrimSpace(sa.Params["TargetUnique"]), "True")
+	return sa != nil && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetUnique)), "True")
 }
 
 // TargetsAlreadyChosen is the exclusion set a TargetUnique$ ask must not

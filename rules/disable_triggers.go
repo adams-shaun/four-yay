@@ -100,7 +100,7 @@ func (e *Engine) disableTriggersExcludes(t cards.Trigger, source state.ObjID, ev
 				continue
 			}
 		}
-		if raw := sv.Params["ValidMode"]; raw != "" {
+		if raw := sv.ParamStr(cards.PKValidMode); raw != "" {
 			found := false
 			for _, mode := range strings.Split(raw, ",") {
 				if strings.TrimSpace(mode) == t.Mode {
@@ -150,5 +150,5 @@ func triggerKindMatches(raw string, t cards.Trigger) bool {
 	if raw != "Triggered.Ward" {
 		return false
 	}
-	return t.Params["Ward"] == "True"
+	return t.ParamStr(cards.PKWard) == "True"
 }

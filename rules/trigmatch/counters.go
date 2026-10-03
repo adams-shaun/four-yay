@@ -211,7 +211,7 @@ func counterPlayerAddedAllMatches(e Board, t cards.Trigger, source state.ObjID, 
 		return false
 	}
 	you := e.ControllerOf(source)
-	if spec := strings.TrimSpace(t.Params["ValidObject"]); spec != "" {
+	if spec := strings.TrimSpace(t.ParamStr(cards.PKValidObject)); spec != "" {
 		matched := false
 		for alt := range strings.SplitSeq(spec, ",") {
 			alt = strings.TrimSpace(alt)

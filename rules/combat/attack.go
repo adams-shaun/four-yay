@@ -1,6 +1,7 @@
 package combat
 
 import (
+	"github.com/adams-shaun/gorge/cards"
 	"math"
 	"strconv"
 	"strings"
@@ -214,7 +215,7 @@ func AttackRequirements(b Board, id state.ObjID) RequirementSet {
 		if !effects.MustAttackParamsReadableForRules(sv.Params) || !b.StaticGateHolds(sv) {
 			continue
 		}
-		if !mustAttackLineSelects(b, sv.Params["ValidCreature"], id, sv.Source, sv.Controller, nil) {
+		if !mustAttackLineSelects(b, sv.ParamStr(cards.PKValidCreature), id, sv.Source, sv.Controller, nil) {
 			continue
 		}
 		spec := strings.TrimSpace(sv.Params["MustAttack"])
@@ -295,7 +296,7 @@ func MaxAttackers(b Board) int {
 	const huge = int(^uint(0) >> 1)
 	maxAllowed := huge
 	for _, sv := range b.Statics("AttackRestrict") {
-		if strings.TrimSpace(sv.Params["ValidDefender"]) != "" || !b.StaticGateHolds(sv) {
+		if strings.TrimSpace(sv.ParamStr(cards.PKValidDefender)) != "" || !b.StaticGateHolds(sv) {
 			continue
 		}
 		// attackCeiling defaults an absent/invalid MaxAttackers$ to the
@@ -321,7 +322,7 @@ func AttackRestrictLimit(b Board, defender state.PlayerID) (int, bool) {
 		if !b.StaticGateHolds(sv) {
 			continue
 		}
-		spec := strings.TrimSpace(sv.Params["ValidDefender"])
+		spec := strings.TrimSpace(sv.ParamStr(cards.PKValidDefender))
 		if spec == "" || !effects.MatchesPlayerSpecCtx(b.Game(), spec, defender, sv.Controller, b.PlayerSpecCtx(sv.Source)) {
 			continue
 		}

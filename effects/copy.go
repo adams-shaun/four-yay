@@ -275,7 +275,7 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 	// supertype from, the same event-sourced shape ClonePermanent's Counter
 	// riders take. No event field is added or reordered; an absent or False
 	// key adds no strip, but a copy of a stripped copy inherits the strip.
-	nonLegendary := strings.EqualFold(strings.TrimSpace(sa.Params["NonLegendary"]), "True")
+	nonLegendary := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKNonLegendary)), "True")
 	// SetLoyalty$ (the corpus's one carrier is Ob Nixilis, the Adversary's
 	// Casualty:X script rider): the copy's starting loyalty, delivered
 	// RESOLVED -- the creating trigger's payload already substituted the
@@ -330,7 +330,7 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 		// no Note -- the resolution's sub-abilities (the cleanup chain) still
 		// run.
 	default:
-		if spec := strings.TrimSpace(sa.Params["DefinedTarget"]); spec != "" {
+		if spec := strings.TrimSpace(sa.ParamStr(cards.PKDefinedTarget)); spec != "" {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "copy: DefinedTarget$ " + spec + " not resolved; copy keeps its targets"})
 		}
@@ -395,7 +395,7 @@ func emitCopy(h Host, c *Ctx, remember bool, ev events.Event) {
 // the caller can keep the historical copy-keeps-targets shape (under the
 // loud Note) instead of silently dropping the param.
 func copyDefinedTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
-	spec := strings.TrimSpace(sa.Params["DefinedTarget"])
+	spec := strings.TrimSpace(sa.ParamStr(cards.PKDefinedTarget))
 	if spec == "" {
 		return nil, false
 	}
