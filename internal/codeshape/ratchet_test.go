@@ -82,7 +82,9 @@ const (
 	// reads and withheld-rider list compiled once): 581 -> 568.
 	// The RemoveCounter compiler (effRemoveCounter moved to removecounter.go;
 	// CounterNumShared$/ChoiceNum$/RememberRemoved$ read once): 568 -> 564.
-	stringParamReads = 564
+	// TargetsAtRandom$ compiled into TargetParams (TgtAtRandom) through
+	// PKTargetsAtRandom: 564 -> 563.
+	stringParamReads = 563
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.

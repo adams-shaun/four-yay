@@ -628,7 +628,7 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 		if tempRemember {
 			c.Remembered = []state.Target{chooser}
 		}
-		available := genericChoiceAvailable(h, c, chooser.Player, choices)
+		available := charmRandomOffer(h, c, sa, chooser.Player, genericChoiceAvailable(h, c, chooser.Player, choices))
 		c.Remembered = append([]state.Target(nil), baselineRemembered...)
 		if len(available) == 0 {
 			// No choice is payable. Forge runs FallbackAbility$ instead of
@@ -815,6 +815,17 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 		}
 		choices, subs = eligible, filteredSubs
 	}
+	// NumRandomChoices$ (Davriel, Soul Broker): only a random draw of the
+	// eligible modes is offered. The offered list rides the ask as
+	// ResumeModes, the vocabulary its answer's indices map against.
+	offered := false
+	if picked := charmRandomOffer(h, c, sa, c.Controller, choices); len(picked) != len(choices) {
+		filteredSubs := make([]*cards.SA, len(picked))
+		for i, name := range picked {
+			filteredSubs[i] = cards.ResolveSVar(c.SVars, name)
+		}
+		choices, subs, offered = picked, filteredSubs, true
+	}
 	min, max, repeat := CharmModeBounds(h, c, sa, len(choices))
 	if min > len(choices) && !repeat {
 		// Forge declines a Charm whose required minimum exceeds its available
@@ -861,14 +872,20 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 			Index: i, Kind: "mode", Label: CharmModeLabel(subs[i], name),
 			Obj: c.Source, Player: c.Controller})
 	}
+	vocab := cp.Modes
+	if offered {
+		d.ResumeModes = append([]string(nil), choices...)
+		vocab = choices
+	}
 	if ans, ok := AskTape(h, d); ok {
 		// The resolution kernel's answer in hand (its record wrote the
 		// ModeChosen marker): run the chosen modes, named exactly as the
-		// "modes" resume arm names them (modeAnswerNames: Choices$ order).
+		// "modes" resume arm names them (modeAnswerNames: Choices$ order,
+		// or the offered ResumeModes list of a NumRandomChoices$ draw).
 		names := make([]string, 0, len(ans))
 		for _, o := range ans {
-			if o.Index >= 0 && o.Index < len(cp.Modes) {
-				names = append(names, cp.Modes[o.Index])
+			if o.Index >= 0 && o.Index < len(vocab) {
+				names = append(names, vocab[o.Index])
 			}
 		}
 		// The legacy re-entry re-runs effCharm from its first line, which

@@ -29,9 +29,8 @@ import (
 // The per-API compilers that need a targeting fact (ChangeZone's ValidTgts$
 // and bounds, ChangeZoneAll's targeting flag, Attach's inZone<X> zones) take
 // it from the TargetParams NewSAFacts compiled first, so each key still has
-// exactly one reader. The two API-scoped riders (DividedAsYouChoose$,
-// TargetsAtRandom$) have their own single readers here (dividedParam,
-// targetsAtRandomParam).
+// exactly one reader. The API-scoped rider DividedAsYouChoose$ has its own
+// single reader here (dividedParam).
 
 // TargetFlag is one compiled boolean fact of an ability's targeting.
 type TargetFlag uint32
@@ -80,6 +79,13 @@ const (
 	// TargetMax$ or TgtZone$ is non-empty -- the ability declares a target
 	// in some form (the payment planner's target-declaration probe).
 	TgtDeclares
+	// TgtAtRandom: TargetsAtRandom$ set and not False -- the targets are
+	// chosen at random from the game rng, never by the chooser
+	// (RandomTargetsAsk narrows every target ask to the draw).
+	TgtAtRandom
+	// TgtRandomNum: RandomNumTargets$ True -- with TgtAtRandom, the NUMBER
+	// of targets is drawn too, between the bounds (Orcish Catapult).
+	TgtRandomNum
 )
 
 // TargetParams is one ability's targeting parameters, compiled once.
@@ -244,6 +250,12 @@ func compileTargets(sa *cards.SA) *TargetParams {
 	if strings.TrimSpace(sa.ParamStr(cards.PKTargetUnique)) != "" {
 		p.Flags |= TgtUniqueSet
 	}
+	if v := strings.TrimSpace(sa.ParamStr(cards.PKTargetsAtRandom)); v != "" && !strings.EqualFold(v, "False") {
+		p.Flags |= TgtAtRandom
+	}
+	if isTrue(sa.ParamStr(cards.PKRandomNumTargets)) {
+		p.Flags |= TgtRandomNum
+	}
 	if strings.EqualFold(sa.ParamStr(cards.PKTargetsWithSameController), "True") {
 		p.Flags |= TgtSameController
 	}
@@ -294,25 +306,21 @@ func compileTargets(sa *cards.SA) *TargetParams {
 	return p
 }
 
-// DividedAsYouChoose$ and TargetsAtRandom$ are targeting riders that only
-// some APIs honour (DealDamage, PutCounter and PreventDamage divide; only
-// ExchangeControl refuses TargetsAtRandom$ loudly), so compileTargets -- which
-// every ability's resolution reaches -- does not read them: the parameter
-// census attributes a read to the APIs whose code reaches it, and a generic
-// read would mark both keys read for every API. Each has one reader below,
-// called only from those APIs' paths.
+// DividedAsYouChoose$ is a targeting rider that only some APIs honour
+// (DealDamage, PutCounter and PreventDamage divide), so compileTargets --
+// which every ability's resolution reaches -- does not read it: the
+// parameter census attributes a read to the APIs whose code reaches it, and
+// a generic read would mark the key read for every API. It has one reader
+// below, called only from those APIs' paths. TargetsAtRandom$ (and its
+// RandomNumTargets$ rider) is the opposite case: every target ask honours it
+// whatever the API (RandomTargetsAsk, effects/atrandom.go), so it is a
+// compiled flag (TgtAtRandom, TgtRandomNum) like the rest of the tier.
 
 // dividedParam is DividedAsYouChoose$ as written; ok reports it non-empty
 // (the ability divides its amount among its targets).
 func dividedParam(sa *cards.SA) (p ParamText, ok bool) {
 	v, present := sa.Param(cards.PKDividedAsYouChoose)
 	return ParamText{Text: v, Present: present}, strings.TrimSpace(v) != ""
-}
-
-// targetsAtRandomParam reports TargetsAtRandom$ set and not False.
-func targetsAtRandomParam(sa *cards.SA) bool {
-	v := strings.TrimSpace(sa.Params["TargetsAtRandom"])
-	return v != "" && !strings.EqualFold(v, "False")
 }
 
 // literalTargetBounds is the literal-only bound pair (TargetParams.BoundMin/

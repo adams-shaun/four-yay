@@ -596,6 +596,9 @@ func (e *Engine) askTarget(p state.PlayerID, source state.ObjID, sa *cards.SA) {
 		e.poseOpponentPick(p, source, sa, oppPickTarget)
 		return
 	}
+	// TargetsAtRandom$: the engine draws the targets (effects.RandomTargetsAsk
+	// owns the class for every target ask site).
+	effects.RandomTargetsAsk(e, d, sa)
 	e.ask(d)
 }
 

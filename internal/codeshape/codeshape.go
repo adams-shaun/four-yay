@@ -216,11 +216,11 @@ const TargetCompilerFile = "effects/targets_params.go"
 // TargetOnlyKeys are the targeting parameter keys: a read of one of them
 // anywhere in rules/ or effects/ outside TargetCompilerFile is a path
 // interpreting a targeting parameter on its own (effects.TargetsOf serves
-// every path the compiled TargetParams). The API-scoped riders
-// DividedAsYouChoose$ and TargetsAtRandom$ are read in the same file, by
-// their own single readers (dividedParam, targetsAtRandomParam).
+// every path the compiled TargetParams). The API-scoped rider
+// DividedAsYouChoose$ is read in the same file by its own single reader
+// (dividedParam); TargetsAtRandom$ and RandomNumTargets$ are compiled flags.
 var TargetOnlyKeys = []string{
-	"DividedAsYouChoose", "MaxTotalTargetCMC", "MaxTotalTargetPower", "TargetMax",
+	"DividedAsYouChoose", "MaxTotalTargetCMC", "MaxTotalTargetPower", "RandomNumTargets", "TargetMax",
 	"TargetMin", "TargetType", "TargetUnique", "TargetValidTargeting", "TargetingPlayer",
 	"TargetingPlayerControls", "TargetsAtRandom", "TargetsForEachPlayer",
 	"TargetsWithControllerProperty", "TargetsWithDefinedController", "TargetsWithDifferentCMC",

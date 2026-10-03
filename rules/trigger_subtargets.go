@@ -177,6 +177,7 @@ func (e *Engine) askTriggerSubTargets() bool {
 			opt.Controller = e.candidateControllerSeat(candidate)
 			d.Options = append(d.Options, opt)
 		}
+		effects.RandomTargetsAsk(e, d, sub)
 		e.ask(d)
 		return true
 	}

@@ -68,6 +68,10 @@ type CharmParams struct {
 	// AILogic$ Random: the script's AI-picks-at-random marker, carried on
 	// the ask as decision.Decision.AIRandom for unattended bots.
 	AILogicRandom bool
+	// NumRandomChoices$ (GenericChoice; Davriel, Soul Broker's offers and
+	// conditions): only that many of the available choices, drawn from the
+	// engine rng, are offered (effects/atrandom.go charmRandomOffer).
+	NumRandomChoices ParamText
 
 	// Unread are the parameters present on a Charm or GenericChoice ability
 	// that no reader of its resolution consumes (charmKnownKeys): effCharm
@@ -134,6 +138,8 @@ func compileCharm(sa *cards.SA, dp *DefinedParams) *CharmParams {
 	p.FallbackAbility = strings.TrimSpace(sa.Params["FallbackAbility"])
 	p.AtRandom = strings.TrimSpace(sa.ParamStr(cards.PKAtRandom))
 	p.AILogicRandom = strings.TrimSpace(sa.ParamStr(cards.PKAILogic)) == "Random"
+	nrc, nrcOK := sa.Param(cards.PKNumRandomChoices)
+	p.NumRandomChoices = ParamText{Text: nrc, Present: nrcOK}
 	if isCharmAPI(sa) {
 		p.Unread = unreadKeys(sa, charmKnownKeys[:])
 	}
@@ -166,15 +172,15 @@ var charmKnownKeys = [...]string{
 	"GameActivationLimit", "Image", "ImprintCards", "ImprintPlayed", "InstantSpeed",
 	"IsCurse", "IsPresent", "KW", "Keyword", "KeywordLine",
 	"MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor", "MinCharmNum", "ModeCost",
-	"Monstrosity", "NewController", "NumDmg", "OpponentTurn", "Optional",
+	"Monstrosity", "NewController", "NumDmg", "NumRandomChoices", "OpponentTurn", "Optional",
 	"Planeswalker", "PlayCost", "PlayerTurn", "PowerUp", "PrecostDesc", "PresentCompare",
-	"PresentDefined", "PresentZone", "Random", "RandomCompare", "RandomCompareSVar",
+	"PresentDefined", "PresentZone", "Random", "RandomCompare", "RandomCompareSVar", "RandomNumTargets",
 	"ReduceAmount", "ReduceCost", "RememberCostMana", "RememberObjects", "ReplaceColor",
 	"ReplaceGraveyard", "ReplaceGraveyardValid", "ReplaceMana", "ReplaceOnly",
 	"ReplaceType", "SVarCompare", "SelectPrompt", "SetChosenMode",
 	"SetColor", "ShowCards", "SorcerySpeed", "SpellDescription", "StackDescription",
 	"SubAbility", "TargetMax", "TargetMin", "TargetType",
-	"TargetUnique", "TargetValidTargeting", "TargetingPlayer", "TargetingPlayerControls",
+	"TargetUnique", "TargetValidTargeting", "TargetingPlayer", "TargetingPlayerControls", "TargetsAtRandom",
 	"TargetsForEachPlayer", "TargetsWithControllerProperty",
 	"TargetsWithDefinedController", "TargetsWithDifferentCMC",
 	"TargetsWithDifferentControllers", "TargetsWithDifferentNames",
