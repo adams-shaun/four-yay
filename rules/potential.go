@@ -5,11 +5,11 @@ import (
 	"math"
 	"reflect"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -253,8 +253,9 @@ var potentialProducedStrip = strings.NewReplacer("{", "", "}", "", " ", "")
 // alternative production or an indeterminate amount -- is UNBOUNDED here
 // rather than zero, because this bound must never lose an action.
 func addPotentialMana(m *state.Mana, ma *cards.SA) {
-	amt, indeterminate := potentialAmount(ma)
-	raw := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
+	mp := effects.ManaOf(ma)
+	amt, indeterminate := potentialAmount(mp)
+	raw := mp.Produced
 	// Blank Produced$ is the executor's own colourless default (effMana), NOT
 	// an alternative production: normalize it to "C" BEFORE the open test so a
 	// colourless source contributes one colourless rather than pricing the
@@ -285,10 +286,10 @@ type potentialManaAdd struct {
 	add       [len(state.Mana{})]int64
 }
 
-func computePotentialManaAdd(ma *cards.SA) potentialManaAdd {
+func computePotentialManaAdd(mp *effects.ManaParams) potentialManaAdd {
 	var f potentialManaAdd
-	amt, indeterminate := potentialAmount(ma)
-	raw := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
+	amt, indeterminate := potentialAmount(mp)
+	raw := mp.Produced
 	if raw == "" {
 		raw = "C"
 	}
@@ -377,12 +378,11 @@ func producedOpen(raw string) bool {
 // directly with the negative clamp the executor applies; anything else (an X,
 // a Y, a Count$ expression, a Sacrificed$ reference) is indeterminate and
 // prices unbounded upstream rather than at zero.
-func potentialAmount(ma *cards.SA) (int32, bool) {
-	raw := strings.TrimSpace(ma.ParamStr(cards.PKAmount))
-	if raw == "" {
+func potentialAmount(mp *effects.ManaParams) (int32, bool) {
+	if mp.AmountTrim == "" {
 		return 1, false
 	}
-	if v, err := strconv.Atoi(raw); err == nil {
+	if v := mp.AmountLit; mp.AmountIsLit {
 		if v < 0 {
 			return 0, false
 		}

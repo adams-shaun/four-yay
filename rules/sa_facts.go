@@ -30,7 +30,13 @@ type saFacts = effects.SAFacts
 func buildSAFacts(ab *cards.SA, costOf func(string) *compiledCost) *saFacts {
 	f := effects.NewSAFacts(ab)
 	if ab.Kind == "AB" {
-		m := buildManaSAFactsValue(ab, costOf)
+		mp := f.Mana
+		if mp == nil {
+			// A non-Mana AB$ ability's mana facts read the same compiled
+			// production parameters (every field is compiled for any API).
+			mp = effects.ManaOf(ab)
+		}
+		m := buildManaSAFactsValue(ab, mp, costOf)
 		f.Rules = unsafe.Pointer(&m)
 	}
 	return f
