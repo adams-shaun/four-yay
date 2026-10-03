@@ -25,6 +25,10 @@ type tapeFlowCase struct {
 	seats     int
 	extra     []string // further fixture cards, moved to seat 0's hand
 	setup     func(t *testing.T, e *Engine)
+	// checkpointAll: the site's ask is board-dependent (a Dredge ask over
+	// an otherwise ask-free Draw), which the ask-free predicate cannot see,
+	// so the case checkpoints every resolution (tapeCheckpointAll).
+	checkpointAll bool
 }
 
 // tapeCastAndResolveKinds is tapeCastAndResolve recording every posed
@@ -67,6 +71,10 @@ func runTapeFlowCases(t *testing.T, base uint64, seeds int, cases []tapeFlowCase
 			seats := tc.seats
 			if seats == 0 {
 				seats = 2
+			}
+			if tc.checkpointAll {
+				tapeCheckpointAll = true
+				t.Cleanup(func() { tapeCheckpointAll = false })
 			}
 			seen := map[string]int{}
 			for s := 0; s < seeds; s++ {
@@ -188,5 +196,26 @@ func TestTapeConvertFlowNameCard(t *testing.T) {
 	runTapeFlowCases(t, 36000, 2, []tapeFlowCase{
 		{name: "Tape Name", src: "A:SP$ NameCard | Defined$ You | SubAbility$ DBDig\nSVar:DBDig:DB$ Dig | DigNum$ 3 | ChangeNum$ 1 | ChangeValid$ Card.NamedCard",
 			kinds: []string{"name"}, served: 1},
+	})
+}
+
+const tapeDredgerSrc = "Name:Tape Dredger\nManaCost:G\nTypes:Sorcery\nK:Dredge:2\nA:SP$ GainLife | LifeAmount$ 1\nOracle:x\n"
+
+func TestTapeConvertFlowDraw(t *testing.T) {
+	inYard := func(t *testing.T, e *Engine) { moveByName(t, e, 0, "Tape Dredger", state.ZGraveyard) }
+	dredger := []string{tapeDredgerSrc}
+	runTapeFlowCases(t, 37000, 3, []tapeFlowCase{
+		{name: "Tape Remora", src: "A:SP$ Draw | NumCards$ 2 | OptionalDecider$ You | SubAbility$ DBGain\nSVar:DBGain:DB$ GainLife | LifeAmount$ 2",
+			kinds: []string{"draw_optional"}, served: 1},
+		{name: "Tape Truce", src: "A:SP$ Draw | NumCards$ 2 | Upto$ True | Defined$ Player | SubAbility$ DBGain\nSVar:DBGain:DB$ GainLife | LifeAmount$ 2",
+			kinds: []string{"draw_upto"}, served: 2},
+		{name: "Tape Dredge Draw", src: "A:SP$ Draw | NumCards$ 3 | SubAbility$ DBGain\nSVar:DBGain:DB$ GainLife | LifeAmount$ 2",
+			kinds: []string{"dredge"}, served: 1, extra: dredger, setup: inYard, checkpointAll: true},
+		{name: "Tape Dredge Remember", src: "A:SP$ Draw | NumCards$ 2 | RememberDrawn$ True | SubAbility$ DBGain\nSVar:DBGain:DB$ GainLife | LifeAmount$ 2 | ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ GE1",
+			kinds: []string{"dredge"}, served: 1, extra: dredger, setup: inYard, checkpointAll: true},
+		{name: "Tape Dredge Upto", src: "A:SP$ Draw | NumCards$ 2 | Upto$ True | Defined$ Player",
+			kinds: []string{"draw_upto", "dredge"}, served: 2, extra: dredger, setup: inYard},
+		{name: "Tape Dredge Recruit", src: "A:SP$ Recruit",
+			kinds: []string{"dredge", "discard"}, served: 2, extra: dredger, setup: inYard, checkpointAll: true},
 	})
 }

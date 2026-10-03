@@ -33,11 +33,7 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 		// Draw cursor advances only after the replacement (or declined
 		// ordinary draw) completes; effDraw then re-enters at that cursor
 		// and performs all remaining draws before its SubAbility$.
-		if len(chosen) > 0 && chosen[0].Kind == "dredge" {
-			e.applyDredge(rp.player, chosen[0].Obj)
-		} else {
-			e.resumeOrdinaryDraw(rp.player)
-		}
+		dredgeAnswerApply(e, rp.player, chosen)
 		ctx.DrawDone = int32(rp.target + 1)
 		if rp.uptoIdx >= 0 {
 			// An Upto$ Draw's answered batch parked on this Dredge ask: the

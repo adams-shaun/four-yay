@@ -30,5 +30,7 @@ func tapeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent) {
 	// answer the asking effect cannot apply itself. Each is a free function
 	// shared with its arm.
 	switch d.ResumeKind {
+	case resumeKindDredge:
+		dredgeAnswerApply(e, d.Acting(), d.Chosen(in))
 	}
 }

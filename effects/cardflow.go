@@ -63,12 +63,20 @@ type drawUptoRider struct {
 // drawFor is DrawFor with an optional enclosing Draw cursor. A nonnegative
 // cursor is recorded on a dredge decision so rules can continue that exact
 // multi-card resolution after its replacement is answered.
-func drawFor(h Host, p state.PlayerID, cursor int, resumeSA *cards.SA, upto drawUptoRider) {
+//
+// It reports whether the draw was the subject of a Dredge ask the resolution
+// kernel answered from its tape: rules' dredge answer record (shared with
+// the "dredge" resume arm) has then already applied the replacement or the
+// ordinary draw, and the caller continues exactly as that arm's re-entry
+// does -- past this draw's cursor, without the drawn-card bookkeeping the
+// re-entry skips. Only a caller with a cursor and a resume SA (an effect
+// walk) is served from the tape; the bare DrawFor keeps the legacy ask.
+func drawFor(h Host, p state.PlayerID, cursor int, resumeSA *cards.SA, upto drawUptoRider) bool {
 	g := h.Game()
 	lib := zoneOf(g, state.ZLibrary, p)
 	if len(lib) == 0 {
 		h.EmitPlayerLost(p, "Milled", "drew from an empty library")
-		return
+		return false
 	}
 	// A DrawFor reached while the resolution is already suspended: a caller
 	// that does not check h.Suspended() between draws drove a second draw
@@ -83,7 +91,7 @@ func drawFor(h Host, p state.PlayerID, cursor int, resumeSA *cards.SA, upto draw
 			Text: "drew without a dredge choice: another decision is already pending"})
 		h.Emit(events.Event{Kind: events.Draw, Player: p, Obj: lib[0],
 			From: state.ZLibrary, To: state.ZHand, Secret: true})
-		return
+		return false
 	}
 	// Dredge (CR 702.55): before a player draws a card, if they have a card
 	// with Dredge in the graveyard they may instead mill N cards (N = the
@@ -110,12 +118,18 @@ func drawFor(h Host, p state.PlayerID, cursor int, resumeSA *cards.SA, upto draw
 				Label: "Dredge " + strconv.Itoa(int(candidate.n)) + " (mill, then return " + objName(g, candidate.id) + " to hand)", Obj: candidate.id, Player: p})
 		}
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "draw", Label: "Draw card", Player: p})
+		if cursor >= 0 && resumeSA != nil {
+			if _, ok := AskTape(h, d); ok {
+				return true
+			}
+		}
 		if h.Ask(d) {
-			return
+			return false
 		}
 	}
 	h.Emit(events.Event{Kind: events.Draw, Player: p, Obj: lib[0],
 		From: state.ZLibrary, To: state.ZHand, Secret: true})
+	return false
 }
 
 type dredgeCandidate struct {
