@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"gorge+$CARD; xmage+Grizzly Bears"},"key":"cast-resolve | resolve | permanents | gorge+$CARD; xmage+Grizzly Bears","cards":1}
+{"card":"Mockingbird","template":"cast-resolve","status":"diverge","api":"-","sets":["BLB"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Mockingbird [bard bird creature] {U} 1/1\", xmage \"c0 o0 Grizzly Bears [bear bird creature] {G} 2/2\""}

@@ -1,0 +1,3 @@
+{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"AssertionError: Player PlayerA must have N actions but found N"},"key":"cast-resolve | harness | xmage | AssertionError: Player PlayerA must have N actions but found N","cards":2}
+{"card":"Time Stop","template":"cast-resolve","status":"harness","api":"EndTurn","sets":["FDN"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 2"}
+{"card":"Ultima","template":"cast-resolve","status":"harness","api":"DestroyAll+EndTurn","sets":["FIN"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 2"}

@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.hand","diff":"gorge+[] xmage+[Grizzly Bears, Jace Beleren]"},"key":"cast-resolve | resolve | p0.hand | gorge+[] xmage+[Grizzly Bears, Jace Beleren]","cards":1}
+{"card":"Portent of Calamity","template":"cast-resolve","status":"diverge","api":"PeekAndReveal+RepeatEach+ChangeZone+ChangeZoneAll+Play+Cleanup","sets":["BLB"],"detail":"step 1 (resolve) p0.hand: gorge \"[]\", xmage \"[Grizzly Bears, Jace Beleren]\""}

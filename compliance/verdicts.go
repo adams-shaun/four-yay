@@ -30,10 +30,37 @@ type VerdictRow struct {
 	ScenarioSHA string `json:"scenario_sha"` // sha256 of the generated scenario line
 	XMageRef    string `json:"xmage_ref"`
 	Status      string `json:"status"`
-	CanonSHA    string `json:"canon_sha,omitempty"` // gorge's canonical snapshots at agree/xmage_wrong
-	Detail      string `json:"detail,omitempty"`    // first difference or harness message
-	Ruling      string `json:"ruling,omitempty"`    // triage note: who is wrong and why (CR cite)
+	// Frozen is the expectation the gate holds gorge to on an agree or
+	// xmage_wrong row: the comparator fields the scenario changed, at each
+	// checkpoint (oraclediff.Freeze).
+	Frozen []Frozen `json:"frozen,omitempty"`
+	// CanonSHA is the legacy whole-snapshot expectation: the hash of
+	// gorge's canonical snapshots. Rows from before field-level freezing
+	// that `oraclediff refreeze` could not convert still carry it.
+	CanonSHA string `json:"canon_sha,omitempty"`
+	Detail   string `json:"detail,omitempty"` // first difference or harness message
+	Ruling   string `json:"ruling,omitempty"` // triage note: who is wrong and why (CR cite)
+	// RulingID names the compliance/rulings/<id>.json shape ruling that
+	// classified this row automatically; empty for a hand ruling.
+	RulingID string `json:"ruling_id,omitempty"`
+	// Review is "pending" on an automatic classification sampled for a
+	// human check (one in ten) until someone confirms it ("confirmed").
+	Review string `json:"review,omitempty"`
 }
+
+// Frozen is one frozen expectation: the value a comparator field had at a
+// checkpoint when the engines agreed (spec 2026-10-02 section 7; 2026-10-03
+// section 11.3 C3). Only the fields the scenario changed are frozen, so a
+// verdict never depends on board state the card did not touch.
+type Frozen struct {
+	At    string `json:"at"` // checkpoint name; "" for whole-run fields
+	Field string `json:"field"`
+	Value string `json:"value"`
+}
+
+// HasExpectation reports whether a passing row carries something the gate
+// can hold gorge to.
+func (r VerdictRow) HasExpectation() bool { return len(r.Frozen) > 0 || r.CanonSHA != "" }
 
 // VerdictDir is the committed verdict directory, relative to the repo root.
 const VerdictDir = "compliance/verdicts"
@@ -113,6 +140,27 @@ func MergeVerdicts(dir string, rows []VerdictRow) error {
 		}
 		all[r.Card][r.Template] = r
 	}
+	return writeVerdicts(dir, all)
+}
+
+// ReplaceVerdicts writes rows into dir, replacing any row with the same
+// card and template unconditionally (a re-triage, where MergeVerdicts'
+// keep-the-triaged-row policy would undo the change).
+func ReplaceVerdicts(dir string, rows []VerdictRow) error {
+	all, err := LoadVerdicts(dir)
+	if err != nil {
+		return err
+	}
+	for _, r := range rows {
+		if all[r.Card] == nil {
+			all[r.Card] = map[string]VerdictRow{}
+		}
+		all[r.Card][r.Template] = r
+	}
+	return writeVerdicts(dir, all)
+}
+
+func writeVerdicts(dir string, all map[string]map[string]VerdictRow) error {
 	shards := map[string][]VerdictRow{}
 	for card, byT := range all {
 		for _, r := range byT {
