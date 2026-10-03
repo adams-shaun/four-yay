@@ -1137,6 +1137,8 @@ type Object struct {
 	// Chosen is the current card/player choice. It is distinct from
 	// Remembered: Forge uses Player.Chosen for the most recent choice and
 	// Player.IsRemembered for choices explicitly marked RememberChosen$.
+	// Nil (no choice made) and non-nil empty (a choice cleared or answered
+	// with nothing) are different states; a clone keeps them apart.
 	Chosen []Target
 	// ETBCloneChoice is the event-backed answer to an ETB copy replacement.
 	// Valid distinguishes a decline (zero object) from no election.
@@ -1872,6 +1874,16 @@ func (o *Object) cloneDeepIntoArena(c *Object, a *cloneArena) {
 	c.BlockedBy = carveClone(&a.ids, o.BlockedBy)
 	c.CrewedVehicles = carveClone(&a.ids, o.CrewedVehicles)
 	c.Chosen = carveClone(&a.tgs, o.Chosen)
+	if c.Chosen == nil && o.Chosen != nil {
+		// A non-nil empty Chosen is a choice binding that was made and then
+		// emptied (Cleanup ClearChosenCard$), which the ChosenCard condition
+		// gate reads as a known zero; nil is no binding at all, which it
+		// leaves unresolved. A clone keeps the distinction (cf.
+		// CloneChosenModes): the resolution kernel re-executes from a clone,
+		// and Rhystic Circle's second activation ran its gated Effect there
+		// while the live engine skipped it (cardfuzz -tape, seed 11101).
+		c.Chosen = []Target{}
+	}
 	c.Goads = append([]GoadEffect(nil), o.Goads...)
 	c.ChosenModes = CloneChosenModes(o.ChosenModes)
 	c.IntrinsicKeywords = append([]string(nil), o.IntrinsicKeywords...)
