@@ -311,7 +311,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// like the other alternative-cost recasts.
 		cost = Cost{Generic: 2}
 	case "flashback":
-		cost = e.flashbackCost(id)
+		cost = e.flashbackCostFor(id, opt)
 	case "mayplay":
 		// rules/mayplay.go granted this play from a non-hand zone. The
 		// printed cost is paid (the default below) unless the granting

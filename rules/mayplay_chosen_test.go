@@ -67,3 +67,29 @@ func TestMayPlayChosenCardGrantSurvivesClearChosen(t *testing.T) {
 	             {"card": "p0:Forest", "zone": "exile"}]
 	}`)
 }
+
+// TestEveryFlashbackInstanceIsOffered: CR 702.34a/113.2c, each flashback
+// instance is a separate permission. Think Twice (mana cost {1}{U}, printed
+// flashback {2}{U}) given Sphinx of Forgotten Lore's flashback "equal to its
+// mana cost" is offered and cast from the graveyard for {1}{U} with only
+// two mana available -- both are spent, it draws and is exiled. (The printed
+// {2}{U} instance staying available is the Oracle audit's
+// card-with-its-own-flashback-keeps-it.)
+func TestEveryFlashbackInstanceIsOffered(t *testing.T) {
+	t.Parallel()
+	runInlineOracle(t, `{
+	  "name": "think-twice-granted-flashback-for-its-mana-cost",
+	  "setup": {"p0": {"battlefield": ["Sphinx of Forgotten Lore"], "graveyard": ["Think Twice"]}},
+	  "steps": [
+	    {"op": "attack", "seat": 0, "attackers": ["p0:Sphinx of Forgotten Lore"], "defender": "p1",
+	     "targets": ["p0:Think Twice"]},
+	    {"op": "resolve"},
+	    {"op": "mana", "seat": 0, "mana": "CU",
+	     "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Think Twice", "label": "Cast Think Twice (flashback 1 U)"}, "want": true},
+	                {"offered": {"seat": 0, "kind": "cast", "card": "p0:Think Twice", "label": "Cast Think Twice (flashback)"}, "want": false}]},
+	    {"op": "cast", "seat": 0, "card": "p0:Think Twice", "cast_mode": "flashback"},
+	    {"op": "resolve"}
+	  ],
+	  "expect": [{"hand_size": {"p0": 1}}, {"card": "p0:Think Twice", "zone": "exile"}, {"pool": {"p0": ""}}]
+	}`)
+}
