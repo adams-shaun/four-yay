@@ -48,10 +48,15 @@ func effMyriad(h Host, c *Ctx, sa *cards.SA) {
 			// and every other "a creature enters" trigger observe its entry
 			// exactly like an ordinary cast or reanimation (CR 702.109 grants
 			// no special exemption from that).
-			want := g.NextID
-			h.Emit(events.Event{Kind: events.MyriadCopy, Obj: c.Source, Player: c.Controller, IDs: []state.ObjID{state.ObjID(eligible[c.MyriadTarget])}})
-			if g.Obj(want) != nil {
-				h.Emit(events.Event{Kind: events.MoveZone, Obj: want, From: state.ZLibrary, To: state.ZBattlefield})
+			// The CreateToken replacements size the creation (Doubling
+			// Season's "twice that many"): each copy is its own mint and entry.
+			copies := proposeCopyTokens(h, c.Controller, c.Source, 1)
+			for k := int32(0); k < copies; k++ {
+				want := g.NextID
+				h.Emit(events.Event{Kind: events.MyriadCopy, Obj: c.Source, Player: c.Controller, IDs: []state.ObjID{state.ObjID(eligible[c.MyriadTarget])}})
+				if g.Obj(want) != nil {
+					h.Emit(events.Event{Kind: events.MoveZone, Obj: want, From: state.ZLibrary, To: state.ZBattlefield})
+				}
 			}
 		}
 		start = c.MyriadTarget + 1

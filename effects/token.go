@@ -695,6 +695,10 @@ type TokenRest struct {
 	Script  string
 	Amount  int32
 	Count   int32
+	// Counts is a copy effect's per-destination copy count after the
+	// CreateToken replacements (ProposeCopyTokens), frozen at the first pass
+	// so a resumed pass mints the same units without re-proposing.
+	Counts []int32
 }
 
 // resumingMint consumes and returns c's TokenRest when this pass re-enters sa
@@ -730,6 +734,7 @@ func (r TokenRest) Clone() TokenRest {
 	r.Job.TokenMemory = append([]state.Target(nil), r.Job.TokenMemory...)
 	r.Players = append([]state.PlayerID(nil), r.Players...)
 	r.Objs = append([]state.ObjID(nil), r.Objs...)
+	r.Counts = append([]int32(nil), r.Counts...)
 	return r
 }
 
@@ -924,4 +929,22 @@ func applyTokenMintRiders(h Host, c *Ctx, job *TokenJob, owner state.PlayerID, w
 	// whole minted set in one call after the loop.
 	minted = append(minted, want)
 	return minted
+}
+
+// copyTokenProposer is implemented by the rules engine: ProposeCopyTokens
+// answers how many token copies of src an effect creating n of them under
+// player creates once the CreateToken replacement effects apply (Doubling
+// Season, Parallel Lives, ...), and emits any scripted mints those
+// replacements add. A copy effect asks it once per creation, before minting.
+type copyTokenProposer interface {
+	ProposeCopyTokens(player state.PlayerID, src state.ObjID, n int32) int32
+}
+
+// proposeCopyTokens is the copy effects' read of copyTokenProposer; a host
+// without it creates exactly the n copies asked for.
+func proposeCopyTokens(h Host, player state.PlayerID, src state.ObjID, n int32) int32 {
+	if p, ok := h.(copyTokenProposer); ok {
+		return p.ProposeCopyTokens(player, src, n)
+	}
+	return n
 }

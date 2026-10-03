@@ -301,11 +301,7 @@ func evalCountBodyPlayer(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 	// card-specific literal so every branch pair follows the current, replayed
 	// designation (including an opening effect that changes it).
 	if branches, ok := strings.CutPrefix(head, "StartingPlayer."); ok {
-		yes, no := splitDot(branches)
-		if g.IsStartingPlayer(c.Controller) {
-			return yes, true, true
-		}
-		return no, true, true
+		return dotBranch(h, c, branches, g.IsStartingPlayer(c.Controller), depth), true, true
 	}
 	return 0, false, false
 }
