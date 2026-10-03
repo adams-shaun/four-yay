@@ -175,7 +175,7 @@ func (e *Engine) mutatesMatches(t cards.Trigger, source state.ObjID, ev events.E
 	if o == nil || o.Zone != state.ZBattlefield || e.faceDownPrintedHides(o) {
 		return false
 	}
-	if v := strings.TrimSpace(t.Params["ValidCard"]); v != "" {
+	if v := strings.TrimSpace(t.ParamStr(cards.PKValidCard)); v != "" {
 		ctrl := e.controllerOf(source)
 		if !e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 			return false

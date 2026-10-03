@@ -82,7 +82,7 @@ func effRemoveFromCombat(h Host, c *Ctx, sa *cards.SA) {
 // (Forge's per-card tapper), the resolving controller otherwise.
 func effTapAll(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
-	spec := sa.Params["ValidCards"]
+	spec := sa.ParamStr(cards.PKValidCards)
 	if spec == "" {
 		spec = "Permanent"
 	}
@@ -127,7 +127,7 @@ func effTapAll(h Host, c *Ctx, sa *cards.SA) {
 // the untap provenance, the resolving controller otherwise.
 func effUntapAll(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
-	spec := sa.Params["ValidCards"]
+	spec := sa.ParamStr(cards.PKValidCards)
 	if spec == "" {
 		spec = "Permanent"
 	}
@@ -165,8 +165,8 @@ func effUntapAll(h Host, c *Ctx, sa *cards.SA) {
 // SA has neither selector.
 func allPlayersFor(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 	g := h.Game()
-	if strings.TrimSpace(sa.Params["Defined"]) == "" {
-		if _, targeted := sa.Params["ValidTgts"]; !targeted {
+	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "" {
+		if _, targeted := sa.Param(cards.PKValidTgts); !targeted {
 			return g.AliveFrom(0)
 		}
 	}
@@ -278,7 +278,7 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 	if label := strings.TrimSpace(sa.Params["NoteCardsFor"]); label != "" {
 		switch strings.TrimSpace(sa.Params["NoteCards"]) {
 		case "Self":
-			spec := strings.TrimSpace(sa.Params["Defined"])
+			spec := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
 			noted := false
 			for _, t := range Defined(h, c, sa) {
 				if !t.IsPlayer {
@@ -446,7 +446,7 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 // filter-based effect that Derived would re-evaluate against the battlefield
 // forever.
 func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
-	spec := sa.Params["ValidCards"]
+	spec := sa.ParamStr(cards.PKValidCards)
 	if spec == "" {
 		spec = "Creature"
 	}
@@ -599,7 +599,7 @@ func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, doubleP
 			break
 		}
 	}
-	permanent, untilEOT := durationTiming(sa.Params["Duration"])
+	permanent, untilEOT := durationTiming(sa.ParamStr(cards.PKDuration))
 	// The move-driven lifetime of a Duration$ Permanent pump: when the pumped
 	// object leaves the zone it was pumped in, the grant ends (CR 400.7 -- it
 	// is a new object on return), via the same ExileOnMoved$/Remembered pair
@@ -629,7 +629,7 @@ func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, doubleP
 			Layer: state.LPT, Sub: state.SubModify,
 			AddPower: att, AddToughness: def,
 			DoublePower: doublePower, DoubleToughness: doubleToughness,
-			Duration: sa.Params["Duration"], Permanent: permanent, UntilEOT: untilEOT,
+			Duration: sa.ParamStr(cards.PKDuration), Permanent: permanent, UntilEOT: untilEOT,
 			ExileOnMoved: exileOn, Remembered: remembered,
 			AffectedZone: zone,
 		})
@@ -638,7 +638,7 @@ func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, doubleP
 		h.AddContinuous(state.ContinuousEffect{
 			Source: id, Affects: "Card.Self", Controller: c.Controller,
 			Layer: state.LAbilities, AddKeywords: kws,
-			Duration: sa.Params["Duration"], Permanent: permanent, UntilEOT: untilEOT,
+			Duration: sa.ParamStr(cards.PKDuration), Permanent: permanent, UntilEOT: untilEOT,
 			ExileOnMoved: exileOn, Remembered: remembered,
 			AffectedZone: zone,
 		})
@@ -648,7 +648,7 @@ func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, doubleP
 	// granting body's own duration, one registration per object -- the same
 	// helper the Animate site uses, so an unsupported rider value takes that
 	// helper's loud-Note behaviour.
-	registerLeaveExile(h, c, id, sa.Params["LeaveBattlefield"], sa.Params["Duration"], permanent)
+	registerLeaveExile(h, c, id, sa.Params["LeaveBattlefield"], sa.ParamStr(cards.PKDuration), permanent)
 }
 
 // effAnimate does not require the target to already be on the battlefield --
@@ -829,7 +829,7 @@ type animateGrant struct {
 // layer-3 rename.
 func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	ag := animateGrant{
-		duration:  sa.Params["Duration"],
+		duration:  sa.ParamStr(cards.PKDuration),
 		colorsRaw: strings.TrimSpace(sa.Params["Colors"]),
 		zone:      strings.TrimSpace(sa.Params["Zone"]),
 	}
@@ -885,12 +885,12 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	// RemoveCreatureTypes$ True strips the object's creature-type subtypes
 	// (Mishra's Factory's land base carries none, but an animated creature or
 	// planeswalker face does) before this animation's own Types$ apply.
-	ag.removeCreatureTypes = strings.EqualFold(strings.TrimSpace(sa.Params["RemoveCreatureTypes"]), "True")
+	ag.removeCreatureTypes = strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRemoveCreatureTypes)), "True")
 	// AddAllCreatureTypes$ True (Mutavault's "all creature types"): the
 	// same LType emission rides the flag, never a materialised type list --
 	// rules' typeCharacteristics appends the CreatureTypeWords vocabulary
 	// for affected objects (see state.ContinuousEffect.AddAllCreatureTypes).
-	ag.allCreatureTypes = strings.EqualFold(strings.TrimSpace(sa.Params["AddAllCreatureTypes"]), "True")
+	ag.allCreatureTypes = strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKAddAllCreatureTypes)), "True")
 	// RemoveTypes$ names card types, supertypes or subtypes to strip before
 	// this animation's Types$ apply (Weeping Angel removes Creature).
 	for part := range strings.SplitSeq(sa.Params["RemoveTypes"], ",") {
@@ -899,7 +899,7 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	// RemoveCardTypes$ True (state.ContinuousEffect.RemoveCardTypes, the
 	// Darksteel Mutation strip) keeps only the object's supertypes in the
 	// layer-4 walk -- one line on the shared path, so both primitives read it.
-	ag.removeCardTypes = strings.EqualFold(strings.TrimSpace(sa.Params["RemoveCardTypes"]), "True")
+	ag.removeCardTypes = strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRemoveCardTypes)), "True")
 	// Abilities$ names the SVar bodies (comma-separated, on THIS face's table)
 	// the animated object gains -- Urza's Saga's chapters ("CARDNAME gains
 	// '{T}: Add {C}'.") are the corpus's flagship shape. The grant is a
@@ -939,12 +939,12 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 		}
 		ag.triggers = append(ag.triggers, t)
 	}
-	ag.permanent = strings.EqualFold(strings.TrimSpace(sa.Params["Duration"]), "Permanent")
-	ag.perpetual = isPerpetualDuration(sa.Params["Duration"])
+	ag.permanent = strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKDuration)), "Permanent")
+	ag.perpetual = isPerpetualDuration(sa.ParamStr(cards.PKDuration))
 	// RemoveAllAbilities$ True (state.ContinuousEffect.RemoveAbilities): the
 	// layer-6 ability strip the static Humility carries, delivered here by
 	// the Animate-param path. See animateGrant.removeAbilities.
-	ag.removeAbilities = strings.EqualFold(strings.TrimSpace(sa.Params["RemoveAllAbilities"]), "True")
+	ag.removeAbilities = strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRemoveAllAbilities)), "True")
 	ag.leaveExile = strings.TrimSpace(sa.Params["LeaveBattlefield"])
 	// Replacements$ names (comma-separated) SVars on THIS face's table whose
 	// bodies are R:-shaped replacements the animated object gains for the
@@ -1254,10 +1254,10 @@ func animateAllUnreadNote(h Host, c *Ctx, sa *cards.SA) {
 	var unread []string
 	for _, key := range []struct{ name, val string }{
 		{"RemoveKeywords$", sa.Params["RemoveKeywords"]},
-		{"RemoveAllAbilities$", sa.Params["RemoveAllAbilities"]},
+		{"RemoveAllAbilities$", sa.ParamStr(cards.PKRemoveAllAbilities)},
 		{"HiddenKeywords$", sa.Params["HiddenKeywords"]},
 		{"Replacements$", sa.Params["Replacements"]},
-		{"CantHaveKeyword$", sa.Params["CantHaveKeyword"]},
+		{"CantHaveKeyword$", sa.ParamStr(cards.PKCantHaveKeyword)},
 		{"RemoveLandTypes$", sa.Params["RemoveLandTypes"]},
 	} {
 		if strings.TrimSpace(key.val) != "" {
@@ -1301,7 +1301,7 @@ func effAnimateAll(h Host, c *Ctx, sa *cards.SA) {
 	emitAnimateTriggersNotes(h, c, ag, "AnimateAll")
 	animateAllUnreadNote(h, c, sa)
 	var ateotIDs []state.ObjID
-	spec := sa.Params["ValidCards"]
+	spec := sa.ParamStr(cards.PKValidCards)
 	if spec == "" {
 		spec = "Creature"
 	}
@@ -1351,7 +1351,7 @@ func effAnimateAll(h Host, c *Ctx, sa *cards.SA) {
 }
 
 func effProtection(h Host, c *Ctx, sa *cards.SA) {
-	gains := resolveGains(sa.Params["Gains"], sa.Params["Choices"], h.Game().Obj(c.Source))
+	gains := resolveGains(sa.Params["Gains"], sa.ParamStr(cards.PKChoices), h.Game().Obj(c.Source))
 	if gains == "" {
 		return
 	}

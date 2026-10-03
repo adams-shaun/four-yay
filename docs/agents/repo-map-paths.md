@@ -34,7 +34,7 @@ Part of the [repo map](repo-map.md) index. The engine chain is in
 | `.agentctl/config.toml` | agentctl pipeline config: tiers, gates, landing. |
 | `.githooks/` | pre-commit, commit-msg, pre-push (`core.hooksPath=.githooks`). |
 | `scripts/` | `agent-worktree.sh` (the only sanctioned worktree creator), `fleet.sh` (port allocation), `smoke.sh`, `cleanup.sh`, `deploy-demo.sh` (operator only). |
-| `.github/workflows/coverage.yml` | On push to main: regenerates the README coverage block and `docs/coverage.md`. |
+| `.github/workflows/coverage.yml` | On push to main: runs `make coverage` and publishes `.coverage/summary.md` as the job summary and `.coverage/` as the `card-coverage` artifact. Commits nothing. |
 | `TEST_HISTORY.md`, `ALLOC_HISTORY.md` (per package) | Test-time and allocation budgets. |
 
 ## Untracked but load-bearing

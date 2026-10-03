@@ -225,7 +225,7 @@ func entryBodyKindEncodable(sa *cards.SA) bool {
 	if sa == nil {
 		return false
 	}
-	kind := strings.TrimSpace(sa.Params["CounterType"])
+	kind := strings.TrimSpace(sa.ParamStr(cards.PKCounterType))
 	if kind == "" {
 		kind = "P1P1"
 	}
@@ -247,7 +247,7 @@ func entryBodyAbsorbable(sa *cards.SA) bool {
 	if sa.Sub != nil {
 		return false
 	}
-	if strings.TrimSpace(sa.Params["Defined"]) != "Self" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "Self" {
 		return false
 	}
 	if _, ok := sa.Params["CounterNum"]; !ok {
@@ -261,7 +261,7 @@ func entryBodyAbsorbable(sa *cards.SA) bool {
 		saHasParam(sa, "EachFromSource") || saHasParam(sa, "PerDefined") {
 		return false
 	}
-	kind := strings.TrimSpace(sa.Params["CounterType"])
+	kind := strings.TrimSpace(sa.ParamStr(cards.PKCounterType))
 	if kind == "" {
 		kind = "P1P1"
 	}
@@ -321,7 +321,7 @@ func (e *Engine) entryBodyCounterGrants(ev events.Event, entrant state.ObjID) ([
 		if !ok || n <= 0 {
 			return
 		}
-		kind := strings.TrimSpace(m.repl.With.Params["CounterType"])
+		kind := strings.TrimSpace(m.repl.With.ParamStr(cards.PKCounterType))
 		if kind == "" {
 			kind = "P1P1"
 		}

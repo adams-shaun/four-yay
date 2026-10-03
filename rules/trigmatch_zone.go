@@ -92,13 +92,13 @@ func (e *Engine) zoneChangeMatchesWithCapture(t cards.Trigger, source state.ObjI
 			}
 		}
 	}
-	if d, ok := t.Params["Destination"]; ok && d != "Any" && effects.ParseZone(d) != to {
+	if d, ok := t.Param(cards.PKDestination); ok && d != "Any" && effects.ParseZone(d) != to {
 		return false
 	}
 	// ValidCards$ is the PLURAL key the ChangesZoneAll corpus uses (124 of
 	// its 126 lines); ValidCard$ is the singular key ChangesZone uses. One
 	// matcher serves both modes, so read the plural first and fall back.
-	v, hasSpec := t.Params["ValidCards"]
+	v, hasSpec := t.Param(cards.PKValidCards)
 	if !hasSpec {
 		v, hasSpec = t.Param(cards.PKValidCard)
 	}
@@ -152,7 +152,7 @@ func (e *Engine) zoneChangeMatchesWithCapture(t cards.Trigger, source state.ObjI
 			// event, so the context must not escape through a helper call).
 			sc := capture(e.specCtx(source, ctrl))
 			if e.goadProbe == 0 && strings.Contains(spec, "IsGoaded") {
-				sc.StaticGoads = e.staticallyGoadedWithLKI(lki)
+				sc.Layers.StaticGoads = e.staticallyGoadedWithLKI(lki)
 			}
 			if !ok || !effects.MatchesObjectCtx(e.G, spec, lki, sc) {
 				return false
@@ -170,7 +170,7 @@ func (e *Engine) zoneChangeMatchesWithCapture(t cards.Trigger, source state.ObjI
 	// ordinary ChangesZone path above (Destination$ Battlefield in the
 	// expansion) has already narrowed ev.To, so the extra battlefield guard
 	// is belt-and-braces.
-	if _, hasEvolve := t.Params["Evolve"]; hasEvolve {
+	if _, hasEvolve := t.Param(cards.PKEvolve); hasEvolve {
 		if ev.To != state.ZBattlefield {
 			return false
 		}
@@ -350,7 +350,7 @@ func (e *Engine) sacrificedMatches(t cards.Trigger, source state.ObjID, ev event
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidCard"]; v != "" {
+	if v := t.ParamStr(cards.PKValidCard); v != "" {
 		// A sacrificed permanent is already in its destination zone when
 		// triggers are checked. Its validity -- especially bare Permanent --
 		// is a last-known-information question at the moment it was sacrificed.
@@ -358,7 +358,7 @@ func (e *Engine) sacrificedMatches(t cards.Trigger, source state.ObjID, ev event
 		// shape matchesSpec keeps.
 		sc := e.specCtx(source, ctrl)
 		if e.goadProbe == 0 && strings.Contains(v, "IsGoaded") {
-			sc.StaticGoads = e.staticallyGoadedWithLKI(lki)
+			sc.Layers.StaticGoads = e.staticallyGoadedWithLKI(lki)
 		}
 		if lki == nil || !effects.MatchesObjectCtx(e.G, v, lki, sc) {
 			return false
@@ -372,7 +372,7 @@ func (e *Engine) sacrificedMatches(t cards.Trigger, source state.ObjID, ev event
 	if lki != nil {
 		sacrificer = lki.Controller
 	}
-	if v := t.Params["ValidPlayer"]; v != "" && !effects.MatchesPlayerSpec(e.G, v, sacrificer, ctrl) {
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.G, v, sacrificer, ctrl) {
 		return false
 	}
 	return true
@@ -395,7 +395,7 @@ func (e *Engine) tokenCreatedMatches(t cards.Trigger, source state.ObjID, ev eve
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidPlayer"]; v != "" && !effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}
 	if v, ok := t.Params["ValidToken"]; ok && v != "" {

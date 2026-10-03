@@ -512,7 +512,7 @@ func (e *Engine) planAbilityPayment(p state.PlayerID, id state.ObjID, ability in
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: "ability"}
 	}
 	ab := pa.SA
-	cost, ok := e.fixLifeXCost(p, id, e.parseCost(ab.Params["Cost"]))
+	cost, ok := e.fixLifeXCost(p, id, e.parseCost(ab.ParamStr(cards.PKCost)))
 	if !ok {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: "cost:life_x"}
 	}
@@ -950,13 +950,13 @@ func (e *Engine) paymentPlanRelaxedAlternatives(p state.PlayerID, id state.ObjID
 	if o == nil || ma == nil || ma.API != "Mana" {
 		return nil, 0, false
 	}
-	cost := e.parseCost(ma.Params["Cost"])
+	cost := e.parseCost(ma.ParamStr(cards.PKCost))
 	if cost.X != 0 || cost.XMin != 0 || len(cost.Hybrid)+len(cost.Phyrexian)+len(cost.Twobrid)+len(cost.HybridPhyrexian) != 0 || cost.Snow != 0 {
 		return nil, 0, false
 	}
 	fee := cost.Generic + cost.Colored.Total()
-	once := cost.Tap || cost.Untap || strings.TrimSpace(ma.Params["ActivationLimit"]) == "1" ||
-		strings.TrimSpace(ma.Params["GameActivationLimit"]) == "1"
+	once := cost.Tap || cost.Untap || strings.TrimSpace(ma.ParamStr(cards.PKActivationLimit)) == "1" ||
+		strings.TrimSpace(ma.ParamStr(cards.PKGameActivationLimit)) == "1"
 	for _, part := range cost.Sac {
 		once = once || paymentPlanSelfCost(part, id)
 	}
@@ -981,7 +981,7 @@ func (e *Engine) paymentPlanRelaxedAlternatives(p state.PlayerID, id state.ObjID
 		}
 		amt = max(live, tapped)
 	}
-	counts, any := cards.ProducedCounts(ma.Params["Produced"])
+	counts, any := cards.ProducedCounts(ma.ParamStr(cards.PKProduced))
 	creature := e.IsCreature(id)
 	var out []plannedManaActivation
 	add := func(m state.Mana) {

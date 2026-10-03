@@ -3,7 +3,7 @@ package effects
 import "testing"
 
 // TestKeywordPredicatesReadPublishedDerivedKeywords pins the board-wide
-// derived keyword table (SpecContext.DerivedKeywords, rules'
+// derived keyword table (SpecContext.Layers.DerivedKeywords, rules'
 // EffectiveKeywords): a resolving effect's with<X>/without<X> filter sees a
 // granted keyword and a lost one, through both the interpreted and the
 // compiled matcher, while ExtraKeywords stays authoritative when bound and an
@@ -11,7 +11,7 @@ import "testing"
 func TestKeywordPredicatesReadPublishedDerivedKeywords(t *testing.T) {
 	g, ids := board(t)
 	bear, flier := ids["myBear"], ids["myFlier"]
-	sc := SpecContext{You: 0, LayerTables: LayerTables{DerivedKeywords: []ObjectKeywords{
+	sc := SpecContext{You: 0, Layers: LayerTables{DerivedKeywords: []ObjectKeywords{
 		{ID: bear, Keywords: []string{"Flying", "Double Strike"}}, // granted flying (Ajani's -3)
 		{ID: flier, Keywords: nil},                                // lost all abilities
 	}}}

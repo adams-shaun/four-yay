@@ -105,10 +105,7 @@ func (c *Ctx) Child(source state.ObjID, controller state.PlayerID) Ctx {
 		Source:            source,
 		Controller:        controller,
 		SVars:             c.SVars,
-		EffectiveNames:    c.EffectiveNames,
-		EffectiveTypes:    c.EffectiveTypes,
-		LayerTables:       c.LayerTables,
-		StaticGoads:       c.StaticGoads,
+		Layers:            c.Layers,
 		TargetableObjects: c.TargetableObjects,
 	}
 }
@@ -157,9 +154,7 @@ func NewSpecContext(you state.PlayerID, source state.ObjID) SpecContext {
 // trigger referents, no remembered/chosen sets and no numeric-RHS resolver;
 // (*Ctx).SpecContext is the full resolution context built on top of it.
 func (c *Ctx) TableSpecContext(you state.PlayerID) SpecContext {
-	return SpecContext{You: you, Source: c.Source,
-		EffectiveNames: c.EffectiveNames, DerivedTypes: c.EffectiveTypes,
-		StaticGoads: c.StaticGoads, LayerTables: c.LayerTables}
+	return SpecContext{You: you, Source: c.Source, Layers: c.Layers}
 }
 
 // SpecContext binds a resolution's filter without adding a numeric resolver
@@ -173,7 +168,7 @@ func (c *Ctx) SpecContext(you state.PlayerID) SpecContext {
 	// published at Resolve entry, so a resolving effect's filter -- target
 	// offer, Count$Valid, CantTarget -- agrees with the layer walk: field
 	// copies of immutable data, no callable, no back-pointer.
-	sc := SpecContext{You: you, Source: c.Source, EffectiveNames: c.EffectiveNames, DerivedTypes: c.EffectiveTypes, StaticGoads: c.StaticGoads, LayerTables: c.LayerTables,
+	sc := SpecContext{You: you, Source: c.Source, Layers: c.Layers,
 		TriggerContext: c.TriggerContext, ResolutionTargets: c.Targets, Remembered: c.Remembered, Chosen: c.Chosen, ChosenValid: c.ChosenValid, Resolving: true,
 		TargetableObjects:           c.TargetableObjects,
 		ExcludeFromBattlefieldCount: c.ExcludeFromBattlefieldCount}

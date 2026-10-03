@@ -924,13 +924,13 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 			e.triggerContexts[id] = pt.Ctx.TriggerContext
 			e.recordTriggerLine(id, pt)
 			handled := false
-			if pt.SA.Params["Choices"] != "" {
+			if pt.SA.ParamStr(cards.PKChoices) != "" {
 				handled = e.askTriggerModes(pt.Controller, id, pt.SA)
 				if handled {
 					e.drainAwaitsModes = true
 				}
 			}
-			if !handled && pt.SA.Params["ValidTgts"] != "" {
+			if !handled && pt.SA.ParamStr(cards.PKValidTgts) != "" {
 				e.askTarget(pt.Controller, id, pt.SA)
 			}
 		}
@@ -961,13 +961,13 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 			e.triggerContexts[id] = pt.Ctx.TriggerContext
 			e.recordTriggerLine(id, pt)
 			handled := false
-			if pt.SA.Params["Choices"] != "" {
+			if pt.SA.ParamStr(cards.PKChoices) != "" {
 				handled = e.askTriggerModes(pt.Controller, id, pt.SA)
 				if handled && e.Pending() != nil {
 					e.drainAwaitsModes = true
 				}
 			}
-			if !handled && pt.SA.Params["ValidTgts"] != "" {
+			if !handled && pt.SA.ParamStr(cards.PKValidTgts) != "" {
 				e.askTarget(pt.Controller, id, pt.SA)
 			}
 		}
@@ -1047,13 +1047,13 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 			e.bindReflexiveContext(id, &pt)
 			e.recordTriggerLine(id, pt)
 			handled := false
-			if pt.SA.Params["Choices"] != "" {
+			if pt.SA.ParamStr(cards.PKChoices) != "" {
 				handled = e.askTriggerModes(pt.Controller, id, pt.SA)
 				if handled && e.Pending() != nil {
 					e.drainAwaitsModes = true
 				}
 			}
-			if !handled && pt.SA.Params["ValidTgts"] != "" {
+			if !handled && pt.SA.ParamStr(cards.PKValidTgts) != "" {
 				e.askTarget(pt.Controller, id, pt.SA)
 			}
 		}
@@ -1158,13 +1158,13 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 		e.G.Obj(e.G.Stack[len(e.G.Stack)-1]) != nil {
 		id := e.G.Stack[len(e.G.Stack)-1]
 		handled := false
-		if pt.SA.Params["Choices"] != "" {
+		if pt.SA.ParamStr(cards.PKChoices) != "" {
 			handled = e.askTriggerModes(pt.Controller, id, pt.SA)
 			if handled && e.Pending() != nil {
 				e.drainAwaitsModes = true
 			}
 		}
-		if !handled && pt.SA.Params["ValidTgts"] != "" {
+		if !handled && pt.SA.ParamStr(cards.PKValidTgts) != "" {
 			e.askTarget(pt.Controller, id, pt.SA)
 		}
 		if !handled {
@@ -1841,7 +1841,7 @@ func (e *Engine) askTriggerModes(p state.PlayerID, obj state.ObjID, sa *cards.SA
 	// drain falls through to the target ask exactly as it does for
 	// VillainousChoice.
 	if sa.API == "GenericChoice" {
-		defined := strings.TrimSpace(sa.Params["Defined"])
+		defined := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
 		if defined != "" && defined != "You" {
 			return false
 		}
@@ -1869,7 +1869,7 @@ func (e *Engine) askTriggerModes(p state.PlayerID, obj state.ObjID, sa *cards.SA
 	if owned, ok := e.triggerLineSVars[obj]; ok {
 		svars = owned
 	}
-	choices := strings.Split(sa.Params["Choices"], ",")
+	choices := strings.Split(sa.ParamStr(cards.PKChoices), ",")
 	for i := range choices {
 		choices[i] = strings.TrimSpace(choices[i])
 		if cards.ResolveSVar(svars, choices[i]) == nil {

@@ -976,10 +976,10 @@ func effectSelfExileOnCastTrigger(h Host, c *Ctx, tr cards.Trigger) bool {
 	if tr.Mode != "SpellCast" {
 		return false
 	}
-	if !strings.EqualFold(strings.TrimSpace(tr.Params["EffectZone"]), "Command") {
+	if !strings.EqualFold(strings.TrimSpace(tr.ParamStr(cards.PKEffectZone)), "Command") {
 		return false
 	}
-	exec := strings.TrimSpace(tr.Params["Execute"])
+	exec := strings.TrimSpace(tr.ParamStr(cards.PKExecute))
 	if exec == "" {
 		return false
 	}
@@ -1004,7 +1004,7 @@ func effectSelfExileOnCastSpec(h Host, c *Ctx, names string) string {
 		if !ok || !effectSelfExileOnCastTrigger(h, c, tr) {
 			continue
 		}
-		if spec := strings.TrimSpace(tr.Params["ValidCard"]); spec != "" {
+		if spec := strings.TrimSpace(tr.ParamStr(cards.PKValidCard)); spec != "" {
 			return spec
 		}
 		return "Card"

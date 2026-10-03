@@ -234,8 +234,10 @@ Remove the contention for the whole group, not one conflict. Either:
 - split the files along the seam the branches are pulling apart, so two tickets
   touch two files (preferred when the seam is real and durable), or
 - if a file cannot be split honestly, record it as one entry appended to
-  `scripts/hotfiles-notes.json` (tracked) and re-render the AGENTS.md hot-file
-  table with `python3 scripts/reward_collect.py hotspots --repo . --format md`,
+  `scripts/hotfiles-notes.json` (tracked) -- the ONLY home of durable notes;
+  do not mirror the prose into AGENTS.md -- and, only if the file is one of the
+  embedded rows, re-render the AGENTS.md hot-file table with
+  `python3 scripts/reward_collect.py hotspots --repo . --format md --max-rows 5`,
   so future briefs keep their changes to it small. Do not edit
   `.superpowers/ds4/gorge-context.md`: it is the controller's untracked copy and
   is read-only inside a seat jail.

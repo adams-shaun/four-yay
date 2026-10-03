@@ -1000,7 +1000,7 @@ func effDamageAll(h Host, c *Ctx, sa *cards.SA) {
 		b.BeginLifeLossBatch()
 		defer b.EndLifeLossBatch()
 	}
-	spec := strings.TrimSpace(sa.Params["ValidCards"])
+	spec := strings.TrimSpace(sa.ParamStr(cards.PKValidCards))
 	remember := strings.TrimSpace(sa.Params["RememberDamaged"]) != ""
 	// A player-kind ValidTgts$ scopes the object sweep to that target
 	// player's permanents ("each creature target player controls"): the
@@ -1012,7 +1012,7 @@ func effDamageAll(h Host, c *Ctx, sa *cards.SA) {
 	// Defined/TargetedPlayerCtrl direction. ValidTgts$ Creature (a
 	// non-player spec) leaves scope nil, so the filter-only sweep stands.
 	var scope map[state.PlayerID]bool
-	if tg := strings.TrimSpace(sa.Params["ValidTgts"]); tg != "" && playerSpecBaseKnown(tg) {
+	if tg := strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)); tg != "" && playerSpecBaseKnown(tg) {
 		sc := c.SpecContext(c.Controller)
 		sc.ResolutionTargets = targetedGroup(c)
 		players, _ := controlReferentPlayers(h.Game(), sc, "ControlledBy", "TargetedPlayer")
@@ -1277,8 +1277,8 @@ func validPlayersSelectorUnknown(spec string) bool {
 func effEachDamage(h Host, c *Ctx, sa *cards.SA) {
 	eachToItself := strings.TrimSpace(sa.Params["EachToItself"]) != ""
 	eachOtherRef := strings.TrimSpace(sa.Params["ToEachOther"])
-	hasDefined := strings.TrimSpace(sa.Params["Defined"]) != ""
-	_, hasTgts := sa.Params["ValidTgts"]
+	hasDefined := strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != ""
+	_, hasTgts := sa.Param(cards.PKValidTgts)
 
 	// LifeLostAll observes the affected group once, exactly as effDamageAll
 	// brackets its sweep.
@@ -1333,7 +1333,7 @@ func effEachDamage(h Host, c *Ctx, sa *cards.SA) {
 			}
 			return battlefield(ts)
 		}
-		if spec := strings.TrimSpace(sa.Params["ValidCards"]); spec != "" {
+		if spec := strings.TrimSpace(sa.ParamStr(cards.PKValidCards)); spec != "" {
 			if unknown := UnknownPredicates(spec); len(unknown) > 0 {
 				eachDamageNote(h, c, "unresolved EachDamage damager predicate in "+spec)
 				return nil

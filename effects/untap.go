@@ -38,7 +38,7 @@ func TryUntap(h Host, id state.ObjID) {
 
 func untapBattlefieldCondition(h Host, c *Ctx, sa *cards.SA) bool {
 	spec, ok := sa.Params["ConditionPresent"]
-	if !ok || sa.Params["ConditionDefined"] != "" {
+	if !ok || sa.ParamStr(cards.PKConditionDefined) != "" {
 		return true
 	}
 	if len(UnknownPredicates(spec)) > 0 {

@@ -69,7 +69,7 @@ func (t *trigSubAsk) clone() *trigSubAsk {
 // cast/placement-root machinery) or carries a Defined$ beside its ValidTgts$
 // (a target-reuse body the mid-resolution walk never consumes a pre-ask for).
 func (e *Engine) triggerChainPreAsks(root *cards.SA) []*cards.SA {
-	if root == nil || root.Sub == nil || strings.TrimSpace(root.Params["Choices"]) != "" {
+	if root == nil || root.Sub == nil || strings.TrimSpace(root.ParamStr(cards.PKChoices)) != "" {
 		return nil
 	}
 	subs := e.collectSubTargetPreAsks(root)
@@ -77,7 +77,7 @@ func (e *Engine) triggerChainPreAsks(root *cards.SA) []*cards.SA {
 		return nil
 	}
 	for _, sa := range subs {
-		if strings.TrimSpace(sa.Params["TargetingPlayer"]) != "" || strings.TrimSpace(sa.Params["Defined"]) != "" {
+		if strings.TrimSpace(sa.Params["TargetingPlayer"]) != "" || strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "" {
 			return nil
 		}
 	}
@@ -89,7 +89,7 @@ func (e *Engine) triggerChainPreAsks(root *cards.SA) []*cards.SA {
 			continue
 		}
 		if seen && strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" &&
-			strings.TrimSpace(sa.Params["Defined"]) == "Targeted" {
+			strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "Targeted" {
 			return subs
 		}
 	}

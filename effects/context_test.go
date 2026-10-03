@@ -126,29 +126,21 @@ type fakeHost struct {
 	// startingLife is the StartingLife answer the double reports (0 when
 	// unset); the effects-level relative half-starting-life tests set it.
 	startingLife int32
+	// chars is the record Chars answers with.
+	chars Chars
 }
 
 func (h *fakeHost) Game() *state.Game                   { return h.g }
 func (h *fakeHost) ObjectColors(o *state.Object) string { return ColorsOf(o) }
 
-// ObjectText mirrors rules.Engine.ObjectText's derived-text read at the only
-// fidelity the effects double has: it has no layer walk, so it returns the
-// object's printed Oracle (an object with no face reads "").
-func (h *fakeHost) ObjectText(o *state.Object) string {
-	if o == nil || o.Face() == nil {
-		return ""
-	}
-	return o.Face().Oracle
-}
-
-// ObjectKeywords mirrors rules.Engine.ObjectKeywords at the only fidelity the
-// effects double has: it has no layer walk, so it returns a copy of the
-// printed face's keyword list.
-func (h *fakeHost) ObjectKeywords(o *state.Object) []string {
-	if o == nil || o.Face() == nil {
-		return nil
-	}
-	return append([]string(nil), o.Face().Keywords...)
+// Chars mirrors rules.Engine.Chars at the only fidelity the effects double
+// has: it has no layer walk, so it reports the printed face (PrintedChars)
+// with the double's own counter-adjusted Power/Toughness. The record is the
+// double's one scratch, valid until the next call, as the engine's is.
+func (h *fakeHost) Chars(id state.ObjID) *Chars {
+	h.chars = PrintedChars(h.g.Obj(id))
+	h.chars.Power, h.chars.Toughness = h.Power(id), h.Toughness(id)
+	return &h.chars
 }
 func (h *fakeHost) Emit(e events.Event) {
 	h.log = append(h.log, e)
@@ -542,13 +534,6 @@ func (h *fakeHost) Power(id state.ObjID) int32 {
 		return 0
 	}
 	return int32(o.Face().Power()) + o.Counter("P1P1") - o.Counter("M1M1")
-}
-func (h *fakeHost) BasePower(id state.ObjID) int32 {
-	o := h.g.Obj(id)
-	if o == nil || o.Face() == nil {
-		return 0
-	}
-	return int32(o.Face().Power())
 }
 func (h *fakeHost) Toughness(id state.ObjID) int32 {
 	o := h.g.Obj(id)

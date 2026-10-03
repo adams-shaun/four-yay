@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -92,7 +93,7 @@ func surgeCost(f *cards.Face) (Cost, bool) {
 // cannot disagree about which faces are modal.
 func isCharmSpell(f *cards.Face) bool {
 	sa := f.SpellAbility()
-	return sa != nil && sa.API == "Charm" && strings.TrimSpace(sa.Params["Choices"]) != ""
+	return sa != nil && sa.API == "Charm" && strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != ""
 }
 
 // replicateCost resolves the Replicate keyword's payment cost (CR 702.55a,
@@ -720,7 +721,10 @@ func (e *Engine) extraFlashbackCosts(id state.ObjID) []string {
 		return nil
 	}
 	f := o.Face()
-	first := strings.Join(strings.Fields(e.flashbackCostString(f)), " ")
+	// Costs compare by their whitespace-separated fields (the normalised
+	// form out holds), without building the normalised string for the
+	// common answer: the printed instance only.
+	first := e.flashbackCostString(f)
 	var out []string
 	for _, k := range e.Derived(id).Keywords {
 		if !strings.EqualFold(cardsKeywordHead(k), kwhFlashback.s) {
@@ -730,13 +734,38 @@ func (e *Engine) extraFlashbackCosts(id state.ObjID) []string {
 		if i := strings.IndexByte(k, ':'); i >= 0 {
 			raw = k[i+1:]
 		}
-		raw = strings.Join(strings.Fields(raw), " ")
-		if raw == "" || raw == first || slices.Contains(out, raw) {
+		if costFieldsEqual(raw, "") || costFieldsEqual(raw, first) ||
+			slices.ContainsFunc(out, func(s string) bool { return costFieldsEqual(raw, s) }) {
 			continue
 		}
-		out = append(out, raw)
+		out = append(out, strings.Join(strings.Fields(raw), " "))
 	}
 	return out
+}
+
+// costFieldsEqual reports whether a and b have the same whitespace-separated
+// fields: strings.Join(strings.Fields(a), " ") == the same of b, with no
+// allocation.
+func costFieldsEqual(a, b string) bool {
+	for {
+		a = strings.TrimLeftFunc(a, unicode.IsSpace)
+		b = strings.TrimLeftFunc(b, unicode.IsSpace)
+		if a == "" || b == "" {
+			return a == b
+		}
+		i := strings.IndexFunc(a, unicode.IsSpace)
+		if i < 0 {
+			i = len(a)
+		}
+		j := strings.IndexFunc(b, unicode.IsSpace)
+		if j < 0 {
+			j = len(b)
+		}
+		if a[:i] != b[:j] {
+			return false
+		}
+		a, b = a[i:], b[j:]
+	}
 }
 
 // flashbackCostString is the raw cost string flashbackCost parses.

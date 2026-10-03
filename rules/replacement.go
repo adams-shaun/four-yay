@@ -562,7 +562,7 @@ func (e *Engine) rememberedSpecContext(you state.PlayerID, source state.ObjID, r
 
 func hasOptionalReplacement(matches []replMatch) bool {
 	for _, m := range matches {
-		if strings.EqualFold(m.repl.Params["Optional"], "True") {
+		if strings.EqualFold(m.repl.ParamStr(cards.PKOptional), "True") {
 			return true
 		}
 	}
@@ -578,7 +578,7 @@ func hasOptionalReplacement(matches []replMatch) bool {
 // not resolve also resolves to nobody, and the match gate above excluded the
 // replacement already, so this is only reachable for "You".
 func (e *Engine) replacementOptionalDecider(r cards.Repl, source state.ObjID) (state.PlayerID, bool) {
-	if strings.TrimSpace(r.Params["OptionalDecider"]) != "You" {
+	if strings.TrimSpace(r.ParamStr(cards.PKOptionalDecider)) != "You" {
 		return 0, false
 	}
 	ctrl := e.controllerOf(source)
@@ -597,7 +597,7 @@ func (e *Engine) replacementOptionalDecider(r cards.Repl, source state.ObjID) (s
 // A decider who has lost or left makes no choices (CR 800.4a), so the
 // affected player answers instead.
 func (e *Engine) replacementAskPlayer(matches []replMatch, affected state.PlayerID) state.PlayerID {
-	if len(matches) == 1 && strings.EqualFold(matches[0].repl.Params["Optional"], "True") {
+	if len(matches) == 1 && strings.EqualFold(matches[0].repl.ParamStr(cards.PKOptional), "True") {
 		if dp, ok := e.replacementOptionalDecider(*matches[0].repl, matches[0].id); ok &&
 			!e.G.Players[dp].Lost {
 			return dp
@@ -849,7 +849,7 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 	if f != nil {
 		effects.SetSVars(ctx, f.SVars)
 	}
-	if o != nil && m.repl != nil && m.repl.Params["Keyword"] == "ETBReplacement" && m.repl.With != nil && m.repl.With.API == "Clone" {
+	if o != nil && m.repl != nil && m.repl.ParamStr(cards.PKKeyword) == "ETBReplacement" && m.repl.With != nil && m.repl.With.API == "Clone" {
 		ctx.CloneETB = true
 		ctx.CloneBecome = ev.Obj
 		ctx.CloneBecomeValid = true
@@ -866,7 +866,7 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 	// ChooseColor's answer askable -- the stale-source-state guard cannot be
 	// unconditional). The effect consumes the flag, so a nested ChooseColor
 	// in the same chain poses its own fresh ask.
-	if o != nil && m.repl != nil && m.repl.Params["Keyword"] == "ETBReplacement" && m.repl.With != nil && m.repl.With.API == "ChooseColor" {
+	if o != nil && m.repl != nil && m.repl.ParamStr(cards.PKKeyword) == "ETBReplacement" && m.repl.With != nil && m.repl.With.API == "ChooseColor" {
 		ctx.ETBColorRecorded = true
 	}
 	// The as-enters NUMBER-choice body (K:ETBReplacement:Other:ChooseNumber,
@@ -877,10 +877,10 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 	// flag is exact where a bare o.ChosenNumber guard is not: a recorded entry
 	// answer of 0 is indistinguishable from unset on the object, but the flag
 	// is set precisely when the machinery recorded one.
-	if o != nil && m.repl != nil && m.repl.Params["Keyword"] == "ETBReplacement" && m.repl.With != nil && m.repl.With.API == "ChooseNumber" {
+	if o != nil && m.repl != nil && m.repl.ParamStr(cards.PKKeyword) == "ETBReplacement" && m.repl.With != nil && m.repl.With.API == "ChooseNumber" {
 		ctx.ETBNumberRecorded = true
 	}
-	if o != nil && m.repl != nil && m.repl.Params["Keyword"] == "ETBReplacement" && m.repl.With != nil && m.repl.With.API == "ChooseEvenOdd" {
+	if o != nil && m.repl != nil && m.repl.ParamStr(cards.PKKeyword) == "ETBReplacement" && m.repl.With != nil && m.repl.With.API == "ChooseEvenOdd" {
 		ctx.ETBEvenOddRecorded = true
 	}
 	e.seedEffectReplCtx(ctx, m)
@@ -929,7 +929,7 @@ func replacementBodyRewritesHeldEvent(with *cards.SA, svars map[string]string) b
 		}
 		sub := with.Sub
 		if sub == nil && svars != nil {
-			if name := strings.TrimSpace(with.Params["SubAbility"]); name != "" {
+			if name := strings.TrimSpace(with.ParamStr(cards.PKSubAbility)); name != "" {
 				sub = cards.ResolveSVar(svars, name)
 			}
 		}
@@ -965,7 +965,7 @@ func (e *Engine) runReplaceWith(ctx *effects.Ctx, replaced state.ObjID, with *ca
 	// already-linked chain (Sub non-nil), so this only touches the
 	// Effect-created parse.
 	if with != nil && with.Sub == nil && ctx != nil && ctx.SVars != nil {
-		if name := strings.TrimSpace(with.Params["SubAbility"]); name != "" {
+		if name := strings.TrimSpace(with.ParamStr(cards.PKSubAbility)); name != "" {
 			if sub := cards.ResolveSVar(ctx.SVars, name); sub != nil {
 				linked := *with
 				linked.Sub = sub

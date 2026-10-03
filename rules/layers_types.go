@@ -499,7 +499,7 @@ func (e *Engine) matchesWithCharsPTSlow(ce *ContinuousEffect, id state.ObjID, ty
 	// ordering. This is the same deferral the PredicatePrograms clear below
 	// practises, and it leaves the walk's printed-face/Changeling fallback
 	// (hasTypeCtx -> hasType) exactly as it was.
-	sc.DerivedTypes = nil
+	sc.Layers.DerivedTypes = nil
 	// An Effect-delivered grant's Affected$ spec may name the objects the
 	// Effect remembered (`Affected$ Permanent.IsRemembered`, energybending's
 	// "lands you control gain all basic land types"). The restriction walk

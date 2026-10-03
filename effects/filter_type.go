@@ -246,7 +246,7 @@ func hasTypeCtxSub(o *state.Object, t string, id cards.TypeWordID, sub bool, sc 
 	if sc.ExtraTypes != nil {
 		return hasTypeSub(o, t, id, sub)
 	}
-	for _, d := range sc.DerivedTypes {
+	for _, d := range sc.Layers.DerivedTypes {
 		if d.ID != o.ID {
 			continue
 		}

@@ -373,7 +373,7 @@ func (e *Engine) filterTargetControllerProperty(in []targetCandidate, sa *cards.
 	if sa == nil {
 		return in
 	}
-	kind := strings.TrimSpace(sa.Params["TargetsWithControllerProperty"])
+	kind := strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithControllerProperty))
 	if kind == "" {
 		return in
 	}

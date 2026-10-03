@@ -50,7 +50,7 @@ func effPlaneswalk(h Host, c *Ctx, sa *cards.SA) {
 	// planar deck in this build, but the election still matters: it must be
 	// visible to a host and a decline must still let Resolve walk the chained
 	// SubAbility.  The answer is scoped to this SA and consumed on re-entry.
-	if strings.EqualFold(strings.TrimSpace(sa.Params["Optional"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
 		answer := c.PlaneswalkOpt
 		c.PlaneswalkOpt = ""
 		if answer == "" {
@@ -142,7 +142,7 @@ func effChaosEnsues(h Host, c *Ctx, sa *cards.SA) {
 // Remembered order is preserved, which is what Spatial Merging's
 // "simultaneously planeswalk to both of them" needs.
 func planeswalkDestinations(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
-	if !strings.EqualFold(strings.TrimSpace(sa.Params["Defined"]), "Remembered") {
+	if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKDefined)), "Remembered") {
 		return nil
 	}
 	return planarRememberedIDs(h, c)
@@ -152,7 +152,7 @@ func planeswalkDestinations(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
 // Defined$ Remembered rider (The Fertile Lands of Saulvinia): the remembered
 // planes chaos ensues on.
 func chaosDestinations(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
-	if !strings.EqualFold(strings.TrimSpace(sa.Params["Defined"]), "Remembered") {
+	if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKDefined)), "Remembered") {
 		return nil
 	}
 	return planarRememberedIDs(h, c)

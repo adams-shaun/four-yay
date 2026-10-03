@@ -204,7 +204,7 @@ func effChangeText(h Host, c *Ctx, sa *cards.SA) {
 		if t.IsPlayer {
 			continue
 		}
-		registerTextSubstitution(h, c, t.Obj, from, to, sa.Params["Duration"])
+		registerTextSubstitution(h, c, t.Obj, from, to, sa.ParamStr(cards.PKDuration))
 	}
 }
 
@@ -262,7 +262,7 @@ func registerTextSubstitution(h Host, c *Ctx, id state.ObjID, from, to, dur stri
 
 // effExchangeTextBox implements api:ExchangeTextBox: two objects swap their
 // rules text for the effect's duration. Each object gets a layer-3 TextSet
-// holding the OTHER's current derived text (Host.ObjectText, CR 613.1d), so
+// holding the OTHER's current derived text (Host.Chars(id).Text, CR 613.1d), so
 // rules.Engine.Text renders the exchange EXACTLY as the two boxes read at
 // resolution -- including any earlier ChangeText substitution on either side.
 // Source and Affects use the same per-object binding as ChangeText. A single
@@ -292,10 +292,17 @@ func effExchangeTextBox(h Host, c *Ctx, sa *cards.SA) {
 	// keeps the capture independent of this effect's own registrations. A
 	// text box is text plus abilities (CR 612.1), so the keyword half of each
 	// box travels with its text half.
-	textA, textB := h.ObjectText(oa), h.ObjectText(ob)
-	kwA, kwB := h.ObjectKeywords(oa), h.ObjectKeywords(ob)
-	registerTextSet(h, c, a, textB, kwB, sa.Params["Duration"])
-	registerTextSet(h, c, b, textA, kwA, sa.Params["Duration"])
+	// Each Chars read is copied out in its OWN statement before the next
+	// query: the record is valid only until the next Chars call
+	// (Host.Chars), and Go does not order a field load against a later call
+	// in the same expression, so `h.Chars(a).Text, h.Chars(b).Text` may read
+	// b's record twice.
+	ca := h.Chars(a)
+	textA, kwA := ca.Text, append([]string(nil), ca.Keywords...)
+	cb := h.Chars(b)
+	textB, kwB := cb.Text, append([]string(nil), cb.Keywords...)
+	registerTextSet(h, c, a, textB, kwB, sa.ParamStr(cards.PKDuration))
+	registerTextSet(h, c, b, textA, kwA, sa.ParamStr(cards.PKDuration))
 }
 
 // registerTextSet registers one exchanged text box on id: a layer-3 TextSet

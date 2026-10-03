@@ -47,27 +47,6 @@ func (e *Engine) derivedScalar(id state.ObjID) (power, toughness int32) {
 	return p, t
 }
 
-// derivedScalarBase is derivedScalar's base-P/T twin: the layer-7b result with
-// set effects applied but pumps (7c) and counters (7d) excluded. Like
-// derivedScalar it stays off the full-P/T derived memo, and it takes the same
-// keyword-gated delegation to derivedWith so a layer-6 keyword grant that
-// gates a layer-7 set is seen exactly as the full walk sees it.
-func (e *Engine) derivedScalarBase(id state.ObjID) int32 {
-	o := e.G.Obj(id)
-	if o == nil || o.Face() == nil {
-		return 0
-	}
-	f := o.Face()
-	active := e.active()
-	for i := range active {
-		if ce := &active[i]; ce.Layer == LPT && effects.SpecReadsKeywords(ce.Affects) {
-			return e.derivedWith(id, 0).BasePower
-		}
-	}
-	_, _, bp, _ := e.derivedScalarFrom(id, o, f, active, nil, nil, false)
-	return bp
-}
-
 // derivedScalarFrom is the layer-7 P/T walk proper. kw is the object's
 // FINISHED layer-6 keyword list (printed, intrinsic, marker-counter, status
 // and every applied layer-6 grant) bound through matchesWithChars the way
@@ -559,7 +538,7 @@ func (e *Engine) derivedCompute(id state.ObjID, atStack state.Zone) Derived {
 	e.derivingColorsSet, e.derivingColorsID, e.derivingColors = prevStashSet, prevStashID, prevStashColors
 	e.derivedDepth--
 	return Derived{Power: power, Toughness: toughness, BasePower: basePower, BaseToughness: baseToughness,
-		Keywords: kw, Types: ty, Name: name, Text: text, Colors: colors}
+		Keywords: kw, Types: ty, Name: name, Text: text, Colors: colors, Controller: e.controllerOf(id)}
 }
 
 // derivedName is Derived(id).Name without the rest of the walk. The name is
@@ -923,12 +902,6 @@ func isLetterByte(c byte) bool {
 func (e *Engine) Power(id state.ObjID) int32 {
 	p, _ := e.derivedScalar(id)
 	return p
-}
-
-// BasePower returns the layer-7b result, excluding layer-7c modifiers and
-// layer-7d counters. It intentionally bypasses the full-P/T derived memo.
-func (e *Engine) BasePower(id state.ObjID) int32 {
-	return e.derivedScalarBase(id)
 }
 
 func (e *Engine) Toughness(id state.ObjID) int32 {

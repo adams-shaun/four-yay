@@ -138,7 +138,7 @@ func producibleSymbols(o *state.Object) string {
 	}
 	var set uint8
 	for _, ma := range f.ManaAbilities() {
-		p := strings.TrimSpace(ma.Params["Produced"])
+		p := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
 		switch {
 		case p == "" || p == "Any" || p == "Combo Any":
 			for _, r := range "WUBRG" {
@@ -248,7 +248,7 @@ func reflectedDefinedExtras(h Host, c *Ctx, sel string) ([]state.ObjID, bool) {
 // opponent land in play, or Chrome Mox with no imprinted card recorded, must
 // not invent a colour.
 func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
-	produced := strings.TrimSpace(sa.Params["Produced"])
+	produced := strings.TrimSpace(sa.ParamStr(cards.PKProduced))
 	amount := Num(h, c, sa, "Amount", 1)
 	if amount < 0 {
 		amount = 0
@@ -293,7 +293,7 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 		// Produce/Is where Valid$ names reflected objects. Resolve those three
 		// roles locally so the ordinary Defined grammar is not widened for
 		// unrelated effects.
-		switch strings.TrimSpace(sa.Params["Defined"]) {
+		switch strings.TrimSpace(sa.ParamStr(cards.PKDefined)) {
 		case "TriggeredActivator":
 			if c.TriggerActivator.IsPlayer {
 				recipient = c.TriggerActivator.Player

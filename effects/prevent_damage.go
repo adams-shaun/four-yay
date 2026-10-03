@@ -75,11 +75,11 @@ func effPreventDamage(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	total := int32(0)
-	if _, present := sa.Params["Amount"]; present {
+	if _, present := sa.Param(cards.PKAmount); present {
 		n, ok := NumResolved(h, c, sa, "Amount", 0)
 		if !ok {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-				Text: "unresolvable PreventDamage Amount$ " + sa.Params["Amount"]})
+				Text: "unresolvable PreventDamage Amount$ " + sa.ParamStr(cards.PKAmount)})
 			return
 		}
 		total = n

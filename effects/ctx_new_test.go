@@ -82,8 +82,8 @@ func TestNewCtxSeedsEveryCtxInitField(t *testing.T) {
 func resolvingCtx(t *testing.T) *Ctx {
 	t.Helper()
 	c := &Ctx{Source: 3, Controller: 1, X: 4}
-	for _, f := range []any{&c.SVars, &c.EffectiveNames, &c.EffectiveTypes, &c.LayerTables,
-		&c.StaticGoads, &c.TargetableObjects, &c.Targets, &c.Remembered, &c.TriggerContext} {
+	for _, f := range []any{&c.SVars, &c.Layers.EffectiveNames, &c.Layers.DerivedTypes, &c.Layers,
+		&c.Layers.StaticGoads, &c.TargetableObjects, &c.Targets, &c.Remembered, &c.TriggerContext} {
 		fillNonZero(t, reflect.ValueOf(f).Elem())
 	}
 	return c
@@ -106,9 +106,9 @@ func TestSpecContextCarriesTableSpecContext(t *testing.T) {
 		}
 	}
 	for name, v := range map[string]bool{
-		"EffectiveNames": table.EffectiveNames != nil, "DerivedTypes": table.DerivedTypes != nil,
-		"StaticGoads": table.StaticGoads != nil, "DerivedColors": table.DerivedColors != nil,
-		"DerivedKeywords": table.DerivedKeywords != nil,
+		"EffectiveNames": table.Layers.EffectiveNames != nil, "DerivedTypes": table.Layers.DerivedTypes != nil,
+		"StaticGoads": table.Layers.StaticGoads != nil, "DerivedColors": table.Layers.DerivedColors != nil,
+		"DerivedKeywords": table.Layers.DerivedKeywords != nil,
 	} {
 		if !v {
 			t.Errorf("TableSpecContext does not bind %s", name)
@@ -128,9 +128,8 @@ func TestChildCarriesResolutionTables(t *testing.T) {
 	if k.Source != 9 || k.Controller != 2 {
 		t.Fatalf("Child source/controller = %d/%d, want 9/2", k.Source, k.Controller)
 	}
-	if !reflect.DeepEqual(k.SVars, c.SVars) || !reflect.DeepEqual(k.EffectiveNames, c.EffectiveNames) ||
-		!reflect.DeepEqual(k.EffectiveTypes, c.EffectiveTypes) || !reflect.DeepEqual(k.LayerTables, c.LayerTables) ||
-		!reflect.DeepEqual(k.StaticGoads, c.StaticGoads) || !reflect.DeepEqual(k.TargetableObjects, c.TargetableObjects) {
+	if !reflect.DeepEqual(k.SVars, c.SVars) || !reflect.DeepEqual(k.Layers, c.Layers) ||
+		!reflect.DeepEqual(k.TargetableObjects, c.TargetableObjects) {
 		t.Error("Child dropped a resolution table")
 	}
 	if k.X != 0 || k.Targets != nil || k.Remembered != nil || k.TriggerCard != 0 {

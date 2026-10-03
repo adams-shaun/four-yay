@@ -327,10 +327,10 @@ func (e *Engine) cantPreventDamage(damageSource, target state.ObjID) bool {
 		}
 		for _, st := range o.Face().Statics {
 			if st.Mode != "CantPreventDamage" ||
-				(o.Zone != state.ZBattlefield && !(st.Params["EffectZone"] == "Stack" && o.Zone == state.ZStack)) {
+				(o.Zone != state.ZBattlefield && !(st.ParamStr(cards.PKEffectZone) == "Stack" && o.Zone == state.ZStack)) {
 				continue
 			}
-			if v := st.Params["ValidSource"]; v != "" &&
+			if v := st.ParamStr(cards.PKValidSource); v != "" &&
 				(damageSource == 0 || !e.matchesSpecFrom(v, damageSource, o.Controller, id)) {
 				continue
 			}

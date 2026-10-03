@@ -1116,7 +1116,7 @@ func (e *Engine) fireManaSpentTriggers(ev events.Event, lki *state.Object) {
 			if !e.zoneGate(t, src, ev) || !e.phaseGate(t) || !matches {
 				continue
 			}
-			exec := strings.TrimSpace(t.Params["Execute"])
+			exec := strings.TrimSpace(t.ParamStr(cards.PKExecute))
 			sa := grantedTriggerExecute(o, exec)
 			if sa == nil {
 				continue

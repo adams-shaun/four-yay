@@ -27,14 +27,14 @@ func delayedTriggerSpec(c *Ctx, name string) (state.Step, string, bool) {
 		return 0, "", false
 	}
 	if sa := cards.ResolveSVar(c.SVars, name); sa != nil {
-		return parseDelayedTriggerBody(sa.Params["Phase"], sa.Params["ValidPlayer"])
+		return parseDelayedTriggerBody(sa.ParamStr(cards.PKPhase), sa.ParamStr(cards.PKValidPlayer))
 	}
 	raw, found := c.SVars[name]
 	if !found {
 		return 0, "", false
 	}
 	if trig, ok := cards.ParseTriggerLine(raw); ok {
-		return parseDelayedTriggerBody(trig.Params["Phase"], trig.Params["ValidPlayer"])
+		return parseDelayedTriggerBody(trig.ParamStr(cards.PKPhase), trig.ParamStr(cards.PKValidPlayer))
 	}
 	return 0, "", false
 }

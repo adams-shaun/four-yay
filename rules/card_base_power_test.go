@@ -22,7 +22,7 @@ func TestCardBasePowerStopsAtLayer7bAndDrivesCount(t *testing.T) {
 		t.Fatal("precondition: test permanents are not both on the battlefield")
 	}
 	e.emit(events.Event{Kind: events.CounterChange, Obj: creature, Counter: "P1P1", Amount: 1})
-	base, full := e.BasePower(creature), e.Power(creature)
+	base, full := e.Chars(creature).BasePower, e.Power(creature)
 	if base != 5 || full != 8 || base == full {
 		t.Fatalf("precondition/semantics: base power=%d, full power=%d; want distinct 5 and 8", base, full)
 	}
@@ -31,13 +31,13 @@ func TestCardBasePowerStopsAtLayer7bAndDrivesCount(t *testing.T) {
 		t.Fatalf("Okinec-shaped Count$CardPower/Minus.Count$CardBasePower = %d, resolved=%v; want 3", diff, ok)
 	}
 
-	// The off-zone Host call remains meaningful and falls back to the face.
+	// The off-zone Chars query remains meaningful and falls back to the face.
 	offZone := e.G.AddObject(card(t, "Name:Off Zone\nTypes:Creature\nPT:3/2\nOracle:x\n"), 0)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: offZone.ID, From: state.ZLibrary, To: state.ZHand})
 	if o := e.G.Obj(offZone.ID); o == nil || o.Zone != state.ZHand {
 		t.Fatalf("precondition: off-zone source is not in hand: %+v", o)
 	}
-	if got := e.BasePower(offZone.ID); got != 3 {
+	if got := e.Chars(offZone.ID).BasePower; got != 3 {
 		t.Fatalf("off-zone base power = %d, want printed face 3", got)
 	}
 

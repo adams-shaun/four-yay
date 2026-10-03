@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -365,7 +366,7 @@ func (e *Engine) askReplacementChoice(p state.PlayerID) {
 		// A single-optional competition asked of its OptionalDecider$ is the
 		// replacement's own "may", not an order among several: pose it as
 		// one (Battletide Alchemist round-2 finding).
-		if len(rc.cands) == 1 && strings.EqualFold(rc.cands[0].repl.Params["Optional"], "True") {
+		if len(rc.cands) == 1 && strings.EqualFold(rc.cands[0].repl.ParamStr(cards.PKOptional), "True") {
 			label := "Apply the replacement"
 			if o := e.G.Obj(rc.cands[0].id); o != nil && o.Face() != nil && o.Face().Name != "" {
 				label = "Apply " + o.Face().Name + "'s replacement"
@@ -672,7 +673,7 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 			return
 		}
 		i := rc.applicable[chosen[0].Index]
-		if rc.cands[i].repl.Params["Optional"] == "True" {
+		if rc.cands[i].repl.ParamStr(cards.PKOptional) == "True" {
 			rc.kind = replChoicePhaseOptional
 			rc.selected = i
 			rc.applicable = nil

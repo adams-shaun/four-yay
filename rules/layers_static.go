@@ -569,7 +569,7 @@ func (e *Engine) staticAmountOn(ce *ContinuousEffect, expr string, anchor state.
 	ctx := effects.NewCtxPtr(anchor, ce.Controller, effects.CtxInit{SVars: svars})
 	if strings.Contains(expr, "Count$ValidSelf Card$CreatureType") || strings.Contains(svars[expr], "Count$ValidSelf Card$CreatureType") {
 		e.refreshDerivedTypes()
-		ctx.EffectiveTypes = e.EffectiveTypes()
+		ctx.Layers.DerivedTypes = e.EffectiveTypes()
 	}
 	return effects.Num(e, ctx, sa, "Amount", 0)
 }

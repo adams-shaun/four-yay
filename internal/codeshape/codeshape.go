@@ -16,6 +16,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"go/types"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -61,10 +62,24 @@ type Metrics struct {
 	// EngineMethods counts non-test methods whose receiver base type is
 	// Engine, under rules/ (recursive).
 	EngineMethods int `json:"engine_methods"`
-	// HostMethods counts the methods declared in effects.Host; HostEmbeds the
-	// interfaces it embeds (none today).
-	HostMethods int `json:"host_methods"`
-	HostEmbeds  int `json:"host_embeds"`
+	// HostMethods counts the methods in effects.Host's method set: the ones it
+	// declares directly plus every method of the role interfaces it embeds
+	// (resolved among package effects' own interface types, recursively; a
+	// method two roles share counts once). HostEmbeds counts the interfaces it
+	// embeds directly. HostDirectMethods counts the methods Host itself
+	// declares rather than takes from a role (W1d: a new method joins a
+	// role), and HostRoleMaxMethods is the method-set size of its largest
+	// embedded role.
+	HostMethods        int `json:"host_methods"`
+	HostEmbeds         int `json:"host_embeds"`
+	HostDirectMethods  int `json:"host_direct_methods"`
+	HostRoleMaxMethods int `json:"host_role_max_methods"`
+	// HostOptionalAssertions counts, in package effects' non-test files, the
+	// type assertions to an interface other than Host and its roles -- an
+	// inline `h.(interface{ ... })` or a named optional interface such as
+	// `h.(layerTablesHost)`. Each is a Host method by another name that the
+	// role split cannot see; W1d collapsed five per-table ones into one.
+	HostOptionalAssertions int `json:"host_optional_assertions"`
 	// CtxFields counts the named fields of effects.Ctx (each name on a
 	// multi-name line counts); CtxEmbeds its embedded fields.
 	CtxFields int `json:"ctx_fields"`
@@ -110,6 +125,12 @@ func Measure(root string) (Metrics, error) {
 	var m Metrics
 	keys := map[string]bool{}
 	hostFound, ctxFound, rpFound := false, false, false
+	// ifaces is every top-level interface type of package effects, so Host's
+	// embedded roles can be resolved once the whole package is parsed.
+	ifaces := map[string]*ast.InterfaceType{}
+	// assertedNames are the named types effects asserts to; the optional
+	// interfaces among them are counted once ifaces is complete.
+	var assertedNames []string
 	for _, dir := range ScannedDirs {
 		files, err := goFiles(root, dir)
 		if err != nil {
@@ -143,20 +164,15 @@ func Measure(root string) (Metrics, error) {
 					}
 					for _, spec := range d.Specs {
 						ts := spec.(*ast.TypeSpec)
+						if it, ok := ts.Type.(*ast.InterfaceType); ok && inEffectsTop {
+							ifaces[ts.Name.Name] = it
+						}
 						switch {
 						case inEffectsTop && ts.Name.Name == "Host":
-							it, ok := ts.Type.(*ast.InterfaceType)
-							if !ok {
+							if _, ok := ts.Type.(*ast.InterfaceType); !ok {
 								return m, fmt.Errorf("codeshape: %s: effects.Host is not an interface", rel)
 							}
 							hostFound = true
-							for _, fld := range it.Methods.List {
-								if _, isFunc := fld.Type.(*ast.FuncType); isFunc {
-									m.HostMethods += len(fld.Names)
-								} else {
-									m.HostEmbeds++
-								}
-							}
 						case inEffectsTop && ts.Name.Name == "Ctx":
 							named, embeds, err := structFields(ts, rel)
 							if err != nil {
@@ -178,8 +194,18 @@ func Measure(root string) (Metrics, error) {
 					}
 				}
 			}
+			inEffects := dir == "effects"
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
+				case *ast.TypeAssertExpr:
+					if inEffects {
+						switch t := x.Type.(type) {
+						case *ast.InterfaceType:
+							m.HostOptionalAssertions++
+						case *ast.Ident:
+							assertedNames = append(assertedNames, t.Name)
+						}
+					}
 				case *ast.IndexExpr:
 					if lit, ok := x.Index.(*ast.BasicLit); ok && lit.Kind == token.STRING && isParams(x.X) {
 						m.StringParamReads++
@@ -206,6 +232,20 @@ func Measure(root string) (Metrics, error) {
 	case !rpFound:
 		return m, fmt.Errorf("codeshape: no `type resumePoint struct` under rules/; update codeshape if it moved or was retired")
 	}
+	if err := measureHost(ifaces, &m); err != nil {
+		return m, err
+	}
+	roles := map[string]bool{"Host": true}
+	for _, fld := range ifaces["Host"].Methods.List {
+		if id, ok := fld.Type.(*ast.Ident); ok {
+			roles[id.Name] = true
+		}
+	}
+	for _, name := range assertedNames {
+		if ifaces[name] != nil && !roles[name] {
+			m.HostOptionalAssertions++
+		}
+	}
 	m.StringParamKeys = len(keys)
 	m.FuncsOver300 = len(m.LongFuncs)
 	sort.Slice(m.LongFuncs, func(i, j int) bool {
@@ -222,6 +262,61 @@ func Measure(root string) (Metrics, error) {
 		m.LongFuncs = []Func{}
 	}
 	return m, nil
+}
+
+// measureHost fills the Host metrics from package effects' interface types.
+// An embedded interface that is not one of them (a qualified or unknown name)
+// is an error, so a role moved out of the package cannot silently shrink the
+// count.
+func measureHost(ifaces map[string]*ast.InterfaceType, m *Metrics) error {
+	host := ifaces["Host"]
+	for _, fld := range host.Methods.List {
+		if _, isFunc := fld.Type.(*ast.FuncType); isFunc {
+			m.HostDirectMethods += len(fld.Names)
+			continue
+		}
+		m.HostEmbeds++
+		name, ok := fld.Type.(*ast.Ident)
+		if !ok || ifaces[name.Name] == nil {
+			return fmt.Errorf("codeshape: effects.Host embeds %s, which is not an interface declared in package effects", types.ExprString(fld.Type))
+		}
+		set := map[string]bool{}
+		if err := methodSet(ifaces, name.Name, set, 0); err != nil {
+			return err
+		}
+		m.HostRoleMaxMethods = max(m.HostRoleMaxMethods, len(set))
+	}
+	set := map[string]bool{}
+	if err := methodSet(ifaces, "Host", set, 0); err != nil {
+		return err
+	}
+	m.HostMethods = len(set)
+	return nil
+}
+
+// methodSet adds the method names of interface name (and of everything it
+// embeds) to set.
+func methodSet(ifaces map[string]*ast.InterfaceType, name string, set map[string]bool, depth int) error {
+	it := ifaces[name]
+	if it == nil || depth > 16 {
+		return fmt.Errorf("codeshape: cannot resolve interface %s in package effects", name)
+	}
+	for _, fld := range it.Methods.List {
+		if _, isFunc := fld.Type.(*ast.FuncType); isFunc {
+			for _, n := range fld.Names {
+				set[n.Name] = true
+			}
+			continue
+		}
+		emb, ok := fld.Type.(*ast.Ident)
+		if !ok {
+			return fmt.Errorf("codeshape: interface %s embeds %s, which is not an interface declared in package effects", name, types.ExprString(fld.Type))
+		}
+		if err := methodSet(ifaces, emb.Name, set, depth+1); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // isCtxConstructorFile reports whether rel is one of CtxConstructorFiles.

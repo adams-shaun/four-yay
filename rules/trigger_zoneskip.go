@@ -157,15 +157,15 @@ func computeFaceTriggerZones(f *cards.Face, valid func(string) bool) uint8 {
 	var m uint8
 	for i := range f.Triggers {
 		t := &f.Triggers[i]
-		if spec := t.Params["Phase"]; strings.TrimSpace(spec) != "" && !valid(spec) {
+		if spec := t.ParamStr(cards.PKPhase); strings.TrimSpace(spec) != "" && !valid(spec) {
 			m = 1<<trigZoneSlots - 1
 			break
 		}
 		// zoneGate's spec resolution for a source that is not the event's
 		// own object (the only kind a skip ever passes over).
-		spec := t.Params["TriggerZones"]
+		spec := t.ParamStr(cards.PKTriggerZones)
 		if spec == "" {
-			spec = t.Params["ActiveZones"]
+			spec = t.ParamStr(cards.PKActiveZones)
 		}
 		if spec == "" {
 			spec = "Battlefield"

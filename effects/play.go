@@ -98,11 +98,11 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 
 	// A targeted Play (ValidTgts$ on the same SA, e.g. Conduit of Worlds)
 	// plays the card it targeted at placement.
-	if _, ok := sa.Params["ValidTgts"]; ok {
+	if _, ok := sa.Param(cards.PKValidTgts); ok {
 		for _, t := range c.Targets {
 			candidates = append(candidates, t.Obj)
 		}
-	} else if spec, ok := sa.Params["Defined"]; ok && strings.TrimSpace(spec) != "" {
+	} else if spec, ok := sa.Param(cards.PKDefined); ok && strings.TrimSpace(spec) != "" {
 		// Population by Defined$ (ExiledWith / Remembered / ...).
 		dd := &cards.SA{Params: map[string]string{"Defined": spec}}
 		for _, t := range Defined(h, c, dd) {
@@ -334,11 +334,11 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 	// 2 x4, 3 x5, X/ChandraX x3 -- the X shapes fall back to one card rather
 	// than risk an over-wide offer).
 	min := 1
-	if strings.EqualFold(strings.TrimSpace(sa.Params["Optional"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
 		min = 0
 	}
 	max := 1
-	switch amt := strings.TrimSpace(sa.Params["Amount"]); amt {
+	switch amt := strings.TrimSpace(sa.ParamStr(cards.PKAmount)); amt {
 	case "", "1":
 	case "All":
 		max = len(candidates)

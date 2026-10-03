@@ -29,10 +29,10 @@ func (e *Engine) SpellCopyAllowed(id state.ObjID) bool {
 				}
 				for si, n := 0, o.PileStaticCount(); si < n; si++ {
 					pst, ok := o.PileStaticAt(si)
-					if !ok || pst.Static.Mode != "CantBeCopied" || !effectZoneOK(pst.Static.Params["EffectZone"], o.Zone) {
+					if !ok || pst.Static.Mode != "CantBeCopied" || !effectZoneOK(pst.Static.ParamStr(cards.PKEffectZone), o.Zone) {
 						continue
 					}
-					spec := strings.TrimSpace(pst.Static.Params["ValidCard"])
+					spec := strings.TrimSpace(pst.Static.ParamStr(cards.PKValidCard))
 					if spec == "" {
 						continue
 					}
@@ -188,7 +188,7 @@ func (e *Engine) castRestrictionSources(statics []staticView, id state.ObjID) []
 		return out
 	}
 	for _, st := range o.Face().Statics {
-		if st.Mode != "CantBeCast" || !effectZoneOK(st.Params["EffectZone"], o.Zone) {
+		if st.Mode != "CantBeCast" || !effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
 			continue
 		}
 		out = append(out, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf()})
@@ -326,7 +326,7 @@ func activatedMatchesValidSA(ab *cards.SA, validSA string) bool {
 				if j := strings.IndexByte(inner, ':'); j >= 0 {
 					color = inner[j+1:]
 				}
-				produced := strings.TrimSpace(ab.Params["Produced"])
+				produced := strings.TrimSpace(ab.ParamStr(cards.PKProduced))
 				if produced == "" {
 					produced = "C"
 				}

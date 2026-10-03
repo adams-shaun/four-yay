@@ -40,10 +40,10 @@ func effEndTurn(h Host, c *Ctx, sa *cards.SA) {
 	answer := c.EndTurnOpt
 	c.EndTurnOpt = "" // a chained EndTurn must pose its own election
 	g := h.Game()
-	if strings.EqualFold(strings.TrimSpace(sa.Params["Optional"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
 		if answer == "" {
 			chooser := c.Controller
-			if strings.TrimSpace(sa.Params["Defined"]) == "ActivePlayer" {
+			if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "ActivePlayer" {
 				chooser = g.Active
 			}
 			d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,

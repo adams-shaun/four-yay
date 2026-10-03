@@ -19,12 +19,10 @@ import (
 // outside the configured set (a runtime-built SA) has no entry and takes
 // every gate the ordinary way. In the rules test binary manaSAFactsVerify
 // recomputes the facts on every hit and panics on a difference (the
-// "configured text is immutable" argument, checked).
+// "configured text is immutable" argument, checked). It is the mana half of
+// the ability's saFacts record (sa_facts.go), which owns the ability's
+// published slot.
 type manaSAFacts struct {
-	// sa is the ability the facts were computed for: a by-value SA copy
-	// shares its original's published slot (cards.ExtSlot) and must not
-	// read these.
-	sa *cards.SA
 	// zoneOK is abilityZoneOK(ab, z) for every z < 32 (bit z).
 	zoneOK uint32
 	// loyalty is isLoyaltyAbility(ab).
@@ -82,10 +80,10 @@ type manaStaticFacts struct {
 }
 
 func computeManaStaticFacts(ab *cards.SA, cost *Cost) manaStaticFacts {
-	f := manaStaticFacts{produced: strings.TrimSpace(ab.Params["Produced"]), amount: availableAmount(ab),
+	f := manaStaticFacts{produced: strings.TrimSpace(ab.ParamStr(cards.PKProduced)), amount: availableAmount(ab),
 		restrictValid: strings.TrimSpace(ab.Params["RestrictValid"]) != "",
 		freeCost:      manaFreeCost(*cost), tapOnly: paymentPlanTapOnlyCost(*cost), tap: cost.Tap, untap: cost.Untap}
-	f.counts, f.any = cards.ProducedCounts(ab.Params["Produced"])
+	f.counts, f.any = cards.ProducedCounts(ab.ParamStr(cards.PKProduced))
 	return f
 }
 
@@ -94,55 +92,51 @@ func computeManaStaticFacts(ab *cards.SA, cost *Cost) manaStaticFacts {
 func (e *Engine) manaStaticOf(ab *cards.SA) manaStaticFacts {
 	if f := e.manaFactsOf(ab); f != nil {
 		if manaSAFactsVerify {
-			c := e.parseCost(ab.Params["Cost"])
+			c := e.parseCost(ab.ParamStr(cards.PKCost))
 			if fresh := computeManaStaticFacts(ab, &c); fresh != f.static {
 				panic(fmt.Sprintf("rules: configured census facts for %q disagree with a recompute", ab.Line))
 			}
 		}
 		return f.static
 	}
-	c := e.parseCost(ab.Params["Cost"])
+	c := e.parseCost(ab.ParamStr(cards.PKCost))
 	return computeManaStaticFacts(ab, &c)
 }
 
 // manaSAFactsVerify: see derivedMemoVerify. Set by the rules test binary.
 var manaSAFactsVerify = derivedMemoVerifyFlag != ""
 
-func buildManaSAFacts(ab *cards.SA, costOf func(string) *compiledCost) *manaSAFacts {
-	f := buildManaSAFactsValue(ab, costOf)
-	return &f
-}
-
-// buildManaSAFactsValue is buildManaSAFacts without the heap copy: the
-// verify-mode recompute in manaFactsOf only compares it.
+// buildManaSAFactsValue computes ab's mana facts by value: buildSAFacts
+// takes its heap copy, and the verify-mode recompute in manaFactsOf only
+// compares it.
 func buildManaSAFactsValue(ab *cards.SA, costOf func(string) *compiledCost) manaSAFacts {
-	f := manaSAFacts{sa: ab, cost: costOf(ab.Params["Cost"])}
+	f := manaSAFacts{cost: costOf(ab.ParamStr(cards.PKCost))}
 	f.zoneOK = abilityZoneMask(ab)
-	raw := ab.Params["Cost"]
+	raw := ab.ParamStr(cards.PKCost)
 	if containsLoyaltyFold(raw) {
 		f.loyalty = isLoyaltyAbilityRef(ab, &f.cost.Cost)
 	} else {
 		f.loyalty = isLoyaltyAbilityRef(ab, &freeCost.Cost)
 	}
-	f.defaultActivator = strings.TrimSpace(ab.Params["Activator"]) == ""
-	if raw, ok := ab.Params["Activation"]; !ok || strings.TrimSpace(raw) == "" {
+	f.defaultActivator = strings.TrimSpace(ab.ParamStr(cards.PKActivator)) == ""
+	if raw, ok := ab.Param(cards.PKActivation); !ok || strings.TrimSpace(raw) == "" {
 		f.noActivation = true
 	}
 	// The five keys activationPhasesOK reads, spelled out so the param
 	// census sees static keys.
-	_, phases := ab.Params["ActivationPhases"]
-	_, firstCombat := ab.Params["ActivationFirstCombat"]
-	_, afterBlockers := ab.Params["ActivationAfterBlockers"]
-	_, playerTurn := ab.Params["PlayerTurn"]
-	_, opponentTurn := ab.Params["OpponentTurn"]
+	_, phases := ab.Param(cards.PKActivationPhases)
+	_, firstCombat := ab.Param(cards.PKActivationFirstCombat)
+	_, afterBlockers := ab.Param(cards.PKActivationAfterBlockers)
+	_, playerTurn := ab.Param(cards.PKPlayerTurn)
+	_, opponentTurn := ab.Param(cards.PKOpponentTurn)
 	f.noPhaseGate = !phases && !firstCombat && !afterBlockers && !playerTurn && !opponentTurn
-	if spec, ok := ab.Params["IsPresent"]; !ok || strings.TrimSpace(spec) == "" {
+	if spec, ok := ab.Param(cards.PKIsPresent); !ok || strings.TrimSpace(spec) == "" {
 		f.noIsPresent = true
 	}
-	_, check := ab.Params["CheckSVar"]
+	_, check := ab.Param(cards.PKCheckSVar)
 	f.noCheckSVar = !check
-	_, limited := ab.Params["ActivationLimit"]
-	f.noLimit = !limited && ab.Params["GameActivationLimit"] == ""
+	_, limited := ab.Param(cards.PKActivationLimit)
+	f.noLimit = !limited && ab.ParamStr(cards.PKGameActivationLimit) == ""
 	f.plainSym, f.plainAmt = plainManaShape(ab)
 	f.static = computeManaStaticFacts(ab, &f.cost.Cost)
 	f.potential = computePotentialManaAdd(ab)
@@ -152,23 +146,19 @@ func buildManaSAFactsValue(ab *cards.SA, costOf func(string) *compiledCost) mana
 	return f
 }
 
-// manaFactsOf returns ab's configured facts, or nil for an ability outside
-// the configured set.
+// manaFactsOf returns ab's configured mana facts (the mana half of its
+// saFacts record), or nil for an ability outside the configured set or one
+// that is not an AB$ ability.
 func (e *Engine) manaFactsOf(ab *cards.SA) *manaSAFacts {
-	if e == nil || e.compiledText == nil || ab == nil {
+	if e == nil {
 		return nil
 	}
-	// The facts published on the ability itself (compiled_text.go) when
-	// they are its own, else the engine's table. A published entry may come
-	// from another configuration's compiledText, whose compiled cost is the
-	// same frozen parse of the same text at a different address.
-	var f *manaSAFacts
-	if p := ab.ExtSlot().Load(); p != nil && (*manaSAFacts)(p).sa == ab {
-		f = (*manaSAFacts)(p)
-	} else {
-		f = e.compiledText.saFacts[ab]
+	sf := e.compiledText.factsOf(ab)
+	if sf == nil || sf.mana == nil {
+		return nil
 	}
-	if f != nil && manaSAFactsVerify {
+	f := sf.mana
+	if manaSAFactsVerify {
 		fresh := buildManaSAFactsValue(ab, e.compiledCostOf)
 		if (fresh.cost != f.cost && !sameCompiledCost(fresh.cost, f.cost)) || !sameFactsIgnoringCost(fresh, *f) {
 			panic(fmt.Sprintf("rules: configured mana facts for %q disagree with a recompute (%+v vs %+v)", ab.Line, *f, fresh))

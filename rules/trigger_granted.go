@@ -803,7 +803,7 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 				// battlefield-origin "dies" trigger looks back and belongs to
 				// the look-back pass. Without the gate a gained dies trigger
 				// queued once per pass and resolved twice.
-				looksBack := t.Mode == "ChangesZone" && t.Params["Origin"] == "Battlefield"
+				looksBack := t.Mode == "ChangesZone" && t.ParamStr(cards.PKOrigin) == "Battlefield"
 				if split && looksBack != leaving {
 					continue
 				}
@@ -831,7 +831,7 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 					SA:           t.Effect,
 					Gained:       true,
 					GainedFrom:   gf.Obj,
-					Execute:      t.Params["Execute"],
+					Execute:      t.ParamStr(cards.PKExecute),
 					Trigger:      t,
 					TriggerSVars: gf.Face.SVars,
 					Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
@@ -876,7 +876,7 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 		// leaves-the-battlefield event -- once against the pre-departure board
 		// and once against the live one -- and each opponent lost 2 life
 		// where the card says 1.
-		if split && (t.Mode == "ChangesZone" && t.Params["Origin"] == "Battlefield") != leaving {
+		if split && (t.Mode == "ChangesZone" && t.ParamStr(cards.PKOrigin) == "Battlefield") != leaving {
 			continue
 		}
 		// The live==replay gate: link the Execute$ body exactly the way
@@ -895,11 +895,11 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 		if grantor == nil || grantor.Face() == nil {
 			continue
 		}
-		grantFace := grantedTriggerFace(grantor, t.Params["Execute"])
+		grantFace := grantedTriggerFace(grantor, t.ParamStr(cards.PKExecute))
 		if grantFace == nil {
 			continue
 		}
-		t.Effect = cards.ResolveSVar(grantFace.SVars, t.Params["Execute"])
+		t.Effect = cards.ResolveSVar(grantFace.SVars, t.ParamStr(cards.PKExecute))
 		// CR 603.8's outstanding-instance latch, mirrored from the face walk
 		// (a state trigger already queued or on the stack does not re-fire).
 		if t.Mode == "Always" && e.stateTriggerOutstanding(id, -1) {
@@ -923,7 +923,7 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 			SA:           t.Effect,
 			Granted:      true,
 			Grantor:      grantorID,
-			Execute:      t.Params["Execute"],
+			Execute:      t.ParamStr(cards.PKExecute),
 			Trigger:      t,
 			TriggerSVars: grantFace.SVars,
 			Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{

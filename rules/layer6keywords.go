@@ -9,7 +9,7 @@ import (
 )
 
 // EffectiveKeywords publishes the layer-derived keyword table to the effects
-// tier (effects' keywordTableHost): every battlefield object whose current
+// tier (effects' layerTablesHost): every battlefield object whose current
 // keyword list (Derived, CR 613.1f -- an AddKeyword$ grant, a keyword lost
 // with its abilities) differs from what its printed face and keyword
 // counters give, with that current list. A resolving effect's own filter

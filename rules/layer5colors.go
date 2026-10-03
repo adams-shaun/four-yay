@@ -18,7 +18,7 @@ import (
 // every direct colour read (protection, Fear, convoke), but not by the filter
 // grammar, so a black creature made green and white by Witness Protection was
 // still "nonBlack"-illegal for Doom Blade. matchesSpec binds this table on
-// SpecContext.DerivedColors for a spec that names a colour word, exactly as
+// SpecContext.Layers.DerivedColors for a spec that names a colour word, exactly as
 // DerivedTypes carries layer 4 and EffectiveNames layer 3.
 //
 // Unlike those two tables it is built ON DEMAND, not after every event: only
@@ -110,19 +110,15 @@ func (e *Engine) derivedColorTable() []effects.ObjectColors {
 	return buf
 }
 
-// specReadsColors reports whether a filter spec can name a colour predicate,
+// computeSpecReadsColors reports whether a filter spec can name a colour predicate,
 // textually and as a superset: every colour word of the grammar -- the five
 // colour names (and their non<X> negations), Colorless, MultiColor,
 // MonoColor, ChosenColor, SharesColorWith, Worthy -- contains one of these
 // capitalised fragments. A spec containing none never reads a colour, so
-// binding the table for it would be dead work.
-func specReadsColors(spec string) bool {
+// binding the table for it would be dead work. matchesSpec asks it through
+// the cached front (specderived.go's specBindFacts).
+func computeSpecReadsColors(spec string) bool {
 	return strings.Contains(spec, "Color") || strings.Contains(spec, "Black") || strings.Contains(spec, "White") ||
 		strings.Contains(spec, "Blue") || strings.Contains(spec, "Red") || strings.Contains(spec, "Green") ||
 		strings.Contains(spec, "Worthy")
 }
-
-// EffectiveColors publishes the table to the effects tier (effects'
-// colorTableHost), which asks at each resolving body that names a colour
-// word and binds it on the resolving Ctx.
-func (e *Engine) EffectiveColors() []effects.ObjectColors { return e.derivedColorTable() }

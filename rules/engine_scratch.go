@@ -31,6 +31,10 @@ type engineScratch struct {
 	// derivedPTFrames are the in-progress layer-7 snapshots exposed to
 	// effects-side Count$Valid scans, including nested candidate derivations.
 	derivedPTFrames []derivedPTSnapshot `clone:"reset"`
+	// charsScratch is the record Engine.Chars answers with outside a Derived
+	// memo scope (host_read.go): one Derived build copied here so the query
+	// can hand out a pointer. Pure per-call scratch; Clone copies none.
+	charsScratch Derived `clone:"reset"`
 
 	// derivedMemo / derivedMemoDepth / derivedMemoGen are Derived's per-object
 	// memo for ONE legal-actions walk (rules/derivedmemo.go): derivedMemoDepth
@@ -271,6 +275,9 @@ type engineScratch struct {
 	// lossProof is the sticky no-"loses all abilities" proof
 	// (abilityloss.go). Clone and the look-back observer copy it.
 	lossProof abilityLossProof `clone:"deep"`
+	// lossMemo is abilityLoss's per-active()-build answer cache
+	// (abilityloss_memo.go). Clone leaves it zero.
+	lossMemo abilityLossMemo `clone:"reset"`
 	// layer5Colors is the on-demand layer-5 derived-colour table
 	// (layer5colors.go) and its key. Clone leaves it zero.
 	layer5Colors   []effects.ObjectColors `clone:"reset"`

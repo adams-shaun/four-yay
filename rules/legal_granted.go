@@ -84,17 +84,24 @@ func (e *Engine) grantedAbilities(p state.PlayerID, id state.ObjID) []grantedAbi
 		return nil
 	}
 	// CR 613.1f: a recipient that lost all abilities keeps only the grants
-	// that are not older than the removal (abilityloss.go).
-	lossStamp, lost := e.abilityLoss(e.G.Obj(id))
+	// that are not older than the removal (abilityloss.go). Read lazily, at
+	// the first grant that applies to id: most grants match no given object,
+	// and both checks are pure reads, so their order changes no answer.
+	var lossStamp uint32
+	lost, lossRead := false, false
 	for i := range ces {
 		ce := &ces[i]
 		if len(ce.AddAbilities) == 0 && len(ce.GainedFaces) == 0 {
 			continue
 		}
-		if lost && lossStamp > ce.Timestamp {
+		if !e.matchesSpecFrom(ce.Affects, id, ce.Controller, ce.Source) {
 			continue
 		}
-		if !e.matchesSpecFrom(ce.Affects, id, ce.Controller, ce.Source) {
+		if !lossRead {
+			lossStamp, lost = e.abilityLoss(e.G.Obj(id))
+			lossRead = true
+		}
+		if lost && lossStamp > ce.Timestamp {
 			continue
 		}
 		// A has-all-abilities-of grant (GainsAbilitiesOf$): each named

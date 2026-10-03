@@ -5,7 +5,6 @@ import (
 	"sort"
 	"sync"
 	"sync/atomic"
-	"unsafe"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
@@ -22,9 +21,9 @@ type compiledText struct {
 	// (costRef) takes no copy of the ~750-byte Cost; parseCost still hands
 	// out a value copy for callers that modify their cost.
 	costs map[string]*compiledCost
-	// saFacts holds every configured AB$ ability's mana-walk gate facts
-	// (mana_safacts.go), keyed by the ability's pointer.
-	saFacts map[*cards.SA]*manaSAFacts
+	// saFacts holds every configured ability's facts record (sa_facts.go),
+	// keyed by the ability's pointer.
+	saFacts map[*cards.SA]*saFacts
 	// faces holds every configured face's offer-walk facts
 	// (walk_face_facts.go).
 	faces walkFaceTable
@@ -204,6 +203,39 @@ type cardTextShape struct {
 	face                                *cards.Face
 	manaCost                            string
 	abilities, triggers, statics, repls int
+	// bodies are the face's trigger Execute$ and replacement bodies, in
+	// order: Card.Link re-resolves both into fresh abilities without
+	// changing any list length, and a cardText over the old ones would
+	// leave the new ones without facts records.
+	bodies []*cards.SA
+}
+
+func faceBodies(f *cards.Face) []*cards.SA {
+	out := make([]*cards.SA, 0, len(f.Triggers)+len(f.Repls))
+	for i := range f.Triggers {
+		out = append(out, f.Triggers[i].Effect)
+	}
+	for i := range f.Repls {
+		out = append(out, f.Repls[i].With)
+	}
+	return out
+}
+
+func sameBodies(want []*cards.SA, f *cards.Face) bool {
+	if len(want) != len(f.Triggers)+len(f.Repls) {
+		return false
+	}
+	for i := range f.Triggers {
+		if want[i] != f.Triggers[i].Effect {
+			return false
+		}
+	}
+	for i := range f.Repls {
+		if want[len(f.Triggers)+i] != f.Repls[i].With {
+			return false
+		}
+	}
+	return true
 }
 
 func cardTextShapeOf(c *cards.Card) []cardTextShape {
@@ -214,7 +246,7 @@ func cardTextShapeOf(c *cards.Card) []cardTextShape {
 			continue
 		}
 		out = append(out, cardTextShape{face: f, manaCost: f.ManaCost, abilities: len(f.Abilities),
-			triggers: len(f.Triggers), statics: len(f.Statics), repls: len(f.Repls)})
+			triggers: len(f.Triggers), statics: len(f.Statics), repls: len(f.Repls), bodies: faceBodies(f)})
 	}
 	return out
 }
@@ -232,7 +264,8 @@ func (ct *cardText) matches(c *cards.Card) bool {
 			continue
 		}
 		if sh.face != f || sh.manaCost != f.ManaCost || sh.abilities != len(f.Abilities) ||
-			sh.triggers != len(f.Triggers) || sh.statics != len(f.Statics) || sh.repls != len(f.Repls) {
+			sh.triggers != len(f.Triggers) || sh.statics != len(f.Statics) || sh.repls != len(f.Repls) ||
+			!sameBodies(sh.bodies, f) {
 			return false
 		}
 	}
@@ -401,15 +434,11 @@ func buildCompiledText(cfg Config) *compiledText {
 	}
 	// Built from the seen set (a map range): each entry depends only on its
 	// own ability, so the order the map is filled in cannot matter.
-	saFacts := make(map[*cards.SA]*manaSAFacts)
+	saFacts := make(map[*cards.SA]*saFacts, len(seen))
 	for sa := range seen {
-		if sa.Kind == "AB" {
-			f := buildManaSAFacts(sa, costOf)
-			saFacts[sa] = f
-			// Published on the ability (cards.ExtSlot) for a pointer read;
-			// the first configuration to publish wins.
-			sa.ExtSlot().Store(unsafe.Pointer(f))
-		}
+		f := buildSAFacts(sa, costOf)
+		saFacts[sa] = f
+		publishSAFacts(f)
 	}
 	return &compiledText{predicates: effects.CompilePredicatePrograms(preds), costs: costs, saFacts: saFacts,
 		faces: buildWalkFaceTable(faces)}

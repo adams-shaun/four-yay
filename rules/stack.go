@@ -4,7 +4,8 @@
 //
 // It was split out of one 6.5k-line file into a handful of focused units; the
 // rest lives in mana_payment.go (mana payment and cost machinery),
-// stack_helpers.go (Engine accessors, per-turn counters, unless-cost),
+// the host_*.go files (effects.Host's per-role implementation: accessors,
+// emits, the cast and turn ledgers), unless_cost.go (unless-cost payment),
 // target_ask.go (asking a seat for targets), target_legal.go (target legality
 // and candidate construction) and target_modes.go (modal/charm target groups
 // and target bounds). The split is a pure move: no symbol was renamed and no
@@ -280,7 +281,7 @@ func (e *Engine) resolveTop() {
 		tc := e.triggerContexts[id]
 		if _, triggered := e.triggerForAbilityObject(id, o); triggered &&
 			o.Ability.API == "CopySpellAbility" &&
-			o.Ability.Params["Cost"] != "" &&
+			o.Ability.ParamStr(cards.PKCost) != "" &&
 			(tc.TriggerAbility != 0 || tc.TriggerCard != 0) {
 			e.startTriggeredEffectCost(&resumePoint{kind: "effect_cost", obj: id, sa: o.Ability}, o.Source)
 			return
@@ -611,7 +612,7 @@ func (e *Engine) resolveTop() {
 		// permits it to resolve.
 		// Requirement N2, the same exemption as the ability branch: an
 		// untargeted-with-Min-0 spell resolves rather than fizzling.
-		if spec := targetSA.Params["ValidTgts"]; spec != "" && !(e.resolvedTargetMin(o.Controller, id, targetSA, 0) == 0 && len(targets) == 0) {
+		if spec := targetSA.ParamStr(cards.PKValidTgts); spec != "" && !(e.resolvedTargetMin(o.Controller, id, targetSA, 0) == 0 && len(targets) == 0) {
 			legal := e.legalTargets(targets, targetSA, targetZones(targetSA), o.Controller, id, id)
 			if len(legal) == 0 && subLegal == 0 {
 				// CR 608.2b: every target became illegal. This spell does
@@ -929,7 +930,7 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 	triggeredCardControllerOK := false
 	if sa != nil {
 		controllerProp = strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithControllerProperty))
-		if strings.TrimSpace(sa.Params["TargetsWithDefinedController"]) == "NonTriggeredCardController" {
+		if strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithDefinedController)) == "NonTriggeredCardController" {
 			nonTriggeredController = true
 			triggeredCardController, triggeredCardControllerOK = effects.TriggeredCardController(e.G, sc.TriggerContext, sc.Remembered)
 		}
@@ -1001,7 +1002,7 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 				continue
 			}
 			if o.Zone == state.ZStack && (sa == nil || !e.stackKindAdmits(
-				stackTargetKindTokens(sa.Params["TargetType"]), e.stackObjKind(o), o, o.Controller, you)) {
+				stackTargetKindTokens(sa.ParamStr(cards.PKTargetType)), e.stackObjKind(o), o, o.Controller, you)) {
 				continue
 			}
 			// The cast-provenance split at the resolution recheck too
@@ -1029,7 +1030,7 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 	}
 	// CR 608.2b / CR 601.2c: the per-controller targeting requirement is
 	// rechecked on the surviving set too -- see narrowDifferentControllers.
-	if sa != nil && strings.EqualFold(sa.Params["TargetsWithDifferentControllers"], "True") {
+	if sa != nil && strings.EqualFold(sa.ParamStr(cards.PKTargetsWithDifferentControllers), "True") {
 		legal = e.narrowDifferentControllers(legal)
 	}
 	if sa != nil && strings.EqualFold(sa.ParamStr(cards.PKTargetsWithSameController), "True") {
@@ -1126,7 +1127,7 @@ func (e *Engine) resolveAbilitySacrificing(source state.ObjID, controller state.
 	// The caller supplies the chosen targets -- the announcement or placement
 	// ask's answer -- so the generic ValidTgts$ pre-ask must not re-pose it
 	// for an SA that declares targets (task mvts1).
-	if sa != nil && strings.TrimSpace(sa.Params["ValidTgts"]) != "" {
+	if sa != nil && strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" {
 		ctx.TargetsOffered = true
 	}
 	effects.SetSVars(ctx, svars)

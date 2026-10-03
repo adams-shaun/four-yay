@@ -134,7 +134,7 @@ func effSetState(h Host, c *Ctx, sa *cards.SA) {
 	turnUp := strings.EqualFold(strings.TrimSpace(mode), "TurnFaceUp")
 	turnDown := strings.EqualFold(strings.TrimSpace(mode), "TurnFaceDown")
 	unspecialize := strings.EqualFold(strings.TrimSpace(mode), "Unspecialize")
-	optional := strings.EqualFold(strings.TrimSpace(sa.Params["Optional"]), "True")
+	optional := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True")
 	if optional && optAns == "" {
 		// Unanswered: pose the yes/no election -- but only when the change
 		// would actually do something; with nothing to change, decline and
@@ -233,7 +233,7 @@ func effSetState(h Host, c *Ctx, sa *cards.SA) {
 // game replays byte-identically. Decline and no-op paths never reach an emit,
 // so they remember nothing -- Forge remembers the objects whose state CHANGED.
 func setstateRememberChanged(c *Ctx, sa *cards.SA, id state.ObjID) {
-	if strings.EqualFold(strings.TrimSpace(sa.Params["RememberChanged"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberChanged)), "True") {
 		c.Remembered = append(c.Remembered, state.Target{Obj: id})
 	}
 }
@@ -370,7 +370,7 @@ func effCounter(h Host, c *Ctx, sa *cards.SA) {
 		// cannot express, so those record a Note and take the default rather
 		// than moving a spell somewhere the card text never asked for.
 		to := state.ZGraveyard
-		if dest := strings.TrimSpace(sa.Params["Destination"]); dest != "" {
+		if dest := strings.TrimSpace(sa.ParamStr(cards.PKDestination)); dest != "" {
 			switch dest {
 			case "Hand", "Graveyard", "Exile":
 				to, _ = parseZone(dest)
@@ -441,10 +441,10 @@ func effDelayedTrigger(h Host, c *Ctx, sa *cards.SA) {
 	}
 	var step state.Step
 	if mode == "Phase" {
-		set, unknown := state.ParsePhases(sa.Params["Phase"])
+		set, unknown := state.ParsePhases(sa.ParamStr(cards.PKPhase))
 		if len(unknown) > 0 {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-				Text: "registers a delayed trigger at unrecognized phase " + sa.Params["Phase"]})
+				Text: "registers a delayed trigger at unrecognized phase " + sa.ParamStr(cards.PKPhase)})
 			return
 		}
 		// Register the first listed phase still ahead; firing consumes the
@@ -492,8 +492,8 @@ func effDelayedTrigger(h Host, c *Ctx, sa *cards.SA) {
 	// step" -- a phase the gate fails leaves the one-shot registration
 	// pending for the first later occurrence that matches), and the view
 	// layer strips the suffix for display.
-	text := sa.Params["Phase"]
-	if vp := strings.TrimSpace(sa.Params["ValidPlayer"]); vp != "" {
+	text := sa.ParamStr(cards.PKPhase)
+	if vp := strings.TrimSpace(sa.ParamStr(cards.PKValidPlayer)); vp != "" {
 		text += "|VP=" + vp
 	}
 	// The Phase registration's IsPresent$/PresentZone$/PresentCompare$
@@ -505,9 +505,9 @@ func effDelayedTrigger(h Host, c *Ctx, sa *cards.SA) {
 	// IsPresent$ carries none of the spelling and fires ungated exactly as
 	// before. The values are Forge tokens with no "|", so the decode's
 	// LastIndex strips are exact.
-	if spec := strings.TrimSpace(sa.Params["IsPresent"]); spec != "" {
+	if spec := strings.TrimSpace(sa.ParamStr(cards.PKIsPresent)); spec != "" {
 		text += "|IP=" + spec
-		if zone := strings.TrimSpace(sa.Params["PresentZone"]); zone != "" {
+		if zone := strings.TrimSpace(sa.ParamStr(cards.PKPresentZone)); zone != "" {
 			text += "|PZ=" + zone
 		}
 		if cmp := strings.TrimSpace(sa.Params["PresentCompare"]); cmp != "" {
@@ -542,7 +542,7 @@ func effDelayedTrigger(h Host, c *Ctx, sa *cards.SA) {
 		remembered = chain
 	}
 	if mode != "Phase" {
-		exec := strings.TrimSpace(sa.Params["Execute"])
+		exec := strings.TrimSpace(sa.ParamStr(cards.PKExecute))
 		if exec == "" {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "registers a delayed " + mode + " trigger with no Execute"})
@@ -557,7 +557,7 @@ func effDelayedTrigger(h Host, c *Ctx, sa *cards.SA) {
 			IDs: encodeRemembered(remembered), Text: eventText})
 		return
 	}
-	exec := strings.TrimSpace(sa.Params["Execute"])
+	exec := strings.TrimSpace(sa.ParamStr(cards.PKExecute))
 	if exec == "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "registers a delayed trigger with no Execute"})
@@ -580,31 +580,31 @@ func delayedTriggerBody(sa *cards.SA) string {
 			parts = append(parts, prefix+v)
 		}
 	}
-	add("ValidCard$ ", sa.Params["ValidCard"])
-	add("ValidCards$ ", sa.Params["ValidCards"])
-	add("Origin$ ", sa.Params["Origin"])
-	add("Destination$ ", sa.Params["Destination"])
+	add("ValidCard$ ", sa.ParamStr(cards.PKValidCard))
+	add("ValidCards$ ", sa.ParamStr(cards.PKValidCards))
+	add("Origin$ ", sa.ParamStr(cards.PKOrigin))
+	add("Destination$ ", sa.ParamStr(cards.PKDestination))
 	add("ExcludedOrigins$ ", sa.Params["ExcludedOrigins"])
-	add("ValidSource$ ", sa.Params["ValidSource"])
-	add("ValidTarget$ ", sa.Params["ValidTarget"])
+	add("ValidSource$ ", sa.ParamStr(cards.PKValidSource))
+	add("ValidTarget$ ", sa.ParamStr(cards.PKValidTarget))
 	add("CombatDamage$ ", sa.Params["CombatDamage"])
 	add("ValidAttackers$ ", sa.Params["ValidAttackers"])
 	add("ValidAttackersAmount$ ", sa.Params["ValidAttackersAmount"])
 	add("AttackingPlayer$ ", sa.Params["AttackingPlayer"])
 	add("AttackedTarget$ ", sa.Params["AttackedTarget"])
-	add("ValidPlayer$ ", sa.Params["ValidPlayer"])
+	add("ValidPlayer$ ", sa.ParamStr(cards.PKValidPlayer))
 	add("ValidOriginalController$ ", sa.Params["ValidOriginalController"])
 	add("ValidActivatingPlayer$ ", sa.Params["ValidActivatingPlayer"])
-	add("PlayerTurn$ ", sa.Params["PlayerTurn"])
+	add("PlayerTurn$ ", sa.ParamStr(cards.PKPlayerTurn))
 	add("ValidSA$ ", sa.Params["ValidSA"])
-	add("TriggerZones$ ", sa.Params["TriggerZones"])
-	add("ActiveZones$ ", sa.Params["ActiveZones"])
+	add("TriggerZones$ ", sa.ParamStr(cards.PKTriggerZones))
+	add("ActiveZones$ ", sa.ParamStr(cards.PKActiveZones))
 	add("ThisTurn$ ", sa.Params["ThisTurn"])
 	add("Static$ ", sa.Params["Static"])
-	add("IsPresent$ ", sa.Params["IsPresent"])
+	add("IsPresent$ ", sa.ParamStr(cards.PKIsPresent))
 	add("PresentDefined$ ", sa.Params["PresentDefined"])
 	add("PresentCompare$ ", sa.Params["PresentCompare"])
-	add("PresentZone$ ", sa.Params["PresentZone"])
+	add("PresentZone$ ", sa.ParamStr(cards.PKPresentZone))
 	return strings.Join(parts, " | ")
 }
 
@@ -632,7 +632,7 @@ func effDelayedTriggerSpellCast(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unmodelled DelayedTrigger Static$ " + st})
 	}
-	exec := strings.TrimSpace(sa.Params["Execute"])
+	exec := strings.TrimSpace(sa.ParamStr(cards.PKExecute))
 	if exec == "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "registers a delayed SpellCast trigger with no Execute"})
@@ -645,16 +645,16 @@ func effDelayedTriggerSpellCast(h Host, c *Ctx, sa *cards.SA) {
 	// delayed trigger resolves its Execute IMMEDIATELY at fire time (no
 	// stack push), which is what makes Mistrise's promise active before the
 	// opponent can respond.
-	if v := strings.TrimSpace(sa.Params["ValidCard"]); v != "" {
+	if v := strings.TrimSpace(sa.ParamStr(cards.PKValidCard)); v != "" {
 		body += " | ValidCard$ " + v
 	}
 	if v := strings.TrimSpace(sa.Params["ValidActivatingPlayer"]); v != "" {
 		body += " | ValidActivatingPlayer$ " + v
 	}
-	if v := strings.TrimSpace(sa.Params["ValidPlayer"]); v != "" {
+	if v := strings.TrimSpace(sa.ParamStr(cards.PKValidPlayer)); v != "" {
 		body += " | ValidPlayer$ " + v
 	}
-	if v := strings.TrimSpace(sa.Params["PlayerTurn"]); v != "" {
+	if v := strings.TrimSpace(sa.ParamStr(cards.PKPlayerTurn)); v != "" {
 		body += " | PlayerTurn$ " + v
 	}
 	if v := strings.TrimSpace(sa.Params["ValidSA"]); v != "" {

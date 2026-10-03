@@ -14,7 +14,7 @@ import (
 // the CR 613.1c layer-3 name, not the printed face.
 //
 // The seam is effects.Resolve: rules' Engine implements effects' optional
-// nameTableHost, so the top of every Resolve walk publishes the current rename
+// layerTablesHost, so the top of every Resolve walk publishes the current rename
 // table onto the resolving Ctx, which propagates it through
 // (*Ctx).SpecContext and Ctx.MatchSpec. An effects test double with no such
 // host method leaves it nil and reads the printed face (the documented
