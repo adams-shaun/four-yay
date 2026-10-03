@@ -1,0 +1,95 @@
+{
+ "card": "Wrath of God",
+ "family": "spell-conditional",
+ "author": "cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "35902648b91a",
+ "scenarios": [
+  {
+   "name": "destroys-all-creatures-both-players",
+   "cr": [
+    "701.7a",
+    "608.2c"
+   ],
+   "why": "Destroy all creatures: every creature on the battlefield, both players', is destroyed and cannot be regenerated.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Wrath of God"
+     ],
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Wrath of God",
+     "mana": "WWCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Wrath of God",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "noncreature-permanents-survive",
+   "cr": [
+    "701.7a"
+   ],
+   "why": "Only creatures are destroyed; an artifact and a land are untouched.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Wrath of God"
+     ],
+     "battlefield": [
+      "Sol Ring",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Wrath of God",
+     "mana": "WWCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Sol Ring",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}

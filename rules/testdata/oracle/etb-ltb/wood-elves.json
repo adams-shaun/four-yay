@@ -1,0 +1,60 @@
+{
+ "card": "Wood Elves",
+ "family": "etb-ltb",
+ "author": "cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "aba87c3c36fe",
+ "scenarios": [
+  {
+   "name": "etb-fetches-a-forest-onto-the-battlefield",
+   "cr": [
+    "603.2",
+    "701.18"
+   ],
+   "why": "The enters trigger searches the controller's library for a Forest card and puts it onto the battlefield untapped, not into hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Wood Elves"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Wood Elves",
+     "mana": "GCC"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wood Elves",
+     "zone": "battlefield",
+     "pt": "1/1"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Forest"
+     },
+     "eq": 1
+    }
+   ]
+  }
+ ]
+}

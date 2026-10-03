@@ -1,0 +1,86 @@
+{
+ "card": "Ohran Frostfang",
+ "family": "triggered-ability",
+ "author": "cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "4ae05583bba2",
+ "scenarios": [
+  {
+   "name": "attacking-creatures-have-deathtouch-and-damage-draws",
+   "cr": [
+    "611.3a",
+    "603.2",
+    "510.1"
+   ],
+   "why": "Attacking creatures you control have deathtouch while attacking, and whenever a creature you control deals combat damage to a player you draw a card. A 2/2 attacking deals 2 and draws one.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ohran Frostfang",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "zone": "battlefield",
+       "keywords": [
+        "Deathtouch"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+     "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "nonattacking-creature-has-no-deathtouch",
+   "cr": [
+    "611.3a"
+   ],
+   "why": "The grant applies to attacking creatures: a creature that is not attacking has no deathtouch.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ohran Frostfang",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "no_keywords": [
+      "Deathtouch"
+     ]
+    }
+   ]
+  }
+ ]
+}
