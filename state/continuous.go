@@ -743,7 +743,9 @@ type ContinuousEffect struct {
 
 // RestrictParam is RestrictParams[k]: the typed read of one S: parameter the
 // restriction carries (W4 tail).
-func (ce ContinuousEffect) RestrictParam(k cards.ParamKey) string { return ce.RestrictParams[k.String()] }
+func (ce ContinuousEffect) RestrictParam(k cards.ParamKey) string {
+	return ce.RestrictParams[k.String()]
+}
 
 // RestrictParamOk is RestrictParam with presence.
 func (ce ContinuousEffect) RestrictParamOk(k cards.ParamKey) (string, bool) {
