@@ -54,12 +54,13 @@ func TestStaticRemoveKeywordAndAddKeywordSameLine(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Sky Tether"), lookup(t, reg, "Serra Angel")}, nil)
-	tether := moveByName(t, e, 0, "Sky Tether", state.ZBattlefield)
 	bearer := moveByName(t, e, 0, "Serra Angel", state.ZBattlefield)
-	if tether == 0 || bearer == 0 || e.G.Obj(tether).Zone != state.ZBattlefield || e.G.Obj(bearer).Zone != state.ZBattlefield || !e.HasKeyword(bearer, "Flying") {
-		t.Fatal("precondition: Sky Tether and Serra Angel must be on the battlefield, with printed Flying")
+	if bearer == 0 || e.G.Obj(bearer).Zone != state.ZBattlefield || !e.HasKeyword(bearer, "Flying") {
+		t.Fatal("precondition: Serra Angel must be on the battlefield, with printed Flying")
 	}
-	e.emit(events.Event{Kind: events.Attach, Obj: tether, IDs: []state.ObjID{bearer}})
+	// The Aura enters attached to the Angel (a staged effect-named entry).
+	tether := moveByName(t, e, 0, "Sky Tether", state.ZHand)
+	stageAuraEntry(t, e, tether, bearer)
 	kw := e.Derived(bearer).Keywords
 	if slices.Contains(kw, "Flying") || !slices.Contains(kw, "Defender") {
 		t.Fatalf("Sky Tether keywords=%v, want Flying removed and Defender granted", kw)

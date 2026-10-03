@@ -222,9 +222,13 @@ func TestAnimateDeadGraveyardWindowSurvivesSBA(t *testing.T) {
 	cub := mustCorpusCard(t, reg, "Bear Cub")
 	e, _ := tokenReplGame(t, 9101, aura, bear, cub, strength)
 
-	adID := searchMoveByName(t, e, "Animate Dead", state.ZBattlefield)
+	// The window board is hand-built (stageRawEntry): both Auras are placed
+	// first and attached by the hand-written Attach events below.
+	adID := searchMoveByName(t, e, "Animate Dead", state.ZHand)
+	stageRawEntry(t, e, adID)
 	bearGY := searchMoveByName(t, e, "Grizzly Bears", state.ZGraveyard)
-	usaID := searchMoveByName(t, e, "Unholy Strength", state.ZBattlefield)
+	usaID := searchMoveByName(t, e, "Unholy Strength", state.ZHand)
+	stageRawEntry(t, e, usaID)
 	cubBF := searchMoveByName(t, e, "Bear Cub", state.ZBattlefield)
 	if adID == 0 || bearGY == 0 || usaID == 0 || cubBF == 0 {
 		t.Fatalf("fixture setup failed: aura=%d bearGY=%d strength=%d cub=%d", adID, bearGY, usaID, cubBF)
@@ -272,7 +276,10 @@ func TestAnimateDeadDerivedEnchantDrivesTheSBA(t *testing.T) {
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")
 	e, _ := tokenReplGame(t, 9102, aura, bear)
 
-	adID := searchMoveByName(t, e, "Animate Dead", state.ZBattlefield)
+	// The post-animate board is hand-built (stageRawEntry): its printed
+	// graveyard enchant would not admit the battlefield bear at entry.
+	adID := searchMoveByName(t, e, "Animate Dead", state.ZHand)
+	stageRawEntry(t, e, adID)
 	bearID := searchMoveByName(t, e, "Grizzly Bears", state.ZBattlefield)
 	if adID == 0 || bearID == 0 {
 		t.Fatalf("fixture setup failed: aura=%d bear=%d", adID, bearID)

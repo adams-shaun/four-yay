@@ -13,9 +13,11 @@ import (
 // the real cast flow -- priority, the cast option (its kicked/unkicked Mode is
 // CR 601.2b's announced additional cost), then castModeAsk's mode
 // announcement -- and returns the posed KModes decision. A Grizzly Bears on
-// seat 0's battlefield makes the "+1/+1 counters" and "fights" modes
-// targetable, so all three modes are legal and the bounds are the card's own
-// MinCharmNum$/CharmNum$ (0..3 kicked, 1..1 unkicked).
+// each side makes the "+1/+1 counters" and "fights" modes targetable (the
+// fight's chained "target creature you don't control" needs the opponent's:
+// CR 601.2c announces it with the mode, modeTargetsAvailable), so all three
+// modes are legal and the bounds are the card's own MinCharmNum$/CharmNum$
+// (0..3 kicked, 1..1 unkicked).
 func kickedCorpusModeAsk(t *testing.T, kicked bool) *decision.Decision {
 	t.Helper()
 	reg := testutil.CorpusRegistry(t)
@@ -23,7 +25,7 @@ func kickedCorpusModeAsk(t *testing.T, kicked bool) *decision.Decision {
 	bears := lookup(t, reg, "Grizzly Bears")
 
 	e, _ := corpusEngineCfg(t, reg,
-		[]*cards.Card{inscription, bears}, nil)
+		[]*cards.Card{inscription, bears}, []*cards.Card{bears})
 	// Precondition: the real card carries the Kicker keyword and the
 	// Count$Kicked-backed bounds the ticket names, so a corpus-pin move that
 	// reshapes it fails here rather than silently passing.
@@ -39,6 +41,7 @@ func kickedCorpusModeAsk(t *testing.T, kicked bool) *decision.Decision {
 	}
 	id := moveByName(t, e, 0, "Inscription of Abundance", state.ZHand)
 	moveByName(t, e, 0, "Grizzly Bears", state.ZBattlefield)
+	moveByName(t, e, 1, "Grizzly Bears", state.ZBattlefield)
 	addMana(t, e, 0, "GGGGG")
 	want := ""
 	if kicked {
