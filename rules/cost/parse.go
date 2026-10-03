@@ -2,7 +2,6 @@ package cost
 
 import (
 	"math"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -22,7 +21,7 @@ import (
 // "/description" is captured into CostPart.Desc (display only, read by
 // costPhrase); the ";" alternation is folded to "," (MatchesSpec's own
 // separator) at the parse site. Ruling FL-54.
-var nonManaCost = regexp.MustCompile(`^(Sac|SubCounter|Discard|Draw)<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
+const nonManaCost = `^(Sac|SubCounter|Discard|Draw)<(\d+)/([^/>]+)(?:/([^>]*))?>$`
 
 // drawDynCost matches Forge's non-literal Draw amount, Draw<X/Spec> -- the
 // Champion of Wits family's "you may draw cards equal to its power. If you
@@ -31,7 +30,7 @@ var nonManaCost = regexp.MustCompile(`^(Sac|SubCounter|Discard|Draw)<(\d+)/([^/>
 // source's own SVar table; the second is the player spec ("You"). The
 // trailing ";" OR alternation folds to "," like every other non-mana head.
 // The literal form Draw<N/Spec> stays nonManaCost's.
-var drawDynCost = regexp.MustCompile(`^Draw<([A-Za-z][A-Za-z0-9]*)/([^/>]+)(?:/([^>]*))?>$`)
+const drawDynCost = `^Draw<([A-Za-z][A-Za-z0-9]*)/([^/>]+)(?:/([^>]*))?>$`
 
 // sacXCost matches the announced-count sacrifice form Sac<X/Spec> (Dargo, the
 // Shipwrecker's "sacrifice any number of artifacts and/or creatures"): the
@@ -40,7 +39,7 @@ var drawDynCost = regexp.MustCompile(`^Draw<([A-Za-z][A-Za-z0-9]*)/([^/>]+)(?:/(
 // convention PayEnergy<X> uses -- and xAsk/sacAsk consume it; a ReduceCost
 // static that reads the paid X (Dargo's SVar X:Count$xPaid) resolves through
 // costModifiers' SVar-aware amount read.
-var sacXCost = regexp.MustCompile(`^Sac<X/([^/>]+)(?:/([^>]*))?>$`)
+const sacXCost = `^Sac<X/([^/>]+)(?:/([^>]*))?>$`
 
 // exileCost matches Forge's ExileFromHand<N/Spec>, ExileFromGrave<N/Spec>
 // and ExileAnyGrave<N/Spec> tokens -- exiling a matching card from the named
@@ -56,7 +55,7 @@ var sacXCost = regexp.MustCompile(`^Sac<X/([^/>]+)(?:/([^>]*))?>$`)
 // ExileFromHand evoke costs (the MH3 evoke family: Fury, Grief, ...), the
 // AlternateAdditionalCost ExileFromGrave line and the ExileAnyGrave
 // trigger-cost family are the corpus users.
-var exileCost = regexp.MustCompile(`^Exile(FromHand|FromGrave|AnyGrave)<(X|\d+)/([^/>]+)(?:/([^>]*))?>$`)
+const exileCost = `^Exile(FromHand|FromGrave|AnyGrave)<(X|\d+)/([^/>]+)(?:/([^>]*))?>$`
 
 // exileFromTopCost matches Forge's ExileFromTop<N/Card> token -- exiling the
 // top N cards of the payer's OWN library as a cast/activation cost (Storm
@@ -71,7 +70,7 @@ var exileCost = regexp.MustCompile(`^Exile(FromHand|FromGrave|AnyGrave)<(X|\d+)/
 // whole meaning. The same text is also the cumulative-upkeep action vocabulary
 // (parseCumulativeAction owns that reading); this head is the ordinary Cost$
 // spelling.
-var exileFromTopCost = regexp.MustCompile(`^ExileFromTop<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
+const exileFromTopCost = `^ExileFromTop<(\d+)/([^/>]+)(?:/([^>]*))?>$`
 
 // addCounterCost matches Forge's AddCounter<N/LOYALTY> token -- the
 // planeswalker loyalty cost, and deliberately ONLY it (CR 107.4: the [+N]
@@ -84,7 +83,7 @@ var exileFromTopCost = regexp.MustCompile(`^ExileFromTop<(\d+)/([^/>]+)(?:/([^>]
 // today's one-generic fallback, per the brief's scope boundary -- their
 // counter semantics (M1M1/M0M1 kinds, mid-resolution UnlessCost payers) are
 // their own work.
-var addCounterCost = regexp.MustCompile(`^AddCounter<(\d+)/(LOYALTY)(?:/([^>]*))?>$`)
+const addCounterCost = `^AddCounter<(\d+)/(LOYALTY)(?:/([^>]*))?>$`
 
 // addSelfCounterCost matches the SOURCE-ANCHORED non-loyalty AddCounter
 // token -- AddCounter<N/KIND> with no third field (Wall of Roots' M0M1 mana
@@ -94,19 +93,19 @@ var addCounterCost = regexp.MustCompile(`^AddCounter<(\d+)/(LOYALTY)(?:/([^>]*))
 // form. A third field (a chooser filter such as Creature.YouCtrl, or an
 // UnlessCost$ payer anchor) is a different payment and keeps the reported
 // one-generic fallback.
-var addSelfCounterCost = regexp.MustCompile(`^AddCounter<(\d+)/([A-Za-z0-9_]+)>$`)
+const addSelfCounterCost = `^AddCounter<(\d+)/([A-Za-z0-9_]+)>$`
 
 // exertCost matches the source-anchored exert cost Exert<1/CARDNAME>
 // (Oasis Ritualist, Arena of Glory, Pride Sovereign). NICKNAME is Forge's
 // legendary short-name spelling of the same self-reference.
-var exertCost = regexp.MustCompile(`^Exert<1/(?:CARDNAME|NICKNAME)(?:/([^>]*))?>$`)
+const exertCost = `^Exert<1/(?:CARDNAME|NICKNAME)(?:/([^>]*))?>$`
 
 // lifeCost matches Forge's fixed life-payment token. Dynamic values such as
 // PayLife<X> retain the ordinary malformed-token fallback below: this engine
 // has no source from which to resolve their value.
-var lifeCost = regexp.MustCompile(`^PayLife<(\d+)>$`)
+const lifeCost = `^PayLife<(\d+)>$`
 
-var choiceCost = regexp.MustCompile(`^(Reveal|Behold|BeholdExile|tapXType)<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
+const choiceCost = `^(Reveal|Behold|BeholdExile|tapXType)<(\d+)/([^/>]+)(?:/([^>]*))?>$`
 
 // choiceCostRevealOrChoose additionally recognises Forge's either-or
 // `RevealOrChoose<N/Spec>` cost (Monstrous Emergence, Dragon's Fire): reveal a
@@ -116,7 +115,7 @@ var choiceCost = regexp.MustCompile(`^(Reveal|Behold|BeholdExile|tapXType)<(\d+)
 // paid list, the choose arm elects an already-controlled permanent and is
 // announced as a choice, never a reveal. The former unrecognised-symbol
 // fallback charged one generic too much and dropped the cost entirely.
-var choiceCostRevealOrChoose = regexp.MustCompile(`^RevealOrChoose<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
+const choiceCostRevealOrChoose = `^RevealOrChoose<(\d+)/([^/>]+)(?:/([^>]*))?>$`
 
 // revealChosenCost matches the designation-reveal cost heads. Forge has two
 // spellings: RevealChosen<Player> (reveal the player you secretly chose) and
@@ -126,7 +125,7 @@ var choiceCostRevealOrChoose = regexp.MustCompile(`^RevealOrChoose<(\d+)/([^/>]+
 // -- so the regex carries no N and the trailing field is display text. The
 // share of these heads used to be the unrecognised-symbol fallback, which
 // priced each at one generic mana and dropped the reveal entirely.
-var revealChosenCost = regexp.MustCompile(`^RevealChosen<(Player|Type)(?:/([^>]*))?>$`)
+const revealChosenCost = `^RevealChosen<(Player|Type)(?:/([^>]*))?>$`
 
 // dynTapCost matches Forge's dynamic tap-any-number tapXType tokens -- the
 // heads the literal choiceCost regex above cannot read:
@@ -149,7 +148,7 @@ var revealChosenCost = regexp.MustCompile(`^RevealChosen<(Player|Type)(?:/([^>]*
 //
 // The trailing "/description" is captured into CostPart.Desc and ";" alternations
 // fold to "," like every other non-mana head.
-var dynTapCost = regexp.MustCompile(`^tapXType<(X|Any)/([^/>]+)(?:/([^>]*))?>$`)
+const dynTapCost = `^tapXType<(X|Any)/([^/>]+)(?:/([^>]*))?>$`
 
 // untapYTypeCost matches Forge's untapYType<N/Spec> cost token -- untapping N
 // permanents matching Spec as the payment (Forge CostUntapType: Benthic
@@ -159,9 +158,9 @@ var dynTapCost = regexp.MustCompile(`^tapXType<(X|Any)/([^/>]+)(?:/([^>]*))?>$`)
 // (choiceCost), except the elected permanents must already be TAPPED. The
 // trailing "/description" is captured into CostPart.Desc and ";" alternations
 // fold to "," like every other non-mana head.
-var untapYTypeCost = regexp.MustCompile(`^untapYType<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
+const untapYTypeCost = `^untapYType<(\d+)/([^/>]+)(?:/([^>]*))?>$`
 
-var blightCost = regexp.MustCompile(`^Blight<(\d+|X)>$`)
+const blightCost = `^Blight<(\d+|X)>$`
 
 // groupPowerFloor matches the withTotalPowerGE<N> GROUP predicate Forge
 // appends to a tapXType spec (Mossbridge Troll's
@@ -170,7 +169,7 @@ var blightCost = regexp.MustCompile(`^Blight<(\d+|X)>$`)
 // power -- not over each candidate on its own, so a per-object filter cannot
 // evaluate it: stripGroupPowerFloor moves it into CostPart.MinPower instead
 // of leaving the unknown token to fail the whole spec closed.
-var groupPowerFloor = regexp.MustCompile(`withTotalPowerGE(\d+)`)
+const groupPowerFloor = `withTotalPowerGE(\d+)`
 
 // stripGroupPowerFloor splits a withTotalPowerGE<N> group predicate off a
 // tapXType spec: it returns the spec without the predicate (so the per-object
@@ -179,18 +178,18 @@ var groupPowerFloor = regexp.MustCompile(`withTotalPowerGE(\d+)`)
 // any real board, which is the fail-closed direction. A spec without the
 // predicate returns unchanged with floor 0.
 func stripGroupPowerFloor(spec string) (string, int32) {
-	m := groupPowerFloor.FindStringSubmatchIndex(spec)
-	if m == nil {
+	m0, m1, m2, m3, ok := findGroupPowerFloor(spec)
+	if !ok {
 		return spec, 0
 	}
-	n, err := strconv.ParseInt(spec[m[2]:m[3]], 10, 64)
+	n, err := strconv.ParseInt(spec[m2:m3], 10, 64)
 	if err != nil || n < 0 {
 		return spec, 0
 	}
 	if n > int64(math.MaxInt32) {
 		n = int64(math.MaxInt32)
 	}
-	out := spec[:m[0]] + spec[m[1]:]
+	out := spec[:m0] + spec[m1:]
 	// The predicate is joined by Forge's own "+" separator
 	// ("Creature.Other+withTotalPowerGE3"); with the predicate gone the
 	// trailing separator must go too, or it becomes an empty alternative the
@@ -207,7 +206,7 @@ func stripGroupPowerFloor(spec string) (string, int32) {
 // like every other head. The X form is recorded as a part with Spec "X": xAsk bounds the
 // announced value by the payer's energy count and the settle spends exactly
 // that many, so the announcement and the spend cannot disagree.
-var payEnergyCost = regexp.MustCompile(`^PayEnergy<([0-9]+|X)(?:/([^>]*))?>$`)
+const payEnergyCost = `^PayEnergy<([0-9]+|X)(?:/([^>]*))?>$`
 
 // returnCost matches Forge's Return<N/Spec> tokens -- a permanent matching
 // Spec returned to its OWNER's hand as the payment (Forge CostReturn's
@@ -216,7 +215,7 @@ var payEnergyCost = regexp.MustCompile(`^PayEnergy<([0-9]+|X)(?:/([^>]*))?>$`)
 // hand"). N is almost always 1 (94 corpus files carry the token; every
 // parsed one is 1). The trailing description is captured into CostPart.Desc, ";"
 // alternations fold to "," like every other non-mana head.
-var returnCost = regexp.MustCompile(`^Return<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
+const returnCost = `^Return<(\d+)/([^/>]+)(?:/([^>]*))?>$`
 
 // putCardToLibCost matches Forge's PutCardToLibFrom<Zone><N/Pos/Spec> cost
 // tokens -- moving N cards matching Spec from the payer's Hand, Graveyard or
@@ -233,7 +232,7 @@ var returnCost = regexp.MustCompile(`^Return<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
 // silently modelled as a different zone). The separate
 // PutCardToLibFromSameGrave cumulative-upkeep spelling is NOT matched here --
 // it is a keyword action, not a cost token.
-var putCardToLibCost = regexp.MustCompile(`^PutCardToLibFrom(Hand|Grave|Battlefield)<(\d+)/(-?\d+)/([^/>]+)(?:/([^>]*))?>$`)
+const putCardToLibCost = `^PutCardToLibFrom(Hand|Grave|Battlefield)<(\d+)/(-?\d+)/([^/>]+)(?:/([^>]*))?>$`
 
 // exileBattlefieldCost matches Forge's bare Exile<N/Spec> token -- exiling a
 // matching permanent from the BATTLEFIELD as the payment (Karn's Sylex's
@@ -243,7 +242,7 @@ var putCardToLibCost = regexp.MustCompile(`^PutCardToLibFrom(Hand|Grave|Battlefi
 // exileCost heads above (ExileFromHand/ExileFromGrave); the trailing
 // "/description" is captured into CostPart.Desc and ";" alternations fold to
 // "," like every other non-mana head.
-var exileBattlefieldCost = regexp.MustCompile(`^Exile<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
+const exileBattlefieldCost = `^Exile<(\d+)/([^/>]+)(?:/([^>]*))?>$`
 
 // exiledMoveToGraveCost matches Forge's ExiledMoveToGrave<N/Spec> token --
 // moving N cards matching Spec from EXILE into their OWNER's graveyard as
@@ -254,9 +253,9 @@ var exileBattlefieldCost = regexp.MustCompile(`^Exile<(\d+)/([^/>]+)(?:/([^>]*))
 // unrecognised-symbol fallback: a phantom {1} rode the price (a player with
 // exactly {2}{B} could not activate Shelob) and the cost's governing action
 // was silently dropped -- a fail-open defect.
-var exiledMoveToGraveCost = regexp.MustCompile(`^ExiledMoveToGrave<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
+const exiledMoveToGraveCost = `^ExiledMoveToGrave<(\d+)/([^/>]+)(?:/([^>]*))?>$`
 
-var millCost = regexp.MustCompile(`^Mill<(\d+)>$`)
+const millCost = `^Mill<(\d+)>$`
 
 // evidenceCost matches the CollectEvidence<N> / CollectEvidence<NAME> cost
 // token (alltargeted1): the evidence-exile additional cost. The captured
@@ -265,14 +264,14 @@ var millCost = regexp.MustCompile(`^Mill<(\d+)>$`)
 // whole target union). The Ward payment path intercepts its own literal
 // CollectEvidence<N> spelling (ward.go's wardSpecialCost) before parseCost
 // runs, so this head only prices the plain Cost$ family.
-var evidenceCost = regexp.MustCompile(`^CollectEvidence<([^>]+)>$`)
+const evidenceCost = `^CollectEvidence<([^>]+)>$`
 
 // payLifeXCost matches Forge's announced life payment PayLife<X> (Toxic
 // Deluge's "pay X life", Necrodominance's end-step body): the cast announces
 // X like a printed {X} and the settle pays that much life, so the value is
 // bounded by the payer's life total at the X ask. The fixed form is the
 // lifeCost head above.
-var payLifeXCost = regexp.MustCompile(`^PayLife<X>$`)
+const payLifeXCost = `^PayLife<X>$`
 
 // subCounterXCost matches Forge's announced counter removal
 // SubCounter<X/Kind> (Chandra, Awakened Inferno's "remove X loyalty
@@ -292,12 +291,12 @@ var payLifeXCost = regexp.MustCompile(`^PayLife<X>$`)
 // the payer's battlefield like a Sac part's spec, and the optional fourth is
 // the display description. The old subCounterXCost head (X form only, target
 // dropped) is subsumed by this one.
-var subCounterCost = regexp.MustCompile(`^SubCounter<(X\d+\+|X|\d+)/([^/>]+)(?:/([^/>]+))?(?:/([^>]*))?>$`)
+const subCounterCost = `^SubCounter<(X\d+\+|X|\d+)/([^/>]+)(?:/([^/>]+))?(?:/([^>]*))?>$`
 
 // removeAnyCounterCost is Forge's named spelling for a counter-removal cost.
 // Despite the name, the second field is the counter kind (often Any), while
 // the third field restricts the permanent the counters come from.
-var removeAnyCounterCost = regexp.MustCompile(`^RemoveAnyCounter<(X\d+\+|X|\d+)/([^/>]+)(?:/([^/>]+))?(?:/([^>]*))?>$`)
+const removeAnyCounterCost = `^RemoveAnyCounter<(X\d+\+|X|\d+)/([^/>]+)(?:/([^/>]+))?(?:/([^>]*))?>$`
 
 // damageYouCost matches Forge's DamageYou<N> token -- the payer takes N
 // damage from the source as the payment (Forge CostDamage). The corpus's
@@ -305,7 +304,7 @@ var removeAnyCounterCost = regexp.MustCompile(`^RemoveAnyCounter<(X\d+\+|X|\d+)/
 // them"), which the unless-pay arm prices through
 // effects.ParseDamageUnlessCost; this head keeps a plain Cost$ spelling out
 // of Cost.Unknown.
-var damageYouCost = regexp.MustCompile(`^DamageYou<(\d+)(?:/([^>]*))?>$`)
+const damageYouCost = `^DamageYou<(\d+)(?:/([^>]*))?>$`
 
 // gainLifeCost matches Forge's GainLife<N/Player...> cost token -- the payer
 // has the named player(s) gain N life as the payment (Forge CostGainLife).
@@ -318,9 +317,9 @@ var damageYouCost = regexp.MustCompile(`^DamageYou<(\d+)(?:/([^>]*))?>$`)
 // literal, so any other value form falls to the ordinary malformed-token
 // fallback (never a silent dynamic reading). Spec keeps Forge's raw player
 // word; the optional trailing field is the `/*` each/all marker.
-var gainLifeCost = regexp.MustCompile(`^GainLife<(\d+)/(Player[^/>]+)(?:/([^>]*))?>$`)
+const gainLifeCost = `^GainLife<(\d+)/(Player[^/>]+)(?:/([^>]*))?>$`
 
-var rollDiceCost = regexp.MustCompile(`^RollDice<([^>]*)>$`)
+const rollDiceCost = `^RollDice<([^>]*)>$`
 
 // xMinCost matches Forge's XMin<N> cost token -- the announced-X LOWER
 // BOUND, "X can't be 0" (XMin1) or "X can't be less than 4" (XMin4). It is
@@ -331,7 +330,7 @@ var rollDiceCost = regexp.MustCompile(`^RollDice<([^>]*)>$`)
 // plain Cost$) fell through to the unrecognised-symbol fallback and charged
 // one phantom generic pip. 29 corpus files carry the token at the pin (27
 // XMin1, 2 XMin4).
-var xMinCost = regexp.MustCompile(`^XMin(\d+)$`)
+const xMinCost = `^XMin(\d+)$`
 
 var costBraces = strings.NewReplacer("{", " ", "}", " ")
 
@@ -394,7 +393,8 @@ func ParseCost(s string) Cost {
 				c.Generic = AddClampedGeneric(c.Generic, 1)
 				continue
 			}
-			if m := waterbendCost.FindStringSubmatch(sym); m != nil {
+			t := splitTok(sym)
+			if m, ok := matchWaterbendCost(t); ok {
 				// Waterbend<N> / Waterbend<X> (the keyword action "waterbend
 				// {N}": pay {N}; while paying it, each untapped artifact or
 				// creature the payer taps pays for {1}). The {N} rides
@@ -423,7 +423,7 @@ func ParseCost(s string) Cost {
 				c.Waterbend = AddClampedGeneric(c.Waterbend, n)
 				continue
 			}
-			if m := evidenceCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchEvidenceCost(t); ok {
 				// CollectEvidence<N> / CollectEvidence<NAME> (alltargeted1): a
 				// real evidence-exile component, not one phantom generic mana.
 				// A literal N prices directly; a NAME (the dynamic X form) is
@@ -435,7 +435,7 @@ func ParseCost(s string) Cost {
 				c.Evidence = append(c.Evidence, CostPart{Dyn: m[1]})
 				continue
 			}
-			if m := millCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchMillCost(t); ok {
 				n, err := strconv.ParseInt(m[1], 10, 64)
 				if err != nil || n < 0 || n > int64(math.MaxInt32) {
 					c.Generic = AddClampedGeneric(c.Generic, 1)
@@ -445,7 +445,7 @@ func ParseCost(s string) Cost {
 				c.Mill = append(c.Mill, CostPart{N: int32(n)})
 				continue
 			}
-			if m := untapYTypeCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchUntapYTypeCost(t); ok {
 				// untapYType<N/Spec> (Forge CostUntapType): untap N matching
 				// permanents as the payment. A malformed/overflowing N degrades to
 				// the reported one-generic fallback like every other head.
@@ -459,7 +459,7 @@ func ParseCost(s string) Cost {
 					Spec: strings.ReplaceAll(m[2], ";", ","), Desc: m[3]})
 				continue
 			}
-			if m := dynTapCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchDynTapCost(t); ok {
 				// The dynamic tapXType heads (see the regex's doc): a TapPermanent
 				// part whose count the tap election resolves at payment -- "X"
 				// announcing the cast's {X}, "Any" free. N is unused.
@@ -475,7 +475,7 @@ func ParseCost(s string) Cost {
 				c.TapPermanent = append(c.TapPermanent, CostPart{Dyn: m[1], Spec: spec, Desc: m[3], MinPower: floor})
 				continue
 			}
-			if m := choiceCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchChoiceCost(t); ok {
 				n, err := strconv.ParseInt(m[2], 10, 64)
 				if err != nil || n <= 0 || n > int64(math.MaxInt32) {
 					// Same safe fallback as every other malformed cost token --
@@ -504,7 +504,7 @@ func ParseCost(s string) Cost {
 				}
 				continue
 			}
-			if m := choiceCostRevealOrChoose.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchRevealOrChooseCost(t); ok {
 				// RevealOrChoose<N/Spec> is an either-or cost: reveal N hand cards
 				// matching Spec OR choose N permanents matching Spec you control.
 				// It lands in its OWN slice so both arms stay distinct (the choose
@@ -518,7 +518,7 @@ func ParseCost(s string) Cost {
 				c.RevealOrChoose = append(c.RevealOrChoose, CostPart{N: int32(n), Spec: strings.ReplaceAll(m[2], ";", ","), Desc: m[3]})
 				continue
 			}
-			if m := revealChosenCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchRevealChosenCost(t); ok {
 				// A designation reveal is a real, modelled, FREE cost component:
 				// no generic substitution and no Unknown census entry. The
 				// designation's presence is the payability gate
@@ -527,7 +527,7 @@ func ParseCost(s string) Cost {
 				c.RevealChosen = append(c.RevealChosen, CostPart{Spec: m[1], Desc: m[2]})
 				continue
 			}
-			if m := blightCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchBlightCost(t); ok {
 				// Blight<X> (Blighted Nightmare, Soul Immolation): the announced
 				// form of the Blight cost. X is announced (CR 601.2b) exactly the
 				// way Sac<X/Spec> announces its count -- the count is settled by
@@ -550,7 +550,7 @@ func ParseCost(s string) Cost {
 				c.Blight = append(c.Blight, CostPart{N: int32(n), Spec: "Creature.YouCtrl"})
 				continue
 			}
-			if m := lifeCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchLifeCost(t); ok {
 				n, err := strconv.ParseInt(m[1], 10, 64)
 				if err != nil || n < 0 || n > int64(math.MaxInt32) {
 					// Keep an out-of-range PayLife token on the same safe fallback
@@ -563,7 +563,7 @@ func ParseCost(s string) Cost {
 				c.Life = AddClampedGeneric(c.Life, n)
 				continue
 			}
-			if m := removeAnyCounterCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchRemoveAnyCounterCost(t); ok {
 				// RemoveAnyCounter is the same payment component as SubCounter;
 				// its distinct head is Forge's spelling for the counter-choice
 				// family. Keep the target filter and display description intact.
@@ -591,7 +591,7 @@ func ParseCost(s string) Cost {
 				c.SubCounter = append(c.SubCounter, CostPart{N: int32(n), Spec: kind, Target: target, Desc: desc})
 				continue
 			}
-			if m := subCounterCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchSubCounterCost(t); ok {
 				// The counter-removal cost in every modelled spelling. The kind
 				// is read verbatim ("Any" reads every kind -- the candidate/
 				// bound reads in rules/cast.go); the count is the literal digits
@@ -630,7 +630,7 @@ func ParseCost(s string) Cost {
 				c.SubCounter = append(c.SubCounter, CostPart{N: int32(n), Spec: kind, Target: target, Desc: desc})
 				continue
 			}
-			if m := nonManaCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchNonManaCost(t); ok {
 				n, err := strconv.ParseInt(m[2], 10, 64)
 				if err != nil || n < 0 || n > int64(math.MaxInt32) {
 					// A malformed Sac/Discard/SubCounter token degrades the same way
@@ -657,7 +657,7 @@ func ParseCost(s string) Cost {
 				}
 				continue
 			}
-			if m := drawDynCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchDrawDynCost(t); ok {
 				// The dynamic-amount Draw cost (Draw<X/Spec>): the count is not
 				// a literal but the source's SVar named by m[1], resolved at
 				// payment. Recorded with Dyn set and N unused -- the part is a
@@ -668,7 +668,7 @@ func ParseCost(s string) Cost {
 				c.Draw = append(c.Draw, CostPart{Spec: spec, Dyn: m[1], Desc: m[3]})
 				continue
 			}
-			if m := exileFromTopCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchExileFromTopCost(t); ok {
 				if m[2] != "Card" {
 					// Not the measured shape: leave it unmodelled rather than
 					// letting an arbitrary spec select a deeper library card.
@@ -685,7 +685,7 @@ func ParseCost(s string) Cost {
 				c.ExileFromTop = append(c.ExileFromTop, CostPart{N: int32(n), Spec: "Card", Desc: m[3]})
 				continue
 			}
-			if m := exileBattlefieldCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchExileBattlefieldCost(t); ok {
 				n, err := strconv.ParseInt(m[1], 10, 64)
 				if err != nil || n < 0 || n > int64(math.MaxInt32) {
 					// Same safe fallback as every other malformed cost token --
@@ -699,7 +699,7 @@ func ParseCost(s string) Cost {
 				c.Exile = append(c.Exile, CostPart{N: int32(n), Spec: spec, Zone: state.ZBattlefield, Desc: m[3]})
 				continue
 			}
-			if m := exiledMoveToGraveCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchExiledMoveToGraveCost(t); ok {
 				n, err := strconv.ParseInt(m[1], 10, 64)
 				if err != nil || n < 0 || n > int64(math.MaxInt32) {
 					// Same safe fallback as every other malformed cost token --
@@ -713,14 +713,14 @@ func ParseCost(s string) Cost {
 				c.MoveToGrave = append(c.MoveToGrave, CostPart{N: int32(n), Spec: spec, Desc: m[3]})
 				continue
 			}
-			if m := payLifeXCost.FindStringSubmatch(sym); m != nil {
+			if _, ok := matchPayLifeXCost(t); ok {
 				// The announced form: the cast announces X (bounded by the
 				// payer's life at the X ask) and the settle pays that much life.
 				// No generic substitution, no Unknown entry.
 				c.LifeX = append(c.LifeX, CostPart{Spec: "X", Announced: true})
 				continue
 			}
-			if m := rollDiceCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchRollDiceCost(t); ok {
 				fields := strings.Split(m[1], "/")
 				if len(fields) == 3 && fields[2] == "X" {
 					n, nerr := strconv.ParseInt(fields[0], 10, 32)
@@ -734,7 +734,7 @@ func ParseCost(s string) Cost {
 				c.reportUnknown(sym)
 				continue
 			}
-			if m := damageYouCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchDamageYouCost(t); ok {
 				n, err := strconv.ParseInt(m[1], 10, 64)
 				if err != nil || n < 0 || n > int64(math.MaxInt32) {
 					// Same safe fallback as every other malformed cost token --
@@ -747,7 +747,7 @@ func ParseCost(s string) Cost {
 				c.DamageYou = append(c.DamageYou, CostPart{N: int32(n), Desc: m[2]})
 				continue
 			}
-			if m := gainLifeCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchGainLifeCost(t); ok {
 				n, err := strconv.ParseInt(m[1], 10, 64)
 				if err != nil || n < 0 || n > int64(math.MaxInt32) {
 					// Same safe fallback as every other malformed cost token --
@@ -760,7 +760,7 @@ func ParseCost(s string) Cost {
 				c.GainLife = append(c.GainLife, CostPart{N: int32(n), Spec: m[2], Each: m[3] == "*"})
 				continue
 			}
-			if m := exileCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchExileCost(t); ok {
 				if m[2] == "X" {
 					if m[1] != "FromGrave" {
 						c.Generic = AddClampedGeneric(c.Generic, 1)
@@ -788,7 +788,7 @@ func ParseCost(s string) Cost {
 				c.Exile = append(c.Exile, part)
 				continue
 			}
-			if m := addCounterCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchAddCounterCost(t); ok {
 				n, err := strconv.ParseInt(m[1], 10, 64)
 				if err != nil || n < 0 || n > int64(math.MaxInt32) {
 					// Same degrade-to-one-generic fallback as the other
@@ -801,7 +801,7 @@ func ParseCost(s string) Cost {
 				c.AddCounter = append(c.AddCounter, CostPart{N: int32(n), Spec: spec, Desc: m[3]})
 				continue
 			}
-			if m := addSelfCounterCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchAddSelfCounterCost(t); ok {
 				n, err := strconv.ParseInt(m[1], 10, 64)
 				if err != nil || n < 0 || n > int64(math.MaxInt32) {
 					c.Generic = AddClampedGeneric(c.Generic, 1)
@@ -811,16 +811,16 @@ func ParseCost(s string) Cost {
 				c.AddCounter = append(c.AddCounter, CostPart{N: int32(n), Spec: m[2]})
 				continue
 			}
-			if m := exertCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchExertCost(t); ok {
 				c.Exert = append(c.Exert, CostPart{N: 1, Spec: "CARDNAME", Desc: m[1]})
 				continue
 			}
-			if m := sacXCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchSacXCost(t); ok {
 				spec := strings.ReplaceAll(m[1], ";", ",")
 				c.Sac = append(c.Sac, CostPart{Spec: spec, Announced: true, Desc: m[2]})
 				continue
 			}
-			if m := payEnergyCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchPayEnergyCost(t); ok {
 				if m[1] == "X" {
 					// The dynamic form: the SAME X the cast announces.
 					c.Energy = append(c.Energy, CostPart{Spec: "X", Desc: m[2]})
@@ -838,7 +838,7 @@ func ParseCost(s string) Cost {
 				c.Energy = append(c.Energy, CostPart{N: int32(n), Desc: m[2]})
 				continue
 			}
-			if m := returnCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchReturnCost(t); ok {
 				n, err := strconv.ParseInt(m[1], 10, 64)
 				if err != nil || n < 0 || n > int64(math.MaxInt32) {
 					// Same safe fallback as every other malformed cost token --
@@ -852,7 +852,7 @@ func ParseCost(s string) Cost {
 				c.Return = append(c.Return, CostPart{N: int32(n), Spec: spec, Desc: m[3]})
 				continue
 			}
-			if m := putCardToLibCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchPutCardToLibCost(t); ok {
 				n, err := strconv.ParseInt(m[2], 10, 64)
 				if err != nil || n < 0 || n > int64(math.MaxInt32) {
 					// Same safe fallback as every other malformed cost token --
@@ -889,7 +889,7 @@ func ParseCost(s string) Cost {
 			// no generic mana and reports no Unknown. A malformed or
 			// out-of-range instance keeps the ordinary one-generic fallback
 			// and reports the recognised head, the PayLife<N> shape.
-			if m := xMinCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchXMinCost(t); ok {
 				n, err := strconv.ParseInt(m[1], 10, 64)
 				if err != nil || n < 0 || n > int64(math.MaxInt32) {
 					c.Generic = AddClampedGeneric(c.Generic, 1)
@@ -1195,7 +1195,8 @@ func ParseUnlessCost(s string) (Cost, bool) {
 				c.Generic = AddClampedGeneric(c.Generic, int64(n))
 				continue
 			}
-			if m := lifeCost.FindStringSubmatch(sym); m != nil {
+			t := splitTok(sym)
+			if m, ok := matchLifeCost(t); ok {
 				n, err := strconv.ParseInt(m[1], 10, 64)
 				if err != nil || n < 0 || n > int64(math.MaxInt32) {
 					return Cost{}, false
@@ -1203,7 +1204,7 @@ func ParseUnlessCost(s string) (Cost, bool) {
 				c.Life = AddClampedGeneric(c.Life, n)
 				continue
 			}
-			if m := nonManaCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchNonManaCost(t); ok {
 				n, err := strconv.ParseInt(m[2], 10, 64)
 				if err != nil || n < 0 || n > int64(math.MaxInt32) {
 					return Cost{}, false
@@ -1224,7 +1225,7 @@ func ParseUnlessCost(s string) (Cost, bool) {
 				}
 				continue
 			}
-			if m := payEnergyCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchPayEnergyCost(t); ok {
 				// The mid-resolution unless form of the cast cost's energy token:
 				// a fixed part spends its N, the dynamic X form spends the
 				// RESOLVING ability's announced X (CR 107.3i) — bound at the pay
@@ -1241,7 +1242,7 @@ func ParseUnlessCost(s string) (Cost, bool) {
 				c.Energy = append(c.Energy, CostPart{N: int32(n), Desc: m[2]})
 				continue
 			}
-			if m := returnCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchReturnCost(t); ok {
 				// The unless form of the cast cost's Return token (the
 				// cumulative-upkeep family, Karoo's non-Lair land): a permanent
 				// matching Spec returned to its OWNER's hand. Choice-bearing —
@@ -1278,7 +1279,7 @@ func ParseUnlessCost(s string) (Cost, bool) {
 			// BeholdExile<N/...> and tapXType<...> stay hard declines: no corpus
 			// UnlessCost$ carries either, and BeholdExile's then-exile settlement
 			// is a distinct behaviour that must land with its own test.
-			if m := choiceCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchChoiceCost(t); ok {
 				if m[1] != "Reveal" && m[1] != "Behold" {
 					return Cost{}, false
 				}
@@ -1304,7 +1305,7 @@ func ParseUnlessCost(s string) (Cost, bool) {
 			// shared payMillCost, so the two payment sites cannot diverge.
 			// A dynamic or malformed spelling (Mill<X>, Mill<>, a prose head)
 			// never matches here and stays a hard decline.
-			if m := millCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchMillCost(t); ok {
 				n, err := strconv.ParseInt(m[1], 10, 64)
 				if err != nil || n < 0 || n > int64(math.MaxInt32) {
 					return Cost{}, false
@@ -1325,7 +1326,7 @@ func ParseUnlessCost(s string) (Cost, bool) {
 			// like Sac/Discard): a whole-graveyard exile is choice-bearing, and
 			// the offer gate reads isWholeZoneExileSpec so the All spec names
 			// the whole zone rather than a filter no card matches.
-			if m := exileCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchExileCost(t); ok {
 				if m[2] == "X" {
 					return Cost{}, false
 				}
@@ -1347,7 +1348,7 @@ func ParseUnlessCost(s string) (Cost, bool) {
 			// payUnlessCost call that would silently omit the reveal. No corpus
 			// UnlessCost$ carries it today; the threading is what a future one
 			// must not mis-route through.
-			if m := revealChosenCost.FindStringSubmatch(sym); m != nil {
+			if m, ok := matchRevealChosenCost(t); ok {
 				c.RevealChosen = append(c.RevealChosen, CostPart{Spec: m[1], Desc: m[2]})
 				continue
 			}
@@ -1360,13 +1361,13 @@ func ParseUnlessCost(s string) (Cost, bool) {
 }
 
 // waterbendCost matches the Waterbend<N> / Waterbend<X> additional cost.
-var waterbendCost = regexp.MustCompile(`^Waterbend<(X|\d+)>$`)
+const waterbendCost = `^Waterbend<(X|\d+)>$`
 
 // MatchWaterbend reports whether sym is a Waterbend<N> or Waterbend<X>
 // token and returns its amount field ("X" or the digit run). The RaiseCost
 // bridge (rules/raise_cost_extra.go) reads the same head ParseCost does.
 func MatchWaterbend(sym string) (amount string, ok bool) {
-	if m := waterbendCost.FindStringSubmatch(sym); m != nil {
+	if m, ok := matchWaterbendCost(splitTok(sym)); ok {
 		return m[1], true
 	}
 	return "", false
@@ -1377,7 +1378,7 @@ func MatchWaterbend(sym string) (amount string, ok bool) {
 // (rules/statics_costmods.go raiseFromCost) reads the same head ParseCost
 // does.
 func MatchPayLife(sym string) (digits string, ok bool) {
-	if m := lifeCost.FindStringSubmatch(sym); m != nil {
+	if m, ok := matchLifeCost(splitTok(sym)); ok {
 		return m[1], true
 	}
 	return "", false
