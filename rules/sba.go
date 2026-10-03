@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
@@ -474,7 +475,7 @@ func (e *Engine) legendRuleExempt(statics []staticView, id state.ObjID) bool {
 		if !e.continuousGateHolds(sv) {
 			continue
 		}
-		spec := strings.TrimSpace(sv.Params["ValidCard"])
+		spec := strings.TrimSpace(sv.ParamStr(cards.PKValidCard))
 		if spec == "" || e.matchesSpec(spec, id, e.staticSpecCtx(sv)) {
 			return true
 		}

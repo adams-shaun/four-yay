@@ -60,12 +60,15 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "derivedTypes"}:         true,
 	{"rules.Engine", "derivedDepth"}:         true,
 	{"rules.Engine", "derivedPTFrames"}:      true,
-	{"rules.Engine", "boardStaticsCache"}:    true,
-	{"rules.Engine", "activeStaticsCache"}:   true,
-	{"rules.Engine", "activeStaticsScan"}:    true,
-	{"rules.Engine", "boardScanBuf"}:         true,
-	{"rules.Engine", "actIndex"}:             true,
-	{"rules.Engine", "mayPlaysCache"}:        true,
+	// combatBoard.Statics' per-mode conversion buffer (rules/combat_board.go):
+	// per-call scratch rewritten in full on every read; Clone copies none.
+	{"rules.Engine", "combatStatics"}:      true,
+	{"rules.Engine", "boardStaticsCache"}:  true,
+	{"rules.Engine", "activeStaticsCache"}: true,
+	{"rules.Engine", "activeStaticsScan"}:  true,
+	{"rules.Engine", "boardScanBuf"}:       true,
+	{"rules.Engine", "actIndex"}:           true,
+	{"rules.Engine", "mayPlaysCache"}:      true,
 	// The posed decision's shared potential walk (potential_walk_cache.go):
 	// keyed by an ask serial and the log; Clone copies none.
 	{"rules.Engine", "potentialWalk"}:       true,

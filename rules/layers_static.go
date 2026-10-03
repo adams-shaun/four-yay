@@ -129,9 +129,9 @@ func (e *Engine) gainedFacesForSource(source state.ObjID) []state.GainedFace {
 // are carried on separate face lists (GainedFaces / GainedTriggerFaces)
 // because the parameters mean different ability kinds.
 func gainsAbilitiesOf(st cards.Static) bool {
-	return strings.TrimSpace(st.Params["GainsAbilitiesOf"]) != "" ||
-		strings.TrimSpace(st.Params["GainsAbilitiesOfDefined"]) != "" ||
-		strings.TrimSpace(st.Params["GainsTriggerAbsOf"]) != ""
+	return strings.TrimSpace(st.ParamStr(cards.PKGainsAbilitiesOf)) != "" ||
+		strings.TrimSpace(st.ParamStr(cards.PKGainsAbilitiesOfDefined)) != "" ||
+		strings.TrimSpace(st.ParamStr(cards.PKGainsTriggerAbsOf)) != ""
 }
 
 // gainsLimitPerTurn parses a has-all-abilities-of static's
@@ -140,7 +140,7 @@ func gainsAbilitiesOf(st cards.Static) bool {
 // a literal 1 -- and an unparseable value degrades to 0 (no cap), the
 // permissive direction for an unmodelled expression.
 func gainsLimitPerTurn(st cards.Static) int {
-	n, err := strconv.Atoi(strings.TrimSpace(st.Params["GainsAbilitiesLimitPerTurn"]))
+	n, err := strconv.Atoi(strings.TrimSpace(st.ParamStr(cards.PKGainsAbilitiesLimitPerTurn)))
 	if err != nil || n < 0 {
 		return 0
 	}
@@ -164,8 +164,8 @@ func (e *Engine) gainedFacesForSpec(st cards.Static, spec string, src state.ObjI
 	if spec == "" {
 		return nil
 	}
-	zones, all, ok := effects.ParseZones(strings.TrimSpace(st.Params["GainsAbilitiesOfZones"]))
-	if strings.TrimSpace(st.Params["GainsAbilitiesOfZones"]) == "" {
+	zones, all, ok := effects.ParseZones(strings.TrimSpace(st.ParamStr(cards.PKGainsAbilitiesOfZones)))
+	if strings.TrimSpace(st.ParamStr(cards.PKGainsAbilitiesOfZones)) == "" {
 		// Forge's default zone for the has-all-abilities-of statics is the
 		// battlefield (StaticAbilityContinuous's default), not every zone.
 		zones, all, ok = []state.Zone{state.ZBattlefield}, false, true
@@ -245,7 +245,7 @@ func (e *Engine) cdaPTStatic(st cards.Static, ctx *effects.Ctx) (p, t int32, has
 			return 0, 0, false, false
 		}
 	}
-	if aff := strings.TrimSpace(st.Params["Affected"]); aff != "" && aff != "Card.Self" {
+	if aff := strings.TrimSpace(st.ParamStr(cards.PKAffected)); aff != "" && aff != "Card.Self" {
 		return 0, 0, false, false
 	}
 	// ExcludeZone$ narrows the claim's zones (Grist, the Hunger Tide): the CDA
@@ -254,17 +254,17 @@ func (e *Engine) cdaPTStatic(st cards.Static, ctx *effects.Ctx) (p, t int32, has
 	// the pair. The same staticZoneAdmits helper, so the layer-7a claim and
 	// any emitted fallback ce cannot disagree about where the static is live.
 	// A source object already gone carries no zone to admit.
-	if raw := strings.TrimSpace(st.Params["ExcludeZone"]); raw != "" {
-		if oz := e.G.Obj(ctx.Source); oz == nil || !staticZoneAdmits(raw, st.Params["EffectZone"], oz.Zone) {
+	if raw := strings.TrimSpace(st.ParamStr(cards.PKExcludeZone)); raw != "" {
+		if oz := e.G.Obj(ctx.Source); oz == nil || !staticZoneAdmits(raw, st.ParamStr(cards.PKEffectZone), oz.Zone) {
 			return 0, 0, false, false
 		}
 	}
-	if raw, ok := st.Params["SetPower"]; ok {
+	if raw, ok := st.Param(cards.PKSetPower); ok {
 		if n, ok := e.cdaValue(ctx, raw); ok {
 			p, hasP = n, true
 		}
 	}
-	if raw, ok := st.Params["SetToughness"]; ok {
+	if raw, ok := st.Param(cards.PKSetToughness); ok {
 		if n, ok := e.cdaValue(ctx, raw); ok {
 			t, hasT = n, true
 		}
@@ -313,7 +313,7 @@ func (e *Engine) cdaSetPT(o *state.Object) (p, t int32, hasP, hasT bool) {
 	}
 	var ctx *effects.Ctx // built only for a face that has a CDA static
 	for _, st := range f.Statics {
-		if st.Mode != "Continuous" || strings.TrimSpace(st.Params["CharacteristicDefining"]) == "" {
+		if st.Mode != "Continuous" || strings.TrimSpace(st.ParamStr(cards.PKCharacteristicDefining)) == "" {
 			continue
 		}
 		if ctx == nil {
@@ -592,11 +592,11 @@ func addPT(a, b int32) int32 {
 // parser. In particular its ampersands divide keywords while commas remain
 // inside a keyword's parameters.
 func statKeywords(st cards.Static) []string {
-	return cards.SplitKeywordList(st.Params["AddKeyword"])
+	return cards.SplitKeywordList(st.ParamStr(cards.PKAddKeyword))
 }
 
 func statRemoveKeywords(st cards.Static) []string {
-	return cards.SplitKeywordList(st.Params["RemoveKeyword"])
+	return cards.SplitKeywordList(st.ParamStr(cards.PKRemoveKeyword))
 }
 
 func statCantHaveKeywords(st cards.Static) []string {

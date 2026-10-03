@@ -218,7 +218,7 @@ func (e *Engine) abilityPresentHolds(p state.PlayerID, id state.ObjID, ab *cards
 	} else {
 		n = e.countPresent(spec, id, p)
 	}
-	if cmp := strings.TrimSpace(ab.Params["PresentCompare"]); cmp != "" {
+	if cmp := strings.TrimSpace(ab.ParamStr(cards.PKPresentCompare)); cmp != "" {
 		return comparePresent(n, e.presentCompareFor(cmp, id, p))
 	}
 	return n > 0
@@ -283,7 +283,7 @@ func (e *Engine) sVarGateOK(p state.PlayerID, id state.ObjID, ab *cards.SA, merg
 	}
 	svars := e.pileSVars(id, merged)
 	ctx := effects.NewCtxPtr(id, p, effects.CtxInit{SVars: svars})
-	holds, evaluated := effects.CheckSVarHolds(e, ctx, check, ab.Params["SVarCompare"])
+	holds, evaluated := effects.CheckSVarHolds(e, ctx, check, ab.ParamStr(cards.PKSVarCompare))
 	if !evaluated {
 		// The gate's count body is not one the evaluator models: fail OPEN —
 		// the ability is still offered. A gate you cannot read must not

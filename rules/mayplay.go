@@ -763,8 +763,8 @@ func (e *Engine) mayPlayAltCosts(p state.PlayerID, id state.ObjID) []Cost {
 		// shape (mayPlayGrant), so the hand gate keeps the two from ever
 		// offering the same free cast twice.
 		free := raw == "" && o.Zone == state.ZHand &&
-			strings.EqualFold(strings.TrimSpace(sv.Params["MayPlayWithoutManaCost"]), "True")
-		if (raw == "" && !free) || strings.TrimSpace(sv.Params["MayPlay"]) != "True" || mayPlayGateRejected(sv.Params) ||
+			strings.EqualFold(strings.TrimSpace(sv.ParamStr(cards.PKMayPlayWithoutManaCost)), "True")
+		if (raw == "" && !free) || strings.TrimSpace(sv.ParamStr(cards.PKMayPlay)) != "True" || mayPlayGateRejected(sv.Params) ||
 			!e.mayPlayConditionGateHolds(sv.Params, sv.Source, sv.Controller) {
 			continue
 		}
@@ -779,7 +779,7 @@ func (e *Engine) mayPlayAltCosts(p state.PlayerID, id state.ObjID) []Cost {
 		// Condition$ PlayerTurn ("during each of your turns"): the static's
 		// controller's turn, the same switch mayPlayStatic runs. Any other
 		// value is an unimplemented gate and fails closed.
-		switch cond := strings.TrimSpace(sv.Params["Condition"]); cond {
+		switch cond := strings.TrimSpace(sv.ParamStr(cards.PKCondition)); cond {
 		case "":
 		case "PlayerTurn":
 			if e.G.Active != sv.Controller {
@@ -788,14 +788,14 @@ func (e *Engine) mayPlayAltCosts(p state.PlayerID, id state.ObjID) []Cost {
 		default:
 			continue
 		}
-		if ip := strings.TrimSpace(sv.Params["IsPresent"]); ip != "" && !e.mayPlayIsPresent(ip, sv.Controller, sv.Source) {
+		if ip := strings.TrimSpace(sv.ParamStr(cards.PKIsPresent)); ip != "" && !e.mayPlayIsPresent(ip, sv.Controller, sv.Source) {
 			continue
 		}
-		spec := strings.TrimSpace(sv.Params["Affected"])
+		spec := strings.TrimSpace(sv.ParamStr(cards.PKAffected))
 		if spec == "" {
 			continue
 		}
-		if az := strings.TrimSpace(sv.Params["AffectedZone"]); az != "" {
+		if az := strings.TrimSpace(sv.ParamStr(cards.PKAffectedZone)); az != "" {
 			inZone := false
 			for part := range strings.SplitSeq(az, ",") {
 				if z, known := effects.ZoneFromString(strings.TrimSpace(part)); known && z == o.Zone {
@@ -868,7 +868,7 @@ func (e *Engine) mayPlayKinds(p state.PlayerID, id state.ObjID) (plain, mutate, 
 			continue
 		}
 		if applies, grants, _, _, _, _ := e.mayPlayStatic(st.Params, id, o.Controller, id); applies && grants {
-			pl, mu, bl, sn := e.mayPlayValidSAKinds(st.Params["ValidSA"], o.Face(), id, id, p)
+			pl, mu, bl, sn := e.mayPlayValidSAKinds(st.ParamStr(cards.PKValidSA), o.Face(), id, id, p)
 			plain = plain || pl
 			mutate = mutate || mu
 			blitz = blitz || bl
@@ -880,7 +880,7 @@ func (e *Engine) mayPlayKinds(p state.PlayerID, id state.ObjID) (plain, mutate, 
 			continue
 		}
 		if applies, grants, _, _, _, _ := e.mayPlayStatic(sv.Params, id, sv.Controller, sv.Source); applies && grants {
-			pl, mu, bl, sn := e.mayPlayValidSAKinds(sv.Params["ValidSA"], o.Face(), id, sv.Source, p)
+			pl, mu, bl, sn := e.mayPlayValidSAKinds(sv.ParamStr(cards.PKValidSA), o.Face(), id, sv.Source, p)
 			plain = plain || pl
 			mutate = mutate || mu
 			blitz = blitz || bl

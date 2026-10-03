@@ -30,7 +30,7 @@ import (
 // condition cannot justify would be a silently wrong board, whereas keeping
 // the primary is the pre-existing behaviour and therefore replay-safe.
 func changeZoneAltDestination(h Host, c *Ctx, sa *cards.SA, primary state.Zone) state.Zone {
-	cond := strings.TrimSpace(sa.Params["DestAltSVar"])
+	cond := strings.TrimSpace(sa.ParamStr(cards.PKDestAltSVar))
 	if cond == "" {
 		return primary
 	}
@@ -42,25 +42,25 @@ func changeZoneAltDestination(h Host, c *Ctx, sa *cards.SA, primary state.Zone) 
 	holds, evaluated := CheckSVarHolds(h, c, cond, strings.TrimSpace(sa.Params["DestAltSVarCompare"]))
 	if !evaluated {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-			Text: "DestAltSVar$ " + strings.TrimSpace(sa.Params["DestAltSVar"]) +
+			Text: "DestAltSVar$ " + strings.TrimSpace(sa.ParamStr(cards.PKDestAltSVar)) +
 				" is not a condition this engine can evaluate; the move takes the primary destination"})
 		return primary
 	}
 	if !holds {
 		return primary
 	}
-	alt, ok := ParseZoneWord(sa.Params["DestinationAlternative"])
+	alt, ok := ParseZoneWord(sa.ParamStr(cards.PKDestinationAlternative))
 	if !ok {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-			Text: "DestAltSVar$ " + strings.TrimSpace(sa.Params["DestAltSVar"]) +
-				" holds but DestinationAlternative$ " + strings.TrimSpace(sa.Params["DestinationAlternative"]) +
+			Text: "DestAltSVar$ " + strings.TrimSpace(sa.ParamStr(cards.PKDestAltSVar)) +
+				" holds but DestinationAlternative$ " + strings.TrimSpace(sa.ParamStr(cards.PKDestinationAlternative)) +
 				" is not a zone this engine models; the move takes the primary destination"})
 		return primary
 	}
 	if !mandatory {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-			Text: "DestAltSVar$ " + strings.TrimSpace(sa.Params["DestAltSVar"]) +
-				" holds: the alternate destination " + strings.TrimSpace(sa.Params["DestinationAlternative"]) +
+			Text: "DestAltSVar$ " + strings.TrimSpace(sa.ParamStr(cards.PKDestAltSVar)) +
+				" holds: the alternate destination " + strings.TrimSpace(sa.ParamStr(cards.PKDestinationAlternative)) +
 				" is taken (Forge would ask which destination; this engine does not ask)"})
 	}
 	return alt
@@ -147,7 +147,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// Creator's -2), and effHiddenPick's game-wide or owner-public fetch
 		// list is the wrong shape for an owner-private sideboard union.
 		if hidden && sa.ParamStr(cards.PKDefined) == "" &&
-			!strings.EqualFold(strings.TrimSpace(sa.Params["Imprint"]), "True") &&
+			!strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKImprint)), "True") &&
 			!originAll && !mixedOriginIncludesHand(originZones, originAll) &&
 			!zoneIn(originZones, state.ZLibrary) &&
 			!zoneIn(originZones, state.ZSideboard) &&
@@ -247,13 +247,13 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		if len(originZones) == 1 && originZones[0] == state.ZHand && !originAll &&
 			sa.ParamStr(cards.PKDefined) == "" &&
 			sa.ParamStr(cards.PKDefinedPlayer) == "" && sa.ParamStr(cards.PKValidTgts) == "" &&
-			!strings.EqualFold(sa.Params["Imprint"], "True") {
+			!strings.EqualFold(sa.ParamStr(cards.PKImprint), "True") {
 			if _, supported := handMoveCountOf(h, c, sa); supported {
 				effChangeZoneHand(h, c, sa, to)
 				return
 			}
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-				Text: "cannot choose ChangeNum$ " + strings.TrimSpace(sa.Params["ChangeNum"]) +
+				Text: "cannot choose ChangeNum$ " + strings.TrimSpace(sa.ParamStr(cards.PKChangeNum)) +
 					" cards from hand (a non-literal count is not a bound this engine can evaluate)"})
 			return
 		}
@@ -309,7 +309,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	// what keeps events/apply.go's Move from knowing anything about counters.
 	// counterDestination is the one gate every mover shares: a destination that
 	// cannot carry the counters neither parses the amount nor emits anything.
-	withKind := sa.Params["WithCountersType"]
+	withKind := sa.ParamStr(cards.PKWithCountersType)
 	var withAmt int32
 	if withKind != "" && counterDestination(to) {
 		withAmt = withCounterAmount(h, c, sa)
@@ -379,7 +379,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	altBottom := false
 	altEngaged := false
 	if altDecider != "" && len(targets) > 0 {
-		primaryPosition := strings.TrimSpace(sa.Params["LibraryPosition"])
+		primaryPosition := strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition))
 		altPosition := strings.TrimSpace(sa.Params["LibraryPositionAlternative"])
 		shapeOK := to == state.ZLibrary && len(targets) == 1 && !targets[0].IsPlayer &&
 			altPosition == "-1" && (primaryPosition == "" || primaryPosition == "0" || primaryPosition == "1")
@@ -442,7 +442,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	// successful exile can be recorded in the replayable Imprint event.
 	if len(targets) == 1 && targets[0].Obj == c.Source && !targets[0].IsPlayer &&
 		len(originZones) == 1 && originZones[0] == state.ZHand && !originAll &&
-		strings.EqualFold(sa.Params["Imprint"], "True") {
+		strings.EqualFold(sa.ParamStr(cards.PKImprint), "True") {
 		targets = nil
 		if c.ImprintDone {
 			for _, id := range c.Imprint {
@@ -450,7 +450,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 			}
 			c.Imprint, c.ImprintDone = nil, false
 		} else {
-			spec := sa.Params["ChangeType"]
+			spec := sa.ParamStr(cards.PKChangeType)
 			if spec == "" {
 				spec = "Card"
 			}
@@ -576,10 +576,10 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// Capture the LKI before the emit: events.Apply's Move fold resets a
 		// battlefield departure's controller to its owner (CR 400.7), so this
 		// is the last point the pre-move controller is readable.
-		if strings.EqualFold(sa.Params["RememberLKI"], "True") {
+		if strings.EqualFold(sa.ParamStr(cards.PKRememberLKI), "True") {
 			c.ChangeZoneLKI = append(c.ChangeZoneLKI, state.LKIObject{Obj: o.ID, Controller: o.Controller, Owner: o.Owner})
 		}
-		if to == state.ZExile && len(ev.IDs) == 0 && (faceStaticsNameExiledWithSource(h, c.Source) || strings.EqualFold(strings.TrimSpace(sa.Params["Imprint"]), "True")) {
+		if to == state.ZExile && len(ev.IDs) == 0 && (faceStaticsNameExiledWithSource(h, c.Source) || strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKImprint)), "True")) {
 			ev.IDs = []state.ObjID{c.Source}
 		}
 		applyFaceDownMarker(h, sa, c, &ev, to)
@@ -601,7 +601,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// moved object to the ability's Remembered -- a resolution-local Ctx
 		// value, replayed identically because replay re-runs the same SA. The
 		// two flags stack; an object is not remembered twice.
-		if strings.EqualFold(sa.Params["RememberLKI"], "True") &&
+		if strings.EqualFold(sa.ParamStr(cards.PKRememberLKI), "True") &&
 			!strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
 			c.Remembered = append(c.Remembered, state.Target{Obj: o.ID})
 		}
@@ -618,7 +618,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// above (Journey's leave-battlefield return trigger). Only a target
 		// the move actually moved is remembered: a target skipped by the
 		// Origin$ precondition was never exiled and must never come back.
-		if strings.EqualFold(strings.TrimSpace(sa.Params["RememberTargets"]), "True") {
+		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True") {
 			c.Remembered = append(c.Remembered, state.Target{Obj: o.ID})
 			eventRemember(h, c, o.ID)
 		}
@@ -645,7 +645,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// spell) entered untapped -- the same Tap event applyLibrarySearch
 		// and the hand movers emit, so the entry state is a real event and
 		// replay derives it.
-		if to == state.ZBattlefield && strings.EqualFold(sa.Params["Tapped"], "True") {
+		if to == state.ZBattlefield && strings.EqualFold(sa.ParamStr(cards.PKTapped), "True") {
 			h.Emit(events.Event{Kind: events.Tap, Obj: o.ID, Player: c.Controller, Text: "entered tapped"})
 		}
 		rider.apply(h, c, o.ID, c.Controller, to)
@@ -658,10 +658,10 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 			// Awakener, From the Catacombs): the same promise the shared settle
 			// path registers, on the object this move just landed, after its
 			// entry riders are settled.
-			registerLeaveExile(h, c, o.ID, sa.Params["LeaveBattlefield"], "", true)
+			registerLeaveExile(h, c, o.ID, sa.ParamStr(cards.PKLeaveBattlefield), "", true)
 		}
-		if strings.EqualFold(sa.Params["Imprint"], "True") &&
-			(to == state.ZExile || strings.EqualFold(strings.TrimSpace(sa.Params["ImprintLast"]), "True")) {
+		if strings.EqualFold(sa.ParamStr(cards.PKImprint), "True") &&
+			(to == state.ZExile || strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKImprintLast)), "True")) {
 			if landed := h.Game().Obj(o.ID); landed != nil && landed.Zone == to &&
 				(to == state.ZExile || !landed.IsToken) {
 				imprinted = append(imprinted, o.ID)
@@ -669,7 +669,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	if len(imprinted) > 0 {
-		if strings.EqualFold(strings.TrimSpace(sa.Params["ImprintLast"]), "True") {
+		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKImprintLast)), "True") {
 			clearChangeZoneImprint(h, c)
 			imprinted = imprinted[len(imprinted)-1:]
 		}
@@ -736,7 +736,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		position := int32(0)
 		if altBottom {
 			position = -1
-		} else if strings.TrimSpace(sa.Params["LibraryPosition"]) == "1" {
+		} else if strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition)) == "1" {
 			position = 1
 		}
 		libraryOrderPlacementAt(h, h.Game().Obj(moved[0]).Owner, moved, position)
@@ -762,7 +762,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 // on a move that does not enter the battlefield has no CR meaning (nothing
 // can be attached in a hidden zone) and is left unread.
 func changeZoneAttachedTo(h Host, c *Ctx, sa *cards.SA, moved state.ObjID) {
-	val := strings.TrimSpace(sa.Params["AttachedTo"])
+	val := strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo))
 	playerVal := strings.TrimSpace(sa.Params["AttachedToPlayer"])
 	if moved == 0 || (val == "" && playerVal == "") {
 		return
@@ -1166,12 +1166,12 @@ func settleChangeZoneMoveAs(h Host, c *Ctx, sa *cards.SA, id state.ObjID, from, 
 		return
 	}
 	ev := moveZoneEvent(c, id, from, to)
-	if strings.EqualFold(sa.Params["RememberLKI"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKRememberLKI), "True") {
 		if o := h.Game().Obj(id); o != nil {
 			c.ChangeZoneLKI = append(c.ChangeZoneLKI, state.LKIObject{Obj: id, Controller: o.Controller, Owner: o.Owner})
 		}
 	}
-	if to == state.ZExile && len(ev.IDs) == 0 && (faceStaticsNameExiledWithSource(h, c.Source) || strings.EqualFold(strings.TrimSpace(sa.Params["Imprint"]), "True")) {
+	if to == state.ZExile && len(ev.IDs) == 0 && (faceStaticsNameExiledWithSource(h, c.Source) || strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKImprint)), "True")) {
 		// The S: static spelling of the same provenance need: a source whose
 		// own Static lines name ExiledWithSource (Intellect Devourer's
 		// MayPlay+ExiledWithSource grant) tracks its exiles exactly like the
@@ -1208,9 +1208,9 @@ func settleChangeZoneMoveAs(h Host, c *Ctx, sa *cards.SA, id state.ObjID, from, 
 	// shares; the two inlined movers that predate it (the object-target loop
 	// and applyLibrarySearch's library-origin branch) keep their own
 	// collection and do not call through here, so nothing is recorded twice.
-	if strings.EqualFold(strings.TrimSpace(sa.Params["Imprint"]), "True") && c.Source != 0 {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKImprint)), "True") && c.Source != 0 {
 		if o := h.Game().Obj(id); o != nil && o.Zone == to && !o.IsToken {
-			if strings.EqualFold(strings.TrimSpace(sa.Params["ImprintLast"]), "True") {
+			if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKImprintLast)), "True") {
 				clearChangeZoneImprint(h, c)
 			}
 			h.Emit(events.Event{Kind: events.Imprint, Obj: c.Source, IDs: []state.ObjID{id}})
@@ -1225,7 +1225,7 @@ func settleChangeZoneMoveAs(h Host, c *Ctx, sa *cards.SA, id state.ObjID, from, 
 	// Targeted (2 lines, a different capture point -- the CHOSEN target, not
 	// the moved object) is left to its own work and is not silently folded
 	// into this read.
-	if strings.EqualFold(sa.Params["RememberLKI"], "True") &&
+	if strings.EqualFold(sa.ParamStr(cards.PKRememberLKI), "True") &&
 		!strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
 		c.Remembered = append(c.Remembered, state.Target{Obj: id})
 	}
@@ -1247,7 +1247,7 @@ func settleChangeZoneMoveAs(h Host, c *Ctx, sa *cards.SA, id state.ObjID, from, 
 		// origin because this helper's OTHER callers (the hidden pick, the
 		// library search's alternative-origin branch) emit their own Tap after
 		// the call and a second one here would double-emit.
-		if from == state.ZHand && strings.EqualFold(sa.Params["Tapped"], "True") {
+		if from == state.ZHand && strings.EqualFold(sa.ParamStr(cards.PKTapped), "True") {
 			h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: player, Text: "entered tapped"})
 		}
 		rider.apply(h, c, id, player, to)
@@ -1260,7 +1260,7 @@ func settleChangeZoneMoveAs(h Host, c *Ctx, sa *cards.SA, id state.ObjID, from, 
 		// the promise rides the entered object for as long as it stays on the
 		// battlefield (effects/leavebattlefield.go) -- no Duration$ on either
 		// carrier, and the move sweep ends it on the departure itself.
-		registerLeaveExile(h, c, id, sa.Params["LeaveBattlefield"], "", true)
+		registerLeaveExile(h, c, id, sa.ParamStr(cards.PKLeaveBattlefield), "", true)
 	}
 }
 

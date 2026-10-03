@@ -232,8 +232,8 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 	// DBTurnFaceUp are the only two `DB$ ... PresentDefined$` lines in the
 	// corpus, and both carry IsPresent$); a bare Present$ key does not exist
 	// in the corpus, so it is deliberately NOT read here.
-	presentDefined := strings.TrimSpace(sa.Params["PresentDefined"])
-	presentCompare := strings.TrimSpace(sa.Params["PresentCompare"])
+	presentDefined := strings.TrimSpace(sa.ParamStr(cards.PKPresentDefined))
+	presentCompare := strings.TrimSpace(sa.ParamStr(cards.PKPresentCompare))
 	if presentDefined != "" {
 		if defined != "" || present != "" || compare != "" {
 			return false, false

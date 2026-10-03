@@ -12,7 +12,12 @@
 //     one triage item each;
 //   - a passing verdict freezes only the fields its scenario changed
 //     (VerdictRow.Frozen), and each scenario template versions itself
-//     (compliance/oraclegen/templates).
+//     (compliance/oraclegen/templates);
+//   - compliance/formats.json names the certification targets, and package
+//     adopt derives the primitive impact table (oraclediff impact), the
+//     class tickets (oraclediff tickets) and the per-set / per-format
+//     status (oraclediff status -all, make compliance-status) whose
+//     shrink-only ratchet is compliance/ratchet.json.
 //
 // Nothing here reads or embeds a Forge card script.
 package compliance

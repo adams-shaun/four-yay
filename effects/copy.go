@@ -199,7 +199,7 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 	// TargetedController) the may-copy election is the addressed player's,
 	// not the resolving controller's.
 	controller := c.Controller
-	if spec := strings.TrimSpace(sa.Params["Controller"]); spec != "" {
+	if spec := strings.TrimSpace(sa.ParamStr(cards.PKController)); spec != "" {
 		if p, ok := copyControllerFor(g, c, spec); ok {
 			controller = p
 		}

@@ -29,16 +29,16 @@ func (e *Engine) asUnblockedStaticMatches(id state.ObjID) (matched, mandatory bo
 		if !e.classBandGateHolds(sv.ParamStr(cards.PKClassBand), sv.Source) {
 			continue
 		}
-		if spec := strings.TrimSpace(sv.Params["IsPresent"]); spec != "" {
+		if spec := strings.TrimSpace(sv.ParamStr(cards.PKIsPresent)); spec != "" {
 			if e.countPresent(spec, sv.Source, sv.Controller) <= 0 {
 				continue
 			}
 		}
-		if !e.matchesSpec(sv.Params["ValidCard"], id, e.staticSpecCtx(sv)) {
+		if !e.matchesSpec(sv.ParamStr(cards.PKValidCard), id, e.staticSpecCtx(sv)) {
 			continue
 		}
 		matched = true
-		if strings.TrimSpace(sv.Params["Optional"]) != "True" {
+		if strings.TrimSpace(sv.ParamStr(cards.PKOptional)) != "True" {
 			return true, true
 		}
 	}
@@ -137,12 +137,12 @@ func (e *Engine) combatDamageToughnessMatches(id state.ObjID) bool {
 		if !e.classBandGateHolds(sv.ParamStr(cards.PKClassBand), sv.Source) {
 			continue
 		}
-		if spec := strings.TrimSpace(sv.Params["IsPresent"]); spec != "" {
+		if spec := strings.TrimSpace(sv.ParamStr(cards.PKIsPresent)); spec != "" {
 			if e.countPresent(spec, sv.Source, sv.Controller) <= 0 {
 				continue
 			}
 		}
-		if !e.matchesSpec(sv.Params["ValidCard"], id, e.assignmentStaticSpecCtx(sv)) {
+		if !e.matchesSpec(sv.ParamStr(cards.PKValidCard), id, e.assignmentStaticSpecCtx(sv)) {
 			continue
 		}
 		return true
@@ -238,10 +238,10 @@ func (e *Engine) tapPowerValue(id state.ObjID, saKind string) int32 {
 		if !e.classBandGateHolds(sv.ParamStr(cards.PKClassBand), sv.Source) {
 			continue
 		}
-		if !tapPowerSAScopeMatches(sv.Params["ValidSA"], saKind) {
+		if !tapPowerSAScopeMatches(sv.ParamStr(cards.PKValidSA), saKind) {
 			continue
 		}
-		if !e.matchesSpec(sv.Params["ValidCard"], id, e.staticSpecCtx(sv)) {
+		if !e.matchesSpec(sv.ParamStr(cards.PKValidCard), id, e.staticSpecCtx(sv)) {
 			continue
 		}
 		switch v := strings.TrimSpace(sv.Params["Value"]); v {

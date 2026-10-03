@@ -56,7 +56,7 @@ func (e *Engine) staticPresentHolds(st cards.Static, source state.ObjID) bool {
 		return true
 	}
 	n := e.countPresent(spec, source, e.controllerOf(source))
-	cmp := strings.TrimSpace(st.Params["PresentCompare"])
+	cmp := strings.TrimSpace(st.ParamStr(cards.PKPresentCompare))
 	if cmp == "" {
 		return n > 0
 	}

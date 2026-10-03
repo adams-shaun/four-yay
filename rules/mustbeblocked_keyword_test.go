@@ -116,10 +116,10 @@ func TestRealCorpusPumpMustBeBlockedKeywordIsRead(t *testing.T) {
 	}
 	// The sentence form reaches the same oracle the printed (canonical) form
 	// does.
-	if got := parseHiddenKeyword("HIDDEN CARDNAME must be blocked if able."); !got.mustBlock {
+	if got := parseHiddenKeyword("HIDDEN CARDNAME must be blocked if able."); !got.MustBlock {
 		t.Fatalf("runtime sentence grant no longer read: %+v", got)
 	}
-	if got := parseHiddenKeyword("MustBlock"); !got.mustBlock {
+	if got := parseHiddenKeyword("MustBlock"); !got.MustBlock {
 		t.Fatalf("canonical head not read: %+v", got)
 	}
 }

@@ -28,16 +28,21 @@ const (
 	PKActivationZone
 	PKActivator
 	PKActiveZones
+	PKAddAbilities
 	PKAddAbility
 	PKAddAllCreatureTypes
 	PKAddColor
 	PKAddColors
 	PKAddKeyword
+	PKAddKeywords
 	PKAddPower
 	PKAddSVar
+	PKAddSVars
+	PKAddStaticAbilities
 	PKAddStaticAbility
 	PKAddToughness
 	PKAddTrigger
+	PKAddTriggers
 	PKAddType
 	PKAddTypes
 	PKAdjustLandPlays
@@ -45,24 +50,41 @@ const (
 	PKAffectedZone
 	PKAmount
 	PKAnnounce
+	PKAnyNumber
+	PKAttachedTo
 	PKBoast
 	PKCantHaveKeyword
 	PKCaster
+	PKChangeNum
+	PKChangeType
 	PKCharacteristicDefining
 	PKCheckSVar
 	PKCheckSecondSVar
+	PKChoiceOptional
+	PKChoiceTitle
+	PKChoiceZone
 	PKChoices
+	PKChooseFromDefined
+	PKChooser
 	PKClassBand
+	PKClearImprinted
 	PKCondition
 	PKConditionActivationLimit
 	PKConditionDefined
+	PKController
 	PKCost
+	PKCounterNum
 	PKCounterType
 	PKDefined
+	PKDefinedCards
 	PKDefinedPlayer
+	PKDestAltSVar
 	PKDestination
+	PKDestinationAlternative
 	PKDiscard
+	PKDividedAsYouChoose
 	PKDuration
+	PKETB
 	PKEffectOnly
 	PKEffectZone
 	PKEvolve
@@ -70,54 +92,92 @@ const (
 	PKExecute
 	PKExhaust
 	PKFirstForetell
+	PKForgetOtherRemembered
 	PKFoundSearchingLibrary
 	PKGainControl
+	PKGainsAbilitiesLimitPerTurn
 	PKGainsAbilitiesOf
 	PKGainsAbilitiesOfDefined
+	PKGainsAbilitiesOfZones
 	PKGainsTriggerAbsOf
+	PKGainsValidAbilities
 	PKGameActivationLimit
 	PKGoad
+	PKImprint
 	PKImprintCards
+	PKImprintLast
+	PKIntoPlayTapped
 	PKIsPresent
 	PKIsPresent2
+	PKKW
 	PKKeyword
+	PKLeaveBattlefield
+	PKLibraryPosition
+	PKMandatory
+	PKMax
 	PKMaxTotalTargetCMC
 	PKMayLookAt
 	PKMayPlay
 	PKMayPlayAltManaCost
 	PKMayPlayWithoutManaCost
 	PKMentor
+	PKMin
+	PKMode
 	PKMonstrosity
+	PKNewController
+	PKNoLooking
+	PKNoShuffle
 	PKNotThisAbility
+	PKNumDmg
+	PKObject
 	PKOnlyFirstSpell
 	PKOpponentTurn
 	PKOptional
 	PKOptionalDecider
+	PKOptionalPrompt
 	PKOrigin
 	PKPhase
 	PKPlayerTurn
 	PKPowerUp
+	PKPresentCompare
+	PKPresentDefined
 	PKPresentZone
+	PKPrevent
 	PKProduced
+	PKRandom
 	PKReduceCost
 	PKRelative
 	PKRememberChanged
+	PKRememberLKI
+	PKRememberObjects
+	PKRememberPut
+	PKRememberTargets
 	PKRemoveAllAbilities
 	PKRemoveCardTypes
 	PKRemoveCreatureTypes
 	PKRemoveKeyword
+	PKRemoveType
+	PKRestrictValid
+	PKReveal
 	PKRevolt
+	PKSVarCompare
+	PKSecretly
 	PKSetColor
 	PKSetName
 	PKSetPower
 	PKSetToughness
+	PKShuffle
 	PKSorcerySpeed
 	PKSpellDescription
+	PKStatic
+	PKStaticAbilities
 	PKSubAbility
+	PKTapped
 	PKTargetMax
 	PKTargetMin
 	PKTargetType
 	PKTargetValidTargeting
+	PKTargetingPlayer
 	PKTargetingPlayerControls
 	PKTargetsForEachPlayer
 	PKTargetsWithControllerProperty
@@ -130,24 +190,38 @@ const (
 	PKTargetsWithSameCreatureType
 	PKTargetsWithSharedCardType
 	PKTgtZone
+	PKThisTurn
+	PKTokenScript
 	PKTriggerZones
+	PKTriggers
 	PKType
 	PKUnattach
 	PKUnlessCost
+	PKUnlessSwitched
+	PKUpTo
 	PKValidCard
 	PKValidCards
 	PKValidCause
+	PKValidChoices
 	PKValidLKI
 	PKValidPlayer
+	PKValidSA
 	PKValidSource
 	PKValidSpell
 	PKValidTarget
 	PKValidTgts
+	PKWithCountersAmount
+	PKWithCountersType
+	PKZone
 	paramKeyCount
 )
 
-// A ParamMask holds 128 keys.
-const _ = uint(128 - int(paramKeyCount))
+// paramMaskWords is a ParamMask's width in 64-bit words: 256 keys, the whole
+// ParamKey (uint8) range, so the ordinal itself caps the vocabulary.
+const paramMaskWords = 4
+
+// A ParamMask holds every ParamKey.
+const _ = uint(paramMaskWords*64 - int(paramKeyCount))
 
 // paramKeyNames maps each ParamKey to its Forge key text.
 var paramKeyNames = [paramKeyCount]string{
@@ -160,16 +234,21 @@ var paramKeyNames = [paramKeyCount]string{
 	PKActivationZone:                  "ActivationZone",
 	PKActivator:                       "Activator",
 	PKActiveZones:                     "ActiveZones",
+	PKAddAbilities:                    "AddAbilities",
 	PKAddAbility:                      "AddAbility",
 	PKAddAllCreatureTypes:             "AddAllCreatureTypes",
 	PKAddColor:                        "AddColor",
 	PKAddColors:                       "AddColors",
 	PKAddKeyword:                      "AddKeyword",
+	PKAddKeywords:                     "AddKeywords",
 	PKAddPower:                        "AddPower",
 	PKAddSVar:                         "AddSVar",
+	PKAddSVars:                        "AddSVars",
+	PKAddStaticAbilities:              "AddStaticAbilities",
 	PKAddStaticAbility:                "AddStaticAbility",
 	PKAddToughness:                    "AddToughness",
 	PKAddTrigger:                      "AddTrigger",
+	PKAddTriggers:                     "AddTriggers",
 	PKAddType:                         "AddType",
 	PKAddTypes:                        "AddTypes",
 	PKAdjustLandPlays:                 "AdjustLandPlays",
@@ -177,24 +256,41 @@ var paramKeyNames = [paramKeyCount]string{
 	PKAffectedZone:                    "AffectedZone",
 	PKAmount:                          "Amount",
 	PKAnnounce:                        "Announce",
+	PKAnyNumber:                       "AnyNumber",
+	PKAttachedTo:                      "AttachedTo",
 	PKBoast:                           "Boast",
 	PKCantHaveKeyword:                 "CantHaveKeyword",
 	PKCaster:                          "Caster",
+	PKChangeNum:                       "ChangeNum",
+	PKChangeType:                      "ChangeType",
 	PKCharacteristicDefining:          "CharacteristicDefining",
 	PKCheckSVar:                       "CheckSVar",
 	PKCheckSecondSVar:                 "CheckSecondSVar",
+	PKChoiceOptional:                  "ChoiceOptional",
+	PKChoiceTitle:                     "ChoiceTitle",
+	PKChoiceZone:                      "ChoiceZone",
 	PKChoices:                         "Choices",
+	PKChooseFromDefined:               "ChooseFromDefined",
+	PKChooser:                         "Chooser",
 	PKClassBand:                       "ClassBand",
+	PKClearImprinted:                  "ClearImprinted",
 	PKCondition:                       "Condition",
 	PKConditionActivationLimit:        "ConditionActivationLimit",
 	PKConditionDefined:                "ConditionDefined",
+	PKController:                      "Controller",
 	PKCost:                            "Cost",
+	PKCounterNum:                      "CounterNum",
 	PKCounterType:                     "CounterType",
 	PKDefined:                         "Defined",
+	PKDefinedCards:                    "DefinedCards",
 	PKDefinedPlayer:                   "DefinedPlayer",
+	PKDestAltSVar:                     "DestAltSVar",
 	PKDestination:                     "Destination",
+	PKDestinationAlternative:          "DestinationAlternative",
 	PKDiscard:                         "Discard",
+	PKDividedAsYouChoose:              "DividedAsYouChoose",
 	PKDuration:                        "Duration",
+	PKETB:                             "ETB",
 	PKEffectOnly:                      "EffectOnly",
 	PKEffectZone:                      "EffectZone",
 	PKEvolve:                          "Evolve",
@@ -202,54 +298,92 @@ var paramKeyNames = [paramKeyCount]string{
 	PKExecute:                         "Execute",
 	PKExhaust:                         "Exhaust",
 	PKFirstForetell:                   "FirstForetell",
+	PKForgetOtherRemembered:           "ForgetOtherRemembered",
 	PKFoundSearchingLibrary:           "FoundSearchingLibrary",
 	PKGainControl:                     "GainControl",
+	PKGainsAbilitiesLimitPerTurn:      "GainsAbilitiesLimitPerTurn",
 	PKGainsAbilitiesOf:                "GainsAbilitiesOf",
 	PKGainsAbilitiesOfDefined:         "GainsAbilitiesOfDefined",
+	PKGainsAbilitiesOfZones:           "GainsAbilitiesOfZones",
 	PKGainsTriggerAbsOf:               "GainsTriggerAbsOf",
+	PKGainsValidAbilities:             "GainsValidAbilities",
 	PKGameActivationLimit:             "GameActivationLimit",
 	PKGoad:                            "Goad",
+	PKImprint:                         "Imprint",
 	PKImprintCards:                    "ImprintCards",
+	PKImprintLast:                     "ImprintLast",
+	PKIntoPlayTapped:                  "IntoPlayTapped",
 	PKIsPresent:                       "IsPresent",
 	PKIsPresent2:                      "IsPresent2",
+	PKKW:                              "KW",
 	PKKeyword:                         "Keyword",
+	PKLeaveBattlefield:                "LeaveBattlefield",
+	PKLibraryPosition:                 "LibraryPosition",
+	PKMandatory:                       "Mandatory",
+	PKMax:                             "Max",
 	PKMaxTotalTargetCMC:               "MaxTotalTargetCMC",
 	PKMayLookAt:                       "MayLookAt",
 	PKMayPlay:                         "MayPlay",
 	PKMayPlayAltManaCost:              "MayPlayAltManaCost",
 	PKMayPlayWithoutManaCost:          "MayPlayWithoutManaCost",
 	PKMentor:                          "Mentor",
+	PKMin:                             "Min",
+	PKMode:                            "Mode",
 	PKMonstrosity:                     "Monstrosity",
+	PKNewController:                   "NewController",
+	PKNoLooking:                       "NoLooking",
+	PKNoShuffle:                       "NoShuffle",
 	PKNotThisAbility:                  "NotThisAbility",
+	PKNumDmg:                          "NumDmg",
+	PKObject:                          "Object",
 	PKOnlyFirstSpell:                  "OnlyFirstSpell",
 	PKOpponentTurn:                    "OpponentTurn",
 	PKOptional:                        "Optional",
 	PKOptionalDecider:                 "OptionalDecider",
+	PKOptionalPrompt:                  "OptionalPrompt",
 	PKOrigin:                          "Origin",
 	PKPhase:                           "Phase",
 	PKPlayerTurn:                      "PlayerTurn",
 	PKPowerUp:                         "PowerUp",
+	PKPresentCompare:                  "PresentCompare",
+	PKPresentDefined:                  "PresentDefined",
 	PKPresentZone:                     "PresentZone",
+	PKPrevent:                         "Prevent",
 	PKProduced:                        "Produced",
+	PKRandom:                          "Random",
 	PKReduceCost:                      "ReduceCost",
 	PKRelative:                        "Relative",
 	PKRememberChanged:                 "RememberChanged",
+	PKRememberLKI:                     "RememberLKI",
+	PKRememberObjects:                 "RememberObjects",
+	PKRememberPut:                     "RememberPut",
+	PKRememberTargets:                 "RememberTargets",
 	PKRemoveAllAbilities:              "RemoveAllAbilities",
 	PKRemoveCardTypes:                 "RemoveCardTypes",
 	PKRemoveCreatureTypes:             "RemoveCreatureTypes",
 	PKRemoveKeyword:                   "RemoveKeyword",
+	PKRemoveType:                      "RemoveType",
+	PKRestrictValid:                   "RestrictValid",
+	PKReveal:                          "Reveal",
 	PKRevolt:                          "Revolt",
+	PKSVarCompare:                     "SVarCompare",
+	PKSecretly:                        "Secretly",
 	PKSetColor:                        "SetColor",
 	PKSetName:                         "SetName",
 	PKSetPower:                        "SetPower",
 	PKSetToughness:                    "SetToughness",
+	PKShuffle:                         "Shuffle",
 	PKSorcerySpeed:                    "SorcerySpeed",
 	PKSpellDescription:                "SpellDescription",
+	PKStatic:                          "Static",
+	PKStaticAbilities:                 "StaticAbilities",
 	PKSubAbility:                      "SubAbility",
+	PKTapped:                          "Tapped",
 	PKTargetMax:                       "TargetMax",
 	PKTargetMin:                       "TargetMin",
 	PKTargetType:                      "TargetType",
 	PKTargetValidTargeting:            "TargetValidTargeting",
+	PKTargetingPlayer:                 "TargetingPlayer",
 	PKTargetingPlayerControls:         "TargetingPlayerControls",
 	PKTargetsForEachPlayer:            "TargetsForEachPlayer",
 	PKTargetsWithControllerProperty:   "TargetsWithControllerProperty",
@@ -262,19 +396,29 @@ var paramKeyNames = [paramKeyCount]string{
 	PKTargetsWithSameCreatureType:     "TargetsWithSameCreatureType",
 	PKTargetsWithSharedCardType:       "TargetsWithSharedCardType",
 	PKTgtZone:                         "TgtZone",
+	PKThisTurn:                        "ThisTurn",
+	PKTokenScript:                     "TokenScript",
 	PKTriggerZones:                    "TriggerZones",
+	PKTriggers:                        "Triggers",
 	PKType:                            "Type",
 	PKUnattach:                        "Unattach",
 	PKUnlessCost:                      "UnlessCost",
+	PKUnlessSwitched:                  "UnlessSwitched",
+	PKUpTo:                            "UpTo",
 	PKValidCard:                       "ValidCard",
 	PKValidCards:                      "ValidCards",
 	PKValidCause:                      "ValidCause",
+	PKValidChoices:                    "ValidChoices",
 	PKValidLKI:                        "ValidLKI",
 	PKValidPlayer:                     "ValidPlayer",
+	PKValidSA:                         "ValidSA",
 	PKValidSource:                     "ValidSource",
 	PKValidSpell:                      "ValidSpell",
 	PKValidTarget:                     "ValidTarget",
 	PKValidTgts:                       "ValidTgts",
+	PKWithCountersAmount:              "WithCountersAmount",
+	PKWithCountersType:                "WithCountersType",
+	PKZone:                            "Zone",
 }
 
 // String is the key's Forge text.
@@ -291,7 +435,7 @@ var paramKeyByName = func() map[string]ParamKey {
 }()
 
 // ParamMask is a set of ParamKeys.
-type ParamMask [2]uint64
+type ParamMask [paramMaskWords]uint64
 
 // ParamMaskOf builds a mask of keys (package-init constant tables).
 func ParamMaskOf(keys ...ParamKey) ParamMask {
@@ -307,6 +451,11 @@ func ParamMaskOf(keys ...ParamKey) ParamMask {
 // order. It is immutable once built and answers only for the exact map it
 // was built from (src, n): a node copy whose Params was replaced or resized
 // falls back to the map read.
+//
+// A read is a mask test and a rank: rank[w] is the number of keys present in
+// the words below w (a per-word popcount prefix computed once at build), so
+// a key's value index is rank[w] plus the popcount of its own word below its
+// bit, whichever word it lives in. No loop, no map, one branch.
 type ParamSet struct {
 	// src is the map the set was built from. Held as the map itself (not
 	// its address) so two identically parsed nodes stay reflect.DeepEqual;
@@ -314,6 +463,7 @@ type ParamSet struct {
 	src  map[string]string
 	n    int
 	has  ParamMask
+	rank [paramMaskWords]uint8
 	vals []string
 }
 
@@ -331,9 +481,15 @@ func newParamSet(m map[string]string) *ParamSet {
 			ps.has[k>>6] |= 1 << (k & 63)
 		}
 	}
-	ps.vals = make([]string, 0, bits.OnesCount64(ps.has[0])+bits.OnesCount64(ps.has[1]))
-	for k := ParamKey(1); k < paramKeyCount; k++ {
-		if ps.has[k>>6]&(1<<(k&63)) != 0 {
+	n := 0
+	for w, h := range ps.has {
+		ps.rank[w] = uint8(n)
+		n += bits.OnesCount64(h)
+	}
+	ps.vals = make([]string, 0, n)
+	for w, h := range ps.has {
+		for ; h != 0; h &= h - 1 {
+			k := ParamKey(w<<6 | bits.TrailingZeros64(h))
 			ps.vals = append(ps.vals, m[paramKeyNames[k]])
 		}
 	}
@@ -345,15 +501,12 @@ func (ps *ParamSet) bound(m map[string]string) bool {
 }
 
 func (ps *ParamSet) get(k ParamKey) (string, bool) {
-	w, b := k>>6, uint64(1)<<(k&63)
-	if ps.has[w]&b == 0 {
+	w := k >> 6
+	h, b := ps.has[w], uint64(1)<<(k&63)
+	if h&b == 0 {
 		return "", false
 	}
-	r := bits.OnesCount64(ps.has[w] & (b - 1))
-	if w == 1 {
-		r += bits.OnesCount64(ps.has[0])
-	}
-	return ps.vals[r], true
+	return ps.vals[int(ps.rank[w])+bits.OnesCount64(h&(b-1))], true
 }
 
 func paramGet(ps *ParamSet, m map[string]string, k ParamKey) (string, bool) {
@@ -368,7 +521,11 @@ func paramGet(ps *ParamSet, m map[string]string, k ParamKey) (string, bool) {
 // is bound to m, else conservatively true.
 func paramMayHaveAny(ps *ParamSet, m map[string]string, mask ParamMask) bool {
 	if ps.bound(m) {
-		return ps.has[0]&mask[0] != 0 || ps.has[1]&mask[1] != 0
+		var x uint64
+		for w := range mask {
+			x |= ps.has[w] & mask[w]
+		}
+		return x != 0
 	}
 	return true
 }

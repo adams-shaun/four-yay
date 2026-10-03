@@ -6,6 +6,9 @@
 //	oraclediff show [-cards .cards] -scenarios scenarios.jsonl -card NAME
 //	oraclediff triage [-cards .cards] [-apply]
 //	oraclediff refreeze [-cards .cards] [-apply]
+//	oraclediff impact [-cards .cards] [-top N] [-json]
+//	oraclediff status [-cards .cards] -set S | -all [-out status.md] [-write-ratchet] [-json]
+//	oraclediff tickets [-cards .cards] [-out DIR] [-min-cards 10] [-any-in FORMAT] [-json]
 //
 // gen writes one level-A scenario per manifest card gorge fully supports
 // (skips go to <out>.skips.jsonl). plan splits them into the stale ones
@@ -22,6 +25,14 @@
 //
 // A passing row freezes only the fields its scenario changed (Frozen), not
 // a hash of the whole snapshot; refreeze converts legacy canon_sha rows.
+//
+// impact is the primitive impact table (compliance/adopt): every
+// unsupported primitive, the tournament cards it blocks in each target
+// format of compliance/formats.json and the sets it would unlock. tickets
+// turns the findings into one would-be agentctl ticket per class -- a
+// primitive (with the primitives only its cards carry), a gorge_wrong
+// ruling or shape, an untriaged shape cluster -- each with its cards, sets
+// and a class-census ratchet skeleton; it writes them, it never files them.
 package main
 
 import (
@@ -35,6 +46,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance"
+	"github.com/adams-shaun/gorge/compliance/adopt"
 	"github.com/adams-shaun/gorge/compliance/gate"
 	"github.com/adams-shaun/gorge/compliance/oraclediff"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
@@ -94,7 +106,23 @@ func main() {
 		dir := fs.String("cards", ".cards", "corpus dir")
 		set := fs.String("set", "", "set code")
 		level := fs.String("level", "A", "level")
+		all := fs.Bool("all", false, "every committed set: format roll-ups and reason buckets")
+		out := fs.String("out", "", "with -all: write the generated dashboard here (never committed)")
+		ratchet := fs.Bool("write-ratchet", false, "with -all: record "+adopt.RatchetFile+" as the sets stand")
+		asJSON := fs.Bool("json", false, "with -all: one JSON line per set")
+		sets := fs.String("sets", "", "with -all: only these comma-separated set codes")
+		memprof := fs.String("memprofile", "", "with -all: write a heap profile here")
+		procs := fs.Int("procs", 2, "with -all: gate child processes at a time (at most 4)")
+		child := fs.Bool("child", false, "with -all -sets: run the gate in this process (a status child)")
 		fs.Parse(os.Args[2:])
+		if *all {
+			var only []string
+			if *sets != "" {
+				only = strings.Split(*sets, ",")
+			}
+			err = runStatusAll(*dir, *level, *out, *ratchet, *asJSON, only, *memprof, *procs, *child)
+			break
+		}
 		err = runStatus(*dir, *set, *level)
 	case "rule":
 		fs := flag.NewFlagSet("rule", flag.ExitOnError)
@@ -112,6 +140,22 @@ func main() {
 		apply := fs.Bool("apply", false, "write the converted rows")
 		fs.Parse(os.Args[2:])
 		err = runRefreeze(*dir, *apply)
+	case "impact":
+		fs := flag.NewFlagSet("impact", flag.ExitOnError)
+		dir := fs.String("cards", ".cards", "corpus dir")
+		top := fs.Int("top", 0, "tournament rows to print (0 = all)")
+		asJSON := fs.Bool("json", false, "one JSON row per primitive")
+		fs.Parse(os.Args[2:])
+		err = runImpact(*dir, *top, *asJSON)
+	case "tickets":
+		fs := flag.NewFlagSet("tickets", flag.ExitOnError)
+		dir := fs.String("cards", ".cards", "corpus dir")
+		out := fs.String("out", "", "write <id>.md briefs, index.jsonl and file.sh here (nothing is filed)")
+		minCards := fs.Int("min-cards", 10, "a primitive needs this many blocked tournament cards for a ticket...")
+		anyIn := fs.String("any-in", "", "...or any blocked card in this format (default: the first target in compliance/formats.json)")
+		asJSON := fs.Bool("json", false, "one JSON row per ticket")
+		fs.Parse(os.Args[2:])
+		err = runTickets(*dir, *out, *minCards, *anyIn, *asJSON)
 	case "show":
 		fs := flag.NewFlagSet("show", flag.ExitOnError)
 		dir := fs.String("cards", ".cards", "corpus dir")
@@ -129,7 +173,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: oraclediff gen|plan|diff|status|rule|triage|refreeze|show ...")
+	fmt.Fprintln(os.Stderr, "usage: oraclediff gen|plan|diff|status|rule|triage|refreeze|impact|tickets|show ...")
 	os.Exit(2)
 }
 

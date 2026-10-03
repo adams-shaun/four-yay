@@ -50,7 +50,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 	// named (Kor Skyfisher's ChangeType$ filter does the scoping).
 	gameWide := !zoneIn(originZones, state.ZHand) && !zoneIn(originZones, state.ZLibrary) &&
 		strings.TrimSpace(sa.ParamStr(cards.PKDefinedPlayer)) == ""
-	spec := sa.Params["ChangeType"]
+	spec := sa.ParamStr(cards.PKChangeType)
 	if spec == "" {
 		spec = "Card"
 	}
@@ -67,12 +67,12 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 	if max < 0 {
 		max = 0
 	}
-	mandatory := strings.EqualFold(strings.TrimSpace(sa.Params["Mandatory"]), "True")
+	mandatory := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKMandatory)), "True")
 	// ChoiceOptional$ True explicitly names the Min-0 may-pick default here;
 	// it does not override Mandatory$ True. False/unset leave the default unchanged.
-	mayPick := strings.EqualFold(strings.TrimSpace(sa.Params["ChoiceOptional"]), "True")
-	noLooking := strings.EqualFold(strings.TrimSpace(sa.Params["NoLooking"]), "True")
-	withKind := sa.Params["WithCountersType"]
+	mayPick := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKChoiceOptional)), "True")
+	noLooking := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKNoLooking)), "True")
+	withKind := sa.ParamStr(cards.PKWithCountersType)
 	var withAmt int32
 	if withKind != "" && counterDestination(to) {
 		withAmt = withCounterAmount(h, c, sa)
@@ -111,7 +111,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 	chooseFromDefined := make(map[state.ObjID]bool)
 	hasChooseFromDefined := false
 	chooseFromDefinedResolved := false
-	if raw := strings.TrimSpace(sa.Params["ChooseFromDefined"]); raw != "" {
+	if raw := strings.TrimSpace(sa.ParamStr(cards.PKChooseFromDefined)); raw != "" {
 		hasChooseFromDefined = true
 		if pool, ok := chooseFromDefinedPool(h, c, raw); ok {
 			chooseFromDefinedResolved = true
@@ -120,7 +120,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 	}
 	if hasChooseFromDefined && !chooseFromDefinedResolved {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "ChangeZone ChooseFromDefined$ " + strings.TrimSpace(sa.Params["ChooseFromDefined"]) + " is not resolvable; nothing is offered"})
+			Text: "ChangeZone ChooseFromDefined$ " + strings.TrimSpace(sa.ParamStr(cards.PKChooseFromDefined)) + " is not resolvable; nothing is offered"})
 	}
 	apply := func(owner state.PlayerID, ids []state.ObjID) []state.ObjID {
 		g := h.Game()
@@ -169,7 +169,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 				eventRemember(h, c, id)
 			}
 			eventForgetChanged(h, c, sa, id)
-			if to == state.ZBattlefield && strings.EqualFold(sa.Params["Tapped"], "True") {
+			if to == state.ZBattlefield && strings.EqualFold(sa.ParamStr(cards.PKTapped), "True") {
 				h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: o.Owner, Text: "entered tapped"})
 			}
 		}
@@ -177,7 +177,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 		// same public Note payload the library search's reveal emits. No
 		// default auto-reveal here: the pick's origin zones are public, so
 		// every offered name was already known.
-		if strings.EqualFold(strings.TrimSpace(sa.Params["Reveal"]), "True") && len(moved) > 0 {
+		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKReveal)), "True") && len(moved) > 0 {
 			h.Emit(events.Event{Kind: events.Note, Player: owner, IDs: moved})
 		}
 		// AtEOT$ rides the pick's moved set as well (latent: no corpus carrier
@@ -189,7 +189,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 	// "Any number" (Cass's OptionalPrompt$ text) is the absent-ChangeNum$
 	// reading when ChooseFromDefined$ is present: the pool itself bounds the
 	// pick. A caller that names ChangeNum$ keeps it.
-	chooseFromAll := hasChooseFromDefined && strings.TrimSpace(sa.Params["ChangeNum"]) == ""
+	chooseFromAll := hasChooseFromDefined && strings.TrimSpace(sa.ParamStr(cards.PKChangeNum)) == ""
 	for i, owner := range players {
 		var eligible []state.ObjID
 		addPool := func(ids []state.ObjID) {
@@ -294,7 +294,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 				continue
 			}
 			if !confirmDone {
-				prompt := strings.TrimSpace(sa.Params["OptionalPrompt"])
+				prompt := strings.TrimSpace(sa.ParamStr(cards.PKOptionalPrompt))
 				if prompt == "" {
 					prompt = "Proceed with moving a card?"
 				}
@@ -343,7 +343,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 		// (Cass's "Select any number of Aura cards that were attached to
 		// it"); it wins the default text, the same precedence the
 		// library-search path gives it.
-		if op := strings.TrimSpace(sa.Params["OptionalPrompt"]); op != "" {
+		if op := strings.TrimSpace(sa.ParamStr(cards.PKOptionalPrompt)); op != "" {
 			prompt = op
 		}
 		if prompt == "" {

@@ -94,7 +94,7 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	to := ParseZone(sa.ParamStr(cards.PKDestination))
-	spec := sa.Params["ChangeType"]
+	spec := sa.ParamStr(cards.PKChangeType)
 	if spec == "" {
 		spec = "Card"
 	}
@@ -108,7 +108,7 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 	// resolve degrades to 0 by Num's own documented convention -- "the card
 	// did nothing", the fail-closed direction.
 	changeCap := int32(-1) // -1: uncapped
-	if raw := strings.TrimSpace(sa.Params["ChangeNum"]); raw != "" && !strings.EqualFold(raw, "All") {
+	if raw := strings.TrimSpace(sa.ParamStr(cards.PKChangeNum)); raw != "" && !strings.EqualFold(raw, "All") {
 		changeCap = Num(h, c, sa, "ChangeNum", 0)
 		if changeCap < 0 {
 			changeCap = 0
@@ -125,8 +125,8 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 	// The move loop therefore records every destination-library OWNER that had
 	// a card moved (read off the object, not the source-zone player), in the
 	// loop's own deterministic (zone-major, AliveFrom(0)-minor) order.
-	position := strings.TrimSpace(sa.Params["LibraryPosition"])
-	shuffle := strings.EqualFold(sa.Params["Shuffle"], "True")
+	position := strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition))
+	shuffle := strings.EqualFold(sa.ParamStr(cards.PKShuffle), "True")
 	type ownerMoved struct {
 		owner state.PlayerID
 		ids   []state.ObjID
@@ -155,7 +155,7 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 	// the clear and the sweep below matches against the snapshot -- matching
 	// after the clear would sweep nothing.
 	var preMatched map[state.ObjID]bool
-	if strings.EqualFold(strings.TrimSpace(sa.Params["ForgetOtherRemembered"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKForgetOtherRemembered)), "True") {
 		preMatched = make(map[state.ObjID]bool)
 		for _, z := range from {
 			for _, p := range players {
@@ -204,7 +204,7 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 		}
 		// Capture before MoveZone folds: battlefield departure resets control,
 		// clears counters and removes battlefield-derived characteristics.
-		if strings.EqualFold(sa.Params["RememberLKI"], "True") {
+		if strings.EqualFold(sa.ParamStr(cards.PKRememberLKI), "True") {
 			if o := g.Obj(id); o != nil {
 				snapshot := o.CloneDeep()
 				c.ChangeZoneLKI = append(c.ChangeZoneLKI, state.LKIObject{
@@ -222,7 +222,7 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 		// "entered tapped" Tap event every other Tapped$ zone-change
 		// path emits -- an entry state, not the CR 701.21a event of
 		// becoming tapped.
-		if to == state.ZBattlefield && strings.EqualFold(strings.TrimSpace(sa.Params["Tapped"]), "True") {
+		if to == state.ZBattlefield && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTapped)), "True") {
 			h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: p, Text: "entered tapped"})
 		}
 		rider.apply(h, c, id, p, to)
@@ -257,7 +257,7 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 		// entries alone and only for the ExiledWithSource provenance shape
 		// (Valakut Exploration); the persistent half is what the Mimeoplasm
 		// chain's IsRemembered/Remembered$CardPower reads need.
-		if strings.EqualFold(sa.Params["RememberLKI"], "True") &&
+		if strings.EqualFold(sa.ParamStr(cards.PKRememberLKI), "True") &&
 			!strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
 			c.Remembered = append(c.Remembered, state.Target{Obj: id})
 		}
@@ -412,9 +412,9 @@ func effDestroy(h Host, c *Ctx, sa *cards.SA) {
 	// and evalRefProperty reads for a zone-change trigger; evalRefProperty
 	// applies it only when the snapshot names the referenced object, so no
 	// other remembered read is affected.
-	rememberTargets := strings.EqualFold(strings.TrimSpace(sa.Params["RememberTargets"]), "True")
+	rememberTargets := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True")
 	rememberDestroyed := strings.EqualFold(strings.TrimSpace(sa.Params["RememberDestroyed"]), "True")
-	rememberLKI := strings.EqualFold(strings.TrimSpace(sa.Params["RememberLKI"]), "True")
+	rememberLKI := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberLKI)), "True")
 	// Same pre-batch discipline as effDestroyAll: the targets Defined
 	// resolves are destroyed as one simultaneous batch (a multi-target
 	// Destroy over a lifelink Equipment and its bearer must not make the
@@ -494,7 +494,7 @@ func effDestroyAll(h Host, c *Ctx, sa *cards.SA) {
 		spec = "Permanent"
 	}
 	zone := state.ZBattlefield
-	if raw := strings.TrimSpace(sa.Params["Zone"]); raw != "" {
+	if raw := strings.TrimSpace(sa.ParamStr(cards.PKZone)); raw != "" {
 		var ok bool
 		zone, ok = ParseZoneWord(raw)
 		if !ok {

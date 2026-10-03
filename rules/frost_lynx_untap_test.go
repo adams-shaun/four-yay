@@ -89,7 +89,7 @@ func TestFrostLynxHiddenUntapKeywordIsRead(t *testing.T) {
 	}
 	// The rules reader delegates to that shared reader, so a future equivalent
 	// spelling is one arm (the must-be-blocked control shape).
-	if !parseHiddenKeyword("HIDDEN This card doesn't untap during your next untap step.").untapNextStep {
+	if !parseHiddenKeyword("HIDDEN This card doesn't untap during your next untap step.").UntapNextStep {
 		t.Fatal("rules' parseHiddenKeyword no longer recognises the runtime untap sentence")
 	}
 	addMana(t, e, 0, "CCU")

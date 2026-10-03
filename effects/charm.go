@@ -927,7 +927,7 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 // the rng draw stays in the replay-exact resolution path instead of
 // split-braining a placement-time pick with a resolution-time run.
 func CharmRandomChosen(h Host, c *Ctx, sa *cards.SA) bool {
-	switch strings.TrimSpace(sa.Params["Random"]) {
+	switch strings.TrimSpace(sa.ParamStr(cards.PKRandom)) {
 	case "True":
 		return true
 	case "Compare":
@@ -1047,7 +1047,7 @@ func effVote(h Host, c *Ctx, sa *cards.SA) {
 		for i, t := range voters {
 			ballots[i] = VoteBallot{Player: t, Pick: int(picks[i].Obj) - 1}
 		}
-		emitVoteFinished(h, c, ballots, len(choices) > 0, strings.EqualFold(strings.TrimSpace(sa.Params["Secretly"]), "True"))
+		emitVoteFinished(h, c, ballots, len(choices) > 0, strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKSecretly)), "True"))
 		return
 	}
 	// Ctx.Votes is the answered per-voter choice list (a real per-player
@@ -1100,7 +1100,7 @@ func effVote(h Host, c *Ctx, sa *cards.SA) {
 	for i, t := range voters {
 		ballots[i] = VoteBallot{Player: t, Pick: picks[i]}
 	}
-	emitVoteFinished(h, c, ballots, len(choices) > 0, strings.EqualFold(strings.TrimSpace(sa.Params["Secretly"]), "True"))
+	emitVoteFinished(h, c, ballots, len(choices) > 0, strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKSecretly)), "True"))
 }
 
 // resolveVoteOutcomes executes the winning option normally. StoreVoteNum$ is
@@ -1159,7 +1159,7 @@ func askFixedVote(h Host, c *Ctx, sa *cards.SA, choices []string, voters []state
 	for ; i < len(voters); i++ {
 		voter := voters[i]
 		min := 1
-		if strings.EqualFold(strings.TrimSpace(sa.Params["UpTo"]), "True") {
+		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKUpTo)), "True") {
 			min = 0
 		}
 		prompt := strings.TrimSpace(sa.Params["VoteMessage"])
@@ -1251,7 +1251,7 @@ func askCardVote(h Host, c *Ctx, sa *cards.SA, options []state.ObjID, voters []s
 	for ; i < len(voters); i++ {
 		voter := voters[i]
 		min := 1
-		if strings.EqualFold(strings.TrimSpace(sa.Params["UpTo"]), "True") {
+		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKUpTo)), "True") {
 			min = 0
 		}
 		prompt := strings.TrimSpace(sa.Params["VoteMessage"])
@@ -1412,7 +1412,7 @@ func effCardVote(h Host, c *Ctx, sa *cards.SA, ballot string) {
 	for i, t := range voters {
 		ballots[i] = VoteBallot{Player: t, Pick: picks[i]}
 	}
-	emitVoteFinished(h, c, ballots, len(options) > 0, strings.EqualFold(strings.TrimSpace(sa.Params["Secretly"]), "True"))
+	emitVoteFinished(h, c, ballots, len(options) > 0, strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKSecretly)), "True"))
 }
 
 // effBecomeMonarch records the game-level designation as an event so a

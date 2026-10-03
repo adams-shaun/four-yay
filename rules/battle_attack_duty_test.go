@@ -41,7 +41,7 @@ func TestBattleDoesNotSatisfyNamedPlayerAttackDuty(t *testing.T) {
 		RememberedPlayers: []state.PlayerID{protector},
 	})
 	reqs := e.attackRequirements(attacker)
-	if reqs.satisfiedBy(protector) != 1 || reqs.broad || reqs.goad {
+	if reqs.SatisfiedBy(protector) != 1 || reqs.Broad || reqs.Goad {
 		t.Fatalf("precondition: expected exactly one named-player duty to protector %d, got %+v", protector, reqs)
 	}
 	if !e.mustAttackRequired(attacker) {

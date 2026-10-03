@@ -54,7 +54,7 @@ func TestChemistersTrickRememberPumpedFeedsMustAttack(t *testing.T) {
 	if pumped == other || e.G.Obj(pumped).Zone != state.ZBattlefield || e.G.Obj(other).Zone != state.ZBattlefield {
 		t.Fatal("precondition: two distinct battlefield creatures are required")
 	}
-	if e.attackRequirements(pumped).any() || e.attackRequirements(other).any() {
+	if e.attackRequirements(pumped).Any() || e.attackRequirements(other).Any() {
 		t.Fatal("precondition: neither creature may start under an attack requirement")
 	}
 
@@ -110,10 +110,10 @@ func TestChemistersTrickRememberPumpedFeedsMustAttack(t *testing.T) {
 		Targets: []state.Target{{Obj: pumped}}, SVars: trick.Faces[0].SVars}
 	effects.Resolve(e, ctx, top)
 
-	if !e.attackRequirements(pumped).any() {
+	if !e.attackRequirements(pumped).Any() {
 		t.Fatal("pumped creature has no attack requirement: the downstream Card.IsRemembered filter saw an empty remembered set")
 	}
-	if e.attackRequirements(other).any() {
+	if e.attackRequirements(other).Any() {
 		t.Fatal("unpumped creature gained an attack requirement")
 	}
 

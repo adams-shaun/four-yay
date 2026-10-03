@@ -19,7 +19,7 @@ const (
 	// effects/ spanning more than 300 lines.
 	maxFuncLinesOver300 = 54
 	// engineMethodCount is the number of non-test methods on rules.Engine.
-	engineMethodCount = 2159
+	engineMethodCount = 2126
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
 	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94.
@@ -45,8 +45,10 @@ const (
 	// resumePointFieldCount is the number of fields in rules' resumePoint.
 	resumePointFieldCount = 90
 	// stringParamReads is the number of <x>Params["literal"] index
-	// expressions in rules/ and effects/ non-test files.
-	stringParamReads = 1302
+	// expressions in rules/ and effects/ non-test files. W4 slice 3 (194
+	// ParamKeys, the 256-key mask) moved 488 reads onto the typed accessors:
+	// 1302 -> 814.
+	stringParamReads = 805
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	stringCaseLiterals = 2886

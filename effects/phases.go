@@ -104,7 +104,7 @@ func effPhases(h Host, c *Ctx, sa *cards.SA) {
 			text = "wont-phase-in-normal"
 		}
 		h.Emit(events.Event{Kind: events.PhaseOut, Obj: id, Amount: amount, Text: text})
-		if amount < 0 && strings.EqualFold(strings.TrimSpace(sa.Params["Tapped"]), "True") {
+		if amount < 0 && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTapped)), "True") {
 			h.Emit(events.Event{Kind: events.Tap, Obj: id})
 		}
 	}

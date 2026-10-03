@@ -69,7 +69,7 @@ const shieldBody = "DB$ ReplaceDamage | Amount$ Count$ChosenNumber"
 // that prevents nothing is no decision); an amount the numeric grammar
 // cannot resolve is loud rather than silent.
 func effPreventDamage(h Host, c *Ctx, sa *cards.SA) {
-	if strings.EqualFold(strings.TrimSpace(sa.Params["Random"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRandom)), "True") {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "unimplemented PreventDamage random-recipient shape"})
 		return
@@ -146,7 +146,7 @@ func effPreventDamage(h Host, c *Ctx, sa *cards.SA) {
 	// DividedAsYouChoose$ N: the total is divided round-robin over the
 	// recipients in answer order (the DealDamage/PutCounter stand-in). The
 	// undivided shape gives every recipient the full Amount$.
-	if raw, ok := sa.Params["DividedAsYouChoose"]; ok && strings.TrimSpace(raw) != "" {
+	if raw, ok := sa.Param(cards.PKDividedAsYouChoose); ok && strings.TrimSpace(raw) != "" {
 		divTotal := Num(h, c, sa, "DividedAsYouChoose", 0)
 		if divTotal < 0 {
 			divTotal = 0

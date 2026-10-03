@@ -154,8 +154,8 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 		// over a plain card object) FAILS CLOSED: one loud Note and no copy,
 		// never a silent fall-through to a battlefield object (the CloneZone$
 		// convention -- a wrong copy is worse than none).
-		zone, zoneOK := cloneChoiceZone(strings.TrimSpace(sa.Params["ChoiceZone"]))
-		optional := strings.EqualFold(strings.TrimSpace(sa.Params["ChoiceOptional"]), "True")
+		zone, zoneOK := cloneChoiceZone(strings.TrimSpace(sa.ParamStr(cards.PKChoiceZone)))
+		optional := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKChoiceOptional)), "True")
 		if clonePickDone {
 			// The answered re-entry: the selected object travels through
 			// Ctx.ClonePick, which rules' resumeResolution filled. A zero id is
@@ -175,7 +175,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 			chosenPick = clonePick
 		} else if !zoneOK {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-				Text: "Clone ChoiceZone$ " + strings.TrimSpace(sa.Params["ChoiceZone"]) +
+				Text: "Clone ChoiceZone$ " + strings.TrimSpace(sa.ParamStr(cards.PKChoiceZone)) +
 					" is not a zone this build can choose from; no copy"})
 			return
 		} else {
@@ -190,7 +190,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 				optionKind = "card"
 			}
 			prompt := "Choose an object to copy"
-			if title := strings.TrimSpace(sa.Params["ChoiceTitle"]); title != "" {
+			if title := strings.TrimSpace(sa.ParamStr(cards.PKChoiceTitle)); title != "" {
 				prompt = title
 			}
 			min := 1
@@ -352,7 +352,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	}
 	nonLegendary := strings.EqualFold(strings.TrimSpace(sa.Params["NonLegendary"]), "True")
 	removeSubTypes := strings.EqualFold(strings.TrimSpace(sa.Params["RemoveSubTypes"]), "True")
-	addAbilities := cloneNames(sa.Params["AddAbilities"])
+	addAbilities := cloneNames(sa.ParamStr(cards.PKAddAbilities))
 	// Resolve the named grants against the resolving face before replacing its
 	// copy basis. A copied object's SVar table is not the grantor's table.
 	grantTable := c.SVars
@@ -362,13 +362,13 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	grantSVars := make(map[string]string)
-	for _, name := range cloneNames(sa.Params["AddSVars"]) {
+	for _, name := range cloneNames(sa.ParamStr(cards.PKAddSVars)) {
 		if raw, ok := grantTable[name]; ok {
 			grantSVars[name] = raw
 		}
 	}
 	var grantTriggers []*cards.Trigger
-	for _, name := range cloneNames(sa.Params["AddTriggers"]) {
+	for _, name := range cloneNames(sa.ParamStr(cards.PKAddTriggers)) {
 		if raw, ok := grantTable[name]; ok {
 			if tr, ok := cards.ParseTriggerLine(raw); ok {
 				if execute := strings.TrimSpace(tr.ParamStr(cards.PKExecute)); execute != "" {
@@ -378,7 +378,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	}
-	addKeywords := cards.SplitKeywordList(sa.Params["AddKeywords"])
+	addKeywords := cards.SplitKeywordList(sa.ParamStr(cards.PKAddKeywords))
 	// PumpKeywords$ is the Clone sibling of CopyPermanent's temporary-keyword
 	// rider: the copy gains the named keywords for the PumpDuration$ window,
 	// independent of Clone's own Duration$ (the copy's lifetime). Absent
@@ -421,12 +421,12 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	var lostSVars, lostTriggers []string
-	for _, name := range cloneNames(sa.Params["AddSVars"]) {
+	for _, name := range cloneNames(sa.ParamStr(cards.PKAddSVars)) {
 		if _, ok := grantSVars[name]; !ok {
 			lostSVars = append(lostSVars, name)
 		}
 	}
-	for _, name := range cloneNames(sa.Params["AddTriggers"]) {
+	for _, name := range cloneNames(sa.ParamStr(cards.PKAddTriggers)) {
 		raw, ok := grantTable[name]
 		if !ok {
 			lostTriggers = append(lostTriggers, name)
@@ -440,13 +440,13 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	if len(lostTriggers) > 0 {
 		unread = append(unread, "AddTriggers$ "+strings.Join(lostTriggers, ","))
 	}
-	if strings.TrimSpace(sa.Params["IntoPlayTapped"]) != "" && !c.CloneETB {
-		unread = append(unread, "IntoPlayTapped$ "+sa.Params["IntoPlayTapped"]+" (no entry)")
+	if strings.TrimSpace(sa.ParamStr(cards.PKIntoPlayTapped)) != "" && !c.CloneETB {
+		unread = append(unread, "IntoPlayTapped$ "+sa.ParamStr(cards.PKIntoPlayTapped)+" (no entry)")
 	}
 	// Preserve every named static's original body: the event fold installs
 	// it on the copy face, where ALL static readers use the printed S: path.
 	var staticBodies []string
-	for _, name := range strings.FieldsFunc(sa.Params["AddStaticAbilities"], func(r rune) bool {
+	for _, name := range strings.FieldsFunc(sa.ParamStr(cards.PKAddStaticAbilities), func(r rune) bool {
 		return r == ',' || r == ' ' || r == '\t' || r == '\n'
 	}) {
 		raw := grantTable[name]
@@ -635,7 +635,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 				SetPowerPresent: setPowerPresent, SetToughnessPresent: setToughPresent,
 				StaticSet: true})
 		}
-		if raw := strings.TrimSpace(sa.Params["AttachedTo"]); raw != "" {
+		if raw := strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo)); raw != "" {
 			attach := &cards.SA{Params: map[string]string{"Defined": raw}}
 			attached := false
 			for _, target := range Defined(h, c, attach) {
@@ -660,7 +660,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 		}
 		// A standalone copy did not enter. Entry tapping is applied by the
 		// replacement body only; ordinary Clone never changes tap status.
-		if c.CloneETB && strings.EqualFold(sa.Params["IntoPlayTapped"], "True") {
+		if c.CloneETB && strings.EqualFold(sa.ParamStr(cards.PKIntoPlayTapped), "True") {
 			h.Emit(events.Event{Kind: events.Tap, Obj: b.Obj})
 		}
 		// The layer-1 LCopy MARKER owns the copy's lifetime. It is always

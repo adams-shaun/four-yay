@@ -57,6 +57,7 @@ help:
 	@echo "  make compliance-manifests — regenerate compliance/manifests from XMage set classes at XMAGE_REF"
 	@echo "  make xmage-oracle-setup — build XMage at XMAGE_REF out of tree (heavy; run alone)"
 	@echo "  make compliance-pass SETS='FRA BLB' — XMage compliance pass over the sets (default: every printed list); reruns only stale verdicts, under the heavy-job lock"
+	@echo "  make compliance-status — generated per-set/per-format compliance status (compliance/status.md, never committed) + ratchet check"
 	@echo "  make sim            — build mtgsim and play 20 verified 4-seat games"
 	@echo "  make gorged         — run the M2a table server (browser client at the addr)"
 	@echo "  make deploy-demo    — rebuild and (re)serve the demo on :8080 (bot tables omniscient)"
@@ -175,6 +176,13 @@ SETS ?=
 .PHONY: compliance-pass
 compliance-pass:
 	XMAGE_REF=$(XMAGE_REF) XMAGE_ORACLE_DIR=$(XMAGE_ORACLE_DIR) scripts/compliance-pass.sh $(SETS)
+
+# compliance-status writes the generated per-set / per-format status page
+# (compliance/status.md, gitignored: never committed) and checks the
+# certification ratchet (compliance/ratchet.json). Spec 2026-10-03 11.3 C8.
+.PHONY: compliance-status
+compliance-status:
+	go run ./cmd/oraclediff status -all -out compliance/status.md
 
 .PHONY: report
 report: $(BIN_DIR)/forgec

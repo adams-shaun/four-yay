@@ -171,7 +171,7 @@ func effUntap(h Host, c *Ctx, sa *cards.SA) {
 		// UntapAll trigger, which this build cannot do without an event -- no
 		// corpus Mode$ Untaps trigger is reachable through an entry replacement
 		// (the mode itself is unregistered here), so the event fires nothing.
-		entering := strings.EqualFold(strings.TrimSpace(sa.Params["ETB"]), "True")
+		entering := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKETB)), "True")
 		for _, t := range Defined(h, c, sa) {
 			if t.IsPlayer {
 				continue
