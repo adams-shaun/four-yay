@@ -705,6 +705,17 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 				ResumeRemembered: copyTargets(c.Remembered),
 				Prompt:           "Choose " + strconv.Itoa(askMin) + ".." + strconv.Itoa(askMax) + " card(s) to discard",
 				Options:          opts}
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: discard exactly
+				// what the re-entry above discards for this target.
+				hand = zoneOf(g, state.ZHand, p)
+				for _, o := range ans {
+					if containsID(hand, o.Obj) {
+						discardAndRemember(h, c, riders, o.Obj, p)
+					}
+				}
+				continue
+			}
 			if Ask(h, d) == AskAsked {
 				suspended = true
 				return // resolution suspended; the answer re-enters with Ctx.Discard set.
@@ -2494,6 +2505,12 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 	optional := strings.EqualFold(strings.TrimSpace(sa.Params["RevealOptional"]), "True") ||
 		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True")
 	remember := strings.EqualFold(strings.TrimSpace(sa.Params["RememberRevealed"]), "True")
+	revealDefined := sa.Params["RevealDefined"]
+	// RememberTargets$ remembers the CHOSEN targets (Forge's sa.getTargets()),
+	// so it applies only where the walk's subjects are those targets: a
+	// targeting SA with no Defined$/RevealDefined$ override.
+	rememberTargets := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True") &&
+		sa.ParamStr(cards.PKValidTgts) != "" && sa.ParamStr(cards.PKDefined) == "" && revealDefined == ""
 	random := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRandom)), "True")
 	g := h.Game()
 	// Forge's RevealDefined$ is the reveal family's equivalent of Defined$.
@@ -2503,7 +2520,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 	// Chancellor of the Tangle must reveal the chosen Chancellor, not an
 	// unrelated first card in its controller's hand.
 	revealSA := *sa
-	if spec := sa.Params["RevealDefined"]; spec != "" {
+	if spec := revealDefined; spec != "" {
 		revealSA.Params = make(map[string]string, len(sa.Params)+1)
 		for key, value := range sa.Params {
 			revealSA.Params[key] = value
@@ -2550,9 +2567,20 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			// scope to its controller (Summon: Valefor's per-opponent loop).
 			continue
 		}
+		if rememberTargets {
+			// RememberTargets$ True (Struggle for Sanity, Hint of Insanity,
+			// Dreams of Steel and Oil -- every corpus Reveal-family carrier is
+			// a targeted RevealHand): the chosen target player joins both
+			// remembered halves, so a later Defined$ Player.IsRemembered
+			// chooser (Struggle's "that player exiles a card") and a
+			// RememberedPlayerCtrl/Own filter name them. It was unread here,
+			// so Struggle's opponent was never asked. Placed after the cursor
+			// skips, so a resumed walk never remembers a target twice.
+			rememberTarget(h, c, t)
+		}
 		p := PlayerOf(h, c, t)
 		pool := zoneOf(g, zone, p)
-		if sa.Params["RevealDefined"] != "" && !t.IsPlayer {
+		if revealDefined != "" && !t.IsPlayer {
 			// A RevealDefined object is itself the card to reveal, not a
 			// selector for the first card in that player's zone.
 			pool = []state.ObjID{t.Obj}

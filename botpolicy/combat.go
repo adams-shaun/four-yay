@@ -342,12 +342,20 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 	// b.Cards held the deciding seat's own zones alone.
 	//
 	// The seat-relative facts stay ZERO on a foreign entry: OnBattlefield,
-	// Produces, Tapped, Castable, Activated, InstantSpeed and AttachedTo
-	// are the deciding seat's OWN-board facts (cast.go's land-drop greedy
-	// and reserve hold the invariant that every OnBattlefield/Castable
-	// entry is a source the seat itself controls — producibleMana and
+	// Produces, Tapped, Castable, InstantSpeed and AttachedTo are the
+	// deciding seat's OWN-board facts (cast.go's land-drop greedy and
+	// reserve hold the invariant that every OnBattlefield/Castable entry is
+	// a source the seat itself controls — producibleMana and
 	// availableColours would otherwise count an opponent's lands as the
 	// seat's own mana), and a foreign permanent must never inflate them.
+	//
+	// Activated is the one exception: it is a public per-object census
+	// (view.CardView.ActivatedThisTurn), read only by A5's per-source budget
+	// (ability.go), and an "any player may activate" ability (Activator$
+	// Player -- Lethal Vapors, Volrath's Dungeon) is offered to a seat that
+	// does not control its source. Zeroed here it left A5 blind to every
+	// activation of a foreign source, so a free one (Lethal Vapors' {0}) was
+	// re-activated forever (cardfuzz livelock seed 8880833984888918124).
 	for i := range g.Players {
 		p := &g.Players[i]
 		if p.ID == me {
@@ -389,6 +397,7 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 				Basic:     f.TypeLineHas("Basic", twBasic),
 				ManaCost:  f.ManaCost,
 				Toughness: toughness,
+				Activated: o.ActivatedThisTurn,
 			}
 		}
 	}

@@ -37,6 +37,11 @@ type SAFacts struct {
 	// Rules is the rules tier's private half, opaque here: the mana walk's
 	// gate facts for an AB$ ability, nil otherwise.
 	Rules unsafe.Pointer
+	// MayAsk caches rules' resolution-kernel ask-free predicate over the
+	// ability and its SubAbility$ chain (rules/resolve_mayask.go): a pure
+	// function of the text, filled on first use with an atomic store
+	// (0 unknown, 1 ask-free, 2 may ask).
+	MayAsk uint32
 
 	// W4 step 3, the Charm/Pump/Draw compilers (charm_params.go,
 	// pump_params.go, draw_params.go): each is non-nil exactly when the

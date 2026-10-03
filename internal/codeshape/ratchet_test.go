@@ -55,9 +55,10 @@ const (
 	// (W5 E3, ValidSA/Static): 805 -> 798. W4 slice 4 added 56 keys (250 of
 	// the 254 a uint8 ParamKey can name) and migrated rules/chars too:
 	// 798 -> 630. W4 step 3's ChangeZone compiler (one read per key,
-	// effects/changezone_params.go): 630 -> 628. The Charm and Pump
-	// compilers (charm_params.go, pump_params.go): 628 -> 626.
-	stringParamReads = 626
+	// effects/changezone_params.go): 630 -> 628. loop-bugs: effReveal reads
+	// RevealDefined$ once: 628 -> 627. The Charm and Pump compilers
+	// (charm_params.go, pump_params.go): 627 -> 625.
+	stringParamReads = 625
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	stringCaseLiterals = 2886

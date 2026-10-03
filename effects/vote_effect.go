@@ -212,6 +212,16 @@ func askFixedVote(h Host, c *Ctx, sa *cards.SA, choices []string, voters []state
 			picks = append(picks, state.Target{})
 			continue
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand (the "vote" resume
+			// arm's VoteAnswer): option j is encoded as ObjID(j+1).
+			pick := state.Target{}
+			if len(ans) > 0 {
+				pick = state.Target{Obj: ans[0].Obj}
+			}
+			picks = append(picks, pick)
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return nil, false
 		}
@@ -314,6 +324,16 @@ func askCardVote(h Host, c *Ctx, sa *cards.SA, options []state.ObjID, voters []s
 		}
 		if len(d.Options) == 0 {
 			picks = append(picks, state.Target{})
+			continue
+		}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand (the "vote" resume
+			// arm's VoteAnswer).
+			pick := state.Target{}
+			if len(ans) > 0 && ans[0].Obj != 0 {
+				pick = state.Target{Obj: ans[0].Obj}
+			}
+			picks = append(picks, pick)
 			continue
 		}
 		if Ask(h, d) == AskAsked {

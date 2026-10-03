@@ -557,8 +557,11 @@ func BoardFromView(v view.View) botpolicy.Board {
 	// so the loop below fills their WORTH facts (Creature/Power/Toughness/
 	// CMC/Basic/ManaCost, what cardWorth prices) for every player, not only
 	// the viewer — botpolicy.BoardFromGameInto's opponent-battlefield walk
-	// is this call's exact mirror. The seat-relative facts stay ZERO on a
-	// foreign entry (OnBattlefield/Produces/Tapped/Castable/Activated/
+	// is this call's exact mirror. Activated (the public per-object
+	// activation census) is filled too: A5's budget must see an "any
+	// player may activate" source's activations (Lethal Vapors). The other
+	// seat-relative facts stay ZERO on a
+	// foreign entry (OnBattlefield/Produces/Tapped/Castable/
 	// InstantSpeed/AttachedTo are the deciding seat's own-board facts; the
 	// land-drop greedy's mana readers would otherwise count an opponent's
 	// lands as the seat's own), so the foreign fill below is its own walk,
@@ -602,6 +605,7 @@ func BoardFromView(v view.View) botpolicy.Board {
 					CMC:       botpolicy.CmcOf(cv.ManaCost),
 					Basic:     hasBasicView(cv),
 					ManaCost:  cv.ManaCost,
+					Activated: cv.ActivatedThisTurn,
 				})
 			}
 			continue

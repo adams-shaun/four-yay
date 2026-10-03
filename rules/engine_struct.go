@@ -178,4 +178,5 @@ type Engine struct {
 	engineParked
 	engineCastWindows
 	engineEmitCtx
+	engineResolveKernel
 }

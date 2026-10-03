@@ -234,7 +234,16 @@ func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
 	rp := e.resume
 	e.resume = nil
 	chosen := d.Chosen(in)
-	labels := chosenModeLabels(chosen)
+	recordModesAnswer(e, d, in.Player, chosen, rp.obj)
+	e.resumeResolution(rp, chosen)
+}
+
+// recordModesAnswer is the answer record every mid-resolution KModes answer
+// carries into the log, whichever path answers it (handleModes' resume arm,
+// or the resolution kernel serving the answer from its tape,
+// resolveBoard.Record): the SetChosenMode Choose, the ModeChosen marker on
+// the resolving object obj, and the ChoiceRestriction$ record.
+func recordModesAnswer(e *Engine, d *decision.Decision, p state.PlayerID, chosen []decision.Option, obj state.ObjID) {
 	if d.ResumeSA != nil && strings.EqualFold(d.ResumeSA.Params["SetChosenMode"], "True") && len(chosen) == 1 {
 		// An as-enters GenericChoice records its mode on the permanent via
 		// the event fold; the ModeChosen marker alone stores no object state.
@@ -242,15 +251,14 @@ func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
 			e.emit(events.Event{Kind: events.Choose, Obj: d.Source, Counter: "mode", Text: names[0]})
 		}
 	}
-	e.emit(events.Event{Kind: events.ModeChosen, Obj: rp.obj, Player: in.Player,
-		Text: strings.Join(labels, ",")})
+	e.emit(events.Event{Kind: events.ModeChosen, Obj: obj, Player: p,
+		Text: strings.Join(chosenModeLabels(chosen), ",")})
 	// ChoiceRestriction$: a mid-resolution Charm's pick is recorded on its
 	// source as well, so a later instance is restricted against it.
-	if o := e.G.Obj(rp.obj); o != nil {
+	if o := e.G.Obj(obj); o != nil {
 		effects.RecordCharmChoices(e, o.Source, d.ResumeSA,
 			modeChoiceNames(d.ResumeSA, chosen, d.ResumeModes))
 	}
-	e.resumeResolution(rp, chosen)
 }
 
 // resumeETBEntry is the resolution-owned continuation for an as-enters

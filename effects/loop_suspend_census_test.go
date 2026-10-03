@@ -15,12 +15,7 @@ import (
 // iterations after the asking one are dropped. It is a ratchet: a new
 // function with the shape fails the census, and an entry that now reports
 // (or no longer loops) is stale and fails too.
-var loopSuspendKnownDrops = map[string]bool{
-	// The NoCall$ outcome repetition (resolveOutcome: a branch run once per
-	// win/loss when it does not read X) returns on a suspended call and
-	// drops the calls after it, and the lose branch with them.
-	"effFlipCoin": true,
-}
+var loopSuspendKnownDrops = map[string]bool{}
 
 // TestLoopBodySuspensionReportsItsCursor is the class census for the
 // dropped-iterations defect (a non-optional Repeat whose body asked returned
