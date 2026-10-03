@@ -28,7 +28,8 @@ func init() { triggerSnapshotPoison = true }
 // A new read shape fails here until it is argued and added.
 func TestTriggerBeforeReadsAreClassified(t *testing.T) {
 	allowed := []*regexp.Regexp{
-		regexp.MustCompile(`^\s*triggerBefore \*triggerSnapshot$`),
+		// The field declaration, with its clone-policy tag (clone_policy_test.go).
+		regexp.MustCompile("^\\s*triggerBefore \\*triggerSnapshot( +`clone:\"[a-z]+\"`)?$"),
 		regexp.MustCompile(`^\s*e\.triggerBefore = [A-Za-z.]+$`),
 		regexp.MustCompile(`^\s*defer func\(\) \{ e\.triggerBefore = (before|saved) \}\(\)$`),
 		regexp.MustCompile(`^\s*(before|saved) := e\.triggerBefore$`),
