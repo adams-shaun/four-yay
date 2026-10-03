@@ -9,20 +9,30 @@ import (
 	"strings"
 )
 
+// lifeExchangeTransaction is one ExchangeLife carried across the replacement
+// machinery. Clone copies a parked one through cloneRemap.lifeExchange (every
+// field the clone's own, the rider memory re-pointed at the clone's copy).
 type lifeExchangeTransaction struct {
-	source         state.ObjID
-	controller     state.PlayerID
-	oldLife        int32
-	player         state.PlayerID
-	lifeBefore     int32
-	setPower       bool
-	setToughness   bool
-	second         events.Event
-	stage          uint8
-	rememberLoss   bool
-	rememberCtx    *effects.Ctx
-	controllerLife int32
-	staged         []events.Event
+	source       state.ObjID    `clone:"deep"`
+	controller   state.PlayerID `clone:"deep"`
+	oldLife      int32          `clone:"deep"`
+	player       state.PlayerID `clone:"deep"`
+	lifeBefore   int32          `clone:"deep"`
+	setPower     bool           `clone:"deep"`
+	setToughness bool           `clone:"deep"`
+	// second is the proposed second side, emitted as-is: an event value is
+	// never written in place (its IDs/Pairs are shared exactly as the log's
+	// are), so the clone shares it.
+	second       events.Event `clone:"share"`
+	stage        uint8        `clone:"deep"`
+	rememberLoss bool         `clone:"deep"`
+	// rememberMemory is the resolving chain's ExchangeLife rider memory
+	// (Ctx.ExchangeMemory at the exchange), the only part of the Ctx the
+	// settle reads: holding the memory rather than the whole Ctx lets Clone
+	// re-point it at the clone's own copy (cloneRemap).
+	rememberMemory *effects.ExchangeMemory `clone:"deep"`
+	controllerLife int32                   `clone:"deep"`
+	staged         []events.Event          `clone:"deep"`
 }
 
 // applyLifeReplacements evaluates the GainLife and LifeReduced replacements

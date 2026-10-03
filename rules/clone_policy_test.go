@@ -45,7 +45,8 @@ const clonePolicyHelp = "every field of a type Clone copies field by field carri
 // the Engine (through its embedded clusters), the resume chain cloneResume
 // copies and its repeat cursor, the continuation frame the chain is built
 // from, and the value types cloneWith deep-copies field by field (the pending
-// cast and the combat, mulligan and opening-hand rounds).
+// cast, the combat, mulligan and opening-hand rounds, and a parked
+// ExchangeLife transaction).
 //
 // contFrame never crosses a clone boundary (Engine.contChain is reset: it is
 // empty at every intent boundary); its tags record the policy each field
@@ -61,6 +62,7 @@ var clonePolicyTypes = []reflect.Type{
 	reflect.TypeOf(combatRound{}),
 	reflect.TypeOf(mulliganRound{}),
 	reflect.TypeOf(openingRound{}),
+	reflect.TypeOf(lifeExchangeTransaction{}),
 }
 
 var clonePolicies = map[string]bool{"deep": true, "share": true, "reset": true, "hook": true}
