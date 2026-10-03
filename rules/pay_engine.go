@@ -112,10 +112,10 @@ func (pe *payer) Conv(p state.PlayerID, id state.ObjID, ability bool) *manaConv 
 	// window and the actual charge on one answer.
 	if e.cast != nil && e.cast.card == id && e.cast.manaConvertDone {
 		if e.cast.manaConvertUse {
-			mergeManaConv(&conv, optional)
+			pay.MergeConv(&conv, optional)
 		}
 	} else {
-		mergeManaConv(&conv, optional)
+		pay.MergeConv(&conv, optional)
 	}
 	if conv.Empty() {
 		return nil

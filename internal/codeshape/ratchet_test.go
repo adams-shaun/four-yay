@@ -132,6 +132,10 @@ const (
 	// escape hatch (the whole engine as an effects.Host) for the one narrow
 	// EvalCount the matchers needed: 27 -> 27.
 	trigmatchBoardMethods = 27
+	// payEngineMethods is the method count of pay.Engine, the payment
+	// layer's whole view of the engine (W5 E7; the spec's target is under
+	// 20). Slice 2 moved mana payment behind it with 10.
+	payEngineMethods = 10
 	// changeZoneParamLeaks is the number of ChangeZone parameter reads
 	// outside its compiler, effects/changezone_params.go (W4 step 3, spec
 	// section 8): any read in ChangeZone's own resolution files, plus any
@@ -323,6 +327,10 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"new fact from an existing method (Chars carries every characteristic, Facts " +
 				"every per-emit trigger context value) or pass it precomputed, instead of " +
 				"adding a method."},
+		{"payEngineMethods", m.PayEngineMethods, payEngineMethods,
+			"pay.Engine is the payment layer's whole view of the engine (target under " +
+				"20); derive a new fact from an existing method or pass it precomputed, " +
+				"instead of adding a method."},
 		{"changeZoneParamLeaks", m.ChangeZoneParamLeaks, changeZoneParamLeaks,
 			"Read the parameter through effects.ChangeZoneOf's compiled ChangeZoneParams " +
 				"(add a field to compileChangeZone in effects/changezone_params.go) instead " +
