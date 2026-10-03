@@ -10,6 +10,13 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+// stat:DisableTriggers is enforced at the shared trigger-admission gate
+// (disableTriggersExcludes, called from triggerMatchesWithSVars) for every
+// printed corpus shape: ValidCause$/ValidCard$/ValidMode$/Destination$/
+// Origin$/Secondary$ and ValidTrigger$ Triggered.Ward. An unread parameter
+// fails the static open with a loud Note, never a blanket suppression.
+func init() { effects.RegisterNonAPI("stat:DisableTriggers") }
+
 // disableTriggersKnownParams is the complete parameter grammar this build
 // reads on a printed S:Mode$ DisableTriggers line. A parameter outside this
 // set fails the whole static OPEN (see disableTriggersUnread), so an
@@ -74,6 +81,16 @@ func disableTriggersUnread(sv staticView) []string {
 // checks use their observer's pre-event board here. The caller must not emit
 // from this function; an unread static merely fails open (the walk reports it).
 func (e *Engine) disableTriggersExcludes(t cards.Trigger, source state.ObjID, ev events.Event) bool {
+	// A token mint (TokenCreate/CardToken) carries no move zones of its own:
+	// its fold moves the token straight onto the battlefield, so it is read
+	// as Library -> Battlefield here exactly as zoneChangeMatches reads it --
+	// otherwise a creature TOKEN entering would escape Karn, Argent
+	// Defender's / Torpor Orb's Destination$ Battlefield while still firing
+	// the ETB trigger it should suppress.
+	from, to := ev.From, ev.To
+	if ev.Kind == events.TokenCreate || ev.Kind == events.CardToken {
+		from, to = state.ZLibrary, state.ZBattlefield
+	}
 	for _, sv := range e.activeStatics("DisableTriggers") {
 		if len(disableTriggersUnread(sv)) != 0 {
 			continue
@@ -97,13 +114,13 @@ func (e *Engine) disableTriggersExcludes(t cards.Trigger, source state.ObjID, ev
 		}
 		if raw, ok := sv.Param(cards.PKDestination); ok && raw != "Any" {
 			zone, valid := effects.ParseZoneWord(raw)
-			if !valid || ev.To != zone {
+			if !valid || to != zone {
 				continue
 			}
 		}
 		if raw, ok := sv.Param(cards.PKOrigin); ok && raw != "Any" {
 			zone, valid := effects.ParseZoneWord(raw)
-			if !valid || ev.From != zone {
+			if !valid || from != zone {
 				continue
 			}
 		}
