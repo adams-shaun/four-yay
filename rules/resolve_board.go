@@ -46,6 +46,10 @@ type engineResolveKernel struct {
 	// grant: handlePriority consumes it instead of logging a second one.
 	// Transient within one Submit.
 	tapeGranted bool `clone:"reset"`
+	// tapeWindowAsking is set while a resolution-time payment window asks
+	// through the kernel (windowAsk): its own holder is open by design, so
+	// Busy looks past it. Transient within one ask.
+	tapeWindowAsking bool `clone:"reset"`
 }
 
 // resolveBoard is the Engine itself under the kernel's method set: asResolve
@@ -107,6 +111,10 @@ func (b *resolveBoard) Busy() bool {
 	// stack) routes its asks through its own activation continuation
 	// (askOffStackMana), not the resolution's: a converted site inside one
 	// asks through the legacy path.
+	if e.tapeWindowAsking && e.resume == nil && e.offStackMana == nil && e.unlessPayment == nil {
+		// windowAsk's own window: the holder it asks for is open by design.
+		return false
+	}
 	return e.resume != nil || e.Suspended() || e.offStackMana != nil
 }
 
