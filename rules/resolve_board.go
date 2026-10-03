@@ -111,7 +111,8 @@ func (b *resolveBoard) Busy() bool {
 	// stack) routes its asks through its own activation continuation
 	// (askOffStackMana), not the resolution's: a converted site inside one
 	// asks through the legacy path.
-	if e.tapeWindowAsking && e.resume == nil && e.offStackMana == nil && e.unlessPayment == nil {
+	if e.tapeWindowAsking && e.resume == nil && e.offStackMana == nil &&
+		(e.unlessPayment == nil || e.unlessPayment.tape) {
 		// windowAsk's own window: the holder it asks for is open by design.
 		return false
 	}

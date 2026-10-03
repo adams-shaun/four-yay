@@ -23,7 +23,12 @@ type unlessPayment struct {
 	// rp is non-nil for the ordinary stack-backed path. A nil rp belongs to
 	// an activated mana ability, whose continuation remains in
 	// manaUnlessActivation.
-	rp       *resumePoint
+	rp *resumePoint
+	// tape marks a payment the resolution kernel drives in line
+	// (tapeUnlessComponents): its asks are served from the tape and its
+	// settlement lands in the asking walk's live Ctx instead of a parked
+	// frame.
+	tape     bool
 	part     int
 	sacs     []state.ObjID
 	discards []state.ObjID
@@ -511,8 +516,7 @@ func (e *Engine) advanceUnlessPayment() {
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: kind,
 				Label: label, Obj: id, Player: u.payer})
 		}
-		e.choosing = chooseUnlessCost
-		e.ask(d)
+		e.windowAsk(d, chooseUnlessCost)
 		return
 	}
 	// Resolve every drawer before charging any component. A Draw<N/Spec> may
@@ -682,8 +686,7 @@ func (e *Engine) askUnlessMana() {
 		}
 	}
 	d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "done", Label: "Done"})
-	e.choosing = chooseUnlessMana
-	e.ask(d)
+	e.windowAsk(d, chooseUnlessMana)
 }
 
 // manaAltLabel renders an alt's production as a short " for {U}{R}" suffix,
@@ -952,6 +955,10 @@ func (e *Engine) finishUnlessPayment(paid bool) {
 	}
 	e.unlessPayment = nil
 	e.choosing = chooseNone
+	if u.tape {
+		tapeUnlessSettled(e, u, paid)
+		return
+	}
 	if u.rp != nil {
 		if paid {
 			u.rp.unlessPay = "pay"

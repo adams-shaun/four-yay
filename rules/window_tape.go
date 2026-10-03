@@ -17,10 +17,14 @@ package rules
 import "github.com/adams-shaun/gorge/decision"
 
 // tapeWindowFlow reports whether flow's window is served from the tape.
-func tapeWindowFlow(flow chooseFor) bool {
+func tapeWindowFlow(e *Engine, flow chooseFor) bool {
 	switch flow {
 	case chooseTriggeredCost, chooseTriggeredMandatory, chooseCumulative:
 		return true
+	case chooseUnlessCost, chooseUnlessMana:
+		// Only the tape-driven unless payment (tapeUnlessComponents); the
+		// legacy one parks its frame.
+		return e.unlessPayment != nil && e.unlessPayment.tape
 	}
 	// chooseEcho stays legacy: e.echo is not a Suspended() holder, so the
 	// legacy resolution logs its CR 117.3b grant while the election is still
@@ -33,13 +37,13 @@ func tapeWindowFlow(flow chooseFor) bool {
 // run (or an inline answerer) serves it, else on the legacy path.
 func (e *Engine) windowAsk(d *decision.Decision, flow chooseFor) {
 	e.choosing = flow
-	if tapeWindowFlow(flow) {
+	if tapeWindowFlow(e, flow) {
 		e.tapeWindowAsking = true
 		in, ok := e.TapeAnswer(d)
 		e.tapeWindowAsking = false
 		if ok {
 			e.windowAnswer(flow, d.Chosen(in))
-			if !e.Suspended() {
+			if flow != chooseUnlessCost && flow != chooseUnlessMana && !e.Suspended() {
 				// The handler's continuation completed the resolution and
 				// logged its priority grant (finishResumption's tail or the
 				// resumed body's): handlePriority must not log a second.
@@ -63,6 +67,10 @@ func (e *Engine) windowAnswer(flow chooseFor, chosen []decision.Option) {
 		e.cumulativeAnswer(chosen)
 	case chooseEcho:
 		e.echoAnswer(chosen)
+	case chooseUnlessCost:
+		e.answerUnlessPayment(chosen)
+	case chooseUnlessMana:
+		e.answerUnlessMana(chosen)
 	default:
 		panic("rules: windowAnswer for a non-window flow")
 	}
