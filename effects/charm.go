@@ -634,8 +634,10 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 				return true
 			}
 			// R-9: an effects-only host has no chooser, so deterministically
-			// take the first option for this chooser and continue to the next.
-			pick = available[0]
+			// take the first option for this chooser and continue to the next
+			// -- or, for an AILogic$ Random ask, a draw from the engine rng
+			// (aiRandomNoAskPick), so a Repeat re-posing it advances.
+			pick = available[aiRandomNoAskPick(h, sa, len(available))]
 		}
 		if tempRemember {
 			c.Remembered = []state.Target{chooser}
@@ -881,6 +883,17 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 	// unreachable by construction -- charmNum is clamped to >= 1 and
 	// strings.Split never yields fewer than one choice -- but the shared
 	// helper owns the guard either way.)
+	if min == 1 && max == 1 && !repeat && len(choices) > 1 && aiLogicRandom(sa) {
+		// AILogic$ Random: the no-ask answer is an engine-rng draw, not the
+		// fixed first mode (see aiRandomNoAskPick).
+		idx := aiRandomNoAskPick(h, sa, len(choices))
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "chose a mode at random (no engine host to ask): " + charmModeLabel(choices, subs, idx)})
+		if subs[idx] != nil {
+			Resolve(h, c, subs[idx])
+		}
+		return
+	}
 	h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 		Text: "chose its first mode (no engine host to ask)"})
 	if subs[0] != nil {
