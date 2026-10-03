@@ -1119,6 +1119,9 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 			}
 			e.sourceControllerLKI[id] = pt.Ctx.SourceControllerLKI
 		}
+		if pt.sourceCharLKIValid {
+			e.setSourceCharLKI(id, pt.sourceCharLKI)
+		}
 		if pt.Ctx.DamageSourceLKI != nil {
 			if e.damageSourceLKI == nil {
 				e.damageSourceLKI = make(map[state.ObjID]map[state.ObjID]effects.DamageSourceLKI)

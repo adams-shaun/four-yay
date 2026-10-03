@@ -1,0 +1,48 @@
+{
+ "card": "Thirst for Knowledge",
+ "family": "spell-conditional",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "e5bb7d38a1b9",
+ "scenarios": [
+  {
+   "name": "discarding-an-artifact-satisfies-the-unless",
+   "cr": ["608.2c", "701.8a"],
+   "why": "Draw three, then discard two unless you discard an artifact card. Discarding the Sol Ring (an artifact) means only that one card is discarded, so the hand keeps the three drawn cards.",
+   "setup": {
+    "p0": {"hand": ["Thirst for Knowledge", "Sol Ring"], "library_top": ["Forest", "Forest", "Forest"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Thirst for Knowledge", "mana": "CCU"},
+    {"op": "resolve", "answers": [
+      {"kind": "any", "pick": ["yes"]},
+      {"kind": "choose", "pick": ["Sol Ring"]}
+    ]}
+   ],
+   "expect": [
+    {"hand_size": {"p0": 3}},
+    {"card": "p0:Sol Ring", "zone": "graveyard"},
+    {"card": "p0:Thirst for Knowledge", "zone": "graveyard"}
+   ]
+  },
+  {
+   "name": "no-artifact-to-discard-means-two-discarded",
+   "cr": ["608.2c", "701.8a"],
+   "why": "With no artifact card to discard, the 'unless' cannot be satisfied, so two of the drawn cards are discarded: hand keeps two (three drawn minus two).",
+   "setup": {
+    "p0": {"hand": ["Thirst for Knowledge"], "library_top": ["Forest", "Forest", "Forest"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Thirst for Knowledge", "mana": "CCU"},
+    {"op": "resolve", "answers": [
+      {"kind": "choose", "pick": ["Forest", "Forest"]}
+    ]}
+   ],
+   "expect": [
+    {"hand_size": {"p0": 1}},
+    {"graveyard_size": {"p0": 3}}
+   ]
+  }
+ ]
+}

@@ -1,0 +1,65 @@
+{
+ "card": "Wurmcoil Engine",
+ "family": "death-triggers",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "326c519e2aa0",
+ "scenarios": [
+  {
+   "name": "dies-makes-two-different-wurm-tokens",
+   "cr": [
+    "603.6c",
+    "111.1",
+    "510.1"
+   ],
+   "why": "When Wurmcoil Engine dies it creates one 3/3 deathtouch Wurm AND one 3/3 lifelink Wurm (separate tokens), so two Phyrexian Wurm tokens exist and each carries exactly one of the two keywords.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Wurmcoil Engine"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Wurmcoil Engine",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wurmcoil Engine",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Phyrexian Wurm"
+     },
+     "eq": 2
+    },
+    {
+     "card": "p0:token:Phyrexian Wurm",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "keywords": [
+      "Deathtouch"
+     ]
+    },
+    {
+     "card": "p0:token:Phyrexian Wurm#2",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "keywords": [
+      "Lifelink"
+     ]
+    }
+   ]
+  }
+ ]
+}

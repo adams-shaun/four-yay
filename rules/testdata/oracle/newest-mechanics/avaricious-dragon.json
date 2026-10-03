@@ -1,0 +1,33 @@
+{
+  "card": "Avaricious Dragon",
+  "family": "newest-mechanics",
+  "author": "cli-20261002T230428Z-067d6538 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "printed-characteristics",
+      "cr": [
+        "208.3",
+        "702.9"
+      ],
+      "why": "Oracle gives Avaricious Dragon printed power/toughness 4/4 and Flying. Those characteristics apply to this battlefield creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Avaricious Dragon"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Avaricious Dragon",
+          "zone": "battlefield",
+          "pt": "4/4",
+          "keywords": [
+            "Flying"
+          ]
+        }
+      ]
+    }
+  ]
+}

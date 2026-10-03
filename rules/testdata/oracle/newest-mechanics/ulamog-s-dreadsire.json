@@ -1,0 +1,33 @@
+{
+  "card": "Ulamog's Dreadsire",
+  "family": "newest-mechanics",
+  "author": "cli-20261002T230428Z-067d6538 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "printed-characteristics",
+      "cr": [
+        "208.3",
+        "702.20"
+      ],
+      "why": "Oracle gives Ulamog's Dreadsire printed power/toughness 10/10 and Vigilance. Those characteristics apply to this battlefield creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Ulamog's Dreadsire"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Ulamog's Dreadsire",
+          "zone": "battlefield",
+          "pt": "10/10",
+          "keywords": [
+            "Vigilance"
+          ]
+        }
+      ]
+    }
+  ]
+}

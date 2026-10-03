@@ -1,0 +1,66 @@
+{
+ "card": "Scapeshift",
+ "family": "spell-conditional",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "5457fe58689b",
+ "scenarios": [
+  {
+   "name": "sacrifice-two-lands-search-two-tapped",
+   "cr": [
+    "601.2b",
+    "701.18",
+    "608.2c"
+   ],
+   "why": "'Sacrifice any number of lands. Search your library for up to that many land cards, put them onto the battlefield tapped': sacrificing the two Mountains and searching two Forests must leave the Mountains in the graveyard and the two Forests on the battlefield tapped.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Forest",
+      "Forest",
+      "Mountain",
+      "Mountain"
+     ],
+     "hand": [
+      "Scapeshift"
+     ],
+     "library": [
+      "Forest",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Scapeshift",
+     "mana": "CCGG"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Mountain",
+        "p0:Mountain#2",
+        "p0:Forest",
+        "p0:Forest#2"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "graveyard",
+      "name": "Mountain"
+     },
+     "eq": 2
+    }
+   ]
+  }
+ ]
+}

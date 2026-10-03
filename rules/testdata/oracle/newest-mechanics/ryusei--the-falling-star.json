@@ -1,0 +1,33 @@
+{
+  "card": "Ryusei, the Falling Star",
+  "family": "newest-mechanics",
+  "author": "cli-20261002T230428Z-067d6538 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "printed-characteristics",
+      "cr": [
+        "208.3",
+        "702.9"
+      ],
+      "why": "Oracle gives Ryusei, the Falling Star printed power/toughness 5/5 and Flying. Those characteristics apply to this battlefield creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Ryusei, the Falling Star"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Ryusei, the Falling Star",
+          "zone": "battlefield",
+          "pt": "5/5",
+          "keywords": [
+            "Flying"
+          ]
+        }
+      ]
+    }
+  ]
+}
