@@ -83,7 +83,7 @@ func ZoneChangeMatchesWithCapture(e Board, t cards.Trigger, source state.ObjID, 
 	// ExcludedOrigins$ ("Name Sticker" Goblin's "enters from anywhere other
 	// than a graveyard or exile"): a comma-separated list of zones the move
 	// must NOT originate in. Absent means unrestricted, exactly as before.
-	if excl, ok := t.Params["ExcludedOrigins"]; ok {
+	if excl, ok := t.Param(cards.PKExcludedOrigins); ok {
 		for z := range strings.SplitSeq(excl, ",") {
 			if zz := strings.TrimSpace(z); zz != "" && effects.ParseZone(zz) == from {
 				return false
@@ -242,7 +242,7 @@ func tokenCreatedMatches(e Board, t cards.Trigger, source state.ObjID, ev events
 	if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.Game(), v, ev.Player, ctrl) {
 		return false
 	}
-	if v, ok := t.Params["ValidToken"]; ok && v != "" {
+	if v, ok := t.Param(cards.PKValidToken); ok && v != "" {
 		tok := e.TokenSnapshot(ev)
 		if tok == nil || !e.MatchesObject(v, tok, source, ctrl, SpecOpts{}) {
 			return false

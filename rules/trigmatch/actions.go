@@ -258,7 +258,7 @@ func becomesTargetMatches(e Board, t cards.Trigger, source state.ObjID, ev event
 				// ward trigger targets only itself (the synthesized shape,
 				// trigger_match.go's ward expansion), so this gate runs on the
 				// self match.
-				if t.Params["Ward"] == "True" &&
+				if t.ParamStr(cards.PKWard) == "True" &&
 					(ev.Obj == 0 || e.ControllerOf(ev.Obj) == e.ControllerOf(source)) {
 					return false
 				}
@@ -274,7 +274,7 @@ func becomesTargetMatches(e Board, t cards.Trigger, source state.ObjID, ev event
 			break
 		}
 	}
-	if targeted && t.Params["Ward"] == "True" &&
+	if targeted && t.ParamStr(cards.PKWard) == "True" &&
 		(ev.Obj == 0 || e.ControllerOf(ev.Obj) == e.ControllerOf(source)) {
 		// The ValidTarget$ branch's ward gate, applied to the bare
 		// self-targeted fallback: a ward trigger never fires for its own

@@ -76,7 +76,7 @@ func (e *Engine) attackerBlockedByPairCandidates(t cards.Trigger, source state.O
 				continue
 			}
 		}
-		if v := t.Params["ValidBlocker"]; v != "" {
+		if v := t.ParamStr(cards.PKValidBlocker); v != "" {
 			// The blocker's DERIVED keyword list is what `withoutFlanking` must
 			// read: a blocker granted flanking by a layer-6 AddKeyword$ (Agility,
 			// Flanking Licid, Sidewinder Sliver, Cavalry Master) HAS flanking and
@@ -519,7 +519,7 @@ func (e *Engine) queueAttackerUnblockedTrigger(t cards.Trigger, source state.Obj
 					continue
 				}
 			}
-			if v := t.Params["ValidDefender"]; v != "" && !effects.MatchesPlayerSpec(e.G, v, a.Attacking, controller) {
+			if v := t.ParamStr(cards.PKValidDefender); v != "" && !effects.MatchesPlayerSpec(e.G, v, a.Attacking, controller) {
 				continue
 			}
 			if !reserved {

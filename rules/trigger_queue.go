@@ -1755,7 +1755,7 @@ func (e *Engine) triggerLabel(pt pendingTrigger) string {
 		}
 	}
 	if t, ok := e.triggerOf(pt); ok {
-		if d := t.Params["TriggerDescription"]; d != "" {
+		if d := t.ParamStr(cards.PKTriggerDescription); d != "" {
 			return name + ": " + d
 		}
 	}
@@ -1782,7 +1782,7 @@ func (e *Engine) abilityLabel(o *state.Object, t cards.Trigger) string {
 			name = mf.Name
 		}
 	}
-	if desc := t.Params["TriggerDescription"]; desc != "" {
+	if desc := t.ParamStr(cards.PKTriggerDescription); desc != "" {
 		return name + ": " + desc
 	}
 	return name

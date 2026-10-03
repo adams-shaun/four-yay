@@ -201,7 +201,7 @@ func MustBlockCandidates(b Board, defender state.PlayerID) map[state.ObjID]bool 
 			continue
 		}
 		for _, sv := range b.Statics("MustBlock") {
-			if matches(sv.Params["ValidCreature"], sv.Source, sv.Controller, id) {
+			if matches(sv.ParamStr(cards.PKValidCreature), sv.Source, sv.Controller, id) {
 				required[id] = true
 				break
 			}

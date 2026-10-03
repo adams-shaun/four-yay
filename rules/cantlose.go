@@ -183,7 +183,7 @@ func (e *Engine) gameEventCantHappen(name string, ev events.Event) bool {
 			if r.Event != name || r.With != nil {
 				continue
 			}
-			if !strings.EqualFold(strings.TrimSpace(r.Params["Layer"]), "CantHappen") {
+			if !strings.EqualFold(strings.TrimSpace(r.ParamStr(cards.PKLayer)), "CantHappen") {
 				continue
 			}
 			if e.replacementMatches(*r, source, ev) {

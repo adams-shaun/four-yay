@@ -350,7 +350,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	if len(setCreatureTypes) > 0 {
 		addTypes = append(addTypes, setCreatureTypes...)
 	}
-	nonLegendary := strings.EqualFold(strings.TrimSpace(sa.Params["NonLegendary"]), "True")
+	nonLegendary := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKNonLegendary)), "True")
 	removeSubTypes := strings.EqualFold(strings.TrimSpace(sa.Params["RemoveSubTypes"]), "True")
 	addAbilities := cloneNames(sa.ParamStr(cards.PKAddAbilities))
 	// Resolve the named grants against the resolving face before replacing its
@@ -386,8 +386,8 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	// the copy unit's own lifetime; a present PumpDuration$ gets its own unit
 	// key so an EOT grant can expire while a permanent copy survives (The
 	// Fourteenth Doctor).
-	pumpKeywords := cards.SplitKeywordList(sa.Params["PumpKeywords"])
-	pumpDuration := strings.TrimSpace(sa.Params["PumpDuration"])
+	pumpKeywords := cards.SplitKeywordList(sa.ParamStr(cards.PKPumpKeywords))
+	pumpDuration := strings.TrimSpace(sa.ParamStr(cards.PKPumpDuration))
 	newName := strings.TrimSpace(sa.Params["NewName"])
 	gainThisAbility := strings.EqualFold(strings.TrimSpace(sa.Params["GainThisAbility"]), "True")
 	removeCardTypes := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRemoveCardTypes)), "True")
@@ -652,7 +652,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 				h.Emit(events.Event{Kind: events.Note, Obj: b.Obj, Text: "Clone AttachedTo$ has no battlefield bearer"})
 			}
 		}
-		if strings.EqualFold(sa.Params["FaceDown"], "True") && !obj.FaceDown {
+		if strings.EqualFold(sa.ParamStr(cards.PKFaceDown), "True") && !obj.FaceDown {
 			h.Emit(events.Event{Kind: events.TurnFaceDown, Obj: b.Obj})
 		}
 		if strings.EqualFold(sa.Params["KeepFacedown"], "False") && obj.FaceDown {

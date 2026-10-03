@@ -106,12 +106,12 @@ func SpellCastEval(e Board, t cards.Trigger, source state.ObjID, ev events.Event
 		}
 		castAlts = alts
 	}
-	if v, ok := t.Params["ValidActivatingPlayer"]; ok {
+	if v, ok := t.Param(cards.PKValidActivatingPlayer); ok {
 		if !effects.MatchesPlayerSpecCtx(e.Game(), v, ev.Player, ctrl, e.PlayerSpecCtx(source)) {
 			return false
 		}
 	}
-	if v, ok := t.Params["ActivatorThisTurnCast"]; ok {
+	if v, ok := t.Param(cards.PKActivatorThisTurnCast); ok {
 		if !CompareIntCount(int32(e.SpellsCastThisTurn(ev.Player)), v) {
 			return false
 		}
@@ -169,7 +169,7 @@ func SpellCastEval(e Board, t cards.Trigger, source state.ObjID, ev events.Event
 	// arms share the parameter name, not the grammar, and this arm fails
 	// closed on every shape it does not model (an unsupported head stays
 	// silent rather than firing wide).
-	if v, ok := t.Params["ValidSAonCard"]; ok {
+	if v, ok := t.Param(cards.PKValidSAonCard); ok {
 		if !spellValidSAonCardMatches(e, obj, ev, v) {
 			return false
 		}
@@ -300,7 +300,7 @@ func spellAbilityCastSpellMatches(e Board, t cards.Trigger, source state.ObjID, 
 		return false
 	}
 	ctrl := e.ControllerOf(source)
-	if v, ok := t.Params["ValidActivatingPlayer"]; ok {
+	if v, ok := t.Param(cards.PKValidActivatingPlayer); ok {
 		// ev.Player is the player who cast the spell; MatchesPlayerSpecCtx
 		// resolves "You" as the trigger's controller and
 		// Player.EnchantedController against the trigger's source permanent.
@@ -434,7 +434,7 @@ func abilityCastMatches(e Board, t cards.Trigger, source state.ObjID, ev events.
 		return false
 	}
 	ctrl := e.ControllerOf(source)
-	if v, ok := t.Params["ValidActivatingPlayer"]; ok {
+	if v, ok := t.Param(cards.PKValidActivatingPlayer); ok {
 		// ev.Player is the player who activated the ability;
 		// MatchesPlayerSpecCtx resolves "You" as the trigger's controller.
 		if !effects.MatchesPlayerSpecCtx(e.Game(), v, ev.Player, ctrl, e.PlayerSpecCtx(source)) {
@@ -470,7 +470,7 @@ func abilityCastMatches(e Board, t cards.Trigger, source state.ObjID, ev events.
 		}
 	}
 	removed := int32(-1)
-	if strings.Contains(t.ParamStr(cards.PKValidSA), "CountersRemovedToPay") || strings.Contains(t.Params["ValidSAonCard"], "CountersRemovedToPay") {
+	if strings.Contains(t.ParamStr(cards.PKValidSA), "CountersRemovedToPay") || strings.Contains(t.ParamStr(cards.PKValidSAonCard), "CountersRemovedToPay") {
 		removed = activationCountersRemoved(e, ev, ab)
 	}
 	if v, ok := t.Param(cards.PKValidSA); ok {
@@ -478,7 +478,7 @@ func abilityCastMatches(e Board, t cards.Trigger, source state.ObjID, ev events.
 			return false
 		}
 	}
-	if v, ok := t.Params["ValidSAonCard"]; ok {
+	if v, ok := t.Param(cards.PKValidSAonCard); ok {
 		if ab == nil || !AbilityCastValidSA(e, ab, v, ev.Player, obj.Controller, removed) {
 			return false
 		}

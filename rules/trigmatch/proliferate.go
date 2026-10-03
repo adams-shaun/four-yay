@@ -43,7 +43,7 @@ func proliferateMatches(e Board, t cards.Trigger, source state.ObjID, ev events.
 		!effects.MatchesPlayerSpec(e.Game(), v, ev.Player, ctrl) {
 		return false
 	}
-	if strings.EqualFold(t.Params["FirstTime"], "True") &&
+	if strings.EqualFold(t.ParamStr(cards.PKFirstTime), "True") &&
 		!firstMarkerThisTurn(e, events.Proliferate, ev.Player) {
 		return false
 	}

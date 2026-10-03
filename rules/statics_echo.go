@@ -61,7 +61,7 @@ func (e *Engine) panharmoniconEchoes(observer *Engine, src state.ObjID, ev event
 	modes := panharmoniconModes(ev)
 	n := 0
 	for _, sv := range e.activeStatics("Panharmonicon") {
-		if vm := sv.Params["ValidMode"]; vm != "" {
+		if vm := sv.ParamStr(cards.PKValidMode); vm != "" {
 			ok := false
 			for want := range strings.SplitSeq(vm, ",") {
 				want = strings.TrimSpace(want)
@@ -79,7 +79,7 @@ func (e *Engine) panharmoniconEchoes(observer *Engine, src state.ObjID, ev event
 				continue
 			}
 		}
-		if vz := sv.Params["ValidZone"]; vz != "" {
+		if vz := sv.ParamStr(cards.PKValidZone); vz != "" {
 			zones, all, valid := effects.ParseZones(vz)
 			ok := false
 			if valid || all {
@@ -148,7 +148,7 @@ func (e *Engine) panharmoniconEchoes(observer *Engine, src state.ObjID, ev event
 				continue
 			}
 		}
-		if spec := sv.Params["ValidActivator"]; spec != "" {
+		if spec := sv.ParamStr(cards.PKValidActivator); spec != "" {
 			if ev.Kind != events.PutOnStack || !effects.MatchesPlayerSpec(g, spec, ev.Player, sv.Controller) {
 				continue
 			}
@@ -159,7 +159,7 @@ func (e *Engine) panharmoniconEchoes(observer *Engine, src state.ObjID, ev event
 				continue
 			}
 		}
-		if sv.Params["CombatDamage"] == "True" && !(ev.Kind == events.Damage && e.combatDamaging) {
+		if sv.ParamStr(cards.PKCombatDamage) == "True" && !(ev.Kind == events.Damage && e.combatDamaging) {
 			continue
 		}
 		if spec := sv.Params["ValidTurned"]; spec != "" {

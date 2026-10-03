@@ -93,7 +93,7 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 	// visible to the sub-ability without any state write -- the remembered set
 	// is per-resolution context, not game state, and replay re-derives it by
 	// re-running the same resolution (Task ce1).
-	remember := strings.TrimSpace(sa.Params["RememberDamaged"]) != ""
+	remember := strings.TrimSpace(sa.ParamStr(cards.PKRememberDamaged)) != ""
 	// DividedAsYouChoose$ N (Fury's "deals 4 damage divided as you choose
 	// among any number of target creatures and/or planeswalkers", Forked
 	// Bolt): the NAMED TOTAL is divided among the chosen targets, not dealt
@@ -1001,7 +1001,7 @@ func effDamageAll(h Host, c *Ctx, sa *cards.SA) {
 		defer b.EndLifeLossBatch()
 	}
 	spec := strings.TrimSpace(sa.ParamStr(cards.PKValidCards))
-	remember := strings.TrimSpace(sa.Params["RememberDamaged"]) != ""
+	remember := strings.TrimSpace(sa.ParamStr(cards.PKRememberDamaged)) != ""
 	// A player-kind ValidTgts$ scopes the object sweep to that target
 	// player's permanents ("each creature target player controls"): the
 	// restriction is carried by ValidTgts$, never by ValidCards$, so the
@@ -1568,7 +1568,7 @@ func effDamageResolve(h Host, c *Ctx, sa *cards.SA) {
 	if len(damaged) == 0 {
 		return
 	}
-	if strings.TrimSpace(sa.Params["RememberDamaged"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKRememberDamaged)) != "" {
 		for _, t := range damaged {
 			c.Remembered = append(c.Remembered, t)
 			// A player entry's Obj is zero and would emit a garbage Choose

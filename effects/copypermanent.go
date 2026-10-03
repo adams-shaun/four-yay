@@ -316,7 +316,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	// NonLegendary$ True drops just the Legendary supertype (Multiversal
 	// Recruitment's "except it's not legendary"); always True in the corpus.
 	removeLegendary := false
-	if raw, ok := sa.Params["NonLegendary"]; ok {
+	if raw, ok := sa.Param(cards.PKNonLegendary); ok {
 		removeLegendary = stripTrue("NonLegendary$", raw)
 	}
 
@@ -326,8 +326,8 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	// ride ONE LAbilities effect per mint so RemoveKeywords applies BEFORE the
 	// same effect's AddKeywords, whatever the timestamps order neighbours.
 	addKeywords := cards.SplitKeywordList(sa.ParamStr(cards.PKAddKeywords))
-	pumpKeywords := cards.SplitKeywordList(sa.Params["PumpKeywords"])
-	removeKeywords := cards.SplitKeywordList(sa.Params["RemoveKeywords"])
+	pumpKeywords := cards.SplitKeywordList(sa.ParamStr(cards.PKPumpKeywords))
+	removeKeywords := cards.SplitKeywordList(sa.ParamStr(cards.PKRemoveKeywords))
 	if ok := sa.HasParam(cards.PKAddKeywords); ok && len(addKeywords) == 0 {
 		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "AddKeywords$ " + strings.TrimSpace(sa.ParamStr(cards.PKAddKeywords)) + " resolved to no keyword; none added"})
@@ -336,7 +336,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	// long as the copy exists" (Permanent); EOT/EndOfTurn is dropped at this
 	// turn's cleanup; the next-turn forms get the ordinary UntilTurn boundary.
 	// An unresolvable duration is one loud note and the grant is Permanent.
-	pumpDuration := strings.TrimSpace(sa.Params["PumpDuration"])
+	pumpDuration := strings.TrimSpace(sa.ParamStr(cards.PKPumpDuration))
 	pumpPermanent := len(pumpKeywords) == 0
 	pumpUntilEOT := false
 	if len(pumpKeywords) > 0 {

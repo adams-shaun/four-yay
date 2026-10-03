@@ -342,7 +342,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 		// same card twice -- the wire enforces what Forge's one-at-a-time loop
 		// (the DifferentNames fetchList filter) enforces there. The apply side
 		// dedupes a host that bypassed the wire (applyLibrarySearch).
-		differentNames := strings.EqualFold(strings.TrimSpace(sa.Params["DifferentNames"]), "True")
+		differentNames := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKDifferentNames)), "True")
 		// Forge's EACH multi-type search grammar ("EACH Forest & Plains"): the
 		// pick is per-type, never a flat count over the union. One option per
 		// eligible card, the sub-spec's ordinal in Option.Group, per-type
@@ -472,7 +472,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 		// already read on the sibling hidden-pick path in effHiddenPick) replaces
 		// the generic text when the SA carries it: Cultivate's legs name their own
 		// "Select a card to put onto the battlefield".
-		if sp := strings.TrimSpace(sa.Params["SelectPrompt"]); sp != "" {
+		if sp := strings.TrimSpace(sa.ParamStr(cards.PKSelectPrompt)); sp != "" {
 			d.Prompt = sp
 		} else if d.AllowNone {
 			d.Prompt = "Search a library: choose exactly " + strconv.Itoa(d.Max) + " card(s), or none"
@@ -483,7 +483,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 		}
 		// EACH's own prompt was only a placeholder for the counted forms; the
 		// override above already replaced it when SelectPrompt$ is absent.
-		if eachStructured && strings.TrimSpace(sa.Params["SelectPrompt"]) == "" {
+		if eachStructured && strings.TrimSpace(sa.ParamStr(cards.PKSelectPrompt)) == "" {
 			d.Prompt = "Search a library: choose one card of each listed type"
 		}
 		// The shared ask boundary (effects.Ask) refuses to post a decision whose
@@ -946,7 +946,7 @@ func exactlySearch(sa *cards.SA) bool {
 // hidden-origin walkers that enforce it, so their option/answer contract
 // cannot drift.
 func differentNamesEnabled(sa *cards.SA) bool {
-	return strings.EqualFold(strings.TrimSpace(sa.Params["DifferentNames"]), "True")
+	return strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKDifferentNames)), "True")
 }
 
 // landTypesOf lists the land subtypes o's face names, in face order: the
@@ -1114,7 +1114,7 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 	// that bypassed the wire (bot clamp top-up, a direct resume) is deduped
 	// here deterministically -- first per name in answer order -- so the
 	// engine and its clients cannot drift on what the constraint means.
-	if strings.EqualFold(strings.TrimSpace(sa.Params["DifferentNames"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKDifferentNames)), "True") {
 		seenNames := make(map[string]bool, len(chosen))
 		deduped := make([]state.ObjID, 0, len(chosen))
 		for _, id := range chosen {
@@ -1374,7 +1374,7 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 	reveal := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKReveal)), "True") ||
 		(to != state.ZBattlefield && spec != "Card" &&
 			strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "" &&
-			!strings.EqualFold(strings.TrimSpace(sa.Params["NoReveal"]), "True"))
+			!strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKNoReveal)), "True"))
 	if strings.EqualFold(strings.TrimSpace(sa.Params["Hidden"]), "True") &&
 		!strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKReveal)), "True") {
 		reveal = false

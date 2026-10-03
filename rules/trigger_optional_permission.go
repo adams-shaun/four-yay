@@ -28,7 +28,7 @@ func triggerOptionalSpec(t cards.Trigger) string {
 	if spec == "" {
 		return ""
 	}
-	if mayIsOnlyPlayPermission(t.Params["TriggerDescription"]) {
+	if mayIsOnlyPlayPermission(t.ParamStr(cards.PKTriggerDescription)) {
 		return ""
 	}
 	return spec

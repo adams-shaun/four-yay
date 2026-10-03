@@ -40,7 +40,7 @@ func tapsMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, 
 	if v := t.ParamStr(cards.PKActivator); v != "" && !effects.MatchesPlayerSpec(e.Game(), v, actor, e.ControllerOf(source)) {
 		return false
 	}
-	if v := t.Params["Attacker"]; v != "" {
+	if v := t.ParamStr(cards.PKAttacker); v != "" {
 		want, err := strconv.ParseBool(v)
 		if err != nil || e.Game().Obj(ev.Obj) == nil || e.Game().Obj(ev.Obj).IsAttacking != want {
 			return false
@@ -49,7 +49,7 @@ func tapsMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, 
 	// FirstTime$ True: the permanent had not already become tapped this turn
 	// (Forge's tappedThisTurn == 0). emit records the tap only after this
 	// event's triggers are matched.
-	if strings.EqualFold(t.Params["FirstTime"], "True") && becameTappedThisTurn(e, ev.Obj) {
+	if strings.EqualFold(t.ParamStr(cards.PKFirstTime), "True") && becameTappedThisTurn(e, ev.Obj) {
 		return false
 	}
 	if forMana && !tapsForManaProduced(t.ParamStr(cards.PKProduced), e.Facts().TappingManaProduced) {

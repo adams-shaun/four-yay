@@ -145,7 +145,7 @@ func investigatedMatches(e Board, t cards.Trigger, source state.ObjID, ev events
 		!effects.MatchesPlayerSpec(e.Game(), v, ev.Player, ctrl) {
 		return false
 	}
-	if strings.EqualFold(t.Params["FirstTime"], "True") && !firstInvestigateThisTurn(e, ev.Player) {
+	if strings.EqualFold(t.ParamStr(cards.PKFirstTime), "True") && !firstInvestigateThisTurn(e, ev.Player) {
 		return false
 	}
 	return true
@@ -263,7 +263,7 @@ func surveilMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Even
 		!effects.MatchesPlayerSpec(e.Game(), v, ev.Player, ctrl) {
 		return false
 	}
-	if strings.EqualFold(t.Params["FirstTime"], "True") &&
+	if strings.EqualFold(t.ParamStr(cards.PKFirstTime), "True") &&
 		!firstMarkerThisTurn(e, events.Surveil, ev.Player) {
 		return false
 	}
@@ -418,7 +418,7 @@ func discardedAllMatches(e Board, t cards.Trigger, source state.ObjID, ev events
 // attributed to ChangesZone and Attacks too), so moving this read out of the
 // matcher changes no census attribution.
 func DiscardedAllFirstTime(t cards.Trigger) bool {
-	return strings.EqualFold(t.Params["FirstTime"], "True")
+	return strings.EqualFold(t.ParamStr(cards.PKFirstTime), "True")
 }
 
 // DiscardCauseAdmits evaluates a ValidCause$ stack spec against the spell or
@@ -456,7 +456,7 @@ func drawnMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event)
 	if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.Game(), v, ev.Player, ctrl) {
 		return false
 	}
-	if v := t.Params["Number"]; v != "" {
+	if v := t.ParamStr(cards.PKNumber); v != "" {
 		want, err := strconv.Atoi(v)
 		if err != nil || drawNumberThisTurn(e, ev.Player) != want {
 			return false
