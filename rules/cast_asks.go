@@ -951,8 +951,7 @@ func (e *Engine) castModeAsk() bool {
 	for _, name := range choices {
 		name = strings.TrimSpace(name)
 		sub := cards.ResolveSVar(f.SVars, name)
-		if sub != nil && sub.ParamStr(cards.PKValidTgts) != "" &&
-			!e.targetSAAvailable(pc.player, pc.card, pc.card, sub, pc.x, false) {
+		if sub != nil && !modeTargetsAvailable(e, pc.player, pc.card, sub, pc.x, false) {
 			continue
 		}
 		// CR 601.2b/702.171b: a Spree/Tiered mode's own ModeCost$ is an

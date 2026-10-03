@@ -44,39 +44,23 @@ func targetBoundReadsPromisedGift(o *state.Object, sa *cards.SA) bool {
 // the post-push ask. CR 601.2c is the reason the offer must not admit a
 // declaration the ask will reverse (CR 733.1) the instant it is submitted.
 func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID, sa *cards.SA, x int32, xPending bool) bool {
+	return targetSAAvailableGift(e, p, id, excludeSelf, sa, x, xPending, nil)
+}
+
+// targetSAAvailableGift is targetSAAvailable judging a Count$PromisedGift
+// bound under one Gift election (gift non-nil) instead of the union of both
+// (nil): targetsAvailable asks each election in turn, so a root and a chain
+// link that are each feasible only under DIFFERENT elections (Long River's
+// Pull: "counter target creature spell" unpromised, "instead counter target
+// spell" promised) are not offered on a board where neither election works.
+func targetSAAvailableGift(e *Engine, p state.PlayerID, id, excludeSelf state.ObjID, sa *cards.SA, x int32, xPending bool, gift *bool) bool {
 	if sa == nil || strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
 		return true
 	}
-	// A pending {X} is announced before targets, so a bare X bound cannot be
-	// judged at offer time. Keep that shape offerable and let targetAsk use the
-	// settled value. SVar-backed bounds remain readable now and are checked.
-	// Read by literal key: the param census's rot guard rejects a dynamic
-	// Params key that is not a function parameter.
-	if xPending && (strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetMin)), "X") ||
-		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetMax)), "X")) {
-		return true
-	}
-	min, _ := e.resolvedTargetBounds(p, id, sa, x)
-	// CR 702.168a: the Gift election has not been made yet when this census
-	// runs, so a bound that reads Count$PromisedGift is feasible if EITHER
-	// branch of the promise is satisfiable. The union is a min of the two
-	// branches' minimums: the census compares candidates against min, and a
-	// smaller min is satisfiable exactly when at least one branch is. The
-	// post-election ask (and every other reader) still resolves the ELECTED
-	// branch through the nil-override resolvedTargetBounds, so promising
-	// remains what switches the actual bound.
-	if targetBoundReadsPromisedGift(e.G.Obj(id), sa) {
-		promised := true
-		if pmin, _ := e.resolvedTargetBoundsWithGift(p, id, sa, x, &promised); pmin < min {
-			min = pmin
-		}
-	}
+	min, dynamic := targetOfferMin(e, p, id, sa, x, xPending, gift)
 	// The census is a pure read; the two answers that never look at the
 	// population return before walking it.
-	if min <= 0 {
-		return true
-	}
-	if xPending && specNamesXBound(sa.ParamStr(cards.PKValidTgts)) {
+	if dynamic || min <= 0 {
 		return true
 	}
 	if capCMC, capped := e.maxTotalTargetCMC(p, id, sa, x); capped {
@@ -136,6 +120,50 @@ func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID
 	}
 	candidates := e.legalTargetCandidates(p, id, excludeSelf, sa)
 	return e.targetChoiceFeasible(sa, candidates, min)
+}
+
+// targetOfferMin is the mandatory minimum the offer census judges a target
+// declaration against, or dynamic=true when the declaration cannot be judged
+// before its announcement exists. targetSAAvailable and the joint
+// TargetUnique$ chain census (uniqueChainTargetsFeasible) both read it, so a
+// slot's demand means the same thing to both.
+func targetOfferMin(e *Engine, p state.PlayerID, id state.ObjID, sa *cards.SA, x int32, xPending bool, gift *bool) (min int, dynamic bool) {
+	// A pending {X} is announced before targets, so a bare X bound cannot be
+	// judged at offer time. Keep that shape offerable and let targetAsk use the
+	// settled value. SVar-backed bounds remain readable now and are checked.
+	// Read by literal key: the param census's rot guard rejects a dynamic
+	// Params key that is not a function parameter.
+	if xPending && (strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetMin)), "X") ||
+		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetMax)), "X")) {
+		return 0, true
+	}
+	if gift != nil {
+		// One election, judged as made (targetSAAvailableGift).
+		min, _ = e.resolvedTargetBoundsWithGift(p, id, sa, x, gift)
+		if min > 0 && xPending && specNamesXBound(sa.ParamStr(cards.PKValidTgts)) {
+			return 0, true
+		}
+		return min, false
+	}
+	min, _ = e.resolvedTargetBounds(p, id, sa, x)
+	// CR 702.168a: the Gift election has not been made yet when this census
+	// runs, so a bound that reads Count$PromisedGift is feasible if EITHER
+	// branch of the promise is satisfiable. The union is a min of the two
+	// branches' minimums: the census compares candidates against min, and a
+	// smaller min is satisfiable exactly when at least one branch is. The
+	// post-election ask (and every other reader) still resolves the ELECTED
+	// branch through the nil-override resolvedTargetBounds, so promising
+	// remains what switches the actual bound.
+	if targetBoundReadsPromisedGift(e.G.Obj(id), sa) {
+		promised := true
+		if pmin, _ := e.resolvedTargetBoundsWithGift(p, id, sa, x, &promised); pmin < min {
+			min = pmin
+		}
+	}
+	if min > 0 && xPending && specNamesXBound(sa.ParamStr(cards.PKValidTgts)) {
+		return 0, true
+	}
+	return min, false
 }
 
 // targetCrossConstrained reports whether sa carries a cross-target
@@ -202,8 +230,7 @@ func (e *Engine) charmTargetsAvailable(p state.PlayerID, id state.ObjID, sa *car
 	for _, name := range choices {
 		name = strings.TrimSpace(name)
 		sub := cards.ResolveSVar(o.Face().SVars, name)
-		if sub != nil && strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" &&
-			!e.targetSAAvailable(p, id, id, sub, 0, xPending) {
+		if sub != nil && !modeTargetsAvailable(e, p, id, sub, 0, xPending) {
 			continue
 		}
 		legal = append(legal, name)
@@ -230,7 +257,7 @@ func targetsReadXPending(sa *cards.SA) bool {
 	if sa.API == "Charm" && effects.CharmOf(sa).HasChoices {
 		return true
 	}
-	if strings.TrimSpace(sa.ParamStr(cards.PKAnnounce)) == "" && strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" {
 		return true
 	}
 	// A targeting SubAbility$ link is censused too (chainTargetsAvailable),
@@ -247,8 +274,20 @@ func (e *Engine) targetsAvailable(p state.PlayerID, id, excludeSelf state.ObjID,
 	if sa == nil {
 		return true
 	}
-	return e.rootTargetsAvailable(p, id, excludeSelf, sa, xPending) &&
-		e.chainTargetsAvailable(p, id, excludeSelf, sa, xPending)
+	if sa.Sub != nil && targetBoundReadsPromisedGift(e.G.Obj(id), sa) {
+		// CR 702.168a: the Gift election is ONE choice for the whole spell,
+		// made before targets. The root and its chain must be announceable
+		// under the same election, so each election is judged whole.
+		for _, promised := range [2]bool{false, true} {
+			if e.rootTargetsAvailable(p, id, excludeSelf, sa, xPending, &promised) &&
+				e.chainTargetsAvailable(p, id, excludeSelf, sa, 0, xPending, &promised) {
+				return true
+			}
+		}
+		return false
+	}
+	return e.rootTargetsAvailable(p, id, excludeSelf, sa, xPending, nil) &&
+		e.chainTargetsAvailable(p, id, excludeSelf, sa, 0, xPending, nil)
 }
 
 // chainTargetsAvailable is the SubAbility$ half of the offer census (CR
@@ -263,23 +302,28 @@ func (e *Engine) targetsAvailable(p state.PlayerID, id, excludeSelf state.ObjID,
 //     OptionalCost): whether it owes a target depends on the cast option;
 //   - a link whose declaration reads an earlier target of the same spell
 //     (subTargetingReadsRootTarget): not announced by the cast flow at all
-//     (castSubPreAskable);
-//   - a TargetUnique$ link: its pool excludes the root's answer.
+//     (castSubPreAskable).
 //
-// The post-push ask (subTargetAsk) is the backstop for all three, exactly as
-// targetAsk is for a dynamic root.
-func (e *Engine) chainTargetsAvailable(p state.PlayerID, id, excludeSelf state.ObjID, sa *cards.SA, xPending bool) bool {
+// A TargetUnique$ link ("another target creature") is judged twice: alone,
+// like any link, and jointly with the root and the chain's other unique
+// links (uniqueChainTargetsFeasible) -- its pool excludes every earlier
+// declaration's answer, so three unique "target creature" declarations need
+// three distinct creatures. Skipping the link outright (the old census)
+// offered Stand Together with one creature on the table and Swift Kick with
+// no creature its unique link could name (cardfuzz fuzz-1003 planrev).
+//
+// The post-push ask (subTargetAsk) is the backstop for the unjudged links,
+// exactly as targetAsk is for a dynamic root.
+func (e *Engine) chainTargetsAvailable(p state.PlayerID, id, excludeSelf state.ObjID, sa *cards.SA, x int32, xPending bool, gift *bool) bool {
 	if sa.Sub == nil {
 		return true
 	}
 	var svars map[string]string
 	svarsRead := false
+	var uniq []*cards.SA
 	for _, sub := range e.collectSubTargetPreAsks(sa) {
 		if cond := strings.TrimSpace(sub.ParamStr(cards.PKCondition)); strings.EqualFold(cond, "Kicked") ||
 			strings.EqualFold(cond, "OptionalCost") {
-			continue
-		}
-		if effects.TargetUniqueRequested(sub) {
 			continue
 		}
 		if !svarsRead {
@@ -295,27 +339,33 @@ func (e *Engine) chainTargetsAvailable(p state.PlayerID, id, excludeSelf state.O
 		if sub.API == "Attach" {
 			subExclude = id
 		}
-		if !e.targetSAAvailable(p, id, subExclude, sub, 0, xPending) {
+		if !targetSAAvailableGift(e, p, id, subExclude, sub, x, xPending, gift) {
 			return false
 		}
+		if effects.TargetUniqueRequested(sub) {
+			uniq = append(uniq, sub)
+		}
 	}
-	return true
+	return len(uniq) == 0 || uniqueChainTargetsFeasible(e, p, id, excludeSelf, sa, uniq, x, xPending, gift)
 }
 
-func (e *Engine) rootTargetsAvailable(p state.PlayerID, id, excludeSelf state.ObjID, sa *cards.SA, xPending bool) bool {
+func (e *Engine) rootTargetsAvailable(p state.PlayerID, id, excludeSelf state.ObjID, sa *cards.SA, xPending bool, gift *bool) bool {
 	if sa.API == "Charm" && effects.CharmOf(sa).HasChoices {
 		return e.charmTargetsAvailable(p, id, sa, xPending)
 	}
 	// An Announce$ value can change the target restriction itself; its value
 	// is not available until the cast transaction reaches the announcement
-	// stage, so retain the post-announcement backstop for that shape.
-	if strings.TrimSpace(sa.ParamStr(cards.PKAnnounce)) != "" {
+	// stage, so retain the post-announcement backstop for that shape. A
+	// declaration that reads no announced name (Primitive Justice's "destroy
+	// target artifact", whose announced counts size only its chain) is judged
+	// now like any other.
+	if announceShapesTargets(e, id, sa) {
 		return true
 	}
 	if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
 		return true
 	}
-	return e.targetSAAvailable(p, id, excludeSelf, sa, 0, xPending)
+	return targetSAAvailableGift(e, p, id, excludeSelf, sa, 0, xPending, gift)
 }
 
 // costAnnouncesX reports whether paying this cost announces a value for {X}
