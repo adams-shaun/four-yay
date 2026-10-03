@@ -10,8 +10,9 @@ import (
 // TestRealityFractureGapCardsSupported pins the cards this change made
 // playable: every corpus api:Empower carrier, the scry/surveil-this-turn
 // readers and Karn, Argent Defender's DisableTriggers static report no
-// unsupported primitive. Sanctum Lurker, the 35th Empower carrier, is left
-// out: it also needs stat:IgnorePlaneswalkerZeroLoyaltyRule.
+// unsupported primitive. Sanctum Lurker, the 35th Empower carrier, also
+// needed stat:IgnorePlaneswalkerZeroLoyaltyRule; it is pinned by
+// TestRealityFractureGap2CardsSupported (fra_gap2_census_test.go).
 func TestRealityFractureGapCardsSupported(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
