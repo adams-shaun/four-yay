@@ -21,56 +21,6 @@ import (
 // first two also cache the chosen SVar names on the stack object so resolution
 // executes the announcement without asking again.
 func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
-	if ma, rp := e.takeOffStackManaRider(); ma != nil {
-		e.resume = rp
-		template := *ma
-		template.nestedResume = nil
-		asked := e.withOffStackMana(template, func() { e.handleModes(d, in) })
-		e.finishOffStackManaRider(ma, asked)
-		return
-	}
-	// An activated mana ability resolves outside the stack. Its UnlessCost$
-	// answer is therefore owned by the mana activation flow rather than an
-	// effects resume point, but is still recorded like every KModes answer.
-	if d.ResumeKind == "villainous" {
-		if e.resume == nil {
-			e.emit(events.Event{Kind: events.Note, Player: in.Player,
-				Text: "villainous choice answered with no resolution suspended"})
-			return
-		}
-		rp := e.resume
-		e.resume = nil
-		chosen := d.Chosen(in)
-		if len(chosen) > 0 && chosen[0].Index >= 0 && chosen[0].Index < len(d.ResumeModes) {
-			rp.villainousChoice = d.ResumeModes[chosen[0].Index]
-		}
-		e.emit(events.Event{Kind: events.ModeChosen, Obj: rp.obj, Player: in.Player,
-			Text: strings.Join(chosenModeLabels(chosen), ",")})
-		e.resumeResolution(rp, chosen)
-		return
-	}
-	// A multi-player api:GenericChoice's per-chooser KModes answer. Like the
-	// villainous arm, the answer is scoped to one chooser: record the chosen
-	// SVar name and resume the GenericChoice SA, which runs that chooser's body
-	// and then asks the next Defined$ chooser. The cursor itself rides the
-	// resume point (ResumeGenericChoosers/Index), so it is not re-derived here.
-	if d.ResumeKind == "generic_players" {
-		if e.resume == nil {
-			e.emit(events.Event{Kind: events.Note, Player: in.Player,
-				Text: "generic choice answered with no resolution suspended"})
-			return
-		}
-		rp := e.resume
-		e.resume = nil
-		chosen := d.Chosen(in)
-		if len(chosen) > 0 && chosen[0].Index >= 0 && chosen[0].Index < len(d.ResumeModes) {
-			rp.genericChoice = d.ResumeModes[chosen[0].Index]
-		}
-		e.emit(events.Event{Kind: events.ModeChosen, Obj: rp.obj, Player: in.Player,
-			Text: strings.Join(chosenModeLabels(chosen), ",")})
-		e.resumeResolution(rp, chosen)
-		return
-	}
 	if d.ResumeKind == "mana_unless" {
 		chosen := d.Chosen(in)
 		labels := chosenModeLabels(chosen)
@@ -81,42 +31,6 @@ func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
 		return
 	}
 
-	// CR 601.2b cast branch: the spell is already provisionally on the stack,
-	// but no targets have been selected and no cost has been paid. Record the
-	// answer on that spell, then resume the cast transaction at target choice.
-	// CR 702.55 dredge: a draw-step draw replaced by a graveyard dredge is
-	// NOT a stack object, so the ordinary mid-resolution resume path (which
-	// re-enters a suspended stack-object resolution) does not apply. Handle
-	// the answered dredge here: option 0 mills the dredge card's N and returns
-	// it to hand (the ordinary draw is already skipped by the ask's
-	// suspension), option 1 (or an empty answer) lets the draw happen, which
-	// the suspended DrawFor re-runs as the ordinary draw.
-	if d.ResumeKind == "dredge" && (e.resume == nil || e.resume.direct) {
-		// A turn-based draw has no enclosing stack resolution to re-enter.
-		// A Draw API on a resolving spell/ability instead falls through to
-		// resumeResolution below, which restores its cursor and finishes every
-		// remaining draw and SubAbility$ exactly once.
-		ch := d.Chosen(in)
-		if len(ch) > 0 && ch[0].Kind == "dredge" {
-			e.applyDredge(in.Player, ch[0].Obj)
-		} else {
-			e.resumeOrdinaryDraw(in.Player)
-		}
-		// A GainLife→Draw replacement body parked its remaining draws on this
-		// ask (replacement.go's lifeReplacementDraw): the answer resolved the
-		// draw that asked, so re-drive the rest -- which may park again on
-		// the next dredge ask -- and then drain any replacement-order queue
-		// the interrupted pass left behind.
-		if rp := e.resume; rp != nil && rp.lifeDraws > 0 {
-			rest := rp.lifeDraws
-			e.resume = nil
-			e.lifeReplacementDraw(in.Player, rest)
-			e.askNextReplacementChoice()
-			return
-		}
-		e.resume = nil
-		return
-	}
 	if d.ResumeKind == "cast_modes" {
 		e.applyCastModes(d, in.Player, d.Chosen(in))
 		return
@@ -226,19 +140,11 @@ func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
 		e.resumeTriggerDrain()
 		return
 	}
-	if e.resume == nil {
-		e.emit(events.Event{Kind: events.Note, Player: in.Player,
-			Text: "modes answered with no resolution suspended"})
-		return
-	}
-	rp := e.resume
-	e.resume = nil
-	chosen := d.Chosen(in)
-	recordModesAnswer(e, d, in.Player, chosen, rp.obj)
-	if isModeAnswerKind(rp.kind) {
-		chosen = modeAnswerInChoices(rp.sa, d.ResumeModes, chosen)
-	}
-	e.resumeResolution(rp, chosen)
+	// Every other KModes is a mid-resolution ask, posed inside a tape run and
+	// answered from its tape; one answered through Submit has no resolution
+	// behind it.
+	e.emit(events.Event{Kind: events.Note, Player: in.Player,
+		Text: "modes answered with no resolution suspended"})
 }
 
 // recordModesAnswer is the answer record every mid-resolution KModes answer
@@ -352,45 +258,6 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) state.ObjID {
 	return move.Obj
 }
 
-// continueAfterETBEntry hands an as-enters entry choice's answer back to the
-// resolution that entry interrupted. Engine.Ask parks the resolving object on
-// every mid-resolution ask, and applyETBChoiceReplacement's ask is posed from
-// inside emit, so the frame it parks is whatever effect was moving the object
-// onto the battlefield (a reanimation, a blink, Retether's mass Aura return).
-// resumeETBEntry has already completed the entry itself, so the frame resumes
-// with no answer: its recorded continuation (rp.outer) runs and the stack
-// object is finished, instead of being left on the stack for resolveTop to
-// resolve a second time.
-//
-// Direct frames have no interrupted stack resolution, and frames whose object
-// has left the stack independently have no remaining resolution to finish. A
-// permanent spell's own entry is different: its parked move is re-emitted by
-// the answer, so resolveTop never reached its completion tail. Finish that
-// spell here, from the same resolution-owned continuation used by other
-// suspended resolutions.
-func (e *Engine) continueAfterETBEntry(rp *resumePoint, entry state.ObjID) {
-	if rp == nil || rp.direct || rp.obj == 0 || e.pending != nil {
-		return
-	}
-	if rp.obj == entry {
-		e.finishResumption(rp.obj)
-		e.emit(events.Event{Kind: events.Priority, Player: e.G.Active})
-		return
-	}
-	if o := e.G.Obj(rp.obj); o == nil || o.Zone != state.ZStack {
-		return
-	}
-	e.resumeResolution(rp, nil)
-}
-
-// resumeResolution re-enters a suspended resolution with its answer. It
-// rebuilds the same Ctx resolveTop built for the object on its first pass
-// (Source/Controller/Targets/Remembered and the SVar table are all
-// re-derivable from the stack object, which has not moved), attaches the
-// answer, and re-runs the suspended sub-ability — effects.Resolve walks
-// from it through the rest of the chain, which is precisely the
-// continuation that had not run yet. If that continuation asks again the
-// new pending point is linked after this one's own continuation and the
 func unlessPayChoice(chosen []decision.Option) (decision.Option, bool) {
 	for _, option := range chosen {
 		if option.Mode == decision.ModeUnlessPay {

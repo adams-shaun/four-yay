@@ -59,7 +59,7 @@ func (e *Engine) SuspendTokenRest(sa *cards.SA, rest effects.TokenRest) bool {
 	// A fresh election is the one this park posed: its suspension record is
 	// the resume frame the park created.
 	var choice *tokenChoiceState
-	if tc := e.tokenChoice; tc != nil && tc.mintSink == 0 && tc.parkedResume == nil {
+	if tc := e.tokenChoice; tc != nil && tc.mintSink == 0 {
 		choice = tc
 	}
 	tagged := e.tagMintContinuations(id, from, choice)

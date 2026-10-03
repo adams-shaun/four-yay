@@ -1296,7 +1296,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		// with the election's answer as a bogus continuation and drop the
 		// election unanswered.
 		e.choosing = chooseNone
-		e.settleTokenElection(e.tokenReplAnswer(chosen))
+		e.tokenReplAnswer(chosen)
 		return
 	}
 	if e.choosing == chooseETBEntry {
@@ -1507,7 +1507,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		// answer either rewrites the parked plan to copies of the chosen
 		// creature or skips the match (a decline), and the flow then runs the
 		// plan's remaining replacement matches before the mints are emitted.
-		e.settleTokenElection(e.tokenReplAnswer(chosen))
+		e.tokenReplAnswer(chosen)
 	case chooseOpening:
 		// The marker routed exactly this answer. The round re-arms it for
 		// its next ask (stepOpening, resumeOpening); left armed after the

@@ -1038,63 +1038,7 @@ func (e *Engine) runReplaceWith(ctx *effects.Ctx, replaced state.ObjID, with *ca
 // Axonil competing over a trigger's damage). An ask the body poses is
 // unaffected: a pending decision makes the resolution suspended again.
 func (e *Engine) resolveReplacementBody(ctx *effects.Ctx, with *cards.SA) {
-	if e.contChainOwners > 0 {
-		e.resolveReplacementWith(ctx, with)
-		return
-	}
-	savedParked := e.answerParked
-	if e.resume != nil && e.pending == nil {
-		e.answerParked = e.resume
-	}
-	defer func() { e.answerParked = savedParked }()
-	if with.API == "ReplaceEffect" {
-		// Rewrites the held event synchronously and never asks, so it runs in
-		// place. No pass owns e.contChain here: a report its walk makes on a
-		// suspension it did not cause (an earlier body's still-pending ask)
-		// belongs to no chain, so it must not survive in the per-pass scratch.
-		savedChain, savedReported := e.contChain, e.repeatReported
-		e.contChain, e.repeatReported = nil, nil
-		e.resolveReplacementWith(ctx, with)
-		e.contChain, e.repeatReported = savedChain, savedReported
-		return
-	}
-	if e.resume != nil && e.pending != nil {
-		// buildContinuationChain resumes each frame at sa.Sub, so a parent
-		// whose Sub is the body makes the frame run the body from its start.
-		// Its replacement context (replaced object, damage target and amount,
-		// damage source) is read from the live replacement state here.
-		frame := e.buildContinuationChain([]contFrame{{sa: &cards.SA{Sub: with}}}, ctx.Source, nil)
-		tail := e.resume
-		for tail.outer != nil {
-			tail = tail.outer
-		}
-		tail.outer = frame
-	} else {
-		savedChain, savedReported := e.contChain, e.repeatReported
-		e.contChain, e.repeatReported = nil, nil
-		prior := e.resume
-		e.contChainOwners++
-		e.resolveReplacementWith(ctx, with)
-		e.contChainOwners--
-		if e.resume != nil && e.resume != prior && len(e.contChain) > 0 {
-			e.resume.outer = e.buildContinuationChain(e.contChain, ctx.Source, e.resume.outer)
-		}
-		e.contChain, e.repeatReported = savedChain, savedReported
-	}
-	// A TurnFaceUp replacement body that posed its own answer must not let
-	// the transition fold yet: park the marker's re-emit at the tail of the
-	// body's suspension chain, the discipline resumeETBEntry keeps for an
-	// as-enters choice (etbMove). The write lives HERE -- in the function the
-	// resume-state archtest names as the owner of a ReplaceWith$ body's
-	// continuation linkage -- not in the turn-up dispatch that set the field.
-	if e.turnUpMove != nil && e.resume != nil {
-		tail := e.resume
-		for tail.outer != nil {
-			tail = tail.outer
-		}
-		tail.outer = &resumePoint{kind: "turn_face_up_event", event: *e.turnUpMove}
-		e.turnUpMove = nil
-	}
+	e.resolveReplacementWith(ctx, with)
 }
 
 // applyReplacement applies the ONE chosen replacement to a MoveZone event,

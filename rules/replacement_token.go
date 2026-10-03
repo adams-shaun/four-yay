@@ -176,12 +176,6 @@ type tokenChoiceState struct {
 	next       int
 	match      replMatch
 	declineIdx int
-	// parkedResume carries the CR 616.1 order competition's own suspension
-	// record when the election was posed inside the answer that was applying
-	// that competition (pending nil, the record still on e.resume): the
-	// election's answer tail resumes it once the plan has settled, exactly
-	// as handleReplacement's tail would have.
-	parkedResume *resumePoint
 	// plainOptional marks an Optional$ True replacement with no copy source to
 	// choose (Type$ Amount/AddToken/ReplaceToken): the election is a bare
 	// apply/decline, and option declineIdx declines it while any other answer
@@ -292,10 +286,6 @@ func (e *Engine) poseChosenTokenReplacement(ev events.Event, matches []replMatch
 			Text: "ReplaceToken ValidChoices (TokenScript$ Chosen) cannot ask while another decision is pending; the token is created unchanged"})
 		return plan, false
 	}
-	parkedResume := (*resumePoint)(nil)
-	if e.resume != nil {
-		parkedResume = e.resume
-	}
 	asker := e.tokenElectionAsk
 	opts := make([]decision.Option, 0, len(cands)+1)
 	declineIdx := -1
@@ -312,7 +302,7 @@ func (e *Engine) poseChosenTokenReplacement(ev events.Event, matches []replMatch
 		opts = append(opts, decision.Option{Index: declineIdx + 1 + i, Kind: "creature", Label: label, Obj: id})
 	}
 	st := &tokenChoiceState{ev: ev, matches: matches, plan: plan,
-		next: idx + 1, match: m, declineIdx: declineIdx, parkedResume: parkedResume}
+		next: idx + 1, match: m, declineIdx: declineIdx}
 	e.tokenChoice = st
 	prompt := "Choose a creature to copy"
 	if optional {
@@ -326,73 +316,18 @@ func (e *Engine) poseChosenTokenReplacement(ev events.Event, matches []replMatch
 }
 
 // tokenElectionAsk poses a CreateToken replacement election (the chosen-copy
-// and the plain Optional$ shapes) and, when the token event interrupted a
-// stack resolution, SUSPENDS that resolution on it -- the same discipline
-// askReplacementChoice applies to the CR 616.1 order competition. A bare
-// e.ask here left the interrupted effect chain running past the park: the
-// resolving ability's next sub-ability asked its own question through
-// Engine.Ask, overwriting the election, the election's flow then consumed
-// that answer, and the resolving object stayed on the stack with nothing to
-// finish it, so resolveTop re-resolved it from the top on every priority
-// pass (fuzz batch6 line 4: Vivien, Monsters' Advocate's +1 minting a Beast
-// per pass under an equipped Mirrormind Crown). Through Engine.Ask the
-// effects.Resolve loops see Suspended and record their continuation, and the
-// record is remembered as the election's parkedResume so the answer tail
-// (settleTokenElection) resumes the resolution once the plan has settled.
-// A pose that already runs under a resume record (the order competition's
-// answer window), or with nothing resolving, keeps the plain ask: there is
-// nothing further to suspend, and a stale record would make resolveTop
-// abandon a resolution that actually finished.
+// and the plain Optional$ shapes). Under the resolution kernel the election
+// is answered in place (W3 step 5): the settled plan mints at the point of
+// the creation.
 func (e *Engine) tokenElectionAsk(d *decision.Decision, st *tokenChoiceState) {
-	if e.resume == nil && e.pending == nil && (e.resolvingObj != 0 || e.applyingReplacement) {
+	if e.pending == nil && (e.resolvingObj != 0 || e.applyingReplacement) {
 		d.ResumeKind = "replacement"
-		// Under the resolution kernel the election is answered in place (W3
-		// step 5): the settled plan mints at the point of the creation.
 		if in, ok := parkTapeAnswer(e, d); ok {
 			e.handle(d, in)
 			return
 		}
-		e.Ask(d)
-		st.parkedResume = e.resume
-		return
 	}
 	e.ask(d)
-}
-
-// settleTokenElection is the answer tail of a CreateToken replacement
-// election: rp is the suspension record the election's state carried
-// (tokenReplAnswer's return). With nothing further outstanding the
-// suspended resolution resumes now. When settling the plan posed a nested
-// ask of its own (a minted copy's as-enters choice through Engine.Ask), that
-// ask owns e.resume: rp runs after its whole continuation chain, the
-// settleReplacementQueue discipline -- dropping it would leave the
-// interrupted object on the stack for resolveTop to re-resolve unbounded.
-// A queued order competition keeps rp on e.resume for its own answer tail.
-func (e *Engine) settleTokenElection(rp *resumePoint) {
-	if rp == nil {
-		return
-	}
-	if e.resume == rp {
-		if e.pending == nil && len(e.replChoices) == 0 {
-			e.resume = nil
-			e.resumeResolution(rp, nil)
-		}
-		return
-	}
-	if e.resume == nil {
-		return
-	}
-	tail := e.resume
-	for {
-		if tail == rp {
-			return
-		}
-		if tail.outer == nil {
-			break
-		}
-		tail = tail.outer
-	}
-	tail.outer = rp
 }
 
 // posePlainOptionalTokenReplacement handles ONE Optional$ True
@@ -405,7 +340,7 @@ func (e *Engine) settleTokenElection(rp *resumePoint) {
 // The ask is parked on e.tokenChoice and the flow resumes through
 // tokenReplAnswer (the chosen-copy path's own resume).
 func (e *Engine) posePlainOptionalTokenReplacement(ev events.Event, matches []replMatch, plan []tokenPlanMint, idx int, m replMatch) ([]tokenPlanMint, bool) {
-	if e.tokenChoice != nil || e.pending != nil || e.resume != nil {
+	if e.tokenChoice != nil || e.pending != nil {
 		e.emit(events.Event{Kind: events.Note, Obj: m.id, Player: ev.Player,
 			Text: "an optional ReplaceToken election cannot ask while another decision is pending; the replacement is declined"})
 		return plan, false
@@ -429,28 +364,23 @@ func (e *Engine) posePlainOptionalTokenReplacement(ev events.Event, matches []re
 // chooseTokenReplace case of handleChoose): the answered option either
 // rewrites the plan to copies of the chosen creature or skips the match (the
 // decline), and the flow then drives the plan's remaining matches.
-func (e *Engine) tokenReplAnswer(chosen []decision.Option) *resumePoint {
+func (e *Engine) tokenReplAnswer(chosen []decision.Option) {
 	st := e.tokenChoice
 	e.tokenChoice = nil
 	e.choosing = chooseNone
 	if st == nil {
 		e.emit(events.Event{Kind: events.Note, Text: "token copy choice answered with no replacement pending"})
-		return nil
+		return
 	}
 	// A resolving DB$ Token waiting on this creation collects what the
 	// answer mints (and hands the collector to any election or order ask the
-	// answer poses next) before its continuation resumes.
-	var rp *resumePoint
-	saved := e.answerInResolution
-	e.answerInResolution = saved || st.parkedResume != nil
-	e.withMintSink(st.mintSink, func() { rp = e.settleTokenAnswer(st, chosen) })
-	e.answerInResolution = saved
-	return rp
+	// answer poses next).
+	e.withMintSink(st.mintSink, func() { e.settleTokenAnswer(st, chosen) })
 }
 
 // settleTokenAnswer is tokenReplAnswer's body: apply the answered election to
 // the parked plan, drive the remaining matches and emit the settled plan.
-func (e *Engine) settleTokenAnswer(st *tokenChoiceState, chosen []decision.Option) *resumePoint {
+func (e *Engine) settleTokenAnswer(st *tokenChoiceState, chosen []decision.Option) {
 	if st.plainOptional {
 		// A bare Optional$ election: any non-decline answer applies the
 		// match itself; the decline skips it and the remaining matches run.
@@ -470,11 +400,10 @@ func (e *Engine) settleTokenAnswer(st *tokenChoiceState, chosen []decision.Optio
 	}
 	plan, parked := e.driveTokenReplacements(st.ev, st.matches, st.plan, st.next)
 	if parked {
-		return nil
+		return
 	}
 	e.emitTokenPlan(st.ev, plan)
 	e.askNextReplacementChoice()
-	return st.parkedResume
 }
 
 // emitTokenPlan settles the parked plan after every match has been applied

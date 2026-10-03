@@ -139,65 +139,6 @@ type engineResolution struct {
 	// own-source maps above, every waiting resolution receives departures: the
 	// named source can be TriggeredCard, Targeted, or Remembered.
 	damageSourceLKI map[state.ObjID]map[state.ObjID]effects.DamageSourceLKI `clone:"deep"`
-	// moveCounterAsk carries a MoveCounter resolution's ANSWERED asks across
-	// the later suspensions of the same SA (the movecounter1 livelock fix).
-	// A MoveCounter sub the placement/announcement ask never covered poses
-	// its own ValidTgts$ target ask (the mvts1 pre-ask) AND, for
-	// CounterType$ Any / CounterNum$ Any, asks of its own; every resume
-	// builds a fresh Ctx and re-enters the SA from its top, so an earlier
-	// round's answer (the target set, the chosen kind, the chosen amount)
-	// must be re-seeded into that Ctx or the two asks alternate forever and
-	// the resolution never drains (Nesting Grounds, Rikku, Goldberry's
-	// second ability). rules/resolution.go's "tgts", "move_counter_kind"
-	// and "move_counter" arms store their answers here and the re-entry
-	// seeds them into the fresh Ctx before effects.Resolve; the entry is
-	// deleted when the resolution completes. Decision-derived engine
-	// scratch, in the triggerLKI discipline: replay re-submits the recorded
-	// Intents through the same arms, so the map re-derives identically and
-	// no event carries it. Never nil-checked on read outside recordAsk
-	// (which lazy-inits).
-	moveCounterAsk map[state.ObjID]*moveCounterPending `clone:"deep"`
-	// aorAsk carries an AddOrRemoveCounter resolution's ANSWERED per-kind
-	// elections across the later suspensions of the same SA (the
-	// moveCounterAsk discipline — counterchoice1). An EachExistingCounter$
-	// walk (Dramatist's Puppet, Quarry Hauler) asks one add/remove election
-	// per counter kind; every resume builds a fresh Ctx, so without this map
-	// an already-answered PUT kind (whose counter count is still positive and
-	// therefore still enumerates) would be re-asked forever. rules/
-	// resolution.go's "aor_elect" arm records the answered kind here and the
-	// re-entry seeds it into Ctx.AorAnswered; the entry is deleted when the
-	// resolution completes. Decision-derived engine scratch, in the
-	// moveCounterAsk discipline: replay re-submits the recorded Intents
-	// through the same arms, so the map re-derives identically and no event
-	// carries it.
-	aorAsk map[state.ObjID]map[string]bool `clone:"deep"`
-	// counterTypeAsk carries per-recipient comma-list PutCounter answers across
-	// suspensions. It is replay-derived engine scratch, never game state.
-	counterTypeAsk map[state.ObjID]*counterTypePending `clone:"deep"`
-	// targetsPickAsk carries an ANSWERED generic ValidTgts$ pre-ask (the
-	// mvts1 "tgts" arm) across a LATER suspension of the same SA, for every
-	// API -- the general form of the moveCounterAsk cursor above, which
-	// solved exactly this for MoveCounter alone. chosenTargetsFor CONSUMES
-	// Ctx.TargetsPick before dispatching the body (fx42 scoping, so a nested
-	// SA cannot inherit it), and every resume builds a FRESH Ctx; so if the
-	// body then suspends on an ask of its own, the next resume re-enters the
-	// SA from its top with no answer, re-poses the pre-ask, and the two asks
-	// alternate forever. Kozilek's Command is the live carrier: its Charm
-	// picks DBScry alongside another targeting mode, so the stack object's
-	// one undivided target list is not DBScry's player, the pre-ask fires at
-	// resolution, and the Scry's own KArrange is the second ask that loops
-	// (arrange -> tgts -> arrange ...). Keyed by resolving stack object and
-	// then by the SA's Line -- ResolveSVar parses fresh on every call, so
-	// pointer identity never holds across a resume, the same matching
-	// convention charmModeTarget and chosenTargetsFor's OfferedSA check use.
-	// The per-SA key keeps one sub's answer off another sub's ask, and the
-	// entry is deleted when THAT SA's resolution completes so a later
-	// re-entry (a Repeat loop) asks afresh. Decision-derived engine scratch
-	// in the moveCounterAsk discipline: replay re-submits the recorded
-	// Intents through the same arm, so the map re-derives identically and no
-	// event carries it.
-	targetsPickAsk map[state.ObjID]map[string][]state.Target `clone:"deep"`
-
 	// replReplaced is the ev.Obj of the replacement applyReplacements is
 	// currently resolving — the object the replaced event was about. It is
 	// seeded by applyReplacements (Ctx.Replaced = ev.Obj) and read by Ask to
