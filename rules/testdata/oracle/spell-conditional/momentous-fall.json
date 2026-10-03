@@ -1,0 +1,41 @@
+{
+  "card": "Momentous Fall",
+  "family": "spell-conditional",
+  "oracle_sha": "cc2141e1fef2",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "sacrifice-cost-draws-power-and-gains-toughness",
+      "cr": ["601.2b", "701.16a", "121.1"],
+      "why": "The additional cost sacrifices a creature; the caster draws cards equal to the sacrificed creature's power and gains life equal to its toughness. A 3/3 Centaur Courser draws 3 and gains 3.",
+      "setup": {
+        "p0": {"hand": ["Momentous Fall"], "battlefield": ["Centaur Courser"], "life": 20, "library_top": ["Forest", "Island", "Mountain"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Momentous Fall", "mana": "GGCC", "answers": [{"kind": "any", "pick": ["p0:Centaur Courser"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Centaur Courser", "zone": "graveyard"},
+        {"life": {"p0": 23}},
+        {"hand_size": {"p0": 3}}
+      ]
+    },
+    {
+      "name": "cannot-cast-without-a-creature-to-sacrifice",
+      "cr": ["601.2b", "601.2g"],
+      "why": "The additional sacrifice cost cannot be paid with no creature on the battlefield, so the spell is not offered.",
+      "setup": {
+        "p0": {"hand": ["Momentous Fall"], "life": 20},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass_to", "seat": 0, "decision": "priority"}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Momentous Fall"}, "want": false}
+      ]
+    }
+  ]
+}

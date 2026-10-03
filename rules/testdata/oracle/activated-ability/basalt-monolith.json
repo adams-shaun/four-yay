@@ -1,0 +1,43 @@
+{
+  "card": "Basalt Monolith",
+  "family": "activated-ability",
+  "oracle_sha": "d2d1c9d4b58f",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "untap-ability-taps-for-three-then-untaps",
+      "cr": ["602.2b"],
+      "why": "{T}: Add {C}{C}{C} adds three colourless mana and the {3}: Untap ability spends that mana to untap it, so after resolution the artifact is untapped and the pool is empty.",
+      "setup": {
+        "p0": {"battlefield": ["Basalt Monolith"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Basalt Monolith", "ability": "Add {C}{C}{C}"},
+        {"op": "mana", "seat": 0, "mana": "CCC"},
+        {"op": "activate", "seat": 0, "card": "p0:Basalt Monolith", "ability": "Untap this artifact"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Basalt Monolith", "tapped": false, "zone": "battlefield"},
+        {"pool": {"p0": ""}}
+      ]
+    },
+    {
+      "name": "does-not-untap-in-untap-step",
+      "cr": ["502.3"],
+      "why": "\"This artifact doesn't untap during your untap step.\" After tapping it for mana and ending the turn, it stays tapped through the next untap step.",
+      "setup": {
+        "p0": {"battlefield": ["Basalt Monolith"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Basalt Monolith", "ability": "Add {C}{C}{C}"},
+        {"op": "pass_to", "seat": 1, "step": "upkeep"}
+      ],
+      "expect": [
+        {"card": "p0:Basalt Monolith", "tapped": true, "zone": "battlefield"}
+      ]
+    }
+  ]
+}

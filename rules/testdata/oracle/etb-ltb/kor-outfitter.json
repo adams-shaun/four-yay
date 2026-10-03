@@ -1,0 +1,42 @@
+{
+  "card": "Kor Outfitter",
+  "family": "etb-ltb",
+  "oracle_sha": "a835766fc68b",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-may-attach-equipment-to-a-creature",
+      "cr": ["603.2", "701.3a"],
+      "why": "The optional enters trigger may attach a target Equipment you control to a target creature you control; the chosen Equipment ends up attached, so the Bears are 4/2.",
+      "setup": {
+        "p0": {"hand": ["Kor Outfitter"], "battlefield": ["Bonesplitter", "Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Kor Outfitter", "mana": "WW"},
+        {"op": "resolve", "targets": ["p0:Bonesplitter", "p0:Grizzly Bears"]}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "pt": "4/2"},
+        {"card": "p0:Kor Outfitter", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "equipment-cannot-attach-to-opponents-creature",
+      "cr": ["603.2", "701.3a"],
+      "why": "Both targets must be permanents you control (an Equipment you control and a creature you control); with only an opponent's creature available the trigger has no legal creature target and attaches nothing.",
+      "setup": {
+        "p0": {"hand": ["Kor Outfitter"], "battlefield": ["Bonesplitter"]},
+        "p1": {"battlefield": ["Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Kor Outfitter", "mana": "WW"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Savannah Lions", "pt": "2/1"},
+        {"card": "p0:Kor Outfitter", "zone": "battlefield"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "card": "Khalni Heart Expedition",
+  "family": "activation-condition",
+  "oracle_sha": "2bb32bd7fc20",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "landfall-adds-a-quest-counter",
+      "cr": ["603.2", "122.1"],
+      "why": "Landfall triggers whenever a land you control enters; the controller may put a quest counter on the Expedition.",
+      "setup": {
+        "p0": {"battlefield": ["Khalni Heart Expedition"], "hand": ["Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Forest"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["yes"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Khalni Heart Expedition", "counters": {"quest": 1}},
+        {"card": "p0:Forest", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "three-counters-sacrifices-and-fetches-two-lands",
+      "cr": ["602.2b", "701.16a", "701.19a"],
+      "why": "With three quest counters the ability removes them, sacrifices the Expedition, and searches the library for up to two basic land cards put onto the battlefield tapped.",
+      "setup": {
+        "p0": {"battlefield": ["Khalni Heart Expedition"], "hand": ["Forest"], "library": ["Forest", "Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Forest"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["yes"]}]},
+        {"op": "move", "seat": 0, "card": "p0:Forest", "to": "battlefield"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["yes"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Khalni Heart Expedition", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "fewer-than-three-counters-cannot-activate",
+      "cr": ["602.5a", "107.3"],
+      "why": "The activated ability's cost is removing three quest counters; with only two counters on it the ability is not offered.",
+      "setup": {
+        "p0": {"battlefield": ["Khalni Heart Expedition"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass_to", "seat": 0, "decision": "priority"}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "activate", "card": "p0:Khalni Heart Expedition", "label": "Remove three quest counters"}, "want": false}
+      ]
+    }
+  ]
+}

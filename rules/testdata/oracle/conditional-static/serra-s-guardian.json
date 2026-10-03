@@ -1,0 +1,41 @@
+{
+  "card": "Serra's Guardian",
+  "family": "conditional-static",
+  "oracle_sha": "8299fcbb7b6c",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "other-creatures-have-vigilance",
+      "cr": ["604.3", "702.20b"],
+      "why": "The static grant gives OTHER creatures you control vigilance; attacking with them does not tap them.",
+      "setup": {
+        "p0": {"battlefield": ["Serra's Guardian", "Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Grizzly Bears"], "defender": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "end"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "tapped": false, "zone": "battlefield"},
+        {"card": "p0:Serra's Guardian", "tapped": false, "keywords": ["Flying", "Vigilance"]}
+      ]
+    },
+    {
+      "name": "guardian-has-flying-and-vigilance",
+      "cr": ["702.9b", "702.20b"],
+      "why": "The Guardian itself has flying and vigilance; flying is a keyword on the permanent and it is not tapped by attacking.",
+      "setup": {
+        "p0": {"battlefield": ["Serra's Guardian"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Serra's Guardian"], "defender": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "end"}
+      ],
+      "expect": [
+        {"card": "p0:Serra's Guardian", "tapped": false, "keywords": ["Flying", "Vigilance"], "pt": "5/5"}
+      ]
+    }
+  ]
+}

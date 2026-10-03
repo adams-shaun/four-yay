@@ -1,0 +1,43 @@
+{
+  "card": "Recruiter of the Guard",
+  "family": "etb-ltb",
+  "oracle_sha": "57887e23f52c",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-tutors-a-toughness-two-or-less-creature",
+      "cr": ["603.2", "701.19a"],
+      "why": "The optional enters trigger searches the library for a creature card with toughness 2 or less and puts it into hand; accepting and choosing Grizzly Bears moves it from library to hand.",
+      "setup": {
+        "p0": {"hand": ["Recruiter of the Guard"], "library": ["Grizzly Bears", "Centaur Courser"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Recruiter of the Guard", "mana": "WWC"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["yes"]}, {"kind": "any", "pick": ["p0:Grizzly Bears"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Recruiter of the Guard", "zone": "battlefield", "pt": "1/1"},
+        {"card": "p0:Grizzly Bears", "zone": "hand"},
+        {"card": "p0:Centaur Courser", "zone": "library"}
+      ]
+    },
+    {
+      "name": "declining-searches-nothing",
+      "cr": ["603.3d"],
+      "why": "The trigger is optional; declining finds nothing, so the library card stays in the library and the hand is empty.",
+      "setup": {
+        "p0": {"hand": ["Recruiter of the Guard"], "library": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Recruiter of the Guard", "mana": "WWC"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["no"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "library"},
+        {"hand_size": {"p0": 0}}
+      ]
+    }
+  ]
+}
