@@ -329,13 +329,6 @@ func EvalCountOK(h Host, c *Ctx, expr string) (int32, bool) {
 // would otherwise be the only unbounded recursion in this evaluator.
 const maxCountDepth = 8
 
-// evalCountExpr is EvalCount's body plus a recursion depth for the Compare
-// head's SVar-name resolution; the public entry point always starts at 0.
-func evalCountExpr(h Host, c *Ctx, expr string, depth int) int32 {
-	n, _ := evalCountExprOK(h, c, expr, depth)
-	return n
-}
-
 // evalCountExprOK is EvalCountOK's body plus the recursion depth; see the
 // EvalCountOK doc for the verdict's meaning.
 func evalCountExprOK(h Host, c *Ctx, expr string, depth int) (int32, bool) {

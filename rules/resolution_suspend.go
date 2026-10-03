@@ -268,20 +268,6 @@ type counterTypePending struct {
 	answers []string // recipient index -> answered individual kind
 }
 
-// moveCounterEntry returns (creating if needed) the pending state for a
-// resolving MoveCounter stack object.
-func (e *Engine) moveCounterEntry(obj state.ObjID) *moveCounterPending {
-	if e.moveCounterAsk == nil {
-		e.moveCounterAsk = make(map[state.ObjID]*moveCounterPending)
-	}
-	p := e.moveCounterAsk[obj]
-	if p == nil {
-		p = &moveCounterPending{}
-		e.moveCounterAsk[obj] = p
-	}
-	return p
-}
-
 // seedMoveCounterAsk fills a fresh resume Ctx with the answers earlier rounds
 // of this MoveCounter resolution already recorded, leaving anything the
 // current round's own arm already answered (its Done flag is authoritative)
@@ -318,26 +304,6 @@ func (e *Engine) seedMoveCounterAsk(obj state.ObjID, ctx *effects.Ctx) {
 	if !ctx.MoveCounterNDone && p.nSet {
 		ctx.MoveCounterN, ctx.MoveCounterNDone = p.n, true
 	}
-}
-
-// recordTargetsPick stores one answered generic ValidTgts$ pre-ask under the
-// resolving stack object and this exact SA's Line, so a LATER suspension of
-// the same SA re-seeds it instead of re-posing the ask (the general form of
-// the movecounter1 fix; see Engine.targetsPickAsk). A nil SA -- a resume
-// point with no sub-ability -- records nothing: there is nothing to key on.
-func (e *Engine) recordTargetsPick(obj state.ObjID, sa *cards.SA, targets []state.Target) {
-	if sa == nil {
-		return
-	}
-	if e.targetsPickAsk == nil {
-		e.targetsPickAsk = make(map[state.ObjID]map[string][]state.Target)
-	}
-	byLine := e.targetsPickAsk[obj]
-	if byLine == nil {
-		byLine = make(map[string][]state.Target)
-		e.targetsPickAsk[obj] = byLine
-	}
-	byLine[sa.Line] = append([]state.Target(nil), targets...)
 }
 
 // seedTargetsPick re-seeds a fresh resume Ctx with the pre-ask answer an
@@ -379,20 +345,6 @@ func (e *Engine) forgetTargetsPick(obj state.ObjID, sa *cards.SA) {
 	if len(byLine) == 0 {
 		delete(e.targetsPickAsk, obj)
 	}
-}
-
-// aorEntry returns (creating if needed) the answered-kind cursor for a
-// resolving AddOrRemoveCounter stack object.
-func (e *Engine) aorEntry(obj state.ObjID) map[string]bool {
-	if e.aorAsk == nil {
-		e.aorAsk = make(map[state.ObjID]map[string]bool)
-	}
-	set := e.aorAsk[obj]
-	if set == nil {
-		set = make(map[string]bool)
-		e.aorAsk[obj] = set
-	}
-	return set
 }
 
 // seedAorAsk fills a fresh resume Ctx with the kinds this AddOrRemoveCounter

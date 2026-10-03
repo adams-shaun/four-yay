@@ -106,17 +106,6 @@ func admitProvenanceAlternatives(spec, pred string, holds bool) (string, bool) {
 	return b.String(), true
 }
 
-// castFromHandAdmits evaluates the bare wasCastFromYourHandByYou /
-// !wasCastFromYourHandByYou qualifier of a Forge filter spec against objID:
-// every alternative carrying the qualifier but failing the provenance test —
-// the object was NOT cast from you's hand by you, or the object is a copy
-// (never cast, the same IsCopy guard the count head takes) — is dropped, and
-// the surviving alternatives are rejoined. ok is false when no alternative
-// survives: the spec matches nothing.
-func (e *Engine) castFromHandAdmits(spec string, objID state.ObjID, you state.PlayerID) (string, bool) {
-	return e.castFromHandAdmitsWindow(spec, objID, you, false)
-}
-
 // castFromHandAdmitsWindow is castFromHandAdmits with the pre-push OFFER
 // window fallback: when pendingCast is set (the layer walk is evaluating an
 // AffectedZone$ Stack grant against the object being cast, before CR
@@ -136,13 +125,6 @@ func (e *Engine) castFromHandAdmitsWindow(spec string, objID state.ObjID, you st
 		}
 	}
 	return admitProvenanceAlternatives(spec, "wasCastFromYourHandByYou", holds)
-}
-
-// castAtAllAdmits evaluates the bare wasCastByYou / !wasCastByYou qualifier
-// (castprov2): "was cast at all, by you" — some PutOnStack event for this
-// object names you as caster, any origin. Copies were never cast.
-func (e *Engine) castAtAllAdmits(spec string, objID state.ObjID, you state.PlayerID) (string, bool) {
-	return e.castAtAllAdmitsWindow(spec, objID, you, false)
 }
 
 // castAtAllAdmitsWindow is castAtAllAdmits with the pre-push OFFER window
@@ -197,20 +179,6 @@ func specHasBareWasCast(spec string) bool {
 	}
 }
 
-// castAtAllBareAdmits evaluates the bare wasCast / !wasCast qualifier's
-// LOG reading — the caster-agnostic sibling of wasCastByYou (the Host's
-// WasCast read: the object's LATEST PutOnStack exists; a copy was never
-// cast; the live pending cast closes the offer window). The filter's
-// wordWasCast body keeps the on-the-stack zone reading for every site that
-// does not call this chain — the two agree for a spell on the stack — while
-// the entry-provenance sites that do (an ETB "if it was cast", Satoru's
-// batch trigger's !wasCast arm) take the log read; the zone reading at an
-// entry would wrongly answer !wasCast for EVERY cast entry, since the
-// object has already left the stack.
-func (e *Engine) castAtAllBareAdmits(spec string, objID state.ObjID) (string, bool) {
-	return e.castAtAllBareAdmitsWindow(spec, objID, false)
-}
-
 // castAtAllBareAdmitsWindow is castAtAllBareAdmits with the pre-push OFFER
 // window fallback (see castFromHandAdmitsWindow): an AffectedZone$ Stack
 // grant whose Affected$ carries the bare token (Wort, the Raidmother's
@@ -228,24 +196,6 @@ func (e *Engine) castAtAllBareAdmitsWindow(spec string, objID state.ObjID, pendi
 		holds = true
 	}
 	return admitProvenanceAlternatives(spec, "wasCast", holds)
-}
-
-// castFromHandAnyAdmits evaluates the bare wasCastFromYourHand /
-// !wasCastFromYourHand qualifier (castprov3): the object's LATEST PutOnStack
-// event names the cast and that cast came from a hand, any caster — the
-// WasCastFromHand read minus the ByYou families' player comparison. Copies
-// were never cast; a card never put on the stack (cheated into play) reads
-// false, so a negated alternative holds for it.
-//
-// ORDER INVARIANT: this helper MUST run after castFromHandAdmits in
-// castProvenanceAdmits's chain. The bare token is a SUBSTRING of
-// wasCastFromYourHandByYou, so a ByYou spec also contains the bare one;
-// StripPredicateToken removes exact tokens (it would never partially mangle
-// a ByYou token), but the polarity accounting would be wrong if the bare
-// helper ran first — a ByYou spec would be evaluated under the bare,
-// caster-less read. ByYou must be stripped (or found absent) first.
-func (e *Engine) castFromHandAnyAdmits(spec string, objID state.ObjID) (string, bool) {
-	return e.castFromHandAnyAdmitsWindow(spec, objID, false)
 }
 
 // castFromHandAnyAdmitsWindow is castFromHandAnyAdmits with the pre-push

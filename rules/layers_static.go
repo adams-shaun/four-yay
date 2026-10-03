@@ -204,12 +204,6 @@ func (e *Engine) cdaPTStatic(st cards.Static, ctx *effects.Ctx) (p, t int32, has
 	return chars.CDAPTStatic(e, st, ctx)
 }
 
-// cdaSetPT is the object's own layer-7a characteristic-defining P/T
-// (chars.CDASetPT) over the engine's Board.
-func (e *Engine) cdaSetPT(o *state.Object) (p, t int32, hasP, hasT bool) {
-	return chars.CDASetPT(asChars(e), o)
-}
-
 // GrantedSVar reports the named variable a live static grant (AddSVar$ on a
 // Mode$ Continuous static, e.g. Sword of Fire and Ice's MustBeBlocked on the
 // equipped creature) gives id: the value Forge's "SVar:<Name>:<Value>"
@@ -421,15 +415,6 @@ func mayPlayGrant(st cards.Static) bool {
 func hasStat(st cards.Static, key string) bool {
 	_, ok := st.Params[key]
 	return ok
-}
-
-// staticAmount evaluates a static's P/T parameter at derivation time. It
-// deliberately goes through effects.Num: that is the shared Forge numeric
-// grammar for signed SVar names and Count$ bodies. The source and its SVar
-// table are rebound on every call, so a life total, counters, or zones changing
-// after the static entered changes its value without any cached snapshot.
-func (e *Engine) staticAmount(ce *ContinuousEffect, expr string) int32 {
-	return e.staticAmountOn(ce, expr, ce.Source)
 }
 
 // staticAmountOn evaluates a static's numeric expression with Ctx.Source

@@ -116,18 +116,6 @@ func (e *Engine) castMiracle(pt pendingTrigger) {
 	e.drainAwaitsTarget = e.pending != nil
 }
 
-// miracleCost reads the printed miracle cost off a face ("" if the face has
-// no Miracle keyword), shared by cast.go's "miracle" mode, triggerLabel, and
-// the PendingTriggers view.
-func (e *Engine) miracleCost(id state.ObjID) (string, bool) {
-	if o := e.G.Obj(id); o != nil {
-		if f := o.Face(); f != nil {
-			return f.KeywordParam("Miracle")
-		}
-	}
-	return "", false
-}
-
 func init() {
 	effects.RegisterNonAPI("kw:Miracle")
 }

@@ -697,14 +697,6 @@ func (e *Engine) namedAnnounceSVars(source state.ObjID, svars map[string]string)
 	return out
 }
 
-// namedAnnounceBound reports whether a pending cast of id has announced a
-// named count, which binds a Relative$ ReduceCost's amount exactly as an
-// announced X does.
-func (e *Engine) namedAnnounceBound(id state.ObjID) bool {
-	pc := e.cast
-	return pc != nil && pc.card == id && pc.named != "" && pc.namedDone
-}
-
 // offerNamedMods is the offer gate's sweep over a named announcement's legal
 // counts (1..the objects the part could pay with): the paired Relative$
 // ReduceCost reads the announced count, so the pre-announcement snapshot

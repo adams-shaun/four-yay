@@ -49,12 +49,6 @@ func init() {
 // Every registration is a real event (DelayedRegister) or an AddContinuous
 // the replay re-executes, so a replayed game re-derives the identical board.
 
-// blitzFace reports whether f prints K:Blitz. A nil face, or one whose
-// keyword is absent, is false.
-func blitzFace(f *cards.Face) bool {
-	return f != nil && f.HasKeyword("Blitz")
-}
-
 // blitzEnter registers the CR 702.152 riders for a permanent a blitz-cost
 // spell became. It is called from altCostEnter (a battlefield MoveZone), so
 // the registrations' Source is the entering permanent -- the "creature" the

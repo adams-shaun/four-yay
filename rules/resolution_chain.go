@@ -295,16 +295,6 @@ func chosenModeLabels(chosen []decision.Option) []string {
 	return labels
 }
 
-// modeDecision builds the shared KModes option vocabulary used by spell
-// announcement and triggered-ability placement. min and max are resolved by
-// effects.CharmModeBounds against the caller's complete effects context, and
-// repeat is its CanRepeatModes$ result: when set, the decision permits the
-// same mode index more than once and max is NOT clamped to the distinct-mode
-// count.
-func modeDecision(p state.PlayerID, source state.ObjID, sa *cards.SA, svars map[string]string, min, max int, repeat bool) *decision.Decision {
-	return modeDecisionForChoices(p, source, sa, svars, effects.CharmOf(sa).Modes, min, max, repeat)
-}
-
 // modeDecisionForChoices is modeDecision over an explicit eligible subset.
 // Casting uses it to omit modes whose mandatory targets cannot be chosen;
 // ResumeModes preserves the SVar vocabulary server-side while Index stays
@@ -517,13 +507,6 @@ func (e *Engine) charmModeScope() []state.Target {
 		return nil
 	}
 	return append([]state.Target(nil), e.resolutionCtx.CharmModeScope...)
-}
-
-func (e *Engine) charmModeScopeSA() *cards.SA {
-	if e.resolutionCtx == nil {
-		return nil
-	}
-	return e.resolutionCtx.CharmModeSA
 }
 
 // applyCastModes records a CR 601.2b cast-time mode announcement (the

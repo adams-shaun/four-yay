@@ -445,18 +445,6 @@ func (e *Engine) hasCastConspire(id state.ObjID) bool {
 	return false
 }
 
-// hasCastCascade reports whether the spell being cast carries Cascade
-// (CR 702.85), read the way hasCastConvoke reads Convoke: the printed K:
-// line, or a layer-6 grant (the printed S: statics the layer walk emits and
-// the DB$ Effect-delivered statics effEffect registers — TARDIS's "the next
-// spell you cast this turn has cascade") whose AffectedZone$ scope reaches
-// the cast spell. The queue that mints the cast trigger counts INSTANCES
-// (cascadeInstances), because CR 702.85b gives a spell with two cascade
-// abilities two triggers (Maelstrom Wanderer's "cascade, cascade").
-func (e *Engine) hasCastCascade(id state.ObjID) bool {
-	return e.cascadeInstances(id) > 0
-}
-
 // cascadeInstances counts the spell's Cascade instances: one per printed
 // K:Cascade line plus one per layer-6 AddKeyword$ Cascade grant whose
 // AffectedZone$ scope reaches the spell, evaluated against the stack the way

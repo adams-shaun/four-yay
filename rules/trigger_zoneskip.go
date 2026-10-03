@@ -182,13 +182,6 @@ func computeFaceTriggerZones(f *cards.Face, valid func(string) bool) uint8 {
 // phaseSpecValid is parsedPhaseSpec's validity bit without an engine memo.
 func phaseSpecValid(spec string) bool { return parsePhaseSpec(spec).valid }
 
-// objectTriggerHot reports whether the trigger walk might do anything for o
-// (other than as an event referent) where it sits now. Conservative: true
-// for any object outside a summarized zone.
-func (e *Engine) objectTriggerHot(o *state.Object) bool {
-	return e.objectTriggerHotIn(o, trigZoneSlot(o.Zone))
-}
-
 // A summary classifies each listed object by the slot of its OWN Zone field,
 // not the list's: zoneGate admits a non-referent source by o.Zone, so the two
 // agree by construction (and agree with the list in every event-built state;

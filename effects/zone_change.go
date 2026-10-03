@@ -1212,15 +1212,6 @@ func gainControlOf(h Host, c *Ctx, gc ParamText) (state.PlayerID, bool, bool) {
 	return 0, false, true
 }
 
-// applyGainControl emits the ControlChange that hands a just-moved object to
-// the GainControl$ player, after the Move has placed it. Order matters: the
-// move establishes the entry (controller = owner, CR 400.7), the control
-// change is the CR 701.22a "gains control" step on top, and replay folds the
-// two events in the same order live does.
-func applyGainControl(h Host, c *Ctx, sa *cards.SA, id state.ObjID) {
-	applyGainControlFor(h, c, gainControlParam(sa), id)
-}
-
 // applyGainControlFor is applyGainControl over a compiled GainControl$.
 func applyGainControlFor(h Host, c *Ctx, gc ParamText, id state.ObjID) {
 	p, ok, present := gainControlOf(h, c, gc)
@@ -1482,15 +1473,6 @@ func exiledWithAssociation(h Host, c *Ctx, id state.ObjID, to state.Zone) {
 	}
 }
 
-// exileHostGone reports whether this is an "until CARDNAME leaves the
-// battlefield" move whose host has already left: the duration ended before it
-// began, so nothing is moved at all (CR 610.3b) -- Banishing Light destroyed
-// in response to its own trigger exiles nothing, rather than exiling its
-// target forever.
-func exileHostGone(h Host, c *Ctx, sa *cards.SA) bool {
-	return exileHostGoneFor(h, c, durationParam(sa))
-}
-
 // exileHostGoneFor is exileHostGone over a compiled Duration$.
 func exileHostGoneFor(h Host, c *Ctx, dur ParamText) bool {
 	if !strings.EqualFold(dur.Text, "UntilHostLeavesPlay") || c.Source == 0 {
@@ -1498,25 +1480,6 @@ func exileHostGoneFor(h Host, c *Ctx, dur ParamText) bool {
 	}
 	o := h.Game().Obj(c.Source)
 	return o == nil || o.Zone != state.ZBattlefield
-}
-
-// recordExileReturn reads ChangeZone's Duration$ parameter. The corpus's
-// whole ChangeZone Duration$ population (118 raw .cards/cardsfolder lines:
-// 111 Origin$ Battlefield, 6 Hand, 1 Graveyard, plus 7 on ChangeZoneAll)
-// carries the single value UntilHostLeavesPlay -- the Oblivion Ring /
-// Banisher Priest pattern, "exile ... until CARDNAME leaves the battlefield".
-// For it, the exiled object joins the source's event-backed ExileReturn
-// association carrying the zone it was exiled from; when the source leaves
-// the battlefield the rules sweep (Engine.sweepExileReturn) returns every
-// object still in exile to that zone under its owner's control, which is
-// Forge's own return semantic for the duration (a battlefield-origin exile
-// comes back to the battlefield, a hand-origin one to the hand). A card is
-// only recorded when the move actually landed in exile, and a token is never
-// recorded: a token that left the battlefield has ceased to exist (CR 111.7)
-// and must not come back. Any other Duration$ value is loud (a Note) rather
-// than silently inert, the convention every unread parameter here follows.
-func recordExileReturn(h Host, c *Ctx, sa *cards.SA, id state.ObjID, from, to state.Zone) {
-	recordExileReturnFor(h, c, durationParam(sa), id, from, to)
 }
 
 // recordExileReturnFor is recordExileReturn over a compiled Duration$.

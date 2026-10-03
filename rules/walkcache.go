@@ -203,16 +203,6 @@ func clipBoardStatics(v boardStatics) boardStatics {
 	}
 }
 
-// scanBoardStatics is scanCostStatics + scanActionStatics +
-// scanManaConvSources in one walk. Each arm keeps its collector's own gate:
-// CantBeCast/CantBeActivated battlefield-only; Continuous and the cost modes
-// through effectZoneOK; ManaConvert through effectZoneOK; and every arm skips
-// a face-down battlefield permanent (CR 708.8). The Effect-delivered cost statics are
-// appended after the printed walk, exactly as scanCostStatics does.
-func (e *Engine) scanBoardStatics() boardStatics {
-	return e.scanBoardStaticsInto(boardStatics{})
-}
-
 // boardStaticsArrays is v's slices emptied (cleared, so the dead views pin
 // nothing) for scanBoardStaticsInto to refill; every other field is zero.
 func boardStaticsArrays(v boardStatics) boardStatics {
@@ -227,15 +217,6 @@ func boardStaticsArrays(v boardStatics) boardStatics {
 	}
 }
 
-// scanBoardStaticsInto is scanBoardStatics appending into out's (empty)
-// slices.
-func (e *Engine) scanBoardStaticsInto(out boardStatics) boardStatics {
-	out = e.scanBoardStaticsPrintedInto(out)
-	e.appendEffectCostStatics(&out.cost)
-	markCostValidTarget(&out.cost)
-	return out
-}
-
 // reappendEffectCostStatics truncates cost's four lists to their printed
 // prefixes (clearing the dropped views) and appends the Effect-delivered
 // cost statics and the ValidTarget mark afresh -- scanBoardStaticsInto's
@@ -246,14 +227,6 @@ func (e *Engine) reappendEffectCostStatics(cost costStaticViews, printed [4]int)
 		set: cut(cost.set, printed[2]), optional: cut(cost.optional, printed[3])}
 	e.appendEffectCostStatics(&out)
 	markCostValidTarget(&out)
-	return out
-}
-
-// scanBoardStaticsPrintedInto is scanBoardStaticsInto's printed walk alone.
-func (e *Engine) scanBoardStaticsPrintedInto(out boardStatics) boardStatics {
-	lists := e.gatherBoardScan()
-	out = e.scanBoardStaticsPrintedLists(out, lists)
-	e.putBoardScan(lists)
 	return out
 }
 

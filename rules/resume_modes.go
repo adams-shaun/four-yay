@@ -26,21 +26,6 @@ func isModeAnswerKind(kind string) bool {
 	return kind == "modes" || kind == "villainous"
 }
 
-// modeAnswerNames maps a mode answer's chosen option indexes to the names
-// the re-entered reader consumes. A KWChoice$ pump's modes are keyword
-// labels, not SVar names: when the asking SA carries no Choices$ but a
-// KWChoice$, the chosen indexes map against THAT list (effects' effPump
-// re-entry consumes them as the granted keywords).
-func modeAnswerNames(sa *cards.SA, chosen []decision.Option) []string {
-	eligible := []string(nil)
-	if !effects.CharmOf(sa).HasChoices {
-		if pp := effects.PumpOf(sa); pp.HasKWChoice {
-			eligible = pp.KWChoice
-		}
-	}
-	return modeChoiceNames(sa, chosen, eligible)
-}
-
 // resumeChosenModes is the Ctx.Modes seed a resumed ability frame starts
 // from. CR 603.3c: a modal triggered (or activated) ability's modes were
 // announced when it was put on the stack, and resolveTop's first pass seeds

@@ -351,26 +351,6 @@ func (e *Engine) activationUsedCount(id state.ObjID, ability int, svar string, t
 	return used
 }
 
-// activationLimitReachedAt reports whether this object has already activated
-// the ability at the FLAT pile index ability as many times as its
-// ActivationLimit permits this turn. merged selects the face whose SVar table
-// a computed limit resolves against (0 = the top face). The limit itself is
-// resolved by resolveActivationLimitAt: a literal integer is used directly,
-// and a computed expression (an SVar name or an inline Count$...) is
-// evaluated through the effects count path, so a limit such as Withering
-// Wisps' "number of snow Swamps you control" is enforced rather than silently
-// ignored. A limit that resolves to zero or to fewer activations than have
-// already been used withholds the offer. An expression that genuinely cannot
-// be resolved stays unenforced (today's behaviour): resolveActivationLimitAt
-// reports ok=false.
-func (e *Engine) activationLimitReachedAt(id state.ObjID, p state.PlayerID, ability int, raw string, merged int) bool {
-	limit, ok := e.resolveActivationLimitAt(id, p, raw, merged)
-	if !ok || limit < 0 {
-		return false
-	}
-	return e.activationUsedCount(id, ability, "", true) >= limit
-}
-
 // additionalActivationLimit returns the largest finite MinLimit$ supplied by
 // an applicable Activations static, or baseline when none applies. Forge's
 // MinLimit is an absolute ceiling (e.g. 2 means twice, not baseline + 2).

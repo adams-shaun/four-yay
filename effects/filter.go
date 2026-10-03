@@ -2463,35 +2463,11 @@ func matchesEffectiveName(o *state.Object, name string, sc SpecContext) bool {
 	return false
 }
 
-// hasDerivedTypeEntry reports whether sc binds a layer-4 derived type list for
-// o. A spec that names a granted type is answered by the textual oracle, the
-// same discipline the layer walk and hasEffectiveName keep. The compiled
-// sidecar's type paths are now ExtraTypes/DerivedTypes-aware too (they route
-// through hasTypeCtx), so both oracles agree; this gate keeps the textual
-// oracle authoritative for a published derived list, where its ordering rules
-// (layer4types.go) are explicit. It answers a BOOLEAN and never returns the
-// list, so escape analysis does not summarise the whole context as leaking
-// (the EffectiveNames contract above).
-func hasDerivedTypeEntry(o *state.Object, sc SpecContext) bool {
-	_, ok := derivedTypesForPtr(o, &sc)
-	return ok
-}
-
 // hasDerivedTypeEntryPtr is hasDerivedTypeEntry through a pointer (see
 // hasEffectiveNamePtr).
 func hasDerivedTypeEntryPtr(o *state.Object, sc *SpecContext) bool {
 	_, ok := derivedTypesForPtr(o, sc)
 	return ok
-}
-
-// derivedTypesFor returns the layer-4 derived type list sc binds for o. It is a
-// plain field read of immutable DATA, the same shape hasEffectiveName keeps:
-// copying a slice header out of a struct field is what an inlineable caller
-// does, not what leaks a context. It never hands back a callable and never
-// reaches rules, so an effects call answered here depends on the event fold
-// alone.
-func derivedTypesFor(o *state.Object, sc SpecContext) ([]string, bool) {
-	return derivedTypesForPtr(o, &sc)
 }
 
 // derivedTypesForPtr is derivedTypesFor through a pointer (see

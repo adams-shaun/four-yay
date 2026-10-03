@@ -1,8 +1,6 @@
 package rules
 
 import (
-	"strings"
-
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -36,17 +34,4 @@ func (e *Engine) LegalTargets(chooser state.PlayerID, source state.ObjID, sa *ca
 		}
 	}
 	return out
-}
-
-// targetsPermanents reads the coarse shape of a ValidTgts spec (the player
-// half is compiled once: effects.TgtValidPlayers, effects.SpecTargetsPlayers).
-// The per-object predicate work is effects.MatchesSpec.
-func targetsPermanents(spec string) bool {
-	for _, t := range [...]string{"Creature", "Any", "Permanent", "Artifact",
-		"Enchantment", "Land", "Planeswalker", "Card"} {
-		if strings.Contains(spec, t) {
-			return true
-		}
-	}
-	return false
 }

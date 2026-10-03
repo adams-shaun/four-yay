@@ -321,23 +321,6 @@ func (m costMods) feasibleAny(c Cost, pool, snow state.Mana, typed [7]state.Mana
 	return walk(c)
 }
 
-// manaFeasible is the engine-facing form of the shared primitive: it reads
-// the payer's restriction-aware pool (manaAvailableFor: RestrictValid$ mana
-// is invisible to a payment its restriction does not admit), snow tally and
-// life, the payer's stat:ManaConvert conversion set (paymentConv), and hands
-// them to costMods.feasibleAny. Every mana-feasibility gate of the cast flow
-// goes through it — the offer gate (offerCastable), each CR 601.2b
-// announcement menu (announceFeasible, over the partially announced cost) and
-// the target-repricing gates — so no site re-derives its own "payable so far"
-// answer. With no RestrictValid$ batch and no ManaConvert static on the
-// battlefield this is exactly the plain-pool payable check it was before the
-// mana-shaping primitives landed (paymentConv returns nil, manaAvailableFor
-// returns Pool verbatim), so every pre-existing game resolves byte-identically.
-func (e *Engine) manaFeasible(p state.PlayerID, id state.ObjID, ability bool, c Cost, mods costMods, taxGeneric, delve int32) bool {
-	return e.manaFeasibleGrant(p, id, ability, c, mods, taxGeneric, delve,
-		pipRider{anyColor: e.payerGrantsIgnoreColor(p, id), anyType: e.payerGrantsIgnoreType(p, id)})
-}
-
 // manaFeasibleGrant is manaFeasible with the may-play ignore-colour rider
 // passed explicitly (a pendingCast's pc.mayPlayIgnore, or the offer-side
 // payerGrantsIgnoreColor derivation), and the payer's PayLifeInsteadOf:B
@@ -355,13 +338,6 @@ func (e *Engine) manaFeasibleDescriptor(p state.PlayerID, d paymentDescriptor, c
 	av := e.manaAvailableFor(p, d)
 	return mods.feasibleAny(c, av.pool, pl.Snow, av.typed, pl.Life, taxGeneric, delve,
 		e.payerGrantsPayLifeInsteadOfB(p), rider, e.paymentConv(p, d.id, d.class == paymentActivated))
-}
-
-// manaFeasibleGrant prices a RAW (unannounced) cost: the offer-side entry
-// whose cost still carries any unfolded X, so paymentFor's own derivation
-// sets the announced-X marker.
-func (e *Engine) manaFeasibleGrant(p state.PlayerID, id state.ObjID, ability bool, c Cost, mods costMods, taxGeneric, delve int32, rider pipRider) bool {
-	return e.manaFeasibleDescriptor(p, paymentFor(id, ability, c), c, mods, taxGeneric, delve, rider)
 }
 
 // manaFeasiblePool is manaFeasible priced against an EXPLICIT pool instead of

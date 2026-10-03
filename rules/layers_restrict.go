@@ -170,18 +170,6 @@ const (
 	costCauseResolution                  // an unless payment made during a resolving ability
 )
 
-// costCauseForPendingCast classifies the in-flight proposal pc. A nil pc (no
-// cast in flight) is costCauseNone.
-func costCauseForPendingCast(pc *pendingCast) costCause {
-	if pc == nil {
-		return costCauseNone
-	}
-	if pc.isAbility() {
-		return costCauseActivated
-	}
-	return costCauseSpell
-}
-
 // costCauseForAbility is the offer gate's variant (cast.go nonManaCastable):
 // castable prices a HYPOTHETICAL cast with no pendingCast, so the caller's
 // own ability bit is the provenance.

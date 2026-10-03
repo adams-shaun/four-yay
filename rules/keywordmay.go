@@ -8,30 +8,6 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// mayHaveDerivedKeyword is an exact precheck for "does id's DERIVED keyword
-// list carry an entry whose KeywordHead is head (case-insensitively)?".
-//
-// derivedCompute seeds the list with the printed face's keywords (or the
-// face-down basis's none), IntrinsicKeywords, the marker-counter keywords and
-// three status keywords (a cloaked face-down permanent's Ward:2, a suspected
-// creature's Menace, a granted Suspend), and its layer-6 walk only ever
-// removes entries from that list or appends an active effect's AddKeywords.
-// So the derived list is a SUBSET of the union of those seeds and every
-// active effect's AddKeywords, and when no element of the union has the head
-// the answer is false without the full layer walk. A true answer is only
-// "maybe": the caller runs the ordinary Derived read.
-//
-// The printed face is read even while face down (a superset of the basis's
-// empty list), and any status flag short-circuits to "maybe" rather than
-// matching its keyword, so the precheck never needs to mirror derivedCompute's
-// conditions. The active-effect half reads activeKWHeads, the head set
-// active() rebuilds with its list; a re-entrant call (inside an active()
-// build) scans the list it was handed instead. Verify mode
-// (derivedMemoVerify) recomputes every negative answer through Derived.
-func (e *Engine) mayHaveDerivedKeyword(id state.ObjID, head string) bool {
-	return e.mayHaveDerivedKeywordH(id, kwHeadOf(head))
-}
-
 // mayHaveDerivedKeywordH is mayHaveDerivedKeyword for a precompiled head.
 func (e *Engine) mayHaveDerivedKeywordH(id state.ObjID, head kwHead) bool {
 	return e.mayHaveDerivedKeywordAnyH(id, head)
@@ -62,16 +38,6 @@ func (e *Engine) stackKeywordPossibleH(id state.ObjID, h kwHead) bool {
 		}
 	}
 	return false
-}
-
-// mayHaveDerivedKeywordAny is mayHaveDerivedKeyword for either of two heads
-// in one pass (b empty: head a alone).
-func (e *Engine) mayHaveDerivedKeywordAny(id state.ObjID, a, b string) bool {
-	hb := kwHead{}
-	if b != "" {
-		hb = kwHeadOf(b)
-	}
-	return e.mayHaveDerivedKeywordAnyH(id, kwHeadOf(a), hb)
 }
 
 // mayHaveDerivedKeywordAnyH is mayHaveDerivedKeywordAny over precompiled

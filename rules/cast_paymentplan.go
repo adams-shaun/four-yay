@@ -200,19 +200,6 @@ func (e *Engine) paymentPlanProducedExactly(p state.PlayerID, from int, want dec
 	return paymentManaAmount(added) == want
 }
 
-// executePlannedManaActivation runs the witness's next step through the
-// ordinary mana ability path, then checks what actually happened (spec §6:
-// "after each activation, check actual production and outstanding
-// continuation; do not continue blindly"). It reports true when the cast has
-// moved on without the caller: the activation suspended on a real decision,
-// or the continuation it resumed posed the next ask, settled the cast or
-// reversed it. It reports false only when nothing was activated because the
-// step no longer holds; the fallback is recorded and the caller continues
-// into the ordinary manual window. It never substitutes a source.
-func (e *Engine) executePlannedManaActivation(pc *pendingCast) bool {
-	return e.executePlannedManaActivationUnits(pc, nil, plannedManaActivation{}, false)
-}
-
 // executePlannedManaActivationUnits is executePlannedManaActivation over a
 // source census the caller took at this exact state (paymentPlanCheckUnits,
 // with nothing run in between); nil takes a fresh one. ready reports that

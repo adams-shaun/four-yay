@@ -253,10 +253,6 @@ func (e *Engine) derivedMemoUsable() bool {
 		!e.effectMatchOverride && e.goadProbe == 0 && !e.charsWalk.ColorsSet
 }
 
-func (e *Engine) derivedMemoized(id state.ObjID) Derived {
-	return e.derivedMemoizedAt(id, 0)
-}
-
 // derivedMemoizedAt serves both the live-zone derivation (atStack 0) and the
 // stack zone override (atStack ZStack, the convoke/improvise/conspire/
 // offspring cast-keyword reads, which the offer walk makes for every hand

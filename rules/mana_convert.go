@@ -199,17 +199,6 @@ func staticSAKindMatches(validSA string, ability bool) bool {
 	return false
 }
 
-// manaConversion composes the conversion set for one payment. Printed
-// statics are collected from every EffectZone-admitted source zone (including
-// Command), while Effect-delivered SVar statics are read from the active
-// continuous-effect registry. Optional grants are returned separately so the
-// cast flow can make a real election instead of silently applying them.
-func (e *Engine) manaConversion(p state.PlayerID, id state.ObjID, ability bool) manaConv {
-	mandatory, optional := e.manaConversionParts(p, id, ability)
-	mergeManaConv(&mandatory, optional)
-	return mandatory
-}
-
 func (e *Engine) manaConversionParts(p state.PlayerID, id state.ObjID, ability bool) (manaConv, manaConv) {
 	var mandatory, optional manaConv
 	// The printed sources are a board-only list, cached for a legal-actions

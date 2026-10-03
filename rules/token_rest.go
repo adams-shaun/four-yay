@@ -159,18 +159,6 @@ func (e *Engine) mintSinkIndex(id uint64) int {
 	return -1
 }
 
-// takeMintSink removes and returns collector id's objects (the "token_rest"
-// frame's re-entry consumes it exactly once).
-func (e *Engine) takeMintSink(id uint64) []state.ObjID {
-	i := e.mintSinkIndex(id)
-	if i < 0 {
-		return nil
-	}
-	ids := e.mintSinks[i].ids
-	e.mintSinks = append(e.mintSinks[:i:i], e.mintSinks[i+1:]...)
-	return ids
-}
-
 // publishTokenEntry is the ONE place a minted token's id reaches
 // tokenMintSink -- and so the one place an effect's per-mint riders, markers
 // and continuations (effects/token.go's TokenTapped$/RememberTokens$,
