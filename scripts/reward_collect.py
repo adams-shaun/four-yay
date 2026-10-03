@@ -1062,38 +1062,15 @@ def validated_set(repo: Path) -> tuple[int, int, int]:
                         n = e.get("name") or e.get("card")
                         if n:
                             names.add(str(n))
-    gaps = _table_entries(repo / "rules" / "acceptance_test.go", "knownUnsupported")
-    # The param ratchet is one file per card since W2 (rules/testdata/paramcensus).
-    pdir = repo / "rules" / "testdata" / "paramcensus"
-    pgaps = len(list(pdir.glob("*.json"))) if pdir.is_dir() else 0
+    # Both ratchets are one file per card since W2 (rules/testdata/...).
+    gaps = _ratchet_files(repo / "rules" / "testdata" / "known-unsupported")
+    pgaps = _ratchet_files(repo / "rules" / "testdata" / "paramcensus")
     return len(names), gaps, pgaps
 
 
-def _table_entries(path: Path, var: str) -> int:
-    """Count keys in one `var <var> = map[...]{ ... }` literal.
-
-    Counting `"key":` across the whole file would sweep up every other map in
-    it — paramcensus_test.go holds several — so the scan is bounded to the one
-    declaration and stops at its closing brace.
-    """
-    if not path.exists():
-        return 0
-    lines = path.read_text().splitlines()
-    depth = 0
-    n = 0
-    started = False
-    for line in lines:
-        if not started:
-            if re.match(rf"\s*var\s+{re.escape(var)}\s*=\s*map\[", line):
-                started = True
-                depth = line.count("{") - line.count("}")
-            continue
-        if depth == 1 and re.match(r'\s*"', line):
-            n += 1
-        depth += line.count("{") - line.count("}")
-        if depth <= 0:
-            break
-    return n
+def _ratchet_files(d: Path) -> int:
+    """Count one per-card ratchet directory's entries (one JSON file each)."""
+    return len(list(d.glob("*.json"))) if d.is_dir() else 0
 
 
 def collect_correct(repo: Path, state_dir: Path) -> list[str]:
@@ -1354,25 +1331,19 @@ def selftest() -> int:
         (decks / "b.json").write_text(
             json.dumps({"cards": [{"name": "Mountain"}, {"name": "Vines of Vastwood"}, {"name": "Foo"}]})
         )
-        # Each ratchet table is one bounded map literal; the second map in the
-        # same file must NOT be counted, which is the bug the bounded scan fixes.
-        (repo / "rules" / "acceptance_test.go").write_text(
-            "var knownUnsupported = map[string][]string{\n"
-            '\t"Incinerate": {"stat:CantRegenerate"},\n'
-            '\t"Vines of Vastwood": {"stat:CantTarget"},\n'
-            "}\n\n"
-            "var somethingElse = map[string]string{\n"
-            '\t"NotARatchetEntry": "x",\n'
-            '\t"NorThisOne": "y",\n'
-            "}\n"
-        )
+        # Each ratchet is one file per card; a non-JSON file is not an entry.
+        ku = repo / "rules" / "testdata" / "known-unsupported"
+        ku.mkdir(parents=True)
+        (ku / "incinerate.json").write_text(json.dumps({"card": "Incinerate", "labels": ["stat:CantRegenerate"]}))
+        (ku / "vines-of-vastwood.json").write_text(json.dumps({"card": "Vines of Vastwood", "labels": ["stat:CantTarget"]}))
+        (ku / "README.txt").write_text("not an entry")
         (repo / "rules" / "testdata" / "paramcensus").mkdir(parents=True)
         (repo / "rules" / "testdata" / "paramcensus" / "foo.json").write_text(
             json.dumps({"card": "Foo", "labels": ["param:Whatever"]})
         )
         total, gaps, pgaps = validated_set(repo)
         check("the denominator counts DISTINCT deck cards", total == 5, (total, gaps, pgaps))
-        check("a second map in the same file is not counted as ratchet entries", gaps == 2, gaps)
+        check("only the per-card JSON files count as ratchet entries", gaps == 2 and pgaps == 1, (gaps, pgaps))
         rd = repo / ".ds4" / "reward"
         rd.mkdir(parents=True, exist_ok=True)
         (rd / "defects.jsonl").write_text(

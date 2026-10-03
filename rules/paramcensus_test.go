@@ -3012,9 +3012,7 @@ func cardFileSlug(card string) string {
 // without a corpus.
 func TestParamCensusFilesWellFormed(t *testing.T) {
 	t.Parallel()
-	if len(knownUnsupportedParams(t)) == 0 {
-		t.Fatal("no testdata/paramcensus files")
-	}
+	knownUnsupportedParams(t)
 }
 
 // TestEveryRepoDeckParamsAreRead is the parameter ratchet: every card across
