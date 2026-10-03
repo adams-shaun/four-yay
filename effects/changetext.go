@@ -176,7 +176,25 @@ func effChangeText(h Host, c *Ctx, sa *cards.SA) {
 			n++
 		}
 		d.Min, d.Max = n, n
-		if Ask(h, d) == AskAsked {
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the halves the
+			// "changetext" arm binds, read exactly as the re-entry reads them
+			// (a half the answer did not name keeps its deterministic word).
+			for _, o := range ans {
+				switch o.Kind {
+				case "changetext_from":
+					if isTextChooser(fromTok) {
+						from = o.Label
+					}
+				case "changetext_to":
+					if isTextChooser(toTok) {
+						to = o.Label
+					}
+				}
+			}
+			fromNeeds = isTextChooser(fromTok) && from == ""
+			toNeeds = isTextChooser(toTok) && to == ""
+		} else if Ask(h, d) == AskAsked {
 			return
 		}
 	}

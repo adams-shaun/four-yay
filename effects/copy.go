@@ -242,7 +242,14 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 					{Index: 0, Kind: "yes", Label: "Yes — copy", Player: controller},
 					{Index: 1, Kind: "no", Label: "No", Player: controller},
 				}}
-			if Ask(h, d) == AskAsked {
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: the
+				// "copy_optional" re-entry copies on a yes and makes none
+				// otherwise.
+				if len(ans) == 0 || ans[0].Kind != "yes" {
+					return
+				}
+			} else if Ask(h, d) == AskAsked {
 				// The election was posted and suspended the resolution; the
 				// answered copy_optional re-entry (rules' resume arm) carries
 				// Ctx.CopyOpt back into this same SA.

@@ -418,6 +418,22 @@ func choiceRecord(h Host, c *Ctx, sa *cards.SA, picked []state.Target, playerCho
 	}
 }
 
+// ChoiceAnswerTargets is the "choice" answer's target shape, the one home
+// the rules "choice" resume arm and the resolution kernel's tape branches
+// share: a "player" option is a player target (player zero is a real
+// target), any other option naming an object is that object.
+func ChoiceAnswerTargets(chosen []decision.Option) []state.Target {
+	out := make([]state.Target, 0, len(chosen))
+	for _, o := range chosen {
+		if o.Kind == "player" {
+			out = append(out, state.Target{Player: o.Player, IsPlayer: true})
+		} else if o.Obj != 0 {
+			out = append(out, state.Target{Obj: o.Obj})
+		}
+	}
+	return out
+}
+
 // chooseCardRecord is the shared completion point for answered, random and
 // no-host picks. ForgetChosen removes only picked objects, after recording the
 // choice, so the chosen-card binding remains available to the next ability.
@@ -653,6 +669,23 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 		if hasBudget {
 			d.Prompt += " (total power " + strconv.Itoa(int(budget)) + " or less)"
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: what the "choice"
+			// resume arm's re-entry does. The legacy re-entry rebuilds the
+			// candidate selection from the Ctx as it stood at the ask (before
+			// this record), then records, reveals and re-reads the bounds.
+			selection = *c
+			if c.ForgetOtherReady {
+				selection.Remembered = append(append([]state.Target(nil), selection.Remembered...), c.ForgetOtherSnapshot...)
+			}
+			answered := ChoiceAnswerTargets(ans)
+			chooseCardRecord(h, c, sa, answered)
+			if reveal {
+				emitChosenReveal(h, chooser, answered)
+			}
+			minBase, maxBase = choiceBounds(h, c, sa, true)
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return
 		}
@@ -800,6 +833,13 @@ func effChooseSource(h Host, c *Ctx, sa *cards.SA) {
 		if d.Prompt == "" {
 			d.Prompt = "Choose a source"
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the "choice" re-entry's
+			// record, then the bounds re-read it makes before the next chooser.
+			choiceRecord(h, c, sa, ChoiceAnswerTargets(ans), false)
+			minBase, maxBase = choiceBounds(h, c, sa, false)
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return
 		}
@@ -908,6 +948,13 @@ func effChoosePlayer(h Host, c *Ctx, sa *cards.SA) {
 		}
 		if d.Prompt == "" {
 			d.Prompt = "Choose player"
+		}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the "choice" re-entry's
+			// record, then the bounds re-read it makes before the next chooser.
+			choiceRecord(h, c, sa, ChoiceAnswerTargets(ans), true)
+			minBase, maxBase = choiceBounds(h, c, sa, false)
+			continue
 		}
 		if Ask(h, d) == AskAsked {
 			return
@@ -1158,11 +1205,17 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 				if d.Prompt == "" {
 					d.Prompt = "Choose card"
 				}
-				if Ask(h, d) != AskAsked {
-					h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControl Choices$ requires a player choice"})
+				ans, ok := AskTape(h, d)
+				if !ok {
+					if Ask(h, d) != AskAsked {
+						h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControl Choices$ requires a player choice"})
+						return
+					}
 					return
 				}
-				return
+				// The resolution kernel's answer in hand: the "choice"
+				// re-entry's record below, then the transfer.
+				ts = ChoiceAnswerTargets(ans)
 			} else {
 				ts = choices
 			}
@@ -1514,6 +1567,16 @@ func gainControlVariantAskLoop(h Host, c *Ctx, sa *cards.SA, base ControlGrant,
 		for j, id := range pool {
 			d.Options = append(d.Options, decision.Option{Index: j, Kind: "card", Obj: id, Player: chooser})
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the pick the "choice"
+			// re-entry appends (an empty answer keeps the positional blank).
+			pick := state.Target{}
+			if ts := ChoiceAnswerTargets(ans); len(ts) > 0 {
+				pick = ts[0]
+			}
+			picks = append(picks[:len(picks):len(picks)], pick)
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return
 		}
@@ -1671,13 +1734,7 @@ func effChangeTargets(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	if c.ChoiceDone {
-		if len(c.Choice) > 0 { // an empty Optional answer means keep every target
-			out := append([]state.Target(nil), c.Choice...)
-			if strings.EqualFold(sa.Params["ChangeSingleTarget"], "True") || len(out) < len(target.Targets) {
-				out = append(out, target.Targets[len(out):]...)
-			}
-			recordTargets(h, target.ID, out)
-		}
+		changeTargetsApply(h, sa, target, c.Choice)
 		c.ChoiceDone = false
 		c.Choice = nil
 		return
@@ -1761,6 +1818,12 @@ func effChangeTargets(h Host, c *Ctx, sa *cards.SA) {
 		}
 		d.Options = append(d.Options, o)
 	}
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: the "choice" re-entry's
+		// redirect.
+		changeTargetsApply(h, sa, target, ChoiceAnswerTargets(ans))
+		return
+	}
 	if Ask(h, d) == AskAsked {
 		return
 	}
@@ -1768,6 +1831,20 @@ func effChangeTargets(h Host, c *Ctx, sa *cards.SA) {
 	// conservative Optional answer: no target changes. It must not leave
 	// ChoiceDone set, which a later choice in the same chain would read as
 	// its own answer.
+}
+
+// changeTargetsApply records an answered ChangeTargets redirect: the chosen
+// new targets, padded with the subject's remaining old ones. An empty
+// (Optional) answer keeps every target.
+func changeTargetsApply(h Host, sa *cards.SA, target *state.Object, choice []state.Target) {
+	if len(choice) == 0 {
+		return
+	}
+	out := append([]state.Target(nil), choice...)
+	if strings.EqualFold(sa.Params["ChangeSingleTarget"], "True") || len(out) < len(target.Targets) {
+		out = append(out, target.Targets[len(out):]...)
+	}
+	recordTargets(h, target.ID, out)
 }
 
 func repeatPlayers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool) {
