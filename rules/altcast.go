@@ -227,6 +227,13 @@ func (e *Engine) askMadnessReplacement(owner state.PlayerID) {
 	// resume record, or with nothing resolving, keeps the plain ask.
 	if e.resume == nil && e.pending == nil && (e.resolvingObj != 0 || e.applyingReplacement) {
 		d.ResumeKind = "replacement"
+		// Under the resolution kernel the election is answered in place (W3
+		// step 5): the discard moves, to exile or the graveyard, at the point
+		// of the discard.
+		if in, ok := parkTapeAnswer(e, d); ok {
+			e.handle(d, in)
+			return
+		}
 		e.Ask(d)
 		e.madnessSuspended = e.resume != nil
 		return

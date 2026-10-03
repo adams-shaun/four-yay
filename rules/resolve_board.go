@@ -108,6 +108,13 @@ func (b *resolveBoard) Busy() bool {
 		// windowAsk's own window: the holder it asks for is open by design.
 		return false
 	}
+	if u := e.unlessPayment; u != nil && u.tape && e.resume == nil && e.offStackMana == nil &&
+		e.cumulative == nil && e.triggerCost == nil && e.echo == nil {
+		// A tape-driven unless payment is the kernel's own, not a legacy
+		// suspension: an ask its component walk reaches (a discard's
+		// madness election) is served in place.
+		return false
+	}
 	return e.resume != nil || e.Suspended() || e.offStackMana != nil
 }
 

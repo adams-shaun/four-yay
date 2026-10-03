@@ -353,8 +353,10 @@ func tapeUnlessScenarioResolve(t *testing.T, e *Engine, pick func(d *decision.De
 }
 
 // A Play whose cast commits synchronously (a free creature with no cast-time
-// asks) is served from the tape and begun in line; one whose cast asks (a
-// target) aborts to the legacy replay.
+// asks) is served from the tape and begun in line, byte-identical to legacy.
+// One whose cast asks (a target) is answered in place (W3 step 5): the cast
+// completes before the rest of the chain, where the legacy park let the
+// chain run on first.
 func TestTapeConvertPlay(t *testing.T) {
 	const bear = "Name:Tape Free Bear\nManaCost:4 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 	const bolt = "Name:Tape Free Bolt\nManaCost:4 R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n"
@@ -375,9 +377,25 @@ func TestTapeConvertPlay(t *testing.T) {
 				}
 				return tapePick(d)
 			}
-			_, st := tapeDual(t, 2, 14000+uint64(i), tapeUnlessScenario("Tape Conduit", "B", 0, pick), src, bear, bolt)
-			if st.Served < 1 || st.LegacySwitch != 0 || (st.Aborts != 0) != tc.aborts {
-				t.Fatalf("the Play answer was not served as expected: %+v", st)
+			if !tc.aborts {
+				_, st := tapeDual(t, 2, 14000+uint64(i), tapeUnlessScenario("Tape Conduit", "B", 0, pick), src, bear, bolt)
+				if st.Served < 1 || st.LegacySwitch != 0 || st.Aborts != 0 {
+					t.Fatalf("the Play answer was not served as expected: %+v", st)
+				}
+				return
+			}
+			e, _ := tapePark(t, 2, 14000+uint64(i), 2, tapeUnlessScenario("Tape Conduit", "B", 0, pick), src, bear, bolt)
+			target, life := -1, -1
+			for j, ev := range e.L.Events {
+				if ev.Kind == events.DecisionMade && strings.HasPrefix(ev.Text, "target") && target < 0 {
+					target = j
+				}
+				if ev.Kind == events.LifeChange && ev.Amount == 2 {
+					life = j
+				}
+			}
+			if target < 0 || life < 0 || target > life {
+				t.Fatalf("the cast's target answered at %d, the chain's life gain at %d: not answered in place", target, life)
 			}
 		})
 	}
@@ -420,11 +438,10 @@ func TestTapeConvertMadness(t *testing.T) {
 			if !asked {
 				t.Fatal("legacy never posed the madness cast choice")
 			}
-			_, st := tapeDual(t, 2, 14100+uint64(i), tapeUnlessScenario("Tape Rot", "BB", 0, pick), rot, bear)
-			// Served: the discard pick and the madness choice. The one abort
-			// is the discard's CR 616.1 madness replacement choice (a park
-			// path, still legacy), not the madness resolution.
-			if st.Served < 2 || st.LegacySwitch != 0 || st.Aborts > 1 {
+			// Served: the discard pick, the discard's madness replacement
+			// election (answered in place, W3 step 5) and the madness choice.
+			_, st := tapePark(t, 2, 14100+uint64(i), 3, tapeUnlessScenario("Tape Rot", "BB", 0, pick), rot, bear)
+			if st.Served < 3 || st.LegacySwitch != 0 || st.Aborts != 0 {
 				t.Fatalf("the madness choice was not served from the tape: %+v", st)
 			}
 		})

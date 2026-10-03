@@ -346,6 +346,12 @@ func (e *Engine) poseChosenTokenReplacement(ev events.Event, matches []replMatch
 func (e *Engine) tokenElectionAsk(d *decision.Decision, st *tokenChoiceState) {
 	if e.resume == nil && e.pending == nil && (e.resolvingObj != 0 || e.applyingReplacement) {
 		d.ResumeKind = "replacement"
+		// Under the resolution kernel the election is answered in place (W3
+		// step 5): the settled plan mints at the point of the creation.
+		if in, ok := parkTapeAnswer(e, d); ok {
+			e.handle(d, in)
+			return
+		}
 		e.Ask(d)
 		st.parkedResume = e.resume
 		return

@@ -388,6 +388,13 @@ func (e *Engine) askReplacementChoice(p state.PlayerID) {
 	// ask already owns a resume point; pose it directly without overwriting
 	// the original continuation.
 	if e.resume == nil && (e.resolvingObj != 0 || e.applyingReplacement) {
+		// Under the resolution kernel the order is answered in place (W3
+		// step 5, lasagna spec §7.2): the chosen replacement applies at the
+		// point of the competing event, not after the rest of the chain.
+		if in, ok := parkTapeAnswer(e, d); ok {
+			e.handle(d, in)
+			return
+		}
 		e.Ask(d)
 		e.replChoices[0].resumeAtPose = e.resume
 	} else {

@@ -37,3 +37,26 @@ func parkTapeAnswer(e *Engine, d *decision.Decision) (decision.Intent, bool) {
 	}
 	return e.tape.Answer(asResolve(e), d)
 }
+
+// tapeCastAsk answers, in place, an ask of a cast begun inside a tape run's
+// resolution (a madness cast, a Play or cascade cast): the target, mode, X
+// and payment questions of the cast. On the legacy path the cast parks on
+// the question while the resolution runs on and completes once the seat
+// answers; under the kernel the answer's handler (Engine.handle, which
+// continues the cast) runs at once, so the cast completes inside the
+// resolution that began it -- the shape a cast that asks nothing already
+// has. Reports whether d was served.
+func tapeCastAsk(e *Engine, d *decision.Decision) bool {
+	if e.cast == nil {
+		return false
+	}
+	if in, _ := e.tape.LegacyInRun(); !in {
+		return false
+	}
+	ans, ok := parkTapeAnswer(e, d)
+	if !ok {
+		return false
+	}
+	e.handle(d, ans)
+	return true
+}

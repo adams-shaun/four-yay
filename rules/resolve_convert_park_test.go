@@ -10,6 +10,7 @@ package rules
 import (
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules/resolve"
@@ -131,5 +132,82 @@ func TestTapeParkMidChainEntry(t *testing.T) {
 		if in < 0 || left < 0 || in > left {
 			t.Fatalf("%s entered at %d, the spell left the stack at %d: the entry was not answered in place", e.Name(id), in, left)
 		}
+	}
+}
+
+// A CR 616.1 order competition posed mid-resolution (two rewriters of the
+// same destroy) is answered in place: the chosen replacement applies at the
+// point of the move, before the rest of the chain.
+func TestTapeParkReplacementOrder(t *testing.T) {
+	toHand := "Name:Tape Hand Rewriter\nTypes:Enchantment\n" +
+		"R:Event$ Moved | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature | ReplaceWith$ Back | Description$ x\n" +
+		"SVar:Back:DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand | Defined$ ReplacedCard\nOracle:x\n"
+	toExile := "Name:Tape Exile Rewriter\nTypes:Enchantment\n" +
+		"R:Event$ Moved | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature | ReplaceWith$ Ex | Description$ x\n" +
+		"SVar:Ex:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | Defined$ ReplacedCard\nOracle:x\n"
+	name := "Tape Order Kill"
+	src := "Name:" + name + "\nManaCost:U\nTypes:Sorcery\n" +
+		"A:SP$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Graveyard | SubAbility$ DBGain\n" +
+		tapeGainSVar + "\nOracle:x\n"
+	// A move competition is outside the ask-free predicate's board gates (a
+	// miss there stays legacy in place): checkpoint every resolution.
+	tapeCheckpointAll = true
+	defer func() { tapeCheckpointAll = false }()
+	for i := 0; i < 2; i++ {
+		var bear state.ObjID
+		e, _ := tapePark(t, 2, 14000+uint64(i), 1, func(t *testing.T, e *Engine) {
+			moveByName(t, e, 0, "Tape Hand Rewriter", state.ZBattlefield)
+			moveByName(t, e, 0, "Tape Exile Rewriter", state.ZBattlefield)
+			bear = moveByName(t, e, 0, "ParentLink Bear", state.ZBattlefield)
+			tapeCastAndResolve(t, e, name, "U")
+		}, src, toHand, toExile, ptResumeBearSrc)
+		if z := e.G.Obj(bear).Zone; z != state.ZHand && z != state.ZExile {
+			t.Fatalf("the bear ended in %s, want a replacement's destination", z)
+		}
+	}
+}
+
+// A chosen-copy CreateToken election (Mirrormind Crown's shape) posed while
+// a DB$ Token resolves is answered in place: the copies mint at the point of
+// the creation, before the rest of the chain.
+func TestTapeParkTokenElection(t *testing.T) {
+	copier := "Name:Tape Copier\nTypes:Enchantment\n" +
+		"R:Event$ CreateToken | ActiveZones$ Battlefield | ValidPlayer$ You | Layer$ Copy | ReplaceWith$ DBCopy | Description$ x\n" +
+		"SVar:DBCopy:DB$ ReplaceToken | Type$ ReplaceToken | ValidChoices$ Creature.YouCtrl | TokenScript$ Chosen\nOracle:x\n"
+	name := "Tape Mint"
+	src := "Name:" + name + "\nManaCost:U\nTypes:Sorcery\nA:SP$ Token | TokenScript$ tape_spirit | SubAbility$ DBGain\n" +
+		tapeGainSVar + "\nOracle:x\n"
+	tokens := map[string]*cards.Card{"tape_spirit": card(t, "Name:Spirit Token\nTypes:Creature Spirit\nPT:1/1\nOracle:\n")}
+	before := resolve.ReadStats()
+	var fixtures []*cards.Card
+	for _, s := range []string{src, copier, ptResumeBearSrc, ptResumeAngelSrc} {
+		fixtures = append(fixtures, card(t, s))
+	}
+	decks := [][]*cards.Card{append(fixtures, mountainDeck(t, 40-len(fixtures))...), mountainDeck(t, 40)}
+	cfg := seatZeroStart(Config{Seed: 14100, Names: []string{"p0", "p1"}, Decks: decks, Tokens: tokens})
+	cfg.TapeKernel = true
+	e := New(cfg)
+	e.Advance()
+	moveByName(t, e, 0, "Tape Copier", state.ZBattlefield)
+	moveByName(t, e, 0, "ParentLink Bear", state.ZBattlefield)
+	moveByName(t, e, 0, "ParentLink Angel", state.ZBattlefield)
+	moveByName(t, e, 0, name, state.ZHand)
+	tapeCastAndResolve(t, e, name, "U")
+	st := resolve.ReadStats().Sub(before)
+	replayCheck(t, e, cfg)
+	if st.Served < 1 || st.LegacySwitch != 0 || st.Aborts != 0 {
+		t.Fatalf("the token election was not served from the tape: %+v", st)
+	}
+	life, mint := -1, -1
+	for i, ev := range e.L.Events {
+		if ev.Kind == events.CopyToken && mint < 0 {
+			mint = i
+		}
+		if ev.Kind == events.LifeChange && life < 0 && i > mint && mint >= 0 {
+			life = i
+		}
+	}
+	if mint < 0 || life < 0 {
+		t.Fatalf("the copy minted at %d, the rider's life gain at %d: not answered in place", mint, life)
 	}
 }
