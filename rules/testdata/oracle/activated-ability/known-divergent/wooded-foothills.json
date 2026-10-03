@@ -1,0 +1,6 @@
+{
+  "card": "Wooded Foothills",
+  "rows": {
+    "sacrifice-fetches-a-forest-tapped": "The printed card says 'Search your library for a Mountain or Forest card, put it onto the battlefield tapped, then shuffle', and every other corpus card that searches for a land onto the battlefield (e.g. Rampant Growth) carries Tapped$ True; the pinned Forge script for Wooded Foothills (and all ten original fetchlands) has a ChangeZone with Destination$ Battlefield and no Tapped$ True, and its Oracle: line omits 'tapped' too. gorge faithfully implements the script, so the fetched Forest enters untapped (observed tapped=false). Upstream script/corpus defect: cannot be fixed by committing a script (GPL-3.0); report upstream or bump FORGE_REF. Triage: for the ten original fetchlands the correct fix is Tapped$ True on the search's ChangeZone."
+  }
+}

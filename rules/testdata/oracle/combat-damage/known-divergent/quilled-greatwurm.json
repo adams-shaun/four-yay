@@ -1,0 +1,7 @@
+{
+  "card": "Quilled Greatwurm",
+  "rows": {
+    "combat-damage-to-blocker-counts-too": "Same root as combat-damage-to-player-gives-that-many-counters: the Bears dealing 2 combat damage to a 0/4 blocker should get two +1/+1 counters; observed 0 (the counters go to the Greatwurm).",
+    "combat-damage-to-player-gives-that-many-counters": "CR 603.2/608.2: 'Whenever a creature you control deals combat damage during your turn, put that many +1/+1 counters on IT' -- 'it' is the creature that dealt the damage. Expected: the unblocked Grizzly Bears gets two counters (4/4), the Greatwurm none. Observed: the Bears gets none and the Greatwurm gets two (a control attacking with both put 9 on the Greatwurm, 0 on the Bears). The counters land on the trigger's source instead of the damaging creature. Confidence high. New root, found by the FDN audit batch 6; no ticket yet."
+  }
+}
