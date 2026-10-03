@@ -47,6 +47,11 @@ type SeatSetup struct {
 	// does (azmcts.Options.OpponentNodes); off, the opponent inside a
 	// simulation is the default bot. Off by default.
 	OpponentNodes bool
+	// ReuseTree keeps the seat's search tree from one of its decisions to
+	// the next, as upstream does (azmcts.Options.ReuseTree): the next
+	// search carries the stored node that is the real position, and the
+	// budget counts the visits it already holds. Off by default.
+	ReuseTree bool
 }
 
 // GameSetup is one game.
@@ -102,7 +107,15 @@ type GameStats struct {
 	// OppSelections counts the simulations' selections at opponent nodes
 	// (azmcts.Stats.OppPoints): 0 unless a seat runs with OpponentNodes.
 	OppSelections int
-	SimFailures   int // simulations discarded, by class below
+	// ReuseHits, ReuseMisses and ReuseCarried are the tree-reuse counters
+	// (azmcts.Stats.ReuseHits, the sum of its ReuseMiss* reasons, and the
+	// root visits carried over); ReusePartial the hits whose root and
+	// stored node offered different candidates; ReuseMissState the misses
+	// where no stored node was the real position, ReuseMissCandidates
+	// those where one was but no root candidate matched its children (the
+	// rest had no stored tree). All 0 unless a seat runs with ReuseTree.
+	ReuseHits, ReusePartial, ReuseMisses, ReuseMissState, ReuseMissCandidates, ReuseCarried int
+	SimFailures                                                                             int // simulations discarded, by class below
 	// SimPanics, SimSubmitErrors, SimChance and SimBadWorlds split
 	// SimFailures by azmcts's error classes (an engine panic in a world, a
 	// world that rejected a submit, a chance failure, a world not at the
@@ -156,6 +169,12 @@ func (s *GameStats) Add(o GameStats) {
 	s.Simulations += o.Simulations
 	s.Completed += o.Completed
 	s.OppSelections += o.OppSelections
+	s.ReuseHits += o.ReuseHits
+	s.ReuseMisses += o.ReuseMisses
+	s.ReuseMissState += o.ReuseMissState
+	s.ReusePartial += o.ReusePartial
+	s.ReuseMissCandidates += o.ReuseMissCandidates
+	s.ReuseCarried += o.ReuseCarried
 	s.SimFailures += o.SimFailures
 	s.SimPanics += o.SimPanics
 	s.SimSubmitErrors += o.SimSubmitErrors
@@ -224,9 +243,11 @@ var ErrAborted = errors.New("mzplay: game aborted (training.max_minutes)")
 // What does not match and cannot be set here: by default the tree holds
 // only the searching seat's decisions (the opponent inside a simulation is
 // the default bot, where upstream's tree has opponent nodes;
-// SeatSetup.OpponentNodes turns them on, the caller sets it); there is no
-// subtree reuse between decisions (upstream's budget counts the visits the
-// reused subtree already holds); PUCT's exploration term reads the count of
+// SeatSetup.OpponentNodes turns them on, the caller sets it); by default
+// there is no subtree reuse between decisions (upstream's budget counts the
+// visits the reused subtree already holds; SeatSetup.ReuseTree turns it on,
+// matching a node by the exact world rather than upstream's
+// perspective-redacted state string); PUCT's exploration term reads the count of
 // simulations the child was available in plus one, not the parent's visits
 // (identical in a fixed world except for the +1); a whole attack or block
 // declaration is one node.
@@ -322,12 +343,16 @@ func PlayGame(gs GameSetup) (res GameResult, err error) {
 	rec := [2]*recorder{}
 	seatSeed := [2]uint64{}
 	opts := [2]azmcts.Options{}
+	reuse := [2]*azmcts.Reuse{}
 	for i := range gs.Seats {
 		s := gs.Seats[i]
 		rec[i] = newRecorder(state.PlayerID(i), gs.Vocab, s.SeeOpponentHand, &res.Stats)
 		seatSeed[i] = splitmix(gs.Seed ^ (uint64(i)+1)*0x6d7a706c61792d73)
 		opts[i] = SearchOptions(s.Budget, s.BackpropDiscount, s.Leaf)
 		opts[i].OpponentNodes = s.OpponentNodes
+		if s.ReuseTree {
+			opts[i].ReuseTree, reuse[i] = true, azmcts.NewReuse()
+		}
 	}
 	submit := func(in decision.Intent) error {
 		res.Stats.Submits++
@@ -375,7 +400,7 @@ func PlayGame(gs GameSetup) (res GameResult, err error) {
 		if gs.DecisionContext != nil {
 			ctx, cancel = gs.DecisionContext(p)
 		}
-		lr, serr := searchbench.SearchLive(ctx, e, botSeed, nil, o)
+		lr, serr := searchbench.SearchLiveReuse(ctx, e, botSeed, nil, o, reuse[p])
 		cancel()
 		if serr != nil {
 			return res, fmt.Errorf("mzplay: game %d, decision %d: %w", gs.Index, d.Seq, serr)
@@ -384,6 +409,12 @@ func PlayGame(gs GameSetup) (res GameResult, err error) {
 		res.Stats.Simulations += st.Simulations
 		res.Stats.Completed += st.Completed
 		res.Stats.OppSelections += st.OppPoints
+		res.Stats.ReuseHits += st.ReuseHits
+		res.Stats.ReuseMisses += st.ReuseMissNoTree + st.ReuseMissState + st.ReuseMissCandidates
+		res.Stats.ReuseMissState += st.ReuseMissState
+		res.Stats.ReusePartial += st.ReusePartial
+		res.Stats.ReuseMissCandidates += st.ReuseMissCandidates
+		res.Stats.ReuseCarried += st.ReuseCarried
 		res.Stats.SimFailures += st.Simulations - st.Completed
 		res.Stats.SimPanics += st.Panics
 		res.Stats.SimSubmitErrors += st.SubmitErrors

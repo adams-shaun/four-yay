@@ -60,6 +60,7 @@ func registerAZFlags(fs *flag.FlagSet) {
 	fs.IntVar(&azCfg.Search.NodeCache, "az-node-cache", d.NodeCache, "az policy: tree nodes whose engine state a fixed-world search (clairvoyant) stores so a simulation resumes there instead of re-walking from the root (0 = off); the result is identical either way, and a redeal world never uses it")
 	fs.StringVar(&azKindsArg, "az-kinds", azKindsArg, "az policy: comma list of searched decision kinds (priority, attackers, blockers, target)")
 	fs.BoolVar(&azCfg.Search.OpponentNodes, "az-opponent-nodes", false, "az policy, clairvoyant world only: the tree also branches on the opponent's searched decisions, valued from the opponent's side (upstream MageZero's opponent nodes) instead of answering them with the bot; the ledger name gains -opp. Off by default")
+	fs.BoolVar(&azCfg.Search.ReuseTree, "az-reuse-tree", false, "az policy, clairvoyant world only: each seat keeps its search tree between its decisions and carries the stored node that is the real position, the budget counting the visits it already holds (upstream MageZero's subtree reuse); the ledger name gains -reuse. Off by default")
 	fs.IntVar(&azCfg.Search.OpponentLimit, "az-opponent-candidates", 0, "az policy with -az-opponent-nodes: candidates per opponent node, the opponent bot's answer first (0 = -az-candidates)")
 	registerAZVariantFlags(fs) // azvariant.go
 }
@@ -144,6 +145,16 @@ func azFrontDoor(aName, bName string, m *policynet.Model, mode azSeatMode) error
 		}
 	} else if azCfg.Search.OpponentLimit != 0 {
 		return fmt.Errorf("-az-opponent-candidates needs -az-opponent-nodes")
+	}
+	if azCfg.Search.ReuseTree {
+		// Tree reuse needs the real world (azmcts.Search refuses anything
+		// else); refuse here, before any game.
+		switch {
+		case azWorldArg == azmcts.WorldRedeal || aName == "az-redeal" || bName == "az-redeal":
+			return fmt.Errorf("-az-reuse-tree needs the clairvoyant world; the redeal world deals a different world per simulation")
+		case azWorldArg == azWorldPrior:
+			return fmt.Errorf("-az-reuse-tree with -az-world prior: the prior student builds no tree")
+		}
 	}
 	kinds, err := azmcts.ParseKinds(azKindsArg)
 	if err != nil {

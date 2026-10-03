@@ -25,6 +25,16 @@
 # (the loop's engine processes inherit the environment), or per player with
 # `opponent_nodes: true` under a player's `mcts:` block in the run root's configs/game.yml,
 # which the loop passes through untouched. Off by default, as here.
+#
+# Subtree reuse (upstream keeps each player's tree between its decisions and its budget
+# counts the visits the reused subtree already holds) is the same kind of switch:
+#   MZ_REUSE_TREE=1 scripts/mzrepro/dzrun.sh loop <run_root> --fresh
+# or `reuse_tree: true` under a player's `mcts:` block in the run root's configs/game.yml.
+# Off by default, as here. Upstream matches the stored node by the state as the searching
+# player sees it; gorge matches only the node whose world is the real position exactly
+# (event chain, hidden zones, chance), so it carries less. In a fixed world, under that
+# budget rule, a fully matched carried subtree is the tree a fresh search would grow: the
+# switch saves simulations rather than raising the effective budget.
 model: FDN_exp2
 version: 1
 curriculum: configs/curriculum_exp2.yml

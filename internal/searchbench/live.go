@@ -72,6 +72,14 @@ func (l LiveRoot) Chosen() bool { return chosen(l.Result) }
 // candidate and the answer of every decision that is not searched. e is
 // only read.
 func SearchLive(ctx context.Context, e *rules.Engine, botSeed uint64, net *policynet.Model, opts azmcts.Options) (LiveRoot, error) {
+	return SearchLiveReuse(ctx, e, botSeed, net, opts, nil)
+}
+
+// SearchLiveReuse is SearchLive with the seat's tree carrier
+// (azmcts.Options.ReuseTree, which must be set exactly when reuse is
+// non-nil): one carrier per seat and game, and the caller plays the
+// returned choice before the seat's next search.
+func SearchLiveReuse(ctx context.Context, e *rules.Engine, botSeed uint64, net *policynet.Model, opts azmcts.Options, reuse *azmcts.Reuse) (LiveRoot, error) {
 	if e == nil || e.G.Over || e.Pending() == nil {
 		return LiveRoot{}, errors.New("searchbench: SearchLive needs an engine at a pending decision")
 	}
@@ -87,7 +95,7 @@ func SearchLive(ctx context.Context, e *rules.Engine, botSeed uint64, net *polic
 	if err != nil {
 		return LiveRoot{}, err
 	}
-	root := azmcts.Root{Engine: e, Decision: d, Bot: botAnswer(e, botSeed), Observer: obs}
+	root := azmcts.Root{Engine: e, Decision: d, Bot: botAnswer(e, botSeed), Observer: obs, Reuse: reuse}
 	var plan *rootPlan
 	if d.Kind == decision.KPriority && opts.AutoPayment {
 		p := planRoot(e, root.Bot, botSeed)

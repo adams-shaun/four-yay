@@ -390,3 +390,35 @@ func TestRunOpponentNodes(t *testing.T) {
 		t.Setenv("MZ_OPPONENT_NODES", "")
 	}
 }
+
+// TestRunReuseTree: -reuse-tree (and MZ_REUSE_TREE=1) reach both seats'
+// searches, which the run's stats line shows; without it no search counts
+// a reuse hit or miss.
+func TestRunReuseTree(t *testing.T) {
+	f := newFixture(t, 1, 8, true, true, 50052, 50052, nil)
+	t.Setenv("MZ_REUSE_TREE", "")
+	code, out, errOut := f.run(t)
+	if code != 0 {
+		t.Fatalf("exit %d\n%s\n%s", code, out, errOut)
+	}
+	if st := stats(t, out); st.ReuseHits != 0 || st.ReuseMisses != 0 {
+		t.Fatalf("switch off: %d hits, %d misses", st.ReuseHits, st.ReuseMisses)
+	}
+	for _, how := range []string{"flag", "env"} {
+		g := newFixture(t, 1, 8, true, true, 50052, 50052, nil)
+		var extra []string
+		if how == "flag" {
+			extra = []string{"-reuse-tree"}
+		} else {
+			t.Setenv("MZ_REUSE_TREE", "1")
+		}
+		code, out, errOut := g.run(t, extra...)
+		if code != 0 {
+			t.Fatalf("%s: exit %d\n%s\n%s", how, code, out, errOut)
+		}
+		if st := stats(t, out); st.ReuseHits+st.ReuseMisses == 0 || st.Simulations == 0 {
+			t.Fatalf("%s: stats %+v", how, st)
+		}
+		t.Setenv("MZ_REUSE_TREE", "")
+	}
+}

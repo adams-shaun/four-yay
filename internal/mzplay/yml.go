@@ -321,6 +321,10 @@ type PlayerConfig struct {
 	// opponent's searched decisions (azmcts.Options.OpponentNodes) instead
 	// of answering them with the bot. Default false.
 	OpponentNodes bool
+	// ReuseTree is mcts.reuse_tree, a gorge-only key like opponent_nodes:
+	// the seat keeps its search tree between decisions
+	// (azmcts.Options.ReuseTree), as upstream always does. Default false.
+	ReuseTree bool
 
 	Mulligans     bool
 	ManualTapping bool
@@ -390,6 +394,7 @@ func ParseConfig(src string) (Config, error) {
 			BackpropDiscount: r.number(p+".mcts.backprop_discount", 0.99),
 			OfflineMode:      r.boolean(p+".mcts.offline_mode", false),
 			OpponentNodes:    r.boolean(p+".mcts.opponent_nodes", false),
+			ReuseTree:        r.boolean(p+".mcts.reuse_tree", false),
 			Mulligans:        r.boolean(p+".gameplay.mulligans_enabled", true),
 			ManualTapping:    r.boolean(p+".gameplay.manual_tapping", false),
 			SeeOpponentHand:  r.boolean(p+".hiddenInfo.see_opponent_hand", true),

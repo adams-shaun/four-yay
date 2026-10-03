@@ -325,3 +325,67 @@ func TestParseConfigOpponentNodes(t *testing.T) {
 		t.Fatalf("opponent_nodes: a %v b %v", c.A.OpponentNodes, c.B.OpponentNodes)
 	}
 }
+
+// TestPlayGameReuseTree: a game whose seats keep their trees between
+// decisions plays to its end reproducibly and really carries visits from
+// one search to the next; a game without reuse never counts a hit or a
+// miss. Under upstream's budget (the root's visits reach the budget) a
+// fully matched carried node in a fixed world whose environment answers
+// the same way is exactly the tree a fresh search would grow, so the game
+// may well be the same one, played with fewer simulations: when it is, the
+// simulations saved are exactly the visits carried. With opponent nodes
+// too.
+func TestPlayGameReuseTree(t *testing.T) {
+	for _, opp := range []bool{false, true} {
+		gs := testSetup(t, "mono-green-stompy", "mono-white-equipment", 7, 12)
+		gs.MaxTurns = 8
+		for i := range gs.Seats {
+			gs.Seats[i].OpponentNodes = opp
+		}
+		off, err := PlayGame(gs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if off.Stats.ReuseHits != 0 || off.Stats.ReuseMisses != 0 || off.Stats.ReuseCarried != 0 {
+			t.Fatalf("opp %v switch off: %+v", opp, off.Stats)
+		}
+		for i := range gs.Seats {
+			gs.Seats[i].ReuseTree = true
+		}
+		a, err := PlayGame(gs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, err := PlayGame(gs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(a, b) {
+			t.Fatalf("opp %v: the same setup with tree reuse played two different games", opp)
+		}
+		if a.Stats.ReuseHits == 0 || a.Stats.ReuseCarried == 0 || a.Stats.Searches < 10 || a.Stats.SimFailures > a.Stats.Simulations/10 {
+			t.Fatalf("opp %v reuse: %+v", opp, a.Stats)
+		}
+		if a.Stats.ReuseHits+a.Stats.ReuseMisses < a.Stats.Searches {
+			t.Fatalf("opp %v: %d hits + %d misses for %d searches", opp, a.Stats.ReuseHits, a.Stats.ReuseMisses, a.Stats.Searches)
+		}
+		same := reflect.DeepEqual(a.Rows, off.Rows)
+		if same && off.Stats.Simulations-a.Stats.Simulations != a.Stats.ReuseCarried {
+			t.Fatalf("opp %v: the same game with %d simulations against %d, %d visits carried", opp, a.Stats.Simulations, off.Stats.Simulations, a.Stats.ReuseCarried)
+		}
+		t.Logf("opp %v turns %d: %d searches, %d simulations (%d without reuse, %d failed), reuse %d hits / %d misses (%d no state), %d visits carried; same game as without reuse: %v",
+			opp, a.Turns, a.Stats.Searches, a.Stats.Simulations, off.Stats.Simulations, a.Stats.SimFailures, a.Stats.ReuseHits, a.Stats.ReuseMisses, a.Stats.ReuseMissState, a.Stats.ReuseCarried, same)
+	}
+}
+
+// mcts.reuse_tree is read per seat and defaults to off.
+func TestParseConfigReuseTree(t *testing.T) {
+	src := "player_a:\n  type: mcts\nplayer_b:\n  type: mcts\n  mcts:\n    reuse_tree: true\ntraining:\n  games: 1\nserver:\n  port: 1\n"
+	c, err := ParseConfig(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.A.ReuseTree || !c.B.ReuseTree {
+		t.Fatalf("reuse_tree: a %v b %v", c.A.ReuseTree, c.B.ReuseTree)
+	}
+}
