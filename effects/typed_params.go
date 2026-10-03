@@ -39,10 +39,10 @@ func (b *paramBinding) boundTo(m map[string]string) bool {
 // (NewSAFacts' second half).
 func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 	if isModalSA(sa) {
-		f.Charm = compileCharm(sa)
+		f.Charm = compileCharm(sa, f.Defined)
 	}
 	if sa.API == "Pump" {
-		f.Pump = compilePump(sa)
+		f.Pump = compilePump(sa, f.Defined)
 	}
 	if sa.API == "Draw" {
 		f.Draw = compileDraw(sa)
@@ -51,10 +51,10 @@ func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 		f.ReplaceEffect = compileReplaceEffect(sa)
 	}
 	if sa.API == "Mana" {
-		f.Mana = compileMana(sa)
+		f.Mana = compileMana(sa, f.Defined)
 	}
 	if sa.API == "ManaReflected" {
-		f.ManaReflected = compileManaReflected(sa)
+		f.ManaReflected = compileManaReflected(sa, f.Defined)
 	}
 	if isDealDamageSA(sa) {
 		f.DealDamage = compileDealDamage(sa)
@@ -69,6 +69,6 @@ func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 		f.DelayedTrigger = compileDelayedTrigger(sa)
 	}
 	if isCopyPermanentSA(sa) {
-		f.CopyPermanent = compileCopyPermanent(sa)
+		f.CopyPermanent = compileCopyPermanent(sa, f.Defined)
 	}
 }

@@ -345,7 +345,7 @@ func ChangeZoneOf(sa *cards.SA) *ChangeZoneParams {
 	if cz := slot.Load(); cz != nil && cz.boundTo(sa.Params) {
 		return cz
 	}
-	cz := compileChangeZone(sa, TargetsOf(sa))
+	cz := compileChangeZone(sa, TargetsOf(sa), DefinedOf(sa))
 	if sa.Params != nil {
 		slot.Store(cz)
 	}
@@ -369,7 +369,7 @@ func paramMapSlot(m map[string]string) uint {
 }
 
 // compileChangeZone is the one reader of a ChangeZone ability's parameters.
-func compileChangeZone(sa *cards.SA, tp *TargetParams) *ChangeZoneParams {
+func compileChangeZone(sa *cards.SA, tp *TargetParams, dr *DefinedParams) *ChangeZoneParams {
 	p := &ChangeZoneParams{src: sa.Params, n: len(sa.Params)}
 
 	// Origin$ and OriginAlternative$.
@@ -417,9 +417,8 @@ func compileChangeZone(sa *cards.SA, tp *TargetParams) *ChangeZoneParams {
 	p.AlternativeDecider = strings.TrimSpace(sa.Params["AlternativeDecider"])
 
 	// Selectors.
-	p.changeZoneTargeting = compileChangeZoneTargeting(sa, tp)
-	dp, dpOK := sa.Param(cards.PKDefinedPlayer)
-	p.DefinedPlayer = paramText(dp, dpOK)
+	p.changeZoneTargeting = compileChangeZoneTargeting(tp, dr)
+	p.DefinedPlayer = definedPlayerRef(sa).Param()
 	p.Chooser = strings.TrimSpace(sa.ParamStr(cards.PKChooser))
 	switch p.Chooser {
 	case "", "Owner":
@@ -534,11 +533,11 @@ func compileFaceDownRiders(sa *cards.SA) FaceDownRiders {
 
 // compileChangeZoneTargeting is the one reader of ChangeZone's targeting half.
 // The targeting keys come from the generic tier's compiled TargetParams.
-func compileChangeZoneTargeting(sa *cards.SA, tp *TargetParams) changeZoneTargeting {
+func compileChangeZoneTargeting(tp *TargetParams, dp *DefinedParams) changeZoneTargeting {
 	var t changeZoneTargeting
-	t.Defined = strings.TrimSpace(sa.ParamStr(cards.PKDefined))
-	t.DefinedImprinted = t.Defined == "Imprinted"
-	t.DefinedRemembered = t.Defined == "Remembered"
+	t.Defined = dp.Defined.Text
+	t.DefinedImprinted = dp.Defined.Is(RefImprinted)
+	t.DefinedRemembered = dp.Defined.Is(RefRemembered)
 	t.ValidTgts = ParamText{Text: tp.ValidTgts, Present: tp.Has(TgtValidPresent)}
 	t.TargetMin = paramText(tp.Min.Text, tp.Min.Present)
 	t.TargetMax = paramText(tp.Max.Text, tp.Max.Present)
@@ -598,10 +597,8 @@ func (p *ChangeZoneParams) fetch() fetchSelectors {
 // fetchSelectorsParam is the fetch selectors of an API with no compiled
 // record yet (Manifest's searchPlayers call).
 func fetchSelectorsParam(sa *cards.SA) fetchSelectors {
-	dp, dpOK := sa.Param(cards.PKDefinedPlayer)
-	d, dOK := sa.Param(cards.PKDefined)
 	tp := TargetsOf(sa)
-	return fetchSelectors{DefinedPlayer: paramText(dp, dpOK), Defined: paramText(d, dOK),
+	return fetchSelectors{DefinedPlayer: definedPlayerRef(sa).Param(), Defined: DefinedRefOf(sa).Param(),
 		ValidTgts: ParamText{Text: tp.ValidTgts, Present: tp.Has(TgtValidPresent)}}
 }
 

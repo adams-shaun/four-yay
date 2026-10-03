@@ -26,7 +26,7 @@ func TestEveryConfiguredAbilityHasItsFactsRecord(t *testing.T) {
 	}
 	ct := buildCompiledText(Config{Decks: [][]*cards.Card{all}, Tokens: reg.Tokens})
 
-	checked, fromSlot, targeted := 0, 0, 0
+	checked, fromSlot, targeted, defined := 0, 0, 0, 0
 	seen := map[*cards.SA]bool{}
 	var check func(c *cards.Card, sa *cards.SA)
 	check = func(c *cards.Card, sa *cards.SA) {
@@ -96,6 +96,21 @@ func TestEveryConfiguredAbilityHasItsFactsRecord(t *testing.T) {
 			if (f.CopyPermanent != nil) != (sa.API == "CopyPermanent") {
 				t.Errorf("%s: %q (API %s): CopyPermanent half present=%v", c.Path, sa.Line, sa.API, f.CopyPermanent != nil)
 			}
+			// The Defined-reference tier is compiled for EVERY ability,
+			// whatever its API, and DefinedOf serves the configured record.
+			if f.Defined == nil {
+				t.Errorf("%s: %q (API %s): no Defined half", c.Path, sa.Line, sa.API)
+			} else {
+				if got := f.Defined.Defined.Text; got != strings.TrimSpace(sa.Params["Defined"]) {
+					t.Errorf("%s: %q (API %s): Defined.Text=%q", c.Path, sa.Line, sa.API, got)
+				}
+				if got := effects.DefinedOf(sa); len(sa.Params) > 0 && got != f.Defined && !reflect.DeepEqual(*got, *f.Defined) {
+					t.Errorf("%s: %q (API %s): DefinedOf disagrees with the configured Defined half", c.Path, sa.Line, sa.API)
+				}
+				if f.Defined.Defined.Set() {
+					defined++
+				}
+			}
 		}
 	}
 	visit := func(c *cards.Card) {
@@ -126,5 +141,8 @@ func TestEveryConfiguredAbilityHasItsFactsRecord(t *testing.T) {
 	if targeted == 0 {
 		t.Fatal("no configured ability targets: the Targets half check is vacuous")
 	}
-	t.Logf("%d configured abilities carry their facts record (%d served from their own slot, %d targeting)", checked, fromSlot, targeted)
+	if defined == 0 {
+		t.Fatal("no configured ability names a Defined$ selector: the Defined half check is vacuous")
+	}
+	t.Logf("%d configured abilities carry their facts record (%d served from their own slot, %d targeting, %d naming Defined$)", checked, fromSlot, targeted, defined)
 }

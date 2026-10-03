@@ -100,7 +100,7 @@ func CharmOf(sa *cards.SA) *CharmParams {
 	if p := slot.Load(); p != nil && p.boundTo(sa.Params) {
 		return p
 	}
-	p := compileCharm(sa)
+	p := compileCharm(sa, DefinedOf(sa))
 	if sa.Params != nil {
 		slot.Store(p)
 	}
@@ -112,7 +112,7 @@ func CharmOf(sa *cards.SA) *CharmParams {
 var charmFront [1 << 10]atomic.Pointer[CharmParams]
 
 // compileCharm is the one reader of a modal ability's own parameters.
-func compileCharm(sa *cards.SA) *CharmParams {
+func compileCharm(sa *cards.SA, dp *DefinedParams) *CharmParams {
 	p := &CharmParams{paramBinding: bindParams(sa)}
 	p.ChoicesText = sa.ParamStr(cards.PKChoices)
 	p.HasChoices = strings.TrimSpace(p.ChoicesText) != ""
@@ -129,7 +129,7 @@ func compileCharm(sa *cards.SA) *CharmParams {
 	p.RandomCompareSVar = sa.Params["RandomCompareSVar"]
 	p.RandomCompare = sa.Params["RandomCompare"]
 
-	p.Defined = strings.TrimSpace(sa.ParamStr(cards.PKDefined))
+	p.Defined = dp.Defined.Text
 	p.TempRemember = strings.TrimSpace(sa.Params["TempRemember"]) != ""
 	p.FallbackAbility = strings.TrimSpace(sa.Params["FallbackAbility"])
 	p.AtRandom = strings.TrimSpace(sa.ParamStr(cards.PKAtRandom))
