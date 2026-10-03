@@ -192,14 +192,14 @@ func compileChangeZoneAll(sa *cards.SA, tp *TargetParams, dp *DefinedParams) *Ch
 	p.ChangeNum = paramText(cn, cnOK)
 	p.ChangeNumCapped = p.ChangeNum.Text != "" && !strings.EqualFold(p.ChangeNum.Text, "All")
 
-	p.UseAllOriginZones = isTrue(sa.Params["UseAllOriginZones"])
+	p.UseAllOriginZones = isTrue(sa.ParamStr(cards.PKUseAllOriginZones))
 	p.ValidTgtsText, p.Targeting = tp.ValidTgts, tp.Has(TgtValidPresent)
 	p.DefinedText, p.DefinedPresent = dp.Defined.Raw, dp.Defined.Present()
 
 	p.LibraryPosition = strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition))
 	p.ShuffleTrue = strings.EqualFold(sa.ParamStr(cards.PKShuffle), "True")
 
-	p.RandomOrder = isTrue(sa.Params["RandomOrder"])
+	p.RandomOrder = isTrue(sa.ParamStr(cards.PKRandomOrder))
 	p.RememberLKI = isTrue(sa.ParamStr(cards.PKRememberLKI))
 	p.RememberChanged = isTrue(sa.ParamStr(cards.PKRememberChanged))
 	p.Tapped = isTrue(sa.ParamStr(cards.PKTapped))

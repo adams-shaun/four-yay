@@ -146,7 +146,7 @@ func (e *Engine) searchControlRedirect(d *decision.Decision) {
 		return
 	}
 	for _, sv := range e.activeStatics("Continuous") {
-		if strings.TrimSpace(sv.Params["ControlOpponentsSearchingLibrary"]) != "You" {
+		if strings.TrimSpace(sv.ParamStr(cards.PKControlOpponentsSearchingLibrary)) != "You" {
 			continue
 		}
 		if sv.Controller == d.Player {

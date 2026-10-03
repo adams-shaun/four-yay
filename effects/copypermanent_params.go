@@ -189,23 +189,23 @@ func compileCopyPermanent(sa *cards.SA, dp *DefinedParams) *CopyPermanentParams 
 	// cannot attribute.
 	var skipped []string
 	note := func(label string) { skipped = append(skipped, label) }
-	if _, ok := sa.Params["DefinedName"]; ok {
+	if _, ok := sa.Param(cards.PKDefinedName); ok {
 		note("DefinedName$")
 		p.Blocked = true
 	}
-	if _, ok := sa.Params["Pawprint"]; ok {
+	if _, ok := sa.Param(cards.PKPawprint); ok {
 		note("Pawprint$")
 		p.Blocked = true
 	}
-	if _, ok := sa.Params["RandomCopied"]; ok {
+	if _, ok := sa.Param(cards.PKRandomCopied); ok {
 		note("RandomCopied$")
 		p.Blocked = true
 	}
-	if _, ok := sa.Params["RandomNum"]; ok {
+	if _, ok := sa.Param(cards.PKRandomNum); ok {
 		note("RandomNum$")
 		p.Blocked = true
 	}
-	if _, ok := sa.Params["ValidSupportedCopy"]; ok {
+	if _, ok := sa.Param(cards.PKValidSupportedCopy); ok {
 		note("ValidSupportedCopy$")
 		p.Blocked = true
 	}
@@ -218,7 +218,7 @@ func compileCopyPermanent(sa *cards.SA, dp *DefinedParams) *CopyPermanentParams 
 		note("Choices$")
 		p.Blocked = true
 	}
-	if _, ok := sa.Params["WithDifferentNames"]; ok {
+	if _, ok := sa.Param(cards.PKWithDifferentNames); ok {
 		note("WithDifferentNames$")
 	}
 	if chooserOK && !p.SupportsChoice {
@@ -230,8 +230,8 @@ func compileCopyPermanent(sa *cards.SA, dp *DefinedParams) *CopyPermanentParams 
 			"; the copy keeps the original's printed characteristics"
 	}
 
-	p.AtEOT = strings.TrimSpace(sa.Params["AtEOT"])
-	p.AtEOTTrig = strings.TrimSpace(sa.Params["AtEOTTrig"])
+	p.AtEOT = strings.TrimSpace(sa.ParamStr(cards.PKAtEOT))
+	p.AtEOTTrig = strings.TrimSpace(sa.ParamStr(cards.PKAtEOTTrig))
 
 	addTypes, ok := sa.Param(cards.PKAddTypes)
 	p.AddTypes = ParamText{Text: addTypes, Present: ok}
@@ -258,17 +258,17 @@ func compileCopyPermanent(sa *cards.SA, dp *DefinedParams) *CopyPermanentParams 
 	withAmt, ok := sa.Param(cards.PKWithCountersAmount)
 	p.WithCountersAmount = ParamText{Text: withAmt, Present: ok}
 
-	p.TokenTapped = strings.TrimSpace(sa.Params["TokenTapped"])
-	p.TokenAttacking = strings.TrimSpace(sa.Params["TokenAttacking"])
+	p.TokenTapped = strings.TrimSpace(sa.ParamStr(cards.PKTokenTapped))
+	p.TokenAttacking = strings.TrimSpace(sa.ParamStr(cards.PKTokenAttacking))
 	p.NumCopies = rawParamText(sa, "NumCopies")
 
 	p.Defined = dp.Defined.Text
 	p.HasTgts = TargetsOf(sa).Has(TgtValidPresent)
-	p.Populate = isTrue(sa.Params["Populate"])
-	p.RememberTokens = isTrue(sa.Params["RememberTokens"])
-	p.ImprintTokens = isTrue(sa.Params["ImprintTokens"])
+	p.Populate = isTrue(sa.ParamStr(cards.PKPopulate))
+	p.RememberTokens = isTrue(sa.ParamStr(cards.PKRememberTokens))
+	p.ImprintTokens = isTrue(sa.ParamStr(cards.PKImprintTokens))
 	p.AttachedTo = strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo))
-	p.TokenRemembered = strings.TrimSpace(sa.Params["TokenRemembered"])
+	p.TokenRemembered = strings.TrimSpace(sa.ParamStr(cards.PKTokenRemembered))
 	p.AddTriggers = sa.ParamStr(cards.PKAddTriggers)
 	p.AddSVars = sa.ParamStr(cards.PKAddSVars)
 	p.AddAbilities = sa.ParamStr(cards.PKAddAbilities)

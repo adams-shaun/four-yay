@@ -360,10 +360,10 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 				ballots = e.secretVoteBallots
 			}
 			same, diff := effects.VoteSplit(e.controllerOf(source), ballots, ballotExisted)
-			if listAdmits(t.Params["List"], "OppVotedSame") {
+			if listAdmits(t.ParamStr(cards.PKList), "OppVotedSame") {
 				c.TriggeredOpponentsVotedSame = same
 			}
-			if listAdmits(t.Params["List"], "OppVotedDiff") {
+			if listAdmits(t.ParamStr(cards.PKList), "OppVotedDiff") {
 				c.TriggeredOpponentsVotedDiff = diff
 			}
 		}

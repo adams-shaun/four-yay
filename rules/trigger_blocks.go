@@ -631,8 +631,8 @@ func (e *Engine) checkAttackerUnblockedOnceTriggers() {
 			// defender is being attacked by, whose controller is an opponent of
 			// the trigger controller. The first match decides the fire; the
 			// matching attackers (in battlefield walk order) are remembered.
-			defenderSpec := t.Params["ValidDefenders"]
-			attackerSpec := t.Params["ValidAttackingPlayer"]
+			defenderSpec := t.ParamStr(cards.PKValidDefenders)
+			attackerSpec := t.ParamStr(cards.PKValidAttackingPlayer)
 			var attackerIDs []state.ObjID
 			for _, p := range e.G.AliveFrom(0) {
 				for _, bid := range e.G.Zone(state.ZBattlefield, p) {
@@ -706,7 +706,7 @@ func (e *Engine) blocksCandidates(t cards.Trigger, source state.ObjID, ev events
 		if v := t.ParamStr(cards.PKValidCard); v != "" && !e.matchesSpec(v, pr[1], e.specCtx(source, ctrl)) {
 			continue
 		}
-		if v := t.Params["ValidBlocked"]; v != "" && !e.matchesSpec(v, pr[0], e.specCtx(source, ctrl)) {
+		if v := t.ParamStr(cards.PKValidBlocked); v != "" && !e.matchesSpec(v, pr[0], e.specCtx(source, ctrl)) {
 			continue
 		}
 		out = append(out, pr)

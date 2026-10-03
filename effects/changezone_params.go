@@ -379,7 +379,7 @@ func compileChangeZone(sa *cards.SA, tp *TargetParams, dr *DefinedParams) *Chang
 		p.OriginOwn, p.OriginOwnAll, p.OriginOwnOK = ParseZones(from)
 		p.Origin = append([]state.Zone(nil), p.OriginOwn...)
 		p.OriginAll = p.OriginOwnAll
-		if alt, hasAlt := sa.Params["OriginAlternative"]; hasAlt {
+		if alt, hasAlt := sa.Param(cards.PKOriginAlternative); hasAlt {
 			p.OriginAltPresent = true
 			p.OriginAltText = alt
 			altZones, altAll, altValid := ParseZones(alt)
@@ -407,14 +407,14 @@ func compileChangeZone(sa *cards.SA, tp *TargetParams, dr *DefinedParams) *Chang
 		p.DestAltMandatory = true
 		p.DestAltCond = strings.TrimSpace(rest)
 	}
-	p.DestAltSVarCompare = strings.TrimSpace(sa.Params["DestAltSVarCompare"])
+	p.DestAltSVarCompare = strings.TrimSpace(sa.ParamStr(cards.PKDestAltSVarCompare))
 	p.DestinationAltText = strings.TrimSpace(sa.ParamStr(cards.PKDestinationAlternative))
 	p.DestinationAlt, p.DestinationAltKnown = parseZone(p.DestinationAltText)
 	lp, lpOK := sa.Param(cards.PKLibraryPosition)
 	p.LibraryPosition = paramText(lp, lpOK)
 	p.LibraryPositionText = p.LibraryPosition.Text
-	p.LibraryPositionAltText = strings.TrimSpace(sa.Params["LibraryPositionAlternative"])
-	p.AlternativeDecider = strings.TrimSpace(sa.Params["AlternativeDecider"])
+	p.LibraryPositionAltText = strings.TrimSpace(sa.ParamStr(cards.PKLibraryPositionAlternative))
+	p.AlternativeDecider = strings.TrimSpace(sa.ParamStr(cards.PKAlternativeDecider))
 
 	// Selectors.
 	p.changeZoneTargeting = compileChangeZoneTargeting(tp, dr)
@@ -438,7 +438,7 @@ func compileChangeZone(sa *cards.SA, tp *TargetParams, dr *DefinedParams) *Chang
 	}
 	p.ChooseFromDefined = strings.TrimSpace(sa.ParamStr(cards.PKChooseFromDefined))
 	p.AttachedTo = strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo))
-	p.AttachedToPlayer = strings.TrimSpace(sa.Params["AttachedToPlayer"])
+	p.AttachedToPlayer = strings.TrimSpace(sa.ParamStr(cards.PKAttachedToPlayer))
 
 	// The filter and the count.
 	p.ChangeType = sa.ParamStr(cards.PKChangeType)
@@ -447,11 +447,11 @@ func compileChangeZone(sa *cards.SA, tp *TargetParams, dr *DefinedParams) *Chang
 	}
 	cn, cnOK := sa.Param(cards.PKChangeNum)
 	p.ChangeNum = paramText(cn, cnOK)
-	tc, tcOK := sa.Params["WithTotalCMC"]
+	tc, tcOK := sa.Param(cards.PKWithTotalCMC)
 	p.WithTotalCMC = paramText(tc, tcOK)
-	mr, mrOK := sa.Params["MaxRevealed"]
+	mr, mrOK := sa.Param(cards.PKMaxRevealed)
 	p.MaxRevealed = paramText(mr, mrOK)
-	p.WithTotalCardTypes = strings.TrimSpace(sa.Params["WithTotalCardTypes"])
+	p.WithTotalCardTypes = strings.TrimSpace(sa.ParamStr(cards.PKWithTotalCardTypes))
 
 	// Entry riders.
 	p.WithCountersType = sa.ParamStr(cards.PKWithCountersType)
@@ -474,29 +474,29 @@ func compileChangeZone(sa *cards.SA, tp *TargetParams, dr *DefinedParams) *Chang
 	p.SpellDescription = sa.ParamStr(cards.PKSpellDescription)
 
 	// Flags.
-	p.Hidden = isTrue(sa.Params["Hidden"])
-	p.Unimprint = isTrue(sa.Params["Unimprint"])
+	p.Hidden = isTrue(sa.ParamStr(cards.PKHidden))
+	p.Unimprint = isTrue(sa.ParamStr(cards.PKUnimprint))
 	p.Imprint = isTrue(sa.ParamStr(cards.PKImprint))
 	p.ImprintLast = isTrue(sa.ParamStr(cards.PKImprintLast))
 	p.RememberLKI = isTrue(sa.ParamStr(cards.PKRememberLKI))
 	p.RememberChanged = isTrue(sa.ParamStr(cards.PKRememberChanged))
 	p.RememberTargets = isTrue(sa.ParamStr(cards.PKRememberTargets))
-	p.RememberSearched = isTrue(sa.Params["RememberSearched"])
-	p.ForgetOtherTargets = isTrue(sa.Params["ForgetOtherTargets"])
+	p.RememberSearched = isTrue(sa.ParamStr(cards.PKRememberSearched))
+	p.ForgetOtherTargets = isTrue(sa.ParamStr(cards.PKForgetOtherTargets))
 	p.Tapped = isTrue(sa.ParamStr(cards.PKTapped))
 	p.AtRandom = isTrue(sa.ParamStr(cards.PKAtRandom))
 	p.NoLooking = isTrue(sa.ParamStr(cards.PKNoLooking))
 	p.Reveal = isTrue(sa.ParamStr(cards.PKReveal))
 	p.NoReveal = isTrue(sa.ParamStr(cards.PKNoReveal))
 	p.DifferentNames = isTrue(sa.ParamStr(cards.PKDifferentNames))
-	p.Exactly = isTrue(sa.Params["Exactly"])
-	p.ShareLandType = isTrue(sa.Params["ShareLandType"])
+	p.Exactly = isTrue(sa.ParamStr(cards.PKExactly))
+	p.ShareLandType = isTrue(sa.ParamStr(cards.PKShareLandType))
 	shuffle := strings.TrimSpace(sa.ParamStr(cards.PKShuffle))
 	p.ShuffleTrue = strings.EqualFold(shuffle, "True")
 	p.ShuffleFalse = strings.EqualFold(shuffle, "False")
 	p.NoShuffle = isTrue(sa.ParamStr(cards.PKNoShuffle))
-	p.ShuffleNonMandatory = isTrue(sa.Params["ShuffleNonMandatory"])
-	p.Reorder = isTrue(sa.Params["Reorder"])
+	p.ShuffleNonMandatory = isTrue(sa.ParamStr(cards.PKShuffleNonMandatory))
+	p.Reorder = isTrue(sa.ParamStr(cards.PKReorder))
 	p.Unread = changeZoneUnread(sa)
 	return p
 }
@@ -507,7 +507,7 @@ func compileChangeZone(sa *cards.SA, tp *TargetParams, dr *DefinedParams) *Chang
 func compileMoveRiders(sa *cards.SA) MoveRiders {
 	var r MoveRiders
 	r.FaceDownRiders = compileFaceDownRiders(sa)
-	r.Transformed = isTrue(sa.Params["Transformed"])
+	r.Transformed = isTrue(sa.ParamStr(cards.PKTransformed))
 	r.Attacking = attackingParam(sa)
 	r.GainControl = gainControlParam(sa)
 	r.Duration = durationParam(sa)
@@ -519,14 +519,14 @@ func compileMoveRiders(sa *cards.SA) MoveRiders {
 func compileFaceDownRiders(sa *cards.SA) FaceDownRiders {
 	var r FaceDownRiders
 	r.FaceDown = isTrue(sa.ParamStr(cards.PKFaceDown))
-	r.ExileFaceDown = isTrue(sa.Params["ExileFaceDown"])
-	r.WithMayLook = isTrue(sa.Params["WithMayLook"])
-	r.Foretold = isTrue(sa.Params["Foretold"])
-	r.Unearth = isTrue(sa.Params["Unearth"])
-	r.FaceDownSetType = strings.TrimSpace(sa.Params["FaceDownSetType"])
-	fp, fpOK := sa.Params["FaceDownPower"]
+	r.ExileFaceDown = isTrue(sa.ParamStr(cards.PKExileFaceDown))
+	r.WithMayLook = isTrue(sa.ParamStr(cards.PKWithMayLook))
+	r.Foretold = isTrue(sa.ParamStr(cards.PKForetold))
+	r.Unearth = isTrue(sa.ParamStr(cards.PKUnearth))
+	r.FaceDownSetType = strings.TrimSpace(sa.ParamStr(cards.PKFaceDownSetType))
+	fp, fpOK := sa.Param(cards.PKFaceDownPower)
 	r.FaceDownPower = paramText(fp, fpOK)
-	ft, ftOK := sa.Params["FaceDownToughness"]
+	ft, ftOK := sa.Param(cards.PKFaceDownToughness)
 	r.FaceDownToughness = paramText(ft, ftOK)
 	return r
 }
@@ -550,7 +550,7 @@ func compileChangeZoneTargeting(tp *TargetParams, dp *DefinedParams) changeZoneT
 // which have no compiled record yet.
 
 // attackingParam is Attacking$ (classifyAttackingEntry's input).
-func attackingParam(sa *cards.SA) string { return strings.TrimSpace(sa.Params["Attacking"]) }
+func attackingParam(sa *cards.SA) string { return strings.TrimSpace(sa.ParamStr(cards.PKAttacking)) }
 
 // gainControlParam is GainControl$ as written (gainControlOf trims itself).
 func gainControlParam(sa *cards.SA) ParamText {

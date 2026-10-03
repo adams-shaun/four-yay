@@ -51,7 +51,7 @@ func effExchangeLife(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	oldA, oldB := h.Game().Players[a].Life, h.Game().Players[b].Life
-	if sa.ParamStr(cards.PKRememberOwnLoss) == "True" || sa.Params["RememberDifference"] == "True" {
+	if sa.ParamStr(cards.PKRememberOwnLoss) == "True" || sa.ParamStr(cards.PKRememberDifference) == "True" {
 		// Lazily allocate the chain's shared ExchangeMemory (and re-publish it
 		// through the seam, the way effFlipCoin publishes a lazily allocated
 		// FlipMemory) so an ask this exchange's own walk poses LATER — a
@@ -90,7 +90,7 @@ func effExchangeLife(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	}
-	if sa.Params["RememberDifference"] == "True" {
+	if sa.ParamStr(cards.PKRememberDifference) == "True" {
 		diff := oldA - oldB
 		if diff < 0 {
 			diff = -diff
@@ -170,12 +170,12 @@ func effExchangeLifeVariant(h Host, c *Ctx, sa *cards.SA) {
 // instead chooses a subset and a permutation of their original totals;
 // all receipts still go through the same LifeChange replacement boundary.
 func effSetLife(h Host, c *Ctx, sa *cards.SA) {
-	if sa.Params["Redistribute"] == "True" {
+	if sa.ParamStr(cards.PKRedistribute) == "True" {
 		// The only corpus shape is PlayerChoices$ Player / ChoiceAmount$ Any.
 		// The first choice selects the recipients; subsequent choices consume
 		// one original total per recipient. Chosen carries the subset followed
 		// by the picked sources, and ChoiceTarget carries the assignment cursor.
-		if sa.Params["PlayerChoices"] != "Player" || sa.Params["ChoiceAmount"] != "Any" {
+		if sa.ParamStr(cards.PKPlayerChoices) != "Player" || sa.ParamStr(cards.PKChoiceAmount) != "Any" {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "SetLife: unsupported redistribution choices"})
 			return
 		}
@@ -186,7 +186,7 @@ func effSetLife(h Host, c *Ctx, sa *cards.SA) {
 			if !c.ChoiceDone {
 				pool := g.AliveFrom(c.Controller)
 				d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Source: c.Source,
-					Min: 0, Max: len(pool), Prompt: sa.Params["ChoicePrompt"],
+					Min: 0, Max: len(pool), Prompt: sa.ParamStr(cards.PKChoicePrompt),
 					ResumeKind: "choice", ResumeSA: sa, ResumeTarget: 0}
 				for j, p := range pool {
 					d.Options = append(d.Options, decision.Option{Index: j, Kind: "player", Player: p, Label: g.Players[p].Name})

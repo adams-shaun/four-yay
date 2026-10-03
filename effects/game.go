@@ -51,8 +51,8 @@ func effRestartGame(h Host, c *Ctx, sa *cards.SA) {
 	// the draw degradation below), but the keep-set is real game state this
 	// build can name, so the log records it instead of leaving both keys
 	// silently inert.
-	if zonesRaw := strings.TrimSpace(sa.Params["RestrictFromZone"]); zonesRaw != "" {
-		if spec := strings.TrimSpace(sa.Params["RestrictFromValid"]); spec != "" {
+	if zonesRaw := strings.TrimSpace(sa.ParamStr(cards.PKRestrictFromZone)); zonesRaw != "" {
+		if spec := strings.TrimSpace(sa.ParamStr(cards.PKRestrictFromValid)); spec != "" {
 			zones, all, valid := ParseZones(zonesRaw)
 			g := h.Game()
 			if !valid {

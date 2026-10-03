@@ -38,7 +38,7 @@ import (
 func effManifest(h Host, c *Ctx, sa *cards.SA) {
 	if DefinedRefOf(sa).Set() ||
 		strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" ||
-		strings.EqualFold(strings.TrimSpace(sa.Params["RememberManifested"]), "True") {
+		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberManifested)), "True") {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unimplemented API Manifest"})
 		return
@@ -102,7 +102,7 @@ func effManifest(h Host, c *Ctx, sa *cards.SA) {
 // remembered card a rider needs.
 func effManifestDread(h Host, c *Ctx, sa *cards.SA) {
 	if definedPlayerRef(sa).Set() ||
-		strings.EqualFold(strings.TrimSpace(sa.Params["RememberManifested"]), "True") ||
+		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberManifested)), "True") ||
 		sa.ParamStr(cards.PKChoices) != "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unimplemented API ManifestDread"})
@@ -265,7 +265,7 @@ func effCloak(h Host, c *Ctx, sa *cards.SA) {
 	}
 	tapped := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTapped)), "True")
 	shuffle := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKShuffle)), "True")
-	remember := strings.EqualFold(strings.TrimSpace(sa.Params["RememberCloaked"]), "True")
+	remember := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberCloaked)), "True")
 	g := h.Game()
 	shuffled := make(map[state.PlayerID]bool)
 	cloak := func(id state.ObjID) {

@@ -53,7 +53,7 @@ func (e *Engine) loyaltyAtInstantSpeed(p state.PlayerID, id state.ObjID) bool {
 		for _, r := range ce.Remembered {
 			sc.Remembered = append(sc.Remembered, state.Target{Obj: r})
 		}
-		if e.matchesSpec(ce.RestrictParams["ValidCard"], id, sc) {
+		if e.matchesSpec(ce.RestrictParam(cards.PKValidCard), id, sc) {
 			return true
 		}
 	}

@@ -145,7 +145,7 @@ func effClash(h Host, c *Ctx, sa *cards.SA) {
 
 	// RememberClasher$ True: the opposing clashing players (every participant
 	// but the resolving controller) join Remembered as player targets.
-	if strings.EqualFold(strings.TrimSpace(sa.Params["RememberClasher"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberClasher)), "True") {
 		for _, p := range players {
 			if p == c.Controller {
 				continue
@@ -155,9 +155,9 @@ func effClash(h Host, c *Ctx, sa *cards.SA) {
 	}
 
 	// Forge's outcome branch, resolved by name like FlipCoin's.
-	name := strings.TrimSpace(sa.Params["OtherwiseSubAbility"])
+	name := strings.TrimSpace(sa.ParamStr(cards.PKOtherwiseSubAbility))
 	if c.ClashWon {
-		name = strings.TrimSpace(sa.Params["WinSubAbility"])
+		name = strings.TrimSpace(sa.ParamStr(cards.PKWinSubAbility))
 	}
 	if name != "" && c.SVars != nil {
 		Resolve(h, c, cards.ResolveSVar(c.SVars, name))

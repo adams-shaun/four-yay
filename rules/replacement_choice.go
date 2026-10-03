@@ -1,11 +1,12 @@
 package rules
 
 import (
+	"strings"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
-	"strings"
 )
 
 // replChoice is one CR 616.1 order-selection suspension: the MoveZone event
@@ -355,7 +356,7 @@ func (e *Engine) askReplacementChoice(p state.PlayerID) {
 		label := "Apply a replacement"
 		if so := e.G.Obj(c.id); so != nil && so.Face() != nil && so.Face().Name != "" {
 			label = "Apply " + so.Face().Name + "'s replacement"
-		} else if dsc := c.repl.Params["Description"]; dsc != "" {
+		} else if dsc := c.repl.ParamStr(cards.PKDescription); dsc != "" {
 			label = "Apply: " + dsc
 		}
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "replacement", Obj: c.id, Label: label})

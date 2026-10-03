@@ -170,7 +170,7 @@ func (e *Engine) abilityAlternateCost(ab *cards.SA) (Cost, bool) {
 	if !isAttachCostSA(ab) {
 		return Cost{}, false
 	}
-	raw := strings.TrimSpace(ab.Params["AlternateCost"])
+	raw := strings.TrimSpace(ab.ParamStr(cards.PKAlternateCost))
 	if raw == "" {
 		return Cost{}, false
 	}

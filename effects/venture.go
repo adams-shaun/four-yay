@@ -83,7 +83,7 @@ func effVenture(h Host, c *Ctx, sa *cards.SA) {
 		}
 		idx++
 	}
-	quality := strings.TrimSpace(sa.Params["Dungeon"])
+	quality := strings.TrimSpace(sa.ParamStr(cards.PKDungeon))
 	for i := idx; i < len(players); i++ {
 		p := players[i]
 		if p < 0 || int(p) >= len(g.Players) {
@@ -107,7 +107,7 @@ func effVenture(h Host, c *Ctx, sa *cards.SA) {
 // ventureAdvance moves p's marker one room (CR 701.49b). It reports whether
 // the walk suspended (an ask was posted) so the caller can return.
 func ventureAdvance(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerID, i int, id state.ObjID) bool {
-	quality := strings.TrimSpace(sa.Params["Dungeon"])
+	quality := strings.TrimSpace(sa.ParamStr(cards.PKDungeon))
 	dungeon := g.Obj(id)
 	if dungeon == nil || dungeon.Face() == nil {
 		return false
@@ -322,7 +322,7 @@ func DungeonNextRooms(f *cards.Face, room string) []string {
 		return nil
 	}
 	var out []string
-	for _, next := range strings.Split(sa.Params["NextRoom"], ",") {
+	for _, next := range strings.Split(sa.ParamStr(cards.PKNextRoom), ",") {
 		if next = strings.TrimSpace(next); next != "" {
 			out = append(out, next)
 		}
@@ -339,7 +339,7 @@ func DungeonRoomLabel(f *cards.Face, room string) string {
 	if sa == nil {
 		return room
 	}
-	if name := strings.TrimSpace(sa.Params["RoomName"]); name != "" {
+	if name := strings.TrimSpace(sa.ParamStr(cards.PKRoomName)); name != "" {
 		return name
 	}
 	return room

@@ -294,7 +294,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// (Sleep Paralysis's enchanted artifact vs. Basalt's itself); for a
 		// ValidCard$ Card.Self line the two are the same player. A value other
 		// than You fails closed.
-		if s, ok := r.Params["ValidStepTurnToController"]; ok {
+		if s, ok := r.Param(cards.PKValidStepTurnToController); ok {
 			if s != "You" || e.G.Step != state.StepUntap ||
 				e.G.Active != e.controllerOf(ev.Obj) {
 				return false
@@ -326,7 +326,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// posePhaseReplacementChoice: applicability is independent of whether
 		// the affected player eventually chooses to apply it.
 		// Hellbent$ True gates the skip on an empty hand (one corpus line).
-		if r.Params["Hellbent"] == "True" && len(e.G.Zone(state.ZHand, you)) > 0 {
+		if r.ParamStr(cards.PKHellbent) == "True" && len(e.G.Zone(state.ZHand, you)) > 0 {
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
@@ -349,7 +349,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// different shape this task deliberately does not implement -- a
 		// matcher without the requirement would change that card's behaviour
 		// without implementing it.
-		if r.Params["ExtraTurn"] != "True" {
+		if r.ParamStr(cards.PKExtraTurn) != "True" {
 			return false
 		}
 		// ValidPlayer$ Opponent scopes the skip to opponents of the
@@ -438,13 +438,13 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// prior rewrite make the effect newly applicable during CR 616.1's
 		// mandatory post-rewrite recheck.
 		if r.With != nil {
-			if only := strings.TrimSpace(r.With.Params["ReplaceOnly"]); only != "" && only != ev.Counter {
+			if only := strings.TrimSpace(r.With.ParamStr(cards.PKReplaceOnly)); only != "" && only != ev.Counter {
 				return false
 			}
 		}
 		// ManaAmount$ <op><n> gates on the size of the production being
 		// replaced (Damping Sphere's "two or more mana").
-		if ma, ok := r.Params["ManaAmount"]; ok {
+		if ma, ok := r.Param(cards.PKManaAmount); ok {
 			op, n, parsed := splitCompare(ma)
 			if !parsed || !applyCompare(int(ev.Amount), op, n) {
 				return false
@@ -460,7 +460,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		if ev.Kind != events.Explore {
 			return false
 		}
-		if v, ok := r.Params["ValidExplorer"]; ok &&
+		if v, ok := r.Param(cards.PKValidExplorer); ok &&
 			!e.matchesSpecFrom(v, ev.Obj, you, source) {
 			return false
 		}
@@ -523,7 +523,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// Mephistopheles and the other five carriers. Applied at match time,
 		// before the proposed Draw is logged, so the pre-emit helper is the
 		// one that can see it.
-		if strings.EqualFold(strings.TrimSpace(r.Params["NotFirstCardInDrawStep"]), "True") &&
+		if strings.EqualFold(strings.TrimSpace(r.ParamStr(cards.PKNotFirstCardInDrawStep)), "True") &&
 			e.pendingDrawIsFirstInDrawStep(ev.Player) {
 			return false
 		}
@@ -534,7 +534,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// idiom activationPhasesOK and phaseGate use, so the phase-name
 		// semantics cannot drift between the offer, trigger and replacement
 		// gates. Pure read: no event is emitted from a match.
-		if raw, ok := r.Params["ActivePhases"]; ok {
+		if raw, ok := r.Param(cards.PKActivePhases); ok {
 			spec := strings.TrimSpace(raw)
 			if spec != "" {
 				pp := e.parsedPhaseSpec(spec)
@@ -551,7 +551,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// turn (extraDrawsThisTurn). The body's own re-draws run under the
 		// applyingReplacement guard and are not re-matched, so this counts only
 		// draws the player would otherwise make.
-		if strings.EqualFold(strings.TrimSpace(r.Params["FirstExtraCardDrawnThisTurn"]), "True") {
+		if strings.EqualFold(strings.TrimSpace(r.ParamStr(cards.PKFirstExtraCardDrawnThisTurn)), "True") {
 			if e.pendingDrawIsFirstInDrawStep(ev.Player) || e.extraDrawsThisTurn(ev.Player) > 0 {
 				return false
 			}
@@ -642,7 +642,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// on the R: line (Hardened Scales) or the body (Melira). A line naming
 		// a kind other than the event's fails closed; an absent kind admits
 		// every kind (Winding Constrictor's "one or more counters").
-		if ct := strings.TrimSpace(r.Params["ValidCounterType"]); ct != "" && ct != ev.Counter {
+		if ct := strings.TrimSpace(r.ParamStr(cards.PKValidCounterType)); ct != "" && ct != ev.Counter {
 			return false
 		}
 		// ValidPlayer$ scopes the counter's RECIPIENT PLAYER, so it only
@@ -790,7 +790,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			if ev.Kind != events.PlayerLost {
 				return false
 			}
-			if reason, ok := r.Params["ValidLoseReason"]; ok &&
+			if reason, ok := r.Param(cards.PKValidLoseReason); ok &&
 				!strings.EqualFold(strings.TrimSpace(reason), ev.Text) {
 				return false
 			}
@@ -856,13 +856,13 @@ func (e *Engine) replacementConditionHolds(r cards.Repl, source state.ObjID, you
 	if strings.EqualFold(r.ParamStr(cards.PKPlayerTurn), "True") && e.G.Active != you {
 		return false
 	}
-	if strings.EqualFold(r.Params["Hellbent"], "True") && len(e.G.Zone(state.ZHand, you)) != 0 {
+	if strings.EqualFold(r.ParamStr(cards.PKHellbent), "True") && len(e.G.Zone(state.ZHand, you)) != 0 {
 		return false
 	}
 	if strings.EqualFold(r.ParamStr(cards.PKRevolt), "True") && !e.revoltThisTurn(you) {
 		return false
 	}
-	if strings.EqualFold(r.Params["Delirium"], "True") && e.graveyardCardTypeCount(you) < 4 {
+	if strings.EqualFold(r.ParamStr(cards.PKDelirium), "True") && e.graveyardCardTypeCount(you) < 4 {
 		return false
 	}
 	// EnduringStory$ (Bombur, Gentle Dreamer) is the CR 702.175 "unless you
@@ -873,7 +873,7 @@ func (e *Engine) replacementConditionHolds(r cards.Repl, source state.ObjID, you
 	// can't-untap replacement applies), True only while they do. Bombur is the
 	// corpus's sole carrier; an unrecognised value fails closed like every
 	// other condition gate here.
-	if raw, ok := r.Params["EnduringStory"]; ok {
+	if raw, ok := r.Param(cards.PKEnduringStory); ok {
 		switch strings.TrimSpace(raw) {
 		case "True", "true":
 			if !e.playerHasEnduringStory(you) {
@@ -887,7 +887,7 @@ func (e *Engine) replacementConditionHolds(r cards.Repl, source state.ObjID, you
 			return false
 		}
 	}
-	if _, ok := r.Params["CheckDefinedPlayer"]; ok {
+	if _, ok := r.Param(cards.PKCheckDefinedPlayer); ok {
 		// The only corpus shape is You.isMonarch. Monarch state is not yet
 		// represented, so fail closed instead of preventing damage always.
 		return false

@@ -383,7 +383,7 @@ func (e *Engine) ownManaReduction(p state.PlayerID, id state.ObjID, ab *cards.SA
 		return costMod{}, false
 	}
 	n := int32(1)
-	if raw := strings.TrimSpace(ab.Params["ReduceAmount"]); raw != "" {
+	if raw := strings.TrimSpace(ab.ParamStr(cards.PKReduceAmount)); raw != "" {
 		if v, err := strconv.Atoi(raw); err == nil {
 			n = int32(v)
 		} else {

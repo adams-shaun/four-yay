@@ -239,7 +239,7 @@ func applyStaticEffect(h Host, c *Ctx, sa *cards.SA, to state.Zone, moved []stat
 	if to != state.ZBattlefield || len(moved) == 0 {
 		return
 	}
-	name := strings.TrimSpace(sa.Params["StaticEffect"])
+	name := strings.TrimSpace(sa.ParamStr(cards.PKStaticEffect))
 	if name == "" {
 		return
 	}
@@ -250,8 +250,8 @@ func applyStaticEffect(h Host, c *Ctx, sa *cards.SA, to state.Zone, moved []stat
 	// degrades to 0 (Num's convention) and a failed comparison is a resolved
 	// condition being false -- both skip the registration silently; a
 	// comparison op this parser does not know fails closed the same way.
-	if gate := strings.TrimSpace(sa.Params["StaticEffectCheckSVar"]); gate != "" {
-		op := strings.TrimSpace(sa.Params["StaticEffectSVarCompare"])
+	if gate := strings.TrimSpace(sa.ParamStr(cards.PKStaticEffectCheckSVar)); gate != "" {
+		op := strings.TrimSpace(sa.ParamStr(cards.PKStaticEffectSVarCompare))
 		if op == "" {
 			op = "GT0"
 		}

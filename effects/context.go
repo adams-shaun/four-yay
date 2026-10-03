@@ -1783,7 +1783,7 @@ func rememberTarget(h Host, c *Ctx, t state.Target) {
 // parameter (Forge reads the key unconditionally per moved card), so callers
 // pair it beside their RememberChanged$ handling without a second guard.
 func eventForgetChanged(h Host, c *Ctx, sa *cards.SA, id state.ObjID) {
-	if !strings.EqualFold(strings.TrimSpace(sa.Params["ForgetChanged"]), "True") {
+	if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKForgetChanged)), "True") {
 		return
 	}
 	forgetRememberedOne(h, c, id)

@@ -121,9 +121,9 @@ func textChooserLabels(h Host, chooser state.PlayerID, token, forbidden string) 
 // other mid-resolution choice uses; Ctx.ChangeTextFrom/ChangeTextTo carry the
 // answers across re-entry and are cleared once the pair is resolved (fx42).
 func effChangeText(h Host, c *Ctx, sa *cards.SA) {
-	raw := strings.TrimSpace(sa.Params["ChangeColorWord"])
+	raw := strings.TrimSpace(sa.ParamStr(cards.PKChangeColorWord))
 	if raw == "" {
-		raw = strings.TrimSpace(sa.Params["ChangeTypeWord"])
+		raw = strings.TrimSpace(sa.ParamStr(cards.PKChangeTypeWord))
 	}
 	fromTok, toTok, ok := textSubstitutionWords(raw)
 	if !ok {
@@ -135,7 +135,7 @@ func effChangeText(h Host, c *Ctx, sa *cards.SA) {
 	if ts := Defined(h, c, sa); len(ts) > 0 && ts[0].IsPlayer {
 		chooser = ts[0].Player
 	}
-	forbidden := strings.TrimSpace(sa.Params["ForbiddenNewTypes"])
+	forbidden := strings.TrimSpace(sa.ParamStr(cards.PKForbiddenNewTypes))
 
 	from := c.ChangeTextFrom
 	if !isTextChooser(fromTok) {

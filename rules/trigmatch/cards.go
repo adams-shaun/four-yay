@@ -77,7 +77,7 @@ func exploresMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Eve
 		!effects.MatchesPlayerSpec(e.Game(), v, ev.Player, ctrl) {
 		return false
 	}
-	if v := t.Params["ValidExplored"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidExplored); v != "" &&
 		!e.MatchesSpec(v, ev.IDs[0], source, ctrl, SpecOpts{}) {
 		return false
 	}
@@ -297,7 +297,7 @@ func scryMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, 
 	}
 	// "one or more cards": a scry that bottomed none must not fire a
 	// ToBottom$ True trigger, however many cards were looked at.
-	if strings.EqualFold(t.Params["ToBottom"], "True") && ev.Amount <= 0 {
+	if strings.EqualFold(t.ParamStr(cards.PKToBottom), "True") && ev.Amount <= 0 {
 		return false
 	}
 	return true
@@ -467,7 +467,7 @@ func drawnMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event)
 	if strings.EqualFold(t.ParamStr(cards.PKPlayerTurn), "True") && e.Game().Active != ctrl {
 		return false
 	}
-	if v, ok := t.Params["FirstCardInDrawStep"]; ok {
+	if v, ok := t.Param(cards.PKFirstCardInDrawStep); ok {
 		first := firstCardInDrawStep(e, ev.Player)
 		if (strings.EqualFold(v, "True") && !first) || (strings.EqualFold(v, "False") && first) {
 			return false
@@ -611,7 +611,7 @@ func ClashMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event,
 		!effects.MatchesPlayerSpec(e.Game(), v, ev.Player, ctrl) {
 		return false
 	}
-	if w := strings.TrimSpace(t.Params["Won"]); w != "" {
+	if w := strings.TrimSpace(t.ParamStr(cards.PKWon)); w != "" {
 		want := strings.EqualFold(w, "True")
 		if (ev.Amount != 0) != want {
 			return false

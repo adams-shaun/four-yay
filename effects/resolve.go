@@ -26,7 +26,7 @@ func effCleanup(h Host, c *Ctx, sa *cards.SA) {
 	// (count:Plus.<SVarName>), Delver's cleanup holds a real entry and does
 	// emit -- that is what moved the 4- and 6-seat heads.)
 	noted := false
-	if strings.EqualFold(sa.Params["ClearRemembered"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKClearRemembered), "True") {
 		c.Remembered = nil
 		if c.Source != 0 {
 			if o := h.Game().Obj(c.Source); o != nil && len(o.Remembered) > 0 {
@@ -44,7 +44,7 @@ func effCleanup(h Host, c *Ctx, sa *cards.SA) {
 	// predicates read. Only a real clear emits; an empty-list clear (the
 	// overwhelmingly common case for one-shot effects) stays a no-op so no
 	// golden game gains an event for nothing.
-	if strings.EqualFold(sa.Params["ClearChosenCard"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKClearChosenCard), "True") {
 		c.Chosen = keepChosenPlayers(c.Chosen)
 		if c.Source != 0 {
 			if o := h.Game().Obj(c.Source); o != nil && hasChosenCards(o.Chosen) {
@@ -53,7 +53,7 @@ func effCleanup(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	}
-	if strings.EqualFold(sa.Params["ClearChosenPlayer"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKClearChosenPlayer), "True") {
 		c.Chosen = keepChosenCards(c.Chosen)
 		if c.Source != 0 {
 			if o := h.Game().Obj(c.Source); o != nil && hasChosenPlayers(o.Chosen) {
@@ -191,7 +191,7 @@ func effSetState(h Host, c *Ctx, sa *cards.SA) {
 		}
 		if turnDown {
 			if o.Zone == state.ZBattlefield && !o.FaceDown {
-				setType := strings.TrimSpace(sa.Params["FaceDownSetType"])
+				setType := strings.TrimSpace(sa.ParamStr(cards.PKFaceDownSetType))
 				power, hasPower := NumResolved(h, c, sa, "FaceDownPower", 0)
 				toughness, hasToughness := NumResolved(h, c, sa, "FaceDownToughness", 0)
 				h.Emit(events.Event{Kind: events.TurnFaceDown, Obj: o.ID,
@@ -322,15 +322,15 @@ func setStateWouldChange(h Host, c *Ctx, sa *cards.SA, turnUp, turnDown, unspeci
 // and is real switched semantics through the same gate; the orientation is
 // read from the SA, not hardcoded here.
 func effCounter(h Host, c *Ctx, sa *cards.SA) {
-	remember := strings.EqualFold(strings.TrimSpace(sa.Params["RememberCountered"]), "True") ||
-		strings.EqualFold(strings.TrimSpace(sa.Params["RememberCounteredSA"]), "True")
+	remember := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberCountered)), "True") ||
+		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberCounteredSA)), "True")
 	// RememberCounteredCMC$ (task counter-cmc): remember each countered
 	// spell's mana VALUE -- Electrosiphon's "an amount of {E} equal to its
 	// mana value", Overwhelming Intellect's draw family (14 corpus carriers,
 	// every one reading it back through SVar:X:Count$RememberedNumber). The
 	// number lands on the Ctx channel above; an ABILITY has no mana value
 	// and contributes nothing.
-	rememberCMC := strings.EqualFold(strings.TrimSpace(sa.Params["RememberCounteredCMC"]), "True")
+	rememberCMC := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberCounteredCMC)), "True")
 	for _, t := range Defined(h, c, sa) {
 		if t.IsPlayer {
 			continue
@@ -466,12 +466,12 @@ func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 	// answer as its own (a "Stop" used to stop the chained Repeat too).
 	cont := c.RepeatResume
 	c.RepeatResume = nil
-	check := strings.TrimSpace(sa.Params["RepeatCheckSVar"])
-	cmp := strings.TrimSpace(sa.Params["RepeatSVarCompare"])
-	defined := strings.TrimSpace(sa.Params["RepeatDefined"])
-	present := strings.TrimSpace(sa.Params["RepeatPresent"])
+	check := strings.TrimSpace(sa.ParamStr(cards.PKRepeatCheckSVar))
+	cmp := strings.TrimSpace(sa.ParamStr(cards.PKRepeatSVarCompare))
+	defined := strings.TrimSpace(sa.ParamStr(cards.PKRepeatDefined))
+	present := strings.TrimSpace(sa.ParamStr(cards.PKRepeatPresent))
 	gated := check != "" || defined != ""
-	optional := strings.EqualFold(strings.TrimSpace(sa.Params["RepeatOptional"]), "True")
+	optional := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRepeatOptional)), "True")
 	n := Num(h, c, sa, "MaxRepeat", -1)
 	if cont != nil && cont.Count > 0 {
 		// A body-suspension resume: keep the bound the suspended pass
@@ -499,7 +499,7 @@ func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 	if n > 1000 {
 		n = 1000
 	}
-	name := sa.Params["RepeatSubAbility"]
+	name := sa.ParamStr(cards.PKRepeatSubAbility)
 	if name == "" || c.SVars == nil {
 		return
 	}
@@ -638,7 +638,7 @@ func repeatGateEvaluates(h Host, c *Ctx, sa *cards.SA, check, cmp, defined, pres
 	if defined == "" {
 		return holds, evaluated
 	}
-	definedCmp := strings.TrimSpace(sa.Params["RepeatCompare"])
+	definedCmp := strings.TrimSpace(sa.ParamStr(cards.PKRepeatCompare))
 	if definedCmp == "" && check == "" {
 		definedCmp = cmp
 	}
@@ -670,7 +670,7 @@ func repeatOptionalElectionTape(h Host, c *Ctx, sa *cards.SA, next int32) (yes, 
 // repeatOptionalDecision is the RepeatOptional$ election for iteration next.
 func repeatOptionalDecision(c *Ctx, sa *cards.SA, next int32) *decision.Decision {
 	player := c.Controller
-	if strings.TrimSpace(sa.Params["RepeatOptionalDecider"]) == "Remembered" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKRepeatOptionalDecider)) == "Remembered" {
 		for _, t := range c.Remembered {
 			if t.IsPlayer {
 				player = t.Player

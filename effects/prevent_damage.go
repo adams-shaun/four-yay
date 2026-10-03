@@ -92,10 +92,10 @@ func effPreventDamage(h Host, c *Ctx, sa *cards.SA) {
 	// (ShieldEffectTarget$ ParentTarget — the redirect target the enclosing
 	// Pump chose), once per application, when the prevention happens.
 	rider := ""
-	if rn := strings.TrimSpace(sa.Params["PreventionSubAbility"]); rn != "" {
-		if !strings.EqualFold(strings.TrimSpace(sa.Params["ShieldEffectTarget"]), "ParentTarget") {
+	if rn := strings.TrimSpace(sa.ParamStr(cards.PKPreventionSubAbility)); rn != "" {
+		if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKShieldEffectTarget)), "ParentTarget") {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-				Text: "unimplemented PreventDamage ShieldEffectTarget$ " + sa.Params["ShieldEffectTarget"]})
+				Text: "unimplemented PreventDamage ShieldEffectTarget$ " + sa.ParamStr(cards.PKShieldEffectTarget)})
 		} else {
 			rider = rn
 		}

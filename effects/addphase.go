@@ -101,14 +101,14 @@ func parseDelayedTriggerBody(phase, vp string) (state.Step, string, bool) {
 // phase's entry step. An unresolvable DelTrig SVar or an unparseable Phase$
 // is a loud Note and the grant still applies without the rider.
 func effAddPhase(h Host, c *Ctx, sa *cards.SA) {
-	entry, rangeEnd, note := parseExtraPhaseValue(sa.Params["ExtraPhase"])
+	entry, rangeEnd, note := parseExtraPhaseValue(sa.ParamStr(cards.PKExtraPhase))
 	if note != "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: note})
 		return
 	}
 	n := int32(1)
-	if raw, present := sa.Params["NumPhases"]; present && strings.TrimSpace(raw) != "" {
+	if raw, present := sa.Param(cards.PKNumPhases); present && strings.TrimSpace(raw) != "" {
 		if v, resolved := NumResolved(h, c, sa, "NumPhases", 1); resolved {
 			n = v
 		} else {
@@ -124,7 +124,7 @@ func effAddPhase(h Host, c *Ctx, sa *cards.SA) {
 
 	g := h.Game()
 	after := g.Step
-	if raw := strings.TrimSpace(sa.Params["AfterPhase"]); raw != "" {
+	if raw := strings.TrimSpace(sa.ParamStr(cards.PKAfterPhase)); raw != "" {
 		if set, unknown := state.ParsePhases(raw); len(unknown) == 0 && !set.Empty() {
 			// The splice point: a named phase's END -- its LAST step (a
 			// multi-step set like Beginning or a range splices after the
@@ -138,7 +138,7 @@ func effAddPhase(h Host, c *Ctx, sa *cards.SA) {
 	}
 
 	ids := []state.ObjID{state.ObjID(entry)}
-	if raw := strings.TrimSpace(sa.Params["FollowedBy"]); raw != "" {
+	if raw := strings.TrimSpace(sa.ParamStr(cards.PKFollowedBy)); raw != "" {
 		if set, unknown := state.ParsePhases(raw); len(unknown) == 0 && !set.Empty() {
 			// The resume point: a named phase's BEGINNING -- its FIRST step
 			// (the walk enters the followed phase, never a step into it).
@@ -159,7 +159,7 @@ func effAddPhase(h Host, c *Ctx, sa *cards.SA) {
 	}
 	text := events.EncodeExtraPhaseRiders(riders)
 	counter := ""
-	if name := strings.TrimSpace(sa.Params["ExtraPhaseDelayedTrigger"]); name != "" {
+	if name := strings.TrimSpace(sa.ParamStr(cards.PKExtraPhaseDelayedTrigger)); name != "" {
 		if phase, vp, ok := delayedTriggerSpec(c, name); ok {
 			// The Text marker carries the forwarded delayed phase (the
 			// consume-time registration reads it); the Execute$ name rides
@@ -173,7 +173,7 @@ func effAddPhase(h Host, c *Ctx, sa *cards.SA) {
 	}
 	// The corpus writes the Execute name under the misspelled parameter
 	// ("Excute"); read it verbatim, like Forge's own AddPhaseEffect does.
-	if name := strings.TrimSpace(sa.Params["ExtraPhaseDelayedTriggerExcute"]); name != "" {
+	if name := strings.TrimSpace(sa.ParamStr(cards.PKExtraPhaseDelayedTriggerExcute)); name != "" {
 		counter = name
 	}
 

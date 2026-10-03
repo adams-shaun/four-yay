@@ -1,10 +1,11 @@
 package combat
 
 import (
-	"github.com/adams-shaun/gorge/cards"
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/adams-shaun/gorge/cards"
 
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
@@ -199,10 +200,10 @@ func AttackRequirements(b Board, id state.ObjID) RequirementSet {
 		if ce.Restriction != "MustAttack" {
 			continue
 		}
-		if !mustAttackLineSelects(b, ce.RestrictParams["ValidCreature"], id, ce.Source, ce.Controller, ce.Remembered) {
+		if !mustAttackLineSelects(b, ce.RestrictParam(cards.PKValidCreature), id, ce.Source, ce.Controller, ce.Remembered) {
 			continue
 		}
-		spec := strings.TrimSpace(ce.RestrictParams["MustAttack"])
+		spec := strings.TrimSpace(ce.RestrictParam(cards.PKMustAttack))
 		if spec == "" {
 			s.Broad = true
 			continue
@@ -218,7 +219,7 @@ func AttackRequirements(b Board, id state.ObjID) RequirementSet {
 		if !mustAttackLineSelects(b, sv.ParamStr(cards.PKValidCreature), id, sv.Source, sv.Controller, nil) {
 			continue
 		}
-		spec := strings.TrimSpace(sv.Params["MustAttack"])
+		spec := strings.TrimSpace(sv.ParamStr(cards.PKMustAttack))
 		if spec == "" {
 			s.Broad = true
 			continue
@@ -301,7 +302,7 @@ func MaxAttackers(b Board) int {
 		}
 		// attackCeiling defaults an absent/invalid MaxAttackers$ to the
 		// maximum int32, so an unparseable restriction contributes no ceiling.
-		n := attackCeiling(sv.Params["MaxAttackers"])
+		n := attackCeiling(sv.ParamStr(cards.PKMaxAttackers))
 		if int(n) < maxAllowed {
 			maxAllowed = int(n)
 		}
@@ -326,7 +327,7 @@ func AttackRestrictLimit(b Board, defender state.PlayerID) (int, bool) {
 		if spec == "" || !effects.MatchesPlayerSpecCtx(b.Game(), spec, defender, sv.Controller, b.PlayerSpecCtx(sv.Source)) {
 			continue
 		}
-		n := int(attackCeiling(sv.Params["MaxAttackers"]))
+		n := int(attackCeiling(sv.ParamStr(cards.PKMaxAttackers)))
 		if !found || n < limit {
 			limit, found = n, true
 		}

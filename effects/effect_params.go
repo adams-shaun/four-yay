@@ -151,24 +151,24 @@ func compileEffect(sa *cards.SA) *EffectParams {
 	p.Duration = sa.ParamStr(cards.PKDuration)
 	p.StaticAbilities = sa.ParamStr(cards.PKStaticAbilities)
 	p.Triggers = sa.ParamStr(cards.PKTriggers)
-	p.ReplacementEffects = sa.Params["ReplacementEffects"]
-	p.Name = strings.TrimSpace(sa.Params["Name"])
-	if stackable, present := sa.Params["Stackable"]; present && strings.EqualFold(strings.TrimSpace(stackable), "False") {
+	p.ReplacementEffects = sa.ParamStr(cards.PKReplacementEffects)
+	p.Name = strings.TrimSpace(sa.ParamStr(cards.PKName))
+	if stackable, present := sa.Param(cards.PKStackable); present && strings.EqualFold(strings.TrimSpace(stackable), "False") {
 		p.NotStackable = true
 	}
-	p.ForgetOnMoved = strings.TrimSpace(sa.Params["ForgetOnMoved"])
-	p.ExileOnMoved = strings.TrimSpace(sa.Params["ExileOnMoved"])
-	p.ForgetCounter = strings.TrimSpace(sa.Params["ForgetCounter"])
-	p.ForgetOnCast = strings.TrimSpace(sa.Params["ForgetOnCast"])
+	p.ForgetOnMoved = strings.TrimSpace(sa.ParamStr(cards.PKForgetOnMoved))
+	p.ExileOnMoved = strings.TrimSpace(sa.ParamStr(cards.PKExileOnMoved))
+	p.ForgetCounter = strings.TrimSpace(sa.ParamStr(cards.PKForgetCounter))
+	p.ForgetOnCast = strings.TrimSpace(sa.ParamStr(cards.PKForgetOnCast))
 	if strings.EqualFold(p.ForgetOnCast, "False") {
 		p.ForgetOnCast = ""
 	}
-	p.ImprintOnHost = strings.TrimSpace(sa.Params["ImprintOnHost"])
+	p.ImprintOnHost = strings.TrimSpace(sa.ParamStr(cards.PKImprintOnHost))
 	p.ImprintOnHostTrue = strings.EqualFold(p.ImprintOnHost, "True")
-	p.ForgetOnPhasedIn = isTrue(sa.Params["ForgetOnPhasedIn"])
+	p.ForgetOnPhasedIn = isTrue(sa.ParamStr(cards.PKForgetOnPhasedIn))
 	p.RememberLKI = strings.TrimSpace(sa.ParamStr(cards.PKRememberLKI))
-	p.SetChosenNumber = strings.TrimSpace(sa.Params["SetChosenNumber"])
-	p.EffectOwner = strings.TrimSpace(sa.Params["EffectOwner"])
+	p.SetChosenNumber = strings.TrimSpace(sa.ParamStr(cards.PKSetChosenNumber))
+	p.EffectOwner = strings.TrimSpace(sa.ParamStr(cards.PKEffectOwner))
 	p.Unread = unreadKeys(sa, effectKnownKeys[:])
 	return p
 }
@@ -194,7 +194,7 @@ func readEffectTriggerLine(tr *cards.Trigger) effectTriggerLine {
 		Execute:         strings.TrimSpace(tr.ParamStr(cards.PKExecute)),
 		OptionalDecider: strings.TrimSpace(tr.ParamStr(cards.PKOptionalDecider)),
 		ThisTurn:        strings.TrimSpace(tr.ParamStr(cards.PKThisTurn)),
-		OneOff:          isTrue(tr.Params["OneOff"]),
+		OneOff:          isTrue(tr.ParamStr(cards.PKOneOff)),
 		Static:          strings.TrimSpace(tr.ParamStr(cards.PKStatic)) != "",
 		Phase:           tr.ParamStr(cards.PKPhase),
 		ValidPlayer:     strings.TrimSpace(tr.ParamStr(cards.PKValidPlayer)),

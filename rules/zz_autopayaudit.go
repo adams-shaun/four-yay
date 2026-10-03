@@ -8,6 +8,7 @@ package rules
 // helper is a pure read: no event, no state write, no RNG.
 
 import (
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -196,7 +197,7 @@ func (e *Engine) AuditManaAbilityAPIs(p state.PlayerID, id state.ObjID) (apis []
 			api = "intrinsic"
 		}
 		apis = append(apis, api)
-		costs = append(costs, ma.Params["Cost"])
+		costs = append(costs, ma.ParamStr(cards.PKCost))
 	}
 	return apis, costs
 }

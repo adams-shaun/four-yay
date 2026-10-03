@@ -147,11 +147,11 @@ func compileDealDamage(sa *cards.SA) *DealDamageParams {
 		p.DividedTotal = div
 	}
 	p.RememberDamaged = strings.TrimSpace(sa.ParamStr(cards.PKRememberDamaged)) != ""
-	p.ExcessSVar = strings.TrimSpace(sa.Params["ExcessSVar"])
-	p.ExcessSVarCondition = strings.TrimSpace(sa.Params["ExcessSVarCondition"])
+	p.ExcessSVar = strings.TrimSpace(sa.ParamStr(cards.PKExcessSVar))
+	p.ExcessSVarCondition = strings.TrimSpace(sa.ParamStr(cards.PKExcessSVarCondition))
 	p.DamageSource = damageSourceParam(sa)
-	p.DamageMap = isTrue(sa.Params["DamageMap"])
-	p.RelativeTarget = strings.TrimSpace(sa.Params["RelativeTarget"]) != ""
+	p.DamageMap = isTrue(sa.ParamStr(cards.PKDamageMap))
+	p.RelativeTarget = strings.TrimSpace(sa.ParamStr(cards.PKRelativeTarget)) != ""
 	p.ReplaceDyingDefined = replaceDyingParam(sa)
 	p.Unread = unreadKeys(sa, dealDamageKnownKeys[:])
 	return p
@@ -177,14 +177,14 @@ func damageAmountParam(sa *cards.SA) ParamText {
 // damageSourceParam is DamageSource$'s one reader (trimmed): DealDamage
 // compiles it, and DamageAll and EachDamage read it here for newDamageRider.
 func damageSourceParam(sa *cards.SA) string {
-	return strings.TrimSpace(sa.Params["DamageSource"])
+	return strings.TrimSpace(sa.ParamStr(cards.PKDamageSource))
 }
 
 // replaceDyingParam is ReplaceDyingDefined$'s one reader (trimmed):
 // DealDamage compiles it, and Fight, DamageAll, EachDamage and DamageResolve
 // read it here for registerReplaceDying.
 func replaceDyingParam(sa *cards.SA) string {
-	return strings.TrimSpace(sa.Params["ReplaceDyingDefined"])
+	return strings.TrimSpace(sa.ParamStr(cards.PKReplaceDyingDefined))
 }
 
 // DealDamageKnownKeys is a copy of dealDamageKnownKeys, for the census check.

@@ -66,7 +66,7 @@ func init() {
 // Forge's re-point of pending trigger roles (OriginalDefender/
 // DefendingPlayer on already-queued stack objects) is out of scope too.
 func effChangeCombatants(h Host, c *Ctx, sa *cards.SA) {
-	mode := strings.TrimSpace(sa.Params["Attacking"])
+	mode := strings.TrimSpace(sa.ParamStr(cards.PKAttacking))
 	if mode == "RememberedPlayer" {
 		// Midnight Crusader Shuttle's stolen creature joins the current combat
 		// attacking the villainous-choice victim. It was not declared as an

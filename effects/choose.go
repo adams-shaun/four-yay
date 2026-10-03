@@ -198,16 +198,16 @@ var chooseColorLabels = []struct {
 // caller keeps the deterministic fallback instead of offering the wrong
 // question.
 func chooseColorOptions(sa *cards.SA) (opts []decision.Option, askable bool, exotic string) {
-	if strings.TrimSpace(sa.Params["TwoColors"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKTwoColors)) != "" {
 		return nil, false, "TwoColors$"
 	}
-	if strings.TrimSpace(sa.Params["OrColors"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKOrColors)) != "" {
 		return nil, false, "OrColors$"
 	}
 	if strings.TrimSpace(sa.ParamStr(cards.PKUpTo)) != "" {
 		return nil, false, "UpTo$"
 	}
-	if strings.TrimSpace(sa.Params["ColorsFrom"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKColorsFrom)) != "" {
 		return nil, false, "ColorsFrom$"
 	}
 	if strings.TrimSpace(sa.ParamStr(cards.PKRandom)) != "" {
@@ -216,7 +216,7 @@ func chooseColorOptions(sa *cards.SA) (opts []decision.Option, askable bool, exo
 		return nil, false, ""
 	}
 	excluded := map[byte]bool{}
-	for _, l := range chooseColourTokens(sa.Params["Exclude"]) {
+	for _, l := range chooseColourTokens(sa.ParamStr(cards.PKExclude)) {
 		excluded[l] = true
 	}
 	allowed := map[byte]bool{}
@@ -314,8 +314,8 @@ func effChooseNumber(h Host, c *Ctx, sa *cards.SA) {
 	// then compares the picks and runs one of two SVar bodies. The three
 	// parameters are read HERE, on the registered head, so the parameter
 	// census attributes them to api:ChooseNumber.
-	matchedAbility := strings.TrimSpace(sa.Params["MatchedAbility"])
-	unmatchedAbility := strings.TrimSpace(sa.Params["UnmatchedAbility"])
+	matchedAbility := strings.TrimSpace(sa.ParamStr(cards.PKMatchedAbility))
+	unmatchedAbility := strings.TrimSpace(sa.ParamStr(cards.PKUnmatchedAbility))
 	if matchedAbility != "" || unmatchedAbility != "" {
 		effChooseNumberElection(h, c, sa, matchedAbility, unmatchedAbility,
 			strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKSecretly)), "True"))
@@ -635,7 +635,7 @@ func chooseTypeLabels(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID, cat 
 	case "creatureintargeteddeck":
 		return CreatureInTargetedDeckLabels(h.Game(), c.Targets), true
 	}
-	if labels := TypeChoiceLabels(cat, sa.Params["ValidTypes"], sa.Params["InvalidTypes"]); labels != nil {
+	if labels := TypeChoiceLabels(cat, sa.ParamStr(cards.PKValidTypes), sa.ParamStr(cards.PKInvalidTypes)); labels != nil {
 		return labels, true
 	}
 	return nil, false

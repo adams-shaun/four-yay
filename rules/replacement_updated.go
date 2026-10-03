@@ -1,10 +1,11 @@
 package rules
 
 import (
+	"strconv"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
-	"strconv"
 )
 
 // replRedirect records one destination-changing move replacement in flight:
@@ -22,8 +23,8 @@ func replIdentity(m replMatch) string {
 	if m.key != "" {
 		return m.key
 	}
-	return strconv.Itoa(int(m.id)) + "|" + m.repl.Event + "|" + m.repl.Params["ReplaceWith"] +
-		"|" + m.repl.Params["Description"]
+	return strconv.Itoa(int(m.id)) + "|" + m.repl.Event + "|" + m.repl.ParamStr(cards.PKReplaceWith) +
+		"|" + m.repl.ParamStr(cards.PKDescription)
 }
 
 // redirectRecheck reports whether a move emitted inside a replacement body is

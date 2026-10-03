@@ -1636,7 +1636,7 @@ func (e *Engine) paymentPlanParadiseRider(id state.ObjID, mana *cards.SA) bool {
 			return false
 		}
 	}
-	text := strings.ToLower(strings.Join([]string{rider.ParamStr(cards.PKKW), rider.ParamStr(cards.PKSpellDescription), rider.Params["StackDescription"]}, " "))
+	text := strings.ToLower(strings.Join([]string{rider.ParamStr(cards.PKKW), rider.ParamStr(cards.PKSpellDescription), rider.ParamStr(cards.PKStackDescription)}, " "))
 	return strings.Contains(text, "hidden") && strings.Contains(text, "return")
 }
 

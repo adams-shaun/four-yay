@@ -134,7 +134,7 @@ func (e *Engine) payCast() {
 		// costs too.
 		remembered := false
 		if ab := e.pcAbility(pc); ab != nil {
-			remembered = strings.EqualFold(strings.TrimSpace(ab.Params["RememberCostMana"]), "True")
+			remembered = strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKRememberCostMana)), "True")
 		}
 		if remembered {
 			noted := ""

@@ -90,7 +90,11 @@ const (
 	// 562 -> 561.
 	// The RepeatEach compiler (effRepeatEach moved to repeateach.go): reads
 	// compiled once, RepeatCards$ Zone$ switch a ZoneMask table.
-	stringParamReads = 549
+	// W4 tail: every remaining literal read in effects/ and rules/ went through
+	// the ParamKey accessors (state.ContinuousEffect.RestrictParam and kin for
+	// the continuous-effect maps); what is left is writes and rules/play_tape.go
+	// (left to its live branch): 549 -> 20.
+	stringParamReads = 20
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach: 2886 -> 2883. RepeatEach: 2883 -> 2876.

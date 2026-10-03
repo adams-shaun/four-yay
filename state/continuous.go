@@ -740,3 +740,23 @@ type ContinuousEffect struct {
 	// rotation when the intents re-execute.
 	UntilTurn int32
 }
+
+// RestrictParam is RestrictParams[k]: the typed read of one S: parameter the
+// restriction carries (W4 tail).
+func (ce ContinuousEffect) RestrictParam(k cards.ParamKey) string { return ce.RestrictParams[k.String()] }
+
+// RestrictParamOk is RestrictParam with presence.
+func (ce ContinuousEffect) RestrictParamOk(k cards.ParamKey) (string, bool) {
+	v, ok := ce.RestrictParams[k.String()]
+	return v, ok
+}
+
+// ReplacementParam is ReplacementParams[k].
+func (ce ContinuousEffect) ReplacementParam(k cards.ParamKey) string {
+	return ce.ReplacementParams[k.String()]
+}
+
+// CostStaticParam is CostStaticParams[k].
+func (ce ContinuousEffect) CostStaticParam(k cards.ParamKey) string {
+	return ce.CostStaticParams[k.String()]
+}

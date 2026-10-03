@@ -122,11 +122,11 @@ func compileMana(sa *cards.SA, dp *DefinedParams) *ManaParams {
 	}
 
 	p.RestrictValid = strings.TrimSpace(sa.ParamStr(cards.PKRestrictValid))
-	p.AddsNoCounter = strings.TrimSpace(sa.Params["AddsNoCounter"])
-	p.AddsCounters = strings.TrimSpace(sa.Params["AddsCounters"])
-	p.PersistentMana = strings.TrimSpace(sa.Params["PersistentMana"])
-	p.PersistentUntilEndOfCombat = strings.TrimSpace(sa.Params["PersistentUntilEndOfCombat"])
-	p.TriggersWhenSpent = strings.TrimSpace(sa.Params["TriggersWhenSpent"])
+	p.AddsNoCounter = strings.TrimSpace(sa.ParamStr(cards.PKAddsNoCounter))
+	p.AddsCounters = strings.TrimSpace(sa.ParamStr(cards.PKAddsCounters))
+	p.PersistentMana = strings.TrimSpace(sa.ParamStr(cards.PKPersistentMana))
+	p.PersistentUntilEndOfCombat = strings.TrimSpace(sa.ParamStr(cards.PKPersistentUntilEndOfCombat))
+	p.TriggersWhenSpent = strings.TrimSpace(sa.ParamStr(cards.PKTriggersWhenSpent))
 	p.HasDefined = dp.Defined.Set()
 
 	p.PlainSym, p.PlainAmt = plainManaParams(sa, p)

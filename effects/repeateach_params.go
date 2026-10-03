@@ -157,17 +157,17 @@ var repeatCardsZones = [...]struct {
 // DefinedParams.
 func compileRepeatEach(sa *cards.SA, dr *DefinedParams) *RepeatEachParams {
 	p := &RepeatEachParams{paramBinding: bindParams(sa), DefinedCards: dr.Cards.Text}
-	p.SubAbility = sa.Params["RepeatSubAbility"]
-	p.DamageMap = isTrue(sa.Params["DamageMap"])
-	p.ChangeZoneTable = isTrue(sa.Params["ChangeZoneTable"])
-	p.AmountFromVotes = isTrue(sa.Params["AmountFromVotes"])
-	p.ClearRemembered = isTrue(sa.Params["ClearRememberedBeforeLoop"])
-	p.OptionalForEach = isTrue(sa.Params["RepeatOptionalForEachPlayer"])
-	p.OptionalMessage = strings.TrimSpace(sa.Params["RepeatOptionalMessage"])
-	p.Players = sa.Params["RepeatPlayers"]
-	p.SpellAbilities = sa.Params["RepeatSpellAbilities"]
-	p.Targeted = sa.Params["RepeatTargeted"] != ""
-	p.Cards = strings.TrimSpace(sa.Params["RepeatCards"])
+	p.SubAbility = sa.ParamStr(cards.PKRepeatSubAbility)
+	p.DamageMap = isTrue(sa.ParamStr(cards.PKDamageMap))
+	p.ChangeZoneTable = isTrue(sa.ParamStr(cards.PKChangeZoneTable))
+	p.AmountFromVotes = isTrue(sa.ParamStr(cards.PKAmountFromVotes))
+	p.ClearRemembered = isTrue(sa.ParamStr(cards.PKClearRememberedBeforeLoop))
+	p.OptionalForEach = isTrue(sa.ParamStr(cards.PKRepeatOptionalForEachPlayer))
+	p.OptionalMessage = strings.TrimSpace(sa.ParamStr(cards.PKRepeatOptionalMessage))
+	p.Players = sa.ParamStr(cards.PKRepeatPlayers)
+	p.SpellAbilities = sa.ParamStr(cards.PKRepeatSpellAbilities)
+	p.Targeted = sa.ParamStr(cards.PKRepeatTargeted) != ""
+	p.Cards = strings.TrimSpace(sa.ParamStr(cards.PKRepeatCards))
 	p.Zones = zoneMaskOf([]state.Zone{state.ZBattlefield})
 	if raw := strings.TrimSpace(sa.ParamStr(cards.PKZone)); raw != "" {
 		p.Zones = 0

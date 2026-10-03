@@ -37,7 +37,7 @@ func choiceBounds(h Host, c *Ctx, sa *cards.SA, cardChoice bool) (int, int) {
 	if cardChoice && !strings.EqualFold(sa.ParamStr(cards.PKMandatory), "True") {
 		min = 0
 	}
-	if _, ok := sa.Params["MinAmount"]; ok {
+	if _, ok := sa.Param(cards.PKMinAmount); ok {
 		min = int(Num(h, c, sa, "MinAmount", 0))
 	}
 	if strings.EqualFold(sa.ParamStr(cards.PKMandatory), "False") || strings.EqualFold(sa.ParamStr(cards.PKOptional), "True") {
@@ -53,7 +53,7 @@ func choiceBounds(h Host, c *Ctx, sa *cards.SA, cardChoice bool) (int, int) {
 }
 
 func choiceZones(sa *cards.SA) map[state.Zone]bool {
-	if strings.EqualFold(sa.Params["AllCards"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKAllCards), "True") {
 		return nil
 	}
 	s := strings.TrimSpace(sa.ParamStr(cards.PKChoiceZone))
@@ -146,13 +146,13 @@ func definedCardQualifierMatches(h Host, g *state.Game, c *Ctx, qualifier string
 // no Choices$/ControlledByPlayer$) are the corpus's only instances of the
 // unconstrained shape.
 func chooseCardControl(sa *cards.SA) string {
-	if v := strings.TrimSpace(sa.Params["ControlledByPlayer"]); v != "" {
+	if v := strings.TrimSpace(sa.ParamStr(cards.PKControlledByPlayer)); v != "" {
 		return v
 	}
 	if strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" || DefinedOf(sa).Cards.Set() {
 		return ""
 	}
-	if strings.EqualFold(strings.TrimSpace(sa.Params["AllCards"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKAllCards)), "True") {
 		return ""
 	}
 	if TargetsOf(sa).Has(TgtValidPresent) {
@@ -377,7 +377,7 @@ func choiceChoosers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 // Other choice APIs retain their own unmodified Defined$ order.
 func chooseCardChoosers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 	out := choiceChoosers(h, c, sa)
-	if strings.EqualFold(strings.TrimSpace(sa.Params["StartingWith"]), "You") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKStartingWith)), "You") {
 		for i, p := range out {
 			if p == c.Controller {
 				return append(append([]state.PlayerID(nil), out[i:]...), out[:i]...)
@@ -405,7 +405,7 @@ func choiceRecord(h Host, c *Ctx, sa *cards.SA, picked []state.Target, playerCho
 		c.Chosen = append(c.Chosen, picked...)
 	}
 	c.ChosenValid = true
-	if strings.EqualFold(sa.Params["RememberChosen"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKRememberChosen), "True") {
 		c.Remembered = append(c.Remembered, picked...)
 	}
 	if c.Source == 0 {
@@ -420,7 +420,7 @@ func choiceRecord(h Host, c *Ctx, sa *cards.SA, picked []state.Target, playerCho
 		}
 	}
 	h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "chosen", IDs: ids})
-	if strings.EqualFold(sa.Params["RememberChosen"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKRememberChosen), "True") {
 		h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "remembered", IDs: ids})
 	}
 }
@@ -446,7 +446,7 @@ func ChoiceAnswerTargets(chosen []decision.Option) []state.Target {
 // choice, so the chosen-card binding remains available to the next ability.
 func chooseCardRecord(h Host, c *Ctx, sa *cards.SA, picked []state.Target) {
 	choiceRecord(h, c, sa, picked, false)
-	if strings.EqualFold(strings.TrimSpace(sa.Params["ForgetChosen"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKForgetChosen)), "True") {
 		for _, t := range picked {
 			if !t.IsPlayer {
 				forgetRememberedOne(h, c, t.Obj)
@@ -488,7 +488,7 @@ func keepChosenCards(ts []state.Target) []state.Target {
 // card can be eligible in several groups (Liliana, Dreadhorde General's
 // Artifact & Creature ...) and be picked once per group it matches.
 func chooseEachGroups(sa *cards.SA) []string {
-	raw := strings.TrimSpace(sa.Params["ChooseEach"])
+	raw := strings.TrimSpace(sa.ParamStr(cards.PKChooseEach))
 	if raw == "" {
 		return nil
 	}
@@ -1162,13 +1162,13 @@ func controlPlayer(h Host, c *Ctx, sa *cards.SA) (state.PlayerID, bool) {
 
 func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
-	dur, unknown := ParseControlDuration(sa.Params["LoseControl"])
+	dur, unknown := ParseControlDuration(sa.ParamStr(cards.PKLoseControl))
 	if unknown != "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControl LoseControl$ " + unknown + " unimplemented"})
 		return
 	}
 	base := ControlGrant{You: c.Controller, Source: c.Source, Duration: dur, SVars: c.SVars,
-		AddKeywords: cards.SplitKeywordList(sa.Params["AddKWs"])}
+		AddKeywords: cards.SplitKeywordList(sa.ParamStr(cards.PKAddKWs))}
 	if src := g.Obj(c.Source); src != nil && src.Zone == state.ZBattlefield {
 		base.SourceStamp = src.Timestamp
 	}
@@ -1182,8 +1182,8 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	if dur.StaticCheck {
-		body, ok := c.SVars[sa.Params["StaticCommandCheckSVar"]]
-		cmp := strings.TrimSpace(sa.Params["StaticCommandSVarCompare"])
+		body, ok := c.SVars[sa.ParamStr(cards.PKStaticCommandCheckSVar)]
+		cmp := strings.TrimSpace(sa.ParamStr(cards.PKStaticCommandSVarCompare))
 		if !ok || len(cmp) < 3 || !strings.Contains("EQ NE LT LE GT GE", strings.ToUpper(cmp[:2])) {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControl StaticCommandCheck is not evaluable"})
 			return
@@ -1261,10 +1261,10 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 		}
 		h.Emit(events.Event{Kind: events.ControlChange, Obj: o.ID, Player: p})
 		h.RegisterControl(gr)
-		if strings.EqualFold(sa.Params["Untap"], "True") {
+		if strings.EqualFold(sa.ParamStr(cards.PKUntap), "True") {
 			h.Emit(events.Event{Kind: events.Untap, Obj: o.ID})
 		}
-		if strings.EqualFold(sa.Params["RememberControlled"], "True") {
+		if strings.EqualFold(sa.ParamStr(cards.PKRememberControlled), "True") {
 			// Forge (ControlGainEffect): source.addRemembered(tgtC) once per
 			// gained permanent -- the persistent host-card list a later
 			// Card.IsRemembered spec ("the permanents you gained control of
@@ -1308,7 +1308,7 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 // permanent to its owner, a different and WRONG result.
 func effGainControlVariant(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
-	change := strings.TrimSpace(sa.Params["ChangeController"])
+	change := strings.TrimSpace(sa.ParamStr(cards.PKChangeController))
 	switch {
 	case strings.EqualFold(change, "CardOwner"):
 		gainControlVariantCardOwner(h, c, sa, g)
@@ -1335,13 +1335,13 @@ func gainControlVariantBase(h Host, c *Ctx, sa *cards.SA, g *state.Game) (string
 			Text: "GainControlVariant has no AllValid$ filter"})
 		return "", ControlGrant{}, false
 	}
-	dur, unknown := ParseControlDuration(sa.Params["LoseControl"])
+	dur, unknown := ParseControlDuration(sa.ParamStr(cards.PKLoseControl))
 	if unknown != "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControlVariant LoseControl$ " + unknown + " unimplemented"})
 		return "", ControlGrant{}, false
 	}
 	base := ControlGrant{You: c.Controller, Source: c.Source, Duration: dur, SVars: c.SVars,
-		AddKeywords: cards.SplitKeywordList(sa.Params["AddKWs"])}
+		AddKeywords: cards.SplitKeywordList(sa.ParamStr(cards.PKAddKWs))}
 	if src := g.Obj(c.Source); src != nil && src.Zone == state.ZBattlefield {
 		base.SourceStamp = src.Timestamp
 	}
@@ -1751,9 +1751,9 @@ func effChangeTargets(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	chooser := changeTargetChooser(h, c, sa)
-	restriction := strings.TrimSpace(sa.Params["TargetRestriction"])
-	if strings.EqualFold(sa.Params["RandomTarget"], "True") && sa.Params["RandomTargetRestriction"] != "" {
-		restriction = sa.Params["RandomTargetRestriction"]
+	restriction := strings.TrimSpace(sa.ParamStr(cards.PKTargetRestriction))
+	if strings.EqualFold(sa.ParamStr(cards.PKRandomTarget), "True") && sa.ParamStr(cards.PKRandomTargetRestriction) != "" {
+		restriction = sa.ParamStr(cards.PKRandomTargetRestriction)
 	}
 	var candidates []state.Target
 	// CR 115.7: a changed target must be one the spell or ability could
@@ -1766,7 +1766,7 @@ func effChangeTargets(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 
-	if magnet := strings.TrimSpace(sa.Params["DefinedMagnet"]); magnet != "" {
+	if magnet := strings.TrimSpace(sa.ParamStr(cards.PKDefinedMagnet)); magnet != "" {
 		var picked []state.Target
 		for _, t := range DefinedSpec(h, c, magnet) {
 			if targetIn(candidates, t) {
@@ -1782,10 +1782,10 @@ func effChangeTargets(h Host, c *Ctx, sa *cards.SA) {
 	}
 
 	count := len(target.Targets)
-	if strings.EqualFold(sa.Params["ChangeSingleTarget"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKChangeSingleTarget), "True") {
 		count = 1
 	}
-	if strings.EqualFold(sa.Params["RandomTarget"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKRandomTarget), "True") {
 		pool := append([]state.Target(nil), candidates...)
 		var picked []state.Target
 		for len(picked) < count && len(pool) > 0 {
@@ -1848,7 +1848,7 @@ func changeTargetsApply(h Host, sa *cards.SA, target *state.Object, choice []sta
 		return
 	}
 	out := append([]state.Target(nil), choice...)
-	if strings.EqualFold(sa.Params["ChangeSingleTarget"], "True") || len(out) < len(target.Targets) {
+	if strings.EqualFold(sa.ParamStr(cards.PKChangeSingleTarget), "True") || len(out) < len(target.Targets) {
 		out = append(out, target.Targets[len(out):]...)
 	}
 	recordTargets(h, target.ID, out)
@@ -1986,11 +1986,11 @@ func effBranch(h Host, c *Ctx, sa *cards.SA) {
 	if c.SVars == nil {
 		return
 	}
-	v := Num(h, c, &cards.SA{Params: map[string]string{"condition": sa.Params["BranchConditionSVar"]}}, "condition", 0)
+	v := Num(h, c, &cards.SA{Params: map[string]string{"condition": sa.ParamStr(cards.PKBranchConditionSVar)}}, "condition", 0)
 	// Forge's BranchEffect defaults an absent BranchConditionSVarCompare$ to
 	// GE1 (31 of the corpus's Branch lines rely on it: "if X is at least
 	// one"). An operator this build does not know takes the false arm.
-	cmp := strings.TrimSpace(sa.Params["BranchConditionSVarCompare"])
+	cmp := strings.TrimSpace(sa.ParamStr(cards.PKBranchConditionSVarCompare))
 	if cmp == "" {
 		cmp = "GE1"
 	}
@@ -2010,9 +2010,9 @@ func effBranch(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	yes := compareCount(op, int(v), n)
-	name := sa.Params["FalseSubAbility"]
+	name := sa.ParamStr(cards.PKFalseSubAbility)
 	if yes {
-		name = sa.Params["TrueSubAbility"]
+		name = sa.ParamStr(cards.PKTrueSubAbility)
 	}
 	if sub := cards.ResolveSVar(c.SVars, name); sub != nil {
 		Resolve(h, c, sub)

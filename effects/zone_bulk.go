@@ -22,7 +22,7 @@ func effDestroy(h Host, c *Ctx, sa *cards.SA) {
 	// leave the battlefield (not targets spared by regeneration or
 	// indestructibility).  Keep both the resolution-local and event-backed
 	// halves in sync, as the chained sub-ability may read either one.
-	if strings.EqualFold(strings.TrimSpace(sa.Params["ForgetOtherTargets"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKForgetOtherTargets)), "True") {
 		c.Remembered = nil
 		clearEventRemembered(h, c)
 	}
@@ -38,7 +38,7 @@ func effDestroy(h Host, c *Ctx, sa *cards.SA) {
 	// applies it only when the snapshot names the referenced object, so no
 	// other remembered read is affected.
 	rememberTargets := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True")
-	rememberDestroyed := strings.EqualFold(strings.TrimSpace(sa.Params["RememberDestroyed"]), "True")
+	rememberDestroyed := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberDestroyed)), "True")
 	rememberLKI := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberLKI)), "True")
 	// Same pre-batch discipline as effDestroyAll: the targets Defined
 	// resolves are destroyed as one simultaneous batch (a multi-target
@@ -72,7 +72,7 @@ func effDestroy(h Host, c *Ctx, sa *cards.SA) {
 		// cards/link.go auto-links only SubAbility$, not the WinSubAbility$ it
 		// hangs off -- so this is correctness insurance for when that changes,
 		// not a live fix.
-		if sa.Params["NoRegen"] != "True" && ReplaceDestruction(h, id) {
+		if sa.ParamStr(cards.PKNoRegen) != "True" && ReplaceDestruction(h, id) {
 			continue
 		}
 		// Umbra armor (CR 702.90) applies even when NoRegen$ suppresses
@@ -127,7 +127,7 @@ func effDestroyAll(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	g := h.Game()
-	remember := strings.EqualFold(strings.TrimSpace(sa.Params["RememberDestroyed"]), "True")
+	remember := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberDestroyed)), "True")
 	// One pre-batch victim list across every player, then ONE departure
 	// snapshot, then the emit loop (CR 704.3 simultaneity, as far as the
 	// sequential emit model can express it): the CR 603.10a lifelink LKI a
@@ -159,7 +159,7 @@ func effDestroyAll(h Host, c *Ctx, sa *cards.SA) {
 		}
 		if zone == state.ZBattlefield {
 			// NoRegen$ != "True", not == "": see effDestroy's note above.
-			if sa.Params["NoRegen"] != "True" && ReplaceDestruction(h, id) {
+			if sa.ParamStr(cards.PKNoRegen) != "True" && ReplaceDestruction(h, id) {
 				continue
 			}
 			// Umbra armor after the shield: see effDestroy's note.
@@ -257,7 +257,7 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 	// applying both as a conjunction reads every line exactly once. Card.Self
 	// resolves through SpecContext.Source, so the player-targeted line can only
 	// hand over the source itself.
-	spec := sa.Params["SacValid"]
+	spec := sa.ParamStr(cards.PKSacValid)
 	if spec == "" {
 		spec = "Permanent"
 	}
@@ -270,7 +270,7 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 	// remembered -- and nothing is, because the flag is read nowhere else in
 	// this package (the sacrifice_audit test only counts its occurrence), so
 	// the absence is the conservative same-as-before no-op, not a regression.
-	remember := sa.Params["RememberSacrificed"] != ""
+	remember := sa.ParamStr(cards.PKRememberSacrificed) != ""
 	// rememberLKICapture captures the sacrificed object's LKI (before the
 	// MoveZone resets its counters) into c.Sacrificed, when the flag asks it
 	// to. Idempotent per call site; called exactly once per sacrificed object.
@@ -302,7 +302,7 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	optional := sa.ParamStr(cards.PKOptional) == "True"
-	strict := optional && sa.Params["StrictAmount"] == "True"
+	strict := optional && sa.ParamStr(cards.PKStrictAmount) == "True"
 	// Optional + StrictAmount is not a 0..Amount range: it is specifically
 	// "none, or exactly Amount". The KModes answer is consumed below before a
 	// possible exact-batch KChoose; keeping it separate prevents a partial
@@ -315,7 +315,7 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 	// this call sacrificed, the same payload shape effMill's ShowMilledCards$
 	// arm emits. Collected across every path below (the answered batch, the
 	// re-entry batch and the plain object path) so one Note covers the call.
-	show := strings.EqualFold(strings.TrimSpace(sa.Params["ShowSacrificedCards"]), "True")
+	show := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKShowSacrificedCards)), "True")
 	var sacrificed []state.ObjID
 	// sacrificeAnswered sacrifices an answered pick's objects that still sit
 	// on the battlefield, in answer order: the answer re-entry's branch, and
@@ -342,7 +342,7 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 	// SacValid$ at all) sacrifices the source object itself. Corpus: 66 such
 	// lines, which previously sacrificed the source whatever its type.
 	if !TargetsOf(sa).Has(TgtValidPresent) && !DefinedRefOf(sa).Set() {
-		if v := strings.TrimSpace(sa.Params["SacValid"]); v != "" && v != "Self" && v != "Card.Self" {
+		if v := strings.TrimSpace(sa.ParamStr(cards.PKSacValid)); v != "" && v != "Self" && v != "Card.Self" {
 			who = []state.Target{{Player: c.Controller, IsPlayer: true}}
 		}
 	}
@@ -401,7 +401,7 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 			// in its Annihilator$ marker (cards/keywords.go) and overrides it;
 			// the two contexts never coincide in the corpus.
 			n := amount
-			if ann := sa.Params["Annihilator"]; ann != "" {
+			if ann := sa.ParamStr(cards.PKAnnihilator); ann != "" {
 				if v, err := strconv.Atoi(ann); err == nil && v >= 0 {
 					n = int32(v)
 				}

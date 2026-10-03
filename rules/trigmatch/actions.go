@@ -132,7 +132,7 @@ func flippedCoinMatches(e Board, t cards.Trigger, source state.ObjID, ev events.
 	// ValidResult$ gates the side: Win = heads (Amount 1), Lose = tails
 	// (Amount 0). Every corpus FlippedCoin line carries one; an absent
 	// ValidResult$ (no such line measured) would fire on both sides.
-	if res := strings.TrimSpace(t.Params["ValidResult"]); res != "" {
+	if res := strings.TrimSpace(t.ParamStr(cards.PKValidResult)); res != "" {
 		if strings.EqualFold(res, "Win") && !win {
 			return false
 		}
@@ -485,20 +485,20 @@ func rolledDieCommon(e Board, t cards.Trigger, source state.ObjID, roller state.
 	if strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKStatic)), "True") {
 		return false
 	}
-	if strings.EqualFold(strings.TrimSpace(t.Params["RolledToVisitAttractions"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKRolledToVisitAttractions)), "True") {
 		return false
 	}
-	if v := strings.TrimSpace(t.Params["ValidSides"]); v != "" {
+	if v := strings.TrimSpace(t.ParamStr(cards.PKValidSides)); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || int32(n) != sides {
 			return false
 		}
 	}
 	matched := result
-	if strings.EqualFold(strings.TrimSpace(t.Params["Natural"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKNatural)), "True") {
 		matched = natural
 	}
-	if v, present := t.Params["ValidResult"]; present && !dieResultMatches(v, matched, natural, sides) {
+	if v, present := t.Param(cards.PKValidResult); present && !dieResultMatches(v, matched, natural, sides) {
 		return false
 	}
 	if v, present := t.Param(cards.PKValidPlayer); present {
@@ -554,7 +554,7 @@ func phaseTriggerMatches(e Board, t cards.Trigger, source state.ObjID, ev events
 	if !PhaseMatches(e, t, source, ev) {
 		return false
 	}
-	if t.Params["Echo"] == "True" {
+	if t.ParamStr(cards.PKEcho) == "True" {
 		return e.EchoGateHolds(source)
 	}
 	return true

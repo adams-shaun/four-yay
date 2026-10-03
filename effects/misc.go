@@ -45,13 +45,13 @@ func init() {
 // NoLonger$ release remembers nothing (its corpus shape never pairs the
 // rider with a release).
 func effGoad(h Host, c *Ctx, sa *cards.SA) {
-	remember := strings.EqualFold(strings.TrimSpace(sa.Params["RememberGoaded"]), "True")
+	remember := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberGoaded)), "True")
 	for _, t := range Defined(h, c, sa) {
 		if t.IsPlayer {
 			continue
 		}
 		if o := h.Game().Obj(t.Obj); o != nil && o.Zone == state.ZBattlefield {
-			if strings.EqualFold(sa.Params["NoLonger"], "True") {
+			if strings.EqualFold(sa.ParamStr(cards.PKNoLonger), "True") {
 				h.Emit(events.Event{Kind: events.Goad, Obj: o.ID, Amount: -1})
 				continue
 			}
@@ -94,12 +94,12 @@ func effGoad(h Host, c *Ctx, sa *cards.SA) {
 // Suspected it removes the designation (the DBDebuff family's
 // "un-suspect an opponent's suspected creature" shape).
 func effAlterAttribute(h Host, c *Ctx, sa *cards.SA) {
-	attr := strings.TrimSpace(sa.Params["Attributes"])
+	attr := strings.TrimSpace(sa.ParamStr(cards.PKAttributes))
 	if attr == "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "AlterAttribute names no Attributes$"})
 		return
 	}
-	activate := !strings.EqualFold(strings.TrimSpace(sa.Params["Activate"]), "False")
+	activate := !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKActivate)), "False")
 	for _, name := range strings.FieldsFunc(attr, func(r rune) bool { return r == ',' || r == ' ' }) {
 		prepared := strings.EqualFold(name, "Prepared")
 		saddled := strings.EqualFold(name, "Saddled")

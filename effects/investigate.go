@@ -81,7 +81,7 @@ func effInvestigate(h Host, c *Ctx, sa *cards.SA) {
 		}
 		c.InvestigateOpt, c.InvestigateOptIdx = "", int32(idx+1)
 		investigateOptionalWalk(h, c, sa, players, n,
-			strings.EqualFold(strings.TrimSpace(sa.Params["RememberInvestigatingPlayers"]), "True"))
+			strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberInvestigatingPlayers)), "True"))
 		return
 	}
 	g := h.Game()
@@ -95,7 +95,7 @@ func effInvestigate(h Host, c *Ctx, sa *cards.SA) {
 			Text: "Investigate: unknown token script " + clueTokenKey})
 		return
 	}
-	remember := strings.EqualFold(strings.TrimSpace(sa.Params["RememberInvestigatingPlayers"]), "True")
+	remember := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberInvestigatingPlayers)), "True")
 	players := actingPlayers(h, c, sa)
 	if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
 		if remember {

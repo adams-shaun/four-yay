@@ -58,7 +58,7 @@ func (e *Engine) paymentPlanGlobalManaEffect(p state.PlayerID, id state.ObjID) (
 		if ce.ReplacementEvent != "ProduceMana" {
 			continue
 		}
-		if strings.TrimSpace(ce.ReplacementParams["ValidCard"]) == "" && strings.TrimSpace(ce.ReplacementParams["ValidActivator"]) == "" {
+		if strings.TrimSpace(ce.ReplacementParam(cards.PKValidCard)) == "" && strings.TrimSpace(ce.ReplacementParam(cards.PKValidActivator)) == "" {
 			return true, "global_mana_effect:" + e.paymentPlanObjName(ce.Source)
 		}
 	}
@@ -110,7 +110,7 @@ func (e *Engine) paymentPlanManaConvertName(p state.PlayerID) string {
 		if vp, ok := sv.Param(cards.PKValidPlayer); ok && !effects.MatchesPlayerSpec(e.G, vp, p, sv.Controller) {
 			continue
 		}
-		if strings.Contains(sv.Params["ManaConversion"], "<-") {
+		if strings.Contains(sv.ParamStr(cards.PKManaConversion), "<-") {
 			return e.paymentPlanObjName(sv.Source)
 		}
 		if first == 0 {
@@ -203,7 +203,7 @@ func paymentPlanNoUntapShape(r cards.Repl) bool {
 		!strings.EqualFold(strings.TrimSpace(r.ParamStr(cards.PKLayer)), "CantHappen") {
 		return false
 	}
-	if v, ok := r.Params["ValidStepTurnToController"]; ok && strings.TrimSpace(v) != "You" {
+	if v, ok := r.Param(cards.PKValidStepTurnToController); ok && strings.TrimSpace(v) != "You" {
 		return false
 	}
 	if v, ok := r.Param(cards.PKActiveZones); ok && strings.TrimSpace(v) != "Battlefield" {
