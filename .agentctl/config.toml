@@ -223,6 +223,20 @@ env = { GORGE_REWARD_DIR = "/home/sadams/projects/gorge/.ds4/reward" }
 # exit 0 in a user scope). 400% matches the module gate's own -p=4; the serial
 # gates (CR conformance, TestHeads, make sim) get 200%, ample for -p=1.
 # GOMAXPROCS in env is the legible belt-and-braces for the parallel gates.
+#
+# 2026-10-03 (cli-20261003T052434Z-a1d15fb3): the module gate's CPUQuota is
+# raised to 800% (GOMAXPROCS 8, -p=4 kept). Measured, forced fresh
+# (`go test -p=4 -count=1 -skip ... ./...` in the systemd scope, both runs
+# with this tree):
+#   CPUQuota=400% GOMAXPROCS=4 -> 192.4s wall, 719.8s user, 0 FAIL
+#   CPUQuota=800% GOMAXPROCS=8 -> 114.1s wall, 722.9s user, 6.16G maxRSS, 0 FAIL
+# The gate was CPU-quota-bound, not memory-bound: it already spent ~3.7 of its
+# 4 quota-cores (719.8s user / 192.4s wall), so the extra 4 cores cut the wall
+# 40% with the SAME total work. -p=4 is kept, so at most four test binaries
+# are resident and peak RSS stays 6.16G under the existing 8G MemoryMax (the
+# box has 58G; two overlapping gates at 8G each fit). 8 vCPU is also well
+# under the 18-25 vCPU burst that motivated the 2026-09-30 ceilings, and the
+# broker's gate-begin pauses heavy/probe leases for the whole suite.
 
 [[gates]]
 name = "go build"
@@ -252,9 +266,9 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4" }
 # so no package that previously fit the 8G MemoryMax scope grows into it.
 [[gates]]
 name = "go test (module)"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=400%", "go", "test", "-p=4", "-skip", "^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=800%", "go", "test", "-p=4", "-skip", "^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$", "./..."]
 timeout = 1200
-env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "4" }
+env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "8" }
 
 [[gates]]
 name = "CR conformance"
