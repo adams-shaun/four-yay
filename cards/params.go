@@ -146,8 +146,12 @@ const (
 	paramKeyCount
 )
 
-// A ParamMask holds 128 keys.
-const _ = uint(128 - int(paramKeyCount))
+// paramMaskWords is a ParamMask's width in 64-bit words: 256 keys, the whole
+// ParamKey (uint8) range, so the ordinal itself caps the vocabulary.
+const paramMaskWords = 4
+
+// A ParamMask holds every ParamKey.
+const _ = uint(paramMaskWords*64 - int(paramKeyCount))
 
 // paramKeyNames maps each ParamKey to its Forge key text.
 var paramKeyNames = [paramKeyCount]string{
@@ -291,7 +295,7 @@ var paramKeyByName = func() map[string]ParamKey {
 }()
 
 // ParamMask is a set of ParamKeys.
-type ParamMask [2]uint64
+type ParamMask [paramMaskWords]uint64
 
 // ParamMaskOf builds a mask of keys (package-init constant tables).
 func ParamMaskOf(keys ...ParamKey) ParamMask {
@@ -307,6 +311,11 @@ func ParamMaskOf(keys ...ParamKey) ParamMask {
 // order. It is immutable once built and answers only for the exact map it
 // was built from (src, n): a node copy whose Params was replaced or resized
 // falls back to the map read.
+//
+// A read is a mask test and a rank: rank[w] is the number of keys present in
+// the words below w (a per-word popcount prefix computed once at build), so
+// a key's value index is rank[w] plus the popcount of its own word below its
+// bit, whichever word it lives in. No loop, no map, one branch.
 type ParamSet struct {
 	// src is the map the set was built from. Held as the map itself (not
 	// its address) so two identically parsed nodes stay reflect.DeepEqual;
@@ -314,6 +323,7 @@ type ParamSet struct {
 	src  map[string]string
 	n    int
 	has  ParamMask
+	rank [paramMaskWords]uint8
 	vals []string
 }
 
@@ -331,9 +341,15 @@ func newParamSet(m map[string]string) *ParamSet {
 			ps.has[k>>6] |= 1 << (k & 63)
 		}
 	}
-	ps.vals = make([]string, 0, bits.OnesCount64(ps.has[0])+bits.OnesCount64(ps.has[1]))
-	for k := ParamKey(1); k < paramKeyCount; k++ {
-		if ps.has[k>>6]&(1<<(k&63)) != 0 {
+	n := 0
+	for w, h := range ps.has {
+		ps.rank[w] = uint8(n)
+		n += bits.OnesCount64(h)
+	}
+	ps.vals = make([]string, 0, n)
+	for w, h := range ps.has {
+		for ; h != 0; h &= h - 1 {
+			k := ParamKey(w<<6 | bits.TrailingZeros64(h))
 			ps.vals = append(ps.vals, m[paramKeyNames[k]])
 		}
 	}
@@ -345,15 +361,12 @@ func (ps *ParamSet) bound(m map[string]string) bool {
 }
 
 func (ps *ParamSet) get(k ParamKey) (string, bool) {
-	w, b := k>>6, uint64(1)<<(k&63)
-	if ps.has[w]&b == 0 {
+	w := k >> 6
+	h, b := ps.has[w], uint64(1)<<(k&63)
+	if h&b == 0 {
 		return "", false
 	}
-	r := bits.OnesCount64(ps.has[w] & (b - 1))
-	if w == 1 {
-		r += bits.OnesCount64(ps.has[0])
-	}
-	return ps.vals[r], true
+	return ps.vals[int(ps.rank[w])+bits.OnesCount64(h&(b-1))], true
 }
 
 func paramGet(ps *ParamSet, m map[string]string, k ParamKey) (string, bool) {
@@ -368,7 +381,11 @@ func paramGet(ps *ParamSet, m map[string]string, k ParamKey) (string, bool) {
 // is bound to m, else conservatively true.
 func paramMayHaveAny(ps *ParamSet, m map[string]string, mask ParamMask) bool {
 	if ps.bound(m) {
-		return ps.has[0]&mask[0] != 0 || ps.has[1]&mask[1] != 0
+		var x uint64
+		for w := range mask {
+			x |= ps.has[w] & mask[w]
+		}
+		return x != 0
 	}
 	return true
 }

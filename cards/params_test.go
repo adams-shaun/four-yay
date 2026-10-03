@@ -72,3 +72,68 @@ func TestParamSetFallsBackOnReplacedMap(t *testing.T) {
 		t.Fatal("resized map answered from the stale set")
 	}
 }
+
+// benchParamKeys mixes present and absent keys from every mask word, so the
+// rank lookup is exercised across words and on both branches.
+var benchParamKeys = [...]ParamKey{
+	PKActivation, PKAffected, PKCost, PKDefined, PKOrigin, PKSubAbility,
+	PKValidCard, PKValidTgts, PKAmount, PKDuration, PKTargetMax, PKType,
+	paramKeyCount - 1, paramKeyCount / 2, paramKeyCount / 3, paramKeyCount * 2 / 3,
+}
+
+// BenchmarkParamStr reads a bound ParamSet through ParamStr: the compiled
+// hot-path read (mask test plus popcount rank, no map probe).
+func BenchmarkParamStr(b *testing.B) {
+	m := map[string]string{}
+	for i, k := range benchParamKeys {
+		if i%2 == 0 {
+			m[k.String()] = k.String()
+		}
+	}
+	sa := &SA{Params: m}
+	sa.ps = newParamSet(m)
+	b.ReportAllocs()
+	b.ResetTimer()
+	n := 0
+	for i := 0; i < b.N; i++ {
+		for _, k := range benchParamKeys {
+			n += len(sa.ParamStr(k))
+		}
+	}
+	if n == 0 {
+		b.Fatal("no reads answered")
+	}
+}
+
+// TestParamSetRanksAcrossWords pins the per-word rank prefix: for subsets
+// that leave every mask word empty, full or sparse in turn, each vocabulary
+// key reads back exactly its map value and every other key reads absent.
+func TestParamSetRanksAcrossWords(t *testing.T) {
+	for _, keep := range []func(ParamKey) bool{
+		func(ParamKey) bool { return true },
+		func(k ParamKey) bool { return k%2 == 1 },
+		func(k ParamKey) bool { return k%7 == 3 },
+		func(k ParamKey) bool { return k>>6 != 0 },
+		func(k ParamKey) bool { return k>>6 == 1 || k == paramKeyCount-1 },
+		func(k ParamKey) bool { return k == 1 || k == paramKeyCount-1 },
+	} {
+		m := map[string]string{"NotAVocabularyKey": "x"}
+		for k := ParamKey(1); k < paramKeyCount; k++ {
+			if keep(k) {
+				m[k.String()] = "v" + k.String()
+			}
+		}
+		ps := newParamSet(m)
+		var all ParamMask
+		for k := ParamKey(1); k < paramKeyCount; k++ {
+			all[k>>6] |= 1 << (k & 63)
+			v, ok := ps.get(k)
+			if want := keep(k); ok != want || (want && v != "v"+k.String()) || (!want && v != "") {
+				t.Fatalf("%s: got (%q,%v), want present=%v", k, v, ok, want)
+			}
+		}
+		if got := paramMayHaveAny(ps, m, all); got != (len(m) > 1) {
+			t.Fatalf("MayHaveAny(all) = %v with %d keys", got, len(m)-1)
+		}
+	}
+}
