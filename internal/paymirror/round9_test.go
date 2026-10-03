@@ -103,7 +103,7 @@ func TestRoundNineFindingsMirror(t *testing.T) {
 		10860: {3239: ""}, // Worldly Tutor; Three Visits no longer occurs after both command-zone fixes
 		11056: {},         // the Artisan finding is no longer reached; assert a clean, control-equivalent game
 		10056: {6128: ""},
-		8175:  {3694: precedes},
+		8175:  {3695: precedes}, // Songs of the Damned; +1 from the CR 117.3b priority reset after an as-enters choice (fdn-fix8)
 	}
 	for _, spec := range specs {
 		reports := round6Game(t, d, spec)
