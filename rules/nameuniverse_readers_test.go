@@ -25,6 +25,7 @@ func TestNameUniverseReadersAreKnown(t *testing.T) {
 		"effects/namecard.go",       // NameChoices
 		"effects/namecard_cache.go", // NameUniverseNames memo
 		"events/apply_copy.go",      // chosen-name ClonePermanent fold
+		"rules/acceptance_game.go",  // sets Config.NameUniverse to the full registry; reads nothing
 		"rules/cast_etbchoice.go",   // as-enters NameCard
 		"rules/clone.go",            // copies landTypeWords into a clone
 		"rules/engine.go",           // Config fields

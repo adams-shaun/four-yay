@@ -55,13 +55,13 @@ func RepoDeckNames() []string {
 // legacyDeckNames is the 12 60-card constructed Legacy decks the acceptance
 // suite pins its golden games to (Ruling M38-P). The deck directory also
 // holds the five interim 100-card Commander decks (foundations-*), which are
-// not part of the 12: the acceptance chain heads in rules/heads_test.go are
+// not part of the 12: the acceptance chain heads in rules/testdata/heads/ are
 // byte-identical games over these 12, and adding commander decks earlier
 // silently moved those heads by changing the index-based round-robin seat
 // assignment (i % len(all)). Seating the golden games off an explicit,
 // closed list -- never RepoDeckNames() -- keeps "add a deck file" from
-// perturbing the replay-golden games, which is the contract heads_test.go
-// documents. Kept sorted so the seat assignment is the same order the 12
+// perturbing the replay-golden games, which is the contract rules' TestHeads
+// pins. Kept sorted so the seat assignment is the same order the 12
 // were always seated in.
 var legacyDeckNames = [...]string{
 	"death-n-taxes",
@@ -81,10 +81,30 @@ var legacyDeckNames = [...]string{
 // LegacyDeckNames is the closed, sorted list of the 12 60-card constructed
 // Legacy repo decks that the replay-golden acceptance games seat from. The
 // captain of the replay chain: a deck file added to the directory must never
-// change what these games are, or every golden head in rules/heads_test.go
+// change what these games are, or every golden head in rules/testdata/heads/
 // moves for no behavioural reason.
 func LegacyDeckNames() []string {
 	return legacyDeckNames[:]
+}
+
+// AcceptanceDecks seats the deterministic acceptance game at seats seats:
+// LegacyDeckNames round-robined from deck 0, each seat's deck resolved
+// through LoadRepoDeck. It is the seating half of the game rules'
+// TestHeads pins and cmd/headdiff replays (rules.AcceptanceConfig and
+// rules.PlayAcceptance are the rest), so both play exactly the same game.
+func AcceptanceDecks(r *cards.Registry, seats int) ([]string, [][]*cards.Card, error) {
+	all := LegacyDeckNames()
+	names := make([]string, seats)
+	decks := make([][]*cards.Card, seats)
+	for i := 0; i < seats; i++ {
+		names[i] = all[i%len(all)]
+		d, err := LoadRepoDeck(r, names[i])
+		if err != nil {
+			return nil, nil, err
+		}
+		decks[i] = d
+	}
+	return names, decks, nil
 }
 
 // LoadRepoDeck reads decks/<name>.json and resolves it through the deck

@@ -12,51 +12,35 @@ import (
 
 // testBot drives the rules package's own fuzz and acceptance harnesses with
 // the same policy seat.Bot uses, through the same botpolicy.Decide (Ruling
-// F7). Before botpolicy existed, this file carried a line-for-line copy of
+// F7): it is botpolicy.GameBot, the game-shaped adapter cmd/headdiff also
+// answers the TestHeads acceptance game with, so the two cannot drift.
+// Before botpolicy existed, this file carried a line-for-line copy of
 // seat/bot.go's botDecide and clamp -- rules/fuzz_test.go is package rules,
 // and importing seat -- which imports view -- runs the declared dependency
-// order (cards -> state -> decision -> events -> effects -> rules -> view
-// -> seat -> replay -> cmd/*) backwards into the package under test. There
-// is one policy now, in botpolicy, and this file is its game-shaped
-// adapter: answer builds the botpolicy.Board straight off the engine
-// (botpolicy.BoardFromGame, the same facts a seat.Bot would build from the
-// projected View, IsMain from e.G.Step.IsMain). seat/integration_test.go's
-// TestBotAdaptersAgree* pins the two halves to the same Board for the same
-// game facts.
+// order (cards -> state -> decision -> events -> effects -> botpolicy ->
+// rules -> view -> seat -> replay -> cmd/*) backwards into the package under
+// test. seat/integration_test.go's TestBotAdaptersAgree* pins the two
+// halves to the same Board for the same game facts.
 type testBot struct {
+	gb *botpolicy.GameBot
+	// r is a fresh rng seeded exactly as gb's, for the tests that call
+	// botpolicy.Decide directly; answer never reads it.
 	r *rand.Rand
-	// board is refilled per decision (botpolicy.BoardFromGameInto), the
-	// host match loop's own reuse shape: Decide never retains a Board past
-	// the call (botpolicy's TestBoardOwnership), so one Board per bot is
-	// safe and spares a fresh set of maps per decision.
-	board    botpolicy.Board
-	hasBoard bool
 }
 
 func newTestBot(seed uint64) *testBot {
-	return &testBot{r: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))}
+	return &testBot{gb: botpolicy.NewGameBot(seed), r: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))}
 }
 
-// answer is the fuzz-driver interface this package's callers have always
-// used: the call shape is unchanged from the mirror it replaces, except
-// that the Board is now built here from the engine itself rather than by
-// the caller. The engine is the game-shaped analog of the projected View a
-// seat.Bot builds its board from (botpolicy.BoardFromGame reads g and the
-// engine's derived P/T/keywords; botpolicy.Decide's doc explains the
-// equivalence), so seat/integration_test.go's TestBotAdaptersAgreeOverWholeGame
-// can pin the two halves to the same Board for the same game facts. The
-// policy behaviour itself -- and its doc, per case -- lives in
-// botpolicy.Decide; see there for the rationale of each decision.Kind.
-// Every access into d.Options is guarded against the list being empty
-// there, and clamp (Ruling T25-c) is the last thing every return does, so
-// the intent this forwards always validates against d for any Min/Max the
-// wire format allows, not only today's shapes.
+// answer is the call shape this package's harnesses have always used; the
+// Board is built from the engine itself (e.G plus e's derived
+// characteristics) and the policy is botpolicy.Decide's.
 func (b *testBot) answer(e *Engine, d *decision.Decision) decision.Intent {
-	if !b.hasBoard {
-		b.board, b.hasBoard = botpolicy.NewBoard(len(e.G.Players)), true
-	}
-	return botpolicy.Decide(botpolicy.BoardFromGameInto(e.G, e, d.Player, &b.board), d, b.r)
+	return b.gb.Answer(e.G, e, d)
 }
+
+// acceptanceTestBot is PlayAcceptance's bot factory for this package's tests.
+func acceptanceTestBot(seed uint64) Answerer { return newTestBot(seed).answer }
 
 // TestTestBotDelegatesToBotPolicy pins answer's wiring: for representative
 // shapes of the decisions the fuzz gate throws at it, answer must deliver
