@@ -243,12 +243,14 @@ func refBoardFromGame(g *state.Game, ch Chars, me state.PlayerID) refBoard {
 	// b.Cards held the deciding seat's own zones alone.
 	//
 	// The seat-relative facts stay ZERO on a foreign entry: OnBattlefield,
-	// Produces, Tapped, Castable, Activated, InstantSpeed and AttachedTo
-	// are the deciding seat's OWN-board facts (cast.go's land-drop greedy
-	// and reserve hold the invariant that every OnBattlefield/Castable
-	// entry is a source the seat itself controls — producibleMana and
+	// Produces, Tapped, Castable, InstantSpeed and AttachedTo are the
+	// deciding seat's OWN-board facts (cast.go's land-drop greedy and
+	// reserve hold the invariant that every OnBattlefield/Castable entry is
+	// a source the seat itself controls — producibleMana and
 	// availableColours would otherwise count an opponent's lands as the
 	// seat's own mana), and a foreign permanent must never inflate them.
+	// Activated is the public census A5 reads, filled for foreign sources
+	// too (an "any player may activate" ability, Lethal Vapors).
 	for i := range g.Players {
 		p := &g.Players[i]
 		if p.ID == me {
@@ -290,6 +292,7 @@ func refBoardFromGame(g *state.Game, ch Chars, me state.PlayerID) refBoard {
 				Basic:     f.TypeLineHas("Basic", twBasic),
 				ManaCost:  f.ManaCost,
 				Toughness: toughness,
+				Activated: o.ActivatedThisTurn,
 			}
 		}
 	}
