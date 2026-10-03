@@ -1,13 +1,17 @@
 // Command oraclediff runs the XMage compliance pipeline's gorge side.
 //
 //	oraclediff gen  [-cards .cards] -manifest compliance/manifests/FRA.json -out scenarios.jsonl
-//	oraclediff diff [-cards .cards] -scenarios scenarios.jsonl -xmage xmage.jsonl -out verdicts.jsonl
+//	oraclediff plan [-cards .cards] -scenarios scenarios.jsonl -xmage-ref REF -cache DIR -replay todo.jsonl -rediff rediff.jsonl
+//	oraclediff diff [-cards .cards] -scenarios scenarios.jsonl [-xmage xmage.jsonl] [-cache DIR] -out verdicts.jsonl
 //	oraclediff show [-cards .cards] -scenarios scenarios.jsonl -card NAME
 //
 // gen writes one level-A scenario per manifest card gorge fully supports
-// (skips go to <out>.skips.jsonl). The XMage driver (scripts/xmage-oracle-
-// run.sh) replays the same file; diff runs gorge on each scenario, compares
-// the two engines' snapshots and writes one verdict per scenario.
+// (skips go to <out>.skips.jsonl). plan splits them into the stale ones
+// (no passing verdict for this exact scenario and XMAGE_REF) and, of those,
+// the ones XMage has not replayed yet. The XMage driver (scripts/xmage-
+// oracle-run.sh) replays the latter; diff runs gorge on each scenario,
+// compares the two engines' snapshots and writes one verdict per scenario.
+// scripts/compliance-pass.sh (make compliance-pass) runs the whole pass.
 package main
 
 import (
@@ -41,16 +45,28 @@ func main() {
 		out := fs.String("out", "", "scenario JSONL")
 		fs.Parse(os.Args[2:])
 		err = runGen(*dir, *manifest, *out)
+	case "plan":
+		fs := flag.NewFlagSet("plan", flag.ExitOnError)
+		dir := fs.String("cards", ".cards", "corpus dir")
+		scen := fs.String("scenarios", "", "scenario JSONL (from gen)")
+		verdicts := fs.String("verdicts", compliance.VerdictDir, "committed verdict directory")
+		ref := fs.String("xmage-ref", "", "XMAGE_REF of this pass")
+		cache := fs.String("cache", "", "XMage result cache directory for this XMAGE_REF and driver")
+		replay := fs.String("replay", "", "write the scenarios XMage must replay here")
+		rediff := fs.String("rediff", "", "write every stale scenario (replayed or cached) here")
+		fs.Parse(os.Args[2:])
+		err = runPlan(*dir, *scen, *verdicts, *ref, *cache, *replay, *rediff)
 	case "diff":
 		fs := flag.NewFlagSet("diff", flag.ExitOnError)
 		dir := fs.String("cards", ".cards", "corpus dir")
 		scen := fs.String("scenarios", "", "scenario JSONL")
 		xm := fs.String("xmage", "", "XMage driver output JSONL")
+		cache := fs.String("cache", "", "XMage result cache: results missing from -xmage are read from it, and -xmage's are stored in it")
 		out := fs.String("out", "", "verdict JSONL")
 		write := fs.String("write", "", "merge verdict rows into this directory (compliance/verdicts)")
 		ref := fs.String("xmage-ref", "", "XMAGE_REF the XMage results came from (required with -write)")
 		fs.Parse(os.Args[2:])
-		err = runDiff(*dir, *scen, *xm, *out, *write, *ref)
+		err = runDiff(*dir, *scen, *xm, *cache, *out, *write, *ref)
 	case "status":
 		fs := flag.NewFlagSet("status", flag.ExitOnError)
 		dir := fs.String("cards", ".cards", "corpus dir")
@@ -83,7 +99,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: oraclediff gen|diff ...")
+	fmt.Fprintln(os.Stderr, "usage: oraclediff gen|plan|diff|status|rule|show ...")
 	os.Exit(2)
 }
 
@@ -183,10 +199,11 @@ func readLines(path string, each func([]byte) error) error {
 	return sc.Err()
 }
 
-func runDiff(dir, scen, xm, out, write, ref string) error {
-	if scen == "" || xm == "" || out == "" {
-		return fmt.Errorf("diff needs -scenarios, -xmage and -out")
+func runDiff(dir, scen, xm, cacheDir, out, write, ref string) error {
+	if scen == "" || (xm == "" && cacheDir == "") || out == "" {
+		return fmt.Errorf("diff needs -scenarios, -xmage or -cache, and -out")
 	}
+	cache := oraclediff.Cache{Dir: cacheDir}
 	if write != "" && ref == "" {
 		return fmt.Errorf("-write needs -xmage-ref")
 	}
@@ -196,15 +213,17 @@ func runDiff(dir, scen, xm, out, write, ref string) error {
 		return err
 	}
 	xres := map[string]oraclediff.XResult{}
-	if err := readLines(xm, func(b []byte) error {
-		var x oraclediff.XResult
-		if err := json.Unmarshal(b, &x); err != nil {
+	if xm != "" {
+		if err := readLines(xm, func(b []byte) error {
+			var x oraclediff.XResult
+			if err := json.Unmarshal(b, &x); err != nil {
+				return err
+			}
+			xres[x.ID] = x
+			return nil
+		}); err != nil {
 			return err
 		}
-		xres[x.ID] = x
-		return nil
-	}); err != nil {
-		return err
 	}
 	of, err := os.Create(out)
 	if err != nil {
@@ -220,7 +239,15 @@ func runDiff(dir, scen, xm, out, write, ref string) error {
 			return err
 		}
 		row := Row{ID: it.ID, Card: it.Card, Template: it.Template}
+		sha := gate.ItemSHA(it)
 		x, ok := xres[it.ID]
+		if ok && cacheDir != "" {
+			if err := cache.Put(sha, x); err != nil {
+				return err
+			}
+		} else if !ok {
+			x, ok = cache.Get(sha)
+		}
 		if !ok {
 			row.Verdict = oraclediff.Verdict{Status: oraclediff.Harness, Engine: "xmage", Msg: "no XMage result"}
 		} else {
@@ -228,7 +255,7 @@ func runDiff(dir, scen, xm, out, write, ref string) error {
 			row.Verdict = oraclediff.Compare(g, gerr, x, it.Ignore...)
 			row.XMageMS = x.MS
 			vr := compliance.VerdictRow{Card: it.Card, Template: it.Template, ID: it.ID,
-				ScenarioSHA: gate.ItemSHA(it), XMageRef: ref}
+				ScenarioSHA: sha, XMageRef: ref}
 			switch row.Verdict.Status {
 			case oraclediff.Agree:
 				vr.Status = compliance.StatusAgree
@@ -271,6 +298,66 @@ func runDiff(dir, scen, xm, out, write, ref string) error {
 	sort.Strings(keys)
 	for _, k := range keys {
 		fmt.Printf("%-28s %d\n", k, counts[k])
+	}
+	return nil
+}
+
+// runPlan reads gen's scenarios and writes the stale ones (section 11.3
+// C1): -rediff gets every scenario whose verdict must be recomputed,
+// -replay the subset XMage has no cached result for.
+func runPlan(dir, scen, verdictDir, ref, cacheDir, replay, rediff string) error {
+	if scen == "" || ref == "" || replay == "" || rediff == "" {
+		return fmt.Errorf("plan needs -scenarios, -xmage-ref, -replay and -rediff")
+	}
+	reg, err := loadReg(dir)
+	if err != nil {
+		return err
+	}
+	all, err := compliance.LoadVerdicts(verdictDir)
+	if err != nil {
+		return err
+	}
+	cache := oraclediff.Cache{Dir: cacheDir}
+	var outs [2]*bufio.Writer
+	for i, p := range []string{replay, rediff} {
+		f, err := os.Create(p)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		outs[i] = bufio.NewWriter(f)
+		defer outs[i].Flush()
+	}
+	counts := map[gate.Need]int{}
+	reasons := map[string]int{}
+	if err := readLines(scen, func(b []byte) error {
+		var it oraclegen.Item
+		if err := json.Unmarshal(b, &it); err != nil {
+			return err
+		}
+		row, have := all[it.Card][it.Template]
+		need, why := gate.PlanItem(reg, it, row, have, ref, cache)
+		counts[need]++
+		if need == gate.Fresh {
+			return nil
+		}
+		reasons[why]++
+		fmt.Fprintln(outs[1], string(b))
+		if need == gate.Replay {
+			fmt.Fprintln(outs[0], string(b))
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	fmt.Printf("plan: %d fresh, %d rediff from cache, %d to replay in XMage\n", counts[gate.Fresh], counts[gate.Rediff], counts[gate.Replay])
+	keys := make([]string, 0, len(reasons))
+	for k := range reasons {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		fmt.Printf("  stale: %-40s %d\n", k, reasons[k])
 	}
 	return nil
 }

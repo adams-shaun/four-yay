@@ -191,13 +191,8 @@ func Check(reg *cards.Registry, root, set, level string) ([]Problem, error) {
 			bad(name, "verdict is for an older scenario (%s); re-run the XMage pass", it.ID)
 			continue
 		}
-		canon, err := GorgeCanon(reg, it)
-		if err != nil {
-			bad(name, "gorge replay: %v", err)
-			continue
-		}
-		if canon != r.CanonSHA {
-			bad(name, "gorge no longer meets the frozen expectation of %s", it.ID)
+		if ok, why := StillMeets(reg, it, r); !ok {
+			bad(name, "%s (%s)", why, it.ID)
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Card < out[j].Card })
