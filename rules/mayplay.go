@@ -530,16 +530,15 @@ func (e *Engine) mayPlayStatic(params map[string]string, id state.ObjID, you sta
 		!strings.EqualFold(params["MayPlayDontGrantZonePermissions"], "True") {
 		return false, false, false, Cost{}, hasRaise, priced
 	}
-	// Condition$ PlayerTurn ("during each of your turns", Kess, Dissident
-	// Mage): the static's controller's turn. Any other Condition$ value is
-	// an unimplemented gate and fails closed.
-	switch cond := strings.TrimSpace(params["Condition"]); cond {
-	case "":
-	case "PlayerTurn":
-		if e.G.Active != you {
-			return false, false, false, Cost{}, hasRaise, priced
-		}
-	default:
+	// Condition$ (PlayerTurn -- "during each of your turns", Kess, Dissident
+	// Mage -- and the ability-word family: Threshold -- Null Summoner,
+	// Delirium, Metalcraft, Hellbent, ...): evaluated for the static's
+	// controller through the ONE shared Continuous-static evaluator
+	// (continuousConditionHolds), which fails closed on any value it cannot
+	// read -- the same gate the layer walk applies before it registers the
+	// printed grant, so the two may-play sources cannot disagree.
+	if strings.TrimSpace(params["Condition"]) != "" &&
+		!e.continuousConditionHolds(staticView{Source: source, Controller: you, Params: params}) {
 		return false, false, false, Cost{}, hasRaise, priced
 	}
 	// IsPresent$ ("as long as a Zombie is on the battlefield", Gravecrawler):

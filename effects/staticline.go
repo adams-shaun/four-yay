@@ -152,13 +152,33 @@ func mayPlayFreeGrantFromLine(params map[string]string) (state.ContinuousEffect,
 // from), a Condition$ whose value is not PlayerTurn, a
 // ValidAfterStack$/Secondary$ qualifier (it changes when the grant lives),
 // or a MayPlayLimit$ value that is not a non-negative integer -- fails
-// closed:
+// closed.
+//
+// The one exception is the printed route's ability-word Condition$
+// (Null Summoner's "Threshold -- As long as there are seven or more cards in
+// your graveyard, you may cast the exiled card"): this function's only
+// callers are rules/layers.go's printed-S: registration, whose static walk
+// evaluates every Condition$ through continuousGateHolds BEFORE the grant is
+// built (Delirium, Threshold, Metalcraft, Hellbent, ... -- fail CLOSED on any
+// value it cannot read), so a printed grant exists exactly while its
+// condition holds. A non-PlayerTurn Condition$ is therefore left to that gate
+// rather than refused here. The Effect-delivery scans below have no such
+// gate and keep refusing it.
 func MayPlayStaticParams(params map[string]string) (ignoreColor, ignoreType bool, limit int32, playerTurn bool, ok bool) {
 	v, okv := params["MayPlay"]
 	if !okv || !strings.EqualFold(strings.TrimSpace(v), "True") {
 		return false, false, 0, false, false
 	}
-	ignoreColor, ignoreType, limit, playerTurn, _, ok = mayPlayParamsScan(params, false, false)
+	scan := params
+	if cond, has := params["Condition"]; has && !strings.EqualFold(strings.TrimSpace(cond), "PlayerTurn") {
+		scan = make(map[string]string, len(params))
+		for k, val := range params {
+			if k != "Condition" {
+				scan[k] = val
+			}
+		}
+	}
+	ignoreColor, ignoreType, limit, playerTurn, _, ok = mayPlayParamsScan(scan, false, false)
 	return ignoreColor, ignoreType, limit, playerTurn, ok
 }
 
