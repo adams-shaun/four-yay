@@ -41,6 +41,11 @@ CARDS_DIR  ?= .cards
 # Pinned to the lock's commit for M2r; a corpus bump is a deliberate,
 # ledgered change, not a side effect of Forge's master moving.
 FORGE_REF  ?= 95f04e8a04c8925fa97cb226fc3341cabcc90a53
+# The XMage commit the compliance oracle (manifests, out-of-tree driver)
+# is pinned to. XMage is MIT; nothing from it is a build dependency.
+# docs/superpowers/specs/2026-10-02-xmage-compliance-oracle-design.md
+XMAGE_REF  ?= 6b602a1c85e8ed738a4b40b1ef44c54845b57f68
+XMAGE_ORACLE_DIR ?= /mnt/sata/gorge-training/xmageoracle
 
 .PHONY: help
 help:
