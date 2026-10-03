@@ -939,7 +939,17 @@ func repeatGateHolds(h Host, c *Ctx, check, cmp string) (holds, evaluated bool) 
 			}
 		}
 	}
-	if len(UnknownPredicates(body)) > 0 {
+	// The predicate census reads the filter part only: an arithmetic suffix
+	// (SVar$Wins/LimitMin.Losses, SVar$ChoiceNum/Times.CheckNotPaid) is not a
+	// filter, and its dotted operand used to read as an unknown predicate
+	// ("Losses"), so the gate never evaluated and the loop stopped after its
+	// first iteration. The suffix is judged by the evaluator's own op
+	// grammar instead.
+	pred, op, hasOp := strings.Cut(body, "/")
+	if hasOp && !modelledGateOp(h, c, op) {
+		return false, false
+	}
+	if len(UnknownPredicates(pred)) > 0 {
 		return false, false
 	}
 	return CheckSVarHolds(h, c, check, cmp)
