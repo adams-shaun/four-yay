@@ -77,9 +77,9 @@ type Engine struct {
 	// applies. settlePendingLifeExchange re-drives it from every engine-idle
 	// drain, and finishLifeExchange re-parks it whenever it suspends again.
 	// It is only ever non-nil while a decision or a replacement-order queue is
-	// outstanding, so (like resume/replChoices/pending) no clone boundary can
-	// observe it.
-	pendingLifeExchange *lifeExchangeTransaction `clone:"reset"`
+	// outstanding -- an intent boundary -- so (like resume/replChoices/pending)
+	// Clone copies it.
+	pendingLifeExchange *lifeExchangeTransaction `clone:"deep"`
 	// controlGrants holds the GainControl effects that can still end (see
 	// rules/control.go). It is engine continuation state only; every take and
 	// return is a ControlChange event, so the log alone rebuilds Game state.

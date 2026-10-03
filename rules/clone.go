@@ -394,6 +394,17 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		c.resume = cloneResume(e.resume)
 	}
 	c.controlGrants = append([]controlGrant(nil), e.controlGrants...)
+	// A parked ExchangeLife transaction (stack_helpers.go): parked exactly
+	// when a side's life change suspended on a decision, so it is live at the
+	// intent boundary that decision makes, and Submit's tail settles it
+	// (settlePendingLifeExchange). The clone owns the transaction and its
+	// staged sides; rememberCtx stays shared, like the resume frames'
+	// ExchangeMemory it is read for.
+	if e.pendingLifeExchange != nil {
+		tx := *e.pendingLifeExchange
+		tx.staged = append([]events.Event(nil), tx.staged...)
+		c.pendingLifeExchange = &tx
+	}
 	if e.counterTypeAsk != nil {
 		c.counterTypeAsk = make(map[state.ObjID]*counterTypePending, len(e.counterTypeAsk))
 		for id, p := range e.counterTypeAsk {
