@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"regexp"
 	"slices"
 	"strings"
 
@@ -23,8 +22,7 @@ func targetBoundReadsPromisedGift(o *state.Object, sa *cards.SA) bool {
 	if o == nil || o.Face() == nil || sa == nil {
 		return false
 	}
-	if strings.Contains(sa.ParamStr(cards.PKTargetMin), "Count$PromisedGift") ||
-		strings.Contains(sa.ParamStr(cards.PKTargetMax), "Count$PromisedGift") {
+	if effects.TargetsOf(sa).Has(effects.TgtBoundPromisedGift) {
 		return true
 	}
 	for _, body := range o.Face().SVars {
@@ -44,7 +42,7 @@ func targetBoundReadsPromisedGift(o *state.Object, sa *cards.SA) bool {
 // the post-push ask. CR 601.2c is the reason the offer must not admit a
 // declaration the ask will reverse (CR 733.1) the instant it is submitted.
 func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID, sa *cards.SA, x int32, xPending bool) bool {
-	if sa == nil || strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
+	if sa == nil || !effects.TargetsOf(sa).Targeted() {
 		return true
 	}
 	// A pending {X} is announced before targets, so a bare X bound cannot be
@@ -52,8 +50,7 @@ func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID
 	// settled value. SVar-backed bounds remain readable now and are checked.
 	// Read by literal key: the param census's rot guard rejects a dynamic
 	// Params key that is not a function parameter.
-	if xPending && (strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetMin)), "X") ||
-		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetMax)), "X")) {
+	if xPending && effects.TargetsOf(sa).Has(effects.TgtBoundX) {
 		return true
 	}
 	min, _ := e.resolvedTargetBounds(p, id, sa, x)
@@ -76,7 +73,7 @@ func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID
 	if min <= 0 {
 		return true
 	}
-	if xPending && specNamesXBound(sa.ParamStr(cards.PKValidTgts)) {
+	if xPending && effects.TargetsOf(sa).Has(effects.TgtValidXBound) {
 		return true
 	}
 	if capCMC, capped := e.maxTotalTargetCMC(p, id, sa, x); capped {
@@ -145,7 +142,7 @@ func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID
 // (setPropTargetBounds). Each of those helpers is the identity on min when
 // its predicate here is false.
 func targetCrossConstrained(sa *cards.SA) bool {
-	if targetControllerExclusive(sa) || strings.EqualFold(sa.ParamStr(cards.PKTargetsWithSameController), "True") {
+	if targetControllerExclusive(sa) || effects.TargetsOf(sa).Has(effects.TgtSameController) {
 		return true
 	}
 	mode, _ := targetSetPropMode(sa)
@@ -202,7 +199,7 @@ func (e *Engine) charmTargetsAvailable(p state.PlayerID, id state.ObjID, sa *car
 	for _, name := range choices {
 		name = strings.TrimSpace(name)
 		sub := cards.ResolveSVar(o.Face().SVars, name)
-		if sub != nil && strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" &&
+		if sub != nil && effects.TargetsOf(sub).Targeted() &&
 			!e.targetSAAvailable(p, id, id, sub, 0, xPending) {
 			continue
 		}
@@ -230,13 +227,13 @@ func targetsReadXPending(sa *cards.SA) bool {
 	if sa.API == "Charm" && effects.CharmOf(sa).HasChoices {
 		return true
 	}
-	if strings.TrimSpace(sa.ParamStr(cards.PKAnnounce)) == "" && strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKAnnounce)) == "" && effects.TargetsOf(sa).Targeted() {
 		return true
 	}
 	// A targeting SubAbility$ link is censused too (chainTargetsAvailable),
 	// and its bounds or spec may read the pending X exactly as a root's do.
 	for sub := sa.Sub; sub != nil; sub = sub.Sub {
-		if strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
+		if effects.TargetsOf(sub).Targeted() {
 			return true
 		}
 	}
@@ -312,7 +309,7 @@ func (e *Engine) rootTargetsAvailable(p state.PlayerID, id, excludeSelf state.Ob
 	if strings.TrimSpace(sa.ParamStr(cards.PKAnnounce)) != "" {
 		return true
 	}
-	if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
+	if !effects.TargetsOf(sa).Targeted() {
 		return true
 	}
 	return e.targetSAAvailable(p, id, excludeSelf, sa, 0, xPending)
@@ -374,17 +371,6 @@ func costAnnouncesXRef(c *Cost) bool {
 		}
 	}
 	return false
-}
-
-// specNamesXBound reports whether a ValidTgts$ spec carries a numeric bound
-// whose right-hand side is the paid {X}: the <field><CMP>X family numericPred
-// resolves through SpecContext.Resolve (powerGEX, cmcEQX, toughnessLTX,
-// counters_GTX_<KIND>). Only these shapes are dynamic in X; a literal bound
-// (cmcGE3) is static and stays gated at offer time.
-var xBoundRe = regexp.MustCompile(`(?i)(power|toughness|cmc)(LE|GE|EQ|LT|GT)X|counters_(?:LE|GE|EQ|LT|GT)X_`)
-
-func specNamesXBound(spec string) bool {
-	return xBoundRe.MatchString(spec)
 }
 
 // castTargetsAvailable is the cast-offer guard: the spell card may not target

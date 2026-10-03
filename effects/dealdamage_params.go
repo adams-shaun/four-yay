@@ -127,7 +127,7 @@ func DealDamageOf(sa *cards.SA) *DealDamageParams {
 	if p := slot.Load(); p != nil && p.boundTo(sa.Params) {
 		return p
 	}
-	p := compileDealDamage(sa)
+	p := compileDealDamage(sa, TargetsOf(sa))
 	if sa.Params != nil {
 		slot.Store(p)
 	}
@@ -139,12 +139,12 @@ func DealDamageOf(sa *cards.SA) *DealDamageParams {
 var dealDamageFront [1 << 10]atomic.Pointer[DealDamageParams]
 
 // compileDealDamage is the one reader of a DealDamage ability's parameters.
-func compileDealDamage(sa *cards.SA) *DealDamageParams {
+func compileDealDamage(sa *cards.SA, tp *TargetParams) *DealDamageParams {
 	p := &DealDamageParams{paramBinding: bindParams(sa)}
 	p.NumDmg = damageAmountParam(sa)
-	if raw, ok := sa.Param(cards.PKDividedAsYouChoose); ok && strings.TrimSpace(raw) != "" {
+	if tp.Has(TgtDivided) {
 		p.Divided = true
-		p.DividedTotal = ParamText{Text: raw, Present: true}
+		p.DividedTotal = tp.Divided
 	}
 	p.RememberDamaged = strings.TrimSpace(sa.ParamStr(cards.PKRememberDamaged)) != ""
 	p.ExcessSVar = strings.TrimSpace(sa.Params["ExcessSVar"])

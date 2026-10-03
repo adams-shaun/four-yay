@@ -616,7 +616,7 @@ func effDamageAll(h Host, c *Ctx, sa *cards.SA) {
 	// Defined/TargetedPlayerCtrl direction. ValidTgts$ Creature (a
 	// non-player spec) leaves scope nil, so the filter-only sweep stands.
 	var scope map[state.PlayerID]bool
-	if tg := strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)); tg != "" && playerSpecBaseKnown(tg) {
+	if tg := TargetsOf(sa).ValidTgts; tg != "" && playerSpecBaseKnown(tg) {
 		sc := c.SpecContext(c.Controller)
 		sc.ResolutionTargets = targetedGroup(c)
 		players, _ := controlReferentPlayers(h.Game(), sc, "ControlledBy", "TargetedPlayer")
@@ -882,7 +882,7 @@ func effEachDamage(h Host, c *Ctx, sa *cards.SA) {
 	eachToItself := strings.TrimSpace(sa.Params["EachToItself"]) != ""
 	eachOtherRef := strings.TrimSpace(sa.Params["ToEachOther"])
 	hasDefined := strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != ""
-	_, hasTgts := sa.Param(cards.PKValidTgts)
+	hasTgts := TargetsOf(sa).Has(TgtValidPresent)
 
 	// LifeLostAll observes the affected group once, exactly as effDamageAll
 	// brackets its sweep.

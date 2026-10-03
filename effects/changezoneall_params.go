@@ -154,7 +154,7 @@ func ChangeZoneAllOf(sa *cards.SA) *ChangeZoneAllParams {
 	if p := slot.Load(); p != nil && p.boundTo(sa.Params) {
 		return p
 	}
-	p := compileChangeZoneAll(sa)
+	p := compileChangeZoneAll(sa, TargetsOf(sa))
 	if sa.Params != nil {
 		slot.Store(p)
 	}
@@ -170,7 +170,7 @@ var czaFront [1 << 10]atomic.Pointer[ChangeZoneAllParams]
 
 // compileChangeZoneAll is the one reader of a ChangeZoneAll ability's
 // parameters.
-func compileChangeZoneAll(sa *cards.SA) *ChangeZoneAllParams {
+func compileChangeZoneAll(sa *cards.SA, tp *TargetParams) *ChangeZoneAllParams {
 	p := &ChangeZoneAllParams{src: sa.Params, n: len(sa.Params)}
 
 	p.OriginText = sa.ParamStr(cards.PKOrigin)
@@ -193,7 +193,7 @@ func compileChangeZoneAll(sa *cards.SA) *ChangeZoneAllParams {
 	p.ChangeNumCapped = p.ChangeNum.Text != "" && !strings.EqualFold(p.ChangeNum.Text, "All")
 
 	p.UseAllOriginZones = isTrue(sa.Params["UseAllOriginZones"])
-	p.ValidTgtsText, p.Targeting = sa.Param(cards.PKValidTgts)
+	p.ValidTgtsText, p.Targeting = tp.ValidTgts, tp.Has(TgtValidPresent)
 	p.DefinedText, p.DefinedPresent = sa.Param(cards.PKDefined)
 
 	p.LibraryPosition = strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition))

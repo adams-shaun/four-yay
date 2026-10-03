@@ -158,7 +158,7 @@ func effAddTurn(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	player := c.Controller
-	if sa.ParamStr(cards.PKDefined) != "" || sa.ParamStr(cards.PKValidTgts) != "" {
+	if sa.ParamStr(cards.PKDefined) != "" || TargetsOf(sa).Targeted() {
 		for _, t := range Defined(h, c, sa) {
 			if t.IsPlayer {
 				player = t.Player

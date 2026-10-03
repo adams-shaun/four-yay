@@ -346,7 +346,7 @@ func ChangeZoneOf(sa *cards.SA) *ChangeZoneParams {
 	if cz := slot.Load(); cz != nil && cz.boundTo(sa.Params) {
 		return cz
 	}
-	cz := compileChangeZone(sa)
+	cz := compileChangeZone(sa, TargetsOf(sa))
 	if sa.Params != nil {
 		slot.Store(cz)
 	}
@@ -370,7 +370,7 @@ func paramMapSlot(m map[string]string) uint {
 }
 
 // compileChangeZone is the one reader of a ChangeZone ability's parameters.
-func compileChangeZone(sa *cards.SA) *ChangeZoneParams {
+func compileChangeZone(sa *cards.SA, tp *TargetParams) *ChangeZoneParams {
 	p := &ChangeZoneParams{src: sa.Params, n: len(sa.Params)}
 
 	// Origin$ and OriginAlternative$.
@@ -418,7 +418,7 @@ func compileChangeZone(sa *cards.SA) *ChangeZoneParams {
 	p.AlternativeDecider = strings.TrimSpace(sa.Params["AlternativeDecider"])
 
 	// Selectors.
-	p.changeZoneTargeting = compileChangeZoneTargeting(sa)
+	p.changeZoneTargeting = compileChangeZoneTargeting(sa, tp)
 	dp, dpOK := sa.Param(cards.PKDefinedPlayer)
 	p.DefinedPlayer = paramText(dp, dpOK)
 	p.Chooser = strings.TrimSpace(sa.ParamStr(cards.PKChooser))
@@ -534,17 +534,15 @@ func compileFaceDownRiders(sa *cards.SA) FaceDownRiders {
 }
 
 // compileChangeZoneTargeting is the one reader of ChangeZone's targeting half.
-func compileChangeZoneTargeting(sa *cards.SA) changeZoneTargeting {
+// The targeting keys come from the generic tier's compiled TargetParams.
+func compileChangeZoneTargeting(sa *cards.SA, tp *TargetParams) changeZoneTargeting {
 	var t changeZoneTargeting
 	t.Defined = strings.TrimSpace(sa.ParamStr(cards.PKDefined))
 	t.DefinedImprinted = t.Defined == "Imprinted"
 	t.DefinedRemembered = t.Defined == "Remembered"
-	vt, vtOK := sa.Param(cards.PKValidTgts)
-	t.ValidTgts = paramText(vt, vtOK)
-	tmin, tminOK := sa.Param(cards.PKTargetMin)
-	t.TargetMin = paramText(tmin, tminOK)
-	tmax, tmaxOK := sa.Param(cards.PKTargetMax)
-	t.TargetMax = paramText(tmax, tmaxOK)
+	t.ValidTgts = ParamText{Text: tp.ValidTgts, Present: tp.Has(TgtValidPresent)}
+	t.TargetMin = paramText(tp.Min.Text, tp.Min.Present)
+	t.TargetMax = paramText(tp.Max.Text, tp.Max.Present)
 	return t
 }
 
@@ -603,8 +601,9 @@ func (p *ChangeZoneParams) fetch() fetchSelectors {
 func fetchSelectorsParam(sa *cards.SA) fetchSelectors {
 	dp, dpOK := sa.Param(cards.PKDefinedPlayer)
 	d, dOK := sa.Param(cards.PKDefined)
-	vt, vtOK := sa.Param(cards.PKValidTgts)
-	return fetchSelectors{DefinedPlayer: paramText(dp, dpOK), Defined: paramText(d, dOK), ValidTgts: paramText(vt, vtOK)}
+	tp := TargetsOf(sa)
+	return fetchSelectors{DefinedPlayer: paramText(dp, dpOK), Defined: paramText(d, dOK),
+		ValidTgts: ParamText{Text: tp.ValidTgts, Present: tp.Has(TgtValidPresent)}}
 }
 
 // ChangeZoneKnownKeys is a copy of changeZoneKnownKeys, for the census check.

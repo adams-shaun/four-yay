@@ -77,7 +77,7 @@ func (e *Engine) triggerChainPreAsks(root *cards.SA) []*cards.SA {
 		return nil
 	}
 	for _, sa := range subs {
-		if strings.TrimSpace(sa.ParamStr(cards.PKTargetingPlayer)) != "" || strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "" {
+		if effects.TargetsOf(sa).TargetingPlayer != "" || strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "" {
 			return nil
 		}
 	}
@@ -88,7 +88,7 @@ func (e *Engine) triggerChainPreAsks(root *cards.SA) []*cards.SA {
 			seen = true
 			continue
 		}
-		if seen && strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" &&
+		if seen && !effects.TargetsOf(sa).Targeted() &&
 			strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "Targeted" {
 			return subs
 		}

@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -24,7 +26,7 @@ func TestEveryConfiguredAbilityHasItsFactsRecord(t *testing.T) {
 	}
 	ct := buildCompiledText(Config{Decks: [][]*cards.Card{all}, Tokens: reg.Tokens})
 
-	checked, fromSlot := 0, 0
+	checked, fromSlot, targeted := 0, 0, 0
 	seen := map[*cards.SA]bool{}
 	var check func(c *cards.Card, sa *cards.SA)
 	check = func(c *cards.Card, sa *cards.SA) {
@@ -73,6 +75,21 @@ func TestEveryConfiguredAbilityHasItsFactsRecord(t *testing.T) {
 			if (f.Effect != nil) != (sa.CompiledAPI() == cards.APIEffect || sa.API == "Effect") {
 				t.Errorf("%s: %q (API %s): Effect half present=%v", c.Path, sa.Line, sa.API, f.Effect != nil)
 			}
+			// The targeting tier is compiled for EVERY ability, whatever its
+			// API, and TargetsOf serves the configured record.
+			if f.Targets == nil {
+				t.Errorf("%s: %q (API %s): no Targets half", c.Path, sa.Line, sa.API)
+			} else {
+				if want := strings.TrimSpace(sa.Params["ValidTgts"]) != ""; f.Targets.Targeted() != want {
+					t.Errorf("%s: %q (API %s): Targets.Targeted()=%v, want %v", c.Path, sa.Line, sa.API, f.Targets.Targeted(), want)
+				}
+				if got := effects.TargetsOf(sa); len(sa.Params) > 0 && got != f.Targets && !reflect.DeepEqual(*got, *f.Targets) {
+					t.Errorf("%s: %q (API %s): TargetsOf disagrees with the configured Targets half", c.Path, sa.Line, sa.API)
+				}
+				if f.Targets.Targeted() {
+					targeted++
+				}
+			}
 		}
 	}
 	visit := func(c *cards.Card) {
@@ -100,5 +117,8 @@ func TestEveryConfiguredAbilityHasItsFactsRecord(t *testing.T) {
 	if checked < 1000 {
 		t.Fatalf("checked only %d abilities: the walk is vacuous", checked)
 	}
-	t.Logf("%d configured abilities carry their facts record (%d served from their own slot)", checked, fromSlot)
+	if targeted == 0 {
+		t.Fatal("no configured ability targets: the Targets half check is vacuous")
+	}
+	t.Logf("%d configured abilities carry their facts record (%d served from their own slot, %d targeting)", checked, fromSlot, targeted)
 }

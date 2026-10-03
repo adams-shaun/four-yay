@@ -98,7 +98,7 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 
 	// A targeted Play (ValidTgts$ on the same SA, e.g. Conduit of Worlds)
 	// plays the card it targeted at placement.
-	if _, ok := sa.Param(cards.PKValidTgts); ok {
+	if TargetsOf(sa).Has(TgtValidPresent) {
 		for _, t := range c.Targets {
 			candidates = append(candidates, t.Obj)
 		}

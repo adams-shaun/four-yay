@@ -178,7 +178,7 @@ func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
 					var tbms []*cards.SA
 					for _, name := range names {
 						if sub := cards.ResolveSVar(svars, name); sub != nil &&
-							strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
+							effects.TargetsOf(sub).Targeted() {
 							tbms = append(tbms, sub)
 						}
 					}

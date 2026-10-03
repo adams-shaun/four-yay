@@ -38,28 +38,9 @@ func (e *Engine) LegalTargets(chooser state.PlayerID, source state.ObjID, sa *ca
 	return out
 }
 
-// targetsPlayers and targetsPermanents read the coarse shape of a ValidTgts
-// spec. The per-object predicate work is effects.MatchesSpec.
-
-// targetsPlayers reports whether a spec can name a player as a target, by
-// looking at each alternative's BASE type (the part before any "."), never
-// a substring scan: "Any" targets either an object or a player, "Player"/
-// "Opponent"/"You" a player, while a predicate like "Creature.YouCtrl" IS an
-// object filter (its ".YouCtrl" clause scopes the creature's controller,
-// not the target being a player). The old substring form matched the "You"
-// inside "YouCtrl" and wrongly offered players as Equip targets (Task 14
-// found it: an Equip onto Creature.YouCtrl offered both players as options,
-// which effAttach then had to refuse).
-func targetsPlayers(spec string) bool {
-	for alt := range strings.SplitSeq(spec, ",") {
-		switch base, _, _ := strings.Cut(strings.TrimSpace(alt), "."); base {
-		case "Player", "Any", "Opponent", "You":
-			return true
-		}
-	}
-	return false
-}
-
+// targetsPermanents reads the coarse shape of a ValidTgts spec (the player
+// half is compiled once: effects.TgtValidPlayers, effects.SpecTargetsPlayers).
+// The per-object predicate work is effects.MatchesSpec.
 func targetsPermanents(spec string) bool {
 	for _, t := range [...]string{"Creature", "Any", "Permanent", "Artifact",
 		"Enchantment", "Land", "Planeswalker", "Card"} {

@@ -737,7 +737,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 // move. A host that cannot ask takes the deterministic first-max stand-in
 // (R-9), which is exactly what botpolicy's clamp fallback answers with.
 func changeZoneChosenTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
-	t := compileChangeZoneTargeting(sa)
+	t := compileChangeZoneTargeting(sa, TargetsOf(sa))
 	return changeZoneChosenTargetsFor(h, c, sa, &t)
 }
 

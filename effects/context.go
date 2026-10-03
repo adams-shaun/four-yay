@@ -115,7 +115,7 @@ func Defined(h Host, c *Ctx, sa *cards.SA) []state.Target {
 	// names none acts on its source. A sub-ability that wants its
 	// parent's targets says so explicitly (Defined$ Targeted /
 	// ParentTarget), which every script in the corpus does.
-	if _, targeted := sa.Param(cards.PKValidTgts); targeted {
+	if TargetsOf(sa).Has(TgtValidPresent) {
 		// The generic pre-ask's answered set (task mvts1) outranks the
 		// resolution's own Ctx.Targets: this dispatch asked for and received
 		// ITS OWN targets, and the resolution-level list is either the outer

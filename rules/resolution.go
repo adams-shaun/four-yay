@@ -34,8 +34,6 @@
 package rules
 
 import (
-	"strings"
-
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
@@ -129,7 +127,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			e.recordChosenTargets(rp.obj, flat, false)
 			if o := e.G.Obj(rp.obj); o != nil && o.CastFlags&state.FlagFused != 0 {
 				if ff, _ := fusedSplitFaces(o); ff != nil {
-					if sa := ff.SpellAbility(); sa == nil || strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
+					if sa := ff.SpellAbility(); sa == nil || !effects.TargetsOf(sa).Targeted() {
 						stages = append([][]state.Target{nil}, stages...)
 					}
 				}

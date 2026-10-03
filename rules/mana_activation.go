@@ -2238,7 +2238,7 @@ func (e *Engine) isTriggeredManaAbility(pt pendingTrigger) bool {
 		return false
 	}
 	for sa := pt.SA; sa != nil; sa = sa.Sub {
-		if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" {
+		if effects.TargetsOf(sa).Targeted() {
 			return false
 		}
 	}

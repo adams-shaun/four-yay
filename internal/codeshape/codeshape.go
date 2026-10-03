@@ -170,6 +170,25 @@ var EffectOnlyKeys = []string{"EffectOwner", "ExileOnMoved", "ForgetCounter", "F
 	"ForgetOnMoved", "ForgetOnPhasedIn", "ImprintOnHost", "ReplacementEffects", "SetChosenNumber",
 	"Stackable"}
 
+// TargetCompilerFile is the generic targeting tier's parameter compiler (W4
+// step 3's cross-API tier): the one file in rules/ and effects/ allowed to
+// read a targeting parameter, whatever the ability's API.
+const TargetCompilerFile = "effects/targets_params.go"
+
+// TargetOnlyKeys are the targeting parameter keys: a read of one of them
+// anywhere in rules/ or effects/ outside TargetCompilerFile is a path
+// interpreting a targeting parameter on its own (effects.TargetsOf serves
+// every path the compiled TargetParams).
+var TargetOnlyKeys = []string{
+	"DividedAsYouChoose", "MaxTotalTargetCMC", "MaxTotalTargetPower", "TargetMax",
+	"TargetMin", "TargetType", "TargetUnique", "TargetValidTargeting", "TargetingPlayer",
+	"TargetingPlayerControls", "TargetsAtRandom", "TargetsForEachPlayer",
+	"TargetsWithControllerProperty", "TargetsWithDefinedController", "TargetsWithDifferentCMC",
+	"TargetsWithDifferentControllers", "TargetsWithDifferentNames", "TargetsWithEqualToughness",
+	"TargetsWithSameCardType", "TargetsWithSameController", "TargetsWithSameCreatureType",
+	"TargetsWithSharedCardType", "TargetsWithSharedTypes", "TgtPrompt", "TgtZone", "ValidTgts",
+}
+
 // TypedParamCompiler names one API's parameter compiler for the leak census
 // (Metrics.ChangeZoneParamLeaks and its siblings): the compiler file, the
 // API's own resolution files (no parameter read of any key there) and the
@@ -288,6 +307,11 @@ type Metrics struct {
 	// EffectFiles, EffectOnlyKeys).
 	EffectParamLeaks int      `json:"effect_param_leaks"`
 	EffectLeaks      []string `json:"effect_leaks"`
+	// TargetParamLeaks is the same census for the generic targeting tier
+	// (TargetCompilerFile, TargetOnlyKeys): every read of a targeting key
+	// outside its compiler.
+	TargetParamLeaks int      `json:"target_param_leaks"`
+	TargetLeaks      []string `json:"target_leaks"`
 	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
@@ -406,6 +430,8 @@ func Measure(root string) (Metrics, error) {
 				TypedParamCompiler{PutCounterCompilerFile, PutCounterFiles, PutCounterOnlyKeys})...)
 			m.EffectLeaks = append(m.EffectLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{EffectCompilerFile, EffectFiles, EffectOnlyKeys})...)
+			m.TargetLeaks = append(m.TargetLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{TargetCompilerFile, nil, TargetOnlyKeys})...)
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.TypeAssertExpr:
@@ -467,6 +493,7 @@ func Measure(root string) (Metrics, error) {
 	m.DealDamageParamLeaks, m.DealDamageLeaks = finishLeaks(m.DealDamageLeaks)
 	m.PutCounterParamLeaks, m.PutCounterLeaks = finishLeaks(m.PutCounterLeaks)
 	m.EffectParamLeaks, m.EffectLeaks = finishLeaks(m.EffectLeaks)
+	m.TargetParamLeaks, m.TargetLeaks = finishLeaks(m.TargetLeaks)
 	m.FuncsOver300 = len(m.LongFuncs)
 	sort.Slice(m.LongFuncs, func(i, j int) bool {
 		a, b := m.LongFuncs[i], m.LongFuncs[j]

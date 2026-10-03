@@ -140,7 +140,7 @@ func AttachOf(sa *cards.SA) *AttachParams {
 	if p := slot.Load(); p != nil && p.boundTo(sa.Params) {
 		return p
 	}
-	p := compileAttach(sa)
+	p := compileAttach(sa, TargetsOf(sa))
 	if sa.Params != nil {
 		slot.Store(p)
 	}
@@ -155,7 +155,7 @@ func (p *AttachParams) boundTo(m map[string]string) bool {
 var attachFront [1 << 10]atomic.Pointer[AttachParams]
 
 // compileAttach is the one reader of an Attach ability's parameters.
-func compileAttach(sa *cards.SA) *AttachParams {
+func compileAttach(sa *cards.SA, tp *TargetParams) *AttachParams {
 	p := &AttachParams{src: sa.Params, n: len(sa.Params)}
 	p.Unattach = isTrue(sa.ParamStr(cards.PKUnattach))
 	p.Object, p.ObjectPresent = sa.Param(cards.PKObject)
@@ -179,7 +179,7 @@ func compileAttach(sa *cards.SA) *AttachParams {
 		p.ChoicePrompt = "Choose card"
 	}
 
-	if zones := attachValidTgtsZones(sa.ParamStr(cards.PKValidTgts)); len(zones) > 0 {
+	if zones := attachValidTgtsZones(tp.ValidTgts); len(zones) > 0 {
 		p.ValidTgtsZones = zones[:len(zones):len(zones)]
 	}
 	if zones, all, ok := ParseZones(sa.ParamStr(cards.PKOrigin)); ok && !all && len(zones) == 1 {

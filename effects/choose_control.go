@@ -155,7 +155,7 @@ func chooseCardControl(sa *cards.SA) string {
 	if strings.EqualFold(strings.TrimSpace(sa.Params["AllCards"]), "True") {
 		return ""
 	}
-	if _, ok := sa.Param(cards.PKValidTgts); ok {
+	if TargetsOf(sa).Has(TgtValidPresent) {
 		return ""
 	}
 	return "Chooser"
@@ -832,7 +832,7 @@ func choosePlayerSpec(sa *cards.SA) string {
 	if spec := strings.TrimSpace(sa.ParamStr(cards.PKChoices)); spec != "" {
 		return spec
 	}
-	return strings.TrimSpace(sa.ParamStr(cards.PKValidTgts))
+	return TargetsOf(sa).ValidTgts
 }
 
 func effChoosePlayer(h Host, c *Ctx, sa *cards.SA) {
@@ -849,7 +849,7 @@ func effChoosePlayer(h Host, c *Ctx, sa *cards.SA) {
 	// the ability was put on the stack (Bill Ferny's "target opponent"): the
 	// choice is that target, if it is still a matching player.
 	var targeted map[state.PlayerID]bool
-	if _, ok := sa.Param(cards.PKValidTgts); ok && sa.ParamStr(cards.PKChoices) == "" {
+	if TargetsOf(sa).Has(TgtValidPresent) && sa.ParamStr(cards.PKChoices) == "" {
 		for _, t := range c.Targets {
 			if t.IsPlayer && int(t.Player) < len(g.Players) && MatchesPlayerSpecWithSVars(h, c, spec, t.Player, c.Controller) {
 				if targeted == nil {

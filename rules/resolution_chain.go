@@ -46,7 +46,7 @@ func (e *Engine) charmModeTarget(obj state.ObjID, sa *cards.SA) []state.Target {
 	}
 	var tbms []*cards.SA
 	for _, name := range o.ChosenModes {
-		if sub := cards.ResolveSVar(svars, name); sub != nil && strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
+		if sub := cards.ResolveSVar(svars, name); sub != nil && effects.TargetsOf(sub).Targeted() {
 			tbms = append(tbms, sub)
 		}
 	}

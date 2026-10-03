@@ -1627,7 +1627,6 @@ var apiSpecificRulesSA = map[string][]string{
 	// only a plain AB$ Mana ability's offer runs it.
 	"Engine.manaActivationGateHolds": {"Mana"},
 	"Engine.emitManaTap":             {"Mana"},
-	"Engine.isTriggeredManaAbility":  {"Mana"},
 	// askTriggeredManaColor reads the first resolved Mana sub-ability's
 	// Amount$/Produced$ to build its allocation; that local is bSA but this
 	// path only ever reaches api:Mana.
@@ -1710,12 +1709,11 @@ var apiSpecificRulesSA = map[string][]string{
 	// replacement matchers), never another API's.
 	"Engine.paymentPlanSourceInterference": {"Mana"},
 	"Engine.paymentPlanProductions":        {"Mana"},
-	// The Charm mode paths: the CR 601.2b cast-time modes ask (castModeAsk)
-	// and the per-mode target declaration (modalTargetSA) read the MODE
-	// bodies' targeting. The Charm's own Choices$/CharmNum$ reads are
-	// effects.compileCharm's (W4 step 3), reached through effCharm.
-	"Engine.castModeAsk": {"Charm"},
-	"modalTargetSA":      {"Charm"},
+	// The Charm mode paths (castModeAsk, modalTargetSA) read the MODE
+	// bodies' targeting through effects.TargetsOf's compiled TargetParams
+	// (the generic targeting tier, W4 step 3), so they carry no read of
+	// their own. The Charm's own Choices$/CharmNum$ reads are
+	// effects.compileCharm's, reached through effCharm.
 	// The unless-pay resume arm: only effCounter and effCopySpellAbility
 	// suspend with an UnlessCost$ ask, so resumeResolution's UnlessCost$
 	// read belongs to those two APIs alone. api:Play joins them for the

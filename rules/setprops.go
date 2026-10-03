@@ -47,22 +47,8 @@ import (
 // value, name) is fixed so the choice is deterministic if a future SA ever
 // carried two.
 func targetSetPropMode(sa *cards.SA) (decision.SetPropMode, string) {
-	if sa == nil {
-		return decision.SetPropNone, ""
-	}
-	switch {
-	case strings.EqualFold(sa.ParamStr(cards.PKTargetsWithSameCardType), "True"):
-		return decision.SetPropShared, "cardtype"
-	case strings.EqualFold(sa.ParamStr(cards.PKTargetsWithSameCreatureType), "True"):
-		return decision.SetPropShared, "creaturetype"
-	case strings.EqualFold(sa.ParamStr(cards.PKTargetsWithEqualToughness), "True"):
-		return decision.SetPropShared, "toughness"
-	case strings.EqualFold(sa.ParamStr(cards.PKTargetsWithDifferentCMC), "True"):
-		return decision.SetPropDistinct, "cmc"
-	case strings.EqualFold(sa.Params["TargetsWithDifferentNames"], "True"):
-		return decision.SetPropDistinct, "name"
-	}
-	return decision.SetPropNone, ""
+	tp := effects.TargetsOf(sa)
+	return tp.SetProp, tp.SetPropKind
 }
 
 // setPropTokens builds the token set for one candidate under a resolved
@@ -228,31 +214,14 @@ func (e *Engine) narrowSetProps(sa *cards.SA, targets []state.Target) []state.Ta
 // names (ParentTarget, TriggeredCard, ...), or "" when the key is absent/not
 // True-shaped. Forge writes a name here, never "True".
 func sharedCardTypeRef(sa *cards.SA) string {
-	if sa == nil {
-		return ""
-	}
-	return strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithSharedCardType))
+	return effects.TargetsOf(sa).SharedCardType
 }
 
 // sharedTypesWhitelist parses TargetsWithSharedTypes$ ("Artifact,Creature,Land")
 // into lowercase card-type tokens, or nil when absent. An empty list is nil, so
 // the intersection falls back to the reference's own card types.
 func sharedTypesWhitelist(sa *cards.SA) []string {
-	if sa == nil {
-		return nil
-	}
-	raw := strings.TrimSpace(sa.Params["TargetsWithSharedTypes"])
-	if raw == "" {
-		return nil
-	}
-	var out []string
-	for _, p := range strings.Split(raw, ",") {
-		p = strings.ToLower(strings.TrimSpace(p))
-		if p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
+	return effects.TargetsOf(sa).SharedTypes
 }
 
 // sharedCardTypeReference resolves the reference object a
@@ -374,7 +343,7 @@ func (e *Engine) filterTargetControllerProperty(in []targetCandidate, sa *cards.
 	if sa == nil {
 		return in
 	}
-	kind := strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithControllerProperty))
+	kind := effects.TargetsOf(sa).ControllerProperty
 	if kind == "" {
 		return in
 	}

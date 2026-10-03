@@ -951,7 +951,7 @@ func (e *Engine) castModeAsk() bool {
 	for _, name := range choices {
 		name = strings.TrimSpace(name)
 		sub := cards.ResolveSVar(f.SVars, name)
-		if sub != nil && sub.ParamStr(cards.PKValidTgts) != "" &&
+		if sub != nil && effects.TargetsOf(sub).Targeted() &&
 			!e.targetSAAvailable(pc.player, pc.card, pc.card, sub, pc.x, false) {
 			continue
 		}
@@ -1082,11 +1082,11 @@ func (e *Engine) castModeAsk() bool {
 // legacy single-mode and unsupported multi-target paths. Supported distinct
 // modes instead use the per-mode grouped ask in targetAsk.
 func modalTargetSA(f *cards.Face, sa *cards.SA, modes []string) *cards.SA {
-	if sa == nil || sa.ParamStr(cards.PKValidTgts) != "" || sa.API != "Charm" || f == nil {
+	if sa == nil || effects.TargetsOf(sa).Targeted() || sa.API != "Charm" || f == nil {
 		return sa
 	}
 	for _, name := range modes {
-		if sub := cards.ResolveSVar(f.SVars, name); sub != nil && sub.ParamStr(cards.PKValidTgts) != "" {
+		if sub := cards.ResolveSVar(f.SVars, name); sub != nil && effects.TargetsOf(sub).Targeted() {
 			return sub
 		}
 	}

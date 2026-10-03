@@ -290,7 +290,7 @@ func (e *Engine) costTargetsMatch(sv staticView, spec string, targets []state.Ta
 func (e *Engine) costTargetsUnless(sv staticView, spec string, id state.ObjID, scope costScope, targets []state.Target) bool {
 	if len(targets) == 0 {
 		sa := e.costTargetingSA(id, scope)
-		return sa == nil || strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == ""
+		return sa == nil || !effects.TargetsOf(sa).Targeted()
 	}
 	return !e.costTargetsMatch(sv, spec, targets)
 }

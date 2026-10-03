@@ -146,8 +146,8 @@ func effPreventDamage(h Host, c *Ctx, sa *cards.SA) {
 	// DividedAsYouChoose$ N: the total is divided round-robin over the
 	// recipients in answer order (the DealDamage/PutCounter stand-in). The
 	// undivided shape gives every recipient the full Amount$.
-	if raw, ok := sa.Param(cards.PKDividedAsYouChoose); ok && strings.TrimSpace(raw) != "" {
-		divTotal := Num(h, c, sa, "DividedAsYouChoose", 0)
+	if tp := TargetsOf(sa); tp.Has(TgtDivided) {
+		divTotal := numText(h, c, tp.Divided, 0)
 		if divTotal < 0 {
 			divTotal = 0
 		}
