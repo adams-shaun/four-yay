@@ -32,6 +32,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/adams-shaun/gorge/rules/resolve"
 )
 
 type result struct {
@@ -136,6 +138,11 @@ func main() {
 	}()
 	if err != nil {
 		r.Err = err.Error()
+	}
+	if st := resolve.ReadStats(); st != (resolve.Stats{}) {
+		// The resolution kernel's counters for this run (a kernel-on
+		// binary), on stderr.
+		fmt.Fprintf(os.Stderr, "resolve %+v\n", st)
 	}
 	b, _ := json.Marshal(r)
 	if *out == "" {

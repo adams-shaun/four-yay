@@ -88,7 +88,7 @@ type engineContinuation struct {
 	// Transient, nil between intents.
 	answerParked *resumePoint `clone:"reset"`
 	// askCount counts the mid-resolution asks Engine.Ask took, posed or
-	// deferred (effects' askCounter seam). Transient scratch, never logged.
+	// deferred (effects' askSeam). Transient scratch, never logged.
 	askCount uint64 `clone:"reset"`
 	// lastDeferred is the resume point of the most recent DEFERRED ask of the
 	// running pass (nil once a posed ask follows it), so SuspendUnless marks

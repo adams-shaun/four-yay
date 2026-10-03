@@ -71,7 +71,7 @@ func (e *Engine) Ask(d *decision.Decision) bool {
 	return true
 }
 
-// AskCount implements effects' optional askCounter seam: the number of
+// AskCount implements effects' optional askSeam: the number of
 // mid-resolution asks this engine has taken (posed or deferred). effects.
 // Resolve's UnlessCost$ gate compares it across the gate, because a gate ask
 // deferred behind an already-suspended resolution leaves Suspended()

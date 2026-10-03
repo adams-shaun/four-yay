@@ -105,6 +105,11 @@ type Spare struct {
 	// cast is the spent engine's recycled pendingCast storage
 	// (cast_pool.go), zeroed, adopted as the next engine's castFree.
 	cast *pendingCast
+	// tapeCkpt is the spent engine's recycled resolution-kernel checkpoint
+	// storage (engineResolveKernel.tapeSpare: a dropped S0's Spare), adopted
+	// by the next clone so a search's per-simulation checkpoints recycle
+	// too. nil unless the kernel dropped a checkpoint.
+	tapeCkpt *Spare
 }
 
 // Release returns e's log and object-arena arrays as a Spare for the next
@@ -210,6 +215,11 @@ func (e *Engine) Release() Spare {
 	clear(sp.intents)
 	e.L.Events, e.G.Objs, e.L.Intents = nil, nil, nil
 	e.derivedMemo, e.derivedMemoStack, e.intentBuf = derivedMemoTable{}, derivedMemoTable{}, nil
+	if e.tapeSpare.objs != nil {
+		ts := e.tapeSpare
+		sp.tapeCkpt = &ts
+	}
+	e.tapeSpare = Spare{}
 	return sp
 }
 
@@ -308,6 +318,7 @@ func newEngineShell(cfg Config, random *rng) *Engine {
 		windowDiagnostics: cfg.WindowDiagnostics,
 		startingLife:      life,
 	}
+	e.tape.SetOn(cfg.TapeKernel || tapeKernelEnv)
 	// The embedded turn ledger's per-turn slices (engine_turnledger.go).
 	e.turnsTaken = make([]int32, len(cfg.Names))
 	// The per-turn ManaExpend tally (rules/cast.go) starts empty; payCast

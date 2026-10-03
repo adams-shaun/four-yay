@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"hash"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -58,7 +59,57 @@ type Log struct {
 	// address cannot be reused by another array while the claim is held.
 	prefixFrom *Event
 	prefixLen  int
+
+	// verifyEnd (> len(Events)) is an open verify window: rules' resolution
+	// kernel (rules/resolve) re-executing a recorded resolution prefix in
+	// place, after RewindTo. An append at an index below verifyEnd stores
+	// nothing -- the backing array already holds the recorded event there --
+	// it checks the new event against it byte for byte and extends Events by
+	// one. No recorded history is ever rewritten, so a clone sharing the
+	// prefix sees nothing change, and a divergence panics (LogDivergence)
+	// before anything is written. Zero (closed) at every intent boundary.
+	verifyEnd int
+	// vbufA/vbufB are the verify window's encoding scratch.
+	vbufA, vbufB []byte
 }
+
+// LogDivergence is the panic a verify-window append raises when the
+// re-executed event differs from the recorded one.
+type LogDivergence struct {
+	Index              int
+	Recorded, Replayed Event
+}
+
+func (d LogDivergence) Error() string {
+	return fmt.Sprintf("events: re-executed event %d differs from the recorded one: recorded %v obj=%d text=%q, re-executed %v obj=%d text=%q",
+		d.Index, d.Recorded.Kind, d.Recorded.Obj, d.Recorded.Text, d.Replayed.Kind, d.Replayed.Obj, d.Replayed.Text)
+}
+
+// RewindTo rewinds l to s0, a clone of l taken earlier (rules' resolution
+// kernel restoring its checkpoint): l keeps its own arrays, whose first
+// len(s0.Events) events are s0's history, takes s0's chain state, and opens a
+// verify window over its first end events (the recorded history a
+// re-execution must reproduce; end is l's length when the rewind began, so a
+// second rewind within one re-execution keeps the same window). Intents are
+// the caller's. The backing array must hold the recorded events up to end,
+// which a log that has appended since s0 was cloned always does.
+func (l *Log) RewindTo(s0 *Log, end int) {
+	l.Seed, l.NoHash, l.chain = s0.Seed, s0.NoHash, s0.chain
+	l.started, l.noHashSet, l.unhashed = s0.started, s0.noHashSet, s0.unhashed
+	l.verifyEnd = end
+	l.Events = l.Events[:len(s0.Events)]
+}
+
+// VerifyClose closes the verify window and reports whether every recorded
+// event in it was reproduced (Events reached the window's end).
+func (l *Log) VerifyClose() bool {
+	ok := len(l.Events) >= l.verifyEnd
+	l.verifyEnd = 0
+	return ok
+}
+
+// VerifyEnd reports the open verify window's end (0 when closed).
+func (l *Log) VerifyEnd() int { return l.verifyEnd }
 
 const expectedEventsPerGame = 4096
 
@@ -108,6 +159,23 @@ func (l *Log) AppendPtr(e *Event) {
 	}
 
 	e.Seq = uint64(len(l.Events))
+
+	if n := len(l.Events); n < l.verifyEnd {
+		// An open verify window (RewindTo): the recorded event is already
+		// stored at n. Check, never write.
+		rec := l.Events[: n+1 : n+1][n]
+		l.vbufA = rec.Append(l.vbufA[:0])
+		l.vbufB = e.Append(l.vbufB[:0])
+		if string(l.vbufA) != string(l.vbufB) {
+			panic(LogDivergence{Index: n, Recorded: rec, Replayed: *e})
+		}
+		*e = rec
+		l.Events = l.Events[:n+1]
+		if !l.NoHash {
+			l.unhashed++
+		}
+		return
+	}
 
 	// Copy IDs and Pairs so a caller mutating its own slice afterwards cannot
 	// retroactively rewrite a logged event and desync Head from HeadAt.
@@ -218,6 +286,7 @@ func (l *Log) Clone() *Log {
 	// it names the same shared, immutable events in both logs, so each folds
 	// it to the same chain whenever it is first read.
 	c.headHash = nil
+	c.verifyEnd, c.vbufA, c.vbufB = 0, nil, nil
 	c.prefixFrom, c.prefixLen = nil, len(l.Events)
 	if len(l.Events) > 0 {
 		c.prefixFrom = &l.Events[0]

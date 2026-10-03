@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
+	"os"
 	"time"
 
 	"github.com/adams-shaun/gorge/botpolicy"
@@ -24,6 +25,14 @@ const (
 	// player falls back to the heuristic bot's answer for it (counted).
 	retries = 32
 )
+
+// syncAnswer installs the resolution kernel's synchronous answerer on the
+// random and bot rows (GORGE_TAPE_SYNC=1, or baked in with
+// -ldflags "-X main.syncAnswerBuild=1"). With the kernel off it changes
+// nothing.
+var syncAnswer = os.Getenv("GORGE_TAPE_SYNC") == "1" || syncAnswerBuild == "1"
+
+var syncAnswerBuild string
 
 type randomStats struct {
 	Games, Turns, Decisions, Rejected, Fallbacks, Stalls int
@@ -82,6 +91,34 @@ func playRandom(cfg rules.Config, st *randomStats) {
 				stall = "panic"
 			}
 		}()
+		if syncAnswer {
+			// Answer a converted mid-resolution ask inline with exactly the
+			// draws the loop below would make for it.
+			tries := 0
+			rules.SetTapeAnswerer(e, func(d *decision.Decision, reject error) (decision.Intent, bool) {
+				if reject == nil {
+					tries = 0
+					st.Decisions++
+				} else {
+					st.Rejected++
+					tries++
+				}
+				if tries < retries {
+					return randomIntent(d, r), true
+				}
+				if tries > retries {
+					return decision.Intent{}, false
+				}
+				p := int(d.Player)
+				if fb[p] == nil {
+					fb[p] = seat.NewBot(cfg.Seed ^ uint64(p+1))
+				}
+				b := botpolicy.BoardFromGameInto(e.G, e, d.Player, &board)
+				in, err := fb[p].DecideBoard(context.Background(), b, *d)
+				st.Fallbacks++
+				return in, err == nil
+			})
+		}
 		e.Advance()
 		n := 0
 		for !e.G.Over && e.Pending() != nil {
@@ -165,7 +202,7 @@ func playBot(cfg rules.Config, autopay bool, st *botStats) error {
 		}
 		seats[i] = b
 	}
-	o, _, err := bench.PlayGame(cfg, seats, maxTurns, maxIntents, bench.Hooks{})
+	o, _, err := bench.PlayGame(cfg, seats, maxTurns, maxIntents, bench.Hooks{SyncAnswer: syncAnswer})
 	if err != nil {
 		return err
 	}

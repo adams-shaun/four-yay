@@ -249,6 +249,20 @@ func effPlayerVote(h Host, c *Ctx, sa *cards.SA) {
 			d.Options = append(d.Options, decision.Option{Index: j, Kind: "player", Player: p,
 				Label: votePlayerLabel(g, p)})
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the pick the "vote"
+			// resume arm's VoteAnswer carries.
+			pick := state.Target{}
+			if len(ans) > 0 {
+				if ans[0].Kind == "player" {
+					pick = state.Target{Player: ans[0].Player, IsPlayer: true}
+				} else if ans[0].Obj != 0 {
+					pick = state.Target{Obj: ans[0].Obj}
+				}
+			}
+			picks = append(picks, pick)
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return
 		}
