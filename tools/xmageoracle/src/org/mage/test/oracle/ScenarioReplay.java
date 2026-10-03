@@ -80,8 +80,28 @@ public class ScenarioReplay extends CardTestPlayerBase {
         System.exit(0);
     }
 
+    /**
+     * Strict first: every XMage decision must be scripted. When XMage poses
+     * a decision the script (derived from gorge's decisions) does not cover,
+     * the scenario is replayed with strict mode off so XMage's own player
+     * answers it, and the result says so: the outcome is still compared.
+     * Leftover scripted answers alone (a decision gorge posed and XMage did
+     * not) do not void a run that reached every checkpoint.
+     */
     JsonObject replay(JsonObject sc) {
+        JsonObject res = replayOnce(sc, true);
+        String h = res.has("harness") ? res.get("harness").getAsString() : "";
+        if (h.contains("Missing") && h.contains("def for turn")) {
+            JsonObject loose = replayOnce(sc, false);
+            loose.addProperty("strict_miss", h.length() > 300 ? h.substring(0, 300) : h);
+            return loose;
+        }
+        return res;
+    }
+
+    JsonObject replayOnce(JsonObject sc, boolean strict) {
         JsonObject res = new JsonObject();
+        res.addProperty("strict", strict);
         res.addProperty("name", str(sc, "name"));
         if (sc.has("id")) {
             res.add("id", sc.get("id"));
@@ -90,7 +110,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
         try {
             reset();
             skipInitShuffling();
-            setStrictChooseMode(true);
+            setStrictChooseMode(strict);
+            sc0 = sc;
             build(sc);
             runCode("setup", TURN, MAIN, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
             JsonArray steps = sc.has("steps") ? sc.getAsJsonArray("steps") : new JsonArray();
@@ -110,7 +131,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
             execute();
         } catch (Throwable t) {
             String msg = t.getClass().getSimpleName() + ": " + t.getMessage();
-            res.addProperty("harness", msg.length() > 800 ? msg.substring(0, 800) : msg);
+            int want = (sc.has("steps") ? sc.getAsJsonArray("steps").size() : 0) + 1;
+            if (snaps.size() == want && msg.contains("Count are not equal")) {
+                res.addProperty("leftover", msg.length() > 300 ? msg.substring(0, 300) : msg);
+            } else {
+                res.addProperty("harness", msg.length() > 800 ? msg.substring(0, 800) : msg);
+            }
         }
         JsonArray arr = new JsonArray();
         for (JsonObject s : snaps) {
@@ -183,6 +209,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     // ---- steps -----------------------------------------------------------
 
+    private JsonObject sc0 = new JsonObject();
+
     private void step(JsonObject st, String op) {
         int seatIdx = st.has("seat") ? st.get("seat").getAsInt() : 0;
         TestPlayer p = seat(seatIdx);
@@ -200,7 +228,9 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 if (st.has("kicked") || st.has("cast_mode")) {
                     throw new IllegalArgumentException("kicked/cast_mode unsupported");
                 }
-                answers(st, p);
+                if (!sc0.has("xmage_answers")) {
+                    answers(st, p);
+                }
                 String card = refName(str(st, "card"));
                 List<String> tg = targets(st);
                 if (tg.size() == 1 && isSeatRef(tg.get(0))) {
@@ -282,6 +312,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     for (String t : pick) {
                         setChoice(p, t.equalsIgnoreCase("yes") || t.equalsIgnoreCase("true"));
                     }
+                    break;
+                case "modes":
+                case "choose":
+                    // gorge-side answers; XMage's come from xmage_answers.
                     break;
                 default:
                     throw new IllegalArgumentException("answer kind " + kind + " unsupported");

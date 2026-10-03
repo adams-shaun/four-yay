@@ -48,7 +48,7 @@ func GorgeCanon(reg *cards.Registry, it oraclegen.Item) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return Hash([]byte(oraclediff.Canonical(res.Snapshots))), nil
+	return Hash([]byte(oraclediff.Canonical(res.Snapshots, it.Ignore...))), nil
 }
 
 // HandScenarios lists the cards that have a hand-authored oracle scenario
@@ -157,10 +157,15 @@ func Check(reg *cards.Registry, root, set, level string) ([]Problem, error) {
 			continue
 		}
 		rows := verdicts[name]
+		wrong := false
 		for _, r := range rows {
 			if r.Status == compliance.StatusGorgeWrong {
-				bad(name, "gorge_wrong verdict (%s): %s", r.Template, r.Detail)
+				bad(name, "gorge_wrong verdict (%s): %s", r.Template, r.Ruling)
+				wrong = true
 			}
+		}
+		if wrong {
+			continue
 		}
 		if hand[name] {
 			continue

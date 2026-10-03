@@ -82,6 +82,12 @@ type OracleDecision struct {
 	PickIdx  []int    `json:"pick_idx"`
 	PickRefs []string `json:"pick_refs"`
 	Via      string   `json:"via"` // how the runner answered: target, answer, or a fallback
+	// GorgeKind and First let a generator script the same decision for
+	// gorge's runner: the raw decision kind and option 0's label.
+	GorgeKind string `json:"gorge_kind"`
+	First     string `json:"first,omitempty"`
+	Min       int    `json:"min"`
+	Max       int    `json:"max"`
 }
 
 const oracleLibraryTopN = 5

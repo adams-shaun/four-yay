@@ -13,11 +13,14 @@ import (
 
 // XResult is one line of the XMage driver's output.
 type XResult struct {
-	Name      string                 `json:"name"`
-	ID        string                 `json:"id,omitempty"`
-	Harness   string                 `json:"harness,omitempty"`
-	MS        int                    `json:"ms"`
-	Snapshots []rules.OracleSnapshot `json:"snapshots"`
+	Name       string                 `json:"name"`
+	ID         string                 `json:"id,omitempty"`
+	Harness    string                 `json:"harness,omitempty"`
+	Strict     bool                   `json:"strict"`
+	StrictMiss string                 `json:"strict_miss,omitempty"` // XMage asked what the script did not answer
+	Leftover   string                 `json:"leftover,omitempty"`    // scripted answers XMage never asked for
+	MS         int                    `json:"ms"`
+	Snapshots  []rules.OracleSnapshot `json:"snapshots"`
 }
 
 // Status is a comparison outcome.
@@ -42,7 +45,10 @@ type Verdict struct {
 
 // Compare walks both engines' checkpoints in order. A harness failure on
 // either side is never a verdict on the card.
-func Compare(g rules.OracleResult, gerr error, x XResult) Verdict {
+//
+// ignore names fields left out of the comparison (by suffix, e.g.
+// "library_top" after a shuffle, whose order is random in both engines).
+func Compare(g rules.OracleResult, gerr error, x XResult, ignore ...string) Verdict {
 	if gerr != nil {
 		return Verdict{Status: Harness, Engine: "gorge", Msg: gerr.Error()}
 	}
@@ -69,7 +75,7 @@ func Compare(g rules.OracleResult, gerr error, x XResult) Verdict {
 		return Verdict{Status: Harness, Engine: "both", Msg: fmt.Sprintf("%d gorge checkpoints, %d xmage", len(g.Snapshots), len(x.Snapshots))}
 	}
 	for i := range g.Snapshots {
-		if v, ok := compareSnap(g.Snapshots[i], x.Snapshots[i]); !ok {
+		if v, ok := compareSnap(g.Snapshots[i], x.Snapshots[i], ignore); !ok {
 			return v
 		}
 	}
@@ -113,12 +119,24 @@ func fields(s rules.OracleSnapshot, xmage bool) []field {
 	return out
 }
 
-func compareSnap(g, x rules.OracleSnapshot) (Verdict, bool) {
+func ignored(name string, ignore []string) bool {
+	for _, s := range ignore {
+		if strings.HasSuffix(name, s) {
+			return true
+		}
+	}
+	return false
+}
+
+func compareSnap(g, x rules.OracleSnapshot, ignore []string) (Verdict, bool) {
 	if g.Checkpoint != x.Checkpoint {
 		return Verdict{Status: Harness, Engine: "both", Msg: fmt.Sprintf("checkpoint %q vs %q", g.Checkpoint, x.Checkpoint)}, false
 	}
 	gf, xf := fields(g, false), fields(x, true)
 	for k := range gf {
+		if ignored(gf[k].name, ignore) {
+			continue
+		}
 		if k >= len(xf) || gf[k].value != xf[k].value {
 			xv := ""
 			if k < len(xf) {
@@ -138,11 +156,14 @@ func compareSnap(g, x rules.OracleSnapshot) (Verdict, bool) {
 // Canonical is gorge's side of a scenario in the comparator's normalized
 // form: equal to XMage's exactly when the two agree. A verdict row freezes
 // its hash, so the CI gate can re-check gorge without Java.
-func Canonical(snaps []rules.OracleSnapshot) string {
+func Canonical(snaps []rules.OracleSnapshot, ignore ...string) string {
 	var b strings.Builder
 	for _, s := range snaps {
 		fmt.Fprintf(&b, "== %s\n", s.Checkpoint)
 		for _, f := range fields(s, false) {
+			if ignored(f.name, ignore) {
+				continue
+			}
 			fmt.Fprintf(&b, "%s: %s\n", f.name, f.value)
 		}
 	}

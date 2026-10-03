@@ -88,7 +88,9 @@ func LoadVerdicts(dir string) (map[string]map[string]VerdictRow, error) {
 
 // MergeVerdicts writes rows into dir, replacing any row with the same card
 // and template, and keeps each shard sorted so diffs read card by card. A
-// replaced row keeps its Ruling when the new row has the same status.
+// replaced row keeps its Ruling when the new row has the same status, and a
+// triaged row (gorge_wrong/xmage_wrong) is kept over an untriaged diverge
+// for the same scenario.
 func MergeVerdicts(dir string, rows []VerdictRow) error {
 	all, err := LoadVerdicts(dir)
 	if err != nil {
@@ -98,8 +100,16 @@ func MergeVerdicts(dir string, rows []VerdictRow) error {
 		if all[r.Card] == nil {
 			all[r.Card] = map[string]VerdictRow{}
 		}
-		if old, ok := all[r.Card][r.Template]; ok && old.Status == r.Status && r.Ruling == "" {
-			r.Ruling = old.Ruling
+		if old, ok := all[r.Card][r.Template]; ok {
+			triaged := old.Status == StatusGorgeWrong || old.Status == StatusXMageWrong
+			if triaged && r.Status == StatusDiverge && old.ScenarioSHA == r.ScenarioSHA {
+				// A re-run of the same scenario still disagreeing keeps its
+				// triage ruling.
+				continue
+			}
+			if old.Status == r.Status && r.Ruling == "" {
+				r.Ruling = old.Ruling
+			}
 		}
 		all[r.Card][r.Template] = r
 	}

@@ -58,6 +58,14 @@ func main() {
 		level := fs.String("level", "A", "level")
 		fs.Parse(os.Args[2:])
 		err = runStatus(*dir, *set, *level)
+	case "rule":
+		fs := flag.NewFlagSet("rule", flag.ExitOnError)
+		dir := fs.String("cards", ".cards", "corpus dir")
+		card := fs.String("card", "", "card")
+		status := fs.String("status", "", "gorge_wrong or xmage_wrong")
+		ruling := fs.String("ruling", "", "who is wrong and why, citing the CR")
+		fs.Parse(os.Args[2:])
+		err = runRule(*dir, *card, *status, *ruling)
 	case "show":
 		fs := flag.NewFlagSet("show", flag.ExitOnError)
 		dir := fs.String("cards", ".cards", "corpus dir")
@@ -217,14 +225,19 @@ func runDiff(dir, scen, xm, out, write, ref string) error {
 			row.Verdict = oraclediff.Verdict{Status: oraclediff.Harness, Engine: "xmage", Msg: "no XMage result"}
 		} else {
 			g, gerr := rules.RunOracleScenarioJSON(reg, it.Raw())
-			row.Verdict = oraclediff.Compare(g, gerr, x)
+			row.Verdict = oraclediff.Compare(g, gerr, x, it.Ignore...)
 			row.XMageMS = x.MS
 			vr := compliance.VerdictRow{Card: it.Card, Template: it.Template, ID: it.ID,
 				ScenarioSHA: gate.ItemSHA(it), XMageRef: ref}
 			switch row.Verdict.Status {
 			case oraclediff.Agree:
 				vr.Status = compliance.StatusAgree
-				vr.CanonSHA = gate.Hash([]byte(oraclediff.Canonical(g.Snapshots)))
+				vr.CanonSHA = gate.Hash([]byte(oraclediff.Canonical(g.Snapshots, it.Ignore...)))
+				if x.StrictMiss != "" {
+					vr.Detail = "xmage chose unscripted (gorge posed no such decision): " + firstLine(x.StrictMiss)
+				} else if x.Leftover != "" {
+					vr.Detail = "xmage did not pose a decision gorge did: " + firstLine(x.Leftover)
+				}
 			case oraclediff.Diverge:
 				vr.Status = compliance.StatusDiverge
 				vr.Detail = fmt.Sprintf("%s %s: gorge %q, xmage %q", row.Verdict.Checkpoint, row.Verdict.Field, row.Verdict.Gorge, row.Verdict.XMage)
@@ -299,6 +312,41 @@ func runStatus(dir, set, level string) error {
 	return nil
 }
 
+// runRule records a triage ruling on a card's generated-scenario verdict.
+// xmage_wrong freezes gorge's current canonical snapshots as the
+// expectation, so the gate holds gorge to the ruled behaviour.
+func runRule(dir, card, status, ruling string) error {
+	if card == "" || ruling == "" || (status != compliance.StatusGorgeWrong && status != compliance.StatusXMageWrong) {
+		return fmt.Errorf("rule needs -card, -ruling and -status gorge_wrong|xmage_wrong")
+	}
+	reg, err := loadReg(dir)
+	if err != nil {
+		return err
+	}
+	all, err := compliance.LoadVerdicts(compliance.VerdictDir)
+	if err != nil {
+		return err
+	}
+	it, skip := oraclegen.Generate(reg, card)
+	if skip != nil {
+		return fmt.Errorf("%s: %s", card, skip.Reason)
+	}
+	r, ok := all[card][it.Template]
+	if !ok {
+		return fmt.Errorf("%s: no %s verdict to rule on", card, it.Template)
+	}
+	if r.ScenarioSHA != gate.ItemSHA(it) {
+		return fmt.Errorf("%s: verdict is for an older scenario; re-run the XMage pass first", card)
+	}
+	r.Status, r.Ruling, r.CanonSHA = status, ruling, ""
+	if status == compliance.StatusXMageWrong {
+		if r.CanonSHA, err = gate.GorgeCanon(reg, it); err != nil {
+			return err
+		}
+	}
+	return compliance.MergeVerdicts(compliance.VerdictDir, []compliance.VerdictRow{r})
+}
+
 // runShow replays one card's scenarios in gorge and prints the scenario,
 // gorge's transcript and its last snapshot, for triage.
 func runShow(dir, scen, card string) error {
@@ -324,6 +372,10 @@ func runShow(dir, scen, card string) error {
 		}
 		for _, f := range g.Fails {
 			fmt.Println("  FAIL", f)
+		}
+		for _, d := range g.Decisions {
+			db, _ := json.Marshal(d)
+			fmt.Println("  DECISION", string(db))
 		}
 		if n := len(g.Snapshots); n > 0 {
 			sb, _ := json.MarshalIndent(g.Snapshots[n-1], "  ", " ")
