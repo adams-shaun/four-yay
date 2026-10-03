@@ -29,10 +29,8 @@ func parkAsk(e *Engine, d *decision.Decision) bool {
 	return false
 }
 
-// parkTapeAnswer is TapeAnswer for a park-and-continue ask: it skips the
-// ReplaceWith$-body refusal (the in-place answer is the point of the
-// migration), and the asks are served only from a tape run's resolution or a
-// synchronous answerer.
+// parkTapeAnswer is TapeAnswer for a park-and-continue ask: served only from
+// a tape run's resolution or a synchronous answerer.
 func parkTapeAnswer(e *Engine, d *decision.Decision) (decision.Intent, bool) {
 	if tapeForceLegacy != nil && tapeForceLegacy(d) {
 		return decision.Intent{}, false

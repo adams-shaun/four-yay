@@ -26,6 +26,11 @@ func tapePark(t *testing.T, seats int, seed uint64, minServed int64, scenario fu
 	scenario(t, e)
 	st := resolve.ReadStats().Sub(before)
 	replayCheck(t, e, cfg)
+	if testing.Verbose() {
+		for _, ev := range e.L.Events[max(0, len(e.L.Events)-40):] {
+			t.Log(tapeEventString(ev))
+		}
+	}
 	if st.Served < minServed || st.LegacySwitch != 0 || st.Aborts != 0 {
 		t.Fatalf("the park asks were not served from the tape: %+v", st)
 	}
@@ -84,5 +89,47 @@ func TestTapeParkAttached(t *testing.T) {
 				t.Fatalf("Attach at %d, spell left the stack at %d (last choose ask %d): the election was not answered in place", att, left, ask)
 			}
 		})
+	}
+}
+
+const tapePrismBearSrc = "Name:Tape Prism Bear\nManaCost:B\nTypes:Creature Bear\nPT:2/2\nK:ETBReplacement:Other:ChooseColor\nSVar:ChooseColor:DB$ ChooseColor\nOracle:x\n"
+
+const tapeTotemSrc = "Name:Tape Totem\nManaCost:B\nTypes:Artifact\nK:ETBReplacement:Other:ChooseCT\nSVar:ChooseCT:DB$ ChooseType | Type$ Creature\n" +
+	"K:ETBReplacement:Other:DBChoose\nSVar:DBChoose:DB$ ChooseCard | Defined$ You | Choices$ Land.YouCtrl | ChoiceZone$ Battlefield | Mandatory$ True\nOracle:x\n"
+
+// An entry an effect makes mid-chain (a mass return from the graveyard)
+// asks its as-enters choices -- and its entry replacement body's ask -- in
+// place: each permanent enters, answered, before the effect moves on and
+// before the spell leaves the stack.
+func TestTapeParkMidChainEntry(t *testing.T) {
+	name := "Tape Mass Return"
+	src := "Name:" + name + "\nManaCost:U\nTypes:Sorcery\n" +
+		"A:SP$ ChangeZoneAll | ChangeType$ Creature.YouOwn,Artifact.YouOwn | Origin$ Graveyard | Destination$ Battlefield | SubAbility$ DBGain\n" +
+		tapeGainSVar + "\nOracle:x\n"
+	var spell, bear, totem state.ObjID
+	e, _ := tapePark(t, 2, 13950, 3, func(t *testing.T, e *Engine) {
+		moveByName(t, e, 0, "Mountain", state.ZBattlefield)
+		moveByName(t, e, 0, "Mountain", state.ZBattlefield)
+		bear = moveByName(t, e, 0, "Tape Prism Bear", state.ZGraveyard)
+		totem = moveByName(t, e, 0, "Tape Totem", state.ZGraveyard)
+		spell = fixtureInHand(t, e, name)
+		tapeCastAndResolve(t, e, name, "U")
+	}, src, tapePrismBearSrc, tapeTotemSrc)
+	left := -1
+	for i, ev := range e.L.Events {
+		if ev.Kind == events.MoveZone && ev.Obj == spell && ev.From == state.ZStack {
+			left = i
+		}
+	}
+	for _, id := range []state.ObjID{bear, totem} {
+		in := -1
+		for i, ev := range e.L.Events {
+			if ev.Kind == events.MoveZone && ev.Obj == id && ev.To == state.ZBattlefield {
+				in = i
+			}
+		}
+		if in < 0 || left < 0 || in > left {
+			t.Fatalf("%s entered at %d, the spell left the stack at %d: the entry was not answered in place", e.Name(id), in, left)
+		}
 	}
 }

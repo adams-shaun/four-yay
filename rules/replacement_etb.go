@@ -162,7 +162,6 @@ func (e *Engine) applyETBChoiceReplacement(ev events.Event) bool {
 		// this emit -- the continuation the legacy arm hands back to the
 		// parked frame (continueAfterETBEntry).
 		e.choosing = chooseNone
-		e.tapeETBServed = ev.Obj
 		chosen := d.Chosen(in)
 		e.withMintSink(e.pendingMintSink, func() { e.resumeETBEntry(chosen) })
 		return true
@@ -616,16 +615,19 @@ func (e *Engine) applySiegeProtector(ev events.Event) bool {
 	return true
 }
 
-// etbTapeAnswer serves an as-enters choice from the tape only when the
-// entering object is the resolving spell itself (a permanent spell's own
-// entry, the last thing its resolution does). An entry an effect makes
-// mid-chain (a reanimation, a mass return, a token mint) stays legacy: the
-// legacy park lets the moving effect keep running past the parked entry, an
-// order an in-line answer would not reproduce.
+// etbTapeAnswer serves an as-enters choice from the tape. The resolving
+// spell's own entry is the last thing its resolution does; an entry an
+// effect makes mid-chain (a reanimation, a mass return, a token mint) is a
+// park-and-continue ask (W3 step 5, lasagna spec §7.2): the legacy park lets
+// the moving effect keep running past the parked entry, while the kernel
+// answers it in place and the entry happens where the effect made it.
 func etbTapeAnswer(e *Engine, d *decision.Decision, obj state.ObjID) (decision.Intent, bool) {
-	n := len(e.G.Stack)
-	if n == 0 || e.G.Stack[n-1] != obj || e.resume != nil {
+	if e.resume != nil {
 		return decision.Intent{}, false
 	}
-	return e.TapeAnswer(d)
+	n := len(e.G.Stack)
+	if n > 0 && e.G.Stack[n-1] == obj {
+		return e.TapeAnswer(d)
+	}
+	return parkTapeAnswer(e, d)
 }

@@ -37,7 +37,7 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		passes := e.G.Passes + 1
 		if passes >= int32(e.G.AliveCount()) {
 			if len(e.G.Stack) > 0 {
-				e.tapeGranted, e.tapeETBServed = false, 0
+				e.tapeGranted = false
 				e.resolveTop()
 				e.tape.ResolutionDone()
 				// CR 117.5: nobody receives priority in the middle of a

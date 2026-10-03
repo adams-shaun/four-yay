@@ -264,12 +264,23 @@ func TestTapeConvertOwnEntryReplacement(t *testing.T) {
 }
 
 // Riptide Replicator's shape: an as-enters colour choice, then the entry
-// replacement body's own ask. The second stays legacy (the run aborts to the
-// legacy replay) and the two kernels still agree.
-func TestTapeETBThenEntryReplacementGoesLegacy(t *testing.T) {
+// replacement body's own ask. Both are served in place (W3 step 5). The
+// legacy path chains the body's frame behind the as-enters frame and
+// completes it without the CR 117.3b priority grant; the kernel's resolution
+// completes once and grants priority to the active player.
+func TestTapeETBThenEntryReplacement(t *testing.T) {
 	src := "Name:Tape Replicator\nManaCost:B\nTypes:Artifact\nK:ETBReplacement:Other:ChooseColor\nSVar:ChooseColor:DB$ ChooseColor\n" +
 		"K:ETBReplacement:Other:DBChoose\nSVar:DBChoose:DB$ ChooseCard | Defined$ You | Choices$ Land.YouCtrl | ChoiceZone$ Battlefield | Mandatory$ True\nOracle:x\n"
-	tapeDual(t, 2, 13750, tapeUnlessScenario("Tape Replicator", "B", 2, tapePick), src)
+	e, _ := tapePark(t, 2, 13750, 2, tapeUnlessScenario("Tape Replicator", "B", 2, tapePick), src)
+	last := -1
+	for i, ev := range e.L.Events {
+		if ev.Kind == events.DecisionMade {
+			last = i
+		}
+	}
+	if g := tapeEventIndex(e, last, events.Priority, 0); g < 0 || e.L.Events[g].Player != e.G.Active || e.L.Events[g].Amount != 0 {
+		t.Fatalf("no CR 117.3b grant to the active player after the resolution (last answer at %d)", last)
+	}
 }
 
 // A window's mana activation of a multi-ability source poses the ability

@@ -12,9 +12,11 @@ package rules
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -314,20 +316,31 @@ func TestTapeNestedAskKeepsRepeatSubject(t *testing.T) {
 	}
 }
 
-// A converted ask inside a ReplaceWith$ body stays legacy (the Caldera
-// Hellion shape the dual-run fuzz caught): Devour's sacrifice is asked from
-// the entry replacement while a mass return keeps moving the next creature,
-// so legacy answers it after moves an inline answer would precede.
-func TestTapeReplacementBodyAskStaysLegacy(t *testing.T) {
+// A converted ask inside a ReplaceWith$ body is answered in place (W3 step
+// 5, the Caldera Hellion shape): Devour's sacrifice is asked from the entry
+// replacement of a mass return. The legacy park answers it after the return
+// has moved the next creature; the kernel answers it as the devourer enters,
+// before the next creature moves.
+func TestTapeReplacementBodyAskInPlace(t *testing.T) {
 	devourer := "Name:Tape Devourer\nManaCost:B\nTypes:Creature Hellion\nPT:1/1\nK:Devour:1\nOracle:x\n"
 	raise := tapeZoneSorcery("Tape Mass Raise", "A:SP$ ChangeZoneAll | ChangeType$ Creature | Origin$ Graveyard | Destination$ Battlefield")
-	_, st := tapeDual(t, 2, 33201, func(t *testing.T, e *Engine) {
-		moveByName(t, e, 0, "Tape Devourer", state.ZGraveyard)
-		moveByName(t, e, 0, "ParentLink Bear", state.ZGraveyard)
+	var dev, bear state.ObjID
+	e, _ := tapePark(t, 2, 33201, 1, func(t *testing.T, e *Engine) {
+		dev = moveByName(t, e, 0, "Tape Devourer", state.ZGraveyard)
+		bear = moveByName(t, e, 0, "ParentLink Bear", state.ZGraveyard)
 		moveByName(t, e, 0, "ParentLink Angel", state.ZBattlefield)
 		tapeCastAndResolve(t, e, "Tape Mass Raise", "B")
 	}, raise, devourer, ptResumeBearSrc, ptResumeAngelSrc)
-	if st.Served != 0 {
-		t.Fatalf("a replacement body's ask was served from the tape: %+v", st)
+	made, in := -1, -1
+	for i, ev := range e.L.Events {
+		if ev.Kind == events.DecisionMade && made < 0 && i > 0 && strings.HasPrefix(ev.Text, "choose") {
+			made = i
+		}
+		if ev.Kind == events.MoveZone && ev.Obj == bear && ev.To == state.ZBattlefield {
+			in = i
+		}
+	}
+	if made < 0 || in < 0 || made > in {
+		t.Fatalf("%s's sacrifice answered at %d, the next creature entered at %d: not answered in place", e.Name(dev), made, in)
 	}
 }
