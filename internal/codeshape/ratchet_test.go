@@ -59,8 +59,13 @@ const (
 	// effects/changezone_params.go): 630 -> 628. loop-bugs: effReveal reads
 	// RevealDefined$ once: 628 -> 627. W4 step 3's Attach compiler
 	// (RememberAttached$ read once): 627 -> 626. The Charm and Pump
-	// compilers (charm_params.go, pump_params.go): 626 -> 624.
-	stringParamReads = 624
+	// compilers (charm_params.go, pump_params.go): 626 -> 624. W4 step 3's
+	// DealDamage compiler (DamageSource$ read once): 624 -> 623. W4 step 3's
+	// PutCounter compiler (one read per key; the entry fold's presence gate
+	// and the rules-side CounterTypePerDefined$ read moved into it): 623 -> 621.
+	// W4 step 3's Effect compiler (ImprintOnHost$ read once, the opening
+	// hand's EffectOwner$ read moved into it): 621 -> 619.
+	stringParamReads = 619
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.
@@ -105,6 +110,18 @@ const (
 	charmParamLeaks = 0
 	pumpParamLeaks  = 0
 	drawParamLeaks  = 0
+	// dealDamageParamLeaks is the same census for api:DealDamage's compiler,
+	// effects/dealdamage_params.go (codeshape.DealDamageFiles,
+	// codeshape.DealDamageOnlyKeys). It landed at zero.
+	dealDamageParamLeaks = 0
+	// putCounterParamLeaks is the same census for api:PutCounter's compiler,
+	// effects/putcounter_params.go (codeshape.PutCounterFiles,
+	// codeshape.PutCounterOnlyKeys). It landed at zero.
+	putCounterParamLeaks = 0
+	// effectParamLeaks is the same census for api:Effect's compiler,
+	// effects/effect_params.go (codeshape.EffectFiles,
+	// codeshape.EffectOnlyKeys). It landed at zero.
+	effectParamLeaks = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -238,6 +255,21 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"field to compileDraw in effects/draw_params.go) instead of reading the " +
 				"ability's Params in effects/draw.go or a Draw-only key elsewhere. " +
 				"Leaks: " + strings.Join(m.DrawLeaks, ", ")},
+		{"dealDamageParamLeaks", m.DealDamageParamLeaks, dealDamageParamLeaks,
+			"Read the parameter through effects.DealDamageOf's compiled DealDamageParams (add " +
+				"a field to compileDealDamage in effects/dealdamage_params.go) instead of reading " +
+				"the ability's Params in effects/damage_deal.go or a DealDamage-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.DealDamageLeaks, ", ")},
+		{"putCounterParamLeaks", m.PutCounterParamLeaks, putCounterParamLeaks,
+			"Read the parameter through effects.PutCounterOf's compiled PutCounterParams (add " +
+				"a field to compilePutCounter in effects/putcounter_params.go) instead of reading " +
+				"the ability's Params in effects/counters_put.go or a PutCounter-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.PutCounterLeaks, ", ")},
+		{"effectParamLeaks", m.EffectParamLeaks, effectParamLeaks,
+			"Read the parameter through effects.EffectOf's compiled EffectParams (add a " +
+				"field to compileEffect in effects/effect_params.go) instead of reading the " +
+				"ability's Params in effects/effect.go or an Effect-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.EffectLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +

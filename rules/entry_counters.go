@@ -195,7 +195,7 @@ func (e *Engine) entryBodyCandidates(ev events.Event) bool {
 	for i := range f.Repls {
 		r := &f.Repls[i]
 		if r.Event == "Moved" && r.With != nil && r.With.API == "PutCounter" &&
-			strings.EqualFold(strings.TrimSpace(r.With.ParamStr(cards.PKETB)), "True") &&
+			effects.PutCounterOf(r.With).ETB &&
 			entryBodyKindEncodable(r.With) {
 			return true
 		}
@@ -225,11 +225,7 @@ func entryBodyKindEncodable(sa *cards.SA) bool {
 	if sa == nil {
 		return false
 	}
-	kind := strings.TrimSpace(sa.ParamStr(cards.PKCounterType))
-	if kind == "" {
-		kind = "P1P1"
-	}
-	return events.EntryCounterKindEncodable(kind)
+	return events.EntryCounterKindEncodable(entryBodyKind(effects.PutCounterOf(sa)))
 }
 
 // entryBodyAbsorbable reports whether a replacement body is the bare
@@ -241,45 +237,34 @@ func entryBodyKindEncodable(sa *cards.SA) bool {
 // ordinary body path -- the conservative direction, so a body this build
 // cannot fully fold never loses its own resolution.
 func entryBodyAbsorbable(sa *cards.SA) bool {
-	if sa == nil || sa.API != "PutCounter" || !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKETB)), "True") {
+	if sa == nil || sa.API != "PutCounter" {
 		return false
 	}
-	if sa.Sub != nil {
+	pc := effects.PutCounterOf(sa)
+	if !pc.ETB || sa.Sub != nil {
 		return false
 	}
 	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "Self" {
 		return false
 	}
-	if !sa.HasParam(cards.PKCounterNum) {
+	if !pc.CounterNum.Present || pc.EntryFoldBlocked {
 		return false
 	}
-	if saHasParam(sa, "Optional") || saHasParam(sa, "Choices") || saHasParam(sa, "Divided") ||
-		saHasParam(sa, "DividedAsYouChoose") || saHasParam(sa, "RandomType") || saHasParam(sa, "Bolster") ||
-		saHasParam(sa, "Support") || saHasParam(sa, "Adapt") || saHasParam(sa, "Monstrosity") ||
-		saHasParam(sa, "Renown") ||
-		saHasParam(sa, "CounterNumPerDefined") || saHasParam(sa, "CounterTypePerDefined") ||
-		saHasParam(sa, "EachFromSource") || saHasParam(sa, "PerDefined") {
-		return false
-	}
-	kind := strings.TrimSpace(sa.ParamStr(cards.PKCounterType))
-	if kind == "" {
-		kind = "P1P1"
-	}
+	kind := entryBodyKind(pc)
 	if strings.Contains(kind, ",") || strings.EqualFold(kind, "EachFromSource") {
 		return false
 	}
 	return true
 }
 
-// saHasParam reports whether the named key is present on the SA's parameter
-// map. The key is this helper's own string parameter and every call site
-// passes a string literal, so the paramcensus attributes each read (its
-// dynamic-key rule: a key reached through a parameter is resolved at the
-// call sites). Presence alone is the test -- an absent key and an
-// empty-valued key are equally "not carried" for the entry fold.
-func saHasParam(sa *cards.SA, key string) bool {
-	_, present := sa.Params[key]
-	return present
+// entryBodyKind is a PutCounter|ETB$ True body's counter kind as the entry
+// fold names it: CounterType$ trimmed, "P1P1" when absent or empty.
+func entryBodyKind(pc *effects.PutCounterParams) string {
+	kind := strings.TrimSpace(pc.CounterType)
+	if kind == "" {
+		kind = "P1P1"
+	}
+	return kind
 }
 
 // entryBodyCounterGrants returns the body-defined entry-counter grants an
@@ -317,20 +302,18 @@ func (e *Engine) entryBodyCounterGrants(ev events.Event, entrant state.ObjID) ([
 		// its placement is never run twice. An unresolvable count degrades to
 		// zero exactly as the ordinary body's Num would, so nothing is lost.
 		ids = append(ids, replIdentity(m))
-		n, ok := effects.NumResolved(e, e.replCtx(m, ev), m.repl.With, "CounterNum", 1)
+		pc := effects.PutCounterOf(m.repl.With)
+		n, ok := pc.CounterNumResolved(e, e.replCtx(m, ev))
 		if !ok || n <= 0 {
 			return
 		}
-		kind := strings.TrimSpace(m.repl.With.ParamStr(cards.PKCounterType))
-		if kind == "" {
-			kind = "P1P1"
-		}
+		kind := entryBodyKind(pc)
 		grants = append(grants, entryGrant{kind: kind, amount: n, body: entrant})
 	}
 	for i := range f.Repls {
 		r := &f.Repls[i]
 		if r.Event != "Moved" || r.With == nil || r.With.API != "PutCounter" ||
-			!strings.EqualFold(strings.TrimSpace(r.With.ParamStr(cards.PKETB)), "True") {
+			!effects.PutCounterOf(r.With).ETB {
 			continue
 		}
 		absorb(replMatch{id: entrant, face: f, repl: r})
