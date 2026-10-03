@@ -50,6 +50,12 @@ type SAFacts struct {
 	// (0 unknown, 1 ask-free, 2 may ask).
 	MayAsk uint32
 
+	// W4 step 3, the Charm/Pump/Draw compilers (charm_params.go,
+	// pump_params.go, draw_params.go): each is non-nil exactly when the
+	// ability's API is one its compiler serves.
+	Charm *CharmParams
+	Pump  *PumpParams
+	Draw  *DrawParams
 	// DealDamage is api:DealDamage's compiled parameter set
 	// (dealdamage_params.go), non-nil exactly when the API is DealDamage.
 	DealDamage *DealDamageParams
@@ -68,11 +74,8 @@ func NewSAFacts(sa *cards.SA) *SAFacts {
 		f.ChangeZoneAll = compileChangeZoneAll(sa)
 	} else if isAttachSA(sa) {
 		f.Attach = compileAttach(sa)
-	} else if isDealDamageSA(sa) {
-		f.DealDamage = compileDealDamage(sa)
-	} else if isPutCounterSA(sa) {
-		f.PutCounter = compilePutCounter(sa)
 	}
+	compileTypedHalves(f, sa)
 	return f
 }
 

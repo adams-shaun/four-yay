@@ -153,3 +153,33 @@ func TestLifeSimValueIsConcave(t *testing.T) {
 		t.Fatalf("marginal values %d, %d, %d are not decreasing", low, mid, high)
 	}
 }
+
+// TestAttackSimControlledTurnFallsBack is the cardfuzz fuzz-1003 panic
+// (seed 3384737241469053067, Mindslaver): during a CR 722 controlled turn the
+// controller (seat 0) answers the controlled seat's (seat 1's) declare-
+// attackers decision, so the deciding seat is the DEFENDER and every attacker
+// is seat 1's. The simulation models the deciding seat as the attacker --
+// its world held only seat 0's units, the attackers were not in it, and
+// predictBlocks indexed units[-1]. A redirected decision, or any attacker the
+// deciding seat does not control, is the default attacker's.
+func TestAttackSimControlledTurnFallsBack(t *testing.T) {
+	b := boardOf(atk(1, 2, 2), def(1, 3, 3), def(2, 2, 2))
+	b.Life.Set(0, 20)
+	b.Life.Set(1, 20)
+	d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KAttackers, Max: 2, Redirected: true, Actor: 1}
+	for _, id := range []state.ObjID{201, 202} {
+		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "attacker", Obj: id, Player: 0})
+	}
+	want := Decide(b, &d, rng(1)).Choices
+	if got := AttackSimDecide(b, &d, rng(1), DefaultAttackSimParams()).Choices; !reflect.DeepEqual(got, want) {
+		t.Fatalf("attack-sim = %v, want the default %v", got, want)
+	}
+	// The same shape without the redirect bit (a Board whose controller
+	// disagrees with the decision) must fall back too, never index past the
+	// simulated world.
+	d.Redirected = false
+	want = Decide(b, &d, rng(1)).Choices
+	if got := AttackSimDecide(b, &d, rng(1), DefaultAttackSimParams()).Choices; !reflect.DeepEqual(got, want) {
+		t.Fatalf("unredirected: attack-sim = %v, want the default %v", got, want)
+	}
+}

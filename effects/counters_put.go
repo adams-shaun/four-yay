@@ -12,6 +12,11 @@ import (
 
 func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	pc := PutCounterOf(sa)
+	if c.PutOpt == "" && !c.CounterPickDone && !c.CounterDistDone && !c.CounterKindDone &&
+		!c.CounterKindsDone && !c.CounterKindAnswerSet {
+		// Once per resolution: an answered re-entry already noted.
+		noteUnreadParams(h, c, "PutCounter", pc.Unread)
+	}
 	// fx42 scoping: consume and clear the answered Optional$ election at the
 	// top, so a nested PutCounter in the same chain poses its own ask.
 	optAns := c.PutOpt

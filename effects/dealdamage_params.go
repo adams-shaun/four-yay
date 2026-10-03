@@ -31,10 +31,9 @@ import (
 
 // DealDamageParams is one DealDamage ability's parameters, compiled once.
 type DealDamageParams struct {
-	// src/n are the Params map the struct was compiled from and its size
-	// then (the identity rule cards.SameParamMap applies).
-	src map[string]string
-	n   int
+	// paramBinding is the Params map the struct was compiled from
+	// (typed_params.go's identity rule).
+	paramBinding
 
 	// NumDmg is NumDmg$, the per-recipient amount (default 0, Ruling T14-f).
 	NumDmg ParamText
@@ -84,9 +83,9 @@ var dealDamageKnownKeys = [...]string{
 	"Description", "DividedAsYouChoose", "EffectOwner", "ExcessSVar",
 	"ExcessSVarCondition", "Exclude", "Exhaust", "GameActivationLimit", "Image",
 	"ImprintCards", "ImprintPlayed", "InstantSpeed", "IntoPlayTapped", "IsCurse",
-	"IsPresent", "KW", "KWChoice", "Keyword", "KeywordLine", "MaxTotalTargetCMC",
+	"IsPresent", "KW", "Keyword", "KeywordLine", "MaxTotalTargetCMC",
 	"MaxTotalTargetPower", "Mentor", "ModeCost", "Monstrosity", "NewController",
-	"NumAtt", "NumCards", "NumDef", "NumDmg", "OpponentTurn", "Planeswalker",
+	"NumDmg", "OpponentTurn", "Planeswalker",
 	"PlayCost", "PlayerTurn", "PowerUp", "PrecostDesc", "PresentCompare",
 	"PresentDefined", "PresentZone", "ReduceAmount", "ReduceCost", "RelativeTarget",
 	"RememberCostMana", "RememberDamaged", "RememberObjects", "ReplaceColor",
@@ -135,17 +134,13 @@ func DealDamageOf(sa *cards.SA) *DealDamageParams {
 	return p
 }
 
-func (p *DealDamageParams) boundTo(m map[string]string) bool {
-	return p.n == len(m) && cards.SameParamMap(p.src, m)
-}
-
 // dealDamageFront is DealDamageOf's direct-mapped front cache (czFront's
 // shape).
 var dealDamageFront [1 << 10]atomic.Pointer[DealDamageParams]
 
 // compileDealDamage is the one reader of a DealDamage ability's parameters.
 func compileDealDamage(sa *cards.SA) *DealDamageParams {
-	p := &DealDamageParams{src: sa.Params, n: len(sa.Params)}
+	p := &DealDamageParams{paramBinding: bindParams(sa)}
 	p.NumDmg = damageAmountParam(sa)
 	if raw, ok := sa.Param(cards.PKDividedAsYouChoose); ok && strings.TrimSpace(raw) != "" {
 		p.Divided = true

@@ -29,10 +29,9 @@ import (
 
 // PutCounterParams is one PutCounter ability's parameters, compiled once.
 type PutCounterParams struct {
-	// src/n are the Params map the struct was compiled from and its size
-	// then (the identity rule cards.SameParamMap applies).
-	src map[string]string
-	n   int
+	// paramBinding is the Params map the struct was compiled from
+	// (typed_params.go's identity rule).
+	paramBinding
 
 	// The count: CounterNum$, then the Adapt$/Monstrosity$/Renown$ fallbacks
 	// (each Set when its trimmed text is non-empty).
@@ -119,10 +118,10 @@ var putCounterKnownKeys = [...]string{
 	"Defined", "DefinedCards", "DefinedTarget", "Description", "Divided",
 	"DividedAsYouChoose", "ETB", "EachFromSource", "EffectOwner", "Exclude",
 	"Exhaust", "GameActivationLimit", "Image", "ImprintCards", "ImprintPlayed",
-	"InstantSpeed", "IntoPlayTapped", "IsCurse", "IsPresent", "KW", "KWChoice",
+	"InstantSpeed", "IntoPlayTapped", "IsCurse", "IsPresent", "KW",
 	"Keyword", "KeywordLine", "MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor",
-	"MinChoiceAmount", "ModeCost", "Monstrosity", "NewController", "NumAtt",
-	"NumCards", "NumDef", "NumDmg", "OpponentTurn", "Optional", "PerDefined",
+	"MinChoiceAmount", "ModeCost", "Monstrosity", "NewController",
+	"NumDmg", "OpponentTurn", "Optional", "PerDefined",
 	"Placer", "Planeswalker", "PlayCost", "PlayerTurn", "PowerUp", "PrecostDesc",
 	"PresentCompare", "PresentDefined", "PresentZone", "RandomType", "ReduceAmount",
 	"ReduceCost", "RememberCards", "RememberCostMana", "RememberObjects",
@@ -176,10 +175,6 @@ func PutCounterOf(sa *cards.SA) *PutCounterParams {
 	return p
 }
 
-func (p *PutCounterParams) boundTo(m map[string]string) bool {
-	return p.n == len(m) && cards.SameParamMap(p.src, m)
-}
-
 // putCounterFront is PutCounterOf's direct-mapped front cache (czFront's
 // shape).
 var putCounterFront [1 << 10]atomic.Pointer[PutCounterParams]
@@ -197,7 +192,7 @@ func (p *PutCounterParams) CounterNumValue(h Host, c *Ctx) int32 {
 
 // compilePutCounter is the one reader of a PutCounter ability's parameters.
 func compilePutCounter(sa *cards.SA) *PutCounterParams {
-	p := &PutCounterParams{src: sa.Params, n: len(sa.Params)}
+	p := &PutCounterParams{paramBinding: bindParams(sa)}
 	// Each key is read by its literal name (the parameter census attributes
 	// a read by the key the call spells).
 	num, numOK := sa.Param(cards.PKCounterNum)
@@ -230,10 +225,8 @@ func compilePutCounter(sa *cards.SA) *PutCounterParams {
 	p.Choices = strings.TrimSpace(choices)
 	p.Chooser = sa.ParamStr(cards.PKChooser)
 	p.ChoiceTitle = sa.ParamStr(cards.PKChoiceTitle)
-	minCh, minChOK := sa.Params["MinChoiceAmount"]
-	p.MinChoiceAmount = ParamText{Text: minCh, Present: minChOK}
-	ch, chOK := sa.Params["ChoiceAmount"]
-	p.ChoiceAmount = ParamText{Text: ch, Present: chOK}
+	p.MinChoiceAmount = rawParamText(sa, "MinChoiceAmount")
+	p.ChoiceAmount = rawParamText(sa, "ChoiceAmount")
 	p.ETB = isTrue(sa.ParamStr(cards.PKETB))
 	eachFrom, eachFromOK := sa.Params["EachFromSource"]
 	p.EachFromSource = strings.TrimSpace(eachFrom)
@@ -247,14 +240,20 @@ func compilePutCounter(sa *cards.SA) *PutCounterParams {
 	p.RememberPut = isTrue(sa.ParamStr(cards.PKRememberPut))
 	p.RememberCards = isTrue(sa.Params["RememberCards"])
 
-	_, divOK := sa.Params["Divided"]
-	_, perDefOK := sa.Params["PerDefined"]
-	p.EntryFoldBlocked = optionalOK || choicesOK || divOK || dividedOK || randomOK || bolsterOK ||
-		supportOK || p.Adapt.Present || p.Monstrosity.Present || renownOK || perNumOK ||
-		perTypeOK || eachFromOK || perDefOK
+	p.EntryFoldBlocked = optionalOK || choicesOK || rawParamText(sa, "Divided").Present || dividedOK ||
+		randomOK || bolsterOK || supportOK || p.Adapt.Present || p.Monstrosity.Present || renownOK ||
+		perNumOK || perTypeOK || eachFromOK || rawParamText(sa, "PerDefined").Present
 
 	p.Unread = unreadKeys(sa, putCounterKnownKeys[:])
 	return p
+}
+
+// rawParamText is one key outside the ParamKey vocabulary read as ParamText
+// (Num's raw read shape); every call site spells its key as a literal, so the
+// parameter census attributes each read to the caller.
+func rawParamText(sa *cards.SA, key string) ParamText {
+	v, ok := sa.Params[key]
+	return ParamText{Text: v, Present: ok}
 }
 
 // paramTextSet is a raw parameter read as ParamText, and whether its trimmed

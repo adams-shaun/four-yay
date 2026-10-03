@@ -1,11 +1,9 @@
 package effects
 
 import (
-	"slices"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -222,220 +220,8 @@ func effTap(h Host, c *Ctx, sa *cards.SA) {
 // Affects: "Card.Self" and Source: <that object's ID> -- not the resolving
 // ability's own source -- reusing the same Self-predicate pattern Task 19's
 // own lord-effect tests already established (layers_test.go), rather than
-// inventing a new filter form.
-func effPump(h Host, c *Ctx, sa *cards.SA) {
-	// NoteNumber$ (Lupine Harbingers' exile trigger: "note the number of
-	// turns you've begun"): the body does not pump at all -- it notes the
-	// evaluated number onto its source CARD through the events.NotedNumber
-	// marker, which Count$NotedNumber reads at the later ETB (the corpus's
-	// one carrier is exactly that shape: the exile trigger notes
-	// Count$YourTurns, the ETB's SVar reads SVar$X/Minus.Y where Y is
-	// Count$NotedNumber). Terminal: a NoteNumber body never also pumps, and
-	// the read comes before any registration so a note is never a
-	// half-applied pump.
-	if note := strings.TrimSpace(sa.Params["NoteNumber"]); note != "" {
-		n := Num(h, c, sa, "NoteNumber", 0)
-		if c.Source != 0 {
-			h.Emit(events.Event{Kind: events.NoteNumber, Obj: c.Source, Amount: n})
-		}
-		return
-	}
-
-	// ClearNotedCardsFor$ clears the requested player labels from its Defined$
-	// player set. The event fold keeps a later resolution and a replay from
-	// retaining a previous choice (Master of Ceremonies changes these labels
-	// every upkeep).
-	for _, label := range splitTrimList(sa.Params["ClearNotedCardsFor"]) {
-		for _, t := range Defined(h, c, sa) {
-			if t.IsPlayer && playerHasNote(h.Game(), t.Player, label) {
-				h.Emit(events.Event{Kind: events.PlayerNoteCleared, Player: t.Player, Text: label})
-			}
-		}
-	}
-
-	// NoteCards$ <defined> + NoteCardsFor$ <label> (Forge's NoteCardsEffect):
-	// the body records a notation that a later resolution reads back through
-	// the shared filters. The player half (NoteCards$ Self, state.Player.Notes
-	// and the `Player.NotedFor<label>` qualifier) is unchanged: corpus
-	// carriers are Seize the Spotlight's fame/fortune branches, Master of
-	// Ceremonies' money/friends/secrets, Wheel of Potential, Borderland
-	// Explorer. The noted SEAT is the resolution's Defined set (a remembered
-	// chooser, `Defined$ Player`, or `Defined$ Player.!IsRemembered`); Forge's
-	// NoteCardsEffect notes the CURRENT player when Defined$ is absent, which
-	// here is the resolving controller. The CARD half is the other corpus
-	// family: `NoteCards$ Remembered` (Volatile Chimera, Arcane Savant, Caller
-	// of the Untamed) notes the resolution's Remembered cards and
-	// `NoteCards$ TriggeredSource` (Maelstrom Archangel Avatar) notes the
-	// triggering source, both onto the noted CARD through events.CardNoted,
-	// for the later `Card.NotedFor<label>` reads at ChooseCard's Choices$, DB$
-	// Play's Valid$ and RepeatEach's RepeatCards$. CopyPermanent's
-	// RevealFromExile cost is an evidenced corpus shape but remains unsupported.
-	// The note lands through its own event so a
-	// log-only replay rebuilds state.Object.Notes exactly; the pump body then
-	// runs unchanged (a `Defined$ Remembered` chooser is a player entry,
-	// skipped by the object walk below). Any other NoteCards$ form stays
-	// loud-unimplemented (transcript note, no state write).
-	if label := strings.TrimSpace(sa.Params["NoteCardsFor"]); label != "" {
-		switch strings.TrimSpace(sa.Params["NoteCards"]) {
-		case "Self":
-			spec := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
-			noted := false
-			for _, t := range Defined(h, c, sa) {
-				if !t.IsPlayer {
-					continue
-				}
-				h.Emit(events.Event{Kind: events.PlayerNoted, Player: t.Player, Text: label})
-				noted = true
-			}
-			if !noted && spec == "" {
-				h.Emit(events.Event{Kind: events.PlayerNoted, Player: c.Controller, Text: label})
-			}
-		case "Remembered":
-			for _, t := range resolvedRemembered(h, c) {
-				if t.IsPlayer || t.Obj == 0 {
-					continue
-				}
-				h.Emit(events.Event{Kind: events.CardNoted, Obj: t.Obj, Text: label})
-			}
-		case "TriggeredSource":
-			if c.TriggerSource != 0 {
-				h.Emit(events.Event{Kind: events.CardNoted, Obj: c.TriggerSource, Text: label})
-			}
-		default:
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-				Text: "unimplemented NoteCards$ " + strings.TrimSpace(sa.Params["NoteCards"])})
-		}
-	}
-
-	// Secondary$ True (Amonkhet Raceway's max-speed AddAbility$ grant marks
-	// the granted pump with it): Forge CardFactoryUtil sets the key on
-	// machine-derived abilities, and Card.java's ability-text renderer skips
-	// secondary spell abilities -- a presentation and deck-tooling filter,
-	// never a rules tail. The engine delivers a granted pump through the
-	// AddAbility static grant structurally (the static is the grantor; the
-	// SA is not a printed line), so the recognition has no behavioural half
-	// here; the read keeps the parameter census honest.
-	_ = sa.ParamStr(cards.PKSecondary)
-	// KWChoice$ (30 corpus files: Angelic Skirmisher's "choose first strike,
-	// vigilance or lifelink" trigger, the equipment/ally "gains your choice
-	// of ..." family): the pump's keyword grant is not a fixed list but a
-	// player's choice from a fixed candidate list, chosen ONE per execution
-	// (every corpus line reads "your choice of X, Y or Z"). The ask is the
-	// same mid-resolution KModes vocabulary effCharm uses — ResumeKind
-	// "modes" with ResumeSA, the answer re-entering this effect through
-	// rules' resumeResolution with Ctx.Modes set to the chosen labels. The
-	// ask comes FIRST, before any registration, so a suspension never leaves
-	// a half-applied pump behind; on re-entry the whole effect re-runs with
-	// the answer in hand (the charm pattern).
-	var chosenKW []string
-	if kwList := strings.TrimSpace(sa.Params["KWChoice"]); kwList != "" {
-		if c.Modes != nil {
-			// fx42 scoping: consume the answer once; a nested KWChoice pump
-			// reached below poses its own ask.
-			chosenKW = c.Modes
-			c.Modes = nil
-		} else {
-			choices := splitTrimList(kwList)
-			d := &decision.Decision{Player: c.Controller, Kind: decision.KModes,
-				Min: 1, Max: 1, Source: c.Source,
-				ResumeKind: "modes", ResumeSA: sa,
-				Prompt: "Choose a keyword"}
-			for i, name := range choices {
-				d.Options = append(d.Options, decision.Option{
-					Index: i, Kind: "mode", Label: name, Obj: c.Source, Player: c.Controller})
-			}
-			if Ask(h, d) == AskAsked {
-				return
-			}
-			// No engine host (R-9): the deterministic first candidate, with
-			// the Note that records why the richer path did not run.
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-				Text: "chose its first keyword (no engine host to ask)"})
-			chosenKW = choices[:1]
-		}
-	}
-	zone := strings.TrimSpace(sa.Params["PumpZone"])
-	var ateotIDs []state.ObjID
-	for _, t := range Defined(h, c, sa) {
-		if t.IsPlayer {
-			continue
-		}
-		o := h.Game().Obj(t.Obj)
-		if o == nil {
-			continue
-		}
-		// PumpZone$ (Snapcaster Mage's "Flashback until end of turn" grant
-		// lives in the GRAVEYARD): the pump applies only while the object is
-		// in the named zone(s) — ParseZones accepts a comma list and All —
-		// and the registered continuous effect carries the same AffectedZone
-		// scope, so Derived grants the keywords exactly there and nowhere
-		// else. Without the parameter the historic battlefield-only guard
-		// stands. P/T and keyword grants share one zone scope: a PumpZone$
-		// pump of a battlefield creature is unchanged behaviour.
-		if zone != "" {
-			zones, all, ok := ParseZones(zone)
-			if !ok {
-				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-					Text: "PumpZone$ " + zone + " is not a zone list this engine can ask; the pump is skipped"})
-				continue
-			}
-			if !all && !slices.Contains(zones, o.Zone) {
-				continue
-			}
-		} else if o.Zone != state.ZBattlefield {
-			continue
-		}
-		// RememberTargets$ True (Bile Blight): the CHOSEN TARGETS join the
-		// ability's Remembered, in both halves -- the ctx list the chained
-		// sub-ability reads (DBPumpAll's ValidCards$ Remembered.sameName+
-		// Other+Creature) and the source's event-backed persistent list. The
-		// object must actually be on the battlefield to be pumped, and only a
-		// pumped target is remembered, so the Remembered set names exactly
-		// what the spell acted on.
-		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True") {
-			c.Remembered = append(c.Remembered, t)
-			eventRemember(h, c, t.Obj)
-		}
-		// RememberPumped$ True remembers the objects this Pump actually
-		// affects, rather than merely the chosen targets: an off-zone target
-		// skipped above is not added to either remembered set. The ctx half is
-		// available to chained sub-abilities; eventRemember persists the
-		// source's list for later Card.IsRemembered filters and replay.
-		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberPumped)), "True") {
-			c.Remembered = append(c.Remembered, t)
-			eventRemember(h, c, t.Obj)
-		}
-		// Resolve amounts PER OBJECT: Double reads this object's own
-		// layer-derived power/toughness, so a multi-object Defined$ must not
-		// apply one creature's stat to every creature.
-		att := NumForObject(h, c, sa, "NumAtt", 0, o.ID)
-		def := NumForObject(h, c, sa, "NumDef", 0, o.ID)
-		registerPumpEffects(h, c, o.ID, att, def, false, false, sa, zone, chosenKW)
-		if atEOTInclude(h, c, sa, o.ID) {
-			ateotIDs = append(ateotIDs, o.ID)
-		}
-	}
-	scheduleAtEOT(h, c, sa, ateotIDs)
-	// ForgetImprinted$ names (in the Defined$ grammar) the imprinted card(s)
-	// to forget (Chrome Mox's DBForget: the exiled card left exile): each is
-	// removed from the source's persistent Imprinted list. Forge's
-	// forgetImprinted on Pump -- the o.Imprinted half is NOT auto-pruned on
-	// move (only exiledCards is), so without this read a returning Chrome
-	// Mox would read a stale imprint.
-	if spec := strings.TrimSpace(sa.Params["ForgetImprinted"]); spec != "" {
-		sub := *sa
-		sub.Params = map[string]string{"Defined": spec}
-		var ids []state.ObjID
-		for _, t := range Defined(h, c, &sub) {
-			if !t.IsPlayer {
-				ids = append(ids, t.Obj)
-			}
-		}
-		if len(ids) > 0 && c.Source != 0 {
-			h.Emit(events.Event{Kind: events.Imprint, Obj: c.Source, IDs: ids, Text: "forget"})
-		}
-	}
-}
+// inventing a new filter form. effPump itself lives in pump.go, its
+// parameters compiled once in pump_params.go.
 
 // effPumpAll bakes in the affected set at resolution time (CR 611.2c: such an
 // effect applies only to the permanents matching the filter when the ability
@@ -456,6 +242,7 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 	// registered effects carry the AffectedZone scope so the grant applies
 	// only while the card sits there.
 	zone := strings.TrimSpace(sa.Params["PumpZone"])
+	grant := compilePumpGrant(sa)
 	g := h.Game()
 	var ateotIDs []state.ObjID
 	for si, p := range g.AliveFrom(0) {
@@ -494,7 +281,7 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 						}
 						att := NumForObject(h, c, sa, "NumAtt", 0, id)
 						def := NumForObject(h, c, sa, "NumDef", 0, id)
-						registerPumpEffects(h, c, id, att, def, false, false, sa, zone, nil)
+						registerPumpEffects(h, c, id, att, def, false, false, &grant, zone, nil)
 						ateotIDs = append(ateotIDs, id)
 					}
 				}
@@ -509,7 +296,7 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 				}
 				att := NumForObject(h, c, sa, "NumAtt", 0, id)
 				def := NumForObject(h, c, sa, "NumDef", 0, id)
-				registerPumpEffects(h, c, id, att, def, false, false, sa, "", nil)
+				registerPumpEffects(h, c, id, att, def, false, false, &grant, "", nil)
 				ateotIDs = append(ateotIDs, id)
 			}
 		}
@@ -537,9 +324,10 @@ func durationTiming(dur string) (permanent bool, untilEOT bool) {
 }
 
 // registerPumpEffects is Pump and PumpAll's sole per-object registration
-// path. It also owns their sole KW$ read, so neither effect can reimplement
-// Forge's keyword-list grammar: both always use cards.SplitKeywordList. It
-// creates a layer-7c modification for a nonzero stat change and a separate
+// path. Its KW$/Duration$/LeaveBattlefield$ come from the one compiled
+// PumpGrant (compilePumpGrant, pump_params.go), so neither effect can
+// reimplement Forge's keyword-list grammar: both always use
+// cards.SplitKeywordList. It creates a layer-7c modification for a nonzero stat change and a separate
 // layer-6 grant for any keywords, since Derived applies each layer
 // independently. Skipping a zero/empty half avoids polluting
 // Engine.continuous with an effect that would never do anything. zone is the
@@ -548,23 +336,18 @@ func durationTiming(dur string) (permanent bool, untilEOT bool) {
 // the same layer-6 registration.
 //
 // LeaveBattlefield$ (Moira and Teshar, Dreams of the Dead on the DB$ Pump
-// site) is read here so effPump and effPumpAll cannot drift: the promise
+// site) is honoured here so effPump and effPumpAll cannot drift: the promise
 // registers through the shared registerLeaveExile helper and the rider's
 // move-driven lifetime rides BOTH halves below -- the one per-object
 // structural home, exactly as the Animate site registers through
 // registerAnimateEffects.
-// pumpStatAmount keeps Double as an operation until layer 7c, where the
-// recipient's current characteristic at this effect's timestamp is available.
-func pumpStatAmount(h Host, c *Ctx, sa *cards.SA, key string) (int32, bool) {
-	if strings.EqualFold(strings.TrimSpace(sa.Params[key]), "Double") {
-		return 0, true
+func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, doublePower, doubleToughness bool, g *PumpGrant, zone string, chosenKW []string) {
+	// g.KW is the compiled record's shared, capacity-clipped list: an
+	// answered KWChoice$ appends into a fresh slice, never into the record.
+	kws := g.KW
+	if len(chosenKW) > 0 {
+		kws = append(kws[:len(kws):len(kws)], chosenKW...)
 	}
-	return Num(h, c, sa, key, 0), false
-}
-
-func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, doublePower, doubleToughness bool, sa *cards.SA, zone string, chosenKW []string) {
-	kws := cards.SplitKeywordList(sa.ParamStr(cards.PKKW))
-	kws = append(kws, chosenKW...)
 	// Suspend is unusual among keyword grants: its target is commonly an
 	// exiled card, and the later upkeep/cast/filter machinery needs a replayed
 	// provenance bit rather than only a transient layer effect. The event is
@@ -599,7 +382,7 @@ func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, doubleP
 			break
 		}
 	}
-	permanent, untilEOT := durationTiming(sa.ParamStr(cards.PKDuration))
+	permanent, untilEOT := durationTiming(g.Duration)
 	// The move-driven lifetime of a Duration$ Permanent pump: when the pumped
 	// object leaves the zone it was pumped in, the grant ends (CR 400.7 -- it
 	// is a new object on return), via the same ExileOnMoved$/Remembered pair
@@ -613,7 +396,7 @@ func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, doubleP
 	// card when it later re-enters (CR 400.7).
 	var exileOn string
 	var remembered []state.ObjID
-	if lr, lw := leaveExileLifetime(id, sa.ParamStr(cards.PKLeaveBattlefield)); lw != "" {
+	if lr, lw := leaveExileLifetime(id, g.LeaveBattlefield); lw != "" {
 		exileOn, remembered = lw, lr
 	} else if permanent {
 		if o := h.Game().Obj(id); o != nil {
@@ -629,7 +412,7 @@ func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, doubleP
 			Layer: state.LPT, Sub: state.SubModify,
 			AddPower: att, AddToughness: def,
 			DoublePower: doublePower, DoubleToughness: doubleToughness,
-			Duration: sa.ParamStr(cards.PKDuration), Permanent: permanent, UntilEOT: untilEOT,
+			Duration: g.Duration, Permanent: permanent, UntilEOT: untilEOT,
 			ExileOnMoved: exileOn, Remembered: remembered,
 			AffectedZone: zone,
 		})
@@ -638,7 +421,7 @@ func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, doubleP
 		h.AddContinuous(state.ContinuousEffect{
 			Source: id, Affects: "Card.Self", Controller: c.Controller,
 			Layer: state.LAbilities, AddKeywords: kws,
-			Duration: sa.ParamStr(cards.PKDuration), Permanent: permanent, UntilEOT: untilEOT,
+			Duration: g.Duration, Permanent: permanent, UntilEOT: untilEOT,
 			ExileOnMoved: exileOn, Remembered: remembered,
 			AffectedZone: zone,
 		})
@@ -648,7 +431,7 @@ func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, doubleP
 	// granting body's own duration, one registration per object -- the same
 	// helper the Animate site uses, so an unsupported rider value takes that
 	// helper's loud-Note behaviour.
-	registerLeaveExile(h, c, id, sa.ParamStr(cards.PKLeaveBattlefield), sa.ParamStr(cards.PKDuration), permanent)
+	registerLeaveExile(h, c, id, g.LeaveBattlefield, g.Duration, permanent)
 }
 
 // effAnimate does not require the target to already be on the battlefield --

@@ -1710,14 +1710,12 @@ var apiSpecificRulesSA = map[string][]string{
 	// replacement matchers), never another API's.
 	"Engine.paymentPlanSourceInterference": {"Mana"},
 	"Engine.paymentPlanProductions":        {"Mana"},
-	// The Charm mode paths: the CR 601.2b cast-time modes ask (castModeAsk),
-	// the per-mode target declaration (modalTargetSA), the resume-side mode
-	// decisions/labels, and the modal-trigger placement ask (CharmNum$).
-	"Engine.castModeAsk":     {"Charm"},
-	"modalTargetSA":          {"Charm"},
-	"modeDecision":           {"Charm"},
-	"modeChoiceNames":        {"Charm"},
-	"Engine.askTriggerModes": {"Charm"},
+	// The Charm mode paths: the CR 601.2b cast-time modes ask (castModeAsk)
+	// and the per-mode target declaration (modalTargetSA) read the MODE
+	// bodies' targeting. The Charm's own Choices$/CharmNum$ reads are
+	// effects.compileCharm's (W4 step 3), reached through effCharm.
+	"Engine.castModeAsk": {"Charm"},
+	"modalTargetSA":      {"Charm"},
 	// The unless-pay resume arm: only effCounter and effCopySpellAbility
 	// suspend with an UnlessCost$ ask, so resumeResolution's UnlessCost$
 	// read belongs to those two APIs alone. api:Play joins them for the

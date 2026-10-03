@@ -539,6 +539,14 @@ func (b Board) chooseAttackersSim(d *decision.Decision, p *AttackSimParams) []in
 	}
 	me := d.Player
 	defender := d.Options[0].Player
+	// The simulation models the deciding seat as the attacker. Under a
+	// CR 722 control redirect (Mindslaver) the controller answers the
+	// controlled seat's declaration: the deciding seat is the DEFENDER and
+	// no attacker is in its simulated world (cardfuzz fuzz-1003 panicked
+	// indexing units[-1]). That decision is the default attacker's.
+	if d.Redirected || defender == me {
+		return base
+	}
 	for i := range d.Options {
 		o := &d.Options[i]
 		if o.Player != defender || o.Battle != 0 || o.Kind != "attacker" {
@@ -565,7 +573,7 @@ func (b Board) chooseAttackersSim(d *decision.Decision, p *AttackSimParams) []in
 		}
 		optOf[o.Obj] = i
 		c, ok := b.Creatures.Lookup(o.Obj)
-		if !ok {
+		if !ok || c.Controller != me {
 			return base
 		}
 		if o.Required || (baseSet[o.Obj] && b.closesClock(defender, o.Obj, c)) {
