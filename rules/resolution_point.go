@@ -52,6 +52,10 @@ type resumePoint struct {
 	sa          *cards.SA
 	outer       *resumePoint
 	replacement bool
+	// playFirst is the first card an answered Play began, re-bound as
+	// Ctx.Play by the "play_resume" continuation (rules/play_queue.go) so
+	// the re-entered effPlay's ForgetPlayed$ reads the same card.
+	playFirst state.ObjID
 	// replaced is the object the replaced event was about (Ctx.Replaced =
 	// ev.Obj), captured at ask time when the ask is posed from inside a
 	// replacement body. The resume rebuilds Ctx.Replaced (and Remembered =

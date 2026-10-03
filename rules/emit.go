@@ -513,6 +513,9 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			}
 			e.sourceControllerLKI[copyID] = controller
 		}
+		if snap, ok := e.sourceCharLKI[ev.Obj]; ok {
+			e.setSourceCharLKI(copyID, snap)
+		}
 		if lki := e.damageSourceLKI[ev.Obj]; lki != nil {
 			if e.damageSourceLKI == nil {
 				e.damageSourceLKI = make(map[state.ObjID]map[state.ObjID]effects.DamageSourceLKI)
@@ -547,6 +550,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		delete(e.charmTargets, ev.Obj)
 		delete(e.sourceLifelinkLKI, ev.Obj)
 		delete(e.sourceControllerLKI, ev.Obj)
+		delete(e.sourceCharLKI, ev.Obj)
 		delete(e.damageSourceLKI, ev.Obj)
 	}
 	if ev.Kind == events.MoveZone && lki != nil && lki.Zone == state.ZBattlefield {

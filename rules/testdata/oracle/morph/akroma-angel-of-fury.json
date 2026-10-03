@@ -1,0 +1,64 @@
+{
+ "card": "Akroma, Angel of Fury",
+ "family": "morph",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "01e26257f049",
+ "scenarios": [
+  {
+   "name": "face-down-morphed-is-a-two-two",
+   "cr": ["708.2", "708.4"],
+   "why": "Cast face down for {3}, the card is a 2/2 colourless creature with no name and no abilities, so the printed 6/6 flying trample body and its protection do not exist yet.",
+   "setup": {
+    "p0": {"hand": ["Akroma, Angel of Fury"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Akroma, Angel of Fury", "cast_mode": "morphed", "mana": "CCC"},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:Akroma, Angel of Fury", "zone": "battlefield", "pt": "2/2", "no_keywords": ["Flying", "Trample", "Protection from white", "Protection from blue"]}
+   ]
+  },
+  {
+   "name": "turning-face-up-for-morph-cost-restores-the-printed-body",
+   "cr": ["708.6", "702.36a"],
+   "why": "Paying the morph cost {3}{R}{R}{R} and turning it face up restores the printed characteristics: a 6/6 flying, trample, protection-from-white-and-blue Angel.",
+   "setup": {
+    "p0": {"hand": ["Akroma, Angel of Fury"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Akroma, Angel of Fury", "cast_mode": "morphed", "mana": "CCC"},
+    {"op": "resolve"},
+    {"op": "mana", "seat": 0, "mana": "CCCRRR"},
+    {"op": "activate", "seat": 0, "card": "p0:Akroma, Angel of Fury", "ability": "Turn face up"},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:Akroma, Angel of Fury", "zone": "battlefield", "pt": "6/6", "keywords": ["Flying", "Trample"]}
+   ]
+  },
+  {
+   "name": "firebreathing-pumps-an-extra-point-of-power",
+   "cr": ["602.1", "613.4c"],
+   "why": "{R}: this creature gets +1/+0 until end of turn. Activating once makes the 6/6 a 7/6.",
+   "setup": {
+    "p0": {"hand": ["Akroma, Angel of Fury"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Akroma, Angel of Fury", "cast_mode": "morphed", "mana": "CCC"},
+    {"op": "resolve"},
+    {"op": "mana", "seat": 0, "mana": "CCCRRRR"},
+    {"op": "activate", "seat": 0, "card": "p0:Akroma, Angel of Fury", "ability": "Turn face up"},
+    {"op": "resolve"},
+    {"op": "activate", "seat": 0, "card": "p0:Akroma, Angel of Fury", "ability": "gets +1/+0"},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:Akroma, Angel of Fury", "zone": "battlefield", "pt": "7/6"}
+   ]
+  }
+ ]
+}

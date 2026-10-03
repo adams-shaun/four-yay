@@ -392,6 +392,18 @@ func (w *legalWalk) graveyardCastsOver(grave []state.ObjID) {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 				Label: "Cast " + f.Name + " (flashback)", Obj: id, Mode: "flashback"})
 		}
+		// CR 702.34a/113.2c: every flashback instance is its own permission.
+		// A card that already has flashback and gains another (Sphinx of
+		// Forgotten Lore's "flashback cost equal to its mana cost" on Think
+		// Twice) may be cast through either, so each further distinct cost is
+		// offered as its own option carrying that cost (Option.Cost), which
+		// beginCast charges.
+		for _, alt := range e.extraFlashbackCosts(id) {
+			if fc := withSpellAbilityExtras(f, ParseCost(alt)); w.offerCastable(p, id, fc, spellScope("flashback"), false) {
+				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
+					Label: "Cast " + f.Name + " (flashback " + alt + ")", Obj: id, Mode: "flashback", Cost: alt})
+			}
+		}
 	}
 
 	// Aftermath (CR 702.85a): the alternate face of a Split card may be cast

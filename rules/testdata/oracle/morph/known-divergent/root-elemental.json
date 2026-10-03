@@ -1,0 +1,6 @@
+{
+  "card": "Root Elemental",
+  "rows": {
+    "declining-leaves-the-hand-creature-in-hand": "The face-up trigger 'you may put a creature card from your hand onto the battlefield' is optional (CR 603.2c), but the choose the engine poses offers only the single hand_move option [Grizzly Bears] with no decline answer, so 'no' is not a legal answer and the player is forced to put the card onto the battlefield. Observed: answer \"no\" rejected, only [0 hand_move \"Grizzly Bears\"] offered; expected a decline option alongside the card pick."
+  }
+}

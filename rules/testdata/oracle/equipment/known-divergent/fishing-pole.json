@@ -1,0 +1,8 @@
+{
+  "card": "Fishing Pole",
+  "rows": {
+    "equipped-creature-puts-bait-counter": "CR 301.5/613.1f: the equipped creature has '{1}, {T}, Tap Fishing Pole: Put a bait counter on Fishing Pole'. Expected: after Equip {2} onto Grizzly Bears and with {1} floating, the Bears' ability is offered and puts one bait counter on the Pole. Observed: no such ability is offered anywhere (only pass/concede), although the equip resolved (the untap trigger below sees the Bears as equipped). Confidence fairly high. New root, found by the FDN audit batch 6; no ticket yet.",
+    "untapping-turns-bait-into-a-fish": "Cannot reach the untap clause: the granted bait ability is not offered (same root as equipped-creature-puts-bait-counter), so the step activating it fails before the untap step.",
+    "untapping-without-bait-makes-nothing": "CR 608.2c ('If you do'): when the equipped creature untaps with no bait counter on the Pole, nothing is removed and no Fish is created. Observed: the equipped Bears, which attacked and untapped in its controller's next untap step, makes a 1/1 Fish although the Pole never had a bait counter -- the 'if you do' gate is not applied. Confidence high. New root, found by the FDN audit batch 6; no ticket yet."
+  }
+}

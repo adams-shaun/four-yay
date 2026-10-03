@@ -1,0 +1,40 @@
+{
+ "card": "One with the Machine",
+ "family": "spell-conditional",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "c5639546239e",
+ "scenarios": [
+  {
+   "name": "draws-cards-equal-to-highest-artifact-mana-value",
+   "cr": ["608.2c", "202.3"],
+   "why": "Draw cards equal to the highest mana value among artifacts you control: Thran Dynamo has mana value 4 and Sol Ring 1, so four cards are drawn.",
+   "setup": {
+    "p0": {"hand": ["One with the Machine"], "battlefield": ["Thran Dynamo", "Sol Ring"], "library_top": ["Forest", "Forest", "Forest", "Forest", "Forest"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:One with the Machine", "mana": "CCCU"},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"hand_size": {"p0": 4}}
+   ]
+  },
+  {
+   "name": "no-artifacts-draws-nothing",
+   "cr": ["608.2c", "202.3"],
+   "why": "With no artifacts you control the highest mana value is 0, so no cards are drawn.",
+   "setup": {
+    "p0": {"hand": ["One with the Machine"], "library_top": ["Forest", "Forest"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:One with the Machine", "mana": "CCCU"},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"hand_size": {"p0": 0}}
+   ]
+  }
+ ]
+}

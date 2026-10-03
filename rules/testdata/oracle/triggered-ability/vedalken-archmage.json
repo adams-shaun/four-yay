@@ -1,0 +1,101 @@
+{
+ "card": "Vedalken Archmage",
+ "family": "triggered-ability",
+ "author": "cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "9b92f5159b0f",
+ "scenarios": [
+  {
+   "name": "artifact-spell-draws-a-card",
+   "cr": [
+    "603.2",
+    "301.1"
+   ],
+   "why": "Whenever its controller casts an artifact spell, the Archmage draws a card. Ornithopter is an artifact creature spell, so casting it draws one: the named Forest on top of the library lands in hand.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vedalken Archmage"
+     ],
+     "hand": [
+      "Ornithopter"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ornithopter",
+     "mana": "C"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ornithopter",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "nonartifact-spell-does-not-draw",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only an artifact spell triggers it: a green creature spell draws nothing, so the named Forest stays on top of the library.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vedalken Archmage"
+     ],
+     "hand": [
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "GCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  }
+ ]
+}

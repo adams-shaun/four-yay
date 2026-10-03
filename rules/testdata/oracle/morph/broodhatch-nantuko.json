@@ -1,0 +1,51 @@
+{
+ "card": "Broodhatch Nantuko",
+ "family": "morph",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "a0b6866f184e",
+ "scenarios": [
+  {
+   "name": "face-down-takes-damage-without-making-insects",
+   "cr": ["708.2", "708.4"],
+   "why": "A face-down Nantuko is a 2/2 with no abilities, so Lightning Bolt's 3 damage kills it and no Insect token is created.",
+   "setup": {
+    "p0": {"hand": ["Broodhatch Nantuko"]},
+    "p1": {"hand": ["Lightning Bolt"]}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Broodhatch Nantuko", "cast_mode": "morphed", "mana": "CCC"},
+    {"op": "resolve"},
+    {"op": "pass", "seat": 0},
+    {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0:Broodhatch Nantuko"]},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:Broodhatch Nantuko", "zone": "graveyard"},
+    {"count": {"seat": 0, "zone": "battlefield", "name": "Insect", "token": true}, "eq": 0}
+   ]
+  },
+  {
+   "name": "face-up-damage-trigger-makes-that-many-insects",
+   "cr": ["708.6", "603.2"],
+   "why": "Turned face up it is a 1/1 with 'Whenever this creature is dealt damage, you may create that many 1/1 green Insect creature tokens.' Lightning Bolt's 3 damage triggers it for 3, so accepting creates three Insects; the Nantuko still dies (3 >= 1).",
+   "setup": {
+    "p0": {"hand": ["Broodhatch Nantuko"]},
+    "p1": {"hand": ["Lightning Bolt"]}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Broodhatch Nantuko", "cast_mode": "morphed", "mana": "CCC"},
+    {"op": "resolve"},
+    {"op": "mana", "seat": 0, "mana": "CCG"},
+    {"op": "activate", "seat": 0, "card": "p0:Broodhatch Nantuko", "ability": "Turn face up"},
+    {"op": "resolve"},
+    {"op": "pass", "seat": 0},
+    {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0:Broodhatch Nantuko"]},
+    {"op": "resolve", "answers": [{"kind": "trigger_optional", "pick": ["yes"]}]}
+   ],
+   "expect": [
+    {"card": "p0:Broodhatch Nantuko", "zone": "graveyard"},
+    {"count": {"seat": 0, "zone": "battlefield", "name": "Insect", "token": true}, "eq": 3}
+   ]
+  }
+ ]
+}
