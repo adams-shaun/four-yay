@@ -1,6 +1,0 @@
-{
-  "card": "Frost Lynx",
-  "rows": {
-    "does-not-untap-in-next-untap-step-then-untaps": "CR 611.2b/502.2: the creature tapped by Frost Lynx must not untap during its controller's next untap step. Observed: the enter trigger taps the target (the sibling scenario passes), but at p1's next upkeep (after p1's untap step) the Centaur Courser is already untapped. Root cause: Frost Lynx's script grants `DB$ Pump | KW$ HIDDEN This card doesn't untap during your next untap step.`; rules/statics_combat.go's parseHiddenKeyword recognises only the three combat phrases (can't attack / can't block / must be blocked), so this untap-restriction keyword is inert. Found by the cli-20261003T024459Z audit; row added by triage."
-  }
-}
