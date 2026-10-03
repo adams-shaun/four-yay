@@ -399,14 +399,14 @@ func (e *Engine) PutCounterBlocked(kind string, obj state.ObjID, player state.Pl
 				}
 				continue
 			}
-			if strings.TrimSpace(sv.ParamStr(cards.PKValidCard)) != "" || strings.TrimSpace(sv.Params["ValidObject"]) != "" {
+			if strings.TrimSpace(sv.ParamStr(cards.PKValidCard)) != "" || strings.TrimSpace(sv.ParamStr(cards.PKValidObject)) != "" {
 				continue
 			}
 			return true
 		}
 		spec := strings.TrimSpace(sv.ParamStr(cards.PKValidCard))
 		if spec == "" {
-			spec = strings.TrimSpace(sv.Params["ValidObject"])
+			spec = strings.TrimSpace(sv.ParamStr(cards.PKValidObject))
 		}
 		if spec != "" {
 			if e.matchesSpec(spec, obj, e.specCtx(sv.Source, sv.Controller)) {

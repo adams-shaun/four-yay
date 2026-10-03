@@ -275,7 +275,7 @@ func effPlayerVote(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.Note, Player: voter, Text: "votes for " + label})
 		ballots[k] = VoteBallot{Player: voter, Pick: pick}
 	}
-	if strings.EqualFold(strings.TrimSpace(sa.Params["StoreVoteNum"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKStoreVoteNum)), "True") {
 		publishVoteCounts(c, voteCountsForPlayers(universe, picks))
 	}
 	emitVoteFinished(h, c, ballots, len(universe) > 0, strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKSecretly)), "True"))

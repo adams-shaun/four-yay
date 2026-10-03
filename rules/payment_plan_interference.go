@@ -199,7 +199,7 @@ func (e *Engine) paymentPlanProductions(id state.ObjID, ma *cards.SA) []string {
 // determined consequence.
 func paymentPlanNoUntapShape(r cards.Repl) bool {
 	if r.With != nil || strings.TrimSpace(r.ParamStr(cards.PKValidCard)) != "Card.Self" ||
-		!strings.EqualFold(strings.TrimSpace(r.Params["Layer"]), "CantHappen") {
+		!strings.EqualFold(strings.TrimSpace(r.ParamStr(cards.PKLayer)), "CantHappen") {
 		return false
 	}
 	if v, ok := r.Params["ValidStepTurnToController"]; ok && strings.TrimSpace(v) != "You" {
@@ -611,7 +611,7 @@ func paymentPlanSpellTargets(f *cards.Face) bool {
 		return true
 	}
 	targets := func(sa *cards.SA) bool {
-		return strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" || strings.TrimSpace(sa.Params["TgtPrompt"]) != "" ||
+		return strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" || strings.TrimSpace(sa.ParamStr(cards.PKTgtPrompt)) != "" ||
 			strings.TrimSpace(sa.ParamStr(cards.PKTargetType)) != "" || strings.TrimSpace(sa.ParamStr(cards.PKTargetMin)) != "" ||
 			strings.TrimSpace(sa.ParamStr(cards.PKTargetMax)) != "" || strings.TrimSpace(sa.ParamStr(cards.PKTgtZone)) != ""
 	}

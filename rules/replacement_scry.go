@@ -209,10 +209,10 @@ func (e *Engine) continueScryReplacements(ev events.Event, matches []replMatch, 
 		ctx := e.replCtx(m, ev)
 		switch with.API {
 		case "ReplaceEffect":
-			if with.Params["VarName"] != "Num" {
+			if with.ParamStr(cards.PKVarName) != "Num" {
 				break
 			}
-			if n, ok := e.scryReplacementCount(ctx, with.Params["VarValue"], ev.Amount); ok {
+			if n, ok := e.scryReplacementCount(ctx, with.ParamStr(cards.PKVarValue), ev.Amount); ok {
 				ev.Amount = n
 				continue
 			}

@@ -563,8 +563,8 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	// (effectUntilEOT), so the turn-spanning forms get the identical
 	// AddContinuous UntilTurn boundary and Unknown spellings are one loud
 	// Note rather than a silent wrong lifetime.
-	pumpKeywords := cards.SplitKeywordList(sa.Params["PumpKeywords"])
-	pumpDuration := strings.TrimSpace(sa.Params["PumpDuration"])
+	pumpKeywords := cards.SplitKeywordList(sa.ParamStr(cards.PKPumpKeywords))
+	pumpDuration := strings.TrimSpace(sa.ParamStr(cards.PKPumpDuration))
 	pumpPermanent := false
 	pumpUntilEOT := false
 	if len(pumpKeywords) > 0 {

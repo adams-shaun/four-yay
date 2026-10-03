@@ -77,7 +77,7 @@ func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
 			Text: "unimplemented TwoPiles shape: DefinedCards$ " + spec})
 		return
 	}
-	if v := strings.TrimSpace(sa.Params["FaceDown"]); v != "" && !strings.EqualFold(v, "One") {
+	if v := strings.TrimSpace(sa.ParamStr(cards.PKFaceDown)); v != "" && !strings.EqualFold(v, "One") {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unimplemented TwoPiles shape: FaceDown$ " + v})
 		return

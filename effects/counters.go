@@ -245,7 +245,7 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	n := int32(1)
 	if strings.TrimSpace(sa.ParamStr(cards.PKCounterNum)) != "" {
 		n = Num(h, c, sa, "CounterNum", 1)
-	} else if strings.TrimSpace(sa.Params["Adapt"]) != "" {
+	} else if strings.TrimSpace(sa.ParamStr(cards.PKAdapt)) != "" {
 		n = Num(h, c, sa, "Adapt", 1)
 	} else if strings.TrimSpace(sa.ParamStr(cards.PKMonstrosity)) != "" {
 		// Monstrosity$ is a fallback count for its named counter placement.
@@ -258,7 +258,7 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	if n < 0 {
 		n = 0
 	}
-	adapt := strings.TrimSpace(sa.Params["Adapt"]) != ""
+	adapt := strings.TrimSpace(sa.ParamStr(cards.PKAdapt)) != ""
 	mono := strings.TrimSpace(sa.ParamStr(cards.PKMonstrosity)) != ""
 	renown := strings.TrimSpace(sa.Params["Renown"]) != ""
 	// fx42 scoping: take every answered comma-list transport at entry and
@@ -276,7 +276,7 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	if kind == "" {
 		kind = "P1P1"
 	}
-	if placer := strings.TrimSpace(sa.Params["Placer"]); placer != "" {
+	if placer := strings.TrimSpace(sa.ParamStr(cards.PKPlacer)); placer != "" {
 		if _, ok := putCounterPlacerFor(h, c, placer); !ok {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "PutCounter Placer$ unresolvable (" + placer + ")"})
@@ -1359,7 +1359,7 @@ func putCounterPlacerFor(h Host, c *Ctx, v string) (state.PlayerID, bool) {
 // counter-adder channel is consumed synchronously by replacement and trigger
 // matching, and replay re-executes this setter around the same emission.
 func emitPutCounterChange(h Host, c *Ctx, sa *cards.SA, ev events.Event) {
-	if placer := strings.TrimSpace(sa.Params["Placer"]); placer != "" {
+	if placer := strings.TrimSpace(sa.ParamStr(cards.PKPlacer)); placer != "" {
 		if p, ok := putCounterPlacerFor(h, c, placer); ok {
 			previous := h.SetCounterAdder(p)
 			h.Emit(ev)
@@ -1458,16 +1458,16 @@ func putCounterChooserFor(h Host, c *Ctx, v string) (state.PlayerID, bool) {
 // fallback, so without these notes the shapes would silently place nothing.
 func effPutCounterAll(h Host, c *Ctx, sa *cards.SA) {
 	var exotic []string
-	if strings.TrimSpace(sa.Params["Placer"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKPlacer)) != "" {
 		exotic = append(exotic, "Placer$")
 	}
-	if strings.TrimSpace(sa.Params["TargetUnique"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKTargetUnique)) != "" {
 		exotic = append(exotic, "TargetUnique$")
 	}
 	if strings.TrimSpace(sa.Params["AmountByChosenMap"]) != "" {
 		exotic = append(exotic, "AmountByChosenMap$")
 	}
-	if zone := strings.TrimSpace(sa.Params["ValidZone"]); zone != "" && !strings.EqualFold(zone, "Battlefield") {
+	if zone := strings.TrimSpace(sa.ParamStr(cards.PKValidZone)); zone != "" && !strings.EqualFold(zone, "Battlefield") {
 		exotic = append(exotic, "ValidZone$ "+zone)
 	}
 	// A ValidTgts$ naming anything but the plain chosen-player sweep is an
@@ -1655,7 +1655,7 @@ func effRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 	if zone := strings.TrimSpace(sa.ParamStr(cards.PKTgtZone)); zone != "" && !strings.EqualFold(zone, "Battlefield") {
 		exotic = append(exotic, "TgtZone$ "+zone)
 	}
-	if strings.EqualFold(strings.TrimSpace(sa.Params["RememberAmount"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberAmount)), "True") {
 		exotic = append(exotic, "RememberAmount$")
 	}
 	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
@@ -1923,7 +1923,7 @@ func removeCounterChoose(h Host, c *Ctx, sa *cards.SA, ans []state.ObjID, done b
 // ConditionCheckSVar$ Z — reads the real total).
 func removeCounterPickApply(h Host, c *Ctx, sa *cards.SA, zone state.Zone, kind string, num int32, picks []state.ObjID) {
 	g := h.Game()
-	rememberAmount := strings.EqualFold(strings.TrimSpace(sa.Params["RememberAmount"]), "True")
+	rememberAmount := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberAmount)), "True")
 	var amountIDs []state.ObjID
 	for _, id := range picks {
 		o := g.Obj(id)
@@ -2375,7 +2375,7 @@ func effMoveCounter(h Host, c *Ctx, sa *cards.SA) {
 	// RememberPut$ appends the destinations that actually received a counter;
 	// RememberAmount$ appends the origin once per counter moved.
 	rememberPut := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberPut)), "True")
-	rememberAmount := strings.EqualFold(strings.TrimSpace(sa.Params["RememberAmount"]), "True")
+	rememberAmount := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberAmount)), "True")
 	var rememberedDests []state.Target
 	var amountIDs []state.ObjID
 	for _, o := range origins {

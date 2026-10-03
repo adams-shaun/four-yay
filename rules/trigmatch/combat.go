@@ -209,7 +209,7 @@ func firstAttackOK(e Board, t cards.Trigger, id state.ObjID) bool {
 // AttackersDeclared line that names an AttackedTarget$ are keyed to one
 // defending player and keep firing once per that defender's event.
 func AttackersDeclaredBatch(t cards.Trigger) bool {
-	return t.Mode == "AttackersDeclared" && strings.TrimSpace(t.Params["AttackedTarget"]) == ""
+	return t.Mode == "AttackersDeclared" && strings.TrimSpace(t.ParamStr(cards.PKAttackedTarget)) == ""
 }
 
 // AttackersDeclaredOneTargetMatches implements the "whenever [one or more]
@@ -244,10 +244,10 @@ func AttackersDeclaredOneTargetMatches(e Board, t cards.Trigger, source state.Ob
 	if src := e.Game().Obj(source); src != nil && src.Face() != nil {
 		ctx.SVars = src.Face().SVars
 	}
-	if v := t.Params["AttackingPlayer"]; v != "" && !effects.MatchesPlayerSpecWithSVars(e.Host(), ctx, v, attacker, ctrl) {
+	if v := t.ParamStr(cards.PKAttackingPlayer); v != "" && !effects.MatchesPlayerSpecWithSVars(e.Host(), ctx, v, attacker, ctrl) {
 		return false
 	}
-	if v := t.Params["AttackedTarget"]; v != "" && !effects.MatchesPlayerSpecWithSVars(e.Host(), ctx, v, ev.Player, ctrl) {
+	if v := t.ParamStr(cards.PKAttackedTarget); v != "" && !effects.MatchesPlayerSpecWithSVars(e.Host(), ctx, v, ev.Player, ctrl) {
 		return false
 	}
 	matches := 0
@@ -256,14 +256,14 @@ func AttackersDeclaredOneTargetMatches(e Board, t cards.Trigger, source state.Ob
 		capture = remembered[0]
 	}
 	for _, id := range ids {
-		if v := t.Params["ValidAttackers"]; v == "" || e.MatchesSpec(v, id, source, ctrl, SpecOpts{DelayedRemembered: capture}) {
+		if v := t.ParamStr(cards.PKValidAttackers); v == "" || e.MatchesSpec(v, id, source, ctrl, SpecOpts{DelayedRemembered: capture}) {
 			matches++
 		}
 	}
 	if matches == 0 {
 		return false
 	}
-	if v := t.Params["ValidAttackersAmount"]; v != "" && !ComparePresent(matches, v) {
+	if v := t.ParamStr(cards.PKValidAttackersAmount); v != "" && !ComparePresent(matches, v) {
 		return false
 	}
 	return true
@@ -321,7 +321,7 @@ func DamageMatchesWithCapture(e Board, t cards.Trigger, source state.ObjID, ev e
 	// the flag existed True returned false unconditionally (978 dead corpus
 	// trigger lines, Umezawa's Jitte among them) and False fell through and
 	// matched everything.
-	switch cd := t.Params["CombatDamage"]; {
+	switch cd := t.ParamStr(cards.PKCombatDamage); {
 	case strings.EqualFold(cd, "True") && !e.Facts().CombatDamaging:
 		return false
 	case strings.EqualFold(cd, "False") && e.Facts().CombatDamaging:
@@ -362,7 +362,7 @@ func DamageMatchesWithCapture(e Board, t cards.Trigger, source state.ObjID, ev e
 	// before checkTriggers runs, so a state field cannot distinguish the
 	// first hit -- the replay-stable log scan below can, counting the current
 	// event as one.
-	if t.Mode == "DamageDoneOnce" && strings.EqualFold(t.Params["FirstTime"], "True") && !firstDamageToThisTurn(e, ev) {
+	if t.Mode == "DamageDoneOnce" && strings.EqualFold(t.ParamStr(cards.PKFirstTime), "True") && !firstDamageToThisTurn(e, ev) {
 		return false
 	}
 	return true

@@ -387,7 +387,7 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 	}
 	allUpdated := true
 	for _, m := range matches {
-		if m.repl.Params["ReplacementResult"] != "Updated" {
+		if m.repl.ParamStr(cards.PKReplacementResult) != "Updated" {
 			allUpdated = false
 			break
 		}
@@ -1120,7 +1120,7 @@ func (e *Engine) applyReplacement(ev events.Event, m replMatch) (events.Event, b
 		return ev, false
 	}
 	ctx := e.replCtx(m, ev)
-	if m.repl.Params["ReplacementResult"] == "Updated" {
+	if m.repl.ParamStr(cards.PKReplacementResult) == "Updated" {
 		// Review finding M-6: an exact case-sensitive "Updated" compare is
 		// deliberate (the corpus spells it one way). Apply the ORIGINAL event
 		// first (not routing back through e.emit, which is what keeps this

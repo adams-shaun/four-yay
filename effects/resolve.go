@@ -584,17 +584,17 @@ func delayedTriggerBody(sa *cards.SA) string {
 	add("ValidCards$ ", sa.ParamStr(cards.PKValidCards))
 	add("Origin$ ", sa.ParamStr(cards.PKOrigin))
 	add("Destination$ ", sa.ParamStr(cards.PKDestination))
-	add("ExcludedOrigins$ ", sa.Params["ExcludedOrigins"])
+	add("ExcludedOrigins$ ", sa.ParamStr(cards.PKExcludedOrigins))
 	add("ValidSource$ ", sa.ParamStr(cards.PKValidSource))
 	add("ValidTarget$ ", sa.ParamStr(cards.PKValidTarget))
-	add("CombatDamage$ ", sa.Params["CombatDamage"])
-	add("ValidAttackers$ ", sa.Params["ValidAttackers"])
-	add("ValidAttackersAmount$ ", sa.Params["ValidAttackersAmount"])
-	add("AttackingPlayer$ ", sa.Params["AttackingPlayer"])
-	add("AttackedTarget$ ", sa.Params["AttackedTarget"])
+	add("CombatDamage$ ", sa.ParamStr(cards.PKCombatDamage))
+	add("ValidAttackers$ ", sa.ParamStr(cards.PKValidAttackers))
+	add("ValidAttackersAmount$ ", sa.ParamStr(cards.PKValidAttackersAmount))
+	add("AttackingPlayer$ ", sa.ParamStr(cards.PKAttackingPlayer))
+	add("AttackedTarget$ ", sa.ParamStr(cards.PKAttackedTarget))
 	add("ValidPlayer$ ", sa.ParamStr(cards.PKValidPlayer))
 	add("ValidOriginalController$ ", sa.Params["ValidOriginalController"])
-	add("ValidActivatingPlayer$ ", sa.Params["ValidActivatingPlayer"])
+	add("ValidActivatingPlayer$ ", sa.ParamStr(cards.PKValidActivatingPlayer))
 	add("PlayerTurn$ ", sa.ParamStr(cards.PKPlayerTurn))
 	add("ValidSA$ ", sa.ParamStr(cards.PKValidSA))
 	add("TriggerZones$ ", sa.ParamStr(cards.PKTriggerZones))
@@ -648,7 +648,7 @@ func effDelayedTriggerSpellCast(h Host, c *Ctx, sa *cards.SA) {
 	if v := strings.TrimSpace(sa.ParamStr(cards.PKValidCard)); v != "" {
 		body += " | ValidCard$ " + v
 	}
-	if v := strings.TrimSpace(sa.Params["ValidActivatingPlayer"]); v != "" {
+	if v := strings.TrimSpace(sa.ParamStr(cards.PKValidActivatingPlayer)); v != "" {
 		body += " | ValidActivatingPlayer$ " + v
 	}
 	if v := strings.TrimSpace(sa.ParamStr(cards.PKValidPlayer)); v != "" {

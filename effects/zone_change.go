@@ -899,7 +899,7 @@ func changeZoneAttachedToPlayer(h Host, c *Ctx, sa *cards.SA, moved state.ObjID,
 // encodings never collide; no corpus line combines Unearth with
 // FaceDown$/ExileFaceDown$.
 func applyFaceDownMarker(h Host, sa *cards.SA, c *Ctx, ev *events.Event, to state.Zone) {
-	faceDown := strings.EqualFold(strings.TrimSpace(sa.Params["FaceDown"]), "True")
+	faceDown := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKFaceDown)), "True")
 	exileFaceDown := strings.EqualFold(strings.TrimSpace(sa.Params["ExileFaceDown"]), "True")
 	withMayLook := strings.EqualFold(strings.TrimSpace(sa.Params["WithMayLook"]), "True")
 	foretold := strings.EqualFold(strings.TrimSpace(sa.Params["Foretold"]), "True")
