@@ -182,8 +182,9 @@ func (e *Engine) releaseLookBackObserver(o *Engine) {
 		// build or seed (both overwrite it from index 0); its entries are
 		// shallow effect values over shared card tables.
 		buf := o.staticContinuous[:0]
+		loss := o.lossMemo.recycled()
 		*o = Engine{}
-		o.staticContinuous = buf
+		o.staticContinuous, o.lossMemo = buf, loss
 		e.lookBackBusy = false
 	}
 }

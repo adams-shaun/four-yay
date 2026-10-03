@@ -491,6 +491,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	c.replArena = e.replArena
 	c.activeBuf, c.activeBufAlt = sp.activeBuf, sp.activeBufAlt
 	c.activeSrc = sp.activeSrc
+	c.lossMemo = sp.lossMemo
 	if e.triggerContexts != nil {
 		c.triggerContexts = make(map[state.ObjID]effects.TriggerContext, len(e.triggerContexts))
 		for id, tc := range e.triggerContexts {
