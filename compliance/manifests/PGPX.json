@@ -1,0 +1,23 @@
+{"code":"PGPX","name":"Grand Prix Promos","released":"2011-06-17","set_type":"PROMOTIONAL","xmage_ref":"6b602a1c85e8ed738a4b40b1ef44c54845b57f68",
+"cards": [
+{"name":"All Is Dust","numbers":["2013b"],"rarity":"MYTHIC"},
+{"name":"Batterskull","numbers":["2014"],"rarity":"MYTHIC"},
+{"name":"Call of the Herd","numbers":["2008"],"rarity":"RARE"},
+{"name":"Chrome Mox","numbers":["2009"],"rarity":"RARE"},
+{"name":"Forest","numbers":["2018f"],"rarity":"LAND"},
+{"name":"Goblin Guide","numbers":["2012a"],"rarity":"RARE"},
+{"name":"Griselbrand","numbers":["2015"],"rarity":"MYTHIC"},
+{"name":"Island","numbers":["2018b"],"rarity":"LAND"},
+{"name":"Lotus Cobra","numbers":["2012b"],"rarity":"RARE"},
+{"name":"Maelstrom Pulse","numbers":["2011"],"rarity":"RARE"},
+{"name":"Mountain","numbers":["2018d"],"rarity":"LAND"},
+{"name":"Mutavault","numbers":["2018"],"rarity":"RARE"},
+{"name":"Plains","numbers":["2018a"],"rarity":"LAND"},
+{"name":"Primeval Titan","numbers":["2013a"],"rarity":"MYTHIC"},
+{"name":"Progenitus","numbers":["2017"],"rarity":"MYTHIC"},
+{"name":"Spiritmonger","numbers":["2007"],"rarity":"RARE"},
+{"name":"Stoneforge Mystic","numbers":["2016"],"rarity":"RARE"},
+{"name":"Swamp","numbers":["2018c"],"rarity":"LAND"},
+{"name":"Sword of Feast and Famine","numbers":["2016b"],"rarity":"RARE"},
+{"name":"Umezawa's Jitte","numbers":["2010"],"rarity":"RARE"}
+]}

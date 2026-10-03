@@ -1,0 +1,105 @@
+{
+ "card": "Angelic Purge",
+ "family": "spell-conditional",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "c98596fe243a",
+ "scenarios": [
+  {
+   "name": "sacrifices-a-permanent-and-exiles-a-creature",
+   "cr": [
+    "601.2b",
+    "701.16a",
+    "701.7a"
+   ],
+   "why": "As an additional cost to cast Angelic Purge, its controller sacrifices a permanent; on resolution the target artifact, creature or enchantment is exiled. p0 sacrifices Grizzly Bears and exiles p1's Centaur Courser.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Angelic Purge"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angelic Purge",
+     "mana": "CCW",
+     "targets": [
+      "p1:Centaur Courser"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Angelic Purge",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "cannot-be-cast-with-no-permanent-to-sacrifice",
+   "cr": [
+    "601.2b",
+    "601.2g"
+   ],
+   "why": "With no permanent on the battlefield the additional sacrifice cost cannot be paid, so Angelic Purge is not offered.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Angelic Purge"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "decision": "priority"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Angelic Purge"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

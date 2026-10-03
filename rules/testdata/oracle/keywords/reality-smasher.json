@@ -1,0 +1,43 @@
+{
+  "card": "Reality Smasher",
+  "family": "keywords",
+  "oracle_sha": "a6af50e46149",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "trample-and-haste-on-battlefield",
+      "cr": ["702.19b", "702.10b"],
+      "why": "The printed keyword line gives the Smasher trample and haste; as a setup permanent it may attack on turn 1 and deals its full 5.",
+      "setup": {
+        "p0": {"battlefield": ["Reality Smasher"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Reality Smasher"], "defender": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "end"}
+      ],
+      "expect": [
+        {"card": "p0:Reality Smasher", "keywords": ["Trample", "Haste"], "pt": "5/5"},
+        {"life": {"p1": 15}}
+      ]
+    },
+    {
+      "name": "becoming-target-of-opponent-spell-taxes-a-discard",
+      "cr": ["603.2", "701.8a"],
+      "why": "Whenever the Smasher becomes the target of a spell an opponent controls, that spell is countered unless its controller discards a card. With an empty hand the opponent cannot discard, so the spell is countered and the Smasher survives undamaged.",
+      "setup": {
+        "p0": {"battlefield": ["Reality Smasher"]},
+        "p1": {"hand": ["Lightning Bolt"]}
+      },
+      "steps": [
+        {"op": "pass", "seat": 0},
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0:Reality Smasher"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Reality Smasher", "zone": "battlefield", "damage": 0},
+        {"card": "p1:Lightning Bolt", "zone": "graveyard"}
+      ]
+    }
+  ]
+}

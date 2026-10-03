@@ -1,0 +1,6 @@
+{
+  "card": "Skinrender",
+  "rows": {
+    "enters-puts-three-minus-one-counters": "CR 603.2/122.1: the enters trigger puts three -1/-1 counters on target creature, and the target may be any creature including one an opponent controls. Observed: the trigger poses the target and resolves, but NO counters are placed when the target is an opponent-controlled creature (p1:Centaur Courser stays 3/3 with 0 -1/-1 counters). Control: the sibling own-creature scenario places all three counters and the creature dies, so the trigger + PutCounter path runs; only an opponent's target is dropped. Compare Felidar Savior (same ChangesZone -> DB$ PutCounter shape, ValidTgts$ Creature.YouCtrl+Other) which passes. Found by the cli-20261003T014432Z audit; row added by triage."
+  }
+}

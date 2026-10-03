@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -15,9 +16,10 @@ import (
 // ONE reader every rules consumer calls is what keeps the spellings from
 // drifting apart (a new equivalent spelling is then one switch arm).
 type hiddenKeywordFlags struct {
-	cantAttack bool
-	cantBlock  bool
-	mustBlock  bool
+	cantAttack    bool
+	cantBlock     bool
+	mustBlock     bool
+	untapNextStep bool
 }
 
 // parseHiddenKeyword reads one derived keyword line (already the head, via
@@ -30,6 +32,9 @@ type hiddenKeywordFlags struct {
 // conditional rider) is a different grant and must not borrow the
 // unconditional meaning.
 func parseHiddenKeyword(k string) hiddenKeywordFlags {
+	if cards.IsHiddenUntapNextStepKeyword(k) {
+		return hiddenKeywordFlags{untapNextStep: true}
+	}
 	head := strings.TrimSpace(strings.TrimPrefix(cardsKeywordHead(k), "HIDDEN "))
 	switch {
 	case strings.EqualFold(head, "CARDNAME can't attack or block."),
@@ -72,6 +77,7 @@ func (e *Engine) derivedHiddenFlags(id state.ObjID) hiddenKeywordFlags {
 		f.cantAttack = f.cantAttack || g.cantAttack
 		f.cantBlock = f.cantBlock || g.cantBlock
 		f.mustBlock = f.mustBlock || g.mustBlock
+		f.untapNextStep = f.untapNextStep || g.untapNextStep
 	}
 	return f
 }

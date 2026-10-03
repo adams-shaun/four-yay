@@ -1,0 +1,97 @@
+{
+ "card": "Goblin Grenade",
+ "family": "spell-conditional",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "617a6f47702b",
+ "scenarios": [
+  {
+   "name": "sacrifices-a-goblin-and-deals-five",
+   "cr": [
+    "601.2b",
+    "701.16a",
+    "120.3"
+   ],
+   "why": "The additional cost sacrifices a Goblin; Goblin Grenade then deals 5 damage to the target. p0 sacrifices Raging Goblin and deals 5 to p1, dropping p1 to 15.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Grenade"
+     ],
+     "battlefield": [
+      "Raging Goblin"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Grenade",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Raging Goblin"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Raging Goblin",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p1": 15
+     }
+    }
+   ]
+  },
+  {
+   "name": "cannot-be-cast-with-no-goblin",
+   "cr": [
+    "601.2b",
+    "601.2g"
+   ],
+   "why": "With no Goblin on the battlefield the additional sacrifice cost cannot be paid, so Goblin Grenade is not offered.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Grenade"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "decision": "priority"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Goblin Grenade"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

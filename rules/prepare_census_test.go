@@ -16,10 +16,10 @@ package rules
 // The census below is the class-wide ledger for that shape. It pins the exact
 // set of Prepare cards in the corpus, in both directions, and it pins the
 // class-wide refusal a hand-walk gate would otherwise have to reproduce:
-// every one of the 54 backs must be refused by modalSpellBack (CR 722.3), so
+// every one of the 69 backs must be refused by modalSpellBack (CR 722.3), so
 // none of them is castable from hand.
 //
-// 33 of the 54 cards name a real Instant/Sorcery face inline in their
+// At 95f04e8, 33 of the 54 cards named a real Instant/Sorcery face inline in their
 // ALTERNATE block. The other 21 encode their inset spell with a
 // `CopyFaceFrom:<Card>` directive, which cards/parse.go now resolves by
 // copying the referenced card's front-face characteristics onto the stub
@@ -41,7 +41,9 @@ import (
 
 // prepareCensus is the measured corpus set of AlternateMode:Prepare cards, as
 // "Front // Back". Sorted. Measured 2026-09-28 at FORGE_REF
-// 95f04e8a04c8925fa97cb226fc3341cabcc90a53; every back is now a resolved
+// 95f04e8a04c8925fa97cb226fc3341cabcc90a53 (54 cards) and re-measured
+// 2026-10-02 at fb4d8091126051b0c579db5f3bfdcb7e03aae63d (69: fifteen new
+// pairs, every one passing the helper checks below); every back is now a resolved
 // named face (the 21 CopyFaceFrom stubs resolve as of
 // agent-20260928T215303Z-ab37989c).
 var prepareCensus = []string{
@@ -49,30 +51,38 @@ var prepareCensus = []string{
 	"Adventurous Eater // Have a Bite",
 	"Blazing Firesinger // Seething Song",
 	"Bloodline Recollector // Ancestral Craving",
+	"Blossom-Blessed Angel // Seed Suture",
 	"Campus Composer // Aqueous Aria",
+	"Carnivorous Cultivator // Enroot",
 	"Cheerful Osteomancer // Raise Dead",
 	"Crescendo Conductor // Boltwave",
 	"Defacing Duskmage // Vandal's Edit",
 	"Dirgur Focusmage // Braingeyser",
+	"Diviner of Victory // Unwind History",
 	"Eccentric Pestfinder // Turn Stones",
 	"Eiganjo Dynastorian // Replenish",
 	"Elite Interceptor // Rejoinder",
+	"Emergency Phytomedic // Seed Suture",
 	"Emeritus of Abundance // Regrowth",
 	"Emeritus of Conflict // Lightning Bolt",
 	"Emeritus of Ideation // Ancestral Recall",
 	"Emeritus of Truce // Swords to Plowshares",
 	"Emeritus of Woe // Demonic Tutor",
 	"Encouraging Aviator // Jump",
+	"Fatehold Chronologist // Peer Review",
 	"Galathul Galecaller // Corvid Squall",
 	"Goblin Glasswright // Craft with Pride",
 	"Grave Researcher // Reanimate",
+	"Hallway Heckler // Vicious Verse",
 	"Harmonized Trio // Brainstorm",
+	"Heartwood Crafter // Soul Tether",
 	"Honorbound Page // Forum's Favor",
 	"Infirmary Healer // Stream of Life",
 	"Inspired Skypainter // Maestro's Gift",
 	"Jadzi, Steward of Fate // Oracle's Gift",
 	"Joined Researchers // Secret Rendezvous",
 	"Kirol, History Buff // Pack a Punch",
+	"Konstrari Improviser // Soul Tether",
 	"Landscape Painter // Vibrant Idea",
 	"Leech Collector // Bloodletting",
 	"Lluwen, Exchange Student // Pest Friend",
@@ -81,11 +91,14 @@ var prepareCensus = []string{
 	"Naktamun Lorespinner // Wheel of Fortune",
 	"Paradox Shaper // Omit Variables",
 	"Pigment Wrangler // Striking Palette",
+	"Pompous Battlemage // Improvised Act",
 	"Prudent Fateseer // Peer Review",
+	"Pyre Rhymer // Molten Tide",
 	"Quill-Blade Laureate // Twofold Intent",
 	"Sanar, Unfinished Genius // Wild Idea",
 	"Scathing Shadelock // Venomous Words",
 	"Scheming Silvertongue // Sign in Blood",
+	"Semester Foreseer // Peer Review",
 	"Skycoach Conductor // All Aboard",
 	"Spellbook Seeker // Careful Study",
 	"Spiritcall Enthusiast // Scrollboost",
@@ -95,8 +108,12 @@ var prepareCensus = []string{
 	"Strife Scholar // Awaken the Ages",
 	"Studious First-Year // Rampant Growth",
 	"Tam, Observant Sequencer // Deep Sight",
+	"Theorix Metamage // Omit Variables",
+	"Variable Chaser // Arc of Fortune",
 	"Vastlands Scavenger // Bind to Life",
 	"Vigorbloom Vanguard // Seed Suture",
+	"Void Extrapolator // Omit Variables",
+	"Whiplash Wordsmith // Vicious Verse",
 	"Woodwork Prodigy // Soul Tether",
 	"Yavimaya Bloomsage // Channel",
 }
@@ -133,8 +150,8 @@ func TestPrepareCensusMatchesCorpus(t *testing.T) {
 	want := append([]string(nil), prepareCensus...)
 	sort.Strings(want)
 
-	if len(measured) != 54 {
-		t.Errorf("prepare census: %d AlternateMode:Prepare cards in the corpus, want 54", len(measured))
+	if len(measured) != 69 {
+		t.Errorf("prepare census: %d AlternateMode:Prepare cards in the corpus, want 69", len(measured))
 	}
 
 	inWant := map[string]bool{}
@@ -159,7 +176,7 @@ func TestPrepareCensusMatchesCorpus(t *testing.T) {
 
 // TestPrepareBackFaceHelperCensus pins modalSpellBack's classification over
 // every Prepare card: CR 722.3 makes the inset prepare spell uncasteable from
-// hand, so the helper must return nil for all 54 backs. It also pins the
+// hand, so the helper must return nil for all 69 backs. It also pins the
 // parser resolution of the 21 `CopyFaceFrom` stub backs (ticket
 // agent-20260928T215303Z-ab37989c): after resolution every back is a real,
 // named Instant/Sorcery face, never a nameless stub. This is the class-wide
@@ -194,7 +211,7 @@ func TestPrepareBackFaceHelperCensus(t *testing.T) {
 				c.Faces[0].Name, back)
 		}
 	}
-	if named != 54 {
-		t.Errorf("prepare helper census: %d resolved named backs, want 54", named)
+	if named != 69 {
+		t.Errorf("prepare helper census: %d resolved named backs, want 69", named)
 	}
 }

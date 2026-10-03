@@ -1,0 +1,98 @@
+{
+ "card": "Pelakka Wurm",
+ "family": "etb-ltb",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "cb499cf3554a",
+ "scenarios": [
+  {
+   "name": "enters-gaining-seven-life",
+   "cr": [
+    "208.3",
+    "603.6a",
+    "702.19b"
+   ],
+   "why": "Pelakka Wurm is a 7/7 with trample; its enter trigger has its controller gain 7 life, from 20 to 27.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Pelakka Wurm"
+     ],
+     "life": 20
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Pelakka Wurm",
+     "mana": "GGGCCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Pelakka Wurm",
+     "zone": "battlefield",
+     "pt": "7/7",
+     "keywords": [
+      "Trample"
+     ]
+    },
+    {
+     "life": {
+      "p0": 27
+     }
+    }
+   ]
+  },
+  {
+   "name": "dies-drawing-a-card",
+   "cr": [
+    "603.6c",
+    "603.10a",
+    "121.1"
+   ],
+   "why": "When Pelakka Wurm dies its controller draws a card: the set-up Forest moves from the library to hand.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Pelakka Wurm"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Pelakka Wurm",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Pelakka Wurm",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  }
+ ]
+}

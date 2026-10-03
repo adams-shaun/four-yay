@@ -1,0 +1,45 @@
+{
+  "card": "Sanctum Prelate",
+  "family": "conditional-static",
+  "oracle_sha": "dacdc27a56e2",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "chosen-number-blocks-that-mana-value-noncreature",
+      "cr": ["604.3", "601.2"],
+      "why": "Choosing 1 makes noncreature spells with mana value 1 uncastable. With {R}{B}{B} available, Lightning Bolt (mana value 1) is not offered while Sign in Blood (mana value 2) is.",
+      "setup": {
+        "p0": {"hand": ["Sanctum Prelate", "Lightning Bolt", "Sign in Blood"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Sanctum Prelate", "mana": "WWC"},
+        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["1"]}]},
+        {"op": "mana", "seat": 0, "mana": "RBB"}
+      ],
+      "expect": [
+        {"card": "p0:Sanctum Prelate", "zone": "battlefield", "pt": "2/2"},
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Lightning Bolt"}, "want": false},
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Sign in Blood"}, "want": true}
+      ]
+    },
+    {
+      "name": "creatures-with-the-chosen-mana-value-are-still-castable",
+      "cr": ["604.3"],
+      "why": "The restriction applies only to NONCREATURE spells; choosing 2 leaves a mana value 2 creature spell castable while a mana value 2 noncreature spell is not. With {G}{G}{B}{B} available, Grizzly Bears is offered and Sign in Blood is not.",
+      "setup": {
+        "p0": {"hand": ["Sanctum Prelate", "Grizzly Bears", "Sign in Blood"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Sanctum Prelate", "mana": "WWC"},
+        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["2"]}]},
+        {"op": "mana", "seat": 0, "mana": "GGBB"}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": true},
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Sign in Blood"}, "want": false}
+      ]
+    }
+  ]
+}

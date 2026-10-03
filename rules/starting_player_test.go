@@ -37,25 +37,6 @@ func tossedTwoSeat(t *testing.T, seed uint64, mulligans int) Config {
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}}
 }
 
-// seatZeroStart returns cfg with the smallest seed >= cfg.Seed whose CR 103.1
-// toss starts seat 0. The scenario fixtures predate the toss: their
-// protagonist is seat 0 -- before the toss seat 0 was always the starting
-// player, so every fixture addresses seats and turns by index -- and the
-// winner-chooses arm that would let a fixture name its starter is
-// deliberately unbuilt (the "Known approximations" row in AGENTS.md). The
-// toss draw sits BEFORE any shuffle, so it is deck-independent and the first
-// acceptable seed is a pure function of the requested one; the effective seed
-// travels in the returned Config, which is what a replay must be handed.
-func seatZeroStart(cfg Config) Config {
-	for {
-		e := New(cfg)
-		if e.G.Active == 0 {
-			return cfg
-		}
-		cfg.Seed++
-	}
-}
-
 // TestTossDeterminesTheStartingPlayerNotAlwaysSeatZero is the census: across
 // 64 seeds at two seat counts the starting seat is neither pinned to 0 nor
 // degenerate. At two seats both extreme outcomes must occur (binomial
