@@ -142,9 +142,9 @@ var dealDamageFront [1 << 10]atomic.Pointer[DealDamageParams]
 func compileDealDamage(sa *cards.SA) *DealDamageParams {
 	p := &DealDamageParams{paramBinding: bindParams(sa)}
 	p.NumDmg = damageAmountParam(sa)
-	if raw, ok := sa.Param(cards.PKDividedAsYouChoose); ok && strings.TrimSpace(raw) != "" {
+	if div, ok := dividedParam(sa); ok {
 		p.Divided = true
-		p.DividedTotal = ParamText{Text: raw, Present: true}
+		p.DividedTotal = div
 	}
 	p.RememberDamaged = strings.TrimSpace(sa.ParamStr(cards.PKRememberDamaged)) != ""
 	p.ExcessSVar = strings.TrimSpace(sa.Params["ExcessSVar"])

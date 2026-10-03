@@ -83,10 +83,10 @@ func genericChoiceTargetsFeasible(h Host, c *Ctx, chooser state.PlayerID, sub *c
 	if sub == nil {
 		return false
 	}
-	if strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) == "" {
+	if !TargetsOf(sub).Targeted() {
 		return true
 	}
-	if strings.TrimSpace(sub.ParamStr(cards.PKTargetMin)) == "0" {
+	if strings.TrimSpace(TargetsOf(sub).Min.Text) == "0" {
 		return true
 	}
 	return len(h.LegalTargets(chooser, c.Source, sub)) > 0

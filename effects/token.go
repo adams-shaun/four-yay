@@ -629,7 +629,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	}
 
 	job := TokenJob{
-		N: n, Owners: owners, Remember: remember, AttachTo: attachTo,
+		N: n, Owners: owners, Remember: remember, AttachTo: attachTo, AttachNamed: attachedTo != "",
 		SetPow: setPow, SetTgh: setTgh, HasPow: hasPow, HasTgh: hasTgh,
 		WithKind: withKind, WithAmt: withAmt, WithOK: withOK,
 		PumpKeywords: pumpKeywords, PumpDuration: pumpDuration,
@@ -647,10 +647,14 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 // TokenAmount$ Count$ or a Defined$ selector re-read after the earlier mints
 // landed would name a different set. Plain data (Clone copies the slices).
 type TokenJob struct {
-	N              int32
-	Owners         []state.PlayerID
-	Remember       bool
-	AttachTo       state.ObjID
+	N        int32
+	Owners   []state.PlayerID
+	Remember bool
+	AttachTo state.ObjID
+	// AttachNamed is AttachedTo$'s presence: the effect names the bearer, so
+	// an Aura token whose named bearer resolved to no battlefield permanent
+	// is not created (CR 303.4g, auraTokenWithheld).
+	AttachNamed    bool
 	SetPow, SetTgh int32
 	HasPow, HasTgh bool
 	WithKind       string
@@ -664,6 +668,33 @@ type TokenJob struct {
 	TokenMemory    []state.Target
 	AttackCtx      bool
 	AttackDefender state.PlayerID
+}
+
+// auraTokenWithheld reports whether a mint of token script key must not
+// happen because it is an Aura whose AttachedTo$-named bearer resolved to no
+// battlefield permanent (a Role "attached to CARDNAME" whose creature left
+// before the ability resolved). CR 303.4g: an Aura token with nothing it can
+// legally enchant isn't created; one that would enter unattached would only
+// die to the CR 704.5m SBA after its entry had already been seen. An Aura
+// token minted with NO AttachedTo$ (no corpus carrier) is left to the
+// engine's own TokenCreate gate (rules/aura_entry.go).
+func auraTokenWithheld(g *state.Game, job *TokenJob, key string) bool {
+	if !job.AttachNamed {
+		return false
+	}
+	if b := g.Obj(job.AttachTo); job.AttachTo != 0 && b != nil && b.Zone == state.ZBattlefield {
+		return false
+	}
+	def := g.Tokens[key]
+	if def == nil || len(def.Faces) == 0 {
+		return false
+	}
+	for _, t := range def.Faces[0].Types {
+		if t == "Aura" {
+			return true
+		}
+	}
+	return false
 }
 
 // TokenRest is a DB$ Token's continuation once one of its mints parked
@@ -791,6 +822,12 @@ func runTokenMints(h Host, c *Ctx, sa *cards.SA, job *TokenJob, resumeAt int, pa
 				// plan (Divine Visitation's angel, Doubling Season's pair, Xorn's
 				// original-plus-one), so each rider below lands on every mint the
 				// resolution actually produced -- not just the first.
+				if auraTokenWithheld(g, job, key) {
+					// CR 303.4g: "If the Aura is a token, it isn't created."
+					h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: owner,
+						Text: "Aura token " + key + " has no legal permanent to enchant; it isn't created (CR 303.4g)"})
+					continue
+				}
 				want := g.NextID
 				wasSuspended := h.Suspended()
 				mints := h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: owner, Text: key})

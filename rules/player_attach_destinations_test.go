@@ -292,7 +292,9 @@ func TestArchnemesisAttackTriggerAttachesToAttackingPlayer(t *testing.T) {
 		if o.Owner == 0 && o.Card == archnemesis {
 			id = o.ID
 			if o.Zone != state.ZBattlefield {
-				e.emit(events.Event{Kind: events.MoveZone, Obj: o.ID, From: o.Zone, To: state.ZBattlefield})
+				// Hand-built: the Aura sits unattached until the test
+				// attaches it (a real entry would pose CR 303.4f).
+				stageRawEntry(t, e, o.ID)
 			}
 		}
 	}
@@ -434,7 +436,9 @@ func TestMaddeningHexAttachToChosenPlayer(t *testing.T) {
 		if o.Owner == 0 && o.Card == hex {
 			id = o.ID
 			if o.Zone != state.ZBattlefield {
-				e.emit(events.Event{Kind: events.MoveZone, Obj: o.ID, From: o.Zone, To: state.ZBattlefield})
+				// Hand-built: the Aura sits unattached until the test
+				// attaches it (a real entry would pose CR 303.4f).
+				stageRawEntry(t, e, o.ID)
 			}
 		}
 	}

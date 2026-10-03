@@ -73,7 +73,7 @@ import (
 // tasha_the_witch_queen, geths_summons) reaches its ask here.
 func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target, bool) {
 	defined := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
-	if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" ||
+	if !TargetsOf(sa).Targeted() ||
 		(defined != "" && definedIsTargetReuse(defined) && sa.API != "Fight") {
 		return nil, false
 	}
@@ -143,9 +143,10 @@ func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target
 	} else if !posed {
 		chooser = ch
 	}
-	min := Num(h, c, sa, "TargetMin", 1)
-	max := Num(h, c, sa, "TargetMax", 1)
-	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetsForEachPlayer)), "True") {
+	tp := TargetsOf(sa)
+	min := numText(h, c, tp.Min, 1)
+	max := numText(h, c, tp.Max, 1)
+	if tp.Has(TgtForEachPlayer) {
 		// pfpe1: OneEach is the distinct-controller count of the eligible
 		// set (Forge's TargetRestrictions.setForEachPlayer), not a literal
 		// Num can read -- and a dynamic bound (TargetMax$ X with
@@ -154,10 +155,10 @@ func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target
 		for _, t := range candidates {
 			owners[targetOwnerOf(h, t)] = true
 		}
-		if strings.EqualFold(sa.ParamStr(cards.PKTargetMin), "OneEach") {
+		if tp.Has(TgtMinOneEach) {
 			min = int32(len(owners))
 		}
-		if strings.EqualFold(sa.ParamStr(cards.PKTargetMax), "OneEach") {
+		if tp.Has(TgtMaxOneEach) {
 			max = int32(len(owners))
 		}
 	}
@@ -174,7 +175,8 @@ func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target
 		// Nothing eligible (or an explicitly zero bound): no ask, no move.
 		return noSubTargets(c, sa)
 	}
-	return poseTargetsAsk(h, c, sa, chooser, candidates, min, max, "tgts")
+	ts, ok, _ := poseTargetsAsk(h, c, sa, chooser, candidates, min, max, "tgts")
+	return ts, ok
 }
 
 // definedIsTargetReuse reports whether a Defined$ value names one of the
@@ -221,7 +223,10 @@ func definedIsTargetReuse(defined string) bool {
 // the shared Ask boundary under the "choice"-shaped resume transport the
 // caller names, with the R-9 no-host stand-in (the first max candidates in
 // offered order) when the host cannot ask. ok=true with a nil set is the
-// SUSPENDED outcome; ok=true with a non-nil set is the stand-in.
+// SUSPENDED outcome; ok=true with a non-nil set is the stand-in -- or, with
+// served set, the resolution kernel's answer, already consumed exactly as
+// both callers' answered re-entries consume theirs (the TargetUnique$
+// accumulator), so the caller continues with it.
 // targetOwnerOf is the controlling player of one target candidate: the
 // player itself, else the object's controller. A vanished object fails to
 // seat 0 -- it only merges a dead candidate's group with seat 0's, the
@@ -238,8 +243,9 @@ func targetOwnerOf(h Host, t state.Target) state.PlayerID {
 
 func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 	candidates []state.Target, min, max int32, resumeKind string,
-) ([]state.Target, bool) {
-	prompt := strings.TrimSpace(sa.ParamStr(cards.PKTgtPrompt))
+) (ts []state.Target, ok bool, served bool) {
+	tp := TargetsOf(sa)
+	prompt := tp.Prompt
 	if prompt == "" {
 		prompt = "Choose target"
 	}
@@ -260,7 +266,7 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 	if TargetUniqueRequested(sa) {
 		filtered := TargetUniqueFilter(sa, candidates, TargetsAlreadyChosen(c))
 		if len(filtered) == 0 {
-			return []state.Target{}, true
+			return []state.Target{}, true, false
 		}
 		candidates = filtered
 	}
@@ -271,7 +277,7 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 		min = max
 	}
 	if max <= 0 {
-		return nil, false
+		return nil, false, false
 	}
 	resumeSA := sa
 	if c.TargetAskResume != nil {
@@ -298,7 +304,7 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 	// enforces one pick per controller whatever host answers. The bot's
 	// KChoose default arm plus Clamp's group-aware top-up answers it
 	// validly (first offer, topped up one per new group).
-	forEach := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetsForEachPlayer)), "True")
+	forEach := tp.Has(TgtForEachPlayer)
 	for _, t := range candidates {
 		o := decision.Option{Index: len(d.Options)}
 		owner := state.PlayerID(0)
@@ -324,8 +330,19 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 		o.Label = label
 		d.Options = append(d.Options, o)
 	}
-	if Ask(h, d) == AskAsked {
-		return nil, true
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: the target set the
+		// "tgts"/"choice" arm binds, consumed as the answered re-entry
+		// consumes it (chosenTargetsFor's TargetsPickDone branch,
+		// changeZoneChosenTargetsFor's ChoiceDone branch).
+		ts := tapeAnswerTargets(ans)
+		if TargetUniqueRequested(sa) {
+			c.TargetsUnique = append(c.TargetsUnique, ts...)
+		}
+		return ts, true, true
 	}
-	return candidates[:max], true
+	if Ask(h, d) == AskAsked {
+		return nil, true, false
+	}
+	return candidates[:max], true, false
 }

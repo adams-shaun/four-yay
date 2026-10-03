@@ -98,6 +98,18 @@ func effTimeTravel(h Host, c *Ctx, sa *cards.SA) {
 			decision.Option{Index: 0, Kind: "time_travel_skip", Label: "Skip", Obj: id},
 			decision.Option{Index: 1, Kind: "time_travel_add", Label: "Add a time counter", Obj: id},
 			decision.Option{Index: 2, Kind: "time_travel_remove", Label: "Remove a time counter", Obj: id})
+		if ans, ok := AskTape(h, d); ok {
+			// The "time_travel" answer in hand (a malformed empty one
+			// skips, as the arm reads it): applied at this object, then the
+			// walk goes on.
+			choice := "time_travel_skip"
+			if len(ans) > 0 {
+				choice = ans[0].Kind
+			}
+			applyTimeTravel(h, id, choice)
+			idx++
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return
 		}

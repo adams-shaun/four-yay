@@ -73,3 +73,42 @@ func TestTriggerLineMayAsk(t *testing.T) {
 		t.Fatal("a mandatory trigger line does not ask by itself")
 	}
 }
+
+// TestSAChainMayAskAttachAndAbilitySubTargets pins the miss classes closed
+// in W3 step 2: an Equipment whose own "as this becomes attached" choice
+// (an R:Event$ Attached replacement) asks as it equips, an Attach of a
+// non-Self object (whose face is board-dependent), and an ability's
+// sub-ability target set (asked mid-resolution; a spell's is asked at cast).
+func TestSAChainMayAskAttachAndAbilitySubTargets(t *testing.T) {
+	plain := mayAskCard(t, "Name:Plain Blade\nManaCost:1\nTypes:Artifact Equipment\nK:Equip:1\nOracle:x\n")
+	paper := mayAskCard(t, "Name:Paper Probe\nManaCost:2\nTypes:Artifact Equipment\n"+
+		"R:Event$ Attached | ValidCard$ Card.Self | ValidTarget$ Creature | ReplaceWith$ ChooseColor | ActiveZones$ Battlefield\n"+
+		"SVar:ChooseColor:DB$ ChooseColor | Defined$ You\nK:Equip:1\nOracle:x\n")
+	equip := func(f *Face) *SA {
+		for _, a := range f.Abilities {
+			if a.API == "Attach" {
+				return a
+			}
+		}
+		t.Fatalf("%s: no equip ability", f.Name)
+		return nil
+	}
+	if SAChainMayAsk(equip(plain), plain.SVars, plain, true) {
+		t.Fatal("a plain Equipment's equip is ask-free")
+	}
+	if !SAChainMayAsk(equip(paper), paper.SVars, paper, true) {
+		t.Fatal("an Equipment with an Attached replacement asks as it equips")
+	}
+	if !SAChainMayAsk(equip(plain), plain.SVars, nil, true) {
+		t.Fatal("an equip with no known Self face may ask")
+	}
+	ab := mayAskCard(t, "Name:Sub Probe\nManaCost:1\nTypes:Artifact\n"+
+		"A:AB$ Pump | Cost$ 1 | Defined$ Self | SubAbility$ DBDmg\n"+
+		"SVar:DBDmg:DB$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n")
+	if !SAChainMayAsk(ab.Abilities[0], ab.SVars, ab, true) {
+		t.Fatal("an ability's sub-ability target set is asked mid-resolution")
+	}
+	if g := SAChainBoardGates(ab.Abilities[0], ab.SVars); g != GateDamage {
+		t.Fatalf("board gates %b, want the damage gate", g)
+	}
+}

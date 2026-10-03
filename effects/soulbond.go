@@ -24,12 +24,10 @@ func effPair(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	if c.SoulbondDone {
-		partner := g.Obj(c.SoulbondPartner)
+		partner := c.SoulbondPartner
 		c.SoulbondDone = false
 		c.SoulbondPartner = 0
-		if soulbondPartner(src, partner, c.Controller) {
-			h.Emit(events.Event{Kind: events.Pair, Obj: c.Source, IDs: []state.ObjID{partner.ID}})
-		}
+		soulbondPair(h, g, src, partner, c.Controller)
 		return
 	}
 	// RestrictToRemembered$ True (the "another creature enters" half of
@@ -73,10 +71,27 @@ func effPair(h Host, c *Ctx, sa *cards.SA) {
 		Source: c.Source, ResumeKind: "soulbond", ResumeSA: sa,
 		Prompt:  "You may pair " + objName(g, c.Source) + " with another unpaired creature",
 		Options: options}
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: the "soulbond" arm's
+		// partner (no option is the legitimate decline), paired exactly as
+		// the re-entry pairs it.
+		if len(ans) == 1 {
+			soulbondPair(h, g, src, ans[0].Obj, c.Controller)
+		}
+		return
+	}
 	if h.Ask(d) {
 		return
 	}
 	// A host without decisions takes the legal optional decline.
+}
+
+// soulbondPair pairs src with the answered partner when it is still a legal
+// Soulbond partner (one Pair event); a stale answer pairs nothing.
+func soulbondPair(h Host, g *state.Game, src *state.Object, partnerID state.ObjID, controller state.PlayerID) {
+	if partner := g.Obj(partnerID); soulbondPartner(src, partner, controller) {
+		h.Emit(events.Event{Kind: events.Pair, Obj: src.ID, IDs: []state.ObjID{partner.ID}})
+	}
 }
 
 func soulbondPartner(src, partner *state.Object, controller state.PlayerID) bool {

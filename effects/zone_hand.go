@@ -431,6 +431,42 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 			eventRemember(h, c, id)
 		}
 	}
+	// applyAnswered moves one owner's answered pick: the answer re-entry's
+	// branch, and the resolution kernel's served answer alike.
+	applyAnswered := func(owner state.PlayerID, hand, eligible, ans []state.ObjID) {
+		// Move exactly the answered cards that still sit in THIS owner's hand
+		// and still match the filter (a stray answer must not move an object
+		// that left the hand meanwhile), in the player's answer order.
+		// Reaching here at all means the fetch was ENTERED -- a mandatory
+		// move, or an accepted Optional$ confirmation -- so the event-backed
+		// memory is cleared exactly once here, before the answered cards are
+		// settled, even when the answer picked nothing (Forge clears at
+		// ChangeZoneEffect.changeHiddenOriginResolve 1103 before the choose,
+		// so an accepted search that finds nothing still clears).
+		forgetOther(h, c, cz.Riders.ForgetOtherRemembered)
+		var moved []state.ObjID
+		for _, id := range ans {
+			if !containsID(hand, id) {
+				continue
+			}
+			o := g.Obj(id)
+			if o == nil || o.Zone != state.ZHand {
+				continue
+			}
+			if !containsID(eligible, id) {
+				continue
+			}
+			settleHandMove(id, owner)
+			moved = append(moved, id)
+		}
+		handLibraryTail(h, g, cz, c.Source, owner, moved, to)
+		// AtEOT$ on the hand walk: the owner's answered batch is the
+		// affected set, scheduled per owner BEFORE the walk can suspend on a
+		// later owner's ask (a suspension must not lose this batch's
+		// registrations -- the re-entry skips already-answered owners and
+		// never re-schedules them).
+		scheduleAtEOT(h, c, sa, moved)
+	}
 	for i, owner := range owners {
 		hand := zoneOf(g, state.ZHand, owner)
 		eligible := eligibleByOwner[i]
@@ -441,39 +477,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 			continue
 		}
 		if done && i == cursor {
-			// Re-entry: move exactly the answered cards that still sit in THIS
-			// owner's hand and still match the filter (a stray answer must not
-			// move an object that left the hand meanwhile), in the player's
-			// answer order. Reaching this branch at all means the fetch was
-			// ENTERED -- a mandatory move, or an accepted Optional$
-			// confirmation -- so the event-backed memory is cleared exactly
-			// once here, before the answered cards are settled, even when the
-			// answer picked nothing (Forge clears at
-			// ChangeZoneEffect.changeHiddenOriginResolve 1103 before the
-			// choose, so an accepted search that finds nothing still clears).
-			forgetOther(h, c, cz.Riders.ForgetOtherRemembered)
-			var moved []state.ObjID
-			for _, id := range ans {
-				if !containsID(hand, id) {
-					continue
-				}
-				o := g.Obj(id)
-				if o == nil || o.Zone != state.ZHand {
-					continue
-				}
-				if !containsID(eligible, id) {
-					continue
-				}
-				settleHandMove(id, owner)
-				moved = append(moved, id)
-			}
-			handLibraryTail(h, g, cz, c.Source, owner, moved, to)
-			// AtEOT$ on the hand walk: the owner's answered batch is the
-			// affected set, scheduled per owner BEFORE the walk can suspend on a
-			// later owner's ask (a suspension must not lose this batch's
-			// registrations -- the re-entry skips already-answered owners and
-			// never re-schedules them).
-			scheduleAtEOT(h, c, sa, moved)
+			applyAnswered(owner, hand, eligible, ans)
 			continue
 		}
 		n := count.fixed
@@ -542,7 +546,16 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 						{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
 						{Index: 1, Kind: "no", Label: "No", Player: chooser},
 					}}
-				if Ask(h, cd) == AskAsked {
+				if ans, ok := AskTape(h, cd); ok {
+					// The resolution kernel's answer in hand: the
+					// "hand_move_confirm" re-entry's own events, then a
+					// decline skips this owner and an acceptance enters the
+					// fetch.
+					handMoveReentryEcho(h, c, cz, to)
+					if !tapeAnswerYes(ans) {
+						continue
+					}
+				} else if Ask(h, cd) == AskAsked {
 					return
 				}
 				// R-9: no host to ask -- play "may" as "do" deterministically,
@@ -693,6 +706,14 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 		// nonempty eligible hand is Min == Max == 0 -- the empty-answer-only
 		// shape -- so it is never posted; AskEmpty resolves silently through
 		// the stand-in below, which moves zero cards.
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the "hand_move"
+			// re-entry's own events, then its answered branch over the hand
+			// as it stands.
+			handMoveReentryEcho(h, c, cz, to)
+			applyAnswered(owner, zoneOf(g, state.ZHand, owner), eligible, tapeAnswerObjs(ans))
+			continue
+		}
 		oc := Ask(h, d)
 		if oc == AskAsked {
 			return // resolution suspended; the answer re-enters with Ctx.HandMove set.

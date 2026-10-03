@@ -219,8 +219,8 @@ func compilePutCounter(sa *cards.SA) *PutCounterParams {
 	p.Bolster = ParamText{Text: bolster, Present: bolsterOK}
 	support, supportOK := sa.Params["Support"]
 	p.Support = ParamText{Text: support, Present: supportOK}
-	divided, dividedOK := sa.Param(cards.PKDividedAsYouChoose)
-	p.Divided = strings.TrimSpace(divided) != ""
+	divided, dividedOK := dividedParam(sa)
+	p.Divided = dividedOK
 	choices, choicesOK := sa.Param(cards.PKChoices)
 	p.Choices = strings.TrimSpace(choices)
 	p.Chooser = sa.ParamStr(cards.PKChooser)
@@ -240,7 +240,7 @@ func compilePutCounter(sa *cards.SA) *PutCounterParams {
 	p.RememberPut = isTrue(sa.ParamStr(cards.PKRememberPut))
 	p.RememberCards = isTrue(sa.Params["RememberCards"])
 
-	p.EntryFoldBlocked = optionalOK || choicesOK || rawParamText(sa, "Divided").Present || dividedOK ||
+	p.EntryFoldBlocked = optionalOK || choicesOK || rawParamText(sa, "Divided").Present || divided.Present ||
 		randomOK || bolsterOK || supportOK || p.Adapt.Present || p.Monstrosity.Present || renownOK ||
 		perNumOK || perTypeOK || eachFromOK || rawParamText(sa, "PerDefined").Present
 

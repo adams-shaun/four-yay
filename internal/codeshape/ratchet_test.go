@@ -67,8 +67,10 @@ const (
 	// hand's EffectOwner$ read moved into it): 621 -> 619. The Mana compiler
 	// (mana_params.go: each rider read once, the plain-shape key spelling a
 	// table scan): 619 -> 610. The ManaReflected compiler (ReflectProperty$
-	// read once): 610 -> 609.
-	stringParamReads = 609
+	// read once): 610 -> 609. Measured slack on main (caa66ee75): 609 ->
+	// 608. The CopyPermanent compiler (SetCreatureTypes$, RemoveSubTypes$
+	// and NumCopies$ read once through rawParamText): 608 -> 605.
+	stringParamReads = 605
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.
@@ -134,6 +136,19 @@ const (
 	// effects/effect_params.go (codeshape.EffectFiles,
 	// codeshape.EffectOnlyKeys). It landed at zero.
 	effectParamLeaks = 0
+	// targetParamLeaks is the same census for the generic targeting tier's
+	// compiler, effects/targets_params.go (codeshape.TargetOnlyKeys): no
+	// targeting key is read anywhere in rules/ or effects/ outside it. It
+	// landed at zero.
+	targetParamLeaks = 0
+	// delayedTriggerParamLeaks is the same census for api:DelayedTrigger's compiler,
+	// effects/delayedtrigger_params.go (codeshape.DelayedTriggerFiles, codeshape.DelayedTriggerOnlyKeys). It landed
+	// at zero.
+	delayedTriggerParamLeaks = 0
+	// copyPermanentParamLeaks is the same census for api:CopyPermanent's compiler,
+	// effects/copypermanent_params.go (codeshape.CopyPermanentFiles, codeshape.CopyPermanentOnlyKeys). It landed
+	// at zero.
+	copyPermanentParamLeaks = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -299,6 +314,20 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"field to compileEffect in effects/effect_params.go) instead of reading the " +
 				"ability's Params in effects/effect.go or an Effect-only key elsewhere. " +
 				"Leaks: " + strings.Join(m.EffectLeaks, ", ")},
+		{"targetParamLeaks", m.TargetParamLeaks, targetParamLeaks,
+			"Read the targeting parameter through effects.TargetsOf's compiled TargetParams " +
+				"(add a field to compileTargets in effects/targets_params.go) instead of reading " +
+				"a targeting key from the ability's Params. Leaks: " + strings.Join(m.TargetLeaks, ", ")},
+		{"delayedTriggerParamLeaks", m.DelayedTriggerParamLeaks, delayedTriggerParamLeaks,
+			"Read the parameter through effects.DelayedTriggerOf's compiled DelayedTriggerParams (add a " +
+				"field to compileDelayedTrigger in effects/delayedtrigger_params.go) instead of reading the ability's Params in " +
+				"effects/delayed_trigger.go or a DelayedTrigger-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.DelayedTriggerLeaks, ", ")},
+		{"copyPermanentParamLeaks", m.CopyPermanentParamLeaks, copyPermanentParamLeaks,
+			"Read the parameter through effects.CopyPermanentOf's compiled CopyPermanentParams (add a " +
+				"field to compileCopyPermanent in effects/copypermanent_params.go) instead of reading the ability's Params in " +
+				"effects/copypermanent.go or a CopyPermanent-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.CopyPermanentLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +

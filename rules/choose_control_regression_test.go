@@ -534,8 +534,7 @@ func TestControlEndsAtEndOfCombatAndWhenAuraUnattaches(t *testing.T) {
 
 	e, eriette, victim := controlBoard(t, 726, "Eriette, the Beguiler")
 	aura := e.G.AddObject(card(t, "Name:Aura\nTypes:Enchantment Aura\nOracle:x\n"), 0)
-	e.emit(events.Event{Kind: events.MoveZone, Obj: aura.ID, From: state.ZLibrary, To: state.ZBattlefield})
-	e.emit(events.Event{Kind: events.Attach, Obj: aura.ID, IDs: []state.ObjID{victim.ID}})
+	stageAuraEntry(t, e, aura.ID, victim.ID)
 	sa = cards.ResolveSVar(eriette.Face().SVars, "TrigGainControl")
 	ctx = &effects.Ctx{Source: eriette.ID, Controller: 0, Targets: []state.Target{{Obj: victim.ID}}, SVars: eriette.Face().SVars}
 	ctx.TriggerSource = aura.ID

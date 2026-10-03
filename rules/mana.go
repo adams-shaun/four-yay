@@ -472,7 +472,7 @@ func (e *Engine) offerSacXMods(p state.PlayerID, id state.ObjID, ability bool, b
 // yet and therefore conservatively contribute no potential discount.
 func (e *Engine) costPotentialTargets(p state.PlayerID, id state.ObjID, scope costScope) []state.Target {
 	sa := e.costTargetingSA(id, scope)
-	if sa == nil || sa.ParamStr(cards.PKValidTgts) == "" || sa.ParamStr(cards.PKChoices) != "" {
+	if sa == nil || !effects.TargetsOf(sa).Targeted() || sa.ParamStr(cards.PKChoices) != "" {
 		return nil
 	}
 	var excludeSelf state.ObjID

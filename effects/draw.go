@@ -31,6 +31,16 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 	// The corpus uses both True and AllReplaced; both record cards this
 	// ability's draws actually moved into a hand (replaced draws are not here).
 	remember := dp.RememberDrawn
+	// tapeReentry is what a legacy re-entry re-runs from this primitive's
+	// first line before it reaches its answer: the unread-parameter Note
+	// and the capture exclusion. A resolution-kernel tape answer continues
+	// in place instead, so it emits the same at the same point.
+	tapeReentry := func() {
+		noteUnreadParams(h, c, "Draw", dp.Unread)
+		if remember {
+			c.Remembered = rememberedExcludingCapture(h, c)
+		}
+	}
 	if remember {
 		// A triggered ability's resolution starts with its fire-time event
 		// capture already in Ctx.Remembered (rules/resolution.go seeds both
@@ -71,6 +81,13 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 	if decider := dp.OptionalDecider; decider != "" && total > 0 {
 		answered := c.DrawOpt
 		c.DrawOpt = "" // fx42 scoping: consumed once; a nested optional draw poses its own ask
+		if answered == "" && c.DrawDone > 0 {
+			// A Dredge re-entry mid-draw (the "dredge" arm restored the draw
+			// cursor): draws happen only after the decider said yes, so the
+			// election is already made -- re-posing it would ask again and,
+			// on a second yes, restart the draws from zero.
+			answered = "yes"
+		}
 		if answered == "" {
 			canDraw := false
 			for _, t := range targets {
@@ -112,7 +129,15 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 						{Index: 0, Kind: "yes", Label: "Yes — draw", Player: seat},
 						{Index: 1, Kind: "no", Label: "No", Player: seat},
 					}
-					if Ask(h, d) == AskAsked {
+					if ans, ok := AskTape(h, d); ok {
+						// The resolution kernel's answer in hand (the
+						// "draw_optional" arm's DrawOpt).
+						answered = "no"
+						if answerYes(ans) {
+							answered = "yes"
+						}
+						tapeReentry()
+					} else if Ask(h, d) == AskAsked {
 						return
 					}
 				}
@@ -181,18 +206,30 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 					d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 						Kind: "card", Label: label, Obj: id, Player: p})
 				}
-				if Ask(h, d) == AskAsked {
+				if ans, ok := AskTape(h, d); ok {
+					// The resolution kernel's answer in hand: the count the
+					// "draw_upto" arm binds, drawn for this target now.
+					c.DrawUptoCount, c.DrawUptoAnswered = int32(len(ans)), true
+					tapeReentry()
+				} else if Ask(h, d) == AskAsked {
 					return
+				} else {
+					// No-host (R-9): the pre-ask mandatory draw of what was offered.
+					c.DrawUptoCount, c.DrawUptoAnswered = m, true
 				}
-				// No-host (R-9): the pre-ask mandatory draw of what was offered.
-				c.DrawUptoCount, c.DrawUptoAnswered = m, true
 			}
 			for c.DrawDone < c.DrawUptoCount {
 				var lib []state.ObjID
 				if remember {
 					lib = zoneOf(h.Game(), state.ZLibrary, p)
 				}
-				drawFor(h, p, int(c.DrawDone), sa, drawUptoRider{idx: idx, count: c.DrawUptoCount})
+				if drawFor(h, p, int(c.DrawDone), sa, drawUptoRider{idx: idx, count: c.DrawUptoCount}) {
+					// A tape-served Dredge answer, already applied: on past
+					// this draw, as the "dredge" re-entry continues.
+					tapeReentry()
+					c.DrawDone++
+					continue
+				}
 				if h.Suspended() {
 					// A Dredge choice is between individual draws. Its resume
 					// point restores this target's cursor (idx, answered count
@@ -216,7 +253,13 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 		if remember {
 			lib = zoneOf(h.Game(), state.ZLibrary, p)
 		}
-		drawFor(h, p, int(c.DrawDone), sa, drawUptoRider{})
+		if drawFor(h, p, int(c.DrawDone), sa, drawUptoRider{}) {
+			// A tape-served Dredge answer, already applied: on past this
+			// draw, as the "dredge" re-entry continues.
+			tapeReentry()
+			c.DrawDone++
+			continue
+		}
 		if h.Suspended() {
 			// A Dredge choice is between individual draws. Its resume point
 			// carries this cursor; do not run later draws, Remembered or

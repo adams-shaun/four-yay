@@ -178,7 +178,7 @@ func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
 					var tbms []*cards.SA
 					for _, name := range names {
 						if sub := cards.ResolveSVar(svars, name); sub != nil &&
-							strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
+							effects.TargetsOf(sub).Targeted() {
 							tbms = append(tbms, sub)
 						}
 					}
@@ -275,6 +275,11 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) state.ObjID {
 	}
 	move := *e.etbMove
 	opt := chosen[0]
+	// CR 303.4f: a non-cast Aura's "what it enchants" answer (its first
+	// as-enters election) is recorded on the entry record, which the
+	// re-emitted move's fold attaches (rules/aura_entry.go); the Attach event
+	// is the logged record. No option kind of its own reaches the switch.
+	answerAuraEntry(e, &move, &opt)
 	switch opt.Kind {
 	case "name":
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "name", Text: opt.Label})

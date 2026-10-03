@@ -1,9 +1,8 @@
 package rules
 
 import (
-	"strings"
-
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -17,13 +16,13 @@ func (e *Engine) TargetableObjects(triggerCard state.ObjID) []state.ObjID {
 	}
 	var sa *cards.SA
 	if spell.Ability != nil {
-		if strings.TrimSpace(spell.Ability.ParamStr(cards.PKValidTgts)) != "" {
+		if effects.TargetsOf(spell.Ability).Targeted() {
 			sa = spell.Ability
 		}
 	} else if face := spell.Face(); face != nil {
 		sa = face.SpellAbility()
 	}
-	if sa == nil || strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
+	if sa == nil || !effects.TargetsOf(sa).Targeted() {
 		return nil
 	}
 	candidates := e.legalTargetCandidates(spell.Controller, spell.ID, spell.ID, sa)

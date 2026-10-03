@@ -31,7 +31,7 @@ func TestOrdinaryAttachRechecksEnchantOpponentForEachSeat(t *testing.T) {
 		if o.Owner == 0 && o.Card == archnemesis {
 			id = o.ID
 			if o.Zone != state.ZBattlefield {
-				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone, To: state.ZBattlefield})
+				stageAuraEntry(t, e, id, state.PlayerRef(1))
 			}
 			break
 		}

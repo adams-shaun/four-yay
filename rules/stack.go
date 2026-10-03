@@ -13,8 +13,6 @@
 package rules
 
 import (
-	"strings"
-
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
@@ -117,7 +115,7 @@ func (e *Engine) resolveTop() {
 		// and has none recorded resolves untargeted rather than fizzling --
 		// targetMin(o.Ability)==0 && len(targets)==0 is the exemption.
 		if !charmHandled {
-			if spec := o.Ability.ParamStr(cards.PKValidTgts); spec != "" && !(e.resolvedTargetMin(o.Controller, id, o.Ability, 0) == 0 && len(targets) == 0) {
+			if spec := effects.TargetsOf(o.Ability).ValidTgts; spec != "" && !(e.resolvedTargetMin(o.Controller, id, o.Ability, 0) == 0 && len(targets) == 0) {
 				legal := e.legalTargets(targets, o.Ability, targetZones(o.Ability), o.Controller, o.Source, id)
 				// subLegal > 0 keeps a chain alive whose ROOT targets all
 				// became illegal but whose pre-asked sub target did not
@@ -579,7 +577,7 @@ func (e *Engine) resolveTop() {
 		// permits it to resolve.
 		// Requirement N2, the same exemption as the ability branch: an
 		// untargeted-with-Min-0 spell resolves rather than fizzling.
-		if spec := targetSA.ParamStr(cards.PKValidTgts); spec != "" && !(e.resolvedTargetMin(o.Controller, id, targetSA, 0) == 0 && len(targets) == 0) {
+		if spec := effects.TargetsOf(targetSA).ValidTgts; spec != "" && !(e.resolvedTargetMin(o.Controller, id, targetSA, 0) == 0 && len(targets) == 0) {
 			legal := e.legalTargets(targets, targetSA, targetZones(targetSA), o.Controller, id, id)
 			if len(legal) == 0 && subLegal == 0 {
 				// CR 608.2b: every target became illegal. This spell does
@@ -666,7 +664,7 @@ func (e *Engine) resolveTop() {
 		ctx.AllTargets = e.chainTargetUnion(id, sa, targets)
 		// Same marker as the ability branch: the cast-flow target ask
 		// (targetAsk's targetSA) offered exactly this spell's targeting.
-		if targetSA != nil && strings.TrimSpace(targetSA.ParamStr(cards.PKValidTgts)) != "" {
+		if targetSA != nil && effects.TargetsOf(targetSA).Targeted() {
 			ctx.TargetsOffered = true
 			ctx.OfferedSA = targetSA
 		}
@@ -856,10 +854,8 @@ func (e *Engine) recheckCastSubTargets(id state.ObjID, root *cards.SA, controlle
 }
 
 func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []state.Zone, you state.PlayerID, source state.ObjID, self state.ObjID) []state.Target {
-	spec := ""
-	if sa != nil {
-		spec = sa.ParamStr(cards.PKValidTgts)
-	}
+	tp := effects.TargetsOf(sa)
+	spec := tp.ValidTgts
 	var legal []state.Target
 	// The resolution recheck, unlike a target offer, has this stack object's
 	// Targets available. Targeted* predicates may read precisely this binding;
@@ -897,8 +893,8 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 	triggeredCardController := state.PlayerID(0)
 	triggeredCardControllerOK := false
 	if sa != nil {
-		controllerProp = strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithControllerProperty))
-		if strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithDefinedController)) == "NonTriggeredCardController" {
+		controllerProp = tp.ControllerProperty
+		if tp.Has(effects.TgtNonTriggeredController) {
 			nonTriggeredController = true
 			triggeredCardController, triggeredCardControllerOK = effects.TriggeredCardController(e.G, sc.TriggerContext, sc.Remembered)
 		}
@@ -912,10 +908,10 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 	hasSharedRef := false
 	sharedRef := state.ObjID(0)
 	var sharedWhitelist []string
-	if ref := sharedCardTypeRef(sa); ref != "" {
+	if ref := tp.SharedCardType; ref != "" {
 		hasSharedRef = true
 		sharedRef = e.sharedCardTypeReference(ref, source, sc)
-		sharedWhitelist = sharedTypesWhitelist(sa)
+		sharedWhitelist = tp.SharedTypes
 	}
 	for _, t := range targets {
 		if t.IsPlayer {
@@ -970,7 +966,7 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 				continue
 			}
 			if o.Zone == state.ZStack && (sa == nil || !e.stackKindAdmits(
-				stackTargetKindTokens(sa.ParamStr(cards.PKTargetType)), e.stackObjKind(o), o, o.Controller, you)) {
+				tp.TypeTokens, e.stackObjKind(o), o, o.Controller, you)) {
 				continue
 			}
 			// The cast-provenance split at the resolution recheck too
@@ -998,10 +994,10 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 	}
 	// CR 608.2b / CR 601.2c: the per-controller targeting requirement is
 	// rechecked on the surviving set too -- see narrowDifferentControllers.
-	if sa != nil && strings.EqualFold(sa.ParamStr(cards.PKTargetsWithDifferentControllers), "True") {
+	if tp.Has(effects.TgtDifferentControllers) {
 		legal = e.narrowDifferentControllers(legal)
 	}
-	if sa != nil && strings.EqualFold(sa.ParamStr(cards.PKTargetsWithSameController), "True") {
+	if tp.Has(effects.TgtSameController) {
 		legal = e.narrowSameController(legal)
 	}
 	legal = e.narrowSetProps(sa, legal)
@@ -1095,7 +1091,7 @@ func (e *Engine) resolveAbilitySacrificing(source state.ObjID, controller state.
 	// The caller supplies the chosen targets -- the announcement or placement
 	// ask's answer -- so the generic ValidTgts$ pre-ask must not re-pose it
 	// for an SA that declares targets (task mvts1).
-	if sa != nil && strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" {
+	if sa != nil && effects.TargetsOf(sa).Targeted() {
 		ctx.TargetsOffered = true
 	}
 	effects.SetSVars(ctx, svars)

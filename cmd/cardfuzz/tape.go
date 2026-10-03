@@ -64,10 +64,14 @@ type missRow struct {
 	n     int
 }
 
-var tapeMisses missCensus
+var tapeMisses, tapeLegacy missCensus
 
-// startTapeCensus installs the process-wide predicate-miss observer.
-func startTapeCensus() { rules.SetTapeMissObserver(tapeMisses.add) }
+// startTapeCensus installs the process-wide predicate-miss and legacy-ask
+// observers.
+func startTapeCensus() {
+	rules.SetTapeMissObserver(tapeMisses.add)
+	rules.SetTapeLegacyObserver(tapeLegacy.add)
+}
 
 // printTapeReport prints the kernel counters, the world probe's counts and
 // the miss census.
@@ -83,6 +87,15 @@ func printTapeReport() {
 		total += r.n
 	}
 	fmt.Printf("== predicate miss census: %d misses in %d classes ==\n", total, len(rows))
+	for _, r := range rows {
+		fmt.Printf("%6d  %s\n", r.n, r.class)
+	}
+	rows = tapeLegacy.rows()
+	total = 0
+	for _, r := range rows {
+		total += r.n
+	}
+	fmt.Printf("== legacy asks ending a tape run: %d in %d classes ==\n", total, len(rows))
 	for _, r := range rows {
 		fmt.Printf("%6d  %s\n", r.n, r.class)
 	}

@@ -272,11 +272,11 @@ func (e *Engine) targetAsk() bool {
 	// advance to the next stage while one remains, so a half with a target
 	// requirement is still asked. When no stage declares targets the flow
 	// proceeds directly to payment, exactly as a single targetless cast does.
-	for sa != nil && sa.ParamStr(cards.PKValidTgts) == "" && e.castHasNextTargetStage(pc, o) {
+	for sa != nil && !effects.TargetsOf(sa).Targeted() && e.castHasNextTargetStage(pc, o) {
 		pc.targetStage++
 		sa = e.castStageSA(pc, o, f)
 	}
-	if sa == nil || sa.ParamStr(cards.PKValidTgts) == "" {
+	if sa == nil || !effects.TargetsOf(sa).Targeted() {
 		return false
 	}
 	// A proposal whose resolved mana cost can no longer be paid, and with no
@@ -370,7 +370,7 @@ func (e *Engine) targetAsk() bool {
 			if status, _ := effects.CharmCrossModeShape(f.SVars, choices); status == effects.CharmUniqueSupported {
 				var tbms []*cards.SA
 				for _, name := range o.ChosenModes {
-					if sub := cards.ResolveSVar(f.SVars, name); sub != nil && strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
+					if sub := cards.ResolveSVar(f.SVars, name); sub != nil && effects.TargetsOf(sub).Targeted() {
 						tbms = append(tbms, sub)
 					}
 				}
@@ -417,6 +417,11 @@ func (e *Engine) targetAsk() bool {
 	// busts the cap stays offered: the wire contract rejects the combination.
 	candidates, powerCap, powerCapped := e.totalPowerCappedCandidates(candidates, pc.player, pc.card, sa, pc.x)
 	candidates, cmcCap, cmcCapped := e.totalCMCCappedCandidates(candidates, pc.player, pc.card, sa, pc.x)
+	// CR 601.2c/733.1: a root target whose choice leaves a later
+	// TargetUnique$ chain link ("another target creature") no distinct legal
+	// target can only end in the reversal; withhold it like an unaffordable
+	// one (uniqueChainViableCandidates).
+	candidates = uniqueChainViableCandidates(e, pc, castSubAskLinks(e, pc, sa), 0, nil, min, candidates)
 	// Forge's per-controller selection shapes (TargetsForEachPlayer$ one per
 	// player; TargetsWithDifferentControllers$ one per controller): the same
 	// bounds/group/capacity read the trigger-path askTarget uses, so a OneEach
@@ -610,7 +615,7 @@ func (e *Engine) collectSubTargetPreAsks(root *cards.SA) []*cards.SA {
 	}
 	var out []*cards.SA
 	for sa := root.Sub; sa != nil; sa = sa.Sub {
-		if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
+		if !effects.TargetsOf(sa).Targeted() {
 			continue
 		}
 		if sa.CompiledAPI() == cards.APIChangeZone || sa.API == "ChangeZone" {
@@ -762,13 +767,7 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 		//     chain is a target at all.
 		//   - a link the census cannot judge yet (castSubPreAskable), which
 		//     also keeps its mid-resolution ask.
-		if pc.mode != "fuse" && pc.mode != "overloaded" {
-			for _, sub := range e.collectSubTargetPreAsks(root) {
-				if e.castSubPreAskable(pc, sub) {
-					pc.subAsks = append(pc.subAsks, sub)
-				}
-			}
-		}
+		pc.subAsks = castSubAskLinks(e, pc, root)
 		pc.subAns = make([][]state.Target, len(pc.subAsks))
 	}
 	for pc.subStage < len(pc.subAsks) {
@@ -803,6 +802,10 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 				}
 			}
 			candidates = filtered
+			// A later unique link must avoid this answer too: withhold a
+			// candidate that leaves it nothing (uniqueChainViableCandidates).
+			subMin, _ := e.resolvedTargetBounds(pc.player, pc.card, sub, pc.x)
+			candidates = uniqueChainViableCandidates(e, pc, pc.subAsks, pc.subStage+1, chosen, subMin, candidates)
 		}
 		min, max := e.resolvedTargetBounds(pc.player, pc.card, sub, pc.x)
 		if min > 0 && len(candidates) < min {
@@ -874,14 +877,14 @@ func (e *Engine) castSubPreAskable(pc *pendingCast, sub *cards.SA) bool {
 // declaration is relative to an EARLIER target of the same spell or ability:
 // its spec, its controller restriction, its chooser, or a dynamic bound.
 func subTargetingReadsRootTarget(sub *cards.SA, svars map[string]string) bool {
-	for _, v := range []string{sub.ParamStr(cards.PKValidTgts), sub.ParamStr(cards.PKTargetsWithDefinedController),
-		sub.ParamStr(cards.PKTargetingPlayer)} {
+	tp := effects.TargetsOf(sub)
+	for _, v := range [...]string{tp.ValidTgts, tp.DefinedController, tp.TargetingPlayer} {
 		if strings.Contains(v, "Targeted") || strings.Contains(v, "ParentTarget") {
 			return true
 		}
 	}
-	return bodyReadsRootTarget(sub.ParamStr(cards.PKTargetMin), svars, 0) ||
-		bodyReadsRootTarget(sub.ParamStr(cards.PKTargetMax), svars, 0)
+	return bodyReadsRootTarget(tp.Min.Text, svars, 0) ||
+		bodyReadsRootTarget(tp.Max.Text, svars, 0)
 }
 
 // castSubTargetsOwed reports whether a chain link behind an optional

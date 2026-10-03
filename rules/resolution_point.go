@@ -166,8 +166,7 @@ type resumePoint struct {
 	forgetOtherSnapshot []state.Target   `clone:"deep"`
 	forgetOtherOwners   []state.PlayerID `clone:"deep"`
 	forgetOther         forgetOtherRide  `clone:"deep"`
-	digUntilMove        string           `clone:"deep"`
-	digUntilMoveDone    bool             `clone:"deep"`
+	digUntilMove        string           `clone:"deep"` // "" until answered
 	// clonePick/clonePickDone ride a DB$ Clone's answered Choices$ pick across
 	// a later Optional$ may-copy ask in the same walk (the Decision.ResumeClonePick
 	// rider, Ask copies them here): the re-entry's Choices$ branch consumes
@@ -216,6 +215,11 @@ type resumePoint struct {
 	// resumed Ctx re-binds both so the answered pick is appended and the next
 	// chooser is asked. Nil for every other ask.
 	numberPicks []int32 `clone:"deep"`
+	// publishedSVars are the resolution-scoped SVar bindings the asking
+	// chain had published (effects.Ctx.PublishedSVars: DealDamage's
+	// ExcessSVar$, read by Nahiri's Warcrafting's DigNum$ X after its own
+	// ask). The resume re-binds them over the rebuilt SVar table.
+	publishedSVars []effects.SVarBinding `clone:"deep"`
 	// flipCursor is the DB$ FlipCoin loop position a kind "flip_rest" frame
 	// re-enters with (the remaining flips a per-flip sub-ability's nested ask
 	// left unrun).
@@ -395,7 +399,12 @@ type resumePoint struct {
 	// re-draw the seeded generator and answer a different question. Plain
 	// value data, cloned with the point; a replay re-derives the same rolls
 	// from the same seeded draws. Nil for every other ask.
-	rolls []int32               `clone:"share"`
+	//
+	// rolls.ride is the resolving chain's DB$ RollDice publications at ANY
+	// ask (effects.RollRide): the resume rebuilds a fresh Ctx, so a chained
+	// reader of the roll (NumCards$ Result) after the ask gets them back.
+	// Immutable once captured (both ends copy), so frames share it.
+	rolls rollResume            `clone:"share"`
 	clash *decision.ClashResume `clone:"deep"`
 	// replSource is the host of the replacement whose body asked (the
 	// ReplaceWith$ body's own Ctx.Source); zero outside a replacement.
@@ -547,4 +556,12 @@ type contFrame struct {
 // forget-other-remembered cursor's two flags, re-bound on the resumed Ctx.
 type forgetOtherRide struct {
 	ready, cleared bool
+}
+
+// rollResume is the roll state a resume point carries: the asked dice of a
+// choose-one-result RollDice ask, and the chain's roll publications at the
+// ask (resumePoint.rolls).
+type rollResume struct {
+	dice []int32
+	ride effects.RollRide
 }

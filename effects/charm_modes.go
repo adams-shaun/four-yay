@@ -1,7 +1,6 @@
 package effects
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -17,12 +16,12 @@ import (
 // ModeTargetSpec is a mode body's ValidTgts$ spec, trimmed: "" when the mode
 // declares no targets.
 func ModeTargetSpec(sub *cards.SA) string {
-	return strings.TrimSpace(sub.ParamStr(cards.PKValidTgts))
+	return TargetsOf(sub).ValidTgts
 }
 
 // modeTargetUnique reports a mode body's TargetUnique$ True.
 func modeTargetUnique(sub *cards.SA) bool {
-	return strings.EqualFold(sub.ParamStr(cards.PKTargetUnique), "True")
+	return TargetsOf(sub).Has(TgtUnique)
 }
 
 // modeUnlessCost is a mode body's UnlessCost$, trimmed.
@@ -36,15 +35,12 @@ func modeUnlessCost(sub *cards.SA) string {
 // combined ask.
 func charmUniqueBounds(sa *cards.SA) (min, max int) {
 	min, max = 1, 1
-	if v, ok := sa.Param(cards.PKTargetMin); ok {
-		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
-			min = n
-		}
+	tp := TargetsOf(sa)
+	if n, ok := literalInt(tp.Min); ok {
+		min = n
 	}
-	if v, ok := sa.Param(cards.PKTargetMax); ok {
-		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
-			max = n
-		}
+	if n, ok := literalInt(tp.Max); ok {
+		max = n
 	}
 	if min < 1 {
 		min = 1

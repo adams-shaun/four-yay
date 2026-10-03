@@ -210,15 +210,38 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 				d.Options = append(d.Options, decision.Option{Index: len(cands), Kind: "decline",
 					Label: "No — do not copy", Player: c.Controller})
 			}
-			switch Ask(h, d) {
-			case AskAsked:
-				return // resolution suspended; the answer re-enters with Ctx.ClonePick set.
-			case AskNoHost, AskEmpty:
-				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-					Text: "Clone Choices$ picks the first eligible object (no engine host to ask)"})
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: the pick the
+				// "clone_choice" re-entry consumes (a zero id is the
+				// optional decline, or a malformed answer's loud no-copy).
+				// The pick also rides a later Optional$ ask exactly as the
+				// re-entry's answered fields do.
+				pick := state.ObjID(0)
+				if len(ans) > 0 {
+					pick = ans[0].Obj
+				}
+				clonePick, clonePickDone = pick, true
+				if pick == 0 {
+					if optional {
+						return
+					}
+					h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+						Text: "Clone Choices$ answer named no object; no copy"})
+					return
+				}
+				source = []state.Target{{Obj: pick}}
+				chosenPick = pick
+			} else {
+				switch Ask(h, d) {
+				case AskAsked:
+					return // resolution suspended; the answer re-enters with Ctx.ClonePick set.
+				case AskNoHost, AskEmpty:
+					h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+						Text: "Clone Choices$ picks the first eligible object (no engine host to ask)"})
+				}
+				source = []state.Target{{Obj: cands[0].Obj}}
+				chosenPick = cands[0].Obj
 			}
-			source = []state.Target{{Obj: cands[0].Obj}}
-			chosenPick = cands[0].Obj
 		}
 	default:
 		// No Defined$/Choices$: the SA's own chosen target is the object to
@@ -331,11 +354,19 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 					{Index: 0, Kind: "yes", Label: "Yes — make the copy", Player: c.Controller},
 					{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
 				}}
-			if Ask(h, d) == AskAsked {
-				return // resolution suspended; the answer re-enters with Ctx.Clone set.
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: the "clone"
+				// re-entry copies on a yes and declines otherwise.
+				if len(ans) == 0 || ans[0].Kind != "yes" {
+					return
+				}
+			} else {
+				if Ask(h, d) == AskAsked {
+					return // resolution suspended; the answer re-enters with Ctx.Clone set.
+				}
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+					Text: "Clone Optional$ resolved as take (no engine host to ask)"})
 			}
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-				Text: "Clone Optional$ resolved as take (no engine host to ask)"})
 		} else if cloneAns != "yes" {
 			// The answered decline: no copy. The decision_made event already
 			// carries the answer, so nothing else is emitted.

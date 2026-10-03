@@ -248,7 +248,7 @@ func TestDigUntilForgetOtherRememberedAsk(t *testing.T) {
 	}
 	r := forgetRide{d: h.lastAsk}
 	c = r.ctx(&Ctx{Source: src.ID, Controller: 0})
-	c.DigUntilMove, c.DigUntilMoveDone = "yes", true
+	c.DigUntilMove = "yes"
 	h.askResult = false
 	Resolve(h, c, body)
 	if c.ForgetOtherReady || c.ForgetOtherCleared {

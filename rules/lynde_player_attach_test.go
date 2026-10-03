@@ -39,7 +39,13 @@ func lyndeBoard3(t *testing.T, reg *cards.Registry, names ...string) (*Engine, m
 			continue
 		}
 		if o.Zone != state.ZBattlefield {
-			e.emit(events.Event{Kind: events.MoveZone, Obj: o.ID, From: o.Zone, To: state.ZBattlefield})
+			if f := o.Face(); f != nil && faceIsAura(f) {
+				// Hand-built: the Curse is placed unattached and the test
+				// attaches it (a real entry would pose CR 303.4f).
+				stageRawEntry(t, e, o.ID)
+			} else {
+				e.emit(events.Event{Kind: events.MoveZone, Obj: o.ID, From: o.Zone, To: state.ZBattlefield})
+			}
 		}
 		ids[o.Face().Name] = o.ID
 	}

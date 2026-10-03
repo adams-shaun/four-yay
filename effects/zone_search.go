@@ -50,18 +50,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 	// bare `Remembered`, Assemble the Team's `TopThirdOfLibrary`) offers the
 	// resolved pool and never the whole library. Unresolved fails CLOSED:
 	// one Note, an empty pool, no options -- never a full-library search.
-	var cfdPool map[state.ObjID]bool
-	cfdActive := false
-	cfdResolved := true
-	if raw := cz.ChooseFromDefined; raw != "" {
-		cfdActive = true
-		var ok bool
-		if cfdPool, ok = chooseFromDefinedPool(h, c, raw); !ok {
-			cfdResolved = false
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-				Text: "ChangeZone ChooseFromDefined$ " + raw + " is not resolvable; nothing is offered"})
-		}
-	}
+	cfdPool, cfdActive, cfdResolved := searchChooseFromDefined(h, c, cz)
 	for targetIndex, owner := range players {
 		if targetIndex < start {
 			continue
@@ -111,7 +100,15 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 						{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
 						{Index: 1, Kind: "no", Label: "No", Player: chooser},
 					}}
-				if Ask(h, cd) == AskAsked {
+				if ans, ok := AskTape(h, cd); ok {
+					// The resolution kernel's answer in hand: the
+					// "search_confirm" re-entry's own events, then a decline
+					// skips this player and an acceptance enters the fetch.
+					searchReentryEcho(h, c, cz, owner, zones, false)
+					if !tapeAnswerYes(ans) {
+						continue
+					}
+				} else if Ask(h, cd) == AskAsked {
 					return
 				}
 				// R-9: no host to ask -- play "may" as "do" deterministically,
@@ -123,19 +120,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 				searchConfirmDone = false // this player's acceptance is consumed
 			}
 		}
-		lib := zoneOf(g, state.ZLibrary, owner)
-		if !zoneIn(zones, state.ZLibrary) {
-			lib = nil
-		}
-		lookWindow := searchLibraryWindow(h, c, cz, lib)
-		if len(lookWindow) < len(lib) && !cz.NoLooking {
-			if cz.Reveal {
-				h.Emit(events.Event{Kind: events.Note, Player: owner, IDs: append([]state.ObjID(nil), lookWindow...)})
-			} else {
-				emitLook(h, []state.PlayerID{searchChooser(h, c, cz)}, state.ZLibrary, lookWindow,
-					"looks at the top of the library")
-			}
-		}
+		lib, lookWindow := searchLook(h, c, cz, owner, zones)
 		if shufflePending && targetIndex == shuffleTarget {
 			c.SearchShuffle = shuffleAnswer
 			// Restore the answered tail just long enough for the shared helper
@@ -505,6 +490,18 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 		// game. AskEmpty resolves it silently through the stand-in below: the
 		// search still shuffles, and a fail-to-find is legitimate under
 		// CR 701.23b, so nothing is degraded and no R-9 Note is recorded.
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the "search" re-entry's
+			// own events (its prelude and this library's look), then the
+			// answered ordered subset applies exactly as that re-entry's
+			// SearchDone branch applies it.
+			searchReentryEcho(h, c, cz, owner, zones, true)
+			c.LibraryTarget = targetIndex
+			if applyLibrarySearch(h, c, sa, cz, owner, to, tapeAnswerObjs(ans), zones) {
+				return
+			}
+			continue
+		}
 		oc := Ask(h, d)
 		if oc == AskAsked {
 			return
@@ -700,12 +697,22 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 				{Index: 0, Kind: "yes", Label: "Yes", Player: c.Controller},
 				{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
 			}}
-		if Ask(h, d) == AskAsked {
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the
+			// "defined_library_optional" re-entry's own events, then the
+			// answer decides the move exactly as there.
+			definedLibraryReentryEcho(h, c, cz)
+			answer = "no"
+			if tapeAnswerYes(ans) {
+				answer = "yes"
+			}
+		} else if Ask(h, d) == AskAsked {
 			return true
+		} else {
+			// AskNoHost cannot represent a decline. Preserve the prior direct-move
+			// fallback rather than leaving a headless resolution suspended.
+			answer = "yes"
 		}
-		// AskNoHost cannot represent a decline. Preserve the prior direct-move
-		// fallback rather than leaving a headless resolution suspended.
-		answer = "yes"
 	}
 	if optional && answer == "no" {
 		return true
@@ -1279,6 +1286,7 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owne
 		ev := moveZoneEvent(c, id, state.ZLibrary, to)
 		ev.Player = owner
 		applyMoveFaceDown(h, c, &cz.Riders.FaceDownRiders, &ev, to)
+		markChangeZoneAttach(h, c, sa, cz, &ev)
 		h.Emit(ev)
 		if to == state.ZExile && c.Source != 0 {
 			if o := g.Obj(id); o != nil && !o.IsToken {

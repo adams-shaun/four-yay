@@ -263,7 +263,7 @@ func effPutCounterAll(h Host, c *Ctx, sa *cards.SA) {
 	if strings.TrimSpace(sa.ParamStr(cards.PKPlacer)) != "" {
 		exotic = append(exotic, "Placer$")
 	}
-	if strings.TrimSpace(sa.ParamStr(cards.PKTargetUnique)) != "" {
+	if TargetsOf(sa).Has(TgtUniqueSet) {
 		exotic = append(exotic, "TargetUnique$")
 	}
 	if strings.TrimSpace(sa.Params["AmountByChosenMap"]) != "" {
@@ -276,7 +276,7 @@ func effPutCounterAll(h Host, c *Ctx, sa *cards.SA) {
 	// exotic shape: anything else (Corrosion's "Opponent", a named
 	// selector, a compound) would fall through to the whole-table branch
 	// below and sweep the WRONG-WIDE set silently. Loud instead.
-	if tgts := strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)); tgts != "" && !strings.EqualFold(tgts, "Player") {
+	if tgts := TargetsOf(sa).ValidTgts; tgts != "" && !strings.EqualFold(tgts, "Player") {
 		exotic = append(exotic, "ValidTgts$ "+tgts)
 	}
 	if len(exotic) > 0 {
@@ -310,7 +310,7 @@ func putCounterAllSweep(h Host, c *Ctx, sa *cards.SA, spec, kind string, n int32
 		return
 	}
 	players := h.Game().AliveFrom(0)
-	if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "Player" {
+	if TargetsOf(sa).ValidTgts == "Player" {
 		players = nil
 		for _, t := range c.Targets {
 			if t.IsPlayer {
@@ -454,7 +454,7 @@ func effRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 	if strings.TrimSpace(sa.Params["CounterNumShared"]) != "" {
 		exotic = append(exotic, "CounterNumShared$")
 	}
-	if zone := strings.TrimSpace(sa.ParamStr(cards.PKTgtZone)); zone != "" && !strings.EqualFold(zone, "Battlefield") {
+	if zone := TargetsOf(sa).ZoneText; zone != "" && !strings.EqualFold(zone, "Battlefield") {
 		exotic = append(exotic, "TgtZone$ "+zone)
 	}
 	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberAmount)), "True") {
@@ -709,6 +709,12 @@ func removeCounterChoose(h Host, c *Ctx, sa *cards.SA, ans []state.ObjID, done b
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 			Kind: "counter_pick", Label: name, Obj: id, Player: c.Controller})
 	}
+	if ans, ok := AskTape(h, d); ok {
+		// The "counter_pick" answer in hand: the re-entry's removal, with
+		// the count read exactly as the re-entry reads it.
+		removeCounterPickApply(h, c, sa, zone, kind, Num(h, c, sa, "CounterNum", 1), counterAnswerObjs(ans))
+		return
+	}
 	if Ask(h, d) == AskAsked {
 		return // resolution suspended; the answer re-enters with Ctx.CounterPick set.
 	}
@@ -897,6 +903,12 @@ func effAddOrRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 				Kind: "aor_skip", Label: "Do nothing", Obj: target.ID, Player: decider})
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The "aor_elect" answer in hand: the re-entry's application
+			// (its multi-target Note first, as the re-entered walk emits it).
+			aorTapeApply(h, c, sa, target, ans, amount, objTargets > 1)
+			return
+		}
 		if Ask(h, d) == AskAsked {
 			return // resolution suspended; the answer re-enters with Ctx.AorElect/AorKind set.
 		}
@@ -921,12 +933,55 @@ func effAddOrRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 				Kind: "aor_skip:" + k, Label: "Do nothing", Obj: target.ID, Player: decider})
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The "aor_elect" answer in hand: apply it and walk on to the
+			// next kind, as the re-entered walk does.
+			aorTapeApply(h, c, sa, target, ans, amount, objTargets > 1)
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return // resolution suspended; the answer re-enters with Ctx.AorElect/AorKind set.
 		}
 		// No-host fallback (R-9): the first option — remove — the exact mirror
 		// of botpolicy's first-option KChoose answer.
 		aorApplyAct(h, c, sa, target, k, "remove", amount)
+	}
+}
+
+// aorAnswer decodes an "aor_elect" answer exactly as rules' resume arm does:
+// the election ("remove", "put" or "skip") and its kind, parsed out of the
+// answered option's own encoding ("aor_remove:<kind>"). A malformed answer
+// elects remove with no kind.
+func aorAnswer(ans []decision.Option) (elect, kind string) {
+	elect = "remove"
+	if len(ans) == 0 {
+		return elect, ""
+	}
+	if ans[0].Kind == "aor_skip" {
+		return "skip", ""
+	}
+	if strings.HasPrefix(ans[0].Kind, "aor_put:") {
+		elect = "put"
+	} else if strings.HasPrefix(ans[0].Kind, "aor_skip:") {
+		elect = "skip"
+	}
+	if _, k, found := strings.Cut(ans[0].Kind, ":"); found {
+		kind = k
+	}
+	return elect, kind
+}
+
+// aorTapeApply applies a tape-served "aor_elect" answer the way the legacy
+// re-entry does: the re-entered walk re-emits its multi-target Note, then
+// applies the answered election (a skip applies nothing).
+func aorTapeApply(h Host, c *Ctx, sa *cards.SA, target *state.Object, ans []decision.Option, amount int32, multi bool) {
+	if multi {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "unimplemented AddOrRemoveCounter shape: multiple targets; acted on the first"})
+	}
+	elect, akind := aorAnswer(ans)
+	if akind != "" && elect != "skip" {
+		aorApplyAct(h, c, sa, target, akind, elect, amount)
 	}
 }
 
@@ -1028,7 +1083,7 @@ func effMoveCounter(h Host, c *Ctx, sa *cards.SA) {
 
 	// Loud-degrade the shapes the core cannot express, before anything moves.
 	var exotic []string
-	if zone := strings.TrimSpace(sa.ParamStr(cards.PKTgtZone)); zone != "" && !strings.EqualFold(zone, "Battlefield") {
+	if zone := TargetsOf(sa).ZoneText; zone != "" && !strings.EqualFold(zone, "Battlefield") {
 		exotic = append(exotic, "TgtZone$ "+zone)
 	}
 	if raw, present := sa.Param(cards.PKCounterNum); present && numParam != "" && !strings.EqualFold(numParam, "All") && !strings.EqualFold(numParam, "Any") {
@@ -1108,12 +1163,20 @@ func effMoveCounter(h Host, c *Ctx, sa *cards.SA) {
 					d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 						Kind: "move_counter_kind", Label: k})
 				}
-				if Ask(h, d) == AskAsked {
+				if ans, ok := AskTape(h, d); ok {
+					// The "move_counter_kind" answer in hand; an empty
+					// one moves nothing, as the re-entry reads it.
+					chosenKind = counterAnswerLabel(ans)
+					if chosenKind == "" {
+						return
+					}
+				} else if Ask(h, d) == AskAsked {
 					return
+				} else {
+					// No host (R-9): the deterministic first-kind stand-in, the
+					// same pick botpolicy's arm takes.
+					chosenKind = kinds[0]
 				}
-				// No host (R-9): the deterministic first-kind stand-in, the same
-				// pick botpolicy's arm takes.
-				chosenKind = kinds[0]
 			} else if len(kinds) == 1 {
 				chosenKind = kinds[0]
 			} else {
@@ -1152,6 +1215,8 @@ func effMoveCounter(h Host, c *Ctx, sa *cards.SA) {
 		}
 		if !nDone {
 			maxN := origins[0].Counter(chosenKind)
+			// No host (R-9): the deterministic take-all stand-in.
+			num = maxN
 			if maxN > 0 {
 				chooser := c.Controller
 				d := &decision.Decision{Player: chooser, Kind: decision.KChoose,
@@ -1161,12 +1226,17 @@ func effMoveCounter(h Host, c *Ctx, sa *cards.SA) {
 					d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 						Kind: "move_counter", Label: fmt.Sprintf("%d", i), Amount: i})
 				}
-				if Ask(h, d) == AskAsked {
+				if ans, ok := AskTape(h, d); ok {
+					// The "move_counter" amount in hand (0 is a decline;
+					// a malformed answer moves nothing).
+					num = 0
+					if len(ans) > 0 {
+						num = int32(ans[0].Amount)
+					}
+				} else if Ask(h, d) == AskAsked {
 					return
 				}
 			}
-			// No host (R-9): the deterministic take-all stand-in.
-			num = maxN
 		} else {
 			num = nAns
 		}
@@ -1534,6 +1604,12 @@ func effProliferate(h Host, c *Ctx, sa *cards.SA) {
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 			Kind: "proliferate", Label: label, Obj: t.Obj, Player: owner})
 	}
+	if ans, ok := AskTape(h, d); ok {
+		// The "proliferate" answer in hand: the re-entry's application.
+		applyProliferate(h, c, sa, proliferateAnswer(ans), n)
+		h.Emit(events.Event{Kind: events.Proliferate, Obj: c.Source, Player: c.Controller})
+		return
+	}
 	if Ask(h, d) == AskAsked {
 		return // resolution suspended; the answer re-enters with Ctx.Proliferate set.
 	}
@@ -1598,4 +1674,51 @@ func effRegenerate(h Host, c *Ctx, sa *cards.SA) {
 		}
 		h.Emit(events.Event{Kind: events.CounterChange, Obj: o.ID, Counter: "Shield", Amount: 1})
 	}
+}
+
+// proliferateAnswer decodes a "proliferate" answer exactly as rules' resume
+// arm does: an object recipient carries Obj, a player recipient carries
+// Player with Obj 0.
+func proliferateAnswer(ans []decision.Option) []state.Target {
+	out := make([]state.Target, 0, len(ans))
+	for _, o := range ans {
+		if o.Obj != 0 {
+			out = append(out, state.Target{Obj: o.Obj})
+			continue
+		}
+		out = append(out, state.Target{Player: o.Player, IsPlayer: true})
+	}
+	return out
+}
+
+// counterAnswerObjs is the object list an answered pick names, in answer
+// order (the "counter_pick"/"counter_dist" arms' decode: options with no
+// object are dropped).
+func counterAnswerObjs(ans []decision.Option) []state.ObjID {
+	out := make([]state.ObjID, 0, len(ans))
+	for _, o := range ans {
+		if o.Obj != 0 {
+			out = append(out, o.Obj)
+		}
+	}
+	return out
+}
+
+// counterAnswerLabel is a one-pick answer's Label ("" for a malformed empty
+// answer), the "counter_kind"/"move_counter_kind" arms' decode.
+func counterAnswerLabel(ans []decision.Option) string {
+	if len(ans) == 0 {
+		return ""
+	}
+	return ans[0].Label
+}
+
+// counterAnswerLabels is every answered option's Label, the "counter_kinds"
+// arm's decode.
+func counterAnswerLabels(ans []decision.Option) []string {
+	var out []string
+	for _, o := range ans {
+		out = append(out, o.Label)
+	}
+	return out
 }

@@ -186,6 +186,15 @@ func effChangeCombatants(h Host, c *Ctx, sa *cards.SA) {
 			}
 			d.Options = append(d.Options, opt)
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the reselect the
+			// "choice" re-entry emits for this attacker (only when it moves
+			// the attack), then the later attackers.
+			if pick := ChoiceAnswerTargets(ans); len(pick) > 0 && pick[0].IsPlayer && pick[0].Player != o.Attacking {
+				h.Emit(events.Event{Kind: events.CombatRetarget, Obj: o.ID, Player: pick[0].Player})
+			}
+			continue
+		}
 		switch Ask(h, d) {
 		case AskAsked:
 			// Suspended: the answer re-enters this SA through the ordinary

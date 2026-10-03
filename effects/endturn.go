@@ -53,11 +53,21 @@ func effEndTurn(h Host, c *Ctx, sa *cards.SA) {
 					{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
 					{Index: 1, Kind: "no", Label: "No", Player: chooser},
 				}}
-			// Without an askable host, take the conservative R-9 decline.
-			if Ask(h, d) == AskNoHost {
-				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "EndTurn Optional$ declined (no engine host to ask)"})
+			ans, ok := AskTape(h, d)
+			if !ok {
+				// Without an askable host, take the conservative R-9 decline.
+				if Ask(h, d) == AskNoHost {
+					h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "EndTurn Optional$ declined (no engine host to ask)"})
+				}
+				return
 			}
-			return
+			// The resolution kernel's answer in hand: the
+			// "endturn_optional" arm's yes/no, consumed below as the
+			// re-entry consumes Ctx.EndTurnOpt.
+			answer = "no"
+			if len(ans) > 0 && ans[0].Kind == "yes" {
+				answer = "yes"
+			}
 		}
 		if answer != "yes" {
 			return

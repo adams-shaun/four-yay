@@ -930,7 +930,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 					e.drainAwaitsModes = true
 				}
 			}
-			if !handled && pt.SA.ParamStr(cards.PKValidTgts) != "" {
+			if !handled && effects.TargetsOf(pt.SA).Targeted() {
 				e.askTarget(pt.Controller, id, pt.SA)
 			}
 		}
@@ -967,7 +967,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 					e.drainAwaitsModes = true
 				}
 			}
-			if !handled && pt.SA.ParamStr(cards.PKValidTgts) != "" {
+			if !handled && effects.TargetsOf(pt.SA).Targeted() {
 				e.askTarget(pt.Controller, id, pt.SA)
 			}
 		}
@@ -1053,7 +1053,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 					e.drainAwaitsModes = true
 				}
 			}
-			if !handled && pt.SA.ParamStr(cards.PKValidTgts) != "" {
+			if !handled && effects.TargetsOf(pt.SA).Targeted() {
 				e.askTarget(pt.Controller, id, pt.SA)
 			}
 		}
@@ -1164,7 +1164,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 				e.drainAwaitsModes = true
 			}
 		}
-		if !handled && pt.SA.ParamStr(cards.PKValidTgts) != "" {
+		if !handled && effects.TargetsOf(pt.SA).Targeted() {
 			e.askTarget(pt.Controller, id, pt.SA)
 		}
 		if !handled {
@@ -2038,13 +2038,27 @@ func (e *Engine) askTriggerOptional(who state.PlayerID, pt pendingTrigger) {
 // own controller + Remembered (deciderFromSpec), not from a pendingTrigger,
 // because the queued trigger has already been consumed by the drain.
 func (e *Engine) askOptionalAtResolution(who state.PlayerID, o *state.Object, sa *cards.SA, label string, effectOptional bool) {
-	d := &decision.Decision{Player: who, Kind: decision.KTriggerOptional, Min: 1, Max: 1,
-		ResumeKind: "optional", ResumeSA: sa, Source: o.Source, EffectOptional: effectOptional,
-		Prompt: "Apply this triggered ability's effect? — " + label,
-		Options: []decision.Option{
-			{Index: 0, Kind: "yes", Label: "Yes — " + label, Obj: o.Source, Player: o.Controller},
-			{Index: 1, Kind: "no", Label: "No", Obj: o.Source, Player: o.Controller},
-		}}
+	d := optionalAtResolutionDecision(who, o, sa, label, effectOptional)
+	if in, ok := e.TapeAnswer(d); ok {
+		// The resolution kernel's answer in hand (W3 step 2d): run exactly
+		// the continuation handleTriggerOptional runs for the answer --
+		// resumeResolution's "optional" arm on a yes, finishResumption and
+		// the CR 117.3b reset on a no -- now, in line. Both complete the
+		// resolution and log its priority grant, so handlePriority must not
+		// log a second one (tapeGranted).
+		rp := &resumePoint{kind: "optional", obj: o.ID, sa: sa}
+		chosen := d.Chosen(in)
+		if len(chosen) == 1 && chosen[0].Kind == "yes" {
+			e.resumeResolution(rp, chosen)
+		} else {
+			e.finishResumption(rp.obj)
+			e.emit(events.Event{Kind: events.Priority, Player: e.G.Active})
+		}
+		if !e.Suspended() {
+			e.tapeGranted = true
+		}
+		return
+	}
 	e.ask(d)
 	// The resume point mirrors Engine.Ask's shape (rules/resolution.go): the
 	// suspended object is the top of stack, the sub-ability to resume is the
@@ -2056,6 +2070,17 @@ func (e *Engine) askOptionalAtResolution(who state.PlayerID, o *state.Object, sa
 	// pass resolution (resolveTop's ability branch, not already suspended),
 	// so this is a fresh resume point, never stacked over an existing one.
 	e.resume = &resumePoint{kind: "optional", obj: o.ID, sa: sa}
+}
+
+// optionalAtResolutionDecision is CR 603.5's yes/no at resolution.
+func optionalAtResolutionDecision(who state.PlayerID, o *state.Object, sa *cards.SA, label string, effectOptional bool) *decision.Decision {
+	return &decision.Decision{Player: who, Kind: decision.KTriggerOptional, Min: 1, Max: 1,
+		ResumeKind: "optional", ResumeSA: sa, Source: o.Source, EffectOptional: effectOptional,
+		Prompt: "Apply this triggered ability's effect? — " + label,
+		Options: []decision.Option{
+			{Index: 0, Kind: "yes", Label: "Yes — " + label, Obj: o.Source, Player: o.Controller},
+			{Index: 1, Kind: "no", Label: "No", Obj: o.Source, Player: o.Controller},
+		}}
 }
 
 // handleTriggerOptional applies an answered optional-trigger decision. There

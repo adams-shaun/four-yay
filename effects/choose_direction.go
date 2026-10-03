@@ -49,7 +49,17 @@ func effChooseDirection(h Host, c *Ctx, sa *cards.SA) {
 	d.Options = append(d.Options,
 		decision.Option{Index: 0, Kind: "direction", Label: directionLeft},
 		decision.Option{Index: 1, Kind: "direction", Label: directionRight})
-	if Ask(h, d) == AskAsked {
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: the direction the
+		// "choosedirection" arm binds, left on the Ctx for the SubAbility$
+		// that reads it.
+		if len(ans) > 0 {
+			if dir := strings.ToLower(strings.TrimSpace(ans[0].Label)); dir == directionLeft || dir == directionRight {
+				c.ChosenDirection = ans[0].Label
+				return
+			}
+		}
+	} else if Ask(h, d) == AskAsked {
 		return
 	}
 	c.ChosenDirection = directionLeft

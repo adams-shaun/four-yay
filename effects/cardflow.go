@@ -63,12 +63,20 @@ type drawUptoRider struct {
 // drawFor is DrawFor with an optional enclosing Draw cursor. A nonnegative
 // cursor is recorded on a dredge decision so rules can continue that exact
 // multi-card resolution after its replacement is answered.
-func drawFor(h Host, p state.PlayerID, cursor int, resumeSA *cards.SA, upto drawUptoRider) {
+//
+// It reports whether the draw was the subject of a Dredge ask the resolution
+// kernel answered from its tape: rules' dredge answer record (shared with
+// the "dredge" resume arm) has then already applied the replacement or the
+// ordinary draw, and the caller continues exactly as that arm's re-entry
+// does -- past this draw's cursor, without the drawn-card bookkeeping the
+// re-entry skips. Only a caller with a cursor and a resume SA (an effect
+// walk) is served from the tape; the bare DrawFor keeps the legacy ask.
+func drawFor(h Host, p state.PlayerID, cursor int, resumeSA *cards.SA, upto drawUptoRider) bool {
 	g := h.Game()
 	lib := zoneOf(g, state.ZLibrary, p)
 	if len(lib) == 0 {
 		h.EmitPlayerLost(p, "Milled", "drew from an empty library")
-		return
+		return false
 	}
 	// A DrawFor reached while the resolution is already suspended: a caller
 	// that does not check h.Suspended() between draws drove a second draw
@@ -83,7 +91,7 @@ func drawFor(h Host, p state.PlayerID, cursor int, resumeSA *cards.SA, upto draw
 			Text: "drew without a dredge choice: another decision is already pending"})
 		h.Emit(events.Event{Kind: events.Draw, Player: p, Obj: lib[0],
 			From: state.ZLibrary, To: state.ZHand, Secret: true})
-		return
+		return false
 	}
 	// Dredge (CR 702.55): before a player draws a card, if they have a card
 	// with Dredge in the graveyard they may instead mill N cards (N = the
@@ -110,12 +118,18 @@ func drawFor(h Host, p state.PlayerID, cursor int, resumeSA *cards.SA, upto draw
 				Label: "Dredge " + strconv.Itoa(int(candidate.n)) + " (mill, then return " + objName(g, candidate.id) + " to hand)", Obj: candidate.id, Player: p})
 		}
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "draw", Label: "Draw card", Player: p})
+		if cursor >= 0 && resumeSA != nil {
+			if _, ok := AskTape(h, d); ok {
+				return true
+			}
+		}
 		if h.Ask(d) {
-			return
+			return false
 		}
 	}
 	h.Emit(events.Event{Kind: events.Draw, Player: p, Obj: lib[0],
 		From: state.ZLibrary, To: state.ZHand, Secret: true})
+	return false
 }
 
 type dredgeCandidate struct {
@@ -244,7 +258,7 @@ func actingPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 		// remembered card's controller (Summon: Valefor's per-opponent loop).
 		return definedPlayers(h, c, sa)
 	}
-	if _, targeted := sa.Param(cards.PKValidTgts); targeted {
+	if TargetsOf(sa).Has(TgtValidPresent) {
 		return playerIDsFromTargets(h, c, "", Defined(h, c, sa))
 	}
 	return []state.PlayerID{c.Controller}
@@ -427,6 +441,13 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 	vote := c.DiscardVote
 	answered := answers != nil
 	voted := vote != ""
+	// The UnlessType$ election's cursor: an answered "discard_unless"
+	// re-entry carries the asking target's index in Ctx.DiscardTarget, and
+	// the targets before it were fully processed on the pass that asked.
+	electedTarget := -1
+	if c.UnlessElected != "" {
+		electedTarget = answerTarget
+	}
 	c.Discard = nil
 	c.DiscardTarget = 0
 	c.DiscardVote = ""
@@ -492,11 +513,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 				// Re-entry: the chooser's answer was recorded, so discard
 				// exactly those cards that still sit in this target's hand (a
 				// stray answer must not move an object that left meanwhile).
-				for _, id := range answers {
-					if containsID(hand, id) {
-						discardAndRemember(h, c, riders, id, p)
-					}
-				}
+				discardAnswered(h, c, riders, hand, answers, p)
 				continue
 			}
 			eligible := discardEligible(g, c, hand, valid)
@@ -505,6 +522,12 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			}
 			askMin, askMax := discardBounds(h, c, sa, len(eligible))
 			d := discardAsk(g, c, sa, eligible, chooser, askMin, askMax, targetIndex)
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: discard exactly
+				// what the re-entry above discards for this target.
+				discardAnswered(h, c, riders, hand, answerObjs(ans), p)
+				continue
+			}
 			if Ask(h, d) == AskAsked {
 				suspended = true
 				return // resolution suspended; the answer re-enters with Ctx.Discard set.
@@ -526,6 +549,13 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 
 		switch mode {
 		case "TgtChoose":
+			// The resolution kernel's tape-served elections for this target:
+			// the locals that stand for what the "discard_may" and
+			// "discard_unless" re-entries read off Ctx.DiscardVote and
+			// Ctx.UnlessElected. A served election re-walks this target from
+			// tgtChoose, exactly as its re-entry does.
+			tapeVote, tapeElected := "", ""
+		tgtChoose:
 			// Re-entry: the discarding player's choice was answered and the
 			// continuation set Ctx.Discard to the chosen object(s). Discard
 			// exactly those that sit in this target's hand (a per-hand filter
@@ -538,12 +568,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 				continue
 			}
 			if answered && targetIndex == answerTarget {
-				for _, id := range answers {
-					if !containsID(hand, id) {
-						continue
-					}
-					discardAndRemember(h, c, riders, id, p)
-				}
+				discardAnswered(h, c, riders, hand, answers, p)
 				continue
 			}
 			// The may-discard election (below) answered for this target:
@@ -553,8 +578,18 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			if voted && targetIndex < answerTarget {
 				continue
 			}
-			mayElected := voted && targetIndex == answerTarget
-			if mayElected && vote != "yes" {
+			if targetIndex < electedTarget {
+				continue // fully processed before a later target's election
+			}
+			elVote := ""
+			if voted && targetIndex == answerTarget {
+				elVote = vote
+			}
+			if tapeVote != "" {
+				elVote = tapeVote
+			}
+			mayElected := elVote != ""
+			if mayElected && elVote != "yes" {
 				continue
 			}
 			// First pass: narrow the target's hand to the cards DiscardValid$
@@ -585,6 +620,9 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			// cleared before any further ask this walk poses.
 			elected := c.UnlessElected
 			c.UnlessElected = ""
+			if tapeElected != "" {
+				elected = tapeElected
+			}
 			unlessSpec := strings.TrimSpace(sa.Params["UnlessType"])
 			if elected == "unless" && unlessSpec != "" {
 				picks := unlessTypeEligible(g, c, hand, unlessSpec)
@@ -607,6 +645,12 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 						ResumeKind: "discard", ResumeSA: sa, ResumeTarget: targetIndex,
 						Prompt:  "Discard one " + unlessSpec + " card instead",
 						Options: opts}
+					if ans, ok := AskTape(h, d); ok {
+						// The resolution kernel's answer in hand: the
+						// "discard" re-entry's discard for this target.
+						discardAnswered(h, c, riders, hand, answerObjs(ans), p)
+						continue
+					}
 					if Ask(h, d) == AskAsked {
 						suspended = true
 						return // resolution suspended; the answer re-enters with Ctx.Discard set.
@@ -627,6 +671,16 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 						{Index: 0, Kind: "unless", Label: "Yes — discard one " + unlessSpec, Player: p},
 						{Index: 1, Kind: "ordinary", Label: "No — discard normally", Player: p},
 					}}
+				if ans, ok := AskTape(h, d); ok {
+					// The resolution kernel's answer in hand (the
+					// "discard_unless" arm's UnlessElected): re-walk this
+					// target with the election, as its re-entry does.
+					tapeVote, tapeElected = "", "ordinary"
+					if len(ans) > 0 && ans[0].Kind == "unless" {
+						tapeElected = "unless"
+					}
+					goto tgtChoose
+				}
 				if Ask(h, d) == AskAsked {
 					suspended = true
 					return // resolution suspended; the answer re-enters with Ctx.UnlessElected set.
@@ -665,6 +719,16 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 							{Index: 0, Kind: "yes", Label: "Yes — discard", Player: p},
 							{Index: 1, Kind: "no", Label: "No — don't discard", Player: p},
 						}}
+					if ans, ok := AskTape(h, d); ok {
+						// The resolution kernel's answer in hand (the
+						// "discard_may" arm's DiscardVote): re-walk this
+						// target with the election, as its re-entry does.
+						tapeVote, tapeElected = "no", ""
+						if answerYes(ans) {
+							tapeVote = "yes"
+						}
+						goto tgtChoose
+					}
 					if Ask(h, d) == AskAsked {
 						suspended = true
 						return // resolution suspended; the answer re-enters with Ctx.DiscardVote set.
@@ -708,12 +772,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			if ans, ok := AskTape(h, d); ok {
 				// The resolution kernel's answer in hand: discard exactly
 				// what the re-entry above discards for this target.
-				hand = zoneOf(g, state.ZHand, p)
-				for _, o := range ans {
-					if containsID(hand, o.Obj) {
-						discardAndRemember(h, c, riders, o.Obj, p)
-					}
-				}
+				discardAnswered(h, c, riders, zoneOf(g, state.ZHand, p), answerObjs(ans), p)
 				continue
 			}
 			if Ask(h, d) == AskAsked {
@@ -778,6 +837,16 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 						{Index: 0, Kind: "yes", Label: "Yes — discard your hand", Player: p},
 						{Index: 1, Kind: "no", Label: "No — keep it", Player: p},
 					}}
+				if ans, ok := AskTape(h, d); ok {
+					// The resolution kernel's answer in hand: the
+					// "discard_hand" re-entry's whole-hand discard (or decline).
+					if answerYes(ans) {
+						for _, id := range hand {
+							discardAndRemember(h, c, riders, id, p)
+						}
+					}
+					continue
+				}
 				if Ask(h, d) == AskAsked {
 					suspended = true
 					return // resolution suspended; the answer re-enters with Ctx.DiscardVote set.
@@ -861,6 +930,18 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 				}
 				discardAndRemember(h, c, riders, cur[0], p)
 			}
+		}
+	}
+}
+
+// discardAnswered discards the answered cards that still sit in hand, in
+// answer order (a stray answer must not move an object that left the hand
+// meanwhile): the one home of a "discard" answer, shared by the re-entry and
+// the resolution kernel's tape answer.
+func discardAnswered(h Host, c *Ctx, r discardRiders, hand, answers []state.ObjID, p state.PlayerID) {
+	for _, id := range answers {
+		if containsID(hand, id) {
+			discardAndRemember(h, c, r, id, p)
 		}
 	}
 }
@@ -1246,8 +1327,14 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 		// settled, so the primary LibraryPosition$ cannot be lost to the
 		// remainder's ordered-bottom ask.
 		primaryMoved := make([]state.ObjID, 0, len(top))
+		// tapeArranged: the resolution kernel served this target's
+		// ordered-bottom arrange from its tape, and the KArrange answer
+		// record (arrangeAnswerRecord's dig_bottom) already placed the
+		// primary pile -- the target is complete, exactly as the
+		// "dig_arrange" re-entry treats it.
+		tapeArranged := false
 		placePrimary := func() {
-			if dest != state.ZLibrary || len(primaryMoved) == 0 {
+			if tapeArranged || dest != state.ZLibrary || len(primaryMoved) == 0 {
 				return
 			}
 			switch primaryPos {
@@ -1367,6 +1454,14 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 					}
 					d.Options = append(d.Options, decision.Option{Index: i, Kind: "dig_bottom", Label: name, Obj: id, Player: p})
 				}
+				if _, ok := AskTapeIntent(h, d); ok {
+					// The resolution kernel served the order and its record
+					// applied it; the later targets keep the deterministic
+					// processing the arrange re-entry gives them.
+					tapeArranged = true
+					arrangeThrough = targetIndex
+					return false
+				}
 				if Ask(h, d) == AskAsked {
 					suspended = true // resolution suspended; the arrange re-enters.
 					return true
@@ -1395,6 +1490,34 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 			}
 			return false
 		}
+		// takeAnswered applies an answered take for this target, the one home
+		// of the "dig" answer (the re-entry below and the resolution
+		// kernel's tape answer): move exactly the answered cards that still
+		// sit in the ASKING target's window (a per-window filter keeps a
+		// stray answer from moving an object that left the window
+		// meanwhile), in the player's answer order; the rest of the window
+		// goes to the second destination. It reports a suspension.
+		takeAnswered := func(ans []state.ObjID) bool {
+			picked := make(map[state.ObjID]bool, len(ans))
+			for _, id := range ans {
+				if !containsID(top, id) {
+					continue
+				}
+				picked[id] = true
+				take(id)
+			}
+			restIDs := make([]state.ObjID, 0, len(top))
+			for _, id := range top {
+				if !picked[id] {
+					restIDs = append(restIDs, id)
+				}
+			}
+			if rest(restIDs) {
+				return true
+			}
+			placePrimary()
+			return false
+		}
 		if arrangeThrough >= 0 {
 			// The arrange re-entry: every target up to and including the one
 			// whose arrange was answered is complete.
@@ -1409,31 +1532,9 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				continue
 			}
 			if digDone && targetIndex == digTarget {
-				// Re-entry: move exactly the answered cards that still sit in the
-				// ASKING target's window (a per-window filter keeps a stray answer
-				// from moving an object that left the window meanwhile), in the
-				// player's answer order; the rest of the window goes to the
-				// second destination.
-				picked := make(map[state.ObjID]bool, len(digAns))
-				moved := make([]state.ObjID, 0, len(digAns))
-				for _, id := range digAns {
-					if !containsID(top, id) {
-						continue
-					}
-					picked[id] = true
-					take(id)
-					moved = append(moved, id)
-				}
-				restIDs := make([]state.ObjID, 0, len(top))
-				for _, id := range top {
-					if !picked[id] {
-						restIDs = append(restIDs, id)
-					}
-				}
-				if rest(restIDs) {
+				if takeAnswered(digAns) {
 					return
 				}
-				placePrimary()
 				continue
 			}
 		}
@@ -1581,6 +1682,20 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 					opt.Value = manaValueOf(g, id)
 				}
 				d.Options = append(d.Options, opt)
+			}
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: what the "dig"
+				// re-entry does with it. An empty answer to the
+				// optional-ability election declines the whole Dig for this
+				// target (the re-entry's skip at the top of the walk).
+				picks := answerObjs(ans)
+				if promptToSkipOptional && len(picks) == 0 {
+					continue
+				}
+				if takeAnswered(picks) {
+					return
+				}
+				continue
 			}
 			if Ask(h, d) == AskAsked {
 				suspended = true // resolution suspended; the answer re-enters with Ctx.Dig set.
@@ -1961,10 +2076,10 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 	// re-emit of the reveal Note (recorded before the first-pass ask) and of
 	// the withheld-params Note.
 	moveAns := c.DigUntilMove
-	moveDone := c.DigUntilMoveDone
+	moveDone := moveAns != ""
 	auraBearer := c.DigUntilAuraBearer
 	auraDone := c.DigUntilAuraDone
-	c.DigUntilMove, c.DigUntilMoveDone = "", false
+	c.DigUntilMove = ""
 	c.DigUntilAuraBearer, c.DigUntilAuraDone = 0, false
 	if moveAns == "" {
 		moveAns = "no"
@@ -1977,7 +2092,7 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	targets := Defined(h, c, sa)
-	if sa.ParamStr(cards.PKDefined) == "" && sa.ParamStr(cards.PKValidTgts) == "" {
+	if sa.ParamStr(cards.PKDefined) == "" && !TargetsOf(sa).Targeted() {
 		// Forge's default for a reveal-until with no Defined$ and no targets:
 		// the resolving controller's own library (Songbirds' Blessing's
 		// trigger). Defined's source-object fallback is wrong here — the
@@ -2056,13 +2171,23 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 					{Index: 0, Kind: "yes", Label: "Yes — put into " + verb, Player: p},
 					{Index: 1, Kind: "no", Label: "No", Player: p},
 				}}
-			if Ask(h, d) == AskAsked {
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand (the
+				// "diguntil_move" arm's DigUntilMove): it governs this walk
+				// from here on, exactly as on the re-entry.
+				moveDone = true
+				moveAns = "no"
+				if answerYes(ans) {
+					moveAns = "yes"
+				}
+			} else if Ask(h, d) == AskAsked {
 				return // resolution suspended; the answer re-enters with Ctx.DigUntilMove set.
+			} else {
+				// Fuzz/no-engine host: the deterministic decline (R-9) — the
+				// found card(s) join the decline destination.
+				moveDone = true
+				moveAns = "no"
 			}
-			// Fuzz/no-engine host: the deterministic decline (R-9) — the found
-			// card(s) join the decline destination.
-			moveDone = true
-			moveAns = "no"
 		}
 		switch {
 		case rememberRevealed:
@@ -2117,13 +2242,7 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 						case auraDone:
 							// The answered bearer is revalidated against the
 							// current battlefield before it is used.
-							bearer = 0
-							for _, candidate := range bearers {
-								if candidate == auraBearer {
-									bearer = candidate
-									break
-								}
-							}
+							bearer = auraAnsweredBearer(bearers, auraBearer)
 							auraDone = false
 						case len(bearers) == 0:
 							bearer = 0
@@ -2132,7 +2251,7 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 						default:
 							d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 								Source: c.Source, ResumeKind: "diguntil_aura", ResumeSA: sa,
-								ResumeDigUntilMove: moveAns, ResumeDigUntilMoveDone: moveDone,
+								ResumeDigUntilMove:        digUntilMoveRider(moveAns, moveDone),
 								ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
 								ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
 								ResumeForgetOtherReady:    c.ForgetOtherReady,
@@ -2141,12 +2260,22 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 							for i, candidate := range bearers {
 								d.Options = append(d.Options, decision.Option{Index: i, Kind: "card", Obj: candidate, Player: p})
 							}
-							if Ask(h, d) == AskAsked {
+							if ans, ok := AskTape(h, d); ok {
+								// The resolution kernel's answer in hand (the
+								// "diguntil_aura" arm's bearer), revalidated
+								// as the re-entry revalidates it.
+								answered := state.ObjID(0)
+								if len(ans) > 0 {
+									answered = ans[0].Obj
+								}
+								bearer = auraAnsweredBearer(bearers, answered)
+							} else if Ask(h, d) == AskAsked {
 								return
+							} else {
+								// R-9: a host without an answer takes the
+								// deterministic first candidate.
+								bearer = bearers[0]
 							}
-							// R-9: a host without an answer takes the
-							// deterministic first candidate.
-							bearer = bearers[0]
 						}
 					}
 					if isAuraFace && bearer == 0 {
@@ -2156,6 +2285,12 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 					}
 					ev := moveZoneEvent(c, id, state.ZLibrary, dest)
 					ev.Player, ev.Secret = p, true
+					if bearer != 0 {
+						// The revealed Aura's bearer is this effect's own
+						// (selected above): the marked entry attaches it as
+						// the Aura enters, with no second CR 303.4f choice.
+						events.MarkNamedAttachEntry(&ev, []state.ObjID{bearer})
+					}
 					h.Emit(ev)
 					if tapped {
 						h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: p, Text: "entered tapped"})
@@ -2164,9 +2299,10 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 					if gainControl {
 						h.Emit(events.Event{Kind: events.ControlChange, Obj: id, Player: c.Controller})
 					}
-					if bearer != 0 {
+					if o := g.Obj(id); bearer != 0 && o != nil && o.Zone == state.ZBattlefield && o.AttachedTo == 0 {
 						// CR 303.4f: the selected permanent is the Aura's
-						// chosen bearer on this non-cast battlefield entry.
+						// chosen bearer on this non-cast battlefield entry
+						// (a host whose entry did not settle it).
 						emitAttach(h, id, bearer)
 					}
 					// StaticEffect$ on a DigUntil battlefield take: the same
@@ -2303,6 +2439,30 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 	if rememberFound {
 		c.Remembered = digRemembered
 	}
+}
+
+// digUntilMoveRider is the OptionalFoundMove$ answer an Aura-bearer ask
+// carries across its suspension: the answer once the election is made, ""
+// before it (the re-entry reads a non-empty Ctx.DigUntilMove as answered).
+func digUntilMoveRider(moveAns string, moveDone bool) string {
+	if !moveDone {
+		return ""
+	}
+	return moveAns
+}
+
+// auraAnsweredBearer revalidates an answered DigUntil Aura bearer against the
+// current eligible bearers: the answer if it is still one of them, else 0
+// (no bearer -- the Aura stays in the library). The one home of the
+// "diguntil_aura" answer, shared by the re-entry and the resolution kernel's
+// tape answer.
+func auraAnsweredBearer(bearers []state.ObjID, answered state.ObjID) state.ObjID {
+	for _, candidate := range bearers {
+		if candidate == answered {
+			return candidate
+		}
+	}
+	return 0
 }
 
 // digUntilParamValue is the withhold-list keys' trimmed value read (the
@@ -2510,7 +2670,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 	// so it applies only where the walk's subjects are those targets: a
 	// targeting SA with no Defined$/RevealDefined$ override.
 	rememberTargets := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True") &&
-		sa.ParamStr(cards.PKValidTgts) != "" && sa.ParamStr(cards.PKDefined) == "" && revealDefined == ""
+		TargetsOf(sa).Targeted() && sa.ParamStr(cards.PKDefined) == "" && revealDefined == ""
 	random := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRandom)), "True")
 	g := h.Game()
 	// Forge's RevealDefined$ is the reveal family's equivalent of Defined$.
@@ -2561,6 +2721,10 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 		// A pick answers the optional gate only for the target that posed it.
 		// Later Defined$ targets still need their own may-reveal choice.
 		pickForTarget := picks != nil && targetIndex == pickTarget
+		// revealTarget is where a tape-served reveal_optional answer re-walks
+		// its own target, exactly as the "reveal_optional" re-entry does for
+		// the cursor target (the answered yes may still pose the hand pick).
+	revealTarget:
 		if plainRememberedSelector(revealSA.ParamStr(cards.PKDefined)) && !t.IsPlayer {
 			// Forge's getDefinedPlayers("Remembered") adds remembered PLAYERS
 			// only; a remembered card must not widen the reveal's library/hand
@@ -2723,7 +2887,13 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 						ResumeTarget: targetIndex,
 						Prompt:       prompt,
 						Options:      opts}
-					if Ask(h, d) == AskAsked {
+					if ans, ok := AskTape(h, d); ok {
+						// The resolution kernel's answer in hand: the same
+						// narrowing the "reveal_pick" re-entry applies below.
+						pool = revealPickSelected(pool, answerObjs(ans))
+						n = int32(len(pool))
+						pickForTarget = true
+					} else if Ask(h, d) == AskAsked {
 						return // resolution suspended; the answer re-enters with Ctx.RevealPick set.
 					}
 					// No host to ask (R-9): fall through with n unchanged, so
@@ -2739,16 +2909,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 					// payload in one place. minPick/maxPick are deliberately not
 					// re-enforced here: the resume rebuilt the pool from live state,
 					// and a client's validated answer is trusted.
-					selected := make([]state.ObjID, 0, len(picks))
-					for _, id := range picks {
-						for _, cand := range pool {
-							if cand == id {
-								selected = append(selected, id)
-								break
-							}
-						}
-					}
-					pool = selected
+					pool = revealPickSelected(pool, picks)
 					n = int32(len(pool))
 				}
 			}
@@ -2883,6 +3044,16 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 				ResumeTarget: targetIndex,
 				Prompt:       prompt,
 				Options:      options}
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand (the
+				// "reveal_optional" arm's RevealOpt): re-walk this target
+				// with it, as the cursor target's re-entry does.
+				answerForTarget = "no"
+				if answerYes(ans) {
+					answerForTarget = "yes"
+				}
+				goto revealTarget
+			}
 			if Ask(h, d) == AskAsked {
 				return
 			}
@@ -2979,6 +3150,23 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 	}
 }
 
+// revealPickSelected narrows a hand-reveal pool to the answered picks, in
+// answer order: a card that left the pool meanwhile cannot be revealed. The
+// one home of the "reveal_pick" answer, shared by the re-entry and the
+// resolution kernel's tape answer.
+func revealPickSelected(pool, picks []state.ObjID) []state.ObjID {
+	selected := make([]state.ObjID, 0, len(picks))
+	for _, id := range picks {
+		for _, cand := range pool {
+			if cand == id {
+				selected = append(selected, id)
+				break
+			}
+		}
+	}
+	return selected
+}
+
 // effRearrangeTopOfLibrary looks at the top NumCards of Defined$'s library
 // and poses a KArrange decision over them: the player picks the order, and
 // rules' handleArrange applies it as an events.LibraryOrder (Ruling J0/J1
@@ -3029,7 +3217,13 @@ func effRearrangeTopOfLibrary(h Host, c *Ctx, sa *cards.SA) {
 						{Index: 0, Kind: "yes", Label: "Yes — shuffle", Player: p},
 						{Index: 1, Kind: "no", Label: "No — keep the order", Player: p},
 					}}
-				if Ask(h, d) == AskAsked {
+				if ans, ok := AskTape(h, d); ok {
+					// The resolution kernel's answer in hand: the shuffle the
+					// "arrange_mayshuffle" arm emits, then the walk goes on.
+					if len(ans) > 0 && ans[0].Kind == "yes" {
+						shuffleLibraryOrder(h, p)
+					}
+				} else if Ask(h, d) == AskAsked {
 					return // resolution suspended; the answer re-enters with Ctx.MayShuffle set.
 				}
 			}
@@ -3078,6 +3272,15 @@ func effRearrangeTopOfLibrary(h Host, c *Ctx, sa *cards.SA) {
 		// exact wedge shape. AskEmpty (and AskNoHost alike) resolves through
 		// the stand-in below: the order is (re)set unchanged and the
 		// resolution completes.
+		if _, ok := AskTapeIntent(h, d); ok {
+			// The resolution kernel served the answer and its record applied
+			// the arrangement (the KArrange answer record handleArrange
+			// shares); the re-entry's MayShuffle$ election follows here.
+			if mayShuffle && rearrangeMayShuffleTape(h, c, sa, p, targetIndex) {
+				return
+			}
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return // resolution suspended; the answer re-enters with Ctx.Arrange set.
 		}
@@ -3088,6 +3291,29 @@ func effRearrangeTopOfLibrary(h Host, c *Ctx, sa *cards.SA) {
 			IDs:    append([]state.ObjID(nil), lib...),
 			Secret: true})
 	}
+}
+
+// rearrangeMayShuffleTape is effRearrangeTopOfLibrary's MayShuffle$ election
+// on the resolution kernel's path, after the arrange answer for target
+// index i was served: the same ask the arrange re-entry poses, answered from
+// the tape (or, with the tape exhausted, posed and unwound). It reports a
+// legacy suspension (the kernel declined the ask, so the legacy ask took it
+// and the run falls back), on which the caller returns.
+func rearrangeMayShuffleTape(h Host, c *Ctx, sa *cards.SA, p state.PlayerID, i int) bool {
+	d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
+		Source: c.Source, ResumeKind: "arrange_mayshuffle", ResumeSA: sa,
+		ResumeTarget: i, Prompt: "Shuffle your library?",
+		Options: []decision.Option{
+			{Index: 0, Kind: "yes", Label: "Yes — shuffle", Player: p},
+			{Index: 1, Kind: "no", Label: "No — keep the order", Player: p},
+		}}
+	if ans, ok := AskTape(h, d); ok {
+		if len(ans) > 0 && ans[0].Kind == "yes" {
+			shuffleLibraryOrder(h, p)
+		}
+		return false
+	}
+	return Ask(h, d) == AskAsked
 }
 
 // effScry implements the Scry prompt API (CR 701.18): look at the top
@@ -3171,8 +3397,11 @@ func effSurveil(h Host, c *Ctx, sa *cards.SA) {
 				// own no-host path inside effLookAndArrange applies the standing
 				// LibraryOrder stand-in (R-9). A real host's decline re-enters
 				// with the "no" marker and reaches the same fall-through through
-				// the ans != "" gate.
-				if Ask(h, d) == AskAsked {
+				// the ans != "" gate. The resolution kernel's tape answer is
+				// that same marker, read here and carried on.
+				if picks, ok := AskTape(h, d); ok {
+					ans = SurveilLookOptAnswer(picks)
+				} else if Ask(h, d) == AskAsked {
 					return
 				}
 			}
@@ -3219,6 +3448,21 @@ func effSurveil(h Host, c *Ctx, sa *cards.SA) {
 		return total
 	}
 	effLookAndArrange(h, c, sa, n, "graveyard", "Surveil", extraOf, true)
+}
+
+// SurveilLookOptAnswer is the "surveil_look_optional" answer marker
+// effSurveil reads: the accepted static ordinals as a CSV, or "no" for the
+// empty answer (the real decline of every static). One home for rules'
+// resume arm and the resolution kernel's tape answer.
+func SurveilLookOptAnswer(chosen []decision.Option) string {
+	if len(chosen) == 0 {
+		return "no"
+	}
+	parts := make([]string, 0, len(chosen))
+	for _, o := range chosen {
+		parts = append(parts, strconv.Itoa(o.Index))
+	}
+	return strings.Join(parts, ",")
 }
 
 // effLookAndArrange is the shared KArrange body behind effScry and
@@ -3274,12 +3518,20 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 						{Index: 0, Kind: "yes", Label: "Yes", Player: p},
 						{Index: 1, Kind: "no", Label: "No", Player: p},
 					}}
-				if Ask(h, d) != AskNoHost {
+				if ans, ok := AskTape(h, d); ok {
+					// The resolution kernel's answer in hand (the
+					// "scry_optional" arm's ScryOpt): a decline skips this
+					// library, a yes scries it now.
+					if len(ans) == 0 || ans[0].Kind != "yes" {
+						continue
+					}
+				} else if Ask(h, d) != AskNoHost {
 					return
+				} else {
+					// R-9: an unavailable host deterministically declines an
+					// optional election; never treat an unanswered ask as consent.
+					continue
 				}
-				// R-9: an unavailable host deterministically declines an
-				// optional election; never treat an unanswered ask as consent.
-				continue
 			} else if opt != "yes" {
 				continue
 			}
@@ -3340,6 +3592,12 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 		// options -- the exact wedge shape. AskEmpty (and AskNoHost alike)
 		// resolves through the stand-in below: every zero cards keep their
 		// place and the resolution completes.
+		if _, ok := AskTapeIntent(h, d); ok {
+			// The resolution kernel served the answer and its record applied
+			// it (the KArrange answer record handleArrange shares): on to
+			// the next library.
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return // resolution suspended; the answer re-enters with Ctx.Arrange set.
 		}
@@ -3406,13 +3664,7 @@ func effHideaway(h Host, c *Ctx, sa *cards.SA) {
 		id := c.Hideaway
 		c.Hideaway = 0
 		c.HideawayPicked = false
-		lib := zoneOf(g, state.ZLibrary, c.Controller)
-		if id == 0 || !containsObj(lib, id) {
-			return
-		}
-		h.Emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZLibrary, To: state.ZExile,
-			Counter: "exiled_with_face_down", Amount: int32(c.Source), Secret: true})
-		hideawayBottom(h, c, sa)
+		hideawayPicked(h, c, sa, id)
 		return
 	}
 	n := int(Num(h, c, sa, "Amount", 4))
@@ -3432,12 +3684,38 @@ func effHideaway(h Host, c *Ctx, sa *cards.SA) {
 	for i, id := range lib[:n] {
 		d.Options = append(d.Options, decision.Option{Index: i, Kind: "hideaway", Label: objName(g, id), Obj: id, Player: c.Controller})
 	}
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: the "hideaway_pick"
+		// re-entry's exile and bottom arrange.
+		id := state.ObjID(0)
+		if len(ans) == 1 {
+			id = ans[0].Obj
+		}
+		hideawayPicked(h, c, sa, id)
+		return
+	}
 	if h.Ask(d) {
 		return
 	}
 	// The no-host degradation chooses the first card, then retains the offered
 	// order for the rest on the bottom.
 	h.Emit(events.Event{Kind: events.MoveZone, Obj: lib[0], From: state.ZLibrary, To: state.ZExile,
+		Counter: "exiled_with_face_down", Amount: int32(c.Source), Secret: true})
+	hideawayBottom(h, c, sa)
+}
+
+// hideawayPicked exiles the answered Hideaway card face down (validated
+// against the library: a card that left meanwhile is not moved, and nothing
+// follows) and then arranges the rest on the bottom. The one home of the
+// "hideaway_pick" answer, shared by the re-entry and the resolution
+// kernel's tape answer. Moving the card first leaves precisely the remaining
+// cards at the top of the library for the KArrange handler.
+func hideawayPicked(h Host, c *Ctx, sa *cards.SA, id state.ObjID) {
+	lib := zoneOf(h.Game(), state.ZLibrary, c.Controller)
+	if id == 0 || !containsObj(lib, id) {
+		return
+	}
+	h.Emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZLibrary, To: state.ZExile,
 		Counter: "exiled_with_face_down", Amount: int32(c.Source), Secret: true})
 	hideawayBottom(h, c, sa)
 }
@@ -3459,6 +3737,12 @@ func hideawayBottom(h Host, c *Ctx, sa *cards.SA) {
 		Prompt: "Put the remaining Hideaway cards on the bottom in any order"}
 	for i, id := range lib[:n] {
 		d.Options = append(d.Options, decision.Option{Index: i, Kind: "hideaway_bottom", Label: objName(h.Game(), id), Obj: id, Player: c.Controller})
+	}
+	if _, ok := AskTapeIntent(h, d); ok {
+		// The resolution kernel served the order and its record (the
+		// KArrange answer record's hideaway_bottom) applied it: done, as the
+		// "hideaway_arrange" re-entry is.
+		return
 	}
 	if h.Ask(d) {
 		return
@@ -3568,10 +3852,19 @@ func effNameCard(h Host, c *Ctx, sa *cards.SA) {
 		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 			Source: c.Source, ResumeKind: "name", ResumeSA: sa, Prompt: "Choose a card name"}
 		d.Options = NameOptions(names, c.Controller)
-		if Ask(h, d) == AskAsked {
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the name rules'
+			// resumeResolution binds from the "name" answer (the chosen
+			// option's Label; Min == Max == 1), which the rest of the chain
+			// reads off Ctx.NameChoice exactly as on the re-entry.
+			if len(ans) == 1 {
+				c.NameChoice = ans[0].Label
+			}
+		} else if Ask(h, d) == AskAsked {
 			return
+		} else {
+			c.NameChoice = names[0]
 		}
-		c.NameChoice = names[0]
 	}
 	h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "name", Text: c.NameChoice})
 }

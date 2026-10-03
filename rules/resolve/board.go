@@ -61,8 +61,11 @@ type Board interface {
 	// Record answers the posed d with in exactly as a Submit would record
 	// it -- the intent, DecisionMade, and the decision kind's own answer
 	// record (a mid-resolution KModes answer's ModeChosen marker) -- clears
-	// the pending decision and returns the chosen options.
-	Record(d *decision.Decision, in decision.Intent) []decision.Option
+	// the pending decision and returns the intent the asking code acts on:
+	// the logged witness re-seated on the seat the decision is asked OF,
+	// exactly as Submit hands a handler its intent (its Choices index
+	// d.Options; Rest carries an arrange's pile-B order).
+	Record(d *decision.Decision, in decision.Intent) decision.Intent
 	// Emit applies and logs one event (a hypothetical world's injected
 	// redeal events, re-applied at its fork point).
 	Emit(ev events.Event)

@@ -158,7 +158,7 @@ func effAddTurn(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	player := c.Controller
-	if sa.ParamStr(cards.PKDefined) != "" || sa.ParamStr(cards.PKValidTgts) != "" {
+	if sa.ParamStr(cards.PKDefined) != "" || TargetsOf(sa).Targeted() {
 		for _, t := range Defined(h, c, sa) {
 			if t.IsPlayer {
 				player = t.Player
@@ -475,13 +475,14 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 
-	if done {
-		// Re-entry: the choose-one-result answer arrived. The chosen options'
-		// Index values name the dice (into `rolls`, the per-die results the
-		// asking first pass carried on the decision) the player picked; the
-		// chosen value is the sum of the picked dice's results, the other
-		// value the sum of the rest -- for the corpus's two-die Endeavor
-		// cycle that is exactly "one result" and "the other result".
+	// publishChosen publishes an answered choose-one-result (the legacy
+	// re-entry and the resolution kernel's tape-served answer share it).
+	// The chosen options' Index values name the dice (into rolls, the
+	// per-die results the asking pass carried on the decision) the player
+	// picked; the chosen value is the sum of the picked dice's results, the
+	// other value the sum of the rest -- for the corpus's two-die Endeavor
+	// cycle that is exactly "one result" and "the other result".
+	publishChosen := func(rolls []int32, pick []int) {
 		chosenSum, otherSum, picked := int32(0), int32(0), 0
 		isPicked := func(i int) bool {
 			for _, idx := range pick {
@@ -514,6 +515,10 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 		if chosenName != "" {
 			c.LastRoll, c.LastRollName = chosenSum, chosenName
 		}
+	}
+	if done {
+		// Re-entry: the choose-one-result answer arrived.
+		publishChosen(rolls, pick)
 		return
 	}
 
@@ -650,6 +655,16 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 			d.Options = append(d.Options, decision.Option{Index: i,
 				Kind: "roll", Label: "die " + strconv.Itoa(i+1) + ": result " + strconv.FormatInt(int64(r), 10),
 				Player: c.Controller})
+		}
+		if ans, ok := AskTape(h, d); ok {
+			// The "roll" answer in hand: the picked dice by option Index,
+			// published as the re-entry publishes them.
+			pick := make([]int, 0, len(ans))
+			for _, o := range ans {
+				pick = append(pick, o.Index)
+			}
+			publishChosen(d.Rolls, pick)
+			return
 		}
 		if h.Ask(d) {
 			return // resolution suspended; the answer re-enters with Ctx.RollResults/RollPick set.
