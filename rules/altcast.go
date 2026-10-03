@@ -377,7 +377,7 @@ func warpGraveyardAllowed(f *cards.Face) bool {
 	}
 	for _, st := range f.Statics {
 		if st.Mode == "Continuous" && st.ParamStr(cards.PKMayPlay) == "True" &&
-			strings.Contains(st.Params["ValidSA"], "Spell.Warp") &&
+			strings.Contains(st.ParamStr(cards.PKValidSA), "Spell.Warp") &&
 			strings.Contains(st.ParamStr(cards.PKAffectedZone), "Graveyard") &&
 			strings.Contains(st.ParamStr(cards.PKEffectZone), "Graveyard") {
 			return true

@@ -821,12 +821,12 @@ func (e *Engine) replacementConditionHolds(r cards.Repl, source state.ObjID, you
 		return false
 	}
 	if spec, ok := r.Param(cards.PKIsPresent); ok {
-		cmp := r.Params["PresentCompare"]
+		cmp := r.ParamStr(cards.PKPresentCompare)
 		if cmp == "" {
 			cmp = "GE1"
 		}
 		var n int
-		if _, hasZone := r.Param(cards.PKPresentZone); hasZone || r.Params["PresentDefined"] != "" {
+		if _, hasZone := r.Param(cards.PKPresentZone); hasZone || r.ParamStr(cards.PKPresentDefined) != "" {
 			// A damage/counter/CantPreventDamage line's IsPresent$ can name a
 			// non-battlefield zone (PresentZone$) or a defined subject
 			// (PresentDefined$ Self, "is this exact permanent still present");
@@ -836,7 +836,7 @@ func (e *Engine) replacementConditionHolds(r cards.Repl, source state.ObjID, you
 			if z := r.ParamStr(cards.PKPresentZone); z != "" {
 				zone = effects.ParseZone(z)
 			}
-			n = e.countPresentInZone(spec, source, you, zone, r.Params["PresentDefined"])
+			n = e.countPresentInZone(spec, source, you, zone, r.ParamStr(cards.PKPresentDefined))
 		} else {
 			n = e.countPresent(spec, source, you)
 		}
@@ -890,7 +890,7 @@ func (e *Engine) replacementConditionHolds(r cards.Repl, source state.ObjID, you
 	}
 	if check, ok := r.Param(cards.PKCheckSVar); ok {
 		n := e.replacementCheckValue(source, check)
-		if cmp := r.Params["SVarCompare"]; cmp != "" {
+		if cmp := r.ParamStr(cards.PKSVarCompare); cmp != "" {
 			op, rhs, valid := splitCompare(strings.TrimSpace(cmp))
 			if !valid || !applyCompare(int(n), op, rhs) {
 				return false

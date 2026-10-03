@@ -35,6 +35,11 @@ type engineScratch struct {
 	// memo scope (host_read.go): one Derived build copied here so the query
 	// can hand out a pointer. Pure per-call scratch; Clone copies none.
 	charsScratch Derived `clone:"reset"`
+	// combatStatics is combatBoard.Statics' per-mode conversion buffer
+	// (rules/combat_board.go): activeStatics(mode) re-viewed as combat.Static
+	// values for the rules/combat predicates. Pure per-call scratch, rewritten
+	// in full on every call; Clone copies none.
+	combatStatics []combatStaticsBuf `clone:"reset"`
 
 	// derivedMemo / derivedMemoDepth / derivedMemoGen are Derived's per-object
 	// memo for ONE legal-actions walk (rules/derivedmemo.go): derivedMemoDepth

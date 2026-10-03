@@ -65,7 +65,10 @@ var excluded = map[excludedField]bool{
 	// resets it. The trigger matchers read characteristics through Chars
 	// since W5 E3 (trigmatch.Board), so a live engine holds the last read
 	// while its control clone holds none (round-9 paymirror, seed 8175).
-	{"rules.Engine", "charsScratch"}:       true,
+	{"rules.Engine", "charsScratch"}: true,
+	// combatBoard.Statics' per-mode conversion buffer (rules/combat_board.go):
+	// per-call scratch rewritten in full on every read; Clone copies none.
+	{"rules.Engine", "combatStatics"}:      true,
 	{"rules.Engine", "boardStaticsCache"}:  true,
 	{"rules.Engine", "activeStaticsCache"}: true,
 	{"rules.Engine", "activeStaticsScan"}:  true,

@@ -155,7 +155,7 @@ func SpellCastEval(e Board, t cards.Trigger, source state.ObjID, ev events.Event
 			return false
 		}
 	}
-	if v, ok := t.Params["ValidSA"]; ok {
+	if v, ok := t.Param(cards.PKValidSA); ok {
 		if !ValidSAMatches(e, source, ev, ctrl, v) {
 			return false
 		}
@@ -323,7 +323,7 @@ func spellAbilityCastSpellMatches(e Board, t cards.Trigger, source state.ObjID, 
 			return false
 		}
 	}
-	if v, ok := t.Params["ValidSA"]; ok {
+	if v, ok := t.Param(cards.PKValidSA); ok {
 		if !spellAbilityCastSpellValidSA(e, obj, v, source, ctrl) {
 			return false
 		}
@@ -470,10 +470,10 @@ func abilityCastMatches(e Board, t cards.Trigger, source state.ObjID, ev events.
 		}
 	}
 	removed := int32(-1)
-	if strings.Contains(t.Params["ValidSA"], "CountersRemovedToPay") || strings.Contains(t.Params["ValidSAonCard"], "CountersRemovedToPay") {
+	if strings.Contains(t.ParamStr(cards.PKValidSA), "CountersRemovedToPay") || strings.Contains(t.Params["ValidSAonCard"], "CountersRemovedToPay") {
 		removed = activationCountersRemoved(e, ev, ab)
 	}
-	if v, ok := t.Params["ValidSA"]; ok {
+	if v, ok := t.Param(cards.PKValidSA); ok {
 		if ab == nil || !AbilityCastValidSA(e, ab, v, obj.Controller, ctrl, removed) {
 			return false
 		}

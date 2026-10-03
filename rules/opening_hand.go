@@ -274,7 +274,7 @@ func (e *Engine) resumeOpening() {
 func (e *Engine) registerOpeningEffectTriggers(ef openingEffect, first *cards.SA) {
 	for sa := first; sa != nil; {
 		if sa.API == "Effect" {
-			for name := range strings.FieldsSeq(sa.Params["Triggers"]) {
+			for name := range strings.FieldsSeq(sa.ParamStr(cards.PKTriggers)) {
 				o := e.G.Obj(ef.card)
 				if o == nil || o.Face() == nil {
 					return

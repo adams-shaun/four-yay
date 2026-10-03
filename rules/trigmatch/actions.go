@@ -176,7 +176,7 @@ func attachedMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Eve
 	if ev.Kind != events.Attach || len(ev.IDs) == 0 || ev.Obj == 0 {
 		return false
 	}
-	if t.Params["Static"] == "True" {
+	if t.ParamStr(cards.PKStatic) == "True" {
 		return false
 	}
 	ctrl := e.ControllerOf(source)
@@ -482,7 +482,7 @@ func rolledDieOnceMatches(e Board, t cards.Trigger, source state.ObjID, ev event
 // not name a die size, in which case a ValidSides$ line fails closed rather
 // than matching any size.
 func rolledDieCommon(e Board, t cards.Trigger, source state.ObjID, roller state.PlayerID, sides, natural, result int32) bool {
-	if strings.EqualFold(strings.TrimSpace(t.Params["Static"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKStatic)), "True") {
 		return false
 	}
 	if strings.EqualFold(strings.TrimSpace(t.Params["RolledToVisitAttractions"]), "True") {

@@ -63,6 +63,10 @@ __pycache__/
 /searchbench
 /testtime
 
+# The generated compliance status page (make compliance-status). Never
+# committed: it moves with every engine change (spec 2026-10-03 section 6).
+/compliance/status.md
+
 # `make coverage` output (cmd/forgec coverage): generated card-support tables,
 # published by the `card coverage` CI job, never committed.
 .coverage/

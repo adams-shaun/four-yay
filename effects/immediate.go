@@ -102,7 +102,7 @@ func effImmediateTrigger(h Host, c *Ctx, sa *cards.SA) {
 	if amount < 0 {
 		amount = 0
 	}
-	remember := strings.TrimSpace(sa.Params["RememberObjects"])
+	remember := strings.TrimSpace(sa.ParamStr(cards.PKRememberObjects))
 	each := strings.EqualFold(strings.TrimSpace(sa.Params["RememberEach"]), "True")
 	// wholeSet is the set every non-RememberEach instance's Ctx.Remembered sees
 	// (the body reads it through DelayTriggerRememberedLKI / Remembered). It
@@ -166,7 +166,7 @@ func effImmediateTrigger(h Host, c *Ctx, sa *cards.SA) {
 	// inline loop that already suspended, and a body the host cannot mint
 	// from the log (QueueReflexiveTrigger reports false; decided on the first
 	// instance, so one ImmediateTrigger never mixes the two).
-	queue := start == 0 && !strings.EqualFold(strings.TrimSpace(sa.Params["Static"]), "True")
+	queue := start == 0 && !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKStatic)), "True")
 	for i := start; i < len(subjects); i++ {
 		cc := *c
 		cc.Repeat = nil

@@ -53,7 +53,7 @@ func (e *Engine) SpellCopyAllowed(id state.ObjID) bool {
 // consistent with the other static consumers.
 func (e *Engine) countersRemainApplies(id state.ObjID) bool {
 	for _, sv := range e.activeStatics("CountersRemain") {
-		spec := sv.Params["ValidCard"]
+		spec := sv.ParamStr(cards.PKValidCard)
 		if spec != "" && e.matchesSpec(spec, id, e.staticSpecCtx(sv)) {
 			return true
 		}
@@ -77,7 +77,7 @@ func (e *Engine) countersRemainApplies(id state.ObjID) bool {
 // the same direction HandSizeValueOK takes.
 func (e *Engine) SurveilLookExtra(p state.PlayerID) (mandatory int32, optional []int32) {
 	for _, sv := range e.activeStatics("SurveilNum") {
-		spec := strings.TrimSpace(sv.Params["ValidPlayer"])
+		spec := strings.TrimSpace(sv.ParamStr(cards.PKValidPlayer))
 		if spec == "" {
 			spec = "You"
 		}
@@ -88,7 +88,7 @@ func (e *Engine) SurveilLookExtra(p state.PlayerID) (mandatory int32, optional [
 		if !ok || n <= 0 {
 			continue
 		}
-		if strings.EqualFold(strings.TrimSpace(sv.Params["Optional"]), "True") {
+		if strings.EqualFold(strings.TrimSpace(sv.ParamStr(cards.PKOptional)), "True") {
 			optional = append(optional, n)
 		} else {
 			mandatory += n
@@ -147,7 +147,7 @@ func (e *Engine) castRestrictedUsing(statics []staticView, p state.PlayerID, id 
 		if !e.continuousGateHolds(sv) || !e.restrictionGateHolds(sv, id) {
 			continue
 		}
-		spec := sv.Params["ValidCard"]
+		spec := sv.ParamStr(cards.PKValidCard)
 		// The origin-zone cast-provenance split (task wascastfrom): a
 		// CantBeCast restriction's ValidCard$ carrying a wasCastFromExile /
 		// wasCastFromTheirHand-shaped token gates the cast IN PROGRESS -
@@ -251,10 +251,10 @@ func (e *Engine) abilityRestrictedUsing(statics []staticView, p state.PlayerID, 
 		if !e.restrictionGateHolds(sv, id) || !e.checkSVarHolds(sv) {
 			continue
 		}
-		if !e.matchesSpec(sv.Params["ValidCard"], id, e.staticSpecCtx(sv)) {
+		if !e.matchesSpec(sv.ParamStr(cards.PKValidCard), id, e.staticSpecCtx(sv)) {
 			continue
 		}
-		if activatedMatchesValidSA(ab, sv.Params["ValidSA"]) {
+		if activatedMatchesValidSA(ab, sv.ParamStr(cards.PKValidSA)) {
 			return true
 		}
 	}
@@ -404,16 +404,16 @@ func (e *Engine) castWithFlashTargets(p state.PlayerID, id state.ObjID, targets 
 		// static functions only while its source sits in the named zone --
 		// a battlefield static's permission ends with the source's presence,
 		// exactly like every other zone-scoped static.
-		if az, ok := sv.Params["EffectZone"]; ok {
+		if az, ok := sv.Param(cards.PKEffectZone); ok {
 			src := e.G.Obj(sv.Source)
 			if src == nil || !affectedZoneOK(az, src.Zone) {
 				continue
 			}
 		}
-		if !e.spellMatchesValidSA(o.Face(), sv.Params["ValidSA"], id, sv.Source, p, targets) {
+		if !e.spellMatchesValidSA(o.Face(), sv.ParamStr(cards.PKValidSA), id, sv.Source, p, targets) {
 			continue
 		}
-		if e.matchesSpec(sv.Params["ValidCard"], id, e.staticSpecCtx(sv)) {
+		if e.matchesSpec(sv.ParamStr(cards.PKValidCard), id, e.staticSpecCtx(sv)) {
 			return true
 		}
 	}
@@ -474,7 +474,7 @@ func (e *Engine) hasTargetConditionalFlash(p state.PlayerID, id state.ObjID) boo
 		if !e.actorMatches(sv, "Caster", p) {
 			continue
 		}
-		if validSpellHasTargeting(sv.Params["ValidSA"]) {
+		if validSpellHasTargeting(sv.ParamStr(cards.PKValidSA)) {
 			return true
 		}
 	}
@@ -523,7 +523,7 @@ func validSpellHasTargeting(raw string) bool {
 // or a hand/graveyard zone cannot mean different things on different paths.
 func (e *Engine) presentGate(sv staticView, spec string) bool {
 	n := e.countStaticPresent(sv, spec)
-	cmp := sv.Params["PresentCompare"]
+	cmp := sv.ParamStr(cards.PKPresentCompare)
 	if cmp == "" {
 		cmp = "GE1"
 	}
@@ -538,18 +538,18 @@ func (e *Engine) staticTimingGate(sv staticView) bool {
 	if !e.classBandGateHolds(sv.ParamStr(cards.PKClassBand), sv.Source) {
 		return false
 	}
-	if spec, ok := sv.Params["IsPresent"]; ok && !e.presentGate(sv, spec) {
+	if spec, ok := sv.Param(cards.PKIsPresent); ok && !e.presentGate(sv, spec) {
 		return false
 	}
-	if spec, ok := sv.Params["IsPresent2"]; ok && !e.presentGate(sv, spec) {
+	if spec, ok := sv.Param(cards.PKIsPresent2); ok && !e.presentGate(sv, spec) {
 		return false
 	}
 	if !e.checkSVarHolds(sv) {
 		return false
 	}
-	switch strings.TrimSpace(sv.Params["Condition"]) {
+	switch strings.TrimSpace(sv.ParamStr(cards.PKCondition)) {
 	case "", "PlayerTurn":
-		if sv.Params["Condition"] == "PlayerTurn" && e.G.Active != sv.Controller {
+		if sv.ParamStr(cards.PKCondition) == "PlayerTurn" && e.G.Active != sv.Controller {
 			return false
 		}
 	case "Ferocious":
@@ -569,7 +569,7 @@ func (e *Engine) staticTimingGate(sv staticView) bool {
 	if phase := strings.TrimSpace(sv.Params["Phases"]); phase != "" && !(strings.Contains(phase, "End of Turn") && e.G.Step == state.StepEnd) {
 		return false
 	}
-	if turn := strings.TrimSpace(sv.Params["PlayerTurn"]); turn != "" {
+	if turn := strings.TrimSpace(sv.ParamStr(cards.PKPlayerTurn)); turn != "" {
 		switch turn {
 		case "Opponent":
 			if e.G.Active == sv.Controller {
@@ -583,7 +583,7 @@ func (e *Engine) staticTimingGate(sv staticView) bool {
 }
 
 func (e *Engine) countStaticPresent(sv staticView, spec string) int {
-	zone, ok := presentZoneFromParam(sv.Params["PresentZone"])
+	zone, ok := presentZoneFromParam(sv.ParamStr(cards.PKPresentZone))
 	if !ok {
 		return 0
 	}

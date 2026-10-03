@@ -302,7 +302,7 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 			}
 		}
 		ctx := effects.NewCtxPtr(source, you, effects.CtxInit{SVars: svars})
-		holds, evaluated := effects.CheckSVarHolds(e, ctx, name, strings.TrimSpace(t.Params["SVarCompare"]))
+		holds, evaluated := effects.CheckSVarHolds(e, ctx, name, strings.TrimSpace(t.ParamStr(cards.PKSVarCompare)))
 		if !evaluated || !holds {
 			return false
 		}

@@ -52,7 +52,7 @@ func TestCantAttackOrBlockPrintedKeywordClassificationAndFlags(t *testing.T) {
 	e.G.SetZone(state.ZBattlefield, 0, append(e.G.Zone(state.ZBattlefield, 0), o.ID))
 	e.staticEpoch, e.activeEpoch, e.typesEpoch = -1, -1, -1
 	flags := e.derivedHiddenFlags(o.ID)
-	if !flags.cantAttack || !flags.cantBlock {
+	if !flags.CantAttack || !flags.CantBlock {
 		t.Fatalf("derived flags for printed %s = %+v, want cantAttack and cantBlock", card.Faces[0].Name, flags)
 	}
 }

@@ -109,7 +109,8 @@
 //	pending                            compared by (2.) with Seq-bound identities masked
 //	derivedMemo*, derivedKW/Types/     per-walk Derived memo and scratch, keyed by an epoch
 //	Depth/PTFrames, boardStaticsCache, that advances with every ask; Clone copies none
-//	activeStaticsCache, mayPlaysCache
+//	activeStaticsCache, mayPlaysCache,
+//	combatStatics
 //	charsScratch                       Engine.Chars's answer record, valid until the next
 //	                                   Chars call; Clone resets it
 //	potentialWalk, potentialAskSerial, a posed decision's shared potential walk, keyed by

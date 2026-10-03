@@ -19,7 +19,7 @@ func (e *Engine) targetChooserCore(controller state.PlayerID, remembered []state
 	if sa == nil {
 		return controller, false, false
 	}
-	spec := strings.TrimSpace(sa.Params["TargetingPlayer"])
+	spec := strings.TrimSpace(sa.ParamStr(cards.PKTargetingPlayer))
 	if spec == "" {
 		return controller, false, false
 	}
@@ -127,7 +127,7 @@ func (e *Engine) targetControlsChooser(p state.PlayerID, source state.ObjID, sa 
 	if rec, ok := e.tpCtlChooser[source]; ok && (sa.Line == "" || rec.line == "" || rec.line == sa.Line) {
 		return rec.player, tpResolved
 	}
-	spec := strings.TrimSpace(sa.Params["TargetingPlayer"])
+	spec := strings.TrimSpace(sa.ParamStr(cards.PKTargetingPlayer))
 	if spec == "Opponent" || spec == "Player.Opponent" {
 		// The mid-tier answered selection (oppPicksMid, keyed by the SA's
 		// line): present between the "opp_pick" resume arm and the

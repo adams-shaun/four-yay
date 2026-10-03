@@ -379,7 +379,7 @@ func (e *Engine) activationLimitReachedAt(id state.ObjID, p state.PlayerID, abil
 func (e *Engine) additionalActivationLimit(id state.ObjID, actor state.PlayerID, ab *cards.SA, baseline int) int {
 	limit := baseline
 	for _, sv := range e.activeStatics("Activations") {
-		validSA := strings.TrimSpace(sv.Params["ValidSA"])
+		validSA := strings.TrimSpace(sv.ParamStr(cards.PKValidSA))
 		matched := false
 		for alt := range strings.SplitSeq(validSA, ",") {
 			parts := strings.SplitN(strings.TrimSpace(alt), ".", 2)
@@ -399,14 +399,14 @@ func (e *Engine) additionalActivationLimit(id state.ObjID, actor state.PlayerID,
 		if !matched {
 			continue
 		}
-		if spec := strings.TrimSpace(sv.Params["ValidCard"]); spec != "" &&
+		if spec := strings.TrimSpace(sv.ParamStr(cards.PKValidCard)); spec != "" &&
 			!e.matchesSpec(spec, id, e.staticSpecCtx(sv)) {
 			continue
 		}
 		if !e.actorMatches(sv, "ValidPlayer", actor) {
 			continue
 		}
-		if turn := strings.TrimSpace(sv.Params["PlayerTurn"]); turn != "" {
+		if turn := strings.TrimSpace(sv.ParamStr(cards.PKPlayerTurn)); turn != "" {
 			if turn != "You" || e.G.Active != actor {
 				continue
 			}

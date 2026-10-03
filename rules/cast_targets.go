@@ -875,7 +875,7 @@ func (e *Engine) castSubPreAskable(pc *pendingCast, sub *cards.SA) bool {
 // its spec, its controller restriction, its chooser, or a dynamic bound.
 func subTargetingReadsRootTarget(sub *cards.SA, svars map[string]string) bool {
 	for _, v := range []string{sub.ParamStr(cards.PKValidTgts), sub.ParamStr(cards.PKTargetsWithDefinedController),
-		sub.Params["TargetingPlayer"]} {
+		sub.ParamStr(cards.PKTargetingPlayer)} {
 		if strings.Contains(v, "Targeted") || strings.Contains(v, "ParentTarget") {
 			return true
 		}
@@ -1397,7 +1397,7 @@ func (e *Engine) recheckIllegal(pc *pendingCast) bool {
 				sc := e.specCtx(sv.Source, sv.Controller)
 				sc.HasManaValue = true
 				sc.ManaValue = mv
-				if e.matchesSpec(sv.Params["ValidCard"], pc.card, sc) {
+				if e.matchesSpec(sv.ParamStr(cards.PKValidCard), pc.card, sc) {
 					return true
 				}
 			}

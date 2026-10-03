@@ -40,7 +40,7 @@ func unattachedMatches(e Board, t cards.Trigger, source state.ObjID, ev events.E
 	if ev.Kind != events.Unattached || ev.Obj == 0 || len(ev.IDs) == 0 {
 		return false
 	}
-	if t.Params["Static"] == "True" {
+	if t.ParamStr(cards.PKStatic) == "True" {
 		// Forge's "static effect expressed as a trigger" guard, the same one
 		// attachedMatches carries: a clone/continuous ETB shape must not fire
 		// on every detach.

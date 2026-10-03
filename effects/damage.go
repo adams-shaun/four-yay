@@ -109,7 +109,7 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 	// N. Targets beyond N take nothing, as an unchosen target would.
 	divided := false
 	var total int32
-	if raw, ok := sa.Params["DividedAsYouChoose"]; ok && strings.TrimSpace(raw) != "" {
+	if raw, ok := sa.Param(cards.PKDividedAsYouChoose); ok && strings.TrimSpace(raw) != "" {
 		divided = true
 		total = Num(h, c, sa, "DividedAsYouChoose", 0)
 		if total < 0 {
@@ -1396,7 +1396,7 @@ func effEachDamage(h Host, c *Ctx, sa *cards.SA) {
 		pc := NewCtxPtr(d, o.Controller, CtxInit{SVars: c.SVars})
 		n, amountResolved := NumResolved(h, pc, sa, "NumDmg", 1)
 		if !amountResolved {
-			if _, present := sa.Params["NumDmg"]; !present {
+			if !sa.HasParam(cards.PKNumDmg) {
 				n = 1
 			} else {
 				n = 0

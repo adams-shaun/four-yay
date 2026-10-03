@@ -560,7 +560,7 @@ func etbCloneWhitelist(sa *cards.SA, svars map[string]string) bool {
 	if effects.SpecNeedsResolver(strings.TrimSpace(sa.ParamStr(cards.PKChoices))) {
 		return false
 	}
-	for _, kw := range cards.SplitKeywordList(sa.Params["AddKeywords"]) {
+	for _, kw := range cards.SplitKeywordList(sa.ParamStr(cards.PKAddKeywords)) {
 		if strings.ContainsAny(cards.KeywordHead(kw), " \t") {
 			return false
 		}
@@ -568,14 +568,14 @@ func etbCloneWhitelist(sa *cards.SA, svars map[string]string) bool {
 	// A named static is installed on the cloned face by CloneStatic, so
 	// every static reader sees it through its normal printed-S: path. An
 	// unresolvable member still fails closed before posing the ETB election.
-	for _, name := range strings.FieldsFunc(sa.Params["AddStaticAbilities"], func(r rune) bool {
+	for _, name := range strings.FieldsFunc(sa.ParamStr(cards.PKAddStaticAbilities), func(r rune) bool {
 		return r == ',' || r == ' ' || r == '\t' || r == '\n'
 	}) {
 		if !effects.CloneStaticGrantReadable(svars, name) {
 			return false
 		}
 	}
-	if raw, ok := sa.Params["IntoPlayTapped"]; ok && !strings.EqualFold(raw, "True") {
+	if raw, ok := sa.Param(cards.PKIntoPlayTapped); ok && !strings.EqualFold(raw, "True") {
 		return false
 	}
 	return true

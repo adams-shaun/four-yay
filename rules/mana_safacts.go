@@ -81,7 +81,7 @@ type manaStaticFacts struct {
 
 func computeManaStaticFacts(ab *cards.SA, cost *Cost) manaStaticFacts {
 	f := manaStaticFacts{produced: strings.TrimSpace(ab.ParamStr(cards.PKProduced)), amount: availableAmount(ab),
-		restrictValid: strings.TrimSpace(ab.Params["RestrictValid"]) != "",
+		restrictValid: strings.TrimSpace(ab.ParamStr(cards.PKRestrictValid)) != "",
 		freeCost:      manaFreeCost(*cost), tapOnly: paymentPlanTapOnlyCost(*cost), tap: cost.Tap, untap: cost.Untap}
 	f.counts, f.any = cards.ProducedCounts(ab.ParamStr(cards.PKProduced))
 	return f

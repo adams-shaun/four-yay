@@ -320,7 +320,7 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 	// cannot evaluate (anything but Spell./Activated.) is still retained --
 	// it matches no payment, so the mana is never spendable, the
 	// fail-closed direction.
-	restriction := strings.TrimSpace(sa.Params["RestrictValid"])
+	restriction := strings.TrimSpace(sa.ParamStr(cards.PKRestrictValid))
 	// AddsNoCounter$ (Cavern of Souls' "that spell can't be countered",
 	// Boseiju, Delighted Halfling — 3 corpus files): the produced mana carries
 	// its can't-be-countered provenance on the same ManaAdd restriction batch

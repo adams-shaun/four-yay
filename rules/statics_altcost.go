@@ -38,18 +38,18 @@ type altCostView struct {
 func (e *Engine) alternativeCosts(p state.PlayerID, id state.ObjID) []altCostView {
 	var out []altCostView
 	for _, sv := range e.activeStatics("AlternativeCost") {
-		if !e.matchesSpec(sv.Params["ValidCard"], id, e.staticSpecCtx(sv)) {
+		if !e.matchesSpec(sv.ParamStr(cards.PKValidCard), id, e.staticSpecCtx(sv)) {
 			continue
 		}
 		if !e.alternativeCostScopeOK(sv.Params, id, sv.Source, p, sv.Controller) {
 			continue
 		}
-		cost, ok := e.altCostParse(id, sv.Params["Cost"])
+		cost, ok := e.altCostParse(id, sv.ParamStr(cards.PKCost))
 		if !ok {
 			continue
 		}
 		out = append(out, altCostView{cost: cost,
-			announce: strings.TrimSpace(sv.Params["Announce"]), src: sv.Source})
+			announce: strings.TrimSpace(sv.ParamStr(cards.PKAnnounce)), src: sv.Source})
 	}
 	// The Effect-delivered AlternativeCost statics (task
 	// param:api:Effect.ForgetOnCast, Marshland Bloodcaster): registry entries
@@ -71,19 +71,19 @@ func (e *Engine) alternativeCosts(p state.PlayerID, id state.ObjID) []altCostVie
 		// names none). The bare matchesObjectText read of an empty spec
 		// matches NOTHING, so an unconditional check would silently deny
 		// every ValidCard$-less grant.
-		if spec, ok := sv.Params["ValidCard"]; ok && spec != "" &&
+		if spec, ok := sv.Param(cards.PKValidCard); ok && spec != "" &&
 			!e.matchesSpec(spec, id, e.staticSpecCtx(sv)) {
 			continue
 		}
 		if !e.alternativeCostScopeOK(sv.Params, id, sv.Source, p, sv.Controller) {
 			continue
 		}
-		cost, ok := e.altCostParse(id, sv.Params["Cost"])
+		cost, ok := e.altCostParse(id, sv.ParamStr(cards.PKCost))
 		if !ok {
 			continue
 		}
 		out = append(out, altCostView{cost: cost,
-			announce: strings.TrimSpace(sv.Params["Announce"]), src: sv.Source})
+			announce: strings.TrimSpace(sv.ParamStr(cards.PKAnnounce)), src: sv.Source})
 	}
 	if o := e.G.Obj(id); o != nil {
 		if f := o.Face(); f != nil {
@@ -312,7 +312,7 @@ func (e *Engine) firstForetellUsed(p state.PlayerID) bool {
 }
 
 func (e *Engine) onlyFirstSpellUsed(sv staticView, p state.PlayerID, id state.ObjID) bool {
-	spec := strings.TrimSpace(sv.Params["ValidCard"])
+	spec := strings.TrimSpace(sv.ParamStr(cards.PKValidCard))
 	for i := len(e.L.Events) - 1; i >= 0; i-- {
 		ev := e.L.Events[i]
 		if ev.Kind == events.TurnChange {
