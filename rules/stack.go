@@ -354,7 +354,10 @@ func (e *Engine) resolveTop() {
 			ResolvingObj: id,
 			// alltargeted1: the cast flow's pre-asked SubAbility$ target
 			// answers, consumed line by line by chosenTargetsFor.
-			SubPreAsk: e.castSubTargets[id]}
+			SubPreAsk: e.castSubTargets[id],
+			// The root+chain target union an announced chain's Defined$
+			// Targeted reads (nil without one: rules/trigger_subtargets.go).
+			AllTargets: e.chainTargetUnion(id, o.Ability, targets)}
 		// CR 702.49b: a K:Ninjutsu permanent enters attacking the same player
 		// (planeswalker or battle) the returned creature was attacking. The
 		// activator captured that defender when the Return cost was paid
@@ -688,7 +691,8 @@ func (e *Engine) resolveTop() {
 			// alltargeted1: the cast flow's pre-asked SubAbility$ target
 			// answers, consumed line by line by chosenTargetsFor. Disjoint
 			// from ModeTargets: a modal root is never pre-asked.
-			SubPreAsk: e.castSubTargets[id]}
+			SubPreAsk:  e.castSubTargets[id],
+			AllTargets: e.chainTargetUnion(id, sa, targets)}
 		// Same marker as the ability branch: the cast-flow target ask
 		// (targetAsk's targetSA) offered exactly this spell's targeting.
 		if targetSA != nil && strings.TrimSpace(targetSA.ParamStr(cards.PKValidTgts)) != "" {

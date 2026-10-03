@@ -2584,7 +2584,7 @@ var statPresentationSecondary = []string{
 	"Continuous", "CantBlockBy", "MustAttack", "CantBlock", "MinMaxBlocker",
 	"CantBeActivated", "CantSacrifice", "CantBeCast", "CantAttack",
 	"CastWithFlash", "CantGainLife", "CantTarget", "Panharmonicon",
-	"RaiseCost", "ReduceCost",
+	"RaiseCost", "ReduceCost", "DisableTriggers",
 }
 
 var ignoredAbilityParams = map[string]string{

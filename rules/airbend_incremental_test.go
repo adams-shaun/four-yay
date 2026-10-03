@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -78,39 +80,54 @@ func TestAirbendIncrementalIndexMatchesRebuildEveryDecision(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	deck := airbendGameDeck(t, reg)
+	// Each seed plays an independent game, so the seeds run as parallel
+	// subtests: this test is one of the rules package's longest single
+	// bodies, and its serial seed loop used one CPU on the module gate's
+	// critical path. Per-game failures stay attributed to their seed; the
+	// coverage preconditions wait for every subtest.
+	var mu sync.Mutex
 	grantedSeen, decisions := 0, 0
 	for seed := uint64(1); seed <= 4; seed++ {
-		e := New(Config{Seed: 7100 + seed, Names: []string{"a", "b"},
-			Decks: [][]*cards.Card{deck, deck}, Tokens: reg.Tokens})
-		b := newTestBot(seed)
-		e.Advance()
-		for n := 0; !e.G.Over && e.Pending() != nil && n < 4000; n++ {
-			grantedSeen += airbendIndexMatchesScan(t, e, "game")
-			decisions++
-			if n%16 == 0 {
-				c := e.Clone()
-				cb := newTestBot(seed*1000 + uint64(n))
-				for k := 0; k < 40 && !c.G.Over && c.Pending() != nil; k++ {
-					grantedSeen += airbendIndexMatchesScan(t, c, "clone")
-					if err := c.Submit(cb.answer(c, c.Pending())); err != nil {
-						t.Fatalf("seed %d clone at %d step %d: %v", seed, n, k, err)
+		t.Run(fmt.Sprintf("seed-%d", seed), func(t *testing.T) {
+			t.Parallel()
+			var gGranted, gDecisions int
+			e := New(Config{Seed: 7100 + seed, Names: []string{"a", "b"},
+				Decks: [][]*cards.Card{deck, deck}, Tokens: reg.Tokens})
+			b := newTestBot(seed)
+			e.Advance()
+			for n := 0; !e.G.Over && e.Pending() != nil && n < 4000; n++ {
+				gGranted += airbendIndexMatchesScan(t, e, "game")
+				gDecisions++
+				if n%16 == 0 {
+					c := e.Clone()
+					cb := newTestBot(seed*1000 + uint64(n))
+					for k := 0; k < 40 && !c.G.Over && c.Pending() != nil; k++ {
+						gGranted += airbendIndexMatchesScan(t, c, "clone")
+						if err := c.Submit(cb.answer(c, c.Pending())); err != nil {
+							t.Fatalf("seed %d clone at %d step %d: %v", seed, n, k, err)
+						}
 					}
+					// The fork's folds must not have disturbed the original.
+					airbendIndexMatchesScan(t, e, "original after clone")
 				}
-				// The fork's folds must not have disturbed the original.
-				airbendIndexMatchesScan(t, e, "original after clone")
+				if err := e.Submit(b.answer(e, e.Pending())); err != nil {
+					t.Fatalf("seed %d intent %d: %v", seed, n, err)
+				}
 			}
-			if err := e.Submit(b.answer(e, e.Pending())); err != nil {
-				t.Fatalf("seed %d intent %d: %v", seed, n, err)
-			}
+			mu.Lock()
+			grantedSeen, decisions = grantedSeen+gGranted, decisions+gDecisions
+			mu.Unlock()
+		})
+	}
+	t.Cleanup(func() {
+		if decisions < 500 {
+			t.Fatalf("precondition: only %d decisions checked", decisions)
 		}
-	}
-	if decisions < 500 {
-		t.Fatalf("precondition: only %d decisions checked", decisions)
-	}
-	if grantedSeen == 0 {
-		t.Fatal("precondition: no decision ever saw an airbend permission granted; the deck does not exercise the index")
-	}
-	t.Logf("%d decisions, %d granted-permission observations", decisions, grantedSeen)
+		if grantedSeen == 0 {
+			t.Fatal("precondition: no decision ever saw an airbend permission granted; the deck does not exercise the index")
+		}
+		t.Logf("%d decisions, %d granted-permission observations", decisions, grantedSeen)
+	})
 }
 
 // BenchmarkAirbendPermission prices one offer walk's airbend reads on a

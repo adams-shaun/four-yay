@@ -380,6 +380,7 @@ func TestOracleAudit(t *testing.T) {
 			key := f.Card + "/" + sc.Name
 			seen[key] = true
 			t.Run(key, func(t *testing.T) {
+				t.Parallel()
 				fails, transcript, run := runOracleScenario(reg, sc)
 				// Every scenario must also replay from its log alone: the setup
 				// and the stand-in ops are logged events, so a divergence here
@@ -431,18 +432,20 @@ func TestOracleAudit(t *testing.T) {
 			})
 		}
 	}
-	for key, row := range divergent {
-		if !seen[key] {
-			where := row.src
-			if where == "" {
-				where = "oracleKnownDivergent"
+	t.Cleanup(func() {
+		for key, row := range divergent {
+			if !seen[key] {
+				where := row.src
+				if where == "" {
+					where = "oracleKnownDivergent"
+				}
+				t.Errorf("%s row %q names no scenario", where, key)
 			}
-			t.Errorf("%s row %q names no scenario", where, key)
 		}
-	}
-	for key := range unconsumed {
-		if !seen[key] {
-			t.Errorf("%s row %q names no scenario", oracleUnconsumedFile, key)
+		for key := range unconsumed {
+			if !seen[key] {
+				t.Errorf("%s row %q names no scenario", oracleUnconsumedFile, key)
+			}
 		}
-	}
+	})
 }

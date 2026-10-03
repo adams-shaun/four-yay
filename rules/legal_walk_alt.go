@@ -624,16 +624,17 @@ func (w *legalWalk) exileCastsWalk() {
 		// object whose PreparedSource names a battlefield permanent -- may be
 		// cast by that permanent's controller for as long as the permanent
 		// remains prepared. Its Face() is the prepare spell, so timing,
-		// targets and resolution all run the ordinary stages; the cast is
-		// free and the designation is removed at cast time (rules/cast.go's
-		// pushCast), not on resolution.
+		// targets, cost and resolution all run the ordinary stages: the cast
+		// pays the prepare spell's own mana cost (the reminder grants a cast,
+		// not a free one; CR 601.2f), and the designation is removed at cast
+		// time (rules/cast.go's pushCast), not on resolution.
 		if o.IsCopy && o.PreparedSource != 0 {
 			if src := e.G.Obj(o.PreparedSource); src != nil && src.Zone == state.ZBattlefield &&
 				src.Prepared && src.Controller == p &&
 				!w.castRestricted(p, id) && !e.castSuppressed(p, id) &&
 				e.spellTimingOK(p, id, f, sorcery) &&
 				e.castTargetsAvailable(p, id, f.SpellAbility()) {
-				if w.offerCastable(p, id, Cost{}, spellScope("prepared_copy"), false) {
+				if w.offerCastable(p, id, e.rawBaseCost(p, id), spellScope("prepared_copy"), false) {
 					*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 						Label: "Cast " + f.Name + " (prepared)", Obj: id, Mode: "prepared_copy"})
 				}

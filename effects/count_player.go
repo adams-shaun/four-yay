@@ -431,6 +431,14 @@ func hasPropertyStateBacked(h Host, g *state.Game, c *Ctx, group []state.PlayerI
 		qualifies = func(p state.PlayerID) bool { return g.IsMonarch(p) }
 	case base == "HasPropertywasDealtDamageThisTurn":
 		qualifies = func(p state.PlayerID) bool { return h.DamageTakenThisTurn(p) > 0 }
+	case base == "HasPropertywasDealtNonCombatDamageThisTurn":
+		// Grim Repriser / Whiplash Wordsmith: "an opponent was dealt
+		// noncombat damage this turn" -- the Host's per-turn ledger of seats
+		// dealt damage outside a combat damage assignment.
+		qualifies = h.WasDealtNoncombatDamageThisTurn
+	case base == "HasPropertywasDealtNonCombatDamageLastTurn":
+		// Command the Stage: "... was dealt noncombat damage last turn".
+		qualifies = h.WasDealtNoncombatDamageLastTurn
 	case base == "HasPropertywasDealtCombatDamageThisTurn":
 		hits := h.CombatDamageToPlayersThisTurn()
 		qualifies = func(p state.PlayerID) bool {

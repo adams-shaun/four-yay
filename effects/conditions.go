@@ -766,6 +766,7 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 				oc.Counters = cs
 				o = &oc
 			}
+			o = targetedPermanentLKI(c, present, o)
 		}
 		if present == "" {
 			count++
@@ -806,6 +807,51 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		}
 	}
 	return combine(evalConditionCount(count, compare))
+}
+
+// targetedPermanentLKI is the CR 608.2h look-back for a `ConditionDefined$
+// Targeted` gate whose ConditionPresent$ spec names the Permanent base
+// ("If that permanent's mana value was 3 or less" -- Vindictive Triumph,
+// Carnivorous Canopy; "If that permanent was blue or black" -- Filigree
+// Fracture). The gate is evaluated after the spell's first effect already
+// moved the target off the battlefield, so the live object is a card in exile
+// or a graveyard and the zone-bound Permanent base would never match. "That
+// permanent" names the object as it last existed on the battlefield: when the
+// member left the battlefield this turn (events.Apply's EnteredFrom stamp on
+// its current zone) it is read as a battlefield object under its
+// resolution-start controller (Ctx.TargetControllerLKI). Every other
+// characteristic is read from the live card, as the counters look-back above
+// does. A spec without a Permanent-base alternative, or a member that did not
+// come from the battlefield, is returned unchanged.
+func targetedPermanentLKI(c *Ctx, present string, o *state.Object) *state.Object {
+	if o == nil || o.Zone == state.ZBattlefield || !o.EnteredThisTurn ||
+		o.EnteredFrom != state.ZBattlefield || !specNamesPermanentBase(present) {
+		return o
+	}
+	oc := *o
+	oc.Zone = state.ZBattlefield
+	if c != nil {
+		if p, ok := c.TargetControllerLKI[o.ID]; ok {
+			oc.Controller = p
+		}
+	}
+	return &oc
+}
+
+// specNamesPermanentBase reports whether any comma-separated alternative of
+// spec has the zone-bound Permanent base (not the zone-agnostic PermanentCard).
+func specNamesPermanentBase(spec string) bool {
+	for _, alt := range strings.Split(spec, ",") {
+		alt = strings.TrimPrefix(strings.TrimSpace(alt), "!")
+		if !strings.HasPrefix(alt, "Permanent") {
+			continue
+		}
+		rest := alt[len("Permanent"):]
+		if rest == "" || rest[0] == '.' || rest[0] == '+' {
+			return true
+		}
+	}
+	return false
 }
 
 // returnedGroup enumerates the ConditionDefined$ Returned group: the

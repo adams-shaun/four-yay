@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -18,7 +19,11 @@ import (
 	"github.com/adams-shaun/gorge/seat"
 )
 
-var parityGames int
+// parityGames numbers the games these parity tests play, so each driver's
+// synthetic decision ids stay distinct. It is atomic because the three tests
+// that play games now run in parallel (they share no server; only this
+// counter is package state).
+var parityGames atomic.Int64
 
 // protocolGame plays one game on a Server through the wire with the two
 // v2agent policies answering, and returns the terminal and the engine.
@@ -35,8 +40,8 @@ func protocolGame(t *testing.T, s *Server, deckID string, seed uint64, start str
 		agents[i] = a
 		a.HandleLine([]byte(fmt.Sprintf(`{"request_type":"game_start","protocol":"spellbench/v2","request_id":"r-0","game_id":%q,"seat":"p%d","agent_seed":%d}`, gid, i, seed)))
 	}
-	parityGames++
-	dr := &driver{t: t, s: s, kinds: map[string]int{}, n: parityGames * 1000000}
+	pig := int(parityGames.Add(1))
+	dr := &driver{t: t, s: s, kinds: map[string]int{}, n: pig * 1000000}
 	resp := dr.send(map[string]any{"request_type": "reset", "game_id": gid, "format": Format,
 		"seats": []any{
 			map[string]any{"seat": "p0", "deck": map[string]any{"deck_id": "sha256:x", "catalog_id": deckID}},
@@ -81,6 +86,7 @@ func protocolGame(t *testing.T, s *Server, deckID string, seed uint64, start str
 // same gorge seed and starting seat. Any divergence is a mapping choice of
 // this package (doc.go), reported per deck.
 func TestHeuristicParityWithInProcess(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	s := newTestServer(t, "manual")
 	same, total := 0, 0

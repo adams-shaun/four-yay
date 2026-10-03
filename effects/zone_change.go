@@ -338,6 +338,10 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// A suspension (nil answer, ok) leaves the chooser pending: the note
 		// below must wait for the answering re-entry, which moves the targets.
 		targetAskPending = ans == nil
+		if ans != nil {
+			// This link's own answer is a later link's ParentTarget.
+			noteLinkAnswer(c, ans)
+		}
 	}
 	// The O-Ring return shape (Journey to Nowhere, Leonin Relic-Warder): the
 	// LEAVE-battlefield trigger's Execute is `DB$ ChangeZone | Defined$

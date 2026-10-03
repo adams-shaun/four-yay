@@ -1,0 +1,262 @@
+{
+ "card": "Tetsuko Umezawa, Pursuer",
+ "family": "triggered-ability",
+ "author": "xo-hand (Oracle + CR only)",
+ "oracle_sha": "bf5d0998121f",
+ "scenarios": [
+  {
+   "name": "prowess-pumps-on-noncreature-spell",
+   "cr": [
+    "702.108a",
+    "611.2a",
+    "514.2"
+   ],
+   "why": "Prowess: casting Lightning Bolt (a noncreature spell) gives Tetsuko +1/+1 until end of turn (3/5); it is a 2/4 again on the opponent's turn. It has double strike and prowess.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tetsuko Umezawa, Pursuer"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Tetsuko Umezawa, Pursuer",
+       "pt": "3/5",
+       "keywords": [
+        "Double Strike",
+        "Prowess"
+       ]
+      },
+      {
+       "life": {
+        "p1": 17
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Tetsuko Umezawa, Pursuer",
+     "zone": "battlefield",
+     "pt": "2/4"
+    }
+   ]
+  },
+  {
+   "name": "toughness-one-blocker-pings-its-controller",
+   "cr": [
+    "603.2",
+    "509.1",
+    "702.4b"
+   ],
+   "why": "Savannah Lions (2/1, toughness 1 or less) blocks Tetsuko: the trigger deals 1 damage to the Lions' controller. Double strike's first-strike damage (2) kills the Lions before it deals damage, so Tetsuko takes none.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tetsuko Umezawa, Pursuer"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Tetsuko Umezawa, Pursuer"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 1,
+     "blocks": [
+      [
+       "p1:Savannah Lions",
+       "p0:Tetsuko Umezawa, Pursuer"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 19
+     }
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Tetsuko Umezawa, Pursuer",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "bigger-blocker-does-not-trigger",
+   "cr": [
+    "603.2",
+    "702.4b"
+   ],
+   "why": "Grizzly Bears (2/2: neither power nor toughness is 1 or less) blocks Tetsuko: no trigger, the opponent stays at 20; first-strike damage kills the Bears.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tetsuko Umezawa, Pursuer"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Tetsuko Umezawa, Pursuer"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 1,
+     "blocks": [
+      [
+       "p1:Grizzly Bears",
+       "p0:Tetsuko Umezawa, Pursuer"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Tetsuko Umezawa, Pursuer",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "small-blocker-of-another-attacker-also-triggers",
+   "cr": [
+    "603.2",
+    "510.1"
+   ],
+   "why": "The trigger watches any block by a qualifying opposing creature, not only blocks of Tetsuko: Savannah Lions blocks the attacking Grizzly Bears, so p1 takes 1 from the trigger plus 4 from unblocked double-striking Tetsuko (2+2): 15. The Bears and Lions trade.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tetsuko Umezawa, Pursuer",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Tetsuko Umezawa, Pursuer",
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 1,
+     "blocks": [
+      [
+       "p1:Savannah Lions",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 15
+     }
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

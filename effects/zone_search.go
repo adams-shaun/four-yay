@@ -235,8 +235,35 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 		if max < 0 {
 			max = 0
 		}
+		requested := max
 		if max > int32(len(budgetEligible)) {
 			max = int32(len(budgetEligible))
+		}
+		// DifferentNames$ True: one card per name can ever be found, so max is
+		// at most the number of distinct names in the pool. Without the clamp a
+		// quantity-only search (Extrapolate the Impossible's Card.YouOwn) forces
+		// Min = Max over a pool whose every full answer repeats a name -- a
+		// decision Validate's Group exclusivity refuses for EVERY answer, and the
+		// match wedges. Exactly$ True ("exactly two cards ... with different
+		// names": Extrapolate the Impossible, Burning-Rune Demon, Turtles
+		// Forever) is all-or-nothing: when fewer than the requested number of
+		// eligible cards (or of distinct names) exist, the player cannot find
+		// exactly that many, so none is found (the fail-to-find tail below);
+		// when they do exist, the ask below admits exactly that many or none
+		// (Decision.AllowNone).
+		if differentNamesEnabled(sa) {
+			names := make(map[string]bool, len(budgetEligible))
+			for _, id := range budgetEligible {
+				if o := g.Obj(id); o != nil && o.Face() != nil {
+					names[o.Face().Name] = true
+				}
+			}
+			if distinct := int32(len(names)); max > distinct {
+				max = distinct
+			}
+		}
+		if exactlySearch(sa) && max < requested {
+			max = 0
 		}
 		// CR 701.23b/701.23d decide the minimum: a search whose card filter states
 		// only a quantity must find that many (or as many as the zone holds), so
@@ -425,6 +452,19 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 			}
 		}
 		d.Min = int(min)
+		// Exactly$ True ("you may reveal exactly two cards ... with different
+		// names": Extrapolate the Impossible, Burning-Rune Demon, Turtles
+		// Forever) is all or nothing: the find is exactly the requested number
+		// (max already fell to 0 above when that many cannot exist, so this
+		// ask is only posed when it can), or nothing at all -- never a partial
+		// find, and never a forced one. Min == Max carries the "exactly";
+		// Decision.AllowNone carries the decline, the one shape a Min/Max pair
+		// alone cannot say. The flat (non-EACH) shape only: no corpus carrier
+		// pairs Exactly$ with the EACH grammar.
+		if exactlySearch(sa) && !eachStructured && !hasBudget && max > 0 {
+			d.Min = int(max)
+			d.AllowNone = true
+		}
 		// The prompt is built here, AFTER the Mandatory$ clamp and the EACH
 		// branch's own bounds, so its stated count always matches the decision's
 		// final Min/Max -- a mandatory leg with Min == Max == 1 must not advertise
@@ -434,6 +474,8 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 		// "Select a card to put onto the battlefield".
 		if sp := strings.TrimSpace(sa.Params["SelectPrompt"]); sp != "" {
 			d.Prompt = sp
+		} else if d.AllowNone {
+			d.Prompt = "Search a library: choose exactly " + strconv.Itoa(d.Max) + " card(s), or none"
 		} else if d.Min == d.Max {
 			d.Prompt = "Search a library: choose " + strconv.Itoa(d.Max) + " card(s)"
 		} else {
@@ -893,6 +935,13 @@ func hiddenPickChooser(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID) state
 	return owner
 }
 
+// exactlySearch reports Forge's Exactly$ True: the search finds exactly its
+// ChangeNum$ cards or none (effSearchLibrary's all-or-nothing clamp and its
+// Decision.AllowNone ask).
+func exactlySearch(sa *cards.SA) bool {
+	return strings.EqualFold(strings.TrimSpace(sa.Params["Exactly"]), "True")
+}
+
 // differentNamesEnabled is the one DifferentNames$ read shared by the two
 // hidden-origin walkers that enforce it, so their option/answer contract
 // cannot drift.
@@ -1164,6 +1213,24 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 	// was rechecked against the pre-clear snapshot, so a formerly remembered
 	// card remains admitted here.
 	forgetOtherRemembered(h, c, sa)
+	// A hidden search with NO Destination$ (Extrapolate the Impossible's and
+	// Turtles Forever's heads, the corpus's only two: "reveal exactly two
+	// cards you own ... from outside the game. An opponent chooses one of
+	// them.") finds, reveals and remembers the cards for the chained sub that
+	// moves the chosen ones -- whose own Origin$ names the SAME zones, so the
+	// found cards must still be there. ParseZone's Graveyard default would
+	// instead bin every found card before the opponent chooses. They stay put:
+	// "moved" here is the found set the reveal and RememberChanged$ read.
+	if strings.TrimSpace(sa.ParamStr(cards.PKDestination)) == "" {
+		for _, id := range valid {
+			moved = append(moved, id)
+			if strings.EqualFold(sa.Params["RememberChanged"], "True") {
+				c.Remembered = append(c.Remembered, state.Target{Obj: id})
+				eventRemember(h, c, id)
+			}
+		}
+		valid = nil
+	}
 	for _, id := range valid {
 		o := g.Obj(id)
 		if o == nil || !zoneIn(zones, o.Zone) {

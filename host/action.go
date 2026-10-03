@@ -29,6 +29,11 @@ func (r *Registry) humanSeat(id TableID, k int, player state.PlayerID) (*HumanSe
 	if st != protocol.MatchLive {
 		return nil, fmt.Errorf("host: match %d is %s, nothing pending", k, st)
 	}
+	if slots == nil {
+		// newMatch publishes the match live a moment before play() installs
+		// its seats; a poll in that window finds nothing parked yet.
+		return nil, fmt.Errorf("host: match %d: no decision pending for player %d (seats not installed yet)", k, player)
+	}
 	if int(player) >= len(slots) {
 		return nil, fmt.Errorf("host: match %d: player %d out of range (%d seats)", k, player, len(slots))
 	}

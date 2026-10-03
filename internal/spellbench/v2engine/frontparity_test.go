@@ -21,12 +21,13 @@ import (
 )
 
 func TestS0FrontEndParity(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t, "manual")
 	decisions, candSeen := 0, map[string]int{}
 	for di, id := range spellbench.BenchmarkPool {
 		seed := uint64(9100 + 10*di)
 		s.seedOverride = &seed
-		parityGames++
+		pig := int(parityGames.Add(1))
 		var agents [2]*v2agent.Agent
 		gid := fmt.Sprintf("g-frontparity-%s-%d", id, seed)
 		for i := range agents {
@@ -37,7 +38,7 @@ func TestS0FrontEndParity(t *testing.T) {
 			agents[i] = a
 			a.HandleLine([]byte(fmt.Sprintf(`{"request_type":"game_start","protocol":"spellbench/v2","request_id":"r-0","game_id":%q,"seat":"p%d","agent_seed":%d}`, gid, i, seed)))
 		}
-		dr := &driver{t: t, s: s, kinds: map[string]int{}, n: parityGames * 1000000}
+		dr := &driver{t: t, s: s, kinds: map[string]int{}, n: pig * 1000000}
 		resp := dr.send(map[string]any{"request_type": "reset", "game_id": gid, "format": Format,
 			"seats": []any{
 				map[string]any{"seat": "p0", "deck": map[string]any{"deck_id": "sha256:x", "catalog_id": id}},

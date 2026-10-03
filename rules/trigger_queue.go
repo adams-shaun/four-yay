@@ -1167,6 +1167,11 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 		if !handled && pt.SA.Params["ValidTgts"] != "" {
 			e.askTarget(pt.Controller, id, pt.SA)
 		}
+		if !handled {
+			// CR 603.3d: the chain links' targets follow the root's
+			// (rules/trigger_subtargets.go, scoped there).
+			e.startTriggerSubTargets(id, pt.Controller, pt.SA)
+		}
 	}
 	// Fix round 1 (reviewer minor, cheap): derive drainAwaitsTarget from
 	// e.Pending() rather than clearing it first. The old form set it false

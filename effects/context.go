@@ -785,7 +785,23 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return []state.Target{{Player: o.Controller, IsPlayer: true}}, true
 		}
 		return nil, true
-	case "Targeted", "ParentTarget", "ParentTargeted", "ThisTargetedCard":
+	case "Targeted":
+		// Forge's Targeted is the union of every target choice down the
+		// root's SubAbility$ chain (SpellAbility.getAllTargetChoices). It
+		// differs from the resolving SA's own Ctx.Targets only when the chain's
+		// link targets were announced up front and the resolution bound their
+		// union (Ctx.AllTargets: rules' chainTargetUnion) -- Uldaros Theorix's
+		// and Urgent Necropsy's untargeted "exile/destroy them" tail link.
+		return copyTargets(refTargetUnion(c)), true
+	case "ParentTarget", "ParentTargeted":
+		// The NEAREST targeting parent link's targets (parent_targets.go).
+		return copyTargets(parentLinkTargets(c)), true
+	case "ParentTargetedController":
+		// Forge's getDefinedPlayers "ParentTargetedController": the
+		// controllers of the ParentTarget cards (Intruder's Inquisition's
+		// "its controller discards" names the creature DBDamage targeted).
+		return controllersOf(g, parentLinkTargets(c)), true
+	case "ThisTargetedCard":
 		return copyTargets(c.Targets), true
 	case "TriggeredAttackers":
 		// Forge's plural attack-batch referent (Love on the Battlefield's

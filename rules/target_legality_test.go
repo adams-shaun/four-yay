@@ -40,6 +40,7 @@ func TestNoTargetDecisionOffersAnIllegalTarget(t *testing.T) {
 	for _, seats := range []int{2, 4, 6, 8} {
 		seats := seats
 		t.Run(seatCount(seats), func(t *testing.T) {
+			t.Parallel()
 			all := testutil.LegacyDeckNames()
 			names := make([]string, seats)
 			decks := make([][]*cards.Card, seats)

@@ -233,6 +233,7 @@ func newTestServer(t *testing.T, mana string) *Server {
 // deterministic mixed policy (take the last candidate every third
 // decision, else the first) and checks every decision and the terminal.
 func TestPlaysEveryPoolDeck(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t, "manual")
 	for gi, id := range spellbench.BenchmarkPool {
 		dr := &driver{t: t, s: s, kinds: map[string]int{}, n: gi * 1000000}

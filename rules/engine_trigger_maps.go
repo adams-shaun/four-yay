@@ -131,6 +131,13 @@ type engineTriggerMaps struct {
 	// removed when the stack object leaves the stack. A stack COPY of the
 	// spell has no entry and falls back to the mid-resolution asking path.
 	castSubTargets map[state.ObjID]map[string][]state.Target
+	// trigSub is the in-flight CR 603.3d announcement of a triggered
+	// ability's SubAbility$ chain targets (rules/trigger_subtargets.go): set
+	// by pushTrigger, advanced by each "trig_sub" target answer, and
+	// installed into castSubTargets when the last link is answered. At most
+	// one exists (the drain places one trigger at a time). Engine scratch,
+	// rebuilt by replay, deep-copied by Clone.
+	trigSub *trigSubAsk
 	// charmTargets maps a modal stack object to the selected distinct modes'
 	// target groups, in target-bearing mode order. It is engine scratch like
 	// fuseTargets: the cast/placement target answer rebuilds it during replay.

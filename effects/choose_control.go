@@ -86,8 +86,10 @@ func choiceZones(sa *cards.SA) map[state.Zone]bool {
 func definedCardPool(g *state.Game, c *Ctx, raw string) ([]state.Target, string) {
 	root, qualifier, _ := strings.Cut(strings.TrimSpace(raw), ".")
 	switch root {
-	case "Targeted", "TargetedCard", "ParentTargeted":
+	case "Targeted", "TargetedCard":
 		return objectsOf(c.Targets), qualifier
+	case "ParentTargeted":
+		return objectsOf(parentLinkTargets(c)), qualifier
 	case "Remembered", "RememberedLKI":
 		return objectsOf(c.Remembered), qualifier
 	case "TriggeredCards", "TriggeredAttackers", "TriggeredBlockers":

@@ -195,9 +195,16 @@ Remove the contention for the whole group, not one conflict. Either:
   branches are all still moving, or
 - split the files along the seam the branches are pulling apart, so two tickets
   touch two files (preferred when the seam is real and durable), or
-- if a file cannot be split honestly, record it in the hot-file table in
-  `.superpowers/ds4/gorge-context.md` so future briefs keep their changes to it
-  small.
+- if a file cannot be split honestly, record it as one entry appended to
+  `scripts/hotfiles-notes.json` (tracked) and re-render the AGENTS.md hot-file
+  table with `python3 scripts/reward_collect.py hotspots --repo . --format md`,
+  so future briefs keep their changes to it small. Do not edit
+  `.superpowers/ds4/gorge-context.md`: it is the controller's untracked copy and
+  is read-only inside a seat jail.
+
+Before writing anything, re-run the hotspots command: if every listed branch has
+since landed or been superseded, the contention is gone and the right outcome is
+a no-diff report saying so.
 
 ## Out of scope
 
@@ -327,11 +334,14 @@ Drive the next {batch} validated cards through the oracle harness
 mechanics first, and record each verdict as a scenario under
 `rules/testdata/oracle/<family>/`.
 
-For every disagreement, append one row to `.ds4/reward/defects.jsonl`:
-
-    {{"card": "<name>", "validated_set": true, "status": "open",
-      "scenario": "rules/testdata/oracle/<family>/<file>.json",
-      "expected": "<Oracle/CR reading>", "got": "<gorge behaviour>"}}
+For every disagreement, ratchet it in the family's known-divergent table
+(`rules/testdata/oracle/<family>/known-divergent/<card-slug>.json` where the
+family is split per card, else its `known-divergent.json`) (so the suite
+stays green and the row goes stale when a fix lands), and file one defect
+ticket as `.ds4/new-tickets/<card-slug>.md` in your worktree naming the card,
+the scenario file, the Oracle/CR reading and gorge's behaviour. Do not write
+`.ds4/reward/defects.jsonl`: it lives in the main checkout, outside the seat
+jail, and the controller maintains it.
 
 Oracle text plus the CR is the arbiter of which engine is right, not the other
 engine.
@@ -343,9 +353,9 @@ round is never blocked behind an audit round.
 
 ## Done means
 
-{batch} new scenario files exist, `go test ./rules -run TestOracle` is green
-(or names the disagreements as failures), and every disagreement has a row in
-`.ds4/reward/defects.jsonl`.
+{batch} new cards have oracle scenarios, `go test ./rules -run TestOracle` is
+green, and every disagreement has a known-divergent row and a
+`.ds4/new-tickets/` defect ticket.
 """,
                 est_delta=1.0,
                 est_cost=COST_ORACLE_BATCH,

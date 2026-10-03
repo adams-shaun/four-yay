@@ -1035,7 +1035,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 					Text: "continuous effect " + mode + " unimplemented (" + what + ")"})
 				registered = true
 			}
-		case "CantTarget", "CantRegenerate", "CantPreventDamage", "CantAttack", "CantSacrifice", "CantExile", "CantPutCounter", "CantBlockBy", "CanAttackDefender", "UnspentMana", "CantBlockUnless", "CantAttackUnless", "MustBlock", "NumLoyaltyAct", "CantGainLife":
+		case "CantTarget", "CantRegenerate", "CantPreventDamage", "CantAttack", "CantSacrifice", "CantExile", "CantPutCounter", "CantBlockBy", "CanAttackDefender", "UnspentMana", "CantBlockUnless", "CantAttackUnless", "MustBlock", "NumLoyaltyAct", "CantGainLife", "CastWithFlash":
 			// A COMPOUND IsRemembered spec (Card.IsRemembered+Creature) resolves
 			// faithfully through the general filter now that it implements
 			// IsRemembered (rules/layers.go restrictionApplies consults the
@@ -1123,6 +1123,17 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 				// does not evaluate must not register blanket -- it reports
 				// unimplemented instead (the shipped-statics convention every
 				// other whitelist arm here keeps).
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+					Text: "continuous effect " + mode + " unimplemented (" + what + ")"})
+				registered = true
+				break
+			}
+			if mode == "CastWithFlash" && !LoyaltyFlashParamsReadable(params) {
+				// Only the loyalty-timing grant registers (Jace's Machinations'
+				// "you may activate loyalty abilities of Jace planeswalkers you
+				// control ... any time you could cast an instant"); rules'
+				// loyaltyAtInstantSpeed reads it beside the printed S: route.
+				// A spell-flash grant keeps the unimplemented Note it always had.
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 					Text: "continuous effect " + mode + " unimplemented (" + what + ")"})
 				registered = true

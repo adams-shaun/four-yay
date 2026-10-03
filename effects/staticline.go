@@ -152,13 +152,33 @@ func mayPlayFreeGrantFromLine(params map[string]string) (state.ContinuousEffect,
 // from), a Condition$ whose value is not PlayerTurn, a
 // ValidAfterStack$/Secondary$ qualifier (it changes when the grant lives),
 // or a MayPlayLimit$ value that is not a non-negative integer -- fails
-// closed:
+// closed.
+//
+// The one exception is the printed route's ability-word Condition$
+// (Null Summoner's "Threshold -- As long as there are seven or more cards in
+// your graveyard, you may cast the exiled card"): this function's only
+// callers are rules/layers.go's printed-S: registration, whose static walk
+// evaluates every Condition$ through continuousGateHolds BEFORE the grant is
+// built (Delirium, Threshold, Metalcraft, Hellbent, ... -- fail CLOSED on any
+// value it cannot read), so a printed grant exists exactly while its
+// condition holds. A non-PlayerTurn Condition$ is therefore left to that gate
+// rather than refused here. The Effect-delivery scans below have no such
+// gate and keep refusing it.
 func MayPlayStaticParams(params map[string]string) (ignoreColor, ignoreType bool, limit int32, playerTurn bool, ok bool) {
 	v, okv := params["MayPlay"]
 	if !okv || !strings.EqualFold(strings.TrimSpace(v), "True") {
 		return false, false, 0, false, false
 	}
-	ignoreColor, ignoreType, limit, playerTurn, _, ok = mayPlayParamsScan(params, false, false)
+	scan := params
+	if cond, has := params["Condition"]; has && !strings.EqualFold(strings.TrimSpace(cond), "PlayerTurn") {
+		scan = make(map[string]string, len(params))
+		for k, val := range params {
+			if k != "Condition" {
+				scan[k] = val
+			}
+		}
+	}
+	ignoreColor, ignoreType, limit, playerTurn, _, ok = mayPlayParamsScan(scan, false, false)
 	return ignoreColor, ignoreType, limit, playerTurn, ok
 }
 
@@ -415,6 +435,36 @@ func NumLoyaltyActParamsReadable(params map[string]string) bool {
 	return true
 }
 
+// LoyaltyFlashParamsReadable reports whether an Effect-delivered
+// Mode$ CastWithFlash body is the loyalty-timing grant this build evaluates:
+// "you may activate loyalty abilities of <ValidCard$> any time you could
+// cast an instant" (Jace's Machinations' InstantJace, Teferi, Temporal
+// Archmage's emblem). Its ValidSA$ must be exactly Activated.Loyalty and its
+// Caster$, when present, You; the rest is the selector and display text.
+// Every other CastWithFlash body (the spell-flash grants) stays the honest
+// unimplemented Note, so this whitelist widens nothing on the spell side.
+// rules' loyaltyAtInstantSpeed reads the registration this admits.
+func LoyaltyFlashParamsReadable(params map[string]string) bool {
+	loyalty := false
+	for key, v := range params {
+		switch key {
+		case "Mode", "ValidCard", "Description":
+		case "ValidSA":
+			if strings.TrimSpace(v) != "Activated.Loyalty" {
+				return false
+			}
+			loyalty = true
+		case "Caster":
+			if strings.TrimSpace(v) != "You" {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return loyalty
+}
+
 // GoadStaticGrantReadable is the exported form of goadStaticGrantReadable:
 // rules' etbCloneWhitelist value check (staticgoad1) reads a granted
 // AddStaticAbilities$ body through it, so the ETB offer and the effClone
@@ -470,7 +520,7 @@ func effectRemembered(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
 				}
 				out = appendEffectRememberedObjects(h, out, targets)
 			case "ParentTarget":
-				out = appendEffectRememberedObjects(h, out, c.Targets)
+				out = appendEffectRememberedObjects(h, out, parentLinkTargets(c))
 			case "Remembered", "Remembered.Creature", "Remembered.Permanent", "RememberedCard":
 				out = appendEffectRememberedObjects(h, out, c.Remembered)
 			case "Imprinted":

@@ -64,7 +64,11 @@ type oracleSeat struct {
 	Command     []string `json:"command,omitempty"`
 	// LibraryTop puts these cards on top of the library, first = top.
 	LibraryTop []string `json:"library_top,omitempty"`
-	Life       *int32   `json:"life,omitempty"`
+	// Sideboard is the seat's cards outside the game (Config.Sideboards),
+	// for "from outside the game" effects. They are genesis configuration,
+	// not dealt from the deck, and are bound as "pN:Name" refs like the rest.
+	Sideboard []string `json:"sideboard,omitempty"`
+	Life      *int32   `json:"life,omitempty"`
 }
 
 type oracleStep struct {
@@ -169,6 +173,7 @@ type oracleRun struct {
 	snaps      []OracleSnapshot
 	decisions  []OracleDecision
 	noSnapshot bool // runOracleScenarioWith's switch
+	step       int  // the scenario step being played; -1 during setup
 }
 
 func (r *oracleRun) logf(format string, a ...any) {
@@ -178,7 +183,7 @@ func (r *oracleRun) logf(format string, a ...any) {
 var oracleZones = map[string]state.Zone{
 	"library": state.ZLibrary, "hand": state.ZHand, "battlefield": state.ZBattlefield,
 	"graveyard": state.ZGraveyard, "exile": state.ZExile, "stack": state.ZStack,
-	"command": state.ZCommand,
+	"command": state.ZCommand, "sideboard": state.ZSideboard,
 }
 
 // oracleFiller pads every library to 40 cards. Wastes has no colour, no
@@ -285,6 +290,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		top  bool
 	}
 	decks := make([][]*cards.Card, seats)
+	sideboards := make([][]*cards.Card, seats)
 	commanders := make([][]int, seats)
 	places := make([][]placement, seats)
 	for key := range sc.Setup {
@@ -318,8 +324,23 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		for len(decks[p]) < 40 {
 			decks[p] = append(decks[p], filler)
 		}
+		for _, n := range s.Sideboard {
+			c, err := lookup(n)
+			if err != nil {
+				return err
+			}
+			sideboards[p] = append(sideboards[p], c)
+		}
 	}
 	cfg := Config{Seed: 42, Names: []string{"a", "b"}, Decks: decks, Tokens: r.reg.Tokens}
+	for p := range sideboards {
+		if len(sideboards[p]) > 0 {
+			// Only a scenario that names a sideboard sets the field, so every
+			// other scenario's Config (and its replay) is unchanged.
+			cfg.Sideboards = sideboards
+			break
+		}
+	}
 	switch sc.Format {
 	case "", "constructed":
 	case "commander":
@@ -378,6 +399,27 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			if pl.top {
 				tops = append(tops, id)
 			}
+		}
+		// Sideboard cards were minted straight into the sideboard at genesis;
+		// bind them in setup order, continuing the per-name ordinals.
+		for _, n := range sc.Setup[fmt.Sprintf("p%d", p)].Sideboard {
+			var id state.ObjID
+			for _, cand := range e.G.Zone(state.ZSideboard, pid) {
+				if o := e.G.Obj(cand); !bound[cand] && r.objName(o) == n {
+					id = cand
+					break
+				}
+			}
+			if id == 0 {
+				return harnessf("setup: p%d's sideboard %q was not minted", p, n)
+			}
+			bound[id] = true
+			counts[n]++
+			ref := fmt.Sprintf("p%d:%s", p, n)
+			if counts[n] > 1 {
+				ref = fmt.Sprintf("%s#%d", ref, counts[n])
+			}
+			r.refs[ref] = id
 		}
 		if len(tops) > 0 {
 			// LibraryOrder's IDs are the complete new order, top first.
@@ -438,7 +480,25 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 	}
 	r.logf("  [%s] p%d %s -> %q", why, d.Player, d.Kind, labels)
 	if kind, ok := oracleDecisionKind(d.Kind); ok {
-		r.decisions = append(r.decisions, OracleDecision{Seat: int(d.Player), Kind: kind, Options: len(d.Options), Picks: labels})
+		od := OracleDecision{Step: r.step, Seat: int(d.Player), Kind: kind, Options: len(d.Options), Picks: labels,
+			PickIdx: append([]int{}, choices...), PickRefs: []string{}, Via: why, GorgeKind: string(d.Kind), Min: d.Min, Max: d.Max}
+		if len(d.Options) > 0 {
+			od.First = d.Options[0].Label
+		}
+		for _, c := range choices {
+			if c < 0 || c >= len(d.Options) {
+				continue
+			}
+			switch o := d.Options[c]; {
+			case o.Obj != 0:
+				od.PickRefs = append(od.PickRefs, r.objRef(r.e.G.Obj(o.Obj)))
+			case strings.Contains(o.Kind, "player"):
+				od.PickRefs = append(od.PickRefs, fmt.Sprintf("p%d", o.Player))
+			default:
+				od.PickRefs = append(od.PickRefs, o.Label)
+			}
+		}
+		r.decisions = append(r.decisions, od)
 	}
 	if err := r.e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices}); err != nil {
 		return harnessf("submit %s %v: %v (options %s)", d.Kind, choices, err, optionDump(d))
@@ -1305,7 +1365,7 @@ func runOracleScenario(reg *cards.Registry, sc oracleScenario) (fails []string, 
 // runOracleScenarioWith is runOracleScenario with snapshots switched off
 // when noSnapshot is set (the A/B check that snapshotting is read-only).
 func runOracleScenarioWith(reg *cards.Registry, sc oracleScenario, noSnapshot bool) (fails []string, transcript []string, run *oracleRun) {
-	r := &oracleRun{reg: reg, refs: map[string]state.ObjID{}, noSnapshot: noSnapshot}
+	r := &oracleRun{reg: reg, refs: map[string]state.ObjID{}, noSnapshot: noSnapshot, step: -1}
 	run = r
 	defer func() {
 		if p := recover(); p != nil {
@@ -1320,6 +1380,7 @@ func runOracleScenarioWith(reg *cards.Registry, sc oracleScenario, noSnapshot bo
 		r.snaps = append(r.snaps, r.snapshot("setup"))
 	}
 	for i, st := range sc.Steps {
+		r.step = i
 		if err := r.do(st); err != nil {
 			return append(fails, fmt.Sprintf("step %d (%s): %v", i, st.Op, err)), r.log, r
 		}

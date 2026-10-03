@@ -295,7 +295,7 @@ func (e *Engine) classifyBattlefieldAbilities(p state.PlayerID, w *windowCollect
 				continue
 			}
 			if e.isLoyaltyAbility(ab) {
-				if !sorcery {
+				if !sorcery && !e.loyaltyAtInstantSpeed(p, id) {
 					w.record(id, windowKindActivation, nonEmpty(e.sorcerySpeedReason(p), wrTimingNotMain))
 					continue
 				}

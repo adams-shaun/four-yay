@@ -299,8 +299,13 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 		return refTargets(h, &sc, inner)
 	}
 	switch ref {
-	case "Targeted", "ParentTarget", "ParentTargeted", "ThisTargetedCard":
+	case "Targeted", "ThisTargetedCard":
 		return c.Targets, true
+	case "ParentTarget", "ParentTargeted":
+		// The NEAREST targeting parent link's targets (parent_targets.go):
+		// Flourishing Grapple's X = ParentTargeted$CardPower is DBPump's
+		// creature, not the root's.
+		return parentLinkTargets(c), true
 	case "AllTargeted":
 		// AllTargeted (task alltargeted1) is Forge's UNION of every targeting
 		// SA's targets down the root ability's sub-ability chain. The cast

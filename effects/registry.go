@@ -521,6 +521,21 @@ type Host interface {
 	// same event, so an opening-hand draw inside the first turn's window is
 	// counted, exactly as Forge's cardsDrawnThisTurn list is.
 	CardsDrawnThisTurn(p state.PlayerID) int32
+	// ScriedThisTurn / SurveilledThisTurn report how many scry / surveil
+	// instructions player p completed this turn -- every events.Scry /
+	// events.Surveil record naming p since the last TurnChange, derived from
+	// the event log so a replay derives the same number. They back
+	// Count$YouScryThisTurn and Count$YouSurveilThisTurn.
+	ScriedThisTurn(p state.PlayerID) int32
+	SurveilledThisTurn(p state.PlayerID) int32
+	// WasDealtNoncombatDamageThisTurn / WasDealtNoncombatDamageLastTurn
+	// report whether player p was dealt noncombat damage (any landed damage
+	// outside a combat damage assignment) during the current turn / the
+	// previous turn. They back the player properties
+	// HasPropertywasDealtNonCombatDamageThisTurn / ...LastTurn (Grim
+	// Repriser, Whiplash Wordsmith, Command the Stage).
+	WasDealtNoncombatDamageThisTurn(p state.PlayerID) bool
+	WasDealtNoncombatDamageLastTurn(p state.PlayerID) bool
 	// SpellsCastThisTurnBy counts the spells put on the stack this turn by
 	// player p — the per-caster projection of CastThisTurn, derived from the
 	// event log so a replay derives the same number. This is the
@@ -1540,12 +1555,26 @@ type Ctx struct {
 	// AllTargets is the whole root/sub-ability target UNION Forge's
 	// AllTargeted$ count ref names (task alltargeted1), threaded by the
 	// cost-evaluation sites that read it before payment (ownReduceCost's
-	// CR 601.2c reprice, the CollectEvidence amount resolution). Ctx.Targets
-	// stays the resolving SA's OWN targets so Targeted/ParentTarget keep
-	// their meanings; refTargets' AllTargeted case reads this when it is
-	// non-nil and falls back to Ctx.Targets otherwise (a chain with no sub
-	// targets unions to exactly the root's own set).
+	// CR 601.2c reprice, the CollectEvidence amount resolution) and, at
+	// resolution, by rules for a stack object whose chain-link targets were
+	// announced up front (a pre-asked cast chain, a CR 603.3d placement-
+	// announced trigger chain: rules' chainTargetUnion). Ctx.Targets stays
+	// the resolving SA's OWN targets so ParentTarget keeps its meaning; the
+	// AllTargeted count ref and the Defined$ Targeted referent read this when
+	// it is non-nil and fall back to Ctx.Targets otherwise (a chain with no
+	// sub targets unions to exactly the root's own set).
 	AllTargets []state.Target
+	// parentLinks is the walk's record of the targets each TARGETING
+	// SubAbility$ link chose, in chain order (effects/parent_targets.go): the
+	// binding Forge's ParentTarget/ParentTargeted referents name -- the
+	// NEAREST targeting parent's targets, not the root's. Resolution scratch,
+	// scoped to one Resolve walk; never event-encoded.
+	parentLinks [][]state.Target
+	// linkAnswer carries a link body's own consumed target answer out to
+	// Resolve's recorder when the body asked for it itself (effChangeZone's
+	// changeZoneChosenTargets), which the generic pre-ask never sees.
+	linkAnswer   []state.Target
+	linkAnswered bool
 	// ChoiceTarget is the index of the per-player chooser currently being
 	// resumed. It keeps multi-player ChooseCard/ChoosePlayer asks from
 	// returning to the first chooser after every answer.
@@ -3267,6 +3296,12 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			defer rh.SetResolutionCtx(prevCtx)
 		}
 	}
+	if c != nil {
+		// The parent-link record belongs to THIS walk: a nested walk sharing
+		// the Ctx (a body resolving its own sub-chain) must not leave its links
+		// behind as "parents" of the enclosing chain's later links.
+		defer func(n int) { c.parentLinks = c.parentLinks[:n] }(len(c.parentLinks))
+	}
 	reg := registry.load()
 	for d := 0; sa != nil && d < maxChain; d, sa = d+1, sa.Sub {
 		// Earlier bodies in this chain may emit events that change the active
@@ -3447,6 +3482,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			}
 			fn(h, c, sa)
 			c.PickedTargets = nil
+			recordParentLink(c, sa, ts, true)
 		} else {
 			if prefetchedRememberedSub {
 				c.PickedTargets = rememberedSubTargets
@@ -3455,6 +3491,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			if prefetchedRememberedSub {
 				c.PickedTargets = nil
 			}
+			recordParentLink(c, sa, nil, false)
 		}
 		// A DB$ Token whose mint parked has not finished: its Imprint/
 		// ClearImprinted tail belongs after the mints, so it runs on the

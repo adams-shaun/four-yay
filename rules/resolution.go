@@ -36,6 +36,7 @@ package rules
 import (
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
@@ -228,10 +229,13 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 	// A chain can park between two pre-asked subs. Recheck the stored
 	// answers against the live board before the resumed effects walk uses
 	// them; the first pass in resolveTop already checked those reached earlier.
+	var chainRoot *cards.SA
 	if o.Ability != nil {
+		chainRoot = o.Ability
 		e.recheckCastSubTargets(rp.obj, o.Ability, o.Controller, o.Source)
 	} else if f := o.Face(); f != nil {
-		e.recheckCastSubTargets(rp.obj, f.SpellAbility(), o.Controller, rp.obj)
+		chainRoot = f.SpellAbility()
+		e.recheckCastSubTargets(rp.obj, chainRoot, o.Controller, rp.obj)
 	}
 	ctx := &effects.Ctx{Source: rp.obj, Controller: o.Controller, NameChoice: rp.name, ChosenDirection: rp.chosenDirection, Targets: o.Targets,
 		// Forge's Count$ResolvedThisTurn: a chain that suspended at a
@@ -253,6 +257,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		// ModeTargets carries the per-mode groups instead: the two bindings
 		// are disjoint by construction, never competing for one chain.
 		SubPreAsk:   e.castSubTargets[rp.obj],
+		AllTargets:  e.chainTargetUnion(rp.obj, chainRoot, o.Targets),
 		ModeTargets: cloneCharmTargetGroups(e.charmTargets[rp.obj]),
 		Chosen:      append([]state.Target(nil), rp.choices...), ChosenValid: rp.chosenValid,
 		DigUntilMove: rp.digUntilMove, DigUntilMoveDone: rp.digUntilMoveDone,
