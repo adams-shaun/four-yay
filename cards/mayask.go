@@ -11,8 +11,8 @@ package cards
 //
 // Every parameter in the ParamKey vocabulary is read through it. The
 // presence-only checks in mayAskRawDeny name parameters outside the
-// vocabulary (it is full: 250 of the 254 keys a uint8 ParamKey can name, and
-// W4 owns it); each moves to mayAskDenyKeys when its key is added. They are
+// vocabulary (W4 owns it); each moves to mayAskDenyKeys when its key is
+// added. They are
 // presence tests, not reads that honour the parameter, so they are kept out
 // of the rules parameter census on purpose: the predicate supports nothing.
 

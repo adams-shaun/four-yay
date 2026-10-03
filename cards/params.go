@@ -16,7 +16,13 @@ import (
 // `x.Param(cards.PK<Key>)`, `x.ParamStr(cards.PK<Key>)` and
 // `x.HasParam(cards.PK<Key>)` as reads of <Key>, exactly like
 // `x.Params["<Key>"]`, so a constant's name MUST be "PK" + the key text.
-type ParamKey uint8
+//
+// The type is uint16 and the vocabulary may grow to paramKeyCap keys (the
+// corpus names ~1160 distinct parameters in all). A ParamSet's mask is sized
+// to the vocabulary actually declared (paramMaskWords), so a new key costs
+// nothing until it crosses a 64-key word boundary, and then 10 bytes per
+// compiled node.
+type ParamKey uint16
 
 const (
 	pkNone ParamKey = iota
@@ -274,15 +280,28 @@ const (
 	paramKeyCount
 )
 
-// paramMaskWords is a ParamMask's width in 64-bit words: 256 keys, the whole
-// ParamKey (uint8) range, so the ordinal itself caps the vocabulary. Since
-// paramKeyCount is itself a ParamKey (at most 255) and pkNone takes ordinal
-// 0, the vocabulary holds at most 254 keys; widening past that means a wider
-// ParamKey, not just more mask words.
-const paramMaskWords = 4
+// paramKeyCap bounds the vocabulary: 2048 keys, room for every parameter
+// name the corpus uses. It is a budget, not a representation limit (ParamKey
+// is uint16): a ParamSet carries paramMaskWords mask words plus a uint16 rank
+// per word, so the vocabulary's size is paid on every compiled node
+// (~85k over the corpus). Raising it is a memory decision; see
+// TestParamKeyRoomRemains and TestParamSetSizeTracksVocabulary.
+const paramKeyCap = 2048
 
-// A ParamMask holds every ParamKey.
-const _ = uint(paramMaskWords*64 - int(paramKeyCount))
+// The vocabulary fits the budget.
+const _ = uint(paramKeyCap - int(paramKeyCount))
+
+// paramMaskWords is a ParamMask's width in 64-bit words: just enough for the
+// declared vocabulary (ordinals 0..paramKeyCount-1), so a ParamSet is no
+// wider than the keys that exist.
+//
+// The dense mask was chosen over a two-level (summary word plus dense
+// non-zero words) layout by measurement over the corpus's 85k compiled
+// nodes: the two-level read is one more dependent load and measured about
+// twice as slow on a cold sweep, while the dense mask is the same size as the
+// uint8-era set until the vocabulary passes 256 keys and only overtakes the
+// two-level layout's memory past ~640 keys.
+const paramMaskWords = (int(paramKeyCount) + 63) / 64
 
 // paramKeyNames maps each ParamKey to its Forge key text.
 var paramKeyNames = [paramKeyCount]string{
@@ -573,16 +592,17 @@ func ParamMaskOf(keys ...ParamKey) ParamMask {
 // A read is a mask test and a rank: rank[w] is the number of keys present in
 // the words below w (a per-word popcount prefix computed once at build), so
 // a key's value index is rank[w] plus the popcount of its own word below its
-// bit, whichever word it lives in. No loop, no map, one branch.
+// bit, whichever word it lives in. No loop, no map, no allocation: a range test
+// (never taken for a declared key) and the bit test.
 type ParamSet struct {
 	// src is the map the set was built from. Held as the map itself (not
 	// its address) so two identically parsed nodes stay reflect.DeepEqual;
 	// bound compares identities.
 	src  map[string]string
 	n    int
-	has  ParamMask
-	rank [paramMaskWords]uint8
 	vals []string
+	has  ParamMask
+	rank [paramMaskWords]uint16
 }
 
 func mapIdentity(m map[string]string) unsafe.Pointer {
@@ -601,7 +621,7 @@ func newParamSet(m map[string]string) *ParamSet {
 	}
 	n := 0
 	for w, h := range ps.has {
-		ps.rank[w] = uint8(n)
+		ps.rank[w] = uint16(n) // n < paramKeyCap: a uint16 holds any count
 		n += bits.OnesCount64(h)
 	}
 	ps.vals = make([]string, 0, n)
@@ -646,7 +666,12 @@ func (ps *ParamSet) bound(m map[string]string) bool {
 }
 
 func (ps *ParamSet) get(k ParamKey) (string, bool) {
-	w := k >> 6
+	w := int(k >> 6)
+	if w >= paramMaskWords {
+		// Outside the vocabulary: absent, as an unset bit would be. The
+		// test also lets the compiler drop the has/rank bounds checks.
+		return "", false
+	}
 	h, b := ps.has[w], uint64(1)<<(k&63)
 	if h&b == 0 {
 		return "", false
