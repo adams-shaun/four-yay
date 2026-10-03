@@ -413,7 +413,7 @@ func TestUnlessCostStrictParsePopulation(t *testing.T) {
 		"Rites of Refusal", "Rogue Skycaptain", "Rose Room Treasurer", "Rune Snag",
 		"Saheeli, Filigree Master", "Sanctuary Wall", "Scent of Brine", "Shared Trauma",
 		"Skullscorch", "Soul Strings", "Soul Tithe", "Spectral Denial", "Spell Rupture",
-		"Spell Stutter", "Spell Syphon", "Swallowed by Leviathan", "Syncopate", "Tainted Specter",
+		"Spell Stutter", "Spell Syphon", "Sphinx's Approach", "Swallowed by Leviathan", "Syncopate", "Tainted Specter",
 		"Tariff", "Thassa's Intervention", "Thassa's Rebuff", "The War Games", "Thelon's Chant",
 		"Tibalt, Wicked Tormentor", "Tourach's Chant", "Transmute Artifact",
 		"Vexing Devil",

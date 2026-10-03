@@ -88,6 +88,11 @@ func TestSteelHellkiteCombatDamageControllerFilter(t *testing.T) {
 	if !effects.MatchesObjectCtx(e.G, "Permanent.controllerWasDealtCombatDamageByThisTurn", e.G.Obj(victim), filterContext) {
 		t.Fatal("precondition: bound history predicate must match the hit player's permanent")
 	}
+	// FORGE_REF fb4d809 respells the same predicate as a player filter on the
+	// controller; Steel Hellkite's script now carries this form.
+	if !effects.MatchesObjectCtx(e.G, "Permanent.nonLand+ControlledBy Player.wasDealtCombatDamageThisTurnBySource", e.G.Obj(victim), filterContext) {
+		t.Fatal("the ControlledBy Player.wasDealtCombatDamageThisTurnBySource spelling must match the hit player's permanent")
+	}
 	e.emit(events.Event{Kind: events.ManaAdd, Player: 0, Counter: "C", Amount: 2})
 	e.priorityRound()
 	opt := abilityOption(t, e, hellkite, 1)

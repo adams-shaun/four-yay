@@ -154,7 +154,7 @@ func TestCountValidSelfCorpusCensus(t *testing.T) {
 		got = append(got, name)
 	}
 	slices.Sort(got)
-	want := []string{"diligent_zookeeper.txt", "frantic_scapegoat.txt", "kraven_the_hunter.txt", "paradox_shaper_omit_variables.txt", "stingerquill_voxmancer_vicious_verse.txt", "woodwork_prodigy_soul_tether.txt"}
+	want := []string{"diligent_zookeeper.txt", "frantic_scapegoat.txt", "kraven_the_hunter.txt", "paradox_shaper_omit_variables.txt", "stingerquill_voxmancer_vicious_verse.txt", "unique_charmed_pants.txt", "woodwork_prodigy_soul_tether.txt"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("Count$ValidSelf carrier census = %v, want %v", got, want)
 	}

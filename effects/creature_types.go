@@ -15,7 +15,7 @@ var creatureSubtypeWords = func() map[string]bool {
 	out := make(map[string]bool)
 	for word := range strings.FieldsSeq(`
 Advisor Aetherborn Alien Ally Andorian Angel Antelope Ape Archer Archon Armadillo
-Armored Army Artificer Assassin Assembly-Worker Astartes Atog Aurochs Avatar Azra
+Armored Army Artificer Assassin Assembly-Worker Astartes Atog Attendee Aurochs Avatar Azra
 B.O.B. Badger Bahamut Balloon Barbarian Bard Basilisk Bat Bear Beast Beaver
 Beeble Beholder Berserker Bird Bison Blinkmoth Boar Borg Brainiac Bringer Brushwagg
 C'tan Caitian Camarid Camel Capybara Caribou Carrier Cat Centaur Chef Child Chimera
@@ -29,7 +29,7 @@ Goblin God Golem Gorgon Gorilla Gorn Graveborn Gremlin Griffin Guest Hag Halflin
 Harpy Hedgehog
 Hellion Hero Hippo Hippogriff Homarid Homunculus Horror Horse Horsehead Human
 Hydra Hyena Illusion Imp Incarnation Inhuman Inkling Inquisitor Insect Jackal
-Jellyfish Juggernaut Kangaroo Kavu Kelpien Killbot Kirin Kithkin Klingon Knight
+Jellyfish Judge Juggernaut Kangaroo Kavu Kelpien Killbot Kirin Kithkin Klingon Knight
 Kobold Kor Kraken Kree Llama Lamia Lammasu Lanthanite Leech Lemur Leviathan Lhurgoyf
 Licid Lizard Lobster Lord Mammoth Manticore Masticore Mercenary Merfolk
 Metathran Minion Minotaur Mite Mole Monger Mongoose Monk Monkey Moogle Moonfolk

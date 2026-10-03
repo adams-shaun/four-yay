@@ -3066,7 +3066,6 @@ var knownUnsupportedParams = map[string][]string{
 	"Earthbender Ascension": {"param:api:PutCounter.RememberAmount"},
 	"Glacial Chasm":         {"param:api:Sacrifice.ChangeNum"},
 	"Green Sun's Zenith":    {"param:api:ChangeZone.AIXMax"},
-	"Natural Order":         {"param:api:ChangeZone.AISearchGoal"},
 	// The Science! (pip) Commander precon import (2026-09-26,
 	// internal/testutil/decks/science-pip.json). Its 90 distinct cards expose
 	// exactly one parameter gap, measured by the first ratchet run; the deck

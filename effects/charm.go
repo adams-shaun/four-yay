@@ -1028,9 +1028,9 @@ func effVote(h Host, c *Ctx, sa *cards.SA) {
 			if i < len(picks) && picks[i].Obj > 0 && int(picks[i].Obj-1) < len(choices) {
 				label = choices[picks[i].Obj-1]
 			}
-			if !strings.EqualFold(strings.TrimSpace(sa.Params["Secretly"]), "True") {
-				h.Emit(events.Event{Kind: events.Note, Player: t, Text: "votes for " + label})
-			}
+			// Secret ballots are revealed here too: every vote is already in
+			// (secret council: "then those votes are revealed").
+			h.Emit(events.Event{Kind: events.Note, Player: t, Text: "votes for " + label})
 		}
 		counts := make([]int, len(choices))
 		for _, p := range picks {
@@ -1076,9 +1076,9 @@ func effVote(h Host, c *Ctx, sa *cards.SA) {
 			counts[choice]++
 			picks[i] = choice
 		}
-		if !strings.EqualFold(strings.TrimSpace(sa.Params["Secretly"]), "True") {
-			h.Emit(events.Event{Kind: events.Note, Player: t, Text: "votes for " + label})
-		}
+		// Secret ballots are revealed here too: every vote is already in
+		// (secret council: "then those votes are revealed").
+		h.Emit(events.Event{Kind: events.Note, Player: t, Text: "votes for " + label})
 	}
 	if len(choices) > 0 && len(voters) > 0 {
 		resolveVoteOutcomes(h, c, sa, choices, counts)
@@ -1340,9 +1340,9 @@ func effCardVote(h Host, c *Ctx, sa *cards.SA, ballot string) {
 				max = counts[id]
 			}
 		}
-		if !strings.EqualFold(strings.TrimSpace(sa.Params["Secretly"]), "True") {
-			h.Emit(events.Event{Kind: events.Note, Player: t, Text: "votes for " + label})
-		}
+		// Secret ballots are revealed here too: every vote is already in
+		// (secret council: "then those votes are revealed").
+		h.Emit(events.Event{Kind: events.Note, Player: t, Text: "votes for " + label})
 	}
 	// The card ballot's per-subject tally, for the chained AmountFromVotes$
 	// reader (task votepb1): one entry per ballot permanent, published behind

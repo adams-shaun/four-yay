@@ -358,6 +358,7 @@ func parseStaticLine(svars map[string]string, name string) (string, staticLinePa
 			mode = val
 		}
 	}
+	cards.NormalizeAffectedDefined(params)
 	return mode, params
 }
 
