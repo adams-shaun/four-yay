@@ -892,7 +892,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			if rp.loopBound {
 				// Still inside the loop iteration this frame resumed: whatever
 				// suspended at this level continues with its Remembered.
-				e.bindLoopFrames(ctx.Remembered, ctx.VoteCounts)
+				e.bindLoopFrames(ctx.Remembered, ctx.VoteCounts, ctx.RepeatSubject)
 			}
 			e.resume.outer = e.buildContinuationChain(e.contChain, rp.obj, rp.outer)
 			// The continuation chain now owns the reported frames. Keep this

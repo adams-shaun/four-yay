@@ -256,3 +256,60 @@ func TestTapeRollSurvivesTargetAsk(t *testing.T) {
 	}
 	tapeZoneCase(t, 2, 33001, 1, nil, "Tape Jelly", src)
 }
+
+// A second ask inside a resumed RepeatEach iteration still binds the loop's
+// subject (the Wave of Vitriol shape the dual-run fuzz caught): an Optional$
+// search per sacrificed land, fetched by ImprintedController. The legacy
+// resume of the confirmation re-entered the body loop-bound, but the search
+// ask it then posed lost the subject, so the answered search moved nothing
+// and the next iteration's confirmation came instead.
+func TestTapeNestedAskKeepsRepeatSubject(t *testing.T) {
+	src := tapeZoneSorcery("Tape Vitriol",
+		"A:SP$ SacrificeAll | ValidCards$ Land | RememberSacrificed$ True | SubAbility$ DBRepeat\n"+
+			"SVar:DBRepeat:DB$ RepeatEach | DefinedCards$ DirectRemembered.Land | UseImprinted$ True | RepeatSubAbility$ DBSearch | ClearRemembered$ True\n"+
+			"SVar:DBSearch:DB$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Land.Basic | Tapped$ True | DefinedPlayer$ ImprintedController | Chooser$ ImprintedController | NoShuffle$ True | Optional$ True")
+	setup := tapeZoneToBattlefield(2)
+	drive := func(t *testing.T, e *Engine) int {
+		setup(t, e)
+		addMana(t, e, 0, "B")
+		submitChoices(t, e, castOptionFor(t, e, fixtureInHand(t, e, "Tape Vitriol")).Index)
+		searches := 0
+		for i := 0; i < 400; i++ {
+			d := e.Pending()
+			if d == nil || e.G.Over {
+				break
+			}
+			if d.Kind == decision.KPriority {
+				if len(e.G.Stack) == 0 {
+					break
+				}
+				submitChoices(t, e, tapePassIndex(d))
+				continue
+			}
+			pick := tapePick(d)
+			switch d.ResumeKind {
+			case "search_confirm":
+				pick = []int{0}
+			case "search":
+				pick = []int{0}
+				searches++
+			}
+			if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: pick}); err != nil {
+				t.Fatalf("submit: %v", err)
+			}
+		}
+		return searches
+	}
+	for _, tape := range []bool{false, true} {
+		e, _ := tapeFixture(t, 2, 33101, tape, src)
+		searches := drive(t, e)
+		lands := len(e.G.Zone(state.ZBattlefield, 0)) + len(e.G.Zone(state.ZBattlefield, 1))
+		if searches != 4 || lands != 4 {
+			t.Fatalf("tape=%v: %d searches answered, %d lands back (want 4 and 4)", tape, searches, lands)
+		}
+	}
+	_, st := tapeDual(t, 2, 33101, func(t *testing.T, e *Engine) { drive(t, e) }, src)
+	if st.Served < 8 || st.LegacySwitch != 0 || st.Aborts != 0 {
+		t.Fatalf("the loop's asks were not served from the tape: %+v", st)
+	}
+}
