@@ -71,9 +71,9 @@ func playerAttachPool(h Host, c *Ctx, spec string) []state.PlayerID {
 // AttachedPlayer/HasAttachedPlayer; it is deliberately not routed through
 // emitAttach, whose Unattached detach half reads the permanent AttachedTo link
 // only.
-func emitPlayerAttach(h Host, c *Ctx, sa *cards.SA, attachObj state.ObjID, seat state.PlayerID) {
+func emitPlayerAttach(h Host, c *Ctx, p *AttachParams, attachObj state.ObjID, seat state.PlayerID) {
 	h.Emit(events.Event{Kind: events.Attach, Obj: attachObj, Player: seat, Text: "attach to player"})
-	if strings.EqualFold(strings.TrimSpace(sa.Params["RememberAttached"]), "True") {
+	if p.RememberAttached {
 		c.Remembered = append(c.Remembered, state.Target{Obj: attachObj})
 		eventRemember(h, c, attachObj)
 	}
@@ -205,6 +205,8 @@ func attachSpecAdmitsPlayer(g *state.Game, attachObj state.ObjID, bearer state.P
 // two-half discipline RememberTokens$ on effToken and RememberTargets$ on
 // effPumpAll apply).
 func effAttach(h Host, c *Ctx, sa *cards.SA) {
+	ap := AttachOf(sa)
+	noteUnreadParams(h, c, "Attach", ap.Unread)
 	// kw:Reconfigure's unattach half (cards/kw_reconfigure.go): the minted
 	// ability carries Unattach$ True and resolves to the no-IDs Attach
 	// event -- the detach encoding rules/attach.go's CR 704.5n SBA and the
@@ -212,7 +214,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	// rules/legal.go withholds the ability, so this is only reachable on a
 	// stale or malformed answer) refuses with the same Note convention the
 	// illegal-destination refusals use, deterministically and observably.
-	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKUnattach)), "True") {
+	if ap.Unattach {
 		if src := h.Game().Obj(c.Source); src == nil || src.AttachedTo == 0 {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "cannot unattach: not attached"})
 			return
@@ -240,12 +242,12 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	// a single object (the Enchant:Player destination, the Choices$ pool's
 	// object-side pick); the destination walks below loop over objs.
 	objs := []state.ObjID{c.Source}
-	switch sa.ParamStr(cards.PKObject) {
-	case "", "Self":
+	switch ap.objectKind {
+	case attachObjectSelf:
 		// Equip's kw:Equip expansion, Enchant's kw:Enchant and Living
 		// Weapon's Object$ Self all name the source: today's default, kept
 		// byte-identical.
-	case "Remembered":
+	case attachObjectRemembered:
 		if ts := objectsOf(c.Remembered); len(ts) > 0 {
 			obj = ts[0].Obj
 			objs = []state.ObjID{obj}
@@ -269,21 +271,21 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 		// Chosen remembers BOTH the entering Aura and the Cat token, and only
 		// the Aura is the object to attach). Widening the first-take to every
 		// selector would attach the attachments to each other.
-		spec := sa.ParamStr(cards.PKObject)
-		if ts, ok := definedSpec(h, c, spec); ok {
+		plural := ap.objectKind == attachObjectAttachedTo
+		if ts, ok := definedSpec(h, c, ap.Object); ok {
 			os := objectsOf(ts)
 			if len(os) > 0 {
 				obj = os[0].Obj
 			}
 			objs = objs[:0]
-			if strings.HasPrefix(spec, "AttachedTo ") {
+			if plural {
 				for _, t := range os {
 					objs = append(objs, t.Obj)
 				}
 			} else if len(os) > 0 {
 				objs = append(objs, obj)
 			}
-		} else if strings.HasPrefix(spec, "AttachedTo ") {
+		} else if plural {
 			// The dotted selector resolved unknown (an absent or plural
 			// referent binding): fail closed to no objects, never the source.
 			objs = objs[:0]
@@ -298,7 +300,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	// time restriction the target offer already enforced (kwEnchant mints
 	// `ValidTgts$ Opponent`); this branch re-checks the restriction so a
 	// stale/malformed resolution can never enchant the controller.
-	if sa.ParamStr(cards.PKKeyword) == "Enchant" && sa.ParamStr(cards.PKObject) == "Self" {
+	if ap.EnchantSelf {
 		if aura := h.Game().Obj(obj); aura != nil && aura.Face() != nil {
 			if param, ok := aura.Face().KeywordParam("Enchant"); ok {
 				spec, _, _ := strings.Cut(param, ":")
@@ -328,7 +330,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	// resolving controller (Forge's Chooser$ override is not carried by either
 	// corpus carrier and is not invented here). Keyed on the param, NOT on the
 	// Enchant:Player branch above: neither carrier carries a Keyword$ param.
-	if spec := strings.TrimSpace(sa.Params["PlayerChoices"]); spec != "" {
+	if spec := ap.PlayerChoices; spec != "" {
 		pool := playerAttachPool(h, c, spec)
 		if answeredPlayerDone {
 			// The answered seat is re-checked against the live pool
@@ -339,7 +341,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			// the bot's own option-0 answer inside the validator.
 			for _, p := range pool {
 				if p == answerPlayer {
-					emitPlayerAttach(h, c, sa, obj, p)
+					emitPlayerAttach(h, c, ap, obj, p)
 					return
 				}
 			}
@@ -353,13 +355,13 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			// The only legal answer is not a decision anybody could answer
 			// differently: attach without an ask (the object path's auto-take
 			// convention).
-			emitPlayerAttach(h, c, sa, obj, pool[0])
+			emitPlayerAttach(h, c, ap, obj, pool[0])
 			return
 		}
 		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 			Source: c.Source, ResumeKind: "attach_player_choice", ResumeSA: sa,
 			ResumeRemembered: copyTargets(c.Remembered),
-			Prompt:           choicePrompt(sa)}
+			Prompt:           ap.ChoicePrompt}
 		for i, p := range pool {
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "player", Player: p})
 		}
@@ -415,7 +417,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	}
 	// attachTo emits the Attach event for one object and, when
 	// RememberAttached$ True, the two-half remember (see the function comment).
-	rememberAttached := strings.EqualFold(strings.TrimSpace(sa.Params["RememberAttached"]), "True")
+	rememberAttached := ap.RememberAttached
 	attachTo := func(attachObj, target state.ObjID) {
 		emitAttach(h, attachObj, target)
 		if rememberAttached {
@@ -468,7 +470,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	// card carrying either takes this branch, finds its wrong-zone or
 	// wrong-chooser pool empty, and emits the deterministic "cannot attach:
 	// no legal target" refusal -- silently inert, not working.
-	if spec := strings.TrimSpace(sa.ParamStr(cards.PKChoices)); spec != "" {
+	if spec := ap.Choices; spec != "" {
 		pool := battlefieldValidTargets(h, c, spec)
 		// The answered attach_choice re-entry (fx42 scoping: already consumed
 		// and cleared at the top). With no Object$ the answer names the
@@ -481,7 +483,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			if len(answered) == 0 {
 				return
 			}
-			if sa.HasParam(cards.PKObject) {
+			if ap.ObjectPresent {
 				// Object$ present: the answer names the DESTINATION. It is
 				// re-checked against the legal destination list recomputed
 				// here (the same rejections the asking pass applies), so a
@@ -509,7 +511,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			attachTo(obj, answerDests[0])
 			return
 		}
-		if sa.HasParam(cards.PKObject) {
+		if ap.ObjectPresent {
 			var dest []state.ObjID
 			for _, t := range pool {
 				if !attachableBy(t.Obj) {
@@ -522,7 +524,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 				return
 			}
 			max := 1
-			if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
+			if ap.OptionalTrue {
 				max = 0
 			}
 			if max == 1 && len(dest) == 1 {
@@ -532,7 +534,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: max, Max: 1,
 				Source: c.Source, ResumeKind: "attach_choice", ResumeSA: sa,
 				ResumeRemembered: copyTargets(c.Remembered),
-				Prompt:           choicePrompt(sa)}
+				Prompt:           ap.ChoicePrompt}
 			// The options are the LEGAL destinations, not the raw pool sweep:
 			// the pool can hold objects destCandidates' rejection would refuse,
 			// including obj itself (aura_graft's Choices$ Permanent admits the
@@ -554,7 +556,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 		// not against the resolving source. Keep only destinations legal for
 		// every offered object; the chosen candidate can then use the saved
 		// destination list safely after the ask suspends resolution.
-		optional := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True")
+		optional := ap.OptionalTrue
 		var eligiblePool []state.Target
 		for _, candidate := range pool {
 			candidateDests := destCandidatesFor(candidate.Obj)
@@ -623,7 +625,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			// body's Defined$ Imprinted binding does not survive the
 			// suspension, so the re-entry never re-derives it.
 			ResumeChoices: copyTargets(legalT),
-			Prompt:        choicePrompt(sa)}
+			Prompt:        ap.ChoicePrompt}
 		for i, t := range pool {
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "card", Obj: t.Obj, Player: c.Controller})
 		}
@@ -660,7 +662,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	for _, t := range legalT {
 		legal = append(legal, t.Obj)
 	}
-	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
+	if ap.OptionalTrue {
 		// fx42 scoping: consume and clear the answered election at the top,
 		// so a nested Attach in the same chain poses its own ask.
 		ans := c.AttachOpt
@@ -700,7 +702,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 				// the raw player-attach emit folds into
 				// AttachedPlayer/HasAttachedPlayer and carries the two-half
 				// remember, exactly like the PlayerChoices$ branch above.
-				emitPlayerAttach(h, c, sa, o, t.Player)
+				emitPlayerAttach(h, c, ap, o, t.Player)
 			} else {
 				attachTo(o, t.Obj)
 			}
@@ -711,13 +713,4 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	if attached == 0 {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "cannot attach: no legal target"})
 	}
-}
-
-// choicePrompt is a Choices$ Attach's ask prompt: the script's ChoiceTitle$
-// when it names one, else the generic default ChooseCard's ask falls back to.
-func choicePrompt(sa *cards.SA) string {
-	if p := strings.TrimSpace(sa.ParamStr(cards.PKChoiceTitle)); p != "" {
-		return p
-	}
-	return "Choose card"
 }
