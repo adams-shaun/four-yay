@@ -287,7 +287,7 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 			}
 			if e.payUnlessCost(payOption.Player, paid, ctx, rp.obj) {
 				ctx.UnlessPay = "pay"
-			} else if paid.hasManaPayment() && len(e.windowManaUnits(payOption.Player)) > 0 {
+			} else if paid.HasManaPayment() && len(e.windowManaUnits(payOption.Player)) > 0 {
 				// A failed pool-only attempt is not a decline: open the
 				// CR 601.2g mana-ability window and resume this exact frame
 				// after the payer has assembled enough floating mana. The
@@ -352,7 +352,7 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 			cost := e.parseCost(manaRaw)
 			if e.payMana(chosen[0].Player, cost) {
 				ctx.UnlessPay = "pay"
-			} else if cost.hasManaPayment() && e.hasUntappedManaSource(chosen[0].Player) {
+			} else if cost.HasManaPayment() && e.hasUntappedManaSource(chosen[0].Player) {
 				e.askWardMana(rp, &wardManaPayment{payer: chosen[0].Player, cost: cost,
 					resumeKind: "ward_mana", prompt: "Activate mana abilities to pay Ward"})
 				return true, true

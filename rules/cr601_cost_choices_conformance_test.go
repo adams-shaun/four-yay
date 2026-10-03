@@ -52,7 +52,7 @@ func TestCR601HybridCostsCannotSpendOnlyColorless(t *testing.T) {
 			}
 			checked++ // examined costs, never only the erroneous acceptances
 			pool[state.MC] += generic + int32(2*hybrids)
-			if ParseCost(f.ManaCost).CanPay(pool) {
+			if poolCanPay(ParseCost(f.ManaCost), pool) {
 				rejected++
 				if rejected <= 8 {
 					t.Errorf("CR 601.2b/107.4e %q seq 0: cost %q accepts pool %v with no colored mana left for its hybrid symbols", f.Name, f.ManaCost, pool)

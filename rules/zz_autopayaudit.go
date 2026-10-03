@@ -101,7 +101,7 @@ func (e *Engine) auditPayable(p state.PlayerID, c Cost, pool state.Mana, units [
 		*budget--
 		have := manaAdd(pool, produced)
 		if have.Total() >= need {
-			if _, ok := c.resolveManaWith(have, state.Mana{}, [7]state.Mana{}, life, false, pipRider{}, nil); ok {
+			if _, ok := resolveManaWith(c, have, state.Mana{}, [7]state.Mana{}, life, false, pipRider{}, nil); ok {
 				return true
 			}
 		}
@@ -165,7 +165,7 @@ func (e *Engine) AuditAfterPoolCast(p state.PlayerID, a, b state.ObjID) (after, 
 	if !okA || !okB {
 		return false, false
 	}
-	pay, ok := ca.resolveManaWith(e.G.Players[p].Pool, state.Mana{}, [7]state.Mana{}, e.G.Players[p].Life, false, pipRider{}, nil)
+	pay, ok := resolveManaWith(ca, e.G.Players[p].Pool, state.Mana{}, [7]state.Mana{}, e.G.Players[p].Life, false, pipRider{}, nil)
 	if !ok {
 		return false, false
 	}

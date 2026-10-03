@@ -100,13 +100,13 @@ func TestCMCCountsColoredAndGeneric(t *testing.T) {
 func TestLifeCostPayability(t *testing.T) {
 	t.Parallel()
 	c := ParseCost("PayLife<1>")
-	if !c.payable(state.Mana{}, state.Mana{}, [7]state.Mana{}, 1) {
+	if !payable(c, state.Mana{}, state.Mana{}, [7]state.Mana{}, 1) {
 		t.Fatal("one life should pay PayLife<1> without mana")
 	}
-	if c.payable(state.Mana{}, state.Mana{}, [7]state.Mana{}, 0) {
+	if payable(c, state.Mana{}, state.Mana{}, [7]state.Mana{}, 0) {
 		t.Fatal("zero life must not pay PayLife<1>")
 	}
-	if c.CanPay(state.Mana{}) {
+	if poolCanPay(c, state.Mana{}) {
 		t.Fatal("pool-only CanPay must not claim a life cost is mana-payable")
 	}
 	if !c.Priceable() {
@@ -117,13 +117,13 @@ func TestLifeCostPayability(t *testing.T) {
 func TestCanPayRequiresTheRightColors(t *testing.T) {
 	t.Parallel()
 	c := ParseCost("1 R")
-	if !c.CanPay(pool(0, 0, 0, 1, 0, 1)) {
+	if !poolCanPay(c, pool(0, 0, 0, 1, 0, 1)) {
 		t.Error("R + C should pay {1}{R}")
 	}
-	if c.CanPay(pool(1, 1, 0, 0, 0, 0)) {
+	if poolCanPay(c, pool(1, 1, 0, 0, 0, 0)) {
 		t.Error("W + U must not pay {1}{R}")
 	}
-	if c.CanPay(pool(0, 0, 0, 1, 0, 0)) {
+	if poolCanPay(c, pool(0, 0, 0, 1, 0, 0)) {
 		t.Error("a single R must not pay {1}{R}")
 	}
 }
@@ -132,7 +132,7 @@ func TestCanPayRequiresTheRightColors(t *testing.T) {
 func TestPaySpendsGenericLast(t *testing.T) {
 	t.Parallel()
 	c := ParseCost("1 R R")
-	after, ok := c.Pay(pool(0, 0, 0, 3, 0, 0))
+	after, ok := poolPay(c, pool(0, 0, 0, 3, 0, 0))
 	if !ok {
 		t.Fatal("RRR should pay {1}{R}{R}")
 	}
@@ -140,7 +140,7 @@ func TestPaySpendsGenericLast(t *testing.T) {
 		t.Fatalf("pool after = %v, want empty", after)
 	}
 
-	after, ok = c.Pay(pool(1, 0, 0, 2, 0, 0))
+	after, ok = poolPay(c, pool(1, 0, 0, 2, 0, 0))
 	if !ok {
 		t.Fatal("W + RR should pay {1}{R}{R}")
 	}
@@ -152,7 +152,7 @@ func TestPaySpendsGenericLast(t *testing.T) {
 func TestPayFailsCleanly(t *testing.T) {
 	t.Parallel()
 	before := pool(0, 0, 0, 1, 0, 0)
-	after, ok := ParseCost("2 R").Pay(before)
+	after, ok := poolPay(ParseCost("2 R"), before)
 	if ok {
 		t.Fatal("insufficient mana was accepted")
 	}
@@ -178,16 +178,16 @@ func TestHybridAndPhyrexianAlternativePayments(t *testing.T) {
 	}
 	// A hybrid is payable by either of its colours, never by a third colour
 	// nor by colourless alone (CR 107.4e).
-	if !gwCost.CanPay(pool(0, 0, 0, 0, 2, 0)) {
+	if !poolCanPay(gwCost, pool(0, 0, 0, 0, 2, 0)) {
 		t.Error("GW cost should be payable by GG")
 	}
-	if !gwCost.CanPay(pool(2, 0, 0, 0, 0, 0)) {
+	if !poolCanPay(gwCost, pool(2, 0, 0, 0, 0, 0)) {
 		t.Error("GW cost should be payable by WW")
 	}
-	if gwCost.CanPay(pool(0, 0, 2, 0, 0, 0)) {
+	if poolCanPay(gwCost, pool(0, 0, 2, 0, 0, 0)) {
 		t.Error("GW cost must not be payable by BB")
 	}
-	if gwCost.CanPay(pool(0, 0, 0, 0, 0, 2)) {
+	if poolCanPay(gwCost, pool(0, 0, 0, 0, 0, 2)) {
 		t.Error("GW cost must not be payable by CC alone")
 	}
 
@@ -199,10 +199,10 @@ func TestHybridAndPhyrexianAlternativePayments(t *testing.T) {
 	if len(monoCost.Twobrid) != 1 || monoCost.Twobrid[0] != (Twobrid{Generic: 2, Col: 'B'}) || monoCost.Generic != 0 {
 		t.Errorf("ParseCost(\"2B\") = %+v, want one 2/B monocolour hybrid", monoCost)
 	}
-	if !monoCost.CanPay(pool(0, 0, 2, 0, 0, 0)) {
+	if !poolCanPay(monoCost, pool(0, 0, 2, 0, 0, 0)) {
 		t.Error("2B should be payable by BB")
 	}
-	if !monoCost.payable(pool(0, 0, 0, 0, 0, 2), state.Mana{}, [7]state.Mana{}, 0) {
+	if !payable(monoCost, pool(0, 0, 0, 0, 0, 2), state.Mana{}, [7]state.Mana{}, 0) {
 		t.Error("2B should be payable by two generic mana")
 	}
 
@@ -211,7 +211,7 @@ func TestHybridAndPhyrexianAlternativePayments(t *testing.T) {
 	if slashCost.Generic != 0 || len(slashCost.Hybrid) != 1 || slashCost.Hybrid[0] != (ManaPair{A: 'W', B: 'U'}) {
 		t.Errorf("ParseCost(\"W/U\") = %+v, want one W/U hybrid", slashCost)
 	}
-	if !slashCost.CanPay(pool(0, 1, 0, 0, 0, 0)) {
+	if !poolCanPay(slashCost, pool(0, 1, 0, 0, 0, 0)) {
 		t.Error("W/U hybrid should be payable by U")
 	}
 
@@ -221,14 +221,14 @@ func TestHybridAndPhyrexianAlternativePayments(t *testing.T) {
 		t.Errorf("ParseCost(\"1 BP BP\") = %+v, want Generic=1 + two black Phyrexian pips", dismemberCost)
 	}
 	// Pool-only CanPay offers no life, so a Phyrexian pip needs its colour.
-	if !dismemberCost.CanPay(pool(0, 0, 3, 0, 0, 0)) {
+	if !poolCanPay(dismemberCost, pool(0, 0, 3, 0, 0, 0)) {
 		t.Error("Dismember should be payable by BBB")
 	}
-	if dismemberCost.CanPay(pool(0, 0, 0, 3, 0, 0)) {
+	if poolCanPay(dismemberCost, pool(0, 0, 0, 3, 0, 0)) {
 		t.Error("Dismember must not be pool-payable by RRR without life")
 	}
 	// With life offered, RRR plus four life pays Dismember (CR 107.4f).
-	if !dismemberCost.payable(pool(0, 0, 0, 3, 0, 0), state.Mana{}, [7]state.Mana{}, 20) {
+	if !payable(dismemberCost, pool(0, 0, 0, 3, 0, 0), state.Mana{}, [7]state.Mana{}, 20) {
 		t.Error("Dismember should be payable by RRR with life")
 	}
 
@@ -237,10 +237,10 @@ func TestHybridAndPhyrexianAlternativePayments(t *testing.T) {
 	if probeCost.Generic != 0 || len(probeCost.Phyrexian) != 1 || probeCost.Phyrexian[0] != 'U' {
 		t.Errorf("ParseCost(\"UP\") = %+v, want one blue Phyrexian pip", probeCost)
 	}
-	if probeCost.CanPay(pool(0, 0, 0, 0, 1, 0)) {
+	if poolCanPay(probeCost, pool(0, 0, 0, 0, 1, 0)) {
 		t.Error("Gitaxian Probe must not be pool-payable by G alone without life")
 	}
-	if !probeCost.payable(pool(0, 0, 0, 0, 1, 0), state.Mana{}, [7]state.Mana{}, 20) {
+	if !payable(probeCost, pool(0, 0, 0, 0, 1, 0), state.Mana{}, [7]state.Mana{}, 20) {
 		t.Error("Gitaxian Probe should be payable by G with life")
 	}
 }

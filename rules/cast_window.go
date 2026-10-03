@@ -366,8 +366,9 @@ func appendCastWindowAlt(units []windowManaUnit, id state.ObjID, ma *cards.SA, c
 func (e *Engine) castWindowReachable(p state.PlayerID, cost Cost, spellPool, snow state.Mana,
 	typed [7]state.Mana, life int32, conv *manaConv, units []windowManaUnit) bool {
 	payable := func(pool, snowPool state.Mana, lifeNow int32) bool {
-		_, ok := cost.resolveManaWith(pool, snowPool, typed, lifeNow,
+		_, ok := resolveManaWith(cost, pool, snowPool, typed, lifeNow,
 			e.payerGrantsPayLifeInsteadOfB(p), pipRider{}, conv)
+
 		return ok
 	}
 	if payable(spellPool, snow, life) {
@@ -407,8 +408,9 @@ func (e *Engine) castWindowReachable(p state.PlayerID, cost Cost, spellPool, sno
 				// Pay a generic activation fee from mana the live activation
 				// gate can spend. Track the same spent colours in the spell
 				// pool; fees reduce that pool, they are not extra spell pips.
-				activationFee, feeOK := (Cost{Generic: a.costGeneric}).resolveMana(
+				activationFee, feeOK := resolveMana((Cost{Generic: a.costGeneric}),
 					activationPool, activationSnow, [7]state.Mana{}, lifeLeft, nil)
+
 				if !feeOK {
 					continue
 				}
@@ -534,7 +536,7 @@ func (e *Engine) striveAffordableTargets(pc *pendingCast, max int) int {
 		if e.manaFeasibleDescriptor(pc.player, pay, convoked, costMods{}, 0, 0, rider) {
 			return true
 		}
-		if !convoked.hasManaPayment() {
+		if !convoked.HasManaPayment() {
 			return false
 		}
 		if !unitsBuilt {

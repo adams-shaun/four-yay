@@ -67,16 +67,6 @@ func cloneUnlessCtx(in effects.Ctx) effects.Ctx {
 	return out
 }
 
-// manaPipCount is an upper bound on the mana units a cost can consume. Any
-// minimal covering selection of window sources uses at most this many
-// sources (every window source contributes at least one unit), so the
-// reachability search below never has to consider picking more.
-func (c Cost) manaPipCount() int {
-	n := int(c.Generic) + int(c.Colored.Total()) + int(c.Snow)
-	n += len(c.Hybrid) + len(c.Phyrexian) + len(c.Twobrid) + len(c.HybridPhyrexian)
-	return n
-}
-
 // unlessManaReachable reports whether pool plus one production alternative
 // per window unit (or none of a unit) can satisfy cost's mana/life component.
 // It is the exact affordability question the offer gate and the window's
@@ -99,14 +89,15 @@ func (e *Engine) unlessManaReachable(p state.PlayerID, cost Cost, pool, snow sta
 // wrapper above.
 func (e *Engine) manaReachable(p state.PlayerID, cost Cost, pool, snow state.Mana, typed [7]state.Mana, life int32, rider pipRider, conv *manaConv, units []windowManaUnit) bool {
 	payable := func(pool state.Mana, lifeNow int32) bool {
-		_, ok := cost.resolveManaWith(pool, snow, typed, lifeNow,
+		_, ok := resolveManaWith(cost, pool, snow, typed, lifeNow,
 			e.payerGrantsPayLifeInsteadOfB(p), rider, conv)
+
 		return ok
 	}
 	if payable(pool, life) {
 		return true
 	}
-	budget := cost.manaPipCount()
+	budget := cost.ManaPipCount()
 	if budget <= 0 {
 		return false
 	}
@@ -202,7 +193,7 @@ func (e *Engine) unlessCostPayable(p state.PlayerID, raw string, ctx *effects.Ct
 	if e.costPayableClass(p, d, pipRider{}, cost) {
 		return true
 	}
-	if !cost.hasManaPayment() {
+	if !cost.HasManaPayment() {
 		// No mana to window. A life/snow component is what the pool check
 		// just rejected and no source can supply it, so do not offer.
 		if cost.Life > 0 || cost.Snow > 0 {
@@ -461,7 +452,7 @@ func (e *Engine) advanceUnlessPayment() {
 	// retained: when no source can help (or the payer answers Done with the
 	// pool already covering the charge) the granted life still pays it.
 	if !e.costPayableClassLife(u.payer, d, pipRider{}, u.cost, false) &&
-		u.cost.hasManaPayment() && len(e.windowManaUnits(u.payer)) > 0 {
+		u.cost.HasManaPayment() && len(e.windowManaUnits(u.payer)) > 0 {
 		e.askUnlessMana()
 		return
 	}

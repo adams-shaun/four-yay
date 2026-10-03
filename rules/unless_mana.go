@@ -17,7 +17,7 @@ import (
 // converted colour (CR 106.6, stat:ManaConvert) could never be produced by
 // tapping.
 func (e *Engine) unlessManaWindowNeeded(p state.PlayerID, cost Cost, obj state.ObjID) bool {
-	if !cost.hasManaPayment() {
+	if !cost.HasManaPayment() {
 		return false
 	}
 	d := paymentDescriptor{id: obj, class: paymentOther, cost: &cost}
