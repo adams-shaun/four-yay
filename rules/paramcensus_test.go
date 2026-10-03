@@ -1643,6 +1643,10 @@ var apiSpecificRulesSA = map[string][]string{
 	// effects.compileCharm's (W4 step 3), reached through effCharm.
 	"Engine.castModeAsk": {"Charm"},
 	"modalTargetSA":      {"Charm"},
+	// The activation offer's self-harm fact (decision.Option.SelfSkipTurns,
+	// botpolicy A6): abilitySelfSkipTurns reads Defined$/NumTurns$ only on
+	// the api:SkipTurn links of an offered ability's Sub chain.
+	"abilitySelfSkipTurns": {"SkipTurn"},
 	// The unless-pay resume arm: only effCounter and effCopySpellAbility
 	// suspend with an UnlessCost$ ask, so resumeResolution's UnlessCost$
 	// read belongs to those two APIs alone. api:Play joins them for the
