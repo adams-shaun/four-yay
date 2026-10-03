@@ -266,7 +266,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 	ctx.AllTargets = e.chainTargetUnion(rp.obj, chainRoot, targets)
 	ctx.ModeTargets = e.resolutionTargets.modesFor(rp.obj, e.charmTargets[rp.obj])
 	ctx.Chosen, ctx.ChosenValid = append([]state.Target(nil), rp.choices...), rp.chosenValid
-	ctx.DigUntilMove, ctx.DigUntilMoveDone = rp.digUntilMove, rp.digUntilMoveDone
+	ctx.DigUntilMove = rp.digUntilMove
 	ctx.ClonePick, ctx.ClonePickDone = rp.clonePick, rp.clonePickDone
 	ctx.VillainousVictims = append([]state.Target(nil), rp.villainousVictims...)
 	ctx.VillainousIndex = rp.villainousIndex

@@ -2076,10 +2076,10 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 	// re-emit of the reveal Note (recorded before the first-pass ask) and of
 	// the withheld-params Note.
 	moveAns := c.DigUntilMove
-	moveDone := c.DigUntilMoveDone
+	moveDone := moveAns != ""
 	auraBearer := c.DigUntilAuraBearer
 	auraDone := c.DigUntilAuraDone
-	c.DigUntilMove, c.DigUntilMoveDone = "", false
+	c.DigUntilMove = ""
 	c.DigUntilAuraBearer, c.DigUntilAuraDone = 0, false
 	if moveAns == "" {
 		moveAns = "no"
@@ -2251,7 +2251,7 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 						default:
 							d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 								Source: c.Source, ResumeKind: "diguntil_aura", ResumeSA: sa,
-								ResumeDigUntilMove: moveAns, ResumeDigUntilMoveDone: moveDone,
+								ResumeDigUntilMove:        digUntilMoveRider(moveAns, moveDone),
 								ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
 								ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
 								ResumeForgetOtherReady:    c.ForgetOtherReady,
@@ -2432,6 +2432,16 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 	if rememberFound {
 		c.Remembered = digRemembered
 	}
+}
+
+// digUntilMoveRider is the OptionalFoundMove$ answer an Aura-bearer ask
+// carries across its suspension: the answer once the election is made, ""
+// before it (the re-entry reads a non-empty Ctx.DigUntilMove as answered).
+func digUntilMoveRider(moveAns string, moveDone bool) string {
+	if !moveDone {
+		return ""
+	}
+	return moveAns
 }
 
 // auraAnsweredBearer revalidates an answered DigUntil Aura bearer against the

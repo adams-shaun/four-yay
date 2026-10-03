@@ -1067,13 +1067,12 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 		// FoundDestination$, "no" — the decline — to OptionalNoDestination$
 		// or the revealed pile. A malformed or empty answer keeps the
 		// decline, the conservative read of an ambiguous one (the same
-		// attach_optional convention). DigUntilMoveDone also suppresses the
-		// re-entry's reveal Note, which the first pass already recorded.
+		// attach_optional convention). The non-empty answer also suppresses
+		// the re-entry's reveal Note, which the first pass already recorded.
 		ctx.DigUntilMove = "no"
 		if len(chosen) > 0 && chosen[0].Kind == "yes" {
 			ctx.DigUntilMove = "yes"
 		}
-		ctx.DigUntilMoveDone = true
 	case "diguntil_aura":
 		// CR 303.4f: an Aura entering without being cast chooses a
 		// permanent to enchant. The option's object is revalidated by
