@@ -6,6 +6,7 @@ package bench_test
 // legacy resume path logs.
 
 import (
+	"os"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -19,6 +20,9 @@ import (
 func TestSyncAnswerMatchesLegacy(t *testing.T) {
 	if testing.Short() {
 		t.Skip("plays 18 games twice")
+	}
+	if os.Getenv("GORGE_TAPE_KERNEL") == "1" {
+		t.Skip("GORGE_TAPE_KERNEL=1 puts the legacy arm on the kernel too")
 	}
 	reg := testutil.CorpusRegistry(t)
 	pairs := [][2]string{
