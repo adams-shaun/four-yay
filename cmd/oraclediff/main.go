@@ -7,6 +7,7 @@
 //	oraclediff triage [-cards .cards] [-apply]
 //	oraclediff refreeze [-cards .cards] [-apply]
 //	oraclediff impact [-cards .cards] [-top N] [-json]
+//	oraclediff tickets [-cards .cards] [-out DIR] [-min-cards 10] [-any-in FORMAT] [-json]
 //
 // gen writes one level-A scenario per manifest card gorge fully supports
 // (skips go to <out>.skips.jsonl). plan splits them into the stale ones
@@ -26,7 +27,11 @@
 //
 // impact is the primitive impact table (compliance/adopt): every
 // unsupported primitive, the tournament cards it blocks in each target
-// format of compliance/formats.json and the sets it would unlock.
+// format of compliance/formats.json and the sets it would unlock. tickets
+// turns the findings into one would-be agentctl ticket per class -- a
+// primitive (with the primitives only its cards carry), a gorge_wrong
+// ruling or shape, an untriaged shape cluster -- each with its cards, sets
+// and a class-census ratchet skeleton; it writes them, it never files them.
 package main
 
 import (
@@ -124,6 +129,15 @@ func main() {
 		asJSON := fs.Bool("json", false, "one JSON row per primitive")
 		fs.Parse(os.Args[2:])
 		err = runImpact(*dir, *top, *asJSON)
+	case "tickets":
+		fs := flag.NewFlagSet("tickets", flag.ExitOnError)
+		dir := fs.String("cards", ".cards", "corpus dir")
+		out := fs.String("out", "", "write <id>.md briefs, index.jsonl and file.sh here (nothing is filed)")
+		minCards := fs.Int("min-cards", 10, "a primitive needs this many blocked tournament cards for a ticket...")
+		anyIn := fs.String("any-in", "", "...or any blocked card in this format (default: the first target in compliance/formats.json)")
+		asJSON := fs.Bool("json", false, "one JSON row per ticket")
+		fs.Parse(os.Args[2:])
+		err = runTickets(*dir, *out, *minCards, *anyIn, *asJSON)
 	case "show":
 		fs := flag.NewFlagSet("show", flag.ExitOnError)
 		dir := fs.String("cards", ".cards", "corpus dir")
@@ -141,7 +155,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: oraclediff gen|plan|diff|status|rule|triage|refreeze|impact|show ...")
+	fmt.Fprintln(os.Stderr, "usage: oraclediff gen|plan|diff|status|rule|triage|refreeze|impact|tickets|show ...")
 	os.Exit(2)
 }
 

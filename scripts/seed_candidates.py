@@ -124,6 +124,26 @@ def latest(ledger: list, axis: str, metric: str):
     return max(vals, key=lambda r: r.ts) if vals else None
 
 
+def compliance_tickets(d: Path) -> list[dict]:
+    """The class tickets `oraclediff tickets -out d` wrote: index.jsonl rows
+    with each brief read back from its <id>.md. Missing dir -> none."""
+    idx = d / "index.jsonl"
+    if not idx.exists():
+        return []
+    out = []
+    for line in idx.read_text().splitlines():
+        try:
+            t = json.loads(line)
+        except ValueError:
+            continue
+        brief = d / str(t.get("brief", ""))
+        if not t.get("id") or not brief.is_file():
+            continue
+        t["body"] = brief.read_text()
+        out.append(t)
+    return out
+
+
 def cand(cid, axis, title, body, est_delta, est_cost, evidence) -> dict:
     return {
         "id": cid,
@@ -325,59 +345,26 @@ parked, and every decision is one line in the commit message.
             )
         )
 
-    # ---- correct (1000x): validated cards with no oracle verdict.
-    total, gaps, pgaps = rc.validated_set(repo)
-    validated = max(0, total - gaps - pgaps)
-    verdicts = latest(rows, "audit", "cards_with_oracle_verdict")
-    have = int(verdicts.value) if verdicts else 0
-    if validated > have:
-        batch = 25
+    # ---- correct (1000x): compliance findings, one candidate per CLASS.
+    # The per-card "Oracle-audit the next N validated cards" batch is retired
+    # (docs/superpowers/specs/2026-10-03-rules-engine-lasagna-design.md
+    # section 11.3 C4): the XMage oracle now covers whole sets, and its
+    # findings are grouped into class tickets -- one per unsupported primitive
+    # (with the primitives only its cards carry), gorge_wrong ruling or shape,
+    # and untriaged shape cluster -- by `go run ./cmd/oraclediff tickets -out
+    # <state>/compliance-tickets`. Each candidate reuses the generator's stable
+    # id and complete brief, so the loop and an operator filing file.sh by hand
+    # name the same ticket.
+    for t in compliance_tickets(state_dir / "compliance-tickets"):
         out.append(
             cand(
-                f"correct-oracle-batch-{have // batch}",
+                t["id"],
                 "correct",
-                f"Oracle-audit the next {batch} validated cards ({have}/{validated} covered)",
-                f"""# The validated set is mostly unaudited
-
-{validated} repo-deck cards are in the validated set — neither ratchet table
-lists them, so the build claims full support. {have} scenarios exist under
-`rules/testdata/oracle/`. A defect in a card we claim to support fully is
-silently wrong rules in the set nobody is checking, which is why finding one is
-the highest-weighted outcome in the loop.
-
-## Goal
-
-Drive the next {batch} validated cards through the oracle harness
-(`docs/superpowers/specs/2026-09-29-cross-engine-oracle-audit.md`), newest
-mechanics first, and record each verdict as a scenario under
-`rules/testdata/oracle/<family>/`.
-
-For every disagreement, ratchet it in the family's known-divergent table
-(`rules/testdata/oracle/<family>/known-divergent/<card-slug>.json` where the
-family is split per card, else its `known-divergent.json`) (so the suite
-stays green and the row goes stale when a fix lands), and file one defect
-ticket as `.ds4/new-tickets/<card-slug>.md` in your worktree naming the card,
-the scenario file, the Oracle/CR reading and gorge's behaviour. Do not write
-`.ds4/reward/defects.jsonl`: it lives in the main checkout, outside the seat
-jail, and the controller maintains it.
-
-Oracle text plus the CR is the arbiter of which engine is right, not the other
-engine.
-
-## Out of scope
-
-Fixing the defects found — each confirmed defect gets its own ticket, so a fix
-round is never blocked behind an audit round.
-
-## Done means
-
-{batch} new cards have oracle scenarios, `go test ./rules -run TestOracle` is
-green, and every disagreement has a known-divergent row and a
-`.ds4/new-tickets/` defect ticket.
-""",
-                est_delta=1.0,
+                t["title"],
+                t["body"],
+                est_delta=float(min(len(t.get("cards") or []), 50)),
                 est_cost=COST_ORACLE_BATCH,
-                evidence=f"{have} verdicts for {validated} validated cards",
+                evidence=f"{t['class']}: {len(t.get('cards') or [])} cards in {len(t.get('sets') or [])} sets",
             )
         )
 
@@ -708,6 +695,18 @@ def selftest() -> int:
         (state / "defects.jsonl").write_text(
             json.dumps({"card": "Lightning Bolt", "validated_set": True, "status": "open"}) + "\n"
         )
+        ct = state / "compliance-tickets"
+        ct.mkdir()
+        (ct / "compliance-prim-kw-bargain.md").write_text(
+            "# Implement kw:Bargain\n\n## Done means\n\n`go test ./rules -run TestClassKwBargainCensus`\n"
+        )
+        (ct / "index.jsonl").write_text(
+            json.dumps({"id": "compliance-prim-kw-bargain", "class": "primitive", "title": "Implement kw:Bargain",
+                        "cards": ["Back for Seconds", "Torch the Tower"], "sets": ["WOE"],
+                        "brief": "compliance-prim-kw-bargain.md"}) + "\n"
+            + json.dumps({"id": "compliance-orphan", "class": "shape", "title": "brief missing",
+                          "cards": ["x"], "brief": "missing.md"}) + "\n"
+        )
         # Hot spots group by branch SET: three files held by the same two live
         # branches are one ticket, and files held by an IDLE branch belong to the
         # idle-branch candidate instead.
@@ -787,6 +786,12 @@ def selftest() -> int:
         cands = generate(repo, state, ledger)
         ids = [c["id"] for c in cands]
         check("a high merge_fix rate makes a flow candidate", any(i.startswith("flow-mergefix") for i in ids), ids)
+        check("a compliance class ticket becomes one correct candidate under its own id",
+              any(c["id"] == "compliance-prim-kw-bargain" and c["axis"] == "correct"
+                  and "TestClassKwBargainCensus" in c["body"] for c in cands), ids)
+        check("an index row whose brief is missing is skipped", "compliance-orphan" not in ids, ids)
+        check("the per-card oracle batch is retired",
+              not any(i.startswith("correct-oracle-batch") for i in ids), ids)
         check("an open validated-set defect makes a correct candidate",
               any(i.startswith("correct-defect-lightning-bolt") for i in ids), ids)
         check("a slow gate suite makes a steward candidate", any(i.startswith("steward-gate-wall") for i in ids), ids)
