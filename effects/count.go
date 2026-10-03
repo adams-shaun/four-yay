@@ -264,7 +264,7 @@ func NumResolvedStrict(h Host, c *Ctx, sa *cards.SA, key string, def int32) (int
 // EvalCount evaluates a "Count$..." expression. The grammar in the corpus is a
 // head, an optional space-separated argument, and an optional "/Op" suffix.
 func EvalCount(h Host, c *Ctx, expr string) int32 {
-	n, _ := evalCountExprOK(h, c, expr, 0)
+	n, _ := EvalCountOK(h, c, expr)
 	return n
 }
 
@@ -279,8 +279,28 @@ func EvalCount(h Host, c *Ctx, expr string) int32 {
 // verdict here, at the dispatch, keeps it rot-proof: a head added to
 // evalCountBody's switch automatically becomes evaluated, one deleted
 // automatically stops being so.
+//
+// The count reads the board's derived characteristics by default (W1d): a
+// context that carries no layer-3 rename or layer-4 type table -- one built
+// outside effects.Resolve, such as a static's numeric-RHS SVar, a CDA, a cost
+// or a target-offer count -- is bound to the host's always-published pair for
+// the evaluation and restored afterwards, so the same Count$Valid answers the
+// same number at offer time and at resolution.
 func EvalCountOK(h Host, c *Ctx, expr string) (int32, bool) {
-	return evalCountExprOK(h, c, expr, 0)
+	if c == nil || (c.Layers.EffectiveNames != nil && c.Layers.DerivedTypes != nil) {
+		return evalCountExprOK(h, c, expr, 0)
+	}
+	names, types := c.Layers.EffectiveNames, c.Layers.DerivedTypes
+	board := layerTablesFor(h, nil)
+	if names == nil {
+		c.Layers.EffectiveNames = board.EffectiveNames
+	}
+	if types == nil {
+		c.Layers.DerivedTypes = board.DerivedTypes
+	}
+	n, ok := evalCountExprOK(h, c, expr, 0)
+	c.Layers.EffectiveNames, c.Layers.DerivedTypes = names, types
+	return n, ok
 }
 
 // maxCountDepth bounds the SVar recursion the Compare head introduces: a
