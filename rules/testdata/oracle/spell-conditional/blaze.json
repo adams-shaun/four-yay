@@ -1,0 +1,111 @@
+{
+ "card": "Blaze",
+ "family": "spell-conditional",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "093cd6cda2a8",
+ "scenarios": [
+  {
+   "name": "x-three-kills-a-three-toughness-creature",
+   "cr": [
+    "107.3",
+    "601.2b",
+    "120.3"
+   ],
+   "why": "Blaze deals X damage to any target. With X=3 it deals 3 to the 3/3 Centaur Courser, which dies.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Blaze"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Blaze",
+     "mana": "RCCC",
+     "targets": [
+      "p1:Centaur Courser"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "3"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "x-zero-deals-no-damage",
+   "cr": [
+    "107.3",
+    "608.2c"
+   ],
+   "why": "With X=0 Blaze deals no damage; the 2/2 Grizzly Bears survives with 0 marked damage.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Blaze"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Blaze",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "0"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,67 @@
+{
+ "card": "Vampiric Tutor",
+ "family": "spell-conditional",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "7385e3c97192",
+ "scenarios": [
+  {
+   "name": "searches-and-puts-the-card-on-top-losing-two",
+   "cr": [
+    "701.19a",
+    "608.2c",
+    "119.3"
+   ],
+   "why": "Vampiric Tutor searches the library, shuffles, then puts the chosen card on top, and its controller loses 2 life. The chosen Forest is on top of the library, not in hand, and p0 is at 18.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Vampiric Tutor"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Vampiric Tutor",
+     "mana": "B"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 18
+     }
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "card": "p0:Vampiric Tutor",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

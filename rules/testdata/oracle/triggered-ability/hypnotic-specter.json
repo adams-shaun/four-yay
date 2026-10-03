@@ -1,0 +1,113 @@
+{
+ "card": "Hypnotic Specter",
+ "family": "triggered-ability",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "c1c548d05eea",
+ "scenarios": [
+  {
+   "name": "combat-damage-to-opponent-forces-a-random-discard",
+   "cr": [
+    "702.9b",
+    "510.2",
+    "603.2",
+    "701.8a"
+   ],
+   "why": "Hypnotic Specter (2/2 flying) deals 2 combat damage to p1 and its trigger makes p1 discard a card at random. p1 drops to 18 and its only card leaves the hand.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Hypnotic Specter"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "defender": "p1",
+     "attackers": [
+      "p0:Hypnotic Specter"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "hand_size": {
+      "p1": 0
+     }
+    },
+    {
+     "graveyard_size": {
+      "p1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-flying-blocker-loses-two",
+   "cr": [
+    "702.9b",
+    "509.1b"
+   ],
+   "why": "With no creature that can block a flyer, the Specter is unblocked and its damage trigger fires; the control shows the damage is the source of the discard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Hypnotic Specter"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "defender": "p1",
+     "attackers": [
+      "p0:Hypnotic Specter"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "hand_size": {
+      "p1": 1
+     }
+    },
+    {
+     "graveyard_size": {
+      "p1": 1
+     }
+    }
+   ]
+  }
+ ]
+}

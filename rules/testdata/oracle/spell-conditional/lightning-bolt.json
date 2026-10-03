@@ -1,0 +1,100 @@
+{
+ "card": "Lightning Bolt",
+ "family": "spell-conditional",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "1c8ec5180252",
+ "scenarios": [
+  {
+   "name": "three-damage-kills-a-two-toughness-creature",
+   "cr": [
+    "120.3",
+    "704.5g",
+    "608.2b"
+   ],
+   "why": "Lightning Bolt deals 3 damage to the target Grizzly Bears (2/2). Three damage is lethal, so state-based actions put it into its owner's graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "three-damage-to-player",
+   "cr": [
+    "120.3",
+    "119.3"
+   ],
+   "why": "Lightning Bolt can target a player: p1 loses 3 life, from 20 to 17.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 17
+     }
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

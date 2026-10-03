@@ -1,0 +1,59 @@
+{
+ "card": "Vapor Snag",
+ "family": "spell-conditional",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "634eb6b41e5b",
+ "scenarios": [
+  {
+   "name": "bounces-a-creature-and-its-controller-loses-one",
+   "cr": [
+    "608.2c",
+    "400.7",
+    "119.3"
+   ],
+   "why": "Vapor Snag returns the target creature to its owner's hand and its controller loses 1 life. p1's Centaur Courser goes to p1's hand and p1 drops to 19.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Vapor Snag"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Vapor Snag",
+     "mana": "U",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "hand"
+    },
+    {
+     "life": {
+      "p1": 19
+     }
+    },
+    {
+     "hand_size": {
+      "p1": 1
+     }
+    }
+   ]
+  }
+ ]
+}
