@@ -45,6 +45,25 @@ type FixedWorldSource interface {
 	FixedWorld() bool
 }
 
+// RealWorldSource is a FixedWorldSource that promises more: every World is
+// a clone of the REAL engine at the root, its generator position included
+// (the clairvoyant source), so the world's future chance is the real
+// game's, and each World's Observer is that world's own clone (never handed
+// to another world). A stored tree node whose world has the real engine's
+// event chain is then the real position, which is what tree reuse
+// (Options.ReuseTree) requires; FixedChance re-seeds chance per tree, and a
+// redeal or IS-MCTS world is a sample, so neither is one.
+type RealWorldSource interface {
+	FixedWorldSource
+	RealWorld() bool
+}
+
+// isReal reports whether src declares the real world.
+func isReal(src WorldSource) bool {
+	r, ok := src.(RealWorldSource)
+	return ok && r.FixedWorld() && r.RealWorld()
+}
+
 // isFixed reports whether src declares a fixed world.
 func isFixed(src WorldSource) bool {
 	f, ok := src.(FixedWorldSource)

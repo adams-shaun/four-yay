@@ -106,6 +106,9 @@ type Seat struct {
 	// seat's decisions are answered one at a time, and every world of a
 	// decision is spent once its Search returns.
 	spare rules.Spare
+	// reuse is the seat's tree carrier across its decisions
+	// (Options.ReuseTree); nil with the switch off.
+	reuse *Reuse
 }
 
 // SetRecorder installs the visit-corpus recorder (M1b; cmd/botbench
@@ -135,6 +138,9 @@ func NewSeat(seed uint64, net *policynet.Model, cfg SeatConfig) (*Seat, error) {
 		if cfg.Search.OpponentNodes {
 			return nil, errors.New("azmcts: opponent nodes need a fixed world; the redeal source deals a different world per simulation")
 		}
+		if cfg.Search.ReuseTree {
+			return nil, errors.New("azmcts: tree reuse needs the real world; the redeal source deals a different world per simulation")
+		}
 	case "", WorldClairvoyant:
 		if cfg.Source == nil {
 			return nil, errors.New("azmcts: the clairvoyant world is not linked (internal/azmcts/clairvoyant)")
@@ -142,7 +148,11 @@ func NewSeat(seed uint64, net *policynet.Model, cfg SeatConfig) (*Seat, error) {
 	default:
 		return nil, fmt.Errorf("azmcts: world source %q: want %s or %s", cfg.World, WorldClairvoyant, WorldRedeal)
 	}
-	return &Seat{def: seat.NewBot(seed), seed: seed, net: net, cfg: cfg}, nil
+	s := &Seat{def: seat.NewBot(seed), seed: seed, net: net, cfg: cfg}
+	if cfg.Search.ReuseTree && !cfg.PriorOnly {
+		s.reuse = NewReuse()
+	}
+	return s, nil
 }
 
 // Decide is the plain Seat half: the wrapped bot.
@@ -206,7 +216,8 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 		opts.Noise = !s.cfg.NoNoise
 		opts.Sample = env.Engine.G.Turn <= s.cfg.ExploreTurns
 	}
-	res, err := Search(ctx, Root{Engine: env.Engine, Decision: &d, Bot: botIn, Observer: obs}, src, s.net, opts)
+	opts.ReuseTree = s.reuse != nil
+	res, err := Search(ctx, Root{Engine: env.Engine, Decision: &d, Bot: botIn, Observer: obs, Reuse: s.reuse}, src, s.net, opts)
 	if redeal != nil {
 		s.spare = redeal.reclaim()
 	}
@@ -249,7 +260,7 @@ func (s *Seat) DigestFree() bool { return true }
 func (s *Seat) decidePrior(ctx context.Context, env searchseat.Env, d decision.Decision, botIn decision.Intent) (decision.Intent, error) {
 	obs := searchprobe.NewCollector(d.Player)
 	opts := s.cfg.Search
-	opts.Sims, opts.Noise, opts.Sample = 0, false, false
+	opts.Sims, opts.Noise, opts.Sample, opts.ReuseTree = 0, false, false, false
 	opts.Seed = DecisionSeed(s.seed, d.Seq)
 	res, err := Search(ctx, Root{Engine: env.Engine, Decision: &d, Bot: botIn, Observer: obs}, nil, s.net, opts)
 	if err != nil {
@@ -304,9 +315,17 @@ func (s *Seat) worldName() string {
 	if s.cfg.Search.OpponentNodes {
 		w += OppWorldSuffix
 	}
+	if s.reuse != nil {
+		w += ReuseWorldSuffix
+	}
 	return w
 }
 
 // OppWorldSuffix tags a visit record's World (and a bench's ledger name)
 // when the search held opponent nodes: "clairvoyant+opp".
 const OppWorldSuffix = "+opp"
+
+// ReuseWorldSuffix tags a visit record's World when the seat reuses its
+// tree between decisions (Options.ReuseTree): the record's visits then
+// include the carried ones, as upstream's do. "clairvoyant+reuse".
+const ReuseWorldSuffix = "+reuse"

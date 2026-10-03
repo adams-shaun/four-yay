@@ -72,6 +72,11 @@ type walkConfig struct {
 	oppLimit    int
 	oppObs      *searchprobe.Collector
 	oppRootRefs int
+
+	// resume is the carried root's walk state (Options.ReuseTree, reuse.go):
+	// every world starts from it instead of a fresh observer clone and
+	// freshly seeded bot streams. Nil without a reuse hit.
+	resume *reuseMark
 }
 
 // priorNet is the network in-walk priors read: nil under uniformPrior.
@@ -216,6 +221,9 @@ func newEngineEnv(w World, cfg *walkConfig) (*engineEnv, error) {
 	}
 	if cfg.oppNodes {
 		env.initOpponent()
+	}
+	if cfg.resume != nil {
+		env.resumeFrom(cfg.resume)
 	}
 	if cfg.rootPerWorld {
 		if err := env.matchRoot(); err != nil {
