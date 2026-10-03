@@ -1,0 +1,8 @@
+{
+  "card": "Drakuseth, Maw of Flames",
+  "rows": {
+    "attack-four-to-player-three-to-two-creatures": "CR 603.3d/115.1d: all of the attack trigger's targets (4 damage to the opponent, 3 to each of up to two other targets) are chosen as it is put on the stack. Observed: only the 4-damage target is asked when the trigger goes on the stack; the 3-damage targets are posed as a resolution-time choose, so the two creatures named with the trigger (Hill Giant, Grizzly Bears) are untouched (opponent 16, both creatures alive). A control answering that resolution-time choose with the two creatures kills both, so only the timing is wrong. Known root: same as Bite Down/second-target-is-chosen-on-cast (later targets asked at resolution, not on cast/trigger).",
+    "one-illegal-target-others-still-damaged": "CR 608.2b: when one of three targets (Grizzly Bears) is bounced in response, the trigger still deals 4 to the opponent and 3 to the remaining legal target (Hill Giant dies). Observed: opponent 16 but Hill Giant undamaged, since the 3-damage targets were never chosen with the trigger. Known root: Bite Down/second-target-is-chosen-on-cast.",
+    "three-damage-to-a-player-target": "CR 603.3d: the opponent named as a 3-damage target when the trigger is put on the stack takes 3 (life 17) and the 4-damage creature dies. Observed: the creature dies but the opponent stays at 20, because the 3-damage targets are a resolution-time choose the target list never answers (a control answering that choose with the player deals the 3). Known root: Bite Down/second-target-is-chosen-on-cast."
+  }
+}

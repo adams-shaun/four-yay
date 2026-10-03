@@ -1,0 +1,117 @@
+{
+ "card": "Mirrorpool",
+ "family": "clone",
+ "author": "cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "377d679efbff",
+ "scenarios": [
+  {
+   "name": "copy-target-creature-token",
+   "cr": [
+    "707.2",
+    "111.1",
+    "608.2c"
+   ],
+   "why": "Sacrificing Mirrorpool for {4}{C} creates a token that is a copy of target creature its controller controls: one additional 2/2 Grizzly Bears.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mirrorpool",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Mirrorpool",
+     "mana": "CCCCC",
+     "ability": "copy of target creature",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Grizzly Bears",
+     "pt": "2/2",
+     "types": [
+      "Creature",
+      "Bear"
+     ]
+    },
+    {
+     "card": "p0:Mirrorpool",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "copy-target-spell-deals-damage-twice",
+   "cr": [
+    "707.10a",
+    "608.2c"
+   ],
+   "why": "The first ability copies target instant or sorcery spell its controller controls. Copying a Lightning Bolt on the stack creates a copy that also deals 3, so the defending player loses 6 from the two spells.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mirrorpool"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Mirrorpool",
+     "mana": "CCC",
+     "ability": "copy target instant or sorcery",
+     "targets": [
+      "p0:Lightning Bolt"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 14
+     }
+    },
+    {
+     "card": "p0:Mirrorpool",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

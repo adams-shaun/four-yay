@@ -186,6 +186,12 @@
   },
   {
     "files": [
+      "rules/testdata/oracle/activated-ability/known-divergent.json"
+    ],
+    "note": "The family-level known-divergent ratchet is one flat JSON object keyed by `<card>/<scenario>`. The durable seam is per CARD: new rows live at `<family>/known-divergent/<slug>.json` (schema `{\"card\",\"rows\"}`, merged by `oracleDivergent` in rules/oracle_audit_test.go), so two audits of different cards never share a file. activation-condition and morph are migrated (and the empty death-triggers/energy aggregates deleted); the rest can only be migrated once their live editors land, because a main-side migration turns a live branch's row deletions into delete/modify conflicts. The oracle-divergent-percard-split follow-up tracks the remaining 13 families. THIS file: fdn-fix4 already landed (2d4e01009); fdn-fix5 removes Tinybones and the three Chandra rows, fdn-fix6 removes Mild-Mannered Librarian. A main-side split CANNOT clear this hotspot while they are live: measured 2026-10-03, a hypothetical main that deletes the aggregate and adds a per-card file leaves merge-base(main, branch) unchanged, so `git diff --name-only main...<branch>` still names the old path and hotspots still lists it. Only sequencing clears it: merge fdn-fix5 first, then rebase/merge fdn-fix6. No Depends-On chain is expressible (no ticket files), so controller ordering is required."
+  },
+  {
+    "files": [
       "rules/cast_commit.go",
       "rules/testdata/oracle/spell-conditional/known-divergent.json",
       "state/object.go"
@@ -197,6 +203,13 @@
       "cmd/botbench/spellbench.go"
     ],
     "note": "the spellbench orchestration file: every bench-arm ticket lands its call-sites here — the per-arm logic lives in its own new file (ilgate.go for the il-* cast gate, azvariant.go for the az variants), but sbResult's fields, registerSpellbenchFlags' flag line, sbPlay's Setup/stats loops and spellbenchExit's load/report call sequence are one integration flow, so two arms' additions are adjacent by construction. Measured 2026-10-02 for ticket cli-20261002T194322Z-c325a34c (branches wt/il-enc tip 851ffb06e and the mz workstream (mzrepro tip 077f93821, whose live worktree head wt/mzplay tip 08d9341ef carries the same spellbench.go blob cd5c9caf9; mzrepro is an ancestor of wt/mzplay, so the tool drops mzrepro as a stacked editor and lists only wt/mzplay), main 2d4e01009): an in-memory `git merge-tree --write-tree` of the two tips CONFLICTS ONLY in cmd/botbench/spellbench.go (three hunks — the -il-gate-checkpoint vs -spellbench-first-game-only flag lines, sbResult's gate/gated vs vcorpus/vvisits fields, and sbPlay's il-gate SetPlanner/Setup vs azVariant recorders); cmd/botbench/main.go, spellbench_registry.go and internal/azmcts/candidates.go AUTO-MERGE clean. NO HONEST SPLIT: the remaining edits are call-sites inside sbPlay and spellbenchExit, which both arms must edit in sequence — a main-side carve-out would move exactly the lines both branches rebase onto and manufacture the resolver round it is meant to avoid (the deck/deck.go reasoning). OPERATING RULE: land the arms in sequence (the branches carry no ticket file, so no Depends-On chain is expressible — sequencing is a controller action), and keep each arm's spellbench.go change to its own flag line, its own sbResult fields and its own call inside the shared flow; put everything else in the arm's own file."
+  },
+  {
+    "files": [
+      "rules/potential_plan.go",
+      "rules/resolution_point.go"
+    ],
+    "note": "RESOLVED 2026-10-03: the briefed fdn-fix5 / fdn-fix8 contention on these two files is gone — fdn-fix5 landed into main as 942440a14 while this ticket ran, leaving fdn-fix8 the sole editor of both (hotspots requires >=2, so neither file is listed). The measured pair was file-level overcount, not a resolver conflict: at base 88674ece3 (shared merge-base 2d4e01009) both branches carried the same 1,027-line potential_plan.go and 489-line resolution_point.go (the resumePoint model) from their shared history, and their only distinct edits were fdn-fix5's flashback-cost helper in potentialModeBaseCost (e.flashbackCost -> e.flashbackCostFor(id, o)) and fdn-fix8's two tap-candidate call sites in planEachReservation / planLeavesCostPayable (e.costCandidates(...) -> e.tapCostCandidates(...)); resolution_point.go differed only by each branch adding its own rider field to the one resumePoint struct (fdn-fix5 playFirst, fdn-fix8 ownResolution). An in-memory `git merge-tree --write-tree wt/fdn-fix5 wt/fdn-fix8` auto-merged both files (the only conflict was the choose-type oracle fixture). NO HONEST SPLIT, and this is the durable half: potential_plan.go is the integrated potential-payment planner and the branch deltas touch existing cost/reservation logic; resolution_point.go defines the single resumePoint record, and distinct struct fields cannot live in different files without splitting the struct declaration itself. Neither branch had an issue file, so Depends-On chaining was unavailable — the controller sequenced the landings, which is what cleared the hotspot. Keep future edits to each file local to their own existing helper/field and remeasure after landing; do not restructure either file while a ticket is live in it."
   },
   {
     "files": [

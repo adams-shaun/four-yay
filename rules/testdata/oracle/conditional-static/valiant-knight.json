@@ -1,0 +1,95 @@
+{
+ "card": "Valiant Knight",
+ "family": "conditional-static",
+ "author": "cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "2fadb35d4dae",
+ "scenarios": [
+  {
+   "name": "other-knights-get-plus-one",
+   "cr": [
+    "611.3a",
+    "613.4c"
+   ],
+   "why": "Other Knights its controller controls get +1/+1; the Knight itself is not 'other'. A 2/2 Black Knight becomes 3/3 while a non-Knight Grizzly Bears is unaffected.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Valiant Knight",
+      "Black Knight",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Valiant Knight",
+     "pt": "3/4"
+    },
+    {
+     "card": "p0:Black Knight",
+     "pt": "3/3"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "activated-grants-double-strike-to-knights",
+   "cr": [
+    "611.3a",
+    "702.4a"
+   ],
+   "why": "Paying {3}{W}{W} grants Knights its controller controls double strike until end of turn; the non-Knight does not gain it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Valiant Knight",
+      "Black Knight",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Valiant Knight",
+     "mana": "WWCCC",
+     "ability": "double strike"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Valiant Knight",
+     "keywords": [
+      "Double strike"
+     ]
+    },
+    {
+     "card": "p0:Black Knight",
+     "keywords": [
+      "Double strike"
+     ]
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "no_keywords": [
+      "Double strike"
+     ]
+    }
+   ]
+  }
+ ]
+}

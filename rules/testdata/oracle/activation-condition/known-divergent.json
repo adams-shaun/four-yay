@@ -1,3 +1,0 @@
-{
-  "Scroll of Fate/manifest-from-hand-face-down": "effManifest emits the documented 'unimplemented API Manifest' Note and moves nothing when the script carries Choices$ (the from-hand chooser), so the chosen hand card stays in hand. This is the Choices$ asking form named in AGENTS.md's Manifest/Cloak known-approximation row."
-}

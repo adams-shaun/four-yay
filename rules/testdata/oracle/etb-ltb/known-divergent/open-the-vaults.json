@@ -1,0 +1,6 @@
+{
+  "card": "Open the Vaults",
+  "rows": {
+    "aura-with-nothing-to-enchant-stays-in-the-graveyard": "CR 303.4f: an Aura put onto the battlefield by Open the Vaults with no legal object to enchant remains in its previous zone (the graveyard). Observed: the Aura (Rancor) Aura card ends in its owner's HAND (p1:Rancor zone hand), not the graveyard; the non-Aura Sol Ring returns to the battlefield correctly. Found by the cli-20261002T210434Z audit; no ticket yet."
+  }
+}

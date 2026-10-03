@@ -1,8 +1,11 @@
 package searchprobe
 
-// The map- and fmt.Sprint-keyed AttackCandidates and BlockCandidates exactly
-// as they stood before the map-free rewrite: the reference the equivalence
-// tests hold the live enumerators to.
+// The map- and fmt.Sprint-keyed AttackCandidates and BlockCandidates as they
+// stood before the map-free rewrite -- plus, in AttackCandidates, the
+// one-defender-per-attacker rule both now share (a declaration naming a
+// creature twice is never offered; toggling on a creature's option for
+// another defender moves it there) -- the reference the equivalence tests
+// hold the live enumerators to.
 
 import (
 	"fmt"
@@ -33,8 +36,13 @@ func attackCandidatesRef(d *decision.Decision, bot decision.Intent, limit int) [
 			return
 		}
 		var choices []int
+		attackers := make(map[state.ObjID]bool)
 		for _, o := range d.Options {
 			if set[o.Index] {
+				if attackers[o.Obj] {
+					return
+				}
+				attackers[o.Obj] = true
 				choices = append(choices, o.Index)
 			}
 		}
@@ -83,6 +91,11 @@ func attackCandidatesRef(d *decision.Decision, bot decision.Intent, limit int) [
 		if t[o.Index] {
 			delete(t, o.Index)
 		} else {
+			for _, other := range d.Options {
+				if other.Obj == o.Obj && other.Index != o.Index {
+					delete(t, other.Index)
+				}
+			}
 			t[o.Index] = true
 		}
 		add(t)
