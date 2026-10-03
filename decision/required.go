@@ -93,18 +93,35 @@ func (d *Decision) requiredCore() []int {
 	if life < 0 {
 		// No published charge bound: the ascending-Value prefix greedy is
 		// optimal for the count (the pre-charge contract) and byte-identical.
+		//
+		// The per-Group caps (Decision.GroupLimits, an AttackRestrict
+		// ceiling) are restrictions too: CR 508.1d maximises requirements
+		// WITHOUT violating them, so a pick whose Group is full is replaced
+		// by the Obj's cheapest Required option in a Group with room, or the
+		// Obj is not required at all. Without this the quota counted three
+		// required attackers at a two-attacker ceiling and no declaration
+		// could satisfy both it and Validate (cardfuzz fuzz-1003). A
+		// decision without Groups never enters the replacement, so it stays
+		// byte-identical.
 		var core []int
+		var tbuf [8]groupTally
+		tally := tbuf[:0]
 		sum := 0
 		for _, p := range order {
 			if len(core) >= d.maxChoices() {
 				break
 			}
-			v := d.Options[p.idx].Value
-			if d.HasBudget() && sum+v > d.MaxSum {
+			idx := p.idx
+			if !groupTallyAdmits(d, tally, d.Options[idx].Group) {
+				if idx = d.requiredInOpenGroup(d.Options[idx].Obj, tally, sum); idx < 0 {
+					continue
+				}
+			} else if v := d.Options[idx].Value; d.HasBudget() && sum+v > d.MaxSum {
 				break // ascending: nothing later fits either
 			}
-			sum += v
-			core = append(core, p.idx)
+			sum += d.Options[idx].Value
+			tally = groupTallyAdd(tally, d.Options[idx].Group)
+			core = append(core, idx)
 		}
 		return core
 	}
@@ -190,7 +207,71 @@ func (d *Decision) requiredCore() []int {
 			bestKey, bestCandidate, found = k, c, true
 		}
 	}
-	return bestCandidate.picks
+	// The knapsack does not carry the per-Group caps in its state; drop any
+	// pick past its Group's cap (in pick order) so the core -- and so the
+	// quota the engine enforces -- is always an answer Validate accepts.
+	picks := bestCandidate.picks
+	var tbuf [8]groupTally
+	tally := tbuf[:0]
+	kept := picks[:0:0]
+	for _, ci := range picks {
+		g := d.Options[ci].Group
+		if !groupTallyAdmits(d, tally, g) {
+			continue
+		}
+		tally = groupTallyAdd(tally, g)
+		kept = append(kept, ci)
+	}
+	if len(kept) == len(picks) {
+		return picks
+	}
+	return kept
+}
+
+// groupTallyAdmits reports whether one more option of Group g fits g's cap
+// given the running tally (GroupCapFor, the rule Validate enforces). The empty
+// Group is uncapped.
+func groupTallyAdmits(d *Decision, tally []groupTally, g string) bool {
+	if g == "" {
+		return true
+	}
+	n := 0
+	if i := groupTallyAt(tally, g); i >= 0 {
+		n = tally[i].count
+	}
+	return d.groupAdmitsCount(g, n)
+}
+
+// groupTallyAdd counts one more option of Group g.
+func groupTallyAdd(tally []groupTally, g string) []groupTally {
+	if g == "" {
+		return tally
+	}
+	if i := groupTallyAt(tally, g); i >= 0 {
+		tally[i].count++
+		return tally
+	}
+	return append(tally, groupTally{g: g, count: 1})
+}
+
+// requiredInOpenGroup returns obj's cheapest Required option (ties: lowest
+// index) whose Group still has room under tally and whose Value fits the
+// MaxSum budget past sum, or -1.
+func (d *Decision) requiredInOpenGroup(obj state.ObjID, tally []groupTally, sum int) int {
+	best := -1
+	for i := range d.Options {
+		o := &d.Options[i]
+		if !o.Required || o.Obj != obj || !groupTallyAdmits(d, tally, o.Group) {
+			continue
+		}
+		if d.HasBudget() && sum+o.Value > d.MaxSum {
+			continue
+		}
+		if best < 0 || o.Value < d.Options[best].Value {
+			best = i
+		}
+	}
+	return best
 }
 
 // RequiredQuota is how many distinct Required Objs a valid answer must
