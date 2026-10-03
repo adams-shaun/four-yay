@@ -1,0 +1,6 @@
+{
+  "card": "Panoptic Projektor",
+  "rows": {
+    "tapping-makes-the-next-face-down-spell-cost-three-less": "The {T} activation's effect static (SVar ReduceCost: ValidCard$ Creature.faceDown, Amount 3) is skipped because the face-down-mode filter predicate is unsupported, so the next face-down creature spell still costs {3}: with an empty pool the 'Cast Zoetic Cavern (face down)' option is not offered (CR 602.2 + 117.7d). The sibling scenario 'full-price-cast-still-enters-face-down' proves the activated ability and the cast both work at full price. Same class as the Obscuring Aether row in this file."
+  }
+}

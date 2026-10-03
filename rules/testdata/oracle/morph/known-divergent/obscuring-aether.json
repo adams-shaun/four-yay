@@ -1,0 +1,6 @@
+{
+  "card": "Obscuring Aether",
+  "rows": {
+    "face-down-spell-costs-one-less": "The reduction 'Face-down creature spells you cast cost {1} less to cast' is a Forge static with ValidCard$ Creature.faceDown / ValidSpell$ Spell.isCastFaceDown. gorge leaves those face-down-mode filter predicates unsupported and the whole static is skipped, so the cast still costs its full {3}: with {C}{C} in the pool the 'Cast Zoetic Cavern (face down)' option is not offered (CR 702.37a + 117.7d: the reduced cost must be what the option requires). The sibling scenario 'full-price-cast-still-enters-face-down' proves the cast itself works at {3}. This is the AGENTS.md RestrictValid$ known approximation's fail-closed direction biting a cost-reduction static instead of a restriction."
+  }
+}
