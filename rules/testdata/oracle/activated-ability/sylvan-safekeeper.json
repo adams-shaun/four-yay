@@ -1,0 +1,41 @@
+{
+ "card": "Sylvan Safekeeper",
+ "family": "activated-ability",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "05df51832862",
+ "scenarios": [
+  {
+   "name": "sacrificing-a-land-grants-shroud",
+   "cr": ["601.2h", "702.18a"],
+   "why": "'Sacrifice a land: Target creature you control gains shroud until end of turn': the Forest is sacrificed as the cost and the targeted creature has shroud.",
+   "setup": {
+    "p0": {"battlefield": ["Sylvan Safekeeper", "Forest", "Grizzly Bears"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "activate", "seat": 0, "card": "p0:Sylvan Safekeeper", "ability": "Target creature you control gains shroud", "targets": ["p0:Grizzly Bears"]},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:Forest", "zone": "graveyard"},
+    {"card": "p0:Grizzly Bears", "zone": "battlefield", "keywords": ["Shroud"]},
+    {"card": "p0:Sylvan Safekeeper", "zone": "battlefield"}
+   ]
+  },
+  {
+   "name": "without-a-land-the-ability-is-not-offered",
+   "cr": ["601.2h"],
+   "why": "The land sacrifice is a cost; with no land to sacrifice the ability cannot be activated and is not offered.",
+   "setup": {
+    "p0": {"battlefield": ["Sylvan Safekeeper", "Grizzly Bears"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "mana", "seat": 0, "mana": ""}
+   ],
+   "expect": [
+    {"offered": {"seat": 0, "kind": "activate", "card": "p0:Sylvan Safekeeper", "label": "gains shroud"}, "want": false}
+   ]
+  }
+ ]
+}
