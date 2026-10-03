@@ -6,9 +6,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
-	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 )
 
@@ -21,10 +19,7 @@ import (
 // distinct.
 func TestChooseForValuesAreDistinct(t *testing.T) {
 	t.Parallel()
-	files, err := filepath.Glob("*.go")
-	if err != nil {
-		t.Fatal(err)
-	}
+	files := sourceFilesUnder(t, ".", nil)
 	type decl struct {
 		expr ast.Expr
 		iota int64
@@ -33,9 +28,6 @@ func TestChooseForValuesAreDistinct(t *testing.T) {
 	decls := map[string]decl{}
 	var names []string
 	for _, f := range files {
-		if strings.HasSuffix(f, "_test.go") {
-			continue
-		}
 		src, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)
