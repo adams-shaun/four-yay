@@ -34,6 +34,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/chars"
 )
 
 // costHeadRe matches the cost heads whose type slot can name a non-filter
@@ -174,7 +175,7 @@ func TestCostTokenCensus(t *testing.T) {
 	for _, w := range coreCardTypes {
 		filterBases[w] = true
 	}
-	for _, w := range supertypeWords {
+	for _, w := range chars.SupertypeWords() {
 		filterBases[w] = true
 	}
 	for _, w := range effects.CreatureTypeWordList() {

@@ -20,8 +20,9 @@ const (
 	maxFuncLinesOver300 = 54
 	// engineMethodCount is the number of non-test methods on rules.Engine.
 	// W5 E5 moved combat legality onto rules/combat's Board (2159 -> 2126)
-	// and W5 E3 the trigger matchers onto rules/trigmatch's: -> 2022.
-	engineMethodCount = 2022
+	// and W5 E3 the trigger matchers onto rules/trigmatch's: -> 2022. W5 E4
+	// moved the layer walk onto rules/chars: -> 2019.
+	engineMethodCount = 2019
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
 	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94.

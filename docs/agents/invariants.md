@@ -30,7 +30,11 @@ and reads the game through `combat.Board`, whose method count only shrinks
 (`TestCombatBoardOnlyShrinks`). `rules/trigmatch`, the L5 trigger matchers,
 reads the engine only through `trigmatch.Board`, imports only `cards`, `state`,
 `events`, `effects` and `rules/cost` (`TestTrigmatchImportsStayBelowL5`) and
-never `rules` or a sibling L5/L6 package.
+never `rules` or a sibling L5/L6 package. `rules/chars`, the CR 613 layer
+walk, imports only `cards`, `state` and `effects` and never `rules` or an L5
+subsystem package (`TestCharsImportsStayBelowRules`), and reads the game
+through `chars.Board`, whose method count only shrinks
+(`TestCharsBoardOnlyShrinks`).
 
 - **Why:** the engine core stays testable without the server, and a client can
   never be handed rules knowledge.

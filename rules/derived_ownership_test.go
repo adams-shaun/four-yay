@@ -8,7 +8,7 @@ import (
 )
 
 // TestDerivedScratchNotSharedWithClone pins the ownership invariant that
-// rules/layers.go's Derived buffer reuse (derivedKW / derivedTypes) depends
+// rules/layers.go's Derived buffer reuse (charsWalk.KW / charsWalk.Types) depends
 // on: Engine.Clone must NOT copy those scratch buffers (rules/clone.go), so
 // a clone grows its own, and a Derived call on one engine can never overwrite
 // or alias the buffer the other engine is reading. If Clone were to share the
@@ -36,7 +36,7 @@ func TestDerivedScratchNotSharedWithClone(t *testing.T) {
 	run := func(eng *Engine) {
 		defer wg.Done()
 		for i := 0; i < 20000; i++ {
-			// A full Derived rewrites derivedKW/derivedTypes; a shared buffer
+			// A full Derived rewrites charsWalk.KW/charsWalk.Types; a shared buffer
 			// between the two engines would make one's rewrite clobber the
 			// other's in-flight result and trip here (and race under -race).
 			if kw := eng.Derived(id); !slices.Equal(kw.Keywords, want) {

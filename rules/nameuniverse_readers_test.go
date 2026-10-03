@@ -27,18 +27,19 @@ func TestNameUniverseReadersAreKnown(t *testing.T) {
 		"events/apply_copy.go",      // chosen-name ClonePermanent fold
 		"rules/acceptance_game.go",  // sets Config.NameUniverse to the full registry; reads nothing
 		"rules/cast_etbchoice.go",   // as-enters NameCard
+		"rules/chars/types.go",      // CorpusLandTypeWords; AllNonBasicLandType expands Board.LandTypeWords
+		"rules/chars_board.go",      // charsBoard.LandTypeWords serves landTypeWords to the layer-4 walk
 		"rules/clone.go",            // copies landTypeWords into a clone
 		"rules/engine.go",           // Config fields
 		"rules/engine_struct.go",    // landTypeWords field
 		"rules/genesis.go",          // derives landTypeWords and the name snapshot
-		"rules/layers_types.go",     // AllNonBasicLandType
 		"rules/legal_walk_skip.go",  // the mana-walk skip mirrors the CR 305.6 gate
 		"rules/mana_activation.go",  // CR 305.6 gate: len(landTypeWords) > 0
 		"state/game.go",             // Game fields
 	}
 	re := regexp.MustCompile(`\bNameUniverse\b|\blandTypeWords\b|NameUniverseNames`)
 	var got []string
-	for _, pkg := range []string{"rules", "effects", "events", "state", "decision", "botpolicy", "view"} {
+	for _, pkg := range []string{"rules", "rules/chars", "effects", "events", "state", "decision", "botpolicy", "view"} {
 		paths, err := filepath.Glob(filepath.Join("..", pkg, "*.go"))
 		if err != nil {
 			t.Fatal(err)

@@ -107,8 +107,9 @@
 //	L                                  the event log: compared semantically (3.); Seq/decision
 //	                                   events shift by the manual route's extra decisions
 //	pending                            compared by (2.) with Seq-bound identities masked
-//	derivedMemo*, derivedKW/Types/     per-walk Derived memo and scratch, keyed by an epoch
-//	Depth/PTFrames, boardStaticsCache, that advances with every ask; Clone copies none
+//	derivedMemo*, charsWalk (the       per-walk Derived memo and scratch, keyed by an epoch
+//	rules/chars layer-walk scratch),   that advances with every ask; Clone copies none
+//	boardStaticsCache,
 //	activeStaticsCache, mayPlaysCache,
 //	combatStatics
 //	charsScratch                       Engine.Chars's answer record, valid until the next
