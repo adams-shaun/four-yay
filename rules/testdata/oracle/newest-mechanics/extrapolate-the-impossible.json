@@ -1,0 +1,177 @@
+{
+ "card": "Extrapolate the Impossible",
+ "family": "newest-mechanics",
+ "author": "xo-hand (Oracle + CR only)",
+ "oracle_sha": "b55942cf5d28",
+ "scenarios": [
+  {
+   "name": "opponent-picks-one-of-two-revealed-cards",
+   "cr": [
+    "400.11",
+    "400.11b",
+    "608.2c"
+   ],
+   "why": "The caster reveals Lightning Bolt and Grizzly Bears (two cards with different names) from outside the game; the opponent chooses the Bears, which goes to the caster's hand. The Bolt stays outside the game.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Extrapolate the Impossible"
+     ],
+     "sideboard": [
+      "Lightning Bolt",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Extrapolate the Impossible",
+     "mana": "CB"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Lightning Bolt",
+        "p0:Grizzly Bears"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "sideboard"
+    },
+    {
+     "card": "p0:Extrapolate the Impossible",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-two-different-names-nothing-happens",
+   "cr": [
+    "400.11",
+    "608.2c"
+   ],
+   "why": "Only two Grizzly Bears are outside the game: the caster cannot reveal exactly two cards with different names, so nothing is put into the hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Extrapolate the Impossible"
+     ],
+     "sideboard": [
+      "Grizzly Bears",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Extrapolate the Impossible",
+     "mana": "CB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "sideboard"
+    },
+    {
+     "card": "p0:Grizzly Bears#2",
+     "zone": "sideboard"
+    },
+    {
+     "card": "p0:Extrapolate the Impossible",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "caster-may-decline-to-reveal",
+   "cr": [
+    "400.11",
+    "608.2d"
+   ],
+   "why": "'You may reveal' is optional: the caster declines (chooses no cards) even though two differently named cards are available, so nothing is put into the hand and both stay outside the game.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Extrapolate the Impossible"
+     ],
+     "sideboard": [
+      "Lightning Bolt",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Extrapolate the Impossible",
+     "mana": "CB"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "sideboard"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "sideboard"
+    },
+    {
+     "card": "p0:Extrapolate the Impossible",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  }
+ ]
+}

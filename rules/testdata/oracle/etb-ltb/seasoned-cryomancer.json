@@ -1,0 +1,241 @@
+{
+ "card": "Seasoned Cryomancer",
+ "family": "etb-ltb",
+ "author": "xo-hand (Oracle + CR only)",
+ "oracle_sha": "71fb32a6fd3b",
+ "scenarios": [
+  {
+   "name": "two-nonland-discards-tap-and-stun-two-creatures",
+   "cr": [
+    "603.3d",
+    "603.12",
+    "701.9a",
+    "122.1d"
+   ],
+   "why": "On entering it draws Lightning Bolt and Grizzly Bears, then discards both (its controller's only two cards). Two nonland cards were discarded, so the reflexive trigger taps up to two target creatures and puts a stun counter on each: both of the opponent's creatures.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Seasoned Cryomancer"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Seasoned Cryomancer",
+     "mana": "CUU"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Savannah Lions",
+      "p1:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Seasoned Cryomancer",
+     "zone": "battlefield",
+     "pt": "2/2"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "tapped": true,
+     "counters": {
+      "stun": 1
+     }
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "tapped": true,
+     "counters": {
+      "stun": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "one-nonland-discard-allows-only-one-target",
+   "cr": [
+    "603.12",
+    "601.2c",
+    "115.1"
+   ],
+   "why": "It draws Lightning Bolt and a Wastes and discards both: ONE nonland card was discarded, so 'up to that many' is up to one target. Offered both creatures in order, only the first (Savannah Lions) is tapped and stunned.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Seasoned Cryomancer"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Seasoned Cryomancer",
+     "mana": "CUU"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Savannah Lions",
+      "p1:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "graveyard_size": {
+      "p0": 2
+     }
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "tapped": true,
+     "counters": {
+      "stun": 1
+     }
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "tapped": false,
+     "counters": {
+      "stun": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "only-land-discards-make-no-reflexive-trigger",
+   "cr": [
+    "603.12",
+    "603.3d"
+   ],
+   "why": "It draws two Wastes (the filler library) and discards them: no nonland card was discarded, so the reflexive trigger never happens and the opponent's creature stays untapped with no stun counter.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Seasoned Cryomancer"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Seasoned Cryomancer",
+     "mana": "CUU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Seasoned Cryomancer",
+     "zone": "battlefield"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "graveyard_size": {
+      "p0": 2
+     }
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "tapped": false,
+     "counters": {
+      "stun": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "graveyard-ability-exiles-itself-and-draws-two",
+   "cr": [
+    "602.2",
+    "113.6k",
+    "118.3"
+   ],
+   "why": "{3}{U}{U}, Exile this card from your graveyard: Draw two cards. Activated from the graveyard, the Cryomancer is exiled as a cost and its controller draws two.",
+   "setup": {
+    "p0": {
+     "graveyard": [
+      "Seasoned Cryomancer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Seasoned Cryomancer",
+     "mana": "CCCUU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Seasoned Cryomancer",
+     "zone": "exile"
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  }
+ ]
+}

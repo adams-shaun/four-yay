@@ -1,0 +1,184 @@
+{
+ "card": "Vindictive Triumph",
+ "family": "spell-conditional",
+ "author": "xo-hand (Oracle + CR only)",
+ "oracle_sha": "d7eabbff8cdb",
+ "scenarios": [
+  {
+   "name": "small-creature-returns-tapped-under-casters-control-then-exiled",
+   "cr": [
+    "608.2c",
+    "202.3",
+    "110.2",
+    "603.7",
+    "513.1"
+   ],
+   "why": "Grizzly Bears has mana value 2 (3 or less): it is exiled and returned to the battlefield tapped under the caster's control, then exiled at the beginning of the next end step and stays exiled.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Vindictive Triumph"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Vindictive Triumph",
+     "mana": "WBB",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p1:Grizzly Bears",
+       "zone": "battlefield",
+       "tapped": true
+      },
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Grizzly Bears"
+       },
+       "eq": 1
+      },
+      {
+       "count": {
+        "seat": 1,
+        "zone": "battlefield",
+        "name": "Grizzly Bears"
+       },
+       "eq": 0
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Vindictive Triumph",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "mana-value-four-or-more-stays-exiled",
+   "cr": [
+    "608.2c",
+    "202.3"
+   ],
+   "why": "Serra Angel has mana value 5, so it is exiled and not returned.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Vindictive Triumph"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Serra Angel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Vindictive Triumph",
+     "mana": "WBB",
+     "targets": [
+      "p1:Serra Angel"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Serra Angel",
+     "zone": "exile"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Serra Angel"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "three-mana-planeswalker-returns-under-casters-control",
+   "cr": [
+    "608.2c",
+    "306.5b",
+    "400.7"
+   ],
+   "why": "A planeswalker is a legal target. Liliana of the Veil has mana value 3, so it returns tapped under the caster's control as a new object with its printed 3 loyalty.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Vindictive Triumph"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Liliana of the Veil"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Vindictive Triumph",
+     "mana": "WBB",
+     "targets": [
+      "p1:Liliana of the Veil"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Liliana of the Veil",
+     "zone": "battlefield",
+     "tapped": true,
+     "counters": {
+      "loyalty": 3
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Liliana of the Veil"
+     },
+     "eq": 1
+    }
+   ]
+  }
+ ]
+}
