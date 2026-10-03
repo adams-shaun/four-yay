@@ -48,7 +48,7 @@ const (
 	// expressions in rules/ and effects/ non-test files. W4 slice 3 (194
 	// ParamKeys, the 256-key mask) moved 488 reads onto the typed accessors:
 	// 1302 -> 814.
-	stringParamReads = 814
+	stringParamReads = 805
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	stringCaseLiterals = 2886
