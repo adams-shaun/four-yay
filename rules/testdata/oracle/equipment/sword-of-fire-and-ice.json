@@ -199,6 +199,9 @@
      "battlefield": [
       "Sword of Fire and Ice",
       "Grizzly Bears"
+     ],
+     "library_top": [
+      "Island"
      ]
     },
     "p1": {
@@ -251,6 +254,10 @@
     {
      "card": "p1:Grizzly Bears",
      "zone": "graveyard"
+    },
+    {
+     "card": "p0:Island",
+     "zone": "hand"
     }
    ]
   }
