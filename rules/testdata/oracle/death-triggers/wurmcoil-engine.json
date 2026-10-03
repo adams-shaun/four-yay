@@ -1,7 +1,7 @@
 {
  "card": "Wurmcoil Engine",
  "family": "death-triggers",
- "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only) + cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
  "oracle_sha": "326c519e2aa0",
  "scenarios": [
   {
@@ -58,6 +58,114 @@
      "keywords": [
       "Lifelink"
      ]
+    }
+   ]
+  },
+  {
+   "name": "dies-makes-two-wurm-tokens",
+   "cr": [
+    "700.4",
+    "603.6c",
+    "111.1"
+   ],
+   "why": "When the Engine dies its controller creates two 3/3 colorless Phyrexian Wurm artifact creature tokens, one with deathtouch and one with lifelink.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Wurmcoil Engine"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Wurmcoil Engine",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wurmcoil Engine",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Wurm",
+      "token": true
+     },
+     "eq": 2
+    },
+    {
+     "card": "p0:token:Wurm",
+     "pt": "3/3",
+     "keywords": [
+      "Deathtouch"
+     ],
+     "types": [
+      "Artifact",
+      "Creature",
+      "Phyrexian",
+      "Wurm"
+     ]
+    },
+    {
+     "card": "p0:token:Wurm#2",
+     "pt": "3/3",
+     "keywords": [
+      "Lifelink"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "deathtouch-and-lifelink-on-the-engine",
+   "cr": [
+    "702.2b",
+    "702.15b"
+   ],
+   "why": "The Engine itself has deathtouch and lifelink: one combat damage from it is lethal to any blocker and its controller gains the life dealt to the defending player.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Wurmcoil Engine"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Wurmcoil Engine"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wurmcoil Engine",
+     "zone": "battlefield",
+     "pt": "6/6",
+     "keywords": [
+      "Deathtouch",
+      "Lifelink"
+     ]
+    },
+    {
+     "life": {
+      "p0": 26,
+      "p1": 14
+     }
     }
    ]
   }

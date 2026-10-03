@@ -1,0 +1,147 @@
+{
+ "card": "Torpor Orb",
+ "family": "conditional-static",
+ "author": "cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "2fdc036d01c4",
+ "scenarios": [
+  {
+   "name": "enters-triggers-suppressed",
+   "cr": [
+    "603.3b",
+    "614.1c"
+   ],
+   "why": "Creatures entering don't cause abilities to trigger: with Torpor Orb on the battlefield, Aether Adept's enters ability never triggers, so its controller's other creature is not returned.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Torpor Orb",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Aether Adept"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Aether Adept",
+     "mana": "UUCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Aether Adept",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield"
+    },
+    {
+     "stack_size": 0
+    }
+   ]
+  },
+  {
+   "name": "without-torpor-orb-the-trigger-fires",
+   "cr": [
+    "603.2"
+   ],
+   "why": "The control: without Torpor Orb the same enters ability triggers and returns the creature.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Aether Adept"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Aether Adept",
+     "mana": "UUCC"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "opponents-creature-triggers-also-suppressed",
+   "cr": [
+    "603.3b"
+   ],
+   "why": "Torpor Orb's static is not controller-limited: it is each creature entering that stops triggering, so an opponent's enters ability is suppressed too.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Torpor Orb"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Aether Adept"
+     ],
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Aether Adept",
+     "mana": "UUCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Aether Adept",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}

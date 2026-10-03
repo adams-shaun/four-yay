@@ -1,0 +1,126 @@
+{
+ "card": "Toxic Deluge",
+ "family": "spell-conditional",
+ "author": "cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "cd099260b7e7",
+ "scenarios": [
+  {
+   "name": "x-two-shrinks-all-creatures",
+   "cr": [
+    "107.3",
+    "118.8",
+    "611.3a"
+   ],
+   "why": "Paying 2 life, all creatures get -2/-2 until end of turn. A 2/2 dies to the state-based action; a 3/3 becomes 1/1 and survives.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Toxic Deluge"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Toxic Deluge",
+     "mana": "BBCC",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "2"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 18,
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "pt": "1/1"
+    }
+   ]
+  },
+  {
+   "name": "x-zero-no-change",
+   "cr": [
+    "107.3"
+   ],
+   "why": "Paying 0 life gives every creature -0/-0: nothing dies and sizes are unchanged.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Toxic Deluge"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Toxic Deluge",
+     "mana": "BBCC",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "0"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "2/2"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "pt": "3/3"
+    }
+   ]
+  }
+ ]
+}
