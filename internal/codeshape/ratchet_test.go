@@ -58,6 +58,11 @@ const (
 	ctxLiterals            = 0
 	specContextLiterals    = 0
 	triggerContextLiterals = 14
+	// trigmatchBoardMethods is the method count of trigmatch.Board, the
+	// read-only view rules/trigmatch's matchers read the engine through (W5
+	// E3). It replaced 21 distinct *Engine methods, 15 Engine fields and
+	// pendingCast that the matcher closure reached directly.
+	trigmatchBoardMethods = 29
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -103,6 +108,10 @@ func checkRatchets(t *testing.T, rs []ratchet) {
 
 func TestCodeShapeOnlyShrinks(t *testing.T) {
 	m := measureRepo(t)
+	if m.TrigmatchBoardMethods == 0 {
+		t.Error("trigmatch.Board measured no methods: rules/trigmatch/board.go's `type Board interface` " +
+			"moved or was renamed; update codeshape.Measure so the ratchet cannot read zero")
+	}
 	checkRatchets(t, []ratchet{
 		{"maxFuncLinesOver300", m.FuncsOver300, maxFuncLinesOver300,
 			"A function over 300 lines is a concern without a seam: extract the concern " +
@@ -152,6 +161,11 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 			"Build a SpecContext with effects.NewSpecContext, derive it from a resolving " +
 				"Ctx with (*Ctx).SpecContext / (*Ctx).TableSpecContext, or bind rules' layer " +
 				"tables through Engine.withNames / specCtxSVars."},
+		{"trigmatchBoardMethods", m.TrigmatchBoardMethods, trigmatchBoardMethods,
+			"trigmatch.Board is the trigger matchers' whole view of the engine; derive a " +
+				"new fact from an existing method (Chars carries every characteristic, Facts " +
+				"every per-emit trigger context value) or pass it precomputed, instead of " +
+				"adding a method."},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +
