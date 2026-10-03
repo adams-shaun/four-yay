@@ -371,3 +371,51 @@ func TestTapeConvertPlay(t *testing.T) {
 		})
 	}
 }
+
+// Madness's cast-or-not choice at the MadnessCast ability's resolution is
+// served from the tape: the decline in line, and a cast that commits from
+// the pool in line too.
+func TestTapeConvertMadness(t *testing.T) {
+	const bear = "Name:Tape Mad Bear\nManaCost:3 B\nTypes:Creature Bear\nPT:2/2\nK:Madness:B\nOracle:x\n"
+	rot := tapeUnlessSorcery("Tape Rot", "A:SP$ Discard | Defined$ You | NumCards$ 1 | Mode$ TgtChoose")
+	for i, yes := range []bool{false, true} {
+		t.Run(map[bool]string{true: "cast", false: "decline"}[yes], func(t *testing.T) {
+			pick := func(d *decision.Decision) []int {
+				switch {
+				case d.Kind == decision.KReplacement:
+					return []int{0}
+				case d.ResumeKind == "madness":
+					for _, o := range d.Options {
+						if (o.Kind == "yes") == yes {
+							return []int{o.Index}
+						}
+					}
+				}
+				for _, o := range d.Options {
+					if strings.Contains(o.Label, "Tape Mad Bear") && d.Kind != decision.KTriggerOptional {
+						return []int{o.Index}
+					}
+				}
+				return tapePick(d)
+			}
+			asked := false
+			legacy, _ := tapeFixture(t, 2, 14100+uint64(i), false, rot, bear)
+			tapeUnlessScenario("Tape Rot", "BB", 0, func(d *decision.Decision) []int {
+				if d.ResumeKind == "madness" {
+					asked = true
+				}
+				return pick(d)
+			})(t, legacy)
+			if !asked {
+				t.Fatal("legacy never posed the madness cast choice")
+			}
+			_, st := tapeDual(t, 2, 14100+uint64(i), tapeUnlessScenario("Tape Rot", "BB", 0, pick), rot, bear)
+			// Served: the discard pick and the madness choice. The one abort
+			// is the discard's CR 616.1 madness replacement choice (a park
+			// path, still legacy), not the madness resolution.
+			if st.Served < 2 || st.LegacySwitch != 0 || st.Aborts > 1 {
+				t.Fatalf("the madness choice was not served from the tape: %+v", st)
+			}
+		})
+	}
+}
