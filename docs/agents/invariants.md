@@ -27,7 +27,10 @@ pinned as they land: `rules/cost`, the cost vocabulary leaf, imports only
 subsystem package. `rules/combat`, attack/block legality, imports only
 `cards`, `state`, `events` and `effects` (`TestCombatImportsStayBelowRules`)
 and reads the game through `combat.Board`, whose method count only shrinks
-(`TestCombatBoardOnlyShrinks`).
+(`TestCombatBoardOnlyShrinks`). `rules/trigmatch`, the L5 trigger matchers,
+reads the engine only through `trigmatch.Board`, imports only `cards`, `state`,
+`events`, `effects` and `rules/cost` (`TestTrigmatchImportsStayBelowL5`) and
+never `rules` or a sibling L5/L6 package.
 
 - **Why:** the engine core stays testable without the server, and a client can
   never be handed rules knowledge.

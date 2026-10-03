@@ -13,7 +13,8 @@
 // the effect-driven route the corpus's `AB$ SetState | Mode$ TurnFaceUp`
 // lines carry. The morph/disguise special action that would also emit it is a
 // separate subsystem; this matcher is correct for whatever emits the event.
-package rules
+
+package trigmatch
 
 import (
 	"github.com/adams-shaun/gorge/cards"
@@ -23,17 +24,17 @@ import (
 
 // turnFaceUpMatches is Mode$ TurnFaceUp. A turn-up event whose object has
 // already left the battlefield, or an event with no object, matches nothing.
-func (e *Engine) turnFaceUpMatches(t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+func turnFaceUpMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
 	if ev.Kind != events.TurnFaceUp || ev.Obj == 0 {
 		return false
 	}
-	o := e.G.Obj(ev.Obj)
+	o := e.Game().Obj(ev.Obj)
 	if o == nil {
 		return false
 	}
-	return e.eventCardAndPlayerMatch(t, source, ev.Obj, o.Controller)
+	return eventCardAndPlayerMatch(e, t, source, ev.Obj, o.Controller)
 }
 
 func init() {
-	registerTrigMatcher((*Engine).turnFaceUpMatches, "TurnFaceUp")
+	registerTrigMatcher(turnFaceUpMatches, "TurnFaceUp")
 }

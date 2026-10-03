@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -1109,9 +1110,9 @@ func (e *Engine) fireManaSpentTriggers(ev events.Event, lki *state.Object) {
 			matches := false
 			switch t.Mode {
 			case "SpellCast":
-				matches = e.spellCastEval(t, src, ev)
+				matches = trigmatch.SpellCastEval(boardOf(e), t, src, ev)
 			case "SpellAbilityCast":
-				matches = e.spellAbilityCastMatches(t, src, ev, lki)
+				matches = trigmatch.SpellAbilityCastMatches(boardOf(e), t, src, ev, lki)
 			}
 			if !e.zoneGate(t, src, ev) || !e.phaseGate(t) || !matches {
 				continue

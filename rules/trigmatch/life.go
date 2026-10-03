@@ -6,7 +6,7 @@
 // colliding on one file. Registration is at the bottom; a duplicate mode
 // panics (registerTrigMatcher).
 
-package rules
+package trigmatch
 
 import (
 	"strings"
@@ -17,14 +17,14 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// lifeLoss names the player and positive magnitude of an event that lowers a
+// LifeLoss names the player and positive magnitude of an event that lowers a
 // player's life total. Damage to a player and a negative LifeChange are both
 // loss of life; damage to an object is not. Infect-marked player damage is
 // NOT: CR 702.90b deals it as that many poison counters instead, so neither
 // the LifeLost/LifeLostAll triggers nor the repl:LifeReduced machinery (both
 // read through here) may treat it as a loss -- the same exclusion
 // Engine.emit's checkSpeedGain arm already applies.
-func lifeLoss(ev events.Event) (state.PlayerID, int32, bool) {
+func LifeLoss(ev events.Event) (state.PlayerID, int32, bool) {
 	switch ev.Kind {
 	case events.Damage:
 		if ev.Obj == 0 && ev.Amount > 0 && ev.Counter != "infect" {
@@ -53,12 +53,12 @@ func lifeGain(ev events.Event) (state.PlayerID, int32, bool) {
 // matches exactly once after adding every serialized loss for each player in
 // the simultaneous group. A combat assignment may serialize two one-damage
 // hits to one player, but that player lost two life in the one event.
-func (e *Engine) lifeLostMatches(t cards.Trigger, source state.ObjID, ev events.Event) bool {
-	ctrl := e.controllerOf(source)
-	if t.Mode == "LifeLostAll" && e.finishingLifeLossBatch {
-		amounts := make([]int32, len(e.G.Players))
-		for _, be := range e.lifeLossBatch {
-			p, amount, ok := lifeLoss(be)
+func lifeLostMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event) bool {
+	ctrl := e.ControllerOf(source)
+	if f := e.Facts(); t.Mode == "LifeLostAll" && f.FinishingLifeLossBatch {
+		amounts := make([]int32, len(e.Game().Players))
+		for _, be := range f.LifeLossBatch {
+			p, amount, ok := LifeLoss(be)
 			if ok && int(p) < len(amounts) {
 				amounts[p] += amount
 			}
@@ -69,38 +69,38 @@ func (e *Engine) lifeLostMatches(t cards.Trigger, source state.ObjID, ev events.
 				continue
 			}
 			player := state.PlayerID(p)
-			if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.G, v, player, ctrl) {
+			if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.Game(), v, player, ctrl) {
 				continue
 			}
-			if v := t.Params["ValidAmountEach"]; v != "" && !compareLife(amount, v) {
+			if v := t.Params["ValidAmountEach"]; v != "" && !CompareLife(amount, v) {
 				return false
 			}
 			matched = true
 		}
 		return matched
 	}
-	p, amount, ok := lifeLoss(ev)
+	p, amount, ok := LifeLoss(ev)
 	if !ok {
 		return false
 	}
-	if v, ok := t.Param(cards.PKValidPlayer); ok && !effects.MatchesPlayerSpec(e.G, v, p, ctrl) {
+	if v, ok := t.Param(cards.PKValidPlayer); ok && !effects.MatchesPlayerSpec(e.Game(), v, p, ctrl) {
 		return false
 	}
-	if v, ok := t.Params["ValidAmountEach"]; ok && !compareLife(amount, v) {
+	if v, ok := t.Params["ValidAmountEach"]; ok && !CompareLife(amount, v) {
 		return false
 	}
 	// On LifeLost, LifeAmount$ describes the amount just lost, not the
 	// LifeTotal$ intervening-if grammar used by other trigger modes.
-	if v := t.Params["LifeAmount"]; v != "" && !compareLife(amount, v) {
+	if v := t.Params["LifeAmount"]; v != "" && !CompareLife(amount, v) {
 		return false
 	}
-	if strings.EqualFold(t.ParamStr(cards.PKPlayerTurn), "True") && e.G.Active != ctrl {
+	if strings.EqualFold(t.ParamStr(cards.PKPlayerTurn), "True") && e.Game().Active != ctrl {
 		return false
 	}
-	if v := t.ParamStr(cards.PKValidCause); v != "" && !e.lifeLossCauseMatches(v, ctrl) {
+	if v := t.ParamStr(cards.PKValidCause); v != "" && !lifeLossCauseMatches(e, v, ctrl) {
 		return false
 	}
-	if strings.EqualFold(t.Params["FirstTime"], "True") && !e.firstLifeLossThisTurn(p) {
+	if strings.EqualFold(t.Params["FirstTime"], "True") && !firstLifeLossThisTurn(e, p) {
 		return false
 	}
 	return true
@@ -121,28 +121,28 @@ func (e *Engine) lifeLostMatches(t cards.Trigger, source state.ObjID, ev events.
 // that player this turn. Both are additionally covered by the generic
 // actionTriggerModes gates (PlayerTurn$ at queue time, ActivationLimit$),
 // since the mode joined that set.
-func (e *Engine) lifeGainedMatches(t cards.Trigger, source state.ObjID, ev events.Event) bool {
+func lifeGainedMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event) bool {
 	if ev.Kind != events.LifeChange || ev.Amount <= 0 {
 		return false
 	}
 	p := ev.Player
-	if int(p) < 0 || int(p) >= len(e.G.Players) {
+	if int(p) < 0 || int(p) >= len(e.Game().Players) {
 		return false
 	}
-	ctrl := e.controllerOf(source)
-	if v, ok := t.Param(cards.PKValidPlayer); ok && !effects.MatchesPlayerSpec(e.G, v, p, ctrl) {
+	ctrl := e.ControllerOf(source)
+	if v, ok := t.Param(cards.PKValidPlayer); ok && !effects.MatchesPlayerSpec(e.Game(), v, p, ctrl) {
 		return false
 	}
-	if v, ok := t.Params["ValidAmountEach"]; ok && !compareLife(ev.Amount, v) {
+	if v, ok := t.Params["ValidAmountEach"]; ok && !CompareLife(ev.Amount, v) {
 		return false
 	}
-	if v := t.Params["LifeAmount"]; v != "" && !compareLife(ev.Amount, v) {
+	if v := t.Params["LifeAmount"]; v != "" && !CompareLife(ev.Amount, v) {
 		return false
 	}
-	if strings.EqualFold(t.ParamStr(cards.PKPlayerTurn), "True") && e.G.Active != ctrl {
+	if strings.EqualFold(t.ParamStr(cards.PKPlayerTurn), "True") && e.Game().Active != ctrl {
 		return false
 	}
-	if strings.EqualFold(t.Params["FirstTime"], "True") && !e.firstLifeGainThisTurn(p) {
+	if strings.EqualFold(t.Params["FirstTime"], "True") && !firstLifeGainThisTurn(e, p) {
 		return false
 	}
 	return true
@@ -154,11 +154,12 @@ func (e *Engine) lifeGainedMatches(t cards.Trigger, source state.ObjID, ev event
 // it is set around every stack resolution and cleared afterward, and thus
 // replay derives the same answer. Combat damage is a creature cause, not a
 // SpellAbility cause.
-func (e *Engine) lifeLossCauseMatches(spec string, you state.PlayerID) bool {
-	if e.combatDamaging || e.damaging == 0 {
+func lifeLossCauseMatches(e Board, spec string, you state.PlayerID) bool {
+	f := e.Facts()
+	if f.CombatDamaging || f.Damaging == 0 {
 		return false
 	}
-	cause := e.G.Obj(e.damaging)
+	cause := e.Game().Obj(f.Damaging)
 	if cause == nil {
 		return false
 	}
@@ -188,14 +189,14 @@ func (e *Engine) lifeLossCauseMatches(spec string, you state.PlayerID) bool {
 // the current turn. TurnChange is the logged reset boundary for every other
 // per-turn fact, so scanning back to it is replay-stable and cannot leak a
 // mutable counter across Clone.
-func (e *Engine) firstLifeLossThisTurn(p state.PlayerID) bool {
+func firstLifeLossThisTurn(e Board, p state.PlayerID) bool {
 	seenCurrent := false
-	for i := len(e.L.Events) - 1; i >= 0; i-- {
-		ev := e.L.Events[i]
+	for i := len(e.Log().Events) - 1; i >= 0; i-- {
+		ev := e.Log().Events[i]
 		if ev.Kind == events.TurnChange {
 			return seenCurrent
 		}
-		q, _, ok := lifeLoss(ev)
+		q, _, ok := LifeLoss(ev)
 		if !ok || q != p {
 			continue
 		}
@@ -211,10 +212,10 @@ func (e *Engine) firstLifeLossThisTurn(p state.PlayerID) bool {
 // true only for the newest life-GAIN event of p in the current turn, so a
 // FirstTime$ True trigger (8 corpus lines) admits exactly the first gain of
 // that player's turn. Same replay-stable log scan, no mutable counter.
-func (e *Engine) firstLifeGainThisTurn(p state.PlayerID) bool {
+func firstLifeGainThisTurn(e Board, p state.PlayerID) bool {
 	seenCurrent := false
-	for i := len(e.L.Events) - 1; i >= 0; i-- {
-		ev := e.L.Events[i]
+	for i := len(e.Log().Events) - 1; i >= 0; i-- {
+		ev := e.Log().Events[i]
 		if ev.Kind == events.TurnChange {
 			return seenCurrent
 		}
@@ -231,10 +232,10 @@ func (e *Engine) firstLifeGainThisTurn(p state.PlayerID) bool {
 }
 
 func init() {
-	registerTrigMatcher(func(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
-		return e.lifeLostMatches(t, source, ev)
+	registerTrigMatcher(func(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+		return lifeLostMatches(e, t, source, ev)
 	}, "LifeLost", "LifeLostAll")
-	registerTrigMatcher(func(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
-		return e.lifeGainedMatches(t, source, ev)
+	registerTrigMatcher(func(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+		return lifeGainedMatches(e, t, source, ev)
 	}, "LifeGained")
 }

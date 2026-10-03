@@ -6,6 +6,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -53,7 +54,7 @@ func TestStaticGoadSurvivesInDiesTriggerLKI(t *testing.T) {
 	if lki.Zone != state.ZBattlefield || !lki.IsAttacking {
 		t.Fatalf("precondition: LKI must retain attacking battlefield state: zone=%v attacking=%v", lki.Zone, lki.IsAttacking)
 	}
-	if !e.zoneChangeMatches(*diesTrigger, baeloth, ev, &lki) {
+	if !trigmatch.ZoneChangeMatches(boardOf(e), *diesTrigger, baeloth, ev, &lki) {
 		t.Fatal("Baeloth's goaded-attacker dies trigger did not match the statically goaded LKI")
 	}
 }

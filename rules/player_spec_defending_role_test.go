@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -28,7 +29,7 @@ func TestTriggeredDefendingPlayerDoesNotBindNoncombatRecipient(t *testing.T) {
 	e.combatDamaging = false
 	e.dmgSrcOverride = source
 
-	if e.damageMatches(trig, source, events.Event{Kind: events.Damage, Player: 1}) {
+	if trigmatch.DamageMatches(boardOf(e), trig, source, events.Event{Kind: events.Damage, Player: 1}) {
 		t.Fatal("noncombat damage recipient must not be treated as a defending player")
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -174,19 +175,19 @@ func TestExertedMatchesRejectsTheConsumeMarker(t *testing.T) {
 	viz := moveByName(t, e, 0, "Vizier of the True", state.ZBattlefield)
 	tr := cards.Trigger{Mode: "Exerted", Params: map[string]string{"ValidCard": "Creature.YouCtrl"}}
 
-	if !e.exertedMatches(tr, viz, events.Event{Kind: events.Exert, Obj: viz, Amount: 0}) {
+	if !trigmatch.ExertedMatches(boardOf(e), tr, viz, events.Event{Kind: events.Exert, Obj: viz, Amount: 0}) {
 		t.Fatal("the Exert itself (Amount 0) did not match trig:Exerted")
 	}
-	if e.exertedMatches(tr, viz, events.Event{Kind: events.Exert, Obj: viz, Amount: -1}) {
+	if trigmatch.ExertedMatches(boardOf(e), tr, viz, events.Event{Kind: events.Exert, Obj: viz, Amount: -1}) {
 		t.Fatal("the Amount -1 consume marker must not match trig:Exerted")
 	}
-	if e.exertedMatches(tr, viz, events.Event{Kind: events.Damage, Obj: viz}) {
+	if trigmatch.ExertedMatches(boardOf(e), tr, viz, events.Event{Kind: events.Damage, Obj: viz}) {
 		t.Fatal("a non-Exert event must not match trig:Exerted")
 	}
 	// Control: an opponent's creature is not Creature.YouCtrl for a trigger
 	// whose source is your Vizier.
 	other := moveByName(t, e, 1, "Bear", state.ZBattlefield)
-	if e.exertedMatches(tr, viz, events.Event{Kind: events.Exert, Obj: other, Amount: 0}) {
+	if trigmatch.ExertedMatches(boardOf(e), tr, viz, events.Event{Kind: events.Exert, Obj: other, Amount: 0}) {
 		t.Fatal("an opponent's creature matched the YouCtrl ValidCard$ filter")
 	}
 }

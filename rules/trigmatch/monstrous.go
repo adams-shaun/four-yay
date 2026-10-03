@@ -1,4 +1,4 @@
-package rules
+package trigmatch
 
 import (
 	"github.com/adams-shaun/gorge/cards"
@@ -18,13 +18,12 @@ import (
 // Broodmaster's `SVar:MonstrosityX:TriggerCount$Amount`, Vitality Hunter's
 // `SVar:MaxTgts:TriggerCount$Amount`) through the BecomeMonstrous referent
 // bindings in rules/trigger_referents.go.
-func (e *Engine) becomeMonstrousMatches(t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+func becomeMonstrousMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
 	if ev.Kind != events.AlterAttribute || ev.Text != "Monstrous" {
 		return false
 	}
-	ctrl := e.controllerOf(source)
-	sc := e.specCtx(source, ctrl)
-	if v := t.ParamStr(cards.PKValidCard); v != "" && !e.matchesSpec(v, ev.Obj, sc) {
+	ctrl := e.ControllerOf(source)
+	if v := t.ParamStr(cards.PKValidCard); v != "" && !e.MatchesSpec(v, ev.Obj, source, ctrl, SpecOpts{}) {
 		return false
 	}
 	return true
@@ -34,5 +33,5 @@ func init() {
 	// The `T:Mode$ BecomeMonstrous` listener (19 corpus carrier files) is
 	// registered as a non-API primitive so the coverage census reads the
 	// carriers as playable -- the trig:Enlisted convention.
-	registerTrigMatcher((*Engine).becomeMonstrousMatches, "BecomeMonstrous")
+	registerTrigMatcher(becomeMonstrousMatches, "BecomeMonstrous")
 }

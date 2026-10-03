@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -29,11 +30,11 @@ func TestPlayerSpecPreventedNoncombatHasNoDefender(t *testing.T) {
 		t.Fatal("precondition: recipient equals source controller")
 	}
 	e.combatDamaging = false
-	if e.damagePreventedMatches(trig, source, ev) {
+	if trigmatch.DamagePreventedMatches(boardOf(e), trig, source, ev) {
 		t.Fatal("noncombat prevention has no defending-player role")
 	}
 	e.combatDamaging = true
-	if !e.damagePreventedMatches(trig, source, ev) {
+	if !trigmatch.DamagePreventedMatches(boardOf(e), trig, source, ev) {
 		t.Fatal("combat prevention must bind the defending player")
 	}
 }
@@ -53,7 +54,7 @@ func TestPlayerSpecBroodrageDescendedFromAnyZone(t *testing.T) {
 	}
 	e.G.Active = 0
 	step := events.Event{Kind: events.StepChange}
-	if e.phaseMatches(trig, mycoid, step) {
+	if trigmatch.PhaseMatches(boardOf(e), trig, mycoid, step) {
 		t.Fatal("no permanent card has entered our graveyard this turn")
 	}
 	// An instant card is not a permanent card even when it moves from the
@@ -62,7 +63,7 @@ func TestPlayerSpecBroodrageDescendedFromAnyZone(t *testing.T) {
 		t.Fatal("precondition: Bolt must be a nonpermanent card in the fixture")
 	}
 	e.emit(events.Event{Kind: events.MoveZone, Obj: bolt, From: state.ZBattlefield, To: state.ZGraveyard})
-	if e.phaseMatches(trig, mycoid, step) {
+	if trigmatch.PhaseMatches(boardOf(e), trig, mycoid, step) {
 		t.Fatal("a nonpermanent card does not cause descent")
 	}
 	replayState := e.G.Clone()
@@ -74,7 +75,7 @@ func TestPlayerSpecBroodrageDescendedFromAnyZone(t *testing.T) {
 	if e.G.Obj(bear).Zone != state.ZGraveyard || e.G.Obj(bear).Owner != 0 {
 		t.Fatal("precondition: our permanent card did not enter our graveyard")
 	}
-	if !e.phaseMatches(trig, mycoid, step) {
+	if !trigmatch.PhaseMatches(boardOf(e), trig, mycoid, step) {
 		t.Fatal("Broodrage Mycoid must trigger after our permanent card descended")
 	}
 	if effects.MatchesPlayerSpec(e.G, "Player.descended", 1, 0) {

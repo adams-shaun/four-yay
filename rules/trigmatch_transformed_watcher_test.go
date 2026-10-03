@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -53,25 +54,25 @@ func TestTransformedWatcherMatchesAnotherPermanent(t *testing.T) {
 	// The real marker for a transform INTO Brigid's back (Kithkin, non-Human)
 	// face: the events.FlipFace the SetState Mode$ Transform primitive emits.
 	marker := events.Event{Kind: events.FlipFace, Obj: brigid, Amount: 1, Text: "Transformed"}
-	if !e.transformedMatches(tr, cult, marker, nil) {
+	if !trigmatch.TransformedMatches(boardOf(e), tr, cult, marker, nil) {
 		t.Fatal("Cult of the Waxing Moon did not match another permanent's transform")
 	}
 
 	// A self-source Body (Brigid's own Card.Self line) must still match its own
 	// transform, so the watcher fix did not lose the self case.
 	selfTr := transformedTriggerFor(t, e, brigid)
-	if !e.transformedMatches(selfTr, brigid, marker, nil) {
+	if !trigmatch.TransformedMatches(boardOf(e), selfTr, brigid, marker, nil) {
 		t.Fatal("Brigid's Card.Self Transformed trigger did not match its own transform")
 	}
 	// ...and the self trigger must NOT fire on an unrelated permanent's
 	// transform: Card.Self is what scopes it.
-	if e.transformedMatches(selfTr, cult, marker, nil) {
+	if trigmatch.TransformedMatches(boardOf(e), selfTr, cult, marker, nil) {
 		t.Fatal("Card.Self Transformed trigger matched a different permanent")
 	}
 
 	// Negative precondition: without the marker this is not a transform, and
 	// the watcher must not match a bare face change (Flip, alternate-face cast).
-	if e.transformedMatches(tr, cult, events.Event{Kind: events.FlipFace, Obj: brigid, Amount: 1}, nil) {
+	if trigmatch.TransformedMatches(boardOf(e), tr, cult, events.Event{Kind: events.FlipFace, Obj: brigid, Amount: 1}, nil) {
 		t.Fatal("watcher matched a FlipFace with no Transformed marker")
 	}
 }

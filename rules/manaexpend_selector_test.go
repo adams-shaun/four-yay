@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -32,7 +33,7 @@ func TestManaExpendPlayerSpecAndSVarAmount(t *testing.T) {
 	if got := e.manaExpendTotal(ev.Player); got != 20 || got != ev.Amount {
 		t.Fatalf("test precondition: matcher threshold crossing not established: total=%d event amount=%d", got, ev.Amount)
 	}
-	if !e.manaExpendMatches(trigger, source, ev, nil) {
+	if !trigmatch.ManaExpendMatches(boardOf(e), trigger, source, ev, nil) {
 		t.Fatal("ManaExpend did not match Player$ Opponent with an SVar Amount$")
 	}
 }
@@ -53,7 +54,7 @@ func TestManaExpendPlayerSpecDoesNotMatchWrongSeat(t *testing.T) {
 	if e.controllerOf(source) != 0 || ev.Player != e.controllerOf(source) {
 		t.Fatal("test precondition: event seat should be source controller, not Player$ Opponent")
 	}
-	if e.manaExpendMatches(trigger, source, ev, nil) {
+	if trigmatch.ManaExpendMatches(boardOf(e), trigger, source, ev, nil) {
 		t.Fatal("ManaExpend matched the source controller for Player$ Opponent")
 	}
 }
@@ -80,7 +81,7 @@ func TestManaExpendAbsentPlayerSpecIsControllerOnly(t *testing.T) {
 	if e.controllerOf(source) != 0 || evtCtrl.Player != e.controllerOf(source) {
 		t.Fatal("test precondition: control event must be the source controller")
 	}
-	if !e.manaExpendMatches(trigger, source, evtCtrl, nil) {
+	if !trigmatch.ManaExpendMatches(boardOf(e), trigger, source, evtCtrl, nil) {
 		t.Fatal("ManaExpend with absent Player$ did not match the controller's own payment")
 	}
 	// An opponent's payment MIGHT independently cross the tally, so set one
@@ -93,7 +94,7 @@ func TestManaExpendAbsentPlayerSpecIsControllerOnly(t *testing.T) {
 	if got := e.manaExpendTotal(evtOpp.Player); got != 4 || evtOpp.Amount != 4 {
 		t.Fatalf("test precondition: opponent crossing not established: total=%d amount=%d", got, evtOpp.Amount)
 	}
-	if e.manaExpendMatches(trigger, source, evtOpp, nil) {
+	if trigmatch.ManaExpendMatches(boardOf(e), trigger, source, evtOpp, nil) {
 		t.Fatal("ManaExpend with absent Player$ matched an opponent's payment")
 	}
 }

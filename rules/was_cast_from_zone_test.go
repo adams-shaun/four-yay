@@ -8,6 +8,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -387,7 +388,7 @@ func TestRorySpellCastTriggerReadsBothOrigins(t *testing.T) {
 		}
 		ev := events.Event{Kind: events.PutOnStack, Obj: id, Player: 0, From: from, To: state.ZStack}
 		e.emit(ev)
-		return e.spellCastEval(face.Triggers[0], id, ev), e, id
+		return trigmatch.SpellCastEval(boardOf(e), face.Triggers[0], id, ev), e, id
 	}
 	hand, _, _ := eval(state.ZHand)
 	exile, _, _ := eval(state.ZExile)

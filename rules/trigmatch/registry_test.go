@@ -1,4 +1,4 @@
-package rules
+package trigmatch
 
 import (
 	"sort"
@@ -10,8 +10,8 @@ import (
 )
 
 // The trigger-mode dispatch used to be one switch in trigger_match.go, which
-// made every ticket touching a mode edit the same file. It is now a table the
-// per-mode trigmatch_*.go files register into. These tests pin the two
+// made every ticket touching a mode edit the same file. It is now a table this
+// package's per-mode files register into. These tests pin the two
 // properties that replace what the compiler used to give us for free: no mode
 // silently loses its matcher, and no two files claim the same mode.
 
@@ -316,7 +316,7 @@ func TestRegisteringOneModeTwicePanics(t *testing.T) {
 	// possible, so it must be loud at startup rather than a matcher that
 	// quietly stopped being reached.
 	const mode = "TestOnlyDuplicateMode"
-	fn := func(*Engine, cards.Trigger, state.ObjID, events.Event, *state.Object) bool { return false }
+	fn := func(Board, cards.Trigger, state.ObjID, events.Event, *state.Object) bool { return false }
 	registerTrigMatcher(fn, mode)
 	defer delete(trigMatchers, mode)
 

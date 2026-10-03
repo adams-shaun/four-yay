@@ -771,17 +771,19 @@ func (s *scan) collectAliases(body *ast.BlockStmt, fi *fnInfo, otherAliases, loc
 }
 
 // scanDispatchSwitch derives the trigger Mode$ dispatch from the
-// registerTrigMatcher calls the per-mode trigmatch_*.go files make: mode
-// literal -> the matcher registered for it. It used to read Engine.
+// registerTrigMatcher calls the per-mode files of rules/trigmatch make: mode
+// literal -> the matcher registered for it. (sourceFilesUnder walks rules/
+// recursively, so rules/trigmatch's files are scanned as package "rules".) It used to read Engine.
 // triggerMatches' switch; that switch became a table when the modes were split
 // into their own files, so the same fact is now read from the registration.
 // Hand-listing the mode functions here would be exactly the hand list this
 // census must not keep.
 //
-// Two registration shapes carry a callee:
+// Three registration shapes carry a callee:
 //
+//	registerTrigMatcher(zoneChangeMatches, "ChangesZone", ...)
 //	registerTrigMatcher((*Engine).zoneChangeMatches, "ChangesZone", ...)
-//	registerTrigMatcher(func(e *Engine, ...) bool { return e.attacksMatches(...) }, "Attacks")
+//	registerTrigMatcher(func(e Board, ...) bool { return attacksMatches(e, ...) }, "Attacks")
 //
 // A func literal that calls nothing (Mode$ Always returns true inline) reads
 // only the shared set, exactly as its switch arm did.
@@ -831,9 +833,14 @@ func (s *scan) scanDispatchSwitch(t *testing.T, fset *token.FileSet, fd *ast.Fun
 }
 
 // trigMatcherCallee names the matcher a registerTrigMatcher first argument
-// installs: the method of a method expression, or the first Engine method a
-// func literal calls.
+// installs: a plain function (rules/trigmatch's matchers), the method of a
+// method expression, or the first function or Engine method a func literal
+// calls.
 func trigMatcherCallee(arg ast.Expr) string {
+	// zoneChangeMatches
+	if id, ok := arg.(*ast.Ident); ok {
+		return id.Name
+	}
 	// (*Engine).zoneChangeMatches
 	if sel, ok := arg.(*ast.SelectorExpr); ok {
 		if _, isParen := sel.X.(*ast.ParenExpr); isParen {
@@ -882,6 +889,11 @@ func (s *scan) scanCall(t *testing.T, fset *token.FileSet, fi *fnInfo, fname str
 		if id, ok := fun.X.(*ast.Ident); ok {
 			if id.Name == "e" && pkg == "rules" {
 				callee = "Engine." + fun.Sel.Name
+			} else if id.Name == "trigmatch" && pkg == "rules" {
+				// rules -> rules/trigmatch: the subpackage's files are
+				// scanned as package "rules" (sourceFilesUnder is
+				// recursive), so its exported matcher is a local callee.
+				callee = fun.Sel.Name
 			} else if id.Name == "b" && pkg == "rules" && s.filePkg == "combat" {
 				// rules/combat's predicates read the game through their
 				// combat.Board parameter b, which rules implements as

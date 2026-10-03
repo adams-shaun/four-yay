@@ -7,6 +7,7 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -252,7 +253,7 @@ func TestAnnouncePayUndoLastTap(t *testing.T) {
 	}
 	// The refund is not a spend: exactly the {1}{U} paid counts as mana
 	// spent to cast the spell.
-	if got := e.manaSpentForCast(0, spell); got != 2 {
+	if got := trigmatch.ManaSpentForCast(boardOf(e), 0, spell); got != 2 {
 		t.Fatalf("mana spent for cast = %d, want 2 (a ManaUndo must not read as spending)", got)
 	}
 }
