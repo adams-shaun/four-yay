@@ -1,0 +1,55 @@
+{
+ "card": "Nantuko Husk",
+ "family": "activated-ability",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "a4cf857dd958",
+ "scenarios": [
+  {
+   "name": "sacrifice-a-creature-for-plus-two-plus-two",
+   "cr": [
+    "118.12",
+    "701.16a",
+    "613.4b"
+   ],
+   "why": "Sacrificing a creature is the activation cost; Nantuko Husk gets +2/+2 until end of turn. The 2/2 Husk becomes 4/4 and the sacrificed Grizzly Bears is in the graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Nantuko Husk",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Nantuko Husk",
+     "ability": "gets +2/+2",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nantuko Husk",
+     "pt": "4/4"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}
