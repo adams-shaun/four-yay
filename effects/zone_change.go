@@ -461,11 +461,11 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	if len(targets) == 1 && targets[0].Obj == c.Source && !targets[0].IsPlayer &&
 		len(originZones) == 1 && originZones[0] == state.ZHand && !originAll && cz.Imprint {
 		targets = nil
-		if c.ImprintDone {
+		if c.Imprint != nil {
 			for _, id := range c.Imprint {
 				targets = append(targets, state.Target{Obj: id})
 			}
-			c.Imprint, c.ImprintDone = nil, false
+			c.Imprint = nil
 		} else {
 			spec := cz.ChangeType
 			for _, id := range h.Game().Zone(state.ZHand, c.Controller) {
@@ -484,7 +484,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 				if ans, ok := AskTape(h, d); ok {
 					// The resolution kernel's answer in hand: the "imprint"
 					// re-entry's own events, then the answered cards are
-					// the ones moved, exactly as that re-entry's ImprintDone
+					// the ones moved, exactly as that re-entry's answered Imprint
 					// branch reads them.
 					objectPathMoveEcho(h, c, cz, to)
 					targets = targets[:0]

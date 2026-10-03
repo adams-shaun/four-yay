@@ -971,7 +971,6 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 				ctx.Imprint = append(ctx.Imprint, o.Obj)
 			}
 		}
-		ctx.ImprintDone = true
 	case "untap":
 		ctx.Untap = make([]state.ObjID, 0, len(chosen))
 		for _, o := range chosen {

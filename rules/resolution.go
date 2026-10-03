@@ -836,6 +836,9 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			e.windowPaidX = savedWinX
 			e.villainousRemembered, e.villainousRememberedSet = savedVill, savedVillSet
 		}()
+		if resumeGatePassed(rp) {
+			ctx.ResumedGatePassed = rp.sa
+		}
 		e.contChainOwners++
 		effects.Resolve(e, ctx, rp.sa)
 		e.contChainOwners--
@@ -1027,4 +1030,17 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		// completion marker, never before it.
 		e.askNextReplacementChoice()
 	}
+}
+
+// resumeGatePassed reports whether rp re-enters an SA that already passed its
+// Condition* gate on the pass that suspended: the SA that asked (every frame
+// Engine.Ask built) and a rest frame re-entering its own loop SA. A plain
+// continuation frame (kind "") re-enters a sub the walk has not reached yet,
+// and the frames that re-enter a trigger's root before it ever resolved (the
+// CR 603.5 optional yes/no, a trigger-cost window, madness, a deferred ask
+// or turn-up event, a copy's target ask) have passed nothing.
+func resumeGatePassed(rp *resumePoint) bool {
+	k := rp.kind
+	return rp.sa != nil && k != "" && k != "optional" && k != "effect_cost" && k != "effect_paid" &&
+		k != "madness" && k != "deferred_ask" && k != "turn_face_up_event" && k != "copy_targets"
 }

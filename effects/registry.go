@@ -1026,9 +1026,17 @@ type Ctx struct {
 	// continues rather than restarting or abandoning its remaining cards.
 	DrawDone int32
 	// Imprint is the selected public-zone ChangeZone card. It is scoped to
-	// Imprint$ True so a nested ordinary ChangeZone cannot consume it.
-	Imprint     []state.ObjID
-	ImprintDone bool
+	// Imprint$ True so a nested ordinary ChangeZone cannot consume it. The
+	// answer arm makes it non-nil even for an empty answer, so non-nil is
+	// "answered".
+	Imprint []state.ObjID
+	// ResumedGatePassed is the SA a legacy resume re-enters that already
+	// passed its Condition* gate on the pass that asked (the asking SA
+	// itself, or a rest frame's own SA): effects.Resolve skips that one gate
+	// read, once, so a board the first pass changed (Natural Balance's
+	// fetched lands, Whiskervale Forerunner's chosen card) cannot cancel the
+	// answered re-entry. The resolution kernel's path never re-enters.
+	ResumedGatePassed *cards.SA
 	// Untap is the answered UntapType$ selection. UntapDone distinguishes an
 	// answered empty "up to" choice from the first pass and scopes the answer
 	// to the Untap primitive that asked.
@@ -2563,7 +2571,9 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// is the rest of the body that already passed its gate on the first
 		// pass: the mints it made may have changed what the condition reads.
 		resumingTokens := c.TokenRest != nil && c.TokenRest.SA == sa
-		if !resumingLoop && !resumingTokens {
+		gatePassed := c.ResumedGatePassed == sa
+		c.ResumedGatePassed = nil
+		if !resumingLoop && !resumingTokens && !gatePassed {
 			if met, supported := conditionMet(h, c, sa); supported && !met {
 				continue
 			}
