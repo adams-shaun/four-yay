@@ -146,14 +146,15 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 			}
 			rp.outer = lf.outer
 		}
-	case "repeat_optional_loop":
+	case "repeat_body":
 		if cur := rp.repeat; cur != nil {
-			// The body of iteration cur.next-1 completed after its own
-			// suspension: the repeat election for cur.next has not been
-			// posed, so AskElection re-enters the loop at the election
-			// rather than running the body directly.
-			ctx.RepeatOptional = &effects.RepeatOptionalContinuation{Continue: true, Next: int32(cur.next),
-				AskElection: true}
+			// The body of api:Repeat iteration cur.next-1 completed after its
+			// own suspension: the between-iteration step for cur.next (the
+			// gate, then a RepeatOptional$ election) has not run, so
+			// AfterBody re-enters the loop there rather than running the
+			// body directly, with the bound the suspended pass resolved.
+			ctx.RepeatResume = &effects.RepeatContinuation{Continue: true, Next: int32(cur.next),
+				AfterBody: true, Count: int32(cur.count)}
 		}
 	case "unless_pay":
 		payOption, chosePay := unlessPayChoice(chosen)

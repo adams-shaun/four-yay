@@ -793,10 +793,16 @@ type HostAsk interface {
 	// already walks sa.Sub. A host that never suspends (an effects-package
 	// double, where Ask returns false) never sees this call.
 	SuspendContinuation(sa *cards.SA)
-	// SuspendRepeatOptional reports that a RepeatOptional$ body suspended at
-	// a mid-resolution ask. The host must re-enter the repeat after the body
-	// answer completes, preserving the next-iteration cursor.
-	SuspendRepeatOptional(sa *cards.SA, next int32)
+	// SuspendRepeatBody reports that the body of an api:Repeat iteration
+	// (RepeatOptional$ or not) suspended at a mid-resolution ask. The host
+	// must re-enter the Repeat once the body's answer and its own chain
+	// complete, with the next-iteration cursor and the loop's resolved
+	// iteration count, so the remaining iterations run (CR 608.2c) rather
+	// than the enclosing loop falling through to Repeat.Sub. The Resolve loop
+	// enclosing the Repeat reports the same SA through SuspendContinuation
+	// next; the host drops that report (the loop frame re-enters the Repeat
+	// itself), the SuspendCharmRest convention.
+	SuspendRepeatBody(sa *cards.SA, next, count int32)
 	// SuspendRepeat reports that one iteration of a RepeatEach loop suspended
 	// at a mid-resolution ask. The host must bind the suspended iteration's
 	// Remembered to the pending ask (and to the iteration's own continuation

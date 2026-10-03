@@ -718,8 +718,8 @@ func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 	// consume it here, so a later Repeat on the same Ctx -- the next link of
 	// the chain, or one nested in the body -- never reads this election's
 	// answer as its own (a "Stop" used to stop the chained Repeat too).
-	cont := c.RepeatOptional
-	c.RepeatOptional = nil
+	cont := c.RepeatResume
+	c.RepeatResume = nil
 	check := strings.TrimSpace(sa.Params["RepeatCheckSVar"])
 	cmp := strings.TrimSpace(sa.Params["RepeatSVarCompare"])
 	defined := strings.TrimSpace(sa.Params["RepeatDefined"])
@@ -727,6 +727,12 @@ func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 	gated := check != "" || defined != ""
 	optional := strings.EqualFold(strings.TrimSpace(sa.Params["RepeatOptional"]), "True")
 	n := Num(h, c, sa, "MaxRepeat", -1)
+	if cont != nil && cont.Count > 0 {
+		// A body-suspension resume: keep the bound the suspended pass
+		// resolved (Forge computes MaxRepeat$ once, before the first
+		// iteration) instead of re-reading a value the body may have changed.
+		n = cont.Count
+	}
 	if n < 0 {
 		if gated {
 			// Gate-governed: Forge's default cap is unbounded (the gate
@@ -756,54 +762,57 @@ func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	start := int32(0)
-	// askElection marks a resume that must FIRST pose the repeat election for
-	// `start`, then run that iteration's body only if the player says yes. It
-	// is the state a RepeatOptional$ BODY suspension leaves behind: the body
-	// of iteration start-1 completed after its ask was answered, so the
-	// do/while election owed for iteration start has not been posed yet. It
-	// is distinct from a completed election answered yes, which begins the
-	// next body with no further election (see RepeatOptionalContinuation).
-	askElection := false
+	// afterBody marks a resume whose previous iteration's body (start-1)
+	// completed after its ask was answered, so the between-iteration step
+	// owed before iteration `start` has not run yet: the gate, and for
+	// RepeatOptional$ the do/while election (then that iteration's body runs
+	// only on a yes). It is distinct from a completed election answered yes,
+	// which begins the next body with no further election (see
+	// RepeatContinuation).
+	afterBody := false
 	if cont != nil {
 		if !cont.Continue {
 			return
 		}
 		start = cont.Next
-		askElection = cont.AskElection
+		afterBody = cont.AfterBody
 	}
 	for i := start; i < n; i++ {
-		if askElection {
+		if afterBody {
+			afterBody = false
 			// The previous iteration's body completed after suspending. Its
-			// between-iteration gate is owed before the repeat election, just
-			// like the ordinary post-body path below: a false or unreadable
-			// gate stops the do/while without offering another iteration.
+			// between-iteration gate is owed first, just like the ordinary
+			// post-body path below: a false or unreadable gate ends the loop.
 			if gated {
 				holds, evaluated := repeatGateEvaluates(h, c, sa, check, cmp, defined, present)
 				if !evaluated || !holds {
 					return
 				}
 			}
-			// Pose the repeat election that iteration i's body has not yet
-			// earned (CR 608.2c's do/while). The election concerns iteration
-			// i, so a yes resumes the body at i, not i+1.
-			askElection = false
-			if !poseRepeatOptionalElection(h, c, sa, i) {
-				return // R-9: a host that cannot answer stops here.
+			if optional {
+				// Pose the repeat election that iteration i's body has not
+				// yet earned (CR 608.2c's do/while). The election concerns
+				// iteration i, so a yes resumes the body at i, not i+1.
+				if !poseRepeatOptionalElection(h, c, sa, i) {
+					return // R-9: a host that cannot answer stops here.
+				}
+				return
 			}
-			return
+			// A counted or gated Repeat owes no election: iteration i runs.
 		}
 		mark, marked := eventMark(h)
 		asksBefore := askCount(h)
 		Resolve(h, c, sub)
 		if h.Suspended() {
-			// A RepeatOptional body can itself ask (Forbidden Ritual's
-			// sacrifice/choice chain is the corpus example). Preserve the loop
-			// cursor so the answered body re-enters the repeat and poses the
-			// repeat election for the NEXT iteration instead of falling
-			// through to Repeat.Sub.
-			if optional {
-				h.SuspendRepeatOptional(sa, i+1)
-			}
+			// The body asked (a sacrifice/choice/target pick, an unless-pay
+			// gate): the remaining iterations must still run once the answer
+			// is applied (CR 608.2c). Every Repeat parks its cursor -- the
+			// RepeatOptional$ do/while (Forbidden Ritual) re-enters at the
+			// election for i+1; a counted or gated one (Torment of
+			// Hailfire, Remorseless Punishment, Struggle for Sanity) re-enters
+			// at body i+1 after its gate. Without it the enclosing loop fell
+			// through to Repeat.Sub and every later iteration was dropped.
+			h.SuspendRepeatBody(sa, i+1, n)
 			return
 		}
 		if gated {
@@ -858,7 +867,7 @@ func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 // RepeatCheckSVar$/RepeatSVarCompare$ pair and, when the line names one, the
 // RepeatDefined$/RepeatPresent$ pair (RepeatCompare$ overrides the compare;
 // an absent RepeatCompare$ with no check gate falls back to cmp). Both the
-// ordinary post-body path and the AskElection resume path call it, so a
+// ordinary post-body path and the AfterBody resume path call it, so a
 // gated optional repeat cannot skip its gate by suspending inside the body.
 func repeatGateEvaluates(h Host, c *Ctx, sa *cards.SA, check, cmp, defined, present string) (holds, evaluated bool) {
 	holds, evaluated = repeatGateHolds(h, c, check, cmp)
