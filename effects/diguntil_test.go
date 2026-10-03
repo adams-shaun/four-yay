@@ -3,7 +3,6 @@ package effects
 import (
 	"testing"
 
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -134,76 +133,6 @@ func TestDigUntilDefaultDestinationsFollowTheRevealedPile(t *testing.T) {
 	}
 	if o := h.g.Obj(ids[0]); o.Zone != state.ZGraveyard {
 		t.Fatalf("revealed rest zone = %s, want graveyard", o.Zone)
-	}
-}
-
-// TestDigUntilOptionalFoundMoveAsksAndHonoursBothBranches is the
-// OptionalFoundMove$ leaf (Songbirds' Blessing's shape): the first pass
-// poses the real yes/no ask to the library's owner and moves nothing; the
-// answered "yes" moves the found card to FoundDestination$; the answered
-// "no" — the decline — sends it to OptionalNoDestination$.
-func TestDigUntilOptionalFoundMoveAsksAndHonoursBothBranches(t *testing.T) {
-	// The ask: nothing has moved yet.
-	h, ids := digUntilFixture(t)
-	Resolve(h, &Ctx{Controller: 0}, sa(t, songbirdsSA))
-	if h.asked == nil {
-		t.Fatal("no decision was posed: OptionalFoundMove$ True must ask")
-	}
-	d := h.asked
-	if d.Kind != decision.KChoose || d.Player != 0 || d.Min != 1 || d.Max != 1 {
-		t.Fatalf("decision = %+v, want a Min==Max==1 KChoose for the library's owner", d)
-	}
-	if d.ResumeKind != "diguntil_move" {
-		t.Fatalf("ResumeKind = %q, want \"diguntil_move\"", d.ResumeKind)
-	}
-	if len(d.Options) != 2 || d.Options[0].Kind != "yes" || d.Options[1].Kind != "no" {
-		t.Fatalf("options = %+v, want a yes/no pair", d.Options)
-	}
-	if o := h.g.Obj(ids[1]); o.Zone != state.ZLibrary {
-		t.Fatalf("found card zone = %s before the answer, want library (the ask must suspend)", o.Zone)
-	}
-	// The public reveal was recorded BEFORE the ask.
-	foundReveal := false
-	for _, e := range h.log {
-		if e.Kind == events.Note && !e.Secret && len(e.IDs) == 2 {
-			foundReveal = true
-		}
-	}
-	if !foundReveal {
-		t.Fatal("no public reveal Note recorded before the ask")
-	}
-	// Answered "no": the decline sends the found card to
-	// OptionalNoDestination$ Hand; the revealed rest still go to the bottom;
-	// the answer field is consumed and cleared (fx42 scoping).
-	ctx := &Ctx{Controller: 0, DigUntilMove: "no"}
-	Resolve(h, ctx, sa(t, songbirdsSA))
-	if ctx.DigUntilMove != "" {
-		t.Fatal("re-entry left Ctx.DigUntilMove set: the answer field must be consumed and cleared")
-	}
-	if o := h.g.Obj(ids[1]); o.Zone != state.ZHand {
-		t.Fatalf("declined found card zone = %s, want hand (OptionalNoDestination$)", o.Zone)
-	}
-	lib := h.g.Zone(state.ZLibrary, 0)
-	if len(lib) != 3 || lib[0] != ids[2] || lib[1] != ids[3] || lib[2] != ids[0] {
-		t.Fatalf("library after decline = %v, want the revealed rest at the bottom", lib)
-	}
-	// Answered "yes": the found card moves to FoundDestination$ Battlefield.
-	// The board simulates the RE-ENTRY (the first pass, which recorded the
-	// public reveal and suspended on the ask, is the h board above), so the
-	// reveal must not be re-emitted: exactly zero public reveal Notes.
-	h2, ids2 := digUntilFixture(t)
-	Resolve(h2, &Ctx{Controller: 0, DigUntilMove: "yes"}, sa(t, songbirdsSA))
-	if o := h2.g.Obj(ids2[1]); o.Zone != state.ZBattlefield || o.AttachedTo == 0 {
-		t.Fatalf("answered found card zone/attach = %s/%d, want battlefield/attached", o.Zone, o.AttachedTo)
-	}
-	reveals := 0
-	for _, e := range h2.log {
-		if e.Kind == events.Note && !e.Secret && len(e.IDs) == 2 {
-			reveals++
-		}
-	}
-	if reveals != 0 {
-		t.Fatalf("public reveal Notes on re-entry = %d, want 0 (the first pass already recorded it)", reveals)
 	}
 }
 

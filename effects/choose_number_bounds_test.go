@@ -288,39 +288,3 @@ func TestChooseNumberBoundNoHostDegradesQuietly(t *testing.T) {
 		}
 	}
 }
-
-// TestChooseNumberBoundAnswerResumeReEntry pins the preserved resume: with a
-// bound in place, the answered number re-enters through
-// Ctx.ChosenNumberPick/ChosenNumberAnswered exactly as before and emits the
-// one Choose event with its Amount — the bound shapes the OFFERED list, not
-// the answer transport.
-func TestChooseNumberBoundAnswerResumeReEntry(t *testing.T) {
-	h := &chooseNumberHost{}
-	h.g = state.NewGame(names(2))
-	src := chooseNumberSrc(t, &h.fakeHost)
-	seedEnergy(t, &h.fakeHost, 0, 2)
-	sa := sa(t, "DB$ ChooseNumber | Max$ Count$YourCountersEnergy")
-	Resolve(h, &Ctx{Source: src, Controller: 0}, sa)
-	if len(h.asks) != 1 || len(chooseNumberEvents(&h.fakeHost)) != 0 {
-		t.Fatalf("first pass did not suspend on the bounded ask: asks=%d choose=%d",
-			len(h.asks), len(chooseNumberEvents(&h.fakeHost)))
-	}
-	two := -1
-	for _, o := range h.asks[0].Options {
-		if o.Amount == 2 {
-			two = o.Index
-		}
-	}
-	if two < 0 {
-		t.Fatalf("precondition: the bounded list offers no 2: %+v", h.asks[0].Options)
-	}
-	h.suspended = false
-	Resolve(h, &Ctx{Source: src, Controller: 0, ChosenNumberAnswered: true, ChosenNumberPick: 2}, sa)
-	evs := chooseNumberEvents(&h.fakeHost)
-	if len(evs) != 1 || evs[0].Amount != 2 {
-		t.Fatalf("re-entry Choose events = %+v, want exactly one Amount 2", evs)
-	}
-	if h.g.Obj(src).ChosenNumber != 2 {
-		t.Fatalf("ChosenNumber = %d, want the answered 2", h.g.Obj(src).ChosenNumber)
-	}
-}

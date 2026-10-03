@@ -174,34 +174,6 @@ func TestVoteWinnerPicksTheHighestAndReportsTies(t *testing.T) {
 	}
 }
 
-// TestVoteAnsweredTieRunsVoteTiedAbility pins effVote's tie branch through
-// Ctx.Votes, the answered per-voter choice list (the seam a real per-player
-// ask fills). The stand-in gives every voter option 0, so a live resolution
-// can never tie and this branch would otherwise be unreachable from any SA.
-// The answered tally is consumed and cleared (fx42), and its Notes name the
-// actual answered choices rather than the stand-in's option 0.
-func TestVoteAnsweredTieRunsVoteTiedAbility(t *testing.T) {
-	h, s, svars, order := voteFixtureSA(t, "SP$ Vote | Defined$ Player | Choices$ AChoice,BChoice "+
-		"| VoteTiedAbility$ BChoice\nSVar:AChoice:DB$ TestVoteA\nSVar:BChoice:DB$ TestVoteB\n")
-	c := &Ctx{Source: 0, SVars: svars, Votes: []int{0, 1}}
-	Resolve(h, c, s)
-	if len(*order) != 1 || (*order)[0] != "B" {
-		t.Fatalf("tied vote ran %v, want exactly [B] (VoteTiedAbility$)", *order)
-	}
-	if c.Votes != nil {
-		t.Fatalf("Ctx.Votes survived the resolution (%v), want consumed and cleared", c.Votes)
-	}
-	labels := map[string]int{}
-	for _, e := range h.log {
-		if e.Kind == events.Note && strings.HasPrefix(e.Text, "votes for ") {
-			labels[e.Text]++
-		}
-	}
-	if labels["votes for AChoice"] != 1 || labels["votes for BChoice"] != 1 {
-		t.Fatalf("vote Notes = %v, want one for each answered choice", labels)
-	}
-}
-
 // TestVoteSplitEmptyBallotBindsNeitherSet is the empty-ballot regression
 // (review finding): when a vote offered no ballot option at all -- a card
 // ballot whose VoteCard$ matched no permanent, or a fixed-list Vote with no

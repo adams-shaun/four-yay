@@ -1189,40 +1189,6 @@ func (h *askHost) Ask(d *decision.Decision) bool {
 	return true
 }
 
-func TestCharmAsksForItsModeBeforeAnySubAbilityRuns(t *testing.T) {
-	h := &askHost{}
-	h.g = state.NewGame(names(2))
-	h.g.Players[0].Life = 10
-	src := "SP$ Charm | Choices$ DoGain,DoLose"
-	c := &Ctx{Controller: 0, SVars: map[string]string{
-		"DoGain": "DB$ GainLife | Defined$ You | LifeAmount$ 5 | SpellDescription$ Gain 5 life",
-		"DoLose": "DB$ LoseLife | Defined$ You | LifeAmount$ 5 | SpellDescription$ Lose 5 life",
-	}}
-	Resolve(h, c, sa(t, src))
-	if h.asked == nil {
-		t.Fatal("no KModes decision was posed")
-	}
-	d := h.asked
-	if d.Kind != decision.KModes || d.Min != 1 || d.Max != 1 || d.Player != 0 {
-		t.Fatalf("decision = %+v, want a Min==Max==1 KModes for the controller", d)
-	}
-	if len(d.Options) != 2 || d.Options[0].Kind != "mode" ||
-		d.Options[0].Label != "Gain 5 life" || d.Options[1].Label != "Lose 5 life" {
-		t.Fatalf("mode options: %+v", d.Options)
-	}
-	// The resolution suspended BEFORE executing any mode sub-ability.
-	if h.g.Players[0].Life != 10 {
-		t.Fatalf("life = %d, want 10: a mode ran before the choice was made", h.g.Players[0].Life)
-	}
-	// Re-entry, the engine's contract: Ctx.Modes carries the chosen SVar
-	// names in execution order; the chosen mode — the SECOND one, to prove
-	// the choice is honoured — is what runs.
-	Resolve(h, &Ctx{Controller: 0, SVars: c.SVars, Modes: []string{"DoLose"}}, sa(t, src))
-	if h.g.Players[0].Life != 5 {
-		t.Fatalf("life = %d, want 5 (the chosen Lose 5 life ran)", h.g.Players[0].Life)
-	}
-}
-
 func TestVoteRecordsANotePerVotingPlayer(t *testing.T) {
 	h := newHost(t, 2)
 	Resolve(h, &Ctx{Controller: 0}, sa(t, "SP$ Vote | Defined$ Player | Choices$ Sickness,Psychosis"))

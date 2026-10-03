@@ -1,9 +1,10 @@
 package effects
 
 import (
+	"testing"
+
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
-	"testing"
 )
 
 func TestExchangeLifeShapes(t *testing.T) {

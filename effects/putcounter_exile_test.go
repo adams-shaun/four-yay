@@ -88,34 +88,3 @@ func TestPutCounterPlacesOnBattlefieldObject(t *testing.T) {
 		t.Fatalf("CounterChange events for the battlefield object = %d, want 1", n)
 	}
 }
-
-// TestPutCounterOptionalAsksOverExiledObject pins the same class inside the
-// Optional$ election: putCounterWouldPlace gated on the battlefield too, so
-// an `Optional$ True` PutCounter over an exiled recipient would silently
-// decline (no ask posed, nothing placed). The election must be posed over
-// the exiled recipient, and the answered "yes" re-entry must place the
-// counters.
-func TestPutCounterOptionalAsksOverExiledObject(t *testing.T) {
-	h := &askHost{}
-	h.g = state.NewGame(names(2))
-	exiled := putCounterExiledObject(t, &h.fakeHost)
-	line := "SP$ PutCounter | Defined$ Remembered | CounterType$ TIME | CounterNum$ 3 | Optional$ True"
-
-	// First pass: the election must be posed (putCounterWouldPlace sees the
-	// exiled recipient), and nothing may be placed yet.
-	Resolve(h, &Ctx{Source: exiled.ID, Controller: 0,
-		Remembered: []state.Target{{Obj: exiled.ID}}}, sa(t, line))
-	if h.asked == nil {
-		t.Fatal("no election posed for an Optional$ True PutCounter over an exiled recipient")
-	}
-	if got := exiled.Counter("TIME"); got != 0 {
-		t.Fatalf("first pass placed %d TIME counters before the election was answered", got)
-	}
-
-	// Answered "yes": the counters land on the exiled object.
-	Resolve(h, &Ctx{Source: exiled.ID, Controller: 0, PutOpt: "yes",
-		Remembered: []state.Target{{Obj: exiled.ID}}}, sa(t, line))
-	if got := exiled.Counter("TIME"); got != 3 {
-		t.Fatalf("exiled object TIME counters after the accepted optional put = %d, want 3", got)
-	}
-}

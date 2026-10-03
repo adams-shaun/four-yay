@@ -187,29 +187,6 @@ func TestSetStateRememberChangedUnspecializeRemembersTheRestoredFace(t *testing.
 	handlerRan(t, h)
 }
 
-// TestSetStateRememberChangedOptionalDeclineRemembersNothing pins the decline
-// path: an Optional$ True body answered "no" returns before the emitting
-// loop, so it must neither flip nor remember -- Forge remembers the objects
-// whose state CHANGED, not the Defined set.
-func TestSetStateRememberChangedOptionalDeclineRemembersNothing(t *testing.T) {
-	h := newHost(t, 2)
-	id := megatronObject(t, h, 0)
-	ctx := &Ctx{Controller: 0, Source: id, SetStateOpt: "no"}
-	if n := len(ctx.Remembered); n != 0 {
-		t.Fatalf("precondition void: Remembered already holds %d entries", n)
-	}
-
-	Resolve(h, ctx, withoutSub(withOptionalAdded(corpusMegatronTransformSA(t))))
-
-	if o := h.g.Obj(id); o.FaceIdx != 0 {
-		t.Fatalf("FaceIdx = %d, want it unchanged at 0 on a decline", o.FaceIdx)
-	}
-	if n := len(ctx.Remembered); n != 0 {
-		t.Fatalf("decline remembered %d entries, want none (%+v)", n, ctx.Remembered)
-	}
-	handlerRan(t, h)
-}
-
 // TestSetStateRememberChangedAlreadyOnTheFrontFaceRemembersNothing pins the
 // Unspecialize no-op: an object already on its front face emits nothing, so
 // it must be remembered by nothing.

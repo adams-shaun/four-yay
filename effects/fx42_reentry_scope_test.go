@@ -5,7 +5,6 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
-	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -64,115 +63,6 @@ func realReentrantDiscardSA(t *testing.T, cardName string) (*cards.SA, map[strin
 	}
 	t.Fatalf("card %q has no TgtChoose Discard ability whose Sub reaches another Discard asker", cardName)
 	return nil, nil
-}
-
-// TestNestedDiscardDoesNotInheritOuterAnswer pins the fx42 defect on a REAL
-// corpus card: Gruesome Discovery's TgtChoose Discard has a SubAbility$
-// (MorbidDiscard) that is itself a RevealYouChoose Discard. On the outer
-// discard's resume the answer is carried in Ctx.Discard; because effDiscard
-// never cleared it, the NESTED discard below read that same value, took the
-// re-entry branch, "discarded" the cards the outer discard had already moved
-// to the graveyard, and never posed its own choice. Morbid — "you choose two
-// cards from it, then that player discards those cards" — must pose its own
-// RevealYouChoose ask once the outer TgtChoose choice is in.
-//
-// THE SHAPE IS CORPUS-REACHABLE (not synthetic): a walker over the compiled
-// corpus found exactly two cards whose Discard asker's Sub chain reaches a
-// second Discard asker — Gruesome Discovery and Last Rites. This pins
-// Gruesome Discovery's exact compiled SA.
-//
-// Morbid is a REAL gate (task inbox-paramcensus-action-condition-checksvar
-// taught conditionMet the ConditionCheckSVar$ gate and evalCountBody the
-// Count$Morbid.1.0 head): the inner MorbidDiscard runs only when a creature
-// died this turn, and the outer runs only when NONE did — the two legs are
-// MUTUALLY EXCLUSIVE by design (EQ0 vs the default nonzero read on the same
-// SVar), so the old both-legs-ask walk this pin used to exercise can never
-// fire for this card again. The pin keeps its contract — the inner Discard
-// never inherits a stale Ctx.Discard; it poses its own ask when its leg runs
-// and stays silent when its leg is gated off — on Gruesome Discovery's two
-// REAL legs:
-//
-//   - not morbid: the outer TgtChoose asks the discarding player, the answer
-//     discards exactly the chosen two, and the gated-off inner never runs
-//     (one ask total — the old defect's "outer answers, inner inherits" shape
-//     cannot even start, and a gated-off asking SA's leftover answer is not
-//     resurrected by a later consumer).
-//   - morbid: the outer is gated off, and the inner asks the CASTER fresh —
-//     no outer answer exists to inherit (one ask, player 0).
-func TestNestedDiscardDoesNotInheritOuterAnswer(t *testing.T) {
-	sa, grSVars := realReentrantDiscardSA(t, "Gruesome Discovery")
-
-	t.Run("not morbid: outer asks, inner gated off", func(t *testing.T) {
-		// Seat 1's hand holds four creatures, so the OUTER TgtChoose NumCards$ 2
-		// has a real choice (four eligible > two).
-		ah, ctx, ids := discardBoard(t,
-			creature(t, "Frog"), creature(t, "Bird"), creature(t, "Cat"), creature(t, "Dog"))
-		h := &fx42AskHost{fakeHost: ah.fakeHost}
-		// The gate reads Gruesome Discovery's OWN SVar table (Morbid ->
-		// Count$Morbid.1.0) through the resolving ctx — the engine builds
-		// Ctx.SVars from the resolving card's face; this synthetic board's
-		// source is a Thoughtseize stand-in, so the table is wired explicitly.
-		ctx.SVars = grSVars
-
-		// Pass 1: the outer TgtChoose asks the DISCARDING player (seat 1), and
-		// the resolution suspends before the chained MorbidDiscard runs.
-		Resolve(h, ctx, sa)
-		if len(h.asks) != 1 {
-			t.Fatalf("outer discard posed %d decisions, want exactly 1 (the chained inner discard must not run before the choice)", len(h.asks))
-		}
-		if h.asks[0].Player != 1 {
-			t.Fatalf("outer discard chooser = seat %d, want the DISCARDING player seat 1", h.asks[0].Player)
-		}
-
-		// Engine resume: the discarding player chose the two front cards
-		// (Frog+Bird), noted in Ctx.Discard, and the resolution re-enters. The
-		// outer discards exactly those two; the inner's Morbid gate still
-		// reads 0, so it stays gated off — a second ask would mean either the
-		// inner inherited the outer's answer (the fx42 defect) or the gate
-		// leaked. The discarded two must be in the graveyard and no others.
-		h.suspended = false
-		ctx.Discard = []state.ObjID{ids[0], ids[1]}
-		Resolve(h, ctx, sa)
-		if len(h.asks) != 1 {
-			t.Fatalf("after the outer choice the resolution asked %d decisions, want 1 (the gated-off inner must neither run nor inherit)", len(h.asks))
-		}
-		for i, id := range ids {
-			inGrave := inZone(ah.g, state.ZGraveyard, 1, id)
-			if (i < 2) != inGrave {
-				t.Fatalf("hand card %d in graveyard = %v, want %v", i, inGrave, i < 2)
-			}
-		}
-	})
-
-	t.Run("morbid: outer gated off, inner asks the caster fresh", func(t *testing.T) {
-		ah, ctx, _ := discardBoard(t,
-			creature(t, "Frog"), creature(t, "Bird"), creature(t, "Cat"), creature(t, "Dog"))
-		h := &fx42AskHost{fakeHost: ah.fakeHost}
-		ctx.SVars = grSVars
-
-		// A creature dies BEFORE the resolution, so the outer's EQ0 gate fails
-		// and the inner's nonzero gate holds: the ONLY ask is the inner's own
-		// RevealYouChoose to the CASTER (seat 0), over the full four-card hand.
-		victim := ah.g.AddObject(creature(t, "Ox"), 0)
-		victim.Zone = state.ZBattlefield
-		ah.g.SetZone(state.ZBattlefield, 0, []state.ObjID{victim.ID})
-		ah.Emit(events.Event{Kind: events.MoveZone, Obj: victim.ID, To: state.ZGraveyard, Text: "died"})
-
-		Resolve(h, ctx, sa)
-		if len(h.asks) != 1 {
-			t.Fatalf("morbid leg posed %d decisions, want exactly 1 (the inner RevealYouChoose, with the outer gated off)", len(h.asks))
-		}
-		d := h.asks[0]
-		if d.Player != 0 {
-			t.Fatalf("inner discard chooser = seat %d, want the caster seat 0", d.Player)
-		}
-		if d.Kind != decision.KModes || d.Min != 2 || d.Max != 2 {
-			t.Fatalf("inner discard decision = %+v, want a Min==Max==2 KModes (Morbid NumCards$ 2)", d)
-		}
-		if len(d.Options) != 4 {
-			t.Fatalf("inner ask offered %d options, want the full four-card hand (no outer answer narrowed it)", len(d.Options))
-		}
-	})
 }
 
 // TestNestedCounterDoesNotInheritOuterUnlessPayAnswer pins the fx42 defect

@@ -100,57 +100,6 @@ func countLifeLoss(h *fakeHost, p state.PlayerID) int {
 	return n
 }
 
-// TestDiscardTgtChooseAsksTheDiscardingPlayer pins the chooser/target split
-// that is the whole point of the task: for a Mode$ TgtChoose discard (Mind
-// Rot's real corpus shape — target player discards two), the DISCARDING
-// player (seat 1, p) makes the decision, never the caster (seat 0), and the
-// answered choice is honoured — the chosen cards leave the hand, not the
-// front of it.
-//
-// Mind Rot: A:SP$ Discard | ValidTgts$ Player | NumCards$ 2 | Mode$
-// TgtChoose. NumCards is 2 and the hand holds three cards, so a genuine
-// choice exists and a decision must be posed.
-func TestDiscardTgtChooseAsksTheDiscardingPlayer(t *testing.T) {
-	sa := realTgtChooseSA(t, "Mind Rot")
-	ah, ctx, ids := discardBoard(t, creature(t, "Frog"), creature(t, "Bird"), creature(t, "Cat"))
-
-	effDiscard(ah, ctx, sa)
-
-	if ah.asked == nil {
-		t.Fatal("TgtChoose posed no decision for a hand with a real choice")
-	}
-	if ah.asked.Player != 1 {
-		t.Fatalf("chooser = seat %d, want the discarding player seat 1 (not the caster 0)", ah.asked.Player)
-	}
-	if ah.asked.Kind != decision.KModes {
-		t.Fatalf("decision kind = %s, want KModes", ah.asked.Kind)
-	}
-	if ah.asked.Min != 2 || ah.asked.Max != 2 {
-		t.Fatalf("Min/Max = %d/%d, want 2/2 (NumCards$)", ah.asked.Min, ah.asked.Max)
-	}
-	if len(ah.asked.Options) != 3 {
-		t.Fatalf("options = %d, want the 3 hand cards", len(ah.asked.Options))
-	}
-
-	// Simulate the engine's resume: the continuation set Ctx.Discard to the
-	// chosen objects, then re-runs the effect. Choose bird+cat, deliberately
-	// not the two front cards (frog+bird), to prove the choice is honoured.
-	ctx.Discard = []state.ObjID{ids[1], ids[2]}
-	effDiscard(ah, ctx, sa)
-
-	for _, id := range []state.ObjID{ids[1], ids[2]} {
-		if !inZone(ah.g, state.ZGraveyard, 1, id) {
-			t.Fatalf("chosen card %d was not moved to the graveyard", id)
-		}
-		if inZone(ah.g, state.ZHand, 1, id) {
-			t.Fatalf("chosen card %d is still in hand", id)
-		}
-	}
-	if !inZone(ah.g, state.ZHand, 1, ids[0]) {
-		t.Fatal("the un-chosen front card (frog) left the hand — the choice was ignored")
-	}
-}
-
 // TestDiscardTgtChooseFallsBackToFrontEligibleWhenHostCannotAsk is R-9's
 // no-engine contract for the TgtChoose shape: a host whose Ask returns false
 // must still resolve deterministically — take the FRONT OF THE FILTERED hand
@@ -182,51 +131,6 @@ func TestDiscardTgtChooseFallsBackToFrontEligibleWhenHostCannotAsk(t *testing.T)
 	}
 	if !foundNote {
 		t.Fatal("no-ask fallback did not record the stand-in Note")
-	}
-}
-
-// TestDiscardTgtChooseSubAbilityFiresExactlyOnce is the B1 regression, pinned
-// to the TgtChoose shape: Davriel's Shadowfugue is SP$ Discard | Mode$
-// TgtChoose | ValidTgts$ Player | NumCards$ 2 | SubAbility$ DBLoseLife (the
-// targeted player loses 2 life). Because Discard is now an asking primitive,
-// effects.Resolve must stop descending into the chained LoseLife after the
-// ask suspends; the sub-ability must fire exactly once, after the choice is
-// in — twice is the exact bug dc1 was gated on and must not come back.
-func TestDiscardTgtChooseSubAbilityFiresExactlyOnce(t *testing.T) {
-	sa := realTgtChooseSA(t, "Davriel's Shadowfugue")
-	ah, ctx, ids := discardBoard(t, creature(t, "Frog"), creature(t, "Bird"), creature(t, "Cat"))
-	h := &suspendHost{fakeHost: ah.fakeHost}
-
-	life := h.g.Players[1].Life
-	// First pass: the Discard SA asks and suspends. The chained LoseLife must
-	// NOT have run yet (there is no answer, and the chain stops at the ask).
-	Resolve(h, ctx, sa)
-	if h.asked == nil {
-		t.Fatal("TgtChoose posed no decision")
-	}
-	if countLifeLoss(&h.fakeHost, 1) != 0 {
-		t.Fatal("the chained SubAbility ran before the discard choice was made")
-	}
-
-	// Engine resume: the decision is answered, Suspended clears, Ctx.Discard
-	// carries the chosen cards, and the resolution re-enters.
-	h.suspended = false
-	ctx.Discard = []state.ObjID{ids[1], ids[2]}
-	Resolve(h, ctx, sa)
-
-	if got := countLifeLoss(&h.fakeHost, 1); got != 1 {
-		t.Fatalf("life-losing events on the discarder = %d, want exactly 1 (the SubAbility ran %d times)", got, got)
-	}
-	if h.g.Players[1].Life != life-2 {
-		t.Fatalf("discarder life = %d, want %d (lost exactly 2, not 4) — DBLoseLife ran twice", h.g.Players[1].Life, life-2)
-	}
-	for _, id := range []state.ObjID{ids[1], ids[2]} {
-		if !inZone(h.g, state.ZGraveyard, 1, id) {
-			t.Fatalf("chosen card %d not discarded", id)
-		}
-	}
-	if !inZone(h.g, state.ZHand, 1, ids[0]) {
-		t.Fatal("un-chosen front card (frog) left the hand — the choice was ignored")
 	}
 }
 

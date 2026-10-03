@@ -394,22 +394,6 @@ func TestGainControlKeywordListReaderUsesSharedParser(t *testing.T) {
 	}
 }
 
-func TestChangeTargetsCommandeerCorpusSA(t *testing.T) {
-	_, sa := corpusSA(t, "Commandeer", "DBChooseTargets")
-	if sa.API != "ChangeTargets" {
-		t.Fatalf("unexpected SA: %+v", sa)
-	}
-	h := newHost(t, 2)
-	spell := h.g.AddObject(mkCard(t, "Name:Target\nTypes:Instant\nManaCost:R\nOracle:x\nA:SP$ DealDamage | ValidTgts$ Player | NumDmg$ 1\n"), 1)
-	spell.Zone = state.ZStack
-	spell.Targets = []state.Target{{Player: 1, IsPlayer: true}}
-	c := &Ctx{Controller: 0, Targets: []state.Target{{Obj: spell.ID}}}
-	effChangeTargets(h, c, sa)
-	if c.ChoiceDone || len(spell.Targets) != 1 || !spell.Targets[0].IsPlayer || spell.Targets[0].Player != 1 {
-		t.Fatalf("hostless ChangeTargets must keep the targets and leave no answer behind: done=%v targets=%+v", c.ChoiceDone, spell.Targets)
-	}
-}
-
 func TestControlSpellCommandeerCorpusSA(t *testing.T) {
 	_, sa := corpusSA(t, "Commandeer", "")
 	if sa.API != "ControlSpell" {

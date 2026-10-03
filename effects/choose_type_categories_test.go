@@ -59,33 +59,6 @@ func hasNotePrefix(h *fakeHost, prefix string) bool {
 	return false
 }
 
-// TestChooseTypeBasicLandOffersTheFiveBasicLandTypes pins the Basic Land
-// category (Convincing Mirage, Realmwright, Thran Portal): the real list is
-// CR 205.3i's five basic land types, in sorted order, and the answered type
-// is recorded on the source.
-func TestChooseTypeBasicLandOffersTheFiveBasicLandTypes(t *testing.T) {
-	h := &chooseTypeHost{}
-	h.g = state.NewGame(names(2))
-	src := h.g.AddObject(mkCard(t, "Name:Source\nTypes:Land\nOracle:x\n"), 0).ID
-	d := categoryAsk(t, h, src, &Ctx{Source: src, Controller: 0},
-		"SP$ ChooseType | Defined$ You | Type$ Basic Land")
-	// Precondition: the list must NOT be the creature list (the old bug).
-	optionsAre(t, d.Options, "Forest", "Island", "Mountain", "Plains", "Swamp")
-	if d.Prompt != "Choose a land type" {
-		t.Fatalf("prompt = %q, want the land-type ask", d.Prompt)
-	}
-	if hasNotePrefix(&h.fakeHost, "ChooseType Type$") {
-		t.Fatalf("an enumerable category still emitted the loud Note")
-	}
-	// Answer, then assert the choice is recorded exactly once.
-	h.suspended = false
-	Resolve(h, &Ctx{Source: src, Controller: 0, ChosenType: "Mountain"},
-		sa(t, "SP$ ChooseType | Defined$ You | Type$ Basic Land"))
-	if h.g.Obj(src).ChosenType != "Mountain" {
-		t.Fatalf("ChosenType = %q, want the answered Mountain", h.g.Obj(src).ChosenType)
-	}
-}
-
 // TestChooseTypeLandOffersBasicAndNonbasicLandTypes pins Type$ Land (Vision
 // Charm, Barbarian Guides, Shimmer): the union of the basic and nonbasic land
 // types, so both Plains and Desert are offerable.

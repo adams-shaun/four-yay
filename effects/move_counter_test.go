@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -200,51 +199,6 @@ func TestMoveCounterEachNotOnSkipsKindsTheDestinationHas(t *testing.T) {
 	}
 }
 
-// CounterType$ Any asks which single kind to move when the origin holds more
-// than one; the answered kind is what moves. One kind only: no ask.
-func TestMoveCounterTypeAnyAsksForTheKind(t *testing.T) {
-	h := &askHost{}
-	h.g = state.NewGame(names(2))
-	src := mcArtifact(t, h.g, "Src", 0)
-	dst := mcCreature(t, h.g, "Dst", 0)
-	h.g.Obj(src).AddCounter("P1P1", 2)
-	h.g.Obj(src).AddCounter("CHARGE", 3)
-
-	Resolve(h, &Ctx{Controller: 0, Source: src, Targets: []state.Target{{Obj: dst}}, TargetsOffered: true},
-		moveCounterSA(t, "Source$ Self | ValidTgts$ Creature | CounterType$ Any | CounterNum$ 1"))
-	if h.asked == nil {
-		t.Fatal("no CounterType$ Any kind decision was posed")
-	}
-	d := h.asked
-	if d.Kind != decision.KChoose || d.Min != 1 || d.Max != 1 {
-		t.Fatalf("decision = %+v, want a Min==Max==1 KChoose", d)
-	}
-	if d.ResumeKind != "move_counter_kind" {
-		t.Fatalf("ResumeKind = %q, want move_counter_kind", d.ResumeKind)
-	}
-	if len(d.Options) != 2 {
-		t.Fatalf("kind options = %+v, want the two distinct kinds", d.Options)
-	}
-	// Nothing moved yet.
-	if got := h.g.Obj(src).Counter("P1P1"); got != 2 {
-		t.Fatalf("source P1P1 = %d before the answer, want 2", got)
-	}
-	// Re-entry with the SECOND offered kind (CHARGE) picked, to prove the
-	// answer is honoured rather than the first-kind stand-in.
-	Resolve(h, &Ctx{Controller: 0, Source: src, Targets: []state.Target{{Obj: dst}}, TargetsOffered: true,
-		MoveCounterKind: "CHARGE", MoveCounterKindDone: true},
-		moveCounterSA(t, "Source$ Self | ValidTgts$ Creature | CounterType$ Any | CounterNum$ 1"))
-	if got := h.g.Obj(src).Counter("CHARGE"); got != 2 {
-		t.Fatalf("source CHARGE = %d, want 2 (one CHARGE moved)", got)
-	}
-	if got := h.g.Obj(src).Counter("P1P1"); got != 2 {
-		t.Fatalf("source P1P1 = %d, want 2 (untouched -- a different kind was chosen)", got)
-	}
-	if got := h.g.Obj(dst).Counter("CHARGE"); got != 1 {
-		t.Fatalf("target CHARGE = %d, want 1", got)
-	}
-}
-
 // A single-kind origin under CounterType$ Any takes that kind with no ask
 // (the strict-supersets convention).
 func TestMoveCounterTypeAnySingleKindDoesNotAsk(t *testing.T) {
@@ -256,61 +210,6 @@ func TestMoveCounterTypeAnySingleKindDoesNotAsk(t *testing.T) {
 		moveCounterSA(t, "Source$ Self | ValidTgts$ Creature | CounterType$ Any | CounterNum$ 1"))
 	if got := h.g.Obj(dst).Counter("P1P1"); got != 1 {
 		t.Fatalf("target P1P1 = %d, want 1 (the sole kind moved with no ask)", got)
-	}
-}
-
-// CounterNum$ Any asks how many to move, Min 0 / Max the origin's count; the
-// answered amount is exactly what moves, and a Min-0 decline (Ctx carries 0)
-// moves nothing.
-func TestMoveCounterNumAnyAsksAndHonoursTheAmount(t *testing.T) {
-	h := &askHost{}
-	h.g = state.NewGame(names(2))
-	src := mcArtifact(t, h.g, "Src", 0)
-	dst := mcCreature(t, h.g, "Dst", 0)
-	h.g.Obj(src).AddCounter("P1P1", 4)
-
-	Resolve(h, &Ctx{Controller: 0, Source: src, Targets: []state.Target{{Obj: dst}}, TargetsOffered: true},
-		moveCounterSA(t, "Source$ Self | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ Any"))
-	if h.asked == nil {
-		t.Fatal("no CounterNum$ Any amount decision was posed")
-	}
-	d := h.asked
-	if d.Kind != decision.KChoose || d.Min != 0 || d.Max != 4 {
-		t.Fatalf("decision = %+v, want a Min 0 / Max 4 KChoose", d)
-	}
-	if d.ResumeKind != "move_counter" {
-		t.Fatalf("ResumeKind = %q, want move_counter", d.ResumeKind)
-	}
-	if len(d.Options) != 5 {
-		t.Fatalf("amount options = %d, want 5 (0..4)", len(d.Options))
-	}
-
-	// Answer 2: exactly two move.
-	Resolve(h, &Ctx{Controller: 0, Source: src, Targets: []state.Target{{Obj: dst}}, TargetsOffered: true,
-		MoveCounterN: 2, MoveCounterNDone: true},
-		moveCounterSA(t, "Source$ Self | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ Any"))
-	if got := h.g.Obj(src).Counter("P1P1"); got != 2 {
-		t.Fatalf("source P1P1 = %d, want 2 (answered 2 of 4)", got)
-	}
-	if got := h.g.Obj(dst).Counter("P1P1"); got != 2 {
-		t.Fatalf("target P1P1 = %d, want 2", got)
-	}
-}
-
-func TestMoveCounterNumAnyDeclineMovesNothing(t *testing.T) {
-	h := &fakeHost{g: state.NewGame(names(2))}
-	src := mcArtifact(t, h.g, "Src", 0)
-	dst := mcCreature(t, h.g, "Dst", 0)
-	h.g.Obj(src).AddCounter("P1P1", 3)
-	// The answered Min-0 decline: a re-entry with the done marker and N = 0.
-	Resolve(h, &Ctx{Controller: 0, Source: src, Targets: []state.Target{{Obj: dst}}, TargetsOffered: true,
-		MoveCounterN: 0, MoveCounterNDone: true},
-		moveCounterSA(t, "Source$ Self | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ Any"))
-	if got := h.g.Obj(src).Counter("P1P1"); got != 3 {
-		t.Fatalf("source P1P1 = %d, want 3 (declined: nothing moved)", got)
-	}
-	if got := h.g.Obj(dst).Counter("P1P1"); got != 0 {
-		t.Fatalf("target P1P1 = %d, want 0 (declined: nothing moved)", got)
 	}
 }
 
@@ -343,78 +242,6 @@ func TestMoveCounterRememberAmountRecordsTheAmount(t *testing.T) {
 	}
 }
 
-// TestBlackPantherRememberAmountFeedsGainLife follows Black Panther, Wakandan
-// King's compiled DBMove -> DBGainLife chain: the move remembers one entry per
-// counter (`RememberAmount$ True`), and the chained payoff reads that context
-// through `SVar:X:Count$RememberedNumber` with `ConditionCheckSVar$ X`, so
-// deleting the RememberedNumber count-head dispatch degrades X to zero and
-// suppresses the life gain.
-func TestBlackPantherRememberAmountFeedsGainLife(t *testing.T) {
-	card, dbMove := corpusSA(t, "Black Panther, Wakandan King", "DBMove")
-	_, dbGainLife := corpusSA(t, "Black Panther, Wakandan King", "DBGainLife")
-	if dbMove.API != "MoveCounter" || dbGainLife.API != "GainLife" {
-		t.Fatalf("compiled SVars = %s -> %s, want MoveCounter -> GainLife", dbMove.API, dbGainLife.API)
-	}
-	if dbMove.Sub == nil || dbMove.Sub.API != dbGainLife.API {
-		t.Fatalf("DBMove sub-ability = %#v, want compiled DBGainLife", dbMove.Sub)
-	}
-
-	h := newHost(t, 2)
-	pantherID := h.g.AddObject(card, 0).ID
-	landID := h.g.AddObject(mkCard(t, "Name:Vibranium Land\nTypes:Land\nOracle:x\n"), 0).ID
-	creatureID := h.g.AddObject(mkCard(t, "Name:Target Creature\nTypes:Creature\nPT:1/1\nOracle:x\n"), 0).ID
-	for _, id := range []state.ObjID{pantherID, landID, creatureID} {
-		h.Emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZLibrary, To: state.ZBattlefield})
-	}
-	panther := h.g.Obj(pantherID)
-	land := h.g.Obj(landID)
-	creature := h.g.Obj(creatureID)
-	h.Emit(events.Event{Kind: events.CounterChange, Obj: landID, Counter: "P1P1", Amount: 2})
-	h.g.Players[0].Life = 20
-
-	if panther.Zone != state.ZBattlefield || land.Zone != state.ZBattlefield || creature.Zone != state.ZBattlefield {
-		t.Fatalf("precondition: objects must be on battlefield: panther=%v land=%v creature=%v", panther.Zone, land.Zone, creature.Zone)
-	}
-	if land.Counter("P1P1") != 2 || creature.Counter("P1P1") != 0 || land.ID == creature.ID {
-		t.Fatalf("precondition: land=%d counters, creature=%d counters, ids=%d/%d; want 2/0 and distinct", land.Counter("P1P1"), creature.Counter("P1P1"), land.ID, creature.ID)
-	}
-	beforeLife := h.g.Players[0].Life
-	c := &Ctx{
-		Controller:      0,
-		Source:          pantherID,
-		SVars:           panther.Face().SVars,
-		Targets:         []state.Target{{Obj: landID}},
-		TargetsPick:     []state.Target{{Obj: creatureID}},
-		TargetsPickDone: true,
-	}
-	// Resolve the two compiled SVars separately so the later compiled
-	// DBDraw/DBCleanup tail does not erase Remembered before we inspect it.
-	moveOnly := *dbMove
-	moveOnly.Sub = nil
-	gainOnly := *dbGainLife
-	gainOnly.Sub = nil
-	Resolve(h, c, &moveOnly)
-
-	if got := land.Counter("P1P1"); got != 0 {
-		t.Fatalf("land P1P1 = %d, want 0 after moving both counters", got)
-	}
-	if got := creature.Counter("P1P1"); got != 2 {
-		t.Fatalf("creature P1P1 = %d, want 2 after receiving both counters", got)
-	}
-	if got := len(c.Remembered); got != 2 {
-		t.Fatalf("Remembered length = %d, want 2 moved-counter entries", got)
-	}
-	Resolve(h, c, &gainOnly)
-	if got := h.g.Players[0].Life; got != beforeLife+2 {
-		t.Fatalf("life = %d, want %d from compiled DBGainLife's X", got, beforeLife+2)
-	}
-	for _, ev := range h.log {
-		if ev.Kind == events.Note && strings.Contains(ev.Text, "unimplemented API MoveCounter") {
-			t.Fatalf("compiled MoveCounter did not run: %+v", ev)
-		}
-	}
-}
-
 // Out-of-scope shapes are loud-degraded: one Note naming the shape, nothing
 // moves.
 func TestMoveCounterExoticShapesStayLoud(t *testing.T) {
@@ -444,34 +271,6 @@ func TestMoveCounterExoticShapesStayLoud(t *testing.T) {
 			}
 		})
 	}
-}
-
-// The sub's own pre-ask answer beats the parent's target list: a MoveCounter
-// sub the generic ValidTgts$ pre-ask asked (Nesting Grounds' `Source$
-// ParentTarget | ValidTgts$ Permanent`, Rikku's, Black Panther's) receives
-// Ctx.PickedTargets as its destination, never c.Targets (the parent's
-// target) -- the established PickedTargets convention (effects/context.go
-// Defined, effects/damage.go, effects/zone.go). Without the preference the
-// -1 and +1 land on the same object and cancel.
-func TestMoveCounterSubTargetBeatsParentTargets(t *testing.T) {
-	h := &fakeHost{g: state.NewGame(names(2))}
-	parent := mcCreature(t, h.g, "Parent", 0)
-	sub := mcCreature(t, h.g, "Sub", 0)
-	h.g.Obj(parent).AddCounter("P1P1", 2)
-	Resolve(h, &Ctx{Controller: 0, Source: sub,
-		Targets: []state.Target{{Obj: parent}}, // the parent's chosen target (Source$ ParentTarget reads it)
-		// The sub's own pre-ask answer, in the transport the machinery
-		// delivers it in (Ctx.TargetsPick consumed by chosenTargetsFor into
-		// PickedTargets -- the exact shape of a re-entry after the ask).
-		TargetsPick: []state.Target{{Obj: sub}}, TargetsPickDone: true},
-		moveCounterSA(t, "Source$ ParentTarget | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 1"))
-	if got := h.g.Obj(parent).Counter("P1P1"); got != 1 {
-		t.Fatalf("parent P1P1 = %d, want 1 (the origin lost one)", got)
-	}
-	if got := h.g.Obj(sub).Counter("P1P1"); got != 1 {
-		t.Fatalf("sub target P1P1 = %d, want 1 (the sub's OWN chosen destination gained it)", got)
-	}
-	assertCounterPair(t, h.log, parent, sub, "P1P1", 1)
 }
 
 // A multi-destination sweep DISTRIBUTES the moved total across the

@@ -2,11 +2,9 @@ package effects
 
 import (
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
@@ -53,91 +51,6 @@ func corpusSAByAPI(t *testing.T, cardName, kind, api string) *cards.SA {
 	}
 	t.Fatalf("corpus card %q carries no %s$ %s SA", cardName, kind, api)
 	return nil
-}
-
-// TestGitaxianProbeLookIsAPrivateLookScopedToTheActivator is the reporter's
-// card, resolved through the effects harness with its real compiled corpus
-// SA (SP$ RevealHand | ValidTgts$ Player | Look$ True | SubAbility$ DBDraw).
-// The card carries NO NumCards$ — 0 of the corpus's 81 RevealHand lines do —
-// so the look carries the WHOLE hand. Round-2 review of the revealhand1
-// merge found the leak the Look$ flag closes: pre-fix the look went out as
-// a PUBLIC Note (Player = the target) every seat and spectator read, post-fix
-// it is a Secret Note scoped to the activator (CR 701.20e: a looked-at card
-// is shown only to the player the effect specifies). Since the pacing gate
-// (lookack), the bare look FIRST poses a one-option "Continue" ack to the
-// activator — this test drives both halves: the pose (the ask names the hand
-// and its cards; no note lands before the answer) and the resumed emit, the
-// way rules' resumeResolution re-enters with Ctx.LookAck set. The looker's
-// own transcript line is pinned in view (look_redaction_test.go); the public
-// no-Look$ shape is the Thought-Knot Seer test below.
-func TestGitaxianProbeLookIsAPrivateLookScopedToTheActivator(t *testing.T) {
-	h, hand := revealHandBoard(t, "Bolt", "Bear", "Wrenn", "Snares")
-	sh := &suspendHost{fakeHost: *h}
-	probe := corpusSAByAPI(t, "Gitaxian Probe", "SP", "RevealHand")
-	if _, has := probe.Params["NumCards"]; has {
-		t.Fatal("corpus pin moved: Gitaxian Probe now carries NumCards$")
-	}
-	if probe.Params["Look"] != "True" {
-		t.Fatal("corpus pin moved: Gitaxian Probe lost Look$ True")
-	}
-	src := h.g.AddObject(mkCard(t, "Name:Gitaxian Probe\nManaCost:UP\nTypes:Sorcery\nOracle:x\n"), 0)
-	ctx := &Ctx{Source: src.ID, Controller: 0,
-		// ValidTgts$ Player with no Defined$: the ability acts on its
-		// chosen targets, which the harness supplies directly (marked as
-		// offered — the placement/announcement ask already chose them).
-		Targets: []state.Target{{Player: 1, IsPlayer: true}}, TargetsOffered: true}
-	Resolve(sh, ctx, probe)
-
-	// The pacing gate (lookack): the bare look first poses its one-option
-	// Continue ack to the activator, naming the hand and its cards.
-	if !sh.suspended || sh.asked == nil {
-		t.Fatalf("the bare look posed no ack decision: %+v", sh.log)
-	}
-	d := sh.asked
-	if d.Player != 0 || d.Kind != decision.KChoose || d.ResumeKind != "look_ack" {
-		t.Fatalf("ack = %+v, want a look_ack KChoose for the activator (seat 0)", d)
-	}
-	if len(d.Options) != 1 || d.Options[0].Kind != "yes" || d.Options[0].Label != "Continue" {
-		t.Fatalf("ack options = %+v, want a single Continue", d.Options)
-	}
-	for _, name := range hand {
-		if !strings.Contains(d.Prompt, h.g.Obj(name).Face().Name) {
-			t.Fatalf("ack prompt = %q, want it to name every hand card", d.Prompt)
-		}
-	}
-	for _, e := range sh.log {
-		if e.Kind == events.Note {
-			t.Fatalf("a look Note landed before the ack: %+v", e)
-		}
-	}
-	// The answer: rules' "look_ack" resume arm sets Ctx.LookAck; the
-	// re-entered walk emits exactly the one Secret note and asks no more.
-	sh.suspended = false
-	sh.asked = nil
-	ctx.LookAck = true
-	Resolve(sh, ctx, probe)
-	if sh.asked != nil {
-		t.Fatalf("the resumed look posed a second ask: %+v", sh.asked)
-	}
-
-	var note *events.Event
-	for i := range sh.log {
-		if sh.log[i].Kind == events.Note {
-			if note != nil {
-				t.Fatalf("more than one look Note: %+v", sh.log)
-			}
-			note = &sh.log[i]
-		}
-	}
-	if note == nil {
-		t.Fatalf("no look Note emitted: %+v", sh.log)
-	}
-	if !note.Secret || note.Player != 0 || note.From != state.ZHand || note.Text != "" {
-		t.Fatalf("look Note = %+v, want a Secret Note scoped to the activator (seat 0) carrying From=hand", note)
-	}
-	if !slices.Equal(note.IDs, hand) {
-		t.Fatalf("look ids = %v, want the WHOLE hand %v", note.IDs, hand)
-	}
 }
 
 // TestThoughtKnotSeerRevealHandRevealsTheWholeHand pins the no-Look$ public

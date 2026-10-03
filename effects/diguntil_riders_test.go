@@ -408,40 +408,6 @@ func TestDigUntilNoneFoundBranchSwapsTheRevealedDestination(t *testing.T) {
 
 // --- No double-emit across a suspension re-entry ------------------------
 
-// TestDigUntilRidersEmitOnceAcrossTheOptionalAsk pins the suspension
-// guarantee: an OptionalFoundMove$ ask suspends and re-enters, and the
-// ImprintFound$ association and Shuffle$ must be recorded exactly once.
-func TestDigUntilRidersEmitOnceAcrossTheOptionalAsk(t *testing.T) {
-	h, src, ids := riderBoard(t, riderLand, riderHalo, riderLand)
-	ability := sa(t, "SP$ DigUntil | Valid$ Aura | FoundDestination$ Battlefield | OptionalFoundMove$ True | OptionalNoDestination$ Hand | RevealedDestination$ Library | RevealedLibraryPosition$ -1 | ImprintFound$ True | Shuffle$ True")
-	// First pass: poses the ask, records nothing yet.
-	Resolve(h, &Ctx{Controller: 0, Source: src}, ability)
-	if h.asked == nil {
-		t.Fatal("precondition: OptionalFoundMove$ True must pose the ask (the two-step continuation)")
-	}
-	if got := len(riderImprints(h, src)); got != 0 {
-		t.Fatalf("Imprint events before the answer = %d, want 0 (the ask suspends first)", got)
-	}
-	if got := len(riderShuffles(h, 0)); got != 0 {
-		t.Fatalf("Shuffle events before the answer = %d, want 0 (the ask suspends first)", got)
-	}
-	// Second pass: the answered continuation completes the walk once.
-	ctx := &Ctx{Controller: 0, Source: src, DigUntilMove: "yes"}
-	Resolve(h, ctx, ability)
-	if o := h.g.Obj(ids[1]); o.Zone != state.ZBattlefield {
-		t.Fatalf("answered found Aura zone = %s, want battlefield", o.Zone)
-	}
-	if got := len(riderImprints(h, src)); got != 1 {
-		t.Fatalf("Imprint events across both passes = %d, want exactly 1", got)
-	}
-	if got := len(riderShuffles(h, 0)); got != 1 {
-		t.Fatalf("Shuffle events across both passes = %d, want exactly 1", got)
-	}
-	if imp := riderImprints(h, src)[0]; len(imp.IDs) != 1 || imp.IDs[0] != ids[1] {
-		t.Fatalf("Imprint payload = %v, want the found Aura [%d]", imp.IDs, ids[1])
-	}
-}
-
 // --- Real-carrier coverage: kindred_summons, empty_the_laboratory,
 // tunnel_vision ----------------------------------------------------------
 

@@ -1,11 +1,12 @@
 package effects
 
 import (
+	"testing"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
-	"testing"
 )
 
 // The real corpus's named riders are resolved against the printed grantor,

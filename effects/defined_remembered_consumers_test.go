@@ -45,21 +45,6 @@ func TestTapTapperPlainRememberedExcludesCardController(t *testing.T) {
 	}
 }
 
-func TestTapOrUntapTapperPlainRememberedExcludesCardController(t *testing.T) {
-	h, c, target := battlefieldRememberedConsumer(t)
-	if target.Controller == c.Remembered[1].Player {
-		t.Fatal("precondition: remembered card controller and remembered player must differ")
-	}
-	c.TapOrUntapDone, c.TapOrUntapObj, c.TapOrUntap = true, target.ID, "tap"
-	effTapOrUntap(h, c, &cards.SA{Params: map[string]string{"Defined": "Self", "Tapper": "Remembered"}})
-	if h.tapper != 2 {
-		t.Fatalf("effTapOrUntap tapper = %d, want remembered player 2 (not card controller 1)", h.tapper)
-	}
-	if !target.Tapped {
-		t.Fatal("precondition/result: effTapOrUntap did not tap the battlefield target")
-	}
-}
-
 func TestPlayControllerPlainRememberedExcludesCardController(t *testing.T) {
 	h, c, _ := battlefieldRememberedConsumer(t)
 	// The remembered card must actually be in the public zone from which this

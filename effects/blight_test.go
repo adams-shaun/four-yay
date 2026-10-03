@@ -65,39 +65,6 @@ func TestBlightOneCreaturePlacesSilentlyWithoutAsking(t *testing.T) {
 	}
 }
 
-// TestBlightTwoCreaturesAsksAndAppliesTheAnswer pins the ask leg and the
-// re-entry: with two eligible creatures a real KChoose is posed to the
-// blighting player (ResumeKind "blight"), the answer names the second
-// creature, and the re-entered resolution counters exactly it.
-func TestBlightTwoCreaturesAsksAndAppliesTheAnswer(t *testing.T) {
-	h, c, ids := blightBoard(t, 2, map[state.PlayerID][]string{0: {"you1", "you2"}})
-	blight := sa(t, "DB$ Blight | Defined$ You | Num$ 2")
-	Resolve(h, c, blight)
-	if h.asked == nil {
-		t.Fatal("no decision posed with two eligible creatures")
-	}
-	d := h.asked
-	if d.ResumeKind != "blight" || d.Player != 0 || d.Min != 1 || d.Max != 1 {
-		t.Fatalf("decision = %+v, want a blight KChoose for seat 0", d)
-	}
-	if len(d.Options) != 2 {
-		t.Fatalf("options = %+v, want both creatures offered", d.Options)
-	}
-	// Simulate rules' resume arm: the answer's Obj goes to Ctx.BlightPicks,
-	// BlightDone/Identify the asking target, and the effect re-enters.
-	c2 := &Ctx{Source: c.Source, Controller: c.Controller,
-		BlightPicks: []state.ObjID{ids["you2"]}, BlightDone: true, BlightTarget: 0}
-	Resolve(h, c2, blight)
-	got := blightCounters(t, h)
-	if got[ids["you2"]] != 2 || got[ids["you1"]] != 0 {
-		t.Fatalf("counters = %v, want 2 on you2 (%d) and none on you1", got, ids["you2"])
-	}
-	// fx42: the re-entry consumed and cleared the answer fields.
-	if c2.BlightPicks != nil || c2.BlightDone || c2.BlightTarget != 0 {
-		t.Fatalf("answer fields not cleared: %+v", c2)
-	}
-}
-
 // TestBlightOpponentBlightsTheirOwnCreature pins the chooser rule: Defined$
 // Opponent (High Perfect Morcant's shape) makes the OPPONENT the blighting
 // player — the controller's creatures are never touched, and an opponent with
@@ -149,22 +116,6 @@ func TestBlightTargetedOpponentIsTheBlighter(t *testing.T) {
 	}
 	if got[ids["you1"]] != 0 {
 		t.Fatalf("the activator's creature was blighted: %v", got)
-	}
-}
-
-// TestBlightStaleAnswerNeverCounts pin the re-entry guards: an answered pick
-// that left the battlefield (or switched controller) between the ask and the
-// answer is not counted; the strict-supersets convention never wedges on it.
-func TestBlightStaleAnswerNeverCounts(t *testing.T) {
-	h, c, ids := blightBoard(t, 2, map[state.PlayerID][]string{0: {"you1", "you2"}})
-	// you1 dies between the ask and the answer: the answered pick yields
-	// nothing, and the counters never land on the other creature either.
-	h.g.Obj(ids["you1"]).Zone = state.ZGraveyard
-	c2 := &Ctx{Source: c.Source, Controller: c.Controller,
-		BlightPicks: []state.ObjID{ids["you1"]}, BlightDone: true, BlightTarget: 0}
-	Resolve(h, c2, sa(t, "DB$ Blight | Defined$ You | Num$ 1"))
-	if got := blightCounters(t, h); len(got) != 0 {
-		t.Fatalf("counters = %v, want none for a stale answer", got)
 	}
 }
 

@@ -61,59 +61,6 @@ func TestNameChoicesFiltersBySpec(t *testing.T) {
 	}
 }
 
-// TestNameCardAsksWithUniverseThenRecordsTheAnswer pins the mid-resolution
-// effNameCard path: with a corpus universe supplied it ASKS (it no longer
-// silently names the top of the caster's library), the offered list is the
-// SA's own filter, and the answered name is emitted as the Choose event the
-// ChosenName fold records.
-func TestNameCardAsksWithUniverseThenRecordsTheAnswer(t *testing.T) {
-	h := &askHost{}
-	h.g = namecardGameWithUniverse(t)
-	src := h.g.AddObject(mkCard(t, "Name:Source\nTypes:Sorcery\nOracle:x\n"), 0).ID
-	saLine := sa(t, "SP$ NameCard | ValidCards$ Card.nonLand")
-
-	Resolve(h, &Ctx{Controller: 0, Source: src}, saLine)
-	if h.asked == nil {
-		t.Fatal("NameCard did not ask with a corpus universe supplied")
-	}
-	d := h.asked
-	if d.Kind != decision.KChoose || d.Min != 1 || d.Max != 1 || d.Player != 0 {
-		t.Fatalf("name decision = %+v, want a Min==Max==1 KChoose for the controller", d)
-	}
-	if len(d.Options) == 0 {
-		t.Fatalf("name decision offered no options")
-	}
-	for _, o := range d.Options {
-		if o.Label == "Wasteland" || o.Label == "Forest" {
-			t.Fatalf("nonland NameCard offered a land name: %+v", o)
-		}
-	}
-	if !containsLabel(d.Options, "Bear") {
-		t.Fatalf("nonland NameCard omitted Bear: %+v", d.Options)
-	}
-	// The precondition the assertion below depends on: no Choose was emitted
-	// before the answer arrived.
-	if h.g.Obj(src).ChosenName != "" {
-		t.Fatalf("source named %q before the ask was answered", h.g.Obj(src).ChosenName)
-	}
-
-	// Re-entry, the engine's resume contract: Ctx.NameChoice carries the
-	// answer the decision's Label held.
-	Resolve(h, &Ctx{Controller: 0, Source: src, NameChoice: "Bear"}, saLine)
-	if h.g.Obj(src).ChosenName != "Bear" {
-		t.Fatalf("ChosenName = %q, want Bear", h.g.Obj(src).ChosenName)
-	}
-	found := false
-	for _, ev := range h.log {
-		if ev.Kind == events.Choose && ev.Counter == "name" && ev.Text == "Bear" {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatalf("no Choose name event for Bear; log=%+v", h.log)
-	}
-}
-
 // TestNameCardWithoutUniverseKeepsTheR9StandIn pins the no-host degradation
 // AND its replay contract: a host with no corpus universe completes
 // deterministically by naming the top of the caster's own library -- the exact

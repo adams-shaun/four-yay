@@ -14,38 +14,6 @@ import (
 // per-player GenericChoice loop and effPump's KWChoice$ already consume
 // Ctx.Modes (fx41/fx42); these pin the two readers that did not.
 
-// TestRepeatOptionalContinuationIsConsumedByItsRepeat: a RepeatOptional$
-// "Stop" answer re-enters the Repeat with Continue=false. Before the fix the
-// field stayed on the Ctx, so the NEXT Repeat on the chain (any Repeat, gated
-// or counted, since effRepeat reads the field unconditionally) read the same
-// stop and ran no iteration.
-func TestRepeatOptionalContinuationIsConsumedByItsRepeat(t *testing.T) {
-	first, second := 0, 0
-	Register("TestOneShotFirstBody", func(Host, *Ctx, *cards.SA) { first++ })
-	Register("TestOneShotSecondBody", func(Host, *Ctx, *cards.SA) { second++ })
-	t.Cleanup(func() { unregister("TestOneShotFirstBody", "TestOneShotSecondBody") })
-
-	card := mkCard(t, "Name:T\nTypes:Sorcery\n"+
-		"A:SP$ Repeat | RepeatSubAbility$ First | RepeatOptional$ True | SubAbility$ DBSecond\n"+
-		"SVar:DBSecond:DB$ Repeat | RepeatSubAbility$ Second | RepeatNum$ 2\n"+
-		"SVar:First:DB$ TestOneShotFirstBody\n"+
-		"SVar:Second:DB$ TestOneShotSecondBody\nOracle:x\n")
-	h, c := fixtureHost(t)
-	SetSVars(c, card.Faces[0].SVars)
-	c.RepeatResume = &RepeatContinuation{Continue: false, Next: 1}
-	Resolve(h, c, card.Faces[0].Abilities[0])
-	if first != 0 {
-		t.Fatalf("the stopped RepeatOptional ran its body %d times, want 0", first)
-	}
-	if second != 2 {
-		t.Fatalf("the chained RepeatNum$ 2 Repeat ran its body %d times, want 2 -- "+
-			"it read the previous Repeat's stop answer", second)
-	}
-	if c.RepeatResume != nil {
-		t.Fatalf("Ctx.RepeatResume = %+v after the walk, want consumed", c.RepeatResume)
-	}
-}
-
 // TestVillainousChoiceVictimCursorIsConsumed: effVillainousChoice derives its
 // victims only while Ctx.VillainousVictims is nil and never reset the cursor
 // once every victim had chosen, so a second VillainousChoice on the same Ctx

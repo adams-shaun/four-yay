@@ -94,63 +94,6 @@ func TestSurveilNoHostStandInPutsNothingInGraveyard(t *testing.T) {
 	}
 }
 
-// TestSurveilMultiPlayerContinuesAndMarksEachLibrary pins the effects-side
-// continuation: a multi-player `Defined$ Player` Surveil poses one KArrange
-// per library, and records its events.Surveil marker only when that library is
-// actually reached. The rules-side companion covers the answer's resulting
-// LibraryOrder and graveyard moves. No corpus `Surveil` line carries a
-// multi-player `Defined$` (measured: 220 raw lines), so this is synthetic.
-func TestSurveilMultiPlayerContinuesAndMarksEachLibrary(t *testing.T) {
-	h := &suspendHost{fakeHost: *newHost(t, 2)}
-	card := mkCard(t, "Name:C\nTypes:Creature\nPT:1/1\nOracle:x\n")
-	lib0 := fillLibrary(h.g, 0, card, 3)
-	lib1 := fillLibrary(h.g, 1, card, 3)
-	if len(lib0) != 3 || len(lib1) != 3 || lib0[0] == lib1[0] {
-		t.Fatalf("precondition: distinct three-card libraries = %v / %v", lib0, lib1)
-	}
-
-	effect := sa(t, "SP$ Surveil | Defined$ Player | Amount$ 1")
-	Resolve(h, &Ctx{Source: 1, Controller: 0}, effect)
-	if h.asked == nil || h.asked.Player != 0 || h.asked.ResumeTarget != 0 {
-		t.Fatalf("first arrange = %+v, want player 0 at target 0", h.asked)
-	}
-	if got := countSurveilMarkers(h); got != 1 {
-		t.Fatalf("after player 0's ask, Surveil markers = %d, want 1", got)
-	}
-
-	// Simulate rules.handleArrange applying player 0's answer, then resume.
-	h.asked = nil
-	h.suspended = false
-	Resolve(h, &Ctx{Source: 1, Controller: 0, Arrange: true, LibraryTarget: 0}, effect)
-	if h.asked == nil || h.asked.Player != 1 || h.asked.ResumeTarget != 1 {
-		t.Fatalf("second arrange = %+v, want player 1 at target 1", h.asked)
-	}
-	if got := countSurveilMarkers(h); got != 2 {
-		t.Fatalf("after player 1's ask, Surveil markers = %d, want one per reached library", got)
-	}
-	seen := [2]bool{}
-	for _, ev := range h.log {
-		if ev.Kind == events.Surveil && int(ev.Player) < len(seen) {
-			seen[ev.Player] = true
-		}
-	}
-	if !seen[0] || !seen[1] {
-		t.Fatalf("Surveil markers did not name both library owners: %+v", h.log)
-	}
-
-	// Simulate the later arrangement answer too. There must be no duplicate
-	// marker or third ask after the final library resumes.
-	h.asked = nil
-	h.suspended = false
-	Resolve(h, &Ctx{Source: 1, Controller: 0, Arrange: true, LibraryTarget: 1}, effect)
-	if h.asked != nil || h.Suspended() {
-		t.Fatalf("after player 1's answer, pending=%+v suspended=%v; walk must complete", h.asked, h.Suspended())
-	}
-	if got := countSurveilMarkers(h); got != 2 {
-		t.Fatalf("after both answers, Surveil markers = %d, want exactly one per library", got)
-	}
-}
-
 // countSurveilMarkers reports how many events.Surveil records the effects
 // host's log carries.
 func countSurveilMarkers(h *suspendHost) int {

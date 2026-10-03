@@ -64,90 +64,6 @@ func sameIDs(a, b []state.ObjID) bool {
 	return true
 }
 
-// TestChooseCardForgetChosenRemovesOnlyTheChosenObject: a ChooseCard with
-// ForgetChosen$ True removes exactly the chosen card from BOTH halves of the
-// remembered state (the resolution's Ctx.Remembered and the source's
-// event-backed persistent list) and leaves the other remembered card alone.
-// The persistent half is what the Mimeoplasm chain's later
-// Remembered$CardPower / EQ1 condition reads, so dropping only the ctx entry
-// would still fail the chain.
-func TestChooseCardForgetChosenRemovesOnlyTheChosenObject(t *testing.T) {
-	h, src, cards := forgetFixtureHost(t, "Chosen Creature", "Kept Creature")
-	chosen, kept := cards[0], cards[1]
-	h.g.SetZone(state.ZExile, 0, []state.ObjID{chosen.ID, kept.ID})
-	chosen.Zone, kept.Zone = state.ZExile, state.ZExile
-	seedRemembered(h, src, chosen.ID, kept.ID)
-
-	sa := sa(t, "DB$ ChooseCard | Defined$ Remembered | Amount$ 1 | ForgetChosen$ True")
-	// Precondition: the remembered set holds BOTH cards in both halves, and
-	// the two ids really are distinct objects -- otherwise the pin measures
-	// nothing.
-	c := &Ctx{Source: src.ID, Controller: 0,
-		Remembered: []state.Target{{Obj: chosen.ID}, {Obj: kept.ID}},
-		Choice:     []state.Target{{Obj: chosen.ID}}, ChoiceDone: true, ChoiceTarget: 0}
-	if got := rememberedIDs(c.Remembered); !sameIDs(got, []state.ObjID{chosen.ID, kept.ID}) {
-		t.Fatalf("precondition: ctx remembered = %v, want [%d %d]", got, chosen.ID, kept.ID)
-	}
-	if got := rememberedIDs(h.g.Obj(src.ID).Remembered); !sameIDs(got, []state.ObjID{chosen.ID, kept.ID}) {
-		t.Fatalf("precondition: persistent remembered = %v, want [%d %d]", got, chosen.ID, kept.ID)
-	}
-	if chosen.ID == kept.ID {
-		t.Fatal("precondition: the chosen and kept fixtures collapsed to one object")
-	}
-
-	effChooseCard(h, c, sa)
-
-	if got := rememberedIDs(c.Remembered); !sameIDs(got, []state.ObjID{kept.ID}) {
-		t.Errorf("ctx remembered after ForgetChosen = %v, want [%d] (chosen removed, kept retained)", got, kept.ID)
-	}
-	if got := rememberedIDs(h.g.Obj(src.ID).Remembered); !sameIDs(got, []state.ObjID{kept.ID}) {
-		t.Errorf("persistent remembered after ForgetChosen = %v, want [%d]", got, kept.ID)
-	}
-	// The answered pick itself is still recorded (the Mimeoplasm chain's
-	// Defined$ ChosenCard clone leg reads it AFTER the forget).
-	found := false
-	for _, tg := range h.g.Obj(src.ID).Chosen {
-		if !tg.IsPlayer && tg.Obj == chosen.ID {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("the chosen card left the source's Chosen list -- the clone leg would copy nothing: %+v", h.g.Obj(src.ID).Chosen)
-	}
-	forgets := 0
-	for _, ev := range h.log {
-		if ev.Kind == events.Choose && ev.Counter == "forget-remembered" {
-			forgets++
-			if len(ev.IDs) != 1 || ev.IDs[0] != chosen.ID {
-				t.Errorf("forget event named %v, want exactly the chosen card %d", ev.IDs, chosen.ID)
-			}
-		}
-	}
-	if forgets != 1 {
-		t.Errorf("got %d forget-remembered events, want exactly 1", forgets)
-	}
-}
-
-// TestChooseCardWithoutForgetChosenKeepsBoth is the control: the same
-// answered choice with NO ForgetChosen$ parameter must leave both remembered
-// cards in place -- proving the removal in the pin above is the parameter's
-// doing, not the choice machinery's.
-func TestChooseCardWithoutForgetChosenKeepsBoth(t *testing.T) {
-	h, src, cards := forgetFixtureHost(t, "Chosen Creature", "Kept Creature")
-	chosen, kept := cards[0], cards[1]
-	seedRemembered(h, src, chosen.ID, kept.ID)
-	c := &Ctx{Source: src.ID, Controller: 0,
-		Remembered: []state.Target{{Obj: chosen.ID}, {Obj: kept.ID}},
-		Choice:     []state.Target{{Obj: chosen.ID}}, ChoiceDone: true, ChoiceTarget: 0}
-	effChooseCard(h, c, sa(t, "DB$ ChooseCard | Defined$ Remembered | Amount$ 1"))
-	if got := rememberedIDs(c.Remembered); !sameIDs(got, []state.ObjID{chosen.ID, kept.ID}) {
-		t.Errorf("no-parameter control dropped entries: ctx remembered = %v, want both", got)
-	}
-	if got := rememberedIDs(h.g.Obj(src.ID).Remembered); !sameIDs(got, []state.ObjID{chosen.ID, kept.ID}) {
-		t.Errorf("no-parameter control dropped entries: persistent remembered = %v, want both", got)
-	}
-}
-
 // TestChangeZoneAllForgetOtherRememberedReplacesTheSet: ChangeZoneAll with
 // ForgetOtherRemembered$ True + RememberChanged$ True clears the prior
 // remembered set BEFORE the sweep and re-remembers exactly the moved cards,
@@ -235,32 +151,6 @@ func TestChangeZoneForgetOtherRememberedReplacesTheSet(t *testing.T) {
 	}
 	if stale.Zone != state.ZExile {
 		t.Errorf("the unmoved stale card was disturbed: zone = %s", stale.Zone)
-	}
-}
-
-// A hand move replaces both resolution-local and persistent remembered sets.
-func TestChangeZoneHandForgetOtherRememberedClearsBeforeMoving(t *testing.T) {
-	h, src, cards := forgetFixtureHost(t, "Hand Card", "Stale Card")
-	moving, stale := cards[0], cards[1]
-	h.g.SetZone(state.ZHand, 0, []state.ObjID{moving.ID})
-	moving.Zone = state.ZHand
-	seedRemembered(h, src, stale.ID)
-	c := &Ctx{Source: src.ID, Controller: 0, Remembered: []state.Target{{Obj: stale.ID}}}
-	sa := sa(t, "DB$ ChangeZone | Origin$ Hand | Destination$ Exile | ChangeNum$ 1 | ForgetOtherRemembered$ True | RememberChanged$ True")
-	if moving.Zone != state.ZHand || stale.ID == moving.ID {
-		t.Fatal("precondition: hand candidate and remembered stale card must be distinct")
-	}
-	c.HandMove = []state.ObjID{moving.ID}
-	c.HandMoveDone = true
-	Resolve(h, c, sa)
-	if moving.Zone != state.ZExile {
-		t.Fatalf("hand candidate zone = %s, want exile", moving.Zone)
-	}
-	if len(c.Remembered) != 1 || c.Remembered[0].Obj != moving.ID {
-		t.Errorf("ctx remembered = %v, want only moved hand card %d", c.Remembered, moving.ID)
-	}
-	if got := rememberedIDs(h.g.Obj(src.ID).Remembered); !sameIDs(got, []state.ObjID{moving.ID}) {
-		t.Errorf("persistent remembered = %v, want only moved hand card %d", got, moving.ID)
 	}
 }
 

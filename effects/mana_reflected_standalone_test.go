@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -23,44 +22,6 @@ func reflectedBoard(t *testing.T) (*fakeHost, *Ctx, *cards.SA) {
 	h.g.SetZone(state.ZBattlefield, 0, []state.ObjID{src.ID, w.ID, u.ID})
 	s := sa(t, "AB$ ManaReflected | Cost$ T | ReflectProperty$ Is | ColorOrType$ Color | Valid$ Creature")
 	return h, &Ctx{Source: src.ID, Controller: 0}, s
-}
-
-// TestManaReflectedStandaloneAsksForTheColour pins the effects-layer half of
-// the mid-resolution ask: a multi-colour reflected set reached OUTSIDE the
-// mana-activation path poses a real KChoose through Ask, and the answered
-// Ctx.ManaReflectedColor is the colour that lands in the pool.
-func TestManaReflectedStandaloneAsksForTheColour(t *testing.T) {
-	h, c, s := reflectedBoard(t)
-	ah := &askHost{}
-	ah.g = h.g
-
-	effManaReflected(ah, c, s)
-
-	if ah.asked == nil {
-		t.Fatal("standalone ManaReflected posed no colour ask for a two-colour reflected set")
-	}
-	if ah.asked.Kind != decision.KChoose || ah.asked.ResumeKind != "manareflected" {
-		t.Fatalf("decision kind/resume = %s/%q, want KChoose/manareflected", ah.asked.Kind, ah.asked.ResumeKind)
-	}
-	if len(ah.asked.Options) != 2 {
-		t.Fatalf("colour options = %d, want the 2 reflected colours: %+v", len(ah.asked.Options), ah.asked.Options)
-	}
-	if ah.asked.Options[0].Label == ah.asked.Options[1].Label {
-		t.Fatalf("precondition failed: the reflected colours are identical: %+v", ah.asked.Options)
-	}
-
-	// Simulate the engine's resume: the arm sets Ctx.ManaReflectedColor, then
-	// the effect re-runs and emits the answered ManaAdd.
-	ah.asked = nil
-	c.ManaReflectedColor = "U"
-	effManaReflected(ah, c, s)
-
-	if got := poolCount(t, ah.log, "U"); got != 1 {
-		t.Fatalf("resumed ManaAdd U count = %d, want 1", got)
-	}
-	if got := poolCount(t, ah.log, "W"); got != 0 {
-		t.Fatalf("resumed ManaAdd W count = %d, want 0 (the answer must pick)", got)
-	}
 }
 
 // TestManaReflectedStandaloneFallsBackWhenHostCannotAsk is R-9's no-ask

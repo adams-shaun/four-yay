@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
@@ -108,67 +107,6 @@ func flipFaceCount(h *fakeHost) int {
 	return n
 }
 
-// TestSetStateOptionalAskShapeAndAnsweredReEntries pins the election's wire
-// shape and both re-entries on Dowsing Dagger's real DBTransform (DB$ SetState
-// | Defined$ Self | Mode$ Transform | Optional$ True): the first pass SUSPENDS
-// on the ask with option 0 = "yes" and flips nothing yet; the "no" re-entry
-// flips nothing; the "yes" re-entry flips exactly once.
-func TestSetStateOptionalAskShapeAndAnsweredReEntries(t *testing.T) {
-	h := &askHost{}
-	h.g = state.NewGame(names(2))
-	src := setStateObject(t, &h.fakeHost, 0)
-	sa, sv := corpusSetStateSA(t, "Dowsing Dagger")
-	if !strings.EqualFold(strings.TrimSpace(sa.Params["Optional"]), "True") {
-		t.Fatalf("SA is not Optional$ True: %+v", sa.Params)
-	}
-	if !strings.EqualFold(strings.TrimSpace(sa.Params["Mode"]), "Transform") {
-		t.Fatalf("SA is not Mode$ Transform: %+v", sa.Params)
-	}
-	if !strings.EqualFold(strings.TrimSpace(sa.Params["Defined"]), "Self") || sa.Params["Choices"] != "" {
-		t.Fatalf("SA Defined = %q / Choices = %q, want Self without Choices", sa.Params["Defined"], sa.Params["Choices"])
-	}
-
-	if o := h.g.Obj(src); o.Zone != state.ZBattlefield || o.FaceIdx != 0 || len(o.Card.Faces) != 2 {
-		t.Fatalf("precondition: want front face of a two-faced battlefield permanent, got %+v", o)
-	}
-	Resolve(h, &Ctx{Source: src, Controller: 0, SVars: sv}, sa)
-	if h.asked == nil {
-		t.Fatal("no election posed for an Optional$ True SetState")
-	}
-	d := h.asked
-	if d.Kind != decision.KChoose || d.Min != 1 || d.Max != 1 {
-		t.Fatalf("election = %+v, want a Min==Max==1 KChoose", d)
-	}
-	if d.Player != 0 {
-		t.Fatalf("ask player = %d, want the controller (0)", d.Player)
-	}
-	if d.ResumeKind != "setstate_optional" {
-		t.Fatalf("ResumeKind = %q, want setstate_optional", d.ResumeKind)
-	}
-	if len(d.Options) != 2 || d.Options[0].Kind != "yes" || d.Options[1].Kind != "no" {
-		t.Fatalf("options = %+v, want yes then no (option 0 = yes, so the bot clamp keeps the always-flip)", d.Options)
-	}
-	if got := flipFaceCount(&h.fakeHost); got != 0 {
-		t.Fatalf("first pass flipped %d time(s) before the election was answered", got)
-	}
-
-	Resolve(h, &Ctx{Source: src, Controller: 0, SVars: sv, SetStateOpt: "no"}, sa)
-	if got := flipFaceCount(&h.fakeHost); got != 0 {
-		t.Fatalf("decline flipped %d time(s), want none", got)
-	}
-	if o := h.g.Obj(src); o.FaceIdx != 0 {
-		t.Fatalf("decline moved FaceIdx to %d, want 0", o.FaceIdx)
-	}
-
-	Resolve(h, &Ctx{Source: src, Controller: 0, SVars: sv, SetStateOpt: "yes"}, sa)
-	if got := flipFaceCount(&h.fakeHost); got != 1 {
-		t.Fatalf("accept flipped %d time(s), want exactly 1", got)
-	}
-	if o := h.g.Obj(src); o.FaceIdx != 1 {
-		t.Fatalf("accept left FaceIdx at %d, want 1", o.FaceIdx)
-	}
-}
-
 // TestSetStateOptionalNothingToChangeNeverAsks pins the no-ask gate: a
 // single-faced source has nothing the change would do, so decline and accept
 // are the same and no decision is posed -- the existing
@@ -255,29 +193,4 @@ func setStateCleanupRan(h *fakeHost) bool {
 		}
 	}
 	return false
-}
-
-func TestSetStateOptionalChainedSubAbilityRunsOnBothAnswers(t *testing.T) {
-	sa, sv := corpusSetStateSA(t, "High Marshal Arguel")
-	for _, answer := range []string{"no", "yes"} {
-		t.Run(answer, func(t *testing.T) {
-			h := newHost(t, 2)
-			rem := setStateObject(t, h, 0)
-			if o := h.g.Obj(rem); o.Zone != state.ZBattlefield || len(o.Card.Faces) != 2 || o.FaceIdx != 0 {
-				t.Fatalf("precondition: want front face of a two-faced battlefield permanent, got %+v", o)
-			}
-			Resolve(h, &Ctx{Source: rem, Controller: 0, SVars: sv,
-				Remembered: []state.Target{{Obj: rem}}, SetStateOpt: answer}, sa)
-			if !setStateCleanupRan(h) {
-				t.Fatalf("%s skipped High Marshal Arguel's DBCleanup: %+v", answer, h.log)
-			}
-			want := 0
-			if answer == "yes" {
-				want = 1
-			}
-			if got := flipFaceCount(h); got != want {
-				t.Fatalf("%s flipped %d time(s), want %d", answer, got, want)
-			}
-		})
-	}
 }

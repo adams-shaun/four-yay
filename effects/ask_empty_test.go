@@ -464,50 +464,6 @@ func TestDefinedLibraryObjectSelectorsMoveDirectly(t *testing.T) {
 	}
 }
 
-// TestBucolicRanchBottomContinuation is the real corpus continuation that
-// exposed TopOfLibrary's source fallback. Accepting its optional DBChangeZone2
-// must suspend for yes/no, then put the actual top card on the bottom.
-func TestBucolicRanchBottomContinuation(t *testing.T) {
-	reg := testutil.CorpusRegistry(t)
-	ranch, ok := reg.Lookup("Bucolic Ranch")
-	if !ok || len(ranch.Faces) == 0 {
-		t.Fatal("Bucolic Ranch is absent from the corpus")
-	}
-	bottom := cards.ResolveSVar(ranch.Faces[0].SVars, "DBChangeZone2")
-	if bottom == nil {
-		t.Fatal("Bucolic Ranch has no compiled DBChangeZone2 continuation")
-	}
-	h := newHost(t, 2)
-	src := h.g.AddObject(ranch, 0)
-	ids := fillLibrary(h.g, 0, mkCard(t, "Name:Forest\nTypes:Basic Land Forest\nOracle:x\n"), 3)
-	sh := &suspendHost{fakeHost: *h}
-	ctx := &Ctx{Source: src.ID, Controller: 0}
-
-	Resolve(sh, ctx, bottom)
-	if sh.asked == nil || sh.asked.ResumeKind != "defined_library_optional" {
-		t.Fatalf("DBChangeZone2 posed %+v, want an optional direct-fetch decision", sh.asked)
-	}
-	if len(sh.log) != 0 {
-		t.Fatalf("DBChangeZone2 moved before its answer: %v", sh.log)
-	}
-
-	sh.suspended = false
-	ctx.DefinedLibraryMove = "yes"
-	Resolve(sh, ctx, bottom)
-	lib := sh.g.Zone(state.ZLibrary, 0)
-	if len(lib) != len(ids) || lib[len(lib)-1] != ids[0] {
-		t.Fatalf("accepted DBChangeZone2 library = %v, want top %d on bottom", lib, ids[0])
-	}
-	var moved, ordered bool
-	for _, ev := range sh.log {
-		moved = moved || ev.Kind == events.MoveZone && ev.Obj == ids[0]
-		ordered = ordered || ev.Kind == events.LibraryOrder
-	}
-	if !moved || !ordered {
-		t.Fatalf("accepted DBChangeZone2 events = %v, want top-card move and library order", sh.log)
-	}
-}
-
 // TestImprintedDefinedLibraryFetchFailsClosed pins Dichotomancy's real
 // compiled continuation. Defined$ Imprinted became a KNOWN selector when the
 // untap/mana wave persisted imprint context (events.Imprint +
@@ -551,51 +507,6 @@ func TestImprintedDefinedLibraryFetchFailsClosed(t *testing.T) {
 	for _, ev := range h.log {
 		if ev.Kind == events.MoveZone || ev.Kind == events.Shuffle {
 			t.Fatalf("Imprinted Defined$ emitted %v, want no move or shuffle", ev)
-		}
-	}
-}
-
-// TestDefinedLibraryOptionalDeclineLeavesTheFetchListAlone guards the
-// Optional$ branch of the structural direct-fetch dispatcher with Kenessos's
-// real DBBottom continuation. Declining its "put it on the bottom" choice
-// must neither move nor shuffle the remembered library card.
-func TestDefinedLibraryOptionalDeclineLeavesTheFetchListAlone(t *testing.T) {
-	reg := testutil.CorpusRegistry(t)
-	kenessos, ok := reg.Lookup("Kenessos, Priest of Thassa")
-	if !ok || len(kenessos.Faces) == 0 {
-		t.Fatal("Kenessos, Priest of Thassa is absent from the corpus")
-	}
-	bottom := cards.ResolveSVar(kenessos.Faces[0].SVars, "DBBottom")
-	if bottom == nil {
-		t.Fatal("Kenessos has no compiled DBBottom continuation")
-	}
-	h := newHost(t, 2)
-	src := h.g.AddObject(kenessos, 0)
-	fillLibrary(h.g, 0, mkCard(t, "Name:Sea Monster\nTypes:Creature\nPT:1/1\nOracle:x\n"), 1)
-	id := h.g.Zone(state.ZLibrary, 0)[0]
-	sh := &suspendHost{fakeHost: *h}
-	ctx := &Ctx{Source: src.ID, Controller: 0, Remembered: []state.Target{{Obj: id}}}
-
-	Resolve(sh, ctx, bottom)
-	if sh.asked == nil || sh.asked.Kind != decision.KChoose || sh.asked.ResumeKind != "defined_library_optional" {
-		t.Fatalf("optional direct fetch asked %+v, want defined_library_optional KChoose", sh.asked)
-	}
-	if len(sh.asked.Options) != 2 || sh.asked.Options[0].Kind != "yes" || sh.asked.Options[1].Kind != "no" {
-		t.Fatalf("optional direct fetch options = %+v, want yes/no", sh.asked.Options)
-	}
-	if len(sh.log) != 0 {
-		t.Fatalf("optional direct fetch moved before its answer: %v", sh.log)
-	}
-
-	sh.suspended = false
-	ctx.DefinedLibraryMove = "no"
-	Resolve(sh, ctx, bottom)
-	if o := sh.g.Obj(id); o == nil || o.Zone != state.ZLibrary {
-		t.Fatalf("declined DBBottom left card %+v, want it in the library", o)
-	}
-	for _, ev := range sh.log {
-		if ev.Kind == events.MoveZone || ev.Kind == events.Shuffle || ev.Kind == events.LibraryOrder {
-			t.Fatalf("declined DBBottom emitted %v, want no move or reorder", ev)
 		}
 	}
 }

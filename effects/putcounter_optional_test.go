@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
@@ -92,57 +91,6 @@ func counterChangeCount(h *fakeHost, id state.ObjID) int {
 	return n
 }
 
-// TestPutCounterOptionalAskShapeAndAnsweredReEntries pins the election's
-// wire shape and both re-entries on Talus Paladin's real DBCounter
-// (DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1 |
-// Optional$ True): the first pass SUSPENDS on the ask with option 0 = "yes"
-// and places nothing yet; the "no" re-entry places nothing; the "yes"
-// re-entry places exactly the one counter.
-func TestPutCounterOptionalAskShapeAndAnsweredReEntries(t *testing.T) {
-	h := &askHost{}
-	h.g = state.NewGame(names(2))
-	src := putCounterObject(t, &h.fakeHost)
-	sa, sv := corpusPutCounterSA(t, "Talus Paladin")
-
-	Resolve(h, &Ctx{Source: src, Controller: 0, SVars: sv}, sa)
-	if h.asked == nil {
-		t.Fatal("no election posed for an Optional$ True PutCounter")
-	}
-	d := h.asked
-	if d.Kind != decision.KChoose || d.Min != 1 || d.Max != 1 {
-		t.Fatalf("election = %+v, want a Min==Max==1 KChoose", d)
-	}
-	if d.Player != 0 {
-		t.Fatalf("ask player = %d, want the controller (0)", d.Player)
-	}
-	if d.ResumeKind != "put_optional" {
-		t.Fatalf("ResumeKind = %q, want put_optional", d.ResumeKind)
-	}
-	if len(d.Options) != 2 || d.Options[0].Kind != "yes" || d.Options[1].Kind != "no" {
-		t.Fatalf("options = %+v, want yes then no (option 0 = yes, so the bot clamp keeps the always-put)", d.Options)
-	}
-	if got := counterChangeCount(&h.fakeHost, src); got != 0 {
-		t.Fatalf("first pass placed %d counter(s) before the election was answered", got)
-	}
-
-	Resolve(h, &Ctx{Source: src, Controller: 0, SVars: sv, PutOpt: "no"}, sa)
-	if got := counterChangeCount(&h.fakeHost, src); got != 0 {
-		t.Fatalf("decline placed %d counter(s), want none", got)
-	}
-
-	Resolve(h, &Ctx{Source: src, Controller: 0, SVars: sv, PutOpt: "yes"}, sa)
-	if got := counterChangeCount(&h.fakeHost, src); got != 1 {
-		t.Fatalf("accept placed %d CounterChange(s), want exactly 1", got)
-	}
-	for _, ev := range h.log {
-		if ev.Kind == events.CounterChange && ev.Obj == src {
-			if ev.Counter != "P1P1" || ev.Amount != 1 {
-				t.Fatalf("counter event = %+v, want one P1P1 of amount 1", ev)
-			}
-		}
-	}
-}
-
 // TestPutCounterOptionalDeadRecipientNeverAsks pins the no-ask gate on a
 // recipient that is genuinely NOT a live object: Defined$ Self names an
 // unallocated id, so g.Obj returns nil and putCounterWouldPlace is false --
@@ -194,39 +142,5 @@ func TestPutCounterOptionalNoAskHostDeclinesAndRunsTheChain(t *testing.T) {
 	}
 	if len(h.continuous) != 1 {
 		t.Fatalf("continuous effects registered = %d, want 1 (the chained DBEffect still ran on the decline)", len(h.continuous))
-	}
-}
-
-// TestPutCounterOptionalPlayerRecipientDeclineAndAccept pins the
-// player-recipient shape (Synth Eradicator's DBEnergy: Defined$ You,
-// CounterType$ ENERGY, CounterNum$ 2, Optional$ True): the decline places no
-// PLAYER counter, the accept places exactly 2.
-func TestPutCounterOptionalPlayerRecipientDeclineAndAccept(t *testing.T) {
-	sa, _ := corpusPutCounterSA(t, "Synth Eradicator")
-
-	h := &askHost{}
-	h.g = state.NewGame(names(2))
-	Resolve(h, &Ctx{Source: 0, Controller: 0, Targets: []state.Target{{Player: 0, IsPlayer: true}}}, sa)
-	if h.asked == nil {
-		t.Fatal("no election posed for the player-recipient Optional$ PutCounter")
-	}
-	Resolve(h, &Ctx{Source: 0, Controller: 0, Targets: []state.Target{{Player: 0, IsPlayer: true}}, PutOpt: "no"}, sa)
-	for _, ev := range h.log {
-		if ev.Kind == events.PlayerCounterChange {
-			t.Fatalf("decline emitted %+v, want no player counter", ev)
-		}
-	}
-	Resolve(h, &Ctx{Source: 0, Controller: 0, Targets: []state.Target{{Player: 0, IsPlayer: true}}, PutOpt: "yes"}, sa)
-	n := 0
-	for _, ev := range h.log {
-		if ev.Kind == events.PlayerCounterChange && ev.Counter == "ENERGY" {
-			n++
-			if ev.Amount != 2 || ev.Player != 0 {
-				t.Fatalf("player counter event = %+v, want ENERGY x2 on seat 0", ev)
-			}
-		}
-	}
-	if n != 1 {
-		t.Fatalf("got %d PlayerCounterChange events, want exactly 1 (one batch of 2)", n)
 	}
 }

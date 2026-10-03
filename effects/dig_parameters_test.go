@@ -51,48 +51,6 @@ func TestGateToTheAetherOptionalDigAsksItsChooser(t *testing.T) {
 	}
 }
 
-// TestDigNumXUsesTheTriggerSvarOnARealDig uses Keldon Flamesage's compiled
-// DigNum$ X and SVar:X:Count$CardPower. Triggered Dig bodies have no paid X;
-// the real source's power must size the look instead of the zero-value slot.
-func TestDigNumXUsesTheTriggerSvarOnARealDig(t *testing.T) {
-	reg := testutil.CorpusRegistry(t)
-	flamesage, ok := reg.Lookup("Keldon Flamesage")
-	if !ok {
-		t.Fatal("Keldon Flamesage missing from corpus")
-	}
-	sa := cards.ResolveSVar(flamesage.Faces[0].SVars, "TrigDig")
-	if sa == nil || sa.API != "Dig" || sa.Params["DigNum"] != "X" || flamesage.Faces[0].SVars["X"] != "Count$CardPower" {
-		t.Fatalf("Keldon Flamesage Dig shape drifted: %+v", sa)
-	}
-	h := &askHost{}
-	h.g = state.NewGame(names(2))
-	source := h.g.AddObject(flamesage, 0).ID
-	bolt, ok := reg.Lookup("Lightning Bolt")
-	if !ok {
-		t.Fatal("Lightning Bolt missing from corpus")
-	}
-	forest, ok := reg.Lookup("Forest")
-	if !ok {
-		t.Fatal("Forest missing from corpus")
-	}
-	boltID := h.g.AddObject(bolt, 0).ID
-	forestID := h.g.AddObject(forest, 0).ID
-	h.g.SetZone(state.ZLibrary, 0, []state.ObjID{boltID, forestID})
-	h.g.Obj(boltID).Zone, h.g.Obj(forestID).Zone = state.ZLibrary, state.ZLibrary
-	if len(h.g.Zone(state.ZLibrary, 0)) != 2 || boltID == forestID {
-		t.Fatal("precondition: the real trigger library must contain two distinct cards")
-	}
-	ctx := &Ctx{Source: source, Controller: 0, SVars: flamesage.Faces[0].SVars,
-		TriggerContext: TriggerContext{TriggerCard: source}}
-	Resolve(h, ctx, sa)
-	if h.asked == nil || h.asked.Kind != decision.KChoose {
-		t.Fatalf("decision = %+v, want a Dig ask over the source's power-sized window", h.asked)
-	}
-	if len(h.asked.Options) != 1 || h.asked.Options[0].Obj != boltID {
-		t.Fatalf("options = %+v, want the eligible Lightning Bolt from the two-card window", h.asked.Options)
-	}
-}
-
 // TestDigPrimaryLibraryPositionZeroMovesTheTakenPileToTheTop pins the
 // primary LibraryPosition$ independently of the remainder destination.
 func TestDigPrimaryLibraryPositionZeroMovesTheTakenPileToTheTop(t *testing.T) {

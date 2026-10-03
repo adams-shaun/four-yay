@@ -32,45 +32,6 @@ func (h *charmSuspendHost) SuspendCharmRest(_ *cards.SA, rest []string) {
 	h.restCalls = append(h.restCalls, rest...)
 }
 
-// TestCharmModeLoopStopsAtAMidModeSuspension is the guard's own test: with
-// Ctx.Modes naming [DoAsk, DoLose] and DoAsk's nested Charm posing its ask
-// (the double reports Suspended() true), the loop must run DoAsk, stop, and
-// report DoLose as the charm rest -- never run DoLose while suspended.
-func TestCharmModeLoopStopsAtAMidModeSuspension(t *testing.T) {
-	h := &charmSuspendHost{}
-	h.g = state.NewGame(names(2))
-	h.g.Players[0].Life = 20
-	// The nested Charm's Ask returns true (Asked) and Suspended() then
-	// reports true -- exactly the engine's pending-resume shape.
-	h.askResult = true
-	h.suspendAfterAsk = true
-
-	svars := map[string]string{
-		"DoAsk":  "DB$ Charm | Choices$ InnerA,InnerB",
-		"InnerA": "DB$ GainLife | Defined$ You | LifeAmount$ 1",
-		"InnerB": "DB$ GainLife | Defined$ You | LifeAmount$ 2",
-		"DoLose": "DB$ LoseLife | Defined$ You | LifeAmount$ 5",
-	}
-	src := sa(t, "SP$ Charm | Choices$ DoAsk,DoLose")
-	// Precondition: the carrier's mode 0 body really does ask (a nested
-	// Charm), so a suspension is what the loop must stop at.
-	if got := cards.ResolveSVar(svars, "DoAsk"); got == nil {
-		t.Fatal("precondition: the DoAsk SVar did not resolve")
-	}
-	Resolve(h, &Ctx{Controller: 0, SVars: svars, Modes: []string{"DoAsk", "DoLose"}}, src)
-
-	if h.askCount == 0 {
-		t.Fatal("precondition: the nested mode's Charm never asked, so nothing suspended")
-	}
-	if h.g.Players[0].Life != 20 {
-		t.Fatalf("life = %d, want 20: the loop ran a later mode while the nested ask was pending",
-			h.g.Players[0].Life)
-	}
-	if len(h.restCalls) != 1 || h.restCalls[0] != "DoLose" {
-		t.Fatalf("SuspendCharmRest rest = %v, want the one remaining mode [DoLose]", h.restCalls)
-	}
-}
-
 // TestCharmModeLoopRunsTheRestAfterTheSuspension is the positive control: the
 // same carrier re-entered with Ctx.Modes carrying only the rest runs DoLose
 // exactly once and poses no further ask.

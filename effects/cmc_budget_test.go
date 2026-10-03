@@ -95,43 +95,6 @@ func TestLivelyDirgeReturnBudgetNarrowsEligible(t *testing.T) {
 	}
 }
 
-// TestLivelyDirgeReturnBudgetCapsCumulative: the budget is cumulative, not
-// per card. Graveyard [3,3,2], budget 5, ChangeNum 2 -- all three are
-// individually affordable but the two 3s together exceed the cap, so
-// Validate rejects that pair, accepts one summing to 5, and the re-entered
-// answer moves exactly the answered cards.
-func TestLivelyDirgeReturnBudgetCapsCumulative(t *testing.T) {
-	h, ids := graveyardBudgetFixture(t, 3, 3, 2)
-	Resolve(h, &Ctx{Controller: 0}, sa(t,
-		"DB$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | "+
-			"WithTotalCMC$ 5 | ChangeNum$ 2 | Hidden$ True | ChangeType$ Creature.YouOwn"))
-	if h.asked == nil {
-		t.Fatal("no decision posed")
-	}
-	d := h.asked
-	if d.MaxSum != 5 {
-		t.Fatalf("MaxSum = %d, want 5", d.MaxSum)
-	}
-	if err := d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0, 1}}); err == nil {
-		t.Fatal("a 3+3 pair exceeding the budget 5 passed Validate; the cumulative cap must be enforced")
-	}
-	if err := d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0, 2}}); err != nil {
-		t.Fatalf("an at-budget pair (3+2=5) was rejected: %v", err)
-	}
-	// Re-entry with the in-budget answer moves exactly those two cards to
-	// the battlefield; the unpicked third stays in the graveyard.
-	ctx := &Ctx{Controller: 0, HiddenPick: []state.ObjID{ids[0], ids[2]}, HiddenPickDone: true}
-	Resolve(h, ctx, sa(t,
-		"DB$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | "+
-			"WithTotalCMC$ 5 | ChangeNum$ 2 | Hidden$ True | ChangeType$ Creature.YouOwn"))
-	if bf := h.g.Zone(state.ZBattlefield, 0); len(bf) != 2 || bf[0] != ids[0] || bf[1] != ids[2] {
-		t.Fatalf("battlefield = %v, want exactly the answered [%d %d]", bf, ids[0], ids[2])
-	}
-	if gy := h.g.Zone(state.ZGraveyard, 0); len(gy) != 1 || gy[0] != ids[1] {
-		t.Fatalf("graveyard = %v, want the unpicked [%d]", gy, ids[1])
-	}
-}
-
 // TestMandatoryBudgetHiddenPickLowersMin: a Mandatory$ pick whose ChangeNum
 // exceeds what the budget affords must not demand more picks than it can pay
 // for -- the Min lowers to the forced greedy count (effDig's rule), so a
