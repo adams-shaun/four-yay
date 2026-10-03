@@ -1845,6 +1845,12 @@ func (e *Engine) askTriggerModes(p state.PlayerID, obj state.ObjID, sa *cards.SA
 		if defined != "" && defined != "You" {
 			return false
 		}
+		// param:api:GenericChoice.AtRandom: the engine picks at resolution
+		// (effects.GenericChoiceAtRandom), never at placement, so the rng
+		// draw stays in the replay-exact resolution path.
+		if effects.GenericChoiceAtRandom(sa) {
+			return false
+		}
 	}
 	var source state.ObjID
 	var svars map[string]string

@@ -528,6 +528,17 @@ func effChooseType(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "ChooseType Type$ " + cat + " is not a category this engine can ask; the choice falls back to creature types"})
 	}
+	if ChooseTypeAtRandom(sa) && len(labels) > 0 {
+		// AtRandom$ True (Camato Scout, Lydari Druid, Aswan Jaguar): the
+		// engine draws the type from its seeded rng over the category's own
+		// list; no player is asked. An empty list keeps the fallback below.
+		pick := labels[0]
+		if len(labels) > 1 {
+			pick = labels[h.Rand(len(labels))]
+		}
+		h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: pick})
+		return
+	}
 	d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,
 		ResumeKind: "choosetype", ResumeSA: sa, Prompt: chooseTypePrompt(cat), Source: c.Source}
 	for _, label := range labels {
