@@ -21,6 +21,11 @@ func tapeWindowFlow(e *Engine, flow chooseFor) bool {
 	switch flow {
 	case chooseTriggeredCost, chooseTriggeredMandatory, chooseCumulative, chooseEcho:
 		return true
+	case chooseMana, chooseManaColor:
+		// A mana activation's ability wheel and colour choice inside a tape
+		// run: posed from a window the kernel drives (or a resolution's own
+		// mana activation); the turn.go arm's continuation runs in line.
+		return e.tape.InRun()
 	case chooseUnlessCost, chooseUnlessMana:
 		// Only the tape-driven unless payment (tapeUnlessComponents); the
 		// legacy one parks its frame.
@@ -39,7 +44,7 @@ func (e *Engine) windowAsk(d *decision.Decision, flow chooseFor) {
 		e.tapeWindowAsking = false
 		if ok {
 			e.windowAnswer(flow, d.Chosen(in))
-			if flow != chooseUnlessCost && flow != chooseUnlessMana && !e.Suspended() {
+			if tapeWindowCompletes(flow) && !e.Suspended() {
 				// The handler's continuation completed the resolution and
 				// logged its priority grant (finishResumption's tail or the
 				// resumed body's): handlePriority must not log a second.
@@ -67,7 +72,37 @@ func (e *Engine) windowAnswer(flow chooseFor, chosen []decision.Option) {
 		e.answerUnlessPayment(chosen)
 	case chooseUnlessMana:
 		e.answerUnlessMana(chosen)
+	case chooseMana:
+		cast := e.answerManaActivation(chosen)
+		if e.pending == nil && !e.manaCostChoicePending() {
+			if e.wardMana != nil {
+				e.continueWardMana()
+			} else if cast {
+				e.continueCast()
+			}
+		}
+	case chooseManaColor:
+		cast := e.answerManaColor(chosen)
+		if e.pending == nil && e.choosing != chooseManaColor {
+			if e.wardMana != nil {
+				e.continueWardMana()
+			} else if cast {
+				e.continueCast()
+			}
+		}
 	default:
 		panic("rules: windowAnswer for a non-window flow")
 	}
+}
+
+// tapeWindowCompletes reports whether flow's answer continuation is the one
+// that completes the resolution (the trigger-cost, cumulative upkeep and
+// echo windows end in finishResumption or the resumed body): only then does
+// a settled window owe handlePriority its tapeGranted.
+func tapeWindowCompletes(flow chooseFor) bool {
+	switch flow {
+	case chooseTriggeredCost, chooseTriggeredMandatory, chooseCumulative, chooseEcho:
+		return true
+	}
+	return false
 }

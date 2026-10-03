@@ -271,3 +271,22 @@ func TestTapeETBThenEntryReplacementGoesLegacy(t *testing.T) {
 		"K:ETBReplacement:Other:DBChoose\nSVar:DBChoose:DB$ ChooseCard | Defined$ You | Choices$ Land.YouCtrl | ChoiceZone$ Battlefield | Mandatory$ True\nOracle:x\n"
 	tapeDual(t, 2, 13750, tapeUnlessScenario("Tape Replicator", "B", 2, tapePick), src)
 }
+
+// A window's mana activation of a multi-ability source poses the ability
+// wheel, and an Any source its colour choice: both served from the tape.
+func TestTapeConvertWindowManaChoices(t *testing.T) {
+	const dual = "Name:Tape Dual\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ R | SpellDescription$ r\nA:AB$ Mana | Cost$ T | Produced$ G | SpellDescription$ g\nOracle:x\n"
+	const prism = "Name:Tape Prism\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Any | SpellDescription$ any\nOracle:x\n"
+	for i, land := range []string{"Tape Dual", "Tape Prism"} {
+		t.Run(land, func(t *testing.T) {
+			src := tapeWindowETB("Tape Fee Bear", "1", "GainLife | LifeAmount$ 3 | Defined$ You")
+			_, st := tapeDual(t, 2, 13800+uint64(i), func(t *testing.T, e *Engine) {
+				moveByName(t, e, 0, land, state.ZBattlefield)
+				tapeUnlessScenario("Tape Fee Bear", "B", 0, tapeWindowPick(true))(t, e)
+			}, src, dual, prism)
+			if st.Served < 3 || st.LegacySwitch != 0 || st.Aborts != 0 {
+				t.Fatalf("the window's mana choice was not served from the tape: %+v", st)
+			}
+		})
+	}
+}
