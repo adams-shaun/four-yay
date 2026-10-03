@@ -182,10 +182,7 @@ func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
 							tbms = append(tbms, sub)
 						}
 					}
-					choices := strings.Split(so.Ability.ParamStr(cards.PKChoices), ",")
-					for i := range choices {
-						choices[i] = strings.TrimSpace(choices[i])
-					}
+					choices := effects.CharmOf(so.Ability).Modes
 					status, why := effects.CharmCrossModeShape(svars, choices)
 					if status == effects.CharmUniqueSupported && len(tbms) >= 2 {
 						e.drainAwaitsTarget = true

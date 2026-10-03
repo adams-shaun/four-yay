@@ -40,10 +40,7 @@ func (e *Engine) charmModeTarget(obj state.ObjID, sa *cards.SA) []state.Target {
 		return nil
 	}
 	svars := src.Face().SVars
-	choices := strings.Split(o.Ability.ParamStr(cards.PKChoices), ",")
-	for i := range choices {
-		choices[i] = strings.TrimSpace(choices[i])
-	}
+	choices := effects.CharmOf(o.Ability).Modes
 	if status, _ := effects.CharmCrossModeShape(svars, choices); status != effects.CharmUniqueSupported {
 		return nil
 	}
@@ -304,11 +301,7 @@ func chosenModeLabels(chosen []decision.Option) []string {
 // same mode index more than once and max is NOT clamped to the distinct-mode
 // count.
 func modeDecision(p state.PlayerID, source state.ObjID, sa *cards.SA, svars map[string]string, min, max int, repeat bool) *decision.Decision {
-	choices := strings.Split(sa.ParamStr(cards.PKChoices), ",")
-	for i := range choices {
-		choices[i] = strings.TrimSpace(choices[i])
-	}
-	return modeDecisionForChoices(p, source, sa, svars, choices, min, max, repeat)
+	return modeDecisionForChoices(p, source, sa, svars, effects.CharmOf(sa).Modes, min, max, repeat)
 }
 
 // modeDecisionForChoices is modeDecision over an explicit eligible subset.
@@ -356,10 +349,7 @@ func modeChoiceNames(sa *cards.SA, chosen []decision.Option, eligible []string) 
 	}
 	choices := eligible
 	if choices == nil {
-		choices = strings.Split(sa.ParamStr(cards.PKChoices), ",")
-		for i := range choices {
-			choices[i] = strings.TrimSpace(choices[i])
-		}
+		choices = effects.CharmOf(sa).Modes
 	}
 	names := make([]string, 0, len(chosen))
 	for _, o := range chosen {

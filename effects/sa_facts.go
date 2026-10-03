@@ -48,6 +48,13 @@ type SAFacts struct {
 	// function of the text, filled on first use with an atomic store
 	// (0 unknown, 1 ask-free, 2 may ask).
 	MayAsk uint32
+
+	// W4 step 3, the Charm/Pump/Draw compilers (charm_params.go,
+	// pump_params.go, draw_params.go): each is non-nil exactly when the
+	// ability's API is one its compiler serves.
+	Charm *CharmParams
+	Pump  *PumpParams
+	Draw  *DrawParams
 }
 
 // NewSAFacts compiles sa's typed halves into a fresh record naming sa. The
@@ -61,6 +68,7 @@ func NewSAFacts(sa *cards.SA) *SAFacts {
 	} else if isAttachSA(sa) {
 		f.Attach = compileAttach(sa)
 	}
+	compileTypedHalves(f, sa)
 	return f
 }
 
