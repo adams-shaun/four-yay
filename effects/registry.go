@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -238,11 +237,9 @@ type RepeatEachOptionalContinuation struct {
 
 type Ctx struct {
 	TriggerContext
-	// ClashContinuation resumes CR 701.31's saved reveal/winner snapshot after an owner answers.
-	ClashContinuation *decision.ClashResume
-	ClashTop          bool
-	Source            state.ObjID
-	Controller        state.PlayerID
+
+	Source     state.ObjID
+	Controller state.PlayerID
 	// Grantor is the object that GRANTED the resolving activated ability to
 	// Source (state.Object.GrantedBy): Forge's OriginalHost. Zero when the
 	// ability is Source's own, in which case OriginalHost is Source.
@@ -267,9 +264,7 @@ type Ctx struct {
 	PromisedGiftOverride *bool
 	// NameChoice carries a mid-resolution NameCard answer across re-entry.
 	NameChoice string
-	// ChangeZoneAlternative carries the owner's answered top/bottom choice
-	// across a suspended ChangeZone resolution. It is consumed by effChangeZone.
-	ChangeZoneAlternative string
+
 	// ChosenDirection carries a mid-resolution ChooseDirection answer across
 	// re-entry: the "left"/"right" pick (Aminatou's [-6], Order of
 	// Succession). It is resolution-scratch like NameChoice -- never
@@ -390,17 +385,7 @@ type Ctx struct {
 	ForgetOtherOwners   []state.PlayerID
 	ForgetOtherReady    bool
 	ForgetOtherCleared  bool
-	// RepeatResume is set only when a suspended api:Repeat loop is being
-	// resumed (a RepeatOptional$ election answer, or the loop frame of a
-	// Repeat whose body asked). A nil value means this is the first pass
-	// through the Repeat.
-	RepeatResume *RepeatContinuation
-	// RepeatEachOptional is set only when a RepeatEach
-	// RepeatOptionalForEachPlayer$ election is being resumed. A nil value
-	// means no per-subject election answer is in flight. It is distinct from
-	// RepeatOptional: that is the Repeat do/while's own open-ended election,
-	// this is one subject's yes/no offer inside a RepeatEach loop.
-	RepeatEachOptional *RepeatEachOptionalContinuation
+
 	// TargetsOffered marks that the resolution's OWN ValidTgts$ targeting was
 	// already offered at announcement (rules' resolveTop sets it on both the
 	// ability and the spell branch, exactly for the SA the placement ask
@@ -694,68 +679,7 @@ type Ctx struct {
 	// has already been emitted by rules' resume arm — payment events belong
 	// to rules, never to the effects layer.
 	UnlessPay string
-	// Discard is the answered mid-resolution discard choice on a re-entered
-	// resolution: the object(s) chosen to be discarded. rules'
-	// resumeResolution sets it from the recorded answer before re-running the
-	// suspended sub-ability, so the asking primitive's re-entry discards
-	// exactly the chosen cards instead of asking again. Its readers are
-	// effDiscard (the "Mode$ RevealYouChoose"/TgtChoose asks) and effRecruit
-	// (api:Recruit's one-card discard); each captures and clears it at the top
-	// of its walk so a nested discard poses its own ask (fx42 scoping). Nil on
-	// the first pass and on any non-discard resume. The ask itself carries the
-	// chooser and the discarder as Option/Ctx roles, which is why a plain
-	// ObjID is not enough state to rebuild: the player roles are re-derived
-	// from Ctx on re-entry.
-	Discard []state.ObjID
-	// DiscardTarget is the per-target cursor for a mid-resolution discard
-	// whose asking walk covers several acting players: the index (into the
-	// effect's deterministic acting-player list) of the player whose answer
-	// Discard carries. The answer applies to that target alone and every
-	// LATER target poses its own ask, so a multi-target discard no longer
-	// applies target 0's choice to every other target (which left targets 2..n
-	// unasked). It is the RevealPickTarget cursor's discipline applied to
-	// discards, consumed and cleared with Discard at the top of effDiscard's
-	// walk (fx42 scoping).
-	DiscardTarget int
-	// DiscardVote is the answered Optional$ True may-discard election: for
-	// "Mode$ Hand" (a whole-hand wheel's "each player may discard their
-	// hand") "yes" discards that player's whole hand; for TgtChoose (Mox
-	// Diamond's "you may discard a land card") "yes" poses the card pick
-	// with Min 1. "no" (or an empty answer) declines. It is separate from Discard because the election answers a
-	// yes/no, not an object list; the per-target cursor is DiscardTarget.
-	DiscardVote string
-	// Choice is the selected card(s) or player(s) from ChooseCard,
-	// ChoosePlayer, or ChangeTargets. ChoiceDone distinguishes an answered
-	// empty optional choice from its first pass.
-	Choice     []state.Target
-	ChoiceDone bool
-	// CopyPermanentChoice is the selected source for the one supported
-	// CopyPermanent Choices$/Chooser$ shape. It is deliberately separate
-	// from Choice so nested choices cannot consume it.
-	CopyPermanentChoice     state.ObjID
-	CopyPermanentChoiceDone bool
-	// TargetsPick is the answered target set of the generic ValidTgts$
-	// pre-ask (chosenTargetsFor, posed inside effects.Resolve's dispatch
-	// loop for a sub the placement/announcement ask never covered -- the
-	// trigger "when you do" family, task mvts1). rules' "tgts" resume arm
-	// fills it on the re-entered pass; the pre-ask consumes and clears it
-	// (fx42 scoping: each resume builds a fresh Ctx and re-enters exactly
-	// the asking SA, so nothing else can be holding it). The answer rides
-	// its own resume kind ("tgts") and its own Ctx transport rather than
-	// the shared Choice pair so another KChoose primitive resolving under
-	// the same SA can never steal it.
-	TargetsPick     []state.Target
-	TargetsPickDone bool
-	// DamageSplit is the answered allocation of a DealDamage
-	// DividedAsYouChoose$ total: DamageSplit[i] is the damage assigned to
-	// the i-th target of the resolution's Defined$ list, in that order (the
-	// order the ask's one-option-per-target list uses). DamageSplitDone
-	// marks the answer present -- an answered allocation, or the silent
-	// no-ask path when there was nothing to divide -- so the primitive
-	// never re-poses the ask on a later round. rules' "damage_split" resume
-	// arm fills it from the answered multiset; a target the answer never
-	// picked is absent (zero damage).
-	DamageSplit     []int32
+
 	DamageSplitDone bool
 	// OfferedSA is the SA whose ValidTgts$ targeting the placement or
 	// announcement ask actually covered (rules' resolveTop and
@@ -768,14 +692,7 @@ type Ctx struct {
 	// TargetAskResume overrides the SA that owns a target ask while an Effect
 	// pre-captures the target of its immediately following ChangeZone sub.
 	TargetAskResume *cards.SA
-	// ModesSeen names the chosen modes earlier passes of a CanRepeatModes$
-	// Charm's mode walk already ran (rules' charm_rest resume arm seeds it
-	// from the consumed prefix of the object's ChosenModes; a first pass has
-	// it nil). effCharm's re-entry marks a target-bearing mode as covered by
-	// the placement/announcement ask only for its FIRST occurrence across the
-	// FULL multiset -- a later occurrence must keep its own ValidTgts$
-	// pre-ask instead of inheriting the shared target list again.
-	ModesSeen []string
+
 	// PickedTargets is the answering pre-ask's target set, made visible to
 	// Defined's ValidTgts$ fallthrough for exactly ONE dispatch (the
 	// wrapper clears it when the body returns). It must not be Ctx.Targets:
@@ -829,9 +746,7 @@ type Ctx struct {
 	// as Creature.nonChosenCard consult it after ChooseCard has returned.
 	Chosen      []state.Target
 	ChosenValid bool
-	// Repeat is set only on the re-entry of a suspended RepeatEach loop; the
-	// RepeatEach whose SA it names consumes and clears it.
-	Repeat *RepeatCursor
+
 	// RepeatSubject is the RepeatEach iteration's current subject — what
 	// Forge's UseImprinted$ binds as "Imprinted" for the sub-ability the
 	// loop resolves (Heroism's attacking red creature, Stench of Evil's
@@ -854,16 +769,7 @@ type Ctx struct {
 	// keeps the single-controller Charm/GenericChoice ask unchanged.
 	GenericChoosers     []state.Target
 	GenericChooserIndex int
-	// Sacrifice is an Annihilator sacrifice answer on re-entry.
-	Sacrifice []state.ObjID
-	// Search is the answered hidden-library KChoose selection on a re-entered
-	// ChangeZone resolution. SearchDone distinguishes "answered with no cards"
-	// from the first pass; Search preserves the player's answer order. The
-	// asking effect consumes and clears both before continuing, so a nested
-	// search cannot inherit the outer answer. LibraryTarget binds the answer
-	// to the exact owner in a multi-library walk.
-	Search     []state.ObjID
-	SearchDone bool
+
 	// LibraryTarget is the index in the deterministic per-library target list
 	// whose answer is being resumed. Search, KArrange and their follow-up
 	// confirms share this cursor so a suspended walk continues with the next
@@ -893,125 +799,9 @@ type Ctx struct {
 	// Resolution-scratch like Remembered -- never event-encoded; a replay
 	// re-derives the same set by replaying the same resolution.
 	SearchKnown []state.Target
-	// SearchConfirm is the answered Optional$ confirmation for a
-	// hidden-library ChangeZone search whose script carries an explicit
-	// marker -- Forge's confirmAction gate in
-	// ChangeZoneEffect.changeHiddenOriginResolve, which runs BEFORE the fetch
-	// list is consulted (so an empty eligible pool still confirms). "yes"
-	// accepts this search player's fetch and every other answer declines it;
-	// SearchConfirmDone distinguishes "answered" from the first pass, and
-	// SearchConfirmTarget is the index in the deterministic per-library
-	// target list whose confirmation was answered (the same cursor
-	// LibraryTarget carries for the answered pick). A decline skips this
-	// player's search, pick and search-specific shuffle/tail with the
-	// remembered set untouched. Consumed and cleared at the top of
-	// effSearchLibrary (fx42 scoping), so a nested search poses its own
-	// confirmation. The marker is read through the ONE shared
-	// optionalConfirmMarker the hand and hidden-pick walks use.
-	SearchConfirm       string
-	SearchConfirmDone   bool
-	SearchConfirmTarget int
-	// AttachOpt is the answered Optional$ True attach election ("yes"/"no")
-	// on a re-entered Attach resolution (Ajani's Chosen's "you may attach it
-	// to the token", Cori-Steel Cutter's "you may attach this Equipment to
-	// it"): "yes" attaches, anything else declines. It rides the ask (the
-	// same runtime-continuation class as ResumeRemembered) and is consumed
-	// and cleared at the re-entry's top (fx42 scoping), so a nested Attach
-	// poses its own ask.
-	AttachOpt string
-	// CopyOpt is the answered Optional$ True CopySpellAbility election
-	// ("yes"/"no") on a re-entered mid-resolution copy (Sevinne's
-	// Reclamation's "if this spell was cast from a graveyard, you may copy
-	// this spell"): "yes" makes the copy through the ordinary path,
-	// anything else declines and no copy is made. It rides the ask (the
-	// same runtime-continuation class as AttachOpt) and is consumed and
-	// cleared at the re-entry's top (fx42 scoping), so a nested
-	// CopySpellAbility poses its own ask.
-	CopyOpt string
-	// AttachChoice is the answered Attach object/destination choice on a
-	// re-entered Attach resolution (Goldwardens' Gambit's "you may attach an
-	// Equipment you control to it", unexpected_request's same shape, Breath of
-	// Fury's "attach CARDNAME to a creature you control"): with no Object$
-	// the chosen ids name the OBJECT to attach, with Object$ present they name
-	// the DESTINATION. AttachChoiceDone distinguishes "answered with nothing
-	// chosen" (a Min-0 Optional$ decline) from an unanswered ask; AttachDests
-	// carries the destination list the asking pass resolved (a RepeatEach
-	// body's Defined$ Imprinted binding does not survive the suspension, so
-	// the re-entry must not re-derive it). All three ride the ask (the same
-	// runtime-continuation class as ResumeRemembered) and are consumed and
-	// cleared at the re-entry's top (fx42 scoping), so a nested Attach poses
-	// its own ask.
-	AttachChoice     []state.ObjID
-	AttachChoiceDone bool
-	AttachDests      []state.ObjID
-	// AttachPlayer is the answered PlayerChoices$ Attach player on a
-	// re-entered Attach resolution (Curse of Leeches' `DB$ Attach | Object$
-	// Self | PlayerChoices$ Player`, Lynde's `DB$ Attach | Object$ ChosenCard
-	// | PlayerChoices$ Opponent`): the chosen seat the object attaches to.
-	// AttachPlayerDone distinguishes "answered" from an unanswered ask. Both
-	// ride the ask (the same runtime-continuation class as AttachChoice) and
-	// are consumed and cleared at the re-entry's top (fx42 scoping), so a
-	// nested Attach poses its own ask.
-	AttachPlayer     state.PlayerID
-	AttachPlayerDone bool
-	// ScryOpt is the answered Optional$ True Scry election ("yes"/"no").
-	ScryOpt string
-	// PutOpt is the answered Optional$ True put-counter election ("yes"/"no")
-	// on a re-entered PutCounter resolution (Talus Paladin's "you may put a
-	// +1/+1 counter on CARDNAME", Black Widow's "You may put ... If you
-	// don't, ..."): "yes" places the counters through the ordinary path,
-	// anything else declines and the chained SubAbility$ still runs. It rides
-	// the ask (the same runtime-continuation class as ResumeRemembered) and
-	// is consumed and cleared at the re-entry's top (fx42 scoping), so a
-	// nested PutCounter poses its own ask.
-	PutOpt string
-	// SetStateOpt is the answered Optional$ True SetState election
-	// ("yes"/"no") on a re-entered SetState resolution (Dowsing Dagger's
-	// "you may transform this Equipment", High Marshal Arguel's "you may
-	// transform it"): "yes" runs the ordinary face change, anything else
-	// declines, changes nothing and still runs the chained SubAbility$. It
-	// rides the ask (the same runtime-continuation class as PutOpt) and is
-	// consumed and cleared at the re-entry's top (fx42 scoping), so a nested
-	// SetState poses its own ask.
-	SetStateOpt string
-	// EndTurnOpt is the answer to Obeka's Optional$ EndTurn election. It is
-	// consumed on re-entry so another EndTurn in the chain asks independently.
-	EndTurnOpt string
-	// VentureEnter is the answered dungeon choice of an api:Venture first
-	// venture (CR 701.49a): the token-script key the re-entered effVenture
-	// puts into the answering player's command zone. VentureRoom is the
-	// answered room choice of an api:Venture advance (CR 701.49b): the room
-	// key the marker moves to. Both ride the ask with the walk cursor
-	// (VentureIdx, the actingPlayers index the ask was posed for), are
-	// consumed and cleared at the re-entry's top (fx42 scoping), and their
-	// emptiness distinguishes a fresh walk from a resumed one.
-	VentureEnter string
-	VentureRoom  string
-	VentureIdx   int32
-	// CounterKind is the answered kind for a comma-separated PutCounter list.
-	// CounterKindDone distinguishes an answered first-option fallback from the
-	// first pass; CounterKinds carries a ChooseDifferent$ multi-answer.
-	CounterKind      string
-	CounterKindDone  bool
-	CounterKinds     []string
-	CounterKindsDone bool
-	// CounterKindAnswers is the replay-derived per-recipient answer table
-	// rules seeds for CounterTypePerDefined$; effPutCounter consumes it at
-	// entry so a nested PutCounter cannot inherit it.
-	CounterKindAnswers     []string
-	CounterKindAnswerIndex int
-	CounterKindAnswerSet   bool
-	// PlaneswalkOpt is the answered Optional$ True "you may planeswalk"
-	// election. It is resolution-local so a nested Planeswalk cannot inherit
-	// an outer answer.
-	PlaneswalkOpt string
-	// Extort is the answered optional {W/B} payment on a re-entered Extort
-	// resolution (M2d-2): "pay" means the caster agreed to pay and the drain
-	// runs; anything else ("decline", first pass with a host that cannot ask)
-	// means no drain. rules' resumeResolution sets it from the recorded answer
-	// before re-running the suspended effExtort, and effExtort clears it after
-	// reading so a nested Extort below it poses its own ask.
-	Extort string
+
+	VentureIdx int32
+
 	// Play is the answered card a resolved Play effect chose to play from a
 	// zone (CR 701.23): the object the controller selected among the offered
 	// candidates. rules' resumeResolution sets it from the recorded answer
@@ -1025,72 +815,7 @@ type Ctx struct {
 	// cursor after applying the selected replacement so the enclosing Draw
 	// continues rather than restarting or abandoning its remaining cards.
 	DrawDone int32
-	// Imprint is the selected public-zone ChangeZone card. It is scoped to
-	// Imprint$ True so a nested ordinary ChangeZone cannot consume it. The
-	// answer arm makes it non-nil even for an empty answer, so non-nil is
-	// "answered".
-	Imprint []state.ObjID
-	// ResumedGatePassed is the SA a legacy resume re-enters that already
-	// passed its Condition* gate on the pass that asked (the asking SA
-	// itself, or a rest frame's own SA): effects.Resolve skips that one gate
-	// read, once, so a board the first pass changed (Natural Balance's
-	// fetched lands, Whiskervale Forerunner's chosen card) cannot cancel the
-	// answered re-entry. The resolution kernel's path never re-enters.
-	ResumedGatePassed *cards.SA
-	// Untap is the answered UntapType$ selection. UntapDone distinguishes an
-	// answered empty "up to" choice from the first pass and scopes the answer
-	// to the Untap primitive that asked.
-	Untap     []state.ObjID
-	UntapDone bool
-	// Dig is the answered Dig look-and-take pick on a re-entered mid-resolution
-	// resolution: the object(s) the library's owner picked out of the top
-	// DigNum$ window to move to DestinationZone$, in the player's answer
-	// order. rules' resumeResolution sets it from the recorded answer before
-	// re-running the suspended sub-ability, so effDig's re-entry moves exactly
-	// the chosen cards instead of asking again; DigDone distinguishes
-	// "answered (possibly with no cards)" from the first pass, and DigTarget
-	// identifies the Defined$ target whose library posed that ask. Re-entry
-	// skips earlier targets (already processed before suspension), applies the
-	// answer at DigTarget, then continues with a fresh ask for each later
-	// library. The asking effect
-	// consumes and clears all three fields at the top of its own walk (the fx42
-	// scoping discipline), so a nested Dig cannot inherit the outer answer.
-	Dig       []state.ObjID
-	DigDone   bool
-	DigTarget int
-	// DigUntilMove is the answered DigUntil reveal-until OptionalFoundMove$
-	// election (task diguntil1; Songbirds' Blessing's "You may put that card
-	// onto the battlefield. If you don't, put it into your hand."): "yes"
-	// moves the found card(s) to FoundDestination$, "no" — the decline — to
-	// OptionalNoDestination$ when the SA carries one, else the found card
-	// joins the revealed pile (RevealedDestination$). rules' resumeResolution
-	// sets it from the recorded answer before re-running the suspended
-	// sub-ability; a non-empty value is the "answered" marker that
-	// distinguishes a re-entry from the first pass (it also suppresses the
-	// reveal Note and the withheld-params Note a re-entry would otherwise
-	// re-emit). The asking effect consumes and clears it at the top of its
-	// own walk (the fx42 scoping discipline), so a nested DigUntil cannot
-	// inherit the outer answer.
-	DigUntilMove string
-	// DigUntilAuraBearer is the selected bearer for a non-cast Aura entering
-	// from DigUntil. DigUntilAuraDone distinguishes an answered bearer choice
-	// from the first pass; both are consumed at the top of the effect so a
-	// nested DigUntil cannot inherit the outer answer.
-	DigUntilAuraBearer state.ObjID
-	DigUntilAuraDone   bool
-	// Clone is the answered DB$ Clone Optional$ True may-copy election
-	// (ticket api-clone-trigger-copy; Sarkhan Soul Aflame's "you may have
-	// Sarkhan, Soul Aflame become a copy of it"): "yes" performs the copy,
-	// "no" -- the decline -- skips it. rules' resumeResolution sets it from
-	// the recorded answer before re-running the suspended sub-ability, and
-	// CloneDone distinguishes "answered" from the first pass. The asking
-	// effect consumes and clears both at the top of its own walk (the fx42
-	// scoping discipline), so a nested Clone cannot inherit the outer
-	// answer. A no-host run (AskNoHost) keeps the deterministic take stand-in
-	// without setting either field, so the byte-identical pre-election
-	// behaviour is preserved for fuzz runs.
-	Clone     string
-	CloneDone bool
+
 	// CloneETB carries the cast/replacement ETB copy election into DB$ Clone.
 	// The answer is event-backed on the entering object, so replacement-time
 	// resolution and log-only replay use the same selected permanent.
@@ -1099,131 +824,7 @@ type Ctx struct {
 	CloneChoiceValid bool
 	CloneBecome      state.ObjID
 	CloneBecomeValid bool
-	// ClonePick is the answered DB$ Clone Choices$ <filter> copy-source pick
-	// (the standalone "becomes a copy of any creature" family). rules'
-	// resumeResolution sets it from the recorded answer before re-running the
-	// suspended ability, and ClonePickDone distinguishes "answered" from the
-	// first pass. The asking effect consumes and clears both at the top of its
-	// own walk (the fx42 scoping discipline), so a nested Clone cannot inherit
-	// the outer answer. A no-host run (AskNoHost) keeps the deterministic
-	// first-eligible stand-in without setting either field, so a fuzz run is
-	// byte-identical to the pre-ask build.
-	ClonePick     state.ObjID
-	ClonePickDone bool
-	// TwoPiles is the answered Fact or Fiction pile-split pick (task
-	// twopiles1): the cards the Separator$ player picked into pile A, in the
-	// separator's answer order — the rest of the card set, in the order it
-	// was offered, is pile B. rules' resumeResolution sets it from the
-	// recorded answer before re-running the suspended sub-ability, and
-	// TwoPilesDone distinguishes "answered (possibly empty — piles can be
-	// empty)" from the first pass. TwoPilesPick is the answered pile pick:
-	// "a" means the chooser takes pile A (the ChosenPile$ body runs on pile
-	// A, UnchosenPile$ on pile B), "b" the reverse. TwoPilesPickDone
-	// distinguishes the second answer from the split answer. The asking
-	// effect consumes and clears all four at the top of its own walk (the
-	// fx42 scoping discipline), so a nested TwoPiles cannot inherit the
-	// outer answers.
-	TwoPiles         []state.ObjID
-	TwoPilesDone     bool
-	TwoPilesPick     string
-	TwoPilesPickDone bool
-	// Votes is the answered per-voter choice of a fixed-list Vote (the
-	// Choices$ shape): one entry per voting player, in Defined$ order, giving
-	// the index into voteChoiceNames' option list that player voted for. It is
-	// what a real per-player vote ask will fill (today's deterministic
-	// stand-in gives every voter option 0, so no live resolution can tie);
-	// until that ask lands it is the seam that makes the tie branch --
-	// VoteTiedAbility$ -- reachable and testable against a real compiled SA
-	// rather than welded to the stand-in. effVote consumes and clears it at
-	// the top of its own walk (the fx42 scoping discipline), so a nested Vote
-	// poses its own tally; nil means "use the stand-in".
-	Votes []int
-	// CounterDist is the answered DividedAsYouChoose$ PutCounter pick
-	// (Vastwood Hydra's death trigger): the recipients the chooser picked out
-	// of the Choices$-eligible battlefield creatures, in answer order.
-	// rules' resume arm sets it before re-running the suspended sub-ability,
-	// so effPutCounter's re-entry distributes the CounterNum$ total over
-	// exactly the chosen creatures instead of asking again;
-	// CounterDistDone distinguishes "answered, possibly with no creatures"
-	// (a MinChoiceAmount$ 0 decline) from the first pass. The asking effect
-	// consumes and clears both at the top of its own walk (the fx42 scoping
-	// discipline), so a nested PutCounter cannot inherit the outer answer.
-	CounterDist     []state.ObjID
-	CounterDistDone bool
-	// CounterPick is the answered bare-Choices$ PutCounter pick (Promise of
-	// Loyalty's vow: the chooser picked the creature(s) — WITHOUT a
-	// DividedAsYouChoose$ total, so each chosen creature takes the full
-	// CounterNum$) out of the Choices$-eligible battlefield creatures, in
-	// answer order. rules' resume arm sets it before re-running the
-	// suspended sub-ability, so effPutCounter's re-entry places the counters
-	// on exactly the chosen creatures instead of asking again;
-	// CounterPickDone distinguishes "answered" from the first pass. The
-	// asking effect consumes and clears both at the top of its own walk (the
-	// fx42 scoping discipline), so a nested PutCounter cannot inherit the
-	// outer answer.
-	CounterPick     []state.ObjID
-	CounterPickDone bool
-	// AorElect is the answered AddOrRemoveCounter add/remove election
-	// ("remove" or "put"); AorKind names the counter kind the election
-	// covered — parsed out of the answer's own option encoding
-	// ("aor_remove:<kind>"/"aor_put:<kind>"), because an SA with no
-	// CounterType$ (Clockspinning) or an EachExistingCounter$ walk
-	// (Dramatist's Puppet) elects per kind. rules' "aor_elect" resume arm
-	// sets all three Aor fields before re-running the suspended sub-ability;
-	// AorDone distinguishes "answered" from the first pass. effAddOrRemove
-	// Counter consumes and clears them at the top of its own walk (the fx42
-	// scoping discipline), so a nested AddOrRemoveCounter cannot inherit
-	// the outer answer.
-	AorElect string
-	AorKind  string
-	AorDone  bool
-	// AorAnswered is the list of counter kinds EARLIER rounds of the same
-	// AddOrRemoveCounter resolution already answered an election for (seeded
-	// from rules' aorAsk pending map — the moveCounterAsk discipline — since
-	// every resume builds a fresh Ctx and an EachExistingCounter$ walk asks
-	// one election per kind). Consumed and cleared with the fields above.
-	AorAnswered []string
-	// Proliferate is the answered Proliferate recipient pick (CR 701.27):
-	// the permanents and/or players the resolving controller chose to give
-	// another counter of each kind already there, in the player's answer
-	// order. An object recipient carries Obj; a player recipient carries
-	// Player with IsPlayer true (the same state.Target shape a KChoose's
-	// mixed option list decodes to, and why the shared "counter_pick" arm --
-	// which reads Obj only -- cannot be reused). rules' resume arm sets it
-	// before re-running the suspended sub-ability, so effProliferate's
-	// re-entry applies exactly the chosen recipients instead of asking again;
-	// ProliferateDone distinguishes "answered" from the first pass, so a
-	// Min-0 answer that chose nothing is not mistaken for the first pass and
-	// re-asked. The asking effect consumes and clears both at the top of its
-	// own walk (the fx42 scoping discipline), so a nested Proliferate cannot
-	// inherit the outer answer.
-	Proliferate     []state.Target
-	ProliferateDone bool
-	// MoveCounterKind is the answered CounterType$ Any kind pick of a
-	// MoveCounter resolution (task movecounter1): the counter kind the
-	// chooser picked to move out of the distinct kinds the origin holds, in
-	// the offered (deterministic) order. rules' resume arm sets it before
-	// re-running the suspended sub-ability; MoveCounterKindDone distinguishes
-	// "answered" from the first pass so an answered pick is never re-asked.
-	// MoveCounterN is the answered CounterNum$ Any amount of the same
-	// resolution: how many counters of the chosen kind(s) move, and
-	// MoveCounterNDone distinguishes "answered (possibly zero -- a Min-0
-	// decline)" from the first pass. effMoveCounter consumes and clears all
-	// four at the top of its own walk (the fx42 scoping discipline), so a
-	// nested MoveCounter cannot inherit the outer answers.
-	MoveCounterKind string
-	// TimeTravelChoice is the answered per-object add/remove/skip election.
-	// TimeTravelObjects is the stable per-round snapshot captured by the rules
-	// resume point; it prevents removing a counter from shifting the next
-	// object's cursor when the live eligible set is recomputed.
-	TimeTravelChoice    string
-	TimeTravelObjects   []state.ObjID
-	TimeTravelIndex     int
-	TimeTravelRound     int
-	TimeTravelDone      bool
-	MoveCounterKindDone bool
-	MoveCounterN        int32
-	MoveCounterNDone    bool
+
 	// UnlessNext is the index of the UnlessPayer$ payer whose answered
 	// unless-pay choice this re-entry applies (0 on a first pass). The
 	// unlessProceed gate (Resolve) consumes and clears it; rules' resume
@@ -1242,128 +843,9 @@ type Ctx struct {
 	// fresh-per-resume Ctx already keeps it from leaking into any other
 	// resolution.
 	UnlessDiscarded []state.Target
-	// SacPicks is the answered per-player sacrifice choice on a re-entered
-	// Sacrifice resolution: the object(s) the sacrificing player chose to
-	// sacrifice, in the player's answer order. SacDone distinguishes
-	// "answered (possibly with nothing)" from the first pass and SacTarget
-	// identifies the Defined$ target index whose player posed that ask, so
-	// re-entry skips targets already processed before suspension and
-	// continues asking later targets. The asking effect consumes and clears
-	// all three at the top of its own walk (the fx42 scoping discipline), so
-	// a nested sacrifice below it poses its own ask instead of inheriting.
-	SacPicks  []state.ObjID
-	SacDone   bool
-	SacTarget int
-	// SacOptional is the answered first step of an Optional$ + StrictAmount$
-	// sacrifice: "sacrifice" means its player elected the exact batch and
-	// "decline" means they did not. It is separate from SacPicks because a
-	// KChoose represents a range, while this Forge shape permits only zero or
-	// exactly Amount$. SacOptionalTarget identifies that player's target slot.
-	SacOptional       string
-	SacOptionalTarget int
-	// BlightPicks is the answered per-player blight choice on a re-entered
-	// Blight resolution (CR 701.60): the creature the blighting player chose
-	// to take the −1/−1 counters, in answer order. BlightDone distinguishes
-	// "answered" from the first pass and BlightTarget identifies the Defined$
-	// target index whose player posed that ask, so re-entry skips targets
-	// already processed before suspension and continues asking later targets
-	// (the SacPicks/SacDone/SacTarget discipline). The asking effect consumes
-	// and clears all three at the top of its own walk (the fx42 scoping
-	// discipline), so a nested blight cannot inherit the outer answer.
-	BlightPicks  []state.ObjID
-	BlightDone   bool
-	BlightTarget int
-	// ManifestDreadPick is the chosen library object on a resumed CR 701.61
-	// resolution; Done distinguishes an answer from the first pass.
-	ManifestDreadPick   state.ObjID
+
 	ManifestDreadPlayer state.PlayerID
-	ManifestDreadDone   bool
-	// RingBearerPick is the answered CR 701.54a Ring-bearer choice on a
-	// re-entered Ring tempts resolution: the creature the tempted player chose
-	// to become their Ring-bearer. RingBearerDone distinguishes "answered"
-	// from the first pass, so re-entry emits the single RingTemptsYou event
-	// exactly once instead of asking again or incrementing the count twice.
-	// The asking effect consumes and clears both at the top of its own walk
-	// (the fx42 scoping discipline), so a nested Ring tempts cannot inherit
-	// the outer answer.
-	RingBearerPick state.ObjID
-	RingBearerDone bool
-	// UnlessElected is the answered UnlessType$ election of a Discard carrying
-	// UnlessType$ (Thirst for Knowledge's "discard two cards unless you
-	// discard an artifact card"): "unless" means the player elected the
-	// one-card-of-the-type alternative, "ordinary" the NumCards$ discard. The
-	// re-entered effDiscard consumes and clears it (fx42 scoping discipline);
-	// it is separate from Discard because the unless arm's own follow-up ask
-	// re-uses the ordinary "discard" resume kind for its one-card pick.
-	UnlessElected string
-	// Arrange is the answered KArrange decision on a re-entered
-	// mid-resolution resolution (Ruling J0): true once rules' handleArrange
-	// has applied the answered arrangement and emitted the LibraryOrder
-	// event, so effRearrangeTopOfLibrary's re-entry lets the resolution
-	// continue (the chained SubAbility$ runs) instead of re-asking. The
-	// LibraryTarget cursor identifies which library's arrangement completed.
-	// False on
-	// the first pass, where the effect poses the ask. The arrangement itself
-	// lives on the LibraryOrder event, not on Ctx -- the answer shape is
-	// applied by the rules handler, unlike Modes/UnlessPay/Discard where the
-	// effect re-reads the answer -- so the field is only a done-marker.
-	Arrange bool
-	// ScryReplacement is the completed CR 616 order choice for this target.
-	// Its count/proceed result is consumed once on re-entry, without proposing
-	// the same instruction a second time.
-	ScryReplacement bool
-	ScryCount       int32
-	ScryProceed     bool
-	// ArrangeTarget is the Defined$-target index whose arrange was the one
-	// answered, carried only for a Dig (whose effDig walks several Defined$
-	// targets and must keep the deterministic processing for the ones after
-	// the asker on the arrange re-entry; the other arrange consumers are
-	// single-target). The re-entered effDig consumes and clears it together
-	// with Arrange (fx42 scoping). Zero is a legitimate index -- the marker
-	// is Arrange, never this field alone.
-	ArrangeTarget int
-	// MayShuffle is the answered may-shuffle ask a RearrangeTopOfLibrary
-	// carrying MayShuffle$ True (Ponder's "You may shuffle.") poses after its
-	// KArrange was applied: "yes" means the player shuffled (rules'
-	// arrange_mayshuffle resume arm emitted the Shuffle event before
-	// re-entering the effect), "no" means they kept the order. Both values
-	// are done-markers: the re-entered pass must not pose the ask again. The
-	// field is consumed and cleared by the effect (fx42 scoping discipline).
-	MayShuffle string
-	// SurveilLookOpt is the answered may-look election a surveil poses when a
-	// battlefield stat:SurveilNum static with Optional$ True applies to the
-	// surveilling player (Enhanced Surveillance's "You may look at an
-	// additional two cards each time you surveil"). Each Optional$ static is
-	// an independent may effect, so the election offers one option per
-	// optional static and the field carries the ACCEPTED static ordinals as a
-	// CSV done-marker ("0" or "0,2"; "no" is the answered decline of every
-	// static). Anything else -- including the no-host R-9 decline and an
-	// unanswered first pass -- keeps the base count. All values are
-	// done-markers -- the re-entered pass must not pose the ask again -- and
-	// the field is consumed and cleared by effSurveil (fx42 scoping). The
-	// answer applies to the asking player only: a multi-player Surveil's
-	// other libraries keep their own base count.
-	SurveilLookOpt string
-	// Hideaway holds the selected top-library card while the Hideaway
-	// replacement resumes to exile it; HideawayPicked distinguishes that
-	// selected answer from the first pass. HideawayArranged marks completion
-	// of the following bottom-order KArrange ask.
-	Hideaway         state.ObjID
-	HideawayPicked   bool
-	HideawayArranged bool
-	// SoulbondPartner is the optional pairing answer. SoulbondDone makes a
-	// declined empty choice distinct from the initial pass.
-	SoulbondPartner state.ObjID
-	SoulbondDone    bool
-	// Myriad is one per-opponent optional token decision. MyriadTarget is the
-	// index in the deterministic eligible-opponent list that just answered;
-	// MyriadDone distinguishes that answer from the first pass, and
-	// MyriadCreate says whether it creates that target's token. Re-entry emits
-	// the selected token, then asks the next opponent, so each may choice is
-	// independent and no answer is retained by a nested Myriad.
-	MyriadTarget int
-	MyriadDone   bool
-	MyriadCreate bool
+
 	// ManaAmount and ManaType are the in-flight unit of mana a ProduceMana
 	// replacement modifies. rules seeds them from a ManaAdd event and then
 	// emits the transformed event, so ReplaceMana never writes game state
@@ -1378,150 +860,7 @@ type Ctx struct {
 	// 1. Each entry is one W/U/B/R/G unit; effMana consumes it with Amount 1
 	// so a split such as U,R produces one of each rather than doubling both.
 	ManaChoices []string
-	// HandMove is the answered Origin$ Hand ChangeZone selection.
-	HandMove     []state.ObjID
-	HandMoveDone bool
-	// HandMoveTarget is the index of the per-owner hidden-hand chooser whose
-	// ask was answered (rv2b r2: an owner-SELECTED Origin$ Hand ChangeZone --
-	// DefinedPlayer$/ValidTgts$ naming the hands -- asks each hand owner in
-	// turn). It keeps a resumed answer attached to the exact owner that
-	// asked, so owners before the cursor (already answered on earlier
-	// passes) are skipped and owners after it continue the chain, the same
-	// continuation effDig's DigTarget carries. Consumed and cleared at the
-	// top of the walk with HandMove/HandMoveDone (fx42 scoping).
-	HandMoveTarget int
-	// HandMoveConfirm is the answered Optional$ confirmation for a hidden-hand
-	// ChangeZone whose script carries an Optional$ marker -- Forge's
-	// confirmAction gate in ChangeZoneEffect.changeHiddenOriginResolve, which
-	// runs BEFORE any card is picked. "yes" accepts the fetch and every other
-	// answer declines it; HandMoveConfirmDone distinguishes "answered" from the
-	// first pass, and HandMoveConfirmTarget is the index of the hand owner whose
-	// confirmation was answered (the same per-owner cursor HandMoveTarget
-	// carries). A declined confirmation leaves the remembered set untouched; an
-	// accepted one lets the walk clear it exactly once before the pick, even
-	// when the pick ends up empty. Consumed and cleared at the top of the walk
-	// with HandMove/HandMoveDone (fx42 scoping).
-	HandMoveConfirm       string
-	HandMoveConfirmDone   bool
-	HandMoveConfirmTarget int
-	// HiddenPick is the answered Hidden$ True public-origin pick (hiddenpick1):
-	// the chooser picked which of the ChangeType$-eligible cards in the
-	// origin zone(s) move to Destination$. HiddenPickDone distinguishes
-	// "answered, possibly with no cards" from the first pass; HiddenPick
-	// preserves the player's answer order. effHiddenPick consumes and
-	// clears both at the top of its walk (fx42 scoping), so a nested pick
-	// cannot inherit the outer answer.
-	HiddenPick     []state.ObjID
-	HiddenPickDone bool
-	// HiddenPickTarget is the index of the fetch player whose hidden-pick ask
-	// was answered, the same continuation HandMoveTarget carries: owners
-	// before the cursor are skipped on re-entry, owners after it continue
-	// the chain. Consumed and cleared with the pair above.
-	HiddenPickTarget int
-	// HiddenPickConfirm is the answered Optional$ confirmation for a Hidden$
-	// True public-origin ChangeZone pick -- Forge's confirmAction gate in
-	// ChangeZoneEffect.changeHiddenOriginResolve, which runs BEFORE the card
-	// pick (the same gate the hidden-hand walk's HandMoveConfirm carries).
-	// "yes" accepts the fetch and every other answer declines it;
-	// HiddenPickConfirmDone distinguishes "answered" from the first pass, and
-	// HiddenPickConfirmTarget is the index of the fetch player whose
-	// confirmation was answered (the same per-owner cursor HiddenPickTarget
-	// carries). A declined confirmation skips the fetch player without a pick
-	// ask and clears nothing; an accepted one enters the fetch, whose answered
-	// pick (or empty pool) clears exactly as before. Consumed and cleared at
-	// the top of effHiddenPick with HiddenPick/HiddenPickDone (fx42 scoping).
-	HiddenPickConfirm       string
-	HiddenPickConfirmDone   bool
-	HiddenPickConfirmTarget int
-	// DefinedLibraryMove is the answered Optional$ True choice for an
-	// object-valued Defined$ fetch list from Origin$ Library. "yes" moves the
-	// list; "no" leaves it in place. It is consumed by
-	// moveDefinedLibraryObjects before a nested fetch list can inherit it.
-	DefinedLibraryMove string
-	// RevealOpt is the answered RevealOptional$ yes/no on a re-entered
-	// mid-resolution reveal (task fb-3f1cc033, the Delver of Secrets
-	// PeekAndReveal shape): "yes" means the peeking player chose to reveal
-	// (the Note is emitted, RememberRevealed$ fires) and "no" means they
-	// declined (no Note, Remembered unchanged). "" on the first pass, where
-	// the effect poses the ask (or, when the host cannot ask, falls back to
-	// the mandatory reveal — the same R-9 degradation Scry/Surveil carry).
-	// effReveal consumes and clears it before continuing, so a nested
-	// RevealOptional$ peek in the same walk poses its own ask (fx42
-	// scoping).
-	RevealOpt string
-	// RevealOptTarget is the Defined$ target index whose reveal_optional
-	// yes/no was answered (the decision's ResumeTarget), the same per-target
-	// cursor LookAckTarget and RevealPickTarget carry. Meaningful only while
-	// RevealOpt is non-empty: targets before the cursor were fully processed
-	// on the pass that suspended and are skipped, the cursor target consumes
-	// the answer, and every LATER optional reveal in the walk poses its own
-	// yes/no. Without it a reveal_optional resolving over several Defined$
-	// players answered for target 0 and then either silently applied that
-	// same yes/no to every later target (a non-pickable reveal) or left the
-	// later target's ask unposed (a pickable one), because neither a yes nor
-	// a no can be attributed to a target it was never asked of. Consumed and
-	// cleared with RevealOpt.
-	RevealOptTarget int
-	// RevealPick is the answered mid-resolution hand-reveal pick (task
-	// infernaltutor1): the ids of the hand cards the revealing player chose
-	// to reveal. A hand reveal whose eligible pool is strictly larger than
-	// the count it must show (Infernal Tutor's "Reveal a card from your
-	// hand", or an AnyNumber$/Optional$ miss) is a CHOICE Forge poses to the
-	// pool's owner; effReveal poses it as a KChoose with ResumeKind
-	// "reveal_pick" and this field carries the answer back. Non-nil means
-	// answered (a legitimate empty answer is a non-nil zero-length slice,
-	// exactly the Ctx.Discard convention), so an empty answer ("reveal
-	// none") is distinguishable from a first pass. effReveal consumes and
-	// clears it at the top of its own walk so a nested reveal poses its own
-	// ask (fx42 scoping).
-	RevealPick []state.ObjID
-	// RevealPickTarget is the Defined$ target index whose reveal_pick was
-	// answered (the decision's ResumeTarget), the same per-target cursor
-	// LookAckTarget carries. Meaningful only while RevealPick is non-nil:
-	// targets before the cursor were fully processed on the pass that
-	// suspended and are skipped, the cursor target consumes the answer, and
-	// every LATER pickable reveal in the walk poses its own ask. Without it,
-	// a pickable reveal resolving over several Defined$ players applied the
-	// first player's answer to every subsequent player's distinct hand —
-	// none of those ids can occur in another hand, so n became 0 and no
-	// later player was asked or revealed. Consumed and cleared with
-	// RevealPick.
-	RevealPickTarget int
-	// ChosenType is the answered mid-resolution ChooseType pick (task ct1):
-	// the creature type the chooser picked out of the TypeChoices list, set
-	// by rules' "choosetype" resume arm before the suspended sub-ability is
-	// re-run. effChooseType's re-entry emits the one Choose event the
-	// fallback would have emitted, with the answered type instead, so the
-	// downstream Card.ChosenType readers see exactly the shape they already
-	// read. A valid answer is never empty (the option list's last resort is
-	// "Human"), so non-empty IS the answered marker, and the asking effect
-	// consumes and clears it at the top of its walk (the fx42 scoping
-	// discipline), so a nested ChooseType cannot inherit the outer answer.
-	ChosenType string
-	// ChosenColor is the answered mid-resolution ChooseColor pick (task
-	// cli-20260923T060000Z-choose-color): the option Label (the full colour
-	// name, e.g. "Black") the chooser picked out of the fixed WUBRG list,
-	// set by rules' "choosecolor" resume arm before the suspended
-	// sub-ability is re-run. effChooseColor's re-entry consumes and clears
-	// it and emits the one Choose event the deterministic fallback would
-	// have emitted, with the answered colour's WUBRG letter, so the
-	// downstream o.ChosenColor readers see exactly the shape they already
-	// read. A valid answer is never empty (the option list is total -- the
-	// last-resort degenerate pick is always offerable), so non-empty IS the
-	// answered marker, and the asking effect consumes and clears it at the
-	// top of its walk (the fx42 scoping discipline), so a nested
-	// ChooseColor cannot inherit the outer answer.
-	ChosenColor string
-	// ChangeTextFrom/ChangeTextTo are the answered mid-resolution api:ChangeText
-	// word asks: the pair of words the chooser picked for the substitution's
-	// "from" and "to" halves. rules' "changetext" resume arm sets whichever
-	// the answered option's Kind names before the suspended sub-ability is
-	// re-run; effChangeText's re-entry consumes and clears both once it has
-	// resolved the pair (the fx42 scoping discipline), so a nested ChangeText
-	// cannot inherit the outer answer. Non-empty IS the answered marker for
-	// each half independently (the option labels are never empty), because the
-	// two halves may be asked sequentially across re-entries.
-	ChangeTextFrom, ChangeTextTo string
+
 	// ETBColorRecorded marks the ONE ChooseColor invocation that must not
 	// ask: the as-enters ENTRY-choice body (K:ETBReplacement:Other:
 	// ChooseColor). The entry machinery (rules' applyETBChoiceReplacement ->
@@ -1537,21 +876,7 @@ type Ctx struct {
 	// discipline), so a nested ChooseColor deeper in the same chain poses
 	// its own fresh ask.
 	ETBColorRecorded bool
-	// ChosenNumberPick is the answered mid-resolution ChooseNumber pick (task
-	// cli-20260923T060000Z-choose-number): the option Amount the chooser picked
-	// out of the number list, set by rules' "choosenumber" resume arm before
-	// the suspended sub-ability is re-run. effChooseNumber's re-entry consumes
-	// and clears it and emits the one Choose event the deterministic fallback
-	// would have emitted, with the answered number. A legitimate answer can be
-	// ZERO, so ChosenNumberAnswered is the answered marker (a bare int32 could
-	// not tell "answered 0" from "never asked"). This field is the
-	// mid-resolution pick and is DISTINCT from ChosenNumber, which carries the
-	// Effect's frozen SetChosenNumber$ binding (Count$ChosenNumber); the two
-	// never alias. Consumed and cleared at the top of the effect's walk (the
-	// fx42 scoping discipline), so a nested ChooseNumber cannot inherit the
-	// outer answer.
-	ChosenNumberPick     int32
-	ChosenNumberAnswered bool
+
 	// ETBNumberRecorded marks the ONE ChooseNumber invocation that must not
 	// ask: the as-enters ENTRY-choice body (K:ETBReplacement:Other:
 	// ChooseNumber). The entry machinery (rules' applyETBChoiceReplacement ->
@@ -1567,66 +892,12 @@ type Ctx struct {
 	// by the effect (the fx42 scoping discipline), so a nested ChooseNumber
 	// deeper in the same chain poses its own fresh ask.
 	ETBNumberRecorded bool
-	// ChooseNumberPicks/ChooseNumberAnswer/ChooseNumberDone/ChooseNumberIndex
-	// carry a multi-chooser SECRET ChooseNumber election (api:ChooseNumber's
-	// MatchedAbility$/UnmatchedAbility$ shape, Expert-Level Safe) across its
-	// per-chooser mid-resolution asks. ChooseNumberPicks accumulates each
-	// chooser's answered number in chooser order; ChooseNumberIndex is the
-	// chooser whose answer has just arrived (the resume re-entry appends the
-	// answer and advances past it); ChooseNumberAnswer is that answered number
-	// and ChooseNumberDone its marker -- ZERO is a legal answer, so a bare
-	// int32 cannot tell "answered 0" from "never asked". rules'
-	// "choosenumbermulti" resume arm rebuilds all four from the decision's
-	// ResumeTarget/ResumeNumberPicks, and effChooseNumber's election branch
-	// consumes and clears them once the last chooser has answered (the fx42
-	// scoping discipline), so a nested ChooseNumber cannot inherit the outer
-	// election's picks.
-	ChooseNumberPicks  []int32
-	ChooseNumberAnswer int32
-	ChooseNumberDone   bool
-	ChooseNumberIndex  int
+
 	// ETBEvenOddRecorded marks the ChooseEvenOdd body of an ETB replacement:
 	// the entry boundary already asked and recorded the answer on the entering
 	// permanent, so this invocation must not ask a second time.
 	ETBEvenOddRecorded bool
-	// ManaReflectedColor is the answered mid-resolution AB$ ManaReflected
-	// colour pick: the chosen option's structured ManaSymbol ("W"), set by
-	// rules' "manareflected" resume arm before the suspended sub-ability is
-	// re-run. effManaReflected's re-entry consumes and clears it, accepts the
-	// colour only when the resolution still offers it, and emits the one
-	// ManaAdd the deterministic fallback would have emitted. Empty on the
-	// first pass, where the effect poses the ask (or, on a host that cannot
-	// answer, the R-9 stand-in).
-	ManaReflectedColor string
-	// LookAck is the answered bare-look "Continue" ack (lookack, task
-	// fb-20260917T232325Z-35cfca4b): the looker acknowledged the private
-	// look a NoReveal$ / mandatory-Look$ Reveal-family effect is about to
-	// record, so the Secret Note lands below the modal instead of streaming
-	// past ungated. There is no decline — the ask paces the look, it does
-	// not permit it — so the resume arm sets it on ANY answer, together with
-	// LookAckTarget: the decision's ResumeTarget, the index of the Defined$
-	// target whose ack was answered. effReveal consumes and clears BOTH at
-	// the top of its own walk (fx42 scoping): targets before LookAckTarget
-	// were fully processed on the pass that suspended and are skipped,
-	// LookAckTarget itself emits without re-asking, and every LATER bare
-	// look in the walk poses its own ack — the per-target cursor (the
-	// DigTarget pattern) is what keeps a multi-target bare look (Case the
-	// Joint's "look at the top card of each player's library", Defined$
-	// Player) terminating with exactly one Continue per target instead of
-	// re-asking the earlier targets' notes unboundedly.
-	LookAck bool
-	// LookAckTarget is the Defined$ target index whose look_ack was answered
-	// (the decision's ResumeTarget). Meaningful only while LookAck is set;
-	// consumed and cleared with it.
-	LookAckTarget int
-	// DrawOpt is the answered OptionalDecider$ yes/no on a re-entered
-	// mid-resolution Draw (Mystic Remora, Rhystic Study): "yes" draws and
-	// "no" declines, the same two-way answer the RevealOpt ask poses. ""
-	// on the first pass, where effDraw poses the ask (or, when the host
-	// cannot ask, keeps the pre-ask mandatory draw — the R-9 degradation).
-	// Consumed and cleared before the draw loop, so a nested optional draw
-	// in the same walk poses its own ask (fx42 scoping).
-	DrawOpt string
+
 	// DrawUptoIdx/DrawUptoCount/DrawUptoAnswered carry an Upto$ Draw's
 	// per-target continuation (Arcane Denial, Truce): Idx is the Defined$
 	// target index whose "draw up to N" ask or answered batch is in flight,
@@ -1651,20 +922,7 @@ type Ctx struct {
 	// poses its own ask (fx42 scoping), and resets Idx when the walk finishes
 	// so a chained optional Investigate poses its own elections.
 	InvestigateOptIdx int32
-	InvestigateOpt    string
-	// TapOrUntap is the answered mid-resolution TapOrUntap election
-	// (api:TapOrUntap): the kind of the chosen option, "tap" or "untap". ""
-	// on the first pass, where effTapOrUntap poses the ask (or, when the host
-	// cannot ask, applies option 0 — the state-changing choice — silently,
-	// the R-9 stand-in). TapOrUntapObj is the target the answer was elected
-	// for (read off the answered option's Obj), and TapOrUntapDone is the
-	// answered marker: the ask's two options are both always legal, so the
-	// answered state cannot be inferred from the answer alone. Consumed and
-	// cleared at the point of application (fx42 scoping), so a later target
-	// poses its own ask and a nested TapOrUntap cannot inherit the answer.
-	TapOrUntap     string
-	TapOrUntapObj  state.ObjID
-	TapOrUntapDone bool
+
 	// ExploreObj/ExploreCard/ExploreChoice/ExploreDone carry one pending
 	// explore across the LCI destination ask (api:Explore): "...then put
 	// the card back or put it into your graveyard" (CR 701.35a). The
@@ -1677,18 +935,9 @@ type Ctx struct {
 	// and cleared at the point of application (fx42 scoping), so the
 	// pending explorer's remaining explores and every later target pose
 	// their own fresh path.
-	ExploreObj    state.ObjID
-	ExploreCard   state.ObjID
-	ExploreChoice string
-	ExploreDone   bool
-	// ExploreCount is how many of the pending explorer's Num$ explores were
-	// complete before the one whose election is answered (the ask's
-	// Decision.ResumeExploreDone, restored by the same resume arm). The
-	// resumed effExplore continues its count there: restarting it at zero
-	// made every resume apply the pending explore and pose a fresh one, so
-	// an "explores X times" never stopped on nonland reveals (round-10
-	// cardfuzz livelock, Jadelight Spelunker). Cleared with the others.
-	ExploreCount int32
+	ExploreObj  state.ObjID
+	ExploreCard state.ObjID
+
 	// ConniveObj/ConniveDiscard/ConniveDone carry one pending connive
 	// discard (api:Connive, task connive1): ConniveDone marks an ANSWERED
 	// discard for the conniver parked in ConniveObj, ConniveDiscard the
@@ -1696,9 +945,8 @@ type Ctx struct {
 	// ConniveDone set and both other fields restored from the resume
 	// point. Consumed and cleared at the point of application (fx42
 	// scoping), so a later conniving target poses its own fresh ask.
-	ConniveObj     state.ObjID
-	ConniveDiscard []state.ObjID
-	ConniveDone    bool
+	ConniveObj state.ObjID
+
 	// LastRoll/LastRollName carry the result of a DB$ RollDice this same
 	// resolution just made (effects/dice.go), under the SVar name its
 	// ResultSVar$ parameter named (usually "Result" or "X"). evalCountExpr's
@@ -1726,58 +974,7 @@ type Ctx struct {
 	// publications are rebuilt from the answered decision on the roll resume
 	// (Ctx.RollResults/RollPick).
 	RollPubs []RollPub
-	// RollResults/RollPick/RollDone carry the ANSWERED choose-one-result ask
-	// on a re-entered mid-resolution RollDice (rules/resolution.go's "roll"
-	// arm): RollResults is the per-die results the asking first pass rolled
-	// (carried verbatim on the decision and the resume point), RollPick the
-	// dice the player picked (each entry a roll Option's Index), RollDone
-	// the answered marker. The re-entered effRollDice publishes
-	// ChosenSVar$ = the sum of the picked dice's results and OtherSVar$ =
-	// the sum of the rest, then lets Resolve chain the SubAbility$; it
-	// consumes and clears all three at its top (the fx42 scoping
-	// discipline), so a nested RollDice below this walk poses its own ask.
-	RollResults []int32
-	RollPick    []int
-	RollDone    bool
-	// VotePicks/VoteAnswer/VoteDone/VoteTarget carry the per-voter api:Vote
-	// PLAYER ballot (VotePlayer$, task votepb1) across a mid-resolution ask.
-	// VotePicks is every voter's answer accumulated so far, in voter order
-	// (one entry per voter already answered; a zero Target is a voter who
-	// cast no vote because the ballot held no admissible entry). VoteTarget
-	// is the index into Defined$'s voter list whose ask was just posed, and
-	// VoteAnswer the decision's chosen option as a player Target -- rules'
-	// "vote" resume arm rebuilds both from the decision's ResumeTarget/
-	// ResumeChoices, and effPlayerVote consumes and clears VoteAnswer/
-	// VoteDone at the top of its own walk (the fx42 scoping discipline), so
-	// a nested Vote poses its own ballot. The same fields the fixed-list
-	// shape's Ctx.Votes seam mirrors: VotePicks is the player-ballot answer
-	// list where Ctx.Votes is the fixed-list option-index list.
-	VotePicks  []state.Target
-	VoteAnswer []state.Target
-	VoteDone   bool
-	VoteTarget int
-	// Demonstrate carries the demonstrate trigger's answered asks (CR
-	// 702.152) across a mid-resolution ask. DemonstrateStage is which ask
-	// was answered -- 0 the may-copy election, 1 the opponent choice --
-	// DemonstrateYes the election's answer, DemonstrateOpp the answered
-	// opponent (player targets). rules' "demonstrate" resume arm rebuilds
-	// all four from the decision's ResumeTarget and answer, and
-	// effDemonstrate consumes and clears all four at the top of its walk
-	// (the fx42 scoping discipline), so a nested Demonstrate below this
-	// walk poses its own asks.
-	DemonstrateDone  bool
-	DemonstrateStage int
-	DemonstrateYes   bool
-	DemonstrateOpp   []state.Target
-	// Cipher carries the api:Cipher (CR 702.99a) encode ask's answer across a
-	// mid-resolution suspension. CipherDone marks the ask answered and
-	// CipherPick is the chosen creature (one object target; an empty slice is
-	// the decline). rules' "cipher" resume arm rebuilds both from the
-	// decision's answer, and effCipher consumes and clears both at the top of
-	// its walk (the fx42 scoping discipline), so a nested Cipher poses its own
-	// ask.
-	CipherDone bool
-	CipherPick []state.Target
+
 	// VoteCounts is the per-subject tally the most recent api:Vote left for
 	// this resolution's AmountFromVotes$ readers (effects/choose_control.go's
 	// effRepeatEach): one entry per ballot subject -- every player the
@@ -1810,20 +1007,7 @@ type Ctx struct {
 	// cost action (rules/cumulative.go) does not go through effFlipCoin and so
 	// does not populate it (see AGENTS.md).
 	FlipMemory *FlipMemory
-	// FlipRest is the resume cursor of a DB$ FlipCoin loop re-entered after a
-	// per-flip sub-ability suspended (FlipUntilYouLose$ or Amount$ > 1). rules'
-	// resumeResolution sets it from the continuation frame before re-running
-	// the FlipCoin SA; effFlipCoin consumes and clears it at the top of its own
-	// walk (the fx42 scoping discipline), so a nested FlipCoin poses its own
-	// loop. Nil on every ordinary first pass.
-	FlipRest *FlipRest
-	// TokenRest is the resume cursor of a DB$ Token whose mint parked behind
-	// a CR 616.1 order ask (effects/token.go). rules' resumeResolution sets it
-	// from the continuation frame -- with Parked filled from the objects the
-	// answer actually minted -- before re-running the Token SA; effToken
-	// consumes and clears it at the top of its walk. Nil on every ordinary
-	// first pass.
-	TokenRest *TokenRest
+
 	// tokensSuspended is set by effToken when a mint parked and it handed its
 	// continuation to the host (TokenRest): Resolve then defers the SA's
 	// ImprintCards$/ClearImprinted$ tail to the re-entry that finishes the
