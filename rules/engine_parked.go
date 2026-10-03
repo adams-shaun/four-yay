@@ -24,6 +24,14 @@ type engineParked struct {
 	// priority by startDefeatedCast; plain replayable continuation state like
 	// suspendedCasts above.
 	defeatedCasts []state.ObjID
+	// queuedPlays is the rest of an Amount$ Play answer (Etali, Primal
+	// Storm's "you may cast any number of spells from among them") whose
+	// earlier cast parked on its own question -- a target, an as-enters
+	// choice, a mana window. CR 608.2g casts each chosen card in turn, each
+	// cast fully completed before the next begins, so the remaining cards
+	// wait here and startQueuedPlay begins the next one once nothing is
+	// pending. Plain replayable continuation state like suspendedCasts.
+	queuedPlays *queuedPlays
 	// manaActivation is non-nil while a source with several available mana
 	// abilities waits for its controller to select one. manaColorActivation
 	// similarly holds an already-paid Produced$ Any ability, and

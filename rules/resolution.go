@@ -676,6 +676,20 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			// effects twice) and helper2's default would clobber Ctx.Modes.
 			e.resumeAnswerBindingRest(rp, o, ctx, chosen)
 		}
+		// CR 608.2g: an Amount$ Play whose earlier cast parked on its own
+		// question left the rest of its chosen cards queued. The resolution
+		// waits for those casts: its continuation (the re-entered Play and
+		// everything after it) parks on the queue and startQueuedPlay
+		// resumes it once the last chosen card's cast is complete, so a
+		// chained "put the cards that weren't cast into your graveyard"
+		// (Epic Experiment) never buries a card still to be cast.
+		if rp.kind == "play" && e.queuedPlays != nil && e.queuedPlays.cont == nil {
+			cont := cloneResume(rp)
+			cont.kind = "play_resume"
+			cont.playFirst = ctx.Play
+			e.queuedPlays.cont = cont
+			return
+		}
 		src := rp.obj
 		if o.Ability != nil {
 			src = o.Source
