@@ -47,7 +47,7 @@ func (e *Engine) etbPayLifeBound(o *state.Object, with *cards.SA) (int, bool) {
 	if !present || !strings.EqualFold(strings.TrimSpace(body), "Count$xPaid") {
 		return 0, false
 	}
-	c := ParseCost(with.Params["Cost"])
+	c := ParseCost(with.ParamStr(cards.PKCost))
 	if len(c.LifeX) == 0 {
 		return 0, false
 	}
@@ -120,7 +120,7 @@ func (e *Engine) entryETBChoice(ev events.Event, ordinal int) (etbChoice, bool) 
 		if r.With == nil || !e.replacementMatches(*r, o.ID, ev) {
 			continue
 		}
-		if r.Params["Keyword"] != "ETBReplacement" {
+		if r.ParamStr(cards.PKKeyword) != "ETBReplacement" {
 			// A non-keyword R:Event$ Moved replacement whose ReplaceWith$ body
 			// carries `Cost$ Mandatory PayLife<X>` (Minion of the Wastes,
 			// Phyrexian Processor, Nameless Race: "as CARDNAME enters, pay any
@@ -159,7 +159,7 @@ func (e *Engine) entryETBChoice(ev events.Event, ordinal int) (etbChoice, bool) 
 			// fallback when ValidCards$ is absent).
 			selector := r.With.Params["ValidDescription"]
 			if kind == "copy" {
-				selector = r.With.Params["Choices"]
+				selector = r.With.ParamStr(cards.PKChoices)
 			}
 			var opts []decision.Option
 			if kind == "type" {
@@ -170,8 +170,8 @@ func (e *Engine) entryETBChoice(ev events.Event, ordinal int) (etbChoice, bool) 
 				opts = e.typeChoiceOptions(you, o.ID, r.With.Params)
 			} else {
 				opts = e.etbOptions(you, o.ID, kind,
-					r.With.Params["ValidCards"], selector,
-					r.With.Params["Type"], r.With.Params["Exclude"], r.With.Params["ChooseFromList"])
+					r.With.ParamStr(cards.PKValidCards), selector,
+					r.With.ParamStr(cards.PKType), r.With.Params["Exclude"], r.With.Params["ChooseFromList"])
 			}
 			if kind == "name" && len(opts) == 0 {
 				// No name passes the filter: the legacy (no-universe) builder
@@ -557,7 +557,7 @@ func etbCloneWhitelist(sa *cards.SA, svars map[string]string) bool {
 	//    time counters, silently. This is deliberately conservative: it also
 	//    withholds a body whose modifier is a legitimate multi-word keyword
 	//    ("First Strike"), a shape no ETB Clone carrier has today.
-	if effects.SpecNeedsResolver(strings.TrimSpace(sa.Params["Choices"])) {
+	if effects.SpecNeedsResolver(strings.TrimSpace(sa.ParamStr(cards.PKChoices))) {
 		return false
 	}
 	for _, kw := range cards.SplitKeywordList(sa.Params["AddKeywords"]) {

@@ -60,7 +60,7 @@ func effEmpower(h Host, c *Ctx, sa *cards.SA) {
 	pickAns, pickDone := c.CounterPick, c.CounterPickDone
 	c.CounterPick, c.CounterPickDone = nil, false
 	g := h.Game()
-	typ := strings.TrimSpace(sa.Params["Type"])
+	typ := strings.TrimSpace(sa.ParamStr(cards.PKType))
 	if typ == "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "Empower: no Type$ to empower"})
 		return

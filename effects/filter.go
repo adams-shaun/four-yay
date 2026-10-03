@@ -1764,7 +1764,7 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 		if !targetableObject(sc.TargetableObjects, o.ID) {
 			return false, true
 		}
-		return MatchesSpecCtx(g, strings.TrimSpace(sa.Params["ValidTgts"]), o.ID,
+		return MatchesSpecCtx(g, strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)), o.ID,
 			NewSpecContext(spell.Controller, spell.ID)), true
 	}
 	if p == "TriggeredNewCard" || p == "TriggeredCard" {
@@ -2528,7 +2528,7 @@ func triggeredSpellTargetSA(spell *state.Object) *cards.SA {
 		return nil
 	}
 	if spell.Ability != nil {
-		if strings.TrimSpace(spell.Ability.Params["ValidTgts"]) != "" {
+		if strings.TrimSpace(spell.Ability.ParamStr(cards.PKValidTgts)) != "" {
 			return spell.Ability
 		}
 		return nil
@@ -2538,7 +2538,7 @@ func triggeredSpellTargetSA(spell *state.Object) *cards.SA {
 		return nil
 	}
 	sa := f.SpellAbility()
-	if sa == nil || strings.TrimSpace(sa.Params["ValidTgts"]) == "" {
+	if sa == nil || strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
 		return nil
 	}
 	return sa
@@ -3104,13 +3104,13 @@ func objectHasAbility(o *state.Object, sub string) bool {
 		case "Activated":
 			return true
 		case "Activated.hasTapCost":
-			for _, tok := range strings.Fields(a.Params["Cost"]) {
+			for _, tok := range strings.Fields(a.ParamStr(cards.PKCost)) {
 				if tok == "T" {
 					return true
 				}
 			}
 		case "Activated.Exhaust":
-			if strings.EqualFold(strings.TrimSpace(a.Params["Exhaust"]), "True") {
+			if strings.EqualFold(strings.TrimSpace(a.ParamStr(cards.PKExhaust)), "True") {
 				return true
 			}
 		}

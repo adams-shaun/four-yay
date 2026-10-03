@@ -254,7 +254,7 @@ var potentialProducedStrip = strings.NewReplacer("{", "", "}", "", " ", "")
 // rather than zero, because this bound must never lose an action.
 func addPotentialMana(m *state.Mana, ma *cards.SA) {
 	amt, indeterminate := potentialAmount(ma)
-	raw := strings.TrimSpace(ma.Params["Produced"])
+	raw := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
 	// Blank Produced$ is the executor's own colourless default (effMana), NOT
 	// an alternative production: normalize it to "C" BEFORE the open test so a
 	// colourless source contributes one colourless rather than pricing the
@@ -288,7 +288,7 @@ type potentialManaAdd struct {
 func computePotentialManaAdd(ma *cards.SA) potentialManaAdd {
 	var f potentialManaAdd
 	amt, indeterminate := potentialAmount(ma)
-	raw := strings.TrimSpace(ma.Params["Produced"])
+	raw := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
 	if raw == "" {
 		raw = "C"
 	}
@@ -378,7 +378,7 @@ func producedOpen(raw string) bool {
 // a Y, a Count$ expression, a Sacrificed$ reference) is indeterminate and
 // prices unbounded upstream rather than at zero.
 func potentialAmount(ma *cards.SA) (int32, bool) {
-	raw := strings.TrimSpace(ma.Params["Amount"])
+	raw := strings.TrimSpace(ma.ParamStr(cards.PKAmount))
 	if raw == "" {
 		return 1, false
 	}

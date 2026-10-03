@@ -129,7 +129,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			e.recordChosenTargets(rp.obj, flat, false)
 			if o := e.G.Obj(rp.obj); o != nil && o.CastFlags&state.FlagFused != 0 {
 				if ff, _ := fusedSplitFaces(o); ff != nil {
-					if sa := ff.SpellAbility(); sa == nil || strings.TrimSpace(sa.Params["ValidTgts"]) == "" {
+					if sa := ff.SpellAbility(); sa == nil || strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
 						stages = append([][]state.Target{nil}, stages...)
 					}
 				}
@@ -672,7 +672,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			// the spell-cast arm's TriggerCard (a SpellCast fires on PutOnStack,
 			// whose Obj IS the cast spell; no ability wrapper is minted). Only
 			// a context-less synthetic push keeps the free-executor semantics.
-			(rp.sa.API == "CopySpellAbility" && rp.sa.Params["Cost"] != "" &&
+			(rp.sa.API == "CopySpellAbility" && rp.sa.ParamStr(cards.PKCost) != "" &&
 				(tc.TriggerAbility != 0 || tc.TriggerCard != 0)))
 	if armed {
 		e.startTriggeredEffectCost(rp, ctx.Source)

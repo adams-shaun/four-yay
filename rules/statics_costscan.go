@@ -63,7 +63,7 @@ func (e *Engine) scanCostStatics() costStaticViews {
 			default:
 				continue
 			}
-			if !effectZoneOK(st.Params["EffectZone"], o.Zone) {
+			if !effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
 				continue
 			}
 			*dst = append(*dst, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})

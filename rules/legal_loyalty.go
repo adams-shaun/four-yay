@@ -23,13 +23,13 @@ import (
 // parameter) as well as the 20 dynamic [-X] lines, every one of which carries
 // it.
 func isLoyaltyAbility(ab *cards.SA) bool {
-	return isLoyaltyAbilityCost(ab, ParseCost(ab.Params["Cost"]))
+	return isLoyaltyAbilityCost(ab, ParseCost(ab.ParamStr(cards.PKCost)))
 }
 
 // isLoyaltyAbility is the engine-owned form of the loyalty classifier. Its
 // card-script cost is configured text, so use the immutable parser sidecar.
 func (e *Engine) isLoyaltyAbility(ab *cards.SA) bool {
-	raw := ab.Params["Cost"]
+	raw := ab.ParamStr(cards.PKCost)
 	if !containsLoyaltyFold(raw) {
 		// No AddCounter/SubCounter part of raw can carry a LOYALTY spec (each
 		// part's Spec is a substring of the raw text, and no non-ASCII rune
@@ -388,9 +388,9 @@ func (e *Engine) additionalActivationLimit(id state.ObjID, actor state.PlayerID,
 			}
 			switch parts[1] {
 			case "Exhaust":
-				matched = strings.EqualFold(strings.TrimSpace(ab.Params["Exhaust"]), "True")
+				matched = strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKExhaust)), "True")
 			case "PowerUp":
-				matched = strings.EqualFold(strings.TrimSpace(ab.Params["PowerUp"]), "True")
+				matched = strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKPowerUp)), "True")
 			}
 			if matched {
 				break

@@ -147,10 +147,10 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	// These riders are implemented below.  Only the measured Zndrsplt shape
 	// is admitted; other Choices forms remain the source-blocking fail-closed
 	// path rather than silently copying the wrong object.
-	supportsChoice := strings.TrimSpace(sa.Params["Choices"]) == "Creature.RememberedPlayerCtrl" &&
+	supportsChoice := strings.TrimSpace(sa.ParamStr(cards.PKChoices)) == "Creature.RememberedPlayerCtrl" &&
 		strings.TrimSpace(sa.Params["Chooser"]) == "Remembered" &&
 		strings.TrimSpace(sa.Params["Controller"]) == "Remembered"
-	if _, ok := sa.Params["Choices"]; ok && !supportsChoice {
+	if _, ok := sa.Param(cards.PKChoices); ok && !supportsChoice {
 		note("Choices$")
 		blocked = true
 	}
@@ -228,7 +228,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	// cannot resolve is one loud Note per call and the modification is
 	// skipped -- never a silent wrong characteristic.
 	var addTypes []string
-	if raw, ok := sa.Params["AddTypes"]; ok {
+	if raw, ok := sa.Param(cards.PKAddTypes); ok {
 		// Forge's multi-type separator is " & " inside a comma-list element
 		// (rules/layers.go's statList is the established reader of the same
 		// parameter), so split both ways and trim each part: "Creature &
@@ -241,7 +241,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	}
 	var addColors []string
 	setColor := false
-	if raw, ok := sa.Params["SetColor"]; ok {
+	if raw, ok := sa.Param(cards.PKSetColor); ok {
 		cols, parsed := colorLetters(raw)
 		if parsed {
 			setColor = true
@@ -253,7 +253,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	}
 	var setPow, setTgh int32
 	var hasSetPow, hasSetTgh bool
-	if raw, ok := sa.Params["SetPower"]; ok {
+	if raw, ok := sa.Param(cards.PKSetPower); ok {
 		if v, resolved := NumResolved(h, c, sa, "SetPower", 0); resolved {
 			setPow, hasSetPow = v, true
 		} else {
@@ -261,7 +261,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 				Text: "SetPower$ " + strings.TrimSpace(raw) + " is not resolvable; the copy keeps its printed power"})
 		}
 	}
-	if raw, ok := sa.Params["SetToughness"]; ok {
+	if raw, ok := sa.Param(cards.PKSetToughness); ok {
 		if v, resolved := NumResolved(h, c, sa, "SetToughness", 0); resolved {
 			setTgh, hasSetTgh = v, true
 		} else {
@@ -303,11 +303,11 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		return false
 	}
 	removeCardTypes := false
-	if raw, ok := sa.Params["RemoveCardTypes"]; ok {
+	if raw, ok := sa.Param(cards.PKRemoveCardTypes); ok {
 		removeCardTypes = stripTrue("RemoveCardTypes$", raw)
 	}
 	removeCreatureTypes := len(setCreatureTypes) > 0
-	if raw, ok := sa.Params["RemoveCreatureTypes"]; ok {
+	if raw, ok := sa.Param(cards.PKRemoveCreatureTypes); ok {
 		removeCreatureTypes = stripTrue("RemoveCreatureTypes$", raw) || removeCreatureTypes
 	}
 	if raw, ok := sa.Params["RemoveSubTypes"]; ok {
@@ -420,8 +420,8 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	}
 
 	// Copy source.
-	spec := strings.TrimSpace(sa.Params["Defined"])
-	_, hasTgts := sa.Params["ValidTgts"]
+	spec := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
+	_, hasTgts := sa.Param(cards.PKValidTgts)
 	populate := strings.EqualFold(strings.TrimSpace(sa.Params["Populate"]), "True")
 	var targets []state.Target
 	switch {
@@ -638,7 +638,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 				// so the placement gate cannot read the body's ValidTgts$
 				// (the fight's "up to one target creature you don't control"
 				// ask is never posed) and rules' target dispatch has no SA.
-				if ex := strings.TrimSpace(tr.Params["Execute"]); ex != "" {
+				if ex := strings.TrimSpace(tr.ParamStr(cards.PKExecute)); ex != "" {
 					tr.Effect = cards.ResolveSVar(sourceSVars, ex)
 				}
 				x := tr

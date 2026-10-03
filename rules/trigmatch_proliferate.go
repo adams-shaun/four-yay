@@ -35,11 +35,11 @@ func (e *Engine) proliferateMatches(t cards.Trigger, source state.ObjID, ev even
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidCard"]; v != "" && ev.Obj != 0 &&
+	if v := t.ParamStr(cards.PKValidCard); v != "" && ev.Obj != 0 &&
 		!e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 		return false
 	}
-	if v := t.Params["ValidPlayer"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" &&
 		!effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}

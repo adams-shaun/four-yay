@@ -178,11 +178,11 @@ func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
 					var tbms []*cards.SA
 					for _, name := range names {
 						if sub := cards.ResolveSVar(svars, name); sub != nil &&
-							strings.TrimSpace(sub.Params["ValidTgts"]) != "" {
+							strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
 							tbms = append(tbms, sub)
 						}
 					}
-					choices := strings.Split(so.Ability.Params["Choices"], ",")
+					choices := strings.Split(so.Ability.ParamStr(cards.PKChoices), ",")
 					for i := range choices {
 						choices[i] = strings.TrimSpace(choices[i])
 					}

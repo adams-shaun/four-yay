@@ -97,7 +97,7 @@ func effInvestigate(h Host, c *Ctx, sa *cards.SA) {
 	}
 	remember := strings.EqualFold(strings.TrimSpace(sa.Params["RememberInvestigatingPlayers"]), "True")
 	players := actingPlayers(h, c, sa)
-	if !strings.EqualFold(strings.TrimSpace(sa.Params["Optional"]), "True") {
+	if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
 		if remember {
 			rememberInvestigatingPlayers(h, c, players)
 		}

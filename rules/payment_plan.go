@@ -233,7 +233,7 @@ func (e *Engine) paymentPlanCastShapeDetailUsing(statics costStaticViews, p stat
 	mods := e.costModifiersWithTargetsUsing(statics, p, id, spellScope(""), nil, false)
 	spellCost := Cost{}
 	if sa := f.SpellAbility(); sa != nil {
-		spellCost = e.parseCost(sa.Params["Cost"])
+		spellCost = e.parseCost(sa.ParamStr(cards.PKCost))
 	}
 	// A cost static's own non-mana extra (Soul Immolation's Blight<X>) stays
 	// withheld entirely: the mana-only witness cannot describe it.
@@ -919,7 +919,7 @@ func (e *Engine) planPaymentCostWithDemand(p state.PlayerID, demand [5]int, cost
 		}
 		var out []plannedManaActivation
 		for _, alt := range alts {
-			if tap && e.parseCost(alt.ma.Params["Cost"]).Tap {
+			if tap && e.parseCost(alt.ma.ParamStr(cards.PKCost)).Tap {
 				continue
 			}
 			if keep && (alt.consequence.sacrifice || alt.consequence.returnToHand) {
@@ -1173,7 +1173,7 @@ func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.
 			if !ok {
 				continue
 			}
-			counts, any := cards.ProducedCounts(ma.Params["Produced"])
+			counts, any := cards.ProducedCounts(ma.ParamStr(cards.PKProduced))
 			if any {
 				units = appendPaymentPlanUnitAlt(units, id, windowManaAlt{ma: ma, counts: counts, amt: amt, any: true})
 				continue
@@ -1315,7 +1315,7 @@ func (e *Engine) paymentPlanAbilityShapeTier(p state.PlayerID, id state.ObjID, m
 	if ma != nil {
 		if f := e.manaFactsOf(ma); f != nil && f.shapeKnown {
 			if manaSAFactsVerify {
-				tier, c, detail, rider := paymentPlanShapeTierOf(ma, e.parseCost(ma.Params["Cost"]))
+				tier, c, detail, rider := paymentPlanShapeTierOf(ma, e.parseCost(ma.ParamStr(cards.PKCost)))
 				if rider || tier != f.shapeTier || c != f.shapeCons || detail != f.shapeDetail {
 					panic(fmt.Sprintf("rules: configured payment shape for %q disagrees with a recompute", ma.Line))
 				}
@@ -1325,7 +1325,7 @@ func (e *Engine) paymentPlanAbilityShapeTier(p state.PlayerID, id state.ObjID, m
 	}
 	var cost Cost
 	if ma != nil {
-		cost = e.parseCost(ma.Params["Cost"])
+		cost = e.parseCost(ma.ParamStr(cards.PKCost))
 	}
 	tier, c, detail, rider := paymentPlanShapeTierOf(ma, cost)
 	if !rider {
@@ -1394,7 +1394,7 @@ func paymentPlanShapeTierOf(ma *cards.SA, cost Cost) (tier paymentAbilityTier, c
 	if cost.XMin != 0 || cost.X != 0 || cost.Generic != 0 || cost.Colored.Total() != 0 || len(cost.Discard)+len(cost.SubCounter)+len(cost.Exile)+len(cost.ExileFromTop)+len(cost.TapPermanent)+len(cost.Energy)+len(cost.LifeX) != 0 {
 		return deferred("source:last_resort")
 	}
-	if strings.TrimSpace(ma.Params["SubAbility"]) != "" {
+	if strings.TrimSpace(ma.ParamStr(cards.PKSubAbility)) != "" {
 		return paymentTierDeferred, paymentConsequence{}, "", true
 	}
 	if cost.Sac != nil || cost.Life != 0 || cost.Return != nil {
@@ -1514,13 +1514,13 @@ func (e *Engine) paymentPlanDamageRider(id state.ObjID, mana *cards.SA) (uint32,
 	if o == nil || o.Face() == nil {
 		return 0, false
 	}
-	return paymentPlanDamageBody(cards.ResolveSVar(o.Face().SVars, strings.TrimSpace(mana.Params["SubAbility"])))
+	return paymentPlanDamageBody(cards.ResolveSVar(o.Face().SVars, strings.TrimSpace(mana.ParamStr(cards.PKSubAbility))))
 }
 
 // paymentPlanDamageBody reports N when rider is exactly `DealDamage |
 // Defined$ You | NumDmg$ <literal N>` with no further parameter or sub.
 func paymentPlanDamageBody(rider *cards.SA) (uint32, bool) {
-	if rider == nil || rider.API != "DealDamage" || strings.TrimSpace(rider.Params["Defined"]) != "You" || strings.TrimSpace(rider.Params["SubAbility"]) != "" {
+	if rider == nil || rider.API != "DealDamage" || strings.TrimSpace(rider.ParamStr(cards.PKDefined)) != "You" || strings.TrimSpace(rider.ParamStr(cards.PKSubAbility)) != "" {
 		return 0, false
 	}
 	n, err := strconv.ParseUint(strings.TrimSpace(rider.Params["NumDmg"]), 10, 32)
@@ -1540,7 +1540,7 @@ func (e *Engine) paymentPlanRiderHasTarget(id state.ObjID, mana *cards.SA) bool 
 	if o == nil || o.Face() == nil {
 		return true
 	}
-	rider := cards.ResolveSVar(o.Face().SVars, strings.TrimSpace(mana.Params["SubAbility"]))
+	rider := cards.ResolveSVar(o.Face().SVars, strings.TrimSpace(mana.ParamStr(cards.PKSubAbility)))
 	if rider == nil {
 		return false
 	}
@@ -1557,8 +1557,8 @@ func (e *Engine) paymentPlanParadiseRider(id state.ObjID, mana *cards.SA) bool {
 	if o == nil || o.Face() == nil {
 		return false
 	}
-	rider := cards.ResolveSVar(o.Face().SVars, strings.TrimSpace(mana.Params["SubAbility"]))
-	if rider == nil || rider.API != "Pump" || rider.Params["Defined"] != "Self" {
+	rider := cards.ResolveSVar(o.Face().SVars, strings.TrimSpace(mana.ParamStr(cards.PKSubAbility)))
+	if rider == nil || rider.API != "Pump" || rider.ParamStr(cards.PKDefined) != "Self" {
 		return false
 	}
 	for _, key := range slices.Sorted(maps.Keys(rider.Params)) {
@@ -1566,7 +1566,7 @@ func (e *Engine) paymentPlanParadiseRider(id state.ObjID, mana *cards.SA) bool {
 			return false
 		}
 	}
-	text := strings.ToLower(strings.Join([]string{rider.Params["KW"], rider.Params["SpellDescription"], rider.Params["StackDescription"]}, " "))
+	text := strings.ToLower(strings.Join([]string{rider.Params["KW"], rider.ParamStr(cards.PKSpellDescription), rider.Params["StackDescription"]}, " "))
 	return strings.Contains(text, "hidden") && strings.Contains(text, "return")
 }
 
@@ -1762,7 +1762,7 @@ func paymentPlanChoiceShape(raw string) bool {
 // empty commander identity all yield nil: V1 fails closed rather than
 // inventing a colour.
 func (e *Engine) paymentPlanChoiceColours(id state.ObjID, ma *cards.SA) []string {
-	raw := strings.TrimSpace(ma.Params["Produced"])
+	raw := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
 	switch raw {
 	case "Any":
 		return []string{"W", "U", "B", "R", "G"}

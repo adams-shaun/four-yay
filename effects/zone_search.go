@@ -622,17 +622,17 @@ type libraryFetch struct {
 // the ordinary search-owner path below, regardless of which selector yielded
 // it; the target kind, not a closed spelling list, defines the role.
 func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, to state.Zone) bool {
-	if strings.TrimSpace(sa.Params["Defined"]) == "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "" {
 		return false
 	}
-	if _, owner := sa.Params["DefinedPlayer"]; owner {
+	if _, owner := sa.Param(cards.PKDefinedPlayer); owner {
 		return false
 	}
 	g := h.Game()
-	targets, known := knownDefinedTargets(h, c, sa.Params["Defined"])
+	targets, known := knownDefinedTargets(h, c, sa.ParamStr(cards.PKDefined))
 	if !known {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "unrecognised Defined library fetch " + sa.Params["Defined"]})
+			Text: "unrecognised Defined library fetch " + sa.ParamStr(cards.PKDefined)})
 		return true
 	}
 	var fetches []libraryFetch
@@ -673,7 +673,7 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, to state.Zone) bool
 		return !playerList
 	}
 
-	optional := strings.EqualFold(strings.TrimSpace(sa.Params["Optional"]), "True")
+	optional := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True")
 	answer := c.DefinedLibraryMove
 	c.DefinedLibraryMove = "" // fx42 scoping: a nested fetch asks for itself.
 	if optional && answer == "" {
@@ -725,7 +725,7 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, to state.Zone) bool
 				continue
 			}
 			settleChangeZoneMove(h, c, sa, id, state.ZLibrary, to, withKind, withAmt, &rider)
-			if strings.EqualFold(sa.Params["RememberChanged"], "True") {
+			if strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
 				eventRemember(h, c, id)
 			}
 			eventForgetChanged(h, c, sa, id)
@@ -752,7 +752,7 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, to state.Zone) bool
 // changeZoneFetchSelector distinguishes a fetch player from an already chosen
 // object. An unbound or unknown object selector never widens to a free search.
 func changeZoneFetchSelector(h Host, c *Ctx, sa *cards.SA) bool {
-	if spec := strings.TrimSpace(sa.Params["Defined"]); spec != "" {
+	if spec := strings.TrimSpace(sa.ParamStr(cards.PKDefined)); spec != "" {
 		targets, known := knownDefinedTargets(h, c, spec)
 		if !known || len(targets) == 0 {
 			return false
@@ -764,10 +764,10 @@ func changeZoneFetchSelector(h Host, c *Ctx, sa *cards.SA) bool {
 		}
 		return true
 	}
-	if sa.Params["DefinedPlayer"] != "" {
+	if sa.ParamStr(cards.PKDefinedPlayer) != "" {
 		return true
 	}
-	if sa.Params["ValidTgts"] != "" {
+	if sa.ParamStr(cards.PKValidTgts) != "" {
 		if len(c.Targets) == 0 {
 			return false
 		}
@@ -783,12 +783,12 @@ func changeZoneFetchSelector(h Host, c *Ctx, sa *cards.SA) bool {
 // searchPlayers resolves whose zones are searched. DefinedPlayer$ takes
 // precedence over Defined$; targeted players come next, then the controller.
 func searchPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
-	if sa.Params["DefinedPlayer"] == "" && sa.Params["Defined"] == "" && sa.Params["ValidTgts"] != "" {
+	if sa.ParamStr(cards.PKDefinedPlayer) == "" && sa.ParamStr(cards.PKDefined) == "" && sa.ParamStr(cards.PKValidTgts) != "" {
 		return hiddenPickPlayers(h, c, sa)
 	}
-	spec, explicit := sa.Params["DefinedPlayer"]
+	spec, explicit := sa.Param(cards.PKDefinedPlayer)
 	if !explicit {
-		spec, explicit = sa.Params["Defined"]
+		spec, explicit = sa.Param(cards.PKDefined)
 	}
 	if !explicit || strings.TrimSpace(spec) == "" {
 		return []state.PlayerID{c.Controller}
@@ -898,10 +898,10 @@ func searchLibraryWindow(h Host, c *Ctx, sa *cards.SA, lib []state.ObjID) []stat
 // getFirstTargetedPlayer for a usesTargeting effect), then the source
 // controller -- Forge's getDefinedPlayers(null) defaults to "You".
 func hiddenPickPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
-	if strings.TrimSpace(sa.Params["DefinedPlayer"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKDefinedPlayer)) != "" {
 		return searchPlayers(h, c, sa)
 	}
-	if _, targeted := sa.Params["ValidTgts"]; targeted {
+	if _, targeted := sa.Param(cards.PKValidTgts); targeted {
 		var out []state.PlayerID
 		seen := make(map[state.PlayerID]bool, len(c.Targets))
 		for _, t := range c.Targets {
@@ -1224,7 +1224,7 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 	if strings.TrimSpace(sa.ParamStr(cards.PKDestination)) == "" {
 		for _, id := range valid {
 			moved = append(moved, id)
-			if strings.EqualFold(sa.Params["RememberChanged"], "True") {
+			if strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
 				c.Remembered = append(c.Remembered, state.Target{Obj: id})
 				eventRemember(h, c, id)
 			}
@@ -1264,7 +1264,7 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 			// resolution's Remembered for RememberChanged$; only the persistent
 			// event-backed half is left here. RememberSearched$ is not read
 			// there, so its ctx append is made here too.
-			if strings.EqualFold(sa.Params["RememberChanged"], "True") {
+			if strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
 				eventRemember(h, c, id)
 			}
 			if strings.EqualFold(strings.TrimSpace(sa.Params["RememberSearched"]), "True") {
@@ -1318,7 +1318,7 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 			applyGainControl(h, c, sa, id)
 			changeZoneAttachedTo(h, c, sa, id)
 		}
-		if strings.EqualFold(sa.Params["RememberChanged"], "True") {
+		if strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
 			c.Remembered = append(c.Remembered, state.Target{Obj: id})
 			eventRemember(h, c, id)
 		}
@@ -1373,7 +1373,7 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 	// Forge's own reveal call sits.
 	reveal := strings.EqualFold(strings.TrimSpace(sa.Params["Reveal"]), "True") ||
 		(to != state.ZBattlefield && spec != "Card" &&
-			strings.TrimSpace(sa.Params["Defined"]) == "" &&
+			strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "" &&
 			!strings.EqualFold(strings.TrimSpace(sa.Params["NoReveal"]), "True"))
 	if strings.EqualFold(strings.TrimSpace(sa.Params["Hidden"]), "True") &&
 		!strings.EqualFold(strings.TrimSpace(sa.Params["Reveal"]), "True") {

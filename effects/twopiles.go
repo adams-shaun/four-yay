@@ -122,7 +122,7 @@ func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
 	sepSpec := strings.TrimSpace(sa.Params["Separator"])
 	chooseSpec := strings.TrimSpace(sa.Params["Chooser"])
 	if chooseSpec == "" {
-		chooseSpec = strings.TrimSpace(sa.Params["Defined"])
+		chooseSpec = strings.TrimSpace(sa.ParamStr(cards.PKDefined))
 	}
 	if sepSpec == "" {
 		sepSpec = chooseSpec

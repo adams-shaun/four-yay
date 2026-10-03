@@ -125,10 +125,10 @@ func cdaSetColourClaimStatic(s cards.Static) (ColorMask, bool, bool) {
 	if s.Mode != "Continuous" || s.ParamStr(cards.PKCharacteristicDefining) != "True" {
 		return 0, false, false
 	}
-	if !strings.Contains(s.Params["Affected"], "Self") {
+	if !strings.Contains(s.ParamStr(cards.PKAffected), "Self") {
 		return 0, false, false
 	}
-	raw, isSet := s.Params["SetColor"]
+	raw, isSet := s.Param(cards.PKSetColor)
 	if !isSet {
 		return 0, false, false
 	}

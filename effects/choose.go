@@ -203,7 +203,7 @@ func chooseColorOptions(sa *cards.SA) (opts []decision.Option, askable bool, exo
 		excluded[l] = true
 	}
 	allowed := map[byte]bool{}
-	if choices := chooseColourTokens(sa.Params["Choices"]); len(choices) > 0 {
+	if choices := chooseColourTokens(sa.ParamStr(cards.PKChoices)); len(choices) > 0 {
 		for _, l := range choices {
 			allowed[l] = true
 		}
@@ -377,13 +377,13 @@ func effChooseNumber(h Host, c *Ctx, sa *cards.SA) {
 // rest of the effects package uses for a named body. A missing or unparseable
 // body is one loud Note and no branch, never a silent nothing.
 func effChooseNumberElection(h Host, c *Ctx, sa *cards.SA, matched, unmatched string, secretly bool) {
-	choosers, ok := repeatPlayers(h, c, strings.TrimSpace(sa.Params["Defined"]))
+	choosers, ok := repeatPlayers(h, c, strings.TrimSpace(sa.ParamStr(cards.PKDefined)))
 	if !ok || len(choosers) == 0 {
 		// The Defined$ selector is one this build cannot resolve to players;
 		// fall back to the resolving controller alone rather than guessing a
 		// second seat. A Note records the degrade.
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "ChooseNumber election could not resolve Defined$ " + strings.TrimSpace(sa.Params["Defined"]) + "; asking the controller"})
+			Text: "ChooseNumber election could not resolve Defined$ " + strings.TrimSpace(sa.ParamStr(cards.PKDefined)) + "; asking the controller"})
 		choosers = []state.PlayerID{c.Controller}
 	}
 	opts, prompt, boundOK := chooseNumberAsk(h, c, sa)
@@ -510,7 +510,7 @@ func effChooseType(h Host, c *Ctx, sa *cards.SA) {
 	if o := g.Obj(c.Source); o != nil && o.ChosenType != "" {
 		return
 	}
-	cat := strings.TrimSpace(sa.Params["Type"])
+	cat := strings.TrimSpace(sa.ParamStr(cards.PKType))
 	if answered := c.ChosenType; answered != "" {
 		// The "choosetype" resume arm's answer: emit the same Choose event the
 		// fallback emits, with the answered type, so events.Apply records

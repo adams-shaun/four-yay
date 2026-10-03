@@ -119,7 +119,7 @@ func activationGameTypesOK(f Format, raw string) bool {
 // a single ActivationZone$ read (buildManaSAFacts' zone mask: one map lookup
 // instead of one per zone).
 func abilityZoneMask(ab *cards.SA) uint32 {
-	az, ok := ab.Params["ActivationZone"]
+	az, ok := ab.Param(cards.PKActivationZone)
 	if !ok {
 		return 1 << state.ZBattlefield
 	}
@@ -200,12 +200,12 @@ func (e *Engine) abilityPresentHolds(p state.PlayerID, id state.ObjID, ab *cards
 	if !e.classBandGateHolds(ab.ParamStr(cards.PKClassBand), id) {
 		return false
 	}
-	spec := strings.TrimSpace(ab.Params["IsPresent"])
+	spec := strings.TrimSpace(ab.ParamStr(cards.PKIsPresent))
 	if spec == "" {
 		return true
 	}
 	n := 0
-	if pz := strings.TrimSpace(ab.Params["PresentZone"]); pz != "" {
+	if pz := strings.TrimSpace(ab.ParamStr(cards.PKPresentZone)); pz != "" {
 		// PresentZone$ (Greater Gargadon's "Activate only if this is
 		// suspended": IsPresent$ Card.Self+suspended | PresentZone$ Exile)
 		// counts the named zone in every living seat, the trigger clause's

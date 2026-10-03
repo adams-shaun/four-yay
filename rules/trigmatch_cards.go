@@ -69,11 +69,11 @@ func (e *Engine) exploresMatches(t cards.Trigger, source state.ObjID, ev events.
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidCard"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidCard); v != "" &&
 		!e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 		return false
 	}
-	if v := t.Params["ValidPlayer"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" &&
 		!effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}
@@ -109,11 +109,11 @@ func (e *Engine) searchedLibraryMatches(t cards.Trigger, source state.ObjID, ev 
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidCard"]; v != "" && ev.Obj != 0 &&
+	if v := t.ParamStr(cards.PKValidCard); v != "" && ev.Obj != 0 &&
 		!e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 		return false
 	}
-	if v := t.Params["ValidPlayer"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" &&
 		!effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}
@@ -137,11 +137,11 @@ func (e *Engine) investigatedMatches(t cards.Trigger, source state.ObjID, ev eve
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidCard"]; v != "" && ev.Obj != 0 &&
+	if v := t.ParamStr(cards.PKValidCard); v != "" && ev.Obj != 0 &&
 		!e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 		return false
 	}
-	if v := t.Params["ValidPlayer"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" &&
 		!effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}
@@ -169,11 +169,11 @@ func (e *Engine) giveGiftMatches(t cards.Trigger, source state.ObjID, ev events.
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidPlayer"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" &&
 		!effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}
-	if v := t.Params["ValidCard"]; v != "" && ev.Obj != 0 &&
+	if v := t.ParamStr(cards.PKValidCard); v != "" && ev.Obj != 0 &&
 		!e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 		return false
 	}
@@ -198,11 +198,11 @@ func (e *Engine) discoverMatches(t cards.Trigger, source state.ObjID, ev events.
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidCard"]; v != "" && ev.Obj != 0 &&
+	if v := t.ParamStr(cards.PKValidCard); v != "" && ev.Obj != 0 &&
 		!e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 		return false
 	}
-	if v := t.Params["ValidPlayer"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" &&
 		!effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}
@@ -225,11 +225,11 @@ func (e *Engine) seekAllMatches(t cards.Trigger, source state.ObjID, ev events.E
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidCard"]; v != "" && ev.Obj != 0 &&
+	if v := t.ParamStr(cards.PKValidCard); v != "" && ev.Obj != 0 &&
 		!e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 		return false
 	}
-	if v := t.Params["ValidPlayer"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" &&
 		!effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}
@@ -255,11 +255,11 @@ func (e *Engine) surveilMatches(t cards.Trigger, source state.ObjID, ev events.E
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidCard"]; v != "" && ev.Obj != 0 &&
+	if v := t.ParamStr(cards.PKValidCard); v != "" && ev.Obj != 0 &&
 		!e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 		return false
 	}
-	if v := t.Params["ValidPlayer"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" &&
 		!effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}
@@ -287,11 +287,11 @@ func (e *Engine) scryMatches(t cards.Trigger, source state.ObjID, ev events.Even
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidCard"]; v != "" && ev.Obj != 0 &&
+	if v := t.ParamStr(cards.PKValidCard); v != "" && ev.Obj != 0 &&
 		!e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 		return false
 	}
-	if v := t.Params["ValidPlayer"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" &&
 		!effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}
@@ -343,7 +343,7 @@ func (e *Engine) discardedMatches(t cards.Trigger, source state.ObjID, ev events
 		!e.eventCardAndPlayerMatch(t, source, ev.Obj, e.controllerOf(ev.Obj)) {
 		return false
 	}
-	if spec := t.Params["ValidCause"]; spec != "" && !e.discardCauseAdmits(spec, source, ev) {
+	if spec := t.ParamStr(cards.PKValidCause); spec != "" && !e.discardCauseAdmits(spec, source, ev) {
 		return false
 	}
 	return true
@@ -394,13 +394,13 @@ func (e *Engine) discardedAllMatches(t cards.Trigger, source state.ObjID, ev eve
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidPlayer"]; v != "" && !effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}
-	if v := t.Params["ValidCard"]; v != "" && !e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
+	if v := t.ParamStr(cards.PKValidCard); v != "" && !e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 		return false
 	}
-	if spec := t.Params["ValidCause"]; spec != "" && !e.discardCauseAdmits(spec, source, ev) {
+	if spec := t.ParamStr(cards.PKValidCause); spec != "" && !e.discardCauseAdmits(spec, source, ev) {
 		return false
 	}
 	// FirstTime$ True (Veronica, Rielle: "for the first time each turn") is a
@@ -451,10 +451,10 @@ func (e *Engine) drawnMatches(t cards.Trigger, source state.ObjID, ev events.Eve
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v, ok := t.Params["ValidCard"]; ok && !e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
+	if v, ok := t.Param(cards.PKValidCard); ok && !e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 		return false
 	}
-	if v := t.Params["ValidPlayer"]; v != "" && !effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}
 	if v := t.Params["Number"]; v != "" {
@@ -465,7 +465,7 @@ func (e *Engine) drawnMatches(t cards.Trigger, source state.ObjID, ev events.Eve
 	}
 	// PlayerTurn$ is the trigger controller's turn, not the drawing player's:
 	// Keranos's "on each of your turns" must reject an opponent's first draw.
-	if strings.EqualFold(t.Params["PlayerTurn"], "True") && e.G.Active != ctrl {
+	if strings.EqualFold(t.ParamStr(cards.PKPlayerTurn), "True") && e.G.Active != ctrl {
 		return false
 	}
 	if v, ok := t.Params["FirstCardInDrawStep"]; ok {
@@ -535,7 +535,7 @@ func (e *Engine) drawCauseTokenAdmits(token string, o *state.Object, source stat
 		case "YouCtrl", "OppCtrl", "Instant", "Sorcery":
 			// Read by StackKindAdmits below.
 		case "Cycling":
-			if o.Ability == nil || !cyclingCauseKeywords[o.Ability.Params["Keyword"]] {
+			if o.Ability == nil || !cyclingCauseKeywords[o.Ability.ParamStr(cards.PKKeyword)] {
 				return false
 			}
 		default:
@@ -852,15 +852,15 @@ func (e *Engine) exploitedMatches(t cards.Trigger, source state.ObjID, ev events
 	}
 	ctrl := e.controllerOf(source)
 	sc := e.specCtx(source, ctrl)
-	if v := t.Params["ValidSource"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidSource); v != "" &&
 		!e.matchesSpec(v, ev.Obj, sc) {
 		return false
 	}
-	if v := t.Params["ValidCard"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidCard); v != "" &&
 		!e.matchesSpec(v, ev.IDs[0], sc) {
 		return false
 	}
-	if v := t.Params["ValidPlayer"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" &&
 		!effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}
@@ -881,11 +881,11 @@ func (e *Engine) evolvedMatches(t cards.Trigger, source state.ObjID, ev events.E
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidCard"]; v != "" && ev.Obj != 0 &&
+	if v := t.ParamStr(cards.PKValidCard); v != "" && ev.Obj != 0 &&
 		!e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 		return false
 	}
-	if v := t.Params["ValidPlayer"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" &&
 		!effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}
@@ -913,7 +913,7 @@ func (e *Engine) clashMatches(t cards.Trigger, source state.ObjID, ev events.Eve
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidPlayer"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" &&
 		!effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}

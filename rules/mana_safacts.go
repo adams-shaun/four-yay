@@ -80,10 +80,10 @@ type manaStaticFacts struct {
 }
 
 func computeManaStaticFacts(ab *cards.SA, cost *Cost) manaStaticFacts {
-	f := manaStaticFacts{produced: strings.TrimSpace(ab.Params["Produced"]), amount: availableAmount(ab),
+	f := manaStaticFacts{produced: strings.TrimSpace(ab.ParamStr(cards.PKProduced)), amount: availableAmount(ab),
 		restrictValid: strings.TrimSpace(ab.Params["RestrictValid"]) != "",
 		freeCost:      manaFreeCost(*cost), tapOnly: paymentPlanTapOnlyCost(*cost), tap: cost.Tap, untap: cost.Untap}
-	f.counts, f.any = cards.ProducedCounts(ab.Params["Produced"])
+	f.counts, f.any = cards.ProducedCounts(ab.ParamStr(cards.PKProduced))
 	return f
 }
 
@@ -92,14 +92,14 @@ func computeManaStaticFacts(ab *cards.SA, cost *Cost) manaStaticFacts {
 func (e *Engine) manaStaticOf(ab *cards.SA) manaStaticFacts {
 	if f := e.manaFactsOf(ab); f != nil {
 		if manaSAFactsVerify {
-			c := e.parseCost(ab.Params["Cost"])
+			c := e.parseCost(ab.ParamStr(cards.PKCost))
 			if fresh := computeManaStaticFacts(ab, &c); fresh != f.static {
 				panic(fmt.Sprintf("rules: configured census facts for %q disagree with a recompute", ab.Line))
 			}
 		}
 		return f.static
 	}
-	c := e.parseCost(ab.Params["Cost"])
+	c := e.parseCost(ab.ParamStr(cards.PKCost))
 	return computeManaStaticFacts(ab, &c)
 }
 
@@ -110,33 +110,33 @@ var manaSAFactsVerify = derivedMemoVerifyFlag != ""
 // takes its heap copy, and the verify-mode recompute in manaFactsOf only
 // compares it.
 func buildManaSAFactsValue(ab *cards.SA, costOf func(string) *compiledCost) manaSAFacts {
-	f := manaSAFacts{cost: costOf(ab.Params["Cost"])}
+	f := manaSAFacts{cost: costOf(ab.ParamStr(cards.PKCost))}
 	f.zoneOK = abilityZoneMask(ab)
-	raw := ab.Params["Cost"]
+	raw := ab.ParamStr(cards.PKCost)
 	if containsLoyaltyFold(raw) {
 		f.loyalty = isLoyaltyAbilityRef(ab, &f.cost.Cost)
 	} else {
 		f.loyalty = isLoyaltyAbilityRef(ab, &freeCost.Cost)
 	}
-	f.defaultActivator = strings.TrimSpace(ab.Params["Activator"]) == ""
-	if raw, ok := ab.Params["Activation"]; !ok || strings.TrimSpace(raw) == "" {
+	f.defaultActivator = strings.TrimSpace(ab.ParamStr(cards.PKActivator)) == ""
+	if raw, ok := ab.Param(cards.PKActivation); !ok || strings.TrimSpace(raw) == "" {
 		f.noActivation = true
 	}
 	// The five keys activationPhasesOK reads, spelled out so the param
 	// census sees static keys.
-	_, phases := ab.Params["ActivationPhases"]
-	_, firstCombat := ab.Params["ActivationFirstCombat"]
-	_, afterBlockers := ab.Params["ActivationAfterBlockers"]
-	_, playerTurn := ab.Params["PlayerTurn"]
-	_, opponentTurn := ab.Params["OpponentTurn"]
+	_, phases := ab.Param(cards.PKActivationPhases)
+	_, firstCombat := ab.Param(cards.PKActivationFirstCombat)
+	_, afterBlockers := ab.Param(cards.PKActivationAfterBlockers)
+	_, playerTurn := ab.Param(cards.PKPlayerTurn)
+	_, opponentTurn := ab.Param(cards.PKOpponentTurn)
 	f.noPhaseGate = !phases && !firstCombat && !afterBlockers && !playerTurn && !opponentTurn
-	if spec, ok := ab.Params["IsPresent"]; !ok || strings.TrimSpace(spec) == "" {
+	if spec, ok := ab.Param(cards.PKIsPresent); !ok || strings.TrimSpace(spec) == "" {
 		f.noIsPresent = true
 	}
-	_, check := ab.Params["CheckSVar"]
+	_, check := ab.Param(cards.PKCheckSVar)
 	f.noCheckSVar = !check
-	_, limited := ab.Params["ActivationLimit"]
-	f.noLimit = !limited && ab.Params["GameActivationLimit"] == ""
+	_, limited := ab.Param(cards.PKActivationLimit)
+	f.noLimit = !limited && ab.ParamStr(cards.PKGameActivationLimit) == ""
 	f.plainSym, f.plainAmt = plainManaShape(ab)
 	f.static = computeManaStaticFacts(ab, &f.cost.Cost)
 	f.potential = computePotentialManaAdd(ab)

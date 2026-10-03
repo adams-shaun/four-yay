@@ -25,7 +25,7 @@ func init() { Register("SacrificeAll", effSacrificeAll) }
 // run found: decision_ask modes -> decision_made -> mode_chosen forever).
 func effSacrificeAll(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
-	spec := sa.Params["ValidCards"]
+	spec := sa.ParamStr(cards.PKValidCards)
 	if spec == "" {
 		spec = "Permanent"
 	}
@@ -52,7 +52,7 @@ func effSacrificeAll(h Host, c *Ctx, sa *cards.SA) {
 		}
 		h.Emit(events.Sacrifice(id))
 	}
-	if def := sa.Params["Defined"]; def != "" || sa.Params["ValidTgts"] != "" {
+	if def := sa.ParamStr(cards.PKDefined); def != "" || sa.ParamStr(cards.PKValidTgts) != "" {
 		for _, t := range Defined(h, c, sa) {
 			if !t.IsPlayer {
 				// A Defined$-named object that is no longer on the battlefield

@@ -3,6 +3,7 @@ package rules
 import (
 	"slices"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -82,7 +83,7 @@ func (e *Engine) castTargetsAvailableOnStack(p state.PlayerID, id state.ObjID) b
 		return true
 	}
 	sa := o.Face().SpellAbility()
-	if sa == nil || sa.Params["ValidTgts"] == "" && sa.API != "Charm" {
+	if sa == nil || sa.ParamStr(cards.PKValidTgts) == "" && sa.API != "Charm" {
 		return true
 	}
 	return e.offerAsSpellOnStack(id, func() bool { return e.castTargetsAvailable(p, id, sa) })

@@ -230,7 +230,7 @@ func (e *Engine) enlistedMatches(t cards.Trigger, source state.ObjID, ev events.
 	}
 	ctrl := e.controllerOf(source)
 	sc := e.specCtx(source, ctrl)
-	if v := t.Params["ValidCard"]; v != "" && !e.matchesSpec(v, ev.Obj, sc) {
+	if v := t.ParamStr(cards.PKValidCard); v != "" && !e.matchesSpec(v, ev.Obj, sc) {
 		return false
 	}
 	if v := t.Params["ValidEnlisted"]; v != "" && !e.matchesSpec(v, ev.IDs[0], sc) {

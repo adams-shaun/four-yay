@@ -223,7 +223,7 @@ func (e *Engine) runPreventionShieldRider(m replMatch, name string,
 	if strings.TrimSpace(rsub.Params["NumDmg"]) == "PreventedDamage" {
 		rsub.Params["NumDmg"] = strconv.Itoa(int(prevented))
 	}
-	if strings.TrimSpace(rsub.Params["Defined"]) == "ShieldEffectTarget" {
+	if strings.TrimSpace(rsub.ParamStr(cards.PKDefined)) == "ShieldEffectTarget" {
 		rsub.Params["Defined"] = "Remembered"
 	}
 	ctx := e.replCtx(m, *ev)
@@ -273,7 +273,7 @@ func (e *Engine) damageReplacementMatches(r cards.Repl, source state.ObjID, ev e
 		}
 		return false
 	}
-	if v := r.Params["ValidCause"]; v != "" && !e.replacementCauseMatches(v, source, e.damaging) {
+	if v := r.ParamStr(cards.PKValidCause); v != "" && !e.replacementCauseMatches(v, source, e.damaging) {
 		return false
 	}
 	// A DB$ ReplaceDamage body must RESOLVE its Amount$ before this
@@ -297,12 +297,12 @@ func (e *Engine) damageReplacementMatches(r cards.Repl, source state.ObjID, ev e
 	// player would answer a "may" that belongs to somebody else (the
 	// Battletide Alchemist round-2 finding). An ABSENT parameter keeps the
 	// historical default, where the affected player answers.
-	if strings.EqualFold(r.Params["Optional"], "True") {
-		if v := strings.TrimSpace(r.Params["OptionalDecider"]); v != "" && v != "You" {
+	if strings.EqualFold(r.ParamStr(cards.PKOptional), "True") {
+		if v := strings.TrimSpace(r.ParamStr(cards.PKOptionalDecider)); v != "" && v != "You" {
 			return false
 		}
 	}
-	if v := r.Params["ValidSource"]; v != "" {
+	if v := r.ParamStr(cards.PKValidSource); v != "" {
 		// The source filter is evaluated through the shared remembered/chosen
 		// context, not a bare MatchesSpecFrom: a ChooseSource replacement names
 		// the chosen damage source with a ChosenCard/ChosenCardStrict predicate
@@ -319,7 +319,7 @@ func (e *Engine) damageReplacementMatches(r cards.Repl, source state.ObjID, ev e
 			return false
 		}
 	}
-	if v := r.Params["ValidTarget"]; v != "" {
+	if v := r.ParamStr(cards.PKValidTarget); v != "" {
 		if ev.Obj != 0 {
 			if !e.matchesSpecFrom(v, ev.Obj, ctrl, source) {
 				return false
@@ -370,7 +370,7 @@ func (e *Engine) handleDamageReplacementChoice(rc replChoice, selected int) bool
 		// used so recomputation cannot immediately pose the same question again;
 		// non-optional replacements remain eligible and still apply.
 		for _, m := range rc.cands {
-			if strings.EqualFold(m.repl.Params["Optional"], "True") {
+			if strings.EqualFold(m.repl.ParamStr(cards.PKOptional), "True") {
 				rc.used = append(rc.used, m)
 			}
 		}

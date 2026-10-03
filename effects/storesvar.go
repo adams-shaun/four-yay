@@ -48,7 +48,7 @@ func effStoreSVar(h Host, c *Ctx, sa *cards.SA) {
 			Text: "StoreSVar with no SVar$ name"})
 		return
 	}
-	typ := strings.TrimSpace(sa.Params["Type"])
+	typ := strings.TrimSpace(sa.ParamStr(cards.PKType))
 	switch typ {
 	case "Number", "Calculate", "CountSVar":
 		// The evaluated forms: NumResolved's grammar covers each.

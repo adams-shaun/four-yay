@@ -437,14 +437,14 @@ func (w *legalWalk) battlefieldWalk() {
 						}
 						if printedOK {
 							*out = append(*out, decision.Option{Index: len(*out), Kind: "ability",
-								Label: abFace.Name + ": " + ab.Params["SpellDescription"], Obj: id, Ability: i,
+								Label: abFace.Name + ": " + ab.ParamStr(cards.PKSpellDescription), Obj: id, Ability: i,
 								Cost:  e.abilityOfferCost(p, id, ab),
 								Grant: e.abilityGrant(id, ab), Attach: ab.API == "Attach",
 								GrantStatics: staticModesFromSVars(ab, abFace.SVars)})
 						}
 						if altOK {
 							*out = append(*out, decision.Option{Index: len(*out), Kind: "ability",
-								Label: abFace.Name + ": " + ab.Params["SpellDescription"] + " (alternate cost)",
+								Label: abFace.Name + ": " + ab.ParamStr(cards.PKSpellDescription) + " (alternate cost)",
 								Obj:   id, Ability: i, AltCostIndex: 1, Grant: e.abilityGrant(id, ab), Attach: ab.API == "Attach",
 								GrantStatics: staticModesFromSVars(ab, abFace.SVars)})
 						}
@@ -480,7 +480,7 @@ func (w *legalWalk) battlefieldWalk() {
 						if ab == nil || !abilityZoneOK(ab, z) {
 							continue
 						}
-						if ab.Params["SorcerySpeed"] == "True" && !sorcery {
+						if ab.ParamStr(cards.PKSorcerySpeed) == "True" && !sorcery {
 							continue
 						}
 						if !e.activatorAllows(p, id, ab) {
@@ -498,7 +498,7 @@ func (w *legalWalk) battlefieldWalk() {
 						if e.activationLimitBlocked(p, id, ab, -1, line, 0) {
 							continue
 						}
-						cost := e.parseCost(ab.Params["Cost"])
+						cost := e.parseCost(ab.ParamStr(cards.PKCost))
 						if n := e.ownReduceCostOffer(p, id, ab, 0); n > 0 && cost.Generic >= n {
 							cost.Generic -= n
 						} else if n > 0 {
@@ -521,7 +521,7 @@ func (w *legalWalk) battlefieldWalk() {
 							continue
 						}
 						*out = append(*out, decision.Option{Index: len(*out), Kind: "ability",
-							Label: f.Name + ": " + ab.Params["SpellDescription"], Obj: id,
+							Label: f.Name + ": " + ab.ParamStr(cards.PKSpellDescription), Obj: id,
 							Ability: -1, Keyword: line})
 					}
 					w.recordAbilityBlock(z, zonePlayer, id, blockStart, blockGates)
@@ -573,7 +573,7 @@ func (w *legalWalk) battlefieldWalk() {
 					if isManaAbilityAPI(ab.API) {
 						continue
 					}
-					if ab.Params["SorcerySpeed"] == "True" && !sorcery {
+					if ab.ParamStr(cards.PKSorcerySpeed) == "True" && !sorcery {
 						continue
 					}
 					// Activator$ applies to a granted/gained ability exactly as to a
@@ -611,7 +611,7 @@ func (w *legalWalk) battlefieldWalk() {
 					if w.abilityRestricted(p, id, ab) || e.castSuppressed(p, id) {
 						continue
 					}
-					cost := e.parseCost(ab.Params["Cost"])
+					cost := e.parseCost(ab.ParamStr(cards.PKCost))
 					bindGrantedCostReferents(&cost, ga.source)
 					// The granted twin of the printed loop's own ReduceCost$ fold.
 					if n := e.ownReduceCostOffer(p, id, ab, 0); n > 0 && cost.Generic >= n {
@@ -643,14 +643,14 @@ func (w *legalWalk) battlefieldWalk() {
 					// ability keeps the SVar-name anchor (boastGateOK's and the
 					// activation-limit gate's identity).
 					if ga.gained {
-						if strings.EqualFold(strings.TrimSpace(ab.Params["Boast"]), "True") && !e.boastGateOK(id, -1, "") {
+						if strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKBoast)), "True") && !e.boastGateOK(id, -1, "") {
 							continue
 						}
 						if e.activationLimitBlocked(p, id, ab, -1, "", 0) {
 							continue
 						}
 						*out = append(*out, decision.Option{Index: len(*out), Kind: "ability",
-							Label: o.Face().Name + ": " + ab.Params["SpellDescription"], Obj: id,
+							Label: o.Face().Name + ": " + ab.ParamStr(cards.PKSpellDescription), Obj: id,
 							GainedSource: ga.gainedFrom, GainedIdx: ga.gainedIdx, Attach: ab.API == "Attach"})
 						continue
 					}
@@ -658,7 +658,7 @@ func (w *legalWalk) battlefieldWalk() {
 					// Boast gate. The identity is the SVar name the grant anchored on,
 					// because beginGrantedActivation mints a DelayedPush rather than an
 					// AbilityPush (boastGateOK reads both).
-					if strings.EqualFold(strings.TrimSpace(ab.Params["Boast"]), "True") && !e.boastGateOK(id, -1, ga.svar) {
+					if strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKBoast)), "True") && !e.boastGateOK(id, -1, ga.svar) {
 						continue
 					}
 					// The two activation limits, for a GRANTED ability: the same shared
@@ -690,7 +690,7 @@ func (w *legalWalk) battlefieldWalk() {
 						continue
 					}
 					*out = append(*out, decision.Option{Index: len(*out), Kind: "ability",
-						Label: o.Face().Name + ": " + ab.Params["SpellDescription"], Obj: id, SVar: ga.svar,
+						Label: o.Face().Name + ": " + ab.ParamStr(cards.PKSpellDescription), Obj: id, SVar: ga.svar,
 						GrantSource: ga.source, Attach: ab.API == "Attach"})
 				}
 			}
@@ -779,7 +779,7 @@ func (w *legalWalk) battlefieldWalk() {
 				if w.abilityRestricted(p, id, ab) || e.castSuppressed(p, id) {
 					continue
 				}
-				cost := e.parseCost(ab.Params["Cost"])
+				cost := e.parseCost(ab.ParamStr(cards.PKCost))
 				if activationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
 					continue
 				}
@@ -804,11 +804,11 @@ func (w *legalWalk) battlefieldWalk() {
 				// identity is the SVar name beginGrantedActivation mints its
 				// DelayedPush with (abSVarName), never a face index.
 				sv := abSVarName(o.Face(), ab)
-				if strings.EqualFold(strings.TrimSpace(ab.Params["Boast"]), "True") && !e.boastGateOK(id, -1, sv) {
+				if strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKBoast)), "True") && !e.boastGateOK(id, -1, sv) {
 					continue
 				}
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "granted",
-					Label: o.Face().Name + ": " + ab.Params["SpellDescription"],
+					Label: o.Face().Name + ": " + ab.ParamStr(cards.PKSpellDescription),
 					Obj:   id, SVar: sv})
 			}
 		}

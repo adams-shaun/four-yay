@@ -122,7 +122,7 @@ func (w *legalWalk) ownManaMembers(dst []*cards.SA, zi int, o *state.Object, id 
 	w.rec.recordMembers(zi, all)
 	out := all[:0]
 	for _, ma := range all {
-		cc := e.compiledCostOf(ma.Params["Cost"])
+		cc := e.compiledCostOf(ma.ParamStr(cards.PKCost))
 		if mf := e.manaFactsOf(ma); mf != nil {
 			cc = mf.cost
 		}

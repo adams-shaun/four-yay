@@ -95,7 +95,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	mixedOriginNoteFrom := ""
 	var originZones []state.Zone
 	var originAll bool
-	if from, present := sa.Params["Origin"]; present {
+	if from, present := sa.Param(cards.PKOrigin); present {
 		var valid bool
 		originZones, originAll, valid = ParseZones(from)
 		// OriginAlternative$ is Forge's "and/or" second origin: the zones
@@ -146,7 +146,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// this branch too: the search below is its chooser (Karn, the Great
 		// Creator's -2), and effHiddenPick's game-wide or owner-public fetch
 		// list is the wrong shape for an owner-private sideboard union.
-		if hidden && sa.Params["Defined"] == "" &&
+		if hidden && sa.ParamStr(cards.PKDefined) == "" &&
 			!strings.EqualFold(strings.TrimSpace(sa.Params["Imprint"]), "True") &&
 			!originAll && !mixedOriginIncludesHand(originZones, originAll) &&
 			!zoneIn(originZones, state.ZLibrary) &&
@@ -245,8 +245,8 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// lands in hand). An unknown count remains loud rather than falling through
 		// to the old source-default no-op: it emits a Note and moves nothing.
 		if len(originZones) == 1 && originZones[0] == state.ZHand && !originAll &&
-			sa.Params["Defined"] == "" &&
-			sa.Params["DefinedPlayer"] == "" && sa.Params["ValidTgts"] == "" &&
+			sa.ParamStr(cards.PKDefined) == "" &&
+			sa.ParamStr(cards.PKDefinedPlayer) == "" && sa.ParamStr(cards.PKValidTgts) == "" &&
 			!strings.EqualFold(sa.Params["Imprint"], "True") {
 			if _, supported := handMoveCountOf(h, c, sa); supported {
 				effChangeZoneHand(h, c, sa, to)
@@ -269,8 +269,8 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// source (or to targets the Origin$ precondition then skipped because
 		// they are PLAYERS, not hand cards) -- another silent no-op.
 		if len(originZones) == 1 && originZones[0] == state.ZHand && !originAll &&
-			sa.Params["Defined"] == "" &&
-			(sa.Params["DefinedPlayer"] != "" || sa.Params["ValidTgts"] != "") {
+			sa.ParamStr(cards.PKDefined) == "" &&
+			(sa.ParamStr(cards.PKDefinedPlayer) != "" || sa.ParamStr(cards.PKValidTgts) != "") {
 			effChangeZoneHandOwners(h, c, sa, to)
 			return
 		}
@@ -280,10 +280,10 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// objects are already named -- but the owner parameter is unread
 		// there, so the shape is loud about it rather than silent.
 		if len(originZones) == 1 && originZones[0] == state.ZHand && !originAll &&
-			sa.Params["Defined"] != "" && sa.Params["DefinedPlayer"] != "" {
+			sa.ParamStr(cards.PKDefined) != "" && sa.ParamStr(cards.PKDefinedPlayer) != "" {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-				Text: "DefinedPlayer$ " + sa.Params["DefinedPlayer"] +
-					" is unread next to Defined$ " + sa.Params["Defined"] +
+				Text: "DefinedPlayer$ " + sa.ParamStr(cards.PKDefinedPlayer) +
+					" is unread next to Defined$ " + sa.ParamStr(cards.PKDefined) +
 					" (the move goes to the named objects alone)"})
 		}
 	}
@@ -355,7 +355,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	// Mid-chain readings are unaffected: a chain that remembered its own
 	// source through the object path below wrote BOTH halves (ctx and
 	// persistent), so the replacement is the same set.
-	if sa.Params["Defined"] == "Remembered" {
+	if sa.ParamStr(cards.PKDefined) == "Remembered" {
 		if len(targets) == 1 && !targets[0].IsPlayer && targets[0].Obj == c.Source {
 			if src := h.Game().Obj(c.Source); src != nil && len(src.Remembered) > 0 {
 				targets = append([]state.Target(nil), src.Remembered...)
@@ -520,7 +520,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	// Origin$ precondition skips them exactly as it did before.
 	if to == state.ZExile && !originAll && len(originZones) == 1 &&
 		originZones[0] == state.ZCommand &&
-		strings.TrimSpace(sa.Params["Defined"]) == "Imprinted" {
+		strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "Imprinted" {
 		h.EndImprintedEffects(c.Source)
 	}
 	// The objects the move loop actually moved, in move order: ChangeZone's
@@ -546,7 +546,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// moved away by an earlier effect in the same resolution, or by a
 		// response that has already resolved, is simply skipped rather than
 		// moved a second time or moved from the wrong zone.
-		if _, present := sa.Params["Origin"]; present && !originAll && !zoneIn(originZones, o.Zone) {
+		if _, present := sa.Param(cards.PKOrigin); present && !originAll && !zoneIn(originZones, o.Zone) {
 			continue
 		}
 		// A CantExile restriction (The Master, Multiplied: "Triggered abilities
@@ -602,7 +602,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// value, replayed identically because replay re-runs the same SA. The
 		// two flags stack; an object is not remembered twice.
 		if strings.EqualFold(sa.Params["RememberLKI"], "True") &&
-			!strings.EqualFold(sa.Params["RememberChanged"], "True") {
+			!strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
 			c.Remembered = append(c.Remembered, state.Target{Obj: o.ID})
 		}
 		if strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
@@ -997,7 +997,7 @@ func settleChangeZoneMove(h Host, c *Ctx, sa *cards.SA, id state.ObjID, from, to
 // rather than silently keeping the owner -- the same fail-closed convention
 // every unread parameter here follows.
 func gainControlOf(h Host, c *Ctx, sa *cards.SA) (state.PlayerID, bool, bool) {
-	raw, present := sa.Params["GainControl"]
+	raw, present := sa.Param(cards.PKGainControl)
 	if !present || strings.TrimSpace(raw) == "" {
 		return 0, false, true
 	}
@@ -1226,10 +1226,10 @@ func settleChangeZoneMoveAs(h Host, c *Ctx, sa *cards.SA, id state.ObjID, from, 
 	// the moved object) is left to its own work and is not silently folded
 	// into this read.
 	if strings.EqualFold(sa.Params["RememberLKI"], "True") &&
-		!strings.EqualFold(sa.Params["RememberChanged"], "True") {
+		!strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
 		c.Remembered = append(c.Remembered, state.Target{Obj: id})
 	}
-	if strings.EqualFold(sa.Params["RememberChanged"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
 		c.Remembered = append(c.Remembered, state.Target{Obj: id})
 	}
 	if withKind != "" && counterDestination(to) {
@@ -1286,7 +1286,7 @@ func exiledWithAssociation(h Host, c *Ctx, id state.ObjID, to state.Zone) {
 // in response to its own trigger exiles nothing, rather than exiling its
 // target forever.
 func exileHostGone(h Host, c *Ctx, sa *cards.SA) bool {
-	if !strings.EqualFold(strings.TrimSpace(sa.Params["Duration"]), "UntilHostLeavesPlay") || c.Source == 0 {
+	if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKDuration)), "UntilHostLeavesPlay") || c.Source == 0 {
 		return false
 	}
 	o := h.Game().Obj(c.Source)
@@ -1309,7 +1309,7 @@ func exileHostGone(h Host, c *Ctx, sa *cards.SA) bool {
 // and must not come back. Any other Duration$ value is loud (a Note) rather
 // than silently inert, the convention every unread parameter here follows.
 func recordExileReturn(h Host, c *Ctx, sa *cards.SA, id state.ObjID, from, to state.Zone) {
-	raw, present := sa.Params["Duration"]
+	raw, present := sa.Param(cards.PKDuration)
 	if !present || strings.TrimSpace(raw) == "" {
 		return
 	}

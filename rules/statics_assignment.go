@@ -93,7 +93,7 @@ func (e *Engine) assignmentStatics(mode string) []staticView {
 					// it; a static naming Command (Weight Advantage) is admitted
 					// only while its source really sits there, which is the same
 					// fail-closed direction effectZoneOK takes everywhere.
-					if !effectZoneOK(st.Params["EffectZone"], o.Zone) {
+					if !effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
 						continue
 					}
 					out = append(out, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})
@@ -272,5 +272,5 @@ func tapCostSAKind(ab *cards.SA) string {
 	if ab == nil {
 		return ""
 	}
-	return strings.TrimSpace(ab.Params["Keyword"])
+	return strings.TrimSpace(ab.ParamStr(cards.PKKeyword))
 }
