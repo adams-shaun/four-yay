@@ -950,13 +950,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			// iteration, or (after a loop frame) the rest of the chain that
 			// enclosed the loop -- and takes it as is, so what the loop
 			// remembered is not lost to the stack object's stale Remembered.
-			if next := rp.outer; next.kind == "repeat" && next.repeat != nil {
-				next.repeat.last = append([]state.Target(nil), ctx.Remembered...)
-				next.repeat.hasLast = true
-			} else {
-				next.loopBound = true
-				next.loopRemembered = append([]state.Target(nil), ctx.Remembered...)
-			}
+			handOnRemembered(rp.outer, ctx.Remembered)
 		}
 		if parkedDraws {
 			// CR 608.2c: a resolution's SubAbility$ continuation runs only after

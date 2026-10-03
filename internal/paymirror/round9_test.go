@@ -79,6 +79,11 @@ import (
 // float_trigger_precedes_cast verdict is unchanged. fdn-fix8's CR 117.3b
 // priority reset after a permanent spell's own as-enters choice adds one
 // Priority event, moving it again from 3695 to 3696, verdict unchanged.
+// The empty-continuation-frame fix (spike S3 legacy defect 1) drops the
+// spurious "no sub-ability recorded" Note from 10860's game (log index 2137,
+// a shock land's as-enters answer inside a search; nothing else differs but
+// the payment hashes), so Worldly Tutor moves from 3239 to 3238, still
+// equivalent.
 func TestRoundNineFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -108,7 +113,7 @@ func TestRoundNineFindingsMirror(t *testing.T) {
 	}
 	const precedes = "expected:float_then_cast:float_trigger_precedes_cast"
 	want := map[uint64]map[uint64]string{ // seed -> seq -> verdict key ("" = equivalent)
-		10860: {3239: ""}, // Worldly Tutor; Three Visits no longer occurs after both command-zone fixes
+		10860: {3238: ""}, // Worldly Tutor; Three Visits no longer occurs after both command-zone fixes
 		11056: {},         // the Artisan finding is no longer reached; assert a clean, control-equivalent game
 		10056: {6128: ""},
 		8175:  {3696: precedes},
