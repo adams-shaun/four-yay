@@ -1531,7 +1531,7 @@ func paymentPlanDamageBody(rider *cards.SA) (uint32, bool) {
 	if rider == nil || rider.API != "DealDamage" || strings.TrimSpace(rider.ParamStr(cards.PKDefined)) != "You" || strings.TrimSpace(rider.ParamStr(cards.PKSubAbility)) != "" {
 		return 0, false
 	}
-	n, err := strconv.ParseUint(strings.TrimSpace(rider.ParamStr(cards.PKNumDmg)), 10, 32)
+	n, err := strconv.ParseUint(strings.TrimSpace(effects.DealDamageOf(rider).NumDmg.Text), 10, 32)
 	if err != nil || n == 0 {
 		return 0, false
 	}
