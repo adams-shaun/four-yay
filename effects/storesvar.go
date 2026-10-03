@@ -14,7 +14,7 @@ func init() { Register("StoreSVar", effStoreSVar) }
 // Expression$ is read, and the resolved integer is written onto the resolving
 // body's SOURCE object through events.StoreSVar, where a later reader sees it
 // through the object's runtime SVar store (effects.runtimeSVar, rules'
-// cdaValue). The corpus shape this build targets is the ETB life payment
+// chars.cdaValue). The corpus shape this build targets is the ETB life payment
 //
 //	SVar:PayLife:AB$ StoreSVar | Cost$ Mandatory PayLife<X> | SVar$ LifePaidOnETB | Type$ Calculate | Expression$ X
 //	SVar:X:Count$xPaid

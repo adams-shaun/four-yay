@@ -449,7 +449,11 @@ type repeatCursor struct {
 	next     int            `clone:"deep"`
 	last     []state.Target `clone:"deep"`
 	hasLast  bool           `clone:"deep"`
-	optional bool           `clone:"deep"`
+	// body marks an api:Repeat loop frame (SuspendRepeatBody), not a
+	// RepeatEach one: next is the iteration whose between-iteration step is
+	// owed and count the loop's resolved iteration bound.
+	body  bool `clone:"deep"`
+	count int  `clone:"deep"`
 	// election marks a RepeatEach frame parked on a per-subject
 	// RepeatOptionalForEachPlayer$ offer: next is the subject whose election
 	// was posed, and the answer rides Ctx.RepeatEachOptional on re-entry.

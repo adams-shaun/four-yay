@@ -20,7 +20,7 @@ import (
 // the player with the most life or tied for most life, untap all attacking
 // creatures. After this phase, there is an additional combat phase."
 //
-// FirstAttack$ was already gated (rules/trigmatch_combat.go firstAttackOK,
+// FirstAttack$ was already gated (rules/trigmatch/combat.go firstAttackOK,
 // commit 8fb7d1d2); the intervening-if on the ATTACKED player's life was the
 // unread half -- before the read, the trigger fired on EVERY attack of the
 // first declaration regardless of the defender's standing.
@@ -255,7 +255,7 @@ func TestScourgeOfTheThroneInterveningIfRecheckedAtResolution(t *testing.T) {
 	}
 }
 
-// TestAttacksConditionMostLifeMatcher drives attacksMatches directly on the
+// TestAttacksConditionMostLifeMatcher drives trigmatch.AttacksMatches directly on the
 // real card's trigger line, splitting the exact multiplayer edges of the
 // gate: strictly-most, tied, vetoed by a third seat, vetoed by death, and a
 // dead larger total that must NOT veto.

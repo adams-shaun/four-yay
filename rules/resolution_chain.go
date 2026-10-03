@@ -218,12 +218,16 @@ func (e *Engine) buildContinuationChain(frames []contFrame, obj state.ObjID, tai
 			f.unlessResolved = cf.unlessResolved
 		} else if cf.repeat != nil {
 			f.kind, f.sa, f.repeat = "repeat", sa, cf.repeat
-			if cf.repeat.optional {
-				f.kind, f.sa = "repeat_optional_loop", sa
+			if cf.repeat.body {
+				f.kind, f.sa = "repeat_body", sa
 			}
 			f.choices, f.chosenValid = cf.choices, cf.chosenValid
 		}
-		if cf.isPlain() && cf.ctx != nil && cf.ctx == prevCtx {
+		if (cf.isPlain() || cf.isRepeatBody()) && cf.ctx != nil && cf.ctx == prevCtx {
+			// An api:Repeat loop frame inherits like a plain one: its body
+			// walked the Repeat's own Ctx, so the re-entered loop's gate
+			// (RepeatDefined$ Remembered) must read what the answered body
+			// finished with, not the stack object's stale Remembered.
 			f.inheritsRemembered = true
 		}
 		prevCtx = cf.ctx
@@ -598,6 +602,12 @@ func (e *Engine) applyCastModes(d *decision.Decision, player state.PlayerID, cho
 func (cf *contFrame) isPlain() bool {
 	return !cf.askMarker && cf.deferredAsk == nil && cf.charmRest == nil && !cf.villainousRest &&
 		!cf.genericChoiceRest && !cf.flipRest && cf.tokenRest == nil && cf.repeat == nil
+}
+
+// isRepeatBody reports whether cf is an api:Repeat loop frame
+// (SuspendRepeatBody), as opposed to a RepeatEach one.
+func (cf *contFrame) isRepeatBody() bool {
+	return cf.repeat != nil && cf.repeat.body
 }
 
 // handsOnChainRemembered reports whether a completed frame's Ctx.Remembered

@@ -805,7 +805,7 @@ export interface Option {
    * together for Min$ All, where the attacker must be blocked by every
    * legal blocker). They exist for the same reason Required does: the
    * engine REJECTS a whole-declaration count outside the bounds
-   * (validateMinMaxBlockers), so a rules-ignorant client -- the bot
+   * (combat.ValidateMinMaxBlockers), so a rules-ignorant client -- the bot
    * policy included -- needs the bound on the wire to answer legally.
    * Both are omitted for an unbounded attacker, so every ordinary option
    * list serialises byte-identically.

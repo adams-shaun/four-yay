@@ -334,8 +334,8 @@ func (e *Engine) derivedNoteBuild() {
 }
 
 // derivedEffectEqual compares every ContinuousEffect field the layer walk
-// reads: derivedCompute, typeCharacteristicsActive, abilityDependencyOrder,
-// derivedScalarFrom and the matchesWithCharsPT bind. SVars is left out: only
+// reads: derivedCompute, typeCharacteristicsActive, chars.abilityDependencyOrder,
+// chars.PT and the matchesWithCharsPT bind. SVars is left out: only
 // a non-literal amount resolves through it, and such an effect is never
 // local (derivedEffectLocal), so a transparent rebuild never reads it.
 func derivedEffectEqual(a, b *ContinuousEffect) bool {

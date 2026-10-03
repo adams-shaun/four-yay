@@ -14,10 +14,11 @@ import (
 // Every method is a query: none emits an event or changes game state. Game
 // and Log hand out the live match state and event log for reading only --
 // the same contract as effects.HostRead.Game -- and a matcher must never
-// write through them. Host is the one escape hatch, there only because the
-// effects count and player-filter evaluators (effects.EvalCountOK,
-// effects.MatchesPlayerSpecWithSVars) take a whole effects.Host; a matcher
-// passes it to those evaluators and calls nothing on it itself.
+// write through them. The board never hands out the whole engine as an
+// effects.Host: EvalCount is the one Host-taking effects evaluator a matcher
+// needs, run by the implementation against the engine, and the SVar-threshold
+// player filter takes it as its count evaluator
+// (effects.MatchesPlayerSpecWithCounts).
 //
 // The method set is ratcheted shrink-only (internal/codeshape,
 // trigmatchBoardMethods). Derive a new fact from an existing method -- Chars
@@ -33,9 +34,10 @@ type Board interface {
 	// keeps beside the event being matched rather than on it (damage source,
 	// tapper, the declare-attackers batch, the life-loss batch).
 	Facts() Facts
-	// Host is the engine as an effects.Host, for the effects evaluators that
-	// take one. Read-only use only.
-	Host() effects.Host
+	// EvalCount is effects.EvalCountOK against the engine, for a context
+	// anchored on source under controller with svars as its script table:
+	// false when this engine cannot read expr. It is an effects.CountEval.
+	EvalCount(source state.ObjID, controller state.PlayerID, svars map[string]string, expr string) (int32, bool)
 
 	// ControllerOf is the object's current controller (rules' controllerOf).
 	ControllerOf(id state.ObjID) state.PlayerID
@@ -101,10 +103,10 @@ type Board interface {
 	SpellsCastThisTurn(p state.PlayerID) int
 	ManaExpendTotal(p state.PlayerID) int32
 
-	// IsLoyaltyAbility and IsManaAbilityAPI are rules' ability classifiers
-	// (a planeswalker loyalty ability; the mana-ability APIs).
+	// IsLoyaltyAbility is rules' planeswalker loyalty-ability classifier
+	// (CR 606). It stays behind the Board, unlike cards.IsManaAbilityAPI:
+	// its cost half parses Cost$ through rules/cost, which sits above cards.
 	IsLoyaltyAbility(ab *cards.SA) bool
-	IsManaAbilityAPI(api string) bool
 }
 
 // Facts is the per-emit trigger context rules keeps beside the event being

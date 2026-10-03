@@ -13,7 +13,7 @@ import (
 // event-kind-gated out of the zone-change matcher, its compiled-interest
 // prefilter returned 0, the textual mask excluded it, and the mint carried
 // no object id for ValidCard$ to read. The four gates are closed together
-// (rules/trigmatch_zone.go, rules/trigger_eligibility.go, rules/emit.go).
+// (rules/trigmatch/zone.go, rules/trigger_eligibility.go, rules/emit.go).
 //
 // The control half (a real creature entering) passes before and after; the
 // token half is the regression the fix targets. Both use real corpus cards,
@@ -121,7 +121,7 @@ func TestTokenEntryFiresChangesZoneTriggers(t *testing.T) {
 }
 
 // TestTokenEntryFiresChangesZoneAllTriggers proves the ChangesZoneAll family
-// shares the fix -- it rides the same zoneChangeMatchesWithCapture matcher and
+// shares the fix -- it rides the same trigmatch.ZoneChangeMatchesWithCapture matcher and
 // the same mask/interest entries. Elvish Warmaster's
 // ChangesZoneAll | ValidCards$ Elf.Other+YouCtrl line must see a minted Elf
 // token enter and create its own Elf Warrior token. The Warmaster's own entry

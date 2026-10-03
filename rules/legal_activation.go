@@ -192,7 +192,7 @@ func (e *Engine) activatorAllows(p state.PlayerID, id state.ObjID, ab *cards.SA)
 // resolution does not re-gate.
 //
 // Because the gate applies to every non-mana activation (the offer loop
-// skips isManaAbilityAPI abilities -- a plain AB$ Mana ability's own
+// skips cards.IsManaAbilityAPI abilities -- a plain AB$ Mana ability's own
 // IsPresent$ gate is the mana path's business), its reads are excluded from
 // the census's generic rules-side SA union for Mana/ManaReflected: see
 // genericSAExcludes in paramcensus_test.go.

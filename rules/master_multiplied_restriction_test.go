@@ -1,8 +1,8 @@
 package rules
 
 // vc-static1: a CantSacrifice restriction static's ValidCause$ scoping is
-// evaluated (rules/layers.go SacrificeBlocked's static walk + causeSpecAdmits,
-// rules/trigmatch_cards.go), not skipped by the parameter whitelist.
+// evaluated (rules/layers_restrict.go SacrificeBlocked's static walk + causeSpecAdmits,
+// rules/trigger_cause.go), not skipped by the parameter whitelist.
 //
 // The Master, Multiplied's reminder text -- "Triggered abilities you control
 // can't cause you to sacrifice or exile creature tokens you control." --
@@ -14,7 +14,7 @@ package rules
 //
 // The cause is evaluated against actionCause() -- the resolving wrapper at
 // the top of the stack on the effect-driven path -- through the shared
-// state.StackKindTokenOf/StackKindAdmits classifier discardCauseAdmits and
+// state.StackKindTokenOf/StackKindAdmits classifier trigmatch.DiscardCauseAdmits and
 // drawCauseAdmits use, so the static path cannot drift from the trigger path.
 // ForCost$ False keeps every COST sacrifice payable (the rules cost sites
 // pass forCost=true and skip Cause-scoped lines); ForCost$ True lines stay

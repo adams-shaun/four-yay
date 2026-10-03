@@ -7,7 +7,7 @@ package rules
 // creature with base power and toughness 5/5 in addition to its other
 // types") on an Ornithopter derived "Artifact Construct Creature Creature
 // Thopter". Every type-adding route funnels through typeCharacteristics'
-// appendLandTypes / appendAllCreatureTypes, so a printed static (Puppet
+// chars.appendLandTypes / chars.appendAllCreatureTypes, so a printed static (Puppet
 // Crafting), an Animate-registered effect and an all-creature-types grant
 // are all pinned here.
 

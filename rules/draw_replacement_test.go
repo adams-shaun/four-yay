@@ -258,7 +258,7 @@ func TestNotFirstCardInDrawStepDoesNotOverRestrict(t *testing.T) {
 }
 
 // TestNotFirstCardInDrawStepOnlyExemptsTheActivePlayersDraw pins the
-// active-player half of the gate, which firstCardInDrawStep (the trigger
+// active-player half of the gate, which trigmatch.firstCardInDrawStep (the trigger
 // helper) does NOT require. Teferi's Ageless Insight replaces "you would draw
 // a card except the first one you draw in each of YOUR draw steps"
 // (ValidPlayer$ You), so during seat 1's own draw step a Draw for the

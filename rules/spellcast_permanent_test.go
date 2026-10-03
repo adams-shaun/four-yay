@@ -1,8 +1,8 @@
 package rules
 
 // The "whenever you cast a permanent spell" trigger family (Mode$ SpellCast
-// with ValidCard$ Permanent*): spellCastMatches evaluates ValidCard$ through
-// spellCastPermanentSpec, which rewrites the leading `Permanent` base token
+// with ValidCard$ Permanent*): trigmatch.spellCastMatches evaluates ValidCard$ through
+// trigmatch.SpellCastPermanentSpec, which rewrites the leading `Permanent` base token
 // of every comma-alternative to `PermanentCard` -- the base whose
 // matchesBase/matchesCompiledBase cases read a permanent SPELL on the stack
 // (CR 109.2: artifact, creature, enchantment, planeswalker and battle spells
@@ -164,7 +164,7 @@ func TestSpellCastPermanentValidSACarriersStayInert(t *testing.T) {
 // `Mode$ SpellCast | ValidCard$ Permanent` (the Mistrise Village registration
 // shape, ValidCard$ Permanent substituted -- the corpus has no delayed
 // carrier of that shape today). eventDelayedSpellCastMatches mirrors
-// spellCastMatches' clause grammar, so a permanent spell cast after the
+// trigmatch.spellCastMatches' clause grammar, so a permanent spell cast after the
 // registration fires it exactly once and an instant does not.
 func TestSpellCastPermanentDelayedMirrorFires(t *testing.T) {
 	t.Parallel()

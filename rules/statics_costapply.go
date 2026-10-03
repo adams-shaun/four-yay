@@ -112,7 +112,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 			// permanent, so Forge's `Permanent` base (a permanent card by
 			// type, CR 110.4a's "permanent spell") reads the printed type,
 			// exactly as the "cast a permanent spell" trigger matcher reads
-			// it (spellCastPermanentSpec). Beluna Grandsquall's
+			// it (trigmatch.SpellCastPermanentSpec). Beluna Grandsquall's
 			// `Permanent.AdventureCard` was otherwise dead.
 			spec = trigmatch.SpellCastPermanentSpec(spec)
 		}

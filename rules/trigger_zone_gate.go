@@ -145,7 +145,7 @@ func zoneSpecContains(spec string, want state.Zone) bool {
 // zoneDelayedDestinationAdmits is the delayed-registration Destination$
 // reader: a comma-separated zone list admits a move into any listed zone
 // (Earthbend's "when it dies or is exiled" promise names Graveyard,Exile in
-// one registration). It is deliberately separate from zoneChangeMatches,
+// one registration). It is deliberately separate from trigmatch.ZoneChangeMatches,
 // which reads Destination$ through the single-word effects.ParseZone: this
 // only ever runs when the delayed-trigger arm sees a comma in the clause, so
 // a face trigger -- and every single-zone delayed registration -- keeps the

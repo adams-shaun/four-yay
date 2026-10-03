@@ -16,12 +16,12 @@ package rules
 //
 // DEVIATION from the original brief, measured: the brief's symptom claimed
 // Unbound Flourishing's SpellCast trigger "fires on EVERY permanent spell you
-// cast". It did not fire AT ALL in this build: spellCastMatches read
+// cast". It did not fire AT ALL in this build: trigmatch.spellCastMatches read
 // ValidCard$ through the zone-unaware MatchesObjectCtx, whose base
 // "Permanent" was `o.Zone == ZBattlefield` (effects/filter.go matchesBase) --
 // a spell on the stack never matched, so the trigger was dead before and
 // after the gate. That zone-blindness is now FIXED (rules/trigger_match.go's
-// spellCastPermanentSpec rewrites the leading `Permanent` token to
+// trigmatch.SpellCastPermanentSpec rewrites the leading `Permanent` token to
 // `PermanentCard`, whose base reads a permanent spell on the stack, CR
 // 109.2), and TestUnboundFlourishingFiresOnPermanentSpellCasts below pins
 // the live behaviour; the SpellCast gate itself is also proven on Brass
@@ -357,7 +357,7 @@ func spellCastPushCount(e *Engine, id state.ObjID) int {
 // TestUnboundFlourishingFiresOnPermanentSpellCasts is the flipped pin (was
 // TestUnboundFlourishingSpellCastCorpusLineStaysInert, which pinned the
 // zone-blind ValidCard$ read keeping the trigger dead). With the
-// spellCastPermanentSpec rewrite, casting an X-cost CREATURE spell fires UF's
+// trigmatch.SpellCastPermanentSpec rewrite, casting an X-cost CREATURE spell fires UF's
 // SpellCast trigger exactly once; casting an X-cost INSTANT spell does not
 // fire it -- the printed {X} satisfies HasXManaCost$, so the only clause
 // standing between the trigger and the cast is ValidCard$ Permanent, and an

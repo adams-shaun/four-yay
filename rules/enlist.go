@@ -221,7 +221,7 @@ func (e *Engine) applyEnlist(attacker, enlisted state.ObjID) {
 func init() {
 	// enlist1: the `K:Enlist` keyword (CR 702.160) is engine-owned -- the
 	// election, the Enlist event and the +X/+0 pump live in this file, and
-	// `T:Mode$ Enlisted` is the listener trigger enlistedMatches serves.
+	// `T:Mode$ Enlisted` is the listener trigger trigmatch.EnlistedMatches serves.
 	// Registered as non-API primitives so the coverage census reads the
 	// carriers as playable.
 	effects.RegisterNonAPI("kw:Enlist", "trig:Enlisted")

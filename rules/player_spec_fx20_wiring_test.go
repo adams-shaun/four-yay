@@ -50,7 +50,7 @@ func fx20BattlefieldByName(t *testing.T, e *Engine, p state.PlayerID, name strin
 
 // TestPlayerSpecFx20MindWhipEnchantedController drives the REAL corpus Aura
 // Mind Whip's upkeep trigger ("At the beginning of the upkeep of enchanted
-// creature's controller ...") through phaseMatches. The aura belongs to seat
+// creature's controller ...") through trigmatch.PhaseMatches. The aura belongs to seat
 // 0 and enchants seat 1's creature, so Player.EnchantedController must name
 // seat 1 -- a fallback to the source's own controller would name seat 0.
 func TestPlayerSpecFx20MindWhipEnchantedController(t *testing.T) {
@@ -84,7 +84,7 @@ func TestPlayerSpecFx20MindWhipEnchantedController(t *testing.T) {
 
 // TestPlayerSpecFx20MissHighwaterPlayerCounters drives the REAL corpus card
 // Miss Highwater's "deals combat damage to a player who doesn't have a
-// contract counter" trigger through damageMatches. The read must be the
+// contract counter" trigger through trigmatch.DamageMatches. The read must be the
 // recipient's live player-counter state: seat 1 with no contract counter
 // matches, and adding one flips the answer.
 func TestPlayerSpecFx20MissHighwaterPlayerCounters(t *testing.T) {
@@ -113,7 +113,7 @@ func TestPlayerSpecFx20MissHighwaterPlayerCounters(t *testing.T) {
 
 // TestPlayerSpecFx20LatullasOrdersDefendingPlayer drives the REAL corpus Aura
 // Latulla's Orders' "enchanted creature deals combat damage to defending
-// player" trigger through damageMatches: the Damage event's recipient is the
+// player" trigger through trigmatch.DamageMatches: the Damage event's recipient is the
 // defending player the clause names, and the attached bearer is the damage
 // source the ValidSource$ half requires.
 func TestPlayerSpecFx20LatullasOrdersDefendingPlayer(t *testing.T) {

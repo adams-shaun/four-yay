@@ -152,7 +152,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// reach, the Surveil/Discover shape: a mask bit is not encodable and
 		// allows() fails open for every kind at or past
 		// triggerMaskKindBits, so the mode is admitted through that fail-open
-		// path and gated by the full matcher (phaseOutAllMatches). Naming the
+		// path and gated by the full matcher (trigmatch.phaseOutAllMatches). Naming the
 		// mode here rather than letting it fall to the allTriggerEvents
 		// default keeps a PhaseOutAll-only face's mask narrow for every other
 		// kind.
@@ -210,7 +210,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// inside the 64-bit mask's reach) and the effect-designation exile
 		// MoveZone markers (applyFaceDownMarker's Foretold$ True
 		// composition); both shapes existed before the mode did. The exact
-		// event shapes are the full matcher's (foretellMatches,
+		// event shapes are the full matcher's (trigmatch.foretellMatches,
 		// rules/trigmatch/foretell.go) -- the MoveZone bit is needed for the
 		// designation arm and is over-approximate for every other zone
 		// change, which the mask is for by design. Naming the mode here
@@ -222,7 +222,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// 64-bit mask's reach, the Discover/SeekAll shape: a mask bit is not
 		// encodable and allows() fails open for every kind at or past
 		// triggerMaskKindBits, so the mode is admitted through that fail-open
-		// path and gated by the full matcher (surveilMatches). Naming the
+		// path and gated by the full matcher (trigmatch.surveilMatches). Naming the
 		// mode here rather than letting it fall to the allTriggerEvents
 		// default keeps a Surveil-only face's mask narrow for every other
 		// kind.
@@ -233,7 +233,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// the Surveil/Proliferate shape: a mask bit is not encodable and
 		// allows() fails open for every kind at or past triggerMaskKindBits,
 		// so the mode is admitted through that fail-open path and gated by
-		// the full matcher (elementalBendMatches). Naming the mode here
+		// the full matcher (trigmatch.elementalBendMatches). Naming the mode here
 		// rather than letting it fall to the allTriggerEvents default keeps
 		// an ElementalBend-only face's mask narrow for every other kind.
 		return 0
@@ -243,7 +243,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// Surveil/Discover shape: a mask bit is not encodable and allows()
 		// fails open for every kind at or past triggerMaskKindBits, so the
 		// mode is admitted through that fail-open path and gated by the full
-		// matcher (proliferateMatches). Naming the mode here rather than
+		// matcher (trigmatch.proliferateMatches). Naming the mode here rather than
 		// letting it fall to the allTriggerEvents default keeps a
 		// Proliferate-only face's mask narrow for every other kind.
 		return 0
@@ -252,7 +252,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// Surveil/Discover shape: a mask bit is not encodable and allows()
 		// fails open for every kind at or past triggerMaskKindBits, so the
 		// mode is admitted through that fail-open path and gated by the full
-		// matcher (scryMatches). Naming the mode here rather than letting it
+		// matcher (trigmatch.scryMatches). Naming the mode here rather than letting it
 		// fall to the allTriggerEvents default keeps a Scry-only face's mask
 		// narrow for every other kind.
 		return 0
@@ -261,7 +261,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// Investigated/Discover shape: a mask bit is not encodable and
 		// allows() fails open for every kind at or past triggerMaskKindBits,
 		// so the mode is admitted through that fail-open path and gated by
-		// the full matcher (exploitedMatches). Naming the mode here rather
+		// the full matcher (trigmatch.exploitedMatches). Naming the mode here rather
 		// than letting it fall to the allTriggerEvents default keeps an
 		// Exploited-only face's mask narrow for every other kind.
 		return 0
@@ -270,7 +270,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// Exploited/GiveGift shape: a mask bit is not encodable and allows()
 		// fails open for every kind at or past triggerMaskKindBits, so the
 		// mode is admitted through that fail-open path and gated by the full
-		// matcher (clashMatches). Naming the mode here rather than letting it
+		// matcher (trigmatch.ClashMatches). Naming the mode here rather than letting it
 		// fall to the allTriggerEvents default keeps a Clashed-only face's
 		// mask narrow for every other kind.
 		return 0
@@ -280,7 +280,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// fails open for every kind at or past triggerMaskKindBits, so the
 		// mode is admitted through that fail-open path and gated by the
 		// synthetic plane scan (checkChaosEnsuesTriggers) plus the full
-		// matcher (chaosEnsuesMatches). Naming the mode here rather than
+		// matcher (trigmatch.chaosEnsuesMatches). Naming the mode here rather than
 		// letting it fall to the allTriggerEvents default keeps a
 		// ChaosEnsues-only face's mask narrow for every other kind.
 		return 0
@@ -289,7 +289,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// reach, the Exploited/Investigated shape: a mask bit is not encodable
 		// and allows() fails open for every kind at or past
 		// triggerMaskKindBits, so the mode is admitted through that fail-open
-		// path and gated by the full matcher (becomeMonstrousMatches, task
+		// path and gated by the full matcher (trigmatch.becomeMonstrousMatches, task
 		// agent-20260919T190014Z). Naming the mode here rather than letting it
 		// fall to the allTriggerEvents default keeps a BecomeMonstrous-only
 		// face's mask narrow for every other kind.
@@ -299,14 +299,14 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// GiveGift/Surveil shape: a mask bit is not encodable and allows()
 		// fails open for every kind at or past triggerMaskKindBits, so the
 		// mode is admitted through that fail-open path and gated by the full
-		// matcher (evolvedMatches, task trig:Evolved). Naming the mode here
+		// matcher (trigmatch.evolvedMatches, task trig:Evolved). Naming the mode here
 		// rather than letting it fall to the allTriggerEvents default keeps
 		// an Evolved-only face's mask narrow for every other kind.
 		return 0
 	case "FullyUnlock":
 		// CR 709.5's "whenever you fully unlock a Room" (task
 		// agent-20260919T191104Z-95f1e316): the Eerie enchantments' other-
-		// permanent half, matched by fullyUnlockMatches (rules/
+		// permanent half, matched by trigmatch.fullyUnlockMatches (rules/
 		// trigmatch/room.go). It fires on the single DoorUnlock transition
 		// event the unlock activation emits, whose ordinal (41) is inside the
 		// 64-bit mask's reach, so an exact bit is encodable -- naming the mode
@@ -323,7 +323,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		return 0
 	case "BecomeMonarch":
 		// The monarch designation transition (trig:BecomeMonarch), matched by
-		// rules' becomeMonarchMatches. MonarchChange is ordinal 43, inside the
+		// trigmatch.BecomeMonarchMatches. MonarchChange is ordinal 43, inside the
 		// 64-bit mask's reach, so an exact bit is encodable.
 		return 1 << events.MonarchChange
 	case "CommitCrime", "BecomesTarget", "BecomesTargetOnce":
@@ -336,7 +336,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// post-CombatRetarget range as Enlisted/Mutates), so a mask bit is not
 		// encodable and allows() fails open for every kind at or past
 		// triggerMaskKindBits -- the mode is admitted through that fail-open
-		// path and gated by the full matcher (unattachedMatches). Naming the
+		// path and gated by the full matcher (trigmatch.unattachedMatches). Naming the
 		// mode here rather than letting it fall to the allTriggerEvents default
 		// keeps an Unattached-only face's mask narrow for every other kind, and
 		// keeps Mode$ Attached's mask exact (its bit is events.Attach, never
@@ -345,7 +345,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 	case "Exerted":
 		// The mode fires on the CR 702.100 exert itself (events.Exert with
 		// Amount >= 0); the Amount == -1 untap-step consume marker is the
-		// same Kind but rejected by exertedMatches, so the mask stays exact.
+		// same Kind but rejected by trigmatch.ExertedMatches, so the mask stays exact.
 		return 1 << events.Exert
 	case "Enlisted":
 		// enlist1: the mode fires on the CR 702.160 enlist action itself
@@ -353,7 +353,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// the 64-bit mask's reach, the RingTemptsYou/Investigated shape: a
 		// mask bit is not encodable and allows() fails open for every kind at
 		// or past triggerMaskKindBits, so the mode is admitted through that
-		// fail-open path and gated by the full matcher (enlistedMatches).
+		// fail-open path and gated by the full matcher (trigmatch.EnlistedMatches).
 		// Naming the mode here rather than letting it fall to the
 		// allTriggerEvents default keeps an Enlisted-only face's mask narrow
 		// for every other kind.
@@ -394,12 +394,12 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// The batch "whenever you put one or more counters on ..." mode
 		// (Generous Patron, Rikku Resourceful Guardian): fires on the object
 		// AND player placement events the matcher
-		// (counterPlayerAddedAllMatches) reads.
+		// (trigmatch.counterPlayerAddedAllMatches) reads.
 		return 1<<events.CounterChange | 1<<events.PlayerCounterChange
 	case "ClassLevelGained":
 		// CR 702.118c: the same CounterChange event the level-up
 		// activator's PutCounter emits carries the level band crossing
-		// (matcher: classLevelGainedMatches).
+		// (matcher: trigmatch.classLevelGainedMatches).
 		return 1 << events.CounterChange
 	case "Mutates":
 		// CR 702.140f: "whenever this creature mutates". The event is the
@@ -408,7 +408,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// RingTemptsYou/Investigated shape: a mask bit is not encodable and
 		// allows() fails open for every kind at or past triggerMaskKindBits
 		// (the CombatRetarget lesson), so the mode is admitted through that
-		// fail-open path and gated by the full matcher (mutatesMatches).
+		// fail-open path and gated by the full matcher (trigmatch.mutatesMatches).
 		// Naming the mode here rather than letting it fall to the
 		// allTriggerEvents default keeps a Mutates-only face's mask narrow
 		// for every other kind.
@@ -424,7 +424,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// agent-20260919T183249Z-0fb8ed97). Its ordinal is past the 64-bit
 		// mask's reach -- the Mutates/Investigated shape -- so a mask bit is
 		// not encodable and allows() fails open for it, gated by the full
-		// matcher (turnFaceUpMatches). Returning 0 here rather than the
+		// matcher (trigmatch.turnFaceUpMatches). Returning 0 here rather than the
 		// allTriggerEvents default keeps a TurnFaceUp-only face's mask narrow
 		// for every other kind.
 		return 0

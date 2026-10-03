@@ -49,7 +49,7 @@ func TestAbilityCastValidSALoyaltyTerms(t *testing.T) {
 		{"unknown term fails closed", minus3, "Activated.Loyalty+Bogus", 3, 0, false},
 		{"crew vehicle still unread", tap, "Activated.Crew+Vehicle", 0, 0, false},
 	}
-	// The classifier reads only IsLoyaltyAbility/IsManaAbilityAPI, which
+	// The classifier reads only IsLoyaltyAbility/cards.IsManaAbilityAPI, which
 	// touch no engine state.
 	b := boardOf(&Engine{})
 	for _, c := range cases {

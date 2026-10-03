@@ -187,7 +187,7 @@ func computeWalkFaceFacts(f *cards.Face) walkFaceFacts {
 		if ab.Kind != "AB" {
 			continue
 		}
-		if isManaAbilityAPI(ab.API) && !loyaltyAbilityText(ab) {
+		if cards.IsManaAbilityAPI(ab.API) && !loyaltyAbilityText(ab) {
 			continue
 		}
 		m := abilityZoneMask(ab)

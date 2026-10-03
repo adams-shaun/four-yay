@@ -17,25 +17,25 @@ func TestRepeatOptionalRecordsCursorWhenBodySuspends(t *testing.T) {
 	Resolve(h, c, &cards.SA{Kind: "DB", API: "Repeat", Params: map[string]string{
 		"RepeatSubAbility": "Body", "RepeatOptional": "True",
 	}})
-	if !h.repeatOptionalCalled {
+	if !h.repeatBodyCalled {
 		t.Fatal("RepeatOptional body suspension did not register a continuation")
 	}
-	if h.repeatOptionalNext != 1 {
-		t.Fatalf("RepeatOptional cursor = %d, want 1", h.repeatOptionalNext)
+	if h.repeatBodyNext != 1 {
+		t.Fatalf("RepeatOptional cursor = %d, want 1", h.repeatBodyNext)
 	}
 }
 
 // TestRepeatOptionalResumeStatesAreDistinct pins the two resume states the
 // body-suspension bug conflated:
 //
-//   - a completed election answered yes (AskElection false) runs the body at
+//   - a completed election answered yes (AfterBody false) runs the body at
 //     Next directly, and the election it then poses concerns Next+1;
-//   - a body completed after its own suspension (AskElection true) must pose
+//   - a body completed after its own suspension (AfterBody true) must pose
 //     the election for Next BEFORE running that iteration's body, so no body
 //     iteration happens and the posed election's ResumeRepeatNext is Next.
 //
 // The second case is the Forbidden Ritual regression in miniature: before
-// AskElection existed the continuation re-entered with the first state and
+// AfterBody existed the continuation re-entered with the first state and
 // ran a second body iteration, which is what the rules-level test catches
 // end to end.
 func TestRepeatOptionalResumeStatesAreDistinct(t *testing.T) {
@@ -60,7 +60,7 @@ func TestRepeatOptionalResumeStatesAreDistinct(t *testing.T) {
 	t.Run("answered yes begins Next", func(t *testing.T) {
 		bodyRuns = 0
 		h, c := newCtx(t)
-		c.RepeatOptional = &RepeatOptionalContinuation{Continue: true, Next: 1}
+		c.RepeatResume = &RepeatContinuation{Continue: true, Next: 1}
 		Resolve(h, c, repeatsa())
 		if bodyRuns != 1 {
 			t.Fatalf("answered-yes resume ran the body %d times, want 1", bodyRuns)
@@ -76,7 +76,7 @@ func TestRepeatOptionalResumeStatesAreDistinct(t *testing.T) {
 	t.Run("body completion asks before Next", func(t *testing.T) {
 		bodyRuns = 0
 		h, c := newCtx(t)
-		c.RepeatOptional = &RepeatOptionalContinuation{Continue: true, Next: 1, AskElection: true}
+		c.RepeatResume = &RepeatContinuation{Continue: true, Next: 1, AfterBody: true}
 		Resolve(h, c, repeatsa())
 		if bodyRuns != 0 {
 			t.Fatalf("body-completion resume ran the body %d times before the election, want 0", bodyRuns)
@@ -91,7 +91,7 @@ func TestRepeatOptionalResumeStatesAreDistinct(t *testing.T) {
 	t.Run("answered no stops", func(t *testing.T) {
 		bodyRuns = 0
 		h, c := newCtx(t)
-		c.RepeatOptional = &RepeatOptionalContinuation{Continue: false, Next: 1}
+		c.RepeatResume = &RepeatContinuation{Continue: false, Next: 1}
 		Resolve(h, c, repeatsa())
 		if bodyRuns != 0 || h.askCount != 0 {
 			t.Fatalf("stopped resume ran the body %d times and posed %d asks, want 0/0", bodyRuns, h.askCount)

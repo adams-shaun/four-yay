@@ -874,8 +874,8 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	// HiddenKeywords$ is the SAME derived-keyword grammar (see
 	// animateGrant.hiddenKws): a HiddenKeywords$ value is one keyword line
 	// Forge simply does not print on the card, and rules' derived-keyword
-	// readers (hasCantBlockKeyword/hasCantAttackKeyword/
-	// hasMustBeBlockedKeyword) consult the derived list alike.
+	// readers (combat.HasCantBlockKeyword/combat.HasCantAttackKeyword/
+	// combat.HasMustBeBlockedKeyword) consult the derived list alike.
 	ag.hiddenKws = cards.SplitKeywordList(sa.Params["HiddenKeywords"])
 	// RemoveKeywords$ (see animateGrant.removeKeywords): split with the same
 	// grammar, applied at layer 6 BEFORE this effect's own AddKeywords

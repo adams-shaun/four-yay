@@ -42,7 +42,7 @@ import (
 //
 // trigSig refines the zone-change kinds (MoveZone, Draw, PutOnStack) by the
 // event's From/To zones: a Mode$ ChangesZone/ChangesZoneAll line can match
-// only when zoneChangeMatchesWithCapture's Origin$ and Destination$ tests
+// only when trigmatch.ZoneChangeMatchesWithCapture's Origin$ and Destination$ tests
 // admit ev.From and ev.To, so a face whose zone-change listeners are all
 // "enters the battlefield" lines cannot act on a draw, a cast or a death.
 type trigKinds [2]uint64
@@ -100,7 +100,7 @@ var touchFreeKinds = func() trigKinds {
 	return m
 }()
 
-// zoneChangeKind: the kinds zoneChangeMatchesWithCapture accepts.
+// zoneChangeKind: the kinds trigmatch.ZoneChangeMatchesWithCapture accepts.
 func zoneChangeKind(k events.Kind) bool {
 	return k == events.MoveZone || k == events.Draw || k == events.PutOnStack
 }
@@ -149,7 +149,7 @@ func lineTrigSig(t *cards.Trigger, valid func(string) bool) trigSig {
 	if t.Mode != "ChangesZone" && t.Mode != "ChangesZoneAll" {
 		return sig
 	}
-	// zoneChangeMatchesWithCapture's own reads, in its order.
+	// trigmatch.ZoneChangeMatchesWithCapture's own reads, in its order.
 	if o, ok := t.Param(cards.PKOrigin); ok {
 		zones, all, listOK := effects.ParseZones(o)
 		switch {
@@ -203,31 +203,31 @@ func modeTrigKinds(mode string) trigKinds {
 // therefore admits). Each matcher's first statement rejects every kind but
 // the listed low ones:
 //
-//	ChangesZone, ChangesZoneAll   zoneChangeMatchesWithCapture: MoveZone/Draw/PutOnStack
-//	SpellCast                     spellCastMatches: PutOnStack
-//	SpellCastOrCopy, SpellCopy    spellCopyMatches: StackCopy, else spellCastMatches
-//	Attacks                       attacksMatches: DeclareAttackers
-//	AttackersDeclared(OneTarget)  attackersDeclaredOneTargetMatches: DeclareAttackers
-//	Untaps                        untapsMatches: Untap
-//	Taps, TapsForMana             tapsMatches: Tap
+//	ChangesZone, ChangesZoneAll   trigmatch.ZoneChangeMatchesWithCapture: MoveZone/Draw/PutOnStack
+//	SpellCast                     trigmatch.spellCastMatches: PutOnStack
+//	SpellCastOrCopy, SpellCopy    trigmatch.spellCopyMatches: StackCopy, else trigmatch.spellCastMatches
+//	Attacks                       trigmatch.AttacksMatches: DeclareAttackers
+//	AttackersDeclared(OneTarget)  trigmatch.AttackersDeclaredOneTargetMatches: DeclareAttackers
+//	Untaps                        trigmatch.untapsMatches: Untap
+//	Taps, TapsForMana             trigmatch.tapsMatches: Tap
 //	Sacrificed                    events.IsSacrifice: MoveZone
 //	Discarded, DiscardedAll       events.IsDiscard: MoveZone
 //	Milled, MilledAll             events.IsMill: MoveZone
-//	LandPlayed                    landPlayedMatches: MoveZone
-//	Explores                      exploresMatches: Explore
-//	BecomeMonarch                 becomeMonarchMatches: MonarchChange
-//	CommitCrime                   commitCrimeMatches: TargetsChosen
+//	LandPlayed                    trigmatch.landPlayedMatches: MoveZone
+//	Explores                      trigmatch.exploresMatches: Explore
+//	BecomeMonarch                 trigmatch.BecomeMonarchMatches: MonarchChange
+//	CommitCrime                   trigmatch.commitCrimeMatches: TargetsChosen
 //	BecomesTarget(Once)           becomesTarget(Once)Matches: TargetsChosen
-//	Attached                      attachedMatches: Attach
-//	Exerted                       exertedMatches: Exert
-//	DamageDone/DealtOnce/DoneOnce/All  damageMatchesWithCapture: Damage
+//	Attached                      trigmatch.attachedMatches: Attach
+//	Exerted                       trigmatch.ExertedMatches: Exert
+//	DamageDone/DealtOnce/DoneOnce/All  trigmatch.DamageMatchesWithCapture: Damage
 //	CounterAdded(Once), ClassLevelGained  CounterChange
-//	Transformed                   transformedMatches: FlipFace
-//	TokenCreated(Once)            tokenCreatedMatches: TokenCreate
-//	Drawn                         drawnMatches: Draw
+//	Transformed                   trigmatch.TransformedMatches: FlipFace
+//	TokenCreated(Once)            trigmatch.tokenCreatedMatches: TokenCreate
+//	Drawn                         trigmatch.drawnMatches: Draw
 //	LifeLost                      lifeLoss: Damage/LifeChange (LifeLostAll is not listed)
-//	LifeGained                    lifeGainedMatches: LifeChange
-//	Phase                         phaseMatches: StepChange
+//	LifeGained                    trigmatch.lifeGainedMatches: LifeChange
+//	Phase                         trigmatch.PhaseMatches: StepChange
 //
 // A mode not listed keeps every high kind (the fail-open reading).
 func modeRejectsHighKinds(mode string) bool {
@@ -266,7 +266,7 @@ func computeFaceTrigSigs(f *cards.Face, valid func(string) bool) (all, other tri
 // lineReferentOnly reports whether t can match only when its source is the
 // event's own object, so a walk may leave it to the referent's in-place
 // visit: a Mode$ ChangesZone/ChangesZoneAll line whose card filter
-// (ValidCards$, else ValidCard$ -- zoneChangeMatchesWithCapture's read) is
+// (ValidCards$, else ValidCard$ -- trigmatch.ZoneChangeMatchesWithCapture's read) is
 // "<Type>.Self", optionally with further "+"-joined properties. The filter is
 // matched against ev.Obj (or its LKI, the same id) under a spec context whose
 // Source is the trigger's source, and the Self predicate is o.ID == Source.

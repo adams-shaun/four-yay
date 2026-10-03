@@ -297,7 +297,7 @@ func TestIsSingleTargetParamOneTargetFiresTwoDoesNot(t *testing.T) {
 
 // ---------- The activation arm (round 3) ----------
 //
-// The round-2 diff wired targetShapeMatches into abilityCastMatches, but the
+// The round-2 diff wired trigmatch.TargetShapeMatches into trigmatch.abilityCastMatches, but the
 // match there is evaluated synchronously inside payCast's AbilityPush emit —
 // BEFORE handleTarget's ability branch records the chosen targets onto the
 // minted object, and against ev.Obj (the SOURCE permanent, whose own Targets
