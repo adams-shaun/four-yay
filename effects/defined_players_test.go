@@ -120,9 +120,10 @@ func TestVoteVotersPlainRememberedExcludesCardControllers(t *testing.T) {
 	}
 
 	h2, c2, _ := mixedRememberedHost(t)
-	effPlayerVote(h2, c2, &cards.SA{Params: map[string]string{
+	pv := &cards.SA{Params: map[string]string{
 		"Defined": "Remembered", "VotePlayer": "Player",
-	}})
+	}}
+	effPlayerVote(h2, c2, pv, VoteOf(pv))
 	if n := countNotes(h2, "player vote resolved"); n != 1 {
 		t.Fatalf("effPlayerVote voters = %d notes, want 1 (only remembered player 2)", n)
 	}

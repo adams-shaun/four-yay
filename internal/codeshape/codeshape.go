@@ -308,6 +308,28 @@ var RemoveCounterFiles = []string{"effects/removecounter.go"}
 // RemoveCounterOnlyKeys are the parameter keys only RemoveCounter's compiler reads.
 var RemoveCounterOnlyKeys = []string{"ChoiceNum", "CounterNumShared", "RememberRemoved"}
 
+// TokenCompilerFile is api:Token's parameter compiler (W4 step 3): the one
+// file allowed to read a Token ability's parameters.
+const TokenCompilerFile = "effects/token_params.go"
+
+// TokenFiles are Token's own resolution files: they carry no parameter
+// read of any key.
+var TokenFiles = []string{"effects/token.go"}
+
+// TokenOnlyKeys are the parameter keys only Token's compiler reads.
+var TokenOnlyKeys = []string{"RememberOriginalTokens", "TokenAmount", "TokenOwner", "TokenPower", "TokenToughness"}
+
+// VoteCompilerFile is api:Vote's parameter compiler (W4 step 3): the one
+// file allowed to read a Vote ability's parameters.
+const VoteCompilerFile = "effects/vote_params.go"
+
+// VoteFiles are Vote's own resolution files: they carry no parameter
+// read of any key.
+var VoteFiles = []string{"effects/vote.go", "effects/vote_effect.go"}
+
+// VoteOnlyKeys are the parameter keys only Vote's compiler reads.
+var VoteOnlyKeys = []string{"RememberVotedObjects", "StoreVoteNum", "VoteCard", "VoteMessage", "VotePlayer", "VoteSubAbility", "VoteTiedAbility"}
+
 // TypedParamCompiler names one API's parameter compiler for the leak census
 // (Metrics.ChangeZoneParamLeaks and its siblings): the compiler file, the
 // API's own resolution files (no parameter read of any key there) and the
@@ -472,6 +494,14 @@ type Metrics struct {
 	// RemoveCounterFiles, RemoveCounterOnlyKeys).
 	RemoveCounterParamLeaks int      `json:"remove_counter_param_leaks"`
 	RemoveCounterLeaks      []string `json:"remove_counter_leaks"`
+	// TokenParamLeaks is the same census for api:Token (TokenCompilerFile,
+	// TokenFiles, TokenOnlyKeys).
+	TokenParamLeaks int      `json:"token_param_leaks"`
+	TokenLeaks      []string `json:"token_leaks"`
+	// VoteParamLeaks is the same census for api:Vote (VoteCompilerFile,
+	// VoteFiles, VoteOnlyKeys).
+	VoteParamLeaks int      `json:"vote_param_leaks"`
+	VoteLeaks      []string `json:"vote_leaks"`
 	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
@@ -612,6 +642,10 @@ func Measure(root string) (Metrics, error) {
 				TypedParamCompiler{DigUntilCompilerFile, DigUntilFiles, DigUntilOnlyKeys})...)
 			m.RemoveCounterLeaks = append(m.RemoveCounterLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{RemoveCounterCompilerFile, RemoveCounterFiles, RemoveCounterOnlyKeys})...)
+			m.TokenLeaks = append(m.TokenLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{TokenCompilerFile, TokenFiles, TokenOnlyKeys})...)
+			m.VoteLeaks = append(m.VoteLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{VoteCompilerFile, VoteFiles, VoteOnlyKeys})...)
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.TypeAssertExpr:
@@ -684,6 +718,8 @@ func Measure(root string) (Metrics, error) {
 	m.DigParamLeaks, m.DigLeaks = finishLeaks(m.DigLeaks)
 	m.DigUntilParamLeaks, m.DigUntilLeaks = finishLeaks(m.DigUntilLeaks)
 	m.RemoveCounterParamLeaks, m.RemoveCounterLeaks = finishLeaks(m.RemoveCounterLeaks)
+	m.TokenParamLeaks, m.TokenLeaks = finishLeaks(m.TokenLeaks)
+	m.VoteParamLeaks, m.VoteLeaks = finishLeaks(m.VoteLeaks)
 	m.FuncsOver300 = len(m.LongFuncs)
 	sort.Slice(m.LongFuncs, func(i, j int) bool {
 		a, b := m.LongFuncs[i], m.LongFuncs[j]

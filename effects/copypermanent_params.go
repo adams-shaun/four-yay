@@ -21,8 +21,7 @@ import (
 //
 // The machinery CopyPermanent shares with api:Token -- TokenRemembered$
 // (tokenRememberedTargets) and the TokenAttacking$ rider's defender pick --
-// still reads its own keys in token.go; the Defined$ resolver and the
-// targeting tier are the next tier.
+// lives in token.go and takes each compiler's compiled value.
 
 // CopyPermanentParams is one CopyPermanent ability's parameters, compiled
 // once. Text fields are trimmed unless noted; ParamText fields keep the raw
@@ -86,6 +85,9 @@ type CopyPermanentParams struct {
 	ImprintTokens  bool
 	// AttachedTo is AttachedTo$.
 	AttachedTo string
+	// TokenRemembered is TokenRemembered$: the Defined$ group bound to each
+	// copy's memory (tokenRememberedTargets, shared with api:Token).
+	TokenRemembered string
 	// The named grants, raw comma lists over the source's SVar table.
 	AddTriggers        string
 	AddSVars           string
@@ -266,6 +268,7 @@ func compileCopyPermanent(sa *cards.SA, dp *DefinedParams) *CopyPermanentParams 
 	p.RememberTokens = isTrue(sa.Params["RememberTokens"])
 	p.ImprintTokens = isTrue(sa.Params["ImprintTokens"])
 	p.AttachedTo = strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo))
+	p.TokenRemembered = strings.TrimSpace(sa.Params["TokenRemembered"])
 	p.AddTriggers = sa.ParamStr(cards.PKAddTriggers)
 	p.AddSVars = sa.ParamStr(cards.PKAddSVars)
 	p.AddAbilities = sa.ParamStr(cards.PKAddAbilities)
