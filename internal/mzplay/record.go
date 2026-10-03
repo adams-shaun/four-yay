@@ -54,8 +54,14 @@ func LabelValues(rows []Row, won bool, lambda float64) {
 }
 
 // ScoreFromRootValue maps azmcts's root mean value, the searching seat's
-// win probability in [0,1], onto upstream's stateScore in [-1,1].
-func ScoreFromRootValue(v float64) float64 { return 2*v - 1 }
+// win probability in [0,1], onto upstream's stateScore in [-1,1]. Under
+// azmcts.Options.ParentVisits the root value is upstream's getMeanScore,
+// which counts the root's own evaluation in the sum but not in the visits
+// and so can pass 1 by up to 2/budget in a won position; upstream writes it
+// (and the TD-lambda target built from it) unclamped, the shard writer here
+// refuses a target outside [-1, 1], so the score is clamped into it. A
+// value in [0, 1] maps exactly as before.
+func ScoreFromRootValue(v float64) float64 { return max(-1, min(1, 2*v-1)) }
 
 // policyFromVisits is ComputerPlayerMCTS2.getActionVec: raw visit counts by
 // action index, children sharing an index added together.
