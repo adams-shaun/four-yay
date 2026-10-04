@@ -2,7 +2,6 @@ package effects
 
 import (
 	"strconv"
-	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -22,23 +21,6 @@ import (
 // never offers a hidden card by name, and a public-origin pick never
 // shuffles (Forge's shuffle condition needs Library in the origin).
 func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.Zone, originZones []state.Zone, originAll bool, originValid bool, from string) {
-	// fx42 scoping: capture and clear the answered pick (and the cursor that
-	// binds it to the fetch player that asked) before anything else, so a
-	// nested pick below cannot inherit them.
-	ans := ([]state.ObjID)(nil)
-
-	done := false
-	cursor := int(0)
-
-	// fx42 scoping for the Optional$ confirmation answer: consumed and cleared
-	// before anything else so a nested pick poses its own confirmation (the
-	// same discipline the hand walk's HandMoveConfirm answer follows).
-	confirmDone := false
-	confirmYes := strings.EqualFold(string(""),
-
-		"yes")
-	confirmTarget := int(0)
-
 	hiddenPickOriginNote(h, c, originValid, from)
 	players := hiddenPickPlayers(h, c, cz.fetch())
 	if c.Forget.Ready {
@@ -186,8 +168,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 	// reading when ChooseFromDefined$ is present: the pool itself bounds the
 	// pick. A caller that names ChangeNum$ keeps it.
 	chooseFromAll := hasChooseFromDefined && cz.ChangeNum.Text == ""
-	// applyAnswered applies one fetch player's answered pick: the answer
-	// re-entry's branch, and the resolution kernel's served answer alike.
+	// applyAnswered applies one fetch player's answered pick.
 	applyAnswered := func(owner state.PlayerID, ids []state.ObjID) {
 		if raw, ok := totalCardTypesRequirement(cz); ok {
 			need, err := strconv.Atoi(raw)
@@ -267,15 +248,6 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 			running += mv
 			greedy = append(greedy, id)
 		}
-		if done && i < cursor {
-			// This fetch player answered on an earlier pass, before a later
-			// one suspended the walk (the hand walk's continuation contract).
-			continue
-		}
-		if done && i == cursor {
-			applyAnswered(owner, ans)
-			continue
-		}
 		chooser := hiddenPickChooser(h, c, cz, owner)
 		// Forge's Optional$ confirmation (the same confirmAction gate the
 		// hidden-hand walk poses, which runs BEFORE the card pick): a script
@@ -288,52 +260,35 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 		// UNRESOLVED ChooseFromDefined$ failed closed above, so its
 		// nothing-to-offer continuation never becomes a confirmation.
 		if hiddenPickConfirms(cz) && !(hasChooseFromDefined && !chooseFromDefinedResolved) {
-			if confirmDone && i < confirmTarget {
-				// This fetch player's confirmation was already answered on an
-				// earlier pass (declined, or accepted with its pick completed);
-				// do not ask again and do not clear for it.
-				continue
+			prompt := cz.OptionalPrompt
+			if prompt == "" {
+				prompt = "Proceed with moving a card?"
 			}
-			if !confirmDone {
-				prompt := cz.OptionalPrompt
-				if prompt == "" {
-					prompt = "Proceed with moving a card?"
+			cd := &decision.Decision{Player: chooser, Kind: decision.KChoose,
+				Min: 1, Max: 1, Source: c.Source,
+				ResumeKind: "hidden_pick_confirm", ResumeSA: sa, ResumeTarget: i,
+				Prompt: prompt,
+				Options: []decision.Option{
+					{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
+					{Index: 1, Kind: "no", Label: "No", Player: chooser},
+				}}
+			// Answered in place: the echo events, then a decline skips this
+			// player and an acceptance enters the pick. R-9: with no answer,
+			// play "may" as "do" deterministically, the same fallback the
+			// hand walk's confirmation applies.
+			if ans, ok := AskTape(h, cd); ok {
+				hiddenPickReentryEcho(h, c, cz, to, originValid, from)
+				if !tapeAnswerYes(ans) {
+					continue
 				}
-				cd := &decision.Decision{Player: chooser, Kind: decision.KChoose,
-					Min: 1, Max: 1, Source: c.Source,
-					ResumeKind: "hidden_pick_confirm", ResumeSA: sa, ResumeTarget: i,
-					Prompt: prompt,
-					Options: []decision.Option{
-						{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
-						{Index: 1, Kind: "no", Label: "No", Player: chooser},
-					}}
-				if ans, ok := AskTape(h, cd); ok {
-					// The resolution kernel's answer in hand: the
-					// "hidden_pick_confirm" re-entry's own events, then a
-					// decline skips this player and an acceptance enters the
-					// pick.
-					hiddenPickReentryEcho(h, c, cz, to, originValid, from)
-					if !tapeAnswerYes(ans) {
-						continue
-					}
-				} else {
-				}
-
-				// R-9: no host to ask -- play "may" as "do" deterministically,
-				// the same fallback the hand walk's confirmation applies.
-			} else if i == confirmTarget && !confirmYes {
-				confirmDone = false // this player's decline is consumed; later players still confirm
-				continue            // declined: keep the remembered set
-			} else if i == confirmTarget {
-				confirmDone = false // this player's acceptance is consumed
 			}
 		}
 		if len(budgetEligible) == 0 || m == 0 {
 			// No eligible card, or an empty-only ChangeNum$ 0 pick: with no
 			// Optional$ marker both completed silently before optionality could
 			// matter; an ACCEPTED Optional$ confirmation reaches this branch
-			// entered (the same AskEmpty contract the hand walk keeps for its
-			// ordinary empty move). A resolved selector with an empty pool still
+			// entered (the same contract the hand walk keeps for its ordinary
+			// empty move). A resolved selector with an empty pool still
 			// entered the fetch, so it clears the remembered set; an UNRESOLVED
 			// ChooseFromDefined$ failed closed above and must not be mistaken
 			// for a fetch that happened. A public origin has no shuffle to fail
@@ -365,9 +320,6 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 		}
 		d := &decision.Decision{Player: chooser, Kind: decision.KChoose,
 			Min: 0, Max: int(m), MaxSum: int(budget), Source: c.Source,
-			// The same remembered ride the hand_move ask carries: the
-			// re-entered effHiddenPick revalidates against ChangeType$, which
-			// can be a ctx-Remembered predicate.
 			ResumeKind: "hidden_pick", ResumeSA: sa, ResumeTarget: i,
 			Prompt: prompt}
 		if mandatory {
@@ -424,8 +376,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 			}
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the "hidden_pick"
-			// re-entry's own events, then its answered branch.
+			// Answered in place: the echo events, then the answered pick.
 			hiddenPickReentryEcho(h, c, cz, to, originValid, from)
 			applyAnswered(owner, tapeAnswerObjs(ans))
 			continue

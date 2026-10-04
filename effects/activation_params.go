@@ -447,21 +447,6 @@ func conditionZoneParam(sa *cards.SA) string {
 	return strings.TrimSpace(sa.ParamStr(cards.PKConditionZone))
 }
 
-// ActivationTierKeys are the keys compileActivation reads for every ability
-// (the rules census check holds them read for every API).
-func ActivationTierKeys() []string {
-	return []string{
-		"Activation", "ActivationAfterBlockers", "ActivationFirstCombat", "ActivationGameTypes",
-		"ActivationLimit", "ActivationPhases", "ActivationZone", "Activator", "CheckSVar",
-		"Condition", "ConditionActivationLimit", "ConditionCheckSVar", "ConditionCompare",
-		"ConditionDefined", "ConditionFirstCombat", "ConditionNotPresent", "ConditionPhases",
-		"ConditionPlayerTurn", "ConditionPresent", "ConditionSVarCompare", "Cost",
-		"GameActivationLimit", "InstantSpeed", "IsPresent", "OpponentTurn", "PlayerTurn",
-		"PresentCompare", "PresentDefined", "PresentZone", "SVarCompare", "SorcerySpeed",
-		"UnlessCost", "UnlessPayer", "UnlessSwitched",
-	}
-}
-
 var activationZoneMaskTab1 = state.NewStrTable[uint32](
 	state.StrEntry[uint32]{Key: "Battlefield", Val: 1 << state.ZBattlefield},
 	state.StrEntry[uint32]{Key: "Graveyard", Val: 1 << state.ZGraveyard},

@@ -30,7 +30,7 @@ func init() {
 //     getAllPossibleDefenders; planeswalker defenders are out of scope —
 //     walkers are not attackable in this build),
 //   - the resolving controller (Ctx.Controller) picks one per attacker; the
-//     answered re-entry emits one CombatRetarget per attacker ONLY when the
+//     answer emits one CombatRetarget per attacker ONLY when the
 //     answer moves the attack — Forge's addToCombat acts only when the
 //     chosen defender does not already have this attacker
 //     (defender != nil && !combat.getAttackersOf(defender).contains(c)), so
@@ -43,10 +43,9 @@ func init() {
 //     Kind exists instead of reusing DeclareAttackers/TokenAttacks).
 //
 // The ask is the "choice" KChoose transport (ChooseCard/ChoosePlayer/
-// ChangeTargets' shared seam, reuse rather than a new resume arm), with the
-// ask's ResumeTarget carrying the asking attacker's index in the
-// deterministic Defined$ walk so the re-entry skips attackers already
-// answered (effDig's per-target cursor discipline). The R-9 no-host stand-in
+// ChangeTargets' shared seam), with the ask's ResumeTarget carrying the
+// asking attacker's index in the deterministic Defined$ walk; each attacker's
+// ask is answered in place via AskTape. The R-9 no-host stand-in
 // keeps the original defender and records one Note — never a guessed
 // defender. An attacker whose only candidate defender is the one it already
 // attacks asks nothing: the decision's every answer is the same no-op, so a
@@ -99,19 +98,11 @@ func effChangeCombatants(h Host, c *Ctx, sa *cards.SA) {
 			Text: "ChangeCombatants Attacking$ " + mode + " is not implemented; no combatant changed"})
 		return
 	}
-	// fx42 scoping: capture and clear the answered defender pick BEFORE the
-	// attacker loop. The ask's ResumeTarget carries the asking attacker's
-	// index in the deterministic Defined$ walk (resumeResolution's ctx
-	// rebuild sets Ctx.ChoiceTarget = rp.target for every resume), so
-	// earlier attackers completed before suspension and must be skipped,
-	// that attacker consumes the answer, and later attackers pose fresh
-	// asks of their own.
-	answer := ([]state.Target)(nil)
-
-	answerDone := false
-	answerIndex := c.ChoiceTarget
+	// Each attacker's defender pick is answered in place, so every attacker
+	// in the Defined$ walk poses its own ask. The shared per-chooser cursor
+	// is cleared here, as it always has been.
 	c.ChoiceTarget = 0
-	if !answerDone && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "ChangeCombatants Optional$ True read as mandatory (no may-reselect ask)"})
 	}
@@ -131,31 +122,6 @@ func effChangeCombatants(h Host, c *Ctx, sa *cards.SA) {
 			// CR 506.3b: a creature attacks only in its controller's own
 			// combat; gorge combat is always the active player's.
 			continue
-		}
-		if answerDone {
-			if idx < answerIndex {
-				// This attacker completed on the first pass before a later
-				// attacker suspended the effect; re-running it could move a
-				// second attack (or newly create a choice after its first
-				// answer left). Skip it.
-				continue
-			}
-			if idx == answerIndex {
-				// Re-entry: emit the answered reselect exactly once, but only
-				// when it actually MOVES the attack — Forge's addToCombat acts
-				// only when the chosen defender does not already have this
-				// attacker (!combat.getAttackersOf(defender).contains(c)), so
-				// answering the current defender is a true no-op that preserves
-				// BlockedBy (clearing it would silently unblock an attack whose
-				// defender did not change). The answered player was one of the
-				// offered candidates; a malformed non-player answer also keeps
-				// the original defender.
-				if len(answer) > 0 && answer[0].IsPlayer && answer[0].Player != o.Attacking {
-					h.Emit(events.Event{Kind: events.CombatRetarget, Obj: o.ID, Player: answer[0].Player})
-				}
-				// Later attackers keep walking and pose their own asks.
-				continue
-			}
 		}
 		// Candidate defenders: every living seat except the attacker's
 		// controller, in the deterministic AliveFrom seat walk — the same
@@ -188,9 +154,12 @@ func effChangeCombatants(h Host, c *Ctx, sa *cards.SA) {
 			d.Options = append(d.Options, opt)
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the reselect the
-			// "choice" re-entry emits for this attacker (only when it moves
-			// the attack), then the later attackers.
+			// Answered in place: emit the reselect only when it actually
+			// MOVES the attack — Forge's addToCombat acts only when the
+			// chosen defender does not already have this attacker, so
+			// answering the current defender is a true no-op that preserves
+			// BlockedBy. A malformed non-player answer also keeps the
+			// original defender. Then the later attackers.
 			if pick := ChoiceAnswerTargets(ans); len(pick) > 0 && pick[0].IsPlayer && pick[0].Player != o.Attacking {
 				h.Emit(events.Event{Kind: events.CombatRetarget, Obj: o.ID, Player: pick[0].Player})
 			}

@@ -30,22 +30,14 @@ func init() { Register("ImmediateTrigger", effImmediateTrigger) }
 //
 // The inline resolution below is kept for exactly three shapes: Static$ True
 // (Forge's static trigger resolves immediately by definition -- Melira, the
-// Living Cure's replacement-installed lock), a host that reports it cannot
-// mint the ability from the log (a body compiled on a foreign face; an
-// effects-package test double), and the re-entry of an inline loop that
-// already suspended.
+// Living Cure's replacement-installed lock) and a host that reports it
+// cannot mint the ability from the log (a body compiled on a foreign face;
+// an effects-package test double).
 //
-// On the inline path, per instance the loop builds a FRESH Ctx copy (the fx42
-// scoping rule: an answer must never carry between instances) and resolves Execute$ through
-// the ordinary Resolve, so a sub's own mid-resolution ask (Forum Filibuster's
-// TargetMin$ 0 / TargetMax$ 1 ChangeZone) suspends the WHOLE resolution and
-// re-enters through the same RepeatCursor machinery effRepeatEach uses —
-// SuspendRepeat reports the loop's position (SA identity + next instance
-// index), the enclosing Resolve chain drops its own continuation report for
-// this SA (SuspendContinuation's repeatReported rule), and the resumed pass
-// re-enters this function at the cursor, runs the remaining instances, and
-// then lets Resolve walk SubAbility$ (the DBCleanup tail) exactly once.
-// Anything else would ask again on resume or drop the remaining instances.
+// On the inline path, per instance the loop builds a FRESH Ctx copy (an
+// answer must never carry between instances) and resolves Execute$ through
+// the ordinary Resolve; a sub's own mid-resolution ask (Forum Filibuster's
+// TargetMin$ 0 / TargetMax$ 1 ChangeZone) is answered in place.
 //
 // The instance Remembered set comes from RememberObjects$ (the parent set is
 // this resolution's Ctx.Remembered MINUS its trigger capture — the same
@@ -146,26 +138,17 @@ func effImmediateTrigger(h Host, c *Ctx, sa *cards.SA) {
 			subjects = append(subjects, state.Target{})
 		}
 	}
-	start := 0
-	if cur := (*RepeatCursor)(nil); cur != nil && cur.SA == sa {
-
-		subjects, start = cur.Subjects, cur.Next
-		if eachMode && start > len(subjects) {
-			start = len(subjects)
-		}
-	}
 	// CR 603.12: each instance is a reflexive triggered ability. It goes on
 	// the stack -- targets chosen as it is put there, respondable, ward and
 	// "becomes the target" triggers firing -- the next time a player would
-	// receive priority, through the host's trigger queue. Three shapes keep
+	// receive priority, through the host's trigger queue. Two shapes keep
 	// the inline resolution: Static$ True (Forge's static trigger, which
 	// resolves immediately by definition -- Melira, the Living Cure's lock
-	// must be installed before its replacement returns), a re-entry into an
-	// inline loop that already suspended, and a body the host cannot mint
-	// from the log (QueueReflexiveTrigger reports false; decided on the first
-	// instance, so one ImmediateTrigger never mixes the two).
-	queue := start == 0 && !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKStatic)), "True")
-	for i := start; i < len(subjects); i++ {
+	// must be installed before its replacement returns) and a body the host
+	// cannot mint from the log (QueueReflexiveTrigger reports false; decided
+	// on the first instance, so one ImmediateTrigger never mixes the two).
+	queue := !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKStatic)), "True")
+	for i := range subjects {
 		cc := *c
 
 		if eachMode {

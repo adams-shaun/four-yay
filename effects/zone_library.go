@@ -43,22 +43,12 @@ func objectPathShuffleOwed(cz *ChangeZoneParams) bool {
 // multi-owner movers. SP-parented DB carriers reach this tail since task
 // spcz1: their own targeting is offered by changeZoneChosenTargets's ask
 // (rules/ pins the live path on Put Away and Cathartic Parting).
-// Returns true when the confirm
-// suspended the resolution; the answer re-enters effChangeZone, whose
-// SearchShuffle early-return calls this again with moved == nil. A host that
-// cannot ask takes the deterministic decline (R-9), the same stand-in every
-// other may-shuffle confirm uses. On the resolution kernel's path the answer
-// is served in place and the tail completes here; it still returns true,
-// because the legacy re-entry it mirrors ends effChangeZone after the tail.
+// The confirm is answered in place via AskTape and the tail completes here;
+// an answered confirm returns true, which ends effChangeZone after the tail
+// (the AlternativeDecider$ placement does not run). A host that cannot ask
+// takes the deterministic decline (R-9), the same stand-in every other
+// may-shuffle confirm uses, and returns false.
 func objectPathShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, moved []state.ObjID) bool {
-	if c.Search.Shuffle != "" {
-		ans, placed := c.Search.Shuffle, c.Search.ShuffleMoved
-		c.Search.Shuffle, c.Search.ShuffleMoved = "", nil
-		if ans == "yes" {
-			objectPathShuffleOwners(h, placed)
-		}
-		return false
-	}
 	if !cz.ShuffleNonMandatory {
 		objectPathShuffleOwners(h, moved)
 		return false
@@ -71,16 +61,14 @@ func objectPathShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, m
 			{Index: 1, Kind: "no", Label: "No — keep the order", Player: c.Controller},
 		}}
 	if ans, ok := AskTape(h, d); ok {
-		// The resolution kernel's answer in hand: the "search_mayshuffle"
-		// re-entry's own events, then its answered tail -- and, as that
-		// re-entry returns straight after the tail, the caller stops too.
+		// Answered in place: the echo events, then the answered tail; the
+		// caller stops after it.
 		objectPathReentryEcho(h, c, cz)
 		if tapeAnswerYes(ans) {
 			objectPathShuffleOwners(h, moved)
 		}
 		return true
 	}
-
 	// No-host stand-in (R-9): decline the shuffle, keep the order.
 	return false
 }
@@ -115,37 +103,17 @@ func objectPathShuffleOwners(h Host, moved []state.ObjID) {
 // is also the tail an object-target ChangeZone into a library calls
 // (searchmay1), so a graveyard shuffle-in poses the same confirm.
 //
-// The confirm suspends the resolution after the moves: the answer re-enters
-// through the "search_mayshuffle" resume arm (rules' resumeResolution), which
-// restores the answer into Ctx.SearchShuffle and the moved list into
-// Ctx.SearchShuffleMoved (ridden on the ask via Decision.ResumeMoved, the
-// same runtime-continuation class as ResumeRemembered -- the re-entry's
-// LibraryPosition$ placement needs the list the suspension lost). The
-// re-entered effSearchLibrary consumes both at its top and finishes here:
-// "yes" emits the same Secret events.Shuffle every library shuffle emits,
-// "no" keeps the order, and either way placeLibraryObjects runs after the
-// shuffle point exactly as the unconditional path ordered it. A host that
-// cannot ask takes the deterministic no-host stand-in (R-9): decline, keep
-// the order -- the same stand-in the arrange_mayshuffle confirm falls back
-// to. Returns true when the confirm suspended the resolution (the caller
-// must stop; the re-entry owns the tail), false when the tail completed.
-func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owner state.PlayerID, moved []state.ObjID, to state.Zone) bool {
-	if c.Search.Shuffle != "" {
-		// Re-entry after the answered confirm: the moves happened in the
-		// first pass, so this pass places only. Consume and clear before
-		// continuing (fx42 scoping), so a nested search poses its own confirm.
-		ans, placed := c.Search.Shuffle, c.Search.ShuffleMoved
-		c.Search.Shuffle, c.Search.ShuffleMoved = "", nil
-		if ans == "yes" {
-			shuffleLibraryOrder(h, owner)
-		}
-		placeLibraryObjects(h, c, cz, owner, placed, to)
-		return false
-	}
+// The confirm is answered in place via AskTape after the moves: "yes" emits
+// the same Secret events.Shuffle every library shuffle emits, "no" keeps the
+// order, and either way placeLibraryObjects runs after the shuffle point
+// exactly as the unconditional path ordered it. A host that cannot ask takes
+// the deterministic no-host stand-in (R-9): decline, keep the order -- the
+// same stand-in the arrange_mayshuffle confirm falls back to.
+func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owner state.PlayerID, moved []state.ObjID, to state.Zone) {
 	if !cz.ShuffleNonMandatory {
 		shuffleLibrary(h, cz, owner)
 		placeLibraryObjects(h, c, cz, owner, moved, to)
-		return false
+		return
 	}
 	d := &decision.Decision{Player: owner, Kind: decision.KChoose, Min: 1, Max: 1,
 		Source: c.Source, ResumeKind: "search_mayshuffle", ResumeSA: sa,
@@ -156,21 +124,17 @@ func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owner
 			{Index: 1, Kind: "no", Label: "No — keep the order", Player: owner},
 		}}
 	if ans, ok := AskTape(h, d); ok {
-		// The resolution kernel's answer in hand: the "search_mayshuffle"
-		// re-entry's own events (its prelude and this library's look), then
-		// the answered tail exactly as the re-entry's SearchShuffle branch
-		// runs it.
+		// Answered in place: the echo events (the prelude and this
+		// library's look), then the answered tail.
 		searchReentryEcho(h, c, cz, owner, libraryOnlyZones, true)
 		if tapeAnswerYes(ans) {
 			shuffleLibraryOrder(h, owner)
 		}
 		placeLibraryObjects(h, c, cz, owner, moved, to)
-		return false
+		return
 	}
-
 	// No-host stand-in (R-9): decline the shuffle, keep the order.
 	placeLibraryObjects(h, c, cz, owner, moved, to)
-	return false
 }
 
 func shuffleLibraryExplicit(h Host, cz *ChangeZoneParams, owner state.PlayerID) {

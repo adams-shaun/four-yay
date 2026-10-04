@@ -10,10 +10,6 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-func CharmRepeatModes(sa *cards.SA) bool {
-	return sa != nil && CharmOf(sa).CanRepeatModes
-}
-
 // CharmModeBounds resolves a Charm's selectable range. Forge defaults
 // MinCharmNum$ to CharmNum$, but an explicit MinCharmNum$ permits choosing
 // fewer modes. Both values use Num so literal, SVar, and inline Count$ forms
@@ -168,10 +164,7 @@ func charmUniquePlayerSpec(spec string) bool {
 // TargetUnique family, with a reason fragment for the Unsupported loud Note.
 // It is deliberately a property of the CHARM's full
 // Choices$ list, not of whichever subset a particular answer selected: the
-// classification must be stable across the charm's whole lifetime, because
-// the per-mode target split (effCharm) and the suspension re-entry
-// (rules' resumeResolution) re-derive it after a mid-mode ask — and a
-// continuation can carry only a suffix of the original chosen order.
+// classification must be stable across the charm's whole lifetime.
 // Measured at the corpus pin: every charm outside the 8-file family carries
 // TargetUnique$ on NONE of its target-bearing modes (the anyUnique trigger
 // below never fires for them), so they classify None and keep today's
@@ -220,10 +213,7 @@ func CharmCrossModeShape(svars map[string]string, modes []string) (CharmUniqueSt
 // runs the chosen modes in order, giving each target-bearing mode its OWN
 // target — the positional slice of Ctx.Targets the combined placement ask
 // recorded — instead of the one-undivided target list every mode shared
-// before. A mode that suspends (donnie's and mikey's hidden graveyard pick)
-// stops the run and reports the remaining modes as a continuation
-// (Host.SuspendCharmRest), so the rest re-enter through the answered ask's
-// chain rather than running while the suspension is still outstanding.
+// before. A mode that opens a resolution-time window stops the run.
 // Non-target-bearing modes keep the shared context exactly as before.
 // Returns false when the shape does not apply and the caller must keep the
 // historical shared-target loop.
@@ -247,10 +237,8 @@ func charmCrossModeRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 		return false
 	}
 	// Assignment: the j-th target-bearing mode of the RUNNING list takes
-	// targets[len(targets)-k+j]. On a full run that is targets[j] — the
-	// combined ask's answer order, which is the chosen-mode order. On a
-	// suffix continuation the remaining target-bearing modes are the last
-	// ones of the original order, so the last k targets are theirs.
+	// targets[len(targets)-k+j]: the combined ask's answer order, which is
+	// the chosen-mode order.
 	base := len(c.Targets) - k
 	ti := 0
 	for i, name := range names {
@@ -265,10 +253,7 @@ func charmCrossModeRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 			c.Targets = []state.Target{c.Targets[base+ti]}
 			// The combined placement ask covered THIS mode's targeting (its
 			// assignment is positional); mark it so the generic ValidTgts$
-			// pre-ask does not re-pose the cross-mode question per mode --
-			// both on the initial pass (where the resolution-level marker's
-			// bool would also suppress it) and on a charm_rest resume, where
-			// the resume ctx carries only the FIRST chosen mode as OfferedSA
+			// pre-ask does not re-pose the cross-mode question per mode
 			// (task mvts1).
 			c.OfferedSA = sub
 			Resolve(h, c, sub)
@@ -279,14 +264,7 @@ func charmCrossModeRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 			Resolve(h, c, sub)
 		}
 		if h.Suspended() {
-			// The mode's own chain posed a mid-resolution ask: stop here. The
-			// remaining modes resume through SuspendCharmRest's continuation
-			// once the answer lands — never while the suspension is live (the
-			// historical loop ran them immediately, before the answered mode
-			// had even completed). An empty rest (this was the last mode) is
-			// still reported, so the Charm re-enters and walks its own Sub
-			// instead of the enclosing loop recording a plain continuation
-			// that resumes at a nil Sub and emits a false degradation Note.
+			// The mode's chain opened a resolution-time window: stop here.
 			return true
 		}
 		charmRestNote(h, c, sa, asks)
@@ -304,8 +282,8 @@ func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
 	if len(choices) == 0 || c.SVars == nil {
 		return
 	}
-	// A resumed answer is scoped to the current victim. Once its body has
-	// completed, advance to the next Defined$ player and pose a fresh ask.
+	// Answered modes already on the Ctx are the current victim's: run that
+	// body, then advance to the next Defined$ player and pose a fresh ask.
 	if c.Modes != nil {
 		names := c.Modes
 		c.Modes = nil
@@ -320,9 +298,6 @@ func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
 				c.Choosers.Victims = append(c.Choosers.Victims, target)
 			}
 		}
-		// The trigger's original Remembered can already end in its victim
-		// (Attacks supplies the defender). That is not proof of a resumed
-		// body: the explicit VillainousRest cursor handles nested asks.
 	}
 	for c.Choosers.VictimIndex < len(c.Choosers.Victims) {
 		victim := c.Choosers.Victims[c.Choosers.VictimIndex]
@@ -338,9 +313,8 @@ func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
 				Obj:   c.Source, Player: victim.Player})
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: run the victim's chosen
-			// body (the "villainous" resume arm's choice, ResumeModes order)
-			// and go on to the next victim.
+			// The resolution kernel's answer in hand (ResumeModes order): run
+			// the victim's chosen body and go on to the next victim.
 			var names []string
 			if len(ans) > 0 && ans[0].Index >= 0 && ans[0].Index < len(choices) {
 				names = []string{choices[ans[0].Index]}
@@ -370,14 +344,10 @@ func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
 	c.Choosers.VictimIndex = 0
 }
 
-// charmRestNote mirrors, on the resolution kernel's path, the one event the
-// legacy charm-rest / generic-players-rest re-entry adds: a mode or chooser
-// body that asked suspended the legacy resolution, and its rest frame
-// re-entered effCharm from its first line, emitting the unread-parameter
-// Note again before running the remaining modes or choosers. A body whose
-// asks the kernel served (asks counted since asksBefore, no suspension) owes
-// the same Note at the same point, so the two logs stay identical; it goes
-// when step 4 deletes the rest frames.
+// charmRestNote re-emits the unread-parameter Note after a mode or chooser
+// body that asked (asks counted since asksBefore), before the remaining
+// modes or choosers run. The extra Note is a pinned part of the log (golden
+// heads), kept from the removed rest-frame protocol.
 func charmRestNote(h Host, c *Ctx, sa *cards.SA, asksBefore uint64) {
 	if askCount(h) != asksBefore {
 		noteUnreadParams(h, c, sa.API, CharmOf(sa).Unread)
@@ -385,13 +355,7 @@ func charmRestNote(h Host, c *Ctx, sa *cards.SA, asksBefore uint64) {
 }
 
 // villainousRunChoice runs the current victim's chosen body (names) and
-// reports a legacy suspension inside it, on which it records the primitive's
-// own continuation: the chosen body posed a nested mid-resolution ask
-// (DBSac's sacrifice picker is the live carrier), so the remaining victims
-// are still asked once that ask's chain completes, instead of being
-// stranded (the enclosing Resolve loop would otherwise resume only sa.Sub,
-// nil for a VillainousChoice, and the outer levels would degrade to
-// no-sub-ability Notes).
+// reports whether it opened a resolution-time window.
 func villainousRunChoice(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 	for _, name := range names {
 		if sub := cards.ResolveSVar(c.SVars, name); sub != nil {
@@ -412,11 +376,6 @@ func charmDistinctTargetRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 		return false
 	}
 	offset := 0
-	for _, name := range ([]string)(nil) {
-		if sub := cards.ResolveSVar(c.SVars, name); sub != nil && ModeTargetSpec(sub) != "" {
-			offset++
-		}
-	}
 	for _, name := range names {
 		sub := cards.ResolveSVar(c.SVars, name)
 		if sub == nil {
@@ -433,8 +392,8 @@ func charmDistinctTargetRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 			c.OfferedSA = sub
 			c.TargetsOffered = true
 			// Publish the narrowed group so a mid-resolution ask posed
-			// anywhere under this mode re-enters scoped to it instead of to
-			// the stack object's whole flat list (Ctx.CharmModeScope).
+			// anywhere under this mode is scoped to it instead of to the
+			// stack object's whole flat list (Ctx.CharmModeScope).
 			c.CharmModeScope = c.Targets
 			c.CharmModeSA = sub
 			offset++
@@ -487,8 +446,7 @@ func charmGenericPlayers(h Host, c *Ctx, sa *cards.SA) bool {
 	if len(choices) == 0 {
 		return false
 	}
-	// A re-entry for an answered/continued chooser carries the cursor; the SA
-	// may be reached mid-resolution with c.Modes already naming the answer.
+	// A chooser cursor already on the Ctx continues that walk.
 	if c.Choosers.Choosers != nil {
 		return charmGenericPlayersRun(h, c, sa, choices)
 	}
@@ -544,13 +502,10 @@ func playerRoleDefined(defined string) bool {
 	return false
 }
 
-// charmGenericPlayersRun drives the chooser loop. Ctx.GenericChooserIndex is
-// the chooser still to ask; a non-nil Ctx.Modes is the answer for the chooser
-// at index-1, whose chosen body has not yet run (resumeResolution advanced the
-// index PAST the answered chooser, so running it here and then continuing the
-// loop asks the next chooser exactly once). A nested ask inside a chosen body
-// reports SuspendGenericChoiceRest so the remaining choosers survive it; a
-// nested GenericChoice in that body sees a nil cursor for the body's walk
+// charmGenericPlayersRun drives the chooser loop. Ctx.Choosers.ChooserIndex
+// is the chooser still to ask; a non-nil Ctx.Modes is the answer for the
+// chooser at index-1, whose chosen body has not yet run. A nested
+// GenericChoice in a chosen body sees a nil cursor for the body's walk
 // (cleared around Resolve, the fx41 discipline) and resolves its own Defined$
 // rather than inheriting this one.
 func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool {
@@ -570,7 +525,7 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 	fallback := p.FallbackAbility
 	// runBody runs one chosen SVar with the chooser cursor cleared (a nested
 	// GenericChoice resolves its own Defined$, never inheriting this cursor).
-	// It reports whether the body suspended on a nested ask.
+	// It reports whether the body opened a resolution-time window.
 	runBody := func(name string) bool {
 		sub := cards.ResolveSVar(c.SVars, name)
 		if sub == nil {
@@ -600,8 +555,6 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 			if !suspended {
 				continue
 			}
-			// Preserve the enclosing remembered set as well as the chooser
-			// cursor while the chosen body's nested ask is suspended.
 			return true
 		}
 	}
@@ -653,19 +606,15 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 					Obj:   c.Source, Player: chooser.Player})
 			}
 			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: this chooser's
-				// chosen body (the "generic_players" arm's choice,
-				// ResumeModes order), run below exactly as the answered
-				// re-entry runs it. The legacy re-entry re-runs effCharm from
-				// its first line, which emits the unread-parameter Note
-				// again; mirror it (see effCharm).
+				// The resolution kernel's answer in hand (ResumeModes
+				// order): this chooser's chosen body runs below, after the
+				// pinned repeat of the unread-parameter Note (see effCharm).
 				pick = ""
 				if len(ans) > 0 && ans[0].Index >= 0 && ans[0].Index < len(available) {
 					pick = available[ans[0].Index]
 				}
 				noteUnreadParams(h, c, sa.API, p.Unread)
 			} else {
-
 				// R-9: an effects-only host has no chooser, so deterministically
 				// take the first option for this chooser and continue to the next
 				// -- or, for an AILogic$ Random ask, a draw from the engine rng
@@ -679,7 +628,6 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 		suspended := runBody(pick)
 		c.Remembered = append([]state.Target(nil), baselineRemembered...)
 		if suspended {
-			// Preserve both cursor and outer remembered set across the nested ask.
 			return true
 		}
 		c.Choosers.ChooserIndex++
@@ -729,9 +677,8 @@ func genericChoiceAvailable(h Host, c *Ctx, payer state.PlayerID, choices []stri
 // effCharm runs the selected Choices$ sub-abilities in chosen order.
 // Cast spells (CR 601.2b) and triggered abilities (CR 603.3c) arrive with
 // Ctx.Modes pre-seeded from their earlier announcement. A Charm reached only
-// during resolution still poses KModes and suspends until resumeResolution
-// re-enters it with Ctx.Modes. A host that cannot ask retains the deterministic
-// first-mode stand-in and records why with a Note.
+// during resolution poses KModes, answered in place. A host that cannot ask
+// retains the deterministic first-mode stand-in and records why with a Note.
 func effCharm(h Host, c *Ctx, sa *cards.SA) {
 	cp := CharmOf(sa)
 	noteUnreadParams(h, c, sa.API, cp.Unread)
@@ -745,16 +692,15 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 	if len(choices) == 0 {
 		return
 	}
-	// Re-entry after the modal choice was answered: Ctx.Modes already names
-	// the chosen SVars in execution order, so run exactly those and do not
-	// ask again.
+	// Announced modes: Ctx.Modes already names the chosen SVars in execution
+	// order, so run exactly those and do not ask.
 	if c.Modes != nil {
 		// fx41: take the names into a local and clear c.Modes BEFORE running
 		// them. The same Ctx is handed to Resolve for every mode AND to the
 		// Charm's own SubAbility$, and nothing else in the walk reads Modes,
 		// so an uncleared field would leak the OUTER Charm's answered modes
 		// into a NESTED Charm reached anywhere below it -- that inner
-		// effCharm sees Modes != nil, takes this re-entry branch, and "runs"
+		// effCharm sees Modes != nil, takes this branch, and "runs"
 		// the outer's mode names against its own SVars instead of posing its
 		// own ask (or, when a name resolves back to a chain containing it,
 		// re-resolves itself endlessly). Clearing here confines the answer
@@ -850,28 +796,23 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 	}
 	if ans, ok := AskTape(h, d); ok {
 		// The resolution kernel's answer in hand (its record wrote the
-		// ModeChosen marker): run the chosen modes, named exactly as the
-		// "modes" resume arm names them (modeAnswerNames: Choices$ order,
-		// or the offered ResumeModes list of a NumRandomChoices$ draw).
+		// ModeChosen marker): run the chosen modes, named in Choices$ order,
+		// or by the offered ResumeModes list of a NumRandomChoices$ draw.
 		names := make([]string, 0, len(ans))
 		for _, o := range ans {
 			if o.Index >= 0 && o.Index < len(vocab) {
 				names = append(names, vocab[o.Index])
 			}
 		}
-		// The legacy re-entry re-runs effCharm from its first line, which
-		// emits the unread-parameter Note again; mirror it so the logs stay
-		// identical (the duplicate goes when step 4 deletes the re-entry).
+		// The unread-parameter Note is emitted again here: a pinned part of
+		// the log (golden heads), kept from the removed re-entry protocol.
 		noteUnreadParams(h, c, sa.API, cp.Unread)
 		charmRunModes(h, c, sa, names)
 		return
 	}
 
 	// Fuzz/no-engine host: the deterministic first-mode default (R-9), with
-	// the Note that records why the richer path did not run. (AskEmpty is
-	// unreachable by construction -- charmNum is clamped to >= 1 and
-	// strings.Split never yields fewer than one choice -- but the shared
-	// helper owns the guard either way.)
+	// the Note that records why the richer path did not run.
 	if min == 1 && max == 1 && !repeat && len(choices) > 1 && aiLogicRandom(sa) {
 		// AILogic$ Random: the no-ask answer is an engine-rng draw, not the
 		// fixed first mode (see aiRandomNoAskPick).
@@ -890,11 +831,9 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 	}
 }
 
-// charmRunModes runs a Charm's chosen modes (names, in execution order) and,
-// when a mode's chain suspends on a legacy ask, reports the rest as a
-// charm-rest continuation. It is the answered-modes half of effCharm, shared
-// by the legacy re-entry (Ctx.Modes set by the resume arm) and the
-// resolution kernel's tape answer.
+// charmRunModes runs a Charm's chosen modes (names, in execution order): the
+// answered-modes half of effCharm, shared by announced modes (Ctx.Modes) and
+// the resolution kernel's tape answer.
 func charmRunModes(h Host, c *Ctx, sa *cards.SA, names []string) {
 	if charmDistinctTargetRun(h, c, sa, names) {
 		return
@@ -906,7 +845,7 @@ func charmRunModes(h Host, c *Ctx, sa *cards.SA, names []string) {
 	//
 	// Coverage: a placement-announced modal resolution asked every CHOSEN
 	// target-bearing mode's targeting in its placement ask (the combined
-	// per-mode ask), but a resume ctx carries only the FIRST of them as
+	// per-mode ask), but the ctx carries only the FIRST of them as
 	// Ctx.OfferedSA (rules' offeredTargetSA returns the first
 	// target-bearing chosen mode). modalOffered detects that derivation
 	// -- OfferedSA set and NOT the Charm root itself -- and marks each
@@ -928,15 +867,8 @@ func charmRunModes(h Host, c *Ctx, sa *cards.SA, names []string) {
 	// (its len(c.Targets) > 0 placement guard) -- poses for THIS instance.
 	// "Return target creature to its owner's hand" chosen three times then
 	// asks three targets and returns three creatures, instead of silently
-	// re-running the mode against the one shared target. The seen-set is
-	// seeded from Ctx.ModesSeen (rules' charm_rest arm): after a suspension
-	// the re-entry walks only the REST of the multiset, so "first occurrence
-	// in this walk" alone cannot see the instances the earlier passes
-	// already ran.
+	// re-running the mode against the one shared target.
 	seen := make(map[string]bool, len(names))
-	for _, n := range ([]string)(nil) {
-		seen[n] = true
-	}
 	for _, name := range names {
 		asks := askCount(h)
 		if sub := cards.ResolveSVar(c.SVars, name); sub != nil {
@@ -958,15 +890,8 @@ func charmRunModes(h Host, c *Ctx, sa *cards.SA, names []string) {
 			c.OfferedSA, c.Targets, c.TargetsOffered = savedOffered, savedTargets, savedMark
 		}
 		if h.Suspended() {
-			// A mode's own chain posed a mid-resolution ask: never run the
-			// remaining modes while a decision is pending (Engine.ask
-			// panics on the overwrite). Report the rest as a charm-rest
-			// continuation, the same report the cross-mode runner makes,
-			// so they run once the answer lands. An empty rest (this was
-			// the LAST mode) is reported too, so the Charm re-enters to
-			// walk its own Sub instead of the enclosing loop recording a
-			// plain continuation that degrades to a false no-sub-ability
-			// Note.
+			// A mode's chain opened a resolution-time window: the remaining
+			// modes do not run.
 			return
 		}
 		charmRestNote(h, c, sa, asks)

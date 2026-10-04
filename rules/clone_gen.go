@@ -411,12 +411,6 @@ func cloneFieldsEngineTriggerMaps(c, e *Engine, sp *Spare, remap *cloneRemap) {
 }
 
 func cloneFieldsEngineResolution(c, e *Engine, sp *Spare, remap *cloneRemap) {
-	if e.resolvingTargetControllerLKI != nil {
-		c.resolvingTargetControllerLKI = make(map[state.ObjID]state.PlayerID, len(e.resolvingTargetControllerLKI))
-		for k0, v0 := range e.resolvingTargetControllerLKI {
-			c.resolvingTargetControllerLKI[k0] = v0
-		}
-	}
 	if e.exploitedLKI != nil {
 		c.exploitedLKI = make(map[state.ObjID]state.SacrificedInfo, len(e.exploitedLKI))
 		for k0, v0 := range e.exploitedLKI {
@@ -465,18 +459,6 @@ func cloneFieldsEngineDrain(c, e *Engine, sp *Spare, remap *cloneRemap) {
 }
 
 func cloneFieldsEngineTokenMint(c, e *Engine, sp *Spare, remap *cloneRemap) {
-	c.mintParkFrom = e.mintParkFrom
-	c.mintParkElection = e.mintParkElection
-	if e.mintSinks != nil {
-		c.mintSinks = make([]mintSink, len(e.mintSinks))
-		for i0 := range e.mintSinks {
-			c.mintSinks[i0] = e.mintSinks[i0]
-			c.mintSinks[i0].ids = append([]state.ObjID(nil), e.mintSinks[i0].ids...)
-		}
-	}
-	c.mintSinkSeq = e.mintSinkSeq
-	c.tokenMintSinkID = e.tokenMintSinkID
-	c.pendingMintSink = e.pendingMintSink
 	c.copyMintsPending = append([]state.ObjID(nil), e.copyMintsPending...)
 }
 

@@ -221,10 +221,8 @@ func effPlayerVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams) {
 		}
 	}
 	voters := definedPlayers(h, c, sa)
-	picks := append([]state.Target(nil), ([]state.Target)(nil)...)
-	i := int(0)
-
-	for ; i < len(voters); i++ {
+	var picks []state.Target
+	for i := 0; i < len(voters); i++ {
 		voter := voters[i]
 		opts := playerBallotOptions(universe, voter, other)
 		if len(opts) == 0 {
@@ -239,8 +237,7 @@ func effPlayerVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams) {
 				Label: votePlayerLabel(g, p)})
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the pick the "vote"
-			// resume arm's VoteAnswer carries.
+			// The answered pick.
 			pick := state.Target{}
 			if len(ans) > 0 {
 				if ans[0].Kind == "player" {
@@ -360,11 +357,9 @@ func voteCountFor(c *Ctx, subject state.Target) (int, bool) {
 }
 
 // VoteCountForTarget resolves a subject's tally out of a published
-// Ctx.VoteCounts table. It is the ONE home for the subject match, shared by
-// voteCountFor's per-iteration binding and rules' rebuilt-Ctx restoration of a
-// suspended AmountFromVotes$ loop (the tally is a prior chain link, so a
-// resume restores the table and re-derives the scalar from it). ok=false when
-// the table holds no entry for the subject.
+// Ctx.Vote.Counts table: the ONE home for the subject match voteCountFor's
+// per-iteration binding reads. ok=false when the table holds no entry for the
+// subject.
 func VoteCountForTarget(counts []VoteCount, subject state.Target) (int, bool) {
 	for _, vc := range counts {
 		if vc.Subject == subject {

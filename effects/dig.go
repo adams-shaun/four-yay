@@ -53,18 +53,16 @@ import (
 // ineligible card must not be pickable, so it is not offered (the window
 // itself is on the look Note; the prompt names the card text). Min honours
 // Optional$ -- 0 when the take is optional, ChangeNum when it is not -- and
-// Max is ChangeNum. The answer re-enters through ResumeKind "dig" with
-// Ctx.Dig/DigDone and the asking target's index set (rules/resolution.go),
-// scoped to this primitive like every other Ctx answer field.
+// Max is ChangeNum. The ask is answered in place (ResumeKind "dig", with the
+// asking target's index as ResumeTarget).
 //
 // A host that cannot answer (the fuzz/no-engine stand-in, R-9) and the
 // no-choice path (eligible <= ChangeNum) keep the take deterministic: the
 // first ChangeNum eligible cards in zone order move, and the remainder takes
 // its second destination -- by default the bottom, ordered (asked; offered
-// order without a host). A resumed multi-target Dig applies
-// the answer only to the target that asked, skips earlier targets that already
-// completed before suspension, and preserves that same deterministic behaviour
-// for every later target; chained per-library asks remain separate work. The
+// order without a host). Each target of a multi-target Dig poses its own
+// take ask in turn, except that once a target's ordered-bottom arrange has
+// been answered every later target keeps the deterministic take. The
 // no-choice path asks NO take decision, but it is not event-free when the
 // remainder moves: a default-remainder Dig still moves its untaken cards to
 // the bottom (asking for that order when two or more remain), so only a game
@@ -212,38 +210,20 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 	// Exuberant Explorer (209 corpus scripts). Absent the param the walk is
 	// unchanged, so every pre-existing game replays byte-identically.
 	restRandomOrder := dp.RestRandomOrder
-	// fx42 scoping: capture and clear the answered pick BEFORE the target
-	// loop. DigTarget identifies the exact target that asked: earlier targets
-	// completed before suspension and must be skipped, that target consumes
-	// the answer, and later targets retain M1's deterministic processing until
-	// chained per-library asks exist. A nested Dig below this walk therefore
-	// poses its own ask instead of inheriting any of these fields.
-	digAns := ([]state.ObjID)(nil)
-
-	digDone := false
-	digTarget := int(0)
-
-	// The arrange done-marker, consumed and cleared here (fx42 scoping):
-	// handleArrange has already applied the asking target's answered bottom
-	// order (the LibraryOrder event). ArrangeTarget is the cursor -- the walk
-	// skips through that target and keeps the deterministic processing for
-	// the LATER ones (each may pose its own arrange, suspending again);
-	// dropping them would strand a multi-target Dig mid-walk.
+	// arrangeThrough is the index of the last target whose ordered-bottom
+	// arrange was answered (the answer record already applied its
+	// LibraryOrder); every later target keeps the deterministic take, with no
+	// take ask of its own.
 	arrangeThrough := -1
 
 	// Zone-batch bracket (Mode$ ChangesZoneAll/PhaseOutAll): ONE api:Dig
 	// resolution is ONE zone-change action even when it moves several cards
 	// (Wild Wasteland's "exile the top two cards of your library"), so the
 	// "one or more" batch trigger observes the whole resolution as one batch
-	// instead of queueing once per moved card. The shape is effDiscard's
-	// suspension-safe variant: api:Dig suspends mid-action for take asks
-	// (ChangeNum$ Any, Optional$, a WithTotalCMC$ budget) and ordered-bottom
-	// arrange asks, so the bracket opens on the FIRST pass only -- a resumed
-	// pass is the SAME action, which digAns/digDone/arrangeThrough are exactly
-	// the markers for (they are set only when a previous pass asked) -- and
-	// the close-defer is registered on EVERY pass, skipped while suspended,
-	// so the completing pass closes it exactly once. A stray close is a no-op
-	// in closeZoneBatch's depth guard, zoneBatchDepth is reentrant (a Dig
+	// instead of queueing once per moved card. Every ask inside the walk is
+	// answered in place, so the bracket opens here and the deferred close
+	// ends it when the walk returns. A stray close is a no-op in
+	// closeZoneBatch's depth guard, zoneBatchDepth is reentrant (a Dig
 	// inside a RepeatEach ChangeZoneTable$ loop nests inside that loop's own
 	// bracket), and a host double without the bracket interface simply queues
 	// per move (the batch-of-one pre-fix reading, the mill bracket's shape).
@@ -251,24 +231,13 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 	// schema change; the first trigger's queueing position does not move,
 	// later matching events stop queueing, so the event stream shrinks by
 	// N-1 trigger resolutions for an N-card Dig.
-	firstPass := digAns == nil && !digDone && arrangeThrough < 0
-	if firstPass {
-		// Once per call: a resumed pass already noted on its first.
-		noteUnreadParams(h, c, "Dig", dp.Unread)
-	}
-	suspended := false
+	noteUnreadParams(h, c, "Dig", dp.Unread)
 	if b, ok := h.(interface {
 		BeginZoneBatch()
 		EndZoneBatch()
 	}); ok {
-		if firstPass {
-			b.BeginZoneBatch()
-		}
-		defer func() {
-			if !suspended {
-				b.EndZoneBatch()
-			}
-		}()
+		b.BeginZoneBatch()
+		defer b.EndZoneBatch()
 	}
 	g := h.Game()
 	players := definedPlayers(h, c, sa)
@@ -289,22 +258,14 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 		if fromBottom {
 			top = append([]state.ObjID(nil), lib[int32(len(lib))-n:]...)
 		}
-		// An empty answer to the optional-ability election declines the entire
-		// Dig ability: leave the looked-at window in place and do not process
-		// its remainder, reveal, or destination side effects.
-		if digDone && targetIndex == digTarget && promptToSkipOptional && len(digAns) == 0 {
-			continue
-		}
 		// primaryMoved is the temporary library pile for a primary
 		// DestinationZone$ Library move. It is placed after the remainder has
 		// settled, so the primary LibraryPosition$ cannot be lost to the
 		// remainder's ordered-bottom ask.
 		primaryMoved := make([]state.ObjID, 0, len(top))
-		// tapeArranged: the resolution kernel served this target's
-		// ordered-bottom arrange from its tape, and the KArrange answer
-		// record (arrangeAnswerRecord's dig_bottom) already placed the
-		// primary pile -- the target is complete, exactly as the
-		// "dig_arrange" re-entry treats it.
+		// tapeArranged: this target's ordered-bottom arrange was answered,
+		// and the KArrange answer record (arrangeAnswerRecord's dig_bottom)
+		// already placed the primary pile -- the target is complete.
 		tapeArranged := false
 		placePrimary := func() {
 			if tapeArranged || dest != state.ZLibrary || len(primaryMoved) == 0 {
@@ -371,14 +332,14 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 		// With DestinationZone2$ Library / "-1" -- the omitted default -- the
 		// cards go to the bottom, in the answered order when two or more remain
 		// (the ask above) and in their existing order otherwise.
-		rest := func(ids []state.ObjID) bool {
+		rest := func(ids []state.ObjID) {
 			if skipReorder {
-				return false
+				return
 			}
 			dest2 := ParseZone(dest2Name)
 			if dest2 == state.ZLibrary && pos2 == "-1" {
 				if len(ids) == 0 {
-					return false
+					return
 				}
 				// RestRandomOrder$ True: shuffle the remainder itself (the engine's
 				// seeded h.Rand, recorded as one LibraryOrder through
@@ -388,7 +349,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				// skips it) and the same branch serves both counts.
 				if restRandomOrder {
 					moveRestToBottom(h, g, p, ids, true)
-					return false
+					return
 				}
 				// A one-card remainder has exactly one possible order, so no
 				// decision anybody could answer differently is posed -- the same
@@ -396,7 +357,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				// bottom directly (skipped when it already sits there).
 				if len(ids) == 1 {
 					moveRestToBottom(h, g, p, ids, false)
-					return false
+					return
 				}
 				// The ordered-bottom ask: Min == Max == len(ids), so the answer
 				// is a full permutation -- every remaining card is placed, and
@@ -410,10 +371,6 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 					ResumeKind: "dig_arrange", ResumeSA: sa, ResumeTarget: targetIndex,
 					Prompt:           "Put the remaining cards on the bottom of your library in any order",
 					ResumeDigPrimary: append([]state.ObjID(nil), primaryMoved...),
-					// The ForgetOtherRemembered$ pre-clear snapshot rides every
-					// ask that can suspend this walk: a later window's
-					// eligibility and the answered window's own re-entry still
-					// match the pre-clear candidates after the clear.
 				}
 				for i, id := range ids {
 					name := "a card"
@@ -425,19 +382,18 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 					d.Options = append(d.Options, decision.Option{Index: i, Kind: "dig_bottom", Label: name, Obj: id, Player: p})
 				}
 				if _, ok := AskTapeIntent(h, d); ok {
-					// The resolution kernel served the order and its record
-					// applied it; the later targets keep the deterministic
-					// processing the arrange re-entry gives them.
+					// The answer record applied the order; the later targets
+					// keep the deterministic take.
 					tapeArranged = true
 					arrangeThrough = targetIndex
-					return false
+					return
 				}
 
 				// R-9 no-host stand-in: the OFFERED order is the bottom order --
 				// the exact permutation botpolicy's clamp top-up answers, so the
 				// two deterministic readers cannot drift.
 				moveRestToBottom(h, g, p, ids, false)
-				return false
+				return
 			}
 			for _, id := range ids {
 				if dest2 == state.ZLibrary {
@@ -455,16 +411,13 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				h.Emit(ev)
 				digRemember(c, dp, id)
 			}
-			return false
 		}
-		// takeAnswered applies an answered take for this target, the one home
-		// of the "dig" answer (the re-entry below and the resolution
-		// kernel's tape answer): move exactly the answered cards that still
-		// sit in the ASKING target's window (a per-window filter keeps a
-		// stray answer from moving an object that left the window
-		// meanwhile), in the player's answer order; the rest of the window
-		// goes to the second destination. It reports a suspension.
-		takeAnswered := func(ans []state.ObjID) bool {
+		// takeAnswered applies an answered take for this target: move exactly
+		// the answered cards that still sit in the ASKING target's window (a
+		// per-window filter keeps a stray answer from moving an object that
+		// left the window meanwhile), in the player's answer order; the rest
+		// of the window goes to the second destination.
+		takeAnswered := func(ans []state.ObjID) {
 			picked := make(map[state.ObjID]bool, len(ans))
 			for _, id := range ans {
 				if !containsID(top, id) {
@@ -479,31 +432,8 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 					restIDs = append(restIDs, id)
 				}
 			}
-			if rest(restIDs) {
-				return true
-			}
+			rest(restIDs)
 			placePrimary()
-			return false
-		}
-		if arrangeThrough >= 0 {
-			// The arrange re-entry: every target up to and including the one
-			// whose arrange was answered is complete.
-			if targetIndex <= arrangeThrough {
-				continue
-			}
-		} else {
-			if digDone && targetIndex < digTarget {
-				// This target completed on the first pass before a later library
-				// suspended the effect. Re-running it could move a second batch (or
-				// newly create a choice after its first batch left), so skip it.
-				continue
-			}
-			if digDone && targetIndex == digTarget {
-				if takeAnswered(digAns) {
-					return
-				}
-				continue
-			}
 		}
 		eligible := make([]state.ObjID, 0, len(top))
 		for _, id := range top {
@@ -548,10 +478,8 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 		// card, so the answer cannot differ from it and no ask is warranted.
 		forcedAll := len(greedy) == len(budgetEligible)
 		askBudget := hasBudget && len(budgetEligible) > 0 && !forcedAll
-		// The ask gate must allow a LATER target to pose its own take ask after
-		// an EARLIER target's take answer resumed the walk (targetIndex >
-		// digTarget), while an arrange re-entry keeps main's deliberate
-		// deterministic processing for every target past arrangeThrough.
+		// The ask gate: every target past arrangeThrough keeps the
+		// deterministic take.
 		optionalChoice := (optional || promptToSkipOptional) && len(budgetEligible) > 0 && changeNum > 0
 		takeChoice := int32(len(budgetEligible)) > changeNum || anyNum && len(budgetEligible) > 0
 		chooser := p
@@ -560,7 +488,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				chooser = cp
 			}
 		}
-		if (!digDone || targetIndex > digTarget) && arrangeThrough < 0 && changeNum > 0 && (takeChoice || optionalChoice || askBudget) {
+		if arrangeThrough < 0 && changeNum > 0 && (takeChoice || optionalChoice || askBudget) {
 			// A real choice: record the look, then ask the library's owner.
 			// Reveal$ True makes the record a PUBLIC reveal of the window (the
 			// same non-Secret ids-Note shape effReveal's public arm emits);
@@ -619,9 +547,6 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				ResumeSA:     sa,
 				ResumeTarget: targetIndex,
 				Prompt:       prompt,
-				// The ForgetOtherRemembered$ pre-clear snapshot rides the ask: the
-				// resumed walk's later windows (and any re-entry revalidation)
-				// still match the candidates the first pass offered under.
 			}
 			for _, id := range budgetEligible {
 				name := "a card"
@@ -648,25 +573,20 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				d.Options = append(d.Options, opt)
 			}
 			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: what the "dig"
-				// re-entry does with it. An empty answer to the
-				// optional-ability election declines the whole Dig for this
-				// target (the re-entry's skip at the top of the walk).
+				// An empty answer to the optional-ability election declines
+				// the whole Dig for this target: the looked-at window stays in
+				// place, with no remainder, reveal or destination side effects.
 				picks := answerObjs(ans)
 				if promptToSkipOptional && len(picks) == 0 {
 					continue
 				}
-				if takeAnswered(picks) {
-					return
-				}
+				takeAnswered(picks)
 				continue
 			}
 
 			// Fuzz/no-engine host: the deterministic stand-in (R-9) takes the
 			// greedy affordable set -- the exact mirror of the budget-aware bot
 			// arm -- with the Note that records why the richer path did not run.
-			// AskEmpty is unreachable here by construction (the ask gate requires
-			// options >= 1), but the shared helper owns the guard either way.
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: p,
 				Text: "takes the first matching card(s) (no engine host to ask)", Secret: true})
 			taken := make(map[state.ObjID]bool, len(greedy))
@@ -680,9 +600,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 					restIDs = append(restIDs, id)
 				}
 			}
-			if rest(restIDs) {
-				return
-			}
+			rest(restIDs)
 			placePrimary()
 			continue
 		}
@@ -715,9 +633,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				restIDs = append(restIDs, id)
 			}
 		}
-		if rest(restIDs) {
-			return
-		}
+		rest(restIDs)
 		placePrimary()
 	}
 	// The walk completed: release the ride (the same boundary the search and

@@ -218,10 +218,9 @@ func sacTargetCardReferent(spec string, c *Ctx) (state.ObjID, bool) {
 // permanents: Amount$ (default 1) sizes the ask, Optional$ True makes it
 // "may sacrifice" (Min 0), and a hand of fewer eligible permanents than
 // Amount$ sacrifices everything it has without asking (there is no choice
-// to record, the effDiscard TgtChoose strict-supersets rule). The answer
-// re-enters this effect through ResumeKind "sacrifice" with Ctx.SacPicks
-// set, one suspension per Defined$ target (the cursor mirrors effDig's
-// per-library asks). An Optional$ ask whose no-host fallback runs takes the
+// to record, the effDiscard TgtChoose strict-supersets rule). Each Defined$
+// target's ask is answered in place via AskTape. An Optional$ ask whose
+// no-host fallback runs takes the
 // first Amount$ eligible permanents — the same pick the pre-ask engine made
 // — so games that never reach a real player answer replay byte-identically
 // up to the pick the answer names.
@@ -230,8 +229,8 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 	// exactly as it is for every other API — including the Vexing Devil
 	// damage-payment offer (UnlessCost$ DamageYou<N>, UnlessPayer$ Opponent,
 	// UnlessSwitched$ True), whose "pay" is taking the damage. When the gate
-	// consumed the resolution — an ask was posed (suspended), the answered
-	// choice spared the permanent, or every opponent declined the offer —
+	// consumed the resolution — the answered choice spared the permanent, or
+	// every opponent declined the offer —
 	// this body does not run at all.
 	g := h.Game()
 	// SacValid$ narrows WHAT may be sacrificed ("Creature.nonToken",
@@ -284,17 +283,6 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 			eventRemember(h, c, id)
 		}
 	}
-	// fx42 scoping: capture and clear the answered per-player pick BEFORE the
-	// target loop, so a nested sacrifice below this walk poses its own ask.
-	// SacTarget identifies the exact target that asked: earlier targets
-	// completed before suspension and must be skipped, that target consumes
-	// the answer, and later targets pose their own asks (Dig's per-library
-	// ask shape).
-	sacAns := ([]state.ObjID)(nil)
-
-	sacDone := false
-	sacTarget := int(0)
-
 	amount := sacrificeAmount(h, c, sa)
 	// An Amount$ of zero has no legal sacrifice and, crucially, no meaningful
 	// answer. Do not produce a 0..0 KChoose merely because eligible cards
@@ -308,19 +296,17 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 	// "none, or exactly Amount". The KModes answer is consumed below before a
 	// possible exact-batch KChoose; keeping it separate prevents a partial
 	// sacrifice from taking the card's "if you do" continuation.
-	sacOptional, sacOptionalTarget := string(""), int(0)
 
 	who := Defined(h, c, sa)
 	// ShowSacrificedCards$ True (Demonic Covenant's own sacrifice line): the
 	// sacrificed cards are REVEALED publicly — one ids-Note naming everything
 	// this call sacrificed, the same payload shape effMill's ShowMilledCards$
-	// arm emits. Collected across every path below (the answered batch, the
-	// re-entry batch and the plain object path) so one Note covers the call.
+	// arm emits. Collected across every path below (the answered batch and
+	// the plain object path) so one Note covers the call.
 	show := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKShowSacrificedCards)), "True")
 	var sacrificed []state.ObjID
 	// sacrificeAnswered sacrifices an answered pick's objects that still sit
-	// on the battlefield, in answer order: the answer re-entry's branch, and
-	// the resolution kernel's served answer alike.
+	// on the battlefield, in answer order.
 	sacrificeAnswered := func(ids []state.ObjID) {
 		for _, id := range ids {
 			if o := g.Obj(id); o == nil || o.Zone != state.ZBattlefield {
@@ -331,10 +317,9 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 			h.Emit(events.Sacrifice(id))
 		}
 	}
-	// tapeServed marks a resolution kernel's served answer: the legacy
-	// re-entry it stands for starts this walk over with nothing sacrificed
-	// yet, so ShowSacrificedCards$' Note names only what is sacrificed from
-	// the answered target on -- the same set the re-entry's Note names.
+	// tapeServed marks a served AskTape answer: ShowSacrificedCards$' Note
+	// names only what is sacrificed from the answered target on, so the
+	// collected set restarts there.
 	tapeServed := func() { sacrificed = sacrificed[:0] }
 	// A Sacrifice that names neither Defined$ nor ValidTgts$ but a SacValid$
 	// other than itself is Forge's default Defined$ You: its controller
@@ -348,44 +333,6 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	for targetIndex, t := range who {
-		if sacOptional != "" {
-			if targetIndex < sacOptionalTarget {
-				continue
-			}
-			if targetIndex == sacOptionalTarget && sacOptional == "decline" {
-				continue
-			}
-		}
-		if sacDone {
-			// Re-entry after some target's ask suspended: earlier targets
-			// completed on the first pass and must be skipped (re-running
-			// them would sacrifice a second batch); the asking target
-			// applies its answer; later targets fall through to the normal
-			// paths below and pose their own asks (Dig's per-library shape).
-			if targetIndex < sacTarget {
-				continue
-			}
-			if targetIndex == sacTarget {
-				if t.IsPlayer {
-					// Sacrifice exactly the answered cards that still sit on
-					// this player's battlefield (a zone check keeps a stray
-					// answer from moving an object that left meanwhile), in
-					// the player's answer order. One departure snapshot for
-					// the whole answered batch (BatchDepartures).
-					if len(sacAns) > 0 {
-						h.BatchDepartures(sacAns)
-						defer h.EndBatchDepartures()
-					}
-					sacrificeAnswered(sacAns)
-				} else if len(sacAns) > 0 {
-					// The object-optional ask's sole option was answered
-					// "sacrifice it": the object was already zone-checked on
-					// the first pass, but re-check here in case it moved.
-					sacrificeAnswered([]state.ObjID{t.Obj})
-				}
-				continue
-			}
-		}
 		if t.IsPlayer {
 			// Bounds guard: g.Zone indexes g.zones[zoneIndex(z, p)] and
 			// zoneIndex has no bounds check, so an out-of-range target-supplied
@@ -453,14 +400,6 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 			if optional {
 				if strict {
 					switch {
-					case sacOptional == "sacrifice" && targetIndex == sacOptionalTarget:
-						// The player accepted the first yes/no step. If there is a
-						// genuine identity choice, ask for EXACTLY Amount; when every
-						// eligible permanent is required, there is nothing left to ask.
-						if int32(len(eligible)) > amount {
-							ask = true
-							minv, maxv = amount, amount
-						}
 					case int32(len(eligible)) >= amount:
 						// KChoose can express a range but not the disjoint set
 						// {0, Amount}, so ask yes/no first and only then (above)
@@ -474,9 +413,10 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 								{Index: 1, Kind: "mode", Label: "Don't sacrifice", Obj: c.Source, Player: t.Player},
 							}}
 						if ans, ok := AskTape(h, d); ok {
-							// The resolution kernel's answer in hand: a decline
-							// skips this player, an acceptance takes the
-							// "sacrifice_optional" re-entry's accepted arm above.
+							// Answered in place: a decline skips this player; an
+							// acceptance asks for EXACTLY Amount when there is a
+							// genuine identity choice, and otherwise takes every
+							// eligible permanent without asking.
 							tapeServed()
 							if len(ans) == 0 || ans[0].Index != 0 {
 								continue
@@ -486,7 +426,6 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 								minv, maxv = amount, amount
 							}
 						} else {
-
 							// R-9 no-host fallback: preserve the old deterministic pick,
 							// but only as a complete strict batch.
 							h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: t.Player,
@@ -533,8 +472,7 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 						Kind: "sacrifice", Label: name, Obj: id, Player: t.Player})
 				}
 				if ans, ok := AskTape(h, d); ok {
-					// The resolution kernel's answer in hand: the "sacrifice"
-					// re-entry's answered batch.
+					// Answered in place: sacrifice the picked batch.
 					tapeServed()
 					picks := tapeAnswerObjs(ans)
 					if len(picks) > 0 {
@@ -544,7 +482,6 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 					sacrificeAnswered(picks)
 					continue
 				}
-
 				// Fuzz/no-engine host: the deterministic stand-in (R-9) keeps
 				// the pre-ask behaviour — the first Amount$ eligible permanents
 				// in zone order, so an Optional$ "may sacrifice" plays "do".
@@ -555,8 +492,7 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 			// One departure snapshot per emitted batch (BatchDepartures): a
 			// sacrifice sweep over a lifelink-granting Equipment and its bearer
 			// must not make the bearer's CR 603.10a lifelink LKI depend on
-			// battlefield order. Asks suspend before any emission, so every
-			// suspend-then-resume path still re-collects its batch here.
+			// battlefield order.
 			batch := make([]state.ObjID, 0, n)
 			for i := int32(0); i < n && int(i) < len(eligible); i++ {
 				batch = append(batch, eligible[i])
@@ -591,7 +527,7 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 		//
 		// Optional$ True on an object target is a real yes/no ("you may
 		// sacrifice this artifact"): a 0..1 ask over the object, answered
-		// through the same "sacrifice" resume. A host that cannot ask keeps
+		// in place via AskTape. A host that cannot ask keeps
 		// the mandatory sacrifice (the pre-ask behaviour).
 		if optional {
 			// A concrete target cannot satisfy a strict batch greater than one:
@@ -611,15 +547,13 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 			d.Options = append(d.Options, decision.Option{Index: 0,
 				Kind: "sacrifice", Label: name, Obj: o.ID, Player: o.Controller})
 			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: the "sacrifice"
-				// re-entry's object-optional arm.
+				// Answered in place: sacrifice the object if it was picked.
 				tapeServed()
 				if len(tapeAnswerObjs(ans)) > 0 {
 					sacrificeAnswered([]state.ObjID{o.ID})
 				}
 				continue
 			}
-
 			// No-host stand-in: the mandatory sacrifice the pre-ask engine
 			// made, with the Note that records why the richer path did not run.
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: o.Controller,

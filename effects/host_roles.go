@@ -199,18 +199,6 @@ type HostBatch interface {
 	// replay-derived exactly like the other LKI maps; the effects test double
 	// records it for its own assertions.
 	RememberExploitedLKI(state.SacrificedInfo)
-	// SetResolutionTargetControllerLKI publishes the target-controller LKI
-	// captured at the start of a Resolve chain to the host, and returns the
-	// value it replaced so the caller can restore it (rules' Ask copies the
-	// published map onto the pending resumePoint). A target may leave the
-	// battlefield before a chained TokenOwner$ TargetedController runs;
-	// events.Apply resets a departed object's live Controller to Owner, so a
-	// resumed continuation -- which rebuilds its Ctx from the stack object's
-	// targets -- needs the controller snapshot, not the live object. The
-	// publish/restore bracket is what scopes it to the innermost running
-	// chain: a nested Resolve with a different Ctx restores the outer map on
-	// return. An effects-package test double may keep the no-op form.
-	SetResolutionTargetControllerLKI(map[state.ObjID]state.PlayerID) map[state.ObjID]state.PlayerID
 }
 
 // HostRNG is the randomness role: the engine's seeded, logged RNG.

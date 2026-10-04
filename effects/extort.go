@@ -17,48 +17,34 @@ func init() { Register("Extort", effExtort) }
 // the caster — c.Controller, the controller of the Extort permanent at the
 // moment the trigger resolves — is asked whether to pay the hybrid pip. The
 // hybrid {W/B} is a single pip payable as either colour; the ask is a KModes
-// yes/no and the answer is carried back through Ctx.Extort (the resume arm
-// in rules/resolution.go records it), the same mid-resolution shape the
+// yes/no answered in place via AskTape, the same mid-resolution shape the
 // unless-pay consumers use. Payment is charged from the caster's pool as
 // one mana of either W or B if either colour is available; the drain is what
 // actually happens on a pay.
 func effExtort(h Host, c *Ctx, sa *cards.SA) {
-
-	ans := string("")
-
-	switch effExtort2201Codes.Code(string(ans)) {
-	case effExtort2201Pay:
-		// Re-entry, paid: drain each opponent 1 life and gain that much.
-	case effExtort2201Decline:
-		return
-	default:
-		// First pass: pose the optional payment to the caster.
-		d := &decision.Decision{Player: c.Controller, Kind: decision.KModes,
-			Min: 1, Max: 1, Source: c.Source, ResumeKind: "extort",
-			ResumeSA: sa, Prompt: "Extort: pay {W/B}?",
-			Options: []decision.Option{
-				{Index: 0, Kind: "mode", Label: "Pay {W/B} — each opponent loses 1", Obj: c.Source, Player: c.Controller},
-				{Index: 1, Kind: "mode", Label: "Don't pay", Obj: c.Source, Player: c.Controller},
-			}}
-		g := h.Game()
-		pool := extortPoolPips(g, c.Controller)
-		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand. Its record (the
-			// "extort" answer record rules shares with the resume arm)
-			// charged the pip on a "pay" when the pool held one; the drain
-			// runs exactly when that charge was made.
-			if len(ans) == 0 || ans[0].Index != 0 || extortPoolPips(g, c.Controller) >= pool {
-				return
-			}
-			extortDrain(h, g, c.Controller)
+	// Pose the optional payment to the caster.
+	d := &decision.Decision{Player: c.Controller, Kind: decision.KModes,
+		Min: 1, Max: 1, Source: c.Source, ResumeKind: "extort",
+		ResumeSA: sa, Prompt: "Extort: pay {W/B}?",
+		Options: []decision.Option{
+			{Index: 0, Kind: "mode", Label: "Pay {W/B} — each opponent loses 1", Obj: c.Source, Player: c.Controller},
+			{Index: 1, Kind: "mode", Label: "Don't pay", Obj: c.Source, Player: c.Controller},
+		}}
+	g := h.Game()
+	pool := extortPoolPips(g, c.Controller)
+	if ans, ok := AskTape(h, d); ok {
+		// Answered in place. The "extort" answer record charged the pip on
+		// a "pay" when the pool held one; the drain runs exactly when that
+		// charge was made.
+		if len(ans) == 0 || ans[0].Index != 0 || extortPoolPips(g, c.Controller) >= pool {
 			return
 		}
-		// Fuzz/no-engine host: the deterministic decline (R-9).
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "Extort declined (no engine host to ask)"})
+		extortDrain(h, g, c.Controller)
 		return
 	}
-	extortDrain(h, h.Game(), c.Controller)
+	// Fuzz/no-engine host: the deterministic decline (R-9).
+	h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+		Text: "Extort declined (no engine host to ask)"})
 }
 
 // extortDrain is a paid Extort's drain: each opponent loses 1 life and the
@@ -84,24 +70,3 @@ func extortPoolPips(g *state.Game, p state.PlayerID) int32 {
 	}
 	return int32(g.Players[p].Pool[state.MW]) + int32(g.Players[p].Pool[state.MB])
 }
-
-// ManaPaysExtort reports whether p has at least one W or B in the pool to
-// satisfy the {W/B} hybrid pip. Kept available for a test double that wants
-// to verify the payment gate; effExtort itself charges through the caller's
-// resumeResolution payment path when present.
-func ManaPaysExtort(g *state.Game, p state.PlayerID) bool {
-	if int(p) >= len(g.Players) {
-		return false
-	}
-	return g.Players[p].Pool[state.MW] > 0 || g.Players[p].Pool[state.MB] > 0
-}
-
-const (
-	effExtort2201Pay     uint16 = 1 // "pay"
-	effExtort2201Decline uint16 = 2 // "decline"
-)
-
-var effExtort2201Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "pay", Val: effExtort2201Pay},
-	state.StrEntry[uint16]{Key: "decline", Val: effExtort2201Decline},
-)

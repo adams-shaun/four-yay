@@ -388,12 +388,7 @@ func chooseCardChoosers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 }
 
 // choiceRecord records a completed pick into the chain's chosen binding
-// (Ctx.Chosen), the Remembered set and the source's event-backed lists. It
-// leaves Ctx.Choice alone: that is the ANSWER channel a resume arm fills for
-// one re-entry (read only beside Ctx.ChoiceDone), and a pick left in it is a
-// stale answer the next choice SA on the same Ctx reads at its entry --
-// skipping the fresh-entry replacement of the earlier SA's cards, so Shrouded
-// Lore's Defined$ ChosenCard named every card chosen so far.
+// (Ctx.Chosen), the Remembered set and the source's event-backed lists.
 func choiceRecord(h Host, c *Ctx, sa *cards.SA, picked []state.Target, playerChoice bool) {
 	if playerChoice {
 		// Forge's ChoosePlayerEffect calls host.setChosenPlayer(chosen) once
@@ -426,8 +421,7 @@ func choiceRecord(h Host, c *Ctx, sa *cards.SA, picked []state.Target, playerCho
 }
 
 // ChoiceAnswerTargets is the "choice" answer's target shape, the one home
-// the rules "choice" resume arm and the resolution kernel's tape branches
-// share: a "player" option is a player target (player zero is a real
+// every tape-answered choice shares: a "player" option is a player target (player zero is a real
 // target), any other option naming an object is that object.
 func ChoiceAnswerTargets(chosen []decision.Option) []state.Target {
 	out := make([]state.Target, 0, len(chosen))
@@ -530,7 +524,7 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 	initForgetOtherSnapshot(h, c, sa, choosers, 2)
 	forgetOtherRemembered(h, c, sa)
 	if c.Forget.Ready {
-		// The snapshot is authoritative across the asks: a resumed chooser's
+		// The snapshot is authoritative across the asks: a later chooser's
 		// pool must still match the pre-clear candidates (plus anything
 		// re-remembered since) after the first move cleared the live set.
 		selection.Remembered = append(append([]state.Target(nil), selection.Remembered...), c.Forget.Snapshot...)
@@ -540,8 +534,8 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 	// ANSWERED choice is revealed to every seat with the same ids-Note
 	// effReveal's public reveal emits (empty Text, view.Describe renders
 	// "player N reveals ...", RedactEvents passes it through unchanged). The
-	// reveal fires per chooser as their choice is recorded — both on the
-	// answered re-entry and on the no-host fallback below — so every seat
+	// reveal fires per chooser as their choice is recorded — both on an
+	// answered ask and on the no-host fallback below — so every seat
 	// learns the kept set before the next chooser picks. Player entries
 	// (a ChoosePlayer follow-up) reveal nothing: a player is not hidden.
 	reveal := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKReveal)), "True")
@@ -565,11 +559,10 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 	budget, hasBudget := NumResolved(h, c, sa, "WithTotalPower", 0)
 	// The walk is chooser-major, group-minor: every chooser picks from ALL
 	// groups before the next chooser starts, groups in ChooseEach$ order —
-	// Forge's ChooseCardEffect loop shape. With ChooseEach$ the resume cursor
-	// i is the flat index into that (chooser, group) pair list
+	// Forge's ChooseCardEffect loop shape. With ChooseEach$ the cursor i is
+	// the flat index into that (chooser, group) pair list
 	// (i = chooser*groups + group), so ONE ResumeTarget int carries both
-	// halves across a suspension — the group count comes from the SA itself,
-	// deterministic on re-entry.
+	// halves — the group count comes from the SA itself.
 	i := c.ChoiceTarget
 
 	if i == 0 {
@@ -609,9 +602,8 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 		}
 		// With ChooseEach$ the shared Amount$/MinAmount$/Mandatory$ bounds are
 		// PER GROUP (revival_experiment's Amount$ 1 | MinAmount$ 0: "up to one
-		// card of that type"), so one answer re-enters per group through the
-		// ordinary "choice" resume arm and choiceRecord accumulates each
-		// group's pick. A group whose narrowed pool is empty resolves
+		// card of that type"), so one "choice" ask is answered per group and
+		// choiceRecord accumulates each group's pick. A group whose narrowed pool is empty resolves
 		// silently: Ask's empty-decision guard declines the shape and the
 		// choice below records nothing, exactly like Forge's per-type loop
 		// with no candidate of that type.
@@ -662,10 +654,9 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 			d.Prompt += " (total power " + strconv.Itoa(int(budget)) + " or less)"
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: what the "choice"
-			// resume arm's re-entry does. The legacy re-entry rebuilds the
-			// candidate selection from the Ctx as it stood at the ask (before
-			// this record), then records, reveals and re-reads the bounds.
+			// Answered in place: rebuild the candidate selection from the
+			// Ctx as it stood at the ask (before this record), then record,
+			// reveal and re-read the bounds.
 			selection = *c
 			if c.Forget.Ready {
 				selection.Remembered = append(append([]state.Target(nil), selection.Remembered...), c.Forget.Snapshot...)
@@ -718,8 +709,7 @@ func chooseCardPower(h Host, id state.ObjID) int {
 // budgetGreedyTake is the deterministic forced take under a WithTotalPower$
 // cumulative budget: walk the affordable pool in its given order and take
 // each card only while the running power sum still fits the cap, up to max
-// picks. The no-host fallback applies exactly this take, so a suspension
-// cannot change which cards a budgeted pick keeps.
+// picks. The no-host fallback applies exactly this take.
 func budgetGreedyTake(h Host, pool []state.Target, max, budget int) []state.Target {
 	out := make([]state.Target, 0, len(pool))
 	running := 0
@@ -775,10 +765,9 @@ func sourceChoices(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID) []state
 // matches nothing -- asks nothing and records nothing, so the follow-up
 // replacement simply has no chosen source and does not fire.
 //
-// The KChoose/"choice" resume machinery is shared with ChooseCard: the
-// decision carries ResumeSA/ResumeTarget, and rules' resume arm rebuilds
-// Ctx.Choice/ChoiceDone/ChoiceTarget before re-entering this function, so a
-// suspended answer is applied on the second pass without re-asking.
+// The KChoose/"choice" ask shape is shared with ChooseCard: the decision
+// carries ResumeSA/ResumeTarget and each chooser's ask is answered in place
+// via AskTape.
 func effChooseSource(h Host, c *Ctx, sa *cards.SA) {
 	choosers := choiceChoosers(h, c, sa)
 	i := c.ChoiceTarget
@@ -818,8 +807,8 @@ func effChooseSource(h Host, c *Ctx, sa *cards.SA) {
 			d.Prompt = "Choose a source"
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the "choice" re-entry's
-			// record, then the bounds re-read it makes before the next chooser.
+			// Answered in place: record, then re-read the bounds before the
+			// next chooser.
 			choiceRecord(h, c, sa, ChoiceAnswerTargets(ans), false)
 			minBase, maxBase = choiceBounds(h, c, sa, false)
 			continue
@@ -928,8 +917,8 @@ func effChoosePlayer(h Host, c *Ctx, sa *cards.SA) {
 			d.Prompt = "Choose player"
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the "choice" re-entry's
-			// record, then the bounds re-read it makes before the next chooser.
+			// Answered in place: record, then re-read the bounds before the
+			// next chooser.
 			choiceRecord(h, c, sa, ChoiceAnswerTargets(ans), true)
 			minBase, maxBase = choiceBounds(h, c, sa, false)
 			continue
@@ -946,9 +935,8 @@ func effChoosePlayer(h Host, c *Ctx, sa *cards.SA) {
 	// under the same Ctx the choice was recorded on, so it reads the just-made
 	// choice through Ctx.Chosen and the source object's event-backed Chosen.
 	//
-	// The decision is per RESOLUTION, not per chooser: the Choosers loop's
-	// re-entry/suspend discipline means this block is reached exactly once,
-	// after every chooser has answered, so a multi-chooser ChoosePlayer runs
+	// The decision is per RESOLUTION, not per chooser: this block is reached
+	// exactly once, after every chooser has answered, so a multi-chooser ChoosePlayer runs
 	// its rider once (the last non-empty answer is what the source holds --
 	// the same last-chooser-wins rule choiceRecord's playerChoice branch
 	// already applies). A multi-chooser rider carrier is corpus-unreachable
@@ -1180,8 +1168,7 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControl Choices$ requires a player choice"})
 				return
 			}
-			// The resolution kernel's answer in hand: the "choice"
-			// re-entry's record below, then the transfer.
+			// Answered in place: the record below, then the transfer.
 			ts = ChoiceAnswerTargets(ans)
 		} else {
 			ts = choices
@@ -1490,9 +1477,8 @@ func gainControlVariantOrder(h Host, c *Ctx, sa *cards.SA, g *state.Game) {
 // positional empty pick so the cursor stays aligned with recipients.
 //
 // The picks are gathered across every ask BEFORE any transfer is applied, so
-// an earlier hand-off cannot change a later recipient's pool; a suspension
-// carries the cursor (Decision.ResumeTarget) and the picks so far
-// (Decision.ResumeChoices) across the answer.
+// an earlier hand-off cannot change a later recipient's pool. Each ask is
+// answered in place via AskTape; the cursor rides Decision.ResumeTarget.
 func gainControlVariantAskLoop(h Host, c *Ctx, sa *cards.SA, base ControlGrant,
 	recipients []state.PlayerID,
 	chooserFor func(state.PlayerID) state.PlayerID,
@@ -1524,8 +1510,8 @@ func gainControlVariantAskLoop(h Host, c *Ctx, sa *cards.SA, base ControlGrant,
 			d.Options = append(d.Options, decision.Option{Index: j, Kind: "card", Obj: id, Player: chooser})
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the pick the "choice"
-			// re-entry appends (an empty answer keeps the positional blank).
+			// Answered in place: append the pick (an empty answer keeps the
+			// positional blank).
 			pick := state.Target{}
 			if ts := ChoiceAnswerTargets(ans); len(ts) > 0 {
 				pick = ts[0]
@@ -1768,12 +1754,9 @@ func effChangeTargets(h Host, c *Ctx, sa *cards.SA) {
 		d.Options = append(d.Options, o)
 	}
 	if ans, ok := AskTape(h, d); ok {
-		// The resolution kernel's answer in hand: the "choice" re-entry's
-		// redirect.
+		// Answered in place: apply the redirect.
 		changeTargetsApply(h, sa, target, ChoiceAnswerTargets(ans))
-		return
 	}
-
 }
 
 // changeTargetsApply records an answered ChangeTargets redirect: the chosen

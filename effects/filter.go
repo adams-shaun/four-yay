@@ -917,8 +917,8 @@ func spellIsTargetingMatchesPtr(g *state.Game, spec string, o *state.Object, sc 
 // a recognised predicate resolved the gate false and the whole sub -- target
 // ask included -- was skipped. That ordering is now fixed in conditionMet's
 // Targeted branch (an empty group on an SA that carries ValidTgts$ and whose
-// ask has not run is UNRESOLVED, so Resolve poses the ask and the answered
-// re-entry resolves the gate for real).
+// ask has not run is UNRESOLVED, so Resolve dispatches the sub and its ask
+// is posed there).
 func sharesColorBareReferent(arg string) bool {
 	return arg == "TriggeredProduced" || arg == "ChosenCard"
 }
@@ -982,9 +982,8 @@ func sharesColorUnitMatches(g *state.Game, spec string, o *state.Object, sc Spec
 // (sc.Chosen/sc.ChosenValid, seeded by (*Ctx).SpecContext from Ctx.Chosen),
 // else the source object's EVENT-BACKED chosen list (state.Object.Chosen,
 // the Choose "chosen" fold choiceRecord emits). The event-backed fallback is
-// load-bearing: a mid-resolution ValidTgts$ ask rebuilds a fresh Ctx on the
-// re-entry, so a carrier reached only after such an ask (Guard Dogs' DBPrevent)
-// loses the in-flight Ctx.Chosen and must read the source's fold. An
+// load-bearing for a carrier whose resolution has no in-flight Ctx.Chosen
+// bound (Guard Dogs' DBPrevent) and must read the source's fold. An
 // unbound choose is a resolved non-match -- never an unresolved gate -- the
 // same convention the empty TriggerMana set takes. The colour read is the
 // shared ColorMaskOf the ordinary colour predicates and sharesColorUnitMatches
@@ -1550,7 +1549,7 @@ func EachTypeGroups(g *state.Game, subs []string, ids []state.ObjID, sc SpecCont
 // The caller sets d.Max to it (a ceiling the option list cannot exceed) and
 // carries perType in Decision.GroupLimit when it is above 1. noLooking hides
 // card names (the library search's NoLooking$ gate); kind is the option Kind
-// the walker's resume arm reads.
+// the walker's answer carries.
 func eachStructuredOptions(g *state.Game, d *decision.Decision, groups [][]state.ObjID,
 	perType int32, noLooking bool, owner state.PlayerID, kind string) int {
 	ceiling := 0
@@ -3035,16 +3034,6 @@ func UnknownPredicates(spec string) []string {
 			}
 			out = append(out, p)
 		}
-	}
-	sort.Strings(out)
-	return out
-}
-
-// KnownPredicates lists the predicates this build implements, in sorted order.
-func KnownPredicates() []string {
-	out := make([]string, 0, len(predicates))
-	for k := range predicates {
-		out = append(out, k)
 	}
 	sort.Strings(out)
 	return out

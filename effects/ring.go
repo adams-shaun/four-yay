@@ -27,18 +27,9 @@ import (
 // keeps the designation "until another creature becomes your Ring-bearer",
 // so a player may keep it, and the no-host R-9 fallback does exactly that
 // (falling back to the first eligible creature in zone order when the
-// existing bearer is stale). The choice travels the "ring_bearer" resume
-// kind: the answer re-enters with Ctx.RingBearerPick set, and re-entry skips
-// the ask and emits the single RingTemptsYou event, so a suspension can
-// never increment the count twice.
+// existing bearer is stale). The choice is answered in place (ResumeKind
+// "ring_bearer"), and every path emits exactly one RingTemptsYou event.
 func effRingTemptsYou(h Host, c *Ctx, sa *cards.SA) {
-	// fx42 scoping (the BlightPicks discipline): consume and clear the
-	// answered pick BEFORE any walk, so a nested Ring tempts below this one
-	// poses its own ask instead of inheriting the outer answer.
-	pick := state.ObjID(0)
-
-	pickDone := false
-
 	// Measured corpus: none of the 49 raw RingTemptsYou SA lines carries
 	// Defined$/ValidTgts$, so the tempted player is always the resolving
 	// controller. A Defined$-driven path would be untested dead code whose
@@ -54,16 +45,6 @@ func effRingTemptsYou(h Host, c *Ctx, sa *cards.SA) {
 			Obj:    bearer,
 			Amount: g.Players[p].RingTempted + 1,
 		})
-	}
-
-	if pickDone {
-		// Re-entry after the ask suspended. A stale or stray answer (the
-		// object left the battlefield, changed controller, or was never the
-		// player's) falls back to the deterministic default rather than
-		// designating an illegal creature -- the same guard the sacrifice and
-		// blight re-entries use.
-		emit(ringAnsweredBearer(h, g, p, pick))
-		return
 	}
 
 	// The eligible creatures, in battlefield zone order (the ordered list,
@@ -126,8 +107,9 @@ func effRingTemptsYou(h Host, c *Ctx, sa *cards.SA) {
 			Kind: "ring_bearer", Label: name, Obj: id, Player: p})
 	}
 	if ans, ok := AskTape(h, d); ok {
-		// The resolution kernel's answer in hand: the "ring_bearer" arm's
-		// pick, designated exactly as the re-entry designates it.
+		// The answered pick. A stale or stray answer (the object left the
+		// battlefield, changed controller, or was never the player's) falls
+		// back to the deterministic default (ringAnsweredBearer).
 		pick := state.ObjID(0)
 		if len(ans) > 0 {
 			pick = ans[0].Obj

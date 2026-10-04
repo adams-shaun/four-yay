@@ -17,7 +17,7 @@ func init() {
 	Register("DamageResolve", effDamageResolve)
 }
 
-// roundRobinSplit is DealDamage's R-9 no-host (and AskEmpty) stand-in for a
+// roundRobinSplit is DealDamage's R-9 no-host stand-in for a
 // DividedAsYouChoose$ allocation: distribute one damage at a time over the
 // chosen-target list in order, exactly the deterministic split this build
 // shipped before the ask existed. The returned slice is indexed by target
@@ -1110,24 +1110,11 @@ func eachDamagerTargets(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 // computed at mark time (so the flush pays the lifelink rider exactly once,
 // from the same facts the immediate path would); the target is the recipient
 // recorded at mark time. It is resolution-scratch like Ctx.Remembered -- never
-// event-encoded, re-derived by a replay re-running the same resolution -- and
-// is carried across a mid-chain ask (rules stamps it on the pending frame).
-// The fields are unexported so the rules package can hold the marks opaquely
-// (it only ever clones them) without reading a rider.
+// event-encoded, re-derived by a replay re-running the same resolution. The
+// fields are unexported so no other package reads a rider.
 type PendingDamage struct {
 	rider  damageRider
 	target state.Target
-}
-
-// ClonePendingDamage returns a copy of a chain's pending-damage marks, the
-// same defensive-copy shape the other cross-suspension riders use. A nil or
-// empty input yields nil, so a chain with no marks is indistinguishable from
-// one that never marked.
-func ClonePendingDamage(m []PendingDamage) []PendingDamage {
-	if len(m) == 0 {
-		return nil
-	}
-	return append([]PendingDamage(nil), m...)
 }
 
 // effDamageResolve implements "DB$ DamageResolve" (Forge's
@@ -1150,8 +1137,8 @@ func effDamageResolve(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	// Consume the marks before emitting: a Damage event's own replacement or
-	// trigger machinery must not see them as still pending, and a re-entry
-	// must never re-flush a batch already dealt.
+	// trigger machinery must not see them as still pending, and a later
+	// DamageResolve must never re-flush a batch already dealt.
 	c.PendingDamage = nil
 	h.BeginDamageBatch()
 	var damaged []state.Target

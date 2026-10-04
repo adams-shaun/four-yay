@@ -67,7 +67,6 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	var subjects []state.Target
-	start := 0
 	// DamageMap$ True (Price of Progress, Wing Storm, Baki's Curse -- 87
 	// corpus files): the loop's damage is ONE damage batch. Forge accumulates
 	// every iteration's dealDamage into a per-SA damage table and deals it
@@ -79,10 +78,7 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 	// DealDamage's own bracket nests inside this one; the batch is depth-
 	// counted), and the events themselves are unchanged -- same order, same
 	// amounts -- so a game without a batch-latched trigger replays exactly as
-	// before. Opened only on the first pass: a mid-loop suspension leaves the
-	// engine's open batch intact across the resume, and the re-entry pass
-	// closes it when the loop completes, so the bracket is balanced however
-	// many resumes interleave.
+	// before.
 	batched := rp.DamageMap
 	// ChangeZoneTable$ True (Forge's RepeatEachEffect CardZoneTable -- 47
 	// corpus carrier files): the zone changes every iteration's body causes
@@ -92,10 +88,7 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 	// opened around the whole loop on the first pass, closed after the last
 	// iteration, events unchanged -- same order, same objects -- so a game
 	// with no ChangesZoneAll observer in the window replays exactly as
-	// before. Opened only on the first pass: a mid-loop suspension leaves
-	// the engine's open batch intact across the resume, and the re-entry
-	// pass closes it when the loop completes, so the bracket is balanced
-	// however many resumes interleave.
+	// before.
 	zoneTable := rp.ChangeZoneTable
 	// AmountFromVotes$ True (task votepb1: Mob Verdict, Círdan the Shipwright,
 	// Trap the Trespassers): before each body runs, bind the reserved name
@@ -126,7 +119,6 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 	}); ok {
 		zoneBatcher = z
 	}
-	// Once per call, on the first pass: a resumed loop already noted.
 	noteUnreadParams(h, c, "RepeatEach", rp.Unread)
 	var ok bool
 	// cardsSubjects is true only when the subjects came from Forge's
@@ -154,25 +146,15 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "RepeatEach selector unimplemented"})
 		return
 	}
-	// The loop's first-pass setup runs HERE, before the ChooseOrder$ ask
-	// below: the answered ask re-enters the SA with a Repeat cursor, so
-	// this else is never taken again and any first-pass-only step that
-	// stayed after the ask would never run for a hosted ordering loop.
-	// Measured otherwise-broken carrier: Ezuri's Predation carries BOTH
-	// ChooseOrder$ and ChangeZoneTable$ -- with the zone bracket opened
-	// after the ask, its ChangesZoneAll batching silently became
-	// per-move. The clear is likewise ordered before the ask so the ask's
-	// suspension (and thus the re-entered loop) binds the post-clear
-	// Remembered.
+	// The loop's setup runs HERE, before the ChooseOrder$ ask below (Ezuri's
+	// Predation carries BOTH ChooseOrder$ and ChangeZoneTable$).
 	// ClearRememberedBeforeLoop$ True (Forge's RepeatEachEffect: "clear the
 	// host's remembered list before the loop"): drop the resolving spell or
 	// ability's accumulated Remembered before the FIRST iteration body runs,
 	// so a chain's earlier remembered players/cards do not leak into the
 	// loop's iterations. Corpus carriers: Seize the Spotlight (clear the
 	// GenericChoice's remembered choosers before walking the notated players),
-	// Master of Ceremonies, Enter the Dungeon, Shahrazad. It is applied ONCE,
-	// on the first pass only: a resume after a mid-loop suspension must keep
-	// what the completed iterations remembered. It is applied AFTER the
+	// Master of Ceremonies, Enter the Dungeon, Shahrazad. It is applied AFTER the
 	// subject selector resolves, so `RepeatPlayers$ Remembered` (a real
 	// selector in the corpus) still sees the remembered set it names -- the
 	// clear is a loop-hygiene bound on the iteration bodies, not on the
@@ -182,10 +164,6 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 	}
 	// The damage/zone brackets open around the WHOLE loop (see the
 	// DamageMap$/ChangeZoneTable$ comments above for the Forge semantics).
-	// Opened only here, on the first pass -- a mid-loop suspension (the
-	// ordering ask included) leaves the engine's open batch intact across
-	// the resume, and the re-entry pass closes it when the loop completes,
-	// so the bracket is balanced however many resumes interleave.
 	if batched && batcher != nil {
 		batcher.BeginDamageBatch()
 	}
@@ -197,10 +175,9 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 	// runs, and the loop then processes that order. `True` means the
 	// resolving controller chooses; any other value names a defined player
 	// (Aetherspouts/Chaotic Transformation `ChooseOrder$ RememberedPlayer`).
-	// The ask is posed once, on the first pass, before any body: the
-	// answer permutes the loop cursor's subject slice, so every later
-	// iteration -- and every mid-loop suspension -- carries the chosen
-	// order and the subjects are never re-derived or re-sorted. Subjects
+	// The ask is posed once, before any body: the answer permutes the
+	// subject slice, so every iteration carries the chosen order and the
+	// subjects are never re-derived or re-sorted. Subjects
 	// are NOT silently sorted: the offered list is the selector/scan order
 	// and the answer names a permutation of it. A no-host host (R-9) keeps
 	// that scan order as its deterministic stand-in.
@@ -209,37 +186,17 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 	}
 	// RepeatOptionalForEachPlayer$ True (Tempting Contract, the Tempt cycle,
 	// Zagorka): each subject of the loop is offered its own yes/no election
-	// before its body runs, with RepeatOptionalMessage$ as the prompt. The
-	// answer is not a body suspension -- the body may not run at all -- so it
-	// rides Ctx.RepeatEachOptional on re-entry and skips that subject's body
-	// on a decline. A nil field is the first pass; the cursor's own Election
-	// flag marks which frame is the offer.
+	// before its body runs, with RepeatOptionalMessage$ as the prompt; a
+	// decline skips that subject's body.
 	optionalForEach := rp.OptionalForEach
 	optionalMsg := rp.OptionalMessage
-	electedIdx, electedAccept := -1, false
-	for i := start; i < len(subjects); i++ {
-		t := subjects[i]
+	for i, t := range subjects {
 		if optionalForEach {
-			if i == electedIdx && !electedAccept {
-				// This subject declined its own offer: skip its body and
-				// continue with the next subject.
+			// A yes runs the body below; a no, or no answer served (R-9: a
+			// host with no decision channel), skips this subject.
+			ans, ok := AskTape(h, repeatEachElectionDecision(h, c, sa, t, i, optionalMsg))
+			if !ok || len(ans) == 0 || ans[0].Kind != "yes" {
 				continue
-			}
-			if i != electedIdx {
-				// This subject has not been offered yet: pose its election.
-				// A yes re-enters at i and runs the body below; a no is the
-				// skip above. R-9: a host with no decision channel declines.
-				if ans, ok := AskTape(h, repeatEachElectionDecision(h, c, sa, t, i, optionalMsg)); ok {
-					// The resolution kernel's answer in hand (the
-					// "repeat_each_optional" arm's Accept): a decline skips
-					// this subject, a yes runs its body below.
-					if len(ans) == 0 || ans[0].Kind != "yes" {
-						continue
-					}
-				} else {
-					// No answer served: the subject is declined.
-					continue
-				}
 			}
 		}
 		cc := *c
@@ -249,8 +206,7 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 		cc.Remembered = append(copyTargets(base), t)
 		// UseImprinted$ names the same subject "Imprinted" for the body's
 		// selectors (UnlessPayer$ ImprintedController, Defined$
-		// ImprintedController). The suspension carries it so a resumed ask
-		// inside the body still binds it.
+		// ImprintedController).
 		cc.RepeatSubject = t
 		if fromVotes {
 			// The per-iteration binding lives on this iteration's Ctx copy
@@ -267,23 +223,11 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 		Resolve(h, &cc, sub)
 		// A loop body runs on a Ctx copy. Its first FlipCoin may allocate
 		// the shared memory lazily, so retain that pointer on the outer Ctx
-		// before copying the next iteration or returning through a suspension.
+		// before copying the next iteration.
 		// Mana Clash's post-loop FlippedTails reader must see every player's
 		// FlipClash result, not a fresh per-iteration list.
 		if c.FlipMemory == nil && cc.FlipMemory != nil {
 			c.FlipMemory = cc.FlipMemory
-			// Resolve published cc.FlipMemory (nil on entry) for the
-			// iteration and its defer restored that nil on the way out, so
-			// retaining the pointer on the outer Ctx is not enough: the
-			// engine's published slot must be re-pointed too. Without this,
-			// an ask posed AFTER the loop -- the enclosing RepeatEach's own
-			// SubAbility$ -- captures nil onto its resume point, and the
-			// fresh Ctx the answer rebuilds loses every flip the loop
-			// recorded before a later Defined$ FlippedHeads/FlippedTails
-			// reader runs.
-			if fh, ok := h.(flipMemoryHost); ok {
-				fh.SetResolutionFlipMemory(c.FlipMemory)
-			}
 		}
 		if h.Suspended() {
 			return
@@ -291,24 +235,19 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 		c.Remembered = rememberIteration(c.Remembered, cc.Remembered, base, t)
 	}
 	if batched && batcher != nil {
-		// The loop completed: close the batch opened for it. A re-entry pass
-		// closes the batch the FIRST pass opened (same SA, same host, so the
-		// open/close conditions agree); every pass that suspends mid-loop
-		// returns before this line and leaves the bracket to a later pass.
+		// The loop completed: close the batch opened for it.
 		batcher.EndDamageBatch()
 	}
 	if zoneTable && zoneBatcher != nil {
-		// The loop completed: close the zone batch the FIRST pass opened
-		// (same reasoning as the damage batch above).
+		// The loop completed: close the zone batch opened for it.
 		zoneBatcher.EndZoneBatch()
 	}
 }
 
 // repeatEachChooseOrder poses a RepeatEach ChooseOrder$ ordering ask over
 // subjects (see effRepeatEach) and returns the loop order: the answered
-// permutation when the resolution kernel serves it, the offered order for a
-// no-host stand-in, or suspended after a legacy ask (the loop cursor parked
-// on SuspendRepeat).
+// permutation when the resolution kernel serves it, else the offered order
+// (the no-host stand-in).
 func repeatEachChooseOrder(h Host, c *Ctx, sa *cards.SA, rp *RepeatEachParams, subjects []state.Target) []state.Target {
 	chooser := c.Controller
 	if !strings.EqualFold(rp.ChooseOrder, "True") {

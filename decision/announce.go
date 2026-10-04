@@ -49,16 +49,6 @@ func CloneAnnounceSelection(s *AnnounceSelection) *AnnounceSelection {
 	return &c
 }
 
-// CloneManaPaymentWindow deep-copies a window readout.
-func CloneManaPaymentWindow(w *ManaPaymentWindow) *ManaPaymentWindow {
-	if w == nil {
-		return nil
-	}
-	c := *w
-	c.AutoFill = append([]state.ObjID(nil), w.AutoFill...)
-	return &c
-}
-
 // validateAnnounce is Validate's announce branch: priority only, exclusive
 // with every other selector, and naming an offered action that has a plan.
 // Rules re-plans the cast independently at Submit (ValidateCastAnnounce); this

@@ -31,7 +31,7 @@ import (
 func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 	dp := DealDamageOf(sa)
 	if !c.DamageSplitDone {
-		// Once per resolution: the damage_split re-entry already noted.
+		// Once per division: an already-filled split has noted.
 		noteUnreadParams(h, c, "DealDamage", dp.Unread)
 	}
 	n := numText(h, c, dp.NumDmg, 0)
@@ -82,7 +82,7 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 	// The decision's own Min/Max/Repeatable wire rules already constrain the
 	// answer to exactly the named total over exactly the chosen target list,
 	// so no new Validate rule is needed. The deterministic R-9 no-host
-	// stand-in (and the AskEmpty arm) distributes one damage at a time,
+	// stand-in distributes one damage at a time,
 	// round-robin in the chosen-target order, so the batch total is exactly
 	// N. Targets beyond N take nothing, as an unchosen target would.
 	divided := false
@@ -103,9 +103,8 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 		player state.PlayerID
 	}
 	var divTargets []divTarget
-	// split is the allocation the emission walk reads: the legacy re-entry's
-	// answered Ctx.DamageSplit, or the one this call fills below.
-	split := ([]int32)(nil)
+	// split is the allocation the emission walk reads, filled below.
+	var split []int32
 
 	if divided {
 		for _, t := range Defined(h, c, sa) {
@@ -147,14 +146,12 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 					ResumeKind: "damage_split", ResumeSA: sa, Source: c.Source,
 					Prompt: "Assign " + strconv.Itoa(int(total)) + " damage"}
 				if ans, ok := AskTape(h, d); ok {
-					// The "damage_split" answer in hand: the shares, decoded
-					// as the arm decodes them; the walk below emits them.
-					// The re-entry rebuilds its rider, so this does too (an
+					// Answered in place: the shares; the walk below emits
+					// them. The rider is rebuilt after the answer (an
 					// unresolvable DamageSource$ re-emits its Note there).
 					split = damageSplitAnswer(ans)
 					rider = newDamageRider(h, c, dp.DamageSource, n)
 				} else {
-
 					// No host (R-9): the deterministic round-robin stand-in.
 					split = roundRobinSplit(len(divTargets), total)
 				}
@@ -264,7 +261,6 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 		// than silently reuse the first call's shares against a different
 		// target list. Reset after the walk, on every return path below.
 		defer func() {
-
 			c.DamageSplitDone = false
 		}()
 		for i, t := range divTargets {

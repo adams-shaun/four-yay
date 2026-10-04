@@ -49,8 +49,8 @@ func init() {
 // every API): the payer is UnlessPayer$'s resolved target (default the
 // target's controller), the pay/decline labels live in poseUnlessAsk's
 // CopySpellAbility arm, and the copy loop below runs, or not, exactly once
-// per the gate's orientation (rules' unless_pay resume arm charged the cost
-// on an affordable "pay"). A host that cannot ask (an effects-package test
+// per the gate's orientation (an affordable "pay" answer charged the cost).
+// A host that cannot ask (an effects-package test
 // double) keeps the deterministic decline.
 func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
@@ -59,15 +59,12 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 	// family, and the Optional$+UnlessCost$ carriers Wandering Archaic and
 	// Chain of Silence) makes the copy itself a may effect: the copy's
 	// controller is asked a yes/no before any copy is made, and a decline
-	// makes none. The answered election rides Ctx.CopyOpt (the same
-	// runtime-continuation class as AttachOpt), consumed and cleared here so
-	// a nested CopySpellAbility poses its own ask (fx42 scoping). An absent
+	// makes none; the election is answered in place via AskTape. An absent
 	// key leaves the historical unconditional copy. A host that cannot ask
 	// (an effects-package double, fuzz) keeps the deterministic pre-ask
 	// behaviour -- the copy is made -- the no-host stand-in the election's
 	// own branch implements below (the ask's bracket is Min == Max == 1, so
 	// Clamp and the bot answer option 0 = yes).
-	copyOpt := string("")
 
 	// Resolve which spell to copy. For a trigger the remembered entry is the
 	// cast spell (the first object entry); for a direct Parent copy it is the
@@ -221,40 +218,24 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 	// copy" runs the body on the DECLINE, Chain of Silence's UnlessSwitched$
 	// "may sacrifice a land. If the player does, they may copy" runs it on the
 	// PAY. By the time this dispatch runs the unless question is fully
-	// answered -- a body ask suspends with Host.SuspendUnless's marker, so the
-	// answered re-entry consumes it and never re-poses the pay ask -- so the
-	// may-copy election is the SECOND ask in Forge's own sequence: posing it
+	// answered -- so the may-copy election is the SECOND ask in Forge's own sequence: posing it
 	// duplicates nothing and inverts nothing (the round-1 read that scoped
 	// this arm to UnlessCost$-free SAs was wrong, findings-r2).
 	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
-		switch effCopySpellAbilitycdd2Codes.Code(string(copyOpt)) {
-		case effCopySpellAbilitycdd2Yes:
-			// Answered yes: fall through to the copy below.
-		case effCopySpellAbilitycdd2No:
+		d := &decision.Decision{Player: controller, Kind: decision.KChoose, Min: 1, Max: 1,
+			Source: c.Source, ResumeKind: "copy_optional", ResumeSA: sa,
+			CopyOfCopy: copyOfCopy(g, spell),
+			Prompt:     "Copy it?",
+			Options: []decision.Option{
+				{Index: 0, Kind: "yes", Label: "Yes — copy", Player: controller},
+				{Index: 1, Kind: "no", Label: "No", Player: controller},
+			}}
+		// Answered in place: copy on a yes, make none otherwise. With no
+		// answer (an effects-package double, a fuzz run) the deterministic
+		// pre-ask stand-in the doc comment above records holds: the copy is
+		// made.
+		if ans, ok := AskTape(h, d); ok && (len(ans) == 0 || ans[0].Kind != "yes") {
 			return
-		default:
-			d := &decision.Decision{Player: controller, Kind: decision.KChoose, Min: 1, Max: 1,
-				Source: c.Source, ResumeKind: "copy_optional", ResumeSA: sa,
-				CopyOfCopy: copyOfCopy(g, spell),
-				Prompt:     "Copy it?",
-				Options: []decision.Option{
-					{Index: 0, Kind: "yes", Label: "Yes — copy", Player: controller},
-					{Index: 1, Kind: "no", Label: "No", Player: controller},
-				}}
-			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: the
-				// "copy_optional" re-entry copies on a yes and makes none
-				// otherwise.
-				if len(ans) == 0 || ans[0].Kind != "yes" {
-					return
-				}
-			} else {
-			}
-
-			// AskNoHost (an effects-package double, a fuzz run) and AskEmpty
-			// (unreachable with a two-option Min-1 ask) keep the deterministic
-			// pre-ask stand-in the doc comment above records: the copy is made.
-			// Fall through to the copy below.
 		}
 	}
 	// IgnoreFreeze$ True (Ulalek, Fused Atrocity's copy trigger; Forge's
@@ -507,16 +488,6 @@ const (
 var effCopySpellAbilitycdd1Codes = state.NewStrCodes(
 	state.StrEntry[uint16]{Key: "TriggeredSpellAbility", Val: effCopySpellAbilitycdd1TriggeredSpellAbility},
 	state.StrEntry[uint16]{Key: "Parent", Val: effCopySpellAbilitycdd1Parent},
-)
-
-const (
-	effCopySpellAbilitycdd2Yes uint16 = 1 // "yes"
-	effCopySpellAbilitycdd2No  uint16 = 2 // "no"
-)
-
-var effCopySpellAbilitycdd2Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "yes", Val: effCopySpellAbilitycdd2Yes},
-	state.StrEntry[uint16]{Key: "no", Val: effCopySpellAbilitycdd2No},
 )
 
 const (

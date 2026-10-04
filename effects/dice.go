@@ -404,9 +404,9 @@ func retainedDice(dice []int32, ignoreLower int32, useHighest bool) []int32 {
 //   - ChosenSVar$ / OtherSVar$ (5 corpus lines, the Endeavor cycle, all two
 //     dice): the controller CHOOSES one of the rolled results -- a real
 //     KChoose (Min == Max == 1, one "roll" option per die in roll order),
-//     answered through ResumeKind "roll" with the per-die results carried on
-//     the decision (decision.Decision.Rolls) and the rules resume point, so
-//     the re-entry publishes ChosenSVar$ = the picked die's result and
+//     answered in place (ResumeKind "roll") with the per-die results carried
+//     on the decision (decision.Decision.Rolls), publishing ChosenSVar$ = the
+//     picked die's result and
 //     OtherSVar$ = the unpicked one's (sums, so the shape generalises past
 //     two dice) without re-rolling. A host that cannot ask (the fuzz
 //     stand-in, R-9) and botpolicy's clamp fallback both keep the FIRST die
@@ -430,15 +430,6 @@ func retainedDice(dice []int32, ignoreLower int32, useHighest bool) []int32 {
 // of Inspiration's X); the modified result is what ranges match and what
 // every publication totals. The unmodified die remains the only random draw.
 func effRollDice(h Host, c *Ctx, sa *cards.SA) {
-	// fx42 scoping: capture and clear the answered choose-one-result BEFORE
-	// anything else, so a nested RollDice below this walk poses its own ask
-	// instead of inheriting the outer answer.
-	rolls := ([]int32)(nil)
-
-	pick := ([]int)(nil)
-
-	done := false
-
 	sides := Num(h, c, sa, "Sides", 6)
 	if sides <= 0 {
 		sides = 6
@@ -456,10 +447,8 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 	// discipline -- never logged), and a matching replacement rewrites the
 	// dice count and the ignored-low count in place. The proposal seeds the
 	// ignored-low base with THIS body's own IgnoreLower$, so a replacement's
-	// ReplaceCount$Ignore/Plus.1 is one ADDITIONAL low result; nested and
-	// resumed resolutions never see the rewrite again, because the done
-	// re-entry above returns before this line and every roll body seeds its
-	// own fresh proposal.
+	// ReplaceCount$Ignore/Plus.1 is one ADDITIONAL low result; every roll
+	// body seeds its own fresh proposal.
 	amount, ignoreLower = h.RollDiceProposed(c.Controller, c.Source, amount, ignoreLower)
 	modifier := Num(h, c, sa, "Modifier", 0)
 	chosenName := strings.TrimSpace(sa.ParamStr(cards.PKChosenSVar))
@@ -476,9 +465,7 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 
-	// publishChosen publishes an answered choose-one-result (the legacy
-	// re-entry and the resolution kernel's tape-served answer share it).
-	// The chosen options' Index values name the dice (into rolls, the
+	// publishChosen publishes an answered choose-one-result. The chosen options' Index values name the dice (into rolls, the
 	// per-die results the asking pass carried on the decision) the player
 	// picked; the chosen value is the sum of the picked dice's results, the
 	// other value the sum of the rest -- for the corpus's two-die Endeavor
@@ -517,13 +504,7 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 			c.Roll.Last, c.Roll.LastName = chosenSum, chosenName
 		}
 	}
-	if done {
-		// Re-entry: the choose-one-result answer arrived.
-		publishChosen(rolls, pick)
-		return
-	}
-
-	// First pass: roll the dice.
+	// Roll the dice.
 	dice := make([]int32, 0, amount)
 	ranges := parseDieRanges(sa.ParamStr(cards.PKResultSubAbilities))
 	for i := int32(0); i < amount; i++ {
@@ -539,9 +520,7 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 	// or higher"). Emitted after every per-die Note and before
 	// ResultSubAbilities$/the chosen-result ask, so a Once trigger queues at
 	// the roll and resolves after the whole action, exactly as the per-die mode
-	// does. A `done` re-entry (the choose-one-result answer) returns above and
-	// never reaches here, so a suspended roll does not emit a second batch
-	// Note.
+	// does.
 	batchMax := dice[0]
 	for _, r := range dice[1:] {
 		if r > batchMax {
@@ -641,8 +620,8 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 	// The choose-one-result ask (ChosenSVar$/OtherSVar$, the Endeavor
 	// cycle): one die of the rolled set becomes the chosen result, the rest
 	// the other. Exactly one die is chosen (Min == Max == 1), one "roll"
-	// option per die in roll order, answered through ResumeKind "roll" with
-	// the per-die results carried on the decision for the resume.
+	// option per die in roll order, answered in place (ResumeKind "roll")
+	// with the per-die results carried on the decision.
 	if chosenName != "" && len(retained) > 1 {
 		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose,
 			Min:        1,
@@ -658,8 +637,7 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 				Player: c.Controller})
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The "roll" answer in hand: the picked dice by option Index,
-			// published as the re-entry publishes them.
+			// The "roll" answer in hand: the picked dice by option Index.
 			pick := make([]int, 0, len(ans))
 			for _, o := range ans {
 				pick = append(pick, o.Index)

@@ -25,12 +25,8 @@ func init() {
 // both are DB$ ChangeZone | Defined$ Remembered bodies, so the existing
 // movement path emits the MoveZone events and nothing here touches state.
 //
-// Two asks across one suspension: the primitive suspends at the split ask
-// and again at the pile pick, the answers riding the decisions'
-// ResumeRemembered (the full card set, so the re-entry re-derives pile B)
-// and ResumeChoices (pile A, so the pick re-entry carries the split even
-// when the split's own answer path recorded it on a Ctx this resume rebuilt)
-// — the effDig re-entry shape with the fx42 consume-and-clear at walk top.
+// Two asks, each answered in place: the split ask (pile A; pile B is the
+// offered-order rest) and then the pile pick.
 //
 // The R-9 no-host stand-in: pile A is the FIRST card of the set and the
 // chooser takes pile A — silent, byte-identical run to run, straight from
@@ -46,15 +42,6 @@ func init() {
 // cannot evaluate. AILogic$/RememberChosen$/KeepRemembered$ and the
 // description params are unread display/AI metadata.
 func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
-	// fx42 scoping: consume the answered fields BEFORE anything else, so a
-	// nested TwoPiles below this walk poses its own asks.
-	splitAns := ([]state.ObjID)(nil)
-
-	splitDone := false
-	pickAns := string("")
-
-	pickDone := false
-
 	for _, p := range []struct{ name, value string }{
 		{"DefinedPiles", sa.ParamStr(cards.PKDefinedPiles)},
 		{"LeftRightPile", sa.ParamStr(cards.PKLeftRightPile)},
@@ -190,29 +177,7 @@ func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 
-	// Stage 3: the pick was answered (or taken by the stand-in). Run the
-	// bodies.
-	if pickDone {
-		var pileA, pileB []state.ObjID
-		pileA, pileB = splitSet(ids, splitAns)
-		runPiles(pickAns == "b", pileA, pileB)
-		return
-	}
-
-	// Stage 2: the split was answered — pile A rides splitAns (from the
-	// split ask's own answer), pile B is the offered-order rest; pose the
-	// pile pick. The split answer may also arrive here through the pick
-	// resume arm's rp.choices when stage 2 ran on a no-host split.
-	if splitDone {
-		var pileA, pileB []state.ObjID
-		pileA, pileB = splitSet(ids, splitAns)
-		// No host (or the stand-in): the chooser takes pile A.
-		pickB := twoPilesPosePick(h, c, sa, chooser, pileA, ids)
-		runPiles(pickB, pileA, pileB)
-		return
-	}
-
-	// Stage 1: pose the split ask (skipped for a one-card set — a decision
+	// Pose the split ask (skipped for a one-card set — a decision
 	// nobody could answer differently is never posed; pile A is that card).
 	if len(ids) > 1 {
 		d := &decision.Decision{Player: sep, Kind: decision.KChoose,
@@ -228,21 +193,20 @@ func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
 				Kind: "twopiles", Label: name, Obj: id, Player: sep})
 		}
 		// R-9 no-host stand-in: pile A is the first card of the set, silent
-		// and byte-identical run to run. A tape-served answer (the
-		// "twopiles_split" arm's pile A, in answer order) continues to the
-		// pile pick exactly as the split re-entry does.
+		// and byte-identical run to run. An answer names pile A, in answer
+		// order; either way the walk continues to the pile pick.
 		pileA := []state.ObjID{ids[0]}
 		if ans, ok := AskTape(h, d); ok {
 			pileA = counterAnswerObjs(ans)
 		}
 
 		pileA, pileB := splitSet(ids, pileA)
-		pickB := twoPilesPosePick(h, c, sa, chooser, pileA, ids)
+		pickB := twoPilesPosePick(h, c, sa, chooser)
 		runPiles(pickB, pileA, pileB)
 		return
 	}
 	// One-card set: the split ask is skipped, the chooser is still asked.
-	pickB := twoPilesPosePick(h, c, sa, chooser, ids[:1], ids)
+	pickB := twoPilesPosePick(h, c, sa, chooser)
 	runPiles(pickB, ids[:1], nil)
 }
 
@@ -285,14 +249,9 @@ func noShuffleBody(sub *cards.SA) *cards.SA {
 }
 
 // twoPilesPosePick poses the two-option pile pick (KChoose Min 1 Max 1,
-// options "pile-a"/"pile-b" — no new decision.Kind). ResumeRemembered rides
-// the full card set (the re-entry re-derives pile B), ResumeChoices rides
-// pile A (the pick resume arm hands it back as Ctx.TwoPiles, covering both
-// the split-answered and the no-host-split paths with one channel).
-// suspended reports the ask suspended; otherwise pickB is the pick -- the
-// resolution kernel's tape-served answer (the "twopiles_pick" arm's decode:
-// only "pile-b" picks pile B), or the no-host stand-in's pile A.
-func twoPilesPosePick(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID, pileA, ids []state.ObjID) (pickB bool) {
+// options "pile-a"/"pile-b" — no new decision.Kind). pickB is the pick: the
+// answer (only "pile-b" picks pile B), or the no-answer stand-in's pile A.
+func twoPilesPosePick(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID) (pickB bool) {
 	d := &decision.Decision{Player: chooser, Kind: decision.KChoose,
 		Min: 1, Max: 1, Source: c.Source,
 		ResumeKind: "twopiles_pick",
@@ -356,18 +315,6 @@ func restOf(ids []state.ObjID, in map[state.ObjID]bool) []state.ObjID {
 		if !in[id] {
 			out = append(out, id)
 		}
-	}
-	return out
-}
-
-// twoPilesTargets is the object-Target copy a decision's ResumeRemembered /
-// ResumeChoices ride.
-// The result is never nil: it rides Decision.ResumeChoices as a payload
-// (PayloadTargets).
-func twoPilesTargets(ids []state.ObjID) []state.Target {
-	out := make([]state.Target, 0, len(ids))
-	for _, id := range ids {
-		out = append(out, state.Target{Obj: id})
 	}
 	return out
 }

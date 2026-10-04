@@ -33,22 +33,9 @@ func (e *Engine) EmitTokenCreate(ev events.Event) []state.ObjID {
 	var ids []state.ObjID
 	saved := e.tokenMintSink
 	e.tokenMintSink = &ids
-	savedID := e.tokenMintSinkID
-	e.tokenMintSinkID = 0 // the local buffer is never a named collector
-	e.mintParkFrom = 0
-	e.mintParkElection = false
 	e.emit(ev)
-	e.tokenMintSink, e.tokenMintSinkID = saved, savedID
+	e.tokenMintSink = saved
 	return ids
-}
-
-// etbElectionParked reports whether an as-enters election (etbMove, riotMove,
-// unleashMove or siegeMove) parked during the emit just finished: its parked
-// move went nil→non-nil, so the entry the emit was folding is held on the
-// election's ask rather than folded.
-func (e *Engine) etbElectionParked(before [4]bool) bool {
-	return (e.etbMove != nil && !before[0]) || (e.riotMove != nil && !before[1]) ||
-		(e.unleashMove != nil && !before[2]) || (e.siegeMove != nil && !before[3])
 }
 
 // EmitStackCopy emits a StackCopy event and returns the object it actually

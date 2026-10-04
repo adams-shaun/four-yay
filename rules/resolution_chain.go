@@ -16,17 +16,16 @@ import (
 )
 
 // charmModeTarget re-derives, for a frame of a cross-mode TargetUnique
-// Charm's resolution (see SuspendCharmRest / the charm_rest kind), the ONE
+// Charm's resolution re-entered by resumeResolution, the ONE
 // target the SA's chain belongs to: the j-th positional entry of the stack
 // object's Targets, where j is the frame's position among the chosen
 // target-bearing modes. Returns nil whenever the frame is not part of such a
 // charm's resolution — including every non-family shape (classification None
 // or Unsupported) and every insufficient-candidate fallback (fewer recorded
 // targets than the chosen target-bearing modes need) — so those keep the
-// shared list byte-identically. sa == nil is the no-answer continuation
-// shape the Line-match cannot serve; the charm_rest frame itself carries the
-// Charm SA, whose body text never equals a mode body's, so it matches
-// nothing and effCharm's own split handles it.
+// shared list byte-identically. sa == nil has no Line to match. The Charm
+// SA itself, whose body text never equals a mode body's, matches nothing,
+// and effCharm's own split handles it.
 func (e *Engine) charmModeTarget(obj state.ObjID, sa *cards.SA) []state.Target {
 	if sa == nil {
 		return nil
@@ -129,7 +128,7 @@ func modeLabels(sa *cards.SA, svars map[string]string, names []string) []string 
 
 // modeChoiceNames maps the chosen modal options back to the SVar names of
 // the Choices$ sub-abilities they pick, in the order chosen — the answer
-// effCharm's re-entry reads (Ctx.Modes). eligible carries a filtered cast
+// effCharm reads (Ctx.Modes). eligible carries a filtered cast
 // decision's server-only vocabulary; nil falls back to the SA's full Choices$
 // list for placement and mid-resolution decisions. Out-of-range indices drop.
 func modeChoiceNames(sa *cards.SA, chosen []decision.Option, eligible []string) []string {
@@ -271,16 +270,6 @@ func (e *Engine) payUnlessDamageCost(ctx *effects.Ctx, payer state.PlayerID, n i
 		return
 	}
 	e.emit(events.Event{Kind: events.LifeChange, Player: controller, Amount: int32(n)})
-}
-
-// charmModeScope and charmModeScopeSA read the per-mode Charm narrowing off
-// the live resolution Ctx at ask time (effects.Ctx.CharmModeScope). Nil
-// whenever the resolution is not inside a distinct modal Charm's mode.
-func (e *Engine) charmModeScope() []state.Target {
-	if e.resolutionCtx == nil {
-		return nil
-	}
-	return append([]state.Target(nil), e.resolutionCtx.CharmModeScope...)
 }
 
 // applyCastModes records a CR 601.2b cast-time mode announcement (the

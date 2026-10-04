@@ -22,36 +22,13 @@ func SetSVars(c *Ctx, sv map[string]string) {
 	c.SVars = copied
 }
 
-// SVarBinding is one resolution-scoped SVar publication (Ctx.PublishedSVars).
-type SVarBinding struct {
-	Name, Value string
-}
-
-// publishSVar binds name to value in the resolution's SVar table and records
-// the publication, so a resume across a later ask re-binds it.
+// publishSVar binds name to value in the resolution's SVar table, for a
+// chained SubAbility$ to read (DealDamage's ExcessSVar$).
 func publishSVar(c *Ctx, name, value string) {
 	if c.SVars == nil {
 		c.SVars = make(map[string]string, 1)
 	}
 	c.SVars[name] = value
-	c.PublishedSVars = append(c.PublishedSVars, SVarBinding{Name: name, Value: value})
-}
-
-// PublishedSVarsOf is a copy of c's published SVar bindings (nil for a nil
-// Ctx or none published): what a suspended resolution's resume point keeps.
-func PublishedSVarsOf(c *Ctx) []SVarBinding {
-	if c == nil || len(c.PublishedSVars) == 0 {
-		return nil
-	}
-	return append([]SVarBinding(nil), c.PublishedSVars...)
-}
-
-// RebindPublishedSVars re-applies a resume point's published SVar bindings,
-// in publication order, over a rebuilt Ctx's SVar table (SetSVars first).
-func RebindPublishedSVars(c *Ctx, bs []SVarBinding) {
-	for _, b := range bs {
-		publishSVar(c, b.Name, b.Value)
-	}
 }
 
 // stripCastSourceAggregate peels the COUNT-level trailing `$<Property>`

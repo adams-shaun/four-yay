@@ -59,22 +59,17 @@ func emitLook(h Host, lookers []state.PlayerID, from state.Zone, ids []state.Obj
 // is not projected to the looker's seat (view exposes only LibrarySize), so
 // the modal is the readable surface, the same channel the PeekAndReveal
 // optional branch uses. The decision is Min == Max == 1 over one option, so
-// AskEmpty is unreachable by construction. The ask gates only the PACING:
-// there is no decline (CR 701.20e requires the look to happen), so any
-// answer — the single Continue option, a malformed empty one included —
-// acknowledges, and the resume arm (rules' "look_ack") sets Ctx.LookAck
-// together with Ctx.LookAckTarget = the decision's ResumeTarget, the index
-// of the Defined$ target this ask belongs to. The cursor is what keeps a
-// multi-target bare look (Case the Joint's Defined$ Player) terminating:
-// the re-entered effReveal emits exactly the cursor target's note and every
-// later bare look in the walk poses its own ack.
+// it is never an empty-only ask. The ask gates only the PACING: there is no
+// decline (CR 701.20e requires the look to happen), so any answer — the
+// single Continue option, a malformed empty one included — acknowledges.
+// ResumeTarget is the index of the Defined$ target this ask belongs to, so
+// every bare look in a multi-target walk (Case the Joint's Defined$ Player)
+// poses its own ack.
 //
-// Returns true when the ask was posted and the caller must return (the
-// resolution is suspended); false when the resolution kernel served the ack
-// from its tape, or no host could ask (R-9), and the caller should emit the
-// look immediately — information is never lost to a
-// host that cannot ask, the same deterministic degradation Scry/Surveil
-// carry.
+// The ack is answered in place via AskTape; the caller emits the look right
+// after, whether it was answered or no host could ask (R-9) — information is
+// never lost to a host that cannot ask, the same deterministic degradation
+// Scry/Surveil carry.
 func poseLookAck(h Host, c *Ctx, sa *cards.SA, looker, owner state.PlayerID, zone state.Zone, ids []state.ObjID, targetIndex int) {
 	zoneName := "library"
 	if zone == state.ZHand {
@@ -100,7 +95,6 @@ func poseLookAck(h Host, c *Ctx, sa *cards.SA, looker, owner state.PlayerID, zon
 		ResumeKind: "look_ack", ResumeSA: sa, Source: c.Source, ResumeTarget: targetIndex,
 		Prompt:  prompt,
 		Options: []decision.Option{{Index: 0, Kind: "yes", Label: "Continue", Player: looker}}}
-	// Any served answer acknowledges (the "look_ack" arm's LookAck), so the
-	// caller emits the look now.
+	// Any served answer acknowledges, so the caller emits the look now.
 	AskTape(h, d)
 }

@@ -14,9 +14,8 @@ import (
 // target permanent". The target is chosen by the ordinary target ask (the
 // ValidTgts$ answer rides Ctx.Targets exactly as it does for DB$ Tap); the
 // tap-vs-untap ELECTION is a real mid-resolution KChoose posed to the
-// resolving ability's controller, one per target, re-entering through rules'
-// "taporuntap" resume arm and Ctx.TapOrUntap (consumed and cleared, the fx42
-// scoping discipline).
+// resolving ability's controller, one per target, answered in place
+// (ResumeKind "taporuntap").
 //
 // Deterministic contract (the R-9 no-ask stand-in mirror): the offered
 // option list is ordered so option 0 is the state-CHANGING choice — "untap"
@@ -53,7 +52,6 @@ func effTapOrUntap(h Host, c *Ctx, sa *cards.SA) {
 		if o == nil || o.Zone != state.ZBattlefield {
 			continue
 		}
-
 		seat := c.Controller
 		opts := []decision.Option{
 			{Kind: "tap", Label: "Tap " + o.Face().Name, Obj: o.ID, Player: seat},
@@ -70,9 +68,9 @@ func effTapOrUntap(h Host, c *Ctx, sa *cards.SA) {
 			Prompt: "Tap or untap " + o.Face().Name + "?"}
 		d.Options = opts
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the "taporuntap"
-			// arm's election for this target (an empty answer degrades to
-			// "tap", the arm's conservative read), then the next target.
+			// The answered election for this target (an empty answer
+			// degrades to "tap", the conservative read), then the next
+			// target.
 			answer := ""
 			if len(ans) > 0 {
 				answer = ans[0].Kind

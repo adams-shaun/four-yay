@@ -57,9 +57,8 @@ func DrawForTurn(h Host, p state.PlayerID) { drawFor(h, p, -1, nil, drawUptoRide
 // carries across a Dredge ask (Arcane Denial's "may draw up to two" whose
 // draw parks on a Dredge replacement): idx is the Defined$ target index
 // whose batch is in flight (-1 = no upto in flight, the zero value every
-// non-upto caller passes) and count the answered count for it. It rides the
-// ask as Decision.ResumeUptoIdx/ResumeUptoCount; rules' dredge arm restores
-// the Ctx fields from them.
+// non-upto caller passes) and count the answered count for it. drawFor
+// itself reads only turn.
 type drawUptoRider struct {
 	idx   int
 	count int32
@@ -73,12 +72,11 @@ type drawUptoRider struct {
 // multi-card resolution after its replacement is answered.
 //
 // It reports whether the draw was the subject of a Dredge ask the resolution
-// kernel answered from its tape: rules' dredge answer record (shared with
-// the "dredge" resume arm) has then already applied the replacement or the
-// ordinary draw, and the caller continues exactly as that arm's re-entry
-// does -- past this draw's cursor, without the drawn-card bookkeeping the
-// re-entry skips. Only a caller with a cursor and a resume SA (an effect
-// walk) is served from the tape; the bare DrawFor keeps the legacy ask.
+// kernel answered from its tape: rules' dredge answer record has then
+// already applied the replacement or the ordinary draw, and the caller
+// continues past this draw's cursor without the drawn-card bookkeeping. Only
+// a caller with a cursor and a resume SA (an effect walk) or the turn draw
+// is asked; any other draw, or an unanswered ask, is an ordinary draw.
 func drawFor(h Host, p state.PlayerID, cursor int, resumeSA *cards.SA, upto drawUptoRider) bool {
 	g := h.Game()
 	lib := zoneOf(g, state.ZLibrary, p)
@@ -169,10 +167,9 @@ func objName(g *state.Game, id state.ObjID) string {
 //   - Mode$ RevealYouChoose (Thoughtseize, Duress): the CASTER — c.Controller,
 //     not the discarding player — looks at the target's hand and chooses which
 //     card is discarded. This is a real mid-resolution ask: the effect poses a
-//     KModes decision over the DiscardValid$-filtered hand, suspends, and on
-//     re-entry discards exactly the card Ctx.Discard names (the continuation
-//     arm in rules/resolution.go set it from the recorded answer). A host
-//     that cannot ask falls back to the deterministic front-card stand-in.
+//     KModes decision over the DiscardValid$-filtered hand, answered in
+//     place via AskTape, and discards exactly the chosen card. A host that
+//     cannot ask falls back to the deterministic front-card stand-in.
 //   - Mode$ TgtChoose (Mind Rot, Faithless Looting, Thirst for Knowledge,
 //     Riddlesmith): the ordinary "discard N cards" — the DISCARDING player,
 //     p (the target, not the caster), chooses which of their own cards to
@@ -184,9 +181,8 @@ func objName(g *state.Game, id state.ObjID) string {
 //     whose eligible count is at or below NumCards$ likewise resolves
 //     deterministically with no question. Optional$ True (Mox Diamond's
 //     "you may discard a land card", "discard up to two cards") first poses
-//     a yes/no may-discard election (ResumeKind "discard_may", answered into
-//     Ctx.DiscardVote): "no" discards nothing, "yes" poses the pick with
-//     Min 1.
+//     a yes/no may-discard election (ResumeKind "discard_may"): "no"
+//     discards nothing, "yes" poses the pick with Min 1.
 //   - Mode$ RevealDiscardAll (Cabal Therapy): a FILTER, not a choice. Every
 //     card in the target's hand matching DiscardValid$ is discarded, no ask.
 //   - Mode$ Hand (Reforge the Soul, Windfall, Magus of the Wheel, Dark
@@ -195,8 +191,7 @@ func objName(g *state.Game, id state.ObjID) string {
 //     line has no choice to record). Forge's DiscardEffect HAND mode
 //     discards the ENTIRE hand and never reads NumCards$ there. The
 //     Optional$ True variant is a real may-discard election: a per-player
-//     yes/no (Ctx.DiscardVote with the per-player cursor Ctx.DiscardTarget)
-//     whose decline discards nothing.
+//     yes/no whose decline discards nothing.
 //   - Mode$ Random: CR 701.8b's random discard — the engine's own seeded RNG
 //     (h.Rand) picks NumCards$ cards out of the DiscardValid$-filtered hand
 //     without replacement. No seat is asked and no Note is recorded: the
@@ -206,9 +201,8 @@ func objName(g *state.Game, id state.ObjID) string {
 //   - Mode$ LookYouChoose / YouChoose / RevealTgtChoose: the same asking
 //     shape as RevealYouChoose — a CHOSER (the caster for Look/You; the
 //     first player target for RevealTgtChoose) names the cards out of the
-//     discarder's hand, a per-target cursor (Ctx.DiscardTarget) attaches
-//     each answer to the target that gave it, and every later target poses
-//     its own ask.
+//     discarder's hand, each answer applies to the target that gave it,
+//     and every later target poses its own ask.
 //
 // DiscardValid$ is a Forge filter spec ("Card.nonLand", "Card.NamedCard"),
 // evaluated with MatchesSpecFrom (the same resolver effDig uses for
@@ -425,61 +419,21 @@ func discardAsk(g *state.Game, c *Ctx, sa *cards.SA, eligible []state.ObjID, cho
 func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
 	riders := discardRidersOf(sa)
-	// fx42: capture the answered discard choice into a local and clear
-	// c.Discard before the target loop. The answer must stay scoped to the
-	// discard primitive that asked: a DISCARD reached below this one in the
-	// same walk (this effect's SubAbility$ chain) must pose its own ask
-	// instead of inheriting this one's answered cards. Capturing first keeps
-	// the load-bearing multi-target behaviour intact — every target of a
-	// multi-target discard sees the SAME answered list, which is exactly what
-	// the old per-target c.Discard read produced. Ctx.Discard's only reader is
-	// this primitive, so clearing here is safe.
-	answers := ([]state.ObjID)(nil)
-
-	answerTarget := int(0)
-
-	vote := string("")
-
-	answered := answers != nil
-	voted := vote != ""
-	// The UnlessType$ election's cursor: an answered "discard_unless"
-	// re-entry carries the asking target's index in Ctx.DiscardTarget, and
-	// the targets before it were fully processed on the pass that asked.
-	electedTarget := -1
 
 	// Discard-batch bracket (Mode$ DiscardedAll): one api:Discard resolution
 	// is ONE discard action, so the batch trigger fires once for the whole
-	// resolution rather than once per discarded card. The open must span a
-	// mid-resolution suspension (an answered election re-enters this same
-	// call with the answer, so the resumed pass is the SAME action), and it
-	// must close exactly once, on the pass that completes without asking.
-	// firstPass is the resumed-pass test the answered/voted/UnlessElected
-	// locals already express: only a first pass has none of them set. The
-	// deferred close is skipped while suspended, so the bracket stays open
-	// across the resume and the completing pass closes it. A host double
-	// without the bracket interface simply fires DiscardedAll per card
-	// rather than failing to compile (the mill bracket's shape), and a
-	// non-api:Discard producer (a cost or cleanup discard) never opens the
+	// resolution rather than once per discarded card. Every ask is answered
+	// in place, so the bracket opens here and closes when this call returns.
+	// A host double without the bracket interface simply fires DiscardedAll
+	// per card rather than failing to compile (the mill bracket's shape), and
+	// a non-api:Discard producer (a cost or cleanup discard) never opens the
 	// bracket, so each is its own batch-of-one exactly as before this gate.
-	firstPass := !answered && !voted
-	suspended := false
 	if b, ok := h.(interface {
 		BeginDiscardBatch()
 		EndDiscardBatch()
 	}); ok {
-		// Open only on the FIRST pass (the resumed pass is the same action);
-		// the close-defer is registered on EVERY pass, because the pass that
-		// completes the action may be a resumed one. Closing a batch that was
-		// already closed (a stray non-first entry with no open bracket) is a
-		// no-op in closeDiscardBatch's depth guard.
-		if firstPass {
-			b.BeginDiscardBatch()
-		}
-		defer func() {
-			if !suspended {
-				b.EndDiscardBatch()
-			}
-		}()
+		b.BeginDiscardBatch()
+		defer b.EndDiscardBatch()
 	}
 	mode := sa.ParamStr(cards.PKMode)
 	valid := sa.ParamStr(cards.PKDiscardValid)
@@ -491,8 +445,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 	// RevealYouChoose/LookYouChoose disclose the hand to the caster;
 	// YouChoose is the caster; RevealTgtChoose is the first target (Rakdos
 	// Augermage: the target opponent chooses out of the caster's revealed
-	// hand). A per-target cursor (answerTarget/targetIndex) keeps each
-	// acting player's answer attached to the target that gave it, so a
+	// hand). Each acting player's ask is answered in place, so a
 	// multi-target discard asks every target instead of applying target 0's
 	// answer to the rest.
 	chooseMode := mode == "RevealYouChoose" || mode == "LookYouChoose" ||
@@ -502,16 +455,6 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 		for targetIndex, t := range actingPlayers(h, c, sa) {
 			p := t
 			hand := zoneOf(g, state.ZHand, p)
-			if answered && targetIndex < answerTarget {
-				continue // fully processed before a later target's ask
-			}
-			if answered && targetIndex == answerTarget {
-				// Re-entry: the chooser's answer was recorded, so discard
-				// exactly those cards that still sit in this target's hand (a
-				// stray answer must not move an object that left meanwhile).
-				discardAnswered(h, c, riders, hand, answers, p)
-				continue
-			}
 			eligible := discardEligible(g, c, hand, valid)
 			if len(eligible) == 0 {
 				continue
@@ -519,8 +462,8 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			askMin, askMax := discardBounds(h, c, sa, len(eligible))
 			d := discardAsk(g, c, sa, eligible, chooser, askMin, askMax, targetIndex)
 			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: discard exactly
-				// what the re-entry above discards for this target.
+				// Answered in place: discard exactly the chosen cards that
+				// still sit in this target's hand.
 				discardAnswered(h, c, riders, hand, answerObjs(ans), p)
 				continue
 			}
@@ -542,47 +485,16 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 
 		switch effDiscardf9c1Codes.Code(string(mode)) {
 		case effDiscardf9c1TgtChoose:
-			// The resolution kernel's tape-served elections for this target:
-			// the locals that stand for what the "discard_may" and
-			// "discard_unless" re-entries read off Ctx.DiscardVote and
-			// Ctx.UnlessElected. A served election re-walks this target from
-			// tgtChoose, exactly as its re-entry does.
+			// The "discard_may" and "discard_unless" elections answered in
+			// place for this target: an answered election re-walks this
+			// target from tgtChoose with the answer.
 			tapeVote, tapeElected := "", ""
 		tgtChoose:
-			// Re-entry: the discarding player's choice was answered and the
-			// continuation set Ctx.Discard to the chosen object(s). Discard
-			// exactly those that sit in this target's hand (a per-hand filter
-			// keeps a stray answer from moving an object that left the hand
-			// meanwhile). The cursor keeps the answer attached to the target
-			// that gave it: earlier targets were fully processed before a later
-			// target's ask and must not be re-run, and only the cursor target
-			// consumes the answer.
-			if answered && targetIndex < answerTarget {
-				continue
-			}
-			if answered && targetIndex == answerTarget {
-				discardAnswered(h, c, riders, hand, answers, p)
-				continue
-			}
-			// The may-discard election (below) answered for this target:
-			// earlier targets were fully processed before it was posed, a
+			// The may-discard election (below) answered for this target: a
 			// "no" discards nothing for this target, and a "yes" proceeds to
 			// the card pick with the zero-card answer removed.
-			if voted && targetIndex < answerTarget {
-				continue
-			}
-			if targetIndex < electedTarget {
-				continue // fully processed before a later target's election
-			}
-			elVote := ""
-			if voted && targetIndex == answerTarget {
-				elVote = vote
-			}
-			if tapeVote != "" {
-				elVote = tapeVote
-			}
-			mayElected := elVote != ""
-			if mayElected && elVote != "yes" {
+			mayElected := tapeVote != ""
+			if mayElected && tapeVote != "yes" {
 				continue
 			}
 			// First pass: narrow the target's hand to the cards DiscardValid$
@@ -606,16 +518,10 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			// moment one unless-eligible card is in hand -- discarding the
 			// artifact and discarding the full count are answers nobody else
 			// can make, and the strict-supersets no-ask rule below would
-			// otherwise silently drop the alternative. The election's answer
-			// re-enters through the "discard_unless" resume arm; the unless
-			// arm's own multi-candidate pick re-uses the ordinary "discard"
-			// arm (Min == Max == 1). fx42 scoping: the election is consumed and
-			// cleared before any further ask this walk poses.
-			elected := string("")
-
-			if tapeElected != "" {
-				elected = tapeElected
-			}
+			// otherwise silently drop the alternative. The unless arm's own
+			// multi-candidate pick re-uses the ordinary "discard" shape
+			// (Min == Max == 1).
+			elected := tapeElected
 			unlessSpec := strings.TrimSpace(sa.ParamStr(cards.PKUnlessType))
 			if elected == "unless" && unlessSpec != "" {
 				picks := unlessTypeEligible(g, c, hand, unlessSpec)
@@ -639,8 +545,6 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 						Prompt:  "Discard one " + unlessSpec + " card instead",
 						Options: opts}
 					if ans, ok := AskTape(h, d); ok {
-						// The resolution kernel's answer in hand: the
-						// "discard" re-entry's discard for this target.
 						discardAnswered(h, c, riders, hand, answerObjs(ans), p)
 						continue
 					}
@@ -662,9 +566,8 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 						{Index: 1, Kind: "ordinary", Label: "No — discard normally", Player: p},
 					}}
 				if ans, ok := AskTape(h, d); ok {
-					// The resolution kernel's answer in hand (the
-					// "discard_unless" arm's UnlessElected): re-walk this
-					// target with the election, as its re-entry does.
+					// Answered in place: re-walk this target with the
+					// election.
 					tapeVote, tapeElected = "", "ordinary"
 					if len(ans) > 0 && ans[0].Kind == "unless" {
 						tapeElected = "unless"
@@ -707,9 +610,8 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 							{Index: 1, Kind: "no", Label: "No — don't discard", Player: p},
 						}}
 					if ans, ok := AskTape(h, d); ok {
-						// The resolution kernel's answer in hand (the
-						// "discard_may" arm's DiscardVote): re-walk this
-						// target with the election, as its re-entry does.
+						// Answered in place: re-walk this target with the
+						// election.
 						tapeVote, tapeElected = "no", ""
 						if answerYes(ans) {
 							tapeVote = "yes"
@@ -753,18 +655,15 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 				Prompt:  "Choose " + strconv.Itoa(askMin) + ".." + strconv.Itoa(askMax) + " card(s) to discard",
 				Options: opts}
 			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: discard exactly
-				// what the re-entry above discards for this target.
+				// Answered in place: discard exactly the chosen cards that
+				// still sit in this target's hand.
 				discardAnswered(h, c, riders, zoneOf(g, state.ZHand, p), answerObjs(ans), p)
 				continue
 			}
 
 			// Fuzz/no-engine host: the deterministic front-of-ELIGIBLE-hand
 			// stand-in (R-9) for the discarding player, with the Note that
-			// records why the richer path did not run. AskEmpty is
-			// unreachable here by construction (eligible nonempty and strictly
-			// greater than n above, Min == Max == n >= 1), but the shared
-			// helper owns the guard either way.
+			// records why the richer path did not run.
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "discards its first card (no engine host to ask)"})
 			for i := 0; i < askMax; i++ {
@@ -796,20 +695,8 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			// AnyNumber$, so none is read here.
 			if strings.EqualFold(sa.ParamStr(cards.PKOptional), "True") {
 				// "each player MAY discard their hand and draw N" (5 corpus
-				// lines): a real may-discard election. The answer is a yes/no per
-				// acting player, carried on Ctx.DiscardVote with the per-player
-				// cursor Ctx.DiscardTarget; a declined election discards nothing.
-				if voted && targetIndex < answerTarget {
-					continue // fully processed before a later player's ask
-				}
-				if voted && targetIndex == answerTarget {
-					if vote == "yes" {
-						for _, id := range hand {
-							discardAndRemember(h, c, riders, id, p)
-						}
-					}
-					continue
-				}
+				// lines): a real may-discard election, a yes/no per acting
+				// player answered in place; a declined election discards nothing.
 				d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 					Source: c.Source, ResumeKind: "discard_hand", ResumeSA: sa, ResumeTarget: targetIndex,
 					Prompt: "Discard your hand?",
@@ -818,8 +705,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 						{Index: 1, Kind: "no", Label: "No — keep it", Player: p},
 					}}
 				if ans, ok := AskTape(h, d); ok {
-					// The resolution kernel's answer in hand: the
-					// "discard_hand" re-entry's whole-hand discard (or decline).
+					// Answered in place: the whole-hand discard (or decline).
 					if answerYes(ans) {
 						for _, id := range hand {
 							discardAndRemember(h, c, riders, id, p)
@@ -913,8 +799,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 
 // discardAnswered discards the answered cards that still sit in hand, in
 // answer order (a stray answer must not move an object that left the hand
-// meanwhile): the one home of a "discard" answer, shared by the re-entry and
-// the resolution kernel's tape answer.
+// meanwhile): the one home of a "discard" answer.
 func discardAnswered(h Host, c *Ctx, r discardRiders, hand, answers []state.ObjID, p state.PlayerID) {
 	for _, id := range answers {
 		if containsID(hand, id) {
@@ -1188,9 +1073,8 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 	// to Optional$ by the round-2 review's Look$ task): the deciding player
 	// is asked whether to reveal before the Note goes out. The ask is the
 	// same mid-resolution vocabulary every other asking primitive uses —
-	// KChoose yes/no with a ResumeKind, the answer re-entering effReveal
-	// through rules' resumeResolution with Ctx.RevealOpt set. A host that
-	// cannot ask (an effects-package double, fuzz) keeps the pre-ask
+	// KChoose yes/no with a ResumeKind, answered in place via AskTape. A
+	// host that cannot ask (an effects-package double, fuzz) keeps the pre-ask
 	// behaviour: the mandatory reveal, as the deterministic fallback (the
 	// same R-9 degradation Scry/Surveil carry). Still unread here,
 	// deliberately: NoReveal$/NoPeek$ and RememberRevealedPlayer$ — see the
@@ -1198,34 +1082,6 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 	// PeekAndReveal arm above takes the peek window from PeekAmount$; the
 	// RevealValid$ filter below narrows the may-reveal to the matching
 	// subset for every API in this row).
-	answer := string("")
-
-	// optTarget is the Defined$ target index whose yes/no answer this is (the
-	// decision's ResumeTarget); it travels with the answer exactly as
-	// pickTarget travels with RevealPick. An answer applies to its cursor
-	// target alone and every later target poses its own ask.
-	optTarget := int(0)
-
-	// The answered hand-reveal pick (task infernaltutor1), consumed once per
-	// walk exactly as RevealOpt is: a nested Reveal-family effect below this
-	// one must pose its own ask instead of inheriting this walk's answer.
-	// Non-nil means answered (the resume arm always builds the slice, so an
-	// empty "reveal none" answer is non-nil), mirroring Ctx.Discard.
-	picks := ([]state.ObjID)(nil)
-
-	pickTarget := int(0)
-
-	// The bare-look ack (lookack): consumed once per WALK, together with its
-	// per-target cursor — the answer attaches to the exact Defined$ target
-	// that asked (the decision's ResumeTarget). Targets before the cursor
-	// were fully processed on the pass that suspended and are skipped, the
-	// cursor target emits without re-asking, and every LATER bare look in
-	// the walk poses its own ack. Consuming at walk entry (fx42) also keeps
-	// a nested bare look below this walk posing its own instead of
-	// inheriting the answer.
-	lookAck := false
-	lookAckTarget := int(0)
-
 	look := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKLook)), "True")
 	revealType := strings.TrimSpace(sa.ParamStr(cards.PKRevealType))
 	// The may-reveal ask: PeekAndReveal poses it through RevealOptional$
@@ -1259,42 +1115,14 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 		revealRef = RefOf(spec)
 	}
 	for targetIndex, t := range DefinedRef(h, c, revealRef, sa) {
-		if lookAck && targetIndex < lookAckTarget {
-			// The cursor skip: this target was fully processed (note emitted,
-			// RememberRevealed$ captured) on an earlier pass of this same
-			// resume chain, before the walk suspended on a later target's
-			// ack — re-running it would duplicate its events.
-			continue
-		}
-		if picks != nil && targetIndex < pickTarget {
-			// The pick cursor's skip: the targets before it were fully
-			// processed (their pick answered, their reveal emitted) on the pass
-			// that suspended on the cursor target's own pick; re-running them
-			// would duplicate their events and re-pose their asks.
-			continue
-		}
-		if answer != "" && targetIndex < optTarget {
-			// The optional-ask cursor's skip, the same discipline: targets
-			// before the cursor were fully processed (their yes/no answered,
-			// their reveal/decline applied) on the pass that suspended on the
-			// cursor target's own optional ask; re-running them would
-			// duplicate their events and re-pose their asks.
-			continue
-		}
-		// answerForTarget scopes the walk's single consumed RevealOpt answer to
-		// the target it was asked of. Every other target reads "" and so poses
-		// its own yes/no; without this the answer answered target 0 and then
-		// silently applied to every later target too.
-		answerForTarget := answer
-		if answer != "" && targetIndex != optTarget {
-			answerForTarget = ""
-		}
+		// answerForTarget is this target's own reveal_optional answer: every
+		// target starts unanswered and so poses its own yes/no.
+		answerForTarget := ""
 		// A pick answers the optional gate only for the target that posed it.
 		// Later Defined$ targets still need their own may-reveal choice.
-		pickForTarget := picks != nil && targetIndex == pickTarget
-		// revealTarget is where a tape-served reveal_optional answer re-walks
-		// its own target, exactly as the "reveal_optional" re-entry does for
-		// the cursor target (the answered yes may still pose the hand pick).
+		pickForTarget := false
+		// revealTarget is where an answered reveal_optional re-walks its own
+		// target (the answered yes may still pose the hand pick).
 	revealTarget:
 		if revealRef.Has(RefPlainRemembered) && !t.IsPlayer {
 			// Forge's getDefinedPlayers("Remembered") adds remembered PLAYERS
@@ -1309,8 +1137,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			// remembered halves, so a later Defined$ Player.IsRemembered
 			// chooser (Struggle's "that player exiles a card") and a
 			// RememberedPlayerCtrl/Own filter name them. It was unread here,
-			// so Struggle's opponent was never asked. Placed after the cursor
-			// skips, so a resumed walk never remembers a target twice.
+			// so Struggle's opponent was never asked.
 			rememberTarget(h, c, t)
 		}
 		p := PlayerOf(h, c, t)
@@ -1389,8 +1216,8 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 		// your hand": none or the one). Pre-fix the walk silently took
 		// pool[:n], the FRONT cards of the hand, so the chained sub read the
 		// wrong card entirely. The pick is posed as a KChoose to the pool's
-		// owner and carried back on Ctx.RevealPick, the same answer-shape the
-		// discard ask uses.
+		// owner and answered in place, the same answer-shape the discard ask
+		// uses.
 		//
 		// Not pickable, deliberately: RevealHand (the whole hand is public, no
 		// choice), Random$ (the engine picks, deterministically), a Look$
@@ -1417,72 +1244,47 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			// the answer's minimum. A hand of exactly the mandatory count (or
 			// fewer) must show all of them with no question, the same
 			// strict-supersets discipline effDiscard applies. An Optional$
-			// reveal answers its own yes/no ask FIRST (the block below); the pick
-			// then poses on that accepted resume. The answered pick suppresses
-			// that optional question only for its own target, so every later
-			// Defined$ target still receives its own may-reveal ask (fx42).
-			// A DECLINED optional (fx45) must never reach the pick: the
-			// reveal_optional resume sets answer == "no", which makes
-			// deferToOptionalAsk false, and the block below then posed a
-			// MANDATORY reveal_pick over the declined cards (measured: a
-			// two-card hand and `SP$ Reveal | Defined$ You | Optional$ True`
-			// resumed into a Min/Max 1/1 pick instead of finishing). The
-			// decline `continue` below runs after this block, so gate here.
+			// reveal answers its own yes/no ask FIRST (the block below); the
+			// pick then poses on that accepted answer's re-walk. A DECLINED
+			// optional (fx45) must never reach the pick, or a MANDATORY
+			// reveal_pick would be posed over the declined cards; the decline
+			// `continue` below runs after this block, so gate here.
 			declined := optional && answerForTarget == "no"
-			deferToOptionalAsk := optional && answerForTarget == "" && !pickForTarget
+			deferToOptionalAsk := optional && answerForTarget == ""
 			if int32(len(pool)) > minPick && !deferToOptionalAsk && !declined {
-				// The answer applies to exactly the cursor target: a pickable
-				// reveal over several Defined$ players poses one ask per target,
-				// and the re-entered walk must not apply target 0's answer to
-				// target 1's distinct hand (its ids cannot occur there, so the
-				// pool would empty and every later player would be silently
-				// skipped). Every non-cursor target poses its own ask below.
-				hasAnswer := pickForTarget
-				if !hasAnswer {
-					opts := make([]decision.Option, 0, len(pool))
-					for _, id := range pool {
-						name := "a card"
-						if o := g.Obj(id); o != nil && o.Face() != nil {
-							name = o.Face().Name
-						}
-						opts = append(opts, decision.Option{Index: len(opts), Kind: "reveal",
-							Label: "Reveal " + name, Obj: id, Player: p})
+				// Each target poses its own pick: a pickable reveal over
+				// several Defined$ players asks once per target.
+				opts := make([]decision.Option, 0, len(pool))
+				for _, id := range pool {
+					name := "a card"
+					if o := g.Obj(id); o != nil && o.Face() != nil {
+						name = o.Face().Name
 					}
-					prompt := "Choose " + strconv.Itoa(int(minPick)) + ".." + strconv.Itoa(int(maxPick)) + " card(s) to reveal"
-					if minPick == 0 {
-						prompt = "You may reveal 0.." + strconv.Itoa(int(maxPick)) + " card(s)"
-					}
-					d := &decision.Decision{Player: p, Kind: decision.KChoose,
-						Min: int(minPick), Max: int(maxPick), Source: c.Source,
-						ResumeKind: "reveal_pick", ResumeSA: sa,
-						ResumeTarget: targetIndex,
-						Prompt:       prompt,
-						Options:      opts}
-					if ans, ok := AskTape(h, d); ok {
-						// The resolution kernel's answer in hand: the same
-						// narrowing the "reveal_pick" re-entry applies below.
-						pool = revealPickSelected(pool, answerObjs(ans))
-						n = int32(len(pool))
-						pickForTarget = true
-					} else {
-					}
-
-					// No host to ask (R-9): fall through with n unchanged, so
-					// the reveal takes the same first maxPick cards the pre-pick
-					// build did -- the reveal family's existing no-host
-					// convention (the Optional$ ask falls through the same way),
-					// deterministic run to run and byte-identical for fuzz.
-				} else {
-					// The answer: reveal exactly the chosen cards, in answer order,
-					// filtered against the pool the re-entry rebuilt (a card that left
-					// the hand meanwhile cannot be revealed). Replacing the pool --
-					// rather than the emit below -- keeps the Note/RememberRevealed$
-					// payload in one place. minPick/maxPick are deliberately not
-					// re-enforced here: the resume rebuilt the pool from live state,
-					// and a client's validated answer is trusted.
-					pool = revealPickSelected(pool, picks)
-					n = int32(len(pool))
+					opts = append(opts, decision.Option{Index: len(opts), Kind: "reveal",
+						Label: "Reveal " + name, Obj: id, Player: p})
 				}
+				prompt := "Choose " + strconv.Itoa(int(minPick)) + ".." + strconv.Itoa(int(maxPick)) + " card(s) to reveal"
+				if minPick == 0 {
+					prompt = "You may reveal 0.." + strconv.Itoa(int(maxPick)) + " card(s)"
+				}
+				d := &decision.Decision{Player: p, Kind: decision.KChoose,
+					Min: int(minPick), Max: int(maxPick), Source: c.Source,
+					ResumeKind: "reveal_pick", ResumeSA: sa,
+					ResumeTarget: targetIndex,
+					Prompt:       prompt,
+					Options:      opts}
+				if ans, ok := AskTape(h, d); ok {
+					// Answered in place: reveal exactly the chosen cards, in
+					// answer order.
+					pool = revealPickSelected(pool, answerObjs(ans))
+					n = int32(len(pool))
+					pickForTarget = true
+				}
+				// No host to ask (R-9): fall through with n unchanged, so
+				// the reveal takes the same first maxPick cards the pre-pick
+				// build did -- the reveal family's existing no-host
+				// convention (the Optional$ ask falls through the same way),
+				// deterministic run to run and byte-identical for fuzz.
 			}
 		}
 		if random && len(pool) > 0 {
@@ -1523,23 +1325,12 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			// The look is also the one information transfer with no decision
 			// attached, which a client's auto-passing priority streams past
 			// unread — the pacing defect the reporter hit. The bare look now
-			// gates on the look_ack ack FIRST (ask-first: ask → suspend → the
-			// resume arm sets Ctx.LookAck → the re-entered walk lands the note
-			// below the modal). A Random$ narrowing re-derives from the seeded
-			// generator on every pass, so a random bare look would show the
-			// resume a DIFFERENT card than the prompt named — it keeps the
-			// ungated shape (measured at the corpus pin: ZERO Reveal-family
-			// lines combine Random$ with NoReveal$/Look$; the one Random$
-			// carrier, Urza's Bauble, is the public-reveal path). The ack is
-			// addressed by the per-target cursor (LookAckTarget, the decision's
-			// ResumeTarget): the cursor target emits without re-asking, and a
-			// later bare look in the same walk poses its own ack — consuming
-			// the flag at the FIRST bare-look target instead would leave the
-			// later target's ack unanswered and loop forever.
-			if lookAck && targetIndex == lookAckTarget {
-				// The answered target: its ack's resume pass re-entered here, so
-				// fall through to the emit without re-asking.
-			} else if !random {
+			// gates on the look_ack ack FIRST, then lands the note. A Random$
+			// bare look keeps the ungated shape (measured at the corpus pin:
+			// ZERO Reveal-family lines combine Random$ with NoReveal$/Look$;
+			// the one Random$ carrier, Urza's Bauble, is the public-reveal
+			// path). Every bare-look target in the walk poses its own ack.
+			if !random {
 				poseLookAck(h, c, sa, c.Controller, p, zone, pool[:n], targetIndex)
 			}
 			emitLook(h, []state.PlayerID{c.Controller}, zone, pool[:n], "")
@@ -1610,9 +1401,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 				Prompt:       prompt,
 				Options:      options}
 			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand (the
-				// "reveal_optional" arm's RevealOpt): re-walk this target
-				// with it, as the cursor target's re-entry does.
+				// Answered in place: re-walk this target with the answer.
 				answerForTarget = "no"
 				if answerYes(ans) {
 					answerForTarget = "yes"
@@ -1639,17 +1428,13 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			// of the same walk the looker's own card drives.
 			//
 			// The mandatory look is gated on the look_ack ack (lookack) like
-			// the NoReveal$ arm above — ask-first, the note lands on the
-			// resume pass, addressed by the same per-target cursor. The
+			// the NoReveal$ arm above — ask-first, then the note. The
 			// Look$+Optional$ combination keeps the reveal_optional ask ALONE:
 			// the player who just answered "yes — look" has consented to the
 			// follow-through, so no second gate (the brief's scope boundary;
 			// measured at the corpus pin: zero corpus lines combine Look$ with
 			// Optional$/RevealOptional$).
-			if lookAck && targetIndex == lookAckTarget {
-				// The answered target: its ack's resume pass re-entered here, so
-				// fall through to the emit without re-asking.
-			} else if !optional && !random {
+			if !optional && !random {
 				// The same Random$ re-derivation guard the NoReveal$ arm
 				// carries (measured: zero corpus lines combine Random$ with
 				// Look$, so the guard is dormant groundwork).
@@ -1677,8 +1462,8 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			// RememberRevealed$ (task fb-3f1cc033): the revealed cards join
 			// the walk's Remembered set, where a chained ConditionDefined$
 			// Remembered gate (Delver's transform) reads them. Fresh backing
-			// array: on an ability resume Ctx.Remembered aliases the stack
-			// object's own Remembered slice, and appending in place would
+			// array: Ctx.Remembered can alias the stack object's own
+			// Remembered slice, and appending in place would
 			// write shared state without an event. Measured at the corpus
 			// pin: of the 67 PeekAndReveal+RememberRevealed SVar lines, 43
 			// have downstream subs that read Remembered — all of them
@@ -1707,8 +1492,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 
 // revealPickSelected narrows a hand-reveal pool to the answered picks, in
 // answer order: a card that left the pool meanwhile cannot be revealed. The
-// one home of the "reveal_pick" answer, shared by the re-entry and the
-// resolution kernel's tape answer.
+// one home of the "reveal_pick" answer.
 func revealPickSelected(pool, picks []state.ObjID) []state.ObjID {
 	selected := make([]state.ObjID, 0, len(picks))
 	for _, id := range picks {
@@ -1744,30 +1528,16 @@ func revealPickSelected(pool, picks []state.ObjID) []state.ObjID {
 // looking at and reordering their own top cards.
 func effRearrangeTopOfLibrary(h Host, c *Ctx, sa *cards.SA) {
 	// MayShuffle$ True (Ponder's "You may shuffle."): after the arrange is
-	// applied, an optional shuffle. The ask is posed on the arrange RE-ENTRY
-	// pass only -- the arrangement has been applied by then, so the shuffle
-	// question asks about a settled library. The answer flows back through
-	// the "arrange_mayshuffle" resume arm, which emits the Shuffle event
-	// itself and re-enters this effect with both Arrange and MayShuffle set;
-	// the MayShuffle done-marker (consumed and cleared here, fx42 scoping)
-	// keeps that third pass from posing the ask again.
+	// applied, an optional shuffle. The ask is posed only once the arrange
+	// answer is applied, so the shuffle question asks about a settled
+	// library.
 	mayShuffle := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKMayShuffle)), "True")
-	// Re-entry after rules' handleArrange applied the answered KArrange starts
-	// at the next target. If MayShuffle is present, that answer belongs to the
-	// target at LibraryTarget; otherwise the current target still needs its
-	// post-arrange shuffle election. In both cases the walk then continues to
-	// later libraries.
-	start := 0
-
 	n := Num(h, c, sa, "NumCards", 1)
 	if n < 0 {
 		n = 0
 	}
 	g := h.Game()
 	for targetIndex, t := range actingPlayers(h, c, sa) {
-		if targetIndex < start {
-			continue
-		}
 		c.Search.Target = targetIndex
 		p := t
 		lib := zoneOf(g, state.ZLibrary, p)
@@ -1795,13 +1565,12 @@ func effRearrangeTopOfLibrary(h Host, c *Ctx, sa *cards.SA) {
 		// The shared ask boundary (effects.Ask) refuses to post a KArrange
 		// whose only legal answer is the empty one: with an empty library (or
 		// NumCards$ 0) k is 0, Min == Max == 0 and there are no options -- the
-		// exact wedge shape. AskEmpty (and AskNoHost alike) resolves through
-		// the stand-in below: the order is (re)set unchanged and the
-		// resolution completes.
+		// exact wedge shape. An unanswered ask resolves through the stand-in
+		// below: the order is (re)set unchanged and the resolution completes.
 		if _, ok := AskTapeIntent(h, d); ok {
 			// The resolution kernel served the answer and its record applied
 			// the arrangement (the KArrange answer record handleArrange
-			// shares); the re-entry's MayShuffle$ election follows here.
+			// shares); the MayShuffle$ election follows here.
 			if mayShuffle {
 				rearrangeMayShuffleTape(h, c, sa, p, targetIndex)
 			}
@@ -1819,8 +1588,7 @@ func effRearrangeTopOfLibrary(h Host, c *Ctx, sa *cards.SA) {
 
 // rearrangeMayShuffleTape is effRearrangeTopOfLibrary's MayShuffle$ election
 // on the resolution kernel's path, after the arrange answer for target
-// index i was served: the same ask the arrange re-entry poses, answered from
-// the tape (or, with the tape exhausted, posed and unwound).
+// index i was served, answered in place via AskTape (no answer: no shuffle).
 func rearrangeMayShuffleTape(h Host, c *Ctx, sa *cards.SA, p state.PlayerID, i int) {
 	d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 		Source: c.Source, ResumeKind: "arrange_mayshuffle", ResumeSA: sa,
@@ -1845,9 +1613,7 @@ func rearrangeMayShuffleTape(h Host, c *Ctx, sa *cards.SA, p state.PlayerID, i i
 // The look is recorded as a Secret Note (the player alone may know what sat
 // on top), then the answer is applied by rules' handleArrange, which routes
 // the unchosen pile B to the destination named by the shared Kind
-// ("bottom"). Re-entry after handleArrange set Ctx.Arrange must only let
-// the chained SubAbility$ run, never re-ask -- the same done-marker
-// discipline effRearrangeTopOfLibrary uses. The no-host stand-in (R-9)
+// ("bottom"). The no-host stand-in (R-9)
 // keeps every card on top in its existing order (pile B empty), which is
 // narrower than the card text but deterministic.
 func effScry(h Host, c *Ctx, sa *cards.SA) {
@@ -1867,8 +1633,7 @@ func effScry(h Host, c *Ctx, sa *cards.SA) {
 // CR 701.42), and the rest back on top in the order the player picks. It is
 // the KArrange ask with Min 0, Max N and Option.Kind "graveyard".
 //
-// Re-entry and the no-host stand-in are exactly effScry's (the same shared
-// helper): the stand-in puts nothing in the graveyard, which is narrower
+// The no-host stand-in is exactly effScry's (the same shared helper): the stand-in puts nothing in the graveyard, which is narrower
 // than the card text but deterministic.
 //
 // stat:SurveilNum raises the count ("You may look at an additional two
@@ -1877,61 +1642,41 @@ func effScry(h Host, c *Ctx, sa *cards.SA) {
 // activeStatics collector), and each Optional$ static's "may" is an
 // independent election (surveilnum-r2): the ask offers ONE option per
 // optional static and the player accepts any subset, never one
-// all-or-nothing yes/no over the summed entries. The answered accepted
-// ordinals ride Ctx.SurveilLookOpt (a CSV done-marker) and are consumed and
-// cleared here (fx42 scoping), so a nested Surveil poses its own ask; the
-// answer applies to the ASKING player only -- the first acting player
+// all-or-nothing yes/no over the summed entries. The election is answered
+// in place via AskTape; the answer applies to the ASKING player only -- the first acting player
 // carrying optionals, even when the Surveil resolves for several players
 // later libraries still arrange, but keep their own base count -- and anything
 // else (the no-host R-9 decline included) keeps the base count.
 func effSurveil(h Host, c *Ctx, sa *cards.SA) {
 	n := Num(h, c, sa, "Amount", 1)
-	// The arrange re-entry pass (ctx.Arrange set by rules' handleArrange) must
-	// go straight to effLookAndArrange's done-marker return: each resume
-	// builds a fresh Ctx (fx42), so on that pass SurveilLookOpt is empty again
-	// and re-posing the election here would ping-pong election -> arrange ->
-	// election forever (the may-look answer belongs to the pass that posed
-	// the KArrange, which already priced the extra cards into its window).
-	arranging := false
-	ans := string("")
-
-	if ans == "" && !arranging {
-		// First pass: pose the election once, for the FIRST acting player
-		// carrying optionals. The answer belongs to that player and is carried
-		// through extraOf below; later libraries keep their own base count.
-		if players := actingPlayers(h, c, sa); len(players) > 0 {
-			p := players[0]
-			if _, opts := h.SurveilLookExtra(p); len(opts) > 0 {
-				d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 0, Max: len(opts),
-					Source: c.Source, ResumeKind: "surveil_look_optional", ResumeSA: sa,
-					Prompt: "You may look at additional card(s) each time you surveil"}
-				for i, v := range opts {
-					d.Options = append(d.Options, decision.Option{Index: i, Kind: "static",
-						Label:  "Look at " + strconv.Itoa(int(v)) + " additional card(s) each time you surveil",
-						Player: p})
-				}
-				// AskAsked suspends; the answer re-enters with Ctx.SurveilLookOpt
-				// carrying the accepted ordinals. A no-host (fuzz/effects-test
-				// double) falls through to the mandatory-only surveil below:
-				// declining the ELECTION must not drop the base Surveil, whose
-				// own no-host path inside effLookAndArrange applies the standing
-				// LibraryOrder stand-in (R-9). A real host's decline re-enters
-				// with the "no" marker and reaches the same fall-through through
-				// the ans != "" gate. The resolution kernel's tape answer is
-				// that same marker, read here and carried on.
-				if picks, ok := AskTape(h, d); ok {
-					ans = SurveilLookOptAnswer(picks)
-				} else {
-				}
-
+	ans := ""
+	// Pose the election once, for the FIRST acting player carrying
+	// optionals. The answer belongs to that player and is carried through
+	// extraOf below; later libraries keep their own base count.
+	if players := actingPlayers(h, c, sa); len(players) > 0 {
+		p := players[0]
+		if _, opts := h.SurveilLookExtra(p); len(opts) > 0 {
+			d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 0, Max: len(opts),
+				Source: c.Source, ResumeKind: "surveil_look_optional", ResumeSA: sa,
+				Prompt: "You may look at additional card(s) each time you surveil"}
+			for i, v := range opts {
+				d.Options = append(d.Options, decision.Option{Index: i, Kind: "static",
+					Label:  "Look at " + strconv.Itoa(int(v)) + " additional card(s) each time you surveil",
+					Player: p})
+			}
+			// Answered in place: the accepted ordinals as a CSV marker (or
+			// "no"). With no answer (fuzz/effects-test double) the surveil
+			// falls through mandatory-only: declining the ELECTION must not
+			// drop the base Surveil, whose own no-host path inside
+			// effLookAndArrange applies the standing LibraryOrder stand-in
+			// (R-9).
+			if picks, ok := AskTape(h, d); ok {
+				ans = SurveilLookOptAnswer(picks)
 			}
 		}
 	}
 	// accepted holds the election's answered ordinals, indexed into the
-	// deterministic optionals list the asking player's read returns. It is
-	// derived on every pass (the answer re-enters with a fresh Ctx carrying
-	// only the CSV marker); the read is deterministic, so the ordinals land
-	// on the same statics that were offered.
+	// deterministic optionals list the asking player's read returns.
 	accepted := map[int]bool{}
 	if ans != "" && ans != "no" {
 		for tok := range strings.SplitSeq(ans, ",") {
@@ -1941,7 +1686,7 @@ func effSurveil(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	// surveilAsker is the player the election belongs to: the first acting
-	// player carrying optionals, re-derived the same way on every pass. The
+	// player carrying optionals, re-derived the same way. The
 	// accepted extras are applied to that player ONLY -- a multi-player
 	// Surveil's other libraries keep their base count.
 	surveilAsker := func() (state.PlayerID, bool) {
@@ -1972,8 +1717,7 @@ func effSurveil(h Host, c *Ctx, sa *cards.SA) {
 
 // SurveilLookOptAnswer is the "surveil_look_optional" answer marker
 // effSurveil reads: the accepted static ordinals as a CSV, or "no" for the
-// empty answer (the real decline of every static). One home for rules'
-// resume arm and the resolution kernel's tape answer.
+// empty answer (the real decline of every static).
 func SurveilLookOptAnswer(chosen []decision.Option) string {
 	if len(chosen) == 0 {
 		return "no"
@@ -2003,49 +1747,27 @@ func SurveilLookOptAnswer(chosen []decision.Option) string {
 // so effects emits no Scry record of its own here. The marker is emitted
 // INSIDE the per-player loop,
 // at the point that player's arrangement is actually performed, NOT for
-// every defined target up front. A suspended player's re-entry
-// (Ctx.Arrange set) skips the completed target, so its marker is not
-// re-emitted; the no-host stand-in and continuation passes each record only
-// the library whose arrangement they reach.
+// every defined target up front; the no-host stand-in records only the
+// library whose arrangement it reaches.
 func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string, extraOf func(state.PlayerID) int32, markSurveil bool) {
-	// Re-entry after rules' handleArrange resumes with the next library. The
-	// cursor is shared with RearrangeTopOfLibrary, so every Defined$/targeted
-	// Scry or Surveil library gets its own ask.
-	start := 0
-
 	if n < 0 {
 		n = 0
 	}
 	g := h.Game()
 	for targetIndex, t := range actingPlayers(h, c, sa) {
-		if targetIndex < start {
-			continue
-		}
 		c.Search.Target = targetIndex
 		p := t
 		if !markSurveil && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
-			opt := string("")
-
-			if opt == "" {
-				d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
-					Source: c.Source, ResumeKind: "scry_optional", ResumeSA: sa, ResumeTarget: targetIndex,
-					Prompt: "Scry?", Options: []decision.Option{
-						{Index: 0, Kind: "yes", Label: "Yes", Player: p},
-						{Index: 1, Kind: "no", Label: "No", Player: p},
-					}}
-				if ans, ok := AskTape(h, d); ok {
-					// The resolution kernel's answer in hand (the
-					// "scry_optional" arm's ScryOpt): a decline skips this
-					// library, a yes scries it now.
-					if len(ans) == 0 || ans[0].Kind != "yes" {
-						continue
-					}
-				} else {
-					// No answer served: an optional election is declined, never
-					// treated as consent.
-					continue
-				}
-			} else if opt != "yes" {
+			d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
+				Source: c.Source, ResumeKind: "scry_optional", ResumeSA: sa, ResumeTarget: targetIndex,
+				Prompt: "Scry?", Options: []decision.Option{
+					{Index: 0, Kind: "yes", Label: "Yes", Player: p},
+					{Index: 1, Kind: "no", Label: "No", Player: p},
+				}}
+			// Answered in place: a decline skips this library, a yes scries
+			// it now. No answer served: an optional election is declined,
+			// never treated as consent.
+			if ans, ok := AskTape(h, d); !ok || len(ans) == 0 || ans[0].Kind != "yes" {
 				continue
 			}
 		}
@@ -2059,10 +1781,7 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 		}
 		if verb == "Scry" {
 			// The order choice parks the proposal before inspecting the library.
-			// On re-entry consume its result once rather than replacing it again.
-			proceed := true
-
-			var pending bool
+			var proceed, pending bool
 			k, proceed, pending = h.Scry(p, c.Source, k, sa, targetIndex)
 			if pending {
 				return
@@ -2099,9 +1818,9 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 		// The shared ask boundary (effects.Ask) refuses to post a KArrange
 		// whose only legal answer is the empty one: with an empty library (or
 		// ScryNum$/SurveilNum$ 0) k is 0, Min 0 / Max 0 and there are no
-		// options -- the exact wedge shape. AskEmpty (and AskNoHost alike)
-		// resolves through the stand-in below: every zero cards keep their
-		// place and the resolution completes.
+		// options -- the exact wedge shape. An unanswered ask resolves
+		// through the stand-in below: every zero cards keep their place and
+		// the resolution completes.
 		if _, ok := AskTapeIntent(h, d); ok {
 			// The resolution kernel served the answer and its record applied
 			// it (the KArrange answer record handleArrange shares): on to
@@ -2152,7 +1871,6 @@ func destinationPhrase(kind string) string {
 // the rest on the bottom in the order they chose. Exile provenance is carried
 // by MoveZone, so a later Play resolves Defined$ ExiledWith by identity.
 func effHideaway(h Host, c *Ctx, sa *cards.SA) {
-
 	g := h.Game()
 
 	n := int(Num(h, c, sa, "Amount", 4))
@@ -2173,8 +1891,7 @@ func effHideaway(h Host, c *Ctx, sa *cards.SA) {
 		d.Options = append(d.Options, decision.Option{Index: i, Kind: "hideaway", Label: objName(g, id), Obj: id, Player: c.Controller})
 	}
 	if ans, ok := AskTape(h, d); ok {
-		// The resolution kernel's answer in hand: the "hideaway_pick"
-		// re-entry's exile and bottom arrange.
+		// Answered in place: exile the pick, then arrange the rest.
 		id := state.ObjID(0)
 		if len(ans) == 1 {
 			id = ans[0].Obj
@@ -2192,8 +1909,7 @@ func effHideaway(h Host, c *Ctx, sa *cards.SA) {
 // hideawayPicked exiles the answered Hideaway card face down (validated
 // against the library: a card that left meanwhile is not moved, and nothing
 // follows) and then arranges the rest on the bottom. The one home of the
-// "hideaway_pick" answer, shared by the re-entry and the resolution
-// kernel's tape answer. Moving the card first leaves precisely the remaining
+// "hideaway_pick" answer. Moving the card first leaves precisely the remaining
 // cards at the top of the library for the KArrange handler.
 func hideawayPicked(h Host, c *Ctx, sa *cards.SA, id state.ObjID) {
 	lib := zoneOf(h.Game(), state.ZLibrary, c.Controller)
@@ -2225,8 +1941,7 @@ func hideawayBottom(h Host, c *Ctx, sa *cards.SA) {
 	}
 	if _, ok := AskTapeIntent(h, d); ok {
 		// The resolution kernel served the order and its record (the
-		// KArrange answer record's hideaway_bottom) applied it: done, as the
-		// "hideaway_arrange" re-entry is.
+		// KArrange answer record's hideaway_bottom) applied it: done.
 		return
 	}
 	newLib := append(append([]state.ObjID(nil), lib[n:]...), lib[:n]...)
@@ -2335,18 +2050,14 @@ func effNameCard(h Host, c *Ctx, sa *cards.SA) {
 			Source: c.Source, ResumeKind: "name", ResumeSA: sa, Prompt: "Choose a card name"}
 		d.Options = NameOptions(names, c.Controller)
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the name rules'
-			// resumeResolution binds from the "name" answer (the chosen
-			// option's Label; Min == Max == 1), which the rest of the chain
-			// reads off Ctx.NameChoice exactly as on the re-entry.
+			// Answered in place: the chosen option's Label (Min == Max ==
+			// 1), which the rest of the chain reads off Ctx.NameChoice.
 			if len(ans) == 1 {
 				c.NameChoice = ans[0].Label
 			}
 		} else {
-
 			c.NameChoice = names[0]
 		}
-
 	}
 	h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "name", Text: c.NameChoice})
 }

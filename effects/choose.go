@@ -17,19 +17,15 @@ import (
 // plan ruling R-6) -- these do nothing. Without one -- a script that
 // uses them at RESOLUTION time -- ChooseType poses a real KChoose ask over
 // its Type$ CATEGORY's option list (task ct1; effects/type_choices.go is the
-// one home for the non-creature lists, and the suspension re-enters through
-// rules' "choosetype" resume arm and Ctx.ChosenType) and ChooseColor poses
-// a real KChoose ask over the WUBRG colour list (task
-// cli-20260923T060000Z-choose-color; the suspension re-enters through
-// rules' "choosecolor" resume arm and Ctx.ChosenColor), each falling back
-// to its deterministic pick only when the host cannot ask, the option list
-// is empty, or the SA carries a list shape this build cannot ask honestly.
-// ChooseNumber likewise poses a real KChoose over its number list (task
-// cli-20260923T060000Z-choose-number; the suspension re-enters through
-// rules' "choosenumber" resume arm and Ctx.ChosenNumberPick/
-// ChosenNumberAnswered), falling back to the deterministic 0 only when the
-// host cannot ask or it is the as-enters ENTRY-choice body (the entry
-// machinery already asked).
+// one home for the non-creature lists) and ChooseColor poses a real KChoose
+// ask over the WUBRG colour list (task cli-20260923T060000Z-choose-color),
+// each answered in place via AskTape and falling back to its deterministic
+// pick only when the host cannot ask, the option list is empty, or the SA
+// carries a list shape this build cannot ask honestly. ChooseNumber likewise
+// poses a real KChoose over its number list (task
+// cli-20260923T060000Z-choose-number), falling back to the deterministic 0
+// only when the host cannot ask or it is the as-enters ENTRY-choice body (the
+// entry machinery already asked).
 func init() {
 	Register("ChooseType", effChooseType)
 	Register("ChooseNumber", effChooseNumber)
@@ -45,24 +41,14 @@ func effChooseEvenOdd(h Host, c *Ctx, sa *cards.SA) {
 		c.ETB.EvenOddRecorded = false
 		return
 	}
-	if answer := string(""); answer == "odd" || answer == "even" {
-
-		h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: answer})
-		return
-	}
 	d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 		ResumeKind: "chooseevenodd", ResumeSA: sa, Prompt: "Choose odd or even", Source: c.Source,
 		Options: []decision.Option{{Index: 0, Kind: "odd", Label: "odd"}, {Index: 1, Kind: "even", Label: "even"}}}
-	if ans, ok := AskTape(h, d); ok {
-		// The resolution kernel's answer in hand: the Choose event the
-		// "chooseevenodd" resume arm's re-entry emits.
-		if len(ans) > 0 && (ans[0].Label == "odd" || ans[0].Label == "even") {
-			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: ans[0].Label})
-			return
-		}
-	} else {
+	if ans, ok := AskTape(h, d); ok && len(ans) > 0 && (ans[0].Label == "odd" || ans[0].Label == "even") {
+		// Answered in place: record the chosen quality.
+		h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: ans[0].Label})
+		return
 	}
-
 	h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: "odd"})
 }
 
@@ -75,10 +61,8 @@ func effChooseEvenOdd(h Host, c *Ctx, sa *cards.SA) {
 // Any OTHER invocation treats a ChosenColor already on the source as STALE
 // state -- an earlier choice's answer (a previous ChooseColor SA in the same
 // resolution, or the entry choice an ability now re-asks) -- not this ask's
-// own answer, and asks anyway. On the re-entry after its own mid-resolution
-// ask was answered it emits the one Choose event the fallback emits, with
-// the answered colour's WUBRG letter (Ctx.ChosenColor, consumed and cleared
-// -- the fx42 scoping convention). On the first pass it poses a real KChoose
+// own answer, and asks anyway; an answered ask emits the one Choose event the
+// fallback emits, with the answered colour's WUBRG letter. It poses a real KChoose
 // over the chooseColorOptions list to the Defined$ player when two or more
 // colours are offerable, so the chooser picks; with zero or one offerable
 // colour the choice is forced (or empty) and the single legal answer equals
@@ -117,18 +101,6 @@ func effChooseColor(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "color", Text: string(colourLetter(fallback))})
 		return
 	}
-	if answered := string(""); answered != "" {
-
-		letter := colourLetter(answered)
-		if !chooseColorOffers(opts, letter) {
-			letter = 'W'
-			if len(opts) > 0 {
-				letter = colourLetter(opts[0].Label)
-			}
-		}
-		h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "color", Text: string(letter)})
-		return
-	}
 	if exotic != "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "ChooseColor " + exotic + " is not a shape this engine can ask; the choice falls back to the first colour of the restricted list"})
@@ -142,8 +114,8 @@ func effChooseColor(h Host, c *Ctx, sa *cards.SA) {
 			ResumeKind: "choosecolor", ResumeSA: sa, Prompt: "Choose a color", Source: c.Source}
 		d.Options = opts
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the same Choose event
-			// the "choosecolor" resume arm's re-entry emits.
+			// Answered in place: the chosen colour's letter (an off-list
+			// answer falls back to the first offered colour).
 			letter := colourLetter(ans[0].Label)
 			if !chooseColorOffers(opts, letter) {
 				letter = colourLetter(opts[0].Label)
@@ -151,7 +123,6 @@ func effChooseColor(h Host, c *Ctx, sa *cards.SA) {
 			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "color", Text: string(letter)})
 			return
 		}
-
 	}
 	fallback := "W"
 	if len(opts) > 0 {
@@ -264,10 +235,8 @@ func chooseColorOffers(opts []decision.Option, l byte) bool {
 // body runs at the re-emitted move, so no second ask is posed. Any OTHER
 // invocation poses a real mid-resolution KChoose over the number list
 // (NumberChoices, the one home) to the Defined$ player, so the chooser picks;
-// on the re-entry after its own ask was answered it emits the one Choose
-// event the fallback emits, with the answered number (Ctx.ChosenNumberPick
-// plus the ChosenNumberAnswered marker, consumed and cleared -- the fx42
-// scoping convention). The option list and prompt are chooseNumberAsk's
+// an answered ask emits the one Choose event the fallback emits, with the
+// answered number. The option list and prompt are chooseNumberAsk's
 // (effects/number_choices.go, the one home): the card's own Max$ bound, Min$
 // floor and ListTitle$ prompt, resolved against the current resolution
 // context; a bound this context cannot honour keeps the loud fail-closed
@@ -286,8 +255,8 @@ func chooseColorOffers(opts []decision.Option, l byte) bool {
 func effChooseNumber(h Host, c *Ctx, sa *cards.SA) {
 	if c.ETB.NumberRecorded {
 		// The as-enters ENTRY-choice body: resumeETBEntry already recorded
-		// the answer on the object, so this pass emits nothing (the fx42
-		// consume-and-clear).
+		// the answer on the object, so this pass emits nothing (the flag is
+		// consumed and cleared).
 		c.ETB.NumberRecorded = false
 		return
 	}
@@ -337,9 +306,8 @@ func effChooseNumber(h Host, c *Ctx, sa *cards.SA) {
 			ResumeKind: "choosenumber", ResumeSA: sa, Prompt: prompt, Source: c.Source}
 		d.Options = opts
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the Choose event the
-			// "choosenumber" resume arm's re-entry emits (a malformed empty
-			// answer keeps the arm's 0).
+			// Answered in place: record the chosen number (a malformed empty
+			// answer keeps 0).
 			n := int32(0)
 			if len(ans) > 0 {
 				n = int32(ans[0].Amount)
@@ -347,7 +315,6 @@ func effChooseNumber(h Host, c *Ctx, sa *cards.SA) {
 			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "number", Amount: n})
 			return
 		}
-
 	}
 	// The no-ask fallback: the deterministic first legal value of the list the
 	// ask derived — for the historical fixed list and for every measured
@@ -373,12 +340,10 @@ func effChooseNumber(h Host, c *Ctx, sa *cards.SA) {
 // Defined$ player-selector grammar, which already understands TargetedAndYou
 // (controller plus the resolution's targets), so this path adds no second
 // Defined$ resolution. The choosers are asked in that deterministic APNAP
-// order and the answers accumulated exactly as effPlayerVote rides its ballot:
-// the answered pick is appended on each re-entry and the next chooser asked; a
+// order, each answered in place via AskTape, and the picks accumulated; a
 // host that cannot ask (R-9) takes the deterministic first legal value so the
-// election still completes. The accumulated numbers ride the decision's
-// ResumeNumberPicks (the numeric sibling of ResumeChoices) and the asked
-// chooser's index its ResumeTarget.
+// election still completes. The asked chooser's index rides the decision's
+// ResumeTarget.
 //
 // SECRECY: no per-chooser event is emitted while the asks are posed, so a
 // Secretly$ election exposes no individual pick before the reveal. On the last
@@ -409,20 +374,17 @@ func effChooseNumberElection(h Host, c *Ctx, sa *cards.SA, matched, unmatched st
 		effChooseNumberElectionBranch(h, c, unmatched)
 		return
 	}
-	picks := append([]int32(nil), ([]int32)(nil)...)
-	i := int(0)
-
-	for ; i < len(choosers); i++ {
+	var picks []int32
+	for i := 0; i < len(choosers); i++ {
 		d := &decision.Decision{Player: choosers[i], Kind: decision.KChoose, Min: 1, Max: 1,
 			ResumeKind: "choosenumbermulti", ResumeSA: sa, ResumeTarget: i,
 			Prompt: prompt, Source: c.Source}
 		d.Options = opts
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the pick the
-			// "choosenumbermulti" arm carries (a malformed empty answer keeps
-			// its 0), then the next chooser. The legacy re-entry re-runs the
-			// election from its first line, so its Defined$ degrade Note is
-			// emitted again before every answered chooser; so here.
+			// Answered in place: the pick (a malformed empty answer keeps
+			// 0), then the next chooser. The Defined$ degrade Note is
+			// emitted again after every answered chooser (the recorded
+			// event stream depends on it).
 			pick := int32(0)
 			if len(ans) > 0 {
 				pick = int32(ans[0].Amount)
@@ -505,10 +467,9 @@ func formatNumberPicks(picks []int32) string {
 }
 
 // effChooseType records a type choice. With the source already carrying a
-// ChosenType it is a no-op (the cast-time ask pre-recorded it); on the
-// re-entry after its own ask was answered it emits exactly the Choose event
-// the fallback emits, with the answered type (Ctx.ChosenType, consumed and
-// cleared -- fx42). On the first pass it poses a real KChoose ask over the
+// ChosenType it is a no-op (the cast-time ask pre-recorded it); an answered
+// ask emits exactly the Choose event the fallback emits, with the answered
+// type. It poses a real KChoose ask over the
 // option list its Type$ CATEGORY ranges over when two or more options are
 // offerable, so the chooser picks; with zero or one offerable option the
 // choice is forced (or empty) and the single legal answer equals the
@@ -531,11 +492,6 @@ func effChooseType(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	cat := strings.TrimSpace(sa.ParamStr(cards.PKType))
-	if answered := string(""); answered != "" {
-
-		h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: answered})
-		return
-	}
 	chooser := c.Controller
 	if ts := Defined(h, c, sa); len(ts) > 0 && ts[0].IsPlayer {
 		chooser = ts[0].Player
@@ -562,16 +518,11 @@ func effChooseType(h Host, c *Ctx, sa *cards.SA) {
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "type", Label: label})
 	}
 	if len(d.Options) > 1 {
-		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the Choose event the
-			// "choosetype" resume arm's re-entry emits.
-			if len(ans) > 0 && ans[0].Label != "" {
-				h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: ans[0].Label})
-				return
-			}
-		} else {
+		if ans, ok := AskTape(h, d); ok && len(ans) > 0 && ans[0].Label != "" {
+			// Answered in place: record the chosen type.
+			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: ans[0].Label})
+			return
 		}
-
 	}
 	// The no-ask fallback. A category with an option list records that list's
 	// deterministic first entry; a category whose list is empty (an

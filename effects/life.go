@@ -52,19 +52,10 @@ func effExchangeLife(h Host, c *Ctx, sa *cards.SA) {
 	}
 	oldA, oldB := h.Game().Players[a].Life, h.Game().Players[b].Life
 	if sa.ParamStr(cards.PKRememberOwnLoss) == "True" || sa.ParamStr(cards.PKRememberDifference) == "True" {
-		// Lazily allocate the chain's shared ExchangeMemory (and re-publish it
-		// through the seam, the way effFlipCoin publishes a lazily allocated
-		// FlipMemory) so an ask this exchange's own walk poses LATER — a
-		// replacement body's draw parking a Dredge ask — captures the pointer
-		// onto its resume point, and the SubAbility$ continuation a resume
-		// rebuilds still shares this same memory.
-		m := c.ExchangeMemory
-		if m == nil {
-			m = &ExchangeMemory{Bound: true}
-			c.ExchangeMemory = m
-			if emh, ok := h.(exchangeMemoryHost); ok {
-				emh.SetResolutionExchangeMemory(m)
-			}
+		// Lazily allocate the chain's shared ExchangeMemory so the
+		// SubAbility$ continuation shares this same memory.
+		if c.ExchangeMemory == nil {
+			c.ExchangeMemory = &ExchangeMemory{Bound: true}
 		}
 	}
 	if oldA == oldB {
@@ -182,8 +173,6 @@ func effSetLife(h Host, c *Ctx, sa *cards.SA) {
 		g := h.Game()
 		i := c.ChoiceTarget - 1
 		if c.ChoiceTarget == 0 {
-			choice := ([]state.Target)(nil)
-
 			pool := g.AliveFrom(c.Controller)
 			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Source: c.Source,
 				Min: 0, Max: len(pool), Prompt: sa.ParamStr(cards.PKChoicePrompt),
@@ -191,17 +180,14 @@ func effSetLife(h Host, c *Ctx, sa *cards.SA) {
 			for j, p := range pool {
 				d.Options = append(d.Options, decision.Option{Index: j, Kind: "player", Player: p, Label: g.Players[p].Name})
 			}
-			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: the recipient
-				// subset the "choice" re-entry records below.
-				choice = ChoiceAnswerTargets(ans)
-			} else {
+			ans, ok := AskTape(h, d)
+			if !ok {
 				// No answer served: choose nobody (the identity permutation).
 				return
 			}
-
-			c.Chosen = nil // this effect owns the resumed choice list
-			choiceRecord(h, c, sa, choice, false)
+			// The answered recipient subset, recorded below.
+			c.Chosen = nil // this effect owns the choice list
+			choiceRecord(h, c, sa, ChoiceAnswerTargets(ans), false)
 
 			i = 0
 		} else {
@@ -233,8 +219,7 @@ func effSetLife(h Host, c *Ctx, sa *cards.SA) {
 				}
 			}
 			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: the source total
-				// the "choice" re-entry records for this recipient.
+				// The answered source total for this recipient.
 				choiceRecord(h, c, sa, ChoiceAnswerTargets(ans), false)
 				continue
 			}

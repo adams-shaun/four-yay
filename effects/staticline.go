@@ -147,7 +147,7 @@ func mayPlayFreeGrantFromLine(params map[string]string) (state.ContinuousEffect,
 // integer once-per-turn cap) and Condition$ PlayerTurn
 // ("during each of your turns", the Kess/Karador family) are read.
 // MayPlayWithoutManaCost$ is the FREE-cast shape, read by its own whitelist
-// (MayPlayFreeStaticParams below), never by this one. Anything else --
+// (mayPlayFreeGrantFromLine), never by this one. Anything else --
 // MayPlayText$ (it changes what the cast IS, not just where it may come
 // from), a Condition$ whose value is not PlayerTurn, a
 // ValidAfterStack$/Secondary$ qualifier (it changes when the grant lives),
@@ -200,8 +200,8 @@ func mayPlayEffectParams(params map[string]string, allowFree bool) (ignoreColor,
 	return mayPlayParamsScan(params, allowFree, true)
 }
 
-// mayPlayEffectFreeParams is the free-cast Effect-delivery sibling of
-// MayPlayFreeStaticParams: MayPlay$ True + MayPlayWithoutManaCost$ True plus
+// mayPlayEffectFreeParams is the free-cast Effect-delivery may-play
+// whitelist: MayPlay$ True + MayPlayWithoutManaCost$ True plus
 // the optional ValidAfterStack$ qualifier the effect route may carry (Nahiri's
 // STPlay2: free Equipment casts gated on Spell.Equipment).
 func mayPlayEffectFreeParams(params map[string]string) (limit int32, playerTurn bool, validAfterStack string, ok bool) {
@@ -210,30 +210,6 @@ func mayPlayEffectFreeParams(params map[string]string) (limit int32, playerTurn 
 	}
 	_, _, limit, playerTurn, validAfterStack, ok = mayPlayParamsScan(params, true, true)
 	return limit, playerTurn, validAfterStack, ok
-}
-
-// MayPlayFreeStaticParams reports whether a Mode$ Continuous static body
-// carries the FREE-cast may-play grant: MayPlay$ True plus
-// MayPlayWithoutManaCost$ True. The free rider changes what the cast costs
-// (the mana part is free, CR 118.9), so the PLAIN whitelist above keeps
-// refusing it -- the two grants must never be conflated. Everything else is
-// the same grammar, read through the ONE shared key scan (mayPlayParams),
-// so a rider the plain path rejects is rejected here too: MayPlayText$, a
-// Condition$ whose value is not PlayerTurn, a ValidAfterStack$/Secondary$
-// qualifier, a MayPlayLimit$ value that is not a non-negative integer, a
-// MayPlayPlayer$/IgnoreColor/IgnoreType value (the free shape carries none
-// of them in the corpus -- the key scan still rejects them) -- all fail
-// closed. MayPlayDontGrantZonePermissions$ cannot co-occur meaningfully
-// with WithoutManaCost$ (a DontGrant static only exempts costs); the scan
-// rejects it, and MayPlayAltManaCost$/RaiseCost$ likewise -- the free cast
-// cannot also carry an alternative cost this registration path cannot
-// charge.
-func MayPlayFreeStaticParams(params map[string]string) (limit int32, playerTurn bool, ok bool) {
-	if !strings.EqualFold(strings.TrimSpace(params["MayPlayWithoutManaCost"]), "True") {
-		return 0, false, false
-	}
-	_, _, limit, playerTurn, _, ok = mayPlayParamsScan(params, true, false)
-	return limit, playerTurn, ok
 }
 
 // mayPlayParamsScan is the ONE parameter scan every may-play whitelist
@@ -382,16 +358,6 @@ func parseStaticLine(svars map[string]string, name string) (string, staticLinePa
 	return mode, params
 }
 
-// ParseStaticLine is the exported form of parseStaticLine: rules reads a
-// granted static's SVar body for the whitelist gates that must agree with
-// the registration path (staticgoad1's etbCloneWhitelist AddStaticAbilities$
-// value check), so the two cannot disagree about the body grammar. One
-// parser, two tiers.
-func ParseStaticLine(svars map[string]string, name string) (string, map[string]string) {
-	mode, params := parseStaticLine(svars, name)
-	return mode, params
-}
-
 // goadStaticGrantReadable reports whether a Mode$ Continuous static body is
 // an entirely readable Goad$ True line: the literal True (any other value —
 // Forge's Yes spellings included — is unmodelled), and NO parameter outside
@@ -459,14 +425,6 @@ func LoyaltyFlashParamsReadable(params map[string]string) bool {
 		}
 	}
 	return loyalty
-}
-
-// GoadStaticGrantReadable is the exported form of goadStaticGrantReadable:
-// rules' etbCloneWhitelist value check (staticgoad1) reads a granted
-// AddStaticAbilities$ body through it, so the ETB offer and the effClone
-// registration cannot disagree about what a supported goad grant is.
-func GoadStaticGrantReadable(params map[string]string) bool {
-	return goadStaticGrantReadable(params)
 }
 
 // effectRemembered resolves RememberObjects$ into the concrete object ids the

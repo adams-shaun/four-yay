@@ -25,21 +25,11 @@ func init() { Register("Blight", effBlight) }
 //
 // This is not a PutCounter variant: blight's Defined$ resolves to PLAYERS who
 // each choose an OBJECT. The structural precedent is effSacrifice's
-// player-target branch: the per-target cursor (BlightTarget) travels through
-// the decision's ResumeTarget, the answer re-enters through ResumeKind
-// "blight" with Ctx.BlightPicks set, and re-entry skips the targets already
-// processed before the suspension so a multi-player Defined$ (High Perfect
-// Morcant's Defined$ Opponent) asks each opponent in turn.
+// player-target branch: each player's ask is answered in place via AskTape,
+// so a multi-player Defined$ (High Perfect Morcant's Defined$ Opponent) asks
+// each opponent in turn.
 func effBlight(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
-	// fx42 scoping: capture and clear the answered per-player pick BEFORE the
-	// target walk, so a nested blight below this walk poses its own ask
-	// instead of inheriting the outer answer (the SacPicks discipline).
-	blightPicks := ([]state.ObjID)(nil)
-
-	blightDone := false
-	blightTarget := int(0)
-
 	// Loud-fail-closed on any parameter outside the whitelist (the census
 	// case-whitelist shape): Defined$/Num$ read here, ValidTgts$ through the
 	// ordinary Defined() target fallback, Cost$/SorcerySpeed$ as activation
@@ -86,19 +76,6 @@ func effBlight(h Host, c *Ctx, sa *cards.SA) {
 			continue
 		}
 		p := t.Player
-		if blightDone {
-			// Re-entry after some target's ask suspended: earlier targets
-			// completed on the first pass and must be skipped; the asking
-			// target applies its answer; later targets fall through and
-			// pose their own asks (the effSacrifice/Dig per-target shape).
-			if targetIndex < blightTarget {
-				continue
-			}
-			if targetIndex == blightTarget {
-				blightApply(h, p, n, blightPicks)
-				continue
-			}
-		}
 		var eligible []state.ObjID
 		for _, id := range g.Zone(state.ZBattlefield, p) {
 			if MatchesSpecCtx(g, "Creature", id, c.SpecContext(c.Controller)) {
@@ -149,8 +126,7 @@ func effBlight(h Host, c *Ctx, sa *cards.SA) {
 
 // blightApply puts n -1/-1 counters on each answered creature for player p.
 // Zone and controller checks keep a stray or stale answer from counting a
-// creature the chooser no longer controls (the same guard the sacrifice
-// re-entry uses).
+// creature the chooser no longer controls.
 func blightApply(h Host, p state.PlayerID, n int32, picks []state.ObjID) {
 	g := h.Game()
 	for _, id := range picks {

@@ -42,11 +42,7 @@ const clueTokenKey = "c_a_clue_draw"
 // real per-player may-investigate election: every affected player is posed
 // their own KChoose yes/no (the draw_optional ask shape; the ask goes to the
 // AFFECTED seat, never the trigger controller), a yes performs the ordinary
-// Clue creation below and a no performs nothing. The answer rides rules'
-// "investigate_optional" resume arm into Ctx.InvestigateOpt/Idx, which this
-// body consumes and clears at the point of application (fx42 scoping) and
-// resets when the walk finishes, so a chained optional Investigate poses its
-// own elections. A host that cannot ask keeps the pre-ask mandatory
+// Clue creation below and a no performs nothing. A host that cannot ask keeps the pre-ask mandatory
 // investigate (the R-9 degradation the effDraw optional arms take), one
 // loud Note per gated resolution.
 //
@@ -59,31 +55,6 @@ const clueTokenKey = "c_a_clue_draw"
 // DBLoseLife "each opponent who doesn't" chains on it. Decliners stay
 // unremembered. Absent, the primitive remembers nothing, exactly as before.
 func effInvestigate(h Host, c *Ctx, sa *cards.SA) {
-	if rest := resumingMint(c, sa); rest != nil {
-		// A Clue parked behind a CR 616.1 order ask and the answer has
-		// minted it: its marker, the player's remaining Clues, and the
-		// players after it resume here with the values the first pass
-		// resolved (tokenRest's continuation).
-		players, idx, n := rest.Players, int(rest.Count), rest.Amount
-		if idx < 0 || idx >= len(players) {
-			return
-		}
-		if investigateFor(h, c, sa, players, idx, n, int32(rest.Next), true, rest.Script) {
-			return
-		}
-		if rest.Script == investigateMandatory {
-			for j := idx + 1; j < len(players); j++ {
-				if investigateFor(h, c, sa, players, j, n, 0, false, rest.Script) {
-					return
-				}
-			}
-			return
-		}
-		c.InvestigateOptIdx = int32(idx + 1)
-		investigateOptionalWalk(h, c, sa, players, n,
-			strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberInvestigatingPlayers)), "True"))
-		return
-	}
 	g := h.Game()
 	n := Num(h, c, sa, "Num", 1)
 	if n <= 0 {
@@ -101,10 +72,8 @@ func effInvestigate(h Host, c *Ctx, sa *cards.SA) {
 		if remember {
 			rememberInvestigatingPlayers(h, c, players)
 		}
-		for j := range players {
-			if investigateFor(h, c, sa, players, j, n, 0, false, investigateMandatory) {
-				return
-			}
+		for _, p := range players {
+			investigateFor(h, c, p, n)
 		}
 		return
 	}
@@ -112,28 +81,15 @@ func effInvestigate(h Host, c *Ctx, sa *cards.SA) {
 }
 
 // investigateOptionalWalk is an Optional$ Investigate's per-player election
-// walk from the cursor c.InvestigateOptIdx.
+// walk.
 func investigateOptionalWalk(h Host, c *Ctx, sa *cards.SA, players []state.PlayerID, n int32, remember bool) {
-	// The per-player election walk (the draw_upto cursor shape): each
-	// affected player poses their own ask, the answered election is consumed
-	// at the point of application, and the cursor advances to the next
-	// player. A no-host ask keeps the mandatory investigate (R-9), one Note
-	// per gated resolution.
+	// Each affected player poses their own ask. A no-host ask keeps the
+	// mandatory investigate (R-9), one Note per gated resolution.
 	noted := false
-	for idx := int(c.InvestigateOptIdx); idx < len(players); idx++ {
-		p := players[idx]
-		// The re-entry's answered election (the "investigate_optional"
-		// arm's InvestigateOpt), or this pass's own ask below.
-		accepted := string("") ==
-			"yes"
-
+	for idx, p := range players {
+		var accepted bool
 		d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 			ResumeKind: "investigate_optional", ResumeSA: sa, ResumeTarget: idx,
-			// The walk's Remembered rides the ask (the draw_upto
-			// precedent): the re-entered body re-derives the player list
-			// from Defined$, and a Remembered-valued selector must see
-			// the set the first pass read, or the cursor would index a
-			// DIFFERENT list than the one the election was posed for.
 			Source: c.Source,
 			Prompt: "Investigate?"}
 		d.Options = []decision.Option{
@@ -145,7 +101,6 @@ func investigateOptionalWalk(h Host, c *Ctx, sa *cards.SA, players []state.Playe
 			// decline, as the arm reads it.
 			accepted = len(ans) > 0 && ans[0].Kind == "yes"
 		} else {
-
 			accepted = true
 			if !noted {
 				noted = true
@@ -154,20 +109,13 @@ func investigateOptionalWalk(h Host, c *Ctx, sa *cards.SA, players []state.Playe
 			}
 		}
 
-		c.InvestigateOptIdx = int32(idx + 1)
 		if accepted {
 			if remember {
 				rememberInvestigatingPlayers(h, c, []state.PlayerID{p})
 			}
-			if investigateFor(h, c, sa, players, idx, n, 0, false, investigateOptional) {
-				return
-			}
+			investigateFor(h, c, p, n)
 		}
 	}
-	// The walk finished every player: reset the cursor so a chained optional
-	// Investigate in the same resolution poses its own elections (fx42
-	// scoping). The marker is already cleared above.
-	c.InvestigateOptIdx = 0
 }
 
 // investigateFor is the one Clue-mint path: n real TokenCreate events plus
@@ -175,37 +123,14 @@ func investigateOptionalWalk(h Host, c *Ctx, sa *cards.SA, players []state.Playe
 // trig:Investigated matches; emitting it only here (not on a plain DB$
 // Token Clue mint) keeps "create a Clue token" from firing "whenever you
 // investigate" triggers.
-//
-// Each marker follows ITS Clue: a mint that parks the resolution behind a
-// CR 616.1 order ask (the Clue's entry-counter order, a CreateToken order)
-// hands the rest -- that Clue's marker, the player's later Clues, and the
-// players after it -- to the host (TokenRest) and reports true; the caller
-// stops. resumed marks the re-entry, whose Clue start the answer minted.
-// mode is investigateMandatory or investigateOptional, the walk to resume.
-func investigateFor(h Host, c *Ctx, sa *cards.SA, players []state.PlayerID, idx int, n, start int32, resumed bool, mode string) bool {
-	p := players[idx]
-	for i := start; i < n; i++ {
-		if !resumed || i != start {
-			wasSuspended := h.Suspended()
-			h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: p, Text: clueTokenKey})
-			if !wasSuspended && h.Suspended() &&
-				suspendMint(h, c, TokenRest{SA: sa, Next: int(i), Players: players, Count: int32(idx),
-					Amount: n, Script: mode}) {
-				return true
-			}
-		}
+func investigateFor(h Host, c *Ctx, p state.PlayerID, n int32) {
+	for i := int32(0); i < n; i++ {
+		h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: p, Text: clueTokenKey})
 		// One investigate record per created Clue (CR 701.36a: each
 		// investigate is one Clue token, so Num$ 2 is two investigates).
 		h.Emit(events.Event{Kind: events.Investigate, Obj: c.Source, Player: p})
 	}
-	return false
 }
-
-// The walks a parked Clue's TokenRest resumes (TokenRest.Script).
-const (
-	investigateMandatory = "investigate"
-	investigateOptional  = "investigate_optional"
-)
 
 // rememberInvestigatingPlayers records the players who actually
 // investigated: into the resolution's Remembered (the Ctx.Remembered set

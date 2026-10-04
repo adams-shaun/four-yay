@@ -671,7 +671,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 				// MayPlayWithoutManaCost$ True rider carried as the MayPlayFree
 				// field rules' grant walk reads for the free half. mayPlayEffectFreeParams
 				// keeps this path honest the same way -- the printed route's
-				// MayPlayFreeStaticParams plus the ValidAfterStack$ qualifier
+				// free-play params plus the ValidAfterStack$ qualifier
 				// (Nahiri's STPlay2: free Equipment casts gated on
 				// Spell.Equipment): a rider this build does not read fails
 				// closed here too. The lifetime fields are exactly the plain

@@ -89,8 +89,7 @@ func flipRememberKind(v string) (string, bool) {
 // flipRecord appends one flip to the resolution's flip memory (Ctx.FlipMemory,
 // allocated lazily) and publishes the per-flip Wins/Losses SVars plus the
 // cumulative RememberNumber$ tally. The memory is a shared pointer mutated in
-// place, so a Ctx copy (a RepeatEach iteration, a resume rebuild) and the
-// pointer rules' Ask captured onto a pending resume point all see the flip.
+// place, so a Ctx copy (a RepeatEach iteration) sees the flip.
 // player is the flipper and win the outcome (heads = win); rememberResult
 // controls the separate RememberResult$ result list, while rememberKind is the
 // normalised RememberNumber$ side (empty means no number was remembered).
@@ -99,11 +98,6 @@ func flipRecord(h Host, c *Ctx, player state.PlayerID, win, rememberResult bool,
 	if m == nil {
 		m = &FlipMemory{}
 		c.FlipMemory = m
-		// Re-publish through the optional seam so an ask later in this chain
-		// captures the allocated pointer onto its resume point.
-		if fh, ok := h.(flipMemoryHost); ok {
-			fh.SetResolutionFlipMemory(m)
-		}
 	}
 	if rememberResult {
 		m.Results = append(m.Results, FlipResult{Player: player, Heads: win})
@@ -207,9 +201,7 @@ func forEachPlayerFlippers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool)
 //   - FlipUntilYouLose$ True (5 corpus lines: Okaun, Zndrsplt, Toothy and
 //     Zndrsplt, Crazed Firecat, Mirror March): flip until the first tails,
 //     running the win branch per winning flip and the lose branch once on
-//     the losing flip. A win branch that suspends on an ask does NOT abandon
-//     the loop: the remaining cursor rides SuspendFlipRest and the host
-//     re-enters this primitive once the answered ask's chain completes.
+//     the losing flip.
 func abilityReferencesX(sa *cards.SA) bool {
 	for cur := sa; cur != nil; cur = cur.Sub {
 		for _, value := range cur.Params {
@@ -251,70 +243,44 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 
-	// Resume cursor (fx-style scoping): consumed and cleared here, so a
-	// nested FlipCoin poses its own loop.
-	rest := (*FlipRest)(nil)
-
+	// X for a coin-flip resolution: the per-flip outcome branches see the
+	// heads tally so far (reset here, one win each). A NoCall$ True branch
+	// ignores this running tally — its deferred call below sets X to the
+	// side's final total before it fires.
+	c.X = 0
 	var players []state.PlayerID
-	var playerIndex int
-	var iter int32
-	amount := int32(1)
-	if rest != nil {
-		players, playerIndex, iter = rest.Players, rest.PlayerIndex, rest.Iter
-		amount, untilLose = rest.Amount, rest.UntilLose
+	if spec := strings.TrimSpace(sa.ParamStr(cards.PKForEachPlayer)); forEach {
+		ps, ok := forEachPlayerFlippers(h, c, spec)
+		if !ok {
+			return // present but unresolvable: fail closed, nobody flips
+		}
+		players = ps
 	} else {
-		// X for a coin-flip resolution: the per-flip outcome branches see the
-		// heads tally so far (reset here, one win each). A NoCall$ True branch
-		// ignores this running tally — its deferred call below sets X to the
-		// side's final total before it fires.
-		c.X = 0
-		if spec := strings.TrimSpace(sa.ParamStr(cards.PKForEachPlayer)); forEach {
-			ps, ok := forEachPlayerFlippers(h, c, spec)
-			if !ok {
-				return // present but unresolvable: fail closed, nobody flips
+		flippers, named := flipperPlayers(h, c, sa)
+		if len(flippers) == 0 {
+			if named {
+				return
 			}
-			players = ps
-		} else {
-			flippers, named := flipperPlayers(h, c, sa)
-			if len(flippers) == 0 {
-				if named {
-					return
-				}
-				flippers = []state.Target{{Player: c.Controller, IsPlayer: true}}
-			}
-			for _, t := range flippers {
-				if t.IsPlayer {
-					players = append(players, t.Player)
-				}
+			flippers = []state.Target{{Player: c.Controller, IsPlayer: true}}
+		}
+		for _, t := range flippers {
+			if t.IsPlayer {
+				players = append(players, t.Player)
 			}
 		}
-		amount = Num(h, c, sa, "Amount", 1)
-		if amount < 1 {
-			amount = 1
-		}
+	}
+	amount := Num(h, c, sa, "Amount", 1)
+	if amount < 1 {
+		amount = 1
 	}
 
 	wins, losses := int32(0), int32(0)
 	noCall := strings.EqualFold(sa.ParamStr(cards.PKNoCall), "True")
-	// A NoCall$ deferred-outcome resume: every flip was already made, so the
-	// flip loop is skipped and the deferred calls continue at the cursor.
-	noCallSide, noCallNext := int8(0), int32(0)
-	if rest != nil && rest.NoCallSide != 0 {
-		noCallSide, noCallNext = rest.NoCallSide, rest.NoCallNext
-		wins, losses = rest.Wins, rest.Losses
-		c.X = wins // the flip loop's heads tally, as the suspended pass left it
-		playerIndex = len(players)
-	}
-	for pi := playerIndex; pi < len(players); pi++ {
-		p := players[pi]
+	for _, p := range players {
 		if int(p) < 0 || int(p) >= len(g.Players) || g.Players[p].Lost {
 			continue
 		}
-		start := int32(0)
-		if pi == playerIndex {
-			start = iter
-		}
-		for i := start; untilLose || i < amount; i++ {
+		for i := int32(0); untilLose || i < amount; i++ {
 			win := h.Rand(2) == 0
 			h.Emit(FlipCoinNote(c.Source, p, win))
 			flipRecord(h, c, p, win, rememberResult, rememberKind)
@@ -351,16 +317,9 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 	// X-dependent branches need one call with the final tally (e.g. Ral
 	// Zarek's NumTurns$ X); branches independent of X are still per-outcome
 	// effects (e.g. Urza Academy Headmaster grants one extra turn per head).
-	// A call that suspends on an ask reports the deferred-call cursor
-	// (SuspendFlipRest with NoCallSide set) whenever calls remain on its
-	// side or the tails side is still owed, so the answered ask re-enters
-	// here and the remaining calls run (CR 608.2c) instead of the chain
-	// falling through to the FlipCoin's Sub.
+	// A call that opens a resolution-time window stops the deferred calls.
 	if noCall && c.SVars != nil {
-		if noCallSide == 0 {
-			noCallSide = NoCallWin
-		}
-		resolveOutcome := func(side int8, name string, count, start int32) bool {
+		resolveOutcome := func(name string, count int32) bool {
 			if name == "" || count == 0 {
 				return false
 			}
@@ -373,7 +332,7 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 				calls = 1
 				c.X = count
 			}
-			for i := start; i < calls; i++ {
+			for i := int32(0); i < calls; i++ {
 				Resolve(h, c, branch)
 				if h.Suspended() {
 					return true
@@ -381,15 +340,10 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 			}
 			return false
 		}
-		if noCallSide == NoCallWin {
-			if resolveOutcome(NoCallWin, winName, wins, noCallNext) {
-				return
-			}
-			noCallNext = 0
-		}
-		if resolveOutcome(NoCallLose, loseName, losses, noCallNext) {
+		if resolveOutcome(winName, wins) {
 			return
 		}
+		resolveOutcome(loseName, losses)
 	}
 }
 

@@ -182,10 +182,6 @@ type tokenChoiceState struct {
 	// apply/decline, and option declineIdx declines it while any other answer
 	// applies the match.
 	plainOptional bool
-	// mintSink names the parked-mint collector (rules/token_rest.go) the
-	// election's answer mints into when a resolving DB$ Token is waiting on
-	// this creation; 0 otherwise.
-	mintSink uint64
 }
 
 // driveTokenReplacements applies matches[from:] to the plan, in the
@@ -373,10 +369,7 @@ func (e *Engine) tokenReplAnswer(chosen []decision.Option) {
 		e.emit(events.Event{Kind: events.Note, Text: "token copy choice answered with no replacement pending"})
 		return
 	}
-	// A resolving DB$ Token waiting on this creation collects what the
-	// answer mints (and hands the collector to any election or order ask the
-	// answer poses next).
-	e.withMintSink(st.mintSink, func() { e.settleTokenAnswer(st, chosen) })
+	e.settleTokenAnswer(st, chosen)
 }
 
 // settleTokenAnswer is tokenReplAnswer's body: apply the answered election to

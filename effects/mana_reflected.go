@@ -305,7 +305,7 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	}
-	// The rules-engine colour-ask path re-enters with Produced$ set to one
+	// The rules-engine colour-ask path resolves with Produced$ set to one
 	// plain letter.
 	if len(produced) == 1 && strings.ContainsRune(ManaSymbols, rune(produced[0])) {
 		manaAdd(recipient, produced)
@@ -319,13 +319,6 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 	// real host is asked, and only a host that cannot answer (or an empty
 	// option list) keeps the deterministic first-candidate stand-in with its
 	// R-9 Note.
-	if answered := string(""); answered != "" {
-
-		// The answer is carried as the structured mana symbol, not the option
-		// label: labels are presentation-only (ManaSymbol on decision.Option).
-		manaReflectedAnswered(cols, answered, recipient, manaAdd)
-		return
-	}
 	switch len(cols) {
 	case 0:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -340,19 +333,17 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "mana", Obj: c.Source, Label: "Add " + col, ManaSymbol: col})
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the "manareflected"
-			// arm's colour, added exactly as the re-entry adds it (the ask
-			// is Min 1, so a served answer always names one option).
-			// The legacy re-entry re-runs effManaReflected from its first
-			// line, which emits the unread-parameter Note again; mirror it.
+			// Answered in place (the ask is Min 1, so a served answer always
+			// names one option). The answer is carried as the structured
+			// mana symbol, not the option label: labels are
+			// presentation-only. The unread-parameter Note is emitted again
+			// first (the recorded event stream depends on it).
 			noteUnreadParams(h, c, "ManaReflected", ManaReflectedOf(sa).Unread)
 			if len(ans) > 0 {
 				manaReflectedAnswered(cols, ans[0].ManaSymbol, recipient, manaAdd)
 			}
 			return
-		} else {
 		}
-
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "chose first reflected colour " + cols[0] + " (no ask possible)"})
 		manaAdd(recipient, cols[0])
@@ -361,9 +352,7 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 
 // manaReflectedAnswered adds the answered reflected colour: the colour when
 // this resolution still offers it, else (a malformed or off-list answer) the
-// first candidate rather than a colour the candidates never named. Shared by
-// the legacy re-entry (Ctx.ManaReflectedColor) and the resolution kernel's
-// in-hand answer.
+// first candidate rather than a colour the candidates never named.
 func manaReflectedAnswered(cols []string, col string, recipient state.PlayerID, manaAdd func(state.PlayerID, string)) {
 	for _, cand := range cols {
 		if cand == col {

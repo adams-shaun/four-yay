@@ -23,12 +23,11 @@ import (
 //   - The draws come first (all N, before any discard), through the same
 //     resumable draw path effDraw uses (drawFor with a cursor and the
 //     Connive SA as ResumeSA), so a Dredge replacement over a connive draw
-//     is a real choice exactly as for any other draw AND the connive is
-//     resumable across it: the ask that parks carries the draw cursor, the
-//     dredge resume arm restores it (ctx.DrawDone), and the re-entered
-//     effConnive finishes the remaining draws before its discard, counter
-//     and record. A bare DrawFor loop would pose a second ask over the
-//     outstanding one (the orphaned-decision panic findings-sol4 proved).
+//     is a real choice exactly as for any other draw; the global draw cursor
+//     (ctx.Draw.Done) lets the connive finish the remaining draws before
+//     its discard, counter and record. A bare DrawFor loop would pose a
+//     second ask over the outstanding one (the orphaned-decision panic
+//     findings-sol4 proved).
 //   - The discards follow: N cards from the conniver's controller's hand.
 //     Connive has no discard filter ("discard a card"), so the eligible set
 //     is the whole hand. The strict-supersets rule (the effDiscard
@@ -36,8 +35,7 @@ import (
 //     discards everything it owns in hand order and asks nothing — a
 //     decision nobody could answer differently is never emitted — and a
 //     hand with more than N poses a real KModes ask (Min = Max = N, options
-//     in hand order), whose answer re-enters through rules' "connive" arm
-//     and Ctx.ConniveDiscard. A host that cannot ask and botpolicy's KModes
+//     in hand order), answered in place via AskTape. A host that cannot ask and botpolicy's KModes
 //     clamp both take the first N options (the front N cards), so the
 //     no-host stand-in and the bot answer are byte-identical by
 //     construction and no R-9 Note is owed (the Explore discipline).
@@ -66,23 +64,11 @@ func init() {
 func effConnive(h Host, c *Ctx, sa *cards.SA) {
 	n := Num(h, c, sa, "ConniveNum", 1)
 	tgts := Defined(h, c, sa)
-	// The resume cursor. A connive can suspend at TWO points, and the
-	// re-entry must skip every target already fully processed:
-	//
-	//   - the discard election (c.ConniveDone, c.ConniveObj set — the
-	//     "connive" resume arm): the in-flight conniver is ConniveObj.
-	//   - a Dredge replacement parked on one of the draws (the generic
-	//     "dredge" arm, which sets ctx.DrawDone from the draw cursor and
-	//     does NOT know about connive): the in-flight conniver is whichever
-	//     target owns that global draw cursor.
-	//
-	// The draw cursor is GLOBAL across the walk, exactly like effDraw's
-	// c.DrawDone: target i owns draws [i*n, (i+1)*n), so the parked conniver
-	// is DrawDone-1 divided by n. Deriving it from the cursor rather than
-	// from a separate field is what makes the second (and later) targets
-	// resume correctly after a draw replacement; a field set only at the
-	// discard park would be absent on the draw park and earlier targets
-	// would connive twice.
+	// The draw cursor. A Dredge replacement on one of the draws leaves
+	// ctx.Draw.Done set, and the walk must skip every target already fully
+	// processed. The cursor is GLOBAL across the walk, exactly like
+	// effDraw's: target i owns draws [i*n, (i+1)*n), so the in-flight
+	// conniver is Draw.Done-1 divided by n.
 	start := 0
 
 	if c.Draw.Done > 0 && n > 0 {
@@ -99,7 +85,7 @@ func effConnive(h Host, c *Ctx, sa *cards.SA) {
 		}
 
 		// Draws already completed for the in-flight target, read from the
-		// global cursor the Dredge resume arm restored. Every target after
+		// global cursor. Every target after
 		// the first processed on this pass starts its own draws at zero.
 		done := int32(0)
 		if first && c.Draw.Done > 0 {
@@ -114,10 +100,8 @@ func effConnive(h Host, c *Ctx, sa *cards.SA) {
 		c.Draw.Done = 0 // consumed: a chained sub-Draw starts its own cursor
 		first = false
 		if conniveOnce(h, c, sa, t.Obj, int32(i), n, done) {
-			// The ask was posted; the resolution is suspended. Nothing after
-			// the ask may run on this pass — the answer re-enters through
-			// rules' "connive" (discard) or "dredge" (draw replacement)
-			// resume arm.
+			// The host suspended the resolution on a draw: nothing after it
+			// may run on this pass.
 			return
 		}
 	}
@@ -126,15 +110,14 @@ func effConnive(h Host, c *Ctx, sa *cards.SA) {
 }
 
 // conniveOnce runs one connive process for conniver and reports whether the
-// resolution was suspended (the caller must stop its walk immediately). A
-// conniver that has left the battlefield connives nothing. The draws all
-// happen first; either a Dredge replacement over one of them or the discard
-// ask (when the hand is larger than N) is a suspension point.
+// host suspended the resolution on a draw (the caller must stop its walk
+// immediately). A conniver that has left the battlefield connives nothing.
+// The draws all happen first; the discard ask (when the hand is larger than
+// N) is answered in place.
 //
-// targetIdx and done describe the resume position: targetIdx is the
+// targetIdx and done describe the draw position: targetIdx is the
 // conniver's index in the deterministic Defined$ list (the base of its
-// global draw cursors), done how many of its N draws already completed
-// before a Dredge suspension.
+// global draw cursors), done how many of its N draws already completed.
 func conniveOnce(h Host, c *Ctx, sa *cards.SA, conniver state.ObjID, targetIdx, n, done int32) bool {
 	g := h.Game()
 	o := g.Obj(conniver)
@@ -145,11 +128,9 @@ func conniveOnce(h Host, c *Ctx, sa *cards.SA, conniver state.ObjID, targetIdx, 
 	base := targetIdx * n
 	for d := done; d < n; d++ {
 		// drawFor (not the bare DrawFor): the cursor and the Connive SA
-		// ride the Dredge ask, so its answer resumes this exact connive
-		// (ctx.DrawDone = cursor+1) instead of orphaning the draw. A
-		// suspension stops the whole walk before the discard, counter or
-		// record are computed — the discard must read the post-draw hand
-		// (CR 702.59a orders draw then discard).
+		// ride the Dredge ask. A suspension stops the whole walk before the
+		// discard, counter or record are computed — the discard must read
+		// the post-draw hand (CR 702.59a orders draw then discard).
 		drawFor(h, ctrl, int(base+d), sa, drawUptoRider{})
 		if h.Suspended() {
 			return true
@@ -185,12 +166,11 @@ func conniveOnce(h Host, c *Ctx, sa *cards.SA, conniver state.ObjID, targetIdx, 
 			Prompt:       "Choose " + strconv.Itoa(int(n2)) + " card(s) to discard",
 			Options:      opts}
 		if ans, ok := AskTape(h, d); ok {
-			// The "connive" answer in hand: the re-entry's discard, counters
-			// and record, then the walk goes on to the next conniver.
+			// Answered in place: the discard, counters and record, then the
+			// walk goes on to the next conniver.
 			applyConniveDiscard(h, conniver, counterAnswerObjs(ans))
 			return false
 		}
-
 		applyConniveDiscard(h, conniver, hand[:n2])
 		return false
 	}

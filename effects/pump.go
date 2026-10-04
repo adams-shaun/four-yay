@@ -49,17 +49,14 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 	// of ..." family): the pump's keyword grant is not a fixed list but a
 	// player's choice from a fixed candidate list, chosen ONE per execution
 	// (every corpus line reads "your choice of X, Y or Z"). The ask is the
-	// same mid-resolution KModes vocabulary effCharm uses — ResumeKind
-	// "modes" with ResumeSA, the answer re-entering this effect through
-	// rules' resumeResolution with Ctx.Modes set to the chosen labels. The
-	// ask comes FIRST, before any registration, so a suspension never leaves
-	// a half-applied pump behind; on re-entry the whole effect re-runs with
-	// the answer in hand (the charm pattern).
+	// same mid-resolution KModes vocabulary effCharm uses (ResumeKind
+	// "modes"), answered in place. The ask comes FIRST, before any
+	// registration.
 	var chosenKW []string
 	if p.HasKWChoice {
 		if c.Modes != nil {
-			// fx42 scoping: consume the answer once; a nested KWChoice pump
-			// reached below poses its own ask.
+			// Consume Ctx.Modes once; a nested KWChoice pump reached below
+			// poses its own ask.
 			chosenKW = c.Modes
 			c.Modes = nil
 		} else {
@@ -73,13 +70,11 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 					Index: i, Kind: "mode", Label: name, Obj: c.Source, Player: c.Controller})
 			}
 			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand (its Record wrote
-				// the ModeChosen a KModes answer records): the chosen
-				// keywords by option index into KWChoice$, exactly the
-				// names the "modes" arm binds into Ctx.Modes. The legacy
-				// re-entry re-runs this body from its first line, so the
-				// emissions before the ask are repeated first, exactly as
-				// it repeats them.
+				// The answer in hand (its Record wrote the ModeChosen a
+				// KModes answer records): the chosen keywords by option
+				// index into KWChoice$. The emissions before the ask are
+				// repeated first (the event stream the answered path has
+				// always emitted).
 				noteUnreadParams(h, c, "Pump", p.Unread)
 				pumpNotes(h, c, sa, p)
 				chosenKW = make([]string, 0, len(ans))
@@ -89,14 +84,12 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 					}
 				}
 			} else {
-
 				// No engine host (R-9): the deterministic first candidate, with
 				// the Note that records why the richer path did not run.
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 					Text: "chose its first keyword (no engine host to ask)"})
 				chosenKW = choices[:1]
 			}
-
 		}
 	}
 	zone := p.PumpZone
@@ -180,7 +173,7 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 }
 
 // pumpNotes is effPump's ClearNotedCardsFor$ and NoteCards$ notation, run
-// before any KWChoice$ ask (and so repeated by that ask's re-entry).
+// before any KWChoice$ ask (and repeated after that ask's answer).
 func pumpNotes(h Host, c *Ctx, sa *cards.SA, p *PumpParams) {
 	// ClearNotedCardsFor$ clears the requested player labels from its Defined$
 	// player set. The event fold keeps a later resolution and a replay from

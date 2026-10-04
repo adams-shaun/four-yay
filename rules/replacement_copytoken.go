@@ -19,7 +19,7 @@ import (
 //
 // The copy effects carry per-copy riders (granted triggers, set P/T, tapped
 // and attacking, "exile it at end of turn") they must apply to EVERY copy,
-// and a cursor (TokenRest) that resumes a parked mint, so the replacement is
+// so the replacement is
 // taken as a PROPOSAL before minting -- the Scry/RollDice proposal pattern:
 // a synthetic TokenCreate naming the copied object (Obj set, no script) is
 // passed through the ordinary replacement collection, which never logs it.

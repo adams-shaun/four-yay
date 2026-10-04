@@ -32,8 +32,8 @@ import (
 //     stand-in and botpolicy's clamp both bin the card deterministically (the
 //     R-9 / TapOrUntap discipline). The +1/+1 counter and the destination
 //     move are applied TOGETHER after the answer arrives, in CR order
-//     (counter before destination): one code path for the answered,
-//     no-host and resumed shapes. The ask therefore precedes the counter in
+//     (counter before destination): one code path for the answered and
+//     no-host shapes. The ask therefore precedes the counter in
 //     the event log by one recorded election — a DecisionAsk/Made marker
 //     pair, no state change, and the counter-before-destination order the
 //     rule states is preserved in every state-changing event.
@@ -57,62 +57,32 @@ func effExplore(h Host, c *Ctx, sa *cards.SA) {
 		if t.IsPlayer {
 			continue
 		}
-		// The resume cursor: skip targets before the one whose explore
-		// suspended (the Dig discipline — re-entry replays the loop from its
-		// head, so earlier targets must not explore a second time). The
-		// pending explore is applied on this target's first loop iteration
-		// and clears the cursor, so later targets proceed fresh.
-		if c.ExploreObj != 0 && t.Obj != c.ExploreObj {
-			continue
-		}
-		// The resumed explorer continues its Num$ count at the explore whose
-		// election was answered (Ctx.ExploreCount, carried on the ask): the
-		// re-entry replays the loop from its head, and a count restarted at
-		// zero posed a fresh election after every applied one, so an
-		// "explores X times" never finished while its reveals were nonland.
-		i := int32(0)
-
-		for ; i < n; i++ {
-
-			if exploreOnce(h, c, sa, t.Obj, i) {
-				// The election was posted; the resolution is suspended. Nothing
-				// after the ask may run on this pass — the answer re-enters
-				// through rules' "explore" resume arm (the effDig discipline).
-				return
-			}
+		for i := int32(0); i < n; i++ {
+			exploreOnce(h, c, sa, t.Obj)
 		}
 	}
-	// Leftover pending state that no target consumed (the pending explorer
-	// left play, a malformed resume): consumed and cleared, never inherited.
-	c.ExploreObj = 0
 }
 
-// exploreOnce runs one explore process for explorer and reports whether the
-// destination election was POSTED (the resolution suspended — the caller must
-// stop its walk immediately, the effDig discipline). An explorer that has
+// exploreOnce runs one explore process for explorer. An explorer that has
 // left the battlefield, an already-replaced explore or an empty library
 // explores nothing (an empty library cannot reveal a card, so the process has
 // nothing to record — no events.Explore marker, so no trigger fires).
-//
-// done is how many of this explorer's Num$ explores are already complete;
-// the election carries it (Decision.ResumeExploreDone) so the resume
-// continues the count.
-func exploreOnce(h Host, c *Ctx, sa *cards.SA, explorer state.ObjID, done int32) bool {
+func exploreOnce(h Host, c *Ctx, sa *cards.SA, explorer state.ObjID) {
 	g := h.Game()
 	o := g.Obj(explorer)
 	if o == nil || o.Zone != state.ZBattlefield {
-		return false
+		return
 	}
 	// CR 614.4: the replacement window is before the process. A matching
 	// R:Event$ Explore replacement's body has now run (inside the host call)
 	// and this explorer's own process is replaced whole.
 	if h.ExploreReplaced(explorer) {
-		return false
+		return
 	}
 	ctrl := o.Controller
 	lib := g.Zone(state.ZLibrary, ctrl)
 	if len(lib) == 0 {
-		return false
+		return
 	}
 	top := lib[0]
 	// The public reveal: the same non-Secret ids-Note the Dig window reveal
@@ -124,7 +94,7 @@ func exploreOnce(h Host, c *Ctx, sa *cards.SA, explorer state.ObjID, done int32)
 		h.Emit(ev)
 		h.Emit(events.Event{Kind: events.Explore, Obj: explorer, Player: ctrl,
 			IDs: []state.ObjID{top}, Amount: 1})
-		return false
+		return
 	}
 	// The LCI nonland shape: the +1/+1 counter, then "put the card back or
 	// put it into your graveyard" — a real election. Options are ordered
@@ -144,16 +114,15 @@ func exploreOnce(h Host, c *Ctx, sa *cards.SA, explorer state.ObjID, done int32)
 		{Index: 1, Kind: "top", Label: "Put it back on top of your library", Obj: top, Player: ctrl},
 	}
 	if ans, ok := AskTape(h, d); ok {
-		// The "explore" answer in hand: the re-entry's application (any
-		// answer but "top" sends the card to the graveyard).
+		// The "explore" answer in hand (any answer but "top" sends the
+		// card to the graveyard).
 		applyNonlandExplore(h, explorer, top, len(ans) == 0 || ans[0].Kind != "top")
-		return false
+		return
 	}
 
 	// No host (an effects-package test double, a fuzz run): option 0, the
 	// state-changing choice — the exact mirror of botpolicy's clamp answer.
 	applyNonlandExplore(h, explorer, top, true)
-	return false
 }
 
 // applyNonlandExplore applies a nonland explore's outcome: the +1/+1 counter

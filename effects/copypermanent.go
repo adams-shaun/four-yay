@@ -83,23 +83,12 @@ func dedupeTargets(ts []state.Target) []state.Target {
 func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
 
-	// A re-entry after one copy's battlefield entry parked behind an
-	// entry-counter order ask and was answered (TokenRest, the continuation
-	// effToken uses): the parked copy is owed only its post-entry riders and
-	// the copies after it are still owed. The source selection, copy count
-	// and controllers are the first pass's (frozen in the rest), and the
-	// first pass's one-per-call Notes are not repeated.
-	rest := resumingMint(c, sa)
-	// preNotes keeps the Notes emitted before the Choices$ ask: the legacy
-	// "copypermanent_choice" re-entry re-runs this walk from its first line
-	// and so emits them again, which the resolution kernel's tape branch
-	// reproduces.
+	// preNotes keeps the Notes emitted before the Choices$ ask, which the
+	// tape branch emits again after the answer.
 	var preNotes []events.Event
 	emitNote := func(ev events.Event) {
-		if rest == nil {
-			h.Emit(ev)
-			preNotes = append(preNotes, ev)
-		}
+		h.Emit(ev)
+		preNotes = append(preNotes, ev)
 	}
 
 	// One loud Note per call naming every skipped family (never per mint --
@@ -128,9 +117,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	//     supertypes, so a subtype is already gone) and is accepted without a
 	//     note.
 	cp := CopyPermanentOf(sa)
-	if rest == nil {
-		noteUnreadParams(h, c, "CopyPermanent", cp.Unread)
-	}
+	noteUnreadParams(h, c, "CopyPermanent", cp.Unread)
 	if cp.SkippedNote != "" {
 		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller, Text: cp.SkippedNote})
 	}
@@ -369,9 +356,6 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 				Text: "NumCopies$ " + strings.TrimSpace(raw) + " is not implemented; one copy"})
 		}
 	}
-	if rest != nil {
-		n = rest.Amount
-	}
 	if n <= 0 {
 		return
 	}
@@ -382,10 +366,6 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	populate := cp.Populate
 	var targets []state.Target
 	switch {
-	case rest != nil:
-		for _, id := range rest.Objs {
-			targets = append(targets, state.Target{Obj: id})
-		}
 	case populate && spec == "" && !hasTgts:
 		cands := DefinedSpec(h, c, "Valid Creature.token+YouCtrl")
 		if len(cands) > 1 {
@@ -528,9 +508,6 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 
 	if !multiOwner {
 		owners = []state.PlayerID{owner}
-	}
-	if rest != nil {
-		owners = append([]state.PlayerID(nil), rest.Players...)
 	}
 	remember := cp.RememberTokens
 	var amount int32
@@ -685,12 +662,8 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	}
 	// postEntry is one copy's post-entry work: every rider that reads the
 	// copy as a permanent. It runs only once the copy's battlefield entry has
-	// completed -- on the first pass for an uncontested entry, or on the
-	// TokenRest re-entry after a parked entry-counter order is answered.
+	// completed.
 	var minted []state.ObjID
-	if rest != nil {
-		minted = append(minted, rest.Minted...)
-	}
 	postEntry := func(owner state.PlayerID, want state.ObjID) {
 		minted = append(minted, want)
 		if attachTo != 0 {
@@ -802,41 +775,17 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	}
 	// Creating a token copy is creating a token (CR 111.1, 706.2), so the
 	// CreateToken replacements (Doubling Season's "twice that many", ...)
-	// size each destination's copy count. The host's proposal is taken once
-	// per creation: a resumed pass reads the first pass's counts back from
-	// its TokenRest, so the cursor below indexes the same units and a
-	// replacement's scripted extra mints are never created twice.
+	// size each destination's copy count, proposed once per creation.
 	counts := make([]int32, len(destinations))
-	if rest != nil && len(rest.Counts) == len(destinations) {
-		copy(counts, rest.Counts)
-	} else {
-		for d, destination := range destinations {
-			counts[d] = n
-			if t := destination.target; !t.IsPlayer && g.Obj(t.Obj) != nil {
-				counts[d] = proposeCopyTokens(h, destination.owner, t.Obj, n)
-			}
+	for d, destination := range destinations {
+		counts[d] = n
+		if t := destination.target; !t.IsPlayer && g.Obj(t.Obj) != nil {
+			counts[d] = proposeCopyTokens(h, destination.owner, t.Obj, n)
 		}
 	}
-	base := 0
 	for d, destination := range destinations {
 		owner, t := destination.owner, destination.target
-		first := base
-		base += int(counts[d])
 		for i := int32(0); i < counts[d]; i++ {
-			// unit is this copy's position in the call's deterministic
-			// destination x copy-count order: the TokenRest cursor.
-			unit := first + int(i)
-			if rest != nil && unit < rest.Next {
-				continue
-			}
-			if rest != nil && unit == rest.Next {
-				for _, id := range rest.Parked {
-					if g.Obj(id) != nil {
-						postEntry(owner, id)
-					}
-				}
-				continue
-			}
 			if t.IsPlayer || g.Obj(t.Obj) == nil {
 				continue
 			}
@@ -892,9 +841,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			}
 			// The entry goes through EmitTokenCreate: the emit tail publishes
 			// the copy only once this MoveZone has actually folded onto the
-			// battlefield (rules' publishTokenEntry), and reports a park when
-			// the entry staged behind an entry-counter order ask.
-			wasSuspended := h.Suspended()
+			// battlefield (rules' publishTokenEntry).
 			entry := events.Event{Kind: events.MoveZone, Obj: want,
 				From: state.ZLibrary, To: state.ZBattlefield}
 			if attachedToNamed {
@@ -911,13 +858,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 					events.MarkNamedAttachEntry(&entry, named)
 				}
 			}
-			entered := h.EmitTokenCreate(entry)
-			if !wasSuspended && h.Suspended() && len(entered) == 0 {
-				if suspendMint(h, c, TokenRest{SA: sa, Next: unit, Minted: minted,
-					Players: owners, Objs: targetObjs, Amount: n, Counts: counts}) {
-					return
-				}
-			}
+			h.EmitTokenCreate(entry)
 			postEntry(owner, want)
 		}
 	}

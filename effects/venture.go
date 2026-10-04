@@ -53,9 +53,8 @@ func init() { Register("Venture", effVenture) }
 //
 // Players: actingPlayers -- the shared "Defined$ else ValidTgts$-targeted
 // else the resolving controller" selector. All 37 carriers are single-player
-// (`Defined$ You` or absent), and the walk is cursor-based (Ctx.VentureIdx)
-// so a future multi-Defined carrier asks each player in order across the
-// suspensions.
+// (`Defined$ You` or absent); a multi-Defined carrier would ask each player
+// in order.
 //
 // A host that cannot ask (R-9) takes the deterministic stand-in instead of
 // wedging: the FIRST printed candidate (dungeons in token-key sort order,
@@ -64,18 +63,13 @@ func init() { Register("Venture", effVenture) }
 func effVenture(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
 	players := actingPlayers(h, c, sa)
-	idx := 0
-
 	quality := strings.TrimSpace(sa.ParamStr(cards.PKDungeon))
-	for i := idx; i < len(players); i++ {
+	for i := 0; i < len(players); i++ {
 		p := players[i]
 		if p < 0 || int(p) >= len(g.Players) {
 			continue
 		}
 		if id := g.Players[p].DungeonObj; id != 0 {
-			// A posed room choice suspends the walk exactly as a posed
-			// dungeon choice does: the later players venture after the
-			// answer, from the re-entry's cursor, never before it as well.
 			ventureAdvance(h, g, c, sa, p, i, id)
 		} else {
 			ventureChoose(h, g, c, sa, p, i, quality)
@@ -83,8 +77,7 @@ func effVenture(h Host, c *Ctx, sa *cards.SA) {
 	}
 }
 
-// ventureAdvance moves p's marker one room (CR 701.49b). It reports whether
-// the walk suspended (an ask was posted) so the caller can return.
+// ventureAdvance moves p's marker one room (CR 701.49b).
 func ventureAdvance(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerID, i int, id state.ObjID) {
 	quality := strings.TrimSpace(sa.ParamStr(cards.PKDungeon))
 	dungeon := g.Obj(id)
@@ -111,12 +104,12 @@ func ventureAdvance(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerI
 		// completes the dungeon and begins a new one. The completion is two
 		// explicit transitions (the count increment, then the token leaves the
 		// command zone), and the new dungeon enters through the ordinary
-		// CR 701.49a/d choice path -- which may ask (the ask rides the walk's
-		// cursor) and whose DungeonCreate + DungeonRoom(top) events queue the
+		// CR 701.49a/d choice path -- which may ask -- and whose DungeonCreate + DungeonRoom(top) events queue the
 		// new top room's ability exactly like any other marker entry.
 		h.Emit(events.Event{Kind: events.DungeonComplete, Player: p, Obj: id})
 		h.Emit(events.Event{Kind: events.DungeonRemove, Player: p, Obj: id})
 		ventureChoose(h, g, c, sa, p, i, quality)
+		return
 	case len(nexts) == 1:
 		h.Emit(events.Event{Kind: events.DungeonRoom, Player: p, Obj: id, Text: nexts[0]})
 		return
@@ -129,10 +122,8 @@ func ventureAdvance(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerI
 			Label: DungeonRoomLabel(dungeon.Face(), nk), Key: nk, Player: p})
 	}
 	if ans, ok := AskTape(h, d); ok {
-		// The resolution kernel's answer in hand: the "venture_room" arm's
-		// room, moved to exactly as the re-entry moves the marker; the walk
-		// goes on with the next player. (The ask is Min 1, so a served
-		// answer names a room.)
+		// The answered room; the walk goes on with the next player. (The
+		// ask is Min 1, so a served answer names a room.)
 		if len(ans) > 0 && ans[0].Key != "" {
 			h.Emit(events.Event{Kind: events.DungeonRoom, Player: p, Obj: g.Players[p].DungeonObj, Text: ans[0].Key})
 		}
@@ -144,8 +135,7 @@ func ventureAdvance(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerI
 	h.Emit(events.Event{Kind: events.DungeonRoom, Player: p, Obj: id, Text: nexts[0]})
 }
 
-// ventureChoose runs CR 701.49a's dungeon choice for p and reports whether
-// the walk suspended.
+// ventureChoose runs CR 701.49a's dungeon choice for p.
 func ventureChoose(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerID, i int, quality string) {
 	candidates := dungeonCandidates(g, quality)
 	if len(candidates) == 0 {
@@ -170,9 +160,7 @@ func ventureChoose(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerID
 		d.Options = append(d.Options, decision.Option{Index: j, Kind: "dungeon", Label: name, Key: key, Player: p})
 	}
 	if ans, ok := AskTape(h, d); ok {
-		// The resolution kernel's answer in hand: the "venture_dungeon"
-		// arm's dungeon, entered exactly as the re-entry enters it; the walk
-		// goes on with the next player.
+		// The answered dungeon; the walk goes on with the next player.
 		if len(ans) > 0 && ans[0].Key != "" {
 			ventureEnter(h, g, p, ans[0].Key)
 		}

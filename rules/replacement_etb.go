@@ -164,7 +164,7 @@ func (e *Engine) applyETBChoiceReplacement(ev events.Event) bool {
 		// parked frame (continueAfterETBEntry).
 		e.choosing = chooseNone
 		chosen := d.Chosen(in)
-		e.withMintSink(e.pendingMintSink, func() { e.resumeETBEntry(chosen) })
+		e.resumeETBEntry(chosen)
 		return true
 	}
 	e.ask(d)

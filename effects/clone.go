@@ -57,24 +57,8 @@ func init() { Register("Clone", effClone) }
 // the battlefield.
 func effClone(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
-
-	// The answered Optional$ may-copy election, consumed and cleared at the
-	// top of the walk (the fx42 scoping discipline): a nested Clone cannot
-	// inherit the outer answer.
-	cloneAns := string("")
-
-	cloneDone := false
-
-	clonePick := state.ObjID(0)
-
-	clonePickDone := false
-
 	cp := CloneOf(sa)
-	if !cloneDone && !clonePickDone {
-		// Once per call: an answered re-entry (either flag set) already
-		// noted on its first pass.
-		noteUnreadParams(h, c, "Clone", cp.Unread)
-	}
+	noteUnreadParams(h, c, "Clone", cp.Unread)
 	if c.CloneEnter.ETB {
 		// The ETB election is answered before the move. A decline is a real
 		// answer, not the deterministic Choices$ fallback.
@@ -165,24 +149,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 		// convention -- a wrong copy is worse than none).
 		zone, zoneOK := cp.ChoiceZoneKind, cp.ChoiceZoneOK
 		optional := cp.ChoiceOptional
-		if clonePickDone {
-			// The answered re-entry: the selected object travels through
-			// Ctx.ClonePick, which rules' resumeResolution filled. A zero id is
-			// a real decline when the ask offered one (ChoiceOptional$ True),
-			// and otherwise a malformed or empty answer -- one loud Note and no
-			// copy, never a silent fall-through to an object the chooser did
-			// not name.
-			if clonePick == 0 {
-				if optional {
-					return // the answered decline: no copy; the decision_made event carries it.
-				}
-				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-					Text: "Clone Choices$ answer named no object; no copy"})
-				return
-			}
-			source = []state.Target{{Obj: clonePick}}
-			chosenPick = clonePick
-		} else if !zoneOK {
+		if !zoneOK {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 				Text: "Clone ChoiceZone$ " + cp.ChoiceZone +
 					" is not a zone this build can choose from; no copy"})
@@ -220,16 +187,15 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 					Label: "No — do not copy", Player: c.Controller})
 			}
 			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: the pick the
-				// "clone_choice" re-entry consumes (a zero id is the
-				// optional decline, or a malformed answer's loud no-copy).
-				// The pick also rides a later Optional$ ask exactly as the
-				// re-entry's answered fields do.
+				// Answered in place. A zero id is a real decline when the
+				// ask offered one (ChoiceOptional$ True), and otherwise a
+				// malformed or empty answer -- one loud Note and no copy,
+				// never a silent fall-through to an object the chooser did
+				// not name.
 				pick := state.ObjID(0)
 				if len(ans) > 0 {
 					pick = ans[0].Obj
 				}
-				clonePick, clonePickDone = pick, true
 				if pick == 0 {
 					if optional {
 						return
@@ -337,41 +303,32 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	// Optional$ True: the copier -- the resolving controller, who for every
 	// corpus carrier is also the become object's controller -- takes the real
 	// may-copy election (ticket api-clone-trigger-copy; Sarkhan Soul Aflame's
-	// "you may have CARDNAME become a copy of it"). The ask re-enters the
-	// whole walk with Ctx.Clone/CloneDone set; the answered decline returns
-	// without copying. A no-host run (an effects test double, a fuzz run)
+	// "you may have CARDNAME become a copy of it"), answered in place via
+	// AskTape; the answered decline returns without copying. A no-host run (an effects test double, a fuzz run)
 	// keeps the deterministic take stand-in the pre-election build shipped,
 	// byte-identical (the same convention the optional-discard family
 	// records) -- a "may" that cannot ask never wedges.
 	if !c.CloneEnter.ETB && cp.Optional {
-		if !cloneDone {
-			prompt := "You may have a permanent become a copy?"
-			if ob := g.Obj(pairs[0].become.Obj); ob != nil && ob.Face() != nil {
-				prompt = "You may have " + ob.Face().Name + " become a copy?"
+		prompt := "You may have a permanent become a copy?"
+		if ob := g.Obj(pairs[0].become.Obj); ob != nil && ob.Face() != nil {
+			prompt = "You may have " + ob.Face().Name + " become a copy?"
+		}
+		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
+			Source:     c.Source,
+			ResumeKind: "clone", ResumeSA: sa,
+			Prompt: prompt,
+			Options: []decision.Option{
+				{Index: 0, Kind: "yes", Label: "Yes — make the copy", Player: c.Controller},
+				{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
+			}}
+		if ans, ok := AskTape(h, d); ok {
+			// Answered in place: copy on a yes, decline otherwise.
+			if len(ans) == 0 || ans[0].Kind != "yes" {
+				return
 			}
-			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
-				Source:     c.Source,
-				ResumeKind: "clone", ResumeSA: sa,
-				Prompt: prompt,
-				Options: []decision.Option{
-					{Index: 0, Kind: "yes", Label: "Yes — make the copy", Player: c.Controller},
-					{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
-				}}
-			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: the "clone"
-				// re-entry copies on a yes and declines otherwise.
-				if len(ans) == 0 || ans[0].Kind != "yes" {
-					return
-				}
-			} else {
-
-				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-					Text: "Clone Optional$ resolved as take (no engine host to ask)"})
-			}
-		} else if cloneAns != "yes" {
-			// The answered decline: no copy. The decision_made event already
-			// carries the answer, so nothing else is emitted.
-			return
+		} else {
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+				Text: "Clone Optional$ resolved as take (no engine host to ask)"})
 		}
 	}
 
@@ -476,14 +433,8 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 			unread = append(unread, "AddStaticAbilities$ "+name)
 		}
 	}
-	// The `!cloneDone` guard the first cut carried here was WRONG: with a
-	// real host the initial pass always returns at the Ask above, so these
-	// diagnostics can only ever fire on the ANSWERED-YES re-entry (the
-	// decline path returned before this point) -- gating them on
-	// `!cloneDone` silenced them for exactly the carriers that ask
-	// (findings-r2 MAJOR; 7 corpus Optional$+AddSVars$ lines incl. Kimahri,
-	// Vesuvan Doppelganger, Lazav). The no-host path keeps cloneDone=false,
-	// so it still emits once.
+	// Emitted once per call, after an Optional$ yes (the decline path
+	// returned before this point) or on the no-host take.
 	if len(unread) > 0 {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "Clone does not read: " + strings.Join(unread, ", ")})
@@ -513,9 +464,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 				Text: "Clone PumpDuration$ " + pumpDuration + " is not implemented; the keyword lasts as long as the copy"})
 		}
 	}
-	// Same shape as the unread-modifier Note above: reachable only on the
-	// answered-yes re-entry (real host) or the no-host pass, never
-	// duplicated.
+	// Same shape as the unread-modifier Note above: emitted once per call.
 	if durNote != "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller, Text: durNote})
 	}

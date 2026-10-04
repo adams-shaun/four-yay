@@ -17,8 +17,7 @@ type LKISnapshots struct {
 	// target off the battlefield, so a chain that changed a target's counters
 	// earlier in the same resolution reads the counters as they were
 	// immediately before the zone change (Dismantle's DBPutCounter is the
-	// corpus shape). Keyed by target ObjID, carried across a suspension the
-	// same way as TargetControllerLKI (rules' resumePoint). The
+	// corpus shape). Keyed by target ObjID. The
 	// resolution-start capture here is the fallback for a departure this
 	// host did not see (a test host folding events without Engine.emit):
 	// only battlefield objects carrying at least one counter are captured at
@@ -47,10 +46,9 @@ type LKISnapshots struct {
 	// moved target as a non-spell and return 0. The mana VALUE itself survives
 	// the move -- a face's converted cost is printed and the object id is
 	// stable -- so only the stack-kind needs the snapshot. Captured at Resolve
-	// entry (keep an existing map on re-entry: after a move the target is no
-	// longer on the stack, so a re-capture would wrongly lose it) and carried
-	// across a suspension the same way as TargetControllerLKI (rules'
-	// resumePoint). Nil when the chain's targets were never spells.
+	// entry (an existing map is kept: after a move the target is no longer on
+	// the stack, so a re-capture would wrongly lose it). Nil when the chain's
+	// targets were never spells.
 	TargetSpell map[state.ObjID]bool
 	// SourceLifelinkLKI is the source permanent's derived lifelink state at
 	// the last moment it existed on the battlefield. The validity bit is
@@ -108,7 +106,7 @@ type ReplacementInputs struct {
 	// instruction's exiled cards, which Averna, the Chaos Bloom picks a land
 	// from. It is the plural counterpart of Replaced, set by
 	// rules/replacement.go on the ReplaceWith$ context of a Cascade
-	// proposal and carried through a suspension; empty outside one, and an
+	// proposal; empty outside one, and an
 	// empty batch resolves to nobody (fail closed). Context, never state.
 	Cards []state.ObjID
 	// ReplacedPlayer is the player a replaced DRAW event was about — the
@@ -218,8 +216,7 @@ type RollInputs struct {
 	// a chained sub's own SVar body (Velukan Dragon's
 	// "SVar:X:SVar$Result/Minus.1") and a ConditionCheckSVar$ can read the
 	// roll. Zero/"" on any resolution that did not roll, and the values are
-	// never persisted beyond the resolution; a mid-resolution ask carries them
-	// across its suspension (effects.RollRide on the resume point). RollPubs is
+	// never persisted beyond the resolution. RollPubs is
 	// the general form of the same publication (both are read through
 	// effects.dice.go's rollPublished, and this slot stays the primary
 	// result's mirror for the existing readers).
@@ -233,10 +230,7 @@ type RollInputs struct {
 	// bare-name fallback and evalCountExpr's SVar$ head through
 	// rollPublished, and by Ctx.SpecContext's numeric-RHS resolver, so a
 	// chained sub's filter spec (Valiant Endeavor's Creature.powerGEX,
-	// Arcane Endeavor's Instant.cmcLEY) reads the roll too. Carried across a
-	// suspension with LastRoll (effects.RollRide); the chosen/other
-	// publications are rebuilt from the answered decision on the roll resume
-	// (Ctx.RollResults/RollPick).
+	// Arcane Endeavor's Instant.cmcLEY) reads the roll too.
 	Pubs []RollPub
 }
 
@@ -269,23 +263,12 @@ type ChooserCursors struct {
 	ChooserIndex int
 }
 
-// SearchInputs is a library search's per-target index, shuffle answer, moved list and known set.
+// SearchInputs is a library search's per-target index and known set.
 type SearchInputs struct {
 	// LibraryTarget is the index in the deterministic per-library target list
-	// whose answer is being resumed. Search, KArrange and their follow-up
-	// confirms share this cursor so a suspended walk continues with the next
-	// library instead of restarting at the first one.
+	// currently being walked. Search, KArrange and their follow-up confirms
+	// share this cursor (the asks' ResumeTarget).
 	Target int
-	// SearchShuffle is the answered ShuffleNonMandatory$ may-shuffle confirm
-	// ("yes"/"no") on a re-entered ChangeZone search; SearchShuffleMoved
-	// carries the objects the search's first pass moved, so the re-entry can
-	// run the LibraryPosition$ placement after the answered shuffle. Both
-	// ride the ask (the moved list via Decision.ResumeMoved, the same
-	// runtime-continuation class as ResumeRemembered) and are consumed and
-	// cleared at the re-entry's top (fx42 scoping), so a nested search poses
-	// its own confirm.
-	Shuffle      string
-	ShuffleMoved []state.ObjID
 	// SearchKnown names, per choosing player, the library cards whose identity
 	// that player has legitimately learned during this resolution's search
 	// chain (effects/zone.go applyLibrarySearch): a card the head ask publicly
@@ -294,9 +277,7 @@ type SearchInputs struct {
 	// (NoLooking$ True, ChangeType$ ...IsRemembered) must label its options
 	// with those real names -- the blind "a card" label would hide information
 	// the chooser already holds -- while an option the chooser genuinely never
-	// saw stays fail-closed blind. It rides the ask via Decision
-	// .ResumeSearchKnown, because the first leg's own suspension rebuilds a
-	// fresh Ctx and a plain field would be lost before the second leg asks.
+	// saw stays fail-closed blind.
 	// Resolution-scratch like Remembered -- never event-encoded; a replay
 	// re-derives the same set by replaying the same resolution.
 	Known []state.Target
@@ -347,20 +328,17 @@ type NumberInputs struct {
 // DrawInputs is an Upto$ Draw's per-target answer and the cards drawn so far.
 type DrawInputs struct {
 	// DrawDone is the number of individual draws a multi-card Draw has already
-	// completed. A dredge choice suspends between draws; rules restores this
-	// cursor after applying the selected replacement so the enclosing Draw
-	// continues rather than restarting or abandoning its remaining cards.
+	// completed, so a dredge choice between draws lets the enclosing Draw
+	// continue rather than restarting or abandoning its remaining cards.
 	Done int32
 	// DrawUptoIdx/DrawUptoCount/DrawUptoAnswered carry an Upto$ Draw's
 	// per-target continuation (Arcane Denial, Truce): Idx is the Defined$
 	// target index whose "draw up to N" ask or answered batch is in flight,
 	// Count the answered count for it, Answered distinguishes an answered
-	// ZERO (draw nothing) from a target not yet asked. rules' draw_upto
-	// resume arm sets all three from the recorded answer (Count = the
-	// number of chosen card options), and the dredge arm restores them
-	// across a Dredge choice parked inside the batch (riding the ask's
-	// ResumeUpto rider). effDraw consumes the three as it completes each
-	// target, so the next target poses its own ask (fx42 scoping).
+	// ZERO (draw nothing) from a target not yet asked. effDraw sets all
+	// three from the answer (Count = the number of chosen card options) and
+	// resets them as it completes each target, so the next target poses its
+	// own ask.
 	UptoIdx      int32
 	UptoCount    int32
 	UptoAnswered bool
@@ -379,9 +357,8 @@ type ETBRecords struct {
 	// an earlier ChooseColor had set the field (a second sequential SA in
 	// one resolution, or an ability activation on an already-chosen
 	// permanent) -- the stale-source-state bug the same ticket's review
-	// named. Consumed and cleared by the effect (the fx42 scoping
-	// discipline), so a nested ChooseColor deeper in the same chain poses
-	// its own fresh ask.
+	// named. Consumed and cleared by the effect, so a nested ChooseColor
+	// deeper in the same chain poses its own fresh ask.
 	ColorRecorded bool
 	// ETBNumberRecorded marks the ONE ChooseNumber invocation that must not
 	// ask: the as-enters ENTRY-choice body (K:ETBReplacement:Other:
@@ -395,8 +372,8 @@ type ETBRecords struct {
 	// sibling colour ticket's review named. The flag is what makes the entry
 	// no-op exact even when the recorded entry answer is 0 (the value a bare
 	// o.ChosenNumber guard cannot distinguish from unset). Consumed and cleared
-	// by the effect (the fx42 scoping discipline), so a nested ChooseNumber
-	// deeper in the same chain poses its own fresh ask.
+	// by the effect, so a nested ChooseNumber deeper in the same chain poses
+	// its own fresh ask.
 	NumberRecorded bool
 	// ETBEvenOddRecorded marks the ChooseEvenOdd body of an ETB replacement:
 	// the entry boundary already asked and recorded the answer on the entering

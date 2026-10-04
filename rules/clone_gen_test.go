@@ -87,7 +87,6 @@ var cloneTypeCopiers = map[string]string{
 	"cost.Cost":                      "%[1]s = cloneCost(%[2]s)",
 	"[]rules.pendingTrigger":         "%[1]s = clonePendingTriggers(%[2]s)",
 	"cards.Trigger":                  "%[1]s = cloneTrigger(%[2]s)",
-	"effects.TokenRest":              "%[1]s = %[2]s.Clone()",
 	"rules.trigGrantProof":           "%[1]s = %[2]s.forClone()",
 	"rules.abilityLossProof":         "%[1]s = %[2]s.forClone()",
 	"decision.PaymentPlan":           "%[1]s = decision.ClonePaymentPlan(%[2]s)",

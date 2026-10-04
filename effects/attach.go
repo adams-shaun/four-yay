@@ -62,9 +62,9 @@ func emitAttach(h Host, obj, bearer state.ObjID) {
 // the resolving controller as You and the resolving source bound (so a
 // source-anchored spec such as `Player.!IsRemembered` reads the source's own
 // list). It is the ONE pool derivation: the asking pass offers these seats as
-// the decision's options and the answered re-entry re-checks the chosen seat
-// against the same helper, so the bot's own answer can never be outside what
-// the re-entry accepts (the one-home rule for a decision's legal answers).
+// the decision's options and the answer is re-checked against the same pool,
+// so the bot's own answer can never be outside what is accepted (the one-home
+// rule for a decision's legal answers).
 func playerAttachPool(h Host, c *Ctx, spec string) []state.PlayerID {
 	g := h.Game()
 	var out []state.PlayerID
@@ -189,10 +189,7 @@ func attachSpecAdmitsPlayer(g *state.Game, attachObj state.ObjID, bearer state.P
 // control"). The pool is the battlefield sweep the filter admits, evaluated
 // with the resolving controller as You; the choice poses a real KChoose
 // (Min 0 when Optional$ True -- picking nothing is the decline -- else Min
-// 1), the answered ids ride Ctx.AttachChoice (consumed and cleared, fx42
-// scoping), and the asking pass's resolved destination list rides the ask so
-// a RepeatEach body's Defined$ Imprinted binding -- which does not survive a
-// suspension -- never has to be re-derived. A mandatory Min-1 pool with
+// 1), answered in place via AskTape. A mandatory Min-1 pool with
 // exactly one candidate takes it without an ask (the strict-supersets
 // convention: a decision nobody could answer differently is never emitted);
 // an Optional pool with nothing eligible declines silently, and a mandatory
@@ -200,10 +197,9 @@ func attachSpecAdmitsPlayer(g *state.Game, attachObj state.ObjID, bearer state.P
 //
 // An Optional$ True Attach WITHOUT Choices$ (Ajani's Chosen's "you may attach
 // it to the token", Cori-Steel Cutter's "you may attach this Equipment to
-// it") asks its controller a yes/no KChoose before attaching, through the
-// shared Ask boundary with the "attach_optional" resume arm; a decline emits
-// no Attach and no refusal Note, and the chained SubAbility$ still runs (the
-// suspension plumbing in effects.Resolve owns the chain). A host that
+// it") asks its controller a yes/no KChoose before attaching, answered in
+// place via AskTape; a decline emits no Attach and no refusal Note, and the
+// chained SubAbility$ still runs. A host that
 // cannot ask takes the deterministic decline stand-in (R-9); botpolicy's
 // clamp fallback answers option 0, which is the "yes" option, so bots
 // attach. With NO legal target the existing Note refusal fires and no ask
@@ -234,17 +230,6 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.Attach, Obj: c.Source})
 		return
 	}
-	// fx42 scoping: consume and clear the answered attach_choice fields at
-	// the top, so a nested Attach in the same chain poses its own ask.
-	answered := ([]state.ObjID)(nil)
-
-	answerDests := ([]state.ObjID)(nil)
-
-	answeredDone := false
-	answerPlayer := state.PlayerID(0)
-
-	answeredPlayerDone := false
-
 	obj := c.Source
 	// objs is the resolved Object$ list. It names one object for every
 	// single-object carrier (Equip/Enchant/Living Weapon, Memory's Journey,
@@ -345,21 +330,6 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	// Enchant:Player branch above: neither carrier carries a Keyword$ param.
 	if spec := ap.PlayerChoices; spec != "" {
 		pool := playerAttachPool(h, c, spec)
-		if answeredPlayerDone {
-			// The answered seat is re-checked against the live pool
-			// (recomputed here with the SAME helper the asking pass used), so
-			// a stale or malformed answer is refused with no Attach (the
-			// malformed-answer conservative read) and the chain continues via
-			// Resolve. Deriving ask and re-check from one helper is what keeps
-			// the bot's own option-0 answer inside the validator.
-			for _, p := range pool {
-				if p == answerPlayer {
-					emitPlayerAttach(h, c, ap, obj, p)
-					return
-				}
-			}
-			return
-		}
 		if len(pool) == 0 {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller, Text: "cannot attach: no legal player"})
 			return
@@ -378,10 +348,10 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "player", Player: p})
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: what the
-			// "attach_player_choice" re-entry does -- it re-runs effAttach
-			// from its first line (so the unread-parameter Note again), then
-			// attaches to the answered seat if the live pool still holds it.
+			// Answered in place: the unread-parameter Note again, then
+			// attach to the answered seat if the live pool still holds it
+			// (ask and re-check share one helper, so the bot's own option-0
+			// answer stays inside the validator).
 			noteUnreadParams(h, c, "Attach", ap.Unread)
 			for _, o := range ans {
 				if o.Kind != "player" {
@@ -491,9 +461,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	// A Choices$ pool the controller picks from: the battlefield sweep the
 	// filter admits, evaluated with the resolving controller as You. With
 	// Object$ present the pool is the DESTINATION side; without it, the
-	// OBJECT side. One sweep serves both the asking pass and the answered
-	// re-entry (a pure read: no event, and a suspension between the two
-	// changes no state, so the sweep is the same both times).
+	// OBJECT side.
 	//
 	// Known limitation: the sweep is battlefield-only -- ChoiceZone$ (e.g.
 	// SVar:DBAttach:DB$ Attach | Choices$ Instant | ChoiceZone$ Graveyard)
@@ -503,45 +471,6 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	// no legal target" refusal -- silently inert, not working.
 	if spec := ap.Choices; spec != "" {
 		pool := battlefieldValidTargets(h, c, spec)
-		// The answered attach_choice re-entry (fx42 scoping: already consumed
-		// and cleared at the top). With no Object$ the answer names the
-		// OBJECT to attach and the asking pass's resolved destination list
-		// rode Ctx.AttachDests; with Object$ present it names the
-		// DESTINATION. An empty answer is the Min-0 Optional decline -- or a
-		// malformed mandatory answer, whose conservative read is the same
-		// no-attach -- and the chain continues via Resolve either way.
-		if answeredDone {
-			if len(answered) == 0 {
-				return
-			}
-			if ap.ObjectPresent {
-				// Object$ present: the answer names the DESTINATION. It is
-				// re-checked against the legal destination list recomputed
-				// here (the same rejections the asking pass applies), so a
-				// stale or malformed answer -- including one naming obj
-				// itself, which a raw battlefield sweep CAN admit -- is
-				// refused with no Attach (the malformed-answer conservative
-				// read) and the chain continues via Resolve.
-				legal := attachableBy(answered[0])
-				if !legal {
-					return
-				}
-				attachAll(answered[0])
-				return
-			}
-			// No Object$: the answer names the OBJECT to attach, and the
-			// asking pass's resolved destination list rode Ctx.AttachDests
-			// (a RepeatEach body's Defined$ Imprinted binding does not
-			// survive the suspension, so the re-entry never re-derives it).
-			if len(answerDests) == 0 {
-				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "cannot attach: no legal target"})
-				return
-			}
-			obj = answered[0]
-			objs = []state.ObjID{obj}
-			attachTo(obj, answerDests[0])
-			return
-		}
 		if ap.ObjectPresent {
 			var dest []state.ObjID
 			for _, t := range pool {
@@ -570,16 +499,14 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			// including obj itself (aura_graft's Choices$ Permanent admits the
 			// attaching Aura, which IS a battlefield Permanent), and offering
 			// the object as its own attachment point would self-attach on a
-			// bot's option-0 answer (AttachChoice carries Option.Obj, so the
-			// re-entry's attachTo(answered[0]) would emit Attach{IDs:[obj]}).
-			// Indexing over dest keeps the auto-take above and the re-entry in
-			// agreement -- the source can never be offered or selected.
+			// bot's option-0 answer. Indexing over dest keeps the auto-take
+			// above and the answer check in agreement -- the source can never
+			// be offered or selected.
 			for i, t := range dest {
 				d.Options = append(d.Options, decision.Option{Index: i, Kind: "card", Obj: t, Player: c.Controller})
 			}
 			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: the
-				// "attach_choice" re-entry (after its unread-parameter Note):
+				// Answered in place (after the unread-parameter Note again):
 				// a decline attaches nothing; a DESTINATION still legal for
 				// an object gets them all.
 				noteUnreadParams(h, c, "Attach", ap.Unread)
@@ -594,8 +521,8 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 		// Yuffie, Materia Hunter): each Choices$ object is a possible object
 		// to attach, so destinations must be checked against those candidates,
 		// not against the resolving source. Keep only destinations legal for
-		// every offered object; the chosen candidate can then use the saved
-		// destination list safely after the ask suspends resolution.
+		// every offered object, so whichever candidate is chosen can use the
+		// shared destination list.
 		optional := ap.OptionalTrue
 		var eligiblePool []state.Target
 		for _, candidate := range pool {
@@ -660,18 +587,14 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 		}
 		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: min, Max: 1,
 			Source: c.Source, ResumeKind: "attach_choice", ResumeSA: sa,
-			// The resolved destination list rides the ask: a RepeatEach
-			// body's Defined$ Imprinted binding does not survive the
-			// suspension, so the re-entry never re-derives it.
 			Prompt: ap.ChoicePrompt}
 		for i, t := range pool {
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "card", Obj: t.Obj, Player: c.Controller})
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the "attach_choice"
-			// re-entry (after its unread-parameter Note): a decline
-			// attaches nothing; the answered OBJECT goes to the first
-			// destination of the list the ask carried.
+			// Answered in place (after the unread-parameter Note again): a
+			// decline attaches nothing; the answered OBJECT goes to the
+			// first shared destination.
 			noteUnreadParams(h, c, "Attach", ap.Unread)
 			picked := attachChoiceIDs(ans)
 			if len(picked) == 0 {
@@ -712,65 +635,44 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			legalT = append(legalT, t)
 		}
 	}
-	var legal []state.ObjID
-	for _, t := range legalT {
-		legal = append(legal, t.Obj)
-	}
-	if ap.OptionalTrue {
-		// fx42 scoping: consume and clear the answered election at the top,
-		// so a nested Attach in the same chain poses its own ask.
-		ans := string("")
-
-		switch {
-		case ans == "yes":
-			// Answered "attach": fall through to the ordinary attach loop.
-		case ans != "":
-			// Answered "no" (or any non-affirmative marker): the decline. No
-			// Attach, no refusal Note; the chain continues via Resolve.
+	// With nothing legal no ask is posed: the Note refusal below fires.
+	if ap.OptionalTrue && len(legalT) > 0 {
+		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
+			Source: c.Source, ResumeKind: "attach_optional", ResumeSA: sa,
+			Prompt: "Attach it?",
+			Options: []decision.Option{
+				{Index: 0, Kind: "yes", Label: "Yes — attach", Player: c.Controller},
+				{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
+			}}
+		ans, ok := AskTape(h, d)
+		if !ok {
+			// No answer: the deterministic decline stand-in (R-9); the
+			// clamp-answered bot path answers option 0 = "yes".
 			return
-		default:
-			if len(legal) == 0 {
-				break // unanswered AND nothing legal: the Note refusal below.
-			}
-			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
-				Source: c.Source, ResumeKind: "attach_optional", ResumeSA: sa,
-				Prompt: "Attach it?",
-				Options: []decision.Option{
-					{Index: 0, Kind: "yes", Label: "Yes — attach", Player: c.Controller},
-					{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
-				}}
-			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: the
-				// "attach_optional" re-entry (after its unread-parameter
-				// Note) attaches on a yes and declines otherwise.
-				noteUnreadParams(h, c, "Attach", ap.Unread)
-				if len(ans) == 0 || ans[0].Kind != "yes" {
-					return
-				}
-				break
-			}
-			// AskAsked suspends; the answer re-enters with Ctx.AttachOpt set.
-			// AskNoHost is the deterministic decline stand-in (R-9) — the
-			// same class the search_mayshuffle confirm falls back to (the
-			// clamp-answered bot path below answers option 0 = "yes").
+		}
+		// Answered in place (after the unread-parameter Note again):
+		// attach on a yes, decline otherwise.
+		noteUnreadParams(h, c, "Attach", ap.Unread)
+		if len(ans) == 0 || ans[0].Kind != "yes" {
 			return
 		}
 	}
 	attached := 0
 	for _, o := range objs {
-		for _, t := range destCandidatesFor(o) {
-			if t.IsPlayer {
-				// The player destination (Archnemesis, Maddening Hex, Ardenn):
-				// the raw player-attach emit folds into
-				// AttachedPlayer/HasAttachedPlayer and carries the two-half
-				// remember, exactly like the PlayerChoices$ branch above.
-				emitPlayerAttach(h, c, ap, o, t.Player)
-			} else {
-				attachTo(o, t.Obj)
-			}
-			attached++
-			break
+		ts := destCandidatesFor(o)
+		if len(ts) == 0 {
+			continue
 		}
+		if t := ts[0]; t.IsPlayer {
+			// The player destination (Archnemesis, Maddening Hex, Ardenn):
+			// the raw player-attach emit folds into
+			// AttachedPlayer/HasAttachedPlayer and carries the two-half
+			// remember, exactly like the PlayerChoices$ branch above.
+			emitPlayerAttach(h, c, ap, o, t.Player)
+		} else {
+			attachTo(o, t.Obj)
+		}
+		attached++
 	}
 	if attached == 0 {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "cannot attach: no legal target"})

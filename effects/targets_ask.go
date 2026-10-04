@@ -19,19 +19,16 @@ import (
 // verse ping, Kor Outfitter's Attach) used to arrive here with no chosen
 // targets and either moved nothing silently or inherited the OUTER SA's
 // targets. This poses the sub's own ask through the same Host.LegalTargets
-// census the placement ask uses, as a KChoose over the "tgts" resume arm;
-// the answer lands in Ctx.TargetsPick and the re-entered pass consumes it
-// (the ask's ResumeSA is exactly this SA, so the pending frame re-enters
-// it). A host that cannot ask takes the deterministic first-max stand-in
+// census the placement ask uses, as a KChoose answered in place via
+// AskTape. A host that cannot ask takes the deterministic first-max stand-in
 // (R-9), which is what botpolicy's first-option KChoose default answers
 // with for card/player options.
 //
 // The ok return is NOT "targets were found" -- it is "use the returned set
-// INSTEAD of Defined's own fallthrough": ok=true with a nil set means the
-// ask was posed and SUSPENDED the resolution (effects.Resolve stops before
-// dispatching the body), and the answered re-entry consumes
-// Ctx.TargetsPick here. Every other shape returns false and the caller
-// keeps Defined's own behaviour.
+// INSTEAD of Defined's own fallthrough": ok=true with a nil set means a
+// which-opponent selection was reported pending (or an empty pre-ask set was
+// recorded). Every other shape returns false and the caller keeps Defined's
+// own behaviour.
 //
 // The ask never fires when the SA also carries Defined$ (an already-named
 // fetch list is Forge's no-ask shape) -- with ONE carve-out: API$ Fight,
@@ -50,8 +47,7 @@ import (
 // that shape -- the closed ChangeZone slice), when this is the depth-0
 // entry SA of a resolution whose TargetsOffered marker is set (the
 // placement ask covered exactly that SA; its targets are already in
-// Ctx.Targets and a Min-0 elected-zero must not be re-posed), or when an
-// answered pre-ask for this very SA is waiting in Ctx.TargetsPick. Bounds
+// Ctx.Targets and a Min-0 elected-zero must not be re-posed). Bounds
 // come from TargetMin$/TargetMax$ through the ordinary Num grammar,
 // clamped to the eligible count; Min == Max == 0 or an empty eligible set
 // is no ask and no move -- a decision nobody could answer differently is
@@ -84,14 +80,11 @@ func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target
 		// The cast-time pre-ask's answer for exactly this sub (alltargeted1):
 		// Forge chose the whole chain's targets before payment (CR 601.2c), so
 		// the resolution uses the recorded set instead of re-posing the ask
-		// here. Keep the answer until the stack object leaves: a suspended body
-		// re-enters with a fresh Ctx and must see the same chosen targets (e.g.
-		// MoveCounter's counter-kind pick). A TargetUnique$ sub
-		// feeds the same later-ask exclusion accumulator the answered path
-		// below does. An EMPTY recorded set is a real answer (a Min-0 chain
-		// sub elected zero, or no candidate existed at cast time): it must
-		// still use the empty answer, or the re-entered walk would pose the
-		// mid-resolution ask after all.
+		// here. A TargetUnique$ sub feeds the same later-ask exclusion
+		// accumulator the answered path below does. An EMPTY recorded set is
+		// a real answer (a Min-0 chain sub elected zero, or no candidate
+		// existed at cast time): it must still use the empty answer, or the
+		// walk would pose the mid-resolution ask after all.
 		if ts, ok := c.SubPreAsk[sa.Line]; ok {
 			if TargetUniqueRequested(sa) {
 				c.TargetsUnique = append(c.TargetsUnique, ts...)
@@ -122,9 +115,9 @@ func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target
 	candidates := subAskCandidates(h, c, sa)
 	chooser := h.ChooserFor(c, sa)
 	if ch, posed := opponentPick(h, c, sa, chooser); posed {
-		// The controller's which-opponent selection ask was posted: the walk
-		// is suspended and re-enters this very SA, where the answered
-		// selection makes ChooserFor return the chosen seat.
+		// The host reports the which-opponent selection as still pending:
+		// no target set yet (the rules host answers it in place and never
+		// reports it pending).
 		return nil, true
 	} else if !posed {
 		chooser = ch
@@ -181,13 +174,6 @@ func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target
 // head before its first `.`; `TargetedController` and friends are NOT in
 // the set (they are derived referents this engine resolves through its own
 // machinery, measured corpus-unreachable at the reachable dispatch sites).
-// DefinedIsTargetReuse is the exported form of definedIsTargetReuse, for
-// rules' cast-time sub-ask collector (alltargeted1) to apply the same
-// inclusion rule the mid-resolution path applies.
-func DefinedIsTargetReuse(defined string) bool {
-	return definedIsTargetReuse(defined)
-}
-
 func definedIsTargetReuse(defined string) bool {
 	for tok := range strings.SplitSeq(defined, ",") {
 		tok = strings.TrimSpace(tok)
@@ -204,14 +190,11 @@ func definedIsTargetReuse(defined string) bool {
 // poseTargetsAsk is the shared tail of both ValidTgts$ mid-resolution asks
 // (this file's chosenTargetsFor and zone.go's changeZoneChosenTargets): a
 // KChoose over the eligible candidates -- one option per target, players
-// labelled from the player table, cards from the face name -- posted through
-// the shared Ask boundary under the "choice"-shaped resume transport the
-// caller names, with the R-9 no-host stand-in (the first max candidates in
-// offered order) when the host cannot ask. ok=true with a nil set is the
-// SUSPENDED outcome; ok=true with a non-nil set is the stand-in -- or, with
-// served set, the resolution kernel's answer, already consumed exactly as
-// both callers' answered re-entries consume theirs (the TargetUnique$
-// accumulator), so the caller continues with it.
+// labelled from the player table, cards from the face name -- answered in
+// place via AskTape under the resume kind the caller names, with the R-9
+// no-host stand-in (the first max candidates in offered order) when the host
+// cannot ask. ok=true returns the set to use: the stand-in, or -- with served
+// set -- the answer, already fed to the TargetUnique$ accumulator.
 // targetOwnerOf is the controlling player of one target candidate: the
 // player itself, else the object's controller. A vanished object fails to
 // seat 0 -- it only merges a dead candidate's group with seat 0's, the
@@ -272,16 +255,6 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 		Min: int(min), Max: int(max), Source: c.Source,
 		ResumeKind: resumeKind, ResumeSA: resumeSA,
 		Prompt: prompt}
-	// The TargetUnique accumulator rides EVERY ask through the ask boundary
-	// (Engine.Ask stamps the live chain Ctx's accumulator onto any decision
-	// that did not already carry one, which is what makes it survive a
-	// suspension of ANY kind -- a Charm mode election, a ward pay window, a
-	// dig/scry/arrange ask). The explicit stamp here is belt and braces for a
-	// host that does not publish the chain Ctx (an effects-package test
-	// double). Copied as a fresh slice -- the walk may append to it after this
-	// ask is parked.
-	if len(c.TargetsUnique) > 0 {
-	}
 	// pfpe1: the TargetsForEachPlayer$ shape binds each option to its
 	// controller's Group -- the same label rules' ask sites attach (askTarget
 	// / cast.go targetAsk) -- so Decision.Validate's mutual-exclusion rule
@@ -321,17 +294,13 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 		max = int32(len(candidates))
 	}
 	if ans, ok := AskTape(h, d); ok {
-		// The resolution kernel's answer in hand: the target set the
-		// "tgts"/"choice" arm binds, consumed as the answered re-entry
-		// consumes it (chosenTargetsFor's TargetsPickDone branch,
-		// changeZoneChosenTargetsFor's ChoiceDone branch).
+		// Answered in place: the chosen target set.
 		ts := tapeAnswerTargets(ans)
 		if TargetUniqueRequested(sa) {
 			c.TargetsUnique = append(c.TargetsUnique, ts...)
 		}
 		return ts, true, true
 	}
-
 	return candidates[:max], true, false
 }
 

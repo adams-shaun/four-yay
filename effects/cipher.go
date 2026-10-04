@@ -27,9 +27,8 @@ func init() { Register("Cipher", effCipher) }
 //
 // The offer is a single mid-resolution KModes ask over the resolving
 // controller's creatures: Min 0 (an empty answer declines -- "you may"), Max
-// 1 (exactly one creature is encoded). The choice is carried across the
-// suspension in Ctx.CipherDone/CipherPick (the demonstrate transport shape),
-// and a host that cannot ask takes the deterministic decline -- the R-9
+// 1 (exactly one creature is encoded), answered in place via AskTape, and a
+// host that cannot ask takes the deterministic decline -- the R-9
 // no-host contract, matching every other optional keyword the engine poses.
 //
 // The performing half moves the card to exile and writes the association as
@@ -48,14 +47,6 @@ func effCipher(h Host, c *Ctx, sa *cards.SA) {
 	}
 	controller := c.Controller
 	if int(controller) < len(g.Players) && g.Players[controller].Lost {
-		return
-	}
-
-	answered := false
-	pick := ([]state.Target)(nil)
-
-	if answered {
-		cipherEncode(h, c, card, controller, pick)
 		return
 	}
 
@@ -100,8 +91,7 @@ func effCipher(h Host, c *Ctx, sa *cards.SA) {
 			Label: label, Obj: id, Player: controller})
 	}
 	if ans, ok := AskTape(h, d); ok {
-		// The resolution kernel's answer in hand: the "cipher" re-entry's
-		// encode (an empty answer declines).
+		// Answered in place: encode (an empty answer declines).
 		var picked []state.Target
 		for _, o := range ans {
 			if o.Obj != 0 {
@@ -116,8 +106,8 @@ func effCipher(h Host, c *Ctx, sa *cards.SA) {
 		Text: "cipher encode resolved as the decline (no engine host to ask)"})
 }
 
-// cipherEncode applies an answered encode pick (the "cipher" answer: the
-// re-entry's and the resolution kernel's one home). An empty pick is the
+// cipherEncode applies an answered encode pick (the "cipher" answer's one
+// home). An empty pick is the
 // decline; a pick naming an object that has since left the battlefield (or
 // is not a legal creature any more) is a stale answer and encodes nothing.
 func cipherEncode(h Host, c *Ctx, card state.ObjID, controller state.PlayerID, pick []state.Target) {

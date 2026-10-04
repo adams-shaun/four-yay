@@ -29,18 +29,6 @@ type activationThisTurn struct {
 	targets   []state.Target
 }
 
-func cloneActivationsThisTurn(in []activationThisTurn) []activationThisTurn {
-	if in == nil {
-		return nil
-	}
-	out := make([]activationThisTurn, len(in))
-	for i, v := range in {
-		out[i] = v
-		out[i].targets = slices.Clone(v.targets)
-	}
-	return out
-}
-
 // recordTurnLedgers folds one applied event into the per-turn ledgers.
 // abilityMintWant is the object id an activation push was about to mint
 // (zero for any other event).

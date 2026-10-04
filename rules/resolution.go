@@ -218,9 +218,6 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			src = o.Source
 		}
 		e.damaging = src
-		savedWinX := e.windowPaidX
-		e.windowPaidX = rp.winPaidX
-		defer func() { e.windowPaidX = savedWinX }()
 		effects.Resolve(e, ctx, rp.sa)
 		e.damaging = 0
 		// A resumed EndTurn has already exiled the stack, including the

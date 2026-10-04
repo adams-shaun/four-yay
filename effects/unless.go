@@ -37,13 +37,13 @@ import (
 // only their label wording; their semantics are exactly these two
 // orientations and always were.
 //
-// Payment happens in rules (rules' resumeResolution unless_pay arm): the ask
-// is a KModes decision with ResumeKind "unless_pay", the answer re-enters
-// this SA with Ctx.UnlessPay set ("pay" = the cost was charged to the payer
-// by the engine's payment path, "decline" = it was not), and this gate
-// applies the orientation. A cost the payment API cannot price is a hard
-// decline there, never a free pass. The payer index rides the decision's
-// ResumeTarget (Ask stores it on the resume point), so a multi-payer
+// Payment happens in rules (rules/unless_tape.go): the ask is a KModes
+// decision with ResumeKind "unless_pay" answered in place via AskTape; the
+// host settles Ctx.UnlessPay ("pay" = the cost was charged to the payer by
+// the engine's payment path, "decline" = it was not) and this gate re-reads
+// it and applies the orientation. A cost the payment API cannot price is a
+// hard decline there, never a free pass. The payer index rides the
+// decision's ResumeTarget (settled into Ctx.UnlessNext), so a multi-payer
 // UnlessPayer$ asks each payer in turn until one pays.
 //
 // UnlessResolveSubs$ WhenPaid/WhenNotPaid (41 raw corpus lines) gates the
@@ -71,8 +71,8 @@ import (
 // token (PayEnergy<N>, PayLife<X>) whose SVar body the face's table
 // resolves — the token keeps its shape, only the amount folds, so an energy
 // cost never turns into generic mana. The same string must reach the ask's
-// label (unlessProceed) and the payment (rules' unless_pay arm calls this
-// with the resumed ctx), so the offer and the charge can never disagree.
+// label (unlessProceed) and the payment (rules calls this with the same
+// ctx), so the offer and the charge can never disagree.
 func UnlessCostResolved(h Host, c *Ctx, sa *cards.SA) string {
 	if sa == nil {
 		return ""
@@ -82,8 +82,7 @@ func UnlessCostResolved(h Host, c *Ctx, sa *cards.SA) string {
 		return raw
 	}
 	// CR 601.2b: an X in an UnlessCost$ is the value announced by the
-	// resolving spell or ability. The rules package carries that announcement
-	// through Ctx.X when it rebuilds a suspended resolution; XAnnounced marks
+	// resolving spell or ability, carried in Ctx.X; XAnnounced marks
 	// that an X cost was genuinely paid, so an announced ZERO resolves too
 	// (Power Sink cast for X=0) instead of staying an unpriceable token. XX is
 	// Forge's spelling for twice the same announced value (Thassa's
@@ -325,13 +324,11 @@ func applyUnlessCostModifier(shown, op, arg string) string {
 
 // unlessProceed reports whether the effect's body should run for this pass,
 // whether the UnlessCost$ was paid, and whether its election was served
-// from the resolution kernel's tape (then nothing suspended: the answer was
-// settled in line and the gate re-read it, exactly as the legacy re-entry
-// does, so Resolve must not read the served ask as a suspension). Called
-// from Resolve immediately before the dispatch, for every SA; a zero-cost SA returns (true, false)
-// with no work. On the first pass (no recorded answer) it poses the pay
-// decision and reports (false, false) for the suspended pass; the answered
-// re-entry applies the orientation. The paid half feeds UnlessResolveSubs$
+// in place via AskTape (the answer was settled in line and the gate re-read
+// it). Called from Resolve immediately before the dispatch, for every SA; a
+// zero-cost SA returns (true, false) with no work. With no recorded answer
+// it poses the pay decision; a served answer is re-read and its
+// orientation applied. The paid half feeds UnlessResolveSubs$
 // (Resolve gates the SubAbility$ walk on it); on every path where no cost
 // was charged — a decline, an unresolvable payer, a no-host fallback — it is
 // false.
@@ -345,35 +342,24 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (run, paid, served bool) {
 		// object of the targeting spell/ability held in TriggerStack (not a
 		// UnlessPayer$ selector and not the warding permanent's controller),
 		// and its payment forms — the CR 702.21a mana window and the
-		// non-mana ward costs — are handled by rules' unless_pay arm
-		// (beginWardPayment) before the answer re-enters effWard. Gate it
+		// non-mana ward costs — are handled by rules (beginWardPayment)
+		// before effWard reads the answer. Gate it
 		// here and the generic ask would go to the wrong player and bypass
 		// those windows, so leave the shape to its own handler.
 		return true, false, false
 	}
 	switched := ActivationOf(sa).Has(ActUnlessSwitched)
 	// The answer and payer cursor are consumed (and cleared) at the top of
-	// every pass — the fx42 scoping discipline: an unless SA reached below a
-	// consuming SA in the same walk poses its own ask instead of inheriting
-	// the outer answer. ctx.UnlessNext is the index of the payer whose
-	// answer this pass applies (0 on a first pass; rules' resume arm copies
-	// it off the resume point).
+	// every pass, so an unless SA reached below a consuming SA in the same
+	// walk poses its own ask instead of inheriting the outer answer.
+	// ctx.UnlessNext is the index of the payer whose answer this pass
+	// applies (0 on a first pass; the host settles it from the answered
+	// decision's ResumeTarget).
 	ans := c.UnlessPay
 	c.UnlessPay = ""
 	idx := c.UnlessNext
 	c.UnlessNext = 0
-	// The body's own re-entry: this gate already resolved on the suspended
-	// pass and recorded its outcome through Host.SuspendUnless (the asking
-	// body-under-UnlessCost$ livelock fix) — consume the marker, never ask
-	// again. The recorded pay outcome feeds UnlessResolveSubs$ exactly as
-	// the original pass computed it.
-	if ans == "resolved-pay" {
-		return true, true, false
-	}
-	if ans == "resolved-decline" {
-		return true, false, false
-	}
-	// A paid answer is authoritative even if a re-entry fixture or nested
+	// A paid answer is authoritative even if a fixture or nested
 	// continuation did not retain every transient payer binding from the ask.
 	if ans == "pay" {
 		return switched, true, false
@@ -414,10 +400,7 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (run, paid, served bool) {
 		// a decline, so it must use that same orientation rather than running
 		// every switched effect (the old `!poseUnlessAsk` inverted this case).
 		if idx+1 < len(payers) {
-			switch poseUnlessAsk(h, c, sa, cost, payers, idx+1) {
-			case unlessAsked:
-				return false, false, false
-			case unlessServed:
+			if poseUnlessAsk(h, c, sa, cost, payers, idx+1) == unlessServed {
 				return unlessReread(h, c, sa)
 			}
 		}
@@ -430,10 +413,7 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (run, paid, served bool) {
 	if len(payers) == 0 {
 		payers = []state.Target{{Player: c.Controller, IsPlayer: true}}
 	}
-	switch poseUnlessAsk(h, c, sa, cost, payers, 0) {
-	case unlessAsked:
-		return false, false, false
-	case unlessServed:
+	if poseUnlessAsk(h, c, sa, cost, payers, 0) == unlessServed {
 		return unlessReread(h, c, sa)
 	}
 	// No engine host means poseUnlessAsk deterministically declined. Apply
@@ -441,11 +421,9 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (run, paid, served bool) {
 	return !switched, false, false
 }
 
-// unlessReread is the gate's pass over an election the resolution kernel's
-// tape served and the host settled (Ctx.UnlessPay and Ctx.UnlessNext set):
-// the same read the legacy "unless_pay" re-entry makes when it re-enters
-// this SA -- a pay applies the orientation, a decline moves on to the next
-// payer -- marked served.
+// unlessReread is the gate's pass over an election served in place and
+// settled by the host (Ctx.UnlessPay and Ctx.UnlessNext set): a pay applies
+// the orientation, a decline moves on to the next payer -- marked served.
 func unlessReread(h Host, c *Ctx, sa *cards.SA) (bool, bool, bool) {
 	run, paid, _ := unlessProceed(h, c, sa)
 	return run, paid, true
@@ -458,13 +436,9 @@ const (
 	// unlessNoHost: the host could not ask; the deterministic decline (R-9)
 	// applies.
 	unlessNoHost unlessAsk = iota
-	// unlessAsked: the ask was posed (or deferred) and the resolution
-	// suspended; the answer re-enters this SA.
-	unlessAsked
-	// unlessServed: the resolution kernel's tape served the answer, and the
-	// host's answer record settled it in line into the asking walk's Ctx
-	// (Ctx.UnlessPay, Ctx.UnlessNext) exactly as the legacy re-entry's
-	// resume arm does.
+	// unlessServed: AskTape served the answer, and the host's answer
+	// record settled it in line into the asking walk's Ctx (Ctx.UnlessPay,
+	// Ctx.UnlessNext).
 	unlessServed
 )
 
@@ -490,8 +464,7 @@ func unlessSubsRun(sa *cards.SA, paid bool) bool {
 }
 
 // poseUnlessAsk offers payer payers[i] the unless cost. It reports whether
-// the resolution suspended, the tape served and settled the answer, or the
-// host could not ask (an effects-package test double, R-9) and the
+// the answer was served and settled in place, or the host could not ask (an effects-package test double, R-9) and the
 // deterministic decline applies — with the Note the no-host path has always
 // carried.
 func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Target, i int) unlessAsk {
@@ -570,15 +543,6 @@ func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Tar
 	d := &decision.Decision{Player: payer, Kind: decision.KModes,
 		Min: 1, Max: 1, Source: c.Source, ResumeKind: "unless_pay",
 		ResumeSA: sa, ResumeTarget: i, Prompt: prompt,
-		// The asking SA's Remembered rides the decision (the same channel the
-		// choice asks use): a replacement body's unless ask — Breathstealer's
-		// Crypt's discard — must re-enter with the Remembered it had at ask
-		// time (the RememberDrawn$ cards), or the replacement-arm reseed
-		// loses them and the body's condition gates read an empty set.
-		// The TargetUnique$ accumulator rides too (the same ride every ask
-		// poseTargetsAsk makes): an unless ask parked between two TargetUnique$
-		// riders (Withdraw's UnlessCost$ ChangeZone sub) must not drop the
-		// earlier riders' picks at the resumed Ctx's rebuild.
 		Options: []decision.Option{
 			{Index: 0, Kind: "mode", Label: declineLabel, Obj: c.Source, Player: payer, Mode: decision.ModeUnlessDecline},
 		}}
@@ -591,7 +555,6 @@ func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Tar
 	if _, ok := AskTape(h, d); ok {
 		return unlessServed
 	}
-
 	// Fuzz/no-engine host: the deterministic decline (R-9). The pay was
 	// never posed, so resolve as if the player declined.
 	h.Emit(events.Event{Kind: events.Note, Obj: c.Source,

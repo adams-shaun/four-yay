@@ -23,43 +23,26 @@ const humanSoldierTokenKey = "w_1_1_human_soldier"
 // The action is one resolution over the resolving ability's controller:
 //
 //   - The draw comes first, through drawFor with cursor 0 and this SA as the
-//     resume SA, so a Dredge replacement over the draw is a real choice that
-//     resumes THIS recruit (rules' "dredge" arm sets ctx.DrawDone = 1) rather
-//     than orphaning it. A re-entry with DrawDone set skips the draw.
+//     asking SA, so a Dredge replacement over the draw is a real choice whose
+//     answer is applied in place before THIS recruit continues. A Ctx with
+//     Draw.Done set skips the draw.
 //   - The discard follows: one card from the controller's hand. A hand with
 //     EXACTLY one card discards it with no ask (the strict-supersets rule --
 //     nobody could answer differently); a hand with more poses a real
-//     KChoose (Min = Max = 1, options in hand order). The answer travels
-//     through the shared "discard" resume arm and Ctx.Discard, so no new
-//     resume kind or Ctx field is introduced. A host that cannot ask takes
-//     the front-of-hand card, byte-identical to botpolicy's KChoose clamp.
+//     KChoose (Min = Max = 1, options in hand order). The kernel's answer
+//     is applied in place under the shared "discard" decision kind, so no
+//     new kind is introduced. An unserved ask takes the front-of-hand card, byte-identical to botpolicy's KChoose clamp.
 //   - The token comes last: one events.TokenCreate for
 //     humanSoldierTokenKey, owned by the controller, but ONLY when at least
 //     one NONLAND card was actually discarded.
-//
-// The mint is the resolution's final action, so a CreateToken
-// replacement-order park needs only a re-entry marker: the parked mint
-// suspends a bare TokenRest and the answer re-enters through resumingMint,
-// which returns immediately without replaying the draw or the discard.
 func effRecruit(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
-	// A parked token mint's answer re-entered here: the mint already landed
-	// (nothing follows it in this action), so stop rather than replaying the
-	// draw and the discard.
-	if resumingMint(c, sa) != nil {
-		return
-	}
 	ctrl := c.Controller
-	// The answered discard (re-entered through rules' generic "discard"
-	// resume arm with ResumeKind "discard"): captured and cleared before any
-	// further ask this walk poses (fx42 scoping).
-	answered := ([]state.ObjID)(nil)
-
 	// The draw. A non-zero DrawDone is a Dredge resume: the draw already
 	// completed and was replaced (CR 701.9 orders draw before discard).
 	drawDone := c.Draw.Done
 	c.Draw.Done = 0
-	if answered == nil && drawDone == 0 {
+	if drawDone == 0 {
 		drawFor(h, ctrl, 0, sa, drawUptoRider{})
 		if h.Suspended() {
 			return
@@ -69,9 +52,6 @@ func effRecruit(h Host, c *Ctx, sa *cards.SA) {
 	hand := zoneOf(g, state.ZHand, ctrl)
 	picks := make([]state.ObjID, 0, 1)
 	switch {
-	case answered != nil:
-		// The answered pick, filtered to cards still in this hand.
-		picks = recruitPicks(g, ctrl, answered, picks)
 	case len(hand) == 0:
 		// Nothing to discard and therefore no token.
 	case len(hand) == 1:
@@ -91,8 +71,8 @@ func effRecruit(h Host, c *Ctx, sa *cards.SA) {
 			Source: c.Source, ResumeKind: "discard", ResumeSA: sa, ResumeTarget: 0,
 			Prompt: "Recruit: choose a card to discard", Options: opts}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the same pick the
-			// "discard" re-entry filters above.
+			// The resolution kernel's answer in hand, filtered to cards
+			// still in this hand.
 			picks = recruitPicks(g, ctrl, answerObjs(ans), picks)
 			break
 		}
@@ -120,20 +100,11 @@ func effRecruit(h Host, c *Ctx, sa *cards.SA) {
 			Text: "Recruit: unknown token script " + humanSoldierTokenKey})
 		return
 	}
-	wasSuspended := h.Suspended()
 	h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: ctrl, Text: humanSoldierTokenKey})
-	if !wasSuspended && h.Suspended() {
-		// The mint parked the resolution behind a CR 616.1 replacement-order
-		// ask. Record a continuation so the answer's re-entry does not replay
-		// the draw and discard; nothing follows the mint, so the restart is
-		// the whole of what remains.
-		suspendMint(h, c, TokenRest{SA: sa})
-	}
 }
 
 // recruitPicks appends the answered discard picks still in ctrl's hand: the
-// one home of Recruit's "discard" answer, shared by the re-entry and the
-// resolution kernel's tape answer.
+// one home of Recruit's "discard" answer.
 func recruitPicks(g *state.Game, ctrl state.PlayerID, answered, picks []state.ObjID) []state.ObjID {
 	for _, id := range answered {
 		if o := g.Obj(id); o != nil && o.Zone == state.ZHand && o.Owner == ctrl {

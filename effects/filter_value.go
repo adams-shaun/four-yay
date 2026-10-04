@@ -9,7 +9,7 @@ import (
 
 // noResolve is the resolver used whenever a caller has none of its own
 // (MatchesSpec/MatchesSpecFrom, and the shape-only checks in
-// UnknownPredicates/KnownPredicates below): every non-literal numeric RHS is
+// UnknownPredicates below): every non-literal numeric RHS is
 // a recognised shape that never matches, never a hard "unknown predicate".
 func noResolve(string) (int32, bool) { return 0, false }
 

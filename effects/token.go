@@ -323,15 +323,6 @@ func tokenRememberedTargets(h Host, c *Ctx, name string) []state.Target {
 // effToken creates the requested token scripts and applies their token riders.
 func effToken(h Host, c *Ctx, sa *cards.SA) {
 	tp := TokenOf(sa)
-	if rest := resumingMint(c, sa); rest != nil {
-		// A re-entry after a parked mint's answer (rules' "token_rest"
-		// frame): everything before the loop already ran on the first pass
-		// and its values are frozen in the job, so only the owed units run.
-		job := rest.Job
-		runTokenMints(h, c, sa, tp, &job, rest.Next, rest.Parked, rest.Minted)
-		return
-	}
-	// Once per call: a re-entry already noted on its first pass.
 	noteUnreadParams(h, c, "Token", tp.Unread)
 	g := h.Game()
 	n := numText(h, c, tp.Amount, 1)
@@ -635,7 +626,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 		Tapped: tapped, TokenMemory: tokenMemory,
 		AttackCtx: attackCtx, AttackDefender: attackDefender,
 	}
-	runTokenMints(h, c, sa, tp, &job, -1, nil, nil)
+	runTokenMints(h, c, sa, tp, &job)
 }
 
 // TokenJob is one DB$ Token resolution's per-mint work, resolved ONCE before
@@ -695,118 +686,19 @@ func auraTokenWithheld(g *state.Game, job *TokenJob, key string) bool {
 	return false
 }
 
-// TokenRest is a DB$ Token's continuation once one of its mints parked
-// behind a CR 616.1 replacement-order ask (an entry-counter order, a token
-// replacement order): the ask suspends the resolution INSIDE the mint, so the
-// minted objects exist only after the answer. The host re-enters the Token SA
-// with this cursor once the answer has minted: Parked (host-filled) are the
-// objects the parked mint produced, which take the riders; the loop then
-// continues at the mint after Next. SinkID is the host's handle on the
-// collector the answer mints into; effects never reads it. Plain data, so the
-// host carries it on its own continuation frame and replay re-derives it.
-//
-// The same continuation serves every token-minting primitive whose post-mint
-// work reads the minted ids (effToken's riders, Encore's haste and sacrifice
-// group, Incubate's counters, Amass's Army): Next is the primitive's own loop
-// cursor, and Players/Objs/Script/Amount/Count are the frozen values a
-// primitive other than effToken re-enters with (effToken freezes Job
-// instead; CopyPermanent freezes its controllers, copy sources and count).
-type TokenRest struct {
-	SA     *cards.SA
-	SinkID uint64
-	Next   int
-	Parked []state.ObjID
-	Minted []state.ObjID
-	Job    TokenJob
-
-	Players []state.PlayerID
-	Objs    []state.ObjID
-	Script  string
-	Amount  int32
-	Count   int32
-	// Counts is a copy effect's per-destination copy count after the
-	// CreateToken replacements (ProposeCopyTokens), frozen at the first pass
-	// so a resumed pass mints the same units without re-proposing.
-	Counts []int32
-}
-
-// resumingMint consumes and returns c's TokenRest when this pass re-enters sa
-// after a parked mint's answer, else nil.
-func resumingMint(c *Ctx, sa *cards.SA) *TokenRest {
-	rest := (*TokenRest)(nil)
-
-	if rest == nil || rest.SA != sa {
-		return nil
-	}
-
-	return rest
-}
-
-// suspendMint hands a parked mint's continuation to the host (the caller's
-// last EmitTokenCreate parked the resolution). It reports whether the host
-// recorded it; the caller then stops, and Resolve defers the SA's
-// Imprint/ClearImprinted tail to the re-entry.
-func suspendMint(h Host, c *Ctx, rest TokenRest) bool {
-	th, ok := h.(tokenRestHost)
-	if !ok || !th.SuspendTokenRest(rest.SA, rest) {
-		return false
-	}
-	c.tokensSuspended = true
-	return true
-}
-
-// Clone returns a copy that shares no slice with r.
-func (r TokenRest) Clone() TokenRest {
-	r.Parked = append([]state.ObjID(nil), r.Parked...)
-	r.Minted = append([]state.ObjID(nil), r.Minted...)
-	r.Job.Owners = append([]state.PlayerID(nil), r.Job.Owners...)
-	r.Job.PumpKeywords = append([]string(nil), r.Job.PumpKeywords...)
-	r.Job.TokenMemory = append([]state.Target(nil), r.Job.TokenMemory...)
-	r.Players = append([]state.PlayerID(nil), r.Players...)
-	r.Objs = append([]state.ObjID(nil), r.Objs...)
-	r.Counts = append([]int32(nil), r.Counts...)
-	return r
-}
-
-// tokenRestHost is implemented by the rules engine: SuspendTokenRest records
-// the continuation of a Token SA whose last EmitTokenCreate parked the
-// resolution behind a replacement-order ask. It reports false when that emit
-// did not park (or nothing is suspended to continue), and the caller keeps
-// its synchronous behaviour.
-type tokenRestHost interface {
-	SuspendTokenRest(sa *cards.SA, rest TokenRest) bool
-}
-
-// runTokenMints is effToken's mint loop. resumeAt < 0 is a first pass; a
-// TokenRest re-entry passes the parked mint's unit index, the objects the
-// answer minted for it and the mints already made. A unit is one mint or one
-// unknown-script Note, in the loop's own order, so a re-entry skips exactly
-// the units the first pass already performed.
-func runTokenMints(h Host, c *Ctx, sa *cards.SA, tp *TokenParams, job *TokenJob, resumeAt int, parked, minted []state.ObjID) {
+// runTokenMints is effToken's mint loop: one mint per owner per job.N for
+// each known script, one Note for each unknown one, then the post-loop
+// ImprintTokens$/AtEOT$ work over every object the loop minted.
+func runTokenMints(h Host, c *Ctx, sa *cards.SA, tp *TokenParams, job *TokenJob) {
 	g := h.Game()
-	unit := -1
+	var minted []state.ObjID
 	for _, key := range tp.Scripts {
 		if _, ok := g.Tokens[key]; !ok {
-			unit++
-			if unit > resumeAt {
-				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "unknown token script " + key})
-			}
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "unknown token script " + key})
 			continue
 		}
 		for _, owner := range job.Owners {
 			for i := int32(0); i < job.N; i++ {
-				unit++
-				if unit < resumeAt {
-					continue
-				}
-				if unit == resumeAt {
-					// The parked mint: the answer minted it (or its whole
-					// rewritten plan); only its riders are owed.
-					for _, want := range parked {
-						minted = applyTokenMintRiders(h, c, job, owner, want, minted)
-					}
-					continue
-				}
 				// want is the ID the new object gets if TokenCreate's own Apply
 				// case actually mints one (state.Game.AddObject assigns NextID,
 				// then increments it) -- a direct, positive identity check,
@@ -827,24 +719,13 @@ func runTokenMints(h Host, c *Ctx, sa *cards.SA, tp *TokenParams, job *TokenJob,
 				wasSuspended := h.Suspended()
 				mints := h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: owner, Text: key})
 				if !wasSuspended && h.Suspended() {
-					// The mint parked the resolution behind a replacement-order
-					// ask: what landed so far takes its riders now, and the rest
-					// of this resolution -- the parked mint's riders, the mints
-					// after it, and the post-loop work -- resumes with the
-					// answer instead of running against objects that do not
-					// exist yet (and instead of emitting the next mint into the
-					// outstanding ask, which would swallow it).
-					if _, ok := h.(tokenRestHost); ok {
-						landed := minted
-						for _, id := range mints {
-							landed = applyTokenMintRiders(h, c, job, owner, id, landed)
-						}
-						if suspendMint(h, c, TokenRest{SA: sa, Next: unit, Minted: landed, Job: *job}) {
-							return
-						}
-						minted = landed
-						continue
+					// The mint opened a resolution-time window: what landed
+					// takes its riders, and the predicted-id fallback below
+					// is skipped.
+					for _, id := range mints {
+						minted = applyTokenMintRiders(h, c, job, owner, id, minted)
 					}
+					continue
 				}
 				if len(mints) == 0 {
 					// Nothing landed (an unknown key or a plan rounded down to

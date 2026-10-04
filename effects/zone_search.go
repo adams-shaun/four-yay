@@ -19,31 +19,6 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 		return
 	}
 	initForgetOther(h, c, cz.Riders.ForgetOtherRemembered, players, 2)
-	searchTarget := c.Search.Target
-	searchDone := false
-	chosen := append([]state.ObjID(nil), ([]state.ObjID)(nil)...)
-	shuffleAnswer := c.Search.Shuffle
-	shufflePending := shuffleAnswer != ""
-	shuffleTarget := c.Search.Target
-	shuffleMoved := append([]state.ObjID(nil), c.Search.ShuffleMoved...)
-
-	c.Search.Shuffle, c.Search.ShuffleMoved = "", nil
-	// fx42 scoping for the Optional$ confirmation answer: consumed and
-	// cleared before anything else so a nested search poses its own
-	// confirmation.
-	searchConfirmDone := false
-	searchConfirmYes := strings.EqualFold(string(""),
-
-		"yes")
-	searchConfirmTarget := int(0)
-
-	start := 0
-	if searchDone || shufflePending {
-		start = searchTarget
-	}
-	if searchConfirmDone {
-		start = searchConfirmTarget
-	}
 	g := h.Game()
 	// ChooseFromDefined$ narrows the offered pool to the objects a defined
 	// selector names -- the search path's twin of effHiddenPick's block, so a
@@ -54,9 +29,6 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 	// one Note, an empty pool, no options -- never a full-library search.
 	cfdPool, cfdActive, cfdResolved := searchChooseFromDefined(h, c, cz)
 	for targetIndex, owner := range players {
-		if targetIndex < start {
-			continue
-		}
 		c.Search.Target = targetIndex
 		// Forge's explicit Optional$ confirmation (ChangeZoneEffect's
 		// confirmAction gate, which runs BEFORE the fetch list is consulted):
@@ -73,69 +45,32 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 		// cardinality marker, never a yes/no gate, and a markerless text-may
 		// search stays confirmation-free.
 		if optionalConfirmMarker(cz) {
-			// A search or may-shuffle ANSWER resume must not re-ask: this
-			// player's confirmation was already consumed on the pass that
-			// entered the fetch.
-			resumingAnswer := (searchDone && targetIndex == searchTarget) ||
-				(shufflePending && targetIndex == shuffleTarget)
-			if searchConfirmDone && targetIndex < searchConfirmTarget {
-				// Answered on an earlier pass; skip without re-asking.
-				continue
+			chooser := searchChooser(h, c, cz)
+			prompt := cz.OptionalPrompt
+			if prompt == "" {
+				prompt = "Proceed with searching a library?"
 			}
-			if !searchConfirmDone && !resumingAnswer {
-				chooser := searchChooser(h, c, cz)
-				prompt := cz.OptionalPrompt
-				if prompt == "" {
-					prompt = "Proceed with searching a library?"
+			cd := &decision.Decision{Player: chooser, Kind: decision.KChoose,
+				Min: 1, Max: 1, Source: c.Source,
+				ResumeKind: "search_confirm", ResumeSA: sa, ResumeTarget: targetIndex,
+				Prompt: prompt,
+				Options: []decision.Option{
+					{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
+					{Index: 1, Kind: "no", Label: "No", Player: chooser},
+				}}
+			// Answered in place: the echo events, then a decline skips this
+			// player's search/tail with the remembered set intact and an
+			// acceptance enters the fetch. R-9: with no answer, play "may" as
+			// "do" deterministically, then let the search path apply its own
+			// no-host pick policy.
+			if ans, ok := AskTape(h, cd); ok {
+				searchReentryEcho(h, c, cz, owner, zones, false)
+				if !tapeAnswerYes(ans) {
+					continue
 				}
-				cd := &decision.Decision{Player: chooser, Kind: decision.KChoose,
-					Min: 1, Max: 1, Source: c.Source,
-					ResumeKind: "search_confirm", ResumeSA: sa, ResumeTarget: targetIndex,
-					Prompt: prompt,
-					Options: []decision.Option{
-						{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
-						{Index: 1, Kind: "no", Label: "No", Player: chooser},
-					}}
-				if ans, ok := AskTape(h, cd); ok {
-					// The resolution kernel's answer in hand: the
-					// "search_confirm" re-entry's own events, then a decline
-					// skips this player and an acceptance enters the fetch.
-					searchReentryEcho(h, c, cz, owner, zones, false)
-					if !tapeAnswerYes(ans) {
-						continue
-					}
-				} else {
-				}
-
-				// R-9: no host to ask -- play "may" as "do" deterministically,
-				// then let the search path apply its own no-host pick policy.
-			} else if searchConfirmDone && targetIndex == searchConfirmTarget && !searchConfirmYes {
-				searchConfirmDone = false // this player's decline is consumed; later players still confirm
-				continue                  // declined: keep the remembered set, skip the search/tail
-			} else if searchConfirmDone && targetIndex == searchConfirmTarget {
-				searchConfirmDone = false // this player's acceptance is consumed
 			}
 		}
 		lib, lookWindow := searchLook(h, c, cz, owner, zones)
-		if shufflePending && targetIndex == shuffleTarget {
-			c.Search.Shuffle = shuffleAnswer
-			// Restore the answered tail just long enough for the shared helper
-			// to consume it. The answer's owner is this target, not players[0].
-			c.Search.ShuffleMoved = shuffleMoved
-			if searchShuffleTail(h, c, sa, cz, owner, nil, to) {
-				return
-			}
-			shufflePending = false
-			continue
-		}
-		if searchDone && targetIndex == searchTarget {
-			c.Search.Target = targetIndex
-			if applyLibrarySearch(h, c, sa, cz, owner, to, chosen, zones) {
-				return
-			}
-			searchDone = false
-			continue
-		}
 
 		rawSpec := cz.ChangeType
 		// A hidden-library Permanent is a permanent card, not a battlefield
@@ -254,18 +189,14 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 		if !SearchStatesQuality(rawSpec) {
 			min = max
 		}
-		// An empty choice is not a choice: asking it suspends a real engine host
-		// until it submits an empty answer, even though no answer can differ.
-		// Complete the fail-to-find directly (including its required shuffle).
+		// An empty choice is not a choice: no answer can differ, so complete
+		// the fail-to-find directly (including its required shuffle).
 		if min == 0 && max == 0 {
-			// A submitted search answer resumes in a fresh Ctx, so remembered
-			// objects do not leak into its SubAbility chain. Preserve that existing
-			// continuation contract while omitting the otherwise meaningless ask.
+			// The fail-to-find drops the ctx-level remembered objects so they
+			// do not leak into the SubAbility chain.
 			c.Remembered = nil
 			c.Search.Target = targetIndex
-			if applyLibrarySearch(h, c, sa, cz, owner, to, nil, zones) {
-				return
-			}
+			applyLibrarySearch(h, c, sa, cz, owner, to, nil, zones)
 			continue
 		}
 		// greedy is the deterministic stand-in take under the cumulative budget
@@ -309,9 +240,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 		if cz.AtRandom && !hasBudget && !cz.DifferentNames {
 			if _, each := eachAlternatives(spec); !each {
 				c.Search.Target = targetIndex
-				if applyLibrarySearch(h, c, sa, cz, owner, to, randomObjIDs(h, budgetEligible, int(max)), zones) {
-					return
-				}
+				applyLibrarySearch(h, c, sa, cz, owner, to, randomObjIDs(h, budgetEligible, int(max)), zones)
 				continue
 			}
 		}
@@ -350,9 +279,9 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 		// keeps CR 701.23d's mandatory-find reading per type, forced to each
 		// group's achievable count. The Group exclusivity contract
 		// (decision.Decision.Validate) plus GroupLimit enforce the per-type cap
-		// on the wire; the ordinary "search" resume arm carries the ordered
-		// picks, and applyLibrarySearch re-checks each against the union
-		// matcher, so no new Ctx field and no resume change. The budget is NOT
+		// on the wire; the answer carries the ordered picks, and
+		// applyLibrarySearch re-checks each against the union matcher. The
+		// budget is NOT
 		// enforced on the structured branch (its options carry no Value, so a
 		// MaxSum the wire advertises would be a cap Validate sums to 0 over --
 		// meaningless, and misleading to a consumer). Clear it: 0 corpus
@@ -365,19 +294,6 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 		d := &decision.Decision{Player: chooser, Kind: decision.KChoose,
 			Min: int(min), Max: int(max), MaxSum: int(budget), Source: c.Source,
 			ResumeKind: "search", ResumeSA: sa, ResumeTarget: targetIndex,
-			// The walk's Remembered rides the ask (rules restores it on the
-			// resume) so the re-entered eligibility recheck and the SubAbility$
-			// after this one still see the cards RememberChanged$ captured -- a
-			// cast spell's mid-resolution Remembered lives only in the resolving
-			// Ctx frame, and without the ride the answer's recheck (and Nissa's
-			// Pilgrimage's "one onto the battlefield" leg) would re-resolve
-			// IsRemembered against an empty set and move nothing. A nested hidden
-			// search resumes in the same resolution too, so the fetch list built
-			// by a preceding search stays available to Card.IsRemembered and
-			// Defined$ Remembered in the rest of this chain.
-			// The known-card set rides the ask too: this leg's answer rebuilds a
-			// fresh Ctx, and the NEXT leg (or a chained sub that asks again) must
-			// still label its options with the names the chooser already learned.
 		}
 		if eachStructured {
 			eachPerType = max
@@ -478,19 +394,15 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 		// only legal answer is the empty one -- with zero eligible cards max
 		// clamps to 0 and a stated-quality search's Min is already 0, so that is
 		// exactly the Squadron Hawk fail-to-find shape that used to soft-lock the
-		// game. AskEmpty resolves it silently through the stand-in below: the
+		// game. It resolves silently through the stand-in below: the
 		// search still shuffles, and a fail-to-find is legitimate under
 		// CR 701.23b, so nothing is degraded and no R-9 Note is recorded.
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the "search" re-entry's
-			// own events (its prelude and this library's look), then the
-			// answered ordered subset applies exactly as that re-entry's
-			// SearchDone branch applies it.
+			// Answered in place: the echo events (the prelude and this
+			// library's look), then the answered ordered subset applies.
 			searchReentryEcho(h, c, cz, owner, zones, true)
 			c.Search.Target = targetIndex
-			if applyLibrarySearch(h, c, sa, cz, owner, to, tapeAnswerObjs(ans), zones) {
-				return
-			}
+			applyLibrarySearch(h, c, sa, cz, owner, to, tapeAnswerObjs(ans), zones)
 			continue
 		}
 		unposable := askUnposable(d)
@@ -503,9 +415,9 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 		// (701.23d's "as many as possible"). For a stated-quality search
 		// (CR 701.23b) finding nothing is a legitimate fail-to-find, so the
 		// stand-in still finds nothing, exactly as before. Either way the
-		// search's unconditional shuffle still happens. An AskEmpty run takes
-		// the same stand-in silently (no Note): skipping the ask is the correct
-		// resolution, not a degradation.
+		// search's unconditional shuffle still happens. An unposable
+		// empty-only ask takes the same stand-in silently (no Note): skipping
+		// the ask is the correct resolution, not a degradation.
 		var picked []state.ObjID
 		if eachStructured {
 			// The structured stand-in: a stated-quality EACH's fail-to-find
@@ -574,9 +486,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 				Text: "finds no card (no engine host to ask)"})
 		}
 		c.Search.Target = targetIndex
-		if applyLibrarySearch(h, c, sa, cz, owner, to, picked, zones) {
-			return
-		}
+		applyLibrarySearch(h, c, sa, cz, owner, to, picked, zones)
 	}
 	endForgetOtherSnapshot(c)
 }
@@ -607,9 +517,9 @@ type libraryFetch struct {
 // Optional$ True is a choice over the whole known fetch list, not permission
 // to silently move it. Kenessos's DBBottom is the corpus example: after its
 // player declines to put the revealed card onto the battlefield, they may put
-// that card on the bottom. The yes/no decision suspends before either a move
-// or a shuffle; its answer is scoped in Ctx so a nested optional fetch cannot
-// inherit it. A no-host run keeps the previous deterministic mover (yes), the
+// that card on the bottom. The yes/no decision is answered in place via
+// AskTape before either a move or a shuffle. A no-host run keeps the previous
+// deterministic mover (yes), the
 // R-9 fallback used by the other optional mid-resolution effects.
 //
 // An unrecognised Defined$ selector is a fail-closed no-op here. In
@@ -671,9 +581,7 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 	}
 
 	optional := cz.OptionalTrue
-	answer := string("")
-
-	if optional && answer == "" {
+	if optional {
 		prompt := cz.OptionalPrompt
 		if prompt == "" {
 			prompt = "Move the selected card(s)?"
@@ -685,25 +593,14 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 				{Index: 0, Kind: "yes", Label: "Yes", Player: c.Controller},
 				{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
 			}}
+		// Answered in place: the echo events, then a decline stops here.
+		// With no answer the deterministic default is the direct move.
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the
-			// "defined_library_optional" re-entry's own events, then the
-			// answer decides the move exactly as there.
 			definedLibraryReentryEcho(h, c, cz)
-			answer = "no"
-			if tapeAnswerYes(ans) {
-				answer = "yes"
+			if !tapeAnswerYes(ans) {
+				return true
 			}
-		} else {
-
-			// AskNoHost cannot represent a decline. Preserve the prior direct-move
-			// fallback rather than leaving a headless resolution suspended.
-			answer = "yes"
 		}
-
-	}
-	if optional && answer == "no" {
-		return true
 	}
 	// The fetch is entered: Forge clears the source's remembered cards before
 	// the choose (ChangeZoneEffect.changeHiddenOriginResolve 1103), so an
@@ -870,8 +767,6 @@ func searchChooser(h Host, c *Ctx, cz *ChangeZoneParams) state.PlayerID {
 // the player who picked it. A card absent from the set is genuinely unknown to
 // p and stays fail-closed -- the blind "a card" label -- so a search that
 // never revealed and never named those cards cannot leak their library order.
-// The list rides the ask (Decision.ResumeSearchKnown), so a planted placement
-// leg still sees it after a previous leg's suspension rebuilt the Ctx.
 func searchKnownTo(c *Ctx, p state.PlayerID, id state.ObjID) bool {
 	if c == nil {
 		return false
@@ -1081,11 +976,9 @@ func totalCardTypesSatisfied(g *state.Game, ids []state.ObjID, need int) bool {
 	return len(seen) >= need
 }
 
-// applyLibrarySearch returns true when the search's tail suspended on a
-// may-shuffle decision. The caller must stop its per-player walk in that case;
-// the resume path owns the pending decision and continues with the next
-// library only after its answer has been consumed.
-func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owner state.PlayerID, to state.Zone, chosen []state.ObjID, zones []state.Zone) bool {
+// applyLibrarySearch moves one search player's chosen cards and runs the
+// search's shuffle-and-place tail.
+func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owner state.PlayerID, to state.Zone, chosen []state.ObjID, zones []state.Zone) {
 	// The search-control/replacement boundary (Opposition Agent's class):
 	// the moves this function emits are the moves OF A SEARCH, and the host
 	// that models that fact scopes its FoundSearchingLibrary$ replacements
@@ -1405,16 +1298,12 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owne
 		}
 	}
 
-	// AtEOT$ rides the search's moved set too. Scheduled BEFORE the
-	// may-shuffle confirm: a searchShuffleTail suspension is a tail-only
-	// re-entry (effSearchLibrary's SearchShuffle branch), which would never
-	// reach a schedule call placed after it -- the moved cards and their
-	// registrations are already game state by then.
+	// AtEOT$ rides the search's moved set too, scheduled BEFORE the
+	// may-shuffle confirm.
 	scheduleAtEOT(h, c, sa, moved)
-	if zoneIn(zones, state.ZLibrary) && searchShuffleTail(h, c, sa, cz, owner, moved, to) {
-		return true // the may-shuffle confirm suspended the resolution
+	if zoneIn(zones, state.ZLibrary) {
+		searchShuffleTail(h, c, sa, cz, owner, moved, to)
 	}
-	return false
 }
 
 const (

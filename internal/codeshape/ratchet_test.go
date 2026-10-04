@@ -20,20 +20,20 @@ const (
 	// effects/ spanning more than 300 lines.
 	// W4 step 3's ChangeZoneAll compiler shrank effChangeZoneAll: 54 -> 53.
 	// W1a generated Engine.cloneWith's field copies from the clone tags
-	// (rules/clone_gen.go): 53 -> 52. Re-measured at W1a pool/rekey/if tags: 48.
-	maxFuncLinesOver300 = 48
+	// (rules/clone_gen.go): 53 -> 52. Re-measured at W1a pool/rekey/if tags: 48. W3 dead: 45.
+	maxFuncLinesOver300 = 45
 	// engineMethodCount is the number of non-test methods on rules.Engine.
 	// W5 E5 moved combat legality onto rules/combat's Board (2159 -> 2126)
 	// and W5 E3 the trigger matchers onto rules/trigmatch's: -> 2022. W5 E4
 	// moved the layer walk onto rules/chars: -> 2019. W3 clean deleted the
 	// Suspend* no-ops: -> 1965. W5 E7 moved mana payment onto rules/pay:
-	// -> 1944. Slice 4 made the payer grants pay.Engine adapter methods: -> 1940.
-	engineMethodCount = 1940
+	// -> 1944. Slice 4 made the payer grants pay.Engine adapter methods: -> 1940. W3 dead deleted the resume-scratch setters: -> 1931.
+	engineMethodCount = 1931
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
 	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94. W3 clean
 	// deleted the eight Suspend* no-ops: 94 -> 86.
-	hostMethodCount = 86
+	hostMethodCount = 85
 	// hostDirectMethodCount is the number of methods effects.Host declares
 	// itself rather than takes from a role interface (W1d split it into
 	// roles; host_roles.go).
@@ -45,14 +45,15 @@ const (
 	// effects to an interface other than Host and its roles (inline
 	// `interface{...}` or a named optional interface). W1d replaced five
 	// per-table optional interfaces with layerTablesHost: 54 -> 45.
-	hostOptionalAssertions = 45
+	hostOptionalAssertions = 38
 	// ctxFieldCount is the number of named fields in effects.Ctx; embeds are
 	// ratcheted separately by ctxEmbedCount.
 	// W1d folded EffectiveNames, EffectiveTypes, StaticGoads and the embedded
 	// LayerTables into the one named Layers field: 293/2 -> 291/1. W3 clean
 	// grouped the LKI snapshot set, the replacement context, clone-as-enters,
 	// mana, kicker and the per-primitive cursors (effects/ctx_groups.go): 121 -> 73.
-	ctxFieldCount = 73
+	// W3 dead removed write-only/never-set fields: 73 -> 68.
+	ctxFieldCount = 68
 	ctxEmbedCount = 1
 	// resumePointFieldCount is the number of fields in rules' resumePoint.
 	resumePointFieldCount = 5
@@ -120,7 +121,7 @@ const (
 	// constructors landed.
 	ctxLiterals            = 0
 	specContextLiterals    = 0
-	triggerContextLiterals = 14
+	triggerContextLiterals = 13
 	// trigmatchBoardMethods is the method count of trigmatch.Board, the
 	// read-only view rules/trigmatch's matchers read the engine through (W5
 	// E3). It replaced 21 distinct *Engine methods, 15 Engine fields and
