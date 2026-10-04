@@ -29,7 +29,7 @@ const (
 	// Suspend* no-ops: -> 1965. W5 E7 moved mana payment onto rules/pay:
 	// -> 1944. Slice 4 made the payer grants pay.Engine adapter methods: -> 1940. W3 dead deleted the resume-scratch setters: -> 1931.
 	// E7 slice 9 moved the payment board reads to rules/pay funcs: -> 1917.
-	engineMethodCount = 1831
+	engineMethodCount = 1827
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
 	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94. W3 clean
@@ -166,7 +166,12 @@ const (
 	// and poses, answered in place under the tape) and Batch (the discard /
 	// mill action brackets) let the unless-payment walk and the cost
 	// discard/mill settles move; ZoneEntrySeq moved to chars.Reader: 17 -> 18.
-	payEngineMethods = 18
+	// E7 flow slice 2: the static-pricing reads Conv, MayPlayRider and
+	// PayLifeInsteadOfB moved onto pay.Eval (they evaluate statics with the
+	// engine as the Host), and Rand (the engine's deterministic draw, a
+	// Discard<N/Random> pick) let the mana-ability cost election move:
+	// 18 -> 16.
+	payEngineMethods = 16
 	// changeZoneParamLeaks is the number of ChangeZone parameter reads
 	// outside its compiler, effects/changezone_params.go (W4 step 3, spec
 	// section 8): any read in ChangeZone's own resolution files, plus any

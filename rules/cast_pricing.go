@@ -408,7 +408,7 @@ func (e *Engine) affordableTargetCandidates(pc *pendingCast, candidates []target
 			// activation will abort at payment (CR 601.2h).
 			av := pay.AvailableFor(asPayer(e), pc.player, desc)
 			if e.castWindowReachable(pc.player, convoked, av.Pool, pl.Snow, av.Typed, pl.Life,
-				asPayer(e).Conv(pc.player, desc.ID, desc.Class == paymentActivated), windowUnits) {
+				asEval(e).Conv(pc.player, desc.ID, desc.Class == paymentActivated), windowUnits) {
 				out = append(out, candidate)
 			}
 		} else if e.hasUntappedManaSource(pc.player) {

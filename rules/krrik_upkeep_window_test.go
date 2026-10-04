@@ -67,7 +67,7 @@ func krrikUpkeepPreconditions(t *testing.T, e *Engine, id, swamp state.ObjID, ke
 	if o := e.G.Obj(swamp); o == nil || o.Zone != state.ZBattlefield || o.Tapped {
 		t.Fatalf("precondition: the Swamp must be an untapped battlefield source: %+v", o)
 	}
-	if !asPayer(e).PayLifeInsteadOfB(0) {
+	if !asEval(e).PayLifeInsteadOfB(0) {
 		t.Fatal("precondition: K'rrik's PayLifeInsteadOf:B grant is not active for seat 0")
 	}
 	if pool := e.G.Players[0].Pool; pool.Total() != 0 {

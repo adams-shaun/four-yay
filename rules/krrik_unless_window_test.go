@@ -78,7 +78,7 @@ func krrikMixedUnlessFixture(t *testing.T, withSource bool) (*Engine, state.ObjI
 	}
 	e.G.Players[0].Pool = state.Mana{}
 	e.G.Players[0].Life = 20
-	if !asPayer(e).PayLifeInsteadOfB(0) {
+	if !asEval(e).PayLifeInsteadOfB(0) {
 		t.Fatal("precondition: K'rrik's PayLifeInsteadOf:B grant is not active for seat 0")
 	}
 	if pool := e.G.Players[0].Pool; pool.Total() != 0 {
@@ -209,7 +209,7 @@ func krrikZombieFixture(t *testing.T) (*Engine, state.ObjID, state.ObjID) {
 	swamp := moveByName(t, e, 0, "Swamp", state.ZBattlefield)
 	e.G.Players[0].Pool = state.Mana{}
 	e.G.Players[0].Life = 20
-	if !asPayer(e).PayLifeInsteadOfB(0) {
+	if !asEval(e).PayLifeInsteadOfB(0) {
 		t.Fatal("precondition: K'rrik's PayLifeInsteadOf:B grant is not active for seat 0")
 	}
 	if pool := e.G.Players[0].Pool; pool.Total() != 0 {

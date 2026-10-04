@@ -298,7 +298,7 @@ func (e *Engine) announceFeasible(pc *pendingCast, alt pipAlt, pool, snow state.
 	av := pay.AvailableFor(asPayer(e), pc.player, payment)
 	return pay.ManaReachable(asPayer(e), pc.player, charged, av.Pool, e.G.Players[pc.player].Snow,
 		av.Typed, e.G.Players[pc.player].Life, rider,
-		asPayer(e).Conv(pc.player, payment.ID, payment.Class == paymentActivated), e.castWindowUnits(pc))
+		asEval(e).Conv(pc.player, payment.ID, payment.Class == paymentActivated), e.castWindowUnits(pc))
 }
 
 // manaAsk offers the player's payment choice for the next unsettled hybrid or
@@ -563,7 +563,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		// records its one object and advances.
 		wildcard := pc.subCounterPart < len(pc.cost.SubCounter) && strings.EqualFold(pc.cost.SubCounter[pc.subCounterPart].Spec, "Any")
 		for _, o := range chosen {
-			pc.subCounterPays = append(pc.subCounterPays, subCounterPay{part: pc.subCounterPart, obj: o.Obj, kind: o.Counter})
+			pc.subCounterPays = append(pc.subCounterPays, subCounterPay{Part: pc.subCounterPart, Obj: o.Obj, Kind: o.Counter})
 		}
 		if !wildcard {
 			pc.subCounterPart++

@@ -592,7 +592,7 @@ func (e *Engine) subCounterAsk() bool {
 			return true
 		}
 		if len(candidates) == 1 {
-			pc.subCounterPays = append(pc.subCounterPays, subCounterPay{part: pc.subCounterPart, obj: candidates[0]})
+			pc.subCounterPays = append(pc.subCounterPays, subCounterPay{Part: pc.subCounterPart, Obj: candidates[0]})
 			pc.subCounterPart++
 			continue
 		}
@@ -617,8 +617,8 @@ func (pc *pendingCast) subCounterReservations() map[state.ObjID]bool {
 		reserved[s] = true
 	}
 	for _, p := range pc.subCounterPays {
-		if p.part != pc.subCounterPart {
-			reserved[p.obj] = true
+		if p.Part != pc.subCounterPart {
+			reserved[p.Obj] = true
 		}
 	}
 	return reserved
@@ -637,14 +637,14 @@ func (e *Engine) wildcardCounterAsk(pc *pendingCast, part CostPart, amt int32) b
 	picked := int32(0)
 	used := map[state.ObjID]map[string]int32{}
 	for _, p := range pc.subCounterPays {
-		if p.part != pc.subCounterPart {
+		if p.Part != pc.subCounterPart {
 			continue
 		}
 		picked++
-		if used[p.obj] == nil {
-			used[p.obj] = map[string]int32{}
+		if used[p.Obj] == nil {
+			used[p.Obj] = map[string]int32{}
 		}
-		used[p.obj][p.kind]++
+		used[p.Obj][p.Kind]++
 	}
 	if picked >= amt {
 		pc.subCounterPart++
@@ -680,7 +680,7 @@ func (e *Engine) wildcardCounterAsk(pc *pendingCast, part CostPart, amt int32) b
 		return true
 	}
 	if len(choices) == 1 {
-		pc.subCounterPays = append(pc.subCounterPays, subCounterPay{part: pc.subCounterPart, obj: choices[0].obj, kind: choices[0].kind})
+		pc.subCounterPays = append(pc.subCounterPays, subCounterPay{Part: pc.subCounterPart, Obj: choices[0].obj, Kind: choices[0].kind})
 		return false
 	}
 	d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: 1, Max: 1, Prompt: "Choose a counter to remove", Source: pc.card}
@@ -728,7 +728,7 @@ func (e *Engine) settleSubCounterParts(pc *pendingCast) {
 		// object it removes the whole amount from.
 		var pays []subCounterPay
 		for _, p := range pc.subCounterPays {
-			if p.part == partIdx {
+			if p.Part == partIdx {
 				pays = append(pays, p)
 			}
 		}
@@ -737,7 +737,7 @@ func (e *Engine) settleSubCounterParts(pc *pendingCast) {
 				// Legacy fallback for a hand-built/old pending cast with no
 				// recorded pick: remove across kinds deterministically from the
 				// source. The ordinary flow always records one entry per unit.
-				pays = []subCounterPay{{part: partIdx, obj: pc.card}}
+				pays = []subCounterPay{{Part: partIdx, Obj: pc.card}}
 			}
 			// Group the per-unit picks by (object, kind), preserving first-seen
 			// order, so two units of the same kind settle as ONE CounterChange
@@ -750,10 +750,10 @@ func (e *Engine) settleSubCounterParts(pc *pendingCast) {
 			var order []payKey
 			sum := map[payKey]int32{}
 			for _, p := range pays {
-				if p.kind == "" {
+				if p.Kind == "" {
 					continue
 				}
-				k := payKey{p.obj, p.kind}
+				k := payKey{p.Obj, p.Kind}
 				if _, seen := sum[k]; !seen {
 					order = append(order, k)
 				}
@@ -767,7 +767,7 @@ func (e *Engine) settleSubCounterParts(pc *pendingCast) {
 			}
 			// No kind was recorded (the legacy/fallback entry): remove across
 			// kinds in counter-list order.
-			o := e.G.Obj(pays[0].obj)
+			o := e.G.Obj(pays[0].Obj)
 			if o == nil {
 				return
 			}
@@ -783,7 +783,7 @@ func (e *Engine) settleSubCounterParts(pc *pendingCast) {
 				if take > left {
 					take = left
 				}
-				e.emit(events.Event{Kind: events.CounterChange, Obj: pays[0].obj, Counter: c.Kind, Amount: -take})
+				e.emit(events.Event{Kind: events.CounterChange, Obj: pays[0].Obj, Counter: c.Kind, Amount: -take})
 				left -= take
 			}
 			continue
@@ -796,7 +796,7 @@ func (e *Engine) settleSubCounterParts(pc *pendingCast) {
 				// payment to silently skip.
 				return
 			}
-			target = pays[0].obj
+			target = pays[0].Obj
 		}
 		e.emit(events.Event{Kind: events.CounterChange, Obj: target, Counter: part.Spec, Amount: -amt})
 	}
@@ -879,7 +879,7 @@ func (e *Engine) sacAsk() bool {
 				}
 				pools[i] = pay.SacrificeCostCandidates(asPayer(e), pc.player, pc.card, futurePart, pc.isAbility())
 			}
-			candidates = feasibleSacrificeChoices(candidates, pools, needs, pc.Sacs, pc.sacPart)
+			candidates = pay.FeasibleSacrificeChoices(candidates, pools, needs, pc.Sacs, pc.sacPart)
 		}
 		if n <= 0 || n > len(candidates) {
 			// A cost that can no longer be fully paid must not commit half

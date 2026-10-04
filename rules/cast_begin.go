@@ -740,7 +740,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 	// were mana of any color to cast it". Recorded from the grant the offer
 	// gate consulted while the card was still in the granted zone.
 	if opt.Mode == "mayplay" {
-		rider := asPayer(e).MayPlayRider(p, id)
+		rider := asEval(e).MayPlayRider(p, id)
 		e.cast.mayPlayIgnore, e.cast.mayPlayIgnoreType = rider.AnyColor, rider.AnyType
 		e.cast.mayPlayRemembered = e.mayPlayManaConvertRemembered(p, id)
 		e.cast.mayPlayPerm = opt.MayPlayPerm

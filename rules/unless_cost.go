@@ -93,7 +93,7 @@ func (e *Engine) payUnlessCost(p state.PlayerID, cost Cost, ctx *effects.Ctx, st
 	// resolving object is the payment subject, so its ManaConvert statics
 	// (including EffectZone$ Command and Effect-delivered grants) apply here
 	// under the same conversion read used by cast offers.
-	if !pay.PayManaConv(asPayer(e), p, cost, asPayer(e).Conv(p, stackObj, false)) {
+	if !pay.PayManaConv(asPayer(e), p, cost, asEval(e).Conv(p, stackObj, false)) {
 		return false
 	}
 	// The energy parts charge through the ONE shared site (CR 118.2d); the

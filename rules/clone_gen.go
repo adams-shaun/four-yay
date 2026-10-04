@@ -646,7 +646,7 @@ func cloneFieldsEngineContinuation(c, e *Engine, sp *Spare, remap *cloneRemap) {
 		p0.PaidCost.Taps = append([]state.ObjID(nil), e.cast.PaidCost.Taps...)
 		p0.PaidCost.Blights = append([]state.ObjID(nil), e.cast.PaidCost.Blights...)
 		p0.PaidCost.RevealHandArm = append([]bool(nil), e.cast.PaidCost.RevealHandArm...)
-		p0.subCounterPays = append([]subCounterPay(nil), e.cast.subCounterPays...)
+		p0.subCounterPays = append([]pay.SubCounterPay(nil), e.cast.subCounterPays...)
 		p0.convoke = append([]convokePayment(nil), e.cast.convoke...)
 		p0.mods = cloneCastMods(e.cast.mods)
 		p0.preModes = append([]string(nil), e.cast.preModes...)
@@ -812,17 +812,6 @@ func cloneFieldsEngineParked(c, e *Engine, sp *Spare, remap *cloneRemap) {
 		}
 		p0.sacs = append([]state.ObjID(nil), e.manaColorActivation.sacs...)
 		c.manaColorActivation = &p0
-	}
-	if e.manaDiscardActivation != nil {
-		p0 := *e.manaDiscardActivation
-		p0.cost = cloneCost(e.manaDiscardActivation.cost)
-		p0.sacs = append([]state.ObjID(nil), e.manaDiscardActivation.sacs...)
-		p0.discards = append([]state.ObjID(nil), e.manaDiscardActivation.discards...)
-		p0.exiles = append([]state.ObjID(nil), e.manaDiscardActivation.exiles...)
-		p0.taps = append([]state.ObjID(nil), e.manaDiscardActivation.taps...)
-		p0.subCounterPays = append([]subCounterPay(nil), e.manaDiscardActivation.subCounterPays...)
-		p0.untaps = append([]state.ObjID(nil), e.manaDiscardActivation.untaps...)
-		c.manaDiscardActivation = &p0
 	}
 	if e.manaUnlessActivation != nil {
 		p0 := *e.manaUnlessActivation
@@ -1041,6 +1030,17 @@ func cloneFieldsPaySession(c, e *Engine, sp *Spare, remap *cloneRemap) {
 		p0.Returns = append([]state.ObjID(nil), e.UnlessPayment.Returns...)
 		p0.Exiles = append([]state.ObjID(nil), e.UnlessPayment.Exiles...)
 		c.UnlessPayment = &p0
+	}
+	if e.ManaCost != nil {
+		p0 := *e.ManaCost
+		p0.Cost = cloneCost(e.ManaCost.Cost)
+		p0.Sacs = append([]state.ObjID(nil), e.ManaCost.Sacs...)
+		p0.Discards = append([]state.ObjID(nil), e.ManaCost.Discards...)
+		p0.Exiles = append([]state.ObjID(nil), e.ManaCost.Exiles...)
+		p0.Taps = append([]state.ObjID(nil), e.ManaCost.Taps...)
+		p0.SubCounterPays = append([]pay.SubCounterPay(nil), e.ManaCost.SubCounterPays...)
+		p0.Untaps = append([]state.ObjID(nil), e.ManaCost.Untaps...)
+		c.ManaCost = &p0
 	}
 }
 

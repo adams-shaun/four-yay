@@ -142,7 +142,7 @@ func AdvanceUnless(e Engine) UnlessStep {
 		}
 		drawers[i] = players
 	}
-	if !PayManaConv(e, u.Payer, u.Cost, e.Conv(u.Payer, u.StackObj, false)) { // guarded above; retain totality if state changes.
+	if !PayManaConv(e, u.Payer, u.Cost, e.Eval().Conv(u.Payer, u.StackObj, false)) { // guarded above; retain totality if state changes.
 		return unlessDeclined()
 	}
 	// Energy parts (PayEnergy<N>/<X>): the same shared charging site the cast
@@ -268,7 +268,7 @@ func askUnlessMana(e Engine) {
 			rest = append(rest, units[si+1:]...)
 			for ai, a := range src.Alts {
 				if safe != (UnlessManaReachable(e, u.Payer, u.Cost, ManaAdd(pool, a.Mana()), snow, typed, life,
-					e.Conv(u.Payer, u.StackObj, false), rest)) {
+					e.Eval().Conv(u.Payer, u.StackObj, false), rest)) {
 					continue
 				}
 				name := "a mana source"

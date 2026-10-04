@@ -34,13 +34,12 @@ type engineParked struct {
 	queuedPlays *queuedPlays `clone:"deep"`
 	// manaActivation is non-nil while a source with several available mana
 	// abilities waits for its controller to select one. manaColorActivation
-	// similarly holds an already-paid Produced$ Any ability, and
-	// manaDiscardActivation holds an ability whose discard cost is being
-	// chosen. All are plain data so Clone preserves an offered activation.
-	manaActivation        *manaActivation        `clone:"deep"`
-	manaColorActivation   *manaColorActivation   `clone:"deep"`
-	manaDiscardActivation *manaDiscardActivation `clone:"deep"`
-	manaUnlessActivation  *manaUnlessActivation  `clone:"deep"`
+	// similarly holds an already-paid Produced$ Any ability (the session's
+	// ManaCost holds an ability whose discard cost is being chosen). All are
+	// plain data so Clone preserves an offered activation.
+	manaActivation       *manaActivation       `clone:"deep"`
+	manaColorActivation  *manaColorActivation  `clone:"deep"`
+	manaUnlessActivation *manaUnlessActivation `clone:"deep"`
 	// offStackMana is the transient frame of the off-stack mana resolution
 	// currently running synchronously (rules/mana_activation.go's
 	// offStackManaFrame). It is nil between Submits, so Clone never sees it.

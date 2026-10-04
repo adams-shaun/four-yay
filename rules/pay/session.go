@@ -19,6 +19,12 @@ type Session struct {
 	// sacrifice/discard objects that pay it.
 	UnlessPayment *UnlessPayment `clone:"deep"`
 
+	// ManaCost holds a synchronous mana ability while its cost's
+	// choice-bearing parts (sacrifice, discard, exile, tapXType, announced
+	// SubCounter, Forage, untapYType) are elected (ManaCostActivation). Plain
+	// data, so Clone preserves an offered activation.
+	ManaCost *ManaCostActivation `clone:"deep"`
+
 	// PaymentStats is the optional auto-pay diagnostics sink
 	// (SetPaymentPlanStats, rules/payment_plan_stats.go). Like
 	// ManaAbilityHook it is a harness-only observer: nil by default, it emits

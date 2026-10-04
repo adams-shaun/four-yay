@@ -120,7 +120,7 @@ func (e *Engine) payCast() {
 		// {X} cost was folded), so a CostContainsX batch sees this activation
 		// as an X payment exactly as the offer did.
 		ok, _, spentMana, _, _ := pay.PayManaDescriptorForSpent(asPayer(e), pc.player, paymentForCast(pc, mana), mana,
-			asPayer(e).Conv(pc.player, pc.card, true), pipRider{})
+			asEval(e).Conv(pc.player, pc.card, true), pipRider{})
 		if !ok {
 			e.abortCast(pc, "activation aborted: cost no longer payable", true)
 			return

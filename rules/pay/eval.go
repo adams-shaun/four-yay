@@ -37,4 +37,15 @@ type Eval interface {
 	// ManaUnits is p's payment-plan source census: one unit per mana
 	// ability activation the planner may schedule.
 	ManaUnits(p state.PlayerID) []WindowUnit
+
+	// PayLifeInsteadOfB reports whether p pays under a PayLifeInsteadOf:B
+	// static (K'rrik): every plain {B} pip also accepts 2 life.
+	PayLifeInsteadOfB(p state.PlayerID) bool
+	// MayPlayRider is the may-play grant riders (MayPlayIgnoreColor$,
+	// MayPlayIgnoreType$) p's active grants extend to card id in its current
+	// zone.
+	MayPlayRider(p state.PlayerID, id state.ObjID) PipRider
+	// Conv is the stat:ManaConvert conversion set for p paying for id
+	// (ability selects ValidSA$ scoping), or nil when nothing converts.
+	Conv(p state.PlayerID, id state.ObjID, ability bool) *Conv
 }

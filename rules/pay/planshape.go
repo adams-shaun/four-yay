@@ -499,7 +499,7 @@ func UnlessManaReachable(e Engine, p state.PlayerID, cost costvocab.Cost, pool, 
 func ManaReachable(e Engine, p state.PlayerID, cost costvocab.Cost, pool, snow state.Mana, typed [7]state.Mana, life int32, rider PipRider, conv *Conv, units []WindowUnit) bool {
 	payable := func(pool state.Mana, lifeNow int32) bool {
 		_, ok := ResolveManaWith(cost, pool, snow, typed, lifeNow,
-			e.PayLifeInsteadOfB(p), rider, conv)
+			e.Eval().PayLifeInsteadOfB(p), rider, conv)
 
 		return ok
 	}

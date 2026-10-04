@@ -327,7 +327,7 @@ func (e *Engine) castWindowReachable(p state.PlayerID, cost Cost, spellPool, sno
 	typed [7]state.Mana, life int32, conv *manaConv, units []windowManaUnit) bool {
 	payable := func(pool, snowPool state.Mana, lifeNow int32) bool {
 		_, ok := resolveManaWith(cost, pool, snowPool, typed, lifeNow,
-			asPayer(e).PayLifeInsteadOfB(p), pipRider{}, conv)
+			asEval(e).PayLifeInsteadOfB(p), pipRider{}, conv)
 
 		return ok
 	}
@@ -504,7 +504,7 @@ func (e *Engine) striveAffordableTargets(pc *pendingCast, max int) int {
 		}
 		av := pay.AvailableFor(asPayer(e), pc.player, desc)
 		return e.castWindowReachable(pc.player, convoked, av.Pool, pl.Snow, av.Typed, pl.Life,
-			asPayer(e).Conv(pc.player, desc.ID, desc.Class == paymentActivated), units)
+			asEval(e).Conv(pc.player, desc.ID, desc.Class == paymentActivated), units)
 	}
 	// Ascending: the price is monotone in n, so the first unaffordable count
 	// ends the walk and at most one exhaustive (failing) window search runs.

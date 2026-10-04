@@ -105,6 +105,7 @@ var cloneForeignDeep = map[string]bool{
 	"pay.CostMods":           true,
 	"pay.PaidCost":           true,
 	"pay.UnlessPayment":      true,
+	"pay.ManaCostActivation": true,
 }
 
 // cloneSharedLocal names the pointers to engine-local types the clone shares

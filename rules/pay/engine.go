@@ -25,17 +25,6 @@ type Engine interface {
 	// and panics on disagreement.
 	Verify() bool
 
-	// PayLifeInsteadOfB reports whether p pays under a PayLifeInsteadOf:B
-	// static (K'rrik): every plain {B} pip also accepts 2 life.
-	PayLifeInsteadOfB(p state.PlayerID) bool
-	// MayPlayRider is the may-play grant riders (MayPlayIgnoreColor$,
-	// MayPlayIgnoreType$) p's active grants extend to card id in its current
-	// zone.
-	MayPlayRider(p state.PlayerID, id state.ObjID) PipRider
-	// Conv is the stat:ManaConvert conversion set for p paying for id
-	// (ability selects ValidSA$ scoping), or nil when nothing converts.
-	Conv(p state.PlayerID, id state.ObjID, ability bool) *Conv
-
 	// MatchesSpecFrom evaluates a ValidCard$-style filter against the live
 	// object id from source's perspective with you as its controller.
 	MatchesSpecFrom(spec string, id state.ObjID, you state.PlayerID, source state.ObjID) bool
@@ -68,6 +57,9 @@ type Engine interface {
 	Session() *Session
 	// SearchScratch is the plan search's reusable working storage.
 	SearchScratch() *SearchScratch
+	// Rand is the engine's deterministic random draw in [0, n) (a
+	// Discard<N/Random> cost part's pick).
+	Rand(n int) int
 
 	// Ask is the flow seam (lasagna spec §9.2, E7 flow slice): it marks
 	// flow as the engine's pending choice and poses d. Under the resolution
@@ -94,6 +86,14 @@ const (
 	// AskUnlessMana asks for the next mana source (or Done) of an unless
 	// cost's CR 601.2g window.
 	AskUnlessMana
+	// AskManaTap .. AskManaUntap ask for a mana ability's cost election
+	// (ManaCostTapStage, ManaCostChoiceStages).
+	AskManaTap
+	AskManaSacrifice
+	AskManaDiscard
+	AskManaExile
+	AskManaForage
+	AskManaUntap
 )
 
 // BatchKind names the action bracket an Engine.Batch opens or closes.

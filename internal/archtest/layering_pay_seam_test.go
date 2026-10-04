@@ -139,9 +139,11 @@ func TestPayHoldsNoHost(t *testing.T) {
 // unless-payment reachability and the SVar-fixed cost counts). Slice 6
 // added ManaShape, ManaStatic and SourceInterference (the planner's
 // per-source alternatives and tiers): 3 -> 6. Slice 7 added ManaUnits (the
-// planner's source census): 6 -> 7.
+// planner's source census): 6 -> 7. E7 flow slice 2 moved Conv,
+// MayPlayRider and PayLifeInsteadOfB (static-pricing evaluations) off
+// pay.Engine onto it: 7 -> 10.
 const (
-	payEvalMethods = 7
+	payEvalMethods = 10
 	payEvalCeiling = 20
 )
 

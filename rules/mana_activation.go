@@ -270,52 +270,9 @@ func (e *Engine) answerNestedManaColor(ma *manaColorActivation, chosen []decisio
 	e.continueManaPaymentWindow(ma.cumulative)
 }
 
-// manaDiscardActivation holds a synchronous mana ability while its discard
-// cost is chosen. It is separate from pendingCast so activating mana during a
-// spell's CR 601.2g payment window never overwrites the outer cast flow.
-type manaDiscardActivation struct {
-	player     state.PlayerID
-	source     state.ObjID
-	ability    *cards.SA
-	cost       Cost
-	sacs       []state.ObjID
-	sacPaid    int
-	discards   []state.ObjID
-	exiles     []state.ObjID
-	taps       []state.ObjID
-	sacPart    int
-	part       int
-	exilePart  int
-	tapPart    int
-	cast       bool
-	cumulative bool
-	gained     pay.GainedManaRef
-	// The announced SubCounter cost parts. subX is the announced X, set
-	// once by manaSubCounterAsk's first decision (the cast path's pc.x) and
-	// shared by every announced part; subCounterPays records the removal
-	// picks exactly like the cast path's pc.subCounterPays (one entry per
-	// counter unit for an "Any" part, one entry for a fixed-kind part).
-	subX           int32
-	subXAnnounced  bool
-	subCounterPays []subCounterPay
-	subPart        int
-	// forageDone marks the Forage election already posed; forageFood is the
-	// object sacrificed for it (zero when the exile-three arm paid, or for a
-	// non-interactive caller that took the deterministic arm).
-	forageDone bool
-	forageFood state.ObjID
-	foragePay  bool
-	// untapPart walks the untapYType<N/Spec> parts and untaps the elected
-	// permanents (the source's own {Q} untap is cost.Untap and stays
-	// separate).
-	untapPart int
-	untaps    []state.ObjID
-	// interactive records whether the caller could pose asks. A caller that
-	// cannot (the attack-cost tap window, direct-resolve tests) settles the
-	// announced SubCounter, Forage and untapYType parts with deterministic
-	// R-9 picks instead of posing an election.
-	interactive bool
-}
+// manaDiscardActivation is the in-progress mana-ability cost election
+// (pay.ManaCostActivation).
+type manaDiscardActivation = pay.ManaCostActivation
 
 // manaUnlessActivation parks an off-stack mana ability while its payer
 // answers its UnlessCost$. The ordinary effects resume path needs a stack
@@ -979,285 +936,78 @@ func (e *Engine) manaCostPayable(p state.PlayerID, o *state.Object, source state
 // the ability on the stack. Ordinary parts ask their controller; Random and
 // Hand select internally using the same rules as discardAsk.
 func (e *Engine) continueManaDiscard() {
-	md := e.manaDiscardActivation
+	md := e.ManaCost
 	if md == nil {
 		return
 	}
-	// The tapXType<N/Spec> election runs first: the tap stage claims its
-	// permanents before the sacrifice stage's reserved map includes them, and
-	// the tap candidates reserve the sacrifice picks the offer walk already
-	// made (a permanent cannot pay two parts of one cost). A non-X Dyn part
-	// never reaches here -- manaTapsPayable refused the whole ability.
-	for md.tapPart < len(md.cost.TapPermanent) {
-		part := md.cost.TapPermanent[md.tapPart]
-		claimed := make(map[state.ObjID]bool, len(md.taps)+len(md.sacs)+1)
-		for _, id := range md.taps {
-			claimed[id] = true
-		}
-		for _, id := range md.sacs {
-			claimed[id] = true
-		}
-		if md.cost.Tap {
-			claimed[md.source] = true
-		}
-		candidates := pay.ManaTapCandidates(asPayer(e), md.player, md.source, part.Spec, claimed)
-		if part.Dyn == "X" {
-			if len(candidates) == 0 {
-				md.ability = pay.ManaAbilityWithPaidX(md.ability, 0)
-				md.tapPart++ // X=0 needs no empty decision.
-				continue
-			}
-			d := &decision.Decision{Player: md.player, Kind: decision.KChoose, Min: 0, Max: len(candidates),
-				Prompt: "Choose any number of tokens to tap for the mana ability", Source: md.source}
-			for _, id := range candidates {
-				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "tapcost", Obj: id, Label: e.targetName(id)})
-			}
-			e.choosing = chooseManaTap
-			e.ask(d)
-			return
-		}
-		// The offer gate agreed, so a shortfall is a board that changed under
-		// the offer: drop the payment rather than ask an election no answer
-		// can satisfy.
-		if int32(len(candidates)) < part.N {
-			e.manaDiscardActivation = nil
-			e.choosing = chooseNone
-			return
-		}
-		if int32(len(candidates)) == part.N {
-			// Exactly N candidates makes the tap forced. Record them without a
-			// zero-information ask, matching tapPermanentCostAsk.
-			md.taps = append(md.taps, candidates[:int(part.N)]...)
-			md.tapPart++
-			continue
-		}
-		d := &decision.Decision{Player: md.player, Kind: decision.KChoose, Min: int(part.N), Max: int(part.N),
-			Prompt: "Choose permanents to tap for the mana ability", Source: md.source}
-		for _, id := range candidates {
-			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "tapcost", Obj: id, Label: e.targetName(id)})
-		}
-		e.choosing = chooseManaTap
-		e.ask(d)
+	if !e.manaCostStepNext(pay.ManaCostTapStage(asPayer(e), md)) {
 		return
 	}
 	// The announced-SubCounter X announcement and removal election, then the
-	// Forage election, then the untapYType election. Each may pause on an ask
-	// or drop the payment when the board changed under the offer.
+	// Forage, sacrifice, discard, exile and untapYType elections. Each may
+	// pause on an ask or drop the payment when the board changed under the
+	// offer.
 	if e.manaSubCounterStage(md) {
 		return
 	}
-	if e.manaDiscardActivation == nil {
+	if e.ManaCost == nil {
 		return
 	}
-	if e.manaForageStage(md) {
-		return
-	}
-	if e.manaDiscardActivation == nil {
-		return
-	}
-	for md.sacPart < len(md.cost.Sac) {
-		part := md.cost.Sac[md.sacPart]
-		reserved := make(map[state.ObjID]bool, len(md.sacs)+len(md.taps))
-		for _, id := range md.sacs {
-			reserved[id] = true
-		}
-		// A permanent elected to tap cannot also be sacrificed (one permanent
-		// cannot pay two parts of one cost).
-		for _, id := range md.taps {
-			reserved[id] = true
-		}
-		var candidates []state.ObjID
-		for _, id := range pay.SacrificeCostCandidates(asPayer(e), md.player, md.source, part, true) {
-			if !reserved[id] {
-				candidates = append(candidates, id)
-			}
-		}
-		n := int(part.N) - md.sacPaid
-		// The same split sacAsk makes: only a part with a LATER Sac part is
-		// paid one unit per decision under the feasibility filter (every
-		// offered option leaves a complete distinct assignment for the later
-		// parts, so Validate, Clamp and the bot cannot strand one). The LAST
-		// Sac part keeps the historical exact-N shape -- forced when exactly n
-		// candidates remain, else one Min == Max == n ask -- because nothing
-		// downstream can be stranded by its answer.
-		hasLaterSac := md.sacPart+1 < len(md.cost.Sac)
-		if hasLaterSac {
-			pools := make([][]state.ObjID, len(md.cost.Sac))
-			needs := make([]int, len(md.cost.Sac))
-			for i, futurePart := range md.cost.Sac {
-				needs[i] = int(futurePart.N)
-				if i == md.sacPart {
-					needs[i] -= md.sacPaid
-				}
-				pools[i] = pay.SacrificeCostCandidates(asPayer(e), md.player, md.source, futurePart, true)
-			}
-			candidates = feasibleSacrificeChoices(candidates, pools, needs, md.sacs, md.sacPart)
-		}
-		if n <= 0 || n > len(candidates) {
-			e.manaDiscardActivation = nil
-			e.choosing = chooseNone
-			return
-		}
-		var d *decision.Decision
-		if hasLaterSac {
-			// A singleton candidate is forced. Record it and continue one unit
-			// at a time so each pick preserves a complete assignment for later
-			// parts.
-			if len(candidates) == 1 {
-				md.sacs = append(md.sacs, candidates[0])
-				md.sacPaid++
-				if md.sacPaid >= int(part.N) {
-					md.sacPart++
-					md.sacPaid = 0
-				}
-				continue
-			}
-			d = &decision.Decision{Player: md.player, Kind: decision.KChoose, Min: 1, Max: 1,
-				Prompt: "Choose permanents to sacrifice for the mana ability", Source: md.source}
-		} else {
-			// Exactly N candidates makes the sacrifice forced. Record that
-			// deterministic battlefield-order set without a zero-information
-			// ask; only a wider candidate set gives the player a choice.
-			if len(candidates) == n {
-				md.sacs = append(md.sacs, candidates...)
-				md.sacPart++
-				md.sacPaid = 0
-				continue
-			}
-			d = &decision.Decision{Player: md.player, Kind: decision.KChoose, Min: n, Max: n,
-				Prompt: "Choose permanents to sacrifice for the mana ability", Source: md.source}
-		}
-		for _, id := range candidates {
-			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "sacrifice", Obj: id, Label: e.G.Obj(id).Face().Name})
-		}
-		e.choosing = chooseManaSacrifice
-		e.ask(d)
-		return
-	}
-	for md.part < len(md.cost.Discard) {
-		part := md.cost.Discard[md.part]
-		reserved := make(map[state.ObjID]bool, len(md.discards))
-		for _, id := range md.discards {
-			reserved[id] = true
-		}
-		candidates := pay.DiscardCandidates(asPayer(e), md.player, md.source, part, false, reserved)
-		if strings.EqualFold(part.Spec, "Hand") {
-			md.discards = append(md.discards, candidates...)
-			md.part++
-			continue
-		}
-		n := int(part.N)
-		if n <= 0 || n > len(candidates) {
-			e.manaDiscardActivation = nil
-			e.choosing = chooseNone
-			return
-		}
-		if strings.EqualFold(part.Spec, "Random") {
-			for i := 0; i < n; i++ {
-				pick := e.Rand(len(candidates))
-				md.discards = append(md.discards, candidates[pick])
-				candidates = append(candidates[:pick], candidates[pick+1:]...)
-			}
-			md.part++
-			continue
-		}
-		d := &decision.Decision{Player: md.player, Kind: decision.KChoose, Min: n, Max: n,
-			Prompt: "Discard a card to pay the mana ability cost", Source: md.source}
-		for _, id := range candidates {
-			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "mana_discard",
-				Obj: id, Label: e.G.Obj(id).Face().Name})
-		}
-		e.choosing = chooseManaDiscard
-		e.ask(d)
-		return
-	}
-	for md.exilePart < len(md.cost.Exile) {
-		part := md.cost.Exile[md.exilePart]
-		zone := part.Zone
-		if zone == 0 {
-			zone = state.ZHand
-		}
-		reserved := make(map[state.ObjID]bool, len(md.exiles))
-		for _, id := range md.exiles {
-			reserved[id] = true
-		}
-		var candidates []state.ObjID
-		for _, id := range e.G.Zone(zone, md.player) {
-			if !reserved[id] && e.matchesSpecFrom(part.Spec, id, md.player, md.source) {
-				candidates = append(candidates, id)
-			}
-		}
-		n := int(part.N)
-		if n <= 0 || n > len(candidates) {
-			e.manaDiscardActivation = nil
-			e.choosing = chooseNone
-			return
-		}
-		if n == 1 && len(candidates) == 1 && candidates[0] == md.source &&
-			strings.EqualFold(part.Spec, "CARDNAME") {
-			md.exiles = append(md.exiles, md.source)
-			md.exilePart++
-			continue
-		}
-		d := &decision.Decision{Player: md.player, Kind: decision.KChoose, Min: n, Max: n,
-			Prompt: "Exile a card to pay the mana ability cost", Source: md.source}
-		for _, id := range candidates {
-			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "mana_exile",
-				Obj: id, Label: e.G.Obj(id).Face().Name})
-		}
-		e.choosing = chooseManaExile
-		e.ask(d)
-		return
-	}
-	if e.manaUntapStage(md) {
-		return
-	}
-	if e.manaDiscardActivation == nil {
+	if !e.manaCostStepNext(pay.ManaCostChoiceStages(asPayer(e), md)) {
 		return
 	}
 	e.commitManaDiscard()
 }
 
+// manaCostStepNext reports whether a mana-cost election stage completed; a
+// dropped payment also clears the pending-choice marker.
+func (e *Engine) manaCostStepNext(st pay.ManaCostStep) bool {
+	if st == pay.ManaCostDropped {
+		e.choosing = chooseNone
+	}
+	return st == pay.ManaCostNext
+}
+
 func (e *Engine) commitManaDiscard() {
-	md := e.manaDiscardActivation
-	if md == nil || !pay.PayManaConvFor(asPayer(e), md.player, md.source, true, md.cost, asPayer(e).Conv(md.player, md.source, true)) {
-		e.manaDiscardActivation = nil
+	md := e.ManaCost
+	if md == nil || !pay.PayManaConvFor(asPayer(e), md.Player, md.Source, true, md.Cost, asEval(e).Conv(md.Player, md.Source, true)) {
+		e.ManaCost = nil
 		e.choosing = chooseNone
 		return
 	}
 	// Only a decision posed BY this payment defers the mana effect below.
 	posedBefore := e.pending != nil
-	pay.PayDiscardCost(asPayer(e), md.discards, "")
-	for _, id := range md.exiles {
+	pay.PayDiscardCost(asPayer(e), md.Discards, "")
+	for _, id := range md.Exiles {
 		if o := e.G.Obj(id); o != nil {
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone,
 				To: state.ZExile, Text: "exiled as a mana ability cost"})
 		}
 	}
-	pay.PayMillCost(asPayer(e), md.player, md.cost.Mill)
+	pay.PayMillCost(asPayer(e), md.Player, md.Cost.Mill)
 	// The elected tapXType permanents are tapped as part of the cost, before
 	// the source's own {T} (the cast path's pay.EmitChoiceCosts/payCast order), so
 	// a TapsForMana trigger on one of them matches the same way in both
 	// paths. The Tap events carry the same "tapped as a cost" text the cast
 	// path uses, so a replay rebuilds the identical chain.
-	for _, id := range md.taps {
+	for _, id := range md.Taps {
 		e.emit(events.Event{Kind: events.Tap, Obj: id, Text: "tapped as a cost"})
 	}
 	var manaTriggers []pendingTrigger
-	if md.cost.Tap {
-		manaTriggers = e.emitManaTap(md.player, md.source, md.ability)
+	if md.Cost.Tap {
+		manaTriggers = e.emitManaTap(md.Player, md.Source, md.Ability)
 	}
-	if md.cost.Untap {
-		e.emit(events.Event{Kind: events.Untap, Obj: md.source, Player: md.player, Text: "untapped as a cost"})
+	if md.Cost.Untap {
+		e.emit(events.Event{Kind: events.Untap, Obj: md.Source, Player: md.Player, Text: "untapped as a cost"})
 	}
-	pay.PayManaSourceParts(asPayer(e), md.player, md.source, md.cost)
-	e.settleManaSubCounter(md)
-	for _, id := range md.sacs {
+	pay.PayManaSourceParts(asPayer(e), md.Player, md.Source, md.Cost)
+	pay.SettleManaSubCounter(asPayer(e), md)
+	for _, id := range md.Sacs {
 		e.emit(events.Sacrifice(id))
 	}
-	e.settleManaForage(md)
-	e.settleManaUntap(md)
-	e.manaDiscardActivation = nil
+	pay.SettleManaForage(asPayer(e), md)
+	pay.SettleManaUntap(asPayer(e), md)
+	e.ManaCost = nil
 	e.choosing = chooseNone
 	if !posedBefore && e.pending != nil {
 		// Paying the cost posed a decision: a sacrificed (or discarded,
@@ -1268,14 +1018,14 @@ func (e *Engine) commitManaDiscard() {
 		// same cost can be "paid" again for free forever (the botbench
 		// Phyrexian Altar + Rakdos, the Muscle livelock). The effect waits
 		// for the answer instead; Submit resumes it (resumeManaAfterCost).
-		e.manaAfterCost = &manaAfterCost{player: md.player, source: md.source, ability: md.ability,
-			cast: md.cast, cumulative: md.cumulative, triggers: manaTriggers,
-			sacs: append([]state.ObjID(nil), md.sacs...), gained: md.gained,
-			untaps: append([]state.ObjID(nil), md.untaps...)}
+		e.manaAfterCost = &manaAfterCost{player: md.Player, source: md.Source, ability: md.Ability,
+			cast: md.Cast, cumulative: md.Cumulative, triggers: manaTriggers,
+			sacs: append([]state.ObjID(nil), md.Sacs...), gained: md.Gained,
+			untaps: append([]state.ObjID(nil), md.Untaps...)}
 		return
 	}
-	e.resolveManaEffect(md.player, md.source, md.ability, md.cast, md.cumulative, manaTriggers, md.sacs, md.gained, md.untaps)
-	e.continueManaPaymentWindow(md.cumulative)
+	e.resolveManaEffect(md.Player, md.Source, md.Ability, md.Cast, md.Cumulative, manaTriggers, md.Sacs, md.Gained, md.Untaps)
+	e.continueManaPaymentWindow(md.Cumulative)
 }
 
 // manaAfterCost parks a paid mana ability's effect while a decision its cost
@@ -1317,77 +1067,41 @@ func (e *Engine) resumeManaAfterCost() {
 	}
 }
 
-// answerManaDiscard records one ordinary discard part and continues payment.
-// It reports whether this mana activation belongs to an outer cast window.
+// answerManaSacrifice, answerManaDiscard, answerManaExile, answerManaTap,
+// answerManaForage and answerManaUntap record one mana-cost election answer
+// (pay.RecordManaCostAnswer) and resume the payment. Each reports whether
+// the activation pays for a cast.
 func (e *Engine) answerManaSacrifice(chosen []decision.Option) bool {
-	md := e.manaDiscardActivation
-	if md == nil {
-		return false
-	}
-	for _, opt := range chosen {
-		md.sacs = append(md.sacs, opt.Obj)
-		md.sacPaid++
-	}
-	part := md.cost.Sac[md.sacPart]
-	if md.sacPaid >= int(part.N) {
-		md.sacPart++
-		md.sacPaid = 0
-	}
-	cast := md.cast
-	e.continueManaDiscard()
-	return cast
+	return e.answerManaCost(pay.AskManaSacrifice, chosen)
 }
 
 func (e *Engine) answerManaDiscard(chosen []decision.Option) bool {
-	md := e.manaDiscardActivation
-	if md == nil {
-		return false
-	}
-	for _, opt := range chosen {
-		md.discards = append(md.discards, opt.Obj)
-	}
-	md.part++
-	cast := md.cast
-	e.continueManaDiscard()
-	return cast
+	return e.answerManaCost(pay.AskManaDiscard, chosen)
 }
 
 func (e *Engine) answerManaExile(chosen []decision.Option) bool {
-	md := e.manaDiscardActivation
-	if md == nil {
-		return false
-	}
-	for _, opt := range chosen {
-		md.exiles = append(md.exiles, opt.Obj)
-	}
-	md.exilePart++
-	cast := md.cast
-	e.continueManaDiscard()
-	return cast
+	return e.answerManaCost(pay.AskManaExile, chosen)
 }
 
-// answerManaTap records one literal tapXType<N/Spec> election's picks and
-// continues the payment. It mirrors answerManaSacrifice: the chosen objects
-// are recorded on the activation and the same continuation resumes, so the
-// tap stage's "answer then ask the next part" loop is identical to the
-// sacrifice stage's.
 func (e *Engine) answerManaTap(chosen []decision.Option) bool {
-	md := e.manaDiscardActivation
+	return e.answerManaCost(pay.AskManaTap, chosen)
+}
+
+func (e *Engine) answerManaForage(chosen []decision.Option) bool {
+	return e.answerManaCost(pay.AskManaForage, chosen)
+}
+
+func (e *Engine) answerManaUntap(chosen []decision.Option) bool {
+	return e.answerManaCost(pay.AskManaUntap, chosen)
+}
+
+func (e *Engine) answerManaCost(flow pay.AskFlow, chosen []decision.Option) bool {
+	md := e.ManaCost
 	if md == nil {
 		return false
 	}
-	part := md.cost.TapPermanent[md.tapPart]
-	for _, opt := range chosen {
-		md.taps = append(md.taps, opt.Obj)
-	}
-	if part.Dyn == "X" {
-		// Hazel's Amount$ X is the elected count. Rewrite only this activation
-		// copy so it survives the later colour decision without reading an
-		// enclosing spell's X or mutating the compiled card ability.
-		md.ability = pay.ManaAbilityWithPaidX(md.ability, int32(len(chosen)))
-	}
-	md.tapPart++
-	cast := md.cast
+	pay.RecordManaCostAnswer(md, flow, chosen)
+	cast := md.Cast
 	e.continueManaDiscard()
 	return cast
 }
@@ -1718,17 +1432,17 @@ func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.Ob
 	// untapYType<N/Spec> part needs its tapped-permanent election. All three
 	// ride the continuation beside the sacrifice/discard/exile/tap parts.
 	needsContinuation := len(cost.Sac) > 0 || len(cost.Discard) > 0 || len(cost.Exile) > 0 ||
-		len(cost.TapPermanent) > 0 || manaSubCounterNeedsAsk(cost) || cost.Forage || len(cost.UntapPermanent) > 0
+		len(cost.TapPermanent) > 0 || pay.ManaSubCounterNeedsAsk(cost) || cost.Forage || len(cost.UntapPermanent) > 0
 	if needsContinuation {
-		md := &manaDiscardActivation{player: p, source: source,
-			ability: ma, cost: cost, cast: cast, cumulative: payment, gained: gained, interactive: interactive}
+		md := &manaDiscardActivation{Player: p, Source: source,
+			Ability: ma, Cost: cost, Cast: cast, Cumulative: payment, Gained: gained, Interactive: interactive}
 		if !interactive {
-			md.sacs = sacs
-			md.sacPart = len(cost.Sac)
-			md.taps = pay.ManaTapsPicked(asPayer(e), p, source, cost, sacs)
-			md.tapPart = len(cost.TapPermanent)
+			md.Sacs = sacs
+			md.SacPart = len(cost.Sac)
+			md.Taps = pay.ManaTapsPicked(asPayer(e), p, source, cost, sacs)
+			md.TapPart = len(cost.TapPermanent)
 		}
-		e.manaDiscardActivation = md
+		e.ManaCost = md
 		e.continueManaDiscard()
 		return
 	}

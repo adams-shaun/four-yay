@@ -140,7 +140,7 @@ func TestMixedOnlyMultiPipChargeIsNeverOffered(t *testing.T) {
 	onBoardReady(t, e, 1, "Name:Test Plains\nTypes:Basic Land Plains\nOracle:x\n")
 	e.G.Players[1].Life = 3
 	if !pay.UnlessManaReachable(asPayer(e), 1, chCost(ch), e.G.Players[1].Pool, e.G.Players[1].Snow,
-		e.G.Players[1].ManaUnits(), e.G.Players[1].Life, asPayer(e).Conv(1, 0, false),
+		e.G.Players[1].ManaUnits(), e.G.Players[1].Life, asEval(e).Conv(1, 0, false),
 		e.attackWindowUnits(1, nil)) {
 		t.Fatal("precondition: the MIXED branch is payable, but the joint read says no (test is vacuous)")
 	}

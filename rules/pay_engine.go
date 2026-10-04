@@ -35,7 +35,7 @@ var manaLetters = pay.ManaLetters
 // is on the stack and a zone re-derivation would wrongly drop the grant.
 func (e *Engine) payManaCastSpent(pc *pendingCast, cost Cost) (bool, state.Mana, state.Mana, [7]state.Mana) {
 	ok, spentAll, _, spentSnow, spentTyped := pay.PayManaDescriptorForSpent(asPayer(e), pc.player, paymentForCast(pc, cost), cost,
-		asPayer(e).Conv(pc.player, pc.card, false),
+		asEval(e).Conv(pc.player, pc.card, false),
 		pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType})
 	return ok, spentAll, spentSnow, spentTyped
 }
@@ -92,7 +92,7 @@ func containsObjID(ids []state.ObjID, id state.ObjID) bool {
 // change any pip match. Returning nil -- not a zero conv -- keeps the pure
 // resolveMana path (and every game without a converter on the board)
 // byte-identical.
-func (pe *payer) Conv(p state.PlayerID, id state.ObjID, ability bool) *manaConv {
+func (pe *payEval) Conv(p state.PlayerID, id state.ObjID, ability bool) *manaConv {
 	e := (*Engine)(pe)
 	// With no printed ManaConvert static on the board and no Effect-delivered
 	// one in active()'s list (its build digest), manaConversionParts has no
@@ -209,6 +209,13 @@ func (pe *payer) Ask(flow pay.AskFlow, d *decision.Decision) {
 var payAskFlows = [...]chooseFor{
 	pay.AskUnlessCost: chooseUnlessCost,
 	pay.AskUnlessMana: chooseUnlessMana,
+
+	pay.AskManaTap:       chooseManaTap,
+	pay.AskManaSacrifice: chooseManaSacrifice,
+	pay.AskManaDiscard:   chooseManaDiscard,
+	pay.AskManaExile:     chooseManaExile,
+	pay.AskManaForage:    chooseManaForage,
+	pay.AskManaUntap:     chooseManaUntap,
 }
 
 // Batch opens or closes one action bracket (pay.Engine.Batch).

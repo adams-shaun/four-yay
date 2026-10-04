@@ -680,17 +680,9 @@ type pendingCast struct {
 	sneakHasDefender    bool           `clone:"deep"`
 }
 
-// subCounterPay is one counter removed to pay a SubCounter cost part: the
-// part it belongs to, the object the counter comes off, and (for a wildcard
-// "Any" part) the chosen counter kind. A fixed-kind filtered part records a
-// single entry with an empty Kind and settles the part's whole amount from
-// part.Spec; a wildcard part records one entry per unit, each settling one
-// counter of its chosen kind.
-type subCounterPay struct {
-	part int
-	obj  state.ObjID
-	kind string
-}
+// subCounterPay is one counter removed to pay a SubCounter cost part
+// (pay.SubCounterPay).
+type subCounterPay = pay.SubCounterPay
 
 // etbChoice is one "as this enters" choice, pre-computed: its kind
 // ("name"/"/type"/"number", matching the Choose event's Counter) and the

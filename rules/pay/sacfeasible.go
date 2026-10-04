@@ -1,11 +1,11 @@
-package rules
+package pay
 
 import "github.com/adams-shaun/gorge/state"
 
-// sacrificeRemainderFeasible reports whether the outstanding sacrifice
+// SacrificeRemainderFeasible reports whether the outstanding sacrifice
 // units have a distinct assignment. Candidate and need slices are in cost
 // order; the search order and result are deterministic.
-func sacrificeRemainderFeasible(candidates [][]state.ObjID, needs []int) bool {
+func SacrificeRemainderFeasible(candidates [][]state.ObjID, needs []int) bool {
 	used := make(map[state.ObjID]bool)
 	var assign func(int, int) bool
 	assign = func(part, unit int) bool {
@@ -31,10 +31,10 @@ func sacrificeRemainderFeasible(candidates [][]state.ObjID, needs []int) bool {
 	return assign(0, 0)
 }
 
-// feasibleSacrificeChoices keeps only current choices that leave a complete
+// FeasibleSacrificeChoices keeps only current choices that leave a complete
 // distinct assignment for the current part's remaining units and every later
 // part. Pools and needs are in cost order; chosen objects were paid earlier.
-func feasibleSacrificeChoices(current []state.ObjID, pools [][]state.ObjID, needs []int, chosen []state.ObjID, part int) []state.ObjID {
+func FeasibleSacrificeChoices(current []state.ObjID, pools [][]state.ObjID, needs []int, chosen []state.ObjID, part int) []state.ObjID {
 	feasible := make([]state.ObjID, 0, len(current))
 	for _, candidate := range current {
 		var future [][]state.ObjID
@@ -62,7 +62,7 @@ func feasibleSacrificeChoices(current []state.ObjID, pools [][]state.ObjID, need
 			}
 			future, outstanding = append(future, pool), append(outstanding, need)
 		}
-		if sacrificeRemainderFeasible(future, outstanding) {
+		if SacrificeRemainderFeasible(future, outstanding) {
 			feasible = append(feasible, candidate)
 		}
 	}

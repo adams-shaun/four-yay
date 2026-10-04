@@ -272,7 +272,7 @@ func UnlessCostPayable(e Engine, p state.PlayerID, raw string, ctx *effects.Ctx,
 		return true
 	}
 	return UnlessManaReachable(e, p, cost, player.Pool, player.Snow, player.ManaUnits(), player.Life,
-		e.Conv(p, stackObj, false), e.Eval().WindowUnits(p))
+		e.Eval().Conv(p, stackObj, false), e.Eval().WindowUnits(p))
 }
 
 // UnlessFoldDynamic folds the unless cost's DYNAMIC life tokens to concrete

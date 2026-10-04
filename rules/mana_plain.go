@@ -138,7 +138,7 @@ func (e *Engine) payManaAbilityMana(p state.PlayerID, source state.ObjID, cc *co
 		return true
 	}
 	n0 := len(e.L.Events)
-	ok := pay.PayManaConvFor(asPayer(e), p, source, true, cc.Cost, asPayer(e).Conv(p, source, true))
+	ok := pay.PayManaConvFor(asPayer(e), p, source, true, cc.Cost, asEval(e).Conv(p, source, true))
 	if cc.BareTap && (!ok || len(e.L.Events) != n0 || e.NoCounterSpend != 0 || e.ManaSpentSources != nil || e.ManaSpentAddsCounters != nil) {
 		panic(fmt.Sprintf("rules: bare-tap mana payment for %d was not a no-op (ok=%v, %d events)", source, ok, len(e.L.Events)-n0))
 	}

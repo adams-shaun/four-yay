@@ -523,7 +523,7 @@ func (e *Engine) manaActivationCostMarker(abilities []*cards.SA) string {
 // "Affected$ You | AddKeyword$ PayLifeInsteadOf:B"). Every mana payment and
 // every cast/activation offer gate consults it, so a plain {B} pip is
 // payable with 2 life anywhere K'rrik is in play under its controller.
-func (pe *payer) PayLifeInsteadOfB(p state.PlayerID) bool {
+func (pe *payEval) PayLifeInsteadOfB(p state.PlayerID) bool {
 	e := (*Engine)(pe)
 	for _, sv := range e.activeStatics("Continuous") {
 		// A member equal to the keyword needs the keyword as a substring, so
@@ -552,7 +552,7 @@ func (pe *payer) PayLifeInsteadOfB(p state.PlayerID) bool {
 // through the SpecContext the ordinary filter grammar already carries -- the
 // same direct-list reading restrictionApplies uses for Effect-delivered
 // CantTarget/CantRegenerate.
-func (pe *payer) MayPlayRider(p state.PlayerID, id state.ObjID) pipRider {
+func (pe *payEval) MayPlayRider(p state.PlayerID, id state.ObjID) pipRider {
 	e := (*Engine)(pe)
 	var r pipRider
 	o := e.G.Obj(id)

@@ -21,6 +21,12 @@ var _ pay.Eval = (*payEval)(nil)
 // Eval (pay.Engine) is the engine's evaluation seam.
 func (pe *payer) Eval() pay.Eval { return (*payEval)(pe) }
 
+// asEval is e's pay.Eval role, by pointer conversion.
+func asEval(e *Engine) *payEval { return (*payEval)(e) }
+
+// Rand (pay.Engine) is the engine's deterministic random draw.
+func (pe *payer) Rand(n int) int { return (*Engine)(pe).Rand(n) }
+
 func (v *payEval) EvalCount(ctx *effects.Ctx, expr string) (int32, bool) {
 	return effects.EvalCountOK((*Engine)(v), ctx, expr)
 }

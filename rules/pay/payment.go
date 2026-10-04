@@ -137,7 +137,7 @@ func PayManaDescriptorForSpent(e Engine, p state.PlayerID, d Descriptor, cost Co
 	beforeSnow := e.Game().Players[p].Snow
 	beforeTyped := av.Typed
 	pay, ok := ResolveManaWith(cost, before, beforeSnow, beforeTyped, e.Game().Players[p].Life,
-		e.PayLifeInsteadOfB(p), rider, conv)
+		e.Eval().PayLifeInsteadOfB(p), rider, conv)
 
 	if !ok {
 		return false, state.Mana{}, state.Mana{}, state.Mana{}, [7]state.Mana{}
@@ -646,7 +646,7 @@ func CostPayableGrant(e Engine, p state.PlayerID, id state.ObjID, ability bool, 
 	// admits it — the offer and the payment must read the same cost.
 	av := AvailableFor(e, p, DescriptorFor(id, ability, cost))
 	_, ok := ResolveManaWith(cost, av.Pool, e.Game().Players[p].Snow, av.Typed,
-		e.Game().Players[p].Life, e.PayLifeInsteadOfB(p), rider, e.Conv(p, id, ability))
+		e.Game().Players[p].Life, e.Eval().PayLifeInsteadOfB(p), rider, e.Eval().Conv(p, id, ability))
 
 	return ok
 }
@@ -654,7 +654,7 @@ func CostPayableGrant(e Engine, p state.PlayerID, id state.ObjID, ability bool, 
 // CostPayableClass is CostPayableClassLife with the payer's derived
 // PayLifeInsteadOf:B grant.
 func CostPayableClass(e Engine, p state.PlayerID, d Descriptor, rider PipRider, cost Cost) bool {
-	return CostPayableClassLife(e, p, d, rider, cost, e.PayLifeInsteadOfB(p))
+	return CostPayableClassLife(e, p, d, rider, cost, e.Eval().PayLifeInsteadOfB(p))
 }
 
 // CostPayableClassLife is CostPayableClass with the payer's
@@ -671,7 +671,7 @@ func CostPayableClass(e Engine, p state.PlayerID, d Descriptor, rider PipRider, 
 func CostPayableClassLife(e Engine, p state.PlayerID, d Descriptor, rider PipRider, cost Cost, lifeGrant bool) bool {
 	av := AvailableFor(e, p, d)
 	_, ok := ResolveManaWith(cost, av.Pool, e.Game().Players[p].Snow, av.Typed,
-		e.Game().Players[p].Life, lifeGrant, rider, e.Conv(p, d.ID, d.Class == PurposeActivated))
+		e.Game().Players[p].Life, lifeGrant, rider, e.Eval().Conv(p, d.ID, d.Class == PurposeActivated))
 
 	return ok
 }
@@ -682,7 +682,7 @@ func CostPayableClassLife(e Engine, p state.PlayerID, d Descriptor, rider PipRid
 // source happens to be a card object.
 func CostPayableOther(e Engine, p state.PlayerID, id state.ObjID, cost Cost) bool {
 	return CostPayableClass(e, p, Descriptor{ID: id, Class: PurposeOther, Cost: &cost},
-		e.MayPlayRider(p, id), cost)
+		e.Eval().MayPlayRider(p, id), cost)
 }
 
 // CostPayable is the conversion-aware equivalent of Cost.payable at the
@@ -695,7 +695,7 @@ func CostPayableOther(e Engine, p state.PlayerID, id state.ObjID, cost Cost) boo
 // K'rrik-shaped or may-play-shaped payment as well.
 func CostPayable(e Engine, p state.PlayerID, id state.ObjID, ability bool, cost Cost) bool {
 	return CostPayableGrant(e, p, id, ability, cost,
-		e.MayPlayRider(p, id))
+		e.Eval().MayPlayRider(p, id))
 }
 
 // CostPayablePool is CostPayable priced against an EXPLICIT pool instead of
@@ -721,9 +721,9 @@ func CostPayablePool(e Engine, p state.PlayerID, id state.ObjID, ability bool, c
 		_, ok := ResolveManaWith(cost, pool, e.Game().Players[p].Snow, typed, e.Game().Players[p].Life, false, PipRider{}, nil)
 		if e.Verify() {
 			_, slow := ResolveManaWith(cost, pool, e.Game().Players[p].Snow, typed, e.Game().Players[p].Life,
-				e.PayLifeInsteadOfB(p),
-				e.MayPlayRider(p, id),
-				e.Conv(p, id, ability))
+				e.Eval().PayLifeInsteadOfB(p),
+				e.Eval().MayPlayRider(p, id),
+				e.Eval().Conv(p, id, ability))
 
 			if slow != ok {
 				panic("rules: pip-free CostPayablePool fast path disagrees with the full resolve")
@@ -732,9 +732,9 @@ func CostPayablePool(e Engine, p state.PlayerID, id state.ObjID, ability bool, c
 		return ok
 	}
 	_, ok := ResolveManaWith(cost, pool, e.Game().Players[p].Snow, typed, e.Game().Players[p].Life,
-		e.PayLifeInsteadOfB(p),
-		e.MayPlayRider(p, id),
-		e.Conv(p, id, ability))
+		e.Eval().PayLifeInsteadOfB(p),
+		e.Eval().MayPlayRider(p, id),
+		e.Eval().Conv(p, id, ability))
 
 	return ok
 }
