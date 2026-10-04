@@ -439,8 +439,8 @@ func SpecTargetsStack(spec string) bool {
 // both players as options, which effAttach then had to refuse).
 func SpecTargetsPlayers(spec string) bool {
 	for alt := range strings.SplitSeq(spec, ",") {
-		switch base, _, _ := strings.Cut(strings.TrimSpace(alt), "."); base {
-		case "Player", "Any", "Opponent", "You":
+		switch base, _, _ := strings.Cut(strings.TrimSpace(alt), "."); targetsPlayersBaseCodes.Code(base) {
+		case targetsPlayersBasePlayer:
 			return true
 		}
 	}
@@ -485,4 +485,17 @@ var targetZoneDeclCodes = state.NewStrCodes(
 	state.StrEntry[targetZoneDeclCode]{Key: "Hand", Val: targetZoneDeclHand},
 	state.StrEntry[targetZoneDeclCode]{Key: "Exile", Val: targetZoneDeclExile},
 	state.StrEntry[targetZoneDeclCode]{Key: "Stack", Val: targetZoneDeclStack},
+)
+
+type targetsPlayersBaseCode uint16
+
+const (
+	targetsPlayersBasePlayer targetsPlayersBaseCode = iota + 1
+)
+
+var targetsPlayersBaseCodes = state.NewStrCodes(
+	state.StrEntry[targetsPlayersBaseCode]{Key: "Player", Val: targetsPlayersBasePlayer},
+	state.StrEntry[targetsPlayersBaseCode]{Key: "Any", Val: targetsPlayersBasePlayer},
+	state.StrEntry[targetsPlayersBaseCode]{Key: "Opponent", Val: targetsPlayersBasePlayer},
+	state.StrEntry[targetsPlayersBaseCode]{Key: "You", Val: targetsPlayersBasePlayer},
 )

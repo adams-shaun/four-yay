@@ -570,12 +570,7 @@ func (e *Engine) staticTimingGate(sv staticView) bool {
 		return false
 	}
 	if turn := strings.TrimSpace(sv.ParamStr(cards.PKPlayerTurn)); turn != "" {
-		switch turn {
-		case "Opponent":
-			if e.G.Active == sv.Controller {
-				return false
-			}
-		default:
+		if turn != "Opponent" || e.G.Active == sv.Controller {
 			return false
 		}
 	}

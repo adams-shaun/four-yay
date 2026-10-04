@@ -85,12 +85,12 @@ func CantAttackParamsReadableForRules(params map[string]string) bool {
 	var present1, present2 string
 	hasCmp, has1, has2 := false, false, false
 	for k, v := range params {
-		switch k {
-		case "PresentCompare":
+		switch cantAttackPresentKeyCodes.Code(k) {
+		case cantAttackPresentKeyPresentCompare:
 			hasCmp = true
-		case "IsPresent":
+		case cantAttackPresentKeyIsPresent:
 			present1, has1 = v, true
-		case "IsPresent2":
+		case cantAttackPresentKeyIsPresent2:
 			present2, has2 = v, true
 		}
 		if !cantAttackParamsReadableForRulesKeys.Has(k) {
@@ -1197,4 +1197,18 @@ var redirectExileBodyCodes = state.NewStrCodes(
 	state.StrEntry[redirectExileBodyCode]{Key: "StackDescription", Val: redirectExileBodyDB},
 	state.StrEntry[redirectExileBodyCode]{Key: "Hidden", Val: redirectExileBodyHidden},
 	state.StrEntry[redirectExileBodyCode]{Key: "SubAbility", Val: redirectExileBodySubAbility},
+)
+
+type cantAttackPresentKeyCode uint16
+
+const (
+	cantAttackPresentKeyPresentCompare cantAttackPresentKeyCode = iota + 1
+	cantAttackPresentKeyIsPresent
+	cantAttackPresentKeyIsPresent2
+)
+
+var cantAttackPresentKeyCodes = state.NewStrCodes(
+	state.StrEntry[cantAttackPresentKeyCode]{Key: "PresentCompare", Val: cantAttackPresentKeyPresentCompare},
+	state.StrEntry[cantAttackPresentKeyCode]{Key: "IsPresent", Val: cantAttackPresentKeyIsPresent},
+	state.StrEntry[cantAttackPresentKeyCode]{Key: "IsPresent2", Val: cantAttackPresentKeyIsPresent2},
 )

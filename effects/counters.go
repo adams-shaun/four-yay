@@ -1048,15 +1048,7 @@ func effProliferate(h Host, c *Ctx, sa *cards.SA) {
 	// silently guessing.
 	var unknown []string
 	for k := range sa.Params {
-		switch k {
-		case "Amount", "RememberPut", "Defined", "ValidTgts",
-			"Cost", "SorcerySpeed", "Planeswalker",
-			"ConditionCheckSVar", "ConditionSVarCompare",
-			"ConditionDefined", "ConditionPresent", "ConditionCompare",
-			"SubAbility", "SpellDescription", "StackDescription",
-			"TriggerDescription", "Description", "PrecostDesc", "CostDesc",
-			"ActivationZone", "AILogic", "AIPreference", "DeckHas", "DeckHints":
-		default:
+		if !proliferateKeys.Has(k) {
 			unknown = append(unknown, k)
 		}
 	}
@@ -1273,4 +1265,15 @@ const (
 var aorApplyActCodes = state.NewStrCodes(
 	state.StrEntry[aorApplyActCode]{Key: "remove", Val: aorApplyActRemove},
 	state.StrEntry[aorApplyActCode]{Key: "put", Val: aorApplyActPut},
+)
+
+// proliferateKeys are the Proliferate parameters effProliferate models (see
+// effProliferate).
+var proliferateKeys = state.NewNameSet(
+	"Amount", "RememberPut", "Defined", "ValidTgts", "Cost", "SorcerySpeed",
+	"Planeswalker", "ConditionCheckSVar", "ConditionSVarCompare",
+	"ConditionDefined", "ConditionPresent", "ConditionCompare", "SubAbility",
+	"SpellDescription", "StackDescription", "TriggerDescription", "Description",
+	"PrecostDesc", "CostDesc", "ActivationZone", "AILogic", "AIPreference",
+	"DeckHas", "DeckHints",
 )

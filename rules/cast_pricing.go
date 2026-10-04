@@ -92,8 +92,8 @@ func (e *Engine) cyclingKeyword(pc *pendingCast) string {
 	if ab == nil {
 		return ""
 	}
-	switch kw := strings.TrimSpace(ab.ParamStr(cards.PKKeyword)); kw {
-	case "Cycling", "TypeCycling":
+	switch kw := strings.TrimSpace(ab.ParamStr(cards.PKKeyword)); cyclingKeywordCodes.Code(kw) {
+	case cyclingKeywordCycling:
 		return kw
 	default:
 		return ""
@@ -1083,3 +1083,14 @@ func (e *Engine) validateSearch(d *decision.Decision, in decision.Intent) error 
 	}
 	return nil
 }
+
+type cyclingKeywordCode uint16
+
+const (
+	cyclingKeywordCycling cyclingKeywordCode = iota + 1
+)
+
+var cyclingKeywordCodes = state.NewStrCodes(
+	state.StrEntry[cyclingKeywordCode]{Key: "Cycling", Val: cyclingKeywordCycling},
+	state.StrEntry[cyclingKeywordCode]{Key: "TypeCycling", Val: cyclingKeywordCycling},
+)

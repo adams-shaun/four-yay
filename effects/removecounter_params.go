@@ -210,9 +210,9 @@ func compileRemoveCounter(sa *cards.SA, dr *DefinedParams) *RemoveCounterParams 
 		loud = append(loud, "CounterNumShared$")
 	}
 	p.ChoiceZone = state.ZBattlefield
-	switch zone := strings.TrimSpace(sa.ParamStr(cards.PKChoiceZone)); zone {
-	case "", "Battlefield":
-	case "Exile":
+	switch zone := strings.TrimSpace(sa.ParamStr(cards.PKChoiceZone)); removeCounterChoiceZoneCodes.Code(zone) {
+	case removeCounterChoiceZoneBattlefield:
+	case removeCounterChoiceZoneExile:
 		p.ChoiceZone = state.ZExile
 	default:
 		loud = append(loud, "ChoiceZone$ "+zone)
@@ -227,3 +227,16 @@ func compileRemoveCounter(sa *cards.SA, dr *DefinedParams) *RemoveCounterParams 
 // RemoveCounterKnownKeys is a copy of removeCounterKnownKeys, for the census
 // check.
 func RemoveCounterKnownKeys() []string { return slices.Clone(removeCounterKnownKeys[:]) }
+
+type removeCounterChoiceZoneCode uint16
+
+const (
+	removeCounterChoiceZoneBattlefield removeCounterChoiceZoneCode = iota + 1
+	removeCounterChoiceZoneExile
+)
+
+var removeCounterChoiceZoneCodes = state.NewStrCodes(
+	state.StrEntry[removeCounterChoiceZoneCode]{Key: "", Val: removeCounterChoiceZoneBattlefield},
+	state.StrEntry[removeCounterChoiceZoneCode]{Key: "Battlefield", Val: removeCounterChoiceZoneBattlefield},
+	state.StrEntry[removeCounterChoiceZoneCode]{Key: "Exile", Val: removeCounterChoiceZoneExile},
+)

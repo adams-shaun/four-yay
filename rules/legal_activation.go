@@ -97,11 +97,8 @@ func (e *Engine) activationConditionOK(p state.PlayerID, ab *cards.SA) bool {
 // is not offered). Deterministic pure read -- no map range, tokens trimmed.
 func activationGameTypesOK(f Format, raw string) bool {
 	for tok := range strings.SplitSeq(raw, ",") {
-		switch strings.TrimSpace(tok) {
-		case "Commander":
-			if f == FormatCommander {
-				return true
-			}
+		if strings.TrimSpace(tok) == "Commander" && f == FormatCommander {
+			return true
 		}
 	}
 	return false

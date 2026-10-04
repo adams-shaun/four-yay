@@ -223,15 +223,14 @@ func mayPlayEffectFreeParams(params map[string]string) (limit int32, playerTurn 
 // the matcher, never here.
 func mayPlayParamsScan(params map[string]string, allowFree, allowAfterStack bool) (ignoreColor, ignoreType bool, limit int32, playerTurn bool, validAfterStack string, ok bool) {
 	for key := range params {
-		switch key {
-		case "Mode", "MayPlay", "MayPlayIgnoreColor", "MayPlayIgnoreType",
-			"MayPlayLimit", "Condition", "Affected", "AffectedZone", "Description", "EffectZone":
+		switch mayPlayParamCodes.Code(key) {
+		case mayPlayParamCarried:
 			// The keys the implemented grant (and only it) carries.
-		case "MayPlayWithoutManaCost":
+		case mayPlayParamMayPlayWithoutManaCost:
 			if !allowFree {
 				return false, false, 0, false, "", false
 			}
-		case "ValidAfterStack":
+		case mayPlayParamValidAfterStack:
 			if !allowAfterStack || strings.TrimSpace(params[key]) == "" {
 				return false, false, 0, false, "", false
 			}
@@ -409,14 +408,14 @@ func NumLoyaltyActParamsReadable(params map[string]string) bool {
 func LoyaltyFlashParamsReadable(params map[string]string) bool {
 	loyalty := false
 	for key, v := range params {
-		switch key {
-		case "Mode", "ValidCard", "Description":
-		case "ValidSA":
+		switch loyaltyFlashParamCodes.Code(key) {
+		case loyaltyFlashParamInert:
+		case loyaltyFlashParamValidSA:
 			if strings.TrimSpace(v) != "Activated.Loyalty" {
 				return false
 			}
 			loyalty = true
-		case "Caster":
+		case loyaltyFlashParamCaster:
 			if strings.TrimSpace(v) != "You" {
 				return false
 			}
@@ -756,4 +755,43 @@ var effectRememberedPlayersCodes = state.NewStrCodes(
 	state.StrEntry[effectRememberedPlayersCode]{Key: "RememberedPlayer", Val: effectRememberedPlayersRememberedPlayer},
 	state.StrEntry[effectRememberedPlayersCode]{Key: "RememberedPlayers", Val: effectRememberedPlayersRememberedPlayer},
 	state.StrEntry[effectRememberedPlayersCode]{Key: "Remembered", Val: effectRememberedPlayersRememberedPlayer},
+)
+
+type loyaltyFlashParamCode uint16
+
+const (
+	loyaltyFlashParamInert loyaltyFlashParamCode = iota + 1
+	loyaltyFlashParamValidSA
+	loyaltyFlashParamCaster
+)
+
+var loyaltyFlashParamCodes = state.NewStrCodes(
+	state.StrEntry[loyaltyFlashParamCode]{Key: "Mode", Val: loyaltyFlashParamInert},
+	state.StrEntry[loyaltyFlashParamCode]{Key: "ValidCard", Val: loyaltyFlashParamInert},
+	state.StrEntry[loyaltyFlashParamCode]{Key: "Description", Val: loyaltyFlashParamInert},
+	state.StrEntry[loyaltyFlashParamCode]{Key: "ValidSA", Val: loyaltyFlashParamValidSA},
+	state.StrEntry[loyaltyFlashParamCode]{Key: "Caster", Val: loyaltyFlashParamCaster},
+)
+
+type mayPlayParamCode uint16
+
+const (
+	mayPlayParamCarried mayPlayParamCode = iota + 1
+	mayPlayParamMayPlayWithoutManaCost
+	mayPlayParamValidAfterStack
+)
+
+var mayPlayParamCodes = state.NewStrCodes(
+	state.StrEntry[mayPlayParamCode]{Key: "Mode", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "MayPlay", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "MayPlayIgnoreColor", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "MayPlayIgnoreType", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "MayPlayLimit", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "Condition", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "Affected", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "AffectedZone", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "Description", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "EffectZone", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "MayPlayWithoutManaCost", Val: mayPlayParamMayPlayWithoutManaCost},
+	state.StrEntry[mayPlayParamCode]{Key: "ValidAfterStack", Val: mayPlayParamValidAfterStack},
 )

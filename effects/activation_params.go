@@ -438,11 +438,7 @@ func conditionOtherKey(sa *cards.SA) bool {
 		if !strings.HasPrefix(k, "Condition") || k == "ConditionDescription" {
 			continue
 		}
-		switch k {
-		case "ConditionDefined", "ConditionPresent", "ConditionNotPresent", "ConditionCompare",
-			"ConditionCheckSVar", "ConditionSVarCompare", "Condition",
-			"ConditionPlayerTurn", "ConditionPhases", "ConditionFirstCombat", "ConditionActivationLimit":
-		default:
+		if !conditionEvaluatedKeys.Has(k) {
 			return true
 		}
 	}
@@ -462,4 +458,12 @@ var activationZoneMaskTab = state.NewStrTable[uint32](
 	state.StrEntry[uint32]{Key: "Hand", Val: 1 << state.ZHand},
 	state.StrEntry[uint32]{Key: "Exile", Val: 1 << state.ZExile},
 	state.StrEntry[uint32]{Key: "Stack", Val: 1 << state.ZStack},
+)
+
+// conditionEvaluatedKeys are the Condition* keys conditionMet evaluates.
+var conditionEvaluatedKeys = state.NewNameSet(
+	"ConditionDefined", "ConditionPresent", "ConditionNotPresent",
+	"ConditionCompare", "ConditionCheckSVar", "ConditionSVarCompare",
+	"Condition", "ConditionPlayerTurn", "ConditionPhases",
+	"ConditionFirstCombat", "ConditionActivationLimit",
 )

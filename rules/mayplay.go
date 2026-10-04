@@ -779,9 +779,9 @@ func (e *Engine) mayPlayAltCosts(p state.PlayerID, id state.ObjID) []Cost {
 		// Condition$ PlayerTurn ("during each of your turns"): the static's
 		// controller's turn, the same switch mayPlayStatic runs. Any other
 		// value is an unimplemented gate and fails closed.
-		switch cond := strings.TrimSpace(sv.ParamStr(cards.PKCondition)); cond {
-		case "":
-		case "PlayerTurn":
+		switch cond := strings.TrimSpace(sv.ParamStr(cards.PKCondition)); mayPlayAltConditionCodes.Code(cond) {
+		case mayPlayAltConditionEmpty:
+		case mayPlayAltConditionPlayerTurn:
 			if e.G.Active != sv.Controller {
 				continue
 			}
@@ -1200,3 +1200,15 @@ func spellValidSAIsClassified(validSA string) bool {
 	}
 	return true
 }
+
+type mayPlayAltConditionCode uint16
+
+const (
+	mayPlayAltConditionEmpty mayPlayAltConditionCode = iota + 1
+	mayPlayAltConditionPlayerTurn
+)
+
+var mayPlayAltConditionCodes = state.NewStrCodes(
+	state.StrEntry[mayPlayAltConditionCode]{Key: "", Val: mayPlayAltConditionEmpty},
+	state.StrEntry[mayPlayAltConditionCode]{Key: "PlayerTurn", Val: mayPlayAltConditionPlayerTurn},
+)

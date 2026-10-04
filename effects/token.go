@@ -333,17 +333,17 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	// ... creates a Treasure"). Every pre-existing shape resolves exactly
 	// one owner, so the loop is byte-identical for them.
 	owners := []state.PlayerID{c.Controller}
-	switch v := tp.Owner; v {
-	case "", "You":
+	switch v := tp.Owner; tokenOwnerCodes.Code(v) {
+	case tokenOwnerYou:
 		// The default: the controller, already set above.
-	case "Opponent":
+	case tokenOwnerOpponent:
 		for _, p := range g.AliveFrom(c.Controller) {
 			if p != c.Controller {
 				owners = []state.PlayerID{p}
 				break
 			}
 		}
-	case "Player":
+	case tokenOwnerPlayer:
 		// "Each player creates ..." (Rendmaw, Creaking Nest, Marching
 		// Duodrone, Grismold the Dreadsower and 10 more corpus carriers of
 		// the bare spelling): EVERY alive seat creates TokenAmount$ tokens,
@@ -358,7 +358,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 		// player. The qualified Player.<qualifier> spellings stay in the
 		// default arm above.
 		owners = g.AliveFrom(0)
-	case "TriggeredOpponentVotedSame", "TriggeredOpponentVotedDiff":
+	case tokenOwnerTriggeredOpponentVotedSame:
 		// The vote-carrier referent (trig:Vote): each player in the List$
 		// set the firing trigger captured creates its own token. An EMPTY
 		// set creates nothing -- "each opponent who voted ..." is vacuous
@@ -371,7 +371,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 		}
 		owners = make([]state.PlayerID, 0, len(ps))
 		owners = append(owners, ps...)
-	case "Imprinted", "ImprintedController":
+	case tokenOwnerImprinted:
 		// Forge's TokenOwner$ ImprintedController: the controller of the
 		// RepeatEach iteration's current imprinted subject, and only that
 		// (UseImprinted$ binds the subject). The ordinary Defined resolver owns
@@ -385,7 +385,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 				break
 			}
 		}
-	case "RememberedOwner":
+	case tokenOwnerRememberedOwner:
 		// The owner of the first remembered OBJECT (Skyclave Apparition's
 		// "the exiled card's owner creates the token"). The same group the
 		// Remembered$ SVar head reads -- the source card's shared list first,
@@ -401,7 +401,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 				}
 			}
 		}
-	case "ThisTargetedPlayer":
+	case tokenOwnerThisTargetedPlayer:
 		// The player one of the charm's modes targeted (Shadrix Silverquill,
 		// the duo cycle, verdant/ashlings/prismari command -- 7 corpus files
 		// carry the spelling on a Token): the first player-kind entry of this
@@ -871,4 +871,29 @@ const (
 var tokenAttackingPlayersCodes = state.NewStrCodes(
 	state.StrEntry[tokenAttackingPlayersCode]{Key: "RememberedPlayer", Val: tokenAttackingPlayersRememberedPlayer},
 	state.StrEntry[tokenAttackingPlayersCode]{Key: "RememberedPlayers", Val: tokenAttackingPlayersRememberedPlayer},
+)
+
+type tokenOwnerCode uint16
+
+const (
+	tokenOwnerYou tokenOwnerCode = iota + 1
+	tokenOwnerOpponent
+	tokenOwnerPlayer
+	tokenOwnerTriggeredOpponentVotedSame
+	tokenOwnerImprinted
+	tokenOwnerRememberedOwner
+	tokenOwnerThisTargetedPlayer
+)
+
+var tokenOwnerCodes = state.NewStrCodes(
+	state.StrEntry[tokenOwnerCode]{Key: "", Val: tokenOwnerYou},
+	state.StrEntry[tokenOwnerCode]{Key: "You", Val: tokenOwnerYou},
+	state.StrEntry[tokenOwnerCode]{Key: "Opponent", Val: tokenOwnerOpponent},
+	state.StrEntry[tokenOwnerCode]{Key: "Player", Val: tokenOwnerPlayer},
+	state.StrEntry[tokenOwnerCode]{Key: "TriggeredOpponentVotedSame", Val: tokenOwnerTriggeredOpponentVotedSame},
+	state.StrEntry[tokenOwnerCode]{Key: "TriggeredOpponentVotedDiff", Val: tokenOwnerTriggeredOpponentVotedSame},
+	state.StrEntry[tokenOwnerCode]{Key: "Imprinted", Val: tokenOwnerImprinted},
+	state.StrEntry[tokenOwnerCode]{Key: "ImprintedController", Val: tokenOwnerImprinted},
+	state.StrEntry[tokenOwnerCode]{Key: "RememberedOwner", Val: tokenOwnerRememberedOwner},
+	state.StrEntry[tokenOwnerCode]{Key: "ThisTargetedPlayer", Val: tokenOwnerThisTargetedPlayer},
 )

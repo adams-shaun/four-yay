@@ -587,8 +587,7 @@ func attachedToReferent(ref string) (string, bool) {
 // predicate, an unrecognised role) is rejected so the classifier and
 // UnknownPredicates stay in agreement.
 func attachedToPlayerReferent(ref string) (string, bool) {
-	switch ref {
-	case "You":
+	if ref == "You" {
 		return ref, true
 	}
 	return "", false
@@ -604,11 +603,8 @@ func attachedToReferentPlayer(g *state.Game, sc SpecContext, ref string) (state.
 	if g == nil {
 		return 0, false
 	}
-	switch ref {
-	case "You":
-		if int(sc.You) >= 0 && int(sc.You) < len(g.Players) {
-			return sc.You, true
-		}
+	if ref == "You" && int(sc.You) >= 0 && int(sc.You) < len(g.Players) {
+		return sc.You, true
 	}
 	return 0, false
 }

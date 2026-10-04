@@ -393,8 +393,7 @@ func discardEligible(g *state.Game, c *Ctx, hand []state.ObjID, valid string) []
 }
 
 func discardChooser(c *Ctx, mode string) state.PlayerID {
-	switch mode {
-	case "RevealTgtChoose":
+	if mode == "RevealTgtChoose" {
 		for _, t := range c.Targets {
 			if t.IsPlayer {
 				return t.Player

@@ -740,13 +740,10 @@ func playerPropertyModelled(prop string) bool {
 // (0, false), the unresolvable verdict.
 func relativePlayerProperty(h Host, prop string) (int32, bool) {
 	name, op, hasOp := strings.Cut(strings.TrimSpace(prop), "/")
-	var v int32
-	switch name {
-	case "StartingLife":
-		v = h.StartingLife()
-	default:
+	if name != "StartingLife" {
 		return 0, false
 	}
+	v := h.StartingLife()
 	if hasOp {
 		v = applyCountOp(v, op)
 	}

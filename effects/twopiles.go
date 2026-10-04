@@ -244,7 +244,7 @@ func noShuffleBody(sub *cards.SA) *cards.SA {
 	for k, v := range sub.Params {
 		cp.Params[k] = v
 	}
-	cp.Params["NoShuffle"] = "True"
+	cp.SetParam(cards.PKNoShuffle, "True")
 	return &cp
 }
 

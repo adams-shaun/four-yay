@@ -165,8 +165,7 @@ func sacrificedNumeric(c *Ctx, f func(state.SacrificedInfo) int32) int32 {
 
 func evalRememberedOK(h Host, c *Ctx, body string) (int32, bool) {
 	body, op, hasOp := strings.Cut(body, "/")
-	switch strings.TrimSpace(body) {
-	case "Amount":
+	if strings.TrimSpace(body) == "Amount" {
 		n := int32(len(rememberedExcludingCapture(h, c)))
 		if hasOp {
 			n = applyCountOp(n, op)

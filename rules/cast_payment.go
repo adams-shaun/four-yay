@@ -439,17 +439,17 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 	if len(chosen) > 0 {
 		kind = chosen[0].Kind
 	}
-	switch kind {
-	case "manaconvert":
+	switch castAnswerCodes.Code(kind) {
+	case castAnswerManaconvert:
 		// Option 0 is the affirmative election. The decision is deliberately
 		// positional rather than label-based so a translated label cannot alter
 		// the payment semantics.
 		pc.manaConvertUse = len(chosen) > 0 && chosen[0].Index == 0
-	case "named_announce":
+	case castAnswerNamedAnnounce:
 		if len(chosen) > 0 {
 			pc.namedN = int32(chosen[0].Amount)
 		}
-	case "x":
+	case castAnswerX:
 		if len(chosen) > 0 {
 			// The value rides on Option.Amount, not Option.Index: xAsk is the
 			// first stage and appends 0..max into an empty option list, so
@@ -458,7 +458,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			// would silently corrupt an Index-derived value.
 			pc.x = int32(chosen[0].Amount)
 		}
-	case "replicate":
+	case castAnswerReplicate:
 		// CR 702.55a: the answered payment count folds that many replicate
 		// payments into cost, so every later stage (Convoke, X, the payment
 		// window, payCast) charges the composed total. The count rides on
@@ -471,7 +471,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			}
 			pc.replicateTimes = n
 		}
-	case "multikick":
+	case castAnswerMultikick:
 		// CR 702.43: the answered payment count folds that many multikicker
 		// payments into cost -- the replicate arm's exact shape.
 		if len(chosen) > 0 && pc.multikickSet {
@@ -482,7 +482,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			}
 			pc.multikickTimes = n
 		}
-	case "squad":
+	case castAnswerSquad:
 		// CR 702.66: the answered payment count folds that many squad
 		// payments into cost -- the replicate/multikicker arm's exact shape.
 		if len(chosen) > 0 && pc.squadSet {
@@ -493,13 +493,13 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			}
 			pc.squadTimes = n
 		}
-	case "mutate_place":
+	case castAnswerMutatePlace:
 		// CR 702.140b: the answered over/under placement. Option.Amount is 1
 		// for "on top", 0 for "under", so the answer is read positionally.
 		if len(chosen) > 0 {
 			pc.mutateTop = chosen[0].Amount == 1
 		}
-	case "casualty":
+	case castAnswerCasualty:
 		if len(chosen) == 1 {
 			pc.sacs = append(pc.sacs, chosen[0].Obj)
 			pc.casualtyPaid = true
@@ -508,12 +508,12 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			// settles.
 			pc.casualtySac = chosen[0].Obj
 		}
-	case "gift_decline":
+	case castAnswerGiftDecline:
 		// CR 702.168: a declined gift is the plain cast -- no promise, and
 		// pushCast emits only the Amount-0 record. The byte-identical shape
 		// for every non-Gift carrier, which never reaches this ask at all.
 		pc.giftPromise = false
-	case "gift_promise":
+	case castAnswerGiftPromise:
 		// The promised opponent rides Option.Player, the field the
 		// protector/player elections share. An answer naming no live seat
 		// (only reachable from a hand-built decision) degrades to a decline
@@ -524,7 +524,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			pc.giftPromise = true
 			pc.giftTo = chosen[0].Player
 		}
-	case "conspire":
+	case castAnswerConspire:
 		// CR 702.78a: the two chosen creatures are the tap the conspired cast
 		// pays. They settle through pc.taps (payCast taps them) and
 		// conspirePaid records that the provenance flag is owed. A Min==Max==2
@@ -535,11 +535,11 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		if len(chosen) >= 2 {
 			pc.conspirePaid = true
 		}
-	case "exile":
+	case castAnswerExile:
 		for _, o := range chosen {
 			pc.delve = append(pc.delve, o.Obj)
 		}
-	case "sacrifice":
+	case castAnswerSacrifice:
 		if pc.emerge && pc.sacPart == 0 && len(chosen) == 1 {
 			pc.emergeSac = chosen[0].Obj
 		}
@@ -556,7 +556,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			pc.sacPart++
 			pc.sacPaid = 0
 		}
-	case "subcounter":
+	case castAnswerSubcounter:
 		// The chosen counter-removal pick of a SubCounter cost part: a
 		// wildcard "Any" part records one counter unit per answer (the ask
 		// loop keeps asking until the part is fully paid), a fixed-kind part
@@ -568,12 +568,12 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		if !wildcard {
 			pc.subCounterPart++
 		}
-	case "discard":
+	case castAnswerDiscard:
 		for _, o := range chosen {
 			pc.discards = append(pc.discards, o.Obj)
 		}
 		pc.discardPart++
-	case "altaddcost":
+	case castAnswerAltaddcost:
 		// The either-or additional cost (AlternateAdditionalCost): the chosen
 		// part's cost folds into pc.cost (Plus), so the ordinary stages settle
 		// it and payCast charges it. The chosen part rides on Option.Amount
@@ -582,12 +582,12 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		if len(chosen) > 0 && chosen[0].Amount >= 0 && int(chosen[0].Amount) < len(pc.altAddParts) {
 			pc.cost = pc.cost.Plus(ParseCost(pc.altAddParts[chosen[0].Amount]))
 		}
-	case "exilecost":
+	case castAnswerExilecost:
 		for _, o := range chosen {
 			pc.exiles = append(pc.exiles, o.Obj)
 		}
 		pc.exilePart++
-	case "evidence":
+	case castAnswerEvidence:
 		// The CollectEvidence payment's chosen graveyard cards (alltargeted1).
 		// The SETTLE validation (total mana value at least the resolved
 		// amount, every card still the payer's) runs in evidenceAsk on the
@@ -596,18 +596,18 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		for _, o := range chosen {
 			pc.evidence = append(pc.evidence, o.Obj)
 		}
-	case "movetogravecost":
+	case castAnswerMovetogravecost:
 		for _, o := range chosen {
 			pc.moveGraves = append(pc.moveGraves, o.Obj)
 		}
 		pc.moveGravePart++
-	case "revealcost":
+	case castAnswerRevealcost:
 		for _, o := range chosen {
 			pc.reveals = append(pc.reveals, o.Obj)
 			pc.revealHandArm = append(pc.revealHandArm, true)
 		}
 		pc.revealPart++
-	case "revealorchoose":
+	case castAnswerRevealorchoose:
 		// Either-or cost, REVEAL arm: the elected hand cards are a real public
 		// reveal (revealHandArm true; emitChoiceCosts announces them).
 		for _, o := range chosen {
@@ -615,7 +615,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			pc.revealHandArm = append(pc.revealHandArm, true)
 		}
 		pc.revealOrChoosePart++
-	case "choosecost":
+	case castAnswerChoosecost:
 		// Either-or cost, CHOOSE arm: a permanent the payer controls, elected
 		// at cast time. It rides the same paid list the `Revealed$<Property>`
 		// refs read (Forge's CostReveal owns both arms) but revealHandArm is
@@ -625,12 +625,12 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			pc.revealHandArm = append(pc.revealHandArm, false)
 		}
 		pc.revealOrChoosePart++
-	case "beholdcost":
+	case castAnswerBeholdcost:
 		for _, o := range chosen {
 			pc.beholds = append(pc.beholds, o.Obj)
 		}
 		pc.beholdPart++
-	case "tapcost":
+	case castAnswerTapcost:
 		part := CostPart{}
 		if pc.tapPart < len(pc.cost.TapPermanent) {
 			part = pc.cost.TapPermanent[pc.tapPart]
@@ -648,12 +648,12 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		if part.Dyn == "X" && !pc.xDone {
 			pc.x = int32(len(chosen))
 		}
-	case "blightcost":
+	case castAnswerBlightcost:
 		for _, o := range chosen {
 			pc.blights = append(pc.blights, o.Obj)
 		}
 		pc.blightPart++
-	case "returncost":
+	case castAnswerReturncost:
 		for _, o := range chosen {
 			// K:Ninjutsu (CR 702.49b): the permanent the activated ability puts
 			// onto the battlefield attacks the SAME defender the returned
@@ -683,34 +683,34 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			pc.returns = append(pc.returns, o.Obj)
 		}
 		pc.returnPart++
-	case "puttolibcost":
+	case castAnswerPuttolibcost:
 		for _, o := range chosen {
 			pc.putToLibs = append(pc.putToLibs, o.Obj)
 		}
 		pc.putToLibPart++
-	case "forage_exile":
+	case castAnswerForageExile:
 		pc.cost.Exile = append(pc.cost.Exile, CostPart{N: 3, Spec: "Card", Zone: state.ZGraveyard})
-	case "forage_food":
+	case castAnswerForageFood:
 		if len(chosen) > 0 {
 			pc.sacs = append(pc.sacs, chosen[0].Obj)
 		}
-	case "pay_W", "pay_U", "pay_B", "pay_R", "pay_G", "pay_C":
+	case castAnswerPayColour:
 		// A hybrid or Phyrexian pip paid with pool mana: record which colour.
 		if len(chosen) > 0 {
 			pc.payColor[state.ManaIndex(chosen[0].Kind[4])]++
 		}
 		pc.payIdx++
-	case "pay_life":
+	case castAnswerPayLife:
 		// A Phyrexian face (plain or hybrid) paid with two life.
 		pc.payLife += 2
 		pc.payIdx++
-	case "pay_generic":
+	case castAnswerPayGeneric:
 		// A monocolour hybrid pip paid with its generic face.
 		if len(chosen) > 0 {
 			pc.payGeneric += int32(chosen[0].Amount)
 		}
 		pc.payIdx++
-	case "convoke_W", "convoke_U", "convoke_B", "convoke_R", "convoke_G", "convoke_generic", "improvise_generic", "waterbend_generic":
+	case castAnswerConvoke:
 		for _, choice := range chosen {
 			color := byte(0)
 			if strings.HasPrefix(choice.Kind, "convoke_") && choice.Kind != "convoke_generic" {
@@ -719,11 +719,11 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			pc.convoke = append(pc.convoke, convokePayment{id: choice.Obj, color: color,
 				countsMana: strings.HasPrefix(choice.Kind, "convoke_"), waterbend: choice.Kind == "waterbend_generic"})
 		}
-	case "harmonize":
+	case castAnswerHarmonize:
 		for _, choice := range chosen {
 			pc.convoke = append(pc.convoke, convokePayment{id: choice.Obj, power: int32(choice.Amount)})
 		}
-	case "activate":
+	case castAnswerActivate:
 		// CR 601.2g: a source's mana abilities are distinct activations that
 		// share its tap cost. activateManaPayment resolves a singleton
 		// immediately or asks the caster to choose one before re-entering
@@ -734,15 +734,15 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		if len(chosen) > 0 {
 			e.activateManaPayment(pc.player, chosen[0].Obj, true)
 		}
-	case "done":
+	case castAnswerDone:
 		// CR 601.2g: the player declines further mana abilities; pay the cost.
 		pc.windowDone = true
-	case "mana":
+	case castAnswerMana:
 		// The announced window's per-ability option (announce_pay.go).
 		if pc.announced && len(chosen) > 0 {
 			e.announcedActivate(pc, chosen[0])
 		}
-	case decision.OptAutoFill:
+	case castAnswerAutoFill:
 		// Auto-fill: the planner's activations for what is still owed, run by
 		// the ordinary plan executor on re-entry (spec §4.4). The plan is
 		// re-derived at the unchanged state the ask priced.
@@ -753,15 +753,115 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 				pc.paymentFallback = nil
 			}
 		}
-	case decision.OptUndoTap:
+	case castAnswerUndoTap:
 		if pc.announced {
 			if _, ok := e.undoableWindowTap(pc); ok {
 				e.undoWindowTap(pc)
 			}
 		}
-	case decision.OptCancelCast:
+	case castAnswerCancelCast:
 		if pc.announced {
 			e.cancelAnnouncedCast(pc)
 		}
 	}
 }
+
+type castAnswerCode uint16
+
+const (
+	castAnswerManaconvert castAnswerCode = iota + 1
+	castAnswerNamedAnnounce
+	castAnswerX
+	castAnswerReplicate
+	castAnswerMultikick
+	castAnswerSquad
+	castAnswerMutatePlace
+	castAnswerCasualty
+	castAnswerGiftDecline
+	castAnswerGiftPromise
+	castAnswerConspire
+	castAnswerExile
+	castAnswerSacrifice
+	castAnswerSubcounter
+	castAnswerDiscard
+	castAnswerAltaddcost
+	castAnswerExilecost
+	castAnswerEvidence
+	castAnswerMovetogravecost
+	castAnswerRevealcost
+	castAnswerRevealorchoose
+	castAnswerChoosecost
+	castAnswerBeholdcost
+	castAnswerTapcost
+	castAnswerBlightcost
+	castAnswerReturncost
+	castAnswerPuttolibcost
+	castAnswerForageExile
+	castAnswerForageFood
+	castAnswerPayColour
+	castAnswerPayLife
+	castAnswerPayGeneric
+	castAnswerConvoke
+	castAnswerHarmonize
+	castAnswerActivate
+	castAnswerDone
+	castAnswerMana
+	castAnswerAutoFill
+	castAnswerUndoTap
+	castAnswerCancelCast
+)
+
+var castAnswerCodes = state.NewStrCodes(
+	state.StrEntry[castAnswerCode]{Key: "manaconvert", Val: castAnswerManaconvert},
+	state.StrEntry[castAnswerCode]{Key: "named_announce", Val: castAnswerNamedAnnounce},
+	state.StrEntry[castAnswerCode]{Key: "x", Val: castAnswerX},
+	state.StrEntry[castAnswerCode]{Key: "replicate", Val: castAnswerReplicate},
+	state.StrEntry[castAnswerCode]{Key: "multikick", Val: castAnswerMultikick},
+	state.StrEntry[castAnswerCode]{Key: "squad", Val: castAnswerSquad},
+	state.StrEntry[castAnswerCode]{Key: "mutate_place", Val: castAnswerMutatePlace},
+	state.StrEntry[castAnswerCode]{Key: "casualty", Val: castAnswerCasualty},
+	state.StrEntry[castAnswerCode]{Key: "gift_decline", Val: castAnswerGiftDecline},
+	state.StrEntry[castAnswerCode]{Key: "gift_promise", Val: castAnswerGiftPromise},
+	state.StrEntry[castAnswerCode]{Key: "conspire", Val: castAnswerConspire},
+	state.StrEntry[castAnswerCode]{Key: "exile", Val: castAnswerExile},
+	state.StrEntry[castAnswerCode]{Key: "sacrifice", Val: castAnswerSacrifice},
+	state.StrEntry[castAnswerCode]{Key: "subcounter", Val: castAnswerSubcounter},
+	state.StrEntry[castAnswerCode]{Key: "discard", Val: castAnswerDiscard},
+	state.StrEntry[castAnswerCode]{Key: "altaddcost", Val: castAnswerAltaddcost},
+	state.StrEntry[castAnswerCode]{Key: "exilecost", Val: castAnswerExilecost},
+	state.StrEntry[castAnswerCode]{Key: "evidence", Val: castAnswerEvidence},
+	state.StrEntry[castAnswerCode]{Key: "movetogravecost", Val: castAnswerMovetogravecost},
+	state.StrEntry[castAnswerCode]{Key: "revealcost", Val: castAnswerRevealcost},
+	state.StrEntry[castAnswerCode]{Key: "revealorchoose", Val: castAnswerRevealorchoose},
+	state.StrEntry[castAnswerCode]{Key: "choosecost", Val: castAnswerChoosecost},
+	state.StrEntry[castAnswerCode]{Key: "beholdcost", Val: castAnswerBeholdcost},
+	state.StrEntry[castAnswerCode]{Key: "tapcost", Val: castAnswerTapcost},
+	state.StrEntry[castAnswerCode]{Key: "blightcost", Val: castAnswerBlightcost},
+	state.StrEntry[castAnswerCode]{Key: "returncost", Val: castAnswerReturncost},
+	state.StrEntry[castAnswerCode]{Key: "puttolibcost", Val: castAnswerPuttolibcost},
+	state.StrEntry[castAnswerCode]{Key: "forage_exile", Val: castAnswerForageExile},
+	state.StrEntry[castAnswerCode]{Key: "forage_food", Val: castAnswerForageFood},
+	state.StrEntry[castAnswerCode]{Key: "pay_W", Val: castAnswerPayColour},
+	state.StrEntry[castAnswerCode]{Key: "pay_U", Val: castAnswerPayColour},
+	state.StrEntry[castAnswerCode]{Key: "pay_B", Val: castAnswerPayColour},
+	state.StrEntry[castAnswerCode]{Key: "pay_R", Val: castAnswerPayColour},
+	state.StrEntry[castAnswerCode]{Key: "pay_G", Val: castAnswerPayColour},
+	state.StrEntry[castAnswerCode]{Key: "pay_C", Val: castAnswerPayColour},
+	state.StrEntry[castAnswerCode]{Key: "pay_life", Val: castAnswerPayLife},
+	state.StrEntry[castAnswerCode]{Key: "pay_generic", Val: castAnswerPayGeneric},
+	state.StrEntry[castAnswerCode]{Key: "convoke_W", Val: castAnswerConvoke},
+	state.StrEntry[castAnswerCode]{Key: "convoke_U", Val: castAnswerConvoke},
+	state.StrEntry[castAnswerCode]{Key: "convoke_B", Val: castAnswerConvoke},
+	state.StrEntry[castAnswerCode]{Key: "convoke_R", Val: castAnswerConvoke},
+	state.StrEntry[castAnswerCode]{Key: "convoke_G", Val: castAnswerConvoke},
+	state.StrEntry[castAnswerCode]{Key: "convoke_generic", Val: castAnswerConvoke},
+	state.StrEntry[castAnswerCode]{Key: "improvise_generic", Val: castAnswerConvoke},
+	state.StrEntry[castAnswerCode]{Key: "waterbend_generic", Val: castAnswerConvoke},
+	state.StrEntry[castAnswerCode]{Key: "harmonize", Val: castAnswerHarmonize},
+	state.StrEntry[castAnswerCode]{Key: "activate", Val: castAnswerActivate},
+	state.StrEntry[castAnswerCode]{Key: "done", Val: castAnswerDone},
+	state.StrEntry[castAnswerCode]{Key: "mana", Val: castAnswerMana},
+	state.StrEntry[castAnswerCode]{Key: decision.OptAutoFill, Val: castAnswerAutoFill},
+	state.StrEntry[castAnswerCode]{Key: decision.OptUndoTap, Val: castAnswerUndoTap},
+	state.StrEntry[castAnswerCode]{Key: decision.OptCancelCast, Val: castAnswerCancelCast},
+)

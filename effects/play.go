@@ -338,9 +338,9 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 		min = 0
 	}
 	max := 1
-	switch amt := strings.TrimSpace(sa.ParamStr(cards.PKAmount)); amt {
-	case "", "1":
-	case "All":
+	switch amt := strings.TrimSpace(sa.ParamStr(cards.PKAmount)); playAmountCodes.Code(amt) {
+	case playAmountOne:
+	case playAmountAll:
 		max = len(candidates)
 	default:
 		if n, err := strconv.Atoi(amt); err == nil && n > 1 {
@@ -532,4 +532,17 @@ var zoneFromStringCodes = state.NewStrCodes(
 	state.StrEntry[zoneFromStringCode]{Key: "Library", Val: zoneFromStringLibrary},
 	state.StrEntry[zoneFromStringCode]{Key: "Battlefield", Val: zoneFromStringBattlefield},
 	state.StrEntry[zoneFromStringCode]{Key: "Command", Val: zoneFromStringCommand},
+)
+
+type playAmountCode uint16
+
+const (
+	playAmountOne playAmountCode = iota + 1
+	playAmountAll
+)
+
+var playAmountCodes = state.NewStrCodes(
+	state.StrEntry[playAmountCode]{Key: "", Val: playAmountOne},
+	state.StrEntry[playAmountCode]{Key: "1", Val: playAmountOne},
+	state.StrEntry[playAmountCode]{Key: "All", Val: playAmountAll},
 )

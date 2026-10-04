@@ -1539,7 +1539,7 @@ func manaAbilityWithPaidX(ma *cards.SA, x int32) *cards.SA {
 	for k, v := range ma.Params {
 		cp.Params[k] = v
 	}
-	cp.Params["Amount"] = fmt.Sprint(x)
+	cp.SetParam(cards.PKAmount, fmt.Sprint(x))
 	return &cp
 }
 
@@ -2467,9 +2467,9 @@ func withManaProduction(head, target *cards.SA, produced, amount string) *cards.
 		for k, v := range head.Params {
 			cp.Params[k] = v
 		}
-		cp.Params["Produced"] = produced
+		cp.SetParam(cards.PKProduced, produced)
 		if amount != "" {
-			cp.Params["Amount"] = amount
+			cp.SetParam(cards.PKAmount, amount)
 		}
 		return &cp
 	}
@@ -3031,7 +3031,7 @@ func (e *Engine) resolveManaEffectColor(p state.PlayerID, source state.ObjID, ma
 	for k, v := range ma.Params {
 		copy.Params[k] = v
 	}
-	copy.Params["Produced"] = produced
+	copy.SetParam(cards.PKProduced, produced)
 	// ProduceMana replacements need the ability's source and whether its
 	// paid cost included T. Preserve both only for effMana's synchronous emit:
 	// producer attribution is replacement matching context, not a durable
