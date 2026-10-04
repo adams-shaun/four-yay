@@ -112,7 +112,7 @@ func TestTriggerChainMandatoryNoLegalTargetRemovesAbility(t *testing.T) {
 		}
 	}
 	if !removed {
-		t.Fatalf("mandatory-target exit did not remove the ability; pending=%+v stack=%v events=%+v", e.Pending(), e.G.Stack, e.L.Events)
+		t.Fatal("mandatory-target exit did not remove the ability at placement")
 	}
 	if d := e.Pending(); d != nil && d.Kind == decision.KTarget {
 		t.Fatalf("no target should be asked after the mandatory link has no legal target: %+v", d)
