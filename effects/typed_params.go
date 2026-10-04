@@ -50,14 +50,8 @@ func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 	if sa.API == "ReplaceEffect" {
 		f.ReplaceEffect = compileReplaceEffect(sa)
 	}
-	if sa.API == "Mana" {
-		f.Mana = compileMana(sa, f.Defined)
-	}
 	if sa.API == "ManaReflected" {
 		f.ManaReflected = compileManaReflected(sa, f.Defined, f.Activation)
-	}
-	if isDealDamageSA(sa) {
-		f.DealDamage = compileDealDamage(sa)
 	}
 	if isPutCounterSA(sa) {
 		f.PutCounter = compilePutCounter(sa)

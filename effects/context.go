@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"github.com/adams-shaun/gorge/effects/params"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -1554,12 +1555,7 @@ func oneTriggerPlayer(t state.Target) []state.Target {
 // the previously chosen card's controller as a second chooser and re-ask that
 // player with the collective pool (Summon: Valefor re-asking the first
 // opponent on the second iteration).
-func plainRememberedSelector(sel string) bool {
-	if !strings.HasPrefix(sel, "Remembered") {
-		return false
-	}
-	return !strings.HasSuffix(sel, "Controller") && !strings.HasSuffix(sel, "Owner")
-}
+func plainRememberedSelector(sel string) bool { return params.PlainRememberedSelector(sel) }
 
 // playerForTarget maps one resolved Defined$ target to a player seat under
 // Forge's getDefinedPlayers/addPlayer rule: for the plain Remembered family

@@ -1,4 +1,4 @@
-package effects
+package params
 
 import (
 	"slices"
@@ -52,7 +52,7 @@ func TestCompileDealDamage(t *testing.T) {
 // DealDamage is a hot path in the random-burn bench rows.
 func TestDealDamageOfIsAllocationFree(t *testing.T) {
 	bound := &cards.SA{API: "DealDamage", Params: map[string]string{"NumDmg": "3", "Defined": "Targeted"}}
-	f := NewSAFacts(bound)
+	f := newTestFacts(bound)
 	f.Publish()
 	cached := &cards.SA{API: "DealDamage", Params: map[string]string{"NumDmg": "2"}}
 	DealDamageOf(cached)

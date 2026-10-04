@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects/params"
 )
 
 // SAFacts is the one per-ability compiled facts record (W4 steps 1 and 3 of
@@ -30,6 +31,11 @@ import (
 // the typed reader's front cache (changezone_params.go), while a copy whose
 // Params were rewritten recompiles.
 type SAFacts struct {
+	// Facts is the leaf half (effects/params): the Targets, Defined, Mana and
+	// DealDamage records. It MUST stay the first field: params.LoadFacts
+	// reads the published record as a *params.Facts (TestFactsIsSAFactsPrefix).
+	params.Facts
+
 	// SA is the ability the configuring engine built the record for.
 	SA *cards.SA
 	// ChangeZone is api:ChangeZone's compiled parameter set (changezone_params.go),
@@ -61,27 +67,16 @@ type SAFacts struct {
 	// (replaceeffect_params.go), non-nil exactly when the API is
 	// ReplaceEffect.
 	ReplaceEffect *ReplaceEffectParams
-	// Mana is api:Mana's compiled production parameters (mana_params.go),
-	// non-nil exactly when the API is Mana; rules' mana half (Rules) is
-	// derived from it.
-	Mana *ManaParams
 	// ManaReflected is api:ManaReflected's compiled parameter set
 	// (manareflected_params.go), non-nil exactly when the API is
 	// ManaReflected.
 	ManaReflected *ManaReflectedParams
-	// DealDamage is api:DealDamage's compiled parameter set
-	// (dealdamage_params.go), non-nil exactly when the API is DealDamage.
-	DealDamage *DealDamageParams
 	// PutCounter is api:PutCounter's compiled parameter set
 	// (putcounter_params.go), non-nil exactly when the API is PutCounter.
 	PutCounter *PutCounterParams
 	// Effect is api:Effect's compiled parameter set (effect_params.go),
 	// non-nil exactly when the API is Effect.
 	Effect *EffectParams
-	// Targets is the generic targeting tier's compiled parameter set
-	// (targets_params.go), non-nil for EVERY ability whatever its API
-	// (Targets.Targeted() reports whether it targets).
-	Targets *TargetParams
 	// DelayedTrigger is api:DelayedTrigger's compiled parameter set
 	// (delayedtrigger_params.go), non-nil exactly when the API is
 	// DelayedTrigger.
@@ -90,9 +85,6 @@ type SAFacts struct {
 	// (copypermanent_params.go), non-nil exactly when the API is
 	// CopyPermanent.
 	CopyPermanent *CopyPermanentParams
-	// Defined is the generic Defined-reference tier's compiled parameter set
-	// (defined_params.go), non-nil for EVERY ability whatever its API.
-	Defined *DefinedParams
 	// Clone is api:Clone's compiled parameter set (clone_params.go),
 	// non-nil exactly when the API is Clone.
 	Clone *CloneParams
@@ -124,7 +116,7 @@ type SAFacts struct {
 // NewSAFacts compiles sa's typed halves into a fresh record naming sa. The
 // caller (rules' configured binding) adds its own half and publishes it.
 func NewSAFacts(sa *cards.SA) *SAFacts {
-	f := &SAFacts{SA: sa, Targets: compileTargets(sa), Defined: compileDefined(sa), Activation: compileActivation(sa)}
+	f := &SAFacts{Facts: params.CompileFacts(sa), SA: sa, Activation: compileActivation(sa)}
 	if isChangeZoneSA(sa) {
 		f.ChangeZone = compileChangeZone(sa, f.Targets, f.Defined)
 	} else if isChangeZoneAllSA(sa) {

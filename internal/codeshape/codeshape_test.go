@@ -290,7 +290,7 @@ func dig(sa *SA) {
 func TestMeasureCountsTargetParamLeaks(t *testing.T) {
 	root := writeTree(t, map[string]string{
 		"effects/registry.go": effectsSrc,
-		"effects/targets_params.go": `package effects
+		"effects/params/targets.go": `package params
 
 func compile(sa *SA) { _ = sa.Params["TargetsWithSharedTypes"]; _ = sa.ParamStr(cards.PKValidTgts) }
 `,
@@ -325,7 +325,7 @@ func dmg(sa *SA) {
 func TestMeasureCountsDefinedParamLeaks(t *testing.T) {
 	root := writeTree(t, map[string]string{
 		"effects/registry.go": effectsSrc,
-		"effects/defined_params.go": `package effects
+		"effects/params/defined.go": `package params
 
 func compile(sa *SA) { _ = sa.Param(cards.PKDefined); _ = sa.Params["DefinedPlayer"] }
 `,

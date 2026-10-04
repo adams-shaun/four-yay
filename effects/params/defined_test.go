@@ -1,4 +1,4 @@
-package effects
+package params
 
 import (
 	"testing"
@@ -60,7 +60,7 @@ func TestCompileDefined(t *testing.T) {
 	if p.Target.Present() || p.Target.Set() {
 		t.Fatalf("Target = %+v", p.Target)
 	}
-	if dp := definedPlayerRef(sa); dp.Param() != (ParamText{Text: "TargetedController", Present: true}) {
+	if dp := DefinedPlayerRef(sa); dp.Param() != (ParamText{Text: "TargetedController", Present: true}) {
 		t.Fatalf("DefinedPlayer = %+v", dp)
 	}
 	if DefinedOf(sa) != p {
@@ -75,7 +75,7 @@ func TestCompileDefined(t *testing.T) {
 // allocates nothing, and neither does classifying selector text.
 func TestDefinedOfIsAllocationFree(t *testing.T) {
 	bound := &cards.SA{API: "Pump", Params: map[string]string{"Defined": "Self", "NumAtt": "+1"}}
-	f := NewSAFacts(bound)
+	f := newTestFacts(bound)
 	f.Publish()
 	cached := &cards.SA{API: "Destroy", Params: map[string]string{"Defined": "Remembered"}}
 	DefinedOf(cached)

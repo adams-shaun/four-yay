@@ -244,7 +244,7 @@ func (e *Engine) castWindowAmount(p state.PlayerID, source state.ObjID, o *state
 	}
 	ctx := e.manaAmountCtx(p, source)
 	effects.SetSVars(ctx, o.Face().SVars)
-	n, ok := mp.AmountResolvedStrict(e, ctx, 1)
+	n, ok := effects.ManaAmountResolvedStrict(mp, e, ctx, 1)
 	if !ok || n <= 0 {
 		return 0, false
 	}

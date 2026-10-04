@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"github.com/adams-shaun/gorge/effects/params"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -39,10 +40,7 @@ import (
 // ParamText is one compiled parameter's text and presence. Parsed parameter
 // values are already trimmed (cards' parseParams), so Text is the value as the
 // script spells it.
-type ParamText struct {
-	Text    string
-	Present bool
-}
+type ParamText = params.ParamText
 
 func paramText(v string, ok bool) ParamText {
 	return ParamText{Text: strings.TrimSpace(v), Present: ok}

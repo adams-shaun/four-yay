@@ -59,7 +59,7 @@ func askManaChoice(h Host, c *Ctx, sa *cards.SA, produced string) (string, bool,
 	if len(colours) <= 1 {
 		return produced, false, false
 	}
-	amount := ManaOf(sa).AmountNum(h, c, 1)
+	amount := ManaAmountNum(ManaOf(sa), h, c, 1)
 	allocation := strings.HasPrefix(produced, "Combo ") && amount > 1
 	if amount <= 0 {
 		return produced, false, false
@@ -305,7 +305,7 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 	}
-	amt := mp.AmountNum(h, c, 1)
+	amt := ManaAmountNum(mp, h, c, 1)
 	if allocation {
 		amt = 1
 	}
