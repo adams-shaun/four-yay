@@ -10,6 +10,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -944,7 +945,7 @@ func TestPaymentPlanExecutesAfterCastTimeChoice(t *testing.T) {
 	e.askPriority(0)
 	b := decision.ManaAmount{0, 0, 1, 0, 0, 0}
 	plan := decision.PaymentPlan{Version: decision.PaymentPlanV1, Cost: decision.PaymentCost{Mana: b},
-		Activations: []decision.PaymentActivation{{Source: swamp, SourceZoneSeq: e.paymentSourceZoneSeq(swamp),
+		Activations: []decision.PaymentActivation{{Source: swamp, SourceZoneSeq: pay.PaymentSourceZoneSeq(asPayer(e), swamp),
 			Ability:  decision.PaymentAbility{Kind: decision.PaymentAbilityIntrinsic, Intrinsic: "basic_land"},
 			Produces: b}}}
 	e.pending = nil

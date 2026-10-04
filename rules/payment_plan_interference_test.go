@@ -52,7 +52,7 @@ func interferenceTier(t *testing.T, e *Engine, src state.ObjID) (pay.Tier, pay.C
 	if len(abilities) == 0 {
 		t.Fatalf("precondition: %s has no mana ability", o.Face().Name)
 	}
-	return e.paymentPlanAbilityTier(o.Controller, src, abilities[0])
+	return pay.PaymentPlanAbilityTier(asPayer(e), o.Controller, src, abilities[0])
 }
 
 // An opponent's permanent whose tap/mana/untap text can only reach its own

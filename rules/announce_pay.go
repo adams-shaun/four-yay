@@ -8,7 +8,6 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
-	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -91,27 +90,6 @@ func decisionMadeAnnounceText(kind decision.Kind, choices []int, announce *decis
 	return decisionMadeText(kind, choices) + ";announce:" + announce.ActionID
 }
 
-// announcedAbilityColours is the colour list one ability flattens into in the
-// announced window (spec §4.2), or nil for a single option: an explicit Combo
-// (the manual wheel's own flattener), or -- for a planner-tier ability whose
-// choice the planner already makes concrete -- Any / Chosen / ColorIdentity.
-func (e *Engine) announcedAbilityColours(p state.PlayerID, id state.ObjID, ma *cards.SA, chosen string) []string {
-	if cols, ok := pay.ManaAbilityComboColours(ma, chosen); ok {
-		return cols
-	}
-	if ma == nil || ma.API != "Mana" {
-		return nil
-	}
-	raw := effects.ManaOf(ma).Produced
-	if raw != "Any" && raw != "ColorIdentity" && !pay.PaymentPlanChoiceShape(raw) {
-		return nil
-	}
-	if tier, _, _ := e.paymentPlanAbilityTier(p, id, ma); tier != pay.TierNormal && tier != pay.TierLastResort {
-		return nil
-	}
-	return pay.PaymentPlanChoiceColours(asPayer(e), id, ma)
-}
-
 // announcedAutoFillPlan is the planner's plan for what the announced cast
 // still owes, from this exact state (spec §4.4), or nil. Deterministic and
 // pure, so the answer re-derives the plan the ask offered.
@@ -167,7 +145,7 @@ func (e *Engine) announcedManaWindowAsk(pc *pendingCast, mana Cost) bool {
 		chosen := pay.ChosenProducedColour(e.G, id)
 		for i, ma := range e.availableManaAbilitiesForWindow(p, id, false) {
 			marker := e.manaActivationCostMarker([]*cards.SA{ma})
-			if cols := e.announcedAbilityColours(p, id, ma, chosen); len(cols) > 0 {
+			if cols := pay.AnnouncedAbilityColours(asPayer(e), p, id, ma, chosen); len(cols) > 0 {
 				for _, col := range cols {
 					d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "mana", Obj: id,
 						Ability: i, ManaSymbol: col, Cost: marker,
@@ -222,7 +200,7 @@ func (e *Engine) announcedActivate(pc *pendingCast, opt decision.Option) {
 	}
 	ab := abilities[opt.Ability]
 	normal := false
-	if tier, _, _ := e.paymentPlanAbilityTier(p, src, ab); tier == pay.TierNormal &&
+	if tier, _, _ := pay.PaymentPlanAbilityTier(asPayer(e), p, src, ab); tier == pay.TierNormal &&
 		pay.PaymentPlanTapOnlyCost(e.parseCost(ab.ParamStr(cards.PKCost))) {
 		normal = true
 	}

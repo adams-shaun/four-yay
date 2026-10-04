@@ -139,7 +139,7 @@ func (e *Engine) paymentPlanQueryChoices(p state.PlayerID) [][]pay.Alt {
 	units := e.paymentPlanManaUnits(p)
 	choices := make([][]pay.Alt, len(units))
 	for i, u := range units {
-		choices[i] = e.paymentPlanUnitAlternatives(u)
+		choices[i] = pay.PaymentPlanUnitAlternatives(asPayer(e), u)
 	}
 	return choices
 }
@@ -432,7 +432,7 @@ func srchIndexAgrees(t *testing.T, e *Engine, where string) (tokens, reentered, 
 			if got := e.zoneEntrySeq(id); got != want {
 				t.Fatalf("%s: object %d index seq %d, log scan %d", where, id, got, want)
 			}
-			if got := e.paymentSourceZoneSeq(id); got != want {
+			if got := pay.PaymentSourceZoneSeq(asPayer(e), id); got != want {
 				t.Fatalf("%s: object %d paymentSourceZoneSeq %d, log scan %d", where, id, got, want)
 			}
 			checked++
@@ -464,7 +464,7 @@ func TestPaymentPlanSearchZoneSeqIndexFixture(t *testing.T) {
 	if tokens == 0 || reentered == 0 {
 		t.Fatalf("checked %d objects with %d tokens and %d re-entered, want both kinds", checked, tokens, reentered)
 	}
-	if got := e.paymentSourceZoneSeq(token); got != decision.GenesisZoneSeq {
+	if got := pay.PaymentSourceZoneSeq(asPayer(e), token); got != decision.GenesisZoneSeq {
 		t.Fatalf("token zone seq = %d, want the genesis sentinel (unchanged token behaviour)", got)
 	}
 }
@@ -612,7 +612,7 @@ func srchPhaseTwoChoices(t *testing.T, e *Engine, p state.PlayerID) [][]pay.Alt 
 	for i, u := range units {
 		var out []pay.Alt
 		for _, alt := range u.Alts {
-			tier, consequence, _ := e.paymentPlanAbilityTier(p, u.ID, alt.Ma)
+			tier, consequence, _ := pay.PaymentPlanAbilityTier(asPayer(e), p, u.ID, alt.Ma)
 			if tier == pay.TierDeferred || !pay.PaymentPlanTapOnlyCost(e.parseCost(alt.Ma.Params["Cost"])) {
 				continue
 			}
@@ -620,7 +620,7 @@ func srchPhaseTwoChoices(t *testing.T, e *Engine, p state.PlayerID) [][]pay.Alt 
 			if !ok {
 				continue
 			}
-			base := pay.Alt{Activation: decision.PaymentActivation{Source: u.ID, SourceZoneSeq: e.paymentSourceZoneSeq(u.ID), Ability: ab},
+			base := pay.Alt{Activation: decision.PaymentActivation{Source: u.ID, SourceZoneSeq: pay.PaymentSourceZoneSeq(asPayer(e), u.ID), Ability: ab},
 				Creature: e.IsCreature(u.ID), Ma: alt.Ma, Tier: tier, Consequence: consequence}
 			if pay.PlanAltOK(alt) {
 				base.Mana = alt.Mana()

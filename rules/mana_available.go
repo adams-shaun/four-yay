@@ -168,18 +168,18 @@ func (e *Engine) windowManaUnitsWith(p state.PlayerID, only []state.ObjID, pre [
 			// The ability's own text reads come from its configured facts
 			// (manaStaticOf).
 			mf := e.manaStaticOf(ma)
-			if mf.restrictValid {
+			if mf.RestrictValid {
 				continue
 			}
-			if !mf.freeCost || (mf.tap && o.Tapped) || (mf.untap && !o.Tapped) {
+			if !mf.FreeCost || (mf.Tap && o.Tapped) || (mf.Untap && !o.Tapped) {
 				continue // activationTapCostUnavailable
 			}
 			free++
-			amt := mf.amount
+			amt := mf.Amount
 			if amt <= 0 {
 				continue
 			}
-			counts, any := mf.counts, mf.any
+			counts, any := mf.Counts, mf.Any
 			total := int32(0)
 			for _, n := range counts {
 				total += n

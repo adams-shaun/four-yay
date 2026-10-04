@@ -93,8 +93,8 @@ func lrAssertPlan(t *testing.T, e *Engine, got PaymentPlanOutcome, want []lrStep
 		if a.Source != w.source || a.Produces != w.produces || !reflect.DeepEqual(a.Consequence, w.consequence) {
 			t.Fatalf("step %d = %s, want source %d produces %v consequence %s (plan %s)", i, lrStepString(a), w.source, w.produces, lrConsString(w.consequence), lrPlanString(acts))
 		}
-		if a.SourceZoneSeq != e.paymentSourceZoneSeq(a.Source) {
-			t.Fatalf("step %d zone seq = %d, want %d", i, a.SourceZoneSeq, e.paymentSourceZoneSeq(a.Source))
+		if a.SourceZoneSeq != pay.PaymentSourceZoneSeq(asPayer(e), a.Source) {
+			t.Fatalf("step %d zone seq = %d, want %d", i, a.SourceZoneSeq, pay.PaymentSourceZoneSeq(asPayer(e), a.Source))
 		}
 	}
 }
@@ -575,15 +575,15 @@ func TestPaymentPlanLastResortConsequenceChangeIsProductionChanged(t *testing.T)
 	}
 	pa := plan.Activations[0]
 	units := e.paymentPlanManaUnits(0)
-	if _, reason := e.paymentPlanStepReady(0, units, pa); reason != "" {
+	if _, reason := pay.PaymentPlanStepReady(asPayer(e), 0, units, pa); reason != "" {
 		t.Fatalf("offered step not ready: %s", reason)
 	}
 	pa.Consequence = &decision.PaymentConsequence{Damage: 2}
-	if _, reason := e.paymentPlanStepReady(0, units, pa); reason != paymentFallbackProductionChanged {
+	if _, reason := pay.PaymentPlanStepReady(asPayer(e), 0, units, pa); reason != paymentFallbackProductionChanged {
 		t.Fatalf("a changed consequence = %q, want production_changed", reason)
 	}
 	pa.Consequence = nil
-	if _, reason := e.paymentPlanStepReady(0, units, pa); reason != paymentFallbackProductionChanged {
+	if _, reason := pay.PaymentPlanStepReady(asPayer(e), 0, units, pa); reason != paymentFallbackProductionChanged {
 		t.Fatalf("a dropped consequence = %q, want production_changed", reason)
 	}
 	_ = city

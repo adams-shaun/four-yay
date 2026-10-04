@@ -135,9 +135,11 @@ func TestPayHoldsNoHost(t *testing.T) {
 // payEvalMethods is the method count of pay.Eval (rules/pay/eval.go), the
 // payment layer's evaluation seam, budgeted like charsReaderMethods. E4
 // slice 2 landed it with EvalCount, MatchesSpec and WindowUnits (the
-// unless-payment reachability and the SVar-fixed cost counts).
+// unless-payment reachability and the SVar-fixed cost counts). Slice 6
+// added ManaShape, ManaStatic and SourceInterference (the planner's
+// per-source alternatives and tiers): 3 -> 6.
 const (
-	payEvalMethods = 3
+	payEvalMethods = 6
 	payEvalCeiling = 20
 )
 

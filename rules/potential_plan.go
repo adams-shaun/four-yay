@@ -383,7 +383,7 @@ func (e *Engine) paymentPlanCensusTotal(p state.PlayerID) int32 {
 	total := e.G.Players[p].Pool.Total()
 	for _, u := range e.paymentPlanQueryUnits(p) {
 		best := int32(0)
-		for _, a := range e.paymentPlanQueryAlternatives(u) {
+		for _, a := range pay.PaymentPlanQueryAlternatives(asPayer(e), u) {
 			best = max(best, a.Mana.Total())
 		}
 		total += best
@@ -889,7 +889,7 @@ func (e *Engine) paymentPlanCensusOf(p state.PlayerID, hyp *state.Mana) paymentP
 		}
 		var alts []pay.Alt
 		if i, ok := at[id]; ok {
-			alts = e.paymentPlanQueryAlternatives(units[i])
+			alts = pay.PaymentPlanQueryAlternatives(asPayer(e), units[i])
 		}
 		for _, ma := range abs {
 			covered := false

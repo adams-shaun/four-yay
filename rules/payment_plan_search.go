@@ -3,7 +3,6 @@ package rules
 import (
 	"fmt"
 	"reflect"
-	"slices"
 
 	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
@@ -96,31 +95,6 @@ func (e *Engine) paymentPlanQueryUnits(p state.PlayerID) []windowManaUnit {
 	}
 	q.Units[p] = units
 	return units
-}
-
-// paymentPlanQueryAlternatives is paymentPlanUnitAlternatives, computed once
-// per query scope and source. The returned alternatives are shared: callers
-// only read them.
-func (e *Engine) paymentPlanQueryAlternatives(u windowManaUnit) []pay.Alt {
-	q := e.PlanQuery
-	if !q.Valid(e.L) {
-		return e.paymentPlanUnitAlternatives(u)
-	}
-	if alts, ok := q.Alts[u.ID]; ok {
-		if walkCacheVerify && !slices.EqualFunc(alts, e.paymentPlanUnitAlternatives(u), pay.PlanSameAlternative) {
-			panic(fmt.Sprintf("payment plan query: cached alternatives for source %d are stale", u.ID))
-		}
-		return alts
-	}
-	// The scope's alternatives share one arena, reset when the scope is
-	// recycled (paymentPlanQueryBegin): no alternative outlives its scope.
-	var alts []pay.Alt
-	q.AltArena, alts = e.appendUnitAlternatives(q.AltArena, u)
-	if q.Alts == nil {
-		q.Alts = map[state.ObjID][]pay.Alt{}
-	}
-	q.Alts[u.ID] = alts
-	return alts
 }
 
 // paymentPlanQueryClasses is paymentPlanClasses over one phase's choices,

@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -131,7 +132,7 @@ func (e *Engine) paymentPlanHoldsOnStack(p state.PlayerID, id state.ObjID, plan 
 		}
 		units := e.paymentPlanManaUnitsOnly(p, only)
 		for _, pa := range plan.Activations {
-			if _, ok := e.paymentPlanStepAlternative(units, pa); !ok {
+			if _, ok := pay.PaymentPlanStepAlternative(asPayer(e), units, pa); !ok {
 				return false
 			}
 		}

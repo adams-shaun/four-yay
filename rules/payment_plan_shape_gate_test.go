@@ -214,7 +214,7 @@ func TestPaymentPlanShapeGateAdditionalCostExecutorPays(t *testing.T) {
 			var m state.Mana
 			m[state.ManaIndex('R')] = 1
 			acts = append(acts, decision.PaymentActivation{
-				Source: id, SourceZoneSeq: e.paymentSourceZoneSeq(id),
+				Source: id, SourceZoneSeq: pay.PaymentSourceZoneSeq(asPayer(e), id),
 				Ability:  decision.PaymentAbility{Kind: decision.PaymentAbilityIntrinsic, Intrinsic: "basic_land"},
 				Produces: pay.ManaAmount(m)})
 		}

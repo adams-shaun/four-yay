@@ -65,6 +65,9 @@ type Engine interface {
 	Eval() Eval
 	// Session is the engine-owned payment state (the ring's fields).
 	Session() *Session
+	// ZoneEntrySeq is the log sequence of id's entry into its current zone
+	// (the engine's incremental zone-entry index).
+	ZoneEntrySeq(id state.ObjID) uint64
 }
 
 // CostBlock names the cost action Engine.CostBlocked asks about.

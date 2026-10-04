@@ -1134,7 +1134,7 @@ func (cz *autopayCensus) v1Member(e *Engine, id state.ObjID, ma *cards.SA) bool 
 		if u.ID != id {
 			continue
 		}
-		for _, a := range e.paymentPlanUnitAlternatives(u) {
+		for _, a := range pay.PaymentPlanUnitAlternatives(asPayer(e), u) {
 			if a.Activation.Ability == ab && (!intrinsic || a.Activation.Produces == want) {
 				return true
 			}
@@ -1147,7 +1147,7 @@ func (cz *autopayCensus) v1Member(e *Engine, id state.ObjID, ma *cards.SA) bool 
 // for the board-independent part of the V1 contract and names the first one
 // that withholds the ability.
 func (cz *autopayCensus) v1Structural(e *Engine, id state.ObjID, ma *cards.SA) string {
-	if tier, _, detail := e.paymentPlanAbilityTier(0, id, ma); tier != pay.TierNormal {
+	if tier, _, detail := pay.PaymentPlanAbilityTier(asPayer(e), 0, id, ma); tier != pay.TierNormal {
 		return "paymentPlanAbilityTier (" + detail + ")"
 	}
 	if strings.TrimSpace(ma.Params["RestrictValid"]) != "" {

@@ -180,7 +180,7 @@ func TestPaymentPlanRankFlexCountsDistinctTypes(t *testing.T) {
 				continue
 			}
 			seen++
-			alts := e.paymentPlanUnitAlternatives(u)
+			alts := pay.PaymentPlanUnitAlternatives(asPayer(e), u)
 			if len(alts) != wantAlts[u.ID] {
 				t.Fatalf("source %d has %d eligible alternatives, want %d", u.ID, len(alts), wantAlts[u.ID])
 			}

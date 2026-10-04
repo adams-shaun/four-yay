@@ -1,6 +1,7 @@
 package pay
 
 import (
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -23,4 +24,14 @@ type Eval interface {
 	// WindowUnits is the CR 601.2g payment window's mana units for p: every
 	// mana ability p could activate right now, one unit per activation.
 	WindowUnits(p state.PlayerID) []WindowUnit
+	// ManaShape is a configured mana ability's payment-plan shape verdict
+	// from its compiled facts; known is false for an ability whose verdict
+	// must be computed (a SubAbility$ chain or a runtime-built ability).
+	ManaShape(ab *cards.SA) (tier Tier, c Consequence, detail string, known bool)
+	// ManaStatic is the census's reads of ab's own text (its configured
+	// facts, or read now for an ability outside the configured set).
+	ManaStatic(ab *cards.SA) ManaStatic
+	// SourceInterference is the planner's check of the triggers and
+	// replacements that can observe tapping id for ma's mana.
+	SourceInterference(id state.ObjID, ma *cards.SA) (Tier, Consequence, string)
 }

@@ -898,6 +898,27 @@ func (s *scan) scanCall(t *testing.T, fset *token.FileSet, fi *fnInfo, fname str
 	case *ast.Ident:
 		callee = fun.Name
 	case *ast.SelectorExpr:
+		if inner, ok := fun.X.(*ast.CallExpr); ok && pkg == "rules" && s.filePkg == "pay" {
+			// rules/pay reaches the engine's role interfaces as e.Eval().M
+			// and e.Chars().M (lasagna spec §9.2): an edge to rules' adapter
+			// method (payEval / charsReader, rules/pay_eval.go and
+			// rules/chars_reader.go), which forwards to the Engine reader the
+			// code called before it moved.
+			if is, ok := inner.Fun.(*ast.SelectorExpr); ok {
+				if id, ok := is.X.(*ast.Ident); ok && id.Name == "e" && len(inner.Args) == 0 {
+					switch is.Sel.Name {
+					case "Eval":
+						callee = "payEval." + fun.Sel.Name
+					case "Chars":
+						callee = "charsReader." + fun.Sel.Name
+					}
+				}
+			}
+			if callee == "" {
+				return
+			}
+			break
+		}
 		if id, ok := fun.X.(*ast.Ident); ok {
 			if id.Name == "e" && pkg == "rules" {
 				callee = "Engine." + fun.Sel.Name

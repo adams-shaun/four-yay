@@ -19,18 +19,24 @@ var _ chars.Reader = (*charsReader)(nil)
 
 func (r *charsReader) eng() *Engine { return (*Engine)(r) }
 
-func (r *charsReader) DerivedTypes(id state.ObjID) []string { return r.eng().derivedTypesOf(id) }
+func (r *charsReader) DerivedTypes(id state.ObjID) []string {
+	e := r.eng()
+	return e.derivedTypesOf(id)
+}
 
 func (r *charsReader) HasKeyword(id state.ObjID, kw chars.KW) bool {
-	return r.eng().hasKeywordH(id, kw)
+	e := r.eng()
+	return e.hasKeywordH(id, kw)
 }
 
 func (r *charsReader) SVarGate(p state.PlayerID, id state.ObjID, ab *cards.SA, merged int) bool {
-	return r.eng().sVarGateOK(p, id, ab, merged)
+	e := r.eng()
+	return e.sVarGateOK(p, id, ab, merged)
 }
 
 func (r *charsReader) ActivationPhasesOK(p state.PlayerID, sa *cards.SA) bool {
-	return r.eng().activationPhasesOK(p, sa)
+	e := r.eng()
+	return e.activationPhasesOK(p, sa)
 }
 
 func (r *charsReader) PresentGate(spec, cmp string, source state.ObjID, you state.PlayerID) bool {
@@ -43,7 +49,8 @@ func (r *charsReader) PresentGate(spec, cmp string, source state.ObjID, you stat
 }
 
 func (r *charsReader) GrantedAbilities(p state.PlayerID, id state.ObjID) []chars.Granted {
-	return r.eng().grantedAbilities(p, id)
+	e := r.eng()
+	return e.grantedAbilities(p, id)
 }
 
 // Chars (pay.Engine) is the engine's chars.Reader.
@@ -52,13 +59,16 @@ func (pe *payer) Chars() chars.Reader { return (*charsReader)(pe) }
 // ConfiguredCost (pay.Engine) is the compiled-text sidecar's frozen parse of
 // raw, nil outside the configured set.
 func (pe *payer) ConfiguredCost(raw string) *pay.CompiledCost {
-	return (*Engine)(pe).configuredCost(raw)
+	e := (*Engine)(pe)
+	return e.configuredCost(raw)
 }
 
 func (r *charsReader) SameColorRevealSets(p state.PlayerID, source state.ObjID, excludeSource bool) ([]state.ObjID, [][]string) {
-	return r.eng().sameColorRevealSets(p, source, excludeSource)
+	e := r.eng()
+	return e.sameColorRevealSets(p, source, excludeSource)
 }
 
 func (r *charsReader) TapPower(id state.ObjID, saKind string) int32 {
-	return r.eng().tapPowerValue(id, saKind)
+	e := r.eng()
+	return e.tapPowerValue(id, saKind)
 }

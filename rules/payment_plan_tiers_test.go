@@ -70,7 +70,7 @@ func TestPaymentPlanTiers(t *testing.T) {
 			}
 			found := false
 			for _, ma := range abilities {
-				tier, consequence, detail := e.paymentPlanAbilityTier(0, id, ma)
+				tier, consequence, detail := pay.PaymentPlanAbilityTier(asPayer(e), 0, id, ma)
 				if tier == tc.tier && detail == tc.detail && tc.check(consequence) {
 					found = true
 					break
@@ -78,7 +78,7 @@ func TestPaymentPlanTiers(t *testing.T) {
 			}
 			if !found {
 				for _, ma := range abilities {
-					tier, consequence, detail := e.paymentPlanAbilityTier(0, id, ma)
+					tier, consequence, detail := pay.PaymentPlanAbilityTier(asPayer(e), 0, id, ma)
 					t.Logf("%s: tier=%d consequence=%+v detail=%q params=%v", ma.Line, tier, consequence, detail, ma.Params)
 				}
 				t.Fatalf("no ability classified tier %d detail %q with expected consequence", tc.tier, tc.detail)
@@ -109,7 +109,7 @@ func TestPaymentPlanTiersTokenAbilities(t *testing.T) {
 			}
 			found := false
 			for _, ma := range e.G.Obj(id).Face().ManaAbilities() {
-				tier, consequence, detail := e.paymentPlanAbilityTier(0, id, ma)
+				tier, consequence, detail := pay.PaymentPlanAbilityTier(asPayer(e), 0, id, ma)
 				if tier == pay.TierLastResort && detail == "source:last_resort" && consequence.Sacrifice {
 					found = true
 					break
@@ -162,7 +162,7 @@ func TestPaymentPlanNormalSourceRejectsRider(t *testing.T) {
 		if ma.API != "Mana" {
 			t.Fatalf("precondition: expected Mana ability, got %q", ma.API)
 		}
-		tier, _, _ := e.paymentPlanAbilityTier(0, id, ma)
+		tier, _, _ := pay.PaymentPlanAbilityTier(asPayer(e), 0, id, ma)
 		if tier == pay.TierNormal {
 			t.Fatalf("damage rider was classified normal: %v", ma.Params)
 		}
@@ -303,7 +303,7 @@ func TestPaymentPlanTiersFPHarmfulRiderFamily(t *testing.T) {
 			harmful := map[uint32]pay.Tier{}
 			disclosed := map[uint32]pay.Consequence{}
 			for _, ma := range e.G.Obj(id).Face().ManaAbilities() {
-				if tier, c, detail := e.paymentPlanAbilityTier(0, id, ma); tier != pay.TierNormal {
+				if tier, c, detail := pay.PaymentPlanAbilityTier(asPayer(e), 0, id, ma); tier != pay.TierNormal {
 					for i, a := range e.G.Obj(id).Face().Abilities {
 						if a == ma {
 							harmful[uint32(i)] = tier

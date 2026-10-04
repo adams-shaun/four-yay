@@ -136,7 +136,7 @@ func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUni
 		if i < next {
 			continue // completed: its checked production already floats.
 		}
-		step, reason := e.paymentPlanStepReady(pc.player, units, pa)
+		step, reason := pay.PaymentPlanStepReady(asPayer(e), pc.player, units, pa)
 		if reason != "" {
 			return reason, units, pay.Alt{}, false
 		}
@@ -150,35 +150,6 @@ func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUni
 		return paymentFallbackProductionChanged, units, pay.Alt{}, false
 	}
 	return "", units, first, next < len(plan.Activations)
-}
-
-// paymentPlanStepReady resolves one remaining witness step to the exact
-// alternative it names (paymentPlanStepAlternative), or says why it no longer
-// can. The source itself changed -- gone, another incarnation, tapped, phased
-// out, another controller, or no V1 mana ability left under the step's
-// identity -- is source_changed; the same untapped source still offering the
-// step's ability identity, but not the witnessed production, is
-// production_changed. It never names a substitute.
-func (e *Engine) paymentPlanStepReady(p state.PlayerID, units []windowManaUnit, pa decision.PaymentActivation) (pay.Alt, string) {
-	o := e.G.Obj(pa.Source)
-	if o == nil || o.Zone != state.ZBattlefield || o.Tapped || o.PhasedOut || o.Controller != p ||
-		pa.SourceZoneSeq != e.paymentSourceZoneSeq(pa.Source) {
-		return pay.Alt{}, paymentFallbackSourceChanged
-	}
-	if step, ok := e.paymentPlanStepAlternative(units, pa); ok {
-		return step, ""
-	}
-	for _, u := range units {
-		if u.ID != pa.Source {
-			continue
-		}
-		for _, alt := range e.paymentPlanQueryAlternatives(u) {
-			if alt.Activation.Ability == pa.Ability {
-				return pay.Alt{}, paymentFallbackProductionChanged
-			}
-		}
-	}
-	return pay.Alt{}, paymentFallbackSourceChanged
 }
 
 // executePlannedManaActivationUnits is executePlannedManaActivation over a
@@ -200,7 +171,7 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 	step := checked
 	if !ready {
 		var reason string
-		step, reason = e.paymentPlanStepReady(pc.player, units, pa)
+		step, reason = pay.PaymentPlanStepReady(asPayer(e), pc.player, units, pa)
 		if reason != "" {
 			e.paymentPlanFallback(pc, reason)
 			return false
@@ -209,7 +180,7 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 	if walkCacheVerify {
 		// The checked census (restricted to the plan's sources) and step
 		// must be exactly what a fresh full census resolves here.
-		fresh, reason := e.paymentPlanStepReady(pc.player, e.paymentPlanManaUnits(pc.player), pa)
+		fresh, reason := pay.PaymentPlanStepReady(asPayer(e), pc.player, e.paymentPlanManaUnits(pc.player), pa)
 		if reason != "" || !pay.PlanSameStep(fresh, step) {
 			panic("payment plan executor: the checked step is stale")
 		}

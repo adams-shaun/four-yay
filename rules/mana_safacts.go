@@ -62,35 +62,21 @@ type manaSAFacts struct {
 	shapeDetail string
 	// static is the payment census's per-ability text reads
 	// (manaStaticOf).
-	static manaStaticFacts
+	static pay.ManaStatic
 	// potential is the ability's PotentialMana production
 	// (addPotentialManaOf).
 	potential potentialManaAdd
 }
 
-// manaStaticFacts is the payment census's reads of a mana ability's own
-// text (windowManaUnits, paymentPlanManaUnits, the planner's alternatives):
-// pure functions of its Params and compiled cost.
-type manaStaticFacts struct {
-	produced      string // TrimSpace(Produced$)
-	counts        [6]int32
-	any           bool  // cards.ProducedCounts(Produced$)
-	amount        int32 // availableAmount
-	restrictValid bool  // a non-blank RestrictValid$
-	freeCost      bool  // manaFreeCost(cost)
-	tapOnly       bool  // paymentPlanTapOnlyCost(cost)
-	tap, untap    bool  // cost.Tap, cost.Untap
-}
-
-func computeManaStaticFacts(mp *effects.ManaParams, cost *Cost) manaStaticFacts {
-	return manaStaticFacts{produced: mp.Produced, amount: availableAmountOf(mp),
-		restrictValid: mp.RestrictValid != "", counts: mp.Counts, any: mp.CountsAny,
-		freeCost: pay.ManaFreeCost(*cost), tapOnly: pay.PaymentPlanTapOnlyCost(*cost), tap: cost.Tap, untap: cost.Untap}
+func computeManaStaticFacts(mp *effects.ManaParams, cost *Cost) pay.ManaStatic {
+	return pay.ManaStatic{Produced: mp.Produced, Amount: availableAmountOf(mp),
+		RestrictValid: mp.RestrictValid != "", Counts: mp.Counts, Any: mp.CountsAny,
+		FreeCost: pay.ManaFreeCost(*cost), TapOnly: pay.PaymentPlanTapOnlyCost(*cost), Tap: cost.Tap, Untap: cost.Untap}
 }
 
 // manaStaticOf is ab's census text reads: its configured facts', or read
 // now for an ability outside the configured set.
-func (e *Engine) manaStaticOf(ab *cards.SA) manaStaticFacts {
+func (e *Engine) manaStaticOf(ab *cards.SA) pay.ManaStatic {
 	if f := e.manaFactsOf(ab); f != nil {
 		if manaSAFactsVerify {
 			c := e.parseCost(ab.ParamStr(cards.PKCost))

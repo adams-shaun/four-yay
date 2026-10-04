@@ -43,7 +43,7 @@ func choiceAlts(t *testing.T, e *Engine, id state.ObjID) []state.Mana {
 			continue
 		}
 		var out []state.Mana
-		for _, a := range e.paymentPlanUnitAlternatives(u) {
+		for _, a := range pay.PaymentPlanUnitAlternatives(asPayer(e), u) {
 			out = append(out, a.Mana)
 		}
 		return out
@@ -240,7 +240,7 @@ func TestPaymentPlanChoiceSources(t *testing.T) {
 			if u.ID != wastes {
 				continue
 			}
-			for _, a := range e.paymentPlanUnitAlternatives(u) {
+			for _, a := range pay.PaymentPlanUnitAlternatives(asPayer(e), u) {
 				switch a.Tier {
 				case pay.TierNormal:
 					normal = append(normal, a.Mana)
