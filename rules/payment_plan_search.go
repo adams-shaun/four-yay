@@ -195,7 +195,7 @@ func (e *Engine) paymentPlanQueryUnits(p state.PlayerID) []windowManaUnit {
 		return e.paymentPlanManaUnits(p)
 	}
 	if units, ok := q.units[p]; ok {
-		if walkCacheVerify && !paymentPlanSameUnits(units, e.paymentPlanManaUnits(p)) {
+		if walkCacheVerify && !pay.SameUnits(units, e.paymentPlanManaUnits(p)) {
 			panic(fmt.Sprintf("payment plan query: cached source census for player %d is stale", p))
 		}
 		return units
@@ -216,9 +216,9 @@ func (e *Engine) paymentPlanQueryAlternatives(u windowManaUnit) []pay.Alt {
 	if !q.valid(e) {
 		return e.paymentPlanUnitAlternatives(u)
 	}
-	if alts, ok := q.alts[u.id]; ok {
+	if alts, ok := q.alts[u.ID]; ok {
 		if walkCacheVerify && !slices.EqualFunc(alts, e.paymentPlanUnitAlternatives(u), paymentPlanSameAlternative) {
-			panic(fmt.Sprintf("payment plan query: cached alternatives for source %d are stale", u.id))
+			panic(fmt.Sprintf("payment plan query: cached alternatives for source %d are stale", u.ID))
 		}
 		return alts
 	}
@@ -229,7 +229,7 @@ func (e *Engine) paymentPlanQueryAlternatives(u windowManaUnit) []pay.Alt {
 	if q.alts == nil {
 		q.alts = map[state.ObjID][]pay.Alt{}
 	}
-	q.alts[u.id] = alts
+	q.alts[u.ID] = alts
 	return alts
 }
 
@@ -270,24 +270,6 @@ func paymentPlanClassMembers(classes []pay.Class) [][]int {
 // paymentPlanSameAlternative compares two computations of one alternative.
 func paymentPlanSameAlternative(a, b pay.Alt) bool {
 	return a == b
-}
-
-// paymentPlanSameUnits compares two source censuses unit by unit and
-// alternative by alternative (the verify-mode check of the query cache).
-func paymentPlanSameUnits(a, b []windowManaUnit) bool {
-	return slices.EqualFunc(a, b, func(x, y windowManaUnit) bool {
-		return x.id == y.id && x.freeCount == y.freeCount && slices.EqualFunc(x.alts, y.alts, sameWindowManaAlt)
-	})
-}
-
-// sameWindowManaAlt is alternative equality up to the identity of an
-// ability built per call (a CR 305.6 intrinsic, cards.IntrinsicManaAbility):
-// two censuses at one state list the same abilities, but such an ability is
-// a fresh pointer each time.
-func sameWindowManaAlt(x, y windowManaAlt) bool {
-	xa, ya := x, y
-	xa.ma, ya.ma = nil, nil
-	return xa == ya && sameManaAbility(x.ma, y.ma)
 }
 
 // paymentSearchEnv wires the pay package's search to the engine's mana

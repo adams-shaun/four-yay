@@ -37,7 +37,7 @@ Oracle:x
 	units := e.windowManaUnits(1)
 	found := false
 	for _, u := range units {
-		if u.id == id && len(u.alts) > 0 {
+		if u.ID == id && len(u.Alts) > 0 {
 			found = true
 			break
 		}

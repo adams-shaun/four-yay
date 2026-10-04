@@ -874,7 +874,7 @@ func (e *Engine) paymentPlanCensusOf(p state.PlayerID, hyp *state.Mana) paymentP
 	units := e.paymentPlanQueryUnits(p)
 	at := make(map[state.ObjID]int, len(units)) // lookup only
 	for i, u := range units {
-		at[u.id] = i
+		at[u.ID] = i
 	}
 	var probe *Engine
 	for _, id := range e.G.Zone(state.ZBattlefield, p) {
@@ -894,7 +894,7 @@ func (e *Engine) paymentPlanCensusOf(p state.PlayerID, hyp *state.Mana) paymentP
 		for _, ma := range abs {
 			covered := false
 			for _, a := range alts {
-				if sameManaAbility(a.Ma, ma) {
+				if pay.SameManaAbility(a.Ma, ma) {
 					covered = true
 					break
 				}

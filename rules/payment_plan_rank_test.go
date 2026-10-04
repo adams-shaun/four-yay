@@ -175,18 +175,18 @@ func TestPaymentPlanRankFlexCountsDistinctTypes(t *testing.T) {
 		wantAlts := map[state.ObjID]int{island: 1, badlands: 2, lotus: 5, boros: 2, twinBlue: 2}
 		seen := 0
 		for _, u := range e.paymentPlanManaUnits(0) {
-			want, ok := wantFlex[u.id]
+			want, ok := wantFlex[u.ID]
 			if !ok {
 				continue
 			}
 			seen++
 			alts := e.paymentPlanUnitAlternatives(u)
-			if len(alts) != wantAlts[u.id] {
-				t.Fatalf("source %d has %d eligible alternatives, want %d", u.id, len(alts), wantAlts[u.id])
+			if len(alts) != wantAlts[u.ID] {
+				t.Fatalf("source %d has %d eligible alternatives, want %d", u.ID, len(alts), wantAlts[u.ID])
 			}
 			for _, a := range alts {
 				if a.Flex != want {
-					t.Fatalf("source %d (%d alternatives) flex = %d, want %d", u.id, len(alts), a.Flex, want)
+					t.Fatalf("source %d (%d alternatives) flex = %d, want %d", u.ID, len(alts), a.Flex, want)
 				}
 			}
 		}

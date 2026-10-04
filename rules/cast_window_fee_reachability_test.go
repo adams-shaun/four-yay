@@ -31,7 +31,7 @@ func TestCastWindowGenericFeeConsumesTheRealPool(t *testing.T) {
 		t.Fatalf("precondition pool = %v, want exactly {C}", got)
 	}
 	units := e.castWindowUnitsForSourceTest(source, "G", 1)
-	units[0].alts[0].amt = 2
+	units[0].Alts[0].Amt = 2
 	if e.castWindowReachable(0, ParseCost("C G"), e.G.Players[0].Pool, state.Mana{}, [7]state.Mana{}, 20, nil, units) {
 		t.Fatal("probe claims {C} pays a {1}: add {G}{G} activation followed by a {C}{G} spell")
 	}
@@ -137,7 +137,7 @@ Oracle:x
 		t.Fatalf("precondition pool = %v, want exactly {C}{C}", got)
 	}
 	units := append(e.castWindowUnitsForSourceTest(largeID, "C", 2), e.castWindowUnitsForSourceTest(smallID, "G", 1)...)
-	units[0].alts[0].amt = 3
+	units[0].Alts[0].Amt = 3
 	if !e.castWindowReachable(0, ParseCost("C C G"), e.G.Players[0].Pool, state.Mana{},
 		[7]state.Mana{}, 20, nil, units) {
 		t.Fatal("probe missed {C}{C} -> pay {2}, add {C}{C}{C} -> pay {1}, add {G}")
@@ -160,5 +160,5 @@ func (e *Engine) castWindowUnitsForSourceTest(id state.ObjID, symbol string, fee
 			counts[i] = 1
 		}
 	}
-	return []windowManaUnit{{id: id, alts: []windowManaAlt{{counts: counts, amt: 1, costGeneric: fee}}}}
+	return []windowManaUnit{{ID: id, Alts: []windowManaAlt{{Counts: counts, Amt: 1, CostGeneric: fee}}}}
 }

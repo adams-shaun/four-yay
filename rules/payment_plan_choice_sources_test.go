@@ -39,7 +39,7 @@ func choiceCard(t *testing.T, name string) *cards.Card {
 func choiceAlts(t *testing.T, e *Engine, id state.ObjID) []state.Mana {
 	t.Helper()
 	for _, u := range e.paymentPlanManaUnits(0) {
-		if u.id != id {
+		if u.ID != id {
 			continue
 		}
 		var out []state.Mana
@@ -237,7 +237,7 @@ func TestPaymentPlanChoiceSources(t *testing.T) {
 		// half is last resort with damage:1 (aph-last-resort-plans).
 		var normal []state.Mana
 		for _, u := range e.paymentPlanManaUnits(0) {
-			if u.id != wastes {
+			if u.ID != wastes {
 				continue
 			}
 			for _, a := range e.paymentPlanUnitAlternatives(u) {

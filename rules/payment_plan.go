@@ -676,8 +676,8 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 		}
 		pain += pay.ConsequencePain(step.Consequence)
 		lastResort = lastResort || step.Tier == pay.TierLastResort
-		pool = manaAdd(pool, step.Mana)
-		produced = manaAdd(produced, step.Mana)
+		pool = pay.ManaAdd(pool, step.Mana)
+		produced = pay.ManaAdd(produced, step.Mana)
 	}
 	// The lethal guard and the phase rule (spec 5): a witness never kills its
 	// caster, and it uses a last-resort source only when no plan from normal
@@ -890,7 +890,7 @@ func (e *Engine) planPaymentCostWithDemand(p state.PlayerID, demand [5]int, cost
 	if len(gone) != 0 {
 		kept := make([]windowManaUnit, 0, len(units))
 		for _, u := range units {
-			if !slices.Contains(gone, u.id) {
+			if !slices.Contains(gone, u.ID) {
 				kept = append(kept, u)
 			}
 		}
@@ -978,13 +978,13 @@ func (e *Engine) planPaymentCostWithDemand(p state.PlayerID, demand [5]int, cost
 		if firstSourceDetail != "" {
 			break
 		}
-		for _, alt := range u.alts {
-			o := e.G.Obj(u.id)
+		for _, alt := range u.Alts {
+			o := e.G.Obj(u.ID)
 			p := state.PlayerID(0)
 			if o != nil {
 				p = o.Controller
 			}
-			_, _, detail := e.paymentPlanAbilityTier(p, u.id, alt.ma)
+			_, _, detail := e.paymentPlanAbilityTier(p, u.ID, alt.Ma)
 			if detail != "" {
 				firstSourceDetail = detail
 				break
@@ -1033,11 +1033,11 @@ func (e *Engine) paymentPlanManaUnitsOnly(p state.PlayerID, only []state.ObjID) 
 	if walkCacheVerify && only != nil {
 		var want []windowManaUnit
 		for _, u := range e.paymentPlanManaUnitsOnlyCompute(p, nil) {
-			if slices.Contains(only, u.id) {
+			if slices.Contains(only, u.ID) {
 				want = append(want, u)
 			}
 		}
-		if !paymentPlanSameUnits(units, want) {
+		if !pay.SameUnits(units, want) {
 			panic(fmt.Sprintf("payment plan census: restricted census for %v is not the full census's", only))
 		}
 	}
@@ -1071,7 +1071,7 @@ func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.
 		}
 		idx := -1
 		for i := range units {
-			if units[i].id == id {
+			if units[i].ID == id {
 				idx = i
 				break
 			}
@@ -1102,10 +1102,10 @@ func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.
 					continue
 				}
 				if idx < 0 {
-					units = append(units, windowManaUnit{id: id})
+					units = append(units, windowManaUnit{ID: id})
 					idx = len(units) - 1
 				}
-				units[idx].alts = append(units[idx].alts, windowManaAlt{ma: ma, counts: counts, amt: amt})
+				units[idx].Alts = append(units[idx].Alts, windowManaAlt{Ma: ma, Counts: counts, Amt: amt})
 				continue
 			}
 			// The shared census keeps only deterministic production; extend it
@@ -1120,10 +1120,10 @@ func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.
 				continue
 			}
 			if idx < 0 {
-				units = append(units, windowManaUnit{id: id})
+				units = append(units, windowManaUnit{ID: id})
 				idx = len(units) - 1
 			}
-			units[idx].alts = append(units[idx].alts, windowManaAlt{ma: ma, counts: counts, amt: amt, any: true})
+			units[idx].Alts = append(units[idx].Alts, windowManaAlt{Ma: ma, Counts: counts, Amt: amt, Any: true})
 		}
 	}
 	// Evaluated-amount layer: an ability windowManaUnits skipped because
@@ -1142,7 +1142,7 @@ func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.
 			continue
 		}
 		if walkCacheVerify {
-			if fresh := e.availableManaAbilitiesForWindow(p, id, false); !slices.EqualFunc(fresh, windowMas[zi], sameManaAbility) {
+			if fresh := e.availableManaAbilitiesForWindow(p, id, false); !slices.EqualFunc(fresh, windowMas[zi], pay.SameManaAbility) {
 				panic(fmt.Sprintf("payment plan census: window membership for %d moved inside the census", id))
 			}
 		}
@@ -1167,7 +1167,7 @@ func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.
 			mp := effects.ManaOf(ma)
 			counts, any := mp.Counts, mp.CountsAny
 			if any {
-				units = appendPaymentPlanUnitAlt(units, id, windowManaAlt{ma: ma, counts: counts, amt: amt, any: true})
+				units = pay.AppendUnitAlt(units, id, windowManaAlt{Ma: ma, Counts: counts, Amt: amt, Any: true})
 				continue
 			}
 			total := int32(0)
@@ -1177,24 +1177,10 @@ func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.
 			if total <= 0 {
 				continue
 			}
-			units = appendPaymentPlanUnitAlt(units, id, windowManaAlt{ma: ma, counts: counts, amt: amt})
+			units = pay.AppendUnitAlt(units, id, windowManaAlt{Ma: ma, Counts: counts, Amt: amt})
 		}
 	}
 	return units
-}
-
-// appendPaymentPlanUnitAlt appends one alternative to the unit that already
-// names id, creating the unit if the shared census and the choice-shape layer
-// both left it out. It keeps the evaluated-amount layer from duplicating the
-// unit-lookup bookkeeping the choice-shape loop spells out inline.
-func appendPaymentPlanUnitAlt(units []windowManaUnit, id state.ObjID, alt windowManaAlt) []windowManaUnit {
-	for i := range units {
-		if units[i].id == id {
-			units[i].alts = append(units[i].alts, alt)
-			return units
-		}
-	}
-	return append(units, windowManaUnit{id: id, freeCount: 1, alts: []windowManaAlt{alt}})
 }
 
 // paymentPlanTappedProbe clones the engine and taps every battlefield
@@ -1252,14 +1238,7 @@ func (e *Engine) paymentPlanStableAmount(probe *Engine, p state.PlayerID, source
 // Mill<N>, even where the ordinary manual mana window can pay it without a
 // further choice.
 func paymentPlanTapOnlyCost(c Cost) bool {
-	return c.Tap && c.XMin == 0 && manaFreeCost(c) && castWindowOtherPartsAbsent(c)
-}
-
-func paymentPlanAltOK(a windowManaAlt) bool {
-	if a.life != 0 || a.amt <= 0 || a.ma == nil || a.ma.API != "Mana" || a.any {
-		return false
-	}
-	return a.mana().Total() > 0
+	return c.Tap && c.XMin == 0 && pay.ManaFreeCost(c) && castWindowOtherPartsAbsent(c)
 }
 
 // paymentPlanAbilityTier is the single source-shape authority for automatic
@@ -1582,17 +1561,17 @@ func (e *Engine) appendUnitAlternatives(dst []pay.Alt, u windowManaUnit) (grown,
 	// The source's payer, zone-entry sequence and creature bit are read once
 	// for all its alternatives (each a pure read of the source).
 	payer := state.PlayerID(0)
-	if source := e.G.Obj(u.id); source != nil {
+	if source := e.G.Obj(u.ID); source != nil {
 		payer = source.Controller
 	}
 	sourceRead := false
 	var zoneSeq uint64
 	var creature bool
-	for _, alt := range u.alts {
-		tier, consequence, _ := e.paymentPlanAbilityTier(payer, u.id, alt.ma)
+	for _, alt := range u.Alts {
+		tier, consequence, _ := e.paymentPlanAbilityTier(payer, u.ID, alt.Ma)
 		switch tier {
 		case pay.TierNormal:
-			if !e.manaStaticOf(alt.ma).tapOnly {
+			if !e.manaStaticOf(alt.Ma).tapOnly {
 				continue
 			}
 		case pay.TierLastResort:
@@ -1602,40 +1581,40 @@ func (e *Engine) appendUnitAlternatives(dst []pay.Alt, u windowManaUnit) (grown,
 		default:
 			continue
 		}
-		ab, ok := e.paymentAbility(u.id, alt.ma)
+		ab, ok := e.paymentAbility(u.ID, alt.Ma)
 		if !ok {
 			continue
 		}
 		if !sourceRead {
 			sourceRead = true
-			zoneSeq, creature = e.paymentSourceZoneSeq(u.id), e.IsCreature(u.id)
+			zoneSeq, creature = e.paymentSourceZoneSeq(u.ID), e.IsCreature(u.ID)
 		}
-		if paymentPlanAltOK(alt) {
-			m := alt.mana()
+		if pay.PlanAltOK(alt) {
+			m := alt.Mana()
 			if out == nil {
-				out = make([]pay.Alt, 0, len(u.alts))
+				out = make([]pay.Alt, 0, len(u.Alts))
 			}
 			out = append(out, pay.Alt{Activation: decision.PaymentActivation{
-				Source: u.id, SourceZoneSeq: zoneSeq, Ability: ab, Produces: pay.ManaAmount(m)},
-				Mana: m, Creature: creature, Ma: alt.ma, Tier: tier, Consequence: consequence})
+				Source: u.ID, SourceZoneSeq: zoneSeq, Ability: ab, Produces: pay.ManaAmount(m)},
+				Mana: m, Creature: creature, Ma: alt.Ma, Tier: tier, Consequence: consequence})
 			continue
 		}
-		if !alt.any || alt.amt <= 0 {
+		if !alt.Any || alt.Amt <= 0 {
 			continue
 		}
-		for _, col := range e.paymentPlanChoiceColours(u.id, alt.ma) {
+		for _, col := range e.paymentPlanChoiceColours(u.ID, alt.Ma) {
 			i := strings.IndexByte("WUBRG", col[0])
 			if i < 0 {
 				continue
 			}
 			var m state.Mana
-			m[i] = alt.amt
+			m[i] = alt.Amt
 			if out == nil {
-				out = make([]pay.Alt, 0, len(u.alts))
+				out = make([]pay.Alt, 0, len(u.Alts))
 			}
 			out = append(out, pay.Alt{Activation: decision.PaymentActivation{
-				Source: u.id, SourceZoneSeq: zoneSeq, Ability: ab, Produces: pay.ManaAmount(m)},
-				Mana: m, Creature: creature, Ma: alt.ma, ExecProduced: col, Tier: tier, Consequence: consequence})
+				Source: u.ID, SourceZoneSeq: zoneSeq, Ability: ab, Produces: pay.ManaAmount(m)},
+				Mana: m, Creature: creature, Ma: alt.Ma, ExecProduced: col, Tier: tier, Consequence: consequence})
 		}
 	}
 	// Preserve flexible sources: rank each selected source by every eligible
@@ -1821,7 +1800,7 @@ func (e *Engine) paymentPlanController(id state.ObjID) state.PlayerID {
 // another alternative's production.
 func (e *Engine) paymentPlanStepAlternative(units []windowManaUnit, pa decision.PaymentActivation) (pay.Alt, bool) {
 	for _, u := range units {
-		if u.id != pa.Source {
+		if u.ID != pa.Source {
 			continue
 		}
 		for _, candidate := range e.paymentPlanQueryAlternatives(u) {

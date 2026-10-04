@@ -25,6 +25,10 @@ type (
 	costMod = pay.CostMod
 	// costMods is the CR 601.2f cost-modifier composition.
 	costMods = pay.CostMods
+	// windowManaAlt is one single-tap production alternative.
+	windowManaAlt = pay.WindowAlt
+	// windowManaUnit is one permanent as a payment window sees it.
+	windowManaUnit = pay.WindowUnit
 )
 
 func resolveMana(c Cost, pool, snow state.Mana, typed [7]state.Mana, life int32, conv *manaConv) (manaPayment, bool) {

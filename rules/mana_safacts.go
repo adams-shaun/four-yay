@@ -85,7 +85,7 @@ type manaStaticFacts struct {
 func computeManaStaticFacts(mp *effects.ManaParams, cost *Cost) manaStaticFacts {
 	return manaStaticFacts{produced: mp.Produced, amount: availableAmountOf(mp),
 		restrictValid: mp.RestrictValid != "", counts: mp.Counts, any: mp.CountsAny,
-		freeCost: manaFreeCost(*cost), tapOnly: paymentPlanTapOnlyCost(*cost), tap: cost.Tap, untap: cost.Untap}
+		freeCost: pay.ManaFreeCost(*cost), tapOnly: paymentPlanTapOnlyCost(*cost), tap: cost.Tap, untap: cost.Untap}
 }
 
 // manaStaticOf is ab's census text reads: its configured facts', or read

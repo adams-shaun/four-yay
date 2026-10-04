@@ -3,13 +3,13 @@ package rules
 import (
 	"fmt"
 	"math"
-	"reflect"
 	"slices"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -141,7 +141,7 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 						if !lw.manaWalkEmpty(board, o, id, o.Face()) {
 							fresh = e.appendAvailableManaAbilitiesGate(nil, nil, p, id, true)
 						}
-						if !slices.EqualFunc(fresh, mem, sameManaAbility) {
+						if !slices.EqualFunc(fresh, mem, pay.SameManaAbility) {
 							panic(fmt.Sprintf("rules: PotentialMana membership for %d served from the priority walk differs", id))
 						}
 					}
@@ -159,7 +159,7 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 					admitted = append(admitted, false)
 				}
 			} else if potentialMembersVerify && sp.end > sp.start {
-				if fresh := e.appendAvailableManaAbilitiesGate(nil, nil, p, id, true); !slices.EqualFunc(fresh, flat[sp.start:sp.end], sameManaAbility) {
+				if fresh := e.appendAvailableManaAbilitiesGate(nil, nil, p, id, true); !slices.EqualFunc(fresh, flat[sp.start:sp.end], pay.SameManaAbility) {
 					panic(fmt.Sprintf("rules: PotentialMana membership for %d moved inside the fixpoint", id))
 				}
 			}
@@ -234,12 +234,6 @@ func (e *Engine) verifyPotentialSkip(p state.PlayerID, o *state.Object, id state
 // membership list and panic on a difference. Set by the rules test binary
 // (derivedmemo_verify_test.go), or at link time with derivedMemoVerifyFlag.
 var potentialMembersVerify = derivedMemoVerifyFlag != ""
-
-// sameManaAbility is potentialMembersVerify's comparison: the same ability,
-// or (for an ability a grant builds per call) an identical one.
-func sameManaAbility(a, b *cards.SA) bool {
-	return a == b || (a != nil && b != nil && reflect.DeepEqual(*a, *b))
-}
 
 // potentialProducedStrip strips the braces and spaces from a Produced$
 // value. A strings.Replacer is safe for concurrent use, so one serves every

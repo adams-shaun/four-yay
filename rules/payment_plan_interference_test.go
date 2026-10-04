@@ -42,9 +42,9 @@ func interferenceTier(t *testing.T, e *Engine, src state.ObjID) (pay.Tier, pay.C
 	if len(abilities) == 0 {
 		// Basic lands carry their intrinsic ability only through the window.
 		for _, u := range e.paymentPlanManaUnits(o.Controller) {
-			if u.id == src {
-				for _, alt := range u.alts {
-					abilities = append(abilities, alt.ma)
+			if u.ID == src {
+				for _, alt := range u.Alts {
+					abilities = append(abilities, alt.Ma)
 				}
 			}
 		}

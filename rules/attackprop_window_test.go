@@ -74,7 +74,7 @@ func TestAttackPropPaysWithAMultiAbilityManaSource(t *testing.T) {
 			land = id
 		}
 	}
-	if n := e.windowManaUnits(1); len(n) != 1 || n[0].freeCount != 2 {
+	if n := e.windowManaUnits(1); len(n) != 1 || n[0].FreeCount != 2 {
 		t.Fatalf("precondition: windowManaUnits(1) = %+v, want one unit with freeCount 2", n)
 	}
 	if got := e.G.Players[1].Pool.Total(); got != 0 {
