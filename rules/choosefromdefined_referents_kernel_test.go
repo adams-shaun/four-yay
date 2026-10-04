@@ -248,7 +248,7 @@ func TestChangeZoneChooseFromDefinedReplacedCardsKernel(t *testing.T) {
 	beast := kr0Src(t, e, 0, "Name:Exiled Beast\nManaCost:2 G\nTypes:Creature Beast\nPT:3/3\nOracle:x\n", state.ZExile)
 	other := kr0Src(t, e, 0, "Name:Nonmember Land\nTypes:Land\nOracle:x\n", state.ZExile)
 	d := kr0Run(t, e, s, func() *effects.Ctx {
-		return &effects.Ctx{Source: aver, Controller: 0, ReplacedCards: []state.ObjID{land, beast}}
+		return &effects.Ctx{Source: aver, Controller: 0, Repl: effects.ReplacementInputs{Cards: []state.ObjID{land, beast}}}
 	}, nil)
 	if d == nil || d.ResumeKind != "hidden_pick" {
 		t.Fatalf("no hidden-pick ask for the ReplacedCards.Land leg: %+v", d)

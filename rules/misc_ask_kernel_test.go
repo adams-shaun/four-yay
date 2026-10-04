@@ -259,8 +259,8 @@ func TestValiantEndeavorAsksThenPublishesChosenAndOtherKernel(t *testing.T) {
 	}
 	x, y := int(d.Rolls[1]), int(d.Rolls[0])
 	kr0Answer(t, e, 1)
-	if last.LastRollName != "X" || int(last.LastRoll) != x {
-		t.Fatalf("chosen publication = %s/%d, want X/%d", last.LastRollName, last.LastRoll, x)
+	if last.Roll.LastName != "X" || int(last.Roll.Last) != x {
+		t.Fatalf("chosen publication = %s/%d, want X/%d", last.Roll.LastName, last.Roll.Last, x)
 	}
 	for i, p := range powers {
 		dead := p >= x
