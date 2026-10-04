@@ -316,6 +316,15 @@ func (e *Engine) askReplacementChoice(p state.PlayerID) {
 		d.Prompt = "Apply " + name + "'s optional turn-face-up replacement?"
 		d.Options = []decision.Option{{Index: 0, Kind: "apply", Obj: m.id, Label: "Yes — apply this replacement"},
 			{Index: 1, Kind: "decline", Obj: m.id, Label: "No — do not apply this replacement"}}
+		// A turn-up is a tape-run boundary (turnup_tape.go: the special
+		// action's Submit, or the resolution whose effect turns it up), so
+		// the election is answered in place and the accepted body's own asks
+		// (Vesuvan Shapeshifter's copy choice) are served from the same run
+		// instead of taking their no-run defaults after a legacy park.
+		if in, ok := parkTapeAnswer(e, d); ok {
+			e.handle(d, in)
+			return
+		}
 		e.ask(d)
 		return
 	case replChoiceUntap:

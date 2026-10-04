@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -26,7 +27,7 @@ func TestVesuvanShapeshifterCanAcceptItsTurnFaceUpReplacementKernel(t *testing.T
 	}
 	submitChoices(t, e, d.Options[0].Index)
 	if d := e.Pending(); d != nil && d.Kind != decision.KPriority {
-		// The kernel-era ask (see the Skip'd sibling below): pick the Bear.
+		// The copy choice (the sibling below pins it): pick the Bear.
 		kr9AnswerObj(t, e, bear)
 	}
 	passUntilStackEmpty(t, e, 20)
@@ -41,11 +42,6 @@ func TestVesuvanShapeshifterCanAcceptItsTurnFaceUpReplacementKernel(t *testing.T
 // optional Clone replacement asks which creature to copy (the old
 // TestVesuvanShapeshifterCanAcceptItsTurnFaceUpReplacement's choice half).
 func TestVesuvanShapeshifterTurnFaceUpAsksWhichCreatureToCopy(t *testing.T) {
-	t.Skip("regression: the turn-face-up special action (CR 116.2b) runs outside any tape run, " +
-		"so the Clone body's Choices$ ask inside its ReplaceWith takes the R-9 default (first eligible) " +
-		"with the Note 'no resolution run serves it (choose/clone_choice)' instead of asking; making " +
-		"turn_face_up (and its KReplacement answer) a tape-run boundary needs its legacy choosing asks " +
-		"converted -- architectural, reported")
 	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := manifestEngine(t, reg, "Vesuvan Shapeshifter", "Grizzly Bears")
@@ -118,4 +114,86 @@ func kr9AnswerObj(t *testing.T, e *Engine, obj state.ObjID) {
 		}
 	}
 	t.Fatalf("no option for object %d: %+v", obj, d.Options)
+}
+
+// TestAquamorphEntityTurnFaceUpAsksItsMode: the turn-face-up special action
+// (CR 116.2b) is a tape-run boundary, so Aquamorph Entity's "as this is
+// turned face up" GenericChoice asks which P/T it takes instead of taking the
+// first mode by default, and the answer is replayable.
+func TestAquamorphEntityTurnFaceUpAsksItsMode(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		label      string
+		pow, tough int32
+	}{{"5/1", 5, 1}, {"1/5", 1, 5}} {
+		t.Run(tc.label, func(t *testing.T) {
+			reg := searchTestRegistry(t)
+			e, cfg := manifestEngine(t, reg, "Aquamorph Entity")
+			id := morphDownCastWithoutPrintedOption(t, e, "Aquamorph Entity", "CCCCCU")
+			submitChoices(t, e, turnFaceUpIndex(t, e, id))
+			d := e.Pending()
+			if d == nil || d.Kind != decision.KModes {
+				t.Fatalf("turning Aquamorph Entity face up did not ask its mode: %+v", d)
+			}
+			pick := -1
+			for _, o := range d.Options {
+				if strings.Contains(o.Label, tc.label) {
+					pick = o.Index
+				}
+			}
+			if pick < 0 {
+				t.Fatalf("no %s mode offered: %+v", tc.label, d.Options)
+			}
+			submitChoices(t, e, pick)
+			passUntilStackEmpty(t, e, 20)
+			o := e.G.Obj(id)
+			if o == nil || o.Zone != state.ZBattlefield || o.FaceDown {
+				t.Fatalf("Aquamorph Entity did not turn face up on the battlefield: %+v", o)
+			}
+			if p, th := e.Power(id), e.Toughness(id); p != tc.pow || th != tc.tough {
+				t.Fatalf("Aquamorph Entity is %d/%d, want %d/%d", p, th, tc.pow, tc.tough)
+			}
+			replayCheck(t, e, cfg)
+		})
+	}
+}
+
+// TestFaceDownAquamorphEntityEntersWithoutItsModeChoice: a face-down
+// permanent has no abilities (CR 708.2), so Aquamorph Entity cast face down
+// enters as a 2/2 without being offered its printed "as this enters" mode
+// choice.
+func TestFaceDownAquamorphEntityEntersWithoutItsModeChoice(t *testing.T) {
+	t.Parallel()
+	reg := searchTestRegistry(t)
+	e, cfg := manifestEngine(t, reg, "Aquamorph Entity")
+	id := searchMoveByName(t, e, "Aquamorph Entity", state.ZHand)
+	addMana(t, e, 0, "CCC")
+	idx := -1
+	for _, o := range e.Pending().Options {
+		if o.Kind == "cast" && o.Obj == id && o.Mode == "morphed" {
+			idx = o.Index
+		}
+	}
+	if idx < 0 {
+		t.Fatal("no face-down cast option for Aquamorph Entity")
+	}
+	submitChoices(t, e, idx)
+	for i := 0; i < 10 && len(e.G.Stack) > 0; i++ {
+		d := e.Pending()
+		if d == nil || d.Kind != decision.KPriority {
+			t.Fatalf("the face-down cast posed %+v; a face-down permanent has no abilities", d)
+		}
+		passPriorityOnce(t, e)
+	}
+	if d := e.Pending(); d == nil || d.Kind != decision.KPriority {
+		t.Fatalf("the face-down entry posed %+v; a face-down permanent has no abilities", d)
+	}
+	o := e.G.Obj(id)
+	if o == nil || o.Zone != state.ZBattlefield || !o.FaceDown {
+		t.Fatalf("Aquamorph Entity did not enter face down: %+v", o)
+	}
+	if p, th := e.Power(id), e.Toughness(id); p != 2 || th != 2 {
+		t.Fatalf("face-down Aquamorph Entity is %d/%d, want 2/2", p, th)
+	}
+	replayCheck(t, e, cfg)
 }

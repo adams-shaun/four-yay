@@ -753,6 +753,9 @@ func (e *Engine) replacementFace(id state.ObjID, ev events.Event) *cards.Face {
 	if ev.Kind == events.FlipFace && id == ev.Obj && ev.Amount >= 0 && int(ev.Amount) < len(o.Card.Faces) {
 		return o.Card.Faces[ev.Amount]
 	}
+	if replacementFaceHidden(o, id, ev) {
+		return nil
+	}
 	if e.printedAbilitiesLost(o) {
 		// CR 613.1f: a battlefield permanent that lost all abilities has no
 		// printed replacement ability. (An entering permanent is not on the
@@ -760,6 +763,25 @@ func (e *Engine) replacementFace(id state.ObjID, ev events.Event) *cards.Face {
 		return nil
 	}
 	return o.Face()
+}
+
+// replacementFaceHidden reports whether o's printed replacement abilities do
+// not exist for ev because o is face down (CR 708.2: a face-down permanent or
+// spell has no abilities). That covers a face-down permanent or spell, and an
+// object entering the battlefield face down (a morph, manifest or cloak entry,
+// whose FaceDown bit Apply folds only during the move this dispatch
+// intercepts): face-down Aquamorph Entity never meets its own "as this
+// enters" choice. The object's own TurnFaceUp is exempt -- "as this is turned
+// face up" applies as the face is revealed (CR 708.8).
+func replacementFaceHidden(o *state.Object, id state.ObjID, ev events.Event) bool {
+	if ev.Obj == id && ev.Kind == events.TurnFaceUp {
+		return false
+	}
+	if o.FaceDown && (o.Zone == state.ZBattlefield || o.Zone == state.ZStack) {
+		return true
+	}
+	return ev.Obj == id && ev.Kind == events.MoveZone && ev.To == state.ZBattlefield &&
+		events.IsFaceDownEntry(ev.Counter)
 }
 
 // replCtx builds the effects.Ctx a replacement's ReplaceWith$ resolves
