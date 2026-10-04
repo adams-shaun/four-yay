@@ -296,6 +296,10 @@ func saChainMayAsk(sa *SA, svars map[string]string, self *Face, root bool, depth
 					return true
 				}
 			}
+		case "CopyPermanent":
+			if copyEntryMayAsk(s, self) {
+				return true
+			}
 		case "Token":
 			if strings.Contains(s.ParamStr(PKTokenScript), ",") {
 				return true // a token-kind pick
@@ -345,6 +349,18 @@ func changeZoneMayAsk(s *SA, self *Face) bool {
 		return s.ParamStr(PKLibraryPosition) == "" // a top/bottom order may ask
 	}
 	return false
+}
+
+// copyEntryMayAsk: a CopyPermanent's token enters as a copy of a board
+// object, and the copy asks whatever the copied face's entry asks (CR 303.4f:
+// a copied Aura chooses what it enchants; an as-enters choice; a Clone's
+// "enter as a copy"). Which object is copied is board-dependent, so only a
+// copy of the source itself, whose face is known, can be exempt.
+func copyEntryMayAsk(s *SA, self *Face) bool {
+	if s.ParamStr(PKDefined) != "Self" || s.ParamStr(PKValidTgts) != "" {
+		return true
+	}
+	return self == nil || FaceEntryMayAsk(self) || faceEnchants(self)
 }
 
 // SAChainBoardGates reports which replaceable events sa's SubAbility$ chain
@@ -411,6 +427,49 @@ func faceEnchants(f *Face) bool {
 	for _, kw := range f.Keywords {
 		if strings.HasPrefix(kw, "Enchant") {
 			return true
+		}
+	}
+	return false
+}
+
+// SAChainTokenEntryMayAsk reports whether a Token body in sa's SubAbility$
+// chain (or a Charm's Choices$ bodies) mints a face that asks as it enters:
+// an Aura token that names no bearer (AttachedTo$) chooses what it enchants
+// (CR 303.4f), and a token face's own entry text (FaceEntryMayAsk: Devour,
+// an entry replacement). The token faces are the match's, so the text half
+// cannot see them; rules folds this into its cached judgement. A script the
+// lookup does not know is "may ask".
+func SAChainTokenEntryMayAsk(sa *SA, svars map[string]string, tokens map[string]*Card) bool {
+	return saChainTokenEntryMayAsk(sa, svars, tokens, 0)
+}
+
+func saChainTokenEntryMayAsk(sa *SA, svars map[string]string, tokens map[string]*Card, depth int) bool {
+	if depth > maxMayAskDepth {
+		return true
+	}
+	for s := sa; s != nil; s = s.Sub {
+		switch s.API {
+		case "Token":
+			attached := s.HasParam(PKAttachedTo)
+			for _, n := range strings.Split(s.ParamStr(PKTokenScript), ",") {
+				if n = strings.TrimSpace(n); n == "" {
+					continue
+				}
+				c := tokens[n]
+				if c == nil || len(c.Faces) == 0 {
+					return true
+				}
+				if f := c.Faces[0]; (!attached && faceEnchants(f)) || FaceEntryMayAsk(f) {
+					return true
+				}
+			}
+		case "Charm":
+			choices, _ := s.Param(PKChoices)
+			for _, n := range SplitModeNames(choices) {
+				if body := ResolveSVar(svars, n); body != nil && saChainTokenEntryMayAsk(body, svars, tokens, depth+1) {
+					return true
+				}
+			}
 		}
 	}
 	return false

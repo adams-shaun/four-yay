@@ -32,6 +32,10 @@ func TestSAChainMayAsk(t *testing.T) {
 		{"library search", "A:SP$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Land", true},
 		{"counter-kind pick", "A:SP$ PutCounter | Defined$ Self | CounterType$ P1P1,LOYALTY", true},
 		{"charm of ask-free bodies", "A:SP$ Charm | Choices$ DBA,DBB\nSVar:DBA:DB$ GainLife | LifeAmount$ 2\nSVar:DBB:DB$ Draw | NumCards$ 1", false},
+		{"copy of a defined board object", "A:SP$ CopyPermanent | Defined$ Remembered", true},
+		{"copy of a target", "A:SP$ CopyPermanent | ValidTgts$ Permanent", true},
+		{"copy of self", "A:SP$ CopyPermanent | Defined$ Self", false},
+		{"copy of a self that enchants", "K:Enchant creature\nA:SP$ CopyPermanent | Defined$ Self", true},
 		{"charm with an asking body", "A:SP$ Charm | Choices$ DBA,DBB\nSVar:DBA:DB$ GainLife | LifeAmount$ 2\nSVar:DBB:DB$ Scry | ScryNum$ 1", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -110,5 +114,41 @@ func TestSAChainMayAskAttachAndAbilitySubTargets(t *testing.T) {
 	}
 	if g := SAChainBoardGates(ab.Abilities[0], ab.SVars); !g.Has(ReplDamageDone) || g.Has(ReplMoved) {
 		t.Fatalf("board gates %b, want the damage gate", g)
+	}
+}
+
+// askFreeEntryDecisions is the entering-object census: every allowlisted API
+// says whether its resolution can put an object onto the battlefield and, if
+// so, how the text half judges what that object asks as it enters (an Aura's
+// CR 303.4f enchant choice, an as-enters choice, a Clone's copy election).
+// A new allowlisted API fails TestAskFreeEntryCensus until it is decided.
+var askFreeEntryDecisions = map[string]string{
+	"ChangeZone":    "enters: changeZoneMayAsk exempts only the source returning itself (FaceEntryMayAsk, faceEnchants)",
+	"CopyPermanent": "enters: copyEntryMayAsk exempts only a copy of the source itself (FaceEntryMayAsk, faceEnchants)",
+	"Token":         "enters: a token script's entry is held by rules' TestTokenEntryAskCensus (an Aura token names its bearer with AttachedTo$)",
+
+	"Animate": "", "Attach": "", "Charm": "", "Cleanup": "", "Counter": "",
+	"DamageAll": "", "DealDamage": "", "Debuff": "", "Destroy": "", "DestroyAll": "",
+	"Draw": "", "Effect": "", "Fight": "", "GainLife": "", "ImmediateTrigger": "",
+	"LoseLife": "", "Mill": "", "MultiplyCounter": "", "Pump": "", "PumpAll": "",
+	"PutCounter": "", "PutCounterAll": "", "Regenerate": "", "StoreSVar": "",
+	"Tap": "", "TapAll": "", "UntapAll": "",
+}
+
+// TestAskFreeEntryCensus holds askFreeEntryDecisions equal to the allowlist:
+// "" means the API never puts an object onto the battlefield.
+func TestAskFreeEntryCensus(t *testing.T) {
+	names := AskFreeAPINames()
+	seen := map[string]bool{}
+	for _, n := range names {
+		seen[n] = true
+		if _, ok := askFreeEntryDecisions[n]; !ok {
+			t.Errorf("allowlisted API %q has no entering-object decision", n)
+		}
+	}
+	for n := range askFreeEntryDecisions {
+		if !seen[n] {
+			t.Errorf("entering-object decision for %q, which is not allowlisted", n)
+		}
 	}
 }

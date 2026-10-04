@@ -97,7 +97,7 @@ func tapeTextMayAsk(e *Engine) bool {
 		if owned, ok := e.triggerLineSVars[id]; ok {
 			// A granted, delayed or reflexive body: a freshly parsed SA with
 			// no facts record, read against the grant's own SVar table.
-			return mayAskOnBoard(e, saMayAskState(ab, owned, self))
+			return mayAskOnBoard(e, saMayAskState(e, ab, owned, self))
 		}
 		if self == nil || !cards.FaceOwnsSA(self, ab) {
 			// A granted ability or a mutated pile's under-card: Self is not
@@ -107,7 +107,7 @@ func tapeTextMayAsk(e *Engine) bool {
 			if self != nil {
 				svars = self.SVars
 			}
-			return mayAskOnBoard(e, saMayAskState(ab, svars, nil))
+			return mayAskOnBoard(e, saMayAskState(e, ab, svars, nil))
 		}
 		return mayAskOnBoard(e, saMayAskCached(e, ab, self))
 	}
@@ -140,8 +140,10 @@ func tapeTextMayAsk(e *Engine) bool {
 }
 
 // saMayAskState is the text judgement of sa's chain as a cache state.
-func saMayAskState(sa *cards.SA, svars map[string]string, self *cards.Face) uint32 {
-	if cards.SAChainMayAsk(sa, svars, self, true) {
+// A Token body's minted face is the match's (e.G.Tokens): its entry asks
+// are judged here, with the text (cards.SAChainTokenEntryMayAsk).
+func saMayAskState(e *Engine, sa *cards.SA, svars map[string]string, self *cards.Face) uint32 {
+	if cards.SAChainMayAsk(sa, svars, self, true) || cards.SAChainTokenEntryMayAsk(sa, svars, e.G.Tokens) {
 		return mayAskKnown | mayAskText
 	}
 	return mayAskKnown | uint32(cards.SAChainBoardGates(sa, svars))<<mayAskGateShift
@@ -229,12 +231,12 @@ func tapeReplMayAsk(e *Engine, event string) bool {
 func saMayAskCached(e *Engine, sa *cards.SA, self *cards.Face) uint32 {
 	f := e.compiledText.factsOf(sa)
 	if f == nil {
-		return saMayAskState(sa, self.SVars, self)
+		return saMayAskState(e, sa, self.SVars, self)
 	}
 	if st := atomic.LoadUint32(&f.MayAsk); st != mayAskUnknown {
 		return st
 	}
-	st := saMayAskState(sa, self.SVars, self)
+	st := saMayAskState(e, sa, self.SVars, self)
 	atomic.StoreUint32(&f.MayAsk, st)
 	return st
 }
