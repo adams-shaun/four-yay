@@ -179,7 +179,7 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		if !ok {
 			return
 		}
-		if !pay.PayMana(asPayer(e), in.Player, mods.apply(cost)) {
+		if !pay.PayMana(asPayer(e), in.Player, mods.Apply(cost)) {
 			return
 		}
 		e.emit(events.Event{Kind: events.DoorUnlock, Obj: opt.Obj})

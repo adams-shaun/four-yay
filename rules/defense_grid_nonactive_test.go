@@ -51,7 +51,7 @@ func TestDefenseGridNonActiveCost(t *testing.T) {
 		})
 	}
 	mods := e.costModifiers(1, boltID, spellScope(""))
-	priced := mods.apply(e.parseCost(e.G.Obj(boltID).Face().ManaCost))
+	priced := mods.Apply(e.parseCost(e.G.Obj(boltID).Face().ManaCost))
 	if priced.Generic != 3 {
 		t.Fatalf("Defense Grid did not add its real {3} tax: priced cost %+v", priced)
 	}

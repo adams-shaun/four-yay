@@ -64,7 +64,7 @@ func TestPotentialTargetCostPricesOneCandidateNotTheUnion(t *testing.T) {
 	// below would also "pass" if the whole static were never applied.
 	statics := e.collectCostStatics()
 	for _, cand := range cands {
-		single := e.costModifiersWithTargetsUsing(statics, 0, spell, spellScope(""), []state.Target{cand}, true).apply(base)
+		single := e.costModifiersWithTargetsUsing(statics, 0, spell, spellScope(""), []state.Target{cand}, true).Apply(base)
 		if single.Generic != 2 {
 			t.Fatalf("precondition/control: one candidate reduction wrong: {3} -> {%d}, want {2}", single.Generic)
 		}
@@ -73,7 +73,7 @@ func TestPotentialTargetCostPricesOneCandidateNotTheUnion(t *testing.T) {
 	// three candidates' discounts. The per-candidate callback must never
 	// see a cost below {2}.
 	_, ok := e.potentialCostModsUsing(statics, 0, spell, spellScope(""), cands, 0, func(m costMods) bool {
-		return m.apply(base).Generic < 2
+		return m.Apply(base).Generic < 2
 	})
 	if ok {
 		t.Error("potential cost combined multiple target discounts")

@@ -58,7 +58,7 @@ func (e *Engine) validateCastContributions(d *decision.Decision, in decision.Int
 	// so xAsk -- the one site that knows X -- enforces that cap through
 	// waterbendCap, and its last-resort fallback never resurrects an X the
 	// cap rejected.
-	if !pc.mods.waterbendX && pc.mods.raiseX == 0 && waterbendTaps(all) > waterbendCap(pc.mods, 0) {
+	if !pc.mods.WaterbendX && pc.mods.RaiseX == 0 && waterbendTaps(all) > waterbendCap(pc.mods, 0) {
 		return fmt.Errorf("more permanents tapped than the waterbend cost allows")
 	}
 	return nil
@@ -85,7 +85,7 @@ func (e *Engine) convokeAsk() bool {
 	// or optional part's own Waterbend token folded into mods by
 	// foldRaiseExtra): each untapped artifact or creature tapped while paying
 	// it pays for {1} of the waterbend amount (CR 701.67a).
-	isWaterbend := pc.mods.waterbend > 0 || pc.mods.waterbendX
+	isWaterbend := pc.mods.Waterbend > 0 || pc.mods.WaterbendX
 	if !isConvoke && !isHarmonize && !isImprovise && !isWaterbend {
 		return false
 	}
@@ -188,11 +188,11 @@ func (e *Engine) convokeAsk() bool {
 			d.Max = slots
 		}
 	}
-	if isWaterbend && !isConvoke && !isHarmonize && !isImprovise && pc.mods.raiseX == 0 && !pc.mods.waterbendX && int(pc.mods.waterbend) < d.Max {
+	if isWaterbend && !isConvoke && !isHarmonize && !isImprovise && pc.mods.RaiseX == 0 && !pc.mods.WaterbendX && int(pc.mods.Waterbend) < d.Max {
 		// Only waterbend taps are offered: at most the waterbend amount. A
 		// Waterbend<X> amount is not known until X is announced, so its cap
 		// is left open (waterbendX).
-		d.Max = int(pc.mods.waterbend)
+		d.Max = int(pc.mods.Waterbend)
 	}
 	e.choosing = chooseCast
 	e.ask(d)
@@ -225,7 +225,7 @@ func (e *Engine) manaToPayXMods(pc *pendingCast, x int32) costMods {
 // place as manaToPayX, so an alternative composition charges the identical
 // total.
 func (e *Engine) manaToPayXUsing(pc *pendingCast, x int32, mods costMods) Cost {
-	m := mods.apply(pc.resolvedManaX(x))
+	m := mods.Apply(pc.resolvedManaX(x))
 	m.Generic += pc.taxGeneric
 	return m
 }
@@ -286,7 +286,7 @@ func (e *Engine) announceFeasible(pc *pendingCast, alt pipAlt, pool, snow state.
 	// after composing exactly the modifiers, commander tax, and Delve credit
 	// that payCast will charge.  This is an offer-side read only; the chosen
 	// face still reaches the ordinary mana window and is paid there.
-	charged := pc.mods.apply(c)
+	charged := pc.mods.Apply(c)
 	charged.Generic = addClampedGeneric(charged.Generic, int64(pc.taxGeneric))
 	charged.Generic -= delve
 	if charged.Generic < 0 {
@@ -327,7 +327,7 @@ func (e *Engine) manaAsk() bool {
 	if pc == nil || pc.payIdx >= pc.cost.AnnPipCount() {
 		return false
 	}
-	alts := announcePip(pc.cost, pc.payIdx)
+	alts := pay.AnnouncePip(pc.cost, pc.payIdx)
 	// announceFeasible receives the full pool and life total because the
 	// commitments already made (and this candidate face) are folded into the
 	// cost it evaluates; nothing has been paid yet. Do not pre-filter a colour

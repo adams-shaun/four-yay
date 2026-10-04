@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/rules/pay"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
@@ -131,7 +132,7 @@ func (w *legalWalk) ownManaMembers(dst []*cards.SA, zi int, o *state.Object, id 
 		}
 	}
 	if walkCacheVerify {
-		if want := e.appendAvailableManaAbilities(nil, &w.actionStatics, p, id); !slices.EqualFunc(want, out, sameManaAbility) {
+		if want := e.appendAvailableManaAbilities(nil, &w.actionStatics, p, id); !slices.EqualFunc(want, out, pay.SameManaAbility) {
 			panic(fmt.Sprintf("rules: recorded mana membership of %d filtered to %d abilities, the walk's has %d", id, len(out), len(want)))
 		}
 	}

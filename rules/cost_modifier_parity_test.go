@@ -120,8 +120,8 @@ func reduceOf(t *testing.T, e *Engine, p state.PlayerID, id state.ObjID) int32 {
 	t.Helper()
 	mods := e.costModifiers(p, id, spellScope(""))
 	var n int32
-	for _, red := range mods.reduces {
-		n += red.generic + red.colored.Total()
+	for _, red := range mods.Reduces {
+		n += red.Generic + red.Colored.Total()
 	}
 	return n
 }
@@ -287,8 +287,8 @@ func TestColorReduceRemovesColoredPips(t *testing.T) {
 		t.Fatalf("Khalni Hydra reduction with 2 green creatures = %d, want 2 (green pips)", got)
 	}
 	mods := e.costModifiers(0, hydra, spellScope(""))
-	if mods.reduces[0].colored[state.MG] != 2 || mods.reduces[0].generic != 0 {
-		t.Fatalf("the reduction must name 2 green pips, got %+v", mods.reduces[0])
+	if mods.Reduces[0].Colored[state.MG] != 2 || mods.Reduces[0].Generic != 0 {
+		t.Fatalf("the reduction must name 2 green pips, got %+v", mods.Reduces[0])
 	}
 	opt := castByName(t, e, 0, "Khalni Hydra")
 	if opt == nil {

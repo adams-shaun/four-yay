@@ -58,7 +58,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 	if !e.classBandGateHolds(sv.ParamStr(cards.PKClassBand), sv.Source) {
 		return false, true
 	}
-	if ty, ok := sv.Param(cards.PKType); ok && ty != "" && ty != scope.kind {
+	if ty, ok := sv.Param(cards.PKType); ok && ty != "" && ty != scope.Kind {
 		return false, true
 	}
 	if !e.costActorMatches(sv, p) {
@@ -106,7 +106,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 		if !ok2 {
 			return false, true
 		}
-		if scope.kind == "Spell" && strings.Contains(spec, "Permanent") {
+		if scope.Kind == "Spell" && strings.Contains(spec, "Permanent") {
 			// The priced object is a SPELL -- in hand/graveyard/exile at the
 			// offer, on the stack at the charge -- never a battlefield
 			// permanent, so Forge's `Permanent` base (a permanent card by
@@ -121,7 +121,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 		}
 	}
 	if first, ok := sv.Param(cards.PKFirstForetell); ok && strings.EqualFold(strings.TrimSpace(first), "True") &&
-		scope.kind == "Foretell" && e.firstForetellUsed(p) {
+		scope.Kind == "Foretell" && e.firstForetellUsed(p) {
 		return false, true
 	}
 	if vs, ok := sv.Param(cards.PKValidSpell); ok && !e.validSpellMatches(sv, scope, p, id, vs, targets) {
@@ -150,7 +150,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 	if !e.costConditionHolds(sv, p) {
 		return false, true
 	}
-	if !e.checkSVarHoldsFor(sv, costSubject{p: p, id: id, ab: scope.ab}, targets) {
+	if !e.checkSVarHoldsFor(sv, costSubject{p: p, id: id, ab: scope.Ab}, targets) {
 		return false, false
 	}
 	if spec, ok := sv.Param(cards.PKValidTarget); ok {
@@ -217,7 +217,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 		// target costs nothing extra), the potential pass at its least, and
 		// the CR 601.2c reprice charges the chosen targets. A SetCost
 		// Relative$ has no corpus carrier and keeps the skip.
-		if mode == "SetCost" || !e.relativeAmountResolves(sv, costSubject{p: p, id: id, ab: scope.ab}, targets) {
+		if mode == "SetCost" || !e.relativeAmountResolves(sv, costSubject{p: p, id: id, ab: scope.Ab}, targets) {
 			return false, false
 		}
 	}
@@ -306,7 +306,7 @@ func (e *Engine) costAffectedZone(id state.ObjID, scope costScope) (state.Zone, 
 	if o == nil {
 		return 0, false
 	}
-	if scope.kind == "Ability" || scope.kind == "Static" || o.Zone != state.ZStack {
+	if scope.Kind == "Ability" || scope.Kind == "Static" || o.Zone != state.ZStack {
 		return o.Zone, true
 	}
 	if o.IsCopy {
@@ -523,14 +523,14 @@ func (e *Engine) validSpellMatches(sv staticView, scope costScope, p state.Playe
 		}
 		switch validSpellMatchesCodes.Code(string(kind)) {
 		case validSpellMatchesSpell:
-			if scope.kind != "Spell" {
+			if scope.Kind != "Spell" {
 				continue
 			}
 			if e.spellConstraintMatches(sv, scope, p, id, constraint, targets) {
 				return true
 			}
 		case validSpellMatchesActivated:
-			if scope.kind != "Ability" || scope.ab == nil {
+			if scope.Kind != "Ability" || scope.Ab == nil {
 				continue
 			}
 			if e.abilityConstraintMatches(scope, p, id, constraint) {
@@ -571,7 +571,7 @@ func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.
 	case spellConstraintMatchesEmpty:
 		return true
 	case spellConstraintMatchesFlashback:
-		return scope.mode == "flashback"
+		return scope.Mode == "flashback"
 	case spellConstraintMatchesKicked:
 		// The bare form is the single-cost Kicker's mode; the and/or
 		// two-part Kicker's per-part modes (kicked1/kicked2/kickedboth) are
@@ -580,26 +580,26 @@ func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.
 		// kicker variant) is a kicked cast the same way. Shared with
 		// targetBoundCtx's pre-payment Count$Kicked binding via modeIsKicked
 		// so the two spellings cannot drift.
-		return modeIsKicked(scope.mode)
+		return modeIsKicked(scope.Mode)
 	case spellConstraintMatchesSurged:
-		return scope.mode == "surged"
+		return scope.Mode == "surged"
 	case spellConstraintMatchesMiracle:
-		return scope.mode == "miracle"
+		return scope.Mode == "miracle"
 	case spellConstraintMatchesBlitz:
-		return scope.mode == "blitzed" || strings.HasPrefix(scope.mode, "blitzed_grant_")
+		return scope.Mode == "blitzed" || strings.HasPrefix(scope.Mode, "blitzed_grant_")
 	case spellConstraintMatchesDash:
 		// Forge's isDash: the dash alternative cast, the "dashed" mode the
 		// hand walk offers and beginCast charges (Warbringer).
-		return scope.mode == "dashed"
+		return scope.Mode == "dashed"
 	case spellConstraintMatchesBuyback:
 		// Forge's isBuyback: the cast that pays the Buyback additional cost,
 		// the "buyback" mode (Memory Crystal). Like Forge, the reduction
 		// applies to that cast's total cost.
-		return scope.mode == "buyback"
+		return scope.Mode == "buyback"
 	case spellConstraintMatchesIsCastFaceDown:
 		// Forge's isCastFaceDown: the morph family's face-down cast (Dream
 		// Chisel, Obscuring Aether).
-		return modeIsCastFaceDown(scope.mode)
+		return modeIsCastFaceDown(scope.Mode)
 	case spellConstraintMatchesMayPlaySource:
 		// Forge's MayPlaySource: the cast rides a may-play permission whose
 		// host is this static's own host (Urianger Augurelt's Play Arcanum
@@ -633,15 +633,15 @@ func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.
 func staticConstraintMatches(scope costScope, constraint string) bool {
 	switch staticConstraintMatchesCodes.Code(string(strings.TrimSpace(constraint))) {
 	case staticConstraintMatchesForetelling:
-		return scope.kind == "Foretell"
+		return scope.Kind == "Foretell"
 	case staticConstraintMatchesPlotting:
-		return scope.mode == "plot"
+		return scope.Mode == "plot"
 	case staticConstraintMatchesUnlock:
-		return scope.kind == "Static" && scope.mode == "unlock"
+		return scope.Kind == "Static" && scope.Mode == "unlock"
 	case staticConstraintMatchesMorphUp:
-		return scope.kind == "Static" && scope.mode == "morphup"
+		return scope.Kind == "Static" && scope.Mode == "morphup"
 	case staticConstraintMatchesIsTurnFaceUp:
-		return scope.kind == "Static" && (scope.mode == "morphup" || scope.mode == "disguiseup")
+		return scope.Kind == "Static" && (scope.Mode == "morphup" || scope.Mode == "disguiseup")
 	}
 	return false
 }
@@ -655,7 +655,7 @@ func staticConstraintMatches(scope costScope, constraint string) bool {
 // SA API; Loyalty reuses the loyalty-ability classifier; YouCtrl reads the
 // ability source's controller. An unevaluable constraint denies.
 func (e *Engine) abilityConstraintMatches(scope costScope, p state.PlayerID, id state.ObjID, constraint string) bool {
-	ab := scope.ab
+	ab := scope.Ab
 	constraint = strings.TrimSpace(constraint)
 	switch abilityConstraintMatchesCodes.Code(string(constraint)) {
 	case abilityConstraintMatchesEmpty:

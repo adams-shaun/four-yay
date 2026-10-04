@@ -7,6 +7,7 @@ import (
 	decision "github.com/adams-shaun/gorge/decision"
 	effects "github.com/adams-shaun/gorge/effects"
 	events "github.com/adams-shaun/gorge/events"
+	pay "github.com/adams-shaun/gorge/rules/pay"
 	state "github.com/adams-shaun/gorge/state"
 )
 
@@ -691,9 +692,9 @@ func cloneFieldsEngineContinuation(c, e *Engine, sp *Spare, remap *cloneRemap) {
 	if e.turnUp != nil {
 		p0 := *e.turnUp
 		p0.cost = cloneCost(e.turnUp.cost)
-		p0.mods.raises = append([]int32(nil), e.turnUp.mods.raises...)
-		p0.mods.extra = cloneCost(e.turnUp.mods.extra)
-		p0.mods.reduces = append([]costMod(nil), e.turnUp.mods.reduces...)
+		p0.mods.Raises = append([]int32(nil), e.turnUp.mods.Raises...)
+		p0.mods.Extra = cloneCost(e.turnUp.mods.Extra)
+		p0.mods.Reduces = append([]pay.CostMod(nil), e.turnUp.mods.Reduces...)
 		p0.sacs = append([]state.ObjID(nil), e.turnUp.sacs...)
 		p0.discs = append([]state.ObjID(nil), e.turnUp.discs...)
 		p0.reveal = append([]state.ObjID(nil), e.turnUp.reveal...)

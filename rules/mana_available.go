@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -68,7 +69,7 @@ func (e *Engine) AvailableMana(p state.PlayerID) state.Mana {
 		var free []*cards.SA
 		for _, ma := range e.availableManaAbilities(p, id) {
 			cost := e.parseCost(ma.ParamStr(cards.PKCost))
-			if manaFreeCost(cost) && !activationTapCostUnavailable(o, &cost) {
+			if pay.ManaFreeCost(cost) && !activationTapCostUnavailable(o, &cost) {
 				free = append(free, ma)
 			}
 		}
@@ -112,86 +113,6 @@ func (e *Engine) manaSourceIDs(p state.PlayerID) []state.ObjID {
 		ids = append(ids, e.G.Zone(z, p)...)
 	}
 	return ids
-}
-
-// manaFreeCost reports whether a mana ability's activation cost is a bare
-// tap (or empty -- an ability that produces mana for nothing): Tap may be
-// true, but no Sac, no Discard, no SubCounter, no generic/coloured mana, no variable X.
-// A cost like "T, Sac <1/CARDNAME>", "T, PayLife<1>", "2 T" or "G T" is
-// not free and must not be counted as available-by-tapping.
-func manaFreeCost(c Cost) bool {
-	return len(c.Sac) == 0 && len(c.Discard) == 0 && len(c.SubCounter) == 0 &&
-		len(c.AddCounter) == 0 && len(c.Exile) == 0 && len(c.Reveal) == 0 &&
-		len(c.RevealOrChoose) == 0 &&
-		len(c.RevealChosen) == 0 &&
-		len(c.Behold) == 0 && len(c.TapPermanent) == 0 && len(c.Blight) == 0 && !c.Forage &&
-		c.Generic == 0 && c.Life == 0 && c.Colored == (state.Mana{}) && c.X == 0 &&
-		len(c.Hybrid) == 0 && len(c.Phyrexian) == 0
-}
-
-// windowManaAlt is one deterministic production alternative of a single
-// permanent: the exact ability resolveManaAbility will resolve (so
-// the activation poses no chooseMana sub-ask), its Produced$ colour counts,
-// and its literal amount. A permanent that can tap for one of several
-// colours (a Volcanic Island's intrinsic {U} and {R} abilities) carries one
-// alt per ability, because the tap yields exactly one of them -- never their
-// sum. The window's tap list offers one option per alt, so the payer's
-// colour choice is made in the decision rather than in a nested ask.
-type windowManaAlt struct {
-	ma     *cards.SA
-	counts [6]int32
-	amt    int32
-	// any records ProducedCounts' open-choice result.  Consumers which need a
-	// concrete witness (payment plans) must decline it even where the ordinary
-	// payment window has a deterministic fallback.
-	any bool
-	// life is the life the activation pays (a PayLife<N> activation cost).
-	// Every alt the shared windowManaUnits builds carries 0; only the
-	// cast-payment probe's paid-cost layer sets it, so the affordability
-	// search can debit that life from the payer's budget -- an activation
-	// that spends life must not be promised as if the life were still
-	// available for the cost being priced.
-	life int32
-	// costGeneric is the literal generic mana the activation pays BEFORE the
-	// production is added (a "{N}, {T}: add ..." activation cost). Every alt
-	// the shared windowManaUnits builds carries 0 (a free tap), so the field
-	// is inert for the attack/unless payment windows. The cast-payment
-	// probe's paid-cost layer sets it and the cast-only ordered eligibility
-	// search (castWindowReachable) pays it from the pool this window has
-	// already accumulated, so a generic fee can be funded by an earlier
-	// same-window activation -- the exact sequence the live CR 601.2g window
-	// can perform, one source at a time. It is deliberately NOT netted into
-	// counts/amt: a multi-colour production cannot express "minus N" without
-	// choosing which colour the generic consumed, and the choice is the
-	// payer's at activation time.
-	costGeneric int32
-}
-
-// mana is the alt's production as a mana vector, the form the walk's
-// affordability search and the window's safety ordering both add to a pool.
-func (a windowManaAlt) mana() state.Mana {
-	var m state.Mana
-	for i, n := range a.counts {
-		m[state.ManaIndex(cards.ManaSymbol(i))] += n * a.amt
-	}
-	return m
-}
-
-// windowManaUnit is one permanent as a PAYMENT WINDOW sees it: its
-// single tap's production ALTERNATIVES. freeCount is the number of
-// free-cost, window-usable abilities the permanent has BEFORE the
-// per-ability priceability filter, so a consumer that must tap exactly one
-// ability without a sub-ask (the attack-cost window) can require freeCount
-// == 1 && len(alts) == 1, reproducing the pre-alternatives membership
-// exactly. It is the shared membership behind every payment window that
-// must not promise more than it can tap -- the declare-attackers attack-cost
-// window (attackManaSources) and the mid-resolution unless-cost window
-// (UnlessCostPayable / askUnlessMana), so their offer gates and their tap
-// lists cannot drift apart.
-type windowManaUnit struct {
-	id        state.ObjID
-	freeCount int
-	alts      []windowManaAlt
 }
 
 // windowManaUnits walks p's battlefield in zone order and returns every
@@ -302,29 +223,20 @@ func (e *Engine) windowManaUnitsWith(p state.PlayerID, only []state.ObjID, pre [
 			} else if total <= 0 {
 				continue
 			}
-			flat = append(flat, windowManaAlt{ma: ma, counts: counts, amt: amt, any: any})
+			flat = append(flat, windowManaAlt{Ma: ma, Counts: counts, Amt: amt, Any: any})
 		}
 		if len(flat) == start {
 			continue
 		}
-		out = append(out, windowManaUnit{id: id, freeCount: free})
+		out = append(out, windowManaUnit{ID: id, FreeCount: free})
 		bounds = append(bounds, int32(start))
 	}
 	bounds = append(bounds, int32(len(flat)))
 	for i := range out {
 		s, t := bounds[i], bounds[i+1]
-		out[i].alts = flat[s:t:t]
+		out[i].Alts = flat[s:t:t]
 	}
 	return out
-}
-
-// addMana returns a+b elementwise.
-func manaAdd(a, b state.Mana) state.Mana {
-	var m state.Mana
-	for i := range m {
-		m[i] = a[i] + b[i]
-	}
-	return m
 }
 
 // addAvailable folds one free-to-tap mana ability into an available-mana

@@ -211,7 +211,7 @@ func TestPhyrexianColourBranchExcludesReservedTapSource(t *testing.T) {
 	}
 	found := false
 	for _, s := range e.attackWindowUnits(1, nil) {
-		if s.id == dork {
+		if s.ID == dork {
 			found = true
 		}
 	}

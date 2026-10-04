@@ -146,7 +146,7 @@ func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUni
 		if i == next {
 			first = step
 		}
-		pool = manaAdd(pool, step.Mana)
+		pool = pay.ManaAdd(pool, step.Mana)
 	}
 	payment, ok := resolveManaWith(cost, pool, state.Mana{}, [7]state.Mana{}, e.G.Players[pc.player].Life, false, pipRider{}, nil)
 	if !ok || pay.ManaAmount(payment.Pool) != plan.PoolAfter {
@@ -172,7 +172,7 @@ func (e *Engine) paymentPlanStepReady(p state.PlayerID, units []windowManaUnit, 
 		return step, ""
 	}
 	for _, u := range units {
-		if u.id != pa.Source {
+		if u.ID != pa.Source {
 			continue
 		}
 		for _, alt := range e.paymentPlanQueryAlternatives(u) {
@@ -284,7 +284,7 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 // state: every field, the ability up to the identity of an ability built
 // per call (a CR 305.6 intrinsic).
 func paymentPlanSameStep(a, b pay.Alt) bool {
-	if !sameManaAbility(a.Ma, b.Ma) {
+	if !pay.SameManaAbility(a.Ma, b.Ma) {
 		return false
 	}
 	a.Ma, b.Ma = nil, nil

@@ -162,12 +162,12 @@ Oracle:x
 		t.Fatalf("the opponent may activate the controller's gained mana ability: %d abilities", len(got))
 	}
 	for _, u := range e.windowManaUnits(1) {
-		if u.id == id {
+		if u.ID == id {
 			t.Fatal("the opponent's payment window counts the controller's gained mana source")
 		}
 	}
 	for _, u := range e.paymentPlanManaUnits(1) {
-		if u.id == id {
+		if u.ID == id {
 			t.Fatal("the opponent's payment planner counts the controller's gained mana source")
 		}
 	}
