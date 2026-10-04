@@ -38,9 +38,9 @@ func textChangeDuration(dur string, absentPermanent bool) (permanent, untilEOT b
 		return absentPermanent, false
 	case textChangeDurationPermanent:
 		return true, false
-	case textChangeDurationAslongasinplay:
+	case textChangeDurationScoped:
 		return false, false
-	case textChangeDurationUntilendofyourturn:
+	case textChangeDurationUntilEndOfYourTurn:
 		// UntilYourNextTurn/UntilTheEndOfYourNextTurn are handled by
 		// AddContinuous's turn boundary; UntilEndOfYourTurn is the ordinary
 		// end-of-turn cleanup.
@@ -82,11 +82,11 @@ func textChooserLabels(h Host, chooser state.PlayerID, token, forbidden string) 
 		for _, cl := range chooseColorLabels {
 			labels = append(labels, strings.ToLower(cl.name))
 		}
-	case textChooserLabelsChoosecreaturetype:
+	case textChooserLabelsChooseCreatureType:
 		for _, o := range h.TypeChoices(chooser, "Creature") {
 			labels = append(labels, o.Label)
 		}
-	case textChooserLabelsChoosebasiclandtype:
+	case textChooserLabelsChooseBasicLandType:
 		labels = append(labels, chooseBasicLandTypes...)
 	default:
 		return nil
@@ -358,29 +358,29 @@ type textChangeDurationCode uint16
 const (
 	textChangeDurationEmpty textChangeDurationCode = iota + 1
 	textChangeDurationPermanent
-	textChangeDurationAslongasinplay
-	textChangeDurationUntilendofyourturn
+	textChangeDurationScoped
+	textChangeDurationUntilEndOfYourTurn
 )
 
 var textChangeDurationCodes = state.NewStrCodes(
 	state.StrEntry[textChangeDurationCode]{Key: "", Val: textChangeDurationEmpty},
 	state.StrEntry[textChangeDurationCode]{Key: "permanent", Val: textChangeDurationPermanent},
-	state.StrEntry[textChangeDurationCode]{Key: "aslongasinplay", Val: textChangeDurationAslongasinplay},
-	state.StrEntry[textChangeDurationCode]{Key: "aslongascontrolled", Val: textChangeDurationAslongasinplay},
-	state.StrEntry[textChangeDurationCode]{Key: "untilendofcombat", Val: textChangeDurationAslongasinplay},
-	state.StrEntry[textChangeDurationCode]{Key: "untilendofyourturn", Val: textChangeDurationUntilendofyourturn},
+	state.StrEntry[textChangeDurationCode]{Key: "aslongasinplay", Val: textChangeDurationScoped},
+	state.StrEntry[textChangeDurationCode]{Key: "aslongascontrolled", Val: textChangeDurationScoped},
+	state.StrEntry[textChangeDurationCode]{Key: "untilendofcombat", Val: textChangeDurationScoped},
+	state.StrEntry[textChangeDurationCode]{Key: "untilendofyourturn", Val: textChangeDurationUntilEndOfYourTurn},
 )
 
 type textChooserLabelsCode uint16
 
 const (
 	textChooserLabelsChoose textChooserLabelsCode = iota + 1
-	textChooserLabelsChoosecreaturetype
-	textChooserLabelsChoosebasiclandtype
+	textChooserLabelsChooseCreatureType
+	textChooserLabelsChooseBasicLandType
 )
 
 var textChooserLabelsCodes = state.NewStrCodes(
 	state.StrEntry[textChooserLabelsCode]{Key: "choose", Val: textChooserLabelsChoose},
-	state.StrEntry[textChooserLabelsCode]{Key: "choosecreaturetype", Val: textChooserLabelsChoosecreaturetype},
-	state.StrEntry[textChooserLabelsCode]{Key: "choosebasiclandtype", Val: textChooserLabelsChoosebasiclandtype},
+	state.StrEntry[textChooserLabelsCode]{Key: "choosecreaturetype", Val: textChooserLabelsChooseCreatureType},
+	state.StrEntry[textChooserLabelsCode]{Key: "choosebasiclandtype", Val: textChooserLabelsChooseBasicLandType},
 )

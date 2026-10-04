@@ -1167,7 +1167,7 @@ func putCounterChooserFor(h Host, c *Ctx, v string) (state.PlayerID, bool) {
 		return 0, false
 	}
 	switch putCounterChooserForCodes.Code(string(v)) {
-	case putCounterChooserForEmpty:
+	case putCounterChooserForYou:
 		return c.Controller, true
 	case putCounterChooserForPlayerIsRemembered:
 		return firstRememberedPlayer()
@@ -1211,7 +1211,7 @@ var putCounterPlacerForCodes = state.NewStrCodes(
 type putCounterChooserForCode uint16
 
 const (
-	putCounterChooserForEmpty putCounterChooserForCode = iota + 1
+	putCounterChooserForYou putCounterChooserForCode = iota + 1
 	putCounterChooserForPlayerIsRemembered
 	putCounterChooserForChosenPlayer
 	putCounterChooserForTriggeredPlayer
@@ -1219,9 +1219,9 @@ const (
 )
 
 var putCounterChooserForCodes = state.NewStrCodes(
-	state.StrEntry[putCounterChooserForCode]{Key: "", Val: putCounterChooserForEmpty},
-	state.StrEntry[putCounterChooserForCode]{Key: "You", Val: putCounterChooserForEmpty},
-	state.StrEntry[putCounterChooserForCode]{Key: "True", Val: putCounterChooserForEmpty},
+	state.StrEntry[putCounterChooserForCode]{Key: "", Val: putCounterChooserForYou},
+	state.StrEntry[putCounterChooserForCode]{Key: "You", Val: putCounterChooserForYou},
+	state.StrEntry[putCounterChooserForCode]{Key: "True", Val: putCounterChooserForYou},
 	state.StrEntry[putCounterChooserForCode]{Key: "Player.IsRemembered", Val: putCounterChooserForPlayerIsRemembered},
 	state.StrEntry[putCounterChooserForCode]{Key: "Remembered", Val: putCounterChooserForPlayerIsRemembered},
 	state.StrEntry[putCounterChooserForCode]{Key: "RememberedController", Val: putCounterChooserForPlayerIsRemembered},

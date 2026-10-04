@@ -392,7 +392,7 @@ func isLeastProperty(prop string) bool {
 // missing case here is a compile-time-visible oversight, not a silent one.
 func extremePropertyValue(h Host, o *state.Object, prop string) int32 {
 	switch extremePropertyValueCodes.Code(string(prop)) {
-	case extremePropertyValueGreatestCardPower:
+	case extremePropertyValueExtremeCardPower:
 		return h.Power(o.ID)
 	case extremePropertyValueGreatestCardToughness:
 		return h.Toughness(o.ID)
@@ -532,14 +532,14 @@ var zoneFoldPropCodes = state.NewStrCodes(
 type extremePropertyValueCode uint16
 
 const (
-	extremePropertyValueGreatestCardPower extremePropertyValueCode = iota + 1
+	extremePropertyValueExtremeCardPower extremePropertyValueCode = iota + 1
 	extremePropertyValueGreatestCardToughness
 	extremePropertyValueGreatestCardManaCost
 )
 
 var extremePropertyValueCodes = state.NewStrCodes(
-	state.StrEntry[extremePropertyValueCode]{Key: "GreatestCardPower", Val: extremePropertyValueGreatestCardPower},
-	state.StrEntry[extremePropertyValueCode]{Key: "LeastCardPower", Val: extremePropertyValueGreatestCardPower},
+	state.StrEntry[extremePropertyValueCode]{Key: "GreatestCardPower", Val: extremePropertyValueExtremeCardPower},
+	state.StrEntry[extremePropertyValueCode]{Key: "LeastCardPower", Val: extremePropertyValueExtremeCardPower},
 	state.StrEntry[extremePropertyValueCode]{Key: "GreatestCardToughness", Val: extremePropertyValueGreatestCardToughness},
 	state.StrEntry[extremePropertyValueCode]{Key: "GreatestCardManaCost", Val: extremePropertyValueGreatestCardManaCost},
 )

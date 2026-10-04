@@ -436,7 +436,7 @@ func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *card
 		return cost.Plus(ec), ok
 	case potentialModeBaseCostSurged:
 		return surgeCost(f)
-	case potentialModeBaseCostEvoked:
+	case potentialModeBaseCostAltCostKeyword:
 		head := map[string]string{"evoked": "Evoke", "dashed": "Dash", "overloaded": "Overload", "warped": "Warp",
 			"madness": "Madness", "miracle": "Miracle"}[mode]
 		mc, ok := f.KeywordParam(head)
@@ -1042,7 +1042,7 @@ const (
 	potentialModeBaseCostBuyback
 	potentialModeBaseCostEntwined
 	potentialModeBaseCostSurged
-	potentialModeBaseCostEvoked
+	potentialModeBaseCostAltCostKeyword
 )
 
 var potentialModeBaseCostCodes = state.NewStrCodes(
@@ -1055,10 +1055,10 @@ var potentialModeBaseCostCodes = state.NewStrCodes(
 	state.StrEntry[potentialModeBaseCostCode]{Key: "buyback", Val: potentialModeBaseCostBuyback},
 	state.StrEntry[potentialModeBaseCostCode]{Key: "entwined", Val: potentialModeBaseCostEntwined},
 	state.StrEntry[potentialModeBaseCostCode]{Key: "surged", Val: potentialModeBaseCostSurged},
-	state.StrEntry[potentialModeBaseCostCode]{Key: "evoked", Val: potentialModeBaseCostEvoked},
-	state.StrEntry[potentialModeBaseCostCode]{Key: "dashed", Val: potentialModeBaseCostEvoked},
-	state.StrEntry[potentialModeBaseCostCode]{Key: "overloaded", Val: potentialModeBaseCostEvoked},
-	state.StrEntry[potentialModeBaseCostCode]{Key: "warped", Val: potentialModeBaseCostEvoked},
-	state.StrEntry[potentialModeBaseCostCode]{Key: "madness", Val: potentialModeBaseCostEvoked},
-	state.StrEntry[potentialModeBaseCostCode]{Key: "miracle", Val: potentialModeBaseCostEvoked},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "evoked", Val: potentialModeBaseCostAltCostKeyword},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "dashed", Val: potentialModeBaseCostAltCostKeyword},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "overloaded", Val: potentialModeBaseCostAltCostKeyword},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "warped", Val: potentialModeBaseCostAltCostKeyword},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "madness", Val: potentialModeBaseCostAltCostKeyword},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "miracle", Val: potentialModeBaseCostAltCostKeyword},
 )

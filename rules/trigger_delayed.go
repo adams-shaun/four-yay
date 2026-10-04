@@ -88,11 +88,11 @@ func (e *Engine) delayedRegistrationLive(dt *state.DelayedTrigger) bool {
 			(src.Zone != state.ZBattlefield || src.Incarnation != dt.SourceIncarnation) {
 			return false
 		}
-	case delayedRegistrationLiveUntilendofcombat:
+	case delayedRegistrationLiveUntilEndOfCombat:
 		if !isCombatStep(e.G.Step) {
 			return false
 		}
-	case delayedRegistrationLiveUntilyournextturn:
+	case delayedRegistrationLiveUntilYourNextTurn:
 		// Read the folded turn history through the shared turn-start cache
 		// (nextTurnFor/rescheduleNextTurnBoundaries' own source of truth),
 		// not a frozen absolute turn: late extra-turn grants and skipped
@@ -856,13 +856,13 @@ type delayedRegistrationLiveCode uint16
 
 const (
 	delayedRegistrationLivePermanent delayedRegistrationLiveCode = iota + 1
-	delayedRegistrationLiveUntilendofcombat
-	delayedRegistrationLiveUntilyournextturn
+	delayedRegistrationLiveUntilEndOfCombat
+	delayedRegistrationLiveUntilYourNextTurn
 )
 
 var delayedRegistrationLiveCodes = state.NewStrCodes(
 	state.StrEntry[delayedRegistrationLiveCode]{Key: "permanent", Val: delayedRegistrationLivePermanent},
-	state.StrEntry[delayedRegistrationLiveCode]{Key: "untilendofcombat", Val: delayedRegistrationLiveUntilendofcombat},
-	state.StrEntry[delayedRegistrationLiveCode]{Key: "untilyournextturn", Val: delayedRegistrationLiveUntilyournextturn},
-	state.StrEntry[delayedRegistrationLiveCode]{Key: "untiltheendofyournextturn", Val: delayedRegistrationLiveUntilyournextturn},
+	state.StrEntry[delayedRegistrationLiveCode]{Key: "untilendofcombat", Val: delayedRegistrationLiveUntilEndOfCombat},
+	state.StrEntry[delayedRegistrationLiveCode]{Key: "untilyournextturn", Val: delayedRegistrationLiveUntilYourNextTurn},
+	state.StrEntry[delayedRegistrationLiveCode]{Key: "untiltheendofyournextturn", Val: delayedRegistrationLiveUntilYourNextTurn},
 )

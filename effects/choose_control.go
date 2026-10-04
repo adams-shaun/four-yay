@@ -1545,7 +1545,7 @@ func effControlSpell(h Host, c *Ctx, sa *cards.SA) {
 	// not recoverable.
 	mode := strings.TrimSpace(sa.ParamStr(cards.PKMode))
 	switch effControlSpellCodes.Code(string(mode)) {
-	case effControlSpellEmpty:
+	case effControlSpellGain:
 	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unhandled ControlSpell Mode$ " + mode})
@@ -2051,12 +2051,12 @@ var controlPlayerReferentCodes = state.NewStrCodes(
 type effControlSpellCode uint16
 
 const (
-	effControlSpellEmpty effControlSpellCode = iota + 1
+	effControlSpellGain effControlSpellCode = iota + 1
 )
 
 var effControlSpellCodes = state.NewStrCodes(
-	state.StrEntry[effControlSpellCode]{Key: "", Val: effControlSpellEmpty},
-	state.StrEntry[effControlSpellCode]{Key: "Gain", Val: effControlSpellEmpty},
+	state.StrEntry[effControlSpellCode]{Key: "", Val: effControlSpellGain},
+	state.StrEntry[effControlSpellCode]{Key: "Gain", Val: effControlSpellGain},
 )
 
 type repeatPlayersCode uint16

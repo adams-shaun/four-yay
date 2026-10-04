@@ -355,7 +355,7 @@ func playerCountDefinedRegistered(h Host, g *state.Game, c *Ctx, group []state.P
 	// total extreme through this head; if one ever does, widening is a
 	// one-line change with its own pin.
 	switch playerCountDefinedRegisteredCodes.Code(string(base)) {
-	case playerCountDefinedRegisteredHighestLifeLostThisTurn:
+	case playerCountDefinedRegisteredExtremeLifeLostThisTurn:
 		// The life-lost extremes — Knight of the Ebon Legion's and
 		// Y'shtola's gates. playerCountExtreme's LifeLostThisTurn arm is the
 		// Host's log-derived read.
@@ -906,14 +906,14 @@ var objectPropertyCodes = state.NewStrCodes(
 type playerCountDefinedRegisteredCode uint16
 
 const (
-	playerCountDefinedRegisteredHighestLifeLostThisTurn playerCountDefinedRegisteredCode = iota + 1
+	playerCountDefinedRegisteredExtremeLifeLostThisTurn playerCountDefinedRegisteredCode = iota + 1
 	playerCountDefinedRegisteredHasPropertyLostLifeThisTurn
 	playerCountDefinedRegisteredHasPropertywasDealtCombatDam
 )
 
 var playerCountDefinedRegisteredCodes = state.NewStrCodes(
-	state.StrEntry[playerCountDefinedRegisteredCode]{Key: "HighestLifeLostThisTurn", Val: playerCountDefinedRegisteredHighestLifeLostThisTurn},
-	state.StrEntry[playerCountDefinedRegisteredCode]{Key: "LowestLifeLostThisTurn", Val: playerCountDefinedRegisteredHighestLifeLostThisTurn},
+	state.StrEntry[playerCountDefinedRegisteredCode]{Key: "HighestLifeLostThisTurn", Val: playerCountDefinedRegisteredExtremeLifeLostThisTurn},
+	state.StrEntry[playerCountDefinedRegisteredCode]{Key: "LowestLifeLostThisTurn", Val: playerCountDefinedRegisteredExtremeLifeLostThisTurn},
 	state.StrEntry[playerCountDefinedRegisteredCode]{Key: "HasPropertyLostLifeThisTurn", Val: playerCountDefinedRegisteredHasPropertyLostLifeThisTurn},
 	state.StrEntry[playerCountDefinedRegisteredCode]{Key: "HasPropertywasDealtCombatDamageThisTurnBy", Val: playerCountDefinedRegisteredHasPropertywasDealtCombatDam},
 )

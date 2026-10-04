@@ -352,7 +352,7 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 				n = 0
 			}
 			return n, true, true
-		case evalCountBodyDottedMorbid:
+		case evalCountBodyDottedMorbidOrMonarch:
 			holds := false
 			if head[:dot] == "Monarch" {
 				holds = g.IsMonarch(c.Controller)
@@ -471,7 +471,7 @@ const (
 	evalCountBodyDottedWasCastFromYourHand
 	evalCountBodyDottedWasCastFromExile
 	evalCountBodyDottedIfCastInOwnMainPhase
-	evalCountBodyDottedMorbid
+	evalCountBodyDottedMorbidOrMonarch
 	evalCountBodyDottedRevolt
 	evalCountBodyDottedBlessing
 	evalCountBodyDottedThreshold
@@ -486,8 +486,8 @@ var evalCountBodyDottedCodes = state.NewStrCodes(
 	state.StrEntry[evalCountBodyDottedCode]{Key: "wasCastFromExile", Val: evalCountBodyDottedWasCastFromExile},
 	state.StrEntry[evalCountBodyDottedCode]{Key: "IfCastInOwnMainPhase", Val: evalCountBodyDottedIfCastInOwnMainPhase},
 	state.StrEntry[evalCountBodyDottedCode]{Key: "InOwnMainPhase", Val: evalCountBodyDottedIfCastInOwnMainPhase},
-	state.StrEntry[evalCountBodyDottedCode]{Key: "Morbid", Val: evalCountBodyDottedMorbid},
-	state.StrEntry[evalCountBodyDottedCode]{Key: "Monarch", Val: evalCountBodyDottedMorbid},
+	state.StrEntry[evalCountBodyDottedCode]{Key: "Morbid", Val: evalCountBodyDottedMorbidOrMonarch},
+	state.StrEntry[evalCountBodyDottedCode]{Key: "Monarch", Val: evalCountBodyDottedMorbidOrMonarch},
 	state.StrEntry[evalCountBodyDottedCode]{Key: "Revolt", Val: evalCountBodyDottedRevolt},
 	state.StrEntry[evalCountBodyDottedCode]{Key: "Blessing", Val: evalCountBodyDottedBlessing},
 	state.StrEntry[evalCountBodyDottedCode]{Key: "Threshold", Val: evalCountBodyDottedThreshold},

@@ -153,7 +153,7 @@ func arrangeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent, sa
 		return
 	}
 	switch arrangeAnswerRecordCodes.Code(string(kind)) {
-	case arrangeAnswerRecordHideawayBottom:
+	case arrangeAnswerRecordAllToBottom:
 		// The all-to-bottom shapes: Hideaway has already moved its one chosen
 		// card to exile before this ask; Dig's default remainder never had a
 		// take. Unlike Scry's selected subset, all remaining cards go to the
@@ -217,14 +217,14 @@ func arrangeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent, sa
 type arrangeAnswerRecordCode uint16
 
 const (
-	arrangeAnswerRecordHideawayBottom arrangeAnswerRecordCode = iota + 1
+	arrangeAnswerRecordAllToBottom arrangeAnswerRecordCode = iota + 1
 	arrangeAnswerRecordBottom
 	arrangeAnswerRecordGraveyard
 )
 
 var arrangeAnswerRecordCodes = state.NewStrCodes(
-	state.StrEntry[arrangeAnswerRecordCode]{Key: "hideaway_bottom", Val: arrangeAnswerRecordHideawayBottom},
-	state.StrEntry[arrangeAnswerRecordCode]{Key: "dig_bottom", Val: arrangeAnswerRecordHideawayBottom},
+	state.StrEntry[arrangeAnswerRecordCode]{Key: "hideaway_bottom", Val: arrangeAnswerRecordAllToBottom},
+	state.StrEntry[arrangeAnswerRecordCode]{Key: "dig_bottom", Val: arrangeAnswerRecordAllToBottom},
 	state.StrEntry[arrangeAnswerRecordCode]{Key: "bottom", Val: arrangeAnswerRecordBottom},
 	state.StrEntry[arrangeAnswerRecordCode]{Key: "graveyard", Val: arrangeAnswerRecordGraveyard},
 )

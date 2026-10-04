@@ -90,7 +90,7 @@ func evalCov3Head(h Host, c *Ctx, head, arg string, depth int) (int32, bool) {
 			n += h.TurnsTaken(state.PlayerID(i))
 		}
 		return n, true
-	case evalCov3HeadLeftGraveyardThisTurn:
+	case evalCov3HeadLeftZoneThisTurn:
 		// The cards that left a graveyard (Bonecache Overseer's "three or
 		// more cards left your graveyard this turn", Syrix, Living History)
 		// or the battlefield (Kutzil's Flanker, Tale of Momo) THIS TURN,
@@ -549,7 +549,7 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 			}
 		}
 		return n, true
-	case cov3PlayerScalarHasPropertyattackedYouTheirL:
+	case cov3PlayerScalarHasPropertyAttackedYouTheirLastTurn:
 		// The counted players who attacked the resolving controller during
 		// their last turn (Avenge's cost reduction gate), the Host's log
 		// walk over each member's most recent completed turn.
@@ -694,7 +694,7 @@ const (
 	evalCov3HeadTopOfLibraryCMC
 	evalCov3HeadTotalOppPoisonCounters
 	evalCov3HeadTotalTurns
-	evalCov3HeadLeftGraveyardThisTurn
+	evalCov3HeadLeftZoneThisTurn
 	evalCov3HeadMaxOppDamageThisTurn
 	evalCov3HeadCardManaCost
 	evalCov3HeadYourSpeed
@@ -710,8 +710,8 @@ var evalCov3HeadCodes = state.NewStrCodes(
 	state.StrEntry[evalCov3HeadCode]{Key: "TopOfLibraryCMC", Val: evalCov3HeadTopOfLibraryCMC},
 	state.StrEntry[evalCov3HeadCode]{Key: "TotalOppPoisonCounters", Val: evalCov3HeadTotalOppPoisonCounters},
 	state.StrEntry[evalCov3HeadCode]{Key: "TotalTurns", Val: evalCov3HeadTotalTurns},
-	state.StrEntry[evalCov3HeadCode]{Key: "LeftGraveyardThisTurn", Val: evalCov3HeadLeftGraveyardThisTurn},
-	state.StrEntry[evalCov3HeadCode]{Key: "LeftBattlefieldThisTurn", Val: evalCov3HeadLeftGraveyardThisTurn},
+	state.StrEntry[evalCov3HeadCode]{Key: "LeftGraveyardThisTurn", Val: evalCov3HeadLeftZoneThisTurn},
+	state.StrEntry[evalCov3HeadCode]{Key: "LeftBattlefieldThisTurn", Val: evalCov3HeadLeftZoneThisTurn},
 	state.StrEntry[evalCov3HeadCode]{Key: "MaxOppDamageThisTurn", Val: evalCov3HeadMaxOppDamageThisTurn},
 	state.StrEntry[evalCov3HeadCode]{Key: "CardManaCost", Val: evalCov3HeadCardManaCost},
 	state.StrEntry[evalCov3HeadCode]{Key: "YourSpeed", Val: evalCov3HeadYourSpeed},
@@ -809,7 +809,7 @@ const (
 	cov3PlayerScalarAttackersDeclared
 	cov3PlayerScalarHasPropertyBeenAttackedThisC
 	cov3PlayerScalarOpponentsAttackedThisCombat
-	cov3PlayerScalarHasPropertyattackedYouTheirL
+	cov3PlayerScalarHasPropertyAttackedYouTheirLastTurn
 	cov3PlayerScalarDomainPlayer
 )
 
@@ -823,6 +823,6 @@ var cov3PlayerScalarCodes = state.NewStrCodes(
 	state.StrEntry[cov3PlayerScalarCode]{Key: "AttackersDeclared", Val: cov3PlayerScalarAttackersDeclared},
 	state.StrEntry[cov3PlayerScalarCode]{Key: "HasPropertyBeenAttackedThisCombat", Val: cov3PlayerScalarHasPropertyBeenAttackedThisC},
 	state.StrEntry[cov3PlayerScalarCode]{Key: "OpponentsAttackedThisCombat", Val: cov3PlayerScalarOpponentsAttackedThisCombat},
-	state.StrEntry[cov3PlayerScalarCode]{Key: "HasPropertyattackedYouTheirLastTurn", Val: cov3PlayerScalarHasPropertyattackedYouTheirL},
+	state.StrEntry[cov3PlayerScalarCode]{Key: "HasPropertyattackedYouTheirLastTurn", Val: cov3PlayerScalarHasPropertyAttackedYouTheirLastTurn},
 	state.StrEntry[cov3PlayerScalarCode]{Key: "DomainPlayer", Val: cov3PlayerScalarDomainPlayer},
 )

@@ -304,7 +304,7 @@ func (e *Engine) settleWardPayment(kind string, sa *cards.SA, ctx *effects.Ctx, 
 		}
 		e.emit(events.Event{Kind: events.Tap, Obj: ids[0]})
 		return true
-	case settleWardPaymentWardSac:
+	case settleWardPaymentWardSacOrDiscard:
 		cost := e.parseCost(raw)
 		var part CostPart
 		var zone state.Zone
@@ -456,7 +456,7 @@ const (
 	settleWardPaymentWardEvidence
 	settleWardPaymentWardWaterbend
 	settleWardPaymentWardTap
-	settleWardPaymentWardSac
+	settleWardPaymentWardSacOrDiscard
 )
 
 var settleWardPaymentCodes = state.NewStrCodes(
@@ -465,6 +465,6 @@ var settleWardPaymentCodes = state.NewStrCodes(
 	state.StrEntry[settleWardPaymentCode]{Key: "ward_evidence", Val: settleWardPaymentWardEvidence},
 	state.StrEntry[settleWardPaymentCode]{Key: "ward_waterbend", Val: settleWardPaymentWardWaterbend},
 	state.StrEntry[settleWardPaymentCode]{Key: "ward_tap", Val: settleWardPaymentWardTap},
-	state.StrEntry[settleWardPaymentCode]{Key: "ward_sac", Val: settleWardPaymentWardSac},
-	state.StrEntry[settleWardPaymentCode]{Key: "ward_discard", Val: settleWardPaymentWardSac},
+	state.StrEntry[settleWardPaymentCode]{Key: "ward_sac", Val: settleWardPaymentWardSacOrDiscard},
+	state.StrEntry[settleWardPaymentCode]{Key: "ward_discard", Val: settleWardPaymentWardSacOrDiscard},
 )

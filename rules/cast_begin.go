@@ -194,7 +194,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		if ff, fa := fusedSplitFaces(o); ff != nil {
 			cost = e.fuseCost(ff, fa)
 		}
-	case castModeKicked1:
+	case castModeKickedParts:
 		// The and/or Kicker's per-part modes (legal.go offers one option per
 		// independently payable part): each mode adds exactly the parts its
 		// name promises. An out-of-range or unparseable form (a stale option
@@ -381,7 +381,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		if e.hasKeywordH(id, kwhJumpStart) {
 			cost = cost.Plus(jumpstartExtra())
 		}
-	case castModeEvoked:
+	case castModeAltCostKeyword:
 		// Grant instances use distinct modes so their cost remains selectable
 		// beside printed Blitz, but share Blitz's cast semantics.
 		// The alternative-cost keyword family (altcosts): each mode's cost is
@@ -1157,7 +1157,7 @@ type castModeCode uint16
 const (
 	castModeKicked castModeCode = iota + 1
 	castModeFuse
-	castModeKicked1
+	castModeKickedParts
 	castModeSurged
 	castModeEntwined
 	castModeBuyback
@@ -1180,7 +1180,7 @@ const (
 	castModeEscape
 	castModeRetrace
 	castModeJumpstart
-	castModeEvoked
+	castModeAltCostKeyword
 	castModeWebSlinging
 	castModeSneak
 	castModeMayhem
@@ -1193,9 +1193,9 @@ const (
 var castModeCodes = state.NewStrCodes(
 	state.StrEntry[castModeCode]{Key: "kicked", Val: castModeKicked},
 	state.StrEntry[castModeCode]{Key: "fuse", Val: castModeFuse},
-	state.StrEntry[castModeCode]{Key: "kicked1", Val: castModeKicked1},
-	state.StrEntry[castModeCode]{Key: "kicked2", Val: castModeKicked1},
-	state.StrEntry[castModeCode]{Key: "kickedboth", Val: castModeKicked1},
+	state.StrEntry[castModeCode]{Key: "kicked1", Val: castModeKickedParts},
+	state.StrEntry[castModeCode]{Key: "kicked2", Val: castModeKickedParts},
+	state.StrEntry[castModeCode]{Key: "kickedboth", Val: castModeKickedParts},
 	state.StrEntry[castModeCode]{Key: "surged", Val: castModeSurged},
 	state.StrEntry[castModeCode]{Key: "entwined", Val: castModeEntwined},
 	state.StrEntry[castModeCode]{Key: "buyback", Val: castModeBuyback},
@@ -1218,13 +1218,13 @@ var castModeCodes = state.NewStrCodes(
 	state.StrEntry[castModeCode]{Key: "escape", Val: castModeEscape},
 	state.StrEntry[castModeCode]{Key: "retrace", Val: castModeRetrace},
 	state.StrEntry[castModeCode]{Key: "jumpstart", Val: castModeJumpstart},
-	state.StrEntry[castModeCode]{Key: "evoked", Val: castModeEvoked},
-	state.StrEntry[castModeCode]{Key: "dashed", Val: castModeEvoked},
-	state.StrEntry[castModeCode]{Key: "overloaded", Val: castModeEvoked},
-	state.StrEntry[castModeCode]{Key: "warped", Val: castModeEvoked},
-	state.StrEntry[castModeCode]{Key: "madness", Val: castModeEvoked},
-	state.StrEntry[castModeCode]{Key: "bestowed", Val: castModeEvoked},
-	state.StrEntry[castModeCode]{Key: "blitzed", Val: castModeEvoked},
+	state.StrEntry[castModeCode]{Key: "evoked", Val: castModeAltCostKeyword},
+	state.StrEntry[castModeCode]{Key: "dashed", Val: castModeAltCostKeyword},
+	state.StrEntry[castModeCode]{Key: "overloaded", Val: castModeAltCostKeyword},
+	state.StrEntry[castModeCode]{Key: "warped", Val: castModeAltCostKeyword},
+	state.StrEntry[castModeCode]{Key: "madness", Val: castModeAltCostKeyword},
+	state.StrEntry[castModeCode]{Key: "bestowed", Val: castModeAltCostKeyword},
+	state.StrEntry[castModeCode]{Key: "blitzed", Val: castModeAltCostKeyword},
 	state.StrEntry[castModeCode]{Key: "web-slinging", Val: castModeWebSlinging},
 	state.StrEntry[castModeCode]{Key: "sneak", Val: castModeSneak},
 	state.StrEntry[castModeCode]{Key: "mayhem", Val: castModeMayhem},

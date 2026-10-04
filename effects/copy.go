@@ -426,7 +426,7 @@ func copyOfCopy(g *state.Game, spell state.ObjID) bool {
 
 func copyControllerFor(g *state.Game, c *Ctx, spec string) (state.PlayerID, bool) {
 	switch copyControllerForCodes.Code(string(spec)) {
-	case copyControllerForTargetedOrController:
+	case copyControllerForTargeted:
 		for _, t := range c.Targets {
 			if t.IsPlayer {
 				return t.Player, true
@@ -507,7 +507,7 @@ var copyDefinedTargetsCodes = state.NewStrCodes(
 type copyControllerForCode uint16
 
 const (
-	copyControllerForTargetedOrController copyControllerForCode = iota + 1
+	copyControllerForTargeted copyControllerForCode = iota + 1
 	copyControllerForChosenPlayer
 	copyControllerForRemembered
 	copyControllerForYou
@@ -515,12 +515,12 @@ const (
 )
 
 var copyControllerForCodes = state.NewStrCodes(
-	state.StrEntry[copyControllerForCode]{Key: "TargetedOrController", Val: copyControllerForTargetedOrController},
-	state.StrEntry[copyControllerForCode]{Key: "Targeted", Val: copyControllerForTargetedOrController},
-	state.StrEntry[copyControllerForCode]{Key: "TargetedController", Val: copyControllerForTargetedOrController},
-	state.StrEntry[copyControllerForCode]{Key: "TargetedPlayer", Val: copyControllerForTargetedOrController},
-	state.StrEntry[copyControllerForCode]{Key: "ThisTargetedController", Val: copyControllerForTargetedOrController},
-	state.StrEntry[copyControllerForCode]{Key: "ThisTargetedPlayer", Val: copyControllerForTargetedOrController},
+	state.StrEntry[copyControllerForCode]{Key: "TargetedOrController", Val: copyControllerForTargeted},
+	state.StrEntry[copyControllerForCode]{Key: "Targeted", Val: copyControllerForTargeted},
+	state.StrEntry[copyControllerForCode]{Key: "TargetedController", Val: copyControllerForTargeted},
+	state.StrEntry[copyControllerForCode]{Key: "TargetedPlayer", Val: copyControllerForTargeted},
+	state.StrEntry[copyControllerForCode]{Key: "ThisTargetedController", Val: copyControllerForTargeted},
+	state.StrEntry[copyControllerForCode]{Key: "ThisTargetedPlayer", Val: copyControllerForTargeted},
 	state.StrEntry[copyControllerForCode]{Key: "ChosenPlayer", Val: copyControllerForChosenPlayer},
 	state.StrEntry[copyControllerForCode]{Key: "Player.Chosen", Val: copyControllerForChosenPlayer},
 	state.StrEntry[copyControllerForCode]{Key: "Remembered", Val: copyControllerForRemembered},

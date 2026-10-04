@@ -99,7 +99,7 @@ func countDistinctLimitMax(body, op string, n int32) (int32, bool) {
 		return n, false
 	}
 	switch countDistinctLimitMaxCodes.Code(string(strings.TrimSpace(prop))) {
-	case countDistinctLimitMaxColors:
+	case countDistinctLimitMaxSupported:
 	default:
 		return n, false
 	}
@@ -508,10 +508,10 @@ var validConvokedCountOpSet = state.NewNameSet(
 type countDistinctLimitMaxCode uint16
 
 const (
-	countDistinctLimitMaxColors countDistinctLimitMaxCode = iota + 1
+	countDistinctLimitMaxSupported countDistinctLimitMaxCode = iota + 1
 )
 
 var countDistinctLimitMaxCodes = state.NewStrCodes(
-	state.StrEntry[countDistinctLimitMaxCode]{Key: "Colors", Val: countDistinctLimitMaxColors},
-	state.StrEntry[countDistinctLimitMaxCode]{Key: "CreatureType", Val: countDistinctLimitMaxColors},
+	state.StrEntry[countDistinctLimitMaxCode]{Key: "Colors", Val: countDistinctLimitMaxSupported},
+	state.StrEntry[countDistinctLimitMaxCode]{Key: "CreatureType", Val: countDistinctLimitMaxSupported},
 )

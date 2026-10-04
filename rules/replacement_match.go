@@ -962,7 +962,7 @@ func (e *Engine) replacementCheckValue(source state.ObjID, check string) int32 {
 			if f := e.G.Obj(id).Face(); f != nil {
 				for _, typ := range f.Types {
 					switch replacementCheckTypeCodes.Code(string(typ)) {
-					case replacementCheckTypeCleric:
+					case replacementCheckTypePartyType:
 						roles[typ] = true
 					}
 				}
@@ -1077,7 +1077,7 @@ func (e *Engine) graveyardCardTypeCount(controller state.PlayerID) int {
 		if o := e.G.Obj(id); o != nil && o.Face() != nil {
 			for _, typ := range o.Face().Types {
 				switch graveyardCardTypeCountCodes.Code(string(typ)) {
-				case graveyardCardTypeCountArtifact:
+				case graveyardCardTypeCountCardType:
 					seen[typ] = true
 				}
 			}
@@ -1190,32 +1190,32 @@ var replacementCheckBodyCodes = state.NewStrCodes(
 type replacementCheckTypeCode uint16
 
 const (
-	replacementCheckTypeCleric replacementCheckTypeCode = iota + 1
+	replacementCheckTypePartyType replacementCheckTypeCode = iota + 1
 )
 
 var replacementCheckTypeCodes = state.NewStrCodes(
-	state.StrEntry[replacementCheckTypeCode]{Key: "Cleric", Val: replacementCheckTypeCleric},
-	state.StrEntry[replacementCheckTypeCode]{Key: "Rogue", Val: replacementCheckTypeCleric},
-	state.StrEntry[replacementCheckTypeCode]{Key: "Warrior", Val: replacementCheckTypeCleric},
-	state.StrEntry[replacementCheckTypeCode]{Key: "Wizard", Val: replacementCheckTypeCleric},
+	state.StrEntry[replacementCheckTypeCode]{Key: "Cleric", Val: replacementCheckTypePartyType},
+	state.StrEntry[replacementCheckTypeCode]{Key: "Rogue", Val: replacementCheckTypePartyType},
+	state.StrEntry[replacementCheckTypeCode]{Key: "Warrior", Val: replacementCheckTypePartyType},
+	state.StrEntry[replacementCheckTypeCode]{Key: "Wizard", Val: replacementCheckTypePartyType},
 )
 
 type graveyardCardTypeCountCode uint16
 
 const (
-	graveyardCardTypeCountArtifact graveyardCardTypeCountCode = iota + 1
+	graveyardCardTypeCountCardType graveyardCardTypeCountCode = iota + 1
 )
 
 var graveyardCardTypeCountCodes = state.NewStrCodes(
-	state.StrEntry[graveyardCardTypeCountCode]{Key: "Artifact", Val: graveyardCardTypeCountArtifact},
-	state.StrEntry[graveyardCardTypeCountCode]{Key: "Battle", Val: graveyardCardTypeCountArtifact},
-	state.StrEntry[graveyardCardTypeCountCode]{Key: "Creature", Val: graveyardCardTypeCountArtifact},
-	state.StrEntry[graveyardCardTypeCountCode]{Key: "Enchantment", Val: graveyardCardTypeCountArtifact},
-	state.StrEntry[graveyardCardTypeCountCode]{Key: "Instant", Val: graveyardCardTypeCountArtifact},
-	state.StrEntry[graveyardCardTypeCountCode]{Key: "Kindred", Val: graveyardCardTypeCountArtifact},
-	state.StrEntry[graveyardCardTypeCountCode]{Key: "Land", Val: graveyardCardTypeCountArtifact},
-	state.StrEntry[graveyardCardTypeCountCode]{Key: "Planeswalker", Val: graveyardCardTypeCountArtifact},
-	state.StrEntry[graveyardCardTypeCountCode]{Key: "Sorcery", Val: graveyardCardTypeCountArtifact},
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Artifact", Val: graveyardCardTypeCountCardType},
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Battle", Val: graveyardCardTypeCountCardType},
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Creature", Val: graveyardCardTypeCountCardType},
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Enchantment", Val: graveyardCardTypeCountCardType},
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Instant", Val: graveyardCardTypeCountCardType},
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Kindred", Val: graveyardCardTypeCountCardType},
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Land", Val: graveyardCardTypeCountCardType},
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Planeswalker", Val: graveyardCardTypeCountCardType},
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Sorcery", Val: graveyardCardTypeCountCardType},
 )
 
 type replacementCauseKindCode uint16

@@ -854,7 +854,7 @@ func landTypesOf(o *state.Object) []string {
 	out := make([]string, 0, len(f.Types))
 	for _, t := range f.Types {
 		switch landTypesOfCodes.Code(string(t)) {
-		case landTypesOfLand:
+		case landTypesOfNonSubtype:
 			continue
 		}
 		out = append(out, t)
@@ -968,7 +968,7 @@ func totalCardTypesSatisfied(g *state.Game, ids []state.ObjID, need int) bool {
 		}
 		for _, typ := range o.Face().Types {
 			switch totalCardTypesSatisfiedCodes.Code(string(typ)) {
-			case totalCardTypesSatisfiedArtifact:
+			case totalCardTypesSatisfiedCardType:
 				seen[typ] = true
 			}
 		}
@@ -1309,29 +1309,29 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owne
 type landTypesOfCode uint16
 
 const (
-	landTypesOfLand landTypesOfCode = iota + 1
+	landTypesOfNonSubtype landTypesOfCode = iota + 1
 )
 
 var landTypesOfCodes = state.NewStrCodes(
-	state.StrEntry[landTypesOfCode]{Key: "Land", Val: landTypesOfLand},
-	state.StrEntry[landTypesOfCode]{Key: "Basic", Val: landTypesOfLand},
-	state.StrEntry[landTypesOfCode]{Key: "Snow", Val: landTypesOfLand},
+	state.StrEntry[landTypesOfCode]{Key: "Land", Val: landTypesOfNonSubtype},
+	state.StrEntry[landTypesOfCode]{Key: "Basic", Val: landTypesOfNonSubtype},
+	state.StrEntry[landTypesOfCode]{Key: "Snow", Val: landTypesOfNonSubtype},
 )
 
 type totalCardTypesSatisfiedCode uint16
 
 const (
-	totalCardTypesSatisfiedArtifact totalCardTypesSatisfiedCode = iota + 1
+	totalCardTypesSatisfiedCardType totalCardTypesSatisfiedCode = iota + 1
 )
 
 var totalCardTypesSatisfiedCodes = state.NewStrCodes(
-	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Artifact", Val: totalCardTypesSatisfiedArtifact},
-	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Battle", Val: totalCardTypesSatisfiedArtifact},
-	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Creature", Val: totalCardTypesSatisfiedArtifact},
-	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Enchantment", Val: totalCardTypesSatisfiedArtifact},
-	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Instant", Val: totalCardTypesSatisfiedArtifact},
-	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Kindred", Val: totalCardTypesSatisfiedArtifact},
-	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Land", Val: totalCardTypesSatisfiedArtifact},
-	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Planeswalker", Val: totalCardTypesSatisfiedArtifact},
-	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Sorcery", Val: totalCardTypesSatisfiedArtifact},
+	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Artifact", Val: totalCardTypesSatisfiedCardType},
+	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Battle", Val: totalCardTypesSatisfiedCardType},
+	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Creature", Val: totalCardTypesSatisfiedCardType},
+	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Enchantment", Val: totalCardTypesSatisfiedCardType},
+	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Instant", Val: totalCardTypesSatisfiedCardType},
+	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Kindred", Val: totalCardTypesSatisfiedCardType},
+	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Land", Val: totalCardTypesSatisfiedCardType},
+	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Planeswalker", Val: totalCardTypesSatisfiedCardType},
+	state.StrEntry[totalCardTypesSatisfiedCode]{Key: "Sorcery", Val: totalCardTypesSatisfiedCardType},
 )

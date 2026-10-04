@@ -326,7 +326,7 @@ func (e *Engine) costAffectedZone(id state.ObjID, scope costScope) (state.Zone, 
 func (e *Engine) costTurnGateHolds(sv staticView) bool {
 	if turn := strings.TrimSpace(sv.ParamStr(cards.PKPlayerTurn)); turn != "" {
 		switch costTurnGateHoldsCodes.Code(string(turn)) {
-		case costTurnGateHoldsTrue:
+		case costTurnGateHoldsYou:
 			if e.G.Active != sv.Controller {
 				return false
 			}
@@ -768,13 +768,13 @@ func parseInt10(s string) (int64, bool) {
 type costTurnGateHoldsCode uint16
 
 const (
-	costTurnGateHoldsTrue costTurnGateHoldsCode = iota + 1
+	costTurnGateHoldsYou costTurnGateHoldsCode = iota + 1
 	costTurnGateHoldsOpponent
 )
 
 var costTurnGateHoldsCodes = state.NewStrCodes(
-	state.StrEntry[costTurnGateHoldsCode]{Key: "True", Val: costTurnGateHoldsTrue},
-	state.StrEntry[costTurnGateHoldsCode]{Key: "You", Val: costTurnGateHoldsTrue},
+	state.StrEntry[costTurnGateHoldsCode]{Key: "True", Val: costTurnGateHoldsYou},
+	state.StrEntry[costTurnGateHoldsCode]{Key: "You", Val: costTurnGateHoldsYou},
 	state.StrEntry[costTurnGateHoldsCode]{Key: "Opponent", Val: costTurnGateHoldsOpponent},
 )
 

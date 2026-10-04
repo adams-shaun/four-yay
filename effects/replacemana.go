@@ -44,7 +44,7 @@ func effReplaceMana(_ Host, c *Ctx, sa *cards.SA) {
 		kind = "R"
 	case effReplaceManaGreen:
 		kind = "G"
-	case effReplaceManaAny:
+	case effReplaceManaChoice:
 		kind = c.Mana.Choice
 	}
 	if len(kind) == 1 && strings.ContainsRune(ManaSymbols, rune(kind[0])) {
@@ -60,7 +60,7 @@ const (
 	effReplaceManaBlack
 	effReplaceManaRed
 	effReplaceManaGreen
-	effReplaceManaAny
+	effReplaceManaChoice
 )
 
 var effReplaceManaCodes = state.NewStrCodes(
@@ -69,6 +69,6 @@ var effReplaceManaCodes = state.NewStrCodes(
 	state.StrEntry[effReplaceManaCode]{Key: "black", Val: effReplaceManaBlack},
 	state.StrEntry[effReplaceManaCode]{Key: "red", Val: effReplaceManaRed},
 	state.StrEntry[effReplaceManaCode]{Key: "green", Val: effReplaceManaGreen},
-	state.StrEntry[effReplaceManaCode]{Key: "any", Val: effReplaceManaAny},
-	state.StrEntry[effReplaceManaCode]{Key: "chosen", Val: effReplaceManaAny},
+	state.StrEntry[effReplaceManaCode]{Key: "any", Val: effReplaceManaChoice},
+	state.StrEntry[effReplaceManaCode]{Key: "chosen", Val: effReplaceManaChoice},
 )

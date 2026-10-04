@@ -303,7 +303,7 @@ func effCloak(h Host, c *Ctx, sa *cards.SA) {
 		}
 	} else {
 		switch effCloakCodes.Code(string(defined)) {
-		case effCloakEmpty:
+		case effCloakTopOfLibrary:
 			// The bare top-card shape (veiled_ascension, ransom_note,
 			// cryptic_coat): the resolving controller's top card, the
 			// TopOfLibrary selector's own anchor (effects/context.go).
@@ -347,12 +347,12 @@ func effCloak(h Host, c *Ctx, sa *cards.SA) {
 type effCloakCode uint16
 
 const (
-	effCloakEmpty effCloakCode = iota + 1
+	effCloakTopOfLibrary effCloakCode = iota + 1
 	effCloakRemembered
 )
 
 var effCloakCodes = state.NewStrCodes(
-	state.StrEntry[effCloakCode]{Key: "", Val: effCloakEmpty},
-	state.StrEntry[effCloakCode]{Key: "TopOfLibrary", Val: effCloakEmpty},
+	state.StrEntry[effCloakCode]{Key: "", Val: effCloakTopOfLibrary},
+	state.StrEntry[effCloakCode]{Key: "TopOfLibrary", Val: effCloakTopOfLibrary},
 	state.StrEntry[effCloakCode]{Key: "Remembered", Val: effCloakRemembered},
 )

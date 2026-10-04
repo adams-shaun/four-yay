@@ -91,7 +91,7 @@ func evalTriggerCountOK(c *Ctx, body string, max bool) (int32, bool) {
 	body, op, hasOp := strings.Cut(body, "/")
 	var n int32
 	switch evalTriggerCountOKCodes.Code(string(strings.TrimSpace(body))) {
-	case evalTriggerCountOKDamageAmount:
+	case evalTriggerCountOKAmount:
 		// ScryBottom is the events.Scry marker's Amount (the number put on
 		// the bottom), captured into TriggerAmount by rules for Mode$ Scry.
 		n = c.TriggerAmount
@@ -656,15 +656,15 @@ func (t castManaSpentTotals) byTag(arg string) int32 {
 type evalTriggerCountOKCode uint16
 
 const (
-	evalTriggerCountOKDamageAmount evalTriggerCountOKCode = iota + 1
+	evalTriggerCountOKAmount evalTriggerCountOKCode = iota + 1
 	evalTriggerCountOKResult
 )
 
 var evalTriggerCountOKCodes = state.NewStrCodes(
-	state.StrEntry[evalTriggerCountOKCode]{Key: "DamageAmount", Val: evalTriggerCountOKDamageAmount},
-	state.StrEntry[evalTriggerCountOKCode]{Key: "LifeAmount", Val: evalTriggerCountOKDamageAmount},
-	state.StrEntry[evalTriggerCountOKCode]{Key: "Amount", Val: evalTriggerCountOKDamageAmount},
-	state.StrEntry[evalTriggerCountOKCode]{Key: "ScryBottom", Val: evalTriggerCountOKDamageAmount},
+	state.StrEntry[evalTriggerCountOKCode]{Key: "DamageAmount", Val: evalTriggerCountOKAmount},
+	state.StrEntry[evalTriggerCountOKCode]{Key: "LifeAmount", Val: evalTriggerCountOKAmount},
+	state.StrEntry[evalTriggerCountOKCode]{Key: "Amount", Val: evalTriggerCountOKAmount},
+	state.StrEntry[evalTriggerCountOKCode]{Key: "ScryBottom", Val: evalTriggerCountOKAmount},
 	state.StrEntry[evalTriggerCountOKCode]{Key: "Result", Val: evalTriggerCountOKResult},
 )
 

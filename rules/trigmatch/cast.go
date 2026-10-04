@@ -369,11 +369,11 @@ func spellAbilityCastSpellValidSA(e Board, obj *state.Object, validSA string, so
 		}
 		kind, constraint, _ := strings.Cut(alt, ".")
 		switch validSAKindCodes.Code(string(kind)) {
-		case validSAKindActivated:
+		case validSAKindAbility:
 			continue
 		case validSAKindSpellAbility:
 			switch validSAConstraintCodes.Code(string(constraint)) {
-			case validSAConstraintEmpty:
+			case validSAConstraintNonMana:
 				return true
 			case validSAConstraintManaAbility:
 				continue
@@ -1027,27 +1027,27 @@ func init() {
 type validSAKindCode uint16
 
 const (
-	validSAKindActivated validSAKindCode = iota + 1
+	validSAKindAbility validSAKindCode = iota + 1
 	validSAKindSpellAbility
 )
 
 var validSAKindCodes = state.NewStrCodes(
-	state.StrEntry[validSAKindCode]{Key: "Activated", Val: validSAKindActivated},
-	state.StrEntry[validSAKindCode]{Key: "Triggered", Val: validSAKindActivated},
+	state.StrEntry[validSAKindCode]{Key: "Activated", Val: validSAKindAbility},
+	state.StrEntry[validSAKindCode]{Key: "Triggered", Val: validSAKindAbility},
 	state.StrEntry[validSAKindCode]{Key: "SpellAbility", Val: validSAKindSpellAbility},
 )
 
 type validSAConstraintCode uint16
 
 const (
-	validSAConstraintEmpty validSAConstraintCode = iota + 1
+	validSAConstraintNonMana validSAConstraintCode = iota + 1
 	validSAConstraintManaAbility
 	validSAConstraintYouCtrl
 )
 
 var validSAConstraintCodes = state.NewStrCodes(
-	state.StrEntry[validSAConstraintCode]{Key: "", Val: validSAConstraintEmpty},
-	state.StrEntry[validSAConstraintCode]{Key: "!ManaAbility", Val: validSAConstraintEmpty},
+	state.StrEntry[validSAConstraintCode]{Key: "", Val: validSAConstraintNonMana},
+	state.StrEntry[validSAConstraintCode]{Key: "!ManaAbility", Val: validSAConstraintNonMana},
 	state.StrEntry[validSAConstraintCode]{Key: "ManaAbility", Val: validSAConstraintManaAbility},
 	state.StrEntry[validSAConstraintCode]{Key: "YouCtrl", Val: validSAConstraintYouCtrl},
 )

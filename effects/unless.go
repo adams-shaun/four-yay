@@ -449,7 +449,7 @@ const (
 // UnlessCost$ line keeps the default either way.
 func unlessSubsRun(sa *cards.SA, paid bool) bool {
 	switch unlessSubsRunCodes.Code(string(strings.TrimSpace(sa.ParamStr(cards.PKUnlessResolveSubs)))) {
-	case unlessSubsRunEmpty:
+	case unlessSubsRunAlways:
 		return true
 	case unlessSubsRunWhenPaid:
 		return paid
@@ -954,14 +954,14 @@ var unlessDefinedCostCodes = state.NewStrCodes(
 type unlessSubsRunCode uint16
 
 const (
-	unlessSubsRunEmpty unlessSubsRunCode = iota + 1
+	unlessSubsRunAlways unlessSubsRunCode = iota + 1
 	unlessSubsRunWhenPaid
 	unlessSubsRunWhenNotPaid
 )
 
 var unlessSubsRunCodes = state.NewStrCodes(
-	state.StrEntry[unlessSubsRunCode]{Key: "", Val: unlessSubsRunEmpty},
-	state.StrEntry[unlessSubsRunCode]{Key: "Always", Val: unlessSubsRunEmpty},
+	state.StrEntry[unlessSubsRunCode]{Key: "", Val: unlessSubsRunAlways},
+	state.StrEntry[unlessSubsRunCode]{Key: "Always", Val: unlessSubsRunAlways},
 	state.StrEntry[unlessSubsRunCode]{Key: "WhenPaid", Val: unlessSubsRunWhenPaid},
 	state.StrEntry[unlessSubsRunCode]{Key: "WhenNotPaid", Val: unlessSubsRunWhenNotPaid},
 )

@@ -56,7 +56,7 @@ func playValidReadsOtherHand(valid string) bool {
 		return r == '.' || r == '+' || r == ','
 	}) {
 		switch playValidReadsOtherHandCodes.Code(string(strings.ToLower(strings.TrimSpace(token)))) {
-		case playValidReadsOtherHandIsremembered:
+		case playValidReadsOtherHandPlayerRef:
 			return true
 		}
 	}
@@ -506,12 +506,12 @@ func ZoneFromString(s string) (state.Zone, bool) {
 type playValidReadsOtherHandCode uint16
 
 const (
-	playValidReadsOtherHandIsremembered playValidReadsOtherHandCode = iota + 1
+	playValidReadsOtherHandPlayerRef playValidReadsOtherHandCode = iota + 1
 )
 
 var playValidReadsOtherHandCodes = state.NewStrCodes(
-	state.StrEntry[playValidReadsOtherHandCode]{Key: "isremembered", Val: playValidReadsOtherHandIsremembered},
-	state.StrEntry[playValidReadsOtherHandCode]{Key: "targetedplayerctrl", Val: playValidReadsOtherHandIsremembered},
+	state.StrEntry[playValidReadsOtherHandCode]{Key: "isremembered", Val: playValidReadsOtherHandPlayerRef},
+	state.StrEntry[playValidReadsOtherHandCode]{Key: "targetedplayerctrl", Val: playValidReadsOtherHandPlayerRef},
 )
 
 type zoneFromStringCode uint16

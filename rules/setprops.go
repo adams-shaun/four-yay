@@ -314,7 +314,7 @@ func (e *Engine) filterTargetsWithSharedCardType(in []targetCandidate, sa *cards
 // every-other-spec convention.
 func (e *Engine) targetControllerPropertyAdmits(kind string, obj state.ObjID) bool {
 	switch targetControllerPropertyAdmitsCodes.Code(string(strings.TrimSpace(kind))) {
-	case targetControllerPropertyAdmitsCmcLECardsInGraveyard:
+	case targetControllerPropertyAdmitsLECardsInGraveyard:
 	default:
 		return false
 	}
@@ -398,10 +398,10 @@ var sharedCardTypeReferenceCodes = state.NewStrCodes(
 type targetControllerPropertyAdmitsCode uint16
 
 const (
-	targetControllerPropertyAdmitsCmcLECardsInGraveyard targetControllerPropertyAdmitsCode = iota + 1
+	targetControllerPropertyAdmitsLECardsInGraveyard targetControllerPropertyAdmitsCode = iota + 1
 )
 
 var targetControllerPropertyAdmitsCodes = state.NewStrCodes(
-	state.StrEntry[targetControllerPropertyAdmitsCode]{Key: "cmcLECardsInGraveyard", Val: targetControllerPropertyAdmitsCmcLECardsInGraveyard},
-	state.StrEntry[targetControllerPropertyAdmitsCode]{Key: "powerLECardsInGraveyard", Val: targetControllerPropertyAdmitsCmcLECardsInGraveyard},
+	state.StrEntry[targetControllerPropertyAdmitsCode]{Key: "cmcLECardsInGraveyard", Val: targetControllerPropertyAdmitsLECardsInGraveyard},
+	state.StrEntry[targetControllerPropertyAdmitsCode]{Key: "powerLECardsInGraveyard", Val: targetControllerPropertyAdmitsLECardsInGraveyard},
 )

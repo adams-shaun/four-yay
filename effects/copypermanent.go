@@ -472,7 +472,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	var owners []state.PlayerID
 	multiOwner := false
 	switch copyPermanentControllerCodes.Code(string(cp.Controller)) {
-	case copyPermanentControllerEmpty:
+	case copyPermanentControllerYou:
 	case copyPermanentControllerTargeted:
 		if ps := controllersOf(g, targets); len(ps) > 0 {
 			owner = ps[0].Player
@@ -936,7 +936,7 @@ func rememberedWrittenByResolution(c *Ctx) []state.Target {
 type copyPermanentControllerCode uint16
 
 const (
-	copyPermanentControllerEmpty copyPermanentControllerCode = iota + 1
+	copyPermanentControllerYou copyPermanentControllerCode = iota + 1
 	copyPermanentControllerTargeted
 	copyPermanentControllerRemembered
 	copyPermanentControllerTriggeredCardController
@@ -945,8 +945,8 @@ const (
 )
 
 var copyPermanentControllerCodes = state.NewStrCodes(
-	state.StrEntry[copyPermanentControllerCode]{Key: "", Val: copyPermanentControllerEmpty},
-	state.StrEntry[copyPermanentControllerCode]{Key: "You", Val: copyPermanentControllerEmpty},
+	state.StrEntry[copyPermanentControllerCode]{Key: "", Val: copyPermanentControllerYou},
+	state.StrEntry[copyPermanentControllerCode]{Key: "You", Val: copyPermanentControllerYou},
 	state.StrEntry[copyPermanentControllerCode]{Key: "Targeted", Val: copyPermanentControllerTargeted},
 	state.StrEntry[copyPermanentControllerCode]{Key: "TargetedController", Val: copyPermanentControllerTargeted},
 	state.StrEntry[copyPermanentControllerCode]{Key: "TargetedPlayer", Val: copyPermanentControllerTargeted},

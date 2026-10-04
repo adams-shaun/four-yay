@@ -548,7 +548,7 @@ func (e *Engine) staticTimingGate(sv staticView) bool {
 		return false
 	}
 	switch staticTimingGateCodes.Code(string(strings.TrimSpace(sv.ParamStr(cards.PKCondition)))) {
-	case staticTimingGateEmpty:
+	case staticTimingGatePlayerTurn:
 		if sv.ParamStr(cards.PKCondition) == "PlayerTurn" && e.G.Active != sv.Controller {
 			return false
 		}
@@ -606,7 +606,7 @@ func (e *Engine) countStaticPresent(sv staticView, spec string) int {
 // spelling cannot mean two different things at the two count sites.
 func presentZoneFromParam(zone string) (state.Zone, bool) {
 	switch presentZoneFromParamCodes.Code(string(strings.TrimSpace(zone))) {
-	case presentZoneFromParamEmpty:
+	case presentZoneFromParamBattlefield:
 		return state.ZBattlefield, true
 	case presentZoneFromParamGraveyard:
 		return state.ZGraveyard, true
@@ -721,20 +721,20 @@ var restrictionGateHoldsCodes = state.NewStrCodes(
 type staticTimingGateCode uint16
 
 const (
-	staticTimingGateEmpty staticTimingGateCode = iota + 1
+	staticTimingGatePlayerTurn staticTimingGateCode = iota + 1
 	staticTimingGateFerocious
 )
 
 var staticTimingGateCodes = state.NewStrCodes(
-	state.StrEntry[staticTimingGateCode]{Key: "", Val: staticTimingGateEmpty},
-	state.StrEntry[staticTimingGateCode]{Key: "PlayerTurn", Val: staticTimingGateEmpty},
+	state.StrEntry[staticTimingGateCode]{Key: "", Val: staticTimingGatePlayerTurn},
+	state.StrEntry[staticTimingGateCode]{Key: "PlayerTurn", Val: staticTimingGatePlayerTurn},
 	state.StrEntry[staticTimingGateCode]{Key: "Ferocious", Val: staticTimingGateFerocious},
 )
 
 type presentZoneFromParamCode uint16
 
 const (
-	presentZoneFromParamEmpty presentZoneFromParamCode = iota + 1
+	presentZoneFromParamBattlefield presentZoneFromParamCode = iota + 1
 	presentZoneFromParamGraveyard
 	presentZoneFromParamExile
 	presentZoneFromParamHand
@@ -742,8 +742,8 @@ const (
 )
 
 var presentZoneFromParamCodes = state.NewStrCodes(
-	state.StrEntry[presentZoneFromParamCode]{Key: "", Val: presentZoneFromParamEmpty},
-	state.StrEntry[presentZoneFromParamCode]{Key: "Battlefield", Val: presentZoneFromParamEmpty},
+	state.StrEntry[presentZoneFromParamCode]{Key: "", Val: presentZoneFromParamBattlefield},
+	state.StrEntry[presentZoneFromParamCode]{Key: "Battlefield", Val: presentZoneFromParamBattlefield},
 	state.StrEntry[presentZoneFromParamCode]{Key: "Graveyard", Val: presentZoneFromParamGraveyard},
 	state.StrEntry[presentZoneFromParamCode]{Key: "Exile", Val: presentZoneFromParamExile},
 	state.StrEntry[presentZoneFromParamCode]{Key: "Hand", Val: presentZoneFromParamHand},

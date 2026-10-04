@@ -731,7 +731,7 @@ func absentDurationMeansThisTurn(mode string) bool {
 // (105 + 70 raw lines), so this closes most of the turn-spanning gap.
 func IsNextTurnDuration(dur string) bool {
 	switch isNextTurnDurationCodes.Code(string(strings.ToLower(strings.TrimSpace(dur)))) {
-	case isNextTurnDurationUntilyournextturn:
+	case isNextTurnDurationUntilYourNextTurn:
 		return true
 	}
 	return false
@@ -795,7 +795,7 @@ func redirectExileBody(body map[string]string, svars map[string]string) bool {
 	}
 	for k, v := range body {
 		switch redirectExileBodyCodes.Code(string(k)) {
-		case redirectExileBodyDB:
+		case redirectExileBodyAllowed:
 		case redirectExileBodyHidden:
 			if !strings.EqualFold(v, "True") {
 				return false
@@ -1161,28 +1161,28 @@ var unlessDefenderZoneCodes = state.NewStrCodes(
 type isNextTurnDurationCode uint16
 
 const (
-	isNextTurnDurationUntilyournextturn isNextTurnDurationCode = iota + 1
+	isNextTurnDurationUntilYourNextTurn isNextTurnDurationCode = iota + 1
 )
 
 var isNextTurnDurationCodes = state.NewStrCodes(
-	state.StrEntry[isNextTurnDurationCode]{Key: "untilyournextturn", Val: isNextTurnDurationUntilyournextturn},
-	state.StrEntry[isNextTurnDurationCode]{Key: "untiltheendofyournextturn", Val: isNextTurnDurationUntilyournextturn},
+	state.StrEntry[isNextTurnDurationCode]{Key: "untilyournextturn", Val: isNextTurnDurationUntilYourNextTurn},
+	state.StrEntry[isNextTurnDurationCode]{Key: "untiltheendofyournextturn", Val: isNextTurnDurationUntilYourNextTurn},
 )
 
 type redirectExileBodyCode uint16
 
 const (
-	redirectExileBodyDB redirectExileBodyCode = iota + 1
+	redirectExileBodyAllowed redirectExileBodyCode = iota + 1
 	redirectExileBodyHidden
 	redirectExileBodySubAbility
 )
 
 var redirectExileBodyCodes = state.NewStrCodes(
-	state.StrEntry[redirectExileBodyCode]{Key: "DB", Val: redirectExileBodyDB},
-	state.StrEntry[redirectExileBodyCode]{Key: "Defined", Val: redirectExileBodyDB},
-	state.StrEntry[redirectExileBodyCode]{Key: "Destination", Val: redirectExileBodyDB},
-	state.StrEntry[redirectExileBodyCode]{Key: "Origin", Val: redirectExileBodyDB},
-	state.StrEntry[redirectExileBodyCode]{Key: "StackDescription", Val: redirectExileBodyDB},
+	state.StrEntry[redirectExileBodyCode]{Key: "DB", Val: redirectExileBodyAllowed},
+	state.StrEntry[redirectExileBodyCode]{Key: "Defined", Val: redirectExileBodyAllowed},
+	state.StrEntry[redirectExileBodyCode]{Key: "Destination", Val: redirectExileBodyAllowed},
+	state.StrEntry[redirectExileBodyCode]{Key: "Origin", Val: redirectExileBodyAllowed},
+	state.StrEntry[redirectExileBodyCode]{Key: "StackDescription", Val: redirectExileBodyAllowed},
 	state.StrEntry[redirectExileBodyCode]{Key: "Hidden", Val: redirectExileBodyHidden},
 	state.StrEntry[redirectExileBodyCode]{Key: "SubAbility", Val: redirectExileBodySubAbility},
 )

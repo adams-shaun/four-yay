@@ -462,7 +462,7 @@ func restrictionPlaneswalkerTargetMatches(g *state.Game, spec string, defender, 
 		if src := g.Obj(source); src != nil {
 			matches = defender == src.Owner
 		}
-	case restrictionPlaneswalkerTargetMatchesRememberedplayerctrl:
+	case restrictionPlaneswalkerTargetMatchesRememberedPlayerCtrl:
 		// Effect registrations capture the named players at resolution time.
 		for _, p := range rememberedPlayers {
 			if p == defender {
@@ -502,13 +502,13 @@ const (
 	restrictionPlaneswalkerTargetMatchesYouctrl restrictionPlaneswalkerTargetMatchesCode = iota + 1
 	restrictionPlaneswalkerTargetMatchesOppctrl
 	restrictionPlaneswalkerTargetMatchesControlledbyPlayerCardowner
-	restrictionPlaneswalkerTargetMatchesRememberedplayerctrl
+	restrictionPlaneswalkerTargetMatchesRememberedPlayerCtrl
 )
 
 var restrictionPlaneswalkerTargetMatchesCodes = state.NewStrCodes(
 	state.StrEntry[restrictionPlaneswalkerTargetMatchesCode]{Key: "youctrl", Val: restrictionPlaneswalkerTargetMatchesYouctrl},
 	state.StrEntry[restrictionPlaneswalkerTargetMatchesCode]{Key: "oppctrl", Val: restrictionPlaneswalkerTargetMatchesOppctrl},
 	state.StrEntry[restrictionPlaneswalkerTargetMatchesCode]{Key: "controlledby player.cardowner", Val: restrictionPlaneswalkerTargetMatchesControlledbyPlayerCardowner},
-	state.StrEntry[restrictionPlaneswalkerTargetMatchesCode]{Key: "rememberedplayerctrl", Val: restrictionPlaneswalkerTargetMatchesRememberedplayerctrl},
-	state.StrEntry[restrictionPlaneswalkerTargetMatchesCode]{Key: "controlledby remembered", Val: restrictionPlaneswalkerTargetMatchesRememberedplayerctrl},
+	state.StrEntry[restrictionPlaneswalkerTargetMatchesCode]{Key: "rememberedplayerctrl", Val: restrictionPlaneswalkerTargetMatchesRememberedPlayerCtrl},
+	state.StrEntry[restrictionPlaneswalkerTargetMatchesCode]{Key: "controlledby remembered", Val: restrictionPlaneswalkerTargetMatchesRememberedPlayerCtrl},
 )

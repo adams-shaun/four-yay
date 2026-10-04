@@ -217,7 +217,7 @@ func updatedReplacementsCommute(matches []replMatch) bool {
 			tap = true
 		case updatedReplacementsCommuteUntap:
 			untap = true
-		case updatedReplacementsCommuteCounter:
+		case updatedReplacementsCommuteInert:
 		default:
 			return false
 		}
@@ -314,12 +314,12 @@ type updatedReplacementsCommuteCode uint16
 const (
 	updatedReplacementsCommuteTap updatedReplacementsCommuteCode = iota + 1
 	updatedReplacementsCommuteUntap
-	updatedReplacementsCommuteCounter
+	updatedReplacementsCommuteInert
 )
 
 var updatedReplacementsCommuteCodes = state.NewStrCodes(
 	state.StrEntry[updatedReplacementsCommuteCode]{Key: "tap", Val: updatedReplacementsCommuteTap},
 	state.StrEntry[updatedReplacementsCommuteCode]{Key: "untap", Val: updatedReplacementsCommuteUntap},
-	state.StrEntry[updatedReplacementsCommuteCode]{Key: "counter", Val: updatedReplacementsCommuteCounter},
-	state.StrEntry[updatedReplacementsCommuteCode]{Key: "record", Val: updatedReplacementsCommuteCounter},
+	state.StrEntry[updatedReplacementsCommuteCode]{Key: "counter", Val: updatedReplacementsCommuteInert},
+	state.StrEntry[updatedReplacementsCommuteCode]{Key: "record", Val: updatedReplacementsCommuteInert},
 )

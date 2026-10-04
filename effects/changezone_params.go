@@ -419,7 +419,7 @@ func compileChangeZone(sa *cards.SA, tp *TargetParams, dr *DefinedParams) *Chang
 	p.DefinedPlayer = definedPlayerRef(sa).Param()
 	p.Chooser = strings.TrimSpace(sa.ParamStr(cards.PKChooser))
 	switch compileChangeZoneCodes.Code(string(p.Chooser)) {
-	case compileChangeZoneEmpty:
+	case compileChangeZoneOwner:
 		p.handChooser = handChooserOwner
 	case compileChangeZoneYou:
 		p.handChooser = handChooserYou
@@ -606,7 +606,7 @@ func ChangeZoneKnownKeys() []string { return slices.Clone(changeZoneKnownKeys[:]
 type compileChangeZoneCode uint16
 
 const (
-	compileChangeZoneEmpty compileChangeZoneCode = iota + 1
+	compileChangeZoneOwner compileChangeZoneCode = iota + 1
 	compileChangeZoneYou
 	compileChangeZoneTargeted
 	compileChangeZoneTriggeredTarget
@@ -615,8 +615,8 @@ const (
 )
 
 var compileChangeZoneCodes = state.NewStrCodes(
-	state.StrEntry[compileChangeZoneCode]{Key: "", Val: compileChangeZoneEmpty},
-	state.StrEntry[compileChangeZoneCode]{Key: "Owner", Val: compileChangeZoneEmpty},
+	state.StrEntry[compileChangeZoneCode]{Key: "", Val: compileChangeZoneOwner},
+	state.StrEntry[compileChangeZoneCode]{Key: "Owner", Val: compileChangeZoneOwner},
 	state.StrEntry[compileChangeZoneCode]{Key: "You", Val: compileChangeZoneYou},
 	state.StrEntry[compileChangeZoneCode]{Key: "Targeted", Val: compileChangeZoneTargeted},
 	state.StrEntry[compileChangeZoneCode]{Key: "TriggeredTarget", Val: compileChangeZoneTriggeredTarget},

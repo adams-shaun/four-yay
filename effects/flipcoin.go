@@ -140,7 +140,7 @@ func forEachPlayerFlippers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool)
 			}
 		}
 		return out, true
-	case forEachPlayerFlippersTrue:
+	case forEachPlayerFlippersAllPlayers:
 		return g.AliveFrom(c.Controller), true
 	}
 	ts, ok := knownDefinedTargets(h, c, spec)
@@ -351,14 +351,14 @@ type forEachPlayerFlippersCode uint16
 
 const (
 	forEachPlayerFlippersOpponent forEachPlayerFlippersCode = iota + 1
-	forEachPlayerFlippersTrue
+	forEachPlayerFlippersAllPlayers
 )
 
 var forEachPlayerFlippersCodes = state.NewStrCodes(
 	state.StrEntry[forEachPlayerFlippersCode]{Key: "opponent", Val: forEachPlayerFlippersOpponent},
 	state.StrEntry[forEachPlayerFlippersCode]{Key: "opponents", Val: forEachPlayerFlippersOpponent},
-	state.StrEntry[forEachPlayerFlippersCode]{Key: "true", Val: forEachPlayerFlippersTrue},
-	state.StrEntry[forEachPlayerFlippersCode]{Key: "player", Val: forEachPlayerFlippersTrue},
-	state.StrEntry[forEachPlayerFlippersCode]{Key: "players", Val: forEachPlayerFlippersTrue},
-	state.StrEntry[forEachPlayerFlippersCode]{Key: "all", Val: forEachPlayerFlippersTrue},
+	state.StrEntry[forEachPlayerFlippersCode]{Key: "true", Val: forEachPlayerFlippersAllPlayers},
+	state.StrEntry[forEachPlayerFlippersCode]{Key: "player", Val: forEachPlayerFlippersAllPlayers},
+	state.StrEntry[forEachPlayerFlippersCode]{Key: "players", Val: forEachPlayerFlippersAllPlayers},
+	state.StrEntry[forEachPlayerFlippersCode]{Key: "all", Val: forEachPlayerFlippersAllPlayers},
 )
