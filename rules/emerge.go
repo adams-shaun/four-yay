@@ -28,6 +28,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -102,7 +103,7 @@ func emergeBase(f *cards.Face) (Cost, bool) {
 		return Cost{}, false
 	}
 	base.Sac = append(base.Sac, emergeSacrificePart())
-	return withSpellAbilityExtras(f, base), true
+	return pay.WithSpellAbilityExtras(f, base), true
 }
 
 // emergeCandidateCost applies ONLY the mandatory Emerge creature's mana value.

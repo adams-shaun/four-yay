@@ -11,6 +11,7 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -174,7 +175,7 @@ func TestManaForageCost(t *testing.T) {
 	// Preconditions: two Foods controlled (so the sacrifice arm is a real
 	// election, not the single-option auto-pick) and <3 graveyard cards, so
 	// the sacrifice arm is the only payable one.
-	foods := e.costCandidates(0, tf, state.ZBattlefield, "Food.YouCtrl", false, false)
+	foods := pay.CostCandidates(asPayer(e), 0, tf, state.ZBattlefield, "Food.YouCtrl", false, false)
 	if len(foods) < 2 {
 		t.Fatalf("fixture: %d Foods on the battlefield, want 2 (Krovod Haunch + Bagel and Schmear)", len(foods))
 	}

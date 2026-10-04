@@ -117,7 +117,7 @@ func (e *Engine) forageAsk() bool {
 	if len(e.G.Zone(state.ZGraveyard, pc.player)) >= 3 {
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "forage_exile", Label: "Exile three cards from your graveyard"})
 	}
-	for _, id := range e.costCandidates(pc.player, pc.card, state.ZBattlefield, "Food.YouCtrl", false, false) {
+	for _, id := range pay.CostCandidates(asPayer(e), pc.player, pc.card, state.ZBattlefield, "Food.YouCtrl", false, false) {
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "forage_food", Obj: id,
 			Label: "Sacrifice " + e.targetName(id)})
 	}
@@ -193,7 +193,7 @@ func (e *Engine) revealCostAsk() bool {
 			e.ask(d)
 			return true
 		}
-		candidates := e.costCandidates(pc.player, pc.card, state.ZHand, part.Spec, !pc.isAbility(), false)
+		candidates := pay.CostCandidates(asPayer(e), pc.player, pc.card, state.ZHand, part.Spec, !pc.isAbility(), false)
 		if len(candidates) < int(part.N) {
 			e.abortCast(pc, "reveal cost no longer payable; cast aborted", true)
 			return true
@@ -233,7 +233,7 @@ func (e *Engine) revealCostOrChooseAsk() bool {
 	pc := e.cast
 	for pc.revealOrChoosePart < len(pc.cost.RevealOrChoose) {
 		part := pc.cost.RevealOrChoose[pc.revealOrChoosePart]
-		hand, battlefield := e.revealOrChooseCandidates(pc.player, pc.card, part)
+		hand, battlefield := pay.RevealOrChooseCandidates(asPayer(e), pc.player, pc.card, part)
 		handViable := len(hand) >= int(part.N)
 		bfViable := len(battlefield) >= int(part.N)
 		switch {
@@ -297,8 +297,8 @@ func (e *Engine) beholdCostAsk() bool {
 	pc := e.cast
 	for pc.beholdPart < len(pc.cost.Behold) {
 		part := pc.cost.Behold[pc.beholdPart]
-		candidates := append(e.costCandidates(pc.player, pc.card, state.ZBattlefield, part.Spec, false, false),
-			e.costCandidates(pc.player, pc.card, state.ZHand, part.Spec, true, false)...)
+		candidates := append(pay.CostCandidates(asPayer(e), pc.player, pc.card, state.ZBattlefield, part.Spec, false, false),
+			pay.CostCandidates(asPayer(e), pc.player, pc.card, state.ZHand, part.Spec, true, false)...)
 		if len(candidates) < int(part.N) {
 			e.abortCast(pc, "behold cost no longer payable; cast aborted", true)
 			return true
@@ -330,7 +330,7 @@ func (e *Engine) tapPermanentCostAsk() bool {
 	tapKind := tapCostSAKind(e.pcAbility(pc))
 	for pc.tapPart < len(pc.cost.TapPermanent) {
 		part := pc.cost.TapPermanent[pc.tapPart]
-		candidates := e.tapCostCandidates(pc.player, pc.card, part)
+		candidates := pay.TapCostCandidates(asPayer(e), pc.player, pc.card, part)
 		// One permanent can never pay two parts of the same cost, so the
 		// candidate filter claims everything an earlier stage already recorded:
 		// an earlier tap part's choice (taps settle together at payCast, so the
@@ -547,7 +547,7 @@ func (e *Engine) blightCostAsk() bool {
 		if pc.cost.Blight[pc.blightPart].Announced && !pc.xDone {
 			return false
 		}
-		candidates := e.costCandidates(pc.player, pc.card, state.ZBattlefield, "Creature.YouCtrl", false, false)
+		candidates := pay.CostCandidates(asPayer(e), pc.player, pc.card, state.ZBattlefield, "Creature.YouCtrl", false, false)
 		if len(candidates) == 0 {
 			e.abortCast(pc, "blight cost no longer payable; cast aborted", true)
 			return true
@@ -717,14 +717,14 @@ func (e *Engine) returnAsk() bool {
 	pc := e.cast
 	for pc.returnPart < len(pc.cost.Return) {
 		part := pc.cost.Return[pc.returnPart]
-		spec := sacrificeMatchSpec(part.Spec)
+		spec := pay.SacrificeMatchSpec(part.Spec)
 		var candidates []state.ObjID
 		if strings.EqualFold(spec, "CARDNAME") {
 			if o := e.G.Obj(pc.card); o != nil && o.Zone == state.ZBattlefield {
 				candidates = append(candidates, pc.card)
 			}
 		} else {
-			candidates = e.costCandidates(pc.player, pc.card, state.ZBattlefield, spec, false, false)
+			candidates = pay.CostCandidates(asPayer(e), pc.player, pc.card, state.ZBattlefield, spec, false, false)
 		}
 		n := int(part.N)
 		if n <= 0 || n > len(candidates) {
@@ -775,7 +775,7 @@ func (e *Engine) putToLibAsk() bool {
 	pc := e.cast
 	for pc.putToLibPart < len(pc.cost.PutToLib) {
 		part := pc.cost.PutToLib[pc.putToLibPart]
-		spec := sacrificeMatchSpec(part.Spec)
+		spec := pay.SacrificeMatchSpec(part.Spec)
 		var candidates []state.ObjID
 		if part.Zone == state.ZBattlefield && strings.EqualFold(spec, "CARDNAME") {
 			// The source itself is the sole candidate (Forge's
@@ -788,7 +788,7 @@ func (e *Engine) putToLibAsk() bool {
 				candidates = append(candidates, pc.card)
 			}
 		} else {
-			candidates = e.costCandidates(pc.player, pc.card, part.Zone, spec, false, false)
+			candidates = pay.CostCandidates(asPayer(e), pc.player, pc.card, part.Zone, spec, false, false)
 		}
 		n := int(part.N)
 		if n <= 0 || n > len(candidates) {

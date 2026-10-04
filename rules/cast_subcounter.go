@@ -218,7 +218,7 @@ func (e *Engine) xAsk() bool {
 			continue
 		}
 		avail := int32(0)
-		for _, oid := range e.costCandidates(pc.player, pc.card, state.ZBattlefield, part.Spec, false, true) {
+		for _, oid := range pay.CostCandidates(asPayer(e), pc.player, pc.card, state.ZBattlefield, part.Spec, false, true) {
 			// The {T} in the same cost claims the source (see tapPermanentCostAsk).
 			if pc.cost.Tap && oid == pc.card {
 				continue
@@ -245,7 +245,7 @@ func (e *Engine) xAsk() bool {
 	// cards, so X is capped by the matching cards in hand.
 	for _, part := range pc.cost.Discard {
 		if part.Announced {
-			applyCap(int32(len(e.discardCandidates(pc.player, pc.card, part, !pc.isAbility(), nil))))
+			applyCap(int32(len(pay.DiscardCandidates(asPayer(e), pc.player, pc.card, part, !pc.isAbility(), nil))))
 		}
 	}
 	for _, part := range pc.cost.Exile {
@@ -254,7 +254,7 @@ func (e *Engine) xAsk() bool {
 		}
 		// Use the same source exclusion and zone-order filter as exAsk: a
 		// spell cast from this graveyard cannot exile itself as its cost.
-		candidates := e.costCandidates(pc.player, pc.card, state.ZGraveyard, part.Spec, !pc.isAbility(), false)
+		candidates := pay.CostCandidates(asPayer(e), pc.player, pc.card, state.ZGraveyard, part.Spec, !pc.isAbility(), false)
 		applyCap(int32(len(candidates)))
 	}
 	for _, part := range pc.cost.SubCounter {
@@ -264,12 +264,12 @@ func (e *Engine) xAsk() bool {
 		have := int32(0)
 		if subCounterTargetsSource(part.Target) {
 			if o := e.G.Obj(pc.card); o != nil {
-				have = subCounterAvailable(o, part.Spec)
+				have = pay.SubCounterAvailable(o, part.Spec)
 			}
 		} else {
-			for _, oid := range e.subCounterRemovalCandidates(pc.player, pc.card, part, 1, nil) {
+			for _, oid := range pay.SubCounterRemovalCandidates(asPayer(e), pc.player, pc.card, part, 1, nil) {
 				if o := e.G.Obj(oid); o != nil {
-					n := subCounterAvailable(o, part.Spec)
+					n := pay.SubCounterAvailable(o, part.Spec)
 					if strings.EqualFold(part.Spec, "Any") {
 						have += n
 					} else if n > have {
@@ -298,7 +298,7 @@ func (e *Engine) xAsk() bool {
 		// anyway), and the announcement can never exceed what the blight pick
 		// can settle (CR 601.2b).
 		cap := int32(0)
-		for _, oid := range e.costCandidates(pc.player, pc.card, state.ZBattlefield, "Creature.YouCtrl", false, false) {
+		for _, oid := range pay.CostCandidates(asPayer(e), pc.player, pc.card, state.ZBattlefield, "Creature.YouCtrl", false, false) {
 			if t := e.Toughness(oid); t > cap {
 				cap = t
 			}
@@ -550,54 +550,6 @@ func (e *Engine) delveAsk() bool {
 	return true
 }
 
-// subCounterAvailable reports how many counters of the part's kind the object
-// could give up: the kind's own count, or the object's TOTAL counter count
-// for the "Any" kind (Forge's Any removes that many counters regardless of
-// kind). Used by the offer gate, the X bound and the candidate walk.
-func subCounterAvailable(o *state.Object, kind string) int32 {
-	if strings.EqualFold(kind, "Any") {
-		total := int32(0)
-		for _, c := range o.Counters {
-			if c.N > 0 {
-				total += c.N
-			}
-		}
-		return total
-	}
-	return o.Counter(kind)
-}
-
-// subCounterRemovalCandidates lists the permanents the payer could remove
-// part's counters from. A source-anchored part (subCounterTargetsSource)
-// offers just the source when it still carries enough counters; a filtered
-// part offers every battlefield object the PAYER controls that matches the
-// target spec (MatchesSpecFrom, the sacAsk machinery's read) and still
-// carries enough counters, excluding ids already reserved by an earlier part
-// of the same cost (sacs and earlier counter removals).
-func (e *Engine) subCounterRemovalCandidates(p state.PlayerID, source state.ObjID, part CostPart, amt int32, reserved map[state.ObjID]bool) []state.ObjID {
-	if subCounterTargetsSource(part.Target) {
-		if o := e.G.Obj(source); o != nil && o.Zone == state.ZBattlefield &&
-			subCounterAvailable(o, part.Spec) >= amt && (reserved == nil || !reserved[source]) {
-			return []state.ObjID{source}
-		}
-		return nil
-	}
-	var out []state.ObjID
-	for _, oid := range e.G.Zone(state.ZBattlefield, p) {
-		if reserved != nil && reserved[oid] {
-			continue
-		}
-		o := e.G.Obj(oid)
-		if o == nil || subCounterAvailable(o, part.Spec) < amt {
-			continue
-		}
-		if e.matchesSpecFrom(part.Target, oid, p, source) {
-			out = append(out, oid)
-		}
-	}
-	return out
-}
-
 // subCounterAsk offers the next unsettled SubCounter cost part whose
 // removal-target field names something other than the source (walking
 // pc.cost.SubCounter in order, pc.subCounterPart). A source-anchored
@@ -634,7 +586,7 @@ func (e *Engine) subCounterAsk() bool {
 			pc.subCounterPart++
 			continue
 		}
-		candidates := e.subCounterRemovalCandidates(pc.player, pc.card, part, amt, reserved)
+		candidates := pay.SubCounterRemovalCandidates(asPayer(e), pc.player, pc.card, part, amt, reserved)
 		if len(candidates) == 0 {
 			e.abortCast(pc, "counter-removal cost no longer payable; cast/activation aborted", true)
 			return true
@@ -698,7 +650,7 @@ func (e *Engine) wildcardCounterAsk(pc *pendingCast, part CostPart, amt int32) b
 		pc.subCounterPart++
 		return false
 	}
-	candidates := e.subCounterRemovalCandidates(pc.player, pc.card, part, 1, pc.subCounterReservations())
+	candidates := pay.SubCounterRemovalCandidates(asPayer(e), pc.player, pc.card, part, 1, pc.subCounterReservations())
 	if len(candidates) == 0 {
 		e.abortCast(pc, "counter-removal cost no longer payable; cast/activation aborted", true)
 		return true
@@ -1011,7 +963,7 @@ func (e *Engine) discardAsk() bool {
 		for _, id := range pc.discards {
 			reserved[id] = true
 		}
-		candidates := e.discardCandidates(pc.player, pc.card, part, !pc.isAbility(), reserved)
+		candidates := pay.DiscardCandidates(asPayer(e), pc.player, pc.card, part, !pc.isAbility(), reserved)
 
 		if strings.EqualFold(part.Spec, "Hand") {
 			pc.discards = append(pc.discards, candidates...)

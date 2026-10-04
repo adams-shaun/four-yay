@@ -296,7 +296,7 @@ func (e *Engine) announceFeasible(pc *pendingCast, alt pipAlt, pool, snow state.
 		return false
 	}
 	av := pay.AvailableFor(asPayer(e), pc.player, payment)
-	return e.manaReachable(pc.player, charged, av.Pool, e.G.Players[pc.player].Snow,
+	return pay.ManaReachable(asPayer(e), pc.player, charged, av.Pool, e.G.Players[pc.player].Snow,
 		av.Typed, e.G.Players[pc.player].Life, rider,
 		asPayer(e).Conv(pc.player, payment.ID, payment.Class == paymentActivated), e.castWindowUnits(pc))
 }

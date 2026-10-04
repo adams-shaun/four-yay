@@ -3,6 +3,7 @@ package rules
 import (
 	"testing"
 
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -41,7 +42,7 @@ func TestSurgeRealCorpusRecklessBushwhacker(t *testing.T) {
 	// offered; its ETB must not pump the witness creature.
 	e, reckless, _, goblin := newGame(991)
 	addMana(t, e, 0, "RRR")
-	if got := e.spellsCastThisTurn(0); got != 0 {
+	if got := pay.SpellsCastThisTurn(asPayer(e), 0); got != 0 {
 		t.Fatalf("initial spells cast this turn = %d, want 0", got)
 	}
 	if got := modeIndex(t, e, reckless, "surged"); got != -1 {
@@ -62,9 +63,9 @@ func TestSurgeRealCorpusRecklessBushwhacker(t *testing.T) {
 	// FlagSurged, and makes the corpus card's surged-only ETB pump observable.
 	e2, reckless2, bolt, goblin2 := newGame(992)
 	addMana(t, e2, 0, "RRR")
-	before := e2.spellsCastThisTurn(0)
+	before := pay.SpellsCastThisTurn(asPayer(e2), 0)
 	castObj(t, e2, bolt)
-	after := e2.spellsCastThisTurn(0)
+	after := pay.SpellsCastThisTurn(asPayer(e2), 0)
 	if after != before+1 || after == 0 {
 		t.Fatalf("spell count did not advance: before=%d after=%d", before, after)
 	}

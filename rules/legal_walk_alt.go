@@ -2,6 +2,7 @@ package rules
 
 import (
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -155,7 +156,7 @@ func (w *legalWalk) mayPlaySpellWalk() {
 				}
 				base = base.Plus(off.raise)
 			}
-			cost := withSpellAbilityExtras(f, w.offerCostFor(p, id, base, spellScope("mayplay")))
+			cost := pay.WithSpellAbilityExtras(f, w.offerCostFor(p, id, base, spellScope("mayplay")))
 			if w.affordable(p, id, cost, false) {
 				label := "Cast " + f.Name
 				if off.text != "" {
@@ -243,7 +244,7 @@ func (w *legalWalk) commandZoneWalk() {
 		}
 		if targetsAvailable {
 			for i, extra := range e.optionalCostViews(costStatics.get(), p, id) {
-				if w.offerCastable(p, id, withSpellAbilityExtras(f, e.rawBaseCost(p, id)).Plus(extra), spellScope("optionalcost"), false) {
+				if w.offerCastable(p, id, pay.WithSpellAbilityExtras(f, e.rawBaseCost(p, id)).Plus(extra), spellScope("optionalcost"), false) {
 					*out = append(*out, decision.Option{Index: len(*out), Kind: "cast", Label: "Cast " + f.Name + " (optional cost)", Obj: id, Mode: "optionalcost", AltCostIndex: i + 1})
 				}
 			}
@@ -388,7 +389,7 @@ func (w *legalWalk) graveyardCastsOver(grave []state.ObjID) {
 		// CR 702.34a/601.2f: the flashback cost replaces the mana cost only;
 		// the spell's own additional costs (withSpellAbilityExtras) are
 		// still paid, exactly as beginCast charges them.
-		if fc := withSpellAbilityExtras(f, e.flashbackCost(id)); w.offerCastable(p, id, fc, spellScope("flashback"), false) {
+		if fc := pay.WithSpellAbilityExtras(f, e.flashbackCost(id)); w.offerCastable(p, id, fc, spellScope("flashback"), false) {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 				Label: "Cast " + f.Name + " (flashback)", Obj: id, Mode: "flashback"})
 		}
@@ -399,7 +400,7 @@ func (w *legalWalk) graveyardCastsOver(grave []state.ObjID) {
 		// offered as its own option carrying that cost (Option.Cost), which
 		// beginCast charges.
 		for _, alt := range e.extraFlashbackCosts(id) {
-			if fc := withSpellAbilityExtras(f, ParseCost(alt)); w.offerCastable(p, id, fc, spellScope("flashback"), false) {
+			if fc := pay.WithSpellAbilityExtras(f, ParseCost(alt)); w.offerCastable(p, id, fc, spellScope("flashback"), false) {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (flashback " + alt + ")", Obj: id, Mode: "flashback", Cost: alt})
 			}
@@ -433,7 +434,7 @@ func (w *legalWalk) graveyardCastsOver(grave []state.ObjID) {
 		if !e.castTargetsAvailable(p, id, af.SpellAbility()) {
 			continue
 		}
-		if w.offerCastableAsFace(p, id, af, withSpellAbilityExtras(af, ParseCost(af.ManaCost)), spellScope("")) {
+		if w.offerCastableAsFace(p, id, af, pay.WithSpellAbilityExtras(af, ParseCost(af.ManaCost)), spellScope("")) {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 				Label: "Cast " + af.Name + " (aftermath)", Obj: id, Mode: "aftermath"})
 		}
@@ -517,10 +518,10 @@ func (w *legalWalk) graveyardCastsOver(grave []state.ObjID) {
 			continue
 		}
 		rx := retraceExtra()
-		if !e.discardCostPayable(p, id, rx.Discard, true) {
+		if !pay.DiscardCostPayable(asPayer(e), p, id, rx.Discard, true) {
 			continue
 		}
-		if w.offerCastable(p, id, withSpellAbilityExtras(f, e.castOfferBase(p, id)).Plus(rx), spellScope("retrace"), false) {
+		if w.offerCastable(p, id, pay.WithSpellAbilityExtras(f, e.castOfferBase(p, id)).Plus(rx), spellScope("retrace"), false) {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 				Label: "Cast " + f.Name + " (retrace)", Obj: id, Mode: "retrace"})
 		}
@@ -547,10 +548,10 @@ func (w *legalWalk) graveyardCastsOver(grave []state.ObjID) {
 			continue
 		}
 		js := jumpstartExtra()
-		if !e.discardCostPayable(p, id, js.Discard, true) {
+		if !pay.DiscardCostPayable(asPayer(e), p, id, js.Discard, true) {
 			continue
 		}
-		if w.offerCastable(p, id, withSpellAbilityExtras(f, e.castOfferBase(p, id)).Plus(js), spellScope("jumpstart"), false) {
+		if w.offerCastable(p, id, pay.WithSpellAbilityExtras(f, e.castOfferBase(p, id)).Plus(js), spellScope("jumpstart"), false) {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 				Label: "Cast " + f.Name + " (jump-start)", Obj: id, Mode: "jumpstart"})
 		}
@@ -591,7 +592,7 @@ func (w *legalWalk) graveyardCastsOver(grave []state.ObjID) {
 			!e.castTargetsAvailable(p, id, f.SpellAbility()) {
 			continue
 		}
-		if w.offerCastable(p, id, withSpellAbilityExtras(f, mc), spellScope("mayhem"), false) {
+		if w.offerCastable(p, id, pay.WithSpellAbilityExtras(f, mc), spellScope("mayhem"), false) {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 				Label: "Cast " + f.Name + " (mayhem)", Obj: id, Mode: "mayhem"})
 		}

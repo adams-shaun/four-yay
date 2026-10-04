@@ -357,7 +357,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		// census (a pure read) is skipped, not changed.
 		var potential costMods
 		potentialOK := false
-		if futile := offerRetryFutile(scope, &mods, mayApply, provenance); statics.validTarget && (!futile || walkSkipVerify) {
+		if futile := pay.OfferRetryFutile(scope, &mods, mayApply, provenance); statics.validTarget && (!futile || walkSkipVerify) {
 			potential, potentialOK = e.potentialCostModsUsing(statics, p, id, scope, e.costPotentialTargets(p, id, scope), 0, func(m costMods) bool {
 				if !e.manaFeasiblePriced(p, id, ability, *base, m, tax, delve, hyp) {
 					return false
@@ -714,35 +714,6 @@ func (pe *payer) MayPlayRider(p state.PlayerID, id state.ObjID) pipRider {
 		}
 	}
 	return r
-}
-
-// rememberedTargets lifts a ContinuousEffect's Remembered object ids into
-// the []state.Target shape the filter grammar's SpecContext carries.
-func rememberedTargets(ids []state.ObjID) []state.Target {
-	if len(ids) == 0 {
-		return nil
-	}
-	out := make([]state.Target, 0, len(ids))
-	for _, id := range ids {
-		out = append(out, state.Target{Obj: id})
-	}
-	return out
-}
-
-// offerRetryFutile reports that offerCastableUsing's potential-target retry
-// would re-ask exactly the mana question its first pass just failed: no
-// cost static survived a target-independent gate (so the retry, whatever
-// targets it binds, composes no static either), the composition is the zero
-// costMods the retry's own empty composition is (no waterbend credit was
-// folded on top), the scope is not an ability's (whose own ReduceCost$
-// reads targets, ownManaReduction), and no ValidCard$ provenance capture is
-// pending (the retry would leave it as the first pass did). The retry's
-// accept is then manaFeasiblePriced over identical arguments, which failed.
-func offerRetryFutile(scope costScope, mods *costMods, mayApply, provenance bool) bool {
-	if mayApply || provenance || (scope.Kind == "Ability" && scope.Ab != nil) {
-		return false
-	}
-	return pay.CostModsZero(mods)
 }
 
 // offerSacXModsGated is offerSacXMods behind its own first test

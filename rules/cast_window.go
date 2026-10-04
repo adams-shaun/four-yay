@@ -132,7 +132,7 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 				continue
 			}
 			cost := e.parseCost(ma.ParamStr(cards.PKCost))
-			if activationTapCostUnavailable(o, &cost) {
+			if pay.ActivationTapCostUnavailable(o, &cost) {
 				continue
 			}
 			lifeCost := int32(0)
@@ -170,7 +170,7 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 				if chosen == "" {
 					continue
 				}
-				produced = substituteChosenProduced(produced, chosen)
+				produced = pay.SubstituteChosenProduced(produced, chosen)
 			}
 			counts, any := cards.ProducedCounts(produced)
 			total := int32(0)
@@ -266,7 +266,7 @@ func (e *Engine) castWindowAmount(p state.PlayerID, source state.ObjID, o *state
 // component are refused.
 func castWindowPayLifeCost(c Cost) bool {
 	return c.Life > 0 && c.Generic == 0 && c.Colored == (state.Mana{}) &&
-		len(c.Sac) == 0 && castWindowOtherPartsAbsent(c)
+		len(c.Sac) == 0 && pay.CastWindowOtherPartsAbsent(c)
 }
 
 // castWindowGenericCostShape reports whether c is a literal generic <N>
@@ -282,7 +282,7 @@ func castWindowPayLifeCost(c Cost) bool {
 // fund stays sound.
 func castWindowGenericCostShape(c Cost) bool {
 	return c.Generic > 0 && c.Colored == (state.Mana{}) &&
-		len(c.Sac) == 0 && castWindowOtherPartsAbsent(c)
+		len(c.Sac) == 0 && pay.CastWindowOtherPartsAbsent(c)
 }
 
 // castWindowSelfSacCost reports whether c is a self-sacrifice activation cost
@@ -291,10 +291,10 @@ func castWindowGenericCostShape(c Cost) bool {
 // (manaDiscardActivation) sacrifices it without a further ask. Any other Sac
 // shape (multi-part, overlapping, multiple candidates) is refused.
 func (e *Engine) castWindowSelfSacCost(p state.PlayerID, source state.ObjID, c Cost) bool {
-	if len(c.Sac) != 1 || c.Sac[0].N != 1 || !strings.EqualFold(sacrificeMatchSpec(c.Sac[0].Spec), "CARDNAME") {
+	if len(c.Sac) != 1 || c.Sac[0].N != 1 || !strings.EqualFold(pay.SacrificeMatchSpec(c.Sac[0].Spec), "CARDNAME") {
 		return false
 	}
-	if c.Generic != 0 || c.Life != 0 || c.Colored != (state.Mana{}) || !castWindowOtherPartsAbsent(c) {
+	if c.Generic != 0 || c.Life != 0 || c.Colored != (state.Mana{}) || !pay.CastWindowOtherPartsAbsent(c) {
 		return false
 	}
 	n := 0
@@ -307,24 +307,6 @@ func (e *Engine) castWindowSelfSacCost(p state.PlayerID, source state.ObjID, c C
 		}
 	}
 	return n == 1
-}
-
-// castWindowOtherPartsAbsent reports whether c carries none of the cost
-// components the paid-cost layer does not price. It is deliberately broader
-// than manaFreeCost (which only needs a bare tap): every part whose payment
-// needs a choice, an event or a resource this probe does not model is
-// refused, as is any token the parser did not understand.
-func castWindowOtherPartsAbsent(c Cost) bool {
-	return len(c.Discard) == 0 && len(c.SubCounter) == 0 && len(c.AddCounter) == 0 &&
-		len(c.Exile) == 0 && len(c.ExileFromTop) == 0 && len(c.Reveal) == 0 && len(c.RevealOrChoose) == 0 && len(c.RevealChosen) == 0 &&
-		len(c.Behold) == 0 && len(c.TapPermanent) == 0 && len(c.Blight) == 0 &&
-		len(c.Exert) == 0 && !c.Forage && !c.LifeHalfUp && len(c.Draw) == 0 &&
-		len(c.Energy) == 0 && len(c.LifeX) == 0 && len(c.DamageYou) == 0 &&
-		len(c.GainLife) == 0 &&
-		len(c.Return) == 0 && len(c.PutToLib) == 0 && len(c.MoveToGrave) == 0 &&
-		len(c.Mill) == 0 && len(c.Evidence) == 0 && len(c.RollDice) == 0 &&
-		len(c.Unknown) == 0 && len(c.Hybrid) == 0 && len(c.Phyrexian) == 0 &&
-		len(c.Twobrid) == 0 && len(c.HybridPhyrexian) == 0 && c.Snow == 0 && c.X == 0
 }
 
 // appendCastWindowAlt merges one production alternative into the unit for id

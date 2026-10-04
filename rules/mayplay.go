@@ -20,6 +20,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -931,9 +932,9 @@ func (e *Engine) mayPlayKinds(p state.PlayerID, id state.ObjID) (plain, mutate, 
 // reads (Strongbox Raider, Chandra, Flameshaper).
 func (e *Engine) effectGrantSpecContext(ce *state.ContinuousEffect) effects.SpecContext {
 	sc := e.withNames(effects.NewSpecContext(ce.Controller, ce.Source))
-	sc.Remembered, sc.Resolving = rememberedTargets(ce.Remembered), true
+	sc.Remembered, sc.Resolving = pay.RememberedTargets(ce.Remembered), true
 	if ce.ChosenBound {
-		sc.Chosen = rememberedTargets(ce.Chosen)
+		sc.Chosen = pay.RememberedTargets(ce.Chosen)
 		sc.ChosenValid = true
 	}
 	return sc

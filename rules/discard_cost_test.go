@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -140,7 +141,7 @@ func TestDiscardSelfReferencesMatchOnlyTheSourceInHand(t *testing.T) {
 		t.Run(spec, func(t *testing.T) {
 			source := "Name:Channel Self " + spec + "\nTypes:Creature Spirit\nPT:1/1\nOracle:x\n"
 			e, _, id := newFixtureDeck(t, 704, source, source)
-			candidates := e.discardCandidates(0, id, CostPart{N: 1, Spec: spec}, false, nil)
+			candidates := pay.DiscardCandidates(asPayer(e), 0, id, CostPart{N: 1, Spec: spec}, false, nil)
 			if len(candidates) != 1 || candidates[0] != id {
 				t.Fatalf("%s candidates = %v, want only source %d (never the same-name copy)", spec, candidates, id)
 			}

@@ -8,6 +8,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -559,7 +560,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// cost undercharges by that additional cost. Zero corpus carriers pair
 		// the two today, so this is the structural agreement, not a behaviour
 		// change (the fold is a no-op without a SpellAbility Cost$).
-		cost = withSpellAbilityExtras(f, cost)
+		cost = pay.WithSpellAbilityExtras(f, cost)
 		cost = cost.Plus(parts[opt.AltCostIndex-1])
 		optionalCost = parts[opt.AltCostIndex-1]
 	}
@@ -570,7 +571,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// Electric Revelation's discard) is still paid. The offer gate
 		// (legal.go's flashback walk) folds the same extras.
 		opt.Mode == "flashback") {
-		cost = withSpellAbilityExtras(f, cost)
+		cost = pay.WithSpellAbilityExtras(f, cost)
 	}
 	// Convoke and Harmonize are announced only after X/mode/pip choices have
 	// formed the total cost (convokeAsk). Do not preselect creatures here:
@@ -892,7 +893,7 @@ func (e *Engine) beginPlay(p state.PlayerID, id state.ObjID, withoutManaCost boo
 	// 118.9 / 601.2f). The cost is stored RAW (no cost modifiers folded):
 	// RaiseCost/ReduceCost ride pc.mods and manaToPay applies them after {X}
 	// is folded, the same shape beginCast stores.
-	cost = withSpellAbilityExtras(o.Face(), cost)
+	cost = pay.WithSpellAbilityExtras(o.Face(), cost)
 	converted, ok := e.fixLifeXCost(p, id, cost)
 	if !ok {
 		// The offer gate withheld this cost; a stale Play degrades to a no-op.

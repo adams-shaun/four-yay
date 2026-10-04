@@ -11,6 +11,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -108,7 +109,7 @@ func (e *Engine) costStaticSpecCtx(sv staticView, id state.ObjID) effects.SpecCo
 		}
 	}
 	if len(rem) > 0 {
-		sc.Remembered = rememberedTargets(rem)
+		sc.Remembered = pay.RememberedTargets(rem)
 	}
 	return sc
 }

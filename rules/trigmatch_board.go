@@ -4,6 +4,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -135,7 +136,9 @@ func (b *trigBoard) ProtectionSource(source state.ObjID) state.ObjID {
 
 func (b *trigBoard) EchoGateHolds(source state.ObjID) bool { return b.eng().echoGateHolds(source) }
 
-func (b *trigBoard) SpellsCastThisTurn(p state.PlayerID) int { return b.eng().spellsCastThisTurn(p) }
-func (b *trigBoard) ManaExpendTotal(p state.PlayerID) int32  { return b.eng().manaExpendTotal(p) }
+func (b *trigBoard) SpellsCastThisTurn(p state.PlayerID) int {
+	return pay.SpellsCastThisTurn(asPayer(b.eng()), p)
+}
+func (b *trigBoard) ManaExpendTotal(p state.PlayerID) int32 { return b.eng().manaExpendTotal(p) }
 
 func (b *trigBoard) IsLoyaltyAbility(ab *cards.SA) bool { return isLoyaltyAbility(ab) }

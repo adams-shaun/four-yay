@@ -4,6 +4,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -52,7 +53,7 @@ func (e *Engine) fusedTimingOK(p state.PlayerID, id state.ObjID, front, alt *car
 // cost shape honest if a later set prints one.
 func (e *Engine) fuseCost(front, alt *cards.Face) Cost {
 	c := e.faceCost(front).Plus(e.faceCost(alt))
-	return withSpellAbilityExtras(front, withSpellAbilityExtras(alt, c))
+	return pay.WithSpellAbilityExtras(front, pay.WithSpellAbilityExtras(alt, c))
 }
 
 // castStageSA is the spell ability whose targets the targetAsk pass at this

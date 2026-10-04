@@ -88,7 +88,7 @@ func (e *Engine) payCast() {
 	// are still the actual top cards and insufficient cards abort without
 	// spending the spell/activation's mana.
 	if len(pc.cost.ExileFromTop) > 0 {
-		top, ok := exileFromTopCards(e.G.Zone(state.ZLibrary, pc.player), pc.cost.ExileFromTop)
+		top, ok := pay.ExileFromTopCards(e.G.Zone(state.ZLibrary, pc.player), pc.cost.ExileFromTop)
 		if !ok {
 			e.abortCast(pc, "exile cost no longer payable; cast/activation aborted", true)
 			return

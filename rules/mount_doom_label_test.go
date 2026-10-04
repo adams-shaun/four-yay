@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -67,7 +68,7 @@ func TestManaAbilityCostPhraseArticleForms(t *testing.T) {
 	for _, c := range cases {
 		cost := ParseCost(c.raw)
 		cost.Tap = false // the prefix path clears the shared tap
-		got := manaAbilityCostPhrase(cost)
+		got := pay.ManaAbilityCostPhrase(cost)
 		if got != c.want {
 			t.Errorf("manaAbilityCostPhrase(%q) = %q, want %q", c.raw, got, c.want)
 		}

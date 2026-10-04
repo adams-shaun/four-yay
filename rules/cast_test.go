@@ -9,6 +9,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -269,8 +270,8 @@ func TestSurgeNeedsAnotherSpellThisTurn(t *testing.T) {
 		}
 	}
 	castObj(t, e, bolt) // helper: choose the cast option for this object, answer its target with the first option
-	if e.spellsCastThisTurn(0) != 1 {
-		t.Fatalf("spells cast this turn = %d", e.spellsCastThisTurn(0))
+	if pay.SpellsCastThisTurn(asPayer(e), 0) != 1 {
+		t.Fatalf("spells cast this turn = %d", pay.SpellsCastThisTurn(asPayer(e), 0))
 	}
 	var surged *decision.Option
 	for _, o := range castOptions(t, e) {

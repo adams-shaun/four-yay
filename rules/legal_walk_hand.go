@@ -2,6 +2,7 @@ package rules
 
 import (
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -86,7 +87,7 @@ func (w *legalWalk) handWalk() {
 		if mf := modalSpellBack(o); mf != nil && e.spellTimingOK(p, id, mf, sorcery) &&
 			e.castTargetsAvailable(p, id, mf.SpellAbility()) &&
 			!w.castRestrictedAsFace(p, id, mf) {
-			if w.offerCastableAsFace(p, id, mf, withSpellAbilityExtras(mf, e.faceCost(mf)), spellScope("")) {
+			if w.offerCastableAsFace(p, id, mf, pay.WithSpellAbilityExtras(mf, e.faceCost(mf)), spellScope("")) {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + mf.Name, Obj: id, Mode: "modal_spell"})
 			}
@@ -126,7 +127,7 @@ func (w *legalWalk) handWalk() {
 			instant := sf.IsInstant() || e.hasKeywordH(id, kwhFlash) || e.castWithFlashAsFace(p, id, sf)
 			if (instant || sorcery) && e.splitCastTargetsAvailable(p, id, sf) &&
 				!w.castRestrictedAsFace(p, id, sf) {
-				if w.offerCastableAsFace(p, id, sf, withSpellAbilityExtras(sf, e.faceCost(sf)), spellScope("")) {
+				if w.offerCastableAsFace(p, id, sf, pay.WithSpellAbilityExtras(sf, e.faceCost(sf)), spellScope("")) {
 					*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 						Label: "Cast " + sf.Name, Obj: id, Mode: "split_alt"})
 				}
@@ -142,7 +143,7 @@ func (w *legalWalk) handWalk() {
 		if int(o.FaceIdx) == 0 {
 			if af := adventureSpellFace(o); af != nil && e.spellTimingOK(p, id, af, sorcery) &&
 				e.castTargetsAvailable(p, id, af.SpellAbility()) && !w.castRestrictedAsFace(p, id, af) {
-				if w.offerCastableAsFace(p, id, af, withSpellAbilityExtras(af, ParseCost(af.ManaCost)), spellScope("")) {
+				if w.offerCastableAsFace(p, id, af, pay.WithSpellAbilityExtras(af, ParseCost(af.ManaCost)), spellScope("")) {
 					*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 						Label: "Cast " + af.Name, Obj: id, Mode: "adventure_alt"})
 				}
@@ -158,7 +159,7 @@ func (w *legalWalk) handWalk() {
 			instant := rf.IsInstant() || e.hasKeywordH(id, kwhFlash)
 			if (instant || sorcery) && e.castTargetsAvailable(p, id, rf.SpellAbility()) &&
 				!w.castRestrictedAsFace(p, id, rf) {
-				if w.offerCastableAsFace(p, id, rf, withSpellAbilityExtras(rf, e.faceCost(rf)), spellScope("")) {
+				if w.offerCastableAsFace(p, id, rf, pay.WithSpellAbilityExtras(rf, e.faceCost(rf)), spellScope("")) {
 					*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 						Label: "Cast " + rf.Name, Obj: id, Mode: "room_alt"})
 				}
@@ -261,7 +262,7 @@ func (w *legalWalk) handWalk() {
 			// face takes the ordinary path (no redundant duplicate offer).
 			if ph.has(phMayFlashCost) && e.mayflashTimingOK(p, f) {
 				if extra, ok := mayflashExtraCost(f); ok && e.castTargetsAvailable(p, id, f.SpellAbility()) {
-					if w.offerCastable(p, id, withSpellAbilityExtras(f, e.castOfferBase(p, id)).Plus(extra), spellScope("mayflash"), false) {
+					if w.offerCastable(p, id, pay.WithSpellAbilityExtras(f, e.castOfferBase(p, id)).Plus(extra), spellScope("mayflash"), false) {
 						*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 							Label: "Cast " + f.Name + " (may-flash)", Obj: id, Mode: "mayflash"})
 					}
@@ -317,21 +318,21 @@ func (w *legalWalk) handWalk() {
 		}
 		if len(altParts) > 0 {
 			for _, part := range altParts {
-				if w.offerCastable(p, id, withSpellAbilityExtras(f, convokeBase).Plus(e.parseCost(part)), spellScope(""), false) {
+				if w.offerCastable(p, id, pay.WithSpellAbilityExtras(f, convokeBase).Plus(e.parseCost(part)), spellScope(""), false) {
 					if targetsAvailable() {
 						w.add("cast", w.castLabel(f), id)
 					}
 					break
 				}
 			}
-		} else if w.offerCastable(p, id, withSpellAbilityExtras(f, convokeBase), spellScope(""), false) && targetsAvailable() {
+		} else if w.offerCastable(p, id, pay.WithSpellAbilityExtras(f, convokeBase), spellScope(""), false) && targetsAvailable() {
 			w.add("cast", w.castLabel(f), id)
 		}
 		// Self-spell OptionalCost is a separate paid offer; the plain
 		// cast above remains the decline path. Preserve static order.
 		if views := e.optionalCostViews(costStatics.get(), p, id); len(views) > 0 {
 			for i, extra := range views {
-				if w.offerCastable(p, id, withSpellAbilityExtras(f, convokeBase).Plus(extra), spellScope("optionalcost"), false) && targetsAvailable() {
+				if w.offerCastable(p, id, pay.WithSpellAbilityExtras(f, convokeBase).Plus(extra), spellScope("optionalcost"), false) && targetsAvailable() {
 					*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 						Label: "Cast " + f.Name + " (optional cost)", Obj: id, Mode: "optionalcost", AltCostIndex: i + 1})
 				}
@@ -399,7 +400,7 @@ func (w *legalWalk) handWalk() {
 			}
 		}
 		if ph.has(phSurge) {
-			if sc, ok := surgeCost(f); ok && e.spellsCastThisTurn(p) > 0 && w.offerCastable(p, id, sc, spellScope("surged"), false) && targetsAvailable() {
+			if sc, ok := surgeCost(f); ok && pay.SpellsCastThisTurn(asPayer(e), p) > 0 && w.offerCastable(p, id, sc, spellScope("surged"), false) && targetsAvailable() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (surged)", Obj: id, Mode: "surged"})
 			}
@@ -479,7 +480,7 @@ func (w *legalWalk) handWalk() {
 		// tap through offerCastable with a fabricated cost -- the tap has no
 		// Cost$ representation; conspireAsk enforces it at announcement.
 		if e.hasCastConspire(id) &&
-			w.offerCastable(p, id, withSpellAbilityExtras(f, convokeBase), spellScope(""), false) &&
+			w.offerCastable(p, id, pay.WithSpellAbilityExtras(f, convokeBase), spellScope(""), false) &&
 			len(e.conspireCandidates(p, id)) >= 2 && targetsAvailable() {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 				Label: "Cast " + f.Name + " (conspired)", Obj: id, Mode: "conspired"})
@@ -495,7 +496,7 @@ func (w *legalWalk) handWalk() {
 			if info.variable {
 				n = 0
 			}
-			if w.offerCastable(p, id, withSpellAbilityExtras(f, convokeBase), spellScope(""), false) &&
+			if w.offerCastable(p, id, pay.WithSpellAbilityExtras(f, convokeBase), spellScope(""), false) &&
 				len(e.casualtyCandidates(p, id, n)) > 0 && targetsAvailable() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (casualty)", Obj: id, Mode: "casualty"})

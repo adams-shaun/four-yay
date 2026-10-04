@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -24,7 +25,7 @@ func TestZoneEntryIndexSurvivesSpareReuse(t *testing.T) {
 		a.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZExile, To: state.ZBattlefield})
 	}
 	for i := range a.G.Objs {
-		if id := a.G.Objs[i].ID; id != 0 && a.zoneEntrySeq(id) != a.paymentSourceZoneSeqScan(id) {
+		if id := a.G.Objs[i].ID; id != 0 && a.zoneEntrySeq(id) != pay.PaymentSourceZoneSeqScan(asPayer(a), id) {
 			t.Fatalf("game A: object %d disagrees with the scan", id)
 		}
 	}
@@ -32,7 +33,7 @@ func TestZoneEntryIndexSurvivesSpareReuse(t *testing.T) {
 	cfg.Spare = &spare
 	b := New(cfg)
 	b.Advance()
-	if b.zoneEntrySeq(1) != b.paymentSourceZoneSeqScan(1) {
+	if b.zoneEntrySeq(1) != pay.PaymentSourceZoneSeqScan(asPayer(b), 1) {
 		t.Fatal("game B: object 1 disagrees with the scan")
 	}
 	var seated []state.ObjID
@@ -43,7 +44,7 @@ func TestZoneEntryIndexSurvivesSpareReuse(t *testing.T) {
 	b.emit(events.Event{Kind: events.MoveZone, Obj: last, From: state.ZBattlefield, To: state.ZExile})
 	b.emit(events.Event{Kind: events.MoveZone, Obj: last, From: state.ZExile, To: state.ZBattlefield})
 	for _, id := range seated {
-		if got, want := b.zoneEntrySeq(id), b.paymentSourceZoneSeqScan(id); got != want {
+		if got, want := b.zoneEntrySeq(id), pay.PaymentSourceZoneSeqScan(asPayer(b), id); got != want {
 			t.Fatalf("game B: object %d index seq %d, log scan %d (a recycled record leaked)", id, got, want)
 		}
 	}

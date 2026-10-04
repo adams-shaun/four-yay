@@ -15,6 +15,9 @@ type Engine interface {
 	Game() *state.Game
 	// Emit applies ev through events.Apply and records it.
 	Emit(ev events.Event) events.Event
+	// Log is the match's event log, for reading (what was produced, drawn
+	// or cast this turn); every append goes through Emit.
+	Log() *events.Log
 	// Verify reports whether the engine's cache/fast-path verify mode is on
 	// (rules' walkCacheVerify): a fast path then recomputes the slow answer
 	// and panics on disagreement.

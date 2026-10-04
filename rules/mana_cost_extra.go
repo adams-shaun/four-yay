@@ -17,6 +17,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -57,7 +58,7 @@ func (e *Engine) manaSubCounterStage(md *manaDiscardActivation) bool {
 		return false
 	}
 	if !md.subXAnnounced {
-		bound, _ := e.manaSubCounterXBound(md.player, e.G.Obj(md.source), md.source, md.cost)
+		bound, _ := pay.ManaSubCounterXBound(asPayer(e), md.player, e.G.Obj(md.source), md.source, md.cost)
 		min := md.cost.XMin
 		if min < 0 {
 			min = 0
@@ -115,7 +116,7 @@ func (e *Engine) manaSubCounterStage(md *manaDiscardActivation) bool {
 			md.subPart++
 			continue
 		}
-		candidates := e.subCounterRemovalCandidates(md.player, md.source, part, amt, e.manaSubCounterReservations(md))
+		candidates := pay.SubCounterRemovalCandidates(asPayer(e), md.player, md.source, part, amt, e.manaSubCounterReservations(md))
 		if len(candidates) == 0 {
 			// The board changed under the offer: drop the payment rather than
 			// ask an election no answer can satisfy.
@@ -151,7 +152,7 @@ func manaAbilityWithSubX(ma *cards.SA, x int32) *cards.SA {
 	if ma == nil || !strings.EqualFold(effects.ManaOf(ma).AmountTrim, "x") {
 		return ma
 	}
-	return manaAbilityWithPaidX(ma, x)
+	return pay.ManaAbilityWithPaidX(ma, x)
 }
 
 // manaSubCounterWildcardStage advances one "Any" part by one counter unit at
@@ -160,7 +161,7 @@ func manaAbilityWithSubX(ma *cards.SA, x int32) *cards.SA {
 // full amount is picked.
 func (e *Engine) manaSubCounterWildcardStage(md *manaDiscardActivation, part CostPart, amt int32) {
 	for md.subCounterPicked(md.subPart) < amt {
-		candidates := e.subCounterRemovalCandidates(md.player, md.source, part, 1, e.manaSubCounterReservations(md))
+		candidates := pay.SubCounterRemovalCandidates(asPayer(e), md.player, md.source, part, 1, e.manaSubCounterReservations(md))
 		if len(candidates) == 0 {
 			e.manaDiscardActivation = nil
 			e.choosing = chooseNone
@@ -255,7 +256,7 @@ func (e *Engine) answerManaSubCounterX(chosen []decision.Option) bool {
 	md.subXAnnounced = true
 	// Re-clamp against the live board (counters may have moved): the announced
 	// amount can never exceed what the settle can remove.
-	if bound, _ := e.manaSubCounterXBound(md.player, e.G.Obj(md.source), md.source, md.cost); md.subX > bound {
+	if bound, _ := pay.ManaSubCounterXBound(asPayer(e), md.player, e.G.Obj(md.source), md.source, md.cost); md.subX > bound {
 		md.subX = bound
 	}
 	if md.subX < md.cost.XMin {
@@ -393,7 +394,7 @@ func (e *Engine) manaForagePayable(p state.PlayerID, source state.ObjID) bool {
 	if len(e.G.Zone(state.ZGraveyard, p)) >= 3 {
 		return true
 	}
-	return len(e.costCandidates(p, source, state.ZBattlefield, "Food.YouCtrl", false, false)) > 0
+	return len(pay.CostCandidates(asPayer(e), p, source, state.ZBattlefield, "Food.YouCtrl", false, false)) > 0
 }
 
 // manaForageStage poses the Forage election (exile three graveyard cards OR
@@ -406,7 +407,7 @@ func (e *Engine) manaForageStage(md *manaDiscardActivation) bool {
 	}
 	md.forageDone = true
 	graveOK := len(e.G.Zone(state.ZGraveyard, md.player)) >= 3
-	foods := e.costCandidates(md.player, md.source, state.ZBattlefield, "Food.YouCtrl", false, false)
+	foods := pay.CostCandidates(asPayer(e), md.player, md.source, state.ZBattlefield, "Food.YouCtrl", false, false)
 	if !md.interactive {
 		if graveOK {
 			md.foragePay = true

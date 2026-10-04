@@ -17,6 +17,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -800,7 +801,7 @@ func (e *Engine) eventDelayedSpellCastMatches(t cards.Trigger, dt *state.Delayed
 	// so a stored body carrying either stays fire-time-correct (the "you"
 	// the activator clauses measure is the event's caster either way).
 	if v, ok := t.Param(cards.PKActivatorThisTurnCast); ok {
-		if !trigmatch.CompareIntCount(int32(e.spellsCastThisTurn(ev.Player)), v) {
+		if !trigmatch.CompareIntCount(int32(pay.SpellsCastThisTurn(asPayer(e), ev.Player)), v) {
 			return false
 		}
 	}

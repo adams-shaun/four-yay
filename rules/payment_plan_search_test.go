@@ -428,7 +428,7 @@ func srchIndexAgrees(t *testing.T, e *Engine, where string) (tokens, reentered, 
 	}
 	for _, pl := range e.G.Players {
 		for _, id := range e.G.Zone(state.ZBattlefield, pl.ID) {
-			want := e.paymentSourceZoneSeqScan(id)
+			want := pay.PaymentSourceZoneSeqScan(asPayer(e), id)
 			if got := e.zoneEntrySeq(id); got != want {
 				t.Fatalf("%s: object %d index seq %d, log scan %d", where, id, got, want)
 			}
@@ -613,7 +613,7 @@ func srchPhaseTwoChoices(t *testing.T, e *Engine, p state.PlayerID) [][]pay.Alt 
 		var out []pay.Alt
 		for _, alt := range u.Alts {
 			tier, consequence, _ := e.paymentPlanAbilityTier(p, u.ID, alt.Ma)
-			if tier == pay.TierDeferred || !paymentPlanTapOnlyCost(e.parseCost(alt.Ma.Params["Cost"])) {
+			if tier == pay.TierDeferred || !pay.PaymentPlanTapOnlyCost(e.parseCost(alt.Ma.Params["Cost"])) {
 				continue
 			}
 			ab, ok := pay.PaymentAbility(e.G, u.ID, alt.Ma)

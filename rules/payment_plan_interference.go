@@ -24,9 +24,7 @@ package rules
 // (paymentPlanGlobalManaEffect).
 
 import (
-	"maps"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/rules/pay"
@@ -61,34 +59,13 @@ func (e *Engine) paymentPlanGlobalManaEffect(p state.PlayerID, id state.ObjID) (
 			continue
 		}
 		if strings.TrimSpace(ce.ReplacementParam(cards.PKValidCard)) == "" && strings.TrimSpace(ce.ReplacementParam(cards.PKValidActivator)) == "" {
-			return true, "global_mana_effect:" + e.paymentPlanObjName(ce.Source)
+			return true, "global_mana_effect:" + pay.PaymentPlanObjName(asPayer(e), ce.Source)
 		}
 	}
-	if conv := asPayer(e).Conv(p, id, false); conv != nil && paymentPlanConvRestricts(conv) {
+	if conv := asPayer(e).Conv(p, id, false); conv != nil && pay.PaymentPlanConvRestricts(conv) {
 		return true, "global_mana_effect:" + e.paymentPlanManaConvertName(p)
 	}
 	return false, ""
-}
-
-// paymentPlanConvRestricts classifies a payer's effective conversion set
-// (paymentConv, the payment path's own parse of every ManaConvert static
-// reaching the payer) by whether it can make a planned payment INVALID.
-//
-//   - wild / wildC ("spend mana as though it were mana of any color/type":
-//     Mycosynth Lattice, Chromatic Orrery, the AnyType->AnyColor family) and
-//     to ("White->Red") only ever ADD pips a unit of mana may pay. A witness
-//     the ordinary solver proved payable without them stays payable with
-//     them, so they are not a global plan-blocker.
-//   - onlyC ("you may spend other mana only as though it were colorless
-//     mana": Celestial Dawn's nonWhite<-C) REMOVES pips a unit may pay, so a
-//     plan priced without it can be unpayable: global.
-//
-// Every manaConv field is classified here; a field added to manaConv later
-// must be classified too. A ManaConversion$ token the parser cannot read is
-// inert at payment as well (manaColourFrom/applyManaConversionTo), so it can
-// invalidate nothing the solver priced.
-func paymentPlanConvRestricts(c *manaConv) bool {
-	return slices.Contains(c.OnlyC[:], true)
 }
 
 // paymentPlanManaConvertName names the ManaConvert static behind a global
@@ -113,24 +90,16 @@ func (e *Engine) paymentPlanManaConvertName(p state.PlayerID) string {
 			continue
 		}
 		if strings.Contains(sv.ParamStr(cards.PKManaConversion), "<-") {
-			return e.paymentPlanObjName(sv.Source)
+			return pay.PaymentPlanObjName(asPayer(e), sv.Source)
 		}
 		if first == 0 {
 			first = sv.Source
 		}
 	}
 	if first != 0 {
-		return e.paymentPlanObjName(first)
+		return pay.PaymentPlanObjName(asPayer(e), first)
 	}
 	return "ManaConvert"
-}
-
-// paymentPlanObjName is an object's current face name, for diagnostics.
-func (e *Engine) paymentPlanObjName(id state.ObjID) string {
-	if o := e.G.Obj(id); o != nil && o.Face() != nil {
-		return o.Face().Name
-	}
-	return "object " + strconv.Itoa(int(id))
 }
 
 // paymentPlanSourceInterference classifies what can act on activating ma on
@@ -146,7 +115,7 @@ func (e *Engine) paymentPlanSourceInterference(id state.ObjID, ma *cards.SA) (pa
 		return pay.TierDeferred, pay.Consequence{}, "source:interference"
 	}
 	deferredBy := func(obj state.ObjID) (pay.Tier, pay.Consequence, string) {
-		return pay.TierDeferred, pay.Consequence{}, "source:interference:" + e.paymentPlanObjName(obj)
+		return pay.TierDeferred, pay.Consequence{}, "source:interference:" + pay.PaymentPlanObjName(asPayer(e), obj)
 	}
 	var c pay.Consequence
 	// The source's own "doesn't untap during your untap step". An Untap
@@ -156,7 +125,7 @@ func (e *Engine) paymentPlanSourceInterference(id state.ObjID, ma *cards.SA) (pa
 		if r.Event != "Untap" || !strings.HasPrefix(strings.TrimSpace(r.ParamStr(cards.PKValidCard)), "Card.Self") {
 			continue
 		}
-		if !paymentPlanNoUntapShape(r) {
+		if !pay.PaymentPlanNoUntapShape(r) {
 			return deferredBy(id)
 		}
 		c.NoUntap = true
@@ -195,55 +164,6 @@ func (e *Engine) paymentPlanProductions(id state.ObjID, ma *cards.SA) []string {
 	return []string{raw}
 }
 
-// paymentPlanNoUntapShape is spec §3.2's no_untap row: exactly the source's
-// own "doesn't untap during your untap step" -- ValidCard$ Card.Self, Layer$
-// CantHappen, no ReplaceWith$ body, an optional ValidStepTurnToController$
-// You and presentation/zone keys only. Anything else is not a fully
-// determined consequence.
-func paymentPlanNoUntapShape(r cards.Repl) bool {
-	if r.With != nil || strings.TrimSpace(r.ParamStr(cards.PKValidCard)) != "Card.Self" ||
-		!strings.EqualFold(strings.TrimSpace(r.ParamStr(cards.PKLayer)), "CantHappen") {
-		return false
-	}
-	if v, ok := r.Param(cards.PKValidStepTurnToController); ok && strings.TrimSpace(v) != "You" {
-		return false
-	}
-	if v, ok := r.Param(cards.PKActiveZones); ok && strings.TrimSpace(v) != "Battlefield" {
-		return false
-	}
-	for _, k := range slices.Sorted(maps.Keys(r.Params)) {
-		if !paymentPlanNoUntapShapeKeys.Has(k) {
-			return false
-		}
-	}
-	return true
-}
-
-// paymentPlanSelfDamageTrigger is spec §3.2's damage:N trigger row: the
-// source's own `Mode$ Taps | ValidCard$ Card.Self` whose effect is exactly
-// `DealDamage | Defined$ You | NumDmg$ <literal>` and nothing else (City of
-// Brass). f owns the trigger's Execute$ table.
-func paymentPlanSelfDamageTrigger(f *cards.Face, t cards.Trigger) (uint32, bool) {
-	if t.Mode != "Taps" || strings.TrimSpace(t.ParamStr(cards.PKValidCard)) != "Card.Self" {
-		return 0, false
-	}
-	if v, ok := t.Param(cards.PKTriggerZones); ok && strings.TrimSpace(v) != "Battlefield" {
-		return 0, false
-	}
-	for _, k := range slices.Sorted(maps.Keys(t.Params)) {
-		switch paymentPlanSelfDamageTriggerCodes.Code(string(k)) {
-		case paymentPlanSelfDamageTriggerKnown:
-		default:
-			return 0, false
-		}
-	}
-	body := t.Effect
-	if body == nil && f != nil {
-		body = cards.ResolveSVar(f.SVars, strings.TrimSpace(t.ParamStr(cards.PKExecute)))
-	}
-	return paymentPlanDamageBody(body)
-}
-
 // paymentPlanTapObservers runs every Taps/TapsForMana trigger that could see
 // a mana tap of id (activated by activator, declaring produced) through the
 // real matcher. It returns the source's own City-of-Brass damage, or ok=false
@@ -270,7 +190,7 @@ func (e *Engine) paymentPlanTapObservers(id state.ObjID, activator state.PlayerI
 	tapMode := func(mode string) bool { return mode == "Taps" || mode == "TapsForMana" }
 	for _, oid := range e.paymentPlanInterferenceCarriers() {
 		o := e.G.Obj(oid)
-		if o == nil || o.PhasedOut || o.Face() == nil || e.printedAbilitiesGone(o) || !e.paymentPlanAlive(o) {
+		if o == nil || o.PhasedOut || o.Face() == nil || e.printedAbilitiesGone(o) || !pay.PaymentPlanAlive(asPayer(e), o) {
 			continue
 		}
 		faces, n := roomTriggerFaces(o, o.Face())
@@ -284,7 +204,7 @@ func (e *Engine) paymentPlanTapObservers(id state.ObjID, activator state.PlayerI
 					continue
 				}
 				if oid == id && fc.active && fc.merged == 0 {
-					if d, self := paymentPlanSelfDamageTrigger(fc.face, t); self {
+					if d, self := pay.PaymentPlanSelfDamageTrigger(fc.face, t); self {
 						damage += d
 						continue
 					}
@@ -439,7 +359,7 @@ func (e *Engine) paymentPlanProductionReplaced(id state.ObjID, activator state.P
 		}
 		for _, oid := range carriers {
 			o := e.G.Obj(oid)
-			if o == nil || !e.paymentPlanAlive(o) {
+			if o == nil || !pay.PaymentPlanAlive(asPayer(e), o) {
 				continue
 			}
 			f := e.replacementFace(oid, ev)
@@ -499,16 +419,6 @@ func (e *Engine) paymentPlanInterferenceCarriers() []state.ObjID {
 	return out
 }
 
-// paymentPlanAlive mirrors the engine walks' AliveFrom scope: an object in a
-// lost player's zones is not walked for triggers or replacements.
-func (e *Engine) paymentPlanAlive(o *state.Object) bool {
-	holder := o.Owner
-	if o.Zone == state.ZBattlefield {
-		holder = o.Controller
-	}
-	return int(holder) < len(e.G.Players) && !e.G.Players[holder].Lost
-}
-
 // paymentPlanSunburstGrantOut is the planner-local sunburst arm of the cast
 // shape gate: whether any alive player's battlefield face GRANTS sunburst to
 // a spell (Solar Array's and Lux Artillery's `Animate | Keywords$ Sunburst`,
@@ -527,128 +437,3 @@ func (e *Engine) paymentPlanSunburstGrantOut() bool {
 	}
 	return false
 }
-
-// faceGrantsSunburstForPlan reports whether f carries a keyword GRANT naming
-// Sunburst: a Keywords$/KW$/AddKeyword$ value in any ability, trigger body,
-// replacement body, SVar or static. The face's own printed keywords are not
-// grants.
-func faceGrantsSunburstForPlan(f *cards.Face) bool {
-	// Cheap gate first: nearly every face never mentions the word.
-	if f == nil || !f.Mentions("Sunburst") {
-		return false
-	}
-	grantKey := func(k string) bool {
-		return k == "Keywords" || k == "KW" || k == "AddKeyword" || k == "AddKeywords"
-	}
-	grantValue := func(v string) bool {
-		for kw := range strings.SplitSeq(v, "&") {
-			if strings.HasPrefix(strings.TrimSpace(kw), "Sunburst") {
-				return true
-			}
-		}
-		return false
-	}
-	grants := func(params map[string]string) bool {
-		for _, k := range [...]string{"Keywords", "KW", "AddKeyword", "AddKeywords"} {
-			if grantValue(params[k]) {
-				return true
-			}
-		}
-		return false
-	}
-	var walk func(sa *cards.SA, depth int) bool
-	walk = func(sa *cards.SA, depth int) bool {
-		return sa != nil && depth <= 32 && (grants(sa.Params) || walk(sa.Sub, depth+1))
-	}
-	for _, a := range f.Abilities {
-		if walk(a, 0) {
-			return true
-		}
-	}
-	for _, t := range f.Triggers {
-		if walk(t.Effect, 0) {
-			return true
-		}
-	}
-	for _, r := range f.Repls {
-		if walk(r.With, 0) {
-			return true
-		}
-	}
-	for _, st := range f.Statics {
-		if grants(st.Params) {
-			return true
-		}
-	}
-	// SVar bodies are raw `Key$ Value | ...` text: read the grant keys off
-	// their segments without parsing whole abilities. The answer is a plain
-	// any-of, so the map's iteration order cannot matter.
-	for _, raw := range f.SVars {
-		for seg := range strings.SplitSeq(raw, "|") {
-			if k, v, ok := strings.Cut(strings.TrimSpace(seg), "$"); ok && grantKey(strings.TrimSpace(k)) && grantValue(v) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// paymentPlanSpellTargets reports whether casting f's ordinary spell
-// announces a target (CR 601.2c): an Aura spell (CR 303.4a), a mutating
-// creature spell (CR 702.140a), or a spell ability whose chain -- its
-// SubAbility$ links and a Charm's Choices$ modes -- declares a target. It
-// fails closed (true) on a nil face.
-func paymentPlanSpellTargets(f *cards.Face) bool {
-	if f == nil {
-		return true
-	}
-	if slices.Contains(f.Types, "Aura") || f.HasKeyword("Enchant") {
-		return true
-	}
-	if _, ok := f.KeywordParam("Enchant"); ok {
-		return true
-	}
-	if _, ok := f.KeywordParam("Mutate"); ok {
-		return true
-	}
-	targets := func(sa *cards.SA) bool {
-		return effects.TargetsOf(sa).Has(effects.TgtDeclares)
-	}
-	var walk func(sa *cards.SA, depth int) bool
-	walk = func(sa *cards.SA, depth int) bool {
-		if sa == nil || depth > 32 {
-			return false
-		}
-		if targets(sa) || walk(sa.Sub, depth+1) {
-			return true
-		}
-		if name := strings.TrimSpace(sa.ParamStr(cards.PKSubAbility)); name != "" && sa.Sub == nil {
-			if walk(cards.ResolveSVar(f.SVars, name), depth+1) {
-				return true
-			}
-		}
-		for mode := range strings.SplitSeq(sa.ParamStr(cards.PKChoices), ",") {
-			if mode = strings.TrimSpace(mode); mode != "" && walk(cards.ResolveSVar(f.SVars, mode), depth+1) {
-				return true
-			}
-		}
-		return false
-	}
-	return walk(f.SpellAbility(), 0)
-}
-
-var paymentPlanNoUntapShapeKeys = state.NewNameSet("Event", "ValidCard", "Layer", "ValidStepTurnToController", "ActiveZones", "Description")
-
-type paymentPlanSelfDamageTriggerCode uint16
-
-const (
-	paymentPlanSelfDamageTriggerKnown paymentPlanSelfDamageTriggerCode = iota + 1
-)
-
-var paymentPlanSelfDamageTriggerCodes = state.NewStrCodes(
-	state.StrEntry[paymentPlanSelfDamageTriggerCode]{Key: "Mode", Val: paymentPlanSelfDamageTriggerKnown},
-	state.StrEntry[paymentPlanSelfDamageTriggerCode]{Key: "ValidCard", Val: paymentPlanSelfDamageTriggerKnown},
-	state.StrEntry[paymentPlanSelfDamageTriggerCode]{Key: "Execute", Val: paymentPlanSelfDamageTriggerKnown},
-	state.StrEntry[paymentPlanSelfDamageTriggerCode]{Key: "TriggerZones", Val: paymentPlanSelfDamageTriggerKnown},
-	state.StrEntry[paymentPlanSelfDamageTriggerCode]{Key: "TriggerDescription", Val: paymentPlanSelfDamageTriggerKnown},
-)

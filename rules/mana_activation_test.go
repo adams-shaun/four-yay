@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -304,7 +305,7 @@ func TestManaColourPromptNamesDeterminateAmount(t *testing.T) {
 		if tc.amount != "" {
 			sa.Params["Amount"] = tc.amount
 		}
-		if got := manaColourPrompt(sa); got != tc.want {
+		if got := pay.ManaColourPrompt(sa); got != tc.want {
 			t.Errorf("manaColourPrompt(Produced=%q, Amount=%q) = %q, want %q", tc.produced, tc.amount, got, tc.want)
 		}
 	}

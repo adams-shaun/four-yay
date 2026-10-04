@@ -69,7 +69,7 @@ func (e *Engine) ValidateCastAnnounce(p state.PlayerID, cast decision.PlannedCas
 	defer e.endDerivedMemo()
 	defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
 	if o := e.G.Obj(cast.Object); o != nil && o.Face() != nil && o.Zone == state.ZHand {
-		composed := e.offerCostFor(p, cast.Object, withSpellAbilityExtras(o.Face(), e.rawBaseCost(p, cast.Object)), spellScope(""))
+		composed := e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(o.Face(), e.rawBaseCost(p, cast.Object)), spellScope(""))
 		if len(composed.Sac) != 0 && !e.nonManaCastable(p, cast.Object, composed, false, "") {
 			return fmt.Errorf("announced cast's sacrifice cost is no longer payable")
 		}
@@ -96,14 +96,14 @@ func decisionMadeAnnounceText(kind decision.Kind, choices []int, announce *decis
 // (the manual wheel's own flattener), or -- for a planner-tier ability whose
 // choice the planner already makes concrete -- Any / Chosen / ColorIdentity.
 func (e *Engine) announcedAbilityColours(p state.PlayerID, id state.ObjID, ma *cards.SA, chosen string) []string {
-	if cols, ok := manaAbilityComboColours(ma, chosen); ok {
+	if cols, ok := pay.ManaAbilityComboColours(ma, chosen); ok {
 		return cols
 	}
 	if ma == nil || ma.API != "Mana" {
 		return nil
 	}
 	raw := effects.ManaOf(ma).Produced
-	if raw != "Any" && raw != "ColorIdentity" && !paymentPlanChoiceShape(raw) {
+	if raw != "Any" && raw != "ColorIdentity" && !pay.PaymentPlanChoiceShape(raw) {
 		return nil
 	}
 	if tier, _, _ := e.paymentPlanAbilityTier(p, id, ma); tier != pay.TierNormal && tier != pay.TierLastResort {
@@ -171,12 +171,12 @@ func (e *Engine) announcedManaWindowAsk(pc *pendingCast, mana Cost) bool {
 				for _, col := range cols {
 					d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "mana", Obj: id,
 						Ability: i, ManaSymbol: col, Cost: marker,
-						Label: manaAbilityCostPrefix(ma) + "Add " + manaAmountPips(ma, col)})
+						Label: pay.ManaAbilityCostPrefix(ma) + "Add " + pay.ManaAmountPips(ma, col)})
 				}
 				continue
 			}
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "mana", Obj: id,
-				Ability: i, Cost: marker, Label: manaAbilityLabel(ma, chosen)})
+				Ability: i, Cost: marker, Label: pay.ManaAbilityLabel(ma, chosen)})
 		}
 	}
 	if plan := e.announcedAutoFillPlan(pc, mana); plan != nil {
@@ -223,13 +223,13 @@ func (e *Engine) announcedActivate(pc *pendingCast, opt decision.Option) {
 	ab := abilities[opt.Ability]
 	normal := false
 	if tier, _, _ := e.paymentPlanAbilityTier(p, src, ab); tier == pay.TierNormal &&
-		paymentPlanTapOnlyCost(e.parseCost(ab.ParamStr(cards.PKCost))) {
+		pay.PaymentPlanTapOnlyCost(e.parseCost(ab.ParamStr(cards.PKCost))) {
 		normal = true
 	}
 	gained := e.gainedManaRefFor(p, src, ab)
 	e.beginWindowTap(pc, src, normal)
 	if col := opt.ManaSymbol; len(col) == 1 && strings.Contains("WUBRGC", col) {
-		e.resolveManaAbilityRefOriginal(p, src, withProduced(ab, ab, col), ab, gained, true, false, true)
+		e.resolveManaAbilityRefOriginal(p, src, pay.WithProduced(ab, ab, col), ab, gained, true, false, true)
 		return
 	}
 	e.resolveManaAbilityRef(p, src, ab, gained, true, false, true)

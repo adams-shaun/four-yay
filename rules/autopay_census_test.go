@@ -758,7 +758,7 @@ func censusCostParts(e *Engine, raw string) (tap bool, parts []string) {
 		parts = append(parts, "life")
 	}
 	for _, s := range c.Sac {
-		if strings.EqualFold(sacrificeMatchSpec(s.Spec), "CARDNAME") || strings.EqualFold(s.Spec, "Self") {
+		if strings.EqualFold(pay.SacrificeMatchSpec(s.Spec), "CARDNAME") || strings.EqualFold(s.Spec, "Self") {
 			parts = append(parts, "sac_self")
 		} else {
 			parts = append(parts, "sac_other")
@@ -1175,11 +1175,11 @@ func (cz *autopayCensus) v1Structural(e *Engine, id state.ObjID, ma *cards.SA) s
 	// 1) stay deferred. The mirror is the SHAPE gate only; whether the choice
 	// resolves to a colour on a given board (recorded Chosen, commander
 	// identity) is the planner's board-dependent answer, not this column's.
-	viaChoice := any && produced != "Any" && paymentPlanChoiceShape(produced) && amt == 1
+	viaChoice := any && produced != "Any" && pay.PaymentPlanChoiceShape(produced) && amt == 1
 	if !viaWindow && !viaAny && !viaChoice {
 		return "ProducedCounts (open production: only fixed or a finite choice)"
 	}
-	if !paymentPlanTapOnlyCost(cost) {
+	if !pay.PaymentPlanTapOnlyCost(cost) {
 		return "paymentPlanTapOnlyCost (no {T} or extra part)"
 	}
 	if _, ok := pay.PaymentAbility(e.G, id, ma); !ok {

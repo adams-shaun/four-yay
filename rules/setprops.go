@@ -9,6 +9,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/rules/chars"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -109,7 +110,7 @@ func (e *Engine) setPropTokens(kind string, obj state.ObjID) []string {
 // stack and cannot pay its own reveal, an ability's source stays where it is
 // and can.
 func (e *Engine) sameColorRevealSets(p state.PlayerID, source state.ObjID, excludeSource bool) ([]state.ObjID, [][]string) {
-	cands := e.costCandidates(p, source, state.ZHand, "Card", excludeSource, false)
+	cands := pay.CostCandidates(asPayer(e), p, source, state.ZHand, "Card", excludeSource, false)
 	sets := make([][]string, 0, len(cands))
 	for _, id := range cands {
 		sets = append(sets, e.setPropTokens("color", id))

@@ -38,7 +38,7 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 			return false, false
 		}
 		part := cost.Discard[0]
-		candidates := e.discardCandidates(payer, ctx.Source, part, false, nil)
+		candidates := pay.DiscardCandidates(asPayer(e), payer, ctx.Source, part, false, nil)
 		d := &decision.Decision{Player: payer, Kind: decision.KChoose, Min: 1, Max: 1,
 			Prompt: "Choose how to pay ward", ResumeKind: "ward_alt", ResumeSA: rp.sa}
 		for _, id := range candidates {
@@ -115,7 +115,7 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 	}
 	if len(cost.Sac) == 1 {
 		part := cost.Sac[0]
-		ids := e.wardPermanents(payer, ctx.Source, sacrificeMatchSpec(part.Spec), false)
+		ids := e.wardPermanents(payer, ctx.Source, pay.SacrificeMatchSpec(part.Spec), false)
 		// A CantSacrifice restriction (Call for Aid) or face static: the
 		// permanent cannot pay the ward's sacrifice component. The ward cost
 		// is demanded by the ward trigger (CR 702.22), so the cause is
@@ -135,7 +135,7 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 	}
 	if len(cost.Discard) == 1 {
 		part := cost.Discard[0]
-		ids := e.discardCandidates(payer, ctx.Source, part, false, nil)
+		ids := pay.DiscardCandidates(asPayer(e), payer, ctx.Source, part, false, nil)
 		if int32(len(ids)) < part.N {
 			return false, false
 		}
@@ -321,9 +321,9 @@ func (e *Engine) settleWardPayment(kind string, sa *cards.SA, ctx *effects.Ctx, 
 		for _, id := range ids {
 			valid := slices.Contains(e.G.Zone(zone, payer), id)
 			if kind == "ward_sac" {
-				valid = valid && e.matchesSpecFrom(sacrificeMatchSpec(part.Spec), id, payer, ctx.Source)
+				valid = valid && e.matchesSpecFrom(pay.SacrificeMatchSpec(part.Spec), id, payer, ctx.Source)
 			} else {
-				valid = valid && slices.Contains(e.discardCandidates(payer, ctx.Source, part, false, nil), id)
+				valid = valid && slices.Contains(pay.DiscardCandidates(asPayer(e), payer, ctx.Source, part, false, nil), id)
 			}
 			if !valid {
 				return false

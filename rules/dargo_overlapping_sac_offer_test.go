@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -18,7 +19,7 @@ func TestDargoOverlappingSacXPartsWithholdUnsettleableOffer(t *testing.T) {
 	if len(ids) != 1 || e.G.Obj(ids[0]).Zone != state.ZBattlefield {
 		t.Fatalf("precondition: artifact candidate not on battlefield: %v", ids)
 	}
-	base := withSpellAbilityExtras(e.G.Obj(spell).Face(), e.castOfferBase(0, spell))
+	base := pay.WithSpellAbilityExtras(e.G.Obj(spell).Face(), e.castOfferBase(0, spell))
 	extra := ParseCost("Sac<X/Artifact>")
 	if len(base.Sac) != 1 || !base.Sac[0].Announced || len(extra.Sac) != 1 || !extra.Sac[0].Announced {
 		t.Fatalf("precondition: want two announced Sac parts: base=%+v extra=%+v", base.Sac, extra.Sac)
@@ -49,7 +50,7 @@ func TestDargoOverlappingSacXPartsWithholdUnsettleableOffer(t *testing.T) {
 			t.Fatalf("precondition: artifact %d not on battlefield", id)
 		}
 	}
-	base = withSpellAbilityExtras(e.G.Obj(spell).Face(), e.castOfferBase(0, spell))
+	base = pay.WithSpellAbilityExtras(e.G.Obj(spell).Face(), e.castOfferBase(0, spell))
 	if len(base.Sac) != 1 || !base.Sac[0].Announced {
 		t.Fatalf("precondition: Dargo announced Sac part missing: %+v", base.Sac)
 	}
@@ -78,7 +79,7 @@ func TestDargoOverlappingSacXPartsExcludeUnsettleableAnnouncement(t *testing.T) 
 	if len(ids) != 1 || e.G.Obj(ids[0]).Zone != state.ZBattlefield {
 		t.Fatalf("precondition: sole artifact not on battlefield: %v", ids)
 	}
-	base := withSpellAbilityExtras(e.G.Obj(spell).Face(), e.castOfferBase(0, spell))
+	base := pay.WithSpellAbilityExtras(e.G.Obj(spell).Face(), e.castOfferBase(0, spell))
 	extra := ParseCost("Sac<X/Artifact>")
 	if len(base.Sac) != 1 || !base.Sac[0].Announced || len(extra.Sac) != 1 || !extra.Sac[0].Announced {
 		t.Fatalf("precondition: want two announced Sac parts: base=%+v extra=%+v", base.Sac, extra.Sac)

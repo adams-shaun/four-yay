@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -186,7 +187,7 @@ func TestManaAbilityLabelShapes(t *testing.T) {
 	}
 	for _, c := range cases {
 		ma := &cards.SA{Kind: "AB", API: "Mana", Params: map[string]string{"Produced": c.produced}}
-		if got := manaAbilityLabel(ma, ""); got != c.want {
+		if got := pay.ManaAbilityLabel(ma, ""); got != c.want {
 			t.Errorf("manaAbilityLabel(Produced$ %q) = %q, want %q", c.produced, got, c.want)
 		}
 	}

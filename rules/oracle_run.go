@@ -586,7 +586,7 @@ func (r *oracleRun) manaAbilityLabels(seat state.PlayerID, id state.ObjID) []str
 	abilities := r.e.availableManaAbilities(seat, id)
 	labels := make([]string, 0, len(abilities))
 	for _, ma := range abilities {
-		labels = append(labels, manaAbilityLabel(ma, pay.ChosenProducedColour(r.e.G, id)))
+		labels = append(labels, pay.ManaAbilityLabel(ma, pay.ChosenProducedColour(r.e.G, id)))
 	}
 	return labels
 }

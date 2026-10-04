@@ -752,7 +752,7 @@ func (e *Engine) triggeredCostDrawCounts(tc *triggeredEffectCost) ([]int32, bool
 		tcx = &t
 	}
 	for i, part := range tc.amount.Draw {
-		if _, ok := castFlowDrawPlayer(part.Spec, tc.player); !ok {
+		if _, ok := pay.CastFlowDrawPlayer(part.Spec, tc.player); !ok {
 			return nil, false
 		}
 		n, ok := e.drawCostCountTrig(tc.source, tc.player, part, tcx)
@@ -1479,7 +1479,7 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 				paid = true
 				pay.ChargeEnergyCost(asPayer(e), tc.player, tc.amount, tc.xPaid)
 				for i, part := range announced.Draw {
-					if drawer, ok := castFlowDrawPlayer(part.Spec, tc.player); ok {
+					if drawer, ok := pay.CastFlowDrawPlayer(part.Spec, tc.player); ok {
 						for n := int32(0); n < draws[i]; n++ {
 							e.drawCostCard(drawer)
 						}
@@ -1595,7 +1595,7 @@ func (e *Engine) triggeredMandatoryCandidatesWith(tc *triggeredEffectCost, idx i
 		used[id] = true
 	}
 	if triggeredPartIsDiscard(tc.amount, idx) {
-		return e.discardCandidates(tc.player, tc.source, part, false, used)
+		return pay.DiscardCandidates(asPayer(e), tc.player, tc.source, part, false, used)
 	}
 	if triggeredPartIsMoveToGrave(tc.amount, idx) {
 		// An ExiledMoveToGrave part's candidates come from EVERY player's
@@ -1607,7 +1607,7 @@ func (e *Engine) triggeredMandatoryCandidatesWith(tc *triggeredEffectCost, idx i
 	spec := part.Spec
 	if isSac {
 		// NICKNAME is the same bare self-reference as CARDNAME.
-		spec = sacrificeMatchSpec(spec)
+		spec = pay.SacrificeMatchSpec(spec)
 	}
 	// The Exile-All shape names the WHOLE zone rather than a card filter
 	// (ExileFromHand<1/All>, Herigast's "exile your hand"): every card the
@@ -1850,7 +1850,7 @@ func (e *Engine) settleTriggeredMandatory(tc *triggeredEffectCost) {
 		draws, ok := e.triggeredCostDrawCounts(tc)
 		if ok {
 			for i, part := range tc.amount.Draw {
-				if drawer, hasDrawer := castFlowDrawPlayer(part.Spec, tc.player); hasDrawer {
+				if drawer, hasDrawer := pay.CastFlowDrawPlayer(part.Spec, tc.player); hasDrawer {
 					for n := int32(0); n < draws[i]; n++ {
 						e.drawCostCard(drawer)
 					}
@@ -1882,7 +1882,7 @@ func (e *Engine) nextDynTapPart(tc *triggeredEffectCost) (CostPart, bool) {
 // count is the cost's announced {X} (rules/mana.go's dynTapCost doc); the
 // body the window then runs reads it through the resume point (rp.tapPaidX).
 func (e *Engine) triggeredTapAsk(tc *triggeredEffectCost, part CostPart) {
-	candidates := e.costCandidates(tc.player, tc.source, state.ZBattlefield, part.Spec, false, true)
+	candidates := pay.CostCandidates(asPayer(e), tc.player, tc.source, state.ZBattlefield, part.Spec, false, true)
 	if len(candidates) == 0 {
 		// No eligible permanent: an X-form election could only announce 0 and
 		// an Any-form part is not payable at all -- both are the decline, and

@@ -69,7 +69,7 @@ func (e *Engine) AvailableMana(p state.PlayerID) state.Mana {
 		var free []*cards.SA
 		for _, ma := range e.availableManaAbilities(p, id) {
 			cost := e.parseCost(ma.ParamStr(cards.PKCost))
-			if pay.ManaFreeCost(cost) && !activationTapCostUnavailable(o, &cost) {
+			if pay.ManaFreeCost(cost) && !pay.ActivationTapCostUnavailable(o, &cost) {
 				free = append(free, ma)
 			}
 		}
@@ -232,7 +232,7 @@ func (e *Engine) windowManaUnitsWith(p state.PlayerID, only []state.ObjID, pre [
 func addAvailable(m *state.Mana, ma *cards.SA, chosen string) {
 	mp := effects.ManaOf(ma)
 	raw := mp.Produced
-	produced := substituteChosenProduced(raw, chosen)
+	produced := pay.SubstituteChosenProduced(raw, chosen)
 	// ProducedCounts intentionally has no source and therefore exposes the
 	// WUBRG superset for a raw Chosen token. This source-aware projection has
 	// one: without its recorded as-enters choice the activation fails closed,

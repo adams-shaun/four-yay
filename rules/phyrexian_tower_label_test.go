@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -96,7 +97,7 @@ func TestManaAbilityLabelCostAndAmount(t *testing.T) {
 		if c.amount != "" {
 			ma.Params["Amount"] = c.amount
 		}
-		if got := manaAbilityLabel(ma, ""); got != c.want {
+		if got := pay.ManaAbilityLabel(ma, ""); got != c.want {
 			t.Errorf("manaAbilityLabel(Cost$ %q Produced$ %q Amount$ %q) = %q, want %q",
 				c.cost, c.produced, c.amount, got, c.want)
 		}

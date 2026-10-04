@@ -54,7 +54,7 @@ func computeFaceScan(f *cards.Face) faceScan {
 	if f.Mentions("Sunburst") {
 		s |= faceScanMentionsSunburst
 	}
-	if faceGrantsSunburstForPlan(f) {
+	if pay.FaceGrantsSunburstForPlan(f) {
 		s |= faceScanSunburstGrantPlan
 	}
 	if pay.FaceReadsManaSpent(f) {

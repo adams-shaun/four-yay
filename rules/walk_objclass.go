@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -419,7 +420,7 @@ func (e *Engine) ownWalkClasses() {
 // verifyManaCold panics unless a mana-cold object's visit in the mana loop
 // is skipped by manaWalkEmpty.
 func (w *legalWalk) verifyManaCold(board walkBoardFacts, o *state.Object, id state.ObjID, z state.Zone) {
-	if o == nil || (z == state.ZBattlefield && !existsOnBattlefield(o)) {
+	if o == nil || (z == state.ZBattlefield && !pay.ExistsOnBattlefield(o)) {
 		return
 	}
 	if f := o.Face(); f != nil && !w.manaWalkEmpty(board, o, id, f) {

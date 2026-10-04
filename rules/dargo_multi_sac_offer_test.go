@@ -3,6 +3,7 @@ package rules
 import (
 	"testing"
 
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -22,7 +23,7 @@ func TestDargoMultipleSacXPartsWithholdUnsettleableOffer(t *testing.T) {
 			t.Fatalf("precondition: sacrifice candidate %d is not on battlefield", id)
 		}
 	}
-	base := withSpellAbilityExtras(e.G.Obj(spell).Face(), e.castOfferBase(0, spell))
+	base := pay.WithSpellAbilityExtras(e.G.Obj(spell).Face(), e.castOfferBase(0, spell))
 	if len(base.Sac) != 1 || !base.Sac[0].Announced {
 		t.Fatalf("precondition: Dargo cost does not carry one announced Sac part: %+v", base.Sac)
 	}

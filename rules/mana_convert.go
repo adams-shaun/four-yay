@@ -113,7 +113,7 @@ func (e *Engine) mayPlayManaConvertRemembered(p state.PlayerID, id state.ObjID) 
 func (e *Engine) manaConvSpecCtx(sv staticView, you state.PlayerID, remembered []state.ObjID) effects.SpecContext {
 	sc := e.specCtxSVars(sv.Source, you, sv.SVars)
 	if len(remembered) > 0 {
-		sc.Remembered = rememberedTargets(remembered)
+		sc.Remembered = pay.RememberedTargets(remembered)
 	}
 	return sc
 }

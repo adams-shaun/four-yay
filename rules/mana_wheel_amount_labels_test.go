@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -93,7 +94,7 @@ func TestManaWheelLabelsNameAnyColourAmountsAboveTwenty(t *testing.T) {
 	any := func(amount string) string {
 		ma := &cards.SA{Kind: "AB", API: "Mana",
 			Params: map[string]string{"Cost": "T", "Produced": "Any", "Amount": amount}}
-		return manaAbilityLabel(ma, "")
+		return pay.ManaAbilityLabel(ma, "")
 	}
 	// Precondition: the two amounts the finding probed are distinct literals
 	// and the stage-2 prompt names both -- the comparison below is not two
@@ -110,7 +111,7 @@ func TestManaWheelLabelsNameAnyColourAmountsAboveTwenty(t *testing.T) {
 	// A Combo Any amount above twenty stays faithful too.
 	combo := &cards.SA{Kind: "AB", API: "Mana",
 		Params: map[string]string{"Cost": "T", "Produced": "Combo Any", "Amount": "21"}}
-	if got, want := manaAbilityLabel(combo, ""), "Add 21 mana in any combination of colors"; got != want {
+	if got, want := pay.ManaAbilityLabel(combo, ""), "Add 21 mana in any combination of colors"; got != want {
 		t.Errorf("Amount$ 21 Combo Any label = %q, want %q", got, want)
 	}
 }

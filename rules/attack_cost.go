@@ -455,7 +455,7 @@ func (e *Engine) blockChargeOf(chosen []decision.Option) blockCharge {
 // combat" the moment the declaration lands even though the DeclareBlockers
 // event has not been applied yet (Hollow Warrior's Creature.!blocking).
 func (e *Engine) blockTapCandidates(p state.PlayerID, t blockTapReq, excluded map[state.ObjID]bool) []state.ObjID {
-	cands := e.costCandidates(p, t.source, state.ZBattlefield, t.spec, false, true)
+	cands := pay.CostCandidates(asPayer(e), p, t.source, state.ZBattlefield, t.spec, false, true)
 	out := cands[:0]
 	for _, id := range cands {
 		if excluded[id] {
@@ -474,7 +474,7 @@ func (e *Engine) blockTapCandidates(p state.PlayerID, t blockTapReq, excluded ma
 // payment's own candidate walk applies, so a permanent that cannot be
 // sacrificed never appears in a plan.
 func (e *Engine) chargeObjCandidates(p state.PlayerID, r chargeObjReq, kind string, excluded map[state.ObjID]bool) []state.ObjID {
-	cands := e.costCandidates(p, r.source, state.ZBattlefield, r.spec, false, false)
+	cands := pay.CostCandidates(asPayer(e), p, r.source, state.ZBattlefield, r.spec, false, false)
 	out := cands[:0]
 	for _, id := range cands {
 		if excluded[id] {
@@ -735,12 +735,12 @@ func (e *Engine) combatPhyBothBranches(p state.PlayerID, c blockCharge, manaExcl
 	for _, col := range c.phyrexian {
 		colourCost.Colored[state.ManaIndex(col)]++
 	}
-	canColour = e.unlessManaReachable(p, colourCost, player.Pool, player.Snow, player.ManaUnits(),
+	canColour = pay.UnlessManaReachable(asPayer(e), p, colourCost, player.Pool, player.Snow, player.ManaUnits(),
 		player.Life-c.life, conv, units)
 	// Life branch: the generic reachable with no life spent on pips, and the
 	// payer's life after the fixed life charge covers two per pip.
 	canLife = player.Life-c.life >= int32(len(c.phyrexian))*combatPhyLife &&
-		e.unlessManaReachable(p, Cost{Generic: c.mana}, player.Pool, player.Snow, player.ManaUnits(),
+		pay.UnlessManaReachable(asPayer(e), p, Cost{Generic: c.mana}, player.Pool, player.Snow, player.ManaUnits(),
 			player.Life-c.life, conv, units)
 	return canColour && canLife, canColour, canLife
 }
@@ -805,7 +805,7 @@ func (e *Engine) combatChargeAffordable(p state.PlayerID, c blockCharge, exclude
 	for _, id := range taps {
 		exclude[id] = true
 	}
-	reachable := e.unlessManaReachable(p, mc, player.Pool, player.Snow, player.ManaUnits(),
+	reachable := pay.UnlessManaReachable(asPayer(e), p, mc, player.Pool, player.Snow, player.ManaUnits(),
 		life-c.life, asPayer(e).Conv(p, 0, false), e.attackWindowUnits(p, exclude))
 	if !reachable || len(c.phyrexian) == 0 {
 		return reachable
@@ -1230,7 +1230,7 @@ func (e *Engine) attackChoiceManaSources(p state.PlayerID) []attackManaSource {
 				if chosen == "" {
 					continue
 				}
-				produced = substituteChosenProduced(produced, chosen)
+				produced = pay.SubstituteChosenProduced(produced, chosen)
 			}
 			counts, choice := cards.ProducedCounts(produced)
 			units := int32(0)
@@ -1265,7 +1265,7 @@ func (e *Engine) attackChoiceManaSources(p state.PlayerID) []attackManaSource {
 			// and poses no sub-ask. The gained identity is captured before the
 			// rewrite, which changes the SA pointer.
 			gained := e.gainedManaRefFor(p, id, ma)
-			rewritten := withProduced(ma, ma, oneColourProduced(counts))
+			rewritten := pay.WithProduced(ma, ma, oneColourProduced(counts))
 			pc, _ := cards.ProducedCounts(oneColourProduced(counts))
 			out = append(out, attackManaSource{id: id, ma: rewritten, original: ma, gained: gained, units: units, counts: pc, amt: amt, prod: manaUnitsLabel(pc, amt)})
 		}

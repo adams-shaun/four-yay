@@ -6,6 +6,7 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -116,17 +117,17 @@ func TestExileFromTopPartsUseOneCurrentPrefix(t *testing.T) {
 	t.Parallel()
 	parts := []CostPart{{N: 2, Spec: "Card"}, {N: 2, Spec: "Card"}}
 	old := []state.ObjID{6, 11, 8, 21}
-	got, ok := exileFromTopCards(old, parts)
+	got, ok := pay.ExileFromTopCards(old, parts)
 	if !ok || len(got) != 4 || got[0] != 6 || got[1] != 11 || got[2] != 8 || got[3] != 21 {
 		t.Fatalf("two top-two parts selected %v, ok=%v; want distinct aggregate prefix %v", got, ok, old)
 	}
-	if _, ok := exileFromTopCards(old[:2], parts); ok {
+	if _, ok := pay.ExileFromTopCards(old[:2], parts); ok {
 		t.Fatal("two top-two parts were payable from only two cards")
 	}
 	// Payment resolves against the library's post-mana-window state, not IDs
 	// captured before a mana ability draws or reorders it.
 	current := []state.ObjID{31, 32, 33}
-	got, ok = exileFromTopCards(current, []CostPart{{N: 1, Spec: "Card"}})
+	got, ok = pay.ExileFromTopCards(current, []CostPart{{N: 1, Spec: "Card"}})
 	if !ok || len(got) != 1 || got[0] != current[0] {
 		t.Fatalf("settled top after library change = %v, ok=%v; want current top %d", got, ok, current[0])
 	}

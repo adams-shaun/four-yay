@@ -85,7 +85,7 @@ type manaStaticFacts struct {
 func computeManaStaticFacts(mp *effects.ManaParams, cost *Cost) manaStaticFacts {
 	return manaStaticFacts{produced: mp.Produced, amount: availableAmountOf(mp),
 		restrictValid: mp.RestrictValid != "", counts: mp.Counts, any: mp.CountsAny,
-		freeCost: pay.ManaFreeCost(*cost), tapOnly: paymentPlanTapOnlyCost(*cost), tap: cost.Tap, untap: cost.Untap}
+		freeCost: pay.ManaFreeCost(*cost), tapOnly: pay.PaymentPlanTapOnlyCost(*cost), tap: cost.Tap, untap: cost.Untap}
 }
 
 // manaStaticOf is ab's census text reads: its configured facts', or read
@@ -141,7 +141,7 @@ func buildManaSAFactsValue(ab *cards.SA, mp *effects.ManaParams, costOf func(str
 	f.plainSym, f.plainAmt = plainManaShape(ab, mp)
 	f.static = computeManaStaticFacts(mp, &f.cost.Cost)
 	f.potential = computePotentialManaAdd(mp)
-	if tier, c, detail, rider := paymentPlanShapeTierOf(ab, f.cost.Cost); !rider {
+	if tier, c, detail, rider := pay.PaymentPlanShapeTierOf(ab, f.cost.Cost); !rider {
 		f.shapeKnown, f.shapeTier, f.shapeCons, f.shapeDetail = true, tier, c, detail
 	}
 	return f

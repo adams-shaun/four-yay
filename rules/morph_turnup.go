@@ -425,7 +425,7 @@ func (e *Engine) turnUpDiscardAsk(tp *turnUpPay) bool {
 		// casting=true. The face-down source is a battlefield permanent, never
 		// a hand card, so the self-exclusion is inert here -- but sharing the
 		// gate's value keeps the two reads one rule.
-		cands := e.discardCandidates(tp.player, tp.card, part, true, reserved)
+		cands := pay.DiscardCandidates(asPayer(e), tp.player, tp.card, part, true, reserved)
 		if remaining > len(cands) {
 			e.abortTurnUp(tp)
 			return true
@@ -463,7 +463,7 @@ func (e *Engine) turnUpRevealAsk(tp *turnUpPay) bool {
 		for _, id := range tp.reveal {
 			reserved[id] = true
 		}
-		cands := e.costCandidates(tp.player, tp.card, state.ZHand, part.Spec, true, false)
+		cands := pay.CostCandidates(asPayer(e), tp.player, tp.card, state.ZHand, part.Spec, true, false)
 		var avail []state.ObjID
 		for _, id := range cands {
 			if !reserved[id] {
@@ -503,7 +503,7 @@ func (e *Engine) turnUpReturnAsk(tp *turnUpPay) bool {
 			continue
 		}
 		remaining := off + need - len(tp.returns)
-		spec := sacrificeMatchSpec(part.Spec)
+		spec := pay.SacrificeMatchSpec(part.Spec)
 		var cands []state.ObjID
 		if strings.EqualFold(spec, "CARDNAME") {
 			if o := e.G.Obj(tp.card); o != nil && o.Zone == state.ZBattlefield {
@@ -514,7 +514,7 @@ func (e *Engine) turnUpReturnAsk(tp *turnUpPay) bool {
 			for _, id := range tp.returns {
 				reserved[id] = true
 			}
-			for _, id := range e.costCandidates(tp.player, tp.card, state.ZBattlefield, spec, false, false) {
+			for _, id := range pay.CostCandidates(asPayer(e), tp.player, tp.card, state.ZBattlefield, spec, false, false) {
 				if !reserved[id] {
 					cands = append(cands, id)
 				}
@@ -796,7 +796,7 @@ func (e *Engine) turnUpChoicesValid(tp *turnUpPay) bool {
 		if !claim(saved) {
 			return false
 		}
-		cands := e.discardCandidates(tp.player, tp.card, part, true, reserved)
+		cands := pay.DiscardCandidates(asPayer(e), tp.player, tp.card, part, true, reserved)
 		for _, id := range saved {
 			if !turnUpContainsObj(cands, id) {
 				return false
@@ -821,7 +821,7 @@ func (e *Engine) turnUpChoicesValid(tp *turnUpPay) bool {
 		if !claim(saved) {
 			return false
 		}
-		cands := e.costCandidates(tp.player, tp.card, state.ZHand, part.Spec, true, false)
+		cands := pay.CostCandidates(asPayer(e), tp.player, tp.card, state.ZHand, part.Spec, true, false)
 		for _, id := range saved {
 			if !turnUpContainsObj(cands, id) {
 				return false
@@ -847,14 +847,14 @@ func (e *Engine) turnUpChoicesValid(tp *turnUpPay) bool {
 		if !claim(saved) {
 			return false
 		}
-		spec := sacrificeMatchSpec(part.Spec)
+		spec := pay.SacrificeMatchSpec(part.Spec)
 		var cands []state.ObjID
 		if strings.EqualFold(spec, "CARDNAME") {
 			if o := e.G.Obj(tp.card); o != nil && o.Zone == state.ZBattlefield {
 				cands = append(cands, tp.card)
 			}
 		} else {
-			cands = e.costCandidates(tp.player, tp.card, state.ZBattlefield, spec, false, false)
+			cands = pay.CostCandidates(asPayer(e), tp.player, tp.card, state.ZBattlefield, spec, false, false)
 		}
 		for _, id := range saved {
 			if !turnUpContainsObj(cands, id) {

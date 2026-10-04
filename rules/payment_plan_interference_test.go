@@ -334,10 +334,10 @@ func TestPaymentPlanInterferenceSunburstGrantStillDeclines(t *testing.T) {
 	if got.Plan != nil || got.Detail != "shape:mana_spent_reader" {
 		t.Fatalf("plan beside a sunburst grant = %+v, want shape:mana_spent_reader", got)
 	}
-	if !faceGrantsSunburstForPlan(corpusCard(t, "Solar Array").Faces[0]) {
+	if !pay.FaceGrantsSunburstForPlan(corpusCard(t, "Solar Array").Faces[0]) {
 		t.Fatal("Solar Array is not recognised as a sunburst grant")
 	}
-	if faceGrantsSunburstForPlan(corpusCard(t, "Engineered Explosives").Faces[0]) {
+	if pay.FaceGrantsSunburstForPlan(corpusCard(t, "Engineered Explosives").Faces[0]) {
 		t.Fatal("Engineered Explosives' own K:Sunburst read as a grant")
 	}
 }

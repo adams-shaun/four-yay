@@ -6,6 +6,7 @@ import (
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -37,7 +38,7 @@ func TestDargoSacChoicePreservesLaterArtifactPart(t *testing.T) {
 	if artifact == 0 || creature == 0 || artifact == creature {
 		t.Fatalf("precondition: distinct artifact and creature required: artifact=%d creature=%d", artifact, creature)
 	}
-	base := withSpellAbilityExtras(e.G.Obj(spell).Face(), e.castOfferBase(0, spell))
+	base := pay.WithSpellAbilityExtras(e.G.Obj(spell).Face(), e.castOfferBase(0, spell))
 	extra := ParseCost("Sac<X/Artifact>")
 	if len(base.Sac) != 1 || len(extra.Sac) != 1 || base.Sac[0].Spec == extra.Sac[0].Spec {
 		t.Fatalf("precondition: expected different broad and artifact-only Sac parts: base=%+v extra=%+v", base.Sac, extra.Sac)
@@ -105,7 +106,7 @@ func TestDargoSacContinuationBotAnswerValidatesAndCompletes(t *testing.T) {
 	// regressions build it; the pending cast is entered by hand (same shape
 	// as TestDargoSacChoicePreservesLaterArtifactPart) because the REAL cast
 	// carries only Dargo's own Sac part.
-	base := withSpellAbilityExtras(e.G.Obj(spell).Face(), e.castOfferBase(0, spell))
+	base := pay.WithSpellAbilityExtras(e.G.Obj(spell).Face(), e.castOfferBase(0, spell))
 	extra := ParseCost("Sac<X/Artifact>")
 	if len(base.Sac) != 1 || !base.Sac[0].Announced || len(extra.Sac) != 1 {
 		t.Fatalf("precondition: want Dargo's announced Sac part plus a synthetic Sac<X/Artifact>: base=%+v extra=%+v", base.Sac, extra.Sac)

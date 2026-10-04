@@ -247,7 +247,7 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 	// for Any/Combo/Chosen/ColorIdentity. Resolve step.exec while retaining
 	// step.ma as the compiled original for activation limits and replay, so no
 	// colour prompt is posed at execution.
-	exec := alternativeExec(step)
+	exec := pay.AlternativeExec(step)
 	mark := len(e.L.Events)
 	// This is a spell's CR 601.2g payment window: the call the manual
 	// "activate" answer makes (activateManaPayment), never the distinct

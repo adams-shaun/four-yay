@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -86,7 +87,7 @@ func TestGrantedMayhemOfferIncludesSpellAbilityAdditionalCost(t *testing.T) {
 	if sa := e.G.Obj(spell).Face().SpellAbility(); sa == nil || sa.Params["Cost"] != "9 Sac<1/Creature>" {
 		t.Fatalf("setup: spell additional cost = %+v, want mandatory creature sacrifice", sa)
 	}
-	if cost := withSpellAbilityExtras(e.G.Obj(spell).Face(), ParseCost("B")); len(cost.Sac) != 1 {
+	if cost := pay.WithSpellAbilityExtras(e.G.Obj(spell).Face(), ParseCost("B")); len(cost.Sac) != 1 {
 		t.Fatalf("setup: Mayhem cost did not retain SpellAbility sacrifice: %+v", cost)
 	}
 	e.emit(events.Event{Kind: events.MoveZone, Obj: grant, From: state.ZHand, To: state.ZBattlefield})
@@ -95,7 +96,7 @@ func TestGrantedMayhemOfferIncludesSpellAbilityAdditionalCost(t *testing.T) {
 		t.Fatalf("setup: continuous Mayhem grant = %q (ok %v), want B", raw, ok)
 	}
 	addMana(t, e, 0, "B")
-	cost := withSpellAbilityExtras(e.G.Obj(spell).Face(), ParseCost("B"))
+	cost := pay.WithSpellAbilityExtras(e.G.Obj(spell).Face(), ParseCost("B"))
 	if e.nonManaCastable(0, spell, cost, false, "") {
 		t.Fatalf("setup: non-mana gate accepted an unpayable cost: %+v", cost)
 	}

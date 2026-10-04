@@ -29,7 +29,7 @@ const (
 	// Suspend* no-ops: -> 1965. W5 E7 moved mana payment onto rules/pay:
 	// -> 1944. Slice 4 made the payer grants pay.Engine adapter methods: -> 1940. W3 dead deleted the resume-scratch setters: -> 1931.
 	// E7 slice 9 moved the payment board reads to rules/pay funcs: -> 1917.
-	engineMethodCount = 1917
+	engineMethodCount = 1895
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
 	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94. W3 clean
@@ -141,8 +141,11 @@ const (
 	trigmatchBoardMethods = 27
 	// payEngineMethods is the method count of pay.Engine, the payment
 	// layer's whole view of the engine (W5 E7; the spec's target is under
-	// 20). Slice 2 moved mana payment behind it with 10.
-	payEngineMethods = 10
+	// 20). Slice 2 moved mana payment behind it with 10. The E7 redesign
+	// (spec section 9.1, operator decision 2026-10-03) budgets it up to 19
+	// for the ring's moves: Log (the event log, read-only) let the cost-part
+	// candidate walks and the log-reading planner probes move: 10 -> 11.
+	payEngineMethods = 11
 	// changeZoneParamLeaks is the number of ChangeZone parameter reads
 	// outside its compiler, effects/changezone_params.go (W4 step 3, spec
 	// section 8): any read in ChangeZone's own resolution files, plus any

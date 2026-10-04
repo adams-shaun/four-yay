@@ -917,6 +917,12 @@ func (s *scan) scanCall(t *testing.T, fset *token.FileSet, fi *fnInfo, fname str
 				// chars.Board parameter b, which rules implements as
 				// charsBoard (rules/chars_board.go): the same adapter edge.
 				callee = "charsBoard." + fun.Sel.Name
+			} else if id.Name == "pay" && pkg == "rules" && s.filePkg == "rules" {
+				// rules -> rules/pay (W5 E7): the payment layer's files are
+				// scanned into the rules namespace under their own function
+				// names, so a moved planner probe or cost-part walk stays an
+				// attribution edge from the rules path that calls it.
+				callee = fun.Sel.Name
 			} else if (id.Name == "combat" || id.Name == "chars") && pkg == "rules" && s.filePkg == "rules" {
 				// rules' calls into rules/combat and rules/chars, whose files
 				// are scanned into the rules namespace under their own
@@ -1747,7 +1753,7 @@ var apiSpecificRulesSA = map[string][]string{
 	// interference check (reached only from paymentPlanAbilityTier, i.e. for
 	// an AB$ Mana candidate).
 	"Engine.manaAbilityPayablePool":         {"Mana"},
-	"manaAbilityCostPrefix":                 {"Mana"},
+	"ManaAbilityCostPrefix":                 {"Mana"},
 	"Engine.paymentPlanRelaxedAlternatives": {"Mana"},
 	"Engine.manaActivationGateHolds":        {"Mana"},
 	"Engine.resolveManaAbilityRefOriginal":  {"Mana"},

@@ -8,6 +8,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -72,7 +73,7 @@ func (w *legalWalk) battlefieldWalk() {
 							w.verifyManaCold(board, e.G.Obj(id), id, z)
 						}
 						o := e.G.Obj(id)
-						if z == state.ZBattlefield && !existsOnBattlefield(o) {
+						if z == state.ZBattlefield && !pay.ExistsOnBattlefield(o) {
 							// CR 702.25b: a phased-out permanent is treated as though it
 							// does not exist, so its mana abilities are not offered. The
 							// choke point appendAvailableManaAbilities is gated too, which
@@ -166,7 +167,7 @@ func (w *legalWalk) battlefieldWalk() {
 						w.verifyAbilityCold(board, e.G.Obj(id), id, z, zonePlayer)
 					}
 					o := e.G.Obj(id)
-					if z == state.ZBattlefield && !existsOnBattlefield(o) {
+					if z == state.ZBattlefield && !pay.ExistsOnBattlefield(o) {
 						// CR 702.25b: a phased-out permanent is treated as though it
 						// does not exist, so none of its printed activated abilities is
 						// offered or activatable.
@@ -370,7 +371,7 @@ func (w *legalWalk) battlefieldWalk() {
 							cost.Generic = 0
 						}
 						e.powerUpReduceCost(id, ab, &cost)
-						if activationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
+						if pay.ActivationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
 							continue
 						}
 						// CR 702.6 / CR 601.2f: a minted attach-cost SA (K:Equip/K:Fortify,
@@ -508,7 +509,7 @@ func (w *legalWalk) battlefieldWalk() {
 							cost.Generic = 0
 						}
 						e.powerUpReduceCost(id, ab, &cost)
-						if activationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
+						if pay.ActivationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
 							continue
 						}
 						if !w.offerCastable(p, id, cost, abilityScope(ab), true) {
@@ -561,7 +562,7 @@ func (w *legalWalk) battlefieldWalk() {
 					// does not exist while face down.
 					continue
 				}
-				if !existsOnBattlefield(o) {
+				if !pay.ExistsOnBattlefield(o) {
 					// CR 702.25b: a phased-out permanent is treated as though it does
 					// not exist, so none of its granted or gained activated abilities
 					// is offered or activatable.
@@ -622,7 +623,7 @@ func (w *legalWalk) battlefieldWalk() {
 					} else if n > 0 {
 						cost.Generic = 0
 					}
-					if activationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
+					if pay.ActivationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
 						continue
 					}
 					if !w.offerCastable(p, id, cost, abilityScope(ab), true) {
@@ -711,7 +712,7 @@ func (w *legalWalk) battlefieldWalk() {
 				if o == nil || o.Face() == nil || !e.hasKeywordH(id, kwhStation) {
 					continue
 				}
-				if !existsOnBattlefield(o) {
+				if !pay.ExistsOnBattlefield(o) {
 					// CR 702.25b: a phased-out permanent is treated as though it
 					// does not exist, so it cannot be stationed.
 					continue
@@ -735,7 +736,7 @@ func (w *legalWalk) battlefieldWalk() {
 				if o == nil || o.Face() == nil || e.faceDownPrintedHides(o) {
 					continue
 				}
-				if !existsOnBattlefield(o) {
+				if !pay.ExistsOnBattlefield(o) {
 					// CR 702.25b: a phased-out room is treated as though it does
 					// not exist, so it cannot be unlocked.
 					continue
@@ -769,7 +770,7 @@ func (w *legalWalk) battlefieldWalk() {
 			if o == nil || o.Face() == nil {
 				continue
 			}
-			if !existsOnBattlefield(o) {
+			if !pay.ExistsOnBattlefield(o) {
 				// CR 702.25b: a phased-out permanent is treated as though it
 				// does not exist, so its max-speed granted abilities are not
 				// offered.
@@ -783,7 +784,7 @@ func (w *legalWalk) battlefieldWalk() {
 					continue
 				}
 				cost := e.parseCost(ab.ParamStr(cards.PKCost))
-				if activationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
+				if pay.ActivationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
 					continue
 				}
 				if !w.offerCastable(p, id, cost, abilityScope(ab), true) {

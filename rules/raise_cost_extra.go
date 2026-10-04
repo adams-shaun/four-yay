@@ -560,7 +560,7 @@ func (e *Engine) namedAnnounceAsk() bool {
 		if zone == 0 {
 			zone = state.ZHand
 		}
-		n := len(e.costCandidates(pc.player, pc.card, zone, part.Spec, !pc.isAbility(), false))
+		n := len(pay.CostCandidates(asPayer(e), pc.player, pc.card, zone, part.Spec, !pc.isAbility(), false))
 		if max < 0 || n < max {
 			max = n
 		}
@@ -571,7 +571,7 @@ func (e *Engine) namedAnnounceAsk() bool {
 			continue
 		}
 		n := 0
-		for _, oid := range e.costCandidates(pc.player, pc.card, state.ZBattlefield, part.Spec, false, true) {
+		for _, oid := range pay.CostCandidates(asPayer(e), pc.player, pc.card, state.ZBattlefield, part.Spec, false, true) {
 			if pc.cost.Tap && oid == pc.card {
 				continue
 			}
@@ -662,7 +662,7 @@ func (e *Engine) offerNamedMods(p state.PlayerID, id state.ObjID, ability bool, 
 		if zone == 0 {
 			zone = state.ZHand
 		}
-		n := len(e.costCandidates(p, id, zone, part.Spec, !ability, false))
+		n := len(pay.CostCandidates(asPayer(e), p, id, zone, part.Spec, !ability, false))
 		if max < 0 || n < max {
 			max = n
 		}
@@ -673,7 +673,7 @@ func (e *Engine) offerNamedMods(p state.PlayerID, id state.ObjID, ability bool, 
 			continue
 		}
 		n := 0
-		for _, oid := range e.costCandidates(p, id, state.ZBattlefield, part.Spec, false, true) {
+		for _, oid := range pay.CostCandidates(asPayer(e), p, id, state.ZBattlefield, part.Spec, false, true) {
 			if !e.untappedManaSource(p, oid) {
 				n++
 			}

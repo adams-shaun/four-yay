@@ -19,6 +19,7 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -70,7 +71,7 @@ func TestJandorsRingDiscardsTheLastCardDrawnThisTurn(t *testing.T) {
 	if e.G.Obj(drawn).Zone != state.ZHand {
 		t.Fatalf("precondition: drawn card %d is in %s, want hand", drawn, e.G.Obj(drawn).Zone)
 	}
-	if last := e.lastDrawnThisTurn(0); last != drawn {
+	if last := pay.LastDrawnThisTurn(asPayer(e), 0); last != drawn {
 		t.Fatalf("precondition: lastDrawnThisTurn(0) = %d, want the just-drawn %d", last, drawn)
 	}
 
@@ -84,7 +85,7 @@ func TestJandorsRingDiscardsTheLastCardDrawnThisTurn(t *testing.T) {
 	if !ok {
 		t.Fatalf("Jandor's Ring ability is not offered: %+v", e.Pending())
 	}
-	if got := e.discardCandidates(0, id, CostPart{N: 1, Spec: "LastDrawn"}, false, nil); len(got) != 1 || got[0] != drawn {
+	if got := pay.DiscardCandidates(asPayer(e), 0, id, CostPart{N: 1, Spec: "LastDrawn"}, false, nil); len(got) != 1 || got[0] != drawn {
 		t.Fatalf("discardCandidates(LastDrawn) = %v, want only the drawn card %d", got, drawn)
 	}
 
@@ -142,13 +143,13 @@ func TestLastDrawnDiscardUnpayableWhenTheDrawnCardLeftHand(t *testing.T) {
 	lib := e.G.Zone(state.ZLibrary, 0)
 	drawn := lib[0]
 	e.emit(events.Event{Kind: events.Draw, Player: 0, Obj: drawn, From: state.ZLibrary, To: state.ZHand, Secret: true})
-	if last := e.lastDrawnThisTurn(0); last != drawn {
+	if last := pay.LastDrawnThisTurn(asPayer(e), 0); last != drawn {
 		t.Fatalf("precondition: lastDrawnThisTurn(0) = %d, want %d", last, drawn)
 	}
 	// Positive control: while the drawn card is still in hand the feature
 	// returns it. Without the fix this is empty, so the negative below can
 	// only pass once the feature is live.
-	if got := e.discardCandidates(0, id, CostPart{N: 1, Spec: "LastDrawn"}, false, nil); len(got) != 1 || got[0] != drawn {
+	if got := pay.DiscardCandidates(asPayer(e), 0, id, CostPart{N: 1, Spec: "LastDrawn"}, false, nil); len(got) != 1 || got[0] != drawn {
 		t.Fatalf("control: discardCandidates(LastDrawn) = %v, want only the drawn card %d", got, drawn)
 	}
 	// The drawn card leaves the hand.
@@ -158,7 +159,7 @@ func TestLastDrawnDiscardUnpayableWhenTheDrawnCardLeftHand(t *testing.T) {
 		t.Fatalf("precondition: drawn card is in %s, want graveyard", e.G.Obj(drawn).Zone)
 	}
 
-	if got := e.discardCandidates(0, id, CostPart{N: 1, Spec: "LastDrawn"}, false, nil); len(got) != 0 {
+	if got := pay.DiscardCandidates(asPayer(e), 0, id, CostPart{N: 1, Spec: "LastDrawn"}, false, nil); len(got) != 0 {
 		t.Fatalf("discardCandidates(LastDrawn) = %v, want none once the drawn card left the hand", got)
 	}
 	addMana(t, e, 0, "CC")
@@ -179,11 +180,11 @@ func TestLastDrawnDiscardUnpayableWithNoDrawThisTurn(t *testing.T) {
 	if got := e.CardsDrawnThisTurn(0); got != 0 {
 		t.Fatalf("precondition: seat 0 drew %d this turn, want 0 (turn 1 draw step is skipped)", got)
 	}
-	if last := e.lastDrawnThisTurn(0); last != 0 {
+	if last := pay.LastDrawnThisTurn(asPayer(e), 0); last != 0 {
 		t.Fatalf("precondition: lastDrawnThisTurn(0) = %d, want 0", last)
 	}
 
-	if got := e.discardCandidates(0, id, CostPart{N: 1, Spec: "LastDrawn"}, false, nil); len(got) != 0 {
+	if got := pay.DiscardCandidates(asPayer(e), 0, id, CostPart{N: 1, Spec: "LastDrawn"}, false, nil); len(got) != 0 {
 		t.Fatalf("discardCandidates(LastDrawn) = %v, want none with no draw this turn", got)
 	}
 	addMana(t, e, 0, "CC")
@@ -198,7 +199,7 @@ func TestLastDrawnDiscardUnpayableWithNoDrawThisTurn(t *testing.T) {
 	lib := e.G.Zone(state.ZLibrary, 0)
 	drawn := lib[0]
 	e.emit(events.Event{Kind: events.Draw, Player: 0, Obj: drawn, From: state.ZLibrary, To: state.ZHand, Secret: true})
-	if got := e.discardCandidates(0, id, CostPart{N: 1, Spec: "LastDrawn"}, false, nil); len(got) != 1 || got[0] != drawn {
+	if got := pay.DiscardCandidates(asPayer(e), 0, id, CostPart{N: 1, Spec: "LastDrawn"}, false, nil); len(got) != 1 || got[0] != drawn {
 		t.Fatalf("control: discardCandidates(LastDrawn) = %v, want only the drawn card %d", got, drawn)
 	}
 }

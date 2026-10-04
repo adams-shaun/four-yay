@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -138,7 +139,7 @@ func TestMixedOnlyMultiPipChargeIsNeverOffered(t *testing.T) {
 	// offered.
 	onBoardReady(t, e, 1, "Name:Test Plains\nTypes:Basic Land Plains\nOracle:x\n")
 	e.G.Players[1].Life = 3
-	if !e.unlessManaReachable(1, chCost(ch), e.G.Players[1].Pool, e.G.Players[1].Snow,
+	if !pay.UnlessManaReachable(asPayer(e), 1, chCost(ch), e.G.Players[1].Pool, e.G.Players[1].Snow,
 		e.G.Players[1].ManaUnits(), e.G.Players[1].Life, asPayer(e).Conv(1, 0, false),
 		e.attackWindowUnits(1, nil)) {
 		t.Fatal("precondition: the MIXED branch is payable, but the joint read says no (test is vacuous)")

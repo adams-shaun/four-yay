@@ -183,6 +183,7 @@ func paymentFor(id state.ObjID, ability bool, cost Cost) paymentDescriptor {
 func (pe *payer) Game() *state.Game                 { return pe.G }
 func (pe *payer) Emit(ev events.Event) events.Event { return (*Engine)(pe).emit(ev) }
 func (pe *payer) Verify() bool                      { return walkCacheVerify }
+func (pe *payer) Log() *events.Log                  { return pe.L }
 func (pe *payer) MatchesSpecFrom(spec string, id state.ObjID, you state.PlayerID, source state.ObjID) bool {
 	return (*Engine)(pe).matchesSpecFrom(spec, id, you, source)
 }

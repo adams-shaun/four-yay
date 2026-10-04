@@ -3,6 +3,7 @@ package rules
 import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -123,7 +124,7 @@ func (e *Engine) zoneEntrySeq(id state.ObjID) uint64 {
 	best := int32(0)
 	if r.move != 0 {
 		if r.moveTo != o.Zone {
-			return e.paymentSourceZoneSeqScan(id)
+			return pay.PaymentSourceZoneSeqScan(asPayer(e), id)
 		}
 		best = r.move
 	}

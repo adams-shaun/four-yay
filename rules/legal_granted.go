@@ -341,21 +341,6 @@ func (e *Engine) gainedActivationsThisTurn(id, foreign state.ObjID, idx int) int
 	return used
 }
 
-// existsOnBattlefield reports whether o is a permanent the engine treats as
-// existing (CR 702.25b): it is on the battlefield and not phased out. A
-// phased-out permanent is treated as though it does not exist -- it cannot be
-// targeted (rules/stack.go candidatesFor), activated, tapped or sacrificed as
-// a cost, its static and triggered abilities are off, and it does not stay in
-// combat (events.Apply's PhaseOut fold removes it, CR 702.25c). PhasedOut is
-// only ever true on a battlefield permanent (the PhaseOut fold is
-// battlefield-gated, the Move fold clears it), so gating a walk that already
-// restricts itself to the battlefield on it is exact. Battlefield action
-// and cost walks use this helper; mana-ability discovery and trigger scanning
-// separately reject phased-out objects. Other readers must gate where relevant.
-func existsOnBattlefield(o *state.Object) bool {
-	return o != nil && o.Zone == state.ZBattlefield && !o.PhasedOut
-}
-
 var grantedKeywordLinesFullKeys = state.NewNameSet("Cycling", "TypeCycling", "Saddle", "Crew")
 
 type gainsValidAbilitiesAdmitsCode uint16

@@ -70,72 +70,6 @@ func cloneUnlessCtx(in effects.Ctx) effects.Ctx {
 	return out
 }
 
-// unlessManaReachable reports whether pool plus one production alternative
-// per window unit (or none of a unit) can satisfy cost's mana/life component.
-// It is the exact affordability question the offer gate and the window's
-// safety ordering both ask: a unit with several free abilities offers its
-// alternatives as a CHOICE (the payer taps the permanent for one of them),
-// never as their sum, so a dual land contributes {U} or {R} -- and the
-// search proves a {U} tax payable from it. The search is bounded by
-// manaPipCount (a minimal cover never needs more sources than the mana it
-// supplies) and by a hard node budget; beyond that it fails closed, which is
-// the conservative direction (never offer a Pay the window cannot complete).
-func (e *Engine) unlessManaReachable(p state.PlayerID, cost Cost, pool, snow state.Mana, typed [7]state.Mana, life int32, conv *manaConv, units []windowManaUnit) bool {
-	return e.manaReachable(p, cost, pool, snow, typed, life, pipRider{}, conv, units)
-}
-
-// manaReachable reports whether cost can be paid from pool plus at most one
-// production alternative per mana source.  The cast announcement path uses a
-// non-empty rider here: a MayPlayIgnoreColor grant must widen the same
-// candidate face test as it widens the eventual payment.  The unless-payment
-// callers deliberately retain their ordinary no-rider semantics through the
-// wrapper above.
-func (e *Engine) manaReachable(p state.PlayerID, cost Cost, pool, snow state.Mana, typed [7]state.Mana, life int32, rider pipRider, conv *manaConv, units []windowManaUnit) bool {
-	payable := func(pool state.Mana, lifeNow int32) bool {
-		_, ok := resolveManaWith(cost, pool, snow, typed, lifeNow,
-			asPayer(e).PayLifeInsteadOfB(p), rider, conv)
-
-		return ok
-	}
-	if payable(pool, life) {
-		return true
-	}
-	budget := cost.ManaPipCount()
-	if budget <= 0 {
-		return false
-	}
-	nodes := 0
-	var rec func(start, remaining int, acc state.Mana, lifeLeft int32) bool
-	rec = func(start, remaining int, acc state.Mana, lifeLeft int32) bool {
-		if payable(pay.ManaAdd(pool, acc), lifeLeft) {
-			return true
-		}
-		if remaining <= 0 {
-			return false
-		}
-		nodes++
-		if nodes > 1<<18 {
-			return false
-		}
-		for i := start; i < len(units); i++ {
-			for _, a := range units[i].Alts {
-				// A PayLife activation spends real life: it must be
-				// present before the tap and is gone for the priced cost
-				// afterwards. Every shared-window alt carries life 0, so
-				// this is inert for the attack and unless windows.
-				if a.Life > lifeLeft {
-					continue
-				}
-				if rec(i+1, remaining-1, pay.ManaAdd(acc, a.Mana()), lifeLeft-a.Life) {
-					return true
-				}
-			}
-		}
-		return false
-	}
-	return rec(0, budget, state.Mana{}, life)
-}
-
 // UnlessCostPayable is the rules-side offer gate for the generic unless
 // election (the ctx-less form used by tests and any mana-only caller).
 func (e *Engine) UnlessCostPayable(p state.PlayerID, raw string) bool {
@@ -204,7 +138,7 @@ func (e *Engine) unlessCostPayable(p state.PlayerID, raw string, ctx *effects.Ct
 		}
 		return true
 	}
-	return e.unlessManaReachable(p, cost, player.Pool, player.Snow, player.ManaUnits(), player.Life,
+	return pay.UnlessManaReachable(asPayer(e), p, cost, player.Pool, player.Snow, player.ManaUnits(), player.Life,
 		asPayer(e).Conv(p, stackObj, false), e.windowManaUnits(p))
 }
 
@@ -602,7 +536,7 @@ func (e *Engine) askUnlessMana() {
 			rest = append(rest, units[:si]...)
 			rest = append(rest, units[si+1:]...)
 			for ai, a := range src.Alts {
-				if safe != (e.unlessManaReachable(u.payer, u.cost, pay.ManaAdd(pool, a.Mana()), snow, typed, life,
+				if safe != (pay.UnlessManaReachable(asPayer(e), u.payer, u.cost, pay.ManaAdd(pool, a.Mana()), snow, typed, life,
 					asPayer(e).Conv(u.payer, u.stackObj, false), rest)) {
 					continue
 				}
@@ -681,7 +615,7 @@ func (e *Engine) unlessCandidatesFor(payer state.PlayerID, ctx effects.Ctx, zone
 					continue
 				}
 				if z == state.ZBattlefield {
-					if o := e.G.Obj(id); o == nil || !existsOnBattlefield(o) {
+					if o := e.G.Obj(id); o == nil || !pay.ExistsOnBattlefield(o) {
 						continue
 					}
 				}

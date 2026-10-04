@@ -399,7 +399,7 @@ func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *card
 	mode := o.Mode
 	switch potentialModeBaseCostCodes.Code(string(mode)) {
 	case potentialModeBaseCostEmpty:
-		return withSpellAbilityExtras(f, cost), true
+		return pay.WithSpellAbilityExtras(f, cost), true
 	case potentialModeBaseCostMayplay:
 		// A may-play grant (an impulse draw's exile): the printed cost, or
 		// none, plus the grant's own raise -- the same read beginCast makes.
@@ -413,7 +413,7 @@ func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *card
 			}
 			cost = cost.Plus(raise)
 		}
-		return withSpellAbilityExtras(f, cost), true
+		return pay.WithSpellAbilityExtras(f, cost), true
 	case potentialModeBaseCostPlot:
 		// The plot special action pays the K:Plot parameter.
 		raw, ok := f.KeywordParam("Plot")
@@ -422,7 +422,7 @@ func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *card
 		}
 		return ParseCost(raw), true
 	case potentialModeBaseCostFlashback:
-		return withSpellAbilityExtras(f, e.flashbackCostFor(id, o)), true
+		return pay.WithSpellAbilityExtras(f, e.flashbackCostFor(id, o)), true
 	case potentialModeBaseCostBestowed:
 		return bestowCost(f)
 	case potentialModeBaseCostKicked:
@@ -700,7 +700,7 @@ func (e *Engine) planEachReservation(p state.PlayerID, id state.ObjID, cost Cost
 			cands[i] = e.sacrificeCostCandidates(p, id, pt.part, ability)
 			continue
 		}
-		for _, oid := range e.tapCostCandidates(p, id, pt.part) {
+		for _, oid := range pay.TapCostCandidates(asPayer(e), p, id, pt.part) {
 			if cost.Tap && oid == id {
 				continue
 			}
@@ -801,7 +801,7 @@ func (e *Engine) planLeavesCostPayable(p state.PlayerID, id state.ObjID, cost Co
 		}
 	} else {
 		for _, part := range cost.TapPermanent {
-			if part.Dyn == "" && part.N > 0 && !enough(e.tapCostCandidates(p, id, part), part.N, tapped) {
+			if part.Dyn == "" && part.N > 0 && !enough(pay.TapCostCandidates(asPayer(e), p, id, part), part.N, tapped) {
 				return false
 			}
 		}

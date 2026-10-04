@@ -5,29 +5,12 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
-
-// exileFromTopCards returns the aggregate top-of-library prefix paid by a set
-// of ExileFromTop parts. Parts do not each get to reuse the same prefix.
-func exileFromTopCards(lib []state.ObjID, parts []CostPart) ([]state.ObjID, bool) {
-	var n int64
-	for _, part := range parts {
-		if part.N <= 0 {
-			return nil, false
-		}
-		n += int64(part.N)
-	}
-	if n > int64(len(lib)) {
-		return nil, false
-	}
-	return append([]state.ObjID(nil), lib[:int(n)]...), true
-}
 
 // nonManaCastable is castable's payment-independent tail. Cost-modifier
 // offer checks use it after their flexible-pip walk has established a payable
@@ -59,7 +42,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 	reserved := map[state.ObjID]bool{}
 	for _, part := range cost.Sac {
 		var avail []state.ObjID
-		matchSpec := sacrificeMatchSpec(part.Spec)
+		matchSpec := pay.SacrificeMatchSpec(part.Spec)
 		for _, oid := range e.G.Zone(state.ZBattlefield, p) {
 			if reserved[oid] || e.sacrificeBlockedForCost(oid, costCauseForAbility(ability)) { // an earlier Sac part already claimed this one; a CantSacrifice-blocked one can never pay
 				continue
@@ -76,7 +59,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 			reserved[avail[i]] = true
 		}
 	}
-	if !e.discardCostPayable(p, id, cost.Discard, !ability) {
+	if !pay.DiscardCostPayable(asPayer(e), p, id, cost.Discard, !ability) {
 		return false
 	}
 	// Exile cost parts (ExileFromHand/ExileFromGrave): each needs N matching
@@ -93,7 +76,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 	castObj := e.G.Obj(id)
 	// Top-of-library exile parts share one ordered prefix. Check their
 	// aggregate size, not each part against the same library prefix.
-	if _, ok := exileFromTopCards(e.G.Zone(state.ZLibrary, p), cost.ExileFromTop); !ok {
+	if _, ok := pay.ExileFromTopCards(e.G.Zone(state.ZLibrary, p), cost.ExileFromTop); !ok {
 		return false
 	}
 	for _, part := range cost.Exile {
@@ -183,7 +166,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 			}
 			continue
 		}
-		if len(e.costCandidates(p, id, state.ZHand, part.Spec, !ability, false)) < int(part.N) {
+		if len(pay.CostCandidates(asPayer(e), p, id, state.ZHand, part.Spec, !ability, false)) < int(part.N) {
 			return false
 		}
 	}
@@ -196,7 +179,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 	// tested, and the payability of the CHOOSE arm reads the battlefield, the
 	// reveal arm the hand, exactly as revealCostOrChooseAsk offers them.
 	for _, part := range cost.RevealOrChoose {
-		hand, battlefield := e.revealOrChooseCandidates(p, id, part)
+		hand, battlefield := pay.RevealOrChooseCandidates(asPayer(e), p, id, part)
 		if len(hand) < int(part.N) && len(battlefield) < int(part.N) {
 			return false
 		}
@@ -213,8 +196,8 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 		}
 	}
 	for _, part := range cost.Behold {
-		n := len(e.costCandidates(p, id, state.ZHand, part.Spec, true, false)) +
-			len(e.costCandidates(p, id, state.ZBattlefield, part.Spec, false, false))
+		n := len(pay.CostCandidates(asPayer(e), p, id, state.ZHand, part.Spec, true, false)) +
+			len(pay.CostCandidates(asPayer(e), p, id, state.ZBattlefield, part.Spec, false, false))
 		if n < int(part.N) {
 			return false
 		}
@@ -239,7 +222,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 			if part.Dyn == "Any" {
 				avail := 0
 				var floorSum int32
-				for _, oid := range e.tapCostCandidates(p, id, part) {
+				for _, oid := range pay.TapCostCandidates(asPayer(e), p, id, part) {
 					if reserved[oid] || (cost.Tap && oid == id) {
 						continue
 					}
@@ -264,7 +247,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 			continue
 		}
 		var avail []state.ObjID
-		for _, oid := range e.tapCostCandidates(p, id, part) {
+		for _, oid := range pay.TapCostCandidates(asPayer(e), p, id, part) {
 			if reserved[oid] || (cost.Tap && oid == id) {
 				continue
 			}
@@ -285,12 +268,12 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 		}
 	}
 	for range cost.Blight {
-		if len(e.costCandidates(p, id, state.ZBattlefield, "Creature.YouCtrl", false, false)) == 0 {
+		if len(pay.CostCandidates(asPayer(e), p, id, state.ZBattlefield, "Creature.YouCtrl", false, false)) == 0 {
 			return false
 		}
 	}
 	if cost.Forage && len(e.G.Zone(state.ZGraveyard, p)) < 3 &&
-		len(e.costCandidates(p, id, state.ZBattlefield, "Food.YouCtrl", false, false)) == 0 {
+		len(pay.CostCandidates(asPayer(e), p, id, state.ZBattlefield, "Food.YouCtrl", false, false)) == 0 {
 		return false
 	}
 	// Energy cost parts (PayEnergy<N>): the payer's energy counter total
@@ -310,7 +293,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 	// at least N distinct matching permanents, reserved against the Sac and
 	// Exile reservations above so two parts cannot claim one permanent.
 	for _, part := range cost.Return {
-		spec := sacrificeMatchSpec(part.Spec)
+		spec := pay.SacrificeMatchSpec(part.Spec)
 		if strings.EqualFold(spec, "CARDNAME") {
 			if o := e.G.Obj(id); o == nil || o.Zone != state.ZBattlefield {
 				return false
@@ -340,7 +323,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 	// parts so two components cannot claim the same permanent. The library
 	// POSITION never affects payability.
 	for _, part := range cost.PutToLib {
-		spec := sacrificeMatchSpec(part.Spec)
+		spec := pay.SacrificeMatchSpec(part.Spec)
 		if part.N == 1 && part.Zone == state.ZBattlefield && strings.EqualFold(spec, "CARDNAME") {
 			// The singleton self-reference fast path only covers N=1; a larger
 			// N needs the general candidate walk below (it would otherwise be
@@ -377,7 +360,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 		// needs its SVar-resolved count to evaluate at payment; an
 		// unresolvable body withholds the whole cost (fail closed, the
 		// fixLifeXCost direction), never an unpayable offer with a zero draw.
-		if _, ok := castFlowDrawPlayer(part.Spec, p); !ok {
+		if _, ok := pay.CastFlowDrawPlayer(part.Spec, p); !ok {
 			return false
 		}
 		if part.Dyn != "" {
@@ -411,7 +394,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 			// you control"), reserved against the earlier parts the same way.
 			// A source-anchored part keeps the pre-existing source read.
 			if !subCounterTargetsSource(part.Target) {
-				cands := e.subCounterRemovalCandidates(p, id, part, part.N, reserved)
+				cands := pay.SubCounterRemovalCandidates(asPayer(e), p, id, part, part.N, reserved)
 				if len(cands) == 0 {
 					return false
 				}
@@ -422,30 +405,17 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 				reserved[cands[0]] = true
 				continue
 			}
-			if subCounterAvailable(o, part.Spec) < part.N {
+			if pay.SubCounterAvailable(o, part.Spec) < part.N {
 				return false
 			}
 		}
-		if activationTapCostUnavailable(o, cost) {
+		if pay.ActivationTapCostUnavailable(o, cost) {
 			return false
 		}
 	} else if len(cost.SubCounter) > 0 || cost.Tap {
 		return false
 	}
 	return true
-}
-
-// castFlowDrawPlayer resolves a Draw cost part's spec inside the
-// cast/activation flow: the payer draws (spec "", You, Player, Self), and
-// Player.Activator too, because within an activation the activator IS the
-// payer. A trigger-only role has no binding here; nonManaCastable blocks
-// such a part so it is never offered.
-func castFlowDrawPlayer(spec string, payer state.PlayerID) (state.PlayerID, bool) {
-	switch castFlowDrawPlayerCodes.Code(string(spec)) {
-	case castFlowDrawPlayerPayer:
-		return payer, true
-	}
-	return 0, false
 }
 
 // drawCostCard emits the ordinary Draw event one card of a cost payment
@@ -536,7 +506,7 @@ func (e *Engine) payDiscardCost(ids []state.ObjID, cycling string) {
 // cost is never offered, so this is a belt-and-braces no-op, not a live path.
 func (e *Engine) payDrawCostParts(pc *pendingCast) {
 	for _, part := range pc.cost.Draw {
-		drawer, ok := castFlowDrawPlayer(part.Spec, pc.player)
+		drawer, ok := pay.CastFlowDrawPlayer(part.Spec, pc.player)
 		if !ok {
 			continue
 		}
@@ -657,65 +627,6 @@ func (e *Engine) payDamageCost(payer state.PlayerID, n int32, source state.ObjID
 	e.emit(events.Event{Kind: events.LifeChange, Player: controller, Amount: n})
 }
 
-func (e *Engine) costCandidates(p state.PlayerID, source state.ObjID, zone state.Zone, spec string, excludeSource, untapped bool) []state.ObjID {
-	var out []state.ObjID
-	for _, id := range e.G.Zone(zone, p) {
-		o := e.G.Obj(id)
-		if o == nil || (zone == state.ZBattlefield && !existsOnBattlefield(o)) || (excludeSource && id == source) || (untapped && o.Tapped) {
-			continue
-		}
-		if e.matchesSpecFrom(spec, id, p, source) {
-			out = append(out, id)
-		}
-	}
-	return out
-}
-
-// tapCostCandidates is costCandidates for one TapPermanent (tapXType) part:
-// a part bound to a granted ability's grantor (bindGrantedCostReferents --
-// Fishing Pole's "Tap Fishing Pole") names exactly that permanent, offered
-// while the payer controls it untapped on the battlefield; every other part
-// is the ordinary untapped filter scan. Offer, planning and payment all read
-// this one helper, so they cannot disagree about who can pay.
-func (e *Engine) tapCostCandidates(p state.PlayerID, source state.ObjID, part CostPart) []state.ObjID {
-	if part.Referent == 0 {
-		return e.costCandidates(p, source, state.ZBattlefield, part.Spec, false, true)
-	}
-	o := e.G.Obj(part.Referent)
-	if o == nil || o.Zone != state.ZBattlefield || o.Controller != p || !existsOnBattlefield(o) || o.Tapped {
-		return nil
-	}
-	return []state.ObjID{part.Referent}
-}
-
-// revealOrChooseCandidates returns the objects that can pay one
-// RevealOrChoose<N/Spec> part, hand cards first (the REVEAL arm) then
-// battlefield permanents (the CHOOSE arm). The two arms' candidate lists are
-// DISTINCT -- a card in hand is never a legal choose-arm candidate and a
-// permanent is never a legal reveal-arm candidate -- so the ask can offer
-// them as separate option kinds and the payment records which arm was used.
-// The choose arm scans the payer's own battlefield (costCandidates' zone walk
-// is controller-scoped), which is the "you control" the card text requires;
-// a permanent controlled by an opponent is not offered. One helper backs both
-// the offer gate (nonManaCastable) and the ask so the count that offered the
-// cast and the objects the payer may elect cannot disagree.
-func (e *Engine) revealOrChooseCandidates(p state.PlayerID, source state.ObjID, part CostPart) (hand, battlefield []state.ObjID) {
-	hand = e.costCandidates(p, source, state.ZHand, part.Spec, true, false)
-	battlefield = e.costCandidates(p, source, state.ZBattlefield, part.Spec, false, false)
-	return hand, battlefield
-}
-
-// sacrificeMatchSpec normalizes Forge's NICKNAME spelling to CARDNAME before
-// the source-aware filter is applied. The filter owns CARDNAME's object-ID
-// semantics; costs use this helper at both offer and payment time so the two
-// stages cannot disagree about whether a self-reference is payable.
-func sacrificeMatchSpec(spec string) string {
-	if strings.EqualFold(spec, "NICKNAME") {
-		return "CARDNAME"
-	}
-	return spec
-}
-
 // sacrificeCostCandidates returns, in battlefield scan order, the permanents
 // that can pay one Sac cost part for a cast (ability=false) or an activation
 // (ability=true) of source by p. Every Sac stage derives its candidate list
@@ -726,7 +637,7 @@ func sacrificeMatchSpec(spec string) string {
 // disagree about whether a self-reference or a CantSacrifice block is
 // payable.
 func (e *Engine) sacrificeCostCandidates(p state.PlayerID, source state.ObjID, part CostPart, ability bool) []state.ObjID {
-	matchSpec := sacrificeMatchSpec(part.Spec)
+	matchSpec := pay.SacrificeMatchSpec(part.Spec)
 	cause := costCauseForAbility(ability)
 	var out []state.ObjID
 	if part.Referent != 0 {
@@ -735,7 +646,7 @@ func (e *Engine) sacrificeCostCandidates(p state.PlayerID, source state.ObjID, p
 		// battlefield (CR 701.21a: only a permanent you control can be
 		// sacrificed).
 		r := part.Referent
-		if slices.Contains(e.G.Zone(state.ZBattlefield, p), r) && existsOnBattlefield(e.G.Obj(r)) &&
+		if slices.Contains(e.G.Zone(state.ZBattlefield, p), r) && pay.ExistsOnBattlefield(e.G.Obj(r)) &&
 			!e.sacrificeBlockedForCost(r, cause) {
 			out = append(out, r)
 		}
@@ -750,7 +661,7 @@ func (e *Engine) sacrificeCostCandidates(p state.PlayerID, source state.ObjID, p
 		// Sac<1/CARDNAME> mana tokens (Eldrazi Spawn) otherwise makes every
 		// payability check O(board) and the priority walk O(board^2).
 		if source != 0 && slices.Contains(e.G.Zone(state.ZBattlefield, p), source) &&
-			existsOnBattlefield(e.G.Obj(source)) && !e.sacrificeBlockedForCost(source, cause) &&
+			pay.ExistsOnBattlefield(e.G.Obj(source)) && !e.sacrificeBlockedForCost(source, cause) &&
 			e.matchesSpecFrom(matchSpec, source, p, source) {
 			out = append(out, source)
 		}
@@ -774,7 +685,7 @@ var sacrificeCardnameVerify = derivedMemoVerifyFlag != ""
 func (e *Engine) sacrificeCostScan(p state.PlayerID, source state.ObjID, matchSpec string, cause costCause) []state.ObjID {
 	var out []state.ObjID
 	for _, oid := range e.G.Zone(state.ZBattlefield, p) {
-		if !existsOnBattlefield(e.G.Obj(oid)) || e.sacrificeBlockedForCost(oid, cause) {
+		if !pay.ExistsOnBattlefield(e.G.Obj(oid)) || e.sacrificeBlockedForCost(oid, cause) {
 			continue
 		}
 		if e.matchesSpecFrom(matchSpec, oid, p, source) {
@@ -832,236 +743,3 @@ func (e *Engine) sacrificeCostAssignable(p state.PlayerID, source state.ObjID, p
 	}
 	return true
 }
-
-// lastDrawnThisTurn returns the card player p most recently DREW this turn
-// (the last events.Draw naming p since the most recent TurnChange), or 0 if p
-// drew nothing this turn. Derived from the event log exactly like
-// CardsDrawnThisTurn, so a replay derives it identically; it is NOT a filter.
-// Discard<1/LastDrawn> (Jandor's Ring) is the corpus's only carrier.
-func (e *Engine) lastDrawnThisTurn(p state.PlayerID) state.ObjID {
-	for i := len(e.L.Events) - 1; i >= 0; i-- {
-		ev := e.L.Events[i]
-		if ev.Kind == events.TurnChange {
-			break
-		}
-		if ev.Kind == events.Draw && ev.Player == p {
-			return ev.Obj
-		}
-	}
-	return 0
-}
-
-// discardCandidates returns the still-available cards that can pay one
-// Discard cost part. Random names a selection method rather than a card
-// characteristic, and a Hand spec is Forge's "discard your hand" shape
-// (the corpus spells its ignored count as both 0 and 1). LastDrawn is the
-// other history-keyed slot: "the last card you drew this turn", one specific
-// card, unpayable when p drew nothing or that card has left the hand.
-// A spell being announced is excluded because it will be on the stack when
-// costs are paid; an activated ability's source may remain in hand and can
-// therefore pay CARDNAME/NICKNAME costs such as channel and bloodrush.
-func (e *Engine) discardCandidates(p state.PlayerID, source state.ObjID, part CostPart, casting bool, reserved map[state.ObjID]bool) []state.ObjID {
-	all := strings.EqualFold(part.Spec, "Random") || strings.EqualFold(part.Spec, "Hand")
-	matchSpec := part.Spec
-	if strings.EqualFold(matchSpec, "NICKNAME") {
-		// Forge uses NICKNAME as the same self-reference as CARDNAME in the
-		// four discard-cost lines that carry it.
-		matchSpec = "CARDNAME"
-	}
-	if strings.EqualFold(matchSpec, "LastDrawn") {
-		// The single candidate is the last card p drew this turn, and only if
-		// it is still in p's hand. If p drew nothing, or that card has left
-		// the hand, the cost is unpayable -- do not skip back to an earlier
-		// draw.
-		last := e.lastDrawnThisTurn(p)
-		if last != 0 && !reserved[last] && !(casting && last == source) {
-			if o := e.G.Obj(last); o != nil && o.Zone == state.ZHand {
-				return []state.ObjID{last}
-			}
-		}
-		return nil
-	}
-	var out []state.ObjID
-	for _, id := range e.G.Zone(state.ZHand, p) {
-		if reserved[id] || (casting && id == source) {
-			continue
-		}
-		if all || e.matchesSpecFrom(matchSpec, id, p, source) {
-			out = append(out, id)
-		}
-	}
-	return out
-}
-
-// discardCostPayable is the offer-side totality gate for Discard costs. It
-// mirrors discardAsk's deterministic reservation walk without consuming RNG.
-func (e *Engine) discardCostPayable(p state.PlayerID, source state.ObjID, parts []CostPart, casting bool) bool {
-	reserved := map[state.ObjID]bool{}
-	for _, part := range parts {
-		if part.Announced {
-			// An announced Discard<X/Spec> (the RaiseCost bridge's Aether
-			// Tide shape): X = 0 is a legal announcement, and xAsk caps the
-			// X by the matching cards, so the part never withholds an offer.
-			continue
-		}
-		candidates := e.discardCandidates(p, source, part, casting, reserved)
-		if strings.EqualFold(part.Spec, "Hand") {
-			for _, id := range candidates {
-				reserved[id] = true
-			}
-			continue
-		}
-		if part.N <= 0 || int32(len(candidates)) < part.N {
-			return false
-		}
-		for i := int32(0); i < part.N; i++ {
-			reserved[candidates[i]] = true
-		}
-	}
-	return true
-}
-
-// spellsCastThisTurn counts PutOnStack events for player p since the last
-// TurnChange in the log (or since the start of the log, on turn 1).
-func (e *Engine) spellsCastThisTurn(p state.PlayerID) int {
-	n := 0
-	for i := len(e.L.Events) - 1; i >= 0; i-- {
-		ev := e.L.Events[i]
-		if ev.Kind == events.TurnChange {
-			break
-		}
-		if ev.Kind == events.PutOnStack && ev.Player == p {
-			n++
-		}
-	}
-	return n
-}
-
-// withSpellAbilityExtras folds a spell's own SpellAbility Cost$ ADDITIONAL
-// (non-mana) parts into cost. It exists so the OFFER and the CHARGE cannot
-// disagree about what a plain cast costs.
-//
-// They did disagree, and it wedged a live game. legal.go offered a plain cast
-// after gating castable on adjustedCost alone -- the printed mana -- while
-// beginCast folded the SpellAbility's Cost$ Sac part in afterwards. Village
-// Rites ({B}, "As an additional cost, sacrifice a creature") was therefore
-// offered to a player with no creature: sacAsk found zero candidates and
-// aborted the cast, the abort consumed nothing, priority returned to a board
-// identical to the one that produced the offer, and the same option was
-// offered again -- an unbounded livelock (measured: a 5-event cycle repeating
-// until the match was killed). The abort in sacAsk is correct and stays; what
-// was wrong is that the option existed at all, which is the standing rule that
-// an option that cannot be paid must never be offered.
-//
-// The alternative-cost path was given this same gate in an earlier round (see
-// the ruling comment in legal.go's alternativeCosts loop). The base cast path
-// has the identical hole and was missed, so both now go through this one
-// definition rather than each repeating the fold.
-//
-// The mana part of a Cost$ is deliberately NOT folded: it RESTATES the printed
-// mana cost rather than adding to it, so re-adding it would double charge.
-// Every OTHER component -- Life/Sac/Discard/SubCounter/Tap, and the whole
-// non-mana family including Exile, MoveToGrave, Reveal, Energy, Draw, LifeX,
-// DamageYou and Mill -- is additional and is concatenated below.
-func withSpellAbilityExtras(f *cards.Face, cost Cost) Cost {
-	sa := f.SpellAbility()
-	if sa == nil {
-		return cost
-	}
-	sc := sa.ParamStr(cards.PKCost)
-	if sc == "" {
-		return cost
-	}
-	return foldAdditionalCost(cost, ParseCost(sc))
-}
-
-// foldAdditionalCost concatenates the non-mana parts of extra onto cost. It is
-// THE one definition shared by two carriers that must agree: withSpellAbilityExtras
-// folds a spell's own SpellAbility Cost$, and beginCast folds a RaiseCost
-// static's non-mana Cost$ (Soul Immolation's `Cost$ Blight<X>`) that the cost
-// composition carried in costMods.extra. The mana part of a Cost$ is
-// deliberately NOT folded: it RESTATES the printed mana cost rather than
-// adding to it, so re-adding it would double charge. Every OTHER component --
-// Life/Sac/Discard/SubCounter/Tap, and the whole non-mana family including
-// Exile, MoveToGrave, Reveal, Energy, Draw, LifeX, DamageYou, Mill and Blight --
-// is additional and is concatenated below.
-func foldAdditionalCost(cost, extra Cost) Cost {
-	cost.Life = addClampedGeneric(cost.Life, int64(extra.Life))
-	if len(extra.Sac) > 0 {
-		cost.Sac = append(append([]CostPart(nil), cost.Sac...), extra.Sac...)
-	}
-	if len(extra.Discard) > 0 {
-		cost.Discard = append(append([]CostPart(nil), cost.Discard...), extra.Discard...)
-	}
-	if len(extra.SubCounter) > 0 {
-		cost.SubCounter = append(append([]CostPart(nil), cost.SubCounter...), extra.SubCounter...)
-	}
-	if len(extra.Exile) > 0 {
-		cost.Exile = append(append([]CostPart(nil), cost.Exile...), extra.Exile...)
-	}
-	if len(extra.ExileFromTop) > 0 {
-		cost.ExileFromTop = append(append([]CostPart(nil), cost.ExileFromTop...), extra.ExileFromTop...)
-	}
-	if len(extra.MoveToGrave) > 0 {
-		cost.MoveToGrave = append(append([]CostPart(nil), cost.MoveToGrave...), extra.MoveToGrave...)
-	}
-	if len(extra.Reveal) > 0 {
-		cost.Reveal = append(append([]CostPart(nil), cost.Reveal...), extra.Reveal...)
-	}
-	if len(extra.RevealOrChoose) > 0 {
-		cost.RevealOrChoose = append(append([]CostPart(nil), cost.RevealOrChoose...), extra.RevealOrChoose...)
-	}
-	if len(extra.RevealChosen) > 0 {
-		cost.RevealChosen = append(append([]CostPart(nil), cost.RevealChosen...), extra.RevealChosen...)
-	}
-	if len(extra.Behold) > 0 {
-		cost.Behold = append(append([]CostPart(nil), cost.Behold...), extra.Behold...)
-	}
-	if len(extra.TapPermanent) > 0 {
-		cost.TapPermanent = append(append([]CostPart(nil), cost.TapPermanent...), extra.TapPermanent...)
-	}
-	if len(extra.Blight) > 0 {
-		cost.Blight = append(append([]CostPart(nil), cost.Blight...), extra.Blight...)
-	}
-	if len(extra.Energy) > 0 {
-		cost.Energy = append(append([]CostPart(nil), cost.Energy...), extra.Energy...)
-	}
-	if len(extra.Return) > 0 {
-		cost.Return = append(append([]CostPart(nil), cost.Return...), extra.Return...)
-	}
-	if len(extra.Draw) > 0 {
-		cost.Draw = append(append([]CostPart(nil), cost.Draw...), extra.Draw...)
-	}
-	if len(extra.LifeX) > 0 {
-		cost.LifeX = append(append([]CostPart(nil), cost.LifeX...), extra.LifeX...)
-	}
-	if len(extra.DamageYou) > 0 {
-		cost.DamageYou = append(append([]CostPart(nil), cost.DamageYou...), extra.DamageYou...)
-	}
-	if len(extra.GainLife) > 0 {
-		cost.GainLife = append(append([]CostPart(nil), cost.GainLife...), extra.GainLife...)
-	}
-	if len(extra.Mill) > 0 {
-		cost.Mill = append(append([]CostPart(nil), cost.Mill...), extra.Mill...)
-	}
-	if len(extra.Evidence) > 0 {
-		cost.Evidence = append(append([]CostPart(nil), cost.Evidence...), extra.Evidence...)
-	}
-	cost.Forage = cost.Forage || extra.Forage
-	cost.Tap = cost.Tap || extra.Tap
-	return cost
-}
-
-type castFlowDrawPlayerCode uint16
-
-const (
-	castFlowDrawPlayerPayer castFlowDrawPlayerCode = iota + 1
-)
-
-var castFlowDrawPlayerCodes = state.NewStrCodes(
-	state.StrEntry[castFlowDrawPlayerCode]{Key: "", Val: castFlowDrawPlayerPayer},
-	state.StrEntry[castFlowDrawPlayerCode]{Key: "You", Val: castFlowDrawPlayerPayer},
-	state.StrEntry[castFlowDrawPlayerCode]{Key: "Player", Val: castFlowDrawPlayerPayer},
-	state.StrEntry[castFlowDrawPlayerCode]{Key: "Self", Val: castFlowDrawPlayerPayer},
-	state.StrEntry[castFlowDrawPlayerCode]{Key: "Player.Activator", Val: castFlowDrawPlayerPayer},
-)
