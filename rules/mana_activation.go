@@ -78,36 +78,9 @@ type manaActivation struct {
 	// entry (zero for a printed or SVar-granted ability), captured when the
 	// choice is posed so the answer resolves the same foreign ability even
 	// after a Produced$ rewrite breaks the SA's pointer identity.
-	gained     []gainedManaRef
+	gained     []pay.GainedManaRef
 	cast       bool
 	cumulative bool
-}
-
-// gainedManaRef is the has-all-abilities-of identity of one mana ability
-// activation (Forge's GainsAbilitiesOf$, rules/legal.go's grantedAbilities):
-// the FOREIGN card the ability belongs to, its index in that card's face
-// Abilities, and the face itself. A zero value (face == nil) is an ordinary
-// printed or SVar-granted mana ability. It is threaded through the mana
-// activation and every one of its choice continuations (colour, unless-pay,
-// discard/exile cost) because the SA pointer does not survive them -- a
-// Produced$ rewrite or an unless-gate strip resolves a COPY -- and the
-// identity is what (a) resolves the body's SVars (Amount$ X) against the
-// foreign face, not the recipient's, and (b) records the replayable
-// ManaActivate marker (IDs[0] = foreign card, Amount = index) that the
-// GainsAbilitiesLimitPerTurn$ cap counts (gainedActivationsThisTurn).
-type gainedManaRef struct {
-	from state.ObjID
-	idx  int
-	face *cards.Face
-}
-
-// svars returns the SVar table a gained mana ability resolves against, or
-// fallback for an ordinary ability.
-func (r gainedManaRef) svars(fallback map[string]string) map[string]string {
-	if r.face != nil {
-		return r.face.SVars
-	}
-	return fallback
 }
 
 // manaColorActivation holds an already-paid mana ability while its controller
@@ -124,7 +97,7 @@ type manaColorActivation struct {
 	cumulative bool
 	triggers   []pendingTrigger
 	trigger    *pendingTrigger
-	gained     gainedManaRef
+	gained     pay.GainedManaRef
 	sacs       []state.ObjID
 	allocation bool
 	// nested is set when a colour choice was posed by effects.Ask from a
@@ -245,7 +218,7 @@ func (e *Engine) continueManaPaymentWindow(cumulative bool) {
 // window it was activated from -- unless the effect chain suspended on a
 // routed colour ask, whose answer runs that same continuation.
 func (e *Engine) finishManaEffect(p state.PlayerID, source state.ObjID, ma *cards.SA, produced string,
-	gained gainedManaRef, sacs []state.ObjID, cast, cumulative bool, triggers []pendingTrigger) {
+	gained pay.GainedManaRef, sacs []state.ObjID, cast, cumulative bool, triggers []pendingTrigger) {
 	act := manaColorActivation{player: p, source: source, ability: ma, cast: cast, cumulative: cumulative,
 		triggers: triggers, gained: gained, sacs: append([]state.ObjID(nil), sacs...)}
 	if e.withOffStackMana(act, func() { e.resolveManaEffectColor(p, source, ma, produced, gained, sacs) }) {
@@ -267,7 +240,7 @@ func (e *Engine) answerNestedManaColor(ma *manaColorActivation, chosen []decisio
 		ctx.ResolvedThisTurn = e.resolvedAbilityTallyFor(ma.source, ma.ability)
 		ctx.ActivationsThisTurn = e.activationsThisTurnFor(ma.source, ma.ability)
 		if o := e.G.Obj(ma.source); o != nil && o.Face() != nil {
-			effects.SetSVars(&ctx, ma.gained.svars(o.Face().SVars))
+			effects.SetSVars(&ctx, ma.gained.SVars(o.Face().SVars))
 		}
 	}
 	for _, option := range chosen {
@@ -316,7 +289,7 @@ type manaDiscardActivation struct {
 	tapPart    int
 	cast       bool
 	cumulative bool
-	gained     gainedManaRef
+	gained     pay.GainedManaRef
 	// The announced SubCounter cost parts. subX is the announced X, set
 	// once by manaSubCounterAsk's first decision (the cast path's pc.x) and
 	// shared by every announced part; subCounterPays records the removal
@@ -358,7 +331,7 @@ type manaUnlessActivation struct {
 	sacs       []state.ObjID
 	payers     []state.PlayerID
 	next       int
-	gained     gainedManaRef
+	gained     pay.GainedManaRef
 }
 
 // availableManaAbilities returns exactly the individual mana abilities that
@@ -583,13 +556,13 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 				if !mf.noPhaseGate && !e.activationPhasesOK(p, ma) {
 					continue
 				}
-			} else if !e.manaActivationGateHolds(p, id, ma) {
+			} else if !pay.ManaActivationGateHolds(asPayer(e), p, id, ma) {
 				continue
 			}
 			cc = mf.cost
 		} else {
 			if !e.activatorAllows(p, id, ma) ||
-				!e.activationConditionOK(p, ma) || !e.manaActivationGateHolds(p, id, ma) {
+				!e.activationConditionOK(p, ma) || !pay.ManaActivationGateHolds(asPayer(e), p, id, ma) {
 				continue
 			}
 			cc = e.compiledCostOf(ma.ParamStr(cards.PKCost))
@@ -597,13 +570,13 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		// The cost is looked up once for the CR 302.6 tap-sick gate and the
 		// payability gate (manaAbilityPayable's own tap-sick re-check is the
 		// same pure read, so it is not repeated).
-		if !e.tapFlagsSick(id, cc.Tap, cc.Untap) && !abilityRestricted(ma) && (ignorePayable || e.manaCostPayable(p, o, id, cc, nil)) &&
+		if !pay.TapFlagsSick(asPayer(e), id, cc.Tap, cc.Untap) && !abilityRestricted(ma) && (ignorePayable || e.manaCostPayable(p, o, id, cc, nil)) &&
 			// CheckSVar$/SVarCompare$ (Glistening Sphere's Corrupted "Activate
 			// only if an opponent has three or more poison counters"): the same
 			// intervening-if gate sVarGateOK applies to every non-mana
 			// activation, so the priority offer, the payment windows and the V1
 			// planner withhold the ability with its condition false.
-			((mf != nil && mf.noCheckSVar) || e.manaSVarGateOK(o, p, id, ma)) {
+			((mf != nil && mf.noCheckSVar) || pay.ManaSVarGateOK(asPayer(e), o, p, id, ma)) {
 			// ActivationLimit$ / GameActivationLimit$ (Vivi Ornitier's "only once
 			// each turn", Stalking Leonin's "Activate only once"): the non-mana
 			// ability offer loops in legal.go gate on these parameters, but this
@@ -644,7 +617,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// that fails one (an opponent's Exotic Orchard, a tapped source) never
 	// mints its Ctx.
 	considerReflected := func(ma *cards.SA, ctx func() *effects.Ctx) bool {
-		if ma.Kind != "AB" || ma.API != "ManaReflected" || !abilityZoneOK(ma, o.Zone) || !e.activatorAllows(p, id, ma) || e.manaAbilityTapSick(id, ma) || abilityRestricted(ma) || !e.manaAbilityPayable(p, id, ma) || !e.manaReflectedPresentHolds(p, id, ma) {
+		if ma.Kind != "AB" || ma.API != "ManaReflected" || !abilityZoneOK(ma, o.Zone) || !e.activatorAllows(p, id, ma) || pay.ManaAbilityTapSick(asPayer(e), id, ma) || abilityRestricted(ma) || !e.manaAbilityPayable(p, id, ma) || !e.manaReflectedPresentHolds(p, id, ma) {
 			return false
 		}
 		// Face contexts are shared across abilities; never let one cost's
@@ -763,7 +736,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 			continue
 		}
 		if ma.API == "Mana" && !e.isLoyaltyAbility(ma) && abilityZoneOK(ma, o.Zone) && e.activatorAllows(p, id, ma) && !abilityRestricted(ma) && e.manaAbilityPayable(p, id, ma) &&
-			e.manaActivationGateHolds(p, id, ma) && e.manaSVarGateOK(o, p, id, ma) {
+			pay.ManaActivationGateHolds(asPayer(e), p, id, ma) && pay.ManaSVarGateOK(asPayer(e), o, p, id, ma) {
 			out = append(out, ma)
 		}
 	}
@@ -788,85 +761,25 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		return out
 	}
 	for _, ga := range e.grantedAbilities(p, id) {
-		if printed[ga.sa.Line] {
+		if printed[ga.SA.Line] {
 			continue
 		}
-		if ga.sa.API == "ManaReflected" {
-			if considerReflected(ga.sa, recipient) {
-				out = append(out, ga.sa)
+		if ga.SA.API == "ManaReflected" {
+			if considerReflected(ga.SA, recipient) {
+				out = append(out, ga.SA)
 			}
 			continue
 		}
-		if ga.sa.API != "Mana" || e.isLoyaltyAbility(ga.sa) {
+		if ga.SA.API != "Mana" || e.isLoyaltyAbility(ga.SA) {
 			continue
 		}
-		if !abilityZoneOK(ga.sa, o.Zone) || !e.activatorAllows(p, id, ga.sa) || abilityRestricted(ga.sa) || !e.manaAbilityPayable(p, id, ga.sa) ||
-			!e.manaActivationGateHolds(p, id, ga.sa) || !e.manaSVarGateOK(o, p, id, ga.sa) {
+		if !abilityZoneOK(ga.SA, o.Zone) || !e.activatorAllows(p, id, ga.SA) || abilityRestricted(ga.SA) || !e.manaAbilityPayable(p, id, ga.SA) ||
+			!pay.ManaActivationGateHolds(asPayer(e), p, id, ga.SA) || !pay.ManaSVarGateOK(asPayer(e), o, p, id, ga.SA) {
 			continue
 		}
-		out = append(out, ga.sa)
+		out = append(out, ga.SA)
 	}
 	return out
-}
-
-// manaSVarGateOK is the mana walks' CheckSVar$/SVarCompare$ activation gate:
-// the same shared evaluator sVarGateOK (rules/legal.go) applies to every
-// non-mana activation offer, so a gated ability (Glistening Sphere's
-// Corrupted "Activate only if an opponent has three or more poison
-// counters") reads one member set across the priority offer, the payment
-// windows and the V1 payment planner. Only the merged face is walk-specific:
-// pileAbilityRefOf resolves it for a printed SA (a mutated pile's under-card
-// face reads its own SVar table); a granted or static-granted body is not a
-// pile member and reads merged 0, the top face's table. sVarGateOK's
-// fail-OPEN on an unevaluable body is the mana contract too -- an unreadable
-// gate never silently removes a card's activation.
-func (e *Engine) manaSVarGateOK(o *state.Object, p state.PlayerID, id state.ObjID, ma *cards.SA) bool {
-	if _, ok := ma.Param(cards.PKCheckSVar); !ok {
-		return true
-	}
-	merged := 0
-	if _, m, found := pileAbilityRefOf(o, ma); found {
-		merged = m
-	}
-	return e.sVarGateOK(p, id, ma, merged)
-}
-
-// manaActivationGateHolds evaluates a plain AB$ Mana ability's IsPresent$/
-// PresentCompare$ existence gate (the same shape manaReflectedPresentHolds is
-// for a reflected ability):
-//
-//   - IsPresent$ <spec> with PresentCompare$ <op><n>: the count of objects
-//     matching <spec> (Shrine of the Forsaken Gods' "Activate only if you
-//     control seven or more lands"). PresentCompare$ absent means GE1.
-//
-// An Activation$ <mechanic> rides rules/legal.go's shared
-// activationConditionOK instead (main's vocabulary: Hellbent, Threshold,
-// Metalcraft, Delirium), so the two gates compose rather than duplicate.
-//
-// A gate this build cannot price fails closed: the ability is withheld from
-// the offer, the payment window and the activation alike, never widened.
-func (e *Engine) manaActivationGateHolds(p state.PlayerID, id state.ObjID, ma *cards.SA) bool {
-	// ActivationPhases$ and its rider qualifiers (PlayerTurn$,
-	// OpponentTurn$, ActivationFirstCombat$, ActivationAfterBlockers$) are
-	// the same offer-time window a non-mana ability is gated by. This walk
-	// is a mana ability's ONLY eligibility gate, so reading the window here
-	// is what keeps one AB$ Mana carrier (a charge-counter source whose
-	// "any player may activate ... only during their turn before the end
-	// step" line was previously offered outside its window) bound to it.
-	if !e.activationPhasesOK(p, ma) {
-		return false
-	}
-	if spec, ok := ma.Param(cards.PKIsPresent); ok && strings.TrimSpace(spec) != "" {
-		n := e.countPresent(strings.TrimSpace(spec), id, p)
-		if cmp := strings.TrimSpace(ma.ParamStr(cards.PKPresentCompare)); cmp != "" {
-			if !comparePresent(n, e.presentCompareFor(cmp, id, p)) {
-				return false
-			}
-		} else if n <= 0 {
-			return false
-		}
-	}
-	return true
 }
 
 // activateMana activates one of source's currently available mana abilities
@@ -990,9 +903,9 @@ func (e *Engine) activateManaFor(p state.PlayerID, source state.ObjID, cast, cum
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "mana", Obj: source,
 			Ability: i, Label: label})
 	}
-	gained := make([]gainedManaRef, len(abilities))
+	gained := make([]pay.GainedManaRef, len(abilities))
 	for i, ma := range abilities {
-		gained[i] = e.gainedManaRefFor(p, source, ma)
+		gained[i] = pay.GainedManaRefFor(asPayer(e), p, source, ma)
 	}
 	e.manaActivation = &manaActivation{player: p, source: source, abilities: abilities, gained: gained, cast: cast, cumulative: cumulative}
 	windowAsk(e, d, chooseMana)
@@ -1004,31 +917,6 @@ func (e *Engine) activateManaFor(p state.PlayerID, source state.ObjID, cast, cum
 // ordinary discard asks, while random and discard-your-hand do not.
 func (e *Engine) manaAbilityPayable(p state.PlayerID, source state.ObjID, ma *cards.SA) bool {
 	return e.manaAbilityPayablePool(p, source, ma, nil)
-}
-
-// tapCostSick is CR 302.6's shared source-cost predicate for {T}/{Q}.
-// Tapping another permanent to pay a cost is intentionally not checked here.
-func (e *Engine) tapCostSick(source state.ObjID, cost *Cost) bool {
-	return e.tapFlagsSick(source, cost.Tap, cost.Untap)
-}
-
-// tapFlagsSick is tapCostSick reading only the cost's {T}/{Q} flags, so a
-// caller holding a shared compiled cost (costRef) passes two bools rather
-// than copying the whole Cost.
-func (e *Engine) tapFlagsSick(source state.ObjID, tap, untap bool) bool {
-	o := e.G.Obj(source)
-	if o == nil || (!tap && !untap) || o.Zone != state.ZBattlefield || !o.SummonSick {
-		return false
-	}
-	return slices.Contains(e.derivedTypesOf(source), "Creature") && !e.hasKeywordH(source, kwhHaste)
-}
-
-func (e *Engine) manaAbilityTapSick(source state.ObjID, ma *cards.SA) bool {
-	if ma == nil {
-		return false
-	}
-	c := e.costRef(ma.ParamStr(cards.PKCost))
-	return e.tapFlagsSick(source, c.Tap, c.Untap)
 }
 
 // manaAbilityPayablePool is manaAbilityPayable with the mana part priced
@@ -1047,7 +935,7 @@ func (e *Engine) manaAbilityPayablePool(p state.PlayerID, source state.ObjID, ma
 		return false
 	}
 	cc := e.compiledCostOf(ma.ParamStr(cards.PKCost))
-	if e.tapFlagsSick(source, cc.Tap, cc.Untap) {
+	if pay.TapFlagsSick(asPayer(e), source, cc.Tap, cc.Untap) {
 		return false
 	}
 	return e.manaCostPayable(p, o, source, cc, hyp)
@@ -1071,7 +959,7 @@ var manaPayFastVerify = derivedMemoVerifyFlag != ""
 // full walk. The test binary proves the equivalence on every call
 // (manaPayFastVerify).
 func (e *Engine) manaCostPayable(p state.PlayerID, o *state.Object, source state.ObjID, cc *compiledCost, hyp *state.Mana) bool {
-	if cc.bareTap && (hyp != nil || len(e.G.Players[p].RestrictedMana) == 0) {
+	if cc.BareTap && (hyp != nil || len(e.G.Players[p].RestrictedMana) == 0) {
 		pool := e.G.Players[p].Pool
 		if hyp != nil {
 			pool = *hyp
@@ -1402,7 +1290,7 @@ type manaAfterCost struct {
 	cumulative bool
 	triggers   []pendingTrigger
 	sacs       []state.ObjID
-	gained     gainedManaRef
+	gained     pay.GainedManaRef
 	untaps     []state.ObjID
 }
 
@@ -1761,43 +1649,17 @@ func (e *Engine) askTriggeredManaColor(pt pendingTrigger, rest []pendingTrigger,
 // before the mana effect, and no phantom generic mana is charged.
 func (e *Engine) resolveManaAbility(p state.PlayerID, source state.ObjID, ma *cards.SA, cast bool, cumulative ...bool) {
 	payment := len(cumulative) > 0 && cumulative[0]
-	e.resolveManaAbilityRef(p, source, ma, e.gainedManaRefFor(p, source, ma), cast, payment, false)
+	e.resolveManaAbilityRef(p, source, ma, pay.GainedManaRefFor(asPayer(e), p, source, ma), cast, payment, false)
 }
 
 func (e *Engine) resolveManaAbilityInteractive(p state.PlayerID, source state.ObjID, ma *cards.SA, cast bool, cumulative ...bool) {
 	payment := len(cumulative) > 0 && cumulative[0]
-	e.resolveManaAbilityRef(p, source, ma, e.gainedManaRefFor(p, source, ma), cast, payment, true)
-}
-
-// gainedManaRefFor reports the has-all-abilities-of identity of mana ability
-// sa activated from source, measured against sa's ORIGINAL compiled pointer
-// (callers pass the ability before any Produced$ rewrite). A printed ability
-// on source's own pile wins -- the ordinary case, answered without walking
-// the grants -- so a recipient that happens to share the foreign card's
-// compiled face keeps the printed identity. Otherwise the first live gained
-// grant in grantedAbilities' deterministic order whose foreign SA is sa is
-// the identity; grantedAbilities has already applied the grant's
-// GainsValidAbilities$ filter and GainsAbilitiesLimitPerTurn$ cap, so a
-// capped grant never supplies it.
-func (e *Engine) gainedManaRefFor(p state.PlayerID, source state.ObjID, sa *cards.SA) gainedManaRef {
-	o := e.G.Obj(source)
-	if o == nil || sa == nil {
-		return gainedManaRef{}
-	}
-	if _, _, printed := pileAbilityRefOf(o, sa); printed {
-		return gainedManaRef{}
-	}
-	for _, ga := range e.grantedAbilities(p, source) {
-		if ga.gained && ga.sa == sa && ga.gainedFace != nil {
-			return gainedManaRef{from: ga.gainedFrom, idx: ga.gainedIdx, face: ga.gainedFace}
-		}
-	}
-	return gainedManaRef{}
+	e.resolveManaAbilityRef(p, source, ma, pay.GainedManaRefFor(asPayer(e), p, source, ma), cast, payment, true)
 }
 
 // resolveManaAbilityRef is resolveManaAbility with the gained identity
 // already known (answerManaActivation captured it before rewriting the SA).
-func (e *Engine) resolveManaAbilityRef(p state.PlayerID, source state.ObjID, ma *cards.SA, gained gainedManaRef, cast, payment, interactive bool) {
+func (e *Engine) resolveManaAbilityRef(p state.PlayerID, source state.ObjID, ma *cards.SA, gained pay.GainedManaRef, cast, payment, interactive bool) {
 	e.resolveManaAbilityRefOriginal(p, source, ma, ma, gained, cast, payment, interactive)
 }
 
@@ -1805,7 +1667,7 @@ func (e *Engine) resolveManaAbilityRef(p state.PlayerID, source state.ObjID, ma 
 // identity for activation-limit markers. Colour choices rewrite ma's Produced$
 // on an immutable copy, but the limit census is keyed to the compiled ability
 // in the source pile, not that copy.
-func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.ObjID, ma, original *cards.SA, gained gainedManaRef, cast, payment, interactive bool) {
+func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.ObjID, ma, original *cards.SA, gained pay.GainedManaRef, cast, payment, interactive bool) {
 	if !interactive && pay.CostHasDynamicXTap(e.costRef(ma.ParamStr(cards.PKCost))) {
 		return
 	}
@@ -1822,9 +1684,9 @@ func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.Ob
 	// log scan (gainedActivationsThisTurn) counts a mana activation exactly
 	// as it counts a GainedAbilityPush, and a replay re-derives the count.
 	// Emitted only for gained abilities, so no existing game's log changes.
-	if gained.face != nil {
+	if gained.Face != nil {
 		e.emit(events.Event{Kind: events.ManaActivate, Player: p, Obj: source,
-			IDs: []state.ObjID{gained.from}, Amount: int32(gained.idx)})
+			IDs: []state.ObjID{gained.From}, Amount: int32(gained.Idx)})
 	}
 	// The activation-limit scan marker: ManaAdd events carry no source
 	// attribution, so an ability that carries EITHER limit records its
@@ -1901,7 +1763,7 @@ func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.Ob
 // the permanents the ability's Sac<...> cost sacrificed, so a ManaReflected
 // Valid$ "Defined.Sacrificed" selector (Squandered Resources) can read them
 // through the resolution context's Remembered list.
-func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *cards.SA, cast, cumulative bool, triggers []pendingTrigger, sacs []state.ObjID, gained gainedManaRef, untaps []state.ObjID) {
+func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *cards.SA, cast, cumulative bool, triggers []pendingTrigger, sacs []state.ObjID, gained pay.GainedManaRef, untaps []state.ObjID) {
 	if strings.TrimSpace(ma.ParamStr(cards.PKUnlessCost)) != "" {
 		e.askManaUnless(p, source, ma, cast, cumulative, triggers, sacs, gained)
 		return
@@ -1924,8 +1786,8 @@ func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *car
 		// live on its own face. A granted/non-printed ability keeps the
 		// top-face fallback (pileFaceForSA reports ok=false).
 		svars := func() map[string]string {
-			if gained.face != nil {
-				return gained.face.SVars
+			if gained.Face != nil {
+				return gained.Face.SVars
 			}
 			if o := e.G.Obj(source); o != nil {
 				if f, ok := e.pileFaceForSA(source, ma); ok {
@@ -2020,7 +1882,7 @@ func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *car
 // contract. Activated mana abilities cannot use effects.Host.Ask's stack
 // resume point, but their payer still receives an ordinary KModes decision
 // and rules charges exactly the same parsed cost on a "pay" answer.
-func (e *Engine) askManaUnless(p state.PlayerID, source state.ObjID, ma *cards.SA, cast, cumulative bool, triggers []pendingTrigger, sacs []state.ObjID, gained gainedManaRef) {
+func (e *Engine) askManaUnless(p state.PlayerID, source state.ObjID, ma *cards.SA, cast, cumulative bool, triggers []pendingTrigger, sacs []state.ObjID, gained pay.GainedManaRef) {
 	ctx := effects.NewCtxPtr(source, p, effects.CtxInit{})
 	var payers []state.PlayerID
 	for _, t := range effects.UnlessPayers(e, ctx, ma) {
@@ -2121,7 +1983,7 @@ func (e *Engine) finishManaUnlessPayment(paid bool) {
 // askManaColor poses the colour choice for a Produced value that names a
 // fixed set. Any selects one colour for the whole Amount$; Combo allocates
 // one option per mana unit, so Combo Any Amount 2 can select U then R.
-func (e *Engine) askManaColor(p state.PlayerID, source state.ObjID, ma *cards.SA, cast, cumulative bool, triggers []pendingTrigger, colours []string, gained gainedManaRef, amount int32, sacs []state.ObjID) {
+func (e *Engine) askManaColor(p state.PlayerID, source state.ObjID, ma *cards.SA, cast, cumulative bool, triggers []pendingTrigger, colours []string, gained pay.GainedManaRef, amount int32, sacs []state.ObjID) {
 	allocation := strings.HasPrefix(effects.ManaOf(ma).Produced, "Combo ") && amount > 1
 	min, max := 1, 1
 	if allocation {
@@ -2148,7 +2010,7 @@ func (e *Engine) askManaColor(p state.PlayerID, source state.ObjID, ma *cards.SA
 // manaEffectAmount resolves the production amount in the same source and
 // sacrifice context effMana will receive. Combo's allocation must use this
 // value before posing its decision, including an SVar such as Burnt Offering.
-func (e *Engine) manaEffectAmount(p state.PlayerID, source state.ObjID, ma *cards.SA, sacs []state.ObjID, gained gainedManaRef) int32 {
+func (e *Engine) manaEffectAmount(p state.PlayerID, source state.ObjID, ma *cards.SA, sacs []state.ObjID, gained pay.GainedManaRef) int32 {
 	o := e.G.Obj(source)
 	if o == nil || o.Face() == nil {
 		return 0
@@ -2157,7 +2019,7 @@ func (e *Engine) manaEffectAmount(p state.PlayerID, source state.ObjID, ma *card
 	for _, id := range sacs {
 		ctx.Sacrificed = append(ctx.Sacrificed, effects.SacrificedLKI(e, id))
 	}
-	effects.SetSVars(ctx, gained.svars(o.Face().SVars))
+	effects.SetSVars(ctx, gained.SVars(o.Face().SVars))
 	amount := effects.ManaAmountNum(effects.ManaOf(ma), e, ctx, 1)
 	if amount < 0 {
 		return 0
@@ -2165,7 +2027,7 @@ func (e *Engine) manaEffectAmount(p state.PlayerID, source state.ObjID, ma *card
 	return amount
 }
 
-func (e *Engine) resolveManaEffectColor(p state.PlayerID, source state.ObjID, ma *cards.SA, produced string, gained gainedManaRef, sacs []state.ObjID) {
+func (e *Engine) resolveManaEffectColor(p state.PlayerID, source state.ObjID, ma *cards.SA, produced string, gained pay.GainedManaRef, sacs []state.ObjID) {
 	o := e.G.Obj(source)
 	if o == nil || o.Face() == nil {
 		return
@@ -2199,7 +2061,7 @@ func (e *Engine) resolveManaEffectColor(p state.PlayerID, source state.ObjID, ma
 	e.manaProducer = source
 	// A gained mana ability's body resolves its SVars (Amount$ X) against
 	// the FOREIGN face it was compiled on, never the recipient's.
-	e.resolveAbilitySacrificing(source, p, nil, &copy, gained.svars(o.Face().SVars), sacs)
+	e.resolveAbilitySacrificing(source, p, nil, &copy, gained.SVars(o.Face().SVars), sacs)
 	e.manaFromTap, e.manaProducer = savedTap, savedProducer
 	if isPlain {
 		e.verifyPlainMana(plain, n0)
@@ -2279,7 +2141,7 @@ func (e *Engine) answerManaActivation(chosen []decision.Option) bool {
 	idx := chosen[0].Ability
 	if idx >= 0 && idx < len(ma.abilities) {
 		ab := ma.abilities[idx]
-		var gained gainedManaRef
+		var gained pay.GainedManaRef
 		if idx < len(ma.gained) {
 			gained = ma.gained[idx]
 		}

@@ -79,7 +79,7 @@ func TestCloneAddAbilitiesGrantExpiresWithCopy(t *testing.T) {
 		t.Fatal("distinct source and target or grant param missing")
 	}
 	effects.Resolve(e, &effects.Ctx{Source: id, Controller: 0, Targets: []state.Target{{Obj: ox}}, SVars: obj.Face().SVars, OfferedSA: sa}, sa)
-	if e.G.Obj(id).Face().Name != "Fixture Ox" || len(e.grantedAbilities(0, id)) != 1 || e.grantedAbilities(0, id)[0].sa.API != "Pump" {
+	if e.G.Obj(id).Face().Name != "Fixture Ox" || len(e.grantedAbilities(0, id)) != 1 || e.grantedAbilities(0, id)[0].SA.API != "Pump" {
 		t.Fatalf("clone grant missing: face %v, grants %+v", e.G.Obj(id).Face().Name, e.grantedAbilities(0, id))
 	}
 	e.EndOfTurnCleanup()

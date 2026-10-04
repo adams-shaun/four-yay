@@ -60,7 +60,7 @@ func (w *legalWalk) graveyardCandidates(zone []state.ObjID, buf []state.ObjID) (
 	e.active()
 	for _, h := range e.activeKWHeads {
 		for _, hd := range graveyardDerivedHeads {
-			if strings.EqualFold(h, hd.s) {
+			if strings.EqualFold(h, hd.S) {
 				return buf, false
 			}
 		}
@@ -90,7 +90,7 @@ func graveyardCandidate(o *state.Object) bool {
 	}
 	if len(f.Keywords) != 0 {
 		for _, h := range graveyardPrintedHeads {
-			if f.KeywordLinesHaveHead(h.s, h.id) {
+			if f.KeywordLinesHaveHead(h.S, h.ID) {
 				return true
 			}
 		}
@@ -111,7 +111,7 @@ func graveyardCandidate(o *state.Object) bool {
 func graveyardDerivedHead(k string) bool {
 	head := cards.KeywordHead(k)
 	for _, h := range graveyardDerivedHeads {
-		if strings.EqualFold(head, h.s) {
+		if strings.EqualFold(head, h.S) {
 			return true
 		}
 	}

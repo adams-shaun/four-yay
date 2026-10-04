@@ -92,7 +92,7 @@ func (e *Engine) grantedPreventMatches(ev events.Event) []replMatch {
 			if (to && !k.to) || (!to && !k.by) || !e.hasKeywordH(id, k.head) {
 				continue
 			}
-			if o := e.G.Obj(id); o == nil || o.Face() == nil || (k.printable && o.Face().HasKeyword(k.head.s)) {
+			if o := e.G.Obj(id); o == nil || o.Face() == nil || (k.printable && o.Face().HasKeyword(k.head.S)) {
 				continue
 			}
 			if k.combat {

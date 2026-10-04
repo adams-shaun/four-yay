@@ -637,8 +637,8 @@ func (e *Engine) manaActivationCostMarker(abilities []*cards.SA) string {
 		} else {
 			cc = e.compiledCostOf(ma.ParamStr(cards.PKCost))
 		}
-		if cc.beyondTap {
-			return cc.formatted()
+		if cc.BeyondTap {
+			return cc.Formatted()
 		}
 	}
 	return ""

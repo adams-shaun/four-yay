@@ -354,7 +354,7 @@ func (w *legalWalk) battlefieldWalk() {
 						// The configured facts carry the compiled Cost$ (the same
 						// frozen parse parseCost copies out of the cost table).
 						var cost Cost
-						if mf != nil && mf.cost != &freeCost {
+						if mf != nil && mf.cost != freeCost {
 							cost = mf.cost.Cost
 						} else {
 							cost = e.parseCost(ab.ParamStr(cards.PKCost))
@@ -371,7 +371,7 @@ func (w *legalWalk) battlefieldWalk() {
 							cost.Generic = 0
 						}
 						e.powerUpReduceCost(id, ab, &cost)
-						if pay.ActivationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
+						if pay.ActivationTapCostUnavailable(o, &cost) || pay.TapCostSick(asPayer(e), id, &cost) {
 							continue
 						}
 						// CR 702.6 / CR 601.2f: a minted attach-cost SA (K:Equip/K:Fortify,
@@ -509,7 +509,7 @@ func (w *legalWalk) battlefieldWalk() {
 							cost.Generic = 0
 						}
 						e.powerUpReduceCost(id, ab, &cost)
-						if pay.ActivationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
+						if pay.ActivationTapCostUnavailable(o, &cost) || pay.TapCostSick(asPayer(e), id, &cost) {
 							continue
 						}
 						if !w.offerCastable(p, id, cost, abilityScope(ab), true) {
@@ -569,7 +569,7 @@ func (w *legalWalk) battlefieldWalk() {
 					continue
 				}
 				for _, ga := range e.grantedAbilities(p, id) {
-					ab := ga.sa
+					ab := ga.SA
 					// cards.IsManaAbilityAPI, not a bare "Mana" check: a granted
 					// ManaReflected flows through availableManaAbilities too (its
 					// IsPresent$ gate lives in manaReflectedPresentHolds, which knows
@@ -616,14 +616,14 @@ func (w *legalWalk) battlefieldWalk() {
 						continue
 					}
 					cost := e.parseCost(ab.ParamStr(cards.PKCost))
-					bindGrantedCostReferents(&cost, ga.source)
+					bindGrantedCostReferents(&cost, ga.Source)
 					// The granted twin of the printed loop's own ReduceCost$ fold.
 					if n := e.ownReduceCostOffer(p, id, ab, 0); n > 0 && cost.Generic >= n {
 						cost.Generic -= n
 					} else if n > 0 {
 						cost.Generic = 0
 					}
-					if pay.ActivationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
+					if pay.ActivationTapCostUnavailable(o, &cost) || pay.TapCostSick(asPayer(e), id, &cost) {
 						continue
 					}
 					if !w.offerCastable(p, id, cost, abilityScope(ab), true) {
@@ -646,7 +646,7 @@ func (w *legalWalk) battlefieldWalk() {
 					// offered with its foreign-card anchor; every other granted
 					// ability keeps the SVar-name anchor (boastGateOK's and the
 					// activation-limit gate's identity).
-					if ga.gained {
+					if ga.Gained {
 						if strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKBoast)), "True") && !e.boastGateOK(id, -1, "") {
 							continue
 						}
@@ -655,14 +655,14 @@ func (w *legalWalk) battlefieldWalk() {
 						}
 						*out = append(*out, decision.Option{Index: len(*out), Kind: "ability",
 							Label: o.Face().Name + ": " + ab.ParamStr(cards.PKSpellDescription), Obj: id,
-							GainedSource: ga.gainedFrom, GainedIdx: ga.gainedIdx, Attach: ab.API == "Attach"})
+							GainedSource: ga.GainedFrom, GainedIdx: ga.GainedIdx, Attach: ab.API == "Attach"})
 						continue
 					}
 					// kw:Boast (CR 702.142): the granted twin of the printed loop's
 					// Boast gate. The identity is the SVar name the grant anchored on,
 					// because beginGrantedActivation mints a DelayedPush rather than an
 					// AbilityPush (boastGateOK reads both).
-					if strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKBoast)), "True") && !e.boastGateOK(id, -1, ga.svar) {
+					if strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKBoast)), "True") && !e.boastGateOK(id, -1, ga.SVar) {
 						continue
 					}
 					// The two activation limits, for a GRANTED ability: the same shared
@@ -677,7 +677,7 @@ func (w *legalWalk) battlefieldWalk() {
 					// so a granted ability with a limit is never re-offered once used,
 					// and self-animate grants -- where the SVar table IS the recipient's
 					// -- are pinned by TestGameActivationLimitGrantedAbilityWithheldAfterOneUse.
-					if e.activationLimitBlocked(p, id, ab, -1, ga.svar, 0) {
+					if e.activationLimitBlocked(p, id, ab, -1, ga.SVar, 0) {
 						continue
 					}
 					// Offer only what the activation can resolve. The collector
@@ -690,12 +690,12 @@ func (w *legalWalk) battlefieldWalk() {
 					// emitted nothing and the identical board re-offered it forever
 					// (cardfuzz batch7 line 2: a gained-Animate grant on Manascape
 					// Refractor, 100x "Regenerate CARDNAME" in one main phase).
-					if e.grantedSAFrom(ga.source, id, ga.svar) == nil {
+					if e.grantedSAFrom(ga.Source, id, ga.SVar) == nil {
 						continue
 					}
 					*out = append(*out, decision.Option{Index: len(*out), Kind: "ability",
-						Label: o.Face().Name + ": " + ab.ParamStr(cards.PKSpellDescription), Obj: id, SVar: ga.svar,
-						GrantSource: ga.source, Attach: ab.API == "Attach"})
+						Label: o.Face().Name + ": " + ab.ParamStr(cards.PKSpellDescription), Obj: id, SVar: ga.SVar,
+						GrantSource: ga.Source, Attach: ab.API == "Attach"})
 				}
 			}
 		}
@@ -784,7 +784,7 @@ func (w *legalWalk) battlefieldWalk() {
 					continue
 				}
 				cost := e.parseCost(ab.ParamStr(cards.PKCost))
-				if pay.ActivationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
+				if pay.ActivationTapCostUnavailable(o, &cost) || pay.TapCostSick(asPayer(e), id, &cost) {
 					continue
 				}
 				if !w.offerCastable(p, id, cost, abilityScope(ab), true) {

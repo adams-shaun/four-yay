@@ -232,7 +232,7 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 	// "activate" answer makes (activateManaPayment), never the distinct
 	// cumulative/triggered-cost window, which is not open during a cast.
 	e.resolveManaAbilityRefOriginal(pc.player, pa.Source, exec, ma,
-		e.gainedManaRefFor(pc.player, pa.Source, ma), true, false, true)
+		pay.GainedManaRefFor(asPayer(e), pc.player, pa.Source, ma), true, false, true)
 	if e.pending != nil {
 		// The activation posed a real decision (a replacement's colour
 		// choice, say). Keep what completed, cancel the remaining steps, and

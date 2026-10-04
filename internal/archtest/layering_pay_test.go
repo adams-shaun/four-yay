@@ -16,11 +16,14 @@ import (
 // parallel W5 steps do not edit the same lines.
 
 // payImports is the closed set of module packages rules/pay may import
-// directly: the L0/L1 vocabulary (cards, state, decision), the L2 cost
-// vocabulary and effects/params, the leaf compiled-parameter records (the
-// mana production, targeting, Defined and DealDamage records the ring reads
-// on nearly every path; paramsImports pins it below effects). rules, effects, the sibling L5 packages, the resolution kernel
-// and the bot layer would invert the layering.
+// directly: the L0/L1 vocabulary (cards, state, decision, events), the L2
+// cost vocabulary and effects/params (the leaf compiled-parameter records;
+// paramsImports pins it below effects), the L4 characteristics read
+// interface rules/chars (chars.Reader, lasagna spec §9.2) and the L3
+// effects vocabulary (effects.Ctx and its pure constructors and parsers --
+// never an effects.Host, TestPayHoldsNoHost). rules, the sibling L5
+// packages, the resolution kernel and the bot layer would invert the
+// layering.
 var payImports = map[string]bool{
 	module + "/cards":          true,
 	module + "/state":          true,
@@ -28,6 +31,8 @@ var payImports = map[string]bool{
 	module + "/events":         true,
 	module + "/rules/cost":     true,
 	module + "/effects/params": true,
+	module + "/rules/chars":    true,
+	module + "/effects":        true,
 }
 
 // TestPayImportsStayBelowRules pins rules/pay's direct module imports to
@@ -53,10 +58,8 @@ func TestPayImportsStayBelowRules(t *testing.T) {
 	}
 	for _, to := range []string{
 		module + "/rules",
-		module + "/effects",
 		module + "/rules/combat",
 		module + "/rules/trigmatch",
-		module + "/rules/chars",
 		module + "/rules/resolve",
 		module + "/botpolicy",
 	} {

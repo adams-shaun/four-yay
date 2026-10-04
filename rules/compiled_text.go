@@ -1,13 +1,12 @@
 package rules
 
 import (
-	"reflect"
 	"sort"
 	"sync"
-	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -29,47 +28,11 @@ type compiledText struct {
 	faces walkFaceTable
 }
 
-// compiledCost is one configured cost text's frozen parse plus the facts
-// the hot read-only callers ask of it.
-type compiledCost struct {
-	Cost
-	// bareTap: the text is exactly {T} -- Tap set and every other component
-	// zero -- the cost of nearly every mana ability. manaAbilityCostPayable
-	// prices it without the generic payability walk.
-	bareTap bool
-	// beyondTap caches manaCostBeyondTap(Cost) (the fb-led1 marker test).
-	beyondTap bool
-	// text memoizes formatCost(Cost) (manaActivationCostMarker): the Cost
-	// is frozen, so its text never changes; set once, read by any engine.
-	text atomic.Pointer[string]
-}
+// compiledCost is one configured cost text's frozen parse plus its facts
+// (pay.CompiledCost).
+type compiledCost = pay.CompiledCost
 
-// formatted is formatCost(cc.Cost), memoized on the frozen cost.
-func (cc *compiledCost) formatted() string {
-	if t := cc.text.Load(); t != nil {
-		return *t
-	}
-	t := formatCost(cc.Cost)
-	cc.text.Store(&t)
-	return t
-}
-
-func newCompiledCost(text string) *compiledCost {
-	c := freezeCost(ParseCost(text))
-	return &compiledCost{Cost: c, bareTap: costIsBareTap(&c), beyondTap: manaCostBeyondTap(c)}
-}
-
-// costIsBareTap reports whether c is exactly {T}. Any component it cannot
-// prove zero (a non-nil empty slice included) answers false, the direction
-// that only ever keeps the full walk.
-func costIsBareTap(c *Cost) bool {
-	if !c.Tap {
-		return false
-	}
-	rest := *c
-	rest.Tap = false
-	return reflect.DeepEqual(rest, Cost{})
-}
+func newCompiledCost(text string) *compiledCost { return pay.NewCompiledCost(text) }
 
 // compiledTextConfig snapshots exactly the card pointers whose text feeds a
 // compiledText. It intentionally excludes runtime and replay configuration:
@@ -423,15 +386,7 @@ func buildCompiledText(cfg Config) *compiledText {
 	for _, text := range costTextList {
 		costs[text] = newCompiledCost(text)
 	}
-	costOf := func(raw string) *compiledCost {
-		if c, ok := costs[raw]; ok {
-			return c
-		}
-		if raw == "" {
-			return &freeCost
-		}
-		return newCompiledCost(raw)
-	}
+	costOf := func(raw string) *compiledCost { return pay.CompiledCostFor(costs[raw], raw) }
 	// Built from the seen set (a map range): each entry depends only on its
 	// own ability, so the order the map is filled in cannot matter.
 	saFacts := make(map[*cards.SA]*saFacts, len(seen))
@@ -444,39 +399,11 @@ func buildCompiledText(cfg Config) *compiledText {
 		faces: buildWalkFaceTable(faces)}
 }
 
-func freezeCost(c Cost) Cost {
-	c.Hybrid = c.Hybrid[:len(c.Hybrid):len(c.Hybrid)]
-	c.Phyrexian = c.Phyrexian[:len(c.Phyrexian):len(c.Phyrexian)]
-	c.Twobrid = c.Twobrid[:len(c.Twobrid):len(c.Twobrid)]
-	c.HybridPhyrexian = c.HybridPhyrexian[:len(c.HybridPhyrexian):len(c.HybridPhyrexian)]
-	c.Sac = c.Sac[:len(c.Sac):len(c.Sac)]
-	c.Discard = c.Discard[:len(c.Discard):len(c.Discard)]
-	c.SubCounter = c.SubCounter[:len(c.SubCounter):len(c.SubCounter)]
-	c.AddCounter = c.AddCounter[:len(c.AddCounter):len(c.AddCounter)]
-	c.Exile = c.Exile[:len(c.Exile):len(c.Exile)]
-	c.ExileFromTop = c.ExileFromTop[:len(c.ExileFromTop):len(c.ExileFromTop)]
-	c.Reveal = c.Reveal[:len(c.Reveal):len(c.Reveal)]
-	c.RevealOrChoose = c.RevealOrChoose[:len(c.RevealOrChoose):len(c.RevealOrChoose)]
-	c.Behold = c.Behold[:len(c.Behold):len(c.Behold)]
-	c.TapPermanent = c.TapPermanent[:len(c.TapPermanent):len(c.TapPermanent)]
-	c.Blight = c.Blight[:len(c.Blight):len(c.Blight)]
-	c.Draw = c.Draw[:len(c.Draw):len(c.Draw)]
-	c.Energy = c.Energy[:len(c.Energy):len(c.Energy)]
-	c.LifeX = c.LifeX[:len(c.LifeX):len(c.LifeX)]
-	c.DamageYou = c.DamageYou[:len(c.DamageYou):len(c.DamageYou)]
-	c.GainLife = c.GainLife[:len(c.GainLife):len(c.GainLife)]
-	c.Return = c.Return[:len(c.Return):len(c.Return)]
-	c.PutToLib = c.PutToLib[:len(c.PutToLib):len(c.PutToLib)]
-	c.MoveToGrave = c.MoveToGrave[:len(c.MoveToGrave):len(c.MoveToGrave)]
-	c.Unknown = c.Unknown[:len(c.Unknown):len(c.Unknown)]
-	return c
-}
+func freezeCost(c Cost) Cost { return pay.FreezeCost(c) }
 
 func (e *Engine) parseCost(raw string) Cost {
-	if e != nil && e.compiledText != nil {
-		if c, ok := e.compiledText.costs[raw]; ok {
-			return c.Cost
-		}
+	if c := e.configuredCost(raw); c != nil {
+		return c.Cost
 	}
 	return ParseCost(raw)
 }
@@ -503,7 +430,7 @@ func (e *Engine) faceCompiledCost(f *cards.Face) *compiledCost {
 }
 
 // freeCost is the parse of an empty cost text, shared read-only by costRef.
-var freeCost compiledCost
+var freeCost = &pay.FreeCost
 
 // costRef is parseCost for a READ-ONLY caller: it returns the configured
 // text's shared frozen parse without copying it. The result MUST NOT be
@@ -518,15 +445,7 @@ func (e *Engine) costRef(raw string) *Cost {
 // compiledCostOf is costRef with the compiled facts; the same read-only
 // contract applies to the whole result.
 func (e *Engine) compiledCostOf(raw string) *compiledCost {
-	if e != nil && e.compiledText != nil {
-		if c, ok := e.compiledText.costs[raw]; ok {
-			return c
-		}
-	}
-	if raw == "" {
-		return &freeCost
-	}
-	return newCompiledCost(raw)
+	return pay.CompiledCostFor(e.configuredCost(raw), raw)
 }
 
 // matchesSpecFrom is the engine-owned form of effects.MatchesSpecFrom. It
@@ -534,4 +453,15 @@ func (e *Engine) compiledCostOf(raw string) *compiledCost {
 // engine's immutable predicate programs into configured filter evaluation.
 func (e *Engine) matchesSpecFrom(spec string, id state.ObjID, you state.PlayerID, source state.ObjID) bool {
 	return e.matchesSpec(spec, id, e.specCtx(source, you))
+}
+
+// configuredCost is the compiled-text sidecar's frozen parse of raw, nil for a
+// text outside the configured set (or an engine without a sidecar).
+func (e *Engine) configuredCost(raw string) *compiledCost {
+	if e != nil && e.compiledText != nil {
+		if c, ok := e.compiledText.costs[raw]; ok {
+			return c
+		}
+	}
+	return nil
 }

@@ -172,7 +172,7 @@ func computeWalkFaceFacts(f *cards.Face) walkFaceFacts {
 	if len(f.Keywords) > 0 {
 		ff.kwFirst = &f.Keywords[0]
 		for _, h := range grantedKWHeads {
-			if f.KeywordLinesHaveHead(h.s, h.id) {
+			if f.KeywordLinesHaveHead(h.S, h.ID) {
 				ff.kwGranted = true
 			}
 		}

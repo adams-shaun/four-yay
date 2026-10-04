@@ -56,8 +56,8 @@ func plainManaShape(ab *cards.SA, mp *effects.ManaParams) (byte, int32) {
 // plainManaAdd returns the one event a plain mana ability's resolution
 // emits, and the replacement context's tap flag, when the fast path applies.
 func (e *Engine) plainManaAdd(p state.PlayerID, source state.ObjID, ma *cards.SA, produced string,
-	gained gainedManaRef, sacs []state.ObjID) (events.Event, bool, bool) {
-	if gained.face != nil || len(sacs) != 0 || len(produced) != 1 {
+	gained pay.GainedManaRef, sacs []state.ObjID) (events.Event, bool, bool) {
+	if gained.Face != nil || len(sacs) != 0 || len(produced) != 1 {
 		return events.Event{}, false, false
 	}
 	f := e.manaFactsOf(ma)
@@ -131,7 +131,7 @@ func (e *Engine) verifyPlainMana(want events.Event, n0 int) {
 // is all the fast path does. Verify mode runs the general payment instead and
 // panics if it emitted or failed.
 func (e *Engine) payManaAbilityMana(p state.PlayerID, source state.ObjID, cc *compiledCost) bool {
-	if cc.bareTap && !manaPlainVerify {
+	if cc.BareTap && !manaPlainVerify {
 		e.noCounterSpend = 0
 		e.manaSpentSources = nil
 		e.manaSpentAddsCounters = nil
@@ -139,7 +139,7 @@ func (e *Engine) payManaAbilityMana(p state.PlayerID, source state.ObjID, cc *co
 	}
 	n0 := len(e.L.Events)
 	ok := pay.PayManaConvFor(asPayer(e), p, source, true, cc.Cost, asPayer(e).Conv(p, source, true))
-	if cc.bareTap && (!ok || len(e.L.Events) != n0 || e.noCounterSpend != 0 || e.manaSpentSources != nil || e.manaSpentAddsCounters != nil) {
+	if cc.BareTap && (!ok || len(e.L.Events) != n0 || e.noCounterSpend != 0 || e.manaSpentSources != nil || e.manaSpentAddsCounters != nil) {
 		panic(fmt.Sprintf("rules: bare-tap mana payment for %d was not a no-op (ok=%v, %d events)", source, ok, len(e.L.Events)-n0))
 	}
 	return ok

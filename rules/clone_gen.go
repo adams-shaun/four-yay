@@ -790,7 +790,7 @@ func cloneFieldsEngineParked(c, e *Engine, sp *Spare, remap *cloneRemap) {
 	if e.manaActivation != nil {
 		p0 := *e.manaActivation
 		p0.abilities = append([]*cards.SA(nil), e.manaActivation.abilities...)
-		p0.gained = append([]gainedManaRef(nil), e.manaActivation.gained...)
+		p0.gained = append([]pay.GainedManaRef(nil), e.manaActivation.gained...)
 		c.manaActivation = &p0
 	}
 	if e.manaColorActivation != nil {

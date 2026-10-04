@@ -2,6 +2,7 @@ package pay
 
 import (
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/chars"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -51,6 +52,15 @@ type Engine interface {
 	AddsCounterGrant(r state.ManaRestriction, used int32) (state.ManaAddsCounterGrant, bool)
 	// Capture is the engine's transient spend capture a cast payment fills.
 	Capture() Capture
+
+	// ConfiguredCost is the engine's compiled-text sidecar entry for a cost
+	// text (its frozen parse and facts), nil for a text outside the
+	// configured set; CompiledCostOf, CostRef and ParseCostOf build on it.
+	ConfiguredCost(raw string) *CompiledCost
+	// Chars is the characteristics layer's read interface: derived
+	// characteristics and the activation gates every ability shares
+	// (lasagna spec §9.2).
+	Chars() chars.Reader
 }
 
 // Capture points at the engine's transient spend-capture fields that a

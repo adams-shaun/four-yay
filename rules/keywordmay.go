@@ -26,7 +26,7 @@ func (e *Engine) mayHaveDerivedKeywordH(id state.ObjID, head kwHead) bool {
 // mode (derivedMemoVerify) runs the override derivation and panics on a
 // contradicted negative.
 func (e *Engine) stackKeywordPossibleH(id state.ObjID, h kwHead) bool {
-	head := h.s
+	head := h.S
 	if e.mayHaveDerivedKeywordH(id, h) {
 		return true
 	}
@@ -59,14 +59,14 @@ func (e *Engine) mayHaveDerivedKeywordAnyH(id state.ObjID, heads ...kwHead) bool
 	// The printed keyword lines through the face's interned head bitset
 	// (cards.Face.KeywordLinesHaveHead: the EqualFold answer per head).
 	for _, h := range heads {
-		if h.s != "" && f.KeywordLinesHaveHead(h.s, h.id) {
+		if h.S != "" && f.KeywordLinesHaveHead(h.S, h.ID) {
 			return true
 		}
 	}
 	matchHead := func(k string) bool {
 		head := cards.KeywordHead(k)
 		for _, h := range heads {
-			if h.s != "" && strings.EqualFold(head, h.s) {
+			if h.S != "" && strings.EqualFold(head, h.S) {
 				return true
 			}
 		}
@@ -90,17 +90,17 @@ func (e *Engine) mayHaveDerivedKeywordAnyH(id state.ObjID, heads ...kwHead) bool
 		// intern (non-ASCII, or the vocabulary full) takes the fold scan.
 		if e.activeKWHeadSetOK {
 			for _, hd := range heads {
-				if hd.s == "" {
+				if hd.S == "" {
 					continue
 				}
-				if hd.id != 0 {
-					if e.activeKWHeadSet.Has(hd.id) {
+				if hd.ID != 0 {
+					if e.activeKWHeadSet.Has(hd.ID) {
 						return true
 					}
 					continue
 				}
 				for _, h := range e.activeKWHeads {
-					if strings.EqualFold(h, hd.s) {
+					if strings.EqualFold(h, hd.S) {
 						return true
 					}
 				}
@@ -109,7 +109,7 @@ func (e *Engine) mayHaveDerivedKeywordAnyH(id state.ObjID, heads ...kwHead) bool
 		}
 		for _, h := range e.activeKWHeads {
 			for _, hd := range heads {
-				if hd.s != "" && strings.EqualFold(h, hd.s) {
+				if hd.S != "" && strings.EqualFold(h, hd.S) {
 					return true
 				}
 			}

@@ -199,7 +199,7 @@ func (e *Engine) HasKeyword(id state.ObjID, kw string) bool {
 
 // hasKeywordH is HasKeyword for a precompiled head (rules/keyword_heads.go).
 func (e *Engine) hasKeywordH(id state.ObjID, h kwHead) bool {
-	kw := h.s
+	kw := h.S
 	if !e.mayHaveDerivedKeywordH(id, h) {
 		if derivedMemoVerify {
 			e.verifyKeywordPrecheck(id, kw)
@@ -224,7 +224,7 @@ func (e *Engine) derivedKeywordParam(id state.ObjID, head string) (string, bool)
 
 // derivedKeywordParamH is derivedKeywordParam for a precompiled head.
 func (e *Engine) derivedKeywordParamH(id state.ObjID, h kwHead) (string, bool) {
-	head := h.s
+	head := h.S
 	if !e.mayHaveDerivedKeywordH(id, h) {
 		if derivedMemoVerify {
 			e.verifyKeywordPrecheck(id, head)

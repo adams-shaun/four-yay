@@ -4,41 +4,15 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/adams-shaun/gorge/rules/chars"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
-// grantedAbility is one ability a continuous ability grant (CR 613.1f,
-// state.ContinuousEffect.AddAbilities -- a Saga chapter's Animate) gives an
-// object right now: the parsed AB and the SVar name on the granting face's
-// table that re-resolves it.
-type grantedAbility struct {
-	sa *cards.SA
-	// source is the object the grant came from (state.ContinuousEffect.Source):
-	// the static's own permanent, which need not be the affected object the
-	// ability is activated from. It is threaded into decision.Option.GrantSource
-	// so the activation resolves the SVar body from here while the minted
-	// ability's Source stays the recipient.
-	source state.ObjID
-	svar   string
-	// gained marks an ability granted off a FOREIGN card's compiled face
-	// (state.ContinuousEffect.GainedFaces): sa is that card's own ability,
-	// gainedFrom is the foreign object id (in the scoped zone) and
-	// gainedIdx is the index of sa in that face's Abilities. The activation
-	// mints through GainedAbilityPush, which names both so a replay
-	// re-resolves the identical SA; a zero gainedFrom means the ordinary
-	// SVar-anchored grant. The grant's GainsValidAbilities$ filter and
-	// GainsAbilitiesLimitPerTurn$ cap are applied at collection (inside
-	// grantedAbilities), the one home both the offer loop and the mana
-	// collector read, so no consumer can widen the grant.
-	gained     bool
-	gainedFrom state.ObjID
-	gainedIdx  int
-	// gainedFace is the foreign face sa was compiled on (gained only): the
-	// SVar table a gained mana ability resolves against (gainedManaRef).
-	gainedFace *cards.Face
-}
+// grantedAbility is one ability a grant gives an object (chars.Granted).
+type grantedAbility = chars.Granted
 
 // grantedAbilities collects the activated abilities the battlefield's
 // AddAbilities grants give id right now. Each entry is gated on the granting
@@ -136,8 +110,8 @@ func (e *Engine) grantedAbilities(p state.PlayerID, id state.ObjID) []grantedAbi
 					e.gainedActivationsThisTurn(id, gf.Obj, i) >= ce.GainsLimitPerTurn {
 					continue
 				}
-				out = append(out, grantedAbility{sa: ab, source: ce.Source,
-					gained: true, gainedFrom: gf.Obj, gainedIdx: i, gainedFace: gf.Face})
+				out = append(out, grantedAbility{SA: ab, Source: ce.Source,
+					Gained: true, GainedFrom: gf.Obj, GainedIdx: i, GainedFace: gf.Face})
 			}
 		}
 		if len(ce.AddAbilities) == 0 {
@@ -160,7 +134,7 @@ func (e *Engine) grantedAbilities(p state.PlayerID, id state.ObjID) []grantedAbi
 			if ab == nil || ab.Kind != "AB" {
 				continue
 			}
-			out = append(out, grantedAbility{sa: ab, source: grantor, svar: nm})
+			out = append(out, grantedAbility{SA: ab, Source: grantor, SVar: nm})
 		}
 	}
 	return out

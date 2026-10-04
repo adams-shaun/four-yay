@@ -186,5 +186,5 @@ func (f *manaSAFacts) zoneOKFact(ab *cards.SA, z state.Zone) bool {
 // sameCompiledCost compares two compiled costs' facts (not the memoized text,
 // which only one of them may have built yet).
 func sameCompiledCost(a, b *compiledCost) bool {
-	return reflect.DeepEqual(a.Cost, b.Cost) && a.bareTap == b.bareTap && a.beyondTap == b.beyondTap
+	return reflect.DeepEqual(a.Cost, b.Cost) && a.BareTap == b.BareTap && a.BeyondTap == b.BeyondTap
 }

@@ -716,7 +716,7 @@ func (e *Engine) extraFlashbackCosts(id state.ObjID) []string {
 	first := e.flashbackCostString(f)
 	var out []string
 	for _, k := range e.Derived(id).Keywords {
-		if !strings.EqualFold(cardsKeywordHead(k), kwhFlashback.s) {
+		if !strings.EqualFold(cardsKeywordHead(k), kwhFlashback.S) {
 			continue
 		}
 		raw := f.ManaCost

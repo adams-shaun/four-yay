@@ -50,7 +50,7 @@ func (w *legalWalk) boardFacts() walkBoardFacts {
 		b.kwOK = true
 		for _, h := range e.activeKWHeads {
 			for _, hd := range grantedKWHeads {
-				if strings.EqualFold(h, hd.s) {
+				if strings.EqualFold(h, hd.S) {
 					b.kwMaybe = true
 				}
 			}
@@ -155,7 +155,7 @@ func objectGrantedKWMaybe(o *state.Object, f *cards.Face, ff *walkFaceFacts) boo
 		}
 	} else if len(f.Keywords) > 0 {
 		for _, h := range grantedKWHeads {
-			if f.KeywordLinesHaveHead(h.s, h.id) {
+			if f.KeywordLinesHaveHead(h.S, h.ID) {
 				return true
 			}
 		}
@@ -176,7 +176,7 @@ func objectGrantedKWMaybe(o *state.Object, f *cards.Face, ff *walkFaceFacts) boo
 func grantedKWHeadMatch(k string) bool {
 	head := cards.KeywordHead(k)
 	for _, h := range grantedKWHeads {
-		if strings.EqualFold(head, h.s) {
+		if strings.EqualFold(head, h.S) {
 			return true
 		}
 	}

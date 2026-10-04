@@ -226,7 +226,7 @@ func (e *Engine) announcedActivate(pc *pendingCast, opt decision.Option) {
 		pay.PaymentPlanTapOnlyCost(e.parseCost(ab.ParamStr(cards.PKCost))) {
 		normal = true
 	}
-	gained := e.gainedManaRefFor(p, src, ab)
+	gained := pay.GainedManaRefFor(asPayer(e), p, src, ab)
 	e.beginWindowTap(pc, src, normal)
 	if col := opt.ManaSymbol; len(col) == 1 && strings.Contains("WUBRGC", col) {
 		e.resolveManaAbilityRefOriginal(p, src, pay.WithProduced(ab, ab, col), ab, gained, true, false, true)

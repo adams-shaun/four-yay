@@ -2,6 +2,7 @@ package rules
 
 import (
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/rules/chars"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -147,24 +148,9 @@ func gainedOwnedFace(o *state.Object) *cards.Face {
 	return nil
 }
 
-// pileAbilityRefOf maps a printed ability pointer back to its flat pile index
-// and merged ordinal. It is the inverse of Object.PileAbilityAt used by the
-// mana path, which carries SA pointers rather than indices. ok is false for an
-// SA the source does not print.
+// pileAbilityRefOf is chars.PileAbilityRef.
 func pileAbilityRefOf(o *state.Object, sa *cards.SA) (idx, merged int, ok bool) {
-	if o == nil || sa == nil {
-		return 0, 0, false
-	}
-	for i, n := 0, o.PileAbilityCount(); i < n; i++ {
-		pa, at := o.PileAbilityAt(i)
-		if !at {
-			continue
-		}
-		if pa.SA == sa {
-			return i, pa.Merged, true
-		}
-	}
-	return 0, 0, false
+	return chars.PileAbilityRef(o, sa)
 }
 
 // grantedSAFrom resolves an SVar-anchored GRANTED ability body (the

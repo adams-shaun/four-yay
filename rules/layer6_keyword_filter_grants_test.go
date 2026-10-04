@@ -38,7 +38,7 @@ func TestWithKeywordPredicateSeesLayer6GrantAddAbilities(t *testing.T) {
 		t.Fatal("layer-6 Flying grant is not derived")
 	}
 	got := e.grantedAbilities(0, bear)
-	if len(got) != 1 || got[0].svar != "ABGranted" || got[0].sa == nil {
+	if len(got) != 1 || got[0].SVar != "ABGranted" || got[0].SA == nil {
 		t.Fatalf("derived Flying recipient grants = %+v, want ABGranted", got)
 	}
 

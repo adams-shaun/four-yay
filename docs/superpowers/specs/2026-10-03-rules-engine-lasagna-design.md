@@ -706,6 +706,79 @@ mana-walk half of `mana_activation.go` waits for E4 (`rules/chars` as a
 read interface pay may take) and a W1d-style evaluation seam, not for a
 wider `pay.Engine`.
 
+### 9.2 E4 read interface and the evaluation seam (the ring's second wall)
+
+Measured on `main` at 5605f6f46 (after E7 slice 13): the ring still in
+`rules` (`payment_plan*`, `cast_payment*`, `cast_payparts`, `announce_pay`,
+`unless_payment`, `mana.go`, `mana_activation.go`) is 198 Engine methods and
+~6.3k lines, calling 131 distinct Engine methods outside it. The §9.1
+census, rerun with the session in place, frees only ~250 lines; the four
+blocking families it names are the work of this section. (Census:
+go/ast dump of every rules function's callees, Engine fields, effects
+references and rules types, then a fixed point over "every dependency is
+moved or a seam method"; the tool lives with the operator's scratch notes,
+not in the tree.)
+
+`rules/chars` already holds the CR 613 layer *computation* (E4's first
+half, behind the 8-method `chars.Board`). What the ring needs is the other
+direction: a narrow *read* of the computed characteristics and of the
+activation gates every ability shares, that a package above L4 may hold.
+
+**chars.Reader.** `rules/chars/reader.go` declares `Reader`: pure reads by
+object id, each one an existing engine query (`derivedTypesOf`,
+`hasKeywordH`, `sVarGateOK`, `activationPhasesOK`, the IsPresent$ count
+and compare, `grantedAbilities`, ...). The vocabulary those reads return
+moves to `chars` with them (`chars.KW`, the compiled keyword head;
+`chars.Granted`, one granted ability) and rules aliases it, so no rules
+caller churns. Package rules implements `Reader` on a pointer conversion of
+`*Engine` (`rules/chars_reader.go`), so handing it out allocates nothing.
+`pay.Engine` exposes it as one method, `Chars() chars.Reader`; the
+reader's own size is a budgeted ratchet (`charsReaderMethods`, archtest,
+ceiling 20) recorded per slice the way `payEngineMethods` is.
+
+**The evaluation seam.** `rules/pay` may import `effects` for its
+*vocabulary* -- `effects.Ctx` (plain data the unless-payment state and the
+nested mana resolution carry), its constructors and the pure parsers -- but
+never an `effects.Host`: archtest `TestPayHoldsNoHost` fails on any use of
+the type in the package. Everything that evaluates through a Host (an
+`Amount$`/`Count$` expression, the ManaReflected candidates, a nested mana
+ability's effect, the cost statics' collection and composition) goes
+through `pay.Eval`, a role interface rules implements on the same pointer
+conversion (`Engine.Eval() pay.Eval`), each method one engine-side call
+with the engine as the Host. This is W1d's role split applied to the
+payment layer: the Host never crosses, and a new evaluation is one named,
+counted method (`payEvalMethods`, ceiling 20).
+
+**Layering.** `payImports` adds `rules/chars` and `effects`; the
+transitive ban on them goes (the §3 diagram puts L5 above both). `rules`,
+the sibling L5 packages, the resolution kernel and the bot layer stay
+forbidden. `charsImports` is unchanged: `Reader` names only `cards`,
+`state` and `chars` types.
+
+**What stays in rules.** The ring's casting- and activation-*flow* glue --
+the functions that pose a decision and continue the cast (`continueCast`,
+`abortCast`, `paymentWindowAsk`), queue or stamp pending triggers, or hold
+`pendingCast` -- is L7 orchestration by §3's own table, not payment. Those
+functions stay in rules and call `pay`; the slices move the payment
+computation under them. A ring function moves when its dependencies are
+moved, in `pay.Engine`, `Chars()`, `Eval()` or the session; it stays when
+it is flow, and the final residue is listed with the reason per function.
+
+Slices (each lowers `engineMethodCount`, keeps `pay.Engine` under 20, and
+leaves `TestHeads` byte-identical):
+
+1. `chars.Reader` with the activation-gate cluster of `mana_activation.go`
+   (`tapFlagsSick`, `manaAbilityTapSick`, `manaSVarGateOK`,
+   `manaActivationGateHolds`, `gainedManaRefFor`) and the layering rows.
+2. `pay.Eval` with the Ctx evaluations (`manaEffectAmount`,
+   `fixLifeXCost`, `drawCostCountTrig`) and the unless-payment
+   reachability (`unless_payment.go`'s pure half).
+3. The cost-static collection behind `Eval` and the planner core
+   (`payment_plan*`).
+4. The session fields (mana-activation frames, unless state) and the
+   mana-ability resolution half of `mana_activation.go`.
+5. `cast_payment`, `cast_payparts`, `announce_pay`, `mana.go` offer-cost.
+
 ## 10. W6 — Pipeline and process
 
 - **Refactor lane.** W1–W5 tickets run in one lane, in sequence, with

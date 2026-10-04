@@ -1049,7 +1049,7 @@ type attackManaSource struct {
 	original *cards.SA
 	// gained is the ability's gained-ability identity, captured from original
 	// before a Produced$ rewrite.
-	gained gainedManaRef
+	gained pay.GainedManaRef
 	units  int32
 	// counts and amt are the production's slot vector and per-activation
 	// scaling, kept beside prod so attackWindowUnits can rebuild the same
@@ -1170,7 +1170,7 @@ func (e *Engine) attackManaSources(p state.PlayerID) []attackManaSource {
 			if units <= 0 {
 				continue
 			}
-			out = append(out, attackManaSource{id: u.ID, ma: a.Ma, original: a.Ma, gained: e.gainedManaRefFor(p, u.ID, a.Ma), units: units, counts: a.Counts, amt: a.Amt, prod: manaUnitsLabel(a.Counts, a.Amt)})
+			out = append(out, attackManaSource{id: u.ID, ma: a.Ma, original: a.Ma, gained: pay.GainedManaRefFor(asPayer(e), p, u.ID, a.Ma), units: units, counts: a.Counts, amt: a.Amt, prod: manaUnitsLabel(a.Counts, a.Amt)})
 		}
 	}
 	// The choice-shaped productions the shared membership deliberately
@@ -1264,7 +1264,7 @@ func (e *Engine) attackChoiceManaSources(p state.PlayerID) []attackManaSource {
 			// the activation path performs, so the tap adds exactly one unit
 			// and poses no sub-ask. The gained identity is captured before the
 			// rewrite, which changes the SA pointer.
-			gained := e.gainedManaRefFor(p, id, ma)
+			gained := pay.GainedManaRefFor(asPayer(e), p, id, ma)
 			rewritten := pay.WithProduced(ma, ma, oneColourProduced(counts))
 			pc, _ := cards.ProducedCounts(oneColourProduced(counts))
 			out = append(out, attackManaSource{id: id, ma: rewritten, original: ma, gained: gained, units: units, counts: pc, amt: amt, prod: manaUnitsLabel(pc, amt)})

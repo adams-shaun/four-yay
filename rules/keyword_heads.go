@@ -1,20 +1,18 @@
 package rules
 
-import "github.com/adams-shaun/gorge/cards"
+import (
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/rules/chars"
+)
 
-// kwHead is a keyword head with its interned cards.KeywordHeadID, compiled
-// once at package init so a hot keyword read is a bitset test on the face
-// rather than a KeywordHead split and case-folded compare per keyword line.
-type kwHead struct {
-	s  string
-	id cards.KeywordHeadID
-}
+// kwHead is a compiled keyword head (chars.KW).
+type kwHead = chars.KW
 
-func newKWHead(s string) kwHead { return kwHead{s: s, id: cards.InternKeywordHead(s)} }
+func newKWHead(s string) kwHead { return chars.NewKW(s) }
 
 // kwHeadOf is a run-time head (a caller-supplied string) through the
 // front-cached interner.
-func kwHeadOf(s string) kwHead { return kwHead{s: s, id: cards.KeywordHeadIDOf(s)} }
+func kwHeadOf(s string) kwHead { return kwHead{S: s, ID: cards.KeywordHeadIDOf(s)} }
 
 // The literal heads the rules hot paths read.
 var (
@@ -45,7 +43,7 @@ var (
 	kwhFlashback        = newKWHead("Flashback")
 	kwhFlying           = newKWHead("Flying")
 	kwhForetell         = newKWHead("Foretell")
-	kwhHaste            = newKWHead("Haste")
+	kwhHaste            = chars.KWHaste
 	kwhHorsemanship     = newKWHead("Horsemanship")
 	kwhImprovise        = newKWHead("Improvise")
 	kwhIndestructible   = newKWHead("Indestructible")
