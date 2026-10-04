@@ -241,10 +241,102 @@ const maxMayAskDepth = 6
 // or nil when it is not known. It runs once per configured ability (rules
 // memoises the answer); a runtime-built ability is judged each time.
 func SAChainMayAsk(sa *SA, svars map[string]string, self *Face, root bool) bool {
-	return saChainMayAsk(sa, svars, self, root, 0)
+	return saChainMayAsk(sa, svars, self, root, 0, nil)
 }
 
-func saChainMayAsk(sa *SA, svars map[string]string, self *Face, root bool, depth int) bool {
+// The conditional verdicts SAChainMayAskCond reports: a reason the chain may
+// ask that the stack object can settle, because it reads the chosen targets
+// (rules' object half judges them).
+const (
+	// MayAskCondTargetEntry: the root is a targeted ChangeZone onto the
+	// battlefield; it asks only if a chosen target's own entry asks.
+	MayAskCondTargetEntry uint32 = 1 << iota
+	// MayAskCondParentSub: a spell's link targets relative to its parent's
+	// target (ValidTgts$ ... ParentTarget), which the cast cannot announce
+	// (rules' castSubPreAskable); it asks only if that link has a candidate
+	// at resolution.
+	MayAskCondParentSub
+)
+
+// SAChainMayAskCond is SAChainMayAsk that reports the conditional reasons
+// (MayAskCond*) instead of answering "may ask" for them: may is true when
+// the chain may ask whatever the targets; otherwise it asks only through
+// cond's reasons (and its board gates).
+func SAChainMayAskCond(sa *SA, svars map[string]string, self *Face, root bool) (may bool, cond uint32) {
+	may = saChainMayAsk(sa, svars, self, root, 0, &cond)
+	return may, cond
+}
+
+// MayAskParentSubLink reports whether chain link s carries the
+// MayAskCondParentSub shape.
+func MayAskParentSubLink(s *SA) bool {
+	return strings.Contains(s.ParamStr(PKValidTgts), "ParentTarget")
+}
+
+// ParentSubLinksMayAsk settles MayAskCondParentSub for a spell's chain sa
+// on a board: each link (past the root) that targets relative to its
+// parent's target is asked at resolution only when it has a candidate (an
+// empty eligible set poses nothing), and a candidate must match the head of
+// one of its ValidTgts$ alternatives (the type before the first '.').
+// anyOnBattlefield reports whether some battlefield object matches a head.
+// A link is "may ask" when it can target off the battlefield or a player, a
+// head is not a permanent type word, or an earlier link may add, move,
+// attach or retype a permanent (only parentSubSafeAPI links precede it).
+func ParentSubLinksMayAsk(sa *SA, anyOnBattlefield func(head string) bool) bool {
+	safe := true
+	for s := sa; s != nil; s = s.Sub {
+		if s != sa && MayAskParentSubLink(s) && parentSubMayHaveCandidate(s, safe, anyOnBattlefield) {
+			return true
+		}
+		safe = safe && parentSubSafeAPI(s.API)
+	}
+	return false
+}
+
+func parentSubMayHaveCandidate(s *SA, safe bool, anyOnBattlefield func(head string) bool) bool {
+	if !safe {
+		return true
+	}
+	if z := s.ParamStr(PKTgtZone); z != "" && z != "Battlefield" {
+		return true
+	}
+	if s.API == "ChangeZone" && s.ParamStr(PKOrigin) != "Battlefield" {
+		return true
+	}
+	for alt := range strings.SplitSeq(s.ParamStr(PKValidTgts), ",") {
+		head := strings.TrimSpace(alt)
+		if i := strings.IndexByte(head, '.'); i >= 0 {
+			head = head[:i]
+		}
+		if parentSubNonObjectHead(head) || anyOnBattlefield(head) {
+			return true
+		}
+	}
+	return false
+}
+
+// parentSubSafeAPI reports whether api's resolution neither creates, moves
+// onto the battlefield, attaches nor retypes a permanent: a link after it
+// sees the battlefield's type census unchanged.
+func parentSubSafeAPI(api string) bool {
+	switch api {
+	case "DealDamage", "Pump", "Debuff", "GainLife", "LoseLife", "Tap":
+		return true
+	}
+	return false
+}
+
+// parentSubNonObjectHead reports whether a ValidTgts$ head is not a
+// permanent type word (players, spells, any card): never pruned.
+func parentSubNonObjectHead(head string) bool {
+	switch head {
+	case "", "Player", "Opponent", "You", "Any", "Spell", "Card", "Permanent", "Emblem":
+		return true
+	}
+	return false
+}
+
+func saChainMayAsk(sa *SA, svars map[string]string, self *Face, root bool, depth int, cond *uint32) bool {
 	if depth > maxMayAskDepth {
 		return true
 	}
@@ -269,9 +361,12 @@ func saChainMayAsk(sa *SA, svars map[string]string, self *Face, root bool, depth
 		switch s.API {
 		case "ChangeZone":
 			if changeZoneMayAsk(s, self) {
-				return true
+				if cond == nil || !first || !changeZoneTargetEntryOnly(s, self) {
+					return true
+				}
+				*cond |= MayAskCondTargetEntry
 			}
-			if !first && tgts != "" {
+			if !first && tgts != "" && !(cond != nil && spell && MayAskParentSubLink(s)) {
 				return true // a sub's own target set, asked mid-resolution
 			}
 		case "Attach":
@@ -302,7 +397,7 @@ func saChainMayAsk(sa *SA, svars map[string]string, self *Face, root bool, depth
 			single := !s.HasParam(PKCharmNum) && !s.HasParam(PKMinCharmNum)
 			for _, n := range SplitModeNames(choices) {
 				body := ResolveSVar(svars, n)
-				if body == nil || saChainMayAsk(body, svars, self, single, depth+1) {
+				if body == nil || saChainMayAsk(body, svars, self, single, depth+1, nil) {
 					return true
 				}
 			}
@@ -322,7 +417,10 @@ func saChainMayAsk(sa *SA, svars map[string]string, self *Face, root bool, depth
 		// mid-resolution (the c21c390de chain); Defined$ ParentTarget reuses
 		// the parent's target and never asks.
 		if strings.Contains(tgts, "ParentTarget") {
-			return true
+			if cond == nil || !spell || first {
+				return true
+			}
+			*cond |= MayAskCondParentSub
 		}
 		// A choice-shaped Defined$ (ChosenCard, "Choose...") is decided
 		// earlier or asks here; be conservative.
@@ -359,6 +457,15 @@ func changeZoneMayAsk(s *SA, self *Face) bool {
 		return s.ParamStr(PKLibraryPosition) == "" // a top/bottom order may ask
 	}
 	return false
+}
+
+// changeZoneTargetEntryOnly reports whether changeZoneMayAsk's only reason
+// for a ChangeZone is its battlefield entry of chosen targets: a targeted
+// (no Defined$) move onto the battlefield from a single origin, whose one
+// reason is that the moved card's own entry may ask.
+func changeZoneTargetEntryOnly(s *SA, self *Face) bool {
+	return s.ParamStr(PKValidTgts) != "" && s.ParamStr(PKDefined) == "" &&
+		s.ParamStr(PKDestination) == "Battlefield" && !strings.Contains(s.ParamStr(PKOrigin), ",")
 }
 
 // copyEntryMayAsk: a CopyPermanent's token enters as a copy of a board
@@ -433,6 +540,11 @@ func ReplParamsMayElect(params map[string]string) bool {
 
 // faceEnchants reports whether f has an Enchant keyword: an Aura put onto the
 // battlefield without being cast chooses what it enchants as it enters.
+// FaceEntryOrEnchantMayAsk reports whether a face asks as it enters the
+// battlefield: its own entry text (FaceEntryMayAsk), or an Aura choosing
+// what it enchants (CR 303.4f).
+func FaceEntryOrEnchantMayAsk(f *Face) bool { return FaceEntryMayAsk(f) || faceEnchants(f) }
+
 func faceEnchants(f *Face) bool {
 	for _, kw := range f.Keywords {
 		if strings.HasPrefix(kw, "Enchant") {

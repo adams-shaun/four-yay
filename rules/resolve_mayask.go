@@ -42,6 +42,11 @@ const (
 	mayAskKnown     uint32 = 1
 	mayAskText      uint32 = 2
 	mayAskGateShift        = 2
+	// mayAskCondShift places the chain's conditional reasons
+	// (cards.MayAskCond*), which the stack object's targets settle, above
+	// the gates.
+	mayAskCondShift = 28
+	mayAskGateMask  = uint32(1)<<cards.ReplEventCount - 1
 )
 
 // tapeMayAsk reports whether resolving the top of the stack may pose a
@@ -97,7 +102,7 @@ func tapeTextMayAsk(e *Engine) bool {
 		if owned, ok := e.triggerLineSVars[id]; ok {
 			// A granted, delayed or reflexive body: a freshly parsed SA with
 			// no facts record, read against the grant's own SVar table.
-			return mayAskOnBoard(e, saMayAskState(e, ab, owned, self))
+			return mayAskObjOnBoard(e, saMayAskState(e, ab, owned, self), id, o, ab)
 		}
 		if self == nil || !cards.FaceOwnsSA(self, ab) {
 			// A granted ability or a mutated pile's under-card: Self is not
@@ -107,9 +112,9 @@ func tapeTextMayAsk(e *Engine) bool {
 			if self != nil {
 				svars = self.SVars
 			}
-			return mayAskOnBoard(e, saMayAskState(e, ab, svars, nil))
+			return mayAskObjOnBoard(e, saMayAskState(e, ab, svars, nil), id, o, ab)
 		}
-		return mayAskOnBoard(e, saMayAskCached(e, ab, self))
+		return mayAskObjOnBoard(e, saMayAskCached(e, ab, self), id, o, ab)
 	}
 	f := o.Face()
 	if f == nil {
@@ -136,17 +141,80 @@ func tapeTextMayAsk(e *Engine) bool {
 	if sa == nil {
 		return true
 	}
-	return mayAskOnBoard(e, saMayAskCached(e, sa, f))
+	return mayAskObjOnBoard(e, saMayAskCached(e, sa, f), id, o, sa)
 }
 
 // saMayAskState is the text judgement of sa's chain as a cache state.
 // A Token body's minted face is the match's (e.G.Tokens): its entry asks
 // are judged here, with the text (cards.SAChainTokenEntryMayAsk).
 func saMayAskState(e *Engine, sa *cards.SA, svars map[string]string, self *cards.Face) uint32 {
-	if cards.SAChainMayAsk(sa, svars, self, true) || cards.SAChainTokenEntryMayAsk(sa, svars, e.G.Tokens) {
+	may, cond := cards.SAChainMayAskCond(sa, svars, self, true)
+	if may || cards.SAChainTokenEntryMayAsk(sa, svars, e.G.Tokens) {
 		return mayAskKnown | mayAskText
 	}
-	return mayAskKnown | uint32(cards.SAChainBoardGates(sa, svars))<<mayAskGateShift
+	return mayAskKnown | uint32(cards.SAChainBoardGates(sa, svars))<<mayAskGateShift | cond<<mayAskCondShift
+}
+
+// mayAskObjOnBoard is mayAskOnBoard for the resolving stack object o whose
+// root ability is sa: a conditional reason of the chain (cards.MayAskCond*)
+// is settled from o's chosen targets and the board.
+func mayAskObjOnBoard(e *Engine, st uint32, id state.ObjID, o *state.Object, sa *cards.SA) bool {
+	if mayAskOnBoard(e, st) {
+		return true
+	}
+	cond := st >> mayAskCondShift
+	if cond&cards.MayAskCondTargetEntry != 0 && tapeTargetEntryMayAsk(e, o) {
+		return true
+	}
+	return cond&cards.MayAskCondParentSub != 0 && tapeParentSubMayAsk(e, id, o, sa)
+}
+
+// tapeTargetEntryMayAsk settles cards.MayAskCondTargetEntry: the root moves
+// its chosen targets onto the battlefield, so it asks only if one of them
+// asks as it enters -- its own entry text on any face it could enter as, or
+// the entry replacements on the board that can apply to it
+// (tapeLandReplMayAsk: an election, or two competing).
+func tapeTargetEntryMayAsk(e *Engine, o *state.Object) bool {
+	for _, t := range o.Targets {
+		if t.IsPlayer {
+			continue
+		}
+		obj := e.G.Obj(t.Obj)
+		if obj == nil {
+			continue
+		}
+		if f := obj.CopyFace; f != nil && cards.FaceEntryOrEnchantMayAsk(f) {
+			return true
+		}
+		if obj.Card != nil {
+			for _, f := range obj.Card.Faces {
+				if f != nil && cards.FaceEntryOrEnchantMayAsk(f) {
+					return true
+				}
+			}
+		}
+		if tapeLandReplMayAsk(e, t.Obj) {
+			return true
+		}
+	}
+	return false
+}
+
+// tapeParentSubMayAsk settles cards.MayAskCondParentSub for a spell: a
+// link targeting relative to its parent's target asks only with a candidate
+// (cards.ParentSubLinksMayAsk), which must be a battlefield object matching
+// one of its ValidTgts$ heads.
+func tapeParentSubMayAsk(e *Engine, id state.ObjID, o *state.Object, sa *cards.SA) bool {
+	return cards.ParentSubLinksMayAsk(sa, func(head string) bool {
+		for p := range e.G.Players {
+			for _, bf := range e.G.Zone(state.ZBattlefield, state.PlayerID(p)) {
+				if e.matchesSpecFrom(head, bf, o.Controller, id) {
+					return true
+				}
+			}
+		}
+		return false
+	})
 }
 
 // mayAskOnBoard resolves a cache state against the board: an ask-free text
@@ -155,7 +223,7 @@ func mayAskOnBoard(e *Engine, st uint32) bool {
 	if st&mayAskText != 0 {
 		return true
 	}
-	g := cards.ReplEventMask(st >> mayAskGateShift)
+	g := cards.ReplEventMask(st >> mayAskGateShift & mayAskGateMask)
 	for g != 0 {
 		k := cards.ReplEvent(bits.TrailingZeros32(uint32(g)))
 		g &^= 1 << k
