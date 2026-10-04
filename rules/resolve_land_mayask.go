@@ -149,6 +149,6 @@ func effectReplBodyMayAsk(e *Engine, ce *state.ContinuousEffect) bool {
 			svars = f.SVars
 		}
 	}
-	with.Sub = cards.ResolveSVar(svars, with.Params["SubAbility"])
+	with.Sub = cards.ResolveSVar(svars, with.ParamStr(cards.PKSubAbility))
 	return cards.SAChainMayAsk(with, svars, nil, false)
 }
