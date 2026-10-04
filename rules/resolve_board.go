@@ -118,40 +118,48 @@ func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent
 		// this one Submit.
 		return len(in.Choices) > 0 && firstChosen(d, in).Kind == "opening_yes"
 	}
-	if in.Payment == nil && in.Announce == nil && !e.Suspended() && tapeTurnUpStarts(e, d, in) {
-		return true // a turn-up whose TurnFaceUp replacement may ask (turnup_tape.go)
-	}
-	if d.Kind != decision.KPriority || in.Payment != nil || in.Announce != nil {
-		return false
-	}
-	if e.Suspended() {
+	if in.Payment != nil || in.Announce != nil || e.Suspended() {
 		return false // a legacy suspension is in flight; never nest a tape run in it
 	}
-	switch firstChosen(d, in).Kind {
+	if d.Kind == decision.KChoose {
+		// A turn-up's cost answer whose TurnFaceUp replacement may ask
+		// (turnup_tape.go).
+		return e.choosing == chooseTurnUp && e.turnUp != nil && tapeTurnUpReplMayAsk(e)
+	}
+	if d.Kind != decision.KPriority {
+		return false
+	}
+	switch first := firstChosen(d, in); first.Kind {
 	case optPlayLand:
 		return true
 	case optActivate:
 		// A mana ability whose rider may ask (offstack_mana_rider_tape.go).
-		return tapeManaRiderMayAsk(e, in.Player, firstChosen(d, in).Obj)
+		return tapeManaRiderMayAsk(e, in.Player, first.Obj)
 	case optPass:
 		if e.G.Passes+1 < int32(e.G.AliveCount()) {
 			return false
 		}
 		return len(e.G.Stack) > 0 || tapeStepMayAsk(e)
+	case optTurnFaceUp:
+		return len(in.Choices) > 0 && tapeTurnUpReplMayAsk(e)
 	}
 	return false
 }
 
 func (b *resolveBoard) MayAsk(d *decision.Decision, in decision.Intent) bool {
 	e := (*Engine)(b)
-	if tapeTurnUpStarts(e, d, in) {
-		return true
+	if d.Kind == decision.KChoose && e.choosing == chooseTurnUp {
+		return true // a turn-up: StartsResolution already proved it may ask
 	}
-	if firstChosen(d, in).Kind == optActivate {
+	first := firstChosen(d, in)
+	switch first.Kind {
+	case optActivate, optTurnFaceUp:
 		return true // StartsResolution already proved the rider may ask
+	case optPlayLand:
+		return tapeLandMayAsk(e, first.Obj)
 	}
-	if len(e.G.Stack) == 0 || firstChosen(d, in).Kind == "play_land" {
-		return tapeLandMayAsk(e, firstChosen(d, in).Obj)
+	if len(e.G.Stack) == 0 {
+		return tapeLandMayAsk(e, first.Obj)
 	}
 	return tapeMayAsk(e)
 }

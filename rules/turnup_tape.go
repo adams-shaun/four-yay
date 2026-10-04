@@ -1,8 +1,6 @@
 package rules
 
-import "github.com/adams-shaun/gorge/decision"
-
-// tapeTurnUpStarts reports whether answering d with in may settle a
+// tapeTurnUpReplMayAsk reports whether answering a turn-up may settle a
 // morph-family turn-face-up special action (CR 708.6 / CR 116.2b) whose
 // TurnFaceUp event a replacement that may ask intercepts -- Gift of Doom's
 // "As this is turned face up, you may attach it to a creature" (an Optional$
@@ -11,12 +9,10 @@ import "github.com/adams-shaun/gorge/decision"
 // priority answer that takes the action, or the answer to one of its cost
 // asks. That Submit is then a tape run, so the ask is posed and answered
 // from the tape instead of taking its no-run default.
-func tapeTurnUpStarts(e *Engine, d *decision.Decision, in decision.Intent) bool {
-	switch {
-	case d.Kind == decision.KChoose && e.choosing == chooseTurnUp && e.turnUp != nil:
-	case d.Kind == decision.KPriority && len(in.Choices) > 0 && firstChosen(d, in).Kind == "turn_face_up":
-	default:
-		return false
-	}
+//
+// StartsResolution reads the two shapes itself (a KChoose answer while
+// e.choosing == chooseTurnUp, a priority answer whose first choice is
+// optTurnFaceUp); this is the board half.
+func tapeTurnUpReplMayAsk(e *Engine) bool {
 	return tapeReplMayAsk(e, "TurnFaceUp") || tapeAnyReplBodyMayAsk(e)
 }
