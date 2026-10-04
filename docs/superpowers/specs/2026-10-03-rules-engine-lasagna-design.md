@@ -764,20 +764,55 @@ computation under them. A ring function moves when its dependencies are
 moved, in `pay.Engine`, `Chars()`, `Eval()` or the session; it stays when
 it is flow, and the final residue is listed with the reason per function.
 
-Slices (each lowers `engineMethodCount`, keeps `pay.Engine` under 20, and
-leaves `TestHeads` byte-identical):
+Slices (each lowered `engineMethodCount`, kept `pay.Engine` under 20 and
+left `TestHeads` byte-identical; landed 2026-10-03):
 
-1. `chars.Reader` with the activation-gate cluster of `mana_activation.go`
-   (`tapFlagsSick`, `manaAbilityTapSick`, `manaSVarGateOK`,
-   `manaActivationGateHolds`, `gainedManaRefFor`) and the layering rows.
-2. `pay.Eval` with the Ctx evaluations (`manaEffectAmount`,
-   `fixLifeXCost`, `drawCostCountTrig`) and the unless-payment
-   reachability (`unless_payment.go`'s pure half).
-3. The cost-static collection behind `Eval` and the planner core
-   (`payment_plan*`).
-4. The session fields (mana-activation frames, unless state) and the
-   mana-ability resolution half of `mana_activation.go`.
-5. `cast_payment`, `cast_payparts`, `announce_pay`, `mana.go` offer-cost.
+1. `chars.Reader` (6 reads) with the mana activation gates; `CompiledCost`
+   moves to pay behind `ConfiguredCost`; the layering rows.
+2. `pay.Eval` (`EvalCount`, `MatchesSpec`, `WindowUnits`) with the
+   unless-payment reachability and the SVar-fixed cost counts;
+   `SacrificeBlockedForCost` generalises to `CostBlocked`.
+3. `pay.Session`, embedded in the Engine (unexported `paySession`, so the
+   fields read as Engine fields and the Clone generator renders a
+   `cloneFieldsPaySession` cluster from their tags): the unless-payment
+   continuation, the stats sink, the planner scratch and the spend capture
+   (`Capture` folds into it).
+4. The planner query scope (`pay.PlanQuery`, owned by the session) and its
+   bracket and helpers.
+5. The non-mana cost-part castability walk (`nonManaCastableP`;
+   `SameColorRevealSets`, `TapPower` on the reader).
+6. The planner's per-source alternatives and tiers (`ManaShape`,
+   `ManaStatic`, `SourceInterference` on `Eval`; `ZoneEntrySeq`).
+7. The plain-cost planner (`planPaymentCostWithDemand`; `ManaUnits`,
+   `SearchScratch`).
+
+**Result (measured at the slice-7 merge).** The ring went from 198 Engine
+methods / ~6.3k lines to 145 / ~4.75k; `rules/pay` grew to ~9.5k lines.
+`pay.Engine` is 17 methods, `chars.Reader` 8, `pay.Eval` 7. The residue, by
+the first dependency that pins each function:
+
+- *Flow* (~2.8k lines): the functions that pose a decision and continue
+  (`castAnswer`, `convokeAsk`, `manaWindowAsk`, `continueManaDiscard`,
+  `advanceUnlessPayment`, the mana-ability resolution and its colour/unless
+  continuations), or that read `pendingCast`, `choosing`, the pending
+  trigger queue or the tape. These are L7 by §3 and move only when W3 removes
+  the resume state from payment (§9's original E7 precondition): a
+  continuation re-executed from the tape needs no parked frame, so the
+  ask/answer pairs collapse into straight-line pay code over `Session`.
+- *Cost statics* (~0.8k): the offer-cost pricing (`offerCastableUsing`,
+  `offerSacXMods`, `SpellEffectiveCost`, the planner's target-dependent
+  modifier gates) holds `costStaticViews`/`staticView`, the statics walk's
+  rules types. They move once the static view type lowers into a package
+  below pay (a statics/vocabulary leaf), not through more `Eval` methods.
+- *Mana walk* (~0.6k with `appendAvailableManaAbilitiesGate`): the
+  activation-legality walk shared with `legalActions` (its pass-scoped
+  `actionStaticSource` snapshot, ability-loss, restriction and limit
+  gates). It is activation legality, not payment; it stays in rules and the
+  payment layer reads it through `Eval.WindowUnits`/`ManaUnits`.
+- *Transitive* (~1.0k): the source-interference matchers (trigger and
+  replacement matching over the emit context -- reached through
+  `Eval.SourceInterference`, they belong with trigmatch), and the cast-plan
+  validation and offer builders that call the three groups above.
 
 ## 10. W6 — Pipeline and process
 

@@ -208,17 +208,17 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "staticTouchGen"}:  true,
 	// The payment-plan interference carrier memo (payment_plan_interference.go),
 	// keyed by object-arena size and log length; Clone copies none.
-	{"rules.Engine", "paymentPlanCarriers"}:       true,
-	{"rules.Engine", "paymentPlanCarriersObjs"}:   true,
-	{"rules.Engine", "paymentPlanCarriersEvents"}: true,
-	{"rules.Engine", "paymentPlanCarriersValid"}:  true,
+	{"rules.Engine", "PaymentPlanCarriers"}:       true,
+	{"rules.Engine", "PaymentPlanCarriersObjs"}:   true,
+	{"rules.Engine", "PaymentPlanCarriersEvents"}: true,
+	{"rules.Engine", "PaymentPlanCarriersValid"}:  true,
 	// The payment planner's kept and recycled query scopes and the
 	// incremental zone-entry index (rules/payment_plan_search.go,
 	// rules/payment_zone_entry.go): pure caches of reads of G and the log,
 	// validated on every use; Clone copies none.
-	{"rules.Engine", "paymentPlanQueryKept"}:      true,
+	{"rules.Engine", "PlanQueryKept"}:             true,
 	{"rules.Engine", "paymentPlanQueryKeptStamp"}: true,
-	{"rules.Engine", "paymentPlanQueryFree"}:      true,
+	{"rules.Engine", "PlanQueryFree"}:             true,
 	{"rules.Engine", "zoneEntry"}:                 true,
 	// The priority walk's pool-independent block record for the potential
 	// walk (rules/walk_block_reuse.go) and its served-block counter: a walk
@@ -228,7 +228,7 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "walkBlocksServed"}:  true,
 	{"rules.Engine", "walkMembersServed"}: true,
 	{"rules.Engine", "potentialManaRec"}:  true,
-	{"rules.Engine", "walkRecDemand"}:     true,
+	{"rules.Engine", "WalkRecDemand"}:     true,
 	// Scratch buffers reused across calls (contents after use are garbage).
 	{"rules.Engine", "legalOptBuf"}:  true,
 	{"rules.Engine", "manaAbBuf"}:    true,
@@ -240,7 +240,7 @@ var excluded = map[excludedField]bool{
 	// The target census and priority mana member-set scratch lists, and the
 	// off-stack mana frame slots (empty between Submits).
 	{"rules.Engine", "targetCensusBuf"}: true,
-	{"rules.Engine", "manaAbScratch"}:   true,
+	{"rules.Engine", "ManaAbScratch"}:   true,
 	{"rules.Engine", "offStackSlots"}:   true,
 	{"rules.Engine", "offStackDepth"}:   true,
 	// The hypothetical-clone and read-scratch pool (rules/hypclone.go):
@@ -269,7 +269,7 @@ var excluded = map[excludedField]bool{
 	// cardfuzz mirror diags); botbench's stats sink is the same shape. Both
 	// emit nothing and mutate nothing, so they are not game state.
 	{"rules.Engine", "ManaAbilityHook"}: true,
-	{"rules.Engine", "paymentStats"}:    true,
+	{"rules.Engine", "PaymentStats"}:    true,
 	// The Derived memo's cross-walk key and active()'s double buffer
 	// (derived_transparent.go): derivedSeq moves with activeBuildSeq, and
 	// derivedPrev*/derivedTouched/activeBufAlt are the previous build's key

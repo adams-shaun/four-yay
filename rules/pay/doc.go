@@ -8,7 +8,8 @@
 // Everything here is a pure function of its arguments: no event, no state
 // write, no RNG. The search settles a complete count vector through Env.Settle,
 // the hook package rules implements over its mana solver, so pay never sees
-// an Engine. The rest of the mana and payment ring (activation, the pool
-// solver, unless-payment, cast payment) still lives in package rules and
-// moves behind interfaces in later slices.
+// an Engine. The rest of the payment layer reaches the engine through
+// pay.Engine and its role interfaces -- chars.Reader (Engine.Chars), Eval
+// (Engine.Eval) and the engine-owned Session -- and never holds an
+// effects.Host (lasagna spec §9.2, which also lists what stays in rules).
 package pay
