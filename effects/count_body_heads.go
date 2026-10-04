@@ -10,6 +10,12 @@ import (
 // (DifferentCounterKinds_, CardCounters., Kicked., PromisedGift.,
 // Foretold., NotedNumber, UrzaLands., ThisTurnEntered_).
 func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, depth int) (int32, bool, bool) {
+	if head == "UnlockedDoors" || head == "DistinctUnlockedDoors" {
+		if arg != "" {
+			return 0, false, true
+		}
+		return countUnlockedDoors(g, c.Controller, head == "DistinctUnlockedDoors"), true, true
+	}
 	// DifferentCounterKinds_<spec> counts distinct real counter kinds over
 	// matching battlefield objects. These are the three corpus selectors;
 	// other spellings are unreadable, not an evaluated zero.

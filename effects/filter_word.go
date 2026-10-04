@@ -236,6 +236,14 @@ const (
 	// drift. An empty label (a bare `NotedFor`) stays wordUnknown and fails
 	// closed, like a bare `named`.
 	wordNotedFor
+	// wordFullyUnlocked is Forge's Card.FullyUnlocked: the Room permanent on
+	// the battlefield has BOTH unlocked designations (CR 709.5c), i.e. the
+	// cast face is unlocked and the alternate door has been unlocked on top
+	// of it. The corpus's only filter carrier is Ghostly Dancers' UnlockDoor
+	// pool (`Room.YouCtrl+!FullyUnlocked`), which excludes a Room that has no
+	// locked door left to unlock. The body reads state.Object.Unlocked, the
+	// same bit rules' Room liveness scans and the DoorUnlock fold maintain.
+	wordFullyUnlocked
 )
 
 // wordPredicate classifies a bare predicate word. key is the WUBRG letter for
@@ -446,6 +454,8 @@ func wordPredicate(p string) (wordKind, string) {
 	// anyway, so a bare `Card.hasABasicLandType` stays correct too).
 	case wordPredicateWordHasABasicLandType:
 		return wordHasBasicLandType, ""
+	case wordPredicateWordFullyUnlocked:
+		return wordFullyUnlocked, ""
 	}
 	if p == "TargetedPlayerOwn" {
 		return wordTargetedPlayerOwn, ""
@@ -580,6 +590,8 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		return chosen != 0 && strings.Contains(colorsCtx(o, &sc), string(chosen))
 	case wordType:
 		return hasTypePredicateCtx(o, key, sc)
+	case wordFullyUnlocked:
+		return o != nil && o.Unlocked
 	case wordColorless:
 		return colorMaskCtx(o, &sc) == 0
 	case wordControllerDealtCombatDamageBySource:
@@ -1215,6 +1227,7 @@ const (
 	wordPredicateWordBlockedBySource
 	wordPredicateWordHasANonBasicLandType
 	wordPredicateWordHasABasicLandType
+	wordPredicateWordFullyUnlocked
 )
 
 var wordPredicateWordCodes = state.NewStrCodes(
@@ -1262,6 +1275,7 @@ var wordPredicateWordCodes = state.NewStrCodes(
 	state.StrEntry[wordPredicateWordCode]{Key: "blockedBySource", Val: wordPredicateWordBlockedBySource},
 	state.StrEntry[wordPredicateWordCode]{Key: "hasANonBasicLandType", Val: wordPredicateWordHasANonBasicLandType},
 	state.StrEntry[wordPredicateWordCode]{Key: "hasABasicLandType", Val: wordPredicateWordHasABasicLandType},
+	state.StrEntry[wordPredicateWordCode]{Key: "FullyUnlocked", Val: wordPredicateWordFullyUnlocked},
 )
 
 type wordPredicateSharesCode uint16
