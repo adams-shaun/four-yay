@@ -19,6 +19,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -231,7 +232,7 @@ func submitValidate(e *Engine, d *decision.Decision, in decision.Intent) error {
 	}
 	if d.Kind == decision.KPriority {
 		if in.Announce != nil {
-			action, ok := paymentActionFor(d, in.Announce.ActionID)
+			action, ok := pay.ActionFor(d, in.Announce.ActionID)
 			if !ok {
 				return fmt.Errorf("payment action is not offered") // defensive: Decision.Validate already checked.
 			}
@@ -240,7 +241,7 @@ func submitValidate(e *Engine, d *decision.Decision, in decision.Intent) error {
 			}
 		}
 		if in.Payment != nil {
-			action, ok := paymentActionFor(d, in.Payment.ActionID)
+			action, ok := pay.ActionFor(d, in.Payment.ActionID)
 			if !ok {
 				return fmt.Errorf("payment action is not offered") // defensive: Decision.Validate already checked.
 			}
@@ -291,7 +292,7 @@ func submitCommit(e *Engine, d *decision.Decision, in decision.Intent) {
 	e.emit(events.Event{Kind: events.DecisionMade, Player: logged.Player, Text: made})
 	e.pending = nil
 	if in.Announce != nil {
-		action, _ := paymentActionFor(d, in.Announce.ActionID)
+		action, _ := pay.ActionFor(d, in.Announce.ActionID)
 		// The same Priority marker the planned route emits, then the ordinary
 		// cast transaction with no witness: the caster pays in the announced
 		// CR 601.2g window (announce_pay.go).
@@ -299,7 +300,7 @@ func submitCommit(e *Engine, d *decision.Decision, in decision.Intent) {
 		e.beginCastAnnounced(in.Player, decision.Option{Kind: "cast", Obj: action.Cast.Object})
 	} else if in.Payment != nil {
 		e.paymentStats.RecordPlannedSubmission()
-		action, _ := paymentActionFor(d, in.Payment.ActionID)
+		action, _ := pay.ActionFor(d, in.Payment.ActionID)
 		// Match the ordinary cast priority action exactly, then enter the same
 		// cast transaction.  The plan is only an immutable payment continuation;
 		// it never represents a second casting implementation.

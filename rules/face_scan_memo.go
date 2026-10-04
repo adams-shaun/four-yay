@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/rules/pay"
 )
 
 // faceScan is a set of text-scan verdicts about one compiled face. Each bit
@@ -56,7 +57,7 @@ func computeFaceScan(f *cards.Face) faceScan {
 	if faceGrantsSunburstForPlan(f) {
 		s |= faceScanSunburstGrantPlan
 	}
-	if faceReadsManaSpent(f) {
+	if pay.FaceReadsManaSpent(f) {
 		s |= faceScanReadsManaSpent
 	}
 	if faceHasModeCost(f) {

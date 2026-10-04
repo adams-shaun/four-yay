@@ -21,18 +21,6 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-func paymentActionFor(d *decision.Decision, id string) (decision.PaymentAction, bool) {
-	if d == nil {
-		return decision.PaymentAction{}, false
-	}
-	for _, action := range d.PaymentActions {
-		if action.ID == id {
-			return decision.ClonePaymentAction(action), true
-		}
-	}
-	return decision.PaymentAction{}, false
-}
-
 // PlanCastPayment builds one V1 witness for an ordinary cast from the hand
 // or, in a Commander game, from the command zone (the plain taxed CR 903.8
 // cast; alternate-cost command-zone casts stay manual like every other Mode
@@ -103,7 +91,7 @@ func (e *Engine) planCastPaymentChecked(p state.PlayerID, cast decision.PlannedC
 	base := e.rawBaseCost(p, cast.Object)
 	base = withSpellAbilityExtras(o.Face(), base)
 	cost := e.offerCostForUsing(statics.get(), p, cast.Object, base, spellScope(""))
-	if detail := paymentPlanNonManaAdmissible(cost); detail != "" {
+	if detail := pay.PlanNonManaAdmissible(cost); detail != "" {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: detail}
 	}
 	if !e.paymentPlanPoolAccepted(p) {
@@ -213,7 +201,7 @@ func (e *Engine) paymentPlanCastShapeDetailUsing(statics costStaticViews, p stat
 	}
 	// A cost static's own non-mana extra (Soul Immolation's Blight<X>) stays
 	// withheld entirely: the mana-only witness cannot describe it.
-	if paymentPlanCostDetail(mods.Extra) != "" {
+	if pay.PlanCostDetail(mods.Extra) != "" {
 		return "shape:additional_cost"
 	}
 	// The spell ability's own Cost$ admits exactly one non-mana shape: a
@@ -222,7 +210,7 @@ func (e *Engine) paymentPlanCastShapeDetailUsing(statics costStaticViews, p stat
 	// removing the Sac parts. Every other non-mana part (Discard, PayLife,
 	// Exile, tapXType, RevealOrChoose, Exert, ...) and every variable-count
 	// Sac<X/...>/Sac<All/...> still declines.
-	if paymentPlanNonManaAdmissible(spellCost) != "" || paymentPlanNonManaAdmissible(withSpellAbilityExtras(f, Cost{})) != "" {
+	if pay.PlanNonManaAdmissible(spellCost) != "" || pay.PlanNonManaAdmissible(withSpellAbilityExtras(f, Cost{})) != "" {
 		return "shape:additional_cost"
 	}
 	if e.hasCastConvoke(id) || e.hasCastImprovise(id) || e.hasKeywordH(id, kwhDelve) {
@@ -253,107 +241,6 @@ func (e *Engine) paymentPlanCastShapeDetailUsing(statics costStaticViews, p stat
 		return "shape:optional_cost"
 	}
 	return ""
-}
-
-func faceReadsManaSpent(f *cards.Face) bool {
-	for _, needle := range []string{"ConditionManaSpent$", "Count$Adamant", "Count$EachSpentToCast", "Count$TotalManaSpent", "ManaSpentBy"} {
-		if f.Mentions(needle) {
-			return true
-		}
-	}
-	return false
-}
-
-// paymentPlanNonManaAdmissible reports whether c is a cost a mana-only V1
-// witness can describe: its mana half must classify cleanly and its only
-// permitted non-mana part is a fixed-count mandatory Sac<N/Spec>. A
-// variable-count Sac<X/Spec> (CostPart.Announced, the announced count binds
-// the cast's X) and Sac<All/...> (which never reaches Cost.Sac -- it parses as
-// Unknown) are not admissible, and every other non-mana field declines. The
-// mana half is checked by removing the Sac parts and running the same
-// classifier the gate has always used, so X/hybrid/Phyrexian/snow and the
-// other mana-class shapes still decline here. Returns the decline detail, or
-// "" when the cost is admissible.
-func paymentPlanNonManaAdmissible(c Cost) string {
-	for _, part := range c.Sac {
-		if part.Announced || part.N <= 0 {
-			return "cost:sacrifice"
-		}
-	}
-	rest := c
-	rest.Sac = nil
-	return paymentPlanCostDetail(rest)
-}
-
-func paymentPlanCostDetail(c Cost) string {
-	switch {
-	case c.X != 0 || c.XMin != 0:
-		return "cost:x"
-	case c.Snow != 0:
-		return "cost:snow"
-	case len(c.Hybrid) != 0:
-		return "cost:hybrid"
-	case len(c.Phyrexian) != 0:
-		return "cost:phyrexian"
-	case len(c.Twobrid) != 0:
-		return "cost:twobrid"
-	case len(c.HybridPhyrexian) != 0:
-		return "cost:hybrid_phyrexian"
-	case c.Life != 0 || len(c.LifeX) != 0 || c.LifeHalfUp:
-		return "cost:life"
-	case c.Tap:
-		return "cost:tap"
-	case len(c.Sac) != 0:
-		return "cost:sacrifice"
-	case len(c.Discard) != 0:
-		return "cost:discard"
-	case len(c.SubCounter) != 0:
-		return "cost:sub_counter"
-	case len(c.AddCounter) != 0:
-		return "cost:add_counter"
-	case len(c.Exile) != 0 || len(c.ExileFromTop) != 0:
-		return "cost:exile"
-	case len(c.Reveal) != 0 || len(c.RevealOrChoose) != 0 || len(c.RevealChosen) != 0:
-		return "cost:reveal"
-	case len(c.Behold) != 0:
-		return "cost:behold"
-	case len(c.TapPermanent) != 0:
-		return "cost:tap_permanent"
-	case len(c.Blight) != 0:
-		return "cost:blight"
-	case c.Forage:
-		return "cost:forage"
-	case len(c.Draw) != 0:
-		return "cost:draw"
-	case len(c.Energy) != 0:
-		return "cost:energy"
-	case len(c.DamageYou) != 0:
-		return "cost:damage"
-	case len(c.GainLife) != 0:
-		return "cost:gain_life"
-	case len(c.Return) != 0:
-		return "cost:return"
-	case len(c.PutToLib) != 0:
-		return "cost:put_to_library"
-	case len(c.MoveToGrave) != 0:
-		return "cost:move_to_grave"
-	case len(c.Mill) != 0:
-		return "cost:mill"
-	case len(c.Evidence) != 0:
-		return "cost:evidence"
-	case len(c.RollDice) != 0:
-		return "cost:roll_dice"
-	case len(c.Exert) != 0:
-		return "cost:exert"
-	case len(c.Unknown) != 0:
-		return "cost:unknown"
-	case len(c.Withheld) != 0:
-		return "cost:withheld"
-	case !paymentPlanCostOK(c):
-		return "cost:other"
-	default:
-		return ""
-	}
 }
 
 // paymentPlanHasTargetDependentModifier finds a live cost static that would
@@ -455,17 +342,7 @@ func costStaticReadsTargets(sv staticView) bool {
 		if _, literal := parseInt10(v); literal {
 			continue
 		}
-		if bodyReadsRef(v, sv.SVars, 0, mentionsTarget) {
-			return true
-		}
-	}
-	return false
-}
-
-// mentionsTarget reports whether s names a target reference in any case.
-func mentionsTarget(s string) bool {
-	for i := 0; i+6 <= len(s); i++ {
-		if strings.EqualFold(s[i:i+6], "target") {
+		if bodyReadsRef(v, sv.SVars, 0, pay.MentionsTarget) {
 			return true
 		}
 	}
@@ -515,7 +392,7 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 	// Every candidate's plan is declined on a pool the planner cannot
 	// account for (planCastPaymentChecked), and that verdict reads only the
 	// player, so no walk can change the empty result.
-	if !paymentPlanPoolOK(&e.G.Players[p]) {
+	if !pay.PlanPoolOK(&e.G.Players[p]) {
 		e.paymentStats.RecordBuild(true)
 		return nil
 	}
@@ -685,7 +562,7 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	if pain > 0 && pain >= int64(e.G.Players[p].Life) {
 		return fmt.Errorf("payment plan life and damage would be lethal")
 	}
-	if lastResort && !paymentPlanUsesLastResort(*got.Plan) {
+	if lastResort && !pay.PlanUsesLastResort(*got.Plan) {
 		return fmt.Errorf("payment plan uses a last-resort source while a normal plan exists")
 	}
 	cost := e.offerCostFor(p, cast.Object, withSpellAbilityExtras(e.G.Obj(cast.Object).Face(), e.rawBaseCost(p, cast.Object)), spellScope(""))
@@ -695,39 +572,6 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 		return fmt.Errorf("payment witness does not settle")
 	}
 	return nil
-}
-
-// paymentPlanUsesLastResort reports whether any step of plan discloses a
-// consequence (exactly the last-resort steps).
-func paymentPlanUsesLastResort(plan decision.PaymentPlan) bool {
-	for _, a := range plan.Activations {
-		if a.Consequence != nil {
-			return true
-		}
-	}
-	return false
-}
-
-// paymentPlanRemainingPain sums the disclosed life + damage of plan's steps
-// from index from on (the executor's lethal revalidation).
-func paymentPlanRemainingPain(plan decision.PaymentPlan, from int) int64 {
-	var pain int64
-	for i := from; i < len(plan.Activations); i++ {
-		if c := plan.Activations[i].Consequence; c != nil {
-			pain += int64(c.Life) + int64(c.Damage)
-		}
-	}
-	return pain
-}
-
-func paymentPlanCostOK(c Cost) bool {
-	return c.X == 0 && c.XMin == 0 && c.Snow == 0 && c.Life == 0 &&
-		len(c.Hybrid) == 0 && len(c.Phyrexian) == 0 && len(c.Twobrid) == 0 && len(c.HybridPhyrexian) == 0 &&
-		!c.Tap && len(c.Sac) == 0 && len(c.Discard) == 0 && len(c.SubCounter) == 0 && len(c.AddCounter) == 0 &&
-		len(c.Exile) == 0 && len(c.Reveal) == 0 && len(c.RevealOrChoose) == 0 && len(c.RevealChosen) == 0 && len(c.Behold) == 0 &&
-		len(c.TapPermanent) == 0 && len(c.Blight) == 0 && !c.Forage && len(c.Draw) == 0 && len(c.Energy) == 0 &&
-		len(c.LifeX) == 0 && !c.LifeHalfUp && len(c.DamageYou) == 0 && len(c.GainLife) == 0 && len(c.Return) == 0 &&
-		len(c.PutToLib) == 0 && len(c.MoveToGrave) == 0 && len(c.Mill) == 0 && len(c.Evidence) == 0 && len(c.RollDice) == 0 && len(c.Unknown) == 0 && len(c.Exert) == 0
 }
 
 // paymentPlanPoolAccepted is paymentPlanPoolOK, relaxed inside a
@@ -742,35 +586,7 @@ func (e *Engine) paymentPlanPoolAccepted(p state.PlayerID) bool {
 	if e.paymentPlanPotentialPool {
 		return len(pl.RestrictedMana) == 0
 	}
-	return paymentPlanPoolOK(pl)
-}
-
-// paymentPlanPoolOK reports whether p's floating mana is plain: no snow,
-// persistent or restricted mana and every producer-typed unit
-// (state.Player.ManaUnits) empty. It reads the player in place; the units
-// are formed exactly as ManaUnits forms them, without its two copies of
-// the player.
-func paymentPlanPoolOK(p *state.Player) bool {
-	if p.Snow.Total() != 0 || p.PersistentMana.Total() != 0 || len(p.RestrictedMana) != 0 {
-		return false
-	}
-	for t := range p.TypedMana {
-		m := p.TypedMana[t]
-		if t < len(p.ArtifactTyped) {
-			for i := range m {
-				m[i] -= p.ArtifactTyped[t][i]
-			}
-		}
-		if m.Total() != 0 {
-			return false
-		}
-	}
-	for t := range p.ArtifactTyped {
-		if p.ArtifactTyped[t].Total() != 0 {
-			return false
-		}
-	}
-	return true
+	return pay.PlanPoolOK(pl)
 }
 
 // alternativeExec is the ability the executor activates for a: ma itself
@@ -957,7 +773,7 @@ func (e *Engine) planPaymentCostWithDemand(p state.PlayerID, demand [5]int, cost
 	// reduce the caster to 0 or less. The rank context is phase 1's: keys 6
 	// and 7 read the untapped normal remainder in both phases.
 	if search.Best == nil && !search.Limited {
-		if phase2 := paymentPlanLastResortChoices(choices, life); phase2 != nil {
+		if phase2 := pay.PlanLastResortChoices(choices, life); phase2 != nil {
 			search = pay.SearchInto(&e.hypPool().planSearch, cost, e.G.Players[p].Pool, life, rankCtx,
 				phase2, queryClasses(p, pay.TierLastResort, phase2), paymentSearchEnv())
 			nodes += search.Nodes
@@ -1351,7 +1167,7 @@ func paymentPlanShapeTierOf(ma *cards.SA, cost Cost) (tier pay.Tier, c pay.Conse
 		if strings.HasPrefix(key, "Condition") {
 			return deferred("source:conditional")
 		}
-		if containsTargetFold(key) || key == "ValidTgts" || key == "ValidTarget" {
+		if pay.ContainsTargetFold(key) || key == "ValidTgts" || key == "ValidTarget" {
 			return deferred("source:target")
 		}
 		return deferred("source:param:" + key)
@@ -1359,7 +1175,7 @@ func paymentPlanShapeTierOf(ma *cards.SA, cost Cost) (tier pay.Tier, c pay.Conse
 	if effects.ManaOf(ma).RestrictValid != "" {
 		return deferred("source:special_production")
 	}
-	if paymentPlanHasSpecialProductionParam(ma) {
+	if pay.PlanHasSpecialProductionParam(ma) {
 		return deferred("source:special_production")
 	}
 	if cost.XMin != 0 || cost.X != 0 || cost.Generic != 0 || cost.Colored.Total() != 0 || len(cost.Discard)+len(cost.SubCounter)+len(cost.Exile)+len(cost.ExileFromTop)+len(cost.TapPermanent)+len(cost.Energy)+len(cost.LifeX) != 0 {
@@ -1371,10 +1187,10 @@ func paymentPlanShapeTierOf(ma *cards.SA, cost Cost) (tier pay.Tier, c pay.Conse
 	if cost.Sac != nil || cost.Life != 0 || cost.Return != nil {
 		// Every other cost part must be absent: the witness discloses only
 		// the tap, the self-sacrifice, the life and the self-return.
-		if !paymentPlanLastResortCostOK(cost) {
+		if !pay.PlanLastResortCostOK(cost) {
 			return deferred("source:last_resort")
 		}
-		if len(cost.Sac) > 0 && len(cost.Sac) == 1 && paymentPlanSelfCost(cost.Sac[0], 0) {
+		if len(cost.Sac) > 0 && len(cost.Sac) == 1 && pay.PlanSelfCost(cost.Sac[0], 0) {
 			c.Sacrifice = true
 		} else if len(cost.Sac) > 0 {
 			return deferred("source:last_resort")
@@ -1382,7 +1198,7 @@ func paymentPlanShapeTierOf(ma *cards.SA, cost Cost) (tier pay.Tier, c pay.Conse
 		if cost.Life > 0 {
 			c.Life = uint32(cost.Life)
 		}
-		if len(cost.Return) > 0 && len(cost.Return) == 1 && paymentPlanSelfCost(cost.Return[0], 0) {
+		if len(cost.Return) > 0 && len(cost.Return) == 1 && pay.PlanSelfCost(cost.Return[0], 0) {
 			c.ReturnToHand = true
 		} else if len(cost.Return) > 0 {
 			return deferred("source:last_resort")
@@ -1395,69 +1211,12 @@ func paymentPlanShapeTierOf(ma *cards.SA, cost Cost) (tier pay.Tier, c pay.Conse
 	return pay.TierNormal, pay.Consequence{}, "", false
 }
 
-// paymentPlanLastResortCostOK reports whether a last-resort activation cost
-// is exactly {T} (optional), Sac<1/...>, PayLife<N> and Return<1/...>: every
-// other part -- mana, X, counters, discard, exile, mill, reveal, energy, a tap
-// of another permanent, an unparsed token -- is outside what a witness step
-// can disclose, so the ability stays deferred.
-func paymentPlanLastResortCostOK(c Cost) bool {
-	rest := c
-	rest.Tap, rest.Sac, rest.Life, rest.Return = false, nil, 0, nil
-	return rest.Generic == 0 && rest.Colored == (state.Mana{}) && len(rest.ExileFromTop) == 0 && paymentPlanCostOK(rest)
-}
-
-// paymentPlanHasSpecialProductionParam reports whether the ability's own head
-// carries a production special-effect parameter (spec 3.2: TriggersWhenSpent$,
-// AddsCounters$, the AddsKeywords* family, AddsNoCounter$, PersistentMana$,
-// UnlessCost$, Defined$). Such production does something beyond adding plain
-// mana to the pool, so the ability is deferred.
-func paymentPlanHasSpecialProductionParam(ma *cards.SA) bool {
-	// An any-key test: key order cannot change the answer, so the keys are
-	// walked unsorted.
-	for key := range maps.Keys(ma.Params) {
-		if key == "TriggersWhenSpent" || key == "AddsCounters" || key == "AddsNoCounter" ||
-			key == "PersistentMana" || key == "UnlessCost" || key == "Defined" ||
-			strings.HasPrefix(key, "AddsKeywords") {
-			return true
-		}
-	}
-	return false
-}
-
 // paymentPlanShapeKeyFails reports whether key alone defers the ability in
 // paymentPlanAbilityShapeTier's key walk (a Condition key, a target key or
 // an unreviewed parameter).
 func paymentPlanShapeKeyFails(key string) bool {
-	return strings.HasPrefix(key, "Condition") || containsTargetFold(key) || key == "ValidTgts" || key == "ValidTarget" ||
+	return strings.HasPrefix(key, "Condition") || pay.ContainsTargetFold(key) || key == "ValidTgts" || key == "ValidTarget" ||
 		!paymentPlanKnownManaParam(key)
-}
-
-// containsTargetFold is strings.Contains(strings.ToLower(key), "target")
-// without the lowered copy for an ASCII key (a non-ASCII key takes the
-// original expression, so the answer is identical for every input).
-func containsTargetFold(key string) bool {
-	for i := 0; i < len(key); i++ {
-		if key[i] >= 0x80 {
-			return strings.Contains(strings.ToLower(key), "target")
-		}
-	}
-	const w = "target"
-	for i := 0; i+len(w) <= len(key); i++ {
-		j := 0
-		for ; j < len(w); j++ {
-			c := key[i+j]
-			if 'A' <= c && c <= 'Z' {
-				c += 'a' - 'A'
-			}
-			if c != w[j] {
-				break
-			}
-		}
-		if j == len(w) {
-			return true
-		}
-	}
-	return false
 }
 
 func paymentPlanKnownManaParam(key string) bool {
@@ -1468,11 +1227,6 @@ func paymentPlanKnownManaParam(key string) bool {
 		return v
 	}
 	return false
-}
-
-func paymentPlanSelfCost(part CostPart, id state.ObjID) bool {
-	s := strings.ToLower(strings.TrimSpace(part.Spec))
-	return part.N == 1 && (s == "cardname" || s == "this token" || s == "cardname/self" || s == "self")
 }
 
 func (e *Engine) paymentPlanDamageRider(id state.ObjID, mana *cards.SA) (uint32, bool) {
@@ -1648,47 +1402,6 @@ func (e *Engine) appendUnitAlternatives(dst []pay.Alt, u windowManaUnit) (grown,
 	return grown, out
 }
 
-// paymentPlanLastResortChoices is phase 2's alternative table (spec 5): every
-// unit's normal AND last-resort alternatives, each carrying the source's
-// phase-2 flexibility (flexAll, key 5 over every eligible alternative), minus
-// any alternative whose own life + damage would by itself be lethal at the
-// caster's current life (the lethal guard, applied to one step here and to
-// the whole plan by the search). Unit positions are preserved. It returns
-// nil when no unit has a last-resort alternative left, so phase 2 cannot
-// differ from phase 1 and is skipped.
-func paymentPlanLastResortChoices(choices [][]pay.Alt, life int32) [][]pay.Alt {
-	out := make([][]pay.Alt, len(choices))
-	any := false
-	for i, alts := range choices {
-		for _, a := range alts {
-			if a.Tier < pay.TierLastResort {
-				continue
-			}
-			if pain := pay.ConsequencePain(a.Consequence); pain > 0 && pain >= int64(life) {
-				continue
-			}
-			if a.Tier == pay.TierLastResort {
-				any = true
-			}
-			a.Flex = a.FlexAll
-			out[i] = append(out[i], a)
-		}
-	}
-	if !any {
-		return nil
-	}
-	return out
-}
-
-// consequence is exactly c.
-func paymentConsequenceEqual(c pay.Consequence, w *decision.PaymentConsequence) bool {
-	got := c.Wire()
-	if got == nil || w == nil {
-		return got == nil && w == nil
-	}
-	return *got == *w
-}
-
 // paymentPlanChoiceShape reports whether a Produced$ value is one of the
 // finite choice shapes V1 can plan: the literal Any, a bare Chosen/
 // ChosenColor, or a Combo list. It is deliberately about the SHAPE only;
@@ -1744,14 +1457,14 @@ func (e *Engine) paymentPlanChoiceColours(id state.ObjID, ma *cards.SA) []string
 		case tok == "Combo":
 		case tok == "Chosen" || tok == "ChosenColor":
 			if col := e.chosenProducedColour(id); col != "" {
-				cols = appendColourOnce(cols, col)
+				cols = pay.AppendColourOnce(cols, col)
 			}
 		case tok == "ColorIdentity":
 			for _, col := range e.commanderIdentityColours(e.paymentPlanController(id)) {
-				cols = appendColourOnce(cols, col)
+				cols = pay.AppendColourOnce(cols, col)
 			}
 		case len(tok) == 1 && strings.ContainsRune("WUBRG", rune(tok[0])):
-			cols = appendColourOnce(cols, tok)
+			cols = pay.AppendColourOnce(cols, tok)
 		default:
 			return nil
 		}
@@ -1760,17 +1473,6 @@ func (e *Engine) paymentPlanChoiceColours(id state.ObjID, ma *cards.SA) []string
 		return nil
 	}
 	return cols
-}
-
-// appendColourOnce appends col unless it is already present, preserving the
-// first-seen order so an alternative list stays deterministic.
-func appendColourOnce(cols []string, col string) []string {
-	for _, c := range cols {
-		if c == col {
-			return cols
-		}
-	}
-	return append(cols, col)
 }
 
 // paymentPlanController is the controller of source id, or seat 0 for a
@@ -1805,7 +1507,7 @@ func (e *Engine) paymentPlanStepAlternative(units []windowManaUnit, pa decision.
 		}
 		for _, candidate := range e.paymentPlanQueryAlternatives(u) {
 			if candidate.Ma != nil && candidate.Activation.Ability == pa.Ability && candidate.Activation.Produces == pa.Produces &&
-				paymentConsequenceEqual(candidate.Consequence, pa.Consequence) {
+				pay.ConsequenceEqual(candidate.Consequence, pa.Consequence) {
 				return candidate, true
 			}
 		}
@@ -1903,7 +1605,7 @@ func (e *Engine) paymentPlanHandDemand(p state.PlayerID, exclude state.ObjID) [5
 		if o == nil || o.Face() == nil || o.Face().IsLand() {
 			continue
 		}
-		pips := costPips(e.rawBaseCost(p, id))
+		pips := pay.CostPips(e.rawBaseCost(p, id))
 		for c := range demand {
 			if pips[c] > demand[c] {
 				demand[c] = pips[c]
@@ -1911,40 +1613,6 @@ func (e *Engine) paymentPlanHandDemand(p state.PlayerID, exclude state.ObjID) [5
 		}
 	}
 	return demand
-}
-
-// costPips counts a parsed printed cost's coloured pips per WUBRG colour:
-// each plain pip for its colour, each hybrid pip for both its colours, a
-// Phyrexian pip for its colour, a twobrid for its coloured face (its generic
-// face is not a pip) and a hybrid-Phyrexian pip for both its colours.
-// Generic, {X} and {C} pips count for no colour.
-func costPips(c Cost) [5]int {
-	var d [5]int
-	for i, n := range c.Colored {
-		if i < len(d) {
-			d[i] += int(n)
-		}
-	}
-	add := func(sym byte) {
-		if i := state.ManaIndex(sym); i < len(d) {
-			d[i]++
-		}
-	}
-	for _, h := range c.Hybrid {
-		add(h.A)
-		add(h.B)
-	}
-	for _, p := range c.Phyrexian {
-		add(p)
-	}
-	for _, t := range c.Twobrid {
-		add(t.Col)
-	}
-	for _, h := range c.HybridPhyrexian {
-		add(h.A)
-		add(h.B)
-	}
-	return d
 }
 
 var paymentPlanKnownManaParamTab = state.NewStrTable[bool](

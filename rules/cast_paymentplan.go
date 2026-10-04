@@ -101,10 +101,10 @@ func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUni
 	// damage) stops the plan before the next activation. Each remaining
 	// step's consequence itself is re-derived with its alternative below
 	// (paymentPlanStepReady): a changed one is production_changed.
-	if pain := paymentPlanRemainingPain(plan, next); pain > 0 && pain >= int64(e.G.Players[pc.player].Life) {
+	if pain := pay.PlanRemainingPain(plan, next); pain > 0 && pain >= int64(e.G.Players[pc.player].Life) {
 		return paymentFallbackCostChanged, nil, pay.Alt{}, false
 	}
-	if next == 0 && !paymentPlanPoolOK(&e.G.Players[pc.player]) {
+	if next == 0 && !pay.PlanPoolOK(&e.G.Players[pc.player]) {
 		return paymentFallbackProductionChanged, nil, pay.Alt{}, false
 	}
 	if next > 0 && next < len(plan.Activations) && e.paymentPlanManaInterference() {
@@ -231,7 +231,7 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 		// The checked census (restricted to the plan's sources) and step
 		// must be exactly what a fresh full census resolves here.
 		fresh, reason := e.paymentPlanStepReady(pc.player, e.paymentPlanManaUnits(pc.player), pa)
-		if reason != "" || !paymentPlanSameStep(fresh, step) {
+		if reason != "" || !pay.PlanSameStep(fresh, step) {
 			panic("payment plan executor: the checked step is stale")
 		}
 	}
@@ -278,17 +278,6 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 	// the manual window after a fallback.
 	e.continueCast()
 	return true
-}
-
-// paymentPlanSameStep compares two resolutions of one witness step at one
-// state: every field, the ability up to the identity of an ability built
-// per call (a CR 305.6 intrinsic).
-func paymentPlanSameStep(a, b pay.Alt) bool {
-	if !pay.SameManaAbility(a.Ma, b.Ma) {
-		return false
-	}
-	a.Ma, b.Ma = nil, nil
-	return a == b
 }
 
 // manaWindowAsk implements CR 601.2g: if the total cost includes a mana

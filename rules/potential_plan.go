@@ -557,7 +557,7 @@ func (e *Engine) planComposedCost(p state.PlayerID, id state.ObjID, composed Cos
 	mana := Cost{Colored: composed.Colored, Generic: composed.Generic, X: composed.X, XMin: composed.XMin,
 		Hybrid: composed.Hybrid, Phyrexian: composed.Phyrexian, Twobrid: composed.Twobrid,
 		HybridPhyrexian: composed.HybridPhyrexian, Snow: composed.Snow}
-	if detail := paymentPlanCostDetail(mana); detail != "" {
+	if detail := pay.PlanCostDetail(mana); detail != "" {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: detail}
 	}
 	if global, detail := e.paymentPlanGlobalManaEffect(p, id); global {
@@ -579,7 +579,7 @@ func (e *Engine) planComposedCost(p state.PlayerID, id state.ObjID, composed Cos
 	for _, part := range composed.Sac {
 		switch {
 		case part.Announced || part.N <= 0:
-		case selfSource && paymentPlanSelfCost(part, id):
+		case selfSource && pay.PlanSelfCost(part, id):
 			kept = append(kept, id)
 		default:
 			parts = append(parts, planCostPart{part: part})
@@ -810,7 +810,7 @@ func (e *Engine) planLeavesCostPayable(p state.PlayerID, id state.ObjID, cost Co
 		if part.Announced || part.N <= 0 {
 			continue
 		}
-		if selfSource && paymentPlanSelfCost(part, id) {
+		if selfSource && pay.PlanSelfCost(part, id) {
 			if gone[id] {
 				return false
 			}
@@ -961,10 +961,10 @@ func (e *Engine) paymentPlanRelaxedAlternatives(p state.PlayerID, id state.ObjID
 	once := cost.Tap || cost.Untap || strings.TrimSpace(ma.ParamStr(cards.PKActivationLimit)) == "1" ||
 		strings.TrimSpace(ma.ParamStr(cards.PKGameActivationLimit)) == "1"
 	for _, part := range cost.Sac {
-		once = once || paymentPlanSelfCost(part, id)
+		once = once || pay.PlanSelfCost(part, id)
 	}
 	for _, part := range cost.Return {
-		once = once || paymentPlanSelfCost(part, id)
+		once = once || pay.PlanSelfCost(part, id)
 	}
 	if !once {
 		return nil, 0, false

@@ -217,7 +217,7 @@ func (e *Engine) paymentPlanQueryAlternatives(u windowManaUnit) []pay.Alt {
 		return e.paymentPlanUnitAlternatives(u)
 	}
 	if alts, ok := q.alts[u.ID]; ok {
-		if walkCacheVerify && !slices.EqualFunc(alts, e.paymentPlanUnitAlternatives(u), paymentPlanSameAlternative) {
+		if walkCacheVerify && !slices.EqualFunc(alts, e.paymentPlanUnitAlternatives(u), pay.PlanSameAlternative) {
 			panic(fmt.Sprintf("payment plan query: cached alternatives for source %d are stale", u.ID))
 		}
 		return alts
@@ -244,7 +244,7 @@ func (e *Engine) paymentPlanQueryClasses(p state.PlayerID, minTier pay.Tier, cho
 	}
 	key := paymentPlanClassesKey{payer: p, minTier: minTier}
 	if classes, ok := q.classes[key]; ok {
-		if walkCacheVerify && !reflect.DeepEqual(paymentPlanClassMembers(classes), paymentPlanClassMembers(pay.Classes(choices))) {
+		if walkCacheVerify && !reflect.DeepEqual(pay.PlanClassMembers(classes), pay.PlanClassMembers(pay.Classes(choices))) {
 			panic(fmt.Sprintf("payment plan query: cached classes for player %d are stale", p))
 		}
 		return classes
@@ -255,21 +255,6 @@ func (e *Engine) paymentPlanQueryClasses(p state.PlayerID, minTier pay.Tier, cho
 	}
 	q.classes[key] = classes
 	return classes
-}
-
-// paymentPlanClassMembers is each class's member list (the verify-mode view
-// of a class grouping).
-func paymentPlanClassMembers(classes []pay.Class) [][]int {
-	out := make([][]int, len(classes))
-	for k := range classes {
-		out[k] = classes[k].Members
-	}
-	return out
-}
-
-// paymentPlanSameAlternative compares two computations of one alternative.
-func paymentPlanSameAlternative(a, b pay.Alt) bool {
-	return a == b
 }
 
 // paymentSearchEnv wires the pay package's search to the engine's mana

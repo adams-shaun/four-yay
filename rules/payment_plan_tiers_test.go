@@ -329,7 +329,7 @@ func TestPaymentPlanTiersFPHarmfulRiderFamily(t *testing.T) {
 					t.Errorf("plan admits %s deferred ability %d", name, a.Ability.Index)
 					continue
 				}
-				if !paymentConsequenceEqual(disclosed[a.Ability.Index], a.Consequence) {
+				if !pay.ConsequenceEqual(disclosed[a.Ability.Index], a.Consequence) {
 					t.Errorf("plan admits %s ability %d without disclosing its consequence %+v (step says %+v)", name, a.Ability.Index, disclosed[a.Ability.Index], a.Consequence)
 				}
 			}

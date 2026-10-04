@@ -402,7 +402,7 @@ func raiseExtraResolve(raw string, svars map[string]string, announces []string, 
 
 // isZeroExtra reports whether c carries nothing a fold would add.
 func isZeroExtra(c Cost) bool {
-	return paymentPlanCostDetail(c) == "" && len(c.Withheld) == 0
+	return pay.PlanCostDetail(c) == "" && len(c.Withheld) == 0
 }
 
 // faceAnnounces lists a spell ability's Announce$ names other than X (the

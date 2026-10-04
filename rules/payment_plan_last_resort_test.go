@@ -288,7 +288,7 @@ func TestPaymentPlanLastResortManaConfluenceLife(t *testing.T) {
 	if abilities := e1.availableManaAbilitiesForWindow(0, c1, false); len(abilities) != 1 {
 		t.Fatalf("gate offers %d Confluence abilities at 1 life, want 1 (CR 119.4 payable)", len(abilities))
 	}
-	if alts := paymentPlanLastResortChoices(e1.paymentPlanQueryChoices(0), 1); lrUnitHasAlternative(e1, alts, c1) {
+	if alts := pay.PlanLastResortChoices(e1.paymentPlanQueryChoices(0), 1); lrUnitHasAlternative(e1, alts, c1) {
 		t.Fatal("at 1 life the Confluence still has a phase-2 alternative")
 	}
 	if got := e1.PlanCastPayment(0, paymentCast(spell1)); got.Plan != nil || got.Reason != "insufficient" {
@@ -653,7 +653,7 @@ func TestPaymentPlanLastResortSearchMatchesOracle(t *testing.T) {
 		life := e.G.Players[0].Life
 		all := e.paymentPlanQueryChoices(0)
 		normalTable := pay.PhaseChoices(all, pay.TierNormal)
-		table := paymentPlanLastResortChoices(all, life)
+		table := pay.PlanLastResortChoices(all, life)
 		demand := e.paymentPlanHandDemand(0, spell)
 		for k := 0; k < 4; k++ {
 			var c Cost

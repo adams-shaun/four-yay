@@ -316,13 +316,13 @@ func TestPaymentPlanManaPips(t *testing.T) {
 		{"generic and X and C count nothing", Cost{Generic: 3, X: 1, Colored: state.Mana{state.MC: 2}}, [5]int{}},
 	}
 	for _, c := range cases {
-		if got := costPips(c.cost); got != c.want {
+		if got := pay.CostPips(c.cost); got != c.want {
 			t.Errorf("%s: costPips = %v, want %v", c.name, got, c.want)
 		}
 	}
 	// Through the real parser: the authored printed costs of the board above.
 	e := layerEngine(t)
-	if got := costPips(e.rawBaseCost(0, 0)); got != [5]int{} {
+	if got := pay.CostPips(e.rawBaseCost(0, 0)); got != [5]int{} {
 		t.Errorf("empty cost: costPips = %v, want zeros", got)
 	}
 }
