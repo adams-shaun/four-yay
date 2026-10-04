@@ -28,13 +28,6 @@ import (
 // and the resolution binds the root+chain union as Ctx.AllTargets, which the
 // Defined$ Targeted referent reads.
 //
-// SCOPE (triggerChainPreAsks): only the chain shape whose late ask loses the
-// target outright -- a link reading Defined$ Targeted AFTER a targeting link.
-// Every other trigger chain keeps its mid-resolution link asks unchanged (a
-// CR 603.3d timing divergence, not a lost target); widening this to every
-// trigger chain moves the decision sequence of ~140 corpus triggers and is
-// the general CR 603.3d stage the cast-side chain announcement (CR 601.2c)
-// will be followed by.
 
 // trigSubAsk is one triggered ability's in-flight chain announcement.
 type trigSubAsk struct {
@@ -60,40 +53,39 @@ func (t *trigSubAsk) clone() *trigSubAsk {
 	return &c
 }
 
-// triggerChainPreAsks returns the SubAbility$ links of a triggered ability
-// whose targets are announced at placement, or nil when the chain is out of
-// scope. In scope: a non-modal root whose chain has at least one targeting
-// link (the cast flow's own collectSubTargetPreAsks walk) followed later by
-// an untargeted link reading Defined$ Targeted. Out of scope, whole: a link
-// that names its chooser (TargetingPlayer$ -- the opponent-pick round trip is
-// cast/placement-root machinery) or carries a Defined$ beside its ValidTgts$
-// (a target-reuse body the mid-resolution walk never consumes a pre-ask for).
+// triggerChainPreAsks returns every chain link whose target declaration
+// would otherwise be asked during resolution. Modal roots remain owned by
+// their mode-selection flow. ChangeZone links use their dedicated resolution
+// chooser, which consumes the same SubPreAsk record; TargetingPlayer$ links are
+// excluded until placement can run its chooser-selection continuation.
 func (e *Engine) triggerChainPreAsks(root *cards.SA) []*cards.SA {
 	if root == nil || root.Sub == nil || strings.TrimSpace(root.ParamStr(cards.PKChoices)) != "" {
 		return nil
 	}
-	subs := e.collectSubTargetPreAsks(root)
-	if len(subs) == 0 {
-		return nil
-	}
-	for _, sa := range subs {
-		if effects.TargetsOf(sa).TargetingPlayer != "" || effects.DefinedRefOf(sa).Set() {
-			return nil
-		}
-	}
-	first := subs[0]
-	seen := false
+	var subs []*cards.SA
 	for sa := root.Sub; sa != nil; sa = sa.Sub {
-		if sa == first {
-			seen = true
+		if !effects.TargetsOf(sa).Targeted() {
 			continue
 		}
-		if seen && !effects.TargetsOf(sa).Targeted() &&
-			effects.DefinedRefOf(sa).Is(effects.RefTargeted) {
-			return subs
+		if effects.TargetsOf(sa).TargetingPlayer != "" {
+			return nil
 		}
+		defined := effects.DefinedRefOf(sa)
+		if sa.CompiledAPI() == cards.APIChangeZone || sa.API == "ChangeZone" {
+			// changeZoneChosenTargetsFor owns the resolution ask and consumes
+			// this same SubPreAsk record. A Defined$ ChangeZone names its
+			// referent directly and does not pose a target ask.
+			if defined.Set() {
+				continue
+			}
+		} else if effects.DefinedIsTargetReuse(defined.Text) && sa.API != "Fight" {
+			// Mirror chosenTargetsFor: reusing a prior target is not a new
+			// targeting choice (except Fight's two distinct declarations).
+			continue
+		}
+		subs = append(subs, sa)
 	}
-	return nil
+	return subs
 }
 
 // startTriggerSubTargets opens the chain announcement for the triggered
@@ -226,8 +218,10 @@ func (e *Engine) chainTargetUnion(id state.ObjID, root *cards.SA, rootTargets []
 		return nil
 	}
 	out := append(make([]state.Target, 0, len(rootTargets)+len(answers)), rootTargets...)
-	for _, sa := range e.collectSubTargetPreAsks(root) {
-		out = append(out, answers[sa.Line]...)
+	for sa := root.Sub; sa != nil; sa = sa.Sub {
+		if targets, ok := answers[sa.Line]; ok {
+			out = append(out, targets...)
+		}
 	}
 	return out
 }

@@ -779,6 +779,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 			}
 			e.triggerContexts[id] = pt.Ctx.TriggerContext
 			e.askTarget(pt.Controller, id, pt.SA)
+			e.startTriggerSubTargets(id, pt.Controller, pt.SA)
 		}
 		e.drainAwaitsTarget = e.Pending() != nil
 		return
@@ -933,6 +934,9 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 			if !handled && effects.TargetsOf(pt.SA).Targeted() {
 				e.askTarget(pt.Controller, id, pt.SA)
 			}
+			if !handled {
+				e.startTriggerSubTargets(id, pt.Controller, pt.SA)
+			}
 		}
 		e.drainAwaitsTarget = e.Pending() != nil && !e.drainAwaitsModes
 		return
@@ -969,6 +973,9 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 			}
 			if !handled && effects.TargetsOf(pt.SA).Targeted() {
 				e.askTarget(pt.Controller, id, pt.SA)
+			}
+			if !handled {
+				e.startTriggerSubTargets(id, pt.Controller, pt.SA)
 			}
 		}
 		e.drainAwaitsTarget = e.Pending() != nil && !e.drainAwaitsModes
@@ -1055,6 +1062,9 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 			}
 			if !handled && effects.TargetsOf(pt.SA).Targeted() {
 				e.askTarget(pt.Controller, id, pt.SA)
+			}
+			if !handled {
+				e.startTriggerSubTargets(id, pt.Controller, pt.SA)
 			}
 		}
 		e.drainAwaitsTarget = e.Pending() != nil && !e.drainAwaitsModes
