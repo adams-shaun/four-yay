@@ -368,16 +368,16 @@ func spellAbilityCastSpellValidSA(e Board, obj *state.Object, validSA string, so
 			continue
 		}
 		kind, constraint, _ := strings.Cut(alt, ".")
-		switch kind {
-		case "Activated", "Triggered":
+		switch validSAKindCodes.Code(string(kind)) {
+		case validSAKindActivated:
 			continue
-		case "SpellAbility":
-			switch constraint {
-			case "", "!ManaAbility":
+		case validSAKindSpellAbility:
+			switch validSAConstraintCodes.Code(string(constraint)) {
+			case validSAConstraintEmpty:
 				return true
-			case "ManaAbility":
+			case validSAConstraintManaAbility:
 				continue
-			case "YouCtrl":
+			case validSAConstraintYouCtrl:
 				if obj.Controller == ctrl {
 					return true
 				}
@@ -537,8 +537,8 @@ func AbilityCastValidSA(b Board, ab *cards.SA, validSA string, abCtrl, ctrl stat
 		if i := strings.IndexByte(alt, '.'); i >= 0 {
 			kind, constraint = alt[:i], alt[i+1:]
 		}
-		switch kind {
-		case "SpellAbility", "Activated", "":
+		switch abilityCastValidSACodes.Code(string(kind)) {
+		case abilityCastValidSASpellAbility:
 			if abilityCastConstraintHolds(b, ab, constraint, abCtrl, ctrl, removed) {
 				return true
 			}
@@ -564,18 +564,18 @@ func abilityCastConstraintHolds(b Board, ab *cards.SA, constraint string, abCtrl
 	}
 	for term := range strings.SplitSeq(constraint, "+") {
 		ok := false
-		switch term {
-		case "!ManaAbility":
+		switch abilityCastConstraintHoldsCodes.Code(string(term)) {
+		case abilityCastConstraintHoldsManaAbility:
 			ok = !cards.IsManaAbilityAPI(ab.API)
-		case "ManaAbility":
+		case abilityCastConstraintHoldsManaAbilityX:
 			ok = cards.IsManaAbilityAPI(ab.API)
-		case "YouCtrl":
+		case abilityCastConstraintHoldsYouCtrl:
 			ok = abCtrl == ctrl
-		case "OppCtrl":
+		case abilityCastConstraintHoldsOppCtrl:
 			ok = abCtrl != ctrl
-		case "Loyalty":
+		case abilityCastConstraintHoldsLoyalty:
 			ok = b.IsLoyaltyAbility(ab)
-		case "!Loyalty":
+		case abilityCastConstraintHoldsLoyaltyX:
 			ok = !b.IsLoyaltyAbility(ab)
 		default:
 			if cmp, found := strings.CutPrefix(term, "CountersRemovedToPay"); found && removed >= 0 {
@@ -1023,3 +1023,63 @@ func init() {
 	// payer), and an unresolvable selector fails closed.
 	registerTrigMatcher(ManaExpendMatches, "ManaExpend")
 }
+
+type validSAKindCode uint16
+
+const (
+	validSAKindActivated validSAKindCode = iota + 1
+	validSAKindSpellAbility
+)
+
+var validSAKindCodes = state.NewStrCodes(
+	state.StrEntry[validSAKindCode]{Key: "Activated", Val: validSAKindActivated},
+	state.StrEntry[validSAKindCode]{Key: "Triggered", Val: validSAKindActivated},
+	state.StrEntry[validSAKindCode]{Key: "SpellAbility", Val: validSAKindSpellAbility},
+)
+
+type validSAConstraintCode uint16
+
+const (
+	validSAConstraintEmpty validSAConstraintCode = iota + 1
+	validSAConstraintManaAbility
+	validSAConstraintYouCtrl
+)
+
+var validSAConstraintCodes = state.NewStrCodes(
+	state.StrEntry[validSAConstraintCode]{Key: "", Val: validSAConstraintEmpty},
+	state.StrEntry[validSAConstraintCode]{Key: "!ManaAbility", Val: validSAConstraintEmpty},
+	state.StrEntry[validSAConstraintCode]{Key: "ManaAbility", Val: validSAConstraintManaAbility},
+	state.StrEntry[validSAConstraintCode]{Key: "YouCtrl", Val: validSAConstraintYouCtrl},
+)
+
+type abilityCastValidSACode uint16
+
+const (
+	abilityCastValidSASpellAbility abilityCastValidSACode = iota + 1
+)
+
+var abilityCastValidSACodes = state.NewStrCodes(
+	state.StrEntry[abilityCastValidSACode]{Key: "SpellAbility", Val: abilityCastValidSASpellAbility},
+	state.StrEntry[abilityCastValidSACode]{Key: "Activated", Val: abilityCastValidSASpellAbility},
+	state.StrEntry[abilityCastValidSACode]{Key: "", Val: abilityCastValidSASpellAbility},
+)
+
+type abilityCastConstraintHoldsCode uint16
+
+const (
+	abilityCastConstraintHoldsManaAbility abilityCastConstraintHoldsCode = iota + 1
+	abilityCastConstraintHoldsManaAbilityX
+	abilityCastConstraintHoldsYouCtrl
+	abilityCastConstraintHoldsOppCtrl
+	abilityCastConstraintHoldsLoyalty
+	abilityCastConstraintHoldsLoyaltyX
+)
+
+var abilityCastConstraintHoldsCodes = state.NewStrCodes(
+	state.StrEntry[abilityCastConstraintHoldsCode]{Key: "!ManaAbility", Val: abilityCastConstraintHoldsManaAbility},
+	state.StrEntry[abilityCastConstraintHoldsCode]{Key: "ManaAbility", Val: abilityCastConstraintHoldsManaAbilityX},
+	state.StrEntry[abilityCastConstraintHoldsCode]{Key: "YouCtrl", Val: abilityCastConstraintHoldsYouCtrl},
+	state.StrEntry[abilityCastConstraintHoldsCode]{Key: "OppCtrl", Val: abilityCastConstraintHoldsOppCtrl},
+	state.StrEntry[abilityCastConstraintHoldsCode]{Key: "Loyalty", Val: abilityCastConstraintHoldsLoyalty},
+	state.StrEntry[abilityCastConstraintHoldsCode]{Key: "!Loyalty", Val: abilityCastConstraintHoldsLoyaltyX},
+)

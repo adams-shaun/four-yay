@@ -222,13 +222,13 @@ func (e *Engine) runPreventionShieldRider(m replMatch, name string,
 		rsub.Params[k] = v
 	}
 	if strings.TrimSpace(rsub.ParamStr(cards.PKNumDmg)) == "PreventedDamage" {
-		rsub.Params["NumDmg"] = strconv.Itoa(int(prevented))
+		rsub.SetParam(cards.PKNumDmg, strconv.Itoa(int(prevented)))
 	}
 	// The selector is read off the parsed template, never the copy: the copy
 	// is rewritten in place below, and a reference compiled from it before
 	// the rewrite would outlive the rewrite in DefinedOf's front cache.
 	if effects.DefinedRefOf(sub).Text == "ShieldEffectTarget" {
-		rsub.Params["Defined"] = "Remembered"
+		rsub.SetParam(cards.PKDefined, "Remembered")
 	}
 	ctx := e.replCtx(m, *ev)
 	ctx.Remembered = nil

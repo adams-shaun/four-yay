@@ -10,7 +10,7 @@ import (
 
 func CantRestrictionParamsReadable(params map[string]string) bool {
 	for k := range params {
-		if !cantRestrictionParamsReadableKeys1.Has(k) {
+		if !cantRestrictionParamsReadableKeys.Has(k) {
 			return false
 		}
 	}
@@ -85,15 +85,15 @@ func CantAttackParamsReadableForRules(params map[string]string) bool {
 	var present1, present2 string
 	hasCmp, has1, has2 := false, false, false
 	for k, v := range params {
-		switch k {
-		case "PresentCompare":
+		switch cantAttackPresentKeyCodes.Code(k) {
+		case cantAttackPresentKeyPresentCompare:
 			hasCmp = true
-		case "IsPresent":
+		case cantAttackPresentKeyIsPresent:
 			present1, has1 = v, true
-		case "IsPresent2":
+		case cantAttackPresentKeyIsPresent2:
 			present2, has2 = v, true
 		}
-		if !cantAttackParamsReadableForRulesKeys2.Has(k) {
+		if !cantAttackParamsReadableForRulesKeys.Has(k) {
 			return false
 		}
 	}
@@ -249,16 +249,16 @@ func unlessDefenderProperty(g *state.Game, property string, defender, you state.
 // unlessDefenderZone maps a Forge zone word in a HasCardsIn property to a
 // state zone, failing closed on any zone this build cannot name.
 func unlessDefenderZone(word string) (state.Zone, bool) {
-	switch word {
-	case "Battlefield":
+	switch unlessDefenderZoneCodes.Code(string(word)) {
+	case unlessDefenderZoneBattlefield:
 		return state.ZBattlefield, true
-	case "Graveyard":
+	case unlessDefenderZoneGraveyard:
 		return state.ZGraveyard, true
-	case "Hand":
+	case unlessDefenderZoneHand:
 		return state.ZHand, true
-	case "Library":
+	case unlessDefenderZoneLibrary:
 		return state.ZLibrary, true
-	case "Exile":
+	case unlessDefenderZoneExile:
 		return state.ZExile, true
 	}
 	return 0, false
@@ -271,8 +271,8 @@ func unlessDefenderCompare(tok string) (string, int32, bool) {
 		return "", 0, false
 	}
 	op := tok[:2]
-	switch op {
-	case "GE", "GT", "EQ", "LE", "LT":
+	switch CmpOpOf(op) {
+	case CmpGE, CmpGT, CmpEQ, CmpLE, CmpLT:
 	default:
 		return "", 0, false
 	}
@@ -324,7 +324,7 @@ func unlessDefenderTypeCount(g *state.Game, z state.Zone, p state.PlayerID, card
 // modifier composition, and a boolean restriction cannot be applied twice.
 func CantBlockByRestrictionParamsReadable(params map[string]string) bool {
 	for k := range params {
-		if !cantBlockByRestrictionParamsReadableKeys3.Has(k) {
+		if !cantBlockByRestrictionParamsReadableKeys.Has(k) {
 			return false
 		}
 	}
@@ -348,7 +348,7 @@ func CantBlockByRestrictionParamsReadable(params map[string]string) bool {
 // modifier composition, and a boolean requirement cannot be applied twice.
 func MustAttackParamsReadable(params map[string]string) bool {
 	for k := range params {
-		if !mustAttackParamsReadableKeys4.Has(k) {
+		if !mustAttackParamsReadableKeys.Has(k) {
 			return false
 		}
 	}
@@ -372,7 +372,7 @@ func MustAttackParamsReadable(params map[string]string) bool {
 // are pinned by rules' TestMustAttackFaceAndEffectWhitelistsAgree.
 func MustAttackParamsReadableForRules(params map[string]string) bool {
 	for k := range params {
-		if !mustAttackParamsReadableForRulesKeys5.Has(k) {
+		if !mustAttackParamsReadableForRulesKeys.Has(k) {
 			return false
 		}
 	}
@@ -393,7 +393,7 @@ func MustAttackParamsReadableForRules(params map[string]string) bool {
 // direction for a restriction -- so it is skipped/reported instead.
 func CantBlockUnlessRestrictionParamsReadable(params map[string]string) bool {
 	for k := range params {
-		if !cantBlockUnlessRestrictionParamsReadableKeys6.Has(k) {
+		if !cantBlockUnlessRestrictionParamsReadableKeys.Has(k) {
 			return false
 		}
 	}
@@ -420,7 +420,7 @@ func CantBlockUnlessRestrictionParamsReadable(params map[string]string) bool {
 // reported unimplemented instead.
 func CantAttackUnlessRestrictionParamsReadable(params map[string]string) bool {
 	for k := range params {
-		if !cantAttackUnlessRestrictionParamsReadableKeys7.Has(k) {
+		if !cantAttackUnlessRestrictionParamsReadableKeys.Has(k) {
 			return false
 		}
 	}
@@ -447,7 +447,7 @@ func CantAttackUnlessRestrictionParamsReadable(params map[string]string) bool {
 // restriction on the path that cannot evaluate the cause.
 func CantSacrificeRestrictionParamsReadable(params map[string]string) bool {
 	for k := range params {
-		if !cantSacrificeRestrictionParamsReadableKeys8.Has(k) {
+		if !cantSacrificeRestrictionParamsReadableKeys.Has(k) {
 			return false
 		}
 	}
@@ -484,7 +484,7 @@ func CantSacrificeRestrictionParamsReadable(params map[string]string) bool {
 // applied twice.
 func CantExileRestrictionParamsReadable(params map[string]string) bool {
 	for k := range params {
-		if !cantExileRestrictionParamsReadableKeys9.Has(k) {
+		if !cantExileRestrictionParamsReadableKeys.Has(k) {
 			return false
 		}
 	}
@@ -509,7 +509,7 @@ func CantExileRestrictionParamsReadable(params map[string]string) bool {
 // composition, and a boolean restriction cannot be applied twice.
 func CantPutCounterParamsReadable(params map[string]string) bool {
 	for k := range params {
-		if !cantPutCounterParamsReadableKeys10.Has(k) {
+		if !cantPutCounterParamsReadableKeys.Has(k) {
 			return false
 		}
 	}
@@ -538,7 +538,7 @@ func CantPutCounterParamsReadable(params map[string]string) bool {
 // cannot be applied twice.
 func CantGainLifeParamsReadable(params map[string]string) bool {
 	for k := range params {
-		if !cantGainLifeParamsReadableKeys11.Has(k) {
+		if !cantGainLifeParamsReadableKeys.Has(k) {
 			return false
 		}
 	}
@@ -564,7 +564,7 @@ func CantGainLifeParamsReadable(params map[string]string) bool {
 // keep cannot be applied twice.
 func UnspentManaParamsReadable(params map[string]string) bool {
 	for k := range params {
-		if !unspentManaParamsReadableKeys12.Has(k) {
+		if !unspentManaParamsReadableKeys.Has(k) {
 			return false
 		}
 	}
@@ -587,7 +587,7 @@ func UnspentManaParamsReadable(params map[string]string) bool {
 // carries: the grant path keeps the narrower list.
 func CanAttackDefenderGrantParamsReadable(params map[string]string) bool {
 	for k := range params {
-		if !canAttackDefenderGrantParamsReadableKeys13.Has(k) {
+		if !canAttackDefenderGrantParamsReadableKeys.Has(k) {
 			return false
 		}
 	}
@@ -604,7 +604,7 @@ func CanAttackDefenderGrantParamsReadable(params map[string]string) bool {
 // cast's origin zone, so admitting it here is not a blanket grant.
 func ManaConvertParamsReadable(params map[string]string) bool {
 	for k := range params {
-		if !manaConvertParamsReadableKeys14.Has(k) {
+		if !manaConvertParamsReadableKeys.Has(k) {
 			return false
 		}
 	}
@@ -639,7 +639,7 @@ func IsGrantableCostStaticMode(mode string) bool {
 // here keeps.
 func CostStaticParamsReadable(params map[string]string) bool {
 	for k := range params {
-		if !costStaticParamsReadableKeys15.Has(k) {
+		if !costStaticParamsReadableKeys.Has(k) {
 			return false
 		}
 	}
@@ -658,7 +658,7 @@ func CostStaticParamsReadable(params map[string]string) bool {
 // stays walled, today's behaviour), never the wrong-wide one.
 func CanAttackDefenderParamsReadable(params map[string]string) bool {
 	for k := range params {
-		if !canAttackDefenderParamsReadableKeys16.Has(k) {
+		if !canAttackDefenderParamsReadableKeys.Has(k) {
 			return false
 		}
 	}
@@ -717,7 +717,7 @@ func CanAttackDefenderParamsReadable(params map[string]string) bool {
 // Duration$ names a this-turn lifetime; a body WITH an explicit Duration$ is
 // never touched by this list, so a mixed population is safe).
 func absentDurationMeansThisTurn(mode string) bool {
-	if v, ok := absentDurationMeansThisTurnTab17.Get(mode); ok {
+	if v, ok := absentDurationMeansThisTurnTab.Get(mode); ok {
 		return v
 	}
 	return false
@@ -733,8 +733,8 @@ func absentDurationMeansThisTurn(mode string) bool {
 // recognise the same spelling effEffect saw; the two largest values by far
 // (105 + 70 raw lines), so this closes most of the turn-spanning gap.
 func IsNextTurnDuration(dur string) bool {
-	switch strings.ToLower(strings.TrimSpace(dur)) {
-	case "untilyournextturn", "untiltheendofyournextturn":
+	switch isNextTurnDurationCodes.Code(string(strings.ToLower(strings.TrimSpace(dur)))) {
+	case isNextTurnDurationUntilyournextturn:
 		return true
 	}
 	return false
@@ -779,7 +779,7 @@ func replacementLineWith(params map[string]string) string {
 // Daredevil, Gaea's Will and the other ~20 carriers of this shape.
 func replacementRedirectsToExile(params map[string]string, body string, svars map[string]string) bool {
 	for k := range params {
-		if !replacementRedirectsToExileKeys18.Has(k) {
+		if !replacementRedirectsToExileKeys.Has(k) {
 			return false
 		}
 	}
@@ -797,13 +797,13 @@ func redirectExileBody(body map[string]string, svars map[string]string) bool {
 		return false
 	}
 	for k, v := range body {
-		switch k {
-		case "DB", "Defined", "Destination", "Origin", "StackDescription":
-		case "Hidden":
+		switch redirectExileBodyCodes.Code(string(k)) {
+		case redirectExileBodyDB:
+		case redirectExileBodyHidden:
 			if !strings.EqualFold(v, "True") {
 				return false
 			}
-		case "SubAbility":
+		case redirectExileBodySubAbility:
 			line := svars[v]
 			if replacementBodyAPI(line) != "ChangeZone" || !selfExileIdiom(replacementBodyParams(line)) {
 				return false
@@ -880,7 +880,7 @@ func replacementBodyAPI(body string) string {
 // inherently one-shot (no |EF, consumed by its DelayedPush) and takes the
 // Phase arm, not this event-mode one.
 func effectOneShotDelayedMode(mode string) bool {
-	if v, ok := effectOneShotDelayedModeTab19.Get(mode); ok {
+	if v, ok := effectOneShotDelayedModeTab.Get(mode); ok {
 		return v
 	}
 	return false
@@ -890,7 +890,7 @@ func effectOneShotDelayedMode(mode string) bool {
 // Effect's source-relative or next-turn lifetime. Reject those forms rather
 // than register a promise that can fire after the Effect expires.
 func effectTriggerThisTurnDuration(dur string) bool {
-	if v, ok := effectTriggerThisTurnDurationTab20.Get(strings.ToLower(strings.TrimSpace(dur))); ok {
+	if v, ok := effectTriggerThisTurnDurationTab.Get(strings.ToLower(strings.TrimSpace(dur))); ok {
 		return v
 	}
 	return false
@@ -980,7 +980,7 @@ func effectUntilEOT(h Host, source state.ObjID, dur string) bool {
 			return true
 		}
 	}
-	if v, ok := effectUntilEOTTab21.Get(strings.ToLower(strings.TrimSpace(dur))); ok {
+	if v, ok := effectUntilEOTTab.Get(strings.ToLower(strings.TrimSpace(dur))); ok {
 		return v
 	}
 	return false
@@ -1080,74 +1080,135 @@ func clauseIsRemembered(clause string) (neg, has bool) {
 	return false, false
 }
 
-var cantRestrictionParamsReadableKeys1 = cards.NewNameSet("Mode", "ValidCard", "Target", "Description", "Secondary")
+var cantRestrictionParamsReadableKeys = state.NewNameSet("Mode", "ValidCard", "Target", "Description", "Secondary")
 
-var cantAttackParamsReadableForRulesKeys2 = cards.NewNameSet("Mode", "ValidCard", "Target", "Description", "Secondary", "CheckSVar", "SVarCompare", "Condition", "UnlessDefender", "IsPresent", "IsPresent2", "PresentCompare", "PresentZone", "ClassBand")
+var cantAttackParamsReadableForRulesKeys = state.NewNameSet("Mode", "ValidCard", "Target", "Description", "Secondary", "CheckSVar", "SVarCompare", "Condition", "UnlessDefender", "IsPresent", "IsPresent2", "PresentCompare", "PresentZone", "ClassBand")
 
-var cantBlockByRestrictionParamsReadableKeys3 = cards.NewNameSet("Mode", "ValidAttacker", "ValidBlocker", "ValidCard", "Description", "Secondary")
+var cantBlockByRestrictionParamsReadableKeys = state.NewNameSet("Mode", "ValidAttacker", "ValidBlocker", "ValidCard", "Description", "Secondary")
 
-var mustAttackParamsReadableKeys4 = cards.NewNameSet("Mode", "ValidCreature", "MustAttack", "Description", "Secondary")
+var mustAttackParamsReadableKeys = state.NewNameSet("Mode", "ValidCreature", "MustAttack", "Description", "Secondary")
 
-var mustAttackParamsReadableForRulesKeys5 = cards.NewNameSet("Mode", "ValidCreature", "MustAttack", "Description", "Secondary", "IsPresent", "IsPresent2", "PresentCompare", "PresentZone", "CheckSVar", "SVarCompare", "Condition", "ClassBand")
+var mustAttackParamsReadableForRulesKeys = state.NewNameSet("Mode", "ValidCreature", "MustAttack", "Description", "Secondary", "IsPresent", "IsPresent2", "PresentCompare", "PresentZone", "CheckSVar", "SVarCompare", "Condition", "ClassBand")
 
-var cantBlockUnlessRestrictionParamsReadableKeys6 = cards.NewNameSet("Mode", "ValidCard", "Attacker", "Cost", "Description", "Secondary", "IsPresent", "IsPresent2", "CheckSVar", "SVarCompare", "Condition")
+var cantBlockUnlessRestrictionParamsReadableKeys = state.NewNameSet("Mode", "ValidCard", "Attacker", "Cost", "Description", "Secondary", "IsPresent", "IsPresent2", "CheckSVar", "SVarCompare", "Condition")
 
-var cantAttackUnlessRestrictionParamsReadableKeys7 = cards.NewNameSet("Mode", "ValidCard", "Target", "Cost", "Description", "TriggerDescription", "Secondary", "Attacker", "IsPresent", "IsPresent2", "CheckSVar", "SVarCompare", "Condition", "RememberingAttacker")
+var cantAttackUnlessRestrictionParamsReadableKeys = state.NewNameSet("Mode", "ValidCard", "Target", "Cost", "Description", "TriggerDescription", "Secondary", "Attacker", "IsPresent", "IsPresent2", "CheckSVar", "SVarCompare", "Condition", "RememberingAttacker")
 
-var cantSacrificeRestrictionParamsReadableKeys8 = cards.NewNameSet("Mode", "ValidCard", "Target", "Description", "Secondary", "ValidCause", "ForCost")
+var cantSacrificeRestrictionParamsReadableKeys = state.NewNameSet("Mode", "ValidCard", "Target", "Description", "Secondary", "ValidCause", "ForCost")
 
-var cantExileRestrictionParamsReadableKeys9 = cards.NewNameSet("Mode", "ValidCard", "ValidCards", "ValidObject", "ValidTarget", "Target", "Description", "Secondary", "ValidCause", "ForCost")
+var cantExileRestrictionParamsReadableKeys = state.NewNameSet("Mode", "ValidCard", "ValidCards", "ValidObject", "ValidTarget", "Target", "Description", "Secondary", "ValidCause", "ForCost")
 
-var cantPutCounterParamsReadableKeys10 = cards.NewNameSet("Mode", "ValidCard", "ValidObject", "ValidPlayer", "CounterType", "AffectedZone", "Duration", "Description", "Secondary")
+var cantPutCounterParamsReadableKeys = state.NewNameSet("Mode", "ValidCard", "ValidObject", "ValidPlayer", "CounterType", "AffectedZone", "Duration", "Description", "Secondary")
 
-var cantGainLifeParamsReadableKeys11 = cards.NewNameSet("Mode", "ValidPlayer", "Description", "Secondary")
+var cantGainLifeParamsReadableKeys = state.NewNameSet("Mode", "ValidPlayer", "Description", "Secondary")
 
-var unspentManaParamsReadableKeys12 = cards.NewNameSet("Mode", "ValidPlayer", "ManaType", "Description", "Secondary")
+var unspentManaParamsReadableKeys = state.NewNameSet("Mode", "ValidPlayer", "ManaType", "Description", "Secondary")
 
-var canAttackDefenderGrantParamsReadableKeys13 = cards.NewNameSet("Mode", "ValidCard", "ValidCards", "ValidTarget", "ValidAttacked", "Description", "Secondary")
+var canAttackDefenderGrantParamsReadableKeys = state.NewNameSet("Mode", "ValidCard", "ValidCards", "ValidTarget", "ValidAttacked", "Description", "Secondary")
 
-var manaConvertParamsReadableKeys14 = cards.NewNameSet("Mode", "ValidCard", "ValidSA", "ValidPlayer", "ManaConversion", "Optional", "EffectZone", "AffectedZone", "Description", "SpellDescription")
+var manaConvertParamsReadableKeys = state.NewNameSet("Mode", "ValidCard", "ValidSA", "ValidPlayer", "ManaConversion", "Optional", "EffectZone", "AffectedZone", "Description", "SpellDescription")
 
-var costStaticParamsReadableKeys15 = cards.NewNameSet("Mode", "Type", "ValidCard", "ValidSA", "ValidPlayer", "ValidSpell", "ValidTarget", "Activator", "Caster", "Amount", "Cost", "Announce", "Color", "MinMana", "IgnoreGeneric", "RaiseTo", "OnlyFirstSpell", "IsPresent", "PresentZone", "PresentCompare", "CheckSVar", "SVarCompare", "CheckSecondSVar", "SecondSVarCompare", "Condition", "EffectZone", "AffectedZone", "Secondary", "Relative", "ClassBand", "UnlessValidTarget", "PlayerTurn", "Phases", "Description", "SpellDescription")
+var costStaticParamsReadableKeys = state.NewNameSet("Mode", "Type", "ValidCard", "ValidSA", "ValidPlayer", "ValidSpell", "ValidTarget", "Activator", "Caster", "Amount", "Cost", "Announce", "Color", "MinMana", "IgnoreGeneric", "RaiseTo", "OnlyFirstSpell", "IsPresent", "PresentZone", "PresentCompare", "CheckSVar", "SVarCompare", "CheckSecondSVar", "SecondSVarCompare", "Condition", "EffectZone", "AffectedZone", "Secondary", "Relative", "ClassBand", "UnlessValidTarget", "PlayerTurn", "Phases", "Description", "SpellDescription")
 
-var canAttackDefenderParamsReadableKeys16 = cards.NewNameSet("Mode", "ValidCard", "ValidCards", "ValidTarget", "ValidAttacked", "Description", "Secondary", "IsPresent", "IsPresent2", "CheckSVar", "SVarCompare", "Condition")
+var canAttackDefenderParamsReadableKeys = state.NewNameSet("Mode", "ValidCard", "ValidCards", "ValidTarget", "ValidAttacked", "Description", "Secondary", "IsPresent", "IsPresent2", "CheckSVar", "SVarCompare", "Condition")
 
-var absentDurationMeansThisTurnTab17 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "CantPutCounter", Val: true},
-	cards.StrEntry[bool]{Key: "CantBlockBy", Val: true},
-	cards.StrEntry[bool]{Key: "CanAttackDefender", Val: true},
-	cards.StrEntry[bool]{Key: "NumLoyaltyAct", Val: true},
-	cards.StrEntry[bool]{Key: "CombatDamageToughness", Val: true},
-	cards.StrEntry[bool]{Key: "CantGainLife", Val: true},
+var absentDurationMeansThisTurnTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "CantPutCounter", Val: true},
+	state.StrEntry[bool]{Key: "CantBlockBy", Val: true},
+	state.StrEntry[bool]{Key: "CanAttackDefender", Val: true},
+	state.StrEntry[bool]{Key: "NumLoyaltyAct", Val: true},
+	state.StrEntry[bool]{Key: "CombatDamageToughness", Val: true},
+	state.StrEntry[bool]{Key: "CantGainLife", Val: true},
 )
 
-var replacementRedirectsToExileKeys18 = cards.NewNameSet("Event", "ValidCard", "ValidLKI", "Origin", "Destination", "ActiveZones", "EffectZone", "ReplaceWith", "Description")
+var replacementRedirectsToExileKeys = state.NewNameSet("Event", "ValidCard", "ValidLKI", "Origin", "Destination", "ActiveZones", "EffectZone", "ReplaceWith", "Description")
 
-var effectOneShotDelayedModeTab19 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "SpellCast", Val: true},
-	cards.StrEntry[bool]{Key: "ChangesZone", Val: true},
-	cards.StrEntry[bool]{Key: "ChangesController", Val: true},
-	cards.StrEntry[bool]{Key: "DamageDone", Val: true},
-	cards.StrEntry[bool]{Key: "AttackersDeclared", Val: true},
+var effectOneShotDelayedModeTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "SpellCast", Val: true},
+	state.StrEntry[bool]{Key: "ChangesZone", Val: true},
+	state.StrEntry[bool]{Key: "ChangesController", Val: true},
+	state.StrEntry[bool]{Key: "DamageDone", Val: true},
+	state.StrEntry[bool]{Key: "AttackersDeclared", Val: true},
 )
 
-var effectTriggerThisTurnDurationTab20 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "", Val: true},
-	cards.StrEntry[bool]{Key: "eot", Val: true},
-	cards.StrEntry[bool]{Key: "endofturn", Val: true},
-	cards.StrEntry[bool]{Key: "untilendofturn", Val: true},
-	cards.StrEntry[bool]{Key: "end of turn", Val: true},
-	cards.StrEntry[bool]{Key: "this turn", Val: true},
+var effectTriggerThisTurnDurationTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "", Val: true},
+	state.StrEntry[bool]{Key: "eot", Val: true},
+	state.StrEntry[bool]{Key: "endofturn", Val: true},
+	state.StrEntry[bool]{Key: "untilendofturn", Val: true},
+	state.StrEntry[bool]{Key: "end of turn", Val: true},
+	state.StrEntry[bool]{Key: "this turn", Val: true},
 )
 
-var effectUntilEOTTab21 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "eot", Val: true},
-	cards.StrEntry[bool]{Key: "endofturn", Val: true},
-	cards.StrEntry[bool]{Key: "untilendofturn", Val: true},
-	cards.StrEntry[bool]{Key: "untilyournextendstep", Val: true},
-	cards.StrEntry[bool]{Key: "untilhostleavesplayoreot", Val: true},
-	cards.StrEntry[bool]{Key: "untilendofcombat", Val: true},
-	cards.StrEntry[bool]{Key: "end of turn", Val: true},
-	cards.StrEntry[bool]{Key: "this turn", Val: true},
-	cards.StrEntry[bool]{Key: "thisturnandnextturn", Val: true},
+var effectUntilEOTTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "eot", Val: true},
+	state.StrEntry[bool]{Key: "endofturn", Val: true},
+	state.StrEntry[bool]{Key: "untilendofturn", Val: true},
+	state.StrEntry[bool]{Key: "untilyournextendstep", Val: true},
+	state.StrEntry[bool]{Key: "untilhostleavesplayoreot", Val: true},
+	state.StrEntry[bool]{Key: "untilendofcombat", Val: true},
+	state.StrEntry[bool]{Key: "end of turn", Val: true},
+	state.StrEntry[bool]{Key: "this turn", Val: true},
+	state.StrEntry[bool]{Key: "thisturnandnextturn", Val: true},
+)
+
+type unlessDefenderZoneCode uint16
+
+const (
+	unlessDefenderZoneBattlefield unlessDefenderZoneCode = iota + 1
+	unlessDefenderZoneGraveyard
+	unlessDefenderZoneHand
+	unlessDefenderZoneLibrary
+	unlessDefenderZoneExile
+)
+
+var unlessDefenderZoneCodes = state.NewStrCodes(
+	state.StrEntry[unlessDefenderZoneCode]{Key: "Battlefield", Val: unlessDefenderZoneBattlefield},
+	state.StrEntry[unlessDefenderZoneCode]{Key: "Graveyard", Val: unlessDefenderZoneGraveyard},
+	state.StrEntry[unlessDefenderZoneCode]{Key: "Hand", Val: unlessDefenderZoneHand},
+	state.StrEntry[unlessDefenderZoneCode]{Key: "Library", Val: unlessDefenderZoneLibrary},
+	state.StrEntry[unlessDefenderZoneCode]{Key: "Exile", Val: unlessDefenderZoneExile},
+)
+
+type isNextTurnDurationCode uint16
+
+const (
+	isNextTurnDurationUntilyournextturn isNextTurnDurationCode = iota + 1
+)
+
+var isNextTurnDurationCodes = state.NewStrCodes(
+	state.StrEntry[isNextTurnDurationCode]{Key: "untilyournextturn", Val: isNextTurnDurationUntilyournextturn},
+	state.StrEntry[isNextTurnDurationCode]{Key: "untiltheendofyournextturn", Val: isNextTurnDurationUntilyournextturn},
+)
+
+type redirectExileBodyCode uint16
+
+const (
+	redirectExileBodyDB redirectExileBodyCode = iota + 1
+	redirectExileBodyHidden
+	redirectExileBodySubAbility
+)
+
+var redirectExileBodyCodes = state.NewStrCodes(
+	state.StrEntry[redirectExileBodyCode]{Key: "DB", Val: redirectExileBodyDB},
+	state.StrEntry[redirectExileBodyCode]{Key: "Defined", Val: redirectExileBodyDB},
+	state.StrEntry[redirectExileBodyCode]{Key: "Destination", Val: redirectExileBodyDB},
+	state.StrEntry[redirectExileBodyCode]{Key: "Origin", Val: redirectExileBodyDB},
+	state.StrEntry[redirectExileBodyCode]{Key: "StackDescription", Val: redirectExileBodyDB},
+	state.StrEntry[redirectExileBodyCode]{Key: "Hidden", Val: redirectExileBodyHidden},
+	state.StrEntry[redirectExileBodyCode]{Key: "SubAbility", Val: redirectExileBodySubAbility},
+)
+
+type cantAttackPresentKeyCode uint16
+
+const (
+	cantAttackPresentKeyPresentCompare cantAttackPresentKeyCode = iota + 1
+	cantAttackPresentKeyIsPresent
+	cantAttackPresentKeyIsPresent2
+)
+
+var cantAttackPresentKeyCodes = state.NewStrCodes(
+	state.StrEntry[cantAttackPresentKeyCode]{Key: "PresentCompare", Val: cantAttackPresentKeyPresentCompare},
+	state.StrEntry[cantAttackPresentKeyCode]{Key: "IsPresent", Val: cantAttackPresentKeyIsPresent},
+	state.StrEntry[cantAttackPresentKeyCode]{Key: "IsPresent2", Val: cantAttackPresentKeyIsPresent2},
 )

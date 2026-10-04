@@ -46,12 +46,12 @@ func (e *Engine) activationConditionOK(p state.PlayerID, ab *cards.SA) bool {
 	if !ok || strings.TrimSpace(raw) == "" {
 		return true
 	}
-	switch strings.TrimSpace(raw) {
-	case "Hellbent":
+	switch activationConditionOKCodes.Code(string(strings.TrimSpace(raw))) {
+	case activationConditionOKHellbent:
 		return len(e.G.Zone(state.ZHand, p)) == 0
-	case "Threshold":
+	case activationConditionOKThreshold:
 		return len(e.G.Zone(state.ZGraveyard, p)) >= 7
-	case "Metalcraft":
+	case activationConditionOKMetalcraft:
 		n := 0
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
 			if o := e.G.Obj(id); o != nil && slices.Contains(e.derivedTypesOf(id), "Artifact") {
@@ -59,13 +59,13 @@ func (e *Engine) activationConditionOK(p state.PlayerID, ab *cards.SA) bool {
 			}
 		}
 		return n >= 3
-	case "Blessing":
+	case activationConditionOKBlessing:
 		// CR 702.131: the city's blessing, read off the same one-way latch
 		// the Condition$ Blessing gate and the Count$Blessing branch head
 		// read. An out-of-range activator denies -- the fail-closed
 		// direction a blessing gate that cannot name its seat must take.
 		return int(p) < len(e.G.Players) && !e.G.Players[p].Lost && e.G.Players[p].Blessing
-	case "Delirium":
+	case activationConditionOKDelirium:
 		seen := map[string]bool{}
 		for _, id := range e.G.Zone(state.ZGraveyard, p) {
 			if o := e.G.Obj(id); o != nil {
@@ -97,11 +97,8 @@ func (e *Engine) activationConditionOK(p state.PlayerID, ab *cards.SA) bool {
 // is not offered). Deterministic pure read -- no map range, tokens trimmed.
 func activationGameTypesOK(f Format, raw string) bool {
 	for tok := range strings.SplitSeq(raw, ",") {
-		switch strings.TrimSpace(tok) {
-		case "Commander":
-			if f == FormatCommander {
-				return true
-			}
+		if strings.TrimSpace(tok) == "Commander" && f == FormatCommander {
+			return true
 		}
 	}
 	return false
@@ -123,7 +120,7 @@ func abilityZoneMask(ab *cards.SA) uint32 {
 	if !ok {
 		return 1 << state.ZBattlefield
 	}
-	if v, ok := abilityZoneMaskTab1.Get(strings.TrimSpace(az)); ok {
+	if v, ok := abilityZoneMaskTab.Get(strings.TrimSpace(az)); ok {
 		return v
 	}
 	return 0
@@ -134,16 +131,16 @@ func abilityZoneOK(ab *cards.SA, z state.Zone) bool {
 	if !ok {
 		return z == state.ZBattlefield
 	}
-	switch strings.TrimSpace(az) {
-	case "Battlefield":
+	switch abilityZoneOKCodes.Code(string(strings.TrimSpace(az))) {
+	case abilityZoneOKBattlefield:
 		return z == state.ZBattlefield
-	case "Graveyard":
+	case abilityZoneOKGraveyard:
 		return z == state.ZGraveyard
-	case "Hand":
+	case abilityZoneOKHand:
 		return z == state.ZHand
-	case "Exile":
+	case abilityZoneOKExile:
 		return z == state.ZExile
-	case "Stack":
+	case abilityZoneOKStack:
 		return z == state.ZStack
 	}
 	return false
@@ -393,11 +390,11 @@ func (e *Engine) ownManaReduction(p state.PlayerID, id state.ObjID, ab *cards.SA
 	if n <= 0 {
 		return costMod{}, false
 	}
-	red := costMod{generic: addClampedGeneric(0, int64(gen)*int64(n))}
+	red := costMod{Generic: addClampedGeneric(0, int64(gen)*int64(n))}
 	for i := range col {
-		red.colored[i] = addClampedGeneric(0, int64(col[i])*int64(n))
+		red.Colored[i] = addClampedGeneric(0, int64(col[i])*int64(n))
 	}
-	red.hasColor = col.Total() > 0
+	red.HasColor = col.Total() > 0
 	return red, true
 }
 
@@ -510,10 +507,46 @@ func (e *Engine) manaActivateLabel(name string) string {
 	return l
 }
 
-var abilityZoneMaskTab1 = cards.NewStrTable[uint32](
-	cards.StrEntry[uint32]{Key: "Battlefield", Val: 1 << state.ZBattlefield},
-	cards.StrEntry[uint32]{Key: "Graveyard", Val: 1 << state.ZGraveyard},
-	cards.StrEntry[uint32]{Key: "Hand", Val: 1 << state.ZHand},
-	cards.StrEntry[uint32]{Key: "Exile", Val: 1 << state.ZExile},
-	cards.StrEntry[uint32]{Key: "Stack", Val: 1 << state.ZStack},
+var abilityZoneMaskTab = state.NewStrTable[uint32](
+	state.StrEntry[uint32]{Key: "Battlefield", Val: 1 << state.ZBattlefield},
+	state.StrEntry[uint32]{Key: "Graveyard", Val: 1 << state.ZGraveyard},
+	state.StrEntry[uint32]{Key: "Hand", Val: 1 << state.ZHand},
+	state.StrEntry[uint32]{Key: "Exile", Val: 1 << state.ZExile},
+	state.StrEntry[uint32]{Key: "Stack", Val: 1 << state.ZStack},
+)
+
+type activationConditionOKCode uint16
+
+const (
+	activationConditionOKHellbent activationConditionOKCode = iota + 1
+	activationConditionOKThreshold
+	activationConditionOKMetalcraft
+	activationConditionOKBlessing
+	activationConditionOKDelirium
+)
+
+var activationConditionOKCodes = state.NewStrCodes(
+	state.StrEntry[activationConditionOKCode]{Key: "Hellbent", Val: activationConditionOKHellbent},
+	state.StrEntry[activationConditionOKCode]{Key: "Threshold", Val: activationConditionOKThreshold},
+	state.StrEntry[activationConditionOKCode]{Key: "Metalcraft", Val: activationConditionOKMetalcraft},
+	state.StrEntry[activationConditionOKCode]{Key: "Blessing", Val: activationConditionOKBlessing},
+	state.StrEntry[activationConditionOKCode]{Key: "Delirium", Val: activationConditionOKDelirium},
+)
+
+type abilityZoneOKCode uint16
+
+const (
+	abilityZoneOKBattlefield abilityZoneOKCode = iota + 1
+	abilityZoneOKGraveyard
+	abilityZoneOKHand
+	abilityZoneOKExile
+	abilityZoneOKStack
+)
+
+var abilityZoneOKCodes = state.NewStrCodes(
+	state.StrEntry[abilityZoneOKCode]{Key: "Battlefield", Val: abilityZoneOKBattlefield},
+	state.StrEntry[abilityZoneOKCode]{Key: "Graveyard", Val: abilityZoneOKGraveyard},
+	state.StrEntry[abilityZoneOKCode]{Key: "Hand", Val: abilityZoneOKHand},
+	state.StrEntry[abilityZoneOKCode]{Key: "Exile", Val: abilityZoneOKExile},
+	state.StrEntry[abilityZoneOKCode]{Key: "Stack", Val: abilityZoneOKStack},
 )

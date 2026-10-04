@@ -163,11 +163,10 @@ func sharesTypeArg(p string) (name, arg string, ok bool) {
 	if arg == "" || strings.ContainsAny(arg, ".+,!") {
 		return "", "", false
 	}
-	switch arg {
-	case "RememberedCard", "Remembered", "RememberedLKI", "TriggeredCard",
-		"TriggeredCardLKICopy", "Targeted", "Self", "Commander", "Convoked":
+	switch sharesTypeArgCodes.Code(string(arg)) {
+	case sharesTypeArgRememberedCard:
 		return name, arg, true
-	case "Imprinted":
+	case sharesTypeArgImprinted:
 		// Forge special-cases only sharesCardTypeWith Imprinted (Semblance
 		// Anvil); the other family members resolve Imprinted through
 		// getDefinedCards, which this referent answers the same way.
@@ -226,8 +225,8 @@ func SpecUsesConvokedReferent(spec string) bool {
 // other referent.
 func sharesTypeReferents(g *state.Game, sc SpecContext, ref string) []state.Target {
 	var ts []state.Target
-	switch ref {
-	case "Convoked":
+	switch sharesTypeReferentsCodes.Code(string(ref)) {
+	case sharesTypeReferentsConvoked:
 		// CR 702.66's "each creature that convoked it" (Everything Comes to
 		// Dust's `Creature.!sharesCreatureTypeWith Convoked`): the creatures
 		// the caster tapped to help pay for the resolving spell's cast,
@@ -245,7 +244,7 @@ func sharesTypeReferents(g *state.Game, sc SpecContext, ref string) []state.Targ
 				}
 			}
 		}
-	case "Commander":
+	case sharesTypeReferentsCommander:
 		// Forge's Commander referent: the resolving source's CONTROLLER's
 		// commanders (Path of Ancestry's "a creature spell that shares a
 		// creature type with your commander" -- the one corpus carrier). The
@@ -264,30 +263,30 @@ func sharesTypeReferents(g *state.Game, sc SpecContext, ref string) []state.Targ
 				ts = append(ts, state.Target{Obj: c})
 			}
 		}
-	case "RememberedCard":
+	case sharesTypeReferentsRememberedCard:
 		for _, t := range sc.Remembered {
 			if !t.IsPlayer {
 				ts = append(ts, t)
 				break // the FIRST card entry, per Forge's RememberedCard
 			}
 		}
-	case "Remembered", "RememberedLKI":
+	case sharesTypeReferentsRemembered:
 		for _, t := range sc.Remembered {
 			if !t.IsPlayer {
 				ts = append(ts, t)
 			}
 		}
-	case "TriggeredCard", "TriggeredCardLKICopy":
+	case sharesTypeReferentsTriggeredCard:
 		if sc.TriggerCard != 0 {
 			ts = append(ts, state.Target{Obj: sc.TriggerCard})
 		}
-	case "Targeted":
+	case sharesTypeReferentsTargeted:
 		ts, _ = sc.TargetBinding()
-	case "Self":
+	case sharesTypeReferentsSelf:
 		if sc.Source != 0 {
 			ts = append(ts, state.Target{Obj: sc.Source})
 		}
-	case "Imprinted":
+	case sharesTypeReferentsImprinted:
 		// The SOURCE's live imprint association -- the same pile Defined$
 		// Imprinted resolves (imprintPileTargets: an exiled card only while
 		// it stays in exile, CR 607.2a). Forge reads the FIRST imprinted card
@@ -568,8 +567,8 @@ func objectIsAttached(g *state.Game, o *state.Object) bool {
 // token (including a nested predicate or an unrecognised referent) is
 // rejected so the classifier and UnknownPredicates stay in agreement.
 func attachedToReferent(ref string) (string, bool) {
-	switch ref {
-	case "Targeted", "ParentTarget", "TriggeredCardLKICopy", "TriggeredAttackerLKICopy":
+	switch attachedToReferentCodes.Code(string(ref)) {
+	case attachedToReferentTargeted:
 		return ref, true
 	}
 	return "", false
@@ -588,8 +587,7 @@ func attachedToReferent(ref string) (string, bool) {
 // predicate, an unrecognised role) is rejected so the classifier and
 // UnknownPredicates stay in agreement.
 func attachedToPlayerReferent(ref string) (string, bool) {
-	switch ref {
-	case "You":
+	if ref == "You" {
 		return ref, true
 	}
 	return "", false
@@ -605,11 +603,8 @@ func attachedToReferentPlayer(g *state.Game, sc SpecContext, ref string) (state.
 	if g == nil {
 		return 0, false
 	}
-	switch ref {
-	case "You":
-		if int(sc.You) >= 0 && int(sc.You) < len(g.Players) {
-			return sc.You, true
-		}
+	if ref == "You" && int(sc.You) >= 0 && int(sc.You) < len(g.Players) {
+		return sc.You, true
 	}
 	return 0, false
 }
@@ -639,8 +634,8 @@ func attachedToReferentObjects(g *state.Game, sc SpecContext, ref string) ([]sta
 	if g == nil {
 		return nil, false
 	}
-	switch ref {
-	case "Targeted", "ParentTarget":
+	switch attachedToReferentObjectsCodes.Code(string(ref)) {
+	case attachedToReferentObjectsTargeted:
 		// Resolution-only, exactly like the Targeted*/NotDefinedTargeted
 		// families: SpecContext has ResolutionTargets set only by a
 		// resolving context (effects.Ctx.SpecContext or a legality recheck),
@@ -669,7 +664,7 @@ func attachedToReferentObjects(g *state.Game, sc SpecContext, ref string) ([]sta
 			return nil, false
 		}
 		return out, true
-	case "TriggeredCardLKICopy", "TriggeredAttackerLKICopy":
+	case attachedToReferentObjectsTriggeredCardLKICopy:
 		// The Remembered set the trigger captured, the same read the
 		// Defined$ selector of the same name makes (effects/context.go). No
 		// remembered OBJECT means the trigger bound nothing: fail closed.
@@ -729,8 +724,8 @@ func attachedToArg(p string) (string, bool) {
 		if qual != "YouCtrl" {
 			return "", false
 		}
-		switch class {
-		case "Card", "Permanent", "Spell":
+		switch attachedToClassCodes.Code(string(class)) {
+		case attachedToClassCard:
 		default:
 			if !predicateTypeWords[class] {
 				return "", false
@@ -749,8 +744,8 @@ func attachedToArg(p string) (string, bool) {
 	if _, ok := attachedToReferent(arg); ok {
 		return arg, true
 	}
-	switch arg {
-	case "Card", "Permanent", "Spell":
+	switch attachedToArgCodes.Code(string(arg)) {
+	case attachedToArgCard:
 		return arg, true
 	}
 	// The player-referent family `AttachedTo You` (Witchbane Orb, Lynde): a
@@ -801,15 +796,15 @@ func enchantedByArg(p string) (string, bool) {
 	if !hasDot || typ == "" || qual == "" || strings.Contains(qual, ".") {
 		return "", false
 	}
-	switch typ {
-	case "Card", "Permanent", "Spell":
+	switch enchantedByTypeCodes.Code(string(typ)) {
+	case enchantedByTypeCard:
 	default:
 		if !predicateTypeWords[typ] {
 			return "", false
 		}
 	}
-	switch qual {
-	case "Other", "YouCtrl":
+	switch enchantedByQualCodes.Code(string(qual)) {
+	case enchantedByQualOther:
 	default:
 		return "", false
 	}
@@ -839,3 +834,123 @@ func hasAttachmentMatching(g *state.Game, id state.ObjID, sc SpecContext, typ st
 	}
 	return false
 }
+
+type sharesTypeArgCode uint16
+
+const (
+	sharesTypeArgRememberedCard sharesTypeArgCode = iota + 1
+	sharesTypeArgImprinted
+)
+
+var sharesTypeArgCodes = state.NewStrCodes(
+	state.StrEntry[sharesTypeArgCode]{Key: "RememberedCard", Val: sharesTypeArgRememberedCard},
+	state.StrEntry[sharesTypeArgCode]{Key: "Remembered", Val: sharesTypeArgRememberedCard},
+	state.StrEntry[sharesTypeArgCode]{Key: "RememberedLKI", Val: sharesTypeArgRememberedCard},
+	state.StrEntry[sharesTypeArgCode]{Key: "TriggeredCard", Val: sharesTypeArgRememberedCard},
+	state.StrEntry[sharesTypeArgCode]{Key: "TriggeredCardLKICopy", Val: sharesTypeArgRememberedCard},
+	state.StrEntry[sharesTypeArgCode]{Key: "Targeted", Val: sharesTypeArgRememberedCard},
+	state.StrEntry[sharesTypeArgCode]{Key: "Self", Val: sharesTypeArgRememberedCard},
+	state.StrEntry[sharesTypeArgCode]{Key: "Commander", Val: sharesTypeArgRememberedCard},
+	state.StrEntry[sharesTypeArgCode]{Key: "Convoked", Val: sharesTypeArgRememberedCard},
+	state.StrEntry[sharesTypeArgCode]{Key: "Imprinted", Val: sharesTypeArgImprinted},
+)
+
+type sharesTypeReferentsCode uint16
+
+const (
+	sharesTypeReferentsConvoked sharesTypeReferentsCode = iota + 1
+	sharesTypeReferentsCommander
+	sharesTypeReferentsRememberedCard
+	sharesTypeReferentsRemembered
+	sharesTypeReferentsTriggeredCard
+	sharesTypeReferentsTargeted
+	sharesTypeReferentsSelf
+	sharesTypeReferentsImprinted
+)
+
+var sharesTypeReferentsCodes = state.NewStrCodes(
+	state.StrEntry[sharesTypeReferentsCode]{Key: "Convoked", Val: sharesTypeReferentsConvoked},
+	state.StrEntry[sharesTypeReferentsCode]{Key: "Commander", Val: sharesTypeReferentsCommander},
+	state.StrEntry[sharesTypeReferentsCode]{Key: "RememberedCard", Val: sharesTypeReferentsRememberedCard},
+	state.StrEntry[sharesTypeReferentsCode]{Key: "Remembered", Val: sharesTypeReferentsRemembered},
+	state.StrEntry[sharesTypeReferentsCode]{Key: "RememberedLKI", Val: sharesTypeReferentsRemembered},
+	state.StrEntry[sharesTypeReferentsCode]{Key: "TriggeredCard", Val: sharesTypeReferentsTriggeredCard},
+	state.StrEntry[sharesTypeReferentsCode]{Key: "TriggeredCardLKICopy", Val: sharesTypeReferentsTriggeredCard},
+	state.StrEntry[sharesTypeReferentsCode]{Key: "Targeted", Val: sharesTypeReferentsTargeted},
+	state.StrEntry[sharesTypeReferentsCode]{Key: "Self", Val: sharesTypeReferentsSelf},
+	state.StrEntry[sharesTypeReferentsCode]{Key: "Imprinted", Val: sharesTypeReferentsImprinted},
+)
+
+type attachedToReferentCode uint16
+
+const (
+	attachedToReferentTargeted attachedToReferentCode = iota + 1
+)
+
+var attachedToReferentCodes = state.NewStrCodes(
+	state.StrEntry[attachedToReferentCode]{Key: "Targeted", Val: attachedToReferentTargeted},
+	state.StrEntry[attachedToReferentCode]{Key: "ParentTarget", Val: attachedToReferentTargeted},
+	state.StrEntry[attachedToReferentCode]{Key: "TriggeredCardLKICopy", Val: attachedToReferentTargeted},
+	state.StrEntry[attachedToReferentCode]{Key: "TriggeredAttackerLKICopy", Val: attachedToReferentTargeted},
+)
+
+type attachedToReferentObjectsCode uint16
+
+const (
+	attachedToReferentObjectsTargeted attachedToReferentObjectsCode = iota + 1
+	attachedToReferentObjectsTriggeredCardLKICopy
+)
+
+var attachedToReferentObjectsCodes = state.NewStrCodes(
+	state.StrEntry[attachedToReferentObjectsCode]{Key: "Targeted", Val: attachedToReferentObjectsTargeted},
+	state.StrEntry[attachedToReferentObjectsCode]{Key: "ParentTarget", Val: attachedToReferentObjectsTargeted},
+	state.StrEntry[attachedToReferentObjectsCode]{Key: "TriggeredCardLKICopy", Val: attachedToReferentObjectsTriggeredCardLKICopy},
+	state.StrEntry[attachedToReferentObjectsCode]{Key: "TriggeredAttackerLKICopy", Val: attachedToReferentObjectsTriggeredCardLKICopy},
+)
+
+type attachedToClassCode uint16
+
+const (
+	attachedToClassCard attachedToClassCode = iota + 1
+)
+
+var attachedToClassCodes = state.NewStrCodes(
+	state.StrEntry[attachedToClassCode]{Key: "Card", Val: attachedToClassCard},
+	state.StrEntry[attachedToClassCode]{Key: "Permanent", Val: attachedToClassCard},
+	state.StrEntry[attachedToClassCode]{Key: "Spell", Val: attachedToClassCard},
+)
+
+type attachedToArgCode uint16
+
+const (
+	attachedToArgCard attachedToArgCode = iota + 1
+)
+
+var attachedToArgCodes = state.NewStrCodes(
+	state.StrEntry[attachedToArgCode]{Key: "Card", Val: attachedToArgCard},
+	state.StrEntry[attachedToArgCode]{Key: "Permanent", Val: attachedToArgCard},
+	state.StrEntry[attachedToArgCode]{Key: "Spell", Val: attachedToArgCard},
+)
+
+type enchantedByTypeCode uint16
+
+const (
+	enchantedByTypeCard enchantedByTypeCode = iota + 1
+)
+
+var enchantedByTypeCodes = state.NewStrCodes(
+	state.StrEntry[enchantedByTypeCode]{Key: "Card", Val: enchantedByTypeCard},
+	state.StrEntry[enchantedByTypeCode]{Key: "Permanent", Val: enchantedByTypeCard},
+	state.StrEntry[enchantedByTypeCode]{Key: "Spell", Val: enchantedByTypeCard},
+)
+
+type enchantedByQualCode uint16
+
+const (
+	enchantedByQualOther enchantedByQualCode = iota + 1
+)
+
+var enchantedByQualCodes = state.NewStrCodes(
+	state.StrEntry[enchantedByQualCode]{Key: "Other", Val: enchantedByQualOther},
+	state.StrEntry[enchantedByQualCode]{Key: "YouCtrl", Val: enchantedByQualOther},
+)

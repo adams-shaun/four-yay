@@ -29,7 +29,7 @@ import (
 // to OptionalNoDestination$ when the SA carries one, else the found card
 // JOINS the revealed pile (the corpus oracles all say "then put all cards
 // revealed this way that weren't put onto the battlefield on the bottom":
-// Genesis Storm, Hei Bai, Aurora Awakener). A no-host (AskNoHost) declines
+// Genesis Storm, Hei Bai, Aurora Awakener). No answer declines
 // deterministically (R-9); botpolicy's clamp fallback answers option 0 =
 // "yes". RevealRandomOrder$ True (54 corpus lines) shuffles the pile's
 // RETURN order to the bottom of the library through the engine's seeded
@@ -134,32 +134,20 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 	noneFoundSet := dp.NoneFoundSet
 	noneFoundDest := dp.NoneFoundDest
 	noneFoundPos := dp.NoneFoundPos
-	// fx42 scoping: capture and clear the answered found-move election BEFORE
-	// the target loop, so a nested DigUntil in the same chain poses its own
-	// ask instead of inheriting the answer. moveDone also suppresses the
-	// re-emit of the reveal Note (recorded before the first-pass ask) and of
-	// the withheld-params Note.
-	moveAns := string("")
-
-	moveDone := moveAns != ""
-	auraBearer := state.ObjID(0)
-
-	auraDone := false
-
-	if moveAns == "" {
-		moveAns = "no"
-	}
+	// The found-move election: asked once (for the first player whose walk
+	// reaches it) and then governing every later player's walk; moveDone
+	// also suppresses the reveal Note of every player after that ask.
+	moveAns := "no"
+	moveDone := false
 	g := h.Game()
-	if !moveDone && !auraDone {
-		noteUnreadParams(h, c, "DigUntil", dp.Unread)
-		if amountWithheld != "" {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-				Text: "DigUntil withholds " + amountWithheld + "; the core move runs without it"})
-		}
-		for _, param := range dp.Withheld {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-				Text: "DigUntil withholds " + param + "; the core move runs without it"})
-		}
+	noteUnreadParams(h, c, "DigUntil", dp.Unread)
+	if amountWithheld != "" {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "DigUntil withholds " + amountWithheld + "; the core move runs without it"})
+	}
+	for _, param := range dp.Withheld {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "DigUntil withholds " + param + "; the core move runs without it"})
 	}
 	targets := DefinedRef(h, c, dp.Defined, sa)
 	if dp.Defined.Raw == "" && !TargetsOf(sa).Targeted() {
@@ -185,9 +173,7 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 	rider := classifyAttackingEntry(c, sa, state.ZBattlefield)
 	players := playerIDsFromTargets(h, c, dp.Defined.Raw, targets)
 	selection := *c // Valid$ Card.IsRemembered uses the pre-clear set.
-	// A DigUntil re-runs its scan filter on the answered re-entry too (the
-	// found-move election answers mid-walk), so the snapshot arms for any
-	// player count, a single library's re-scan included.
+	// The snapshot arms for any player count, a single library included.
 	initForgetOtherSnapshot(h, c, sa, players, 1)
 	forgetOtherRemembered(h, c, sa)
 	// RememberFound$ replaces the resolution's Remembered set with found
@@ -216,9 +202,9 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 		// The reveal is PUBLIC (the same non-Secret ids-Note effDig's Reveal$
-		// arm emits), recorded before the ask, once per resolution -- a
-		// re-entry after the optional-move answer must not reveal again.
-		if !moveDone && !auraDone && len(revealed) > 0 {
+		// arm emits), recorded before the ask; it is not emitted once the
+		// found-move election has been answered.
+		if !moveDone && len(revealed) > 0 {
 			h.Emit(events.Event{Kind: events.Note, Player: p, IDs: revealed})
 		}
 		if optionalMove && !moveDone {
@@ -226,36 +212,24 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 			d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 				Source:     c.Source,
 				ResumeKind: "diguntil_move", ResumeSA: sa,
-				// The ForgetOtherRemembered$ pre-clear snapshot rides the ask:
-				// the answered re-entry re-runs the scan filter against the
-				// pre-clear candidates after the clear.
-				ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
-				ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
-				ResumeForgetOtherReady:    c.ForgetOtherReady,
-				ResumeForgetOtherCleared:  c.ForgetOtherCleared,
-				Prompt:                    "Put the revealed matching card(s) onto " + verb + "?",
+				Prompt: "Put the revealed matching card(s) onto " + verb + "?",
 				Options: []decision.Option{
 					{Index: 0, Kind: "yes", Label: "Yes — put into " + verb, Player: p},
 					{Index: 1, Kind: "no", Label: "No", Player: p},
 				}}
 			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand (the
-				// "diguntil_move" arm's DigUntilMove): it governs this walk
-				// from here on, exactly as on the re-entry.
+				// The answer governs this walk from here on.
 				moveDone = true
 				moveAns = "no"
 				if answerYes(ans) {
 					moveAns = "yes"
 				}
 			} else {
-				_ = Ask(h, d)
-
-				// Fuzz/no-engine host: the deterministic decline (R-9) — the
-				// found card(s) join the decline destination.
+				// No answer: the deterministic decline (R-9) — the found
+				// card(s) join the decline destination.
 				moveDone = true
 				moveAns = "no"
 			}
-
 		}
 		switch {
 		case rememberRevealed:
@@ -307,11 +281,6 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 					if isAuraFace {
 						bearers, _ := auraEntryBearers(g, id, p)
 						switch {
-						case auraDone:
-							// The answered bearer is revalidated against the
-							// current battlefield before it is used.
-							bearer = auraAnsweredBearer(bearers, auraBearer)
-							auraDone = false
 						case len(bearers) == 0:
 							bearer = 0
 						case len(bearers) == 1:
@@ -319,32 +288,23 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 						default:
 							d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 								Source: c.Source, ResumeKind: "diguntil_aura", ResumeSA: sa,
-								ResumeDigUntilMove:        digUntilMoveRider(moveAns, moveDone),
-								ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
-								ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
-								ResumeForgetOtherReady:    c.ForgetOtherReady,
-								ResumeForgetOtherCleared:  c.ForgetOtherCleared,
-								Prompt:                    "Choose a permanent for the revealed Aura to enchant"}
+								Prompt: "Choose a permanent for the revealed Aura to enchant"}
 							for i, candidate := range bearers {
 								d.Options = append(d.Options, decision.Option{Index: i, Kind: "card", Obj: candidate, Player: p})
 							}
 							if ans, ok := AskTape(h, d); ok {
-								// The resolution kernel's answer in hand (the
-								// "diguntil_aura" arm's bearer), revalidated
-								// as the re-entry revalidates it.
+								// The answered bearer, revalidated against
+								// the current battlefield.
 								answered := state.ObjID(0)
 								if len(ans) > 0 {
 									answered = ans[0].Obj
 								}
 								bearer = auraAnsweredBearer(bearers, answered)
 							} else {
-								_ = Ask(h, d)
-
 								// R-9: a host without an answer takes the
 								// deterministic first candidate.
 								bearer = bearers[0]
 							}
-
 						}
 					}
 					if isAuraFace && bearer == 0 {
@@ -483,8 +443,7 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 			h.Emit(events.Event{Kind: events.Shuffle, Player: p, IDs: order, Secret: true})
 		}
 		// ImprintFound$/ImprintRevealed$ (Forge's addImprintedLists) are
-		// accumulated across the player walk and emitted once after it, so a
-		// suspension re-entry cannot double-record them.
+		// accumulated across the player walk and emitted once after it.
 		if imprintFound && len(found) > 0 {
 			imprintObjs = append(imprintObjs, found...)
 		}
@@ -510,21 +469,9 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 	}
 }
 
-// digUntilMoveRider is the OptionalFoundMove$ answer an Aura-bearer ask
-// carries across its suspension: the answer once the election is made, ""
-// before it (the re-entry reads a non-empty Ctx.DigUntilMove as answered).
-func digUntilMoveRider(moveAns string, moveDone bool) string {
-	if !moveDone {
-		return ""
-	}
-	return moveAns
-}
-
 // auraAnsweredBearer revalidates an answered DigUntil Aura bearer against the
 // current eligible bearers: the answer if it is still one of them, else 0
-// (no bearer -- the Aura stays in the library). The one home of the
-// "diguntil_aura" answer, shared by the re-entry and the resolution kernel's
-// tape answer.
+// (no bearer -- the Aura stays in the library).
 func auraAnsweredBearer(bearers []state.ObjID, answered state.ObjID) state.ObjID {
 	for _, candidate := range bearers {
 		if candidate == answered {

@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -92,7 +93,7 @@ func (e *Engine) unlessManaReachable(p state.PlayerID, cost Cost, pool, snow sta
 func (e *Engine) manaReachable(p state.PlayerID, cost Cost, pool, snow state.Mana, typed [7]state.Mana, life int32, rider pipRider, conv *manaConv, units []windowManaUnit) bool {
 	payable := func(pool state.Mana, lifeNow int32) bool {
 		_, ok := resolveManaWith(cost, pool, snow, typed, lifeNow,
-			e.payerGrantsPayLifeInsteadOfB(p), rider, conv)
+			asPayer(e).PayLifeInsteadOfB(p), rider, conv)
 
 		return ok
 	}
@@ -106,7 +107,7 @@ func (e *Engine) manaReachable(p state.PlayerID, cost Cost, pool, snow state.Man
 	nodes := 0
 	var rec func(start, remaining int, acc state.Mana, lifeLeft int32) bool
 	rec = func(start, remaining int, acc state.Mana, lifeLeft int32) bool {
-		if payable(manaAdd(pool, acc), lifeLeft) {
+		if payable(pay.ManaAdd(pool, acc), lifeLeft) {
 			return true
 		}
 		if remaining <= 0 {
@@ -117,15 +118,15 @@ func (e *Engine) manaReachable(p state.PlayerID, cost Cost, pool, snow state.Man
 			return false
 		}
 		for i := start; i < len(units); i++ {
-			for _, a := range units[i].alts {
+			for _, a := range units[i].Alts {
 				// A PayLife activation spends real life: it must be
 				// present before the tap and is gone for the priced cost
 				// afterwards. Every shared-window alt carries life 0, so
 				// this is inert for the attack and unless windows.
-				if a.life > lifeLeft {
+				if a.Life > lifeLeft {
 					continue
 				}
-				if rec(i+1, remaining-1, manaAdd(acc, a.mana()), lifeLeft-a.life) {
+				if rec(i+1, remaining-1, pay.ManaAdd(acc, a.Mana()), lifeLeft-a.Life) {
 					return true
 				}
 			}
@@ -191,8 +192,8 @@ func (e *Engine) unlessCostPayable(p state.PlayerID, raw string, ctx *effects.Ct
 		return false
 	}
 	player := e.G.Players[p]
-	d := paymentDescriptor{id: stackObj, class: paymentOther, cost: &cost}
-	if e.costPayableClass(p, d, pipRider{}, cost) {
+	d := paymentDescriptor{ID: stackObj, Class: paymentOther, Cost: &cost}
+	if pay.CostPayableClass(asPayer(e), p, d, pipRider{}, cost) {
 		return true
 	}
 	if !cost.HasManaPayment() {
@@ -204,7 +205,7 @@ func (e *Engine) unlessCostPayable(p state.PlayerID, raw string, ctx *effects.Ct
 		return true
 	}
 	return e.unlessManaReachable(p, cost, player.Pool, player.Snow, player.ManaUnits(), player.Life,
-		e.paymentConv(p, stackObj, false), e.windowManaUnits(p))
+		asPayer(e).Conv(p, stackObj, false), e.windowManaUnits(p))
 }
 
 // unlessFoldDynamic folds the unless cost's DYNAMIC life tokens to concrete
@@ -447,18 +448,18 @@ func (e *Engine) advanceUnlessPayment() {
 	// declining: the payer taps until the pool covers the charge, then the
 	// ordinary path below pays it. The window is only opened while a source
 	// remains that the budget counted.
-	d := paymentDescriptor{id: u.stackObj, class: paymentOther, cost: &u.cost}
+	d := paymentDescriptor{ID: u.stackObj, Class: paymentOther, Cost: &u.cost}
 	// Open the window only when the POOL ALONE cannot pay (lifeGrant false:
 	// a {B} pip K'rrik's grant could settle with 2 life must not close it)
 	// AND a window source remains. The ordinary grant-bearing check below is
 	// retained: when no source can help (or the payer answers Done with the
 	// pool already covering the charge) the granted life still pays it.
-	if !e.costPayableClassLife(u.payer, d, pipRider{}, u.cost, false) &&
+	if !pay.CostPayableClassLife(asPayer(e), u.payer, d, pipRider{}, u.cost, false) &&
 		u.cost.HasManaPayment() && len(e.windowManaUnits(u.payer)) > 0 {
 		e.askUnlessMana()
 		return
 	}
-	if !e.costPayableClass(u.payer, d, pipRider{}, u.cost) {
+	if !pay.CostPayableClass(asPayer(e), u.payer, d, pipRider{}, u.cost) {
 		e.finishUnlessPayment(false)
 		return
 	}
@@ -536,7 +537,7 @@ func (e *Engine) advanceUnlessPayment() {
 		}
 		drawers[i] = players
 	}
-	if !e.payManaConv(u.payer, u.cost, e.paymentConv(u.payer, u.stackObj, false)) { // guarded above; retain totality if state changes.
+	if !pay.PayManaConv(asPayer(e), u.payer, u.cost, asPayer(e).Conv(u.payer, u.stackObj, false)) { // guarded above; retain totality if state changes.
 		e.finishUnlessPayment(false)
 		return
 	}
@@ -668,38 +669,22 @@ func (e *Engine) askUnlessMana() {
 			rest := make([]windowManaUnit, 0, len(units)-1)
 			rest = append(rest, units[:si]...)
 			rest = append(rest, units[si+1:]...)
-			for ai, a := range src.alts {
-				if safe != (e.unlessManaReachable(u.payer, u.cost, manaAdd(pool, a.mana()), snow, typed, life,
-					e.paymentConv(u.payer, u.stackObj, false), rest)) {
+			for ai, a := range src.Alts {
+				if safe != (e.unlessManaReachable(u.payer, u.cost, pay.ManaAdd(pool, a.Mana()), snow, typed, life,
+					asPayer(e).Conv(u.payer, u.stackObj, false), rest)) {
 					continue
 				}
 				name := "a mana source"
-				if o := e.G.Obj(src.id); o != nil && o.Face() != nil {
+				if o := e.G.Obj(src.ID); o != nil && o.Face() != nil {
 					name = o.Face().Name
 				}
 				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "activate",
-					Obj: src.id, Ability: ai, Label: "Tap " + name + manaAltLabel(a)})
+					Obj: src.ID, Ability: ai, Label: "Tap " + name + pay.AltLabel(a)})
 			}
 		}
 	}
 	d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "done", Label: "Done"})
 	windowAsk(e, d, chooseUnlessMana)
-}
-
-// manaAltLabel renders an alt's production as a short " for {U}{R}" suffix,
-// so a dual land's two abilities are distinguishable on the wire.
-func manaAltLabel(a windowManaAlt) string {
-	syms := "WUBRGC"
-	var b strings.Builder
-	for i, n := range a.counts {
-		for k := int32(0); k < n*a.amt; k++ {
-			b.WriteByte(syms[i])
-		}
-	}
-	if b.Len() == 0 {
-		return ""
-	}
-	return " for {" + strings.Join(strings.Split(b.String(), ""), "}{") + "}"
 }
 
 // answerUnlessMana applies one window answer. "Done" re-enters the ordinary
@@ -723,14 +708,14 @@ func (e *Engine) answerUnlessMana(chosen []decision.Option) {
 		return
 	}
 	for _, src := range e.windowManaUnits(u.payer) {
-		if src.id != chosen[0].Obj {
+		if src.ID != chosen[0].Obj {
 			continue
 		}
 		ai := chosen[0].Ability
-		if ai < 0 || ai >= len(src.alts) {
+		if ai < 0 || ai >= len(src.Alts) {
 			break
 		}
-		e.resolveManaAbility(u.payer, src.id, src.alts[ai].ma, false)
+		e.resolveManaAbility(u.payer, src.ID, src.Alts[ai].Ma, false)
 		if e.Pending() == nil {
 			e.advanceUnlessPayment()
 		}
@@ -831,16 +816,16 @@ func (e *Engine) unlessPaymentCandidates(u *unlessPayment, zone state.Zone, kind
 }
 
 func (e *Engine) recordUnlessPaymentPick(u *unlessPayment, kind string, ids []state.ObjID) {
-	switch kind {
-	case "sacrifice":
+	switch recordUnlessPaymentPickCodes.Code(string(kind)) {
+	case recordUnlessPaymentPickSacrifice:
 		u.sacs = append(u.sacs, ids...)
-	case "revealcost":
+	case recordUnlessPaymentPickRevealcost:
 		u.reveals = append(u.reveals, ids...)
-	case "beholdcost":
+	case recordUnlessPaymentPickBeholdcost:
 		u.beholds = append(u.beholds, ids...)
-	case "returncost":
+	case recordUnlessPaymentPickReturncost:
 		u.returns = append(u.returns, ids...)
-	case "exilecost":
+	case recordUnlessPaymentPickExilecost:
 		u.exiles = append(u.exiles, ids...)
 	default:
 		u.discards = append(u.discards, ids...)
@@ -958,3 +943,21 @@ func (e *Engine) finishUnlessPayment(paid bool) {
 	}
 	e.finishManaUnlessPayment(paid)
 }
+
+type recordUnlessPaymentPickCode uint16
+
+const (
+	recordUnlessPaymentPickSacrifice recordUnlessPaymentPickCode = iota + 1
+	recordUnlessPaymentPickRevealcost
+	recordUnlessPaymentPickBeholdcost
+	recordUnlessPaymentPickReturncost
+	recordUnlessPaymentPickExilecost
+)
+
+var recordUnlessPaymentPickCodes = state.NewStrCodes(
+	state.StrEntry[recordUnlessPaymentPickCode]{Key: "sacrifice", Val: recordUnlessPaymentPickSacrifice},
+	state.StrEntry[recordUnlessPaymentPickCode]{Key: "revealcost", Val: recordUnlessPaymentPickRevealcost},
+	state.StrEntry[recordUnlessPaymentPickCode]{Key: "beholdcost", Val: recordUnlessPaymentPickBeholdcost},
+	state.StrEntry[recordUnlessPaymentPickCode]{Key: "returncost", Val: recordUnlessPaymentPickReturncost},
+	state.StrEntry[recordUnlessPaymentPickCode]{Key: "exilecost", Val: recordUnlessPaymentPickExilecost},
+)

@@ -10,10 +10,9 @@ import (
 
 // The RearrangeTopOfLibrary primitive's MayShuffle$ read (task
 // inbox-paramcensus-final-stragglers, Ponder entry): after the KArrange is
-// applied, the arrange re-entry pass poses the may-shuffle ask; a "yes"
-// answer flows back through the arrange_mayshuffle resume arm, which emits
-// the Shuffle event and re-enters the effect, whose chained SubAbility$
-// (Ponder's draw) runs after the shuffle.
+// applied, the effect poses the may-shuffle ask; a "yes" answer
+// (arrange_mayshuffle, applied in place) emits the Shuffle event, and the
+// chained SubAbility$ (Ponder's draw) runs after the shuffle.
 
 // ponderSrc is Ponder's real script shape (the SP$ line verbatim).
 const ponderSrc = "Name:Ponder\nManaCost:U\nTypes:Sorcery\n" +
@@ -40,7 +39,7 @@ func TestPonderMayShuffleAsksAndShuffles(t *testing.T) {
 	}
 	submitChoices(t, e, 2, 0, 1) // pick all three, reversed order
 
-	// The may-shuffle ask on the arrange re-entry pass.
+	// The may-shuffle ask after the arrange.
 	sd := e.Pending()
 	if sd == nil || sd.Kind != decision.KChoose || sd.ResumeKind != "arrange_mayshuffle" {
 		t.Fatalf("expected the may-shuffle ask, got %+v", sd)

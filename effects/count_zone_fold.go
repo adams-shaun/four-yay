@@ -4,7 +4,6 @@ import (
 	"math/bits"
 	"strings"
 
-	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -21,7 +20,7 @@ func colourLetter(s string) byte {
 		}
 		return 0
 	}
-	if v, ok := colourLetterTab1.Get(s); ok {
+	if v, ok := colourLetterTab.Get(s); ok {
 		return v
 	}
 	return 0
@@ -102,20 +101,20 @@ func multiCountZones(head string) []state.Zone {
 }
 
 func countZone(head string) (state.Zone, bool) {
-	switch head {
-	case "Valid":
+	switch countZoneCodes.Code(string(head)) {
+	case countZoneValid:
 		return state.ZBattlefield, true
-	case "ValidHand":
+	case countZoneValidHand:
 		return state.ZHand, true
-	case "ValidGraveyard":
+	case countZoneValidGraveyard:
 		return state.ZGraveyard, true
-	case "ValidLibrary":
+	case countZoneValidLibrary:
 		return state.ZLibrary, true
-	case "ValidExile":
+	case countZoneValidExile:
 		return state.ZExile, true
-	case "ValidStack":
+	case countZoneValidStack:
 		return state.ZStack, true
-	case "ValidCommand":
+	case countZoneValidCommand:
 		return state.ZCommand, true
 	}
 	return 0, false
@@ -239,16 +238,16 @@ func (f *zoneCountFold) visit(id state.ObjID, zone state.Zone, specCtx SpecConte
 		f.n += o.Counter(kind)
 		return
 	}
-	switch f.prop {
-	case "CardPower":
+	switch zoneFoldPropCodes.Code(string(f.prop)) {
+	case zoneFoldPropCardPower:
 		dp, _ := o.CounterPTTotals()
 		f.n += int32(o.Face().Power()) + dp
-	case "CardToughness":
+	case zoneFoldPropCardToughness:
 		_, dt := o.CounterPTTotals()
 		f.n += int32(o.Face().Toughness()) + dt
-	case "CardManaCost":
+	case zoneFoldPropCardManaCost:
 		f.n += o.Face().Cmc()
-	case "CardTypes", "CardTypesPermanent":
+	case zoneFoldPropCardTypes:
 		vocab := cardTypeWords
 		if f.prop == "CardTypesPermanent" {
 			vocab = permanentTypeWords
@@ -258,13 +257,13 @@ func (f *zoneCountFold) visit(id state.ObjID, zone state.Zone, specCtx SpecConte
 				f.seenCardTypes[typ] = true
 			}
 		}
-	case "CreatureType":
+	case zoneFoldPropCreatureType:
 		for _, typ := range o.Face().Types {
 			if creatureSubtypeWords[typ] {
 				f.seenCreatureTypes[typ] = true
 			}
 		}
-	case "Colors":
+	case zoneFoldPropColors:
 		f.colorsSeen |= ColorMaskOf(o)
 	default:
 		// The Different* distinct-set properties (task diffcount1): each
@@ -301,7 +300,7 @@ var countAllZones = []state.Zone{
 // family -- is deliberately NOT admitted here and keeps the whole-token
 // fail-closed read.
 func isExtremeProperty(prop string) bool {
-	if v, ok := isExtremePropertyTab2.Get(prop); ok {
+	if v, ok := isExtremePropertyTab.Get(prop); ok {
 		return v
 	}
 	return false
@@ -338,7 +337,7 @@ const (
 // verdict from drifting apart. A spelling outside this set returns diffNone
 // and keeps the pre-existing behaviour.
 func differentPropertyKindOf(prop string) differentPropertyKind {
-	if v, ok := differentPropertyKindOfTab3.Get(prop); ok {
+	if v, ok := differentPropertyKindOfTab.Get(prop); ok {
 		return v
 	}
 	return diffNone
@@ -395,12 +394,12 @@ func isLeastProperty(prop string) bool {
 // An unrecognised extreme reads 0 -- but isExtremeProperty admitted it, so a
 // missing case here is a compile-time-visible oversight, not a silent one.
 func extremePropertyValue(h Host, o *state.Object, prop string) int32 {
-	switch prop {
-	case "GreatestCardPower", "LeastCardPower":
+	switch extremePropertyValueCodes.Code(string(prop)) {
+	case extremePropertyValueGreatestCardPower:
 		return h.Power(o.ID)
-	case "GreatestCardToughness":
+	case extremePropertyValueGreatestCardToughness:
 		return h.Toughness(o.ID)
-	case "GreatestCardManaCost":
+	case extremePropertyValueGreatestCardManaCost:
 		return o.Face().ManaValue()
 	}
 	return 0
@@ -467,25 +466,83 @@ func hasSubtype(o *state.Object, sub string) bool {
 	return false
 }
 
-var colourLetterTab1 = cards.NewStrTable[byte](
-	cards.StrEntry[byte]{Key: "WHITE", Val: 'W'},
-	cards.StrEntry[byte]{Key: "BLUE", Val: 'U'},
-	cards.StrEntry[byte]{Key: "BLACK", Val: 'B'},
-	cards.StrEntry[byte]{Key: "RED", Val: 'R'},
-	cards.StrEntry[byte]{Key: "GREEN", Val: 'G'},
+var colourLetterTab = state.NewStrTable[byte](
+	state.StrEntry[byte]{Key: "WHITE", Val: 'W'},
+	state.StrEntry[byte]{Key: "BLUE", Val: 'U'},
+	state.StrEntry[byte]{Key: "BLACK", Val: 'B'},
+	state.StrEntry[byte]{Key: "RED", Val: 'R'},
+	state.StrEntry[byte]{Key: "GREEN", Val: 'G'},
 )
 
-var isExtremePropertyTab2 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "GreatestCardPower", Val: true},
-	cards.StrEntry[bool]{Key: "GreatestCardToughness", Val: true},
-	cards.StrEntry[bool]{Key: "GreatestCardManaCost", Val: true},
-	cards.StrEntry[bool]{Key: "LeastCardPower", Val: true},
+var isExtremePropertyTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "GreatestCardPower", Val: true},
+	state.StrEntry[bool]{Key: "GreatestCardToughness", Val: true},
+	state.StrEntry[bool]{Key: "GreatestCardManaCost", Val: true},
+	state.StrEntry[bool]{Key: "LeastCardPower", Val: true},
 )
 
-var differentPropertyKindOfTab3 = cards.NewStrTable[differentPropertyKind](
-	cards.StrEntry[differentPropertyKind]{Key: "DifferentCardManaCost", Val: diffManaCost},
-	cards.StrEntry[differentPropertyKind]{Key: "DifferentCardPower", Val: diffPower},
-	cards.StrEntry[differentPropertyKind]{Key: "DifferentCardToughness", Val: diffToughness},
-	cards.StrEntry[differentPropertyKind]{Key: "DifferentCardNames", Val: diffName},
-	cards.StrEntry[differentPropertyKind]{Key: "DifferentColorPair", Val: diffColorPair},
+var differentPropertyKindOfTab = state.NewStrTable[differentPropertyKind](
+	state.StrEntry[differentPropertyKind]{Key: "DifferentCardManaCost", Val: diffManaCost},
+	state.StrEntry[differentPropertyKind]{Key: "DifferentCardPower", Val: diffPower},
+	state.StrEntry[differentPropertyKind]{Key: "DifferentCardToughness", Val: diffToughness},
+	state.StrEntry[differentPropertyKind]{Key: "DifferentCardNames", Val: diffName},
+	state.StrEntry[differentPropertyKind]{Key: "DifferentColorPair", Val: diffColorPair},
+)
+
+type countZoneCode uint16
+
+const (
+	countZoneValid countZoneCode = iota + 1
+	countZoneValidHand
+	countZoneValidGraveyard
+	countZoneValidLibrary
+	countZoneValidExile
+	countZoneValidStack
+	countZoneValidCommand
+)
+
+var countZoneCodes = state.NewStrCodes(
+	state.StrEntry[countZoneCode]{Key: "Valid", Val: countZoneValid},
+	state.StrEntry[countZoneCode]{Key: "ValidHand", Val: countZoneValidHand},
+	state.StrEntry[countZoneCode]{Key: "ValidGraveyard", Val: countZoneValidGraveyard},
+	state.StrEntry[countZoneCode]{Key: "ValidLibrary", Val: countZoneValidLibrary},
+	state.StrEntry[countZoneCode]{Key: "ValidExile", Val: countZoneValidExile},
+	state.StrEntry[countZoneCode]{Key: "ValidStack", Val: countZoneValidStack},
+	state.StrEntry[countZoneCode]{Key: "ValidCommand", Val: countZoneValidCommand},
+)
+
+type zoneFoldPropCode uint16
+
+const (
+	zoneFoldPropCardPower zoneFoldPropCode = iota + 1
+	zoneFoldPropCardToughness
+	zoneFoldPropCardManaCost
+	zoneFoldPropCardTypes
+	zoneFoldPropCreatureType
+	zoneFoldPropColors
+)
+
+var zoneFoldPropCodes = state.NewStrCodes(
+	state.StrEntry[zoneFoldPropCode]{Key: "CardPower", Val: zoneFoldPropCardPower},
+	state.StrEntry[zoneFoldPropCode]{Key: "CardToughness", Val: zoneFoldPropCardToughness},
+	state.StrEntry[zoneFoldPropCode]{Key: "CardManaCost", Val: zoneFoldPropCardManaCost},
+	state.StrEntry[zoneFoldPropCode]{Key: "CardTypes", Val: zoneFoldPropCardTypes},
+	state.StrEntry[zoneFoldPropCode]{Key: "CardTypesPermanent", Val: zoneFoldPropCardTypes},
+	state.StrEntry[zoneFoldPropCode]{Key: "CreatureType", Val: zoneFoldPropCreatureType},
+	state.StrEntry[zoneFoldPropCode]{Key: "Colors", Val: zoneFoldPropColors},
+)
+
+type extremePropertyValueCode uint16
+
+const (
+	extremePropertyValueGreatestCardPower extremePropertyValueCode = iota + 1
+	extremePropertyValueGreatestCardToughness
+	extremePropertyValueGreatestCardManaCost
+)
+
+var extremePropertyValueCodes = state.NewStrCodes(
+	state.StrEntry[extremePropertyValueCode]{Key: "GreatestCardPower", Val: extremePropertyValueGreatestCardPower},
+	state.StrEntry[extremePropertyValueCode]{Key: "LeastCardPower", Val: extremePropertyValueGreatestCardPower},
+	state.StrEntry[extremePropertyValueCode]{Key: "GreatestCardToughness", Val: extremePropertyValueGreatestCardToughness},
+	state.StrEntry[extremePropertyValueCode]{Key: "GreatestCardManaCost", Val: extremePropertyValueGreatestCardManaCost},
 )

@@ -212,23 +212,23 @@ func colorLetters(list string) ([]string, bool) {
 	ok := true
 	for entry := range strings.SplitSeq(list, ",") {
 		for word := range strings.SplitSeq(strings.TrimSpace(entry), " & ") {
-			switch strings.ToLower(strings.TrimSpace(word)) {
-			case "":
-			case "all":
+			switch colorLettersCodes.Code(string(strings.ToLower(strings.TrimSpace(word)))) {
+			case colorLettersEmpty:
+			case colorLettersAll:
 				set = [5]bool{true, true, true, true, true}
-			case "colorless":
+			case colorLettersColorless:
 				// The empty set; ok stays true. Whether that grant does anything
 				// (an overwrite to colourless) or nothing (an add of the empty
 				// set) is the CALLER's decision -- effAnimate notes the no-op arm.
-			case "white":
+			case colorLettersWhite:
 				set[0] = true
-			case "blue":
+			case colorLettersBlue:
 				set[1] = true
-			case "black":
+			case colorLettersBlack:
 				set[2] = true
-			case "red":
+			case colorLettersRed:
 				set[3] = true
-			case "green":
+			case colorLettersGreen:
 				set[4] = true
 			default:
 				ok = false
@@ -318,3 +318,27 @@ func colourMapPredicate(p string) bool {
 	_, is := colorLetter[p]
 	return is
 }
+
+type colorLettersCode uint16
+
+const (
+	colorLettersEmpty colorLettersCode = iota + 1
+	colorLettersAll
+	colorLettersColorless
+	colorLettersWhite
+	colorLettersBlue
+	colorLettersBlack
+	colorLettersRed
+	colorLettersGreen
+)
+
+var colorLettersCodes = state.NewStrCodes(
+	state.StrEntry[colorLettersCode]{Key: "", Val: colorLettersEmpty},
+	state.StrEntry[colorLettersCode]{Key: "all", Val: colorLettersAll},
+	state.StrEntry[colorLettersCode]{Key: "colorless", Val: colorLettersColorless},
+	state.StrEntry[colorLettersCode]{Key: "white", Val: colorLettersWhite},
+	state.StrEntry[colorLettersCode]{Key: "blue", Val: colorLettersBlue},
+	state.StrEntry[colorLettersCode]{Key: "black", Val: colorLettersBlack},
+	state.StrEntry[colorLettersCode]{Key: "red", Val: colorLettersRed},
+	state.StrEntry[colorLettersCode]{Key: "green", Val: colorLettersGreen},
+)

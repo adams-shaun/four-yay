@@ -404,9 +404,9 @@ func retainedDice(dice []int32, ignoreLower int32, useHighest bool) []int32 {
 //   - ChosenSVar$ / OtherSVar$ (5 corpus lines, the Endeavor cycle, all two
 //     dice): the controller CHOOSES one of the rolled results -- a real
 //     KChoose (Min == Max == 1, one "roll" option per die in roll order),
-//     answered through ResumeKind "roll" with the per-die results carried on
-//     the decision (decision.Decision.Rolls) and the rules resume point, so
-//     the re-entry publishes ChosenSVar$ = the picked die's result and
+//     answered in place (ResumeKind "roll") with the per-die results carried
+//     on the decision (decision.Decision.Rolls), publishing ChosenSVar$ = the
+//     picked die's result and
 //     OtherSVar$ = the unpicked one's (sums, so the shape generalises past
 //     two dice) without re-rolling. A host that cannot ask (the fuzz
 //     stand-in, R-9) and botpolicy's clamp fallback both keep the FIRST die
@@ -430,15 +430,6 @@ func retainedDice(dice []int32, ignoreLower int32, useHighest bool) []int32 {
 // of Inspiration's X); the modified result is what ranges match and what
 // every publication totals. The unmodified die remains the only random draw.
 func effRollDice(h Host, c *Ctx, sa *cards.SA) {
-	// fx42 scoping: capture and clear the answered choose-one-result BEFORE
-	// anything else, so a nested RollDice below this walk poses its own ask
-	// instead of inheriting the outer answer.
-	rolls := ([]int32)(nil)
-
-	pick := ([]int)(nil)
-
-	done := false
-
 	sides := Num(h, c, sa, "Sides", 6)
 	if sides <= 0 {
 		sides = 6
@@ -456,10 +447,8 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 	// discipline -- never logged), and a matching replacement rewrites the
 	// dice count and the ignored-low count in place. The proposal seeds the
 	// ignored-low base with THIS body's own IgnoreLower$, so a replacement's
-	// ReplaceCount$Ignore/Plus.1 is one ADDITIONAL low result; nested and
-	// resumed resolutions never see the rewrite again, because the done
-	// re-entry above returns before this line and every roll body seeds its
-	// own fresh proposal.
+	// ReplaceCount$Ignore/Plus.1 is one ADDITIONAL low result; every roll
+	// body seeds its own fresh proposal.
 	amount, ignoreLower = h.RollDiceProposed(c.Controller, c.Source, amount, ignoreLower)
 	modifier := Num(h, c, sa, "Modifier", 0)
 	chosenName := strings.TrimSpace(sa.ParamStr(cards.PKChosenSVar))
@@ -470,15 +459,13 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 		if name == "" {
 			return
 		}
-		c.RollPubs = append(c.RollPubs, RollPub{Name: name, Value: v})
+		c.Roll.Pubs = append(c.Roll.Pubs, RollPub{Name: name, Value: v})
 		if name == "X" {
 			c.X = v
 		}
 	}
 
-	// publishChosen publishes an answered choose-one-result (the legacy
-	// re-entry and the resolution kernel's tape-served answer share it).
-	// The chosen options' Index values name the dice (into rolls, the
+	// publishChosen publishes an answered choose-one-result. The chosen options' Index values name the dice (into rolls, the
 	// per-die results the asking pass carried on the decision) the player
 	// picked; the chosen value is the sum of the picked dice's results, the
 	// other value the sum of the rest -- for the corpus's two-die Endeavor
@@ -514,16 +501,10 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 		publish(chosenName, chosenSum)
 		publish(otherName, otherSum)
 		if chosenName != "" {
-			c.LastRoll, c.LastRollName = chosenSum, chosenName
+			c.Roll.Last, c.Roll.LastName = chosenSum, chosenName
 		}
 	}
-	if done {
-		// Re-entry: the choose-one-result answer arrived.
-		publishChosen(rolls, pick)
-		return
-	}
-
-	// First pass: roll the dice.
+	// Roll the dice.
 	dice := make([]int32, 0, amount)
 	ranges := parseDieRanges(sa.ParamStr(cards.PKResultSubAbilities))
 	for i := int32(0); i < amount; i++ {
@@ -539,9 +520,7 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 	// or higher"). Emitted after every per-die Note and before
 	// ResultSubAbilities$/the chosen-result ask, so a Once trigger queues at
 	// the roll and resolves after the whole action, exactly as the per-die mode
-	// does. A `done` re-entry (the choose-one-result answer) returns above and
-	// never reaches here, so a suspended roll does not emit a second batch
-	// Note.
+	// does.
 	batchMax := dice[0]
 	for _, r := range dice[1:] {
 		if r > batchMax {
@@ -610,7 +589,7 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 	}
 	resultName := strings.TrimSpace(sa.ParamStr(cards.PKResultSVar))
 	if resultName != "" {
-		c.LastRoll, c.LastRollName = pub, resultName
+		c.Roll.Last, c.Roll.LastName = pub, resultName
 		publish(resultName, pub)
 	}
 	// MaxRollsResults$ / EvenOddResults$ (Luck Bobblehead): the counts a
@@ -641,8 +620,8 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 	// The choose-one-result ask (ChosenSVar$/OtherSVar$, the Endeavor
 	// cycle): one die of the rolled set becomes the chosen result, the rest
 	// the other. Exactly one die is chosen (Min == Max == 1), one "roll"
-	// option per die in roll order, answered through ResumeKind "roll" with
-	// the per-die results carried on the decision for the resume.
+	// option per die in roll order, answered in place (ResumeKind "roll")
+	// with the per-die results carried on the decision.
 	if chosenName != "" && len(retained) > 1 {
 		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose,
 			Min:        1,
@@ -658,17 +637,13 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 				Player: c.Controller})
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The "roll" answer in hand: the picked dice by option Index,
-			// published as the re-entry publishes them.
+			// The "roll" answer in hand: the picked dice by option Index.
 			pick := make([]int, 0, len(ans))
 			for _, o := range ans {
 				pick = append(pick, o.Index)
 			}
 			publishChosen(d.Rolls, pick)
 			return
-		}
-		if h.Ask(d) {
-			return // resolution suspended; the answer re-enters with Ctx.RollResults/RollPick set.
 		}
 		// Fuzz/no-engine host (R-9): the deterministic stand-in keeps the
 		// first die -- the exact option botpolicy's clamp fallback takes.
@@ -680,14 +655,14 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 		}
 		publish(chosenName, retained[0])
 		publish(otherName, other)
-		c.LastRoll, c.LastRollName = retained[0], chosenName
+		c.Roll.Last, c.Roll.LastName = retained[0], chosenName
 		return
 	}
 	if chosenName != "" && len(retained) == 1 {
 		// A single-die choose is vacuous: that die is the chosen result; the
 		// other value has no die to name and publishes nothing.
 		publish(chosenName, retained[0])
-		c.LastRoll, c.LastRollName = retained[0], chosenName
+		c.Roll.Last, c.Roll.LastName = retained[0], chosenName
 	}
 }
 
@@ -733,8 +708,8 @@ func runtimePublished(c *Ctx, name string) (int32, bool) {
 	if v, ok := runtimeSVar(c, name); ok {
 		return v, true
 	}
-	if c.VotePublishedSet && name == "Votes" {
-		return c.VotePublished, true
+	if c.Vote.PublishedSet && name == "Votes" {
+		return c.Vote.Published, true
 	}
 	// A DB$ FlipCoin's per-flip Wins/Losses SVars (Forge's FlipCoinEffect: 1
 	// to the side the current flip landed on, 0 to the other), read back by a
@@ -742,17 +717,17 @@ func runtimePublished(c *Ctx, name string) (int32, bool) {
 	// Firecat's CounterNum$ Wins, Mirror March's NumCopies$ Wins, Mutalith's
 	// NumCards$ Wins) and Yusri's SVar$Losses body.
 	if c.FlipMemory != nil && c.FlipMemory.Set {
-		switch name {
-		case "Wins":
+		switch diceRuntimePublishCodes.Code(string(name)) {
+		case diceRuntimePublishWins:
 			return c.FlipMemory.CurWin, true
-		case "Losses":
+		case diceRuntimePublishLosses:
 			return c.FlipMemory.CurLoss, true
 		}
 	}
-	if c.LastRollName != "" && c.LastRollName == name {
-		return c.LastRoll, true
+	if c.Roll.LastName != "" && c.Roll.LastName == name {
+		return c.Roll.Last, true
 	}
-	for _, p := range c.RollPubs {
+	for _, p := range c.Roll.Pubs {
 		if p.Name == name {
 			return p.Value, true
 		}
@@ -767,3 +742,15 @@ func runtimePublished(c *Ctx, name string) (int32, bool) {
 func rollPublished(c *Ctx, name string) (int32, bool) {
 	return runtimePublished(c, name)
 }
+
+type diceRuntimePublishCode uint16
+
+const (
+	diceRuntimePublishWins diceRuntimePublishCode = iota + 1
+	diceRuntimePublishLosses
+)
+
+var diceRuntimePublishCodes = state.NewStrCodes(
+	state.StrEntry[diceRuntimePublishCode]{Key: "Wins", Val: diceRuntimePublishWins},
+	state.StrEntry[diceRuntimePublishCode]{Key: "Losses", Val: diceRuntimePublishLosses},
+)

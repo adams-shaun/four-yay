@@ -51,7 +51,7 @@ func TestVoteOfIsAllocationFree(t *testing.T) {
 	f.Publish()
 	cached := &cards.SA{API: "Vote", Params: map[string]string{"VoteCard": "Permanent.nonLand"}}
 	VoteOf(cached)
-	if n := testing.AllocsPerRun(100, func() {
+	if n := allocsPerRun(100, func() {
 		_ = VoteOf(bound)
 		_ = VoteOf(cached)
 	}); n != 0 {

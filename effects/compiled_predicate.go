@@ -202,8 +202,8 @@ func compilePredicateBase(base string) (predicateBase, bool) {
 	if trimmed := strings.TrimPrefix(base, "non"); trimmed != base {
 		base, negated = trimmed, true
 	}
-	switch base {
-	case "Any", "Card", "Permanent", "PermanentCard", "Spell", "SpellAbility":
+	switch compilePredicateBaseCodes.Code(string(base)) {
+	case compilePredicateBaseAny:
 		kind := map[string]predicateBaseKind{
 			"Any": predicateBaseAny, "Card": predicateBaseCard,
 			"Permanent": predicateBasePermanent, "PermanentCard": predicateBasePermanentCard,
@@ -229,34 +229,34 @@ func compilePredicateTerm(term string) predicateTerm {
 		return compiled
 	}
 	var kind predicateTermKind
-	switch term {
-	case "YouCtrl":
+	switch compilePredicateTermCodes.Code(string(term)) {
+	case compilePredicateTermYouCtrl:
 		kind = predicateTermYouCtrl
-	case "YouDontCtrl", "OppCtrl":
+	case compilePredicateTermYouDontCtrl:
 		kind = predicateTermYouDontCtrl
-	case "YouOwn":
+	case compilePredicateTermYouOwn:
 		kind = predicateTermYouOwn
-	case "OppOwn":
+	case compilePredicateTermOppOwn:
 		kind = predicateTermOppOwn
-	case "Self":
+	case compilePredicateTermSelf:
 		kind = predicateTermSelf
-	case "Other", "StrictlyOther":
+	case compilePredicateTermOther:
 		kind = predicateTermOther
-	case "tapped":
+	case compilePredicateTermTapped:
 		kind = predicateTermTapped
-	case "untapped":
+	case compilePredicateTermUntapped:
 		return predicateTerm{kind: predicateTermTapped, negated: true}
-	case "attacking":
+	case compilePredicateTermAttacking:
 		kind = predicateTermAttacking
-	case "token":
+	case compilePredicateTermToken:
 		kind = predicateTermToken
-	case "kicked":
+	case compilePredicateTermKicked:
 		kind = predicateTermKicked
-	case "surged":
+	case compilePredicateTermSurged:
 		kind = predicateTermSurged
-	case "escaped":
+	case compilePredicateTermEscaped:
 		kind = predicateTermEscaped
-	case "wasCastFromGraveyard":
+	case compilePredicateTermWasCastFromGraveyard:
 		// The graveyard-origin cast bits (FlagFlashback/FlagHarmonize/
 		// FlagEscaped) on a never-cast read — the compiled twin of the
 		// filter.go entry and of the Count$wasCastFromGraveyard branch head,
@@ -265,7 +265,7 @@ func compilePredicateTerm(term string) predicateTerm {
 		// an explicit case is required because predicateTermFromWord maps
 		// only the color/type/colorless word kinds.
 		kind = predicateTermWasCastFromGraveyard
-	case "EquippedBy", "EnchantedBy", "AttachedBy":
+	case compilePredicateTermEquippedBy:
 		kind = predicateTermAttachedBy
 	default:
 		if wordKind, key, ok := nonPredicate(term); ok {
@@ -465,3 +465,60 @@ func (ps *PredicatePrograms) Len() int {
 	}
 	return len(ps.texts)
 }
+
+type compilePredicateBaseCode uint16
+
+const (
+	compilePredicateBaseAny compilePredicateBaseCode = iota + 1
+)
+
+var compilePredicateBaseCodes = state.NewStrCodes(
+	state.StrEntry[compilePredicateBaseCode]{Key: "Any", Val: compilePredicateBaseAny},
+	state.StrEntry[compilePredicateBaseCode]{Key: "Card", Val: compilePredicateBaseAny},
+	state.StrEntry[compilePredicateBaseCode]{Key: "Permanent", Val: compilePredicateBaseAny},
+	state.StrEntry[compilePredicateBaseCode]{Key: "PermanentCard", Val: compilePredicateBaseAny},
+	state.StrEntry[compilePredicateBaseCode]{Key: "Spell", Val: compilePredicateBaseAny},
+	state.StrEntry[compilePredicateBaseCode]{Key: "SpellAbility", Val: compilePredicateBaseAny},
+)
+
+type compilePredicateTermCode uint16
+
+const (
+	compilePredicateTermYouCtrl compilePredicateTermCode = iota + 1
+	compilePredicateTermYouDontCtrl
+	compilePredicateTermYouOwn
+	compilePredicateTermOppOwn
+	compilePredicateTermSelf
+	compilePredicateTermOther
+	compilePredicateTermTapped
+	compilePredicateTermUntapped
+	compilePredicateTermAttacking
+	compilePredicateTermToken
+	compilePredicateTermKicked
+	compilePredicateTermSurged
+	compilePredicateTermEscaped
+	compilePredicateTermWasCastFromGraveyard
+	compilePredicateTermEquippedBy
+)
+
+var compilePredicateTermCodes = state.NewStrCodes(
+	state.StrEntry[compilePredicateTermCode]{Key: "YouCtrl", Val: compilePredicateTermYouCtrl},
+	state.StrEntry[compilePredicateTermCode]{Key: "YouDontCtrl", Val: compilePredicateTermYouDontCtrl},
+	state.StrEntry[compilePredicateTermCode]{Key: "OppCtrl", Val: compilePredicateTermYouDontCtrl},
+	state.StrEntry[compilePredicateTermCode]{Key: "YouOwn", Val: compilePredicateTermYouOwn},
+	state.StrEntry[compilePredicateTermCode]{Key: "OppOwn", Val: compilePredicateTermOppOwn},
+	state.StrEntry[compilePredicateTermCode]{Key: "Self", Val: compilePredicateTermSelf},
+	state.StrEntry[compilePredicateTermCode]{Key: "Other", Val: compilePredicateTermOther},
+	state.StrEntry[compilePredicateTermCode]{Key: "StrictlyOther", Val: compilePredicateTermOther},
+	state.StrEntry[compilePredicateTermCode]{Key: "tapped", Val: compilePredicateTermTapped},
+	state.StrEntry[compilePredicateTermCode]{Key: "untapped", Val: compilePredicateTermUntapped},
+	state.StrEntry[compilePredicateTermCode]{Key: "attacking", Val: compilePredicateTermAttacking},
+	state.StrEntry[compilePredicateTermCode]{Key: "token", Val: compilePredicateTermToken},
+	state.StrEntry[compilePredicateTermCode]{Key: "kicked", Val: compilePredicateTermKicked},
+	state.StrEntry[compilePredicateTermCode]{Key: "surged", Val: compilePredicateTermSurged},
+	state.StrEntry[compilePredicateTermCode]{Key: "escaped", Val: compilePredicateTermEscaped},
+	state.StrEntry[compilePredicateTermCode]{Key: "wasCastFromGraveyard", Val: compilePredicateTermWasCastFromGraveyard},
+	state.StrEntry[compilePredicateTermCode]{Key: "EquippedBy", Val: compilePredicateTermEquippedBy},
+	state.StrEntry[compilePredicateTermCode]{Key: "EnchantedBy", Val: compilePredicateTermEquippedBy},
+	state.StrEntry[compilePredicateTermCode]{Key: "AttachedBy", Val: compilePredicateTermEquippedBy},
+)

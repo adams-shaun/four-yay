@@ -144,8 +144,8 @@ func isAttachCostSA(ab *cards.SA) bool {
 	if ab == nil {
 		return false
 	}
-	switch ab.ParamStr(cards.PKKeyword) {
-	case "Equip", "Fortify":
+	switch isAttachCostSACodes.Code(string(ab.ParamStr(cards.PKKeyword))) {
+	case isAttachCostSAEquip:
 		return true
 	}
 	return false
@@ -188,3 +188,14 @@ func (e *Engine) abilityAlternateCost(ab *cards.SA) (Cost, bool) {
 // stack, and -- when the ability declares ValidTgts$ -- asks its controller
 // for targets against the freshly minted stack object, exactly the shape
 // pushTrigger (rules/trigger_queue.go) uses for a trigger's own target ask.
+
+type isAttachCostSACode uint16
+
+const (
+	isAttachCostSAEquip isAttachCostSACode = iota + 1
+)
+
+var isAttachCostSACodes = state.NewStrCodes(
+	state.StrEntry[isAttachCostSACode]{Key: "Equip", Val: isAttachCostSAEquip},
+	state.StrEntry[isAttachCostSACode]{Key: "Fortify", Val: isAttachCostSAEquip},
+)

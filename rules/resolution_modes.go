@@ -44,7 +44,7 @@ func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
 	// effCharm runs exactly the chosen modes instead of asking again -- and
 	// the drain resumes through the same continuation every other trigger
 	// drain answer uses. drainAwaitsModes identifies the branch; it is false
-	// for a mid-resolution ask, which falls through to the resume path below.
+	// for a mid-resolution ask, which the kernel answers from its tape.
 	if e.drainAwaitsModes {
 		e.drainAwaitsModes = false
 		chosen := d.Chosen(in)
@@ -148,12 +148,11 @@ func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
 }
 
 // recordModesAnswer is the answer record every mid-resolution KModes answer
-// carries into the log, whichever path answers it (handleModes' resume arm,
-// or the resolution kernel serving the answer from its tape,
-// resolveBoard.Record): the SetChosenMode Choose, the ModeChosen marker on
+// carries into the log when the resolution kernel serves the answer from
+// its tape (resolveBoard.Record): the SetChosenMode Choose, the ModeChosen marker on
 // the resolving object obj, and the ChoiceRestriction$ record.
 func recordModesAnswer(e *Engine, d *decision.Decision, p state.PlayerID, chosen []decision.Option, obj state.ObjID) {
-	if d.ResumeSA != nil && strings.EqualFold(d.ResumeSA.Params["SetChosenMode"], "True") && len(chosen) == 1 {
+	if d.ResumeSA != nil && strings.EqualFold(d.ResumeSA.ParamStr(cards.PKSetChosenMode), "True") && len(chosen) == 1 {
 		// An as-enters GenericChoice records its mode on the permanent via
 		// the event fold; the ModeChosen marker alone stores no object state.
 		if names := modeChoiceNames(d.ResumeSA, chosen, d.ResumeModes); len(names) == 1 {
@@ -189,35 +188,35 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) state.ObjID {
 	// re-emitted move's fold attaches (rules/aura_entry.go); the Attach event
 	// is the logged record. No option kind of its own reaches the switch.
 	answerAuraEntry(e, &move, &opt)
-	switch opt.Kind {
-	case "name":
+	switch resumeETBEntryCodes.Code(string(opt.Kind)) {
+	case resumeETBEntryName:
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "name", Text: opt.Label})
-	case "type":
+	case resumeETBEntryType:
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "type", Text: opt.Label})
-	case "number":
+	case resumeETBEntryNumber:
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "number", Amount: int32(opt.Amount)})
-	case "color":
+	case resumeETBEntryColor:
 		if letter := etbColourLetter(opt.Label); letter != "" {
 			e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "color", Text: letter})
 		}
-	case "evenodd":
+	case resumeETBEntryEvenodd:
 		quality := strings.ToLower(opt.Label)
 		if quality == "odd" || quality == "even" {
 			e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "type", Text: quality})
 		}
-	case "riot":
+	case resumeETBEntryRiot:
 		choice := "haste"
 		if opt.Index == 0 {
 			choice = "counter"
 		}
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "riot", Text: choice})
-	case "unleash":
+	case resumeETBEntryUnleash:
 		choice := "plain"
 		if opt.Index == 0 {
 			choice = "counter"
 		}
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "unleash", Text: choice})
-	case "clone":
+	case resumeETBEntryClone:
 		// The ETB-copy election (K:ETBReplacement:Copy). The chosen template
 		// rides the event's IDs; the decline ("Enter as itself") carries no
 		// object, so the fold records an answered-but-empty choice and the
@@ -228,7 +227,7 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) state.ObjID {
 			ids = []state.ObjID{opt.Obj}
 		}
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "clone", IDs: ids})
-	case "paylife":
+	case resumeETBEntryPaylife:
 		// The announced life payment of an "as CARDNAME enters, pay any amount
 		// of life" replacement (Minion of the Wastes / Phyrexian Processor /
 		// Nameless Race). The announced X is recorded as a Choose "number"
@@ -266,3 +265,29 @@ func unlessPayChoice(chosen []decision.Option) (decision.Option, bool) {
 	}
 	return decision.Option{}, false
 }
+
+type resumeETBEntryCode uint16
+
+const (
+	resumeETBEntryName resumeETBEntryCode = iota + 1
+	resumeETBEntryType
+	resumeETBEntryNumber
+	resumeETBEntryColor
+	resumeETBEntryEvenodd
+	resumeETBEntryRiot
+	resumeETBEntryUnleash
+	resumeETBEntryClone
+	resumeETBEntryPaylife
+)
+
+var resumeETBEntryCodes = state.NewStrCodes(
+	state.StrEntry[resumeETBEntryCode]{Key: "name", Val: resumeETBEntryName},
+	state.StrEntry[resumeETBEntryCode]{Key: "type", Val: resumeETBEntryType},
+	state.StrEntry[resumeETBEntryCode]{Key: "number", Val: resumeETBEntryNumber},
+	state.StrEntry[resumeETBEntryCode]{Key: "color", Val: resumeETBEntryColor},
+	state.StrEntry[resumeETBEntryCode]{Key: "evenodd", Val: resumeETBEntryEvenodd},
+	state.StrEntry[resumeETBEntryCode]{Key: "riot", Val: resumeETBEntryRiot},
+	state.StrEntry[resumeETBEntryCode]{Key: "unleash", Val: resumeETBEntryUnleash},
+	state.StrEntry[resumeETBEntryCode]{Key: "clone", Val: resumeETBEntryClone},
+	state.StrEntry[resumeETBEntryCode]{Key: "paylife", Val: resumeETBEntryPaylife},
+)

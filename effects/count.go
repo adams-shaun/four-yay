@@ -78,10 +78,10 @@ func NumForObject(h Host, c *Ctx, sa *cards.SA, key string, def int32, obj state
 // Animate's Power/Toughness, SetPower$/SetToughness$-style base-sets, and the
 // token / face-down families.
 func statIsPowerKey(key string) (power, ok bool) {
-	switch key {
-	case "NumAtt", "Power", "SetPower", "TokenPower", "FaceDownPower":
+	switch statIsPowerKeyCodes.Code(string(key)) {
+	case statIsPowerKeyNumAtt:
 		return true, true
-	case "NumDef", "Toughness", "SetToughness", "TokenToughness", "FaceDownToughness":
+	case statIsPowerKeyNumDef:
 		return false, true
 	}
 	return false, false
@@ -518,7 +518,7 @@ func evalCountExprOK(h Host, c *Ctx, expr string, depth int) (int32, bool) {
 		if field != "DamageAmount" && field != "Amount" && field != "Number" && field != "CounterNum" {
 			return 0, false
 		}
-		n := c.ReplacementAmount
+		n := c.Repl.Amount
 		if hasOp {
 			// Resolve named operands consistently with the SVar$ head above.
 			// Runtime-published roll values are resolved on the live
@@ -673,3 +673,23 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 	}
 	return 0, false
 }
+
+type statIsPowerKeyCode uint16
+
+const (
+	statIsPowerKeyNumAtt statIsPowerKeyCode = iota + 1
+	statIsPowerKeyNumDef
+)
+
+var statIsPowerKeyCodes = state.NewStrCodes(
+	state.StrEntry[statIsPowerKeyCode]{Key: "NumAtt", Val: statIsPowerKeyNumAtt},
+	state.StrEntry[statIsPowerKeyCode]{Key: "Power", Val: statIsPowerKeyNumAtt},
+	state.StrEntry[statIsPowerKeyCode]{Key: "SetPower", Val: statIsPowerKeyNumAtt},
+	state.StrEntry[statIsPowerKeyCode]{Key: "TokenPower", Val: statIsPowerKeyNumAtt},
+	state.StrEntry[statIsPowerKeyCode]{Key: "FaceDownPower", Val: statIsPowerKeyNumAtt},
+	state.StrEntry[statIsPowerKeyCode]{Key: "NumDef", Val: statIsPowerKeyNumDef},
+	state.StrEntry[statIsPowerKeyCode]{Key: "Toughness", Val: statIsPowerKeyNumDef},
+	state.StrEntry[statIsPowerKeyCode]{Key: "SetToughness", Val: statIsPowerKeyNumDef},
+	state.StrEntry[statIsPowerKeyCode]{Key: "TokenToughness", Val: statIsPowerKeyNumDef},
+	state.StrEntry[statIsPowerKeyCode]{Key: "FaceDownToughness", Val: statIsPowerKeyNumDef},
+)

@@ -13,9 +13,9 @@ import (
 // Task api:SetState.Optional: Optional$ True was unread -- every "you may
 // transform" SetState ALWAYS transformed, unconditionally, with no election
 // recorded anywhere in the log. effSetState (effects/misc.go) now poses a real
-// yes/no KChoose through the shared Ask boundary with the "setstate_optional"
-// resume arm (the put_optional/attach_optional precedent): the answer rides
-// Ctx.SetStateOpt, the decline changes nothing while the chained SubAbility$
+// yes/no KChoose through the shared Ask boundary as a "setstate_optional"
+// ask (the put_optional/attach_optional precedent): the answer is applied in
+// place, the decline changes nothing while the chained SubAbility$
 // still runs (the chain is owned by Resolve, never skipped by a decline), and
 // the no-host fallback takes the deterministic decline (R-9) with option 0 =
 // "yes" so the bot clamp keeps bot games byte-identical to the silent

@@ -917,8 +917,8 @@ func spellIsTargetingMatchesPtr(g *state.Game, spec string, o *state.Object, sc 
 // a recognised predicate resolved the gate false and the whole sub -- target
 // ask included -- was skipped. That ordering is now fixed in conditionMet's
 // Targeted branch (an empty group on an SA that carries ValidTgts$ and whose
-// ask has not run is UNRESOLVED, so Resolve poses the ask and the answered
-// re-entry resolves the gate for real).
+// ask has not run is UNRESOLVED, so Resolve dispatches the sub and its ask
+// is posed there).
 func sharesColorBareReferent(arg string) bool {
 	return arg == "TriggeredProduced" || arg == "ChosenCard"
 }
@@ -982,9 +982,8 @@ func sharesColorUnitMatches(g *state.Game, spec string, o *state.Object, sc Spec
 // (sc.Chosen/sc.ChosenValid, seeded by (*Ctx).SpecContext from Ctx.Chosen),
 // else the source object's EVENT-BACKED chosen list (state.Object.Chosen,
 // the Choose "chosen" fold choiceRecord emits). The event-backed fallback is
-// load-bearing: a mid-resolution ValidTgts$ ask rebuilds a fresh Ctx on the
-// re-entry, so a carrier reached only after such an ask (Guard Dogs' DBPrevent)
-// loses the in-flight Ctx.Chosen and must read the source's fold. An
+// load-bearing for a carrier whose resolution has no in-flight Ctx.Chosen
+// bound (Guard Dogs' DBPrevent) and must read the source's fold. An
 // unbound choose is a resolved non-match -- never an unresolved gate -- the
 // same convention the empty TriggerMana set takes. The colour read is the
 // shared ColorMaskOf the ordinary colour predicates and sharesColorUnitMatches
@@ -1550,7 +1549,7 @@ func EachTypeGroups(g *state.Game, subs []string, ids []state.ObjID, sc SpecCont
 // The caller sets d.Max to it (a ceiling the option list cannot exceed) and
 // carries perType in Decision.GroupLimit when it is above 1. noLooking hides
 // card names (the library search's NoLooking$ gate); kind is the option Kind
-// the walker's resume arm reads.
+// the walker's answer carries.
 func eachStructuredOptions(g *state.Game, d *decision.Decision, groups [][]state.ObjID,
 	perType int32, noLooking bool, owner state.PlayerID, kind string) int {
 	ceiling := 0
@@ -2186,14 +2185,14 @@ func matchesBase(g *state.Game, base string, o *state.Object, sc SpecContext) bo
 	if neg := strings.TrimPrefix(base, "non"); neg != base {
 		return !matchesBase(g, neg, o, sc)
 	}
-	switch base {
-	case "Any":
+	switch matchesBaseCodes.Code(string(base)) {
+	case matchesBaseAny:
 		return hasTypeCtx(o, "Creature", sc) || hasTypeCtx(o, "Planeswalker", sc) || hasTypeCtx(o, "Battle", sc)
-	case "Card":
+	case matchesBaseCard:
 		return true
-	case "Permanent":
+	case matchesBasePermanent:
 		return o.Zone == state.ZBattlefield
-	case "Affinity":
+	case matchesBaseAffinity:
 		// CR 702.41: Forge uses the keyword name as a filter base for
 		// "a permanent with affinity" (Sojourner's Enforcermite), not as
 		// a card type. Prefer the layer-derived keyword list when rules has
@@ -2207,7 +2206,7 @@ func matchesBase(g *state.Game, base string, o *state.Object, sc SpecContext) bo
 			return false
 		}
 		return o.Face() != nil && o.Face().HasKeyword("Affinity")
-	case "PermanentCard":
+	case matchesBasePermanentCard:
 		// This internal base spelling is selected by rules' target census
 		// (targetSpecForZone) and Dig windows (permanentCardSpec) for Forge's
 		// `Permanent` base evaluated AWAY from the battlefield, and by rules'
@@ -2218,9 +2217,9 @@ func matchesBase(g *state.Game, base string, o *state.Object, sc SpecContext) bo
 		// above keeps the on-the-battlefield reading every other filter
 		// depends on.
 		return o.Face() != nil && o.Face().IsPermanent()
-	case "Spell":
+	case matchesBaseSpell:
 		return o.Zone == state.ZStack || sc.AsStack
-	case "SpellAbility":
+	case matchesBaseSpellAbility:
 		// Forge's SpellAbility base (ValidSource$ SpellAbility.OppCtrl on the
 		// "becomes the target of a spell or ability" family -- Thunderbreak
 		// Regent and 51 more files): any spell or ability object on the stack.
@@ -2898,7 +2897,7 @@ func SearchStatesQuality(spec string) bool {
 // direction: it preserves 701.23b's fail-to-find allowance rather than making
 // a stated-quality search mandatory).
 func possessionPredicate(p string) bool {
-	if v, ok := possessionPredicateTab1.Get(p); ok {
+	if v, ok := possessionPredicateTab.Get(p); ok {
 		return v
 	}
 	return false
@@ -3040,16 +3039,6 @@ func UnknownPredicates(spec string) []string {
 	return out
 }
 
-// KnownPredicates lists the predicates this build implements, in sorted order.
-func KnownPredicates() []string {
-	out := make([]string, 0, len(predicates))
-	for k := range predicates {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
-
 // hasAbilityToken recognises Forge's `hasAbility <SA spec>` card property in
 // the forms this build reads: `hasAbility Activated` (the object has an
 // activated ability), `hasAbility Activated.hasTapCost` (one whose cost
@@ -3058,8 +3047,8 @@ func KnownPredicates() []string {
 // UnknownPredicates census share it, so an unread sub-spec
 // (Activated.otherAbility) stays unknown to both and fails closed.
 func hasAbilityToken(p string) bool {
-	switch strings.TrimPrefix(p, "hasAbility ") {
-	case "Activated", "Activated.hasTapCost", "Activated.Exhaust":
+	switch hasAbilityTokenCodes.Code(string(strings.TrimPrefix(p, "hasAbility "))) {
+	case hasAbilityTokenActivated:
 		return strings.HasPrefix(p, "hasAbility ")
 	}
 	return false
@@ -3076,16 +3065,16 @@ func objectHasAbility(o *state.Object, sub string) bool {
 		if a == nil || a.Kind != "AB" {
 			continue
 		}
-		switch sub {
-		case "Activated":
+		switch objectHasAbilityCodes.Code(string(sub)) {
+		case objectHasAbilityActivated:
 			return true
-		case "Activated.hasTapCost":
+		case objectHasAbilityActivatedHasTapCost:
 			for _, tok := range strings.Fields(ActivationOf(a).Cost) {
 				if tok == "T" {
 					return true
 				}
 			}
-		case "Activated.Exhaust":
+		case objectHasAbilityActivatedExhaust:
 			if strings.EqualFold(strings.TrimSpace(a.ParamStr(cards.PKExhaust)), "True") {
 				return true
 			}
@@ -3094,14 +3083,62 @@ func objectHasAbility(o *state.Object, sub string) bool {
 	return false
 }
 
-var possessionPredicateTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "YouOwn", Val: true},
-	cards.StrEntry[bool]{Key: "YouCtrl", Val: true},
-	cards.StrEntry[bool]{Key: "YouControl", Val: true},
-	cards.StrEntry[bool]{Key: "YourControl", Val: true},
-	cards.StrEntry[bool]{Key: "YouControlled", Val: true},
-	cards.StrEntry[bool]{Key: "OppOwn", Val: true},
-	cards.StrEntry[bool]{Key: "OppCtrl", Val: true},
-	cards.StrEntry[bool]{Key: "OpponentOwns", Val: true},
-	cards.StrEntry[bool]{Key: "OpponentControls", Val: true},
+var possessionPredicateTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "YouOwn", Val: true},
+	state.StrEntry[bool]{Key: "YouCtrl", Val: true},
+	state.StrEntry[bool]{Key: "YouControl", Val: true},
+	state.StrEntry[bool]{Key: "YourControl", Val: true},
+	state.StrEntry[bool]{Key: "YouControlled", Val: true},
+	state.StrEntry[bool]{Key: "OppOwn", Val: true},
+	state.StrEntry[bool]{Key: "OppCtrl", Val: true},
+	state.StrEntry[bool]{Key: "OpponentOwns", Val: true},
+	state.StrEntry[bool]{Key: "OpponentControls", Val: true},
+)
+
+type matchesBaseCode uint16
+
+const (
+	matchesBaseAny matchesBaseCode = iota + 1
+	matchesBaseCard
+	matchesBasePermanent
+	matchesBaseAffinity
+	matchesBasePermanentCard
+	matchesBaseSpell
+	matchesBaseSpellAbility
+)
+
+var matchesBaseCodes = state.NewStrCodes(
+	state.StrEntry[matchesBaseCode]{Key: "Any", Val: matchesBaseAny},
+	state.StrEntry[matchesBaseCode]{Key: "Card", Val: matchesBaseCard},
+	state.StrEntry[matchesBaseCode]{Key: "Permanent", Val: matchesBasePermanent},
+	state.StrEntry[matchesBaseCode]{Key: "Affinity", Val: matchesBaseAffinity},
+	state.StrEntry[matchesBaseCode]{Key: "PermanentCard", Val: matchesBasePermanentCard},
+	state.StrEntry[matchesBaseCode]{Key: "Spell", Val: matchesBaseSpell},
+	state.StrEntry[matchesBaseCode]{Key: "SpellAbility", Val: matchesBaseSpellAbility},
+)
+
+type hasAbilityTokenCode uint16
+
+const (
+	hasAbilityTokenActivated hasAbilityTokenCode = iota + 1
+)
+
+var hasAbilityTokenCodes = state.NewStrCodes(
+	state.StrEntry[hasAbilityTokenCode]{Key: "Activated", Val: hasAbilityTokenActivated},
+	state.StrEntry[hasAbilityTokenCode]{Key: "Activated.hasTapCost", Val: hasAbilityTokenActivated},
+	state.StrEntry[hasAbilityTokenCode]{Key: "Activated.Exhaust", Val: hasAbilityTokenActivated},
+)
+
+type objectHasAbilityCode uint16
+
+const (
+	objectHasAbilityActivated objectHasAbilityCode = iota + 1
+	objectHasAbilityActivatedHasTapCost
+	objectHasAbilityActivatedExhaust
+)
+
+var objectHasAbilityCodes = state.NewStrCodes(
+	state.StrEntry[objectHasAbilityCode]{Key: "Activated", Val: objectHasAbilityActivated},
+	state.StrEntry[objectHasAbilityCode]{Key: "Activated.hasTapCost", Val: objectHasAbilityActivatedHasTapCost},
+	state.StrEntry[objectHasAbilityCode]{Key: "Activated.Exhaust", Val: objectHasAbilityActivatedExhaust},
 )

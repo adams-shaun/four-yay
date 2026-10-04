@@ -47,7 +47,7 @@ func effTakeInitiative(h Host, c *Ctx, sa *cards.SA) {
 	// `Defined$ <player>` TakeInitiative ventures for the same player(s).
 	venture := &cards.SA{Kind: "DB", API: "Venture", Params: map[string]string{"Dungeon": "Undercity"}}
 	if d := DefinedRefOf(sa).Raw; d != "" {
-		venture.Params["Defined"] = d
+		venture.SetParam(cards.PKDefined, d)
 	}
 	effVenture(h, c, venture)
 }

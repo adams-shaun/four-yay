@@ -205,7 +205,7 @@ func TestCastWindowProvableSubsetOfManaWindowOffers(t *testing.T) {
 	got := e.castWindowUnits(pc)
 	alts := map[state.ObjID]int{}
 	for _, u := range got {
-		alts[u.id] += len(u.alts)
+		alts[u.ID] += len(u.Alts)
 	}
 	// PRECONDITION: the widened layer actually contributed the dynamic- and
 	// paid-cost sources, or this test proves nothing about the fix.
@@ -225,8 +225,8 @@ func TestCastWindowProvableSubsetOfManaWindowOffers(t *testing.T) {
 		}
 	}
 	for _, u := range got {
-		if !offered[u.id] {
-			t.Errorf("probe promised source %d, which manaWindowAsk will not offer", u.id)
+		if !offered[u.ID] {
+			t.Errorf("probe promised source %d, which manaWindowAsk will not offer", u.ID)
 		}
 	}
 	// The InstantSpeed$ producer is excluded by both sides; proving it here

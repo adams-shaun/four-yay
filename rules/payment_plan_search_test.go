@@ -88,7 +88,7 @@ func paymentPlanSearchOracleOver(e *Engine, p state.PlayerID, cost Cost, choices
 				mostOf[k] = max(mostOf[k], n)
 			}
 		}
-		rest[i] = manaAdd(rest[i+1], mostOf)
+		rest[i] = pay.ManaAdd(rest[i+1], mostOf)
 		restTotal[i] = restTotal[i+1] + most
 	}
 	var best *decision.PaymentPlan
@@ -106,9 +106,9 @@ func paymentPlanSearchOracleOver(e *Engine, p state.PlayerID, cost Cost, choices
 		if pain > 0 && pain >= int64(life) {
 			return
 		}
-		if paid, ok := resolveManaWith(cost, manaAdd(pool, produced), state.Mana{}, [7]state.Mana{}, life, false, pipRider{}, nil); ok {
-			plan := pay.Witness(cost, pool, produced, chosen, paid.pool)
-			r := pay.RankPlan(ctx, plan, chosen, paid.pool)
+		if paid, ok := resolveManaWith(cost, pay.ManaAdd(pool, produced), state.Mana{}, [7]state.Mana{}, life, false, pipRider{}, nil); ok {
+			plan := pay.Witness(cost, pool, produced, chosen, paid.Pool)
+			r := pay.RankPlan(ctx, plan, chosen, paid.Pool)
 			if best == nil || r.Less(bestRank) {
 				best, bestRank = &plan, r
 			}
@@ -127,7 +127,7 @@ func paymentPlanSearchOracleOver(e *Engine, p state.PlayerID, cost Cost, choices
 		}
 		walk(at+1, produced, chosen)
 		for _, a := range choices[at] {
-			walk(at+1, manaAdd(produced, a.Mana), append(chosen[:len(chosen):len(chosen)], a))
+			walk(at+1, pay.ManaAdd(produced, a.Mana), append(chosen[:len(chosen):len(chosen)], a))
 		}
 	}
 	walk(0, state.Mana{}, nil)
@@ -611,30 +611,30 @@ func srchPhaseTwoChoices(t *testing.T, e *Engine, p state.PlayerID) [][]pay.Alt 
 	choices := make([][]pay.Alt, len(units))
 	for i, u := range units {
 		var out []pay.Alt
-		for _, alt := range u.alts {
-			tier, consequence, _ := e.paymentPlanAbilityTier(p, u.id, alt.ma)
-			if tier == pay.TierDeferred || !paymentPlanTapOnlyCost(e.parseCost(alt.ma.Params["Cost"])) {
+		for _, alt := range u.Alts {
+			tier, consequence, _ := e.paymentPlanAbilityTier(p, u.ID, alt.Ma)
+			if tier == pay.TierDeferred || !paymentPlanTapOnlyCost(e.parseCost(alt.Ma.Params["Cost"])) {
 				continue
 			}
-			ab, ok := e.paymentAbility(u.id, alt.ma)
+			ab, ok := e.paymentAbility(u.ID, alt.Ma)
 			if !ok {
 				continue
 			}
-			base := pay.Alt{Activation: decision.PaymentActivation{Source: u.id, SourceZoneSeq: e.paymentSourceZoneSeq(u.id), Ability: ab},
-				Creature: e.IsCreature(u.id), Ma: alt.ma, Tier: tier, Consequence: consequence}
-			if paymentPlanAltOK(alt) {
-				base.Mana = alt.mana()
+			base := pay.Alt{Activation: decision.PaymentActivation{Source: u.ID, SourceZoneSeq: e.paymentSourceZoneSeq(u.ID), Ability: ab},
+				Creature: e.IsCreature(u.ID), Ma: alt.Ma, Tier: tier, Consequence: consequence}
+			if pay.PlanAltOK(alt) {
+				base.Mana = alt.Mana()
 				base.Activation.Produces = pay.ManaAmount(base.Mana)
 				out = append(out, base)
 				continue
 			}
-			if !alt.any || alt.amt <= 0 {
+			if !alt.Any || alt.Amt <= 0 {
 				continue
 			}
-			for _, col := range e.paymentPlanChoiceColours(u.id, alt.ma) {
+			for _, col := range e.paymentPlanChoiceColours(u.ID, alt.Ma) {
 				a := base
 				a.Mana = state.Mana{}
-				a.Mana[strings.IndexByte("WUBRG", col[0])] = alt.amt
+				a.Mana[strings.IndexByte("WUBRG", col[0])] = alt.Amt
 				a.Activation.Produces = pay.ManaAmount(a.Mana)
 				a.ExecProduced = col
 				out = append(out, a)

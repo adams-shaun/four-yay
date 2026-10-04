@@ -3,6 +3,8 @@ package trigmatch
 import (
 	"strconv"
 	"strings"
+
+	"github.com/adams-shaun/gorge/effects"
 )
 
 // CompareLife compares a life total against a Forge comparison literal such as
@@ -44,18 +46,18 @@ func SplitCompare(cmp string) (op string, n int, ok bool) {
 }
 
 func ApplyCompare(have int, op string, n int) bool {
-	switch op {
-	case "GE":
+	switch effects.CmpOpOf(op) {
+	case effects.CmpGE:
 		return have >= n
-	case "LE":
+	case effects.CmpLE:
 		return have <= n
-	case "EQ":
+	case effects.CmpEQ:
 		return have == n
-	case "GT":
+	case effects.CmpGT:
 		return have > n
-	case "LT":
+	case effects.CmpLT:
 		return have < n
-	case "NE":
+	case effects.CmpNE:
 		return have != n
 	}
 	return false

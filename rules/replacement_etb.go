@@ -1,13 +1,14 @@
 package rules
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
-	"strconv"
-	"strings"
 )
 
 // applyReplacementsDispatch is applyReplacements' common match-collection
@@ -54,15 +55,15 @@ func (e *Engine) bloodthirstEntryMatch(ev events.Event) *replMatch {
 		With: body,
 	}
 	if param == "X" {
-		body.Params["CounterNum"] = "Count$DamageOppsTakenThisTurn"
+		body.SetParam(cards.PKCounterNum, "Count$DamageOppsTakenThisTurn")
 	} else {
 		n, err := strconv.Atoi(param)
 		if err != nil || n <= 0 {
 			return nil
 		}
-		body.Params["CounterNum"] = strconv.Itoa(n)
-		r.Params["CheckSVar"] = "Count$DamageOppsTakenThisTurn"
-		r.Params["SVarCompare"] = "GT0"
+		body.SetParam(cards.PKCounterNum, strconv.Itoa(n))
+		r.SetParam(cards.PKCheckSVar, "Count$DamageOppsTakenThisTurn")
+		r.SetParam(cards.PKSVarCompare, "GT0")
 	}
 	return &replMatch{id: ev.Obj, repl: r}
 }
@@ -163,7 +164,7 @@ func (e *Engine) applyETBChoiceReplacement(ev events.Event) bool {
 		// parked frame (continueAfterETBEntry).
 		e.choosing = chooseNone
 		chosen := d.Chosen(in)
-		e.withMintSink(e.pendingMintSink, func() { e.resumeETBEntry(chosen) })
+		e.resumeETBEntry(chosen)
 		return true
 	}
 	e.ask(d)
@@ -254,15 +255,15 @@ func attachedBodyPoses(sa *cards.SA) bool {
 	if sa == nil {
 		return false
 	}
-	switch sa.API {
-	case "NameCard":
+	switch attachedBodyPosesCodes.Code(string(sa.API)) {
+	case attachedBodyPosesNameCard:
 		return true
-	case "ChooseCard":
+	case attachedBodyPosesChooseCard:
 		// The only corpus Attached ChooseCard is Pick-Axe's exiled-craft-card
 		// pick; its pool must be the source's own exile association. Any other
 		// DefinedCards$ role is a different pool this path does not read.
 		return strings.EqualFold(effects.DefinedOf(sa).Cards.Text, "ExiledWith")
-	case "ChooseColor":
+	case attachedBodyPosesChooseColor:
 		return true
 	default:
 		return false
@@ -311,10 +312,10 @@ func (e *Engine) applyAttachedReplacement(ev events.Event) bool {
 	}
 	ch := &attachedChoice{move: ev, source: source, body: repl.With.API}
 	e.attachedChoice = ch
-	switch repl.With.API {
-	case "ChooseCard":
+	switch applyAttachedReplacementCodes.Code(string(repl.With.API)) {
+	case applyAttachedReplacementChooseCard:
 		return e.askAttachedCard(o, repl)
-	case "ChooseColor":
+	case applyAttachedReplacementChooseColor:
 		return e.askAttachedColor(o, repl)
 	default: // NameCard
 		return e.askAttachedName(o, repl)
@@ -411,18 +412,18 @@ func attachedChoiceZones(raw string) map[state.Zone]bool {
 	}
 	out := map[state.Zone]bool{}
 	for z := range strings.SplitSeq(raw, ",") {
-		switch strings.TrimSpace(z) {
-		case "Battlefield":
+		switch attachedChoiceZonesCodes.Code(string(strings.TrimSpace(z))) {
+		case attachedChoiceZonesBattlefield:
 			out[state.ZBattlefield] = true
-		case "Hand":
+		case attachedChoiceZonesHand:
 			out[state.ZHand] = true
-		case "Library":
+		case attachedChoiceZonesLibrary:
 			out[state.ZLibrary] = true
-		case "Graveyard":
+		case attachedChoiceZonesGraveyard:
 			out[state.ZGraveyard] = true
-		case "Exile":
+		case attachedChoiceZonesExile:
 			out[state.ZExile] = true
-		case "Stack":
+		case attachedChoiceZonesStack:
 			out[state.ZStack] = true
 		}
 	}
@@ -628,3 +629,49 @@ func etbTapeAnswer(e *Engine, d *decision.Decision, obj state.ObjID) (decision.I
 	}
 	return parkTapeAnswer(e, d)
 }
+
+type attachedBodyPosesCode uint16
+
+const (
+	attachedBodyPosesNameCard attachedBodyPosesCode = iota + 1
+	attachedBodyPosesChooseCard
+	attachedBodyPosesChooseColor
+)
+
+var attachedBodyPosesCodes = state.NewStrCodes(
+	state.StrEntry[attachedBodyPosesCode]{Key: "NameCard", Val: attachedBodyPosesNameCard},
+	state.StrEntry[attachedBodyPosesCode]{Key: "ChooseCard", Val: attachedBodyPosesChooseCard},
+	state.StrEntry[attachedBodyPosesCode]{Key: "ChooseColor", Val: attachedBodyPosesChooseColor},
+)
+
+type applyAttachedReplacementCode uint16
+
+const (
+	applyAttachedReplacementChooseCard applyAttachedReplacementCode = iota + 1
+	applyAttachedReplacementChooseColor
+)
+
+var applyAttachedReplacementCodes = state.NewStrCodes(
+	state.StrEntry[applyAttachedReplacementCode]{Key: "ChooseCard", Val: applyAttachedReplacementChooseCard},
+	state.StrEntry[applyAttachedReplacementCode]{Key: "ChooseColor", Val: applyAttachedReplacementChooseColor},
+)
+
+type attachedChoiceZonesCode uint16
+
+const (
+	attachedChoiceZonesBattlefield attachedChoiceZonesCode = iota + 1
+	attachedChoiceZonesHand
+	attachedChoiceZonesLibrary
+	attachedChoiceZonesGraveyard
+	attachedChoiceZonesExile
+	attachedChoiceZonesStack
+)
+
+var attachedChoiceZonesCodes = state.NewStrCodes(
+	state.StrEntry[attachedChoiceZonesCode]{Key: "Battlefield", Val: attachedChoiceZonesBattlefield},
+	state.StrEntry[attachedChoiceZonesCode]{Key: "Hand", Val: attachedChoiceZonesHand},
+	state.StrEntry[attachedChoiceZonesCode]{Key: "Library", Val: attachedChoiceZonesLibrary},
+	state.StrEntry[attachedChoiceZonesCode]{Key: "Graveyard", Val: attachedChoiceZonesGraveyard},
+	state.StrEntry[attachedChoiceZonesCode]{Key: "Exile", Val: attachedChoiceZonesExile},
+	state.StrEntry[attachedChoiceZonesCode]{Key: "Stack", Val: attachedChoiceZonesStack},
+)

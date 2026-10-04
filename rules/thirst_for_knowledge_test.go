@@ -13,7 +13,7 @@ import (
 // two cards unless you discard an artifact card") poses the unless ELECTION
 // whenever a card of the type is in hand: "discard one <type> instead" or
 // "discard normally". The unless arm's follow-up pick re-uses the ordinary
-// "discard" resume arm; a declined election falls through to the ordinary
+// "discard" ask; a declined election falls through to the ordinary
 // TgtChoose path, whose strict-supersets no-ask rule then governs.
 
 // tfkSrc is Thirst for Knowledge's real script shape (the SP$/DBDiscard pair

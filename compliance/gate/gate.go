@@ -24,6 +24,19 @@ import (
 	"github.com/adams-shaun/gorge/rules"
 )
 
+// LevelMeaning says what a claim at level certifies and what it does not
+// (spec 2026-10-03 section 11.3 C6: level A is shallow and must say so).
+// Every gate report prints it next to the claim.
+func LevelMeaning(level string) string {
+	switch level {
+	case "A":
+		return "level A: every card is fully supported and its generated cast-and-resolve, play-land or counter-spell scenario agrees with XMage (or a ruled divergence, or a hand oracle scenario passes); activated abilities, trigger modes, attacks/blocks and statics are NOT exercised (level B)"
+	case "B":
+		return "level B: level A plus activated abilities, trigger modes, attacks/blocks and statics (no templates yet)"
+	}
+	return "level " + level + ": undefined"
+}
+
 // Problem is one card that keeps a set from its declared level.
 type Problem struct {
 	Card   string `json:"card"`

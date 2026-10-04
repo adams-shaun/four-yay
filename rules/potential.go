@@ -3,13 +3,13 @@ package rules
 import (
 	"fmt"
 	"math"
-	"reflect"
 	"slices"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -141,7 +141,7 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 						if !lw.manaWalkEmpty(board, o, id, o.Face()) {
 							fresh = e.appendAvailableManaAbilitiesGate(nil, nil, p, id, true)
 						}
-						if !slices.EqualFunc(fresh, mem, sameManaAbility) {
+						if !slices.EqualFunc(fresh, mem, pay.SameManaAbility) {
 							panic(fmt.Sprintf("rules: PotentialMana membership for %d served from the priority walk differs", id))
 						}
 					}
@@ -159,7 +159,7 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 					admitted = append(admitted, false)
 				}
 			} else if potentialMembersVerify && sp.end > sp.start {
-				if fresh := e.appendAvailableManaAbilitiesGate(nil, nil, p, id, true); !slices.EqualFunc(fresh, flat[sp.start:sp.end], sameManaAbility) {
+				if fresh := e.appendAvailableManaAbilitiesGate(nil, nil, p, id, true); !slices.EqualFunc(fresh, flat[sp.start:sp.end], pay.SameManaAbility) {
 					panic(fmt.Sprintf("rules: PotentialMana membership for %d moved inside the fixpoint", id))
 				}
 			}
@@ -234,12 +234,6 @@ func (e *Engine) verifyPotentialSkip(p state.PlayerID, o *state.Object, id state
 // membership list and panic on a difference. Set by the rules test binary
 // (derivedmemo_verify_test.go), or at link time with derivedMemoVerifyFlag.
 var potentialMembersVerify = derivedMemoVerifyFlag != ""
-
-// sameManaAbility is potentialMembersVerify's comparison: the same ability,
-// or (for an ability a grant builds per call) an identical one.
-func sameManaAbility(a, b *cards.SA) bool {
-	return a == b || (a != nil && b != nil && reflect.DeepEqual(*a, *b))
-}
 
 // potentialProducedStrip strips the braces and spaces from a Produced$
 // value. A strings.Replacer is safe for concurrent use, so one serves every
@@ -358,7 +352,7 @@ func saturatingPotentialMana(have, add int32) int32 {
 // production (the round-2 finding that granted 99 of every colour to a
 // blank-Produced$ source).
 func producedOpen(raw string) bool {
-	if v, ok := producedOpenTab1.Get(raw); ok {
+	if v, ok := producedOpenTab.Get(raw); ok {
 		return v
 	}
 	s := potentialProducedStrip.Replace(raw)
@@ -447,26 +441,26 @@ func (e *Engine) PotentialActions(p state.PlayerID) []decision.PotentialAction {
 //
 // The excluded kinds are "activate" (the mana tap), "pass" and "concede".
 func potentialPlayKind(kind string) bool {
-	if v, ok := potentialPlayKindTab2.Get(kind); ok {
+	if v, ok := potentialPlayKindTab.Get(kind); ok {
 		return v
 	}
 	return false
 }
 
-var producedOpenTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "", Val: true},
-	cards.StrEntry[bool]{Key: "Any", Val: true},
-	cards.StrEntry[bool]{Key: "Combo Any", Val: true},
-	cards.StrEntry[bool]{Key: "Chosen", Val: true},
+var producedOpenTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "", Val: true},
+	state.StrEntry[bool]{Key: "Any", Val: true},
+	state.StrEntry[bool]{Key: "Combo Any", Val: true},
+	state.StrEntry[bool]{Key: "Chosen", Val: true},
 )
 
-var potentialPlayKindTab2 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "cast", Val: true},
-	cards.StrEntry[bool]{Key: "ability", Val: true},
-	cards.StrEntry[bool]{Key: "play_land", Val: true},
-	cards.StrEntry[bool]{Key: "granted", Val: true},
-	cards.StrEntry[bool]{Key: "unlock", Val: true},
-	cards.StrEntry[bool]{Key: "turn_face_up", Val: true},
-	cards.StrEntry[bool]{Key: "specialize", Val: true},
-	cards.StrEntry[bool]{Key: "station", Val: true},
+var potentialPlayKindTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "cast", Val: true},
+	state.StrEntry[bool]{Key: "ability", Val: true},
+	state.StrEntry[bool]{Key: "play_land", Val: true},
+	state.StrEntry[bool]{Key: "granted", Val: true},
+	state.StrEntry[bool]{Key: "unlock", Val: true},
+	state.StrEntry[bool]{Key: "turn_face_up", Val: true},
+	state.StrEntry[bool]{Key: "specialize", Val: true},
+	state.StrEntry[bool]{Key: "station", Val: true},
 )

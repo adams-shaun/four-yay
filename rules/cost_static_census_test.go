@@ -364,7 +364,7 @@ func TestCostStaticCensus(t *testing.T) {
 		}
 		panicked = probe(func() {
 			ctx := &effects.Ctx{Source: sv.Source, Controller: sv.Controller, SVars: sv.SVars, X: x,
-				ChosenNumber: 3, ChosenNumberBound: sv.chosenNumberBound, Targets: tg,
+				Num: effects.NumberInputs{Chosen: 3, ChosenBound: sv.chosenNumberBound}, Targets: tg,
 				// The priced object, exactly as modAmountX binds it.
 				AffectedObj: instantID}
 			n, ok = effects.EvalCountOK(e, ctx, body)

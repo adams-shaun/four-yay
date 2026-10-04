@@ -1,0 +1,8 @@
+{
+  "card": "Heroic Sacrifice",
+  "labels": [
+    "param:api:Effect.ValidTgtsDesc",
+    "param:api:PutCounter.ValidTgtsDesc",
+    "param:api:ReplaceEffect.VarType"
+  ]
+}

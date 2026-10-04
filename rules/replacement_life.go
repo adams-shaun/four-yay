@@ -274,13 +274,13 @@ func (e *Engine) applyLifeReplacement(ev events.Event, m replMatch) (events.Even
 			ev.Amount = amount
 			return ev, false
 		}
-		switch r.With.API {
-		case "LoseLife":
+		switch applyLifeReplacementCodes.Code(string(r.With.API)) {
+		case applyLifeReplacementLoseLife:
 			// That player loses that much life instead: the event is now a
 			// loss, so only LifeReduced replacements can modify it further.
 			ev.Amount = -ev.Amount
 			return ev, false
-		case "Draw":
+		case applyLifeReplacementDraw:
 			e.lifeReplacementDraw(ev.Player, ev.Amount)
 			return ev, true
 		}
@@ -401,3 +401,15 @@ func (e *Engine) drawForbidden(p state.PlayerID) bool {
 	}
 	return false
 }
+
+type applyLifeReplacementCode uint16
+
+const (
+	applyLifeReplacementLoseLife applyLifeReplacementCode = iota + 1
+	applyLifeReplacementDraw
+)
+
+var applyLifeReplacementCodes = state.NewStrCodes(
+	state.StrEntry[applyLifeReplacementCode]{Key: "LoseLife", Val: applyLifeReplacementLoseLife},
+	state.StrEntry[applyLifeReplacementCode]{Key: "Draw", Val: applyLifeReplacementDraw},
+)

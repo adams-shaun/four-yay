@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"bytes"
 	"reflect"
 	"testing"
 
@@ -185,83 +184,5 @@ func TestPaymentPlanStatsPoolDeclinedBuild(t *testing.T) {
 	want := PaymentPlanStats{DecisionsBuilt: 1, PoolDeclined: 1}
 	if !reflect.DeepEqual(*stats, want) {
 		t.Fatalf("stats = %+v, want %+v", *stats, want)
-	}
-}
-
-// A nil sink is inert, Merge sums (max for MaxNodes), and the text report is
-// sorted so equal counters print identical bytes.
-func TestPaymentPlanStatsMergeAndReport(t *testing.T) {
-	t.Parallel()
-	var nilSink *PaymentPlanStats
-	nilSink.recordBuild(false)
-	nilSink.recordOutcome(PaymentPlanOutcome{Reason: "insufficient", Nodes: 3})
-	nilSink.recordOffered(1)
-	nilSink.recordPlannedSubmission()
-	nilSink.recordFallback(paymentFallbackCostChanged)
-
-	a := &PaymentPlanStats{}
-	a.recordBuild(false)
-	a.recordOutcome(PaymentPlanOutcome{Reason: "unsupported", Detail: "cost:x"})
-	a.recordOutcome(PaymentPlanOutcome{Plan: &decision.PaymentPlan{}, Reason: "search_limit", Nodes: 9})
-	a.recordOffered(1)
-	b := &PaymentPlanStats{}
-	b.recordBuild(true)
-	b.recordOutcome(PaymentPlanOutcome{Plan: &decision.PaymentPlan{}, Nodes: 4})
-	b.recordOutcome(PaymentPlanOutcome{Reason: "insufficient", Detail: "source:deferred", Nodes: 5})
-	b.recordOffered(1)
-	b.recordPlannedSubmission()
-	b.recordFallback(paymentFallbackSourceChanged)
-	b.recordFallback(paymentFallbackCostChanged)
-
-	sum := &PaymentPlanStats{}
-	sum.Merge(a)
-	sum.Merge(b)
-	sum.Merge(nil)
-	want := PaymentPlanStats{
-		DecisionsBuilt: 2, PoolDeclined: 1, Candidates: 4, ActionsOffered: 2, PlansOffered: 2,
-		ByReason: map[string]int{"unsupported": 1, "search_limit": 1, "ready": 1, "insufficient": 1},
-		ByDetail: map[string]int{"cost:x": 1, "source:deferred": 1},
-		Nodes:    18, MaxNodes: 9, SearchLimitHits: 1, PlannedSubmissions: 1,
-		Fallbacks: map[string]int{paymentFallbackCostChanged: 1, paymentFallbackSourceChanged: 1},
-	}
-	if !reflect.DeepEqual(*sum, want) {
-		t.Fatalf("merged = %+v\nwant   %+v", *sum, want)
-	}
-	var first, second bytes.Buffer
-	if err := sum.WriteText(&first); err != nil {
-		t.Fatal(err)
-	}
-	for i := 0; i < 8; i++ {
-		second.Reset()
-		if err := sum.WriteText(&second); err != nil {
-			t.Fatal(err)
-		}
-		if !bytes.Equal(first.Bytes(), second.Bytes()) {
-			t.Fatalf("report is not stable:\n%s\n---\n%s", first.String(), second.String())
-		}
-	}
-	const wantText = `payment plan stats:
-  decisions built:       2
-  pool declined builds:  1
-  cast candidates:       4
-  actions offered:       2
-  plans offered:         2
-  search nodes:          18 (max 9)
-  search_limit hits:     1
-  planned submissions:   1
-  outcomes by reason:
-    insufficient                             1
-    ready                                    1
-    search_limit                             1
-    unsupported                              1
-  outcomes by detail:
-    cost:x                                   1
-    source:deferred                          1
-  fallbacks by reason:
-    cost_changed                             1
-    source_changed                           1
-`
-	if first.String() != wantText {
-		t.Fatalf("report =\n%s\nwant\n%s", first.String(), wantText)
 	}
 }

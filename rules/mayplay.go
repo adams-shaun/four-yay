@@ -779,9 +779,9 @@ func (e *Engine) mayPlayAltCosts(p state.PlayerID, id state.ObjID) []Cost {
 		// Condition$ PlayerTurn ("during each of your turns"): the static's
 		// controller's turn, the same switch mayPlayStatic runs. Any other
 		// value is an unimplemented gate and fails closed.
-		switch cond := strings.TrimSpace(sv.ParamStr(cards.PKCondition)); cond {
-		case "":
-		case "PlayerTurn":
+		switch cond := strings.TrimSpace(sv.ParamStr(cards.PKCondition)); mayPlayAltConditionCodes.Code(cond) {
+		case mayPlayAltConditionEmpty:
+		case mayPlayAltConditionPlayerTurn:
 			if e.G.Active != sv.Controller {
 				continue
 			}
@@ -1138,7 +1138,7 @@ func (e *Engine) mayPlayHostsCovering(p state.PlayerID, id state.ObjID) []state.
 // answers from the hosts it recorded at beginCast; the pre-cast offer walk
 // reads the live permissions.
 func (e *Engine) castRidesMayPlayOf(p state.PlayerID, id, host state.ObjID, scope costScope) bool {
-	if scope.kind != "Spell" || scope.mode != "mayplay" {
+	if scope.Kind != "Spell" || scope.Mode != "mayplay" {
 		return false
 	}
 	if pc := e.cast; pc != nil && pc.card == id && pc.mayPlayHostsSet {
@@ -1200,3 +1200,15 @@ func spellValidSAIsClassified(validSA string) bool {
 	}
 	return true
 }
+
+type mayPlayAltConditionCode uint16
+
+const (
+	mayPlayAltConditionEmpty mayPlayAltConditionCode = iota + 1
+	mayPlayAltConditionPlayerTurn
+)
+
+var mayPlayAltConditionCodes = state.NewStrCodes(
+	state.StrEntry[mayPlayAltConditionCode]{Key: "", Val: mayPlayAltConditionEmpty},
+	state.StrEntry[mayPlayAltConditionCode]{Key: "PlayerTurn", Val: mayPlayAltConditionPlayerTurn},
+)

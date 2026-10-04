@@ -12,8 +12,8 @@ import (
 // (OptionalGenericCostPaid through ColorsColorIdentity). The dispatcher has
 // already applied the space-less OptionalGenericCostPaid peel.
 func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth int) (int32, bool, bool) {
-	switch head {
-	case "OptionalGenericCostPaid":
+	switch evalCountBodyPaidCodes.Code(string(head)) {
+	case evalCountBodyPaidOptionalGenericCostPaid:
 		// OptionalCost's paid/unpaid branches are a boolean cast provenance.
 		// The CastSA indirection has already bound c.Source to the cast object.
 		// Each branch token is a numeric literal in the common case
@@ -44,7 +44,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return paid, true, true
 		}
 		return unpaid, true, true
-	case "OffspringPaid":
+	case evalCountBodyPaidOffspringPaid:
 		// CR 702.175a: whether the resolving spell's cast paid the optional
 		// Offspring additional cost ("You may pay an additional [cost] as you
 		// cast this spell. If you do, when this creature enters, create a 1/1
@@ -61,7 +61,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			}
 		}
 		return 0, true, true
-	case "TimesKicked":
+	case evalCountBodyPaidTimesKicked:
 		// CR 702.43: the number of times the resolving spell's multikicker
 		// cost was paid as it was cast, carried by the pay-time CastInfo's
 		// FlagMultikicked Amount (rules/cast.go's multikickAsk and payCast).
@@ -73,14 +73,14 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		// announcement ask reads a TimesKicked bound BEFORE payment has
 		// stamped the object (Comet Storm's TargetMin/Max$ TargetsNum); a
 		// COPY of the spell was never kicked and reads 0.
-		if c.TimesKicked != 0 {
-			return c.TimesKicked, true, true
+		if c.Kicker.TimesKicked != 0 {
+			return c.Kicker.TimesKicked, true, true
 		}
 		if o := g.Obj(c.Source); o != nil {
 			return o.TimesKicked, true, true
 		}
 		return 0, true, true
-	case "TimesMutated":
+	case evalCountBodyPaidTimesMutated:
 		// CR 702.140f: how many times the SOURCE permanent has mutated, folded
 		// by events.Apply's Mutate case onto state.Object.TimesMutated and reset
 		// when the pile leaves the battlefield. The "this creature" readers
@@ -91,7 +91,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return o.TimesMutated, true, true
 		}
 		return 0, true, true
-	case "Conspired":
+	case evalCountBodyPaidConspired:
 		// CR 702.78a: 1 when the resolving spell's Conspire tap was actually
 		// paid as it was cast, else 0. Carried by the pay-time CastInfo's
 		// FlagConspired (rules/cast.go's conspireAsk/payCast). Same provenance
@@ -103,7 +103,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return 1, true, true
 		}
 		return 0, true, true
-	case "Converge":
+	case evalCountBodyPaidConverge:
 		// CR 107.4f-family converge: the number of DISTINCT colours (WUBRG)
 		// of mana actually spent to cast the resolving spell, carried by the
 		// pay-time CastInfo's FlagConverged Amount (rules/cast.go's
@@ -116,7 +116,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return o.ConvergeColours, true, true
 		}
 		return 0, true, true
-	case "CastTotalManaSpent":
+	case evalCountBodyPaidCastTotalManaSpent:
 		// CR 601.2h's payment: the TOTAL mana actually spent to cast the
 		// resolving spell. The bare form (arg == "") is the spent delta's pips
 		// summed over every slot, carried by the pay-time CastInfo's
@@ -152,7 +152,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return manaSpentTotalsOf(o).byTag(arg), true, true
 		}
 		return 0, true, true
-	case "ChosenNumber":
+	case evalCountBodyPaidChosenNumber:
 		// The Effect's SetChosenNumber$ binding (state.ContinuousEffect.ChosenNumber,
 		// threaded into Ctx by rules' replCtx for effect-created replacement
 		// bodies, task wildgrowth1: torgal_a_fine_hound / communal_brewing /
@@ -168,8 +168,8 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		// (void's cmcEQX through resolveNumericRHS) never matches -- instead
 		// of enforcing a meaningless zero. A bound zero is a real binding and
 		// evaluates (torgal with no Dogs/Wolves on the board).
-		if c.ChosenNumberBound {
-			return c.ChosenNumber, true, true
+		if c.Num.ChosenBound {
+			return c.Num.Chosen, true, true
 		}
 		// The Choose-event population (effects/choose.go's ChooseNumber,
 		// the as-enters number choice): the answer lives on the SOURCE
@@ -183,7 +183,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return o.ChosenNumber, true, true
 		}
 		return 0, false, true
-	case "ChosenSize":
+	case evalCountBodyPaidChosenSize:
 		// Forge's Count$ChosenSize (CardUtil.getChosenCards().size()): the
 		// number of CARDS the current resolution's ChooseCard chain has
 		// chosen -- the same set Defined$ ChosenCard resolves (effects/
@@ -206,30 +206,30 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			}
 		}
 		return n, true, true
-	case "YourStartingLife":
+	case evalCountBodyPaidYourStartingLife:
 		return h.StartingLife(), true, true
-	case "YourLifeTotal":
+	case evalCountBodyPaidYourLifeTotal:
 		if c.Controller < 0 || int(c.Controller) >= len(g.Players) {
 			return 0, true, true
 		}
 		return g.Players[c.Controller].Life, true, true
-	case "PlayerCountPlayers":
+	case evalCountBodyPaidPlayerCountPlayers:
 		return int32(g.AliveCount()), true, true
-	case "PlayerCountOpponents":
+	case evalCountBodyPaidPlayerCountOpponents:
 		return int32(g.AliveCount() - 1), true, true
-	case "ThisTurnCast":
+	case evalCountBodyPaidThisTurnCast:
 		// Task 17 (Storm): spells cast this turn by anyone, read off the
 		// log via h.CastThisTurn() so a replay derives the same count. The
 		// classic idiom is Count$ThisTurnCast/Minus1 (storm copies the spell
 		// once per spell cast before it, i.e. everyone's casts minus itself).
 		return int32(h.CastThisTurn()), true, true
-	case "TotalCommanderCastFromCommandZone", "CommanderCastFromCommandZone":
+	case evalCountBodyPaidTotalCommanderCastFromComman:
 		// Both Forge spellings read the resolving controller's own
 		// command-zone commander casts over the whole game — log-derived
 		// through the Host like CastThisTurn, so replay derives the same
 		// number and the same provenance read the CR 903.8 commander tax.
 		return h.CommanderCastsFromCommandZone(c.Controller), true, true
-	case "RememberedNumber":
+	case evalCountBodyPaidRememberedNumber:
 		// The chain's shared ExchangeLife rider (RememberOwnLoss$/
 		// RememberDifference$) takes precedence: the pointer is re-attached to
 		// every Ctx a suspension rebuilds, so the chained SubAbility$ reader
@@ -262,11 +262,11 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		// A RememberCounteredCMC$ binding takes the same precedence: the
 		// remembered number is the countered spell's mana VALUE (a counter
 		// rider sizes off it), not a count of remembered entries.
-		if c.RememberedCMCBound {
-			return c.RememberedCMC, true, true
+		if c.Num.RememberedCMCBound {
+			return c.Num.RememberedCMC, true, true
 		}
 		return int32(len(rememberedExcludingCapture(h, c))), true, true
-	case "RememberedSize":
+	case evalCountBodyPaidRememberedSize:
 		// Forge's RememberedSize is the HOST CARD's remembered list -- the
 		// persistent list riders (RememberDiscarded$/RememberCountered$/
 		// RememberChosen$/RememberControlled$/RememberSacrificed$) add to and
@@ -284,7 +284,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return int32(len(o.Remembered)), true, true
 		}
 		return int32(len(c.Remembered)), true, true
-	case "LifeOppsLostThisTurn":
+	case evalCountBodyPaidLifeOppsLostThisTurn:
 		// The total life the controller's OPPONENTS have lost this turn
 		// (Rakdos, Lord of Riots). Each opponent's loss comes from the Host's
 		// log-derived LifeLostThisTurn, so the count is replay-derivable.
@@ -298,7 +298,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			}
 		}
 		return n, true, true
-	case "DamageOppsTakenThisTurn":
+	case evalCountBodyPaidDamageOppsTakenThisTurn:
 		// The total damage the controller's OPPONENTS were dealt this turn
 		// (kw:Bloodthirst, CR 702.54, is the reader). Each opponent's take
 		// comes from the Host's log-derived DamageTakenThisTurn (player-targeted
@@ -320,7 +320,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			}
 		}
 		return n, true, true
-	case "LifeYouLostThisTurn":
+	case evalCountBodyPaidLifeYouLostThisTurn:
 		// The total life the controller LOST this turn -- Luminarch
 		// Ascension's and Boarded Window's end-step CheckSVar$ gate ("if you
 		// didn't lose life this turn"). The same log-derived Host fold
@@ -332,7 +332,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return 0, true, true
 		}
 		return h.LifeLostThisTurn(c.Controller), true, true
-	case "Party":
+	case evalCountBodyPaidParty:
 		// CR 700.8: the controller's party -- one each of Cleric, Rogue,
 		// Warrior and Wizard among the creatures they control, a creature
 		// filling at most one role (partySize). 39 raw corpus carriers
@@ -342,7 +342,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return 0, true, true
 		}
 		return partySize(g, c), true, true
-	case "LifeYouGainedThisTurn":
+	case evalCountBodyPaidLifeYouGainedThisTurn:
 		// The total life the controller GAINED this turn — the CheckSVar$ gate
 		// behind the "At the beginning of each end step, if you gained 4 or
 		// more life this turn" family (Angelic Accord, Resplendent Angel,
@@ -353,7 +353,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return 0, true, true
 		}
 		return h.LifeGainedThisTurn(c.Controller), true, true
-	case "YouDrewThisTurn":
+	case evalCountBodyPaidYouDrewThisTurn:
 		// The number of cards the controller DREW this turn — Elenda and
 		// Azor's `SVar:Y:Count$YouDrewThisTurn` feeding `TokenAmount$ Y`
 		// ("create a number of 1/1 black Vampire Knight creature tokens with
@@ -369,7 +369,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return 0, true, true
 		}
 		return h.CardsDrawnThisTurn(c.Controller), true, true
-	case "YouScryThisTurn", "YouSurveilThisTurn":
+	case evalCountBodyPaidYouScryThisTurn:
 		// The number of times the controller SCRIED / SURVEILLED this turn
 		// (Forge's per-turn scry and surveil tallies): Desperate
 		// Futurescribe, Proctor of Potential and Surveillance Phantasm's
@@ -386,7 +386,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return h.ScriedThisTurn(c.Controller), true, true
 		}
 		return h.SurveilledThisTurn(c.Controller), true, true
-	case "CountersAddedThisTurn":
+	case evalCountBodyPaidCountersAddedThisTurn:
 		// Count$CountersAddedThisTurn <KIND> <Player> <ObjectSpec>.
 		// Keep malformed or unsupported shapes unresolvable: CheckSVar
 		// distinguishes that from an evaluated zero.
@@ -403,7 +403,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			sc := c.TableSpecContext(c.Controller)
 			return h.CountersAddedThisTurn(parts[0], parts[1], parts[2], sc), true, true
 		}
-	case "CountersRemovedThisTurn":
+	case evalCountBodyPaidCountersRemovedThisTurn:
 		// Count$CountersRemovedThisTurn <KIND> <Player> — the number of counters
 		// of KIND the named players have PAID or LOST this turn (Creative
 		// Energy's cost engine: Blaster Hulk's `Amount$ Count$CountersRemovedThisTurn
@@ -433,13 +433,13 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			}
 			return n, true, true
 		}
-	case "YourTurns":
+	case evalCountBodyPaidYourTurns:
 		// How many of the game's turns have begun with the controller as the
 		// active player, current turn included (Serra Avenger's "your first,
 		// second, or third turns of the game"). Log-derived through the Host
 		// like LifeOppsLostThisTurn, so a replay derives the same number.
 		return h.TurnsTaken(c.Controller), true, true
-	case "CardPower":
+	case evalCountBodyPaidCardPower:
 		if lki, ok := sacrificedSourceLKI(g, c); ok {
 			return lki.Power, true, true // sacrificed by this ability: LKI
 		}
@@ -447,12 +447,12 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return refPower(h, o, false), true, true
 		}
 		return 0, true, true
-	case "CardBasePower":
+	case evalCountBodyPaidCardBasePower:
 		if o := g.Obj(c.Source); o != nil && o.Face() != nil {
 			return h.Chars(c.Source).BasePower, true, true
 		}
 		return 0, true, true
-	case "CardToughness":
+	case evalCountBodyPaidCardToughness:
 		if lki, ok := sacrificedSourceLKI(g, c); ok {
 			return lki.Toughness, true, true // sacrificed by this ability: LKI
 		}
@@ -460,7 +460,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return refToughness(h, o, false), true, true
 		}
 		return 0, true, true
-	case "AttackersDeclared":
+	case evalCountBodyPaidAttackersDeclared:
 		// Count$AttackersDeclared: the attackers declared THIS turn — the Raid
 		// family's "attacked this turn" read (Bloodsoaked Champion's
 		// CheckSVar$ RaidTest activation gate plus 10 ConditionCheckSVar$
@@ -468,7 +468,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		// Engine.AttackersThisTurn) so a replay derives the identical number,
 		// the same discipline CastThisTurn takes.
 		return int32(h.AttackersThisTurn()), true, true
-	case "ColorsColorIdentity":
+	case evalCountBodyPaidColorsColorIdentity:
 		// Count$ColorsColorIdentity: the number of colours in the resolving
 		// controller's commanders' colour identity (War Room's
 		// "SVar:X:Count$ColorsColorIdentity" driving "{3}, {T}, Pay life equal
@@ -486,3 +486,77 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 	}
 	return 0, false, false
 }
+
+type evalCountBodyPaidCode uint16
+
+const (
+	evalCountBodyPaidOptionalGenericCostPaid evalCountBodyPaidCode = iota + 1
+	evalCountBodyPaidOffspringPaid
+	evalCountBodyPaidTimesKicked
+	evalCountBodyPaidTimesMutated
+	evalCountBodyPaidConspired
+	evalCountBodyPaidConverge
+	evalCountBodyPaidCastTotalManaSpent
+	evalCountBodyPaidChosenNumber
+	evalCountBodyPaidChosenSize
+	evalCountBodyPaidYourStartingLife
+	evalCountBodyPaidYourLifeTotal
+	evalCountBodyPaidPlayerCountPlayers
+	evalCountBodyPaidPlayerCountOpponents
+	evalCountBodyPaidThisTurnCast
+	evalCountBodyPaidTotalCommanderCastFromComman
+	evalCountBodyPaidRememberedNumber
+	evalCountBodyPaidRememberedSize
+	evalCountBodyPaidLifeOppsLostThisTurn
+	evalCountBodyPaidDamageOppsTakenThisTurn
+	evalCountBodyPaidLifeYouLostThisTurn
+	evalCountBodyPaidParty
+	evalCountBodyPaidLifeYouGainedThisTurn
+	evalCountBodyPaidYouDrewThisTurn
+	evalCountBodyPaidYouScryThisTurn
+	evalCountBodyPaidCountersAddedThisTurn
+	evalCountBodyPaidCountersRemovedThisTurn
+	evalCountBodyPaidYourTurns
+	evalCountBodyPaidCardPower
+	evalCountBodyPaidCardBasePower
+	evalCountBodyPaidCardToughness
+	evalCountBodyPaidAttackersDeclared
+	evalCountBodyPaidColorsColorIdentity
+)
+
+var evalCountBodyPaidCodes = state.NewStrCodes(
+	state.StrEntry[evalCountBodyPaidCode]{Key: "OptionalGenericCostPaid", Val: evalCountBodyPaidOptionalGenericCostPaid},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "OffspringPaid", Val: evalCountBodyPaidOffspringPaid},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "TimesKicked", Val: evalCountBodyPaidTimesKicked},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "TimesMutated", Val: evalCountBodyPaidTimesMutated},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "Conspired", Val: evalCountBodyPaidConspired},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "Converge", Val: evalCountBodyPaidConverge},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "CastTotalManaSpent", Val: evalCountBodyPaidCastTotalManaSpent},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "ChosenNumber", Val: evalCountBodyPaidChosenNumber},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "ChosenSize", Val: evalCountBodyPaidChosenSize},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "YourStartingLife", Val: evalCountBodyPaidYourStartingLife},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "YourLifeTotal", Val: evalCountBodyPaidYourLifeTotal},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "PlayerCountPlayers", Val: evalCountBodyPaidPlayerCountPlayers},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "PlayerCountOpponents", Val: evalCountBodyPaidPlayerCountOpponents},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "ThisTurnCast", Val: evalCountBodyPaidThisTurnCast},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "TotalCommanderCastFromCommandZone", Val: evalCountBodyPaidTotalCommanderCastFromComman},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "CommanderCastFromCommandZone", Val: evalCountBodyPaidTotalCommanderCastFromComman},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "RememberedNumber", Val: evalCountBodyPaidRememberedNumber},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "RememberedSize", Val: evalCountBodyPaidRememberedSize},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "LifeOppsLostThisTurn", Val: evalCountBodyPaidLifeOppsLostThisTurn},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "DamageOppsTakenThisTurn", Val: evalCountBodyPaidDamageOppsTakenThisTurn},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "LifeYouLostThisTurn", Val: evalCountBodyPaidLifeYouLostThisTurn},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "Party", Val: evalCountBodyPaidParty},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "LifeYouGainedThisTurn", Val: evalCountBodyPaidLifeYouGainedThisTurn},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "YouDrewThisTurn", Val: evalCountBodyPaidYouDrewThisTurn},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "YouScryThisTurn", Val: evalCountBodyPaidYouScryThisTurn},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "YouSurveilThisTurn", Val: evalCountBodyPaidYouScryThisTurn},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "CountersAddedThisTurn", Val: evalCountBodyPaidCountersAddedThisTurn},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "CountersRemovedThisTurn", Val: evalCountBodyPaidCountersRemovedThisTurn},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "YourTurns", Val: evalCountBodyPaidYourTurns},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "CardPower", Val: evalCountBodyPaidCardPower},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "CardBasePower", Val: evalCountBodyPaidCardBasePower},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "CardToughness", Val: evalCountBodyPaidCardToughness},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "AttackersDeclared", Val: evalCountBodyPaidAttackersDeclared},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "ColorsColorIdentity", Val: evalCountBodyPaidColorsColorIdentity},
+)

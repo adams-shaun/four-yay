@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -20,13 +21,13 @@ func (e *Engine) unlessManaWindowNeeded(p state.PlayerID, cost Cost, obj state.O
 	if !cost.HasManaPayment() {
 		return false
 	}
-	d := paymentDescriptor{id: obj, class: paymentOther, cost: &cost}
+	d := paymentDescriptor{ID: obj, Class: paymentOther, Cost: &cost}
 	// Ask whether the POOL ALONE pays (lifeGrant false): a {B} pip K'rrik's
 	// PayLifeInsteadOf:B grant could settle with 2 life is not yet covered by
 	// the pool, so the window must still open to offer the untapped source.
 	// The grant-bearing payment paths (payUnlessCost, advanceUnlessPayment's
 	// charge) keep the grant, so answering Done still spends the life.
-	if e.costPayableClassLife(p, d, pipRider{}, cost, false) {
+	if pay.CostPayableClassLife(asPayer(e), p, d, pipRider{}, cost, false) {
 		return false
 	}
 	return e.hasUntappedManaSource(p)

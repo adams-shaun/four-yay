@@ -42,9 +42,9 @@ func interferenceTier(t *testing.T, e *Engine, src state.ObjID) (pay.Tier, pay.C
 	if len(abilities) == 0 {
 		// Basic lands carry their intrinsic ability only through the window.
 		for _, u := range e.paymentPlanManaUnits(o.Controller) {
-			if u.id == src {
-				for _, alt := range u.alts {
-					abilities = append(abilities, alt.ma)
+			if u.ID == src {
+				for _, alt := range u.Alts {
+					abilities = append(abilities, alt.Ma)
 				}
 			}
 		}
@@ -379,7 +379,7 @@ func TestPaymentPlanInterferenceWideningManaConvertIsNotGlobal(t *testing.T) {
 	e, _, spell := newFixtureDeck(t, 9913, interferenceBlueInstant)
 	island := onBoard(t, e, 0, interferenceIsland)
 	onBoardCard(t, e, 1, corpusCard(t, "Mycosynth Lattice"))
-	if e.paymentConv(0, spell, false) == nil {
+	if asPayer(e).Conv(0, spell, false) == nil {
 		t.Fatal("precondition: Mycosynth Lattice does not reach seat 0's payment")
 	}
 	if ok, detail := e.paymentPlanGlobalManaEffect(0, spell); ok {

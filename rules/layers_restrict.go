@@ -198,12 +198,12 @@ func (e *Engine) sacrificeBlocked(id state.ObjID, forCost bool, cause costCause)
 		// ValidCard match so an unevaluable shape stays skipped (the
 		// permissive direction) instead of blanket-blocking. ForCost$ True
 		// restricts only COST sacrifices; ForCost$ False never restricts one.
-		switch sv.ParamStr(cards.PKForCost) {
-		case "True":
+		switch sacrificeBlockedCodes.Code(string(sv.ParamStr(cards.PKForCost))) {
+		case sacrificeBlockedTrue:
 			if !forCost {
 				continue
 			}
-		case "False":
+		case sacrificeBlockedFalse:
 			if forCost {
 				continue
 			}
@@ -290,12 +290,12 @@ func (e *Engine) exileBlocked(id state.ObjID, forCost bool, cause costCause) boo
 		// so an unevaluable shape stays skipped (the permissive direction)
 		// instead of blanket-blocking. ForCost$ True restricts only COST
 		// exiles; ForCost$ False never restricts one.
-		switch sv.ParamStr(cards.PKForCost) {
-		case "True":
+		switch exileBlockedCodes.Code(string(sv.ParamStr(cards.PKForCost))) {
+		case exileBlockedTrue:
 			if !forCost {
 				continue
 			}
-		case "False":
+		case exileBlockedFalse:
 			if forCost {
 				continue
 			}
@@ -442,3 +442,27 @@ func (e *Engine) fogActive() bool {
 	}
 	return false
 }
+
+type sacrificeBlockedCode uint16
+
+const (
+	sacrificeBlockedTrue sacrificeBlockedCode = iota + 1
+	sacrificeBlockedFalse
+)
+
+var sacrificeBlockedCodes = state.NewStrCodes(
+	state.StrEntry[sacrificeBlockedCode]{Key: "True", Val: sacrificeBlockedTrue},
+	state.StrEntry[sacrificeBlockedCode]{Key: "False", Val: sacrificeBlockedFalse},
+)
+
+type exileBlockedCode uint16
+
+const (
+	exileBlockedTrue exileBlockedCode = iota + 1
+	exileBlockedFalse
+)
+
+var exileBlockedCodes = state.NewStrCodes(
+	state.StrEntry[exileBlockedCode]{Key: "True", Val: exileBlockedTrue},
+	state.StrEntry[exileBlockedCode]{Key: "False", Val: exileBlockedFalse},
+)

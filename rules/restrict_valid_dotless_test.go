@@ -16,6 +16,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -249,7 +250,7 @@ func TestRestrictValidDotlessSpell(t *testing.T) {
 	// Rejection: an activated-ability payment never sees the batch — the
 	// clerk's {1} counter ability is generic-payable from any mana, so a
 	// leaked class would surface as an offered option.
-	if got := e.manaAvailableFor(0, paymentFor(clerk, true, e.parseCost("1"))).pool.Total(); got != 0 {
+	if got := pay.AvailableFor(asPayer(e), 0, paymentFor(clerk, true, e.parseCost("1"))).Pool.Total(); got != 0 {
 		t.Fatalf("manaAvailableFor(clerk activation) = %d, want 0 (Spell batch hidden)", got)
 	}
 	e.pending = nil
@@ -261,7 +262,7 @@ func TestRestrictValidDotlessSpell(t *testing.T) {
 	// Admission: the {2} instant's cast is offered on the batch alone and
 	// paid FROM the restricted batch — the batch and the persistent tally
 	// shrink by the cost, the pool with them.
-	if got := e.manaAvailableFor(0, paymentFor(charge, false, e.parseCost("2"))).pool.Total(); got != 4 {
+	if got := pay.AvailableFor(asPayer(e), 0, paymentFor(charge, false, e.parseCost("2"))).Pool.Total(); got != 4 {
 		t.Fatalf("manaAvailableFor({2} spell) = %d, want 4 (Spell batch admitted)", got)
 	}
 	e.pending = nil
@@ -312,7 +313,7 @@ func TestRestrictValidSpellDoesNotPayOtherCosts(t *testing.T) {
 	if batches := restrictedBatchesOf(e, 0, "Spell"); len(batches) != 1 || batches[0].Amount != 1 {
 		t.Fatalf("test precondition: restricted batch = %+v, want one bare Spell R", batches)
 	}
-	if e.payMana(0, ParseCost("R")) {
+	if pay.PayMana(asPayer(e), 0, ParseCost("R")) {
 		t.Fatal("bare Spell restricted mana paid a context-free payment")
 	}
 	if got := e.G.Players[0].Pool[state.MR]; got != 1 {
@@ -364,7 +365,7 @@ func TestRestrictValidDotlessActivated(t *testing.T) {
 
 	// Rejection: the same restricted pool no longer funds a SPELL payment —
 	// the {C} instant stays hidden from manaAvailableFor and unoffered.
-	if got := e.manaAvailableFor(0, paymentFor(spell, false, e.parseCost("C"))).pool.Total(); got != 0 {
+	if got := pay.AvailableFor(asPayer(e), 0, paymentFor(spell, false, e.parseCost("C"))).Pool.Total(); got != 0 {
 		t.Fatalf("manaAvailableFor({C} spell) = %d, want 0 (Activated batch hidden)", got)
 	}
 	e.pending = nil

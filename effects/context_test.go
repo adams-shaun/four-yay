@@ -65,8 +65,8 @@ type fakeHost struct {
 	metalcraft bool
 	// typeChoices is the TypeChoices answer the double reports (nil by
 	// default): the effects-side ChooseType tests configure it to pose a
-	// real option list. Nil routes ChooseType through AskEmpty — the
-	// unchanged deterministic fallback.
+	// real option list. Nil leaves ChooseType with no options, so it takes
+	// the unchanged deterministic fallback.
 	typeChoices []decision.Option
 	// combatHits is the CombatDamageToPlayersThisTurn answer the double
 	// reports; the effects-level PlayerCountDefinedRegistered tests set it to
@@ -107,19 +107,8 @@ type fakeHost struct {
 	// between-iteration suspension break). Zero value keeps the historical
 	// constant-false read every other effects test relies on.
 	suspendAfterAsk bool
-	// flipRests records every SuspendFlipRest call, so the effects-level
-	// FlipUntilYouLose$ resume test can assert the loop cursor was reported
-	// rather than the loop being abandoned.
-	flipRests        []FlipRest
-	repeatBodyNext   int32
-	repeatBodyCount  int32
-	repeatBodyCalled bool
-	// repeatSuspensions records every SuspendRepeat call, so the effects-level
-	// RepeatEach RepeatOptionalForEachPlayer$ test can assert the per-subject
-	// election parked the loop cursor with Election set and the offered index.
-	repeatSuspensions []RepeatSuspension
-	askCount          int
-	askResult         bool
+	askCount        int
+	askResult       bool
 	// lastAsk is the most recent decision handed to Ask, so an effects-level
 	// test can assert the election's ResumeRepeatNext (the two distinct
 	// RepeatOptional resume states) without an engine.
@@ -557,8 +546,8 @@ func (h *fakeHost) IsCreature(id state.ObjID) bool {
 func (h *fakeHost) Ask(d *decision.Decision) bool { h.askCount++; h.lastAsk = d; return h.askResult }
 
 // TypeChoices serves the double's configured typeChoices list (nil by
-// default): nil routes ChooseType through AskEmpty — the unchanged
-// deterministic fallback — so the existing fallback pins pass untouched.
+// default): nil leaves ChooseType on the unchanged deterministic
+// fallback, so the existing fallback pins pass untouched.
 func (h *fakeHost) TypeChoices(_ state.PlayerID, _ string) []decision.Option {
 	return h.typeChoices
 }
@@ -572,21 +561,6 @@ func (h *fakeHost) TypeChoices(_ state.PlayerID, _ string) []decision.Option {
 // Engine.Suspended reports e.resume != nil.
 func (h *fakeHost) Suspended() bool { return h.suspendAfterAsk }
 
-// SuspendContinuation is a no-op: an effects-package test double never
-// suspends (its Ask returns false), so effects.Resolve never reaches the
-// suspended branch that would call it. Kept to satisfy the Host interface.
-func (h *fakeHost) SuspendContinuation(*cards.SA) {}
-
-// SuspendUnless is a no-op for the same reason as SuspendContinuation.
-func (h *fakeHost) SuspendUnless(*cards.SA, bool) {}
-
-// SetResolutionTargetControllerLKI keeps the no-op shape: this double never
-// suspends, so the map it publishes is never consumed. Returns nil as the
-// "previous" value, which the caller restores on return.
-func (h *fakeHost) SetResolutionTargetControllerLKI(map[state.ObjID]state.PlayerID) map[state.ObjID]state.PlayerID {
-	return nil
-}
-
 func (h *fakeHost) ReplaceEvent(string, string, int32) {}
 
 func (h *fakeHost) EmitDamage(e events.Event) events.Event {
@@ -594,35 +568,6 @@ func (h *fakeHost) EmitDamage(e events.Event) events.Event {
 	return e
 }
 func (h *fakeHost) CounterAllowed(state.ObjID, state.ObjID) bool { return true }
-
-// SuspendRepeatBody records the cursor and count the Repeat reported; it is
-// otherwise inert for the same reason as SuspendContinuation.
-func (h *fakeHost) SuspendRepeatBody(_ *cards.SA, next, count int32) {
-	h.repeatBodyCalled = true
-	h.repeatBodyNext = next
-	h.repeatBodyCount = count
-}
-
-// SuspendRepeat records the loop cursor the RepeatEach reported (the
-// effects-level ReadRepeatEach tests assert the election's own cursor) and is
-// otherwise inert: an effects-package test double never really resumes.
-func (h *fakeHost) SuspendRepeat(s RepeatSuspension) {
-	h.repeatSuspensions = append(h.repeatSuspensions, s)
-}
-
-// SuspendCharmRest is a no-op for the same reason as SuspendContinuation.
-func (h *fakeHost) SuspendCharmRest(*cards.SA, []string) {}
-
-// SuspendVillainousRest is a no-op for the same reason as
-// SuspendContinuation.
-func (h *fakeHost) SuspendVillainousRest(*cards.SA, VillainousRest) {}
-
-// SuspendGenericChoiceRest is a no-op for the same reason as
-// SuspendContinuation.
-func (h *fakeHost) SuspendGenericChoiceRest(*cards.SA, GenericChoiceRest) {}
-func (h *fakeHost) SuspendFlipRest(_ *cards.SA, rest FlipRest) {
-	h.flipRests = append(h.flipRests, rest)
-}
 
 // SetDamageSource records the published damage source on the double (the
 // last value wins) and returns the previous one, mirroring the engine's

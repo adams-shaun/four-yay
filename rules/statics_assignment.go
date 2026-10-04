@@ -244,16 +244,15 @@ func (e *Engine) tapPowerValue(id state.ObjID, saKind string) int32 {
 		if !e.matchesSpec(sv.ParamStr(cards.PKValidCard), id, e.staticSpecCtx(sv)) {
 			continue
 		}
-		switch v := strings.TrimSpace(sv.ParamStr(cards.PKValue)); v {
-		case "Toughness":
+		v := strings.TrimSpace(sv.ParamStr(cards.PKValue))
+		if v == "Toughness" {
 			return e.Toughness(id)
-		default:
-			// A numeric Value$ is Forge's additive "as though its power were
-			// N greater" (every numeric corpus carrier's Description says
-			// exactly that), not a replacement with the literal number.
-			if n, err := strconv.Atoi(v); err == nil {
-				return e.Power(id) + int32(n)
-			}
+		}
+		// A numeric Value$ is Forge's additive "as though its power were
+		// N greater" (every numeric corpus carrier's Description says
+		// exactly that), not a replacement with the literal number.
+		if n, err := strconv.Atoi(v); err == nil {
+			return e.Power(id) + int32(n)
 		}
 	}
 	return e.Power(id)

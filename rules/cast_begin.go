@@ -182,39 +182,39 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// canonical mode).
 		opt.Mode = "sneak"
 	}
-	switch opt.Mode {
-	case "kicked":
+	switch castModeCodes.Code(string(opt.Mode)) {
+	case castModeKicked:
 		if kc, ok := kickerCost(f); ok {
 			cost = cost.Plus(kc)
 		}
 	// CR 702.101b: a Fuse cast pays BOTH halves' printed mana costs as one
 	// combined cost; the card itself stays at its front face (no FlipFace),
 	// and the pay-time FlagFused provenance makes resolution run both halves.
-	case "fuse":
+	case castModeFuse:
 		if ff, fa := fusedSplitFaces(o); ff != nil {
 			cost = e.fuseCost(ff, fa)
 		}
-	case "kicked1", "kicked2", "kickedboth":
+	case castModeKicked1:
 		// The and/or Kicker's per-part modes (legal.go offers one option per
 		// independently payable part): each mode adds exactly the parts its
 		// name promises. An out-of-range or unparseable form (a stale option
 		// or a face whose Kicker changed) falls back to the base cost --
 		// the same no-crash read the AltCostIndex fallback below takes.
 		if c1, c2, ok := twoPartKickerCosts(f); ok {
-			switch opt.Mode {
-			case "kicked1":
+			switch castKickerModeCodes.Code(string(opt.Mode)) {
+			case castKickerModeKicked1:
 				cost = cost.Plus(c1)
-			case "kicked2":
+			case castKickerModeKicked2:
 				cost = cost.Plus(c2)
 			default:
 				cost = cost.Plus(c1).Plus(c2)
 			}
 		}
-	case "surged":
+	case castModeSurged:
 		if sc, ok := surgeCost(f); ok {
 			cost = sc
 		}
-	case "entwined":
+	case castModeEntwined:
 		// Entwine (CR 702.42a): the additional cost is paid ON TOP of the
 		// printed mana cost -- the Buyback shape. The offer gate priced the
 		// SAME read (legal.go's offer), so the two stages cannot disagree.
@@ -225,11 +225,11 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		if ec, ok := entwineCost(f); ok {
 			cost = cost.Plus(ec)
 		}
-	case "buyback":
+	case castModeBuyback:
 		if bc, ok := buybackCost(f); ok {
 			cost = cost.Plus(bc)
 		}
-	case "offspring":
+	case castModeOffspring:
 		// Offspring (CR 702.175a): the additional cost is paid ON TOP of the
 		// mana cost ("You may pay an additional [cost] as you cast this
 		// spell"), never a substitution -- the Buyback shape. The cost is
@@ -242,7 +242,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		if oc, ok := e.offspringCost(id); ok {
 			cost = cost.Plus(oc)
 		}
-	case "replicated":
+	case castModeReplicated:
 		// Replicate (CR 702.55a): the mode marks the intent to pay the
 		// optional replicate cost. The PAYMENT COUNT is a cast announcement
 		// of its own (CR 601.2b), settled by replicateAsk before the
@@ -252,7 +252,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// parameter itself is captured onto the pendingCast after its
 		// construction (the suspend block below), keeping this switch's
 		// cost-folding contract intact.
-	case "multikicked":
+	case castModeMultikicked:
 		// Multikicker (CR 702.43): the same shape as "replicated" above --
 		// the mode marks the intent to pay the optional multikicker cost;
 		// the PAYMENT COUNT is settled by multikickAsk before the Convoke/X
@@ -260,32 +260,32 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// declined count leaves an exactly plain cast (modeFlags maps this
 		// mode to ""), and the pay-time CastInfo rides the trailing
 		// FlagMultikicked event.
-	case "harmonize":
+	case castModeHarmonize:
 		if hc, ok := harmonizeCost(f); ok {
 			cost = hc
 		}
-	case "suspend":
+	case castModeSuspend:
 		if sc, ok := suspendCost(f); ok {
 			cost = sc.cost
 		}
-	case "suspend_cast":
+	case castModeSuspendCast:
 		cost = Cost{}
-	case "defeat_cast":
+	case castModeDefeatCast:
 		// CR 310.11: the defeated battle's owner casts the back face without
 		// paying its mana cost.
 		cost = Cost{}
-	case "plot":
+	case castModePlot:
 		// CR 701.34a: the plot ACTION pays the K:Plot colon parameter. Not a
 		// cast: payCast's plot branch intercepts before the stack push, and
 		// continueCast never reaches the target/push stages for this mode.
 		if raw, ok := f.KeywordParam("Plot"); ok {
 			cost = ParseCost(raw)
 		}
-	case "plot_cast":
+	case castModePlotCast:
 		// CR 701.34d: the plotted card's later cast is free -- no mana cost,
 		// no raises; targets and resolution run the ordinary stages.
 		cost = Cost{}
-	case "prepared_copy":
+	case castModePreparedCopy:
 		// CR 722.3c: the prepared designation's exile copy is cast as a
 		// copy of the prepare spell, with targets and resolution running the
 		// ordinary stages. It is NOT free: the reminder grants only "you may
@@ -293,12 +293,12 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// CR 601.2f charges the copy's own printed mana cost -- the default
 		// rawBaseCost above, which reads the copy's prepare-spell face (Forge's
 		// prepared effect is likewise a plain MayPlay$ True grant).
-	case "foretell":
+	case castModeForetell:
 		// CR 702.126a: the Foretell ACTION pays {2} and exiles the card face
 		// down -- never the keyword's own colon parameter, which prices the
 		// LATER cast (the foretell_cast case below).
 		cost = Cost{Generic: 2}
-	case "foretell_cast":
+	case castModeForetellCast:
 		// CR 702.126a: use the explicit keyword cost, or the printed-cost
 		// reduction carried by an effect's ForetoldCost$ designation.
 		if fc, ok := foretellCost(f); ok {
@@ -308,14 +308,14 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 			// fallback for stale options submitted after the designation changed.
 			cost = Cost{Generic: 2}
 		}
-	case "airbend_cast":
+	case castModeAirbendCast:
 		// CR 701.65a: the airbent card's recast pays {2} rather than its mana
 		// cost. Cost modifiers (CR 601.2f) apply later in manaToPay, exactly
 		// like the other alternative-cost recasts.
 		cost = Cost{Generic: 2}
-	case "flashback":
+	case castModeFlashback:
 		cost = e.flashbackCostFor(id, opt)
-	case "mayplay":
+	case castModeMayplay:
 		// rules/mayplay.go granted this play from a non-hand zone. The
 		// printed cost is paid (the default below) unless the granting
 		// static said MayPlayWithoutManaCost$ True, in which case the mana
@@ -338,7 +338,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		if hasRaise && priced {
 			cost = cost.Plus(raise)
 		}
-	case "miracle":
+	case castModeMiracle:
 		// Task 18: a Miracle cast pays the printed Miracle cost (CR 702.93d) in
 		// place of the card's normal cost. KeywordParam is read off the face;
 		// a missing keyword (offer routed here only from a Miracle offer, and
@@ -349,13 +349,13 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		} else {
 			cost = Cost{}
 		}
-	case "escape":
+	case castModeEscape:
 		if ec, ok := e.escapeCost(id); ok {
 			cost = ec
 		} else {
 			cost = Cost{}
 		}
-	case "retrace":
+	case castModeRetrace:
 		// Retrace (CR 702.81a): a graveyard cast paying the printed mana cost
 		// PLUS the additional discard-a-land cost -- never a substitution, so
 		// the printed base (cost's rawBaseCost seed) stays and only the
@@ -371,7 +371,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		if e.hasKeywordH(id, kwhRetrace) {
 			cost = cost.Plus(retraceExtra())
 		}
-	case "jumpstart":
+	case castModeJumpstart:
 		// Jump-start (CR 702.84a): a graveyard cast paying the printed mana
 		// cost PLUS the additional discard-a-card cost -- never a
 		// substitution, exactly the retrace shape. The offer gate priced this
@@ -381,7 +381,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		if e.hasKeywordH(id, kwhJumpStart) {
 			cost = cost.Plus(jumpstartExtra())
 		}
-	case "evoked", "dashed", "overloaded", "warped", "madness", "bestowed", "blitzed":
+	case castModeEvoked:
 		// Grant instances use distinct modes so their cost remains selectable
 		// beside printed Blitz, but share Blitz's cast semantics.
 		// The alternative-cost keyword family (altcosts): each mode's cost is
@@ -419,7 +419,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		} else {
 			cost = Cost{}
 		}
-	case "web-slinging":
+	case castModeWebSlinging:
 		// Web-slinging (CR 702.186a-family, Marvel's Spider-Man): the
 		// web-slinging cost replaces the mana cost AND the composed Cost
 		// carries the mandatory Return<1/Creature.YouCtrl+tapped> additional
@@ -436,7 +436,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 				break
 			}
 		}
-	case "sneak":
+	case castModeSneak:
 		// Sneak (CR 702.190a): the printed or granted sneak cost replaces the
 		// mana cost AND the composed Cost carries the mandatory
 		// Return<1/Creature.YouCtrl+attacking+unblocked> additional cost,
@@ -453,7 +453,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 				break
 			}
 		}
-	case "mayhem":
+	case castModeMayhem:
 		// Mayhem (the Doom Prevails keyword): a graveyard cast paying the
 		// mayhem cost in place of the mana cost -- the alternative-cost
 		// substitution family, the Miracle shape. The discard-this-turn
@@ -469,7 +469,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		} else {
 			cost = Cost{}
 		}
-	case "mutated":
+	case castModeMutated:
 		// Mutate (CR 702.140a): the mutate cast pays the MUTATE cost in place
 		// of the mana cost -- the same substitution the offer gate priced
 		// (legal.go's offerCastable(p, id, mc, spellScope("mutated"), ...)).
@@ -486,7 +486,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		} else {
 			cost = Cost{}
 		}
-	case "morphed", "megamorphed", "disguised":
+	case castModeMorphed:
 		// Morph / Megamorph / Disguise (CR 702.37a/702.168a/702.169a): the
 		// face-down cast pays {3} in place of the mana cost -- the same
 		// substitution shape the alternative-cost family below charges
@@ -500,7 +500,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// keyword parameter to fall back on (a stale option degrades to a
 		// still-legal {3} cast rather than a free one).
 		cost = Cost{Generic: 3}
-	case "mayflash":
+	case castModeMayflash:
 		// MayFlashCost (CR 702.8, the "as though it had flash" alternate
 		// cast): the printed mana cost is paid PLUS the keyword's colon
 		// parameter -- the oracle wording is "pay {2} MORE to cast it", so
@@ -513,7 +513,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		if mc, ok := mayflashExtraCost(f); ok {
 			cost = cost.Plus(mc)
 		}
-	case "emerged":
+	case castModeEmerged:
 		// Emerge (CR 702.118a): the emerge cast pays the printed K:Emerge cost
 		// in place of the mana cost AND sacrifices a creature, whose mana
 		// value reduces the cost. The reduction is NOT applied here -- the
@@ -739,8 +739,8 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 	// were mana of any color to cast it". Recorded from the grant the offer
 	// gate consulted while the card was still in the granted zone.
 	if opt.Mode == "mayplay" {
-		e.cast.mayPlayIgnore = e.payerGrantsIgnoreColor(p, id)
-		e.cast.mayPlayIgnoreType = e.payerGrantsIgnoreType(p, id)
+		rider := asPayer(e).MayPlayRider(p, id)
+		e.cast.mayPlayIgnore, e.cast.mayPlayIgnoreType = rider.AnyColor, rider.AnyType
 		e.cast.mayPlayRemembered = e.mayPlayManaConvertRemembered(p, id)
 		e.cast.mayPlayPerm = opt.MayPlayPerm
 		e.cast.mayPlayHosts = e.mayPlayHostsCovering(p, id)
@@ -1151,3 +1151,99 @@ func (e *Engine) continueCast() {
 	}
 	e.payCast()
 }
+
+type castModeCode uint16
+
+const (
+	castModeKicked castModeCode = iota + 1
+	castModeFuse
+	castModeKicked1
+	castModeSurged
+	castModeEntwined
+	castModeBuyback
+	castModeOffspring
+	castModeReplicated
+	castModeMultikicked
+	castModeHarmonize
+	castModeSuspend
+	castModeSuspendCast
+	castModeDefeatCast
+	castModePlot
+	castModePlotCast
+	castModePreparedCopy
+	castModeForetell
+	castModeForetellCast
+	castModeAirbendCast
+	castModeFlashback
+	castModeMayplay
+	castModeMiracle
+	castModeEscape
+	castModeRetrace
+	castModeJumpstart
+	castModeEvoked
+	castModeWebSlinging
+	castModeSneak
+	castModeMayhem
+	castModeMutated
+	castModeMorphed
+	castModeMayflash
+	castModeEmerged
+)
+
+var castModeCodes = state.NewStrCodes(
+	state.StrEntry[castModeCode]{Key: "kicked", Val: castModeKicked},
+	state.StrEntry[castModeCode]{Key: "fuse", Val: castModeFuse},
+	state.StrEntry[castModeCode]{Key: "kicked1", Val: castModeKicked1},
+	state.StrEntry[castModeCode]{Key: "kicked2", Val: castModeKicked1},
+	state.StrEntry[castModeCode]{Key: "kickedboth", Val: castModeKicked1},
+	state.StrEntry[castModeCode]{Key: "surged", Val: castModeSurged},
+	state.StrEntry[castModeCode]{Key: "entwined", Val: castModeEntwined},
+	state.StrEntry[castModeCode]{Key: "buyback", Val: castModeBuyback},
+	state.StrEntry[castModeCode]{Key: "offspring", Val: castModeOffspring},
+	state.StrEntry[castModeCode]{Key: "replicated", Val: castModeReplicated},
+	state.StrEntry[castModeCode]{Key: "multikicked", Val: castModeMultikicked},
+	state.StrEntry[castModeCode]{Key: "harmonize", Val: castModeHarmonize},
+	state.StrEntry[castModeCode]{Key: "suspend", Val: castModeSuspend},
+	state.StrEntry[castModeCode]{Key: "suspend_cast", Val: castModeSuspendCast},
+	state.StrEntry[castModeCode]{Key: "defeat_cast", Val: castModeDefeatCast},
+	state.StrEntry[castModeCode]{Key: "plot", Val: castModePlot},
+	state.StrEntry[castModeCode]{Key: "plot_cast", Val: castModePlotCast},
+	state.StrEntry[castModeCode]{Key: "prepared_copy", Val: castModePreparedCopy},
+	state.StrEntry[castModeCode]{Key: "foretell", Val: castModeForetell},
+	state.StrEntry[castModeCode]{Key: "foretell_cast", Val: castModeForetellCast},
+	state.StrEntry[castModeCode]{Key: "airbend_cast", Val: castModeAirbendCast},
+	state.StrEntry[castModeCode]{Key: "flashback", Val: castModeFlashback},
+	state.StrEntry[castModeCode]{Key: "mayplay", Val: castModeMayplay},
+	state.StrEntry[castModeCode]{Key: "miracle", Val: castModeMiracle},
+	state.StrEntry[castModeCode]{Key: "escape", Val: castModeEscape},
+	state.StrEntry[castModeCode]{Key: "retrace", Val: castModeRetrace},
+	state.StrEntry[castModeCode]{Key: "jumpstart", Val: castModeJumpstart},
+	state.StrEntry[castModeCode]{Key: "evoked", Val: castModeEvoked},
+	state.StrEntry[castModeCode]{Key: "dashed", Val: castModeEvoked},
+	state.StrEntry[castModeCode]{Key: "overloaded", Val: castModeEvoked},
+	state.StrEntry[castModeCode]{Key: "warped", Val: castModeEvoked},
+	state.StrEntry[castModeCode]{Key: "madness", Val: castModeEvoked},
+	state.StrEntry[castModeCode]{Key: "bestowed", Val: castModeEvoked},
+	state.StrEntry[castModeCode]{Key: "blitzed", Val: castModeEvoked},
+	state.StrEntry[castModeCode]{Key: "web-slinging", Val: castModeWebSlinging},
+	state.StrEntry[castModeCode]{Key: "sneak", Val: castModeSneak},
+	state.StrEntry[castModeCode]{Key: "mayhem", Val: castModeMayhem},
+	state.StrEntry[castModeCode]{Key: "mutated", Val: castModeMutated},
+	state.StrEntry[castModeCode]{Key: "morphed", Val: castModeMorphed},
+	state.StrEntry[castModeCode]{Key: "megamorphed", Val: castModeMorphed},
+	state.StrEntry[castModeCode]{Key: "disguised", Val: castModeMorphed},
+	state.StrEntry[castModeCode]{Key: "mayflash", Val: castModeMayflash},
+	state.StrEntry[castModeCode]{Key: "emerged", Val: castModeEmerged},
+)
+
+type castKickerModeCode uint16
+
+const (
+	castKickerModeKicked1 castKickerModeCode = iota + 1
+	castKickerModeKicked2
+)
+
+var castKickerModeCodes = state.NewStrCodes(
+	state.StrEntry[castKickerModeCode]{Key: "kicked1", Val: castKickerModeKicked1},
+	state.StrEntry[castKickerModeCode]{Key: "kicked2", Val: castKickerModeKicked2},
+)

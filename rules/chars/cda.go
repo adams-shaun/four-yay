@@ -50,34 +50,34 @@ func EffectZoneOK(v string, z state.Zone) bool {
 		return z == state.ZBattlefield
 	}
 	for name := range strings.SplitSeq(v, ",") {
-		switch strings.TrimSpace(name) {
-		case "All":
+		switch effectZoneOKCodes.Code(string(strings.TrimSpace(name))) {
+		case effectZoneOKAll:
 			return true
-		case "Battlefield":
+		case effectZoneOKBattlefield:
 			if z == state.ZBattlefield {
 				return true
 			}
-		case "Stack":
+		case effectZoneOKStack:
 			if z == state.ZStack {
 				return true
 			}
-		case "Graveyard":
+		case effectZoneOKGraveyard:
 			if z == state.ZGraveyard {
 				return true
 			}
-		case "Hand":
+		case effectZoneOKHand:
 			if z == state.ZHand {
 				return true
 			}
-		case "Library":
+		case effectZoneOKLibrary:
 			if z == state.ZLibrary {
 				return true
 			}
-		case "Exile":
+		case effectZoneOKExile:
 			if z == state.ZExile {
 				return true
 			}
-		case "Command":
+		case effectZoneOKCommand:
 			if z == state.ZCommand {
 				return true
 			}
@@ -99,10 +99,8 @@ func EffectZoneOK(v string, z state.Zone) bool {
 // preserved.
 func CDAPTStatic(h effects.Host, st cards.Static, ctx *effects.Ctx) (p, t int32, hasP, hasT bool) {
 	for key := range st.Params {
-		switch key {
-		case "Mode", "CharacteristicDefining", "SetPower", "SetToughness", "Affected", "Description", "ExcludeZone":
-			// The keys the implemented CDA shape (and only it) carries.
-		default:
+		// The keys the implemented CDA shape (and only it) carries.
+		if !cdaPTStaticKeys.Has(key) {
 			return 0, 0, false, false
 		}
 	}
@@ -200,3 +198,33 @@ func addPT(a, b int32) int32 {
 	}
 	return int32(n)
 }
+
+type effectZoneOKCode uint16
+
+const (
+	effectZoneOKAll effectZoneOKCode = iota + 1
+	effectZoneOKBattlefield
+	effectZoneOKStack
+	effectZoneOKGraveyard
+	effectZoneOKHand
+	effectZoneOKLibrary
+	effectZoneOKExile
+	effectZoneOKCommand
+)
+
+var effectZoneOKCodes = state.NewStrCodes(
+	state.StrEntry[effectZoneOKCode]{Key: "All", Val: effectZoneOKAll},
+	state.StrEntry[effectZoneOKCode]{Key: "Battlefield", Val: effectZoneOKBattlefield},
+	state.StrEntry[effectZoneOKCode]{Key: "Stack", Val: effectZoneOKStack},
+	state.StrEntry[effectZoneOKCode]{Key: "Graveyard", Val: effectZoneOKGraveyard},
+	state.StrEntry[effectZoneOKCode]{Key: "Hand", Val: effectZoneOKHand},
+	state.StrEntry[effectZoneOKCode]{Key: "Library", Val: effectZoneOKLibrary},
+	state.StrEntry[effectZoneOKCode]{Key: "Exile", Val: effectZoneOKExile},
+	state.StrEntry[effectZoneOKCode]{Key: "Command", Val: effectZoneOKCommand},
+)
+
+// cdaPTStaticKeys are the keys the implemented P/T CDA static shape carries.
+var cdaPTStaticKeys = state.NewNameSet(
+	"Mode", "CharacteristicDefining", "SetPower", "SetToughness", "Affected",
+	"Description", "ExcludeZone",
+)

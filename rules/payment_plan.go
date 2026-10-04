@@ -21,16 +21,6 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// PaymentPlanOutcome describes a pure planner query.  Reason is deliberately
-// a small machine-readable vocabulary so callers can distinguish an ordinary
-// shortage from a V1 shape it must leave to manual payment.
-type PaymentPlanOutcome struct {
-	Plan   *decision.PaymentPlan
-	Reason string // "", "unsupported", "insufficient", or "search_limit"
-	Detail string // deterministic unsupported/source diagnostic
-	Nodes  int
-}
-
 func paymentActionFor(d *decision.Decision, id string) (decision.PaymentAction, bool) {
 	if d == nil {
 		return decision.PaymentAction{}, false
@@ -90,9 +80,9 @@ func (e *Engine) planCastPaymentChecked(p state.PlayerID, cast decision.PlannedC
 	// would compose a cost (and, from ZCommand, a commander tax) that
 	// beginCast would never charge.
 	originZone := state.ZHand
-	switch cast.Origin {
-	case "hand":
-	case "command_zone":
+	switch planCastPaymentCheckedCodes.Code(string(cast.Origin)) {
+	case planCastPaymentCheckedHand:
+	case planCastPaymentCheckedCommandZone:
 		originZone = state.ZCommand
 	default:
 		return PaymentPlanOutcome{Reason: "unsupported"}
@@ -223,7 +213,7 @@ func (e *Engine) paymentPlanCastShapeDetailUsing(statics costStaticViews, p stat
 	}
 	// A cost static's own non-mana extra (Soul Immolation's Blight<X>) stays
 	// withheld entirely: the mana-only witness cannot describe it.
-	if paymentPlanCostDetail(mods.extra) != "" {
+	if paymentPlanCostDetail(mods.Extra) != "" {
 		return "shape:additional_cost"
 	}
 	// The spell ability's own Cost$ admits exactly one non-mana shape: a
@@ -526,10 +516,10 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 	// account for (planCastPaymentChecked), and that verdict reads only the
 	// player, so no walk can change the empty result.
 	if !paymentPlanPoolOK(&e.G.Players[p]) {
-		e.paymentStats.recordBuild(true)
+		e.paymentStats.RecordBuild(true)
 		return nil
 	}
-	e.paymentStats.recordBuild(false)
+	e.paymentStats.RecordBuild(false)
 	// The builder's potential walk is what the priority walk's block record
 	// serves (walk_block_reuse.go): record from now on.
 	e.walkRecDemand = true
@@ -582,7 +572,7 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 		}
 		cast := decision.PlannedCast{Object: opt.Obj, Face: 0, Origin: origin}
 		got := e.planCastPaymentMemo(p, cast, &statics, &legal)
-		e.paymentStats.recordOutcome(got)
+		e.paymentStats.RecordOutcome(got)
 		if got.Plan == nil {
 			continue
 		}
@@ -623,7 +613,7 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 			}
 		}
 		out = append(out, a)
-		e.paymentStats.recordOffered(len(a.Plans))
+		e.paymentStats.RecordOffered(len(a.Plans))
 	}
 	return out
 }
@@ -686,8 +676,8 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 		}
 		pain += pay.ConsequencePain(step.Consequence)
 		lastResort = lastResort || step.Tier == pay.TierLastResort
-		pool = manaAdd(pool, step.Mana)
-		produced = manaAdd(produced, step.Mana)
+		pool = pay.ManaAdd(pool, step.Mana)
+		produced = pay.ManaAdd(produced, step.Mana)
 	}
 	// The lethal guard and the phase rule (spec 5): a witness never kills its
 	// caster, and it uses a last-resort source only when no plan from normal
@@ -700,8 +690,8 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	}
 	cost := e.offerCostFor(p, cast.Object, withSpellAbilityExtras(e.G.Obj(cast.Object).Face(), e.rawBaseCost(p, cast.Object)), spellScope(""))
 	payment, ok := resolveManaWith(cost, pool, state.Mana{}, [7]state.Mana{}, e.G.Players[p].Life, false, pipRider{}, nil)
-	expected := pay.Witness(cost, e.G.Players[p].Pool, produced, nil, payment.pool)
-	if !ok || pay.ManaAmount(payment.pool) != plan.PoolAfter || expected.PoolSpend != plan.PoolSpend {
+	expected := pay.Witness(cost, e.G.Players[p].Pool, produced, nil, payment.Pool)
+	if !ok || pay.ManaAmount(payment.Pool) != plan.PoolAfter || expected.PoolSpend != plan.PoolSpend {
 		return fmt.Errorf("payment witness does not settle")
 	}
 	return nil
@@ -900,7 +890,7 @@ func (e *Engine) planPaymentCostWithDemand(p state.PlayerID, demand [5]int, cost
 	if len(gone) != 0 {
 		kept := make([]windowManaUnit, 0, len(units))
 		for _, u := range units {
-			if !slices.Contains(gone, u.id) {
+			if !slices.Contains(gone, u.ID) {
 				kept = append(kept, u)
 			}
 		}
@@ -988,13 +978,13 @@ func (e *Engine) planPaymentCostWithDemand(p state.PlayerID, demand [5]int, cost
 		if firstSourceDetail != "" {
 			break
 		}
-		for _, alt := range u.alts {
-			o := e.G.Obj(u.id)
+		for _, alt := range u.Alts {
+			o := e.G.Obj(u.ID)
 			p := state.PlayerID(0)
 			if o != nil {
 				p = o.Controller
 			}
-			_, _, detail := e.paymentPlanAbilityTier(p, u.id, alt.ma)
+			_, _, detail := e.paymentPlanAbilityTier(p, u.ID, alt.Ma)
 			if detail != "" {
 				firstSourceDetail = detail
 				break
@@ -1043,11 +1033,11 @@ func (e *Engine) paymentPlanManaUnitsOnly(p state.PlayerID, only []state.ObjID) 
 	if walkCacheVerify && only != nil {
 		var want []windowManaUnit
 		for _, u := range e.paymentPlanManaUnitsOnlyCompute(p, nil) {
-			if slices.Contains(only, u.id) {
+			if slices.Contains(only, u.ID) {
 				want = append(want, u)
 			}
 		}
-		if !paymentPlanSameUnits(units, want) {
+		if !pay.SameUnits(units, want) {
 			panic(fmt.Sprintf("payment plan census: restricted census for %v is not the full census's", only))
 		}
 	}
@@ -1081,7 +1071,7 @@ func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.
 		}
 		idx := -1
 		for i := range units {
-			if units[i].id == id {
+			if units[i].ID == id {
 				idx = i
 				break
 			}
@@ -1112,10 +1102,10 @@ func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.
 					continue
 				}
 				if idx < 0 {
-					units = append(units, windowManaUnit{id: id})
+					units = append(units, windowManaUnit{ID: id})
 					idx = len(units) - 1
 				}
-				units[idx].alts = append(units[idx].alts, windowManaAlt{ma: ma, counts: counts, amt: amt})
+				units[idx].Alts = append(units[idx].Alts, windowManaAlt{Ma: ma, Counts: counts, Amt: amt})
 				continue
 			}
 			// The shared census keeps only deterministic production; extend it
@@ -1130,10 +1120,10 @@ func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.
 				continue
 			}
 			if idx < 0 {
-				units = append(units, windowManaUnit{id: id})
+				units = append(units, windowManaUnit{ID: id})
 				idx = len(units) - 1
 			}
-			units[idx].alts = append(units[idx].alts, windowManaAlt{ma: ma, counts: counts, amt: amt, any: true})
+			units[idx].Alts = append(units[idx].Alts, windowManaAlt{Ma: ma, Counts: counts, Amt: amt, Any: true})
 		}
 	}
 	// Evaluated-amount layer: an ability windowManaUnits skipped because
@@ -1152,7 +1142,7 @@ func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.
 			continue
 		}
 		if walkCacheVerify {
-			if fresh := e.availableManaAbilitiesForWindow(p, id, false); !slices.EqualFunc(fresh, windowMas[zi], sameManaAbility) {
+			if fresh := e.availableManaAbilitiesForWindow(p, id, false); !slices.EqualFunc(fresh, windowMas[zi], pay.SameManaAbility) {
 				panic(fmt.Sprintf("payment plan census: window membership for %d moved inside the census", id))
 			}
 		}
@@ -1177,7 +1167,7 @@ func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.
 			mp := effects.ManaOf(ma)
 			counts, any := mp.Counts, mp.CountsAny
 			if any {
-				units = appendPaymentPlanUnitAlt(units, id, windowManaAlt{ma: ma, counts: counts, amt: amt, any: true})
+				units = pay.AppendUnitAlt(units, id, windowManaAlt{Ma: ma, Counts: counts, Amt: amt, Any: true})
 				continue
 			}
 			total := int32(0)
@@ -1187,24 +1177,10 @@ func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.
 			if total <= 0 {
 				continue
 			}
-			units = appendPaymentPlanUnitAlt(units, id, windowManaAlt{ma: ma, counts: counts, amt: amt})
+			units = pay.AppendUnitAlt(units, id, windowManaAlt{Ma: ma, Counts: counts, Amt: amt})
 		}
 	}
 	return units
-}
-
-// appendPaymentPlanUnitAlt appends one alternative to the unit that already
-// names id, creating the unit if the shared census and the choice-shape layer
-// both left it out. It keeps the evaluated-amount layer from duplicating the
-// unit-lookup bookkeeping the choice-shape loop spells out inline.
-func appendPaymentPlanUnitAlt(units []windowManaUnit, id state.ObjID, alt windowManaAlt) []windowManaUnit {
-	for i := range units {
-		if units[i].id == id {
-			units[i].alts = append(units[i].alts, alt)
-			return units
-		}
-	}
-	return append(units, windowManaUnit{id: id, freeCount: 1, alts: []windowManaAlt{alt}})
 }
 
 // paymentPlanTappedProbe clones the engine and taps every battlefield
@@ -1262,14 +1238,7 @@ func (e *Engine) paymentPlanStableAmount(probe *Engine, p state.PlayerID, source
 // Mill<N>, even where the ordinary manual mana window can pay it without a
 // further choice.
 func paymentPlanTapOnlyCost(c Cost) bool {
-	return c.Tap && c.XMin == 0 && manaFreeCost(c) && castWindowOtherPartsAbsent(c)
-}
-
-func paymentPlanAltOK(a windowManaAlt) bool {
-	if a.life != 0 || a.amt <= 0 || a.ma == nil || a.ma.API != "Mana" || a.any {
-		return false
-	}
-	return a.mana().Total() > 0
+	return c.Tap && c.XMin == 0 && pay.ManaFreeCost(c) && castWindowOtherPartsAbsent(c)
 }
 
 // paymentPlanAbilityTier is the single source-shape authority for automatic
@@ -1495,7 +1464,7 @@ func paymentPlanKnownManaParam(key string) bool {
 	if strings.HasPrefix(key, "AddsKeywords") {
 		return true
 	}
-	if v, ok := paymentPlanKnownManaParamTab1.Get(key); ok {
+	if v, ok := paymentPlanKnownManaParamTab.Get(key); ok {
 		return v
 	}
 	return false
@@ -1592,17 +1561,17 @@ func (e *Engine) appendUnitAlternatives(dst []pay.Alt, u windowManaUnit) (grown,
 	// The source's payer, zone-entry sequence and creature bit are read once
 	// for all its alternatives (each a pure read of the source).
 	payer := state.PlayerID(0)
-	if source := e.G.Obj(u.id); source != nil {
+	if source := e.G.Obj(u.ID); source != nil {
 		payer = source.Controller
 	}
 	sourceRead := false
 	var zoneSeq uint64
 	var creature bool
-	for _, alt := range u.alts {
-		tier, consequence, _ := e.paymentPlanAbilityTier(payer, u.id, alt.ma)
+	for _, alt := range u.Alts {
+		tier, consequence, _ := e.paymentPlanAbilityTier(payer, u.ID, alt.Ma)
 		switch tier {
 		case pay.TierNormal:
-			if !e.manaStaticOf(alt.ma).tapOnly {
+			if !e.manaStaticOf(alt.Ma).tapOnly {
 				continue
 			}
 		case pay.TierLastResort:
@@ -1612,40 +1581,40 @@ func (e *Engine) appendUnitAlternatives(dst []pay.Alt, u windowManaUnit) (grown,
 		default:
 			continue
 		}
-		ab, ok := e.paymentAbility(u.id, alt.ma)
+		ab, ok := e.paymentAbility(u.ID, alt.Ma)
 		if !ok {
 			continue
 		}
 		if !sourceRead {
 			sourceRead = true
-			zoneSeq, creature = e.paymentSourceZoneSeq(u.id), e.IsCreature(u.id)
+			zoneSeq, creature = e.paymentSourceZoneSeq(u.ID), e.IsCreature(u.ID)
 		}
-		if paymentPlanAltOK(alt) {
-			m := alt.mana()
+		if pay.PlanAltOK(alt) {
+			m := alt.Mana()
 			if out == nil {
-				out = make([]pay.Alt, 0, len(u.alts))
+				out = make([]pay.Alt, 0, len(u.Alts))
 			}
 			out = append(out, pay.Alt{Activation: decision.PaymentActivation{
-				Source: u.id, SourceZoneSeq: zoneSeq, Ability: ab, Produces: pay.ManaAmount(m)},
-				Mana: m, Creature: creature, Ma: alt.ma, Tier: tier, Consequence: consequence})
+				Source: u.ID, SourceZoneSeq: zoneSeq, Ability: ab, Produces: pay.ManaAmount(m)},
+				Mana: m, Creature: creature, Ma: alt.Ma, Tier: tier, Consequence: consequence})
 			continue
 		}
-		if !alt.any || alt.amt <= 0 {
+		if !alt.Any || alt.Amt <= 0 {
 			continue
 		}
-		for _, col := range e.paymentPlanChoiceColours(u.id, alt.ma) {
+		for _, col := range e.paymentPlanChoiceColours(u.ID, alt.Ma) {
 			i := strings.IndexByte("WUBRG", col[0])
 			if i < 0 {
 				continue
 			}
 			var m state.Mana
-			m[i] = alt.amt
+			m[i] = alt.Amt
 			if out == nil {
-				out = make([]pay.Alt, 0, len(u.alts))
+				out = make([]pay.Alt, 0, len(u.Alts))
 			}
 			out = append(out, pay.Alt{Activation: decision.PaymentActivation{
-				Source: u.id, SourceZoneSeq: zoneSeq, Ability: ab, Produces: pay.ManaAmount(m)},
-				Mana: m, Creature: creature, Ma: alt.ma, ExecProduced: col, Tier: tier, Consequence: consequence})
+				Source: u.ID, SourceZoneSeq: zoneSeq, Ability: ab, Produces: pay.ManaAmount(m)},
+				Mana: m, Creature: creature, Ma: alt.Ma, ExecProduced: col, Tier: tier, Consequence: consequence})
 		}
 	}
 	// Preserve flexible sources: rank each selected source by every eligible
@@ -1727,7 +1696,7 @@ func paymentConsequenceEqual(c pay.Consequence, w *decision.PaymentConsequence) 
 // naming no plain colour, an empty commander identity) is
 // paymentPlanChoiceColours' fail-closed answer, not this predicate's.
 func paymentPlanChoiceShape(raw string) bool {
-	if v, ok := paymentPlanChoiceShapeTab2.Get(raw); ok {
+	if v, ok := paymentPlanChoiceShapeTab.Get(raw); ok {
 		return v
 	}
 	return strings.HasPrefix(raw, "Combo ")
@@ -1744,15 +1713,15 @@ func paymentPlanChoiceShape(raw string) bool {
 // inventing a colour.
 func (e *Engine) paymentPlanChoiceColours(id state.ObjID, ma *cards.SA) []string {
 	raw := effects.ManaOf(ma).Produced
-	switch raw {
-	case "Any":
+	switch paymentPlanChoiceColoursCodes.Code(string(raw)) {
+	case paymentPlanChoiceColoursAny:
 		return []string{"W", "U", "B", "R", "G"}
-	case "Chosen", "ChosenColor", "ComboChosen":
+	case paymentPlanChoiceColoursChosen:
 		if col := e.chosenProducedColour(id); col != "" {
 			return []string{col}
 		}
 		return nil
-	case "ColorIdentity":
+	case paymentPlanChoiceColoursColorIdentity:
 		return e.commanderIdentityColours(e.paymentPlanController(id))
 	}
 	// Reuse the manual wheel's own flattener: it substitutes a recorded
@@ -1831,7 +1800,7 @@ func (e *Engine) paymentPlanController(id state.ObjID) state.PlayerID {
 // another alternative's production.
 func (e *Engine) paymentPlanStepAlternative(units []windowManaUnit, pa decision.PaymentActivation) (pay.Alt, bool) {
 	for _, u := range units {
-		if u.id != pa.Source {
+		if u.ID != pa.Source {
 			continue
 		}
 		for _, candidate := range e.paymentPlanQueryAlternatives(u) {
@@ -1978,43 +1947,71 @@ func costPips(c Cost) [5]int {
 	return d
 }
 
-var paymentPlanKnownManaParamTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "API", Val: true},
-	cards.StrEntry[bool]{Key: "Cost", Val: true},
-	cards.StrEntry[bool]{Key: "Produced", Val: true},
-	cards.StrEntry[bool]{Key: "Amount", Val: true},
-	cards.StrEntry[bool]{Key: "SubAbility", Val: true},
-	cards.StrEntry[bool]{Key: "SpellDescription", Val: true},
-	cards.StrEntry[bool]{Key: "StackDescription", Val: true},
-	cards.StrEntry[bool]{Key: "AILogic", Val: true},
-	cards.StrEntry[bool]{Key: "PrecostDesc", Val: true},
-	cards.StrEntry[bool]{Key: "Activation", Val: true},
-	cards.StrEntry[bool]{Key: "Activator", Val: true},
-	cards.StrEntry[bool]{Key: "ActivationPhases", Val: true},
-	cards.StrEntry[bool]{Key: "PlayerTurn", Val: true},
-	cards.StrEntry[bool]{Key: "OpponentTurn", Val: true},
-	cards.StrEntry[bool]{Key: "ActivationFirstCombat", Val: true},
-	cards.StrEntry[bool]{Key: "ActivationAfterBlockers", Val: true},
-	cards.StrEntry[bool]{Key: "IsPresent", Val: true},
-	cards.StrEntry[bool]{Key: "PresentCompare", Val: true},
-	cards.StrEntry[bool]{Key: "CheckSVar", Val: true},
-	cards.StrEntry[bool]{Key: "SVarCompare", Val: true},
-	cards.StrEntry[bool]{Key: "ActivationLimit", Val: true},
-	cards.StrEntry[bool]{Key: "GameActivationLimit", Val: true},
-	cards.StrEntry[bool]{Key: "InstantSpeed", Val: true},
-	cards.StrEntry[bool]{Key: "RestrictValid", Val: true},
-	cards.StrEntry[bool]{Key: "TriggersWhenSpent", Val: true},
-	cards.StrEntry[bool]{Key: "AddsCounters", Val: true},
-	cards.StrEntry[bool]{Key: "AddsKeywords", Val: true},
-	cards.StrEntry[bool]{Key: "AddsKeywordsAll", Val: true},
-	cards.StrEntry[bool]{Key: "AddsNoCounter", Val: true},
-	cards.StrEntry[bool]{Key: "PersistentMana", Val: true},
-	cards.StrEntry[bool]{Key: "UnlessCost", Val: true},
-	cards.StrEntry[bool]{Key: "Defined", Val: true},
+var paymentPlanKnownManaParamTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "API", Val: true},
+	state.StrEntry[bool]{Key: "Cost", Val: true},
+	state.StrEntry[bool]{Key: "Produced", Val: true},
+	state.StrEntry[bool]{Key: "Amount", Val: true},
+	state.StrEntry[bool]{Key: "SubAbility", Val: true},
+	state.StrEntry[bool]{Key: "SpellDescription", Val: true},
+	state.StrEntry[bool]{Key: "StackDescription", Val: true},
+	state.StrEntry[bool]{Key: "AILogic", Val: true},
+	state.StrEntry[bool]{Key: "PrecostDesc", Val: true},
+	state.StrEntry[bool]{Key: "Activation", Val: true},
+	state.StrEntry[bool]{Key: "Activator", Val: true},
+	state.StrEntry[bool]{Key: "ActivationPhases", Val: true},
+	state.StrEntry[bool]{Key: "PlayerTurn", Val: true},
+	state.StrEntry[bool]{Key: "OpponentTurn", Val: true},
+	state.StrEntry[bool]{Key: "ActivationFirstCombat", Val: true},
+	state.StrEntry[bool]{Key: "ActivationAfterBlockers", Val: true},
+	state.StrEntry[bool]{Key: "IsPresent", Val: true},
+	state.StrEntry[bool]{Key: "PresentCompare", Val: true},
+	state.StrEntry[bool]{Key: "CheckSVar", Val: true},
+	state.StrEntry[bool]{Key: "SVarCompare", Val: true},
+	state.StrEntry[bool]{Key: "ActivationLimit", Val: true},
+	state.StrEntry[bool]{Key: "GameActivationLimit", Val: true},
+	state.StrEntry[bool]{Key: "InstantSpeed", Val: true},
+	state.StrEntry[bool]{Key: "RestrictValid", Val: true},
+	state.StrEntry[bool]{Key: "TriggersWhenSpent", Val: true},
+	state.StrEntry[bool]{Key: "AddsCounters", Val: true},
+	state.StrEntry[bool]{Key: "AddsKeywords", Val: true},
+	state.StrEntry[bool]{Key: "AddsKeywordsAll", Val: true},
+	state.StrEntry[bool]{Key: "AddsNoCounter", Val: true},
+	state.StrEntry[bool]{Key: "PersistentMana", Val: true},
+	state.StrEntry[bool]{Key: "UnlessCost", Val: true},
+	state.StrEntry[bool]{Key: "Defined", Val: true},
 )
 
-var paymentPlanChoiceShapeTab2 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "Chosen", Val: true},
-	cards.StrEntry[bool]{Key: "ChosenColor", Val: true},
-	cards.StrEntry[bool]{Key: "ComboChosen", Val: true},
+var paymentPlanChoiceShapeTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "Chosen", Val: true},
+	state.StrEntry[bool]{Key: "ChosenColor", Val: true},
+	state.StrEntry[bool]{Key: "ComboChosen", Val: true},
+)
+
+type planCastPaymentCheckedCode uint16
+
+const (
+	planCastPaymentCheckedHand planCastPaymentCheckedCode = iota + 1
+	planCastPaymentCheckedCommandZone
+)
+
+var planCastPaymentCheckedCodes = state.NewStrCodes(
+	state.StrEntry[planCastPaymentCheckedCode]{Key: "hand", Val: planCastPaymentCheckedHand},
+	state.StrEntry[planCastPaymentCheckedCode]{Key: "command_zone", Val: planCastPaymentCheckedCommandZone},
+)
+
+type paymentPlanChoiceColoursCode uint16
+
+const (
+	paymentPlanChoiceColoursAny paymentPlanChoiceColoursCode = iota + 1
+	paymentPlanChoiceColoursChosen
+	paymentPlanChoiceColoursColorIdentity
+)
+
+var paymentPlanChoiceColoursCodes = state.NewStrCodes(
+	state.StrEntry[paymentPlanChoiceColoursCode]{Key: "Any", Val: paymentPlanChoiceColoursAny},
+	state.StrEntry[paymentPlanChoiceColoursCode]{Key: "Chosen", Val: paymentPlanChoiceColoursChosen},
+	state.StrEntry[paymentPlanChoiceColoursCode]{Key: "ChosenColor", Val: paymentPlanChoiceColoursChosen},
+	state.StrEntry[paymentPlanChoiceColoursCode]{Key: "ComboChosen", Val: paymentPlanChoiceColoursChosen},
+	state.StrEntry[paymentPlanChoiceColoursCode]{Key: "ColorIdentity", Val: paymentPlanChoiceColoursColorIdentity},
 )

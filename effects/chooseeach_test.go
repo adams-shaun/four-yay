@@ -6,8 +6,8 @@ package effects
 // carrier is Tragic Arrogance's YouChoose body, driven here by its own
 // RepeatEach walk (RepeatPlayers$ Player): each iteration's ChooseCard asks
 // the spell's controller once per group among the remembered player's
-// permanents, each answered pick re-enters through the ordinary "choice"
-// resume arm (the flat (chooser, group) ResumeTarget index), the picks
+// permanents, each pick is an ordinary "choice" ask answered in place (the
+// flat (chooser, group) ResumeTarget index), the picks
 // accumulate into Chosen/Remembered across the groups (RememberChosen$), and
 // a group whose narrowed pool is empty resolves silently (no ask, nothing
 // chosen) — Forge's per-type loop with no candidate of that type.

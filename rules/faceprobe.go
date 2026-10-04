@@ -95,16 +95,16 @@ func faceHasCostStatics(f *cards.Face) bool {
 		return false
 	}
 	for _, st := range f.Statics {
-		if v, ok := faceHasCostStaticsTab1.Get(st.Mode); ok {
-			return v
+		if costStaticModes[st.ModeKind()] {
+			return true
 		}
 	}
 	return false
 }
 
-var faceHasCostStaticsTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "RaiseCost", Val: true},
-	cards.StrEntry[bool]{Key: "ReduceCost", Val: true},
-	cards.StrEntry[bool]{Key: "SetCost", Val: true},
-	cards.StrEntry[bool]{Key: "OptionalCost", Val: true},
-)
+var costStaticModes = [cards.StaticModeCount]bool{
+	cards.StaticRaiseCost:    true,
+	cards.StaticReduceCost:   true,
+	cards.StaticSetCost:      true,
+	cards.StaticOptionalCost: true,
+}

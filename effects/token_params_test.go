@@ -59,7 +59,7 @@ func TestTokenOfIsAllocationFree(t *testing.T) {
 	f.Publish()
 	cached := &cards.SA{API: "Token", Params: map[string]string{"TokenScript": "w_1_1_soldier"}}
 	TokenOf(cached)
-	if n := testing.AllocsPerRun(100, func() {
+	if n := allocsPerRun(100, func() {
 		_ = TokenOf(bound)
 		_ = TokenOf(cached)
 	}); n != 0 {

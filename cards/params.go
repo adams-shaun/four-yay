@@ -722,6 +722,13 @@ const (
 	PKCounterTypeChoice
 	PKPromptToSkipOptionalAbility
 	PKOptionalAbilityPrompt
+	PKSetChosenMode
+	PKWithoutManaCost
+	PKPlayCost
+	PKReplaceGraveyard
+	PKReplaceGraveyardValid
+	PKImprintPlayed
+	PKShowCards
 	paramKeyCount
 )
 
@@ -1446,6 +1453,13 @@ var paramKeyNames = [paramKeyCount]string{
 	PKCounterTypeChoice:                "CounterTypeChoice",
 	PKPromptToSkipOptionalAbility:      "PromptToSkipOptionalAbility",
 	PKOptionalAbilityPrompt:            "OptionalAbilityPrompt",
+	PKSetChosenMode:                    "SetChosenMode",
+	PKWithoutManaCost:                  "WithoutManaCost",
+	PKPlayCost:                         "PlayCost",
+	PKReplaceGraveyard:                 "ReplaceGraveyard",
+	PKReplaceGraveyardValid:            "ReplaceGraveyardValid",
+	PKImprintPlayed:                    "ImprintPlayed",
+	PKShowCards:                        "ShowCards",
 }
 
 // String is the key's Forge text.
@@ -1648,6 +1662,27 @@ func (sa *SA) HasParam(k ParamKey) bool { _, ok := paramGet(sa.ps, sa.Params, k)
 // mask.
 func (sa *SA) MayHaveAnyParam(mask ParamMask) bool { return paramMayHaveAny(sa.ps, sa.Params, mask) }
 
+// SetParam writes key k into the ability's own Params map (allocating it
+// when nil). The compiled set no longer describes the map, so reads go to
+// the map from here on. Write only to a node the caller owns -- a copy or a
+// node it built -- never to a shared parsed node.
+func (sa *SA) SetParam(k ParamKey, v string) {
+	if sa.Params == nil {
+		sa.Params = map[string]string{}
+	}
+	sa.Params[paramKeyNames[k]] = v
+	sa.ps = nil
+}
+
+// SetParam is SA.SetParam for a replacement line.
+func (r *Repl) SetParam(k ParamKey, v string) {
+	if r.Params == nil {
+		r.Params = map[string]string{}
+	}
+	r.Params[paramKeyNames[k]] = v
+	r.ps = nil
+}
+
 // deriveParamSets binds each printed static's, trigger's and ability's
 // ParamSet (every ability reachable from the face: its Abilities, their
 // SubAbility$ chains, trigger Execute$ bodies and replacement bodies). It
@@ -1655,13 +1690,19 @@ func (sa *SA) MayHaveAnyParam(mask ParamMask) bool { return paramMayHaveAny(sa.p
 // bodies); a node built later stays unbound and reads its map.
 func (f *Face) deriveParamSets() {
 	for i := range f.Statics {
-		f.Statics[i].ps = newParamSet(f.Statics[i].Params)
+		st := &f.Statics[i]
+		st.ps = newParamSet(st.Params)
+		st.mode, st.modeBound = StaticModeOf(st.Mode), true
 	}
 	for i := range f.Triggers {
-		f.Triggers[i].ps = newParamSet(f.Triggers[i].Params)
+		t := &f.Triggers[i]
+		t.ps = newParamSet(t.Params)
+		t.mode, t.modeBound = TriggerModeOf(t.Mode), true
 	}
 	for i := range f.Repls {
-		f.Repls[i].ps = newParamSet(f.Repls[i].Params)
+		r := &f.Repls[i]
+		r.ps = newParamSet(r.Params)
+		r.event, r.eventBound = ReplEventOf(r.Event), true
 	}
 	bindSA := func(sa *SA) {
 		for d := 0; sa != nil && d <= maxSVarDepth+1; d++ {

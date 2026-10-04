@@ -115,7 +115,7 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 	// one candidate list per half, Min==Max==2; a one-half ask is uniform
 	// and Min==Max==1). Every option is a plain labelled alternative and
 	// the engine reads each answered option's Kind off the answer itself
-	// (rules/resolution.go's changetext resume arm), so any d.Min distinct
+	// (effChangeText applies the answer in place), so any d.Min distinct
 	// picks is a well-formed answer and a lopsided one (two candidates
 	// from the same half) falls back deterministically engine-side
 	// instead of re-asking (the effect's documented malformed-answer

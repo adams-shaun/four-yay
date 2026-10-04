@@ -17,7 +17,7 @@ func init() {
 	Register("DamageResolve", effDamageResolve)
 }
 
-// roundRobinSplit is DealDamage's R-9 no-host (and AskEmpty) stand-in for a
+// roundRobinSplit is DealDamage's R-9 no-host stand-in for a
 // DividedAsYouChoose$ allocation: distribute one damage at a time over the
 // chosen-target list in order, exactly the deterministic split this build
 // shipped before the ask existed. The returned slice is indexed by target
@@ -253,7 +253,7 @@ func newDamageRider(h Host, c *Ctx, spec string, amount int32) damageRider {
 	}
 	controller := c.Controller
 	if !live {
-		lki, named := c.DamageSourceLKI[source]
+		lki, named := c.Snap.DamageSource[source]
 		if named {
 			// CR 113.7a covers the whole damage rider, not just lifelink: the
 			// same departure walk seeds this map for the resolution's OWN
@@ -263,10 +263,10 @@ func newDamageRider(h Host, c *Ctx, spec string, amount int32) damageRider {
 			hasInfect, hasWither, hasDeathtouch = lki.Infect, lki.Wither, lki.Deathtouch
 		}
 		switch {
-		case source == own && c.SourceLifelinkLKIValid:
-			hasLifelink = c.SourceLifelinkLKI
-			controller = c.SourceControllerLKI
-			if !c.SourceControllerLKIValid {
+		case source == own && c.Snap.SourceLifelinkValid:
+			hasLifelink = c.Snap.SourceLifelink
+			controller = c.Snap.SourceController
+			if !c.Snap.SourceControllerValid {
 				controller = c.Controller
 			}
 		case named:
@@ -423,15 +423,15 @@ func excessConditionHolds(h Host, c *Ctx, cond string, o *state.Object) bool {
 	if cond == "" {
 		return true
 	}
-	switch cond {
-	case "Card.targetedBy", "Creature.targetedBy", "Permanent.targetedBy":
+	switch excessConditionHoldsCodes.Code(string(cond)) {
+	case excessConditionHoldsCardTargetedBy:
 		// The damaged object is necessarily a chosen target of this
 		// resolution (Defined resolves the targets effDealDamage damages),
 		// so the targetedBy half is structural truth here.
 		return true
-	case "Creature":
+	case excessConditionHoldsCreature:
 		return h.IsCreature(o.ID)
-	case "Creature.targetedBy+OppCtrl":
+	case excessConditionHoldsCreatureTargetedByOppCtrl:
 		return h.IsCreature(o.ID) && o.Controller != c.Controller
 	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
@@ -810,8 +810,8 @@ func validPlayersSelectorUnknown(spec string) bool {
 			return true
 		}
 		base, _, _ := strings.Cut(clause, ".")
-		switch base {
-		case "Player", "Any", "You", "Opponent", "Other":
+		switch validPlayersSelectorUnknownCodes.Code(string(base)) {
+		case validPlayersSelectorUnknownPlayer:
 			return true
 		}
 		return false
@@ -1110,24 +1110,11 @@ func eachDamagerTargets(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 // computed at mark time (so the flush pays the lifelink rider exactly once,
 // from the same facts the immediate path would); the target is the recipient
 // recorded at mark time. It is resolution-scratch like Ctx.Remembered -- never
-// event-encoded, re-derived by a replay re-running the same resolution -- and
-// is carried across a mid-chain ask (rules stamps it on the pending frame).
-// The fields are unexported so the rules package can hold the marks opaquely
-// (it only ever clones them) without reading a rider.
+// event-encoded, re-derived by a replay re-running the same resolution. The
+// fields are unexported so no other package reads a rider.
 type PendingDamage struct {
 	rider  damageRider
 	target state.Target
-}
-
-// ClonePendingDamage returns a copy of a chain's pending-damage marks, the
-// same defensive-copy shape the other cross-suspension riders use. A nil or
-// empty input yields nil, so a chain with no marks is indistinguishable from
-// one that never marked.
-func ClonePendingDamage(m []PendingDamage) []PendingDamage {
-	if len(m) == 0 {
-		return nil
-	}
-	return append([]PendingDamage(nil), m...)
 }
 
 // effDamageResolve implements "DB$ DamageResolve" (Forge's
@@ -1150,8 +1137,8 @@ func effDamageResolve(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	// Consume the marks before emitting: a Damage event's own replacement or
-	// trigger machinery must not see them as still pending, and a re-entry
-	// must never re-flush a batch already dealt.
+	// trigger machinery must not see them as still pending, and a later
+	// DamageResolve must never re-flush a batch already dealt.
 	c.PendingDamage = nil
 	h.BeginDamageBatch()
 	var damaged []state.Target
@@ -1205,3 +1192,33 @@ func damageSplitAnswer(ans []decision.Option) []int32 {
 	}
 	return split
 }
+
+type excessConditionHoldsCode uint16
+
+const (
+	excessConditionHoldsCardTargetedBy excessConditionHoldsCode = iota + 1
+	excessConditionHoldsCreature
+	excessConditionHoldsCreatureTargetedByOppCtrl
+)
+
+var excessConditionHoldsCodes = state.NewStrCodes(
+	state.StrEntry[excessConditionHoldsCode]{Key: "Card.targetedBy", Val: excessConditionHoldsCardTargetedBy},
+	state.StrEntry[excessConditionHoldsCode]{Key: "Creature.targetedBy", Val: excessConditionHoldsCardTargetedBy},
+	state.StrEntry[excessConditionHoldsCode]{Key: "Permanent.targetedBy", Val: excessConditionHoldsCardTargetedBy},
+	state.StrEntry[excessConditionHoldsCode]{Key: "Creature", Val: excessConditionHoldsCreature},
+	state.StrEntry[excessConditionHoldsCode]{Key: "Creature.targetedBy+OppCtrl", Val: excessConditionHoldsCreatureTargetedByOppCtrl},
+)
+
+type validPlayersSelectorUnknownCode uint16
+
+const (
+	validPlayersSelectorUnknownPlayer validPlayersSelectorUnknownCode = iota + 1
+)
+
+var validPlayersSelectorUnknownCodes = state.NewStrCodes(
+	state.StrEntry[validPlayersSelectorUnknownCode]{Key: "Player", Val: validPlayersSelectorUnknownPlayer},
+	state.StrEntry[validPlayersSelectorUnknownCode]{Key: "Any", Val: validPlayersSelectorUnknownPlayer},
+	state.StrEntry[validPlayersSelectorUnknownCode]{Key: "You", Val: validPlayersSelectorUnknownPlayer},
+	state.StrEntry[validPlayersSelectorUnknownCode]{Key: "Opponent", Val: validPlayersSelectorUnknownPlayer},
+	state.StrEntry[validPlayersSelectorUnknownCode]{Key: "Other", Val: validPlayersSelectorUnknownPlayer},
+)

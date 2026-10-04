@@ -1,13 +1,14 @@
 package rules
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
-	"strconv"
-	"strings"
 )
 
 // continueCreateTokenReplacements applies every applicable CreateToken
@@ -128,8 +129,8 @@ func tokenReplacementsCommute(cands []replMatch) bool {
 			return false
 		}
 		cls := ""
-		switch strings.TrimSpace(body.ParamStr(cards.PKType)) {
-		case "Amount":
+		switch tokenReplacementsCommuteCodes.Code(string(strings.TrimSpace(body.ParamStr(cards.PKType)))) {
+		case tokenReplacementsCommuteAmount:
 			raw := strings.TrimSpace(body.ParamStr(cards.PKAmount))
 			if raw == "" {
 				raw = "Twice"
@@ -138,7 +139,7 @@ func tokenReplacementsCommute(cands []replMatch) bool {
 				return false
 			}
 			cls = "mult"
-		case "AddToken":
+		case tokenReplacementsCommuteAddToken:
 			cls = "add"
 		default:
 			return false
@@ -181,10 +182,6 @@ type tokenChoiceState struct {
 	// apply/decline, and option declineIdx declines it while any other answer
 	// applies the match.
 	plainOptional bool
-	// mintSink names the parked-mint collector (rules/token_rest.go) the
-	// election's answer mints into when a resolving DB$ Token is waiting on
-	// this creation; 0 otherwise.
-	mintSink uint64
 }
 
 // driveTokenReplacements applies matches[from:] to the plan, in the
@@ -372,10 +369,7 @@ func (e *Engine) tokenReplAnswer(chosen []decision.Option) {
 		e.emit(events.Event{Kind: events.Note, Text: "token copy choice answered with no replacement pending"})
 		return
 	}
-	// A resolving DB$ Token waiting on this creation collects what the
-	// answer mints (and hands the collector to any election or order ask the
-	// answer poses next).
-	e.withMintSink(st.mintSink, func() { e.settleTokenAnswer(st, chosen) })
+	e.settleTokenAnswer(st, chosen)
 }
 
 // settleTokenAnswer is tokenReplAnswer's body: apply the answered election to
@@ -537,8 +531,8 @@ func (e *Engine) applyChosenToPlan(ev events.Event, m replMatch, plan []tokenPla
 // with the match's own ValidToken$ re-checked against each mint's script.
 func (e *Engine) applyTokenReplacementToPlan(ev events.Event, plan []tokenPlanMint, m replMatch) []tokenPlanMint {
 	body := m.repl.With
-	switch strings.TrimSpace(body.ParamStr(cards.PKType)) {
-	case "ReplaceToken":
+	switch applyTokenReplacementToPlanCodes.Code(string(strings.TrimSpace(body.ParamStr(cards.PKType)))) {
+	case applyTokenReplacementToPlanReplaceToken:
 		// "... instead create those tokens as <scripts>" — a pure rewrite:
 		// each matched mint is replaced by one mint per script in the CSV
 		// (Academy Manufactor's one Clue -> Clue+Food+Treasure; Divine
@@ -558,7 +552,7 @@ func (e *Engine) applyTokenReplacementToPlan(ev events.Event, plan []tokenPlanMi
 			}
 		}
 		return out
-	case "AddToken":
+	case applyTokenReplacementToPlanAddToken:
 		// Corpus convention: Amount$ present is a fixed add for the whole
 		// creation event; absent Amount$ means "that many" (one per matched
 		// mint), as on Chatterfang. Append fixed extras at plan end so their
@@ -605,7 +599,7 @@ func (e *Engine) applyTokenReplacementToPlan(ev events.Event, plan []tokenPlanMi
 			}
 		}
 		return out
-	case "ReplaceController":
+	case applyTokenReplacementToPlanReplaceController:
 		// "... is created under <NewController$>'s control instead" (Crafty
 		// Cutpurse). The new controller is resolved through the ordinary
 		// Defined$ player grammar against the replacement source -- `You` is
@@ -762,7 +756,7 @@ func (e *Engine) tokenReplacementAmount(m replMatch, ev events.Event, raw string
 		return n, true
 	}
 	ctx := e.replCtx(m, ev)
-	ctx.ReplacementAmount = base
+	ctx.Repl.Amount = base
 	return effects.NumResolved(e, ctx, m.repl.With, "Amount", base)
 }
 
@@ -832,3 +826,29 @@ func (e *Engine) chosenCopySnapshot(src state.ObjID, player state.PlayerID) *sta
 	return &state.Object{Card: o.Card, FaceIdx: o.FaceIdx, IsToken: true,
 		Owner: player, Controller: player, Zone: state.ZBattlefield}
 }
+
+type tokenReplacementsCommuteCode uint16
+
+const (
+	tokenReplacementsCommuteAmount tokenReplacementsCommuteCode = iota + 1
+	tokenReplacementsCommuteAddToken
+)
+
+var tokenReplacementsCommuteCodes = state.NewStrCodes(
+	state.StrEntry[tokenReplacementsCommuteCode]{Key: "Amount", Val: tokenReplacementsCommuteAmount},
+	state.StrEntry[tokenReplacementsCommuteCode]{Key: "AddToken", Val: tokenReplacementsCommuteAddToken},
+)
+
+type applyTokenReplacementToPlanCode uint16
+
+const (
+	applyTokenReplacementToPlanReplaceToken applyTokenReplacementToPlanCode = iota + 1
+	applyTokenReplacementToPlanAddToken
+	applyTokenReplacementToPlanReplaceController
+)
+
+var applyTokenReplacementToPlanCodes = state.NewStrCodes(
+	state.StrEntry[applyTokenReplacementToPlanCode]{Key: "ReplaceToken", Val: applyTokenReplacementToPlanReplaceToken},
+	state.StrEntry[applyTokenReplacementToPlanCode]{Key: "AddToken", Val: applyTokenReplacementToPlanAddToken},
+	state.StrEntry[applyTokenReplacementToPlanCode]{Key: "ReplaceController", Val: applyTokenReplacementToPlanReplaceController},
+)

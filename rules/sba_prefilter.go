@@ -78,10 +78,10 @@ func (e *Engine) sbaTypeFast(o *state.Object, t string, anyLType bool) bool {
 	if t == "Aura" && (o.BestowedAttached() || o.BestowedAuraSpell()) {
 		return true
 	}
-	switch t {
-	case "World":
+	switch sbaTypeFastCodes.Code(string(t)) {
+	case sbaTypeFastWorld:
 		return f.IsWorld()
-	case "Legendary":
+	case sbaTypeFastLegendary:
 		return !o.CopyNonLegendary && f.IsLegendary()
 	}
 	return faceHasTypeFold(f, t)
@@ -312,3 +312,15 @@ func (e *Engine) sbaFacts(f *sbaBoardFacts) *sbaBoardFacts {
 	}
 	return f
 }
+
+type sbaTypeFastCode uint16
+
+const (
+	sbaTypeFastWorld sbaTypeFastCode = iota + 1
+	sbaTypeFastLegendary
+)
+
+var sbaTypeFastCodes = state.NewStrCodes(
+	state.StrEntry[sbaTypeFastCode]{Key: "World", Val: sbaTypeFastWorld},
+	state.StrEntry[sbaTypeFastCode]{Key: "Legendary", Val: sbaTypeFastLegendary},
+)

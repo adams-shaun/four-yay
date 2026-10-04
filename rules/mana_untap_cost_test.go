@@ -34,7 +34,7 @@ func TestTappedQManaSourceAcrossAvailabilityAndCastWindow(t *testing.T) {
 		t.Fatalf("PotentialMana with tapped Q source = %d, want 1", got)
 	}
 	units := e.windowManaUnits(0)
-	if len(units) != 1 || units[0].id != q {
+	if len(units) != 1 || units[0].ID != q {
 		t.Fatalf("payment-window units = %+v, want tapped Q source %d", units, q)
 	}
 
@@ -47,7 +47,7 @@ func TestTappedQManaSourceAcrossAvailabilityAndCastWindow(t *testing.T) {
 	if got := e.PotentialMana(0).Total(); got != 1 {
 		t.Fatalf("PotentialMana counted a tapped {T} source: total=%d", got)
 	}
-	if got := e.windowManaUnits(0); len(got) != 1 || got[0].id != q {
+	if got := e.windowManaUnits(0); len(got) != 1 || got[0].ID != q {
 		t.Fatalf("window admitted a tapped {T} source: %+v", got)
 	}
 
@@ -65,7 +65,7 @@ func TestTappedQManaSourcePaysLiveCastWindow(t *testing.T) {
 	toMain1(t, e)
 	q := onBoard(t, e, 0, tappedQManaSource)
 	makeQSourceReadyAndTapped(t, e, q)
-	if units := e.castWindowUnits(&pendingCast{player: 0}); len(units) == 0 || units[0].id != q {
+	if units := e.castWindowUnits(&pendingCast{player: 0}); len(units) == 0 || units[0].ID != q {
 		t.Fatalf("cast-window capacity did not price the tapped Q source: %+v", units)
 	}
 	// Like other cast-window reachability tests, propose directly: ordinary

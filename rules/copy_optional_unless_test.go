@@ -20,9 +20,9 @@ import (
 // copy's CONTROLLER (the Controller$ binding), not to the resolving caster.
 //
 // The fixture is the engine-level Mimic carrier from copy_unswitched_test.go
-// with Optional$ True added, so the engine-level unless_pay resume arm, the
-// Host.SuspendUnless body-ask marker, and the copy_optional resume arm all
-// interact exactly as they do for the real corpus cards.
+// with Optional$ True added, so the engine-level unless_pay settlement and
+// the copy_optional ask interact exactly as they do for the real corpus
+// cards.
 
 const optionalUnlessCopySrc = `Name:Mimic
 ManaCost:1 R

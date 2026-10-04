@@ -6,8 +6,6 @@ package rules
 // the kernel drives the engine without holding it.
 
 import (
-	"runtime"
-	"strings"
 	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -114,7 +112,7 @@ func (b *resolveBoard) Busy() bool {
 		// madness election) is served in place.
 		return false
 	}
-	return e.Suspended() || e.offStackMana != nil
+	return e.Suspended() || (e.offStackMana != nil && !offStackTapeServed(e))
 }
 
 func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent) bool {
@@ -124,6 +122,9 @@ func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent
 		// this one Submit.
 		return len(in.Choices) > 0 && firstChosen(d, in).Kind == "opening_yes"
 	}
+	if in.Payment == nil && in.Announce == nil && !e.Suspended() && tapeTurnUpStarts(e, d, in) {
+		return true // a turn-up whose TurnFaceUp replacement may ask (turnup_tape.go)
+	}
 	if d.Kind != decision.KPriority || in.Payment != nil || in.Announce != nil {
 		return false
 	}
@@ -131,9 +132,12 @@ func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent
 		return false // a legacy suspension is in flight; never nest a tape run in it
 	}
 	switch firstChosen(d, in).Kind {
-	case "play_land":
+	case optPlayLand:
 		return true
-	case "pass":
+	case optActivate:
+		// A mana ability whose rider may ask (offstack_mana_rider_tape.go).
+		return tapeManaRiderMayAsk(e, in.Player, firstChosen(d, in).Obj)
+	case optPass:
 		if e.G.Passes+1 < int32(e.G.AliveCount()) {
 			return false
 		}
@@ -144,6 +148,12 @@ func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent
 
 func (b *resolveBoard) MayAsk(d *decision.Decision, in decision.Intent) bool {
 	e := (*Engine)(b)
+	if tapeTurnUpStarts(e, d, in) {
+		return true
+	}
+	if firstChosen(d, in).Kind == optActivate {
+		return true // StartsResolution already proved the rider may ask
+	}
 	if len(e.G.Stack) == 0 || firstChosen(d, in).Kind == "play_land" {
 		return tapeLandMayAsk(e, firstChosen(d, in).Obj)
 	}
@@ -347,30 +357,7 @@ func tapeLegacyAsked(e *Engine, d *decision.Decision, aborts bool) {
 		}
 		class += " \"" + p + "\""
 	}
-	var pcs [40]uintptr
-	n := runtime.Callers(3, pcs[:])
-	fr := runtime.CallersFrames(pcs[:n])
-	stk := ""
-	for i := 0; i < 40; i++ {
-		f, more := fr.Next()
-		nm := f.Function
-		if j := strings.LastIndex(nm, "/rules."); j >= 0 {
-			nm = nm[j+7:]
-		}
-		if strings.HasPrefix(nm, "(*Engine).") {
-			nm = nm[10:]
-		}
-		if strings.Contains(nm, "Submit") || strings.Contains(nm, "Advance") {
-			break
-		}
-		if i >= 2 && !strings.Contains(nm, "effects.") && !strings.Contains(nm, "ask") && !strings.Contains(nm, "Ask") {
-			stk += nm + "<"
-		}
-		if !more || len(stk) > 160 {
-			break
-		}
-	}
-	(*f)(class + "  [" + tapeShape(e) + "] " + e.tape.DbgState() + " via " + dbgSubmit + " :: " + stk)
+	(*f)(class + "  [" + tapeShape(e) + "]")
 }
 
 // tapeMissed reports a predicate miss to the observer, classed by the

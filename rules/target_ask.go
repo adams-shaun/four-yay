@@ -128,9 +128,8 @@ func (e *Engine) targetControlsChooser(p state.PlayerID, source state.ObjID, sa 
 	spec := effects.TargetsOf(sa).TargetingPlayer
 	if spec == "Opponent" || spec == "Player.Opponent" {
 		// The mid-tier answered selection (oppPicksMid, keyed by the SA's
-		// line): present between the "opp_pick" resume arm and the
-		// synchronous re-entry that poses the target ask -- exactly the
-		// window this census runs in (chosenTargetsFor builds its candidates
+		// line): present between OpponentPickAsk's in-place answer and the
+		// walk's target ask -- exactly the window this census runs in (chosenTargetsFor builds its candidates
 		// before ChooserFor/OpponentPickAsk consume the entry).
 		if sa.Line != "" {
 			if who, ok := e.oppPicksMid[sa.Line]; ok {
@@ -299,11 +298,11 @@ type oppSelectState struct {
 }
 
 // oppPicksMid carries the mid-resolution tier's answered selections, keyed by
-// the asking SA's line: the "opp_pick" resume arm (rules/resolution.go)
-// records the controller's chosen opponent there and the re-entered walk's
+// the asking SA's line: OpponentPickAsk records the controller's chosen
+// opponent there (the "opp_pick" answer, applied in place) and the walk's
 // ChooserFor consumes it when it re-derives the chooser. Lines are unique
-// per SVar body, the pin only lives between the arm and the synchronous
-// re-entry that reads it, and the read deletes it, so no entry can outlive
+// per SVar body, the pin only lives between that answer and the walk's read,
+// and the read deletes it, so no entry can outlive
 // the ask it belongs to.
 
 // poseOpponentPick poses the controller's which-opponent selection ask for a
@@ -377,9 +376,9 @@ func (e *Engine) answerOppPick(d *decision.Decision, chosen []decision.Option) {
 // mid-resolution ValidTgts$ asks (effects.chosenTargetsFor's "tgts" ask and
 // effects.changeZoneChosenTargets' "choice" ask) consult it through
 // ChooserFor/OpponentPickAsk. It reads the mid tier's answered selection
-// (the "opp_pick" resume arm's pin, keyed by the SA's line) before the
-// shared core, so a multi-opponent Opponent form resolves to the seat the
-// controller named on the re-entered walk.
+// (OpponentPickAsk's pin, keyed by the SA's line) before the shared core,
+// so a multi-opponent Opponent form resolves to the seat the controller
+// named.
 func (e *Engine) midChooserCore(c *effects.Ctx, sa *cards.SA) (state.PlayerID, bool, bool) {
 	if sa != nil && sa.Line != "" {
 		if p, ok := e.oppPicksMid[sa.Line]; ok {
@@ -391,7 +390,7 @@ func (e *Engine) midChooserCore(c *effects.Ctx, sa *cards.SA) (state.PlayerID, b
 	}
 	// A pre-captured ChangeZone target ask resumes at its enclosing Effect
 	// root. The answer is consequently keyed by that root's line, while the
-	// re-entered chooser lookup still receives the ChangeZone child SA.
+	// chooser lookup still receives the ChangeZone child SA.
 	if c != nil && c.TargetAskResume != nil && c.TargetAskResume.Line != "" {
 		if p, ok := e.oppPicksMid[c.TargetAskResume.Line]; ok {
 			return p, true, false
@@ -427,14 +426,12 @@ func (e *Engine) ChooserFor(c *effects.Ctx, sa *cards.SA) state.PlayerID {
 
 // OpponentPickAsk is the effects.Host seam for the multi-opponent
 // TargetingPlayer$ Opponent selection at a mid-resolution ask site
-// (chosenTargetsFor / changeZoneChosenTargets, which are mid-walk and can
-// suspend). With two or more living opponents and no answered selection it
-// poses the controller's which-opponent ask through Engine.Ask -- the
-// ordinary mid-resolution resume machinery, so the walk parks on it and the
-// answer re-enters this very SA (the "opp_pick" resume arm records the pin
-// midChooserCore reads) -- and reports posed=true; the caller returns a
-// handled-nil set and stops before the body. Every other shape reports
-// posed=false with the seat that answers the target ask: the pinned or sole
+// (chosenTargetsFor / changeZoneChosenTargets, which are mid-walk). With two
+// or more living opponents and no answered selection it poses the
+// controller's which-opponent "opp_pick" ask, answered in place from the
+// tape (an unserved ask takes the controller), records the pin
+// midChooserCore reads, and returns the picked seat. posed is always false
+// now. Every other shape returns the seat that answers the target ask: the pinned or sole
 // living opponent, or c.Controller when the resolver fails closed (and for
 // a host that has no resolver at all -- the effects test double, which never
 // reaches this method -- the caller keeps plain ChooserFor).

@@ -165,10 +165,6 @@ func (e *Engine) Submit(in decision.Intent) error {
 	if err := submitValidate(e, d, in); err != nil {
 		return err
 	}
-	dbgSubmit = string(d.Kind) + "/" + d.ResumeKind
-	if len(in.Choices) > 0 && in.Choices[0] < len(d.Options) {
-		dbgSubmit += "/" + d.Options[in.Choices[0]].Kind
-	}
 	// The resolution kernel (rules/resolve): a posed tape resolution
 	// re-executes from its checkpoint, and an intent that begins a resolution
 	// takes the checkpoint first.
@@ -302,7 +298,7 @@ func submitCommit(e *Engine, d *decision.Decision, in decision.Intent) {
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
 		e.beginCastAnnounced(in.Player, decision.Option{Kind: "cast", Obj: action.Cast.Object})
 	} else if in.Payment != nil {
-		e.paymentStats.recordPlannedSubmission()
+		e.paymentStats.RecordPlannedSubmission()
 		action, _ := paymentActionFor(d, in.Payment.ActionID)
 		// Match the ordinary cast priority action exactly, then enter the same
 		// cast transaction.  The plan is only an immutable payment continuation;
@@ -393,5 +389,3 @@ func (e *Engine) drawCardTurn(p state.PlayerID) {
 // cardsKeywordHead lets layers.go strip a keyword's parameters ("Equip:2" ->
 // "Equip") without importing cards itself for one call.
 func cardsKeywordHead(k string) string { return cards.KeywordHead(k) }
-
-var dbgSubmit string // TEMP

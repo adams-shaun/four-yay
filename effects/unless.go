@@ -37,13 +37,13 @@ import (
 // only their label wording; their semantics are exactly these two
 // orientations and always were.
 //
-// Payment happens in rules (rules' resumeResolution unless_pay arm): the ask
-// is a KModes decision with ResumeKind "unless_pay", the answer re-enters
-// this SA with Ctx.UnlessPay set ("pay" = the cost was charged to the payer
-// by the engine's payment path, "decline" = it was not), and this gate
-// applies the orientation. A cost the payment API cannot price is a hard
-// decline there, never a free pass. The payer index rides the decision's
-// ResumeTarget (Ask stores it on the resume point), so a multi-payer
+// Payment happens in rules (rules/unless_tape.go): the ask is a KModes
+// decision with ResumeKind "unless_pay" answered in place via AskTape; the
+// host settles Ctx.UnlessPay ("pay" = the cost was charged to the payer by
+// the engine's payment path, "decline" = it was not) and this gate re-reads
+// it and applies the orientation. A cost the payment API cannot price is a
+// hard decline there, never a free pass. The payer index rides the
+// decision's ResumeTarget (settled into Ctx.UnlessNext), so a multi-payer
 // UnlessPayer$ asks each payer in turn until one pays.
 //
 // UnlessResolveSubs$ WhenPaid/WhenNotPaid (41 raw corpus lines) gates the
@@ -71,8 +71,8 @@ import (
 // token (PayEnergy<N>, PayLife<X>) whose SVar body the face's table
 // resolves — the token keeps its shape, only the amount folds, so an energy
 // cost never turns into generic mana. The same string must reach the ask's
-// label (unlessProceed) and the payment (rules' unless_pay arm calls this
-// with the resumed ctx), so the offer and the charge can never disagree.
+// label (unlessProceed) and the payment (rules calls this with the same
+// ctx), so the offer and the charge can never disagree.
 func UnlessCostResolved(h Host, c *Ctx, sa *cards.SA) string {
 	if sa == nil {
 		return ""
@@ -82,8 +82,7 @@ func UnlessCostResolved(h Host, c *Ctx, sa *cards.SA) string {
 		return raw
 	}
 	// CR 601.2b: an X in an UnlessCost$ is the value announced by the
-	// resolving spell or ability. The rules package carries that announcement
-	// through Ctx.X when it rebuilds a suspended resolution; XAnnounced marks
+	// resolving spell or ability, carried in Ctx.X; XAnnounced marks
 	// that an X cost was genuinely paid, so an announced ZERO resolves too
 	// (Power Sink cast for X=0) instead of staying an unpriceable token. XX is
 	// Forge's spelling for twice the same announced value (Thassa's
@@ -100,10 +99,10 @@ func UnlessCostResolved(h Host, c *Ctx, sa *cards.SA) string {
 			}
 		}
 		if !fixedX {
-			switch raw {
-			case "X":
+			switch unlessCostResolvedCodes.Code(string(raw)) {
+			case unlessCostResolvedX:
 				return "{" + strconv.FormatInt(int64(c.X), 10) + "}"
-			case "XX":
+			case unlessCostResolvedXX:
 				return "{" + strconv.FormatInt(int64(c.X)*2, 10) + "}"
 			}
 		}
@@ -274,20 +273,20 @@ func unlessDefinedCost(h Host, c *Ctx, m []string) (string, bool) {
 		}
 		return strings.Join(strings.Fields(o.Face().ManaCost), " "), true
 	}
-	switch m[2] {
-	case "Self":
+	switch unlessDefinedCostCodes.Code(string(m[2])) {
+	case unlessDefinedCostSelf:
 		s, ok := mv(g.Obj(c.Source))
 		if !ok {
 			return "", false
 		}
 		return applyUnlessCostModifier(s, m[3], m[4]), true
-	case "ChosenCard":
+	case unlessDefinedCostChosenCard:
 		s, ok := mv(obj(resolutionChosenCards(g, c)))
 		if !ok {
 			return "", false
 		}
 		return applyUnlessCostModifier(s, m[3], m[4]), true
-	case "Remembered":
+	case unlessDefinedCostRemembered:
 		s, ok := mv(obj(c.Remembered))
 		if !ok {
 			return "", false
@@ -325,13 +324,11 @@ func applyUnlessCostModifier(shown, op, arg string) string {
 
 // unlessProceed reports whether the effect's body should run for this pass,
 // whether the UnlessCost$ was paid, and whether its election was served
-// from the resolution kernel's tape (then nothing suspended: the answer was
-// settled in line and the gate re-read it, exactly as the legacy re-entry
-// does, so Resolve must not read the served ask as a suspension). Called
-// from Resolve immediately before the dispatch, for every SA; a zero-cost SA returns (true, false)
-// with no work. On the first pass (no recorded answer) it poses the pay
-// decision and reports (false, false) for the suspended pass; the answered
-// re-entry applies the orientation. The paid half feeds UnlessResolveSubs$
+// in place via AskTape (the answer was settled in line and the gate re-read
+// it). Called from Resolve immediately before the dispatch, for every SA; a
+// zero-cost SA returns (true, false) with no work. With no recorded answer
+// it poses the pay decision; a served answer is re-read and its
+// orientation applied. The paid half feeds UnlessResolveSubs$
 // (Resolve gates the SubAbility$ walk on it); on every path where no cost
 // was charged — a decline, an unresolvable payer, a no-host fallback — it is
 // false.
@@ -345,35 +342,24 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (run, paid, served bool) {
 		// object of the targeting spell/ability held in TriggerStack (not a
 		// UnlessPayer$ selector and not the warding permanent's controller),
 		// and its payment forms — the CR 702.21a mana window and the
-		// non-mana ward costs — are handled by rules' unless_pay arm
-		// (beginWardPayment) before the answer re-enters effWard. Gate it
+		// non-mana ward costs — are handled by rules (beginWardPayment)
+		// before effWard reads the answer. Gate it
 		// here and the generic ask would go to the wrong player and bypass
 		// those windows, so leave the shape to its own handler.
 		return true, false, false
 	}
 	switched := ActivationOf(sa).Has(ActUnlessSwitched)
 	// The answer and payer cursor are consumed (and cleared) at the top of
-	// every pass — the fx42 scoping discipline: an unless SA reached below a
-	// consuming SA in the same walk poses its own ask instead of inheriting
-	// the outer answer. ctx.UnlessNext is the index of the payer whose
-	// answer this pass applies (0 on a first pass; rules' resume arm copies
-	// it off the resume point).
+	// every pass, so an unless SA reached below a consuming SA in the same
+	// walk poses its own ask instead of inheriting the outer answer.
+	// ctx.UnlessNext is the index of the payer whose answer this pass
+	// applies (0 on a first pass; the host settles it from the answered
+	// decision's ResumeTarget).
 	ans := c.UnlessPay
 	c.UnlessPay = ""
 	idx := c.UnlessNext
 	c.UnlessNext = 0
-	// The body's own re-entry: this gate already resolved on the suspended
-	// pass and recorded its outcome through Host.SuspendUnless (the asking
-	// body-under-UnlessCost$ livelock fix) — consume the marker, never ask
-	// again. The recorded pay outcome feeds UnlessResolveSubs$ exactly as
-	// the original pass computed it.
-	if ans == "resolved-pay" {
-		return true, true, false
-	}
-	if ans == "resolved-decline" {
-		return true, false, false
-	}
-	// A paid answer is authoritative even if a re-entry fixture or nested
+	// A paid answer is authoritative even if a fixture or nested
 	// continuation did not retain every transient payer binding from the ask.
 	if ans == "pay" {
 		return switched, true, false
@@ -406,18 +392,14 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (run, paid, served bool) {
 	if !payerKnown {
 		return !switched, false, false
 	}
-	switch ans {
-	case "decline":
+	if ans == "decline" {
 		// A decline moves on to the next payer; only when every payer has
 		// declined does the orientation decide the body. idx is the payer
 		// whose answer this is. A host that cannot pose the NEXT ask is also
 		// a decline, so it must use that same orientation rather than running
 		// every switched effect (the old `!poseUnlessAsk` inverted this case).
 		if idx+1 < len(payers) {
-			switch poseUnlessAsk(h, c, sa, cost, payers, idx+1) {
-			case unlessAsked:
-				return false, false, false
-			case unlessServed:
+			if poseUnlessAsk(h, c, sa, cost, payers, idx+1) == unlessServed {
 				return unlessReread(h, c, sa)
 			}
 		}
@@ -430,10 +412,7 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (run, paid, served bool) {
 	if len(payers) == 0 {
 		payers = []state.Target{{Player: c.Controller, IsPlayer: true}}
 	}
-	switch poseUnlessAsk(h, c, sa, cost, payers, 0) {
-	case unlessAsked:
-		return false, false, false
-	case unlessServed:
+	if poseUnlessAsk(h, c, sa, cost, payers, 0) == unlessServed {
 		return unlessReread(h, c, sa)
 	}
 	// No engine host means poseUnlessAsk deterministically declined. Apply
@@ -441,11 +420,9 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (run, paid, served bool) {
 	return !switched, false, false
 }
 
-// unlessReread is the gate's pass over an election the resolution kernel's
-// tape served and the host settled (Ctx.UnlessPay and Ctx.UnlessNext set):
-// the same read the legacy "unless_pay" re-entry makes when it re-enters
-// this SA -- a pay applies the orientation, a decline moves on to the next
-// payer -- marked served.
+// unlessReread is the gate's pass over an election served in place and
+// settled by the host (Ctx.UnlessPay and Ctx.UnlessNext set): a pay applies
+// the orientation, a decline moves on to the next payer -- marked served.
 func unlessReread(h Host, c *Ctx, sa *cards.SA) (bool, bool, bool) {
 	run, paid, _ := unlessProceed(h, c, sa)
 	return run, paid, true
@@ -458,13 +435,9 @@ const (
 	// unlessNoHost: the host could not ask; the deterministic decline (R-9)
 	// applies.
 	unlessNoHost unlessAsk = iota
-	// unlessAsked: the ask was posed (or deferred) and the resolution
-	// suspended; the answer re-enters this SA.
-	unlessAsked
-	// unlessServed: the resolution kernel's tape served the answer, and the
-	// host's answer record settled it in line into the asking walk's Ctx
-	// (Ctx.UnlessPay, Ctx.UnlessNext) exactly as the legacy re-entry's
-	// resume arm does.
+	// unlessServed: AskTape served the answer, and the host's answer
+	// record settled it in line into the asking walk's Ctx (Ctx.UnlessPay,
+	// Ctx.UnlessNext).
 	unlessServed
 )
 
@@ -475,12 +448,12 @@ const (
 // carrying the parameter were unread before this gate existed; every other
 // UnlessCost$ line keeps the default either way.
 func unlessSubsRun(sa *cards.SA, paid bool) bool {
-	switch strings.TrimSpace(sa.ParamStr(cards.PKUnlessResolveSubs)) {
-	case "", "Always":
+	switch unlessSubsRunCodes.Code(string(strings.TrimSpace(sa.ParamStr(cards.PKUnlessResolveSubs)))) {
+	case unlessSubsRunEmpty:
 		return true
-	case "WhenPaid":
+	case unlessSubsRunWhenPaid:
 		return paid
-	case "WhenNotPaid":
+	case unlessSubsRunWhenNotPaid:
 		return !paid
 	}
 	// An unknown value is the corpus default: every corpus occurrence spells
@@ -490,8 +463,7 @@ func unlessSubsRun(sa *cards.SA, paid bool) bool {
 }
 
 // poseUnlessAsk offers payer payers[i] the unless cost. It reports whether
-// the resolution suspended, the tape served and settled the answer, or the
-// host could not ask (an effects-package test double, R-9) and the
+// the answer was served and settled in place, or the host could not ask (an effects-package test double, R-9) and the
 // deterministic decline applies — with the Note the no-host path has always
 // carried.
 func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Target, i int) unlessAsk {
@@ -501,11 +473,11 @@ func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Tar
 	}
 	pay := unlessPayPhrase(cost)
 	prompt, payLabel, declineLabel := pay+", or decline", pay, "Don't pay"
-	switch sa.API {
-	case "Counter":
+	switch poseUnlessAskCodes.Code(string(sa.API)) {
+	case poseUnlessAskCounter:
 		prompt = pay + " to save the spell, or decline"
 		payLabel = pay + " — don't counter"
-	case "CopySpellAbility":
+	case poseUnlessAskCopySpellAbility:
 		if ActivationOf(sa).Has(ActUnlessSwitched) {
 			prompt = pay + " to copy the spell, or decline"
 			payLabel = pay + " — make a copy"
@@ -570,17 +542,6 @@ func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Tar
 	d := &decision.Decision{Player: payer, Kind: decision.KModes,
 		Min: 1, Max: 1, Source: c.Source, ResumeKind: "unless_pay",
 		ResumeSA: sa, ResumeTarget: i, Prompt: prompt,
-		// The asking SA's Remembered rides the decision (the same channel the
-		// choice asks use): a replacement body's unless ask — Breathstealer's
-		// Crypt's discard — must re-enter with the Remembered it had at ask
-		// time (the RememberDrawn$ cards), or the replacement-arm reseed
-		// loses them and the body's condition gates read an empty set.
-		ResumeRemembered: append([]state.Target(nil), c.Remembered...),
-		// The TargetUnique$ accumulator rides too (the same ride every ask
-		// poseTargetsAsk makes): an unless ask parked between two TargetUnique$
-		// riders (Withdraw's UnlessCost$ ChangeZone sub) must not drop the
-		// earlier riders' picks at the resumed Ctx's rebuild.
-		ResumeTargetsUnique: copyTargets(c.TargetsUnique),
 		Options: []decision.Option{
 			{Index: 0, Kind: "mode", Label: declineLabel, Obj: c.Source, Player: payer, Mode: decision.ModeUnlessDecline},
 		}}
@@ -593,8 +554,6 @@ func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Tar
 	if _, ok := AskTape(h, d); ok {
 		return unlessServed
 	}
-	_ = Ask(h, d)
-
 	// Fuzz/no-engine host: the deterministic decline (R-9). The pay was
 	// never posed, so resolve as if the player declined.
 	h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -641,16 +600,16 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 			}
 		}
 	}
-	switch spec {
-	case "":
+	switch unlessPayerTargetsCodes.Code(string(spec)) {
+	case unlessPayerTargetsEmpty:
 		addTargets(c.Targets)
-	case "TargetedController", "TargetedPlayer", "ThisTargetedController", "TargetedOrController":
+	case unlessPayerTargetsTargetedController:
 		// A missing target uses the historical resolving-controller fallback
 		// below. This is a known target selector, unlike an unknown role.
 		addTargets(c.Targets)
-	case "You":
+	case unlessPayerTargetsYou:
 		add(c.Controller)
-	case "EnchantedController":
+	case unlessPayerTargetsEnchantedController:
 		// Aura sources retain their attachment in state.Object.AttachedTo.
 		// The attached permanent's controller is the named payer, not the
 		// Aura's controller (Power Taint and Paralyze).
@@ -663,7 +622,7 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 			return nil, false
 		}
 		add(enchanted.Controller)
-	case "EnchantedPlayer":
+	case unlessPayerTargetsEnchantedPlayer:
 		// The seat an Aura/Curse source enchants. The link is the source's
 		// own AttachedPlayer/HasAttachedPlayer pair (written only by
 		// events.Attach's player branch); a source that is not attached to a
@@ -673,23 +632,23 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 			return nil, false
 		}
 		add(source.AttachedPlayer)
-	case "ReplacedPlayer", "NonReplacedPlayer":
+	case unlessPayerTargetsReplacedPlayer:
 		// The draw-er of a replaced Draw event, and its complement (Zur's
 		// Weirding's "any other player may pay 2 life"). Set only on a Draw
 		// replacement's own context — fail closed outside one.
-		if !c.ReplacedPlayer.IsPlayer {
+		if !c.Repl.Player.IsPlayer {
 			return nil, false
 		}
 		if spec == "ReplacedPlayer" {
-			add(c.ReplacedPlayer.Player)
+			add(c.Repl.Player.Player)
 			break
 		}
 		for _, p := range g.AliveFrom(0) {
-			if p != c.ReplacedPlayer.Player {
+			if p != c.Repl.Player.Player {
 				add(p)
 			}
 		}
-	case "Imprinted", "ImprintedController":
+	case unlessPayerTargetsImprinted:
 		// Forge's UseImprinted$ binds the RepeatEach iteration's current
 		// subject as "Imprinted" (Heroism's attacking red creature, Stench
 		// of Evil's destroyed Plains). The engine binds it on the iteration
@@ -704,47 +663,47 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 		} else {
 			return nil, false
 		}
-	case "Targeted", "Player.targetedBy":
+	case unlessPayerTargetsTargeted:
 		addTargets(c.Targets)
-	case "ParentTarget":
+	case unlessPayerTargetsParentTarget:
 		addTargets(parentLinkTargets(c))
-	case "TriggeredTarget":
+	case unlessPayerTargetsTriggeredTarget:
 		if !c.TriggerTarget.IsPlayer && c.TriggerTarget.Obj == 0 {
 			return nil, false
 		}
 		addTargets([]state.Target{c.TriggerTarget})
-	case "Remembered", "RememberedController", "Player.IsRemembered":
+	case unlessPayerTargetsRemembered:
 		if len(c.Remembered) == 0 {
 			return nil, false
 		}
 		addTargets(c.Remembered)
-	case "Player":
+	case unlessPayerTargetsPlayer:
 		for _, p := range g.AliveFrom(0) {
 			add(p)
 		}
-	case "Opponent", "Player.Opponent":
+	case unlessPayerTargetsOpponent:
 		for _, p := range g.AliveFrom(c.Controller) {
 			if p != c.Controller {
 				add(p)
 			}
 		}
-	case "ChosenPlayer":
+	case unlessPayerTargetsChosenPlayer:
 		if len(c.Chosen) == 0 {
 			return nil, false
 		}
 		addTargets(c.Chosen)
-	case "TriggeredPlayer":
+	case unlessPayerTargetsTriggeredPlayer:
 		if !c.TriggerPlayer.IsPlayer {
 			return nil, false
 		}
 		add(c.TriggerPlayer.Player)
-	case "TriggeredCardController", "TriggeredCardLKIController":
+	case unlessPayerTargetsTriggeredCardController:
 		if p, ok := TriggeredCardController(g, c.TriggerContext, c.Remembered); ok {
 			add(p)
 		} else {
 			return nil, false
 		}
-	case "TriggeredSourceSAController", "TriggeredSourceController", "TriggeredSpellAbilityController":
+	case unlessPayerTargetsTriggeredSourceSAController:
 		// These forms name the controller of the source the triggering EVENT
 		// captured -- the targeting spell a BecomesTarget trigger holds in
 		// TriggerSource (Reality Smasher, Kira, the glasskite family: "unless
@@ -762,17 +721,17 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 			}
 		}
 		add(c.Controller)
-	case "NonTriggeredCardController":
+	case unlessPayerTargetsNonTriggeredCardController:
 		// The controller of the (non-triggered) resolving card -- the caster
 		// the SpellCast trigger watched. Ctx.Controller is bound from that
 		// source when the ability is put on the stack.
 		add(c.Controller)
-	case "TriggeredTargetController":
+	case unlessPayerTargetsTriggeredTargetController:
 		if !c.TriggerTarget.IsPlayer && c.TriggerTarget.Obj == 0 {
 			return nil, false
 		}
 		addTargets([]state.Target{c.TriggerTarget})
-	case "TriggeredActivator":
+	case unlessPayerTargetsTriggeredActivator:
 		if c.TriggerActivator.IsPlayer {
 			add(c.TriggerActivator.Player)
 		} else if o := g.Obj(c.TriggerActivator.Obj); o != nil {
@@ -783,12 +742,12 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 			// is populated; real contexts above use the actual activator.
 			add(c.Controller)
 		}
-	case "TriggeredDefendingPlayer", "DefendingPlayer":
+	case unlessPayerTargetsTriggeredDefendingPlayer:
 		if !c.DefendingPlayer.IsPlayer {
 			return nil, false
 		}
 		add(c.DefendingPlayer.Player)
-	case "TriggeredAttackingPlayer", "TriggeredAttackerController":
+	case unlessPayerTargetsTriggeredAttackingPlayer:
 		if !c.AttackingPlayer.IsPlayer {
 			return nil, false
 		}
@@ -822,7 +781,7 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 // family whose absent target is deliberately charged to c.Controller. Every
 // other selector must bind a real role or fail closed.
 func unlessPayerControllerFallback(spec string) bool {
-	if v, ok := unlessPayerControllerFallbackTab1.Get(spec); ok {
+	if v, ok := unlessPayerControllerFallbackTab.Get(spec); ok {
 		return v
 	}
 	return false
@@ -959,12 +918,131 @@ func payLifeAmount(f string) (int, bool) {
 	return n, err == nil
 }
 
-var unlessPayerControllerFallbackTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "", Val: true},
-	cards.StrEntry[bool]{Key: "TargetedController", Val: true},
-	cards.StrEntry[bool]{Key: "TargetedPlayer", Val: true},
-	cards.StrEntry[bool]{Key: "ThisTargetedController", Val: true},
-	cards.StrEntry[bool]{Key: "TargetedOrController", Val: true},
-	cards.StrEntry[bool]{Key: "Targeted", Val: true},
-	cards.StrEntry[bool]{Key: "ParentTarget", Val: true},
+var unlessPayerControllerFallbackTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "", Val: true},
+	state.StrEntry[bool]{Key: "TargetedController", Val: true},
+	state.StrEntry[bool]{Key: "TargetedPlayer", Val: true},
+	state.StrEntry[bool]{Key: "ThisTargetedController", Val: true},
+	state.StrEntry[bool]{Key: "TargetedOrController", Val: true},
+	state.StrEntry[bool]{Key: "Targeted", Val: true},
+	state.StrEntry[bool]{Key: "ParentTarget", Val: true},
+)
+
+type unlessCostResolvedCode uint16
+
+const (
+	unlessCostResolvedX unlessCostResolvedCode = iota + 1
+	unlessCostResolvedXX
+)
+
+var unlessCostResolvedCodes = state.NewStrCodes(
+	state.StrEntry[unlessCostResolvedCode]{Key: "X", Val: unlessCostResolvedX},
+	state.StrEntry[unlessCostResolvedCode]{Key: "XX", Val: unlessCostResolvedXX},
+)
+
+type unlessDefinedCostCode uint16
+
+const (
+	unlessDefinedCostSelf unlessDefinedCostCode = iota + 1
+	unlessDefinedCostChosenCard
+	unlessDefinedCostRemembered
+)
+
+var unlessDefinedCostCodes = state.NewStrCodes(
+	state.StrEntry[unlessDefinedCostCode]{Key: "Self", Val: unlessDefinedCostSelf},
+	state.StrEntry[unlessDefinedCostCode]{Key: "ChosenCard", Val: unlessDefinedCostChosenCard},
+	state.StrEntry[unlessDefinedCostCode]{Key: "Remembered", Val: unlessDefinedCostRemembered},
+)
+
+type unlessSubsRunCode uint16
+
+const (
+	unlessSubsRunEmpty unlessSubsRunCode = iota + 1
+	unlessSubsRunWhenPaid
+	unlessSubsRunWhenNotPaid
+)
+
+var unlessSubsRunCodes = state.NewStrCodes(
+	state.StrEntry[unlessSubsRunCode]{Key: "", Val: unlessSubsRunEmpty},
+	state.StrEntry[unlessSubsRunCode]{Key: "Always", Val: unlessSubsRunEmpty},
+	state.StrEntry[unlessSubsRunCode]{Key: "WhenPaid", Val: unlessSubsRunWhenPaid},
+	state.StrEntry[unlessSubsRunCode]{Key: "WhenNotPaid", Val: unlessSubsRunWhenNotPaid},
+)
+
+type poseUnlessAskCode uint16
+
+const (
+	poseUnlessAskCounter poseUnlessAskCode = iota + 1
+	poseUnlessAskCopySpellAbility
+)
+
+var poseUnlessAskCodes = state.NewStrCodes(
+	state.StrEntry[poseUnlessAskCode]{Key: "Counter", Val: poseUnlessAskCounter},
+	state.StrEntry[poseUnlessAskCode]{Key: "CopySpellAbility", Val: poseUnlessAskCopySpellAbility},
+)
+
+type unlessPayerTargetsCode uint16
+
+const (
+	unlessPayerTargetsEmpty unlessPayerTargetsCode = iota + 1
+	unlessPayerTargetsTargetedController
+	unlessPayerTargetsYou
+	unlessPayerTargetsEnchantedController
+	unlessPayerTargetsEnchantedPlayer
+	unlessPayerTargetsReplacedPlayer
+	unlessPayerTargetsImprinted
+	unlessPayerTargetsTargeted
+	unlessPayerTargetsParentTarget
+	unlessPayerTargetsTriggeredTarget
+	unlessPayerTargetsRemembered
+	unlessPayerTargetsPlayer
+	unlessPayerTargetsOpponent
+	unlessPayerTargetsChosenPlayer
+	unlessPayerTargetsTriggeredPlayer
+	unlessPayerTargetsTriggeredCardController
+	unlessPayerTargetsTriggeredSourceSAController
+	unlessPayerTargetsNonTriggeredCardController
+	unlessPayerTargetsTriggeredTargetController
+	unlessPayerTargetsTriggeredActivator
+	unlessPayerTargetsTriggeredDefendingPlayer
+	unlessPayerTargetsTriggeredAttackingPlayer
+)
+
+var unlessPayerTargetsCodes = state.NewStrCodes(
+	state.StrEntry[unlessPayerTargetsCode]{Key: "", Val: unlessPayerTargetsEmpty},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TargetedController", Val: unlessPayerTargetsTargetedController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TargetedPlayer", Val: unlessPayerTargetsTargetedController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "ThisTargetedController", Val: unlessPayerTargetsTargetedController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TargetedOrController", Val: unlessPayerTargetsTargetedController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "You", Val: unlessPayerTargetsYou},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "EnchantedController", Val: unlessPayerTargetsEnchantedController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "EnchantedPlayer", Val: unlessPayerTargetsEnchantedPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "ReplacedPlayer", Val: unlessPayerTargetsReplacedPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "NonReplacedPlayer", Val: unlessPayerTargetsReplacedPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "Imprinted", Val: unlessPayerTargetsImprinted},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "ImprintedController", Val: unlessPayerTargetsImprinted},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "Targeted", Val: unlessPayerTargetsTargeted},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "Player.targetedBy", Val: unlessPayerTargetsTargeted},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "ParentTarget", Val: unlessPayerTargetsParentTarget},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredTarget", Val: unlessPayerTargetsTriggeredTarget},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "Remembered", Val: unlessPayerTargetsRemembered},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "RememberedController", Val: unlessPayerTargetsRemembered},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "Player.IsRemembered", Val: unlessPayerTargetsRemembered},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "Player", Val: unlessPayerTargetsPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "Opponent", Val: unlessPayerTargetsOpponent},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "Player.Opponent", Val: unlessPayerTargetsOpponent},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "ChosenPlayer", Val: unlessPayerTargetsChosenPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredPlayer", Val: unlessPayerTargetsTriggeredPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredCardController", Val: unlessPayerTargetsTriggeredCardController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredCardLKIController", Val: unlessPayerTargetsTriggeredCardController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredSourceSAController", Val: unlessPayerTargetsTriggeredSourceSAController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredSourceController", Val: unlessPayerTargetsTriggeredSourceSAController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredSpellAbilityController", Val: unlessPayerTargetsTriggeredSourceSAController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "NonTriggeredCardController", Val: unlessPayerTargetsNonTriggeredCardController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredTargetController", Val: unlessPayerTargetsTriggeredTargetController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredActivator", Val: unlessPayerTargetsTriggeredActivator},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredDefendingPlayer", Val: unlessPayerTargetsTriggeredDefendingPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "DefendingPlayer", Val: unlessPayerTargetsTriggeredDefendingPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredAttackingPlayer", Val: unlessPayerTargetsTriggeredAttackingPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredAttackerController", Val: unlessPayerTargetsTriggeredAttackingPlayer},
 )

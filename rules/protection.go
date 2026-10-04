@@ -212,10 +212,10 @@ func (e *Engine) sourceHasQuality(source state.ObjID, q string) bool {
 	// than type predicates. They occur on Guardian/Frenemy of the Guildpact;
 	// keep them here with the other source-quality tests so generic
 	// kw:Protection registration covers every live K:Protection form.
-	switch strings.ToLower(q) {
-	case "card.monocolor":
+	switch sourceQualityCardCodes.Code(string(strings.ToLower(q))) {
+	case sourceQualityCardCardMonocolor:
 		return isMonoColor(e.objColors(o))
-	case "card.enemycolor":
+	case sourceQualityCardCardEnemycolor:
 		return hasEnemyColorPair(e.objColors(o))
 	}
 	// Parameterised protection qualities are Forge object specs (Artifact,
@@ -232,18 +232,18 @@ func (e *Engine) sourceHasQuality(source state.ObjID, q string) bool {
 		return false
 	}
 	f := o.Face()
-	switch strings.ToLower(q) {
-	case "artifacts":
+	switch sourceQualityPluralCodes.Code(string(strings.ToLower(q))) {
+	case sourceQualityPluralArtifacts:
 		return f.IsArtifact()
-	case "creatures":
+	case sourceQualityPluralCreatures:
 		// CR 702.114e: a bestowed-attached card is an Aura, not a creature.
 		// CR 702.150c: an attached Reconfigure card is not a creature either.
 		return o.EffectiveIsCreature() && !o.BestowedAttached() && !o.ReconfiguredAttached()
-	case "enchantments":
+	case sourceQualityPluralEnchantments:
 		return f.IsEnchantment()
-	case "instants":
+	case sourceQualityPluralInstants:
 		return f.IsInstant()
-	case "sorceries":
+	case sourceQualityPluralSorceries:
 		return f.IsSorcery()
 	}
 	return false
@@ -274,7 +274,7 @@ func hasEnemyColorPair(colors string) bool {
 // protecColourLetter maps a colour quality word to its WUBRG letter, 0
 // when q is not a colour word.
 func protecColourLetter(q string) rune {
-	if v, ok := protecColourLetterTab1.Get(strings.ToLower(q)); ok {
+	if v, ok := protecColourLetterTab.Get(strings.ToLower(q)); ok {
 		return v
 	}
 	return 0
@@ -398,10 +398,40 @@ func (e *Engine) permanentCastThisTurn(id state.ObjID) bool {
 	return false
 }
 
-var protecColourLetterTab1 = cards.NewStrTable[rune](
-	cards.StrEntry[rune]{Key: "white", Val: 'W'},
-	cards.StrEntry[rune]{Key: "blue", Val: 'U'},
-	cards.StrEntry[rune]{Key: "black", Val: 'B'},
-	cards.StrEntry[rune]{Key: "red", Val: 'R'},
-	cards.StrEntry[rune]{Key: "green", Val: 'G'},
+var protecColourLetterTab = state.NewStrTable[rune](
+	state.StrEntry[rune]{Key: "white", Val: 'W'},
+	state.StrEntry[rune]{Key: "blue", Val: 'U'},
+	state.StrEntry[rune]{Key: "black", Val: 'B'},
+	state.StrEntry[rune]{Key: "red", Val: 'R'},
+	state.StrEntry[rune]{Key: "green", Val: 'G'},
+)
+
+type sourceQualityCardCode uint16
+
+const (
+	sourceQualityCardCardMonocolor sourceQualityCardCode = iota + 1
+	sourceQualityCardCardEnemycolor
+)
+
+var sourceQualityCardCodes = state.NewStrCodes(
+	state.StrEntry[sourceQualityCardCode]{Key: "card.monocolor", Val: sourceQualityCardCardMonocolor},
+	state.StrEntry[sourceQualityCardCode]{Key: "card.enemycolor", Val: sourceQualityCardCardEnemycolor},
+)
+
+type sourceQualityPluralCode uint16
+
+const (
+	sourceQualityPluralArtifacts sourceQualityPluralCode = iota + 1
+	sourceQualityPluralCreatures
+	sourceQualityPluralEnchantments
+	sourceQualityPluralInstants
+	sourceQualityPluralSorceries
+)
+
+var sourceQualityPluralCodes = state.NewStrCodes(
+	state.StrEntry[sourceQualityPluralCode]{Key: "artifacts", Val: sourceQualityPluralArtifacts},
+	state.StrEntry[sourceQualityPluralCode]{Key: "creatures", Val: sourceQualityPluralCreatures},
+	state.StrEntry[sourceQualityPluralCode]{Key: "enchantments", Val: sourceQualityPluralEnchantments},
+	state.StrEntry[sourceQualityPluralCode]{Key: "instants", Val: sourceQualityPluralInstants},
+	state.StrEntry[sourceQualityPluralCode]{Key: "sorceries", Val: sourceQualityPluralSorceries},
 )

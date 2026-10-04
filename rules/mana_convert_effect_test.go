@@ -9,6 +9,7 @@ import (
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -41,7 +42,7 @@ func TestEffectManaConvertReachesPayment(t *testing.T) {
 		t.Fatal("precondition: North Star's real Convert SVar changed")
 	}
 	e.G.Players[0].Pool[state.MR] = 1
-	if !e.payManaConvFor(0, spell, false, ParseCost("U"), e.paymentConv(0, spell, false)) {
+	if !pay.PayManaConvFor(asPayer(e), 0, spell, false, ParseCost("U"), asPayer(e).Conv(0, spell, false)) {
 		t.Fatal("Effect-delivered North Star conversion did not pay blue with red mana")
 	}
 	if e.G.Players[0].Pool.Total() != 0 {
@@ -66,7 +67,7 @@ func TestCommandManaConvertReachesPayment(t *testing.T) {
 	}
 	e.emit(events.Event{Kind: events.Choose, Obj: conspiracy, Counter: "number", Amount: 2})
 	e.G.Players[0].Pool[state.MR] = 1
-	if !e.payManaConvFor(0, bear, false, ParseCost("G"), e.paymentConv(0, bear, false)) {
+	if !pay.PayManaConvFor(asPayer(e), 0, bear, false, ParseCost("G"), asPayer(e).Conv(0, bear, false)) {
 		t.Fatal("command-zone ManaConvert did not pay green with red mana")
 	}
 	if e.G.Players[0].Pool.Total() != 0 {

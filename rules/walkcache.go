@@ -36,7 +36,7 @@ import (
 //     and subject, and that part still runs per call.
 //   - activeStatics(mode): the battlefield S:Mode$ <mode> statics, one list
 //     per mode. Every cost/restriction/grant reader re-walked the battlefield
-//     piles for it (payerGrantsPayLifeInsteadOfB alone does so on every
+//     piles for it (PayLifeInsteadOfB alone does so on every
 //     payability check). Returned CLIPPED, so a caller that appends to it
 //     (castRestrictionSources) reallocates instead of writing the cache.
 //   - mayPlaysThisTurn(p): the per-turn may-play count, a backward log scan
@@ -263,28 +263,28 @@ func (e *Engine) scanBoardStaticsPrintedLists(out boardStatics, lists []boardSca
 					st := pst.Static
 					var dst *[]staticView
 					zoneGated := true
-					switch st.Mode {
-					case "CantBeCast":
+					switch st.ModeKind() {
+					case cards.StaticCantBeCast:
 						if z != state.ZBattlefield {
 							continue
 						}
 						dst, zoneGated = &out.action.cantCast, false
-					case "CantBeActivated":
+					case cards.StaticCantBeActivated:
 						if z != state.ZBattlefield {
 							continue
 						}
 						dst, zoneGated = &out.action.cantActivate, false
-					case "Continuous":
+					case cards.StaticContinuous:
 						dst = &out.action.continuous
-					case "RaiseCost":
+					case cards.StaticRaiseCost:
 						dst = &out.cost.raise
-					case "ReduceCost":
+					case cards.StaticReduceCost:
 						dst = &out.cost.reduce
-					case "SetCost":
+					case cards.StaticSetCost:
 						dst = &out.cost.set
-					case "OptionalCost":
+					case cards.StaticOptionalCost:
 						dst = &out.cost.optional
-					case "ManaConvert":
+					case cards.StaticManaConvert:
 						if !effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
 							continue
 						}

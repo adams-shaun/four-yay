@@ -17,9 +17,9 @@ package rules
 //
 // The same ticket fixed the class behind the first live livelock the deck
 // exposed: an SA whose BODY poses a mid-resolution ask after its UnlessCost$
-// gate resolved used to re-pose the pay ask on the answer's re-entry (a
-// repeating pay/draw cycle). Host.SuspendUnless records the resolved
-// outcome on the pending ask's resume point; TestUnlessBodyAskDoesNotRepose
+// gate resolved used to re-pose the pay ask after the body's answer (a
+// repeating pay/draw cycle). The resolved gate's answer now stays in hand
+// for the rest of the resolution; TestUnlessBodyAskDoesNotRepose
 // pins the class on Mystic Remora, the deck's live carrier.
 
 import (
@@ -135,7 +135,7 @@ func viviDecline(d *decision.Decision) int {
 // OptionalDecider$ end to end, and with it the asking-body-under-UnlessCost$
 // livelock fix: the payer declines {1}, the OptionalDecider$ player is asked
 // ("draw?"), a yes draws one, and — the class pin — the gate does NOT
-// re-pose the pay ask on the draw answer's re-entry (the pre-fix cycle
+// re-pose the pay ask after the draw answer (the pre-fix cycle
 // repeated pay/choose 80 times before the livelock detector fired).
 func TestRhysticStudyPayDeclineAsksTheOptionalDraw(t *testing.T) {
 	t.Parallel()
@@ -741,8 +741,8 @@ func TestMistriseVillageSpellCastPromise(t *testing.T) {
 
 // TestUnlessBodyAskDoesNotRepose is the class pin for the livelock the
 // vivi-ornitier-cedh import exposed: an SA whose BODY poses a mid-resolution
-// ask after its UnlessCost$ gate resolved must never re-pose the pay ask on
-// the body answer's re-entry. Mystic Remora is the live carrier; Rhystic
+// ask after its UnlessCost$ gate resolved must never re-pose the pay ask
+// after the body's answer. Mystic Remora is the live carrier; Rhystic
 // Study shares the shape.
 func TestUnlessBodyAskDoesNotRepose(t *testing.T) {
 	t.Parallel()

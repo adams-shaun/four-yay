@@ -73,17 +73,17 @@ func (e *Engine) validatePriorityChoice(d *decision.Decision, in decision.Intent
 // guard, or "" when the handler proceeds.
 func (e *Engine) priorityOptionStale(p state.PlayerID, opt decision.Option) string {
 	switch opt.Kind {
-	case "pass", "concede":
+	case optPass, optConcede:
 		return ""
 	}
 	o := e.G.Obj(opt.Obj)
 	switch opt.Kind {
-	case "activate":
+	case optActivate:
 		// activateMana -> activateManaFor's own member set.
 		if e.priorityManaAbilityCount(p, opt.Obj) == 0 {
 			return "the source has no activatable mana ability"
 		}
-	case "ability":
+	case optAbility:
 		if o == nil {
 			return "the object no longer exists"
 		}
@@ -114,20 +114,20 @@ func (e *Engine) priorityOptionStale(p state.PlayerID, opt decision.Option) stri
 				return "the ability index no longer resolves"
 			}
 		}
-	case "granted":
+	case optGranted:
 		if o == nil {
 			return "the object no longer exists"
 		}
 		return e.grantedAnchorStale(o, opt)
-	case "play_land":
+	case optPlayLand:
 		if opt.Mode == "modal_land" && modalLandBack(o) == nil {
 			return "the land has no modal back face"
 		}
-	case "unlock":
+	case optUnlock:
 		if _, ok := e.unlockRoomCost(o); !ok {
 			return "the Room has no locked half to unlock"
 		}
-	case "specialize":
+	case optSpecialize:
 		i, err := strconv.Atoi(opt.Mode)
 		if err != nil {
 			return "the chosen specialization face is invalid"
@@ -135,18 +135,18 @@ func (e *Engine) priorityOptionStale(p state.PlayerID, opt decision.Option) stri
 		if _, ok := e.specializeLegal(p, opt.Obj, i); !ok {
 			return "the permanent cannot be specialized to that face"
 		}
-	case "station":
+	case optStation:
 		if o == nil || o.Zone != state.ZBattlefield || !e.hasKeywordH(opt.Obj, kwhStation) {
 			return "the spacecraft cannot be stationed"
 		}
 		if len(e.stationCandidates(p, opt.Obj)) == 0 {
 			return "no creature can be tapped to station it"
 		}
-	case "cast":
+	case optCast:
 		if o == nil {
 			return "the card no longer exists"
 		}
-	case "turn_face_up":
+	case optTurnFaceUp:
 		// rules/morph_turnup.go's morphFaceUpCost, the same predicate the
 		// offer and the handler run: the permanent must still be a face-down
 		// battlefield permanent the morph family put down (the family flag),

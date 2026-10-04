@@ -51,14 +51,14 @@ func (e *Engine) scanCostStatics() costStaticViews {
 			}
 			st := pst.Static
 			var dst *[]staticView
-			switch st.Mode {
-			case "RaiseCost":
+			switch st.ModeKind() {
+			case cards.StaticRaiseCost:
 				dst = &out.raise
-			case "ReduceCost":
+			case cards.StaticReduceCost:
 				dst = &out.reduce
-			case "SetCost":
+			case cards.StaticSetCost:
 				dst = &out.set
-			case "OptionalCost":
+			case cards.StaticOptionalCost:
 				dst = &out.optional
 			default:
 				continue
@@ -203,12 +203,12 @@ func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 			continue
 		}
 		var dst *[]staticView
-		switch ce.CostStaticMode {
-		case "RaiseCost":
+		switch cards.StaticModeOf(ce.CostStaticMode) {
+		case cards.StaticRaiseCost:
 			dst = &out.raise
-		case "ReduceCost":
+		case cards.StaticReduceCost:
 			dst = &out.reduce
-		case "SetCost":
+		case cards.StaticSetCost:
 			dst = &out.set
 		default:
 			continue

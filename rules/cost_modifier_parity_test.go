@@ -120,8 +120,8 @@ func reduceOf(t *testing.T, e *Engine, p state.PlayerID, id state.ObjID) int32 {
 	t.Helper()
 	mods := e.costModifiers(p, id, spellScope(""))
 	var n int32
-	for _, red := range mods.reduces {
-		n += red.generic + red.colored.Total()
+	for _, red := range mods.Reduces {
+		n += red.Generic + red.Colored.Total()
 	}
 	return n
 }
@@ -287,8 +287,8 @@ func TestColorReduceRemovesColoredPips(t *testing.T) {
 		t.Fatalf("Khalni Hydra reduction with 2 green creatures = %d, want 2 (green pips)", got)
 	}
 	mods := e.costModifiers(0, hydra, spellScope(""))
-	if mods.reduces[0].colored[state.MG] != 2 || mods.reduces[0].generic != 0 {
-		t.Fatalf("the reduction must name 2 green pips, got %+v", mods.reduces[0])
+	if mods.Reduces[0].Colored[state.MG] != 2 || mods.Reduces[0].Generic != 0 {
+		t.Fatalf("the reduction must name 2 green pips, got %+v", mods.Reduces[0])
 	}
 	opt := castByName(t, e, 0, "Khalni Hydra")
 	if opt == nil {
@@ -808,7 +808,7 @@ func TestHybridPhyrexianCostsParseAndPay(t *testing.T) {
 	// for it: the colour pips take their own units, the pip goes to life, and
 	// the generic lands on the colourless unit.
 	pay, ok := resolveMana(c, pool(1, 0, 0, 0, 1, 1), state.Mana{}, [7]state.Mana{}, 10, nil)
-	if !ok || pay.lifeSpent != 2 {
+	if !ok || pay.LifeSpent != 2 {
 		t.Fatalf("W+G+C with life must pay the compleated pip with two life: %+v ok=%v", pay, ok)
 	}
 	if !payable(c, pool(1, 0, 0, 0, 1, 1), state.Mana{}, [7]state.Mana{}, 10) {
@@ -820,7 +820,7 @@ func TestHybridPhyrexianCostsParseAndPay(t *testing.T) {
 	// Pool with no white at all, life offered: the pip goes to life.
 	c2 := ParseCost("GWP")
 	pay2, ok2 := resolveMana(c2, state.Mana{}, state.Mana{}, [7]state.Mana{}, 2, nil)
-	if !ok2 || pay2.lifeSpent != 2 {
+	if !ok2 || pay2.LifeSpent != 2 {
 		t.Fatalf("GWP with an empty pool and 2 life = %+v ok=%v, want two life", pay2, ok2)
 	}
 	if !payable(c2, state.Mana{}, state.Mana{}, [7]state.Mana{}, 2) {

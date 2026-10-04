@@ -1105,29 +1105,29 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 			}
 			lki := pt.Ctx.LKI.CloneDeep()
 			e.triggerLKI[id] = triggerObjectLKI{object: &lki,
-				power: pt.Ctx.LKIPower, toughness: pt.Ctx.LKIToughness,
-				ptValid: pt.Ctx.LKIPTValid}
+				power: pt.Ctx.Snap.Power, toughness: pt.Ctx.Snap.Toughness,
+				ptValid: pt.Ctx.Snap.PTValid}
 		}
-		if pt.Ctx.SourceLifelinkLKIValid {
+		if pt.Ctx.Snap.SourceLifelinkValid {
 			if e.sourceLifelinkLKI == nil {
 				e.sourceLifelinkLKI = make(map[state.ObjID]bool)
 			}
-			e.sourceLifelinkLKI[id] = pt.Ctx.SourceLifelinkLKI
+			e.sourceLifelinkLKI[id] = pt.Ctx.Snap.SourceLifelink
 		}
-		if pt.Ctx.SourceControllerLKIValid {
+		if pt.Ctx.Snap.SourceControllerValid {
 			if e.sourceControllerLKI == nil {
 				e.sourceControllerLKI = make(map[state.ObjID]state.PlayerID)
 			}
-			e.sourceControllerLKI[id] = pt.Ctx.SourceControllerLKI
+			e.sourceControllerLKI[id] = pt.Ctx.Snap.SourceController
 		}
 		if pt.sourceCharLKIValid {
 			e.setSourceCharLKI(id, pt.sourceCharLKI)
 		}
-		if pt.Ctx.DamageSourceLKI != nil {
+		if pt.Ctx.Snap.DamageSource != nil {
 			if e.damageSourceLKI == nil {
 				e.damageSourceLKI = make(map[state.ObjID]map[state.ObjID]effects.DamageSourceLKI)
 			}
-			e.damageSourceLKI[id] = cloneDamageSourceLKI(pt.Ctx.DamageSourceLKI)
+			e.damageSourceLKI[id] = cloneDamageSourceLKI(pt.Ctx.Snap.DamageSource)
 		}
 	}
 	// Task 7: a trigger that declares ValidTgts$ asks its controller for
@@ -1530,16 +1530,16 @@ func (e *Engine) optionalDecider(pt pendingTrigger) (who state.PlayerID, optiona
 // the game.
 func (e *Engine) deciderFromSpec(spec string, controller state.PlayerID, remembered []state.Target, tc effects.TriggerContext) (who state.PlayerID, askable bool) {
 	who = controller
-	switch spec {
-	case "You":
+	switch deciderFromSpecCodes.Code(string(spec)) {
+	case deciderFromSpecYou:
 		// The controller, which who already is.
-	case "TriggeredCardController":
+	case deciderFromSpecTriggeredCardController:
 		// The shared resolver: a card that left the battlefield is its
 		// last-known controller's (Fecundity on a stolen creature's death).
 		if p, ok := effects.TriggeredCardController(e.G, tc, remembered); ok {
 			who = p
 		}
-	case "TriggeredSourceController":
+	case deciderFromSpecTriggeredSourceController:
 		if len(remembered) > 0 {
 			if o := e.G.Obj(remembered[0].Obj); o != nil {
 				who = o.Controller
@@ -1560,16 +1560,16 @@ func (e *Engine) deciderFromSpec(spec string, controller state.PlayerID, remembe
 // living opponents before a target ask is re-posed.
 func (e *Engine) targetChooserFromSpec(spec string, controller state.PlayerID, remembered []state.Target, tc effects.TriggerContext) (state.PlayerID, bool) {
 	var target state.Target
-	switch strings.TrimSpace(spec) {
-	case "TriggeredTarget":
+	switch targetChooserFromSpecCodes.Code(string(strings.TrimSpace(spec))) {
+	case targetChooserFromSpecTriggeredTarget:
 		target = tc.TriggerTarget
-	case "TriggeredPlayer":
+	case targetChooserFromSpecTriggeredPlayer:
 		target = tc.TriggerPlayer
-	case "TriggeredDefendingPlayer", "DefendingPlayer":
+	case targetChooserFromSpecTriggeredDefendingPlayer:
 		target = tc.DefendingPlayer
-	case "TriggeredAttackingPlayer":
+	case targetChooserFromSpecTriggeredAttackingPlayer:
 		target = tc.AttackingPlayer
-	case "TriggeredCardController":
+	case targetChooserFromSpecTriggeredCardController:
 		if p, ok := effects.TriggeredCardController(e.G, tc, remembered); ok {
 			return p, e.targetChooserAlive(p)
 		}
@@ -2108,3 +2108,36 @@ func (e *Engine) handleTriggerOptional(d *decision.Decision, in decision.Intent)
 	}
 	e.resumeTriggerDrain()
 }
+
+type deciderFromSpecCode uint16
+
+const (
+	deciderFromSpecYou deciderFromSpecCode = iota + 1
+	deciderFromSpecTriggeredCardController
+	deciderFromSpecTriggeredSourceController
+)
+
+var deciderFromSpecCodes = state.NewStrCodes(
+	state.StrEntry[deciderFromSpecCode]{Key: "You", Val: deciderFromSpecYou},
+	state.StrEntry[deciderFromSpecCode]{Key: "TriggeredCardController", Val: deciderFromSpecTriggeredCardController},
+	state.StrEntry[deciderFromSpecCode]{Key: "TriggeredSourceController", Val: deciderFromSpecTriggeredSourceController},
+)
+
+type targetChooserFromSpecCode uint16
+
+const (
+	targetChooserFromSpecTriggeredTarget targetChooserFromSpecCode = iota + 1
+	targetChooserFromSpecTriggeredPlayer
+	targetChooserFromSpecTriggeredDefendingPlayer
+	targetChooserFromSpecTriggeredAttackingPlayer
+	targetChooserFromSpecTriggeredCardController
+)
+
+var targetChooserFromSpecCodes = state.NewStrCodes(
+	state.StrEntry[targetChooserFromSpecCode]{Key: "TriggeredTarget", Val: targetChooserFromSpecTriggeredTarget},
+	state.StrEntry[targetChooserFromSpecCode]{Key: "TriggeredPlayer", Val: targetChooserFromSpecTriggeredPlayer},
+	state.StrEntry[targetChooserFromSpecCode]{Key: "TriggeredDefendingPlayer", Val: targetChooserFromSpecTriggeredDefendingPlayer},
+	state.StrEntry[targetChooserFromSpecCode]{Key: "DefendingPlayer", Val: targetChooserFromSpecTriggeredDefendingPlayer},
+	state.StrEntry[targetChooserFromSpecCode]{Key: "TriggeredAttackingPlayer", Val: targetChooserFromSpecTriggeredAttackingPlayer},
+	state.StrEntry[targetChooserFromSpecCode]{Key: "TriggeredCardController", Val: targetChooserFromSpecTriggeredCardController},
+)

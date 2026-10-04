@@ -16,10 +16,10 @@ func TestTargetCounterLKIOnlyAppliesToTargetedReads(t *testing.T) {
 	o.Zone = state.ZGraveyard
 	o.Counters = nil
 	c := &Ctx{Controller: 0, Targets: []state.Target{{Obj: id}},
-		Remembered:        []state.Target{{Obj: id}},
-		TargetCountersLKI: map[state.ObjID][]state.Counter{id: {{Kind: "P1P1", N: 2}}}}
-	if o.Zone != state.ZGraveyard || o.Counter("P1P1") != 0 || len(c.TargetCountersLKI[id]) != 1 || c.TargetCountersLKI[id][0].N != 2 {
-		t.Fatalf("precondition: departed target live=%+v snapshot=%+v, want live 0 vs LKI 2", o, c.TargetCountersLKI[id])
+		Remembered: []state.Target{{Obj: id}},
+		Snap:       LKISnapshots{TargetCounters: map[state.ObjID][]state.Counter{id: {{Kind: "P1P1", N: 2}}}}}
+	if o.Zone != state.ZGraveyard || o.Counter("P1P1") != 0 || len(c.Snap.TargetCounters[id]) != 1 || c.Snap.TargetCounters[id][0].N != 2 {
+		t.Fatalf("precondition: departed target live=%+v snapshot=%+v, want live 0 vs LKI 2", o, c.Snap.TargetCounters[id])
 	}
 	for _, tc := range []struct {
 		group string

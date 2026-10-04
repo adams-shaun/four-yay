@@ -175,24 +175,24 @@ func ParseZoneWord(s string) (state.Zone, bool) {
 }
 
 func parseZone(s string) (state.Zone, bool) {
-	switch strings.TrimSpace(s) {
-	case "Hand":
+	switch parseZoneCodes.Code(string(strings.TrimSpace(s))) {
+	case parseZoneHand:
 		return state.ZHand, true
-	case "Battlefield":
+	case parseZoneBattlefield:
 		return state.ZBattlefield, true
-	case "Library":
+	case parseZoneLibrary:
 		return state.ZLibrary, true
-	case "Graveyard":
+	case parseZoneGraveyard:
 		return state.ZGraveyard, true
-	case "Exile":
+	case parseZoneExile:
 		return state.ZExile, true
-	case "Stack":
+	case parseZoneStack:
 		return state.ZStack, true
-	case "Command":
+	case parseZoneCommand:
 		return state.ZCommand, true
-	case "Sideboard":
+	case parseZoneSideboard:
 		return state.ZSideboard, true
-	case "Ceased":
+	case parseZoneCeased:
 		return state.ZCeased, true
 	}
 	return 0, false
@@ -236,3 +236,29 @@ func zoneIn(zones []state.Zone, want state.Zone) bool {
 func mixedOriginIncludesHand(zones []state.Zone, all bool) bool {
 	return !all && len(zones) > 1 && zoneIn(zones, state.ZHand)
 }
+
+type parseZoneCode uint16
+
+const (
+	parseZoneHand parseZoneCode = iota + 1
+	parseZoneBattlefield
+	parseZoneLibrary
+	parseZoneGraveyard
+	parseZoneExile
+	parseZoneStack
+	parseZoneCommand
+	parseZoneSideboard
+	parseZoneCeased
+)
+
+var parseZoneCodes = state.NewStrCodes(
+	state.StrEntry[parseZoneCode]{Key: "Hand", Val: parseZoneHand},
+	state.StrEntry[parseZoneCode]{Key: "Battlefield", Val: parseZoneBattlefield},
+	state.StrEntry[parseZoneCode]{Key: "Library", Val: parseZoneLibrary},
+	state.StrEntry[parseZoneCode]{Key: "Graveyard", Val: parseZoneGraveyard},
+	state.StrEntry[parseZoneCode]{Key: "Exile", Val: parseZoneExile},
+	state.StrEntry[parseZoneCode]{Key: "Stack", Val: parseZoneStack},
+	state.StrEntry[parseZoneCode]{Key: "Command", Val: parseZoneCommand},
+	state.StrEntry[parseZoneCode]{Key: "Sideboard", Val: parseZoneSideboard},
+	state.StrEntry[parseZoneCode]{Key: "Ceased", Val: parseZoneCeased},
+)

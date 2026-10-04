@@ -231,16 +231,16 @@ func gateSpecParse(spec string) gateSpec {
 	var g gateSpec
 	any := false
 	for p := range strings.SplitSeq(preds, "+") {
-		switch p {
-		case "Self":
+		switch gateSpecParseCodes.Code(string(p)) {
+		case gateSpecParseSelf:
 			g.self, any = true, true
-		case "Other":
+		case gateSpecParseOther:
 			g.other, any = true, true
-		case "YouCtrl":
+		case gateSpecParseYouCtrl:
 			g.you, any = true, true
-		case "OppCtrl":
+		case gateSpecParseOppCtrl:
 			g.opp, any = true, true
-		case "EquippedBy", "EnchantedBy":
+		case gateSpecParseEquippedBy:
 			g.attached, any = true, true
 		default:
 			rest, ok := strings.CutPrefix(p, "counters_GE")
@@ -429,3 +429,22 @@ func (e *Engine) verifyPrintedChars(id state.ObjID, power, toughness int32, got 
 		panic(msg)
 	}
 }
+
+type gateSpecParseCode uint16
+
+const (
+	gateSpecParseSelf gateSpecParseCode = iota + 1
+	gateSpecParseOther
+	gateSpecParseYouCtrl
+	gateSpecParseOppCtrl
+	gateSpecParseEquippedBy
+)
+
+var gateSpecParseCodes = state.NewStrCodes(
+	state.StrEntry[gateSpecParseCode]{Key: "Self", Val: gateSpecParseSelf},
+	state.StrEntry[gateSpecParseCode]{Key: "Other", Val: gateSpecParseOther},
+	state.StrEntry[gateSpecParseCode]{Key: "YouCtrl", Val: gateSpecParseYouCtrl},
+	state.StrEntry[gateSpecParseCode]{Key: "OppCtrl", Val: gateSpecParseOppCtrl},
+	state.StrEntry[gateSpecParseCode]{Key: "EquippedBy", Val: gateSpecParseEquippedBy},
+	state.StrEntry[gateSpecParseCode]{Key: "EnchantedBy", Val: gateSpecParseEquippedBy},
+)

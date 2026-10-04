@@ -136,7 +136,7 @@ func effCascade(h Host, c *Ctx, sa *cards.SA) {
 	// residue rather than losing it.
 	residue := &cards.SA{Kind: "DB", API: "CascadeResidue",
 		Params: map[string]string{"Found": boolParam(found != 0)}}
-	c.ReplacedCards = append([]state.ObjID(nil), exiled...)
+	c.Repl.Cards = append([]state.ObjID(nil), exiled...)
 	if h.CascadeReplacement(c.Source, p, exiled, residue) {
 		// A Cascade replacement matched: its body ran the residue (or
 		// suspended, and the chained residue will run on the resume).
@@ -166,8 +166,8 @@ func boolParam(b bool) string {
 // LAST card is the found card (absent for the run-out arm, where every card
 // is bottomed).
 func effCascadeResidue(h Host, c *Ctx, sa *cards.SA) {
-	batch := c.ReplacedCards
-	c.ReplacedCards = nil
+	batch := c.Repl.Cards
+	c.Repl.Cards = nil
 	if len(batch) == 0 {
 		return
 	}

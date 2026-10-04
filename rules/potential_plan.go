@@ -331,7 +331,7 @@ func (e *Engine) potentialModeCastPlan(p state.PlayerID, o decision.Option) Paym
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: "cost:life_x"}
 	}
 	scope := spellScope(o.Mode)
-	if costAnnouncesSacX(base) || e.costModifiers(p, id, scope).waterbend > 0 {
+	if costAnnouncesSacX(base) || e.costModifiers(p, id, scope).Waterbend > 0 {
 		// An announced Sac<X> or a waterbend credit reprices the cast by
 		// what the payment taps or sacrifices: not composed here.
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: "cost:credit"}
@@ -397,10 +397,10 @@ func (e *Engine) paymentPlanCensusTotal(p state.PlayerID) int32 {
 func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *cards.Face, o decision.Option) (Cost, bool) {
 	cost := e.rawBaseCost(p, id)
 	mode := o.Mode
-	switch mode {
-	case "":
+	switch potentialModeBaseCostCodes.Code(string(mode)) {
+	case potentialModeBaseCostEmpty:
 		return withSpellAbilityExtras(f, cost), true
-	case "mayplay":
+	case potentialModeBaseCostMayplay:
 		// A may-play grant (an impulse draw's exile): the printed cost, or
 		// none, plus the grant's own raise -- the same read beginCast makes.
 		free, raise, hasRaise, priced := e.mayPlayPermFreeRaise(p, id, o.MayPlayPerm)
@@ -414,29 +414,29 @@ func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *card
 			cost = cost.Plus(raise)
 		}
 		return withSpellAbilityExtras(f, cost), true
-	case "plot":
+	case potentialModeBaseCostPlot:
 		// The plot special action pays the K:Plot parameter.
 		raw, ok := f.KeywordParam("Plot")
 		if !ok {
 			return Cost{}, false
 		}
 		return ParseCost(raw), true
-	case "flashback":
+	case potentialModeBaseCostFlashback:
 		return withSpellAbilityExtras(f, e.flashbackCostFor(id, o)), true
-	case "bestowed":
+	case potentialModeBaseCostBestowed:
 		return bestowCost(f)
-	case "kicked":
+	case potentialModeBaseCostKicked:
 		kc, ok := kickerCost(f)
 		return cost.Plus(kc), ok
-	case "buyback":
+	case potentialModeBaseCostBuyback:
 		bc, ok := buybackCost(f)
 		return cost.Plus(bc), ok
-	case "entwined":
+	case potentialModeBaseCostEntwined:
 		ec, ok := entwineCost(f)
 		return cost.Plus(ec), ok
-	case "surged":
+	case potentialModeBaseCostSurged:
 		return surgeCost(f)
-	case "evoked", "dashed", "overloaded", "warped", "madness", "miracle":
+	case potentialModeBaseCostEvoked:
 		head := map[string]string{"evoked": "Evoke", "dashed": "Dash", "overloaded": "Overload", "warped": "Warp",
 			"madness": "Madness", "miracle": "Miracle"}[mode]
 		mc, ok := f.KeywordParam(head)
@@ -874,7 +874,7 @@ func (e *Engine) paymentPlanCensusOf(p state.PlayerID, hyp *state.Mana) paymentP
 	units := e.paymentPlanQueryUnits(p)
 	at := make(map[state.ObjID]int, len(units)) // lookup only
 	for i, u := range units {
-		at[u.id] = i
+		at[u.ID] = i
 	}
 	var probe *Engine
 	for _, id := range e.G.Zone(state.ZBattlefield, p) {
@@ -894,7 +894,7 @@ func (e *Engine) paymentPlanCensusOf(p state.PlayerID, hyp *state.Mana) paymentP
 		for _, ma := range abs {
 			covered := false
 			for _, a := range alts {
-				if sameManaAbility(a.Ma, ma) {
+				if pay.SameManaAbility(a.Ma, ma) {
 					covered = true
 					break
 				}
@@ -1029,3 +1029,36 @@ func (e *Engine) paymentPlanRelaxedAlternatives(p state.PlayerID, id state.ObjID
 	rec(0, amt)
 	return out, fee, true
 }
+
+type potentialModeBaseCostCode uint16
+
+const (
+	potentialModeBaseCostEmpty potentialModeBaseCostCode = iota + 1
+	potentialModeBaseCostMayplay
+	potentialModeBaseCostPlot
+	potentialModeBaseCostFlashback
+	potentialModeBaseCostBestowed
+	potentialModeBaseCostKicked
+	potentialModeBaseCostBuyback
+	potentialModeBaseCostEntwined
+	potentialModeBaseCostSurged
+	potentialModeBaseCostEvoked
+)
+
+var potentialModeBaseCostCodes = state.NewStrCodes(
+	state.StrEntry[potentialModeBaseCostCode]{Key: "", Val: potentialModeBaseCostEmpty},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "mayplay", Val: potentialModeBaseCostMayplay},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "plot", Val: potentialModeBaseCostPlot},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "flashback", Val: potentialModeBaseCostFlashback},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "bestowed", Val: potentialModeBaseCostBestowed},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "kicked", Val: potentialModeBaseCostKicked},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "buyback", Val: potentialModeBaseCostBuyback},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "entwined", Val: potentialModeBaseCostEntwined},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "surged", Val: potentialModeBaseCostSurged},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "evoked", Val: potentialModeBaseCostEvoked},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "dashed", Val: potentialModeBaseCostEvoked},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "overloaded", Val: potentialModeBaseCostEvoked},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "warped", Val: potentialModeBaseCostEvoked},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "madness", Val: potentialModeBaseCostEvoked},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "miracle", Val: potentialModeBaseCostEvoked},
+)

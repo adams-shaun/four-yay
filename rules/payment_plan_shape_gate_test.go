@@ -107,8 +107,8 @@ func TestPaymentPlanShapeGateCostStaticAdditionalCost(t *testing.T) {
 		t.Fatalf("precondition: got spell object %+v, want Soul Immolation in hand", o)
 	}
 	mods := e.costModifiersWithTargets(0, spell, spellScope(""), nil, false)
-	if len(mods.extra.Blight) == 0 {
-		t.Fatalf("Soul Immolation did not produce its Blight<X> cost-static extra: %+v", mods.extra)
+	if len(mods.Extra.Blight) == 0 {
+		t.Fatalf("Soul Immolation did not produce its Blight<X> cost-static extra: %+v", mods.Extra)
 	}
 	got := e.PlanCastPayment(0, paymentCast(spell))
 	if got.Plan != nil || got.Reason != "unsupported" || got.Detail != "shape:additional_cost" {

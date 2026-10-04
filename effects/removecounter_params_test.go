@@ -73,7 +73,7 @@ func TestRemoveCounterOfIsAllocationFree(t *testing.T) {
 	f.Publish()
 	cached := &cards.SA{API: "RemoveCounter", Params: map[string]string{"CounterType": "P1P1"}}
 	RemoveCounterOf(cached)
-	if n := testing.AllocsPerRun(100, func() {
+	if n := allocsPerRun(100, func() {
 		_ = RemoveCounterOf(bound)
 		_ = RemoveCounterOf(cached)
 	}); n != 0 {

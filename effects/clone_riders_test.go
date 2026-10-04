@@ -112,7 +112,7 @@ func TestCloneVesuvaIntoPlayTapped(t *testing.T) {
 	if body == nil || body.Params["IntoPlayTapped"] != "True" || h.g.Obj(a).Tapped || vesuva.Faces[0].Name == forest.Faces[0].Name {
 		t.Fatal("precondition: untapped Vesuva, distinct land, entry rider")
 	}
-	Resolve(h, &Ctx{Source: a, Controller: 0, CloneETB: true, CloneChoiceValid: true, CloneChoice: b, CloneBecomeValid: true, CloneBecome: a, SVars: vesuva.Faces[0].SVars}, body)
+	Resolve(h, &Ctx{Source: a, Controller: 0, CloneEnter: CloneAsEnters{ETB: true, ChoiceValid: true, Choice: b, BecomeValid: true, Become: a}, SVars: vesuva.Faces[0].SVars}, body)
 	if !h.g.Obj(a).Tapped || h.g.Obj(a).Face().Name != forest.Faces[0].Name {
 		t.Fatalf("Vesuva entry: tapped=%v face=%s", h.g.Obj(a).Tapped, h.g.Obj(a).Face().Name)
 	}

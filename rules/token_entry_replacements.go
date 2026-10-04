@@ -65,7 +65,7 @@ func (e *Engine) applyTokenEntryUpdates(id state.ObjID) {
 			}
 		}
 	}
-	e.forEachReplacementSourceFor(replEventBit("Moved"), func(src state.ObjID) {
+	e.forEachReplacementSourceFor(replEventBits[cards.ReplMoved], func(src state.ObjID) {
 		if src == id {
 			return
 		}
@@ -98,14 +98,14 @@ func tokenEntryBody(result, destination string, with *cards.SA) bool {
 	if result != "Updated" || destination != "Battlefield" {
 		return false
 	}
-	if v, ok := tokenEntryBodyTab1.Get(with.API); ok {
+	if v, ok := tokenEntryBodyTab.Get(with.API); ok {
 		return v
 	}
 	return false
 }
 
-var tokenEntryBodyTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "Tap", Val: true},
-	cards.StrEntry[bool]{Key: "Untap", Val: true},
-	cards.StrEntry[bool]{Key: "PutCounter", Val: true},
+var tokenEntryBodyTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "Tap", Val: true},
+	state.StrEntry[bool]{Key: "Untap", Val: true},
+	state.StrEntry[bool]{Key: "PutCounter", Val: true},
 )

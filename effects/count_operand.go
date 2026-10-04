@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // applyCountOpOperand applies a Count$ arithmetic suffix. Besides numeric
@@ -98,8 +98,8 @@ func countDistinctLimitMax(body, op string, n int32) (int32, bool) {
 	if !hasProp {
 		return n, false
 	}
-	switch strings.TrimSpace(prop) {
-	case "Colors", "CreatureType":
+	switch countDistinctLimitMaxCodes.Code(string(strings.TrimSpace(prop))) {
+	case countDistinctLimitMaxColors:
 	default:
 		return n, false
 	}
@@ -148,8 +148,8 @@ func parseCountCompare(tok string) (op string, threshold int32, ok bool) {
 		return "", 0, false
 	}
 	op = strings.ToUpper(tok[:2])
-	switch op {
-	case "GE", "GT", "LE", "LT", "EQ":
+	switch CmpOpOf(op) {
+	case CmpGE, CmpGT, CmpLE, CmpLT, CmpEQ:
 	default:
 		return "", 0, false
 	}
@@ -163,16 +163,16 @@ func parseCountCompare(tok string) (op string, threshold int32, ok bool) {
 // countOpHolds applies a comparison against a per-player hit count, the
 // same operator set parseCountCompare recognises.
 func countOpHolds(op string, threshold, got int32) bool {
-	switch op {
-	case "GE":
+	switch CmpOpOf(op) {
+	case CmpGE:
 		return got >= threshold
-	case "GT":
+	case CmpGT:
 		return got > threshold
-	case "LE":
+	case CmpLE:
 		return got <= threshold
-	case "LT":
+	case CmpLT:
 		return got < threshold
-	case "EQ":
+	case CmpEQ:
 		return got == threshold
 	}
 	return false
@@ -223,16 +223,16 @@ func evalCompare(h Host, c *Ctx, arg string, depth int) int32 {
 	ifTok, elseTok, _ := strings.Cut(branches, ".")
 	value := evalCountOperand(h, c, name, depth)
 	var hit bool
-	switch op {
-	case "GE":
+	switch CmpOpOf(op) {
+	case CmpGE:
 		hit = value >= th
-	case "GT":
+	case CmpGT:
 		hit = value > th
-	case "EQ":
+	case CmpEQ:
 		hit = value == th
-	case "LE":
+	case CmpLE:
 		hit = value <= th
-	case "LT":
+	case CmpLT:
 		hit = value < th
 	default:
 		// Not one of the five comparison heads.
@@ -339,7 +339,7 @@ func modelledGateOp(h Host, c *Ctx, op string) bool {
 }
 
 func validConvokedCountOp(op string) bool {
-	if v, ok := validConvokedCountOpTab1.Get(op); ok {
+	if v, ok := validConvokedCountOpTab.Get(op); ok {
 		return v
 	}
 	for _, prefix := range []string{"Plus.", "Minus.", "NMinus.", "Times.", "Divide.", "DivideEvenly.", "DivideEvenlyUp.", "DivideEvenlyDown.", "LimitMax.", "LimitMin."} {
@@ -496,11 +496,22 @@ func ApplyCountOp(n int32, op string) int32 {
 	return applyCountOp(n, op)
 }
 
-var validConvokedCountOpTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "Twice", Val: true},
-	cards.StrEntry[bool]{Key: "Thrice", Val: true},
-	cards.StrEntry[bool]{Key: "HalfDown", Val: true},
-	cards.StrEntry[bool]{Key: "HalfUp", Val: true},
-	cards.StrEntry[bool]{Key: "ThirdUp", Val: true},
-	cards.StrEntry[bool]{Key: "Negative", Val: true},
+var validConvokedCountOpTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "Twice", Val: true},
+	state.StrEntry[bool]{Key: "Thrice", Val: true},
+	state.StrEntry[bool]{Key: "HalfDown", Val: true},
+	state.StrEntry[bool]{Key: "HalfUp", Val: true},
+	state.StrEntry[bool]{Key: "ThirdUp", Val: true},
+	state.StrEntry[bool]{Key: "Negative", Val: true},
+)
+
+type countDistinctLimitMaxCode uint16
+
+const (
+	countDistinctLimitMaxColors countDistinctLimitMaxCode = iota + 1
+)
+
+var countDistinctLimitMaxCodes = state.NewStrCodes(
+	state.StrEntry[countDistinctLimitMaxCode]{Key: "Colors", Val: countDistinctLimitMaxColors},
+	state.StrEntry[countDistinctLimitMaxCode]{Key: "CreatureType", Val: countDistinctLimitMaxColors},
 )

@@ -64,7 +64,7 @@ func (e *Engine) paymentPlanGlobalManaEffect(p state.PlayerID, id state.ObjID) (
 			return true, "global_mana_effect:" + e.paymentPlanObjName(ce.Source)
 		}
 	}
-	if conv := e.paymentConv(p, id, false); conv != nil && paymentPlanConvRestricts(conv) {
+	if conv := asPayer(e).Conv(p, id, false); conv != nil && paymentPlanConvRestricts(conv) {
 		return true, "global_mana_effect:" + e.paymentPlanManaConvertName(p)
 	}
 	return false, ""
@@ -88,7 +88,7 @@ func (e *Engine) paymentPlanGlobalManaEffect(p state.PlayerID, id state.ObjID) (
 // inert at payment as well (manaColourFrom/applyManaConversionTo), so it can
 // invalidate nothing the solver priced.
 func paymentPlanConvRestricts(c *manaConv) bool {
-	return slices.Contains(c.onlyC[:], true)
+	return slices.Contains(c.OnlyC[:], true)
 }
 
 // paymentPlanManaConvertName names the ManaConvert static behind a global
@@ -212,7 +212,7 @@ func paymentPlanNoUntapShape(r cards.Repl) bool {
 		return false
 	}
 	for _, k := range slices.Sorted(maps.Keys(r.Params)) {
-		if !paymentPlanNoUntapShapeKeys1.Has(k) {
+		if !paymentPlanNoUntapShapeKeys.Has(k) {
 			return false
 		}
 	}
@@ -231,8 +231,8 @@ func paymentPlanSelfDamageTrigger(f *cards.Face, t cards.Trigger) (uint32, bool)
 		return 0, false
 	}
 	for _, k := range slices.Sorted(maps.Keys(t.Params)) {
-		switch k {
-		case "Mode", "ValidCard", "Execute", "TriggerZones", "TriggerDescription":
+		switch paymentPlanSelfDamageTriggerCodes.Code(string(k)) {
+		case paymentPlanSelfDamageTriggerMode:
 		default:
 			return 0, false
 		}
@@ -379,7 +379,7 @@ func (e *Engine) paymentPlanDelayedTapObserver(id state.ObjID, ev events.Event) 
 			continue
 		}
 		fn := trigmatch.Lookup(t.Mode)
-		if fn == nil || !triggerModeEvents(t.Mode).allows(ev.Kind) {
+		if fn == nil || !triggerLineEvents(&t).allows(ev.Kind) {
 			continue
 		}
 		e.effectMatchSource, e.effectMatchController = dt.Source, dt.Controller
@@ -637,4 +637,18 @@ func paymentPlanSpellTargets(f *cards.Face) bool {
 	return walk(f.SpellAbility(), 0)
 }
 
-var paymentPlanNoUntapShapeKeys1 = cards.NewNameSet("Event", "ValidCard", "Layer", "ValidStepTurnToController", "ActiveZones", "Description")
+var paymentPlanNoUntapShapeKeys = state.NewNameSet("Event", "ValidCard", "Layer", "ValidStepTurnToController", "ActiveZones", "Description")
+
+type paymentPlanSelfDamageTriggerCode uint16
+
+const (
+	paymentPlanSelfDamageTriggerMode paymentPlanSelfDamageTriggerCode = iota + 1
+)
+
+var paymentPlanSelfDamageTriggerCodes = state.NewStrCodes(
+	state.StrEntry[paymentPlanSelfDamageTriggerCode]{Key: "Mode", Val: paymentPlanSelfDamageTriggerMode},
+	state.StrEntry[paymentPlanSelfDamageTriggerCode]{Key: "ValidCard", Val: paymentPlanSelfDamageTriggerMode},
+	state.StrEntry[paymentPlanSelfDamageTriggerCode]{Key: "Execute", Val: paymentPlanSelfDamageTriggerMode},
+	state.StrEntry[paymentPlanSelfDamageTriggerCode]{Key: "TriggerZones", Val: paymentPlanSelfDamageTriggerMode},
+	state.StrEntry[paymentPlanSelfDamageTriggerCode]{Key: "TriggerDescription", Val: paymentPlanSelfDamageTriggerMode},
+)

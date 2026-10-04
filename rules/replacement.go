@@ -112,7 +112,8 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 		// their own continuation is implemented.
 		return ev, false
 	}
-	event, ok := replacementEvent(ev)
+	eventKind := replacementEventKind(ev)
+	event, ok := eventKind.String(), eventKind != 0
 	if !ok {
 		return ev, false
 	}
@@ -244,7 +245,7 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 			}
 		}
 	}
-	e.forEachReplacementSourceFor(replEventBit(event), func(id state.ObjID) {
+	e.forEachReplacementSourceFor(replEventBits[eventKind], func(id state.ObjID) {
 		f := e.replacementFace(id, ev)
 		if f == nil {
 			return
@@ -672,46 +673,53 @@ func replacementEventNameMatches(replEvent, event string) bool {
 // scratch instead of its hash-chained fields; ProduceMana matching requires
 // both, while the logged event remains the ordinary final mana production.
 func replacementEvent(ev events.Event) (string, bool) {
+	k := replacementEventKind(ev)
+	return k.String(), k != 0
+}
+
+// replacementEventKind is replacementEvent's name as its cards.ReplEvent
+// code (0: the event has no R:Event$ class).
+func replacementEventKind(ev events.Event) cards.ReplEvent {
 	switch ev.Kind {
 	case events.Attach:
-		return "Attached", true
+		return cards.ReplAttached
 	case events.MoveZone:
-		return "Moved", true
+		return cards.ReplMoved
 	case events.Untap:
-		return "Untap", true
+		return cards.ReplUntap
 	case events.StepChange:
-		return "BeginPhase", true
+		return cards.ReplBeginPhase
 	case events.FlipFace:
-		return "Transform", true
+		return cards.ReplTransform
 	case events.ManaAdd:
-		return "ProduceMana", true
+		return cards.ReplProduceMana
 	case events.Damage:
-		return "DamageDone", true
+		return cards.ReplDamageDone
 	case events.Draw:
-		return "Draw", true
+		return cards.ReplDraw
 	case events.TokenCreate:
-		return "CreateToken", true
+		return cards.ReplCreateToken
 	case events.Explore:
-		return "Explore", true
+		return cards.ReplExplore
 	case events.Cascade:
 		// The cascade instruction's replacement boundary (CR 614.4; Averna,
 		// the Chaos Bloom). Only the synthetic PROPOSAL (Engine.
 		// ProposeCascadeReplacement) reaches the collection: the Kind is never
 		// emitted, so no logged event can ever map here. The exiled batch
 		// rides ev.IDs and becomes Ctx.ReplacedCards on the body's context.
-		return "Cascade", true
+		return cards.ReplCascade
 	case events.Scry:
 		// The scry instruction boundary. Only the synthetic PROPOSAL
 		// (Engine.Scry) reaches the collection; the completed record is
 		// emitted through emitScryRecord, outside the replacement pass.
-		return "Scry", true
+		return cards.ReplScry
 	case events.RollDice:
 		// The roll-action boundary (task rolldice-repl). Only the synthetic
 		// PROPOSAL (Engine.RollDiceProposed) reaches the collection: the Kind
 		// is never emitted, so no logged event can ever map here.
-		return "RollDice", true
+		return cards.ReplRollDice
 	case events.PlanarRoll:
-		return "RollPlanarDice", true
+		return cards.ReplRollPlanarDice
 	case events.CounterChange, events.PlayerCounterChange:
 		// The counter-placement replacement class (Hardened Scales, Branching
 		// Evolution, Doubling Season, Vorinclex): R:Event$ AddCounter modifies
@@ -720,16 +728,16 @@ func replacementEvent(ev events.Event) (string, bool) {
 		// form (CounterChange) and the player form (PlayerCounterChange) share
 		// the class; the matcher splits them on ValidCard$/ValidObject$ vs
 		// ValidPlayer$.
-		return "AddCounter", true
+		return cards.ReplAddCounter
 	case events.TurnFaceUp:
 		// The turn-up boundary itself (CR 614.1a with CR 708.6/702.36e, task
 		// cli-20260924T031747Z-6d0658fc): Hooded Hydra's five +1/+1 counters,
 		// Karlov Watchdog's CantHappen prohibition, Gift of Doom's attach.
 		// These match the marker events.TurnFaceUp that the morph-family
 		// special action and the SetState effect's turn-up arm emit.
-		return "TurnFaceUp", true
+		return cards.ReplTurnFaceUp
 	default:
-		return "", false
+		return 0
 	}
 }
 
@@ -793,10 +801,10 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 	if o == nil {
 		// No live source object: no controller (seat 0).
 		ctx := effects.NewCtxPtr(m.id, 0, effects.CtxInit{})
-		ctx.ReplacementTarget = target
-		ctx.ReplacementSource, ctx.ReplacementAmount = e.protectionSource(e.damaging), drawMatchAmount(ev)
+		ctx.Repl.Target = target
+		ctx.Repl.Source, ctx.Repl.Amount = e.protectionSource(e.damaging), drawMatchAmount(ev)
 		if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield {
-			ctx.ExcludeFromBattlefieldCount = ev.Obj
+			ctx.Repl.ExcludeFromBattlefieldCount = ev.Obj
 		}
 		e.seedEffectReplCtx(ctx, m)
 		return ctx
@@ -814,23 +822,23 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 		// comment), so o.X is the cast-time value here.
 		X:        o.X,
 		Captured: []state.Target{{Obj: ev.Obj}}})
-	ctx.ReplacementTarget = target
-	ctx.ReplacementSource, ctx.ReplacementAmount = e.protectionSource(e.damaging), drawMatchAmount(ev)
+	ctx.Repl.Target = target
+	ctx.Repl.Source, ctx.Repl.Amount = e.protectionSource(e.damaging), drawMatchAmount(ev)
 	// Replaced names the object the replaced event (ev) was about, so a
 	// ReplaceWith$ that says Defined$ ReplacedCard (the Rest in Peace /
 	// Dryad Militant / Leyline of the Void shape: "exile it instead") can
 	// act on exactly the card being kept out of the graveyard -- not the
 	// source that owns the replacement.
-	ctx.Replaced = ev.Obj
+	ctx.Repl.Replaced = ev.Obj
 	if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield {
-		ctx.ExcludeFromBattlefieldCount = ev.Obj
+		ctx.Repl.ExcludeFromBattlefieldCount = ev.Obj
 	}
 	// The cascade instruction's ordered exiled batch, the plural referent
 	// Averna's ReplaceWith$ body reads as Defined$ ReplacedCards.<qual>. Only a
 	// Cascade proposal carries it; every other replacement leaves the field
 	// empty (the singular Replaced seed above is unchanged).
 	if ev.Kind == events.Cascade {
-		ctx.ReplacedCards = append([]state.ObjID(nil), ev.IDs...)
+		ctx.Repl.Cards = append([]state.ObjID(nil), ev.IDs...)
 	}
 	f := m.face
 	if f == nil {
@@ -844,18 +852,18 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 		// for draws — the body's own RememberDrawn$ records what it actually
 		// drew (a seeded stale entry would double the reveal's and the
 		// discard condition's population).
-		ctx.ReplacedPlayer = state.Target{Player: ev.Player, IsPlayer: true}
+		ctx.Repl.Player = state.Target{Player: ev.Player, IsPlayer: true}
 		ctx.Remembered, ctx.Captured = nil, nil
 	}
 	if f != nil {
 		effects.SetSVars(ctx, f.SVars)
 	}
 	if o != nil && m.repl != nil && m.repl.ParamStr(cards.PKKeyword) == "ETBReplacement" && m.repl.With != nil && m.repl.With.API == "Clone" {
-		ctx.CloneETB = true
-		ctx.CloneBecome = ev.Obj
-		ctx.CloneBecomeValid = true
-		ctx.CloneChoiceValid = o.ETBCloneChoiceValid
-		ctx.CloneChoice = o.ETBCloneChoice
+		ctx.CloneEnter.ETB = true
+		ctx.CloneEnter.Become = ev.Obj
+		ctx.CloneEnter.BecomeValid = true
+		ctx.CloneEnter.ChoiceValid = o.ETBCloneChoiceValid
+		ctx.CloneEnter.Choice = o.ETBCloneChoice
 	}
 	// The as-enters colour-choice body (K:ETBReplacement:Other:ChooseColor)
 	// marks itself: the entry machinery (applyETBChoiceReplacement ->
@@ -868,7 +876,7 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 	// unconditional). The effect consumes the flag, so a nested ChooseColor
 	// in the same chain poses its own fresh ask.
 	if o != nil && m.repl != nil && m.repl.ParamStr(cards.PKKeyword) == "ETBReplacement" && m.repl.With != nil && m.repl.With.API == "ChooseColor" {
-		ctx.ETBColorRecorded = true
+		ctx.ETB.ColorRecorded = true
 	}
 	// The as-enters NUMBER-choice body (K:ETBReplacement:Other:ChooseNumber,
 	// Talion the Kindly Lord) marks itself the same way: resumeETBEntry already
@@ -879,10 +887,10 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 	// answer of 0 is indistinguishable from unset on the object, but the flag
 	// is set precisely when the machinery recorded one.
 	if o != nil && m.repl != nil && m.repl.ParamStr(cards.PKKeyword) == "ETBReplacement" && m.repl.With != nil && m.repl.With.API == "ChooseNumber" {
-		ctx.ETBNumberRecorded = true
+		ctx.ETB.NumberRecorded = true
 	}
 	if o != nil && m.repl != nil && m.repl.ParamStr(cards.PKKeyword) == "ETBReplacement" && m.repl.With != nil && m.repl.With.API == "ChooseEvenOdd" {
-		ctx.ETBEvenOddRecorded = true
+		ctx.ETB.EvenOddRecorded = true
 	}
 	e.seedEffectReplCtx(ctx, m)
 	return ctx
@@ -896,11 +904,11 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 // registered live (effects' registration gate keeps them on the loud Note),
 // so a live seed cannot be erased by that clearing on a registered shape.
 func (e *Engine) seedEffectReplCtx(ctx *effects.Ctx, m replMatch) {
-	ctx.ChosenNumber = m.chosen
+	ctx.Num.Chosen = m.chosen
 	// The bound flag is the Count$ChosenNumber head's verdict: effect-created
 	// only, so a printed or choose-event context stays UNRESOLVED and the
 	// EvalCountOK consumers keep their fail direction (see Ctx.ChosenNumberBound).
-	ctx.ChosenNumberBound = m.key != ""
+	ctx.Num.ChosenBound = m.key != ""
 	if src, ts, ok := parseEffectKey(m.key); ok {
 		ctx.EffectFrame = effects.EffectFrame{Source: src, Stamp: ts}
 	}
@@ -985,9 +993,9 @@ func (e *Engine) runReplaceWith(ctx *effects.Ctx, replaced state.ObjID, with *ca
 		action = events.ActionMarker(*ev)
 	}
 	e.replReplaced, e.replacingEvent, e.replacingSource, e.replAction, e.replReplacedPlayer =
-		replaced, ev, ctx.Source, action, ctx.ReplacedPlayer
+		replaced, ev, ctx.Source, action, ctx.Repl.Player
 	if ctx != nil {
-		e.replReplacedCards = append([]state.ObjID(nil), ctx.ReplacedCards...)
+		e.replReplacedCards = append([]state.ObjID(nil), ctx.Repl.Cards...)
 		// The body's own remembered binding is what a VarValue$ Remembered
 		// Affected rewrite resolves against. Each body owns its backing array:
 		// a nested runReplaceWith must not overwrite the saved outer body's

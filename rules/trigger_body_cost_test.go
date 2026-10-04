@@ -1041,7 +1041,7 @@ func TestMonstrosityOfTheLakeDeclineChangesNothing(t *testing.T) {
 // (triggeredCostPaymentAsk's `payable := tc.amount.Priceable()` -- the
 // cumulative-upkeep ask's `Priceable() && costPayable(...)` shape is not
 // copied there), and the guard lives in the ANSWER instead: the pay arm's
-// `paid := ... && e.payManaConv(...)` fails on the empty pool, so the body
+// `paid := ... && pay.PayManaConv(asPayer(e), ...)` fails on the empty pool, so the body
 // is DECLINED at settle (triggeredCostAnswer -> triggeredCostDecline). The
 // card's tap-all never runs, so the old free-execution defect stays closed;
 // the offered-then-declined option shape is a separate, benign divergence

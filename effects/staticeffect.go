@@ -217,7 +217,7 @@ func effectStaticGrantReadable(params map[string]string, g staticGrant) bool {
 		return false
 	}
 	for key := range params {
-		if !effectStaticGrantReadableKeys1.Has(key) {
+		if !effectStaticGrantReadableKeys.Has(key) {
 			return false
 		}
 	}
@@ -263,16 +263,16 @@ func applyStaticEffect(h Host, c *Ctx, sa *cards.SA, to state.Zone, moved []stat
 			return
 		}
 		pass := false
-		switch lop {
-		case "GE":
+		switch CmpOpOf(lop) {
+		case CmpGE:
 			pass = value >= int32(th)
-		case "GT":
+		case CmpGT:
 			pass = value > int32(th)
-		case "EQ":
+		case CmpEQ:
 			pass = value == int32(th)
-		case "LE":
+		case CmpLE:
 			pass = value <= int32(th)
-		case "LT":
+		case CmpLT:
 			pass = value < int32(th)
 		}
 		if !pass {
@@ -502,4 +502,4 @@ func AffectedXStaticAmount(expr string) bool {
 	return expr == "AffectedX"
 }
 
-var effectStaticGrantReadableKeys1 = cards.NewNameSet("Mode", "Affected", "AffectedZone", "Description", "AddTypes", "AddType", "AddAllCreatureTypes", "RemoveCreatureTypes", "RemoveCardTypes", "AddColor", "AddColors", "SetColor", "SetColors", "AddKeyword", "AddAbility", "AddAbilities", "RemoveAllAbilities", "SetPower", "SetToughness", "AddPower", "AddToughness")
+var effectStaticGrantReadableKeys = state.NewNameSet("Mode", "Affected", "AffectedZone", "Description", "AddTypes", "AddType", "AddAllCreatureTypes", "RemoveCreatureTypes", "RemoveCardTypes", "AddColor", "AddColors", "SetColor", "SetColors", "AddKeyword", "AddAbility", "AddAbilities", "RemoveAllAbilities", "SetPower", "SetToughness", "AddPower", "AddToughness")

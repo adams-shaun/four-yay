@@ -27,35 +27,36 @@ func init() { Register("Play", effPlay) }
 //
 // Whichever population results, the effect poses a KModes "play" choice over
 // the candidate cards (or a yes/no when exactly one is offered), and the
-// answered choice is carried back through Ctx.Play so rules' resumeResolution
-// can begin a zero-cost cast of the chosen card from its current zone. The
+// answered choice is applied by rules' playAnswerSettle, which begins the
+// cast of the chosen card from its current zone and records it in Ctx.Play.
+// The
 // WithoutManaCost$ semantics (cast the card for free) are applied by the cast
 // flow, not here, because mana is paid in rules where the cost grammar lives
-// (rules/resolution.go's "play" arm; WithoutManaCost$ False and an absent
+// (rules/play_tape.go's playAnswerApply; WithoutManaCost$ False and an absent
 // param both pay the printed cost, Only a literal True casts free).
 //
 // The remaining rider parameters:
 //
-//   - Controller$ names WHO the ask is posed to and whose cast the resume
-//     arm begins (Etali's Controller$ You -- the corpus's dominant shape --
+//   - Controller$ names WHO the ask is posed to and whose cast the answer
+//     begins (Etali's Controller$ You -- the corpus's dominant shape --
 //     and an absent param keep the resolving controller; Word of Command's
 //     TargetedPlayer, Wild Evocation's TriggeredPlayer and Spell Queller's
 //     RememberedOwner route the play to the named seat). An unresolvable
 //     value is a fail-closed no-op under one loud Note, never a silent
 //     reroute to the resolving controller.
 //   - ShowCards$ (Sunbird's Invocation) is the play's public reveal rider,
-//     emitted by the resume arm before the cast moves the card out of its
+//     emitted by rules' answer settle before the cast moves the card out of its
 //     hidden zone (see there).
-//   - ForgetPlayed$ True (task param:api:Play.ForgetPlayed, read at the
-//     PlayDone re-entry below) drops each actually-begun card from the
+//   - ForgetPlayed$ True (task param:api:Play.ForgetPlayed, read on the
+//     PlayDone pass below) drops each actually-begun card from the
 //     remembered set so a chained "if you don't play it" arm only sees the
 //     unplayed remainder.
 func playValidReadsOtherHand(valid string) bool {
 	for _, token := range strings.FieldsFunc(valid, func(r rune) bool {
 		return r == '.' || r == '+' || r == ','
 	}) {
-		switch strings.ToLower(strings.TrimSpace(token)) {
-		case "isremembered", "targetedplayerctrl":
+		switch playValidReadsOtherHandCodes.Code(string(strings.ToLower(strings.TrimSpace(token)))) {
+		case playValidReadsOtherHandIsremembered:
 			return true
 		}
 	}
@@ -64,21 +65,21 @@ func playValidReadsOtherHand(valid string) bool {
 
 func effPlay(h Host, c *Ctx, sa *cards.SA) {
 	if c.PlayDone {
-		// Re-entry after the answer -- INCLUDING a decline (an Optional$
-		// Play answered with the empty choice): rules' resumeResolution has
-		// consumed the answer (it began the cast of c.Play, or nothing for a
-		// decline), so there is nothing for this effect to do but let the
-		// suspension finish. Clearing Play keeps the answer scoped to this
-		// one resume: a nested Play reached below this one in the same walk
-		// must pose its own ask instead of inheriting the answered card.
+		// The answer has been applied -- INCLUDING a decline (an Optional$
+		// Play answered with the empty choice): rules' playAnswerSettle has
+		// consumed it (it began the cast of c.Play, or nothing for a
+		// decline), so there is nothing left for this effect to do. Clearing
+		// Play keeps the answer scoped to this one Play: a nested Play
+		// reached below this one in the same walk must pose its own ask
+		// instead of inheriting the answered card.
 		//
 		// ForgetPlayed$ True (task param:api:Play.ForgetPlayed): a card the
 		// Play actually BEGAN to play has been cast/put onto the stack by the
-		// resume arm and must leave the remembered set now -- the chained
+		// answer settle and must leave the remembered set now -- the chained
 		// "if you don't play it" arm (Vaan, Street Thief's ConditionDefined$
 		// Remembered Treasure gate) reads both remembered halves, and with
 		// the played card still remembered it fired even though the cast was
-		// taken. The decline leaves ctx.Play at 0 (the resume arm only sets
+		// taken. The decline leaves ctx.Play at 0 (the answer settle only sets
 		// it for a begun card), so the guard keeps the decline path untouched
 		// and the Treasure is created exactly when nothing was played. The
 		// forget shares ForgetChanged$'s body (context.go): a ctx filter AND
@@ -269,7 +270,7 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 	}
 
 	// Controller$ (task param:api:Play.Controller): WHO the play ask is
-	// posed to and whose cast the resume arm begins. The value resolves
+	// posed to and whose cast the answer begins. The value resolves
 	// through the ONE shared defined-player machinery (knownDefinedTargets
 	// -> definedSpec), so every spelling the corpus writes on a Play --
 	// You (125 raw lines, the dominant shape), Targeted/
@@ -281,7 +282,7 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 	// no-op under one loud Note rather than a silent reroute to the
 	// resolving controller: "who may play" has no safe default when the
 	// named seat cannot be bound. The answer's own Option.Player carries the
-	// resolved seat to the resume arm. An Amount$ Play offered to a player
+	// resolved seat to the answer settle. An Amount$ Play offered to a player
 	// takes that seat's first listed candidate only (measured
 	// corpus-unreachable: no carrier combines Amount$ with a non-You
 	// Controller$).
@@ -337,9 +338,9 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 		min = 0
 	}
 	max := 1
-	switch amt := strings.TrimSpace(sa.ParamStr(cards.PKAmount)); amt {
-	case "", "1":
-	case "All":
+	switch amt := strings.TrimSpace(sa.ParamStr(cards.PKAmount)); playAmountCodes.Code(amt) {
+	case playAmountOne:
+	case playAmountAll:
 		max = len(candidates)
 	default:
 		if n, err := strconv.Atoi(amt); err == nil && n > 1 {
@@ -360,14 +361,7 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 	d := &decision.Decision{Player: playCtl, Kind: decision.KModes,
 		Min: min, Max: max, MaxSum: maxSum, Source: c.Source, ResumeKind: "play",
 		ResumeSA: sa, Prompt: "Play a card from this zone",
-		// The walk's remembered set rides the suspension (the targets_ask
-		// convention): the Dig's RememberChanged$ lives only in the resolving
-		// Ctx frame, so without the ride the resume rebuilds an empty set and
-		// the chain's later SubAbility$ (Rashmi and Ragavan's DBEffect
-		// RememberObjects$ RememberedCard) seeds the registered may-play
-		// grant from an empty list -- the "if you don't cast it this way"
-		// static would match nothing and never offer the fall-back cast.
-		ResumeRemembered: copyTargets(c.Remembered)}
+	}
 	for _, id := range candidates {
 		label := "Play it"
 		if o := g.Obj(id); o != nil && o.Face() != nil {
@@ -388,18 +382,14 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	if _, ok := AskTape(h, d); ok {
-		// Served from the resolution kernel's tape: the host's answer record
-		// began the plays (rules' playAnswerSettle) and set c.PlayDone, so
-		// this is the re-entry the legacy resume makes.
+		// Answered in place: the host's answer record began the plays
+		// (rules' playAnswerSettle) and set c.PlayDone, so the PlayDone pass
+		// finishes the effect.
 		effPlay(h, c, sa)
 		return
 	}
-	if h.Ask(d) {
-		return // resolution suspended; the answer re-enters rules' "play" arm.
-	}
 	// Fuzz/no-engine host: play the first candidate deterministically (R-9).
-	// PlayDone marks the answer consumed so a re-entry (there is none on
-	// this path, but the field must not be left half-set) reads it as one.
+	// PlayDone marks the answer consumed so the field is not left half-set.
 	h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 		Text: "Play chose the first candidate (no engine host to ask)"})
 	c.Play = candidates[0]
@@ -496,19 +486,63 @@ func validSAOK(f *cards.Face, spec string, resolve func(string) (int32, bool)) b
 // state.ZLibrary) for an unrecognised name so the caller scans nothing rather
 // than scanning every zone.
 func ZoneFromString(s string) (state.Zone, bool) {
-	switch s {
-	case "Exile":
+	switch zoneFromStringCodes.Code(string(s)) {
+	case zoneFromStringExile:
 		return state.ZExile, true
-	case "Graveyard":
+	case zoneFromStringGraveyard:
 		return state.ZGraveyard, true
-	case "Hand":
+	case zoneFromStringHand:
 		return state.ZHand, true
-	case "Library":
+	case zoneFromStringLibrary:
 		return state.ZLibrary, true
-	case "Battlefield":
+	case zoneFromStringBattlefield:
 		return state.ZBattlefield, true
-	case "Command":
+	case zoneFromStringCommand:
 		return state.ZCommand, true
 	}
 	return 0, false
 }
+
+type playValidReadsOtherHandCode uint16
+
+const (
+	playValidReadsOtherHandIsremembered playValidReadsOtherHandCode = iota + 1
+)
+
+var playValidReadsOtherHandCodes = state.NewStrCodes(
+	state.StrEntry[playValidReadsOtherHandCode]{Key: "isremembered", Val: playValidReadsOtherHandIsremembered},
+	state.StrEntry[playValidReadsOtherHandCode]{Key: "targetedplayerctrl", Val: playValidReadsOtherHandIsremembered},
+)
+
+type zoneFromStringCode uint16
+
+const (
+	zoneFromStringExile zoneFromStringCode = iota + 1
+	zoneFromStringGraveyard
+	zoneFromStringHand
+	zoneFromStringLibrary
+	zoneFromStringBattlefield
+	zoneFromStringCommand
+)
+
+var zoneFromStringCodes = state.NewStrCodes(
+	state.StrEntry[zoneFromStringCode]{Key: "Exile", Val: zoneFromStringExile},
+	state.StrEntry[zoneFromStringCode]{Key: "Graveyard", Val: zoneFromStringGraveyard},
+	state.StrEntry[zoneFromStringCode]{Key: "Hand", Val: zoneFromStringHand},
+	state.StrEntry[zoneFromStringCode]{Key: "Library", Val: zoneFromStringLibrary},
+	state.StrEntry[zoneFromStringCode]{Key: "Battlefield", Val: zoneFromStringBattlefield},
+	state.StrEntry[zoneFromStringCode]{Key: "Command", Val: zoneFromStringCommand},
+)
+
+type playAmountCode uint16
+
+const (
+	playAmountOne playAmountCode = iota + 1
+	playAmountAll
+)
+
+var playAmountCodes = state.NewStrCodes(
+	state.StrEntry[playAmountCode]{Key: "", Val: playAmountOne},
+	state.StrEntry[playAmountCode]{Key: "1", Val: playAmountOne},
+	state.StrEntry[playAmountCode]{Key: "All", Val: playAmountAll},
+)

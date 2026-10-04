@@ -10,6 +10,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -831,7 +832,7 @@ func (e *Engine) delveCredit(p state.PlayerID, id state.ObjID, generic int32) in
 func (e *Engine) castable(p state.PlayerID, id state.ObjID, cost Cost, ability bool) bool {
 	mana := cost
 	mana.Generic -= e.delveCredit(p, id, mana.Generic)
-	if !e.costPayable(p, id, ability, mana) {
+	if !pay.CostPayable(asPayer(e), p, id, ability, mana) {
 		return false
 	}
 	return e.nonManaCastable(p, id, cost, ability, "")
@@ -854,7 +855,7 @@ func (e *Engine) castable(p state.PlayerID, id state.ObjID, cost Cost, ability b
 func (e *Engine) countCandPayable(pc *pendingCast, cand Cost) bool {
 	mana := e.countComposedCost(pc, cand)
 	mana.Generic -= e.delveCredit(pc.player, pc.card, mana.Generic)
-	if !e.costPayable(pc.player, pc.card, false, mana) {
+	if !pay.CostPayable(asPayer(e), pc.player, pc.card, false, mana) {
 		return false
 	}
 	return e.nonManaCastable(pc.player, pc.card, cand, false, tapCostSAKind(e.pcAbility(pc)))
@@ -888,7 +889,7 @@ func (e *Engine) countComposedCost(pc *pendingCast, cand Cost) Cost {
 func (e *Engine) castablePriced(p state.PlayerID, id state.ObjID, cost Cost, ability bool, pool state.Mana) bool {
 	mana := cost
 	mana.Generic -= e.delveCredit(p, id, mana.Generic)
-	if !e.costPayablePool(p, id, ability, mana, pool, e.G.Players[p].ManaUnits()) {
+	if !pay.CostPayablePool(asPayer(e), p, id, ability, mana, pool, e.G.Players[p].ManaUnits()) {
 		return false
 	}
 	return e.nonManaCastable(p, id, cost, ability, "")

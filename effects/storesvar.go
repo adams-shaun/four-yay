@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/state"
 )
 
 func init() { Register("StoreSVar", effStoreSVar) }
@@ -49,8 +50,8 @@ func effStoreSVar(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	typ := strings.TrimSpace(sa.ParamStr(cards.PKType))
-	switch typ {
-	case "Number", "Calculate", "CountSVar":
+	switch effStoreSVarCodes.Code(string(typ)) {
+	case effStoreSVarNumber:
 		// The evaluated forms: NumResolved's grammar covers each.
 	default:
 		// Triggered/Targeted (and anything else) read a property this
@@ -69,3 +70,15 @@ func effStoreSVar(h Host, c *Ctx, sa *cards.SA) {
 	}
 	h.Emit(events.Event{Kind: events.StoreSVar, Obj: c.Source, Text: name, Amount: v})
 }
+
+type effStoreSVarCode uint16
+
+const (
+	effStoreSVarNumber effStoreSVarCode = iota + 1
+)
+
+var effStoreSVarCodes = state.NewStrCodes(
+	state.StrEntry[effStoreSVarCode]{Key: "Number", Val: effStoreSVarNumber},
+	state.StrEntry[effStoreSVarCode]{Key: "Calculate", Val: effStoreSVarNumber},
+	state.StrEntry[effStoreSVarCode]{Key: "CountSVar", Val: effStoreSVarNumber},
+)

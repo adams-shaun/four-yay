@@ -29,7 +29,7 @@ func TestCompileDraw(t *testing.T) {
 	if !slices.Equal(p.Unread, []string{"Bogus"}) {
 		t.Fatalf("unread = %v", p.Unread)
 	}
-	if allocs := testing.AllocsPerRun(100, func() { _ = DrawOf(sa) }); allocs != 0 {
+	if allocs := allocsPerRun(100, func() { _ = DrawOf(sa) }); allocs != 0 {
 		t.Fatalf("DrawOf front-cache hit allocates %v", allocs)
 	}
 	if d := DrawOf(&cards.SA{API: "Draw", Params: map[string]string{}}); d.NumCards.Present || d.Upto || d.Unread != nil {

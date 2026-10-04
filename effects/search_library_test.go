@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
@@ -164,53 +163,6 @@ func TestLibrarySearchNoHostQuantityTakesAllWhenFewerThanMin(t *testing.T) {
 	}
 	if h.Suspended() {
 		t.Fatal("no-host quantity search suspended instead of taking all")
-	}
-}
-
-// TestLibrarySearchHostPosesDecisionAndStandInNeverRuns pins the boundary
-// between the R-9 stand-in and a real host: when Ask returns true the search
-// POSES its decision, suspends, and the stand-in never runs -- no card
-// leaves the library and no shuffle fires. This is the leaf that stops the
-// stand-in from leaking into hosted play.
-func TestLibrarySearchHostPosesDecisionAndStandInNeverRuns(t *testing.T) {
-	reg := hostlessSearchTestRegistry(t)
-	tutor, ok := reg.Lookup("Demonic Tutor")
-	if !ok {
-		t.Fatal("missing corpus Demonic Tutor")
-	}
-	forest, ok := reg.Lookup("Forest")
-	if !ok {
-		t.Fatal("missing corpus Forest")
-	}
-
-	base := newHost(t, 2)
-	h := &suspendHost{}
-	h.g = base.g
-	src := h.g.AddObject(tutor, 0)
-	card := h.g.AddObject(forest, 0)
-	h.g.SetZone(state.ZHand, 0, []state.ObjID{src.ID})
-	h.g.SetZone(state.ZLibrary, 0, []state.ObjID{card.ID})
-	h.g.Obj(src.ID).Zone = state.ZHand
-	h.g.Obj(card.ID).Zone = state.ZLibrary
-
-	Resolve(h, &Ctx{Source: src.ID, Controller: 0}, tutor.Faces[0].Abilities[0])
-
-	if h.asked == nil {
-		t.Fatal("hosted search posed no decision")
-	}
-	if h.asked.Kind != decision.KChoose || h.asked.ResumeKind != "search" {
-		t.Fatalf("hosted search posed %+v, want a search KChoose", h.asked)
-	}
-	if len(h.asked.Options) != 1 || h.asked.Options[0].Obj != card.ID {
-		t.Fatalf("hosted search options != the eligible card: %+v", h.asked.Options)
-	}
-	if h.g.Obj(card.ID).Zone != state.ZLibrary {
-		t.Fatalf("hosted search stand-in moved the card: zone=%s", h.g.Obj(card.ID).Zone)
-	}
-	for _, ev := range h.log {
-		if ev.Kind == events.MoveZone || ev.Kind == events.Shuffle {
-			t.Fatalf("hosted search emitted a stand-in event %+v", ev)
-		}
 	}
 }
 

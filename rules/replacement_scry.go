@@ -1,13 +1,14 @@
 package rules
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
-	"strconv"
-	"strings"
 )
 
 // planarDieFaceName names one planar-die roll result (CR 901.3a): the die
@@ -198,8 +199,8 @@ func (e *Engine) continueScryReplacements(ev events.Event, matches []replMatch, 
 		}
 		with := m.repl.With
 		ctx := e.replCtx(m, ev)
-		switch with.API {
-		case "ReplaceEffect":
+		switch continueScryReplacementsCodes.Code(string(with.API)) {
+		case continueScryReplacementsReplaceEffect:
 			rp := effects.ReplaceEffectOf(with)
 			if rp.VarName != "Num" {
 				break
@@ -208,7 +209,7 @@ func (e *Engine) continueScryReplacements(ev events.Event, matches []replMatch, 
 				ev.Amount = n
 				continue
 			}
-		case "Draw":
+		case continueScryReplacementsDraw:
 			// "Instead": the draw must be the scrying player's own
 			// (Defined$ You, or absent = the controller). Any other Defined$
 			// is unmodelled and fails loud below rather than drawing for the
@@ -427,3 +428,15 @@ func (e *Engine) scryReplacementDecision(rc replChoice, sa *cards.SA, target int
 	}
 	return d
 }
+
+type continueScryReplacementsCode uint16
+
+const (
+	continueScryReplacementsReplaceEffect continueScryReplacementsCode = iota + 1
+	continueScryReplacementsDraw
+)
+
+var continueScryReplacementsCodes = state.NewStrCodes(
+	state.StrEntry[continueScryReplacementsCode]{Key: "ReplaceEffect", Val: continueScryReplacementsReplaceEffect},
+	state.StrEntry[continueScryReplacementsCode]{Key: "Draw", Val: continueScryReplacementsDraw},
+)

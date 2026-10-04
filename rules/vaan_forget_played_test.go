@@ -18,8 +18,8 @@ import (
 // cast it. If you don't, create a Treasure token." oracle. Before the fix
 // the played card stayed in the remembered set, so the Treasure gate passed
 // even when the cast was taken: a player who took the free cast also got the
-// Treasure. The fix reads ForgetPlayed$ at effPlay's PlayDone re-entry
-// branch and drops the played card from BOTH remembered halves through the
+// Treasure. The fix reads ForgetPlayed$ at effPlay's PlayDone pass and
+// drops the played card from BOTH remembered halves through the
 // one shared forget body (effects.forgetRememberedOne, the ForgetChanged$
 // machinery — the same "forget-remembered" Choose event, no new event kind).
 //
@@ -50,7 +50,8 @@ import (
 // seat 1 a deck whose single non-mountain card is a Grizzly Bears parked at
 // the TOP of its library — the card Vaan's Dig exiles. The Bears is a
 // target-free vanilla creature, so the answered play's cast ({1}{G}, paid
-// from a raw ManaAdd pool) commits synchronously inside the resume arm.
+// from a raw ManaAdd pool) commits synchronously inside the answer's
+// settlement (playAnswerSettle).
 func vaanEngine(t *testing.T, reg *cards.Registry) (*Engine, Config, state.ObjID, state.ObjID) {
 	t.Helper()
 	forest := searchCorpusCard(t, reg, "Forest")

@@ -148,7 +148,7 @@ func TestChooseColorEntryBodyStaysTheNoOp(t *testing.T) {
 		t.Fatalf("precondition: the entry answer did not record: %q", got)
 	}
 	before := len(h.log)
-	Resolve(h, &Ctx{Source: src, Controller: 0, ETBColorRecorded: true}, sa(t, "DB$ ChooseColor"))
+	Resolve(h, &Ctx{Source: src, Controller: 0, ETB: ETBRecords{ColorRecorded: true}}, sa(t, "DB$ ChooseColor"))
 	if len(h.asks) != 0 {
 		t.Fatalf("the entry body posed %d asks, want none: %+v", len(h.asks), h.asks)
 	}
@@ -167,7 +167,7 @@ func TestChooseColorEntryBodyStaysTheNoOp(t *testing.T) {
 	if got := h2.g.Obj(src2).ChosenColor; got != "" {
 		t.Fatalf("precondition: fresh source already carries %q", got)
 	}
-	Resolve(h2, &Ctx{Source: src2, Controller: 0, ETBColorRecorded: true}, sa(t, "DB$ ChooseColor"))
+	Resolve(h2, &Ctx{Source: src2, Controller: 0, ETB: ETBRecords{ColorRecorded: true}}, sa(t, "DB$ ChooseColor"))
 	if len(h2.asks) != 0 {
 		t.Fatalf("the unrecorded entry body posed %d asks, want none", len(h2.asks))
 	}

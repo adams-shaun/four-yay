@@ -41,10 +41,10 @@ import (
 // loud-unread convention -- the corpus carries no such value).
 func registerLeaveExile(h Host, c *Ctx, id state.ObjID, value, dur string, permanent bool) {
 	value = strings.TrimSpace(value)
-	switch value {
-	case "":
+	switch registerLeaveExileCodes.Code(string(value)) {
+	case registerLeaveExileEmpty:
 		return
-	case "Exile":
+	case registerLeaveExileExile:
 	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "LeaveBattlefield$ " + value + " is not implemented; ignored"})
@@ -289,3 +289,15 @@ func parseNestedSVar(raw string) (name, value string, ok bool) {
 	}
 	return name, value, true
 }
+
+type registerLeaveExileCode uint16
+
+const (
+	registerLeaveExileEmpty registerLeaveExileCode = iota + 1
+	registerLeaveExileExile
+)
+
+var registerLeaveExileCodes = state.NewStrCodes(
+	state.StrEntry[registerLeaveExileCode]{Key: "", Val: registerLeaveExileEmpty},
+	state.StrEntry[registerLeaveExileCode]{Key: "Exile", Val: registerLeaveExileExile},
+)

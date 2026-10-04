@@ -8,39 +8,9 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
-
-// announcePip resolves the i-th announcement pip of a cost's hybrid →
-// monocolour-hybrid → Phyrexian → hybrid-Phyrexian list into its alternative
-// payments, in the order manaAsk offers them (each colour, then a generic
-// face, then life). It is the single source both manaAsk (the ask's
-// valid-option set) and castAnswer (recording the choice) consult, so the
-// option offered and the recorded choice always agree. Snow pips are not
-// announcement pips: a {S} pip has no alternative payment to announce.
-func announcePip(c Cost, i int) []pipAlt {
-	if i < len(c.Hybrid) {
-		p := c.Hybrid[i]
-		return []pipAlt{{color: p.A}, {color: p.B}}
-	}
-	i -= len(c.Hybrid)
-	if i < len(c.Twobrid) {
-		t := c.Twobrid[i]
-		alts := []pipAlt{{color: t.Col}}
-		if t.Generic > 0 {
-			alts = append(alts, pipAlt{generic: t.Generic})
-		}
-		return alts
-	}
-	i -= len(c.Twobrid)
-	if i < len(c.Phyrexian) {
-		letter := c.Phyrexian[i]
-		return []pipAlt{{color: letter}, {life: 2}}
-	}
-	i -= len(c.Phyrexian)
-	hp := c.HybridPhyrexian[i]
-	return []pipAlt{{color: hp.A}, {color: hp.B}, {life: 2}}
-}
 
 // annPipCount is how many announcement pips a cost carries: the two-colour
 // isAbility reports whether this proposal activates an ABILITY (a printed
@@ -122,8 +92,8 @@ func (e *Engine) cyclingKeyword(pc *pendingCast) string {
 	if ab == nil {
 		return ""
 	}
-	switch kw := strings.TrimSpace(ab.ParamStr(cards.PKKeyword)); kw {
-	case "Cycling", "TypeCycling":
+	switch kw := strings.TrimSpace(ab.ParamStr(cards.PKKeyword)); cyclingKeywordCodes.Code(kw) {
+	case cyclingKeywordCycling:
 		return kw
 	default:
 		return ""
@@ -259,7 +229,7 @@ func (e *Engine) targetDependentCostMayPay(pc *pendingCast) bool {
 		delve = int32(len(pc.delve))
 	}
 	_, ok = e.potentialCostModsUsing(e.collectCostStatics(), pc.player, pc.card, scope, e.costPotentialTargets(pc.player, pc.card, scope), 0, func(mods costMods) bool {
-		return e.manaFeasibleDescriptor(pc.player, paymentForCast(pc, pc.resolvedMana()), pc.resolvedMana(), mods, pc.taxGeneric, delve, pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType})
+		return e.manaFeasibleDescriptor(pc.player, paymentForCast(pc, pc.resolvedMana()), pc.resolvedMana(), mods, pc.taxGeneric, delve, pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType})
 	})
 	return ok
 }
@@ -330,7 +300,7 @@ func (e *Engine) affordableTargetCandidates(pc *pendingCast, candidates []target
 			target = state.Target{Player: candidate.player, IsPlayer: true}
 		}
 		mods := e.costModifiersForTargets(pc.player, pc.card, scope, []state.Target{target})
-		cost := mods.apply(pc.resolvedMana())
+		cost := mods.Apply(pc.resolvedMana())
 		if pc.ownReduce > 0 {
 			if n := e.ownReduceCost(pc.player, pc.card, e.pcAbility(pc), []state.Target{target}, nil, pc.abilityMerged); n < pc.ownReduce {
 				cost.Generic = addClampedGeneric(cost.Generic, int64(pc.ownReduce-n))
@@ -421,8 +391,8 @@ func (e *Engine) affordableTargetCandidates(pc *pendingCast, candidates []target
 		// (convokeAbsorbs), so the fold is the payment's own arithmetic,
 		// probed, never charged.
 		convoked := e.applyConvoke(pc, cost)
-		pay := paymentForCast(pc, convoked)
-		if e.manaFeasibleDescriptor(pc.player, pay, convoked, costMods{}, 0, 0, pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}) {
+		desc := paymentForCast(pc, convoked)
+		if e.manaFeasibleDescriptor(pc.player, desc, convoked, costMods{}, 0, 0, pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}) {
 			out = append(out, candidate)
 			continue
 		}
@@ -436,9 +406,9 @@ func (e *Engine) affordableTargetCandidates(pc *pendingCast, candidates []target
 			// the difference. Probe the window's concrete free productions,
 			// one alternative per source, instead of offering a target whose
 			// activation will abort at payment (CR 601.2h).
-			av := e.manaAvailableFor(pc.player, pay)
-			if e.castWindowReachable(pc.player, convoked, av.pool, pl.Snow, av.typed, pl.Life,
-				e.paymentConv(pc.player, pay.id, pay.class == paymentActivated), windowUnits) {
+			av := pay.AvailableFor(asPayer(e), pc.player, desc)
+			if e.castWindowReachable(pc.player, convoked, av.Pool, pl.Snow, av.Typed, pl.Life,
+				asPayer(e).Conv(pc.player, desc.ID, desc.Class == paymentActivated), windowUnits) {
 				out = append(out, candidate)
 			}
 		} else if e.hasUntappedManaSource(pc.player) {
@@ -453,13 +423,13 @@ func (e *Engine) affordableTargetCandidates(pc *pendingCast, candidates []target
 // and reductions, then the CR 903.8 commander tax. Delve credit is the
 // caller's concern (targetAsk/payCast subtract pc.delve from Generic).
 func (e *Engine) manaToPay(pc *pendingCast) Cost {
-	m := pc.mods.apply(pc.resolvedMana())
+	m := pc.mods.Apply(pc.resolvedMana())
 	if costAnnouncesPaidX(pc.cost) {
 		// The announced sacrifice count re-prices the ReduceCost statics that
 		// read the paid X (Dargo's {2}-less-per-sacrifice): the offer-time
 		// pc.mods snapshot was bound to X=0.
 		if scope, ok := e.pendingCastScope(pc); ok {
-			m = e.costModifiersForTargetsX(pc.player, pc.card, scope, pc.targets, pc.x).apply(pc.resolvedMana())
+			m = e.costModifiersForTargetsX(pc.player, pc.card, scope, pc.targets, pc.x).Apply(pc.resolvedMana())
 		}
 	}
 	m.Generic += pc.taxGeneric
@@ -1113,3 +1083,14 @@ func (e *Engine) validateSearch(d *decision.Decision, in decision.Intent) error 
 	}
 	return nil
 }
+
+type cyclingKeywordCode uint16
+
+const (
+	cyclingKeywordCycling cyclingKeywordCode = iota + 1
+)
+
+var cyclingKeywordCodes = state.NewStrCodes(
+	state.StrEntry[cyclingKeywordCode]{Key: "Cycling", Val: cyclingKeywordCycling},
+	state.StrEntry[cyclingKeywordCode]{Key: "TypeCycling", Val: cyclingKeywordCycling},
+)

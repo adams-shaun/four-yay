@@ -482,17 +482,3 @@ func (k *Kernel) OnAsk() (miss bool) {
 func MissFailure(what string) Divergence {
 	return Divergence{"the ask-free predicate missed an ask: " + what}
 }
-
-// DbgState TEMP.
-func (k *Kernel) DbgState() string {
-	if k.run == nil {
-		if k.noCkpt {
-			return "exempt"
-		}
-		return "norun"
-	}
-	if !k.run.inRes {
-		return "run-postres"
-	}
-	return "run"
-}

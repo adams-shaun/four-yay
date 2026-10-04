@@ -14,10 +14,8 @@ import (
 // when Call of the Ring's upkeep trigger resolves DB$ RingTemptsYou, and the
 // answer -- a creature other than the deterministic first-in-zone-order
 // default -- becomes the Ring-bearer. It drives the whole wiring the effects
-// test stubs: Engine.Ask parking the resume point, handleChoose's
-// by-role mid-resolution arm routing the KChoose answer into resumeResolution,
-// the "ring_bearer" resume arm, and the re-entered effRingTemptsYou emitting
-// exactly one RingTemptsYou event.
+// test stubs: the "ring_bearer" ask answered in place and effRingTemptsYou
+// emitting exactly one RingTemptsYou event.
 func TestCR701RingTemptsYouAsksThePlayerOnTheRealEngine(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)

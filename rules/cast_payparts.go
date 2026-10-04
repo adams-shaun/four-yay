@@ -488,8 +488,8 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 // payer. A trigger-only role has no binding here; nonManaCastable blocks
 // such a part so it is never offered.
 func castFlowDrawPlayer(spec string, payer state.PlayerID) (state.PlayerID, bool) {
-	switch spec {
-	case "", "You", "Player", "Self", "Player.Activator":
+	switch castFlowDrawPlayerCodes.Code(string(spec)) {
+	case castFlowDrawPlayerEmpty:
 		return payer, true
 	}
 	return 0, false
@@ -1135,3 +1135,17 @@ func foldAdditionalCost(cost, extra Cost) Cost {
 	cost.Tap = cost.Tap || extra.Tap
 	return cost
 }
+
+type castFlowDrawPlayerCode uint16
+
+const (
+	castFlowDrawPlayerEmpty castFlowDrawPlayerCode = iota + 1
+)
+
+var castFlowDrawPlayerCodes = state.NewStrCodes(
+	state.StrEntry[castFlowDrawPlayerCode]{Key: "", Val: castFlowDrawPlayerEmpty},
+	state.StrEntry[castFlowDrawPlayerCode]{Key: "You", Val: castFlowDrawPlayerEmpty},
+	state.StrEntry[castFlowDrawPlayerCode]{Key: "Player", Val: castFlowDrawPlayerEmpty},
+	state.StrEntry[castFlowDrawPlayerCode]{Key: "Self", Val: castFlowDrawPlayerEmpty},
+	state.StrEntry[castFlowDrawPlayerCode]{Key: "Player.Activator", Val: castFlowDrawPlayerEmpty},
+)

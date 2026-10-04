@@ -1,6 +1,9 @@
 package rules
 
-import "github.com/adams-shaun/gorge/cards"
+import (
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/state"
+)
 
 // printedHeads is the set of PRINTED keyword heads a face carries, over the
 // heads the offer walk's hand loop reads off a card's front face through
@@ -72,48 +75,48 @@ func printedHeadsOf(f *cards.Face) printedHeads {
 			}
 			buf[i] = c
 		}
-		switch string(buf[:len(h)]) {
-		case "kicker":
+		switch printedHeadsOfCodes.Code(string(string(buf[:len(h)]))) {
+		case printedHeadsOfKicker:
 			m |= phKicker
-		case "surge":
+		case printedHeadsOfSurge:
 			m |= phSurge
-		case "entwine":
+		case printedHeadsOfEntwine:
 			m |= phEntwine
-		case "replicate":
+		case printedHeadsOfReplicate:
 			m |= phReplicate
-		case "multikicker":
+		case printedHeadsOfMultikicker:
 			m |= phMultikicker
-		case "squad":
+		case printedHeadsOfSquad:
 			m |= phSquad
-		case "evoke":
+		case printedHeadsOfEvoke:
 			m |= phEvoke
-		case "dash":
+		case printedHeadsOfDash:
 			m |= phDash
-		case "overload":
+		case printedHeadsOfOverload:
 			m |= phOverload
-		case "warp":
+		case printedHeadsOfWarp:
 			m |= phWarp
-		case "emerge":
+		case printedHeadsOfEmerge:
 			m |= phEmerge
-		case "bestow":
+		case printedHeadsOfBestow:
 			m |= phBestow
-		case "mutate":
+		case printedHeadsOfMutate:
 			m |= phMutate
-		case "buyback":
+		case printedHeadsOfBuyback:
 			m |= phBuyback
-		case "suspend":
+		case printedHeadsOfSuspend:
 			m |= phSuspend
-		case "plot":
+		case printedHeadsOfPlot:
 			m |= phPlot
-		case "morph":
+		case printedHeadsOfMorph:
 			m |= phMorph
-		case "megamorph":
+		case printedHeadsOfMegamorph:
 			m |= phMegamorph
-		case "disguise":
+		case printedHeadsOfDisguise:
 			m |= phDisguise
-		case "mayflashcost":
+		case printedHeadsOfMayflashcost:
 			m |= phMayFlashCost
-		case "alternateadditionalcost":
+		case printedHeadsOfAlternateadditionalcost:
 			m |= phAlternateAdditionalCost
 		}
 	}
@@ -144,3 +147,53 @@ func verifyPrintedHeads(f *cards.Face, ph printedHeads) {
 		}
 	}
 }
+
+type printedHeadsOfCode uint16
+
+const (
+	printedHeadsOfKicker printedHeadsOfCode = iota + 1
+	printedHeadsOfSurge
+	printedHeadsOfEntwine
+	printedHeadsOfReplicate
+	printedHeadsOfMultikicker
+	printedHeadsOfSquad
+	printedHeadsOfEvoke
+	printedHeadsOfDash
+	printedHeadsOfOverload
+	printedHeadsOfWarp
+	printedHeadsOfEmerge
+	printedHeadsOfBestow
+	printedHeadsOfMutate
+	printedHeadsOfBuyback
+	printedHeadsOfSuspend
+	printedHeadsOfPlot
+	printedHeadsOfMorph
+	printedHeadsOfMegamorph
+	printedHeadsOfDisguise
+	printedHeadsOfMayflashcost
+	printedHeadsOfAlternateadditionalcost
+)
+
+var printedHeadsOfCodes = state.NewStrCodes(
+	state.StrEntry[printedHeadsOfCode]{Key: "kicker", Val: printedHeadsOfKicker},
+	state.StrEntry[printedHeadsOfCode]{Key: "surge", Val: printedHeadsOfSurge},
+	state.StrEntry[printedHeadsOfCode]{Key: "entwine", Val: printedHeadsOfEntwine},
+	state.StrEntry[printedHeadsOfCode]{Key: "replicate", Val: printedHeadsOfReplicate},
+	state.StrEntry[printedHeadsOfCode]{Key: "multikicker", Val: printedHeadsOfMultikicker},
+	state.StrEntry[printedHeadsOfCode]{Key: "squad", Val: printedHeadsOfSquad},
+	state.StrEntry[printedHeadsOfCode]{Key: "evoke", Val: printedHeadsOfEvoke},
+	state.StrEntry[printedHeadsOfCode]{Key: "dash", Val: printedHeadsOfDash},
+	state.StrEntry[printedHeadsOfCode]{Key: "overload", Val: printedHeadsOfOverload},
+	state.StrEntry[printedHeadsOfCode]{Key: "warp", Val: printedHeadsOfWarp},
+	state.StrEntry[printedHeadsOfCode]{Key: "emerge", Val: printedHeadsOfEmerge},
+	state.StrEntry[printedHeadsOfCode]{Key: "bestow", Val: printedHeadsOfBestow},
+	state.StrEntry[printedHeadsOfCode]{Key: "mutate", Val: printedHeadsOfMutate},
+	state.StrEntry[printedHeadsOfCode]{Key: "buyback", Val: printedHeadsOfBuyback},
+	state.StrEntry[printedHeadsOfCode]{Key: "suspend", Val: printedHeadsOfSuspend},
+	state.StrEntry[printedHeadsOfCode]{Key: "plot", Val: printedHeadsOfPlot},
+	state.StrEntry[printedHeadsOfCode]{Key: "morph", Val: printedHeadsOfMorph},
+	state.StrEntry[printedHeadsOfCode]{Key: "megamorph", Val: printedHeadsOfMegamorph},
+	state.StrEntry[printedHeadsOfCode]{Key: "disguise", Val: printedHeadsOfDisguise},
+	state.StrEntry[printedHeadsOfCode]{Key: "mayflashcost", Val: printedHeadsOfMayflashcost},
+	state.StrEntry[printedHeadsOfCode]{Key: "alternateadditionalcost", Val: printedHeadsOfAlternateadditionalcost},
+)

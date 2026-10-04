@@ -114,7 +114,7 @@ func (w *legalWalk) offerFloorRefuses(statics *costStaticViews, p state.PlayerID
 		len(base.LifeX) != 0 || base.Waterbend != 0 || base.WaterbendX || base.XMin != 0 || base.Life < 0 || base.Snow < 0 {
 		return false
 	}
-	if ab := scope.ab; ab != nil {
+	if ab := scope.Ab; ab != nil {
 		if own := ab.HasParam(cards.PKReduceCost); own || costAnnouncesX(*base) {
 			return false
 		}

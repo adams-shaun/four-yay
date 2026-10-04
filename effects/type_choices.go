@@ -99,16 +99,16 @@ var choosePlaneswalkerTypes = []string{
 // corpus's Nonland pseudo-type over the card-type vocabulary.
 func TypeChoiceLabels(category, validTypes, invalidTypes string) []string {
 	var vocabulary []string
-	switch strings.ToLower(strings.TrimSpace(category)) {
-	case "basic land":
+	switch typeChoiceLabelsCodes.Code(string(strings.ToLower(strings.TrimSpace(category)))) {
+	case typeChoiceLabelsBasicLand:
 		vocabulary = chooseBasicLandTypes
-	case "land":
+	case typeChoiceLabelsLand:
 		vocabulary = chooseLandTypes
-	case "nonbasic land":
+	case typeChoiceLabelsNonbasicLand:
 		vocabulary = chooseNonbasicLandTypes
-	case "card":
+	case typeChoiceLabelsCard:
 		vocabulary = chooseCardTypes
-	case "planeswalker":
+	case typeChoiceLabelsPlaneswalker:
 		vocabulary = choosePlaneswalkerTypes
 	default:
 		return nil
@@ -277,3 +277,21 @@ func CreatureInTargetedDeckLabels(g *state.Game, targets []state.Target) []strin
 	}
 	return nil
 }
+
+type typeChoiceLabelsCode uint16
+
+const (
+	typeChoiceLabelsBasicLand typeChoiceLabelsCode = iota + 1
+	typeChoiceLabelsLand
+	typeChoiceLabelsNonbasicLand
+	typeChoiceLabelsCard
+	typeChoiceLabelsPlaneswalker
+)
+
+var typeChoiceLabelsCodes = state.NewStrCodes(
+	state.StrEntry[typeChoiceLabelsCode]{Key: "basic land", Val: typeChoiceLabelsBasicLand},
+	state.StrEntry[typeChoiceLabelsCode]{Key: "land", Val: typeChoiceLabelsLand},
+	state.StrEntry[typeChoiceLabelsCode]{Key: "nonbasic land", Val: typeChoiceLabelsNonbasicLand},
+	state.StrEntry[typeChoiceLabelsCode]{Key: "card", Val: typeChoiceLabelsCard},
+	state.StrEntry[typeChoiceLabelsCode]{Key: "planeswalker", Val: typeChoiceLabelsPlaneswalker},
+)

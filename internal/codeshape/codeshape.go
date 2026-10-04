@@ -521,6 +521,10 @@ type Metrics struct {
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
 	TrigmatchBoardMethods int `json:"trigmatch_board_methods"`
+	// PayEngineMethods counts the methods pay.Engine declares
+	// (rules/pay/engine.go): the payment layer's whole view of the engine
+	// (W5 E7). Zero when the package is absent.
+	PayEngineMethods int `json:"pay_engine_methods"`
 	// Files is how many non-test .go files were parsed.
 	Files int `json:"files"`
 	// LongFuncs lists every function counted by FuncsOver300, longest first
@@ -601,6 +605,17 @@ func Measure(root string) (Metrics, error) {
 									return m, fmt.Errorf("codeshape: %s: trigmatch.Board embeds %s; list its methods instead so the ratchet sees them", rel, types.ExprString(fld.Type))
 								}
 								m.TrigmatchBoardMethods += len(fld.Names)
+							}
+						case path.Dir(rel) == "rules/pay" && ts.Name.Name == "Engine":
+							it, ok := ts.Type.(*ast.InterfaceType)
+							if !ok {
+								return m, fmt.Errorf("codeshape: %s: pay.Engine is not an interface", rel)
+							}
+							for _, fld := range it.Methods.List {
+								if len(fld.Names) == 0 {
+									return m, fmt.Errorf("codeshape: %s: pay.Engine embeds %s; list its methods instead so the ratchet sees them", rel, types.ExprString(fld.Type))
+								}
+								m.PayEngineMethods += len(fld.Names)
 							}
 						case dir == "rules" && ts.Name.Name == "resumePoint":
 							named, embeds, err := structFields(ts, rel)

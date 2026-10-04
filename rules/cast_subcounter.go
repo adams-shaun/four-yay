@@ -8,6 +8,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -160,8 +161,8 @@ func (e *Engine) xAsk() bool {
 	// ceiling rises by the composed reduction at the announced count, or an
 	// X affordable only through it would never be offered.
 	if costHasNamedCount(pc.cost) {
-		for _, red := range e.manaToPayXMods(pc, 0).reduces {
-			bound = addClampedGeneric(bound, int64(red.generic))
+		for _, red := range e.manaToPayXMods(pc, 0).Reduces {
+			bound = addClampedGeneric(bound, int64(red.Generic))
 		}
 	}
 	// A PayEnergy<X> cost part pays the SAME announced X in energy counters
@@ -334,8 +335,8 @@ func (e *Engine) xAsk() bool {
 		// The descriptor carries the announced-X marker: WithX folded this
 		// payment's X into Generic, and a CostContainsX batch must still see
 		// an X payment here or every X announcement would be unpayable.
-		payable := e.costPayableClass(pc.player, paymentForCast(pc, wx),
-			pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}, wx)
+		payable := pay.CostPayableClass(asPayer(e), pc.player, paymentForCast(pc, wx),
+			pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}, wx)
 		if !payable {
 			// A target-dependent reduction is absent from the nil-target
 			// composition pc.mods carries, so an X affordable only under it
@@ -481,8 +482,8 @@ func (e *Engine) xTargetPotentialMods(pc *pendingCast, x int32, statics costStat
 	return e.potentialCostModsUsing(statics, pc.player, pc.card, scope, targets, x, func(m costMods) bool {
 		w := e.paymentManaXUsing(pc, x, m)
 		w.Generic -= e.delveCredit(pc.player, pc.card, w.Generic)
-		return e.costPayableClass(pc.player, paymentForCast(pc, w),
-			pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}, w)
+		return pay.CostPayableClass(asPayer(e), pc.player, paymentForCast(pc, w),
+			pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}, w)
 	})
 }
 

@@ -261,8 +261,8 @@ func mustAttackLineSelects(b Board, spec string, id state.ObjID, source state.Ob
 // fail closed. Other references need bindings or evaluators this build does
 // not carry and therefore fail closed.
 func requirementDefender(b Board, spec string, source state.ObjID, controller state.PlayerID, rememberedPlayers []state.PlayerID) (state.PlayerID, bool) {
-	switch strings.TrimSpace(spec) {
-	case "ChosenPlayer", "Player.Chosen":
+	switch requirementDefenderCodes.Code(string(strings.TrimSpace(spec))) {
+	case requirementDefenderChosenPlayer:
 		if o := b.Game().Obj(source); o != nil {
 			for _, t := range o.Chosen {
 				if t.IsPlayer {
@@ -270,17 +270,17 @@ func requirementDefender(b Board, spec string, source state.ObjID, controller st
 				}
 			}
 		}
-	case "RememberedPlayer", "Player.IsRemembered":
+	case requirementDefenderRememberedPlayer:
 		if len(rememberedPlayers) > 0 {
 			return rememberedPlayers[0], true
 		}
-	case "You":
+	case requirementDefenderYou:
 		return controller, true
-	case "Remembered":
+	case requirementDefenderRemembered:
 		if len(rememberedPlayers) == 1 {
 			return rememberedPlayers[0], true
 		}
-	case "Remembered.NonActive":
+	case requirementDefenderRememberedNonActive:
 		for _, p := range rememberedPlayers {
 			if p != b.Game().Active {
 				return p, true
@@ -361,3 +361,23 @@ func attackCeiling(s string) int32 {
 	}
 	return int32(v)
 }
+
+type requirementDefenderCode uint16
+
+const (
+	requirementDefenderChosenPlayer requirementDefenderCode = iota + 1
+	requirementDefenderRememberedPlayer
+	requirementDefenderYou
+	requirementDefenderRemembered
+	requirementDefenderRememberedNonActive
+)
+
+var requirementDefenderCodes = state.NewStrCodes(
+	state.StrEntry[requirementDefenderCode]{Key: "ChosenPlayer", Val: requirementDefenderChosenPlayer},
+	state.StrEntry[requirementDefenderCode]{Key: "Player.Chosen", Val: requirementDefenderChosenPlayer},
+	state.StrEntry[requirementDefenderCode]{Key: "RememberedPlayer", Val: requirementDefenderRememberedPlayer},
+	state.StrEntry[requirementDefenderCode]{Key: "Player.IsRemembered", Val: requirementDefenderRememberedPlayer},
+	state.StrEntry[requirementDefenderCode]{Key: "You", Val: requirementDefenderYou},
+	state.StrEntry[requirementDefenderCode]{Key: "Remembered", Val: requirementDefenderRemembered},
+	state.StrEntry[requirementDefenderCode]{Key: "Remembered.NonActive", Val: requirementDefenderRememberedNonActive},
+)

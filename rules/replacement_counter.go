@@ -206,7 +206,7 @@ func (e *Engine) applyAddCounterBody(ev events.Event, m replMatch, amount int32)
 	}
 	body := m.repl.With
 	ctx := e.replCtx(m, ev)
-	ctx.ReplacementAmount = amount
+	ctx.Repl.Amount = amount
 	// The body APPLIES from here on. A sub-ability chain on a ReplaceCounter
 	// body is part of the replacement (Forge resolves it as the replaced
 	// event happens): Melira, the Living Cure's lock ("and you can't get
@@ -335,7 +335,7 @@ func (e *Engine) emitAddCounterReplacement(ev events.Event, adderPlusOne state.P
 // NumResolved's verdict distinguishes an unmodelled frame (fail the match)
 // from a legitimate zero.
 func (e *Engine) replaceCounterAmount(body *cards.SA, ctx *effects.Ctx, base int32) (int32, bool) {
-	ctx.ReplacementAmount = base
+	ctx.Repl.Amount = base
 	return effects.NumResolved(e, ctx, body, "Amount", base)
 }
 
@@ -491,12 +491,12 @@ func (e *Engine) counterValidSA(target *state.Object, spec string, you state.Pla
 		// Ability objects have no card face; their corpus qualifiers are the
 		// controller-relative forms, evaluated explicitly against the wrapper.
 		if target.Ability != nil {
-			switch quals {
-			case "YouCtrl":
+			switch counterValidSACodes.Code(string(quals)) {
+			case counterValidSAYouCtrl:
 				if target.Controller == you {
 					return true
 				}
-			case "OppCtrl", "YouDontCtrl":
+			case counterValidSAOppCtrl:
 				if target.Controller != you {
 					return true
 				}
@@ -509,12 +509,12 @@ func (e *Engine) counterValidSA(target *state.Object, spec string, you state.Pla
 func (e *Engine) counterSpellQualifiers(target *state.Object, quals string, you state.PlayerID, source state.ObjID) bool {
 	var ordinary []string
 	for q := range strings.SplitSeq(quals, "+") {
-		switch q {
-		case "hasKeywordFlash":
+		switch counterSpellQualifiersCodes.Code(string(q)) {
+		case counterSpellQualifiersHasKeywordFlash:
 			if target.Face() == nil || !target.Face().HasKeyword("Flash") {
 				return false
 			}
-		case "wasCastByYou":
+		case counterSpellQualifiersWasCastByYou:
 			if target.Controller != you {
 				return false
 			}
@@ -527,3 +527,28 @@ func (e *Engine) counterSpellQualifiers(target *state.Object, quals string, you 
 	}
 	return e.matchesSpecFrom("Card."+strings.Join(ordinary, "+"), target.ID, you, source)
 }
+
+type counterValidSACode uint16
+
+const (
+	counterValidSAYouCtrl counterValidSACode = iota + 1
+	counterValidSAOppCtrl
+)
+
+var counterValidSACodes = state.NewStrCodes(
+	state.StrEntry[counterValidSACode]{Key: "YouCtrl", Val: counterValidSAYouCtrl},
+	state.StrEntry[counterValidSACode]{Key: "OppCtrl", Val: counterValidSAOppCtrl},
+	state.StrEntry[counterValidSACode]{Key: "YouDontCtrl", Val: counterValidSAOppCtrl},
+)
+
+type counterSpellQualifiersCode uint16
+
+const (
+	counterSpellQualifiersHasKeywordFlash counterSpellQualifiersCode = iota + 1
+	counterSpellQualifiersWasCastByYou
+)
+
+var counterSpellQualifiersCodes = state.NewStrCodes(
+	state.StrEntry[counterSpellQualifiersCode]{Key: "hasKeywordFlash", Val: counterSpellQualifiersHasKeywordFlash},
+	state.StrEntry[counterSpellQualifiersCode]{Key: "wasCastByYou", Val: counterSpellQualifiersWasCastByYou},
+)

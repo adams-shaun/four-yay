@@ -204,7 +204,7 @@ func TestConditionGatePresentWithoutDefinedResolvesBattlefield(t *testing.T) {
 
 	// The same gate with the Mountain as the replaced (entering) object: the
 	// exclusion drops it from the count, so EQ1 is unmet but RESOLVED.
-	if met, resolved := conditionMet(h, &Ctx{Controller: 0, Source: ids[3], Replaced: ids[2]}, gate); met || !resolved {
+	if met, resolved := conditionMet(h, &Ctx{Controller: 0, Source: ids[3], Repl: ReplacementInputs{Replaced: ids[2]}}, gate); met || !resolved {
 		t.Fatalf("Land EQ1 with the Land itself replaced: met=%v resolved=%v, want false true (self-exclusion)", met, resolved)
 	}
 

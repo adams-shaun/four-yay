@@ -19,57 +19,13 @@ func OnlyEmptyAnswer(d *decision.Decision) bool {
 	return d.Min == 0 && (d.Max == 0 || len(d.Options) == 0)
 }
 
-// AskOutcome distinguishes WHY an ask did not suspend the resolution. Every
-// asking primitive reads it to decide whether its deterministic resolution
-// runs with or without the R-9 "no engine host" Note: a no-host run is a
-// degradation worth recording, while a skipped empty decision is the correct
-// resolution, not a degradation, and stays silent.
-type AskOutcome int
-
-const (
-	// AskAsked: the decision was posted; the resolution is suspended and the
-	// answered decision re-enters the asking effect through the ordinary
-	// resume mechanism.
-	AskAsked AskOutcome = iota
-	// AskNoHost: the host has no decision channel (an effects-package test
-	// double, a fuzz run), so the R-9 deterministic stand-in applies and the
-	// site records its no-host Note.
-	AskNoHost
-	// AskEmpty: the decision's only legal answer was the empty one
-	// (OnlyEmptyAnswer), so it was never posted; the site's deterministic
-	// resolution applies WITHOUT the R-9 Note.
-	AskEmpty
-)
-
-// Ask is the ONE ask boundary every mid-resolution asking primitive in this
-// package goes through. It posts d to the host and reports the outcome,
-// except when OnlyEmptyAnswer(d): then the decision is never posted and the
-// caller resolves the effect silently, exactly the way its no-host stand-in
-// already does (the search still shuffles; a fail-to-find is legitimate
-// under CR 701.23b; an empty-library Scry keeps every zero of its cards).
-// Wrapping the helper around the call -- instead of a per-site `if` -- is
-// what keeps the next asking primitive from reintroducing the soft-lock: a
-// site that asks through anything else is caught by rules' Engine.ask
-// boundary guard, which fails loudly.
-//
-// A decision with no options at all is never posted either, whatever its Min.
-// With Min 0 it is the empty-answer-only shape above. With Min > 0 no answer
-// is legal, and posting it would strand the seat on an ask nobody can answer.
-// Both resolve through the site's stand-in as AskEmpty. (A nil decision is
-// treated the same way.) This absorbs the no-options skip the choose/control
-// primitives shipped in their own Ask, so every asking primitive shares one
-// helper.
-func Ask(h Host, d *decision.Decision) AskOutcome {
-	if d == nil {
-		return AskEmpty
-	}
-	if OnlyEmptyAnswer(d) || len(d.Options) == 0 {
-		return AskEmpty
-	}
-	if h.Ask(d) {
-		return AskAsked
-	}
-	return AskNoHost
+// askUnposable reports whether d is a decision the ask boundary never poses:
+// a nil one, one whose only legal answer is the empty one (OnlyEmptyAnswer),
+// or one with no options at all (with Min > 0 no answer is legal, and posting
+// it would strand the seat). The asking primitive resolves such a decision
+// through its deterministic path without the no-answer Note.
+func askUnposable(d *decision.Decision) bool {
+	return d == nil || OnlyEmptyAnswer(d) || len(d.Options) == 0
 }
 
 // askSeam is the optional host seam of rules' mid-resolution ask machinery.

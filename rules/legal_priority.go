@@ -3,6 +3,7 @@ package rules
 import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -33,7 +34,7 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		defer e.inertPriorityBackstop(in.Player, opt, mark)
 	}
 	switch opt.Kind {
-	case "pass":
+	case optPass:
 		passes := e.G.Passes + 1
 		if passes >= int32(e.G.AliveCount()) {
 			if len(e.G.Stack) > 0 {
@@ -92,7 +93,7 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		}
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.NextAlive(e.G.Priority), Amount: passes})
 
-	case "play_land":
+	case optPlayLand:
 		// A modal-land option is a face selection, not a generic land play.
 		// Revalidate it against the current object before mutating state: the
 		// priority option may have gone stale while another decision resolved.
@@ -123,11 +124,12 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		e.continueCast()
 		e.tape.ResolutionDone()
 
-	case "activate":
+	case optActivate:
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
 		e.activateMana(in.Player, opt.Obj, false)
+		e.tape.ResolutionDone()
 
-	case "ability":
+	case optAbility:
 		// Task 10: an activated ability (non-mana AB$) was chosen. Reset the
 		// pass count the same way every other non-pass action does, then drive
 		// the same cost flow a cast drives (rules/activate.go's
@@ -135,7 +137,7 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
 		e.beginActivation(in.Player, opt)
 
-	case "concede":
+	case optConcede:
 		// M2d-3 (R-M3): choosing the concede option emits the existing
 		// PlayerLost event with Text "conceded" (CR 104.3a) -- one event,
 		// the same one a 0-life elimination emits. PlayerLost's Apply marks
@@ -153,14 +155,14 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		e.initiativeHandoffOnDeparture(in.Player)
 		e.checkStateBased()
 
-	case "station":
+	case optStation:
 		// kw:Station (CR 702.150, rules/station.go): the spacecraft is
 		// stationed by tapping another creature the KChoose below names. The
 		// pass-count reset matches every other non-pass action.
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
 		e.askStation(in.Player, opt)
 
-	case "unlock":
+	case optUnlock:
 		// Room unlock (CR 309.5, rules/rooms.go): pay the locked half's mana
 		// cost and emit the DoorUnlock event. The offer gated on castable,
 		// so the payment here cannot disagree with the offer; a stale option
@@ -177,28 +179,28 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		if !ok {
 			return
 		}
-		if !e.payMana(in.Player, mods.apply(cost)) {
+		if !pay.PayMana(asPayer(e), in.Player, mods.Apply(cost)) {
 			return
 		}
 		e.emit(events.Event{Kind: events.DoorUnlock, Obj: opt.Obj})
 
-	case "granted":
+	case optGranted:
 		// kw:Start your engines (CR 702.179e, rules/speed.go): a max-speed
 		// static's granted ability, activated through the ordinary cost
 		// payment and the delayed-shape ability mint.
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
 		e.beginGrantedActivation(in.Player, opt)
 
-	case "specialize":
+	case optSpecialize:
 		e.specialize(in.Player, opt)
 
-	case "turn_face_up":
+	case optTurnFaceUp:
 		// Morph-family turn face up (CR 708.6 / CR 116.2b): a special action
 		// -- no stack, no target, no response window. rules/morph_turnup.go
 		// owns the payment and the TurnFaceUp/megamorph-counter events.
 		e.turnFaceUp(in.Player, opt)
 
-	case "cast":
+	case optCast:
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
 		e.beginCast(in.Player, opt)
 	}

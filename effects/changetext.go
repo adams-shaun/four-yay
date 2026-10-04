@@ -33,14 +33,14 @@ func init() {
 // halves of an exchange also end when the object carrying them leaves the
 // battlefield, through registerTextSet's ExileOnMoved/Remembered discipline.
 func textChangeDuration(dur string, absentPermanent bool) (permanent, untilEOT bool) {
-	switch strings.ToLower(strings.TrimSpace(dur)) {
-	case "":
+	switch textChangeDurationCodes.Code(string(strings.ToLower(strings.TrimSpace(dur)))) {
+	case textChangeDurationEmpty:
 		return absentPermanent, false
-	case "permanent":
+	case textChangeDurationPermanent:
 		return true, false
-	case "aslongasinplay", "aslongascontrolled", "untilendofcombat":
+	case textChangeDurationAslongasinplay:
 		return false, false
-	case "untilendofyourturn":
+	case textChangeDurationUntilendofyourturn:
 		// UntilYourNextTurn/UntilTheEndOfYourNextTurn are handled by
 		// AddContinuous's turn boundary; UntilEndOfYourTurn is the ordinary
 		// end-of-turn cleanup.
@@ -66,7 +66,7 @@ func textSubstitutionWords(raw string) (from, to string, ok bool) {
 // chooser spellings are Choose (a colour word), ChooseCreatureType and
 // ChooseBasicLandType.
 func isTextChooser(token string) bool {
-	if v, ok := isTextChooserTab1.Get(strings.ToLower(strings.TrimSpace(token))); ok {
+	if v, ok := isTextChooserTab.Get(strings.ToLower(strings.TrimSpace(token))); ok {
 		return v
 	}
 	return false
@@ -80,16 +80,16 @@ func isTextChooser(token string) bool {
 // forbidden (ForbiddenNewTypes$) removes labels a card declares ineligible.
 func textChooserLabels(h Host, chooser state.PlayerID, token, forbidden string) []string {
 	var labels []string
-	switch strings.ToLower(strings.TrimSpace(token)) {
-	case "choose":
+	switch textChooserLabelsCodes.Code(string(strings.ToLower(strings.TrimSpace(token)))) {
+	case textChooserLabelsChoose:
 		for _, cl := range chooseColorLabels {
 			labels = append(labels, strings.ToLower(cl.name))
 		}
-	case "choosecreaturetype":
+	case textChooserLabelsChoosecreaturetype:
 		for _, o := range h.TypeChoices(chooser, "Creature") {
 			labels = append(labels, o.Label)
 		}
-	case "choosebasiclandtype":
+	case textChooserLabelsChoosebasiclandtype:
 		labels = append(labels, chooseBasicLandTypes...)
 	default:
 		return nil
@@ -114,11 +114,9 @@ func textChooserLabels(h Host, chooser state.PlayerID, token, forbidden string) 
 // (TextFrom -> TextTo) on each affected object for the effect's duration. The
 // substitution pair comes from ChangeColorWord$ or ChangeTypeWord$; either
 // half may be a literal word (Vampire, Wall) or a chooser token, in which case
-// the chooser is asked for it. The two halves are asked ONE AT A TIME (a
-// re-entry after the first answer poses the second), each through the ordinary
-// KChoose boundary, so the ask validates through the same machinery every
-// other mid-resolution choice uses; Ctx.ChangeTextFrom/ChangeTextTo carry the
-// answers across re-entry and are cleared once the pair is resolved (fx42).
+// the chooser is asked for it. Every half that needs a word is asked in ONE
+// combined KChoose, answered in place via AskTape, so the ask validates
+// through the same machinery every other mid-resolution choice uses.
 func effChangeText(h Host, c *Ctx, sa *cards.SA) {
 	raw := strings.TrimSpace(sa.ParamStr(cards.PKChangeColorWord))
 	if raw == "" {
@@ -136,24 +134,20 @@ func effChangeText(h Host, c *Ctx, sa *cards.SA) {
 	}
 	forbidden := strings.TrimSpace(sa.ParamStr(cards.PKForbiddenNewTypes))
 
-	from := string("")
-
+	from, to := "", ""
 	if !isTextChooser(fromTok) {
 		from = fromTok
 	}
-	to := string("")
-
 	if !isTextChooser(toTok) {
 		to = toTok
 	}
-	fromNeeds := isTextChooser(fromTok) && from == ""
-	toNeeds := isTextChooser(toTok) && to == ""
-	// One single combined ask for every half that still needs a word, so the
-	// resolution suspends exactly once however many halves are chosen (the
-	// two-half Choose Choose shape and the one-half ChooseCreatureType Vampire
-	// shape both complete on one answer). A resumed answer is recognised by
-	// either transport being non-empty, so a malformed answer that set only
-	// one half falls back deterministically rather than re-asking forever.
+	fromNeeds := isTextChooser(fromTok)
+	toNeeds := isTextChooser(toTok)
+	// One single combined ask for every half that still needs a word, so one
+	// answer completes however many halves are chosen (the two-half Choose
+	// Choose shape and the one-half ChooseCreatureType Vampire shape). A
+	// malformed answer that set only one half falls back deterministically
+	// for the other.
 	if fromNeeds || toNeeds {
 		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, ResumeKind: "changetext",
 			ResumeSA: sa, Prompt: "Choose the text word(s)", Source: c.Source}
@@ -178,9 +172,8 @@ func effChangeText(h Host, c *Ctx, sa *cards.SA) {
 		}
 		d.Min, d.Max = n, n
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the halves the
-			// "changetext" arm binds, read exactly as the re-entry reads them
-			// (a half the answer did not name keeps its deterministic word).
+			// Answered in place: bind the named halves (a half the answer
+			// did not name keeps its deterministic word).
 			for _, o := range ans {
 				if o.Kind == "changetext_from" && isTextChooser(fromTok) {
 					from = o.Label
@@ -190,10 +183,7 @@ func effChangeText(h Host, c *Ctx, sa *cards.SA) {
 			}
 			fromNeeds = isTextChooser(fromTok) && from == ""
 			toNeeds = isTextChooser(toTok) && to == ""
-		} else {
-			_ = Ask(h, d)
 		}
-
 	}
 	if fromNeeds {
 		from = deterministicTextWord(textChooserLabels(h, chooser, fromTok, ""))
@@ -360,8 +350,40 @@ func registerTextSet(h Host, c *Ctx, id state.ObjID, text string, keywordGrant [
 	h.AddContinuous(ceAbilities)
 }
 
-var isTextChooserTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "choose", Val: true},
-	cards.StrEntry[bool]{Key: "choosecreaturetype", Val: true},
-	cards.StrEntry[bool]{Key: "choosebasiclandtype", Val: true},
+var isTextChooserTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "choose", Val: true},
+	state.StrEntry[bool]{Key: "choosecreaturetype", Val: true},
+	state.StrEntry[bool]{Key: "choosebasiclandtype", Val: true},
+)
+
+type textChangeDurationCode uint16
+
+const (
+	textChangeDurationEmpty textChangeDurationCode = iota + 1
+	textChangeDurationPermanent
+	textChangeDurationAslongasinplay
+	textChangeDurationUntilendofyourturn
+)
+
+var textChangeDurationCodes = state.NewStrCodes(
+	state.StrEntry[textChangeDurationCode]{Key: "", Val: textChangeDurationEmpty},
+	state.StrEntry[textChangeDurationCode]{Key: "permanent", Val: textChangeDurationPermanent},
+	state.StrEntry[textChangeDurationCode]{Key: "aslongasinplay", Val: textChangeDurationAslongasinplay},
+	state.StrEntry[textChangeDurationCode]{Key: "aslongascontrolled", Val: textChangeDurationAslongasinplay},
+	state.StrEntry[textChangeDurationCode]{Key: "untilendofcombat", Val: textChangeDurationAslongasinplay},
+	state.StrEntry[textChangeDurationCode]{Key: "untilendofyourturn", Val: textChangeDurationUntilendofyourturn},
+)
+
+type textChooserLabelsCode uint16
+
+const (
+	textChooserLabelsChoose textChooserLabelsCode = iota + 1
+	textChooserLabelsChoosecreaturetype
+	textChooserLabelsChoosebasiclandtype
+)
+
+var textChooserLabelsCodes = state.NewStrCodes(
+	state.StrEntry[textChooserLabelsCode]{Key: "choose", Val: textChooserLabelsChoose},
+	state.StrEntry[textChooserLabelsCode]{Key: "choosecreaturetype", Val: textChooserLabelsChoosecreaturetype},
+	state.StrEntry[textChooserLabelsCode]{Key: "choosebasiclandtype", Val: textChooserLabelsChoosebasiclandtype},
 )

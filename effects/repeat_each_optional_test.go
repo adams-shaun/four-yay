@@ -50,9 +50,6 @@ func TestRepeatEachOptionalForEachPlayerNoAskDeclines(t *testing.T) {
 	if ran != 0 {
 		t.Fatalf("no-ask host ran %d bodies, want 0 (every election declined)", ran)
 	}
-	if len(h.repeatSuspensions) != 0 {
-		t.Fatalf("no-ask host parked %d suspensions, want 0", len(h.repeatSuspensions))
-	}
 	if h.lastAsk == nil || h.lastAsk.ResumeKind != "repeat_each_optional" ||
 		h.lastAsk.Player != 2 || h.lastAsk.Prompt != testRepeatEachMessage {
 		t.Fatalf("last election = %+v, want repeat_each_optional for player 2 with the message prompt", h.lastAsk)

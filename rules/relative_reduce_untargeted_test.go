@@ -36,7 +36,7 @@ func TestRelativeReduceCostWithoutTargetsStillApplies(t *testing.T) {
 	base := e.parseCost("5")
 	statics := e.collectCostStatics()
 	mods := e.costModifiersWithTargetsUsing(statics, 0, spell, spellScope(""), nil, false)
-	if got := mods.apply(base).Generic; got != 3 {
+	if got := mods.Apply(base).Generic; got != 3 {
 		t.Fatalf("Hollow One after one discard costs {%d}, want {3}", got)
 	}
 }

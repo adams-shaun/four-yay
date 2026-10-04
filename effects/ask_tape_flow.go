@@ -5,10 +5,9 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// answerObjs is the object list a tape-served answer names, in answer order:
-// the same Obj != 0 read the object-carrying resume arms ("discard", "dig",
-// "reveal_pick") make off the chosen options. The slice is non-nil, so an
-// empty answer stays distinguishable from no answer, as on the re-entry.
+// answerObjs is the object list a tape-served answer names, in answer order
+// (the Obj != 0 options; "discard", "dig", "reveal_pick"). The slice is
+// non-nil, so an empty answer stays distinguishable from no answer.
 func answerObjs(ans []decision.Option) []state.ObjID {
 	ids := make([]state.ObjID, 0, len(ans))
 	for _, o := range ans {
@@ -19,9 +18,8 @@ func answerObjs(ans []decision.Option) []state.ObjID {
 	return ids
 }
 
-// answerYes reports whether a tape-served yes/no answer elected "yes": the
-// read every yes/no resume arm makes (option Kind "yes"; an empty or
-// malformed answer is the decline).
+// answerYes reports whether a tape-served yes/no answer elected "yes"
+// (option Kind "yes"; an empty or malformed answer is the decline).
 func answerYes(ans []decision.Option) bool {
 	return len(ans) > 0 && ans[0].Kind == "yes"
 }

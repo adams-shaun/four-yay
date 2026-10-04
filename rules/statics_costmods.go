@@ -101,7 +101,7 @@ func (e *Engine) costAmountCtx(sv staticView, sub costSubject, x int32, targets 
 	// (chosenNumberBound): the Count$ChosenNumber head reads it rather than
 	// the source object's own logged choice.
 	ctx := effects.NewCtxPtr(sv.Source, you, effects.CtxInit{SVars: svars, X: x,
-		ChosenNumber: sv.ChosenNumber, ChosenNumberBound: sv.chosenNumberBound, Targets: targets})
+		Num: effects.NumberInputs{Chosen: sv.ChosenNumber, ChosenBound: sv.chosenNumberBound}, Targets: targets})
 	ctx.AffectedObj, ctx.AffectedAbility = sub.id, sub.ab
 	return ctx, svars, true
 }
@@ -290,16 +290,16 @@ func (e *Engine) costModifiersCompose(statics costStaticViews, p state.PlayerID,
 	if potential {
 		amountTargets = e.costAmountTargets(p, id, scope, targets)
 	}
-	sub := costSubject{p: p, id: id, ab: scope.ab}
+	sub := costSubject{p: p, id: id, ab: scope.Ab}
 	var mods costMods
 	xBound := x != 0
 	// An activated ability's OWN mana-cost ReduceCost$ (Kami of Jealous
 	// Thirst's "costs {4}{B} less", Flying Drone's {1}{U}) is a reduction
 	// with coloured pips, composed here beside the statics' so every
 	// pricing site applies it; the numeric/SVar form stays ownReduceCost's.
-	if scope.kind == "Ability" && scope.ab != nil {
-		if red, ok := e.ownManaReduction(p, id, scope.ab, targets); ok {
-			mods.reduces = append(mods.reduces, red)
+	if scope.Kind == "Ability" && scope.Ab != nil {
+		if red, ok := e.ownManaReduction(p, id, scope.Ab, targets); ok {
+			mods.Reduces = append(mods.Reduces, red)
 		}
 	}
 	for _, group := range []struct {
@@ -349,12 +349,12 @@ func (e *Engine) costModifiersCompose(statics costStaticViews, p state.PlayerID,
 				if e.composeRaiseCost(&mods, sv, id, scope, x, targets, amount) {
 					continue
 				}
-				mods.raises = append(mods.raises, amount)
+				mods.Raises = append(mods.Raises, amount)
 				continue
 			}
 			red := costMod{
-				ignoreGeneric: sv.ParamStr(cards.PKIgnoreGeneric) == "True",
-				floor:         parseAmount(sv.ParamStr(cards.PKMinMana), 0),
+				IgnoreGeneric: sv.ParamStr(cards.PKIgnoreGeneric) == "True",
+				Floor:         parseAmount(sv.ParamStr(cards.PKMinMana), 0),
 			}
 			if col, ok := sv.Param(cards.PKColor); ok && strings.TrimSpace(col) != "" {
 				// Each listed token is reduced by the Amount$: colour letters
@@ -365,7 +365,7 @@ func (e *Engine) costModifiersCompose(statics costStaticViews, p state.PlayerID,
 				// colour letter would route it through ManaIndex and remove one
 				// colourless pip instead.  Amount$ applies to every token, so
 				// `Color$ 2 U | Amount$ X` means 2*X generic plus X blue.
-				red.hasColor = true
+				red.HasColor = true
 				amount := e.modAmountX(sv, sub, x, amountTargets)
 				for tok := range strings.FieldsSeq(col) {
 					if isDigitRun(tok) {
@@ -373,18 +373,18 @@ func (e *Engine) costModifiersCompose(statics costStaticViews, p state.PlayerID,
 						if err != nil || n < 0 || n > int64(math.MaxInt32) {
 							continue // malformed Color$ token fails closed
 						}
-						red.generic = addClampedGeneric(red.generic, n*int64(amount))
+						red.Generic = addClampedGeneric(red.Generic, n*int64(amount))
 						continue
 					}
 					if len(tok) == 1 && strings.ContainsRune("WUBRGC", rune(tok[0])) {
-						red.colored[state.ManaIndex(tok[0])] = addClampedGeneric(
-							red.colored[state.ManaIndex(tok[0])], int64(amount))
+						red.Colored[state.ManaIndex(tok[0])] = addClampedGeneric(
+							red.Colored[state.ManaIndex(tok[0])], int64(amount))
 					}
 				}
 			} else {
-				red.generic = e.modAmountX(sv, sub, x, amountTargets)
+				red.Generic = e.modAmountX(sv, sub, x, amountTargets)
 			}
-			mods.reduces = append(mods.reduces, red)
+			mods.Reduces = append(mods.Reduces, red)
 		}
 	}
 	for _, sv := range statics.set {
@@ -402,8 +402,8 @@ func (e *Engine) costModifiersCompose(statics costStaticViews, p state.PlayerID,
 		if mayApply != nil {
 			*mayApply = true
 		}
-		if n := e.modAmountX(sv, sub, x, amountTargets); n > mods.setFloor {
-			mods.setFloor = n
+		if n := e.modAmountX(sv, sub, x, amountTargets); n > mods.SetFloor {
+			mods.SetFloor = n
 		}
 	}
 	return mods

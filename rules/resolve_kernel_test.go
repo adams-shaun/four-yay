@@ -1,11 +1,8 @@
 package rules
 
-// The resolution kernel's dual-run tests (W3 steps 0-1; lasagna spec §7.7):
-// every scenario is driven twice by the same deterministic driver, once on
-// the legacy resume machinery and once on the tape kernel (rules/resolve),
-// and the two logs must be identical event for event and intent for intent,
-// with the same head and RNG draw count. The kernel counters prove the tape
-// path ran.
+// The resolution kernel's test drivers (W3 steps 0-1; lasagna spec §7.7):
+// every scenario is driven by the same deterministic driver on the tape
+// kernel (rules/resolve). The kernel counters prove the tape path ran.
 
 import (
 	"fmt"
@@ -17,7 +14,7 @@ import (
 )
 
 // tapePick is the deterministic answer policy: every non-priority decision
-// takes options chosen from its sequence number, so the two runs answer
+// takes options chosen from its sequence number, so two runs answer
 // identically exactly when they are posed identically.
 func tapePick(d *decision.Decision) []int {
 	if len(d.Options) == 0 {

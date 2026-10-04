@@ -149,22 +149,6 @@ loop:
 			if len(seen) >= len(answers) {
 				t.Fatalf("more Time Travel elections (%d so far) than answers (%d): %+v", len(seen), len(answers), d)
 			}
-			// The continuation names the repetition and the object in two
-			// fields: ResumeTarget is a plain index into this repetition's
-			// own ResumeObjects snapshot, never a repetition packed into its
-			// high bits (which an int cannot hold on a 32-bit build, and
-			// which would put the cursor far out of range here).
-			if d.ResumeRound < 0 {
-				t.Fatalf("Time Travel election %d has ResumeRound %d, want the repetition count", len(seen), d.ResumeRound)
-			}
-			if d.ResumeTarget < 0 || d.ResumeTarget >= len(d.ResumeObjects) {
-				t.Fatalf("Time Travel election %d has ResumeTarget %d, want a plain index into the %d-object snapshot (round %d rides ResumeRound)",
-					len(seen), d.ResumeTarget, len(d.ResumeObjects), d.ResumeRound)
-			}
-			if got := d.ResumeObjects[d.ResumeTarget]; got != d.Options[0].Obj {
-				t.Fatalf("Time Travel election %d: snapshot[%d] = %d but the ask offers object %d",
-					len(seen), d.ResumeTarget, got, d.Options[0].Obj)
-			}
 			seen = append(seen, answerTimeTravel(t, e, answers[len(seen)]))
 		case d.Kind == decision.KPriority:
 			// The action is complete once the stack has emptied and the

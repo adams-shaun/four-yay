@@ -127,8 +127,8 @@ func (e *Engine) staticGateDep(sv staticView) uint8 {
 	chk, hasChk := sv.Param(cards.PKCheckSVar)
 	switch {
 	case hasCond && !hasChk:
-		switch strings.TrimSpace(cond) {
-		case "PlayerTurn", "NotPlayerTurn":
+		switch staticGateDepCodes.Code(string(strings.TrimSpace(cond))) {
+		case staticGateDepPlayerTurn:
 			return staticGateDepActive
 		}
 	case hasChk && !hasCond:
@@ -256,3 +256,14 @@ func (e *Engine) verifySkippedGate(r *staticGateRec) {
 		panic(fmt.Sprintf("rules: static gate dependency filter skipped a moved gate (source %d, class %d) at log %d", r.source, r.dep, len(e.L.Events)))
 	}
 }
+
+type staticGateDepCode uint16
+
+const (
+	staticGateDepPlayerTurn staticGateDepCode = iota + 1
+)
+
+var staticGateDepCodes = state.NewStrCodes(
+	state.StrEntry[staticGateDepCode]{Key: "PlayerTurn", Val: staticGateDepPlayerTurn},
+	state.StrEntry[staticGateDepCode]{Key: "NotPlayerTurn", Val: staticGateDepPlayerTurn},
+)

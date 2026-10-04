@@ -159,7 +159,7 @@ func (e *Engine) moveAffectedPlayer(ev events.Event) (state.PlayerID, bool) {
 // Remembered), so composing the record before or after a tap/untap/counter
 // rider changes nothing. Any other API fails closed (the caller poses).
 func updatedNeutralBody(sa *cards.SA) bool {
-	if v, ok := updatedNeutralBodyTab1.Get(sa.API); ok {
+	if v, ok := updatedNeutralBodyTab.Get(sa.API); ok {
 		return v
 	}
 	return false
@@ -181,12 +181,12 @@ func updatedBodyClass(m replMatch) string {
 		if updatedNeutralBody(sa) {
 			continue
 		}
-		switch sa.API {
-		case "Tap":
+		switch updatedBodyClassCodes.Code(string(sa.API)) {
+		case updatedBodyClassTap:
 			tap = true
-		case "Untap":
+		case updatedBodyClassUntap:
 			untap = true
-		case "PutCounter":
+		case updatedBodyClassPutCounter:
 			// Additive on a fresh entry: rides with anything.
 		default:
 			return "other"
@@ -215,12 +215,12 @@ func updatedBodyClass(m replMatch) string {
 func updatedReplacementsCommute(matches []replMatch) bool {
 	tap, untap := false, false
 	for _, m := range matches {
-		switch updatedBodyClass(m) {
-		case "tap":
+		switch updatedReplacementsCommuteCodes.Code(string(updatedBodyClass(m))) {
+		case updatedReplacementsCommuteTap:
 			tap = true
-		case "untap":
+		case updatedReplacementsCommuteUntap:
 			untap = true
-		case "counter", "record":
+		case updatedReplacementsCommuteCounter:
 		default:
 			return false
 		}
@@ -288,12 +288,41 @@ func (e *Engine) resumeUpdatedComposition(rc replChoice, selected int) {
 	}
 }
 
-var updatedNeutralBodyTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "Reveal", Val: true},
-	cards.StrEntry[bool]{Key: "ChooseColor", Val: true},
-	cards.StrEntry[bool]{Key: "ChooseType", Val: true},
-	cards.StrEntry[bool]{Key: "ChooseNumber", Val: true},
-	cards.StrEntry[bool]{Key: "ChooseCard", Val: true},
-	cards.StrEntry[bool]{Key: "Cleanup", Val: true},
-	cards.StrEntry[bool]{Key: "Hideaway", Val: true},
+var updatedNeutralBodyTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "Reveal", Val: true},
+	state.StrEntry[bool]{Key: "ChooseColor", Val: true},
+	state.StrEntry[bool]{Key: "ChooseType", Val: true},
+	state.StrEntry[bool]{Key: "ChooseNumber", Val: true},
+	state.StrEntry[bool]{Key: "ChooseCard", Val: true},
+	state.StrEntry[bool]{Key: "Cleanup", Val: true},
+	state.StrEntry[bool]{Key: "Hideaway", Val: true},
+)
+
+type updatedBodyClassCode uint16
+
+const (
+	updatedBodyClassTap updatedBodyClassCode = iota + 1
+	updatedBodyClassUntap
+	updatedBodyClassPutCounter
+)
+
+var updatedBodyClassCodes = state.NewStrCodes(
+	state.StrEntry[updatedBodyClassCode]{Key: "Tap", Val: updatedBodyClassTap},
+	state.StrEntry[updatedBodyClassCode]{Key: "Untap", Val: updatedBodyClassUntap},
+	state.StrEntry[updatedBodyClassCode]{Key: "PutCounter", Val: updatedBodyClassPutCounter},
+)
+
+type updatedReplacementsCommuteCode uint16
+
+const (
+	updatedReplacementsCommuteTap updatedReplacementsCommuteCode = iota + 1
+	updatedReplacementsCommuteUntap
+	updatedReplacementsCommuteCounter
+)
+
+var updatedReplacementsCommuteCodes = state.NewStrCodes(
+	state.StrEntry[updatedReplacementsCommuteCode]{Key: "tap", Val: updatedReplacementsCommuteTap},
+	state.StrEntry[updatedReplacementsCommuteCode]{Key: "untap", Val: updatedReplacementsCommuteUntap},
+	state.StrEntry[updatedReplacementsCommuteCode]{Key: "counter", Val: updatedReplacementsCommuteCounter},
+	state.StrEntry[updatedReplacementsCommuteCode]{Key: "record", Val: updatedReplacementsCommuteCounter},
 )

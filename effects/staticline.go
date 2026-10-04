@@ -147,7 +147,7 @@ func mayPlayFreeGrantFromLine(params map[string]string) (state.ContinuousEffect,
 // integer once-per-turn cap) and Condition$ PlayerTurn
 // ("during each of your turns", the Kess/Karador family) are read.
 // MayPlayWithoutManaCost$ is the FREE-cast shape, read by its own whitelist
-// (MayPlayFreeStaticParams below), never by this one. Anything else --
+// (mayPlayFreeGrantFromLine), never by this one. Anything else --
 // MayPlayText$ (it changes what the cast IS, not just where it may come
 // from), a Condition$ whose value is not PlayerTurn, a
 // ValidAfterStack$/Secondary$ qualifier (it changes when the grant lives),
@@ -200,8 +200,8 @@ func mayPlayEffectParams(params map[string]string, allowFree bool) (ignoreColor,
 	return mayPlayParamsScan(params, allowFree, true)
 }
 
-// mayPlayEffectFreeParams is the free-cast Effect-delivery sibling of
-// MayPlayFreeStaticParams: MayPlay$ True + MayPlayWithoutManaCost$ True plus
+// mayPlayEffectFreeParams is the free-cast Effect-delivery may-play
+// whitelist: MayPlay$ True + MayPlayWithoutManaCost$ True plus
 // the optional ValidAfterStack$ qualifier the effect route may carry (Nahiri's
 // STPlay2: free Equipment casts gated on Spell.Equipment).
 func mayPlayEffectFreeParams(params map[string]string) (limit int32, playerTurn bool, validAfterStack string, ok bool) {
@@ -210,30 +210,6 @@ func mayPlayEffectFreeParams(params map[string]string) (limit int32, playerTurn 
 	}
 	_, _, limit, playerTurn, validAfterStack, ok = mayPlayParamsScan(params, true, true)
 	return limit, playerTurn, validAfterStack, ok
-}
-
-// MayPlayFreeStaticParams reports whether a Mode$ Continuous static body
-// carries the FREE-cast may-play grant: MayPlay$ True plus
-// MayPlayWithoutManaCost$ True. The free rider changes what the cast costs
-// (the mana part is free, CR 118.9), so the PLAIN whitelist above keeps
-// refusing it -- the two grants must never be conflated. Everything else is
-// the same grammar, read through the ONE shared key scan (mayPlayParams),
-// so a rider the plain path rejects is rejected here too: MayPlayText$, a
-// Condition$ whose value is not PlayerTurn, a ValidAfterStack$/Secondary$
-// qualifier, a MayPlayLimit$ value that is not a non-negative integer, a
-// MayPlayPlayer$/IgnoreColor/IgnoreType value (the free shape carries none
-// of them in the corpus -- the key scan still rejects them) -- all fail
-// closed. MayPlayDontGrantZonePermissions$ cannot co-occur meaningfully
-// with WithoutManaCost$ (a DontGrant static only exempts costs); the scan
-// rejects it, and MayPlayAltManaCost$/RaiseCost$ likewise -- the free cast
-// cannot also carry an alternative cost this registration path cannot
-// charge.
-func MayPlayFreeStaticParams(params map[string]string) (limit int32, playerTurn bool, ok bool) {
-	if !strings.EqualFold(strings.TrimSpace(params["MayPlayWithoutManaCost"]), "True") {
-		return 0, false, false
-	}
-	_, _, limit, playerTurn, _, ok = mayPlayParamsScan(params, true, false)
-	return limit, playerTurn, ok
 }
 
 // mayPlayParamsScan is the ONE parameter scan every may-play whitelist
@@ -247,15 +223,14 @@ func MayPlayFreeStaticParams(params map[string]string) (limit int32, playerTurn 
 // the matcher, never here.
 func mayPlayParamsScan(params map[string]string, allowFree, allowAfterStack bool) (ignoreColor, ignoreType bool, limit int32, playerTurn bool, validAfterStack string, ok bool) {
 	for key := range params {
-		switch key {
-		case "Mode", "MayPlay", "MayPlayIgnoreColor", "MayPlayIgnoreType",
-			"MayPlayLimit", "Condition", "Affected", "AffectedZone", "Description", "EffectZone":
+		switch mayPlayParamCodes.Code(key) {
+		case mayPlayParamCarried:
 			// The keys the implemented grant (and only it) carries.
-		case "MayPlayWithoutManaCost":
+		case mayPlayParamMayPlayWithoutManaCost:
 			if !allowFree {
 				return false, false, 0, false, "", false
 			}
-		case "ValidAfterStack":
+		case mayPlayParamValidAfterStack:
 			if !allowAfterStack || strings.TrimSpace(params[key]) == "" {
 				return false, false, 0, false, "", false
 			}
@@ -382,16 +357,6 @@ func parseStaticLine(svars map[string]string, name string) (string, staticLinePa
 	return mode, params
 }
 
-// ParseStaticLine is the exported form of parseStaticLine: rules reads a
-// granted static's SVar body for the whitelist gates that must agree with
-// the registration path (staticgoad1's etbCloneWhitelist AddStaticAbilities$
-// value check), so the two cannot disagree about the body grammar. One
-// parser, two tiers.
-func ParseStaticLine(svars map[string]string, name string) (string, map[string]string) {
-	mode, params := parseStaticLine(svars, name)
-	return mode, params
-}
-
 // goadStaticGrantReadable reports whether a Mode$ Continuous static body is
 // an entirely readable Goad$ True line: the literal True (any other value —
 // Forge's Yes spellings included — is unmodelled), and NO parameter outside
@@ -407,7 +372,7 @@ func goadStaticGrantReadable(params map[string]string) bool {
 		return false
 	}
 	for key := range params {
-		if !goadStaticGrantReadableKeys1.Has(key) {
+		if !goadStaticGrantReadableKeys.Has(key) {
 			return false
 		}
 	}
@@ -424,7 +389,7 @@ func goadStaticGrantReadable(params map[string]string) bool {
 // evaluate, so the caller fails closed to its honest unimplemented Note.
 func NumLoyaltyActParamsReadable(params map[string]string) bool {
 	for key := range params {
-		if !numLoyaltyActParamsReadableKeys2.Has(key) {
+		if !numLoyaltyActParamsReadableKeys.Has(key) {
 			return false
 		}
 	}
@@ -443,14 +408,14 @@ func NumLoyaltyActParamsReadable(params map[string]string) bool {
 func LoyaltyFlashParamsReadable(params map[string]string) bool {
 	loyalty := false
 	for key, v := range params {
-		switch key {
-		case "Mode", "ValidCard", "Description":
-		case "ValidSA":
+		switch loyaltyFlashParamCodes.Code(key) {
+		case loyaltyFlashParamInert:
+		case loyaltyFlashParamValidSA:
 			if strings.TrimSpace(v) != "Activated.Loyalty" {
 				return false
 			}
 			loyalty = true
-		case "Caster":
+		case loyaltyFlashParamCaster:
 			if strings.TrimSpace(v) != "You" {
 				return false
 			}
@@ -459,14 +424,6 @@ func LoyaltyFlashParamsReadable(params map[string]string) bool {
 		}
 	}
 	return loyalty
-}
-
-// GoadStaticGrantReadable is the exported form of goadStaticGrantReadable:
-// rules' etbCloneWhitelist value check (staticgoad1) reads a granted
-// AddStaticAbilities$ body through it, so the ETB offer and the effClone
-// registration cannot disagree about what a supported goad grant is.
-func GoadStaticGrantReadable(params map[string]string) bool {
-	return goadStaticGrantReadable(params)
 }
 
 // effectRemembered resolves RememberObjects$ into the concrete object ids the
@@ -506,20 +463,20 @@ func effectRemembered(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
 			if part == "" {
 				continue
 			}
-			switch part {
-			case "You", "Self", "Source":
+			switch effectRememberedCodes.Code(string(part)) {
+			case effectRememberedYou:
 				out = append(out, c.Source)
-			case "Targeted", "ThisTargetedCard":
+			case effectRememberedTargeted:
 				targets := c.Targets
 				if c.PickedTargets != nil {
 					targets = c.PickedTargets
 				}
 				out = appendEffectRememberedObjects(h, out, targets)
-			case "ParentTarget":
+			case effectRememberedParentTarget:
 				out = appendEffectRememberedObjects(h, out, parentLinkTargets(c))
-			case "Remembered", "Remembered.Creature", "Remembered.Permanent", "RememberedCard":
+			case effectRememberedRemembered:
 				out = appendEffectRememberedObjects(h, out, c.Remembered)
-			case "Imprinted":
+			case effectRememberedImprinted:
 				// Effect RememberObjects$ Imprinted captures the source's persistent
 				// Dig/ChangeZone imprint list (Synth Eradicator's may-play rider).
 				if o := h.Game().Obj(c.Source); o != nil {
@@ -529,15 +486,15 @@ func effectRemembered(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
 						}
 					}
 				}
-			case "ReplacedCard":
+			case effectRememberedReplacedCard:
 				// The card the enclosing replacement acted on (Opposition Agent's
 				// RepExile → DBEffect: the found card the replacement just exiled
 				// is the one the may-play grant remembers). Outside a replacement
 				// (c.Replaced zero) or after the object ceased to exist, nothing.
-				if c.Replaced != 0 && h.Game().Obj(c.Replaced) != nil {
-					out = append(out, c.Replaced)
+				if c.Repl.Replaced != 0 && h.Game().Obj(c.Repl.Replaced) != nil {
+					out = append(out, c.Repl.Replaced)
 				}
-			case "TriggeredCard", "TriggeredObject", "TriggeredObjectLKICopy":
+			case effectRememberedTriggeredCard:
 				// The card the firing trigger's event captured (Mistrise Village's
 				// Effect RememberObjects$ TriggeredCard: the spell the can't-be-
 				// countered promise covers). The SpellCast referent capture binds
@@ -550,7 +507,7 @@ func effectRemembered(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
 				if c.TriggerCard != 0 && h.Game().Obj(c.TriggerCard) != nil {
 					out = append(out, c.TriggerCard)
 				}
-			case "ChosenCard":
+			case effectRememberedChosenCard:
 				// Dauthi Voidwalker and the wider ChooseCard -> Effect family do
 				// not set RememberChosen$: the chosen card lives in Ctx.Chosen, or
 				// on the event-backed source when a later ability reads it.
@@ -561,7 +518,7 @@ func effectRemembered(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
 					}
 				}
 				out = appendEffectRememberedObjects(h, out, chosen)
-			case "RememberedLKI", "TriggeredAttackerLKICopy", "TriggeredTargetLKICopy", "DelayTriggerRemembered":
+			case effectRememberedRememberedLKI:
 				// Object selectors this helper previously left unresolved. Each is
 				// a name definedSpec/knownDefinedTargets already resolves, so read
 				// the ONE shared resolver rather than re-deriving the referent
@@ -629,8 +586,8 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 		return r == '&' || r == ',' || r == ' '
 	}) {
 		part = strings.TrimSpace(part)
-		switch part {
-		case "TargetedPlayer", "Targeted":
+		switch effectRememberedPlayersCodes.Code(string(part)) {
+		case effectRememberedPlayersTargetedPlayer:
 			targets := c.Targets
 			if part == "Targeted" && c.PickedTargets != nil {
 				targets = c.PickedTargets
@@ -640,7 +597,7 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 					add(t.Player)
 				}
 			}
-		case "TargetedOrController":
+		case effectRememberedPlayersTargetedOrController:
 			targets := c.Targets
 			if c.PickedTargets != nil {
 				targets = c.PickedTargets
@@ -652,7 +609,7 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 					add(o.Controller)
 				}
 			}
-		case "TargetedController":
+		case effectRememberedPlayersTargetedController:
 			// The Motherlode, Excavator's DBEffect remembers the controller of
 			// its targeted land -- the defending player its registered
 			// CantBlockBy restriction's ValidBlocker$
@@ -670,7 +627,7 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 					add(o.Controller)
 				}
 			}
-		case "ChosenPlayer":
+		case effectRememberedPlayersChosenPlayer:
 			// The Black Gate's DBEffect remembers its ChoosePlayer answer
 			// beside its targeted player: the same current-resolution set
 			// every other ChosenPlayer consumer reads through ChosenTargets.
@@ -679,7 +636,7 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 					add(t.Player)
 				}
 			}
-		case "TriggeredTarget":
+		case effectRememberedPlayersTriggeredTarget:
 			// The player the firing trigger's event targeted (Stigma Lasher's
 			// DamageDone | ValidTarget$ Player: "that player can't gain life
 			// for the rest of the game"). The role is bound at fire time
@@ -693,7 +650,7 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 			if c.TriggerTarget.IsPlayer {
 				add(c.TriggerTarget.Player)
 			}
-		case "Player.IsRemembered":
+		case effectRememberedPlayersPlayerIsRemembered:
 			// Screaming Nemesis's DBEffect RememberObjects$ Player.IsRemembered:
 			// the Effect is created INSIDE the resolution whose DealDamage
 			// RememberDamaged$ True just remembered the damaged player, so it
@@ -706,7 +663,7 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 					add(t.Player)
 				}
 			}
-		case "RememberedPlayer", "RememberedPlayers", "Remembered":
+		case effectRememberedPlayersRememberedPlayer:
 			for _, t := range c.Remembered {
 				if t.IsPlayer {
 					add(t.Player)
@@ -734,6 +691,107 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 // a Forge-side duplicate for modifier composition, and a boolean restriction
 // cannot be applied twice.
 
-var goadStaticGrantReadableKeys1 = cards.NewNameSet("Mode", "Affected", "Description", "Goad")
+var goadStaticGrantReadableKeys = state.NewNameSet("Mode", "Affected", "Description", "Goad")
 
-var numLoyaltyActParamsReadableKeys2 = cards.NewNameSet("Mode", "ValidCard", "Twice", "Additional", "OnlySourceAbs", "Description")
+var numLoyaltyActParamsReadableKeys = state.NewNameSet("Mode", "ValidCard", "Twice", "Additional", "OnlySourceAbs", "Description")
+
+type effectRememberedCode uint16
+
+const (
+	effectRememberedYou effectRememberedCode = iota + 1
+	effectRememberedTargeted
+	effectRememberedParentTarget
+	effectRememberedRemembered
+	effectRememberedImprinted
+	effectRememberedReplacedCard
+	effectRememberedTriggeredCard
+	effectRememberedChosenCard
+	effectRememberedRememberedLKI
+)
+
+var effectRememberedCodes = state.NewStrCodes(
+	state.StrEntry[effectRememberedCode]{Key: "You", Val: effectRememberedYou},
+	state.StrEntry[effectRememberedCode]{Key: "Self", Val: effectRememberedYou},
+	state.StrEntry[effectRememberedCode]{Key: "Source", Val: effectRememberedYou},
+	state.StrEntry[effectRememberedCode]{Key: "Targeted", Val: effectRememberedTargeted},
+	state.StrEntry[effectRememberedCode]{Key: "ThisTargetedCard", Val: effectRememberedTargeted},
+	state.StrEntry[effectRememberedCode]{Key: "ParentTarget", Val: effectRememberedParentTarget},
+	state.StrEntry[effectRememberedCode]{Key: "Remembered", Val: effectRememberedRemembered},
+	state.StrEntry[effectRememberedCode]{Key: "Remembered.Creature", Val: effectRememberedRemembered},
+	state.StrEntry[effectRememberedCode]{Key: "Remembered.Permanent", Val: effectRememberedRemembered},
+	state.StrEntry[effectRememberedCode]{Key: "RememberedCard", Val: effectRememberedRemembered},
+	state.StrEntry[effectRememberedCode]{Key: "Imprinted", Val: effectRememberedImprinted},
+	state.StrEntry[effectRememberedCode]{Key: "ReplacedCard", Val: effectRememberedReplacedCard},
+	state.StrEntry[effectRememberedCode]{Key: "TriggeredCard", Val: effectRememberedTriggeredCard},
+	state.StrEntry[effectRememberedCode]{Key: "TriggeredObject", Val: effectRememberedTriggeredCard},
+	state.StrEntry[effectRememberedCode]{Key: "TriggeredObjectLKICopy", Val: effectRememberedTriggeredCard},
+	state.StrEntry[effectRememberedCode]{Key: "ChosenCard", Val: effectRememberedChosenCard},
+	state.StrEntry[effectRememberedCode]{Key: "RememberedLKI", Val: effectRememberedRememberedLKI},
+	state.StrEntry[effectRememberedCode]{Key: "TriggeredAttackerLKICopy", Val: effectRememberedRememberedLKI},
+	state.StrEntry[effectRememberedCode]{Key: "TriggeredTargetLKICopy", Val: effectRememberedRememberedLKI},
+	state.StrEntry[effectRememberedCode]{Key: "DelayTriggerRemembered", Val: effectRememberedRememberedLKI},
+)
+
+type effectRememberedPlayersCode uint16
+
+const (
+	effectRememberedPlayersTargetedPlayer effectRememberedPlayersCode = iota + 1
+	effectRememberedPlayersTargetedOrController
+	effectRememberedPlayersTargetedController
+	effectRememberedPlayersChosenPlayer
+	effectRememberedPlayersTriggeredTarget
+	effectRememberedPlayersPlayerIsRemembered
+	effectRememberedPlayersRememberedPlayer
+)
+
+var effectRememberedPlayersCodes = state.NewStrCodes(
+	state.StrEntry[effectRememberedPlayersCode]{Key: "TargetedPlayer", Val: effectRememberedPlayersTargetedPlayer},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "Targeted", Val: effectRememberedPlayersTargetedPlayer},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "TargetedOrController", Val: effectRememberedPlayersTargetedOrController},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "TargetedController", Val: effectRememberedPlayersTargetedController},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "ChosenPlayer", Val: effectRememberedPlayersChosenPlayer},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "TriggeredTarget", Val: effectRememberedPlayersTriggeredTarget},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "Player.IsRemembered", Val: effectRememberedPlayersPlayerIsRemembered},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "RememberedPlayer", Val: effectRememberedPlayersRememberedPlayer},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "RememberedPlayers", Val: effectRememberedPlayersRememberedPlayer},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "Remembered", Val: effectRememberedPlayersRememberedPlayer},
+)
+
+type loyaltyFlashParamCode uint16
+
+const (
+	loyaltyFlashParamInert loyaltyFlashParamCode = iota + 1
+	loyaltyFlashParamValidSA
+	loyaltyFlashParamCaster
+)
+
+var loyaltyFlashParamCodes = state.NewStrCodes(
+	state.StrEntry[loyaltyFlashParamCode]{Key: "Mode", Val: loyaltyFlashParamInert},
+	state.StrEntry[loyaltyFlashParamCode]{Key: "ValidCard", Val: loyaltyFlashParamInert},
+	state.StrEntry[loyaltyFlashParamCode]{Key: "Description", Val: loyaltyFlashParamInert},
+	state.StrEntry[loyaltyFlashParamCode]{Key: "ValidSA", Val: loyaltyFlashParamValidSA},
+	state.StrEntry[loyaltyFlashParamCode]{Key: "Caster", Val: loyaltyFlashParamCaster},
+)
+
+type mayPlayParamCode uint16
+
+const (
+	mayPlayParamCarried mayPlayParamCode = iota + 1
+	mayPlayParamMayPlayWithoutManaCost
+	mayPlayParamValidAfterStack
+)
+
+var mayPlayParamCodes = state.NewStrCodes(
+	state.StrEntry[mayPlayParamCode]{Key: "Mode", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "MayPlay", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "MayPlayIgnoreColor", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "MayPlayIgnoreType", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "MayPlayLimit", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "Condition", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "Affected", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "AffectedZone", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "Description", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "EffectZone", Val: mayPlayParamCarried},
+	state.StrEntry[mayPlayParamCode]{Key: "MayPlayWithoutManaCost", Val: mayPlayParamMayPlayWithoutManaCost},
+	state.StrEntry[mayPlayParamCode]{Key: "ValidAfterStack", Val: mayPlayParamValidAfterStack},
+)

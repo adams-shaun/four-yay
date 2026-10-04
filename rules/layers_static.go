@@ -333,28 +333,28 @@ func (e *Engine) continuousConditionHolds(sv staticView) bool {
 	if !ok {
 		return true
 	}
-	switch strings.TrimSpace(raw) {
-	case "":
+	switch continuousConditionHoldsCodes.Code(string(strings.TrimSpace(raw))) {
+	case continuousConditionHoldsEmpty:
 		return true
-	case "Delirium":
+	case continuousConditionHoldsDelirium:
 		return e.graveyardCardTypeCount(sv.Controller) >= 4
-	case "PlayerTurn":
+	case continuousConditionHoldsPlayerTurn:
 		return e.G.Active == sv.Controller
-	case "NotPlayerTurn":
+	case continuousConditionHoldsNotPlayerTurn:
 		return e.G.Active != sv.Controller
-	case "Metalcraft":
+	case continuousConditionHoldsMetalcraft:
 		return e.metalcraftHolds(sv.Controller)
-	case "Threshold":
+	case continuousConditionHoldsThreshold:
 		return e.thresholdHolds(sv.Controller)
-	case "Hellbent":
+	case continuousConditionHoldsHellbent:
 		return len(e.G.Zone(state.ZHand, sv.Controller)) == 0
-	case "Blessing":
+	case continuousConditionHoldsBlessing:
 		// CR 702.131: the city's blessing is a one-way event-folded latch.
 		if int(sv.Controller) >= len(e.G.Players) {
 			return false
 		}
 		return e.G.Players[sv.Controller].Blessing
-	case "EnduringStory":
+	case continuousConditionHoldsEnduringStory:
 		return e.playerHasEnduringStory(sv.Controller)
 	}
 	return false
@@ -383,10 +383,8 @@ func adjustLandPlaysGrant(params map[string]string) (int32, bool) {
 		return 0, false
 	}
 	for key := range params {
-		switch key {
-		case "Mode", "AdjustLandPlays", "Affected", "Description":
-			// The keys the implemented grant (and only it) carries.
-		default:
+		// The keys the implemented grant (and only it) carries.
+		if !adjustLandPlaysKeys.Has(key) {
 			return 0, false
 		}
 	}
@@ -539,3 +537,34 @@ func resolveChosenColors(raw string, o *state.Object) ([]string, bool) {
 	}
 	return effects.ColorLetters(raw)
 }
+
+type continuousConditionHoldsCode uint16
+
+const (
+	continuousConditionHoldsEmpty continuousConditionHoldsCode = iota + 1
+	continuousConditionHoldsDelirium
+	continuousConditionHoldsPlayerTurn
+	continuousConditionHoldsNotPlayerTurn
+	continuousConditionHoldsMetalcraft
+	continuousConditionHoldsThreshold
+	continuousConditionHoldsHellbent
+	continuousConditionHoldsBlessing
+	continuousConditionHoldsEnduringStory
+)
+
+var continuousConditionHoldsCodes = state.NewStrCodes(
+	state.StrEntry[continuousConditionHoldsCode]{Key: "", Val: continuousConditionHoldsEmpty},
+	state.StrEntry[continuousConditionHoldsCode]{Key: "Delirium", Val: continuousConditionHoldsDelirium},
+	state.StrEntry[continuousConditionHoldsCode]{Key: "PlayerTurn", Val: continuousConditionHoldsPlayerTurn},
+	state.StrEntry[continuousConditionHoldsCode]{Key: "NotPlayerTurn", Val: continuousConditionHoldsNotPlayerTurn},
+	state.StrEntry[continuousConditionHoldsCode]{Key: "Metalcraft", Val: continuousConditionHoldsMetalcraft},
+	state.StrEntry[continuousConditionHoldsCode]{Key: "Threshold", Val: continuousConditionHoldsThreshold},
+	state.StrEntry[continuousConditionHoldsCode]{Key: "Hellbent", Val: continuousConditionHoldsHellbent},
+	state.StrEntry[continuousConditionHoldsCode]{Key: "Blessing", Val: continuousConditionHoldsBlessing},
+	state.StrEntry[continuousConditionHoldsCode]{Key: "EnduringStory", Val: continuousConditionHoldsEnduringStory},
+)
+
+// adjustLandPlaysKeys are the keys the implemented AdjustLandPlays grant carries.
+var adjustLandPlaysKeys = state.NewNameSet(
+	"Mode", "AdjustLandPlays", "Affected", "Description",
+)

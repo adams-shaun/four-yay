@@ -2,17 +2,17 @@ package rules
 
 // A continuation frame with nothing left to run (spike S3, legacy defect 1).
 //
-// effects.Resolve reports every enclosing loop that suspends through
-// SuspendContinuation, and buildContinuationChain turns each report into a
-// frame that resumes at that loop's sa.Sub. When the enclosing SA is the LAST
-// link of its chain -- Devour Intellect's DB$ Branch, whose nested
+// Under the removed suspend/resume protocol every enclosing loop that
+// suspended was rebuilt as a frame resuming at that loop's sa.Sub. When the
+// enclosing SA was the LAST link of its chain -- Devour Intellect's DB$ Branch, whose nested
 // FalseSubAbility$ discard asks; Capital Punishment's Vote, whose chosen
 // outcome's discard asks; a mass move whose as-enters choice parks -- sa.Sub
-// is nil, and the frame used to resume with no sub-ability at all. The
+// was nil, and the frame resumed with no sub-ability at all. The
 // resolution still finished, but only after logging the "mid-resolution
 // answer resumed with no sub-ability recorded" degradation Note, which is
 // reserved for a hand-built ask that never set ResumeSA. The dual-run fuzz
 // (tape kernel vs legacy, 10k cardfuzz games) found 20 games diverging on it.
+// These pins keep the kernel's in-place answers free of that Note.
 
 import (
 	"testing"

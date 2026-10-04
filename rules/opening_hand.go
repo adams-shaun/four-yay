@@ -278,13 +278,13 @@ func (e *Engine) registerOpeningEffectTriggers(ef openingEffect, first *cards.SA
 				if exec == "" || cards.ResolveSVar(o.Face().SVars, exec) == nil {
 					continue
 				}
-				switch t.Mode {
-				case "Phase":
+				switch t.ModeKind() {
+				case cards.TriggerPhase:
 					var step state.Step
-					switch strings.TrimSpace(t.ParamStr(cards.PKPhase)) {
-					case "Upkeep":
+					switch registerOpeningEffectTriggersCodes.Code(string(strings.TrimSpace(t.ParamStr(cards.PKPhase)))) {
+					case registerOpeningEffectTriggersUpkeep:
 						step = state.StepUpkeep
-					case "Main1":
+					case registerOpeningEffectTriggersMain1:
 						step = state.StepMain1
 					default:
 						continue
@@ -294,7 +294,7 @@ func (e *Engine) registerOpeningEffectTriggers(ef openingEffect, first *cards.SA
 					}
 					e.emit(events.Event{Kind: events.DelayedRegister, Obj: ef.card, Player: ef.player,
 						Step: step, Counter: exec, Text: t.ParamStr(cards.PKPhase)})
-				case "SpellCast":
+				case cards.TriggerSpellCast:
 					// Step carries the registration's decoding guard only
 					// (events.Apply requires a valid Step); an event-matched
 					// registration never fires on a step --
@@ -372,3 +372,15 @@ func (e *Engine) finishOpening() {
 }
 
 func init() { effects.RegisterNonAPI("kw:MayEffectFromOpeningHand") }
+
+type registerOpeningEffectTriggersCode uint16
+
+const (
+	registerOpeningEffectTriggersUpkeep registerOpeningEffectTriggersCode = iota + 1
+	registerOpeningEffectTriggersMain1
+)
+
+var registerOpeningEffectTriggersCodes = state.NewStrCodes(
+	state.StrEntry[registerOpeningEffectTriggersCode]{Key: "Upkeep", Val: registerOpeningEffectTriggersUpkeep},
+	state.StrEntry[registerOpeningEffectTriggersCode]{Key: "Main1", Val: registerOpeningEffectTriggersMain1},
+)

@@ -59,7 +59,7 @@ func TestRepeatEachOfIsAllocationFree(t *testing.T) {
 	f.Publish()
 	cached := &cards.SA{API: "RepeatEach", Params: map[string]string{"RepeatSubAbility": "DBB", "RepeatCards": "Creature"}}
 	RepeatEachOf(cached)
-	if n := testing.AllocsPerRun(100, func() {
+	if n := allocsPerRun(100, func() {
 		_ = RepeatEachOf(bound)
 		_ = RepeatEachOf(cached)
 	}); n != 0 {

@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -127,10 +128,10 @@ func TestEldraziTempleRestrictValidGatesTheProducedMana(t *testing.T) {
 	// one source of truth away from payable — the {2}{C} needs three mana and
 	// the temple produces two.
 	addMana(t, e, 0, "C")
-	if got := e.manaAvailableFor(0, paymentFor(reshaper, false, Cost{})).pool.Total(); got != 3 {
+	if got := pay.AvailableFor(asPayer(e), 0, paymentFor(reshaper, false, Cost{})).Pool.Total(); got != 3 {
 		t.Fatalf("manaAvailableFor(Matter Reshaper) = %d, want 3 (restriction admitted)", got)
 	}
-	if got := e.manaAvailableFor(0, paymentFor(wallID, false, Cost{})).pool.Total(); got != 1 {
+	if got := pay.AvailableFor(asPayer(e), 0, paymentFor(wallID, false, Cost{})).Pool.Total(); got != 1 {
 		t.Fatalf("manaAvailableFor(Walloper) = %d, want 1 (restriction withheld)", got)
 	}
 

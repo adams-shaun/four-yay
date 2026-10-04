@@ -21,6 +21,7 @@ var payImports = map[string]bool{
 	module + "/cards":      true,
 	module + "/state":      true,
 	module + "/decision":   true,
+	module + "/events":     true,
 	module + "/rules/cost": true,
 }
 

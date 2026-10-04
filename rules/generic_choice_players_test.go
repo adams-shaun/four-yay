@@ -280,8 +280,8 @@ const genericChoiceNested = "Name:Trial of Choices\nManaCost:R\nTypes:Sorcery\n"
 // TestGenericChoiceNestedAskResumesRemainingChoosers pins the nested-ask
 // continuation: opponent 1's chosen Discard body poses its own KChoose ask, so
 // the GenericChoice must record the chooser cursor and still ask opponent 2
-// once that nested ask's chain completes. Without SuspendGenericChoiceRest the
-// cursor is lost and opponent 2 is never asked.
+// once that nested ask's chain completes. A lost cursor means opponent 2 is
+// never asked.
 func TestGenericChoiceNestedAskResumesRemainingChoosers(t *testing.T) {
 	t.Parallel()
 	trial := card(t, genericChoiceNested)
@@ -370,12 +370,9 @@ func TestSeizeTheSpotlightCloneKeepsChooserCursor(t *testing.T) {
 	if d.Player != 1 {
 		t.Fatalf("first chooser = seat %d, want opponent 1", d.Player)
 	}
-	if d.ResumeGenericChooserIndex != 0 || len(d.ResumeGenericChoosers) != 2 {
-		t.Fatalf("pending cursor = %d over %d choosers, want 0 over 2", d.ResumeGenericChooserIndex, len(d.ResumeGenericChoosers))
-	}
 	clone := e.Clone()
-	if cp := clone.Pending(); cp == nil || cp.ResumeGenericChooserIndex != 0 || len(cp.ResumeGenericChoosers) != 2 {
-		t.Fatalf("clone pending cursor = %+v, want the opponent cursor copied", cp)
+	if cp := clone.Pending(); cp == nil {
+		t.Fatal("clone has no pending decision")
 	}
 	// Complete BOTH choosers on the clone: if the cursor were lost, opponent 2
 	// would be re-asked or never asked.

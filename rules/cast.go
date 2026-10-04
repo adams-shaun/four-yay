@@ -426,7 +426,7 @@ type pendingCast struct {
 	// applied to the mana cost only AFTER {X} is folded into Generic
 	// (manaToPay), so an {X} reduction is not lost and the tax (an additional
 	// cost) is never reduced -- increases before reductions, per 601.2f.
-	mods       costMods `clone:"deep"`
+	mods       costMods `clone:"deep,copy=cloneCastMods"`
 	taxGeneric int32    `clone:"deep"`
 
 	// ownReduce is the amount the ability's own ReduceCost$ parameter folded

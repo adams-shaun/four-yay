@@ -9,6 +9,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -225,13 +226,13 @@ func parseCumulativeAction(label string) (*cumulativeAction, bool) {
 		return nil, false
 	}
 	a := &cumulativeAction{kind: kind, n: int32(n64)}
-	switch kind {
-	case "Sac", "Discard":
+	switch parseCumulativeActionCodes.Code(string(kind)) {
+	case parseCumulativeActionSac:
 		if len(fields) < 2 {
 			return nil, false
 		}
 		a.spec = fields[1]
-	case "AddCounter":
+	case parseCumulativeActionAddCounter:
 		if len(fields) < 2 {
 			return nil, false
 		}
@@ -239,30 +240,30 @@ func parseCumulativeAction(label string) (*cumulativeAction, bool) {
 		if len(fields) >= 3 {
 			a.spec += "/" + fields[2]
 		}
-	case "AddMana":
+	case parseCumulativeActionAddMana:
 		if len(fields) < 2 || len(fields[1]) != 1 || !strings.ContainsRune("WUBRGC", rune(fields[1][0])) {
 			return nil, false
 		}
 		a.spec = fields[1]
-	case "Draw":
+	case parseCumulativeActionDraw:
 		if len(fields) < 2 || fields[1] != "You" {
 			return nil, false
 		}
-	case "ExileFromTop":
+	case parseCumulativeActionExileFromTop:
 		if len(fields) < 2 || fields[1] != "Card" {
 			return nil, false
 		}
-	case "FlipCoin":
-	case "GainControl":
+	case parseCumulativeActionFlipCoin:
+	case parseCumulativeActionGainControl:
 		if len(fields) < 2 {
 			return nil, false
 		}
 		a.spec = fields[1]
-	case "GainLife":
+	case parseCumulativeActionGainLife:
 		if len(fields) < 2 || fields[1] != "Player.Opponent" {
 			return nil, false
 		}
-	case "PutCardToLibFromSameGrave":
+	case parseCumulativeActionPutCardToLibFromSameGrave:
 		if len(fields) < 3 || fields[2] != "Card" {
 			return nil, false
 		}
@@ -396,27 +397,27 @@ func cumulativeActionPhrase(a *cumulativeAction) string {
 	if a.n != 1 {
 		plural = "s"
 	}
-	switch a.kind {
-	case "Sac":
+	switch cumulativeActionPhraseCodes.Code(string(a.kind)) {
+	case cumulativeActionPhraseSac:
 		return "sacrifice " + n + " " + specNoun(a.spec, "permanent")
-	case "Discard":
+	case cumulativeActionPhraseDiscard:
 		return "discard " + n + " card" + plural
-	case "AddCounter":
+	case cumulativeActionPhraseAddCounter:
 		kind, _, _ := strings.Cut(a.spec, "/")
 		return "put " + n + " " + strings.ToUpper(kind) + " counter" + plural + " on this permanent"
-	case "AddMana":
+	case cumulativeActionPhraseAddMana:
 		return "add " + a.spec
-	case "Draw":
+	case cumulativeActionPhraseDraw:
 		return "draw " + n + " card" + plural
-	case "ExileFromTop":
+	case cumulativeActionPhraseExileFromTop:
 		return "exile the top " + n + " card" + plural + " of your library"
-	case "FlipCoin":
+	case cumulativeActionPhraseFlipCoin:
 		return "flip a coin"
-	case "GainControl":
+	case cumulativeActionPhraseGainControl:
 		return "gain control of " + specNoun(a.spec, "permanent")
-	case "GainLife":
+	case cumulativeActionPhraseGainLife:
 		return "an opponent gains " + n + " life"
-	case "PutCardToLibFromSameGrave":
+	case cumulativeActionPhrasePutCardToLibFromSameGrave:
 		return "put " + n + " card" + plural + " from your graveyard into your library"
 	}
 	return ""
@@ -463,7 +464,7 @@ func (e *Engine) paymentManaAsk(player state.PlayerID, source state.ObjID, amoun
 }
 
 func (e *Engine) paymentManaAskClass(player state.PlayerID, source state.ObjID, amount Cost, windowDone bool, prompt string, flow chooseFor, class paymentClass) bool {
-	rider := pipRider{anyColor: e.payerGrantsIgnoreColor(player, source), anyType: e.payerGrantsIgnoreType(player, source)}
+	rider := asPayer(e).MayPlayRider(player, source)
 	// A pool that already pays the announced amount needs no window. The
 	// check deliberately suspends the payer's PayLifeInsteadOf:B grant
 	// (costPayableClassLife's lifeGrant false, the same suspension the CR
@@ -474,7 +475,7 @@ func (e *Engine) paymentManaAskClass(player state.PlayerID, source state.ObjID, 
 	// the life through the ordinary payment, and the offer gate that follows
 	// (cumulativePaymentAsk / echoElectionAsk) still prices the grant so a
 	// cost only life can pay stays offered and charged as such.
-	if windowDone || !amount.Priceable() || e.costPayableClassLife(player, paymentDescriptor{id: source, class: class, cost: &amount}, rider, amount, false) {
+	if windowDone || !amount.Priceable() || pay.CostPayableClassLife(asPayer(e), player, paymentDescriptor{ID: source, Class: class, Cost: &amount}, rider, amount, false) {
 		return false
 	}
 	var sources []state.ObjID
@@ -523,7 +524,7 @@ func (e *Engine) cumulativePaymentAsk() {
 	var opts []decision.Option
 	payable := cu.action != nil && e.cumulativeActionPayable(cu)
 	if cu.action == nil {
-		payable = announced.Priceable() && e.costPayableClass(cu.player, paymentDescriptor{id: cu.source, class: paymentCumulativeUpkeep, cost: &announced}, pipRider{anyColor: e.payerGrantsIgnoreColor(cu.player, cu.source), anyType: e.payerGrantsIgnoreType(cu.player, cu.source)}, announced)
+		payable = announced.Priceable() && pay.CostPayableClass(asPayer(e), cu.player, paymentDescriptor{ID: cu.source, Class: paymentCumulativeUpkeep, Cost: &announced}, asPayer(e).MayPlayRider(cu.player, cu.source), announced)
 	}
 	if payable {
 		opts = append(opts, decision.Option{Index: 0, Kind: "cumulative_pay", Obj: cu.source,
@@ -579,26 +580,26 @@ func (e *Engine) cumulativeActionPayable(cu *cumulativeUpkeep) bool {
 		return false
 	}
 	total := int(a.n * cu.actionRemaining)
-	switch a.kind {
-	case "Sac":
+	switch cumulativeActionPayableCodes.Code(string(a.kind)) {
+	case cumulativeActionPayableSac:
 		return len(e.cumulativeSacObjects(cu)) >= total
-	case "Discard":
+	case cumulativeActionPayableDiscard:
 		return len(e.cumulativeObjects(cu, state.ZHand, a.spec)) >= total
-	case "Draw", "ExileFromTop":
+	case cumulativeActionPayableDraw:
 		return len(e.G.Zone(state.ZLibrary, cu.player)) >= total
-	case "AddMana", "FlipCoin":
+	case cumulativeActionPayableAddMana:
 		return true
-	case "AddCounter":
+	case cumulativeActionPayableAddCounter:
 		if !strings.Contains(a.spec, "/") {
 			return e.G.Obj(cu.source) != nil
 		}
 		_, targetSpec, _ := strings.Cut(a.spec, "/")
 		return len(e.cumulativeObjects(cu, state.ZBattlefield, targetSpec)) > 0
-	case "GainControl":
+	case cumulativeActionPayableGainControl:
 		return len(e.cumulativeObjects(cu, state.ZBattlefield, a.spec)) >= total
-	case "GainLife":
+	case cumulativeActionPayableGainLife:
 		return len(e.G.AliveFrom(cu.player)) > 1
-	case "PutCardToLibFromSameGrave":
+	case cumulativeActionPayablePutCardToLibFromSameGrave:
 		groups := 0
 		for _, p := range e.G.AliveFrom(0) {
 			groups += len(e.G.Zone(state.ZGraveyard, p)) / int(a.n)
@@ -632,20 +633,20 @@ func (e *Engine) continueCumulativeAction() {
 	}
 	a := cu.action
 	total := int(a.n * cu.actionRemaining)
-	switch a.kind {
-	case "Sac":
+	switch continueCumulativeActionCodes.Code(string(a.kind)) {
+	case continueCumulativeActionSac:
 		e.cumulativeObjectDecision(cu, e.cumulativeSacObjects(cu), total, total,
 			"cumulative_action_sac", "Choose permanents to sacrifice for cumulative upkeep")
-	case "Discard":
+	case continueCumulativeActionDiscard:
 		e.cumulativeObjectDecision(cu, e.cumulativeObjects(cu, state.ZHand, a.spec), total, total,
 			"cumulative_action_discard", "Choose cards to discard for cumulative upkeep")
-	case "Draw":
+	case continueCumulativeActionDraw:
 		for i := 0; i < total; i++ {
 			effects.DrawFor(e, cu.player)
 		}
 		cu.actionRemaining = 0
 		e.finishCumulative()
-	case "ExileFromTop":
+	case continueCumulativeActionExileFromTop:
 		for i := 0; i < total; i++ {
 			lib := e.G.Zone(state.ZLibrary, cu.player)
 			if len(lib) == 0 {
@@ -655,7 +656,7 @@ func (e *Engine) continueCumulativeAction() {
 		}
 		cu.actionRemaining = 0
 		e.finishCumulative()
-	case "AddMana":
+	case continueCumulativeActionAddMana:
 		// Producer-type provenance: the upkeep mana is produced by the
 		// permanent paying the cumulative cost, so the same
 		// Treasure/Cave/Desert/Snow tag effMana stamps rides this ManaAdd's
@@ -670,7 +671,7 @@ func (e *Engine) continueCumulativeAction() {
 		e.emit(events.Event{Kind: events.ManaAdd, Player: cu.player, Counter: counter, Amount: int32(total)})
 		cu.actionRemaining = 0
 		e.finishCumulative()
-	case "FlipCoin":
+	case continueCumulativeActionFlipCoin:
 		// The canonical coin-flip result Note effects.FlipCoinNote emits —
 		// the ONE encoding the FlippedCoin trigger matcher
 		// (rules/trigmatch/actions.go's flippedCoinMatches) reads, so a
@@ -681,7 +682,7 @@ func (e *Engine) continueCumulativeAction() {
 		}
 		cu.actionRemaining = 0
 		e.finishCumulative()
-	case "AddCounter":
+	case continueCumulativeActionAddCounter:
 		counter, targetSpec, targeted := strings.Cut(a.spec, "/")
 		if !targeted {
 			// A cumulative-upkeep action cost is paid by cu.player, and this
@@ -696,10 +697,10 @@ func (e *Engine) continueCumulativeAction() {
 		}
 		e.cumulativeObjectDecision(cu, e.cumulativeObjects(cu, state.ZBattlefield, targetSpec), 1, 1,
 			"cumulative_action_counter", "Choose a permanent to receive a "+counter+" counter")
-	case "GainControl":
+	case continueCumulativeActionGainControl:
 		e.cumulativeObjectDecision(cu, e.cumulativeObjects(cu, state.ZBattlefield, a.spec), total, total,
 			"cumulative_action_control", "Choose permanents to gain control of")
-	case "GainLife":
+	case continueCumulativeActionGainLife:
 		d := &decision.Decision{Player: cu.player, Kind: decision.KChoose, Min: 1, Max: 1,
 			Prompt: "Choose an opponent to gain life", Source: cu.source}
 		for _, p := range e.G.AliveFrom(cu.player) {
@@ -710,7 +711,7 @@ func (e *Engine) continueCumulativeAction() {
 				Player: p, Label: seatFacingName(e.G, p)})
 		}
 		windowAsk(e, d, chooseCumulative)
-	case "PutCardToLibFromSameGrave":
+	case continueCumulativeActionPutCardToLibFromSameGrave:
 		var owners []state.PlayerID
 		for _, p := range e.G.AliveFrom(0) {
 			if len(e.G.Zone(state.ZGraveyard, p)) >= int(a.n) {
@@ -883,7 +884,7 @@ func (e *Engine) triggeredCostXAsk(tc *triggeredEffectCost) bool {
 	var opts []decision.Option
 	for x := int32(0); x <= bound; x++ {
 		v := foldCostX(tc.amount, x)
-		if !e.energyPayable(tc.player, &v) || !e.costPayablePool(tc.player, tc.source, false, v, pot, e.G.Players[tc.player].ManaUnits()) {
+		if !e.energyPayable(tc.player, &v) || !pay.CostPayablePool(asPayer(e), tc.player, tc.source, false, v, pot, e.G.Players[tc.player].ManaUnits()) {
 			continue
 		}
 		opts = append(opts, decision.Option{Index: len(opts), Kind: "trigger_cost_x",
@@ -957,12 +958,12 @@ func (pa *pipAnnounce) fold(c Cost) Cost {
 // pay_W family), so every window and the cast flow answer the same way and a
 // replay records the same choice shape.
 func (pa *pipAnnounce) accept(kind string, amount int) bool {
-	switch kind {
-	case "pay_W", "pay_U", "pay_B", "pay_R", "pay_G", "pay_C":
+	switch cumulativeAcceptCodes.Code(string(kind)) {
+	case cumulativeAcceptPayW:
 		pa.color[state.ManaIndex(kind[len("pay_"):][0])]++
-	case "pay_life":
+	case cumulativeAcceptPayLife:
 		pa.life += 2
-	case "pay_generic":
+	case cumulativeAcceptPayGeneric:
 		pa.generic += int32(amount)
 	default:
 		return false
@@ -986,7 +987,7 @@ func (e *Engine) pipAnnounceAsk(player state.PlayerID, source state.ObjID, amoun
 	if pa.idx >= amount.AnnPipCount() {
 		return false
 	}
-	alts := announcePip(amount, pa.idx)
+	alts := pay.AnnouncePip(amount, pa.idx)
 	name := "triggered ability"
 	if o := e.G.Obj(source); o != nil && o.Face() != nil {
 		name = o.Face().Name
@@ -998,21 +999,21 @@ func (e *Engine) pipAnnounceAsk(player state.PlayerID, source state.ObjID, amoun
 	seenGeneric := false
 	for _, alt := range alts {
 		switch {
-		case alt.color != 0:
-			if seen[alt.color] {
+		case alt.Color != 0:
+			if seen[alt.Color] {
 				continue
 			}
-			seen[alt.color] = true
+			seen[alt.Color] = true
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options),
-				Kind: "pay_" + string(alt.color), Label: "Pay " + string(alt.color), Amount: 1})
-		case alt.generic > 0:
+				Kind: "pay_" + string(alt.Color), Label: "Pay " + string(alt.Color), Amount: 1})
+		case alt.Generic > 0:
 			if seenGeneric {
 				continue
 			}
 			seenGeneric = true
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options),
-				Kind: "pay_generic", Label: fmt.Sprintf("Pay %d generic", alt.generic), Amount: int(alt.generic)})
-		case alt.life > 0:
+				Kind: "pay_generic", Label: fmt.Sprintf("Pay %d generic", alt.Generic), Amount: int(alt.Generic)})
+		case alt.Life > 0:
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 				Kind: "pay_life", Label: "Pay 2 life", Amount: 2})
 		}
@@ -1083,7 +1084,7 @@ func (e *Engine) triggeredCostManaHalfPayable(tc *triggeredEffectCost, rest Cost
 		len(mana.Twobrid) == 0 && len(mana.HybridPhyrexian) == 0 {
 		return true
 	}
-	return e.costPayableOther(tc.player, tc.source, mana)
+	return pay.CostPayableOther(asPayer(e), tc.player, tc.source, mana)
 }
 
 // triggeredCostComponentsPayable reports whether the window can settle a
@@ -1188,7 +1189,7 @@ func (e *Engine) triggeredCostComponentsPayable(tc *triggeredEffectCost) bool {
 	if mana.HasManaPayment() || mana.Life > 0 || mana.Snow > 0 ||
 		len(mana.Hybrid) > 0 || len(mana.Phyrexian) > 0 ||
 		len(mana.Twobrid) > 0 || len(mana.HybridPhyrexian) > 0 {
-		if !e.costPayableOther(tc.player, tc.source, mana) {
+		if !pay.CostPayableOther(asPayer(e), tc.player, tc.source, mana) {
 			return false
 		}
 	}
@@ -1298,26 +1299,26 @@ func (e *Engine) cumulativeAnswer(chosen []decision.Option) {
 		e.cumulativePaymentAsk()
 		return
 	}
-	switch chosen[0].Kind {
-	case "activate":
+	switch cumulativeAnswerCodes.Code(string(chosen[0].Kind)) {
+	case cumulativeAnswerActivate:
 		e.activatePaymentMana(cu.player, chosen[0].Obj)
 		return
-	case "done":
+	case cumulativeAnswerDone:
 		cu.windowDone = true
 		e.cumulativePaymentAsk()
 		return
-	case "cumulative_pay":
+	case cumulativeAnswerCumulativePay:
 		if cu.action != nil {
 			e.continueCumulativeAction()
 			return
 		}
 		announced := cu.pips.fold(cu.amount)
 		if announced.Priceable() &&
-			e.payManaCumulative(cu.player, cu.source, announced, e.paymentConv(cu.player, cu.source, false)) {
+			pay.PayManaCumulative(asPayer(e), cu.player, cu.source, announced, asPayer(e).Conv(cu.player, cu.source, false)) {
 			e.finishCumulative()
 			return
 		}
-	case "cumulative_action_sac":
+	case cumulativeAnswerCumulativeActionSac:
 		for _, option := range chosen {
 			if o := e.G.Obj(option.Obj); o != nil && o.Zone == state.ZBattlefield {
 				e.emit(events.Event{Kind: events.MoveZone, Obj: o.ID, From: state.ZBattlefield,
@@ -1327,7 +1328,7 @@ func (e *Engine) cumulativeAnswer(chosen []decision.Option) {
 		cu.actionRemaining = 0
 		e.finishCumulative()
 		return
-	case "cumulative_action_discard":
+	case cumulativeAnswerCumulativeActionDiscard:
 		for _, option := range chosen {
 			if o := e.G.Obj(option.Obj); o != nil && o.Zone == state.ZHand && o.Owner == cu.player {
 				e.emit(events.Event{Kind: events.MoveZone, Obj: o.ID, From: state.ZHand,
@@ -1337,7 +1338,7 @@ func (e *Engine) cumulativeAnswer(chosen []decision.Option) {
 		cu.actionRemaining = 0
 		e.finishCumulative()
 		return
-	case "cumulative_action_counter":
+	case cumulativeAnswerCumulativeActionCounter:
 		counter, _, _ := strings.Cut(cu.action.spec, "/")
 		prevAdder := e.SetCounterAdder(cu.player)
 		e.emit(events.Event{Kind: events.CounterChange, Obj: chosen[0].Obj, Counter: counter, Amount: cu.action.n})
@@ -1345,24 +1346,24 @@ func (e *Engine) cumulativeAnswer(chosen []decision.Option) {
 		cu.actionRemaining--
 		e.continueCumulativeAction()
 		return
-	case "cumulative_action_control":
+	case cumulativeAnswerCumulativeActionControl:
 		for _, option := range chosen {
 			e.emit(events.Event{Kind: events.ControlChange, Obj: option.Obj, Player: cu.player})
 		}
 		cu.actionRemaining = 0
 		e.finishCumulative()
 		return
-	case "cumulative_action_life":
+	case cumulativeAnswerCumulativeActionLife:
 		e.emit(events.Event{Kind: events.LifeChange, Player: chosen[0].Player, Amount: cu.action.n})
 		cu.actionRemaining--
 		e.continueCumulativeAction()
 		return
-	case "cumulative_action_grave":
+	case cumulativeAnswerCumulativeActionGrave:
 		cu.actionOwner = chosen[0].Player
 		e.cumulativeObjectDecision(cu, e.G.Zone(state.ZGraveyard, cu.actionOwner), int(cu.action.n), int(cu.action.n),
 			"cumulative_action_grave_card", "Choose cards from one graveyard")
 		return
-	case "cumulative_action_grave_card":
+	case cumulativeAnswerCumulativeActionGraveCard:
 		for _, option := range chosen {
 			if o := e.G.Obj(option.Obj); o != nil && o.Zone == state.ZGraveyard && o.Owner == cu.actionOwner {
 				e.emit(events.Event{Kind: events.MoveZone, Obj: o.ID, From: state.ZGraveyard, To: state.ZLibrary})
@@ -1404,18 +1405,18 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 		e.triggeredCostDecline(tc)
 		return
 	}
-	switch chosen[0].Kind {
-	case "activate":
+	switch triggeredCostAnswerCodes.Code(string(chosen[0].Kind)) {
+	case triggeredCostAnswerActivate:
 		e.activatePaymentMana(tc.player, chosen[0].Obj)
 		return
-	case "done":
+	case triggeredCostAnswerDone:
 		tc.windowDone = true
 		e.triggeredCostPaymentAsk()
 		return
-	case "trigger_cost_tap":
+	case triggeredCostAnswerTriggerCostTap:
 		e.triggeredTapAnswer(tc, chosen)
 		return
-	case "trigger_cost_x":
+	case triggeredCostAnswerTriggerCostX:
 		// The X announcement's answer (the payer-chooses fold): the chosen
 		// value folds into the cost and the payment ask re-opens, now pricing
 		// the folded cost -- CR 601.2b's announce-then-activate ordering. The
@@ -1430,7 +1431,7 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 		tc.xPaid = x
 		e.triggeredCostPaymentAsk()
 		return
-	case "pay_W", "pay_U", "pay_B", "pay_R", "pay_G", "pay_C", "pay_life", "pay_generic":
+	case triggeredCostAnswerPayW:
 		// A flexible-pip announcement answer (the cast flow's own pay_W
 		// family): record the face the payer elected and advance to the next
 		// pip, then re-open the payment ask. A hybrid, twobrid or Phyrexian
@@ -1474,7 +1475,7 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 			// answer is never a partial payment. Any energy part is charged by
 			// the shared helper beside the mana (payMana ignores Energy).
 			draws, ok := e.triggeredCostDrawCounts(tc)
-			if ok && e.payManaConv(tc.player, announced.WithoutEnergy(), e.paymentConv(tc.player, tc.source, false)) {
+			if ok && pay.PayManaConv(asPayer(e), tc.player, announced.WithoutEnergy(), asPayer(e).Conv(tc.player, tc.source, false)) {
 				paid = true
 				e.chargeEnergyCost(tc.player, tc.amount, tc.xPaid)
 				for i, part := range announced.Draw {
@@ -1492,7 +1493,7 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 			// covered, so a paid answer is never a partial payment.
 			lower := announced.WithoutEnergy()
 			paid = lower.Priceable() &&
-				e.payManaConv(tc.player, lower, e.paymentConv(tc.player, tc.source, false))
+				pay.PayManaConv(asPayer(e), tc.player, lower, asPayer(e).Conv(tc.player, tc.source, false))
 			if paid {
 				e.chargeEnergyCost(tc.player, tc.amount, tc.xPaid)
 			}
@@ -1814,7 +1815,7 @@ func (e *Engine) settleTriggeredMandatory(tc *triggeredEffectCost) {
 	stripped.Sac, stripped.Discard, stripped.Exile, stripped.Draw = nil, nil, nil, nil
 	stripped.MoveToGrave = nil
 	if (stripped.HasManaPayment() || stripped.Life > 0) &&
-		!e.payManaConv(tc.player, stripped.WithoutEnergy(), e.paymentConv(tc.player, tc.source, false)) {
+		!pay.PayManaConv(asPayer(e), tc.player, stripped.WithoutEnergy(), asPayer(e).Conv(tc.player, tc.source, false)) {
 		e.triggeredCostDecline(tc)
 		return
 	}
@@ -1941,3 +1942,184 @@ func (e *Engine) triggeredTapAnswer(tc *triggeredEffectCost, chosen []decision.O
 func init() {
 	effects.RegisterNonAPI("kw:Cumulative upkeep", "stat:UntapOtherPlayer")
 }
+
+type parseCumulativeActionCode uint16
+
+const (
+	parseCumulativeActionSac parseCumulativeActionCode = iota + 1
+	parseCumulativeActionAddCounter
+	parseCumulativeActionAddMana
+	parseCumulativeActionDraw
+	parseCumulativeActionExileFromTop
+	parseCumulativeActionFlipCoin
+	parseCumulativeActionGainControl
+	parseCumulativeActionGainLife
+	parseCumulativeActionPutCardToLibFromSameGrave
+)
+
+var parseCumulativeActionCodes = state.NewStrCodes(
+	state.StrEntry[parseCumulativeActionCode]{Key: "Sac", Val: parseCumulativeActionSac},
+	state.StrEntry[parseCumulativeActionCode]{Key: "Discard", Val: parseCumulativeActionSac},
+	state.StrEntry[parseCumulativeActionCode]{Key: "AddCounter", Val: parseCumulativeActionAddCounter},
+	state.StrEntry[parseCumulativeActionCode]{Key: "AddMana", Val: parseCumulativeActionAddMana},
+	state.StrEntry[parseCumulativeActionCode]{Key: "Draw", Val: parseCumulativeActionDraw},
+	state.StrEntry[parseCumulativeActionCode]{Key: "ExileFromTop", Val: parseCumulativeActionExileFromTop},
+	state.StrEntry[parseCumulativeActionCode]{Key: "FlipCoin", Val: parseCumulativeActionFlipCoin},
+	state.StrEntry[parseCumulativeActionCode]{Key: "GainControl", Val: parseCumulativeActionGainControl},
+	state.StrEntry[parseCumulativeActionCode]{Key: "GainLife", Val: parseCumulativeActionGainLife},
+	state.StrEntry[parseCumulativeActionCode]{Key: "PutCardToLibFromSameGrave", Val: parseCumulativeActionPutCardToLibFromSameGrave},
+)
+
+type cumulativeActionPhraseCode uint16
+
+const (
+	cumulativeActionPhraseSac cumulativeActionPhraseCode = iota + 1
+	cumulativeActionPhraseDiscard
+	cumulativeActionPhraseAddCounter
+	cumulativeActionPhraseAddMana
+	cumulativeActionPhraseDraw
+	cumulativeActionPhraseExileFromTop
+	cumulativeActionPhraseFlipCoin
+	cumulativeActionPhraseGainControl
+	cumulativeActionPhraseGainLife
+	cumulativeActionPhrasePutCardToLibFromSameGrave
+)
+
+var cumulativeActionPhraseCodes = state.NewStrCodes(
+	state.StrEntry[cumulativeActionPhraseCode]{Key: "Sac", Val: cumulativeActionPhraseSac},
+	state.StrEntry[cumulativeActionPhraseCode]{Key: "Discard", Val: cumulativeActionPhraseDiscard},
+	state.StrEntry[cumulativeActionPhraseCode]{Key: "AddCounter", Val: cumulativeActionPhraseAddCounter},
+	state.StrEntry[cumulativeActionPhraseCode]{Key: "AddMana", Val: cumulativeActionPhraseAddMana},
+	state.StrEntry[cumulativeActionPhraseCode]{Key: "Draw", Val: cumulativeActionPhraseDraw},
+	state.StrEntry[cumulativeActionPhraseCode]{Key: "ExileFromTop", Val: cumulativeActionPhraseExileFromTop},
+	state.StrEntry[cumulativeActionPhraseCode]{Key: "FlipCoin", Val: cumulativeActionPhraseFlipCoin},
+	state.StrEntry[cumulativeActionPhraseCode]{Key: "GainControl", Val: cumulativeActionPhraseGainControl},
+	state.StrEntry[cumulativeActionPhraseCode]{Key: "GainLife", Val: cumulativeActionPhraseGainLife},
+	state.StrEntry[cumulativeActionPhraseCode]{Key: "PutCardToLibFromSameGrave", Val: cumulativeActionPhrasePutCardToLibFromSameGrave},
+)
+
+type cumulativeActionPayableCode uint16
+
+const (
+	cumulativeActionPayableSac cumulativeActionPayableCode = iota + 1
+	cumulativeActionPayableDiscard
+	cumulativeActionPayableDraw
+	cumulativeActionPayableAddMana
+	cumulativeActionPayableAddCounter
+	cumulativeActionPayableGainControl
+	cumulativeActionPayableGainLife
+	cumulativeActionPayablePutCardToLibFromSameGrave
+)
+
+var cumulativeActionPayableCodes = state.NewStrCodes(
+	state.StrEntry[cumulativeActionPayableCode]{Key: "Sac", Val: cumulativeActionPayableSac},
+	state.StrEntry[cumulativeActionPayableCode]{Key: "Discard", Val: cumulativeActionPayableDiscard},
+	state.StrEntry[cumulativeActionPayableCode]{Key: "Draw", Val: cumulativeActionPayableDraw},
+	state.StrEntry[cumulativeActionPayableCode]{Key: "ExileFromTop", Val: cumulativeActionPayableDraw},
+	state.StrEntry[cumulativeActionPayableCode]{Key: "AddMana", Val: cumulativeActionPayableAddMana},
+	state.StrEntry[cumulativeActionPayableCode]{Key: "FlipCoin", Val: cumulativeActionPayableAddMana},
+	state.StrEntry[cumulativeActionPayableCode]{Key: "AddCounter", Val: cumulativeActionPayableAddCounter},
+	state.StrEntry[cumulativeActionPayableCode]{Key: "GainControl", Val: cumulativeActionPayableGainControl},
+	state.StrEntry[cumulativeActionPayableCode]{Key: "GainLife", Val: cumulativeActionPayableGainLife},
+	state.StrEntry[cumulativeActionPayableCode]{Key: "PutCardToLibFromSameGrave", Val: cumulativeActionPayablePutCardToLibFromSameGrave},
+)
+
+type continueCumulativeActionCode uint16
+
+const (
+	continueCumulativeActionSac continueCumulativeActionCode = iota + 1
+	continueCumulativeActionDiscard
+	continueCumulativeActionDraw
+	continueCumulativeActionExileFromTop
+	continueCumulativeActionAddMana
+	continueCumulativeActionFlipCoin
+	continueCumulativeActionAddCounter
+	continueCumulativeActionGainControl
+	continueCumulativeActionGainLife
+	continueCumulativeActionPutCardToLibFromSameGrave
+)
+
+var continueCumulativeActionCodes = state.NewStrCodes(
+	state.StrEntry[continueCumulativeActionCode]{Key: "Sac", Val: continueCumulativeActionSac},
+	state.StrEntry[continueCumulativeActionCode]{Key: "Discard", Val: continueCumulativeActionDiscard},
+	state.StrEntry[continueCumulativeActionCode]{Key: "Draw", Val: continueCumulativeActionDraw},
+	state.StrEntry[continueCumulativeActionCode]{Key: "ExileFromTop", Val: continueCumulativeActionExileFromTop},
+	state.StrEntry[continueCumulativeActionCode]{Key: "AddMana", Val: continueCumulativeActionAddMana},
+	state.StrEntry[continueCumulativeActionCode]{Key: "FlipCoin", Val: continueCumulativeActionFlipCoin},
+	state.StrEntry[continueCumulativeActionCode]{Key: "AddCounter", Val: continueCumulativeActionAddCounter},
+	state.StrEntry[continueCumulativeActionCode]{Key: "GainControl", Val: continueCumulativeActionGainControl},
+	state.StrEntry[continueCumulativeActionCode]{Key: "GainLife", Val: continueCumulativeActionGainLife},
+	state.StrEntry[continueCumulativeActionCode]{Key: "PutCardToLibFromSameGrave", Val: continueCumulativeActionPutCardToLibFromSameGrave},
+)
+
+type cumulativeAcceptCode uint16
+
+const (
+	cumulativeAcceptPayW cumulativeAcceptCode = iota + 1
+	cumulativeAcceptPayLife
+	cumulativeAcceptPayGeneric
+)
+
+var cumulativeAcceptCodes = state.NewStrCodes(
+	state.StrEntry[cumulativeAcceptCode]{Key: "pay_W", Val: cumulativeAcceptPayW},
+	state.StrEntry[cumulativeAcceptCode]{Key: "pay_U", Val: cumulativeAcceptPayW},
+	state.StrEntry[cumulativeAcceptCode]{Key: "pay_B", Val: cumulativeAcceptPayW},
+	state.StrEntry[cumulativeAcceptCode]{Key: "pay_R", Val: cumulativeAcceptPayW},
+	state.StrEntry[cumulativeAcceptCode]{Key: "pay_G", Val: cumulativeAcceptPayW},
+	state.StrEntry[cumulativeAcceptCode]{Key: "pay_C", Val: cumulativeAcceptPayW},
+	state.StrEntry[cumulativeAcceptCode]{Key: "pay_life", Val: cumulativeAcceptPayLife},
+	state.StrEntry[cumulativeAcceptCode]{Key: "pay_generic", Val: cumulativeAcceptPayGeneric},
+)
+
+type cumulativeAnswerCode uint16
+
+const (
+	cumulativeAnswerActivate cumulativeAnswerCode = iota + 1
+	cumulativeAnswerDone
+	cumulativeAnswerCumulativePay
+	cumulativeAnswerCumulativeActionSac
+	cumulativeAnswerCumulativeActionDiscard
+	cumulativeAnswerCumulativeActionCounter
+	cumulativeAnswerCumulativeActionControl
+	cumulativeAnswerCumulativeActionLife
+	cumulativeAnswerCumulativeActionGrave
+	cumulativeAnswerCumulativeActionGraveCard
+)
+
+var cumulativeAnswerCodes = state.NewStrCodes(
+	state.StrEntry[cumulativeAnswerCode]{Key: "activate", Val: cumulativeAnswerActivate},
+	state.StrEntry[cumulativeAnswerCode]{Key: "done", Val: cumulativeAnswerDone},
+	state.StrEntry[cumulativeAnswerCode]{Key: "cumulative_pay", Val: cumulativeAnswerCumulativePay},
+	state.StrEntry[cumulativeAnswerCode]{Key: "cumulative_action_sac", Val: cumulativeAnswerCumulativeActionSac},
+	state.StrEntry[cumulativeAnswerCode]{Key: "cumulative_action_discard", Val: cumulativeAnswerCumulativeActionDiscard},
+	state.StrEntry[cumulativeAnswerCode]{Key: "cumulative_action_counter", Val: cumulativeAnswerCumulativeActionCounter},
+	state.StrEntry[cumulativeAnswerCode]{Key: "cumulative_action_control", Val: cumulativeAnswerCumulativeActionControl},
+	state.StrEntry[cumulativeAnswerCode]{Key: "cumulative_action_life", Val: cumulativeAnswerCumulativeActionLife},
+	state.StrEntry[cumulativeAnswerCode]{Key: "cumulative_action_grave", Val: cumulativeAnswerCumulativeActionGrave},
+	state.StrEntry[cumulativeAnswerCode]{Key: "cumulative_action_grave_card", Val: cumulativeAnswerCumulativeActionGraveCard},
+)
+
+type triggeredCostAnswerCode uint16
+
+const (
+	triggeredCostAnswerActivate triggeredCostAnswerCode = iota + 1
+	triggeredCostAnswerDone
+	triggeredCostAnswerTriggerCostTap
+	triggeredCostAnswerTriggerCostX
+	triggeredCostAnswerPayW
+)
+
+var triggeredCostAnswerCodes = state.NewStrCodes(
+	state.StrEntry[triggeredCostAnswerCode]{Key: "activate", Val: triggeredCostAnswerActivate},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "done", Val: triggeredCostAnswerDone},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "trigger_cost_tap", Val: triggeredCostAnswerTriggerCostTap},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "trigger_cost_x", Val: triggeredCostAnswerTriggerCostX},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_W", Val: triggeredCostAnswerPayW},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_U", Val: triggeredCostAnswerPayW},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_B", Val: triggeredCostAnswerPayW},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_R", Val: triggeredCostAnswerPayW},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_G", Val: triggeredCostAnswerPayW},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_C", Val: triggeredCostAnswerPayW},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_life", Val: triggeredCostAnswerPayW},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_generic", Val: triggeredCostAnswerPayW},
+)

@@ -30,7 +30,7 @@ func TestSimpleFilterMatchingDoesNotAllocate(t *testing.T) {
 		{"", false},
 	} {
 		t.Run(tc.spec, func(t *testing.T) {
-			allocs := testing.AllocsPerRun(100, func() {
+			allocs := allocsPerRun(100, func() {
 				if got := MatchesSpec(g, tc.spec, ids["myBear"], 0); got != tc.want {
 					t.Fatalf("MatchesSpec(%q) = %v; want %v", tc.spec, got, tc.want)
 				}
@@ -49,7 +49,7 @@ func TestParseCMCReusesBraceNormalizer(t *testing.T) {
 	if got := parseCMC("{2}{U}{B}"); got != 4 {
 		t.Fatalf("parseCMC = %d, want 4", got)
 	}
-	if allocs := testing.AllocsPerRun(1000, func() { parseCMC("{2}{U}{B}") }); allocs > 7 {
+	if allocs := allocsPerRun(1000, func() { parseCMC("{2}{U}{B}") }); allocs > 7 {
 		t.Fatalf("parseCMC allocated %.2f objects, want no rebuilt brace normalizer", allocs)
 	}
 }

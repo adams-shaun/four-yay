@@ -45,10 +45,10 @@ func (e *Engine) ReplaceEvent(name, raw string, resolved int32) {
 			if !hasOp {
 				return
 			}
-			switch field {
-			case "Number":
+			switch replaceEventFieldCodes.Code(string(field)) {
+			case replaceEventFieldNumber:
 				ev.Amount = replCountOp(ev.Amount, op)
-			case "Ignore":
+			case replaceEventFieldIgnore:
 				base := int32(0)
 				if n, err := strconv.Atoi(ev.Counter); err == nil {
 					base = int32(n)
@@ -82,24 +82,24 @@ func (e *Engine) ReplaceEvent(name, raw string, resolved int32) {
 	if name != "Affected" {
 		return
 	}
-	switch raw {
-	case "You":
+	switch replaceEventRefCodes.Code(string(raw)) {
+	case replaceEventRefYou:
 		ev.Obj, ev.Player = 0, e.controllerOf(e.replacingSource)
-	case "Self":
+	case replaceEventRefSelf:
 		ev.Obj, ev.Player = e.replacingSource, 0
-	case "Enchanted", "Equipped":
+	case replaceEventRefEnchanted:
 		if source := e.G.Obj(e.replacingSource); source != nil && source.AttachedTo != 0 {
 			ev.Obj, ev.Player = source.AttachedTo, 0
 		}
-	case "ReplacedSourceController":
+	case replaceEventRefReplacedSourceController:
 		if source := e.G.Obj(e.damaging); source != nil {
 			ev.Obj, ev.Player = 0, source.Controller
 		}
-	case "ReplacedTargetController":
+	case replaceEventRefReplacedTargetController:
 		if target := e.G.Obj(ev.Obj); target != nil {
 			ev.Obj, ev.Player = 0, target.Controller
 		}
-	case "Remembered":
+	case replaceEventRefRemembered:
 		// Infer the destination kind from the captured GameEntity, rather than
 		// parsing VarType$. Remembered permanents must still be on the
 		// battlefield; remembered players are valid damage recipients while
@@ -262,3 +262,36 @@ func replacementPlayerMatches(e *Engine, source state.ObjID, r *cards.Repl, p st
 	v := r.ParamStr(cards.PKValidPlayer)
 	return v == "" || effects.MatchesPlayerSpec(e.G, v, p, e.controllerOf(source))
 }
+
+type replaceEventFieldCode uint16
+
+const (
+	replaceEventFieldNumber replaceEventFieldCode = iota + 1
+	replaceEventFieldIgnore
+)
+
+var replaceEventFieldCodes = state.NewStrCodes(
+	state.StrEntry[replaceEventFieldCode]{Key: "Number", Val: replaceEventFieldNumber},
+	state.StrEntry[replaceEventFieldCode]{Key: "Ignore", Val: replaceEventFieldIgnore},
+)
+
+type replaceEventRefCode uint16
+
+const (
+	replaceEventRefYou replaceEventRefCode = iota + 1
+	replaceEventRefSelf
+	replaceEventRefEnchanted
+	replaceEventRefReplacedSourceController
+	replaceEventRefReplacedTargetController
+	replaceEventRefRemembered
+)
+
+var replaceEventRefCodes = state.NewStrCodes(
+	state.StrEntry[replaceEventRefCode]{Key: "You", Val: replaceEventRefYou},
+	state.StrEntry[replaceEventRefCode]{Key: "Self", Val: replaceEventRefSelf},
+	state.StrEntry[replaceEventRefCode]{Key: "Enchanted", Val: replaceEventRefEnchanted},
+	state.StrEntry[replaceEventRefCode]{Key: "Equipped", Val: replaceEventRefEnchanted},
+	state.StrEntry[replaceEventRefCode]{Key: "ReplacedSourceController", Val: replaceEventRefReplacedSourceController},
+	state.StrEntry[replaceEventRefCode]{Key: "ReplacedTargetController", Val: replaceEventRefReplacedTargetController},
+	state.StrEntry[replaceEventRefCode]{Key: "Remembered", Val: replaceEventRefRemembered},
+)

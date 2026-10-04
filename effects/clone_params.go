@@ -253,9 +253,7 @@ func compileClone(sa *cards.SA, dr *DefinedParams) *CloneParams {
 // iteration order cannot reach an event.
 func cloneETBShapeOK(sa *cards.SA, p *CloneParams) bool {
 	for k := range sa.Params {
-		switch k {
-		case "Choices", "AddKeywords", "AddTypes", "SpellDescription", "AddStaticAbilities", "IntoPlayTapped":
-		default:
+		if !cloneETBShapeKeys.Has(k) {
 			return false
 		}
 	}
@@ -275,3 +273,9 @@ func cloneETBShapeOK(sa *cards.SA, p *CloneParams) bool {
 
 // CloneKnownKeys is a copy of cloneKnownKeys, for the census check.
 func CloneKnownKeys() []string { return slices.Clone(cloneKnownKeys[:]) }
+
+// cloneETBShapeKeys are the keys the implemented as-enters Clone shape carries.
+var cloneETBShapeKeys = state.NewNameSet(
+	"Choices", "AddKeywords", "AddTypes", "SpellDescription",
+	"AddStaticAbilities", "IntoPlayTapped",
+)

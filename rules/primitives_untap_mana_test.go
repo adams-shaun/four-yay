@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -389,18 +390,18 @@ func TestTazriReflectedManaGateAndRestriction(t *testing.T) {
 	}
 	spell := e.G.AddObject(card(t, ancestralRecallScript), 0)
 	spell.Zone = state.ZHand
-	if e.costPayable(0, spell.ID, false, ParseCost("U")) {
+	if pay.CostPayable(asPayer(e), 0, spell.ID, false, ParseCost("U")) {
 		t.Fatal("Tazri mana incorrectly paid a spell")
 	}
 	artifact := onBoard(t, e, 0, "Name:Mana Rock\nTypes:Artifact\nA:AB$ Draw | Cost$ U | NumCards$ 1\nOracle:x\n")
-	if e.costPayable(0, artifact, true, ParseCost("U")) {
+	if pay.CostPayable(asPayer(e), 0, artifact, true, ParseCost("U")) {
 		t.Fatal("Tazri mana incorrectly paid a noncreature activation")
 	}
-	if !e.costPayable(0, creature, true, ParseCost("U")) {
+	if !pay.CostPayable(asPayer(e), 0, creature, true, ParseCost("U")) {
 		t.Fatal("Tazri mana did not pay a creature activation")
 	}
 	clone := e.Clone()
-	if !e.payManaConvFor(0, creature, true, ParseCost("U"), nil) || !clone.payManaConvFor(0, creature, true, ParseCost("U"), nil) {
+	if !pay.PayManaConvFor(asPayer(e), 0, creature, true, ParseCost("U"), nil) || !pay.PayManaConvFor(asPayer(clone), 0, creature, true, ParseCost("U"), nil) {
 		t.Fatal("Tazri mana could not pay the allowed activation")
 	}
 	if diff := diffGames(e.G, clone.G); diff != "" {

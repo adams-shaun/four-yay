@@ -86,8 +86,8 @@ func counterAddedMatches(e Board, t cards.Trigger, source state.ObjID, ev events
 		// tenth counter is put") fires once, on the crossing, so EQ/GT/GE
 		// collapse onto before < n && after >= n. LT/LE/NE do not occur in
 		// the corpus on this mode; they keep the plain post-event comparison.
-		switch op {
-		case "EQ", "GT", "GE":
+		switch effects.CmpOpOf(op) {
+		case effects.CmpEQ, effects.CmpGT, effects.CmpGE:
 			if !(before < int32(n) && after >= int32(n)) {
 				return false
 			}

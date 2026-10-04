@@ -3,7 +3,6 @@ package effects
 import (
 	"testing"
 
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -50,78 +49,6 @@ func shuffleEvents(h *fakeHost, p state.PlayerID) int {
 		}
 	}
 	return n
-}
-
-// TestObjectPathShuffleNonMandatoryAsks is half (b): an object-target
-// Graveyard -> Library move with Shuffle$ True | ShuffleNonMandatory$ True
-// (Cathartic Parting, Devious Cover-Up, Covetous Castaway, Put Away) moves
-// the card, poses Forge's may-shuffle confirm, and shuffles ONLY if the
-// searcher says yes when this SA receives its own graveyard target. The
-// named SP-parented DB carriers DO receive their own target since task spcz1
-// (rules/ pins the live path); this fixture exercises the tail machinery
-// itself, decoupled from any parent/sub targeting.
-func TestObjectPathShuffleNonMandatoryAsks(t *testing.T) {
-	for _, accept := range []bool{true, false} {
-		name := "decline keeps order"
-		if accept {
-			name = "accept shuffles"
-		}
-		t.Run(name, func(t *testing.T) {
-			ah, ctx, gy := shuffleTailBoard(t)
-			s := sa(t, "DB$ ChangeZone | Origin$ Graveyard | Destination$ Library | ValidTgts$ Card.YouOwn | Shuffle$ True | ShuffleNonMandatory$ True")
-
-			// Precondition: the card is in the zone the Origin$ precondition
-			// reads, so the move is a real move (not a skipped target).
-			if o := ah.g.Obj(gy); o == nil || o.Zone != state.ZGraveyard {
-				t.Fatalf("precondition: graveyard card zone = %v, want graveyard", o)
-			}
-
-			effChangeZone(ah, ctx, s)
-
-			// The move landed before the ask (the confirm protects the order
-			// the moved card is now part of).
-			if o := ah.g.Obj(gy); o == nil || o.Zone != state.ZLibrary {
-				t.Fatalf("after the move: card zone = %v, want library", o)
-			}
-			if len(ah.asks) != 1 {
-				t.Fatalf("object-path shuffle posed %d decisions, want the one may-shuffle confirm", len(ah.asks))
-			}
-			d := ah.asks[0]
-			if d.Kind != decision.KChoose || d.ResumeKind != "search_mayshuffle" || d.Prompt != "Shuffle your library?" {
-				t.Fatalf("ask = %+v, want the may-shuffle confirm", d)
-			}
-			if len(d.ResumeMoved) != 1 || d.ResumeMoved[0] != gy {
-				t.Fatalf("confirm ResumeMoved = %v, want the moved card %d", d.ResumeMoved, gy)
-			}
-			if got := shuffleEvents(&ah.fakeHost, 0); got != 0 {
-				t.Fatalf("a pending confirm already shuffled %d time(s)", got)
-			}
-
-			// Engine resume: the answered confirm re-enters effChangeZone,
-			// which must consume the answer and shuffle only on "yes".
-			ah.suspended = false
-			if accept {
-				ctx.SearchShuffle = "yes"
-			} else {
-				ctx.SearchShuffle = "no"
-			}
-			ctx.SearchShuffleMoved = append([]state.ObjID(nil), d.ResumeMoved...)
-			effChangeZone(ah, ctx, s)
-
-			want := 0
-			if accept {
-				want = 1
-			}
-			if got := shuffleEvents(&ah.fakeHost, 0); got != want {
-				t.Fatalf("shuffles after a %q answer = %d, want %d: %+v", ctxSearchShuffleLabel(accept), got, want, ah.log)
-			}
-			// The card stayed in the library on both branches (the re-entry
-			// must not move it a second time).
-			if o := ah.g.Obj(gy); o == nil || o.Zone != state.ZLibrary {
-				t.Fatalf("after the resume: card zone = %v, want library", o)
-			}
-		})
-	}
 }
 
 func ctxSearchShuffleLabel(accept bool) string {

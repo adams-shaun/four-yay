@@ -372,16 +372,16 @@ func targetZoneDecl(tgtZone string, typeStack bool) []state.Zone {
 		zones = append(zones, z)
 	}
 	for z := range strings.SplitSeq(tgtZone, ",") {
-		switch strings.TrimSpace(z) {
-		case "Battlefield":
+		switch targetZoneDeclCodes.Code(string(strings.TrimSpace(z))) {
+		case targetZoneDeclBattlefield:
 			add(state.ZBattlefield)
-		case "Graveyard":
+		case targetZoneDeclGraveyard:
 			add(state.ZGraveyard)
-		case "Hand":
+		case targetZoneDeclHand:
 			add(state.ZHand)
-		case "Exile":
+		case targetZoneDeclExile:
 			add(state.ZExile)
-		case "Stack":
+		case targetZoneDeclStack:
 			add(state.ZStack)
 		}
 	}
@@ -439,8 +439,8 @@ func SpecTargetsStack(spec string) bool {
 // both players as options, which effAttach then had to refuse).
 func SpecTargetsPlayers(spec string) bool {
 	for alt := range strings.SplitSeq(spec, ",") {
-		switch base, _, _ := strings.Cut(strings.TrimSpace(alt), "."); base {
-		case "Player", "Any", "Opponent", "You":
+		switch base, _, _ := strings.Cut(strings.TrimSpace(alt), "."); targetsPlayersBaseCodes.Code(base) {
+		case targetsPlayersBasePlayer:
 			return true
 		}
 	}
@@ -468,3 +468,34 @@ func NumTextResolved(h Host, c *Ctx, p ParamText, def int32) (int32, bool) {
 func NumTextResolvedStrict(h Host, c *Ctx, p ParamText, def int32) (int32, bool) {
 	return numResolvedStrictText(h, c, p, def)
 }
+
+type targetZoneDeclCode uint16
+
+const (
+	targetZoneDeclBattlefield targetZoneDeclCode = iota + 1
+	targetZoneDeclGraveyard
+	targetZoneDeclHand
+	targetZoneDeclExile
+	targetZoneDeclStack
+)
+
+var targetZoneDeclCodes = state.NewStrCodes(
+	state.StrEntry[targetZoneDeclCode]{Key: "Battlefield", Val: targetZoneDeclBattlefield},
+	state.StrEntry[targetZoneDeclCode]{Key: "Graveyard", Val: targetZoneDeclGraveyard},
+	state.StrEntry[targetZoneDeclCode]{Key: "Hand", Val: targetZoneDeclHand},
+	state.StrEntry[targetZoneDeclCode]{Key: "Exile", Val: targetZoneDeclExile},
+	state.StrEntry[targetZoneDeclCode]{Key: "Stack", Val: targetZoneDeclStack},
+)
+
+type targetsPlayersBaseCode uint16
+
+const (
+	targetsPlayersBasePlayer targetsPlayersBaseCode = iota + 1
+)
+
+var targetsPlayersBaseCodes = state.NewStrCodes(
+	state.StrEntry[targetsPlayersBaseCode]{Key: "Player", Val: targetsPlayersBasePlayer},
+	state.StrEntry[targetsPlayersBaseCode]{Key: "Any", Val: targetsPlayersBasePlayer},
+	state.StrEntry[targetsPlayersBaseCode]{Key: "Opponent", Val: targetsPlayersBasePlayer},
+	state.StrEntry[targetsPlayersBaseCode]{Key: "You", Val: targetsPlayersBasePlayer},
+)

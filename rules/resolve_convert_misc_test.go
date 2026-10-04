@@ -1,9 +1,8 @@
 package rules
 
-// W3 step 2's dual-run tests for the "misc" group's converted ask sites
-// (lasagna spec §7.7): each scenario resolves on the legacy resume machinery
-// and on the tape kernel with the same deterministic driver, and the two
-// logs must be identical while the converted asks are served from the tape.
+// W3 step 2's tests for the "misc" group's converted ask sites
+// (lasagna spec §7.7): each scenario resolves on the tape kernel with a
+// deterministic driver, and the converted asks are served from the tape.
 
 import (
 	"testing"

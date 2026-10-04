@@ -6,7 +6,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -392,7 +391,7 @@ func SpecNoun(spec, defNoun string) string {
 	if i := strings.IndexAny(base, ".+, ;"); i >= 0 {
 		base = base[:i]
 	}
-	if v, ok := specNounTab1.Get(strings.ToLower(base)); ok {
+	if v, ok := specNounTab.Get(strings.ToLower(base)); ok {
 		return v
 	}
 	return defNoun
@@ -424,10 +423,10 @@ func countPhrase(n int32) string {
 // "a player" rather than echoing raw Forge filter syntax.
 func gainLifeCostPhrase(part CostPart) string {
 	who := "a player"
-	switch strings.TrimSpace(part.Spec) {
-	case "Player.Opponent":
+	switch gainLifeCostPhraseCodes.Code(string(strings.TrimSpace(part.Spec))) {
+	case gainLifeCostPhrasePlayerOpponent:
 		who = "an opponent"
-	case "Player.Other":
+	case gainLifeCostPhrasePlayerOther:
 		if part.Each {
 			who = "each other player"
 		} else {
@@ -491,13 +490,25 @@ func ManaCostBeyondTap(c Cost) bool {
 	return c.HasNonMana()
 }
 
-var specNounTab1 = cards.NewStrTable[string](
-	cards.StrEntry[string]{Key: "creature", Val: "creature"},
-	cards.StrEntry[string]{Key: "artifact", Val: "artifact"},
-	cards.StrEntry[string]{Key: "enchantment", Val: "enchantment"},
-	cards.StrEntry[string]{Key: "land", Val: "land"},
-	cards.StrEntry[string]{Key: "planeswalker", Val: "planeswalker"},
-	cards.StrEntry[string]{Key: "permanent", Val: "permanent"},
-	cards.StrEntry[string]{Key: "card", Val: "card"},
-	cards.StrEntry[string]{Key: "token", Val: "token"},
+var specNounTab = state.NewStrTable[string](
+	state.StrEntry[string]{Key: "creature", Val: "creature"},
+	state.StrEntry[string]{Key: "artifact", Val: "artifact"},
+	state.StrEntry[string]{Key: "enchantment", Val: "enchantment"},
+	state.StrEntry[string]{Key: "land", Val: "land"},
+	state.StrEntry[string]{Key: "planeswalker", Val: "planeswalker"},
+	state.StrEntry[string]{Key: "permanent", Val: "permanent"},
+	state.StrEntry[string]{Key: "card", Val: "card"},
+	state.StrEntry[string]{Key: "token", Val: "token"},
+)
+
+type gainLifeCostPhraseCode uint16
+
+const (
+	gainLifeCostPhrasePlayerOpponent gainLifeCostPhraseCode = iota + 1
+	gainLifeCostPhrasePlayerOther
+)
+
+var gainLifeCostPhraseCodes = state.NewStrCodes(
+	state.StrEntry[gainLifeCostPhraseCode]{Key: "Player.Opponent", Val: gainLifeCostPhrasePlayerOpponent},
+	state.StrEntry[gainLifeCostPhraseCode]{Key: "Player.Other", Val: gainLifeCostPhrasePlayerOther},
 )

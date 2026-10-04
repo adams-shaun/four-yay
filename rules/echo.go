@@ -5,6 +5,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -174,7 +175,7 @@ func (e *Engine) echoElectionAsk() {
 	}
 	payable := false
 	if ef.action == nil {
-		payable = announced.Priceable() && e.costPayableOther(ef.player, ef.source, announced)
+		payable = announced.Priceable() && pay.CostPayableOther(asPayer(e), ef.player, ef.source, announced)
 	} else {
 		shim := &cumulativeUpkeep{player: ef.player, source: ef.source,
 			action: ef.action, actionRemaining: 1}
@@ -205,26 +206,26 @@ func (e *Engine) echoAnswer(chosen []decision.Option) {
 		e.echoElectionAsk()
 		return
 	}
-	switch chosen[0].Kind {
-	case "activate":
+	switch echoAnswerCodes.Code(string(chosen[0].Kind)) {
+	case echoAnswerActivate:
 		e.activatePaymentMana(ef.player, chosen[0].Obj)
 		return
-	case "done":
+	case echoAnswerDone:
 		ef.windowDone = true
 		e.echoElectionAsk()
 		return
-	case "echo_pay":
+	case echoAnswerEchoPay:
 		if ef.action != nil {
 			e.echoActionAsk()
 			return
 		}
 		announced := ef.pips.fold(ef.amount)
 		if announced.Priceable() &&
-			e.payManaConv(ef.player, announced, e.paymentConv(ef.player, ef.source, false)) {
+			pay.PayManaConv(asPayer(e), ef.player, announced, asPayer(e).Conv(ef.player, ef.source, false)) {
 			e.finishEcho()
 			return
 		}
-	case "echo_action_pick":
+	case echoAnswerEchoActionPick:
 		e.echoActionExecute(chosen)
 		return
 	}
@@ -313,3 +314,19 @@ func (e *Engine) finishEcho() {
 func init() {
 	effects.RegisterNonAPI("kw:Echo")
 }
+
+type echoAnswerCode uint16
+
+const (
+	echoAnswerActivate echoAnswerCode = iota + 1
+	echoAnswerDone
+	echoAnswerEchoPay
+	echoAnswerEchoActionPick
+)
+
+var echoAnswerCodes = state.NewStrCodes(
+	state.StrEntry[echoAnswerCode]{Key: "activate", Val: echoAnswerActivate},
+	state.StrEntry[echoAnswerCode]{Key: "done", Val: echoAnswerDone},
+	state.StrEntry[echoAnswerCode]{Key: "echo_pay", Val: echoAnswerEchoPay},
+	state.StrEntry[echoAnswerCode]{Key: "echo_action_pick", Val: echoAnswerEchoActionPick},
+)

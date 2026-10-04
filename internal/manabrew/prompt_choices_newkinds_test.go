@@ -171,7 +171,7 @@ func TestCastContributionMappingIsPinned(t *testing.T) {
 // Min is 0 -- so neither the object-pick fallback nor the Min==1 labelled
 // fallback reaches it. It maps onto chooseFromSelection by index; the empty
 // answer is the decline, and each chosen option's own Obj/Player is read by
-// rules/resolution.go's proliferate resume arm.
+// the proliferate effect when the answer is applied in place.
 func TestProliferateRecipientPickMapsToChooseFromSelection(t *testing.T) {
 	d := newDec(18, 0, decision.KChoose,
 		decision.Option{Index: 0, Kind: "proliferate", Label: "a player", Player: 1},

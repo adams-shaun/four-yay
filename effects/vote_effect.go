@@ -38,9 +38,6 @@ import (
 // VoteSubAbility$ are genuinely read on the ballot path.
 func effVote(h Host, c *Ctx, sa *cards.SA) {
 	vp := VoteOf(sa)
-
-	// Once per call: an answered ballot re-entry already noted on its
-	// first pass.
 	noteUnreadParams(h, c, "Vote", vp.Unread)
 
 	if vp.Card != "" {
@@ -59,10 +56,7 @@ func effVote(h Host, c *Ctx, sa *cards.SA) {
 	choices := vp.Choices
 	voters := definedPlayers(h, c, sa)
 
-	picks, complete := askFixedVote(h, c, sa, vp, choices, voters)
-	if !complete {
-		return
-	}
+	picks := askFixedVote(h, c, sa, vp, choices, voters)
 	for i, t := range voters {
 		label := ""
 		if i < len(picks) && picks[i].Obj > 0 && int(picks[i].Obj-1) < len(choices) {
@@ -86,8 +80,6 @@ func effVote(h Host, c *Ctx, sa *cards.SA) {
 		ballots[i] = VoteBallot{Player: t, Pick: int(picks[i].Obj) - 1}
 	}
 	emitVoteFinished(h, c, ballots, len(choices) > 0, vp.Secretly)
-	return
-
 }
 
 // resolveVoteOutcomes executes the winning option normally. StoreVoteNum$ is
@@ -129,13 +121,11 @@ func resolveVoteOutcomes(h Host, c *Ctx, vp *VoteParams, choices []string, count
 }
 
 // askFixedVote poses one private KChoose per voter. The answer is encoded as
-// ObjID(index+1), avoiding a second answer channel while keeping ResumeChoices
-// decision-scoped. A host that cannot answer takes option zero (R-9).
-func askFixedVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, choices []string, voters []state.PlayerID) ([]state.Target, bool) {
-	picks := append([]state.Target(nil), ([]state.Target)(nil)...)
-	i := int(0)
-
-	for ; i < len(voters); i++ {
+// ObjID(index+1), avoiding a second answer channel. A host that cannot answer
+// takes option zero (R-9).
+func askFixedVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, choices []string, voters []state.PlayerID) []state.Target {
+	var picks []state.Target
+	for i := 0; i < len(voters); i++ {
 		voter := voters[i]
 		min := 1
 		if vp.UpTo {
@@ -147,7 +137,7 @@ func askFixedVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, choices []string
 		}
 		d := &decision.Decision{Player: voter, Kind: decision.KChoose, Source: c.Source,
 			Min: min, Max: 1, ResumeKind: "vote", ResumeSA: sa, ResumeTarget: i,
-			ResumeChoices: PayloadTargets(picks), Prompt: prompt}
+			Prompt: prompt}
 		for j, name := range choices {
 			d.Options = append(d.Options, decision.Option{Index: j, Kind: "vote", Label: name, Obj: state.ObjID(j + 1)})
 		}
@@ -156,8 +146,7 @@ func askFixedVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, choices []string
 			continue
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand (the "vote" resume
-			// arm's VoteAnswer): option j is encoded as ObjID(j+1).
+			// The answered option; option j is encoded as ObjID(j+1).
 			pick := state.Target{}
 			if len(ans) > 0 {
 				pick = state.Target{Obj: ans[0].Obj}
@@ -165,13 +154,11 @@ func askFixedVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, choices []string
 			picks = append(picks, pick)
 			continue
 		}
-		_ = Ask(h, d)
 
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "vote resolved as the first ballot entry (no engine host to ask)"})
 		picks = append(picks, state.Target{Obj: 1})
 	}
-
-	return picks, true
+	return picks
 }
 
 // voteWinner returns the index of the highest count and whether that count is
@@ -206,11 +193,9 @@ func voteWinner(counts []int) (int, bool) {
 // member of the tie -- is remembered for VoteSubAbility$, which runs once
 // at the end (Council's Judgment's "exile each permanent with the most
 // votes or tied for most votes").
-func askCardVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, options []state.ObjID, voters []state.PlayerID) ([]state.ObjID, bool) {
-	picks := append([]state.Target(nil), ([]state.Target)(nil)...)
-	i := int(0)
-
-	for ; i < len(voters); i++ {
+func askCardVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, options []state.ObjID, voters []state.PlayerID) []state.ObjID {
+	var picks []state.Target
+	for i := 0; i < len(voters); i++ {
 		voter := voters[i]
 		min := 1
 		if vp.UpTo {
@@ -221,7 +206,7 @@ func askCardVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, options []state.O
 			prompt = "Vote for a permanent"
 		}
 		d := &decision.Decision{Player: voter, Kind: decision.KChoose, Source: c.Source, Min: min, Max: 1,
-			ResumeKind: "vote", ResumeSA: sa, ResumeTarget: i, ResumeChoices: PayloadTargets(picks), Prompt: prompt}
+			ResumeKind: "vote", ResumeSA: sa, ResumeTarget: i, Prompt: prompt}
 		for j, id := range options {
 			label := "permanent"
 			var controller state.PlayerID
@@ -243,8 +228,7 @@ func askCardVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, options []state.O
 			continue
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand (the "vote" resume
-			// arm's VoteAnswer).
+			// The answered permanent.
 			pick := state.Target{}
 			if len(ans) > 0 && ans[0].Obj != 0 {
 				pick = state.Target{Obj: ans[0].Obj}
@@ -252,7 +236,6 @@ func askCardVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, options []state.O
 			picks = append(picks, pick)
 			continue
 		}
-		_ = Ask(h, d)
 
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "card vote resolved as the first ballot entry (no engine host to ask)"})
 		picks = append(picks, state.Target{Obj: options[0]})
@@ -262,7 +245,7 @@ func askCardVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, options []state.O
 	for j, p := range picks {
 		out[j] = p.Obj
 	}
-	return out, true
+	return out
 }
 
 func effCardVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, ballot string) {
@@ -280,10 +263,7 @@ func effCardVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, ballot string) {
 	voters := definedPlayers(h, c, sa)
 	var picks []int
 
-	answered, complete := askCardVote(h, c, sa, vp, options, voters)
-	if !complete {
-		return
-	}
+	answered := askCardVote(h, c, sa, vp, options, voters)
 	picks = make([]int, len(answered))
 	for i, id := range answered {
 		picks[i] = -1
@@ -358,8 +338,7 @@ func effCardVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, ballot string) {
 		}
 	}
 	// VoteSubAbility$ resolves AFTER the tally publish and the remember, so a
-	// chained body sees Votes bound and the remembered set complete (fx42's
-	// consumers read before their own re-entries).
+	// chained body sees Votes bound and the remembered set complete.
 	if sub := vp.SubAbility; sub != "" {
 		if resolved := cards.ResolveSVar(c.SVars, sub); resolved != nil {
 			Resolve(h, c, resolved)

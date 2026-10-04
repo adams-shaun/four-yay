@@ -75,12 +75,11 @@ func castAndReachOptionalRevealAsk(t *testing.T, e *Engine, id state.ObjID) *dec
 }
 
 // TestOptionalRevealPerTargetAskThroughTheEngine drives the whole engine path
-// for a multi-target optional reveal: the rules resume arm must attribute
+// for a multi-target optional reveal: the engine must attribute
 // seat 1's answer to target 0 while seat 2 is asked its OWN question, not
 // silently answered by the first player's choice. The effects-level halves
 // are pinned in effects/reveal_optional_multitarget_test.go; this is the
-// engine end to end (suspend via e.resume, resume via the reveal_optional
-// arm setting Ctx.RevealOptTarget).
+// engine end to end.
 func TestOptionalRevealPerTargetAskThroughTheEngine(t *testing.T) {
 	t.Parallel()
 	e, id := optionalRevealEngine(t, "SP$ RevealHand | Defined$ Player.Opponent | Optional$ True", "Seat2Card", "Seat3Card")
@@ -109,9 +108,8 @@ func TestOptionalRevealPerTargetAskThroughTheEngine(t *testing.T) {
 	}
 
 	// Answer ACCEPT (option 0) for target 1. This is the half that proves the
-	// rules resume arm attributes the answer to target 1: without
-	// ctx.RevealOptTarget = rp.target the answer would still carry target 0,
-	// so target 1 would re-pose its ask instead of revealing and the
+	// answer is attributed to target 1: an answer still carrying target 0
+	// would make target 1 re-pose its ask instead of revealing and the
 	// resolution would never complete.
 	seat2Card := e.G.Zone(state.ZHand, 2)
 	if len(seat2Card) != 1 {

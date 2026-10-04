@@ -195,10 +195,10 @@ func effAddPhase(h Host, c *Ctx, sa *cards.SA) {
 // unresolvable value fails closed the same way (Forge's smartValueOf
 // throws; this is the loud-degrade equivalent), never a wrong grant.
 func parseExtraPhaseValue(v string) (state.Step, state.Step, string) {
-	switch strings.ToLower(strings.TrimSpace(v)) {
-	case "combat":
+	switch parseExtraPhaseValueCodes.Code(string(strings.ToLower(strings.TrimSpace(v)))) {
+	case parseExtraPhaseValueCombat:
 		return state.StepBeginCombat, state.StepEndCombat, ""
-	case "beginning":
+	case parseExtraPhaseValueBeginning:
 		return state.StepUntap, state.StepDraw, ""
 	}
 	set, unknown := state.ParsePhases(v)
@@ -216,3 +216,15 @@ func parseExtraPhaseValue(v string) (state.Step, state.Step, string) {
 	}
 	return steps[0], steps[len(steps)-1], ""
 }
+
+type parseExtraPhaseValueCode uint16
+
+const (
+	parseExtraPhaseValueCombat parseExtraPhaseValueCode = iota + 1
+	parseExtraPhaseValueBeginning
+)
+
+var parseExtraPhaseValueCodes = state.NewStrCodes(
+	state.StrEntry[parseExtraPhaseValueCode]{Key: "combat", Val: parseExtraPhaseValueCombat},
+	state.StrEntry[parseExtraPhaseValueCode]{Key: "beginning", Val: parseExtraPhaseValueBeginning},
+)

@@ -9,6 +9,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -19,7 +20,7 @@ import (
 // CastStatic match and targetBoundCtx's pre-payment Count$Kicked binding, so
 // the three spellings cannot drift.
 func modeIsKicked(mode string) bool {
-	if v, ok := modeIsKickedTab1.Get(mode); ok {
+	if v, ok := modeIsKickedTab.Get(mode); ok {
 		return v
 	}
 	return false
@@ -28,73 +29,73 @@ func modeIsKicked(mode string) bool {
 // modeFlags maps a pendingCast.mode to the CastInfo Counter string
 // (events.FlagsString of the matching CastFlags bit), "" for a plain cast.
 func modeFlags(mode string) string {
-	switch mode {
-	case "kicked":
+	switch modeFlagsCodes.Code(string(mode)) {
+	case modeFlagsKicked:
 		return events.FlagsString(state.FlagKicked)
 	// The and/or Kicker's per-part modes: each index flag rides with the
 	// bare FlagKicked (every part paid IS a kicked cast -- the bare
 	// predicate and the Condition$ Kicked gate keep matching), so the
 	// CastInfo wire carries the part's identity and the generic read.
-	case "kicked1":
+	case modeFlagsKicked1:
 		return events.FlagsString(state.FlagKicked | state.FlagKicked1)
-	case "kicked2":
+	case modeFlagsKicked2:
 		return events.FlagsString(state.FlagKicked | state.FlagKicked2)
-	case "kickedboth":
+	case modeFlagsKickedboth:
 		return events.FlagsString(state.FlagKicked | state.FlagKicked1 | state.FlagKicked2)
-	case "surged":
+	case modeFlagsSurged:
 		return events.FlagsString(state.FlagSurged)
-	case "flashback":
+	case modeFlagsFlashback:
 		return events.FlagsString(state.FlagFlashback)
 	// Jump-start (CR 702.84a): like flashback, the flag is what the
 	// resolution reader (spellRestZone) and the fizzle reader
 	// (spellFizzleZone) read to exile the card instead of the graveyard, on
 	// resolution AND when countered -- the card may not be jump-started a
 	// second time from the graveyard.
-	case "jumpstart":
+	case modeFlagsJumpstart:
 		return events.FlagsString(state.FlagJumpstart)
 	// Aftermath (CR 702.85a): the flag is what the resolution reader
 	// (spellRestZone) and the fizzle reader (spellFizzleZone) read to exile
 	// the card instead of the graveyard -- on resolution AND when countered,
 	// the same "any time it would leave the stack" convention flashback's
 	// TestFlashbackedSpellCounteredGoesToExile pins.
-	case "aftermath":
+	case modeFlagsAftermath:
 		return events.FlagsString(state.FlagAftermath)
 	// Fuse (CR 702.101b): one spell resolving both halves. The flag is the
 	// provenance rules/stack.go's resolution reader dispatches on to run both
 	// faces' spell abilities instead of the single Face().SpellAbility().
 	// The card stays at its front face, so no face-flip reader is involved.
-	case "fuse":
+	case modeFlagsFuse:
 		return events.FlagsString(state.FlagFused)
-	case "miracle":
+	case modeFlagsMiracle:
 		return events.FlagsString(state.FlagMiracle)
 	// The alternative-cost keyword family: the flag is what the ETB machinery
 	// (evoke's sacrifice trigger, dash's haste + delayed return, warp's
 	// delayed exile) and the warp recast offer read.
-	case "escape":
+	case modeFlagsEscape:
 		return events.FlagsString(state.FlagEscaped)
-	case "evoked":
+	case modeFlagsEvoked:
 		return events.FlagsString(state.FlagEvoked)
-	case "dashed":
+	case modeFlagsDashed:
 		return events.FlagsString(state.FlagDashed)
 	// Blitz (CR 702.152a): the flag is what the ETB machinery
 	// (altCostEnter -> blitzEnter) reads for the haste grant, the dies-draw
 	// granted trigger and the next-end-step sacrifice. It is a
 	// CastProvenanceFlag (state/object.go), so a stack copy does not inherit
 	// it.
-	case "blitzed":
+	case modeFlagsBlitzed:
 		return events.FlagsString(state.FlagBlitzed)
-	case "overloaded":
+	case modeFlagsOverloaded:
 		return events.FlagsString(state.FlagOverloaded)
-	case "warped":
+	case modeFlagsWarped:
 		return events.FlagsString(state.FlagWarped)
 	// The Adventure spell face's cast (CR 714.3a): the flag is what the
 	// resolution reader (spellRestZone) uses to exile the spell into the
 	// adventure zone instead of the graveyard. adventure_recast deliberately
 	// has NO case here -- casting the main face from the adventure zone is an
 	// ordinary cast, exactly like warp_recast.
-	case "adventure_alt":
+	case modeFlagsAdventureAlt:
 		return events.FlagsString(state.FlagAdventure)
-	case "buyback":
+	case modeFlagsBuyback:
 		return events.FlagsString(state.FlagBuyback)
 	// Offspring (CR 702.175a): the mode marks the intent to pay the optional
 	// ADDITIONAL offspring cost, and the offer exists only when it is payable
@@ -103,15 +104,15 @@ func modeFlags(mode string) string {
 	// flag is unconditional. Bare FlagOffspringPaid rides the ordinary
 	// pay-time CastInfo (payCast), and the keyword expansion's ETB trigger
 	// reads it through Count$OffspringPaid to mint the 1/1 token copy.
-	case "offspring":
+	case modeFlagsOffspring:
 		return events.FlagsString(state.FlagOffspringPaid)
-	case "optionalcost":
+	case modeFlagsOptionalcost:
 		return events.FlagsString(state.FlagOptionalCostPaid)
-	case "mayplay":
+	case modeFlagsMayplay:
 		return events.FlagsString(state.FlagMayPlay)
-	case "harmonize":
+	case modeFlagsHarmonize:
 		return events.FlagsString(state.FlagHarmonize)
-	case "suspend":
+	case modeFlagsSuspend:
 		return events.FlagsString(state.FlagSuspend)
 	// Foretell's later cast (CR 702.126a): the flag is the provenance an ETB
 	// reader (Lupine Harbingers' CheckSVar$ WasForetold) and Count$Foretold
@@ -121,7 +122,7 @@ func modeFlags(mode string) string {
 	// the ordinary flags path below is never reached for that mode); the
 	// action's flag has no modeFlags case for the same reason suspend's
 	// branch does not share this switch.
-	case "foretell_cast":
+	case modeFlagsForetellCast:
 		return events.FlagsString(state.FlagForetold)
 	// Mayhem (the Doom Prevails keyword): the flag is the provenance the
 	// Card.CastSa Spell.Mayhem condition reads (Sandman's Quicksand's "if
@@ -130,7 +131,7 @@ func modeFlags(mode string) string {
 	// per-event walk in spellsCastThisTurnMatching, effects/conditions.go's
 	// conditionMet). Mayhem has no exile tail, so the flag is the whole of
 	// what the cast records.
-	case "mayhem":
+	case modeFlagsMayhem:
 		return events.FlagsString(state.FlagMayhem)
 	// Web-slinging (CR 702.186a-family, Marvel's Spider-Man): the flag is the
 	// provenance the Card.Self+webSlinged filter predicate reads -- Spiders-Man,
@@ -138,7 +139,7 @@ func modeFlags(mode string) string {
 	// Save replacement. It is a CastProvenanceFlag (state/object.go), so a
 	// stack copy does not inherit it. webslinged_grant_N modes are normalized
 	// to this canonical mode in beginCastWith before this switch is reached.
-	case "web-slinging":
+	case modeFlagsWebSlinging:
 		return events.FlagsString(state.FlagWebSlinged)
 	// Sneak (CR 702.190a): the flag is the provenance the `sneaked` filter
 	// predicate reads -- Karai, Future of the Foot, Leonardo, Leader in Blue,
@@ -148,18 +149,18 @@ func modeFlags(mode string) string {
 	// (state/object.go), so a stack copy does not inherit it. sneaked_grant_N
 	// modes are normalized to this canonical mode in beginCastWith before
 	// this switch is reached.
-	case "sneak":
+	case modeFlagsSneak:
 		return events.FlagsString(state.FlagSneaked)
 	// Bestow (CR 702.114a): the flag is the provenance the resolution
 	// reader (resolveTop) uses to substitute the synthesized Aura attach
 	// spell, and what keeps a bestowed cast distinguishable on the wire.
-	case "bestowed":
+	case modeFlagsBestowed:
 		return events.FlagsString(state.FlagBestowed)
 	// Mutate (CR 702.140a): the flag is the provenance the resolution reader
 	// uses to merge the spell into its target. modeFlags maps "mutated" to
 	// the bare flag; payCast ORs FlagMutatedTop in when the answered placement
 	// put the mutating card on top (CR 702.140b).
-	case "mutated":
+	case modeFlagsMutated:
 		return events.FlagsString(state.FlagMutated)
 	// Multikicker (CR 702.43): the mode marks the INTENT to pay the
 	// optional multikicker cost, and the count ask (multikickAsk) can still
@@ -167,21 +168,21 @@ func modeFlags(mode string) string {
 	// cast, no flag and no event, exactly the "replicated" contract above.
 	// When a payment WAS made, payCast ORs bare FlagKicked (a multikicked
 	// cast IS a kicked cast) and FlagMultikicked onto the trailing CastInfo.
-	case "multikicked":
+	case modeFlagsMultikicked:
 		return ""
 	// Squad (CR 702.66): the mode marks the INTENT to pay the optional squad
 	// cost, and the count ask (squadAsk) can still answer 0 -- a DECLINED
 	// squad must stay the byte-identical plain cast, no flag and no event,
 	// exactly the "replicated"/"multikicked" contract above. When a payment
 	// WAS made, payCast ORs FlagSquadPaid onto a trailing CastInfo.
-	case "squadded":
+	case modeFlagsSquadded:
 		return ""
 	// Conspire (CR 702.78a): the mode marks the INTENT to tap two eligible
 	// creatures, and the offer can be taken only when they exist, but a
 	// DECLINED/plain cast must stay byte-identical -- no flag and no event,
 	// exactly the "replicated" contract above. When the tap WAS paid,
 	// payCast ORs FlagConspired onto a trailing CastInfo.
-	case "conspired", "casualty":
+	case modeFlagsConspired:
 		return ""
 	// The morph family's face-down cast (CR 702.37a/702.168a/702.169a): the
 	// flag is the provenance that names the keyword family the {3} cast
@@ -192,11 +193,11 @@ func modeFlags(mode string) string {
 	// prices its cost from. The three sibling bits shape the resolution the
 	// FlagFused/FlagBestowed way, so they are deliberately NOT in
 	// CastProvenanceFlags.
-	case "morphed":
+	case modeFlagsMorphed:
 		return events.FlagsString(state.FlagMorphed)
-	case "megamorphed":
+	case modeFlagsMegamorphed:
 		return events.FlagsString(state.FlagMegamorphed)
-	case "disguised":
+	case modeFlagsDisguised:
 		return events.FlagsString(state.FlagDisguised)
 	}
 	return ""
@@ -297,8 +298,8 @@ func (e *Engine) targetAsk() bool {
 	// conversion-aware equivalent: the SAME resolveMana payManaConvFor will
 	// run, including RestrictValid$ provenance. The
 	// targetDependentCostMayPay arm keeps the ValidTarget$ reducer exception.
-	if !e.costPayableClass(pc.player, paymentForCast(pc, mana),
-		pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}, mana) &&
+	if !pay.CostPayableClass(asPayer(e), pc.player, paymentForCast(pc, mana),
+		pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}, mana) &&
 		!e.hasUntappedManaSource(pc.player) && !e.targetDependentCostMayPay(pc) {
 		e.abortCast(pc, "cast aborted: cost no longer payable", true)
 		return true
@@ -1475,10 +1476,89 @@ func (e *Engine) recheckIllegal(pc *pendingCast) bool {
 	return false
 }
 
-var modeIsKickedTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "kicked", Val: true},
-	cards.StrEntry[bool]{Key: "kicked1", Val: true},
-	cards.StrEntry[bool]{Key: "kicked2", Val: true},
-	cards.StrEntry[bool]{Key: "kickedboth", Val: true},
-	cards.StrEntry[bool]{Key: "multikicked", Val: true},
+var modeIsKickedTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "kicked", Val: true},
+	state.StrEntry[bool]{Key: "kicked1", Val: true},
+	state.StrEntry[bool]{Key: "kicked2", Val: true},
+	state.StrEntry[bool]{Key: "kickedboth", Val: true},
+	state.StrEntry[bool]{Key: "multikicked", Val: true},
+)
+
+type modeFlagsCode uint16
+
+const (
+	modeFlagsKicked modeFlagsCode = iota + 1
+	modeFlagsKicked1
+	modeFlagsKicked2
+	modeFlagsKickedboth
+	modeFlagsSurged
+	modeFlagsFlashback
+	modeFlagsJumpstart
+	modeFlagsAftermath
+	modeFlagsFuse
+	modeFlagsMiracle
+	modeFlagsEscape
+	modeFlagsEvoked
+	modeFlagsDashed
+	modeFlagsBlitzed
+	modeFlagsOverloaded
+	modeFlagsWarped
+	modeFlagsAdventureAlt
+	modeFlagsBuyback
+	modeFlagsOffspring
+	modeFlagsOptionalcost
+	modeFlagsMayplay
+	modeFlagsHarmonize
+	modeFlagsSuspend
+	modeFlagsForetellCast
+	modeFlagsMayhem
+	modeFlagsWebSlinging
+	modeFlagsSneak
+	modeFlagsBestowed
+	modeFlagsMutated
+	modeFlagsMultikicked
+	modeFlagsSquadded
+	modeFlagsConspired
+	modeFlagsMorphed
+	modeFlagsMegamorphed
+	modeFlagsDisguised
+)
+
+var modeFlagsCodes = state.NewStrCodes(
+	state.StrEntry[modeFlagsCode]{Key: "kicked", Val: modeFlagsKicked},
+	state.StrEntry[modeFlagsCode]{Key: "kicked1", Val: modeFlagsKicked1},
+	state.StrEntry[modeFlagsCode]{Key: "kicked2", Val: modeFlagsKicked2},
+	state.StrEntry[modeFlagsCode]{Key: "kickedboth", Val: modeFlagsKickedboth},
+	state.StrEntry[modeFlagsCode]{Key: "surged", Val: modeFlagsSurged},
+	state.StrEntry[modeFlagsCode]{Key: "flashback", Val: modeFlagsFlashback},
+	state.StrEntry[modeFlagsCode]{Key: "jumpstart", Val: modeFlagsJumpstart},
+	state.StrEntry[modeFlagsCode]{Key: "aftermath", Val: modeFlagsAftermath},
+	state.StrEntry[modeFlagsCode]{Key: "fuse", Val: modeFlagsFuse},
+	state.StrEntry[modeFlagsCode]{Key: "miracle", Val: modeFlagsMiracle},
+	state.StrEntry[modeFlagsCode]{Key: "escape", Val: modeFlagsEscape},
+	state.StrEntry[modeFlagsCode]{Key: "evoked", Val: modeFlagsEvoked},
+	state.StrEntry[modeFlagsCode]{Key: "dashed", Val: modeFlagsDashed},
+	state.StrEntry[modeFlagsCode]{Key: "blitzed", Val: modeFlagsBlitzed},
+	state.StrEntry[modeFlagsCode]{Key: "overloaded", Val: modeFlagsOverloaded},
+	state.StrEntry[modeFlagsCode]{Key: "warped", Val: modeFlagsWarped},
+	state.StrEntry[modeFlagsCode]{Key: "adventure_alt", Val: modeFlagsAdventureAlt},
+	state.StrEntry[modeFlagsCode]{Key: "buyback", Val: modeFlagsBuyback},
+	state.StrEntry[modeFlagsCode]{Key: "offspring", Val: modeFlagsOffspring},
+	state.StrEntry[modeFlagsCode]{Key: "optionalcost", Val: modeFlagsOptionalcost},
+	state.StrEntry[modeFlagsCode]{Key: "mayplay", Val: modeFlagsMayplay},
+	state.StrEntry[modeFlagsCode]{Key: "harmonize", Val: modeFlagsHarmonize},
+	state.StrEntry[modeFlagsCode]{Key: "suspend", Val: modeFlagsSuspend},
+	state.StrEntry[modeFlagsCode]{Key: "foretell_cast", Val: modeFlagsForetellCast},
+	state.StrEntry[modeFlagsCode]{Key: "mayhem", Val: modeFlagsMayhem},
+	state.StrEntry[modeFlagsCode]{Key: "web-slinging", Val: modeFlagsWebSlinging},
+	state.StrEntry[modeFlagsCode]{Key: "sneak", Val: modeFlagsSneak},
+	state.StrEntry[modeFlagsCode]{Key: "bestowed", Val: modeFlagsBestowed},
+	state.StrEntry[modeFlagsCode]{Key: "mutated", Val: modeFlagsMutated},
+	state.StrEntry[modeFlagsCode]{Key: "multikicked", Val: modeFlagsMultikicked},
+	state.StrEntry[modeFlagsCode]{Key: "squadded", Val: modeFlagsSquadded},
+	state.StrEntry[modeFlagsCode]{Key: "conspired", Val: modeFlagsConspired},
+	state.StrEntry[modeFlagsCode]{Key: "casualty", Val: modeFlagsConspired},
+	state.StrEntry[modeFlagsCode]{Key: "morphed", Val: modeFlagsMorphed},
+	state.StrEntry[modeFlagsCode]{Key: "megamorphed", Val: modeFlagsMegamorphed},
+	state.StrEntry[modeFlagsCode]{Key: "disguised", Val: modeFlagsDisguised},
 )

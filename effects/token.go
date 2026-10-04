@@ -124,13 +124,13 @@ func tokenOwnerPlayers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool) {
 	// have been destroyed by the parent SA before this chained Token runs;
 	// events.Apply intentionally resets a departed object's live Controller to
 	// Owner, so prefer the controller captured when Resolve began.
-	if spec == "TargetedController" && c != nil && c.TargetControllerLKI != nil {
+	if spec == "TargetedController" && c != nil && c.Snap.TargetController != nil {
 		owners := make([]state.PlayerID, 0, len(c.Targets))
 		for _, target := range c.Targets {
 			if target.IsPlayer {
 				continue
 			}
-			if controller, ok := c.TargetControllerLKI[target.Obj]; ok {
+			if controller, ok := c.Snap.TargetController[target.Obj]; ok {
 				owners = append(owners, controller)
 				continue
 			}
@@ -231,8 +231,8 @@ func tokenAttackingPlayers(h Host, c *Ctx, raw string) (seats []state.PlayerID, 
 			continue
 		}
 		var ts []state.Target
-		switch p {
-		case "RememberedPlayer", "RememberedPlayers":
+		switch tokenAttackingPlayersCodes.Code(string(p)) {
+		case tokenAttackingPlayersRememberedPlayer:
 			ts = resolvedRemembered(h, c)
 		default:
 			// A `Valid <filter>` arm is an OBJECT selector by construction --
@@ -323,15 +323,6 @@ func tokenRememberedTargets(h Host, c *Ctx, name string) []state.Target {
 // effToken creates the requested token scripts and applies their token riders.
 func effToken(h Host, c *Ctx, sa *cards.SA) {
 	tp := TokenOf(sa)
-	if rest := resumingMint(c, sa); rest != nil {
-		// A re-entry after a parked mint's answer (rules' "token_rest"
-		// frame): everything before the loop already ran on the first pass
-		// and its values are frozen in the job, so only the owed units run.
-		job := rest.Job
-		runTokenMints(h, c, sa, tp, &job, rest.Next, rest.Parked, rest.Minted)
-		return
-	}
-	// Once per call: a re-entry already noted on its first pass.
 	noteUnreadParams(h, c, "Token", tp.Unread)
 	g := h.Game()
 	n := numText(h, c, tp.Amount, 1)
@@ -342,17 +333,17 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	// ... creates a Treasure"). Every pre-existing shape resolves exactly
 	// one owner, so the loop is byte-identical for them.
 	owners := []state.PlayerID{c.Controller}
-	switch v := tp.Owner; v {
-	case "", "You":
+	switch v := tp.Owner; tokenOwnerCodes.Code(v) {
+	case tokenOwnerYou:
 		// The default: the controller, already set above.
-	case "Opponent":
+	case tokenOwnerOpponent:
 		for _, p := range g.AliveFrom(c.Controller) {
 			if p != c.Controller {
 				owners = []state.PlayerID{p}
 				break
 			}
 		}
-	case "Player":
+	case tokenOwnerPlayer:
 		// "Each player creates ..." (Rendmaw, Creaking Nest, Marching
 		// Duodrone, Grismold the Dreadsower and 10 more corpus carriers of
 		// the bare spelling): EVERY alive seat creates TokenAmount$ tokens,
@@ -367,7 +358,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 		// player. The qualified Player.<qualifier> spellings stay in the
 		// default arm above.
 		owners = g.AliveFrom(0)
-	case "TriggeredOpponentVotedSame", "TriggeredOpponentVotedDiff":
+	case tokenOwnerTriggeredOpponentVotedSame:
 		// The vote-carrier referent (trig:Vote): each player in the List$
 		// set the firing trigger captured creates its own token. An EMPTY
 		// set creates nothing -- "each opponent who voted ..." is vacuous
@@ -380,7 +371,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 		}
 		owners = make([]state.PlayerID, 0, len(ps))
 		owners = append(owners, ps...)
-	case "Imprinted", "ImprintedController":
+	case tokenOwnerImprinted:
 		// Forge's TokenOwner$ ImprintedController: the controller of the
 		// RepeatEach iteration's current imprinted subject, and only that
 		// (UseImprinted$ binds the subject). The ordinary Defined resolver owns
@@ -394,7 +385,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 				break
 			}
 		}
-	case "RememberedOwner":
+	case tokenOwnerRememberedOwner:
 		// The owner of the first remembered OBJECT (Skyclave Apparition's
 		// "the exiled card's owner creates the token"). The same group the
 		// Remembered$ SVar head reads -- the source card's shared list first,
@@ -410,7 +401,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 				}
 			}
 		}
-	case "ThisTargetedPlayer":
+	case tokenOwnerThisTargetedPlayer:
 		// The player one of the charm's modes targeted (Shadrix Silverquill,
 		// the duo cycle, verdant/ashlings/prismari command -- 7 corpus files
 		// carry the spelling on a Token): the first player-kind entry of this
@@ -635,7 +626,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 		Tapped: tapped, TokenMemory: tokenMemory,
 		AttackCtx: attackCtx, AttackDefender: attackDefender,
 	}
-	runTokenMints(h, c, sa, tp, &job, -1, nil, nil)
+	runTokenMints(h, c, sa, tp, &job)
 }
 
 // TokenJob is one DB$ Token resolution's per-mint work, resolved ONCE before
@@ -695,118 +686,19 @@ func auraTokenWithheld(g *state.Game, job *TokenJob, key string) bool {
 	return false
 }
 
-// TokenRest is a DB$ Token's continuation once one of its mints parked
-// behind a CR 616.1 replacement-order ask (an entry-counter order, a token
-// replacement order): the ask suspends the resolution INSIDE the mint, so the
-// minted objects exist only after the answer. The host re-enters the Token SA
-// with this cursor once the answer has minted: Parked (host-filled) are the
-// objects the parked mint produced, which take the riders; the loop then
-// continues at the mint after Next. SinkID is the host's handle on the
-// collector the answer mints into; effects never reads it. Plain data, so the
-// host carries it on its own continuation frame and replay re-derives it.
-//
-// The same continuation serves every token-minting primitive whose post-mint
-// work reads the minted ids (effToken's riders, Encore's haste and sacrifice
-// group, Incubate's counters, Amass's Army): Next is the primitive's own loop
-// cursor, and Players/Objs/Script/Amount/Count are the frozen values a
-// primitive other than effToken re-enters with (effToken freezes Job
-// instead; CopyPermanent freezes its controllers, copy sources and count).
-type TokenRest struct {
-	SA     *cards.SA
-	SinkID uint64
-	Next   int
-	Parked []state.ObjID
-	Minted []state.ObjID
-	Job    TokenJob
-
-	Players []state.PlayerID
-	Objs    []state.ObjID
-	Script  string
-	Amount  int32
-	Count   int32
-	// Counts is a copy effect's per-destination copy count after the
-	// CreateToken replacements (ProposeCopyTokens), frozen at the first pass
-	// so a resumed pass mints the same units without re-proposing.
-	Counts []int32
-}
-
-// resumingMint consumes and returns c's TokenRest when this pass re-enters sa
-// after a parked mint's answer, else nil.
-func resumingMint(c *Ctx, sa *cards.SA) *TokenRest {
-	rest := (*TokenRest)(nil)
-
-	if rest == nil || rest.SA != sa {
-		return nil
-	}
-
-	return rest
-}
-
-// suspendMint hands a parked mint's continuation to the host (the caller's
-// last EmitTokenCreate parked the resolution). It reports whether the host
-// recorded it; the caller then stops, and Resolve defers the SA's
-// Imprint/ClearImprinted tail to the re-entry.
-func suspendMint(h Host, c *Ctx, rest TokenRest) bool {
-	th, ok := h.(tokenRestHost)
-	if !ok || !th.SuspendTokenRest(rest.SA, rest) {
-		return false
-	}
-	c.tokensSuspended = true
-	return true
-}
-
-// Clone returns a copy that shares no slice with r.
-func (r TokenRest) Clone() TokenRest {
-	r.Parked = append([]state.ObjID(nil), r.Parked...)
-	r.Minted = append([]state.ObjID(nil), r.Minted...)
-	r.Job.Owners = append([]state.PlayerID(nil), r.Job.Owners...)
-	r.Job.PumpKeywords = append([]string(nil), r.Job.PumpKeywords...)
-	r.Job.TokenMemory = append([]state.Target(nil), r.Job.TokenMemory...)
-	r.Players = append([]state.PlayerID(nil), r.Players...)
-	r.Objs = append([]state.ObjID(nil), r.Objs...)
-	r.Counts = append([]int32(nil), r.Counts...)
-	return r
-}
-
-// tokenRestHost is implemented by the rules engine: SuspendTokenRest records
-// the continuation of a Token SA whose last EmitTokenCreate parked the
-// resolution behind a replacement-order ask. It reports false when that emit
-// did not park (or nothing is suspended to continue), and the caller keeps
-// its synchronous behaviour.
-type tokenRestHost interface {
-	SuspendTokenRest(sa *cards.SA, rest TokenRest) bool
-}
-
-// runTokenMints is effToken's mint loop. resumeAt < 0 is a first pass; a
-// TokenRest re-entry passes the parked mint's unit index, the objects the
-// answer minted for it and the mints already made. A unit is one mint or one
-// unknown-script Note, in the loop's own order, so a re-entry skips exactly
-// the units the first pass already performed.
-func runTokenMints(h Host, c *Ctx, sa *cards.SA, tp *TokenParams, job *TokenJob, resumeAt int, parked, minted []state.ObjID) {
+// runTokenMints is effToken's mint loop: one mint per owner per job.N for
+// each known script, one Note for each unknown one, then the post-loop
+// ImprintTokens$/AtEOT$ work over every object the loop minted.
+func runTokenMints(h Host, c *Ctx, sa *cards.SA, tp *TokenParams, job *TokenJob) {
 	g := h.Game()
-	unit := -1
+	var minted []state.ObjID
 	for _, key := range tp.Scripts {
 		if _, ok := g.Tokens[key]; !ok {
-			unit++
-			if unit > resumeAt {
-				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "unknown token script " + key})
-			}
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "unknown token script " + key})
 			continue
 		}
 		for _, owner := range job.Owners {
 			for i := int32(0); i < job.N; i++ {
-				unit++
-				if unit < resumeAt {
-					continue
-				}
-				if unit == resumeAt {
-					// The parked mint: the answer minted it (or its whole
-					// rewritten plan); only its riders are owed.
-					for _, want := range parked {
-						minted = applyTokenMintRiders(h, c, job, owner, want, minted)
-					}
-					continue
-				}
 				// want is the ID the new object gets if TokenCreate's own Apply
 				// case actually mints one (state.Game.AddObject assigns NextID,
 				// then increments it) -- a direct, positive identity check,
@@ -827,24 +719,13 @@ func runTokenMints(h Host, c *Ctx, sa *cards.SA, tp *TokenParams, job *TokenJob,
 				wasSuspended := h.Suspended()
 				mints := h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: owner, Text: key})
 				if !wasSuspended && h.Suspended() {
-					// The mint parked the resolution behind a replacement-order
-					// ask: what landed so far takes its riders now, and the rest
-					// of this resolution -- the parked mint's riders, the mints
-					// after it, and the post-loop work -- resumes with the
-					// answer instead of running against objects that do not
-					// exist yet (and instead of emitting the next mint into the
-					// outstanding ask, which would swallow it).
-					if _, ok := h.(tokenRestHost); ok {
-						landed := minted
-						for _, id := range mints {
-							landed = applyTokenMintRiders(h, c, job, owner, id, landed)
-						}
-						if suspendMint(h, c, TokenRest{SA: sa, Next: unit, Minted: landed, Job: *job}) {
-							return
-						}
-						minted = landed
-						continue
+					// The mint opened a resolution-time window: what landed
+					// takes its riders, and the predicted-id fallback below
+					// is skipped.
+					for _, id := range mints {
+						minted = applyTokenMintRiders(h, c, job, owner, id, minted)
 					}
+					continue
 				}
 				if len(mints) == 0 {
 					// Nothing landed (an unknown key or a plan rounded down to
@@ -980,3 +861,39 @@ func proposeCopyTokens(h Host, player state.PlayerID, src state.ObjID, n int32) 
 	}
 	return n
 }
+
+type tokenAttackingPlayersCode uint16
+
+const (
+	tokenAttackingPlayersRememberedPlayer tokenAttackingPlayersCode = iota + 1
+)
+
+var tokenAttackingPlayersCodes = state.NewStrCodes(
+	state.StrEntry[tokenAttackingPlayersCode]{Key: "RememberedPlayer", Val: tokenAttackingPlayersRememberedPlayer},
+	state.StrEntry[tokenAttackingPlayersCode]{Key: "RememberedPlayers", Val: tokenAttackingPlayersRememberedPlayer},
+)
+
+type tokenOwnerCode uint16
+
+const (
+	tokenOwnerYou tokenOwnerCode = iota + 1
+	tokenOwnerOpponent
+	tokenOwnerPlayer
+	tokenOwnerTriggeredOpponentVotedSame
+	tokenOwnerImprinted
+	tokenOwnerRememberedOwner
+	tokenOwnerThisTargetedPlayer
+)
+
+var tokenOwnerCodes = state.NewStrCodes(
+	state.StrEntry[tokenOwnerCode]{Key: "", Val: tokenOwnerYou},
+	state.StrEntry[tokenOwnerCode]{Key: "You", Val: tokenOwnerYou},
+	state.StrEntry[tokenOwnerCode]{Key: "Opponent", Val: tokenOwnerOpponent},
+	state.StrEntry[tokenOwnerCode]{Key: "Player", Val: tokenOwnerPlayer},
+	state.StrEntry[tokenOwnerCode]{Key: "TriggeredOpponentVotedSame", Val: tokenOwnerTriggeredOpponentVotedSame},
+	state.StrEntry[tokenOwnerCode]{Key: "TriggeredOpponentVotedDiff", Val: tokenOwnerTriggeredOpponentVotedSame},
+	state.StrEntry[tokenOwnerCode]{Key: "Imprinted", Val: tokenOwnerImprinted},
+	state.StrEntry[tokenOwnerCode]{Key: "ImprintedController", Val: tokenOwnerImprinted},
+	state.StrEntry[tokenOwnerCode]{Key: "RememberedOwner", Val: tokenOwnerRememberedOwner},
+	state.StrEntry[tokenOwnerCode]{Key: "ThisTargetedPlayer", Val: tokenOwnerThisTargetedPlayer},
+)

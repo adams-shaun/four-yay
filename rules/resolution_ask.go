@@ -1,7 +1,5 @@
-// resolution_ask.go holds the ask side of the mid-resolution mechanism: Engine.Ask, its resume-point capture (buildAskResume), the Cxt-scoped resolution state setters and the departing-target snapshots.
-
-// Code moved verbatim out of rules/resolution.go (moving code only; the
-// suspension/resumption mechanism is documented at the top of resolution.go).
+// resolution_ask.go holds Engine.Ask (the no-run default), the resolution
+// Ctx publication seam and the departing-target snapshots.
 package rules
 
 import (
@@ -89,60 +87,10 @@ func (e *Engine) StateChangedSince(mark int) bool {
 	return false
 }
 
-// Suspended implements effects.Host.Suspended: the resolution is suspended
-// when a mid-resolution ask set e.resume and the answer has not yet arrived
-// to clear it. effects.Resolve checks this after every sub-ability so that a
-// suspended ask stops the SubAbility chain instead of running what sits
-// beneath it (B1). It is the rules-side half of the pairing with Ask: Ask
-// sets e.resume, and handleModes clears it the moment the answer lands, so
-// the resume pass re-enters the chain with nothing suspended and walks the
-// rest of it exactly once.
-//
-// SetResolutionFlipMemory implements effects' flipMemoryHost (an optional
-// seam, so the effects test doubles need no method): effects.Resolve publishes
-// the resolving chain's shared coin-flip memory around the whole walk and
-// restores the enclosing value on return, and effFlipCoin re-publishes when it
-// lazily allocates that memory. Returns the previous value for the defer
-// restore. Engine-transient scratch like resolvingTargetControllerLKI.
-func (e *Engine) SetResolutionFlipMemory(m *effects.FlipMemory) *effects.FlipMemory {
-	prev := e.resolvingFlipMemory
-	e.resolvingFlipMemory = m
-	return prev
-}
-
-// SetResolutionExchangeMemory implements effects' exchangeMemoryHost (an
-// optional seam, so the effects test doubles need no method): effects.Resolve
-// publishes the resolving chain's shared ExchangeLife rider memory around the
-// whole walk and restores the enclosing value on return, and effExchangeLife
-// re-publishes when it lazily allocates that memory. Returns the previous
-// value for the defer restore. Engine-transient scratch like
-// resolvingFlipMemory, never a writer of the resume state the archtest guards.
-func (e *Engine) SetResolutionExchangeMemory(m *effects.ExchangeMemory) *effects.ExchangeMemory {
-	prev := e.resolvingExchangeMemory
-	e.resolvingExchangeMemory = m
-	return prev
-}
-
-// SetResolutionTargetControllerLKI implements
-// effects.Host.SetResolutionTargetControllerLKI: effects.Resolve publishes
-// the target-controller snapshot of the chain it is about to walk, and
-// restores the previous value on return, so the scratch holds exactly the
-// innermost running chain's map. Engine.Ask consumes it onto the pending
-// resumePoint. Writes engine scratch, never e.resume, so it is not a writer
-// of the resume state the archtest guards.
-func (e *Engine) SetResolutionTargetControllerLKI(m map[state.ObjID]state.PlayerID) map[state.ObjID]state.PlayerID {
-	prev := e.resolvingTargetControllerLKI
-	e.resolvingTargetControllerLKI = m
-	return prev
-}
-
 // SetResolutionCtx implements effects.Host's optional resolutionCtxHost
 // interface: effects.Resolve publishes the live Ctx of the chain it is about
 // to walk, and restores the previous value on return, so the scratch holds
-// exactly the innermost running chain's Ctx. Engine.Ask consumes it as the
-// fallback source of the chain's TargetUnique$ accumulator. Writes engine
-// scratch, never e.resume, so it is not a writer of the resume state the
-// archtest guards.
+// exactly the innermost running chain's Ctx.
 func (e *Engine) SetResolutionCtx(c *effects.Ctx) *effects.Ctx {
 	prev := e.resolutionCtx
 	e.resolutionCtx = c
@@ -193,17 +141,17 @@ func (e *Engine) snapshotDepartingTargetCounters(oid state.ObjID) {
 	// the target has at this last battlefield instant (CR 608.2h -- a
 	// Giant Growth-pumped Condemn target's toughness, not the printed one).
 	if o.Face() != nil {
-		if c.TargetPTLKI == nil {
-			c.TargetPTLKI = make(map[state.ObjID]effects.TargetPT)
+		if c.Snap.TargetPT == nil {
+			c.Snap.TargetPT = make(map[state.ObjID]effects.TargetPT)
 		}
-		c.TargetPTLKI[oid] = effects.TargetPT{Power: e.Power(oid), Toughness: e.Toughness(oid)}
+		c.Snap.TargetPT[oid] = effects.TargetPT{Power: e.Power(oid), Toughness: e.Toughness(oid)}
 	}
 	if len(o.Counters) == 0 {
-		delete(c.TargetCountersLKI, oid)
+		delete(c.Snap.TargetCounters, oid)
 		return
 	}
-	if c.TargetCountersLKI == nil {
-		c.TargetCountersLKI = make(map[state.ObjID][]state.Counter)
+	if c.Snap.TargetCounters == nil {
+		c.Snap.TargetCounters = make(map[state.ObjID][]state.Counter)
 	}
-	c.TargetCountersLKI[oid] = append([]state.Counter(nil), o.Counters...)
+	c.Snap.TargetCounters[oid] = append([]state.Counter(nil), o.Counters...)
 }

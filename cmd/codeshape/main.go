@@ -73,6 +73,7 @@ func run(w io.Writer, root string, table bool, top int) error {
 		{"effects.SpecContext literals (outside constructors)", m.SpecContextLiterals},
 		{"effects.TriggerContext literals (outside constructors)", m.TriggerContextLiterals},
 		{"trigmatch.Board methods", m.TrigmatchBoardMethods},
+		{"pay.Engine methods", m.PayEngineMethods},
 		{"files parsed", m.Files},
 	}
 	for _, r := range rows {

@@ -38,7 +38,7 @@ const clonePolicyHelp = "every field of a type Clone copies field by field carri
 	"  share = immutable or corpus-owned, so the clone aliases the same reference (or drops it), never deep-copies it;\n" +
 	"  reset = scratch / memo / transient state zero at an intent boundary: the clone leaves it zero or gets its own fresh or Spare-recycled storage;\n" +
 	"  hook  = a harness observer Clone deliberately does not copy (nil on the clone).\n" +
-	"Pick the policy that matches what rules/clone.go does with the field, and add the matching copy line there when it is deep."
+	"Pick the policy that matches how a clone must treat the field, then run `go generate ./rules`: clone_gen.go renders the copy (and any if=/rekey/pool= option) from the tag."
 
 // clonePolicyTypes are the types whose every field must carry a clone policy:
 // the Engine (through its embedded clusters), the resume point of a
@@ -67,6 +67,27 @@ type clonePolicyField struct {
 	index  []int
 	typ    reflect.Type
 	policy string
+	// opts are the tag's options after the policy (clone_gen_test.go's
+	// vocabulary): if=, pool=, copy=, release=, rekey.
+	opts map[string]string
+}
+
+// cloneTagOptions are the options a clone tag may carry after its policy;
+// clone_gen_test.go documents each.
+var cloneTagOptions = map[string]bool{"if": true, "pool": true, "copy": true, "release": true, "rekey": true}
+
+// parseCloneTag splits `policy[,opt[=value]...]`.
+func parseCloneTag(tag string) (string, map[string]string) {
+	parts := strings.Split(tag, ",")
+	var opts map[string]string
+	for _, p := range parts[1:] {
+		if opts == nil {
+			opts = map[string]string{}
+		}
+		k, v, _ := strings.Cut(p, "=")
+		opts[k] = v
+	}
+	return parts[0], opts
 }
 
 func clonePolicyFieldsOf(t reflect.Type) []clonePolicyField {
@@ -80,7 +101,8 @@ func clonePolicyFieldsOf(t reflect.Type) []clonePolicyField {
 				walk(sf.Type, prefix+sf.Name+".", idx)
 				continue
 			}
-			out = append(out, clonePolicyField{path: prefix + sf.Name, index: idx, typ: sf.Type, policy: sf.Tag.Get("clone")})
+			policy, opts := parseCloneTag(sf.Tag.Get("clone"))
+			out = append(out, clonePolicyField{path: prefix + sf.Name, index: idx, typ: sf.Type, policy: policy, opts: opts})
 		}
 	}
 	walk(t, t.Name()+".", nil)
@@ -111,6 +133,11 @@ func TestClonePolicyEveryFieldTagged(t *testing.T) {
 				}
 				missing = append(missing, "rules."+f.path+" ("+f.typ.String()+"): "+got)
 				continue
+			}
+			for o := range f.opts {
+				if !cloneTagOptions[o] {
+					missing = append(missing, "rules."+f.path+": unknown clone tag option "+`"`+o+`"`)
+				}
 			}
 			counts[f.policy]++
 		}
@@ -224,17 +251,13 @@ func cloneAliases(a, b reflect.Value) bool {
 // clonePolicyTransformed names the deep fields whose clone value
 // legitimately differs from the original's: cloneWith re-keys or narrows them
 // rather than copying them verbatim. Each is still the clone's own (the alias
-// check applies); only the equality check is waived.
+// check applies); only the equality check is waived. A field tagged `rekey`
+// is transformed by its tag and needs no entry here.
 var clonePolicyTransformed = map[string]string{
-	"L":                                     "CloneIntoFrom marks the clone's log forked: it shares the original's append-only event prefix (capped at len)",
-	"engineLayerCaches.staticVersion":       "re-keyed onto the clone's own zero continuousVersion",
-	"engineLayerCaches.sbaQuiet":            "carried only when provably quiet (sbaQuietCarry), re-recorded at the clone's log head",
-	"engineDerivedTables.renameVersion":     "re-keyed onto the clone's continuousVersion (rekeyVersion)",
-	"engineDerivedTables.typesVersion":      "re-keyed onto the clone's continuousVersion (rekeyVersion)",
-	"engineDerivedTables.typesProbeVersion": "re-keyed onto the clone's own zero continuousVersion",
-	"engineScratch.atkOffersVer":            "re-keyed onto the clone's own zero continuousVersion",
-	"engineScratch.lossProof":               "forClone-style copy: the registry header (contPtr, contLen) is re-checked once on the clone",
-	"engineTriggerBatches.trigGrant":        "forClone: the registry header (contPtr, contLen) is re-checked once on the clone",
+	"L":                              "CloneIntoFrom marks the clone's log forked: it shares the original's append-only event prefix (capped at len)",
+	"engineLayerCaches.sbaQuiet":     "carried only when provably quiet (sbaQuietCarry), re-recorded at the clone's log head",
+	"engineScratch.lossProof":        "forClone-style copy: the registry header (contPtr, contLen) is re-checked once on the clone",
+	"engineTriggerBatches.trigGrant": "forClone: the registry header (contPtr, contLen) is re-checked once on the clone",
 }
 
 type clonePolicyChecker struct {
@@ -321,6 +344,9 @@ func (k *clonePolicyChecker) checkField(path, rel string, f clonePolicyField, ov
 			k.checkNoImmediateAlias(path, "deep", ov, cv)
 		}
 		if _, ok := clonePolicyTransformed[rel]; ok && depth == 0 {
+			return
+		}
+		if _, ok := f.opts["rekey"]; ok {
 			return
 		}
 		if d := cloneFirstDiff(ov, cv, path, map[[2]uintptr]bool{}); d != "" {

@@ -72,9 +72,9 @@ func pureGrantKeywords(ab *cards.SA) []string {
 	if ab.Sub != nil {
 		return nil
 	}
-	switch effects.DefinedRefOf(ab).Raw {
-	case "Self", "Parent":
-	case "":
+	switch pureGrantKeywordsCodes.Code(string(effects.DefinedRefOf(ab).Raw)) {
+	case pureGrantKeywordsSelf:
+	case pureGrantKeywordsEmpty:
 		if effects.TargetsOf(ab).Has(effects.TgtValidPresent) {
 			return nil
 		}
@@ -153,3 +153,16 @@ func faceHasActivationZone(f *cards.Face, zone string) bool {
 	}
 	return false
 }
+
+type pureGrantKeywordsCode uint16
+
+const (
+	pureGrantKeywordsSelf pureGrantKeywordsCode = iota + 1
+	pureGrantKeywordsEmpty
+)
+
+var pureGrantKeywordsCodes = state.NewStrCodes(
+	state.StrEntry[pureGrantKeywordsCode]{Key: "Self", Val: pureGrantKeywordsSelf},
+	state.StrEntry[pureGrantKeywordsCode]{Key: "Parent", Val: pureGrantKeywordsSelf},
+	state.StrEntry[pureGrantKeywordsCode]{Key: "", Val: pureGrantKeywordsEmpty},
+)

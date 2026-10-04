@@ -98,6 +98,15 @@ func cmpOpOf(a, b byte, fold bool) CmpOp {
 	return CmpNone
 }
 
+// CmpOpOf is the operator a whole token names exactly ("EQ" .. "GE"),
+// CmpNone for anything else.
+func CmpOpOf(s string) CmpOp {
+	if len(s) != 2 {
+		return CmpNone
+	}
+	return cmpOpOf(s[0], s[1], false)
+}
+
 // Apply compares have against n under the operator (false for CmpNone).
 func (op CmpOp) Apply(have, n int) bool {
 	switch op {
@@ -413,7 +422,7 @@ func activationZoneMask(az ParamText) uint32 {
 	if !az.Present {
 		return 1 << state.ZBattlefield
 	}
-	if v, ok := activationZoneMaskTab1.Get(az.Text); ok {
+	if v, ok := activationZoneMaskTab.Get(az.Text); ok {
 		return v
 	}
 	return 0
@@ -429,11 +438,7 @@ func conditionOtherKey(sa *cards.SA) bool {
 		if !strings.HasPrefix(k, "Condition") || k == "ConditionDescription" {
 			continue
 		}
-		switch k {
-		case "ConditionDefined", "ConditionPresent", "ConditionNotPresent", "ConditionCompare",
-			"ConditionCheckSVar", "ConditionSVarCompare", "Condition",
-			"ConditionPlayerTurn", "ConditionPhases", "ConditionFirstCombat", "ConditionActivationLimit":
-		default:
+		if !conditionEvaluatedKeys.Has(k) {
 			return true
 		}
 	}
@@ -447,25 +452,18 @@ func conditionZoneParam(sa *cards.SA) string {
 	return strings.TrimSpace(sa.ParamStr(cards.PKConditionZone))
 }
 
-// ActivationTierKeys are the keys compileActivation reads for every ability
-// (the rules census check holds them read for every API).
-func ActivationTierKeys() []string {
-	return []string{
-		"Activation", "ActivationAfterBlockers", "ActivationFirstCombat", "ActivationGameTypes",
-		"ActivationLimit", "ActivationPhases", "ActivationZone", "Activator", "CheckSVar",
-		"Condition", "ConditionActivationLimit", "ConditionCheckSVar", "ConditionCompare",
-		"ConditionDefined", "ConditionFirstCombat", "ConditionNotPresent", "ConditionPhases",
-		"ConditionPlayerTurn", "ConditionPresent", "ConditionSVarCompare", "Cost",
-		"GameActivationLimit", "InstantSpeed", "IsPresent", "OpponentTurn", "PlayerTurn",
-		"PresentCompare", "PresentDefined", "PresentZone", "SVarCompare", "SorcerySpeed",
-		"UnlessCost", "UnlessPayer", "UnlessSwitched",
-	}
-}
+var activationZoneMaskTab = state.NewStrTable[uint32](
+	state.StrEntry[uint32]{Key: "Battlefield", Val: 1 << state.ZBattlefield},
+	state.StrEntry[uint32]{Key: "Graveyard", Val: 1 << state.ZGraveyard},
+	state.StrEntry[uint32]{Key: "Hand", Val: 1 << state.ZHand},
+	state.StrEntry[uint32]{Key: "Exile", Val: 1 << state.ZExile},
+	state.StrEntry[uint32]{Key: "Stack", Val: 1 << state.ZStack},
+)
 
-var activationZoneMaskTab1 = cards.NewStrTable[uint32](
-	cards.StrEntry[uint32]{Key: "Battlefield", Val: 1 << state.ZBattlefield},
-	cards.StrEntry[uint32]{Key: "Graveyard", Val: 1 << state.ZGraveyard},
-	cards.StrEntry[uint32]{Key: "Hand", Val: 1 << state.ZHand},
-	cards.StrEntry[uint32]{Key: "Exile", Val: 1 << state.ZExile},
-	cards.StrEntry[uint32]{Key: "Stack", Val: 1 << state.ZStack},
+// conditionEvaluatedKeys are the Condition* keys conditionMet evaluates.
+var conditionEvaluatedKeys = state.NewNameSet(
+	"ConditionDefined", "ConditionPresent", "ConditionNotPresent",
+	"ConditionCompare", "ConditionCheckSVar", "ConditionSVarCompare",
+	"Condition", "ConditionPlayerTurn", "ConditionPhases",
+	"ConditionFirstCombat", "ConditionActivationLimit",
 )

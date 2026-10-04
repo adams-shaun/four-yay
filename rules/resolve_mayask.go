@@ -71,6 +71,13 @@ func tapeTextMayAsk(e *Engine) bool {
 	if o == nil || o.IsCopy {
 		return true // a copy: copy-target elections, copied modal riders
 	}
+	if o.CastFlags&state.FlagFused != 0 {
+		// A fused split spell (CR 702.102c) runs BOTH halves; the face read
+		// below is only the front half, and resolveFused poses each half's
+		// sub-ability target asks (and the alternate half's own asks, Away's
+		// sacrifice) at resolution.
+		return true
+	}
 	if ab := o.Ability; ab != nil {
 		if ab.API == "Charm" && len(o.ChosenModes) == 0 {
 			return true // modes not announced on the stack: picked at resolution
@@ -109,7 +116,10 @@ func tapeTextMayAsk(e *Engine) bool {
 	}
 	sa := f.SpellAbility()
 	if f.IsPermanent() {
-		if cards.FaceEntryMayAsk(f) {
+		// The spell's own entry text, and the board's entry replacements:
+		// two Moved replacements competing for the entering permanent pose
+		// a CR 616.1 order choice (the land play's gate, tapeLandMayAsk).
+		if cards.FaceEntryMayAsk(f) || tapeReplMayAsk(e, "Moved") {
 			return true
 		}
 		if sa == nil {
@@ -141,7 +151,8 @@ func mayAskOnBoard(e *Engine, st uint32) bool {
 	g := uint8(st >> mayAskGateShift)
 	return (g&cards.GateTokens != 0 && tapeReplMayAsk(e, "CreateToken")) ||
 		(g&cards.GateDamage != 0 && tapeReplMayAsk(e, "DamageDone")) ||
-		(g&cards.GateDraw != 0 && tapeDredgeMayAsk(e))
+		(g&cards.GateDraw != 0 && tapeDredgeMayAsk(e)) ||
+		(g&cards.GateLife != 0 && tapeReplMayAsk(e, "GainLife"))
 }
 
 // tapeDredgeMayAsk is the draw gate: a card with Dredge in any graveyard

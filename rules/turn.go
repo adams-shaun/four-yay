@@ -375,9 +375,8 @@ func (e *Engine) finishUntapStep(next int) bool {
 //	turn-based action shares with the Draw primitive, and the ask leaves
 //	e.pending set (exactly the condition the Advance loop pauses on).
 //	CR 405.1: the step's priority comes only AFTER the turn-based action
-//	completes -- and the dredge answer's resume path (resolution.go's
-//	dredge arm -> Advance -> priorityRound) grants that one priority
-//	itself. Reporting the suspension here (e.pending != nil alongside
+//	completes -- and the dredge answer's path (the kernel's answered
+//	draw -> Advance -> priorityRound) grants that one priority itself. Reporting the suspension here (e.pending != nil alongside
 //	e.G.Over) is what keeps the emit below from granting priority twice
 //	and from logging a Priority event before the player had even answered
 //	whether to replace the draw (findings-sol4 MAJOR;
@@ -404,8 +403,7 @@ func (e *Engine) drawStepTurnAction() bool {
 	if e.pending != nil {
 		// The draw suspended on a mid-draw ask (a Dredge replacement's
 		// KModes choice): the step's priority comes from the answer's
-		// resume path (resolution.go's dredge arm -> Advance ->
-		// priorityRound), so the emit below must not grant it twice. The
+		// path (the kernel's answered draw -> Advance -> priorityRound), so the emit below must not grant it twice. The
 		// after-draw Saga grant is likewise deferred: it belongs after the
 		// step's draw actually lands, and the dredge answer re-drives the
 		// turn structure before that priority.
@@ -1287,25 +1285,19 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 	}
 	if e.choosing == chooseTokenReplace {
 		// The chosen-copy CreateToken election (poseChosenTokenReplacement):
-		// dispatch it before the mid-resolution resume arm below. The election
-		// can be posed inside the CR 616.1 answer that was applying its own
+		// dispatched on its own state. The election can be posed inside the CR 616.1 answer that was applying its own
 		// order competition (pending nil, the competition's suspension record
 		// still on e.resume): that record is the competition's, remembered on
 		// the election's own state, and tokenReplAnswer's tail resumes it once
-		// the plan has settled -- the resume arm here would instead consume it
-		// with the election's answer as a bogus continuation and drop the
-		// election unanswered.
+		// the plan has settled.
 		e.choosing = chooseNone
 		e.tokenReplAnswer(chosen)
 		return
 	}
 	if e.choosing == chooseETBEntry {
 		// The entry-boundary ask was posed from inside emit (replacement.go's
-		// applyETBChoiceReplacement). The election may have parked a resolving
-		// DB$ Token's mint entry (e.pendingMintSink names the collector): re-emitting
-		// the parked entry under withMintSink lets publishTokenEntry land the minted
-		// id in it. 0 (or a spent collector) runs unchanged.
-		e.withMintSink(e.pendingMintSink, func() { e.resumeETBEntry(chosen) })
+		// applyETBChoiceReplacement).
+		e.resumeETBEntry(chosen)
 		return
 	}
 	if e.choosing == chooseOppPick {
@@ -1402,9 +1394,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		move := *e.riotMove
 		e.riotMove = nil
 		e.choosing = chooseNone
-		// Same collector hand-off as the ETB arm above: the re-emitted entry is
-		// a parked DB$ Token mint's when e.pendingMintSink is live.
-		e.withMintSink(e.pendingMintSink, func() { e.emit(move) })
+		e.emit(move)
 	case chooseUnleash:
 		// kw:Unleash (CR 702.86, rules/unleash.go) is an as-enters replacement
 		// for every MoveZone path, the Riot arm's exact shape: record the
@@ -1424,8 +1414,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		move := *e.unleashMove
 		e.unleashMove = nil
 		e.choosing = chooseNone
-		// Same collector hand-off as the ETB arm above.
-		e.withMintSink(e.pendingMintSink, func() { e.emit(move) })
+		e.emit(move)
 	case chooseAttached:
 		if e.attachedChoice == nil || len(chosen) != 1 {
 			e.attachedChoice = nil
@@ -1438,15 +1427,15 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		// ChooseColor are single-stage. Every arm records through an
 		// event-backed Choose fold and then releases the parked Attach exactly
 		// once through emitAttachedMove.
-		switch ch.body {
-		case "ChooseCard":
+		switch handleChooseCodes.Code(string(ch.body)) {
+		case handleChooseChooseCard:
 			// Pick-Axe: record the chosen exiled craft card as the Choose
 			// "chosen" fold (state.Object.Chosen), which `Defined$ ChosenCard`
 			// and the replacement gate's object-backed read consume.
 			if chosen[0].Obj != 0 {
 				e.emit(events.Event{Kind: events.Choose, Obj: ch.source, Counter: "chosen", IDs: []state.ObjID{chosen[0].Obj}})
 			}
-		case "ChooseColor":
+		case handleChooseChooseColor:
 			// Sanctuary Blade: record the answered colour's WUBRG letter as
 			// the Choose "color" fold (state.Object.ChosenColor), the shape
 			// every Card.ChosenColor reader already uses.
@@ -1455,7 +1444,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 				letter = "W"
 			}
 			e.emit(events.Event{Kind: events.Choose, Obj: ch.source, Counter: "color", Text: letter})
-		case "NameCard":
+		case handleChooseNameCard:
 			if ch.stage == 0 {
 				e.emit(events.Event{Kind: events.Choose, Obj: ch.source, Counter: "name", Text: chosen[0].Label})
 				e.askAttachedType()
@@ -1463,8 +1452,8 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 			}
 			e.emit(events.Event{Kind: events.Choose, Obj: ch.source, Counter: "type", Text: chosen[0].Label})
 		default:
-			// A body with no resume arm is a programming error: the poser and
-			// the resume are declared from the same attachedBodyPoses set.
+			// A body with no arm here is a programming error: the poser and
+			// this dispatch are declared from the same attachedBodyPoses set.
 			e.attachedChoice = nil
 			e.choosing = chooseNone
 			return
@@ -1490,8 +1479,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 			Counter: "protector", Player: chosen[0].Player})
 		e.siegeMove = nil
 		e.choosing = chooseNone
-		// Same collector hand-off as the ETB arm above.
-		e.withMintSink(e.pendingMintSink, func() { e.emit(move) })
+		e.emit(move)
 	case chooseLegend:
 		// The CR 704.5j legend-rule choice (rules/sba.go) was answered.
 		// legendAnswer records the kept permanent and applies the parked batch
@@ -1807,3 +1795,17 @@ func (e *Engine) latestUnconsumedGrant(seat state.PlayerID) (state.ObjID, string
 	}
 	return 0, "", 0
 }
+
+type handleChooseCode uint16
+
+const (
+	handleChooseChooseCard handleChooseCode = iota + 1
+	handleChooseChooseColor
+	handleChooseNameCard
+)
+
+var handleChooseCodes = state.NewStrCodes(
+	state.StrEntry[handleChooseCode]{Key: "ChooseCard", Val: handleChooseChooseCard},
+	state.StrEntry[handleChooseCode]{Key: "ChooseColor", Val: handleChooseChooseColor},
+	state.StrEntry[handleChooseCode]{Key: "NameCard", Val: handleChooseNameCard},
+)

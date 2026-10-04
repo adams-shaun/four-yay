@@ -4,7 +4,6 @@ import (
 	"math"
 	"strings"
 
-	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -833,14 +832,14 @@ func (c *Cost) PoolUnitsFloor() int64 {
 // source) and Forge's payCostFromSource spellings CARDNAME/NICKNAME. Any
 // other value is a filter matched against the payer's battlefield.
 func SubCounterTargetsSource(target string) bool {
-	if v, ok := subCounterTargetsSourceTab1.Get(strings.ToUpper(strings.TrimSpace(target))); ok {
+	if v, ok := subCounterTargetsSourceTab.Get(strings.ToUpper(strings.TrimSpace(target))); ok {
 		return v
 	}
 	return false
 }
 
-var subCounterTargetsSourceTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "", Val: true},
-	cards.StrEntry[bool]{Key: "CARDNAME", Val: true},
-	cards.StrEntry[bool]{Key: "NICKNAME", Val: true},
+var subCounterTargetsSourceTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "", Val: true},
+	state.StrEntry[bool]{Key: "CARDNAME", Val: true},
+	state.StrEntry[bool]{Key: "NICKNAME", Val: true},
 )

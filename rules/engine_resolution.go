@@ -14,97 +14,14 @@ import (
 // compiling unchanged through Go's field promotion. Clone's per-field copy
 // classes (rules/clone.go) are unchanged by the move.
 type engineResolution struct {
-	// fusedResolving is the target slice of the fused half whose resolution is
-	// CURRENTLY running (rules/split.go's runFusedHalves), set around the
-	// whole of that half's effects.Resolve -- the half's root SA and every
-	// sub-ability in its chain -- and restored afterwards. fusedResolvingSet
-	// is the presence bit: a half whose own ValidTgts$ produced an empty
-	// slice is still a fused half whose sub-abilities must read that empty
-	// list, never the stack object's flat one. Ask captures the pair onto the
-	// pending resumePoint, so a mid-resolution ask posed by ANY frame of the
-	// half (its root, a SubAbility$, a loop body) resumes with the half's own
-	// targets rather than both halves' (Flesh // Blood's DBPutCounter reads
-	// ParentTargeted$CardPower off this binding). Transient scratch, cleared
-	// when the half's resolve returns: rebuilt identically by replay.
-	fusedResolving    []state.Target `clone:"reset"`
-	fusedResolvingSet bool           `clone:"reset"`
-	// fusedResolvingSVars is the SVar table of the fused half whose resolution
-	// is currently running -- the ALTERNATE half's table when Blood is the
-	// frame, never the object's front-face table. A fused spell keeps FaceIdx
-	// 0, so o.Face().SVars is the FRONT half's table and a resumed alternate
-	// half's sub reading its own SVar (Blood's NumDmg$ Y = Y:ParentTargeted$
-	// CardPower) would resolve against the wrong table. Set and restored
-	// alongside fusedResolving, captured by Ask onto the resumePoint. Nil
-	// outside a fused half's resolution.
-	fusedResolvingSVars map[string]string `clone:"reset"`
-	// resolvingTargetControllerLKI is the target-controller snapshot of the
-	// Resolve chain whose effect is CURRENTLY running, published by
-	// effects.Resolve through Host.SetResolutionTargetControllerLKI around
-	// the whole chain and restored on return. Ask captures it onto the
-	// pending resumePoint (Engine.Ask), so a resumed continuation -- which
-	// rebuilds its Ctx from the already-reset live objects -- restores the
-	// controller a target had at the start of resolution (a target destroyed
-	// before a chained TokenOwner$ TargetedController resolves). Transient
-	// scratch: rebuilt identically by replay, nil outside a chain.
-	resolvingTargetControllerLKI map[state.ObjID]state.PlayerID `clone:"deep"`
 	// resolutionCtx is the live Ctx of the Resolve chain whose effect is
 	// CURRENTLY running, published by effects.Resolve through the optional
 	// resolutionCtxHost interface around the whole chain and restored on
-	// return. It is the one home of the chain's in-flight TargetUnique$
-	// accumulator: Engine.Ask reads resolutionCtx.TargetsUnique and stamps it
-	// onto every decision whose own resume state did not carry it, so an
-	// intervening ask of ANY kind (a modal election, a ward pay, a
-	// dig/scry/arrange pick) preserves the picks earlier TargetUnique$ riders
-	// chose at the resumed Ctx's rebuild. Transient scratch: rebuilt
-	// identically by replay, nil outside a chain (combat, mulligan and other
-	// non-resolution asks).
+	// return. Read by the tape seams (unless payment, Ward, Play) and the
+	// departing-target snapshots. Transient scratch: rebuilt identically by
+	// replay, nil outside a chain (combat, mulligan and other non-resolution
+	// asks).
 	resolutionCtx *effects.Ctx `clone:"reset"`
-	// resolvingFlipMemory is the coin-flip memory of the Resolve chain whose
-	// effect is CURRENTLY running, published by effects.Resolve (and by
-	// effFlipCoin when it lazily allocates the memory) through the optional
-	// Host.SetResolutionFlipMemory seam and restored on return. Ask captures it
-	// onto the pending resumePoint, so a resumed continuation re-attaches the
-	// SAME pointer and a chained Defined$ FlippedTails / Wins reader keeps
-	// every flip performed before the suspension. Transient scratch: rebuilt
-	// identically by replay, nil outside a chain or before any flip.
-	resolvingFlipMemory *effects.FlipMemory `clone:"reset"`
-	// resolvingExchangeMemory is the ExchangeLife rider memory of the Resolve
-	// chain whose effect is CURRENTLY running, published by effects.Resolve
-	// (and by effExchangeLife when it lazily allocates the memory) through
-	// the optional Host.SetResolutionExchangeMemory seam and restored on
-	// return. Ask captures it onto the pending resumePoint, so a resumed
-	// continuation re-attaches the SAME pointer and a chained
-	// Count$RememberedNumber reader keeps the value the exchange transaction
-	// settled after the suspension. Transient scratch: rebuilt identically by
-	// replay, nil outside a chain or before any exchange rider.
-	resolvingExchangeMemory *effects.ExchangeMemory `clone:"reset"`
-	// villainousRemembered is the victim of the VillainousChoice whose chosen
-	// body is CURRENTLY resolving, kept as ambient engine state for the
-	// duration of that body's effects.Resolve — the fusedResolving pattern.
-	// A nested ask the body poses captures it through Ask onto the pending
-	// resumePoint (and buildContinuationChain stamps it onto the body's
-	// continuation frames), so the nested ask's re-entry still resolves
-	// Defined$ Remembered / Player.IsRemembered to the victim rather than
-	// rebuilding the trigger's own capture. villainousRememberedSet is the
-	// presence bit (a victim set is never empty, but the bit keeps the "no
-	// villainous body in flight" case explicit). Transient scratch,
-	// restored with the same defer discipline as fusedResolving; rebuilt
-	// identically by replay.
-	villainousRemembered    []state.Target `clone:"reset"`
-	villainousRememberedSet bool           `clone:"reset"`
-	// windowPaidX is the X the triggered-cost window's payment announced
-	// (rules/cumulative.go's X fold, tc.xPaid at the pay arm), kept as AMBIENT
-	// engine state while the paid body resolves — the fusedResolving pattern:
-	// rules/resolution.go's resumeResolution arms it from the frame's
-	// rp.winPaidX around the re-entry's effects.Resolve, Ask captures it onto
-	// every pending resumePoint it poses, and buildContinuationChain stamps it
-	// onto the continuation frames — so a body that suspends on a
-	// mid-resolution ask (Leyline Tyrant's "pay any amount of {R}" death
-	// trigger, whose DB$ DealDamage target pick is exactly such an ask)
-	// resumes with its X instead of rebuilding ctx.X from a trigger object
-	// that was never paid one (0). Transient scratch, restored with the same
-	// defer discipline as fusedResolving; rebuilt identically by replay.
-	windowPaidX int32 `clone:"reset"`
 	// exploitedLKI maps an EXPLOITED creature's object id to the LKI snapshot
 	// of it at the instant it was sacrificed to pay an exploit (CR 702.58a),
 	// published by effects/exploit.go through Host.RememberExploitedLKI while

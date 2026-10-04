@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -118,8 +119,8 @@ func (e *Engine) payCast() {
 		// The descriptor carries the announced-X marker (the ability's own
 		// {X} cost was folded), so a CostContainsX batch sees this activation
 		// as an X payment exactly as the offer did.
-		ok, _, spentMana, _, _ := e.payManaDescriptorForSpent(pc.player, paymentForCast(pc, mana), mana,
-			e.paymentConv(pc.player, pc.card, true), pipRider{})
+		ok, _, spentMana, _, _ := pay.PayManaDescriptorForSpent(asPayer(e), pc.player, paymentForCast(pc, mana), mana,
+			asPayer(e).Conv(pc.player, pc.card, true), pipRider{})
 		if !ok {
 			e.abortCast(pc, "activation aborted: cost no longer payable", true)
 			return
@@ -748,12 +749,12 @@ func (e *Engine) payCast() {
 	// plain-Kicker carriers' scripts still read the count, and no other
 	// kicked cast gains an event.
 	mkCount := int32(0)
-	switch pc.mode {
-	case "multikicked":
+	switch payCastCodes.Code(string(pc.mode)) {
+	case payCastMultikicked:
 		mkCount = pc.multikickTimes
-	case "kicked", "kicked1", "kicked2":
+	case payCastKicked:
 		mkCount = 1
-	case "kickedboth":
+	case payCastKickedboth:
 		mkCount = 2
 	}
 	if mkCount > 0 && (pc.mode == "multikicked" || faceWantsTimesKicked(e.G.Obj(pc.card).Face())) {
@@ -1108,10 +1109,10 @@ func (e *Engine) fireManaSpentTriggers(ev events.Event, lki *state.Object) {
 				continue
 			}
 			matches := false
-			switch t.Mode {
-			case "SpellCast":
+			switch t.ModeKind() {
+			case cards.TriggerSpellCast:
 				matches = trigmatch.SpellCastEval(boardOf(e), t, src, ev)
-			case "SpellAbilityCast":
+			case cards.TriggerSpellAbilityCast:
 				matches = trigmatch.SpellAbilityCastMatches(boardOf(e), t, src, ev, lki)
 			}
 			if !e.zoneGate(t, src, ev) || !e.phaseGate(t) || !matches {
@@ -1207,3 +1208,19 @@ func (e *Engine) recordCmdCast(p state.PlayerID, id state.ObjID) {
 func (e *Engine) castSuppressed(p state.PlayerID, id state.ObjID) bool {
 	return e.suppressedCast != nil && e.suppressedCast[id]
 }
+
+type payCastCode uint16
+
+const (
+	payCastMultikicked payCastCode = iota + 1
+	payCastKicked
+	payCastKickedboth
+)
+
+var payCastCodes = state.NewStrCodes(
+	state.StrEntry[payCastCode]{Key: "multikicked", Val: payCastMultikicked},
+	state.StrEntry[payCastCode]{Key: "kicked", Val: payCastKicked},
+	state.StrEntry[payCastCode]{Key: "kicked1", Val: payCastKicked},
+	state.StrEntry[payCastCode]{Key: "kicked2", Val: payCastKicked},
+	state.StrEntry[payCastCode]{Key: "kickedboth", Val: payCastKickedboth},
+)

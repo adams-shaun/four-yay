@@ -152,8 +152,8 @@ func arrangeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent, sa
 			IDs: newLib, Secret: true})
 		return
 	}
-	switch kind {
-	case "hideaway_bottom", "dig_bottom":
+	switch arrangeAnswerRecordCodes.Code(string(kind)) {
+	case arrangeAnswerRecordHideawayBottom:
 		// The all-to-bottom shapes: Hideaway has already moved its one chosen
 		// card to exile before this ask; Dig's default remainder never had a
 		// take. Unlike Scry's selected subset, all remaining cards go to the
@@ -164,7 +164,7 @@ func arrangeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent, sa
 		newLib = append(newLib, pileA...)
 		e.emit(events.Event{Kind: events.LibraryOrder, Player: d.Player,
 			IDs: newLib, Secret: true})
-	case "bottom":
+	case arrangeAnswerRecordBottom:
 		// Ruling J4: pile B goes to the END of the library, BELOW the
 		// untouched remainder. One LibraryOrder carrying pileA + remainder +
 		// pileB.
@@ -188,7 +188,7 @@ func arrangeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent, sa
 			e.emitScryRecord(events.Event{Kind: events.Scry, Player: d.Player,
 				Obj: d.Source, Amount: int32(len(pileB))})
 		}
-	case "graveyard":
+	case arrangeAnswerRecordGraveyard:
 		// Ruling J4: pile B leaves the library. The LibraryOrder for
 		// pileA + remainder is emitted FIRST, then one MoveZone per pile-B
 		// card in offered order. The order is a contract: a replay that
@@ -213,3 +213,18 @@ func arrangeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent, sa
 			IDs: newLib, Secret: true})
 	}
 }
+
+type arrangeAnswerRecordCode uint16
+
+const (
+	arrangeAnswerRecordHideawayBottom arrangeAnswerRecordCode = iota + 1
+	arrangeAnswerRecordBottom
+	arrangeAnswerRecordGraveyard
+)
+
+var arrangeAnswerRecordCodes = state.NewStrCodes(
+	state.StrEntry[arrangeAnswerRecordCode]{Key: "hideaway_bottom", Val: arrangeAnswerRecordHideawayBottom},
+	state.StrEntry[arrangeAnswerRecordCode]{Key: "dig_bottom", Val: arrangeAnswerRecordHideawayBottom},
+	state.StrEntry[arrangeAnswerRecordCode]{Key: "bottom", Val: arrangeAnswerRecordBottom},
+	state.StrEntry[arrangeAnswerRecordCode]{Key: "graveyard", Val: arrangeAnswerRecordGraveyard},
+)

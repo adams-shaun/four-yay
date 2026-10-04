@@ -65,17 +65,6 @@ const incubatorTokenKey = "incubator_c_0_0_a_phyrexian"
 // mint's CounterChange is its own event, so an AddCounter replacement
 // doubles that mint's counters independently (CR 614.5/616.1e).
 func effIncubate(h Host, c *Ctx, sa *cards.SA) {
-	if rest := resumingMint(c, sa); rest != nil && len(rest.Players) == 1 {
-		// A repeat's mint parked behind a CR 616.1 order ask and the
-		// answer has minted it: counter it, then run the repeats after it
-		// with the values the first pass resolved.
-		parked := rest.Parked
-		if parked == nil {
-			parked = []state.ObjID{}
-		}
-		incubateLoop(h, c, sa, rest.Players[0], rest.Script, rest.Amount, rest.Count, int32(rest.Next), parked, len(rest.Minted) > 0)
-		return
-	}
 	g := h.Game()
 	n := Num(h, c, sa, "Amount", 1)
 	if n < 0 {
@@ -107,58 +96,23 @@ func effIncubate(h Host, c *Ctx, sa *cards.SA) {
 	if times < 1 {
 		times = 1
 	}
-	incubateLoop(h, c, sa, owner, key, n, times, 0, nil, false)
+	incubateLoop(h, c, owner, key, n, times)
 }
 
-// incubateLoop is effIncubate's create-and-counter repeat from repeat start.
-// parked (on a TokenRest re-entry) is what the answer minted for repeat
-// start, whose mint parked the resolution behind a CR 616.1 order ask; a
-// repeat whose mint parks hands the rest of the loop to the host the same
-// way. EmitTokenCreate returns EVERY object the emit created -- an ordinary
-// emit the single mint, a CreateToken replacement the whole rewritten plan
-// (Doubling Season's pair, Anointed Procession's pair) -- so the counters
-// land on every mint the resolution actually produced: before the park, and
-// on the re-entry alike.
-func incubateLoop(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, key string, n, times int32, start int32, parked []state.ObjID, countered bool) {
+// incubateLoop is effIncubate's create-and-counter repeat. EmitTokenCreate
+// returns EVERY object the emit created -- an ordinary emit the single mint,
+// a CreateToken replacement the whole rewritten plan (Doubling Season's
+// pair, Anointed Procession's pair) -- so the counters land on every mint
+// the resolution actually produced.
+func incubateLoop(h Host, c *Ctx, owner state.PlayerID, key string, n, times int32) {
 	g := h.Game()
-	for i := start; i < times; i++ {
-		if parked != nil && i == start {
-			// The parked repeat: the answer minted it (or the rest of its
-			// rewritten plan), so its counters are owed. A repeat whose
-			// first mints landed and took their counters before the park
-			// (Minted, countered) owes only what the answer minted.
-			if len(parked) == 0 {
-				if countered {
-					// The repeat's mints landed (and took their counters)
-					// before the rest of its plan parked, and the answer
-					// minted nothing more.
-					continue
-				}
-				// Nothing landed and the answer minted nothing: the plan
-				// rounded to zero; stopping the repeat keeps the loop
-				// total.
-				return
-			}
-			for _, want := range parked {
-				if g.Obj(want) == nil {
-					continue
-				}
-				if n > 0 {
-					h.Emit(events.Event{Kind: events.CounterChange, Obj: want,
-						Counter: "P1P1", Amount: n})
-				}
-			}
-			continue
-		}
+	for i := int32(0); i < times; i++ {
 		wasSuspended := h.Suspended()
 		minted := h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: owner, Text: key})
 		if !wasSuspended && h.Suspended() {
-			// The mint parked the resolution behind a replacement-order ask.
-			// Every mint that landed takes its counters now (each its own
-			// event, so an AddCounter replacement doubles it independently),
-			// and the rest of the loop -- this repeat's remaining mints and
-			// the repeats after it -- resumes with the answer, so no later
-			// repeat is logged ahead of this one's parked mints.
+			// A resolution-time window opened: every mint that landed takes
+			// its counters (each its own event, so an AddCounter replacement
+			// doubles it independently); with none landed the repeat stops.
 			var landed []state.ObjID
 			for _, id := range minted {
 				if g.Obj(id) == nil {
@@ -169,10 +123,6 @@ func incubateLoop(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, key string
 						Counter: "P1P1", Amount: n})
 				}
 				landed = append(landed, id)
-			}
-			if suspendMint(h, c, TokenRest{SA: sa, Next: int(i), Minted: landed, Players: []state.PlayerID{owner},
-				Script: key, Amount: n, Count: times}) {
-				return
 			}
 			if len(landed) > 0 {
 				continue

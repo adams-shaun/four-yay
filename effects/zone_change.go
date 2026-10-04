@@ -73,9 +73,8 @@ func clearChangeZoneImprint(h Host, c *Ctx) {
 // changeZonePrelude is effChangeZone's entry, up to the dispatch on Origin$:
 // the unread-parameter Note, the UntilHostLeavesPlay bail (stop), Unimprint's
 // pre-move clear, the DestAltSVar$ destination and the unrecognised
-// OriginAlternative$ Note. It is shared with the resolution kernel's answered
-// asks (changeZoneReentryEcho), which re-emit exactly what a legacy re-entry
-// of effChangeZone emits on its way back to the answered walk.
+// OriginAlternative$ Note. The answered asks re-emit it through
+// changeZoneReentryEcho before applying their answer.
 func changeZonePrelude(h Host, c *Ctx, cz *ChangeZoneParams) (to state.Zone, stop bool) {
 	cz.noteUnread(h, c)
 	if exileHostGoneFor(h, c, cz.Riders.Duration) {
@@ -203,8 +202,8 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// Concrete object selectors stay on the already-answered object path:
 		// Eladamri's ChosenCard was picked by ChooseCard, not this search.
 		// The searching player may fail to find a card with the stated quality (Min
-		// is always zero), and the answer resumes this same effect before its
-		// SubAbility runs. The exact-Library spelling is the single-zone case of
+		// is always zero), and the answer is applied before its SubAbility
+		// runs. The exact-Library spelling is the single-zone case of
 		// the same path; the alternatives are PUBLIC zones (Graveyard, Exile,
 		// Hand) whose candidates join the library's in one option list. A
 		// mixed-Hand alternative (Gate to the Afterlife's Graveyard,Hand) is
@@ -291,18 +290,6 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// there, so the shape is loud about it rather than silent.
 		changeZoneDefinedPlayerNote(h, c, cz, originZones, originAll)
 	}
-	// Answered ShuffleNonMandatory$ confirm re-entry for the OBJECT path
-	// (searchmay1): a hidden-library search's own re-entry is handled inside
-	// effSearchLibrary above and returns, so reaching here with an answer
-	// means the SA moved objects from a public origin (a graveyard/top
-	// shuffle-in) and those moves already landed on the first pass. Run only
-	// the answered tail -- consume the answer, shuffle on "yes" -- and stop:
-	// re-resolving targets would re-run the move pass and re-pose the
-	// pre-asks below against objects that have left their origin zone.
-	if c.SearchShuffle != "" && objectPathShuffleOwed(cz) {
-		objectPathShuffleTail(h, c, sa, cz, nil)
-		return
-	}
 	// WithCountersType$/WithCountersAmount$ make the move put counters on the
 	// object it lands with -- the Undying expansion's "return to the battlefield
 	// with a +1/+1 counter" (cards/keywords.go) and a card exiled with TIME
@@ -327,9 +314,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	// arrives here with no chosen targets and used to move nothing silently.
 	// Offer the targets now, through the same Host.LegalTargets census the
 	// announcement ask uses (targetZones' Origin$-implied graveyard included),
-	// as a KChoose over the shared "choice" resume arm; the answer lands in
-	// Ctx.Choice and the re-entered pass consumes it (fx42 scoping -- a nested
-	// ChangeZone in the same chain poses its own ask). A host that cannot ask
+	// as a KChoose answered in place via AskTape. A host that cannot ask
 	// takes the deterministic first-max stand-in (R-9, the same mirror the
 	// effDig ask's botpolicy arm answers with option 0). The chosen bounds are
 	// TargetMin$/TargetMax$ through the ordinary Num grammar (TrigReturn's
@@ -339,13 +324,14 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	// answer differently is never emitted.
 	if ans, ok, served := changeZoneChosenTargetsFor(h, c, sa, &cz.changeZoneTargeting); ok {
 		if served {
-			// The resolution kernel's answer in hand: the "choice"
-			// re-entry's own events come before it consumes the answer.
+			// Answered in place: the echo events come before the answer is
+			// used.
 			objectPathMoveEcho(h, c, cz, to)
 		}
 		targets = ans
-		// A suspension (nil answer, ok) leaves the chooser pending: the note
-		// below must wait for the answering re-entry, which moves the targets.
+		// A nil answer with ok (a posed which-opponent selection, or an empty
+		// recorded pre-ask) leaves the target ask pending: the mixed-origin
+		// note below stays quiet.
 		targetAskPending = ans == nil
 		if ans != nil {
 			// This link's own answer is a later link's ParentTarget.
@@ -375,16 +361,13 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	// targeted card. The owner, not the spell's controller, answers (the
 	// referent may be the OPPONENT of the caster, and the ask goes to that
 	// seat). Keep the ask after target resolution so TargetedOwner is bound to
-	// the actual referent, and before any move so replay re-entry cannot
-	// partially apply. The one shape modelled is the corpus's uniform
+	// the actual referent, and before any move. The one shape modelled is the corpus's uniform
 	// AlternativeDecider shape: ONE targeted card moving to a library whose
 	// primary position is the TOP (or second from top) and whose alternative
 	// position is `-1` (bottom). Other shapes stay LOUD and take the
 	// pre-existing deterministic placement rather than silently offering a
 	// choice the script never posed.
 	altDecider := cz.AlternativeDecider
-	altAnswer := string("")
-
 	altBottom := false
 	altEngaged := false
 	if altDecider != "" && len(targets) > 0 {
@@ -400,16 +383,13 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 			target := h.Game().Obj(targets[0].Obj)
 			var chooser state.PlayerID
 			chooserOK := false
-			switch altDecider {
-			case "TargetedOwner":
-				if target != nil {
-					chooser, chooserOK = target.Owner, true
-				}
+			if altDecider == "TargetedOwner" && target != nil {
+				chooser, chooserOK = target.Owner, true
 			}
 			if !chooserOK || int(chooser) >= len(h.Game().Players) {
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 					Text: "AlternativeDecider$ " + altDecider + " cannot resolve an object owner"})
-			} else if altAnswer == "" {
+			} else {
 				primaryLabel := "top"
 				if primaryPosition == "1" {
 					primaryLabel = "second from top"
@@ -422,25 +402,16 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 						{Index: 1, Kind: "bottom", Label: "bottom"},
 					}}
 				if ans, ok := AskTape(h, d); ok {
-					// The resolution kernel's answer in hand: the
-					// "changezone_alternative" re-entry's own events, then
-					// the answered position exactly as that re-entry reads
-					// the carried label.
+					// Answered in place: the echo events, then the answered
+					// position.
 					objectPathMoveEcho(h, c, cz, to)
 					altBottom = len(ans) > 0 && ans[0].Label == "bottom"
 					altEngaged = true
 				} else {
-					_ = Ask(h, d)
-
 					// R-9 no-ask host: the primary placement, deterministically.
-					altAnswer = "top"
 					altBottom = false
 					altEngaged = true
 				}
-
-			} else {
-				altBottom = altAnswer == "bottom"
-				altEngaged = true
 			}
 		}
 	}
@@ -478,17 +449,13 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "imprint", Obj: target.Obj, Label: o.Face().Name})
 			}
 			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: the "imprint"
-				// re-entry's own events, then the answered cards are
-				// the ones moved, exactly as that re-entry's answered Imprint
-				// branch reads them.
+				// Answered in place: the echo events, then the answered
+				// cards are the ones moved.
 				objectPathMoveEcho(h, c, cz, to)
 				targets = targets[:0]
 				for _, id := range tapeAnswerObjs(ans) {
 					targets = append(targets, state.Target{Obj: id})
 				}
-			} else if h.Ask(d) {
-				return
 			} else {
 				targets = targets[:max]
 			}
@@ -598,7 +565,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// battlefield departure's controller to its owner (CR 400.7), so this
 		// is the last point the pre-move controller is readable.
 		if cz.RememberLKI {
-			c.ChangeZoneLKI = append(c.ChangeZoneLKI, state.LKIObject{Obj: o.ID, Controller: o.Controller, Owner: o.Owner})
+			c.Snap.ChangeZone = append(c.Snap.ChangeZone, state.LKIObject{Obj: o.ID, Controller: o.Controller, Owner: o.Owner})
 		}
 		if to == state.ZExile && len(ev.IDs) == 0 && (faceStaticsNameExiledWithSource(h, c.Source) || cz.Imprint) {
 			ev.IDs = []state.ObjID{c.Source}
@@ -699,8 +666,8 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	// no-selector/player-selector mixed origin was answered by the search
 	// path's chooser above, and a Defined$ naming its objects moves them
 	// through the Origin$-preconditioned loop -- so only a mixed-Hand
-	// resolution that moved nothing AND posed no pending target ask is left
-	// loud (a suspended ask emits on its answering re-entry, which moves).
+	// resolution that moved nothing AND left no pending target ask is left
+	// loud.
 	if mixedOriginNoteFrom != "" && len(moved) == 0 && !targetAskPending {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "no object of the mixed ChangeZone Origin$ " + mixedOriginNoteFrom +
@@ -708,10 +675,8 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	}
 	// AtEOT$ (Puppeteer Clique's reanimation: "at the beginning of your next
 	// end step, exile it"): schedule the end-step departure for every object
-	// this move actually moved. Scheduled BEFORE the library shuffle tail:
-	// a ShuffleNonMandatory$ confirm suspension returns out of the tail, and
-	// the re-entry's early-return branch (c.SearchShuffle above) would never
-	// reach a schedule call placed after it -- the same order
+	// this move actually moved. Scheduled BEFORE the library shuffle tail,
+	// which returns early after an answered confirm -- the same order
 	// applyLibrarySearch uses for its own hidden-origin tail.
 	scheduleAtEOT(h, c, sa, moved)
 	// Object-path library shuffle tail (searchmay1): a ChangeZone that moved
@@ -766,9 +731,8 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 // changeZoneChosenTargets serves effChangeZone's object path the targets of a
 // ValidTgts$-declared targeting when no ask has offered them yet. The ok
 // return is NOT "targets were found" -- it is "use the returned set INSTEAD of
-// Defined's own fallthrough": ok=true with a nil set means the ask was posed
-// and SUSPENDED the resolution (the caller must return before moving
-// anything), and the answered re-entry consumes Ctx.Choice here. Every other
+// Defined's own fallthrough": ok=true with a nil set means a which-opponent
+// selection ask was posed (or an empty pre-ask set was recorded). Every other
 // shape returns false and the caller keeps Defined's own behaviour
 // (placement-chosen targets, Defined$-named objects, the source default).
 //
@@ -787,7 +751,7 @@ func changeZoneChosenTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool
 
 // changeZoneChosenTargetsFor is changeZoneChosenTargets over sa's compiled
 // targeting half (effChangeZone passes its compiled record's). served
-// reports the resolution kernel's answer to the ask (poseTargetsAsk).
+// reports an AskTape-served answer to the ask (poseTargetsAsk).
 func changeZoneChosenTargetsFor(h Host, c *Ctx, sa *cards.SA, cz *changeZoneTargeting) (ts []state.Target, ok bool, served bool) {
 	if !cz.ValidTgts.Present || cz.Defined != "" {
 		return nil, false, false
@@ -829,9 +793,9 @@ func changeZoneChosenTargetsFor(h Host, c *Ctx, sa *cards.SA, cz *changeZoneTarg
 	candidates := subAskCandidates(h, c, sa)
 	chooser := h.ChooserFor(c, sa)
 	if ch, posed := opponentPick(h, c, sa, chooser); posed {
-		// The controller's which-opponent selection ask was posted: the walk
-		// is suspended and re-enters this very SA, where the answered
-		// selection makes ChooserFor return the chosen seat.
+		// The host reports the which-opponent selection as still pending:
+		// no target set yet (the rules host answers it in place and never
+		// reports it pending).
 		return nil, true, false
 	} else if !posed {
 		chooser = ch
@@ -1350,7 +1314,7 @@ func settleChangeZoneMoveAs(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, 
 	ev := moveZoneEvent(c, id, from, to)
 	if cz.RememberLKI {
 		if o := h.Game().Obj(id); o != nil {
-			c.ChangeZoneLKI = append(c.ChangeZoneLKI, state.LKIObject{Obj: id, Controller: o.Controller, Owner: o.Owner})
+			c.Snap.ChangeZone = append(c.Snap.ChangeZone, state.LKIObject{Obj: id, Controller: o.Controller, Owner: o.Owner})
 		}
 	}
 	if to == state.ZExile && len(ev.IDs) == 0 && (faceStaticsNameExiledWithSource(h, c.Source) || cz.Imprint) {

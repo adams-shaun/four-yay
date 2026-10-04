@@ -486,12 +486,12 @@ func ParseCost(s string) Cost {
 					continue
 				}
 				part := CostPart{N: int32(n), Spec: strings.ReplaceAll(m[3], ";", ","), Desc: m[4]}
-				switch m[1] {
-				case "Reveal":
+				switch costRevealVerbCodes.Code(string(m[1])) {
+				case costRevealVerbReveal:
 					c.Reveal = append(c.Reveal, part)
-				case "Behold":
+				case costRevealVerbBehold:
 					c.Behold = append(c.Behold, part)
-				case "BeholdExile":
+				case costRevealVerbBeholdExile:
 					// Behold, then exile the beheld object (CostPart.ThenExile).
 					part.ThenExile = true
 					c.Behold = append(c.Behold, part)
@@ -645,12 +645,12 @@ func ParseCost(s string) Cost {
 				// already uses, so "Artifact;Creature" matches either.
 				spec := strings.ReplaceAll(m[3], ";", ",")
 				part := CostPart{N: int32(n), Spec: spec, Desc: m[4]}
-				switch m[1] {
-				case "Sac":
+				switch costCardVerbCodes.Code(string(m[1])) {
+				case costCardVerbSac:
 					c.Sac = append(c.Sac, part)
-				case "Discard":
+				case costCardVerbDiscard:
 					c.Discard = append(c.Discard, part)
-				case "Draw":
+				case costCardVerbDraw:
 					c.Draw = append(c.Draw, part)
 				default:
 					c.SubCounter = append(c.SubCounter, part)
@@ -874,10 +874,10 @@ func ParseCost(s string) Cost {
 				}
 				part := CostPart{N: int32(n), Spec: strings.ReplaceAll(m[4], ";", ","),
 					LibraryPos: int32(pos), Desc: m[5]}
-				switch m[1] {
-				case "Hand":
+				switch costZoneWordCodes.Code(string(m[1])) {
+				case costZoneWordHand:
 					part.Zone = state.ZHand
-				case "Grave":
+				case costZoneWordGrave:
 					part.Zone = state.ZGraveyard
 				default: // Battlefield
 					part.Zone = state.ZBattlefield
@@ -1213,12 +1213,12 @@ func ParseUnlessCost(s string) (Cost, bool) {
 				// already uses, so "Artifact;Creature" matches either.
 				spec := strings.ReplaceAll(m[3], ";", ",")
 				part := CostPart{N: int32(n), Spec: spec, Desc: m[4]}
-				switch m[1] {
-				case "Sac":
+				switch parseUnlessCostCodes.Code(string(m[1])) {
+				case parseUnlessCostSac:
 					c.Sac = append(c.Sac, part)
-				case "Discard":
+				case parseUnlessCostDiscard:
 					c.Discard = append(c.Discard, part)
-				case "Draw":
+				case parseUnlessCostDraw:
 					c.Draw = append(c.Draw, part)
 				default:
 					c.SubCounter = append(c.SubCounter, part)
@@ -1383,3 +1383,57 @@ func MatchPayLife(sym string) (digits string, ok bool) {
 	}
 	return "", false
 }
+
+type costRevealVerbCode uint16
+
+const (
+	costRevealVerbReveal costRevealVerbCode = iota + 1
+	costRevealVerbBehold
+	costRevealVerbBeholdExile
+)
+
+var costRevealVerbCodes = state.NewStrCodes(
+	state.StrEntry[costRevealVerbCode]{Key: "Reveal", Val: costRevealVerbReveal},
+	state.StrEntry[costRevealVerbCode]{Key: "Behold", Val: costRevealVerbBehold},
+	state.StrEntry[costRevealVerbCode]{Key: "BeholdExile", Val: costRevealVerbBeholdExile},
+)
+
+type costCardVerbCode uint16
+
+const (
+	costCardVerbSac costCardVerbCode = iota + 1
+	costCardVerbDiscard
+	costCardVerbDraw
+)
+
+var costCardVerbCodes = state.NewStrCodes(
+	state.StrEntry[costCardVerbCode]{Key: "Sac", Val: costCardVerbSac},
+	state.StrEntry[costCardVerbCode]{Key: "Discard", Val: costCardVerbDiscard},
+	state.StrEntry[costCardVerbCode]{Key: "Draw", Val: costCardVerbDraw},
+)
+
+type costZoneWordCode uint16
+
+const (
+	costZoneWordHand costZoneWordCode = iota + 1
+	costZoneWordGrave
+)
+
+var costZoneWordCodes = state.NewStrCodes(
+	state.StrEntry[costZoneWordCode]{Key: "Hand", Val: costZoneWordHand},
+	state.StrEntry[costZoneWordCode]{Key: "Grave", Val: costZoneWordGrave},
+)
+
+type parseUnlessCostCode uint16
+
+const (
+	parseUnlessCostSac parseUnlessCostCode = iota + 1
+	parseUnlessCostDiscard
+	parseUnlessCostDraw
+)
+
+var parseUnlessCostCodes = state.NewStrCodes(
+	state.StrEntry[parseUnlessCostCode]{Key: "Sac", Val: parseUnlessCostSac},
+	state.StrEntry[parseUnlessCostCode]{Key: "Discard", Val: parseUnlessCostDiscard},
+	state.StrEntry[parseUnlessCostCode]{Key: "Draw", Val: parseUnlessCostDraw},
+)

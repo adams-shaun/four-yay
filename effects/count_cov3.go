@@ -43,23 +43,23 @@ func domainCount(h Host, c *Ctx, p state.PlayerID, depth int) int32 {
 // head/argument split.
 func evalCov3Head(h Host, c *Ctx, head, arg string, depth int) (int32, bool) {
 	g := h.Game()
-	switch head {
-	case "Domain":
+	switch evalCov3HeadCodes.Code(string(head)) {
+	case evalCov3HeadDomain:
 		// "for each basic land type among lands you control" (62 corpus
 		// carriers: Tribal Flames, Draco's cost reduction, Allied Strategies).
 		return domainCount(h, c, c.Controller, depth), true
-	case "DomainActivePlayer":
+	case evalCov3HeadDomainActivePlayer:
 		// The same census for the ACTIVE player (Collapsing Borders' upkeep
 		// life gain, Mask of Intolerance).
 		return domainCount(h, c, g.Active, depth), true
-	case "CardsInYourHand":
+	case evalCov3HeadCardsInYourHand:
 		// The resolving controller's hand size (Gerrard's Wisdom, Inner Fire,
 		// Dread Slag's -4/-4 per card).
 		if c.Controller < 0 || int(c.Controller) >= len(g.Players) {
 			return 0, true
 		}
 		return int32(len(g.Zone(state.ZHand, c.Controller))), true
-	case "TopOfLibraryCMC":
+	case evalCov3HeadTopOfLibraryCMC:
 		// The mana value of the top card of the controller's library
 		// (Counterbalance, Riddle of Lightning); an empty library reads 0.
 		if c.Controller < 0 || int(c.Controller) >= len(g.Players) {
@@ -73,7 +73,7 @@ func evalCov3Head(h Host, c *Ctx, head, arg string, depth int) (int32, bool) {
 			return objectProperty(g, o.ID, "CardManaCost"), true
 		}
 		return 0, true
-	case "TotalOppPoisonCounters":
+	case evalCov3HeadTotalOppPoisonCounters:
 		// The poison counters summed over the controller's living opponents
 		// (Phyrexian Swarmlord, Vishgraz).
 		var n int32
@@ -81,7 +81,7 @@ func evalCov3Head(h Host, c *Ctx, head, arg string, depth int) (int32, bool) {
 			n += g.Players[p].Counter("POISON")
 		}
 		return n, true
-	case "TotalTurns":
+	case evalCov3HeadTotalTurns:
 		// The number of turns this game has had (Necropotence Avatar):
 		// every player's taken-turn count summed, the same log fold
 		// TurnsTaken reads per player.
@@ -90,7 +90,7 @@ func evalCov3Head(h Host, c *Ctx, head, arg string, depth int) (int32, bool) {
 			n += h.TurnsTaken(state.PlayerID(i))
 		}
 		return n, true
-	case "LeftGraveyardThisTurn", "LeftBattlefieldThisTurn":
+	case evalCov3HeadLeftGraveyardThisTurn:
 		// The cards that left a graveyard (Bonecache Overseer's "three or
 		// more cards left your graveyard this turn", Syrix, Living History)
 		// or the battlefield (Kutzil's Flanker, Tale of Momo) THIS TURN,
@@ -119,7 +119,7 @@ func evalCov3Head(h Host, c *Ctx, head, arg string, depth int) (int32, bool) {
 			}
 		}
 		return n, true
-	case "MaxOppDamageThisTurn":
+	case evalCov3HeadMaxOppDamageThisTurn:
 		// The most damage any one opponent was dealt this turn (Spinerock
 		// Knoll's "if an opponent was dealt 7 or more damage this turn",
 		// Lightning Phoenix): the Host's per-player log fold
@@ -131,7 +131,7 @@ func evalCov3Head(h Host, c *Ctx, head, arg string, depth int) (int32, bool) {
 			}
 		}
 		return best, true
-	case "CardManaCost":
+	case evalCov3HeadCardManaCost:
 		// The source's own mana value (Opalescence's and March of the
 		// Machines' "P/T equal to its mana value" CDA grants, Kami of
 		// Mourning).
@@ -139,7 +139,7 @@ func evalCov3Head(h Host, c *Ctx, head, arg string, depth int) (int32, bool) {
 			return objectProperty(g, o.ID, "CardManaCost"), true
 		}
 		return 0, true
-	case "YourSpeed":
+	case evalCov3HeadYourSpeed:
 		// CR 702.179's speed (Samut, the Driving Force's "where X is your
 		// speed", the Start-your-engines! family's gates): the resolving
 		// controller's folded state.Player.Speed, 0..4. An out-of-range seat
@@ -148,11 +148,11 @@ func evalCov3Head(h Host, c *Ctx, head, arg string, depth int) (int32, bool) {
 			return 0, true
 		}
 		return g.Players[c.Controller].Speed, true
-	case "TypesSharedWith":
+	case evalCov3HeadTypesSharedWith:
 		return typesSharedWith(h, c, arg)
-	case "MostProminentCreatureType":
+	case evalCov3HeadMostProminentCreatureType:
 		return mostProminentCreatureType(h, c, arg), true
-	case "CreaturesAttackedThisTurn":
+	case evalCov3HeadCreaturesAttackedThisTurn:
 		// The creatures matching the spec that were declared as attackers
 		// this turn (Neyali's "for each creature that attacked this turn",
 		// Robber of the Rich's Rogue gate), each counted once, read off the
@@ -180,29 +180,29 @@ func cov3BranchHolds(h Host, c *Ctx, pred string, depth int) (holds, ok bool) {
 	g := h.Game()
 	you := c.Controller
 	valid := you >= 0 && int(you) < len(g.Players)
-	switch pred {
-	case "Delirium":
+	switch cov3BranchHoldsCodes.Code(string(pred)) {
+	case cov3BranchHoldsDelirium:
 		// CR 207.2c ability word: four or more card types among cards in
 		// your graveyard -- the Host census the Delirium cost prompts share.
 		return valid && h.DeliriumHolds(you), true
-	case "Metalcraft":
+	case cov3BranchHoldsMetalcraft:
 		// Three or more artifacts you control.
 		n, _ := evalCountBody(h, c, "Valid Artifact.YouCtrl", depth+1)
 		return valid && n >= 3, true
-	case "Hellbent":
+	case cov3BranchHoldsHellbent:
 		// No cards in your hand.
 		return valid && len(g.Zone(state.ZHand, you)) == 0, true
-	case "FatefulHour":
+	case cov3BranchHoldsFatefulHour:
 		// Five or less life.
 		return valid && g.Players[you].Life <= 5, true
-	case "AllFourBend":
+	case cov3BranchHoldsAllFourBend:
 		if provider, ok := h.(interface {
 			AllFourBendThisTurn(p state.PlayerID) bool
 		}); ok {
 			return valid && provider.AllFourBendThisTurn(you), true
 		}
 		return false, false
-	case "CommittedCrimeThisTurn":
+	case cov3BranchHoldsCommittedCrimeThisTurn:
 		// CR 700.13: the resolving controller targeted an opponent, a
 		// permanent or a spell/ability an opponent controls, or a card in an
 		// opponent's graveyard this turn (Seize the Secrets' "costs {1} less
@@ -216,7 +216,7 @@ func cov3BranchHolds(h Host, c *Ctx, pred string, depth int) (holds, ok bool) {
 			return valid && provider.CommittedCrimeThisTurn(you), true
 		}
 		return false, false
-	case "Landfall":
+	case cov3BranchHoldsLandfall:
 		// A land entered the battlefield under your control this turn
 		// (Groundswell, Tomb Hex): a battlefield entry of a land whose
 		// controller is you, off the per-turn g.Entered record.
@@ -232,7 +232,7 @@ func cov3BranchHolds(h Host, c *Ctx, pred string, depth int) (holds, ok bool) {
 			}
 		}
 		return false, true
-	case "Void":
+	case cov3BranchHoldsVoid:
 		// Edge of Eternities' Void: a nonland permanent left the battlefield
 		// this turn, or a spell was warped this turn (any player's, both
 		// halves) -- a battlefield departure of a nonland object off
@@ -259,16 +259,16 @@ func playerScalarProperty(h Host, g *state.Game, p state.PlayerID, prop string) 
 	if p < 0 || int(p) >= len(g.Players) {
 		return 0, false
 	}
-	switch prop {
-	case "CardsInHand":
+	switch playerScalarPropertyCodes.Code(string(prop)) {
+	case playerScalarPropertyCardsInHand:
 		return int32(len(g.Zone(state.ZHand, p))), true
-	case "CardsInGraveyard":
+	case playerScalarPropertyCardsInGraveyard:
 		return int32(len(g.Zone(state.ZGraveyard, p))), true
-	case "CardsInLibrary":
+	case playerScalarPropertyCardsInLibrary:
 		return int32(len(g.Zone(state.ZLibrary, p))), true
-	case "CardsDrawn":
+	case playerScalarPropertyCardsDrawn:
 		return h.CardsDrawnThisTurn(p), true
-	case "LifeTotal":
+	case playerScalarPropertyLifeTotal:
 		return g.Players[p].Life, true
 	}
 	return 0, false
@@ -318,17 +318,17 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 		return 0, false
 	}
 	var players []state.PlayerID
-	switch group {
-	case "PlayerCountPropertyYou":
+	switch cov3PlayerGroupCodes.Code(string(group)) {
+	case cov3PlayerGroupPlayerCountPropertyYou:
 		if c.Controller < 0 || int(c.Controller) >= len(g.Players) {
 			return 0, false
 		}
 		players = []state.PlayerID{c.Controller}
-	case "PlayerCount", "PlayerCountPlayers":
+	case cov3PlayerGroupPlayerCount:
 		players = g.AliveFrom(0)
-	case "PlayerCountOpponents":
+	case cov3PlayerGroupPlayerCountOpponents:
 		players = opponentGroup(g, c)
-	case "PlayerCountRegisteredOpponents":
+	case cov3PlayerGroupPlayerCountRegisteredOpponen:
 		// Only the per-turn noncombat damage property is answered here; every
 		// other property of this group keeps its own dispatch (count.go's
 		// RegisteredOpponents arm), which this early consult must not shadow.
@@ -336,7 +336,7 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 			return 0, false
 		}
 		players = opponentGroup(g, c)
-	case "PlayerCountRemembered":
+	case cov3PlayerGroupPlayerCountRemembered:
 		// The players the resolving ability remembered (Ctx.Remembered's
 		// player entries, the resolution's own set the Remembered$ head
 		// reads): Mindblaze-adjacent "that player's life total / hand size"
@@ -347,10 +347,10 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 				players = append(players, t.Player)
 			}
 		}
-		switch prop {
-		case "Amount":
+		switch cov3PlayerPropCodes.Code(string(prop)) {
+		case cov3PlayerPropAmount:
 			return int32(len(players)), true
-		case "Valid":
+		case cov3PlayerPropValid:
 			// Forge's PlayerCountRemembered$Valid <spec> is a CARD count, not
 			// a player count: every corpus carrier (Pox's
 			// `Valid Creature.RememberedPlayerCtrl/ThirdUp`, Pox Plague's
@@ -370,7 +370,7 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 				return 0, false
 			}
 			return evalCountBody(h, c, "Valid "+arg, depth+1)
-		case "LifeLostThisTurn":
+		case cov3PlayerPropLifeLostThisTurn:
 			var n int32
 			for _, p := range players {
 				n += h.LifeLostThisTurn(p)
@@ -386,7 +386,7 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 			n += v
 		}
 		return n, true
-	case "PlayerCountRememberedController":
+	case cov3PlayerGroupPlayerCountRememberedControl:
 		// Forge's PlayerCountRememberedController<group>: the CONTROLLERS of
 		// the remembered OBJECTS -- never the remembered player entries, which
 		// are not remembered objects. Tempt with Mayhem's "an additional time
@@ -415,8 +415,7 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 				players = append(players, o.Controller)
 			}
 		}
-		switch prop {
-		case "Amount":
+		if prop == "Amount" {
 			return int32(len(players)), true
 		}
 		if spec, hasSpec := strings.CutPrefix(prop, "HasProperty"); hasSpec {
@@ -444,15 +443,15 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 	default:
 		return 0, false
 	}
-	switch prop {
-	case "SacrificedThisTurn":
+	switch cov3PlayerScalarCodes.Code(string(prop)) {
+	case cov3PlayerScalarSacrificedThisTurn:
 		return sacrificedThisTurn(g, c, players, arg), true
-	case "SacrificedPermanentTypesThisTurn":
+	case cov3PlayerScalarSacrificedPermanentTypesThis:
 		// Korvold, Gleeful Glutton's "for each card type among permanents
 		// you've sacrificed this turn": the distinct card types of this
 		// turn's battlefield sacrifices by the counted players.
 		return sacrificedPermanentTypes(g, players), true
-	case "CardsDrawn":
+	case cov3PlayerScalarCardsDrawn:
 		// The cards the counted players drew this turn, summed (Heliod, the
 		// Warped Eclipse's "for each card your opponents have drawn this
 		// turn") -- the same Host log fold the Highest/Lowest extremes and
@@ -462,7 +461,7 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 			n += h.CardsDrawnThisTurn(p)
 		}
 		return n, true
-	case "NonCombatDamageDealtThisTurn":
+	case cov3PlayerScalarNonCombatDamageDealtThisTurn:
 		// Chandra's Incinerator's "the total amount of noncombat damage dealt
 		// to your opponents this turn": each counted player's damage taken
 		// this turn (the Host's Damage-event fold) minus the combat damage
@@ -481,7 +480,7 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 			}
 		}
 		return n, true
-	case "OpponentsAttackedThisTurn":
+	case cov3PlayerScalarOpponentsAttackedThisTurn:
 		// Fast Forward's "for each opponent you attacked this turn": the
 		// distinct opponents the resolving controller declared attacks on
 		// this turn, read off the Host's DeclareAttackers log fold (the live
@@ -496,7 +495,7 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 			return 0, false
 		}
 		return provider.OpponentsAttackedThisTurn(c.Controller), true
-	case "LifeLostLastTurn":
+	case cov3PlayerScalarLifeLostLastTurn:
 		// The life each counted player lost during the PREVIOUS turn (the
 		// Host's log fold between the last two TurnChange events), summed
 		// (Brutal Deceiver-adjacent Wicked Visitor family: First Response's
@@ -506,7 +505,7 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 			n += h.LifeLostLastTurn(p)
 		}
 		return n, true
-	case "AttackersDeclared":
+	case cov3PlayerScalarAttackersDeclared:
 		// Charging Cinderhorn's "if no creatures attacked this turn": the
 		// attackers declared this turn. Only the every-player group sums to
 		// the whole-turn fold the Host keeps.
@@ -514,7 +513,7 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 			return 0, false
 		}
 		return int32(h.AttackersThisTurn()), true
-	case "HasPropertyBeenAttackedThisCombat":
+	case cov3PlayerScalarHasPropertyBeenAttackedThisC:
 		// "only if you've been attacked this step" (Eightfold Maze,
 		// Kongming's Contraptions, Warrior's Stand; 15 corpus carriers): 1
 		// when a creature is attacking the resolving controller (or a
@@ -530,7 +529,7 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 			}
 		}
 		return 0, true
-	case "OpponentsAttackedThisCombat":
+	case cov3PlayerScalarOpponentsAttackedThisCombat:
 		// The number of distinct opponents the resolving controller's
 		// creatures are attacking this combat (the Myriad-adjacent "for each
 		// opponent you attacked" family), from the live combat state.
@@ -550,7 +549,7 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 			}
 		}
 		return n, true
-	case "HasPropertyattackedYouTheirLastTurn":
+	case cov3PlayerScalarHasPropertyattackedYouTheirL:
 		// The counted players who attacked the resolving controller during
 		// their last turn (Avenge's cost reduction gate), the Host's log
 		// walk over each member's most recent completed turn.
@@ -561,7 +560,7 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 			}
 		}
 		return n, true
-	case "DomainPlayer":
+	case cov3PlayerScalarDomainPlayer:
 		if group != "PlayerCountPropertyYou" {
 			return 0, false
 		}
@@ -685,3 +684,145 @@ func mostProminentCreatureType(h Host, c *Ctx, spec string) int32 {
 	}
 	return best + all
 }
+
+type evalCov3HeadCode uint16
+
+const (
+	evalCov3HeadDomain evalCov3HeadCode = iota + 1
+	evalCov3HeadDomainActivePlayer
+	evalCov3HeadCardsInYourHand
+	evalCov3HeadTopOfLibraryCMC
+	evalCov3HeadTotalOppPoisonCounters
+	evalCov3HeadTotalTurns
+	evalCov3HeadLeftGraveyardThisTurn
+	evalCov3HeadMaxOppDamageThisTurn
+	evalCov3HeadCardManaCost
+	evalCov3HeadYourSpeed
+	evalCov3HeadTypesSharedWith
+	evalCov3HeadMostProminentCreatureType
+	evalCov3HeadCreaturesAttackedThisTurn
+)
+
+var evalCov3HeadCodes = state.NewStrCodes(
+	state.StrEntry[evalCov3HeadCode]{Key: "Domain", Val: evalCov3HeadDomain},
+	state.StrEntry[evalCov3HeadCode]{Key: "DomainActivePlayer", Val: evalCov3HeadDomainActivePlayer},
+	state.StrEntry[evalCov3HeadCode]{Key: "CardsInYourHand", Val: evalCov3HeadCardsInYourHand},
+	state.StrEntry[evalCov3HeadCode]{Key: "TopOfLibraryCMC", Val: evalCov3HeadTopOfLibraryCMC},
+	state.StrEntry[evalCov3HeadCode]{Key: "TotalOppPoisonCounters", Val: evalCov3HeadTotalOppPoisonCounters},
+	state.StrEntry[evalCov3HeadCode]{Key: "TotalTurns", Val: evalCov3HeadTotalTurns},
+	state.StrEntry[evalCov3HeadCode]{Key: "LeftGraveyardThisTurn", Val: evalCov3HeadLeftGraveyardThisTurn},
+	state.StrEntry[evalCov3HeadCode]{Key: "LeftBattlefieldThisTurn", Val: evalCov3HeadLeftGraveyardThisTurn},
+	state.StrEntry[evalCov3HeadCode]{Key: "MaxOppDamageThisTurn", Val: evalCov3HeadMaxOppDamageThisTurn},
+	state.StrEntry[evalCov3HeadCode]{Key: "CardManaCost", Val: evalCov3HeadCardManaCost},
+	state.StrEntry[evalCov3HeadCode]{Key: "YourSpeed", Val: evalCov3HeadYourSpeed},
+	state.StrEntry[evalCov3HeadCode]{Key: "TypesSharedWith", Val: evalCov3HeadTypesSharedWith},
+	state.StrEntry[evalCov3HeadCode]{Key: "MostProminentCreatureType", Val: evalCov3HeadMostProminentCreatureType},
+	state.StrEntry[evalCov3HeadCode]{Key: "CreaturesAttackedThisTurn", Val: evalCov3HeadCreaturesAttackedThisTurn},
+)
+
+type cov3BranchHoldsCode uint16
+
+const (
+	cov3BranchHoldsDelirium cov3BranchHoldsCode = iota + 1
+	cov3BranchHoldsMetalcraft
+	cov3BranchHoldsHellbent
+	cov3BranchHoldsFatefulHour
+	cov3BranchHoldsAllFourBend
+	cov3BranchHoldsCommittedCrimeThisTurn
+	cov3BranchHoldsLandfall
+	cov3BranchHoldsVoid
+)
+
+var cov3BranchHoldsCodes = state.NewStrCodes(
+	state.StrEntry[cov3BranchHoldsCode]{Key: "Delirium", Val: cov3BranchHoldsDelirium},
+	state.StrEntry[cov3BranchHoldsCode]{Key: "Metalcraft", Val: cov3BranchHoldsMetalcraft},
+	state.StrEntry[cov3BranchHoldsCode]{Key: "Hellbent", Val: cov3BranchHoldsHellbent},
+	state.StrEntry[cov3BranchHoldsCode]{Key: "FatefulHour", Val: cov3BranchHoldsFatefulHour},
+	state.StrEntry[cov3BranchHoldsCode]{Key: "AllFourBend", Val: cov3BranchHoldsAllFourBend},
+	state.StrEntry[cov3BranchHoldsCode]{Key: "CommittedCrimeThisTurn", Val: cov3BranchHoldsCommittedCrimeThisTurn},
+	state.StrEntry[cov3BranchHoldsCode]{Key: "Landfall", Val: cov3BranchHoldsLandfall},
+	state.StrEntry[cov3BranchHoldsCode]{Key: "Void", Val: cov3BranchHoldsVoid},
+)
+
+type playerScalarPropertyCode uint16
+
+const (
+	playerScalarPropertyCardsInHand playerScalarPropertyCode = iota + 1
+	playerScalarPropertyCardsInGraveyard
+	playerScalarPropertyCardsInLibrary
+	playerScalarPropertyCardsDrawn
+	playerScalarPropertyLifeTotal
+)
+
+var playerScalarPropertyCodes = state.NewStrCodes(
+	state.StrEntry[playerScalarPropertyCode]{Key: "CardsInHand", Val: playerScalarPropertyCardsInHand},
+	state.StrEntry[playerScalarPropertyCode]{Key: "CardsInGraveyard", Val: playerScalarPropertyCardsInGraveyard},
+	state.StrEntry[playerScalarPropertyCode]{Key: "CardsInLibrary", Val: playerScalarPropertyCardsInLibrary},
+	state.StrEntry[playerScalarPropertyCode]{Key: "CardsDrawn", Val: playerScalarPropertyCardsDrawn},
+	state.StrEntry[playerScalarPropertyCode]{Key: "LifeTotal", Val: playerScalarPropertyLifeTotal},
+)
+
+type cov3PlayerGroupCode uint16
+
+const (
+	cov3PlayerGroupPlayerCountPropertyYou cov3PlayerGroupCode = iota + 1
+	cov3PlayerGroupPlayerCount
+	cov3PlayerGroupPlayerCountOpponents
+	cov3PlayerGroupPlayerCountRegisteredOpponen
+	cov3PlayerGroupPlayerCountRemembered
+	cov3PlayerGroupPlayerCountRememberedControl
+)
+
+var cov3PlayerGroupCodes = state.NewStrCodes(
+	state.StrEntry[cov3PlayerGroupCode]{Key: "PlayerCountPropertyYou", Val: cov3PlayerGroupPlayerCountPropertyYou},
+	state.StrEntry[cov3PlayerGroupCode]{Key: "PlayerCount", Val: cov3PlayerGroupPlayerCount},
+	state.StrEntry[cov3PlayerGroupCode]{Key: "PlayerCountPlayers", Val: cov3PlayerGroupPlayerCount},
+	state.StrEntry[cov3PlayerGroupCode]{Key: "PlayerCountOpponents", Val: cov3PlayerGroupPlayerCountOpponents},
+	state.StrEntry[cov3PlayerGroupCode]{Key: "PlayerCountRegisteredOpponents", Val: cov3PlayerGroupPlayerCountRegisteredOpponen},
+	state.StrEntry[cov3PlayerGroupCode]{Key: "PlayerCountRemembered", Val: cov3PlayerGroupPlayerCountRemembered},
+	state.StrEntry[cov3PlayerGroupCode]{Key: "PlayerCountRememberedController", Val: cov3PlayerGroupPlayerCountRememberedControl},
+)
+
+type cov3PlayerPropCode uint16
+
+const (
+	cov3PlayerPropAmount cov3PlayerPropCode = iota + 1
+	cov3PlayerPropValid
+	cov3PlayerPropLifeLostThisTurn
+)
+
+var cov3PlayerPropCodes = state.NewStrCodes(
+	state.StrEntry[cov3PlayerPropCode]{Key: "Amount", Val: cov3PlayerPropAmount},
+	state.StrEntry[cov3PlayerPropCode]{Key: "Valid", Val: cov3PlayerPropValid},
+	state.StrEntry[cov3PlayerPropCode]{Key: "LifeLostThisTurn", Val: cov3PlayerPropLifeLostThisTurn},
+)
+
+type cov3PlayerScalarCode uint16
+
+const (
+	cov3PlayerScalarSacrificedThisTurn cov3PlayerScalarCode = iota + 1
+	cov3PlayerScalarSacrificedPermanentTypesThis
+	cov3PlayerScalarCardsDrawn
+	cov3PlayerScalarNonCombatDamageDealtThisTurn
+	cov3PlayerScalarOpponentsAttackedThisTurn
+	cov3PlayerScalarLifeLostLastTurn
+	cov3PlayerScalarAttackersDeclared
+	cov3PlayerScalarHasPropertyBeenAttackedThisC
+	cov3PlayerScalarOpponentsAttackedThisCombat
+	cov3PlayerScalarHasPropertyattackedYouTheirL
+	cov3PlayerScalarDomainPlayer
+)
+
+var cov3PlayerScalarCodes = state.NewStrCodes(
+	state.StrEntry[cov3PlayerScalarCode]{Key: "SacrificedThisTurn", Val: cov3PlayerScalarSacrificedThisTurn},
+	state.StrEntry[cov3PlayerScalarCode]{Key: "SacrificedPermanentTypesThisTurn", Val: cov3PlayerScalarSacrificedPermanentTypesThis},
+	state.StrEntry[cov3PlayerScalarCode]{Key: "CardsDrawn", Val: cov3PlayerScalarCardsDrawn},
+	state.StrEntry[cov3PlayerScalarCode]{Key: "NonCombatDamageDealtThisTurn", Val: cov3PlayerScalarNonCombatDamageDealtThisTurn},
+	state.StrEntry[cov3PlayerScalarCode]{Key: "OpponentsAttackedThisTurn", Val: cov3PlayerScalarOpponentsAttackedThisTurn},
+	state.StrEntry[cov3PlayerScalarCode]{Key: "LifeLostLastTurn", Val: cov3PlayerScalarLifeLostLastTurn},
+	state.StrEntry[cov3PlayerScalarCode]{Key: "AttackersDeclared", Val: cov3PlayerScalarAttackersDeclared},
+	state.StrEntry[cov3PlayerScalarCode]{Key: "HasPropertyBeenAttackedThisCombat", Val: cov3PlayerScalarHasPropertyBeenAttackedThisC},
+	state.StrEntry[cov3PlayerScalarCode]{Key: "OpponentsAttackedThisCombat", Val: cov3PlayerScalarOpponentsAttackedThisCombat},
+	state.StrEntry[cov3PlayerScalarCode]{Key: "HasPropertyattackedYouTheirLastTurn", Val: cov3PlayerScalarHasPropertyattackedYouTheirL},
+	state.StrEntry[cov3PlayerScalarCode]{Key: "DomainPlayer", Val: cov3PlayerScalarDomainPlayer},
+)

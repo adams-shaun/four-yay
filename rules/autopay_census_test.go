@@ -1131,7 +1131,7 @@ func (cz *autopayCensus) v1Member(e *Engine, id state.ObjID, ma *cards.SA) bool 
 		want = pay.ManaAmount(m)
 	}
 	for _, u := range e.paymentPlanManaUnits(0) {
-		if u.id != id {
+		if u.ID != id {
 			continue
 		}
 		for _, a := range e.paymentPlanUnitAlternatives(u) {
@@ -1154,7 +1154,7 @@ func (cz *autopayCensus) v1Structural(e *Engine, id state.ObjID, ma *cards.SA) s
 		return "RestrictValid (windowManaUnits)"
 	}
 	cost := e.parseCost(ma.Params["Cost"])
-	if !manaFreeCost(cost) {
+	if !pay.ManaFreeCost(cost) {
 		return "manaFreeCost (cost beyond tap)"
 	}
 	amt := availableAmount(ma)

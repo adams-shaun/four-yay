@@ -36,23 +36,23 @@ func (d ControlDuration) Permanent() bool { return d == ControlDuration{} }
 // because a silently permanent steal is the wrong answer for any lifetime.
 func ParseControlDuration(raw string) (d ControlDuration, unknown string) {
 	for tok := range strings.SplitSeq(raw, ",") {
-		switch strings.TrimSpace(tok) {
-		case "":
-		case "EOT":
+		switch parseControlDurationCodes.Code(string(strings.TrimSpace(tok))) {
+		case parseControlDurationEmpty:
+		case parseControlDurationEOT:
 			d.EOT = true
-		case "EndOfCombat":
+		case parseControlDurationEndOfCombat:
 			d.EndOfCombat = true
-		case "UntilTheEndOfYourNextTurn":
+		case parseControlDurationUntilTheEndOfYourNextTurn:
 			d.NextTurn = true
-		case "LeavesPlay":
+		case parseControlDurationLeavesPlay:
 			d.LeavesPlay = true
-		case "Untap":
+		case parseControlDurationUntap:
 			d.Untap = true
-		case "LoseControl":
+		case parseControlDurationLoseControl:
 			d.LoseControl = true
-		case "UntilSourceUnattached":
+		case parseControlDurationUntilSourceUnattached:
 			d.Unattached = true
-		case "StaticCommandCheck":
+		case parseControlDurationStaticCommandCheck:
 			d.StaticCheck = true
 		default:
 			return ControlDuration{}, strings.TrimSpace(tok)
@@ -149,19 +149,45 @@ func ControlGrantEnded(h Host, gr ControlGrant) bool {
 }
 
 func compareCount(op string, left, right int) bool {
-	switch op {
-	case "EQ":
+	switch CmpOpOf(op) {
+	case CmpEQ:
 		return left == right
-	case "NE":
+	case CmpNE:
 		return left != right
-	case "LT":
+	case CmpLT:
 		return left < right
-	case "LE":
+	case CmpLE:
 		return left <= right
-	case "GT":
+	case CmpGT:
 		return left > right
-	case "GE":
+	case CmpGE:
 		return left >= right
 	}
 	return false
 }
+
+type parseControlDurationCode uint16
+
+const (
+	parseControlDurationEmpty parseControlDurationCode = iota + 1
+	parseControlDurationEOT
+	parseControlDurationEndOfCombat
+	parseControlDurationUntilTheEndOfYourNextTurn
+	parseControlDurationLeavesPlay
+	parseControlDurationUntap
+	parseControlDurationLoseControl
+	parseControlDurationUntilSourceUnattached
+	parseControlDurationStaticCommandCheck
+)
+
+var parseControlDurationCodes = state.NewStrCodes(
+	state.StrEntry[parseControlDurationCode]{Key: "", Val: parseControlDurationEmpty},
+	state.StrEntry[parseControlDurationCode]{Key: "EOT", Val: parseControlDurationEOT},
+	state.StrEntry[parseControlDurationCode]{Key: "EndOfCombat", Val: parseControlDurationEndOfCombat},
+	state.StrEntry[parseControlDurationCode]{Key: "UntilTheEndOfYourNextTurn", Val: parseControlDurationUntilTheEndOfYourNextTurn},
+	state.StrEntry[parseControlDurationCode]{Key: "LeavesPlay", Val: parseControlDurationLeavesPlay},
+	state.StrEntry[parseControlDurationCode]{Key: "Untap", Val: parseControlDurationUntap},
+	state.StrEntry[parseControlDurationCode]{Key: "LoseControl", Val: parseControlDurationLoseControl},
+	state.StrEntry[parseControlDurationCode]{Key: "UntilSourceUnattached", Val: parseControlDurationUntilSourceUnattached},
+	state.StrEntry[parseControlDurationCode]{Key: "StaticCommandCheck", Val: parseControlDurationStaticCommandCheck},
+)

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // effReplaceMana is api:ReplaceMana: it rewrites one in-flight ManaAdd event
@@ -13,15 +14,15 @@ func effReplaceMana(_ Host, c *Ctx, sa *cards.SA) {
 	if c == nil {
 		return
 	}
-	if only := strings.TrimSpace(sa.ParamStr(cards.PKReplaceOnly)); only != "" && only != c.ManaType {
+	if only := strings.TrimSpace(sa.ParamStr(cards.PKReplaceOnly)); only != "" && only != c.Mana.Type {
 		return
 	}
 	if n := Num(nil, c, sa, "ReplaceAmount", 1); n > 0 {
-		c.ManaAmount *= n
+		c.Mana.Amount *= n
 	}
 	kind := strings.TrimSpace(sa.ParamStr(cards.PKReplaceMana))
 	if kind != "" {
-		c.ManaAmount = 1
+		c.Mana.Amount = 1
 	}
 	if kind == "" {
 		kind = strings.TrimSpace(sa.ParamStr(cards.PKReplaceType))
@@ -32,21 +33,42 @@ func effReplaceMana(_ Host, c *Ctx, sa *cards.SA) {
 	if kind == "" {
 		return
 	}
-	switch strings.ToLower(kind) {
-	case "white":
+	switch effReplaceManaCodes.Code(string(strings.ToLower(kind))) {
+	case effReplaceManaWhite:
 		kind = "W"
-	case "blue":
+	case effReplaceManaBlue:
 		kind = "U"
-	case "black":
+	case effReplaceManaBlack:
 		kind = "B"
-	case "red":
+	case effReplaceManaRed:
 		kind = "R"
-	case "green":
+	case effReplaceManaGreen:
 		kind = "G"
-	case "any", "chosen":
-		kind = c.ManaChoice
+	case effReplaceManaAny:
+		kind = c.Mana.Choice
 	}
 	if len(kind) == 1 && strings.ContainsRune(ManaSymbols, rune(kind[0])) {
-		c.ManaType = kind
+		c.Mana.Type = kind
 	}
 }
+
+type effReplaceManaCode uint16
+
+const (
+	effReplaceManaWhite effReplaceManaCode = iota + 1
+	effReplaceManaBlue
+	effReplaceManaBlack
+	effReplaceManaRed
+	effReplaceManaGreen
+	effReplaceManaAny
+)
+
+var effReplaceManaCodes = state.NewStrCodes(
+	state.StrEntry[effReplaceManaCode]{Key: "white", Val: effReplaceManaWhite},
+	state.StrEntry[effReplaceManaCode]{Key: "blue", Val: effReplaceManaBlue},
+	state.StrEntry[effReplaceManaCode]{Key: "black", Val: effReplaceManaBlack},
+	state.StrEntry[effReplaceManaCode]{Key: "red", Val: effReplaceManaRed},
+	state.StrEntry[effReplaceManaCode]{Key: "green", Val: effReplaceManaGreen},
+	state.StrEntry[effReplaceManaCode]{Key: "any", Val: effReplaceManaAny},
+	state.StrEntry[effReplaceManaCode]{Key: "chosen", Val: effReplaceManaAny},
+)

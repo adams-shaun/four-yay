@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -72,7 +73,7 @@ func (e *Engine) castWindowUnits(pc *pendingCast) []windowManaUnit {
 	// time would let the probe claim reach the window cannot complete.
 	out := windowUnits[:0]
 	for _, u := range windowUnits {
-		if e.convokeCommitted(pc, u.id) {
+		if e.convokeCommitted(pc, u.ID) {
 			continue
 		}
 		out = append(out, u)
@@ -136,7 +137,7 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 			}
 			lifeCost := int32(0)
 			genericCost := int32(0)
-			free := manaFreeCost(cost)
+			free := pay.ManaFreeCost(cost)
 			switch {
 			case free:
 				// windowManaUnits already counted a free PLAIN literal
@@ -332,16 +333,16 @@ func castWindowOtherPartsAbsent(c Cost) bool {
 func appendCastWindowAlt(units []windowManaUnit, id state.ObjID, ma *cards.SA, counts [6]int32, amt, life, costGeneric int32) []windowManaUnit {
 	idx := -1
 	for i := range units {
-		if units[i].id == id {
+		if units[i].ID == id {
 			idx = i
 			break
 		}
 	}
 	if idx == -1 {
-		units = append(units, windowManaUnit{id: id})
+		units = append(units, windowManaUnit{ID: id})
 		idx = len(units) - 1
 	}
-	units[idx].alts = append(units[idx].alts, windowManaAlt{ma: ma, counts: counts, amt: amt, life: life, costGeneric: costGeneric})
+	units[idx].Alts = append(units[idx].Alts, windowManaAlt{Ma: ma, Counts: counts, Amt: amt, Life: life, CostGeneric: costGeneric})
 	return units
 }
 
@@ -368,7 +369,7 @@ func (e *Engine) castWindowReachable(p state.PlayerID, cost Cost, spellPool, sno
 	typed [7]state.Mana, life int32, conv *manaConv, units []windowManaUnit) bool {
 	payable := func(pool, snowPool state.Mana, lifeNow int32) bool {
 		_, ok := resolveManaWith(cost, pool, snowPool, typed, lifeNow,
-			e.payerGrantsPayLifeInsteadOfB(p), pipRider{}, conv)
+			asPayer(e).PayLifeInsteadOfB(p), pipRider{}, conv)
 
 		return ok
 	}
@@ -402,29 +403,29 @@ func (e *Engine) castWindowReachable(p state.PlayerID, cost Cost, spellPool, sno
 			if used[i] {
 				continue
 			}
-			for _, a := range ordered[i].alts {
-				if a.life > lifeLeft {
+			for _, a := range ordered[i].Alts {
+				if a.Life > lifeLeft {
 					continue
 				}
 				// Pay a generic activation fee from mana the live activation
 				// gate can spend. Track the same spent colours in the spell
 				// pool; fees reduce that pool, they are not extra spell pips.
-				activationFee, feeOK := resolveMana((Cost{Generic: a.costGeneric}),
+				activationFee, feeOK := resolveMana((Cost{Generic: a.CostGeneric}),
 					activationPool, activationSnow, [7]state.Mana{}, lifeLeft, nil)
 
 				if !feeOK {
 					continue
 				}
-				spent := manaSub(activationPool, activationFee.pool)
-				snowSpent := manaSub(activationSnow, activationFee.snow)
+				spent := manaSub(activationPool, activationFee.Pool)
+				snowSpent := manaSub(activationSnow, activationFee.Snow)
 				nextPool := manaSub(pool, spent)
 				nextSpellSnow := manaSub(spellSnow, snowSpent)
-				nextActivation := activationFee.pool
-				nextActivationSnow := activationFee.snow
-				produced := a.mana()
+				nextActivation := activationFee.Pool
+				nextActivationSnow := activationFee.Snow
+				produced := a.Mana()
 				used[i] = true
-				found := rec(manaAdd(nextPool, produced), nextSpellSnow,
-					manaAdd(nextActivation, produced), nextActivationSnow, lifeLeft-a.life)
+				found := rec(pay.ManaAdd(nextPool, produced), nextSpellSnow,
+					pay.ManaAdd(nextActivation, produced), nextActivationSnow, lifeLeft-a.Life)
 				used[i] = false
 				if found {
 					return true
@@ -452,20 +453,20 @@ func manaSub(a, b state.Mana) state.Mana {
 // giving castWindowReachable a stable traversal order.
 func castWindowUnitLess(a, b windowManaUnit) bool {
 	ka, kb := int32(-1), int32(-1)
-	for _, x := range a.alts {
-		if ka < 0 || x.costGeneric < ka {
-			ka = x.costGeneric
+	for _, x := range a.Alts {
+		if ka < 0 || x.CostGeneric < ka {
+			ka = x.CostGeneric
 		}
 	}
-	for _, x := range b.alts {
-		if kb < 0 || x.costGeneric < kb {
-			kb = x.costGeneric
+	for _, x := range b.Alts {
+		if kb < 0 || x.CostGeneric < kb {
+			kb = x.CostGeneric
 		}
 	}
 	if ka != kb {
 		return ka < kb
 	}
-	return a.id < b.id
+	return a.ID < b.ID
 }
 
 // unrestrictedWindowPool is the payer's real floating pool minus every
@@ -525,16 +526,16 @@ func (e *Engine) striveAffordableTargets(pc *pendingCast, max int) int {
 		for i := int(pc.striveUnits); i < n-1; i++ {
 			cost = cost.Plus(sc)
 		}
-		cost = pc.mods.apply(cost)
+		cost = pc.mods.Apply(cost)
 		cost.Generic = addClampedGeneric(cost.Generic, int64(pc.taxGeneric))
 		cost.Generic -= int32(len(pc.delve))
 		if cost.Generic < 0 {
 			cost.Generic = 0
 		}
 		convoked := e.applyConvoke(pc, cost)
-		pay := paymentForCast(pc, convoked)
-		rider := pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}
-		if e.manaFeasibleDescriptor(pc.player, pay, convoked, costMods{}, 0, 0, rider) {
+		desc := paymentForCast(pc, convoked)
+		rider := pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}
+		if e.manaFeasibleDescriptor(pc.player, desc, convoked, costMods{}, 0, 0, rider) {
 			return true
 		}
 		if !convoked.HasManaPayment() {
@@ -543,9 +544,9 @@ func (e *Engine) striveAffordableTargets(pc *pendingCast, max int) int {
 		if !unitsBuilt {
 			units, unitsBuilt = e.castWindowUnits(pc), true
 		}
-		av := e.manaAvailableFor(pc.player, pay)
-		return e.castWindowReachable(pc.player, convoked, av.pool, pl.Snow, av.typed, pl.Life,
-			e.paymentConv(pc.player, pay.id, pay.class == paymentActivated), units)
+		av := pay.AvailableFor(asPayer(e), pc.player, desc)
+		return e.castWindowReachable(pc.player, convoked, av.Pool, pl.Snow, av.Typed, pl.Life,
+			asPayer(e).Conv(pc.player, desc.ID, desc.Class == paymentActivated), units)
 	}
 	// Ascending: the price is monotone in n, so the first unaffordable count
 	// ends the walk and at most one exhaustive (failing) window search runs.

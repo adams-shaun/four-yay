@@ -46,24 +46,6 @@ func init() { Register("Amass", effAmass) }
 // generic-Army fallback).
 func effAmass(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
-	if rest := resumingMint(c, sa); rest != nil {
-		// The Army's mint parked behind a CR 616.1 order ask and the answer
-		// has minted it: amass onto EVERY mint the answer produced (a
-		// CreateToken replacement can rewrite one Army into several) with
-		// the values the first pass resolved (a mint the answer did not
-		// create leaves nothing to amass onto, the same stop the unparked
-		// miss takes).
-		for _, want := range rest.Parked {
-			o := g.Obj(want)
-			if o == nil {
-				continue
-			}
-			if !amassRiders(h, c, sa, want, o.Controller, rest.Script, rest.Amount) {
-				return
-			}
-		}
-		return
-	}
 	n := Num(h, c, sa, "Num", 1)
 	if n <= 0 {
 		return
@@ -103,10 +85,8 @@ func effAmass(h Host, c *Ctx, sa *cards.SA) {
 		wasSuspended := h.Suspended()
 		mints := h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: c.Controller, Text: key})
 		if !wasSuspended && h.Suspended() {
-			// The mint parked the resolution behind a replacement-order ask:
-			// every mint that landed takes its riders now, and the mints the
-			// answer produces take theirs on the TokenRest re-entry, instead
-			// of the riders running against objects that do not exist yet.
+			// A resolution-time window opened during the mint: every mint
+			// that landed takes its riders, and the amass stops there.
 			for _, id := range mints {
 				o := g.Obj(id)
 				if o == nil {
@@ -116,11 +96,6 @@ func effAmass(h Host, c *Ctx, sa *cards.SA) {
 					return
 				}
 			}
-			// The Army parked behind an order ask: the counters, the type
-			// grants and the remember land on every mint the answer
-			// produces once it is answered (a refused continuation still
-			// stops here -- the landed mints above already took theirs).
-			_ = suspendMint(h, c, TokenRest{SA: sa, Amount: n, Script: typ})
 			return
 		}
 		for _, want := range mints {

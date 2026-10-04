@@ -3,7 +3,6 @@ package rules
 import (
 	"strings"
 
-	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -36,7 +35,7 @@ func paysPrintedManaCost(opt *decision.Option) bool {
 	if opt.Kind != "cast" || opt.AltCostIndex > 0 {
 		return false
 	}
-	if v, ok := paysPrintedManaCostTab1.Get(opt.Mode); ok {
+	if v, ok := paysPrintedManaCostTab.Get(opt.Mode); ok {
 		return v
 	}
 	return false
@@ -92,22 +91,22 @@ func (e *Engine) castsNoManaCostByPaying(p state.PlayerID, opt *decision.Option)
 	return true
 }
 
-var paysPrintedManaCostTab1 = cards.NewStrTable[bool](
-	cards.StrEntry[bool]{Key: "", Val: true},
-	cards.StrEntry[bool]{Key: "mayflash", Val: true},
-	cards.StrEntry[bool]{Key: "kicked", Val: true},
-	cards.StrEntry[bool]{Key: "kicked1", Val: true},
-	cards.StrEntry[bool]{Key: "kicked2", Val: true},
-	cards.StrEntry[bool]{Key: "kickedboth", Val: true},
-	cards.StrEntry[bool]{Key: "replicated", Val: true},
-	cards.StrEntry[bool]{Key: "multikicked", Val: true},
-	cards.StrEntry[bool]{Key: "squadded", Val: true},
-	cards.StrEntry[bool]{Key: "conspired", Val: true},
-	cards.StrEntry[bool]{Key: "buyback", Val: true},
-	cards.StrEntry[bool]{Key: "offspring", Val: true},
-	cards.StrEntry[bool]{Key: "optionalcost", Val: true},
-	cards.StrEntry[bool]{Key: "retrace", Val: true},
-	cards.StrEntry[bool]{Key: "jumpstart", Val: true},
-	cards.StrEntry[bool]{Key: "warp_recast", Val: true},
-	cards.StrEntry[bool]{Key: "mayplay", Val: true},
+var paysPrintedManaCostTab = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "", Val: true},
+	state.StrEntry[bool]{Key: "mayflash", Val: true},
+	state.StrEntry[bool]{Key: "kicked", Val: true},
+	state.StrEntry[bool]{Key: "kicked1", Val: true},
+	state.StrEntry[bool]{Key: "kicked2", Val: true},
+	state.StrEntry[bool]{Key: "kickedboth", Val: true},
+	state.StrEntry[bool]{Key: "replicated", Val: true},
+	state.StrEntry[bool]{Key: "multikicked", Val: true},
+	state.StrEntry[bool]{Key: "squadded", Val: true},
+	state.StrEntry[bool]{Key: "conspired", Val: true},
+	state.StrEntry[bool]{Key: "buyback", Val: true},
+	state.StrEntry[bool]{Key: "offspring", Val: true},
+	state.StrEntry[bool]{Key: "optionalcost", Val: true},
+	state.StrEntry[bool]{Key: "retrace", Val: true},
+	state.StrEntry[bool]{Key: "jumpstart", Val: true},
+	state.StrEntry[bool]{Key: "warp_recast", Val: true},
+	state.StrEntry[bool]{Key: "mayplay", Val: true},
 )

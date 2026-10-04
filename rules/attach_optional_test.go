@@ -2,8 +2,8 @@
 // always attached, and (for Ajani's Chosen) attached the WRONG object, because
 // Object$ TriggeredCardLKICopy also fell to the Self default. Both defects are
 // fixed in effAttach (effects/attach.go): the optional election is a real
-// yes/no KChoose through the shared Ask boundary with the "attach_optional"
-// resume arm, and every Object$ spec the shared definedSpec resolver supports
+// yes/no KChoose through the shared Ask boundary (an "attach_optional"
+// ask answered in place), and every Object$ spec the shared definedSpec resolver supports
 // now names the object it says. These tests pin both, on the real corpus
 // cards, end to end -- never copied script text (the licensing rule).
 //

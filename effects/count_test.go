@@ -596,12 +596,12 @@ func TestNumResolvedReadsBareInlineCountBody(t *testing.T) {
 // zero.
 func TestChosenNumberHeadReadsTheFrozenBinding(t *testing.T) {
 	h := newHost(t, 2)
-	bound := &Ctx{ChosenNumber: 5, ChosenNumberBound: true}
+	bound := &Ctx{Num: NumberInputs{Chosen: 5, ChosenBound: true}}
 	if n, ok := EvalCountOK(h, bound, "Count$ChosenNumber"); !ok || n != 5 {
 		t.Errorf("bound Count$ChosenNumber = (%d, %v), want (5, true)", n, ok)
 	}
 	// A bound ZERO is a legitimate binding, not a failed one.
-	boundZero := &Ctx{ChosenNumberBound: true}
+	boundZero := &Ctx{Num: NumberInputs{ChosenBound: true}}
 	if n, ok := EvalCountOK(h, boundZero, "Count$ChosenNumber"); !ok || n != 0 {
 		t.Errorf("bound-zero Count$ChosenNumber = (%d, %v), want (0, true)", n, ok)
 	}
@@ -914,7 +914,7 @@ func TestEvalCountValidZoneScanIsAllocationFree(t *testing.T) {
 	if got := EvalCount(h, c, "Count$Valid Creature"); got != 3 {
 		t.Fatalf("precondition: Count$Valid Creature = %d, want 3", got)
 	}
-	allocs := testing.AllocsPerRun(100, func() {
+	allocs := allocsPerRun(100, func() {
 		if got := EvalCount(h, c, "Count$Valid Creature"); got != 3 {
 			t.Fatalf("Count$Valid Creature = %d, want 3", got)
 		}
@@ -968,11 +968,11 @@ func TestCountDottedBranchesResolveSVarNames(t *testing.T) {
 		t.Fatalf("kicked Count$Kicked.Y.Z = %d, want Y's 2", n)
 	}
 	src.CastFlags = 0
-	c.PendingKicked = true
+	c.Kicker.PendingKicked = true
 	if n := EvalCount(h, c, "Count$Kicked.Y.Z"); n != 2 {
 		t.Fatalf("pending-kicked Count$Kicked.Y.Z = %d, want Y's 2", n)
 	}
-	c.PendingKicked = false
+	c.Kicker.PendingKicked = false
 	if n := EvalCount(h, c, "Count$Kicked.Y.Z"); n != 3 {
 		t.Fatalf("unkicked Count$Kicked.Y.Z = %d, want Z's 3", n)
 	}

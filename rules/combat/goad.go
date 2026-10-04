@@ -182,13 +182,25 @@ func activeGoad(b Board, o *state.Object, ge state.GoadEffect) bool {
 	if o.Zone != state.ZBattlefield {
 		return false
 	}
-	switch ge.Duration {
-	case "AsLongAsInPlay":
+	switch activeGoadCodes.Code(string(ge.Duration)) {
+	case activeGoadAsLongAsInPlay:
 		src := b.Game().Obj(ge.Source)
 		return src != nil && src.Zone == state.ZBattlefield
-	case "AsLongAsControl":
+	case activeGoadAsLongAsControl:
 		return o.Controller == ge.Controller
 	default:
 		return true
 	}
 }
+
+type activeGoadCode uint16
+
+const (
+	activeGoadAsLongAsInPlay activeGoadCode = iota + 1
+	activeGoadAsLongAsControl
+)
+
+var activeGoadCodes = state.NewStrCodes(
+	state.StrEntry[activeGoadCode]{Key: "AsLongAsInPlay", Val: activeGoadAsLongAsInPlay},
+	state.StrEntry[activeGoadCode]{Key: "AsLongAsControl", Val: activeGoadAsLongAsControl},
+)

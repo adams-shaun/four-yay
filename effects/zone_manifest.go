@@ -114,19 +114,7 @@ func effManifestDread(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	g := h.Game()
-	p := c.ManifestDreadPlayer
-	picked := state.ObjID(0)
-
-	done := false
-
-	if int(p) >= len(g.Players) {
-		p = c.Controller
-	}
-	if done {
-		manifestDreadAnswered(h, c, p, picked)
-		return
-	}
-	p = c.Controller
+	p := c.Controller
 	lib := g.Zone(state.ZLibrary, p)
 	if len(lib) == 0 {
 		return
@@ -148,8 +136,7 @@ func effManifestDread(h Host, c *Ctx, sa *cards.SA) {
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "manifest_dread", Label: label, Obj: id, Player: p})
 	}
 	if ans, ok := AskTape(h, d); ok {
-		// The resolution kernel's answer in hand: the "manifest_dread"
-		// re-entry's answered move.
+		// Answered in place: manifest the picked card.
 		var picked state.ObjID
 		if len(ans) > 0 {
 			picked = ans[0].Obj
@@ -157,8 +144,6 @@ func effManifestDread(h Host, c *Ctx, sa *cards.SA) {
 		manifestDreadAnswered(h, c, p, picked)
 		return
 	}
-	c.ManifestDreadPlayer = p
-	_ = Ask(h, d)
 
 	h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: p,
 		Text: "manifests the top card (no engine host to ask)", Secret: true})
@@ -167,8 +152,7 @@ func effManifestDread(h Host, c *Ctx, sa *cards.SA) {
 
 // manifestDreadAnswered applies player p's answered pick: the picked card
 // (still on top of p's library) and the next card form the window it
-// splits. The answer re-entry's branch, and the resolution kernel's served
-// answer alike.
+// splits.
 func manifestDreadAnswered(h Host, c *Ctx, p state.PlayerID, picked state.ObjID) {
 	g := h.Game()
 	if o := g.Obj(picked); o != nil && o.Zone == state.ZLibrary && o.Owner == p {
@@ -318,8 +302,8 @@ func effCloak(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	} else {
-		switch defined {
-		case "", "TopOfLibrary":
+		switch effCloakCodes.Code(string(defined)) {
+		case effCloakEmpty:
 			// The bare top-card shape (veiled_ascension, ransom_note,
 			// cryptic_coat): the resolving controller's top card, the
 			// TopOfLibrary selector's own anchor (effects/context.go).
@@ -334,7 +318,7 @@ func effCloak(h Host, c *Ctx, sa *cards.SA) {
 				}
 				cloak(t.Obj)
 			}
-		case "Remembered":
+		case effCloakRemembered:
 			// The Remembered-object shape (become_anonymous,
 			// hide_in_plain_sight, expose_the_culprit): each remembered card
 			// object cloaks from wherever it sits now (library top, exile,
@@ -359,3 +343,16 @@ func effCloak(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 }
+
+type effCloakCode uint16
+
+const (
+	effCloakEmpty effCloakCode = iota + 1
+	effCloakRemembered
+)
+
+var effCloakCodes = state.NewStrCodes(
+	state.StrEntry[effCloakCode]{Key: "", Val: effCloakEmpty},
+	state.StrEntry[effCloakCode]{Key: "TopOfLibrary", Val: effCloakEmpty},
+	state.StrEntry[effCloakCode]{Key: "Remembered", Val: effCloakRemembered},
+)

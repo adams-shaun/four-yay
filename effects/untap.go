@@ -84,18 +84,18 @@ func untapBattlefieldCondition(h Host, c *Ctx, sa *cards.SA) bool {
 	if !ok {
 		return false
 	}
-	switch op {
-	case "EQ":
+	switch CmpOpOf(op) {
+	case CmpEQ:
 		return n == want
-	case "NE":
+	case CmpNE:
 		return n != want
-	case "LT":
+	case CmpLT:
 		return n < want
-	case "LE":
+	case CmpLE:
 		return n <= want
-	case "GT":
+	case CmpGT:
 		return n > want
-	case "GE":
+	case CmpGE:
 		return n >= want
 	}
 	return false
@@ -222,8 +222,6 @@ func effUntap(h Host, c *Ctx, sa *cards.SA) {
 					chosen = append(chosen, o.Obj)
 				}
 			}
-		} else if h.Ask(d) {
-			return
 		} else {
 			chosen = candidates[:n]
 		}

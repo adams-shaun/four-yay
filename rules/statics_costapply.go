@@ -58,7 +58,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 	if !e.classBandGateHolds(sv.ParamStr(cards.PKClassBand), sv.Source) {
 		return false, true
 	}
-	if ty, ok := sv.Param(cards.PKType); ok && ty != "" && ty != scope.kind {
+	if ty, ok := sv.Param(cards.PKType); ok && ty != "" && ty != scope.Kind {
 		return false, true
 	}
 	if !e.costActorMatches(sv, p) {
@@ -106,7 +106,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 		if !ok2 {
 			return false, true
 		}
-		if scope.kind == "Spell" && strings.Contains(spec, "Permanent") {
+		if scope.Kind == "Spell" && strings.Contains(spec, "Permanent") {
 			// The priced object is a SPELL -- in hand/graveyard/exile at the
 			// offer, on the stack at the charge -- never a battlefield
 			// permanent, so Forge's `Permanent` base (a permanent card by
@@ -121,7 +121,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 		}
 	}
 	if first, ok := sv.Param(cards.PKFirstForetell); ok && strings.EqualFold(strings.TrimSpace(first), "True") &&
-		scope.kind == "Foretell" && e.firstForetellUsed(p) {
+		scope.Kind == "Foretell" && e.firstForetellUsed(p) {
 		return false, true
 	}
 	if vs, ok := sv.Param(cards.PKValidSpell); ok && !e.validSpellMatches(sv, scope, p, id, vs, targets) {
@@ -150,7 +150,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 	if !e.costConditionHolds(sv, p) {
 		return false, true
 	}
-	if !e.checkSVarHoldsFor(sv, costSubject{p: p, id: id, ab: scope.ab}, targets) {
+	if !e.checkSVarHoldsFor(sv, costSubject{p: p, id: id, ab: scope.Ab}, targets) {
 		return false, false
 	}
 	if spec, ok := sv.Param(cards.PKValidTarget); ok {
@@ -217,7 +217,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 		// target costs nothing extra), the potential pass at its least, and
 		// the CR 601.2c reprice charges the chosen targets. A SetCost
 		// Relative$ has no corpus carrier and keeps the skip.
-		if mode == "SetCost" || !e.relativeAmountResolves(sv, costSubject{p: p, id: id, ab: scope.ab}, targets) {
+		if mode == "SetCost" || !e.relativeAmountResolves(sv, costSubject{p: p, id: id, ab: scope.Ab}, targets) {
 			return false, false
 		}
 	}
@@ -306,7 +306,7 @@ func (e *Engine) costAffectedZone(id state.ObjID, scope costScope) (state.Zone, 
 	if o == nil {
 		return 0, false
 	}
-	if scope.kind == "Ability" || scope.kind == "Static" || o.Zone != state.ZStack {
+	if scope.Kind == "Ability" || scope.Kind == "Static" || o.Zone != state.ZStack {
 		return o.Zone, true
 	}
 	if o.IsCopy {
@@ -324,12 +324,12 @@ func (e *Engine) costAffectedZone(id state.ObjID, scope costScope) (state.Zone, 
 // unrecognised value denies, the gate chain's fail-closed direction.
 func (e *Engine) costTurnGateHolds(sv staticView) bool {
 	if turn := strings.TrimSpace(sv.ParamStr(cards.PKPlayerTurn)); turn != "" {
-		switch turn {
-		case "True", "You":
+		switch costTurnGateHoldsCodes.Code(string(turn)) {
+		case costTurnGateHoldsTrue:
 			if e.G.Active != sv.Controller {
 				return false
 			}
-		case "Opponent":
+		case costTurnGateHoldsOpponent:
 			if e.G.Active == sv.Controller {
 				return false
 			}
@@ -360,14 +360,14 @@ func (e *Engine) costConditionHolds(sv staticView, p state.PlayerID) bool {
 	if !ok {
 		return true
 	}
-	switch strings.TrimSpace(cond) {
-	case "PlayerTurn":
+	switch costConditionHoldsCodes.Code(string(strings.TrimSpace(cond))) {
+	case costConditionHoldsPlayerTurn:
 		return e.G.Active == p
-	case "NotPlayerTurn":
+	case costConditionHoldsNotPlayerTurn:
 		return e.G.Active != p
-	case "Metalcraft":
+	case costConditionHoldsMetalcraft:
 		return e.metalcraftHolds(p)
-	case "Delirium":
+	case costConditionHoldsDelirium:
 		// The same shared census the Continuous gate and the ability-offer
 		// gate (rules/legal.go's activationConditionOK) read.
 		return e.graveyardCardTypeCount(p) >= 4
@@ -454,34 +454,34 @@ func affectedZoneOK(v string, z state.Zone) bool {
 		return true
 	}
 	for name := range strings.SplitSeq(v, ",") {
-		switch strings.TrimSpace(name) {
-		case "All":
+		switch affectedZoneOKCodes.Code(string(strings.TrimSpace(name))) {
+		case affectedZoneOKAll:
 			return true
-		case "Battlefield":
+		case affectedZoneOKBattlefield:
 			if z == state.ZBattlefield {
 				return true
 			}
-		case "Graveyard":
+		case affectedZoneOKGraveyard:
 			if z == state.ZGraveyard {
 				return true
 			}
-		case "Hand":
+		case affectedZoneOKHand:
 			if z == state.ZHand {
 				return true
 			}
-		case "Exile":
+		case affectedZoneOKExile:
 			if z == state.ZExile {
 				return true
 			}
-		case "Stack":
+		case affectedZoneOKStack:
 			if z == state.ZStack {
 				return true
 			}
-		case "Library":
+		case affectedZoneOKLibrary:
 			if z == state.ZLibrary {
 				return true
 			}
-		case "Command":
+		case affectedZoneOKCommand:
 			if z == state.ZCommand {
 				return true
 			}
@@ -521,22 +521,22 @@ func (e *Engine) validSpellMatches(sv staticView, scope costScope, p state.Playe
 		if i := strings.IndexByte(alt, '.'); i >= 0 {
 			kind, constraint = alt[:i], alt[i+1:]
 		}
-		switch kind {
-		case "Spell":
-			if scope.kind != "Spell" {
+		switch validSpellMatchesCodes.Code(string(kind)) {
+		case validSpellMatchesSpell:
+			if scope.Kind != "Spell" {
 				continue
 			}
 			if e.spellConstraintMatches(sv, scope, p, id, constraint, targets) {
 				return true
 			}
-		case "Activated":
-			if scope.kind != "Ability" || scope.ab == nil {
+		case validSpellMatchesActivated:
+			if scope.Kind != "Ability" || scope.Ab == nil {
 				continue
 			}
 			if e.abilityConstraintMatches(scope, p, id, constraint) {
 				return true
 			}
-		case "Static":
+		case validSpellMatchesStatic:
 			if staticConstraintMatches(scope, constraint) {
 				return true
 			}
@@ -567,12 +567,12 @@ func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.
 		sc.ProposedTargets = targets
 		return e.matchesSpec("Spell."+c, id, sc)
 	}
-	switch c {
-	case "":
+	switch spellConstraintMatchesCodes.Code(string(c)) {
+	case spellConstraintMatchesEmpty:
 		return true
-	case "Flashback":
-		return scope.mode == "flashback"
-	case "Kicked":
+	case spellConstraintMatchesFlashback:
+		return scope.Mode == "flashback"
+	case spellConstraintMatchesKicked:
 		// The bare form is the single-cost Kicker's mode; the and/or
 		// two-part Kicker's per-part modes (kicked1/kicked2/kickedboth) are
 		// kicked casts too -- a cost static gated on "was this kicked" must
@@ -580,37 +580,37 @@ func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.
 		// kicker variant) is a kicked cast the same way. Shared with
 		// targetBoundCtx's pre-payment Count$Kicked binding via modeIsKicked
 		// so the two spellings cannot drift.
-		return modeIsKicked(scope.mode)
-	case "Surged":
-		return scope.mode == "surged"
-	case "Miracle":
-		return scope.mode == "miracle"
-	case "Blitz":
-		return scope.mode == "blitzed" || strings.HasPrefix(scope.mode, "blitzed_grant_")
-	case "Dash":
+		return modeIsKicked(scope.Mode)
+	case spellConstraintMatchesSurged:
+		return scope.Mode == "surged"
+	case spellConstraintMatchesMiracle:
+		return scope.Mode == "miracle"
+	case spellConstraintMatchesBlitz:
+		return scope.Mode == "blitzed" || strings.HasPrefix(scope.Mode, "blitzed_grant_")
+	case spellConstraintMatchesDash:
 		// Forge's isDash: the dash alternative cast, the "dashed" mode the
 		// hand walk offers and beginCast charges (Warbringer).
-		return scope.mode == "dashed"
-	case "Buyback":
+		return scope.Mode == "dashed"
+	case spellConstraintMatchesBuyback:
 		// Forge's isBuyback: the cast that pays the Buyback additional cost,
 		// the "buyback" mode (Memory Crystal). Like Forge, the reduction
 		// applies to that cast's total cost.
-		return scope.mode == "buyback"
-	case "isCastFaceDown":
+		return scope.Mode == "buyback"
+	case spellConstraintMatchesIsCastFaceDown:
 		// Forge's isCastFaceDown: the morph family's face-down cast (Dream
 		// Chisel, Obscuring Aether).
-		return modeIsCastFaceDown(scope.mode)
-	case "MayPlaySource":
+		return modeIsCastFaceDown(scope.Mode)
+	case spellConstraintMatchesMayPlaySource:
 		// Forge's MayPlaySource: the cast rides a may-play permission whose
 		// host is this static's own host (Urianger Augurelt's Play Arcanum
 		// effect grants the permission AND carries the reduction).
 		return e.castRidesMayPlayOf(p, id, sv.Source, scope)
-	case "Instant":
+	case spellConstraintMatchesInstant:
 		if o := e.G.Obj(id); o != nil && o.Face() != nil {
 			return o.Face().IsInstant()
 		}
 		return false
-	case "Sorcery":
+	case spellConstraintMatchesSorcery:
 		if o := e.G.Obj(id); o != nil && o.Face() != nil {
 			return o.Face().IsSorcery()
 		}
@@ -631,17 +631,17 @@ func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.
 // build models no turn-up action for either, so there is nothing more for it
 // to match. Anything else denies.
 func staticConstraintMatches(scope costScope, constraint string) bool {
-	switch strings.TrimSpace(constraint) {
-	case "Foretelling":
-		return scope.kind == "Foretell"
-	case "Plotting":
-		return scope.mode == "plot"
-	case "Unlock":
-		return scope.kind == "Static" && scope.mode == "unlock"
-	case "MorphUp":
-		return scope.kind == "Static" && scope.mode == "morphup"
-	case "isTurnFaceUp":
-		return scope.kind == "Static" && (scope.mode == "morphup" || scope.mode == "disguiseup")
+	switch staticConstraintMatchesCodes.Code(string(strings.TrimSpace(constraint))) {
+	case staticConstraintMatchesForetelling:
+		return scope.Kind == "Foretell"
+	case staticConstraintMatchesPlotting:
+		return scope.Mode == "plot"
+	case staticConstraintMatchesUnlock:
+		return scope.Kind == "Static" && scope.Mode == "unlock"
+	case staticConstraintMatchesMorphUp:
+		return scope.Kind == "Static" && scope.Mode == "morphup"
+	case staticConstraintMatchesIsTurnFaceUp:
+		return scope.Kind == "Static" && (scope.Mode == "morphup" || scope.Mode == "disguiseup")
 	}
 	return false
 }
@@ -655,21 +655,21 @@ func staticConstraintMatches(scope costScope, constraint string) bool {
 // SA API; Loyalty reuses the loyalty-ability classifier; YouCtrl reads the
 // ability source's controller. An unevaluable constraint denies.
 func (e *Engine) abilityConstraintMatches(scope costScope, p state.PlayerID, id state.ObjID, constraint string) bool {
-	ab := scope.ab
+	ab := scope.Ab
 	constraint = strings.TrimSpace(constraint)
-	switch constraint {
-	case "":
+	switch abilityConstraintMatchesCodes.Code(string(constraint)) {
+	case abilityConstraintMatchesEmpty:
 		return true
-	case "ManaAbility":
+	case abilityConstraintMatchesManaAbility:
 		return ab.API == "Mana"
-	case "!ManaAbility":
+	case abilityConstraintMatchesManaAbilityX:
 		return ab.API != "Mana"
-	case "Loyalty":
+	case abilityConstraintMatchesLoyalty:
 		return e.isLoyaltyAbility(ab)
-	case "YouCtrl":
+	case abilityConstraintMatchesYouCtrl:
 		o := e.G.Obj(id)
 		return o != nil && o.Controller == p
-	case "YouDontCtrl":
+	case abilityConstraintMatchesYouDontCtrl:
 		o := e.G.Obj(id)
 		return o != nil && o.Controller != p
 	}
@@ -706,14 +706,14 @@ func saFlagProperty(ab *cards.SA, property string) bool {
 	var ok bool
 	// Literal keys (one per saParamFlagProperties entry) so the param
 	// census attributes each read.
-	switch property {
-	case "Boast":
+	switch saFlagPropertyCodes.Code(string(property)) {
+	case saFlagPropertyBoast:
 		v, ok = ab.Param(cards.PKBoast)
-	case "Exhaust":
+	case saFlagPropertyExhaust:
 		v, ok = ab.Param(cards.PKExhaust)
-	case "PowerUp":
+	case saFlagPropertyPowerUp:
 		v, ok = ab.Param(cards.PKPowerUp)
-	case "Monstrosity":
+	case saFlagPropertyMonstrosity:
 		v, ok = ab.Param(cards.PKMonstrosity)
 	}
 	return ok && !strings.EqualFold(strings.TrimSpace(v), "False")
@@ -763,3 +763,156 @@ func parseInt10(s string) (int64, bool) {
 	v, err := strconv.ParseInt(s, 10, 64)
 	return v, err == nil
 }
+
+type costTurnGateHoldsCode uint16
+
+const (
+	costTurnGateHoldsTrue costTurnGateHoldsCode = iota + 1
+	costTurnGateHoldsOpponent
+)
+
+var costTurnGateHoldsCodes = state.NewStrCodes(
+	state.StrEntry[costTurnGateHoldsCode]{Key: "True", Val: costTurnGateHoldsTrue},
+	state.StrEntry[costTurnGateHoldsCode]{Key: "You", Val: costTurnGateHoldsTrue},
+	state.StrEntry[costTurnGateHoldsCode]{Key: "Opponent", Val: costTurnGateHoldsOpponent},
+)
+
+type costConditionHoldsCode uint16
+
+const (
+	costConditionHoldsPlayerTurn costConditionHoldsCode = iota + 1
+	costConditionHoldsNotPlayerTurn
+	costConditionHoldsMetalcraft
+	costConditionHoldsDelirium
+)
+
+var costConditionHoldsCodes = state.NewStrCodes(
+	state.StrEntry[costConditionHoldsCode]{Key: "PlayerTurn", Val: costConditionHoldsPlayerTurn},
+	state.StrEntry[costConditionHoldsCode]{Key: "NotPlayerTurn", Val: costConditionHoldsNotPlayerTurn},
+	state.StrEntry[costConditionHoldsCode]{Key: "Metalcraft", Val: costConditionHoldsMetalcraft},
+	state.StrEntry[costConditionHoldsCode]{Key: "Delirium", Val: costConditionHoldsDelirium},
+)
+
+type affectedZoneOKCode uint16
+
+const (
+	affectedZoneOKAll affectedZoneOKCode = iota + 1
+	affectedZoneOKBattlefield
+	affectedZoneOKGraveyard
+	affectedZoneOKHand
+	affectedZoneOKExile
+	affectedZoneOKStack
+	affectedZoneOKLibrary
+	affectedZoneOKCommand
+)
+
+var affectedZoneOKCodes = state.NewStrCodes(
+	state.StrEntry[affectedZoneOKCode]{Key: "All", Val: affectedZoneOKAll},
+	state.StrEntry[affectedZoneOKCode]{Key: "Battlefield", Val: affectedZoneOKBattlefield},
+	state.StrEntry[affectedZoneOKCode]{Key: "Graveyard", Val: affectedZoneOKGraveyard},
+	state.StrEntry[affectedZoneOKCode]{Key: "Hand", Val: affectedZoneOKHand},
+	state.StrEntry[affectedZoneOKCode]{Key: "Exile", Val: affectedZoneOKExile},
+	state.StrEntry[affectedZoneOKCode]{Key: "Stack", Val: affectedZoneOKStack},
+	state.StrEntry[affectedZoneOKCode]{Key: "Library", Val: affectedZoneOKLibrary},
+	state.StrEntry[affectedZoneOKCode]{Key: "Command", Val: affectedZoneOKCommand},
+)
+
+type validSpellMatchesCode uint16
+
+const (
+	validSpellMatchesSpell validSpellMatchesCode = iota + 1
+	validSpellMatchesActivated
+	validSpellMatchesStatic
+)
+
+var validSpellMatchesCodes = state.NewStrCodes(
+	state.StrEntry[validSpellMatchesCode]{Key: "Spell", Val: validSpellMatchesSpell},
+	state.StrEntry[validSpellMatchesCode]{Key: "Activated", Val: validSpellMatchesActivated},
+	state.StrEntry[validSpellMatchesCode]{Key: "Static", Val: validSpellMatchesStatic},
+)
+
+type spellConstraintMatchesCode uint16
+
+const (
+	spellConstraintMatchesEmpty spellConstraintMatchesCode = iota + 1
+	spellConstraintMatchesFlashback
+	spellConstraintMatchesKicked
+	spellConstraintMatchesSurged
+	spellConstraintMatchesMiracle
+	spellConstraintMatchesBlitz
+	spellConstraintMatchesDash
+	spellConstraintMatchesBuyback
+	spellConstraintMatchesIsCastFaceDown
+	spellConstraintMatchesMayPlaySource
+	spellConstraintMatchesInstant
+	spellConstraintMatchesSorcery
+)
+
+var spellConstraintMatchesCodes = state.NewStrCodes(
+	state.StrEntry[spellConstraintMatchesCode]{Key: "", Val: spellConstraintMatchesEmpty},
+	state.StrEntry[spellConstraintMatchesCode]{Key: "Flashback", Val: spellConstraintMatchesFlashback},
+	state.StrEntry[spellConstraintMatchesCode]{Key: "Kicked", Val: spellConstraintMatchesKicked},
+	state.StrEntry[spellConstraintMatchesCode]{Key: "Surged", Val: spellConstraintMatchesSurged},
+	state.StrEntry[spellConstraintMatchesCode]{Key: "Miracle", Val: spellConstraintMatchesMiracle},
+	state.StrEntry[spellConstraintMatchesCode]{Key: "Blitz", Val: spellConstraintMatchesBlitz},
+	state.StrEntry[spellConstraintMatchesCode]{Key: "Dash", Val: spellConstraintMatchesDash},
+	state.StrEntry[spellConstraintMatchesCode]{Key: "Buyback", Val: spellConstraintMatchesBuyback},
+	state.StrEntry[spellConstraintMatchesCode]{Key: "isCastFaceDown", Val: spellConstraintMatchesIsCastFaceDown},
+	state.StrEntry[spellConstraintMatchesCode]{Key: "MayPlaySource", Val: spellConstraintMatchesMayPlaySource},
+	state.StrEntry[spellConstraintMatchesCode]{Key: "Instant", Val: spellConstraintMatchesInstant},
+	state.StrEntry[spellConstraintMatchesCode]{Key: "Sorcery", Val: spellConstraintMatchesSorcery},
+)
+
+type staticConstraintMatchesCode uint16
+
+const (
+	staticConstraintMatchesForetelling staticConstraintMatchesCode = iota + 1
+	staticConstraintMatchesPlotting
+	staticConstraintMatchesUnlock
+	staticConstraintMatchesMorphUp
+	staticConstraintMatchesIsTurnFaceUp
+)
+
+var staticConstraintMatchesCodes = state.NewStrCodes(
+	state.StrEntry[staticConstraintMatchesCode]{Key: "Foretelling", Val: staticConstraintMatchesForetelling},
+	state.StrEntry[staticConstraintMatchesCode]{Key: "Plotting", Val: staticConstraintMatchesPlotting},
+	state.StrEntry[staticConstraintMatchesCode]{Key: "Unlock", Val: staticConstraintMatchesUnlock},
+	state.StrEntry[staticConstraintMatchesCode]{Key: "MorphUp", Val: staticConstraintMatchesMorphUp},
+	state.StrEntry[staticConstraintMatchesCode]{Key: "isTurnFaceUp", Val: staticConstraintMatchesIsTurnFaceUp},
+)
+
+type abilityConstraintMatchesCode uint16
+
+const (
+	abilityConstraintMatchesEmpty abilityConstraintMatchesCode = iota + 1
+	abilityConstraintMatchesManaAbility
+	abilityConstraintMatchesManaAbilityX
+	abilityConstraintMatchesLoyalty
+	abilityConstraintMatchesYouCtrl
+	abilityConstraintMatchesYouDontCtrl
+)
+
+var abilityConstraintMatchesCodes = state.NewStrCodes(
+	state.StrEntry[abilityConstraintMatchesCode]{Key: "", Val: abilityConstraintMatchesEmpty},
+	state.StrEntry[abilityConstraintMatchesCode]{Key: "ManaAbility", Val: abilityConstraintMatchesManaAbility},
+	state.StrEntry[abilityConstraintMatchesCode]{Key: "!ManaAbility", Val: abilityConstraintMatchesManaAbilityX},
+	state.StrEntry[abilityConstraintMatchesCode]{Key: "Loyalty", Val: abilityConstraintMatchesLoyalty},
+	state.StrEntry[abilityConstraintMatchesCode]{Key: "YouCtrl", Val: abilityConstraintMatchesYouCtrl},
+	state.StrEntry[abilityConstraintMatchesCode]{Key: "YouDontCtrl", Val: abilityConstraintMatchesYouDontCtrl},
+)
+
+type saFlagPropertyCode uint16
+
+const (
+	saFlagPropertyBoast saFlagPropertyCode = iota + 1
+	saFlagPropertyExhaust
+	saFlagPropertyPowerUp
+	saFlagPropertyMonstrosity
+)
+
+var saFlagPropertyCodes = state.NewStrCodes(
+	state.StrEntry[saFlagPropertyCode]{Key: "Boast", Val: saFlagPropertyBoast},
+	state.StrEntry[saFlagPropertyCode]{Key: "Exhaust", Val: saFlagPropertyExhaust},
+	state.StrEntry[saFlagPropertyCode]{Key: "PowerUp", Val: saFlagPropertyPowerUp},
+	state.StrEntry[saFlagPropertyCode]{Key: "Monstrosity", Val: saFlagPropertyMonstrosity},
+)

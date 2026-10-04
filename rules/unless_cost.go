@@ -3,6 +3,7 @@ package rules
 import (
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -92,7 +93,7 @@ func (e *Engine) payUnlessCost(p state.PlayerID, cost Cost, ctx *effects.Ctx, st
 	// resolving object is the payment subject, so its ManaConvert statics
 	// (including EffectZone$ Command and Effect-delivered grants) apply here
 	// under the same conversion read used by cast offers.
-	if !e.payManaConv(p, cost, e.paymentConv(p, stackObj, false)) {
+	if !pay.PayManaConv(asPayer(e), p, cost, asPayer(e).Conv(p, stackObj, false)) {
 		return false
 	}
 	// The energy parts charge through the ONE shared site (CR 118.2d); the
@@ -134,20 +135,46 @@ func unlessDrawPlayers(ctx *effects.Ctx, payer state.PlayerID, spec string) ([]s
 		}
 		return nil, false
 	}
-	switch spec {
-	case "", "You", "Player", "Self":
+	switch unlessDrawPlayersCodes.Code(string(spec)) {
+	case unlessDrawPlayersEmpty:
 		return []state.PlayerID{payer}, true
-	case "Player.targetedBy", "Targeted", "TargetedPlayer":
+	case unlessDrawPlayersPlayerTargetedBy:
 		if len(ctx.Targets) == 0 {
 			return nil, false
 		}
 		return one(ctx.Targets[0])
-	case "Player.Activator", "TriggeredActivator":
+	case unlessDrawPlayersPlayerActivator:
 		return one(ctx.TriggerActivator)
-	case "Player.TriggeredPlayer", "TriggeredPlayer":
+	case unlessDrawPlayersPlayerTriggeredPlayer:
 		return one(ctx.TriggerPlayer)
-	case "Player.TriggeredTarget", "TriggeredTarget":
+	case unlessDrawPlayersPlayerTriggeredTarget:
 		return one(ctx.TriggerTarget)
 	}
 	return nil, false
 }
+
+type unlessDrawPlayersCode uint16
+
+const (
+	unlessDrawPlayersEmpty unlessDrawPlayersCode = iota + 1
+	unlessDrawPlayersPlayerTargetedBy
+	unlessDrawPlayersPlayerActivator
+	unlessDrawPlayersPlayerTriggeredPlayer
+	unlessDrawPlayersPlayerTriggeredTarget
+)
+
+var unlessDrawPlayersCodes = state.NewStrCodes(
+	state.StrEntry[unlessDrawPlayersCode]{Key: "", Val: unlessDrawPlayersEmpty},
+	state.StrEntry[unlessDrawPlayersCode]{Key: "You", Val: unlessDrawPlayersEmpty},
+	state.StrEntry[unlessDrawPlayersCode]{Key: "Player", Val: unlessDrawPlayersEmpty},
+	state.StrEntry[unlessDrawPlayersCode]{Key: "Self", Val: unlessDrawPlayersEmpty},
+	state.StrEntry[unlessDrawPlayersCode]{Key: "Player.targetedBy", Val: unlessDrawPlayersPlayerTargetedBy},
+	state.StrEntry[unlessDrawPlayersCode]{Key: "Targeted", Val: unlessDrawPlayersPlayerTargetedBy},
+	state.StrEntry[unlessDrawPlayersCode]{Key: "TargetedPlayer", Val: unlessDrawPlayersPlayerTargetedBy},
+	state.StrEntry[unlessDrawPlayersCode]{Key: "Player.Activator", Val: unlessDrawPlayersPlayerActivator},
+	state.StrEntry[unlessDrawPlayersCode]{Key: "TriggeredActivator", Val: unlessDrawPlayersPlayerActivator},
+	state.StrEntry[unlessDrawPlayersCode]{Key: "Player.TriggeredPlayer", Val: unlessDrawPlayersPlayerTriggeredPlayer},
+	state.StrEntry[unlessDrawPlayersCode]{Key: "TriggeredPlayer", Val: unlessDrawPlayersPlayerTriggeredPlayer},
+	state.StrEntry[unlessDrawPlayersCode]{Key: "Player.TriggeredTarget", Val: unlessDrawPlayersPlayerTriggeredTarget},
+	state.StrEntry[unlessDrawPlayersCode]{Key: "TriggeredTarget", Val: unlessDrawPlayersPlayerTriggeredTarget},
+)

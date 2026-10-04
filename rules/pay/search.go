@@ -631,7 +631,7 @@ func (s *Search) complete() bool {
 		return true
 	}
 	chosen := s.materialize()
-	after, ok := s.env.Settle(s.cost, manaAdd(s.pool, s.produced), s.life)
+	after, ok := s.env.Settle(s.cost, ManaAdd(s.pool, s.produced), s.life)
 	if !ok {
 		return false
 	}
@@ -747,7 +747,8 @@ func resizeCleared[T any](s []T, n int) []T {
 	return make([]T, n)
 }
 
-func manaAdd(a, b state.Mana) state.Mana {
+// ManaAdd returns a+b elementwise.
+func ManaAdd(a, b state.Mana) state.Mana {
 	var m state.Mana
 	for i := range m {
 		m[i] = a[i] + b[i]

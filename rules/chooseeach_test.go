@@ -4,7 +4,7 @@ package rules
 // Arrogance (the ticket's deck carrier) casts for real, its RepeatEach walk
 // runs one ChooseCard per player with ChooseEach$ Artifact & Creature &
 // Enchantment & Planeswalker, and the spell's controller answers one ask per
-// GROUP per player through the ordinary "choice" resume arm. Each player
+// GROUP per player through the ordinary "choice" ask. Each player
 // keeps one permanent of each group (the creature group's pick is a real
 // election, not the deterministic first candidate), a group with no
 // candidate (Planeswalker) resolves silently, and the chained SacrificeAll

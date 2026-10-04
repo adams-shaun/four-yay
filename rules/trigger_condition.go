@@ -329,10 +329,10 @@ func (e *Engine) checkDefinedPlayerHolds(spec string, you state.PlayerID) (holds
 		return false, false
 	}
 	var predicate func(state.PlayerID) bool
-	switch property {
-	case "isMonarch":
+	switch definedPlayerPropertyCodes.Code(string(property)) {
+	case definedPlayerPropertyIsMonarch:
 		predicate = e.G.IsMonarch
-	case "hasInitiative":
+	case definedPlayerPropertyHasInitiative:
 		// CR 726.1: the initiative designation (Loot Dispute's AttackedTarget$,
 		// Rasaad yn Bashir's / Imoen's end-step intervening-if). It reads the
 		// folded state.Initiative the InitiativeChange event maintains.
@@ -340,17 +340,17 @@ func (e *Engine) checkDefinedPlayerHolds(spec string, you state.PlayerID) (holds
 	default:
 		return false, false
 	}
-	switch base {
-	case "You":
+	switch definedPlayerBaseCodes.Code(string(base)) {
+	case definedPlayerBaseYou:
 		return predicate(you), true
-	case "Opponent", "Other":
+	case definedPlayerBaseOpponent:
 		for _, p := range e.G.AliveFrom(you) {
 			if p != you && predicate(p) {
 				return true, true
 			}
 		}
 		return false, true
-	case "Player", "Any":
+	case definedPlayerBasePlayer:
 		for _, p := range e.G.AliveFrom(0) {
 			if predicate(p) {
 				return true, true
@@ -370,10 +370,10 @@ func (e *Engine) lifeConditionHoldsAs(t cards.Trigger, you state.PlayerID, amoun
 	who := you
 	if v, ok := t.Param(cards.PKLifeTotal); ok {
 		v = strings.TrimSpace(v)
-		switch v {
-		case "", "You":
+		switch lifeConditionHoldsAsCodes.Code(string(v)) {
+		case lifeConditionHoldsAsEmpty:
 			// the controller, which who already is
-		case "ActivePlayer":
+		case lifeConditionHoldsAsActivePlayer:
 			who = e.G.Active
 		default:
 			return false // unevaluable player selector: fail closed
@@ -570,3 +570,44 @@ func (e *Engine) stateTriggerOutstanding(source state.ObjID, idx int) bool {
 	}
 	return false
 }
+
+type definedPlayerPropertyCode uint16
+
+const (
+	definedPlayerPropertyIsMonarch definedPlayerPropertyCode = iota + 1
+	definedPlayerPropertyHasInitiative
+)
+
+var definedPlayerPropertyCodes = state.NewStrCodes(
+	state.StrEntry[definedPlayerPropertyCode]{Key: "isMonarch", Val: definedPlayerPropertyIsMonarch},
+	state.StrEntry[definedPlayerPropertyCode]{Key: "hasInitiative", Val: definedPlayerPropertyHasInitiative},
+)
+
+type definedPlayerBaseCode uint16
+
+const (
+	definedPlayerBaseYou definedPlayerBaseCode = iota + 1
+	definedPlayerBaseOpponent
+	definedPlayerBasePlayer
+)
+
+var definedPlayerBaseCodes = state.NewStrCodes(
+	state.StrEntry[definedPlayerBaseCode]{Key: "You", Val: definedPlayerBaseYou},
+	state.StrEntry[definedPlayerBaseCode]{Key: "Opponent", Val: definedPlayerBaseOpponent},
+	state.StrEntry[definedPlayerBaseCode]{Key: "Other", Val: definedPlayerBaseOpponent},
+	state.StrEntry[definedPlayerBaseCode]{Key: "Player", Val: definedPlayerBasePlayer},
+	state.StrEntry[definedPlayerBaseCode]{Key: "Any", Val: definedPlayerBasePlayer},
+)
+
+type lifeConditionHoldsAsCode uint16
+
+const (
+	lifeConditionHoldsAsEmpty lifeConditionHoldsAsCode = iota + 1
+	lifeConditionHoldsAsActivePlayer
+)
+
+var lifeConditionHoldsAsCodes = state.NewStrCodes(
+	state.StrEntry[lifeConditionHoldsAsCode]{Key: "", Val: lifeConditionHoldsAsEmpty},
+	state.StrEntry[lifeConditionHoldsAsCode]{Key: "You", Val: lifeConditionHoldsAsEmpty},
+	state.StrEntry[lifeConditionHoldsAsCode]{Key: "ActivePlayer", Val: lifeConditionHoldsAsActivePlayer},
+)

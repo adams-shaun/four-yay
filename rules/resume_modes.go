@@ -1,9 +1,6 @@
 package rules
 
 import (
-	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/decision"
-	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -13,18 +10,7 @@ import (
 // fresh Ctx, so it may leave Modes non-nil only when the answer it binds IS
 // a mode selection of the SA it re-enters, or the announced modes of the
 // ability's own root. Anything else is stale, and the first reader the walk
-// reaches takes it as its own answer. TestResumeModesBoundOnlyByModeAnswers
-// holds resumeResolution and its answer-binding switches to that rule.
-
-// isModeAnswerKind reports whether a resume kind that reaches
-// resumeAnswerBindingRest's default arm answers a KModes pick of rp.sa: a
-// mid-resolution Charm, controller GenericChoice or KWChoice$ pump ("modes")
-// or a VillainousChoice victim's pick ("villainous"). The per-player
-// GenericChoice and the charm_rest continuation bind their own Modes in
-// their own arms.
-func isModeAnswerKind(kind string) bool {
-	return kind == "modes" || kind == "villainous"
-}
+// reaches takes it as its own answer.
 
 // resumeChosenModes is the Ctx.Modes seed a resumed ability frame starts
 // from. CR 603.3c: a modal triggered (or activated) ability's modes were
@@ -49,33 +35,4 @@ func resumeChosenModes(rp *resumePoint, o *state.Object) []string {
 		return o.ChosenModes
 	}
 	return nil
-}
-
-// modeAnswerInChoices re-indexes a mode answer posed over an offered SUBSET
-// of sa's Choices$ (offered: the decision's ResumeModes -- a
-// NumRandomChoices$ draw, a ChoiceRestriction$ filter) onto the whole
-// Choices$ list, the vocabulary modeAnswerNames maps against, so the
-// re-entered reader runs the offered body the seat picked rather than the
-// one at the same position of the whole list. A nil offered list, or an SA
-// without Choices$ (a KWChoice$ pump), leaves chosen as it is; a name the
-// whole list lacks keeps its index (fail to the historic mapping).
-func modeAnswerInChoices(sa *cards.SA, offered []string, chosen []decision.Option) []decision.Option {
-	cp := effects.CharmOf(sa)
-	if offered == nil || !cp.HasChoices {
-		return chosen
-	}
-	out := make([]decision.Option, len(chosen))
-	for i, o := range chosen {
-		out[i] = o
-		if o.Index < 0 || o.Index >= len(offered) {
-			continue
-		}
-		for j, name := range cp.Modes {
-			if name == offered[o.Index] {
-				out[i].Index = j
-				break
-			}
-		}
-	}
-	return out
 }
