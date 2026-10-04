@@ -65,8 +65,10 @@ type engineScratch struct {
 	// walked (static_scan_reuse.go). Pure scratch: Clone copies none.
 	activeStaticsScan staticScanRec `clone:"reset"`
 	// actIndex is the incremental activation-count folds
-	// (activation_count_index.go). Pure scratch: Clone copies none.
-	actIndex activationIndex `clone:"reset"`
+	// (activation_count_index.go): pure folds of the log prefix, so a clone
+	// (whose log forks this one) carries them into Spare storage it then
+	// owns (clone.go), and a restore keeps S0's (tapeRebindOwner).
+	actIndex activationIndex `clone:"deep"`
 	// boardScanBuf is the printed board scan's gathered zone lists
 	// (static_scan_reuse.go: gatherBoardScan). Pure scratch.
 	boardScanBuf              []boardScanList `clone:"reset"`

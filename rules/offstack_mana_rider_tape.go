@@ -99,7 +99,34 @@ func manaRiderFree(e *Engine, o *state.Object) bool {
 	if e.activeSummaryOf(e.active()).hasGrants {
 		return false
 	}
-	return len(e.collectAddAbilityCarriers()) == 0
+	return !e.boardHasAddAbilityCarrier()
+}
+
+// boardHasAddAbilityCarrier is len(collectAddAbilityCarriers()) != 0. Outside
+// a walk it first tries the last walk's fused static scan
+// (boardStaticsCache) under walkCrossHit's argument: with active() brought up
+// to date, an unchanged activeBuildSeq, continuousVersion and object count
+// mean the static board is the one that walk scanned. A priority mana
+// activation follows the legal-actions walk that offered it with no
+// non-inert event between, so the predicate reads that walk's scan instead
+// of rescanning every static source.
+func (e *Engine) boardHasAddAbilityCarrier() bool {
+	c := &e.boardStaticsCache
+	if e.derivedMemoDepth == 0 && c.seq != 0 && c.key.gen != 0 && c.key.ver == e.continuousVersion &&
+		c.key.objs == len(e.G.Objs) && e.activeDepth == 0 {
+		e.active()
+		if c.seq == e.activeBuildSeq {
+			// addAbilityCarriers allocates only when a carrier exists.
+			has := len(addAbilityCarriers(c.v.action.continuous)) != 0
+			if walkCacheVerify {
+				if want := len(e.scanActionStaticsMode(true).continuous) != 0; want != has {
+					panic(fmt.Sprintf("rules: cached AddAbility carrier answer %v, rescan %v", has, want))
+				}
+			}
+			return has
+		}
+	}
+	return len(e.collectAddAbilityCarriers()) != 0
 }
 
 // faceManaRiderFree reports that none of f's mana or ManaReflected abilities

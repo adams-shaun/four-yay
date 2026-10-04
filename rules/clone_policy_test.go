@@ -258,6 +258,7 @@ var clonePolicyTransformed = map[string]string{
 	"engineLayerCaches.sbaQuiet":     "carried only when provably quiet (sbaQuietCarry), re-recorded at the clone's log head",
 	"engineScratch.lossProof":        "forClone-style copy: the registry header (contPtr, contLen) is re-checked once on the clone",
 	"engineTriggerBatches.trigGrant": "forClone: the registry header (contPtr, contLen) is re-checked once on the clone",
+	"engineScratch.actIndex":         "copyActivationIndex: the folds are copied and owner re-bound to the clone",
 }
 
 type clonePolicyChecker struct {

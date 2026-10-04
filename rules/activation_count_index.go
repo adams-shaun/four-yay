@@ -66,6 +66,18 @@ type activationIndex struct {
 	stints  []objectStint
 }
 
+// copyActivationIndex copies x's folds into dst's emptied storage, owned by
+// c. Every entry is a value (svar is an immutable string; loyaltyPrefix's
+// card points into the compiled corpus), so a by-value copy is exact.
+func copyActivationIndex(dst activationIndex, x *activationIndex, c *Engine) activationIndex {
+	return activationIndex{
+		owner:   c,
+		game:    append(dst.game[:0], x.game...),
+		loyalty: append(dst.loyalty[:0], x.loyalty...),
+		stints:  append(dst.stints[:0], x.stints...),
+	}
+}
+
 func (e *Engine) activationIdx() *activationIndex {
 	x := &e.actIndex
 	if x.owner != e {

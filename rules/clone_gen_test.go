@@ -67,6 +67,7 @@ var cloneHandFields = map[string]string{
 	"engineDrain.pendingTriggers":        "a non-empty queue is copied fresh, an empty one adopts the Spare's array",
 	"engineTriggerBatches.staticZonesEp": "carried with walkObjCls",
 	"engineTriggerBatches.walkObjCls":    "carried only for an owning engine, into Spare storage it then owns",
+	"engineScratch.actIndex":             "carried only for an owning engine, into Spare storage it then owns (copyActivationIndex)",
 }
 
 // cloneGates are the field-name prefixes of clusters copied only while their
