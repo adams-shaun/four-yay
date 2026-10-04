@@ -99,7 +99,7 @@ func manaRiderFree(e *Engine, o *state.Object) bool {
 	if e.activeSummaryOf(e.active()).hasGrants {
 		return false
 	}
-	return !e.boardHasAddAbilityCarrier()
+	return !boardHasAddAbilityCarrier(e)
 }
 
 // boardHasAddAbilityCarrier is len(collectAddAbilityCarriers()) != 0. Outside
@@ -110,7 +110,7 @@ func manaRiderFree(e *Engine, o *state.Object) bool {
 // activation follows the legal-actions walk that offered it with no
 // non-inert event between, so the predicate reads that walk's scan instead
 // of rescanning every static source.
-func (e *Engine) boardHasAddAbilityCarrier() bool {
+func boardHasAddAbilityCarrier(e *Engine) bool {
 	c := &e.boardStaticsCache
 	if e.derivedMemoDepth == 0 && c.seq != 0 && c.key.gen != 0 && c.key.ver == e.continuousVersion &&
 		c.key.objs == len(e.G.Objs) && e.activeDepth == 0 {
