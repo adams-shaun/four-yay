@@ -54,7 +54,9 @@ func effEndure(h Host, c *Ctx, sa *cards.SA) {
 		// CR 701.63a: counters are only possible while the permanent is on the
 		// battlefield. Once it has departed the only branch left is the token.
 		canCounter := o != nil && o.Zone == state.ZBattlefield
-		branch := ""
+		// useCounters is the election; a departed permanent can never take
+		// counters so its only branch is the token (canCounter false).
+		useCounters := false
 		if canCounter {
 			d := &decision.Decision{Player: player, Kind: decision.KChoose, Min: 1, Max: 1,
 				Source: c.Source, ResumeKind: "endure", ResumeSA: sa,
@@ -63,26 +65,20 @@ func effEndure(h Host, c *Ctx, sa *cards.SA) {
 				{Index: 0, Kind: "endure_counters", Label: "Put +1/+1 counters on it", Obj: t.Obj, Player: player},
 				{Index: 1, Kind: "endure_spirit", Label: "Create a Spirit", Obj: t.Obj, Player: player},
 			}
-			if ans, ok := AskTape(h, d); ok && len(ans) > 0 {
-				branch = ans[0].Kind
-			} else {
-				// R-9 no-tape stand-in: the counter branch (Forge's literal
-				// "unless they put counters" default).
-				branch = "endure_counters"
+			// The branch is the option INDEX, not the string kind: option 0 is
+			// the counter branch. A served answer names it; the R-9 no-tape
+			// stand-in is the counter branch (Forge's literal "unless they put
+			// counters" reading), so useCounters is true unless the seat
+			// answered option 1.
+			useCounters = true
+			if ans, ok := AskTape(h, d); ok && len(ans) > 0 && ans[0].Index == 1 {
+				useCounters = false
 			}
-		} else {
-			branch = "endure_spirit"
 		}
-		switch branch {
-		case "endure_counters":
-			if canCounter {
-				h.Emit(events.Event{Kind: events.CounterChange, Obj: t.Obj, Counter: "P1P1", Amount: n})
-			}
-		case "endure_spirit":
+		if useCounters {
+			h.Emit(events.Event{Kind: events.CounterChange, Obj: t.Obj, Counter: "P1P1", Amount: n})
+		} else {
 			endureCreateSpirit(h, c, player, n)
-		default:
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: player,
-				Text: "Endure: unknown choice " + branch})
 		}
 	}
 }
