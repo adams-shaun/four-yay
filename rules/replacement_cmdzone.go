@@ -188,7 +188,12 @@ func (e *Engine) askCommandZone(owner state.PlayerID) {
 			{Index: 0, Kind: "command_zone", Label: into, Obj: pm.obj, Player: owner},
 			{Index: 1, Kind: "leave", Label: "Let it go to the " + dest, Obj: pm.obj, Player: owner},
 		}}
-	e.ask(d)
+	// Inside a tape run's resolution the choice is served from the tape and
+	// handled in place (the parked move applies where it happened), so a
+	// later ask of the same resolution ("its controller may search") is
+	// served too instead of being defaulted behind an outstanding decision.
+	// Elsewhere it is posed as the engine flow's own decision.
+	parkAsk(e, d)
 }
 
 // handleCmdZone applies an answered CR 903.9 decision: the front parked move
