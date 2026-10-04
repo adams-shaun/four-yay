@@ -125,7 +125,7 @@ func impendingCount(f *cards.Face) int32 {
 // is a runtime-granted trigger (the blitzEnter AddTrigger shape) whose
 // IsPresent$ Card.Self+counters_GE1_TIME gate stops it the instant the last
 // counter leaves.
-func (e *Engine) impendingEnter(id state.ObjID, controller state.PlayerID) {
+func impendingEnter(e *Engine, id state.ObjID, controller state.PlayerID) {
 	o := e.G.Obj(id)
 	if o == nil || o.Face() == nil {
 		return

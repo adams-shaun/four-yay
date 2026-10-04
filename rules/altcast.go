@@ -114,7 +114,7 @@ func (e *Engine) altCostEnter(ev events.Event) {
 		// removed. The pay-time flag is the replayable provenance; a plain
 		// mana-cost cast of the same card carries none and enters with no
 		// counters, staying a creature.
-		e.impendingEnter(ev.Obj, o.Controller)
+		impendingEnter(e, ev.Obj, o.Controller)
 	}
 	if o.CastFlags&state.FlagWarped != 0 {
 		e.emit(events.Event{Kind: events.DelayedRegister, Obj: ev.Obj,

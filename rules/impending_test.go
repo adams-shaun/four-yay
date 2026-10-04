@@ -28,6 +28,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
@@ -208,7 +209,7 @@ func TestImpendingEndStepRemovesATimeCounterAndWakesAtTheLast(t *testing.T) {
 		t.Fatalf("after the first controller end step: %d time counters, want 1", got)
 	}
 	// Second controller end step: seat 0's next turn is two turns later.
-	driveToStep(t, e, e.G.Turn+2, 0, state.StepEnd)
+	impendingDriveToStep(t, e, e.G.Turn+2, 0, state.StepEnd)
 	passUntilStackEmpty(t, e, 40)
 
 	o := e.G.Obj(id)
@@ -293,6 +294,40 @@ func TestImpendingCensusPinsCorpusCarriers(t *testing.T) {
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("corpus Impending carriers changed:\n got %v\nwant %v\n(update the pinned list only alongside a corpus-pin move that adds a real carrier)", got, want)
 	}
+}
+
+// impendingDriveToStep is driveToStep with empty combat decisions answered
+// explicitly. The permanent becomes a creature after its second end step, so
+// the trip to that end step crosses an attackers ask; the general helper
+// assumes a creatureless board and intentionally rejects that ask.
+func impendingDriveToStep(t *testing.T, e *Engine, turn int32, active state.PlayerID, step state.Step) {
+	t.Helper()
+	for i := 0; i < 4000; i++ {
+		if e.G.Turn == turn && e.G.Active == active && e.G.Step == step {
+			return
+		}
+		if e.G.Over {
+			t.Fatalf("game ended before reaching turn %d seat %d step %s", turn, active, step)
+		}
+		if answerIfDiscard(t, e) {
+			continue
+		}
+		d := e.Pending()
+		if d == nil {
+			t.Fatal("no decision while driving to impending end step")
+		}
+		switch d.Kind {
+		case decision.KPriority:
+			submitPass(t, e)
+		case decision.KAttackers:
+			submitAttackersOnly(t, e)
+		case decision.KBlockers:
+			submitBlockersOnly(t, e)
+		default:
+			t.Fatalf("unexpected %s decision while driving to impending end step", d.Kind)
+		}
+	}
+	t.Fatalf("did not reach turn %d seat %d step %s", turn, active, step)
 }
 
 // impendingContainsWord reports whether words contains w exactly.
