@@ -814,6 +814,69 @@ the first dependency that pins each function:
   `Eval.SourceInterference`, they belong with trigmatch), and the cast-plan
   validation and offer builders that call the three groups above.
 
+**E7 flow slices (W3 done; landed 2026-10-03).** With the legacy resume
+path gone, a payment ask needs no parked frame: the asking walk keeps its
+state in the session, poses through one coarse seam, and the answer's
+handler re-enters it (in place under the tape). Re-measured with the same
+census at 1b5ab8846 before the slices:
+
+1. `Ask(flow, d)` (sets the pending-choice marker and poses through
+   `windowAsk`, so a tape-driven flow is answered in place) and `Batch`
+   (the discard/mill action brackets) on `pay.Engine`; `ZoneEntrySeq`
+   moved to `chars.Reader`. The unless-payment walk (`pay.AdvanceUnless`,
+   `BeginUnless`, `AnswerUnlessPayment`, the mana window ask) moves; it
+   reports a settled payment as an `UnlessStep` and rules keeps only the
+   finish (the tape settle or the mana-ability continuation) and the
+   Draw<N> draws (a Host evaluation). `PayDiscardCost`/`PayMillCost` move
+   with it.
+2. `manaDiscardActivation` becomes `pay.ManaCostActivation`, held in the
+   session (`ManaCost`), with `SubCounterPay`. The mana-ability cost
+   election's tap, Forage, sacrifice, discard, exile and untapYType stages,
+   their answer records and the settles move (`ManaCostStep`); `Rand`
+   joins `pay.Engine` for the Discard<N/Random> pick, and `Conv`,
+   `MayPlayRider` and `PayLifeInsteadOfB` (static evaluations) move from
+   `pay.Engine` to `pay.Eval`.
+
+Result: the ring went from ~4.75k to ~4.2k lines; `rules/pay` is ~10.7k;
+`pay.Engine` is 16 methods, `chars.Reader` 9, `pay.Eval` 10.
+
+What the census says now pins the rest, by first dependency:
+
+- *The cast's payment state is not in the session* (~1.0k: `castAnswer`,
+  `convokeAsk`, `manaAsk`, `manaConvertAsk`, `announceFeasible`, the
+  announced-window taps). Only `pay.PaidCost` is embedded in
+  `pendingCast`; the payment slice (`payment`, `paymentNext`,
+  `windowTaps`, `convoke`, `subCounterPays`, `payIdx`/`payColor`, the
+  announce flags) must first split into a pay struct embedded in
+  `pendingCast` the way `PaidCost` is, reached through the session. That
+  split is the next flow slice; with it `Ask` already covers the asks.
+- *The pending-choice marker read* (~0.3k): the announced-SubCounter stage
+  (`manaSubCounterStage`) decides "asked" by reading `e.choosing` after the
+  wildcard stage, which is also true when the wildcard completed while the
+  marker still names the previous sub-counter ask (re-entry from an answer)
+  -- by reading, a latent stall (not reproduced); the refactor preserved
+  it rather than fix it in passing, so the stage stays in rules until that
+  is settled on its own.
+- *Triggered mana abilities* (~0.35k: `emitManaTap`,
+  `resolveTriggeredManaAbilities`, the colour/unless continuations) queue
+  `pendingTrigger`s and resolve mana effects: CR 605.3b flow, L7.
+- *Cost-static pricing* (~0.5k reachable, not ~0.8k): lowering
+  `staticView`/`costStaticViews` alone frees one 18-line function. The
+  pricing functions are thin callers of the cost-static evaluation
+  (`collectCostStatics`, `costModifiersCompose`, `costModifiersWith
+  Targets[X]Using`, `potentialCostModsUsing`, `costStaticApplies`,
+  `costStaticGate`, `offerNamedMods`, `legalTargetCandidates`;
+  `statics_cost*.go`, ~1.9k, evaluating through the Host), so moving them
+  costs about eight new `Eval` methods for ~0.3k lines. Not done: the
+  evaluation moves as a unit (its own seam) or the pricing stays.
+- *Interference matchers* (~0.3k): they set the engine's matcher scratch
+  (`tapObj`/`tapPlayer`/`tapEntering`, `effectMatch*`,
+  `manaFromTap`/`manaProducer`) and call `triggerMatches`,
+  `replacementMatches` and `active()`; already behind
+  `Eval.SourceInterference`, they move with trigmatch, not pay.
+- *Mana walk* (~0.6k, `appendAvailableManaAbilitiesGate` and the
+  `landTypeWords`/derived-memo readers): activation legality, stays.
+
 ## 10. W6 — Pipeline and process
 
 - **Refactor lane.** W1–W5 tickets run in one lane, in sequence, with
