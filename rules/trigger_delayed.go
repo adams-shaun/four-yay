@@ -672,10 +672,7 @@ func effectDelayedFrame(dt *state.DelayedTrigger) effects.EffectFrame {
 // a delayed-registration matcher of its own. Every other mode an Effect
 // registration may name falls through to the generic trigMatchers dispatch.
 func delayedEventModeHandled(mode string) bool {
-	if v, ok := delayedEventModeHandledTab.Get(mode); ok {
-		return v
-	}
-	return false
+	return delayedEventModeHandledSet.Has(mode)
 }
 
 // delayedSpecCtx binds a registration's capture only for its trigger match.
@@ -848,11 +845,11 @@ func (e *Engine) clearEffectMatchScope() {
 	e.effectMatchOverride = false
 }
 
-var delayedEventModeHandledTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "SpellCast", Val: true},
-	state.StrEntry[bool]{Key: "ChangesController", Val: true},
-	state.StrEntry[bool]{Key: "DamageDone", Val: true},
-	state.StrEntry[bool]{Key: "AttackersDeclared", Val: true},
+var delayedEventModeHandledSet = state.NewNameSet(
+	"SpellCast",
+	"ChangesController",
+	"DamageDone",
+	"AttackersDeclared",
 )
 
 type delayedRegistrationLiveCode uint16

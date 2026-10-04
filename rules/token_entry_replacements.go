@@ -98,14 +98,11 @@ func tokenEntryBody(result, destination string, with *cards.SA) bool {
 	if result != "Updated" || destination != "Battlefield" {
 		return false
 	}
-	if v, ok := tokenEntryBodyTab.Get(with.API); ok {
-		return v
-	}
-	return false
+	return tokenEntryBodySet.Has(with.API)
 }
 
-var tokenEntryBodyTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "Tap", Val: true},
-	state.StrEntry[bool]{Key: "Untap", Val: true},
-	state.StrEntry[bool]{Key: "PutCounter", Val: true},
+var tokenEntryBodySet = state.NewNameSet(
+	"Tap",
+	"Untap",
+	"PutCounter",
 )

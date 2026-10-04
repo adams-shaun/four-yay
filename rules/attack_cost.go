@@ -1283,8 +1283,8 @@ func (e *Engine) attackChoiceManaSources(p state.PlayerID) []attackManaSource {
 // source's recorded as-enters colour before it can be priced.
 func producedNeedsChosen(produced string) bool {
 	for tok := range strings.FieldsSeq(produced) {
-		if v, ok := producedNeedsChosenTab.Get(strings.Trim(tok, "{}")); ok {
-			return v
+		if producedNeedsChosenSet.Has(strings.Trim(tok, "{}")) {
+			return true
 		}
 	}
 	return false
@@ -1920,10 +1920,10 @@ func (e *Engine) attackPayAnswer(d *decision.Decision, in decision.Intent) {
 	}
 }
 
-var producedNeedsChosenTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "Chosen", Val: true},
-	state.StrEntry[bool]{Key: "ChosenColor", Val: true},
-	state.StrEntry[bool]{Key: "ComboChosen", Val: true},
+var producedNeedsChosenSet = state.NewNameSet(
+	"Chosen",
+	"ChosenColor",
+	"ComboChosen",
 )
 
 type chargeObjPlanCode uint16

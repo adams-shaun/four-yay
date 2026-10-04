@@ -155,10 +155,7 @@ func isBarePlayerProperty(clause string) bool {
 		// grammar, so the census gate's knownBase consults this same list.
 		return true
 	}
-	if v, ok := isBarePlayerPropertyTab.Get(clause); ok {
-		return v
-	}
-	return false
+	return isBarePlayerPropertySet.Has(clause)
 }
 
 // playerBaseMatches reports whether a bare player-spec base matches seat p
@@ -836,11 +833,11 @@ func playerCompare(have int32, op string, want int32) bool {
 	return false
 }
 
-var isBarePlayerPropertyTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "IsRemembered", Val: true},
-	state.StrEntry[bool]{Key: "Chosen", Val: true},
-	state.StrEntry[bool]{Key: "ChosenPlayer", Val: true},
-	state.StrEntry[bool]{Key: "IsCorrupted", Val: true},
+var isBarePlayerPropertySet = state.NewNameSet(
+	"IsRemembered",
+	"Chosen",
+	"ChosenPlayer",
+	"IsCorrupted",
 )
 
 var matchesPlayerSingleSpecKeys = state.NewNameSet("CardOwner", "Owner", "IsRemembered", "EnchantedBy")

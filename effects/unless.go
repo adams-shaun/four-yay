@@ -781,10 +781,7 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 // family whose absent target is deliberately charged to c.Controller. Every
 // other selector must bind a real role or fail closed.
 func unlessPayerControllerFallback(spec string) bool {
-	if v, ok := unlessPayerControllerFallbackTab.Get(spec); ok {
-		return v
-	}
-	return false
+	return unlessPayerControllerFallbackSet.Has(spec)
 }
 
 func sortTargets(ts []state.Target, rank map[state.PlayerID]int) {
@@ -918,14 +915,14 @@ func payLifeAmount(f string) (int, bool) {
 	return n, err == nil
 }
 
-var unlessPayerControllerFallbackTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "", Val: true},
-	state.StrEntry[bool]{Key: "TargetedController", Val: true},
-	state.StrEntry[bool]{Key: "TargetedPlayer", Val: true},
-	state.StrEntry[bool]{Key: "ThisTargetedController", Val: true},
-	state.StrEntry[bool]{Key: "TargetedOrController", Val: true},
-	state.StrEntry[bool]{Key: "Targeted", Val: true},
-	state.StrEntry[bool]{Key: "ParentTarget", Val: true},
+var unlessPayerControllerFallbackSet = state.NewNameSet(
+	"",
+	"TargetedController",
+	"TargetedPlayer",
+	"ThisTargetedController",
+	"TargetedOrController",
+	"Targeted",
+	"ParentTarget",
 )
 
 type unlessCostResolvedCode uint16

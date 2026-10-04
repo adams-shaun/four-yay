@@ -717,10 +717,7 @@ func CanAttackDefenderParamsReadable(params map[string]string) bool {
 // Duration$ names a this-turn lifetime; a body WITH an explicit Duration$ is
 // never touched by this list, so a mixed population is safe).
 func absentDurationMeansThisTurn(mode string) bool {
-	if v, ok := absentDurationMeansThisTurnTab.Get(mode); ok {
-		return v
-	}
-	return false
+	return absentDurationMeansThisTurnSet.Has(mode)
 }
 
 // IsNextTurnDuration reports whether a Duration$ value names the
@@ -880,20 +877,14 @@ func replacementBodyAPI(body string) string {
 // inherently one-shot (no |EF, consumed by its DelayedPush) and takes the
 // Phase arm, not this event-mode one.
 func effectOneShotDelayedMode(mode string) bool {
-	if v, ok := effectOneShotDelayedModeTab.Get(mode); ok {
-		return v
-	}
-	return false
+	return effectOneShotDelayedModeSet.Has(mode)
 }
 
 // Delayed registrations can express a turn ceiling, but not a continuous
 // Effect's source-relative or next-turn lifetime. Reject those forms rather
 // than register a promise that can fire after the Effect expires.
 func effectTriggerThisTurnDuration(dur string) bool {
-	if v, ok := effectTriggerThisTurnDurationTab.Get(strings.ToLower(strings.TrimSpace(dur))); ok {
-		return v
-	}
-	return false
+	return effectTriggerThisTurnDurationSet.Has(strings.ToLower(strings.TrimSpace(dur)))
 }
 
 // effectTriggerBody resolves an Effect Triggers$ entry's SVar body: the
@@ -980,10 +971,7 @@ func effectUntilEOT(h Host, source state.ObjID, dur string) bool {
 			return true
 		}
 	}
-	if v, ok := effectUntilEOTTab.Get(strings.ToLower(strings.TrimSpace(dur))); ok {
-		return v
-	}
-	return false
+	return effectUntilEOTSet.Has(strings.ToLower(strings.TrimSpace(dur)))
 }
 
 // effCleanup is "DB$ Cleanup | ClearRemembered$ True": nothing in this build
@@ -1112,44 +1100,44 @@ var costStaticParamsReadableKeys = state.NewNameSet("Mode", "Type", "ValidCard",
 
 var canAttackDefenderParamsReadableKeys = state.NewNameSet("Mode", "ValidCard", "ValidCards", "ValidTarget", "ValidAttacked", "Description", "Secondary", "IsPresent", "IsPresent2", "CheckSVar", "SVarCompare", "Condition")
 
-var absentDurationMeansThisTurnTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "CantPutCounter", Val: true},
-	state.StrEntry[bool]{Key: "CantBlockBy", Val: true},
-	state.StrEntry[bool]{Key: "CanAttackDefender", Val: true},
-	state.StrEntry[bool]{Key: "NumLoyaltyAct", Val: true},
-	state.StrEntry[bool]{Key: "CombatDamageToughness", Val: true},
-	state.StrEntry[bool]{Key: "CantGainLife", Val: true},
+var absentDurationMeansThisTurnSet = state.NewNameSet(
+	"CantPutCounter",
+	"CantBlockBy",
+	"CanAttackDefender",
+	"NumLoyaltyAct",
+	"CombatDamageToughness",
+	"CantGainLife",
 )
 
 var replacementRedirectsToExileKeys = state.NewNameSet("Event", "ValidCard", "ValidLKI", "Origin", "Destination", "ActiveZones", "EffectZone", "ReplaceWith", "Description")
 
-var effectOneShotDelayedModeTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "SpellCast", Val: true},
-	state.StrEntry[bool]{Key: "ChangesZone", Val: true},
-	state.StrEntry[bool]{Key: "ChangesController", Val: true},
-	state.StrEntry[bool]{Key: "DamageDone", Val: true},
-	state.StrEntry[bool]{Key: "AttackersDeclared", Val: true},
+var effectOneShotDelayedModeSet = state.NewNameSet(
+	"SpellCast",
+	"ChangesZone",
+	"ChangesController",
+	"DamageDone",
+	"AttackersDeclared",
 )
 
-var effectTriggerThisTurnDurationTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "", Val: true},
-	state.StrEntry[bool]{Key: "eot", Val: true},
-	state.StrEntry[bool]{Key: "endofturn", Val: true},
-	state.StrEntry[bool]{Key: "untilendofturn", Val: true},
-	state.StrEntry[bool]{Key: "end of turn", Val: true},
-	state.StrEntry[bool]{Key: "this turn", Val: true},
+var effectTriggerThisTurnDurationSet = state.NewNameSet(
+	"",
+	"eot",
+	"endofturn",
+	"untilendofturn",
+	"end of turn",
+	"this turn",
 )
 
-var effectUntilEOTTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "eot", Val: true},
-	state.StrEntry[bool]{Key: "endofturn", Val: true},
-	state.StrEntry[bool]{Key: "untilendofturn", Val: true},
-	state.StrEntry[bool]{Key: "untilyournextendstep", Val: true},
-	state.StrEntry[bool]{Key: "untilhostleavesplayoreot", Val: true},
-	state.StrEntry[bool]{Key: "untilendofcombat", Val: true},
-	state.StrEntry[bool]{Key: "end of turn", Val: true},
-	state.StrEntry[bool]{Key: "this turn", Val: true},
-	state.StrEntry[bool]{Key: "thisturnandnextturn", Val: true},
+var effectUntilEOTSet = state.NewNameSet(
+	"eot",
+	"endofturn",
+	"untilendofturn",
+	"untilyournextendstep",
+	"untilhostleavesplayoreot",
+	"untilendofcombat",
+	"end of turn",
+	"this turn",
+	"thisturnandnextturn",
 )
 
 type unlessDefenderZoneCode uint16

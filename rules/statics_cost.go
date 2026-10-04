@@ -33,10 +33,7 @@ func specialActionScope(mode string) costScope { return costScope{Kind: "Static"
 // constraint shares with the cast flow's own faceDown mark (beginCast sets
 // pendingCast.faceDown for exactly these modes).
 func modeIsCastFaceDown(mode string) bool {
-	if v, ok := modeIsCastFaceDownTab.Get(mode); ok {
-		return v
-	}
-	return false
+	return modeIsCastFaceDownSet.Has(mode)
 }
 
 // manaFeasibleGrant is manaFeasible with the may-play ignore-colour rider
@@ -161,8 +158,8 @@ func composedPoolFloor(m *costMods, c *Cost, taxGeneric, delve int32) int64 {
 	return n
 }
 
-var modeIsCastFaceDownTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "morphed", Val: true},
-	state.StrEntry[bool]{Key: "megamorphed", Val: true},
-	state.StrEntry[bool]{Key: "disguised", Val: true},
+var modeIsCastFaceDownSet = state.NewNameSet(
+	"morphed",
+	"megamorphed",
+	"disguised",
 )

@@ -66,10 +66,7 @@ func textSubstitutionWords(raw string) (from, to string, ok bool) {
 // chooser spellings are Choose (a colour word), ChooseCreatureType and
 // ChooseBasicLandType.
 func isTextChooser(token string) bool {
-	if v, ok := isTextChooserTab.Get(strings.ToLower(strings.TrimSpace(token))); ok {
-		return v
-	}
-	return false
+	return isTextChooserSet.Has(strings.ToLower(strings.TrimSpace(token)))
 }
 
 // textChooserLabels returns the option labels a chooser token ranges over. The
@@ -350,10 +347,10 @@ func registerTextSet(h Host, c *Ctx, id state.ObjID, text string, keywordGrant [
 	h.AddContinuous(ceAbilities)
 }
 
-var isTextChooserTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "choose", Val: true},
-	state.StrEntry[bool]{Key: "choosecreaturetype", Val: true},
-	state.StrEntry[bool]{Key: "choosebasiclandtype", Val: true},
+var isTextChooserSet = state.NewNameSet(
+	"choose",
+	"choosecreaturetype",
+	"choosebasiclandtype",
 )
 
 type textChangeDurationCode uint16

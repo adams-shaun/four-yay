@@ -496,10 +496,7 @@ func charmGenericPlayers(h Host, c *Ctx, sa *cards.SA) bool {
 // TriggeredTarget, ParentTarget, Valid <filter>, Remembered, ...) is NOT, so an
 // empty resolution there keeps the existing path unchanged.
 func playerRoleDefined(defined string) bool {
-	if v, ok := playerRoleDefinedTab.Get(defined); ok {
-		return v
-	}
-	return false
+	return playerRoleDefinedSet.Has(defined)
 }
 
 // charmGenericPlayersRun drives the chooser loop. Ctx.Choosers.ChooserIndex
@@ -948,14 +945,14 @@ func charmModeLabel(choices []string, subs []*cards.SA, idx int) string {
 	return CharmModeLabel(subs[idx], choices[idx])
 }
 
-var playerRoleDefinedTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "Opponent", Val: true},
-	state.StrEntry[bool]{Key: "Player", Val: true},
-	state.StrEntry[bool]{Key: "Player.Opponent", Val: true},
-	state.StrEntry[bool]{Key: "Player.Other", Val: true},
-	state.StrEntry[bool]{Key: "You", Val: true},
-	state.StrEntry[bool]{Key: "TriggeredPlayer", Val: true},
-	state.StrEntry[bool]{Key: "TriggeredDefendingPlayer", Val: true},
+var playerRoleDefinedSet = state.NewNameSet(
+	"Opponent",
+	"Player",
+	"Player.Opponent",
+	"Player.Other",
+	"You",
+	"TriggeredPlayer",
+	"TriggeredDefendingPlayer",
 )
 
 type charmRandomChosenCode uint16

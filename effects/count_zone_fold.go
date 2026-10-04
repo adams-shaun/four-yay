@@ -300,10 +300,7 @@ var countAllZones = []state.Zone{
 // family -- is deliberately NOT admitted here and keeps the whole-token
 // fail-closed read.
 func isExtremeProperty(prop string) bool {
-	if v, ok := isExtremePropertyTab.Get(prop); ok {
-		return v
-	}
-	return false
+	return isExtremePropertySet.Has(prop)
 }
 
 // differentPropertyKind classifies a Different* distinct-set property -- the
@@ -474,11 +471,11 @@ var colourLetterTab = state.NewStrTable[byte](
 	state.StrEntry[byte]{Key: "GREEN", Val: 'G'},
 )
 
-var isExtremePropertyTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "GreatestCardPower", Val: true},
-	state.StrEntry[bool]{Key: "GreatestCardToughness", Val: true},
-	state.StrEntry[bool]{Key: "GreatestCardManaCost", Val: true},
-	state.StrEntry[bool]{Key: "LeastCardPower", Val: true},
+var isExtremePropertySet = state.NewNameSet(
+	"GreatestCardPower",
+	"GreatestCardToughness",
+	"GreatestCardManaCost",
+	"LeastCardPower",
 )
 
 var differentPropertyKindOfTab = state.NewStrTable[differentPropertyKind](

@@ -832,14 +832,11 @@ func (c *Cost) PoolUnitsFloor() int64 {
 // source) and Forge's payCostFromSource spellings CARDNAME/NICKNAME. Any
 // other value is a filter matched against the payer's battlefield.
 func SubCounterTargetsSource(target string) bool {
-	if v, ok := subCounterTargetsSourceTab.Get(strings.ToUpper(strings.TrimSpace(target))); ok {
-		return v
-	}
-	return false
+	return subCounterTargetsSourceSet.Has(strings.ToUpper(strings.TrimSpace(target)))
 }
 
-var subCounterTargetsSourceTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "", Val: true},
-	state.StrEntry[bool]{Key: "CARDNAME", Val: true},
-	state.StrEntry[bool]{Key: "NICKNAME", Val: true},
+var subCounterTargetsSourceSet = state.NewNameSet(
+	"",
+	"CARDNAME",
+	"NICKNAME",
 )

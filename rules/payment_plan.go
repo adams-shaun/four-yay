@@ -1223,10 +1223,7 @@ func paymentPlanKnownManaParam(key string) bool {
 	if strings.HasPrefix(key, "AddsKeywords") {
 		return true
 	}
-	if v, ok := paymentPlanKnownManaParamTab.Get(key); ok {
-		return v
-	}
-	return false
+	return paymentPlanKnownManaParamSet.Has(key)
 }
 
 func (e *Engine) paymentPlanDamageRider(id state.ObjID, mana *cards.SA) (uint32, bool) {
@@ -1392,8 +1389,8 @@ func (e *Engine) appendUnitAlternatives(dst []pay.Alt, u windowManaUnit) (grown,
 // naming no plain colour, an empty commander identity) is
 // paymentPlanChoiceColours' fail-closed answer, not this predicate's.
 func paymentPlanChoiceShape(raw string) bool {
-	if v, ok := paymentPlanChoiceShapeTab.Get(raw); ok {
-		return v
+	if paymentPlanChoiceShapeSet.Has(raw) {
+		return true
 	}
 	return strings.HasPrefix(raw, "Combo ")
 }
@@ -1572,45 +1569,45 @@ func (e *Engine) paymentPlanHandDemand(p state.PlayerID, exclude state.ObjID) [5
 	return demand
 }
 
-var paymentPlanKnownManaParamTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "API", Val: true},
-	state.StrEntry[bool]{Key: "Cost", Val: true},
-	state.StrEntry[bool]{Key: "Produced", Val: true},
-	state.StrEntry[bool]{Key: "Amount", Val: true},
-	state.StrEntry[bool]{Key: "SubAbility", Val: true},
-	state.StrEntry[bool]{Key: "SpellDescription", Val: true},
-	state.StrEntry[bool]{Key: "StackDescription", Val: true},
-	state.StrEntry[bool]{Key: "AILogic", Val: true},
-	state.StrEntry[bool]{Key: "PrecostDesc", Val: true},
-	state.StrEntry[bool]{Key: "Activation", Val: true},
-	state.StrEntry[bool]{Key: "Activator", Val: true},
-	state.StrEntry[bool]{Key: "ActivationPhases", Val: true},
-	state.StrEntry[bool]{Key: "PlayerTurn", Val: true},
-	state.StrEntry[bool]{Key: "OpponentTurn", Val: true},
-	state.StrEntry[bool]{Key: "ActivationFirstCombat", Val: true},
-	state.StrEntry[bool]{Key: "ActivationAfterBlockers", Val: true},
-	state.StrEntry[bool]{Key: "IsPresent", Val: true},
-	state.StrEntry[bool]{Key: "PresentCompare", Val: true},
-	state.StrEntry[bool]{Key: "CheckSVar", Val: true},
-	state.StrEntry[bool]{Key: "SVarCompare", Val: true},
-	state.StrEntry[bool]{Key: "ActivationLimit", Val: true},
-	state.StrEntry[bool]{Key: "GameActivationLimit", Val: true},
-	state.StrEntry[bool]{Key: "InstantSpeed", Val: true},
-	state.StrEntry[bool]{Key: "RestrictValid", Val: true},
-	state.StrEntry[bool]{Key: "TriggersWhenSpent", Val: true},
-	state.StrEntry[bool]{Key: "AddsCounters", Val: true},
-	state.StrEntry[bool]{Key: "AddsKeywords", Val: true},
-	state.StrEntry[bool]{Key: "AddsKeywordsAll", Val: true},
-	state.StrEntry[bool]{Key: "AddsNoCounter", Val: true},
-	state.StrEntry[bool]{Key: "PersistentMana", Val: true},
-	state.StrEntry[bool]{Key: "UnlessCost", Val: true},
-	state.StrEntry[bool]{Key: "Defined", Val: true},
+var paymentPlanKnownManaParamSet = state.NewNameSet(
+	"API",
+	"Cost",
+	"Produced",
+	"Amount",
+	"SubAbility",
+	"SpellDescription",
+	"StackDescription",
+	"AILogic",
+	"PrecostDesc",
+	"Activation",
+	"Activator",
+	"ActivationPhases",
+	"PlayerTurn",
+	"OpponentTurn",
+	"ActivationFirstCombat",
+	"ActivationAfterBlockers",
+	"IsPresent",
+	"PresentCompare",
+	"CheckSVar",
+	"SVarCompare",
+	"ActivationLimit",
+	"GameActivationLimit",
+	"InstantSpeed",
+	"RestrictValid",
+	"TriggersWhenSpent",
+	"AddsCounters",
+	"AddsKeywords",
+	"AddsKeywordsAll",
+	"AddsNoCounter",
+	"PersistentMana",
+	"UnlessCost",
+	"Defined",
 )
 
-var paymentPlanChoiceShapeTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "Chosen", Val: true},
-	state.StrEntry[bool]{Key: "ChosenColor", Val: true},
-	state.StrEntry[bool]{Key: "ComboChosen", Val: true},
+var paymentPlanChoiceShapeSet = state.NewNameSet(
+	"Chosen",
+	"ChosenColor",
+	"ComboChosen",
 )
 
 type planCastPaymentCheckedCode uint16

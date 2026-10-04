@@ -516,10 +516,7 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 // scenario drives them through `activate` plus the option's label, exactly
 // as a named ability is driven; they are not a separate op.
 func oracleActivateKind(kind string) bool {
-	if v, ok := oracleActivateKindTab.Get(kind); ok {
-		return v
-	}
-	return false
+	return oracleActivateKindSet.Has(kind)
 }
 
 func oracleLabelMatches(label, want string) bool {
@@ -1431,12 +1428,12 @@ func seatZeroStart(cfg Config) Config {
 	}
 }
 
-var oracleActivateKindTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "ability", Val: true},
-	state.StrEntry[bool]{Key: "activate", Val: true},
-	state.StrEntry[bool]{Key: "station", Val: true},
-	state.StrEntry[bool]{Key: "unlock", Val: true},
-	state.StrEntry[bool]{Key: "turn_face_up", Val: true},
+var oracleActivateKindSet = state.NewNameSet(
+	"ability",
+	"activate",
+	"station",
+	"unlock",
+	"turn_face_up",
 )
 
 var normCounterTab = state.NewStrTable[string](
