@@ -118,8 +118,12 @@ func tapeTextMayAsk(e *Engine) bool {
 	if f.IsPermanent() {
 		// The spell's own entry text, and the board's entry replacements:
 		// two Moved replacements competing for the entering permanent pose
-		// a CR 616.1 order choice (the land play's gate, tapeLandMayAsk).
-		if cards.FaceEntryMayAsk(f) || tapeReplMayAsk(e, "Moved") {
+		// a CR 616.1 order choice. The land play's narrowed gate: a line
+		// that cannot apply to this object's own battlefield entry (an
+		// ETB-tapped land's self-only line in a library or hand) neither
+		// elects nor competes; counting those checkpointed every permanent
+		// spell of a deck holding two such lands.
+		if cards.FaceEntryMayAsk(f) || tapeLandReplMayAsk(e, id) {
 			return true
 		}
 		if sa == nil {
