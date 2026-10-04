@@ -93,7 +93,7 @@ func (e *Engine) payCast() {
 			e.abortCast(pc, "exile cost no longer payable; cast/activation aborted", true)
 			return
 		}
-		pc.exiles = append(pc.exiles, top...)
+		pc.Exiles = append(pc.Exiles, top...)
 	}
 	// Snapshot the source before any non-mana cost can move it. DamageYou
 	// shares this LKI with resolution-time damage costs when its source has
@@ -163,13 +163,13 @@ func (e *Engine) payCast() {
 		for _, id := range pc.delve {
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZGraveyard, To: state.ZExile, Text: "delved"})
 		}
-		e.payDiscardCost(pc.discards, e.cyclingKeyword(pc))
+		e.payDiscardCost(pc.Discards, e.cyclingKeyword(pc))
 		// Exile cost parts (ExileFromHand/ExileFromGrave): each chosen card
 		// leaves its zone (hand, or the graveyard for a self-reference) for
 		// exile. Read the zone live: the settled card is still where exAsk
 		// found it, but a From read from the object keeps a graveyard
 		// self-exile honest about where it moved from.
-		for _, id := range pc.exiles {
+		for _, id := range pc.Exiles {
 			if o := e.G.Obj(id); o != nil {
 				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone, To: state.ZExile, Text: "exiled as a cost"})
 			}
@@ -230,7 +230,8 @@ func (e *Engine) payCast() {
 				e.emit(events.ReturnCost(id, o.Zone))
 			}
 		}
-		e.emitChoiceCosts(pc)
+		pay.EmitChoiceCosts(asPayer(e), &pc.PaidCost, pc.player, pc.card, &pc.cost, pc.x,
+			func() *cards.SA { return e.pcAbility(pc) })
 		if pc.cost.Untap {
 			e.emit(events.Event{Kind: events.Untap, Obj: pc.card, Player: pc.player, Text: "untapped as a cost"})
 		}
@@ -280,7 +281,7 @@ func (e *Engine) payCast() {
 		var sacrificedLKI []state.SacrificedInfo
 		var selfChar sourceCharSnapshot
 		selfCharOK := false
-		for _, id := range pc.sacs {
+		for _, id := range pc.Sacs {
 			sacrificedLKI = append(sacrificedLKI, effects.SacrificedLKI(e, id))
 			if id == pc.card && !selfCharOK {
 				// The source sacrificed as its own cost: its target filter
@@ -289,7 +290,7 @@ func (e *Engine) payCast() {
 				selfChar, selfCharOK = e.sourceCharSnapshotOf(id), true
 			}
 		}
-		for _, id := range pc.sacs {
+		for _, id := range pc.Sacs {
 			e.emit(events.Sacrifice(id))
 		}
 		// RollDice cost parts are free, engine-driven payment actions. Publish
@@ -364,7 +365,7 @@ func (e *Engine) payCast() {
 		}
 		e.sacrificedLKI[pc.stackObj] = sacrificedLKI
 		e.installPaidCostLists(pc)
-		for _, id := range pc.sacs {
+		for _, id := range pc.Sacs {
 			if id != pc.card {
 				continue
 			}
@@ -460,9 +461,9 @@ func (e *Engine) payCast() {
 	for _, id := range pc.delve {
 		e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZGraveyard, To: state.ZExile, Text: "delved"})
 	}
-	e.payDiscardCost(pc.discards, "")
+	e.payDiscardCost(pc.Discards, "")
 	// Exile cost parts (see the ability branch above for the why).
-	for _, id := range pc.exiles {
+	for _, id := range pc.Exiles {
 		if o := e.G.Obj(id); o != nil {
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone, To: state.ZExile, Text: "exiled as a cost"})
 		}
@@ -503,11 +504,12 @@ func (e *Engine) payCast() {
 	}
 	e.settlePutToLibCost(pc)
 	e.settleSubCounterParts(pc)
-	e.emitChoiceCosts(pc)
+	pay.EmitChoiceCosts(asPayer(e), &pc.PaidCost, pc.player, pc.card, &pc.cost, pc.x,
+		func() *cards.SA { return e.pcAbility(pc) })
 	// Capture the sacrifice LKI before the MoveZones (see the ability branch's
 	// comment): the sacrificed permanents are still on the battlefield here.
 	var sacrificedLKI []state.SacrificedInfo
-	for _, id := range pc.sacs {
+	for _, id := range pc.Sacs {
 		sacrificedLKI = append(sacrificedLKI, effects.SacrificedLKI(e, id))
 	}
 	// Casualty:X (Ob Nixilis, the Adversary): the amount is the sacrificed
@@ -519,7 +521,7 @@ func (e *Engine) payCast() {
 			pc.casualtyX = e.Power(pc.casualtySac)
 		}
 	}
-	for _, id := range pc.sacs {
+	for _, id := range pc.Sacs {
 		e.emit(events.Sacrifice(id))
 	}
 	if pc.mode == "suspend" {

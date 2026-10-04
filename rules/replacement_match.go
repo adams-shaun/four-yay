@@ -704,7 +704,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// EFFECT would put one or more counters ..."). It excludes a placement
 		// with no object on the stack: a turn-based action (a Saga's lore
 		// counter, rules/saga.go advanceSagas) and a cost (a planeswalker's [+N]
-		// loyalty counter, rules/cast.go emitChoiceCosts; a station counter,
+		// loyalty counter, pay.EmitChoiceCosts; a station counter,
 		// rules/station.go handleStation) are not effects, and admitting them
 		// doubled counters they must not touch. This is exactly the
 		// actionCause()==0 provenance the Moved case's EffectOnly$ gate reads

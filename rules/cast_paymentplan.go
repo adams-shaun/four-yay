@@ -1,12 +1,9 @@
 package rules
 
 import (
-	"strings"
-
 	"github.com/adams-shaun/gorge/rules/pay"
 
 	"github.com/adams-shaun/gorge/decision"
-	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -373,7 +370,7 @@ func (e *Engine) manaWindowAsk() bool {
 // convokeCommitted reports whether id is already committed to this cast's
 // payment: a Convoke/Harmonize/Improvise election (pc.convoke) or a Conspire
 // tap election (pc.taps -- the election records the creatures before payCast's
-// emitChoiceCosts taps them, so an elected creature must be excluded from the
+// pay.EmitChoiceCosts taps them, so an elected creature must be excluded from the
 // mana window and from a later convoke announcement, or it could be activated
 // for mana and then tapped a second time).
 func (e *Engine) convokeCommitted(pc *pendingCast, id state.ObjID) bool {
@@ -382,7 +379,7 @@ func (e *Engine) convokeCommitted(pc *pendingCast, id state.ObjID) bool {
 			return true
 		}
 	}
-	for _, tid := range pc.taps {
+	for _, tid := range pc.Taps {
 		if tid == id {
 			return true
 		}
@@ -435,120 +432,16 @@ func (e *Engine) installPaidCostLists(pc *pendingCast) {
 	if pc.stackObj == 0 {
 		return
 	}
-	if len(pc.exiles) > 0 {
+	if len(pc.Exiles) > 0 {
 		if e.castExiled == nil {
 			e.castExiled = make(map[state.ObjID][]state.ObjID)
 		}
-		e.castExiled[pc.stackObj] = append([]state.ObjID(nil), pc.exiles...)
+		e.castExiled[pc.stackObj] = append([]state.ObjID(nil), pc.Exiles...)
 	}
-	if len(pc.reveals) > 0 {
+	if len(pc.Reveals) > 0 {
 		if e.castRevealed == nil {
 			e.castRevealed = make(map[state.ObjID][]state.ObjID)
 		}
-		e.castRevealed[pc.stackObj] = append([]state.ObjID(nil), pc.reveals...)
-	}
-}
-
-func (e *Engine) emitChoiceCosts(pc *pendingCast) {
-	names := func(ids []state.ObjID) string {
-		out := make([]string, 0, len(ids))
-		for _, id := range ids {
-			out = append(out, e.targetName(id))
-		}
-		return strings.Join(out, ", ")
-	}
-	// A whole-hand Reveal part paid with an empty hand (Land Grant with no
-	// other cards in hand): nothing else would appear in the log, so emit the
-	// empty reveal as its own public note.
-	if pc.revealedEmptyHand {
-		e.emit(events.Event{Kind: events.Note, Player: pc.player, Obj: pc.card,
-			Text: "revealed no cards (an empty hand) as a cost"})
-	}
-	if len(pc.reveals) > 0 {
-		// Split the paid list by arm: an announced hand reveal (a plain Reveal
-		// card, the REVEAL arm of an either-or cost, or any legacy entry with no
-		// arm recorded) is a public reveal; a permanent elected by the CHOOSE
-		// arm is a public CHOICE, never a reveal of a hand card. Both ride the
-		// same paid list the `Revealed$<Property>` refs read.
-		var revealed, chosen []state.ObjID
-		for i, id := range pc.reveals {
-			if i < len(pc.revealHandArm) && !pc.revealHandArm[i] {
-				chosen = append(chosen, id)
-			} else {
-				revealed = append(revealed, id)
-			}
-		}
-		if len(revealed) > 0 {
-			e.emit(events.Event{Kind: events.Note, Player: pc.player, Obj: pc.card,
-				IDs: append([]state.ObjID(nil), revealed...), Text: "revealed " + names(revealed) + " as a cost"})
-		}
-		if len(chosen) > 0 {
-			e.emit(events.Event{Kind: events.Note, Player: pc.player, Obj: pc.card,
-				IDs: append([]state.ObjID(nil), chosen...), Text: "chose " + names(chosen) + " as a cost"})
-		}
-	}
-	// RevealChosen<Player>/<Type> parts: the payer's secret designation is
-	// made public as the cost is paid. One public Note per part, naming the
-	// designation (the chosen player's chain-safe tossName, or the chosen
-	// creature type). Nothing is asked -- the choice was made earlier by the
-	// Secretly$ True ChoosePlayer/ChooseType.
-	for _, part := range pc.cost.RevealChosen {
-		if text, ok := revealChosenText(e.G, e.G.Obj(pc.card), part.Spec); ok {
-			e.emit(events.Event{Kind: events.Note, Player: pc.player, Obj: pc.card, Text: text})
-		}
-	}
-	if len(pc.beholds) > 0 {
-		e.emit(events.Event{Kind: events.Note, Player: pc.player, Obj: pc.card,
-			IDs: append([]state.ObjID(nil), pc.beholds...), Text: "beheld " + names(pc.beholds) + " as a cost"})
-		// BeholdExile<N/Spec> parts (CostPart.ThenExile): the beheld objects
-		// are exiled as the rest of the same payment. beholdCostAsk records
-		// each part's N objects in part order, so the paid list is sliced by
-		// part. The MoveZone carries the paying source in IDs, the event-
-		// derived ExiledWith provenance the Champion cycle's "return the
-		// exiled card to its owner's hand" (Defined$ ExiledWith) reads.
-		at := 0
-		for _, part := range pc.cost.Behold {
-			n := int(part.N)
-			if at+n > len(pc.beholds) {
-				break
-			}
-			if part.ThenExile {
-				for _, id := range pc.beholds[at : at+n] {
-					if o := e.G.Obj(id); o != nil && o.Zone != state.ZExile {
-						e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone, To: state.ZExile,
-							IDs: []state.ObjID{pc.card}, Text: "exiled as a cost"})
-					}
-				}
-			}
-			at += n
-		}
-	}
-	for _, id := range pc.taps {
-		e.emit(events.Event{Kind: events.Tap, Obj: id, Text: "tapped as a cost"})
-	}
-	// CR 702.122: the creatures that paid a Crew ability's tap cost crewed the
-	// Vehicle. The crew keyword rides the minted Animate SA as `Keyword$ Crew`
-	// (cards/kw_crew.go), so the tag -- not any card name -- is what marks this
-	// activation: one Crew event per tapped crewer, pairing it with the source
-	// Vehicle (pc.card) for the Creature.CrewedThisTurn filter. The ordinary
-	// tapXType costs of other abilities (Mossbridge Troll's regeneration, the
-	// {T} cost) carry no Crew tag and record nothing.
-	if saHasKeyword(e.pcAbility(pc), "Crew") {
-		for _, id := range pc.taps {
-			e.emit(events.Event{Kind: events.Crew, Obj: id, Player: pc.player,
-				IDs: []state.ObjID{pc.card}})
-		}
-	}
-	for i, id := range pc.blights {
-		if i < len(pc.cost.Blight) {
-			n := pc.cost.Blight[i].N
-			// An announced Blight<X> part's count is the announced X, not the
-			// (unused) part.N.
-			if pc.cost.Blight[i].Announced {
-				n = pc.x
-			}
-			e.emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: "M1M1",
-				Amount: n})
-		}
+		e.castRevealed[pc.stackObj] = append([]state.ObjID(nil), pc.Reveals...)
 	}
 }

@@ -99,7 +99,7 @@ func (e *Engine) giftAsk() bool {
 			continue
 		}
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "gift_promise",
-			Player: p, Label: "Promise " + tossName(e.G, p) + " a gift"})
+			Player: p, Label: "Promise " + pay.SeatName(e.G, p) + " a gift"})
 	}
 	e.choosing = chooseCast
 	e.ask(d)
@@ -139,7 +139,7 @@ func (e *Engine) revealCostAsk() bool {
 		// the spell being paid for has already moved to the stack (CR 601.2a)
 		// and is no longer part of the hand; for an ABILITY activation the
 		// source still sits in the hand and IS part of the hand it reveals.
-		// Zero cards is a legal payment (CR 701.20a); emitChoiceCosts
+		// Zero cards is a legal payment (CR 701.20a); pay.EmitChoiceCosts
 		// announces it loudly via pc.revealedEmptyHand.
 		if isWholeHandRevealSpec(part.Spec) {
 			var hand []state.ObjID
@@ -150,12 +150,12 @@ func (e *Engine) revealCostAsk() bool {
 				}
 				hand = append(hand, oid)
 			}
-			pc.reveals = append(pc.reveals, hand...)
+			pc.Reveals = append(pc.Reveals, hand...)
 			for range hand {
-				pc.revealHandArm = append(pc.revealHandArm, true)
+				pc.RevealHandArm = append(pc.RevealHandArm, true)
 			}
 			if len(hand) == 0 {
-				pc.revealedEmptyHand = true
+				pc.RevealedEmptyHand = true
 			}
 			pc.revealPart++
 			continue
@@ -175,9 +175,9 @@ func (e *Engine) revealCostAsk() bool {
 				return true
 			}
 			if len(cands) == int(part.N) {
-				pc.reveals = append(pc.reveals, cands...)
+				pc.Reveals = append(pc.Reveals, cands...)
 				for range cands {
-					pc.revealHandArm = append(pc.revealHandArm, true)
+					pc.RevealHandArm = append(pc.RevealHandArm, true)
 				}
 				pc.revealPart++
 				continue
@@ -199,9 +199,9 @@ func (e *Engine) revealCostAsk() bool {
 			return true
 		}
 		if len(candidates) == int(part.N) {
-			pc.reveals = append(pc.reveals, candidates...)
+			pc.Reveals = append(pc.Reveals, candidates...)
 			for range candidates {
-				pc.revealHandArm = append(pc.revealHandArm, true)
+				pc.RevealHandArm = append(pc.RevealHandArm, true)
 			}
 			pc.revealPart++
 			continue
@@ -256,9 +256,9 @@ func (e *Engine) revealCostOrChooseAsk() bool {
 			return true
 		case handViable:
 			if len(hand) == int(part.N) {
-				pc.reveals = append(pc.reveals, hand...)
+				pc.Reveals = append(pc.Reveals, hand...)
 				for range hand {
-					pc.revealHandArm = append(pc.revealHandArm, true)
+					pc.RevealHandArm = append(pc.RevealHandArm, true)
 				}
 				pc.revealOrChoosePart++
 				continue
@@ -273,9 +273,9 @@ func (e *Engine) revealCostOrChooseAsk() bool {
 			return true
 		default: // battlefield only
 			if len(battlefield) == int(part.N) {
-				pc.reveals = append(pc.reveals, battlefield...)
+				pc.Reveals = append(pc.Reveals, battlefield...)
 				for range battlefield {
-					pc.revealHandArm = append(pc.revealHandArm, false)
+					pc.RevealHandArm = append(pc.RevealHandArm, false)
 				}
 				pc.revealOrChoosePart++
 				continue
@@ -304,7 +304,7 @@ func (e *Engine) beholdCostAsk() bool {
 			return true
 		}
 		if len(candidates) == int(part.N) {
-			pc.beholds = append(pc.beholds, candidates...)
+			pc.Beholds = append(pc.Beholds, candidates...)
 			pc.beholdPart++
 			continue
 		}
@@ -340,9 +340,9 @@ func (e *Engine) tapPermanentCostAsk() bool {
 		// alike -- the source itself when a {T} in the same cost will tap it at
 		// payCast (Forge CostTap): the {T} and the tapXType can never spend one
 		// permanent twice.
-		if len(pc.taps) > 0 || len(pc.convoke) > 0 || pc.cost.Tap {
-			taken := make(map[state.ObjID]bool, len(pc.taps)+len(pc.convoke)+1)
-			for _, id := range pc.taps {
+		if len(pc.Taps) > 0 || len(pc.convoke) > 0 || pc.cost.Tap {
+			taken := make(map[state.ObjID]bool, len(pc.Taps)+len(pc.convoke)+1)
+			for _, id := range pc.Taps {
 				taken[id] = true
 			}
 			for _, pay := range pc.convoke {
@@ -373,7 +373,7 @@ func (e *Engine) tapPermanentCostAsk() bool {
 				continue
 			}
 			if n == len(candidates) {
-				pc.taps = append(pc.taps, candidates...)
+				pc.Taps = append(pc.Taps, candidates...)
 				pc.tapPart++
 				continue
 			}
@@ -482,7 +482,7 @@ func (e *Engine) tapPermanentCostAsk() bool {
 			return true
 		}
 		if len(candidates) == int(part.N) {
-			pc.taps = append(pc.taps, candidates...)
+			pc.Taps = append(pc.Taps, candidates...)
 			pc.tapPart++
 			continue
 		}
@@ -553,7 +553,7 @@ func (e *Engine) blightCostAsk() bool {
 			return true
 		}
 		if len(candidates) == 1 {
-			pc.blights = append(pc.blights, candidates[0])
+			pc.Blights = append(pc.Blights, candidates[0])
 			pc.blightPart++
 			continue
 		}
@@ -637,7 +637,7 @@ func (e *Engine) exAsk() bool {
 			}
 			if match {
 				already := false
-				for _, s := range pc.exiles {
+				for _, s := range pc.Exiles {
 					if s == oid {
 						already = true
 						break
@@ -670,7 +670,7 @@ func (e *Engine) exAsk() bool {
 			// triggered window's arm takes). The count check above still
 			// demands part.N cards. No cast/activation corpus carrier exists
 			// today; the wiring keeps the paths from diverging.
-			pc.exiles = append(pc.exiles, candidates...)
+			pc.Exiles = append(pc.Exiles, candidates...)
 			pc.exilePart++
 			continue
 		}
@@ -678,7 +678,7 @@ func (e *Engine) exAsk() bool {
 		// sole candidate being the resolving card itself) has no player choice.
 		if !part.Announced && part.N == 1 && len(candidates) == 1 && candidates[0] == pc.card &&
 			strings.EqualFold(part.Spec, "CARDNAME") {
-			pc.exiles = append(pc.exiles, pc.card)
+			pc.Exiles = append(pc.Exiles, pc.card)
 			pc.exilePart++
 			continue
 		}
@@ -1289,7 +1289,7 @@ func (e *Engine) conspireAsk() bool {
 		return false
 	}
 	if len(candidates) == 2 {
-		pc.taps = append(pc.taps, candidates...)
+		pc.Taps = append(pc.Taps, candidates...)
 		pc.conspirePaid = true
 		return false
 	}

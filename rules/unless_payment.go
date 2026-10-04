@@ -34,7 +34,7 @@ type unlessPayment struct {
 	// lands, Xyru Specter's Challenge): unlike a discard the revealed cards
 	// STAY in hand, so the dedup must be explicit — one card must not pay
 	// two parts — and the settled picks are announced with one public Note
-	// (the same event the cast flow's emitChoiceCosts emits).
+	// (the same event the cast flow's pay.EmitChoiceCosts emits).
 	reveals []state.ObjID
 	// beholds holds the Behold<N/Spec> picks (CR 702.176, Elven Passage's
 	// "you may behold an Elf"): an object the payer controls on the
@@ -421,10 +421,10 @@ func (e *Engine) advanceUnlessPayment() {
 	}
 	pay.ChargeEnergyCost(asPayer(e), u.payer, u.cost, x)
 	// The settled reveal picks are announced exactly like the cast flow's
-	// emitChoiceCosts announces them: one public Note carrying the revealed
+	// pay.EmitChoiceCosts announces them: one public Note carrying the revealed
 	// ids (the cards STAY in hand), emitted only on the paid path. The
 	// RevealChosen parts have no ids -- they make the source's secret
-	// designation public with one Note too, the same call emitChoiceCosts
+	// designation public with one Note too, the same call pay.EmitChoiceCosts
 	// makes.
 	if len(u.reveals) > 0 {
 		names := make([]string, 0, len(u.reveals))
@@ -436,7 +436,7 @@ func (e *Engine) advanceUnlessPayment() {
 			Text: "revealed " + strings.Join(names, ", ") + " as a cost"})
 	}
 	// The settled Behold picks are announced exactly like the cast flow's
-	// emitChoiceCosts announces them: one public Note carrying the beheld ids
+	// pay.EmitChoiceCosts announces them: one public Note carrying the beheld ids
 	// (nothing is moved for a plain Behold; the ids let a `Remembered`/
 	// observer read the choice).
 	if len(u.beholds) > 0 {
@@ -449,7 +449,7 @@ func (e *Engine) advanceUnlessPayment() {
 			Text: "beheld " + strings.Join(names, ", ") + " as a cost"})
 	}
 	for _, part := range u.cost.RevealChosen {
-		if text, ok := revealChosenText(e.G, e.G.Obj(u.ctx.Source), part.Spec); ok {
+		if text, ok := pay.RevealChosenText(e.G, e.G.Obj(u.ctx.Source), part.Spec); ok {
 			e.emit(events.Event{Kind: events.Note, Player: u.payer, Obj: u.ctx.Source, Text: text})
 		}
 	}

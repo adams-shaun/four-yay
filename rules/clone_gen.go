@@ -637,8 +637,14 @@ func cloneFieldsEngineContinuation(c, e *Engine, sp *Spare, remap *cloneRemap) {
 			}
 		}
 		p0.delve = append([]state.ObjID(nil), e.cast.delve...)
-		p0.sacs = append([]state.ObjID(nil), e.cast.sacs...)
-		p0.discards = append([]state.ObjID(nil), e.cast.discards...)
+		p0.PaidCost.Sacs = append([]state.ObjID(nil), e.cast.PaidCost.Sacs...)
+		p0.PaidCost.Discards = append([]state.ObjID(nil), e.cast.PaidCost.Discards...)
+		p0.PaidCost.Exiles = append([]state.ObjID(nil), e.cast.PaidCost.Exiles...)
+		p0.PaidCost.Reveals = append([]state.ObjID(nil), e.cast.PaidCost.Reveals...)
+		p0.PaidCost.Beholds = append([]state.ObjID(nil), e.cast.PaidCost.Beholds...)
+		p0.PaidCost.Taps = append([]state.ObjID(nil), e.cast.PaidCost.Taps...)
+		p0.PaidCost.Blights = append([]state.ObjID(nil), e.cast.PaidCost.Blights...)
+		p0.PaidCost.RevealHandArm = append([]bool(nil), e.cast.PaidCost.RevealHandArm...)
 		p0.subCounterPays = append([]subCounterPay(nil), e.cast.subCounterPays...)
 		p0.convoke = append([]convokePayment(nil), e.cast.convoke...)
 		p0.mods = cloneCastMods(e.cast.mods)
@@ -678,15 +684,9 @@ func cloneFieldsEngineContinuation(c, e *Engine, sp *Spare, remap *cloneRemap) {
 			}
 		}
 		p0.proposalTriggers = append([][2]int(nil), e.cast.proposalTriggers...)
-		p0.exiles = append([]state.ObjID(nil), e.cast.exiles...)
 		p0.returns = append([]state.ObjID(nil), e.cast.returns...)
 		p0.moveGraves = append([]state.ObjID(nil), e.cast.moveGraves...)
 		p0.putToLibs = append([]state.ObjID(nil), e.cast.putToLibs...)
-		p0.reveals = append([]state.ObjID(nil), e.cast.reveals...)
-		p0.beholds = append([]state.ObjID(nil), e.cast.beholds...)
-		p0.taps = append([]state.ObjID(nil), e.cast.taps...)
-		p0.blights = append([]state.ObjID(nil), e.cast.blights...)
-		p0.revealHandArm = append([]bool(nil), e.cast.revealHandArm...)
 		c.cast = &p0
 	}
 	if e.turnUp != nil {

@@ -1,14 +1,13 @@
 package rules
 
 import (
-	"strconv"
-
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules/chars"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -338,7 +337,7 @@ func (e *Engine) genesisDeal(cfg Config, tossAsk bool) *Engine {
 	// their own name.
 	if toss >= 0 {
 		e.emit(events.Event{Kind: events.Note, Player: state.PlayerID(toss),
-			Text: tossName(e.G, state.PlayerID(toss)) + " won the toss"})
+			Text: pay.SeatName(e.G, state.PlayerID(toss)) + " won the toss"})
 	}
 	// Match-wide dense commander indexing for Player.CmdDamage (assigned at
 	// genesis): a commander's dense index is the sum of (valid commanders in
@@ -607,18 +606,4 @@ func (e *Engine) resolveToss(toss int, alive []state.PlayerID, seats int) (state
 		}
 		candidate = state.PlayerID(e.rng.IntN(seats))
 	}
-}
-
-// tossName is the identity the toss Note's text carries: the deck-identity
-// Name, else "seat N". F3 (TestPlayerNamesDoNotReachTheChain) keeps the
-// per-seat PlayerName -- a display name -- out of the event chain entirely,
-// and the Note is event text, so it uses the same deck identity every other
-// event text already carries. (view/describe.go's player label may prefer
-// PlayerName; that is a view projection, not chain text.)
-func tossName(g *state.Game, p state.PlayerID) string {
-	pl := g.Players[p]
-	if pl.Name != "" {
-		return pl.Name
-	}
-	return "seat " + strconv.Itoa(int(p))
 }

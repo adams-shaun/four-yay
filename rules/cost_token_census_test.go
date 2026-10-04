@@ -95,7 +95,7 @@ var costNonFilterSpecs = map[string]string{
 	// whole hand is the reveal, the same reading Discard<1/Hand> and
 	// Discard<0/Hand> get. Payable with an empty hand (CR 701.20a). Read by
 	// isWholeHandRevealSpec at the offer gate (nonManaCastable), the payment
-	// (revealCostAsk) and the announcement (emitChoiceCosts).
+	// (revealCostAsk) and the announcement (pay.EmitChoiceCosts).
 	"Hand": "whole hand (Reveal<N/Hand>) -- isWholeHandRevealSpec; payable empty (CR 701.20a)",
 	// Discard<1/Random>: a discard the OTHER effect/opponents choose, not a
 	// hand filter. discardCandidates reads Random as "any hand card".

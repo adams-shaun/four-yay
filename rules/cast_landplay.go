@@ -29,29 +29,6 @@ func hasRevealChosenDesignation(o *state.Object, spec string) bool {
 	return o.ChosenType != ""
 }
 
-// revealChosenText composes the public reveal line a RevealChosen<Spec> part
-// prints as it is paid. The chosen player's identity is the chain-safe
-// tossName -- the deck-identity Name, never the display PlayerName (the F3
-// invariant every other event text keeps; view/describe.go's player label may
-// prefer PlayerName, but that is a view projection, not chain text).
-func revealChosenText(g *state.Game, o *state.Object, spec string) (string, bool) {
-	if o == nil {
-		return "", false
-	}
-	if strings.EqualFold(spec, "Player") {
-		for _, t := range o.Chosen {
-			if t.IsPlayer {
-				return "revealed the chosen player: " + tossName(g, t.Player), true
-			}
-		}
-		return "", false
-	}
-	if o.ChosenType == "" {
-		return "", false
-	}
-	return "revealed the chosen creature type: " + o.ChosenType, true
-}
-
 // finishLandPlay logs a land play only after its identified object actually
 // reaches the battlefield. Updated replacement effects fold their MoveZone
 // directly through events.Emit, so both the ordinary emit path and those

@@ -111,7 +111,7 @@ func TestMonstrousEmergenceChooseCreatureSizesDamage(t *testing.T) {
 		t.Fatalf("choose arm emitted a reveal note: %+v", notes)
 	}
 	if notes := revealChooseNotes(e, "chose "); len(notes) == 0 {
-		t.Fatal("choose arm emitted no choice note (precondition: emitChoiceCosts ran)")
+		t.Fatal("choose arm emitted no choice note (precondition: pay.EmitChoiceCosts ran)")
 	}
 	replayCheck(t, e, cfg)
 }
@@ -233,7 +233,7 @@ func TestMonstrousEmergenceChooseArmLeavesHandCardRevealDistinct(t *testing.T) {
 		t.Fatalf("Ancient Brontodon damage = %d, want 2 (the revealed card's power)", got)
 	}
 	if notes := revealChooseNotes(e, "revealed "); len(notes) == 0 {
-		t.Fatal("reveal arm emitted no reveal note (precondition: emitChoiceCosts ran)")
+		t.Fatal("reveal arm emitted no reveal note (precondition: pay.EmitChoiceCosts ran)")
 	}
 	_ = chosen
 	replayCheck(t, e, cfg)

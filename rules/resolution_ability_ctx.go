@@ -2,6 +2,7 @@ package rules
 
 import (
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -54,7 +55,7 @@ func (e *Engine) abilityResolutionSVars(id state.ObjID, o *state.Object) map[str
 // resolution's Remembered player is reinterpreted as a defending player.
 func bindNinjutsuDefender(ctx *effects.Ctx, o *state.Object) {
 	ab := o.Ability
-	if ab == nil || !saHasKeyword(ab, "Ninjutsu") {
+	if ab == nil || !pay.SaHasKeyword(ab, "Ninjutsu") {
 		return
 	}
 	for _, rem := range o.Remembered {

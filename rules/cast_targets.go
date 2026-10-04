@@ -1162,24 +1162,7 @@ func (e *Engine) activationIsNinjutsu(pc *pendingCast) bool {
 	if !ok || pa.SA == nil {
 		return false
 	}
-	return saHasKeyword(pa.SA, "Ninjutsu")
-}
-
-// saHasKeyword reports whether ab's Keyword$ tag (a comma list set by a
-// keyword expansion, cards/keywords.go) contains want. It is the same tag read
-// rules/statics.go's abilityConstraintMatches uses to recognise an
-// Equip/Ninjutsu/Cycling ability, factored out so the offer and resolution
-// halves cannot disagree about which keyword an ability belongs to.
-func saHasKeyword(ab *cards.SA, want string) bool {
-	if ab == nil {
-		return false
-	}
-	for kw := range strings.SplitSeq(ab.ParamStr(cards.PKKeyword), ",") {
-		if strings.EqualFold(strings.TrimSpace(kw), want) {
-			return true
-		}
-	}
-	return false
+	return pay.SaHasKeyword(pa.SA, "Ninjutsu")
 }
 
 // finishTargetedCast is the completion tail every cast-flow target answer

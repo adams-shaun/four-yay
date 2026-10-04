@@ -15,6 +15,7 @@ package rules
 import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -358,6 +359,13 @@ type pendingCast struct {
 	manaSpentDesert   int32 `clone:"deep"`
 	manaSpentArtifact int32 `clone:"deep"`
 
+	// PaidCost (rules/pay) is the cast's payment slice: the objects each
+	// non-mana cost part was paid with (Sacs, Discards, Exiles, Reveals with
+	// RevealHandArm and RevealedEmptyHand, Beholds, Taps, Blights), recorded
+	// by the ask stages and settled at payCast. The payment layer reads it
+	// without the rest of the pending cast (spec section 9.1).
+	pay.PaidCost `clone:"deep"`
+
 	// addsCounterGrants (task opalp) captures, right after payment, the
 	// AddsCounters$ rider grants the cast earned: the consumed batches'
 	// producing-ability rider snapshots and spent unit counts that
@@ -369,9 +377,8 @@ type pendingCast struct {
 	// so Clone carries it like converge.
 	addsCounterGrants []state.ManaAddsCounterGrant `clone:"share"`
 
-	sacs    []state.ObjID `clone:"deep"`
-	sacPart int           `clone:"deep"`
-	sacPaid int           `clone:"deep"`
+	sacPart int `clone:"deep"`
+	sacPaid int `clone:"deep"`
 
 	// emerge / emergeDone mark an Emerge cast (CR 702.118a): beginCast's
 	// "emerged" arm sets emerge and composes the printed K:Emerge cost with
@@ -383,8 +390,7 @@ type pendingCast struct {
 	emergeDone bool        `clone:"deep"`
 	emergeSac  state.ObjID `clone:"deep"`
 
-	discards    []state.ObjID `clone:"deep"`
-	discardPart int           `clone:"deep"`
+	discardPart int `clone:"deep"`
 
 	// subCounterPays records the counter-removal picks of every SubCounter
 	// part, each entry tagged with the part index it belongs to. A
@@ -586,13 +592,12 @@ type pendingCast struct {
 	// optionalCost is the selected self-spell OptionalCost additional part.
 	optionalCost Cost `clone:"share"`
 
-	// exiles / exilePart carry the Exile cost parts (ExileFromHand /
+	// Exiles (pay.PaidCost) / exilePart carry the Exile cost parts (ExileFromHand /
 	// ExileFromGrave tokens: the evoke alternative cast's Fury/Grief shape,
 	// encore's "exile this card from your graveyard") through the same ask
 	// stage / commit shape sacAsk and sacs use. Nothing moves until payCast,
 	// so an abort cannot leave a partially paid exile on the board.
-	exiles    []state.ObjID `clone:"deep"`
-	exilePart int           `clone:"deep"`
+	exilePart int `clone:"deep"`
 
 	// returns / returnPart carry the Return cost parts (Return<N/Spec>
 	// tokens: a permanent matching Spec returned to its OWNER's hand) through
@@ -618,9 +623,8 @@ type pendingCast struct {
 	putToLibs    []state.ObjID `clone:"deep"`
 	putToLibPart int           `clone:"deep"`
 
-	reveals, beholds, taps, blights             []state.ObjID `clone:"deep"`
-	revealPart, beholdPart, tapPart, blightPart int           `clone:"deep"`
-	forageDone                                  bool          `clone:"deep"`
+	revealPart, beholdPart, tapPart, blightPart int  `clone:"deep"`
+	forageDone                                  bool `clone:"deep"`
 
 	// revealOrChoosePart indexes pc.cost.RevealOrChoose through the same ask
 	// stage revealCostAsk drives for plain Reveal parts. reveals carries the
@@ -628,17 +632,15 @@ type pendingCast struct {
 	// refs, Forge's CostReveal owning both), and revealHandArm is parallel to
 	// reveals: true for a hand card the REVEAL arm announced, false for a
 	// permanent the CHOOSE arm elected off the battlefield. Only the true
-	// entries are announced by emitChoiceCosts -- a chosen permanent is a
+	// entries are announced by pay.EmitChoiceCosts -- a chosen permanent is a
 	// public choice, never a reveal of a hand card. Plain Reveal parts and
 	// every other paid card append true (they reveal).
 	//
 	// revealedEmptyHand records that a whole-hand Reveal part paid with an
 	// EMPTY hand (CR 701.20a: revealing a hand with no cards is legal). The
-	// empty payment is still a public reveal, so emitChoiceCosts announces it
+	// empty payment is still a public reveal, so pay.EmitChoiceCosts announces it
 	// loudly instead of the reveal silently vanishing from the log.
-	revealOrChoosePart int    `clone:"deep"`
-	revealHandArm      []bool `clone:"deep"`
-	revealedEmptyHand  bool   `clone:"deep"`
+	revealOrChoosePart int `clone:"deep"`
 
 	// ninjutsuDefender is the defender (CR 702.49b: the player, planeswalker
 	// or battle the returned creature was attacking) captured when a

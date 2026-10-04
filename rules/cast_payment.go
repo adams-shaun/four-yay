@@ -501,7 +501,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		}
 	case castAnswerCasualty:
 		if len(chosen) == 1 {
-			pc.sacs = append(pc.sacs, chosen[0].Obj)
+			pc.Sacs = append(pc.Sacs, chosen[0].Obj)
 			pc.casualtyPaid = true
 			// Casualty:X: the chosen creature's power names the amount; it is
 			// read live at payment (payCast), the rules time the sacrifice
@@ -530,7 +530,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		// conspirePaid records that the provenance flag is owed. A Min==Max==2
 		// KChoose, so a well-formed answer is exactly two options.
 		for _, o := range chosen {
-			pc.taps = append(pc.taps, o.Obj)
+			pc.Taps = append(pc.Taps, o.Obj)
 		}
 		if len(chosen) >= 2 {
 			pc.conspirePaid = true
@@ -544,7 +544,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			pc.emergeSac = chosen[0].Obj
 		}
 		for _, o := range chosen {
-			pc.sacs = append(pc.sacs, o.Obj)
+			pc.Sacs = append(pc.Sacs, o.Obj)
 			pc.sacPaid++
 		}
 		part := pc.cost.Sac[pc.sacPart]
@@ -570,7 +570,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		}
 	case castAnswerDiscard:
 		for _, o := range chosen {
-			pc.discards = append(pc.discards, o.Obj)
+			pc.Discards = append(pc.Discards, o.Obj)
 		}
 		pc.discardPart++
 	case castAnswerAltaddcost:
@@ -584,7 +584,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		}
 	case castAnswerExilecost:
 		for _, o := range chosen {
-			pc.exiles = append(pc.exiles, o.Obj)
+			pc.Exiles = append(pc.Exiles, o.Obj)
 		}
 		pc.exilePart++
 	case castAnswerEvidence:
@@ -603,31 +603,31 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		pc.moveGravePart++
 	case castAnswerRevealcost:
 		for _, o := range chosen {
-			pc.reveals = append(pc.reveals, o.Obj)
-			pc.revealHandArm = append(pc.revealHandArm, true)
+			pc.Reveals = append(pc.Reveals, o.Obj)
+			pc.RevealHandArm = append(pc.RevealHandArm, true)
 		}
 		pc.revealPart++
 	case castAnswerRevealOrChoose:
 		// Either-or cost, REVEAL arm: the elected hand cards are a real public
-		// reveal (revealHandArm true; emitChoiceCosts announces them).
+		// reveal (revealHandArm true; pay.EmitChoiceCosts announces them).
 		for _, o := range chosen {
-			pc.reveals = append(pc.reveals, o.Obj)
-			pc.revealHandArm = append(pc.revealHandArm, true)
+			pc.Reveals = append(pc.Reveals, o.Obj)
+			pc.RevealHandArm = append(pc.RevealHandArm, true)
 		}
 		pc.revealOrChoosePart++
 	case castAnswerChoosecost:
 		// Either-or cost, CHOOSE arm: a permanent the payer controls, elected
 		// at cast time. It rides the same paid list the `Revealed$<Property>`
 		// refs read (Forge's CostReveal owns both arms) but revealHandArm is
-		// false, so emitChoiceCosts announces a choice, never a reveal.
+		// false, so pay.EmitChoiceCosts announces a choice, never a reveal.
 		for _, o := range chosen {
-			pc.reveals = append(pc.reveals, o.Obj)
-			pc.revealHandArm = append(pc.revealHandArm, false)
+			pc.Reveals = append(pc.Reveals, o.Obj)
+			pc.RevealHandArm = append(pc.RevealHandArm, false)
 		}
 		pc.revealOrChoosePart++
 	case castAnswerBeholdcost:
 		for _, o := range chosen {
-			pc.beholds = append(pc.beholds, o.Obj)
+			pc.Beholds = append(pc.Beholds, o.Obj)
 		}
 		pc.beholdPart++
 	case castAnswerTapcost:
@@ -636,7 +636,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			part = pc.cost.TapPermanent[pc.tapPart]
 		}
 		for _, o := range chosen {
-			pc.taps = append(pc.taps, o.Obj)
+			pc.Taps = append(pc.Taps, o.Obj)
 		}
 		pc.tapPart++
 		// A dynamic X-form part whose tap election ANNOUNCED the count (no other
@@ -650,7 +650,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		}
 	case castAnswerBlightcost:
 		for _, o := range chosen {
-			pc.blights = append(pc.blights, o.Obj)
+			pc.Blights = append(pc.Blights, o.Obj)
 		}
 		pc.blightPart++
 	case castAnswerReturncost:
@@ -692,7 +692,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		pc.cost.Exile = append(pc.cost.Exile, CostPart{N: 3, Spec: "Card", Zone: state.ZGraveyard})
 	case castAnswerForageFood:
 		if len(chosen) > 0 {
-			pc.sacs = append(pc.sacs, chosen[0].Obj)
+			pc.Sacs = append(pc.Sacs, chosen[0].Obj)
 		}
 	case castAnswerPayColour:
 		// A hybrid or Phyrexian pip paid with pool mana: record which colour.

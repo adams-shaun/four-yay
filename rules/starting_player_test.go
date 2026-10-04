@@ -14,6 +14,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -87,7 +88,7 @@ func TestTossNoteIsEmittedExactlyOnceAndNamesTheStartingPlayer(t *testing.T) {
 		if notes[0].Player != e.G.Active {
 			t.Fatalf("seed=%d: toss Note names seat %d, game started at %d", seed, notes[0].Player, e.G.Active)
 		}
-		want := tossName(e.G, e.G.Active) + " won the toss"
+		want := pay.SeatName(e.G, e.G.Active) + " won the toss"
 		if notes[0].Text != want {
 			t.Fatalf("seed=%d: toss Note text %q, want %q", seed, notes[0].Text, want)
 		}
@@ -146,7 +147,7 @@ func TestTossNoteIsEmittedWhenOpeningDealEndsTheGame(t *testing.T) {
 		// The pre-deal announcement names the toss winner -- the seat the rng
 		// handed the toss to, whatever the deal did to them (seed 1 tosses to
 		// seat 1, measured in TestTossedGameReplaysByteIdentically).
-		if got, want := notes[0].Text, tossName(e.G, notes[0].Player)+" won the toss"; got != want {
+		if got, want := notes[0].Text, pay.SeatName(e.G, notes[0].Player)+" won the toss"; got != want {
 			t.Fatalf("short seat %d: toss Note text %q, want %q", shortSeat, got, want)
 		}
 		if got := e.L.Events[len(e.L.Events)-1].Kind; got != events.GameOver {
@@ -172,7 +173,7 @@ func TestTossNoteSurvivesWhenEveryOpeningDeckIsUndersized(t *testing.T) {
 	if len(notes) != 1 {
 		t.Fatalf("toss Notes = %d, want exactly 1", len(notes))
 	}
-	want := tossName(e.G, notes[0].Player) + " won the toss"
+	want := pay.SeatName(e.G, notes[0].Player) + " won the toss"
 	if notes[0].Text != want {
 		t.Fatalf("toss Note text %q, want %q", notes[0].Text, want)
 	}
@@ -235,7 +236,7 @@ func TestMulliganRoundAsksTheTossWinnerFirst(t *testing.T) {
 	// The prompt names who plays first: the ask is the one always-visible
 	// surface a seated human reads before choosing (the transcript starts
 	// hidden), so it must carry the play/draw fact itself.
-	if !strings.Contains(d.Prompt, tossName(e.G, 1)+" plays first") {
+	if !strings.Contains(d.Prompt, pay.SeatName(e.G, 1)+" plays first") {
 		t.Fatalf("mulligan prompt %q does not name the starting player", d.Prompt)
 	}
 	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0}}); err != nil {

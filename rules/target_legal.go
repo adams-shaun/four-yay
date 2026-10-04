@@ -12,6 +12,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -478,23 +479,7 @@ func targetCountMatches(count int, op string, want int) bool {
 // targetName is the object's name for a target prompt, tolerating the ability
 // stack object (no Face) a triggered ability's own target ask produces by
 // falling back to its source permanent's name.
-func (e *Engine) targetName(source state.ObjID) string {
-	if o := e.G.Obj(source); o != nil {
-		if f := o.Face(); f != nil && f.Name != "" {
-			return f.Name
-		}
-		if s := e.G.Obj(o.Source); s != nil {
-			if sf := s.Face(); sf != nil && sf.Name != "" {
-				return sf.Name
-			}
-		}
-	}
-	// Falling back to the literal word "target" (reviewer minor 7) is
-	// deliberate: every caller has already given the decision a usable
-	// prompt, so this is only reached for an object with no name at all --
-	// an unreadable name there is better than a fabricated one.
-	return "target"
-}
+func (e *Engine) targetName(source state.ObjID) string { return pay.TargetName(e.G, source) }
 
 // targetOptionLabel renders one target option's label: the target's name
 // followed by its controller's. The Face-less ability object a

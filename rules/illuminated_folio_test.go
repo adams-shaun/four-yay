@@ -288,7 +288,7 @@ func TestIlluminatedFolioRevealAskAutoSettles(t *testing.T) {
 			}
 		}
 	}
-	// The reveal was announced as a cost (the Note emitChoiceCosts emits;
+	// The reveal was announced as a cost (the Note pay.EmitChoiceCosts emits;
 	// the name order follows the hand's zone order, so match on the IDs).
 	var sawReveal bool
 	for _, ev := range e.L.Events {

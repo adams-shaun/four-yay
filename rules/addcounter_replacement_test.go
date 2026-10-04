@@ -223,7 +223,7 @@ func TestWindingConstrictorObjectCounters(t *testing.T) {
 // placements that are the effect of a resolving spell or ability. A placement
 // with NOTHING on the stack -- the turn-based-action shape (a Saga's lore
 // counter, rules/saga.go advanceSagas) and the cost shape (a planeswalker's
-// [+N] loyalty cost, rules/cast.go emitChoiceCosts) -- is not an effect, so
+// [+N] loyalty cost, rules/cast.go pay.EmitChoiceCosts) -- is not an effect, so
 // the doubled result it must not produce is the exact regression here; the
 // resolving-effect positive control follows.
 func TestDoublingSeasonEffectOnlyIgnoresNonEffectPlacement(t *testing.T) {

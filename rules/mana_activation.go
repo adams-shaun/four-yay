@@ -1348,7 +1348,7 @@ func (e *Engine) commitManaDiscard() {
 	}
 	e.payMillCost(md.player, md.cost.Mill)
 	// The elected tapXType permanents are tapped as part of the cost, before
-	// the source's own {T} (the cast path's emitChoiceCosts/payCast order), so
+	// the source's own {T} (the cast path's pay.EmitChoiceCosts/payCast order), so
 	// a TapsForMana trigger on one of them matches the same way in both
 	// paths. The Tap events carry the same "tapped as a cost" text the cast
 	// path uses, so a replay rebuilds the identical chain.

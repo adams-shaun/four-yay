@@ -613,7 +613,7 @@ func (e *Engine) subCounterAsk() bool {
 // (object, kind), allowing the part itself to span objects and kinds.
 func (pc *pendingCast) subCounterReservations() map[state.ObjID]bool {
 	reserved := map[state.ObjID]bool{}
-	for _, s := range pc.sacs {
+	for _, s := range pc.Sacs {
 		reserved[s] = true
 	}
 	for _, p := range pc.subCounterPays {
@@ -825,7 +825,7 @@ func (e *Engine) sacAsk() bool {
 		var candidates []state.ObjID
 		for _, oid := range pay.SacrificeCostCandidates(asPayer(e), pc.player, pc.card, part, pc.isAbility()) {
 			already := false
-			for _, s := range pc.sacs {
+			for _, s := range pc.Sacs {
 				if s == oid {
 					already = true
 					break
@@ -879,7 +879,7 @@ func (e *Engine) sacAsk() bool {
 				}
 				pools[i] = pay.SacrificeCostCandidates(asPayer(e), pc.player, pc.card, futurePart, pc.isAbility())
 			}
-			candidates = feasibleSacrificeChoices(candidates, pools, needs, pc.sacs, pc.sacPart)
+			candidates = feasibleSacrificeChoices(candidates, pools, needs, pc.Sacs, pc.sacPart)
 		}
 		if n <= 0 || n > len(candidates) {
 			// A cost that can no longer be fully paid must not commit half
@@ -913,7 +913,7 @@ func (e *Engine) sacAsk() bool {
 		// abort path.
 		if part.N == 1 && len(candidates) == 1 && candidates[0] == pc.card &&
 			(strings.EqualFold(part.Spec, "CARDNAME") || strings.EqualFold(part.Spec, "NICKNAME")) {
-			pc.sacs = append(pc.sacs, pc.card)
+			pc.Sacs = append(pc.Sacs, pc.card)
 			pc.sacPart++
 			pc.sacPaid = 0
 			continue
@@ -959,14 +959,14 @@ func (e *Engine) discardAsk() bool {
 	pc := e.cast
 	for pc.discardPart < len(pc.cost.Discard) {
 		part := pc.cost.Discard[pc.discardPart]
-		reserved := make(map[state.ObjID]bool, len(pc.discards))
-		for _, id := range pc.discards {
+		reserved := make(map[state.ObjID]bool, len(pc.Discards))
+		for _, id := range pc.Discards {
 			reserved[id] = true
 		}
 		candidates := pay.DiscardCandidates(asPayer(e), pc.player, pc.card, part, !pc.isAbility(), reserved)
 
 		if strings.EqualFold(part.Spec, "Hand") {
-			pc.discards = append(pc.discards, candidates...)
+			pc.Discards = append(pc.Discards, candidates...)
 			pc.discardPart++
 			continue
 		}
@@ -987,7 +987,7 @@ func (e *Engine) discardAsk() bool {
 		if strings.EqualFold(part.Spec, "Random") {
 			for i := 0; i < n; i++ {
 				pick := e.Rand(len(candidates))
-				pc.discards = append(pc.discards, candidates[pick])
+				pc.Discards = append(pc.Discards, candidates[pick])
 				candidates = append(candidates[:pick], candidates[pick+1:]...)
 			}
 			pc.discardPart++

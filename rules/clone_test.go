@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -148,15 +149,15 @@ func seedInternalQueues(t *testing.T, e *Engine) state.ObjID {
 	// aliases, or only shallow-copies e.cast shows up as a real assertion
 	// failure the same way an omitted continuous/pendingTriggers would.
 	e.cast = &pendingCast{
-		player:  0,
-		card:    src,
-		from:    state.ZHand,
-		mode:    "kicked",
-		ability: -1,
-		cost:    Cost{Generic: 1, Sac: []CostPart{{N: 1, Spec: "Creature"}}},
-		x:       1,
-		delve:   []state.ObjID{src},
-		sacs:    []state.ObjID{src},
+		player:   0,
+		card:     src,
+		from:     state.ZHand,
+		mode:     "kicked",
+		ability:  -1,
+		cost:     Cost{Generic: 1, Sac: []CostPart{{N: 1, Spec: "Creature"}}},
+		x:        1,
+		delve:    []state.ObjID{src},
+		PaidCost: pay.PaidCost{Sacs: []state.ObjID{src}},
 	}
 
 	if len(e.continuous) == 0 || len(e.pendingTriggers) == 0 ||
@@ -293,7 +294,7 @@ func TestCloneSharesNoMutableStateWithTheOriginal(t *testing.T) {
 	c.damageBatchIdx[batchKey] = 7
 	c.sourceLifelinkLKI[src] = false
 	c.cast.delve[0] = 9999
-	c.cast.sacs[0] = 9999
+	c.cast.Sacs[0] = 9999
 	c.cast.cost.Sac[0].N = 99
 
 	if e.G.Players[0].Life == -100 {
@@ -335,7 +336,7 @@ func TestCloneSharesNoMutableStateWithTheOriginal(t *testing.T) {
 	if e.cast.delve[0] == 9999 {
 		t.Fatal("clone shares a pending cast's delve slice")
 	}
-	if e.cast.sacs[0] == 9999 {
+	if e.cast.Sacs[0] == 9999 {
 		t.Fatal("clone shares a pending cast's sacs slice")
 	}
 	if e.cast.cost.Sac[0].N == 99 {
