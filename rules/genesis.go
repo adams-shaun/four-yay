@@ -71,6 +71,9 @@ type Spare struct {
 	// walkCls is a spent engine's object-class array (walk_objclass.go),
 	// copied into by the next clone.
 	walkCls []walkObjClass
+	// actIdx is a spent engine's activation-index storage
+	// (activation_count_index.go), emptied, copied into by the next clone.
+	actIdx activationIndex
 	// tapeCkpt is the spent engine's recycled resolution-kernel checkpoint
 	// storage (engineResolveKernel.tapeSpare: a dropped S0's Spare), adopted
 	// by the next clone so a search's per-simulation checkpoints recycle
@@ -136,6 +139,10 @@ func (e *Engine) Release() Spare {
 		sp.walkCls = e.walkObjCls[:0]
 	}
 	e.walkObjCls, e.walkClsOwner = nil, nil
+	if e.actIndex.owner == e {
+		sp.actIdx = activationIndex{game: e.actIndex.game[:0], loyalty: e.actIndex.loyalty[:0], stints: e.actIndex.stints[:0]}
+	}
+	e.actIndex = activationIndex{}
 	if e.lookBackOwner == e && !e.lookBackBusy {
 		sp.lookBack = e.lookBack
 	}

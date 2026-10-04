@@ -264,6 +264,9 @@ func tapeRebindOwner(e *Engine, sc *Engine, arenaOn bool) {
 	if e.walkClsOwner == sc {
 		e.walkClsOwner = e
 	}
+	if e.actIndex.owner == sc {
+		e.actIndex.owner = e
+	}
 	if e.lookBackOwner == sc {
 		e.lookBackOwner = e
 	}

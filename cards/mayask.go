@@ -58,6 +58,9 @@ var entryAskKeywords = [...]string{
 func FaceEntryMayAsk(f *Face) bool {
 	for i := range f.Repls {
 		r := &f.Repls[i]
+		if r.Event == "Counter" {
+			continue // a spell's countering, never part of its entry
+		}
 		if r.Event != "Moved" || r.With == nil {
 			return true
 		}
@@ -287,12 +290,19 @@ func saChainMayAsk(sa *SA, svars map[string]string, self *Face, root bool, depth
 				return true // a counter-kind pick
 			}
 		case "Charm":
-			if !first || choices == "" {
+			if !first || choices == "" || depth > 0 {
 				return true // a Charm reached mid-chain picks its modes here
 			}
+			// A root Charm's mode was chosen on the stack (CR 601.2b at cast,
+			// CR 603.3c at a trigger's placement) and, when exactly one mode
+			// is chosen, so were that mode body's own targets (the cast's
+			// askCharmModeTargets, the placement's mode-target ask): the body
+			// is judged as a root. With more than one mode a later mode's
+			// targets may still be asked, so its bodies are judged as subs.
+			single := !s.HasParam(PKCharmNum) && !s.HasParam(PKMinCharmNum)
 			for _, n := range SplitModeNames(choices) {
 				body := ResolveSVar(svars, n)
-				if body == nil || saChainMayAsk(body, svars, self, false, depth+1) {
+				if body == nil || saChainMayAsk(body, svars, self, single, depth+1) {
 					return true
 				}
 			}

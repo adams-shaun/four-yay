@@ -110,6 +110,11 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		c.walkObjCls, c.walkClsOwner = append(sp.walkCls[:0], e.walkObjCls...), c
 		c.staticZonesEp = e.staticZonesEp
 	}
+	// The activation-count folds (activation_count_index.go) are folds of
+	// the log prefix the clone's log shares.
+	if e.actIndex.owner == e {
+		c.actIndex = copyActivationIndex(sp.actIdx, &e.actIndex, c)
+	}
 	// The resolution kernel's checkpoint storage: a spent engine's dropped
 	// checkpoint is recycled.
 	if sp.tapeCkpt != nil {
