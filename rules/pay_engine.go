@@ -216,6 +216,8 @@ var payAskFlows = [...]chooseFor{
 	pay.AskManaExile:     chooseManaExile,
 	pay.AskManaForage:    chooseManaForage,
 	pay.AskManaUntap:     chooseManaUntap,
+
+	pay.AskManaSubCounter: chooseManaSubCounter,
 }
 
 // Batch opens or closes one action bracket (pay.Engine.Batch).

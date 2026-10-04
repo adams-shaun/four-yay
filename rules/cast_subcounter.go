@@ -696,11 +696,7 @@ func (e *Engine) wildcardCounterAsk(pc *pendingCast, part CostPart, amt int32) b
 // removal for a decision prompt: "A +1/+1 counter", "CHARGE counters", "ANY
 // counters". Display only.
 func (e *Engine) subCounterPhrase(part CostPart, amt int32) string {
-	unit := "counter"
-	if amt != 1 && !part.Announced {
-		unit = "counters"
-	}
-	return fmt.Sprintf("%s %s", strings.ToUpper(part.Spec), unit)
+	return pay.SubCounterPhrase(part, amt)
 }
 
 // settleSubCounterParts emits the SubCounter cost parts' counter removals,

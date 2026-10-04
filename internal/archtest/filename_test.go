@@ -25,7 +25,6 @@ var sizeOnlyFileName = regexp.MustCompile(
 // NEVER add an entry.
 var sizeOnlyFileNamesAllowed = map[string]bool{
 	"effects/misc.go":           true,
-	"rules/mana_cost_extra.go":  true,
 	"rules/raise_cost_extra.go": true,
 	"rules/token_rest.go":       true,
 }

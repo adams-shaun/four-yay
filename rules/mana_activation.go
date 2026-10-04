@@ -947,10 +947,7 @@ func (e *Engine) continueManaDiscard() {
 	// Forage, sacrifice, discard, exile and untapYType elections. Each may
 	// pause on an ask or drop the payment when the board changed under the
 	// offer.
-	if e.manaSubCounterStage(md) {
-		return
-	}
-	if e.ManaCost == nil {
+	if !e.manaCostStepNext(pay.ManaCostSubCounterStage(asPayer(e), md)) {
 		return
 	}
 	if !e.manaCostStepNext(pay.ManaCostChoiceStages(asPayer(e), md)) {
@@ -1068,7 +1065,7 @@ func (e *Engine) resumeManaAfterCost() {
 }
 
 // answerManaSacrifice, answerManaDiscard, answerManaExile, answerManaTap,
-// answerManaForage and answerManaUntap record one mana-cost election answer
+// answerManaForage, answerManaUntap and answerManaSubCounter record one mana-cost election answer
 // (pay.RecordManaCostAnswer) and resume the payment. Each reports whether
 // the activation pays for a cast.
 func (e *Engine) answerManaSacrifice(chosen []decision.Option) bool {
@@ -1095,12 +1092,16 @@ func (e *Engine) answerManaUntap(chosen []decision.Option) bool {
 	return e.answerManaCost(pay.AskManaUntap, chosen)
 }
 
+func (e *Engine) answerManaSubCounter(chosen []decision.Option) bool {
+	return e.answerManaCost(pay.AskManaSubCounter, chosen)
+}
+
 func (e *Engine) answerManaCost(flow pay.AskFlow, chosen []decision.Option) bool {
 	md := e.ManaCost
 	if md == nil {
 		return false
 	}
-	pay.RecordManaCostAnswer(md, flow, chosen)
+	pay.RecordManaCostAnswer(asPayer(e), md, flow, chosen)
 	cast := md.Cast
 	e.continueManaDiscard()
 	return cast

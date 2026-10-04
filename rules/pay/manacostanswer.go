@@ -5,8 +5,10 @@ import "github.com/adams-shaun/gorge/decision"
 // RecordManaCostAnswer records the seat's answer to the mana-cost election
 // ask of flow (ManaCostTapStage, ManaCostChoiceStages) on md and advances md
 // past the answered part; the engine then resumes the election.
-func RecordManaCostAnswer(md *ManaCostActivation, flow AskFlow, chosen []decision.Option) {
+func RecordManaCostAnswer(e Engine, md *ManaCostActivation, flow AskFlow, chosen []decision.Option) {
 	switch flow {
+	case AskManaSubCounter:
+		recordManaSubCounterAnswer(e, md, chosen)
 	case AskManaSacrifice:
 		for _, opt := range chosen {
 			md.Sacs = append(md.Sacs, opt.Obj)

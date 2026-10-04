@@ -94,6 +94,9 @@ const (
 	AskManaExile
 	AskManaForage
 	AskManaUntap
+	// AskManaSubCounter asks for a mana ability's announced SubCounter X or
+	// one removal pick (ManaCostSubCounterStage).
+	AskManaSubCounter
 )
 
 // BatchKind names the action bracket an Engine.Batch opens or closes.
