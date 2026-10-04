@@ -91,7 +91,7 @@ func (e *Engine) produceManaReplacementPossible(ev events.Event) bool {
 		}
 	}
 	found := false
-	e.forEachReplacementSourceFor(replEventBit("ProduceMana"), func(id state.ObjID) {
+	e.forEachReplacementSourceFor(replEventBits[cards.ReplProduceMana], func(id state.ObjID) {
 		if found {
 			return
 		}

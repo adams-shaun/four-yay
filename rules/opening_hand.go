@@ -278,8 +278,8 @@ func (e *Engine) registerOpeningEffectTriggers(ef openingEffect, first *cards.SA
 				if exec == "" || cards.ResolveSVar(o.Face().SVars, exec) == nil {
 					continue
 				}
-				switch registerOpeningEffectTriggersb431Codes.Code(string(t.Mode)) {
-				case registerOpeningEffectTriggersb431Phase:
+				switch t.ModeKind() {
+				case cards.TriggerPhase:
 					var step state.Step
 					switch registerOpeningEffectTriggersb432Codes.Code(string(strings.TrimSpace(t.ParamStr(cards.PKPhase)))) {
 					case registerOpeningEffectTriggersb432Upkeep:
@@ -294,7 +294,7 @@ func (e *Engine) registerOpeningEffectTriggers(ef openingEffect, first *cards.SA
 					}
 					e.emit(events.Event{Kind: events.DelayedRegister, Obj: ef.card, Player: ef.player,
 						Step: step, Counter: exec, Text: t.ParamStr(cards.PKPhase)})
-				case registerOpeningEffectTriggersb431SpellCast:
+				case cards.TriggerSpellCast:
 					// Step carries the registration's decoding guard only
 					// (events.Apply requires a valid Step); an event-matched
 					// registration never fires on a step --
@@ -372,16 +372,6 @@ func (e *Engine) finishOpening() {
 }
 
 func init() { effects.RegisterNonAPI("kw:MayEffectFromOpeningHand") }
-
-const (
-	registerOpeningEffectTriggersb431Phase     uint16 = 1 // "Phase"
-	registerOpeningEffectTriggersb431SpellCast uint16 = 2 // "SpellCast"
-)
-
-var registerOpeningEffectTriggersb431Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Phase", Val: registerOpeningEffectTriggersb431Phase},
-	state.StrEntry[uint16]{Key: "SpellCast", Val: registerOpeningEffectTriggersb431SpellCast},
-)
 
 const (
 	registerOpeningEffectTriggersb432Upkeep uint16 = 1 // "Upkeep"

@@ -1109,10 +1109,10 @@ func (e *Engine) fireManaSpentTriggers(ev events.Event, lki *state.Object) {
 				continue
 			}
 			matches := false
-			switch fireManaSpentTriggers8722Codes.Code(string(t.Mode)) {
-			case fireManaSpentTriggers8722SpellCast:
+			switch t.ModeKind() {
+			case cards.TriggerSpellCast:
 				matches = trigmatch.SpellCastEval(boardOf(e), t, src, ev)
-			case fireManaSpentTriggers8722SpellAbilityCast:
+			case cards.TriggerSpellAbilityCast:
 				matches = trigmatch.SpellAbilityCastMatches(boardOf(e), t, src, ev, lki)
 			}
 			if !e.zoneGate(t, src, ev) || !e.phaseGate(t) || !matches {
@@ -1221,14 +1221,4 @@ var payCast8721Codes = state.NewStrCodes(
 	state.StrEntry[uint16]{Key: "kicked1", Val: payCast8721Kicked},
 	state.StrEntry[uint16]{Key: "kicked2", Val: payCast8721Kicked},
 	state.StrEntry[uint16]{Key: "kickedboth", Val: payCast8721Kickedboth},
-)
-
-const (
-	fireManaSpentTriggers8722SpellCast        uint16 = 1 // "SpellCast"
-	fireManaSpentTriggers8722SpellAbilityCast uint16 = 2 // "SpellAbilityCast"
-)
-
-var fireManaSpentTriggers8722Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "SpellCast", Val: fireManaSpentTriggers8722SpellCast},
-	state.StrEntry[uint16]{Key: "SpellAbilityCast", Val: fireManaSpentTriggers8722SpellAbilityCast},
 )

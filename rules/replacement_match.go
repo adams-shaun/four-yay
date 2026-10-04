@@ -125,8 +125,8 @@ func (e *Engine) replacementMatchesRememberedUngated(r cards.Repl, source state.
 
 func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source state.ObjID, ev events.Event,
 	remembered []state.ObjID, rememberedPlayers []state.PlayerID, tokenOverride *state.Object, you state.PlayerID) bool {
-	switch replacementMatchesRememberedUngatedBy5931Codes.Code(string(r.Event)) {
-	case replacementMatchesRememberedUngatedBy5931Attached:
+	switch r.EventKind() {
+	case cards.ReplAttached:
 		if ev.Kind != events.Attach || len(ev.IDs) == 0 {
 			return false
 		}
@@ -141,7 +141,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931TurnFaceUp:
+	case cards.ReplTurnFaceUp:
 		// The "as this is turned face up" class (CR 614.1a with CR 708.6/
 		// CR 702.36e): the turned permanent is the turn-up event's own Obj
 		// (events.TurnFaceUp), and ValidCard$ scopes it in the replacement
@@ -161,7 +161,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			}
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931Counter:
+	case cards.ReplCounter:
 		// The Effect-created bodyless CantHappen form (Mistrise Village's
 		// AntiMagic, reached only from counterReplacementMatchesAll's scan,
 		// which passes a synthetic Event{Obj: target}): the remembered-scoped
@@ -176,7 +176,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			}
 		}
 		return true
-	case replacementMatchesRememberedUngatedBy5931Moved:
+	case cards.ReplMoved:
 		if ev.Kind != events.MoveZone {
 			return false
 		}
@@ -282,7 +282,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// etbCounter passthrough is the one carrier, and the shared read is a
 		// no-op for every Moved line without the params.
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931Untap:
+	case cards.ReplUntap:
 		if ev.Kind != events.Untap {
 			return false
 		}
@@ -305,7 +305,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931BeginPhase:
+	case cards.ReplBeginPhase:
 		if ev.Kind != events.StepChange {
 			return false
 		}
@@ -330,7 +330,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931BeginTurn:
+	case cards.ReplBeginTurn:
 		// The skip-an-extra-turn class (Trouble in Pairs, Stranglehold,
 		// Ugin's Nexus, Gerrard's Hourglass Pendant). Reached ONLY through the
 		// synthetic events.ExtraTurn{Amount: 0} event extraTurnSkipped poses
@@ -364,7 +364,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// extraTurnSkipped reports a matched line whose action is not Skip$
 		// True loudly instead of silently skipping, and never silently skips.
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931Transform:
+	case cards.ReplTransform:
 		if ev.Kind != events.FlipFace {
 			return false
 		}
@@ -376,7 +376,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931GainLife:
+	case cards.ReplGainLife:
 		if ev.Kind != events.LifeChange || ev.Amount <= 0 {
 			return false
 		}
@@ -397,7 +397,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			}
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931DamageDone:
+	case cards.ReplDamageDone:
 		// A Damage event with a non-positive Amount is not damage being
 		// dealt: it is the cleanup step's CR 514.2 removal of marked damage
 		// (cleanupBody's negative Damage) or a hit already reduced to zero
@@ -414,7 +414,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931ProduceMana:
+	case cards.ReplProduceMana:
 		// Only genuine production replaces: a ManaAdd without a producing
 		// source (a test seed, a spend) and a negative Amount (spending, not
 		// producing) are outside the class.
@@ -451,7 +451,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			}
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931Explore:
+	case cards.ReplExplore:
 		// The explore replacement (R:Event$ Explore, task explore1 —
 		// Topography Tracker, Twists and Turns). ValidExplorer$ names the
 		// creature that would explore (the synthetic proposal's Obj), matched
@@ -465,7 +465,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931Scry:
+	case cards.ReplScry:
 		// The scry replacement (R:Event$ Scry, task scryrepl — Kenessos,
 		// Priest of Thassa; Eligeth, Crossroads Augur). The event is the
 		// synthetic instruction PROPOSAL effects' effLookAndArrange builds
@@ -483,7 +483,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931RollDice:
+	case cards.ReplRollDice:
 		// The roll-action replacement (R:Event$ RollDice, task rolldice-repl
 		// -- Wyll, Blade of Frontiers; Barbarian Class; Pixie Guide; the
 		// SwapRoll carrier Vedalken Squirrel-Whacker). The event is the
@@ -505,7 +505,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// the unmodelled SwapRoll body the dispatch skips loudly -- a sides
 		// gate is never silently widened onto a die of another size.
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931Draw:
+	case cards.ReplDraw, cards.ReplDrawCards:
 		if ev.Kind != events.Draw {
 			return false
 		}
@@ -574,7 +574,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// repo deck carries any of the class's 39 carriers, so no golden
 		// game changes (measured).
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931CreateToken:
+	case cards.ReplCreateToken:
 		// The token-creation replacement class (Divine Visitation, Doubling
 		// Season, Academy Manufactor, Xorn, ...). Applied by
 		// continueCreateTokenReplacements, which reads each body's Type$
@@ -616,7 +616,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// alone: the AddCounter case below DOES read EffectOnly$, because
 		// CounterChange has non-effect emitters (turn-based actions, costs).
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931AddCounter:
+	case cards.ReplAddCounter:
 		// The counter-placement replacement class (Hardened Scales, Branching
 		// Evolution, Doubling Season, Vorinclex, ...). Applied by
 		// applyAddCounterReplacements, which reads each body's ReplaceCounter
@@ -732,7 +732,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			}
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931RollPlanarDice:
+	case cards.ReplRollPlanarDice:
 		// The planar-dice replacement class (Ichor Elixir, task rollplanar1):
 		// "if you would roll one or more planar dice, instead roll that many
 		// planar dice plus one and ignore one". ValidPlayer$ scopes the roller
@@ -746,7 +746,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931Cascade:
+	case cards.ReplCascade:
 		// The cascade instruction's replacement boundary (CR 614.4;
 		// Averna, the Chaos Bloom's `ValidPlayer$ You | ActiveZones$
 		// Battlefield`). Only the synthetic proposal reaches here, so there
@@ -760,7 +760,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case replacementMatchesRememberedUngatedBy5931GameLoss:
+	case cards.ReplGameLoss, cards.ReplGameWin:
 		// The "you can't lose the game" / "your opponents can't win the
 		// game" class (CR 104.3 / 704.5a-c, task fdn-repl-cant-lose). Only
 		// the SYNTHETIC proposal reaches here (Engine.gameLossPrevented /
@@ -1158,54 +1158,6 @@ func isTriggered(g *state.Game, o *state.Object) bool {
 	_, ok := state.TriggerOf(g, o)
 	return ok
 }
-
-const (
-	replacementMatchesRememberedUngatedBy5931Attached       uint16 = 1  // "Attached"
-	replacementMatchesRememberedUngatedBy5931TurnFaceUp     uint16 = 2  // "TurnFaceUp"
-	replacementMatchesRememberedUngatedBy5931Counter        uint16 = 3  // "Counter"
-	replacementMatchesRememberedUngatedBy5931Moved          uint16 = 4  // "Moved"
-	replacementMatchesRememberedUngatedBy5931Untap          uint16 = 5  // "Untap"
-	replacementMatchesRememberedUngatedBy5931BeginPhase     uint16 = 6  // "BeginPhase"
-	replacementMatchesRememberedUngatedBy5931BeginTurn      uint16 = 7  // "BeginTurn"
-	replacementMatchesRememberedUngatedBy5931Transform      uint16 = 8  // "Transform"
-	replacementMatchesRememberedUngatedBy5931GainLife       uint16 = 9  // "GainLife"
-	replacementMatchesRememberedUngatedBy5931DamageDone     uint16 = 10 // "DamageDone"
-	replacementMatchesRememberedUngatedBy5931ProduceMana    uint16 = 11 // "ProduceMana"
-	replacementMatchesRememberedUngatedBy5931Explore        uint16 = 12 // "Explore"
-	replacementMatchesRememberedUngatedBy5931Scry           uint16 = 13 // "Scry"
-	replacementMatchesRememberedUngatedBy5931RollDice       uint16 = 14 // "RollDice"
-	replacementMatchesRememberedUngatedBy5931Draw           uint16 = 15 // "Draw", "DrawCards"
-	replacementMatchesRememberedUngatedBy5931CreateToken    uint16 = 16 // "CreateToken"
-	replacementMatchesRememberedUngatedBy5931AddCounter     uint16 = 17 // "AddCounter"
-	replacementMatchesRememberedUngatedBy5931RollPlanarDice uint16 = 18 // "RollPlanarDice"
-	replacementMatchesRememberedUngatedBy5931Cascade        uint16 = 19 // "Cascade"
-	replacementMatchesRememberedUngatedBy5931GameLoss       uint16 = 20 // "GameLoss", "GameWin"
-)
-
-var replacementMatchesRememberedUngatedBy5931Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Attached", Val: replacementMatchesRememberedUngatedBy5931Attached},
-	state.StrEntry[uint16]{Key: "TurnFaceUp", Val: replacementMatchesRememberedUngatedBy5931TurnFaceUp},
-	state.StrEntry[uint16]{Key: "Counter", Val: replacementMatchesRememberedUngatedBy5931Counter},
-	state.StrEntry[uint16]{Key: "Moved", Val: replacementMatchesRememberedUngatedBy5931Moved},
-	state.StrEntry[uint16]{Key: "Untap", Val: replacementMatchesRememberedUngatedBy5931Untap},
-	state.StrEntry[uint16]{Key: "BeginPhase", Val: replacementMatchesRememberedUngatedBy5931BeginPhase},
-	state.StrEntry[uint16]{Key: "BeginTurn", Val: replacementMatchesRememberedUngatedBy5931BeginTurn},
-	state.StrEntry[uint16]{Key: "Transform", Val: replacementMatchesRememberedUngatedBy5931Transform},
-	state.StrEntry[uint16]{Key: "GainLife", Val: replacementMatchesRememberedUngatedBy5931GainLife},
-	state.StrEntry[uint16]{Key: "DamageDone", Val: replacementMatchesRememberedUngatedBy5931DamageDone},
-	state.StrEntry[uint16]{Key: "ProduceMana", Val: replacementMatchesRememberedUngatedBy5931ProduceMana},
-	state.StrEntry[uint16]{Key: "Explore", Val: replacementMatchesRememberedUngatedBy5931Explore},
-	state.StrEntry[uint16]{Key: "Scry", Val: replacementMatchesRememberedUngatedBy5931Scry},
-	state.StrEntry[uint16]{Key: "RollDice", Val: replacementMatchesRememberedUngatedBy5931RollDice},
-	state.StrEntry[uint16]{Key: "Draw", Val: replacementMatchesRememberedUngatedBy5931Draw},
-	state.StrEntry[uint16]{Key: "DrawCards", Val: replacementMatchesRememberedUngatedBy5931Draw},
-	state.StrEntry[uint16]{Key: "CreateToken", Val: replacementMatchesRememberedUngatedBy5931CreateToken},
-	state.StrEntry[uint16]{Key: "AddCounter", Val: replacementMatchesRememberedUngatedBy5931AddCounter},
-	state.StrEntry[uint16]{Key: "RollPlanarDice", Val: replacementMatchesRememberedUngatedBy5931RollPlanarDice},
-	state.StrEntry[uint16]{Key: "Cascade", Val: replacementMatchesRememberedUngatedBy5931Cascade},
-	state.StrEntry[uint16]{Key: "GameLoss", Val: replacementMatchesRememberedUngatedBy5931GameLoss},
-	state.StrEntry[uint16]{Key: "GameWin", Val: replacementMatchesRememberedUngatedBy5931GameLoss},
-)
 
 const (
 	replacementConditionHolds5932True  uint16 = 1 // "True", "true"

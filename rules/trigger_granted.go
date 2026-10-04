@@ -955,7 +955,7 @@ func grantedTriggerStaticsFor(statics []ContinuousEffect, kind events.Kind, buf 
 // grantedTriggerStaticObserves reports whether any trigger ce grants could
 // pass triggerMatches' leading event-kind gate for kind.
 func grantedTriggerStaticObserves(ce *ContinuousEffect, kind events.Kind) bool {
-	if ce.AddTrigger != nil && triggerModeEvents(ce.AddTrigger.Mode).allows(kind) {
+	if ce.AddTrigger != nil && triggerLineEvents(ce.AddTrigger).allows(kind) {
 		return true
 	}
 	for _, gf := range ce.GainedTriggerFaces {
@@ -964,7 +964,7 @@ func grantedTriggerStaticObserves(ce *ContinuousEffect, kind events.Kind) bool {
 		}
 		for ti := range gf.Face.Triggers {
 			t := &gf.Face.Triggers[ti]
-			if t.Effect != nil && triggerModeEvents(t.Mode).allows(kind) {
+			if t.Effect != nil && triggerLineEvents(t).allows(kind) {
 				return true
 			}
 		}

@@ -51,14 +51,14 @@ func (e *Engine) scanCostStatics() costStaticViews {
 			}
 			st := pst.Static
 			var dst *[]staticView
-			switch scanCostStaticsf1b1Codes.Code(string(st.Mode)) {
-			case scanCostStaticsf1b1RaiseCost:
+			switch st.ModeKind() {
+			case cards.StaticRaiseCost:
 				dst = &out.raise
-			case scanCostStaticsf1b1ReduceCost:
+			case cards.StaticReduceCost:
 				dst = &out.reduce
-			case scanCostStaticsf1b1SetCost:
+			case cards.StaticSetCost:
 				dst = &out.set
-			case scanCostStaticsf1b1OptionalCost:
+			case cards.StaticOptionalCost:
 				dst = &out.optional
 			default:
 				continue
@@ -203,12 +203,12 @@ func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 			continue
 		}
 		var dst *[]staticView
-		switch appendEffectCostStaticsf1b2Codes.Code(string(ce.CostStaticMode)) {
-		case appendEffectCostStaticsf1b2RaiseCost:
+		switch cards.StaticModeOf(ce.CostStaticMode) {
+		case cards.StaticRaiseCost:
 			dst = &out.raise
-		case appendEffectCostStaticsf1b2ReduceCost:
+		case cards.StaticReduceCost:
 			dst = &out.reduce
-		case appendEffectCostStaticsf1b2SetCost:
+		case cards.StaticSetCost:
 			dst = &out.set
 		default:
 			continue
@@ -347,29 +347,3 @@ func affinityGrantCostStatics(ce *ContinuousEffect) []*ContinuousEffect {
 	}
 	return arms
 }
-
-const (
-	scanCostStaticsf1b1RaiseCost    uint16 = 1 // "RaiseCost"
-	scanCostStaticsf1b1ReduceCost   uint16 = 2 // "ReduceCost"
-	scanCostStaticsf1b1SetCost      uint16 = 3 // "SetCost"
-	scanCostStaticsf1b1OptionalCost uint16 = 4 // "OptionalCost"
-)
-
-var scanCostStaticsf1b1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "RaiseCost", Val: scanCostStaticsf1b1RaiseCost},
-	state.StrEntry[uint16]{Key: "ReduceCost", Val: scanCostStaticsf1b1ReduceCost},
-	state.StrEntry[uint16]{Key: "SetCost", Val: scanCostStaticsf1b1SetCost},
-	state.StrEntry[uint16]{Key: "OptionalCost", Val: scanCostStaticsf1b1OptionalCost},
-)
-
-const (
-	appendEffectCostStaticsf1b2RaiseCost  uint16 = 1 // "RaiseCost"
-	appendEffectCostStaticsf1b2ReduceCost uint16 = 2 // "ReduceCost"
-	appendEffectCostStaticsf1b2SetCost    uint16 = 3 // "SetCost"
-)
-
-var appendEffectCostStaticsf1b2Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "RaiseCost", Val: appendEffectCostStaticsf1b2RaiseCost},
-	state.StrEntry[uint16]{Key: "ReduceCost", Val: appendEffectCostStaticsf1b2ReduceCost},
-	state.StrEntry[uint16]{Key: "SetCost", Val: appendEffectCostStaticsf1b2SetCost},
-)

@@ -231,10 +231,7 @@ func modeTrigKinds(mode string) trigKinds {
 //
 // A mode not listed keeps every high kind (the fail-open reading).
 func modeRejectsHighKinds(mode string) bool {
-	if v, ok := modeRejectsHighKindsTab1.Get(mode); ok {
-		return v
-	}
-	return false
+	return modeRejectsHighKindsTab[cards.TriggerModeOf(mode)]
 }
 
 // computeFaceTrigSigs is a face's exact signature, the union of its lines'
@@ -463,43 +460,43 @@ func (e *Engine) lookBackNoopBoard() bool {
 	return true
 }
 
-var modeRejectsHighKindsTab1 = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "ChangesZone", Val: true},
-	state.StrEntry[bool]{Key: "ChangesZoneAll", Val: true},
-	state.StrEntry[bool]{Key: "SpellCast", Val: true},
-	state.StrEntry[bool]{Key: "SpellCastOrCopy", Val: true},
-	state.StrEntry[bool]{Key: "SpellCopy", Val: true},
-	state.StrEntry[bool]{Key: "Attacks", Val: true},
-	state.StrEntry[bool]{Key: "AttackersDeclared", Val: true},
-	state.StrEntry[bool]{Key: "AttackersDeclaredOneTarget", Val: true},
-	state.StrEntry[bool]{Key: "Untaps", Val: true},
-	state.StrEntry[bool]{Key: "Taps", Val: true},
-	state.StrEntry[bool]{Key: "TapsForMana", Val: true},
-	state.StrEntry[bool]{Key: "Sacrificed", Val: true},
-	state.StrEntry[bool]{Key: "Discarded", Val: true},
-	state.StrEntry[bool]{Key: "DiscardedAll", Val: true},
-	state.StrEntry[bool]{Key: "Milled", Val: true},
-	state.StrEntry[bool]{Key: "MilledAll", Val: true},
-	state.StrEntry[bool]{Key: "LandPlayed", Val: true},
-	state.StrEntry[bool]{Key: "Explores", Val: true},
-	state.StrEntry[bool]{Key: "BecomeMonarch", Val: true},
-	state.StrEntry[bool]{Key: "CommitCrime", Val: true},
-	state.StrEntry[bool]{Key: "BecomesTarget", Val: true},
-	state.StrEntry[bool]{Key: "BecomesTargetOnce", Val: true},
-	state.StrEntry[bool]{Key: "Attached", Val: true},
-	state.StrEntry[bool]{Key: "Exerted", Val: true},
-	state.StrEntry[bool]{Key: "DamageDone", Val: true},
-	state.StrEntry[bool]{Key: "DamageDealtOnce", Val: true},
-	state.StrEntry[bool]{Key: "DamageDoneOnce", Val: true},
-	state.StrEntry[bool]{Key: "DamageAll", Val: true},
-	state.StrEntry[bool]{Key: "CounterAdded", Val: true},
-	state.StrEntry[bool]{Key: "CounterAddedOnce", Val: true},
-	state.StrEntry[bool]{Key: "ClassLevelGained", Val: true},
-	state.StrEntry[bool]{Key: "Transformed", Val: true},
-	state.StrEntry[bool]{Key: "TokenCreated", Val: true},
-	state.StrEntry[bool]{Key: "TokenCreatedOnce", Val: true},
-	state.StrEntry[bool]{Key: "Drawn", Val: true},
-	state.StrEntry[bool]{Key: "LifeLost", Val: true},
-	state.StrEntry[bool]{Key: "LifeGained", Val: true},
-	state.StrEntry[bool]{Key: "Phase", Val: true},
-)
+var modeRejectsHighKindsTab = [cards.TriggerModeCount]bool{
+	cards.TriggerChangesZone:                true,
+	cards.TriggerChangesZoneAll:             true,
+	cards.TriggerSpellCast:                  true,
+	cards.TriggerSpellCastOrCopy:            true,
+	cards.TriggerSpellCopy:                  true,
+	cards.TriggerAttacks:                    true,
+	cards.TriggerAttackersDeclared:          true,
+	cards.TriggerAttackersDeclaredOneTarget: true,
+	cards.TriggerUntaps:                     true,
+	cards.TriggerTaps:                       true,
+	cards.TriggerTapsForMana:                true,
+	cards.TriggerSacrificed:                 true,
+	cards.TriggerDiscarded:                  true,
+	cards.TriggerDiscardedAll:               true,
+	cards.TriggerMilled:                     true,
+	cards.TriggerMilledAll:                  true,
+	cards.TriggerLandPlayed:                 true,
+	cards.TriggerExplores:                   true,
+	cards.TriggerBecomeMonarch:              true,
+	cards.TriggerCommitCrime:                true,
+	cards.TriggerBecomesTarget:              true,
+	cards.TriggerBecomesTargetOnce:          true,
+	cards.TriggerAttached:                   true,
+	cards.TriggerExerted:                    true,
+	cards.TriggerDamageDone:                 true,
+	cards.TriggerDamageDealtOnce:            true,
+	cards.TriggerDamageDoneOnce:             true,
+	cards.TriggerDamageAll:                  true,
+	cards.TriggerCounterAdded:               true,
+	cards.TriggerCounterAddedOnce:           true,
+	cards.TriggerClassLevelGained:           true,
+	cards.TriggerTransformed:                true,
+	cards.TriggerTokenCreated:               true,
+	cards.TriggerTokenCreatedOnce:           true,
+	cards.TriggerDrawn:                      true,
+	cards.TriggerLifeLost:                   true,
+	cards.TriggerLifeGained:                 true,
+	cards.TriggerPhase:                      true,
+}

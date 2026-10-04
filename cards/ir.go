@@ -32,6 +32,9 @@ type Trigger struct {
 	// ps is Params compiled against the ParamKey vocabulary (params.go),
 	// bound at load; not serialized.
 	ps *ParamSet
+	// mode is Mode resolved at load (modeBound); see ModeKind.
+	mode      TriggerMode
+	modeBound bool
 }
 
 // Static is an S: line: a continuous effect or a play restriction.
@@ -42,6 +45,9 @@ type Static struct {
 	// ps is Params compiled against the ParamKey vocabulary (params.go),
 	// bound at load; not serialized.
 	ps *ParamSet
+	// mode is Mode resolved at load (modeBound); see ModeKind.
+	mode      StaticMode
+	modeBound bool
 }
 
 // Repl is an R: line: a replacement effect. ReplaceWith$ names an SVar.
@@ -53,6 +59,9 @@ type Repl struct {
 	// ps is Params compiled against the ParamKey vocabulary (params.go),
 	// bound at load; not serialized.
 	ps *ParamSet
+	// event is Event resolved at load (eventBound); see EventKind.
+	event      ReplEvent
+	eventBound bool
 }
 
 // Face is one printed face. Most cards have exactly one; ALTERNATE starts

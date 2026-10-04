@@ -128,10 +128,10 @@ func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent
 	if e.Suspended() {
 		return false // a legacy suspension is in flight; never nest a tape run in it
 	}
-	switch startsResolutiondc1Codes.Code(string(firstChosen(d, in).Kind)) {
-	case startsResolutiondc1PlayLand:
+	switch firstChosen(d, in).Kind {
+	case optPlayLand:
 		return true
-	case startsResolutiondc1Pass:
+	case optPass:
 		if e.G.Passes+1 < int32(e.G.AliveCount()) {
 			return false
 		}
@@ -408,13 +408,3 @@ func saChainShape(sa *cards.SA) string {
 	}
 	return out
 }
-
-const (
-	startsResolutiondc1PlayLand uint16 = 1 // "play_land"
-	startsResolutiondc1Pass     uint16 = 2 // "pass"
-)
-
-var startsResolutiondc1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "play_land", Val: startsResolutiondc1PlayLand},
-	state.StrEntry[uint16]{Key: "pass", Val: startsResolutiondc1Pass},
-)
