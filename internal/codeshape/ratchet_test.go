@@ -20,8 +20,8 @@ const (
 	// effects/ spanning more than 300 lines.
 	// W4 step 3's ChangeZoneAll compiler shrank effChangeZoneAll: 54 -> 53.
 	// W1a generated Engine.cloneWith's field copies from the clone tags
-	// (rules/clone_gen.go): 53 -> 52. Re-measured at W1a pool/rekey/if tags: 48. W3 dead: 45.
-	maxFuncLinesOver300 = 45
+	// (rules/clone_gen.go): 53 -> 52. Re-measured at W1a pool/rekey/if tags: 48. W3 dead: 45. E7 flow slices: 44.
+	maxFuncLinesOver300 = 44
 	// engineMethodCount is the number of non-test methods on rules.Engine.
 	// W5 E5 moved combat legality onto rules/combat's Board (2159 -> 2126)
 	// and W5 E3 the trigger matchers onto rules/trigmatch's: -> 2022. W5 E4
@@ -29,7 +29,8 @@ const (
 	// Suspend* no-ops: -> 1965. W5 E7 moved mana payment onto rules/pay:
 	// -> 1944. Slice 4 made the payer grants pay.Engine adapter methods: -> 1940. W3 dead deleted the resume-scratch setters: -> 1931.
 	// E7 slice 9 moved the payment board reads to rules/pay funcs: -> 1917.
-	engineMethodCount = 1827
+	// E7 flow slice 3 moved the announced-SubCounter mana stage: -> 1822.
+	engineMethodCount = 1822
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
 	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94. W3 clean

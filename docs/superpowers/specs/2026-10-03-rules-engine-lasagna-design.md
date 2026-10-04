@@ -877,6 +877,71 @@ What the census says now pins the rest, by first dependency:
 - *Mana walk* (~0.6k, `appendAvailableManaAbilitiesGate` and the
   `landTypeWords`/derived-memo readers): activation legality, stays.
 
+**E7 flow slices 3-4 (landed 2026-10-03).** The two pins above that were
+payment, not flow, are closed:
+
+3. *The announced-SubCounter stage.* A kernel test
+   (`TestManaSubCounterWildcardCompletesOnReentry`: a mana ability with
+   `RemoveAnyCounter<2/Any/Creature>`, two units on one creature, the first
+   asked, the second forced on re-entry) reproduced the suspected
+   misbehaviour, with two root causes: the mana twin's reservations
+   reserved the current part's own picks, so the second unit found no
+   candidate and the activation was dropped silently; past that, the stage
+   read the stale `chooseManaSubCounter` marker as "asked" and parked the
+   election with no decision. Both are fixed at root (the reservations skip
+   the current part, as the cast path's already did; the stage reports a
+   `ManaCostStep` of its own) and the stage is `pay.ManaCostSubCounterStage`
+   behind `Ask(AskManaSubCounter)`, its answer recorded by
+   `RecordManaCostAnswer`.
+4. *The cast's payment state.* `pay.CastPayment` is embedded in
+   `pendingCast` beside `pay.PaidCost`: the planned payment and fallback,
+   the announced window and its `WindowTaps`, `WindowDone`, the ManaConvert
+   election, the cost-part ask cursors, `SubCounterPays`, the Convoke
+   announcement and the flexible-pip announcement (the Clone generator
+   deepens it through `cloneForeignDeep`). `ConvokeAsk`, `ManaAsk` (the
+   engine's whole-cost feasibility passed in) and `ManaConvertAsk` pose
+   through `Ask(AskCast)`; the window-tap records move
+   (`Begin/Close/Undoable/UndoWindowTap`, the engine supplying the trigger
+   queue length and dropping the triggers an undo queued); and every
+   payment-shaped `castAnswer` arm is `pay.RecordCastPaymentAnswer`. The
+   pay functions take the `CastPayment` explicitly rather than through the
+   session: the session is engine-owned and a pointer into the pending cast
+   would need a Clone remap. `castAnswer` itself stays: its other arms
+   (replicate/multikick/squad cost folds, Gift, Mutate, Casualty, Conspire,
+   Delve, evidence, the Return arm's ninjutsu/sneak defender capture, the
+   mana-window activation, Auto-fill and Cancel cast) are the cast flow's.
+   `chars.Reader` gains `Power` and `Colors` for the Convoke offer.
+
+*Interference matchers: not moved.* Moving them to `rules/trigmatch` is not
+a clean move. `trigmatch` holds the per-mode matchers below rules' trigger
+walk; these functions are callers of that walk, not part of it: they call
+rules' `triggerMatches`/`triggerMatchesWithSVars` (zone gate, conditions,
+SVar thresholds), `replacementMatches`/`replacementMatchesEffectCreatedBy`
+and `replacementFace` (the replacement engine), `active()`, the face walks
+(`roomTriggerFaces`, `triggerFacesWithMerged`, `printedAbilitiesGone`),
+`grantedTriggerStaticsFor`, `delayedRegistrationLive` and
+`triggerLineEvents`, and they bracket the engine's matcher scratch
+(`tapObj`/`tapPlayer`/`tapEntering`, `tappingForMana`,
+`effectMatch*`, `manaFromTap`/`manaProducer`). A narrow interface for that
+is about a dozen methods, more than `trigmatch.Board` is allowed to grow
+(shrink-only ratchet), and would leave only the loops behind it. They stay
+in rules behind `Eval.SourceInterference`; they move when the trigger walk
+and replacement engine themselves have a home below rules.
+
+Result: the payment ring files (`payment_plan*`, `cast_payment`,
+`cast_paymentplan`, `cast_payparts`, `cast_window`, `announce_pay`,
+`unless_payment`, `mana`, `mana_activation`, `mana_cost_extra`) went from
+6,498 to 5,781 lines (the census ring ~4.2k -> ~3.5k; `mana_cost_extra.go`
+is gone); `rules/pay` is ~11.7k (10,700 -> 11,655 with tests). `pay.Engine`
+stays 16 methods (two `AskFlow` values, no method), `chars.Reader` is 11,
+`pay.Eval` 10; `engineMethodCount` 1827 -> 1822. Behaviour and `TestHeads`
+are unchanged except the fixed SubCounter wildcard re-entry, which no
+golden game reaches. What remains in the ring is the flow (`castAnswer`'s
+flow arms, `continueCast`'s stage order, the mana window's activation and
+the mana-ability resolution), the triggered mana abilities (CR 605.3b), the
+cost-static pricing (its own seam or nothing), the interference matchers
+(above) and the mana walk (activation legality).
+
 ## 10. W6 — Pipeline and process
 
 - **Refactor lane.** W1–W5 tickets run in one lane, in sequence, with
