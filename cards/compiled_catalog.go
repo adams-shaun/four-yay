@@ -52,20 +52,20 @@ type AbilityRow struct {
 }
 
 type TriggerRow struct {
-	Mode        TriggerModeCode
+	Mode        TriggerMode
 	Params      Span
 	Effect      AbilityID
 	UnknownMode StringID
 }
 
 type StaticRow struct {
-	Mode        StaticModeCode
+	Mode        StaticMode
 	Params      Span
 	UnknownMode StringID
 }
 
 type ReplacementRow struct {
-	Event        ReplacementEventCode
+	Event        ReplEvent
 	Params       Span
 	With         AbilityID
 	UnknownEvent StringID
@@ -331,9 +331,9 @@ func (b *catalogBuilder) compileFace(face *Face, bindings *[]abilityBinding) (Fa
 		if err != nil {
 			return 0, err
 		}
-		mode := triggerModeCode(trigger.Mode)
+		mode := trigger.ModeKind()
 		var unknown StringID
-		if mode == TriggerModeUnknown {
+		if mode == 0 {
 			unknown, err = b.stringID(trigger.Mode)
 			if err != nil {
 				return 0, err
@@ -343,7 +343,7 @@ func (b *catalogBuilder) compileFace(face *Face, bindings *[]abilityBinding) (Fa
 		if strings.TrimSpace(trigger.ParamStr(PKPhase)) != "" {
 			row.TriggerInterests |= TriggerInterestAny
 		} else {
-			row.TriggerInterests |= triggerInterestForMode(trigger.Mode)
+			row.TriggerInterests |= triggerInterestForMode(trigger.ModeKind())
 		}
 	}
 	if row.Triggers, err = checkedSpan(triggerStart, len(face.Triggers), "face triggers"); err != nil {
@@ -356,9 +356,9 @@ func (b *catalogBuilder) compileFace(face *Face, bindings *[]abilityBinding) (Fa
 		if err != nil {
 			return 0, err
 		}
-		mode := staticModeCode(static.Mode)
+		mode := static.ModeKind()
 		var unknown StringID
-		if mode == StaticModeUnknown {
+		if mode == 0 {
 			unknown, err = b.stringID(static.Mode)
 			if err != nil {
 				return 0, err
@@ -380,9 +380,9 @@ func (b *catalogBuilder) compileFace(face *Face, bindings *[]abilityBinding) (Fa
 		if err != nil {
 			return 0, err
 		}
-		event := replacementEventCode(replacement.Event)
+		event := replacement.EventKind()
 		var unknown StringID
-		if event == ReplacementEventUnknown {
+		if event == 0 {
 			unknown, err = b.stringID(replacement.Event)
 			if err != nil {
 				return 0, err

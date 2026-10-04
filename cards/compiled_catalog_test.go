@@ -134,7 +134,7 @@ func TestCompiledCatalogBindsRecursiveAbilitiesAndUnknownText(t *testing.T) {
 		t.Fatalf("unknown kind text = %q", got)
 	}
 	tr := c.Triggers[fr.Triggers.Start]
-	if tr.Mode != TriggerModeUnknown || tr.UnknownMode == 0 || tr.Effect != root.Sub {
+	if tr.Mode != 0 || tr.UnknownMode == 0 || tr.Effect != root.Sub {
 		t.Fatalf("unknown trigger row = %+v", tr)
 	}
 	if interest, ok := face.CompiledTriggerInterests(); !ok || interest != TriggerInterestAny {

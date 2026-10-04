@@ -298,213 +298,6 @@ func APICodeForName(api string) APICode {
 	}
 }
 
-type TriggerModeCode uint16
-
-const (
-	TriggerModeUnknown                    TriggerModeCode = 0
-	TriggerModeChangesZone                TriggerModeCode = 1
-	TriggerModeSpellCast                  TriggerModeCode = 2
-	TriggerModeAbilityCast                TriggerModeCode = 3
-	TriggerModeSpellAbilityCast           TriggerModeCode = 4
-	TriggerModeAttacks                    TriggerModeCode = 5
-	TriggerModeAttackersDeclaredOneTarget TriggerModeCode = 6
-	TriggerModeAttackersDeclared          TriggerModeCode = 7
-	TriggerModeAttackerBlocked            TriggerModeCode = 8
-	TriggerModeSacrificed                 TriggerModeCode = 9
-	TriggerModeDiscarded                  TriggerModeCode = 10
-	TriggerModeLandPlayed                 TriggerModeCode = 11
-	TriggerModeCycled                     TriggerModeCode = 12
-	TriggerModeCommitCrime                TriggerModeCode = 13
-	TriggerModeBecomesTarget              TriggerModeCode = 14
-	TriggerModeTaps                       TriggerModeCode = 15
-	TriggerModeTapsForMana                TriggerModeCode = 16
-	TriggerModeDamageDone                 TriggerModeCode = 17
-	TriggerModeDamageDealtOnce            TriggerModeCode = 18
-	TriggerModeDamageDoneOnce             TriggerModeCode = 19
-	TriggerModeCounterAdded               TriggerModeCode = 20
-	TriggerModeDrawn                      TriggerModeCode = 21
-	TriggerModeLifeLost                   TriggerModeCode = 22
-	TriggerModeLifeLostAll                TriggerModeCode = 23
-	TriggerModePhase                      TriggerModeCode = 24
-	TriggerModeAlways                     TriggerModeCode = 25
-	TriggerModeAttached                   TriggerModeCode = 26
-	TriggerModeAttackerBlockedByCreature  TriggerModeCode = 27
-)
-
-func triggerModeCode(mode string) TriggerModeCode {
-	switch mode {
-	case "ChangesZone":
-		return TriggerModeChangesZone
-	case "SpellCast":
-		return TriggerModeSpellCast
-	case "AbilityCast":
-		return TriggerModeAbilityCast
-	case "SpellAbilityCast":
-		return TriggerModeSpellAbilityCast
-	case "Attacks":
-		return TriggerModeAttacks
-	case "AttackersDeclaredOneTarget":
-		return TriggerModeAttackersDeclaredOneTarget
-	case "AttackersDeclared":
-		return TriggerModeAttackersDeclared
-	case "AttackerBlocked":
-		return TriggerModeAttackerBlocked
-	case "AttackerBlockedByCreature":
-		return TriggerModeAttackerBlockedByCreature
-	case "Sacrificed":
-		return TriggerModeSacrificed
-	case "Discarded":
-		return TriggerModeDiscarded
-	case "LandPlayed":
-		return TriggerModeLandPlayed
-	case "Cycled":
-		return TriggerModeCycled
-	case "CommitCrime":
-		return TriggerModeCommitCrime
-	case "BecomesTarget":
-		return TriggerModeBecomesTarget
-	case "Taps":
-		return TriggerModeTaps
-	case "TapsForMana":
-		return TriggerModeTapsForMana
-	case "DamageDone":
-		return TriggerModeDamageDone
-	case "DamageDealtOnce":
-		return TriggerModeDamageDealtOnce
-	case "DamageDoneOnce":
-		return TriggerModeDamageDoneOnce
-	case "CounterAdded":
-		return TriggerModeCounterAdded
-	case "Drawn":
-		return TriggerModeDrawn
-	case "LifeLost":
-		return TriggerModeLifeLost
-	case "LifeLostAll":
-		return TriggerModeLifeLostAll
-	case "Phase":
-		return TriggerModePhase
-	case "Always":
-		return TriggerModeAlways
-	case "Attached":
-		return TriggerModeAttached
-	default:
-		return TriggerModeUnknown
-	}
-}
-
-type StaticModeCode uint16
-
-const (
-	StaticModeUnknown           StaticModeCode = 0
-	StaticModeContinuous        StaticModeCode = 1
-	StaticModeCantBeCast        StaticModeCode = 2
-	StaticModeCantBeActivated   StaticModeCode = 3
-	StaticModeRaiseCost         StaticModeCode = 4
-	StaticModeReduceCost        StaticModeCode = 5
-	StaticModeSetCost           StaticModeCode = 6
-	StaticModeAlternativeCost   StaticModeCode = 7
-	StaticModeCastWithFlash     StaticModeCode = 8
-	StaticModeCantBlock         StaticModeCode = 9
-	StaticModeCantBlockBy       StaticModeCode = 10
-	StaticModePanharmonicon     StaticModeCode = 11
-	StaticModeManaConvert       StaticModeCode = 12
-	StaticModeMustAttack        StaticModeCode = 13
-	StaticModeAttackRestrict    StaticModeCode = 14
-	StaticModeNumLoyaltyAct     StaticModeCode = 15
-	StaticModeCantGainLife      StaticModeCode = 16
-	StaticModeCantPreventDamage StaticModeCode = 17
-	StaticModeUntapOtherPlayer  StaticModeCode = 18
-	StaticModeOptionalCost      StaticModeCode = 19
-)
-
-func staticModeCode(mode string) StaticModeCode {
-	switch mode {
-	case "Continuous":
-		return StaticModeContinuous
-	case "CantBeCast":
-		return StaticModeCantBeCast
-	case "CantBeActivated":
-		return StaticModeCantBeActivated
-	case "RaiseCost":
-		return StaticModeRaiseCost
-	case "ReduceCost":
-		return StaticModeReduceCost
-	case "SetCost":
-		return StaticModeSetCost
-	case "OptionalCost":
-		return StaticModeOptionalCost
-	case "AlternativeCost":
-		return StaticModeAlternativeCost
-	case "CastWithFlash":
-		return StaticModeCastWithFlash
-	case "CantBlock":
-		return StaticModeCantBlock
-	case "CantBlockBy":
-		return StaticModeCantBlockBy
-	case "Panharmonicon":
-		return StaticModePanharmonicon
-	case "ManaConvert":
-		return StaticModeManaConvert
-	case "MustAttack":
-		return StaticModeMustAttack
-	case "AttackRestrict":
-		return StaticModeAttackRestrict
-	case "NumLoyaltyAct":
-		return StaticModeNumLoyaltyAct
-	case "CantGainLife":
-		return StaticModeCantGainLife
-	case "CantPreventDamage":
-		return StaticModeCantPreventDamage
-	case "UntapOtherPlayer":
-		return StaticModeUntapOtherPlayer
-	default:
-		return StaticModeUnknown
-	}
-}
-
-type ReplacementEventCode uint8
-
-const (
-	ReplacementEventUnknown     ReplacementEventCode = 0
-	ReplacementEventMoved       ReplacementEventCode = 1
-	ReplacementEventUntap       ReplacementEventCode = 2
-	ReplacementEventBeginPhase  ReplacementEventCode = 3
-	ReplacementEventTransform   ReplacementEventCode = 4
-	ReplacementEventProduceMana ReplacementEventCode = 5
-	ReplacementEventGainLife    ReplacementEventCode = 6
-	ReplacementEventLifeReduced ReplacementEventCode = 7
-	ReplacementEventDamageDone  ReplacementEventCode = 8
-	ReplacementEventCounter     ReplacementEventCode = 9
-	ReplacementEventDraw        ReplacementEventCode = 10
-)
-
-func replacementEventCode(event string) ReplacementEventCode {
-	switch event {
-	case "Moved":
-		return ReplacementEventMoved
-	case "Untap":
-		return ReplacementEventUntap
-	case "BeginPhase":
-		return ReplacementEventBeginPhase
-	case "Transform":
-		return ReplacementEventTransform
-	case "ProduceMana":
-		return ReplacementEventProduceMana
-	case "GainLife":
-		return ReplacementEventGainLife
-	case "LifeReduced":
-		return ReplacementEventLifeReduced
-	case "DamageDone":
-		return ReplacementEventDamageDone
-	case "Counter":
-		return ReplacementEventCounter
-	case "Draw":
-		return ReplacementEventDraw
-	default:
-		return ReplacementEventUnknown
-	}
-}
-
 type TypeMask uint32
 
 const (
@@ -838,58 +631,54 @@ const (
 	TriggerInterestMonarch
 )
 
-func triggerInterestForMode(mode string) TriggerInterest {
-	switch mode {
-	case "ChangesZone", "Sacrificed", "Discarded", "DiscardedAll", "LandPlayed", "Cycled", "Milled", "MilledAll":
-		return TriggerInterestZoneChange
-	case "SpellCast":
-		return TriggerInterestStackPut
-	case "AbilityCast":
-		return TriggerInterestAbilityPush
-	case "SpellAbilityCast":
-		// The spell-or-activate union (targetsvalid1): the activation arm
-		// matches an AbilityPush, the spell arm a PutOnStack.
-		return TriggerInterestAbilityPush | TriggerInterestStackPut
-	case "Attacks", "AttackersDeclaredOneTarget", "AttackersDeclared", "AttackerBlocked",
-		"AttackerBlockedByCreature", "Blocks":
-		return TriggerInterestAttackDeclaration
-	case "CommitCrime", "BecomesTarget", "BecomesTargetOnce":
-		return TriggerInterestTargetsChosen
-	case "Attached":
-		return TriggerInterestAttach
-	case "Explores":
-		return TriggerInterestExplore
-	case "ManaExpend":
-		// The crossing trigger fires on its own pay-time FlagManaExpendCast
-		// CastInfo emission (trigmatch.ManaExpendMatches); the dedicated bit
-		// keeps a ManaExpend-only face's scan set narrow instead of the
-		// fail-open default.
-		return TriggerInterestCastInfo
-	case "Foretell":
-		// trig:Foretell (task agent-20260923T032009Z-3b9d3432) fires on the
-		// {2} Foretell action's pay-time FlagForetold CastInfo and the
-		// effect-designation exile MoveZone marker (rules'
-		// trigmatch.foretellMatches); the two bits keep a Foretell-only face's scan
-		// set narrow instead of the fail-open Any default.
-		return TriggerInterestCastInfo | TriggerInterestZoneChange
-	case "BecomeMonarch":
-		// The monarch designation transition (events.MonarchChange), matched
-		// by trigmatch.BecomeMonarchMatches. The dedicated bit narrows a
-		// BecomeMonarch-only face's scan set to that kind.
-		return TriggerInterestMonarch
-	case "Taps", "TapsForMana":
-		return TriggerInterestTap
-	case "DamageDone", "DamageDealtOnce", "DamageDoneOnce":
-		return TriggerInterestDamage
-	case "Drawn":
-		return TriggerInterestDraw
-	case "LifeLost":
-		return TriggerInterestDamage | TriggerInterestLifeChange
-	case "Phase":
-		return TriggerInterestStepChange
-	case "CounterAdded", "LifeLostAll", "Always":
-		return TriggerInterestAny
-	default:
-		return TriggerInterestAny
+// triggerModeInterests is the event class each trigger mode can fire on; a
+// mode with no row (and a name outside the vocabulary) is the fail-open
+// TriggerInterestAny.
+var triggerModeInterests = func() (t [TriggerModeCount]TriggerInterest) {
+	for m := range t {
+		t[m] = TriggerInterestAny
 	}
+	set := func(v TriggerInterest, modes ...TriggerMode) {
+		for _, m := range modes {
+			t[m] = v
+		}
+	}
+	set(TriggerInterestZoneChange, TriggerChangesZone, TriggerSacrificed, TriggerDiscarded, TriggerDiscardedAll, TriggerLandPlayed, TriggerCycled, TriggerMilled, TriggerMilledAll)
+	set(TriggerInterestStackPut, TriggerSpellCast)
+	set(TriggerInterestAbilityPush, TriggerAbilityCast)
+	// The spell-or-activate union (targetsvalid1): the activation arm
+	// matches an AbilityPush, the spell arm a PutOnStack.
+	set(TriggerInterestAbilityPush|TriggerInterestStackPut, TriggerSpellAbilityCast)
+	set(TriggerInterestAttackDeclaration, TriggerAttacks, TriggerAttackersDeclaredOneTarget, TriggerAttackersDeclared, TriggerAttackerBlocked, TriggerAttackerBlockedByCreature, TriggerBlocks)
+	set(TriggerInterestTargetsChosen, TriggerCommitCrime, TriggerBecomesTarget, TriggerBecomesTargetOnce)
+	set(TriggerInterestAttach, TriggerAttached)
+	set(TriggerInterestExplore, TriggerExplores)
+	// The crossing trigger fires on its own pay-time FlagManaExpendCast
+	// CastInfo emission (trigmatch.ManaExpendMatches); the dedicated bit
+	// keeps a ManaExpend-only face's scan set narrow instead of the
+	// fail-open default.
+	set(TriggerInterestCastInfo, TriggerManaExpend)
+	// trig:Foretell (task agent-20260923T032009Z-3b9d3432) fires on the
+	// {2} Foretell action's pay-time FlagForetold CastInfo and the
+	// effect-designation exile MoveZone marker (rules'
+	// trigmatch.foretellMatches); the two bits keep a Foretell-only face's scan
+	// set narrow instead of the fail-open Any default.
+	set(TriggerInterestCastInfo|TriggerInterestZoneChange, TriggerForetell)
+	// The monarch designation transition (events.MonarchChange), matched
+	// by trigmatch.BecomeMonarchMatches. The dedicated bit narrows a
+	// BecomeMonarch-only face's scan set to that kind.
+	set(TriggerInterestMonarch, TriggerBecomeMonarch)
+	set(TriggerInterestTap, TriggerTaps, TriggerTapsForMana)
+	set(TriggerInterestDamage, TriggerDamageDone, TriggerDamageDealtOnce, TriggerDamageDoneOnce)
+	set(TriggerInterestDraw, TriggerDrawn)
+	set(TriggerInterestDamage|TriggerInterestLifeChange, TriggerLifeLost)
+	set(TriggerInterestStepChange, TriggerPhase)
+	return t
+}()
+
+func triggerInterestForMode(mode TriggerMode) TriggerInterest {
+	if mode < TriggerModeCount {
+		return triggerModeInterests[mode]
+	}
+	return TriggerInterestAny
 }
