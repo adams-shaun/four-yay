@@ -36,9 +36,9 @@ import (
 // is itself a listed writer).
 func TestTapeStateOwnedOnlyByTheResolutionKernel(t *testing.T) {
 	allowed := map[string]string{
-		"(*Engine).cloneWith":     "a snapshot clone starts from tape.ForClone(): the posed checkpoint shared, nothing in flight (rules/clone.go)",
-		"(*Engine).entryPreview":  "a speculative entry preview carries no kernel state, so its private asks never join the live run (rules/entry_counters.go)",
-		"(*resolveBoard).Restore": "the kernel's own checkpoint restore: the live kernel and epoch survive the in-place copy of S0 (rules/resolve_board.go)",
+		"cloneFieldsEngineResolveKernel": "a snapshot clone starts from tape.ForClone(): the posed checkpoint shared, nothing in flight (rules/clone_gen.go, generated from the clone tags)",
+		"(*Engine).entryPreview":         "a speculative entry preview carries no kernel state, so its private asks never join the live run (rules/entry_counters.go)",
+		"(*resolveBoard).Restore":        "the kernel's own checkpoint restore: the live kernel and epoch survive the in-place copy of S0 (rules/resolve_board.go)",
 	}
 	writers := kr9TapeFieldWriters(t)
 	for fn, sites := range writers {
