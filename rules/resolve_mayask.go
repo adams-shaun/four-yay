@@ -116,7 +116,10 @@ func tapeTextMayAsk(e *Engine) bool {
 	}
 	sa := f.SpellAbility()
 	if f.IsPermanent() {
-		if cards.FaceEntryMayAsk(f) {
+		// The spell's own entry text, and the board's entry replacements:
+		// two Moved replacements competing for the entering permanent pose
+		// a CR 616.1 order choice (the land play's gate, tapeLandMayAsk).
+		if cards.FaceEntryMayAsk(f) || tapeReplMayAsk(e, "Moved") {
 			return true
 		}
 		if sa == nil {
@@ -148,7 +151,8 @@ func mayAskOnBoard(e *Engine, st uint32) bool {
 	g := uint8(st >> mayAskGateShift)
 	return (g&cards.GateTokens != 0 && tapeReplMayAsk(e, "CreateToken")) ||
 		(g&cards.GateDamage != 0 && tapeReplMayAsk(e, "DamageDone")) ||
-		(g&cards.GateDraw != 0 && tapeDredgeMayAsk(e))
+		(g&cards.GateDraw != 0 && tapeDredgeMayAsk(e)) ||
+		(g&cards.GateLife != 0 && tapeReplMayAsk(e, "GainLife"))
 }
 
 // tapeDredgeMayAsk is the draw gate: a card with Dredge in any graveyard
