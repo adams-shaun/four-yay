@@ -68,6 +68,8 @@ type Engine interface {
 	// ZoneEntrySeq is the log sequence of id's entry into its current zone
 	// (the engine's incremental zone-entry index).
 	ZoneEntrySeq(id state.ObjID) uint64
+	// SearchScratch is the plan search's reusable working storage.
+	SearchScratch() *SearchScratch
 }
 
 // CostBlock names the cost action Engine.CostBlocked asks about.

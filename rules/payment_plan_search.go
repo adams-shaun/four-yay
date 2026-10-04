@@ -1,9 +1,6 @@
 package rules
 
 import (
-	"fmt"
-	"reflect"
-
 	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -73,63 +70,5 @@ func (e *Engine) paymentPlanQueryKeep(p state.PlayerID) {
 	// The replaced kept scope is finished unless it is still installed.
 	if old != q {
 		pay.PaymentPlanQueryRecycle(asPayer(e), old)
-	}
-}
-
-// paymentPlanQueryUnits is paymentPlanManaUnits, computed once per query
-// scope and player. The returned units are shared: callers only read them.
-func (e *Engine) paymentPlanQueryUnits(p state.PlayerID) []windowManaUnit {
-	q := e.PlanQuery
-	if !q.Valid(e.L) {
-		return e.paymentPlanManaUnits(p)
-	}
-	if units, ok := q.Units[p]; ok {
-		if walkCacheVerify && !pay.SameUnits(units, e.paymentPlanManaUnits(p)) {
-			panic(fmt.Sprintf("payment plan query: cached source census for player %d is stale", p))
-		}
-		return units
-	}
-	units := e.paymentPlanManaUnits(p)
-	if q.Units == nil {
-		q.Units = map[state.PlayerID][]windowManaUnit{}
-	}
-	q.Units[p] = units
-	return units
-}
-
-// paymentPlanQueryClasses is paymentPlanClasses over one phase's choices,
-// computed once per query scope, payer and phase: within a scope the
-// choices are the cached census's, so every candidate cast groups them the
-// same way. The classes are shared: the search only reads them.
-func (e *Engine) paymentPlanQueryClasses(p state.PlayerID, minTier pay.Tier, choices [][]pay.Alt) []pay.Class {
-	q := e.PlanQuery
-	if !q.Valid(e.L) {
-		return pay.Classes(choices)
-	}
-	key := pay.PlanClassesKey{Payer: p, MinTier: minTier}
-	if classes, ok := q.Classes[key]; ok {
-		if walkCacheVerify && !reflect.DeepEqual(pay.PlanClassMembers(classes), pay.PlanClassMembers(pay.Classes(choices))) {
-			panic(fmt.Sprintf("payment plan query: cached classes for player %d are stale", p))
-		}
-		return classes
-	}
-	classes := pay.Classes(choices)
-	if q.Classes == nil {
-		q.Classes = map[pay.PlanClassesKey][]pay.Class{}
-	}
-	q.Classes[key] = classes
-	return classes
-}
-
-// paymentSearchEnv wires the pay package's search to the engine's mana
-// solver: a complete count vector is settled with resolveManaWith, the same
-// solver execution uses.
-func paymentSearchEnv() pay.Env {
-	return pay.Env{
-		Settle: func(c Cost, pool state.Mana, life int32) (state.Mana, bool) {
-			paid, ok := resolveManaWith(c, pool, state.Mana{}, [7]state.Mana{}, life, false, pipRider{}, nil)
-			return paid.Pool, ok
-		},
-		Verify: walkCacheVerify,
 	}
 }

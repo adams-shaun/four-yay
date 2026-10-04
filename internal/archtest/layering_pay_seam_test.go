@@ -137,9 +137,10 @@ func TestPayHoldsNoHost(t *testing.T) {
 // slice 2 landed it with EvalCount, MatchesSpec and WindowUnits (the
 // unless-payment reachability and the SVar-fixed cost counts). Slice 6
 // added ManaShape, ManaStatic and SourceInterference (the planner's
-// per-source alternatives and tiers): 3 -> 6.
+// per-source alternatives and tiers): 3 -> 6. Slice 7 added ManaUnits (the
+// planner's source census): 6 -> 7.
 const (
-	payEvalMethods = 6
+	payEvalMethods = 7
 	payEvalCeiling = 20
 )
 

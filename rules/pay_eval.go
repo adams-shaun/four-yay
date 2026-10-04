@@ -80,3 +80,17 @@ func (pe *payer) ZoneEntrySeq(id state.ObjID) uint64 {
 	e := (*Engine)(pe)
 	return e.zoneEntrySeq(id)
 }
+
+// ManaUnits (pay.Eval) is p's payment-plan source census
+// (paymentPlanManaUnits).
+func (v *payEval) ManaUnits(p state.PlayerID) []pay.WindowUnit {
+	e := (*Engine)(v)
+	return e.paymentPlanManaUnits(p)
+}
+
+// SearchScratch (pay.Engine) is the plan search's working storage, recycled
+// through the engine family's spare pool (hypPool).
+func (pe *payer) SearchScratch() *pay.SearchScratch {
+	e := (*Engine)(pe)
+	return &e.hypPool().planSearch
+}

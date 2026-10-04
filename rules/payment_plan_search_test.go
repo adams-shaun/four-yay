@@ -291,7 +291,7 @@ func TestPaymentPlanSearchMatchesOracleOnMixedBoard(t *testing.T) {
 	for _, s := range srchOracleCosts {
 		cost := srchCost(t, s)
 		want, visited := paymentPlanSearchOracle(e, 0, cast.Object, cost)
-		got := e.planPaymentCost(0, cast, cost)
+		got := pay.PlanPaymentCost(asPayer(e), 0, cast, cost)
 		if got.Reason == "search_limit" {
 			t.Fatalf("{%s}: search_limit after %d nodes", s, got.Nodes)
 		}
@@ -306,8 +306,8 @@ func TestPaymentPlanSearchMatchesOracleOnMixedBoard(t *testing.T) {
 			t.Fatalf("{%s}: search plan differs from the oracle (search nodes %d, oracle visited %d)\nsearch: %+v\noracle: %+v", s, got.Nodes, visited, got.Plan, want)
 		}
 		clone := e.Clone()
-		again := e.planPaymentCost(0, cast, cost)
-		fromClone := clone.planPaymentCost(0, cast, cost)
+		again := pay.PlanPaymentCost(asPayer(e), 0, cast, cost)
+		fromClone := pay.PlanPaymentCost(asPayer(clone), 0, cast, cost)
 		if !reflect.DeepEqual(got, again) || !reflect.DeepEqual(got, fromClone) {
 			t.Fatalf("{%s}: repeated or cloned query differs:\n%#v\n%#v\n%#v", s, got, again, fromClone)
 		}
@@ -361,7 +361,7 @@ func TestPaymentPlanSearchMatchesOracleOnClassBoards(t *testing.T) {
 		for _, s := range b.costs {
 			cost := srchCost(t, s)
 			want, _ := paymentPlanSearchOracle(e, 0, spell, cost)
-			got := e.planPaymentCost(0, paymentCast(spell), cost)
+			got := pay.PlanPaymentCost(asPayer(e), 0, paymentCast(spell), cost)
 			if want == nil {
 				if got.Plan != nil || got.Reason != "insufficient" {
 					t.Fatalf("%s {%s}: search = %+v, oracle found no plan", b.name, s, got)
@@ -582,7 +582,7 @@ func TestPaymentPlanSearchMatchesOracleOnRandomBoards(t *testing.T) {
 				c.Colored[state.ManaIndex(symbols[rng.IntN(len(symbols))])]++
 			}
 			want, _ := paymentPlanSearchOracle(e, 0, spell, c)
-			got := e.planPaymentCost(0, paymentCast(spell), c)
+			got := pay.PlanPaymentCost(asPayer(e), 0, paymentCast(spell), c)
 			if want == nil {
 				if got.Plan != nil || got.Reason != "insufficient" {
 					t.Fatalf("board %d cost %+v: search = %+v, oracle found no plan", board, c, got)
@@ -693,7 +693,7 @@ func TestPaymentPlanSearchMatchesOracleWithLastResortTiers(t *testing.T) {
 		cost := srchCost(t, s)
 		demand := pay.PaymentPlanHandDemand(asPayer(e), 0, 0)
 		want, _ := paymentPlanSearchOracleOver(e, 0, cost, choices, demand)
-		got := pay.Run(cost, pool, life, pay.NewRankContext(choices, demand), choices, pay.Classes(choices), paymentSearchEnv())
+		got := pay.Run(cost, pool, life, pay.NewRankContext(choices, demand), choices, pay.Classes(choices), pay.PaymentSearchEnv(walkCacheVerify))
 		if got.Limited {
 			t.Fatalf("{%s}: search hit the node budget", s)
 		}
@@ -728,7 +728,7 @@ func TestPaymentPlanSearchMatchesOracleWithLastResortTiers(t *testing.T) {
 func srchCheckAgainstOracle(t *testing.T, e *Engine, spell state.ObjID, cost Cost, what string) (planned, keySixDecided bool) {
 	t.Helper()
 	want, _ := paymentPlanSearchOracle(e, 0, spell, cost)
-	got := e.planPaymentCost(0, paymentCast(spell), cost)
+	got := pay.PlanPaymentCost(asPayer(e), 0, paymentCast(spell), cost)
 	if want == nil {
 		if got.Plan != nil || got.Reason != "insufficient" {
 			t.Fatalf("%s: search = %+v, oracle found no plan", what, got)

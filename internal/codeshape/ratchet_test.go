@@ -29,7 +29,7 @@ const (
 	// Suspend* no-ops: -> 1965. W5 E7 moved mana payment onto rules/pay:
 	// -> 1944. Slice 4 made the payer grants pay.Engine adapter methods: -> 1940. W3 dead deleted the resume-scratch setters: -> 1931.
 	// E7 slice 9 moved the payment board reads to rules/pay funcs: -> 1917.
-	engineMethodCount = 1839
+	engineMethodCount = 1833
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
 	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94. W3 clean
@@ -159,8 +159,10 @@ const (
 	// fields, embedded in the Engine) replaced Capture, whose three spend
 	// capture fields moved into it: 15 -> 15. E4 slice 6: ZoneEntrySeq (the
 	// incremental zone-entry index the planner's source identity reads) let
-	// the planner's alternative builder move: 15 -> 16.
-	payEngineMethods = 16
+	// the planner's alternative builder move: 15 -> 16. E4 slice 7:
+	// SearchScratch (the plan search's recycled working storage) let the
+	// plain-cost planner move: 16 -> 17.
+	payEngineMethods = 17
 	// changeZoneParamLeaks is the number of ChangeZone parameter reads
 	// outside its compiler, effects/changezone_params.go (W4 step 3, spec
 	// section 8): any read in ChangeZone's own resolution files, plus any

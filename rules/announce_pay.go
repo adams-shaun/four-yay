@@ -102,7 +102,7 @@ func (e *Engine) announcedAutoFillPlan(pc *pendingCast, mana Cost) *decision.Pay
 		return nil
 	}
 	cast := decision.PlannedCast{Object: pc.card, Face: 0, Origin: "hand"}
-	got := e.planPaymentCost(p, cast, mana)
+	got := pay.PlanPaymentCost(asPayer(e), p, cast, mana)
 	if got.Plan == nil || len(got.Plan.Activations) == 0 {
 		return nil
 	}

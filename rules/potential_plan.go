@@ -381,7 +381,7 @@ func (e *Engine) potentialModeCastPlan(p state.PlayerID, o decision.Option) Paym
 // pool plus, per census source, its largest alternative.
 func (e *Engine) paymentPlanCensusTotal(p state.PlayerID) int32 {
 	total := e.G.Players[p].Pool.Total()
-	for _, u := range e.paymentPlanQueryUnits(p) {
+	for _, u := range pay.PaymentPlanQueryUnits(asPayer(e), p) {
 		best := int32(0)
 		for _, a := range pay.PaymentPlanQueryAlternatives(asPayer(e), u) {
 			best = max(best, a.Mana.Total())
@@ -586,7 +586,7 @@ func (e *Engine) planComposedCost(p state.PlayerID, id state.ObjID, composed Cos
 		}
 	}
 	manaOnly := Cost{Colored: mana.Colored, Generic: mana.Generic}
-	got := e.planPaymentCostWithout(p, decision.PlannedCast{}, manaOnly, tapped, nil, kept)
+	got := pay.PlanPaymentCostWithout(asPayer(e), p, decision.PlannedCast{}, manaOnly, tapped, nil, kept)
 	if got.Plan == nil {
 		// No plan even with every other source is a proof.
 		return got
@@ -603,7 +603,7 @@ func (e *Engine) planComposedCost(p state.PlayerID, id state.ObjID, composed Cos
 	exhaustive, allInsufficient := true, true
 	var found *PaymentPlanOutcome
 	e.planEachReservation(p, id, composed, ability, parts, func(tapR, keptR []state.ObjID) bool {
-		retry := e.planPaymentCostWithout(p, decision.PlannedCast{}, manaOnly, append(slices.Clone(tapped), tapR...), nil, append(slices.Clone(kept), keptR...))
+		retry := pay.PlanPaymentCostWithout(asPayer(e), p, decision.PlannedCast{}, manaOnly, append(slices.Clone(tapped), tapR...), nil, append(slices.Clone(kept), keptR...))
 		if retry.Plan == nil {
 			if retry.Reason != "insufficient" {
 				allInsufficient = false
@@ -871,7 +871,7 @@ func (c paymentPlanCensus) fees() int {
 // one of them has none.
 func (e *Engine) paymentPlanCensusOf(p state.PlayerID, hyp *state.Mana) paymentPlanCensus {
 	out := paymentPlanCensus{complete: true, relaxable: true}
-	units := e.paymentPlanQueryUnits(p)
+	units := pay.PaymentPlanQueryUnits(asPayer(e), p)
 	at := make(map[state.ObjID]int, len(units)) // lookup only
 	for i, u := range units {
 		at[u.ID] = i

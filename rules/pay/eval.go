@@ -34,4 +34,7 @@ type Eval interface {
 	// SourceInterference is the planner's check of the triggers and
 	// replacements that can observe tapping id for ma's mana.
 	SourceInterference(id state.ObjID, ma *cards.SA) (Tier, Consequence, string)
+	// ManaUnits is p's payment-plan source census: one unit per mana
+	// ability activation the planner may schedule.
+	ManaUnits(p state.PlayerID) []WindowUnit
 }

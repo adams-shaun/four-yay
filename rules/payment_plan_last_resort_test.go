@@ -665,7 +665,7 @@ func TestPaymentPlanLastResortSearchMatchesOracle(t *testing.T) {
 				continue // phase 1 answers; covered by the ordinary oracle tests
 			}
 			want, _ := paymentPlanSearchOracleOver(e, 0, c, table, demand)
-			got := e.planPaymentCost(0, paymentCast(spell), c)
+			got := pay.PlanPaymentCost(asPayer(e), 0, paymentCast(spell), c)
 			what := fmt.Sprintf("board %d life %d cost %+v", board, life, c)
 			if want == nil {
 				if got.Plan != nil || got.Reason != "insufficient" {
