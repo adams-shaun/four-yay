@@ -126,6 +126,7 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 	case "activate":
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
 		e.activateMana(in.Player, opt.Obj, false)
+		e.tape.ResolutionDone()
 
 	case "ability":
 		// Task 10: an activated ability (non-mana AB$) was chosen. Reset the

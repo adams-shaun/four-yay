@@ -71,6 +71,13 @@ func tapeTextMayAsk(e *Engine) bool {
 	if o == nil || o.IsCopy {
 		return true // a copy: copy-target elections, copied modal riders
 	}
+	if o.CastFlags&state.FlagFused != 0 {
+		// A fused split spell (CR 702.102c) runs BOTH halves; the face read
+		// below is only the front half, and resolveFused poses each half's
+		// sub-ability target asks (and the alternate half's own asks, Away's
+		// sacrifice) at resolution.
+		return true
+	}
 	if ab := o.Ability; ab != nil {
 		if ab.API == "Charm" && len(o.ChosenModes) == 0 {
 			return true // modes not announced on the stack: picked at resolution
