@@ -70,15 +70,10 @@ func asResolve(e *Engine) *resolveBoard { return (*resolveBoard)(e) }
 // TapeAnswer implements effects' ask seam (effects.AskTape) for the
 // converted ask sites: inside a tape run the decision is posed and either
 // answered from the tape or the run unwinds; with a synchronous answerer it
-// is posed and answered inline. ok false: ask through the legacy path.
+// is posed and answered inline (an UnlessCost$ election included: it settles
+// in line, unlessAnswerSettle). ok false: no run serves it, and the asking
+// site takes its deterministic default.
 func (e *Engine) TapeAnswer(d *decision.Decision) (decision.Intent, bool) {
-	if d.ResumeKind == "unless_pay" && !e.tape.InRun() {
-		// An UnlessCost$ election settles in line (unlessAnswerSettle), and
-		// its component step can only hand the resolution back to legacy
-		// from a tape run's checkpoint: an inline answerer keeps the legacy
-		// ask.
-		return decision.Intent{}, false
-	}
 	return e.tape.Answer(asResolve(e), d)
 }
 
