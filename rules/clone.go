@@ -161,8 +161,8 @@ func cloneHeldEvent(ev *events.Event) *events.Event {
 // its raise and reduction lists are the clone's own, while the composed extra
 // Cost is shared, as the cast's clone always has.
 func cloneCastMods(m costMods) costMods {
-	m.raises = append([]int32(nil), m.raises...)
-	m.reduces = append([]costMod(nil), m.reduces...)
+	m.Raises = append([]int32(nil), m.Raises...)
+	m.Reduces = append([]costMod(nil), m.Reduces...)
 	return m
 }
 

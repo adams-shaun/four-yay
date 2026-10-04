@@ -1138,7 +1138,7 @@ func (e *Engine) mayPlayHostsCovering(p state.PlayerID, id state.ObjID) []state.
 // answers from the hosts it recorded at beginCast; the pre-cast offer walk
 // reads the live permissions.
 func (e *Engine) castRidesMayPlayOf(p state.PlayerID, id, host state.ObjID, scope costScope) bool {
-	if scope.kind != "Spell" || scope.mode != "mayplay" {
+	if scope.Kind != "Spell" || scope.Mode != "mayplay" {
 		return false
 	}
 	if pc := e.cast; pc != nil && pc.card == id && pc.mayPlayHostsSet {

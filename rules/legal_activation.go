@@ -393,11 +393,11 @@ func (e *Engine) ownManaReduction(p state.PlayerID, id state.ObjID, ab *cards.SA
 	if n <= 0 {
 		return costMod{}, false
 	}
-	red := costMod{generic: addClampedGeneric(0, int64(gen)*int64(n))}
+	red := costMod{Generic: addClampedGeneric(0, int64(gen)*int64(n))}
 	for i := range col {
-		red.colored[i] = addClampedGeneric(0, int64(col[i])*int64(n))
+		red.Colored[i] = addClampedGeneric(0, int64(col[i])*int64(n))
 	}
-	red.hasColor = col.Total() > 0
+	red.HasColor = col.Total() > 0
 	return red, true
 }
 

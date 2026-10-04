@@ -161,8 +161,8 @@ func (e *Engine) xAsk() bool {
 	// ceiling rises by the composed reduction at the announced count, or an
 	// X affordable only through it would never be offered.
 	if costHasNamedCount(pc.cost) {
-		for _, red := range e.manaToPayXMods(pc, 0).reduces {
-			bound = addClampedGeneric(bound, int64(red.generic))
+		for _, red := range e.manaToPayXMods(pc, 0).Reduces {
+			bound = addClampedGeneric(bound, int64(red.Generic))
 		}
 	}
 	// A PayEnergy<X> cost part pays the SAME announced X in energy counters

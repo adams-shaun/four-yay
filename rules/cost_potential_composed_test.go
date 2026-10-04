@@ -29,8 +29,8 @@ func TestPotentialCostComposesReductionsForOneCandidate(t *testing.T) {
 	}
 	for _, cand := range cands {
 		mods := e.costModifiersWithTargetsUsing(statics, 0, spell, spellScope(""), []state.Target{cand}, true)
-		if got := mods.apply(base).Generic; got != 1 || len(mods.reduces) != 1 {
-			t.Fatalf("precondition: target %d earns exactly ONE reduction, cost=%d reductions=%d", cand.Obj, got, len(mods.reduces))
+		if got := mods.Apply(base).Generic; got != 1 || len(mods.Reduces) != 1 {
+			t.Fatalf("precondition: target %d earns exactly ONE reduction, cost=%d reductions=%d", cand.Obj, got, len(mods.Reduces))
 		}
 	}
 	// Neither candidate pays {0}; an offer at an empty pool would strand the
@@ -39,7 +39,7 @@ func TestPotentialCostComposesReductionsForOneCandidate(t *testing.T) {
 		t.Fatal("offer gate combined discounts from different candidate targets")
 	}
 	_, ok := e.potentialCostModsUsing(statics, 0, spell, spellScope(""), cands, 0, func(m costMods) bool {
-		return m.apply(base).Generic == 0
+		return m.Apply(base).Generic == 0
 	})
 	if ok {
 		t.Fatal("candidate composition admitted a free price no target can earn")

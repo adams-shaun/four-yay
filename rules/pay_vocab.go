@@ -19,6 +19,12 @@ type (
 	pipAlt = pay.PipAlt
 	// manaPayment is a resolved pool payment.
 	manaPayment = pay.Payment
+	// costScope names what a cost-modifier collection prices.
+	costScope = pay.CostScope
+	// costMod is one evaluated ReduceCost static's contribution.
+	costMod = pay.CostMod
+	// costMods is the CR 601.2f cost-modifier composition.
+	costMods = pay.CostMods
 )
 
 func resolveMana(c Cost, pool, snow state.Mana, typed [7]state.Mana, life int32, conv *manaConv) (manaPayment, bool) {

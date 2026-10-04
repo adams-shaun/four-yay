@@ -7,6 +7,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -128,8 +129,8 @@ func (e *Engine) composedOfferCost(p state.PlayerID, id state.ObjID, base Cost, 
 // *dst, reading *base and *mods in place (neither is written).
 func (e *Engine) composedOfferCostInto(dst *Cost, p state.PlayerID, id state.ObjID, base *Cost, mods *costMods, scope costScope) {
 	*dst = *base
-	mods.applyTo(dst)
-	if scope.kind != "Ability" && scope.kind != "Foretell" && scope.kind != "Static" {
+	mods.ApplyTo(dst)
+	if scope.Kind != "Ability" && scope.Kind != "Foretell" && scope.Kind != "Static" {
 		*dst = e.commanderTaxFor(p, id, *dst)
 	}
 }
@@ -303,8 +304,8 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	// gate and xAsk share one floor answer and an unannounced cost still
 	// reports no charge. A cost that announces no X binds nothing: no {X} pip
 	// and no announced-X part means no announcement exists to floor.
-	if scope.ab != nil && costAnnouncesX(*base) {
-		if n := xMinAbilityParam(scope.ab); n > base.XMin {
+	if scope.Ab != nil && costAnnouncesX(*base) {
+		if n := xMinAbilityParam(scope.Ab); n > base.XMin {
 			if base != &local {
 				local = *base
 				base = &local
@@ -322,19 +323,19 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	// same taps a RaiseCost Waterbend does (mods.waterbend), so the offer is
 	// priced with the help the payment will offer.
 	if base.Waterbend > 0 {
-		mods.waterbend = addClampedGeneric(mods.waterbend, int64(base.Waterbend))
+		mods.Waterbend = addClampedGeneric(mods.Waterbend, int64(base.Waterbend))
 	}
 	if base.WaterbendX {
-		mods.waterbendX = true
-		mods.waterbendPartX++
+		mods.WaterbendX = true
+		mods.WaterbendPartX++
 	}
 	// withWaterbendOfferCredit returns mods unchanged unless some waterbend
 	// credit is wanted (its want is 0 when both counts are).
-	if mods.waterbend != 0 || mods.waterbendPartX != 0 {
+	if mods.Waterbend != 0 || mods.WaterbendPartX != 0 {
 		mods = e.withWaterbendOfferCredit(p, id, base.XMin, mods)
 	}
 	tax := int32(0)
-	if scope.kind != "Ability" && scope.kind != "Foretell" && scope.kind != "Static" {
+	if scope.Kind != "Ability" && scope.Kind != "Foretell" && scope.Kind != "Static" {
 		tax = e.commanderTaxAmount(p, id)
 	}
 	delve := int32(0)
@@ -363,7 +364,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 				}
 				var c Cost
 				e.composedOfferCostInto(&c, p, id, base, &m, scope)
-				return e.nonManaCastableP(p, id, &c, ability, tapCostSAKind(scope.ab))
+				return e.nonManaCastableP(p, id, &c, ability, tapCostSAKind(scope.Ab))
 			})
 			if futile && potentialOK {
 				panic(fmt.Sprintf("rules: futile potential-target retry for obj %d accepted %+v", id, potential))
@@ -399,7 +400,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	// shared tail preserves every Sac/Discard/counter/tap legality check.
 	var composed Cost
 	e.composedOfferCostInto(&composed, p, id, base, &mods, scope)
-	return e.nonManaCastableP(p, id, &composed, ability, tapCostSAKind(scope.ab))
+	return e.nonManaCastableP(p, id, &composed, ability, tapCostSAKind(scope.Ab))
 }
 
 // offerSacXMods is the offer gate's announced-sacrifice-count affordability
@@ -476,7 +477,7 @@ func (e *Engine) costPotentialTargets(p state.PlayerID, id state.ObjID, scope co
 		return nil
 	}
 	var excludeSelf state.ObjID
-	if scope.kind != "Ability" {
+	if scope.Kind != "Ability" {
 		excludeSelf = id
 	}
 	candidates := e.legalTargetCandidates(p, id, excludeSelf, sa)
@@ -498,12 +499,12 @@ func (e *Engine) costPotentialTargets(p state.PlayerID, id state.ObjID, scope co
 // costAmountTargets use, so the offer census and the amount's legal-assignment
 // size can never name different declarations.
 func (e *Engine) costTargetingSA(id state.ObjID, scope costScope) *cards.SA {
-	if scope.kind == "Static" {
+	if scope.Kind == "Static" {
 		// A special action (specialActionScope) announces no targets.
 		return nil
 	}
-	if scope.kind == "Ability" {
-		return scope.ab
+	if scope.Kind == "Ability" {
+		return scope.Ab
 	}
 	if o := e.G.Obj(id); o != nil && o.Face() != nil {
 		return o.Face().SpellAbility()
@@ -574,7 +575,7 @@ func (e *Engine) SpellEffectiveCost(p state.PlayerID, id state.ObjID) string {
 		return ""
 	}
 	mods := e.costModifiersWithTargetsUsing(e.collectCostStatics(), p, id, spellScope(""), nil, false)
-	if mods.hasExtra || mods.setFloor != 0 || mods.raiseX != 0 {
+	if mods.HasExtra || mods.SetFloor != 0 || mods.RaiseX != 0 {
 		return ""
 	}
 	cost := e.offerCostFor(p, id, base, spellScope(""))
@@ -767,18 +768,10 @@ func rememberedTargets(ids []state.ObjID) []state.Target {
 // pending (the retry would leave it as the first pass did). The retry's
 // accept is then manaFeasiblePriced over identical arguments, which failed.
 func offerRetryFutile(scope costScope, mods *costMods, mayApply, provenance bool) bool {
-	if mayApply || provenance || (scope.kind == "Ability" && scope.ab != nil) {
+	if mayApply || provenance || (scope.Kind == "Ability" && scope.Ab != nil) {
 		return false
 	}
-	return costModsZero(mods)
-}
-
-// costModsZero reports whether m is the zero composition in every field
-// (TestCostModsZeroCoversEveryField pins the field list).
-func costModsZero(m *costMods) bool {
-	return len(m.raises) == 0 && !m.hasExtra && m.raiseCol == (state.Mana{}) && m.raiseGen == 0 &&
-		m.raiseLife == 0 && len(m.reduces) == 0 && m.setFloor == 0 && m.waterbend == 0 &&
-		!m.waterbendX && m.waterbendPartX == 0 && m.raiseX == 0
+	return pay.CostModsZero(mods)
 }
 
 // offerSacXModsGated is offerSacXMods behind its own first test
@@ -803,14 +796,14 @@ func (e *Engine) offerSacXModsGated(p state.PlayerID, id state.ObjID, ability bo
 // pointers for the same reason.
 func (e *Engine) offerNamedModsGated(p state.PlayerID, id state.ObjID, ability bool, base *Cost, mods *costMods, statics costStaticViews, scope costScope, tax, delve int32, hyp *state.Mana) (costMods, bool) {
 	named := false
-	for i := range mods.extra.Exile {
-		if isNamedCountPart(mods.extra.Exile[i]) {
+	for i := range mods.Extra.Exile {
+		if isNamedCountPart(mods.Extra.Exile[i]) {
 			named = true
 			break
 		}
 	}
-	for i := 0; !named && i < len(mods.extra.TapPermanent); i++ {
-		named = isNamedCountPart(mods.extra.TapPermanent[i])
+	for i := 0; !named && i < len(mods.Extra.TapPermanent); i++ {
+		named = isNamedCountPart(mods.Extra.TapPermanent[i])
 	}
 	if !named {
 		return costMods{}, false

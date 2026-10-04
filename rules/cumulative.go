@@ -987,7 +987,7 @@ func (e *Engine) pipAnnounceAsk(player state.PlayerID, source state.ObjID, amoun
 	if pa.idx >= amount.AnnPipCount() {
 		return false
 	}
-	alts := announcePip(amount, pa.idx)
+	alts := pay.AnnouncePip(amount, pa.idx)
 	name := "triggered ability"
 	if o := e.G.Obj(source); o != nil && o.Face() != nil {
 		name = o.Face().Name

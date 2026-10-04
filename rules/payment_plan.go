@@ -213,7 +213,7 @@ func (e *Engine) paymentPlanCastShapeDetailUsing(statics costStaticViews, p stat
 	}
 	// A cost static's own non-mana extra (Soul Immolation's Blight<X>) stays
 	// withheld entirely: the mana-only witness cannot describe it.
-	if paymentPlanCostDetail(mods.extra) != "" {
+	if paymentPlanCostDetail(mods.Extra) != "" {
 		return "shape:additional_cost"
 	}
 	// The spell ability's own Cost$ admits exactly one non-mana shape: a

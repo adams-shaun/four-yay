@@ -194,8 +194,8 @@ func TestIsTargetingHeadOfTheClass(t *testing.T) {
 	// non-creature target stays full while the creature target makes it free.
 	full := e.costModifiersForTargets(0, spell, spellScope(""), []state.Target{{Obj: land}})
 	targeted := e.costModifiersForTargets(0, spell, spellScope(""), []state.Target{{Obj: bear}})
-	fullCost := full.apply(e.parseCost("W B"))
-	targetedCost := targeted.apply(e.parseCost("W B"))
+	fullCost := full.Apply(e.parseCost("W B"))
+	targetedCost := targeted.Apply(e.parseCost("W B"))
 	if fullCost.Colored != (state.Mana{state.MW: 1, state.MB: 1}) || fullCost.CMC() != 2 {
 		t.Fatalf("non-creature-target price = %+v, want the full W1 B1", fullCost)
 	}
