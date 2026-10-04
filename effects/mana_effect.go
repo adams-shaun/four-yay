@@ -83,16 +83,17 @@ func askManaChoice(h Host, c *Ctx, sa *cards.SA, produced string) (string, bool,
 	}
 	// The resolution kernel's answer in hand (lasagna spec §7): the
 	// "mana_color" arm's binding, applied here so effMana simply continues.
-	// An answer naming no valid colour is the arm's no-binding, on which the
-	// legacy re-entry poses the same ask again; so does this loop.
+	// An answer naming no valid colour poses the same ask again. An unserved
+	// ask goes to Host.Ask, which poses the off-stack colour choice.
 	for {
-		ans, ok := AskTape(h, d)
+		in, ok, _ := tapeAnswer(h, d)
 		if !ok {
 			break
 		}
+		ans := d.Chosen(in)
 		if answered, units, ok := manaChoiceProduced(ans); ok {
-			// The legacy re-entry re-runs effMana from its first line,
-			// which emits the unread-parameter Note again; mirror it.
+			// The unread-parameter Note is emitted again here, a pinned
+			// part of the log kept from the removed re-entry protocol.
 			noteUnreadParams(h, c, "Mana", ManaOf(sa).Unread)
 			return answered, units, false
 		}

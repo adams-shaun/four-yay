@@ -2,18 +2,16 @@ package effects
 
 import (
 	"github.com/adams-shaun/gorge/decision"
-	"github.com/adams-shaun/gorge/state"
 )
 
-// AskTape is the resolution kernel's converted ask boundary (lasagna spec
-// §7, W3; rules/resolve): a converted asking primitive calls it before its
-// legacy Ask. ok means the answer is in hand -- served from the kernel's
+// AskTape is the resolution kernel's ask boundary (lasagna spec §7, W3;
+// rules/resolve). ok means the answer is in hand -- served from the kernel's
 // intent tape, or by an all-policy engine's synchronous answerer -- and the
-// primitive simply continues with it, holding every local it already
-// computed: there is nothing to resume. !ok (no tape run, a host without the
-// seam, or a shape Ask resolves silently) falls through to the legacy Ask,
-// which suspends as before. With the kernel off (the default) it is always
-// !ok.
+// primitive simply continues with it. !ok means no answer is served (no tape
+// run, an unless-pay election outside a run, a host without the seam): the
+// decision is handed to Host.Ask as an observation, so the host records that
+// the ask was answered with its default, and the site applies its
+// deterministic stand-in.
 //
 // A tape run that is out of answers does not return: the kernel poses d and
 // unwinds the run to its checkpoint, and re-executes it from there once the
@@ -30,26 +28,26 @@ func AskTape(h Host, d *decision.Decision) ([]decision.Option, bool) {
 // chosen options (an arrange's Rest, the pile-B order): the intent the
 // asking code acts on, re-seated on the seat d is asked OF.
 func AskTapeIntent(h Host, d *decision.Decision) (decision.Intent, bool) {
-	if d == nil || OnlyEmptyAnswer(d) || len(d.Options) == 0 {
-		return decision.Intent{}, false
+	if in, ok, posable := tapeAnswer(h, d); ok || !posable {
+		return in, ok
 	}
-	if s := askSeamOf(h); s != nil {
-		return s.TapeAnswer(d)
-	}
-	// A host with no tape seam (an effects-package test double) takes the
-	// ask as an observation and answers nothing: the site's deterministic
-	// stand-in applies.
+	// Unserved: the host observes the ask (rules emits its deterministic
+	// "ask answered with its default" Note) and the site's stand-in applies.
 	h.Ask(d)
 	return decision.Intent{}, false
 }
 
-// PayloadTargets is a Decision.ResumeChoices ride that is a payload of its
-// own resume arm (a vote's ballots so far, an attach destination list, a
-// pile, a counter recipient pick) rather than the chain's chosen-card
-// binding: a copy that is never nil, empty included. A legacy resume reads a
-// nil ResumeChoices with ResumeChosenValid false as "this site rides no
-// binding" and restores the chain's own (rules' resumeChosenBinding), which a
-// payload arm must never receive in place of its payload.
-func PayloadTargets(ts []state.Target) []state.Target {
-	return append(make([]state.Target, 0, len(ts)), ts...)
+// tapeAnswer is the tape lookup alone, without AskTapeIntent's unserved
+// observation: for a site that hands an unserved decision to Host.Ask
+// itself (effMana's off-stack colour choice, which the host poses). posable
+// is false for a decision the boundary never poses (askUnposable).
+func tapeAnswer(h Host, d *decision.Decision) (in decision.Intent, ok, posable bool) {
+	if askUnposable(d) {
+		return decision.Intent{}, false, false
+	}
+	if s := askSeamOf(h); s != nil {
+		in, ok = s.TapeAnswer(d)
+		return in, ok, true
+	}
+	return decision.Intent{}, false, true
 }
