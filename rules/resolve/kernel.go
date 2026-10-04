@@ -2,6 +2,7 @@ package resolve
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
@@ -55,6 +56,12 @@ type Checkpoint struct {
 	// k0 is the index in the intent log of the resolution-starting pass;
 	// base is the event log's length at S0.
 	k0, base int
+	// shared is nonzero once a clone of the engine took this checkpoint
+	// (ForClone, Fork): S0 is then never recycled, since another engine may
+	// still restore from it. An unshared S0 is recycled (Board.Drop) when
+	// its resolution completes. Atomic: a search may clone one posed root
+	// from several goroutines at once.
+	shared int32
 	// probe, when set, is the function a test runs in place of an intent's
 	// commit (Kernel.Probe): a re-run re-executes it instead of a Submit.
 	probe func()
@@ -116,13 +123,19 @@ func (k *Kernel) SetAnswerer(f Answerer) { k.answerer = f }
 
 // ForClone is the kernel state a clone of the engine starts with: the posed checkpoint (shared) at the same posed log length, nothing in
 // flight.
-func (k *Kernel) ForClone() Kernel { return Kernel{posed: k.posed, posedLen: k.posedLen} }
+func (k *Kernel) ForClone() Kernel {
+	if cp := k.posed; cp != nil && atomic.LoadInt32(&cp.shared) == 0 {
+		atomic.StoreInt32(&cp.shared, 1)
+	}
+	return Kernel{posed: k.posed, posedLen: k.posedLen}
+}
 
 // Fork gives a hypothetical world forked at a posed tape resolution its own
 // checkpoint copy carrying the world's RNG splice; forkAt is the world's log
 // length, where whatever its builder appends before its first Submit (a
 // redeal's Secret events) is injected (spec §7.3). Call it only when Posed.
 func (k *Kernel) Fork(world any, forkAt int) {
+	atomic.StoreInt32(&k.posed.shared, 1)
 	cp := *k.posed
 	cp.World = world
 	k.posed = &cp
@@ -336,6 +349,11 @@ func (k *Kernel) resubmit(b Board, in decision.Intent) {
 		k.posedLen = len(l.Events)
 	} else {
 		k.posed = nil
+		if atomic.LoadInt32(&cp.shared) == 0 {
+			// No clone took the checkpoint: S0 is this engine's alone, so
+			// its storage recycles into the next checkpoint.
+			b.Drop(cp.S0)
+		}
 	}
 }
 

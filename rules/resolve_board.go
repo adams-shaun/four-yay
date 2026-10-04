@@ -6,6 +6,7 @@ package rules
 // the kernel drives the engine without holding it.
 
 import (
+	"sync"
 	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -157,10 +158,37 @@ func (b *resolveBoard) MayAsk(d *decision.Decision, in decision.Intent) bool {
 
 func (b *resolveBoard) Checkpoint() resolve.Snapshot {
 	e := (*Engine)(b)
+	if e.tapeSpare.objs == nil {
+		// No checkpoint of this engine's own to recycle (its first
+		// resolution, or its last one is still shared): take a dropped one
+		// from any engine, so a run of short games recycles too.
+		if h, _ := tapeSparePool.Get().(*Spare); h != nil {
+			e.tapeSpare, *h = *h, Spare{}
+			tapeHolders.Put(h)
+		}
+	}
 	return e.CloneInto(&e.tapeSpare)
 }
 
-func (b *resolveBoard) Drop(s resolve.Snapshot) { b.tapeSpare = s.(*Engine).Release() }
+// Drop recycles S0 into the process-wide pool rather than into the engine,
+// so storage an engine dropped outlives the engine (a game's last checkpoint
+// seeds the next game's first).
+func (b *resolveBoard) Drop(s resolve.Snapshot) { tapePut(s.(*Engine).Release()) }
+
+// tapeSparePool holds dropped checkpoints' storage (*Spare) any engine's next
+// checkpoint may adopt; tapeHolders recycles the empty *Spare holders. Reuse
+// is invisible to the game (Spare's contract), so which engine's storage a
+// checkpoint adopts never reaches an event.
+var tapeSparePool, tapeHolders sync.Pool
+
+func tapePut(sp Spare) {
+	h, _ := tapeHolders.Get().(*Spare)
+	if h == nil {
+		h = new(Spare)
+	}
+	*h = sp
+	tapeSparePool.Put(h)
+}
 
 // Restore makes the engine a fresh copy of the checkpoint in place. The
 // copy is written into the live engine's own storage (the live state it
