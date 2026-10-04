@@ -9,8 +9,10 @@ import (
 // layering_pay_test.go pins rules/pay, the L5 payment-planning package of the
 // rules-engine lasagna (spec 2026-10-03 §3, W5 step E7): the planner's
 // vocabulary (alternatives, consequences, rank, witness) and its bounded
-// rank-aware search. It reaches the engine's mana solver only through the
-// pay.Env hook package rules installs. Its rows live in their own file so
+// rank-aware search, the pool solver and payment core, and the payment
+// vocabulary (cost modifiers, window sources, planner classification and
+// stats). It reaches the engine only through the pay.Engine interface package
+// rules implements (rules/pay_engine.go). Its rows live in their own file so
 // parallel W5 steps do not edit the same lines.
 
 // payImports is the closed set of module packages rules/pay may import
@@ -57,6 +59,27 @@ func TestPayImportsStayBelowRules(t *testing.T) {
 	} {
 		if p.deps[to] {
 			t.Errorf("%s depends on %s (transitively); the dependency order forbids it", sub, to)
+		}
+	}
+}
+
+// payForbiddenStd is the standard library rules/pay must not import: the
+// payment layer is part of the deterministic replay core (no wall clock, no
+// ambient randomness) and holds no shared mutable state of its own.
+var payForbiddenStd = []string{"time", "math/rand", "math/rand/v2", "crypto/rand", "sync", "unsafe", "os"}
+
+// TestPayStaysDeterministic pins rules/pay off the standard-library packages
+// that would let a payment depend on anything but the game it is handed.
+func TestPayStaysDeterministic(t *testing.T) {
+	const sub = module + "/rules/pay"
+	p, ok := packages(t)[sub]
+	if !ok {
+		t.Skip("rules/pay is not built yet")
+	}
+	for _, imp := range payForbiddenStd {
+		if p.imports[imp] {
+			t.Errorf("%s imports %s; the payment layer is replay-deterministic and stateless "+
+				"(internal/archtest/layering_pay_test.go payForbiddenStd)", sub, imp)
 		}
 	}
 }
