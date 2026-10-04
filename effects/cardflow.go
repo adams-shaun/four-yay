@@ -77,8 +77,8 @@ type drawUptoRider struct {
 // the "dredge" resume arm) has then already applied the replacement or the
 // ordinary draw, and the caller continues exactly as that arm's re-entry
 // does -- past this draw's cursor, without the drawn-card bookkeeping the
-// re-entry skips. Only a caller with a cursor and a resume SA (an effect
-// walk) is served from the tape; the bare DrawFor keeps the legacy ask.
+// re-entry skips. Any caller is served from the tape inside a run; outside
+// one the ask takes the host's default.
 func drawFor(h Host, p state.PlayerID, cursor int, resumeSA *cards.SA, upto drawUptoRider) bool {
 	g := h.Game()
 	lib := zoneOf(g, state.ZLibrary, p)
@@ -126,10 +126,12 @@ func drawFor(h Host, p state.PlayerID, cursor int, resumeSA *cards.SA, upto draw
 				Label: "Dredge " + strconv.Itoa(int(candidate.n)) + " (mill, then return " + objName(g, candidate.id) + " to hand)", Obj: candidate.id, Player: p})
 		}
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "draw", Label: "Draw card", Player: p})
-		if (cursor >= 0 && resumeSA != nil) || upto.turn {
-			if _, ok := AskTape(h, d); ok {
-				return true
-			}
+		// Every caller is served from the tape when a run serves it: rules'
+		// dredge answer record applies the replacement or the ordinary draw,
+		// so a bare DrawFor (Lich's GainLife -> Draw body, a cost's draw)
+		// needs no cursor. Outside a run the ask takes h.Ask's default.
+		if _, ok := AskTape(h, d); ok {
+			return true
 		}
 		if h.Ask(d) {
 			return false

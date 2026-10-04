@@ -558,7 +558,16 @@ func extractEntryPose(preview *Engine, n0 int) *replChoice {
 // the preview parked for grant idx, and asks the affected player. inRes is
 // the pose's in-resolution provenance, captured by the caller at the moment
 // the entry was emitted. Returns true (the caller must not fold the move).
-func (e *Engine) stageEntryCounterOrder(ev events.Event, preview *Engine, n0 int, grants []entryGrant, placed []events.EntryCounterGrant, idx int, inRes bool, bodyIDs []string) bool {
+//
+// cont, when non-nil, is the stage this pose CONTINUES (resumeEntryCounterOrder
+// settling the grants after an answered park): the new stage starts from a
+// copy of the whole of cont, so every continuation field -- the accumulated
+// placement, the absorbed-body set, the token-plan tail, and the in-body /
+// in-resolution provenance the pose cannot re-derive here (applyingReplacement
+// is false while an answer runs) -- carries over, taking only the new pose's
+// own competition. The copy is made BEFORE the ask: a kernel-served order
+// choice is answered in place, so the stage must be complete when posed.
+func (e *Engine) stageEntryCounterOrder(ev events.Event, preview *Engine, n0 int, grants []entryGrant, placed []events.EntryCounterGrant, idx int, inRes bool, bodyIDs []string, cont *entryCounterStage) bool {
 	posed := extractEntryPose(preview, n0)
 	if posed == nil {
 		return false
@@ -567,6 +576,10 @@ func (e *Engine) stageEntryCounterOrder(ev events.Event, preview *Engine, n0 int
 		move: ev, grants: grants, placed: placed,
 		counter: posed.ev, cands: posed.cands, player: posed.player,
 		inRes: inRes, inBody: e.applyingReplacement, idx: idx, bodyIDs: bodyIDs,
+	}
+	if cont != nil {
+		*st = cont.restage(st)
+		cont.tokenPlan = nil
 	}
 	e.replChoices = append(e.replChoices, replChoice{kind: replChoiceEntryOrder,
 		ev: posed.ev, cands: posed.cands, player: posed.player,
@@ -638,7 +651,7 @@ func (e *Engine) entryCounterOrderParks(ev events.Event) bool {
 	if park < 0 {
 		return false
 	}
-	return e.stageEntryCounterOrder(ev, preview, n0, grants, placed, park, e.resolvingObj != 0 || e.answerInResolution, bodyIDs)
+	return e.stageEntryCounterOrder(ev, preview, n0, grants, placed, park, e.resolvingObj != 0 || e.answerInResolution, bodyIDs, nil)
 }
 
 // resumeEntryCounterOrder answers one staged competition: the chosen body
@@ -702,19 +715,11 @@ func (e *Engine) resumeEntryCounterOrder(rc replChoice, idx int) {
 		if park < 0 {
 			break
 		}
-		if !e.stageEntryCounterOrder(st.move, preview, n0, st.grants, st.placed, j+park, st.inRes, st.bodyIDs) {
+		if !e.stageEntryCounterOrder(st.move, preview, n0, st.grants, st.placed, j+park, st.inRes, st.bodyIDs, st) {
 			continue
 		}
-		// stageEntryCounterOrder built a fresh stage for the new park. It
-		// CONTINUES this entry: start from a copy of the whole stage, so every
-		// continuation field -- the accumulated placement, the absorbed-body
-		// set, the token-plan tail, and the in-body / in-resolution provenance
-		// the pose cannot re-derive here (applyingReplacement is false while
-		// an answer runs) -- carries over, and take only the new pose's own
-		// competition from the fresh stage.
-		fresh := e.replChoices[len(e.replChoices)-1].stage
-		*fresh = st.restage(fresh)
-		st.tokenPlan = nil
+		// stageEntryCounterOrder built a fresh stage for the new park that
+		// CONTINUES this entry (it copied st before posing).
 		return
 	}
 	st.complete = true

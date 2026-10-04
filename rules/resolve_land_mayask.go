@@ -55,7 +55,7 @@ func tapeStepMayAsk(e *Engine) bool {
 // and the deaths it causes).
 func tapeAnyReplBodyMayAsk(e *Engine) bool {
 	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
-		if ce := &ceL[ceI]; ce.ReplacementEvent != "" && cards.ReplParamsMayElect(ce.ReplacementParams) {
+		if ce := &ceL[ceI]; ce.ReplacementEvent != "" && (cards.ReplParamsMayElect(ce.ReplacementParams) || effectReplBodyMayAsk(e, ce)) {
 			return true
 		}
 	}
@@ -74,11 +74,39 @@ func tapeAnyReplBodyMayAsk(e *Engine) bool {
 			if r.Event == "Moved" {
 				continue // entries are asked where they happen (the land play, a resolution)
 			}
-			if cards.ReplMayElect(r) || (r.With != nil && cards.SAChainMayAsk(r.With, f.SVars, nil, false)) {
+			if cards.ReplMayElect(r) || (r.With != nil && (cards.SAChainMayAsk(r.With, f.SVars, nil, false) ||
+				// An ask-free body can still open a board gate: Lich's
+				// GainLife -> Draw body meets a Dredge card's election.
+				mayAskOnBoard(e, mayAskKnown|uint32(cards.SAChainBoardGates(r.With, f.SVars))<<mayAskGateShift))) {
 				ask = true
 				return
 			}
 		}
 	})
 	return ask
+}
+
+// effectReplBodyMayAsk reports whether an Effect-created replacement's
+// ReplaceWith$ body chain may ask (an UnlessCost$ rider on the body's
+// SubAbility$, the torgal_a_fine_hound / communal_brewing self-exile shape).
+// The body is plain text on the effect, resolved under its source's SVar
+// context, so it is judged here rather than through a face's facts record.
+// Unlike a printed Moved line, an Effect-created one has no face entry text
+// the resolving object's own predicate could see, so Moved is not skipped.
+func effectReplBodyMayAsk(e *Engine, ce *state.ContinuousEffect) bool {
+	if ce.ReplacementBody == "" {
+		return false
+	}
+	with := replacementBodySA(ce.ReplacementBody)
+	if with == nil {
+		return false
+	}
+	var svars map[string]string
+	if src := e.G.Obj(ce.Source); src != nil {
+		if f := src.Face(); f != nil {
+			svars = f.SVars
+		}
+	}
+	with.Sub = cards.ResolveSVar(svars, with.Params["SubAbility"])
+	return cards.SAChainMayAsk(with, svars, nil, false)
 }
