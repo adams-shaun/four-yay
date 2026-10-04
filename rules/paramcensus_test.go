@@ -3846,8 +3846,8 @@ func TestParamCensusCatchesSVarBodyGaps(t *testing.T) {
 		t.Errorf("SVar-body census = %v, want %v -- an unread key or unmodelled token inside a Choices$/RepeatSubAbility$ body is not being reported", got, want)
 	}
 	// The drop plumbing reaches the bodies too: pretending the LoseLife
-	// RememberTargets$ read existed (it does not) must not un-report the
-	// body's gap through some other path.
+	// Pawprint$ read existed (it does not) must not un-report the body's
+	// gap through some other path.
 	if got := cardCensusLabels(c, d, map[string]map[string]bool{"api:LoseLife": {"Pawprint": true}}); !sameSet(got, want) {
 		t.Errorf("drop-simulated census = %v, want %v", got, want)
 	}
