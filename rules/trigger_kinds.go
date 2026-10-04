@@ -141,12 +141,12 @@ func lineTrigSig(t *cards.Trigger, valid func(string) bool) trigSig {
 		// (narrowed further by PhaseCount$ and the first-strike mapping).
 		sig.steps = uint16(parsePhaseSpec(spec).set)
 	}
-	sig.kinds = modeTrigKinds(t.Mode)
+	sig.kinds = modeTrigKinds(t.ModeKind())
 	if sig.kinds[0]&zoneChangeKindsMask[0] == 0 && sig.kinds[1]&zoneChangeKindsMask[1] == 0 {
 		return sig
 	}
 	sig.zcFrom, sig.zcTo = ^uint32(0), ^uint32(0)
-	if t.Mode != "ChangesZone" && t.Mode != "ChangesZoneAll" {
+	if k := t.ModeKind(); k != cards.TriggerChangesZone && k != cards.TriggerChangesZoneAll {
 		return sig
 	}
 	// trigmatch.ZoneChangeMatchesWithCapture's own reads, in its order.
@@ -186,8 +186,8 @@ func (m trigKinds) has(k events.Kind) bool {
 func (m trigKinds) or(o trigKinds) trigKinds { return trigKinds{m[0] | o[0], m[1] | o[1]} }
 
 // modeTrigKinds is the exact kind set triggerMatches can admit for mode.
-func modeTrigKinds(mode string) trigKinds {
-	low := triggerModeEvents(mode)
+func modeTrigKinds(mode cards.TriggerMode) trigKinds {
+	low := triggerModeEventMasks[mode]
 	if low == allTriggerEvents {
 		return allTrigKinds
 	}
@@ -230,8 +230,8 @@ func modeTrigKinds(mode string) trigKinds {
 //	Phase                         trigmatch.PhaseMatches: StepChange
 //
 // A mode not listed keeps every high kind (the fail-open reading).
-func modeRejectsHighKinds(mode string) bool {
-	return modeRejectsHighKindsTab[cards.TriggerModeOf(mode)]
+func modeRejectsHighKinds(mode cards.TriggerMode) bool {
+	return modeRejectsHighKindsTab[mode]
 }
 
 // computeFaceTrigSigs is a face's exact signature, the union of its lines'
@@ -261,7 +261,7 @@ func computeFaceTrigSigs(f *cards.Face, valid func(string) bool) (all, other tri
 // matched against ev.Obj (or its LKI, the same id) under a spec context whose
 // Source is the trigger's source, and the Self predicate is o.ID == Source.
 func lineReferentOnly(t *cards.Trigger) bool {
-	if t.Mode != "ChangesZone" && t.Mode != "ChangesZoneAll" {
+	if k := t.ModeKind(); k != cards.TriggerChangesZone && k != cards.TriggerChangesZoneAll {
 		return false
 	}
 	v, ok := t.Param(cards.PKValidCards)

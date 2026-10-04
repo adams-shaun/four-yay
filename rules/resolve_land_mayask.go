@@ -52,7 +52,7 @@ func tapeLandReplMayAsk(e *Engine, obj state.ObjID) bool {
 	}
 	ev := events.Event{Obj: obj, To: state.ZBattlefield}
 	ask := false
-	e.forEachReplacementSourceFor(replEventBit("Moved"), func(id state.ObjID) {
+	e.forEachReplacementSourceFor(replEventBits[cards.ReplMoved], func(id state.ObjID) {
 		o := e.G.Obj(id)
 		if ask || o == nil {
 			return

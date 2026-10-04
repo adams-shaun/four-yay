@@ -178,12 +178,12 @@ func updatedBodyClass(m replMatch) string {
 		if updatedNeutralBody(sa) {
 			continue
 		}
-		switch updatedBodyClassCodes.Code(string(sa.API)) {
-		case updatedBodyClassTap:
+		switch sa.APIKind() {
+		case cards.APITap:
 			tap = true
-		case updatedBodyClassUntap:
+		case cards.APIUntap:
 			untap = true
-		case updatedBodyClassPutCounter:
+		case cards.APIPutCounter:
 			// Additive on a fresh entry: rides with anything.
 		default:
 			return "other"
@@ -293,20 +293,6 @@ var updatedNeutralBodySet = state.NewNameSet(
 	"ChooseCard",
 	"Cleanup",
 	"Hideaway",
-)
-
-type updatedBodyClassCode uint16
-
-const (
-	updatedBodyClassTap updatedBodyClassCode = iota + 1
-	updatedBodyClassUntap
-	updatedBodyClassPutCounter
-)
-
-var updatedBodyClassCodes = state.NewStrCodes(
-	state.StrEntry[updatedBodyClassCode]{Key: "Tap", Val: updatedBodyClassTap},
-	state.StrEntry[updatedBodyClassCode]{Key: "Untap", Val: updatedBodyClassUntap},
-	state.StrEntry[updatedBodyClassCode]{Key: "PutCounter", Val: updatedBodyClassPutCounter},
 )
 
 type updatedReplacementsCommuteCode uint16

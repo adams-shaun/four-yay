@@ -48,6 +48,10 @@ func registerTrigMatcher(fn Matcher, modes ...string) {
 // gates before calling the matcher).
 func Lookup(mode string) Matcher { return trigMatchers[cards.TriggerModeOf(mode)] }
 
+// LookupMode is Lookup for a mode already resolved to its code (a T: line's
+// ModeKind, stored at load).
+func LookupMode(mode cards.TriggerMode) Matcher { return trigMatchers[mode] }
+
 // Match reports whether t fires for ev through its mode's registered matcher.
 // A mode with no entry never fires: the switch the table replaced had no
 // default arm, so an unknown mode fell off its end with matched still false.

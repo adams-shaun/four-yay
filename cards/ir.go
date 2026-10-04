@@ -21,6 +21,19 @@ type SA struct {
 	// extSlot holds a downstream package's compiled facts about this
 	// ability (slot.go), allocated at load. Not serialized.
 	extSlot *ExtSlot
+	// api is API resolved at load (apiBound); see APIKind.
+	api      APICode
+	apiBound bool
+}
+
+// APIKind is s.API as an APICode (APIUnknown for an API outside the
+// engine-owned vocabulary): resolved once at load for a printed ability, on
+// read for a node built later.
+func (s *SA) APIKind() APICode {
+	if s.apiBound {
+		return s.api
+	}
+	return APICodeForName(s.API)
 }
 
 // Trigger is a T: line. Execute$ names an SVar holding the effect.

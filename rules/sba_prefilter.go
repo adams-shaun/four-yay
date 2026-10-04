@@ -57,8 +57,10 @@ func faceHasTypeFold(f *cards.Face, t string) bool {
 
 // sbaTypeFast is hasType for a battlefield permanent with the board's
 // layer-4 presence already known (anyLType). t must be "World", "Legendary"
-// or "Aura" (see the file comment for why those three are exact).
-func (e *Engine) sbaTypeFast(o *state.Object, t string, anyLType bool) bool {
+// or "Aura" (see the file comment for why those three are exact); the caller
+// names it as an sbaType, so no word is classified per call.
+func (e *Engine) sbaTypeFast(o *state.Object, st sbaType, anyLType bool) bool {
+	t := sbaTypeWords[st]
 	if anyLType || o.Zone != state.ZBattlefield || (o.FaceDown && o.Zone == state.ZBattlefield) {
 		if !anyLType {
 			return e.hasType(o, t)
@@ -75,17 +77,29 @@ func (e *Engine) sbaTypeFast(o *state.Object, t string, anyLType bool) bool {
 	if f == nil {
 		return false
 	}
-	if t == "Aura" && (o.BestowedAttached() || o.BestowedAuraSpell()) {
-		return true
-	}
-	switch sbaTypeFastCodes.Code(string(t)) {
-	case sbaTypeFastWorld:
+	switch st {
+	case sbaAura:
+		if o.BestowedAttached() || o.BestowedAuraSpell() {
+			return true
+		}
+	case sbaWorld:
 		return f.IsWorld()
-	case sbaTypeFastLegendary:
+	case sbaLegendary:
 		return !o.CopyNonLegendary && f.IsLegendary()
 	}
 	return faceHasTypeFold(f, t)
 }
+
+// sbaType is one of the three type words sbaTypeFast answers exactly.
+type sbaType uint8
+
+const (
+	sbaAura sbaType = iota
+	sbaWorld
+	sbaLegendary
+)
+
+var sbaTypeWords = [...]string{sbaAura: "Aura", sbaWorld: "World", sbaLegendary: "Legendary"}
 
 // sbaTypeFromTable answers hasType for a battlefield permanent from the
 // layer-4 derived-type table (layer4types.go) when the table describes the
@@ -173,7 +187,7 @@ func (e *Engine) sbaIsCreature(o *state.Object, f *cards.Face, anyLType bool) bo
 
 // sbaIsAura is isAura through sbaTypeFast.
 func (e *Engine) sbaIsAura(o *state.Object, anyLType bool) bool {
-	r := e.sbaTypeFast(o, "Aura", anyLType)
+	r := e.sbaTypeFast(o, sbaAura, anyLType)
 	if sbaQuietVerify && r != e.isAura(o) {
 		panic(fmt.Sprintf("rules: SBA Aura prefilter disagrees with the derived read for object %d", o.ID))
 	}
@@ -190,7 +204,7 @@ func (e *Engine) mayHaveWorldPair() bool {
 	for _, p := range e.G.AliveFrom(0) {
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
 			o := e.G.Obj(id)
-			if o == nil || o.Face() == nil || !e.sbaTypeFast(o, "World", false) {
+			if o == nil || o.Face() == nil || !e.sbaTypeFast(o, sbaWorld, false) {
 				continue
 			}
 			if n++; n >= 2 {
@@ -273,7 +287,7 @@ func (e *Engine) sbaFacts(f *sbaBoardFacts) *sbaBoardFacts {
 					}
 					// worldPermanents' own test, through the layer-4 table
 					// when a layer-4 effect is live (sbaTypeFast).
-					if !f.world && e.sbaTypeFast(o, "World", anyLType) {
+					if !f.world && e.sbaTypeFast(o, sbaWorld, anyLType) {
 						if worlds++; worlds >= 2 {
 							f.world = true
 						}
@@ -312,15 +326,3 @@ func (e *Engine) sbaFacts(f *sbaBoardFacts) *sbaBoardFacts {
 	}
 	return f
 }
-
-type sbaTypeFastCode uint16
-
-const (
-	sbaTypeFastWorld sbaTypeFastCode = iota + 1
-	sbaTypeFastLegendary
-)
-
-var sbaTypeFastCodes = state.NewStrCodes(
-	state.StrEntry[sbaTypeFastCode]{Key: "World", Val: sbaTypeFastWorld},
-	state.StrEntry[sbaTypeFastCode]{Key: "Legendary", Val: sbaTypeFastLegendary},
-)

@@ -3,6 +3,7 @@ package cards
 import (
 	"math/bits"
 	"slices"
+	"sync/atomic"
 	"unsafe"
 )
 
@@ -1507,6 +1508,9 @@ type ParamSet struct {
 	has  ParamMask
 	rank [paramMaskWords]uint16
 	vals []string
+	// codes is each value's ParamCoder code, parallel to vals (nil when no
+	// key the set holds has a coder).
+	codes []uint16
 }
 
 func mapIdentity(m map[string]string) unsafe.Pointer {
@@ -1535,7 +1539,86 @@ func newParamSet(m map[string]string) *ParamSet {
 			ps.vals = append(ps.vals, m[paramKeyNames[k]])
 		}
 	}
+	paramCodersSealed.Store(true)
+	for w, h := range ps.has {
+		for i := int(ps.rank[w]); h != 0; h &= h - 1 {
+			k := ParamKey(w<<6 | bits.TrailingZeros64(h))
+			if c := paramCoders[k]; c != nil {
+				if ps.codes == nil {
+					ps.codes = make([]uint16, n)
+				}
+				ps.codes[i] = c(ps.vals[i])
+			}
+			i++
+		}
+	}
 	return ps
+}
+
+// ParamCoder classifies one parameter value into a downstream package's
+// dense code (a zone word, a condition keyword, ...). It must be a pure
+// function of the text.
+type ParamCoder func(value string) uint16
+
+// paramCoders is the registered coder per key; paramCodersSealed is set by
+// the first ParamSet built, after which a registration would leave earlier
+// sets without their codes.
+var (
+	paramCoders       [paramKeyCount]ParamCoder
+	paramCodersSealed atomic.Bool
+)
+
+// RegisterParamCoder makes every ParamSet built from now on store key k's
+// value classified by f, so a hot read takes the stored code (ParamCode)
+// instead of re-classifying the text on every call. Package init only: it
+// panics once a set has been built, and on a second coder for one key.
+func RegisterParamCoder(k ParamKey, f ParamCoder) {
+	if paramCodersSealed.Load() {
+		panic("cards: RegisterParamCoder after a ParamSet was built: " + paramKeyNames[k])
+	}
+	if paramCoders[k] != nil {
+		panic("cards: duplicate ParamCoder for " + paramKeyNames[k])
+	}
+	paramCoders[k] = f
+}
+
+func (ps *ParamSet) index(k ParamKey) (int, bool) {
+	w := int(k) >> 6
+	if w >= paramMaskWords {
+		return 0, false
+	}
+	h, b := ps.has[w], uint64(1)<<(k&63)
+	if h&b == 0 {
+		return 0, false
+	}
+	return int(ps.rank[w]) + bits.OnesCount64(h&(b-1)), true
+}
+
+// paramCode is key k's value code: the code stored at load when ps is bound
+// to m, else the registered coder applied to m's value. ok reports the key's
+// presence; a key with no coder answers 0.
+func paramCode(ps *ParamSet, m map[string]string, k ParamKey) (uint16, bool) {
+	if ps.bound(m) {
+		i, ok := ps.index(k)
+		if !ok {
+			return 0, false
+		}
+		if ps.codes != nil {
+			return ps.codes[i], true
+		}
+		if c := paramCoders[k]; c != nil {
+			return c(ps.vals[i]), true
+		}
+		return 0, true
+	}
+	v, ok := m[paramKeyNames[k]]
+	if !ok {
+		return 0, false
+	}
+	if c := paramCoders[k]; c != nil {
+		return c(v), true
+	}
+	return 0, true
 }
 
 // SameParamMap reports whether a and b are the same Params map instance: the
@@ -1610,6 +1693,10 @@ func (s Static) Param(k ParamKey) (string, bool) { return paramGet(s.ps, s.Param
 // ParamStr is Params[k] ("" when absent).
 func (s Static) ParamStr(k ParamKey) string { v, _ := paramGet(s.ps, s.Params, k); return v }
 
+// ParamCode is key k's value as its registered ParamCoder's code, stored at
+// load (RegisterParamCoder); ok reports the key's presence.
+func (s Static) ParamCode(k ParamKey) (uint16, bool) { return paramCode(s.ps, s.Params, k) }
+
 // HasParam reports whether key k is present.
 func (s Static) HasParam(k ParamKey) bool { _, ok := paramGet(s.ps, s.Params, k); return ok }
 
@@ -1626,6 +1713,9 @@ func (t Trigger) Param(k ParamKey) (string, bool) { return paramGet(t.ps, t.Para
 // ParamStr is Params[k] ("" when absent).
 func (t Trigger) ParamStr(k ParamKey) string { v, _ := paramGet(t.ps, t.Params, k); return v }
 
+// ParamCode is Static.ParamCode for a trigger line.
+func (t Trigger) ParamCode(k ParamKey) (uint16, bool) { return paramCode(t.ps, t.Params, k) }
+
 // HasParam reports whether key k is present.
 func (t Trigger) HasParam(k ParamKey) bool { _, ok := paramGet(t.ps, t.Params, k); return ok }
 
@@ -1634,6 +1724,9 @@ func (r Repl) Param(k ParamKey) (string, bool) { return paramGet(r.ps, r.Params,
 
 // ParamStr is Params[k] ("" when absent).
 func (r Repl) ParamStr(k ParamKey) string { v, _ := paramGet(r.ps, r.Params, k); return v }
+
+// ParamCode is Static.ParamCode for a replacement line.
+func (r Repl) ParamCode(k ParamKey) (uint16, bool) { return paramCode(r.ps, r.Params, k) }
 
 // HasParam reports whether key k is present.
 func (r Repl) HasParam(k ParamKey) bool { _, ok := paramGet(r.ps, r.Params, k); return ok }
@@ -1654,6 +1747,9 @@ func (sa *SA) Param(k ParamKey) (string, bool) { return paramGet(sa.ps, sa.Param
 
 // ParamStr is Params[k] ("" when absent).
 func (sa *SA) ParamStr(k ParamKey) string { v, _ := paramGet(sa.ps, sa.Params, k); return v }
+
+// ParamCode is Static.ParamCode for an ability.
+func (sa *SA) ParamCode(k ParamKey) (uint16, bool) { return paramCode(sa.ps, sa.Params, k) }
 
 // HasParam reports whether key k is present.
 func (sa *SA) HasParam(k ParamKey) bool { _, ok := paramGet(sa.ps, sa.Params, k); return ok }
@@ -1707,6 +1803,7 @@ func (f *Face) deriveParamSets() {
 	bindSA := func(sa *SA) {
 		for d := 0; sa != nil && d <= maxSVarDepth+1; d++ {
 			sa.ps = newParamSet(sa.Params)
+			sa.api, sa.apiBound = APICodeForName(sa.API), true
 			if sa.extSlot == nil {
 				sa.extSlot = &ExtSlot{}
 			}

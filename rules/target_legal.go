@@ -554,8 +554,8 @@ func (e *Engine) describeTargetEffect(p state.PlayerID, source state.ObjID, sa *
 	if sa.API == "Effect" {
 		out.Statics = e.grantedStaticModes(p, source, sa)
 	}
-	switch describeTargetEffectCodes.Code(string(sa.API)) {
-	case describeTargetEffectDealDamage:
+	switch sa.APIKind() {
+	case cards.APIDealDamage, cards.APIDamageAll:
 		out.Damage = &decision.DamageEffect{}
 		// A missing amount remains null even though the effect implementation
 		// has a defensive runtime default. A literal or a resolvable X/SVar is
@@ -741,12 +741,12 @@ func targetRemoval(sa *cards.SA) *decision.RemovalEffect {
 	if sa == nil {
 		return nil
 	}
-	switch targetRemovalAPICodes.Code(string(sa.API)) {
-	case targetRemovalAPIDestroy:
+	switch sa.APIKind() {
+	case cards.APIDestroy, cards.APIDestroyAll:
 		return &decision.RemovalEffect{Kind: "destroy"}
-	case targetRemovalAPISacrifice:
+	case cards.APISacrifice, cards.APISacrificeAll:
 		return &decision.RemovalEffect{Kind: "sacrifice"}
-	case targetRemovalAPIChangeZone:
+	case cards.APIChangeZone:
 		// ChangeZone's Destination$ through its compiled parameters: the
 		// zone the resolver moves to, named by its lower-case word.
 		cz := effects.ChangeZoneOf(sa)
@@ -769,7 +769,7 @@ func targetRemoval(sa *cards.SA) *decision.RemovalEffect {
 			return nil
 		}
 		return &decision.RemovalEffect{Kind: kind, Destination: cz.Destination.String()}
-	case targetRemovalAPIChangeZoneAll:
+	case cards.APIChangeZoneAll:
 		// ChangeZoneAll's Destination$ through its compiled parameters.
 		destination := effects.ChangeZoneAllOf(sa).DestinationLower
 		kind := destination
@@ -1260,35 +1260,6 @@ func nonTriggeredControllerAdmits(o *state.Object, controller state.PlayerID, ok
 // charmTargetSlots returns the selected DISTINCT target-bearing mode bodies.
 // Repeated mode instances deliberately return nil: their later occurrences
 // retain the established per-instance ask path.
-
-type describeTargetEffectCode uint16
-
-const (
-	describeTargetEffectDealDamage describeTargetEffectCode = iota + 1
-)
-
-var describeTargetEffectCodes = state.NewStrCodes(
-	state.StrEntry[describeTargetEffectCode]{Key: "DealDamage", Val: describeTargetEffectDealDamage},
-	state.StrEntry[describeTargetEffectCode]{Key: "DamageAll", Val: describeTargetEffectDealDamage},
-)
-
-type targetRemovalAPICode uint16
-
-const (
-	targetRemovalAPIDestroy targetRemovalAPICode = iota + 1
-	targetRemovalAPISacrifice
-	targetRemovalAPIChangeZone
-	targetRemovalAPIChangeZoneAll
-)
-
-var targetRemovalAPICodes = state.NewStrCodes(
-	state.StrEntry[targetRemovalAPICode]{Key: "Destroy", Val: targetRemovalAPIDestroy},
-	state.StrEntry[targetRemovalAPICode]{Key: "DestroyAll", Val: targetRemovalAPIDestroy},
-	state.StrEntry[targetRemovalAPICode]{Key: "Sacrifice", Val: targetRemovalAPISacrifice},
-	state.StrEntry[targetRemovalAPICode]{Key: "SacrificeAll", Val: targetRemovalAPISacrifice},
-	state.StrEntry[targetRemovalAPICode]{Key: "ChangeZone", Val: targetRemovalAPIChangeZone},
-	state.StrEntry[targetRemovalAPICode]{Key: "ChangeZoneAll", Val: targetRemovalAPIChangeZoneAll},
-)
 
 type targetRemovalDestCode uint16
 

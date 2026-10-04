@@ -298,7 +298,7 @@ func (e *Engine) paymentPlanDelayedTapObserver(id state.ObjID, ev events.Event) 
 		if !ok || t.Mode != dt.EventMode {
 			continue
 		}
-		fn := trigmatch.Lookup(t.Mode)
+		fn := trigmatch.LookupMode(t.ModeKind())
 		if fn == nil || !triggerLineEvents(&t).allows(ev.Kind) {
 			continue
 		}

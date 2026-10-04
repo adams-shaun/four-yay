@@ -496,7 +496,7 @@ func (e *Engine) checkEventDelayedTriggers(ev events.Event, lki *state.Object) {
 			// skip the printed-face zone gate (the creating spell may already
 			// be in the graveyard). The event mask prevents a mismatched event
 			// from reaching a matcher that assumes its own event shape.
-			fn := trigmatch.Lookup(t.Mode)
+			fn := trigmatch.LookupMode(t.ModeKind())
 			if fn == nil || !triggerLineEvents(&t).allows(ev.Kind) ||
 				!fn(boardOf(e), t, dt.Source, ev, lki) {
 				continue

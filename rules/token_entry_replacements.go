@@ -98,11 +98,9 @@ func tokenEntryBody(result, destination string, with *cards.SA) bool {
 	if result != "Updated" || destination != "Battlefield" {
 		return false
 	}
-	return tokenEntryBodySet.Has(with.API)
+	switch with.APIKind() {
+	case cards.APITap, cards.APIUntap, cards.APIPutCounter:
+		return true
+	}
+	return false
 }
-
-var tokenEntryBodySet = state.NewNameSet(
-	"Tap",
-	"Untap",
-	"PutCounter",
-)

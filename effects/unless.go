@@ -473,11 +473,11 @@ func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Tar
 	}
 	pay := unlessPayPhrase(cost)
 	prompt, payLabel, declineLabel := pay+", or decline", pay, "Don't pay"
-	switch poseUnlessAskCodes.Code(string(sa.API)) {
-	case poseUnlessAskCounter:
+	switch sa.APIKind() {
+	case cards.APICounter:
 		prompt = pay + " to save the spell, or decline"
 		payLabel = pay + " — don't counter"
-	case poseUnlessAskCopySpellAbility:
+	case cards.APICopySpellAbility:
 		if ActivationOf(sa).Has(ActUnlessSwitched) {
 			prompt = pay + " to copy the spell, or decline"
 			payLabel = pay + " — make a copy"
@@ -964,18 +964,6 @@ var unlessSubsRunCodes = state.NewStrCodes(
 	state.StrEntry[unlessSubsRunCode]{Key: "Always", Val: unlessSubsRunAlways},
 	state.StrEntry[unlessSubsRunCode]{Key: "WhenPaid", Val: unlessSubsRunWhenPaid},
 	state.StrEntry[unlessSubsRunCode]{Key: "WhenNotPaid", Val: unlessSubsRunWhenNotPaid},
-)
-
-type poseUnlessAskCode uint16
-
-const (
-	poseUnlessAskCounter poseUnlessAskCode = iota + 1
-	poseUnlessAskCopySpellAbility
-)
-
-var poseUnlessAskCodes = state.NewStrCodes(
-	state.StrEntry[poseUnlessAskCode]{Key: "Counter", Val: poseUnlessAskCounter},
-	state.StrEntry[poseUnlessAskCode]{Key: "CopySpellAbility", Val: poseUnlessAskCopySpellAbility},
 )
 
 type unlessPayerTargetsCode uint16
