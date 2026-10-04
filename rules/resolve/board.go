@@ -36,7 +36,7 @@ type Board interface {
 	// only at an intent boundary.
 	Checkpoint() Snapshot
 	// Drop recycles a checkpoint no clone can share (its resolution never
-	// posed a tape ask).
+	// posed a tape ask, or no clone was taken while it was posed).
 	Drop(s Snapshot)
 	// Restore makes the engine a copy of cp.S0 in place, keeping its Game
 	// and Log identity and the kernel's own state, rewinds the log to S0
