@@ -213,6 +213,17 @@ func (e *Engine) paymentPlanCastShapeDetailUsing(statics costStaticViews, p stat
 	if e.hasCastConvoke(id) || e.hasCastImprovise(id) || e.hasKeywordH(id, kwhDelve) {
 		return "shape:contribution"
 	}
+	// Waterbend (a RaiseCost static's Waterbend<N>, Benevolent River
+	// Spirit, or the spell's own Cost$) is the same tap-to-help credit as
+	// convoke and improvise: the cast poses its helper choice before the
+	// mana is paid, and any helper tapped there reprices the generic the
+	// witness funded (and may tap a source the witness spends), so the
+	// planned cast falls back cost_changed. potentialModeCastPlan declines it
+	// for the same reason.
+	if mods.Waterbend != 0 || mods.WaterbendX || mods.WaterbendPartX != 0 ||
+		spellCost.Waterbend != 0 || spellCost.WaterbendX {
+		return "shape:contribution"
+	}
 	if f.HasKeyword("Gift") {
 		return "shape:gift"
 	}

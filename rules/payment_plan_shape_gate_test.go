@@ -307,3 +307,23 @@ func TestPaymentPlanShapeGateAdditionalCostExecutorPays(t *testing.T) {
 		}
 	})
 }
+
+// TestPaymentPlanShapeGateWaterbend: a waterbend additional cost (Benevolent
+// River Spirit's RaiseCost static) is a tap-to-help credit like convoke: the
+// cast's helper choice reprices the generic a mana-only witness funded, so
+// the planner withholds the offer instead of falling back cost_changed
+// (cardfuzz -autopay mixed planfb on Benevolent River Spirit).
+func TestPaymentPlanShapeGateWaterbend(t *testing.T) {
+	t.Parallel()
+	src := "Name:Waterbend Gate Spell\nManaCost:B\nTypes:Instant\n" +
+		"S:Mode$ RaiseCost | ValidCard$ Card.Self | Activator$ You | Type$ Spell | Cost$ Waterbend<1> | EffectZone$ All\n" +
+		"A:SP$ Draw | NumCards$ 1\nOracle:test\n"
+	e, _, spell := newFixtureDeck(t, 9601, src)
+	onBoard(t, e, 0, "Name:Swamp\nTypes:Basic Land Swamp\nOracle:test\n")
+	onBoard(t, e, 0, "Name:Swamp\nTypes:Basic Land Swamp\nOracle:test\n")
+	onBoard(t, e, 0, "Name:Helper\nManaCost:1\nTypes:Artifact\nOracle:test\n")
+	got := e.PlanCastPayment(0, paymentCast(spell))
+	if got.Plan != nil || got.Reason != "unsupported" || got.Detail != "shape:contribution" {
+		t.Fatalf("plan outcome = %+v, want unsupported detail shape:contribution", got)
+	}
+}
