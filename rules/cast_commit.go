@@ -146,16 +146,16 @@ func (e *Engine) payCast() {
 			}
 			e.emit(events.Event{Kind: events.Choose, Obj: pc.card, Counter: "noted-mana", Text: noted})
 		}
-		if pc.payLife != 0 {
-			e.emit(events.Event{Kind: events.LifeChange, Player: pc.player, Amount: -pc.payLife})
+		if pc.PayLife != 0 {
+			e.emit(events.Event{Kind: events.LifeChange, Player: pc.player, Amount: -pc.PayLife})
 		}
 		// An activated ability's announced waterbend taps (pc.convoke) become
 		// tapped as part of paying the cost, the same Tap event a cast's
 		// Convoke/Harmonize/Improvise contributions emit (CR 701.67a).
 		waterbent := false
-		for _, pay := range pc.convoke {
-			e.emit(events.Event{Kind: events.Tap, Obj: pay.id})
-			waterbent = waterbent || pay.waterbend
+		for _, pay := range pc.Convoke {
+			e.emit(events.Event{Kind: events.Tap, Obj: pay.ID})
+			waterbent = waterbent || pay.Waterbend
 		}
 		if waterbent {
 			e.emit(events.Event{Kind: events.ElementalBend, Obj: pc.card, Player: pc.player, Text: "water"})
@@ -447,13 +447,13 @@ func (e *Engine) payCast() {
 	// keeps one record per spent unit, so a cast that spent ordinary (or only
 	// restricted) mana emits no rider event and stays byte-identical.
 	pc.addsCounterGrants = append([]state.ManaAddsCounterGrant(nil), e.ManaSpentAddsCounters...)
-	if pc.payLife != 0 {
-		e.emit(events.Event{Kind: events.LifeChange, Player: pc.player, Amount: -pc.payLife})
+	if pc.PayLife != 0 {
+		e.emit(events.Event{Kind: events.LifeChange, Player: pc.player, Amount: -pc.PayLife})
 	}
 	waterbent := false
-	for _, pay := range pc.convoke {
-		e.emit(events.Event{Kind: events.Tap, Obj: pay.id})
-		waterbent = waterbent || pay.waterbend
+	for _, pay := range pc.Convoke {
+		e.emit(events.Event{Kind: events.Tap, Obj: pay.ID})
+		waterbent = waterbent || pay.Waterbend
 	}
 	if waterbent {
 		e.emit(events.Event{Kind: events.ElementalBend, Obj: pc.card, Player: pc.player, Text: "water"})
@@ -784,13 +784,13 @@ func (e *Engine) payCast() {
 	// (faceWantsConvoked), so every unrelated convoke cast stays
 	// byte-identical; no accumulation means no later CastInfo carries it,
 	// so its arm's position in the newest-first switch is order-independent.
-	if len(pc.convoke) > 0 && faceWantsConvoked(e.G.Obj(pc.card).Face()) {
-		ids := make([]state.ObjID, 0, len(pc.convoke))
-		seen := make(map[state.ObjID]bool, len(pc.convoke))
-		for _, pay := range pc.convoke {
-			if !seen[pay.id] {
-				seen[pay.id] = true
-				ids = append(ids, pay.id)
+	if len(pc.Convoke) > 0 && faceWantsConvoked(e.G.Obj(pc.card).Face()) {
+		ids := make([]state.ObjID, 0, len(pc.Convoke))
+		seen := make(map[state.ObjID]bool, len(pc.Convoke))
+		for _, pay := range pc.Convoke {
+			if !seen[pay.ID] {
+				seen[pay.ID] = true
+				ids = append(ids, pay.ID)
 			}
 		}
 		cvFlags := events.FlagsString(events.FlagsFrom(flags) | state.FlagConvoked)
@@ -874,7 +874,7 @@ func (e *Engine) payCast() {
 	// Improvise, free casts and ability activations do not spend mana. The
 	// tally update runs BEFORE the emit, so the matcher reads the post-payment
 	// total.
-	if spend := manaSpentTotal(spentMana) + convokeManaSpent(pc.convoke); spend > 0 {
+	if spend := manaSpentTotal(spentMana) + convokeManaSpent(pc.Convoke); spend > 0 {
 		e.manaExpendAdd(pc.player, spend)
 		if e.manaExpendReaderOut(pc.player) {
 			meFlags := events.FlagsString(events.FlagsFrom(flags) | state.FlagManaExpendCast)
@@ -884,12 +884,12 @@ func (e *Engine) payCast() {
 	// Compleated's life-paid amount is deliberately the FINAL CastInfo: all
 	// earlier payment captures may carry accumulated flags, so this event
 	// must not be followed by one that routes its Amount elsewhere.
-	if pc.payLife > 0 && !pc.isAbility() {
+	if pc.PayLife > 0 && !pc.isAbility() {
 		if o := e.G.Obj(pc.card); o != nil && o.Face() != nil {
 			for _, keyword := range o.Face().Keywords {
 				if strings.EqualFold(strings.TrimSpace(keyword), "Compleated") {
 					cf := events.FlagsString(events.FlagsFrom(flags) | state.FlagCompleated)
-					e.emit(events.Event{Kind: events.CastInfo, Obj: pc.card, Amount: pc.payLife, Counter: cf})
+					e.emit(events.Event{Kind: events.CastInfo, Obj: pc.card, Amount: pc.PayLife, Counter: cf})
 					break
 				}
 			}

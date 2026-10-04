@@ -610,16 +610,18 @@ func cloneFieldsEngineContinuation(c, e *Engine, sp *Spare, remap *cloneRemap) {
 	}
 	if e.cast != nil {
 		p0 := *e.cast
-		if e.cast.payment != nil {
-			p1 := *e.cast.payment
-			p1.plan = decision.ClonePaymentPlan(e.cast.payment.plan)
-			p0.payment = &p1
+		if e.cast.CastPayment.Payment != nil {
+			p2 := *e.cast.CastPayment.Payment
+			p2.Plan = decision.ClonePaymentPlan(e.cast.CastPayment.Payment.Plan)
+			p0.CastPayment.Payment = &p2
 		}
-		if e.cast.paymentFallback != nil {
-			v := *e.cast.paymentFallback
-			p0.paymentFallback = &v
+		if e.cast.CastPayment.PaymentFallback != nil {
+			v := *e.cast.CastPayment.PaymentFallback
+			p0.CastPayment.PaymentFallback = &v
 		}
-		p0.windowTaps = cloneWindowTaps(e.cast.windowTaps)
+		p0.CastPayment.WindowTaps = pay.CloneWindowTaps(e.cast.CastPayment.WindowTaps)
+		p0.CastPayment.SubCounterPays = append([]pay.SubCounterPay(nil), e.cast.CastPayment.SubCounterPays...)
+		p0.CastPayment.Convoke = append([]pay.ConvokePayment(nil), e.cast.CastPayment.Convoke...)
 		p0.cost = cloneCost(e.cast.cost)
 		if e.cast.mayPlayRemembered != nil {
 			p0.mayPlayRemembered = make(map[state.ObjID][]state.ObjID, len(e.cast.mayPlayRemembered))
@@ -646,8 +648,6 @@ func cloneFieldsEngineContinuation(c, e *Engine, sp *Spare, remap *cloneRemap) {
 		p0.PaidCost.Taps = append([]state.ObjID(nil), e.cast.PaidCost.Taps...)
 		p0.PaidCost.Blights = append([]state.ObjID(nil), e.cast.PaidCost.Blights...)
 		p0.PaidCost.RevealHandArm = append([]bool(nil), e.cast.PaidCost.RevealHandArm...)
-		p0.subCounterPays = append([]pay.SubCounterPay(nil), e.cast.subCounterPays...)
-		p0.convoke = append([]convokePayment(nil), e.cast.convoke...)
 		p0.mods = cloneCastMods(e.cast.mods)
 		p0.preModes = append([]string(nil), e.cast.preModes...)
 		p0.targets = append([]state.Target(nil), e.cast.targets...)

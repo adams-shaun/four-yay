@@ -541,7 +541,7 @@ func TestPaymentPlanLastResortLethalBeforeLaterStep(t *testing.T) {
 		t.Fatalf("offered plan = %s, want Tomb then Confluence", lrPlanString(plan.Activations))
 	}
 	pc := e.cast
-	if pc == nil || pc.payment == nil {
+	if pc == nil || pc.Payment == nil {
 		t.Fatal("precondition: the planned cast is not pending on its target")
 	}
 	if reason := e.paymentPlanCheck(pc); reason != "" {
@@ -551,8 +551,8 @@ func TestPaymentPlanLastResortLethalBeforeLaterStep(t *testing.T) {
 	if reason := e.paymentPlanCheck(pc); reason != paymentFallbackCostChanged {
 		t.Fatalf("check at life 3 before the first step = %q, want cost_changed", reason)
 	}
-	pc.paymentNext = 1 // the Tomb step counted as completed
-	defer func() { pc.paymentNext = 0 }()
+	pc.PaymentNext = 1 // the Tomb step counted as completed
+	defer func() { pc.PaymentNext = 0 }()
 	lrSetLife(e, 0, 1)
 	if reason := e.paymentPlanCheck(pc); reason != paymentFallbackCostChanged {
 		t.Fatalf("check before the Confluence at life 1 = %q, want cost_changed", reason)

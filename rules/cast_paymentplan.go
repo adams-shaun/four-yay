@@ -7,12 +7,8 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// plannedCastPayment is deliberately private continuation state rather than
-// an alternate payment engine.  Its plan is deep-copied at Submit and Clone.
-type plannedCastPayment struct {
-	actionID string
-	plan     decision.PaymentPlan
-}
+// plannedCastPayment is the cast's planned payment (pay.PlannedCastPayment).
+type plannedCastPayment = pay.PlannedCastPayment
 
 // The spec §6 PaymentFallback vocabulary. It is closed: a plan that stops
 // names exactly one of these on the manual window the cast returns to.
@@ -28,13 +24,13 @@ const (
 // the ordinary manual window, and completed activations (and the mana they
 // floated) stay exactly as they are -- no rollback, no substitute source.
 func (e *Engine) paymentPlanFallback(pc *pendingCast, reason string) {
-	if pc == nil || pc.payment == nil {
+	if pc == nil || pc.Payment == nil {
 		return
 	}
-	pc.paymentFallback = &decision.PaymentFallback{PlanID: pc.payment.plan.ID, Reason: reason}
+	pc.PaymentFallback = &decision.PaymentFallback{PlanID: pc.Payment.Plan.ID, Reason: reason}
 	e.PaymentStats.RecordFallback(reason)
-	pc.payment = nil
-	pc.paymentNext = 0
+	pc.Payment = nil
+	pc.PaymentNext = 0
 }
 
 // castPaymentMana is the mana a pending cast's CR 601.2h payment charges: the
@@ -86,12 +82,12 @@ func (e *Engine) paymentPlanCheck(pc *pendingCast) string {
 func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUnit, pay.Alt, bool) {
 	// A pure read: one zone-entry index serves every remaining step.
 	defer pay.PaymentPlanQueryEnd(asPayer(e), pay.PaymentPlanQueryBegin(asPayer(e)))
-	plan := pc.payment.plan
+	plan := pc.Payment.Plan
 	cost := e.castPaymentMana(pc)
 	if plan.Version != decision.PaymentPlanV1 || plan.Cost != pay.WireCost(cost) {
 		return paymentFallbackCostChanged, nil, pay.Alt{}, false
 	}
-	next := pc.paymentNext
+	next := pc.PaymentNext
 	// The lethal guard, re-read before every step (spec §6): the remaining
 	// steps' disclosed life + damage must still leave the caster alive. A
 	// life total lowered since the offer (or by an earlier step's replaced
@@ -158,7 +154,7 @@ func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUni
 // the caller's check also resolved the step to run (checked), at the same
 // state and with the same census, so it is not resolved again.
 func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []windowManaUnit, checked pay.Alt, ready bool) bool {
-	pa := pc.payment.plan.Activations[pc.paymentNext]
+	pa := pc.Payment.Plan.Activations[pc.PaymentNext]
 	// Activate the exact alternative the step names -- the one whose ability
 	// identity AND production equal the witness -- never the first ability
 	// sharing the identity: a dual land's intrinsic {U} and {R} abilities are
@@ -186,12 +182,12 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 		}
 	}
 	ma := step.Ma
-	if pc.announced {
+	if pc.Announced {
 		// An Auto-fill step of an announced window is an in-window
 		// activation too: Undo last tap and Cancel cast may reverse it.
 		e.beginWindowTap(pc, pa.Source, step.Tier == pay.TierNormal)
 	}
-	pc.paymentNext++ // a synchronous continuation may re-enter payCast.
+	pc.PaymentNext++ // a synchronous continuation may re-enter payCast.
 	// The planner already resolved the exact ability to run: the original for
 	// fixed production, or a withProduced copy carrying the selected colour
 	// for Any/Combo/Chosen/ColorIdentity. Resolve step.exec while retaining
@@ -254,13 +250,13 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 // PaymentFallback.
 func (e *Engine) manaWindowAsk() bool {
 	pc := e.cast
-	if pc == nil || pc.windowDone {
+	if pc == nil || pc.WindowDone {
 		return false
 	}
-	if pc.payment != nil {
+	if pc.Payment != nil {
 		if reason, units, step, ready := e.paymentPlanCheckUnits(pc); reason != "" {
 			e.paymentPlanFallback(pc, reason)
-		} else if pc.paymentNext < len(pc.payment.plan.Activations) && e.executePlannedManaActivationUnits(pc, units, step, ready) {
+		} else if pc.PaymentNext < len(pc.Payment.Plan.Activations) && e.executePlannedManaActivationUnits(pc, units, step, ready) {
 			return true
 		}
 	}
@@ -281,12 +277,12 @@ func (e *Engine) manaWindowAsk() bool {
 		pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}, mana, false) {
 		return false
 	}
-	if pc.announced {
+	if pc.Announced {
 		// Announce then pay: the "select mana" window, posed even with no
 		// untapped source left so the caster can undo or cancel. A plan
 		// (Auto-fill) that ran every step yet left the pool short falls back
 		// into it with its reason, as a planned cast does.
-		if pc.payment != nil {
+		if pc.Payment != nil {
 			reason := e.paymentPlanCheck(pc)
 			if reason == "" {
 				reason = paymentFallbackProductionChanged
@@ -304,7 +300,7 @@ func (e *Engine) manaWindowAsk() bool {
 	if len(sources) == 0 {
 		return false
 	}
-	if pc.payment != nil {
+	if pc.Payment != nil {
 		// Every step ran and checked, yet the pool cannot pay: the manual
 		// window never appears during a planned cast without saying why.
 		reason := e.paymentPlanCheck(pc)
@@ -316,8 +312,8 @@ func (e *Engine) manaWindowAsk() bool {
 	name := e.G.Obj(pc.card).Face().Name
 	d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: 1, Max: 1,
 		Prompt: "Activate mana abilities to pay for " + name, Source: pc.card}
-	if pc.paymentFallback != nil {
-		f := *pc.paymentFallback
+	if pc.PaymentFallback != nil {
+		f := *pc.PaymentFallback
 		d.PaymentFallback = &f
 	}
 	for _, id := range sources {
@@ -345,17 +341,7 @@ func (e *Engine) manaWindowAsk() bool {
 // mana window and from a later convoke announcement, or it could be activated
 // for mana and then tapped a second time).
 func (e *Engine) convokeCommitted(pc *pendingCast, id state.ObjID) bool {
-	for _, pay := range pc.convoke {
-		if pay.id == id {
-			return true
-		}
-	}
-	for _, tid := range pc.Taps {
-		if tid == id {
-			return true
-		}
-	}
-	return false
+	return pc.Committed(&pc.PaidCost, id)
 }
 
 // untappedManaSource reports whether id is an untapped permanent under

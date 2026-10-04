@@ -131,8 +131,8 @@ func (e *Engine) forageAsk() bool {
 
 func (e *Engine) revealCostAsk() bool {
 	pc := e.cast
-	for pc.revealPart < len(pc.cost.Reveal) {
-		part := pc.cost.Reveal[pc.revealPart]
+	for pc.RevealPart < len(pc.cost.Reveal) {
+		part := pc.cost.Reveal[pc.RevealPart]
 		// A whole-hand Reveal (Reveal<N/Hand>) settles without asking: it
 		// reveals the payer's whole hand AS IT STANDS at payment. For a CAST
 		// the spell being paid for has already moved to the stack (CR 601.2a)
@@ -156,7 +156,7 @@ func (e *Engine) revealCostAsk() bool {
 			if len(hand) == 0 {
 				pc.RevealedEmptyHand = true
 			}
-			pc.revealPart++
+			pc.RevealPart++
 			continue
 		}
 		// Relational SameColor (Illuminated Folio): SameColor matches no card
@@ -178,7 +178,7 @@ func (e *Engine) revealCostAsk() bool {
 				for range cands {
 					pc.RevealHandArm = append(pc.RevealHandArm, true)
 				}
-				pc.revealPart++
+				pc.RevealPart++
 				continue
 			}
 			d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: int(part.N), Max: int(part.N),
@@ -202,7 +202,7 @@ func (e *Engine) revealCostAsk() bool {
 			for range candidates {
 				pc.RevealHandArm = append(pc.RevealHandArm, true)
 			}
-			pc.revealPart++
+			pc.RevealPart++
 			continue
 		}
 		d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: int(part.N), Max: int(part.N),
@@ -230,8 +230,8 @@ func (e *Engine) revealCostAsk() bool {
 // list) with a parallel pc.revealHandArm marking which arm each came from.
 func (e *Engine) revealCostOrChooseAsk() bool {
 	pc := e.cast
-	for pc.revealOrChoosePart < len(pc.cost.RevealOrChoose) {
-		part := pc.cost.RevealOrChoose[pc.revealOrChoosePart]
+	for pc.RevealOrChoosePart < len(pc.cost.RevealOrChoose) {
+		part := pc.cost.RevealOrChoose[pc.RevealOrChoosePart]
 		hand, battlefield := pay.RevealOrChooseCandidates(asPayer(e), pc.player, pc.card, part)
 		handViable := len(hand) >= int(part.N)
 		bfViable := len(battlefield) >= int(part.N)
@@ -259,7 +259,7 @@ func (e *Engine) revealCostOrChooseAsk() bool {
 				for range hand {
 					pc.RevealHandArm = append(pc.RevealHandArm, true)
 				}
-				pc.revealOrChoosePart++
+				pc.RevealOrChoosePart++
 				continue
 			}
 			d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: int(part.N), Max: int(part.N),
@@ -276,7 +276,7 @@ func (e *Engine) revealCostOrChooseAsk() bool {
 				for range battlefield {
 					pc.RevealHandArm = append(pc.RevealHandArm, false)
 				}
-				pc.revealOrChoosePart++
+				pc.RevealOrChoosePart++
 				continue
 			}
 			d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: int(part.N), Max: int(part.N),
@@ -294,8 +294,8 @@ func (e *Engine) revealCostOrChooseAsk() bool {
 
 func (e *Engine) beholdCostAsk() bool {
 	pc := e.cast
-	for pc.beholdPart < len(pc.cost.Behold) {
-		part := pc.cost.Behold[pc.beholdPart]
+	for pc.BeholdPart < len(pc.cost.Behold) {
+		part := pc.cost.Behold[pc.BeholdPart]
 		candidates := append(pay.CostCandidates(asPayer(e), pc.player, pc.card, state.ZBattlefield, part.Spec, false, false),
 			pay.CostCandidates(asPayer(e), pc.player, pc.card, state.ZHand, part.Spec, true, false)...)
 		if len(candidates) < int(part.N) {
@@ -304,7 +304,7 @@ func (e *Engine) beholdCostAsk() bool {
 		}
 		if len(candidates) == int(part.N) {
 			pc.Beholds = append(pc.Beholds, candidates...)
-			pc.beholdPart++
+			pc.BeholdPart++
 			continue
 		}
 		d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: int(part.N), Max: int(part.N),
@@ -327,8 +327,8 @@ func (e *Engine) tapPermanentCostAsk() bool {
 	// Decision.MinSum the client and bot enforce all read the ONE TapPowerValue
 	// value (a Pilot's power+2, Giant Ox's toughness).
 	tapKind := tapCostSAKind(e.pcAbility(pc))
-	for pc.tapPart < len(pc.cost.TapPermanent) {
-		part := pc.cost.TapPermanent[pc.tapPart]
+	for pc.TapPart < len(pc.cost.TapPermanent) {
+		part := pc.cost.TapPermanent[pc.TapPart]
 		candidates := pay.TapCostCandidates(asPayer(e), pc.player, pc.card, part)
 		// One permanent can never pay two parts of the same cost, so the
 		// candidate filter claims everything an earlier stage already recorded:
@@ -339,13 +339,13 @@ func (e *Engine) tapPermanentCostAsk() bool {
 		// alike -- the source itself when a {T} in the same cost will tap it at
 		// payCast (Forge CostTap): the {T} and the tapXType can never spend one
 		// permanent twice.
-		if len(pc.Taps) > 0 || len(pc.convoke) > 0 || pc.cost.Tap {
-			taken := make(map[state.ObjID]bool, len(pc.Taps)+len(pc.convoke)+1)
+		if len(pc.Taps) > 0 || len(pc.Convoke) > 0 || pc.cost.Tap {
+			taken := make(map[state.ObjID]bool, len(pc.Taps)+len(pc.Convoke)+1)
 			for _, id := range pc.Taps {
 				taken[id] = true
 			}
-			for _, pay := range pc.convoke {
-				taken[pay.id] = true
+			for _, pay := range pc.Convoke {
+				taken[pay.ID] = true
 			}
 			if pc.cost.Tap {
 				taken[pc.card] = true
@@ -368,12 +368,12 @@ func (e *Engine) tapPermanentCostAsk() bool {
 				return true
 			}
 			if n == 0 {
-				pc.tapPart++
+				pc.TapPart++
 				continue
 			}
 			if n == len(candidates) {
 				pc.Taps = append(pc.Taps, candidates...)
-				pc.tapPart++
+				pc.TapPart++
 				continue
 			}
 			d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: n, Max: n,
@@ -418,7 +418,7 @@ func (e *Engine) tapPermanentCostAsk() bool {
 			// with X = 0 and no taps, mirroring triggeredTapAsk's decline.
 			if part.Dyn == "X" && !pc.xDone && len(candidates) == 0 {
 				pc.x = 0
-				pc.tapPart++
+				pc.TapPart++
 				continue
 			}
 			if part.Dyn == "X" && pc.xDone {
@@ -439,7 +439,7 @@ func (e *Engine) tapPermanentCostAsk() bool {
 					e.ask(d)
 					return true
 				}
-				pc.tapPart++
+				pc.TapPart++
 				continue
 			}
 			// The election announces the count: Min 0 for the X form (X = 0 is
@@ -482,7 +482,7 @@ func (e *Engine) tapPermanentCostAsk() bool {
 		}
 		if len(candidates) == int(part.N) {
 			pc.Taps = append(pc.Taps, candidates...)
-			pc.tapPart++
+			pc.TapPart++
 			continue
 		}
 		d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: int(part.N), Max: int(part.N),
@@ -503,12 +503,12 @@ func (e *Engine) tapPermanentCostAsk() bool {
 
 func (e *Engine) blightCostAsk() bool {
 	pc := e.cast
-	for pc.blightPart < len(pc.cost.Blight) {
+	for pc.BlightPart < len(pc.cost.Blight) {
 		// An announced Blight<X> part's count is the announced X, which does
 		// not exist until xAsk has run; skip it here (returning false so the
 		// later stages run) and let the post-xAsk call in continueCast settle
 		// it. Fixed Blight<N> parts are unaffected.
-		if pc.cost.Blight[pc.blightPart].Announced && !pc.xDone {
+		if pc.cost.Blight[pc.BlightPart].Announced && !pc.xDone {
 			return false
 		}
 		candidates := pay.CostCandidates(asPayer(e), pc.player, pc.card, state.ZBattlefield, "Creature.YouCtrl", false, false)
@@ -518,7 +518,7 @@ func (e *Engine) blightCostAsk() bool {
 		}
 		if len(candidates) == 1 {
 			pc.Blights = append(pc.Blights, candidates[0])
-			pc.blightPart++
+			pc.BlightPart++
 			continue
 		}
 		d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: 1, Max: 1,
@@ -547,8 +547,8 @@ func (e *Engine) exAsk() bool {
 	// ExileFromTop is settled after the mana window, immediately before payment:
 	// a mana ability may draw or reorder the library, so locking IDs here would
 	// pay a card that is no longer on top. There is no chooser for this cost.
-	for pc.exilePart < len(pc.cost.Exile) {
-		part := pc.cost.Exile[pc.exilePart]
+	for pc.ExilePart < len(pc.cost.Exile) {
+		part := pc.cost.Exile[pc.ExilePart]
 		zone := part.Zone
 		if zone == 0 {
 			zone = state.ZHand
@@ -625,7 +625,7 @@ func (e *Engine) exAsk() bool {
 			return true
 		}
 		if n == 0 {
-			pc.exilePart++
+			pc.ExilePart++
 			continue
 		}
 		if isWholeZoneExileSpec(part.Spec) {
@@ -635,7 +635,7 @@ func (e *Engine) exAsk() bool {
 			// demands part.N cards. No cast/activation corpus carrier exists
 			// today; the wiring keeps the paths from diverging.
 			pc.Exiles = append(pc.Exiles, candidates...)
-			pc.exilePart++
+			pc.ExilePart++
 			continue
 		}
 		// A singleton self-reference (encore's ExileFromGrave<1/CARDNAME>, the
@@ -643,7 +643,7 @@ func (e *Engine) exAsk() bool {
 		if !part.Announced && part.N == 1 && len(candidates) == 1 && candidates[0] == pc.card &&
 			strings.EqualFold(part.Spec, "CARDNAME") {
 			pc.Exiles = append(pc.Exiles, pc.card)
-			pc.exilePart++
+			pc.ExilePart++
 			continue
 		}
 		zoneName := "hand"

@@ -148,9 +148,9 @@ func (e *Engine) xAsk() bool {
 	// below handles coloured costs before generic reductions; this bound need
 	// only be a safe finite ceiling.
 	credit := int32(0)
-	for _, pay := range pc.convoke {
-		if pay.power > 0 {
-			credit += pay.power
+	for _, pay := range pc.Convoke {
+		if pay.Power > 0 {
+			credit += pay.Power
 		} else {
 			credit++
 		}
@@ -387,7 +387,7 @@ func (e *Engine) xAsk() bool {
 		if usedPotential {
 			convMana = e.manaToPayXUsing(pc, x, potentialMods)
 		}
-		if !e.convokeAbsorbs(pc, convMana, pc.convoke, false) {
+		if !e.convokeAbsorbs(pc, convMana, pc.Convoke, false) {
 			continue
 		}
 		// Waterbend taps pay only the waterbend amount, which the fixed
@@ -397,7 +397,7 @@ func (e *Engine) xAsk() bool {
 		// whenever the cost carries an X-form part -- is what stops an over-
 		// announced tap from being credited against an unrelated generic
 		// component (CR 701.67a).
-		if waterbendTaps(pc.convoke) > waterbendCap(pc.mods, x) {
+		if waterbendTaps(pc.Convoke) > waterbendCap(pc.mods, x) {
 			continue
 		}
 		legal = append(legal, x)
@@ -415,7 +415,7 @@ func (e *Engine) xAsk() bool {
 		// resurrected here -- payCast would settle it by letting a tap pay
 		// a non-waterbend generic component, which CR 701.67a forbids.
 		for x := min; x <= maxOld; x++ {
-			if waterbendTaps(pc.convoke) > waterbendCap(pc.mods, x) {
+			if waterbendTaps(pc.Convoke) > waterbendCap(pc.mods, x) {
 				continue
 			}
 			vals = append(vals, x)
@@ -565,14 +565,14 @@ func (e *Engine) delveAsk() bool {
 // never posed, and the settlement event records the object for replay.
 func (e *Engine) subCounterAsk() bool {
 	pc := e.cast
-	for pc.subCounterPart < len(pc.cost.SubCounter) {
-		part := pc.cost.SubCounter[pc.subCounterPart]
+	for pc.SubCounterPart < len(pc.cost.SubCounter) {
+		part := pc.cost.SubCounter[pc.SubCounterPart]
 		amt := part.N
 		if part.Announced {
 			amt = pc.x
 		}
 		if amt <= 0 {
-			pc.subCounterPart++
+			pc.SubCounterPart++
 			continue
 		}
 		reserved := pc.subCounterReservations()
@@ -583,7 +583,7 @@ func (e *Engine) subCounterAsk() bool {
 			continue
 		}
 		if subCounterTargetsSource(part.Target) {
-			pc.subCounterPart++
+			pc.SubCounterPart++
 			continue
 		}
 		candidates := pay.SubCounterRemovalCandidates(asPayer(e), pc.player, pc.card, part, amt, reserved)
@@ -592,8 +592,8 @@ func (e *Engine) subCounterAsk() bool {
 			return true
 		}
 		if len(candidates) == 1 {
-			pc.subCounterPays = append(pc.subCounterPays, subCounterPay{Part: pc.subCounterPart, Obj: candidates[0]})
-			pc.subCounterPart++
+			pc.SubCounterPays = append(pc.SubCounterPays, subCounterPay{Part: pc.SubCounterPart, Obj: candidates[0]})
+			pc.SubCounterPart++
 			continue
 		}
 		d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: 1, Max: 1, Prompt: "Choose a permanent to remove " + e.subCounterPhrase(part, amt) + " from", Source: pc.card}
@@ -616,8 +616,8 @@ func (pc *pendingCast) subCounterReservations() map[state.ObjID]bool {
 	for _, s := range pc.Sacs {
 		reserved[s] = true
 	}
-	for _, p := range pc.subCounterPays {
-		if p.Part != pc.subCounterPart {
+	for _, p := range pc.SubCounterPays {
+		if p.Part != pc.SubCounterPart {
 			reserved[p.Obj] = true
 		}
 	}
@@ -636,8 +636,8 @@ func (pc *pendingCast) subCounterReservations() map[state.ObjID]bool {
 func (e *Engine) wildcardCounterAsk(pc *pendingCast, part CostPart, amt int32) bool {
 	picked := int32(0)
 	used := map[state.ObjID]map[string]int32{}
-	for _, p := range pc.subCounterPays {
-		if p.Part != pc.subCounterPart {
+	for _, p := range pc.SubCounterPays {
+		if p.Part != pc.SubCounterPart {
 			continue
 		}
 		picked++
@@ -647,7 +647,7 @@ func (e *Engine) wildcardCounterAsk(pc *pendingCast, part CostPart, amt int32) b
 		used[p.Obj][p.Kind]++
 	}
 	if picked >= amt {
-		pc.subCounterPart++
+		pc.SubCounterPart++
 		return false
 	}
 	candidates := pay.SubCounterRemovalCandidates(asPayer(e), pc.player, pc.card, part, 1, pc.subCounterReservations())
@@ -680,7 +680,7 @@ func (e *Engine) wildcardCounterAsk(pc *pendingCast, part CostPart, amt int32) b
 		return true
 	}
 	if len(choices) == 1 {
-		pc.subCounterPays = append(pc.subCounterPays, subCounterPay{Part: pc.subCounterPart, Obj: choices[0].obj, Kind: choices[0].kind})
+		pc.SubCounterPays = append(pc.SubCounterPays, subCounterPay{Part: pc.SubCounterPart, Obj: choices[0].obj, Kind: choices[0].kind})
 		return false
 	}
 	d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: 1, Max: 1, Prompt: "Choose a counter to remove", Source: pc.card}
@@ -723,7 +723,7 @@ func (e *Engine) settleSubCounterParts(pc *pendingCast) {
 		// chosen kind); a fixed-kind filtered part has one, carrying the
 		// object it removes the whole amount from.
 		var pays []subCounterPay
-		for _, p := range pc.subCounterPays {
+		for _, p := range pc.SubCounterPays {
 			if p.Part == partIdx {
 				pays = append(pays, p)
 			}
@@ -816,8 +816,8 @@ func (e *Engine) settleSubCounterParts(pc *pendingCast) {
 // the pre-offer board and the Note leaves nothing behind.
 func (e *Engine) sacAsk() bool {
 	pc := e.cast
-	for pc.sacPart < len(pc.cost.Sac) {
-		part := pc.cost.Sac[pc.sacPart]
+	for pc.SacPart < len(pc.cost.Sac) {
+		part := pc.cost.Sac[pc.SacPart]
 		var candidates []state.ObjID
 		for _, oid := range pay.SacrificeCostCandidates(asPayer(e), pc.player, pc.card, part, pc.isAbility()) {
 			already := false
@@ -827,7 +827,7 @@ func (e *Engine) sacAsk() bool {
 					break
 				}
 			}
-			if !already && (!pc.emerge || pc.sacPart != 0 || e.emergeSacPayable(pc, oid)) {
+			if !already && (!pc.emerge || pc.SacPart != 0 || e.emergeSacPayable(pc, oid)) {
 				candidates = append(candidates, oid)
 			}
 		}
@@ -839,15 +839,15 @@ func (e *Engine) sacAsk() bool {
 			// board cannot shrink between announcement and this settle.
 			n = int(pc.x)
 			if n == 0 {
-				pc.sacPart++
-				pc.sacPaid = 0
+				pc.SacPart++
+				pc.SacPaid = 0
 				continue
 			}
 		}
-		n -= pc.sacPaid
+		n -= pc.SacPaid
 		if n <= 0 {
-			pc.sacPart++
-			pc.sacPaid = 0
+			pc.SacPart++
+			pc.SacPaid = 0
 			continue
 		}
 		// Continuation feasibility only matters when a LATER Sac part exists:
@@ -861,7 +861,7 @@ func (e *Engine) sacAsk() bool {
 		// the wire shape TestSacrificedAmountCountsSacrificedObjects,
 		// announceSacX and the Sac<X> reduction offers pin (one N-of decision,
 		// not N one-of asks).
-		hasLaterSac := pc.sacPart+1 < len(pc.cost.Sac)
+		hasLaterSac := pc.SacPart+1 < len(pc.cost.Sac)
 		if hasLaterSac {
 			pools := make([][]state.ObjID, len(pc.cost.Sac))
 			needs := make([]int, len(pc.cost.Sac))
@@ -870,12 +870,12 @@ func (e *Engine) sacAsk() bool {
 				if futurePart.Announced {
 					needs[i] = int(pc.x)
 				}
-				if i == pc.sacPart {
-					needs[i] -= pc.sacPaid
+				if i == pc.SacPart {
+					needs[i] -= pc.SacPaid
 				}
 				pools[i] = pay.SacrificeCostCandidates(asPayer(e), pc.player, pc.card, futurePart, pc.isAbility())
 			}
-			candidates = pay.FeasibleSacrificeChoices(candidates, pools, needs, pc.Sacs, pc.sacPart)
+			candidates = pay.FeasibleSacrificeChoices(candidates, pools, needs, pc.Sacs, pc.SacPart)
 		}
 		if n <= 0 || n > len(candidates) {
 			// A cost that can no longer be fully paid must not commit half
@@ -910,8 +910,8 @@ func (e *Engine) sacAsk() bool {
 		if part.N == 1 && len(candidates) == 1 && candidates[0] == pc.card &&
 			(strings.EqualFold(part.Spec, "CARDNAME") || strings.EqualFold(part.Spec, "NICKNAME")) {
 			pc.Sacs = append(pc.Sacs, pc.card)
-			pc.sacPart++
-			pc.sacPaid = 0
+			pc.SacPart++
+			pc.SacPaid = 0
 			continue
 		}
 		verb := "cast"
@@ -953,8 +953,8 @@ func (e *Engine) sacAsk() bool {
 // so an abort cannot leave a partially paid cost on the board.
 func (e *Engine) discardAsk() bool {
 	pc := e.cast
-	for pc.discardPart < len(pc.cost.Discard) {
-		part := pc.cost.Discard[pc.discardPart]
+	for pc.DiscardPart < len(pc.cost.Discard) {
+		part := pc.cost.Discard[pc.DiscardPart]
 		reserved := make(map[state.ObjID]bool, len(pc.Discards))
 		for _, id := range pc.Discards {
 			reserved[id] = true
@@ -963,7 +963,7 @@ func (e *Engine) discardAsk() bool {
 
 		if strings.EqualFold(part.Spec, "Hand") {
 			pc.Discards = append(pc.Discards, candidates...)
-			pc.discardPart++
+			pc.DiscardPart++
 			continue
 		}
 		n := int(part.N)
@@ -972,7 +972,7 @@ func (e *Engine) discardAsk() bool {
 			// X = 0 discards nothing.
 			n = int(pc.x)
 			if n == 0 {
-				pc.discardPart++
+				pc.DiscardPart++
 				continue
 			}
 		}
@@ -986,7 +986,7 @@ func (e *Engine) discardAsk() bool {
 				pc.Discards = append(pc.Discards, candidates[pick])
 				candidates = append(candidates[:pick], candidates[pick+1:]...)
 			}
-			pc.discardPart++
+			pc.DiscardPart++
 			continue
 		}
 

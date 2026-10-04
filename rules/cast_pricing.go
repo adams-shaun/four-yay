@@ -112,10 +112,10 @@ func (pc *pendingCast) resolvedMana() Cost {
 	m.Phyrexian = nil
 	m.Twobrid = nil
 	m.HybridPhyrexian = nil
-	for i := range pc.payColor {
-		m.Colored[i] += pc.payColor[i]
+	for i := range pc.PayColor {
+		m.Colored[i] += pc.PayColor[i]
 	}
-	m.Generic += pc.payGeneric
+	m.Generic += pc.PayGeneric
 	return m
 }
 
@@ -127,10 +127,10 @@ func (pc *pendingCast) resolvedManaX(x int32) Cost {
 	m.Phyrexian = nil
 	m.Twobrid = nil
 	m.HybridPhyrexian = nil
-	for i := range pc.payColor {
-		m.Colored[i] += pc.payColor[i]
+	for i := range pc.PayColor {
+		m.Colored[i] += pc.PayColor[i]
 	}
-	m.Generic += pc.payGeneric
+	m.Generic += pc.PayGeneric
 	return m
 }
 
@@ -847,7 +847,7 @@ func (e *Engine) paymentManaXUsing(pc *pendingCast, x int32, mods costMods) Cost
 func convokeManaSpent(pays []convokePayment) int32 {
 	var n int32
 	for _, pay := range pays {
-		if pay.countsMana {
+		if pay.CountsMana {
 			n++
 		}
 	}
@@ -855,16 +855,16 @@ func convokeManaSpent(pays []convokePayment) int32 {
 }
 
 func (e *Engine) applyConvoke(pc *pendingCast, m Cost) Cost {
-	for _, pay := range pc.convoke {
-		if pay.color != 0 {
-			i := state.ManaIndex(pay.color)
+	for _, pay := range pc.Convoke {
+		if pay.Color != 0 {
+			i := state.ManaIndex(pay.Color)
 			if m.Colored[i] > 0 {
 				m.Colored[i]--
 			}
 			continue
 		}
-		if pay.power > 0 {
-			m.Generic -= pay.power
+		if pay.Power > 0 {
+			m.Generic -= pay.Power
 		} else {
 			m.Generic--
 		}
@@ -1015,8 +1015,8 @@ func (e *Engine) convokeCountCredit(pc *pendingCast, m Cost) Cost {
 // with xOpen false, m already X-folded.
 func (e *Engine) convokeAbsorbs(pc *pendingCast, m Cost, pays []convokePayment, xOpen bool) bool {
 	for _, pay := range pays {
-		if pay.color != 0 {
-			i := state.ManaIndex(pay.color)
+		if pay.Color != 0 {
+			i := state.ManaIndex(pay.Color)
 			if m.Colored[i] <= 0 {
 				return false
 			}
@@ -1029,7 +1029,7 @@ func (e *Engine) convokeAbsorbs(pc *pendingCast, m Cost, pays []convokePayment, 
 			}
 			return false
 		}
-		reduce := pay.power
+		reduce := pay.Power
 		if reduce <= 0 {
 			reduce = 1
 		}

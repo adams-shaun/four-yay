@@ -8,7 +8,6 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
-	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -22,41 +21,8 @@ import (
 // a pay-life grant -- Pay. Every other cast poses the legacy window
 // untouched, which is what keeps bots, TestHeads and botbench byte-identical.
 
-// windowTap records one mana activation made from an announced window (a
-// "mana" answer or an Auto-fill step), for Undo last tap and Cancel cast
-// (spec §5). mark and trig are the event-log and trigger-queue lengths before
-// the activation; normal is the planner's tier verdict for the activated
-// ability at activation time. The record is closed (its span judged) the next
-// time the window is posed or the next activation begins, before any other
-// event is logged.
-type windowTap struct {
-	source     state.ObjID
-	mark       int
-	trig       int
-	normal     bool
-	closed     bool
-	reversible bool
-	adds       []windowTapAdd
-}
-
-// windowTapAdd is one ManaAdd a reversible activation made: the exact counter
-// and the positive amount a ManaUndo removes again.
-type windowTapAdd struct {
-	counter string
-	amount  int32
-}
-
-func cloneWindowTaps(in []windowTap) []windowTap {
-	if in == nil {
-		return nil
-	}
-	out := make([]windowTap, len(in))
-	for i, t := range in {
-		t.adds = append([]windowTapAdd(nil), t.adds...)
-		out[i] = t
-	}
-	return out
-}
+// windowTap is one announced-window activation record (pay.WindowTap).
+type windowTap = pay.WindowTap
 
 // ValidateCastAnnounce is Submit's (and the host's) independent proof that an
 // announced cast is still payable from the pool plus untapped sources: the
@@ -134,8 +100,8 @@ func (e *Engine) announcedManaWindowAsk(pc *pendingCast, mana Cost) bool {
 		Prompt: "Pay for " + name, Source: pc.card}
 	d.ManaPayment = &decision.ManaPaymentWindow{Card: pc.card, Cost: pay.WireCost(mana),
 		Owed: pay.PaymentOwed(mana, pool), Pool: pay.ManaAmount(pool)}
-	if pc.paymentFallback != nil {
-		f := *pc.paymentFallback
+	if pc.PaymentFallback != nil {
+		f := *pc.PaymentFallback
 		d.PaymentFallback = &f
 	}
 	for _, id := range pay.ManaSourceIDs(e.G, p) {
@@ -170,11 +136,11 @@ func (e *Engine) announcedManaWindowAsk(pc *pendingCast, mana Cost) bool {
 	}
 	if t, ok := e.undoableWindowTap(pc); ok {
 		label := "Undo last tap"
-		if o := e.G.Obj(t.source); o != nil && o.Face() != nil {
+		if o := e.G.Obj(t.Source); o != nil && o.Face() != nil {
 			label = "Undo tapping " + o.Face().Name
 		}
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: decision.OptUndoTap,
-			Obj: t.source, Label: label})
+			Obj: t.Source, Label: label})
 	}
 	// A pay-life grant (K'rrik) can settle what the pool cannot: the legacy
 	// window's "done" is kept for exactly that case (manaWindowAsk's gate
@@ -213,101 +179,25 @@ func (e *Engine) announcedActivate(pc *pendingCast, opt decision.Option) {
 	e.resolveManaAbilityRef(p, src, ab, gained, true, false, true)
 }
 
-// beginWindowTap closes the previous record and opens one for the activation
-// about to run.
+// beginWindowTap, closeWindowTap, undoableWindowTap and undoWindowTap are
+// the announced window's activation records (pay.BeginWindowTap and its
+// siblings); the engine supplies the pending-trigger queue, and an undo drops
+// the triggers its reversal queued (CR 733.1).
 func (e *Engine) beginWindowTap(pc *pendingCast, src state.ObjID, normal bool) {
-	e.closeWindowTap(pc)
-	pc.windowTaps = append(pc.windowTaps, windowTap{source: src, mark: len(e.L.Events),
-		trig: len(e.pendingTriggers), normal: normal})
+	pay.BeginWindowTap(asPayer(e), &pc.CastPayment, pc.player, src, normal, len(e.pendingTriggers))
 }
 
-// closeWindowTap judges the open record's span (spec §5 conditions 1-3): a
-// normal-tier ability whose activation logged exactly one Tap of its source
-// and positive plain/snow ManaAdds to the payer, and queued no trigger.
 func (e *Engine) closeWindowTap(pc *pendingCast) {
-	n := len(pc.windowTaps)
-	if n == 0 || pc.windowTaps[n-1].closed {
-		return
-	}
-	t := &pc.windowTaps[n-1]
-	t.closed = true
-	if !t.normal || len(e.pendingTriggers) != t.trig || t.mark > len(e.L.Events) {
-		return
-	}
-	taps := 0
-	var adds []windowTapAdd
-	for _, ev := range e.L.Events[t.mark:] {
-		switch ev.Kind {
-		case events.Tap:
-			if ev.Obj != t.source {
-				return
-			}
-			taps++
-		case events.ManaAdd:
-			if ev.Player != pc.player || ev.Amount <= 0 || ev.Text != "" || !pay.PlainOrSnowManaCounter(ev.Counter) {
-				return
-			}
-			adds = append(adds, windowTapAdd{counter: ev.Counter, amount: ev.Amount})
-		default:
-			return
-		}
-	}
-	if taps != 1 || len(adds) == 0 {
-		return
-	}
-	t.adds, t.reversible = adds, true
+	pay.CloseWindowTap(asPayer(e), &pc.CastPayment, pc.player, len(e.pendingTriggers))
 }
 
-// undoableWindowTap reports the last record when it can be reversed now
-// (spec §5 conditions 4-5): the source is still on the battlefield, tapped,
-// the payer's and free of stun counters, and the pool still holds every unit
-// it added.
 func (e *Engine) undoableWindowTap(pc *pendingCast) (windowTap, bool) {
-	n := len(pc.windowTaps)
-	if n == 0 {
-		return windowTap{}, false
-	}
-	t := pc.windowTaps[n-1]
-	if !t.closed || !t.reversible {
-		return windowTap{}, false
-	}
-	o := e.G.Obj(t.source)
-	if o == nil || o.Zone != state.ZBattlefield || !o.Tapped || o.Controller != pc.player || o.Counter("STUN") > 0 {
-		return windowTap{}, false
-	}
-	pl := e.G.Players[pc.player]
-	var need, snow state.Mana
-	for _, a := range t.adds {
-		idx := pay.ManaCounterSlot(a.counter)
-		need[idx] += a.amount
-		if len(a.counter) == 2 {
-			snow[idx] += a.amount
-		}
-	}
-	for i := range need {
-		if need[i] > pl.Pool[i] || snow[i] > pl.Snow[i] {
-			return windowTap{}, false
-		}
-	}
-	return t, true
+	return pay.UndoableWindowTap(asPayer(e), &pc.CastPayment, pc.player)
 }
 
-// undoWindowTap reverses the last record (spec §5): one ManaUndo per recorded
-// ManaAdd, the first also untapping the source, with any trigger the
-// reversal would queue dropped (CR 733.1). The caller has checked
-// undoableWindowTap.
 func (e *Engine) undoWindowTap(pc *pendingCast) {
-	n := len(pc.windowTaps)
-	t := pc.windowTaps[n-1]
-	pc.windowTaps = pc.windowTaps[:n-1]
 	trig := len(e.pendingTriggers)
-	for i, a := range t.adds {
-		ev := events.Event{Kind: events.ManaUndo, Player: pc.player, Counter: a.counter, Amount: a.amount}
-		if i == 0 {
-			ev.Obj = t.source
-		}
-		e.emit(ev)
-	}
+	pay.UndoWindowTap(asPayer(e), &pc.CastPayment, pc.player)
 	if len(e.pendingTriggers) > trig {
 		e.noteTrigShrink()
 		e.pendingTriggers = e.pendingTriggers[:trig]
@@ -326,6 +216,6 @@ func (e *Engine) cancelAnnouncedCast(pc *pendingCast) {
 		}
 		e.undoWindowTap(pc)
 	}
-	pc.payment = nil
+	pc.Payment = nil
 	e.abortCast(pc, "cast cancelled by its caster (CR 733.1)", false)
 }

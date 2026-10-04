@@ -97,6 +97,9 @@ const (
 	// AskManaSubCounter asks for a mana ability's announced SubCounter X or
 	// one removal pick (ManaCostSubCounterStage).
 	AskManaSubCounter
+	// AskCast asks one of the cast's payment questions (ConvokeAsk, ManaAsk,
+	// ManaConvertAsk); the engine's cast flow answers it.
+	AskCast
 )
 
 // BatchKind names the action bracket an Engine.Batch opens or closes.

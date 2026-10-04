@@ -50,6 +50,12 @@ type Reader interface {
 	// ZoneEntrySeq is the log sequence of id's entry into its current zone
 	// (the engine's incremental zone-entry index).
 	ZoneEntrySeq(id state.ObjID) uint64
+	// Power is id's layer-derived power (a Harmonize contribution's
+	// reduction, CR 702.46a).
+	Power(id state.ObjID) int32
+	// Colors is battlefield object id's layer-derived colour letters
+	// ("WU"), the colours a Convoke contribution may pay.
+	Colors(id state.ObjID) string
 }
 
 // KW is a keyword head with its interned cards.KeywordHeadID, compiled once

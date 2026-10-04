@@ -26,8 +26,10 @@ import (
 // SameColorRevealSets and TapPower (the non-mana cost-part castability walk,
 // nonManaCastableP): 6 -> 8. E7 flow slice 1: ZoneEntrySeq (the zone-entry
 // index read, moved off pay.Engine to make room for the flow seam): 8 -> 9.
+// E7 flow slice 4: Power and Colors (the Convoke/Harmonize announcement,
+// pay.ConvokeAsk): 9 -> 11.
 const (
-	charsReaderMethods = 9
+	charsReaderMethods = 11
 	charsReaderCeiling = 20
 )
 

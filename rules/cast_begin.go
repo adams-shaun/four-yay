@@ -751,10 +751,10 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		e.cast.costRemembered = e.costRememberedCapture(id)
 	}
 	if selection != nil && e.cast != nil {
-		e.cast.payment = &plannedCastPayment{actionID: selection.ActionID, plan: decision.ClonePaymentPlan(selection.Plan)}
+		e.cast.Payment = &plannedCastPayment{ActionID: selection.ActionID, Plan: decision.ClonePaymentPlan(selection.Plan)}
 	}
 	if announced && e.cast != nil {
-		e.cast.announced = true
+		e.cast.Announced = true
 	}
 	e.continueCast()
 }

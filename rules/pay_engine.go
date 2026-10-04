@@ -111,8 +111,8 @@ func (pe *payEval) Conv(p state.PlayerID, id state.ObjID, ability bool) *manaCon
 	// until the election is answered. Thereafter the selected arm is the only
 	// one allowed to widen payment; this keeps target affordability, the mana
 	// window and the actual charge on one answer.
-	if e.cast != nil && e.cast.card == id && e.cast.manaConvertDone {
-		if e.cast.manaConvertUse {
+	if e.cast != nil && e.cast.card == id && e.cast.ManaConvertDone {
+		if e.cast.ManaConvertUse {
 			pay.MergeConv(&conv, optional)
 		}
 	} else {
@@ -218,6 +218,8 @@ var payAskFlows = [...]chooseFor{
 	pay.AskManaUntap:     chooseManaUntap,
 
 	pay.AskManaSubCounter: chooseManaSubCounter,
+
+	pay.AskCast: chooseCast,
 }
 
 // Batch opens or closes one action bracket (pay.Engine.Batch).

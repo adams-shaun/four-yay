@@ -77,3 +77,13 @@ func (r *charsReader) TapPower(id state.ObjID, saKind string) int32 {
 func (r *charsReader) ZoneEntrySeq(id state.ObjID) uint64 {
 	return (*Engine)(r).zoneEntrySeq(id)
 }
+
+// Power (chars.Reader) is id's layer-derived power.
+func (r *charsReader) Power(id state.ObjID) int32 {
+	return (*Engine)(r).Derived(id).Power
+}
+
+// Colors (chars.Reader) is battlefield object id's derived colour letters.
+func (r *charsReader) Colors(id state.ObjID) string {
+	return (*Engine)(r).Colors(id)
+}

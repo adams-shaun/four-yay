@@ -377,19 +377,8 @@ type suspendInfo struct {
 	cost    Cost
 }
 
-// convokePayment is one announced non-mana payment. color is zero for a
-// generic Convoke contribution or Harmonize; power is zero for Convoke and
-// is the amount a Harmonize creature reduces the generic total by.
-type convokePayment struct {
-	id         state.ObjID
-	color      byte
-	power      int32
-	countsMana bool
-	// waterbend marks a tap that pays one generic of a RaiseCost
-	// Waterbend<N>/<X> additional cost (convokeAsk's waterbend_generic
-	// option); the count of such taps is capped at the waterbend amount.
-	waterbend bool
-}
+// convokePayment is one announced non-mana payment (pay.ConvokePayment).
+type convokePayment = pay.ConvokePayment
 
 // hasCastConvoke reports whether the spell being cast carries Convoke once
 // it is on the stack: the printed keyword, or a layer-6 grant (Chief

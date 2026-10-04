@@ -86,19 +86,12 @@ type pendingCast struct {
 	// top's. Zero for a spell and for every top-face ability.
 	abilityMerged int `clone:"deep"`
 
-	// payment is a privately-owned V1 witness selected at priority.  It stays
-	// on the ordinary cast continuation through target choices, then drives
-	// only CR 601.2g mana activations.  All resulting state changes remain in
-	// the established mana activation and payment paths.
-	payment         *plannedCastPayment       `clone:"deep"`
-	paymentNext     int                       `clone:"deep"`
-	paymentFallback *decision.PaymentFallback `clone:"deep"`
-	// announced marks a cast begun by Intent.Announce (announce-then-pay
-	// spec, rules/announce_pay.go): its CR 601.2g window is the announced
-	// one. windowTaps records the activations made from that window, for
-	// Undo last tap and Cancel cast. Both are zero for every other cast.
-	announced  bool        `clone:"deep"`
-	windowTaps []windowTap `clone:"deep"`
+	// CastPayment (rules/pay) is the cast's payment state beside PaidCost:
+	// the planned payment it executes, the announced window and its taps,
+	// the cost-part ask cursors, the Convoke announcement and the flexible
+	// pip announcement. The payment layer reads and records it without the
+	// rest of the pending cast (lasagna spec §9.2, E7 flow slice 4).
+	pay.CastPayment `clone:"deep"`
 
 	// grantSource / grantSVar (task grantcost1) anchor a GRANTED activation
 	// (rules/speed.go's beginGrantedActivation, reached from the max-speed
@@ -377,9 +370,6 @@ type pendingCast struct {
 	// so Clone carries it like converge.
 	addsCounterGrants []state.ManaAddsCounterGrant `clone:"share"`
 
-	sacPart int `clone:"deep"`
-	sacPaid int `clone:"deep"`
-
 	// emerge / emergeDone mark an Emerge cast (CR 702.118a): beginCast's
 	// "emerged" arm sets emerge and composes the printed K:Emerge cost with
 	// the mandatory Sac<1/Creature> part; sacAsk then folds the chosen
@@ -390,40 +380,8 @@ type pendingCast struct {
 	emergeDone bool        `clone:"deep"`
 	emergeSac  state.ObjID `clone:"deep"`
 
-	discardPart int `clone:"deep"`
-
-	// subCounterPays records the counter-removal picks of every SubCounter
-	// part, each entry tagged with the part index it belongs to. A
-	// fixed-kind filtered part (SubCounter<N/Kind/Target>) records ONE entry
-	// carrying the object it removes from, with an empty Kind; a wildcard
-	// "Any" part records ONE entry per counter unit removed, each carrying
-	// the object AND the chosen counter kind. Grouping by explicit part index
-	// (rather than a positional append) is what keeps a cost mixing a
-	// fixed-kind part before a wildcard part from mis-indexing the selected
-	// kind. subCounterPart walks the parts in cost order like sacPart. Plain
-	// data, so Clone copies it like sacs/discards.
-	subCounterPays []subCounterPay `clone:"deep"`
-	subCounterPart int             `clone:"deep"`
-
-	// convoke is the announced set of creatures paying Convoke or Harmonize.
-	// It is chosen after the complete mana cost exists and before the mana
-	// ability window; a committed creature is therefore unavailable to make
-	// mana as well as being tapped when payment is settled.
-	convoke          []convokePayment `clone:"deep"`
-	convokeDone      bool             `clone:"deep"`
-	suspendCastClear bool             `clone:"deep"`
-
-	// payIdx / payColor / payLife / payGeneric carry the flexible-pip payment
-	// announcement (CR 601.2b/107.4e-f). manaAsk walks the cost's combined
-	// announcement-pip list one decision at a time; payIdx is the next
-	// unsettled pip, payColor accumulates the coloured spend the announced
-	// pips chose, payLife the life a Phyrexian face paid with two life costs,
-	// and payGeneric the generic a monocolour hybrid pip paid with its
-	// generic face. Plain data, so Clone copies it like x/delve/sacs/discards.
-	payIdx     int        `clone:"deep"`
-	payColor   state.Mana `clone:"deep"`
-	payLife    int32      `clone:"deep"`
-	payGeneric int32      `clone:"deep"`
+	// suspendCastClear marks a suspend cast's time-counter clear as owed.
+	suspendCastClear bool `clone:"deep"`
 
 	// mods / taxGeneric carry the CR 601.2f cost composition: the evaluated
 	// RaiseCost/ReduceCost modifiers (computed in beginCast for a spell,
@@ -442,14 +400,6 @@ type pendingCast struct {
 	// and the net form is idempotent across a mana-window resume.
 	ownReduce int32 `clone:"deep"`
 
-	// windowDone is set when the 601.2g mana window was answered "done", so
-	// payCast proceeds straight to payment instead of re-offering it.
-	windowDone bool `clone:"deep"`
-	// manaConvertDone records the Optional$ ManaConvert election. Before the
-	// election, feasibility uses the union so the cast remains offerable; after
-	// it, paymentConv uses only the selected optional contribution.
-	manaConvertDone bool `clone:"deep"`
-	manaConvertUse  bool `clone:"deep"`
 	// modesDone is set once a modal spell's CR 601.2b mode question has been
 	// posed. modeChosen says its answer was recorded during this proposal;
 	// preModes is the object's value immediately before that answer, so
@@ -592,13 +542,6 @@ type pendingCast struct {
 	// optionalCost is the selected self-spell OptionalCost additional part.
 	optionalCost Cost `clone:"share"`
 
-	// Exiles (pay.PaidCost) / exilePart carry the Exile cost parts (ExileFromHand /
-	// ExileFromGrave tokens: the evoke alternative cast's Fury/Grief shape,
-	// encore's "exile this card from your graveyard") through the same ask
-	// stage / commit shape sacAsk and sacs use. Nothing moves until payCast,
-	// so an abort cannot leave a partially paid exile on the board.
-	exilePart int `clone:"deep"`
-
 	// returns / returnPart carry the Return cost parts (Return<N/Spec>
 	// tokens: a permanent matching Spec returned to its OWNER's hand) through
 	// the same ask stage / commit shape the exile parts use.
@@ -623,24 +566,7 @@ type pendingCast struct {
 	putToLibs    []state.ObjID `clone:"deep"`
 	putToLibPart int           `clone:"deep"`
 
-	revealPart, beholdPart, tapPart, blightPart int  `clone:"deep"`
-	forageDone                                  bool `clone:"deep"`
-
-	// revealOrChoosePart indexes pc.cost.RevealOrChoose through the same ask
-	// stage revealCostAsk drives for plain Reveal parts. reveals carries the
-	// elected object of each arm (both arms feed the `Revealed$<Property>`
-	// refs, Forge's CostReveal owning both), and revealHandArm is parallel to
-	// reveals: true for a hand card the REVEAL arm announced, false for a
-	// permanent the CHOOSE arm elected off the battlefield. Only the true
-	// entries are announced by pay.EmitChoiceCosts -- a chosen permanent is a
-	// public choice, never a reveal of a hand card. Plain Reveal parts and
-	// every other paid card append true (they reveal).
-	//
-	// revealedEmptyHand records that a whole-hand Reveal part paid with an
-	// EMPTY hand (CR 701.20a: revealing a hand with no cards is legal). The
-	// empty payment is still a public reveal, so pay.EmitChoiceCosts announces it
-	// loudly instead of the reveal silently vanishing from the log.
-	revealOrChoosePart int `clone:"deep"`
+	forageDone bool `clone:"deep"`
 
 	// ninjutsuDefender is the defender (CR 702.49b: the player, planeswalker
 	// or battle the returned creature was attacking) captured when a

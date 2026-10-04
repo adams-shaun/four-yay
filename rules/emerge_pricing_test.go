@@ -125,7 +125,7 @@ func TestEmergeAdditionalSacDoesNotIncreaseReduction(t *testing.T) {
 			for _, o := range d.Options {
 				if o.Kind == "sacrifice" && d.Source == spell {
 					want := small
-					if e.G.Obj(small).Zone != state.ZBattlefield || e.cast != nil && e.cast.sacPart == 1 {
+					if e.G.Obj(small).Zone != state.ZBattlefield || e.cast != nil && e.cast.SacPart == 1 {
 						want = big
 					}
 					if o.Obj == want {

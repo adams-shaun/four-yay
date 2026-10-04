@@ -92,7 +92,7 @@ var cloneTypeCopiers = map[string]string{
 	"rules.abilityLossProof":         "%[1]s = %[2]s.forClone()",
 	"decision.PaymentPlan":           "%[1]s = decision.ClonePaymentPlan(%[2]s)",
 	"*decision.PaymentFallback":      "if %[2]s != nil {\nv := *%[2]s\n%[1]s = &v\n}",
-	"[]rules.windowTap":              "%[1]s = cloneWindowTaps(%[2]s)",
+	"[]pay.WindowTap":                "%[1]s = pay.CloneWindowTaps(%[2]s)",
 	"*rules.trigSubAsk":              "%[1]s = %[2]s.clone()",
 	"*rules.queuedPlays":             "%[1]s = %[2]s.clone(remap)",
 	"resolve.Kernel":                 "%[1]s = %[2]s.ForClone()",
@@ -104,6 +104,8 @@ var cloneForeignDeep = map[string]bool{
 	"state.ContinuousEffect": true,
 	"pay.CostMods":           true,
 	"pay.PaidCost":           true,
+	"pay.CastPayment":        true,
+	"pay.PlannedCastPayment": true,
 	"pay.UnlessPayment":      true,
 	"pay.ManaCostActivation": true,
 }

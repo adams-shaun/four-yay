@@ -63,8 +63,8 @@ func TestWaterbendXCostPartCapsTapsAtAnnouncedX(t *testing.T) {
 	if e.cast == nil {
 		t.Fatalf("precondition: the activation must still be pending after the announcement")
 	}
-	if got := waterbendTaps(e.cast.convoke); got != 2 {
-		t.Fatalf("precondition: both waterbend taps must be recorded, got %d (%+v)", got, e.cast.convoke)
+	if got := waterbendTaps(e.cast.Convoke); got != 2 {
+		t.Fatalf("precondition: both waterbend taps must be recorded, got %d (%+v)", got, e.cast.Convoke)
 	}
 
 	// The announced X must cover the announced taps: X=1 cannot.

@@ -468,7 +468,7 @@ func (e *Engine) foldRaiseExtra(p state.PlayerID, id state.ObjID, cost Cost, mod
 func waterbendTaps(pays []convokePayment) int32 {
 	var n int32
 	for _, pay := range pays {
-		if pay.waterbend {
+		if pay.Waterbend {
 			n++
 		}
 	}
