@@ -272,6 +272,14 @@ func (w *legalWalk) commandZoneWalk() {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 				Label: "Cast " + f.Name + " (bestowed)", Obj: id, Mode: "bestowed"})
 		}
+		// Impending (CR 702.176a), the command-zone half (a commander printed
+		// with impending may be cast for its impending cost, CR 903.3d): the
+		// same ordinary-spell targets gate the hand walk applies.
+		if ic, ok := impendingCost(f); ok && targetsAvailable &&
+			w.offerCastable(p, id, ic, spellScope("impending"), false) {
+			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
+				Label: "Cast " + f.Name + " (impending)", Obj: id, Mode: "impending"})
+		}
 		// Mutate (CR 702.140a), the command-zone half (a commander printed
 		// with mutate may be cast for its mutate cost, CR 903.3d): the same
 		// synthesized-target-SA gate the hand walk applies.

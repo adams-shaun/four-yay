@@ -425,6 +425,8 @@ func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *card
 		return pay.WithSpellAbilityExtras(f, e.flashbackCostFor(id, o)), true
 	case potentialModeBaseCostBestowed:
 		return bestowCost(f)
+	case potentialModeBaseCostImpending:
+		return impendingCost(f)
 	case potentialModeBaseCostKicked:
 		kc, ok := kickerCost(f)
 		return cost.Plus(kc), ok
@@ -1038,6 +1040,7 @@ const (
 	potentialModeBaseCostPlot
 	potentialModeBaseCostFlashback
 	potentialModeBaseCostBestowed
+	potentialModeBaseCostImpending
 	potentialModeBaseCostKicked
 	potentialModeBaseCostBuyback
 	potentialModeBaseCostEntwined
@@ -1051,6 +1054,7 @@ var potentialModeBaseCostCodes = state.NewStrCodes(
 	state.StrEntry[potentialModeBaseCostCode]{Key: "plot", Val: potentialModeBaseCostPlot},
 	state.StrEntry[potentialModeBaseCostCode]{Key: "flashback", Val: potentialModeBaseCostFlashback},
 	state.StrEntry[potentialModeBaseCostCode]{Key: "bestowed", Val: potentialModeBaseCostBestowed},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "impending", Val: potentialModeBaseCostImpending},
 	state.StrEntry[potentialModeBaseCostCode]{Key: "kicked", Val: potentialModeBaseCostKicked},
 	state.StrEntry[potentialModeBaseCostCode]{Key: "buyback", Val: potentialModeBaseCostBuyback},
 	state.StrEntry[potentialModeBaseCostCode]{Key: "entwined", Val: potentialModeBaseCostEntwined},

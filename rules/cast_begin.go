@@ -407,6 +407,18 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 			}
 			break
 		}
+		if opt.Mode == "impending" {
+			// Impending (CR 702.176a) goes through the ONE resolver the offer
+			// gate used (rules/impending.go's impendingCost: the N:cost colon
+			// cut and the Unknown withhold), so the charge and the offer can
+			// never disagree about what an impending cast costs.
+			if ic, ok := impendingCost(f); ok {
+				cost = ic
+			} else {
+				cost = Cost{}
+			}
+			break
+		}
 		if opt.Mode == "blitzed" {
 			cost = Cost{}
 			for _, bc := range e.blitzCosts(p, id) {
@@ -1226,6 +1238,7 @@ var castModeCodes = state.NewStrCodes(
 	state.StrEntry[castModeCode]{Key: "madness", Val: castModeAltCostKeyword},
 	state.StrEntry[castModeCode]{Key: "bestowed", Val: castModeAltCostKeyword},
 	state.StrEntry[castModeCode]{Key: "blitzed", Val: castModeAltCostKeyword},
+	state.StrEntry[castModeCode]{Key: "impending", Val: castModeAltCostKeyword},
 	state.StrEntry[castModeCode]{Key: "web-slinging", Val: castModeWebSlinging},
 	state.StrEntry[castModeCode]{Key: "sneak", Val: castModeSneak},
 	state.StrEntry[castModeCode]{Key: "mayhem", Val: castModeMayhem},

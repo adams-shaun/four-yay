@@ -83,7 +83,7 @@ func Types(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.
 		}
 	}
 	if !anyLType {
-		return reconfigureTypeSwitch(o, bestowedTypeSwitch(o, base))
+		return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, base)))
 	}
 	// Copy-on-write: the printed list is copied only once an effect actually
 	// applies to this object (most objects are untouched by the layer-4
@@ -167,7 +167,7 @@ func Types(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.
 		// The copy of an empty list was nil; keep that exact value.
 		ty = nil
 	}
-	return reconfigureTypeSwitch(o, bestowedTypeSwitch(o, ty))
+	return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, ty)))
 }
 
 // landTypeWordsCache memoises CorpusLandTypeWords per universe, keyed by the
@@ -363,6 +363,33 @@ func bestowedTypeSwitch(o *state.Object, types []string) []string {
 // manifested reconfigure card's vanilla 2/2.
 func reconfigureTypeSwitch(o *state.Object, types []string) []string {
 	if !o.ReconfiguredAttached() || (o.FaceDown && o.Zone == state.ZBattlefield) {
+		return types
+	}
+	out := make([]string, 0, len(types))
+	for _, t := range types {
+		if t == "Creature" {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out
+}
+
+// impendingTypeSwitch applies CR 702.176a's switch to a DERIVED type list: a
+// permanent cast for its impending cost is not a creature while it has a time
+// counter -- the printed "Enchantment Creature Avatar Horror" list loses only
+// its Creature half and keeps Enchantment and the creature subtypes (the same
+// deliberate keep-subtypes narrowing bestowedTypeSwitch and
+// reconfigureTypeSwitch practise: the subtype words are inert on a
+// non-creature in every filter this engine evaluates, and stripping them would
+// widen the diff into every subtype-affected static). An object not
+// impending-dormant -- printed without Impending, cast for its plain mana cost,
+// or with its last time counter removed -- keeps the list unchanged, returning
+// the SAME slice so the common game stays byte-identical and allocation-free.
+// The dormancy is derived live (state.Object.ImpendingDormant), so every
+// replay derives the switch identically.
+func impendingTypeSwitch(o *state.Object, types []string) []string {
+	if !o.ImpendingDormant() {
 		return types
 	}
 	out := make([]string, 0, len(types))

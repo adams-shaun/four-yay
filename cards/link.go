@@ -153,6 +153,14 @@ var builtinSVars = map[string]string{
 	// ContinuousEffect whose AddTrigger$ names this SVar, so the body is
 	// resolved against the permanent's own face (or this builtin fallback).
 	"__kwBlitzDraw": "DB$ Draw | NumCards$ 1",
+	// Impending (CR 702.176a): "At the beginning of your end step, remove a
+	// time counter from it." rules/impending.go's impendingEnter registers a
+	// ContinuousEffect whose AddTrigger$ names this SVar; the body is resolved
+	// against the permanent's own face (or this builtin fallback), and
+	// Defined$ Self is the permanent itself -- the __kwBlitzSacrifice shape.
+	// The trigger's IsPresent$ counters_GT0_TIME gate is what stops it once
+	// the last counter leaves, so the body never runs at zero.
+	"__kwImpendingTick": "DB$ RemoveCounter | Defined$ Self | CounterType$ TIME | CounterNum$ 1",
 }
 
 // ResolveSVar compiles the ability an SVar name refers to, recursively

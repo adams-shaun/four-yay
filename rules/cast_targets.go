@@ -153,6 +153,8 @@ func modeFlags(mode string) string {
 	// spell, and what keeps a bestowed cast distinguishable on the wire.
 	case modeFlagsBestowed:
 		return events.FlagsString(state.FlagBestowed)
+	case modeFlagsImpending:
+		return events.FlagsString(state.FlagImpending)
 	// Mutate (CR 702.140a): the flag is the provenance the resolution reader
 	// uses to merge the spell into its target. modeFlags maps "mutated" to
 	// the bare flag; payCast ORs FlagMutatedTop in when the answered placement
@@ -1495,6 +1497,7 @@ const (
 	modeFlagsWebSlinging
 	modeFlagsSneak
 	modeFlagsBestowed
+	modeFlagsImpending
 	modeFlagsMutated
 	modeFlagsMultikicked
 	modeFlagsSquadded
@@ -1533,6 +1536,7 @@ var modeFlagsCodes = state.NewStrCodes(
 	state.StrEntry[modeFlagsCode]{Key: "web-slinging", Val: modeFlagsWebSlinging},
 	state.StrEntry[modeFlagsCode]{Key: "sneak", Val: modeFlagsSneak},
 	state.StrEntry[modeFlagsCode]{Key: "bestowed", Val: modeFlagsBestowed},
+	state.StrEntry[modeFlagsCode]{Key: "impending", Val: modeFlagsImpending},
 	state.StrEntry[modeFlagsCode]{Key: "mutated", Val: modeFlagsMutated},
 	state.StrEntry[modeFlagsCode]{Key: "multikicked", Val: modeFlagsMultikicked},
 	state.StrEntry[modeFlagsCode]{Key: "squadded", Val: modeFlagsSquadded},
