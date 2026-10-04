@@ -3,6 +3,7 @@ package rules
 import (
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 )
 
 // cloneRemap is the identity-preserving half of Clone: the mutable objects a
@@ -111,7 +112,7 @@ func (m *cloneRemap) lifeExchange(tx *lifeExchangeTransaction) *lifeExchangeTran
 // unlessCtx is cloneUnlessCtx with the resolution memories the
 // parked Ctx carries re-pointed at the clone's copies.
 func (m *cloneRemap) unlessCtx(in effects.Ctx) effects.Ctx {
-	out := cloneUnlessCtx(in)
+	out := pay.CloneUnlessCtx(in)
 	out.FlipMemory = m.flipMemory(in.FlipMemory)
 	out.ExchangeMemory = m.exchangeMemory(in.ExchangeMemory)
 	return out

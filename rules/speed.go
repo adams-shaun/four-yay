@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -155,7 +156,7 @@ func (e *Engine) beginGainedActivation(p state.PlayerID, opt decision.Option) {
 	if ab == nil {
 		return
 	}
-	cost, ok := e.fixLifeXCost(p, opt.Obj, e.parseCost(ab.ParamStr(cards.PKCost)))
+	cost, ok := pay.FixLifeXCost(asPayer(e), p, opt.Obj, e.parseCost(ab.ParamStr(cards.PKCost)))
 	if !ok {
 		return
 	}
@@ -222,7 +223,7 @@ func (e *Engine) beginGrantedActivation(p state.PlayerID, opt decision.Option) {
 	if ab == nil {
 		return
 	}
-	cost, ok := e.fixLifeXCost(p, opt.Obj, e.parseCost(ab.ParamStr(cards.PKCost)))
+	cost, ok := pay.FixLifeXCost(asPayer(e), p, opt.Obj, e.parseCost(ab.ParamStr(cards.PKCost)))
 	if !ok {
 		return
 	}
@@ -276,7 +277,7 @@ func (e *Engine) beginKeywordGrantedActivation(p state.PlayerID, opt decision.Op
 	if ab == nil {
 		return
 	}
-	cost, ok := e.fixLifeXCost(p, opt.Obj, e.parseCost(ab.ParamStr(cards.PKCost)))
+	cost, ok := pay.FixLifeXCost(asPayer(e), p, opt.Obj, e.parseCost(ab.ParamStr(cards.PKCost)))
 	if !ok {
 		return
 	}

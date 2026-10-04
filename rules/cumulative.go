@@ -755,7 +755,7 @@ func (e *Engine) triggeredCostDrawCounts(tc *triggeredEffectCost) ([]int32, bool
 		if _, ok := pay.CastFlowDrawPlayer(part.Spec, tc.player); !ok {
 			return nil, false
 		}
-		n, ok := e.drawCostCountTrig(tc.source, tc.player, part, tcx)
+		n, ok := pay.DrawCostCountTrig(asPayer(e), tc.source, tc.player, part, tcx)
 		if !ok {
 			return nil, false
 		}

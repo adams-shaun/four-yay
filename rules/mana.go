@@ -155,119 +155,6 @@ func (e *Engine) offerCastable(p state.PlayerID, id state.ObjID, base Cost, scop
 	return e.offerCastableUsing(e.collectCostStatics(), p, id, &base, scope, ability, nil)
 }
 
-// fixLifeXCost resolves an announced PayLife<X> cost part whose source face
-// defines SVar:X with a body that is NOT Count$xPaid. Forge's SVar:X is the
-// definition that body gives the cost's X, and exactly two shapes exist in
-// the corpus:
-//
-//   - Count$xPaid (Toxic Deluge, Krumar Initiate's "Cost$ X B T PayLife<X>",
-//     every SP face carrying the token): "the announced X" -- the payer
-//     announces X freely (bounded by life, xAsk) and the life part settles at
-//     the same value the printed {X} folds at. The cost passes through
-//     unchanged.
-//   - any other resolvable body (Murderous Betrayal's
-//     SVar:X:Count$YourLifeTotal/HalfUp, Tornado's
-//     SVar:X:Count$CardCounters.VELOCITY/Times.3): the value is FIXED -- the
-//     payer announces nothing, and the settle pays exactly the evaluated
-//     amount. Each such part is folded into Cost.Life, the fixed additional
-//     cost both the payable gates (resolveManaWith's life check) and the
-//     settle (payMana's LifeChange) already price and charge -- the same
-//     place a RaiseCost's fixed life raise lands, so CR 601.2f's ordering
-//     treats it as an additional cost that no reduction ever touches.
-//
-// The verdict is three-way, and ok=false is WITHHOLD: the SVar:X body is
-// present, not Count$xPaid, and either unresolvable (War Room's commander
-// colour identity) or negative -- the ability is not offered at all (the
-// fail-closed direction ParseUnlessCost and manaAbilityPayable already take)
-// rather than offered with an arbitrary announcement the payer cannot be
-// held to. A cost pairing the non-xPaid body with a printed {X} or another
-// announced part sharing the X (Sac<X/Spec>, PayEnergy<X>,
-// SubCounter<X/Kind>) is also withheld: the corpus carries no such face, and
-// what the fixed body would mean for a shared announcement is undefined
-// here. The idempotence contract matters: offerCastable converts at the
-// gate, the payment sites convert again, and a converted cost (no LifeX
-// left) early-returns unchanged.
-func (e *Engine) fixLifeXCost(p state.PlayerID, id state.ObjID, c Cost) (Cost, bool) {
-	if len(c.LifeX) == 0 {
-		return c, true
-	}
-	o := e.G.Obj(id)
-	if o == nil || o.Face() == nil {
-		return c, true
-	}
-	body, present := o.Face().SVars["X"]
-	if !present || strings.EqualFold(strings.TrimSpace(body), "Count$xPaid") {
-		return c, true
-	}
-	if c.X > 0 || costAnnouncesSacX(c) {
-		return c, false
-	}
-	for _, part := range c.Energy {
-		if part.Spec == "X" {
-			return c, false
-		}
-	}
-	for _, part := range c.SubCounter {
-		if part.Announced {
-			return c, false
-		}
-	}
-	ctx := effects.NewCtxPtr(id, p, effects.CtxInit{SVars: o.Face().SVars})
-	n, resolvable := effects.EvalCountOK(e, ctx, body)
-	if !resolvable || n < 0 {
-		return c, false
-	}
-	out := c
-	out.LifeX = nil
-	for range len(c.LifeX) {
-		out.Life = addClampedGeneric(out.Life, int64(n))
-	}
-	return out, true
-}
-
-// drawCostCount resolves one Draw cost part's count at payment time. A
-// literal part (Dyn == "") is simply N. A dynamic part (Forge's
-// Draw<X/Spec>, Champion of Wits' "draw cards equal to its power") reads the
-// source face's SVar table: the body named by part.Dyn (SVar:X for
-// Draw<X/...>) is evaluated exactly the way fixLifeXCost evaluates its
-// PayLife<X> body, with the source object bound as the count context so
-// Count$CardPower reads the drawing permanent's own power. ok=false means
-// the source face, the SVar, or the body is unavailable -- the cost is
-// unpayable (the fail-closed direction), never a silent zero draw.
-func (e *Engine) drawCostCount(id state.ObjID, you state.PlayerID, part CostPart) (int32, bool) {
-	return e.drawCostCountTrig(id, you, part, nil)
-}
-
-// drawCostCountTrig is drawCostCount with an optional fire-time trigger
-// context seeded into the evaluation: the triggered-cost window's dynamic
-// Draw<X/Spec> part (Hordewing Skaab's "draw cards equal to the number of
-// opponents dealt damage this way", SVar:X:TriggeredPlayersTargets$Amount)
-// reads the DAMAGE BATCH the triggering event captured, which the bare
-// cast-flow context carries nothing of. A nil context is the ordinary
-// cast/activation read, unchanged.
-func (e *Engine) drawCostCountTrig(id state.ObjID, you state.PlayerID, part CostPart, tcx *effects.TriggerContext) (int32, bool) {
-	if part.Dyn == "" {
-		return part.N, true
-	}
-	o := e.G.Obj(id)
-	if o == nil || o.Face() == nil {
-		return 0, false
-	}
-	body, present := o.Face().SVars[part.Dyn]
-	if !present {
-		return 0, false
-	}
-	ctx := effects.NewCtxPtr(id, you, effects.CtxInit{SVars: o.Face().SVars})
-	if tcx != nil {
-		ctx.TriggerContext = *tcx
-	}
-	n, resolvable := effects.EvalCountOK(e, ctx, body)
-	if !resolvable || n < 0 {
-		return 0, false
-	}
-	return n, true
-}
-
 // offerCastableUsing is offerCastable's core with the statics collected
 // once (the walk shares one collection) and the mana pool optionally
 // overridden: hyp nil is the ordinary real-pool gate, hyp non-nil prices the
@@ -290,7 +177,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	var local Cost
 	if len(base.LifeX) > 0 {
 		var ok bool
-		if local, ok = e.fixLifeXCost(p, id, *base); !ok {
+		if local, ok = pay.FixLifeXCost(asPayer(e), p, id, *base); !ok {
 			return false
 		}
 		base = &local
@@ -420,7 +307,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 // not swept here -- the caller already priced it, and an all-zero reduction
 // would merely repeat that answer.
 func (e *Engine) offerSacXMods(p state.PlayerID, id state.ObjID, ability bool, base Cost, statics costStaticViews, scope costScope, tax, delve int32, hyp *state.Mana) (costMods, bool) {
-	if !costAnnouncesSacX(base) {
+	if !pay.CostAnnouncesSacX(base) {
 		return costMods{}, false
 	}
 	// Every announced Sac part pays the SAME X. The smallest candidate

@@ -34,11 +34,11 @@ func TestCharsReaderBudget(t *testing.T) {
 	switch {
 	case n < 0:
 		t.Fatal("rules/chars declares no Reader interface; the budget would run vacuously")
+	case n > charsReaderCeiling:
+		t.Errorf("chars.Reader has %d methods, above the ceiling %d", n, charsReaderCeiling)
 	case n > charsReaderMethods:
 		t.Errorf("chars.Reader has %d methods, above the recorded %d: raise charsReaderMethods in the "+
 			"commit that moves ring code onto the new read, with the step in its comment", n, charsReaderMethods)
-	case n > charsReaderCeiling:
-		t.Errorf("chars.Reader has %d methods, above the ceiling %d", n, charsReaderCeiling)
 	case n < charsReaderMethods:
 		t.Errorf("chars.Reader shrank to %d methods; lower charsReaderMethods (%d) to match", n, charsReaderMethods)
 	}
@@ -127,5 +127,30 @@ func TestPayHoldsNoHost(t *testing.T) {
 			}
 			return true
 		})
+	}
+}
+
+// payEvalMethods is the method count of pay.Eval (rules/pay/eval.go), the
+// payment layer's evaluation seam, budgeted like charsReaderMethods. E4
+// slice 2 landed it with EvalCount, MatchesSpec and WindowUnits (the
+// unless-payment reachability and the SVar-fixed cost counts).
+const (
+	payEvalMethods = 3
+	payEvalCeiling = 20
+)
+
+// TestPayEvalBudget counts pay.Eval's declared methods.
+func TestPayEvalBudget(t *testing.T) {
+	n := interfaceMethods(t, filepath.Join("..", "..", "rules", "pay"), "Eval")
+	switch {
+	case n < 0:
+		t.Fatal("rules/pay declares no Eval interface; the budget would run vacuously")
+	case n > payEvalCeiling:
+		t.Errorf("pay.Eval has %d methods, above the ceiling %d", n, payEvalCeiling)
+	case n > payEvalMethods:
+		t.Errorf("pay.Eval has %d methods, above the recorded %d: raise payEvalMethods in the "+
+			"commit that moves ring code onto the new evaluation, with the step in its comment", n, payEvalMethods)
+	case n < payEvalMethods:
+		t.Errorf("pay.Eval shrank to %d methods; lower payEvalMethods (%d) to match", n, payEvalMethods)
 	}
 }

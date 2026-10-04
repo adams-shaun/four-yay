@@ -29,7 +29,7 @@ const (
 	// Suspend* no-ops: -> 1965. W5 E7 moved mana payment onto rules/pay:
 	// -> 1944. Slice 4 made the payer grants pay.Engine adapter methods: -> 1940. W3 dead deleted the resume-scratch setters: -> 1931.
 	// E7 slice 9 moved the payment board reads to rules/pay funcs: -> 1917.
-	engineMethodCount = 1879
+	engineMethodCount = 1868
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
 	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94. W3 clean
@@ -145,14 +145,18 @@ const (
 	// (spec section 9.1, operator decision 2026-10-03) budgets it up to 19
 	// for the ring's moves: Log (the event log, read-only) let the cost-part
 	// candidate walks and the log-reading planner probes move: 10 -> 11.
-	// SacrificeBlockedForCost (the CantSacrifice cost gate, cause-scoped)
+	// SacrificeBlockedForCost (the CantSacrifice cost gate, cause-scoped;
+	// since E4 slice 2 CostBlocked, which also answers the CantExile gate)
 	// let the Sac cost-part walks and the mana-ability cost payability
 	// move: 11 -> 12. E4 slice 1 (spec section 9.2): ConfiguredCost (the
 	// compiled-text sidecar's frozen cost parse; pay.CompiledCostOf, CostRef
 	// and ParseCostOf build on it) and Chars (the chars.Reader role
 	// interface, budgeted separately by archtest TestCharsReaderBudget) let
-	// the mana activation gates move: 12 -> 14.
-	payEngineMethods = 14
+	// the mana activation gates move: 12 -> 14. E4 slice 2: Eval (the
+	// pay.Eval evaluation seam, budgeted by archtest TestPayEvalBudget) let
+	// the unless-payment reachability and the SVar-fixed cost counts move:
+	// 14 -> 15.
+	payEngineMethods = 15
 	// changeZoneParamLeaks is the number of ChangeZone parameter reads
 	// outside its compiler, effects/changezone_params.go (W4 step 3, spec
 	// section 8): any read in ChangeZone's own resolution files, plus any

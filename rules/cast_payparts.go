@@ -189,7 +189,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 	// never recorded) cannot activate, which is the fail-closed direction --
 	// the ability is not offered rather than paying for a reveal of nothing.
 	for _, part := range cost.RevealChosen {
-		if !hasRevealChosenDesignation(e.G.Obj(id), part.Spec) {
+		if !pay.HasRevealChosenDesignation(e.G.Obj(id), part.Spec) {
 			return false
 		}
 	}
@@ -362,7 +362,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 			return false
 		}
 		if part.Dyn != "" {
-			if _, ok := e.drawCostCount(id, p, part); !ok {
+			if _, ok := pay.DrawCostCount(asPayer(e), id, p, part); !ok {
 				return false
 			}
 		}
@@ -508,7 +508,7 @@ func (e *Engine) payDrawCostParts(pc *pendingCast) {
 		if !ok {
 			continue
 		}
-		n, ok := e.drawCostCount(pc.card, pc.player, part)
+		n, ok := pay.DrawCostCount(asPayer(e), pc.card, pc.player, part)
 		if !ok {
 			continue
 		}

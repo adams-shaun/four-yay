@@ -190,7 +190,10 @@ func (pe *payer) MatchesSpecFrom(spec string, id state.ObjID, you state.PlayerID
 func (pe *payer) CastProvenanceAdmitsPending(spec string, objID state.ObjID, you state.PlayerID) (string, bool) {
 	return (*Engine)(pe).castProvenanceAdmitsPending(spec, objID, you)
 }
-func (pe *payer) SacrificeBlockedForCost(id state.ObjID, cause pay.CostCause) bool {
+func (pe *payer) CostBlocked(op pay.CostBlock, id state.ObjID, cause pay.CostCause) bool {
+	if op == pay.BlockExile {
+		return (*Engine)(pe).exileBlockedForCost(id, cause)
+	}
 	return (*Engine)(pe).sacrificeBlockedForCost(id, cause)
 }
 func (pe *payer) Capture() pay.Capture {

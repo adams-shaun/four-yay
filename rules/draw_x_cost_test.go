@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -120,7 +121,7 @@ func TestDrawXCostSVarFoldsAndDraws(t *testing.T) {
 		t.Fatalf("Champion of Wits has no SVar:X body; the fold has nothing to resolve")
 	}
 
-	n, ok := e.drawCostCount(id, 0, drawCostPart())
+	n, ok := pay.DrawCostCount(asPayer(e), id, 0, drawCostPart())
 	if !ok {
 		t.Fatalf("drawCostCount refused Champion of Wits' resolvable SVar:X")
 	}
@@ -154,12 +155,12 @@ func TestDrawXUnresolvableWithheld(t *testing.T) {
 	if _, present := o.Face().SVars["X"]; present {
 		t.Fatalf("Grizzly Bears unexpectedly defines SVar:X; pick a bodyless source")
 	}
-	if _, ok := e.drawCostCount(id, 0, drawCostPart()); ok {
+	if _, ok := pay.DrawCostCount(asPayer(e), id, 0, drawCostPart()); ok {
 		t.Fatalf("drawCostCount accepted a Draw<X/You> part with no SVar:X body")
 	}
 
 	// A nil/unknown object is refused too (the same fail-closed contract).
-	if _, ok := e.drawCostCount(state.ObjID(0), 0, drawCostPart()); ok {
+	if _, ok := pay.DrawCostCount(asPayer(e), state.ObjID(0), 0, drawCostPart()); ok {
 		t.Fatalf("drawCostCount accepted a Draw<X/You> part for a nil source")
 	}
 }

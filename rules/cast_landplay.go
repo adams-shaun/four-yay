@@ -1,33 +1,9 @@
 package rules
 
 import (
-	"strings"
-
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
-
-// hasRevealChosenDesignation reports whether o still carries the
-// secretly-chosen designation a RevealChosen<Spec> part names: a player entry
-// in Object.Chosen for RevealChosen<Player> (the Secretly$ True ChoosePlayer
-// answer), a non-empty Object.ChosenType for RevealChosen<Type/...> (the
-// Secretly$ True ChooseType answer). A RevealChosen part has no alternative
-// payment -- no hand card is picked -- so an unset designation makes the whole
-// cost unpayable and the ability is not offered at all.
-func hasRevealChosenDesignation(o *state.Object, spec string) bool {
-	if o == nil {
-		return false
-	}
-	if strings.EqualFold(spec, "Player") {
-		for _, t := range o.Chosen {
-			if t.IsPlayer {
-				return true
-			}
-		}
-		return false
-	}
-	return o.ChosenType != ""
-}
 
 // finishLandPlay logs a land play only after its identified object actually
 // reaches the battlefield. Updated replacement effects fold their MoveZone

@@ -599,7 +599,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 	// withheld (unresolvable-body) shape cannot reach this line through any
 	// offer gate, and a stale option that does degrades to a no-op before
 	// anything is pushed or charged.
-	converted, ok := e.fixLifeXCost(p, id, cost)
+	converted, ok := pay.FixLifeXCost(asPayer(e), p, id, cost)
 	if !ok {
 		return
 	}
@@ -894,7 +894,7 @@ func (e *Engine) beginPlay(p state.PlayerID, id state.ObjID, withoutManaCost boo
 	// RaiseCost/ReduceCost ride pc.mods and manaToPay applies them after {X}
 	// is folded, the same shape beginCast stores.
 	cost = pay.WithSpellAbilityExtras(o.Face(), cost)
-	converted, ok := e.fixLifeXCost(p, id, cost)
+	converted, ok := pay.FixLifeXCost(asPayer(e), p, id, cost)
 	if !ok {
 		// The offer gate withheld this cost; a stale Play degrades to a no-op.
 		return

@@ -327,11 +327,11 @@ func (e *Engine) potentialModeCastPlan(p state.PlayerID, o decision.Option) Paym
 	if !ok {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: "shape"}
 	}
-	if base, ok = e.fixLifeXCost(p, id, base); !ok {
+	if base, ok = pay.FixLifeXCost(asPayer(e), p, id, base); !ok {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: "cost:life_x"}
 	}
 	scope := spellScope(o.Mode)
-	if costAnnouncesSacX(base) || e.costModifiers(p, id, scope).Waterbend > 0 {
+	if pay.CostAnnouncesSacX(base) || e.costModifiers(p, id, scope).Waterbend > 0 {
 		// An announced Sac<X> or a waterbend credit reprices the cast by
 		// what the payment taps or sacrifices: not composed here.
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: "cost:credit"}
@@ -515,7 +515,7 @@ func (e *Engine) planAbilityPayment(p state.PlayerID, id state.ObjID, ability in
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: "ability"}
 	}
 	ab := pa.SA
-	cost, ok := e.fixLifeXCost(p, id, e.parseCost(ab.ParamStr(cards.PKCost)))
+	cost, ok := pay.FixLifeXCost(asPayer(e), p, id, e.parseCost(ab.ParamStr(cards.PKCost)))
 	if !ok {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: "cost:life_x"}
 	}

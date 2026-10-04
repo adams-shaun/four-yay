@@ -31,7 +31,7 @@ func SacrificeCostCandidates(e Engine, p state.PlayerID, source state.ObjID, par
 		// sacrificed).
 		r := part.Referent
 		if slices.Contains(e.Game().Zone(state.ZBattlefield, p), r) && ExistsOnBattlefield(e.Game().Obj(r)) &&
-			!e.SacrificeBlockedForCost(r, cause) {
+			!e.CostBlocked(BlockSacrifice, r, cause) {
 			out = append(out, r)
 		}
 		return out
@@ -45,7 +45,7 @@ func SacrificeCostCandidates(e Engine, p state.PlayerID, source state.ObjID, par
 		// Sac<1/CARDNAME> mana tokens (Eldrazi Spawn) otherwise makes every
 		// payability check O(board) and the priority walk O(board^2).
 		if source != 0 && slices.Contains(e.Game().Zone(state.ZBattlefield, p), source) &&
-			ExistsOnBattlefield(e.Game().Obj(source)) && !e.SacrificeBlockedForCost(source, cause) &&
+			ExistsOnBattlefield(e.Game().Obj(source)) && !e.CostBlocked(BlockSacrifice, source, cause) &&
 			e.MatchesSpecFrom(matchSpec, source, p, source) {
 			out = append(out, source)
 		}
@@ -63,7 +63,7 @@ func SacrificeCostCandidates(e Engine, p state.PlayerID, source state.ObjID, par
 func sacrificeCostScan(e Engine, p state.PlayerID, source state.ObjID, matchSpec string, cause CostCause) []state.ObjID {
 	var out []state.ObjID
 	for _, oid := range e.Game().Zone(state.ZBattlefield, p) {
-		if !ExistsOnBattlefield(e.Game().Obj(oid)) || e.SacrificeBlockedForCost(oid, cause) {
+		if !ExistsOnBattlefield(e.Game().Obj(oid)) || e.CostBlocked(BlockSacrifice, oid, cause) {
 			continue
 		}
 		if e.MatchesSpecFrom(matchSpec, oid, p, source) {
@@ -429,7 +429,7 @@ func CastWindowSelfSacCost(e Engine, p state.PlayerID, source state.ObjID, c cos
 	}
 	n := 0
 	for _, id := range e.Game().Zone(state.ZBattlefield, p) {
-		if e.SacrificeBlockedForCost(id, CostCauseActivated) {
+		if e.CostBlocked(BlockSacrifice, id, CostCauseActivated) {
 			continue
 		}
 		if e.MatchesSpecFrom(c.Sac[0].Spec, id, p, source) {

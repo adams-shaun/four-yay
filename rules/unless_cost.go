@@ -35,12 +35,12 @@ func (e *Engine) payUnlessCost(p state.PlayerID, cost Cost, ctx *effects.Ctx, st
 	if int(p) < 0 || int(p) >= len(e.G.Players) {
 		return false
 	}
-	folded, ok := e.unlessFoldDynamic(p, cost, ctx)
+	folded, ok := pay.UnlessFoldDynamic(asPayer(e), p, cost, ctx)
 	if !ok {
 		return false
 	}
 	cost = folded
-	if !e.unlessEnergyAffordable(p, cost, ctx) {
+	if !pay.UnlessEnergyAffordable(asPayer(e), p, cost, ctx) {
 		return false
 	}
 	g := e.G
@@ -77,7 +77,7 @@ func (e *Engine) payUnlessCost(p state.PlayerID, cost Cost, ctx *effects.Ctx, st
 	// avoids a partial payment followed by a silent omitted draw.
 	drawers := make([][]state.PlayerID, len(cost.Draw))
 	for i, part := range cost.Draw {
-		players, ok := unlessDrawPlayers(ctx, p, part.Spec)
+		players, ok := pay.UnlessDrawPlayers(ctx, p, part.Spec)
 		if !ok {
 			return false
 		}
@@ -123,58 +123,3 @@ func (e *Engine) payUnlessCost(p state.PlayerID, cost Cost, ctx *effects.Ctx, st
 	}
 	return true
 }
-
-// unlessDrawPlayers resolves a Draw<N/Spec> cost component's drawer(s). The
-// empty spec and "You" are the payer; every other spelling is one of the
-// player roles the unless-payment context carries, and an unresolvable or
-// unknown spec fails closed (the cost was not paid).
-func unlessDrawPlayers(ctx *effects.Ctx, payer state.PlayerID, spec string) ([]state.PlayerID, bool) {
-	one := func(t state.Target) ([]state.PlayerID, bool) {
-		if t.IsPlayer {
-			return []state.PlayerID{t.Player}, true
-		}
-		return nil, false
-	}
-	switch unlessDrawPlayersCodes.Code(string(spec)) {
-	case unlessDrawPlayersPayer:
-		return []state.PlayerID{payer}, true
-	case unlessDrawPlayersPlayerTargetedBy:
-		if len(ctx.Targets) == 0 {
-			return nil, false
-		}
-		return one(ctx.Targets[0])
-	case unlessDrawPlayersPlayerActivator:
-		return one(ctx.TriggerActivator)
-	case unlessDrawPlayersPlayerTriggeredPlayer:
-		return one(ctx.TriggerPlayer)
-	case unlessDrawPlayersPlayerTriggeredTarget:
-		return one(ctx.TriggerTarget)
-	}
-	return nil, false
-}
-
-type unlessDrawPlayersCode uint16
-
-const (
-	unlessDrawPlayersPayer unlessDrawPlayersCode = iota + 1
-	unlessDrawPlayersPlayerTargetedBy
-	unlessDrawPlayersPlayerActivator
-	unlessDrawPlayersPlayerTriggeredPlayer
-	unlessDrawPlayersPlayerTriggeredTarget
-)
-
-var unlessDrawPlayersCodes = state.NewStrCodes(
-	state.StrEntry[unlessDrawPlayersCode]{Key: "", Val: unlessDrawPlayersPayer},
-	state.StrEntry[unlessDrawPlayersCode]{Key: "You", Val: unlessDrawPlayersPayer},
-	state.StrEntry[unlessDrawPlayersCode]{Key: "Player", Val: unlessDrawPlayersPayer},
-	state.StrEntry[unlessDrawPlayersCode]{Key: "Self", Val: unlessDrawPlayersPayer},
-	state.StrEntry[unlessDrawPlayersCode]{Key: "Player.targetedBy", Val: unlessDrawPlayersPlayerTargetedBy},
-	state.StrEntry[unlessDrawPlayersCode]{Key: "Targeted", Val: unlessDrawPlayersPlayerTargetedBy},
-	state.StrEntry[unlessDrawPlayersCode]{Key: "TargetedPlayer", Val: unlessDrawPlayersPlayerTargetedBy},
-	state.StrEntry[unlessDrawPlayersCode]{Key: "Player.Activator", Val: unlessDrawPlayersPlayerActivator},
-	state.StrEntry[unlessDrawPlayersCode]{Key: "TriggeredActivator", Val: unlessDrawPlayersPlayerActivator},
-	state.StrEntry[unlessDrawPlayersCode]{Key: "Player.TriggeredPlayer", Val: unlessDrawPlayersPlayerTriggeredPlayer},
-	state.StrEntry[unlessDrawPlayersCode]{Key: "TriggeredPlayer", Val: unlessDrawPlayersPlayerTriggeredPlayer},
-	state.StrEntry[unlessDrawPlayersCode]{Key: "Player.TriggeredTarget", Val: unlessDrawPlayersPlayerTriggeredTarget},
-	state.StrEntry[unlessDrawPlayersCode]{Key: "TriggeredTarget", Val: unlessDrawPlayersPlayerTriggeredTarget},
-)

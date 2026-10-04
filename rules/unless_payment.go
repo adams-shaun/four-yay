@@ -55,25 +55,10 @@ type unlessPayment struct {
 	exiles []state.ObjID
 }
 
-func cloneUnlessCtx(in effects.Ctx) effects.Ctx {
-	out := in
-	out.Targets = append([]state.Target(nil), in.Targets...)
-	out.Remembered = append([]state.Target(nil), in.Remembered...)
-	out.Captured = append([]state.Target(nil), in.Captured...)
-	out.Chosen = append([]state.Target(nil), in.Chosen...)
-	if in.SVars != nil {
-		out.SVars = make(map[string]string, len(in.SVars))
-		for k, v := range in.SVars {
-			out.SVars[k] = v
-		}
-	}
-	return out
-}
-
 // UnlessCostPayable is the rules-side offer gate for the generic unless
 // election (the ctx-less form used by tests and any mana-only caller).
 func (e *Engine) UnlessCostPayable(p state.PlayerID, raw string) bool {
-	return e.unlessCostPayable(p, raw, nil, 0)
+	return pay.UnlessCostPayable(asPayer(e), p, raw, nil, 0)
 }
 
 // UnlessCostPayableFromCtx is the full-context offer gate the effects ask
@@ -88,189 +73,7 @@ func (e *Engine) UnlessCostPayableFromCtx(p state.PlayerID, raw string, ctx *eff
 	if ctx != nil {
 		stackObj = ctx.Source
 	}
-	return e.unlessCostPayable(p, raw, ctx, stackObj)
-}
-
-// unlessCostPayable is the ctx-aware offer gate. A cost is offered when every
-// supported component is satisfiable RIGHT NOW: the choice-bearing Sac/
-// Discard/Reveal parts must have enough distinct candidates, SubCounter parts
-// enough counters on the resolving source, RevealChosen parts their secret
-// designation, Draw parts a resolvable role, and the mana/life component must
-// be reachable from the floating pool plus the window's alternatives. An
-// unpriceable cost is a hard decline: it receives only the decline option, so
-// an answer can never select a Pay that the settlement path must reject. The
-// Sacrifice arm's recognised DamageYou<N> payment is separate and never calls
-// this generic gate. The pre-fix gate skipped the non-mana components and used
-// a single-ability-per-
-// source aggregate, so it offered Pay for a `Sac<1/Creature>` with no
-// creatures and suppressed a {U} tax on an untapped dual land.
-func (e *Engine) unlessCostPayable(p state.PlayerID, raw string, ctx *effects.Ctx, stackObj state.ObjID) bool {
-	cost, ok := ParseUnlessCost(raw)
-	if !ok {
-		return false
-	}
-	cost, ok = e.unlessFoldDynamic(p, cost, ctx)
-	if !ok {
-		return false
-	}
-	if ctx == nil {
-		ctx = effects.NewCtxPtr(0, p, effects.CtxInit{})
-	}
-	if !e.unlessComponentsPayable(p, cost, ctx, stackObj) {
-		return false
-	}
-	if !e.unlessEnergyAffordable(p, cost, ctx) {
-		// An energy part is never mana: resolveMana ignores it, so the
-		// payable checks below would silently pass an energy the payer cannot
-		// cover. Forge CostPayEnergy.canPay reads the same counter total.
-		return false
-	}
-	player := e.G.Players[p]
-	d := paymentDescriptor{ID: stackObj, Class: paymentOther, Cost: &cost}
-	if pay.CostPayableClass(asPayer(e), p, d, pipRider{}, cost) {
-		return true
-	}
-	if !cost.HasManaPayment() {
-		// No mana to window. A life/snow component is what the pool check
-		// just rejected and no source can supply it, so do not offer.
-		if cost.Life > 0 || cost.Snow > 0 {
-			return false
-		}
-		return true
-	}
-	return pay.UnlessManaReachable(asPayer(e), p, cost, player.Pool, player.Snow, player.ManaUnits(), player.Life,
-		asPayer(e).Conv(p, stackObj, false), e.windowManaUnits(p))
-}
-
-// unlessFoldDynamic folds the unless cost's DYNAMIC life tokens to concrete
-// Life charges against the payer's CURRENT life total, so the offer gate and
-// both charge sites (payUnlessCost, advanceUnlessPayment) price the same
-// resolved cost. LifeTotalHalfUp (Temporal Extortion) is half the payer's
-// life rounded up and unpayable at zero life; an announced PayLife<X> that
-// the string resolver could not fold (no resolvable SVar:X body) cannot be
-// priced here either — fail closed, the strict-parser convention.
-func (e *Engine) unlessFoldDynamic(p state.PlayerID, cost Cost, ctx *effects.Ctx) (Cost, bool) {
-	out := cost
-	if cost.LifeHalfUp {
-		life := e.G.Players[p].Life
-		if life <= 0 {
-			return cost, false
-		}
-		out.Life = addClampedGeneric(out.Life, int64((life+1)/2))
-		out.LifeHalfUp = false
-	}
-	if len(cost.LifeX) > 0 {
-		if ctx == nil || !ctx.XAnnounced {
-			return cost, false
-		}
-		for range cost.LifeX {
-			out.Life = addClampedGeneric(out.Life, int64(ctx.X))
-		}
-		out.LifeX = nil
-	}
-	return out, true
-}
-
-// unlessEnergyAffordable reports whether the payer's energy counter total
-// covers the cost's energy parts (CR 118.2d, Forge CostPayEnergy.canPay): a
-// fixed part spends its N, the dynamic X part the RESOLVING ability's
-// announced X — an X part with no announced X is unaffordable, never free.
-// resolveMana ignores energy parts, so this check is the ONLY thing keeping
-// an energy cost from being offered (and charged) for free.
-func (e *Engine) unlessEnergyAffordable(p state.PlayerID, cost Cost, ctx *effects.Ctx) bool {
-	total := int32(0)
-	for _, part := range cost.Energy {
-		if part.Spec == "X" {
-			if ctx == nil || !ctx.XAnnounced {
-				return false
-			}
-			total += ctx.X
-			continue
-		}
-		total += part.N
-	}
-	return total == 0 || e.G.Players[p].Counter("ENERGY") >= total
-}
-
-// unlessComponentsPayable checks every non-mana part of an unless cost for
-// satisfiability, sharing the pay path's own candidate enumeration
-// (unlessCandidatesFor) so the gate can never disagree with
-// beginUnlessPayment about what exists. The choice-bearing Sac/Discard/Reveal
-// parts must admit a system of distinct representatives (one card cannot pay
-// two parts); the synchronous parts (SubCounter/RevealChosen/Draw) are
-// checked directly.
-func (e *Engine) unlessComponentsPayable(p state.PlayerID, cost Cost, ctx *effects.Ctx, stackObj state.ObjID) bool {
-	return e.unlessChoiceComponentsPayable(p, cost, ctx) &&
-		e.unlessCountersAffordableFor(cost, *ctx, stackObj) &&
-		unlessRevealChosenDesignated(e.G, cost, *ctx) &&
-		e.unlessDrawsResolvable(p, cost, ctx)
-}
-
-// unlessChoiceComponentsPayable builds the per-sub-slot candidate lists for
-// the choice-bearing parts and runs a bipartite matching: feasible iff a
-// system of distinct representatives of the required size exists. A
-// whole-zone Exile part (isWholeZoneExileSpec) is not a pick at all -- the
-// payment takes EVERY matching candidate -- so it consumes its zone's
-// candidates before the ordinary parts are matched, exactly as
-// advanceUnlessPayment settles it.
-func (e *Engine) unlessChoiceComponentsPayable(p state.PlayerID, cost Cost, ctx *effects.Ctx) bool {
-	type slot struct {
-		zone state.Zone
-		kind string
-		part CostPart
-	}
-	var subs []slot
-	add := func(zone state.Zone, kind string, parts []CostPart) {
-		for _, part := range parts {
-			for i := int32(0); i < part.N; i++ {
-				subs = append(subs, slot{zone: zone, kind: kind, part: part})
-			}
-		}
-	}
-	add(state.ZBattlefield, "sacrifice", cost.Sac)
-	add(state.ZHand, "discard", cost.Discard)
-	add(state.ZHand, "revealcost", cost.Reveal)
-	add(state.ZBattlefield, "beholdcost", cost.Behold)
-	add(state.ZBattlefield, "returncost", cost.Return)
-	// Whole-zone Exile parts take the entire zone, so they are validated and
-	// marked used first; an ordinary Exile part then joins the bipartite
-	// match like any other pick.
-	var used []state.ObjID
-	for _, part := range cost.Exile {
-		if !isWholeZoneExileSpec(part.Spec) {
-			continue
-		}
-		avail := e.unlessCandidatesFor(p, *ctx, pay.UnlessExileZone(part), "exilecost", part, used)
-		if int32(len(avail)) < part.N {
-			return false
-		}
-		used = append(used, avail...)
-	}
-	for _, part := range cost.Exile {
-		if isWholeZoneExileSpec(part.Spec) {
-			continue
-		}
-		for i := int32(0); i < part.N; i++ {
-			subs = append(subs, slot{zone: pay.UnlessExileZone(part), kind: "exilecost", part: part})
-		}
-	}
-	if len(subs) == 0 {
-		return true
-	}
-	cands := make([][]state.ObjID, len(subs))
-	for i, s := range subs {
-		cands[i] = e.unlessCandidatesFor(p, *ctx, s.zone, s.kind, s.part, used)
-	}
-	return pay.MaxBipartiteMatch(cands) == len(subs)
-}
-
-func (e *Engine) unlessDrawsResolvable(p state.PlayerID, cost Cost, ctx *effects.Ctx) bool {
-	for _, part := range cost.Draw {
-		if _, ok := unlessDrawPlayers(ctx, p, part.Spec); !ok {
-			return false
-		}
-	}
-	return true
+	return pay.UnlessCostPayable(asPayer(e), p, raw, ctx, stackObj)
 }
 
 // beginUnlessPayment begins a payer-selected payment. It owns all Sac,
@@ -281,13 +84,13 @@ func (e *Engine) beginUnlessPayment(payer state.PlayerID, cost Cost, ctx *effect
 	// Fold the dynamic life tokens once, at continuation start: the offer
 	// gate folded the same amounts against the same payer read, and the
 	// charge below prices exactly this folded cost.
-	cost, ok := e.unlessFoldDynamic(payer, cost, ctx)
+	cost, ok := pay.UnlessFoldDynamic(asPayer(e), payer, cost, ctx)
 	if !ok {
-		e.unlessPayment = &unlessPayment{payer: payer, ctx: cloneUnlessCtx(*ctx), stackObj: stackObj}
+		e.unlessPayment = &unlessPayment{payer: payer, ctx: pay.CloneUnlessCtx(*ctx), stackObj: stackObj}
 		e.finishUnlessPayment(false)
 		return
 	}
-	e.unlessPayment = &unlessPayment{payer: payer, cost: cost, ctx: cloneUnlessCtx(*ctx), stackObj: stackObj}
+	e.unlessPayment = &unlessPayment{payer: payer, cost: cost, ctx: pay.CloneUnlessCtx(*ctx), stackObj: stackObj}
 	e.advanceUnlessPayment()
 }
 
@@ -390,7 +193,7 @@ func (e *Engine) advanceUnlessPayment() {
 	// use the same binding rules as payUnlessCost's no-choice path.
 	drawers := make([][]state.PlayerID, len(u.cost.Draw))
 	for i, part := range u.cost.Draw {
-		players, ok := unlessDrawPlayers(&u.ctx, u.payer, part.Spec)
+		players, ok := pay.UnlessDrawPlayers(&u.ctx, u.payer, part.Spec)
 		if !ok {
 			e.finishUnlessPayment(false)
 			return
@@ -411,7 +214,7 @@ func (e *Engine) advanceUnlessPayment() {
 	// flow uses, one PlayerCounterChange per part. The offer gate proved the
 	// total affordable; a state change since the choices is still guarded by
 	// the same read.
-	if !e.unlessEnergyAffordable(u.payer, u.cost, &u.ctx) {
+	if !pay.UnlessEnergyAffordable(asPayer(e), u.payer, u.cost, &u.ctx) {
 		e.finishUnlessPayment(false)
 		return
 	}
@@ -590,80 +393,6 @@ func (e *Engine) answerUnlessMana(chosen []decision.Option) {
 	e.finishUnlessPayment(false)
 }
 
-// unlessCandidatesFor is the shared candidate enumeration the offer gate
-// (unlessChoiceComponentsPayable) and the payment continuation
-// (unlessPaymentCandidates) both use, so the two can never disagree about
-// what exists. used lists already-committed picks that must not be offered
-// twice; the gate passes the empty list.
-func (e *Engine) unlessCandidatesFor(payer state.PlayerID, ctx effects.Ctx, zone state.Zone, kind string, part CostPart, used []state.ObjID) []state.ObjID {
-	seen := make(map[state.ObjID]bool, len(used))
-	for _, id := range used {
-		seen[id] = true
-	}
-	sc := ctx.SpecContext(payer)
-	// A Behold<N/Spec> part (CR 702.176) draws its candidates from TWO zones:
-	// permanents the payer controls on the battlefield, then cards in their
-	// hand. This is exactly the enumeration the cast flow's beholdCostAsk
-	// builds (battlefield first, then hand, source not excluded), so an
-	// unless-cost Behold and a cast-cost Behold offer the same objects in
-	// the same order.
-	if kind == "beholdcost" {
-		var out []state.ObjID
-		for _, z := range [...]state.Zone{state.ZBattlefield, state.ZHand} {
-			for _, id := range e.G.Zone(z, payer) {
-				if seen[id] {
-					continue
-				}
-				if z == state.ZBattlefield {
-					if o := e.G.Obj(id); o == nil || !pay.ExistsOnBattlefield(o) {
-						continue
-					}
-				}
-				if e.matchesSpec(part.Spec, id, sc) {
-					out = append(out, id)
-				}
-			}
-		}
-		return out
-	}
-	var out []state.ObjID
-	for _, id := range e.G.Zone(zone, payer) {
-		if kind == "sacrifice" && e.sacrificeBlockedForCost(id, pay.CostCauseResolution) {
-			// A CantSacrifice restriction (Call for Aid) or face static: the
-			// permanent cannot pay a sacrifice component. An unless payment
-			// is a resolution-election payment, never a cast/activation cost,
-			// so the cause is costCauseResolution -- inadmissible by every
-			// readable ValidCause$ base, which scopes the line closed here
-			// (the permissive direction) while a bare ForCost$ True and an
-			// Effect-registered CantSacrifice still apply.
-			continue
-		}
-		if kind == "exilecost" && zone == state.ZBattlefield && e.exileBlockedForCost(id, pay.CostCauseResolution) {
-			// The exile candidate guard the cast/activation gate applies,
-			// restricted to a battlefield source: a CantExile static whose
-			// ForCost$ True restricts cost payments withholds the candidate.
-			// A hand/graveyard ExileFromHand/FromGrave/AnyGrave part reads no
-			// zone restriction here, matching costCandidates' walk.
-			continue
-		}
-		// A whole-zone Exile part (ExileFromGrave<1/All>) names the WHOLE
-		// zone, not a filter: "All" matches no card through matchesSpec, so
-		// every still-available card in the zone is a candidate -- the same
-		// isWholeZoneExileSpec reading the cast gate and the triggered window
-		// take.
-		if kind == "exilecost" && isWholeZoneExileSpec(part.Spec) {
-			if !seen[id] {
-				out = append(out, id)
-			}
-			continue
-		}
-		if !seen[id] && e.matchesSpec(part.Spec, id, sc) {
-			out = append(out, id)
-		}
-	}
-	return out
-}
-
 func (e *Engine) unlessPaymentCandidates(u *unlessPayment, zone state.Zone, kind string, part CostPart) []state.ObjID {
 	// The dedup is over the union of every component's picks, not just this
 	// one's list: one card must not pay two parts, and a card already
@@ -678,7 +407,7 @@ func (e *Engine) unlessPaymentCandidates(u *unlessPayment, zone state.Zone, kind
 	used = append(used, u.beholds...)
 	used = append(used, u.returns...)
 	used = append(used, u.exiles...)
-	return e.unlessCandidatesFor(u.payer, u.ctx, zone, kind, part, used)
+	return pay.UnlessCandidatesFor(asPayer(e), u.payer, u.ctx, zone, kind, part, used)
 }
 
 func (e *Engine) recordUnlessPaymentPick(u *unlessPayment, kind string, ids []state.ObjID) {
@@ -702,62 +431,11 @@ func (e *Engine) recordUnlessPaymentPick(u *unlessPayment, kind string, ids []st
 // pending payment still has its secret designation on the source. A part with
 // no designation is unpayable, so the whole payment declines.
 func (u *unlessPayment) revealChosenDesignated(e *Engine) bool {
-	return unlessRevealChosenDesignated(e.G, u.cost, u.ctx)
-}
-
-// unlessRevealChosenDesignated is the shared RevealChosen check: the offer
-// gate (unlessComponentsPayable) and the payment continuation
-// (revealChosenDesignated) both require every part's secret designation to be
-// present on the resolving source.
-func unlessRevealChosenDesignated(g *state.Game, cost Cost, ctx effects.Ctx) bool {
-	if len(cost.RevealChosen) == 0 {
-		return true
-	}
-	src := g.Obj(ctx.Source)
-	for _, part := range cost.RevealChosen {
-		if !hasRevealChosenDesignation(src, part.Spec) {
-			return false
-		}
-	}
-	return true
+	return pay.UnlessRevealChosenDesignated(e.G, u.cost, u.ctx)
 }
 
 func (e *Engine) unlessCountersAffordable(u *unlessPayment) bool {
-	return e.unlessCountersAffordableFor(u.cost, u.ctx, u.stackObj)
-}
-
-// unlessCountersAffordableFor is the shared SubCounter feasibility check: the
-// offer gate and the payment continuation both resolve the draining source the
-// same way (an activated ability's host, else the resolving source -- exactly
-// payUnlessCost's rule) and require enough counters of each named kind.
-func (e *Engine) unlessCountersAffordableFor(cost Cost, ctx effects.Ctx, stackObj state.ObjID) bool {
-	if len(cost.SubCounter) == 0 {
-		return true
-	}
-	src := ctx.Source
-	if o := e.G.Obj(stackObj); o != nil && o.Ability != nil {
-		src = o.Source
-	}
-	o := e.G.Obj(src)
-	if o == nil {
-		return false
-	}
-	need := make(map[string]int32, len(cost.SubCounter))
-	for _, part := range cost.SubCounter {
-		need[part.Spec] += part.N
-	}
-	for kind, n := range need {
-		have := int32(0)
-		for _, c := range o.Counters {
-			if c.Kind == kind {
-				have += c.N
-			}
-		}
-		if have < n {
-			return false
-		}
-	}
-	return true
+	return pay.UnlessCountersAffordableFor(asPayer(e), u.cost, u.ctx, u.stackObj)
 }
 
 func (e *Engine) answerUnlessPayment(chosen []decision.Option) {

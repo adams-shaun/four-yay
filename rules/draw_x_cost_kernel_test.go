@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -26,7 +27,7 @@ func TestTitanOfLittjaraDrawXCost(t *testing.T) {
 	// Precondition: the fold's own verdict on this board is EXACTLY the one
 	// other Bear — a zero here would mean the shared-type read is broken and
 	// every assertion below would pass vacuously.
-	n, ok := e.drawCostCount(titan, 0, drawCostPart())
+	n, ok := pay.DrawCostCount(asPayer(e), titan, 0, drawCostPart())
 	if !ok || n != 1 {
 		t.Fatalf("drawCostCount(Titan) = %d, %v; want exactly 1 (the one other Bear sharing the chosen type)", n, ok)
 	}
@@ -96,7 +97,7 @@ func TestTitanOfLittjaraDrawXDecline(t *testing.T) {
 	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, titan := kr5TitanBearFixture(t, reg)
-	if n, ok := e.drawCostCount(titan, 0, drawCostPart()); !ok || n != 1 {
+	if n, ok := pay.DrawCostCount(asPayer(e), titan, 0, drawCostPart()); !ok || n != 1 {
 		t.Fatalf("drawCostCount(Titan) = %d, %v; want exactly 1", n, ok)
 	}
 

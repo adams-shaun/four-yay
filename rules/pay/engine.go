@@ -43,9 +43,10 @@ type Engine interface {
 	// the spec, and whether the provenance admits.
 	CastProvenanceAdmitsPending(spec string, objID state.ObjID, you state.PlayerID) (string, bool)
 
-	// SacrificeBlockedForCost reports whether a static forbids sacrificing id
-	// to pay a cost for cause (a CantSacrifice ForCost$/ValidCause$ line).
-	SacrificeBlockedForCost(id state.ObjID, cause CostCause) bool
+	// CostBlocked reports whether a static forbids sacrificing (BlockSacrifice:
+	// a CantSacrifice ForCost$/ValidCause$ line) or exiling (BlockExile: a
+	// CantExile ForCost$ line) id to pay a cost for cause.
+	CostBlocked(op CostBlock, id state.ObjID, cause CostCause) bool
 
 	// AddsCounterGrant resolves one consumed AddsCounters$ rider batch into
 	// the grant a cast records (used units of it), ok=false to drop it.
@@ -61,6 +62,9 @@ type Engine interface {
 	// characteristics and the activation gates every ability shares
 	// (lasagna spec §9.2).
 	Chars() chars.Reader
+	// Eval is the evaluation seam: everything that needs the engine as an
+	// effects.Host (lasagna spec §9.2).
+	Eval() Eval
 }
 
 // Capture points at the engine's transient spend-capture fields that a
@@ -72,3 +76,13 @@ type Capture struct {
 	Sources      *[]state.ObjID
 	AddsCounters *[]state.ManaAddsCounterGrant
 }
+
+// CostBlock names the cost action Engine.CostBlocked asks about.
+type CostBlock uint8
+
+const (
+	// BlockSacrifice asks whether id may not be sacrificed for the cost.
+	BlockSacrifice CostBlock = iota
+	// BlockExile asks whether id may not be exiled for the cost.
+	BlockExile
+)

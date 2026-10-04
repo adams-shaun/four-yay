@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -91,7 +92,7 @@ func (e *Engine) beginActivation(p state.PlayerID, opt decision.Option) {
 			raw = alt
 		}
 	}
-	cost, ok := e.fixLifeXCost(p, opt.Obj, raw)
+	cost, ok := pay.FixLifeXCost(asPayer(e), p, opt.Obj, raw)
 	if !ok {
 		// The offer gate (offerCastable's fixLifeXCost conversion) withheld this
 		// ability; a stale option that slips through degrades to a no-op.

@@ -436,17 +436,6 @@ func (e *Engine) manaToPay(pc *pendingCast) Cost {
 	return m
 }
 
-// costAnnouncesSacX reports whether the cost carries a Sac<X/Spec> part whose
-// count the cast announces (the Dargo shape).
-func costAnnouncesSacX(c Cost) bool {
-	for _, part := range c.Sac {
-		if part.Announced {
-			return true
-		}
-	}
-	return false
-}
-
 // costAnnouncesPaidX reports whether the cost carries ANY announced-count
 // part whose count the cast announces as X: the Sac<X/Spec> shape
 // (costAnnouncesSacX), the announced SubCounter<X/Kind> removal and the
@@ -455,7 +444,7 @@ func costAnnouncesSacX(c Cost) bool {
 // must be re-priced once the
 // announcement is known -- the same reason Dargo's Sac<X> needed it.
 func costAnnouncesPaidX(c Cost) bool {
-	if costAnnouncesSacX(c) {
+	if pay.CostAnnouncesSacX(c) {
 		return true
 	}
 	if len(c.LifeX) > 0 {

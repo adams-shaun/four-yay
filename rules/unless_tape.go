@@ -85,7 +85,7 @@ func settleUnlessElection(e *Engine, ctx *effects.Ctx, sa *cards.SA, obj state.O
 		// observe while never letting an empty pool satisfy it.
 		return unlessSettled, payOption.Player, Cost{}
 	}
-	if !chosePay || !e.unlessCostPayable(payOption.Player, raw, ctx, obj) {
+	if !chosePay || !pay.UnlessCostPayable(asPayer(e), payOption.Player, raw, ctx, obj) {
 		return unlessSettled, payOption.Player, Cost{}
 	}
 	if len(paid.Sac) > 0 || len(paid.Discard) > 0 || len(paid.Reveal) > 0 || len(paid.Behold) > 0 ||
@@ -229,8 +229,8 @@ func wardAnswerSettle(e *Engine, ctx *effects.Ctx, sa *cards.SA, obj state.ObjID
 // served from the tape, and finishUnlessPayment settles into the live Ctx
 // (tapeUnlessSettled) instead of resuming a parked frame.
 func tapeUnlessComponents(e *Engine, ctx *effects.Ctx, payer state.PlayerID, cost Cost, obj state.ObjID) {
-	cost, ok := e.unlessFoldDynamic(payer, cost, ctx)
-	e.unlessPayment = &unlessPayment{payer: payer, ctx: cloneUnlessCtx(*ctx), stackObj: obj, tape: true}
+	cost, ok := pay.UnlessFoldDynamic(asPayer(e), payer, cost, ctx)
+	e.unlessPayment = &unlessPayment{payer: payer, ctx: pay.CloneUnlessCtx(*ctx), stackObj: obj, tape: true}
 	if !ok {
 		e.finishUnlessPayment(false)
 		return

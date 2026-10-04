@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -21,7 +22,7 @@ func TestTitanOfLittjaraDrawXPayAskCountedOnceKernel(t *testing.T) {
 	// Preconditions the count assertion depends on. A vacuous fixture (the
 	// trigger never pushed, or the fold not resolving to exactly one Bear)
 	// must fail here, not let a `want 1` pass silently.
-	n, ok := e.drawCostCount(titan, 0, drawCostPart())
+	n, ok := pay.DrawCostCount(asPayer(e), titan, 0, drawCostPart())
 	if !ok || n != 1 {
 		t.Fatalf("drawCostCount(Titan) = %d, %v; want exactly 1 (the one other Bear sharing the chosen type)", n, ok)
 	}
