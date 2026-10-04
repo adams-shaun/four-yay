@@ -310,6 +310,13 @@ type scan struct {
 	// tells a rules/combat or rules/chars file apart so its Board calls
 	// resolve to rules' combatBoard / charsBoard adapter (see scanCall).
 	filePkg string
+	// fileKeySets are the current file's package-level string vocabularies
+	// (`var x = state.NewNameSet("A", ...)` and `var x =
+	// state.NewStrCodes(state.StrEntry[T]{Key: "A", ...}, ...)`), by var
+	// name: a range whitelist written as `xs.Has(k)` or `switch
+	// xCodes.Code(k)` reads exactly those keys, as a literal case list
+	// would.
+	fileKeySets map[string][]string
 }
 
 // newScan builds an empty scan; scanPackages and the synthetic-source probes
@@ -363,6 +370,7 @@ func (s *scan) scanSource(t *testing.T, path, pkg, src string) {
 		t.Fatalf("paramcensus: parse %s: %v", path, err)
 	}
 	s.filePkg = af.Name.Name
+	s.fileKeySets = fileKeySets(af)
 	for _, decl := range af.Decls {
 		fd, ok := decl.(*ast.FuncDecl)
 		if !ok || fd.Body == nil {
@@ -1028,8 +1036,18 @@ func (s *scan) scanRangeWhitelist(t *testing.T, fset *token.FileSet, fi *fnInfo,
 	var keys []string
 	switched := false
 	ast.Inspect(rs.Body, func(n ast.Node) bool {
+		if set, ok := s.keySetCall(n, keyIdent.Name, "Has"); ok {
+			switched = true
+			keys = append(keys, set...)
+			return true
+		}
 		sw, ok := n.(*ast.SwitchStmt)
 		if !ok {
+			return true
+		}
+		if set, ok := s.keySetCall(sw.Tag, keyIdent.Name, "Code"); ok {
+			switched = true
+			keys = append(keys, set...)
 			return true
 		}
 		tag, ok := sw.Tag.(*ast.Ident)
@@ -1122,6 +1140,96 @@ func (s *scan) scanRangeWhitelist(t *testing.T, fset *token.FileSet, fi *fnInfo,
 	for _, k := range keys {
 		s.addRead(fi, b, k)
 	}
+}
+
+// keySetCall reports whether n is `<set>.<method>(key)` on one of the
+// current file's key-set vars, and returns that set's keys.
+func (s *scan) keySetCall(n ast.Node, key, method string) ([]string, bool) {
+	ce, ok := n.(*ast.CallExpr)
+	if !ok || len(ce.Args) != 1 {
+		return nil, false
+	}
+	sel, ok := ce.Fun.(*ast.SelectorExpr)
+	if !ok || sel.Sel.Name != method {
+		return nil, false
+	}
+	recv, ok := sel.X.(*ast.Ident)
+	if !ok {
+		return nil, false
+	}
+	if arg, ok := ce.Args[0].(*ast.Ident); !ok || arg.Name != key {
+		return nil, false
+	}
+	set, ok := s.fileKeySets[recv.Name]
+	return set, ok
+}
+
+// fileKeySets collects a file's package-level NewNameSet / NewStrCodes vars
+// whose keys are all string literals.
+func fileKeySets(af *ast.File) map[string][]string {
+	out := map[string][]string{}
+	for _, decl := range af.Decls {
+		gd, ok := decl.(*ast.GenDecl)
+		if !ok || gd.Tok != token.VAR {
+			continue
+		}
+		for _, sp := range gd.Specs {
+			vs, ok := sp.(*ast.ValueSpec)
+			if !ok || len(vs.Names) != 1 || len(vs.Values) != 1 {
+				continue
+			}
+			ce, ok := vs.Values[0].(*ast.CallExpr)
+			if !ok {
+				continue
+			}
+			fn := ce.Fun
+			if ix, ok := fn.(*ast.IndexExpr); ok {
+				fn = ix.X
+			}
+			sel, ok := fn.(*ast.SelectorExpr)
+			if !ok {
+				continue
+			}
+			var keys []string
+			all := true
+			lit := func(e ast.Expr) {
+				if bl, ok := e.(*ast.BasicLit); ok && bl.Kind == token.STRING {
+					if v, err := strconv.Unquote(bl.Value); err == nil {
+						keys = append(keys, v)
+						return
+					}
+				}
+				all = false
+			}
+			switch sel.Sel.Name {
+			case "NewNameSet":
+				for _, a := range ce.Args {
+					lit(a)
+				}
+			case "NewStrCodes":
+				for _, a := range ce.Args {
+					cl, ok := a.(*ast.CompositeLit)
+					if !ok {
+						all = false
+						continue
+					}
+					for _, el := range cl.Elts {
+						if kv, ok := el.(*ast.KeyValueExpr); ok {
+							if id, ok := kv.Key.(*ast.Ident); ok && id.Name == "Key" {
+								lit(kv.Value)
+							}
+						}
+					}
+				}
+			default:
+				continue
+			}
+			if all && len(keys) > 0 {
+				out[vs.Names[0].Name] = keys
+			}
+		}
+	}
+	return out
 }
 
 // filteredParamsCopy accepts a Params copy loop that deliberately omits one
@@ -3303,6 +3411,60 @@ func censusProbeAlias(sa *cards.SA) string {
 	}
 	if !flagged {
 		t.Fatalf("rot guard did not flag the unreachable aliased consumer; findings: %v", s.guardErrs)
+	}
+}
+
+// TestParamCensusReadsTableWhitelists pins the table forms of a range
+// whitelist: `set.Has(k)` over a file-level NameSet and `switch
+// codes.Code(k)` over a file-level StrCodes read exactly the table's keys,
+// as the literal case list they replaced did.
+func TestParamCensusReadsTableWhitelists(t *testing.T) {
+	t.Parallel()
+	s := newScan()
+	s.scanSource(t, "probe_tables.go", "effects", `package effects
+
+import (
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/state"
+)
+
+func censusProbeSet(sa *cards.SA) bool {
+	for k := range sa.Params {
+		if !probeKeys.Has(k) {
+			return false
+		}
+	}
+	return true
+}
+
+func censusProbeCodes(sa *cards.SA) bool {
+	for k := range sa.Params {
+		switch probeCodes.Code(k) {
+		case probeA:
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+var probeKeys = state.NewNameSet("SetKeyA", "SetKeyB")
+
+type probeCode uint16
+
+const probeA probeCode = 1
+
+var probeCodes = state.NewStrCodes(
+	state.StrEntry[probeCode]{Key: "CodeKeyA", Val: probeA},
+)
+`)
+	for fn, keys := range map[string][]string{"censusProbeSet": {"SetKeyA", "SetKeyB"}, "censusProbeCodes": {"CodeKeyA"}} {
+		fi := s.fns["effects:"+fn]
+		for _, k := range keys {
+			if fi == nil || !fi.reads[bSA][k] {
+				t.Fatalf("%s: table whitelist key %s not read: %+v", fn, k, fi)
+			}
+		}
 	}
 }
 

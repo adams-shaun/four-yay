@@ -55,15 +55,15 @@ func (e *Engine) bloodthirstEntryMatch(ev events.Event) *replMatch {
 		With: body,
 	}
 	if param == "X" {
-		body.Params["CounterNum"] = "Count$DamageOppsTakenThisTurn"
+		body.SetParam(cards.PKCounterNum, "Count$DamageOppsTakenThisTurn")
 	} else {
 		n, err := strconv.Atoi(param)
 		if err != nil || n <= 0 {
 			return nil
 		}
-		body.Params["CounterNum"] = strconv.Itoa(n)
-		r.Params["CheckSVar"] = "Count$DamageOppsTakenThisTurn"
-		r.Params["SVarCompare"] = "GT0"
+		body.SetParam(cards.PKCounterNum, strconv.Itoa(n))
+		r.SetParam(cards.PKCheckSVar, "Count$DamageOppsTakenThisTurn")
+		r.SetParam(cards.PKSVarCompare, "GT0")
 	}
 	return &replMatch{id: ev.Obj, repl: r}
 }

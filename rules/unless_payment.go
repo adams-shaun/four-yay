@@ -107,7 +107,7 @@ func (e *Engine) manaReachable(p state.PlayerID, cost Cost, pool, snow state.Man
 	nodes := 0
 	var rec func(start, remaining int, acc state.Mana, lifeLeft int32) bool
 	rec = func(start, remaining int, acc state.Mana, lifeLeft int32) bool {
-		if payable(manaAdd(pool, acc), lifeLeft) {
+		if payable(pay.ManaAdd(pool, acc), lifeLeft) {
 			return true
 		}
 		if remaining <= 0 {
@@ -118,15 +118,15 @@ func (e *Engine) manaReachable(p state.PlayerID, cost Cost, pool, snow state.Man
 			return false
 		}
 		for i := start; i < len(units); i++ {
-			for _, a := range units[i].alts {
+			for _, a := range units[i].Alts {
 				// A PayLife activation spends real life: it must be
 				// present before the tap and is gone for the priced cost
 				// afterwards. Every shared-window alt carries life 0, so
 				// this is inert for the attack and unless windows.
-				if a.life > lifeLeft {
+				if a.Life > lifeLeft {
 					continue
 				}
-				if rec(i+1, remaining-1, manaAdd(acc, a.mana()), lifeLeft-a.life) {
+				if rec(i+1, remaining-1, pay.ManaAdd(acc, a.Mana()), lifeLeft-a.Life) {
 					return true
 				}
 			}
@@ -669,38 +669,22 @@ func (e *Engine) askUnlessMana() {
 			rest := make([]windowManaUnit, 0, len(units)-1)
 			rest = append(rest, units[:si]...)
 			rest = append(rest, units[si+1:]...)
-			for ai, a := range src.alts {
-				if safe != (e.unlessManaReachable(u.payer, u.cost, manaAdd(pool, a.mana()), snow, typed, life,
+			for ai, a := range src.Alts {
+				if safe != (e.unlessManaReachable(u.payer, u.cost, pay.ManaAdd(pool, a.Mana()), snow, typed, life,
 					asPayer(e).Conv(u.payer, u.stackObj, false), rest)) {
 					continue
 				}
 				name := "a mana source"
-				if o := e.G.Obj(src.id); o != nil && o.Face() != nil {
+				if o := e.G.Obj(src.ID); o != nil && o.Face() != nil {
 					name = o.Face().Name
 				}
 				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "activate",
-					Obj: src.id, Ability: ai, Label: "Tap " + name + manaAltLabel(a)})
+					Obj: src.ID, Ability: ai, Label: "Tap " + name + pay.AltLabel(a)})
 			}
 		}
 	}
 	d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "done", Label: "Done"})
 	windowAsk(e, d, chooseUnlessMana)
-}
-
-// manaAltLabel renders an alt's production as a short " for {U}{R}" suffix,
-// so a dual land's two abilities are distinguishable on the wire.
-func manaAltLabel(a windowManaAlt) string {
-	syms := "WUBRGC"
-	var b strings.Builder
-	for i, n := range a.counts {
-		for k := int32(0); k < n*a.amt; k++ {
-			b.WriteByte(syms[i])
-		}
-	}
-	if b.Len() == 0 {
-		return ""
-	}
-	return " for {" + strings.Join(strings.Split(b.String(), ""), "}{") + "}"
 }
 
 // answerUnlessMana applies one window answer. "Done" re-enters the ordinary
@@ -724,14 +708,14 @@ func (e *Engine) answerUnlessMana(chosen []decision.Option) {
 		return
 	}
 	for _, src := range e.windowManaUnits(u.payer) {
-		if src.id != chosen[0].Obj {
+		if src.ID != chosen[0].Obj {
 			continue
 		}
 		ai := chosen[0].Ability
-		if ai < 0 || ai >= len(src.alts) {
+		if ai < 0 || ai >= len(src.Alts) {
 			break
 		}
-		e.resolveManaAbility(u.payer, src.id, src.alts[ai].ma, false)
+		e.resolveManaAbility(u.payer, src.ID, src.Alts[ai].Ma, false)
 		if e.Pending() == nil {
 			e.advanceUnlessPayment()
 		}

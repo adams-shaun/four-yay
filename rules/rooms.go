@@ -148,7 +148,7 @@ func (e *Engine) queueUnlockTriggers(o *state.Object, face *cards.Face) {
 // the action is withheld rather than the part silently waived.
 func (e *Engine) unlockMods(p state.PlayerID, id state.ObjID) (costMods, bool) {
 	mods := e.costModifiers(p, id, specialActionScope("unlock"))
-	if mods.hasExtra {
+	if mods.HasExtra {
 		return costMods{}, false
 	}
 	return mods, true

@@ -127,7 +127,7 @@ func TestCostCompositionExcludesOnlyCurrentPushForAnnouncedX(t *testing.T) {
 	cost := Cost{Generic: 1, Colored: state.Mana{state.MR: 1}}
 	priceX := func() Cost {
 		t.Helper()
-		return e.costModifiersForTargetsX(0, spell, spellScope(""), nil, 1).apply(cost)
+		return e.costModifiersForTargetsX(0, spell, spellScope(""), nil, 1).Apply(cost)
 	}
 
 	// The in-flight targeted cast is already in the log. Announced-X pricing

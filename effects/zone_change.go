@@ -383,11 +383,8 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 			target := h.Game().Obj(targets[0].Obj)
 			var chooser state.PlayerID
 			chooserOK := false
-			switch altDecider {
-			case "TargetedOwner":
-				if target != nil {
-					chooser, chooserOK = target.Owner, true
-				}
+			if altDecider == "TargetedOwner" && target != nil {
+				chooser, chooserOK = target.Owner, true
 			}
 			if !chooserOK || int(chooser) >= len(h.Game().Players) {
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,

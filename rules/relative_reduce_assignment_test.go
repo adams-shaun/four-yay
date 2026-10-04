@@ -62,7 +62,7 @@ func TestRelativeReduceCostSingleTargetAssignmentNotOvercounted(t *testing.T) {
 		t.Fatalf("single-target assignment size = %d, want 1 (census %d)", len(got), len(census))
 	}
 	// The honest price of the one legal target choice is {3}-{1}={2}.
-	if got := e.costModifiersForTargets(0, spellID, spellScope(""), []state.Target{{Obj: b1}}).apply(e.parseCost("3")).CMC(); got != 2 {
+	if got := e.costModifiersForTargets(0, spellID, spellScope(""), []state.Target{{Obj: b1}}).Apply(e.parseCost("3")).CMC(); got != 2 {
 		t.Fatalf("single-target-bound price = %d, want 2", got)
 	}
 	// {2} pool: offered (this proves the reduction still admits the cast).
@@ -107,7 +107,7 @@ func TestRelativeReduceCostMultiTargetAssignmentAdmitsCastOffer(t *testing.T) {
 		t.Fatalf("two-target assignment size = %d, want 2 (census %d)", len(got), len(census))
 	}
 	// The legal two-target cast costs {3}-{2}={1}.
-	if got := e.costModifiersForTargets(0, spellID, spellScope(""), []state.Target{{Obj: b1}, {Obj: b2}}).apply(e.parseCost("3")).CMC(); got != 1 {
+	if got := e.costModifiersForTargets(0, spellID, spellScope(""), []state.Target{{Obj: b1}, {Obj: b2}}).Apply(e.parseCost("3")).CMC(); got != 1 {
 		t.Fatalf("two-target-bound price = %d, want 1", got)
 	}
 	// Empty pool: the honest price is {1}, so it must be withheld; the
@@ -145,7 +145,7 @@ func TestRelativeReduceCostAssignmentCappedAtCensus(t *testing.T) {
 	if got := e.costAmountTargets(0, spellID, spellScope(""), census); len(got) != 2 {
 		t.Fatalf("assignment size = %d, want 2 (capped at census)", len(got))
 	}
-	if got := e.costModifiersForTargets(0, spellID, spellScope(""), []state.Target{{Obj: b1}, {Obj: b2}}).apply(e.parseCost("3")).CMC(); got != 1 {
+	if got := e.costModifiersForTargets(0, spellID, spellScope(""), []state.Target{{Obj: b1}, {Obj: b2}}).Apply(e.parseCost("3")).CMC(); got != 1 {
 		t.Fatalf("two-target-bound price = %d, want 1", got)
 	}
 }

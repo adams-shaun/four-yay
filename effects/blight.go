@@ -43,13 +43,7 @@ func effBlight(h Host, c *Ctx, sa *cards.SA) {
 	// than silently guessing.
 	var unknown []string
 	for k := range sa.Params {
-		switch k {
-		case "Defined", "Num", "ValidTgts",
-			"Cost", "SorcerySpeed",
-			"ConditionCheckSVar", "UnlessCost", "UnlessPayer",
-			"SpellDescription", "StackDescription", "TriggerDescription",
-			"Description", "Secondary":
-		default:
+		if !blightKeys.Has(k) {
 			unknown = append(unknown, k)
 		}
 	}
@@ -138,3 +132,10 @@ func blightApply(h Host, p state.PlayerID, n int32, picks []state.ObjID) {
 			Counter: "M1M1", Amount: n})
 	}
 }
+
+// blightKeys are the Blight parameters effBlight models (see effBlight).
+var blightKeys = state.NewNameSet(
+	"Defined", "Num", "ValidTgts", "Cost", "SorcerySpeed", "ConditionCheckSVar",
+	"UnlessCost", "UnlessPayer", "SpellDescription", "StackDescription",
+	"TriggerDescription", "Description", "Secondary",
+)

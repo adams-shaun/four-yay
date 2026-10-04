@@ -331,7 +331,7 @@ func (e *Engine) potentialModeCastPlan(p state.PlayerID, o decision.Option) Paym
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: "cost:life_x"}
 	}
 	scope := spellScope(o.Mode)
-	if costAnnouncesSacX(base) || e.costModifiers(p, id, scope).waterbend > 0 {
+	if costAnnouncesSacX(base) || e.costModifiers(p, id, scope).Waterbend > 0 {
 		// An announced Sac<X> or a waterbend credit reprices the cast by
 		// what the payment taps or sacrifices: not composed here.
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: "cost:credit"}
@@ -874,7 +874,7 @@ func (e *Engine) paymentPlanCensusOf(p state.PlayerID, hyp *state.Mana) paymentP
 	units := e.paymentPlanQueryUnits(p)
 	at := make(map[state.ObjID]int, len(units)) // lookup only
 	for i, u := range units {
-		at[u.id] = i
+		at[u.ID] = i
 	}
 	var probe *Engine
 	for _, id := range e.G.Zone(state.ZBattlefield, p) {
@@ -894,7 +894,7 @@ func (e *Engine) paymentPlanCensusOf(p state.PlayerID, hyp *state.Mana) paymentP
 		for _, ma := range abs {
 			covered := false
 			for _, a := range alts {
-				if sameManaAbility(a.Ma, ma) {
+				if pay.SameManaAbility(a.Ma, ma) {
 					covered = true
 					break
 				}

@@ -26,7 +26,7 @@ func TestRelativeReduceCostTargetCountAdmitsCastOffer(t *testing.T) {
 	if !statics.validTarget {
 		t.Fatal("precondition: Relative$ reducer must activate the potential-target retry")
 	}
-	if got := e.costModifiersForTargets(0, spellID, spellScope(""), []state.Target{{Obj: bear}}).apply(e.parseCost("3")).CMC(); got != 2 {
+	if got := e.costModifiersForTargets(0, spellID, spellScope(""), []state.Target{{Obj: bear}}).Apply(e.parseCost("3")).CMC(); got != 2 {
 		t.Fatalf("target-bound price = %d, want 2", got)
 	}
 	e.G.Players[0].Pool[state.MC] = 2

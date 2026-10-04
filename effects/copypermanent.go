@@ -150,13 +150,13 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	// copiable-ability shape is not) stays LOUD -- one Note per call, never a
 	// silent drop.
 	atEOTTrigBody := ""
-	switch atEOTTrig := cp.AtEOTTrig; atEOTTrig {
-	case "":
+	switch atEOTTrig := cp.AtEOTTrig; copyPermanentAtEOTTrigCodes.Code(atEOTTrig) {
+	case copyPermanentAtEOTTrigEmpty:
 		// No rider: a copy of the minted token still inherits the SOURCE
 		// object's copiable body (events.Apply's fallback).
-	case "Sacrifice":
+	case copyPermanentAtEOTTrigSacrifice:
 		atEOTTrigBody = "__cpAtEOTSacrifice"
-	case "Exile":
+	case copyPermanentAtEOTTrigExile:
 		atEOTTrigBody = "__cpAtEOTExile"
 	default:
 		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
@@ -968,4 +968,18 @@ const (
 var copyPermanentAtEOTCodes = state.NewStrCodes(
 	state.StrEntry[copyPermanentAtEOTCode]{Key: "Exile", Val: copyPermanentAtEOTExile},
 	state.StrEntry[copyPermanentAtEOTCode]{Key: "Sacrifice", Val: copyPermanentAtEOTSacrifice},
+)
+
+type copyPermanentAtEOTTrigCode uint16
+
+const (
+	copyPermanentAtEOTTrigEmpty copyPermanentAtEOTTrigCode = iota + 1
+	copyPermanentAtEOTTrigSacrifice
+	copyPermanentAtEOTTrigExile
+)
+
+var copyPermanentAtEOTTrigCodes = state.NewStrCodes(
+	state.StrEntry[copyPermanentAtEOTTrigCode]{Key: "", Val: copyPermanentAtEOTTrigEmpty},
+	state.StrEntry[copyPermanentAtEOTTrigCode]{Key: "Sacrifice", Val: copyPermanentAtEOTTrigSacrifice},
+	state.StrEntry[copyPermanentAtEOTTrigCode]{Key: "Exile", Val: copyPermanentAtEOTTrigExile},
 )

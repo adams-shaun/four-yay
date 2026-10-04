@@ -383,10 +383,8 @@ func adjustLandPlaysGrant(params map[string]string) (int32, bool) {
 		return 0, false
 	}
 	for key := range params {
-		switch key {
-		case "Mode", "AdjustLandPlays", "Affected", "Description":
-			// The keys the implemented grant (and only it) carries.
-		default:
+		// The keys the implemented grant (and only it) carries.
+		if !adjustLandPlaysKeys.Has(key) {
 			return 0, false
 		}
 	}
@@ -564,4 +562,9 @@ var continuousConditionHoldsCodes = state.NewStrCodes(
 	state.StrEntry[continuousConditionHoldsCode]{Key: "Hellbent", Val: continuousConditionHoldsHellbent},
 	state.StrEntry[continuousConditionHoldsCode]{Key: "Blessing", Val: continuousConditionHoldsBlessing},
 	state.StrEntry[continuousConditionHoldsCode]{Key: "EnduringStory", Val: continuousConditionHoldsEnduringStory},
+)
+
+// adjustLandPlaysKeys are the keys the implemented AdjustLandPlays grant carries.
+var adjustLandPlaysKeys = state.NewNameSet(
+	"Mode", "AdjustLandPlays", "Affected", "Description",
 )

@@ -9,6 +9,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -261,8 +262,8 @@ func (e *Engine) forEachShardCount(word string, id state.ObjID, scope costScope)
 		return 0, false
 	}
 	var c Cost
-	if scope.kind == "Ability" {
-		ab := scope.ab
+	if scope.Kind == "Ability" {
+		ab := scope.Ab
 		if ab == nil {
 			return 0, true
 		}
@@ -325,8 +326,8 @@ func (e *Engine) composeRaiseCost(mods *costMods, sv staticView, id state.ObjID,
 	if word, ok := sv.Param(cards.PKForEachShard); ok {
 		n, known := e.forEachShardCount(word, id, scope)
 		if !known {
-			mods.extra = mods.extra.Plus(Cost{Withheld: []string{"ForEachShard"}})
-			mods.hasExtra = true
+			mods.Extra = mods.Extra.Plus(Cost{Withheld: []string{"ForEachShard"}})
+			mods.HasExtra = true
 			return true
 		}
 		times *= n
@@ -341,29 +342,29 @@ func (e *Engine) composeRaiseCost(mods *costMods, sv staticView, id state.ObjID,
 	r := e.raiseExtraFor(sv, raw, x, targets)
 	addPlainRaise(mods, r.col, r.gen, r.life, times)
 	for range times {
-		mods.waterbend = addClampedGeneric(mods.waterbend, int64(r.waterbend))
-		mods.raiseX = addClampedGeneric(mods.raiseX, int64(r.x))
+		mods.Waterbend = addClampedGeneric(mods.Waterbend, int64(r.waterbend))
+		mods.RaiseX = addClampedGeneric(mods.RaiseX, int64(r.x))
 	}
 	if r.x > 0 {
-		mods.waterbendX = true
+		mods.WaterbendX = true
 	}
 	if isZeroExtra(r.extra) {
 		return true
 	}
 	for range times {
-		mods.extra = mods.extra.Plus(r.extra)
+		mods.Extra = mods.Extra.Plus(r.extra)
 	}
-	mods.hasExtra = true
+	mods.HasExtra = true
 	return true
 }
 
 func addPlainRaise(mods *costMods, col state.Mana, gen, life int32, times int) {
 	for range times {
 		for i := range col {
-			mods.raiseCol[i] = addClampedGeneric(mods.raiseCol[i], int64(col[i]))
+			mods.RaiseCol[i] = addClampedGeneric(mods.RaiseCol[i], int64(col[i]))
 		}
-		mods.raiseGen = addClampedGeneric(mods.raiseGen, int64(gen))
-		mods.raiseLife = addClampedGeneric(mods.raiseLife, int64(life))
+		mods.RaiseGen = addClampedGeneric(mods.RaiseGen, int64(gen))
+		mods.RaiseLife = addClampedGeneric(mods.RaiseLife, int64(life))
 	}
 }
 
@@ -419,64 +420,6 @@ func faceAnnounces(sa *cards.SA) []string {
 	return out
 }
 
-// plusRaiseExtra composes a cost with a RaiseCost static's additional parts
-// (costMods.extra). It is Cost.Plus -- the extra carries no mana by
-// construction (parseRaiseExtra moves mana and life to the plain raise
-// fields) -- followed by the loyalty netting Carth the Lion needs: "loyalty
-// abilities cost an additional [+1]" makes a [+1] cost [+2] and a [-2] cost
-// [-1] (the card's own ruling), so the source-anchored literal LOYALTY
-// add/remove parts merge into ONE net part. The payability gate (a [-N] needs
-// N counters) and the settle then read the net cost, exactly as Forge's
-// Cost.add merges a CostPutCounter into a CostRemoveCounter of the same type.
-func plusRaiseExtra(c, extra Cost) Cost {
-	c = c.Plus(extra)
-	for _, part := range extra.AddCounter {
-		if strings.EqualFold(part.Spec, "LOYALTY") {
-			return netLoyaltyParts(c)
-		}
-	}
-	return c
-}
-
-// netLoyaltyParts merges every literal, source-anchored LOYALTY AddCounter
-// and SubCounter part of c into one net part. An announced or
-// target-bearing part (a [-X] ability) is left as written: its count is
-// not known until the announcement.
-func netLoyaltyParts(c Cost) Cost {
-	literal := func(p CostPart) bool {
-		return strings.EqualFold(p.Spec, "LOYALTY") && !p.Announced && p.Dyn == "" && p.Target == ""
-	}
-	var net int64
-	var add, sub []CostPart
-	merged := 0
-	for _, p := range c.AddCounter {
-		if literal(p) {
-			net += int64(p.N)
-			merged++
-			continue
-		}
-		add = append(add, p)
-	}
-	for _, p := range c.SubCounter {
-		if literal(p) {
-			net -= int64(p.N)
-			merged++
-			continue
-		}
-		sub = append(sub, p)
-	}
-	if merged < 2 {
-		return c
-	}
-	if net >= 0 {
-		add = append(add, CostPart{N: int32(net), Spec: "LOYALTY"})
-	} else {
-		sub = append(sub, CostPart{N: int32(-net), Spec: "LOYALTY"})
-	}
-	c.AddCounter, c.SubCounter = add, sub
-	return c
-}
-
 // foldRaiseExtra moves a RaiseCost static's additional parts (mods.extra)
 // into the pending cast's own cost, which every non-mana cast-flow stage
 // reads (sacAsk, exAsk, beholdCostAsk, the settle). It reports false when
@@ -493,31 +436,31 @@ func (e *Engine) foldRaiseExtra(p state.PlayerID, id state.ObjID, cost Cost, mod
 	// validateCastContributions all read the one cap. The {N} itself is
 	// already in cost.Generic (ParseCost folded it there), so nothing is
 	// re-charged here.
-	mods.waterbend = addClampedGeneric(mods.waterbend, int64(cost.Waterbend))
+	mods.Waterbend = addClampedGeneric(mods.Waterbend, int64(cost.Waterbend))
 	if cost.WaterbendX {
-		mods.waterbendX = true
+		mods.WaterbendX = true
 		// The cost's own Waterbend<X> part: its amount is the announced X,
 		// which ParseCost already counted into cost.X (below only re-adds
 		// mods.raiseX, the RaiseCost parts). Count it so waterbendCap can
 		// bound the taps by that X without double-counting the RaiseCost
 		// parts, which the same `true` flag also covers.
-		mods.waterbendPartX++
+		mods.WaterbendPartX++
 	}
 	cost.Waterbend, cost.WaterbendX = 0, false
 	// A Waterbend<X> raise adds an {X} the cast announces (xAsk reads
 	// pc.cost.X); costMods.apply never prices raiseX, so it is folded here
 	// exactly once.
-	cost.X += int(mods.raiseX)
-	if !mods.hasExtra {
+	cost.X += int(mods.RaiseX)
+	if !mods.HasExtra {
 		return cost, true
 	}
-	if len(mods.extra.Withheld) > 0 {
+	if len(mods.Extra.Withheld) > 0 {
 		e.emit(events.Event{Kind: events.Note, Player: p, Obj: id,
-			Text: "additional cost cannot be paid (" + strings.Join(mods.extra.Withheld, ", ") + "); declined"})
+			Text: "additional cost cannot be paid (" + strings.Join(mods.Extra.Withheld, ", ") + "); declined"})
 		return cost, false
 	}
-	cost = plusRaiseExtra(cost, mods.extra)
-	mods.extra = Cost{}
+	cost = pay.PlusRaiseExtra(cost, mods.Extra)
+	mods.Extra = Cost{}
 	return cost, true
 }
 
@@ -542,7 +485,7 @@ func waterbendTaps(pays []convokePayment) int32 {
 // convokeAsk and validateCastContributions) in agreement, so a tap can never
 // be credited against an unrelated generic component.
 func waterbendCap(mods costMods, x int32) int32 {
-	return mods.waterbend + mods.raiseX*x + mods.waterbendPartX*x
+	return mods.Waterbend + mods.RaiseX*x + mods.WaterbendPartX*x
 }
 
 // withWaterbendOfferCredit credits the offer gate for Waterbend cost parts:
@@ -553,7 +496,7 @@ func waterbendCap(mods costMods, x int32) int32 {
 // because the offer's mana walk may already be spending it -- so the gate
 // can withhold a legal cast but cannot offer one payment cannot settle.
 func (e *Engine) withWaterbendOfferCredit(p state.PlayerID, id state.ObjID, xMin int32, mods costMods) costMods {
-	want := addClampedGeneric(mods.waterbend, int64(mods.waterbendPartX)*int64(xMin))
+	want := addClampedGeneric(mods.Waterbend, int64(mods.WaterbendPartX)*int64(xMin))
 	if want <= 0 {
 		return mods
 	}
@@ -570,7 +513,7 @@ func (e *Engine) withWaterbendOfferCredit(p state.PlayerID, id state.ObjID, xMin
 		credit++
 	}
 	if credit > 0 {
-		mods.reduces = append(append([]costMod(nil), mods.reduces...), costMod{generic: credit})
+		mods.Reduces = append(append([]costMod(nil), mods.Reduces...), costMod{Generic: credit})
 	}
 	return mods
 }
@@ -706,12 +649,12 @@ func (e *Engine) namedAnnounceSVars(source state.ObjID, svars map[string]string)
 // is payable. A tap part counts only permanents that are not themselves
 // untapped mana sources, so the sweep never spends one permanent twice.
 func (e *Engine) offerNamedMods(p state.PlayerID, id state.ObjID, ability bool, base Cost, mods costMods, statics costStaticViews, scope costScope, tax, delve int32, hyp *state.Mana) (costMods, bool) {
-	if !costHasNamedCount(mods.extra) {
+	if !costHasNamedCount(mods.Extra) {
 		return costMods{}, false
 	}
 	name := ""
 	max := -1
-	for _, part := range mods.extra.Exile {
+	for _, part := range mods.Extra.Exile {
 		if !isNamedCountPart(part) {
 			continue
 		}
@@ -725,7 +668,7 @@ func (e *Engine) offerNamedMods(p state.PlayerID, id state.ObjID, ability bool, 
 		}
 		name = part.Dyn[1:]
 	}
-	for _, part := range mods.extra.TapPermanent {
+	for _, part := range mods.Extra.TapPermanent {
 		if !isNamedCountPart(part) {
 			continue
 		}

@@ -1345,8 +1345,7 @@ func activationCountHolds(n int32, cmp string) (bool, bool) {
 	if err != nil {
 		return false, false
 	}
-	switch op := strings.ToUpper(cmp[:2]); op {
-	case "EQ", "NE", "LT", "LE", "GT", "GE":
+	if op := strings.ToUpper(cmp[:2]); CmpOpOf(op) != CmpNone {
 		return compareCount(op, int(n), t), true
 	}
 	return false, false

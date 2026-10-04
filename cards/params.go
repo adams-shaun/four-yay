@@ -1662,6 +1662,27 @@ func (sa *SA) HasParam(k ParamKey) bool { _, ok := paramGet(sa.ps, sa.Params, k)
 // mask.
 func (sa *SA) MayHaveAnyParam(mask ParamMask) bool { return paramMayHaveAny(sa.ps, sa.Params, mask) }
 
+// SetParam writes key k into the ability's own Params map (allocating it
+// when nil). The compiled set no longer describes the map, so reads go to
+// the map from here on. Write only to a node the caller owns -- a copy or a
+// node it built -- never to a shared parsed node.
+func (sa *SA) SetParam(k ParamKey, v string) {
+	if sa.Params == nil {
+		sa.Params = map[string]string{}
+	}
+	sa.Params[paramKeyNames[k]] = v
+	sa.ps = nil
+}
+
+// SetParam is SA.SetParam for a replacement line.
+func (r *Repl) SetParam(k ParamKey, v string) {
+	if r.Params == nil {
+		r.Params = map[string]string{}
+	}
+	r.Params[paramKeyNames[k]] = v
+	r.ps = nil
+}
+
 // deriveParamSets binds each printed static's, trigger's and ability's
 // ParamSet (every ability reachable from the face: its Abilities, their
 // SubAbility$ chains, trigger Execute$ bodies and replacement bodies). It

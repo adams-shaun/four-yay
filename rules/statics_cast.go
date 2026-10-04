@@ -361,7 +361,7 @@ func (e *Engine) adjustedCost(p state.PlayerID, id state.ObjID) Cost {
 	if o == nil || o.Face() == nil {
 		return Cost{}
 	}
-	return e.costModifiers(p, id, spellScope("")).apply(e.faceCost(o.Face()))
+	return e.costModifiers(p, id, spellScope("")).Apply(e.faceCost(o.Face()))
 }
 
 // castWithFlash reports whether an active CastWithFlash static gives p
@@ -570,12 +570,7 @@ func (e *Engine) staticTimingGate(sv staticView) bool {
 		return false
 	}
 	if turn := strings.TrimSpace(sv.ParamStr(cards.PKPlayerTurn)); turn != "" {
-		switch turn {
-		case "Opponent":
-			if e.G.Active == sv.Controller {
-				return false
-			}
-		default:
+		if turn != "Opponent" || e.G.Active == sv.Controller {
 			return false
 		}
 	}

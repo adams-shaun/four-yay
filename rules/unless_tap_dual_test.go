@@ -43,7 +43,7 @@ func TestUnlessCostPayableRealDualLandAlternatives(t *testing.T) {
 		t.Fatal("Volcanic Island is not a payment-window source -- premise false")
 	}
 	units := e.windowManaUnits(0)
-	if len(units) != 1 || len(units[0].alts) != 2 {
+	if len(units) != 1 || len(units[0].Alts) != 2 {
 		t.Fatalf("Volcanic Island window membership = %+v, want one unit with two alts", units)
 	}
 

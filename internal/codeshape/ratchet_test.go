@@ -103,8 +103,9 @@ const (
 	// the continuous-effect maps); what is left is writes and rules/play_tape.go
 	// (left to its live branch): 549 -> 20. W4 cases: play_tape.go and
 	// resolution_modes.go reads moved to ParamStr (7 new keys): 20 -> 12 (what
-	// is left are writes).
-	stringParamReads = 12
+	// is left are writes). W4 cases: the twelve writes go through the typed
+	// SA.SetParam / Repl.SetParam setters: 12 -> 0.
+	stringParamReads = 0
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach: 2886 -> 2883. RepeatEach: 2883 -> 2876. W4 cases:
@@ -112,8 +113,12 @@ const (
 	// cards.NameSet (sorted dense slices, built once at init): 2876 -> 2046. Every
 	// other literal-case switch dispatches on a cards.StrCodes code (one lookup,
 	// integer switch, vocabulary in one table): 2046 -> 181. What is left is the
-	// case-whitelists the param census reads over a Params range.
-	stringCaseLiterals = 181
+	// case-whitelists the param census reads over a Params range. W4 cases:
+	// those whitelists became NameSets (the census reads a range's
+	// `set.Has(k)` / `switch codes.Code(k)` keys from the file's table), the
+	// mixed and init-form switches code families, and the single-literal
+	// switches plain comparisons: 181 -> 0.
+	stringCaseLiterals = 0
 	// ctxLiterals, specContextLiterals and triggerContextLiterals are the
 	// effects.Ctx / SpecContext / TriggerContext composite literals in rules/
 	// and effects/ non-test files outside codeshape.CtxConstructorFiles (W1c,

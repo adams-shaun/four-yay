@@ -96,8 +96,8 @@ func cwProbeAlts(t *testing.T, e *Engine, id state.ObjID) int {
 	}
 	n := 0
 	for _, u := range e.castWindowUnits(e.cast) {
-		if u.id == id {
-			n += len(u.alts)
+		if u.ID == id {
+			n += len(u.Alts)
 		}
 	}
 	return n
@@ -347,8 +347,8 @@ func TestCastWindowSamePermanentNotDoubleTapped(t *testing.T) {
 	units := e.castWindowUnits(e.cast)
 	n := 0
 	for _, u := range units {
-		if u.id == dualID {
-			n += len(u.alts)
+		if u.ID == dualID {
+			n += len(u.Alts)
 		}
 	}
 	if n < 2 {
@@ -386,7 +386,7 @@ func TestCastWindowNewShapesSubsetOfOffers(t *testing.T) {
 		id := b.byName[name]
 		found := false
 		for _, u := range got {
-			if u.id == id && len(u.alts) > 0 {
+			if u.ID == id && len(u.Alts) > 0 {
 				found = true
 			}
 		}
@@ -403,15 +403,15 @@ func TestCastWindowNewShapesSubsetOfOffers(t *testing.T) {
 		}
 	}
 	for _, u := range got {
-		if !offered[u.id] {
-			t.Errorf("probe promised source %d, which manaWindowAsk will not offer", u.id)
+		if !offered[u.ID] {
+			t.Errorf("probe promised source %d, which manaWindowAsk will not offer", u.ID)
 		}
 	}
 	if offered[instantID] {
 		t.Fatal("precondition: InstantSpeed$ True source is in the offer set; the test board is wrong")
 	}
 	for _, u := range got {
-		if u.id == instantID {
+		if u.ID == instantID {
 			t.Errorf("probe priced InstantSpeed$ True source %d, which no payment window offers", instantID)
 		}
 	}

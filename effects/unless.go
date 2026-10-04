@@ -392,8 +392,7 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (run, paid, served bool) {
 	if !payerKnown {
 		return !switched, false, false
 	}
-	switch ans {
-	case "decline":
+	if ans == "decline" {
 		// A decline moves on to the next payer; only when every payer has
 		// declined does the orientation decide the body. idx is the payer
 		// whose answer this is. A host that cannot pose the NEXT ask is also

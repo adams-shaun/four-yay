@@ -1078,13 +1078,13 @@ func (e *Engine) attackWindowUnits(p state.PlayerID, exclude map[state.ObjID]boo
 		if exclude[s.id] {
 			continue
 		}
-		alt := windowManaAlt{ma: s.ma, counts: s.counts, amt: s.amt}
+		alt := windowManaAlt{Ma: s.ma, Counts: s.counts, Amt: s.amt}
 		if i, ok := idx[s.id]; ok {
-			out[i].alts = append(out[i].alts, alt)
+			out[i].Alts = append(out[i].Alts, alt)
 			continue
 		}
 		idx[s.id] = len(out)
-		out = append(out, windowManaUnit{id: s.id, alts: []windowManaAlt{alt}})
+		out = append(out, windowManaUnit{ID: s.id, Alts: []windowManaAlt{alt}})
 	}
 	return out
 }
@@ -1162,15 +1162,15 @@ func (e *Engine) attackManaSources(p state.PlayerID) []attackManaSource {
 	// already exposes one alt per priceable ability, so every alt becomes an
 	// option -- a multi-colour dual's two intrinsics are both payable now.
 	for _, u := range e.windowManaUnits(p) {
-		for _, a := range u.alts {
+		for _, a := range u.Alts {
 			units := int32(0)
-			for _, n := range a.counts {
-				units += n * a.amt
+			for _, n := range a.Counts {
+				units += n * a.Amt
 			}
 			if units <= 0 {
 				continue
 			}
-			out = append(out, attackManaSource{id: u.id, ma: a.ma, original: a.ma, gained: e.gainedManaRefFor(p, u.id, a.ma), units: units, counts: a.counts, amt: a.amt, prod: manaUnitsLabel(a.counts, a.amt)})
+			out = append(out, attackManaSource{id: u.ID, ma: a.Ma, original: a.Ma, gained: e.gainedManaRefFor(p, u.ID, a.Ma), units: units, counts: a.Counts, amt: a.Amt, prod: manaUnitsLabel(a.Counts, a.Amt)})
 		}
 	}
 	// The choice-shaped productions the shared membership deliberately
@@ -1207,7 +1207,7 @@ func (e *Engine) attackChoiceManaSources(p state.PlayerID) []attackManaSource {
 			if mp.RestrictValid != "" {
 				continue
 			}
-			if !manaFreeCost(e.parseCost(ma.ParamStr(cards.PKCost))) {
+			if !pay.ManaFreeCost(e.parseCost(ma.ParamStr(cards.PKCost))) {
 				continue
 			}
 			amt := availableAmountOf(mp)

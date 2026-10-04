@@ -101,6 +101,7 @@ var cloneTypeCopiers = map[string]string{
 // the copy deepens (every other foreign struct is copied by value).
 var cloneForeignDeep = map[string]bool{
 	"state.ContinuousEffect": true,
+	"pay.CostMods":           true,
 }
 
 // cloneSharedLocal names the pointers to engine-local types the clone shares

@@ -59,14 +59,14 @@ func TestLullmagesDominationTargetControllerDiscount(t *testing.T) {
 	// players, so the discount must NOT apply ({3} stays {3}). This row would
 	// also pass if the static were never applied at all, which is why the
 	// positive row below is the real assertion.
-	none := e.costModifiersWithTargetsUsing(statics, 0, spell, spellScope(""), nil, true).apply(base)
+	none := e.costModifiersWithTargetsUsing(statics, 0, spell, spellScope(""), nil, true).Apply(base)
 	if none.Generic != 3 {
 		t.Fatalf("negative control: no-target generic = %d, want 3", none.Generic)
 	}
 
 	// The real assertion: one chosen target whose controller has 8+ graveyard
 	// cards earns the full {3} reduction.
-	got := e.costModifiersWithTargetsUsing(statics, 0, spell, spellScope(""), []state.Target{{Obj: tgt}}, true).apply(base)
+	got := e.costModifiersWithTargetsUsing(statics, 0, spell, spellScope(""), []state.Target{{Obj: tgt}}, true).Apply(base)
 	if got.Generic != 0 {
 		t.Fatalf("TargetedController discount: generic = %d, want 0 ({3} less)", got.Generic)
 	}

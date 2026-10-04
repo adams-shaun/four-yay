@@ -92,19 +92,19 @@ func TestWaterbendXCostPartCapsTapsAtAnnouncedX(t *testing.T) {
 // double-counted when a Waterbend<X> cost part is also present.
 func TestWaterbendCapCountsEachXFormSeparately(t *testing.T) {
 	t.Parallel()
-	fixed := costMods{waterbend: 3}
+	fixed := costMods{Waterbend: 3}
 	if got := waterbendCap(fixed, 5); got != 3 {
 		t.Fatalf("fixed Waterbend<3> cap = %d, want 3 (independent of X)", got)
 	}
-	partX := costMods{waterbendX: true, waterbendPartX: 1}
+	partX := costMods{WaterbendX: true, WaterbendPartX: 1}
 	if got := waterbendCap(partX, 4); got != 4 {
 		t.Fatalf("Waterbend<X> cost-part cap at X=4 = %d, want 4", got)
 	}
-	raiseX := costMods{waterbendX: true, raiseX: 2}
+	raiseX := costMods{WaterbendX: true, RaiseX: 2}
 	if got := waterbendCap(raiseX, 4); got != 8 {
 		t.Fatalf("two RaiseCost Waterbend<X> parts at X=4 = %d, want 8", got)
 	}
-	mixed := costMods{waterbend: 1, waterbendX: true, waterbendPartX: 1, raiseX: 1}
+	mixed := costMods{Waterbend: 1, WaterbendX: true, WaterbendPartX: 1, RaiseX: 1}
 	if got := waterbendCap(mixed, 4); got != 1+4+4 {
 		t.Fatalf("fixed 1 + cost-part X(4) + RaiseCost X(4) = %d, want 9", got)
 	}

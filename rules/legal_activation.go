@@ -97,11 +97,8 @@ func (e *Engine) activationConditionOK(p state.PlayerID, ab *cards.SA) bool {
 // is not offered). Deterministic pure read -- no map range, tokens trimmed.
 func activationGameTypesOK(f Format, raw string) bool {
 	for tok := range strings.SplitSeq(raw, ",") {
-		switch strings.TrimSpace(tok) {
-		case "Commander":
-			if f == FormatCommander {
-				return true
-			}
+		if strings.TrimSpace(tok) == "Commander" && f == FormatCommander {
+			return true
 		}
 	}
 	return false
@@ -393,11 +390,11 @@ func (e *Engine) ownManaReduction(p state.PlayerID, id state.ObjID, ab *cards.SA
 	if n <= 0 {
 		return costMod{}, false
 	}
-	red := costMod{generic: addClampedGeneric(0, int64(gen)*int64(n))}
+	red := costMod{Generic: addClampedGeneric(0, int64(gen)*int64(n))}
 	for i := range col {
-		red.colored[i] = addClampedGeneric(0, int64(col[i])*int64(n))
+		red.Colored[i] = addClampedGeneric(0, int64(col[i])*int64(n))
 	}
-	red.hasColor = col.Total() > 0
+	red.HasColor = col.Total() > 0
 	return red, true
 }
 

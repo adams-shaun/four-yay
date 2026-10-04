@@ -1988,8 +1988,8 @@ func faceStaticsNameExiledWithSource(h Host, src state.ObjID) bool {
 	}
 	for _, st := range o.Face().Statics {
 		for k, v := range st.Params {
-			switch k {
-			case "Affected", "AffectedZone", "Description":
+			switch exiledWithSourceKeyCodes.Code(k) {
+			case exiledWithSourceKeyAffected:
 				// The keys a static names its card filters and text by; the
 				// ExiledWithSource provenance claim lives in one of these.
 				if strings.Contains(v, "ExiledWithSource") {
@@ -2408,4 +2408,16 @@ var validStackTokensCodes = state.NewStrCodes(
 	state.StrEntry[validStackTokensCode]{Key: "OppCtrl", Val: validStackTokensOppCtrl},
 	state.StrEntry[validStackTokensCode]{Key: "Other", Val: validStackTokensOther},
 	state.StrEntry[validStackTokensCode]{Key: "otherAbility", Val: validStackTokensOtherAbility},
+)
+
+type exiledWithSourceKeyCode uint16
+
+const (
+	exiledWithSourceKeyAffected exiledWithSourceKeyCode = iota + 1
+)
+
+var exiledWithSourceKeyCodes = state.NewStrCodes(
+	state.StrEntry[exiledWithSourceKeyCode]{Key: "Affected", Val: exiledWithSourceKeyAffected},
+	state.StrEntry[exiledWithSourceKeyCode]{Key: "AffectedZone", Val: exiledWithSourceKeyAffected},
+	state.StrEntry[exiledWithSourceKeyCode]{Key: "Description", Val: exiledWithSourceKeyAffected},
 )

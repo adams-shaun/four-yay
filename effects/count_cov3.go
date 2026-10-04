@@ -415,8 +415,7 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 				players = append(players, o.Controller)
 			}
 		}
-		switch prop {
-		case "Amount":
+		if prop == "Amount" {
 			return int32(len(players)), true
 		}
 		if spec, hasSpec := strings.CutPrefix(prop, "HasProperty"); hasSpec {
