@@ -626,7 +626,7 @@ func (e *Engine) exAsk() bool {
 			// applies, keeping the ask from offering an unpayable permanent
 			// (which would abort the cast). ForCost$ False (The Master)
 			// leaves the candidate offered.
-			if zone == state.ZBattlefield && e.exileBlockedForCost(oid, costCauseForAbility(pc.isAbility())) {
+			if zone == state.ZBattlefield && e.exileBlockedForCost(oid, pay.CostCauseForAbility(pc.isAbility())) {
 				continue
 			}
 			wholeZone := isWholeZoneExileSpec(part.Spec)

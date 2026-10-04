@@ -60,7 +60,7 @@ func loopProfileDisableVerify() func() {
 	}
 	ptrs := []*bool{
 		&layerInertVerify, &layer4PrecheckVerify, &derivedMemoVerify,
-		&sacrificeCardnameVerify, &pricedCandidatesVerify, &castsOnlyWalkVerify,
+		&pricedCandidatesVerify, &castsOnlyWalkVerify,
 		&potentialMembersVerify, &walkCacheVerify, &trigZoneSkipVerify,
 		&manaPayFastVerify, &activeSummaryVerify, &manaSAFactsVerify,
 		&faceScanVerify, &livelockCandVerify, &priorityFlowVerify,

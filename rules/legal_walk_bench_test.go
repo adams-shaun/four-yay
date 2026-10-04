@@ -61,7 +61,7 @@ func legalWalkPositions(tb testing.TB) []*Engine {
 // recomputes a cache hit, which a timing would charge to the production
 // path) and returns the restore.
 func legalWalkVerifyOff() func() {
-	flags := []*bool{&derivedMemoVerify, &sacrificeCardnameVerify, &pricedCandidatesVerify,
+	flags := []*bool{&derivedMemoVerify, &pricedCandidatesVerify,
 		&castsOnlyWalkVerify, &potentialMembersVerify, &walkCacheVerify, &trigZoneSkipVerify,
 		&manaPayFastVerify, &activeSummaryVerify, &manaSAFactsVerify, &faceScanVerify, &manaPlainVerify,
 		&layer4PrecheckVerify, &layerInertVerify, &livelockCandVerify, &priorityFlowVerify,

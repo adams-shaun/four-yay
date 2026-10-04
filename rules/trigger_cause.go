@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -287,8 +288,8 @@ func causeSpecQualifiersKnown(alt string) bool {
 // base (SpellAbility, Ability) names a cause this path cannot exactly
 // evaluate, so it fails closed -- the permissive direction for a
 // restriction, and no corpus line is affected.
-func causeCostAdmits(spec string, cause costCause) bool {
-	if cause == costCauseNone || cause == costCauseResolution {
+func causeCostAdmits(spec string, cause pay.CostCause) bool {
+	if cause == pay.CostCauseNone || cause == pay.CostCauseResolution {
 		return false
 	}
 	for alt := range strings.SplitSeq(spec, ",") {
@@ -302,15 +303,15 @@ func causeCostAdmits(spec string, cause costCause) bool {
 		}
 		switch causeCostAdmitsCodes.Code(string(base)) {
 		case causeCostAdmitsSpell:
-			if cause == costCauseSpell {
+			if cause == pay.CostCauseSpell {
 				return true
 			}
 		case causeCostAdmitsActivated:
-			if cause == costCauseActivated {
+			if cause == pay.CostCauseActivated {
 				return true
 			}
 		case causeCostAdmitsTriggered:
-			if cause == costCauseTriggered {
+			if cause == pay.CostCauseTriggered {
 				return true
 			}
 		}

@@ -151,7 +151,7 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 				}
 			case castWindowGenericCostShape(cost):
 				genericCost = cost.Generic
-			case e.castWindowSelfSacCost(p, id, cost):
+			case pay.CastWindowSelfSacCost(asPayer(e), p, id, cost):
 			default:
 				continue
 			}
@@ -283,30 +283,6 @@ func castWindowPayLifeCost(c Cost) bool {
 func castWindowGenericCostShape(c Cost) bool {
 	return c.Generic > 0 && c.Colored == (state.Mana{}) &&
 		len(c.Sac) == 0 && pay.CastWindowOtherPartsAbsent(c)
-}
-
-// castWindowSelfSacCost reports whether c is a self-sacrifice activation cost
-// ("Sac<1/CARDNAME>") whose batch is deterministic: the only matching
-// permanent is the source itself, so the interactive continuation
-// (manaDiscardActivation) sacrifices it without a further ask. Any other Sac
-// shape (multi-part, overlapping, multiple candidates) is refused.
-func (e *Engine) castWindowSelfSacCost(p state.PlayerID, source state.ObjID, c Cost) bool {
-	if len(c.Sac) != 1 || c.Sac[0].N != 1 || !strings.EqualFold(pay.SacrificeMatchSpec(c.Sac[0].Spec), "CARDNAME") {
-		return false
-	}
-	if c.Generic != 0 || c.Life != 0 || c.Colored != (state.Mana{}) || !pay.CastWindowOtherPartsAbsent(c) {
-		return false
-	}
-	n := 0
-	for _, id := range e.G.Zone(state.ZBattlefield, p) {
-		if e.sacrificeBlockedForCost(id, costCauseActivated) {
-			continue
-		}
-		if e.matchesSpecFrom(c.Sac[0].Spec, id, p, source) {
-			n++
-		}
-	}
-	return n == 1
 }
 
 // appendCastWindowAlt merges one production alternative into the unit for id

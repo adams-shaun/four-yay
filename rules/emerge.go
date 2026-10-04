@@ -126,7 +126,7 @@ func (e *Engine) emergeOfferCost(p state.PlayerID, id state.ObjID, f *cards.Face
 	}
 	best := int32(-1)
 	var priced Cost
-	for _, oid := range e.sacrificeCostCandidates(p, id, emergeSacrificePart(), false) {
+	for _, oid := range pay.SacrificeCostCandidates(asPayer(e), p, id, emergeSacrificePart(), false) {
 		o := e.G.Obj(oid)
 		if o == nil || o.Face() == nil {
 			continue

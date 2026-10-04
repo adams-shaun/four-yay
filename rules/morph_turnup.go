@@ -371,7 +371,7 @@ func (e *Engine) turnUpSacAsk(tp *turnUpPay) bool {
 			paid[s] = true
 		}
 		var cands []state.ObjID
-		for _, oid := range e.sacrificeCostCandidates(tp.player, tp.card, part, false) {
+		for _, oid := range pay.SacrificeCostCandidates(asPayer(e), tp.player, tp.card, part, false) {
 			if !paid[oid] {
 				cands = append(cands, oid)
 			}
@@ -767,7 +767,7 @@ func (e *Engine) turnUpChoicesValid(tp *turnUpPay) bool {
 		if !claim(saved) {
 			return false
 		}
-		cands := e.sacrificeCostCandidates(tp.player, tp.card, part, false)
+		cands := pay.SacrificeCostCandidates(asPayer(e), tp.player, tp.card, part, false)
 		for _, id := range saved {
 			if !turnUpContainsObj(cands, id) {
 				return false

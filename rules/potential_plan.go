@@ -697,7 +697,7 @@ func (e *Engine) planEachReservation(p state.PlayerID, id state.ObjID, cost Cost
 	cands := make([][]state.ObjID, len(parts))
 	for i, pt := range parts {
 		if !pt.tap {
-			cands[i] = e.sacrificeCostCandidates(p, id, pt.part, ability)
+			cands[i] = pay.SacrificeCostCandidates(asPayer(e), p, id, pt.part, ability)
 			continue
 		}
 		for _, oid := range pay.TapCostCandidates(asPayer(e), p, id, pt.part) {
@@ -816,7 +816,7 @@ func (e *Engine) planLeavesCostPayable(p state.PlayerID, id state.ObjID, cost Co
 			}
 			continue
 		}
-		if !enough(e.sacrificeCostCandidates(p, id, part, ability), part.N, gone) {
+		if !enough(pay.SacrificeCostCandidates(asPayer(e), p, id, part, ability), part.N, gone) {
 			return false
 		}
 	}

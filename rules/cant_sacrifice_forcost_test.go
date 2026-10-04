@@ -24,6 +24,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -108,7 +109,7 @@ func TestCantSacrificeForCostWithholdsActivatedAbilityCost(t *testing.T) {
 	if e.G.Obj(bearID).Zone != state.ZBattlefield || e.G.Obj(angelID).Zone != state.ZBattlefield {
 		t.Fatal("precondition: the carrier and the candidate must be on the battlefield")
 	}
-	if !e.sacrificeBlockedForCost(bearID, costCauseActivated) {
+	if !e.sacrificeBlockedForCost(bearID, pay.CostCauseActivated) {
 		t.Fatal("SacrificeBlocked must block the candidate for an activated-ability cost")
 	}
 	addMana(t, e, 0, "")
@@ -155,7 +156,7 @@ func TestCantSacrificeForCostWithholdsSpellCost(t *testing.T) {
 	if e.G.Obj(bearID).Zone != state.ZBattlefield || e.G.Obj(angelID).Zone != state.ZBattlefield {
 		t.Fatal("precondition: the carrier and the candidate must be on the battlefield")
 	}
-	if !e.sacrificeBlockedForCost(bearID, costCauseSpell) {
+	if !e.sacrificeBlockedForCost(bearID, pay.CostCauseSpell) {
 		t.Fatal("SacrificeBlocked must block the candidate for a spell cost")
 	}
 	ritesID := findAndMoveToHand(t, e, 0, "Village Rites")
@@ -189,7 +190,7 @@ func TestCantSacrificeForCostLeavesEffectSacrificeAlone(t *testing.T) {
 	// The same static MUST block this bear on the COST path: without this the
 	// leaf could pass with the restriction entirely inert, and it pins the
 	// cost/effect discrimination from both sides.
-	if !e.sacrificeBlockedForCost(bearID, costCauseActivated) {
+	if !e.sacrificeBlockedForCost(bearID, pay.CostCauseActivated) {
 		t.Fatal("precondition: Angel's ForCost$ True static is not active on the cost path")
 	}
 	fleshID := findAndMoveToHand(t, e, 0, "Fleshbag Marauder")

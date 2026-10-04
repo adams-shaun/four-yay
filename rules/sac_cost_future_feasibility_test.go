@@ -231,10 +231,10 @@ func TestManaAbilitySacChoicePreservesLaterArtifactPart(t *testing.T) {
 	if len(cost.Sac) != 2 || cost.Sac[0].Spec == cost.Sac[1].Spec {
 		t.Fatalf("precondition: mana ability must compile overlapping Sac parts: %+v", cost.Sac)
 	}
-	if _, ok := e.manaSacrifices(0, source, cost); !ok {
+	if _, ok := pay.ManaSacrifices(asPayer(e), 0, source, cost); !ok {
 		t.Fatal("precondition: mana ability has no distinct sacrifice assignment")
 	}
-	if _, ok := e.manaSacrifices(0, source, ParseCost("Sac<1/Artifact> Sac<1/Artifact>")); ok {
+	if _, ok := pay.ManaSacrifices(asPayer(e), 0, source, ParseCost("Sac<1/Artifact> Sac<1/Artifact>")); ok {
 		t.Fatal("mana cost with two artifact parts was payable using the sole artifact candidate")
 	}
 	// The offer gate: a distinct assignment exists, so the activation is
@@ -317,7 +317,7 @@ func TestManaAbilityOverlappingSacPartsNotOfferedWithoutAssignment(t *testing.T)
 	if len(cost.Sac) != 2 {
 		t.Fatalf("precondition: mana ability must compile two Sac parts: %+v", cost.Sac)
 	}
-	if _, ok := e.manaSacrifices(0, source, cost); ok {
+	if _, ok := pay.ManaSacrifices(asPayer(e), 0, source, cost); ok {
 		t.Fatal("precondition: a distinct assignment exists -- this board must force both parts onto the one artifact creature")
 	}
 	if _, ok := manaActivateOption(e, source); ok {

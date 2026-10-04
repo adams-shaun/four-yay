@@ -548,7 +548,7 @@ func (e *Engine) cumulativePaymentAsk() {
 func (e *Engine) cumulativeSacObjects(cu *cumulativeUpkeep) []state.ObjID {
 	var out []state.ObjID
 	for _, id := range e.cumulativeObjects(cu, state.ZBattlefield, cu.action.spec) {
-		if !e.sacrificeBlockedForCost(id, costCauseTriggered) {
+		if !e.sacrificeBlockedForCost(id, pay.CostCauseTriggered) {
 			out = append(out, id)
 		}
 	}
@@ -1627,7 +1627,7 @@ func (e *Engine) triggeredMandatoryCandidatesWith(tc *triggeredEffectCost, idx i
 		if used[id] {
 			continue
 		}
-		if isSac && e.sacrificeBlockedForCost(id, costCauseTriggered) {
+		if isSac && e.sacrificeBlockedForCost(id, pay.CostCauseTriggered) {
 			// The window's cost components are demanded by the RESOLVING
 			// triggered ability (a `Cost$ Mandatory Sac<...>` body, TrigsMand1),
 			// so the cause is costCauseTriggered (cantsac1 r2).

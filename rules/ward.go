@@ -123,7 +123,7 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 		// carrier scopes PAST it, a `ValidCause$ Triggered` one admits it.
 		var sacIDs []state.ObjID
 		for _, id := range ids {
-			if !e.sacrificeBlockedForCost(id, costCauseTriggered) {
+			if !e.sacrificeBlockedForCost(id, pay.CostCauseTriggered) {
 				sacIDs = append(sacIDs, id)
 			}
 		}

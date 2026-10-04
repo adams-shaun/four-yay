@@ -24,10 +24,10 @@ func TestDargoOverlappingSacXPartsWithholdUnsettleableOffer(t *testing.T) {
 	if len(base.Sac) != 1 || !base.Sac[0].Announced || len(extra.Sac) != 1 || !extra.Sac[0].Announced {
 		t.Fatalf("precondition: want two announced Sac parts: base=%+v extra=%+v", base.Sac, extra.Sac)
 	}
-	if n := len(e.sacrificeCostCandidates(0, spell, base.Sac[0], false)); n != 1 {
+	if n := len(pay.SacrificeCostCandidates(asPayer(e), 0, spell, base.Sac[0], false)); n != 1 {
 		t.Fatalf("precondition: Dargo Sac pool=%d, want 1", n)
 	}
-	if n := len(e.sacrificeCostCandidates(0, spell, extra.Sac[0], false)); n != 1 {
+	if n := len(pay.SacrificeCostCandidates(asPayer(e), 0, spell, extra.Sac[0], false)); n != 1 {
 		t.Fatalf("precondition: added Sac pool=%d, want 1", n)
 	}
 	if pool := e.G.Players[0].Pool; pool.Total() != 5 || pool.Total() >= 7 || pool[state.MR] == 0 {
@@ -54,10 +54,10 @@ func TestDargoOverlappingSacXPartsWithholdUnsettleableOffer(t *testing.T) {
 	if len(base.Sac) != 1 || !base.Sac[0].Announced {
 		t.Fatalf("precondition: Dargo announced Sac part missing: %+v", base.Sac)
 	}
-	if n := len(e.sacrificeCostCandidates(0, spell, base.Sac[0], false)); n != 2 {
+	if n := len(pay.SacrificeCostCandidates(asPayer(e), 0, spell, base.Sac[0], false)); n != 2 {
 		t.Fatalf("precondition: Dargo candidate pool=%d, want 2", n)
 	}
-	if n := len(e.sacrificeCostCandidates(0, spell, extra.Sac[0], false)); n != 1 {
+	if n := len(pay.SacrificeCostCandidates(asPayer(e), 0, spell, extra.Sac[0], false)); n != 1 {
 		t.Fatalf("precondition: added artifact-only candidate pool=%d, want 1", n)
 	}
 	if pool := e.G.Players[0].Pool; pool.Total() != 5 || pool.Total() >= 7 || pool[state.MR] == 0 {

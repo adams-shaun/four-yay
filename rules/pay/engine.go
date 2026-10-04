@@ -42,6 +42,10 @@ type Engine interface {
 	// the spec, and whether the provenance admits.
 	CastProvenanceAdmitsPending(spec string, objID state.ObjID, you state.PlayerID) (string, bool)
 
+	// SacrificeBlockedForCost reports whether a static forbids sacrificing id
+	// to pay a cost for cause (a CantSacrifice ForCost$/ValidCause$ line).
+	SacrificeBlockedForCost(id state.ObjID, cause CostCause) bool
+
 	// AddsCounterGrant resolves one consumed AddsCounters$ rider batch into
 	// the grant a cast records (used units of it), ok=false to drop it.
 	AddsCounterGrant(r state.ManaRestriction, used int32) (state.ManaAddsCounterGrant, bool)

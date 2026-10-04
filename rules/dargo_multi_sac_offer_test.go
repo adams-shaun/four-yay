@@ -31,10 +31,10 @@ func TestDargoMultipleSacXPartsWithholdUnsettleableOffer(t *testing.T) {
 	if len(extra.Sac) != 1 || !extra.Sac[0].Announced {
 		t.Fatalf("precondition: extra cost is not an announced Sac: %+v", extra.Sac)
 	}
-	if got := len(e.sacrificeCostCandidates(0, spell, base.Sac[0], false)); got != 3 {
+	if got := len(pay.SacrificeCostCandidates(asPayer(e), 0, spell, base.Sac[0], false)); got != 3 {
 		t.Fatalf("precondition: broad sacrifice pool=%d, want 3", got)
 	}
-	if got := len(e.sacrificeCostCandidates(0, spell, extra.Sac[0], false)); got != 1 {
+	if got := len(pay.SacrificeCostCandidates(asPayer(e), 0, spell, extra.Sac[0], false)); got != 1 {
 		t.Fatalf("precondition: narrow sacrifice pool=%d, want 1", got)
 	}
 	if pool := e.G.Players[0].Pool; pool.Total() != 2 || pool[state.MR] != 1 {

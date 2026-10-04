@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -48,7 +49,7 @@ func TestMorphTurnFaceUpWaitsForSacrificedCommanderReplacement(t *testing.T) {
 			if o := e.G.Obj(cmd); o == nil || o.Zone != state.ZBattlefield || o.Controller != 0 || o.Owner != 1 {
 				t.Fatalf("precondition: sacrifice candidate = %+v, want seat 1 commander controlled by seat 0", o)
 			}
-			if cands := e.sacrificeCostCandidates(0, id, mf.cost.Sac[0], false); !turnUpContainsObj(cands, cmd) {
+			if cands := pay.SacrificeCostCandidates(asPayer(e), 0, id, mf.cost.Sac[0], false); !turnUpContainsObj(cands, cmd) {
 				t.Fatalf("precondition: commander %d not in Creature.Other sacrifice candidates: %v", cmd, cands)
 			}
 			if !e.commanderZoneReplacementApplies(events.Sacrifice(cmd)) {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -116,7 +117,7 @@ func (e *Engine) restrictionActorMatches(ce *ContinuousEffect, actor state.Playe
 // the pending cast/activation on the cost path (causeCostAdmits, task
 // cantsac1).
 func (e *Engine) SacrificeBlocked(id state.ObjID, forCost bool) bool {
-	return e.sacrificeBlocked(id, forCost, costCauseNone)
+	return e.sacrificeBlocked(id, forCost, pay.CostCauseNone)
 }
 
 // sacrificeBlockedForCost is the cost path's entry point (task cantsac1):
@@ -129,58 +130,11 @@ func (e *Engine) SacrificeBlocked(id state.ObjID, forCost bool) bool {
 // yasharn_implacable_earth) blocks a cast/activation cost sacrifice it
 // should, leaves an effect's sacrifice alone and scopes past a ward, unless
 // or upkeep payment, whose demand is a trigger or a resolution election.
-func (e *Engine) sacrificeBlockedForCost(id state.ObjID, cause costCause) bool {
+func (e *Engine) sacrificeBlockedForCost(id state.ObjID, cause pay.CostCause) bool {
 	return e.sacrificeBlocked(id, true, cause)
 }
 
-// costCause names what a COST-path sacrifice is being paid for, the cost-side
-// counterpart of causeSpecAdmits' actionCause(). A cost has no resolving
-// object to attribute: an activated ability's costs are paid BEFORE its stack
-// object exists (cast.go pushCast's pc.isAbility() early return), so the
-// stack top would name whatever unrelated object was already there -- the
-// exact misattribution trigmatch.DiscardCauseAdmits guards against. The pending act of
-// casting/activating is therefore the only honest cause where one is pending,
-// and the defined semantics per cost site (cantsac1 r2) are:
-//
-//	spell-cast cost component -> costCauseSpell
-//	activated-ability cost component, mana abilities included -> costCauseActivated
-//	ward cost (CR 702.22: the ward trigger demands the payment) -> costCauseTriggered
-//	cumulative-upkeep payment and the Cost$ Mandatory trigger-cost window
-//	(CR 702.25a: the upkeep/resolving trigger demands the payment) -> costCauseTriggered
-//	unless payment (paid during a resolving ability to elect its outcome --
-//	a resolution-election payment, never a cast or activation cost) -> costCauseResolution
-//
-// costCauseNone is no cost context at all: the effect path (the effects.Host
-// method, forCost false) and a caller with nothing pending. causeCostAdmits
-// reads Spell, Activated and Triggered; Resolution is inadmissible by every
-// readable base, so a ValidCause$ line fails closed at an unless site (the
-// permissive direction) instead of blocking a payment the resolving ability
-// did not demand as its cast/activation cost. Every corpus ForCost$ True
-// carrier is `ValidCause$ Spell,Activated` (angel_of_jubilation,
-// yasharn_implacable_earth), so a ward, unless or upkeep payment is correctly
-// OUTSIDE its scope: Angel stops sacrificing "to cast spells or activate
-// abilities", and none of those three payments is one.
-type costCause uint8
-
-const (
-	costCauseNone       costCause = iota // no cost context (the effect path)
-	costCauseSpell                       // a component of casting a spell
-	costCauseActivated                   // a component of activating an ability
-	costCauseTriggered                   // a payment a triggered ability demands (ward, upkeep)
-	costCauseResolution                  // an unless payment made during a resolving ability
-)
-
-// costCauseForAbility is the offer gate's variant (cast.go nonManaCastable):
-// castable prices a HYPOTHETICAL cast with no pendingCast, so the caller's
-// own ability bit is the provenance.
-func costCauseForAbility(ability bool) costCause {
-	if ability {
-		return costCauseActivated
-	}
-	return costCauseSpell
-}
-
-func (e *Engine) sacrificeBlocked(id state.ObjID, forCost bool, cause costCause) bool {
+func (e *Engine) sacrificeBlocked(id state.ObjID, forCost bool, cause pay.CostCause) bool {
 	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
 		ce := &ceL[ceI]
 		if ce.Restriction != "CantSacrifice" {
@@ -247,7 +201,7 @@ func (e *Engine) sacrificeBlocked(id state.ObjID, forCost bool, cause costCause)
 // not. The rules-side COST walks call exileBlockedForCost, which carries the
 // pending cast/activation so a cost-path ValidCause$ can be evaluated.
 func (e *Engine) ExileBlocked(id state.ObjID, forCost bool) bool {
-	return e.exileBlocked(id, forCost, costCauseNone)
+	return e.exileBlocked(id, forCost, pay.CostCauseNone)
 }
 
 // exileBlockedForCost is the cost path's entry point, the CantExile sibling of
@@ -258,7 +212,7 @@ func (e *Engine) ExileBlocked(id state.ObjID, forCost bool) bool {
 // leaving an effect's exile alone. The Master's own line is ForCost$ False, so
 // it never restricts a cost path (the permissive direction for a cost
 // payment, and the only corpus CantExile carrier).
-func (e *Engine) exileBlockedForCost(id state.ObjID, cause costCause) bool {
+func (e *Engine) exileBlockedForCost(id state.ObjID, cause pay.CostCause) bool {
 	return e.exileBlocked(id, true, cause)
 }
 
@@ -272,7 +226,7 @@ func (e *Engine) exileBlockedForCost(id state.ObjID, cause costCause) bool {
 // (the resolving wrapper at the top of the stack), the pending
 // cast/activation identity on the cost path (causeCostAdmits), the same
 // classifier discipline sacrificeBlocked keeps.
-func (e *Engine) exileBlocked(id state.ObjID, forCost bool, cause costCause) bool {
+func (e *Engine) exileBlocked(id state.ObjID, forCost bool, cause pay.CostCause) bool {
 	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
 		ce := &ceL[ceI]
 		if ce.Restriction != "CantExile" {

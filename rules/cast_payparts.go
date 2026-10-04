@@ -1,8 +1,6 @@
 package rules
 
 import (
-	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -44,7 +42,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 		var avail []state.ObjID
 		matchSpec := pay.SacrificeMatchSpec(part.Spec)
 		for _, oid := range e.G.Zone(state.ZBattlefield, p) {
-			if reserved[oid] || e.sacrificeBlockedForCost(oid, costCauseForAbility(ability)) { // an earlier Sac part already claimed this one; a CantSacrifice-blocked one can never pay
+			if reserved[oid] || e.sacrificeBlockedForCost(oid, pay.CostCauseForAbility(ability)) { // an earlier Sac part already claimed this one; a CantSacrifice-blocked one can never pay
 				continue
 			}
 			if (part.Referent != 0 && oid == part.Referent) ||
@@ -98,7 +96,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 			// leaves it offered. exileBlockedForCost carries the pending
 			// cast/activation identity so a cost-path ValidCause$ can be
 			// evaluated, the same plumbing sacrificeCostCandidates uses.
-			if zone == state.ZBattlefield && e.exileBlockedForCost(oid, costCauseForAbility(ability)) {
+			if zone == state.ZBattlefield && e.exileBlockedForCost(oid, pay.CostCauseForAbility(ability)) {
 				continue
 			}
 			if wholeZone || (part.Referent != 0 && oid == part.Referent) ||
@@ -625,121 +623,4 @@ func (e *Engine) payDamageCost(payer state.PlayerID, n int32, source state.ObjID
 		return
 	}
 	e.emit(events.Event{Kind: events.LifeChange, Player: controller, Amount: n})
-}
-
-// sacrificeCostCandidates returns, in battlefield scan order, the permanents
-// that can pay one Sac cost part for a cast (ability=false) or an activation
-// (ability=true) of source by p. Every Sac stage derives its candidate list
-// from this one helper -- the X announcement's upper bound (xAsk), the
-// sacrifice settle (sacAsk) and the offer gate's announced-X affordability
-// sweep (offerCastableUsing) -- so the count an offer is priced on, the count
-// the payer may announce, and the count the payment can settle cannot
-// disagree about whether a self-reference or a CantSacrifice block is
-// payable.
-func (e *Engine) sacrificeCostCandidates(p state.PlayerID, source state.ObjID, part CostPart, ability bool) []state.ObjID {
-	matchSpec := pay.SacrificeMatchSpec(part.Spec)
-	cause := costCauseForAbility(ability)
-	var out []state.ObjID
-	if part.Referent != 0 {
-		// A granted ability's bound OriginalHost (bindGrantedCostReferents):
-		// exactly the grantor, and only while the payer controls it on the
-		// battlefield (CR 701.21a: only a permanent you control can be
-		// sacrificed).
-		r := part.Referent
-		if slices.Contains(e.G.Zone(state.ZBattlefield, p), r) && pay.ExistsOnBattlefield(e.G.Obj(r)) &&
-			!e.sacrificeBlockedForCost(r, cause) {
-			out = append(out, r)
-		}
-		return out
-	}
-	if matchSpec == "CARDNAME" {
-		// A bare self-reference matches exactly the source (CR 201.5; the
-		// filter's CARDNAME base rejects every object whose ID is not
-		// sc.Source, and a zero source matches nothing), so the scan below
-		// can admit at most the source itself, at its battlefield position.
-		// Test it alone instead of matching the whole battlefield: a mass of
-		// Sac<1/CARDNAME> mana tokens (Eldrazi Spawn) otherwise makes every
-		// payability check O(board) and the priority walk O(board^2).
-		if source != 0 && slices.Contains(e.G.Zone(state.ZBattlefield, p), source) &&
-			pay.ExistsOnBattlefield(e.G.Obj(source)) && !e.sacrificeBlockedForCost(source, cause) &&
-			e.matchesSpecFrom(matchSpec, source, p, source) {
-			out = append(out, source)
-		}
-		if sacrificeCardnameVerify {
-			if want := e.sacrificeCostScan(p, source, matchSpec, cause); !slices.Equal(out, want) {
-				panic(fmt.Sprintf("rules: CARDNAME sacrifice fast path %v, full scan %v (source %d)", out, want, source))
-			}
-		}
-		return out
-	}
-	return e.sacrificeCostScan(p, source, matchSpec, cause)
-}
-
-// sacrificeCardnameVerify makes the CARDNAME fast path above also run the
-// full battlefield scan and panic on any difference. Set by the rules test
-// binary (derivedmemo_verify_test.go), or at link time with
-// derivedMemoVerifyFlag.
-var sacrificeCardnameVerify = derivedMemoVerifyFlag != ""
-
-// sacrificeCostScan is sacrificeCostCandidates' full battlefield scan.
-func (e *Engine) sacrificeCostScan(p state.PlayerID, source state.ObjID, matchSpec string, cause costCause) []state.ObjID {
-	var out []state.ObjID
-	for _, oid := range e.G.Zone(state.ZBattlefield, p) {
-		if !pay.ExistsOnBattlefield(e.G.Obj(oid)) || e.sacrificeBlockedForCost(oid, cause) {
-			continue
-		}
-		if e.matchesSpecFrom(matchSpec, oid, p, source) {
-			out = append(out, oid)
-		}
-	}
-	return out
-}
-
-// sacrificeCostAssignable tests whether all Sac parts can be paid with
-// distinct permanents for an announced X. A per-part candidate count is
-// insufficient: two parts can each have X candidates but share every one.
-// Match each required sacrifice to an object, rerouting earlier matches when
-// a later, narrower part needs one of their objects. This is an existence
-// check, not a payment choice; sacAsk still lets the player choose the
-// actual sacrifices in cost-part order.
-func (e *Engine) sacrificeCostAssignable(p state.PlayerID, source state.ObjID, parts []CostPart, ability bool, x int32) bool {
-	candidates := make([][]state.ObjID, len(parts))
-	for i, part := range parts {
-		candidates[i] = e.sacrificeCostCandidates(p, source, part, ability)
-		need := part.N
-		if part.Announced {
-			need = x
-		}
-		if need > int32(len(candidates[i])) {
-			return false
-		}
-	}
-	assigned := make(map[state.ObjID]int)
-	var claim func(int, map[state.ObjID]bool) bool
-	claim = func(i int, seen map[state.ObjID]bool) bool {
-		for _, oid := range candidates[i] {
-			if seen[oid] {
-				continue
-			}
-			seen[oid] = true
-			prev, used := assigned[oid]
-			if !used || claim(prev, seen) {
-				assigned[oid] = i
-				return true
-			}
-		}
-		return false
-	}
-	for i, part := range parts {
-		need := part.N
-		if part.Announced {
-			need = x
-		}
-		for n := int32(0); n < need; n++ {
-			if !claim(i, make(map[state.ObjID]bool)) {
-				return false
-			}
-		}
-	}
-	return true
 }

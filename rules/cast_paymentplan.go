@@ -184,24 +184,6 @@ func (e *Engine) paymentPlanStepReady(p state.PlayerID, units []windowManaUnit, 
 	return pay.Alt{}, paymentFallbackSourceChanged
 }
 
-// paymentPlanProducedExactly reports whether the mana p's pool gained from
-// event index from onward is exactly want, with nothing taken out: one
-// planned activation's actual production against its witness step. Every
-// ManaAdd counter form (plain, snow, typed) is read into its pool slot.
-func (e *Engine) paymentPlanProducedExactly(p state.PlayerID, from int, want decision.ManaAmount) bool {
-	var added state.Mana
-	for _, ev := range e.L.Events[from:] {
-		if ev.Kind != events.ManaAdd || ev.Player != p {
-			continue
-		}
-		if ev.Amount < 0 {
-			return false
-		}
-		added[state.ManaSlot(ev.Counter)] += ev.Amount
-	}
-	return pay.ManaAmount(added) == want
-}
-
 // executePlannedManaActivationUnits is executePlannedManaActivation over a
 // source census the caller took at this exact state (paymentPlanCheckUnits,
 // with nothing run in between); nil takes a fresh one. ready reports that
@@ -267,7 +249,7 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 	if e.cast != pc {
 		return true // the activation itself settled or reversed the cast.
 	}
-	if !e.paymentPlanProducedExactly(pc.player, mark, pa.Produces) {
+	if !pay.PaymentPlanProducedExactly(asPayer(e), pc.player, mark, pa.Produces) {
 		// The source produced something other than its step: stop before
 		// any further planned source; the manual window names the reason.
 		e.paymentPlanFallback(pc, paymentFallbackProductionChanged)

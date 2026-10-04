@@ -387,16 +387,6 @@ func partAnnouncedAmount(part CostPart, x int32) int32 {
 // ---------------------------------------------------------------------------
 // Forage
 
-// manaForagePayable is the offer gate's read: Forage is payable when the
-// payer's graveyard holds three cards OR a Food they control is on the
-// battlefield (the cast path's nonManaCastable read; CR 701.16a).
-func (e *Engine) manaForagePayable(p state.PlayerID, source state.ObjID) bool {
-	if len(e.G.Zone(state.ZGraveyard, p)) >= 3 {
-		return true
-	}
-	return len(pay.CostCandidates(asPayer(e), p, source, state.ZBattlefield, "Food.YouCtrl", false, false)) > 0
-}
-
 // manaForageStage poses the Forage election (exile three graveyard cards OR
 // sacrifice a Food), sharing the cast path's option kinds so the bot's
 // existing arms answer it. A non-interactive caller takes the deterministic
@@ -495,54 +485,6 @@ func (e *Engine) settleManaForage(md *manaDiscardActivation) {
 // ---------------------------------------------------------------------------
 // untapYType
 
-// manaUntapCandidates returns, in deterministic seat/zone order, the TAPPED
-// permanents matching spec that can pay one untapYType<N/Spec> part. Unlike
-// costCandidates (which walks only the payer's own zone), this walks every
-// seat's battlefield because the head's spec can name an opponent's permanent
-// (Benthic Explorers' Land.OppCtrl); the spec matcher owns the control
-// relation.
-func (e *Engine) manaUntapCandidates(p state.PlayerID, source state.ObjID, spec string, claimed map[state.ObjID]bool) []state.ObjID {
-	var out []state.ObjID
-	for _, q := range e.G.Players {
-		for _, id := range e.G.Zone(state.ZBattlefield, q.ID) {
-			if claimed != nil && claimed[id] {
-				continue
-			}
-			o := e.G.Obj(id)
-			if o == nil || !o.Tapped {
-				continue
-			}
-			if e.matchesSpecFrom(spec, id, p, source) {
-				out = append(out, id)
-			}
-		}
-	}
-	return out
-}
-
-// manaUntapPayable is the offer gate's read for the untapYType parts: enough
-// distinct TAPPED matching permanents exist, reserving the source when the
-// same cost also taps it.
-func (e *Engine) manaUntapPayable(p state.PlayerID, source state.ObjID, cost Cost) bool {
-	if len(cost.UntapPermanent) == 0 {
-		return true
-	}
-	claimed := map[state.ObjID]bool{}
-	if cost.Tap {
-		claimed[source] = true
-	}
-	for _, part := range cost.UntapPermanent {
-		cands := e.manaUntapCandidates(p, source, part.Spec, claimed)
-		if int32(len(cands)) < part.N {
-			return false
-		}
-		for i := int32(0); i < part.N; i++ {
-			claimed[cands[i]] = true
-		}
-	}
-	return true
-}
-
 // manaUntapStage elects the untapYType permanents, mirroring the literal
 // tapXType election (forced when exactly N candidates remain, else an ask).
 func (e *Engine) manaUntapStage(md *manaDiscardActivation) bool {
@@ -555,7 +497,7 @@ func (e *Engine) manaUntapStage(md *manaDiscardActivation) bool {
 		if md.cost.Tap {
 			claimed[md.source] = true
 		}
-		candidates := e.manaUntapCandidates(md.player, md.source, part.Spec, claimed)
+		candidates := pay.ManaUntapCandidates(asPayer(e), md.player, md.source, part.Spec, claimed)
 		if int32(len(candidates)) < part.N {
 			e.manaDiscardActivation = nil
 			e.choosing = chooseNone

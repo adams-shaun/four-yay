@@ -201,7 +201,7 @@ func (e *Engine) xAsk() bool {
 	// mana/energy X also exists the candidate count caps it from above.
 	for _, part := range pc.cost.Sac {
 		if part.Announced {
-			avail := int32(len(e.sacrificeCostCandidates(pc.player, pc.card, part, pc.isAbility())))
+			avail := int32(len(pay.SacrificeCostCandidates(asPayer(e), pc.player, pc.card, part, pc.isAbility())))
 			applyCap(avail)
 		}
 	}
@@ -325,7 +325,7 @@ func (e *Engine) xAsk() bool {
 	for x := min; x <= bound; x++ {
 		// The offer sweep and the announcement must agree on whether the
 		// SAME X can settle every Sac part without reusing an object.
-		if sacX && !e.sacrificeCostAssignable(pc.player, pc.card, pc.cost.Sac, pc.isAbility(), x) {
+		if sacX && !pay.SacrificeCostAssignable(asPayer(e), pc.player, pc.card, pc.cost.Sac, pc.isAbility(), x) {
 			continue
 		}
 		var potentialMods costMods
@@ -823,7 +823,7 @@ func (e *Engine) sacAsk() bool {
 	for pc.sacPart < len(pc.cost.Sac) {
 		part := pc.cost.Sac[pc.sacPart]
 		var candidates []state.ObjID
-		for _, oid := range e.sacrificeCostCandidates(pc.player, pc.card, part, pc.isAbility()) {
+		for _, oid := range pay.SacrificeCostCandidates(asPayer(e), pc.player, pc.card, part, pc.isAbility()) {
 			already := false
 			for _, s := range pc.sacs {
 				if s == oid {
@@ -877,7 +877,7 @@ func (e *Engine) sacAsk() bool {
 				if i == pc.sacPart {
 					needs[i] -= pc.sacPaid
 				}
-				pools[i] = e.sacrificeCostCandidates(pc.player, pc.card, futurePart, pc.isAbility())
+				pools[i] = pay.SacrificeCostCandidates(asPayer(e), pc.player, pc.card, futurePart, pc.isAbility())
 			}
 			candidates = feasibleSacrificeChoices(candidates, pools, needs, pc.sacs, pc.sacPart)
 		}

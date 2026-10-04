@@ -18,6 +18,7 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -434,11 +435,11 @@ func TestMorphTurnFaceUpSacExcludesTheSource(t *testing.T) {
 	if !e.matchesSpecFrom("Creature", id, 0, id) {
 		t.Fatalf("precondition: the face-down Kin-Tree Warden does not match Creature")
 	}
-	bare := e.sacrificeCostCandidates(0, id, CostPart{N: 1, Spec: "Creature"}, false)
+	bare := pay.SacrificeCostCandidates(asPayer(e), 0, id, CostPart{N: 1, Spec: "Creature"}, false)
 	if len(bare) != 1 || bare[0] != id {
 		t.Fatalf("Creature spec candidates = %v, want exactly the source %d", bare, id)
 	}
-	other := e.sacrificeCostCandidates(0, id, CostPart{N: 1, Spec: "Creature.Other"}, false)
+	other := pay.SacrificeCostCandidates(asPayer(e), 0, id, CostPart{N: 1, Spec: "Creature.Other"}, false)
 	for _, oid := range other {
 		if oid == id {
 			t.Fatalf("Creature.Other candidates include the face-down source itself: %v", other)

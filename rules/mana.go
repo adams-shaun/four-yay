@@ -432,7 +432,7 @@ func (e *Engine) offerSacXMods(p state.PlayerID, id state.ObjID, ability bool, b
 		if !part.Announced {
 			continue
 		}
-		n := int32(len(e.sacrificeCostCandidates(p, id, part, ability)))
+		n := int32(len(pay.SacrificeCostCandidates(asPayer(e), p, id, part, ability)))
 		if !boundSet || n < maxX {
 			maxX = n
 			boundSet = true
@@ -446,7 +446,7 @@ func (e *Engine) offerSacXMods(p state.PlayerID, id state.ObjID, ability bool, b
 	// raises and floors stay absent (they can only raise the price).
 	targets := e.costPotentialTargets(p, id, scope)
 	for x := int32(1); x <= maxX; x++ {
-		if !e.sacrificeCostAssignable(p, id, base.Sac, ability, x) {
+		if !pay.SacrificeCostAssignable(asPayer(e), p, id, base.Sac, ability, x) {
 			continue
 		}
 		announced := base.WithX(x)

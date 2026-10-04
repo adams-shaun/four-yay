@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -73,10 +74,10 @@ func TestCantSacCostCauseTriggeredBlocksWardSacrificeKernel(t *testing.T) {
 	e, cfg := cantsacWardGame(t, 9502, []*cards.Card{ripper}, []*cards.Card{payment, warden})
 	warded := battlefieldObj(t, e, 0, ripper)
 	payID := battlefieldObj(t, e, 1, payment)
-	if !e.sacrificeBlockedForCost(payID, costCauseTriggered) {
+	if !e.sacrificeBlockedForCost(payID, pay.CostCauseTriggered) {
 		t.Fatal("the ValidCause$ Triggered carrier does not block a trigger-demanded cost sacrifice")
 	}
-	if e.sacrificeBlockedForCost(payID, costCauseSpell) {
+	if e.sacrificeBlockedForCost(payID, pay.CostCauseSpell) {
 		t.Fatal("the ValidCause$ Triggered carrier blanket-blocks a spell-cast cost sacrifice")
 	}
 	kr4WardCause(t, e, warded)
@@ -103,10 +104,10 @@ func TestCantSacCostCauseAngelLeavesWardAloneKernel(t *testing.T) {
 	e, cfg := cantsacWardGame(t, 9503, []*cards.Card{ripper, angel}, []*cards.Card{payment})
 	warded := battlefieldObj(t, e, 0, ripper)
 	payID := battlefieldObj(t, e, 1, payment)
-	if !e.sacrificeBlockedForCost(payID, costCauseSpell) {
+	if !e.sacrificeBlockedForCost(payID, pay.CostCauseSpell) {
 		t.Fatal("precondition: Angel's ForCost$ True static is not live on the cost path")
 	}
-	if e.sacrificeBlockedForCost(payID, costCauseTriggered) {
+	if e.sacrificeBlockedForCost(payID, pay.CostCauseTriggered) {
 		t.Fatal("Angel blocked a ward payment, which the ward trigger demands")
 	}
 	kr4WardCause(t, e, warded)
@@ -167,13 +168,13 @@ func TestCantSacCostCauseTriggeredBlocksCumulativeUpkeepPaymentKernel(t *testing
 	e, cfg := cantsacUpkeepGame(t, 9505, []*cards.Card{kraken, mtn, mtn, warden})
 	krakenID := battlefieldObj(t, e, 0, kraken)
 	m1 = battlefieldObj(t, e, 0, mtn)
-	if !e.sacrificeBlockedForCost(m1, costCauseTriggered) {
+	if !e.sacrificeBlockedForCost(m1, pay.CostCauseTriggered) {
 		t.Fatal("the carrier does not block a trigger-demanded land sacrifice")
 	}
-	if e.sacrificeBlockedForCost(m1, costCauseSpell) {
+	if e.sacrificeBlockedForCost(m1, pay.CostCauseSpell) {
 		t.Fatal("the carrier blanket-blocks a spell-cast land sacrifice")
 	}
-	if e.sacrificeBlockedForCost(krakenID, costCauseTriggered) {
+	if e.sacrificeBlockedForCost(krakenID, pay.CostCauseTriggered) {
 		t.Fatal("the carrier's ValidCard$ Land scope caught Polar Kraken itself")
 	}
 	kr4UpkeepCumulative(t, e)
@@ -202,10 +203,10 @@ func TestCantSacCostCauseAngelLeavesUpkeepAloneKernel(t *testing.T) {
 	e, cfg := cantsacUpkeepGame(t, 9506, []*cards.Card{soulgorger, angel, bear})
 	bearID := battlefieldObj(t, e, 0, bear)
 	soulID := battlefieldObj(t, e, 0, soulgorger)
-	if !e.sacrificeBlockedForCost(bearID, costCauseSpell) {
+	if !e.sacrificeBlockedForCost(bearID, pay.CostCauseSpell) {
 		t.Fatal("precondition: Angel's ForCost$ True static is not live on the cost path")
 	}
-	if e.sacrificeBlockedForCost(bearID, costCauseTriggered) {
+	if e.sacrificeBlockedForCost(bearID, pay.CostCauseTriggered) {
 		t.Fatal("Angel blocked an upkeep payment, which the upkeep trigger demands")
 	}
 	kr4UpkeepCumulative(t, e)
@@ -250,10 +251,10 @@ func TestCantSacCostCauseAngelLeavesUnlessAloneKernel(t *testing.T) {
 		onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Goblin Piledriver")),
 		onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Grizzly Bears")),
 	}
-	if !e.sacrificeBlockedForCost(creatures[0], costCauseSpell) {
+	if !e.sacrificeBlockedForCost(creatures[0], pay.CostCauseSpell) {
 		t.Fatal("precondition: Angel's ForCost$ True static is not live on the cost path")
 	}
-	if e.sacrificeBlockedForCost(creatures[0], costCauseResolution) {
+	if e.sacrificeBlockedForCost(creatures[0], pay.CostCauseResolution) {
 		t.Fatal("Angel blocked an unless payment, a resolution election")
 	}
 	e.emit(events.Event{Kind: events.TriggerPush, Obj: lord, Player: 0, Amount: 0})

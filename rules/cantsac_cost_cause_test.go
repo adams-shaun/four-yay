@@ -37,6 +37,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -176,32 +177,32 @@ func cantsacUpkeepGame(t *testing.T, seed uint64, board []*cards.Card) (*Engine,
 func TestCantSacCostCauseAdmitsTable(t *testing.T) {
 	t.Parallel()
 	spellActivated := "Spell,Activated"
-	if !causeCostAdmits(spellActivated, costCauseSpell) {
+	if !causeCostAdmits(spellActivated, pay.CostCauseSpell) {
 		t.Error("Spell,Activated must admit a spell-cast cost")
 	}
-	if !causeCostAdmits(spellActivated, costCauseActivated) {
+	if !causeCostAdmits(spellActivated, pay.CostCauseActivated) {
 		t.Error("Spell,Activated must admit an activation cost")
 	}
-	for _, c := range []costCause{costCauseNone, costCauseTriggered, costCauseResolution} {
+	for _, c := range []pay.CostCause{pay.CostCauseNone, pay.CostCauseTriggered, pay.CostCauseResolution} {
 		if causeCostAdmits(spellActivated, c) {
 			t.Errorf("Spell,Activated must not admit cause %d", c)
 		}
 	}
-	if !causeCostAdmits("Triggered", costCauseTriggered) {
+	if !causeCostAdmits("Triggered", pay.CostCauseTriggered) {
 		t.Error("Triggered must admit a trigger-demanded payment")
 	}
-	for _, c := range []costCause{costCauseNone, costCauseSpell, costCauseActivated, costCauseResolution} {
+	for _, c := range []pay.CostCause{pay.CostCauseNone, pay.CostCauseSpell, pay.CostCauseActivated, pay.CostCauseResolution} {
 		if causeCostAdmits("Triggered", c) {
 			t.Errorf("Triggered must not admit cause %d", c)
 		}
 	}
 	for _, spec := range []string{"Spell.Instant", "Spell.OppCtrl", "Triggered.YouCtrl", "SpellAbility", "Ability"} {
-		if causeCostAdmits(spec, costCauseSpell) || causeCostAdmits(spec, costCauseActivated) ||
-			causeCostAdmits(spec, costCauseTriggered) {
+		if causeCostAdmits(spec, pay.CostCauseSpell) || causeCostAdmits(spec, pay.CostCauseActivated) ||
+			causeCostAdmits(spec, pay.CostCauseTriggered) {
 			t.Errorf("qualified/unknown base %q must fail closed", spec)
 		}
 	}
-	if causeCostAdmits("", costCauseSpell) {
+	if causeCostAdmits("", pay.CostCauseSpell) {
 		t.Error("an empty spec must fail closed")
 	}
 }

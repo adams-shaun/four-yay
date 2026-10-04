@@ -657,7 +657,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 				claimed[id] = true
 			}
 			for _, part := range cost.UntapPermanent {
-				candidates := e.manaUntapCandidates(p, id, part.Spec, claimed)
+				candidates := pay.ManaUntapCandidates(asPayer(e), p, id, part.Spec, claimed)
 				if int32(len(candidates)) < part.N {
 					return false
 				}
@@ -1078,183 +1078,13 @@ func (e *Engine) manaCostPayable(p state.PlayerID, o *state.Object, source state
 		}
 		fast := !o.Tapped && pool.Total() >= 0
 		if manaPayFastVerify {
-			if slow := e.manaCostPayableFull(p, o, source, cc.Cost, hyp); slow != fast {
+			if slow := pay.ManaCostPayableFull(asPayer(e), p, o, source, cc.Cost, hyp); slow != fast {
 				panic(fmt.Sprintf("rules: bare-{T} mana payability fast path %v disagrees with the full walk %v (source %d)", fast, slow, source))
 			}
 		}
 		return fast
 	}
-	return e.manaCostPayableFull(p, o, source, cc.Cost, hyp)
-}
-
-// manaCostPayableFull is the full cost walk of manaCostPayable.
-func (e *Engine) manaCostPayableFull(p state.PlayerID, o *state.Object, source state.ObjID, cost Cost, hyp *state.Mana) bool {
-	av := pay.AvailableFor(asPayer(e), p, paymentFor(source, true, cost))
-	pool := av.Pool
-	typed := av.Typed
-	if hyp != nil {
-		pool = *hyp
-		// A hypothetical bound is a pure mana bound that may include
-		// restricted units, so its typed partition is the raw tally (the
-		// typed counts never affect payability anyway).
-		typed = e.G.Players[p].ManaUnits()
-	}
-	if cost.X != 0 || len(cost.Reveal) > 0 || len(cost.RevealOrChoose) > 0 || len(cost.RevealChosen) > 0 || len(cost.Behold) > 0 ||
-		len(cost.Blight) > 0 || pay.ActivationTapCostUnavailable(o, &cost) || !pay.CostPayablePool(asPayer(e), p, source, true, cost, pool, typed) {
-		return false
-	}
-	// A Forage cost is payable when the payer's graveyard holds three cards OR
-	// they control a Food; the settle poses the two-arm election (the cast
-	// path's nonManaCastable read).
-	if cost.Forage && !e.manaForagePayable(p, source) {
-		return false
-	}
-	// untapYType<N/Spec> parts (Benthic Explorers): enough distinct TAPPED
-	// matching permanents exist (an untap cost needs a tapped permanent).
-	if !e.manaUntapPayable(p, source, cost) {
-		return false
-	}
-	// The mana-activation path announces its own X for an announced
-	// SubCounter<X/...> part and settles it off the continuation; a PayLife<X>
-	// part still has no ask here, so the ability is not offered rather than
-	// paid for free.
-	if len(cost.LifeX) > 0 {
-		return false
-	}
-	if !pay.ManaCostPartsSettleable(cost) {
-		return false
-	}
-	// Announced SubCounter<X/...> parts: the mana path announces X (the cast
-	// path's xAsk shape) and settles the removal, so the offer gate prices
-	// the announcement instead of refusing it. XMin floors X (Rasputin and
-	// Jetfire carry XMin$ 1), so a board that cannot settle at least XMin is
-	// unpayable -- the fail-closed direction. A fixed part still needs its
-	// counters: source-anchored from the source, anchored from any candidate.
-	if bound, any := pay.ManaSubCounterXBound(asPayer(e), p, o, source, cost); any && bound < cost.XMin {
-		return false
-	}
-	for _, part := range cost.SubCounter {
-		if part.Announced {
-			continue
-		}
-		if subCounterTargetsSource(part.Target) {
-			if o.Counter(part.Spec) < part.N {
-				return false
-			}
-			continue
-		}
-		if len(pay.SubCounterRemovalCandidates(asPayer(e), p, source, part, part.N, nil)) == 0 {
-			return false
-		}
-	}
-	// PayEnergy<N> (Aether Hub, Servant of the Conduit): the payer's energy
-	// total must cover every fixed part (CR 107.14); the settle spends it
-	// through chargeEnergyCost, the cast path's one energy-charging site.
-	energy := int32(0)
-	for _, part := range cost.Energy {
-		energy += part.N
-	}
-	if energy > e.G.Players[p].Counter("ENERGY") {
-		return false
-	}
-	// AddCounter<N/KIND> and Exert<1/CARDNAME> are source-anchored: the
-	// source must still be the permanent that receives the counter or the
-	// exert (a mana ability is activated from the battlefield).
-	if (len(cost.AddCounter) > 0 || len(cost.Exert) > 0) && o.Zone != state.ZBattlefield {
-		return false
-	}
-	// Return<N/Spec> parts: the mana path pays only the self-return
-	// (Spec CARDNAME, Forge's payCostFromSource -- Grinning Ignus's
-	// "{R}, Return this creature to its owner's hand"), which needs no
-	// choice. Any other Return spec, or a Return beside a part the
-	// discard/sacrifice continuation owns, is refused rather than activated
-	// with the return silently unpaid.
-	if !pay.ManaReturnCostSupported(cost) {
-		return false
-	}
-	for range cost.Return {
-		if o.Zone != state.ZBattlefield {
-			return false
-		}
-	}
-	sacs, ok := e.manaSacrifices(p, source, cost)
-	if !ok {
-		return false
-	}
-	discards, ok := pay.ManaDiscards(asPayer(e), p, source, cost)
-	if !ok {
-		return false
-	}
-	exiles, ok := pay.ManaExiles(asPayer(e), p, source, cost)
-	if !ok {
-		return false
-	}
-	// tapXType<N/Spec> parts (Springleaf Drum, Heritage Druid): the payer must
-	// have enough untapped matching permanents, reserving the source when the
-	// same cost also taps it and the sacrifice/discard/exile picks above (one
-	// permanent cannot pay two parts of one cost). The candidates here are the
-	// same battlefield-order walk the payment election uses, so the count that
-	// offered the activation and the objects the payer may tap cannot
-	// disagree.
-	reserved := make(map[state.ObjID]bool, len(sacs)+len(discards)+len(exiles))
-	for _, id := range sacs {
-		reserved[id] = true
-	}
-	for _, id := range discards {
-		reserved[id] = true
-	}
-	for _, id := range exiles {
-		reserved[id] = true
-	}
-	if !pay.ManaTapsPayable(asPayer(e), p, source, cost, reserved) {
-		return false
-	}
-	return true
-}
-
-// manaSacrifices finds enough candidates for each sacrifice cost part. The
-// activation continuation chooses which candidates pay when there is a choice.
-// Candidates are still returned in deterministic battlefield order for the
-// no-choice path.
-func (e *Engine) manaSacrifices(p state.PlayerID, source state.ObjID, cost Cost) ([]state.ObjID, bool) {
-	candidates := make([][]state.ObjID, len(cost.Sac))
-	needs := make([]int, len(cost.Sac))
-	for i, part := range cost.Sac {
-		needs[i] = int(part.N)
-		if needs[i] <= 0 {
-			return nil, false
-		}
-		candidates[i] = e.sacrificeCostCandidates(p, source, part, true)
-	}
-	used := make(map[state.ObjID]bool)
-	var chosen []state.ObjID
-	var assign func(int, int) bool
-	assign = func(part, unit int) bool {
-		for part < len(needs) && unit >= needs[part] {
-			part++
-			unit = 0
-		}
-		if part == len(needs) {
-			return true
-		}
-		for _, id := range candidates[part] {
-			if used[id] {
-				continue
-			}
-			used[id] = true
-			chosen = append(chosen, id)
-			if assign(part, unit+1) {
-				return true
-			}
-			chosen = chosen[:len(chosen)-1]
-			delete(used, id)
-		}
-		return false
-	}
-	if !assign(0, 0) {
-		return nil, false
-	}
-	return chosen, true
+	return pay.ManaCostPayableFull(asPayer(e), p, o, source, cc.Cost, hyp)
 }
 
 // continueManaDiscard walks a mana ability's discard parts without putting
@@ -1349,7 +1179,7 @@ func (e *Engine) continueManaDiscard() {
 			reserved[id] = true
 		}
 		var candidates []state.ObjID
-		for _, id := range e.sacrificeCostCandidates(md.player, md.source, part, true) {
+		for _, id := range pay.SacrificeCostCandidates(asPayer(e), md.player, md.source, part, true) {
 			if !reserved[id] {
 				candidates = append(candidates, id)
 			}
@@ -1371,7 +1201,7 @@ func (e *Engine) continueManaDiscard() {
 				if i == md.sacPart {
 					needs[i] -= md.sacPaid
 				}
-				pools[i] = e.sacrificeCostCandidates(md.player, md.source, futurePart, true)
+				pools[i] = pay.SacrificeCostCandidates(asPayer(e), md.player, md.source, futurePart, true)
 			}
 			candidates = feasibleSacrificeChoices(candidates, pools, needs, md.sacs, md.sacPart)
 		}
@@ -2013,7 +1843,7 @@ func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.Ob
 	}
 	cc := e.compiledCostOf(ma.ParamStr(cards.PKCost))
 	cost := cc.Cost
-	sacs, _ := e.manaSacrifices(p, source, cost)
+	sacs, _ := pay.ManaSacrifices(asPayer(e), p, source, cost)
 	// The continuation owns EVERY non-mana cost part, so it must be entered
 	// whenever one exists -- a caller that cannot ask (interactive == false:
 	// the attack-cost tap window and the direct-resolve tests) still has to

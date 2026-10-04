@@ -628,7 +628,7 @@ func (e *Engine) unlessCandidatesFor(payer state.PlayerID, ctx effects.Ctx, zone
 	}
 	var out []state.ObjID
 	for _, id := range e.G.Zone(zone, payer) {
-		if kind == "sacrifice" && e.sacrificeBlockedForCost(id, costCauseResolution) {
+		if kind == "sacrifice" && e.sacrificeBlockedForCost(id, pay.CostCauseResolution) {
 			// A CantSacrifice restriction (Call for Aid) or face static: the
 			// permanent cannot pay a sacrifice component. An unless payment
 			// is a resolution-election payment, never a cast/activation cost,
@@ -638,7 +638,7 @@ func (e *Engine) unlessCandidatesFor(payer state.PlayerID, ctx effects.Ctx, zone
 			// Effect-registered CantSacrifice still apply.
 			continue
 		}
-		if kind == "exilecost" && zone == state.ZBattlefield && e.exileBlockedForCost(id, costCauseResolution) {
+		if kind == "exilecost" && zone == state.ZBattlefield && e.exileBlockedForCost(id, pay.CostCauseResolution) {
 			// The exile candidate guard the cast/activation gate applies,
 			// restricted to a battlefield source: a CantExile static whose
 			// ForCost$ True restricts cost payments withholds the candidate.

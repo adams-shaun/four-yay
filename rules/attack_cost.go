@@ -480,7 +480,7 @@ func (e *Engine) chargeObjCandidates(p state.PlayerID, r chargeObjReq, kind stri
 		if excluded[id] {
 			continue
 		}
-		if kind == "sacrifice" && e.sacrificeBlockedForCost(id, costCauseResolution) {
+		if kind == "sacrifice" && e.sacrificeBlockedForCost(id, pay.CostCauseResolution) {
 			continue
 		}
 		out = append(out, id)

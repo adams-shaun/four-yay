@@ -295,10 +295,10 @@ func TestManaUntapYTypeCost(t *testing.T) {
 	if len(c.Unknown) != 0 {
 		t.Fatalf("untapYType parsed into Cost.Unknown: %v", c.Unknown)
 	}
-	if !e.manaUntapPayable(0, b, c) {
+	if !pay.ManaUntapPayable(asPayer(e), 0, b, c) {
 		t.Fatalf("manaUntapPayable = false with a tapped opponent Mountain %d on the board", mnt)
 	}
-	cands := e.manaUntapCandidates(0, b, "Land.OppCtrl", nil)
+	cands := pay.ManaUntapCandidates(asPayer(e), 0, b, "Land.OppCtrl", nil)
 	if len(cands) != 1 || cands[0] != mnt {
 		t.Fatalf("manaUntapCandidates = %v, want exactly the tapped Mountain %d", cands, mnt)
 	}
