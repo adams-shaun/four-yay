@@ -12,6 +12,7 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -75,7 +76,7 @@ func TestKr8RestrictValidDotlessPaymentTerms(t *testing.T) {
 		// wrongly admitted the generic half).
 		tapForRestrictedBatch(t, e, cult2, "Spell.Colorless,Activated.Permanent+Colorless+inZoneBattlefield,CostContainsC")
 		addMana(t, e, 0, "CC")
-		if got := e.manaAvailableFor(0, paymentFor(toll, false, e.parseCost("1 W"))).pool.Total(); got != 2 {
+		if got := pay.AvailableFor(asPayer(e), 0, paymentFor(toll, false, e.parseCost("1 W"))).Pool.Total(); got != 2 {
 			t.Fatalf("manaAvailableFor({1}{W} spell) = %d, want 2 (the CostContainsC tail must not admit a C-less cost)", got)
 		}
 		e.pending = nil
@@ -106,7 +107,7 @@ func TestKr8RestrictValidDotlessPaymentTerms(t *testing.T) {
 
 		// Rejection: the {C} instant carries no X, so the batch is hidden
 		// from its payment and the cast unoffered on the batch alone.
-		if got := e.manaAvailableFor(0, paymentFor(charge, false, e.parseCost("C"))).pool.Total(); got != 0 {
+		if got := pay.AvailableFor(asPayer(e), 0, paymentFor(charge, false, e.parseCost("C"))).Pool.Total(); got != 0 {
 			t.Fatalf("manaAvailableFor({C} spell) = %d, want 0 (CostContainsX batch hidden)", got)
 		}
 		e.pending = nil
@@ -187,13 +188,13 @@ func TestKr8RestrictValidDotlessPaymentTerms(t *testing.T) {
 
 		// Rejection, generic: the {1} instant's pip may be paid generic, so
 		// the batch is hidden and the cast unoffered.
-		if got := e.manaAvailableFor(0, paymentFor(toll, false, e.parseCost("1"))).pool.Total(); got != 0 {
+		if got := pay.AvailableFor(asPayer(e), 0, paymentFor(toll, false, e.parseCost("1"))).Pool.Total(); got != 0 {
 			t.Fatalf("manaAvailableFor({1} spell) = %d, want 0 (generic cost)", got)
 		}
 		// An unannounced flexible pip remains offerable: its colour face has
 		// no generic component. The generic face is rejected at the real
 		// announcement ask, after that face has been folded into the cost.
-		if got := e.manaAvailableFor(0, paymentFor(twobrid, false, e.parseCost("2/W"))).pool.Total(); got != 5 {
+		if got := pay.AvailableFor(asPayer(e), 0, paymentFor(twobrid, false, e.parseCost("2/W"))).Pool.Total(); got != 5 {
 			t.Fatalf("manaAvailableFor(unannounced {2/W}) = %d, want 5 (its {W} face is non-generic)", got)
 		}
 		e.pending = nil
@@ -313,7 +314,7 @@ func TestKr8RestrictValidDotlessPaymentTerms(t *testing.T) {
 
 		// Rejection: the nonartifact {U} creature's cast is hidden and
 		// unoffered on the batch alone.
-		if got := e.manaAvailableFor(0, paymentFor(whelpID, false, e.parseCost("U"))).pool.Total(); got != 0 {
+		if got := pay.AvailableFor(asPayer(e), 0, paymentFor(whelpID, false, e.parseCost("U"))).Pool.Total(); got != 0 {
 			t.Fatalf("manaAvailableFor(nonartifact spell) = %d, want 0", got)
 		}
 		e.pending = nil
@@ -364,7 +365,7 @@ func TestKr8RestrictValidDotlessPaymentTerms(t *testing.T) {
 		// Rejection: a hand spell's cast is denied PRE-push (the hand family
 		// keeps the deny — the cast's ByYou origin is not yet in the log), so
 		// the batch is hidden from the {1} cast and the cast unoffered.
-		if got := e.manaAvailableFor(0, paymentFor(toll, false, e.parseCost("1"))).pool.Total(); got != 0 {
+		if got := pay.AvailableFor(asPayer(e), 0, paymentFor(toll, false, e.parseCost("1"))).Pool.Total(); got != 0 {
 			t.Fatalf("manaAvailableFor(hand {1} spell) = %d, want 0 (hand cast denied at the offer)", got)
 		}
 		e.pending = nil
@@ -425,7 +426,7 @@ func TestKr8RestrictValidDotlessPaymentTerms(t *testing.T) {
 		// Rejection: neither an ordinary spell nor an activation sees the
 		// batch — the {1} cast stays hidden and unoffered while the trigger
 		// waits.
-		if got := e.manaAvailableFor(0, paymentFor(toll, false, e.parseCost("1"))).pool.Total(); got != 0 {
+		if got := pay.AvailableFor(asPayer(e), 0, paymentFor(toll, false, e.parseCost("1"))).Pool.Total(); got != 0 {
 			t.Fatalf("manaAvailableFor({1} spell) = %d, want 0 (CumulativeUpkeep batch hidden)", got)
 		}
 		e.pending = nil
@@ -460,7 +461,7 @@ func TestKr8RestrictValidDotlessPaymentTerms(t *testing.T) {
 		}
 		// And the survivor still pays nothing else: the ordinary {1} cast is
 		// still hidden on the remaining batch.
-		if got := e.manaAvailableFor(0, paymentFor(toll, false, e.parseCost("1"))).pool.Total(); got != 0 {
+		if got := pay.AvailableFor(asPayer(e), 0, paymentFor(toll, false, e.parseCost("1"))).Pool.Total(); got != 0 {
 			t.Fatalf("manaAvailableFor({1} spell) after the window = %d, want 0", got)
 		}
 		replayCheck(t, e, cfg)
