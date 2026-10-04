@@ -45,10 +45,10 @@ func (e *Engine) ReplaceEvent(name, raw string, resolved int32) {
 			if !hasOp {
 				return
 			}
-			switch replaceEventdf01Codes.Code(string(field)) {
-			case replaceEventdf01Number:
+			switch replaceEventFieldCodes.Code(string(field)) {
+			case replaceEventFieldNumber:
 				ev.Amount = replCountOp(ev.Amount, op)
-			case replaceEventdf01Ignore:
+			case replaceEventFieldIgnore:
 				base := int32(0)
 				if n, err := strconv.Atoi(ev.Counter); err == nil {
 					base = int32(n)
@@ -82,24 +82,24 @@ func (e *Engine) ReplaceEvent(name, raw string, resolved int32) {
 	if name != "Affected" {
 		return
 	}
-	switch replaceEventdf02Codes.Code(string(raw)) {
-	case replaceEventdf02You:
+	switch replaceEventRefCodes.Code(string(raw)) {
+	case replaceEventRefYou:
 		ev.Obj, ev.Player = 0, e.controllerOf(e.replacingSource)
-	case replaceEventdf02Self:
+	case replaceEventRefSelf:
 		ev.Obj, ev.Player = e.replacingSource, 0
-	case replaceEventdf02Enchanted:
+	case replaceEventRefEnchanted:
 		if source := e.G.Obj(e.replacingSource); source != nil && source.AttachedTo != 0 {
 			ev.Obj, ev.Player = source.AttachedTo, 0
 		}
-	case replaceEventdf02ReplacedSourceController:
+	case replaceEventRefReplacedSourceController:
 		if source := e.G.Obj(e.damaging); source != nil {
 			ev.Obj, ev.Player = 0, source.Controller
 		}
-	case replaceEventdf02ReplacedTargetController:
+	case replaceEventRefReplacedTargetController:
 		if target := e.G.Obj(ev.Obj); target != nil {
 			ev.Obj, ev.Player = 0, target.Controller
 		}
-	case replaceEventdf02Remembered:
+	case replaceEventRefRemembered:
 		// Infer the destination kind from the captured GameEntity, rather than
 		// parsing VarType$. Remembered permanents must still be on the
 		// battlefield; remembered players are valid damage recipients while
@@ -263,31 +263,35 @@ func replacementPlayerMatches(e *Engine, source state.ObjID, r *cards.Repl, p st
 	return v == "" || effects.MatchesPlayerSpec(e.G, v, p, e.controllerOf(source))
 }
 
-const (
-	replaceEventdf01Number uint16 = 1 // "Number"
-	replaceEventdf01Ignore uint16 = 2 // "Ignore"
-)
-
-var replaceEventdf01Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Number", Val: replaceEventdf01Number},
-	state.StrEntry[uint16]{Key: "Ignore", Val: replaceEventdf01Ignore},
-)
+type replaceEventFieldCode uint16
 
 const (
-	replaceEventdf02You                      uint16 = 1 // "You"
-	replaceEventdf02Self                     uint16 = 2 // "Self"
-	replaceEventdf02Enchanted                uint16 = 3 // "Enchanted", "Equipped"
-	replaceEventdf02ReplacedSourceController uint16 = 4 // "ReplacedSourceController"
-	replaceEventdf02ReplacedTargetController uint16 = 5 // "ReplacedTargetController"
-	replaceEventdf02Remembered               uint16 = 6 // "Remembered"
+	replaceEventFieldNumber replaceEventFieldCode = iota + 1
+	replaceEventFieldIgnore
 )
 
-var replaceEventdf02Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "You", Val: replaceEventdf02You},
-	state.StrEntry[uint16]{Key: "Self", Val: replaceEventdf02Self},
-	state.StrEntry[uint16]{Key: "Enchanted", Val: replaceEventdf02Enchanted},
-	state.StrEntry[uint16]{Key: "Equipped", Val: replaceEventdf02Enchanted},
-	state.StrEntry[uint16]{Key: "ReplacedSourceController", Val: replaceEventdf02ReplacedSourceController},
-	state.StrEntry[uint16]{Key: "ReplacedTargetController", Val: replaceEventdf02ReplacedTargetController},
-	state.StrEntry[uint16]{Key: "Remembered", Val: replaceEventdf02Remembered},
+var replaceEventFieldCodes = state.NewStrCodes(
+	state.StrEntry[replaceEventFieldCode]{Key: "Number", Val: replaceEventFieldNumber},
+	state.StrEntry[replaceEventFieldCode]{Key: "Ignore", Val: replaceEventFieldIgnore},
+)
+
+type replaceEventRefCode uint16
+
+const (
+	replaceEventRefYou replaceEventRefCode = iota + 1
+	replaceEventRefSelf
+	replaceEventRefEnchanted
+	replaceEventRefReplacedSourceController
+	replaceEventRefReplacedTargetController
+	replaceEventRefRemembered
+)
+
+var replaceEventRefCodes = state.NewStrCodes(
+	state.StrEntry[replaceEventRefCode]{Key: "You", Val: replaceEventRefYou},
+	state.StrEntry[replaceEventRefCode]{Key: "Self", Val: replaceEventRefSelf},
+	state.StrEntry[replaceEventRefCode]{Key: "Enchanted", Val: replaceEventRefEnchanted},
+	state.StrEntry[replaceEventRefCode]{Key: "Equipped", Val: replaceEventRefEnchanted},
+	state.StrEntry[replaceEventRefCode]{Key: "ReplacedSourceController", Val: replaceEventRefReplacedSourceController},
+	state.StrEntry[replaceEventRefCode]{Key: "ReplacedTargetController", Val: replaceEventRefReplacedTargetController},
+	state.StrEntry[replaceEventRefCode]{Key: "Remembered", Val: replaceEventRefRemembered},
 )

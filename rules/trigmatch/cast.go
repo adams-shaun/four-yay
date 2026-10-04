@@ -368,16 +368,16 @@ func spellAbilityCastSpellValidSA(e Board, obj *state.Object, validSA string, so
 			continue
 		}
 		kind, constraint, _ := strings.Cut(alt, ".")
-		switch spellAbilityCastSpellValidSA5421Codes.Code(string(kind)) {
-		case spellAbilityCastSpellValidSA5421Activated:
+		switch validSAKindCodes.Code(string(kind)) {
+		case validSAKindActivated:
 			continue
-		case spellAbilityCastSpellValidSA5421SpellAbility:
-			switch spellAbilityCastSpellValidSA5422Codes.Code(string(constraint)) {
-			case spellAbilityCastSpellValidSA5422Empty:
+		case validSAKindSpellAbility:
+			switch validSAConstraintCodes.Code(string(constraint)) {
+			case validSAConstraintEmpty:
 				return true
-			case spellAbilityCastSpellValidSA5422ManaAbility:
+			case validSAConstraintManaAbility:
 				continue
-			case spellAbilityCastSpellValidSA5422YouCtrl:
+			case validSAConstraintYouCtrl:
 				if obj.Controller == ctrl {
 					return true
 				}
@@ -537,8 +537,8 @@ func AbilityCastValidSA(b Board, ab *cards.SA, validSA string, abCtrl, ctrl stat
 		if i := strings.IndexByte(alt, '.'); i >= 0 {
 			kind, constraint = alt[:i], alt[i+1:]
 		}
-		switch abilityCastValidSA5423Codes.Code(string(kind)) {
-		case abilityCastValidSA5423SpellAbility:
+		switch abilityCastValidSACodes.Code(string(kind)) {
+		case abilityCastValidSASpellAbility:
 			if abilityCastConstraintHolds(b, ab, constraint, abCtrl, ctrl, removed) {
 				return true
 			}
@@ -564,18 +564,18 @@ func abilityCastConstraintHolds(b Board, ab *cards.SA, constraint string, abCtrl
 	}
 	for term := range strings.SplitSeq(constraint, "+") {
 		ok := false
-		switch abilityCastConstraintHolds5424Codes.Code(string(term)) {
-		case abilityCastConstraintHolds5424ManaAbility:
+		switch abilityCastConstraintHoldsCodes.Code(string(term)) {
+		case abilityCastConstraintHoldsManaAbility:
 			ok = !cards.IsManaAbilityAPI(ab.API)
-		case abilityCastConstraintHolds5424ManaAbilityX:
+		case abilityCastConstraintHoldsManaAbilityX:
 			ok = cards.IsManaAbilityAPI(ab.API)
-		case abilityCastConstraintHolds5424YouCtrl:
+		case abilityCastConstraintHoldsYouCtrl:
 			ok = abCtrl == ctrl
-		case abilityCastConstraintHolds5424OppCtrl:
+		case abilityCastConstraintHoldsOppCtrl:
 			ok = abCtrl != ctrl
-		case abilityCastConstraintHolds5424Loyalty:
+		case abilityCastConstraintHoldsLoyalty:
 			ok = b.IsLoyaltyAbility(ab)
-		case abilityCastConstraintHolds5424LoyaltyX:
+		case abilityCastConstraintHoldsLoyaltyX:
 			ok = !b.IsLoyaltyAbility(ab)
 		default:
 			if cmp, found := strings.CutPrefix(term, "CountersRemovedToPay"); found && removed >= 0 {
@@ -1024,54 +1024,62 @@ func init() {
 	registerTrigMatcher(ManaExpendMatches, "ManaExpend")
 }
 
-const (
-	spellAbilityCastSpellValidSA5421Activated    uint16 = 1 // "Activated", "Triggered"
-	spellAbilityCastSpellValidSA5421SpellAbility uint16 = 2 // "SpellAbility"
-)
-
-var spellAbilityCastSpellValidSA5421Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Activated", Val: spellAbilityCastSpellValidSA5421Activated},
-	state.StrEntry[uint16]{Key: "Triggered", Val: spellAbilityCastSpellValidSA5421Activated},
-	state.StrEntry[uint16]{Key: "SpellAbility", Val: spellAbilityCastSpellValidSA5421SpellAbility},
-)
+type validSAKindCode uint16
 
 const (
-	spellAbilityCastSpellValidSA5422Empty       uint16 = 1 // "", "!ManaAbility"
-	spellAbilityCastSpellValidSA5422ManaAbility uint16 = 2 // "ManaAbility"
-	spellAbilityCastSpellValidSA5422YouCtrl     uint16 = 3 // "YouCtrl"
+	validSAKindActivated validSAKindCode = iota + 1
+	validSAKindSpellAbility
 )
 
-var spellAbilityCastSpellValidSA5422Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: spellAbilityCastSpellValidSA5422Empty},
-	state.StrEntry[uint16]{Key: "!ManaAbility", Val: spellAbilityCastSpellValidSA5422Empty},
-	state.StrEntry[uint16]{Key: "ManaAbility", Val: spellAbilityCastSpellValidSA5422ManaAbility},
-	state.StrEntry[uint16]{Key: "YouCtrl", Val: spellAbilityCastSpellValidSA5422YouCtrl},
+var validSAKindCodes = state.NewStrCodes(
+	state.StrEntry[validSAKindCode]{Key: "Activated", Val: validSAKindActivated},
+	state.StrEntry[validSAKindCode]{Key: "Triggered", Val: validSAKindActivated},
+	state.StrEntry[validSAKindCode]{Key: "SpellAbility", Val: validSAKindSpellAbility},
 )
 
-const (
-	abilityCastValidSA5423SpellAbility uint16 = 1 // "SpellAbility", "Activated", ""
-)
-
-var abilityCastValidSA5423Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "SpellAbility", Val: abilityCastValidSA5423SpellAbility},
-	state.StrEntry[uint16]{Key: "Activated", Val: abilityCastValidSA5423SpellAbility},
-	state.StrEntry[uint16]{Key: "", Val: abilityCastValidSA5423SpellAbility},
-)
+type validSAConstraintCode uint16
 
 const (
-	abilityCastConstraintHolds5424ManaAbility  uint16 = 1 // "!ManaAbility"
-	abilityCastConstraintHolds5424ManaAbilityX uint16 = 2 // "ManaAbility"
-	abilityCastConstraintHolds5424YouCtrl      uint16 = 3 // "YouCtrl"
-	abilityCastConstraintHolds5424OppCtrl      uint16 = 4 // "OppCtrl"
-	abilityCastConstraintHolds5424Loyalty      uint16 = 5 // "Loyalty"
-	abilityCastConstraintHolds5424LoyaltyX     uint16 = 6 // "!Loyalty"
+	validSAConstraintEmpty validSAConstraintCode = iota + 1
+	validSAConstraintManaAbility
+	validSAConstraintYouCtrl
 )
 
-var abilityCastConstraintHolds5424Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "!ManaAbility", Val: abilityCastConstraintHolds5424ManaAbility},
-	state.StrEntry[uint16]{Key: "ManaAbility", Val: abilityCastConstraintHolds5424ManaAbilityX},
-	state.StrEntry[uint16]{Key: "YouCtrl", Val: abilityCastConstraintHolds5424YouCtrl},
-	state.StrEntry[uint16]{Key: "OppCtrl", Val: abilityCastConstraintHolds5424OppCtrl},
-	state.StrEntry[uint16]{Key: "Loyalty", Val: abilityCastConstraintHolds5424Loyalty},
-	state.StrEntry[uint16]{Key: "!Loyalty", Val: abilityCastConstraintHolds5424LoyaltyX},
+var validSAConstraintCodes = state.NewStrCodes(
+	state.StrEntry[validSAConstraintCode]{Key: "", Val: validSAConstraintEmpty},
+	state.StrEntry[validSAConstraintCode]{Key: "!ManaAbility", Val: validSAConstraintEmpty},
+	state.StrEntry[validSAConstraintCode]{Key: "ManaAbility", Val: validSAConstraintManaAbility},
+	state.StrEntry[validSAConstraintCode]{Key: "YouCtrl", Val: validSAConstraintYouCtrl},
+)
+
+type abilityCastValidSACode uint16
+
+const (
+	abilityCastValidSASpellAbility abilityCastValidSACode = iota + 1
+)
+
+var abilityCastValidSACodes = state.NewStrCodes(
+	state.StrEntry[abilityCastValidSACode]{Key: "SpellAbility", Val: abilityCastValidSASpellAbility},
+	state.StrEntry[abilityCastValidSACode]{Key: "Activated", Val: abilityCastValidSASpellAbility},
+	state.StrEntry[abilityCastValidSACode]{Key: "", Val: abilityCastValidSASpellAbility},
+)
+
+type abilityCastConstraintHoldsCode uint16
+
+const (
+	abilityCastConstraintHoldsManaAbility abilityCastConstraintHoldsCode = iota + 1
+	abilityCastConstraintHoldsManaAbilityX
+	abilityCastConstraintHoldsYouCtrl
+	abilityCastConstraintHoldsOppCtrl
+	abilityCastConstraintHoldsLoyalty
+	abilityCastConstraintHoldsLoyaltyX
+)
+
+var abilityCastConstraintHoldsCodes = state.NewStrCodes(
+	state.StrEntry[abilityCastConstraintHoldsCode]{Key: "!ManaAbility", Val: abilityCastConstraintHoldsManaAbility},
+	state.StrEntry[abilityCastConstraintHoldsCode]{Key: "ManaAbility", Val: abilityCastConstraintHoldsManaAbilityX},
+	state.StrEntry[abilityCastConstraintHoldsCode]{Key: "YouCtrl", Val: abilityCastConstraintHoldsYouCtrl},
+	state.StrEntry[abilityCastConstraintHoldsCode]{Key: "OppCtrl", Val: abilityCastConstraintHoldsOppCtrl},
+	state.StrEntry[abilityCastConstraintHoldsCode]{Key: "Loyalty", Val: abilityCastConstraintHoldsLoyalty},
+	state.StrEntry[abilityCastConstraintHoldsCode]{Key: "!Loyalty", Val: abilityCastConstraintHoldsLoyaltyX},
 )

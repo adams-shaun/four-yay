@@ -212,23 +212,23 @@ func colorLetters(list string) ([]string, bool) {
 	ok := true
 	for entry := range strings.SplitSeq(list, ",") {
 		for word := range strings.SplitSeq(strings.TrimSpace(entry), " & ") {
-			switch colorLetters8f61Codes.Code(string(strings.ToLower(strings.TrimSpace(word)))) {
-			case colorLetters8f61Empty:
-			case colorLetters8f61All:
+			switch colorLettersCodes.Code(string(strings.ToLower(strings.TrimSpace(word)))) {
+			case colorLettersEmpty:
+			case colorLettersAll:
 				set = [5]bool{true, true, true, true, true}
-			case colorLetters8f61Colorless:
+			case colorLettersColorless:
 				// The empty set; ok stays true. Whether that grant does anything
 				// (an overwrite to colourless) or nothing (an add of the empty
 				// set) is the CALLER's decision -- effAnimate notes the no-op arm.
-			case colorLetters8f61White:
+			case colorLettersWhite:
 				set[0] = true
-			case colorLetters8f61Blue:
+			case colorLettersBlue:
 				set[1] = true
-			case colorLetters8f61Black:
+			case colorLettersBlack:
 				set[2] = true
-			case colorLetters8f61Red:
+			case colorLettersRed:
 				set[3] = true
-			case colorLetters8f61Green:
+			case colorLettersGreen:
 				set[4] = true
 			default:
 				ok = false
@@ -319,24 +319,26 @@ func colourMapPredicate(p string) bool {
 	return is
 }
 
+type colorLettersCode uint16
+
 const (
-	colorLetters8f61Empty     uint16 = 1 // ""
-	colorLetters8f61All       uint16 = 2 // "all"
-	colorLetters8f61Colorless uint16 = 3 // "colorless"
-	colorLetters8f61White     uint16 = 4 // "white"
-	colorLetters8f61Blue      uint16 = 5 // "blue"
-	colorLetters8f61Black     uint16 = 6 // "black"
-	colorLetters8f61Red       uint16 = 7 // "red"
-	colorLetters8f61Green     uint16 = 8 // "green"
+	colorLettersEmpty colorLettersCode = iota + 1
+	colorLettersAll
+	colorLettersColorless
+	colorLettersWhite
+	colorLettersBlue
+	colorLettersBlack
+	colorLettersRed
+	colorLettersGreen
 )
 
-var colorLetters8f61Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: colorLetters8f61Empty},
-	state.StrEntry[uint16]{Key: "all", Val: colorLetters8f61All},
-	state.StrEntry[uint16]{Key: "colorless", Val: colorLetters8f61Colorless},
-	state.StrEntry[uint16]{Key: "white", Val: colorLetters8f61White},
-	state.StrEntry[uint16]{Key: "blue", Val: colorLetters8f61Blue},
-	state.StrEntry[uint16]{Key: "black", Val: colorLetters8f61Black},
-	state.StrEntry[uint16]{Key: "red", Val: colorLetters8f61Red},
-	state.StrEntry[uint16]{Key: "green", Val: colorLetters8f61Green},
+var colorLettersCodes = state.NewStrCodes(
+	state.StrEntry[colorLettersCode]{Key: "", Val: colorLettersEmpty},
+	state.StrEntry[colorLettersCode]{Key: "all", Val: colorLettersAll},
+	state.StrEntry[colorLettersCode]{Key: "colorless", Val: colorLettersColorless},
+	state.StrEntry[colorLettersCode]{Key: "white", Val: colorLettersWhite},
+	state.StrEntry[colorLettersCode]{Key: "blue", Val: colorLettersBlue},
+	state.StrEntry[colorLettersCode]{Key: "black", Val: colorLettersBlack},
+	state.StrEntry[colorLettersCode]{Key: "red", Val: colorLettersRed},
+	state.StrEntry[colorLettersCode]{Key: "green", Val: colorLettersGreen},
 )

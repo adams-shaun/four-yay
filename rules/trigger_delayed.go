@@ -82,17 +82,17 @@ func (e *Engine) delayedRegistrationLive(dt *state.DelayedTrigger) bool {
 	// (Chancellor of the Annex, source in hand) or an emblem/command-zone
 	// source has no battlefield incarnation to lose, so its Permanent
 	// promise is unbounded (SourceBattlefield false).
-	switch delayedRegistrationLivef3a1Codes.Code(string(dt.EffectDuration)) {
-	case delayedRegistrationLivef3a1Permanent:
+	switch delayedRegistrationLiveCodes.Code(string(dt.EffectDuration)) {
+	case delayedRegistrationLivePermanent:
 		if dt.SourceBattlefield &&
 			(src.Zone != state.ZBattlefield || src.Incarnation != dt.SourceIncarnation) {
 			return false
 		}
-	case delayedRegistrationLivef3a1Untilendofcombat:
+	case delayedRegistrationLiveUntilendofcombat:
 		if !isCombatStep(e.G.Step) {
 			return false
 		}
-	case delayedRegistrationLivef3a1Untilyournextturn:
+	case delayedRegistrationLiveUntilyournextturn:
 		// Read the folded turn history through the shared turn-start cache
 		// (nextTurnFor/rescheduleNextTurnBoundaries' own source of truth),
 		// not a frozen absolute turn: late extra-turn grants and skipped
@@ -672,7 +672,7 @@ func effectDelayedFrame(dt *state.DelayedTrigger) effects.EffectFrame {
 // a delayed-registration matcher of its own. Every other mode an Effect
 // registration may name falls through to the generic trigMatchers dispatch.
 func delayedEventModeHandled(mode string) bool {
-	if v, ok := delayedEventModeHandledTab1.Get(mode); ok {
+	if v, ok := delayedEventModeHandledTab.Get(mode); ok {
 		return v
 	}
 	return false
@@ -848,22 +848,24 @@ func (e *Engine) clearEffectMatchScope() {
 	e.effectMatchOverride = false
 }
 
-var delayedEventModeHandledTab1 = state.NewStrTable[bool](
+var delayedEventModeHandledTab = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "SpellCast", Val: true},
 	state.StrEntry[bool]{Key: "ChangesController", Val: true},
 	state.StrEntry[bool]{Key: "DamageDone", Val: true},
 	state.StrEntry[bool]{Key: "AttackersDeclared", Val: true},
 )
 
+type delayedRegistrationLiveCode uint16
+
 const (
-	delayedRegistrationLivef3a1Permanent         uint16 = 1 // "permanent"
-	delayedRegistrationLivef3a1Untilendofcombat  uint16 = 2 // "untilendofcombat"
-	delayedRegistrationLivef3a1Untilyournextturn uint16 = 3 // "untilyournextturn", "untiltheendofyournextturn"
+	delayedRegistrationLivePermanent delayedRegistrationLiveCode = iota + 1
+	delayedRegistrationLiveUntilendofcombat
+	delayedRegistrationLiveUntilyournextturn
 )
 
-var delayedRegistrationLivef3a1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "permanent", Val: delayedRegistrationLivef3a1Permanent},
-	state.StrEntry[uint16]{Key: "untilendofcombat", Val: delayedRegistrationLivef3a1Untilendofcombat},
-	state.StrEntry[uint16]{Key: "untilyournextturn", Val: delayedRegistrationLivef3a1Untilyournextturn},
-	state.StrEntry[uint16]{Key: "untiltheendofyournextturn", Val: delayedRegistrationLivef3a1Untilyournextturn},
+var delayedRegistrationLiveCodes = state.NewStrCodes(
+	state.StrEntry[delayedRegistrationLiveCode]{Key: "permanent", Val: delayedRegistrationLivePermanent},
+	state.StrEntry[delayedRegistrationLiveCode]{Key: "untilendofcombat", Val: delayedRegistrationLiveUntilendofcombat},
+	state.StrEntry[delayedRegistrationLiveCode]{Key: "untilyournextturn", Val: delayedRegistrationLiveUntilyournextturn},
+	state.StrEntry[delayedRegistrationLiveCode]{Key: "untiltheendofyournextturn", Val: delayedRegistrationLiveUntilyournextturn},
 )

@@ -127,8 +127,8 @@ func (e *Engine) staticGateDep(sv staticView) uint8 {
 	chk, hasChk := sv.Param(cards.PKCheckSVar)
 	switch {
 	case hasCond && !hasChk:
-		switch staticGateDep1ff1Codes.Code(string(strings.TrimSpace(cond))) {
-		case staticGateDep1ff1PlayerTurn:
+		switch staticGateDepCodes.Code(string(strings.TrimSpace(cond))) {
+		case staticGateDepPlayerTurn:
 			return staticGateDepActive
 		}
 	case hasChk && !hasCond:
@@ -257,11 +257,13 @@ func (e *Engine) verifySkippedGate(r *staticGateRec) {
 	}
 }
 
+type staticGateDepCode uint16
+
 const (
-	staticGateDep1ff1PlayerTurn uint16 = 1 // "PlayerTurn", "NotPlayerTurn"
+	staticGateDepPlayerTurn staticGateDepCode = iota + 1
 )
 
-var staticGateDep1ff1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "PlayerTurn", Val: staticGateDep1ff1PlayerTurn},
-	state.StrEntry[uint16]{Key: "NotPlayerTurn", Val: staticGateDep1ff1PlayerTurn},
+var staticGateDepCodes = state.NewStrCodes(
+	state.StrEntry[staticGateDepCode]{Key: "PlayerTurn", Val: staticGateDepPlayerTurn},
+	state.StrEntry[staticGateDepCode]{Key: "NotPlayerTurn", Val: staticGateDepPlayerTurn},
 )

@@ -13,7 +13,7 @@ import (
 )
 
 func etbChoiceKind(api string) string {
-	if v, ok := etbChoiceKindTab1.Get(api); ok {
+	if v, ok := etbChoiceKindTab.Get(api); ok {
 		return v
 	}
 	return ""
@@ -248,8 +248,8 @@ func etbColourLetter(name string) string {
 // selector) for the clone slice, ValidDescription$ prompt text for the name
 // kinds. Callers fill it per kind; see collectETBChoices.
 func (e *Engine) etbOptions(you state.PlayerID, card state.ObjID, kind, validCards, choices, typeCategory, exclude string, chooseFromList ...string) []decision.Option {
-	switch etbOptionsfcd1Codes.Code(string(kind)) {
-	case etbOptionsfcd1Color:
+	switch etbOptionsCodes.Code(string(kind)) {
+	case etbOptionsColor:
 		// Exclude$ tokens (comma-separated, e.g. "black" on Black Dragon
 		// Gate) remove the matching WUBRG label. Fail OPEN: a token
 		// etbColourLetter cannot resolve is ignored, never emptied into an
@@ -277,7 +277,7 @@ func (e *Engine) etbOptions(you state.PlayerID, card state.ObjID, kind, validCar
 			}
 		}
 		return out
-	case etbOptionsfcd1Copy:
+	case etbOptionsCopy:
 		spec := strings.TrimSpace(choices)
 		if spec == "" {
 			spec = strings.TrimSpace(validCards)
@@ -298,7 +298,7 @@ func (e *Engine) etbOptions(you state.PlayerID, card state.ObjID, kind, validCar
 			}
 		}
 		return out
-	case etbOptionsfcd1Name:
+	case etbOptionsName:
 		// A no-universe Config is a pre-feature match on replay. Its visible
 		// object builder, including the Card.nonLand default and its full
 		// MatchesSpecFrom semantics, is retained byte-for-byte below; changing
@@ -324,7 +324,7 @@ func (e *Engine) etbOptions(you state.PlayerID, card state.ObjID, kind, validCar
 			out = []decision.Option{}
 		}
 		return out
-	case etbOptionsfcd1Type:
+	case etbOptionsType:
 		// The shared, category-aware enumeration; a caller that reaches here
 		// with a non-creature category (a body that did not go through
 		// entryETBChoice's category dispatch) still gets the real list, never a
@@ -333,7 +333,7 @@ func (e *Engine) etbOptions(you state.PlayerID, card state.ObjID, kind, validCar
 		// params); the ETB dispatch passes the whole parameter map to
 		// typeChoiceOptions instead.
 		return e.typeChoiceOptions(you, card, map[string]string{"Type": typeCategory})
-	case etbOptionsfcd1Evenodd:
+	case etbOptionsEvenodd:
 		return []decision.Option{{Index: 0, Kind: "evenodd", Label: "Odd"}, {Index: 1, Kind: "evenodd", Label: "Even"}}
 	default: // "number"
 		// The shared 0..N list (task cli-20260923T060000Z-choose-number:
@@ -495,7 +495,7 @@ func (e *Engine) TypeChoices(chooser state.PlayerID, category string) []decision
 // etbChoicePrompt names the kind of an "as this enters" choice for a client
 // prompt; a cosmetic suffix on the shared "Choose" heading.
 func etbChoicePrompt(kind string) string {
-	if v, ok := etbChoicePromptTab2.Get(kind); ok {
+	if v, ok := etbChoicePromptTab.Get(kind); ok {
 		return v
 	}
 	return " a number"
@@ -536,7 +536,7 @@ func etbCloneWhitelist(sa *cards.SA, svars map[string]string) bool {
 	return true
 }
 
-var etbChoiceKindTab1 = state.NewStrTable[string](
+var etbChoiceKindTab = state.NewStrTable[string](
 	state.StrEntry[string]{Key: "NameCard", Val: "name"},
 	state.StrEntry[string]{Key: "ChooseType", Val: "type"},
 	state.StrEntry[string]{Key: "ChooseNumber", Val: "number"},
@@ -545,7 +545,7 @@ var etbChoiceKindTab1 = state.NewStrTable[string](
 	state.StrEntry[string]{Key: "Clone", Val: "copy"},
 )
 
-var etbChoicePromptTab2 = state.NewStrTable[string](
+var etbChoicePromptTab = state.NewStrTable[string](
 	state.StrEntry[string]{Key: "name", Val: " a card name"},
 	state.StrEntry[string]{Key: "type", Val: " a creature type"},
 	state.StrEntry[string]{Key: "evenodd", Val: " odd or even"},
@@ -556,18 +556,20 @@ var etbChoicePromptTab2 = state.NewStrTable[string](
 	state.StrEntry[string]{Key: "paylife", Val: " how much life to pay"},
 )
 
+type etbOptionsCode uint16
+
 const (
-	etbOptionsfcd1Color   uint16 = 1 // "color"
-	etbOptionsfcd1Copy    uint16 = 2 // "copy"
-	etbOptionsfcd1Name    uint16 = 3 // "name"
-	etbOptionsfcd1Type    uint16 = 4 // "type"
-	etbOptionsfcd1Evenodd uint16 = 5 // "evenodd"
+	etbOptionsColor etbOptionsCode = iota + 1
+	etbOptionsCopy
+	etbOptionsName
+	etbOptionsType
+	etbOptionsEvenodd
 )
 
-var etbOptionsfcd1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "color", Val: etbOptionsfcd1Color},
-	state.StrEntry[uint16]{Key: "copy", Val: etbOptionsfcd1Copy},
-	state.StrEntry[uint16]{Key: "name", Val: etbOptionsfcd1Name},
-	state.StrEntry[uint16]{Key: "type", Val: etbOptionsfcd1Type},
-	state.StrEntry[uint16]{Key: "evenodd", Val: etbOptionsfcd1Evenodd},
+var etbOptionsCodes = state.NewStrCodes(
+	state.StrEntry[etbOptionsCode]{Key: "color", Val: etbOptionsColor},
+	state.StrEntry[etbOptionsCode]{Key: "copy", Val: etbOptionsCopy},
+	state.StrEntry[etbOptionsCode]{Key: "name", Val: etbOptionsName},
+	state.StrEntry[etbOptionsCode]{Key: "type", Val: etbOptionsType},
+	state.StrEntry[etbOptionsCode]{Key: "evenodd", Val: etbOptionsEvenodd},
 )

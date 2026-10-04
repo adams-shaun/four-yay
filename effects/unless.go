@@ -99,10 +99,10 @@ func UnlessCostResolved(h Host, c *Ctx, sa *cards.SA) string {
 			}
 		}
 		if !fixedX {
-			switch unlessCostResolvedd181Codes.Code(string(raw)) {
-			case unlessCostResolvedd181X:
+			switch unlessCostResolvedCodes.Code(string(raw)) {
+			case unlessCostResolvedX:
 				return "{" + strconv.FormatInt(int64(c.X), 10) + "}"
-			case unlessCostResolvedd181XX:
+			case unlessCostResolvedXX:
 				return "{" + strconv.FormatInt(int64(c.X)*2, 10) + "}"
 			}
 		}
@@ -273,20 +273,20 @@ func unlessDefinedCost(h Host, c *Ctx, m []string) (string, bool) {
 		}
 		return strings.Join(strings.Fields(o.Face().ManaCost), " "), true
 	}
-	switch unlessDefinedCostd182Codes.Code(string(m[2])) {
-	case unlessDefinedCostd182Self:
+	switch unlessDefinedCostCodes.Code(string(m[2])) {
+	case unlessDefinedCostSelf:
 		s, ok := mv(g.Obj(c.Source))
 		if !ok {
 			return "", false
 		}
 		return applyUnlessCostModifier(s, m[3], m[4]), true
-	case unlessDefinedCostd182ChosenCard:
+	case unlessDefinedCostChosenCard:
 		s, ok := mv(obj(resolutionChosenCards(g, c)))
 		if !ok {
 			return "", false
 		}
 		return applyUnlessCostModifier(s, m[3], m[4]), true
-	case unlessDefinedCostd182Remembered:
+	case unlessDefinedCostRemembered:
 		s, ok := mv(obj(c.Remembered))
 		if !ok {
 			return "", false
@@ -449,12 +449,12 @@ const (
 // carrying the parameter were unread before this gate existed; every other
 // UnlessCost$ line keeps the default either way.
 func unlessSubsRun(sa *cards.SA, paid bool) bool {
-	switch unlessSubsRund183Codes.Code(string(strings.TrimSpace(sa.ParamStr(cards.PKUnlessResolveSubs)))) {
-	case unlessSubsRund183Empty:
+	switch unlessSubsRunCodes.Code(string(strings.TrimSpace(sa.ParamStr(cards.PKUnlessResolveSubs)))) {
+	case unlessSubsRunEmpty:
 		return true
-	case unlessSubsRund183WhenPaid:
+	case unlessSubsRunWhenPaid:
 		return paid
-	case unlessSubsRund183WhenNotPaid:
+	case unlessSubsRunWhenNotPaid:
 		return !paid
 	}
 	// An unknown value is the corpus default: every corpus occurrence spells
@@ -474,11 +474,11 @@ func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Tar
 	}
 	pay := unlessPayPhrase(cost)
 	prompt, payLabel, declineLabel := pay+", or decline", pay, "Don't pay"
-	switch poseUnlessAskd184Codes.Code(string(sa.API)) {
-	case poseUnlessAskd184Counter:
+	switch poseUnlessAskCodes.Code(string(sa.API)) {
+	case poseUnlessAskCounter:
 		prompt = pay + " to save the spell, or decline"
 		payLabel = pay + " — don't counter"
-	case poseUnlessAskd184CopySpellAbility:
+	case poseUnlessAskCopySpellAbility:
 		if ActivationOf(sa).Has(ActUnlessSwitched) {
 			prompt = pay + " to copy the spell, or decline"
 			payLabel = pay + " — make a copy"
@@ -601,16 +601,16 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 			}
 		}
 	}
-	switch unlessPayerTargetsd185Codes.Code(string(spec)) {
-	case unlessPayerTargetsd185Empty:
+	switch unlessPayerTargetsCodes.Code(string(spec)) {
+	case unlessPayerTargetsEmpty:
 		addTargets(c.Targets)
-	case unlessPayerTargetsd185TargetedController:
+	case unlessPayerTargetsTargetedController:
 		// A missing target uses the historical resolving-controller fallback
 		// below. This is a known target selector, unlike an unknown role.
 		addTargets(c.Targets)
-	case unlessPayerTargetsd185You:
+	case unlessPayerTargetsYou:
 		add(c.Controller)
-	case unlessPayerTargetsd185EnchantedController:
+	case unlessPayerTargetsEnchantedController:
 		// Aura sources retain their attachment in state.Object.AttachedTo.
 		// The attached permanent's controller is the named payer, not the
 		// Aura's controller (Power Taint and Paralyze).
@@ -623,7 +623,7 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 			return nil, false
 		}
 		add(enchanted.Controller)
-	case unlessPayerTargetsd185EnchantedPlayer:
+	case unlessPayerTargetsEnchantedPlayer:
 		// The seat an Aura/Curse source enchants. The link is the source's
 		// own AttachedPlayer/HasAttachedPlayer pair (written only by
 		// events.Attach's player branch); a source that is not attached to a
@@ -633,7 +633,7 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 			return nil, false
 		}
 		add(source.AttachedPlayer)
-	case unlessPayerTargetsd185ReplacedPlayer:
+	case unlessPayerTargetsReplacedPlayer:
 		// The draw-er of a replaced Draw event, and its complement (Zur's
 		// Weirding's "any other player may pay 2 life"). Set only on a Draw
 		// replacement's own context — fail closed outside one.
@@ -649,7 +649,7 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 				add(p)
 			}
 		}
-	case unlessPayerTargetsd185Imprinted:
+	case unlessPayerTargetsImprinted:
 		// Forge's UseImprinted$ binds the RepeatEach iteration's current
 		// subject as "Imprinted" (Heroism's attacking red creature, Stench
 		// of Evil's destroyed Plains). The engine binds it on the iteration
@@ -664,47 +664,47 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 		} else {
 			return nil, false
 		}
-	case unlessPayerTargetsd185Targeted:
+	case unlessPayerTargetsTargeted:
 		addTargets(c.Targets)
-	case unlessPayerTargetsd185ParentTarget:
+	case unlessPayerTargetsParentTarget:
 		addTargets(parentLinkTargets(c))
-	case unlessPayerTargetsd185TriggeredTarget:
+	case unlessPayerTargetsTriggeredTarget:
 		if !c.TriggerTarget.IsPlayer && c.TriggerTarget.Obj == 0 {
 			return nil, false
 		}
 		addTargets([]state.Target{c.TriggerTarget})
-	case unlessPayerTargetsd185Remembered:
+	case unlessPayerTargetsRemembered:
 		if len(c.Remembered) == 0 {
 			return nil, false
 		}
 		addTargets(c.Remembered)
-	case unlessPayerTargetsd185Player:
+	case unlessPayerTargetsPlayer:
 		for _, p := range g.AliveFrom(0) {
 			add(p)
 		}
-	case unlessPayerTargetsd185Opponent:
+	case unlessPayerTargetsOpponent:
 		for _, p := range g.AliveFrom(c.Controller) {
 			if p != c.Controller {
 				add(p)
 			}
 		}
-	case unlessPayerTargetsd185ChosenPlayer:
+	case unlessPayerTargetsChosenPlayer:
 		if len(c.Chosen) == 0 {
 			return nil, false
 		}
 		addTargets(c.Chosen)
-	case unlessPayerTargetsd185TriggeredPlayer:
+	case unlessPayerTargetsTriggeredPlayer:
 		if !c.TriggerPlayer.IsPlayer {
 			return nil, false
 		}
 		add(c.TriggerPlayer.Player)
-	case unlessPayerTargetsd185TriggeredCardController:
+	case unlessPayerTargetsTriggeredCardController:
 		if p, ok := TriggeredCardController(g, c.TriggerContext, c.Remembered); ok {
 			add(p)
 		} else {
 			return nil, false
 		}
-	case unlessPayerTargetsd185TriggeredSourceSAController:
+	case unlessPayerTargetsTriggeredSourceSAController:
 		// These forms name the controller of the source the triggering EVENT
 		// captured -- the targeting spell a BecomesTarget trigger holds in
 		// TriggerSource (Reality Smasher, Kira, the glasskite family: "unless
@@ -722,17 +722,17 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 			}
 		}
 		add(c.Controller)
-	case unlessPayerTargetsd185NonTriggeredCardController:
+	case unlessPayerTargetsNonTriggeredCardController:
 		// The controller of the (non-triggered) resolving card -- the caster
 		// the SpellCast trigger watched. Ctx.Controller is bound from that
 		// source when the ability is put on the stack.
 		add(c.Controller)
-	case unlessPayerTargetsd185TriggeredTargetController:
+	case unlessPayerTargetsTriggeredTargetController:
 		if !c.TriggerTarget.IsPlayer && c.TriggerTarget.Obj == 0 {
 			return nil, false
 		}
 		addTargets([]state.Target{c.TriggerTarget})
-	case unlessPayerTargetsd185TriggeredActivator:
+	case unlessPayerTargetsTriggeredActivator:
 		if c.TriggerActivator.IsPlayer {
 			add(c.TriggerActivator.Player)
 		} else if o := g.Obj(c.TriggerActivator.Obj); o != nil {
@@ -743,12 +743,12 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 			// is populated; real contexts above use the actual activator.
 			add(c.Controller)
 		}
-	case unlessPayerTargetsd185TriggeredDefendingPlayer:
+	case unlessPayerTargetsTriggeredDefendingPlayer:
 		if !c.DefendingPlayer.IsPlayer {
 			return nil, false
 		}
 		add(c.DefendingPlayer.Player)
-	case unlessPayerTargetsd185TriggeredAttackingPlayer:
+	case unlessPayerTargetsTriggeredAttackingPlayer:
 		if !c.AttackingPlayer.IsPlayer {
 			return nil, false
 		}
@@ -782,7 +782,7 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 // family whose absent target is deliberately charged to c.Controller. Every
 // other selector must bind a real role or fail closed.
 func unlessPayerControllerFallback(spec string) bool {
-	if v, ok := unlessPayerControllerFallbackTab1.Get(spec); ok {
+	if v, ok := unlessPayerControllerFallbackTab.Get(spec); ok {
 		return v
 	}
 	return false
@@ -919,7 +919,7 @@ func payLifeAmount(f string) (int, bool) {
 	return n, err == nil
 }
 
-var unlessPayerControllerFallbackTab1 = state.NewStrTable[bool](
+var unlessPayerControllerFallbackTab = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "", Val: true},
 	state.StrEntry[bool]{Key: "TargetedController", Val: true},
 	state.StrEntry[bool]{Key: "TargetedPlayer", Val: true},
@@ -929,111 +929,121 @@ var unlessPayerControllerFallbackTab1 = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "ParentTarget", Val: true},
 )
 
-const (
-	unlessCostResolvedd181X  uint16 = 1 // "X"
-	unlessCostResolvedd181XX uint16 = 2 // "XX"
-)
-
-var unlessCostResolvedd181Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "X", Val: unlessCostResolvedd181X},
-	state.StrEntry[uint16]{Key: "XX", Val: unlessCostResolvedd181XX},
-)
+type unlessCostResolvedCode uint16
 
 const (
-	unlessDefinedCostd182Self       uint16 = 1 // "Self"
-	unlessDefinedCostd182ChosenCard uint16 = 2 // "ChosenCard"
-	unlessDefinedCostd182Remembered uint16 = 3 // "Remembered"
+	unlessCostResolvedX unlessCostResolvedCode = iota + 1
+	unlessCostResolvedXX
 )
 
-var unlessDefinedCostd182Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Self", Val: unlessDefinedCostd182Self},
-	state.StrEntry[uint16]{Key: "ChosenCard", Val: unlessDefinedCostd182ChosenCard},
-	state.StrEntry[uint16]{Key: "Remembered", Val: unlessDefinedCostd182Remembered},
+var unlessCostResolvedCodes = state.NewStrCodes(
+	state.StrEntry[unlessCostResolvedCode]{Key: "X", Val: unlessCostResolvedX},
+	state.StrEntry[unlessCostResolvedCode]{Key: "XX", Val: unlessCostResolvedXX},
 )
 
-const (
-	unlessSubsRund183Empty       uint16 = 1 // "", "Always"
-	unlessSubsRund183WhenPaid    uint16 = 2 // "WhenPaid"
-	unlessSubsRund183WhenNotPaid uint16 = 3 // "WhenNotPaid"
-)
-
-var unlessSubsRund183Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: unlessSubsRund183Empty},
-	state.StrEntry[uint16]{Key: "Always", Val: unlessSubsRund183Empty},
-	state.StrEntry[uint16]{Key: "WhenPaid", Val: unlessSubsRund183WhenPaid},
-	state.StrEntry[uint16]{Key: "WhenNotPaid", Val: unlessSubsRund183WhenNotPaid},
-)
+type unlessDefinedCostCode uint16
 
 const (
-	poseUnlessAskd184Counter          uint16 = 1 // "Counter"
-	poseUnlessAskd184CopySpellAbility uint16 = 2 // "CopySpellAbility"
+	unlessDefinedCostSelf unlessDefinedCostCode = iota + 1
+	unlessDefinedCostChosenCard
+	unlessDefinedCostRemembered
 )
 
-var poseUnlessAskd184Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Counter", Val: poseUnlessAskd184Counter},
-	state.StrEntry[uint16]{Key: "CopySpellAbility", Val: poseUnlessAskd184CopySpellAbility},
+var unlessDefinedCostCodes = state.NewStrCodes(
+	state.StrEntry[unlessDefinedCostCode]{Key: "Self", Val: unlessDefinedCostSelf},
+	state.StrEntry[unlessDefinedCostCode]{Key: "ChosenCard", Val: unlessDefinedCostChosenCard},
+	state.StrEntry[unlessDefinedCostCode]{Key: "Remembered", Val: unlessDefinedCostRemembered},
 )
+
+type unlessSubsRunCode uint16
 
 const (
-	unlessPayerTargetsd185Empty                       uint16 = 1  // ""
-	unlessPayerTargetsd185TargetedController          uint16 = 2  // "TargetedController", "TargetedPlayer", "ThisTargetedController", "TargetedOrController"
-	unlessPayerTargetsd185You                         uint16 = 3  // "You"
-	unlessPayerTargetsd185EnchantedController         uint16 = 4  // "EnchantedController"
-	unlessPayerTargetsd185EnchantedPlayer             uint16 = 5  // "EnchantedPlayer"
-	unlessPayerTargetsd185ReplacedPlayer              uint16 = 6  // "ReplacedPlayer", "NonReplacedPlayer"
-	unlessPayerTargetsd185Imprinted                   uint16 = 7  // "Imprinted", "ImprintedController"
-	unlessPayerTargetsd185Targeted                    uint16 = 8  // "Targeted", "Player.targetedBy"
-	unlessPayerTargetsd185ParentTarget                uint16 = 9  // "ParentTarget"
-	unlessPayerTargetsd185TriggeredTarget             uint16 = 10 // "TriggeredTarget"
-	unlessPayerTargetsd185Remembered                  uint16 = 11 // "Remembered", "RememberedController", "Player.IsRemembered"
-	unlessPayerTargetsd185Player                      uint16 = 12 // "Player"
-	unlessPayerTargetsd185Opponent                    uint16 = 13 // "Opponent", "Player.Opponent"
-	unlessPayerTargetsd185ChosenPlayer                uint16 = 14 // "ChosenPlayer"
-	unlessPayerTargetsd185TriggeredPlayer             uint16 = 15 // "TriggeredPlayer"
-	unlessPayerTargetsd185TriggeredCardController     uint16 = 16 // "TriggeredCardController", "TriggeredCardLKIController"
-	unlessPayerTargetsd185TriggeredSourceSAController uint16 = 17 // "TriggeredSourceSAController", "TriggeredSourceController", "TriggeredSpellAbilityController"
-	unlessPayerTargetsd185NonTriggeredCardController  uint16 = 18 // "NonTriggeredCardController"
-	unlessPayerTargetsd185TriggeredTargetController   uint16 = 19 // "TriggeredTargetController"
-	unlessPayerTargetsd185TriggeredActivator          uint16 = 20 // "TriggeredActivator"
-	unlessPayerTargetsd185TriggeredDefendingPlayer    uint16 = 21 // "TriggeredDefendingPlayer", "DefendingPlayer"
-	unlessPayerTargetsd185TriggeredAttackingPlayer    uint16 = 22 // "TriggeredAttackingPlayer", "TriggeredAttackerController"
+	unlessSubsRunEmpty unlessSubsRunCode = iota + 1
+	unlessSubsRunWhenPaid
+	unlessSubsRunWhenNotPaid
 )
 
-var unlessPayerTargetsd185Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: unlessPayerTargetsd185Empty},
-	state.StrEntry[uint16]{Key: "TargetedController", Val: unlessPayerTargetsd185TargetedController},
-	state.StrEntry[uint16]{Key: "TargetedPlayer", Val: unlessPayerTargetsd185TargetedController},
-	state.StrEntry[uint16]{Key: "ThisTargetedController", Val: unlessPayerTargetsd185TargetedController},
-	state.StrEntry[uint16]{Key: "TargetedOrController", Val: unlessPayerTargetsd185TargetedController},
-	state.StrEntry[uint16]{Key: "You", Val: unlessPayerTargetsd185You},
-	state.StrEntry[uint16]{Key: "EnchantedController", Val: unlessPayerTargetsd185EnchantedController},
-	state.StrEntry[uint16]{Key: "EnchantedPlayer", Val: unlessPayerTargetsd185EnchantedPlayer},
-	state.StrEntry[uint16]{Key: "ReplacedPlayer", Val: unlessPayerTargetsd185ReplacedPlayer},
-	state.StrEntry[uint16]{Key: "NonReplacedPlayer", Val: unlessPayerTargetsd185ReplacedPlayer},
-	state.StrEntry[uint16]{Key: "Imprinted", Val: unlessPayerTargetsd185Imprinted},
-	state.StrEntry[uint16]{Key: "ImprintedController", Val: unlessPayerTargetsd185Imprinted},
-	state.StrEntry[uint16]{Key: "Targeted", Val: unlessPayerTargetsd185Targeted},
-	state.StrEntry[uint16]{Key: "Player.targetedBy", Val: unlessPayerTargetsd185Targeted},
-	state.StrEntry[uint16]{Key: "ParentTarget", Val: unlessPayerTargetsd185ParentTarget},
-	state.StrEntry[uint16]{Key: "TriggeredTarget", Val: unlessPayerTargetsd185TriggeredTarget},
-	state.StrEntry[uint16]{Key: "Remembered", Val: unlessPayerTargetsd185Remembered},
-	state.StrEntry[uint16]{Key: "RememberedController", Val: unlessPayerTargetsd185Remembered},
-	state.StrEntry[uint16]{Key: "Player.IsRemembered", Val: unlessPayerTargetsd185Remembered},
-	state.StrEntry[uint16]{Key: "Player", Val: unlessPayerTargetsd185Player},
-	state.StrEntry[uint16]{Key: "Opponent", Val: unlessPayerTargetsd185Opponent},
-	state.StrEntry[uint16]{Key: "Player.Opponent", Val: unlessPayerTargetsd185Opponent},
-	state.StrEntry[uint16]{Key: "ChosenPlayer", Val: unlessPayerTargetsd185ChosenPlayer},
-	state.StrEntry[uint16]{Key: "TriggeredPlayer", Val: unlessPayerTargetsd185TriggeredPlayer},
-	state.StrEntry[uint16]{Key: "TriggeredCardController", Val: unlessPayerTargetsd185TriggeredCardController},
-	state.StrEntry[uint16]{Key: "TriggeredCardLKIController", Val: unlessPayerTargetsd185TriggeredCardController},
-	state.StrEntry[uint16]{Key: "TriggeredSourceSAController", Val: unlessPayerTargetsd185TriggeredSourceSAController},
-	state.StrEntry[uint16]{Key: "TriggeredSourceController", Val: unlessPayerTargetsd185TriggeredSourceSAController},
-	state.StrEntry[uint16]{Key: "TriggeredSpellAbilityController", Val: unlessPayerTargetsd185TriggeredSourceSAController},
-	state.StrEntry[uint16]{Key: "NonTriggeredCardController", Val: unlessPayerTargetsd185NonTriggeredCardController},
-	state.StrEntry[uint16]{Key: "TriggeredTargetController", Val: unlessPayerTargetsd185TriggeredTargetController},
-	state.StrEntry[uint16]{Key: "TriggeredActivator", Val: unlessPayerTargetsd185TriggeredActivator},
-	state.StrEntry[uint16]{Key: "TriggeredDefendingPlayer", Val: unlessPayerTargetsd185TriggeredDefendingPlayer},
-	state.StrEntry[uint16]{Key: "DefendingPlayer", Val: unlessPayerTargetsd185TriggeredDefendingPlayer},
-	state.StrEntry[uint16]{Key: "TriggeredAttackingPlayer", Val: unlessPayerTargetsd185TriggeredAttackingPlayer},
-	state.StrEntry[uint16]{Key: "TriggeredAttackerController", Val: unlessPayerTargetsd185TriggeredAttackingPlayer},
+var unlessSubsRunCodes = state.NewStrCodes(
+	state.StrEntry[unlessSubsRunCode]{Key: "", Val: unlessSubsRunEmpty},
+	state.StrEntry[unlessSubsRunCode]{Key: "Always", Val: unlessSubsRunEmpty},
+	state.StrEntry[unlessSubsRunCode]{Key: "WhenPaid", Val: unlessSubsRunWhenPaid},
+	state.StrEntry[unlessSubsRunCode]{Key: "WhenNotPaid", Val: unlessSubsRunWhenNotPaid},
+)
+
+type poseUnlessAskCode uint16
+
+const (
+	poseUnlessAskCounter poseUnlessAskCode = iota + 1
+	poseUnlessAskCopySpellAbility
+)
+
+var poseUnlessAskCodes = state.NewStrCodes(
+	state.StrEntry[poseUnlessAskCode]{Key: "Counter", Val: poseUnlessAskCounter},
+	state.StrEntry[poseUnlessAskCode]{Key: "CopySpellAbility", Val: poseUnlessAskCopySpellAbility},
+)
+
+type unlessPayerTargetsCode uint16
+
+const (
+	unlessPayerTargetsEmpty unlessPayerTargetsCode = iota + 1
+	unlessPayerTargetsTargetedController
+	unlessPayerTargetsYou
+	unlessPayerTargetsEnchantedController
+	unlessPayerTargetsEnchantedPlayer
+	unlessPayerTargetsReplacedPlayer
+	unlessPayerTargetsImprinted
+	unlessPayerTargetsTargeted
+	unlessPayerTargetsParentTarget
+	unlessPayerTargetsTriggeredTarget
+	unlessPayerTargetsRemembered
+	unlessPayerTargetsPlayer
+	unlessPayerTargetsOpponent
+	unlessPayerTargetsChosenPlayer
+	unlessPayerTargetsTriggeredPlayer
+	unlessPayerTargetsTriggeredCardController
+	unlessPayerTargetsTriggeredSourceSAController
+	unlessPayerTargetsNonTriggeredCardController
+	unlessPayerTargetsTriggeredTargetController
+	unlessPayerTargetsTriggeredActivator
+	unlessPayerTargetsTriggeredDefendingPlayer
+	unlessPayerTargetsTriggeredAttackingPlayer
+)
+
+var unlessPayerTargetsCodes = state.NewStrCodes(
+	state.StrEntry[unlessPayerTargetsCode]{Key: "", Val: unlessPayerTargetsEmpty},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TargetedController", Val: unlessPayerTargetsTargetedController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TargetedPlayer", Val: unlessPayerTargetsTargetedController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "ThisTargetedController", Val: unlessPayerTargetsTargetedController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TargetedOrController", Val: unlessPayerTargetsTargetedController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "You", Val: unlessPayerTargetsYou},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "EnchantedController", Val: unlessPayerTargetsEnchantedController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "EnchantedPlayer", Val: unlessPayerTargetsEnchantedPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "ReplacedPlayer", Val: unlessPayerTargetsReplacedPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "NonReplacedPlayer", Val: unlessPayerTargetsReplacedPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "Imprinted", Val: unlessPayerTargetsImprinted},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "ImprintedController", Val: unlessPayerTargetsImprinted},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "Targeted", Val: unlessPayerTargetsTargeted},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "Player.targetedBy", Val: unlessPayerTargetsTargeted},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "ParentTarget", Val: unlessPayerTargetsParentTarget},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredTarget", Val: unlessPayerTargetsTriggeredTarget},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "Remembered", Val: unlessPayerTargetsRemembered},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "RememberedController", Val: unlessPayerTargetsRemembered},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "Player.IsRemembered", Val: unlessPayerTargetsRemembered},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "Player", Val: unlessPayerTargetsPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "Opponent", Val: unlessPayerTargetsOpponent},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "Player.Opponent", Val: unlessPayerTargetsOpponent},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "ChosenPlayer", Val: unlessPayerTargetsChosenPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredPlayer", Val: unlessPayerTargetsTriggeredPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredCardController", Val: unlessPayerTargetsTriggeredCardController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredCardLKIController", Val: unlessPayerTargetsTriggeredCardController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredSourceSAController", Val: unlessPayerTargetsTriggeredSourceSAController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredSourceController", Val: unlessPayerTargetsTriggeredSourceSAController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredSpellAbilityController", Val: unlessPayerTargetsTriggeredSourceSAController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "NonTriggeredCardController", Val: unlessPayerTargetsNonTriggeredCardController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredTargetController", Val: unlessPayerTargetsTriggeredTargetController},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredActivator", Val: unlessPayerTargetsTriggeredActivator},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredDefendingPlayer", Val: unlessPayerTargetsTriggeredDefendingPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "DefendingPlayer", Val: unlessPayerTargetsTriggeredDefendingPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredAttackingPlayer", Val: unlessPayerTargetsTriggeredAttackingPlayer},
+	state.StrEntry[unlessPayerTargetsCode]{Key: "TriggeredAttackerController", Val: unlessPayerTargetsTriggeredAttackingPlayer},
 )

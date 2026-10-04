@@ -275,8 +275,8 @@ func controlReferent(p string) (op, ref string, ok bool) {
 	if inner, isChain := spawnerChain(ref); isChain {
 		ref = inner
 	}
-	switch controlReferentf9b1Codes.Code(string(ref)) {
-	case controlReferentf9b1TriggeredTarget:
+	switch controlReferentCodes.Code(string(ref)) {
+	case controlReferentTriggeredTarget:
 		return op, ref, true
 	}
 	return "", "", false
@@ -312,8 +312,8 @@ func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]st
 		return controlReferentPlayers(g, sc, op, inner)
 	}
 	var targets []state.Target
-	switch controlReferentPlayersf9b2Codes.Code(string(ref)) {
-	case controlReferentPlayersf9b2TriggeredSourceSAController:
+	switch controlReferentPlayersCodes.Code(string(ref)) {
+	case controlReferentPlayersTriggeredSourceSAController:
 		// The controller of the CAUSING spell/ability's source: the role a
 		// BecomesTarget/BecomesTargetOnce trigger captures in TriggerSource
 		// (Leyline of Combustion's payout, Ashenmoor Liege's life loss, Black
@@ -334,13 +334,13 @@ func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]st
 			return nil, false
 		}
 		return []state.PlayerID{o.Controller}, true
-	case controlReferentPlayersf9b2TriggeredTarget:
+	case controlReferentPlayersTriggeredTarget:
 		targets = []state.Target{sc.TriggerTarget}
-	case controlReferentPlayersf9b2TriggeredDefendingPlayer:
+	case controlReferentPlayersTriggeredDefendingPlayer:
 		targets = []state.Target{sc.DefendingPlayer}
-	case controlReferentPlayersf9b2TriggeredPlayer:
+	case controlReferentPlayersTriggeredPlayer:
 		targets = []state.Target{sc.TriggerPlayer}
-	case controlReferentPlayersf9b2TriggeredCard:
+	case controlReferentPlayersTriggeredCard:
 		// "Controlled by the triggering card's controller": the card's
 		// last-known controller when it left the battlefield (CR 603.10a).
 		if op == "ControlledBy" && sc.TriggerCardController.IsPlayer {
@@ -348,7 +348,7 @@ func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]st
 			break
 		}
 		targets = []state.Target{{Obj: sc.TriggerCard}}
-	case controlReferentPlayersf9b2CardController:
+	case controlReferentPlayersCardController:
 		// The triggering card's controller as it last existed on the
 		// battlefield (CR 603.10a), else its current controller. Binds only
 		// through the trigger's own card role; with no card context the
@@ -359,13 +359,13 @@ func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]st
 			break
 		}
 		targets = []state.Target{{Obj: sc.TriggerCard}}
-	case controlReferentPlayersf9b2Targeted:
+	case controlReferentPlayersTargeted:
 		bound, ok := sc.TargetBinding()
 		if !ok {
 			return nil, false
 		}
 		targets = bound
-	case controlReferentPlayersf9b2Remembered:
+	case controlReferentPlayersRemembered:
 		// Resolution-only, like Targeted*: the players this resolution
 		// remembers -- a RepeatEach loop's current subject. Forge's
 		// getDefinedPlayers("Remembered") adds remembered PLAYERS only; a
@@ -398,7 +398,7 @@ func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]st
 				targets = append(targets, t)
 			}
 		}
-	case controlReferentPlayersf9b2PlayerIsRemembered:
+	case controlReferentPlayersPlayerIsRemembered:
 		// vow1: the same remembered set the bare "Remembered" referent
 		// reads, PLAYERS ONLY -- the full player-spec spelling names the
 		// remembered player (a RepeatEach loop's subject), never a
@@ -411,7 +411,7 @@ func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]st
 				targets = append(targets, t)
 			}
 		}
-	case controlReferentPlayersf9b2RememberedController:
+	case controlReferentPlayersRememberedController:
 		// definedrem3: a remembered CARD contributes its controller (ControlledBy)
 		// or owner (OwnedBy) -- the positive route Forge spells
 		// `ControlledBy RememberedController`. Resolution-only, exactly like the
@@ -421,7 +421,7 @@ func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]st
 			return nil, false
 		}
 		targets = sc.Remembered
-	case controlReferentPlayersf9b2NextOpponentToYourLeft:
+	case controlReferentPlayersNextOpponentToYourLeft:
 		// Barroom Brawl's "target creature the opponent to your left
 		// controls": the next living seat after You in turn order (Forge's
 		// getNextPlayerAfter; this build has no teams, so the next seat is
@@ -431,7 +431,7 @@ func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]st
 			return nil, false
 		}
 		targets = []state.Target{{Player: alive[1], IsPlayer: true}}
-	case controlReferentPlayersf9b2ChosenPlayer:
+	case controlReferentPlayersChosenPlayer:
 		// vow1: the resolution's own ChoosePlayer answer (Gluntch's
 		// "ControlledBy ChosenPlayer"), the same current-resolution set the
 		// Player.Chosen Defined selector reads.
@@ -443,7 +443,7 @@ func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]st
 				targets = append(targets, t)
 			}
 		}
-	case controlReferentPlayersf9b2PlayerEnchantedBy:
+	case controlReferentPlayersPlayerEnchantedBy:
 		// EnchantedBy is a global player property: the Aura's own controller
 		// is irrelevant. Resolve it through the shared player-spec evaluator
 		// so attachment state and the property grammar have one home.
@@ -596,70 +596,74 @@ func (c *Ctx) resolveNumericRHS(name string) (int32, bool) {
 	return n, true
 }
 
-const (
-	controlReferentf9b1TriggeredTarget uint16 = 1 // "TriggeredTarget", "TriggeredDefendingPlayer", "TriggeredPlayer", "TriggeredCard", "Targeted", "TargetedPla...
-)
-
-var controlReferentf9b1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "TriggeredTarget", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "TriggeredDefendingPlayer", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "TriggeredPlayer", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "TriggeredCard", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "Targeted", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "TargetedPlayer", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "ThisTargetedPlayer", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "TargetedController", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "TargetedOrController", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "Remembered", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "RememberedPlayer", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "Player.IsRemembered", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "ChosenPlayer", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "Player.Chosen", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "Player.EnchantedBy", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "RememberedController", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "RememberedOwner", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "CardController", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "TriggeredSourceSAController", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "NextOpponentToYourLeft", Val: controlReferentf9b1TriggeredTarget},
-	state.StrEntry[uint16]{Key: "NextPlayerToYourLeft", Val: controlReferentf9b1TriggeredTarget},
-)
+type controlReferentCode uint16
 
 const (
-	controlReferentPlayersf9b2TriggeredSourceSAController uint16 = 1  // "TriggeredSourceSAController"
-	controlReferentPlayersf9b2TriggeredTarget             uint16 = 2  // "TriggeredTarget"
-	controlReferentPlayersf9b2TriggeredDefendingPlayer    uint16 = 3  // "TriggeredDefendingPlayer"
-	controlReferentPlayersf9b2TriggeredPlayer             uint16 = 4  // "TriggeredPlayer"
-	controlReferentPlayersf9b2TriggeredCard               uint16 = 5  // "TriggeredCard"
-	controlReferentPlayersf9b2CardController              uint16 = 6  // "CardController"
-	controlReferentPlayersf9b2Targeted                    uint16 = 7  // "Targeted", "TargetedPlayer", "ThisTargetedPlayer", "TargetedController", "TargetedOrController"
-	controlReferentPlayersf9b2Remembered                  uint16 = 8  // "Remembered", "RememberedPlayer"
-	controlReferentPlayersf9b2PlayerIsRemembered          uint16 = 9  // "Player.IsRemembered"
-	controlReferentPlayersf9b2RememberedController        uint16 = 10 // "RememberedController", "RememberedOwner"
-	controlReferentPlayersf9b2NextOpponentToYourLeft      uint16 = 11 // "NextOpponentToYourLeft", "NextPlayerToYourLeft"
-	controlReferentPlayersf9b2ChosenPlayer                uint16 = 12 // "ChosenPlayer", "Player.Chosen"
-	controlReferentPlayersf9b2PlayerEnchantedBy           uint16 = 13 // "Player.EnchantedBy"
+	controlReferentTriggeredTarget controlReferentCode = iota + 1
 )
 
-var controlReferentPlayersf9b2Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "TriggeredSourceSAController", Val: controlReferentPlayersf9b2TriggeredSourceSAController},
-	state.StrEntry[uint16]{Key: "TriggeredTarget", Val: controlReferentPlayersf9b2TriggeredTarget},
-	state.StrEntry[uint16]{Key: "TriggeredDefendingPlayer", Val: controlReferentPlayersf9b2TriggeredDefendingPlayer},
-	state.StrEntry[uint16]{Key: "TriggeredPlayer", Val: controlReferentPlayersf9b2TriggeredPlayer},
-	state.StrEntry[uint16]{Key: "TriggeredCard", Val: controlReferentPlayersf9b2TriggeredCard},
-	state.StrEntry[uint16]{Key: "CardController", Val: controlReferentPlayersf9b2CardController},
-	state.StrEntry[uint16]{Key: "Targeted", Val: controlReferentPlayersf9b2Targeted},
-	state.StrEntry[uint16]{Key: "TargetedPlayer", Val: controlReferentPlayersf9b2Targeted},
-	state.StrEntry[uint16]{Key: "ThisTargetedPlayer", Val: controlReferentPlayersf9b2Targeted},
-	state.StrEntry[uint16]{Key: "TargetedController", Val: controlReferentPlayersf9b2Targeted},
-	state.StrEntry[uint16]{Key: "TargetedOrController", Val: controlReferentPlayersf9b2Targeted},
-	state.StrEntry[uint16]{Key: "Remembered", Val: controlReferentPlayersf9b2Remembered},
-	state.StrEntry[uint16]{Key: "RememberedPlayer", Val: controlReferentPlayersf9b2Remembered},
-	state.StrEntry[uint16]{Key: "Player.IsRemembered", Val: controlReferentPlayersf9b2PlayerIsRemembered},
-	state.StrEntry[uint16]{Key: "RememberedController", Val: controlReferentPlayersf9b2RememberedController},
-	state.StrEntry[uint16]{Key: "RememberedOwner", Val: controlReferentPlayersf9b2RememberedController},
-	state.StrEntry[uint16]{Key: "NextOpponentToYourLeft", Val: controlReferentPlayersf9b2NextOpponentToYourLeft},
-	state.StrEntry[uint16]{Key: "NextPlayerToYourLeft", Val: controlReferentPlayersf9b2NextOpponentToYourLeft},
-	state.StrEntry[uint16]{Key: "ChosenPlayer", Val: controlReferentPlayersf9b2ChosenPlayer},
-	state.StrEntry[uint16]{Key: "Player.Chosen", Val: controlReferentPlayersf9b2ChosenPlayer},
-	state.StrEntry[uint16]{Key: "Player.EnchantedBy", Val: controlReferentPlayersf9b2PlayerEnchantedBy},
+var controlReferentCodes = state.NewStrCodes(
+	state.StrEntry[controlReferentCode]{Key: "TriggeredTarget", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "TriggeredDefendingPlayer", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "TriggeredPlayer", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "TriggeredCard", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "Targeted", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "TargetedPlayer", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "ThisTargetedPlayer", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "TargetedController", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "TargetedOrController", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "Remembered", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "RememberedPlayer", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "Player.IsRemembered", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "ChosenPlayer", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "Player.Chosen", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "Player.EnchantedBy", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "RememberedController", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "RememberedOwner", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "CardController", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "TriggeredSourceSAController", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "NextOpponentToYourLeft", Val: controlReferentTriggeredTarget},
+	state.StrEntry[controlReferentCode]{Key: "NextPlayerToYourLeft", Val: controlReferentTriggeredTarget},
+)
+
+type controlReferentPlayersCode uint16
+
+const (
+	controlReferentPlayersTriggeredSourceSAController controlReferentPlayersCode = iota + 1
+	controlReferentPlayersTriggeredTarget
+	controlReferentPlayersTriggeredDefendingPlayer
+	controlReferentPlayersTriggeredPlayer
+	controlReferentPlayersTriggeredCard
+	controlReferentPlayersCardController
+	controlReferentPlayersTargeted
+	controlReferentPlayersRemembered
+	controlReferentPlayersPlayerIsRemembered
+	controlReferentPlayersRememberedController
+	controlReferentPlayersNextOpponentToYourLeft
+	controlReferentPlayersChosenPlayer
+	controlReferentPlayersPlayerEnchantedBy
+)
+
+var controlReferentPlayersCodes = state.NewStrCodes(
+	state.StrEntry[controlReferentPlayersCode]{Key: "TriggeredSourceSAController", Val: controlReferentPlayersTriggeredSourceSAController},
+	state.StrEntry[controlReferentPlayersCode]{Key: "TriggeredTarget", Val: controlReferentPlayersTriggeredTarget},
+	state.StrEntry[controlReferentPlayersCode]{Key: "TriggeredDefendingPlayer", Val: controlReferentPlayersTriggeredDefendingPlayer},
+	state.StrEntry[controlReferentPlayersCode]{Key: "TriggeredPlayer", Val: controlReferentPlayersTriggeredPlayer},
+	state.StrEntry[controlReferentPlayersCode]{Key: "TriggeredCard", Val: controlReferentPlayersTriggeredCard},
+	state.StrEntry[controlReferentPlayersCode]{Key: "CardController", Val: controlReferentPlayersCardController},
+	state.StrEntry[controlReferentPlayersCode]{Key: "Targeted", Val: controlReferentPlayersTargeted},
+	state.StrEntry[controlReferentPlayersCode]{Key: "TargetedPlayer", Val: controlReferentPlayersTargeted},
+	state.StrEntry[controlReferentPlayersCode]{Key: "ThisTargetedPlayer", Val: controlReferentPlayersTargeted},
+	state.StrEntry[controlReferentPlayersCode]{Key: "TargetedController", Val: controlReferentPlayersTargeted},
+	state.StrEntry[controlReferentPlayersCode]{Key: "TargetedOrController", Val: controlReferentPlayersTargeted},
+	state.StrEntry[controlReferentPlayersCode]{Key: "Remembered", Val: controlReferentPlayersRemembered},
+	state.StrEntry[controlReferentPlayersCode]{Key: "RememberedPlayer", Val: controlReferentPlayersRemembered},
+	state.StrEntry[controlReferentPlayersCode]{Key: "Player.IsRemembered", Val: controlReferentPlayersPlayerIsRemembered},
+	state.StrEntry[controlReferentPlayersCode]{Key: "RememberedController", Val: controlReferentPlayersRememberedController},
+	state.StrEntry[controlReferentPlayersCode]{Key: "RememberedOwner", Val: controlReferentPlayersRememberedController},
+	state.StrEntry[controlReferentPlayersCode]{Key: "NextOpponentToYourLeft", Val: controlReferentPlayersNextOpponentToYourLeft},
+	state.StrEntry[controlReferentPlayersCode]{Key: "NextPlayerToYourLeft", Val: controlReferentPlayersNextOpponentToYourLeft},
+	state.StrEntry[controlReferentPlayersCode]{Key: "ChosenPlayer", Val: controlReferentPlayersChosenPlayer},
+	state.StrEntry[controlReferentPlayersCode]{Key: "Player.Chosen", Val: controlReferentPlayersChosenPlayer},
+	state.StrEntry[controlReferentPlayersCode]{Key: "Player.EnchantedBy", Val: controlReferentPlayersPlayerEnchantedBy},
 )

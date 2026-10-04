@@ -50,12 +50,12 @@ func (e *Engine) splitSecondHolds() bool {
 func (e *Engine) filterSplitSecondActions(out []decision.Option) []decision.Option {
 	kept := out[:0]
 	for _, o := range out {
-		switch filterSplitSecondActions1201Codes.Code(string(o.Kind)) {
-		case filterSplitSecondActions1201Cast:
+		switch filterSplitSecondActionsCodes.Code(string(o.Kind)) {
+		case filterSplitSecondActionsCast:
 			if o.Mode == "suspend" || o.Mode == "foretell" {
 				kept = append(kept, o)
 			}
-		case filterSplitSecondActions1201Ability:
+		case filterSplitSecondActionsAbility:
 			// blocked outright
 		default:
 			kept = append(kept, o)
@@ -67,13 +67,15 @@ func (e *Engine) filterSplitSecondActions(out []decision.Option) []decision.Opti
 	return kept
 }
 
+type filterSplitSecondActionsCode uint16
+
 const (
-	filterSplitSecondActions1201Cast    uint16 = 1 // "cast"
-	filterSplitSecondActions1201Ability uint16 = 2 // "ability", "granted"
+	filterSplitSecondActionsCast filterSplitSecondActionsCode = iota + 1
+	filterSplitSecondActionsAbility
 )
 
-var filterSplitSecondActions1201Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "cast", Val: filterSplitSecondActions1201Cast},
-	state.StrEntry[uint16]{Key: "ability", Val: filterSplitSecondActions1201Ability},
-	state.StrEntry[uint16]{Key: "granted", Val: filterSplitSecondActions1201Ability},
+var filterSplitSecondActionsCodes = state.NewStrCodes(
+	state.StrEntry[filterSplitSecondActionsCode]{Key: "cast", Val: filterSplitSecondActionsCast},
+	state.StrEntry[filterSplitSecondActionsCode]{Key: "ability", Val: filterSplitSecondActionsAbility},
+	state.StrEntry[filterSplitSecondActionsCode]{Key: "granted", Val: filterSplitSecondActionsAbility},
 )

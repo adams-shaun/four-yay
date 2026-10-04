@@ -483,8 +483,8 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 		p := t
 		hand := zoneOf(g, state.ZHand, p)
 
-		switch effDiscardf9c1Codes.Code(string(mode)) {
-		case effDiscardf9c1TgtChoose:
+		switch effDiscardCodes.Code(string(mode)) {
+		case effDiscardTgtChoose:
 			// The "discard_may" and "discard_unless" elections answered in
 			// place for this target: an answered election re-walks this
 			// target from tgtChoose with the answer.
@@ -670,7 +670,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 				discardAndRemember(h, c, riders, eligible[i], p)
 			}
 
-		case effDiscardf9c1RevealDiscardAll:
+		case effDiscardRevealDiscardAll:
 			// A FILTER, not a choice (Cabal Therapy): discard every card in
 			// the target's hand that DiscardValid$ allows, no matter what
 			// NumCards$ says. No ask.
@@ -680,7 +680,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 				}
 			}
 
-		case effDiscardf9c1Hand:
+		case effDiscardHand:
 			// Mode$ Hand is the whole-hand wheel (Reforge the Soul, Windfall,
 			// Magus of the Wheel, Dark Deal): "each player discards their hand".
 			// Forge's DiscardEffect HAND mode discards the ENTIRE hand and
@@ -724,7 +724,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 				discardAndRemember(h, c, riders, id, p)
 			}
 
-		case effDiscardf9c1Random:
+		case effDiscardRandom:
 			// CR 701.8b: a random discard. Forge's DiscardEffect Random mode
 			// picks Aggregates.random(list, numCards) from the DiscardValid$-
 			// filtered hand, so the engine's own seeded RNG chooses the cards
@@ -744,7 +744,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 				eligible = append(eligible[:j], eligible[j+1:]...)
 			}
 
-		case effDiscardf9c1Defined:
+		case effDiscardDefined:
 			// DefinedCards$ names the cards to discard (Breathstealer's
 			// Crypt: "that player discards it" — the Remembered drawn card).
 			// Only cards still in this target's hand move; everything else
@@ -1853,7 +1853,7 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 // it mirrors the Option.Kind vocabulary so the prompt and the wire never
 // disagree.
 func destinationPhrase(kind string) string {
-	if v, ok := destinationPhraseTab1.Get(kind); ok {
+	if v, ok := destinationPhraseTab.Get(kind); ok {
 		return v
 	}
 	return "their destination"
@@ -2067,47 +2067,51 @@ func effNameCard(h Host, c *Ctx, sa *cards.SA) {
 // Defined discards actually use are wired (Remembered and its aliases, the
 // targets); any other spelling falls through the generic Defined resolver.
 func discardDefinedCards(h Host, c *Ctx, spec string) []state.Target {
-	switch discardDefinedCardsf9c2Codes.Code(string(strings.Split(spec, ".")[0])) {
-	case discardDefinedCardsf9c2Remembered:
+	switch discardDefinedCardsCodes.Code(string(strings.Split(spec, ".")[0])) {
+	case discardDefinedCardsRemembered:
 		return objectsOf(c.Remembered)
-	case discardDefinedCardsf9c2Targeted:
+	case discardDefinedCardsTargeted:
 		return objectsOf(c.Targets)
 	}
 	return DefinedSpec(h, c, spec)
 }
 
-var destinationPhraseTab1 = state.NewStrTable[string](
+var destinationPhraseTab = state.NewStrTable[string](
 	state.StrEntry[string]{Key: "bottom", Val: "the bottom of your library"},
 	state.StrEntry[string]{Key: "graveyard", Val: "your graveyard"},
 	state.StrEntry[string]{Key: "exile", Val: "exile"},
 	state.StrEntry[string]{Key: "hand", Val: "your hand"},
 )
 
-const (
-	effDiscardf9c1TgtChoose        uint16 = 1 // "TgtChoose"
-	effDiscardf9c1RevealDiscardAll uint16 = 2 // "RevealDiscardAll"
-	effDiscardf9c1Hand             uint16 = 3 // "Hand"
-	effDiscardf9c1Random           uint16 = 4 // "Random"
-	effDiscardf9c1Defined          uint16 = 5 // "Defined"
-)
-
-var effDiscardf9c1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "TgtChoose", Val: effDiscardf9c1TgtChoose},
-	state.StrEntry[uint16]{Key: "RevealDiscardAll", Val: effDiscardf9c1RevealDiscardAll},
-	state.StrEntry[uint16]{Key: "Hand", Val: effDiscardf9c1Hand},
-	state.StrEntry[uint16]{Key: "Random", Val: effDiscardf9c1Random},
-	state.StrEntry[uint16]{Key: "Defined", Val: effDiscardf9c1Defined},
-)
+type effDiscardCode uint16
 
 const (
-	discardDefinedCardsf9c2Remembered uint16 = 1 // "Remembered", "RememberedLKI", "RememberedCard", "DirectRemembered"
-	discardDefinedCardsf9c2Targeted   uint16 = 2 // "Targeted"
+	effDiscardTgtChoose effDiscardCode = iota + 1
+	effDiscardRevealDiscardAll
+	effDiscardHand
+	effDiscardRandom
+	effDiscardDefined
 )
 
-var discardDefinedCardsf9c2Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Remembered", Val: discardDefinedCardsf9c2Remembered},
-	state.StrEntry[uint16]{Key: "RememberedLKI", Val: discardDefinedCardsf9c2Remembered},
-	state.StrEntry[uint16]{Key: "RememberedCard", Val: discardDefinedCardsf9c2Remembered},
-	state.StrEntry[uint16]{Key: "DirectRemembered", Val: discardDefinedCardsf9c2Remembered},
-	state.StrEntry[uint16]{Key: "Targeted", Val: discardDefinedCardsf9c2Targeted},
+var effDiscardCodes = state.NewStrCodes(
+	state.StrEntry[effDiscardCode]{Key: "TgtChoose", Val: effDiscardTgtChoose},
+	state.StrEntry[effDiscardCode]{Key: "RevealDiscardAll", Val: effDiscardRevealDiscardAll},
+	state.StrEntry[effDiscardCode]{Key: "Hand", Val: effDiscardHand},
+	state.StrEntry[effDiscardCode]{Key: "Random", Val: effDiscardRandom},
+	state.StrEntry[effDiscardCode]{Key: "Defined", Val: effDiscardDefined},
+)
+
+type discardDefinedCardsCode uint16
+
+const (
+	discardDefinedCardsRemembered discardDefinedCardsCode = iota + 1
+	discardDefinedCardsTargeted
+)
+
+var discardDefinedCardsCodes = state.NewStrCodes(
+	state.StrEntry[discardDefinedCardsCode]{Key: "Remembered", Val: discardDefinedCardsRemembered},
+	state.StrEntry[discardDefinedCardsCode]{Key: "RememberedLKI", Val: discardDefinedCardsRemembered},
+	state.StrEntry[discardDefinedCardsCode]{Key: "RememberedCard", Val: discardDefinedCardsRemembered},
+	state.StrEntry[discardDefinedCardsCode]{Key: "DirectRemembered", Val: discardDefinedCardsRemembered},
+	state.StrEntry[discardDefinedCardsCode]{Key: "Targeted", Val: discardDefinedCardsTargeted},
 )

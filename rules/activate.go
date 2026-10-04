@@ -144,8 +144,8 @@ func isAttachCostSA(ab *cards.SA) bool {
 	if ab == nil {
 		return false
 	}
-	switch isAttachCostSA1101Codes.Code(string(ab.ParamStr(cards.PKKeyword))) {
-	case isAttachCostSA1101Equip:
+	switch isAttachCostSACodes.Code(string(ab.ParamStr(cards.PKKeyword))) {
+	case isAttachCostSAEquip:
 		return true
 	}
 	return false
@@ -189,11 +189,13 @@ func (e *Engine) abilityAlternateCost(ab *cards.SA) (Cost, bool) {
 // for targets against the freshly minted stack object, exactly the shape
 // pushTrigger (rules/trigger_queue.go) uses for a trigger's own target ask.
 
+type isAttachCostSACode uint16
+
 const (
-	isAttachCostSA1101Equip uint16 = 1 // "Equip", "Fortify"
+	isAttachCostSAEquip isAttachCostSACode = iota + 1
 )
 
-var isAttachCostSA1101Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Equip", Val: isAttachCostSA1101Equip},
-	state.StrEntry[uint16]{Key: "Fortify", Val: isAttachCostSA1101Equip},
+var isAttachCostSACodes = state.NewStrCodes(
+	state.StrEntry[isAttachCostSACode]{Key: "Equip", Val: isAttachCostSAEquip},
+	state.StrEntry[isAttachCostSACode]{Key: "Fortify", Val: isAttachCostSAEquip},
 )

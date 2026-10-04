@@ -300,12 +300,12 @@ func (e *Engine) turnFaceUpCantHappen(id state.ObjID) bool {
 // any other value (or a comma list this build does not split) fails closed,
 // leaving the phase to run normally.
 func phaseStep(ph string) (state.Step, bool) {
-	switch phaseStepae11Codes.Code(string(strings.TrimSpace(ph))) {
-	case phaseStepae11Untap:
+	switch phaseStepCodes.Code(string(strings.TrimSpace(ph))) {
+	case phaseStepUntap:
 		return state.StepUntap, true
-	case phaseStepae11Upkeep:
+	case phaseStepUpkeep:
 		return state.StepUpkeep, true
-	case phaseStepae11Draw:
+	case phaseStepDraw:
 		return state.StepDraw, true
 	}
 	return 0, false
@@ -348,14 +348,16 @@ func (e *Engine) posePhaseOptionalChoice(ev events.Event, candidates []replMatch
 	}
 }
 
+type phaseStepCode uint16
+
 const (
-	phaseStepae11Untap  uint16 = 1 // "Untap"
-	phaseStepae11Upkeep uint16 = 2 // "Upkeep"
-	phaseStepae11Draw   uint16 = 3 // "Draw"
+	phaseStepUntap phaseStepCode = iota + 1
+	phaseStepUpkeep
+	phaseStepDraw
 )
 
-var phaseStepae11Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Untap", Val: phaseStepae11Untap},
-	state.StrEntry[uint16]{Key: "Upkeep", Val: phaseStepae11Upkeep},
-	state.StrEntry[uint16]{Key: "Draw", Val: phaseStepae11Draw},
+var phaseStepCodes = state.NewStrCodes(
+	state.StrEntry[phaseStepCode]{Key: "Untap", Val: phaseStepUntap},
+	state.StrEntry[phaseStepCode]{Key: "Upkeep", Val: phaseStepUpkeep},
+	state.StrEntry[phaseStepCode]{Key: "Draw", Val: phaseStepDraw},
 )

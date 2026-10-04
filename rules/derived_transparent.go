@@ -465,7 +465,7 @@ func letterWord(s string) bool {
 }
 
 func localPredicate(p string) bool {
-	if v, ok := localPredicateTab1.Get(p); ok {
+	if v, ok := localPredicateTab.Get(p); ok {
 		return v
 	}
 	// A type word (Creature.Elf, Card.nonLand) tests the candidate's own
@@ -480,7 +480,7 @@ func localPredicate(p string) bool {
 		if len(rest) < 4 {
 			return false
 		}
-		if !localPredicateKeys2.Has(rest[:2]) {
+		if !localPredicateKeys.Has(rest[:2]) {
 			return false
 		}
 		num, kind, ok := strings.Cut(rest[2:], "_")
@@ -502,7 +502,7 @@ func localTypeWord(w string) bool {
 	if chars.IsCardType(w) || chars.IsSupertype(w) || effects.CreatureTypeWords(w) {
 		return true
 	}
-	if v, ok := localTypeWordTab3.Get(w); ok {
+	if v, ok := localTypeWordTab.Get(w); ok {
 		return v
 	}
 	return false
@@ -541,7 +541,7 @@ func faceHasCDAStatic(o *state.Object) bool {
 	return false
 }
 
-var localPredicateTab1 = state.NewStrTable[bool](
+var localPredicateTab = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "Self", Val: true},
 	state.StrEntry[bool]{Key: "Other", Val: true},
 	state.StrEntry[bool]{Key: "YouCtrl", Val: true},
@@ -572,9 +572,9 @@ var localPredicateTab1 = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "nonMultiColor", Val: true},
 )
 
-var localPredicateKeys2 = state.NewNameSet("LT", "LE", "GT", "GE", "EQ", "NE")
+var localPredicateKeys = state.NewNameSet("LT", "LE", "GT", "GE", "EQ", "NE")
 
-var localTypeWordTab3 = state.NewStrTable[bool](
+var localTypeWordTab = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "Equipment", Val: true},
 	state.StrEntry[bool]{Key: "Aura", Val: true},
 	state.StrEntry[bool]{Key: "Vehicle", Val: true},

@@ -1090,8 +1090,8 @@ func manaAbilityLabel(ma *cards.SA, chosen string) string {
 func manaProducedLabel(ma *cards.SA, chosen string) string {
 	mp := effects.ManaOf(ma)
 	produced := substituteChosenProduced(mp.Produced, chosen)
-	switch manaProducedLabelc11Codes.Code(string(produced)) {
-	case manaProducedLabelc11Any:
+	switch manaProducedLabelCodes.Code(string(produced)) {
+	case manaProducedLabelAny:
 		// A literal amount above one is named so a source whose abilities
 		// differ only in amount -- Sceptre of Eternal Glory's one-mana and
 		// three-mana "any color" abilities -- offers two distinguishable
@@ -1106,7 +1106,7 @@ func manaProducedLabel(ma *cards.SA, chosen string) string {
 			return "Add " + manaNumberWord(n) + " mana of any one color"
 		}
 		return "Add any color"
-	case manaProducedLabelc11Chosen:
+	case manaProducedLabelChosen:
 		return "Add chosen color"
 	}
 	if cols, ok := effects.ComboColours(produced); ok {
@@ -3347,13 +3347,15 @@ func manaWalkHasLType(e *Engine, statics *actionStaticSource) bool {
 	return e.activeSummaryOf(e.active()).hasLType
 }
 
+type manaProducedLabelCode uint16
+
 const (
-	manaProducedLabelc11Any    uint16 = 1 // "Any", "Combo Any"
-	manaProducedLabelc11Chosen uint16 = 2 // "Chosen"
+	manaProducedLabelAny manaProducedLabelCode = iota + 1
+	manaProducedLabelChosen
 )
 
-var manaProducedLabelc11Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Any", Val: manaProducedLabelc11Any},
-	state.StrEntry[uint16]{Key: "Combo Any", Val: manaProducedLabelc11Any},
-	state.StrEntry[uint16]{Key: "Chosen", Val: manaProducedLabelc11Chosen},
+var manaProducedLabelCodes = state.NewStrCodes(
+	state.StrEntry[manaProducedLabelCode]{Key: "Any", Val: manaProducedLabelAny},
+	state.StrEntry[manaProducedLabelCode]{Key: "Combo Any", Val: manaProducedLabelAny},
+	state.StrEntry[manaProducedLabelCode]{Key: "Chosen", Val: manaProducedLabelChosen},
 )

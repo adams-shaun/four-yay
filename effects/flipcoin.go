@@ -131,8 +131,8 @@ func flipRecord(h Host, c *Ctx, player state.PlayerID, win, rememberResult bool,
 // order, not seat number order.
 func forEachPlayerFlippers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool) {
 	g := h.Game()
-	switch forEachPlayerFlippersc8c1Codes.Code(string(strings.ToLower(strings.TrimSpace(spec)))) {
-	case forEachPlayerFlippersc8c1Opponent:
+	switch forEachPlayerFlippersCodes.Code(string(strings.ToLower(strings.TrimSpace(spec)))) {
+	case forEachPlayerFlippersOpponent:
 		var out []state.PlayerID
 		for _, p := range g.AliveFrom(c.Controller) {
 			if p != c.Controller {
@@ -140,7 +140,7 @@ func forEachPlayerFlippers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool)
 			}
 		}
 		return out, true
-	case forEachPlayerFlippersc8c1True:
+	case forEachPlayerFlippersTrue:
 		return g.AliveFrom(c.Controller), true
 	}
 	ts, ok := knownDefinedTargets(h, c, spec)
@@ -347,16 +347,18 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 	}
 }
 
+type forEachPlayerFlippersCode uint16
+
 const (
-	forEachPlayerFlippersc8c1Opponent uint16 = 1 // "opponent", "opponents"
-	forEachPlayerFlippersc8c1True     uint16 = 2 // "true", "player", "players", "all"
+	forEachPlayerFlippersOpponent forEachPlayerFlippersCode = iota + 1
+	forEachPlayerFlippersTrue
 )
 
-var forEachPlayerFlippersc8c1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "opponent", Val: forEachPlayerFlippersc8c1Opponent},
-	state.StrEntry[uint16]{Key: "opponents", Val: forEachPlayerFlippersc8c1Opponent},
-	state.StrEntry[uint16]{Key: "true", Val: forEachPlayerFlippersc8c1True},
-	state.StrEntry[uint16]{Key: "player", Val: forEachPlayerFlippersc8c1True},
-	state.StrEntry[uint16]{Key: "players", Val: forEachPlayerFlippersc8c1True},
-	state.StrEntry[uint16]{Key: "all", Val: forEachPlayerFlippersc8c1True},
+var forEachPlayerFlippersCodes = state.NewStrCodes(
+	state.StrEntry[forEachPlayerFlippersCode]{Key: "opponent", Val: forEachPlayerFlippersOpponent},
+	state.StrEntry[forEachPlayerFlippersCode]{Key: "opponents", Val: forEachPlayerFlippersOpponent},
+	state.StrEntry[forEachPlayerFlippersCode]{Key: "true", Val: forEachPlayerFlippersTrue},
+	state.StrEntry[forEachPlayerFlippersCode]{Key: "player", Val: forEachPlayerFlippersTrue},
+	state.StrEntry[forEachPlayerFlippersCode]{Key: "players", Val: forEachPlayerFlippersTrue},
+	state.StrEntry[forEachPlayerFlippersCode]{Key: "all", Val: forEachPlayerFlippersTrue},
 )

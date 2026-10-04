@@ -84,18 +84,18 @@ func untapBattlefieldCondition(h Host, c *Ctx, sa *cards.SA) bool {
 	if !ok {
 		return false
 	}
-	switch untapBattlefieldConditiondca1Codes.Code(string(op)) {
-	case untapBattlefieldConditiondca1EQ:
+	switch CmpOpOf(op) {
+	case CmpEQ:
 		return n == want
-	case untapBattlefieldConditiondca1NE:
+	case CmpNE:
 		return n != want
-	case untapBattlefieldConditiondca1LT:
+	case CmpLT:
 		return n < want
-	case untapBattlefieldConditiondca1LE:
+	case CmpLE:
 		return n <= want
-	case untapBattlefieldConditiondca1GT:
+	case CmpGT:
 		return n > want
-	case untapBattlefieldConditiondca1GE:
+	case CmpGE:
 		return n >= want
 	}
 	return false
@@ -233,21 +233,3 @@ func effUntap(h Host, c *Ctx, sa *cards.SA) {
 		TryUntap(h, id)
 	}
 }
-
-const (
-	untapBattlefieldConditiondca1EQ uint16 = 1 // "EQ"
-	untapBattlefieldConditiondca1NE uint16 = 2 // "NE"
-	untapBattlefieldConditiondca1LT uint16 = 3 // "LT"
-	untapBattlefieldConditiondca1LE uint16 = 4 // "LE"
-	untapBattlefieldConditiondca1GT uint16 = 5 // "GT"
-	untapBattlefieldConditiondca1GE uint16 = 6 // "GE"
-)
-
-var untapBattlefieldConditiondca1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "EQ", Val: untapBattlefieldConditiondca1EQ},
-	state.StrEntry[uint16]{Key: "NE", Val: untapBattlefieldConditiondca1NE},
-	state.StrEntry[uint16]{Key: "LT", Val: untapBattlefieldConditiondca1LT},
-	state.StrEntry[uint16]{Key: "LE", Val: untapBattlefieldConditiondca1LE},
-	state.StrEntry[uint16]{Key: "GT", Val: untapBattlefieldConditiondca1GT},
-	state.StrEntry[uint16]{Key: "GE", Val: untapBattlefieldConditiondca1GE},
-)

@@ -373,7 +373,7 @@ func goadStaticGrantReadable(params map[string]string) bool {
 		return false
 	}
 	for key := range params {
-		if !goadStaticGrantReadableKeys1.Has(key) {
+		if !goadStaticGrantReadableKeys.Has(key) {
 			return false
 		}
 	}
@@ -390,7 +390,7 @@ func goadStaticGrantReadable(params map[string]string) bool {
 // evaluate, so the caller fails closed to its honest unimplemented Note.
 func NumLoyaltyActParamsReadable(params map[string]string) bool {
 	for key := range params {
-		if !numLoyaltyActParamsReadableKeys2.Has(key) {
+		if !numLoyaltyActParamsReadableKeys.Has(key) {
 			return false
 		}
 	}
@@ -464,20 +464,20 @@ func effectRemembered(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
 			if part == "" {
 				continue
 			}
-			switch effectRememberedb5e1Codes.Code(string(part)) {
-			case effectRememberedb5e1You:
+			switch effectRememberedCodes.Code(string(part)) {
+			case effectRememberedYou:
 				out = append(out, c.Source)
-			case effectRememberedb5e1Targeted:
+			case effectRememberedTargeted:
 				targets := c.Targets
 				if c.PickedTargets != nil {
 					targets = c.PickedTargets
 				}
 				out = appendEffectRememberedObjects(h, out, targets)
-			case effectRememberedb5e1ParentTarget:
+			case effectRememberedParentTarget:
 				out = appendEffectRememberedObjects(h, out, parentLinkTargets(c))
-			case effectRememberedb5e1Remembered:
+			case effectRememberedRemembered:
 				out = appendEffectRememberedObjects(h, out, c.Remembered)
-			case effectRememberedb5e1Imprinted:
+			case effectRememberedImprinted:
 				// Effect RememberObjects$ Imprinted captures the source's persistent
 				// Dig/ChangeZone imprint list (Synth Eradicator's may-play rider).
 				if o := h.Game().Obj(c.Source); o != nil {
@@ -487,7 +487,7 @@ func effectRemembered(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
 						}
 					}
 				}
-			case effectRememberedb5e1ReplacedCard:
+			case effectRememberedReplacedCard:
 				// The card the enclosing replacement acted on (Opposition Agent's
 				// RepExile → DBEffect: the found card the replacement just exiled
 				// is the one the may-play grant remembers). Outside a replacement
@@ -495,7 +495,7 @@ func effectRemembered(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
 				if c.Repl.Replaced != 0 && h.Game().Obj(c.Repl.Replaced) != nil {
 					out = append(out, c.Repl.Replaced)
 				}
-			case effectRememberedb5e1TriggeredCard:
+			case effectRememberedTriggeredCard:
 				// The card the firing trigger's event captured (Mistrise Village's
 				// Effect RememberObjects$ TriggeredCard: the spell the can't-be-
 				// countered promise covers). The SpellCast referent capture binds
@@ -508,7 +508,7 @@ func effectRemembered(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
 				if c.TriggerCard != 0 && h.Game().Obj(c.TriggerCard) != nil {
 					out = append(out, c.TriggerCard)
 				}
-			case effectRememberedb5e1ChosenCard:
+			case effectRememberedChosenCard:
 				// Dauthi Voidwalker and the wider ChooseCard -> Effect family do
 				// not set RememberChosen$: the chosen card lives in Ctx.Chosen, or
 				// on the event-backed source when a later ability reads it.
@@ -519,7 +519,7 @@ func effectRemembered(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
 					}
 				}
 				out = appendEffectRememberedObjects(h, out, chosen)
-			case effectRememberedb5e1RememberedLKI:
+			case effectRememberedRememberedLKI:
 				// Object selectors this helper previously left unresolved. Each is
 				// a name definedSpec/knownDefinedTargets already resolves, so read
 				// the ONE shared resolver rather than re-deriving the referent
@@ -587,8 +587,8 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 		return r == '&' || r == ',' || r == ' '
 	}) {
 		part = strings.TrimSpace(part)
-		switch effectRememberedPlayersb5e2Codes.Code(string(part)) {
-		case effectRememberedPlayersb5e2TargetedPlayer:
+		switch effectRememberedPlayersCodes.Code(string(part)) {
+		case effectRememberedPlayersTargetedPlayer:
 			targets := c.Targets
 			if part == "Targeted" && c.PickedTargets != nil {
 				targets = c.PickedTargets
@@ -598,7 +598,7 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 					add(t.Player)
 				}
 			}
-		case effectRememberedPlayersb5e2TargetedOrController:
+		case effectRememberedPlayersTargetedOrController:
 			targets := c.Targets
 			if c.PickedTargets != nil {
 				targets = c.PickedTargets
@@ -610,7 +610,7 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 					add(o.Controller)
 				}
 			}
-		case effectRememberedPlayersb5e2TargetedController:
+		case effectRememberedPlayersTargetedController:
 			// The Motherlode, Excavator's DBEffect remembers the controller of
 			// its targeted land -- the defending player its registered
 			// CantBlockBy restriction's ValidBlocker$
@@ -628,7 +628,7 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 					add(o.Controller)
 				}
 			}
-		case effectRememberedPlayersb5e2ChosenPlayer:
+		case effectRememberedPlayersChosenPlayer:
 			// The Black Gate's DBEffect remembers its ChoosePlayer answer
 			// beside its targeted player: the same current-resolution set
 			// every other ChosenPlayer consumer reads through ChosenTargets.
@@ -637,7 +637,7 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 					add(t.Player)
 				}
 			}
-		case effectRememberedPlayersb5e2TriggeredTarget:
+		case effectRememberedPlayersTriggeredTarget:
 			// The player the firing trigger's event targeted (Stigma Lasher's
 			// DamageDone | ValidTarget$ Player: "that player can't gain life
 			// for the rest of the game"). The role is bound at fire time
@@ -651,7 +651,7 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 			if c.TriggerTarget.IsPlayer {
 				add(c.TriggerTarget.Player)
 			}
-		case effectRememberedPlayersb5e2PlayerIsRemembered:
+		case effectRememberedPlayersPlayerIsRemembered:
 			// Screaming Nemesis's DBEffect RememberObjects$ Player.IsRemembered:
 			// the Effect is created INSIDE the resolution whose DealDamage
 			// RememberDamaged$ True just remembered the damaged player, so it
@@ -664,7 +664,7 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 					add(t.Player)
 				}
 			}
-		case effectRememberedPlayersb5e2RememberedPlayer:
+		case effectRememberedPlayersRememberedPlayer:
 			for _, t := range c.Remembered {
 				if t.IsPlayer {
 					add(t.Player)
@@ -692,64 +692,68 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 // a Forge-side duplicate for modifier composition, and a boolean restriction
 // cannot be applied twice.
 
-var goadStaticGrantReadableKeys1 = state.NewNameSet("Mode", "Affected", "Description", "Goad")
+var goadStaticGrantReadableKeys = state.NewNameSet("Mode", "Affected", "Description", "Goad")
 
-var numLoyaltyActParamsReadableKeys2 = state.NewNameSet("Mode", "ValidCard", "Twice", "Additional", "OnlySourceAbs", "Description")
+var numLoyaltyActParamsReadableKeys = state.NewNameSet("Mode", "ValidCard", "Twice", "Additional", "OnlySourceAbs", "Description")
 
-const (
-	effectRememberedb5e1You           uint16 = 1 // "You", "Self", "Source"
-	effectRememberedb5e1Targeted      uint16 = 2 // "Targeted", "ThisTargetedCard"
-	effectRememberedb5e1ParentTarget  uint16 = 3 // "ParentTarget"
-	effectRememberedb5e1Remembered    uint16 = 4 // "Remembered", "Remembered.Creature", "Remembered.Permanent", "RememberedCard"
-	effectRememberedb5e1Imprinted     uint16 = 5 // "Imprinted"
-	effectRememberedb5e1ReplacedCard  uint16 = 6 // "ReplacedCard"
-	effectRememberedb5e1TriggeredCard uint16 = 7 // "TriggeredCard", "TriggeredObject", "TriggeredObjectLKICopy"
-	effectRememberedb5e1ChosenCard    uint16 = 8 // "ChosenCard"
-	effectRememberedb5e1RememberedLKI uint16 = 9 // "RememberedLKI", "TriggeredAttackerLKICopy", "TriggeredTargetLKICopy", "DelayTriggerRemembered"
-)
-
-var effectRememberedb5e1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "You", Val: effectRememberedb5e1You},
-	state.StrEntry[uint16]{Key: "Self", Val: effectRememberedb5e1You},
-	state.StrEntry[uint16]{Key: "Source", Val: effectRememberedb5e1You},
-	state.StrEntry[uint16]{Key: "Targeted", Val: effectRememberedb5e1Targeted},
-	state.StrEntry[uint16]{Key: "ThisTargetedCard", Val: effectRememberedb5e1Targeted},
-	state.StrEntry[uint16]{Key: "ParentTarget", Val: effectRememberedb5e1ParentTarget},
-	state.StrEntry[uint16]{Key: "Remembered", Val: effectRememberedb5e1Remembered},
-	state.StrEntry[uint16]{Key: "Remembered.Creature", Val: effectRememberedb5e1Remembered},
-	state.StrEntry[uint16]{Key: "Remembered.Permanent", Val: effectRememberedb5e1Remembered},
-	state.StrEntry[uint16]{Key: "RememberedCard", Val: effectRememberedb5e1Remembered},
-	state.StrEntry[uint16]{Key: "Imprinted", Val: effectRememberedb5e1Imprinted},
-	state.StrEntry[uint16]{Key: "ReplacedCard", Val: effectRememberedb5e1ReplacedCard},
-	state.StrEntry[uint16]{Key: "TriggeredCard", Val: effectRememberedb5e1TriggeredCard},
-	state.StrEntry[uint16]{Key: "TriggeredObject", Val: effectRememberedb5e1TriggeredCard},
-	state.StrEntry[uint16]{Key: "TriggeredObjectLKICopy", Val: effectRememberedb5e1TriggeredCard},
-	state.StrEntry[uint16]{Key: "ChosenCard", Val: effectRememberedb5e1ChosenCard},
-	state.StrEntry[uint16]{Key: "RememberedLKI", Val: effectRememberedb5e1RememberedLKI},
-	state.StrEntry[uint16]{Key: "TriggeredAttackerLKICopy", Val: effectRememberedb5e1RememberedLKI},
-	state.StrEntry[uint16]{Key: "TriggeredTargetLKICopy", Val: effectRememberedb5e1RememberedLKI},
-	state.StrEntry[uint16]{Key: "DelayTriggerRemembered", Val: effectRememberedb5e1RememberedLKI},
-)
+type effectRememberedCode uint16
 
 const (
-	effectRememberedPlayersb5e2TargetedPlayer       uint16 = 1 // "TargetedPlayer", "Targeted"
-	effectRememberedPlayersb5e2TargetedOrController uint16 = 2 // "TargetedOrController"
-	effectRememberedPlayersb5e2TargetedController   uint16 = 3 // "TargetedController"
-	effectRememberedPlayersb5e2ChosenPlayer         uint16 = 4 // "ChosenPlayer"
-	effectRememberedPlayersb5e2TriggeredTarget      uint16 = 5 // "TriggeredTarget"
-	effectRememberedPlayersb5e2PlayerIsRemembered   uint16 = 6 // "Player.IsRemembered"
-	effectRememberedPlayersb5e2RememberedPlayer     uint16 = 7 // "RememberedPlayer", "RememberedPlayers", "Remembered"
+	effectRememberedYou effectRememberedCode = iota + 1
+	effectRememberedTargeted
+	effectRememberedParentTarget
+	effectRememberedRemembered
+	effectRememberedImprinted
+	effectRememberedReplacedCard
+	effectRememberedTriggeredCard
+	effectRememberedChosenCard
+	effectRememberedRememberedLKI
 )
 
-var effectRememberedPlayersb5e2Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "TargetedPlayer", Val: effectRememberedPlayersb5e2TargetedPlayer},
-	state.StrEntry[uint16]{Key: "Targeted", Val: effectRememberedPlayersb5e2TargetedPlayer},
-	state.StrEntry[uint16]{Key: "TargetedOrController", Val: effectRememberedPlayersb5e2TargetedOrController},
-	state.StrEntry[uint16]{Key: "TargetedController", Val: effectRememberedPlayersb5e2TargetedController},
-	state.StrEntry[uint16]{Key: "ChosenPlayer", Val: effectRememberedPlayersb5e2ChosenPlayer},
-	state.StrEntry[uint16]{Key: "TriggeredTarget", Val: effectRememberedPlayersb5e2TriggeredTarget},
-	state.StrEntry[uint16]{Key: "Player.IsRemembered", Val: effectRememberedPlayersb5e2PlayerIsRemembered},
-	state.StrEntry[uint16]{Key: "RememberedPlayer", Val: effectRememberedPlayersb5e2RememberedPlayer},
-	state.StrEntry[uint16]{Key: "RememberedPlayers", Val: effectRememberedPlayersb5e2RememberedPlayer},
-	state.StrEntry[uint16]{Key: "Remembered", Val: effectRememberedPlayersb5e2RememberedPlayer},
+var effectRememberedCodes = state.NewStrCodes(
+	state.StrEntry[effectRememberedCode]{Key: "You", Val: effectRememberedYou},
+	state.StrEntry[effectRememberedCode]{Key: "Self", Val: effectRememberedYou},
+	state.StrEntry[effectRememberedCode]{Key: "Source", Val: effectRememberedYou},
+	state.StrEntry[effectRememberedCode]{Key: "Targeted", Val: effectRememberedTargeted},
+	state.StrEntry[effectRememberedCode]{Key: "ThisTargetedCard", Val: effectRememberedTargeted},
+	state.StrEntry[effectRememberedCode]{Key: "ParentTarget", Val: effectRememberedParentTarget},
+	state.StrEntry[effectRememberedCode]{Key: "Remembered", Val: effectRememberedRemembered},
+	state.StrEntry[effectRememberedCode]{Key: "Remembered.Creature", Val: effectRememberedRemembered},
+	state.StrEntry[effectRememberedCode]{Key: "Remembered.Permanent", Val: effectRememberedRemembered},
+	state.StrEntry[effectRememberedCode]{Key: "RememberedCard", Val: effectRememberedRemembered},
+	state.StrEntry[effectRememberedCode]{Key: "Imprinted", Val: effectRememberedImprinted},
+	state.StrEntry[effectRememberedCode]{Key: "ReplacedCard", Val: effectRememberedReplacedCard},
+	state.StrEntry[effectRememberedCode]{Key: "TriggeredCard", Val: effectRememberedTriggeredCard},
+	state.StrEntry[effectRememberedCode]{Key: "TriggeredObject", Val: effectRememberedTriggeredCard},
+	state.StrEntry[effectRememberedCode]{Key: "TriggeredObjectLKICopy", Val: effectRememberedTriggeredCard},
+	state.StrEntry[effectRememberedCode]{Key: "ChosenCard", Val: effectRememberedChosenCard},
+	state.StrEntry[effectRememberedCode]{Key: "RememberedLKI", Val: effectRememberedRememberedLKI},
+	state.StrEntry[effectRememberedCode]{Key: "TriggeredAttackerLKICopy", Val: effectRememberedRememberedLKI},
+	state.StrEntry[effectRememberedCode]{Key: "TriggeredTargetLKICopy", Val: effectRememberedRememberedLKI},
+	state.StrEntry[effectRememberedCode]{Key: "DelayTriggerRemembered", Val: effectRememberedRememberedLKI},
+)
+
+type effectRememberedPlayersCode uint16
+
+const (
+	effectRememberedPlayersTargetedPlayer effectRememberedPlayersCode = iota + 1
+	effectRememberedPlayersTargetedOrController
+	effectRememberedPlayersTargetedController
+	effectRememberedPlayersChosenPlayer
+	effectRememberedPlayersTriggeredTarget
+	effectRememberedPlayersPlayerIsRemembered
+	effectRememberedPlayersRememberedPlayer
+)
+
+var effectRememberedPlayersCodes = state.NewStrCodes(
+	state.StrEntry[effectRememberedPlayersCode]{Key: "TargetedPlayer", Val: effectRememberedPlayersTargetedPlayer},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "Targeted", Val: effectRememberedPlayersTargetedPlayer},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "TargetedOrController", Val: effectRememberedPlayersTargetedOrController},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "TargetedController", Val: effectRememberedPlayersTargetedController},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "ChosenPlayer", Val: effectRememberedPlayersChosenPlayer},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "TriggeredTarget", Val: effectRememberedPlayersTriggeredTarget},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "Player.IsRemembered", Val: effectRememberedPlayersPlayerIsRemembered},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "RememberedPlayer", Val: effectRememberedPlayersRememberedPlayer},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "RememberedPlayers", Val: effectRememberedPlayersRememberedPlayer},
+	state.StrEntry[effectRememberedPlayersCode]{Key: "Remembered", Val: effectRememberedPlayersRememberedPlayer},
 )

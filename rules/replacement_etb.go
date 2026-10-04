@@ -255,15 +255,15 @@ func attachedBodyPoses(sa *cards.SA) bool {
 	if sa == nil {
 		return false
 	}
-	switch attachedBodyPoses8eb1Codes.Code(string(sa.API)) {
-	case attachedBodyPoses8eb1NameCard:
+	switch attachedBodyPosesCodes.Code(string(sa.API)) {
+	case attachedBodyPosesNameCard:
 		return true
-	case attachedBodyPoses8eb1ChooseCard:
+	case attachedBodyPosesChooseCard:
 		// The only corpus Attached ChooseCard is Pick-Axe's exiled-craft-card
 		// pick; its pool must be the source's own exile association. Any other
 		// DefinedCards$ role is a different pool this path does not read.
 		return strings.EqualFold(effects.DefinedOf(sa).Cards.Text, "ExiledWith")
-	case attachedBodyPoses8eb1ChooseColor:
+	case attachedBodyPosesChooseColor:
 		return true
 	default:
 		return false
@@ -312,10 +312,10 @@ func (e *Engine) applyAttachedReplacement(ev events.Event) bool {
 	}
 	ch := &attachedChoice{move: ev, source: source, body: repl.With.API}
 	e.attachedChoice = ch
-	switch applyAttachedReplacement8eb2Codes.Code(string(repl.With.API)) {
-	case applyAttachedReplacement8eb2ChooseCard:
+	switch applyAttachedReplacementCodes.Code(string(repl.With.API)) {
+	case applyAttachedReplacementChooseCard:
 		return e.askAttachedCard(o, repl)
-	case applyAttachedReplacement8eb2ChooseColor:
+	case applyAttachedReplacementChooseColor:
 		return e.askAttachedColor(o, repl)
 	default: // NameCard
 		return e.askAttachedName(o, repl)
@@ -412,18 +412,18 @@ func attachedChoiceZones(raw string) map[state.Zone]bool {
 	}
 	out := map[state.Zone]bool{}
 	for z := range strings.SplitSeq(raw, ",") {
-		switch attachedChoiceZones8eb3Codes.Code(string(strings.TrimSpace(z))) {
-		case attachedChoiceZones8eb3Battlefield:
+		switch attachedChoiceZonesCodes.Code(string(strings.TrimSpace(z))) {
+		case attachedChoiceZonesBattlefield:
 			out[state.ZBattlefield] = true
-		case attachedChoiceZones8eb3Hand:
+		case attachedChoiceZonesHand:
 			out[state.ZHand] = true
-		case attachedChoiceZones8eb3Library:
+		case attachedChoiceZonesLibrary:
 			out[state.ZLibrary] = true
-		case attachedChoiceZones8eb3Graveyard:
+		case attachedChoiceZonesGraveyard:
 			out[state.ZGraveyard] = true
-		case attachedChoiceZones8eb3Exile:
+		case attachedChoiceZonesExile:
 			out[state.ZExile] = true
-		case attachedChoiceZones8eb3Stack:
+		case attachedChoiceZonesStack:
 			out[state.ZStack] = true
 		}
 	}
@@ -630,42 +630,48 @@ func etbTapeAnswer(e *Engine, d *decision.Decision, obj state.ObjID) (decision.I
 	return parkTapeAnswer(e, d)
 }
 
-const (
-	attachedBodyPoses8eb1NameCard    uint16 = 1 // "NameCard"
-	attachedBodyPoses8eb1ChooseCard  uint16 = 2 // "ChooseCard"
-	attachedBodyPoses8eb1ChooseColor uint16 = 3 // "ChooseColor"
-)
-
-var attachedBodyPoses8eb1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "NameCard", Val: attachedBodyPoses8eb1NameCard},
-	state.StrEntry[uint16]{Key: "ChooseCard", Val: attachedBodyPoses8eb1ChooseCard},
-	state.StrEntry[uint16]{Key: "ChooseColor", Val: attachedBodyPoses8eb1ChooseColor},
-)
+type attachedBodyPosesCode uint16
 
 const (
-	applyAttachedReplacement8eb2ChooseCard  uint16 = 1 // "ChooseCard"
-	applyAttachedReplacement8eb2ChooseColor uint16 = 2 // "ChooseColor"
+	attachedBodyPosesNameCard attachedBodyPosesCode = iota + 1
+	attachedBodyPosesChooseCard
+	attachedBodyPosesChooseColor
 )
 
-var applyAttachedReplacement8eb2Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "ChooseCard", Val: applyAttachedReplacement8eb2ChooseCard},
-	state.StrEntry[uint16]{Key: "ChooseColor", Val: applyAttachedReplacement8eb2ChooseColor},
+var attachedBodyPosesCodes = state.NewStrCodes(
+	state.StrEntry[attachedBodyPosesCode]{Key: "NameCard", Val: attachedBodyPosesNameCard},
+	state.StrEntry[attachedBodyPosesCode]{Key: "ChooseCard", Val: attachedBodyPosesChooseCard},
+	state.StrEntry[attachedBodyPosesCode]{Key: "ChooseColor", Val: attachedBodyPosesChooseColor},
 )
+
+type applyAttachedReplacementCode uint16
 
 const (
-	attachedChoiceZones8eb3Battlefield uint16 = 1 // "Battlefield"
-	attachedChoiceZones8eb3Hand        uint16 = 2 // "Hand"
-	attachedChoiceZones8eb3Library     uint16 = 3 // "Library"
-	attachedChoiceZones8eb3Graveyard   uint16 = 4 // "Graveyard"
-	attachedChoiceZones8eb3Exile       uint16 = 5 // "Exile"
-	attachedChoiceZones8eb3Stack       uint16 = 6 // "Stack"
+	applyAttachedReplacementChooseCard applyAttachedReplacementCode = iota + 1
+	applyAttachedReplacementChooseColor
 )
 
-var attachedChoiceZones8eb3Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Battlefield", Val: attachedChoiceZones8eb3Battlefield},
-	state.StrEntry[uint16]{Key: "Hand", Val: attachedChoiceZones8eb3Hand},
-	state.StrEntry[uint16]{Key: "Library", Val: attachedChoiceZones8eb3Library},
-	state.StrEntry[uint16]{Key: "Graveyard", Val: attachedChoiceZones8eb3Graveyard},
-	state.StrEntry[uint16]{Key: "Exile", Val: attachedChoiceZones8eb3Exile},
-	state.StrEntry[uint16]{Key: "Stack", Val: attachedChoiceZones8eb3Stack},
+var applyAttachedReplacementCodes = state.NewStrCodes(
+	state.StrEntry[applyAttachedReplacementCode]{Key: "ChooseCard", Val: applyAttachedReplacementChooseCard},
+	state.StrEntry[applyAttachedReplacementCode]{Key: "ChooseColor", Val: applyAttachedReplacementChooseColor},
+)
+
+type attachedChoiceZonesCode uint16
+
+const (
+	attachedChoiceZonesBattlefield attachedChoiceZonesCode = iota + 1
+	attachedChoiceZonesHand
+	attachedChoiceZonesLibrary
+	attachedChoiceZonesGraveyard
+	attachedChoiceZonesExile
+	attachedChoiceZonesStack
+)
+
+var attachedChoiceZonesCodes = state.NewStrCodes(
+	state.StrEntry[attachedChoiceZonesCode]{Key: "Battlefield", Val: attachedChoiceZonesBattlefield},
+	state.StrEntry[attachedChoiceZonesCode]{Key: "Hand", Val: attachedChoiceZonesHand},
+	state.StrEntry[attachedChoiceZonesCode]{Key: "Library", Val: attachedChoiceZonesLibrary},
+	state.StrEntry[attachedChoiceZonesCode]{Key: "Graveyard", Val: attachedChoiceZonesGraveyard},
+	state.StrEntry[attachedChoiceZonesCode]{Key: "Exile", Val: attachedChoiceZonesExile},
+	state.StrEntry[attachedChoiceZonesCode]{Key: "Stack", Val: attachedChoiceZonesStack},
 )

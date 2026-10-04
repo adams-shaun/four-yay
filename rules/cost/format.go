@@ -391,7 +391,7 @@ func SpecNoun(spec, defNoun string) string {
 	if i := strings.IndexAny(base, ".+, ;"); i >= 0 {
 		base = base[:i]
 	}
-	if v, ok := specNounTab1.Get(strings.ToLower(base)); ok {
+	if v, ok := specNounTab.Get(strings.ToLower(base)); ok {
 		return v
 	}
 	return defNoun
@@ -423,10 +423,10 @@ func countPhrase(n int32) string {
 // "a player" rather than echoing raw Forge filter syntax.
 func gainLifeCostPhrase(part CostPart) string {
 	who := "a player"
-	switch gainLifeCostPhrasecfa1Codes.Code(string(strings.TrimSpace(part.Spec))) {
-	case gainLifeCostPhrasecfa1PlayerOpponent:
+	switch gainLifeCostPhraseCodes.Code(string(strings.TrimSpace(part.Spec))) {
+	case gainLifeCostPhrasePlayerOpponent:
 		who = "an opponent"
-	case gainLifeCostPhrasecfa1PlayerOther:
+	case gainLifeCostPhrasePlayerOther:
 		if part.Each {
 			who = "each other player"
 		} else {
@@ -490,7 +490,7 @@ func ManaCostBeyondTap(c Cost) bool {
 	return c.HasNonMana()
 }
 
-var specNounTab1 = state.NewStrTable[string](
+var specNounTab = state.NewStrTable[string](
 	state.StrEntry[string]{Key: "creature", Val: "creature"},
 	state.StrEntry[string]{Key: "artifact", Val: "artifact"},
 	state.StrEntry[string]{Key: "enchantment", Val: "enchantment"},
@@ -501,12 +501,14 @@ var specNounTab1 = state.NewStrTable[string](
 	state.StrEntry[string]{Key: "token", Val: "token"},
 )
 
+type gainLifeCostPhraseCode uint16
+
 const (
-	gainLifeCostPhrasecfa1PlayerOpponent uint16 = 1 // "Player.Opponent"
-	gainLifeCostPhrasecfa1PlayerOther    uint16 = 2 // "Player.Other"
+	gainLifeCostPhrasePlayerOpponent gainLifeCostPhraseCode = iota + 1
+	gainLifeCostPhrasePlayerOther
 )
 
-var gainLifeCostPhrasecfa1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Player.Opponent", Val: gainLifeCostPhrasecfa1PlayerOpponent},
-	state.StrEntry[uint16]{Key: "Player.Other", Val: gainLifeCostPhrasecfa1PlayerOther},
+var gainLifeCostPhraseCodes = state.NewStrCodes(
+	state.StrEntry[gainLifeCostPhraseCode]{Key: "Player.Opponent", Val: gainLifeCostPhrasePlayerOpponent},
+	state.StrEntry[gainLifeCostPhraseCode]{Key: "Player.Other", Val: gainLifeCostPhrasePlayerOther},
 )

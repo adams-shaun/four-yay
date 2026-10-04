@@ -217,7 +217,7 @@ func effectStaticGrantReadable(params map[string]string, g staticGrant) bool {
 		return false
 	}
 	for key := range params {
-		if !effectStaticGrantReadableKeys1.Has(key) {
+		if !effectStaticGrantReadableKeys.Has(key) {
 			return false
 		}
 	}
@@ -263,16 +263,16 @@ func applyStaticEffect(h Host, c *Ctx, sa *cards.SA, to state.Zone, moved []stat
 			return
 		}
 		pass := false
-		switch applyStaticEffect3a71Codes.Code(string(lop)) {
-		case applyStaticEffect3a71GE:
+		switch CmpOpOf(lop) {
+		case CmpGE:
 			pass = value >= int32(th)
-		case applyStaticEffect3a71GT:
+		case CmpGT:
 			pass = value > int32(th)
-		case applyStaticEffect3a71EQ:
+		case CmpEQ:
 			pass = value == int32(th)
-		case applyStaticEffect3a71LE:
+		case CmpLE:
 			pass = value <= int32(th)
-		case applyStaticEffect3a71LT:
+		case CmpLT:
 			pass = value < int32(th)
 		}
 		if !pass {
@@ -502,20 +502,4 @@ func AffectedXStaticAmount(expr string) bool {
 	return expr == "AffectedX"
 }
 
-var effectStaticGrantReadableKeys1 = state.NewNameSet("Mode", "Affected", "AffectedZone", "Description", "AddTypes", "AddType", "AddAllCreatureTypes", "RemoveCreatureTypes", "RemoveCardTypes", "AddColor", "AddColors", "SetColor", "SetColors", "AddKeyword", "AddAbility", "AddAbilities", "RemoveAllAbilities", "SetPower", "SetToughness", "AddPower", "AddToughness")
-
-const (
-	applyStaticEffect3a71GE uint16 = 1 // "GE"
-	applyStaticEffect3a71GT uint16 = 2 // "GT"
-	applyStaticEffect3a71EQ uint16 = 3 // "EQ"
-	applyStaticEffect3a71LE uint16 = 4 // "LE"
-	applyStaticEffect3a71LT uint16 = 5 // "LT"
-)
-
-var applyStaticEffect3a71Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "GE", Val: applyStaticEffect3a71GE},
-	state.StrEntry[uint16]{Key: "GT", Val: applyStaticEffect3a71GT},
-	state.StrEntry[uint16]{Key: "EQ", Val: applyStaticEffect3a71EQ},
-	state.StrEntry[uint16]{Key: "LE", Val: applyStaticEffect3a71LE},
-	state.StrEntry[uint16]{Key: "LT", Val: applyStaticEffect3a71LT},
-)
+var effectStaticGrantReadableKeys = state.NewNameSet("Mode", "Affected", "AffectedZone", "Description", "AddTypes", "AddType", "AddAllCreatureTypes", "RemoveCreatureTypes", "RemoveCardTypes", "AddColor", "AddColors", "SetColor", "SetColors", "AddKeyword", "AddAbility", "AddAbilities", "RemoveAllAbilities", "SetPower", "SetToughness", "AddPower", "AddToughness")

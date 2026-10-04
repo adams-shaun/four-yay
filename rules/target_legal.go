@@ -457,18 +457,18 @@ func stackHasType(types []string, want string) bool {
 }
 
 func targetCountMatches(count int, op string, want int) bool {
-	switch targetCountMatchesdc21Codes.Code(string(op)) {
-	case targetCountMatchesdc21EQ:
+	switch effects.CmpOpOf(op) {
+	case effects.CmpEQ:
 		return count == want
-	case targetCountMatchesdc21NE:
+	case effects.CmpNE:
 		return count != want
-	case targetCountMatchesdc21GE:
+	case effects.CmpGE:
 		return count >= want
-	case targetCountMatchesdc21GT:
+	case effects.CmpGT:
 		return count > want
-	case targetCountMatchesdc21LE:
+	case effects.CmpLE:
 		return count <= want
-	case targetCountMatchesdc21LT:
+	case effects.CmpLT:
 		return count < want
 	default:
 		return false
@@ -554,8 +554,8 @@ func (e *Engine) describeTargetEffect(p state.PlayerID, source state.ObjID, sa *
 	if sa.API == "Effect" {
 		out.Statics = e.grantedStaticModes(p, source, sa)
 	}
-	switch describeTargetEffectdc22Codes.Code(string(sa.API)) {
-	case describeTargetEffectdc22DealDamage:
+	switch describeTargetEffectCodes.Code(string(sa.API)) {
+	case describeTargetEffectDealDamage:
 		out.Damage = &decision.DamageEffect{}
 		// A missing amount remains null even though the effect implementation
 		// has a defensive runtime default. A literal or a resolvable X/SVar is
@@ -741,12 +741,12 @@ func targetRemoval(sa *cards.SA) *decision.RemovalEffect {
 	if sa == nil {
 		return nil
 	}
-	switch targetRemovaldc23Codes.Code(string(sa.API)) {
-	case targetRemovaldc23Destroy:
+	switch targetRemovalAPICodes.Code(string(sa.API)) {
+	case targetRemovalAPIDestroy:
 		return &decision.RemovalEffect{Kind: "destroy"}
-	case targetRemovaldc23Sacrifice:
+	case targetRemovalAPISacrifice:
 		return &decision.RemovalEffect{Kind: "sacrifice"}
-	case targetRemovaldc23ChangeZone:
+	case targetRemovalAPIChangeZone:
 		// ChangeZone's Destination$ through its compiled parameters: the
 		// zone the resolver moves to, named by its lower-case word.
 		cz := effects.ChangeZoneOf(sa)
@@ -769,20 +769,20 @@ func targetRemoval(sa *cards.SA) *decision.RemovalEffect {
 			return nil
 		}
 		return &decision.RemovalEffect{Kind: kind, Destination: cz.Destination.String()}
-	case targetRemovaldc23ChangeZoneAll:
+	case targetRemovalAPIChangeZoneAll:
 		// ChangeZoneAll's Destination$ through its compiled parameters.
 		destination := effects.ChangeZoneAllOf(sa).DestinationLower
 		kind := destination
-		switch targetRemovaldc24Codes.Code(string(destination)) {
-		case targetRemovaldc24Exile:
+		switch targetRemovalDestCodes.Code(string(destination)) {
+		case targetRemovalDestExile:
 			kind = "exile"
-		case targetRemovaldc24Hand:
+		case targetRemovalDestHand:
 			kind = "bounce"
-		case targetRemovaldc24Graveyard:
+		case targetRemovalDestGraveyard:
 			kind = "graveyard"
-		case targetRemovaldc24Library:
+		case targetRemovalDestLibrary:
 			kind = "library"
-		case targetRemovaldc24Command:
+		case targetRemovalDestCommand:
 			kind = "command"
 		default:
 			return nil
@@ -852,10 +852,10 @@ func (e *Engine) triggerRolePlayerAlt(sc effects.SpecContext, alt string, q, you
 	neg := strings.HasPrefix(qualifier, "!")
 	var role state.PlayerID
 	bound := false
-	switch triggerRolePlayerAltdc25Codes.Code(string(strings.TrimPrefix(qualifier, "!"))) {
-	case triggerRolePlayerAltdc25TriggeredActivator:
+	switch triggerRoleQualifierCodes.Code(string(strings.TrimPrefix(qualifier, "!"))) {
+	case triggerRoleQualifierTriggeredActivator:
 		role, bound = sc.TriggerContext.TriggerActivator.Player, sc.TriggerContext.TriggerActivator.IsPlayer
-	case triggerRolePlayerAltdc25TriggeredCardController:
+	case triggerRoleQualifierTriggeredCardController:
 		// effects.TriggeredCardController is the one resolver -- Defined$,
 		// OptionalDecider$ and the targeting restriction all read it.
 		if p, ok := effects.TriggeredCardController(e.G, sc.TriggerContext, sc.Remembered); ok {
@@ -866,13 +866,13 @@ func (e *Engine) triggerRolePlayerAlt(sc effects.SpecContext, alt string, q, you
 	}
 	// The base still applies to the role alternative, exactly as
 	// MatchesPlayerSpecFrom applies it to every other qualifier.
-	switch triggerRolePlayerAltdc26Codes.Code(string(base)) {
-	case triggerRolePlayerAltdc26Player:
-	case triggerRolePlayerAltdc26You:
+	switch triggerRoleBaseCodes.Code(string(base)) {
+	case triggerRoleBasePlayer:
+	case triggerRoleBaseYou:
 		if q != you {
 			return false, true
 		}
-	case triggerRolePlayerAltdc26Opponent:
+	case triggerRoleBaseOpponent:
 		if q == you {
 			return false, true
 		}
@@ -1184,35 +1184,35 @@ func (e *Engine) filterTargetsWithDefinedController(in []targetCandidate, sa *ca
 	var ok bool
 	failClosed := false
 	nonTriggeredController := false
-	switch filterTargetsWithDefinedControllerdc27Codes.Code(string(ref)) {
-	case filterTargetsWithDefinedControllerdc27NonTriggeredCardController:
+	switch filterTargetsWithDefinedControllerCodes.Code(string(ref)) {
+	case filterTargetsWithDefinedControllerNonTriggeredCardController:
 		nonTriggeredController = true
 		player, ok = effects.TriggeredCardController(e.G, sc.TriggerContext, sc.Remembered)
-	case filterTargetsWithDefinedControllerdc27TriggeredTarget:
+	case filterTargetsWithDefinedControllerTriggeredTarget:
 		if sc.TriggerTarget.IsPlayer {
 			player, ok = sc.TriggerTarget.Player, true
 		} else if o := e.G.Obj(sc.TriggerTarget.Obj); o != nil {
 			player, ok = o.Controller, true
 		}
-	case filterTargetsWithDefinedControllerdc27TriggeredDefendingPlayer:
+	case filterTargetsWithDefinedControllerTriggeredDefendingPlayer:
 		if sc.DefendingPlayer.IsPlayer {
 			player, ok = sc.DefendingPlayer.Player, true
 		}
-	case filterTargetsWithDefinedControllerdc27TriggeredPlayer:
+	case filterTargetsWithDefinedControllerTriggeredPlayer:
 		if sc.TriggerPlayer.IsPlayer {
 			player, ok = sc.TriggerPlayer.Player, true
 		}
-	case filterTargetsWithDefinedControllerdc27TriggeredAttackingPlayer:
+	case filterTargetsWithDefinedControllerTriggeredAttackingPlayer:
 		failClosed = true
 		if sc.AttackingPlayer.IsPlayer {
 			player, ok = sc.AttackingPlayer.Player, true
 		}
-	case filterTargetsWithDefinedControllerdc27TriggeredAttackedTarget:
+	case filterTargetsWithDefinedControllerTriggeredAttackedTarget:
 		failClosed = true
 		if sc.AttackedTarget.IsPlayer {
 			player, ok = sc.AttackedTarget.Player, true
 		}
-	case filterTargetsWithDefinedControllerdc27TriggeredCardController:
+	case filterTargetsWithDefinedControllerTriggeredCardController:
 		player, ok = effects.TriggeredCardController(e.G, sc.TriggerContext, nil)
 	}
 	if !ok {
@@ -1261,105 +1261,99 @@ func nonTriggeredControllerAdmits(o *state.Object, controller state.PlayerID, ok
 // Repeated mode instances deliberately return nil: their later occurrences
 // retain the established per-instance ask path.
 
-const (
-	targetCountMatchesdc21EQ uint16 = 1 // "EQ"
-	targetCountMatchesdc21NE uint16 = 2 // "NE"
-	targetCountMatchesdc21GE uint16 = 3 // "GE"
-	targetCountMatchesdc21GT uint16 = 4 // "GT"
-	targetCountMatchesdc21LE uint16 = 5 // "LE"
-	targetCountMatchesdc21LT uint16 = 6 // "LT"
-)
-
-var targetCountMatchesdc21Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "EQ", Val: targetCountMatchesdc21EQ},
-	state.StrEntry[uint16]{Key: "NE", Val: targetCountMatchesdc21NE},
-	state.StrEntry[uint16]{Key: "GE", Val: targetCountMatchesdc21GE},
-	state.StrEntry[uint16]{Key: "GT", Val: targetCountMatchesdc21GT},
-	state.StrEntry[uint16]{Key: "LE", Val: targetCountMatchesdc21LE},
-	state.StrEntry[uint16]{Key: "LT", Val: targetCountMatchesdc21LT},
-)
+type describeTargetEffectCode uint16
 
 const (
-	describeTargetEffectdc22DealDamage uint16 = 1 // "DealDamage", "DamageAll"
+	describeTargetEffectDealDamage describeTargetEffectCode = iota + 1
 )
 
-var describeTargetEffectdc22Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "DealDamage", Val: describeTargetEffectdc22DealDamage},
-	state.StrEntry[uint16]{Key: "DamageAll", Val: describeTargetEffectdc22DealDamage},
+var describeTargetEffectCodes = state.NewStrCodes(
+	state.StrEntry[describeTargetEffectCode]{Key: "DealDamage", Val: describeTargetEffectDealDamage},
+	state.StrEntry[describeTargetEffectCode]{Key: "DamageAll", Val: describeTargetEffectDealDamage},
 )
 
-const (
-	targetRemovaldc23Destroy       uint16 = 1 // "Destroy", "DestroyAll"
-	targetRemovaldc23Sacrifice     uint16 = 2 // "Sacrifice", "SacrificeAll"
-	targetRemovaldc23ChangeZone    uint16 = 3 // "ChangeZone"
-	targetRemovaldc23ChangeZoneAll uint16 = 4 // "ChangeZoneAll"
-)
-
-var targetRemovaldc23Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Destroy", Val: targetRemovaldc23Destroy},
-	state.StrEntry[uint16]{Key: "DestroyAll", Val: targetRemovaldc23Destroy},
-	state.StrEntry[uint16]{Key: "Sacrifice", Val: targetRemovaldc23Sacrifice},
-	state.StrEntry[uint16]{Key: "SacrificeAll", Val: targetRemovaldc23Sacrifice},
-	state.StrEntry[uint16]{Key: "ChangeZone", Val: targetRemovaldc23ChangeZone},
-	state.StrEntry[uint16]{Key: "ChangeZoneAll", Val: targetRemovaldc23ChangeZoneAll},
-)
+type targetRemovalAPICode uint16
 
 const (
-	targetRemovaldc24Exile     uint16 = 1 // "exile"
-	targetRemovaldc24Hand      uint16 = 2 // "hand"
-	targetRemovaldc24Graveyard uint16 = 3 // "graveyard"
-	targetRemovaldc24Library   uint16 = 4 // "library"
-	targetRemovaldc24Command   uint16 = 5 // "command"
+	targetRemovalAPIDestroy targetRemovalAPICode = iota + 1
+	targetRemovalAPISacrifice
+	targetRemovalAPIChangeZone
+	targetRemovalAPIChangeZoneAll
 )
 
-var targetRemovaldc24Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "exile", Val: targetRemovaldc24Exile},
-	state.StrEntry[uint16]{Key: "hand", Val: targetRemovaldc24Hand},
-	state.StrEntry[uint16]{Key: "graveyard", Val: targetRemovaldc24Graveyard},
-	state.StrEntry[uint16]{Key: "library", Val: targetRemovaldc24Library},
-	state.StrEntry[uint16]{Key: "command", Val: targetRemovaldc24Command},
+var targetRemovalAPICodes = state.NewStrCodes(
+	state.StrEntry[targetRemovalAPICode]{Key: "Destroy", Val: targetRemovalAPIDestroy},
+	state.StrEntry[targetRemovalAPICode]{Key: "DestroyAll", Val: targetRemovalAPIDestroy},
+	state.StrEntry[targetRemovalAPICode]{Key: "Sacrifice", Val: targetRemovalAPISacrifice},
+	state.StrEntry[targetRemovalAPICode]{Key: "SacrificeAll", Val: targetRemovalAPISacrifice},
+	state.StrEntry[targetRemovalAPICode]{Key: "ChangeZone", Val: targetRemovalAPIChangeZone},
+	state.StrEntry[targetRemovalAPICode]{Key: "ChangeZoneAll", Val: targetRemovalAPIChangeZoneAll},
 )
 
-const (
-	triggerRolePlayerAltdc25TriggeredActivator      uint16 = 1 // "TriggeredActivator"
-	triggerRolePlayerAltdc25TriggeredCardController uint16 = 2 // "TriggeredCardController"
-)
-
-var triggerRolePlayerAltdc25Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "TriggeredActivator", Val: triggerRolePlayerAltdc25TriggeredActivator},
-	state.StrEntry[uint16]{Key: "TriggeredCardController", Val: triggerRolePlayerAltdc25TriggeredCardController},
-)
+type targetRemovalDestCode uint16
 
 const (
-	triggerRolePlayerAltdc26Player   uint16 = 1 // "Player", "Any"
-	triggerRolePlayerAltdc26You      uint16 = 2 // "You"
-	triggerRolePlayerAltdc26Opponent uint16 = 3 // "Opponent", "Other"
+	targetRemovalDestExile targetRemovalDestCode = iota + 1
+	targetRemovalDestHand
+	targetRemovalDestGraveyard
+	targetRemovalDestLibrary
+	targetRemovalDestCommand
 )
 
-var triggerRolePlayerAltdc26Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Player", Val: triggerRolePlayerAltdc26Player},
-	state.StrEntry[uint16]{Key: "Any", Val: triggerRolePlayerAltdc26Player},
-	state.StrEntry[uint16]{Key: "You", Val: triggerRolePlayerAltdc26You},
-	state.StrEntry[uint16]{Key: "Opponent", Val: triggerRolePlayerAltdc26Opponent},
-	state.StrEntry[uint16]{Key: "Other", Val: triggerRolePlayerAltdc26Opponent},
+var targetRemovalDestCodes = state.NewStrCodes(
+	state.StrEntry[targetRemovalDestCode]{Key: "exile", Val: targetRemovalDestExile},
+	state.StrEntry[targetRemovalDestCode]{Key: "hand", Val: targetRemovalDestHand},
+	state.StrEntry[targetRemovalDestCode]{Key: "graveyard", Val: targetRemovalDestGraveyard},
+	state.StrEntry[targetRemovalDestCode]{Key: "library", Val: targetRemovalDestLibrary},
+	state.StrEntry[targetRemovalDestCode]{Key: "command", Val: targetRemovalDestCommand},
 )
+
+type triggerRoleQualifierCode uint16
 
 const (
-	filterTargetsWithDefinedControllerdc27NonTriggeredCardController uint16 = 1 // "NonTriggeredCardController"
-	filterTargetsWithDefinedControllerdc27TriggeredTarget            uint16 = 2 // "TriggeredTarget"
-	filterTargetsWithDefinedControllerdc27TriggeredDefendingPlayer   uint16 = 3 // "TriggeredDefendingPlayer"
-	filterTargetsWithDefinedControllerdc27TriggeredPlayer            uint16 = 4 // "TriggeredPlayer"
-	filterTargetsWithDefinedControllerdc27TriggeredAttackingPlayer   uint16 = 5 // "TriggeredAttackingPlayer"
-	filterTargetsWithDefinedControllerdc27TriggeredAttackedTarget    uint16 = 6 // "TriggeredAttackedTarget"
-	filterTargetsWithDefinedControllerdc27TriggeredCardController    uint16 = 7 // "TriggeredCardController"
+	triggerRoleQualifierTriggeredActivator triggerRoleQualifierCode = iota + 1
+	triggerRoleQualifierTriggeredCardController
 )
 
-var filterTargetsWithDefinedControllerdc27Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "NonTriggeredCardController", Val: filterTargetsWithDefinedControllerdc27NonTriggeredCardController},
-	state.StrEntry[uint16]{Key: "TriggeredTarget", Val: filterTargetsWithDefinedControllerdc27TriggeredTarget},
-	state.StrEntry[uint16]{Key: "TriggeredDefendingPlayer", Val: filterTargetsWithDefinedControllerdc27TriggeredDefendingPlayer},
-	state.StrEntry[uint16]{Key: "TriggeredPlayer", Val: filterTargetsWithDefinedControllerdc27TriggeredPlayer},
-	state.StrEntry[uint16]{Key: "TriggeredAttackingPlayer", Val: filterTargetsWithDefinedControllerdc27TriggeredAttackingPlayer},
-	state.StrEntry[uint16]{Key: "TriggeredAttackedTarget", Val: filterTargetsWithDefinedControllerdc27TriggeredAttackedTarget},
-	state.StrEntry[uint16]{Key: "TriggeredCardController", Val: filterTargetsWithDefinedControllerdc27TriggeredCardController},
+var triggerRoleQualifierCodes = state.NewStrCodes(
+	state.StrEntry[triggerRoleQualifierCode]{Key: "TriggeredActivator", Val: triggerRoleQualifierTriggeredActivator},
+	state.StrEntry[triggerRoleQualifierCode]{Key: "TriggeredCardController", Val: triggerRoleQualifierTriggeredCardController},
+)
+
+type triggerRoleBaseCode uint16
+
+const (
+	triggerRoleBasePlayer triggerRoleBaseCode = iota + 1
+	triggerRoleBaseYou
+	triggerRoleBaseOpponent
+)
+
+var triggerRoleBaseCodes = state.NewStrCodes(
+	state.StrEntry[triggerRoleBaseCode]{Key: "Player", Val: triggerRoleBasePlayer},
+	state.StrEntry[triggerRoleBaseCode]{Key: "Any", Val: triggerRoleBasePlayer},
+	state.StrEntry[triggerRoleBaseCode]{Key: "You", Val: triggerRoleBaseYou},
+	state.StrEntry[triggerRoleBaseCode]{Key: "Opponent", Val: triggerRoleBaseOpponent},
+	state.StrEntry[triggerRoleBaseCode]{Key: "Other", Val: triggerRoleBaseOpponent},
+)
+
+type filterTargetsWithDefinedControllerCode uint16
+
+const (
+	filterTargetsWithDefinedControllerNonTriggeredCardController filterTargetsWithDefinedControllerCode = iota + 1
+	filterTargetsWithDefinedControllerTriggeredTarget
+	filterTargetsWithDefinedControllerTriggeredDefendingPlayer
+	filterTargetsWithDefinedControllerTriggeredPlayer
+	filterTargetsWithDefinedControllerTriggeredAttackingPlayer
+	filterTargetsWithDefinedControllerTriggeredAttackedTarget
+	filterTargetsWithDefinedControllerTriggeredCardController
+)
+
+var filterTargetsWithDefinedControllerCodes = state.NewStrCodes(
+	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "NonTriggeredCardController", Val: filterTargetsWithDefinedControllerNonTriggeredCardController},
+	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "TriggeredTarget", Val: filterTargetsWithDefinedControllerTriggeredTarget},
+	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "TriggeredDefendingPlayer", Val: filterTargetsWithDefinedControllerTriggeredDefendingPlayer},
+	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "TriggeredPlayer", Val: filterTargetsWithDefinedControllerTriggeredPlayer},
+	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "TriggeredAttackingPlayer", Val: filterTargetsWithDefinedControllerTriggeredAttackingPlayer},
+	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "TriggeredAttackedTarget", Val: filterTargetsWithDefinedControllerTriggeredAttackedTarget},
+	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "TriggeredCardController", Val: filterTargetsWithDefinedControllerTriggeredCardController},
 )

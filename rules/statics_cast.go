@@ -218,12 +218,12 @@ func (e *Engine) restrictionGateHolds(sv staticView, target state.ObjID) bool {
 			return false
 		}
 	}
-	switch restrictionGateHolds7c61Codes.Code(string(strings.TrimSpace(sv.ParamStr(cards.PKCondition)))) {
-	case restrictionGateHolds7c61Empty:
+	switch restrictionGateHoldsCodes.Code(string(strings.TrimSpace(sv.ParamStr(cards.PKCondition)))) {
+	case restrictionGateHoldsEmpty:
 		return true
-	case restrictionGateHolds7c61PlayerTurn:
+	case restrictionGateHoldsPlayerTurn:
 		return e.G.Active == sv.Controller
-	case restrictionGateHolds7c61NotPlayerTurn:
+	case restrictionGateHoldsNotPlayerTurn:
 		return e.G.Active != sv.Controller
 	}
 	return false
@@ -547,12 +547,12 @@ func (e *Engine) staticTimingGate(sv staticView) bool {
 	if !e.checkSVarHolds(sv) {
 		return false
 	}
-	switch staticTimingGate7c62Codes.Code(string(strings.TrimSpace(sv.ParamStr(cards.PKCondition)))) {
-	case staticTimingGate7c62Empty:
+	switch staticTimingGateCodes.Code(string(strings.TrimSpace(sv.ParamStr(cards.PKCondition)))) {
+	case staticTimingGateEmpty:
 		if sv.ParamStr(cards.PKCondition) == "PlayerTurn" && e.G.Active != sv.Controller {
 			return false
 		}
-	case staticTimingGate7c62Ferocious:
+	case staticTimingGateFerocious:
 		found := false
 		for _, id := range e.G.Zone(state.ZBattlefield, sv.Controller) {
 			if o := e.G.Obj(id); o != nil && o.Face() != nil && o.EffectiveIsCreature() && !o.BestowedAttached() && !o.ReconfiguredAttached() && e.Derived(id).Power >= 4 {
@@ -610,23 +610,23 @@ func (e *Engine) countStaticPresent(sv staticView, spec string) int {
 // presence gate (rules/trigger_delayed.go) now shares, so a new PresentZone$
 // spelling cannot mean two different things at the two count sites.
 func presentZoneFromParam(zone string) (state.Zone, bool) {
-	switch presentZoneFromParam7c63Codes.Code(string(strings.TrimSpace(zone))) {
-	case presentZoneFromParam7c63Empty:
+	switch presentZoneFromParamCodes.Code(string(strings.TrimSpace(zone))) {
+	case presentZoneFromParamEmpty:
 		return state.ZBattlefield, true
-	case presentZoneFromParam7c63Graveyard:
+	case presentZoneFromParamGraveyard:
 		return state.ZGraveyard, true
-	case presentZoneFromParam7c63Exile:
+	case presentZoneFromParamExile:
 		// IsPresent$ over exile (Ketramose, the New Dawn's
 		// `IsPresent$ Card | PresentZone$ Exile | PresentCompare$ LT7`
 		// CantAttack,CantBlock static). forEachObject walks every zone of
 		// every seat, exile included, so the same scan covers it.
 		return state.ZExile, true
-	case presentZoneFromParam7c63Hand:
+	case presentZoneFromParamHand:
 		// IsPresent$ over a hand (Kefnet the Mindful's
 		// `IsPresent$ Card.YouOwn | PresentZone$ Hand | PresentCompare$ LE6`
 		// CantAttack,CantBlock static). forEachObject walks hands too.
 		return state.ZHand, true
-	case presentZoneFromParam7c63Stack:
+	case presentZoneFromParamStack:
 		// IsPresent$ over the stack (Molten Disaster's kicked-gated AddKeyword$
 		// Split second static: IsPresent$ Card.Self+kicked | PresentZone$ Stack
 		// on its own stack object). forEachObject walks the stack zone, so the
@@ -662,8 +662,8 @@ func (e *Engine) spellMatchesValidSA(f *cards.Face, raw string, id, staticSource
 	}
 	for alt := range strings.SplitSeq(raw, ",") {
 		kind, constraint, _ := strings.Cut(strings.TrimSpace(alt), ".")
-		switch spellMatchesValidSA7c64Codes.Code(string(kind)) {
-		case spellMatchesValidSA7c64Spell:
+		switch spellMatchesValidSACodes.Code(string(kind)) {
+		case spellMatchesValidSASpell:
 			if constraint == "" {
 				return true
 			}
@@ -678,11 +678,11 @@ func (e *Engine) spellMatchesValidSA(f *cards.Face, raw string, id, staticSource
 					return true
 				}
 			}
-		case spellMatchesValidSA7c64Instant:
+		case spellMatchesValidSAInstant:
 			if constraint == "" && f.IsInstant() {
 				return true
 			}
-		case spellMatchesValidSA7c64Sorcery:
+		case spellMatchesValidSASorcery:
 			if constraint == "" && f.IsSorcery() {
 				return true
 			}
@@ -709,54 +709,62 @@ func (e *Engine) spellTimingOK(p state.PlayerID, id state.ObjID, f *cards.Face, 
 	return sorcery || (f.IsInstant() || e.hasKeywordH(id, kwhFlash) || mayFlashSacFace(f) || e.castWithFlash(p, id))
 }
 
-const (
-	restrictionGateHolds7c61Empty         uint16 = 1 // ""
-	restrictionGateHolds7c61PlayerTurn    uint16 = 2 // "PlayerTurn"
-	restrictionGateHolds7c61NotPlayerTurn uint16 = 3 // "NotPlayerTurn"
-)
-
-var restrictionGateHolds7c61Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: restrictionGateHolds7c61Empty},
-	state.StrEntry[uint16]{Key: "PlayerTurn", Val: restrictionGateHolds7c61PlayerTurn},
-	state.StrEntry[uint16]{Key: "NotPlayerTurn", Val: restrictionGateHolds7c61NotPlayerTurn},
-)
+type restrictionGateHoldsCode uint16
 
 const (
-	staticTimingGate7c62Empty     uint16 = 1 // "", "PlayerTurn"
-	staticTimingGate7c62Ferocious uint16 = 2 // "Ferocious"
+	restrictionGateHoldsEmpty restrictionGateHoldsCode = iota + 1
+	restrictionGateHoldsPlayerTurn
+	restrictionGateHoldsNotPlayerTurn
 )
 
-var staticTimingGate7c62Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: staticTimingGate7c62Empty},
-	state.StrEntry[uint16]{Key: "PlayerTurn", Val: staticTimingGate7c62Empty},
-	state.StrEntry[uint16]{Key: "Ferocious", Val: staticTimingGate7c62Ferocious},
+var restrictionGateHoldsCodes = state.NewStrCodes(
+	state.StrEntry[restrictionGateHoldsCode]{Key: "", Val: restrictionGateHoldsEmpty},
+	state.StrEntry[restrictionGateHoldsCode]{Key: "PlayerTurn", Val: restrictionGateHoldsPlayerTurn},
+	state.StrEntry[restrictionGateHoldsCode]{Key: "NotPlayerTurn", Val: restrictionGateHoldsNotPlayerTurn},
 )
 
-const (
-	presentZoneFromParam7c63Empty     uint16 = 1 // "", "Battlefield"
-	presentZoneFromParam7c63Graveyard uint16 = 2 // "Graveyard"
-	presentZoneFromParam7c63Exile     uint16 = 3 // "Exile"
-	presentZoneFromParam7c63Hand      uint16 = 4 // "Hand"
-	presentZoneFromParam7c63Stack     uint16 = 5 // "Stack"
-)
-
-var presentZoneFromParam7c63Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: presentZoneFromParam7c63Empty},
-	state.StrEntry[uint16]{Key: "Battlefield", Val: presentZoneFromParam7c63Empty},
-	state.StrEntry[uint16]{Key: "Graveyard", Val: presentZoneFromParam7c63Graveyard},
-	state.StrEntry[uint16]{Key: "Exile", Val: presentZoneFromParam7c63Exile},
-	state.StrEntry[uint16]{Key: "Hand", Val: presentZoneFromParam7c63Hand},
-	state.StrEntry[uint16]{Key: "Stack", Val: presentZoneFromParam7c63Stack},
-)
+type staticTimingGateCode uint16
 
 const (
-	spellMatchesValidSA7c64Spell   uint16 = 1 // "Spell"
-	spellMatchesValidSA7c64Instant uint16 = 2 // "Instant"
-	spellMatchesValidSA7c64Sorcery uint16 = 3 // "Sorcery"
+	staticTimingGateEmpty staticTimingGateCode = iota + 1
+	staticTimingGateFerocious
 )
 
-var spellMatchesValidSA7c64Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Spell", Val: spellMatchesValidSA7c64Spell},
-	state.StrEntry[uint16]{Key: "Instant", Val: spellMatchesValidSA7c64Instant},
-	state.StrEntry[uint16]{Key: "Sorcery", Val: spellMatchesValidSA7c64Sorcery},
+var staticTimingGateCodes = state.NewStrCodes(
+	state.StrEntry[staticTimingGateCode]{Key: "", Val: staticTimingGateEmpty},
+	state.StrEntry[staticTimingGateCode]{Key: "PlayerTurn", Val: staticTimingGateEmpty},
+	state.StrEntry[staticTimingGateCode]{Key: "Ferocious", Val: staticTimingGateFerocious},
+)
+
+type presentZoneFromParamCode uint16
+
+const (
+	presentZoneFromParamEmpty presentZoneFromParamCode = iota + 1
+	presentZoneFromParamGraveyard
+	presentZoneFromParamExile
+	presentZoneFromParamHand
+	presentZoneFromParamStack
+)
+
+var presentZoneFromParamCodes = state.NewStrCodes(
+	state.StrEntry[presentZoneFromParamCode]{Key: "", Val: presentZoneFromParamEmpty},
+	state.StrEntry[presentZoneFromParamCode]{Key: "Battlefield", Val: presentZoneFromParamEmpty},
+	state.StrEntry[presentZoneFromParamCode]{Key: "Graveyard", Val: presentZoneFromParamGraveyard},
+	state.StrEntry[presentZoneFromParamCode]{Key: "Exile", Val: presentZoneFromParamExile},
+	state.StrEntry[presentZoneFromParamCode]{Key: "Hand", Val: presentZoneFromParamHand},
+	state.StrEntry[presentZoneFromParamCode]{Key: "Stack", Val: presentZoneFromParamStack},
+)
+
+type spellMatchesValidSACode uint16
+
+const (
+	spellMatchesValidSASpell spellMatchesValidSACode = iota + 1
+	spellMatchesValidSAInstant
+	spellMatchesValidSASorcery
+)
+
+var spellMatchesValidSACodes = state.NewStrCodes(
+	state.StrEntry[spellMatchesValidSACode]{Key: "Spell", Val: spellMatchesValidSASpell},
+	state.StrEntry[spellMatchesValidSACode]{Key: "Instant", Val: spellMatchesValidSAInstant},
+	state.StrEntry[spellMatchesValidSACode]{Key: "Sorcery", Val: spellMatchesValidSASorcery},
 )

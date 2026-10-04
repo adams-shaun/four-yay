@@ -832,16 +832,16 @@ func (e *Engine) unlessPaymentCandidates(u *unlessPayment, zone state.Zone, kind
 }
 
 func (e *Engine) recordUnlessPaymentPick(u *unlessPayment, kind string, ids []state.ObjID) {
-	switch recordUnlessPaymentPick4921Codes.Code(string(kind)) {
-	case recordUnlessPaymentPick4921Sacrifice:
+	switch recordUnlessPaymentPickCodes.Code(string(kind)) {
+	case recordUnlessPaymentPickSacrifice:
 		u.sacs = append(u.sacs, ids...)
-	case recordUnlessPaymentPick4921Revealcost:
+	case recordUnlessPaymentPickRevealcost:
 		u.reveals = append(u.reveals, ids...)
-	case recordUnlessPaymentPick4921Beholdcost:
+	case recordUnlessPaymentPickBeholdcost:
 		u.beholds = append(u.beholds, ids...)
-	case recordUnlessPaymentPick4921Returncost:
+	case recordUnlessPaymentPickReturncost:
 		u.returns = append(u.returns, ids...)
-	case recordUnlessPaymentPick4921Exilecost:
+	case recordUnlessPaymentPickExilecost:
 		u.exiles = append(u.exiles, ids...)
 	default:
 		u.discards = append(u.discards, ids...)
@@ -960,18 +960,20 @@ func (e *Engine) finishUnlessPayment(paid bool) {
 	e.finishManaUnlessPayment(paid)
 }
 
+type recordUnlessPaymentPickCode uint16
+
 const (
-	recordUnlessPaymentPick4921Sacrifice  uint16 = 1 // "sacrifice"
-	recordUnlessPaymentPick4921Revealcost uint16 = 2 // "revealcost"
-	recordUnlessPaymentPick4921Beholdcost uint16 = 3 // "beholdcost"
-	recordUnlessPaymentPick4921Returncost uint16 = 4 // "returncost"
-	recordUnlessPaymentPick4921Exilecost  uint16 = 5 // "exilecost"
+	recordUnlessPaymentPickSacrifice recordUnlessPaymentPickCode = iota + 1
+	recordUnlessPaymentPickRevealcost
+	recordUnlessPaymentPickBeholdcost
+	recordUnlessPaymentPickReturncost
+	recordUnlessPaymentPickExilecost
 )
 
-var recordUnlessPaymentPick4921Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "sacrifice", Val: recordUnlessPaymentPick4921Sacrifice},
-	state.StrEntry[uint16]{Key: "revealcost", Val: recordUnlessPaymentPick4921Revealcost},
-	state.StrEntry[uint16]{Key: "beholdcost", Val: recordUnlessPaymentPick4921Beholdcost},
-	state.StrEntry[uint16]{Key: "returncost", Val: recordUnlessPaymentPick4921Returncost},
-	state.StrEntry[uint16]{Key: "exilecost", Val: recordUnlessPaymentPick4921Exilecost},
+var recordUnlessPaymentPickCodes = state.NewStrCodes(
+	state.StrEntry[recordUnlessPaymentPickCode]{Key: "sacrifice", Val: recordUnlessPaymentPickSacrifice},
+	state.StrEntry[recordUnlessPaymentPickCode]{Key: "revealcost", Val: recordUnlessPaymentPickRevealcost},
+	state.StrEntry[recordUnlessPaymentPickCode]{Key: "beholdcost", Val: recordUnlessPaymentPickBeholdcost},
+	state.StrEntry[recordUnlessPaymentPickCode]{Key: "returncost", Val: recordUnlessPaymentPickReturncost},
+	state.StrEntry[recordUnlessPaymentPickCode]{Key: "exilecost", Val: recordUnlessPaymentPickExilecost},
 )

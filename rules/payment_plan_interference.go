@@ -212,7 +212,7 @@ func paymentPlanNoUntapShape(r cards.Repl) bool {
 		return false
 	}
 	for _, k := range slices.Sorted(maps.Keys(r.Params)) {
-		if !paymentPlanNoUntapShapeKeys1.Has(k) {
+		if !paymentPlanNoUntapShapeKeys.Has(k) {
 			return false
 		}
 	}
@@ -231,8 +231,8 @@ func paymentPlanSelfDamageTrigger(f *cards.Face, t cards.Trigger) (uint32, bool)
 		return 0, false
 	}
 	for _, k := range slices.Sorted(maps.Keys(t.Params)) {
-		switch paymentPlanSelfDamageTrigger2821Codes.Code(string(k)) {
-		case paymentPlanSelfDamageTrigger2821Mode:
+		switch paymentPlanSelfDamageTriggerCodes.Code(string(k)) {
+		case paymentPlanSelfDamageTriggerMode:
 		default:
 			return 0, false
 		}
@@ -637,16 +637,18 @@ func paymentPlanSpellTargets(f *cards.Face) bool {
 	return walk(f.SpellAbility(), 0)
 }
 
-var paymentPlanNoUntapShapeKeys1 = state.NewNameSet("Event", "ValidCard", "Layer", "ValidStepTurnToController", "ActiveZones", "Description")
+var paymentPlanNoUntapShapeKeys = state.NewNameSet("Event", "ValidCard", "Layer", "ValidStepTurnToController", "ActiveZones", "Description")
+
+type paymentPlanSelfDamageTriggerCode uint16
 
 const (
-	paymentPlanSelfDamageTrigger2821Mode uint16 = 1 // "Mode", "ValidCard", "Execute", "TriggerZones", "TriggerDescription"
+	paymentPlanSelfDamageTriggerMode paymentPlanSelfDamageTriggerCode = iota + 1
 )
 
-var paymentPlanSelfDamageTrigger2821Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Mode", Val: paymentPlanSelfDamageTrigger2821Mode},
-	state.StrEntry[uint16]{Key: "ValidCard", Val: paymentPlanSelfDamageTrigger2821Mode},
-	state.StrEntry[uint16]{Key: "Execute", Val: paymentPlanSelfDamageTrigger2821Mode},
-	state.StrEntry[uint16]{Key: "TriggerZones", Val: paymentPlanSelfDamageTrigger2821Mode},
-	state.StrEntry[uint16]{Key: "TriggerDescription", Val: paymentPlanSelfDamageTrigger2821Mode},
+var paymentPlanSelfDamageTriggerCodes = state.NewStrCodes(
+	state.StrEntry[paymentPlanSelfDamageTriggerCode]{Key: "Mode", Val: paymentPlanSelfDamageTriggerMode},
+	state.StrEntry[paymentPlanSelfDamageTriggerCode]{Key: "ValidCard", Val: paymentPlanSelfDamageTriggerMode},
+	state.StrEntry[paymentPlanSelfDamageTriggerCode]{Key: "Execute", Val: paymentPlanSelfDamageTriggerMode},
+	state.StrEntry[paymentPlanSelfDamageTriggerCode]{Key: "TriggerZones", Val: paymentPlanSelfDamageTriggerMode},
+	state.StrEntry[paymentPlanSelfDamageTriggerCode]{Key: "TriggerDescription", Val: paymentPlanSelfDamageTriggerMode},
 )

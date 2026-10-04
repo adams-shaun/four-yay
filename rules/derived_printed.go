@@ -231,16 +231,16 @@ func gateSpecParse(spec string) gateSpec {
 	var g gateSpec
 	any := false
 	for p := range strings.SplitSeq(preds, "+") {
-		switch gateSpecParse71d1Codes.Code(string(p)) {
-		case gateSpecParse71d1Self:
+		switch gateSpecParseCodes.Code(string(p)) {
+		case gateSpecParseSelf:
 			g.self, any = true, true
-		case gateSpecParse71d1Other:
+		case gateSpecParseOther:
 			g.other, any = true, true
-		case gateSpecParse71d1YouCtrl:
+		case gateSpecParseYouCtrl:
 			g.you, any = true, true
-		case gateSpecParse71d1OppCtrl:
+		case gateSpecParseOppCtrl:
 			g.opp, any = true, true
-		case gateSpecParse71d1EquippedBy:
+		case gateSpecParseEquippedBy:
 			g.attached, any = true, true
 		default:
 			rest, ok := strings.CutPrefix(p, "counters_GE")
@@ -430,19 +430,21 @@ func (e *Engine) verifyPrintedChars(id state.ObjID, power, toughness int32, got 
 	}
 }
 
+type gateSpecParseCode uint16
+
 const (
-	gateSpecParse71d1Self       uint16 = 1 // "Self"
-	gateSpecParse71d1Other      uint16 = 2 // "Other"
-	gateSpecParse71d1YouCtrl    uint16 = 3 // "YouCtrl"
-	gateSpecParse71d1OppCtrl    uint16 = 4 // "OppCtrl"
-	gateSpecParse71d1EquippedBy uint16 = 5 // "EquippedBy", "EnchantedBy"
+	gateSpecParseSelf gateSpecParseCode = iota + 1
+	gateSpecParseOther
+	gateSpecParseYouCtrl
+	gateSpecParseOppCtrl
+	gateSpecParseEquippedBy
 )
 
-var gateSpecParse71d1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Self", Val: gateSpecParse71d1Self},
-	state.StrEntry[uint16]{Key: "Other", Val: gateSpecParse71d1Other},
-	state.StrEntry[uint16]{Key: "YouCtrl", Val: gateSpecParse71d1YouCtrl},
-	state.StrEntry[uint16]{Key: "OppCtrl", Val: gateSpecParse71d1OppCtrl},
-	state.StrEntry[uint16]{Key: "EquippedBy", Val: gateSpecParse71d1EquippedBy},
-	state.StrEntry[uint16]{Key: "EnchantedBy", Val: gateSpecParse71d1EquippedBy},
+var gateSpecParseCodes = state.NewStrCodes(
+	state.StrEntry[gateSpecParseCode]{Key: "Self", Val: gateSpecParseSelf},
+	state.StrEntry[gateSpecParseCode]{Key: "Other", Val: gateSpecParseOther},
+	state.StrEntry[gateSpecParseCode]{Key: "YouCtrl", Val: gateSpecParseYouCtrl},
+	state.StrEntry[gateSpecParseCode]{Key: "OppCtrl", Val: gateSpecParseOppCtrl},
+	state.StrEntry[gateSpecParseCode]{Key: "EquippedBy", Val: gateSpecParseEquippedBy},
+	state.StrEntry[gateSpecParseCode]{Key: "EnchantedBy", Val: gateSpecParseEquippedBy},
 )

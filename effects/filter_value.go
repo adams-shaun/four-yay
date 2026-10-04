@@ -137,12 +137,12 @@ func objectManaValue(o *state.Object) int {
 // shape Forge produces (greatestCMC_ always carries a suffix), so it fails
 // closed to no set rather than widening to "every battlefield card".
 func cmcSetMember(o *state.Object, prop string) bool {
-	switch cmcSetMember41a1Codes.Code(string(prop)) {
-	case cmcSetMember41a1Empty:
+	switch cmcSetMemberCodes.Code(string(prop)) {
+	case cmcSetMemberEmpty:
 		return false
-	case cmcSetMember41a1NonLandPermanent:
+	case cmcSetMemberNonLandPermanent:
 		return !hasType(o, "Land")
-	case cmcSetMember41a1Permanent:
+	case cmcSetMemberPermanent:
 		return true
 	}
 	return hasType(o, prop)
@@ -191,16 +191,16 @@ func numericPred(name string, g *state.Game, o *state.Object, sc SpecContext) (r
 		}
 		have := o.Counter(kind)
 		target := int32(n)
-		switch numericPred41a2Codes.Code(string(cmp)) {
-		case numericPred41a2LE:
+		switch CmpOpOf(cmp) {
+		case CmpLE:
 			return have <= target, true
-		case numericPred41a2GE:
+		case CmpGE:
 			return have >= target, true
-		case numericPred41a2EQ:
+		case CmpEQ:
 			return have == target, true
-		case numericPred41a2LT:
+		case CmpLT:
 			return have < target, true
-		case numericPred41a2GT:
+		case CmpGT:
 			return have > target, true
 		}
 		return false, false
@@ -245,14 +245,14 @@ func numericPred(name string, g *state.Game, o *state.Object, sc SpecContext) (r
 	// capitalised RHS spellings (`Power`/`Toughness`/`BasePower`/
 	// `BaseToughness`) are Forge's alias for the same operand.
 	fieldValue := func(operand string) (int, bool) {
-		switch numericPred41a3Codes.Code(string(operand)) {
-		case numericPred41a3Power:
+		switch numericOperandCodes.Code(string(operand)) {
+		case numericOperandPower:
 			return currentPower(), true
-		case numericPred41a3Toughness:
+		case numericOperandToughness:
 			return currentToughness(), true
-		case numericPred41a3BasePower:
+		case numericOperandBasePower:
 			return basePowerValue(), true
-		case numericPred41a3BaseToughness:
+		case numericOperandBaseToughness:
 			return baseToughnessValue(), true
 		}
 		return 0, false
@@ -263,18 +263,18 @@ func numericPred(name string, g *state.Game, o *state.Object, sc SpecContext) (r
 	// reports ok=false so a caller can distinguish "not this shape" from a
 	// recognised-but-false comparison.
 	applyCmp := func(cmp string, lhs, rhs int) (result, ok bool) {
-		switch numericPred41a4Codes.Code(string(cmp)) {
-		case numericPred41a4LE:
+		switch numericCmpOrNotCodes.Code(string(cmp)) {
+		case numericCmpOrNotLE:
 			return lhs <= rhs, true
-		case numericPred41a4GE:
+		case numericCmpOrNotGE:
 			return lhs >= rhs, true
-		case numericPred41a4EQ:
+		case numericCmpOrNotEQ:
 			return lhs == rhs, true
-		case numericPred41a4LT:
+		case numericCmpOrNotLT:
 			return lhs < rhs, true
-		case numericPred41a4GT:
+		case numericCmpOrNotGT:
 			return lhs > rhs, true
-		case numericPred41a4NOT:
+		case numericCmpOrNotNOT:
 			return lhs != rhs, true
 		}
 		return false, false
@@ -321,16 +321,16 @@ func numericPred(name string, g *state.Game, o *state.Object, sc SpecContext) (r
 			return false, true
 		}
 		var have int
-		switch numericPred41a5Codes.Code(string(field)) {
-		case numericPred41a5Power:
+		switch numericFieldCodes.Code(string(field)) {
+		case numericFieldPower:
 			have = currentPower()
-		case numericPred41a5Toughness:
+		case numericFieldToughness:
 			have = currentToughness()
-		case numericPred41a5BasePower:
+		case numericFieldBasePower:
 			have = basePowerValue()
-		case numericPred41a5BaseToughness:
+		case numericFieldBaseToughness:
 			have = baseToughnessValue()
-		case numericPred41a5Cmc:
+		case numericFieldCmc:
 			// CR 202.3e: {X} counts as its chosen value in a spell's mana
 			// value. A caller that has the chosen X in hand (the CR 601.2e
 			// post-announcement cast-illegality recheck) passes it through
@@ -430,82 +430,74 @@ func isPermanentCard(o *state.Object) bool {
 
 // matchesBase handles the base type, including a "non" prefix.
 
-const (
-	cmcSetMember41a1Empty            uint16 = 1 // ""
-	cmcSetMember41a1NonLandPermanent uint16 = 2 // "NonLandPermanent"
-	cmcSetMember41a1Permanent        uint16 = 3 // "Permanent"
-)
-
-var cmcSetMember41a1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: cmcSetMember41a1Empty},
-	state.StrEntry[uint16]{Key: "NonLandPermanent", Val: cmcSetMember41a1NonLandPermanent},
-	state.StrEntry[uint16]{Key: "Permanent", Val: cmcSetMember41a1Permanent},
-)
+type cmcSetMemberCode uint16
 
 const (
-	numericPred41a2LE uint16 = 1 // "LE"
-	numericPred41a2GE uint16 = 2 // "GE"
-	numericPred41a2EQ uint16 = 3 // "EQ"
-	numericPred41a2LT uint16 = 4 // "LT"
-	numericPred41a2GT uint16 = 5 // "GT"
+	cmcSetMemberEmpty cmcSetMemberCode = iota + 1
+	cmcSetMemberNonLandPermanent
+	cmcSetMemberPermanent
 )
 
-var numericPred41a2Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "LE", Val: numericPred41a2LE},
-	state.StrEntry[uint16]{Key: "GE", Val: numericPred41a2GE},
-	state.StrEntry[uint16]{Key: "EQ", Val: numericPred41a2EQ},
-	state.StrEntry[uint16]{Key: "LT", Val: numericPred41a2LT},
-	state.StrEntry[uint16]{Key: "GT", Val: numericPred41a2GT},
+var cmcSetMemberCodes = state.NewStrCodes(
+	state.StrEntry[cmcSetMemberCode]{Key: "", Val: cmcSetMemberEmpty},
+	state.StrEntry[cmcSetMemberCode]{Key: "NonLandPermanent", Val: cmcSetMemberNonLandPermanent},
+	state.StrEntry[cmcSetMemberCode]{Key: "Permanent", Val: cmcSetMemberPermanent},
 )
+
+type numericOperandCode uint16
 
 const (
-	numericPred41a3Power         uint16 = 1 // "power", "Power"
-	numericPred41a3Toughness     uint16 = 2 // "toughness", "Toughness"
-	numericPred41a3BasePower     uint16 = 3 // "basePower", "BasePower"
-	numericPred41a3BaseToughness uint16 = 4 // "baseToughness", "BaseToughness"
+	numericOperandPower numericOperandCode = iota + 1
+	numericOperandToughness
+	numericOperandBasePower
+	numericOperandBaseToughness
 )
 
-var numericPred41a3Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "power", Val: numericPred41a3Power},
-	state.StrEntry[uint16]{Key: "Power", Val: numericPred41a3Power},
-	state.StrEntry[uint16]{Key: "toughness", Val: numericPred41a3Toughness},
-	state.StrEntry[uint16]{Key: "Toughness", Val: numericPred41a3Toughness},
-	state.StrEntry[uint16]{Key: "basePower", Val: numericPred41a3BasePower},
-	state.StrEntry[uint16]{Key: "BasePower", Val: numericPred41a3BasePower},
-	state.StrEntry[uint16]{Key: "baseToughness", Val: numericPred41a3BaseToughness},
-	state.StrEntry[uint16]{Key: "BaseToughness", Val: numericPred41a3BaseToughness},
+var numericOperandCodes = state.NewStrCodes(
+	state.StrEntry[numericOperandCode]{Key: "power", Val: numericOperandPower},
+	state.StrEntry[numericOperandCode]{Key: "Power", Val: numericOperandPower},
+	state.StrEntry[numericOperandCode]{Key: "toughness", Val: numericOperandToughness},
+	state.StrEntry[numericOperandCode]{Key: "Toughness", Val: numericOperandToughness},
+	state.StrEntry[numericOperandCode]{Key: "basePower", Val: numericOperandBasePower},
+	state.StrEntry[numericOperandCode]{Key: "BasePower", Val: numericOperandBasePower},
+	state.StrEntry[numericOperandCode]{Key: "baseToughness", Val: numericOperandBaseToughness},
+	state.StrEntry[numericOperandCode]{Key: "BaseToughness", Val: numericOperandBaseToughness},
 )
 
-const (
-	numericPred41a4LE  uint16 = 1 // "LE"
-	numericPred41a4GE  uint16 = 2 // "GE"
-	numericPred41a4EQ  uint16 = 3 // "EQ"
-	numericPred41a4LT  uint16 = 4 // "LT"
-	numericPred41a4GT  uint16 = 5 // "GT"
-	numericPred41a4NOT uint16 = 6 // "NOT"
-)
-
-var numericPred41a4Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "LE", Val: numericPred41a4LE},
-	state.StrEntry[uint16]{Key: "GE", Val: numericPred41a4GE},
-	state.StrEntry[uint16]{Key: "EQ", Val: numericPred41a4EQ},
-	state.StrEntry[uint16]{Key: "LT", Val: numericPred41a4LT},
-	state.StrEntry[uint16]{Key: "GT", Val: numericPred41a4GT},
-	state.StrEntry[uint16]{Key: "NOT", Val: numericPred41a4NOT},
-)
+type numericCmpOrNotCode uint16
 
 const (
-	numericPred41a5Power         uint16 = 1 // "power"
-	numericPred41a5Toughness     uint16 = 2 // "toughness"
-	numericPred41a5BasePower     uint16 = 3 // "basePower"
-	numericPred41a5BaseToughness uint16 = 4 // "baseToughness"
-	numericPred41a5Cmc           uint16 = 5 // "cmc"
+	numericCmpOrNotLE numericCmpOrNotCode = iota + 1
+	numericCmpOrNotGE
+	numericCmpOrNotEQ
+	numericCmpOrNotLT
+	numericCmpOrNotGT
+	numericCmpOrNotNOT
 )
 
-var numericPred41a5Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "power", Val: numericPred41a5Power},
-	state.StrEntry[uint16]{Key: "toughness", Val: numericPred41a5Toughness},
-	state.StrEntry[uint16]{Key: "basePower", Val: numericPred41a5BasePower},
-	state.StrEntry[uint16]{Key: "baseToughness", Val: numericPred41a5BaseToughness},
-	state.StrEntry[uint16]{Key: "cmc", Val: numericPred41a5Cmc},
+var numericCmpOrNotCodes = state.NewStrCodes(
+	state.StrEntry[numericCmpOrNotCode]{Key: "LE", Val: numericCmpOrNotLE},
+	state.StrEntry[numericCmpOrNotCode]{Key: "GE", Val: numericCmpOrNotGE},
+	state.StrEntry[numericCmpOrNotCode]{Key: "EQ", Val: numericCmpOrNotEQ},
+	state.StrEntry[numericCmpOrNotCode]{Key: "LT", Val: numericCmpOrNotLT},
+	state.StrEntry[numericCmpOrNotCode]{Key: "GT", Val: numericCmpOrNotGT},
+	state.StrEntry[numericCmpOrNotCode]{Key: "NOT", Val: numericCmpOrNotNOT},
+)
+
+type numericFieldCode uint16
+
+const (
+	numericFieldPower numericFieldCode = iota + 1
+	numericFieldToughness
+	numericFieldBasePower
+	numericFieldBaseToughness
+	numericFieldCmc
+)
+
+var numericFieldCodes = state.NewStrCodes(
+	state.StrEntry[numericFieldCode]{Key: "power", Val: numericFieldPower},
+	state.StrEntry[numericFieldCode]{Key: "toughness", Val: numericFieldToughness},
+	state.StrEntry[numericFieldCode]{Key: "basePower", Val: numericFieldBasePower},
+	state.StrEntry[numericFieldCode]{Key: "baseToughness", Val: numericFieldBaseToughness},
+	state.StrEntry[numericFieldCode]{Key: "cmc", Val: numericFieldCmc},
 )

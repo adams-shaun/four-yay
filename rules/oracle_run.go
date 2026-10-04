@@ -341,9 +341,9 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			break
 		}
 	}
-	switch build4d71Codes.Code(string(sc.Format)) {
-	case build4d71Empty:
-	case build4d71Commander:
+	switch oracleFormatCodes.Code(string(sc.Format)) {
+	case oracleFormatEmpty:
+	case oracleFormatCommander:
 		cfg.Format = FormatCommander
 		cfg.StartingLife = 40 // CR 903.7
 		cfg.Commanders = commanders
@@ -515,7 +515,7 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 // scenario drives them through `activate` plus the option's label, exactly
 // as a named ability is driven; they are not a separate op.
 func oracleActivateKind(kind string) bool {
-	if v, ok := oracleActivateKindTab1.Get(kind); ok {
+	if v, ok := oracleActivateKindTab.Get(kind); ok {
 		return v
 	}
 	return false
@@ -794,10 +794,10 @@ func (r *oracleRun) do(st oracleStep) error {
 	r.answers = append([]oracleAnswer(nil), st.Answers...)
 	seat := state.PlayerID(st.Seat)
 	r.logf("step %s %s", st.Op, st.Card)
-	switch do4d72Codes.Code(string(st.Op)) {
-	case do4d72Mana:
+	switch oracleOpCodes.Code(string(st.Op)) {
+	case oracleOpMana:
 		return r.addMana(seat, st.Mana)
-	case do4d72Cast:
+	case oracleOpCast:
 		if st.Mana != "" {
 			if err := r.addMana(seat, st.Mana); err != nil {
 				return err
@@ -946,7 +946,7 @@ func (r *oracleRun) do(st oracleStep) error {
 			}
 		}
 		return r.untilPriority(st.Op)
-	case do4d72Play:
+	case oracleOpPlay:
 		id, err := r.resolve(st.Card)
 		if err != nil {
 			return err
@@ -964,7 +964,7 @@ func (r *oracleRun) do(st oracleStep) error {
 			}
 		}
 		return harnessf("play %s not offered: %s", st.Card, optionDump(d))
-	case do4d72Resolve:
+	case oracleOpResolve:
 		for i := 0; i < 300; i++ {
 			d := e.Pending()
 			if d == nil || e.G.Over {
@@ -978,7 +978,7 @@ func (r *oracleRun) do(st oracleStep) error {
 			}
 		}
 		return harnessf("resolve: stack never emptied")
-	case do4d72Attack:
+	case oracleOpAttack:
 		def, ok := parseSeatRef(st.Defender)
 		if !ok {
 			return harnessf("attack: bad defender %q", st.Defender)
@@ -1021,7 +1021,7 @@ func (r *oracleRun) do(st oracleStep) error {
 				return err
 			}
 		}
-	case do4d72Block:
+	case oracleOpBlock:
 		d := e.Pending()
 		if d == nil || d.Kind != decision.KBlockers {
 			return harnessf("block: no blockers decision pending")
@@ -1053,7 +1053,7 @@ func (r *oracleRun) do(st oracleStep) error {
 			return err
 		}
 		return r.untilPriority("block")
-	case do4d72Pass:
+	case oracleOpPass:
 		// `pass` answers exactly one priority decision: the named seat must
 		// hold priority right now, or this fails loudly rather than silently
 		// passing someone else's priority (which `pass_to` does not check).
@@ -1062,7 +1062,7 @@ func (r *oracleRun) do(st oracleStep) error {
 			return err
 		}
 		return r.submit(d, []int{pickPass(d)}, "pass")
-	case do4d72PassTo:
+	case oracleOpPassTo:
 		var want state.Step
 		if st.Step != "" {
 			s, ok := state.ParseStep(st.Step)
@@ -1088,7 +1088,7 @@ func (r *oracleRun) do(st oracleStep) error {
 			}
 		}
 		return harnessf("pass_to: target never reached")
-	case do4d72Move:
+	case oracleOpMove:
 		id, err := r.resolve(st.Card)
 		if err != nil {
 			return err
@@ -1100,7 +1100,7 @@ func (r *oracleRun) do(st oracleStep) error {
 		e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: e.G.Obj(id).Zone, To: to})
 		e.priorityRound()
 		return r.untilPriority("move")
-	case do4d72Life:
+	case oracleOpLife:
 		e.emit(events.Event{Kind: events.LifeChange, Player: seat, Amount: st.Amount})
 		e.priorityRound()
 		return r.untilPriority("life")
@@ -1109,7 +1109,7 @@ func (r *oracleRun) do(st oracleStep) error {
 }
 
 func normCounter(k string) string {
-	if v, ok := normCounterTab2.Get(strings.ReplaceAll(strings.ToLower(k), " ", "")); ok {
+	if v, ok := normCounterTab.Get(strings.ReplaceAll(strings.ToLower(k), " ", "")); ok {
 		return v
 	}
 	return strings.ToUpper(k)
@@ -1430,7 +1430,7 @@ func seatZeroStart(cfg Config) Config {
 	}
 }
 
-var oracleActivateKindTab1 = state.NewStrTable[bool](
+var oracleActivateKindTab = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "ability", Val: true},
 	state.StrEntry[bool]{Key: "activate", Val: true},
 	state.StrEntry[bool]{Key: "station", Val: true},
@@ -1438,47 +1438,51 @@ var oracleActivateKindTab1 = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "turn_face_up", Val: true},
 )
 
-var normCounterTab2 = state.NewStrTable[string](
+var normCounterTab = state.NewStrTable[string](
 	state.StrEntry[string]{Key: "+1/+1", Val: "P1P1"},
 	state.StrEntry[string]{Key: "p1p1", Val: "P1P1"},
 	state.StrEntry[string]{Key: "-1/-1", Val: "M1M1"},
 	state.StrEntry[string]{Key: "m1m1", Val: "M1M1"},
 )
 
-const (
-	build4d71Empty     uint16 = 1 // "", "constructed"
-	build4d71Commander uint16 = 2 // "commander"
-)
-
-var build4d71Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: build4d71Empty},
-	state.StrEntry[uint16]{Key: "constructed", Val: build4d71Empty},
-	state.StrEntry[uint16]{Key: "commander", Val: build4d71Commander},
-)
+type oracleFormatCode uint16
 
 const (
-	do4d72Mana    uint16 = 1  // "mana"
-	do4d72Cast    uint16 = 2  // "cast", "activate"
-	do4d72Play    uint16 = 3  // "play"
-	do4d72Resolve uint16 = 4  // "resolve"
-	do4d72Attack  uint16 = 5  // "attack"
-	do4d72Block   uint16 = 6  // "block"
-	do4d72Pass    uint16 = 7  // "pass"
-	do4d72PassTo  uint16 = 8  // "pass_to"
-	do4d72Move    uint16 = 9  // "move"
-	do4d72Life    uint16 = 10 // "life"
+	oracleFormatEmpty oracleFormatCode = iota + 1
+	oracleFormatCommander
 )
 
-var do4d72Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "mana", Val: do4d72Mana},
-	state.StrEntry[uint16]{Key: "cast", Val: do4d72Cast},
-	state.StrEntry[uint16]{Key: "activate", Val: do4d72Cast},
-	state.StrEntry[uint16]{Key: "play", Val: do4d72Play},
-	state.StrEntry[uint16]{Key: "resolve", Val: do4d72Resolve},
-	state.StrEntry[uint16]{Key: "attack", Val: do4d72Attack},
-	state.StrEntry[uint16]{Key: "block", Val: do4d72Block},
-	state.StrEntry[uint16]{Key: "pass", Val: do4d72Pass},
-	state.StrEntry[uint16]{Key: "pass_to", Val: do4d72PassTo},
-	state.StrEntry[uint16]{Key: "move", Val: do4d72Move},
-	state.StrEntry[uint16]{Key: "life", Val: do4d72Life},
+var oracleFormatCodes = state.NewStrCodes(
+	state.StrEntry[oracleFormatCode]{Key: "", Val: oracleFormatEmpty},
+	state.StrEntry[oracleFormatCode]{Key: "constructed", Val: oracleFormatEmpty},
+	state.StrEntry[oracleFormatCode]{Key: "commander", Val: oracleFormatCommander},
+)
+
+type oracleOpCode uint16
+
+const (
+	oracleOpMana oracleOpCode = iota + 1
+	oracleOpCast
+	oracleOpPlay
+	oracleOpResolve
+	oracleOpAttack
+	oracleOpBlock
+	oracleOpPass
+	oracleOpPassTo
+	oracleOpMove
+	oracleOpLife
+)
+
+var oracleOpCodes = state.NewStrCodes(
+	state.StrEntry[oracleOpCode]{Key: "mana", Val: oracleOpMana},
+	state.StrEntry[oracleOpCode]{Key: "cast", Val: oracleOpCast},
+	state.StrEntry[oracleOpCode]{Key: "activate", Val: oracleOpCast},
+	state.StrEntry[oracleOpCode]{Key: "play", Val: oracleOpPlay},
+	state.StrEntry[oracleOpCode]{Key: "resolve", Val: oracleOpResolve},
+	state.StrEntry[oracleOpCode]{Key: "attack", Val: oracleOpAttack},
+	state.StrEntry[oracleOpCode]{Key: "block", Val: oracleOpBlock},
+	state.StrEntry[oracleOpCode]{Key: "pass", Val: oracleOpPass},
+	state.StrEntry[oracleOpCode]{Key: "pass_to", Val: oracleOpPassTo},
+	state.StrEntry[oracleOpCode]{Key: "move", Val: oracleOpMove},
+	state.StrEntry[oracleOpCode]{Key: "life", Val: oracleOpLife},
 )

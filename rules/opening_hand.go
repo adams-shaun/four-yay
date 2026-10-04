@@ -281,10 +281,10 @@ func (e *Engine) registerOpeningEffectTriggers(ef openingEffect, first *cards.SA
 				switch t.ModeKind() {
 				case cards.TriggerPhase:
 					var step state.Step
-					switch registerOpeningEffectTriggersb432Codes.Code(string(strings.TrimSpace(t.ParamStr(cards.PKPhase)))) {
-					case registerOpeningEffectTriggersb432Upkeep:
+					switch registerOpeningEffectTriggersCodes.Code(string(strings.TrimSpace(t.ParamStr(cards.PKPhase)))) {
+					case registerOpeningEffectTriggersUpkeep:
 						step = state.StepUpkeep
-					case registerOpeningEffectTriggersb432Main1:
+					case registerOpeningEffectTriggersMain1:
 						step = state.StepMain1
 					default:
 						continue
@@ -373,12 +373,14 @@ func (e *Engine) finishOpening() {
 
 func init() { effects.RegisterNonAPI("kw:MayEffectFromOpeningHand") }
 
+type registerOpeningEffectTriggersCode uint16
+
 const (
-	registerOpeningEffectTriggersb432Upkeep uint16 = 1 // "Upkeep"
-	registerOpeningEffectTriggersb432Main1  uint16 = 2 // "Main1"
+	registerOpeningEffectTriggersUpkeep registerOpeningEffectTriggersCode = iota + 1
+	registerOpeningEffectTriggersMain1
 )
 
-var registerOpeningEffectTriggersb432Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Upkeep", Val: registerOpeningEffectTriggersb432Upkeep},
-	state.StrEntry[uint16]{Key: "Main1", Val: registerOpeningEffectTriggersb432Main1},
+var registerOpeningEffectTriggersCodes = state.NewStrCodes(
+	state.StrEntry[registerOpeningEffectTriggersCode]{Key: "Upkeep", Val: registerOpeningEffectTriggersUpkeep},
+	state.StrEntry[registerOpeningEffectTriggersCode]{Key: "Main1", Val: registerOpeningEffectTriggersMain1},
 )

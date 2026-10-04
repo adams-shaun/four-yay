@@ -108,14 +108,14 @@ func aggregateCastProperty(h Host, ids []state.ObjID, prop string) (int32, bool)
 	g := h.Game()
 	var n int32
 	for _, id := range ids {
-		switch aggregateCastProperty3fd1Codes.Code(string(prop)) {
-		case aggregateCastProperty3fd1CardManaCost:
+		switch aggregateCastPropertyCodes.Code(string(prop)) {
+		case aggregateCastPropertyCardManaCost:
 			if o := g.Obj(id); o != nil && o.Face() != nil {
 				n += o.Face().Cmc()
 			}
-		case aggregateCastProperty3fd1CardPower:
+		case aggregateCastPropertyCardPower:
 			n += h.Power(id)
-		case aggregateCastProperty3fd1CardToughness:
+		case aggregateCastPropertyCardToughness:
 			n += h.Toughness(id)
 		default:
 			return 0, false
@@ -191,14 +191,16 @@ func partySize(g *state.Game, c *Ctx) int32 {
 	return int32(best)
 }
 
+type aggregateCastPropertyCode uint16
+
 const (
-	aggregateCastProperty3fd1CardManaCost  uint16 = 1 // "CardManaCost"
-	aggregateCastProperty3fd1CardPower     uint16 = 2 // "CardPower"
-	aggregateCastProperty3fd1CardToughness uint16 = 3 // "CardToughness"
+	aggregateCastPropertyCardManaCost aggregateCastPropertyCode = iota + 1
+	aggregateCastPropertyCardPower
+	aggregateCastPropertyCardToughness
 )
 
-var aggregateCastProperty3fd1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "CardManaCost", Val: aggregateCastProperty3fd1CardManaCost},
-	state.StrEntry[uint16]{Key: "CardPower", Val: aggregateCastProperty3fd1CardPower},
-	state.StrEntry[uint16]{Key: "CardToughness", Val: aggregateCastProperty3fd1CardToughness},
+var aggregateCastPropertyCodes = state.NewStrCodes(
+	state.StrEntry[aggregateCastPropertyCode]{Key: "CardManaCost", Val: aggregateCastPropertyCardManaCost},
+	state.StrEntry[aggregateCastPropertyCode]{Key: "CardPower", Val: aggregateCastPropertyCardPower},
+	state.StrEntry[aggregateCastPropertyCode]{Key: "CardToughness", Val: aggregateCastPropertyCardToughness},
 )

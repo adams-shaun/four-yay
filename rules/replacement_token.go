@@ -129,8 +129,8 @@ func tokenReplacementsCommute(cands []replMatch) bool {
 			return false
 		}
 		cls := ""
-		switch tokenReplacementsCommute2271Codes.Code(string(strings.TrimSpace(body.ParamStr(cards.PKType)))) {
-		case tokenReplacementsCommute2271Amount:
+		switch tokenReplacementsCommuteCodes.Code(string(strings.TrimSpace(body.ParamStr(cards.PKType)))) {
+		case tokenReplacementsCommuteAmount:
 			raw := strings.TrimSpace(body.ParamStr(cards.PKAmount))
 			if raw == "" {
 				raw = "Twice"
@@ -139,7 +139,7 @@ func tokenReplacementsCommute(cands []replMatch) bool {
 				return false
 			}
 			cls = "mult"
-		case tokenReplacementsCommute2271AddToken:
+		case tokenReplacementsCommuteAddToken:
 			cls = "add"
 		default:
 			return false
@@ -531,8 +531,8 @@ func (e *Engine) applyChosenToPlan(ev events.Event, m replMatch, plan []tokenPla
 // with the match's own ValidToken$ re-checked against each mint's script.
 func (e *Engine) applyTokenReplacementToPlan(ev events.Event, plan []tokenPlanMint, m replMatch) []tokenPlanMint {
 	body := m.repl.With
-	switch applyTokenReplacementToPlan2272Codes.Code(string(strings.TrimSpace(body.ParamStr(cards.PKType)))) {
-	case applyTokenReplacementToPlan2272ReplaceToken:
+	switch applyTokenReplacementToPlanCodes.Code(string(strings.TrimSpace(body.ParamStr(cards.PKType)))) {
+	case applyTokenReplacementToPlanReplaceToken:
 		// "... instead create those tokens as <scripts>" — a pure rewrite:
 		// each matched mint is replaced by one mint per script in the CSV
 		// (Academy Manufactor's one Clue -> Clue+Food+Treasure; Divine
@@ -552,7 +552,7 @@ func (e *Engine) applyTokenReplacementToPlan(ev events.Event, plan []tokenPlanMi
 			}
 		}
 		return out
-	case applyTokenReplacementToPlan2272AddToken:
+	case applyTokenReplacementToPlanAddToken:
 		// Corpus convention: Amount$ present is a fixed add for the whole
 		// creation event; absent Amount$ means "that many" (one per matched
 		// mint), as on Chatterfang. Append fixed extras at plan end so their
@@ -599,7 +599,7 @@ func (e *Engine) applyTokenReplacementToPlan(ev events.Event, plan []tokenPlanMi
 			}
 		}
 		return out
-	case applyTokenReplacementToPlan2272ReplaceController:
+	case applyTokenReplacementToPlanReplaceController:
 		// "... is created under <NewController$>'s control instead" (Crafty
 		// Cutpurse). The new controller is resolved through the ordinary
 		// Defined$ player grammar against the replacement source -- `You` is
@@ -827,24 +827,28 @@ func (e *Engine) chosenCopySnapshot(src state.ObjID, player state.PlayerID) *sta
 		Owner: player, Controller: player, Zone: state.ZBattlefield}
 }
 
-const (
-	tokenReplacementsCommute2271Amount   uint16 = 1 // "Amount"
-	tokenReplacementsCommute2271AddToken uint16 = 2 // "AddToken"
-)
-
-var tokenReplacementsCommute2271Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Amount", Val: tokenReplacementsCommute2271Amount},
-	state.StrEntry[uint16]{Key: "AddToken", Val: tokenReplacementsCommute2271AddToken},
-)
+type tokenReplacementsCommuteCode uint16
 
 const (
-	applyTokenReplacementToPlan2272ReplaceToken      uint16 = 1 // "ReplaceToken"
-	applyTokenReplacementToPlan2272AddToken          uint16 = 2 // "AddToken"
-	applyTokenReplacementToPlan2272ReplaceController uint16 = 3 // "ReplaceController"
+	tokenReplacementsCommuteAmount tokenReplacementsCommuteCode = iota + 1
+	tokenReplacementsCommuteAddToken
 )
 
-var applyTokenReplacementToPlan2272Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "ReplaceToken", Val: applyTokenReplacementToPlan2272ReplaceToken},
-	state.StrEntry[uint16]{Key: "AddToken", Val: applyTokenReplacementToPlan2272AddToken},
-	state.StrEntry[uint16]{Key: "ReplaceController", Val: applyTokenReplacementToPlan2272ReplaceController},
+var tokenReplacementsCommuteCodes = state.NewStrCodes(
+	state.StrEntry[tokenReplacementsCommuteCode]{Key: "Amount", Val: tokenReplacementsCommuteAmount},
+	state.StrEntry[tokenReplacementsCommuteCode]{Key: "AddToken", Val: tokenReplacementsCommuteAddToken},
+)
+
+type applyTokenReplacementToPlanCode uint16
+
+const (
+	applyTokenReplacementToPlanReplaceToken applyTokenReplacementToPlanCode = iota + 1
+	applyTokenReplacementToPlanAddToken
+	applyTokenReplacementToPlanReplaceController
+)
+
+var applyTokenReplacementToPlanCodes = state.NewStrCodes(
+	state.StrEntry[applyTokenReplacementToPlanCode]{Key: "ReplaceToken", Val: applyTokenReplacementToPlanReplaceToken},
+	state.StrEntry[applyTokenReplacementToPlanCode]{Key: "AddToken", Val: applyTokenReplacementToPlanAddToken},
+	state.StrEntry[applyTokenReplacementToPlanCode]{Key: "ReplaceController", Val: applyTokenReplacementToPlanReplaceController},
 )

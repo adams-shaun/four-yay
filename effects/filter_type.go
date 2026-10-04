@@ -17,8 +17,8 @@ func canReceiveCounter(kind string, o *state.Object) bool {
 	if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
 		return false
 	}
-	switch canReceiveCounter32f1Codes.Code(string(strings.ToUpper(kind))) {
-	case canReceiveCounter32f1P1P1:
+	switch canReceiveCounterCodes.Code(string(strings.ToUpper(kind))) {
+	case canReceiveCounterP1P1:
 		return o.EffectiveIsCreature()
 	}
 	return true
@@ -114,22 +114,22 @@ func hasTypePrinted(o *state.Object, t string, id cards.TypeWordID) (typeDecisio
 // type test. Keeping them in one context-aware path ensures layer-4 derived
 // types and Changeling apply consistently to both positive and negated forms.
 func typePredicate(p string, g *state.Game, o *state.Object, sc SpecContext) (bool, bool) {
-	switch typePredicate32f2Codes.Code(string(p)) {
-	case typePredicate32f2Legendary:
+	switch typePredicateCodes.Code(string(p)) {
+	case typePredicateLegendary:
 		return hasTypeCtx(o, p, sc), true
-	case typePredicate32f2NonLand:
+	case typePredicateNonLand:
 		return !hasTypeCtx(o, "Land", sc), true
-	case typePredicate32f2NonCreature:
+	case typePredicateNonCreature:
 		return !hasTypeCtx(o, "Creature", sc), true
-	case typePredicate32f2NonBasic:
+	case typePredicateNonBasic:
 		return !hasTypeCtx(o, "Basic", sc), true
-	case typePredicate32f2ChosenType:
+	case typePredicateChosenType:
 		s := g.Obj(sc.Source)
 		return s != nil && s.ChosenType != "" && hasTypeCtx(o, s.ChosenType, sc), true
-	case typePredicate32f2IsNotChosenType:
+	case typePredicateIsNotChosenType:
 		s := g.Obj(sc.Source)
 		return s != nil && s.ChosenType != "" && !hasTypeCtx(o, s.ChosenType, sc), true
-	case typePredicate32f2ChosenCtrl:
+	case typePredicateChosenCtrl:
 		return chosenCtrlMatches(g, o, sc.Source), true
 	}
 	return false, false
@@ -289,33 +289,37 @@ func intrinsicCDAType(o *state.Object, t string) bool {
 // kwChangeling is Changeling's interned keyword head (cards.InternKeywordHead).
 var kwChangeling = cards.InternKeywordHead("Changeling")
 
-const (
-	canReceiveCounter32f1P1P1 uint16 = 1 // "P1P1", "M1M1"
-)
-
-var canReceiveCounter32f1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "P1P1", Val: canReceiveCounter32f1P1P1},
-	state.StrEntry[uint16]{Key: "M1M1", Val: canReceiveCounter32f1P1P1},
-)
+type canReceiveCounterCode uint16
 
 const (
-	typePredicate32f2Legendary       uint16 = 1 // "Legendary", "Basic", "Snow"
-	typePredicate32f2NonLand         uint16 = 2 // "nonLand"
-	typePredicate32f2NonCreature     uint16 = 3 // "nonCreature"
-	typePredicate32f2NonBasic        uint16 = 4 // "nonBasic"
-	typePredicate32f2ChosenType      uint16 = 5 // "ChosenType"
-	typePredicate32f2IsNotChosenType uint16 = 6 // "IsNotChosenType"
-	typePredicate32f2ChosenCtrl      uint16 = 7 // "ChosenCtrl"
+	canReceiveCounterP1P1 canReceiveCounterCode = iota + 1
 )
 
-var typePredicate32f2Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Legendary", Val: typePredicate32f2Legendary},
-	state.StrEntry[uint16]{Key: "Basic", Val: typePredicate32f2Legendary},
-	state.StrEntry[uint16]{Key: "Snow", Val: typePredicate32f2Legendary},
-	state.StrEntry[uint16]{Key: "nonLand", Val: typePredicate32f2NonLand},
-	state.StrEntry[uint16]{Key: "nonCreature", Val: typePredicate32f2NonCreature},
-	state.StrEntry[uint16]{Key: "nonBasic", Val: typePredicate32f2NonBasic},
-	state.StrEntry[uint16]{Key: "ChosenType", Val: typePredicate32f2ChosenType},
-	state.StrEntry[uint16]{Key: "IsNotChosenType", Val: typePredicate32f2IsNotChosenType},
-	state.StrEntry[uint16]{Key: "ChosenCtrl", Val: typePredicate32f2ChosenCtrl},
+var canReceiveCounterCodes = state.NewStrCodes(
+	state.StrEntry[canReceiveCounterCode]{Key: "P1P1", Val: canReceiveCounterP1P1},
+	state.StrEntry[canReceiveCounterCode]{Key: "M1M1", Val: canReceiveCounterP1P1},
+)
+
+type typePredicateCode uint16
+
+const (
+	typePredicateLegendary typePredicateCode = iota + 1
+	typePredicateNonLand
+	typePredicateNonCreature
+	typePredicateNonBasic
+	typePredicateChosenType
+	typePredicateIsNotChosenType
+	typePredicateChosenCtrl
+)
+
+var typePredicateCodes = state.NewStrCodes(
+	state.StrEntry[typePredicateCode]{Key: "Legendary", Val: typePredicateLegendary},
+	state.StrEntry[typePredicateCode]{Key: "Basic", Val: typePredicateLegendary},
+	state.StrEntry[typePredicateCode]{Key: "Snow", Val: typePredicateLegendary},
+	state.StrEntry[typePredicateCode]{Key: "nonLand", Val: typePredicateNonLand},
+	state.StrEntry[typePredicateCode]{Key: "nonCreature", Val: typePredicateNonCreature},
+	state.StrEntry[typePredicateCode]{Key: "nonBasic", Val: typePredicateNonBasic},
+	state.StrEntry[typePredicateCode]{Key: "ChosenType", Val: typePredicateChosenType},
+	state.StrEntry[typePredicateCode]{Key: "IsNotChosenType", Val: typePredicateIsNotChosenType},
+	state.StrEntry[typePredicateCode]{Key: "ChosenCtrl", Val: typePredicateChosenCtrl},
 )

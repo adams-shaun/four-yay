@@ -133,8 +133,8 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 	// default. Any other value (an LKI grammar this build does not model —
 	// the LKI persistence a vanished card would need) is a loud Note.
 	if rl := ep.RememberLKI; rl != "" {
-		switch effEffect7bd1Codes.Code(string(rl)) {
-		case effEffect7bd1Targeted:
+		switch effEffectCodes.Code(string(rl)) {
+		case effEffectTargeted:
 		default:
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "unmodelled Effect RememberLKI$ " + rl})
@@ -1227,11 +1227,13 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 	c.EffectFrame = EffectFrame{Source: c.Source}
 }
 
+type effEffectCode uint16
+
 const (
-	effEffect7bd1Targeted uint16 = 1 // "Targeted", "True"
+	effEffectTargeted effEffectCode = iota + 1
 )
 
-var effEffect7bd1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Targeted", Val: effEffect7bd1Targeted},
-	state.StrEntry[uint16]{Key: "True", Val: effEffect7bd1Targeted},
+var effEffectCodes = state.NewStrCodes(
+	state.StrEntry[effEffectCode]{Key: "Targeted", Val: effEffectTargeted},
+	state.StrEntry[effEffectCode]{Key: "True", Val: effEffectTargeted},
 )

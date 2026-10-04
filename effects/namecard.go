@@ -221,7 +221,7 @@ func filterNameList(names []string, chooseFromList string) []string {
 }
 
 func descriptionSpec(description string) string {
-	if v, ok := descriptionSpecTab1.Get(strings.ToLower(strings.TrimSpace(description))); ok {
+	if v, ok := descriptionSpecTab.Get(strings.ToLower(strings.TrimSpace(description))); ok {
 		return v
 	}
 	return ""
@@ -278,7 +278,7 @@ func nameSet(names []string) map[string]bool {
 	return out
 }
 
-var descriptionSpecTab1 = state.NewStrTable[string](
+var descriptionSpecTab = state.NewStrTable[string](
 	state.StrEntry[string]{Key: "nonland", Val: "Card.nonLand"},
 	state.StrEntry[string]{Key: "creature", Val: "Card.Creature"},
 	state.StrEntry[string]{Key: "creature card", Val: "Card.Creature"},

@@ -35,7 +35,7 @@ func paysPrintedManaCost(opt *decision.Option) bool {
 	if opt.Kind != "cast" || opt.AltCostIndex > 0 {
 		return false
 	}
-	if v, ok := paysPrintedManaCostTab1.Get(opt.Mode); ok {
+	if v, ok := paysPrintedManaCostTab.Get(opt.Mode); ok {
 		return v
 	}
 	return false
@@ -91,7 +91,7 @@ func (e *Engine) castsNoManaCostByPaying(p state.PlayerID, opt *decision.Option)
 	return true
 }
 
-var paysPrintedManaCostTab1 = state.NewStrTable[bool](
+var paysPrintedManaCostTab = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "", Val: true},
 	state.StrEntry[bool]{Key: "mayflash", Val: true},
 	state.StrEntry[bool]{Key: "kicked", Val: true},

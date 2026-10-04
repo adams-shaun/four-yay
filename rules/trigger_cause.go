@@ -70,10 +70,10 @@ func (e *Engine) drawCauseTokenAdmits(token string, o *state.Object, source stat
 		if q == "" {
 			continue
 		}
-		switch drawCauseTokenAdmitsd191Codes.Code(string(q)) {
-		case drawCauseTokenAdmitsd191YouCtrl:
+		switch drawCauseTokenAdmitsCodes.Code(string(q)) {
+		case drawCauseTokenAdmitsYouCtrl:
 			// Read by StackKindAdmits below.
-		case drawCauseTokenAdmitsd191Cycling:
+		case drawCauseTokenAdmitsCycling:
 			if o.Ability == nil || !cyclingCauseKeywords[o.Ability.ParamStr(cards.PKKeyword)] {
 				return false
 			}
@@ -259,7 +259,7 @@ func (e *Engine) causeSpecAdmits(spec string, source state.ObjID) bool {
 func causeSpecQualifiersKnown(alt string) bool {
 	_, rest, _ := strings.Cut(alt, ".")
 	for q := range strings.SplitSeq(rest, ".") {
-		if !causeSpecQualifiersKnownKeys1.Has(q) {
+		if !causeSpecQualifiersKnownKeys.Has(q) {
 			return false
 		}
 	}
@@ -300,16 +300,16 @@ func causeCostAdmits(spec string, cause costCause) bool {
 		if rest != "" {
 			continue // a qualified cost cause is not modelled (fail closed)
 		}
-		switch causeCostAdmitsd192Codes.Code(string(base)) {
-		case causeCostAdmitsd192Spell:
+		switch causeCostAdmitsCodes.Code(string(base)) {
+		case causeCostAdmitsSpell:
 			if cause == costCauseSpell {
 				return true
 			}
-		case causeCostAdmitsd192Activated:
+		case causeCostAdmitsActivated:
 			if cause == costCauseActivated {
 				return true
 			}
-		case causeCostAdmitsd192Triggered:
+		case causeCostAdmitsTriggered:
 			if cause == costCauseTriggered {
 				return true
 			}
@@ -318,29 +318,33 @@ func causeCostAdmits(spec string, cause costCause) bool {
 	return false
 }
 
-var causeSpecQualifiersKnownKeys1 = state.NewNameSet("", "YouCtrl", "OppCtrl", "Instant", "Sorcery")
+var causeSpecQualifiersKnownKeys = state.NewNameSet("", "YouCtrl", "OppCtrl", "Instant", "Sorcery")
+
+type drawCauseTokenAdmitsCode uint16
 
 const (
-	drawCauseTokenAdmitsd191YouCtrl uint16 = 1 // "YouCtrl", "OppCtrl", "Instant", "Sorcery"
-	drawCauseTokenAdmitsd191Cycling uint16 = 2 // "Cycling"
+	drawCauseTokenAdmitsYouCtrl drawCauseTokenAdmitsCode = iota + 1
+	drawCauseTokenAdmitsCycling
 )
 
-var drawCauseTokenAdmitsd191Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "YouCtrl", Val: drawCauseTokenAdmitsd191YouCtrl},
-	state.StrEntry[uint16]{Key: "OppCtrl", Val: drawCauseTokenAdmitsd191YouCtrl},
-	state.StrEntry[uint16]{Key: "Instant", Val: drawCauseTokenAdmitsd191YouCtrl},
-	state.StrEntry[uint16]{Key: "Sorcery", Val: drawCauseTokenAdmitsd191YouCtrl},
-	state.StrEntry[uint16]{Key: "Cycling", Val: drawCauseTokenAdmitsd191Cycling},
+var drawCauseTokenAdmitsCodes = state.NewStrCodes(
+	state.StrEntry[drawCauseTokenAdmitsCode]{Key: "YouCtrl", Val: drawCauseTokenAdmitsYouCtrl},
+	state.StrEntry[drawCauseTokenAdmitsCode]{Key: "OppCtrl", Val: drawCauseTokenAdmitsYouCtrl},
+	state.StrEntry[drawCauseTokenAdmitsCode]{Key: "Instant", Val: drawCauseTokenAdmitsYouCtrl},
+	state.StrEntry[drawCauseTokenAdmitsCode]{Key: "Sorcery", Val: drawCauseTokenAdmitsYouCtrl},
+	state.StrEntry[drawCauseTokenAdmitsCode]{Key: "Cycling", Val: drawCauseTokenAdmitsCycling},
 )
+
+type causeCostAdmitsCode uint16
 
 const (
-	causeCostAdmitsd192Spell     uint16 = 1 // "Spell"
-	causeCostAdmitsd192Activated uint16 = 2 // "Activated"
-	causeCostAdmitsd192Triggered uint16 = 3 // "Triggered"
+	causeCostAdmitsSpell causeCostAdmitsCode = iota + 1
+	causeCostAdmitsActivated
+	causeCostAdmitsTriggered
 )
 
-var causeCostAdmitsd192Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Spell", Val: causeCostAdmitsd192Spell},
-	state.StrEntry[uint16]{Key: "Activated", Val: causeCostAdmitsd192Activated},
-	state.StrEntry[uint16]{Key: "Triggered", Val: causeCostAdmitsd192Triggered},
+var causeCostAdmitsCodes = state.NewStrCodes(
+	state.StrEntry[causeCostAdmitsCode]{Key: "Spell", Val: causeCostAdmitsSpell},
+	state.StrEntry[causeCostAdmitsCode]{Key: "Activated", Val: causeCostAdmitsActivated},
+	state.StrEntry[causeCostAdmitsCode]{Key: "Triggered", Val: causeCostAdmitsTriggered},
 )

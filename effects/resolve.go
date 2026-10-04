@@ -372,8 +372,8 @@ func effCounter(h Host, c *Ctx, sa *cards.SA) {
 		// than moving a spell somewhere the card text never asked for.
 		to := state.ZGraveyard
 		if dest := strings.TrimSpace(sa.ParamStr(cards.PKDestination)); dest != "" {
-			switch effCounter84e1Codes.Code(string(dest)) {
-			case effCounter84e1Hand:
+			switch effCounterCodes.Code(string(dest)) {
+			case effCounterHand:
 				to, _ = parseZone(dest)
 			default:
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -664,12 +664,14 @@ func repeatDefinedGateHolds(h Host, c *Ctx, sa *cards.SA, defined, present, comp
 	return evalConditionCount(count, compare)
 }
 
+type effCounterCode uint16
+
 const (
-	effCounter84e1Hand uint16 = 1 // "Hand", "Graveyard", "Exile"
+	effCounterHand effCounterCode = iota + 1
 )
 
-var effCounter84e1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Hand", Val: effCounter84e1Hand},
-	state.StrEntry[uint16]{Key: "Graveyard", Val: effCounter84e1Hand},
-	state.StrEntry[uint16]{Key: "Exile", Val: effCounter84e1Hand},
+var effCounterCodes = state.NewStrCodes(
+	state.StrEntry[effCounterCode]{Key: "Hand", Val: effCounterHand},
+	state.StrEntry[effCounterCode]{Key: "Graveyard", Val: effCounterHand},
+	state.StrEntry[effCounterCode]{Key: "Exile", Val: effCounterHand},
 )

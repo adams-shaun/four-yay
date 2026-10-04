@@ -198,12 +198,12 @@ func (e *Engine) sacrificeBlocked(id state.ObjID, forCost bool, cause costCause)
 		// ValidCard match so an unevaluable shape stays skipped (the
 		// permissive direction) instead of blanket-blocking. ForCost$ True
 		// restricts only COST sacrifices; ForCost$ False never restricts one.
-		switch sacrificeBlocked8781Codes.Code(string(sv.ParamStr(cards.PKForCost))) {
-		case sacrificeBlocked8781True:
+		switch sacrificeBlockedCodes.Code(string(sv.ParamStr(cards.PKForCost))) {
+		case sacrificeBlockedTrue:
 			if !forCost {
 				continue
 			}
-		case sacrificeBlocked8781False:
+		case sacrificeBlockedFalse:
 			if forCost {
 				continue
 			}
@@ -290,12 +290,12 @@ func (e *Engine) exileBlocked(id state.ObjID, forCost bool, cause costCause) boo
 		// so an unevaluable shape stays skipped (the permissive direction)
 		// instead of blanket-blocking. ForCost$ True restricts only COST
 		// exiles; ForCost$ False never restricts one.
-		switch exileBlocked8782Codes.Code(string(sv.ParamStr(cards.PKForCost))) {
-		case exileBlocked8782True:
+		switch exileBlockedCodes.Code(string(sv.ParamStr(cards.PKForCost))) {
+		case exileBlockedTrue:
 			if !forCost {
 				continue
 			}
-		case exileBlocked8782False:
+		case exileBlockedFalse:
 			if forCost {
 				continue
 			}
@@ -443,22 +443,26 @@ func (e *Engine) fogActive() bool {
 	return false
 }
 
-const (
-	sacrificeBlocked8781True  uint16 = 1 // "True"
-	sacrificeBlocked8781False uint16 = 2 // "False"
-)
-
-var sacrificeBlocked8781Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "True", Val: sacrificeBlocked8781True},
-	state.StrEntry[uint16]{Key: "False", Val: sacrificeBlocked8781False},
-)
+type sacrificeBlockedCode uint16
 
 const (
-	exileBlocked8782True  uint16 = 1 // "True"
-	exileBlocked8782False uint16 = 2 // "False"
+	sacrificeBlockedTrue sacrificeBlockedCode = iota + 1
+	sacrificeBlockedFalse
 )
 
-var exileBlocked8782Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "True", Val: exileBlocked8782True},
-	state.StrEntry[uint16]{Key: "False", Val: exileBlocked8782False},
+var sacrificeBlockedCodes = state.NewStrCodes(
+	state.StrEntry[sacrificeBlockedCode]{Key: "True", Val: sacrificeBlockedTrue},
+	state.StrEntry[sacrificeBlockedCode]{Key: "False", Val: sacrificeBlockedFalse},
+)
+
+type exileBlockedCode uint16
+
+const (
+	exileBlockedTrue exileBlockedCode = iota + 1
+	exileBlockedFalse
+)
+
+var exileBlockedCodes = state.NewStrCodes(
+	state.StrEntry[exileBlockedCode]{Key: "True", Val: exileBlockedTrue},
+	state.StrEntry[exileBlockedCode]{Key: "False", Val: exileBlockedFalse},
 )

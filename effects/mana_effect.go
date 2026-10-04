@@ -48,8 +48,8 @@ func substituteManaChosen(produced, chosen string) string {
 // one-unit-per-symbol allocation, and whether the legacy ask suspended.
 func askManaChoice(h Host, c *Ctx, sa *cards.SA, produced string) (string, bool, bool) {
 	var colours []string
-	switch askManaChoicecf91Codes.Code(string(produced)) {
-	case askManaChoicecf91Any:
+	switch askManaChoiceCodes.Code(string(produced)) {
+	case askManaChoiceAny:
 		colours = manaChoiceColours
 	default:
 		if parsed, ok := ComboColours(produced); ok && len(parsed) > 1 {
@@ -336,11 +336,11 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 	// other value is a loud Note and NO protection — an unrecognised condition
 	// must not silently promise something the engine cannot model.
 	noCounter := ""
-	switch effManacf92Codes.Code(string(mp.AddsNoCounter)) {
-	case effManacf92Empty:
-	case effManacf92True:
+	switch manaAddsNoCounterCodes.Code(string(mp.AddsNoCounter)) {
+	case manaAddsNoCounterEmpty:
+	case manaAddsNoCounterTrue:
 		noCounter = "True"
-	case effManacf92Permanent:
+	case manaAddsNoCounterPermanent:
 		noCounter = "NotPermanent"
 	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -356,9 +356,9 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 	// with RestrictValid$). Any other value is a loud Note and ordinary
 	// mana.
 	persistent := false
-	switch effManacf93Codes.Code(string(mp.PersistentMana)) {
-	case effManacf93Empty:
-	case effManacf93True:
+	switch manaPersistentCodes.Code(string(mp.PersistentMana)) {
+	case manaPersistentEmpty:
+	case manaPersistentTrue:
 		persistent = true
 	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -372,9 +372,9 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 	// by, and composes with, the printed keyword expansion (cards/
 	// kw_firebending.go); any other value is a loud Note and ordinary mana.
 	combat := false
-	switch effManacf94Codes.Code(string(mp.PersistentUntilEndOfCombat)) {
-	case effManacf94Empty:
-	case effManacf94True:
+	switch manaPersistentUntilEOCCodes.Code(string(mp.PersistentUntilEndOfCombat)) {
+	case manaPersistentUntilEOCEmpty:
+	case manaPersistentUntilEOCTrue:
 		combat, persistent = true, true
 	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -521,43 +521,51 @@ func ManaRecipients(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 	return definedPlayers(h, c, sa)
 }
 
-const (
-	askManaChoicecf91Any uint16 = 1 // "Any", "Combo Any"
-)
-
-var askManaChoicecf91Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Any", Val: askManaChoicecf91Any},
-	state.StrEntry[uint16]{Key: "Combo Any", Val: askManaChoicecf91Any},
-)
+type askManaChoiceCode uint16
 
 const (
-	effManacf92Empty     uint16 = 1 // ""
-	effManacf92True      uint16 = 2 // "True"
-	effManacf92Permanent uint16 = 3 // "!Permanent"
+	askManaChoiceAny askManaChoiceCode = iota + 1
 )
 
-var effManacf92Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: effManacf92Empty},
-	state.StrEntry[uint16]{Key: "True", Val: effManacf92True},
-	state.StrEntry[uint16]{Key: "!Permanent", Val: effManacf92Permanent},
+var askManaChoiceCodes = state.NewStrCodes(
+	state.StrEntry[askManaChoiceCode]{Key: "Any", Val: askManaChoiceAny},
+	state.StrEntry[askManaChoiceCode]{Key: "Combo Any", Val: askManaChoiceAny},
 )
 
-const (
-	effManacf93Empty uint16 = 1 // ""
-	effManacf93True  uint16 = 2 // "True"
-)
-
-var effManacf93Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: effManacf93Empty},
-	state.StrEntry[uint16]{Key: "True", Val: effManacf93True},
-)
+type manaAddsNoCounterCode uint16
 
 const (
-	effManacf94Empty uint16 = 1 // ""
-	effManacf94True  uint16 = 2 // "True"
+	manaAddsNoCounterEmpty manaAddsNoCounterCode = iota + 1
+	manaAddsNoCounterTrue
+	manaAddsNoCounterPermanent
 )
 
-var effManacf94Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: effManacf94Empty},
-	state.StrEntry[uint16]{Key: "True", Val: effManacf94True},
+var manaAddsNoCounterCodes = state.NewStrCodes(
+	state.StrEntry[manaAddsNoCounterCode]{Key: "", Val: manaAddsNoCounterEmpty},
+	state.StrEntry[manaAddsNoCounterCode]{Key: "True", Val: manaAddsNoCounterTrue},
+	state.StrEntry[manaAddsNoCounterCode]{Key: "!Permanent", Val: manaAddsNoCounterPermanent},
+)
+
+type manaPersistentCode uint16
+
+const (
+	manaPersistentEmpty manaPersistentCode = iota + 1
+	manaPersistentTrue
+)
+
+var manaPersistentCodes = state.NewStrCodes(
+	state.StrEntry[manaPersistentCode]{Key: "", Val: manaPersistentEmpty},
+	state.StrEntry[manaPersistentCode]{Key: "True", Val: manaPersistentTrue},
+)
+
+type manaPersistentUntilEOCCode uint16
+
+const (
+	manaPersistentUntilEOCEmpty manaPersistentUntilEOCCode = iota + 1
+	manaPersistentUntilEOCTrue
+)
+
+var manaPersistentUntilEOCCodes = state.NewStrCodes(
+	state.StrEntry[manaPersistentUntilEOCCode]{Key: "", Val: manaPersistentUntilEOCEmpty},
+	state.StrEntry[manaPersistentUntilEOCCode]{Key: "True", Val: manaPersistentUntilEOCTrue},
 )

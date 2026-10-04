@@ -210,8 +210,8 @@ func pumpNotes(h Host, c *Ctx, sa *cards.SA, p *PumpParams) {
 	// skipped by the object walk below). Any other NoteCards$ form stays
 	// loud-unimplemented (transcript note, no state write).
 	if label := p.NoteCardsFor; label != "" {
-		switch pumpNotes6381Codes.Code(string(p.NoteCards)) {
-		case pumpNotes6381Self:
+		switch pumpNotesCodes.Code(string(p.NoteCards)) {
+		case pumpNotesSelf:
 			spec := p.Defined
 			noted := false
 			for _, t := range Defined(h, c, sa) {
@@ -224,14 +224,14 @@ func pumpNotes(h Host, c *Ctx, sa *cards.SA, p *PumpParams) {
 			if !noted && spec == "" {
 				h.Emit(events.Event{Kind: events.PlayerNoted, Player: c.Controller, Text: label})
 			}
-		case pumpNotes6381Remembered:
+		case pumpNotesRemembered:
 			for _, t := range resolvedRemembered(h, c) {
 				if t.IsPlayer || t.Obj == 0 {
 					continue
 				}
 				h.Emit(events.Event{Kind: events.CardNoted, Obj: t.Obj, Text: label})
 			}
-		case pumpNotes6381TriggeredSource:
+		case pumpNotesTriggeredSource:
 			if c.TriggerSource != 0 {
 				h.Emit(events.Event{Kind: events.CardNoted, Obj: c.TriggerSource, Text: label})
 			}
@@ -242,14 +242,16 @@ func pumpNotes(h Host, c *Ctx, sa *cards.SA, p *PumpParams) {
 	}
 }
 
+type pumpNotesCode uint16
+
 const (
-	pumpNotes6381Self            uint16 = 1 // "Self"
-	pumpNotes6381Remembered      uint16 = 2 // "Remembered"
-	pumpNotes6381TriggeredSource uint16 = 3 // "TriggeredSource"
+	pumpNotesSelf pumpNotesCode = iota + 1
+	pumpNotesRemembered
+	pumpNotesTriggeredSource
 )
 
-var pumpNotes6381Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Self", Val: pumpNotes6381Self},
-	state.StrEntry[uint16]{Key: "Remembered", Val: pumpNotes6381Remembered},
-	state.StrEntry[uint16]{Key: "TriggeredSource", Val: pumpNotes6381TriggeredSource},
+var pumpNotesCodes = state.NewStrCodes(
+	state.StrEntry[pumpNotesCode]{Key: "Self", Val: pumpNotesSelf},
+	state.StrEntry[pumpNotesCode]{Key: "Remembered", Val: pumpNotesRemembered},
+	state.StrEntry[pumpNotesCode]{Key: "TriggeredSource", Val: pumpNotesTriggeredSource},
 )

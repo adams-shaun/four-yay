@@ -188,35 +188,35 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) state.ObjID {
 	// re-emitted move's fold attaches (rules/aura_entry.go); the Attach event
 	// is the logged record. No option kind of its own reaches the switch.
 	answerAuraEntry(e, &move, &opt)
-	switch resumeETBEntryc601Codes.Code(string(opt.Kind)) {
-	case resumeETBEntryc601Name:
+	switch resumeETBEntryCodes.Code(string(opt.Kind)) {
+	case resumeETBEntryName:
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "name", Text: opt.Label})
-	case resumeETBEntryc601Type:
+	case resumeETBEntryType:
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "type", Text: opt.Label})
-	case resumeETBEntryc601Number:
+	case resumeETBEntryNumber:
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "number", Amount: int32(opt.Amount)})
-	case resumeETBEntryc601Color:
+	case resumeETBEntryColor:
 		if letter := etbColourLetter(opt.Label); letter != "" {
 			e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "color", Text: letter})
 		}
-	case resumeETBEntryc601Evenodd:
+	case resumeETBEntryEvenodd:
 		quality := strings.ToLower(opt.Label)
 		if quality == "odd" || quality == "even" {
 			e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "type", Text: quality})
 		}
-	case resumeETBEntryc601Riot:
+	case resumeETBEntryRiot:
 		choice := "haste"
 		if opt.Index == 0 {
 			choice = "counter"
 		}
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "riot", Text: choice})
-	case resumeETBEntryc601Unleash:
+	case resumeETBEntryUnleash:
 		choice := "plain"
 		if opt.Index == 0 {
 			choice = "counter"
 		}
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "unleash", Text: choice})
-	case resumeETBEntryc601Clone:
+	case resumeETBEntryClone:
 		// The ETB-copy election (K:ETBReplacement:Copy). The chosen template
 		// rides the event's IDs; the decline ("Enter as itself") carries no
 		// object, so the fold records an answered-but-empty choice and the
@@ -227,7 +227,7 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) state.ObjID {
 			ids = []state.ObjID{opt.Obj}
 		}
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "clone", IDs: ids})
-	case resumeETBEntryc601Paylife:
+	case resumeETBEntryPaylife:
 		// The announced life payment of an "as CARDNAME enters, pay any amount
 		// of life" replacement (Minion of the Wastes / Phyrexian Processor /
 		// Nameless Race). The announced X is recorded as a Choose "number"
@@ -266,26 +266,28 @@ func unlessPayChoice(chosen []decision.Option) (decision.Option, bool) {
 	return decision.Option{}, false
 }
 
+type resumeETBEntryCode uint16
+
 const (
-	resumeETBEntryc601Name    uint16 = 1 // "name"
-	resumeETBEntryc601Type    uint16 = 2 // "type"
-	resumeETBEntryc601Number  uint16 = 3 // "number"
-	resumeETBEntryc601Color   uint16 = 4 // "color"
-	resumeETBEntryc601Evenodd uint16 = 5 // "evenodd"
-	resumeETBEntryc601Riot    uint16 = 6 // "riot"
-	resumeETBEntryc601Unleash uint16 = 7 // "unleash"
-	resumeETBEntryc601Clone   uint16 = 8 // "clone"
-	resumeETBEntryc601Paylife uint16 = 9 // "paylife"
+	resumeETBEntryName resumeETBEntryCode = iota + 1
+	resumeETBEntryType
+	resumeETBEntryNumber
+	resumeETBEntryColor
+	resumeETBEntryEvenodd
+	resumeETBEntryRiot
+	resumeETBEntryUnleash
+	resumeETBEntryClone
+	resumeETBEntryPaylife
 )
 
-var resumeETBEntryc601Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "name", Val: resumeETBEntryc601Name},
-	state.StrEntry[uint16]{Key: "type", Val: resumeETBEntryc601Type},
-	state.StrEntry[uint16]{Key: "number", Val: resumeETBEntryc601Number},
-	state.StrEntry[uint16]{Key: "color", Val: resumeETBEntryc601Color},
-	state.StrEntry[uint16]{Key: "evenodd", Val: resumeETBEntryc601Evenodd},
-	state.StrEntry[uint16]{Key: "riot", Val: resumeETBEntryc601Riot},
-	state.StrEntry[uint16]{Key: "unleash", Val: resumeETBEntryc601Unleash},
-	state.StrEntry[uint16]{Key: "clone", Val: resumeETBEntryc601Clone},
-	state.StrEntry[uint16]{Key: "paylife", Val: resumeETBEntryc601Paylife},
+var resumeETBEntryCodes = state.NewStrCodes(
+	state.StrEntry[resumeETBEntryCode]{Key: "name", Val: resumeETBEntryName},
+	state.StrEntry[resumeETBEntryCode]{Key: "type", Val: resumeETBEntryType},
+	state.StrEntry[resumeETBEntryCode]{Key: "number", Val: resumeETBEntryNumber},
+	state.StrEntry[resumeETBEntryCode]{Key: "color", Val: resumeETBEntryColor},
+	state.StrEntry[resumeETBEntryCode]{Key: "evenodd", Val: resumeETBEntryEvenodd},
+	state.StrEntry[resumeETBEntryCode]{Key: "riot", Val: resumeETBEntryRiot},
+	state.StrEntry[resumeETBEntryCode]{Key: "unleash", Val: resumeETBEntryUnleash},
+	state.StrEntry[resumeETBEntryCode]{Key: "clone", Val: resumeETBEntryClone},
+	state.StrEntry[resumeETBEntryCode]{Key: "paylife", Val: resumeETBEntryPaylife},
 )

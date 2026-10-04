@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/adams-shaun/gorge/state"
+	"github.com/adams-shaun/gorge/effects"
 )
 
 // CompareLife compares a life total against a Forge comparison literal such as
@@ -46,37 +46,19 @@ func SplitCompare(cmp string) (op string, n int, ok bool) {
 }
 
 func ApplyCompare(have int, op string, n int) bool {
-	switch applyCompareff81Codes.Code(string(op)) {
-	case applyCompareff81GE:
+	switch effects.CmpOpOf(op) {
+	case effects.CmpGE:
 		return have >= n
-	case applyCompareff81LE:
+	case effects.CmpLE:
 		return have <= n
-	case applyCompareff81EQ:
+	case effects.CmpEQ:
 		return have == n
-	case applyCompareff81GT:
+	case effects.CmpGT:
 		return have > n
-	case applyCompareff81LT:
+	case effects.CmpLT:
 		return have < n
-	case applyCompareff81NE:
+	case effects.CmpNE:
 		return have != n
 	}
 	return false
 }
-
-const (
-	applyCompareff81GE uint16 = 1 // "GE"
-	applyCompareff81LE uint16 = 2 // "LE"
-	applyCompareff81EQ uint16 = 3 // "EQ"
-	applyCompareff81GT uint16 = 4 // "GT"
-	applyCompareff81LT uint16 = 5 // "LT"
-	applyCompareff81NE uint16 = 6 // "NE"
-)
-
-var applyCompareff81Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "GE", Val: applyCompareff81GE},
-	state.StrEntry[uint16]{Key: "LE", Val: applyCompareff81LE},
-	state.StrEntry[uint16]{Key: "EQ", Val: applyCompareff81EQ},
-	state.StrEntry[uint16]{Key: "GT", Val: applyCompareff81GT},
-	state.StrEntry[uint16]{Key: "LT", Val: applyCompareff81LT},
-	state.StrEntry[uint16]{Key: "NE", Val: applyCompareff81NE},
-)

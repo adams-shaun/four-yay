@@ -50,8 +50,8 @@ func effStoreSVar(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	typ := strings.TrimSpace(sa.ParamStr(cards.PKType))
-	switch effStoreSVar6271Codes.Code(string(typ)) {
-	case effStoreSVar6271Number:
+	switch effStoreSVarCodes.Code(string(typ)) {
+	case effStoreSVarNumber:
 		// The evaluated forms: NumResolved's grammar covers each.
 	default:
 		// Triggered/Targeted (and anything else) read a property this
@@ -71,12 +71,14 @@ func effStoreSVar(h Host, c *Ctx, sa *cards.SA) {
 	h.Emit(events.Event{Kind: events.StoreSVar, Obj: c.Source, Text: name, Amount: v})
 }
 
+type effStoreSVarCode uint16
+
 const (
-	effStoreSVar6271Number uint16 = 1 // "Number", "Calculate", "CountSVar"
+	effStoreSVarNumber effStoreSVarCode = iota + 1
 )
 
-var effStoreSVar6271Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Number", Val: effStoreSVar6271Number},
-	state.StrEntry[uint16]{Key: "Calculate", Val: effStoreSVar6271Number},
-	state.StrEntry[uint16]{Key: "CountSVar", Val: effStoreSVar6271Number},
+var effStoreSVarCodes = state.NewStrCodes(
+	state.StrEntry[effStoreSVarCode]{Key: "Number", Val: effStoreSVarNumber},
+	state.StrEntry[effStoreSVarCode]{Key: "Calculate", Val: effStoreSVarNumber},
+	state.StrEntry[effStoreSVarCode]{Key: "CountSVar", Val: effStoreSVarNumber},
 )

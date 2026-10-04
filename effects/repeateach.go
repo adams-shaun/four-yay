@@ -23,12 +23,12 @@ import (
 // controller. ok is false when neither names the subjects.
 func repeatedCards(h Host, c *Ctx, rp *RepeatEachParams) ([]state.Target, bool) {
 	if spec := rp.DefinedCards; spec != "" {
-		switch repeatedCards4841Codes.Code(string(strings.Split(spec, ".")[0])) {
-		case repeatedCards4841Targeted:
+		switch repeatedCardsCodes.Code(string(strings.Split(spec, ".")[0])) {
+		case repeatedCardsTargeted:
 			return objectsOf(c.Targets), true
-		case repeatedCards4841Remembered:
+		case repeatedCardsRemembered:
 			return objectsOf(c.Remembered), true
-		case repeatedCards4841ChosenCard:
+		case repeatedCardsChosenCard:
 			return objectsOf(c.Chosen), true
 		}
 		return objectsOf(DefinedSpec(h, c, spec)), true
@@ -315,18 +315,20 @@ func repeatChooseOrderApply(subjects []state.Target, chosen []decision.Option) [
 	return ordered
 }
 
+type repeatedCardsCode uint16
+
 const (
-	repeatedCards4841Targeted   uint16 = 1 // "Targeted"
-	repeatedCards4841Remembered uint16 = 2 // "Remembered", "RememberedLKI", "RememberedCard", "DirectRemembered", "ImprintedLKI"
-	repeatedCards4841ChosenCard uint16 = 3 // "ChosenCard"
+	repeatedCardsTargeted repeatedCardsCode = iota + 1
+	repeatedCardsRemembered
+	repeatedCardsChosenCard
 )
 
-var repeatedCards4841Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Targeted", Val: repeatedCards4841Targeted},
-	state.StrEntry[uint16]{Key: "Remembered", Val: repeatedCards4841Remembered},
-	state.StrEntry[uint16]{Key: "RememberedLKI", Val: repeatedCards4841Remembered},
-	state.StrEntry[uint16]{Key: "RememberedCard", Val: repeatedCards4841Remembered},
-	state.StrEntry[uint16]{Key: "DirectRemembered", Val: repeatedCards4841Remembered},
-	state.StrEntry[uint16]{Key: "ImprintedLKI", Val: repeatedCards4841Remembered},
-	state.StrEntry[uint16]{Key: "ChosenCard", Val: repeatedCards4841ChosenCard},
+var repeatedCardsCodes = state.NewStrCodes(
+	state.StrEntry[repeatedCardsCode]{Key: "Targeted", Val: repeatedCardsTargeted},
+	state.StrEntry[repeatedCardsCode]{Key: "Remembered", Val: repeatedCardsRemembered},
+	state.StrEntry[repeatedCardsCode]{Key: "RememberedLKI", Val: repeatedCardsRemembered},
+	state.StrEntry[repeatedCardsCode]{Key: "RememberedCard", Val: repeatedCardsRemembered},
+	state.StrEntry[repeatedCardsCode]{Key: "DirectRemembered", Val: repeatedCardsRemembered},
+	state.StrEntry[repeatedCardsCode]{Key: "ImprintedLKI", Val: repeatedCardsRemembered},
+	state.StrEntry[repeatedCardsCode]{Key: "ChosenCard", Val: repeatedCardsChosenCard},
 )

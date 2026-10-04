@@ -78,7 +78,7 @@ func scheduleAtEOT(h Host, c *Ctx, sa *cards.SA, affected []state.ObjID) {
 // Origin$ Battlefield guard, and effSacrifice's object path skips an object
 // that is not on the battlefield.
 func atEOTBody(value string) string {
-	if v, ok := atEOTBodyTab1.Get(value); ok {
+	if v, ok := atEOTBodyTab.Get(value); ok {
 		return v
 	}
 	return ""
@@ -102,7 +102,7 @@ func atEOTInclude(h Host, c *Ctx, sa *cards.SA, id state.ObjID) bool {
 	return false
 }
 
-var atEOTBodyTab1 = state.NewStrTable[string](
+var atEOTBodyTab = state.NewStrTable[string](
 	state.StrEntry[string]{Key: "Exile", Val: "__kwWarpExile"},
 	state.StrEntry[string]{Key: "YourExile", Val: "__kwWarpExile"},
 	state.StrEntry[string]{Key: "Sacrifice", Val: "__kwEncoreSacrifice"},

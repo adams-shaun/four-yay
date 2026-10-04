@@ -1096,20 +1096,20 @@ func putCounterSupport(h Host, c *Ctx, sa *cards.SA, kind string) {
 
 func putCounterPlacerFor(h Host, c *Ctx, v string) (state.PlayerID, bool) {
 	g := h.Game()
-	switch putCounterPlacerFor5ab1Codes.Code(string(v)) {
-	case putCounterPlacerFor5ab1Controller:
+	switch putCounterPlacerForCodes.Code(string(v)) {
+	case putCounterPlacerForController:
 		return c.Controller, true
-	case putCounterPlacerFor5ab1Owner:
+	case putCounterPlacerForOwner:
 		if o := g.Obj(c.Source); o != nil {
 			return o.Owner, true
 		}
 		return 0, false
-	case putCounterPlacerFor5ab1TriggeredSource:
+	case putCounterPlacerForTriggeredSource:
 		if o := g.Obj(c.TriggerSource); o != nil {
 			return o.Controller, true
 		}
 		return 0, false
-	case putCounterPlacerFor5ab1TriggeredSourceController:
+	case putCounterPlacerForTriggeredSourceController:
 		if o := g.Obj(c.TriggerSource); o != nil {
 			return o.Controller, true
 		}
@@ -1166,19 +1166,19 @@ func putCounterChooserFor(h Host, c *Ctx, v string) (state.PlayerID, bool) {
 		}
 		return 0, false
 	}
-	switch putCounterChooserFor5ab2Codes.Code(string(v)) {
-	case putCounterChooserFor5ab2Empty:
+	switch putCounterChooserForCodes.Code(string(v)) {
+	case putCounterChooserForEmpty:
 		return c.Controller, true
-	case putCounterChooserFor5ab2PlayerIsRemembered:
+	case putCounterChooserForPlayerIsRemembered:
 		return firstRememberedPlayer()
-	case putCounterChooserFor5ab2ChosenPlayer:
+	case putCounterChooserForChosenPlayer:
 		return firstChosenPlayer()
-	case putCounterChooserFor5ab2TriggeredPlayer:
+	case putCounterChooserForTriggeredPlayer:
 		if c.TriggerPlayer.IsPlayer {
 			return c.TriggerPlayer.Player, true
 		}
 		return 0, false
-	case putCounterChooserFor5ab2ThisTargetedPlayer:
+	case putCounterChooserForThisTargetedPlayer:
 		for _, t := range c.Targets {
 			if t.IsPlayer {
 				return t.Player, true
@@ -1192,39 +1192,43 @@ func putCounterChooserFor(h Host, c *Ctx, v string) (state.PlayerID, bool) {
 	return 0, false
 }
 
-const (
-	putCounterPlacerFor5ab1Controller                uint16 = 1 // "Controller"
-	putCounterPlacerFor5ab1Owner                     uint16 = 2 // "Owner"
-	putCounterPlacerFor5ab1TriggeredSource           uint16 = 3 // "TriggeredSource"
-	putCounterPlacerFor5ab1TriggeredSourceController uint16 = 4 // "TriggeredSourceController"
-)
-
-var putCounterPlacerFor5ab1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Controller", Val: putCounterPlacerFor5ab1Controller},
-	state.StrEntry[uint16]{Key: "Owner", Val: putCounterPlacerFor5ab1Owner},
-	state.StrEntry[uint16]{Key: "TriggeredSource", Val: putCounterPlacerFor5ab1TriggeredSource},
-	state.StrEntry[uint16]{Key: "TriggeredSourceController", Val: putCounterPlacerFor5ab1TriggeredSourceController},
-)
+type putCounterPlacerForCode uint16
 
 const (
-	putCounterChooserFor5ab2Empty              uint16 = 1 // "", "You", "True"
-	putCounterChooserFor5ab2PlayerIsRemembered uint16 = 2 // "Player.IsRemembered", "Remembered", "RememberedController"
-	putCounterChooserFor5ab2ChosenPlayer       uint16 = 3 // "ChosenPlayer", "Player.Chosen"
-	putCounterChooserFor5ab2TriggeredPlayer    uint16 = 4 // "TriggeredPlayer"
-	putCounterChooserFor5ab2ThisTargetedPlayer uint16 = 5 // "ThisTargetedPlayer", "TargetedPlayer", "Targeted"
+	putCounterPlacerForController putCounterPlacerForCode = iota + 1
+	putCounterPlacerForOwner
+	putCounterPlacerForTriggeredSource
+	putCounterPlacerForTriggeredSourceController
 )
 
-var putCounterChooserFor5ab2Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: putCounterChooserFor5ab2Empty},
-	state.StrEntry[uint16]{Key: "You", Val: putCounterChooserFor5ab2Empty},
-	state.StrEntry[uint16]{Key: "True", Val: putCounterChooserFor5ab2Empty},
-	state.StrEntry[uint16]{Key: "Player.IsRemembered", Val: putCounterChooserFor5ab2PlayerIsRemembered},
-	state.StrEntry[uint16]{Key: "Remembered", Val: putCounterChooserFor5ab2PlayerIsRemembered},
-	state.StrEntry[uint16]{Key: "RememberedController", Val: putCounterChooserFor5ab2PlayerIsRemembered},
-	state.StrEntry[uint16]{Key: "ChosenPlayer", Val: putCounterChooserFor5ab2ChosenPlayer},
-	state.StrEntry[uint16]{Key: "Player.Chosen", Val: putCounterChooserFor5ab2ChosenPlayer},
-	state.StrEntry[uint16]{Key: "TriggeredPlayer", Val: putCounterChooserFor5ab2TriggeredPlayer},
-	state.StrEntry[uint16]{Key: "ThisTargetedPlayer", Val: putCounterChooserFor5ab2ThisTargetedPlayer},
-	state.StrEntry[uint16]{Key: "TargetedPlayer", Val: putCounterChooserFor5ab2ThisTargetedPlayer},
-	state.StrEntry[uint16]{Key: "Targeted", Val: putCounterChooserFor5ab2ThisTargetedPlayer},
+var putCounterPlacerForCodes = state.NewStrCodes(
+	state.StrEntry[putCounterPlacerForCode]{Key: "Controller", Val: putCounterPlacerForController},
+	state.StrEntry[putCounterPlacerForCode]{Key: "Owner", Val: putCounterPlacerForOwner},
+	state.StrEntry[putCounterPlacerForCode]{Key: "TriggeredSource", Val: putCounterPlacerForTriggeredSource},
+	state.StrEntry[putCounterPlacerForCode]{Key: "TriggeredSourceController", Val: putCounterPlacerForTriggeredSourceController},
+)
+
+type putCounterChooserForCode uint16
+
+const (
+	putCounterChooserForEmpty putCounterChooserForCode = iota + 1
+	putCounterChooserForPlayerIsRemembered
+	putCounterChooserForChosenPlayer
+	putCounterChooserForTriggeredPlayer
+	putCounterChooserForThisTargetedPlayer
+)
+
+var putCounterChooserForCodes = state.NewStrCodes(
+	state.StrEntry[putCounterChooserForCode]{Key: "", Val: putCounterChooserForEmpty},
+	state.StrEntry[putCounterChooserForCode]{Key: "You", Val: putCounterChooserForEmpty},
+	state.StrEntry[putCounterChooserForCode]{Key: "True", Val: putCounterChooserForEmpty},
+	state.StrEntry[putCounterChooserForCode]{Key: "Player.IsRemembered", Val: putCounterChooserForPlayerIsRemembered},
+	state.StrEntry[putCounterChooserForCode]{Key: "Remembered", Val: putCounterChooserForPlayerIsRemembered},
+	state.StrEntry[putCounterChooserForCode]{Key: "RememberedController", Val: putCounterChooserForPlayerIsRemembered},
+	state.StrEntry[putCounterChooserForCode]{Key: "ChosenPlayer", Val: putCounterChooserForChosenPlayer},
+	state.StrEntry[putCounterChooserForCode]{Key: "Player.Chosen", Val: putCounterChooserForChosenPlayer},
+	state.StrEntry[putCounterChooserForCode]{Key: "TriggeredPlayer", Val: putCounterChooserForTriggeredPlayer},
+	state.StrEntry[putCounterChooserForCode]{Key: "ThisTargetedPlayer", Val: putCounterChooserForThisTargetedPlayer},
+	state.StrEntry[putCounterChooserForCode]{Key: "TargetedPlayer", Val: putCounterChooserForThisTargetedPlayer},
+	state.StrEntry[putCounterChooserForCode]{Key: "Targeted", Val: putCounterChooserForThisTargetedPlayer},
 )

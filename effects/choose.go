@@ -550,10 +550,10 @@ func chooseTypeLabels(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID, cat 
 	if isCreatureCategory(cat) {
 		return optionLabels(h.TypeChoices(chooser, cat)), true
 	}
-	switch chooseTypeLabels8d11Codes.Code(string(strings.ToLower(cat))) {
-	case chooseTypeLabels8d11Shared:
+	switch chooseTypeLabelsCodes.Code(string(strings.ToLower(cat))) {
+	case chooseTypeLabelsShared:
 		return SharedTypeLabels(h.Game(), c.Source), true
-	case chooseTypeLabels8d11Creatureintargeteddeck:
+	case chooseTypeLabelsCreatureintargeteddeck:
 		return CreatureInTargetedDeckLabels(h.Game(), c.Targets), true
 	}
 	if labels := TypeChoiceLabels(cat, sa.ParamStr(cards.PKValidTypes), sa.ParamStr(cards.PKInvalidTypes)); labels != nil {
@@ -580,7 +580,7 @@ func isCreatureCategory(cat string) bool {
 
 // chooseTypePrompt names the category for a client prompt.
 func chooseTypePrompt(cat string) string {
-	if v, ok := chooseTypePromptTab1.Get(strings.ToLower(cat)); ok {
+	if v, ok := chooseTypePromptTab.Get(strings.ToLower(cat)); ok {
 		return v
 	}
 	return "Choose a type"
@@ -620,7 +620,7 @@ func creatureTypeFallback(g *state.Game, controller state.PlayerID) string {
 // cannot offer a spell, plane, or planeswalker subtype as a creature type.
 func CreatureTypeWords(t string) bool { return creatureSubtypeWords[t] }
 
-var chooseTypePromptTab1 = state.NewStrTable[string](
+var chooseTypePromptTab = state.NewStrTable[string](
 	state.StrEntry[string]{Key: "", Val: "Choose a creature type"},
 	state.StrEntry[string]{Key: "creature", Val: "Choose a creature type"},
 	state.StrEntry[string]{Key: "creatureintargeteddeck", Val: "Choose a creature type"},
@@ -632,12 +632,14 @@ var chooseTypePromptTab1 = state.NewStrTable[string](
 	state.StrEntry[string]{Key: "planeswalker", Val: "Choose a planeswalker type"},
 )
 
+type chooseTypeLabelsCode uint16
+
 const (
-	chooseTypeLabels8d11Shared                 uint16 = 1 // "shared"
-	chooseTypeLabels8d11Creatureintargeteddeck uint16 = 2 // "creatureintargeteddeck"
+	chooseTypeLabelsShared chooseTypeLabelsCode = iota + 1
+	chooseTypeLabelsCreatureintargeteddeck
 )
 
-var chooseTypeLabels8d11Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "shared", Val: chooseTypeLabels8d11Shared},
-	state.StrEntry[uint16]{Key: "creatureintargeteddeck", Val: chooseTypeLabels8d11Creatureintargeteddeck},
+var chooseTypeLabelsCodes = state.NewStrCodes(
+	state.StrEntry[chooseTypeLabelsCode]{Key: "shared", Val: chooseTypeLabelsShared},
+	state.StrEntry[chooseTypeLabelsCode]{Key: "creatureintargeteddeck", Val: chooseTypeLabelsCreatureintargeteddeck},
 )

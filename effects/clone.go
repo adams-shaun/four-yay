@@ -746,12 +746,12 @@ func cloneETBTemplateLegal(g *state.Game, c *Ctx, cp *CloneParams) bool {
 // named zone spellings are matched case-insensitively, the same discipline
 // cloneDuration keeps for Duration$.
 func cloneChoiceZone(raw string) (state.Zone, bool) {
-	switch cloneChoiceZoneaf51Codes.Code(string(strings.ToLower(strings.TrimSpace(raw)))) {
-	case cloneChoiceZoneaf51Empty:
+	switch cloneChoiceZoneCodes.Code(string(strings.ToLower(strings.TrimSpace(raw)))) {
+	case cloneChoiceZoneEmpty:
 		return state.ZBattlefield, true
-	case cloneChoiceZoneaf51Graveyard:
+	case cloneChoiceZoneGraveyard:
 		return state.ZGraveyard, true
-	case cloneChoiceZoneaf51Exile:
+	case cloneChoiceZoneExile:
 		return state.ZExile, true
 	default:
 		return 0, false
@@ -821,30 +821,30 @@ func clonePT(h Host, c *Ctx, p ParamText) (present bool, value int32) {
 // UntilHostLeavesPlay, UntilFacedown and EOT; 105 lines carry no Duration$
 // (a permanent copy).
 func cloneDuration(dur string) (permanent, untilEOT bool, untilTurn int32, untilUnattached bool, note string) {
-	switch cloneDurationaf52Codes.Code(string(strings.ToLower(strings.TrimSpace(dur)))) {
-	case cloneDurationaf52Empty:
+	switch cloneDurationCodes.Code(string(strings.ToLower(strings.TrimSpace(dur)))) {
+	case cloneDurationEmpty:
 		return true, false, 0, false, ""
-	case cloneDurationaf52Untilendofcombat:
+	case cloneDurationUntilendofcombat:
 		// durationTiming's combat scope: dropped by EndOfTurnCleanup on the
 		// same turn (the engine's UntilEndOfCombat reclamation).
 		return false, false, 0, false, ""
-	case cloneDurationaf52Untileadofturn:
+	case cloneDurationUntileadofturn:
 		return false, true, 0, false, ""
-	case cloneDurationaf52Untilyournextturn:
+	case cloneDurationUntilyournextturn:
 		// AddContinuous computes the real turn boundary from Duration.
 		return false, false, 0, false, ""
-	case cloneDurationaf52Untilyournextendstep:
+	case cloneDurationUntilyournextendstep:
 		// The engine's until-next-end-step window is this turn's cleanup, the
 		// same mapping effects.effectUntilEOT uses for this spelling (the one
 		// corpus carrier is niko_light_of_hope).
 		return false, true, 0, false, ""
-	case cloneDurationaf52Untilunattached:
+	case cloneDurationUntilunattached:
 		return false, false, 0, true, ""
-	case cloneDurationaf52Untilhostleavesplay:
+	case cloneDurationUntilhostleavesplay:
 		// Exactly the source-leaves lifetime the default arm gives an unknown
 		// duration, so no Note is needed (secret_invasion).
 		return false, false, 0, false, ""
-	case cloneDurationaf52Untilfacedown:
+	case cloneDurationUntilfacedown:
 		// Settled on the actual turn-down or untap event, not at cleanup.
 		return false, false, 0, false, ""
 	default:
@@ -868,43 +868,47 @@ func splitAmp(s string) []string {
 	return out
 }
 
-const (
-	cloneChoiceZoneaf51Empty     uint16 = 1 // "", "battlefield"
-	cloneChoiceZoneaf51Graveyard uint16 = 2 // "graveyard"
-	cloneChoiceZoneaf51Exile     uint16 = 3 // "exile"
-)
-
-var cloneChoiceZoneaf51Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: cloneChoiceZoneaf51Empty},
-	state.StrEntry[uint16]{Key: "battlefield", Val: cloneChoiceZoneaf51Empty},
-	state.StrEntry[uint16]{Key: "graveyard", Val: cloneChoiceZoneaf51Graveyard},
-	state.StrEntry[uint16]{Key: "exile", Val: cloneChoiceZoneaf51Exile},
-)
+type cloneChoiceZoneCode uint16
 
 const (
-	cloneDurationaf52Empty                uint16 = 1 // "", "permanent"
-	cloneDurationaf52Untilendofcombat     uint16 = 2 // "untilendofcombat"
-	cloneDurationaf52Untileadofturn       uint16 = 3 // "untileadofturn", "untilendofturn", "eot"
-	cloneDurationaf52Untilyournextturn    uint16 = 4 // "untilyournextturn", "untiltheendofyournextturn"
-	cloneDurationaf52Untilyournextendstep uint16 = 5 // "untilyournextendstep", "untilnextendstep"
-	cloneDurationaf52Untilunattached      uint16 = 6 // "untilunattached"
-	cloneDurationaf52Untilhostleavesplay  uint16 = 7 // "untilhostleavesplay"
-	cloneDurationaf52Untilfacedown        uint16 = 8 // "untilfacedown", "untiltargeteduntaps"
+	cloneChoiceZoneEmpty cloneChoiceZoneCode = iota + 1
+	cloneChoiceZoneGraveyard
+	cloneChoiceZoneExile
 )
 
-var cloneDurationaf52Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: cloneDurationaf52Empty},
-	state.StrEntry[uint16]{Key: "permanent", Val: cloneDurationaf52Empty},
-	state.StrEntry[uint16]{Key: "untilendofcombat", Val: cloneDurationaf52Untilendofcombat},
-	state.StrEntry[uint16]{Key: "untileadofturn", Val: cloneDurationaf52Untileadofturn},
-	state.StrEntry[uint16]{Key: "untilendofturn", Val: cloneDurationaf52Untileadofturn},
-	state.StrEntry[uint16]{Key: "eot", Val: cloneDurationaf52Untileadofturn},
-	state.StrEntry[uint16]{Key: "untilyournextturn", Val: cloneDurationaf52Untilyournextturn},
-	state.StrEntry[uint16]{Key: "untiltheendofyournextturn", Val: cloneDurationaf52Untilyournextturn},
-	state.StrEntry[uint16]{Key: "untilyournextendstep", Val: cloneDurationaf52Untilyournextendstep},
-	state.StrEntry[uint16]{Key: "untilnextendstep", Val: cloneDurationaf52Untilyournextendstep},
-	state.StrEntry[uint16]{Key: "untilunattached", Val: cloneDurationaf52Untilunattached},
-	state.StrEntry[uint16]{Key: "untilhostleavesplay", Val: cloneDurationaf52Untilhostleavesplay},
-	state.StrEntry[uint16]{Key: "untilfacedown", Val: cloneDurationaf52Untilfacedown},
-	state.StrEntry[uint16]{Key: "untiltargeteduntaps", Val: cloneDurationaf52Untilfacedown},
+var cloneChoiceZoneCodes = state.NewStrCodes(
+	state.StrEntry[cloneChoiceZoneCode]{Key: "", Val: cloneChoiceZoneEmpty},
+	state.StrEntry[cloneChoiceZoneCode]{Key: "battlefield", Val: cloneChoiceZoneEmpty},
+	state.StrEntry[cloneChoiceZoneCode]{Key: "graveyard", Val: cloneChoiceZoneGraveyard},
+	state.StrEntry[cloneChoiceZoneCode]{Key: "exile", Val: cloneChoiceZoneExile},
+)
+
+type cloneDurationCode uint16
+
+const (
+	cloneDurationEmpty cloneDurationCode = iota + 1
+	cloneDurationUntilendofcombat
+	cloneDurationUntileadofturn
+	cloneDurationUntilyournextturn
+	cloneDurationUntilyournextendstep
+	cloneDurationUntilunattached
+	cloneDurationUntilhostleavesplay
+	cloneDurationUntilfacedown
+)
+
+var cloneDurationCodes = state.NewStrCodes(
+	state.StrEntry[cloneDurationCode]{Key: "", Val: cloneDurationEmpty},
+	state.StrEntry[cloneDurationCode]{Key: "permanent", Val: cloneDurationEmpty},
+	state.StrEntry[cloneDurationCode]{Key: "untilendofcombat", Val: cloneDurationUntilendofcombat},
+	state.StrEntry[cloneDurationCode]{Key: "untileadofturn", Val: cloneDurationUntileadofturn},
+	state.StrEntry[cloneDurationCode]{Key: "untilendofturn", Val: cloneDurationUntileadofturn},
+	state.StrEntry[cloneDurationCode]{Key: "eot", Val: cloneDurationUntileadofturn},
+	state.StrEntry[cloneDurationCode]{Key: "untilyournextturn", Val: cloneDurationUntilyournextturn},
+	state.StrEntry[cloneDurationCode]{Key: "untiltheendofyournextturn", Val: cloneDurationUntilyournextturn},
+	state.StrEntry[cloneDurationCode]{Key: "untilyournextendstep", Val: cloneDurationUntilyournextendstep},
+	state.StrEntry[cloneDurationCode]{Key: "untilnextendstep", Val: cloneDurationUntilyournextendstep},
+	state.StrEntry[cloneDurationCode]{Key: "untilunattached", Val: cloneDurationUntilunattached},
+	state.StrEntry[cloneDurationCode]{Key: "untilhostleavesplay", Val: cloneDurationUntilhostleavesplay},
+	state.StrEntry[cloneDurationCode]{Key: "untilfacedown", Val: cloneDurationUntilfacedown},
+	state.StrEntry[cloneDurationCode]{Key: "untiltargeteduntaps", Val: cloneDurationUntilfacedown},
 )

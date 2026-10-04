@@ -152,7 +152,7 @@ type compiledPred struct {
 // list exactly those conditions; a token it misses would be dispatched to a
 // later branch the oracle never reaches for it.
 func specialPositiveToken(p string) bool {
-	if v, ok := specialPositiveTokenTab1.Get(p); ok {
+	if v, ok := specialPositiveTokenTab.Get(p); ok {
 		return v
 	}
 	if arg, has := strings.CutPrefix(p, "SharesColorWith "); has {
@@ -178,7 +178,7 @@ func specialPositiveToken(p string) bool {
 
 // typePredicateToken lists typePredicate's switch cases.
 func typePredicateToken(p string) bool {
-	if v, ok := typePredicateTokenTab2.Get(p); ok {
+	if v, ok := typePredicateTokenTab.Get(p); ok {
 		return v
 	}
 	return false
@@ -310,18 +310,18 @@ func compileSpec(spec string) *compiledSpec {
 			a.baseNeg = !a.baseNeg
 			b = neg
 		}
-		switch compileSpec35e1Codes.Code(string(b)) {
-		case compileSpec35e1Any:
+		switch compileSpecCodes.Code(string(b)) {
+		case compileSpecAny:
 			a.kind = cbAny
-		case compileSpec35e1Card:
+		case compileSpecCard:
 			a.kind = cbCard
-		case compileSpec35e1Permanent:
+		case compileSpecPermanent:
 			a.kind = cbPermanent
-		case compileSpec35e1Affinity:
+		case compileSpecAffinity:
 			a.kind = cbAffinity
-		case compileSpec35e1PermanentCard:
+		case compileSpecPermanentCard:
 			a.kind = cbPermanentCard
-		case compileSpec35e1Spell:
+		case compileSpecSpell:
 			a.kind = cbSpell
 		default:
 			a.kind, a.typ, a.typID, a.typSub = cbType, b, cards.InternTypeWord(b), changelingType(b)
@@ -641,7 +641,7 @@ func (c *specCache) slow(spec string) *compiledSpec {
 	return cs
 }
 
-var specialPositiveTokenTab1 = state.NewStrTable[bool](
+var specialPositiveTokenTab = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "token$DifferentCardNames", Val: true},
 	state.StrEntry[bool]{Key: "ChosenCard", Val: true},
 	state.StrEntry[bool]{Key: "ChosenCardStrict", Val: true},
@@ -657,7 +657,7 @@ var specialPositiveTokenTab1 = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "IsTriggerRemembered", Val: true},
 )
 
-var typePredicateTokenTab2 = state.NewStrTable[bool](
+var typePredicateTokenTab = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "Legendary", Val: true},
 	state.StrEntry[bool]{Key: "Basic", Val: true},
 	state.StrEntry[bool]{Key: "Snow", Val: true},
@@ -669,21 +669,23 @@ var typePredicateTokenTab2 = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "ChosenCtrl", Val: true},
 )
 
+type compileSpecCode uint16
+
 const (
-	compileSpec35e1Any           uint16 = 1 // "Any"
-	compileSpec35e1Card          uint16 = 2 // "Card"
-	compileSpec35e1Permanent     uint16 = 3 // "Permanent"
-	compileSpec35e1Affinity      uint16 = 4 // "Affinity"
-	compileSpec35e1PermanentCard uint16 = 5 // "PermanentCard"
-	compileSpec35e1Spell         uint16 = 6 // "Spell", "SpellAbility"
+	compileSpecAny compileSpecCode = iota + 1
+	compileSpecCard
+	compileSpecPermanent
+	compileSpecAffinity
+	compileSpecPermanentCard
+	compileSpecSpell
 )
 
-var compileSpec35e1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Any", Val: compileSpec35e1Any},
-	state.StrEntry[uint16]{Key: "Card", Val: compileSpec35e1Card},
-	state.StrEntry[uint16]{Key: "Permanent", Val: compileSpec35e1Permanent},
-	state.StrEntry[uint16]{Key: "Affinity", Val: compileSpec35e1Affinity},
-	state.StrEntry[uint16]{Key: "PermanentCard", Val: compileSpec35e1PermanentCard},
-	state.StrEntry[uint16]{Key: "Spell", Val: compileSpec35e1Spell},
-	state.StrEntry[uint16]{Key: "SpellAbility", Val: compileSpec35e1Spell},
+var compileSpecCodes = state.NewStrCodes(
+	state.StrEntry[compileSpecCode]{Key: "Any", Val: compileSpecAny},
+	state.StrEntry[compileSpecCode]{Key: "Card", Val: compileSpecCard},
+	state.StrEntry[compileSpecCode]{Key: "Permanent", Val: compileSpecPermanent},
+	state.StrEntry[compileSpecCode]{Key: "Affinity", Val: compileSpecAffinity},
+	state.StrEntry[compileSpecCode]{Key: "PermanentCard", Val: compileSpecPermanentCard},
+	state.StrEntry[compileSpecCode]{Key: "Spell", Val: compileSpecSpell},
+	state.StrEntry[compileSpecCode]{Key: "SpellAbility", Val: compileSpecSpell},
 )

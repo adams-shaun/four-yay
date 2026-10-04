@@ -550,22 +550,22 @@ func (e *Engine) turnUpAnswer(d *decision.Decision, chosen []decision.Option) {
 	if tp == nil || len(chosen) == 0 {
 		return
 	}
-	switch turnUpAnswer6e01Codes.Code(string(chosen[0].Kind)) {
-	case turnUpAnswer6e01X:
+	switch turnUpAnswerCodes.Code(string(chosen[0].Kind)) {
+	case turnUpAnswerX:
 		tp.x = int32(chosen[0].Amount)
-	case turnUpAnswer6e01Sacrifice:
+	case turnUpAnswerSacrifice:
 		for _, o := range chosen {
 			tp.sacs = append(tp.sacs, o.Obj)
 		}
-	case turnUpAnswer6e01Discard:
+	case turnUpAnswerDiscard:
 		for _, o := range chosen {
 			tp.discs = append(tp.discs, o.Obj)
 		}
-	case turnUpAnswer6e01Revealcost:
+	case turnUpAnswerRevealcost:
 		for _, o := range chosen {
 			tp.reveal = append(tp.reveal, o.Obj)
 		}
-	case turnUpAnswer6e01Returncost:
+	case turnUpAnswerReturncost:
 		for _, o := range chosen {
 			tp.returns = append(tp.returns, o.Obj)
 		}
@@ -889,18 +889,20 @@ func (e *Engine) abortTurnUp(tp *turnUpPay) {
 		Text: "turn-face-up cost no longer payable; the special action did nothing"})
 }
 
+type turnUpAnswerCode uint16
+
 const (
-	turnUpAnswer6e01X          uint16 = 1 // "x"
-	turnUpAnswer6e01Sacrifice  uint16 = 2 // "sacrifice"
-	turnUpAnswer6e01Discard    uint16 = 3 // "discard"
-	turnUpAnswer6e01Revealcost uint16 = 4 // "revealcost"
-	turnUpAnswer6e01Returncost uint16 = 5 // "returncost"
+	turnUpAnswerX turnUpAnswerCode = iota + 1
+	turnUpAnswerSacrifice
+	turnUpAnswerDiscard
+	turnUpAnswerRevealcost
+	turnUpAnswerReturncost
 )
 
-var turnUpAnswer6e01Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "x", Val: turnUpAnswer6e01X},
-	state.StrEntry[uint16]{Key: "sacrifice", Val: turnUpAnswer6e01Sacrifice},
-	state.StrEntry[uint16]{Key: "discard", Val: turnUpAnswer6e01Discard},
-	state.StrEntry[uint16]{Key: "revealcost", Val: turnUpAnswer6e01Revealcost},
-	state.StrEntry[uint16]{Key: "returncost", Val: turnUpAnswer6e01Returncost},
+var turnUpAnswerCodes = state.NewStrCodes(
+	state.StrEntry[turnUpAnswerCode]{Key: "x", Val: turnUpAnswerX},
+	state.StrEntry[turnUpAnswerCode]{Key: "sacrifice", Val: turnUpAnswerSacrifice},
+	state.StrEntry[turnUpAnswerCode]{Key: "discard", Val: turnUpAnswerDiscard},
+	state.StrEntry[turnUpAnswerCode]{Key: "revealcost", Val: turnUpAnswerRevealcost},
+	state.StrEntry[turnUpAnswerCode]{Key: "returncost", Val: turnUpAnswerReturncost},
 )

@@ -207,7 +207,7 @@ func (e *Engine) mayDeriveKeywordLine(id state.ObjID) bool {
 func (e *Engine) grantedKeywordLinesFull(id state.ObjID) []string {
 	var out []string
 	for _, k := range e.Derived(id).Keywords {
-		if !grantedKeywordLinesFullKeys1.Has(cards.KeywordHead(k)) {
+		if !grantedKeywordLinesFullKeys.Has(cards.KeywordHead(k)) {
 			continue
 		}
 		dup := false
@@ -288,14 +288,14 @@ func (e *Engine) gainsValidAbilitiesAdmits(spec string, ab *cards.SA) bool {
 		}
 		ok := true
 		for q := range strings.SplitSeq(tail, ".") {
-			switch gainsValidAbilitiesAdmits8ae1Codes.Code(string(strings.TrimSpace(q))) {
-			case gainsValidAbilitiesAdmits8ae1Empty:
+			switch gainsValidAbilitiesAdmitsCodes.Code(string(strings.TrimSpace(q))) {
+			case gainsValidAbilitiesAdmitsEmpty:
 				// A trailing dot ("Activated."): no qualifier, vacuous.
-			case gainsValidAbilitiesAdmits8ae1ManaAbility:
+			case gainsValidAbilitiesAdmitsManaAbility:
 				ok = ok && !cards.IsManaAbilityAPI(ab.API)
-			case gainsValidAbilitiesAdmits8ae1Loyalty:
+			case gainsValidAbilitiesAdmitsLoyalty:
 				ok = ok && !e.isLoyaltyAbility(ab)
-			case gainsValidAbilitiesAdmits8ae1LoyaltyX:
+			case gainsValidAbilitiesAdmitsLoyaltyX:
 				ok = ok && e.isLoyaltyAbility(ab)
 			default:
 				// Unmodelled qualifier: fail closed for this alternative.
@@ -356,18 +356,20 @@ func existsOnBattlefield(o *state.Object) bool {
 	return o != nil && o.Zone == state.ZBattlefield && !o.PhasedOut
 }
 
-var grantedKeywordLinesFullKeys1 = state.NewNameSet("Cycling", "TypeCycling", "Saddle", "Crew")
+var grantedKeywordLinesFullKeys = state.NewNameSet("Cycling", "TypeCycling", "Saddle", "Crew")
+
+type gainsValidAbilitiesAdmitsCode uint16
 
 const (
-	gainsValidAbilitiesAdmits8ae1Empty       uint16 = 1 // ""
-	gainsValidAbilitiesAdmits8ae1ManaAbility uint16 = 2 // "!ManaAbility"
-	gainsValidAbilitiesAdmits8ae1Loyalty     uint16 = 3 // "!Loyalty"
-	gainsValidAbilitiesAdmits8ae1LoyaltyX    uint16 = 4 // "Loyalty"
+	gainsValidAbilitiesAdmitsEmpty gainsValidAbilitiesAdmitsCode = iota + 1
+	gainsValidAbilitiesAdmitsManaAbility
+	gainsValidAbilitiesAdmitsLoyalty
+	gainsValidAbilitiesAdmitsLoyaltyX
 )
 
-var gainsValidAbilitiesAdmits8ae1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: gainsValidAbilitiesAdmits8ae1Empty},
-	state.StrEntry[uint16]{Key: "!ManaAbility", Val: gainsValidAbilitiesAdmits8ae1ManaAbility},
-	state.StrEntry[uint16]{Key: "!Loyalty", Val: gainsValidAbilitiesAdmits8ae1Loyalty},
-	state.StrEntry[uint16]{Key: "Loyalty", Val: gainsValidAbilitiesAdmits8ae1LoyaltyX},
+var gainsValidAbilitiesAdmitsCodes = state.NewStrCodes(
+	state.StrEntry[gainsValidAbilitiesAdmitsCode]{Key: "", Val: gainsValidAbilitiesAdmitsEmpty},
+	state.StrEntry[gainsValidAbilitiesAdmitsCode]{Key: "!ManaAbility", Val: gainsValidAbilitiesAdmitsManaAbility},
+	state.StrEntry[gainsValidAbilitiesAdmitsCode]{Key: "!Loyalty", Val: gainsValidAbilitiesAdmitsLoyalty},
+	state.StrEntry[gainsValidAbilitiesAdmitsCode]{Key: "Loyalty", Val: gainsValidAbilitiesAdmitsLoyaltyX},
 )

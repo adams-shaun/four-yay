@@ -292,10 +292,10 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 	g := h.Game()
 	extraMet := true
 	if playerTurn != "" {
-		switch conditionMet4a01Codes.Code(string(strings.ToLower(playerTurn))) {
-		case conditionMet4a01True:
+		switch conditionMetCodes.Code(string(strings.ToLower(playerTurn))) {
+		case conditionMetTrue:
 			extraMet = g.Active == c.Controller
-		case conditionMet4a01False:
+		case conditionMetFalse:
 			extraMet = g.Active != c.Controller
 		default:
 			return false, false
@@ -1006,8 +1006,8 @@ func conditionNotPresentMet(h Host, c *Ctx, defined, spec string) (met, resolved
 	sc := c.SpecContext(c.Controller)
 	sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, spec, h)...)
 	count := 0
-	switch conditionNotPresentMet4a02Codes.Code(string(defined)) {
-	case conditionNotPresentMet4a02Empty:
+	switch conditionNotPresentMetCodes.Code(string(defined)) {
+	case conditionNotPresentMetEmpty:
 		// Forge's default group for a group-less ConditionPresent$/NotPresent$
 		// gate is the battlefield (conditionMetBattlefield's group).
 		for i := range g.Objs {
@@ -1019,7 +1019,7 @@ func conditionNotPresentMet(h Host, c *Ctx, defined, spec string) (met, resolved
 				count++
 			}
 		}
-	case conditionNotPresentMet4a02Remembered:
+	case conditionNotPresentMetRemembered:
 		for _, t := range rememberedWithSource(h, c) {
 			if t.IsPlayer {
 				continue
@@ -1032,7 +1032,7 @@ func conditionNotPresentMet(h Host, c *Ctx, defined, spec string) (met, resolved
 				count++
 			}
 		}
-	case conditionNotPresentMet4a02Targeted:
+	case conditionNotPresentMetTargeted:
 		// The resolving ability's own answered targets — the same group
 		// conditionMet's Targeted branch enumerates.
 		for _, t := range targetedGroup(c) {
@@ -1121,18 +1121,18 @@ func evalConditionCount(count int, compare string) (met, resolved bool) {
 	if !ok {
 		return false, false
 	}
-	switch evalConditionCount4a03Codes.Code(string(op)) {
-	case evalConditionCount4a03EQ:
+	switch CmpOpOf(op) {
+	case CmpEQ:
 		return count == n, true
-	case evalConditionCount4a03NE:
+	case CmpNE:
 		return count != n, true
-	case evalConditionCount4a03LT:
+	case CmpLT:
 		return count < n, true
-	case evalConditionCount4a03LE:
+	case CmpLE:
 		return count <= n, true
-	case evalConditionCount4a03GT:
+	case CmpGT:
 		return count > n, true
-	case evalConditionCount4a03GE:
+	case CmpGE:
 		return count >= n, true
 	}
 	return false, false
@@ -1147,8 +1147,8 @@ func parseConditionCompare(v string) (op string, n int, ok bool) {
 		return "", 0, false
 	}
 	op = strings.ToUpper(v[:2])
-	switch parseConditionCompare4a04Codes.Code(string(op)) {
-	case parseConditionCompare4a04EQ:
+	switch CmpOpOf(op) {
+	case CmpEQ, CmpNE, CmpLT, CmpLE, CmpGT, CmpGE:
 	default:
 		return "", 0, false
 	}
@@ -1367,55 +1367,28 @@ func sourceRuntimeSVar(g *state.Game, c *Ctx, name string) (int32, bool) {
 	return v, ok
 }
 
-const (
-	conditionMet4a01True  uint16 = 1 // "true"
-	conditionMet4a01False uint16 = 2 // "false"
-)
-
-var conditionMet4a01Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "true", Val: conditionMet4a01True},
-	state.StrEntry[uint16]{Key: "false", Val: conditionMet4a01False},
-)
+type conditionMetCode uint16
 
 const (
-	conditionNotPresentMet4a02Empty      uint16 = 1 // ""
-	conditionNotPresentMet4a02Remembered uint16 = 2 // "Remembered"
-	conditionNotPresentMet4a02Targeted   uint16 = 3 // "Targeted"
+	conditionMetTrue conditionMetCode = iota + 1
+	conditionMetFalse
 )
 
-var conditionNotPresentMet4a02Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: conditionNotPresentMet4a02Empty},
-	state.StrEntry[uint16]{Key: "Remembered", Val: conditionNotPresentMet4a02Remembered},
-	state.StrEntry[uint16]{Key: "Targeted", Val: conditionNotPresentMet4a02Targeted},
+var conditionMetCodes = state.NewStrCodes(
+	state.StrEntry[conditionMetCode]{Key: "true", Val: conditionMetTrue},
+	state.StrEntry[conditionMetCode]{Key: "false", Val: conditionMetFalse},
 )
 
-const (
-	evalConditionCount4a03EQ uint16 = 1 // "EQ"
-	evalConditionCount4a03NE uint16 = 2 // "NE"
-	evalConditionCount4a03LT uint16 = 3 // "LT"
-	evalConditionCount4a03LE uint16 = 4 // "LE"
-	evalConditionCount4a03GT uint16 = 5 // "GT"
-	evalConditionCount4a03GE uint16 = 6 // "GE"
-)
-
-var evalConditionCount4a03Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "EQ", Val: evalConditionCount4a03EQ},
-	state.StrEntry[uint16]{Key: "NE", Val: evalConditionCount4a03NE},
-	state.StrEntry[uint16]{Key: "LT", Val: evalConditionCount4a03LT},
-	state.StrEntry[uint16]{Key: "LE", Val: evalConditionCount4a03LE},
-	state.StrEntry[uint16]{Key: "GT", Val: evalConditionCount4a03GT},
-	state.StrEntry[uint16]{Key: "GE", Val: evalConditionCount4a03GE},
-)
+type conditionNotPresentMetCode uint16
 
 const (
-	parseConditionCompare4a04EQ uint16 = 1 // "EQ", "NE", "LT", "LE", "GT", "GE"
+	conditionNotPresentMetEmpty conditionNotPresentMetCode = iota + 1
+	conditionNotPresentMetRemembered
+	conditionNotPresentMetTargeted
 )
 
-var parseConditionCompare4a04Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "EQ", Val: parseConditionCompare4a04EQ},
-	state.StrEntry[uint16]{Key: "NE", Val: parseConditionCompare4a04EQ},
-	state.StrEntry[uint16]{Key: "LT", Val: parseConditionCompare4a04EQ},
-	state.StrEntry[uint16]{Key: "LE", Val: parseConditionCompare4a04EQ},
-	state.StrEntry[uint16]{Key: "GT", Val: parseConditionCompare4a04EQ},
-	state.StrEntry[uint16]{Key: "GE", Val: parseConditionCompare4a04EQ},
+var conditionNotPresentMetCodes = state.NewStrCodes(
+	state.StrEntry[conditionNotPresentMetCode]{Key: "", Val: conditionNotPresentMetEmpty},
+	state.StrEntry[conditionNotPresentMetCode]{Key: "Remembered", Val: conditionNotPresentMetRemembered},
+	state.StrEntry[conditionNotPresentMetCode]{Key: "Targeted", Val: conditionNotPresentMetTargeted},
 )

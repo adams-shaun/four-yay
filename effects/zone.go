@@ -175,24 +175,24 @@ func ParseZoneWord(s string) (state.Zone, bool) {
 }
 
 func parseZone(s string) (state.Zone, bool) {
-	switch parseZone6781Codes.Code(string(strings.TrimSpace(s))) {
-	case parseZone6781Hand:
+	switch parseZoneCodes.Code(string(strings.TrimSpace(s))) {
+	case parseZoneHand:
 		return state.ZHand, true
-	case parseZone6781Battlefield:
+	case parseZoneBattlefield:
 		return state.ZBattlefield, true
-	case parseZone6781Library:
+	case parseZoneLibrary:
 		return state.ZLibrary, true
-	case parseZone6781Graveyard:
+	case parseZoneGraveyard:
 		return state.ZGraveyard, true
-	case parseZone6781Exile:
+	case parseZoneExile:
 		return state.ZExile, true
-	case parseZone6781Stack:
+	case parseZoneStack:
 		return state.ZStack, true
-	case parseZone6781Command:
+	case parseZoneCommand:
 		return state.ZCommand, true
-	case parseZone6781Sideboard:
+	case parseZoneSideboard:
 		return state.ZSideboard, true
-	case parseZone6781Ceased:
+	case parseZoneCeased:
 		return state.ZCeased, true
 	}
 	return 0, false
@@ -237,26 +237,28 @@ func mixedOriginIncludesHand(zones []state.Zone, all bool) bool {
 	return !all && len(zones) > 1 && zoneIn(zones, state.ZHand)
 }
 
+type parseZoneCode uint16
+
 const (
-	parseZone6781Hand        uint16 = 1 // "Hand"
-	parseZone6781Battlefield uint16 = 2 // "Battlefield"
-	parseZone6781Library     uint16 = 3 // "Library"
-	parseZone6781Graveyard   uint16 = 4 // "Graveyard"
-	parseZone6781Exile       uint16 = 5 // "Exile"
-	parseZone6781Stack       uint16 = 6 // "Stack"
-	parseZone6781Command     uint16 = 7 // "Command"
-	parseZone6781Sideboard   uint16 = 8 // "Sideboard"
-	parseZone6781Ceased      uint16 = 9 // "Ceased"
+	parseZoneHand parseZoneCode = iota + 1
+	parseZoneBattlefield
+	parseZoneLibrary
+	parseZoneGraveyard
+	parseZoneExile
+	parseZoneStack
+	parseZoneCommand
+	parseZoneSideboard
+	parseZoneCeased
 )
 
-var parseZone6781Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Hand", Val: parseZone6781Hand},
-	state.StrEntry[uint16]{Key: "Battlefield", Val: parseZone6781Battlefield},
-	state.StrEntry[uint16]{Key: "Library", Val: parseZone6781Library},
-	state.StrEntry[uint16]{Key: "Graveyard", Val: parseZone6781Graveyard},
-	state.StrEntry[uint16]{Key: "Exile", Val: parseZone6781Exile},
-	state.StrEntry[uint16]{Key: "Stack", Val: parseZone6781Stack},
-	state.StrEntry[uint16]{Key: "Command", Val: parseZone6781Command},
-	state.StrEntry[uint16]{Key: "Sideboard", Val: parseZone6781Sideboard},
-	state.StrEntry[uint16]{Key: "Ceased", Val: parseZone6781Ceased},
+var parseZoneCodes = state.NewStrCodes(
+	state.StrEntry[parseZoneCode]{Key: "Hand", Val: parseZoneHand},
+	state.StrEntry[parseZoneCode]{Key: "Battlefield", Val: parseZoneBattlefield},
+	state.StrEntry[parseZoneCode]{Key: "Library", Val: parseZoneLibrary},
+	state.StrEntry[parseZoneCode]{Key: "Graveyard", Val: parseZoneGraveyard},
+	state.StrEntry[parseZoneCode]{Key: "Exile", Val: parseZoneExile},
+	state.StrEntry[parseZoneCode]{Key: "Stack", Val: parseZoneStack},
+	state.StrEntry[parseZoneCode]{Key: "Command", Val: parseZoneCommand},
+	state.StrEntry[parseZoneCode]{Key: "Sideboard", Val: parseZoneSideboard},
+	state.StrEntry[parseZoneCode]{Key: "Ceased", Val: parseZoneCeased},
 )

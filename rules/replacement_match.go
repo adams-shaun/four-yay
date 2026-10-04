@@ -874,12 +874,12 @@ func (e *Engine) replacementConditionHolds(r cards.Repl, source state.ObjID, you
 	// corpus's sole carrier; an unrecognised value fails closed like every
 	// other condition gate here.
 	if raw, ok := r.Param(cards.PKEnduringStory); ok {
-		switch replacementConditionHolds5932Codes.Code(string(strings.TrimSpace(raw))) {
-		case replacementConditionHolds5932True:
+		switch replacementConditionHoldsCodes.Code(string(strings.TrimSpace(raw))) {
+		case replacementConditionHoldsTrue:
 			if !e.playerHasEnduringStory(you) {
 				return false
 			}
-		case replacementConditionHolds5932False:
+		case replacementConditionHoldsFalse:
 			if e.playerHasEnduringStory(you) {
 				return false
 			}
@@ -915,16 +915,16 @@ func (e *Engine) replacementAmountMatches(spec string, amount int32, c *effects.
 	for _, op := range []string{"GE", "GT", "LE", "LT", "EQ"} {
 		if rhs, ok := strings.CutPrefix(spec, op); ok {
 			v := effects.Num(e, c, &cards.SA{Params: map[string]string{"N": rhs}}, "N", 0)
-			switch replacementAmountMatches5933Codes.Code(string(op)) {
-			case replacementAmountMatches5933GE:
+			switch effects.CmpOpOf(op) {
+			case effects.CmpGE:
 				return amount >= v
-			case replacementAmountMatches5933GT:
+			case effects.CmpGT:
 				return amount > v
-			case replacementAmountMatches5933LE:
+			case effects.CmpLE:
 				return amount <= v
-			case replacementAmountMatches5933LT:
+			case effects.CmpLT:
 				return amount < v
-			case replacementAmountMatches5933EQ:
+			case effects.CmpEQ:
 				return amount == v
 			}
 		}
@@ -955,21 +955,21 @@ func (e *Engine) replacementCheckValue(source state.ObjID, check string) int32 {
 	if body == check && check == "X" {
 		return o.X
 	}
-	switch replacementCheckValue5934Codes.Code(string(body)) {
-	case replacementCheckValue5934CountParty:
+	switch replacementCheckBodyCodes.Code(string(body)) {
+	case replacementCheckBodyCountParty:
 		roles := map[string]bool{}
 		for _, id := range e.G.Zone(state.ZBattlefield, o.Controller) {
 			if f := e.G.Obj(id).Face(); f != nil {
 				for _, typ := range f.Types {
-					switch replacementCheckValue5935Codes.Code(string(typ)) {
-					case replacementCheckValue5935Cleric:
+					switch replacementCheckTypeCodes.Code(string(typ)) {
+					case replacementCheckTypeCleric:
 						roles[typ] = true
 					}
 				}
 			}
 		}
 		return int32(len(roles))
-	case replacementCheckValue5934CountValidPermanentYouCtrlCo:
+	case replacementCheckBodyCountValidPermanentYouCtrlCo:
 		colors := ""
 		for _, id := range e.G.Zone(state.ZBattlefield, o.Controller) {
 			colors += e.objColors(e.G.Obj(id))
@@ -981,7 +981,7 @@ func (e *Engine) replacementCheckValue(source state.ObjID, check string) int32 {
 			}
 		}
 		return n
-	case replacementCheckValue5934CountPresenceDragon10:
+	case replacementCheckBodyCountPresenceDragon10:
 		for _, id := range e.G.Zone(state.ZBattlefield, o.Controller) {
 			if faceHasType(e.G.Obj(id), "Dragon") {
 				return 1
@@ -1076,8 +1076,8 @@ func (e *Engine) graveyardCardTypeCount(controller state.PlayerID) int {
 	for _, id := range e.G.Zone(state.ZGraveyard, controller) {
 		if o := e.G.Obj(id); o != nil && o.Face() != nil {
 			for _, typ := range o.Face().Types {
-				switch graveyardCardTypeCount5936Codes.Code(string(typ)) {
-				case graveyardCardTypeCount5936Artifact:
+				switch graveyardCardTypeCountCodes.Code(string(typ)) {
+				case graveyardCardTypeCountArtifact:
 					seen[typ] = true
 				}
 			}
@@ -1104,14 +1104,14 @@ func (e *Engine) replacementCauseMatches(spec string, replacementSource, cause s
 		return false
 	}
 	kind, quals, _ := strings.Cut(strings.TrimSpace(spec), ".")
-	switch replacementCauseMatches5937Codes.Code(string(kind)) {
-	case replacementCauseMatches5937Spell:
+	switch replacementCauseKindCodes.Code(string(kind)) {
+	case replacementCauseKindSpell:
 		if o.Ability != nil {
 			return false
 		}
-	case replacementCauseMatches5937SpellAbility:
+	case replacementCauseKindSpellAbility:
 		// Both spell cards and minted ability objects qualify.
-	case replacementCauseMatches5937Triggered:
+	case replacementCauseKindTriggered:
 		// A triggered-ability wrapper (TriggerPush/DelayedPush). Classified
 		// through state.StackKindOf -- the ONE classifier view's
 		// StackView.Kind and rules' TargetType$ legality also use, so the
@@ -1134,12 +1134,12 @@ func (e *Engine) replacementCauseMatches(spec string, replacementSource, cause s
 		}
 		return false
 	}
-	switch replacementCauseMatches5938Codes.Code(string(quals)) {
-	case replacementCauseMatches5938YouCtrl:
+	switch replacementCauseQualCodes.Code(string(quals)) {
+	case replacementCauseQualYouCtrl:
 		return o.Controller == e.controllerOf(replacementSource)
-	case replacementCauseMatches5938OppCtrl:
+	case replacementCauseQualOppCtrl:
 		return o.Controller != e.controllerOf(replacementSource)
-	case replacementCauseMatches5938Modular:
+	case replacementCauseQualModular:
 		// ValidCause$ Triggered.Modular names the modular keyword's own
 		// put-counters trigger (Zabaz, the Glimmerwasp): the wrapper's source
 		// card must carry K:Modular. HasKeyword reads the printed plus
@@ -1159,94 +1159,90 @@ func isTriggered(g *state.Game, o *state.Object) bool {
 	return ok
 }
 
-const (
-	replacementConditionHolds5932True  uint16 = 1 // "True", "true"
-	replacementConditionHolds5932False uint16 = 2 // "False", "false"
-)
-
-var replacementConditionHolds5932Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "True", Val: replacementConditionHolds5932True},
-	state.StrEntry[uint16]{Key: "true", Val: replacementConditionHolds5932True},
-	state.StrEntry[uint16]{Key: "False", Val: replacementConditionHolds5932False},
-	state.StrEntry[uint16]{Key: "false", Val: replacementConditionHolds5932False},
-)
+type replacementConditionHoldsCode uint16
 
 const (
-	replacementAmountMatches5933GE uint16 = 1 // "GE"
-	replacementAmountMatches5933GT uint16 = 2 // "GT"
-	replacementAmountMatches5933LE uint16 = 3 // "LE"
-	replacementAmountMatches5933LT uint16 = 4 // "LT"
-	replacementAmountMatches5933EQ uint16 = 5 // "EQ"
+	replacementConditionHoldsTrue replacementConditionHoldsCode = iota + 1
+	replacementConditionHoldsFalse
 )
 
-var replacementAmountMatches5933Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "GE", Val: replacementAmountMatches5933GE},
-	state.StrEntry[uint16]{Key: "GT", Val: replacementAmountMatches5933GT},
-	state.StrEntry[uint16]{Key: "LE", Val: replacementAmountMatches5933LE},
-	state.StrEntry[uint16]{Key: "LT", Val: replacementAmountMatches5933LT},
-	state.StrEntry[uint16]{Key: "EQ", Val: replacementAmountMatches5933EQ},
+var replacementConditionHoldsCodes = state.NewStrCodes(
+	state.StrEntry[replacementConditionHoldsCode]{Key: "True", Val: replacementConditionHoldsTrue},
+	state.StrEntry[replacementConditionHoldsCode]{Key: "true", Val: replacementConditionHoldsTrue},
+	state.StrEntry[replacementConditionHoldsCode]{Key: "False", Val: replacementConditionHoldsFalse},
+	state.StrEntry[replacementConditionHoldsCode]{Key: "false", Val: replacementConditionHoldsFalse},
 )
+
+type replacementCheckBodyCode uint16
 
 const (
-	replacementCheckValue5934CountParty                   uint16 = 1 // "Count$Party"
-	replacementCheckValue5934CountValidPermanentYouCtrlCo uint16 = 2 // "Count$Valid Permanent.YouCtrl$Colors"
-	replacementCheckValue5934CountPresenceDragon10        uint16 = 3 // "Count$Presence_Dragon.1.0"
+	replacementCheckBodyCountParty replacementCheckBodyCode = iota + 1
+	replacementCheckBodyCountValidPermanentYouCtrlCo
+	replacementCheckBodyCountPresenceDragon10
 )
 
-var replacementCheckValue5934Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Count$Party", Val: replacementCheckValue5934CountParty},
-	state.StrEntry[uint16]{Key: "Count$Valid Permanent.YouCtrl$Colors", Val: replacementCheckValue5934CountValidPermanentYouCtrlCo},
-	state.StrEntry[uint16]{Key: "Count$Presence_Dragon.1.0", Val: replacementCheckValue5934CountPresenceDragon10},
+var replacementCheckBodyCodes = state.NewStrCodes(
+	state.StrEntry[replacementCheckBodyCode]{Key: "Count$Party", Val: replacementCheckBodyCountParty},
+	state.StrEntry[replacementCheckBodyCode]{Key: "Count$Valid Permanent.YouCtrl$Colors", Val: replacementCheckBodyCountValidPermanentYouCtrlCo},
+	state.StrEntry[replacementCheckBodyCode]{Key: "Count$Presence_Dragon.1.0", Val: replacementCheckBodyCountPresenceDragon10},
 )
 
-const (
-	replacementCheckValue5935Cleric uint16 = 1 // "Cleric", "Rogue", "Warrior", "Wizard"
-)
-
-var replacementCheckValue5935Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Cleric", Val: replacementCheckValue5935Cleric},
-	state.StrEntry[uint16]{Key: "Rogue", Val: replacementCheckValue5935Cleric},
-	state.StrEntry[uint16]{Key: "Warrior", Val: replacementCheckValue5935Cleric},
-	state.StrEntry[uint16]{Key: "Wizard", Val: replacementCheckValue5935Cleric},
-)
+type replacementCheckTypeCode uint16
 
 const (
-	graveyardCardTypeCount5936Artifact uint16 = 1 // "Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery"
+	replacementCheckTypeCleric replacementCheckTypeCode = iota + 1
 )
 
-var graveyardCardTypeCount5936Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Artifact", Val: graveyardCardTypeCount5936Artifact},
-	state.StrEntry[uint16]{Key: "Battle", Val: graveyardCardTypeCount5936Artifact},
-	state.StrEntry[uint16]{Key: "Creature", Val: graveyardCardTypeCount5936Artifact},
-	state.StrEntry[uint16]{Key: "Enchantment", Val: graveyardCardTypeCount5936Artifact},
-	state.StrEntry[uint16]{Key: "Instant", Val: graveyardCardTypeCount5936Artifact},
-	state.StrEntry[uint16]{Key: "Kindred", Val: graveyardCardTypeCount5936Artifact},
-	state.StrEntry[uint16]{Key: "Land", Val: graveyardCardTypeCount5936Artifact},
-	state.StrEntry[uint16]{Key: "Planeswalker", Val: graveyardCardTypeCount5936Artifact},
-	state.StrEntry[uint16]{Key: "Sorcery", Val: graveyardCardTypeCount5936Artifact},
+var replacementCheckTypeCodes = state.NewStrCodes(
+	state.StrEntry[replacementCheckTypeCode]{Key: "Cleric", Val: replacementCheckTypeCleric},
+	state.StrEntry[replacementCheckTypeCode]{Key: "Rogue", Val: replacementCheckTypeCleric},
+	state.StrEntry[replacementCheckTypeCode]{Key: "Warrior", Val: replacementCheckTypeCleric},
+	state.StrEntry[replacementCheckTypeCode]{Key: "Wizard", Val: replacementCheckTypeCleric},
 )
+
+type graveyardCardTypeCountCode uint16
 
 const (
-	replacementCauseMatches5937Spell        uint16 = 1 // "Spell"
-	replacementCauseMatches5937SpellAbility uint16 = 2 // "SpellAbility"
-	replacementCauseMatches5937Triggered    uint16 = 3 // "Triggered"
+	graveyardCardTypeCountArtifact graveyardCardTypeCountCode = iota + 1
 )
 
-var replacementCauseMatches5937Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Spell", Val: replacementCauseMatches5937Spell},
-	state.StrEntry[uint16]{Key: "SpellAbility", Val: replacementCauseMatches5937SpellAbility},
-	state.StrEntry[uint16]{Key: "Triggered", Val: replacementCauseMatches5937Triggered},
+var graveyardCardTypeCountCodes = state.NewStrCodes(
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Artifact", Val: graveyardCardTypeCountArtifact},
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Battle", Val: graveyardCardTypeCountArtifact},
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Creature", Val: graveyardCardTypeCountArtifact},
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Enchantment", Val: graveyardCardTypeCountArtifact},
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Instant", Val: graveyardCardTypeCountArtifact},
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Kindred", Val: graveyardCardTypeCountArtifact},
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Land", Val: graveyardCardTypeCountArtifact},
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Planeswalker", Val: graveyardCardTypeCountArtifact},
+	state.StrEntry[graveyardCardTypeCountCode]{Key: "Sorcery", Val: graveyardCardTypeCountArtifact},
 )
+
+type replacementCauseKindCode uint16
 
 const (
-	replacementCauseMatches5938YouCtrl uint16 = 1 // "YouCtrl"
-	replacementCauseMatches5938OppCtrl uint16 = 2 // "OppCtrl", "YouDontCtrl"
-	replacementCauseMatches5938Modular uint16 = 3 // "Modular"
+	replacementCauseKindSpell replacementCauseKindCode = iota + 1
+	replacementCauseKindSpellAbility
+	replacementCauseKindTriggered
 )
 
-var replacementCauseMatches5938Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "YouCtrl", Val: replacementCauseMatches5938YouCtrl},
-	state.StrEntry[uint16]{Key: "OppCtrl", Val: replacementCauseMatches5938OppCtrl},
-	state.StrEntry[uint16]{Key: "YouDontCtrl", Val: replacementCauseMatches5938OppCtrl},
-	state.StrEntry[uint16]{Key: "Modular", Val: replacementCauseMatches5938Modular},
+var replacementCauseKindCodes = state.NewStrCodes(
+	state.StrEntry[replacementCauseKindCode]{Key: "Spell", Val: replacementCauseKindSpell},
+	state.StrEntry[replacementCauseKindCode]{Key: "SpellAbility", Val: replacementCauseKindSpellAbility},
+	state.StrEntry[replacementCauseKindCode]{Key: "Triggered", Val: replacementCauseKindTriggered},
+)
+
+type replacementCauseQualCode uint16
+
+const (
+	replacementCauseQualYouCtrl replacementCauseQualCode = iota + 1
+	replacementCauseQualOppCtrl
+	replacementCauseQualModular
+)
+
+var replacementCauseQualCodes = state.NewStrCodes(
+	state.StrEntry[replacementCauseQualCode]{Key: "YouCtrl", Val: replacementCauseQualYouCtrl},
+	state.StrEntry[replacementCauseQualCode]{Key: "OppCtrl", Val: replacementCauseQualOppCtrl},
+	state.StrEntry[replacementCauseQualCode]{Key: "YouDontCtrl", Val: replacementCauseQualOppCtrl},
+	state.StrEntry[replacementCauseQualCode]{Key: "Modular", Val: replacementCauseQualModular},
 )

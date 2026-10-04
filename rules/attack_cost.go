@@ -574,10 +574,10 @@ func (e *Engine) chargeObjPlan(p state.PlayerID, c blockCharge, excluded map[sta
 		return nil, nil, nil, false
 	}
 	for i, ob := range obs {
-		switch chargeObjPlan1691Codes.Code(string(ob.kind)) {
-		case chargeObjPlan1691Tap:
+		switch chargeObjPlanCodes.Code(string(ob.kind)) {
+		case chargeObjPlanTap:
 			taps = append(taps, picks[i]...)
-		case chargeObjPlan1691Sacrifice:
+		case chargeObjPlanSacrifice:
 			sacs = append(sacs, picks[i]...)
 		default:
 			returns = append(returns, picks[i]...)
@@ -1009,11 +1009,11 @@ func (e *Engine) blockPayAnswer(d *decision.Decision, in decision.Intent) {
 	}
 	chosen := d.Chosen(in)
 	if len(chosen) == 1 {
-		switch blockPayAnswer1692Codes.Code(string(chosen[0].Kind)) {
-		case blockPayAnswer1692BlockPhyColour:
+		switch blockPayAnswerCodes.Code(string(chosen[0].Kind)) {
+		case blockPayAnswerBlockPhyColour:
 			st.plan.phyDecided = true
 			st.plan.phyToLife = 0
-		case blockPayAnswer1692BlockPhyLife:
+		case blockPayAnswerBlockPhyLife:
 			st.plan.phyDecided = true
 			st.plan.phyToLife = int32(len(st.plan.charge.phyrexian))
 		default:
@@ -1283,7 +1283,7 @@ func (e *Engine) attackChoiceManaSources(p state.PlayerID) []attackManaSource {
 // source's recorded as-enters colour before it can be priced.
 func producedNeedsChosen(produced string) bool {
 	for tok := range strings.FieldsSeq(produced) {
-		if v, ok := producedNeedsChosenTab1.Get(strings.Trim(tok, "{}")); ok {
+		if v, ok := producedNeedsChosenTab.Get(strings.Trim(tok, "{}")); ok {
 			return v
 		}
 	}
@@ -1884,11 +1884,11 @@ func (e *Engine) attackPayAnswer(d *decision.Decision, in decision.Intent) {
 	}
 	chosen := d.Chosen(in)
 	if len(chosen) == 1 {
-		switch attackPayAnswer1693Codes.Code(string(chosen[0].Kind)) {
-		case attackPayAnswer1693AttackPhyColour:
+		switch attackPayAnswerCodes.Code(string(chosen[0].Kind)) {
+		case attackPayAnswerAttackPhyColour:
 			st.plan.phyDecided = true
 			st.plan.phyToLife = 0
-		case attackPayAnswer1693AttackPhyLife:
+		case attackPayAnswerAttackPhyLife:
 			st.plan.phyDecided = true
 			st.plan.phyToLife = int32(len(st.plan.charge.phyrexian))
 		default:
@@ -1920,38 +1920,44 @@ func (e *Engine) attackPayAnswer(d *decision.Decision, in decision.Intent) {
 	}
 }
 
-var producedNeedsChosenTab1 = state.NewStrTable[bool](
+var producedNeedsChosenTab = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "Chosen", Val: true},
 	state.StrEntry[bool]{Key: "ChosenColor", Val: true},
 	state.StrEntry[bool]{Key: "ComboChosen", Val: true},
 )
 
-const (
-	chargeObjPlan1691Tap       uint16 = 1 // "tap"
-	chargeObjPlan1691Sacrifice uint16 = 2 // "sacrifice"
-)
-
-var chargeObjPlan1691Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "tap", Val: chargeObjPlan1691Tap},
-	state.StrEntry[uint16]{Key: "sacrifice", Val: chargeObjPlan1691Sacrifice},
-)
+type chargeObjPlanCode uint16
 
 const (
-	blockPayAnswer1692BlockPhyColour uint16 = 1 // "block_phy_colour"
-	blockPayAnswer1692BlockPhyLife   uint16 = 2 // "block_phy_life"
+	chargeObjPlanTap chargeObjPlanCode = iota + 1
+	chargeObjPlanSacrifice
 )
 
-var blockPayAnswer1692Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "block_phy_colour", Val: blockPayAnswer1692BlockPhyColour},
-	state.StrEntry[uint16]{Key: "block_phy_life", Val: blockPayAnswer1692BlockPhyLife},
+var chargeObjPlanCodes = state.NewStrCodes(
+	state.StrEntry[chargeObjPlanCode]{Key: "tap", Val: chargeObjPlanTap},
+	state.StrEntry[chargeObjPlanCode]{Key: "sacrifice", Val: chargeObjPlanSacrifice},
 )
+
+type blockPayAnswerCode uint16
 
 const (
-	attackPayAnswer1693AttackPhyColour uint16 = 1 // "attack_phy_colour"
-	attackPayAnswer1693AttackPhyLife   uint16 = 2 // "attack_phy_life"
+	blockPayAnswerBlockPhyColour blockPayAnswerCode = iota + 1
+	blockPayAnswerBlockPhyLife
 )
 
-var attackPayAnswer1693Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "attack_phy_colour", Val: attackPayAnswer1693AttackPhyColour},
-	state.StrEntry[uint16]{Key: "attack_phy_life", Val: attackPayAnswer1693AttackPhyLife},
+var blockPayAnswerCodes = state.NewStrCodes(
+	state.StrEntry[blockPayAnswerCode]{Key: "block_phy_colour", Val: blockPayAnswerBlockPhyColour},
+	state.StrEntry[blockPayAnswerCode]{Key: "block_phy_life", Val: blockPayAnswerBlockPhyLife},
+)
+
+type attackPayAnswerCode uint16
+
+const (
+	attackPayAnswerAttackPhyColour attackPayAnswerCode = iota + 1
+	attackPayAnswerAttackPhyLife
+)
+
+var attackPayAnswerCodes = state.NewStrCodes(
+	state.StrEntry[attackPayAnswerCode]{Key: "attack_phy_colour", Val: attackPayAnswerAttackPhyColour},
+	state.StrEntry[attackPayAnswerCode]{Key: "attack_phy_life", Val: attackPayAnswerAttackPhyLife},
 )

@@ -358,7 +358,7 @@ func saturatingPotentialMana(have, add int32) int32 {
 // production (the round-2 finding that granted 99 of every colour to a
 // blank-Produced$ source).
 func producedOpen(raw string) bool {
-	if v, ok := producedOpenTab1.Get(raw); ok {
+	if v, ok := producedOpenTab.Get(raw); ok {
 		return v
 	}
 	s := potentialProducedStrip.Replace(raw)
@@ -447,20 +447,20 @@ func (e *Engine) PotentialActions(p state.PlayerID) []decision.PotentialAction {
 //
 // The excluded kinds are "activate" (the mana tap), "pass" and "concede".
 func potentialPlayKind(kind string) bool {
-	if v, ok := potentialPlayKindTab2.Get(kind); ok {
+	if v, ok := potentialPlayKindTab.Get(kind); ok {
 		return v
 	}
 	return false
 }
 
-var producedOpenTab1 = state.NewStrTable[bool](
+var producedOpenTab = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "", Val: true},
 	state.StrEntry[bool]{Key: "Any", Val: true},
 	state.StrEntry[bool]{Key: "Combo Any", Val: true},
 	state.StrEntry[bool]{Key: "Chosen", Val: true},
 )
 
-var potentialPlayKindTab2 = state.NewStrTable[bool](
+var potentialPlayKindTab = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "cast", Val: true},
 	state.StrEntry[bool]{Key: "ability", Val: true},
 	state.StrEntry[bool]{Key: "play_land", Val: true},

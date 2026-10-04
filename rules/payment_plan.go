@@ -80,9 +80,9 @@ func (e *Engine) planCastPaymentChecked(p state.PlayerID, cast decision.PlannedC
 	// would compose a cost (and, from ZCommand, a commander tax) that
 	// beginCast would never charge.
 	originZone := state.ZHand
-	switch planCastPaymentChecked14b1Codes.Code(string(cast.Origin)) {
-	case planCastPaymentChecked14b1Hand:
-	case planCastPaymentChecked14b1CommandZone:
+	switch planCastPaymentCheckedCodes.Code(string(cast.Origin)) {
+	case planCastPaymentCheckedHand:
+	case planCastPaymentCheckedCommandZone:
 		originZone = state.ZCommand
 	default:
 		return PaymentPlanOutcome{Reason: "unsupported"}
@@ -1485,7 +1485,7 @@ func paymentPlanKnownManaParam(key string) bool {
 	if strings.HasPrefix(key, "AddsKeywords") {
 		return true
 	}
-	if v, ok := paymentPlanKnownManaParamTab1.Get(key); ok {
+	if v, ok := paymentPlanKnownManaParamTab.Get(key); ok {
 		return v
 	}
 	return false
@@ -1717,7 +1717,7 @@ func paymentConsequenceEqual(c pay.Consequence, w *decision.PaymentConsequence) 
 // naming no plain colour, an empty commander identity) is
 // paymentPlanChoiceColours' fail-closed answer, not this predicate's.
 func paymentPlanChoiceShape(raw string) bool {
-	if v, ok := paymentPlanChoiceShapeTab2.Get(raw); ok {
+	if v, ok := paymentPlanChoiceShapeTab.Get(raw); ok {
 		return v
 	}
 	return strings.HasPrefix(raw, "Combo ")
@@ -1734,15 +1734,15 @@ func paymentPlanChoiceShape(raw string) bool {
 // inventing a colour.
 func (e *Engine) paymentPlanChoiceColours(id state.ObjID, ma *cards.SA) []string {
 	raw := effects.ManaOf(ma).Produced
-	switch paymentPlanChoiceColours14b2Codes.Code(string(raw)) {
-	case paymentPlanChoiceColours14b2Any:
+	switch paymentPlanChoiceColoursCodes.Code(string(raw)) {
+	case paymentPlanChoiceColoursAny:
 		return []string{"W", "U", "B", "R", "G"}
-	case paymentPlanChoiceColours14b2Chosen:
+	case paymentPlanChoiceColoursChosen:
 		if col := e.chosenProducedColour(id); col != "" {
 			return []string{col}
 		}
 		return nil
-	case paymentPlanChoiceColours14b2ColorIdentity:
+	case paymentPlanChoiceColoursColorIdentity:
 		return e.commanderIdentityColours(e.paymentPlanController(id))
 	}
 	// Reuse the manual wheel's own flattener: it substitutes a recorded
@@ -1968,7 +1968,7 @@ func costPips(c Cost) [5]int {
 	return d
 }
 
-var paymentPlanKnownManaParamTab1 = state.NewStrTable[bool](
+var paymentPlanKnownManaParamTab = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "API", Val: true},
 	state.StrEntry[bool]{Key: "Cost", Val: true},
 	state.StrEntry[bool]{Key: "Produced", Val: true},
@@ -2003,32 +2003,36 @@ var paymentPlanKnownManaParamTab1 = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "Defined", Val: true},
 )
 
-var paymentPlanChoiceShapeTab2 = state.NewStrTable[bool](
+var paymentPlanChoiceShapeTab = state.NewStrTable[bool](
 	state.StrEntry[bool]{Key: "Chosen", Val: true},
 	state.StrEntry[bool]{Key: "ChosenColor", Val: true},
 	state.StrEntry[bool]{Key: "ComboChosen", Val: true},
 )
 
-const (
-	planCastPaymentChecked14b1Hand        uint16 = 1 // "hand"
-	planCastPaymentChecked14b1CommandZone uint16 = 2 // "command_zone"
-)
-
-var planCastPaymentChecked14b1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "hand", Val: planCastPaymentChecked14b1Hand},
-	state.StrEntry[uint16]{Key: "command_zone", Val: planCastPaymentChecked14b1CommandZone},
-)
+type planCastPaymentCheckedCode uint16
 
 const (
-	paymentPlanChoiceColours14b2Any           uint16 = 1 // "Any"
-	paymentPlanChoiceColours14b2Chosen        uint16 = 2 // "Chosen", "ChosenColor", "ComboChosen"
-	paymentPlanChoiceColours14b2ColorIdentity uint16 = 3 // "ColorIdentity"
+	planCastPaymentCheckedHand planCastPaymentCheckedCode = iota + 1
+	planCastPaymentCheckedCommandZone
 )
 
-var paymentPlanChoiceColours14b2Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Any", Val: paymentPlanChoiceColours14b2Any},
-	state.StrEntry[uint16]{Key: "Chosen", Val: paymentPlanChoiceColours14b2Chosen},
-	state.StrEntry[uint16]{Key: "ChosenColor", Val: paymentPlanChoiceColours14b2Chosen},
-	state.StrEntry[uint16]{Key: "ComboChosen", Val: paymentPlanChoiceColours14b2Chosen},
-	state.StrEntry[uint16]{Key: "ColorIdentity", Val: paymentPlanChoiceColours14b2ColorIdentity},
+var planCastPaymentCheckedCodes = state.NewStrCodes(
+	state.StrEntry[planCastPaymentCheckedCode]{Key: "hand", Val: planCastPaymentCheckedHand},
+	state.StrEntry[planCastPaymentCheckedCode]{Key: "command_zone", Val: planCastPaymentCheckedCommandZone},
+)
+
+type paymentPlanChoiceColoursCode uint16
+
+const (
+	paymentPlanChoiceColoursAny paymentPlanChoiceColoursCode = iota + 1
+	paymentPlanChoiceColoursChosen
+	paymentPlanChoiceColoursColorIdentity
+)
+
+var paymentPlanChoiceColoursCodes = state.NewStrCodes(
+	state.StrEntry[paymentPlanChoiceColoursCode]{Key: "Any", Val: paymentPlanChoiceColoursAny},
+	state.StrEntry[paymentPlanChoiceColoursCode]{Key: "Chosen", Val: paymentPlanChoiceColoursChosen},
+	state.StrEntry[paymentPlanChoiceColoursCode]{Key: "ChosenColor", Val: paymentPlanChoiceColoursChosen},
+	state.StrEntry[paymentPlanChoiceColoursCode]{Key: "ComboChosen", Val: paymentPlanChoiceColoursChosen},
+	state.StrEntry[paymentPlanChoiceColoursCode]{Key: "ColorIdentity", Val: paymentPlanChoiceColoursColorIdentity},
 )

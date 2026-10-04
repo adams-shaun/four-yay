@@ -61,18 +61,18 @@ func (e *Engine) setPropTokens(kind string, obj state.ObjID) []string {
 	if o == nil || o.Face() == nil {
 		return nil
 	}
-	switch setPropTokensba91Codes.Code(string(kind)) {
-	case setPropTokensba91Cardtype:
+	switch setPropTokensCodes.Code(string(kind)) {
+	case setPropTokensCardtype:
 		return cardTypeTokens(e.Derived(obj).Types)
-	case setPropTokensba91Creaturetype:
+	case setPropTokensCreaturetype:
 		return creatureTypeTokens(e.Derived(obj).Types)
-	case setPropTokensba91Toughness:
+	case setPropTokensToughness:
 		return []string{strconv.Itoa(int(e.Toughness(obj)))}
-	case setPropTokensba91Cmc:
+	case setPropTokensCmc:
 		return []string{strconv.Itoa(int(o.Face().Cmc()))}
-	case setPropTokensba91Name:
+	case setPropTokensName:
 		return []string{strings.ToLower(strings.TrimSpace(o.Face().Name))}
-	case setPropTokensba91Color:
+	case setPropTokensColor:
 		// Reveal<N/SameColor>'s token family (Illuminated Folio): the card's
 		// DERIVED colours, one WUBRG letter per token -- effects.ColorsOf
 		// reads the mana cost, or an explicit Colors: line, and is
@@ -238,8 +238,8 @@ func sharedTypesWhitelist(sa *cards.SA) []string {
 // all ParentTarget or TriggeredCard); any other spelling fails closed rather
 // than guessing a referent the corpus never exercises.
 func (e *Engine) sharedCardTypeReference(ref string, source state.ObjID, sc effects.SpecContext) state.ObjID {
-	switch sharedCardTypeReferenceba92Codes.Code(string(strings.TrimSpace(ref))) {
-	case sharedCardTypeReferenceba92ParentTarget:
+	switch sharedCardTypeReferenceCodes.Code(string(strings.TrimSpace(ref))) {
+	case sharedCardTypeReferenceParentTarget:
 		if o := e.G.Obj(source); o != nil {
 			for _, t := range o.Targets {
 				if !t.IsPlayer && t.Obj != 0 && t.Obj != source {
@@ -248,7 +248,7 @@ func (e *Engine) sharedCardTypeReference(ref string, source state.ObjID, sc effe
 			}
 		}
 		return 0
-	case sharedCardTypeReferenceba92TriggeredCard:
+	case sharedCardTypeReferenceTriggeredCard:
 		return sc.TriggerCard
 	}
 	return 0
@@ -313,8 +313,8 @@ func (e *Engine) filterTargetsWithSharedCardType(in []targetCandidate, sa *cards
 // property string or a seat-less candidate fails closed (false), matching the
 // every-other-spec convention.
 func (e *Engine) targetControllerPropertyAdmits(kind string, obj state.ObjID) bool {
-	switch targetControllerPropertyAdmitsba93Codes.Code(string(strings.TrimSpace(kind))) {
-	case targetControllerPropertyAdmitsba93CmcLECardsInGraveyard:
+	switch targetControllerPropertyAdmitsCodes.Code(string(strings.TrimSpace(kind))) {
+	case targetControllerPropertyAdmitsCmcLECardsInGraveyard:
 	default:
 		return false
 	}
@@ -359,43 +359,49 @@ func (e *Engine) filterTargetControllerProperty(in []targetCandidate, sa *cards.
 	return out
 }
 
-const (
-	setPropTokensba91Cardtype     uint16 = 1 // "cardtype"
-	setPropTokensba91Creaturetype uint16 = 2 // "creaturetype"
-	setPropTokensba91Toughness    uint16 = 3 // "toughness"
-	setPropTokensba91Cmc          uint16 = 4 // "cmc"
-	setPropTokensba91Name         uint16 = 5 // "name"
-	setPropTokensba91Color        uint16 = 6 // "color"
-)
-
-var setPropTokensba91Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "cardtype", Val: setPropTokensba91Cardtype},
-	state.StrEntry[uint16]{Key: "creaturetype", Val: setPropTokensba91Creaturetype},
-	state.StrEntry[uint16]{Key: "toughness", Val: setPropTokensba91Toughness},
-	state.StrEntry[uint16]{Key: "cmc", Val: setPropTokensba91Cmc},
-	state.StrEntry[uint16]{Key: "name", Val: setPropTokensba91Name},
-	state.StrEntry[uint16]{Key: "color", Val: setPropTokensba91Color},
-)
+type setPropTokensCode uint16
 
 const (
-	sharedCardTypeReferenceba92ParentTarget  uint16 = 1 // "ParentTarget", "ParentTargeted", "ThisTargetedCard", "Targeted"
-	sharedCardTypeReferenceba92TriggeredCard uint16 = 2 // "TriggeredCard", "TriggeredCardLKICopy"
+	setPropTokensCardtype setPropTokensCode = iota + 1
+	setPropTokensCreaturetype
+	setPropTokensToughness
+	setPropTokensCmc
+	setPropTokensName
+	setPropTokensColor
 )
 
-var sharedCardTypeReferenceba92Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "ParentTarget", Val: sharedCardTypeReferenceba92ParentTarget},
-	state.StrEntry[uint16]{Key: "ParentTargeted", Val: sharedCardTypeReferenceba92ParentTarget},
-	state.StrEntry[uint16]{Key: "ThisTargetedCard", Val: sharedCardTypeReferenceba92ParentTarget},
-	state.StrEntry[uint16]{Key: "Targeted", Val: sharedCardTypeReferenceba92ParentTarget},
-	state.StrEntry[uint16]{Key: "TriggeredCard", Val: sharedCardTypeReferenceba92TriggeredCard},
-	state.StrEntry[uint16]{Key: "TriggeredCardLKICopy", Val: sharedCardTypeReferenceba92TriggeredCard},
+var setPropTokensCodes = state.NewStrCodes(
+	state.StrEntry[setPropTokensCode]{Key: "cardtype", Val: setPropTokensCardtype},
+	state.StrEntry[setPropTokensCode]{Key: "creaturetype", Val: setPropTokensCreaturetype},
+	state.StrEntry[setPropTokensCode]{Key: "toughness", Val: setPropTokensToughness},
+	state.StrEntry[setPropTokensCode]{Key: "cmc", Val: setPropTokensCmc},
+	state.StrEntry[setPropTokensCode]{Key: "name", Val: setPropTokensName},
+	state.StrEntry[setPropTokensCode]{Key: "color", Val: setPropTokensColor},
 )
+
+type sharedCardTypeReferenceCode uint16
 
 const (
-	targetControllerPropertyAdmitsba93CmcLECardsInGraveyard uint16 = 1 // "cmcLECardsInGraveyard", "powerLECardsInGraveyard"
+	sharedCardTypeReferenceParentTarget sharedCardTypeReferenceCode = iota + 1
+	sharedCardTypeReferenceTriggeredCard
 )
 
-var targetControllerPropertyAdmitsba93Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "cmcLECardsInGraveyard", Val: targetControllerPropertyAdmitsba93CmcLECardsInGraveyard},
-	state.StrEntry[uint16]{Key: "powerLECardsInGraveyard", Val: targetControllerPropertyAdmitsba93CmcLECardsInGraveyard},
+var sharedCardTypeReferenceCodes = state.NewStrCodes(
+	state.StrEntry[sharedCardTypeReferenceCode]{Key: "ParentTarget", Val: sharedCardTypeReferenceParentTarget},
+	state.StrEntry[sharedCardTypeReferenceCode]{Key: "ParentTargeted", Val: sharedCardTypeReferenceParentTarget},
+	state.StrEntry[sharedCardTypeReferenceCode]{Key: "ThisTargetedCard", Val: sharedCardTypeReferenceParentTarget},
+	state.StrEntry[sharedCardTypeReferenceCode]{Key: "Targeted", Val: sharedCardTypeReferenceParentTarget},
+	state.StrEntry[sharedCardTypeReferenceCode]{Key: "TriggeredCard", Val: sharedCardTypeReferenceTriggeredCard},
+	state.StrEntry[sharedCardTypeReferenceCode]{Key: "TriggeredCardLKICopy", Val: sharedCardTypeReferenceTriggeredCard},
+)
+
+type targetControllerPropertyAdmitsCode uint16
+
+const (
+	targetControllerPropertyAdmitsCmcLECardsInGraveyard targetControllerPropertyAdmitsCode = iota + 1
+)
+
+var targetControllerPropertyAdmitsCodes = state.NewStrCodes(
+	state.StrEntry[targetControllerPropertyAdmitsCode]{Key: "cmcLECardsInGraveyard", Val: targetControllerPropertyAdmitsCmcLECardsInGraveyard},
+	state.StrEntry[targetControllerPropertyAdmitsCode]{Key: "powerLECardsInGraveyard", Val: targetControllerPropertyAdmitsCmcLECardsInGraveyard},
 )

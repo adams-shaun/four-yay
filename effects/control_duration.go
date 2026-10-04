@@ -36,23 +36,23 @@ func (d ControlDuration) Permanent() bool { return d == ControlDuration{} }
 // because a silently permanent steal is the wrong answer for any lifetime.
 func ParseControlDuration(raw string) (d ControlDuration, unknown string) {
 	for tok := range strings.SplitSeq(raw, ",") {
-		switch parseControlDurationa941Codes.Code(string(strings.TrimSpace(tok))) {
-		case parseControlDurationa941Empty:
-		case parseControlDurationa941EOT:
+		switch parseControlDurationCodes.Code(string(strings.TrimSpace(tok))) {
+		case parseControlDurationEmpty:
+		case parseControlDurationEOT:
 			d.EOT = true
-		case parseControlDurationa941EndOfCombat:
+		case parseControlDurationEndOfCombat:
 			d.EndOfCombat = true
-		case parseControlDurationa941UntilTheEndOfYourNextTurn:
+		case parseControlDurationUntilTheEndOfYourNextTurn:
 			d.NextTurn = true
-		case parseControlDurationa941LeavesPlay:
+		case parseControlDurationLeavesPlay:
 			d.LeavesPlay = true
-		case parseControlDurationa941Untap:
+		case parseControlDurationUntap:
 			d.Untap = true
-		case parseControlDurationa941LoseControl:
+		case parseControlDurationLoseControl:
 			d.LoseControl = true
-		case parseControlDurationa941UntilSourceUnattached:
+		case parseControlDurationUntilSourceUnattached:
 			d.Unattached = true
-		case parseControlDurationa941StaticCommandCheck:
+		case parseControlDurationStaticCommandCheck:
 			d.StaticCheck = true
 		default:
 			return ControlDuration{}, strings.TrimSpace(tok)
@@ -149,61 +149,45 @@ func ControlGrantEnded(h Host, gr ControlGrant) bool {
 }
 
 func compareCount(op string, left, right int) bool {
-	switch compareCounta942Codes.Code(string(op)) {
-	case compareCounta942EQ:
+	switch CmpOpOf(op) {
+	case CmpEQ:
 		return left == right
-	case compareCounta942NE:
+	case CmpNE:
 		return left != right
-	case compareCounta942LT:
+	case CmpLT:
 		return left < right
-	case compareCounta942LE:
+	case CmpLE:
 		return left <= right
-	case compareCounta942GT:
+	case CmpGT:
 		return left > right
-	case compareCounta942GE:
+	case CmpGE:
 		return left >= right
 	}
 	return false
 }
 
-const (
-	parseControlDurationa941Empty                     uint16 = 1 // ""
-	parseControlDurationa941EOT                       uint16 = 2 // "EOT"
-	parseControlDurationa941EndOfCombat               uint16 = 3 // "EndOfCombat"
-	parseControlDurationa941UntilTheEndOfYourNextTurn uint16 = 4 // "UntilTheEndOfYourNextTurn"
-	parseControlDurationa941LeavesPlay                uint16 = 5 // "LeavesPlay"
-	parseControlDurationa941Untap                     uint16 = 6 // "Untap"
-	parseControlDurationa941LoseControl               uint16 = 7 // "LoseControl"
-	parseControlDurationa941UntilSourceUnattached     uint16 = 8 // "UntilSourceUnattached"
-	parseControlDurationa941StaticCommandCheck        uint16 = 9 // "StaticCommandCheck"
-)
-
-var parseControlDurationa941Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "", Val: parseControlDurationa941Empty},
-	state.StrEntry[uint16]{Key: "EOT", Val: parseControlDurationa941EOT},
-	state.StrEntry[uint16]{Key: "EndOfCombat", Val: parseControlDurationa941EndOfCombat},
-	state.StrEntry[uint16]{Key: "UntilTheEndOfYourNextTurn", Val: parseControlDurationa941UntilTheEndOfYourNextTurn},
-	state.StrEntry[uint16]{Key: "LeavesPlay", Val: parseControlDurationa941LeavesPlay},
-	state.StrEntry[uint16]{Key: "Untap", Val: parseControlDurationa941Untap},
-	state.StrEntry[uint16]{Key: "LoseControl", Val: parseControlDurationa941LoseControl},
-	state.StrEntry[uint16]{Key: "UntilSourceUnattached", Val: parseControlDurationa941UntilSourceUnattached},
-	state.StrEntry[uint16]{Key: "StaticCommandCheck", Val: parseControlDurationa941StaticCommandCheck},
-)
+type parseControlDurationCode uint16
 
 const (
-	compareCounta942EQ uint16 = 1 // "EQ"
-	compareCounta942NE uint16 = 2 // "NE"
-	compareCounta942LT uint16 = 3 // "LT"
-	compareCounta942LE uint16 = 4 // "LE"
-	compareCounta942GT uint16 = 5 // "GT"
-	compareCounta942GE uint16 = 6 // "GE"
+	parseControlDurationEmpty parseControlDurationCode = iota + 1
+	parseControlDurationEOT
+	parseControlDurationEndOfCombat
+	parseControlDurationUntilTheEndOfYourNextTurn
+	parseControlDurationLeavesPlay
+	parseControlDurationUntap
+	parseControlDurationLoseControl
+	parseControlDurationUntilSourceUnattached
+	parseControlDurationStaticCommandCheck
 )
 
-var compareCounta942Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "EQ", Val: compareCounta942EQ},
-	state.StrEntry[uint16]{Key: "NE", Val: compareCounta942NE},
-	state.StrEntry[uint16]{Key: "LT", Val: compareCounta942LT},
-	state.StrEntry[uint16]{Key: "LE", Val: compareCounta942LE},
-	state.StrEntry[uint16]{Key: "GT", Val: compareCounta942GT},
-	state.StrEntry[uint16]{Key: "GE", Val: compareCounta942GE},
+var parseControlDurationCodes = state.NewStrCodes(
+	state.StrEntry[parseControlDurationCode]{Key: "", Val: parseControlDurationEmpty},
+	state.StrEntry[parseControlDurationCode]{Key: "EOT", Val: parseControlDurationEOT},
+	state.StrEntry[parseControlDurationCode]{Key: "EndOfCombat", Val: parseControlDurationEndOfCombat},
+	state.StrEntry[parseControlDurationCode]{Key: "UntilTheEndOfYourNextTurn", Val: parseControlDurationUntilTheEndOfYourNextTurn},
+	state.StrEntry[parseControlDurationCode]{Key: "LeavesPlay", Val: parseControlDurationLeavesPlay},
+	state.StrEntry[parseControlDurationCode]{Key: "Untap", Val: parseControlDurationUntap},
+	state.StrEntry[parseControlDurationCode]{Key: "LoseControl", Val: parseControlDurationLoseControl},
+	state.StrEntry[parseControlDurationCode]{Key: "UntilSourceUnattached", Val: parseControlDurationUntilSourceUnattached},
+	state.StrEntry[parseControlDurationCode]{Key: "StaticCommandCheck", Val: parseControlDurationStaticCommandCheck},
 )

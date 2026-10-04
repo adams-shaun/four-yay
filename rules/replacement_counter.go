@@ -491,12 +491,12 @@ func (e *Engine) counterValidSA(target *state.Object, spec string, you state.Pla
 		// Ability objects have no card face; their corpus qualifiers are the
 		// controller-relative forms, evaluated explicitly against the wrapper.
 		if target.Ability != nil {
-			switch counterValidSAc7c1Codes.Code(string(quals)) {
-			case counterValidSAc7c1YouCtrl:
+			switch counterValidSACodes.Code(string(quals)) {
+			case counterValidSAYouCtrl:
 				if target.Controller == you {
 					return true
 				}
-			case counterValidSAc7c1OppCtrl:
+			case counterValidSAOppCtrl:
 				if target.Controller != you {
 					return true
 				}
@@ -509,12 +509,12 @@ func (e *Engine) counterValidSA(target *state.Object, spec string, you state.Pla
 func (e *Engine) counterSpellQualifiers(target *state.Object, quals string, you state.PlayerID, source state.ObjID) bool {
 	var ordinary []string
 	for q := range strings.SplitSeq(quals, "+") {
-		switch counterSpellQualifiersc7c2Codes.Code(string(q)) {
-		case counterSpellQualifiersc7c2HasKeywordFlash:
+		switch counterSpellQualifiersCodes.Code(string(q)) {
+		case counterSpellQualifiersHasKeywordFlash:
 			if target.Face() == nil || !target.Face().HasKeyword("Flash") {
 				return false
 			}
-		case counterSpellQualifiersc7c2WasCastByYou:
+		case counterSpellQualifiersWasCastByYou:
 			if target.Controller != you {
 				return false
 			}
@@ -528,23 +528,27 @@ func (e *Engine) counterSpellQualifiers(target *state.Object, quals string, you 
 	return e.matchesSpecFrom("Card."+strings.Join(ordinary, "+"), target.ID, you, source)
 }
 
-const (
-	counterValidSAc7c1YouCtrl uint16 = 1 // "YouCtrl"
-	counterValidSAc7c1OppCtrl uint16 = 2 // "OppCtrl", "YouDontCtrl"
-)
-
-var counterValidSAc7c1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "YouCtrl", Val: counterValidSAc7c1YouCtrl},
-	state.StrEntry[uint16]{Key: "OppCtrl", Val: counterValidSAc7c1OppCtrl},
-	state.StrEntry[uint16]{Key: "YouDontCtrl", Val: counterValidSAc7c1OppCtrl},
-)
+type counterValidSACode uint16
 
 const (
-	counterSpellQualifiersc7c2HasKeywordFlash uint16 = 1 // "hasKeywordFlash"
-	counterSpellQualifiersc7c2WasCastByYou    uint16 = 2 // "wasCastByYou"
+	counterValidSAYouCtrl counterValidSACode = iota + 1
+	counterValidSAOppCtrl
 )
 
-var counterSpellQualifiersc7c2Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "hasKeywordFlash", Val: counterSpellQualifiersc7c2HasKeywordFlash},
-	state.StrEntry[uint16]{Key: "wasCastByYou", Val: counterSpellQualifiersc7c2WasCastByYou},
+var counterValidSACodes = state.NewStrCodes(
+	state.StrEntry[counterValidSACode]{Key: "YouCtrl", Val: counterValidSAYouCtrl},
+	state.StrEntry[counterValidSACode]{Key: "OppCtrl", Val: counterValidSAOppCtrl},
+	state.StrEntry[counterValidSACode]{Key: "YouDontCtrl", Val: counterValidSAOppCtrl},
+)
+
+type counterSpellQualifiersCode uint16
+
+const (
+	counterSpellQualifiersHasKeywordFlash counterSpellQualifiersCode = iota + 1
+	counterSpellQualifiersWasCastByYou
+)
+
+var counterSpellQualifiersCodes = state.NewStrCodes(
+	state.StrEntry[counterSpellQualifiersCode]{Key: "hasKeywordFlash", Val: counterSpellQualifiersHasKeywordFlash},
+	state.StrEntry[counterSpellQualifiersCode]{Key: "wasCastByYou", Val: counterSpellQualifiersWasCastByYou},
 )

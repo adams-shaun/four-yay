@@ -749,12 +749,12 @@ func (e *Engine) payCast() {
 	// plain-Kicker carriers' scripts still read the count, and no other
 	// kicked cast gains an event.
 	mkCount := int32(0)
-	switch payCast8721Codes.Code(string(pc.mode)) {
-	case payCast8721Multikicked:
+	switch payCastCodes.Code(string(pc.mode)) {
+	case payCastMultikicked:
 		mkCount = pc.multikickTimes
-	case payCast8721Kicked:
+	case payCastKicked:
 		mkCount = 1
-	case payCast8721Kickedboth:
+	case payCastKickedboth:
 		mkCount = 2
 	}
 	if mkCount > 0 && (pc.mode == "multikicked" || faceWantsTimesKicked(e.G.Obj(pc.card).Face())) {
@@ -1209,16 +1209,18 @@ func (e *Engine) castSuppressed(p state.PlayerID, id state.ObjID) bool {
 	return e.suppressedCast != nil && e.suppressedCast[id]
 }
 
+type payCastCode uint16
+
 const (
-	payCast8721Multikicked uint16 = 1 // "multikicked"
-	payCast8721Kicked      uint16 = 2 // "kicked", "kicked1", "kicked2"
-	payCast8721Kickedboth  uint16 = 3 // "kickedboth"
+	payCastMultikicked payCastCode = iota + 1
+	payCastKicked
+	payCastKickedboth
 )
 
-var payCast8721Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "multikicked", Val: payCast8721Multikicked},
-	state.StrEntry[uint16]{Key: "kicked", Val: payCast8721Kicked},
-	state.StrEntry[uint16]{Key: "kicked1", Val: payCast8721Kicked},
-	state.StrEntry[uint16]{Key: "kicked2", Val: payCast8721Kicked},
-	state.StrEntry[uint16]{Key: "kickedboth", Val: payCast8721Kickedboth},
+var payCastCodes = state.NewStrCodes(
+	state.StrEntry[payCastCode]{Key: "multikicked", Val: payCastMultikicked},
+	state.StrEntry[payCastCode]{Key: "kicked", Val: payCastKicked},
+	state.StrEntry[payCastCode]{Key: "kicked1", Val: payCastKicked},
+	state.StrEntry[payCastCode]{Key: "kicked2", Val: payCastKicked},
+	state.StrEntry[payCastCode]{Key: "kickedboth", Val: payCastKickedboth},
 )

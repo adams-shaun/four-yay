@@ -261,8 +261,8 @@ func mustAttackLineSelects(b Board, spec string, id state.ObjID, source state.Ob
 // fail closed. Other references need bindings or evaluators this build does
 // not carry and therefore fail closed.
 func requirementDefender(b Board, spec string, source state.ObjID, controller state.PlayerID, rememberedPlayers []state.PlayerID) (state.PlayerID, bool) {
-	switch requirementDefendera1e1Codes.Code(string(strings.TrimSpace(spec))) {
-	case requirementDefendera1e1ChosenPlayer:
+	switch requirementDefenderCodes.Code(string(strings.TrimSpace(spec))) {
+	case requirementDefenderChosenPlayer:
 		if o := b.Game().Obj(source); o != nil {
 			for _, t := range o.Chosen {
 				if t.IsPlayer {
@@ -270,17 +270,17 @@ func requirementDefender(b Board, spec string, source state.ObjID, controller st
 				}
 			}
 		}
-	case requirementDefendera1e1RememberedPlayer:
+	case requirementDefenderRememberedPlayer:
 		if len(rememberedPlayers) > 0 {
 			return rememberedPlayers[0], true
 		}
-	case requirementDefendera1e1You:
+	case requirementDefenderYou:
 		return controller, true
-	case requirementDefendera1e1Remembered:
+	case requirementDefenderRemembered:
 		if len(rememberedPlayers) == 1 {
 			return rememberedPlayers[0], true
 		}
-	case requirementDefendera1e1RememberedNonActive:
+	case requirementDefenderRememberedNonActive:
 		for _, p := range rememberedPlayers {
 			if p != b.Game().Active {
 				return p, true
@@ -362,20 +362,22 @@ func attackCeiling(s string) int32 {
 	return int32(v)
 }
 
+type requirementDefenderCode uint16
+
 const (
-	requirementDefendera1e1ChosenPlayer        uint16 = 1 // "ChosenPlayer", "Player.Chosen"
-	requirementDefendera1e1RememberedPlayer    uint16 = 2 // "RememberedPlayer", "Player.IsRemembered"
-	requirementDefendera1e1You                 uint16 = 3 // "You"
-	requirementDefendera1e1Remembered          uint16 = 4 // "Remembered"
-	requirementDefendera1e1RememberedNonActive uint16 = 5 // "Remembered.NonActive"
+	requirementDefenderChosenPlayer requirementDefenderCode = iota + 1
+	requirementDefenderRememberedPlayer
+	requirementDefenderYou
+	requirementDefenderRemembered
+	requirementDefenderRememberedNonActive
 )
 
-var requirementDefendera1e1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "ChosenPlayer", Val: requirementDefendera1e1ChosenPlayer},
-	state.StrEntry[uint16]{Key: "Player.Chosen", Val: requirementDefendera1e1ChosenPlayer},
-	state.StrEntry[uint16]{Key: "RememberedPlayer", Val: requirementDefendera1e1RememberedPlayer},
-	state.StrEntry[uint16]{Key: "Player.IsRemembered", Val: requirementDefendera1e1RememberedPlayer},
-	state.StrEntry[uint16]{Key: "You", Val: requirementDefendera1e1You},
-	state.StrEntry[uint16]{Key: "Remembered", Val: requirementDefendera1e1Remembered},
-	state.StrEntry[uint16]{Key: "Remembered.NonActive", Val: requirementDefendera1e1RememberedNonActive},
+var requirementDefenderCodes = state.NewStrCodes(
+	state.StrEntry[requirementDefenderCode]{Key: "ChosenPlayer", Val: requirementDefenderChosenPlayer},
+	state.StrEntry[requirementDefenderCode]{Key: "Player.Chosen", Val: requirementDefenderChosenPlayer},
+	state.StrEntry[requirementDefenderCode]{Key: "RememberedPlayer", Val: requirementDefenderRememberedPlayer},
+	state.StrEntry[requirementDefenderCode]{Key: "Player.IsRemembered", Val: requirementDefenderRememberedPlayer},
+	state.StrEntry[requirementDefenderCode]{Key: "You", Val: requirementDefenderYou},
+	state.StrEntry[requirementDefenderCode]{Key: "Remembered", Val: requirementDefenderRemembered},
+	state.StrEntry[requirementDefenderCode]{Key: "Remembered.NonActive", Val: requirementDefenderRememberedNonActive},
 )

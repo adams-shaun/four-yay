@@ -35,20 +35,20 @@ func ManaColourFrom(word string) []int {
 		name, complement = rest, true
 	}
 	var base []int
-	switch manaColourFromcf21Codes.Code(string(strings.ToLower(name))) {
-	case manaColourFromcf21Anytype:
+	switch manaColourFromCodes.Code(string(strings.ToLower(name))) {
+	case manaColourFromAnytype:
 		base = []int{state.MW, state.MU, state.MB, state.MR, state.MG, state.MC}
-	case manaColourFromcf21W:
+	case manaColourFromW:
 		base = []int{state.MW}
-	case manaColourFromcf21U:
+	case manaColourFromU:
 		base = []int{state.MU}
-	case manaColourFromcf21B:
+	case manaColourFromB:
 		base = []int{state.MB}
-	case manaColourFromcf21R:
+	case manaColourFromR:
 		base = []int{state.MR}
-	case manaColourFromcf21G:
+	case manaColourFromG:
 		base = []int{state.MG}
-	case manaColourFromcf21C:
+	case manaColourFromC:
 		base = []int{state.MC}
 	default:
 		return nil
@@ -76,40 +76,40 @@ func ManaColourFrom(word string) []int {
 // conversion target leaves the static inert rather than granting everything.
 func ApplyConversionTo(conv *Conv, from []int, word string) bool {
 	name := strings.ToLower(strings.TrimSpace(word))
-	switch applyManaConversionTocf22Codes.Code(string(name)) {
-	case applyManaConversionTocf22Anycolor:
+	switch applyManaConversionToCodes.Code(string(name)) {
+	case applyManaConversionToAnycolor:
 		for _, i := range from {
 			conv.Wild[i] = true
 		}
-	case applyManaConversionTocf22Anytype:
+	case applyManaConversionToAnytype:
 		for _, i := range from {
 			conv.Wild[i] = true
 		}
 		conv.WildC = true
-	case applyManaConversionTocf22C:
+	case applyManaConversionToC:
 		// "as though it were colorless mana" as a GRANT: mana of the "from"
 		// colours may additionally pay {C} pips. Not a corpus shape today,
 		// but the same grammar the restriction side uses; kept for symmetry.
 		for _, i := range from {
 			conv.To[i][state.MC] = true
 		}
-	case applyManaConversionTocf22W:
+	case applyManaConversionToW:
 		for _, i := range from {
 			conv.To[i][state.MW] = true
 		}
-	case applyManaConversionTocf22U:
+	case applyManaConversionToU:
 		for _, i := range from {
 			conv.To[i][state.MU] = true
 		}
-	case applyManaConversionTocf22B:
+	case applyManaConversionToB:
 		for _, i := range from {
 			conv.To[i][state.MB] = true
 		}
-	case applyManaConversionTocf22R:
+	case applyManaConversionToR:
 		for _, i := range from {
 			conv.To[i][state.MR] = true
 		}
-	case applyManaConversionTocf22G:
+	case applyManaConversionToG:
 		for _, i := range from {
 			conv.To[i][state.MG] = true
 		}
@@ -137,12 +137,12 @@ func StaticSAKindMatches(validSA string, ability bool) bool {
 		if i := strings.IndexByte(kind, '.'); i >= 0 {
 			kind = kind[:i]
 		}
-		switch staticSAKindMatchescf23Codes.Code(string(kind)) {
-		case staticSAKindMatchescf23Spell:
+		switch staticSAKindMatchesCodes.Code(string(kind)) {
+		case staticSAKindMatchesSpell:
 			if !ability {
 				return true
 			}
-		case staticSAKindMatchescf23Activated:
+		case staticSAKindMatchesActivated:
 			if ability {
 				return true
 			}
@@ -163,66 +163,72 @@ func MergeConv(dst *Conv, src Conv) {
 	dst.WildC = dst.WildC || src.WildC
 }
 
-const (
-	manaColourFromcf21Anytype uint16 = 1 // "anytype"
-	manaColourFromcf21W       uint16 = 2 // "w", "white"
-	manaColourFromcf21U       uint16 = 3 // "u", "blue"
-	manaColourFromcf21B       uint16 = 4 // "b", "black"
-	manaColourFromcf21R       uint16 = 5 // "r", "red"
-	manaColourFromcf21G       uint16 = 6 // "g", "green"
-	manaColourFromcf21C       uint16 = 7 // "c", "colorless"
-)
-
-var manaColourFromcf21Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "anytype", Val: manaColourFromcf21Anytype},
-	state.StrEntry[uint16]{Key: "w", Val: manaColourFromcf21W},
-	state.StrEntry[uint16]{Key: "white", Val: manaColourFromcf21W},
-	state.StrEntry[uint16]{Key: "u", Val: manaColourFromcf21U},
-	state.StrEntry[uint16]{Key: "blue", Val: manaColourFromcf21U},
-	state.StrEntry[uint16]{Key: "b", Val: manaColourFromcf21B},
-	state.StrEntry[uint16]{Key: "black", Val: manaColourFromcf21B},
-	state.StrEntry[uint16]{Key: "r", Val: manaColourFromcf21R},
-	state.StrEntry[uint16]{Key: "red", Val: manaColourFromcf21R},
-	state.StrEntry[uint16]{Key: "g", Val: manaColourFromcf21G},
-	state.StrEntry[uint16]{Key: "green", Val: manaColourFromcf21G},
-	state.StrEntry[uint16]{Key: "c", Val: manaColourFromcf21C},
-	state.StrEntry[uint16]{Key: "colorless", Val: manaColourFromcf21C},
-)
+type manaColourFromCode uint16
 
 const (
-	applyManaConversionTocf22Anycolor uint16 = 1 // "anycolor"
-	applyManaConversionTocf22Anytype  uint16 = 2 // "anytype"
-	applyManaConversionTocf22C        uint16 = 3 // "c", "colorless"
-	applyManaConversionTocf22W        uint16 = 4 // "w", "white"
-	applyManaConversionTocf22U        uint16 = 5 // "u", "blue"
-	applyManaConversionTocf22B        uint16 = 6 // "b", "black"
-	applyManaConversionTocf22R        uint16 = 7 // "r", "red"
-	applyManaConversionTocf22G        uint16 = 8 // "g", "green"
+	manaColourFromAnytype manaColourFromCode = iota + 1
+	manaColourFromW
+	manaColourFromU
+	manaColourFromB
+	manaColourFromR
+	manaColourFromG
+	manaColourFromC
 )
 
-var applyManaConversionTocf22Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "anycolor", Val: applyManaConversionTocf22Anycolor},
-	state.StrEntry[uint16]{Key: "anytype", Val: applyManaConversionTocf22Anytype},
-	state.StrEntry[uint16]{Key: "c", Val: applyManaConversionTocf22C},
-	state.StrEntry[uint16]{Key: "colorless", Val: applyManaConversionTocf22C},
-	state.StrEntry[uint16]{Key: "w", Val: applyManaConversionTocf22W},
-	state.StrEntry[uint16]{Key: "white", Val: applyManaConversionTocf22W},
-	state.StrEntry[uint16]{Key: "u", Val: applyManaConversionTocf22U},
-	state.StrEntry[uint16]{Key: "blue", Val: applyManaConversionTocf22U},
-	state.StrEntry[uint16]{Key: "b", Val: applyManaConversionTocf22B},
-	state.StrEntry[uint16]{Key: "black", Val: applyManaConversionTocf22B},
-	state.StrEntry[uint16]{Key: "r", Val: applyManaConversionTocf22R},
-	state.StrEntry[uint16]{Key: "red", Val: applyManaConversionTocf22R},
-	state.StrEntry[uint16]{Key: "g", Val: applyManaConversionTocf22G},
-	state.StrEntry[uint16]{Key: "green", Val: applyManaConversionTocf22G},
+var manaColourFromCodes = state.NewStrCodes(
+	state.StrEntry[manaColourFromCode]{Key: "anytype", Val: manaColourFromAnytype},
+	state.StrEntry[manaColourFromCode]{Key: "w", Val: manaColourFromW},
+	state.StrEntry[manaColourFromCode]{Key: "white", Val: manaColourFromW},
+	state.StrEntry[manaColourFromCode]{Key: "u", Val: manaColourFromU},
+	state.StrEntry[manaColourFromCode]{Key: "blue", Val: manaColourFromU},
+	state.StrEntry[manaColourFromCode]{Key: "b", Val: manaColourFromB},
+	state.StrEntry[manaColourFromCode]{Key: "black", Val: manaColourFromB},
+	state.StrEntry[manaColourFromCode]{Key: "r", Val: manaColourFromR},
+	state.StrEntry[manaColourFromCode]{Key: "red", Val: manaColourFromR},
+	state.StrEntry[manaColourFromCode]{Key: "g", Val: manaColourFromG},
+	state.StrEntry[manaColourFromCode]{Key: "green", Val: manaColourFromG},
+	state.StrEntry[manaColourFromCode]{Key: "c", Val: manaColourFromC},
+	state.StrEntry[manaColourFromCode]{Key: "colorless", Val: manaColourFromC},
 )
+
+type applyManaConversionToCode uint16
 
 const (
-	staticSAKindMatchescf23Spell     uint16 = 1 // "Spell"
-	staticSAKindMatchescf23Activated uint16 = 2 // "Activated"
+	applyManaConversionToAnycolor applyManaConversionToCode = iota + 1
+	applyManaConversionToAnytype
+	applyManaConversionToC
+	applyManaConversionToW
+	applyManaConversionToU
+	applyManaConversionToB
+	applyManaConversionToR
+	applyManaConversionToG
 )
 
-var staticSAKindMatchescf23Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Spell", Val: staticSAKindMatchescf23Spell},
-	state.StrEntry[uint16]{Key: "Activated", Val: staticSAKindMatchescf23Activated},
+var applyManaConversionToCodes = state.NewStrCodes(
+	state.StrEntry[applyManaConversionToCode]{Key: "anycolor", Val: applyManaConversionToAnycolor},
+	state.StrEntry[applyManaConversionToCode]{Key: "anytype", Val: applyManaConversionToAnytype},
+	state.StrEntry[applyManaConversionToCode]{Key: "c", Val: applyManaConversionToC},
+	state.StrEntry[applyManaConversionToCode]{Key: "colorless", Val: applyManaConversionToC},
+	state.StrEntry[applyManaConversionToCode]{Key: "w", Val: applyManaConversionToW},
+	state.StrEntry[applyManaConversionToCode]{Key: "white", Val: applyManaConversionToW},
+	state.StrEntry[applyManaConversionToCode]{Key: "u", Val: applyManaConversionToU},
+	state.StrEntry[applyManaConversionToCode]{Key: "blue", Val: applyManaConversionToU},
+	state.StrEntry[applyManaConversionToCode]{Key: "b", Val: applyManaConversionToB},
+	state.StrEntry[applyManaConversionToCode]{Key: "black", Val: applyManaConversionToB},
+	state.StrEntry[applyManaConversionToCode]{Key: "r", Val: applyManaConversionToR},
+	state.StrEntry[applyManaConversionToCode]{Key: "red", Val: applyManaConversionToR},
+	state.StrEntry[applyManaConversionToCode]{Key: "g", Val: applyManaConversionToG},
+	state.StrEntry[applyManaConversionToCode]{Key: "green", Val: applyManaConversionToG},
+)
+
+type staticSAKindMatchesCode uint16
+
+const (
+	staticSAKindMatchesSpell staticSAKindMatchesCode = iota + 1
+	staticSAKindMatchesActivated
+)
+
+var staticSAKindMatchesCodes = state.NewStrCodes(
+	state.StrEntry[staticSAKindMatchesCode]{Key: "Spell", Val: staticSAKindMatchesSpell},
+	state.StrEntry[staticSAKindMatchesCode]{Key: "Activated", Val: staticSAKindMatchesActivated},
 )

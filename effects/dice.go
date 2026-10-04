@@ -717,10 +717,10 @@ func runtimePublished(c *Ctx, name string) (int32, bool) {
 	// Firecat's CounterNum$ Wins, Mirror March's NumCopies$ Wins, Mutalith's
 	// NumCards$ Wins) and Yusri's SVar$Losses body.
 	if c.FlipMemory != nil && c.FlipMemory.Set {
-		switch runtimePublishede71Codes.Code(string(name)) {
-		case runtimePublishede71Wins:
+		switch diceRuntimePublishCodes.Code(string(name)) {
+		case diceRuntimePublishWins:
 			return c.FlipMemory.CurWin, true
-		case runtimePublishede71Losses:
+		case diceRuntimePublishLosses:
 			return c.FlipMemory.CurLoss, true
 		}
 	}
@@ -743,12 +743,14 @@ func rollPublished(c *Ctx, name string) (int32, bool) {
 	return runtimePublished(c, name)
 }
 
+type diceRuntimePublishCode uint16
+
 const (
-	runtimePublishede71Wins   uint16 = 1 // "Wins"
-	runtimePublishede71Losses uint16 = 2 // "Losses"
+	diceRuntimePublishWins diceRuntimePublishCode = iota + 1
+	diceRuntimePublishLosses
 )
 
-var runtimePublishede71Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Wins", Val: runtimePublishede71Wins},
-	state.StrEntry[uint16]{Key: "Losses", Val: runtimePublishede71Losses},
+var diceRuntimePublishCodes = state.NewStrCodes(
+	state.StrEntry[diceRuntimePublishCode]{Key: "Wins", Val: diceRuntimePublishWins},
+	state.StrEntry[diceRuntimePublishCode]{Key: "Losses", Val: diceRuntimePublishLosses},
 )

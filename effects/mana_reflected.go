@@ -188,8 +188,8 @@ func reflectedDefinedExtras(h Host, c *Ctx, sel string) ([]state.ObjID, bool) {
 		spec = strings.TrimSpace(sel[i+1:])
 		sel = strings.TrimSpace(sel[:i])
 	}
-	switch reflectedDefinedExtras8c61Codes.Code(string(sel)) {
-	case reflectedDefinedExtras8c61ValidGraveyard:
+	switch reflectedDefinedExtrasCodes.Code(string(sel)) {
+	case reflectedDefinedExtrasValidGraveyard:
 		var out []state.ObjID
 		for _, q := range g.AliveFrom(0) {
 			for _, id := range g.Zone(state.ZGraveyard, q) {
@@ -200,13 +200,13 @@ func reflectedDefinedExtras(h Host, c *Ctx, sel string) ([]state.ObjID, bool) {
 			}
 		}
 		return out, true
-	case reflectedDefinedExtras8c61Sacrificed:
+	case reflectedDefinedExtrasSacrificed:
 		var out []state.ObjID
 		for _, t := range c.Remembered {
 			out = append(out, t.Obj)
 		}
 		return out, true
-	case reflectedDefinedExtras8c61Untapped:
+	case reflectedDefinedExtrasUntapped:
 		// The reflected object is the permanent the activation's untapYType
 		// cost elected (for Benthic Explorers, a tapped land an OPPONENT
 		// controls), carried on the resolution Ctx as CostUntapped. The
@@ -220,7 +220,7 @@ func reflectedDefinedExtras(h Host, c *Ctx, sel string) ([]state.ObjID, bool) {
 			}
 		}
 		return out, true
-	case reflectedDefinedExtras8c61ExiledWith:
+	case reflectedDefinedExtrasExiledWith:
 		var out []state.ObjID
 		for _, q := range g.AliveFrom(0) {
 			for _, id := range g.Zone(state.ZExile, q) {
@@ -294,12 +294,12 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 		// Produce/Is where Valid$ names reflected objects. Resolve those three
 		// roles locally so the ordinary Defined grammar is not widened for
 		// unrelated effects.
-		switch effManaReflected8c62Codes.Code(string(mr.Defined)) {
-		case effManaReflected8c62TriggeredActivator:
+		switch effManaReflectedCodes.Code(string(mr.Defined)) {
+		case effManaReflectedTriggeredActivator:
 			if c.TriggerActivator.IsPlayer {
 				recipient = c.TriggerActivator.Player
 			}
-		case effManaReflected8c62TriggeredCardController:
+		case effManaReflectedTriggeredCardController:
 			if o := h.Game().Obj(c.TriggerCard); o != nil {
 				recipient = o.Controller
 			}
@@ -365,26 +365,30 @@ func manaReflectedAnswered(cols []string, col string, recipient state.PlayerID, 
 	}
 }
 
-const (
-	reflectedDefinedExtras8c61ValidGraveyard uint16 = 1 // "ValidGraveyard"
-	reflectedDefinedExtras8c61Sacrificed     uint16 = 2 // "Sacrificed"
-	reflectedDefinedExtras8c61Untapped       uint16 = 3 // "Untapped"
-	reflectedDefinedExtras8c61ExiledWith     uint16 = 4 // "ExiledWith"
-)
-
-var reflectedDefinedExtras8c61Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "ValidGraveyard", Val: reflectedDefinedExtras8c61ValidGraveyard},
-	state.StrEntry[uint16]{Key: "Sacrificed", Val: reflectedDefinedExtras8c61Sacrificed},
-	state.StrEntry[uint16]{Key: "Untapped", Val: reflectedDefinedExtras8c61Untapped},
-	state.StrEntry[uint16]{Key: "ExiledWith", Val: reflectedDefinedExtras8c61ExiledWith},
-)
+type reflectedDefinedExtrasCode uint16
 
 const (
-	effManaReflected8c62TriggeredActivator      uint16 = 1 // "TriggeredActivator"
-	effManaReflected8c62TriggeredCardController uint16 = 2 // "TriggeredCardController"
+	reflectedDefinedExtrasValidGraveyard reflectedDefinedExtrasCode = iota + 1
+	reflectedDefinedExtrasSacrificed
+	reflectedDefinedExtrasUntapped
+	reflectedDefinedExtrasExiledWith
 )
 
-var effManaReflected8c62Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "TriggeredActivator", Val: effManaReflected8c62TriggeredActivator},
-	state.StrEntry[uint16]{Key: "TriggeredCardController", Val: effManaReflected8c62TriggeredCardController},
+var reflectedDefinedExtrasCodes = state.NewStrCodes(
+	state.StrEntry[reflectedDefinedExtrasCode]{Key: "ValidGraveyard", Val: reflectedDefinedExtrasValidGraveyard},
+	state.StrEntry[reflectedDefinedExtrasCode]{Key: "Sacrificed", Val: reflectedDefinedExtrasSacrificed},
+	state.StrEntry[reflectedDefinedExtrasCode]{Key: "Untapped", Val: reflectedDefinedExtrasUntapped},
+	state.StrEntry[reflectedDefinedExtrasCode]{Key: "ExiledWith", Val: reflectedDefinedExtrasExiledWith},
+)
+
+type effManaReflectedCode uint16
+
+const (
+	effManaReflectedTriggeredActivator effManaReflectedCode = iota + 1
+	effManaReflectedTriggeredCardController
+)
+
+var effManaReflectedCodes = state.NewStrCodes(
+	state.StrEntry[effManaReflectedCode]{Key: "TriggeredActivator", Val: effManaReflectedTriggeredActivator},
+	state.StrEntry[effManaReflectedCode]{Key: "TriggeredCardController", Val: effManaReflectedTriggeredCardController},
 )

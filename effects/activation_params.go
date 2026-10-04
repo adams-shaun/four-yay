@@ -98,6 +98,15 @@ func cmpOpOf(a, b byte, fold bool) CmpOp {
 	return CmpNone
 }
 
+// CmpOpOf is the operator a whole token names exactly ("EQ" .. "GE"),
+// CmpNone for anything else.
+func CmpOpOf(s string) CmpOp {
+	if len(s) != 2 {
+		return CmpNone
+	}
+	return cmpOpOf(s[0], s[1], false)
+}
+
 // Apply compares have against n under the operator (false for CmpNone).
 func (op CmpOp) Apply(have, n int) bool {
 	switch op {
@@ -413,7 +422,7 @@ func activationZoneMask(az ParamText) uint32 {
 	if !az.Present {
 		return 1 << state.ZBattlefield
 	}
-	if v, ok := activationZoneMaskTab1.Get(az.Text); ok {
+	if v, ok := activationZoneMaskTab.Get(az.Text); ok {
 		return v
 	}
 	return 0
@@ -447,7 +456,7 @@ func conditionZoneParam(sa *cards.SA) string {
 	return strings.TrimSpace(sa.ParamStr(cards.PKConditionZone))
 }
 
-var activationZoneMaskTab1 = state.NewStrTable[uint32](
+var activationZoneMaskTab = state.NewStrTable[uint32](
 	state.StrEntry[uint32]{Key: "Battlefield", Val: 1 << state.ZBattlefield},
 	state.StrEntry[uint32]{Key: "Graveyard", Val: 1 << state.ZGraveyard},
 	state.StrEntry[uint32]{Key: "Hand", Val: 1 << state.ZHand},

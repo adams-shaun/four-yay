@@ -130,27 +130,29 @@ func applyTimeTravel(h Host, id state.ObjID, choice string) {
 	if o.Zone != state.ZBattlefield && (o.Zone != state.ZExile || o.CastFlags&state.FlagSuspend == 0) {
 		return
 	}
-	switch applyTimeTraveld341Codes.Code(string(strings.TrimSpace(choice))) {
-	case applyTimeTraveld341TimeTravelAdd:
+	switch applyTimeTravelCodes.Code(string(strings.TrimSpace(choice))) {
+	case applyTimeTravelTimeTravelAdd:
 		h.Emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: "TIME", Amount: 1})
-	case applyTimeTraveld341TimeTravelRemove:
+	case applyTimeTravelTimeTravelRemove:
 		h.Emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: "TIME", Amount: -1})
-	case applyTimeTraveld341TimeTravelSkip:
+	case applyTimeTravelTimeTravelSkip:
 	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: id,
 			Text: fmt.Sprintf("TimeTravel: unknown choice %q; skipped", choice)})
 	}
 }
 
+type applyTimeTravelCode uint16
+
 const (
-	applyTimeTraveld341TimeTravelAdd    uint16 = 1 // "time_travel_add"
-	applyTimeTraveld341TimeTravelRemove uint16 = 2 // "time_travel_remove"
-	applyTimeTraveld341TimeTravelSkip   uint16 = 3 // "time_travel_skip", ""
+	applyTimeTravelTimeTravelAdd applyTimeTravelCode = iota + 1
+	applyTimeTravelTimeTravelRemove
+	applyTimeTravelTimeTravelSkip
 )
 
-var applyTimeTraveld341Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "time_travel_add", Val: applyTimeTraveld341TimeTravelAdd},
-	state.StrEntry[uint16]{Key: "time_travel_remove", Val: applyTimeTraveld341TimeTravelRemove},
-	state.StrEntry[uint16]{Key: "time_travel_skip", Val: applyTimeTraveld341TimeTravelSkip},
-	state.StrEntry[uint16]{Key: "", Val: applyTimeTraveld341TimeTravelSkip},
+var applyTimeTravelCodes = state.NewStrCodes(
+	state.StrEntry[applyTimeTravelCode]{Key: "time_travel_add", Val: applyTimeTravelTimeTravelAdd},
+	state.StrEntry[applyTimeTravelCode]{Key: "time_travel_remove", Val: applyTimeTravelTimeTravelRemove},
+	state.StrEntry[applyTimeTravelCode]{Key: "time_travel_skip", Val: applyTimeTravelTimeTravelSkip},
+	state.StrEntry[applyTimeTravelCode]{Key: "", Val: applyTimeTravelTimeTravelSkip},
 )

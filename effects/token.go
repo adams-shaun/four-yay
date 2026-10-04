@@ -231,8 +231,8 @@ func tokenAttackingPlayers(h Host, c *Ctx, raw string) (seats []state.PlayerID, 
 			continue
 		}
 		var ts []state.Target
-		switch tokenAttackingPlayers7c51Codes.Code(string(p)) {
-		case tokenAttackingPlayers7c51RememberedPlayer:
+		switch tokenAttackingPlayersCodes.Code(string(p)) {
+		case tokenAttackingPlayersRememberedPlayer:
 			ts = resolvedRemembered(h, c)
 		default:
 			// A `Valid <filter>` arm is an OBJECT selector by construction --
@@ -862,11 +862,13 @@ func proposeCopyTokens(h Host, player state.PlayerID, src state.ObjID, n int32) 
 	return n
 }
 
+type tokenAttackingPlayersCode uint16
+
 const (
-	tokenAttackingPlayers7c51RememberedPlayer uint16 = 1 // "RememberedPlayer", "RememberedPlayers"
+	tokenAttackingPlayersRememberedPlayer tokenAttackingPlayersCode = iota + 1
 )
 
-var tokenAttackingPlayers7c51Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "RememberedPlayer", Val: tokenAttackingPlayers7c51RememberedPlayer},
-	state.StrEntry[uint16]{Key: "RememberedPlayers", Val: tokenAttackingPlayers7c51RememberedPlayer},
+var tokenAttackingPlayersCodes = state.NewStrCodes(
+	state.StrEntry[tokenAttackingPlayersCode]{Key: "RememberedPlayer", Val: tokenAttackingPlayersRememberedPlayer},
+	state.StrEntry[tokenAttackingPlayersCode]{Key: "RememberedPlayers", Val: tokenAttackingPlayersRememberedPlayer},
 )

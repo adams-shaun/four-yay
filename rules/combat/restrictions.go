@@ -270,7 +270,7 @@ func BlockRestricted(b Board, blocker, attacker state.ObjID) bool {
 // continuousGateHolds evaluates them (fail-closed).
 func minMaxBlockerParamsReadable(params map[string]string) bool {
 	for k := range params {
-		if !minMaxBlockerParamsReadableKeys1.Has(k) {
+		if !minMaxBlockerParamsReadableKeys.Has(k) {
 			return false
 		}
 	}
@@ -452,17 +452,17 @@ func restrictionPlaneswalkerTargetMatches(g *state.Game, spec string, defender, 
 	// Forge's common Target$ form is Planeswalker.YouCtrl. Other
 	// controller selectors are evaluated against the restriction source.
 	matches := false
-	switch restrictionPlaneswalkerTargetMatches4f71Codes.Code(string(strings.ToLower(selector))) {
-	case restrictionPlaneswalkerTargetMatches4f71Youctrl:
+	switch restrictionPlaneswalkerTargetMatchesCodes.Code(string(strings.ToLower(selector))) {
+	case restrictionPlaneswalkerTargetMatchesYouctrl:
 		matches = defender == controller
-	case restrictionPlaneswalkerTargetMatches4f71Oppctrl:
+	case restrictionPlaneswalkerTargetMatchesOppctrl:
 		matches = defender != controller
-	case restrictionPlaneswalkerTargetMatches4f71ControlledbyPlayerCardowner:
+	case restrictionPlaneswalkerTargetMatchesControlledbyPlayerCardowner:
 		// Xantcha's owner, not its current controller (which may be an opponent).
 		if src := g.Obj(source); src != nil {
 			matches = defender == src.Owner
 		}
-	case restrictionPlaneswalkerTargetMatches4f71Rememberedplayerctrl:
+	case restrictionPlaneswalkerTargetMatchesRememberedplayerctrl:
 		// Effect registrations capture the named players at resolution time.
 		for _, p := range rememberedPlayers {
 			if p == defender {
@@ -494,19 +494,21 @@ func printedHasType(o *state.Object, typ string) bool {
 	return false
 }
 
-var minMaxBlockerParamsReadableKeys1 = state.NewNameSet("Mode", "ValidCard", "Min", "Max", "Description", "Secondary", "Condition", "IsPresent", "IsPresent2", "PresentCompare", "PresentZone", "CheckSVar", "SVarCompare", "AffectedZone")
+var minMaxBlockerParamsReadableKeys = state.NewNameSet("Mode", "ValidCard", "Min", "Max", "Description", "Secondary", "Condition", "IsPresent", "IsPresent2", "PresentCompare", "PresentZone", "CheckSVar", "SVarCompare", "AffectedZone")
+
+type restrictionPlaneswalkerTargetMatchesCode uint16
 
 const (
-	restrictionPlaneswalkerTargetMatches4f71Youctrl                     uint16 = 1 // "youctrl"
-	restrictionPlaneswalkerTargetMatches4f71Oppctrl                     uint16 = 2 // "oppctrl"
-	restrictionPlaneswalkerTargetMatches4f71ControlledbyPlayerCardowner uint16 = 3 // "controlledby player.cardowner"
-	restrictionPlaneswalkerTargetMatches4f71Rememberedplayerctrl        uint16 = 4 // "rememberedplayerctrl", "controlledby remembered"
+	restrictionPlaneswalkerTargetMatchesYouctrl restrictionPlaneswalkerTargetMatchesCode = iota + 1
+	restrictionPlaneswalkerTargetMatchesOppctrl
+	restrictionPlaneswalkerTargetMatchesControlledbyPlayerCardowner
+	restrictionPlaneswalkerTargetMatchesRememberedplayerctrl
 )
 
-var restrictionPlaneswalkerTargetMatches4f71Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "youctrl", Val: restrictionPlaneswalkerTargetMatches4f71Youctrl},
-	state.StrEntry[uint16]{Key: "oppctrl", Val: restrictionPlaneswalkerTargetMatches4f71Oppctrl},
-	state.StrEntry[uint16]{Key: "controlledby player.cardowner", Val: restrictionPlaneswalkerTargetMatches4f71ControlledbyPlayerCardowner},
-	state.StrEntry[uint16]{Key: "rememberedplayerctrl", Val: restrictionPlaneswalkerTargetMatches4f71Rememberedplayerctrl},
-	state.StrEntry[uint16]{Key: "controlledby remembered", Val: restrictionPlaneswalkerTargetMatches4f71Rememberedplayerctrl},
+var restrictionPlaneswalkerTargetMatchesCodes = state.NewStrCodes(
+	state.StrEntry[restrictionPlaneswalkerTargetMatchesCode]{Key: "youctrl", Val: restrictionPlaneswalkerTargetMatchesYouctrl},
+	state.StrEntry[restrictionPlaneswalkerTargetMatchesCode]{Key: "oppctrl", Val: restrictionPlaneswalkerTargetMatchesOppctrl},
+	state.StrEntry[restrictionPlaneswalkerTargetMatchesCode]{Key: "controlledby player.cardowner", Val: restrictionPlaneswalkerTargetMatchesControlledbyPlayerCardowner},
+	state.StrEntry[restrictionPlaneswalkerTargetMatchesCode]{Key: "rememberedplayerctrl", Val: restrictionPlaneswalkerTargetMatchesRememberedplayerctrl},
+	state.StrEntry[restrictionPlaneswalkerTargetMatchesCode]{Key: "controlledby remembered", Val: restrictionPlaneswalkerTargetMatchesRememberedplayerctrl},
 )

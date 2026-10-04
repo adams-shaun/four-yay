@@ -62,8 +62,8 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 
 	if m := wardSpecialCost.FindStringSubmatch(raw); m != nil {
 		n, _ := strconv.Atoi(m[2])
-		switch beginWardPayment9a51Codes.Code(string(m[1])) {
-		case beginWardPayment9a51AddCounterYou:
+		switch beginWardPaymentCodes.Code(string(m[1])) {
+		case beginWardPaymentAddCounterYou:
 			// The ward cost's poison counters are put by the PAYER, not by
 			// the ward permanent's controller (which is the triggering
 			// ward ability's controller, so inFlightCounterAdder's
@@ -74,19 +74,19 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 			e.emit(events.Event{Kind: events.PlayerCounterChange, Player: payer, Counter: "POISON", Amount: int32(n)})
 			e.SetCounterAdder(prevAdder)
 			return true, false
-		case beginWardPayment9a51Blight:
+		case beginWardPaymentBlight:
 			// Blight's cost is "a creature you control gets -N/-N"; unlike
 			// Waterbend and a tap cost it does not require that creature to be
 			// untapped (Auntie Ool, Cursewretch).
 			return e.askWardObjects(rp, ctx, payer, "ward_blight", "Choose a creature to blight", 1, 1,
 				e.wardPermanents(payer, ctx.Source, "Creature", false))
-		case beginWardPayment9a51CollectEvidence:
+		case beginWardPaymentCollectEvidence:
 			ids := append([]state.ObjID(nil), e.G.Zone(state.ZGraveyard, payer)...)
 			if wardManaValue(e.G, ids) < int32(n) {
 				return false, false
 			}
 			return e.askWardObjects(rp, ctx, payer, "ward_evidence", "Exile evidence with total mana value "+strconv.Itoa(n), 1, len(ids), ids)
-		case beginWardPayment9a51Waterbend:
+		case beginWardPaymentWaterbend:
 			need := n - int(e.G.Players[payer].Pool.Total())
 			if need < 0 {
 				need = 0
@@ -239,8 +239,8 @@ func (e *Engine) settleWardPayment(kind string, sa *cards.SA, ctx *effects.Ctx, 
 		}
 	}
 
-	switch settleWardPayment9a52Codes.Code(string(kind)) {
-	case settleWardPayment9a52WardAlt:
+	switch settleWardPaymentCodes.Code(string(kind)) {
+	case settleWardPaymentWardAlt:
 		if len(chosen) != 1 {
 			return false
 		}
@@ -253,7 +253,7 @@ func (e *Engine) settleWardPayment(kind string, sa *cards.SA, ctx *effects.Ctx, 
 		}
 		e.emit(events.Event{Kind: events.MoveZone, Obj: ids[0], From: state.ZHand, To: state.ZGraveyard, Text: "discarded for ward"})
 		return true
-	case settleWardPayment9a52WardBlight:
+	case settleWardPaymentWardBlight:
 		if len(ids) != 1 || !slices.Contains(e.wardPermanents(payer, ctx.Source, "Creature", false), ids[0]) {
 			return false
 		}
@@ -267,7 +267,7 @@ func (e *Engine) settleWardPayment(kind string, sa *cards.SA, ctx *effects.Ctx, 
 		e.emit(events.Event{Kind: events.CounterChange, Obj: ids[0], Counter: "M1M1", Amount: int32(n)})
 		e.SetCounterAdder(prevAdder)
 		return true
-	case settleWardPayment9a52WardEvidence:
+	case settleWardPaymentWardEvidence:
 		for _, id := range ids {
 			if !slices.Contains(e.G.Zone(state.ZGraveyard, payer), id) {
 				return false
@@ -282,7 +282,7 @@ func (e *Engine) settleWardPayment(kind string, sa *cards.SA, ctx *effects.Ctx, 
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZGraveyard, To: state.ZExile, Text: "collected as evidence for ward"})
 		}
 		return true
-	case settleWardPayment9a52WardWaterbend:
+	case settleWardPaymentWardWaterbend:
 		for _, id := range ids {
 			if !slices.Contains(e.wardPermanents(payer, ctx.Source, "Artifact,Creature", true), id) {
 				return false
@@ -298,13 +298,13 @@ func (e *Engine) settleWardPayment(kind string, sa *cards.SA, ctx *effects.Ctx, 
 			e.emit(events.Event{Kind: events.Tap, Obj: id})
 		}
 		return true
-	case settleWardPayment9a52WardTap:
+	case settleWardPaymentWardTap:
 		if len(ids) != 1 || !slices.Contains(e.wardPermanents(payer, ctx.Source, "Artifact,Creature", true), ids[0]) {
 			return false
 		}
 		e.emit(events.Event{Kind: events.Tap, Obj: ids[0]})
 		return true
-	case settleWardPayment9a52WardSac:
+	case settleWardPaymentWardSac:
 		cost := e.parseCost(raw)
 		var part CostPart
 		var zone state.Zone
@@ -432,35 +432,39 @@ func wardManaDecision(e *Engine, wm *wardManaPayment) *decision.Decision {
 	return d
 }
 
-const (
-	beginWardPayment9a51AddCounterYou   uint16 = 1 // "AddCounterYou"
-	beginWardPayment9a51Blight          uint16 = 2 // "Blight"
-	beginWardPayment9a51CollectEvidence uint16 = 3 // "CollectEvidence"
-	beginWardPayment9a51Waterbend       uint16 = 4 // "Waterbend"
-)
-
-var beginWardPayment9a51Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "AddCounterYou", Val: beginWardPayment9a51AddCounterYou},
-	state.StrEntry[uint16]{Key: "Blight", Val: beginWardPayment9a51Blight},
-	state.StrEntry[uint16]{Key: "CollectEvidence", Val: beginWardPayment9a51CollectEvidence},
-	state.StrEntry[uint16]{Key: "Waterbend", Val: beginWardPayment9a51Waterbend},
-)
+type beginWardPaymentCode uint16
 
 const (
-	settleWardPayment9a52WardAlt       uint16 = 1 // "ward_alt"
-	settleWardPayment9a52WardBlight    uint16 = 2 // "ward_blight"
-	settleWardPayment9a52WardEvidence  uint16 = 3 // "ward_evidence"
-	settleWardPayment9a52WardWaterbend uint16 = 4 // "ward_waterbend"
-	settleWardPayment9a52WardTap       uint16 = 5 // "ward_tap"
-	settleWardPayment9a52WardSac       uint16 = 6 // "ward_sac", "ward_discard"
+	beginWardPaymentAddCounterYou beginWardPaymentCode = iota + 1
+	beginWardPaymentBlight
+	beginWardPaymentCollectEvidence
+	beginWardPaymentWaterbend
 )
 
-var settleWardPayment9a52Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "ward_alt", Val: settleWardPayment9a52WardAlt},
-	state.StrEntry[uint16]{Key: "ward_blight", Val: settleWardPayment9a52WardBlight},
-	state.StrEntry[uint16]{Key: "ward_evidence", Val: settleWardPayment9a52WardEvidence},
-	state.StrEntry[uint16]{Key: "ward_waterbend", Val: settleWardPayment9a52WardWaterbend},
-	state.StrEntry[uint16]{Key: "ward_tap", Val: settleWardPayment9a52WardTap},
-	state.StrEntry[uint16]{Key: "ward_sac", Val: settleWardPayment9a52WardSac},
-	state.StrEntry[uint16]{Key: "ward_discard", Val: settleWardPayment9a52WardSac},
+var beginWardPaymentCodes = state.NewStrCodes(
+	state.StrEntry[beginWardPaymentCode]{Key: "AddCounterYou", Val: beginWardPaymentAddCounterYou},
+	state.StrEntry[beginWardPaymentCode]{Key: "Blight", Val: beginWardPaymentBlight},
+	state.StrEntry[beginWardPaymentCode]{Key: "CollectEvidence", Val: beginWardPaymentCollectEvidence},
+	state.StrEntry[beginWardPaymentCode]{Key: "Waterbend", Val: beginWardPaymentWaterbend},
+)
+
+type settleWardPaymentCode uint16
+
+const (
+	settleWardPaymentWardAlt settleWardPaymentCode = iota + 1
+	settleWardPaymentWardBlight
+	settleWardPaymentWardEvidence
+	settleWardPaymentWardWaterbend
+	settleWardPaymentWardTap
+	settleWardPaymentWardSac
+)
+
+var settleWardPaymentCodes = state.NewStrCodes(
+	state.StrEntry[settleWardPaymentCode]{Key: "ward_alt", Val: settleWardPaymentWardAlt},
+	state.StrEntry[settleWardPaymentCode]{Key: "ward_blight", Val: settleWardPaymentWardBlight},
+	state.StrEntry[settleWardPaymentCode]{Key: "ward_evidence", Val: settleWardPaymentWardEvidence},
+	state.StrEntry[settleWardPaymentCode]{Key: "ward_waterbend", Val: settleWardPaymentWardWaterbend},
+	state.StrEntry[settleWardPaymentCode]{Key: "ward_tap", Val: settleWardPaymentWardTap},
+	state.StrEntry[settleWardPaymentCode]{Key: "ward_sac", Val: settleWardPaymentWardSac},
+	state.StrEntry[settleWardPaymentCode]{Key: "ward_discard", Val: settleWardPaymentWardSac},
 )

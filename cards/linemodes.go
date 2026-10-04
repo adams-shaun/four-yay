@@ -5,6 +5,11 @@ package cards
 // printed node's name once at load (ModeKind / EventKind read the stored
 // code); a node built later resolves on read. A name the engine never
 // dispatches on is code 0 and matches no case.
+//
+// These are dispatch vocabularies, renumbered freely as names are added. The
+// compiled catalog's TriggerModeCode / StaticModeCode / ReplacementEventCode
+// (compiled_codes.go) are a different contract: explicit, append-only values
+// persisted in a catalog schema.
 
 // TriggerMode is a T: line's Mode$ as a dense code.
 type TriggerMode uint16

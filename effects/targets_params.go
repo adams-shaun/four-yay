@@ -372,16 +372,16 @@ func targetZoneDecl(tgtZone string, typeStack bool) []state.Zone {
 		zones = append(zones, z)
 	}
 	for z := range strings.SplitSeq(tgtZone, ",") {
-		switch targetZoneDecl8111Codes.Code(string(strings.TrimSpace(z))) {
-		case targetZoneDecl8111Battlefield:
+		switch targetZoneDeclCodes.Code(string(strings.TrimSpace(z))) {
+		case targetZoneDeclBattlefield:
 			add(state.ZBattlefield)
-		case targetZoneDecl8111Graveyard:
+		case targetZoneDeclGraveyard:
 			add(state.ZGraveyard)
-		case targetZoneDecl8111Hand:
+		case targetZoneDeclHand:
 			add(state.ZHand)
-		case targetZoneDecl8111Exile:
+		case targetZoneDeclExile:
 			add(state.ZExile)
-		case targetZoneDecl8111Stack:
+		case targetZoneDeclStack:
 			add(state.ZStack)
 		}
 	}
@@ -469,18 +469,20 @@ func NumTextResolvedStrict(h Host, c *Ctx, p ParamText, def int32) (int32, bool)
 	return numResolvedStrictText(h, c, p, def)
 }
 
+type targetZoneDeclCode uint16
+
 const (
-	targetZoneDecl8111Battlefield uint16 = 1 // "Battlefield"
-	targetZoneDecl8111Graveyard   uint16 = 2 // "Graveyard"
-	targetZoneDecl8111Hand        uint16 = 3 // "Hand"
-	targetZoneDecl8111Exile       uint16 = 4 // "Exile"
-	targetZoneDecl8111Stack       uint16 = 5 // "Stack"
+	targetZoneDeclBattlefield targetZoneDeclCode = iota + 1
+	targetZoneDeclGraveyard
+	targetZoneDeclHand
+	targetZoneDeclExile
+	targetZoneDeclStack
 )
 
-var targetZoneDecl8111Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Battlefield", Val: targetZoneDecl8111Battlefield},
-	state.StrEntry[uint16]{Key: "Graveyard", Val: targetZoneDecl8111Graveyard},
-	state.StrEntry[uint16]{Key: "Hand", Val: targetZoneDecl8111Hand},
-	state.StrEntry[uint16]{Key: "Exile", Val: targetZoneDecl8111Exile},
-	state.StrEntry[uint16]{Key: "Stack", Val: targetZoneDecl8111Stack},
+var targetZoneDeclCodes = state.NewStrCodes(
+	state.StrEntry[targetZoneDeclCode]{Key: "Battlefield", Val: targetZoneDeclBattlefield},
+	state.StrEntry[targetZoneDeclCode]{Key: "Graveyard", Val: targetZoneDeclGraveyard},
+	state.StrEntry[targetZoneDeclCode]{Key: "Hand", Val: targetZoneDeclHand},
+	state.StrEntry[targetZoneDeclCode]{Key: "Exile", Val: targetZoneDeclExile},
+	state.StrEntry[targetZoneDeclCode]{Key: "Stack", Val: targetZoneDeclStack},
 )

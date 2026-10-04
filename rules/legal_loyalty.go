@@ -366,10 +366,10 @@ func (e *Engine) additionalActivationLimit(id state.ObjID, actor state.PlayerID,
 			if len(parts) != 2 || parts[0] != "Activated" {
 				continue
 			}
-			switch additionalActivationLimitfbd1Codes.Code(string(parts[1])) {
-			case additionalActivationLimitfbd1Exhaust:
+			switch additionalActivationLimitCodes.Code(string(parts[1])) {
+			case additionalActivationLimitExhaust:
 				matched = strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKExhaust)), "True")
-			case additionalActivationLimitfbd1PowerUp:
+			case additionalActivationLimitPowerUp:
 				matched = strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKPowerUp)), "True")
 			}
 			if matched {
@@ -536,12 +536,14 @@ func (e *Engine) resolveActivationLimitAt(id state.ObjID, p state.PlayerID, raw 
 	return 0, false
 }
 
+type additionalActivationLimitCode uint16
+
 const (
-	additionalActivationLimitfbd1Exhaust uint16 = 1 // "Exhaust"
-	additionalActivationLimitfbd1PowerUp uint16 = 2 // "PowerUp"
+	additionalActivationLimitExhaust additionalActivationLimitCode = iota + 1
+	additionalActivationLimitPowerUp
 )
 
-var additionalActivationLimitfbd1Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Exhaust", Val: additionalActivationLimitfbd1Exhaust},
-	state.StrEntry[uint16]{Key: "PowerUp", Val: additionalActivationLimitfbd1PowerUp},
+var additionalActivationLimitCodes = state.NewStrCodes(
+	state.StrEntry[additionalActivationLimitCode]{Key: "Exhaust", Val: additionalActivationLimitExhaust},
+	state.StrEntry[additionalActivationLimitCode]{Key: "PowerUp", Val: additionalActivationLimitPowerUp},
 )

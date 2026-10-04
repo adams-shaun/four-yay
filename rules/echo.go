@@ -206,15 +206,15 @@ func (e *Engine) echoAnswer(chosen []decision.Option) {
 		e.echoElectionAsk()
 		return
 	}
-	switch echoAnswer4e41Codes.Code(string(chosen[0].Kind)) {
-	case echoAnswer4e41Activate:
+	switch echoAnswerCodes.Code(string(chosen[0].Kind)) {
+	case echoAnswerActivate:
 		e.activatePaymentMana(ef.player, chosen[0].Obj)
 		return
-	case echoAnswer4e41Done:
+	case echoAnswerDone:
 		ef.windowDone = true
 		e.echoElectionAsk()
 		return
-	case echoAnswer4e41EchoPay:
+	case echoAnswerEchoPay:
 		if ef.action != nil {
 			e.echoActionAsk()
 			return
@@ -225,7 +225,7 @@ func (e *Engine) echoAnswer(chosen []decision.Option) {
 			e.finishEcho()
 			return
 		}
-	case echoAnswer4e41EchoActionPick:
+	case echoAnswerEchoActionPick:
 		e.echoActionExecute(chosen)
 		return
 	}
@@ -315,16 +315,18 @@ func init() {
 	effects.RegisterNonAPI("kw:Echo")
 }
 
+type echoAnswerCode uint16
+
 const (
-	echoAnswer4e41Activate       uint16 = 1 // "activate"
-	echoAnswer4e41Done           uint16 = 2 // "done"
-	echoAnswer4e41EchoPay        uint16 = 3 // "echo_pay"
-	echoAnswer4e41EchoActionPick uint16 = 4 // "echo_action_pick"
+	echoAnswerActivate echoAnswerCode = iota + 1
+	echoAnswerDone
+	echoAnswerEchoPay
+	echoAnswerEchoActionPick
 )
 
-var echoAnswer4e41Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "activate", Val: echoAnswer4e41Activate},
-	state.StrEntry[uint16]{Key: "done", Val: echoAnswer4e41Done},
-	state.StrEntry[uint16]{Key: "echo_pay", Val: echoAnswer4e41EchoPay},
-	state.StrEntry[uint16]{Key: "echo_action_pick", Val: echoAnswer4e41EchoActionPick},
+var echoAnswerCodes = state.NewStrCodes(
+	state.StrEntry[echoAnswerCode]{Key: "activate", Val: echoAnswerActivate},
+	state.StrEntry[echoAnswerCode]{Key: "done", Val: echoAnswerDone},
+	state.StrEntry[echoAnswerCode]{Key: "echo_pay", Val: echoAnswerEchoPay},
+	state.StrEntry[echoAnswerCode]{Key: "echo_action_pick", Val: echoAnswerEchoActionPick},
 )
