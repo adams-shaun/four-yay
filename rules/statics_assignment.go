@@ -93,7 +93,7 @@ func (e *Engine) assignmentStatics(mode string) []staticView {
 					// it; a static naming Command (Weight Advantage) is admitted
 					// only while its source really sits there, which is the same
 					// fail-closed direction effectZoneOK takes everywhere.
-					if !effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
+					if !staticEffectZoneOK(st, o.Zone) {
 						continue
 					}
 					out = append(out, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})

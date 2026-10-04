@@ -220,7 +220,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// is the ONE read both this gate and cdaPTStatic make, so the
 						// emitted characteristic grant and the layer-7a P/T claim can
 						// never disagree about where the static is live.
-						if !e.stackSelfStaticOK(st, o) && !chars.StaticZoneAdmits(st.ParamStr(cards.PKExcludeZone), st.ParamStr(cards.PKEffectZone), o.Zone) {
+						if !e.stackSelfStaticOK(st, o) && !chars.StaticZoneAdmitsStatic(st, o.Zone) {
 							continue
 						}
 						affects := st.ParamStr(cards.PKAffected)

@@ -29,7 +29,7 @@ func (e *Engine) SpellCopyAllowed(id state.ObjID) bool {
 				}
 				for si, n := 0, o.PileStaticCount(); si < n; si++ {
 					pst, ok := o.PileStaticAt(si)
-					if !ok || pst.Static.Mode != "CantBeCopied" || !effectZoneOK(pst.Static.ParamStr(cards.PKEffectZone), o.Zone) {
+					if !ok || pst.Static.Mode != "CantBeCopied" || !staticEffectZoneOK(pst.Static, o.Zone) {
 						continue
 					}
 					spec := strings.TrimSpace(pst.Static.ParamStr(cards.PKValidCard))
@@ -188,7 +188,7 @@ func (e *Engine) castRestrictionSources(statics []staticView, id state.ObjID) []
 		return out
 	}
 	for _, st := range o.Face().Statics {
-		if st.Mode != "CantBeCast" || !effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
+		if st.Mode != "CantBeCast" || !staticEffectZoneOK(st, o.Zone) {
 			continue
 		}
 		out = append(out, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf()})
@@ -218,12 +218,12 @@ func (e *Engine) restrictionGateHolds(sv staticView, target state.ObjID) bool {
 			return false
 		}
 	}
-	switch restrictionGateHoldsCodes.Code(string(strings.TrimSpace(sv.ParamStr(cards.PKCondition)))) {
-	case restrictionGateHoldsEmpty:
+	switch sv.condition() {
+	case condBlank:
 		return true
-	case restrictionGateHoldsPlayerTurn:
+	case condPlayerTurn:
 		return e.G.Active == sv.Controller
-	case restrictionGateHoldsNotPlayerTurn:
+	case condNotPlayerTurn:
 		return e.G.Active != sv.Controller
 	}
 	return false
@@ -547,12 +547,12 @@ func (e *Engine) staticTimingGate(sv staticView) bool {
 	if !e.checkSVarHolds(sv) {
 		return false
 	}
-	switch staticTimingGateCodes.Code(string(strings.TrimSpace(sv.ParamStr(cards.PKCondition)))) {
-	case staticTimingGatePlayerTurn:
+	switch sv.condition() {
+	case condBlank, condPlayerTurn:
 		if sv.ParamStr(cards.PKCondition) == "PlayerTurn" && e.G.Active != sv.Controller {
 			return false
 		}
-	case staticTimingGateFerocious:
+	case condFerocious:
 		found := false
 		for _, id := range e.G.Zone(state.ZBattlefield, sv.Controller) {
 			if o := e.G.Obj(id); o != nil && o.Face() != nil && o.EffectiveIsCreature() && !o.BestowedAttached() && !o.ReconfiguredAttached() && e.Derived(id).Power >= 4 {
@@ -703,33 +703,6 @@ func (e *Engine) spellTimingOK(p state.PlayerID, id state.ObjID, f *cards.Face, 
 	}
 	return sorcery || (f.IsInstant() || e.hasKeywordH(id, kwhFlash) || mayFlashSacFace(f) || e.castWithFlash(p, id))
 }
-
-type restrictionGateHoldsCode uint16
-
-const (
-	restrictionGateHoldsEmpty restrictionGateHoldsCode = iota + 1
-	restrictionGateHoldsPlayerTurn
-	restrictionGateHoldsNotPlayerTurn
-)
-
-var restrictionGateHoldsCodes = state.NewStrCodes(
-	state.StrEntry[restrictionGateHoldsCode]{Key: "", Val: restrictionGateHoldsEmpty},
-	state.StrEntry[restrictionGateHoldsCode]{Key: "PlayerTurn", Val: restrictionGateHoldsPlayerTurn},
-	state.StrEntry[restrictionGateHoldsCode]{Key: "NotPlayerTurn", Val: restrictionGateHoldsNotPlayerTurn},
-)
-
-type staticTimingGateCode uint16
-
-const (
-	staticTimingGatePlayerTurn staticTimingGateCode = iota + 1
-	staticTimingGateFerocious
-)
-
-var staticTimingGateCodes = state.NewStrCodes(
-	state.StrEntry[staticTimingGateCode]{Key: "", Val: staticTimingGatePlayerTurn},
-	state.StrEntry[staticTimingGateCode]{Key: "PlayerTurn", Val: staticTimingGatePlayerTurn},
-	state.StrEntry[staticTimingGateCode]{Key: "Ferocious", Val: staticTimingGateFerocious},
-)
 
 type presentZoneFromParamCode uint16
 

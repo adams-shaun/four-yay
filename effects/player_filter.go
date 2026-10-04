@@ -52,11 +52,8 @@ type PlayerSpecCtx struct {
 // Every rule resolves here, so a trigger match, a static actor match and a
 // layer restriction agree by construction rather than by parallel copies.
 func MatchesPlayerSpecCtx(g *state.Game, spec string, p, you state.PlayerID, pc PlayerSpecCtx) bool {
-	for alt := range strings.SplitSeq(spec, ",") {
-		alt = strings.TrimSpace(alt)
-		if alt == "" {
-			continue
-		}
+	ps := compiledPlayerSpecFor(spec)
+	for _, alt := range ps.alts {
 		if matchesPlayerCompoundCtx(g, alt, p, you, pc) {
 			return true
 		}
@@ -76,16 +73,13 @@ func MatchesPlayerSpecCtx(g *state.Game, spec string, p, you state.PlayerID, pc 
 // its random pick always took the no-candidate arm) and a ValidTgts$ pool
 // that admits no target. A clause with no `+` is a one-clause conjunction and
 // behaves exactly as before, so the single-qualifier grammar is unchanged.
-func matchesPlayerCompoundCtx(g *state.Game, alt string, p, you state.PlayerID, pc PlayerSpecCtx) bool {
-	for clause := range strings.SplitSeq(alt, "+") {
-		clause = strings.TrimSpace(clause)
-		if clause == "" {
+func matchesPlayerCompoundCtx(g *state.Game, alt []playerClause, p, you state.PlayerID, pc PlayerSpecCtx) bool {
+	for i := range alt {
+		c := &alt[i]
+		if c.blank {
 			return false
 		}
-		neg := strings.HasPrefix(clause, "!")
-		if neg {
-			clause = strings.TrimSpace(clause[1:])
-		}
+		clause, neg := c.text, c.neg
 		// A bare property clause (IsRemembered/Chosen/ChosenPlayer) with no
 		// source bound cannot be evaluated at all: fail the WHOLE conjunction
 		// closed, rather than letting the negation invert the absence into a
@@ -93,10 +87,10 @@ func matchesPlayerCompoundCtx(g *state.Game, alt string, p, you state.PlayerID, 
 		// would newly admit every un-remembered player for
 		// `Player.Opponent+!IsRemembered` -- a widened pool where the old
 		// grammar matched nobody.
-		if pc.Source == 0 && isBarePlayerProperty(clause) && clause != "IsCorrupted" {
+		if pc.Source == 0 && c.bare && clause != "IsCorrupted" {
 			return false
 		}
-		if matchesPlayerClauseCtx(g, clause, p, you, pc) == neg {
+		if matchesPlayerClauseCtx(g, c, p, you, pc) == neg {
 			return false
 		}
 	}
@@ -110,8 +104,10 @@ func matchesPlayerCompoundCtx(g *state.Game, alt string, p, you state.PlayerID, 
 // grammar (matchesPlayerSingleSpec) for a base.qualifier form. An absent
 // source fails the bare property clauses closed, exactly as the qualified
 // `Player.IsRemembered` spelling already does.
-func matchesPlayerClauseCtx(g *state.Game, clause string, p, you state.PlayerID, pc PlayerSpecCtx) bool {
-	if ref, is := strings.CutPrefix(clause, "wasDealtDamageThisGameBy "); is {
+func matchesPlayerClauseCtx(g *state.Game, c *playerClause, p, you state.PlayerID, pc PlayerSpecCtx) bool {
+	clause := c.text
+	if c.dealt {
+		ref := c.dealtRef
 		// Forge's bare game-long damage-by-source clause (The Fallen's
 		// `Player.Opponent+wasDealtDamageThisGameBy Self`): the same
 		// reading as the base.qualifier form above, reached through the
@@ -119,10 +115,10 @@ func matchesPlayerClauseCtx(g *state.Game, clause string, p, you state.PlayerID,
 		// the shared damageGameRecordHas reader.
 		return playerDamageByRefThisGame(g, p, you, pc, ref)
 	}
-	if !isBarePlayerProperty(clause) {
-		return matchesPlayerSingleSpec(g, clause, p, you, pc)
+	if !c.bare {
+		return matchesPlayerSingleSpec(g, c.single, p, you, pc)
 	}
-	switch matchesPlayerClauseCtxCodes.Code(string(clause)) {
+	switch c.bareCode {
 	case matchesPlayerClauseCtxIsCorrupted:
 		return playerIsCorrupted(g, p)
 	case matchesPlayerClauseCtxRememberedOrChosen:
@@ -165,13 +161,13 @@ func isBarePlayerProperty(clause string) bool {
 // source-anchored Chosen/IsRemembered membership read now consults first, so
 // a membership read can never widen past its base. An unknown base fails
 // closed, exactly as the inline switch does.
-func playerBaseMatches(base string, p, you state.PlayerID) bool {
-	switch playerBaseMatchesCodes.Code(string(base)) {
-	case playerBaseMatchesPlayer:
+func playerBaseMatches(base playerSpecBaseCode, p, you state.PlayerID) bool {
+	switch base {
+	case playerSpecBasePlayer:
 		return true
-	case playerBaseMatchesYou:
+	case playerSpecBaseYou:
 		return p == you
-	case playerBaseMatchesOpponent:
+	case playerSpecBaseOpponent:
 		return p != you
 	}
 	return false
@@ -179,10 +175,11 @@ func playerBaseMatches(base string, p, you state.PlayerID) bool {
 
 // matchesPlayerSingleSpec is the original single-alternative player-spec
 // evaluator: one clause, no `,` or `+` (the callers above split those).
-func matchesPlayerSingleSpec(g *state.Game, spec string, p, you state.PlayerID, pc PlayerSpecCtx) bool {
-	for alt := range strings.SplitSeq(spec, ",") {
-		base, qualifier, qualified := strings.Cut(strings.TrimSpace(alt), ".")
-		if inner, negated := strings.CutPrefix(qualifier, "!"); qualified && negated {
+func matchesPlayerSingleSpec(g *state.Game, alts []playerAlt, p, you state.PlayerID, pc PlayerSpecCtx) bool {
+	for ai := range alts {
+		a := &alts[ai]
+		base, qualifier, qualified := a.base, a.qualifier, a.qualified
+		if inner := a.inner; a.negInner {
 			// A negated qualifier after the dot (Crown of Doom's
 			// `Player.!CardOwner`, `Player.!IsRemembered`,
 			// `Player.!EnchantedBy`): the base must match and the positive
@@ -190,13 +187,13 @@ func matchesPlayerSingleSpec(g *state.Game, spec string, p, you state.PlayerID, 
 			// negated -- an unread one would otherwise invert its fail-closed
 			// false into admitting every seat -- and a source-anchored one
 			// fails closed with no source bound.
-			if !matchesPlayerSingleSpecKeys.Has(inner) {
+			if !a.innerKnown {
 				continue
 			}
 			if inner != "EnchantedBy" && g.Obj(pc.Source) == nil {
 				continue
 			}
-			if matchesPlayerSingleSpec(g, base, p, you, pc) && !matchesPlayerSingleSpec(g, base+"."+inner, p, you, pc) {
+			if matchesPlayerSingleSpec(g, a.baseOnly, p, you, pc) && !matchesPlayerSingleSpec(g, a.positive, p, you, pc) {
 				return true
 			}
 			continue
@@ -226,7 +223,7 @@ func matchesPlayerSingleSpec(g *state.Game, spec string, p, you state.PlayerID, 
 			// `You` base); only the set membership is base-independent. The
 			// set is still the source object's own event-backed list, so every
 			// base reads one home.
-			if !playerBaseMatches(base, p, you) {
+			if !playerBaseMatches(a.baseCode, p, you) {
 				continue
 			}
 			o := g.Obj(pc.Source)
@@ -245,7 +242,7 @@ func matchesPlayerSingleSpec(g *state.Game, spec string, p, you state.PlayerID, 
 			continue
 		}
 		matchesBase := false
-		switch playerSpecBaseCodes.Code(string(base)) {
+		switch a.baseCode {
 		case playerSpecBasePlayer:
 			if kind, is := strings.CutPrefix(qualifier, "withMost"); is {
 				// Forge's Player.withMost<kind> property (PlayerProperty), now
@@ -307,7 +304,7 @@ func matchesPlayerSingleSpec(g *state.Game, spec string, p, you state.PlayerID, 
 			}
 			continue
 		}
-		switch playerSpecQualifierCodes.Code(string(qualifier)) {
+		switch a.qualCode {
 		case playerSpecQualifierOpponentOfRemembered:
 			// This supported referent is bound by a resolving ChoosePlayer's
 			// Ctx.Remembered. Other OpponentOf spellings remain fail-closed;
@@ -854,22 +851,6 @@ var matchesPlayerClauseCtxCodes = state.NewStrCodes(
 	state.StrEntry[matchesPlayerClauseCtxCode]{Key: "IsRemembered", Val: matchesPlayerClauseCtxRememberedOrChosen},
 	state.StrEntry[matchesPlayerClauseCtxCode]{Key: "Chosen", Val: matchesPlayerClauseCtxRememberedOrChosen},
 	state.StrEntry[matchesPlayerClauseCtxCode]{Key: "ChosenPlayer", Val: matchesPlayerClauseCtxRememberedOrChosen},
-)
-
-type playerBaseMatchesCode uint16
-
-const (
-	playerBaseMatchesPlayer playerBaseMatchesCode = iota + 1
-	playerBaseMatchesYou
-	playerBaseMatchesOpponent
-)
-
-var playerBaseMatchesCodes = state.NewStrCodes(
-	state.StrEntry[playerBaseMatchesCode]{Key: "Player", Val: playerBaseMatchesPlayer},
-	state.StrEntry[playerBaseMatchesCode]{Key: "Any", Val: playerBaseMatchesPlayer},
-	state.StrEntry[playerBaseMatchesCode]{Key: "You", Val: playerBaseMatchesYou},
-	state.StrEntry[playerBaseMatchesCode]{Key: "Opponent", Val: playerBaseMatchesOpponent},
-	state.StrEntry[playerBaseMatchesCode]{Key: "Other", Val: playerBaseMatchesOpponent},
 )
 
 type playerSpecBaseCode uint16

@@ -10,7 +10,6 @@
 package trigmatch
 
 import (
-	"slices"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -74,23 +73,16 @@ func ZoneChangeMatchesWithCapture(e Board, t cards.Trigger, source state.ObjID, 
 	// Reforged's ChangesZoneAll carrier is Library,Graveyard). ParseZones is
 	// the set reader -- Any/All are wildcards, and an unknown token fails
 	// closed rather than degrading to a graveyard origin.
-	if o, ok := t.Param(cards.PKOrigin); ok {
-		zones, all, listOK := effects.ParseZones(o)
-		if !listOK || (!all && !slices.Contains(zones, from)) {
-			return false
-		}
+	if o, ok := t.ParamCode(cards.PKOrigin); ok && !effects.ZoneList(o).Admits(from) {
+		return false
 	}
 	// ExcludedOrigins$ ("Name Sticker" Goblin's "enters from anywhere other
 	// than a graveyard or exile"): a comma-separated list of zones the move
 	// must NOT originate in. Absent means unrestricted, exactly as before.
-	if excl, ok := t.Param(cards.PKExcludedOrigins); ok {
-		for z := range strings.SplitSeq(excl, ",") {
-			if zz := strings.TrimSpace(z); zz != "" && effects.ParseZone(zz) == from {
-				return false
-			}
-		}
+	if excl, ok := t.ParamCode(cards.PKExcludedOrigins); ok && effects.ZoneWords(excl).Has(from) {
+		return false
 	}
-	if d, ok := t.Param(cards.PKDestination); ok && d != "Any" && effects.ParseZone(d) != to {
+	if d, ok := t.ParamCode(cards.PKDestination); ok && !effects.Destination(d).IsAny() && effects.Destination(d).Zone() != to {
 		return false
 	}
 	// ValidCards$ is the PLURAL key the ChangesZoneAll corpus uses (124 of

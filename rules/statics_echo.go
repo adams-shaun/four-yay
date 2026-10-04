@@ -114,13 +114,10 @@ func (e *Engine) panharmoniconEchoes(observer *Engine, src state.ObjID, ev event
 		}
 		// Origin$ is a zone SET (single name or comma list); Any/All is a
 		// wildcard and an unknown token fails closed.
-		if o := sv.ParamStr(cards.PKOrigin); o != "" {
-			zones, all, listOK := effects.ParseZones(o)
-			if !listOK || (!all && !zoneIn(ev.From, zones)) {
-				continue
-			}
+		if o, ok := sv.ParamCode(cards.PKOrigin); ok && sv.ParamStr(cards.PKOrigin) != "" && !effects.ZoneList(o).Admits(ev.From) {
+			continue
 		}
-		if sv.ParamStr(cards.PKDestination) != "" && effects.ParseZone(sv.ParamStr(cards.PKDestination)) != ev.To {
+		if d, ok := sv.ParamCode(cards.PKDestination); ok && !effects.Destination(d).IsEmpty() && effects.Destination(d).Zone() != ev.To {
 			continue
 		}
 		if spec := sv.ParamStr(cards.PKValidSource); spec != "" {

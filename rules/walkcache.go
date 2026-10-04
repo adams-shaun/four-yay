@@ -285,7 +285,7 @@ func (e *Engine) scanBoardStaticsPrintedLists(out boardStatics, lists []boardSca
 					case cards.StaticOptionalCost:
 						dst = &out.cost.optional
 					case cards.StaticManaConvert:
-						if !effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
+						if !staticEffectZoneOK(st, o.Zone) {
 							continue
 						}
 						out.manaConv = append(out.manaConv, manaConvSource{sv: staticView{Source: id,
@@ -294,7 +294,7 @@ func (e *Engine) scanBoardStaticsPrintedLists(out boardStatics, lists []boardSca
 					default:
 						continue
 					}
-					if zoneGated && !effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
+					if zoneGated && !staticEffectZoneOK(st, o.Zone) {
 						continue
 					}
 					*dst = append(*dst, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})
@@ -371,7 +371,7 @@ func (e *Engine) scanManaConvSources(out []manaConvSource) []manaConvSource {
 				}
 				for si, sn := 0, o.PileStaticCount(); si < sn; si++ {
 					pst, ok := o.PileStaticAt(si)
-					if !ok || pst.Static.Mode != "ManaConvert" || !effectZoneOK(pst.Static.ParamStr(cards.PKEffectZone), o.Zone) {
+					if !ok || pst.Static.Mode != "ManaConvert" || !staticEffectZoneOK(pst.Static, o.Zone) {
 						continue
 					}
 					out = append(out, manaConvSource{sv: staticView{Source: oid, Controller: o.Controller,
@@ -513,7 +513,7 @@ func (e *Engine) scanActiveStaticsFused(now walkKey) {
 					if c[i].mode != st.Mode {
 						continue
 					}
-					if effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
+					if staticEffectZoneOK(st, o.Zone) {
 						c[i].sv = append(c[i].sv, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})
 					}
 					break
@@ -554,7 +554,7 @@ func offBattlefieldStaticsInert(z state.Zone, o *state.Object) bool {
 	}
 	if walkCacheVerify {
 		for si, sn := 0, o.PileStaticCount(); si < sn; si++ {
-			if pst, ok := o.PileStaticAt(si); ok && effectZoneOK(pst.Static.ParamStr(cards.PKEffectZone), o.Zone) {
+			if pst, ok := o.PileStaticAt(si); ok && staticEffectZoneOK(pst.Static, o.Zone) {
 				panic(fmt.Sprintf("rules: off-battlefield static skip hid a live %s static on obj %d", pst.Static.Mode, o.ID))
 			}
 		}

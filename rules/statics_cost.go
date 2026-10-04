@@ -124,6 +124,10 @@ func (e *Engine) manaFeasiblePricedP(p state.PlayerID, id state.ObjID, ability b
 // over-reach the zone gate exists to prevent.
 func effectZoneOK(v string, z state.Zone) bool { return chars.EffectZoneOK(v, z) }
 
+// staticEffectZoneOK is effectZoneOK over st's own EffectZone$, through the
+// code stored at load (chars.EffectZones).
+func staticEffectZoneOK(st cards.Static, z state.Zone) bool { return chars.StaticEffectZoneOK(st, z) }
+
 // composedPoolFloor is composeFeasibleP(m, c, taxGeneric, delve)
 // .PoolUnitsFloor(). Under the zero composition (costModsZero) on a cost
 // with no XMin and no negative Life/Snow, apply only clamps Generic and the

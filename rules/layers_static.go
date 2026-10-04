@@ -329,32 +329,32 @@ func (e *Engine) continuousGateHolds(sv staticView) bool {
 // is read separately by rules/speed.go's maxSpeedAbilities. An absent or empty
 // Condition$ keeps holding, as before.
 func (e *Engine) continuousConditionHolds(sv staticView) bool {
-	raw, ok := sv.Param(cards.PKCondition)
+	c, ok := sv.ParamCode(cards.PKCondition)
 	if !ok {
 		return true
 	}
-	switch continuousConditionHoldsCodes.Code(string(strings.TrimSpace(raw))) {
-	case continuousConditionHoldsEmpty:
+	switch staticCondition(c) {
+	case condBlank:
 		return true
-	case continuousConditionHoldsDelirium:
+	case condDelirium:
 		return e.graveyardCardTypeCount(sv.Controller) >= 4
-	case continuousConditionHoldsPlayerTurn:
+	case condPlayerTurn:
 		return e.G.Active == sv.Controller
-	case continuousConditionHoldsNotPlayerTurn:
+	case condNotPlayerTurn:
 		return e.G.Active != sv.Controller
-	case continuousConditionHoldsMetalcraft:
+	case condMetalcraft:
 		return e.metalcraftHolds(sv.Controller)
-	case continuousConditionHoldsThreshold:
+	case condThreshold:
 		return e.thresholdHolds(sv.Controller)
-	case continuousConditionHoldsHellbent:
+	case condHellbent:
 		return len(e.G.Zone(state.ZHand, sv.Controller)) == 0
-	case continuousConditionHoldsBlessing:
+	case condBlessing:
 		// CR 702.131: the city's blessing is a one-way event-folded latch.
 		if int(sv.Controller) >= len(e.G.Players) {
 			return false
 		}
 		return e.G.Players[sv.Controller].Blessing
-	case continuousConditionHoldsEnduringStory:
+	case condEnduringStory:
 		return e.playerHasEnduringStory(sv.Controller)
 	}
 	return false
@@ -537,32 +537,6 @@ func resolveChosenColors(raw string, o *state.Object) ([]string, bool) {
 	}
 	return effects.ColorLetters(raw)
 }
-
-type continuousConditionHoldsCode uint16
-
-const (
-	continuousConditionHoldsEmpty continuousConditionHoldsCode = iota + 1
-	continuousConditionHoldsDelirium
-	continuousConditionHoldsPlayerTurn
-	continuousConditionHoldsNotPlayerTurn
-	continuousConditionHoldsMetalcraft
-	continuousConditionHoldsThreshold
-	continuousConditionHoldsHellbent
-	continuousConditionHoldsBlessing
-	continuousConditionHoldsEnduringStory
-)
-
-var continuousConditionHoldsCodes = state.NewStrCodes(
-	state.StrEntry[continuousConditionHoldsCode]{Key: "", Val: continuousConditionHoldsEmpty},
-	state.StrEntry[continuousConditionHoldsCode]{Key: "Delirium", Val: continuousConditionHoldsDelirium},
-	state.StrEntry[continuousConditionHoldsCode]{Key: "PlayerTurn", Val: continuousConditionHoldsPlayerTurn},
-	state.StrEntry[continuousConditionHoldsCode]{Key: "NotPlayerTurn", Val: continuousConditionHoldsNotPlayerTurn},
-	state.StrEntry[continuousConditionHoldsCode]{Key: "Metalcraft", Val: continuousConditionHoldsMetalcraft},
-	state.StrEntry[continuousConditionHoldsCode]{Key: "Threshold", Val: continuousConditionHoldsThreshold},
-	state.StrEntry[continuousConditionHoldsCode]{Key: "Hellbent", Val: continuousConditionHoldsHellbent},
-	state.StrEntry[continuousConditionHoldsCode]{Key: "Blessing", Val: continuousConditionHoldsBlessing},
-	state.StrEntry[continuousConditionHoldsCode]{Key: "EnduringStory", Val: continuousConditionHoldsEnduringStory},
-)
 
 // adjustLandPlaysKeys are the keys the implemented AdjustLandPlays grant carries.
 var adjustLandPlaysKeys = state.NewNameSet(

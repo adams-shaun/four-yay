@@ -86,6 +86,67 @@ func EffectZoneOK(v string, z state.Zone) bool {
 	return false
 }
 
+// EffectZones is an EffectZone$ value compiled once: bit z is
+// EffectZoneOK(v, z), and effectZonesBlank marks the text exactly "" (the
+// ExcludeZone$ form's "no explicit EffectZone$"). It is the PKEffectZone
+// ParamCoder, so a printed static's code is stored at load and the per-object
+// static walks read it through ParamCode instead of re-splitting the word
+// list.
+type EffectZones uint16
+
+const effectZonesBlank EffectZones = 1 << 15
+
+// EffectZonesOf compiles v.
+func EffectZonesOf(v string) EffectZones {
+	var m EffectZones
+	for z := state.Zone(0); z < 15; z++ {
+		if EffectZoneOK(v, z) {
+			m |= 1 << z
+		}
+	}
+	if v == "" {
+		m |= effectZonesBlank
+	}
+	return m
+}
+
+// Admits is EffectZoneOK for the compiled value.
+func (m EffectZones) Admits(z state.Zone) bool { return z < 15 && m&(1<<z) != 0 }
+
+// staticEffectZones is st's compiled EffectZone$; an absent key reads as the
+// empty text, exactly as its ParamStr did.
+func staticEffectZones(st cards.Static) EffectZones {
+	c, ok := st.ParamCode(cards.PKEffectZone)
+	if !ok {
+		return EffectZonesOf("")
+	}
+	return EffectZones(c)
+}
+
+// StaticEffectZoneOK is EffectZoneOK(st.ParamStr(EffectZone$), z) through
+// the code stored at load.
+func StaticEffectZoneOK(st cards.Static, z state.Zone) bool { return staticEffectZones(st).Admits(z) }
+
+// StaticZoneAdmitsStatic is StaticZoneAdmits over st's own ExcludeZone$ and
+// EffectZone$, through the codes stored at load.
+func StaticZoneAdmitsStatic(st cards.Static, z state.Zone) bool {
+	ez := staticEffectZones(st)
+	c, ok := st.ParamCode(cards.PKExcludeZone)
+	excl := effects.ZoneList(c)
+	if !ok || !excl.OK() {
+		return ez.Admits(z)
+	}
+	if excl.All() || excl.Has(z) {
+		return false
+	}
+	return ez&effectZonesBlank != 0 || ez.Admits(z)
+}
+
+func init() {
+	cards.RegisterParamCoder(cards.PKEffectZone, func(v string) uint16 { return uint16(EffectZonesOf(v)) })
+	cards.RegisterParamCoder(cards.PKExcludeZone, func(v string) uint16 { return uint16(effects.ZoneListOf(v)) })
+}
+
 // CDAPTStatic resolves ONE static's characteristic-defining P/T claim
 // (CharacteristicDefining$ True), the layer-7a base CDASetPT applies in
 // every zone (CR 613.4a, CR 604.3/208.2). A static carrying any parameter

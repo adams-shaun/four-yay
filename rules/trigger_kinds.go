@@ -150,26 +150,16 @@ func lineTrigSig(t *cards.Trigger, valid func(string) bool) trigSig {
 		return sig
 	}
 	// trigmatch.ZoneChangeMatchesWithCapture's own reads, in its order.
-	if o, ok := t.Param(cards.PKOrigin); ok {
-		zones, all, listOK := effects.ParseZones(o)
-		switch {
-		case !listOK:
+	if o, ok := t.ParamCode(cards.PKOrigin); ok {
+		switch zl := effects.ZoneList(o); {
+		case !zl.OK():
 			sig.zcFrom = 0
-		case !all:
-			sig.zcFrom = 0
-			for _, z := range zones {
-				if z >= 32 {
-					sig.zcFrom = ^uint32(0)
-					break
-				}
-				sig.zcFrom |= 1 << z
-			}
+		case !zl.All():
+			sig.zcFrom = zl.Zones()
 		}
 	}
-	if d, ok := t.Param(cards.PKDestination); ok && d != "Any" {
-		if z := effects.ParseZone(d); z < 32 {
-			sig.zcTo = 1 << z
-		}
+	if d, ok := t.ParamCode(cards.PKDestination); ok && !effects.Destination(d).IsAny() {
+		sig.zcTo = 1 << effects.Destination(d).Zone()
 	}
 	return sig
 }

@@ -30,7 +30,7 @@ func movedLineRejects(r *cards.Repl, source state.ObjID, ev events.Event) bool {
 	if r.Event != "Moved" {
 		return false
 	}
-	if d, ok := r.Param(cards.PKDestination); ok && d != "Any" && effects.ParseZone(d) != ev.To {
+	if d, ok := r.ParamCode(cards.PKDestination); ok && !effects.Destination(d).IsAny() && effects.Destination(d).Zone() != ev.To {
 		return true
 	}
 	if ev.Obj != source {

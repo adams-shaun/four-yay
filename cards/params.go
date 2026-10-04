@@ -1738,6 +1738,12 @@ func ParamSetParam(ps *ParamSet, m map[string]string, k ParamKey) (string, bool)
 }
 
 // ParamSetMayHaveAny is MayHaveAnyParam for a view's (ps, map) pair.
+// ParamSetCode is ParamCode through a caller-held set (a view that keeps a
+// node's ParamSet and Params apart).
+func ParamSetCode(ps *ParamSet, m map[string]string, k ParamKey) (uint16, bool) {
+	return paramCode(ps, m, k)
+}
+
 func ParamSetMayHaveAny(ps *ParamSet, m map[string]string, mask ParamMask) bool {
 	return paramMayHaveAny(ps, m, mask)
 }

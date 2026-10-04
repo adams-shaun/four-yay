@@ -197,11 +197,8 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// trigger matcher reads it the same way). ParseZones bails closed on
 		// an unknown token rather than degrading to graveyard, and Any/All is
 		// a wildcard.
-		if o, ok := r.Param(cards.PKOrigin); ok {
-			zones, all, listOK := effects.ParseZones(o)
-			if !listOK || (!all && !zoneIn(ev.From, zones)) {
-				return false
-			}
+		if o, ok := r.ParamCode(cards.PKOrigin); ok && !effects.ZoneList(o).Admits(ev.From) {
+			return false
 		}
 		// A creature's "would die" replacement is about a permanent moving
 		// from the battlefield to the graveyard (CR 700.4), not a creature
@@ -214,7 +211,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 				return false
 			}
 		}
-		if d, ok := r.Param(cards.PKDestination); ok && d != "Any" && effects.ParseZone(d) != ev.To {
+		if d, ok := r.ParamCode(cards.PKDestination); ok && !effects.Destination(d).IsAny() && effects.Destination(d).Zone() != ev.To {
 			return false
 		}
 		// FoundSearchingLibrary$ True (Opposition Agent's "While an opponent

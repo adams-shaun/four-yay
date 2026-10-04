@@ -300,7 +300,7 @@ func (e *Engine) scanActionStaticsMode(carriersOnly bool) actionStaticViews {
 						// admission exactly): a static naming another zone is
 						// collected from THAT zone here and denied from the
 						// battlefield, the same gate staticEffects runs.
-						if !effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
+						if !staticEffectZoneOK(st, o.Zone) {
 							continue
 						}
 						if carriersOnly && strings.TrimSpace(st.ParamStr(cards.PKAddAbility)) == "" {
@@ -375,7 +375,7 @@ func (e *Engine) scanActiveStatics(mode string, out []staticView) []staticView {
 					// a static naming a hidden zone is collected from there by
 					// staticEffects/collectActionStatics/collectCostStatics
 					// instead.
-					if !effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
+					if !staticEffectZoneOK(st, o.Zone) {
 						continue
 					}
 					out = append(out, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})
@@ -686,6 +686,11 @@ func (sv staticView) Param(k cards.ParamKey) (string, bool) {
 func (sv staticView) ParamStr(k cards.ParamKey) string {
 	v, _ := cards.ParamSetParam(sv.PS, sv.Params, k)
 	return v
+}
+
+// ParamCode is key k's value code stored at load (cards.RegisterParamCoder).
+func (sv staticView) ParamCode(k cards.ParamKey) (uint16, bool) {
+	return cards.ParamSetCode(sv.PS, sv.Params, k)
 }
 
 // HasParam reports whether key k is present.
