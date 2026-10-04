@@ -387,6 +387,9 @@ type Ctx struct {
 	// changeZoneChosenTargets), which the generic pre-ask never sees.
 	linkAnswer   []state.Target
 	linkAnswered bool
+	// chosenTargetsClaim is the SA whose body owns narrower RememberTargets
+	// semantics (Destroy/ChangeZone moved-only recording).
+	chosenTargetsClaim *cards.SA
 	// ChoiceTarget is the index of the per-player chooser currently being
 	// resumed. It keeps multi-player ChooseCard/ChoosePlayer asks from
 	// returning to the first chooser after every answer.
@@ -1197,6 +1200,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			fn(h, c, sa)
 			c.PickedTargets = nil
 			recordParentLink(c, sa, ts, true)
+			rememberChosenTargets(h, c, sa, ts, true)
 		} else {
 			if prefetchedRememberedSub {
 				c.PickedTargets = rememberedSubTargets
@@ -1206,6 +1210,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 				c.PickedTargets = nil
 			}
 			recordParentLink(c, sa, nil, false)
+			rememberChosenTargets(h, c, sa, nil, false)
 		}
 		imprint(h, c, sa)
 		if strings.EqualFold(sa.ParamStr(cards.PKClearImprinted), "True") && c.Source != 0 {

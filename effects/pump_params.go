@@ -62,9 +62,8 @@ type PumpParams struct {
 	PumpZones   []state.Zone
 	PumpZoneAll bool
 	PumpZoneOK  bool
-	// RememberTargets$ True and RememberPumped$ True.
-	RememberTargets bool
-	RememberPumped  bool
+	// RememberPumped$ True.
+	RememberPumped bool
 	// NumAtt$ / NumDef$ (numForObjectText: "Double" reads the object's own
 	// power/toughness).
 	NumAtt ParamText
@@ -127,7 +126,6 @@ func compilePump(sa *cards.SA, dp *DefinedParams) *PumpParams {
 	if p.PumpZone != "" {
 		p.PumpZones, p.PumpZoneAll, p.PumpZoneOK = ParseZones(p.PumpZone)
 	}
-	p.RememberTargets = isTrue(sa.ParamStr(cards.PKRememberTargets))
 	p.RememberPumped = isTrue(sa.ParamStr(cards.PKRememberPumped))
 	na, naOK := sa.Param(cards.PKNumAtt)
 	p.NumAtt = ParamText{Text: na, Present: naOK}

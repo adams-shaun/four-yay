@@ -107,6 +107,9 @@ func changeZoneDefinedPlayerNote(h Host, c *Ctx, cz *ChangeZoneParams, originZon
 }
 
 func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True") {
+		noteChosenTargetsOwned(c, sa)
+	}
 	cz := ChangeZoneOf(sa)
 	to, stop := changeZonePrelude(h, c, cz)
 	if stop {
@@ -588,15 +591,8 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 			c.Remembered = append(c.Remembered, state.Target{Obj: o.ID})
 			eventRemember(h, c, o.ID)
 		}
-		// RememberTargets$ True (Journey to Nowhere's exile trigger, Bile
-		// Blight's Pump sibling): the CHOSEN TARGETS join the ability's
-		// Remembered, in both halves -- the ctx list the chain's later
-		// sub-abilities read (Bile Blight's PumpAll Remembered.sameName) and
-		// the source's event-backed persistent list, which a LATER, separate
-		// resolution reads through Defined$ Remembered via the O-Ring rescue
-		// above (Journey's leave-battlefield return trigger). Only a target
-		// the move actually moved is remembered: a target skipped by the
-		// Origin$ precondition was never exiled and must never come back.
+		// RememberTargets$ is handled here only for objects the move actually
+		// moved; Resolve's generic recorder stands down for this SA.
 		if cz.RememberTargets {
 			c.Remembered = append(c.Remembered, state.Target{Obj: o.ID})
 			eventRemember(h, c, o.ID)
