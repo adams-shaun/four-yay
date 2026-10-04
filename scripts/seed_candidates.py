@@ -309,7 +309,9 @@ splitting change that did it.
     if idle and idle.value > 0 and idle.note:
         out.append(
             cand(
-                f"flow-idle-branches-{int(idle.value)}",
+                "flow-idle-branches-" + hashlib.sha256(
+                    "\n".join(sorted(b for b, _, _ in rc.idle_branches(repo))).encode()
+                ).hexdigest()[:12],
                 "flow",
                 f"{int(idle.value)} idle unmerged branches are holding files against every landing",
                 f"""# Idle unmerged branches are a standing merge tax
@@ -748,6 +750,35 @@ def selftest() -> int:
                 ("b.go", ["br1", "br2"]),
             ]
             shrunk = [c for c in generate(repo, state, ledger) if c["id"].startswith("flow-hotspot-")]
+
+            # Idle-branch candidate ids key the measured branch set, not the
+            # churning count or idle-hour note attached to a reading.
+            idle_a = [("idle-a", 1, 40.0), ("idle-b", 2, 50.0)]
+            rc.idle_branches = lambda _r, hours=12: idle_a
+            with ledger.open("a") as f:
+                f.write(json.dumps({"ts": "2026-09-30T00:00:00", "git_head": "aaa",
+                                    "axis": "flow", "metric": "idle_unmerged_branches",
+                                    "value": 2, "note": "idle-a, idle-b"}) + "\n")
+            idle_first = next((c for c in generate(repo, state, ledger)
+                               if c["id"].startswith("flow-idle-branches-")), None)
+            # Same identity set, but different observed count and note.
+            rc.idle_branches = lambda _r, hours=12: [
+                ("idle-b", 2, 55.0), ("idle-a", 1, 45.0)]
+            with ledger.open("a") as f:
+                f.write(json.dumps({"ts": "2026-09-30T00:00:01", "git_head": "aaa",
+                                    "axis": "flow", "metric": "idle_unmerged_branches",
+                                    "value": 7, "note": "updated idle reading"}) + "\n")
+            idle_churn = next((c for c in generate(repo, state, ledger)
+                               if c["id"].startswith("flow-idle-branches-")), None)
+            # A genuinely new branch set must still produce a new ticket id.
+            rc.idle_branches = lambda _r, hours=12: [
+                ("idle-a", 1, 45.0), ("idle-c", 1, 60.0)]
+            with ledger.open("a") as f:
+                f.write(json.dumps({"ts": "2026-09-30T00:00:02", "git_head": "aaa",
+                                    "axis": "flow", "metric": "idle_unmerged_branches",
+                                    "value": 2, "note": "idle-a, idle-c"}) + "\n")
+            idle_new_set = next((c for c in generate(repo, state, ledger)
+                                 if c["id"].startswith("flow-idle-branches-")), None)
         finally:
             rc.hotspots, rc.idle_branches = real_hot, real_idle
         check("one ticket per contending branch SET, not per file", len(grouped) == 2, [c["id"] for c in grouped])
@@ -779,6 +810,17 @@ def selftest() -> int:
               dep is not None and "br2" not in dep and "`br2`" in big["body"],
               [ln for ln in big["body"].splitlines() if "br2" in ln][:2])
         other = next((c for c in grouped if "`d.go`" in c["body"]), None)
+        check("same idle branch set under changed count and note keeps the candidate id",
+              idle_first is not None and idle_churn is not None
+              and idle_first["id"] == idle_churn["id"]
+              and "Measured: `idle_unmerged_branches` = 2" in idle_first["body"]
+              and "Measured: `idle_unmerged_branches` = 7" in idle_churn["body"],
+              (idle_first and idle_first["id"], idle_churn and idle_churn["id"]))
+        check("a genuinely new idle branch set emits a different candidate id",
+              idle_first is not None and idle_new_set is not None
+              and "idle-a" in idle_new_set["body"] and "idle-c" in idle_new_set["body"]
+              and idle_new_set["id"] != idle_first["id"],
+              (idle_first and idle_first["id"], idle_new_set and idle_new_set["id"]))
         check("a group with NO resolvable branch carries no Depends-On line, only the prose fallback",
               other is not None
               and not any(ln.startswith("Depends-On:") for ln in other["body"].splitlines())
