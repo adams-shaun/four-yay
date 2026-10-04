@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"github.com/adams-shaun/gorge/effects/params"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -536,7 +537,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return []state.Target{{Player: o.AttachedPlayer, IsPlayer: true}}, true
 		}
 		return nil, true
-	case definedSpecTopOfLibrary:
+	case definedSpecTopOrBottomOfLibrary:
 		// Library order is top-first. These selectors name one known card, not
 		// a player whose whole library should be searched; hidden-origin
 		// ChangeZone therefore consumes the returned identity as its fetch list.
@@ -549,7 +550,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			i = len(lib) - 1
 		}
 		return []state.Target{{Obj: lib[i]}}, true
-	case definedSpecTriggeredOpponentVotedSame:
+	case definedSpecTriggeredOpponentVoted:
 		// The canonical vote-finished carrier's two List$ referent sets
 		// (trig:Vote): the players other than the TRIGGER SOURCE'S CONTROLLER
 		// who voted for a choice that controller voted for / for a different
@@ -569,7 +570,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			out = append(out, state.Target{Player: p, IsPlayer: true})
 		}
 		return out, true
-	case definedSpecFlippedHeads:
+	case definedSpecFlipResult:
 		// Forge's RememberResult$ flip-result memory: DB$ FlipCoin |
 		// RememberResult$ True, then a chained sub reading Defined$
 		// FlippedHeads/FlippedTails (Goblin Assassin's tails sacrifice and
@@ -694,7 +695,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			}
 		}
 		return remembered, true
-	case definedSpecChosenCard:
+	case definedSpecChosen:
 		// ChooseCard/ChoosePlayer bind the current resolution's most recent
 		// choice here. This is deliberately distinct from Remembered: Forge
 		// only copies the answer there when RememberChosen$ is set. A later,
@@ -1198,7 +1199,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			}
 		}
 		return out, true
-	case definedSpecTriggeredAttackerController:
+	case definedSpecTriggeredCombatantController:
 		// The controller of the triggering event's attacker or blocker. The
 		// Blocks mode captures both roles per pair (rules/trigger_match.go's
 		// checkBlocksTriggers); TriggeredBlockerController prefers the
@@ -1554,12 +1555,7 @@ func oneTriggerPlayer(t state.Target) []state.Target {
 // the previously chosen card's controller as a second chooser and re-ask that
 // player with the collective pool (Summon: Valefor re-asking the first
 // opponent on the second iteration).
-func plainRememberedSelector(sel string) bool {
-	if !strings.HasPrefix(sel, "Remembered") {
-		return false
-	}
-	return !strings.HasSuffix(sel, "Controller") && !strings.HasSuffix(sel, "Owner")
-}
+func plainRememberedSelector(sel string) bool { return params.PlainRememberedSelector(sel) }
 
 // playerForTarget maps one resolved Defined$ target to a player seat under
 // Forge's getDefinedPlayers/addPlayer rule: for the plain Remembered family
@@ -1638,7 +1634,7 @@ func definedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 func EffectOwnerPlayers(h Host, c *Ctx, raw string) ([]state.PlayerID, bool) {
 	sel := strings.TrimSpace(raw)
 	switch effectOwnerPlayersCodes.Code(string(sel)) {
-	case effectOwnerPlayersEmpty:
+	case effectOwnerPlayersYou:
 		return []state.PlayerID{c.Controller}, true
 	case effectOwnerPlayersOpponent:
 		out := make([]state.PlayerID, 0, len(h.Game().Players))
@@ -1989,7 +1985,7 @@ func faceStaticsNameExiledWithSource(h Host, src state.ObjID) bool {
 	for _, st := range o.Face().Statics {
 		for k, v := range st.Params {
 			switch exiledWithSourceKeyCodes.Code(k) {
-			case exiledWithSourceKeyAffected:
+			case exiledWithSourceKeyFilterOrText:
 				// The keys a static names its card filters and text by; the
 				// ExiledWithSource provenance claim lives in one of these.
 				if strings.Contains(v, "ExiledWithSource") {
@@ -2215,16 +2211,16 @@ const (
 	definedSpecYou
 	definedSpecTopThirdOfLibrary
 	definedSpecEnchantedPlayer
-	definedSpecTopOfLibrary
-	definedSpecTriggeredOpponentVotedSame
-	definedSpecFlippedHeads
+	definedSpecTopOrBottomOfLibrary
+	definedSpecTriggeredOpponentVoted
+	definedSpecFlipResult
 	definedSpecRemembered
 	definedSpecRememberedPlayer
 	definedSpecExiled
 	definedSpecImprintedLKI
 	definedSpecImprinted
 	definedSpecRememberedCard
-	definedSpecChosenCard
+	definedSpecChosen
 	definedSpecPlayerIsRemembered
 	definedSpecPlayerChosen
 	definedSpecRememberedController
@@ -2269,7 +2265,7 @@ const (
 	definedSpecTriggeredActivator
 	definedSpecTriggeredCardController
 	definedSpecTriggeredCardOwner
-	definedSpecTriggeredAttackerController
+	definedSpecTriggeredCombatantController
 	definedSpecExiledWith
 	definedSpecEquipped
 	definedSpecOpponent
@@ -2288,12 +2284,12 @@ var definedSpecCodes = state.NewStrCodes(
 	state.StrEntry[definedSpecCode]{Key: "You", Val: definedSpecYou},
 	state.StrEntry[definedSpecCode]{Key: "TopThirdOfLibrary", Val: definedSpecTopThirdOfLibrary},
 	state.StrEntry[definedSpecCode]{Key: "EnchantedPlayer", Val: definedSpecEnchantedPlayer},
-	state.StrEntry[definedSpecCode]{Key: "TopOfLibrary", Val: definedSpecTopOfLibrary},
-	state.StrEntry[definedSpecCode]{Key: "BottomOfLibrary", Val: definedSpecTopOfLibrary},
-	state.StrEntry[definedSpecCode]{Key: "TriggeredOpponentVotedSame", Val: definedSpecTriggeredOpponentVotedSame},
-	state.StrEntry[definedSpecCode]{Key: "TriggeredOpponentVotedDiff", Val: definedSpecTriggeredOpponentVotedSame},
-	state.StrEntry[definedSpecCode]{Key: "FlippedHeads", Val: definedSpecFlippedHeads},
-	state.StrEntry[definedSpecCode]{Key: "FlippedTails", Val: definedSpecFlippedHeads},
+	state.StrEntry[definedSpecCode]{Key: "TopOfLibrary", Val: definedSpecTopOrBottomOfLibrary},
+	state.StrEntry[definedSpecCode]{Key: "BottomOfLibrary", Val: definedSpecTopOrBottomOfLibrary},
+	state.StrEntry[definedSpecCode]{Key: "TriggeredOpponentVotedSame", Val: definedSpecTriggeredOpponentVoted},
+	state.StrEntry[definedSpecCode]{Key: "TriggeredOpponentVotedDiff", Val: definedSpecTriggeredOpponentVoted},
+	state.StrEntry[definedSpecCode]{Key: "FlippedHeads", Val: definedSpecFlipResult},
+	state.StrEntry[definedSpecCode]{Key: "FlippedTails", Val: definedSpecFlipResult},
 	state.StrEntry[definedSpecCode]{Key: "Remembered", Val: definedSpecRemembered},
 	state.StrEntry[definedSpecCode]{Key: "RememberedPlayer", Val: definedSpecRememberedPlayer},
 	state.StrEntry[definedSpecCode]{Key: "RememberedPlayers", Val: definedSpecRememberedPlayer},
@@ -2303,8 +2299,8 @@ var definedSpecCodes = state.NewStrCodes(
 	state.StrEntry[definedSpecCode]{Key: "Imprinted", Val: definedSpecImprinted},
 	state.StrEntry[definedSpecCode]{Key: "ImprintedController", Val: definedSpecImprinted},
 	state.StrEntry[definedSpecCode]{Key: "RememberedCard", Val: definedSpecRememberedCard},
-	state.StrEntry[definedSpecCode]{Key: "ChosenCard", Val: definedSpecChosenCard},
-	state.StrEntry[definedSpecCode]{Key: "ChosenPlayer", Val: definedSpecChosenCard},
+	state.StrEntry[definedSpecCode]{Key: "ChosenCard", Val: definedSpecChosen},
+	state.StrEntry[definedSpecCode]{Key: "ChosenPlayer", Val: definedSpecChosen},
 	state.StrEntry[definedSpecCode]{Key: "Player.IsRemembered", Val: definedSpecPlayerIsRemembered},
 	state.StrEntry[definedSpecCode]{Key: "Player.Chosen", Val: definedSpecPlayerChosen},
 	state.StrEntry[definedSpecCode]{Key: "RememberedController", Val: definedSpecRememberedController},
@@ -2366,8 +2362,8 @@ var definedSpecCodes = state.NewStrCodes(
 	state.StrEntry[definedSpecCode]{Key: "TriggeredCardController", Val: definedSpecTriggeredCardController},
 	state.StrEntry[definedSpecCode]{Key: "TriggeredCardOwner", Val: definedSpecTriggeredCardOwner},
 	state.StrEntry[definedSpecCode]{Key: "NonTriggeredCardOwner", Val: definedSpecTriggeredCardOwner},
-	state.StrEntry[definedSpecCode]{Key: "TriggeredAttackerController", Val: definedSpecTriggeredAttackerController},
-	state.StrEntry[definedSpecCode]{Key: "TriggeredBlockerController", Val: definedSpecTriggeredAttackerController},
+	state.StrEntry[definedSpecCode]{Key: "TriggeredAttackerController", Val: definedSpecTriggeredCombatantController},
+	state.StrEntry[definedSpecCode]{Key: "TriggeredBlockerController", Val: definedSpecTriggeredCombatantController},
 	state.StrEntry[definedSpecCode]{Key: "ExiledWith", Val: definedSpecExiledWith},
 	state.StrEntry[definedSpecCode]{Key: "Equipped", Val: definedSpecEquipped},
 	state.StrEntry[definedSpecCode]{Key: "Enchanted", Val: definedSpecEquipped},
@@ -2383,13 +2379,13 @@ var definedSpecCodes = state.NewStrCodes(
 type effectOwnerPlayersCode uint16
 
 const (
-	effectOwnerPlayersEmpty effectOwnerPlayersCode = iota + 1
+	effectOwnerPlayersYou effectOwnerPlayersCode = iota + 1
 	effectOwnerPlayersOpponent
 )
 
 var effectOwnerPlayersCodes = state.NewStrCodes(
-	state.StrEntry[effectOwnerPlayersCode]{Key: "", Val: effectOwnerPlayersEmpty},
-	state.StrEntry[effectOwnerPlayersCode]{Key: "You", Val: effectOwnerPlayersEmpty},
+	state.StrEntry[effectOwnerPlayersCode]{Key: "", Val: effectOwnerPlayersYou},
+	state.StrEntry[effectOwnerPlayersCode]{Key: "You", Val: effectOwnerPlayersYou},
 	state.StrEntry[effectOwnerPlayersCode]{Key: "Opponent", Val: effectOwnerPlayersOpponent},
 	state.StrEntry[effectOwnerPlayersCode]{Key: "Other", Val: effectOwnerPlayersOpponent},
 )
@@ -2413,11 +2409,11 @@ var validStackTokensCodes = state.NewStrCodes(
 type exiledWithSourceKeyCode uint16
 
 const (
-	exiledWithSourceKeyAffected exiledWithSourceKeyCode = iota + 1
+	exiledWithSourceKeyFilterOrText exiledWithSourceKeyCode = iota + 1
 )
 
 var exiledWithSourceKeyCodes = state.NewStrCodes(
-	state.StrEntry[exiledWithSourceKeyCode]{Key: "Affected", Val: exiledWithSourceKeyAffected},
-	state.StrEntry[exiledWithSourceKeyCode]{Key: "AffectedZone", Val: exiledWithSourceKeyAffected},
-	state.StrEntry[exiledWithSourceKeyCode]{Key: "Description", Val: exiledWithSourceKeyAffected},
+	state.StrEntry[exiledWithSourceKeyCode]{Key: "Affected", Val: exiledWithSourceKeyFilterOrText},
+	state.StrEntry[exiledWithSourceKeyCode]{Key: "AffectedZone", Val: exiledWithSourceKeyFilterOrText},
+	state.StrEntry[exiledWithSourceKeyCode]{Key: "Description", Val: exiledWithSourceKeyFilterOrText},
 )

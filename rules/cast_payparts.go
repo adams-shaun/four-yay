@@ -442,7 +442,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 // such a part so it is never offered.
 func castFlowDrawPlayer(spec string, payer state.PlayerID) (state.PlayerID, bool) {
 	switch castFlowDrawPlayerCodes.Code(string(spec)) {
-	case castFlowDrawPlayerEmpty:
+	case castFlowDrawPlayerPayer:
 		return payer, true
 	}
 	return 0, false
@@ -1055,13 +1055,13 @@ func foldAdditionalCost(cost, extra Cost) Cost {
 type castFlowDrawPlayerCode uint16
 
 const (
-	castFlowDrawPlayerEmpty castFlowDrawPlayerCode = iota + 1
+	castFlowDrawPlayerPayer castFlowDrawPlayerCode = iota + 1
 )
 
 var castFlowDrawPlayerCodes = state.NewStrCodes(
-	state.StrEntry[castFlowDrawPlayerCode]{Key: "", Val: castFlowDrawPlayerEmpty},
-	state.StrEntry[castFlowDrawPlayerCode]{Key: "You", Val: castFlowDrawPlayerEmpty},
-	state.StrEntry[castFlowDrawPlayerCode]{Key: "Player", Val: castFlowDrawPlayerEmpty},
-	state.StrEntry[castFlowDrawPlayerCode]{Key: "Self", Val: castFlowDrawPlayerEmpty},
-	state.StrEntry[castFlowDrawPlayerCode]{Key: "Player.Activator", Val: castFlowDrawPlayerEmpty},
+	state.StrEntry[castFlowDrawPlayerCode]{Key: "", Val: castFlowDrawPlayerPayer},
+	state.StrEntry[castFlowDrawPlayerCode]{Key: "You", Val: castFlowDrawPlayerPayer},
+	state.StrEntry[castFlowDrawPlayerCode]{Key: "Player", Val: castFlowDrawPlayerPayer},
+	state.StrEntry[castFlowDrawPlayerCode]{Key: "Self", Val: castFlowDrawPlayerPayer},
+	state.StrEntry[castFlowDrawPlayerCode]{Key: "Player.Activator", Val: castFlowDrawPlayerPayer},
 )

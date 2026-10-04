@@ -2897,10 +2897,7 @@ func SearchStatesQuality(spec string) bool {
 // direction: it preserves 701.23b's fail-to-find allowance rather than making
 // a stated-quality search mandatory).
 func possessionPredicate(p string) bool {
-	if v, ok := possessionPredicateTab.Get(p); ok {
-		return v
-	}
-	return false
+	return possessionPredicateSet.Has(p)
 }
 
 // SpecNeedsResolver reports whether spec carries a numeric predicate whose
@@ -3083,16 +3080,16 @@ func objectHasAbility(o *state.Object, sub string) bool {
 	return false
 }
 
-var possessionPredicateTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "YouOwn", Val: true},
-	state.StrEntry[bool]{Key: "YouCtrl", Val: true},
-	state.StrEntry[bool]{Key: "YouControl", Val: true},
-	state.StrEntry[bool]{Key: "YourControl", Val: true},
-	state.StrEntry[bool]{Key: "YouControlled", Val: true},
-	state.StrEntry[bool]{Key: "OppOwn", Val: true},
-	state.StrEntry[bool]{Key: "OppCtrl", Val: true},
-	state.StrEntry[bool]{Key: "OpponentOwns", Val: true},
-	state.StrEntry[bool]{Key: "OpponentControls", Val: true},
+var possessionPredicateSet = state.NewNameSet(
+	"YouOwn",
+	"YouCtrl",
+	"YouControl",
+	"YourControl",
+	"YouControlled",
+	"OppOwn",
+	"OppCtrl",
+	"OpponentOwns",
+	"OpponentControls",
 )
 
 type matchesBaseCode uint16

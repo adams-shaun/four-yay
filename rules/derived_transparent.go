@@ -465,8 +465,8 @@ func letterWord(s string) bool {
 }
 
 func localPredicate(p string) bool {
-	if v, ok := localPredicateTab.Get(p); ok {
-		return v
+	if localPredicateSet.Has(p) {
+		return true
 	}
 	// A type word (Creature.Elf, Card.nonLand) tests the candidate's own
 	// derived type list.
@@ -502,10 +502,7 @@ func localTypeWord(w string) bool {
 	if chars.IsCardType(w) || chars.IsSupertype(w) || effects.CreatureTypeWords(w) {
 		return true
 	}
-	if v, ok := localTypeWordTab.Get(w); ok {
-		return v
-	}
-	return false
+	return localTypeWordSet.Has(w)
 }
 
 func letterWordDigits(s string) bool {
@@ -541,50 +538,50 @@ func faceHasCDAStatic(o *state.Object) bool {
 	return false
 }
 
-var localPredicateTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "Self", Val: true},
-	state.StrEntry[bool]{Key: "Other", Val: true},
-	state.StrEntry[bool]{Key: "YouCtrl", Val: true},
-	state.StrEntry[bool]{Key: "OppCtrl", Val: true},
-	state.StrEntry[bool]{Key: "YouOwn", Val: true},
-	state.StrEntry[bool]{Key: "OppOwn", Val: true},
-	state.StrEntry[bool]{Key: "EnchantedBy", Val: true},
-	state.StrEntry[bool]{Key: "EquippedBy", Val: true},
-	state.StrEntry[bool]{Key: "ChosenColor", Val: true},
-	state.StrEntry[bool]{Key: "IsRemembered", Val: true},
-	state.StrEntry[bool]{Key: "ChosenCard", Val: true},
-	state.StrEntry[bool]{Key: "token", Val: true},
-	state.StrEntry[bool]{Key: "nonToken", Val: true},
-	state.StrEntry[bool]{Key: "White", Val: true},
-	state.StrEntry[bool]{Key: "Blue", Val: true},
-	state.StrEntry[bool]{Key: "Black", Val: true},
-	state.StrEntry[bool]{Key: "Red", Val: true},
-	state.StrEntry[bool]{Key: "Green", Val: true},
-	state.StrEntry[bool]{Key: "Colorless", Val: true},
-	state.StrEntry[bool]{Key: "MultiColor", Val: true},
-	state.StrEntry[bool]{Key: "MonoColor", Val: true},
-	state.StrEntry[bool]{Key: "nonWhite", Val: true},
-	state.StrEntry[bool]{Key: "nonBlue", Val: true},
-	state.StrEntry[bool]{Key: "nonBlack", Val: true},
-	state.StrEntry[bool]{Key: "nonRed", Val: true},
-	state.StrEntry[bool]{Key: "nonGreen", Val: true},
-	state.StrEntry[bool]{Key: "nonColorless", Val: true},
-	state.StrEntry[bool]{Key: "nonMultiColor", Val: true},
+var localPredicateSet = state.NewNameSet(
+	"Self",
+	"Other",
+	"YouCtrl",
+	"OppCtrl",
+	"YouOwn",
+	"OppOwn",
+	"EnchantedBy",
+	"EquippedBy",
+	"ChosenColor",
+	"IsRemembered",
+	"ChosenCard",
+	"token",
+	"nonToken",
+	"White",
+	"Blue",
+	"Black",
+	"Red",
+	"Green",
+	"Colorless",
+	"MultiColor",
+	"MonoColor",
+	"nonWhite",
+	"nonBlue",
+	"nonBlack",
+	"nonRed",
+	"nonGreen",
+	"nonColorless",
+	"nonMultiColor",
 )
 
 var localPredicateKeys = state.NewNameSet("LT", "LE", "GT", "GE", "EQ", "NE")
 
-var localTypeWordTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "Equipment", Val: true},
-	state.StrEntry[bool]{Key: "Aura", Val: true},
-	state.StrEntry[bool]{Key: "Vehicle", Val: true},
-	state.StrEntry[bool]{Key: "Food", Val: true},
-	state.StrEntry[bool]{Key: "Treasure", Val: true},
-	state.StrEntry[bool]{Key: "Clue", Val: true},
-	state.StrEntry[bool]{Key: "Saga", Val: true},
-	state.StrEntry[bool]{Key: "Plains", Val: true},
-	state.StrEntry[bool]{Key: "Island", Val: true},
-	state.StrEntry[bool]{Key: "Swamp", Val: true},
-	state.StrEntry[bool]{Key: "Mountain", Val: true},
-	state.StrEntry[bool]{Key: "Forest", Val: true},
+var localTypeWordSet = state.NewNameSet(
+	"Equipment",
+	"Aura",
+	"Vehicle",
+	"Food",
+	"Treasure",
+	"Clue",
+	"Saga",
+	"Plains",
+	"Island",
+	"Swamp",
+	"Mountain",
+	"Forest",
 )

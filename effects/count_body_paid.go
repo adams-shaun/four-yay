@@ -223,7 +223,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		// classic idiom is Count$ThisTurnCast/Minus1 (storm copies the spell
 		// once per spell cast before it, i.e. everyone's casts minus itself).
 		return int32(h.CastThisTurn()), true, true
-	case evalCountBodyPaidTotalCommanderCastFromComman:
+	case evalCountBodyPaidCommanderCastFromCommandZone:
 		// Both Forge spellings read the resolving controller's own
 		// command-zone commander casts over the whole game — log-derived
 		// through the Host like CastThisTurn, so replay derives the same
@@ -369,7 +369,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return 0, true, true
 		}
 		return h.CardsDrawnThisTurn(c.Controller), true, true
-	case evalCountBodyPaidYouScryThisTurn:
+	case evalCountBodyPaidYouScryOrSurveilThisTurn:
 		// The number of times the controller SCRIED / SURVEILLED this turn
 		// (Forge's per-turn scry and surveil tallies): Desperate
 		// Futurescribe, Proctor of Potential and Surveillance Phantasm's
@@ -504,7 +504,7 @@ const (
 	evalCountBodyPaidPlayerCountPlayers
 	evalCountBodyPaidPlayerCountOpponents
 	evalCountBodyPaidThisTurnCast
-	evalCountBodyPaidTotalCommanderCastFromComman
+	evalCountBodyPaidCommanderCastFromCommandZone
 	evalCountBodyPaidRememberedNumber
 	evalCountBodyPaidRememberedSize
 	evalCountBodyPaidLifeOppsLostThisTurn
@@ -513,7 +513,7 @@ const (
 	evalCountBodyPaidParty
 	evalCountBodyPaidLifeYouGainedThisTurn
 	evalCountBodyPaidYouDrewThisTurn
-	evalCountBodyPaidYouScryThisTurn
+	evalCountBodyPaidYouScryOrSurveilThisTurn
 	evalCountBodyPaidCountersAddedThisTurn
 	evalCountBodyPaidCountersRemovedThisTurn
 	evalCountBodyPaidYourTurns
@@ -539,8 +539,8 @@ var evalCountBodyPaidCodes = state.NewStrCodes(
 	state.StrEntry[evalCountBodyPaidCode]{Key: "PlayerCountPlayers", Val: evalCountBodyPaidPlayerCountPlayers},
 	state.StrEntry[evalCountBodyPaidCode]{Key: "PlayerCountOpponents", Val: evalCountBodyPaidPlayerCountOpponents},
 	state.StrEntry[evalCountBodyPaidCode]{Key: "ThisTurnCast", Val: evalCountBodyPaidThisTurnCast},
-	state.StrEntry[evalCountBodyPaidCode]{Key: "TotalCommanderCastFromCommandZone", Val: evalCountBodyPaidTotalCommanderCastFromComman},
-	state.StrEntry[evalCountBodyPaidCode]{Key: "CommanderCastFromCommandZone", Val: evalCountBodyPaidTotalCommanderCastFromComman},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "TotalCommanderCastFromCommandZone", Val: evalCountBodyPaidCommanderCastFromCommandZone},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "CommanderCastFromCommandZone", Val: evalCountBodyPaidCommanderCastFromCommandZone},
 	state.StrEntry[evalCountBodyPaidCode]{Key: "RememberedNumber", Val: evalCountBodyPaidRememberedNumber},
 	state.StrEntry[evalCountBodyPaidCode]{Key: "RememberedSize", Val: evalCountBodyPaidRememberedSize},
 	state.StrEntry[evalCountBodyPaidCode]{Key: "LifeOppsLostThisTurn", Val: evalCountBodyPaidLifeOppsLostThisTurn},
@@ -549,8 +549,8 @@ var evalCountBodyPaidCodes = state.NewStrCodes(
 	state.StrEntry[evalCountBodyPaidCode]{Key: "Party", Val: evalCountBodyPaidParty},
 	state.StrEntry[evalCountBodyPaidCode]{Key: "LifeYouGainedThisTurn", Val: evalCountBodyPaidLifeYouGainedThisTurn},
 	state.StrEntry[evalCountBodyPaidCode]{Key: "YouDrewThisTurn", Val: evalCountBodyPaidYouDrewThisTurn},
-	state.StrEntry[evalCountBodyPaidCode]{Key: "YouScryThisTurn", Val: evalCountBodyPaidYouScryThisTurn},
-	state.StrEntry[evalCountBodyPaidCode]{Key: "YouSurveilThisTurn", Val: evalCountBodyPaidYouScryThisTurn},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "YouScryThisTurn", Val: evalCountBodyPaidYouScryOrSurveilThisTurn},
+	state.StrEntry[evalCountBodyPaidCode]{Key: "YouSurveilThisTurn", Val: evalCountBodyPaidYouScryOrSurveilThisTurn},
 	state.StrEntry[evalCountBodyPaidCode]{Key: "CountersAddedThisTurn", Val: evalCountBodyPaidCountersAddedThisTurn},
 	state.StrEntry[evalCountBodyPaidCode]{Key: "CountersRemovedThisTurn", Val: evalCountBodyPaidCountersRemovedThisTurn},
 	state.StrEntry[evalCountBodyPaidCode]{Key: "YourTurns", Val: evalCountBodyPaidYourTurns},

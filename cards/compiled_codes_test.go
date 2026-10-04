@@ -66,8 +66,8 @@ func TestCompiledCodeMappings(t *testing.T) {
 			"TapsForMana", "DamageDone", "DamageDealtOnce", "DamageDoneOnce", "CounterAdded",
 			"Drawn", "LifeLost", "LifeLostAll", "Phase", "Always", "Attached",
 		}
-		assertUniqueKnownCodes(t, "trigger mode", names, triggerModeCode, TriggerModeUnknown)
-		if got := triggerModeCode("FutureTrigger"); got != TriggerModeUnknown {
+		assertUniqueKnownCodes(t, "trigger mode", names, TriggerModeOf, TriggerMode(0))
+		if got := TriggerModeOf("FutureTrigger"); got != 0 {
 			t.Fatalf("unknown trigger mode = %d, want zero", got)
 		}
 	})
@@ -79,8 +79,8 @@ func TestCompiledCodeMappings(t *testing.T) {
 			"ManaConvert", "MustAttack", "AttackRestrict", "NumLoyaltyAct", "CantGainLife",
 			"CantPreventDamage", "UntapOtherPlayer",
 		}
-		assertUniqueKnownCodes(t, "static mode", names, staticModeCode, StaticModeUnknown)
-		if got := staticModeCode("FutureStatic"); got != StaticModeUnknown {
+		assertUniqueKnownCodes(t, "static mode", names, StaticModeOf, StaticMode(0))
+		if got := StaticModeOf("FutureStatic"); got != 0 {
 			t.Fatalf("unknown static mode = %d, want zero", got)
 		}
 	})
@@ -90,8 +90,8 @@ func TestCompiledCodeMappings(t *testing.T) {
 			"Moved", "Untap", "BeginPhase", "Transform", "ProduceMana",
 			"GainLife", "LifeReduced", "DamageDone", "Counter", "Draw",
 		}
-		assertUniqueKnownCodes(t, "replacement event", names, replacementEventCode, ReplacementEventUnknown)
-		if got := replacementEventCode("FutureReplacement"); got != ReplacementEventUnknown {
+		assertUniqueKnownCodes(t, "replacement event", names, ReplEventOf, ReplEvent(0))
+		if got := ReplEventOf("FutureReplacement"); got != 0 {
 			t.Fatalf("unknown replacement event = %d, want zero", got)
 		}
 	})
@@ -128,7 +128,7 @@ func TestCompiledTypeAndKeywordMasks(t *testing.T) {
 }
 
 func TestUnknownTriggerInterestIsCatchAll(t *testing.T) {
-	if got := triggerInterestForMode("FutureTrigger"); got != TriggerInterestAny {
+	if got := triggerInterestForMode(TriggerModeOf("FutureTrigger")); got != TriggerInterestAny {
 		t.Fatalf("unknown interest = %x, want catch-all", got)
 	}
 }
@@ -169,7 +169,7 @@ func TestCompiledTriggerInterests(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.mode, func(t *testing.T) {
-			if got := triggerInterestForMode(tc.mode); got != tc.want {
+			if got := triggerInterestForMode(TriggerModeOf(tc.mode)); got != tc.want {
 				t.Fatalf("interest = %x, want %x", got, tc.want)
 			}
 		})
@@ -192,5 +192,43 @@ func TestKeywordMaskForFallbackDoesNotAllocate(t *testing.T) {
 	// U+212A KELVIN SIGN lower-cases to ASCII 'k': the Unicode path is kept.
 	if keywordMaskFor("Kicker") != KeywordKicker {
 		t.Fatal("non-ASCII head no longer folds through strings.ToLower")
+	}
+}
+
+// TestLineModeCatalogValuesArePinned holds the append-only contract of the
+// merged line-head vocabularies: the catalog's historical assignments keep
+// their values, so a name added anywhere but the end fails here.
+func TestLineModeCatalogValuesArePinned(t *testing.T) {
+	triggers := []string{
+		"ChangesZone", "SpellCast", "AbilityCast", "SpellAbilityCast", "Attacks",
+		"AttackersDeclaredOneTarget", "AttackersDeclared", "AttackerBlocked", "Sacrificed",
+		"Discarded", "LandPlayed", "Cycled", "CommitCrime", "BecomesTarget", "Taps",
+		"TapsForMana", "DamageDone", "DamageDealtOnce", "DamageDoneOnce", "CounterAdded",
+		"Drawn", "LifeLost", "LifeLostAll", "Phase", "Always", "Attached", "AttackerBlockedByCreature",
+	}
+	for i, n := range triggers {
+		if got := TriggerModeOf(n); int(got) != i+1 {
+			t.Errorf("trigger mode %q = %d, want %d", n, got, i+1)
+		}
+	}
+	statics := []string{
+		"Continuous", "CantBeCast", "CantBeActivated", "RaiseCost", "ReduceCost", "SetCost",
+		"AlternativeCost", "CastWithFlash", "CantBlock", "CantBlockBy", "Panharmonicon",
+		"ManaConvert", "MustAttack", "AttackRestrict", "NumLoyaltyAct", "CantGainLife",
+		"CantPreventDamage", "UntapOtherPlayer", "OptionalCost",
+	}
+	for i, n := range statics {
+		if got := StaticModeOf(n); int(got) != i+1 {
+			t.Errorf("static mode %q = %d, want %d", n, got, i+1)
+		}
+	}
+	repls := []string{
+		"Moved", "Untap", "BeginPhase", "Transform", "ProduceMana",
+		"GainLife", "LifeReduced", "DamageDone", "Counter", "Draw",
+	}
+	for i, n := range repls {
+		if got := ReplEventOf(n); int(got) != i+1 {
+			t.Errorf("replacement event %q = %d, want %d", n, got, i+1)
+		}
 	}
 }

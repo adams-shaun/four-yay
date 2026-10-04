@@ -553,7 +553,7 @@ func chooseTypeLabels(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID, cat 
 	switch chooseTypeLabelsCodes.Code(string(strings.ToLower(cat))) {
 	case chooseTypeLabelsShared:
 		return SharedTypeLabels(h.Game(), c.Source), true
-	case chooseTypeLabelsCreatureintargeteddeck:
+	case chooseTypeLabelsCreatureInTargetedDeck:
 		return CreatureInTargetedDeckLabels(h.Game(), c.Targets), true
 	}
 	if labels := TypeChoiceLabels(cat, sa.ParamStr(cards.PKValidTypes), sa.ParamStr(cards.PKInvalidTypes)); labels != nil {
@@ -636,10 +636,10 @@ type chooseTypeLabelsCode uint16
 
 const (
 	chooseTypeLabelsShared chooseTypeLabelsCode = iota + 1
-	chooseTypeLabelsCreatureintargeteddeck
+	chooseTypeLabelsCreatureInTargetedDeck
 )
 
 var chooseTypeLabelsCodes = state.NewStrCodes(
 	state.StrEntry[chooseTypeLabelsCode]{Key: "shared", Val: chooseTypeLabelsShared},
-	state.StrEntry[chooseTypeLabelsCode]{Key: "creatureintargeteddeck", Val: chooseTypeLabelsCreatureintargeteddeck},
+	state.StrEntry[chooseTypeLabelsCode]{Key: "creatureintargeteddeck", Val: chooseTypeLabelsCreatureInTargetedDeck},
 )

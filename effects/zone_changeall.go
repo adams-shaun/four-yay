@@ -351,8 +351,8 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 		// absent, the same default the hand path and the object-target path
 		// apply. Any other value is loud rather than silently inert.
 		switch effChangeZoneAllCodes.Code(string(position)) {
-		case effChangeZoneAll1:
-		case effChangeZoneAllEmpty:
+		case effChangeZoneAllBottom:
+		case effChangeZoneAllTop:
 			for _, pm := range placements {
 				libraryOrderPlacement(h, pm.owner, pm.ids, false)
 			}
@@ -376,12 +376,12 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 type effChangeZoneAllCode uint16
 
 const (
-	effChangeZoneAll1 effChangeZoneAllCode = iota + 1
-	effChangeZoneAllEmpty
+	effChangeZoneAllBottom effChangeZoneAllCode = iota + 1
+	effChangeZoneAllTop
 )
 
 var effChangeZoneAllCodes = state.NewStrCodes(
-	state.StrEntry[effChangeZoneAllCode]{Key: "-1", Val: effChangeZoneAll1},
-	state.StrEntry[effChangeZoneAllCode]{Key: "", Val: effChangeZoneAllEmpty},
-	state.StrEntry[effChangeZoneAllCode]{Key: "0", Val: effChangeZoneAllEmpty},
+	state.StrEntry[effChangeZoneAllCode]{Key: "-1", Val: effChangeZoneAllBottom},
+	state.StrEntry[effChangeZoneAllCode]{Key: "", Val: effChangeZoneAllTop},
+	state.StrEntry[effChangeZoneAllCode]{Key: "0", Val: effChangeZoneAllTop},
 )

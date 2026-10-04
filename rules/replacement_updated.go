@@ -159,10 +159,7 @@ func (e *Engine) moveAffectedPlayer(ev events.Event) (state.PlayerID, bool) {
 // Remembered), so composing the record before or after a tap/untap/counter
 // rider changes nothing. Any other API fails closed (the caller poses).
 func updatedNeutralBody(sa *cards.SA) bool {
-	if v, ok := updatedNeutralBodyTab.Get(sa.API); ok {
-		return v
-	}
-	return false
+	return updatedNeutralBodySet.Has(sa.API)
 }
 
 func updatedBodyClass(m replMatch) string {
@@ -220,7 +217,7 @@ func updatedReplacementsCommute(matches []replMatch) bool {
 			tap = true
 		case updatedReplacementsCommuteUntap:
 			untap = true
-		case updatedReplacementsCommuteCounter:
+		case updatedReplacementsCommuteInert:
 		default:
 			return false
 		}
@@ -288,14 +285,14 @@ func (e *Engine) resumeUpdatedComposition(rc replChoice, selected int) {
 	}
 }
 
-var updatedNeutralBodyTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "Reveal", Val: true},
-	state.StrEntry[bool]{Key: "ChooseColor", Val: true},
-	state.StrEntry[bool]{Key: "ChooseType", Val: true},
-	state.StrEntry[bool]{Key: "ChooseNumber", Val: true},
-	state.StrEntry[bool]{Key: "ChooseCard", Val: true},
-	state.StrEntry[bool]{Key: "Cleanup", Val: true},
-	state.StrEntry[bool]{Key: "Hideaway", Val: true},
+var updatedNeutralBodySet = state.NewNameSet(
+	"Reveal",
+	"ChooseColor",
+	"ChooseType",
+	"ChooseNumber",
+	"ChooseCard",
+	"Cleanup",
+	"Hideaway",
 )
 
 type updatedBodyClassCode uint16
@@ -317,12 +314,12 @@ type updatedReplacementsCommuteCode uint16
 const (
 	updatedReplacementsCommuteTap updatedReplacementsCommuteCode = iota + 1
 	updatedReplacementsCommuteUntap
-	updatedReplacementsCommuteCounter
+	updatedReplacementsCommuteInert
 )
 
 var updatedReplacementsCommuteCodes = state.NewStrCodes(
 	state.StrEntry[updatedReplacementsCommuteCode]{Key: "tap", Val: updatedReplacementsCommuteTap},
 	state.StrEntry[updatedReplacementsCommuteCode]{Key: "untap", Val: updatedReplacementsCommuteUntap},
-	state.StrEntry[updatedReplacementsCommuteCode]{Key: "counter", Val: updatedReplacementsCommuteCounter},
-	state.StrEntry[updatedReplacementsCommuteCode]{Key: "record", Val: updatedReplacementsCommuteCounter},
+	state.StrEntry[updatedReplacementsCommuteCode]{Key: "counter", Val: updatedReplacementsCommuteInert},
+	state.StrEntry[updatedReplacementsCommuteCode]{Key: "record", Val: updatedReplacementsCommuteInert},
 )

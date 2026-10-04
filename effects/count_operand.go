@@ -99,7 +99,7 @@ func countDistinctLimitMax(body, op string, n int32) (int32, bool) {
 		return n, false
 	}
 	switch countDistinctLimitMaxCodes.Code(string(strings.TrimSpace(prop))) {
-	case countDistinctLimitMaxColors:
+	case countDistinctLimitMaxSupported:
 	default:
 		return n, false
 	}
@@ -339,8 +339,8 @@ func modelledGateOp(h Host, c *Ctx, op string) bool {
 }
 
 func validConvokedCountOp(op string) bool {
-	if v, ok := validConvokedCountOpTab.Get(op); ok {
-		return v
+	if validConvokedCountOpSet.Has(op) {
+		return true
 	}
 	for _, prefix := range []string{"Plus.", "Minus.", "NMinus.", "Times.", "Divide.", "DivideEvenly.", "DivideEvenlyUp.", "DivideEvenlyDown.", "LimitMax.", "LimitMin."} {
 		if operand, ok := strings.CutPrefix(op, prefix); ok {
@@ -496,22 +496,22 @@ func ApplyCountOp(n int32, op string) int32 {
 	return applyCountOp(n, op)
 }
 
-var validConvokedCountOpTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "Twice", Val: true},
-	state.StrEntry[bool]{Key: "Thrice", Val: true},
-	state.StrEntry[bool]{Key: "HalfDown", Val: true},
-	state.StrEntry[bool]{Key: "HalfUp", Val: true},
-	state.StrEntry[bool]{Key: "ThirdUp", Val: true},
-	state.StrEntry[bool]{Key: "Negative", Val: true},
+var validConvokedCountOpSet = state.NewNameSet(
+	"Twice",
+	"Thrice",
+	"HalfDown",
+	"HalfUp",
+	"ThirdUp",
+	"Negative",
 )
 
 type countDistinctLimitMaxCode uint16
 
 const (
-	countDistinctLimitMaxColors countDistinctLimitMaxCode = iota + 1
+	countDistinctLimitMaxSupported countDistinctLimitMaxCode = iota + 1
 )
 
 var countDistinctLimitMaxCodes = state.NewStrCodes(
-	state.StrEntry[countDistinctLimitMaxCode]{Key: "Colors", Val: countDistinctLimitMaxColors},
-	state.StrEntry[countDistinctLimitMaxCode]{Key: "CreatureType", Val: countDistinctLimitMaxColors},
+	state.StrEntry[countDistinctLimitMaxCode]{Key: "Colors", Val: countDistinctLimitMaxSupported},
+	state.StrEntry[countDistinctLimitMaxCode]{Key: "CreatureType", Val: countDistinctLimitMaxSupported},
 )

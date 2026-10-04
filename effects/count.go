@@ -79,9 +79,9 @@ func NumForObject(h Host, c *Ctx, sa *cards.SA, key string, def int32, obj state
 // token / face-down families.
 func statIsPowerKey(key string) (power, ok bool) {
 	switch statIsPowerKeyCodes.Code(string(key)) {
-	case statIsPowerKeyNumAtt:
+	case statIsPowerKeyPower:
 		return true, true
-	case statIsPowerKeyNumDef:
+	case statIsPowerKeyToughness:
 		return false, true
 	}
 	return false, false
@@ -677,19 +677,19 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 type statIsPowerKeyCode uint16
 
 const (
-	statIsPowerKeyNumAtt statIsPowerKeyCode = iota + 1
-	statIsPowerKeyNumDef
+	statIsPowerKeyPower statIsPowerKeyCode = iota + 1
+	statIsPowerKeyToughness
 )
 
 var statIsPowerKeyCodes = state.NewStrCodes(
-	state.StrEntry[statIsPowerKeyCode]{Key: "NumAtt", Val: statIsPowerKeyNumAtt},
-	state.StrEntry[statIsPowerKeyCode]{Key: "Power", Val: statIsPowerKeyNumAtt},
-	state.StrEntry[statIsPowerKeyCode]{Key: "SetPower", Val: statIsPowerKeyNumAtt},
-	state.StrEntry[statIsPowerKeyCode]{Key: "TokenPower", Val: statIsPowerKeyNumAtt},
-	state.StrEntry[statIsPowerKeyCode]{Key: "FaceDownPower", Val: statIsPowerKeyNumAtt},
-	state.StrEntry[statIsPowerKeyCode]{Key: "NumDef", Val: statIsPowerKeyNumDef},
-	state.StrEntry[statIsPowerKeyCode]{Key: "Toughness", Val: statIsPowerKeyNumDef},
-	state.StrEntry[statIsPowerKeyCode]{Key: "SetToughness", Val: statIsPowerKeyNumDef},
-	state.StrEntry[statIsPowerKeyCode]{Key: "TokenToughness", Val: statIsPowerKeyNumDef},
-	state.StrEntry[statIsPowerKeyCode]{Key: "FaceDownToughness", Val: statIsPowerKeyNumDef},
+	state.StrEntry[statIsPowerKeyCode]{Key: "NumAtt", Val: statIsPowerKeyPower},
+	state.StrEntry[statIsPowerKeyCode]{Key: "Power", Val: statIsPowerKeyPower},
+	state.StrEntry[statIsPowerKeyCode]{Key: "SetPower", Val: statIsPowerKeyPower},
+	state.StrEntry[statIsPowerKeyCode]{Key: "TokenPower", Val: statIsPowerKeyPower},
+	state.StrEntry[statIsPowerKeyCode]{Key: "FaceDownPower", Val: statIsPowerKeyPower},
+	state.StrEntry[statIsPowerKeyCode]{Key: "NumDef", Val: statIsPowerKeyToughness},
+	state.StrEntry[statIsPowerKeyCode]{Key: "Toughness", Val: statIsPowerKeyToughness},
+	state.StrEntry[statIsPowerKeyCode]{Key: "SetToughness", Val: statIsPowerKeyToughness},
+	state.StrEntry[statIsPowerKeyCode]{Key: "TokenToughness", Val: statIsPowerKeyToughness},
+	state.StrEntry[statIsPowerKeyCode]{Key: "FaceDownToughness", Val: statIsPowerKeyToughness},
 )

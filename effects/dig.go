@@ -272,9 +272,9 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				return
 			}
 			switch effDigCodes.Code(string(primaryPos)) {
-			case effDigEmpty:
+			case effDigTop:
 				libraryOrderPlacement(h, p, primaryMoved, false)
-			case effDig1:
+			case effDigBottom:
 				// MoveZone already appends the primary pile at the bottom.
 			default:
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: p,
@@ -656,12 +656,12 @@ func digRemember(c *Ctx, dp *DigParams, id state.ObjID) {
 type effDigCode uint16
 
 const (
-	effDigEmpty effDigCode = iota + 1
-	effDig1
+	effDigTop effDigCode = iota + 1
+	effDigBottom
 )
 
 var effDigCodes = state.NewStrCodes(
-	state.StrEntry[effDigCode]{Key: "", Val: effDigEmpty},
-	state.StrEntry[effDigCode]{Key: "0", Val: effDigEmpty},
-	state.StrEntry[effDigCode]{Key: "-1", Val: effDig1},
+	state.StrEntry[effDigCode]{Key: "", Val: effDigTop},
+	state.StrEntry[effDigCode]{Key: "0", Val: effDigTop},
+	state.StrEntry[effDigCode]{Key: "-1", Val: effDigBottom},
 )

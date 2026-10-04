@@ -16,15 +16,18 @@ import (
 // parallel W5 steps do not edit the same lines.
 
 // payImports is the closed set of module packages rules/pay may import
-// directly: the L0/L1 vocabulary (cards, state, decision) and the L2 cost
-// vocabulary. rules, effects, the sibling L5 packages, the resolution kernel
+// directly: the L0/L1 vocabulary (cards, state, decision), the L2 cost
+// vocabulary and effects/params, the leaf compiled-parameter records (the
+// mana production, targeting, Defined and DealDamage records the ring reads
+// on nearly every path; paramsImports pins it below effects). rules, effects, the sibling L5 packages, the resolution kernel
 // and the bot layer would invert the layering.
 var payImports = map[string]bool{
-	module + "/cards":      true,
-	module + "/state":      true,
-	module + "/decision":   true,
-	module + "/events":     true,
-	module + "/rules/cost": true,
+	module + "/cards":          true,
+	module + "/state":          true,
+	module + "/decision":       true,
+	module + "/events":         true,
+	module + "/rules/cost":     true,
+	module + "/effects/params": true,
 }
 
 // TestPayImportsStayBelowRules pins rules/pay's direct module imports to
@@ -80,6 +83,44 @@ func TestPayStaysDeterministic(t *testing.T) {
 		if p.imports[imp] {
 			t.Errorf("%s imports %s; the payment layer is replay-deterministic and stateless "+
 				"(internal/archtest/layering_pay_test.go payForbiddenStd)", sub, imp)
+		}
+	}
+}
+
+// paramsImports is the closed set of module packages effects/params may
+// import directly: the L0/L1 vocabulary only. effects/params is the leaf
+// home of the compiled ability-parameter records both the resolution
+// (effects aliases every name) and the payment layer (rules/pay) read (W5
+// step E7); anything above L1 would put the resolution's Host/Ctx machinery,
+// or the engine, back under the payment layer.
+var paramsImports = map[string]bool{
+	module + "/cards":    true,
+	module + "/state":    true,
+	module + "/decision": true,
+}
+
+// TestParamsIsALeaf pins effects/params' direct module imports to
+// paramsImports.
+func TestParamsIsALeaf(t *testing.T) {
+	const sub = module + "/effects/params"
+	p, ok := packages(t)[sub]
+	if !ok {
+		t.Fatal("effects/params is not built")
+	}
+	var bad []string
+	for imp := range p.imports {
+		if strings.HasPrefix(imp, module+"/") && !paramsImports[imp] {
+			bad = append(bad, imp)
+		}
+	}
+	sort.Strings(bad)
+	for _, imp := range bad {
+		t.Errorf("%s imports %s; the compiled-parameter leaf may import only %v "+
+			"(internal/archtest/layering_pay_test.go paramsImports)", sub, imp, sortedKeys(paramsImports))
+	}
+	for _, imp := range payForbiddenStd {
+		if imp != "unsafe" && p.imports[imp] {
+			t.Errorf("%s imports %s; the compiled-parameter leaf is replay-deterministic", sub, imp)
 		}
 	}
 }

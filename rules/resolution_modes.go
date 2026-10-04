@@ -199,7 +199,7 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) state.ObjID {
 		if letter := etbColourLetter(opt.Label); letter != "" {
 			e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "color", Text: letter})
 		}
-	case resumeETBEntryEvenodd:
+	case resumeETBEntryEvenOdd:
 		quality := strings.ToLower(opt.Label)
 		if quality == "odd" || quality == "even" {
 			e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "type", Text: quality})
@@ -227,7 +227,7 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) state.ObjID {
 			ids = []state.ObjID{opt.Obj}
 		}
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "clone", IDs: ids})
-	case resumeETBEntryPaylife:
+	case resumeETBEntryPayLife:
 		// The announced life payment of an "as CARDNAME enters, pay any amount
 		// of life" replacement (Minion of the Wastes / Phyrexian Processor /
 		// Nameless Race). The announced X is recorded as a Choose "number"
@@ -273,11 +273,11 @@ const (
 	resumeETBEntryType
 	resumeETBEntryNumber
 	resumeETBEntryColor
-	resumeETBEntryEvenodd
+	resumeETBEntryEvenOdd
 	resumeETBEntryRiot
 	resumeETBEntryUnleash
 	resumeETBEntryClone
-	resumeETBEntryPaylife
+	resumeETBEntryPayLife
 )
 
 var resumeETBEntryCodes = state.NewStrCodes(
@@ -285,9 +285,9 @@ var resumeETBEntryCodes = state.NewStrCodes(
 	state.StrEntry[resumeETBEntryCode]{Key: "type", Val: resumeETBEntryType},
 	state.StrEntry[resumeETBEntryCode]{Key: "number", Val: resumeETBEntryNumber},
 	state.StrEntry[resumeETBEntryCode]{Key: "color", Val: resumeETBEntryColor},
-	state.StrEntry[resumeETBEntryCode]{Key: "evenodd", Val: resumeETBEntryEvenodd},
+	state.StrEntry[resumeETBEntryCode]{Key: "evenodd", Val: resumeETBEntryEvenOdd},
 	state.StrEntry[resumeETBEntryCode]{Key: "riot", Val: resumeETBEntryRiot},
 	state.StrEntry[resumeETBEntryCode]{Key: "unleash", Val: resumeETBEntryUnleash},
 	state.StrEntry[resumeETBEntryCode]{Key: "clone", Val: resumeETBEntryClone},
-	state.StrEntry[resumeETBEntryCode]{Key: "paylife", Val: resumeETBEntryPaylife},
+	state.StrEntry[resumeETBEntryCode]{Key: "paylife", Val: resumeETBEntryPayLife},
 )

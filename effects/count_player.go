@@ -66,10 +66,7 @@ func countersAddedThisTurnArgsKnown(kind, actor, object string) bool {
 	if actor != "You" && actor != "Player" {
 		return false
 	}
-	if v, ok := countersAddedThisTurnArgsKnownTab.Get(object); ok {
-		return v
-	}
-	return false
+	return countersAddedThisTurnArgsKnownSet.Has(object)
 }
 
 // playerSpecBaseKnown reports whether spec's base word (the text before the
@@ -274,10 +271,7 @@ func objectProperty(g *state.Game, id state.ObjID, prop string) int32 {
 // same conservative no-op every unmodelled head here takes — and a gate over
 // one must fail open rather than enforce that zero.
 func modeledProperty(prop string) bool {
-	if v, ok := modeledPropertyTab.Get(strings.TrimSpace(prop)); ok {
-		return v
-	}
-	return false
+	return modeledPropertySet.Has(strings.TrimSpace(prop))
 }
 
 // lifeExtreme answers PlayerCount...$LowestLifeTotal / $HighestLifeTotal:
@@ -361,7 +355,7 @@ func playerCountDefinedRegistered(h Host, g *state.Game, c *Ctx, group []state.P
 	// total extreme through this head; if one ever does, widening is a
 	// one-line change with its own pin.
 	switch playerCountDefinedRegisteredCodes.Code(string(base)) {
-	case playerCountDefinedRegisteredHighestLifeLostThisTurn:
+	case playerCountDefinedRegisteredExtremeLifeLostThisTurn:
 		// The life-lost extremes — Knight of the Ebon Legion's and
 		// Y'shtola's gates. playerCountExtreme's LifeLostThisTurn arm is the
 		// Host's log-derived read.
@@ -721,8 +715,8 @@ func playerMemberProperty(h Host, g *state.Game, c *Ctx, m state.PlayerID, prop 
 // accepts cannot be rejected by the other (a bare `ThisTurnEntered_` prefix
 // or an unknown zone word is NOT modelled, however well it prefixes).
 func playerPropertyModelled(prop string) bool {
-	if v, ok := playerPropertyModelledTab.Get(strings.TrimSpace(prop)); ok {
-		return v
+	if playerPropertyModelledSet.Has(strings.TrimSpace(prop)) {
+		return true
 	}
 	if rest, ok := strings.CutPrefix(strings.TrimSpace(prop), "ThisTurnEntered_"); ok {
 		_, _, _, parsed := parseThisTurnEnteredSpec(rest)
@@ -872,27 +866,27 @@ func playerCountExtreme(h Host, g *state.Game, c *Ctx, players []state.PlayerID,
 	return best, true
 }
 
-var countersAddedThisTurnArgsKnownTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "Creature", Val: true},
-	state.StrEntry[bool]{Key: "Creature.YouCtrl", Val: true},
-	state.StrEntry[bool]{Key: "Permanent.YouCtrl", Val: true},
-	state.StrEntry[bool]{Key: "Card.Self", Val: true},
-	state.StrEntry[bool]{Key: "Card.EffectSource", Val: true},
+var countersAddedThisTurnArgsKnownSet = state.NewNameSet(
+	"Creature",
+	"Creature.YouCtrl",
+	"Permanent.YouCtrl",
+	"Card.Self",
+	"Card.EffectSource",
 )
 
-var modeledPropertyTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "CardPower", Val: true},
-	state.StrEntry[bool]{Key: "CardToughness", Val: true},
-	state.StrEntry[bool]{Key: "CardManaCost", Val: true},
+var modeledPropertySet = state.NewNameSet(
+	"CardPower",
+	"CardToughness",
+	"CardManaCost",
 )
 
 var unreadZoneSpecKeys = state.NewNameSet("Any", "Card", "Permanent", "PermanentCard", "Spell", "SpellAbility", "CARDNAME", "Affinity")
 
-var playerPropertyModelledTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "LifeTotal", Val: true},
-	state.StrEntry[bool]{Key: "CardsDrawn", Val: true},
-	state.StrEntry[bool]{Key: "CardsDiscardedThisTurn", Val: true},
-	state.StrEntry[bool]{Key: "SpellsCastThisTurn", Val: true},
+var playerPropertyModelledSet = state.NewNameSet(
+	"LifeTotal",
+	"CardsDrawn",
+	"CardsDiscardedThisTurn",
+	"SpellsCastThisTurn",
 )
 
 type objectPropertyCode uint16
@@ -912,14 +906,14 @@ var objectPropertyCodes = state.NewStrCodes(
 type playerCountDefinedRegisteredCode uint16
 
 const (
-	playerCountDefinedRegisteredHighestLifeLostThisTurn playerCountDefinedRegisteredCode = iota + 1
+	playerCountDefinedRegisteredExtremeLifeLostThisTurn playerCountDefinedRegisteredCode = iota + 1
 	playerCountDefinedRegisteredHasPropertyLostLifeThisTurn
 	playerCountDefinedRegisteredHasPropertywasDealtCombatDam
 )
 
 var playerCountDefinedRegisteredCodes = state.NewStrCodes(
-	state.StrEntry[playerCountDefinedRegisteredCode]{Key: "HighestLifeLostThisTurn", Val: playerCountDefinedRegisteredHighestLifeLostThisTurn},
-	state.StrEntry[playerCountDefinedRegisteredCode]{Key: "LowestLifeLostThisTurn", Val: playerCountDefinedRegisteredHighestLifeLostThisTurn},
+	state.StrEntry[playerCountDefinedRegisteredCode]{Key: "HighestLifeLostThisTurn", Val: playerCountDefinedRegisteredExtremeLifeLostThisTurn},
+	state.StrEntry[playerCountDefinedRegisteredCode]{Key: "LowestLifeLostThisTurn", Val: playerCountDefinedRegisteredExtremeLifeLostThisTurn},
 	state.StrEntry[playerCountDefinedRegisteredCode]{Key: "HasPropertyLostLifeThisTurn", Val: playerCountDefinedRegisteredHasPropertyLostLifeThisTurn},
 	state.StrEntry[playerCountDefinedRegisteredCode]{Key: "HasPropertywasDealtCombatDamageThisTurnBy", Val: playerCountDefinedRegisteredHasPropertywasDealtCombatDam},
 )

@@ -1,4 +1,4 @@
-package effects
+package params
 
 import (
 	"slices"

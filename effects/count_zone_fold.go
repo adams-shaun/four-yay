@@ -300,10 +300,7 @@ var countAllZones = []state.Zone{
 // family -- is deliberately NOT admitted here and keeps the whole-token
 // fail-closed read.
 func isExtremeProperty(prop string) bool {
-	if v, ok := isExtremePropertyTab.Get(prop); ok {
-		return v
-	}
-	return false
+	return isExtremePropertySet.Has(prop)
 }
 
 // differentPropertyKind classifies a Different* distinct-set property -- the
@@ -395,7 +392,7 @@ func isLeastProperty(prop string) bool {
 // missing case here is a compile-time-visible oversight, not a silent one.
 func extremePropertyValue(h Host, o *state.Object, prop string) int32 {
 	switch extremePropertyValueCodes.Code(string(prop)) {
-	case extremePropertyValueGreatestCardPower:
+	case extremePropertyValueExtremeCardPower:
 		return h.Power(o.ID)
 	case extremePropertyValueGreatestCardToughness:
 		return h.Toughness(o.ID)
@@ -474,11 +471,11 @@ var colourLetterTab = state.NewStrTable[byte](
 	state.StrEntry[byte]{Key: "GREEN", Val: 'G'},
 )
 
-var isExtremePropertyTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "GreatestCardPower", Val: true},
-	state.StrEntry[bool]{Key: "GreatestCardToughness", Val: true},
-	state.StrEntry[bool]{Key: "GreatestCardManaCost", Val: true},
-	state.StrEntry[bool]{Key: "LeastCardPower", Val: true},
+var isExtremePropertySet = state.NewNameSet(
+	"GreatestCardPower",
+	"GreatestCardToughness",
+	"GreatestCardManaCost",
+	"LeastCardPower",
 )
 
 var differentPropertyKindOfTab = state.NewStrTable[differentPropertyKind](
@@ -535,14 +532,14 @@ var zoneFoldPropCodes = state.NewStrCodes(
 type extremePropertyValueCode uint16
 
 const (
-	extremePropertyValueGreatestCardPower extremePropertyValueCode = iota + 1
+	extremePropertyValueExtremeCardPower extremePropertyValueCode = iota + 1
 	extremePropertyValueGreatestCardToughness
 	extremePropertyValueGreatestCardManaCost
 )
 
 var extremePropertyValueCodes = state.NewStrCodes(
-	state.StrEntry[extremePropertyValueCode]{Key: "GreatestCardPower", Val: extremePropertyValueGreatestCardPower},
-	state.StrEntry[extremePropertyValueCode]{Key: "LeastCardPower", Val: extremePropertyValueGreatestCardPower},
+	state.StrEntry[extremePropertyValueCode]{Key: "GreatestCardPower", Val: extremePropertyValueExtremeCardPower},
+	state.StrEntry[extremePropertyValueCode]{Key: "LeastCardPower", Val: extremePropertyValueExtremeCardPower},
 	state.StrEntry[extremePropertyValueCode]{Key: "GreatestCardToughness", Val: extremePropertyValueGreatestCardToughness},
 	state.StrEntry[extremePropertyValueCode]{Key: "GreatestCardManaCost", Val: extremePropertyValueGreatestCardManaCost},
 )

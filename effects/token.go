@@ -358,7 +358,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 		// player. The qualified Player.<qualifier> spellings stay in the
 		// default arm above.
 		owners = g.AliveFrom(0)
-	case tokenOwnerTriggeredOpponentVotedSame:
+	case tokenOwnerTriggeredOpponentVoted:
 		// The vote-carrier referent (trig:Vote): each player in the List$
 		// set the firing trigger captured creates its own token. An EMPTY
 		// set creates nothing -- "each opponent who voted ..." is vacuous
@@ -879,7 +879,7 @@ const (
 	tokenOwnerYou tokenOwnerCode = iota + 1
 	tokenOwnerOpponent
 	tokenOwnerPlayer
-	tokenOwnerTriggeredOpponentVotedSame
+	tokenOwnerTriggeredOpponentVoted
 	tokenOwnerImprinted
 	tokenOwnerRememberedOwner
 	tokenOwnerThisTargetedPlayer
@@ -890,8 +890,8 @@ var tokenOwnerCodes = state.NewStrCodes(
 	state.StrEntry[tokenOwnerCode]{Key: "You", Val: tokenOwnerYou},
 	state.StrEntry[tokenOwnerCode]{Key: "Opponent", Val: tokenOwnerOpponent},
 	state.StrEntry[tokenOwnerCode]{Key: "Player", Val: tokenOwnerPlayer},
-	state.StrEntry[tokenOwnerCode]{Key: "TriggeredOpponentVotedSame", Val: tokenOwnerTriggeredOpponentVotedSame},
-	state.StrEntry[tokenOwnerCode]{Key: "TriggeredOpponentVotedDiff", Val: tokenOwnerTriggeredOpponentVotedSame},
+	state.StrEntry[tokenOwnerCode]{Key: "TriggeredOpponentVotedSame", Val: tokenOwnerTriggeredOpponentVoted},
+	state.StrEntry[tokenOwnerCode]{Key: "TriggeredOpponentVotedDiff", Val: tokenOwnerTriggeredOpponentVoted},
 	state.StrEntry[tokenOwnerCode]{Key: "Imprinted", Val: tokenOwnerImprinted},
 	state.StrEntry[tokenOwnerCode]{Key: "ImprintedController", Val: tokenOwnerImprinted},
 	state.StrEntry[tokenOwnerCode]{Key: "RememberedOwner", Val: tokenOwnerRememberedOwner},

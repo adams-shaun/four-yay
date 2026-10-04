@@ -116,7 +116,7 @@ func printedHeadsOf(f *cards.Face) printedHeads {
 			m |= phDisguise
 		case printedHeadsOfMayflashcost:
 			m |= phMayFlashCost
-		case printedHeadsOfAlternateadditionalcost:
+		case printedHeadsOfAlternateAdditionalCost:
 			m |= phAlternateAdditionalCost
 		}
 	}
@@ -171,7 +171,7 @@ const (
 	printedHeadsOfMegamorph
 	printedHeadsOfDisguise
 	printedHeadsOfMayflashcost
-	printedHeadsOfAlternateadditionalcost
+	printedHeadsOfAlternateAdditionalCost
 )
 
 var printedHeadsOfCodes = state.NewStrCodes(
@@ -195,5 +195,5 @@ var printedHeadsOfCodes = state.NewStrCodes(
 	state.StrEntry[printedHeadsOfCode]{Key: "megamorph", Val: printedHeadsOfMegamorph},
 	state.StrEntry[printedHeadsOfCode]{Key: "disguise", Val: printedHeadsOfDisguise},
 	state.StrEntry[printedHeadsOfCode]{Key: "mayflashcost", Val: printedHeadsOfMayflashcost},
-	state.StrEntry[printedHeadsOfCode]{Key: "alternateadditionalcost", Val: printedHeadsOfAlternateadditionalcost},
+	state.StrEntry[printedHeadsOfCode]{Key: "alternateadditionalcost", Val: printedHeadsOfAlternateAdditionalCost},
 )

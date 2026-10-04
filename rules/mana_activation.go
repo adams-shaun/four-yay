@@ -2362,7 +2362,7 @@ func (e *Engine) askTriggeredManaColor(pt pendingTrigger, rest []pendingTrigger,
 		chooser = ps[0]
 	}
 	mp := effects.ManaOf(mana)
-	amount := mp.AmountNum(e, &pt.Ctx, 1)
+	amount := effects.ManaAmountNum(mp, e, &pt.Ctx, 1)
 	allocation := strings.HasPrefix(mp.Produced, "Combo ") && amount > 1
 	min, max := 1, 1
 	if allocation {
@@ -2948,7 +2948,7 @@ func (e *Engine) manaEffectAmount(p state.PlayerID, source state.ObjID, ma *card
 		ctx.Sacrificed = append(ctx.Sacrificed, effects.SacrificedLKI(e, id))
 	}
 	effects.SetSVars(ctx, gained.svars(o.Face().SVars))
-	amount := effects.ManaOf(ma).AmountNum(e, ctx, 1)
+	amount := effects.ManaAmountNum(effects.ManaOf(ma), e, ctx, 1)
 	if amount < 0 {
 		return 0
 	}

@@ -650,6 +650,62 @@ Per step:
   while the step is open (W6). A step is sized to land in one or two days so
   the freeze is short.
 
+### 9.1 E7 redesign: a leaf parameter package and a narrow pay session
+
+Measured on `main` at 41dd9f57e (after E7 slices 1-10): `rules/pay` holds
+~4.5k lines behind a 10-method `pay.Engine`; the ring still in `rules`
+(`payment_plan*`, `cast_payment*`, `cast_payparts`, `announce_pay`,
+`unless_payment`, `mana.go`, `mana_activation.go`) is 226 Engine methods and
+~7.7k lines. Each further slice was stalling on the same two walls, so the
+remaining work is a two-step redesign (operator decision, 2026-10-03).
+
+**Step 1 -- leaf parameter package.** The compiled parameter records the
+ring reads on nearly every path move out of `effects` into
+`effects/params`, which imports only `cards`, `state` and `decision`
+(archtest `paramsImports`): the mana production record (`ManaOf`), the
+generic targeting tier (`TargetsOf`), the Defined tier (`DefinedOf`, `Ref`),
+api:DealDamage's record and the `Combo` classifier. `effects` aliases every
+name (types and constants by alias, functions by one-line forwarders), so no
+caller churns; the two `Amount$` evaluations that need a `Host` become
+`effects.ManaAmountNum`/`ManaAmountResolvedStrict`. `effects.SAFacts`
+embeds `params.Facts` as its first field, so `params.LoadFacts` reads the
+configured record through the slot without `effects` (the offset is pinned
+by `TestFactsIsSAFactsPrefix`). `rules/pay` may import `effects/params`. The
+parameter census scans `effects/params` in the effects namespace, so
+attribution is unchanged; the codeshape compiler-file constants follow the
+files.
+
+**Step 2 -- the pay session.** Ring code takes a `*pay.Session` plus
+`pay.Engine`, never `*Engine`. The session is plain data the engine owns
+and clones: the ring-owned engine fields (the payment-plan query memo and
+carriers, the payment stats, the mana-activation frames, the unless-payment
+state) move into it, so they leave the Engine field list and gain one
+`cloneForeignDeep` entry. The cast's payment slice of `pendingCast`, the
+ask seam (one coarse `Ask(flow, d)` that sets `choosing` and poses `d`) and
+log appends through `Emit` reach the ring through it. `pay.Engine` stays
+under 20 methods (`payEngineMethods`); each slice lowers
+`engineMethodCount` and moves its white-box tests with the code.
+
+**Measured ceiling.** A fixed-point census over the ring's call graph
+(every method whose callees, fields and `effects` references are all inside
+the moved set or the seam) with step 1 done, every ring-owned field in the
+session and a greedily chosen 19-method `pay.Engine` reaches **~2.4k of the
+~7.7k lines** (about 30%); the curve is flat after the first five seam
+methods (+270, +120, +60, +50, +50 lines). The other ~70% is blocked by
+four families that are not payment at all: the derived-characteristics
+queries (`Derived`, `hasKeywordH`, `objColors`, `derivedTypesOf`), the
+activation gates the mana walk shares with every ability (`abilityRestricted`,
+`activationConditionOK`, `activationLimitBlocked`, `grantedAbilities`,
+`walkFaceFactsOf`), `effects.Ctx` count evaluation and nested mana-ability
+resolution (`appendAvailableManaAbilitiesGate`, `resolveManaEffect`,
+`answerNestedManaColor`), and the cost-static collection
+(`collectCostStatics`, `potentialCostModsUsing`, `windowManaUnits`). So E7
+lands what the session honestly frees -- the payment planner core, the
+unless-payment reachability, the cast payment parts -- and the activation /
+mana-walk half of `mana_activation.go` waits for E4 (`rules/chars` as a
+read interface pay may take) and a W1d-style evaluation seam, not for a
+wider `pay.Engine`.
+
 ## 10. W6 — Pipeline and process
 
 - **Refactor lane.** W1–W5 tickets run in one lane, in sequence, with

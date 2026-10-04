@@ -514,7 +514,7 @@ func emitRestrictedManaSpend(e Engine, p state.PlayerID, d Descriptor, spent *st
 // spell. An unrecognised condition fails closed — no protection.
 func addsNoCounterHolds(g *state.Game, id state.ObjID, cond string) bool {
 	switch addsNoCounterHoldsCodes.Code(string(cond)) {
-	case addsNoCounterHoldsEmpty:
+	case addsNoCounterHoldsTrue:
 		return true
 	case addsNoCounterHoldsNotPermanent:
 		o := g.Obj(id)
@@ -742,13 +742,13 @@ func CostPayablePool(e Engine, p state.PlayerID, id state.ObjID, ability bool, c
 type addsNoCounterHoldsCode uint16
 
 const (
-	addsNoCounterHoldsEmpty addsNoCounterHoldsCode = iota + 1
+	addsNoCounterHoldsTrue addsNoCounterHoldsCode = iota + 1
 	addsNoCounterHoldsNotPermanent
 )
 
 var addsNoCounterHoldsCodes = state.NewStrCodes(
-	state.StrEntry[addsNoCounterHoldsCode]{Key: "", Val: addsNoCounterHoldsEmpty},
-	state.StrEntry[addsNoCounterHoldsCode]{Key: "True", Val: addsNoCounterHoldsEmpty},
+	state.StrEntry[addsNoCounterHoldsCode]{Key: "", Val: addsNoCounterHoldsTrue},
+	state.StrEntry[addsNoCounterHoldsCode]{Key: "True", Val: addsNoCounterHoldsTrue},
 	state.StrEntry[addsNoCounterHoldsCode]{Key: "NotPermanent", Val: addsNoCounterHoldsNotPermanent},
 )
 

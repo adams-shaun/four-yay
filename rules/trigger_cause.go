@@ -71,7 +71,7 @@ func (e *Engine) drawCauseTokenAdmits(token string, o *state.Object, source stat
 			continue
 		}
 		switch drawCauseTokenAdmitsCodes.Code(string(q)) {
-		case drawCauseTokenAdmitsYouCtrl:
+		case drawCauseTokenAdmitsStackKind:
 			// Read by StackKindAdmits below.
 		case drawCauseTokenAdmitsCycling:
 			if o.Ability == nil || !cyclingCauseKeywords[o.Ability.ParamStr(cards.PKKeyword)] {
@@ -323,15 +323,15 @@ var causeSpecQualifiersKnownKeys = state.NewNameSet("", "YouCtrl", "OppCtrl", "I
 type drawCauseTokenAdmitsCode uint16
 
 const (
-	drawCauseTokenAdmitsYouCtrl drawCauseTokenAdmitsCode = iota + 1
+	drawCauseTokenAdmitsStackKind drawCauseTokenAdmitsCode = iota + 1
 	drawCauseTokenAdmitsCycling
 )
 
 var drawCauseTokenAdmitsCodes = state.NewStrCodes(
-	state.StrEntry[drawCauseTokenAdmitsCode]{Key: "YouCtrl", Val: drawCauseTokenAdmitsYouCtrl},
-	state.StrEntry[drawCauseTokenAdmitsCode]{Key: "OppCtrl", Val: drawCauseTokenAdmitsYouCtrl},
-	state.StrEntry[drawCauseTokenAdmitsCode]{Key: "Instant", Val: drawCauseTokenAdmitsYouCtrl},
-	state.StrEntry[drawCauseTokenAdmitsCode]{Key: "Sorcery", Val: drawCauseTokenAdmitsYouCtrl},
+	state.StrEntry[drawCauseTokenAdmitsCode]{Key: "YouCtrl", Val: drawCauseTokenAdmitsStackKind},
+	state.StrEntry[drawCauseTokenAdmitsCode]{Key: "OppCtrl", Val: drawCauseTokenAdmitsStackKind},
+	state.StrEntry[drawCauseTokenAdmitsCode]{Key: "Instant", Val: drawCauseTokenAdmitsStackKind},
+	state.StrEntry[drawCauseTokenAdmitsCode]{Key: "Sorcery", Val: drawCauseTokenAdmitsStackKind},
 	state.StrEntry[drawCauseTokenAdmitsCode]{Key: "Cycling", Val: drawCauseTokenAdmitsCycling},
 )
 

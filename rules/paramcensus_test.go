@@ -922,6 +922,16 @@ func (s *scan) scanCall(t *testing.T, fset *token.FileSet, fi *fnInfo, fname str
 				// are scanned into the rules namespace under their own
 				// function names.
 				callee = fun.Sel.Name
+			} else if id.Name == "params" && (pkg == "effects" || pkg == "rules") {
+				// effects/params, the leaf compiled-parameter package (W5
+				// E7): its files are scanned into the effects namespace
+				// (sourceFilesUnder walks ../effects recursively), so an
+				// effects call into it is a local callee. A rules-side
+				// (rules/pay) call is cross-package, like effects.X.
+				if pkg == "rules" {
+					return
+				}
+				callee = fun.Sel.Name
 			} else if strings.HasPrefix(fname, id.Name+".") {
 				// a method calling another method on the same receiver
 				callee = id.Name + "." + fun.Sel.Name

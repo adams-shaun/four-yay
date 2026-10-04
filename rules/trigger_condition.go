@@ -371,7 +371,7 @@ func (e *Engine) lifeConditionHoldsAs(t cards.Trigger, you state.PlayerID, amoun
 	if v, ok := t.Param(cards.PKLifeTotal); ok {
 		v = strings.TrimSpace(v)
 		switch lifeConditionHoldsAsCodes.Code(string(v)) {
-		case lifeConditionHoldsAsEmpty:
+		case lifeConditionHoldsAsYou:
 			// the controller, which who already is
 		case lifeConditionHoldsAsActivePlayer:
 			who = e.G.Active
@@ -602,12 +602,12 @@ var definedPlayerBaseCodes = state.NewStrCodes(
 type lifeConditionHoldsAsCode uint16
 
 const (
-	lifeConditionHoldsAsEmpty lifeConditionHoldsAsCode = iota + 1
+	lifeConditionHoldsAsYou lifeConditionHoldsAsCode = iota + 1
 	lifeConditionHoldsAsActivePlayer
 )
 
 var lifeConditionHoldsAsCodes = state.NewStrCodes(
-	state.StrEntry[lifeConditionHoldsAsCode]{Key: "", Val: lifeConditionHoldsAsEmpty},
-	state.StrEntry[lifeConditionHoldsAsCode]{Key: "You", Val: lifeConditionHoldsAsEmpty},
+	state.StrEntry[lifeConditionHoldsAsCode]{Key: "", Val: lifeConditionHoldsAsYou},
+	state.StrEntry[lifeConditionHoldsAsCode]{Key: "You", Val: lifeConditionHoldsAsYou},
 	state.StrEntry[lifeConditionHoldsAsCode]{Key: "ActivePlayer", Val: lifeConditionHoldsAsActivePlayer},
 )

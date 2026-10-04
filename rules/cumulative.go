@@ -227,7 +227,7 @@ func parseCumulativeAction(label string) (*cumulativeAction, bool) {
 	}
 	a := &cumulativeAction{kind: kind, n: int32(n64)}
 	switch parseCumulativeActionCodes.Code(string(kind)) {
-	case parseCumulativeActionSac:
+	case parseCumulativeActionSacOrDiscard:
 		if len(fields) < 2 {
 			return nil, false
 		}
@@ -585,9 +585,9 @@ func (e *Engine) cumulativeActionPayable(cu *cumulativeUpkeep) bool {
 		return len(e.cumulativeSacObjects(cu)) >= total
 	case cumulativeActionPayableDiscard:
 		return len(e.cumulativeObjects(cu, state.ZHand, a.spec)) >= total
-	case cumulativeActionPayableDraw:
+	case cumulativeActionPayableFromLibrary:
 		return len(e.G.Zone(state.ZLibrary, cu.player)) >= total
-	case cumulativeActionPayableAddMana:
+	case cumulativeActionPayableAlways:
 		return true
 	case cumulativeActionPayableAddCounter:
 		if !strings.Contains(a.spec, "/") {
@@ -959,7 +959,7 @@ func (pa *pipAnnounce) fold(c Cost) Cost {
 // replay records the same choice shape.
 func (pa *pipAnnounce) accept(kind string, amount int) bool {
 	switch cumulativeAcceptCodes.Code(string(kind)) {
-	case cumulativeAcceptPayW:
+	case cumulativeAcceptPayColour:
 		pa.color[state.ManaIndex(kind[len("pay_"):][0])]++
 	case cumulativeAcceptPayLife:
 		pa.life += 2
@@ -1431,7 +1431,7 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 		tc.xPaid = x
 		e.triggeredCostPaymentAsk()
 		return
-	case triggeredCostAnswerPayW:
+	case triggeredCostAnswerPayPip:
 		// A flexible-pip announcement answer (the cast flow's own pay_W
 		// family): record the face the payer elected and advance to the next
 		// pip, then re-open the payment ask. A hybrid, twobrid or Phyrexian
@@ -1946,7 +1946,7 @@ func init() {
 type parseCumulativeActionCode uint16
 
 const (
-	parseCumulativeActionSac parseCumulativeActionCode = iota + 1
+	parseCumulativeActionSacOrDiscard parseCumulativeActionCode = iota + 1
 	parseCumulativeActionAddCounter
 	parseCumulativeActionAddMana
 	parseCumulativeActionDraw
@@ -1958,8 +1958,8 @@ const (
 )
 
 var parseCumulativeActionCodes = state.NewStrCodes(
-	state.StrEntry[parseCumulativeActionCode]{Key: "Sac", Val: parseCumulativeActionSac},
-	state.StrEntry[parseCumulativeActionCode]{Key: "Discard", Val: parseCumulativeActionSac},
+	state.StrEntry[parseCumulativeActionCode]{Key: "Sac", Val: parseCumulativeActionSacOrDiscard},
+	state.StrEntry[parseCumulativeActionCode]{Key: "Discard", Val: parseCumulativeActionSacOrDiscard},
 	state.StrEntry[parseCumulativeActionCode]{Key: "AddCounter", Val: parseCumulativeActionAddCounter},
 	state.StrEntry[parseCumulativeActionCode]{Key: "AddMana", Val: parseCumulativeActionAddMana},
 	state.StrEntry[parseCumulativeActionCode]{Key: "Draw", Val: parseCumulativeActionDraw},
@@ -2003,8 +2003,8 @@ type cumulativeActionPayableCode uint16
 const (
 	cumulativeActionPayableSac cumulativeActionPayableCode = iota + 1
 	cumulativeActionPayableDiscard
-	cumulativeActionPayableDraw
-	cumulativeActionPayableAddMana
+	cumulativeActionPayableFromLibrary
+	cumulativeActionPayableAlways
 	cumulativeActionPayableAddCounter
 	cumulativeActionPayableGainControl
 	cumulativeActionPayableGainLife
@@ -2014,10 +2014,10 @@ const (
 var cumulativeActionPayableCodes = state.NewStrCodes(
 	state.StrEntry[cumulativeActionPayableCode]{Key: "Sac", Val: cumulativeActionPayableSac},
 	state.StrEntry[cumulativeActionPayableCode]{Key: "Discard", Val: cumulativeActionPayableDiscard},
-	state.StrEntry[cumulativeActionPayableCode]{Key: "Draw", Val: cumulativeActionPayableDraw},
-	state.StrEntry[cumulativeActionPayableCode]{Key: "ExileFromTop", Val: cumulativeActionPayableDraw},
-	state.StrEntry[cumulativeActionPayableCode]{Key: "AddMana", Val: cumulativeActionPayableAddMana},
-	state.StrEntry[cumulativeActionPayableCode]{Key: "FlipCoin", Val: cumulativeActionPayableAddMana},
+	state.StrEntry[cumulativeActionPayableCode]{Key: "Draw", Val: cumulativeActionPayableFromLibrary},
+	state.StrEntry[cumulativeActionPayableCode]{Key: "ExileFromTop", Val: cumulativeActionPayableFromLibrary},
+	state.StrEntry[cumulativeActionPayableCode]{Key: "AddMana", Val: cumulativeActionPayableAlways},
+	state.StrEntry[cumulativeActionPayableCode]{Key: "FlipCoin", Val: cumulativeActionPayableAlways},
 	state.StrEntry[cumulativeActionPayableCode]{Key: "AddCounter", Val: cumulativeActionPayableAddCounter},
 	state.StrEntry[cumulativeActionPayableCode]{Key: "GainControl", Val: cumulativeActionPayableGainControl},
 	state.StrEntry[cumulativeActionPayableCode]{Key: "GainLife", Val: cumulativeActionPayableGainLife},
@@ -2055,18 +2055,18 @@ var continueCumulativeActionCodes = state.NewStrCodes(
 type cumulativeAcceptCode uint16
 
 const (
-	cumulativeAcceptPayW cumulativeAcceptCode = iota + 1
+	cumulativeAcceptPayColour cumulativeAcceptCode = iota + 1
 	cumulativeAcceptPayLife
 	cumulativeAcceptPayGeneric
 )
 
 var cumulativeAcceptCodes = state.NewStrCodes(
-	state.StrEntry[cumulativeAcceptCode]{Key: "pay_W", Val: cumulativeAcceptPayW},
-	state.StrEntry[cumulativeAcceptCode]{Key: "pay_U", Val: cumulativeAcceptPayW},
-	state.StrEntry[cumulativeAcceptCode]{Key: "pay_B", Val: cumulativeAcceptPayW},
-	state.StrEntry[cumulativeAcceptCode]{Key: "pay_R", Val: cumulativeAcceptPayW},
-	state.StrEntry[cumulativeAcceptCode]{Key: "pay_G", Val: cumulativeAcceptPayW},
-	state.StrEntry[cumulativeAcceptCode]{Key: "pay_C", Val: cumulativeAcceptPayW},
+	state.StrEntry[cumulativeAcceptCode]{Key: "pay_W", Val: cumulativeAcceptPayColour},
+	state.StrEntry[cumulativeAcceptCode]{Key: "pay_U", Val: cumulativeAcceptPayColour},
+	state.StrEntry[cumulativeAcceptCode]{Key: "pay_B", Val: cumulativeAcceptPayColour},
+	state.StrEntry[cumulativeAcceptCode]{Key: "pay_R", Val: cumulativeAcceptPayColour},
+	state.StrEntry[cumulativeAcceptCode]{Key: "pay_G", Val: cumulativeAcceptPayColour},
+	state.StrEntry[cumulativeAcceptCode]{Key: "pay_C", Val: cumulativeAcceptPayColour},
 	state.StrEntry[cumulativeAcceptCode]{Key: "pay_life", Val: cumulativeAcceptPayLife},
 	state.StrEntry[cumulativeAcceptCode]{Key: "pay_generic", Val: cumulativeAcceptPayGeneric},
 )
@@ -2106,7 +2106,7 @@ const (
 	triggeredCostAnswerDone
 	triggeredCostAnswerTriggerCostTap
 	triggeredCostAnswerTriggerCostX
-	triggeredCostAnswerPayW
+	triggeredCostAnswerPayPip
 )
 
 var triggeredCostAnswerCodes = state.NewStrCodes(
@@ -2114,12 +2114,12 @@ var triggeredCostAnswerCodes = state.NewStrCodes(
 	state.StrEntry[triggeredCostAnswerCode]{Key: "done", Val: triggeredCostAnswerDone},
 	state.StrEntry[triggeredCostAnswerCode]{Key: "trigger_cost_tap", Val: triggeredCostAnswerTriggerCostTap},
 	state.StrEntry[triggeredCostAnswerCode]{Key: "trigger_cost_x", Val: triggeredCostAnswerTriggerCostX},
-	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_W", Val: triggeredCostAnswerPayW},
-	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_U", Val: triggeredCostAnswerPayW},
-	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_B", Val: triggeredCostAnswerPayW},
-	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_R", Val: triggeredCostAnswerPayW},
-	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_G", Val: triggeredCostAnswerPayW},
-	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_C", Val: triggeredCostAnswerPayW},
-	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_life", Val: triggeredCostAnswerPayW},
-	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_generic", Val: triggeredCostAnswerPayW},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_W", Val: triggeredCostAnswerPayPip},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_U", Val: triggeredCostAnswerPayPip},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_B", Val: triggeredCostAnswerPayPip},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_R", Val: triggeredCostAnswerPayPip},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_G", Val: triggeredCostAnswerPayPip},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_C", Val: triggeredCostAnswerPayPip},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_life", Val: triggeredCostAnswerPayPip},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_generic", Val: triggeredCostAnswerPayPip},
 )

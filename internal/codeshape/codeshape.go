@@ -142,7 +142,7 @@ var ReplaceEffectFiles = []string{"effects/replacement.go"}
 var ReplaceEffectOnlyKeys = []string{"VarName", "VarValue"}
 
 // ManaCompilerFile is api:Mana's production-parameter compiler (W4 step 3).
-const ManaCompilerFile = "effects/mana_params.go"
+const ManaCompilerFile = "effects/params/mana.go"
 
 // ManaFiles are Mana's own resolution files: no parameter read of any key.
 var ManaFiles = []string{"effects/mana_effect.go"}
@@ -168,7 +168,7 @@ var ManaReflectedOnlyKeys = []string{"ColorOrType", "ReflectProperty"}
 
 // DealDamageCompilerFile is api:DealDamage's parameter compiler (W4 step 3):
 // the one file allowed to read a DealDamage ability's parameters.
-const DealDamageCompilerFile = "effects/dealdamage_params.go"
+const DealDamageCompilerFile = "effects/params/dealdamage.go"
 
 // DealDamageFiles are DealDamage's own resolution files: they carry no
 // parameter read of any key.
@@ -211,7 +211,7 @@ var EffectOnlyKeys = []string{"EffectOwner", "ExileOnMoved", "ForgetCounter", "F
 // TargetCompilerFile is the generic targeting tier's parameter compiler (W4
 // step 3's cross-API tier): the one file in rules/ and effects/ allowed to
 // read a targeting parameter, whatever the ability's API.
-const TargetCompilerFile = "effects/targets_params.go"
+const TargetCompilerFile = "effects/params/targets.go"
 
 // TargetOnlyKeys are the targeting parameter keys: a read of one of them
 // anywhere in rules/ or effects/ outside TargetCompilerFile is a path
@@ -232,7 +232,7 @@ var TargetOnlyKeys = []string{
 // DefinedCompilerFile is the generic Defined-reference tier's parameter
 // compiler (W4 step 4's cross-API tier): the one file in rules/ and effects/
 // allowed to read a Defined-reference parameter, whatever the ability's API.
-const DefinedCompilerFile = "effects/defined_params.go"
+const DefinedCompilerFile = "effects/params/defined.go"
 
 // DefinedOnlyKeys are the Defined-reference parameter keys: a read of one of
 // them anywhere in rules/ or effects/ outside DefinedCompilerFile is a path

@@ -18,7 +18,7 @@ func canReceiveCounter(kind string, o *state.Object) bool {
 		return false
 	}
 	switch canReceiveCounterCodes.Code(string(strings.ToUpper(kind))) {
-	case canReceiveCounterP1P1:
+	case canReceiveCounterPowerToughness:
 		return o.EffectiveIsCreature()
 	}
 	return true
@@ -115,7 +115,7 @@ func hasTypePrinted(o *state.Object, t string, id cards.TypeWordID) (typeDecisio
 // types and Changeling apply consistently to both positive and negated forms.
 func typePredicate(p string, g *state.Game, o *state.Object, sc SpecContext) (bool, bool) {
 	switch typePredicateCodes.Code(string(p)) {
-	case typePredicateLegendary:
+	case typePredicateSupertype:
 		return hasTypeCtx(o, p, sc), true
 	case typePredicateNonLand:
 		return !hasTypeCtx(o, "Land", sc), true
@@ -292,18 +292,18 @@ var kwChangeling = cards.InternKeywordHead("Changeling")
 type canReceiveCounterCode uint16
 
 const (
-	canReceiveCounterP1P1 canReceiveCounterCode = iota + 1
+	canReceiveCounterPowerToughness canReceiveCounterCode = iota + 1
 )
 
 var canReceiveCounterCodes = state.NewStrCodes(
-	state.StrEntry[canReceiveCounterCode]{Key: "P1P1", Val: canReceiveCounterP1P1},
-	state.StrEntry[canReceiveCounterCode]{Key: "M1M1", Val: canReceiveCounterP1P1},
+	state.StrEntry[canReceiveCounterCode]{Key: "P1P1", Val: canReceiveCounterPowerToughness},
+	state.StrEntry[canReceiveCounterCode]{Key: "M1M1", Val: canReceiveCounterPowerToughness},
 )
 
 type typePredicateCode uint16
 
 const (
-	typePredicateLegendary typePredicateCode = iota + 1
+	typePredicateSupertype typePredicateCode = iota + 1
 	typePredicateNonLand
 	typePredicateNonCreature
 	typePredicateNonBasic
@@ -313,9 +313,9 @@ const (
 )
 
 var typePredicateCodes = state.NewStrCodes(
-	state.StrEntry[typePredicateCode]{Key: "Legendary", Val: typePredicateLegendary},
-	state.StrEntry[typePredicateCode]{Key: "Basic", Val: typePredicateLegendary},
-	state.StrEntry[typePredicateCode]{Key: "Snow", Val: typePredicateLegendary},
+	state.StrEntry[typePredicateCode]{Key: "Legendary", Val: typePredicateSupertype},
+	state.StrEntry[typePredicateCode]{Key: "Basic", Val: typePredicateSupertype},
+	state.StrEntry[typePredicateCode]{Key: "Snow", Val: typePredicateSupertype},
 	state.StrEntry[typePredicateCode]{Key: "nonLand", Val: typePredicateNonLand},
 	state.StrEntry[typePredicateCode]{Key: "nonCreature", Val: typePredicateNonCreature},
 	state.StrEntry[typePredicateCode]{Key: "nonBasic", Val: typePredicateNonBasic},

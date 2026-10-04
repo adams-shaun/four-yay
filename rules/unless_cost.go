@@ -136,7 +136,7 @@ func unlessDrawPlayers(ctx *effects.Ctx, payer state.PlayerID, spec string) ([]s
 		return nil, false
 	}
 	switch unlessDrawPlayersCodes.Code(string(spec)) {
-	case unlessDrawPlayersEmpty:
+	case unlessDrawPlayersPayer:
 		return []state.PlayerID{payer}, true
 	case unlessDrawPlayersPlayerTargetedBy:
 		if len(ctx.Targets) == 0 {
@@ -156,7 +156,7 @@ func unlessDrawPlayers(ctx *effects.Ctx, payer state.PlayerID, spec string) ([]s
 type unlessDrawPlayersCode uint16
 
 const (
-	unlessDrawPlayersEmpty unlessDrawPlayersCode = iota + 1
+	unlessDrawPlayersPayer unlessDrawPlayersCode = iota + 1
 	unlessDrawPlayersPlayerTargetedBy
 	unlessDrawPlayersPlayerActivator
 	unlessDrawPlayersPlayerTriggeredPlayer
@@ -164,10 +164,10 @@ const (
 )
 
 var unlessDrawPlayersCodes = state.NewStrCodes(
-	state.StrEntry[unlessDrawPlayersCode]{Key: "", Val: unlessDrawPlayersEmpty},
-	state.StrEntry[unlessDrawPlayersCode]{Key: "You", Val: unlessDrawPlayersEmpty},
-	state.StrEntry[unlessDrawPlayersCode]{Key: "Player", Val: unlessDrawPlayersEmpty},
-	state.StrEntry[unlessDrawPlayersCode]{Key: "Self", Val: unlessDrawPlayersEmpty},
+	state.StrEntry[unlessDrawPlayersCode]{Key: "", Val: unlessDrawPlayersPayer},
+	state.StrEntry[unlessDrawPlayersCode]{Key: "You", Val: unlessDrawPlayersPayer},
+	state.StrEntry[unlessDrawPlayersCode]{Key: "Player", Val: unlessDrawPlayersPayer},
+	state.StrEntry[unlessDrawPlayersCode]{Key: "Self", Val: unlessDrawPlayersPayer},
 	state.StrEntry[unlessDrawPlayersCode]{Key: "Player.targetedBy", Val: unlessDrawPlayersPlayerTargetedBy},
 	state.StrEntry[unlessDrawPlayersCode]{Key: "Targeted", Val: unlessDrawPlayersPlayerTargetedBy},
 	state.StrEntry[unlessDrawPlayersCode]{Key: "TargetedPlayer", Val: unlessDrawPlayersPlayerTargetedBy},

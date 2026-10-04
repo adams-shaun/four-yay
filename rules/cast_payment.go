@@ -596,7 +596,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		for _, o := range chosen {
 			pc.evidence = append(pc.evidence, o.Obj)
 		}
-	case castAnswerMovetogravecost:
+	case castAnswerMoveToGraveCost:
 		for _, o := range chosen {
 			pc.moveGraves = append(pc.moveGraves, o.Obj)
 		}
@@ -607,7 +607,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			pc.revealHandArm = append(pc.revealHandArm, true)
 		}
 		pc.revealPart++
-	case castAnswerRevealorchoose:
+	case castAnswerRevealOrChoose:
 		// Either-or cost, REVEAL arm: the elected hand cards are a real public
 		// reveal (revealHandArm true; emitChoiceCosts announces them).
 		for _, o := range chosen {
@@ -787,9 +787,9 @@ const (
 	castAnswerAltaddcost
 	castAnswerExilecost
 	castAnswerEvidence
-	castAnswerMovetogravecost
+	castAnswerMoveToGraveCost
 	castAnswerRevealcost
-	castAnswerRevealorchoose
+	castAnswerRevealOrChoose
 	castAnswerChoosecost
 	castAnswerBeholdcost
 	castAnswerTapcost
@@ -830,9 +830,9 @@ var castAnswerCodes = state.NewStrCodes(
 	state.StrEntry[castAnswerCode]{Key: "altaddcost", Val: castAnswerAltaddcost},
 	state.StrEntry[castAnswerCode]{Key: "exilecost", Val: castAnswerExilecost},
 	state.StrEntry[castAnswerCode]{Key: "evidence", Val: castAnswerEvidence},
-	state.StrEntry[castAnswerCode]{Key: "movetogravecost", Val: castAnswerMovetogravecost},
+	state.StrEntry[castAnswerCode]{Key: "movetogravecost", Val: castAnswerMoveToGraveCost},
 	state.StrEntry[castAnswerCode]{Key: "revealcost", Val: castAnswerRevealcost},
-	state.StrEntry[castAnswerCode]{Key: "revealorchoose", Val: castAnswerRevealorchoose},
+	state.StrEntry[castAnswerCode]{Key: "revealorchoose", Val: castAnswerRevealOrChoose},
 	state.StrEntry[castAnswerCode]{Key: "choosecost", Val: castAnswerChoosecost},
 	state.StrEntry[castAnswerCode]{Key: "beholdcost", Val: castAnswerBeholdcost},
 	state.StrEntry[castAnswerCode]{Key: "tapcost", Val: castAnswerTapcost},

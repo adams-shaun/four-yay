@@ -316,7 +316,7 @@ func durationTiming(dur string) (permanent bool, untilEOT bool) {
 	switch durationTimingCodes.Code(string(strings.ToLower(strings.TrimSpace(dur)))) {
 	case durationTimingPermanent:
 		return true, false
-	case durationTimingUntilendofcombat:
+	case durationTimingUntilEndOfCombat:
 		return false, false
 	default:
 		return false, true
@@ -777,7 +777,7 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 //     prevent).
 func animateHostScoped(dur string) bool {
 	switch animateHostScopedCodes.Code(string(strings.ToLower(strings.TrimSpace(dur)))) {
-	case animateHostScopedUntilhostleavesplay:
+	case animateHostScopedWhileHostInPlay:
 		return true
 	}
 	return false
@@ -1214,21 +1214,21 @@ type durationTimingCode uint16
 
 const (
 	durationTimingPermanent durationTimingCode = iota + 1
-	durationTimingUntilendofcombat
+	durationTimingUntilEndOfCombat
 )
 
 var durationTimingCodes = state.NewStrCodes(
 	state.StrEntry[durationTimingCode]{Key: "permanent", Val: durationTimingPermanent},
-	state.StrEntry[durationTimingCode]{Key: "untilendofcombat", Val: durationTimingUntilendofcombat},
+	state.StrEntry[durationTimingCode]{Key: "untilendofcombat", Val: durationTimingUntilEndOfCombat},
 )
 
 type animateHostScopedCode uint16
 
 const (
-	animateHostScopedUntilhostleavesplay animateHostScopedCode = iota + 1
+	animateHostScopedWhileHostInPlay animateHostScopedCode = iota + 1
 )
 
 var animateHostScopedCodes = state.NewStrCodes(
-	state.StrEntry[animateHostScopedCode]{Key: "untilhostleavesplay", Val: animateHostScopedUntilhostleavesplay},
-	state.StrEntry[animateHostScopedCode]{Key: "aslongasinplay", Val: animateHostScopedUntilhostleavesplay},
+	state.StrEntry[animateHostScopedCode]{Key: "untilhostleavesplay", Val: animateHostScopedWhileHostInPlay},
+	state.StrEntry[animateHostScopedCode]{Key: "aslongasinplay", Val: animateHostScopedWhileHostInPlay},
 )

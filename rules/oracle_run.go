@@ -343,7 +343,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		}
 	}
 	switch oracleFormatCodes.Code(string(sc.Format)) {
-	case oracleFormatEmpty:
+	case oracleFormatConstructed:
 	case oracleFormatCommander:
 		cfg.Format = FormatCommander
 		cfg.StartingLife = 40 // CR 903.7
@@ -516,10 +516,7 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 // scenario drives them through `activate` plus the option's label, exactly
 // as a named ability is driven; they are not a separate op.
 func oracleActivateKind(kind string) bool {
-	if v, ok := oracleActivateKindTab.Get(kind); ok {
-		return v
-	}
-	return false
+	return oracleActivateKindSet.Has(kind)
 }
 
 func oracleLabelMatches(label, want string) bool {
@@ -798,7 +795,7 @@ func (r *oracleRun) do(st oracleStep) error {
 	switch oracleOpCodes.Code(string(st.Op)) {
 	case oracleOpMana:
 		return r.addMana(seat, st.Mana)
-	case oracleOpCast:
+	case oracleOpCastOrActivate:
 		if st.Mana != "" {
 			if err := r.addMana(seat, st.Mana); err != nil {
 				return err
@@ -1431,12 +1428,12 @@ func seatZeroStart(cfg Config) Config {
 	}
 }
 
-var oracleActivateKindTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "ability", Val: true},
-	state.StrEntry[bool]{Key: "activate", Val: true},
-	state.StrEntry[bool]{Key: "station", Val: true},
-	state.StrEntry[bool]{Key: "unlock", Val: true},
-	state.StrEntry[bool]{Key: "turn_face_up", Val: true},
+var oracleActivateKindSet = state.NewNameSet(
+	"ability",
+	"activate",
+	"station",
+	"unlock",
+	"turn_face_up",
 )
 
 var normCounterTab = state.NewStrTable[string](
@@ -1449,13 +1446,13 @@ var normCounterTab = state.NewStrTable[string](
 type oracleFormatCode uint16
 
 const (
-	oracleFormatEmpty oracleFormatCode = iota + 1
+	oracleFormatConstructed oracleFormatCode = iota + 1
 	oracleFormatCommander
 )
 
 var oracleFormatCodes = state.NewStrCodes(
-	state.StrEntry[oracleFormatCode]{Key: "", Val: oracleFormatEmpty},
-	state.StrEntry[oracleFormatCode]{Key: "constructed", Val: oracleFormatEmpty},
+	state.StrEntry[oracleFormatCode]{Key: "", Val: oracleFormatConstructed},
+	state.StrEntry[oracleFormatCode]{Key: "constructed", Val: oracleFormatConstructed},
 	state.StrEntry[oracleFormatCode]{Key: "commander", Val: oracleFormatCommander},
 )
 
@@ -1463,7 +1460,7 @@ type oracleOpCode uint16
 
 const (
 	oracleOpMana oracleOpCode = iota + 1
-	oracleOpCast
+	oracleOpCastOrActivate
 	oracleOpPlay
 	oracleOpResolve
 	oracleOpAttack
@@ -1476,8 +1473,8 @@ const (
 
 var oracleOpCodes = state.NewStrCodes(
 	state.StrEntry[oracleOpCode]{Key: "mana", Val: oracleOpMana},
-	state.StrEntry[oracleOpCode]{Key: "cast", Val: oracleOpCast},
-	state.StrEntry[oracleOpCode]{Key: "activate", Val: oracleOpCast},
+	state.StrEntry[oracleOpCode]{Key: "cast", Val: oracleOpCastOrActivate},
+	state.StrEntry[oracleOpCode]{Key: "activate", Val: oracleOpCastOrActivate},
 	state.StrEntry[oracleOpCode]{Key: "play", Val: oracleOpPlay},
 	state.StrEntry[oracleOpCode]{Key: "resolve", Val: oracleOpResolve},
 	state.StrEntry[oracleOpCode]{Key: "attack", Val: oracleOpAttack},

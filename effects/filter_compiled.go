@@ -152,8 +152,8 @@ type compiledPred struct {
 // list exactly those conditions; a token it misses would be dispatched to a
 // later branch the oracle never reaches for it.
 func specialPositiveToken(p string) bool {
-	if v, ok := specialPositiveTokenTab.Get(p); ok {
-		return v
+	if specialPositiveTokenSet.Has(p) {
+		return true
 	}
 	if arg, has := strings.CutPrefix(p, "SharesColorWith "); has {
 		// The one bare referent token matchSharesColorWith binds (C.A.M.P.'s
@@ -178,10 +178,7 @@ func specialPositiveToken(p string) bool {
 
 // typePredicateToken lists typePredicate's switch cases.
 func typePredicateToken(p string) bool {
-	if v, ok := typePredicateTokenTab.Get(p); ok {
-		return v
-	}
-	return false
+	return typePredicateTokenSet.Has(p)
 }
 
 func compilePred(raw string) compiledPred {
@@ -641,32 +638,32 @@ func (c *specCache) slow(spec string) *compiledSpec {
 	return cs
 }
 
-var specialPositiveTokenTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "token$DifferentCardNames", Val: true},
-	state.StrEntry[bool]{Key: "ChosenCard", Val: true},
-	state.StrEntry[bool]{Key: "ChosenCardStrict", Val: true},
-	state.StrEntry[bool]{Key: "nonChosenCard", Val: true},
-	state.StrEntry[bool]{Key: "RememberedPlayerCtrl", Val: true},
-	state.StrEntry[bool]{Key: "CanBeTargetedByTriggeredSpellAbility", Val: true},
-	state.StrEntry[bool]{Key: "TriggeredNewCard", Val: true},
-	state.StrEntry[bool]{Key: "TriggeredCard", Val: true},
-	state.StrEntry[bool]{Key: "blockingTriggeredAttacker", Val: true},
-	state.StrEntry[bool]{Key: "EffectSource", Val: true},
-	state.StrEntry[bool]{Key: "IsGoaded", Val: true},
-	state.StrEntry[bool]{Key: "IsRemembered", Val: true},
-	state.StrEntry[bool]{Key: "IsTriggerRemembered", Val: true},
+var specialPositiveTokenSet = state.NewNameSet(
+	"token$DifferentCardNames",
+	"ChosenCard",
+	"ChosenCardStrict",
+	"nonChosenCard",
+	"RememberedPlayerCtrl",
+	"CanBeTargetedByTriggeredSpellAbility",
+	"TriggeredNewCard",
+	"TriggeredCard",
+	"blockingTriggeredAttacker",
+	"EffectSource",
+	"IsGoaded",
+	"IsRemembered",
+	"IsTriggerRemembered",
 )
 
-var typePredicateTokenTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "Legendary", Val: true},
-	state.StrEntry[bool]{Key: "Basic", Val: true},
-	state.StrEntry[bool]{Key: "Snow", Val: true},
-	state.StrEntry[bool]{Key: "nonLand", Val: true},
-	state.StrEntry[bool]{Key: "nonCreature", Val: true},
-	state.StrEntry[bool]{Key: "nonBasic", Val: true},
-	state.StrEntry[bool]{Key: "ChosenType", Val: true},
-	state.StrEntry[bool]{Key: "IsNotChosenType", Val: true},
-	state.StrEntry[bool]{Key: "ChosenCtrl", Val: true},
+var typePredicateTokenSet = state.NewNameSet(
+	"Legendary",
+	"Basic",
+	"Snow",
+	"nonLand",
+	"nonCreature",
+	"nonBasic",
+	"ChosenType",
+	"IsNotChosenType",
+	"ChosenCtrl",
 )
 
 type compileSpecCode uint16

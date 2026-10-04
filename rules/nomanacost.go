@@ -35,10 +35,7 @@ func paysPrintedManaCost(opt *decision.Option) bool {
 	if opt.Kind != "cast" || opt.AltCostIndex > 0 {
 		return false
 	}
-	if v, ok := paysPrintedManaCostTab.Get(opt.Mode); ok {
-		return v
-	}
-	return false
+	return paysPrintedManaCostSet.Has(opt.Mode)
 }
 
 // isNoManaCost reports the printed "no cost" mana cost (CR 118.6 / 202.1b).
@@ -91,22 +88,22 @@ func (e *Engine) castsNoManaCostByPaying(p state.PlayerID, opt *decision.Option)
 	return true
 }
 
-var paysPrintedManaCostTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "", Val: true},
-	state.StrEntry[bool]{Key: "mayflash", Val: true},
-	state.StrEntry[bool]{Key: "kicked", Val: true},
-	state.StrEntry[bool]{Key: "kicked1", Val: true},
-	state.StrEntry[bool]{Key: "kicked2", Val: true},
-	state.StrEntry[bool]{Key: "kickedboth", Val: true},
-	state.StrEntry[bool]{Key: "replicated", Val: true},
-	state.StrEntry[bool]{Key: "multikicked", Val: true},
-	state.StrEntry[bool]{Key: "squadded", Val: true},
-	state.StrEntry[bool]{Key: "conspired", Val: true},
-	state.StrEntry[bool]{Key: "buyback", Val: true},
-	state.StrEntry[bool]{Key: "offspring", Val: true},
-	state.StrEntry[bool]{Key: "optionalcost", Val: true},
-	state.StrEntry[bool]{Key: "retrace", Val: true},
-	state.StrEntry[bool]{Key: "jumpstart", Val: true},
-	state.StrEntry[bool]{Key: "warp_recast", Val: true},
-	state.StrEntry[bool]{Key: "mayplay", Val: true},
+var paysPrintedManaCostSet = state.NewNameSet(
+	"",
+	"mayflash",
+	"kicked",
+	"kicked1",
+	"kicked2",
+	"kickedboth",
+	"replicated",
+	"multikicked",
+	"squadded",
+	"conspired",
+	"buyback",
+	"offspring",
+	"optionalcost",
+	"retrace",
+	"jumpstart",
+	"warp_recast",
+	"mayplay",
 )

@@ -811,7 +811,7 @@ func validPlayersSelectorUnknown(spec string) bool {
 		}
 		base, _, _ := strings.Cut(clause, ".")
 		switch validPlayersSelectorUnknownCodes.Code(string(base)) {
-		case validPlayersSelectorUnknownPlayer:
+		case validPlayersSelectorUnknownKnownBase:
 			return true
 		}
 		return false
@@ -1212,13 +1212,13 @@ var excessConditionHoldsCodes = state.NewStrCodes(
 type validPlayersSelectorUnknownCode uint16
 
 const (
-	validPlayersSelectorUnknownPlayer validPlayersSelectorUnknownCode = iota + 1
+	validPlayersSelectorUnknownKnownBase validPlayersSelectorUnknownCode = iota + 1
 )
 
 var validPlayersSelectorUnknownCodes = state.NewStrCodes(
-	state.StrEntry[validPlayersSelectorUnknownCode]{Key: "Player", Val: validPlayersSelectorUnknownPlayer},
-	state.StrEntry[validPlayersSelectorUnknownCode]{Key: "Any", Val: validPlayersSelectorUnknownPlayer},
-	state.StrEntry[validPlayersSelectorUnknownCode]{Key: "You", Val: validPlayersSelectorUnknownPlayer},
-	state.StrEntry[validPlayersSelectorUnknownCode]{Key: "Opponent", Val: validPlayersSelectorUnknownPlayer},
-	state.StrEntry[validPlayersSelectorUnknownCode]{Key: "Other", Val: validPlayersSelectorUnknownPlayer},
+	state.StrEntry[validPlayersSelectorUnknownCode]{Key: "Player", Val: validPlayersSelectorUnknownKnownBase},
+	state.StrEntry[validPlayersSelectorUnknownCode]{Key: "Any", Val: validPlayersSelectorUnknownKnownBase},
+	state.StrEntry[validPlayersSelectorUnknownCode]{Key: "You", Val: validPlayersSelectorUnknownKnownBase},
+	state.StrEntry[validPlayersSelectorUnknownCode]{Key: "Opponent", Val: validPlayersSelectorUnknownKnownBase},
+	state.StrEntry[validPlayersSelectorUnknownCode]{Key: "Other", Val: validPlayersSelectorUnknownKnownBase},
 )

@@ -45,12 +45,12 @@ func specializeRider(kw string) (params map[string]string, unsupported string, o
 		k = strings.TrimSpace(k)
 		params[k] = strings.TrimSpace(v)
 		switch specializeRiderCodes.Code(string(k)) {
-		case specializeRiderAdditionalActivationZone:
+		case specializeRiderUnsupported:
 			// Out of scope for this ticket: the option is NOT offered and the
 			// unsupported rider is named instead. Both are loud so a corpus
 			// count can see them rather than a silent merge.
 			return nil, k, true
-		case specializeRiderIsPresent:
+		case specializeRiderCondition:
 			// Readable through the shared continuousGateHolds grammar.
 		default:
 			return nil, k, true
@@ -153,17 +153,17 @@ func (e *Engine) specialize(p state.PlayerID, opt decision.Option) {
 type specializeRiderCode uint16
 
 const (
-	specializeRiderAdditionalActivationZone specializeRiderCode = iota + 1
-	specializeRiderIsPresent
+	specializeRiderUnsupported specializeRiderCode = iota + 1
+	specializeRiderCondition
 )
 
 var specializeRiderCodes = state.NewStrCodes(
-	state.StrEntry[specializeRiderCode]{Key: "AdditionalActivationZone", Val: specializeRiderAdditionalActivationZone},
-	state.StrEntry[specializeRiderCode]{Key: "ReduceCost", Val: specializeRiderAdditionalActivationZone},
-	state.StrEntry[specializeRiderCode]{Key: "IsPresent", Val: specializeRiderIsPresent},
-	state.StrEntry[specializeRiderCode]{Key: "IsPresent2", Val: specializeRiderIsPresent},
-	state.StrEntry[specializeRiderCode]{Key: "PresentCompare", Val: specializeRiderIsPresent},
-	state.StrEntry[specializeRiderCode]{Key: "CheckSVar", Val: specializeRiderIsPresent},
-	state.StrEntry[specializeRiderCode]{Key: "SVarCompare", Val: specializeRiderIsPresent},
-	state.StrEntry[specializeRiderCode]{Key: "Condition", Val: specializeRiderIsPresent},
+	state.StrEntry[specializeRiderCode]{Key: "AdditionalActivationZone", Val: specializeRiderUnsupported},
+	state.StrEntry[specializeRiderCode]{Key: "ReduceCost", Val: specializeRiderUnsupported},
+	state.StrEntry[specializeRiderCode]{Key: "IsPresent", Val: specializeRiderCondition},
+	state.StrEntry[specializeRiderCode]{Key: "IsPresent2", Val: specializeRiderCondition},
+	state.StrEntry[specializeRiderCode]{Key: "PresentCompare", Val: specializeRiderCondition},
+	state.StrEntry[specializeRiderCode]{Key: "CheckSVar", Val: specializeRiderCondition},
+	state.StrEntry[specializeRiderCode]{Key: "SVarCompare", Val: specializeRiderCondition},
+	state.StrEntry[specializeRiderCode]{Key: "Condition", Val: specializeRiderCondition},
 )

@@ -213,9 +213,9 @@ func (e *Engine) sourceHasQuality(source state.ObjID, q string) bool {
 	// keep them here with the other source-quality tests so generic
 	// kw:Protection registration covers every live K:Protection form.
 	switch sourceQualityCardCodes.Code(string(strings.ToLower(q))) {
-	case sourceQualityCardCardMonocolor:
+	case sourceQualityCardMonocolor:
 		return isMonoColor(e.objColors(o))
-	case sourceQualityCardCardEnemycolor:
+	case sourceQualityCardEnemyColor:
 		return hasEnemyColorPair(e.objColors(o))
 	}
 	// Parameterised protection qualities are Forge object specs (Artifact,
@@ -409,13 +409,13 @@ var protecColourLetterTab = state.NewStrTable[rune](
 type sourceQualityCardCode uint16
 
 const (
-	sourceQualityCardCardMonocolor sourceQualityCardCode = iota + 1
-	sourceQualityCardCardEnemycolor
+	sourceQualityCardMonocolor sourceQualityCardCode = iota + 1
+	sourceQualityCardEnemyColor
 )
 
 var sourceQualityCardCodes = state.NewStrCodes(
-	state.StrEntry[sourceQualityCardCode]{Key: "card.monocolor", Val: sourceQualityCardCardMonocolor},
-	state.StrEntry[sourceQualityCardCode]{Key: "card.enemycolor", Val: sourceQualityCardCardEnemycolor},
+	state.StrEntry[sourceQualityCardCode]{Key: "card.monocolor", Val: sourceQualityCardMonocolor},
+	state.StrEntry[sourceQualityCardCode]{Key: "card.enemycolor", Val: sourceQualityCardEnemyColor},
 )
 
 type sourceQualityPluralCode uint16

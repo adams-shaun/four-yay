@@ -1,147 +1,160 @@
 package cards
 
-// The line-head vocabularies the engine dispatches on: a trigger's Mode$, a
-// static's Mode$ and a replacement's Event$. deriveParamSets resolves each
-// printed node's name once at load (ModeKind / EventKind read the stored
-// code); a node built later resolves on read. A name the engine never
-// dispatches on is code 0 and matches no case.
+// The line-head vocabularies: a trigger's Mode$, a static's Mode$ and a
+// replacement's Event$, each ONE dense code set shared by the engine's
+// dispatch and the compiled catalog's rows (compiled_catalog.go).
+// deriveParamSets resolves each printed node's name once at load (ModeKind /
+// EventKind read the stored code); a node built later resolves on read. A
+// name outside the vocabulary is code 0 and matches no case.
 //
-// These are dispatch vocabularies, renumbered freely as names are added. The
-// compiled catalog's TriggerModeCode / StaticModeCode / ReplacementEventCode
-// (compiled_codes.go) are a different contract: explicit, append-only values
-// persisted in a catalog schema.
+// Values are explicit and APPEND-ONLY: the catalog persists them in its rows
+// (CompiledCatalogSchema), so a new name takes the next value and an
+// assigned value never moves. The first values are the catalog's historical
+// assignment; the dispatch-only names follow. A few names (the static modes
+// CantBlock, Panharmonicon, AttackRestrict, UntapOtherPlayer and the
+// replacement event LifeReduced) are catalogued but dispatched on nowhere:
+// their codes match no engine case, exactly as an unknown name does.
 
 // TriggerMode is a T: line's Mode$ as a dense code.
 type TriggerMode uint16
 
-// The vocabulary, in name order. 0 is a name outside it.
+// The vocabulary. 0 is a name outside it.
 const (
-	TriggerAbilityCast TriggerMode = iota + 1
-	TriggerAlways
-	TriggerAttached
-	TriggerAttackerBlocked
-	TriggerAttackerBlockedByCreature
-	TriggerAttackerUnblocked
-	TriggerAttackerUnblockedOnce
-	TriggerAttackersDeclared
-	TriggerAttackersDeclaredOneTarget
-	TriggerAttacks
-	TriggerBecomeMonarch
-	TriggerBecomeMonstrous
-	TriggerBecomesTarget
-	TriggerBecomesTargetOnce
-	TriggerBlocks
-	TriggerChangesController
-	TriggerChangesZone
-	TriggerChangesZoneAll
-	TriggerChaosEnsues
-	TriggerClashed
-	TriggerClassLevelGained
-	TriggerCommitCrime
-	TriggerConnives
-	TriggerCounterAdded
-	TriggerCounterAddedOnce
-	TriggerCounterPlayerAddedAll
-	TriggerCounterRemoved
-	TriggerCounterRemovedOnce
-	TriggerCycled
-	TriggerDamageAll
-	TriggerDamageDealtOnce
-	TriggerDamageDone
-	TriggerDamageDoneOnce
-	TriggerDamagePreventedOnce
-	TriggerDiscarded
-	TriggerDiscardedAll
-	TriggerDiscover
-	TriggerDrawn
-	TriggerElementalBend
-	TriggerEnlisted
-	TriggerEvolved
-	TriggerExerted
-	TriggerExploited
-	TriggerExplores
-	TriggerFlippedCoin
-	TriggerForetell
-	TriggerFullyUnlock
-	TriggerGiveGift
-	TriggerInvestigated
-	TriggerLandPlayed
-	TriggerLifeGained
-	TriggerLifeLost
-	TriggerLifeLostAll
-	TriggerManaExpend
-	TriggerMilled
-	TriggerMilledAll
-	TriggerMutates
-	TriggerPhase
-	TriggerPhaseOutAll
-	TriggerPlaneswalkedFrom
-	TriggerPlaneswalkedTo
-	TriggerProliferate
-	TriggerRingTemptsYou
-	TriggerRolledDie
-	TriggerRolledDieOnce
-	TriggerSacrificed
-	TriggerScry
-	TriggerSearchedLibrary
-	TriggerSeekAll
-	TriggerSpecializes
-	TriggerSpellAbilityCast
-	TriggerSpellCast
-	TriggerSpellCastOrCopy
-	TriggerSpellCopy
-	TriggerSurveil
-	TriggerTaps
-	TriggerTapsForMana
-	TriggerTokenCreated
-	TriggerTokenCreatedOnce
-	TriggerTransformed
-	TriggerTurnFaceUp
-	TriggerUnattached
-	TriggerUntaps
-	TriggerVote
-	TriggerModeCount = iota + 1 // one past the last; sizes a dense per-TriggerMode array
+	TriggerChangesZone                TriggerMode = 1
+	TriggerSpellCast                  TriggerMode = 2
+	TriggerAbilityCast                TriggerMode = 3
+	TriggerSpellAbilityCast           TriggerMode = 4
+	TriggerAttacks                    TriggerMode = 5
+	TriggerAttackersDeclaredOneTarget TriggerMode = 6
+	TriggerAttackersDeclared          TriggerMode = 7
+	TriggerAttackerBlocked            TriggerMode = 8
+	TriggerSacrificed                 TriggerMode = 9
+	TriggerDiscarded                  TriggerMode = 10
+	TriggerLandPlayed                 TriggerMode = 11
+	TriggerCycled                     TriggerMode = 12
+	TriggerCommitCrime                TriggerMode = 13
+	TriggerBecomesTarget              TriggerMode = 14
+	TriggerTaps                       TriggerMode = 15
+	TriggerTapsForMana                TriggerMode = 16
+	TriggerDamageDone                 TriggerMode = 17
+	TriggerDamageDealtOnce            TriggerMode = 18
+	TriggerDamageDoneOnce             TriggerMode = 19
+	TriggerCounterAdded               TriggerMode = 20
+	TriggerDrawn                      TriggerMode = 21
+	TriggerLifeLost                   TriggerMode = 22
+	TriggerLifeLostAll                TriggerMode = 23
+	TriggerPhase                      TriggerMode = 24
+	TriggerAlways                     TriggerMode = 25
+	TriggerAttached                   TriggerMode = 26
+	TriggerAttackerBlockedByCreature  TriggerMode = 27
+	TriggerAttackerUnblocked          TriggerMode = 28
+	TriggerAttackerUnblockedOnce      TriggerMode = 29
+	TriggerBecomeMonarch              TriggerMode = 30
+	TriggerBecomeMonstrous            TriggerMode = 31
+	TriggerBecomesTargetOnce          TriggerMode = 32
+	TriggerBlocks                     TriggerMode = 33
+	TriggerChangesController          TriggerMode = 34
+	TriggerChangesZoneAll             TriggerMode = 35
+	TriggerChaosEnsues                TriggerMode = 36
+	TriggerClashed                    TriggerMode = 37
+	TriggerClassLevelGained           TriggerMode = 38
+	TriggerConnives                   TriggerMode = 39
+	TriggerCounterAddedOnce           TriggerMode = 40
+	TriggerCounterPlayerAddedAll      TriggerMode = 41
+	TriggerCounterRemoved             TriggerMode = 42
+	TriggerCounterRemovedOnce         TriggerMode = 43
+	TriggerDamageAll                  TriggerMode = 44
+	TriggerDamagePreventedOnce        TriggerMode = 45
+	TriggerDiscardedAll               TriggerMode = 46
+	TriggerDiscover                   TriggerMode = 47
+	TriggerElementalBend              TriggerMode = 48
+	TriggerEnlisted                   TriggerMode = 49
+	TriggerEvolved                    TriggerMode = 50
+	TriggerExerted                    TriggerMode = 51
+	TriggerExploited                  TriggerMode = 52
+	TriggerExplores                   TriggerMode = 53
+	TriggerFlippedCoin                TriggerMode = 54
+	TriggerForetell                   TriggerMode = 55
+	TriggerFullyUnlock                TriggerMode = 56
+	TriggerGiveGift                   TriggerMode = 57
+	TriggerInvestigated               TriggerMode = 58
+	TriggerLifeGained                 TriggerMode = 59
+	TriggerManaExpend                 TriggerMode = 60
+	TriggerMilled                     TriggerMode = 61
+	TriggerMilledAll                  TriggerMode = 62
+	TriggerMutates                    TriggerMode = 63
+	TriggerPhaseOutAll                TriggerMode = 64
+	TriggerPlaneswalkedFrom           TriggerMode = 65
+	TriggerPlaneswalkedTo             TriggerMode = 66
+	TriggerProliferate                TriggerMode = 67
+	TriggerRingTemptsYou              TriggerMode = 68
+	TriggerRolledDie                  TriggerMode = 69
+	TriggerRolledDieOnce              TriggerMode = 70
+	TriggerScry                       TriggerMode = 71
+	TriggerSearchedLibrary            TriggerMode = 72
+	TriggerSeekAll                    TriggerMode = 73
+	TriggerSpecializes                TriggerMode = 74
+	TriggerSpellCastOrCopy            TriggerMode = 75
+	TriggerSpellCopy                  TriggerMode = 76
+	TriggerSurveil                    TriggerMode = 77
+	TriggerTokenCreated               TriggerMode = 78
+	TriggerTokenCreatedOnce           TriggerMode = 79
+	TriggerTransformed                TriggerMode = 80
+	TriggerTurnFaceUp                 TriggerMode = 81
+	TriggerUnattached                 TriggerMode = 82
+	TriggerUntaps                     TriggerMode = 83
+	TriggerVote                       TriggerMode = 84
+	TriggerModeCount                              = 85 // one past the last; sizes a dense per-TriggerMode array
 )
 
 var triggerModeNames = [TriggerModeCount]string{
+	TriggerChangesZone:                "ChangesZone",
+	TriggerSpellCast:                  "SpellCast",
 	TriggerAbilityCast:                "AbilityCast",
+	TriggerSpellAbilityCast:           "SpellAbilityCast",
+	TriggerAttacks:                    "Attacks",
+	TriggerAttackersDeclaredOneTarget: "AttackersDeclaredOneTarget",
+	TriggerAttackersDeclared:          "AttackersDeclared",
+	TriggerAttackerBlocked:            "AttackerBlocked",
+	TriggerSacrificed:                 "Sacrificed",
+	TriggerDiscarded:                  "Discarded",
+	TriggerLandPlayed:                 "LandPlayed",
+	TriggerCycled:                     "Cycled",
+	TriggerCommitCrime:                "CommitCrime",
+	TriggerBecomesTarget:              "BecomesTarget",
+	TriggerTaps:                       "Taps",
+	TriggerTapsForMana:                "TapsForMana",
+	TriggerDamageDone:                 "DamageDone",
+	TriggerDamageDealtOnce:            "DamageDealtOnce",
+	TriggerDamageDoneOnce:             "DamageDoneOnce",
+	TriggerCounterAdded:               "CounterAdded",
+	TriggerDrawn:                      "Drawn",
+	TriggerLifeLost:                   "LifeLost",
+	TriggerLifeLostAll:                "LifeLostAll",
+	TriggerPhase:                      "Phase",
 	TriggerAlways:                     "Always",
 	TriggerAttached:                   "Attached",
-	TriggerAttackerBlocked:            "AttackerBlocked",
 	TriggerAttackerBlockedByCreature:  "AttackerBlockedByCreature",
 	TriggerAttackerUnblocked:          "AttackerUnblocked",
 	TriggerAttackerUnblockedOnce:      "AttackerUnblockedOnce",
-	TriggerAttackersDeclared:          "AttackersDeclared",
-	TriggerAttackersDeclaredOneTarget: "AttackersDeclaredOneTarget",
-	TriggerAttacks:                    "Attacks",
 	TriggerBecomeMonarch:              "BecomeMonarch",
 	TriggerBecomeMonstrous:            "BecomeMonstrous",
-	TriggerBecomesTarget:              "BecomesTarget",
 	TriggerBecomesTargetOnce:          "BecomesTargetOnce",
 	TriggerBlocks:                     "Blocks",
 	TriggerChangesController:          "ChangesController",
-	TriggerChangesZone:                "ChangesZone",
 	TriggerChangesZoneAll:             "ChangesZoneAll",
 	TriggerChaosEnsues:                "ChaosEnsues",
 	TriggerClashed:                    "Clashed",
 	TriggerClassLevelGained:           "ClassLevelGained",
-	TriggerCommitCrime:                "CommitCrime",
 	TriggerConnives:                   "Connives",
-	TriggerCounterAdded:               "CounterAdded",
 	TriggerCounterAddedOnce:           "CounterAddedOnce",
 	TriggerCounterPlayerAddedAll:      "CounterPlayerAddedAll",
 	TriggerCounterRemoved:             "CounterRemoved",
 	TriggerCounterRemovedOnce:         "CounterRemovedOnce",
-	TriggerCycled:                     "Cycled",
 	TriggerDamageAll:                  "DamageAll",
-	TriggerDamageDealtOnce:            "DamageDealtOnce",
-	TriggerDamageDone:                 "DamageDone",
-	TriggerDamageDoneOnce:             "DamageDoneOnce",
 	TriggerDamagePreventedOnce:        "DamagePreventedOnce",
-	TriggerDiscarded:                  "Discarded",
 	TriggerDiscardedAll:               "DiscardedAll",
 	TriggerDiscover:                   "Discover",
-	TriggerDrawn:                      "Drawn",
 	TriggerElementalBend:              "ElementalBend",
 	TriggerEnlisted:                   "Enlisted",
 	TriggerEvolved:                    "Evolved",
@@ -153,15 +166,11 @@ var triggerModeNames = [TriggerModeCount]string{
 	TriggerFullyUnlock:                "FullyUnlock",
 	TriggerGiveGift:                   "GiveGift",
 	TriggerInvestigated:               "Investigated",
-	TriggerLandPlayed:                 "LandPlayed",
 	TriggerLifeGained:                 "LifeGained",
-	TriggerLifeLost:                   "LifeLost",
-	TriggerLifeLostAll:                "LifeLostAll",
 	TriggerManaExpend:                 "ManaExpend",
 	TriggerMilled:                     "Milled",
 	TriggerMilledAll:                  "MilledAll",
 	TriggerMutates:                    "Mutates",
-	TriggerPhase:                      "Phase",
 	TriggerPhaseOutAll:                "PhaseOutAll",
 	TriggerPlaneswalkedFrom:           "PlaneswalkedFrom",
 	TriggerPlaneswalkedTo:             "PlaneswalkedTo",
@@ -169,18 +178,13 @@ var triggerModeNames = [TriggerModeCount]string{
 	TriggerRingTemptsYou:              "RingTemptsYou",
 	TriggerRolledDie:                  "RolledDie",
 	TriggerRolledDieOnce:              "RolledDieOnce",
-	TriggerSacrificed:                 "Sacrificed",
 	TriggerScry:                       "Scry",
 	TriggerSearchedLibrary:            "SearchedLibrary",
 	TriggerSeekAll:                    "SeekAll",
 	TriggerSpecializes:                "Specializes",
-	TriggerSpellAbilityCast:           "SpellAbilityCast",
-	TriggerSpellCast:                  "SpellCast",
 	TriggerSpellCastOrCopy:            "SpellCastOrCopy",
 	TriggerSpellCopy:                  "SpellCopy",
 	TriggerSurveil:                    "Surveil",
-	TriggerTaps:                       "Taps",
-	TriggerTapsForMana:                "TapsForMana",
 	TriggerTokenCreated:               "TokenCreated",
 	TriggerTokenCreatedOnce:           "TokenCreatedOnce",
 	TriggerTransformed:                "Transformed",
@@ -212,65 +216,73 @@ func (m TriggerMode) String() string {
 // StaticMode is an S: line's Mode$ as a dense code.
 type StaticMode uint16
 
-// The vocabulary, in name order. 0 is a name outside it.
+// The vocabulary. 0 is a name outside it.
 const (
-	StaticAlternativeCost StaticMode = iota + 1
-	StaticCanAttackDefender
-	StaticCantAttack
-	StaticCantAttackUnless
-	StaticCantBeActivated
-	StaticCantBeCast
-	StaticCantBlockBy
-	StaticCantBlockUnless
-	StaticCantExile
-	StaticCantGainLife
-	StaticCantPreventDamage
-	StaticCantPutCounter
-	StaticCantRegenerate
-	StaticCantSacrifice
-	StaticCantTarget
-	StaticCastWithFlash
-	StaticCombatDamageToughness
-	StaticContinuous
-	StaticManaConvert
-	StaticMustAttack
-	StaticMustBlock
-	StaticNumLoyaltyAct
-	StaticOptionalCost
-	StaticRaiseCost
-	StaticReduceCost
-	StaticSetCost
-	StaticUnspentMana
-	StaticModeCount = iota + 1 // one past the last; sizes a dense per-StaticMode array
+	StaticContinuous            StaticMode = 1
+	StaticCantBeCast            StaticMode = 2
+	StaticCantBeActivated       StaticMode = 3
+	StaticRaiseCost             StaticMode = 4
+	StaticReduceCost            StaticMode = 5
+	StaticSetCost               StaticMode = 6
+	StaticAlternativeCost       StaticMode = 7
+	StaticCastWithFlash         StaticMode = 8
+	StaticCantBlock             StaticMode = 9
+	StaticCantBlockBy           StaticMode = 10
+	StaticPanharmonicon         StaticMode = 11
+	StaticManaConvert           StaticMode = 12
+	StaticMustAttack            StaticMode = 13
+	StaticAttackRestrict        StaticMode = 14
+	StaticNumLoyaltyAct         StaticMode = 15
+	StaticCantGainLife          StaticMode = 16
+	StaticCantPreventDamage     StaticMode = 17
+	StaticUntapOtherPlayer      StaticMode = 18
+	StaticOptionalCost          StaticMode = 19
+	StaticCanAttackDefender     StaticMode = 20
+	StaticCantAttack            StaticMode = 21
+	StaticCantAttackUnless      StaticMode = 22
+	StaticCantBlockUnless       StaticMode = 23
+	StaticCantExile             StaticMode = 24
+	StaticCantPutCounter        StaticMode = 25
+	StaticCantRegenerate        StaticMode = 26
+	StaticCantSacrifice         StaticMode = 27
+	StaticCantTarget            StaticMode = 28
+	StaticCombatDamageToughness StaticMode = 29
+	StaticMustBlock             StaticMode = 30
+	StaticUnspentMana           StaticMode = 31
+	StaticModeCount                        = 32 // one past the last; sizes a dense per-StaticMode array
 )
 
 var staticModeNames = [StaticModeCount]string{
+	StaticContinuous:            "Continuous",
+	StaticCantBeCast:            "CantBeCast",
+	StaticCantBeActivated:       "CantBeActivated",
+	StaticRaiseCost:             "RaiseCost",
+	StaticReduceCost:            "ReduceCost",
+	StaticSetCost:               "SetCost",
 	StaticAlternativeCost:       "AlternativeCost",
+	StaticCastWithFlash:         "CastWithFlash",
+	StaticCantBlock:             "CantBlock",
+	StaticCantBlockBy:           "CantBlockBy",
+	StaticPanharmonicon:         "Panharmonicon",
+	StaticManaConvert:           "ManaConvert",
+	StaticMustAttack:            "MustAttack",
+	StaticAttackRestrict:        "AttackRestrict",
+	StaticNumLoyaltyAct:         "NumLoyaltyAct",
+	StaticCantGainLife:          "CantGainLife",
+	StaticCantPreventDamage:     "CantPreventDamage",
+	StaticUntapOtherPlayer:      "UntapOtherPlayer",
+	StaticOptionalCost:          "OptionalCost",
 	StaticCanAttackDefender:     "CanAttackDefender",
 	StaticCantAttack:            "CantAttack",
 	StaticCantAttackUnless:      "CantAttackUnless",
-	StaticCantBeActivated:       "CantBeActivated",
-	StaticCantBeCast:            "CantBeCast",
-	StaticCantBlockBy:           "CantBlockBy",
 	StaticCantBlockUnless:       "CantBlockUnless",
 	StaticCantExile:             "CantExile",
-	StaticCantGainLife:          "CantGainLife",
-	StaticCantPreventDamage:     "CantPreventDamage",
 	StaticCantPutCounter:        "CantPutCounter",
 	StaticCantRegenerate:        "CantRegenerate",
 	StaticCantSacrifice:         "CantSacrifice",
 	StaticCantTarget:            "CantTarget",
-	StaticCastWithFlash:         "CastWithFlash",
 	StaticCombatDamageToughness: "CombatDamageToughness",
-	StaticContinuous:            "Continuous",
-	StaticManaConvert:           "ManaConvert",
-	StaticMustAttack:            "MustAttack",
 	StaticMustBlock:             "MustBlock",
-	StaticNumLoyaltyAct:         "NumLoyaltyAct",
-	StaticOptionalCost:          "OptionalCost",
-	StaticRaiseCost:             "RaiseCost",
-	StaticReduceCost:            "ReduceCost",
-	StaticSetCost:               "SetCost",
 	StaticUnspentMana:           "UnspentMana",
 }
 
@@ -296,56 +308,58 @@ func (m StaticMode) String() string {
 // ReplEvent is an R: line's Event$ as a dense code.
 type ReplEvent uint16
 
-// The vocabulary, in name order. 0 is a name outside it.
+// The vocabulary. 0 is a name outside it.
 const (
-	ReplAddCounter ReplEvent = iota + 1
-	ReplAttached
-	ReplBeginPhase
-	ReplBeginTurn
-	ReplCascade
-	ReplCounter
-	ReplCreateToken
-	ReplDamageDone
-	ReplDraw
-	ReplDrawCards
-	ReplExplore
-	ReplGainLife
-	ReplGameLoss
-	ReplGameWin
-	ReplMoved
-	ReplProduceMana
-	ReplRollDice
-	ReplRollPlanarDice
-	ReplScry
-	ReplTransform
-	ReplTurnFaceUp
-	ReplUntap
-	ReplEventCount = iota + 1 // one past the last; sizes a dense per-ReplEvent array
+	ReplMoved          ReplEvent = 1
+	ReplUntap          ReplEvent = 2
+	ReplBeginPhase     ReplEvent = 3
+	ReplTransform      ReplEvent = 4
+	ReplProduceMana    ReplEvent = 5
+	ReplGainLife       ReplEvent = 6
+	ReplLifeReduced    ReplEvent = 7
+	ReplDamageDone     ReplEvent = 8
+	ReplCounter        ReplEvent = 9
+	ReplDraw           ReplEvent = 10
+	ReplAddCounter     ReplEvent = 11
+	ReplAttached       ReplEvent = 12
+	ReplBeginTurn      ReplEvent = 13
+	ReplCascade        ReplEvent = 14
+	ReplCreateToken    ReplEvent = 15
+	ReplDrawCards      ReplEvent = 16
+	ReplExplore        ReplEvent = 17
+	ReplGameLoss       ReplEvent = 18
+	ReplGameWin        ReplEvent = 19
+	ReplRollDice       ReplEvent = 20
+	ReplRollPlanarDice ReplEvent = 21
+	ReplScry           ReplEvent = 22
+	ReplTurnFaceUp     ReplEvent = 23
+	ReplEventCount               = 24 // one past the last; sizes a dense per-ReplEvent array
 )
 
 var replEventNames = [ReplEventCount]string{
+	ReplMoved:          "Moved",
+	ReplUntap:          "Untap",
+	ReplBeginPhase:     "BeginPhase",
+	ReplTransform:      "Transform",
+	ReplProduceMana:    "ProduceMana",
+	ReplGainLife:       "GainLife",
+	ReplLifeReduced:    "LifeReduced",
+	ReplDamageDone:     "DamageDone",
+	ReplCounter:        "Counter",
+	ReplDraw:           "Draw",
 	ReplAddCounter:     "AddCounter",
 	ReplAttached:       "Attached",
-	ReplBeginPhase:     "BeginPhase",
 	ReplBeginTurn:      "BeginTurn",
 	ReplCascade:        "Cascade",
-	ReplCounter:        "Counter",
 	ReplCreateToken:    "CreateToken",
-	ReplDamageDone:     "DamageDone",
-	ReplDraw:           "Draw",
 	ReplDrawCards:      "DrawCards",
 	ReplExplore:        "Explore",
-	ReplGainLife:       "GainLife",
 	ReplGameLoss:       "GameLoss",
 	ReplGameWin:        "GameWin",
-	ReplMoved:          "Moved",
-	ReplProduceMana:    "ProduceMana",
 	ReplRollDice:       "RollDice",
 	ReplRollPlanarDice: "RollPlanarDice",
 	ReplScry:           "Scry",
-	ReplTransform:      "Transform",
 	ReplTurnFaceUp:     "TurnFaceUp",
-	ReplUntap:          "Untap",
 }
 
 var replEventCodes = func() StrCodes[ReplEvent] {

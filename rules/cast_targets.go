@@ -20,10 +20,7 @@ import (
 // CastStatic match and targetBoundCtx's pre-payment Count$Kicked binding, so
 // the three spellings cannot drift.
 func modeIsKicked(mode string) bool {
-	if v, ok := modeIsKickedTab.Get(mode); ok {
-		return v
-	}
-	return false
+	return modeIsKickedSet.Has(mode)
 }
 
 // modeFlags maps a pendingCast.mode to the CastInfo Counter string
@@ -1476,12 +1473,12 @@ func (e *Engine) recheckIllegal(pc *pendingCast) bool {
 	return false
 }
 
-var modeIsKickedTab = state.NewStrTable[bool](
-	state.StrEntry[bool]{Key: "kicked", Val: true},
-	state.StrEntry[bool]{Key: "kicked1", Val: true},
-	state.StrEntry[bool]{Key: "kicked2", Val: true},
-	state.StrEntry[bool]{Key: "kickedboth", Val: true},
-	state.StrEntry[bool]{Key: "multikicked", Val: true},
+var modeIsKickedSet = state.NewNameSet(
+	"kicked",
+	"kicked1",
+	"kicked2",
+	"kickedboth",
+	"multikicked",
 )
 
 type modeFlagsCode uint16
