@@ -2048,6 +2048,15 @@ func (e *Engine) askOptionalAtResolution(who state.PlayerID, o *state.Object, sa
 	rp := &resumePoint{kind: "optional", obj: o.ID, sa: sa}
 	chosen := d.Chosen(in)
 	if len(chosen) == 1 && chosen[0].Kind == "yes" {
+		// ResolvedLimit$: an ACCEPTED optional trigger is one the effect runs
+		// for, so it consumes the per-turn resolution count (a decline never
+		// does). The check is on the resolved line's own param, never the
+		// source's other lines (Tidus's non-RL BeginCombat line).
+		if t, ok := e.triggerForAbilityObject(o.ID, o); ok {
+			if _, limited := resolvedLimitValue(t); limited {
+				e.noteTriggerResolved(o.Source)
+			}
+		}
 		e.resumeResolution(rp, chosen)
 	} else {
 		e.finishResumption(rp.obj)
