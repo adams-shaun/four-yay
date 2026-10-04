@@ -264,6 +264,10 @@ const (
 	// GateDraw: the chain draws, so a Dredge card in the drawer's graveyard
 	// (CR 702.55) offers its replacement.
 	GateDraw
+	// GateLife: the chain gains life, so competing GainLife replacements
+	// (CR 616.1: two Rhox Faithmender-style rewrites) or an optional one
+	// can ask.
+	GateLife
 )
 
 // SAChainBoardGates reports which board gates sa's SubAbility$ chain (and a
@@ -274,7 +278,7 @@ func SAChainBoardGates(sa *SA, svars map[string]string) uint8 {
 
 func saChainBoardGates(sa *SA, svars map[string]string, depth int) uint8 {
 	if depth > maxMayAskDepth {
-		return GateTokens | GateDamage | GateDraw
+		return GateTokens | GateDamage | GateDraw | GateLife
 	}
 	var g uint8
 	for s := sa; s != nil; s = s.Sub {
@@ -285,6 +289,8 @@ func saChainBoardGates(sa *SA, svars map[string]string, depth int) uint8 {
 			g |= GateDamage
 		case "Draw":
 			g |= GateDraw
+		case "GainLife":
+			g |= GateLife
 		case "Charm":
 			choices, _ := s.Param(PKChoices)
 			for _, n := range strings.Split(choices, ",") {
