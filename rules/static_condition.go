@@ -46,9 +46,9 @@ func init() {
 	})
 }
 
-// condition is the view's Condition$ code; an absent key reads as blank,
+// staticConditionOf is the view's Condition$ code; an absent key reads as blank,
 // exactly as its empty ParamStr did.
-func (sv staticView) condition() staticCondition {
+func staticConditionOf(sv staticView) staticCondition {
 	c, ok := sv.ParamCode(cards.PKCondition)
 	if !ok {
 		return condBlank

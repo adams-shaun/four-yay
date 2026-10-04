@@ -70,7 +70,7 @@ func TestParamCodesMatchTextReads(t *testing.T) {
 				}
 				sv := staticView{Params: st.Params, PS: st.ParamSetOf()}
 				want := staticConditionCodes.Code(strings.TrimSpace(st.ParamStr(cards.PKCondition)))
-				if got := sv.condition(); got != want {
+				if got := staticConditionOf(sv); got != want {
 					t.Errorf("%s Condition$ %q: code %v, text %v", f.Name, st.ParamStr(cards.PKCondition), got, want)
 				}
 			}

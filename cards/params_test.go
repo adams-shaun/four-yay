@@ -158,10 +158,10 @@ func TestParamKeyRoomRemains(t *testing.T) {
 }
 
 // TestParamSetSizeTracksVocabulary pins a compiled node's ParamSet to its
-// header (src, n, vals) plus one mask word and one uint16 rank per 64 declared
+// header (src, n, vals, codes) plus one mask word and one uint16 rank per 64 declared
 // keys: the per-node price of the vocabulary, paid on ~85k corpus nodes.
 func TestParamSetSizeTracksVocabulary(t *testing.T) {
-	want := 8 + 8 + 24 + 8*paramMaskWords + (2*paramMaskWords+7)/8*8
+	want := 8 + 8 + 24 + 24 + 8*paramMaskWords + (2*paramMaskWords+7)/8*8
 	if got := int(unsafe.Sizeof(ParamSet{})); got != want {
 		t.Fatalf("sizeof(ParamSet) = %d, want %d for %d mask words", got, want, paramMaskWords)
 	}

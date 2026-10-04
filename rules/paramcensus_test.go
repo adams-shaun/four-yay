@@ -599,9 +599,10 @@ func (s *scan) scanFuncBody(t *testing.T, fset *token.FileSet, fd *ast.FuncDecl,
 
 // compiledParamReaders are the cards node methods that read one parameter
 // through its compiled ParamSet (cards/params.go): `x.Param(cards.PK<Key>)`,
-// `x.ParamStr(cards.PK<Key>)` and `x.HasParam(cards.PK<Key>)` are reads of
+// `x.ParamStr(cards.PK<Key>)`, `x.HasParam(cards.PK<Key>)` and
+// `x.ParamCode(cards.PK<Key>)` (the value's code stored at load) are reads of
 // <Key> on base x, exactly like `x.Params["<Key>"]`.
-var compiledParamReaders = map[string]bool{"Param": true, "ParamStr": true, "HasParam": true}
+var compiledParamReaders = map[string]bool{"Param": true, "ParamStr": true, "HasParam": true, "ParamCode": true}
 
 // scanCompiledParamRead records a compiled-ParamSet read (see
 // compiledParamReaders). The key argument must be a cards.PK<Key> constant;

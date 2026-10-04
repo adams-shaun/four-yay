@@ -14,7 +14,7 @@ import (
 // read from Params as before.
 //
 // The rules parameter census (rules/paramcensus_test.go) counts
-// `x.Param(cards.PK<Key>)`, `x.ParamStr(cards.PK<Key>)` and
+// `x.Param(cards.PK<Key>)`, `x.ParamStr(cards.PK<Key>)`, `x.ParamCode(cards.PK<Key>)` and
 // `x.HasParam(cards.PK<Key>)` as reads of <Key>, exactly like
 // `x.Params["<Key>"]`, so a constant's name MUST be "PK" + the key text.
 //

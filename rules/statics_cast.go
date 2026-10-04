@@ -218,7 +218,7 @@ func (e *Engine) restrictionGateHolds(sv staticView, target state.ObjID) bool {
 			return false
 		}
 	}
-	switch sv.condition() {
+	switch staticConditionOf(sv) {
 	case condBlank:
 		return true
 	case condPlayerTurn:
@@ -547,7 +547,7 @@ func (e *Engine) staticTimingGate(sv staticView) bool {
 	if !e.checkSVarHolds(sv) {
 		return false
 	}
-	switch sv.condition() {
+	switch staticConditionOf(sv) {
 	case condBlank, condPlayerTurn:
 		if sv.ParamStr(cards.PKCondition) == "PlayerTurn" && e.G.Active != sv.Controller {
 			return false
