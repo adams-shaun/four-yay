@@ -1,13 +1,10 @@
 package rules
 
 // unless_tape.go is the one home of an answered UnlessCost$ election's
-// settlement, shared by the legacy resume arm (resumeAnswerBinding's
-// "unless_pay") and the resolution kernel's tape path (W3 batch d, lasagna
-// spec §7.7: the unless-pay window). The legacy arm parks its frame when the
-// payment needs the CR 601.2g mana window or the choice-bearing component
-// continuation; the tape path runs the window in line as a multi-intent
-// answer -- one served intent per source activated, then Done -- and hands
-// the component continuation back to legacy (resolve.Kernel.Unservable).
+// settlement on the resolution kernel's tape path (W3 batch d, lasagna spec
+// §7.7: the unless-pay window). The CR 601.2g mana window runs in line as a
+// multi-intent answer -- one served intent per source activated, then Done --
+// and so does the choice-bearing component continuation.
 
 import (
 	"github.com/adams-shaun/gorge/cards"
@@ -32,8 +29,7 @@ const (
 )
 
 // settleUnlessElection applies an answered generic unless_pay election (not
-// Ward's, which owns its payment forms, and not a SuspendUnless marker) for
-// the resolving object obj. The payer chose the explicitly marked pay option
+// Ward's, which owns its payment forms) for the resolving object obj. The payer chose the explicitly marked pay option
 // or declined. Payment happens HERE, in rules, because payMana owns the cost
 // grammar and emits the ManaAdd events -- so a replay re-derives the
 // identical payment. An answer to pay from a payer that cannot cover the
@@ -47,8 +43,8 @@ func settleUnlessElection(e *Engine, ctx *effects.Ctx, sa *cards.SA, obj state.O
 	// TAKING THE DAMAGE, which the mana path below cannot express --
 	// ParseCost silently substitutes an unknown spelling for a flat {1} and
 	// would charge one floating mana for four damage. The accepting
-	// opponent's Damage event is emitted from the offering permanent, and the
-	// answered UnlessPay re-enters effSacrifice, which then sacrifices (the
+	// opponent's Damage event is emitted from the offering permanent, and
+	// effSacrifice, reading the answered UnlessPay, then sacrifices (the
 	// switched orientation: paying CAUSES the sacrifice). A plain-mana
 	// UnlessCost$ (the echo / cumulative-upkeep family) falls through to the
 	// shared mana path below, exactly like a Counter's: paid spares the
@@ -125,10 +121,9 @@ func settleUnlessElection(e *Engine, ctx *effects.Ctx, sa *cards.SA, obj state.O
 
 // unlessAnswerSettle is the "unless_pay" answer record (tapeAnswerRecord):
 // the tape-served answer to the UnlessCost$ election effects' poseUnlessAsk
-// posed settles here, exactly as the legacy "unless_pay" resume arm settles
-// it, into the asking walk's live Ctx (the chain effects.Resolve published,
-// whose gate then re-reads Ctx.UnlessPay and Ctx.UnlessNext as the legacy
-// re-entry does). The CR 601.2g mana window runs in line
+// posed settles here, into the asking walk's live Ctx (the chain
+// effects.Resolve published, whose gate then reads Ctx.UnlessPay and
+// Ctx.UnlessNext). The CR 601.2g mana window runs in line
 // (tapeUnlessWindow), and so does the choice-bearing component
 // continuation (tapeUnlessComponents). Ward's election settles through
 // wardAnswerSettle.
@@ -245,7 +240,7 @@ func tapeUnlessComponents(e *Engine, ctx *effects.Ctx, payer state.PlayerID, cos
 }
 
 // tapeUnlessSettled is finishUnlessPayment for a tape-driven payment: the
-// legacy unless_pay arm's re-entry reads (Ctx.UnlessPay, the settled
+// fields the effects-side unless gate reads (Ctx.UnlessPay, the settled
 // Discard picks as Ctx.UnlessDiscarded) written straight into the asking
 // walk's Ctx.
 func tapeUnlessSettled(e *Engine, u *unlessPayment, paid bool) {

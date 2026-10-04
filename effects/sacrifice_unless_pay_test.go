@@ -13,7 +13,7 @@ import (
 // sacrificeTriggerEffect returns the REAL compiled enter-the-battlefield
 // trigger whose Execute is a Sacrifice carrying UnlessCost$ DamageYou<N> —
 // Vexing Devil and Longhorn Firebeast, the two corpus cards with the shape —
-// so the ask and re-entry contract below is asserted against the real card
+// so the ask and answer contract below is asserted against the real card
 // parameters, never a hand-built bag.
 func sacrificeTriggerEffect(t *testing.T, name string) (*cards.Card, *cards.SA) {
 	t.Helper()
@@ -94,7 +94,7 @@ func playerDamage(h *fakeHost, p state.PlayerID) int {
 // driven through effSacrifice, and the opponent must be ASKED (the pre-fix
 // engine sacrificed the Devil unconditionally, asked nobody, dealt no
 // damage). Asserts the ask's shape, then both branches: accepting (the
-// UnlessPay "pay" re-entry rules' resume arm produces) sacrifices the Devil;
+// UnlessPay "pay" answer) sacrifices the Devil;
 // declining (every opponent, here the single one) leaves it in play.
 func TestVexingDevilOffersEachOpponentTheDamage(t *testing.T) {
 	h, devil, sac := devilBoard(t, "Vexing Devil", 0)
@@ -134,19 +134,19 @@ func TestVexingDevilOffersEachOpponentTheDamage(t *testing.T) {
 		t.Fatalf("prompt = %q, want it to name the Devil and the damage, not raw script", got)
 	}
 
-	// Re-entry, accepted (rules' resume arm has already emitted the damage
-	// and set UnlessPay "pay"): the sacrifice proceeds.
+	// Answered pass, accepted (rules' unless-pay settlement has already
+	// emitted the damage; UnlessPay is "pay"): the sacrifice proceeds.
 	ah.suspended = false
 	ctx.UnlessPay = "pay"
 	Resolve(ah, ctx, sac)
 	if len(ah.asks) != 1 {
-		t.Fatalf("accepted re-entry posed %d more decisions, want none", len(ah.asks)-1)
+		t.Fatalf("accepted pass posed %d more decisions, want none", len(ah.asks)-1)
 	}
 	if devilMoves(&ah.fakeHost, devil) != 1 {
 		t.Fatalf("accepted Devil moved to the graveyard %d times, want exactly 1", devilMoves(&ah.fakeHost, devil))
 	}
 	if n := playerDamage(&ah.fakeHost, 1); n != 0 {
-		t.Fatalf("effects emitted %d damage on the accepted re-entry; payment events belong to rules", n)
+		t.Fatalf("effects emitted %d damage on the accepted pass; payment events belong to rules", n)
 	}
 }
 

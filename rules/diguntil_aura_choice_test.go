@@ -8,9 +8,8 @@ import (
 )
 
 // TestSongbirdsBlessingDigUntilAuraChoice uses the real Songbirds' Blessing
-// DigUntil carrier and adds a second eligible creature. It proves the rules
-// resume arm carries the selected bearer back into effects.Resolve rather than
-// accepting the first battlefield permanent silently.
+// DigUntil carrier and adds a second eligible creature. It proves the
+// answered bearer is applied in place rather than accepting the first battlefield permanent silently.
 func TestSongbirdsBlessingDigUntilAuraChoice(t *testing.T) {
 	t.Parallel()
 	reg := searchTestRegistry(t)

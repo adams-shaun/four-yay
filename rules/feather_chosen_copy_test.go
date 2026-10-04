@@ -30,8 +30,8 @@ import (
 //   - Count$ChosenSize (effects/count.go): SVar:CopyCost:Count$ChosenSize/
 //     Times.2 prices the pay election {2} per chosen creature, folded into a
 //     generic amount through UnlessCostResolved (effects/unless.go), which the
-//     unless-pay resume arm charges through the ordinary mana path
-//     (rules/resolution.go).
+//     unless-pay settlement charges through the ordinary mana path
+//     (rules/unless_tape.go).
 //   - CopySpellAbility's DefinedTarget$ ChosenCard (effects/copy.go): one copy
 //     per chosen creature, each copy's target replaced by its own creature
 //     (the StackCopy event's IDs), not the original's.

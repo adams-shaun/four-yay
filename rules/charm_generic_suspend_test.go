@@ -5,18 +5,17 @@ package rules
 // "effCharm's inner Resolve has no Suspended() guard" row).
 //
 // effCharm runs the chosen Choices$ sub-abilities in order. When a mode's
-// own chain poses a mid-resolution ask, the walk must STOP there and report
-// the remaining modes as a charm_rest continuation -- never run the next
-// mode while a decision is pending (Engine.ask panics on the overwrite) and
-// never re-run the modes that already ran. The cross-mode TargetUnique
+// own chain poses a mid-resolution ask, the answer is applied in place and
+// the walk continues with the remaining modes -- never running the next mode
+// while a decision is pending (Engine.ask panics on the overwrite) and never
+// re-running the modes that already ran. The cross-mode TargetUnique
 // family (rules/charm_cross_mode_test.go) already pins its own loop; this
 // file pins the GENERIC loop a plain Charm (no TargetUnique$) uses.
 //
 // The carrier is synthetic (.cards files are GPL and may never be committed):
 // a Charm whose chosen modes include a hidden graveyard pick (the ChangeZone
-// shape that suspends the resolution with a KChoose ask) and an observable
-// LoseLife. If the generic loop lost its post-Resolve Suspended() guard, an
-// answered pick's re-entry would run an already-run mode again.
+// shape that asks a KChoose mid-resolution) and an observable LoseLife. A
+// loop that mishandled the ask would run an already-run mode again.
 
 import (
 	"strings"
@@ -95,9 +94,8 @@ func genericCharmAtPick(t *testing.T, seed uint64, m0, m1 int) (*Engine, int32) 
 // drainCharm counts any further hidden graveyard pick and drains the rest of
 // the resolution. It returns the number of EXTRA hidden-pick asks seen (a
 // non-zero count means a mode re-ran) and the number of "no sub-ability
-// recorded" degradation Notes the resume emitted (SuspendCharmRest suppresses
-// the plain continuation report in favour of the Charm re-entry, so neither a
-// non-empty nor an empty remainder emits one).
+// recorded" degradation Notes emitted (an in-place answer emits none, with
+// or without remaining modes).
 func drainCharm(t *testing.T, e *Engine) (extraPicks, degradedResumes int) {
 	t.Helper()
 	for i := 0; i < 30; i++ {
@@ -130,7 +128,7 @@ func drainCharm(t *testing.T, e *Engine) (extraPicks, degradedResumes int) {
 
 // TestGenericCharmModesSurviveTheMidModeSuspension pins the generic loop:
 // choosing MReturn (the hidden graveyard pick) then MLife must suspend ONCE
-// on the pick, and the answer's resume must run ONLY MLife -- the pick is not
+// on the pick, and after the answer ONLY MLife runs -- the pick is not
 // re-posed and the LoseLife lands exactly once.
 func TestGenericCharmModesSurviveTheMidModeSuspension(t *testing.T) {
 	t.Parallel()
@@ -142,7 +140,7 @@ func TestGenericCharmModesSurviveTheMidModeSuspension(t *testing.T) {
 		t.Fatalf("%d extra hidden graveyard pick(s): the generic loop re-ran the first mode", extra)
 	}
 	if degraded != 0 {
-		t.Fatalf("%d degradation Note(s): the guard did not report the rest via SuspendCharmRest", degraded)
+		t.Fatalf("%d degradation Note(s): the pick's answer was not applied in place", degraded)
 	}
 	if e.G.Players[0].Life != life0-3 {
 		t.Fatalf("seat 0 life = %d, want %d: MLife did not run exactly once",
@@ -161,8 +159,7 @@ func TestGenericCharmModesSurviveTheMidModeSuspension(t *testing.T) {
 // runs first, the SUSPENDING mode second. With the guard, MLife lands once,
 // MReturn's pick suspends, and the answered pick completes the charm without
 // re-running MLife -- and, because this suspended mode was the LAST chosen
-// one, with no "no sub-ability recorded" degradation Note either (the empty
-// remainder is reported at the Charm level through SuspendCharmRest).
+// one, with no "no sub-ability recorded" degradation Note either.
 func TestGenericCharmSuspendsAfterAnEarlierModeAlreadyRan(t *testing.T) {
 	t.Parallel()
 	e, lifeBefore := genericCharmAtPick(t, 6412, 1, 0) // MLife, MReturn
@@ -187,7 +184,7 @@ func TestGenericCharmSuspendsAfterAnEarlierModeAlreadyRan(t *testing.T) {
 		t.Fatalf("%d extra hidden graveyard pick(s) after the second mode", extra)
 	}
 	if degraded != 0 {
-		t.Fatalf("%d degradation Note(s): the last-mode suspension must report an empty remainder through SuspendCharmRest", degraded)
+		t.Fatalf("%d degradation Note(s): the last mode's answer was not applied in place", degraded)
 	}
 	if e.G.Players[0].Life != lifeAfterFirstMode {
 		t.Fatalf("seat 0 life moved after the suspending mode completed: %d -> %d, want no MLife re-run",

@@ -11,8 +11,7 @@ import (
 )
 
 // playAnswerApply applies an answered Play ask (effPlay's "play" decision)
-// into ctx: the legacy "play" resume arm and the resolution kernel's tape
-// record (playAnswerSettle) share it.
+// into ctx, for the resolution kernel's tape record (playAnswerSettle).
 func playAnswerApply(e *Engine, ctx *effects.Ctx, sa *cards.SA, chosen []decision.Option) {
 	// A Play effect (Conduit of Worlds, Spinerock Knoll) was answered:
 	// each chosen option's Obj is a card to play from its current zone,
@@ -33,7 +32,7 @@ func playAnswerApply(e *Engine, ctx *effects.Ctx, sa *cards.SA, chosen []decisio
 	// resolution on that cast's question, and the not-yet-begun cards
 	// are dropped with a Note rather than wedging; the corpus Amount$ All
 	// shapes are without-mana-cost creature/spell plays, which commit
-	// synchronously). ctx.Play/PlayDone are set so the re-entered
+	// synchronously). ctx.Play/PlayDone are set so the continuing
 	// effPlay sees the answer as consumed either way.
 	free := strings.EqualFold(sa.ParamStr(cards.PKWithoutManaCost), "True")
 	playCost := strings.TrimSpace(sa.ParamStr(cards.PKPlayCost))

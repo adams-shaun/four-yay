@@ -29,9 +29,9 @@ type engineContinuation struct {
 	oppSel oppSelectState `clone:"deep"`
 
 	// oppPicksMid is the effects-tier answered-selection store, keyed by the
-	// asking SA's line: the "opp_pick" resume arm records the controller's
-	// chosen opponent there and the re-entered walk's ChooserFor consumes it.
-	// The entry only lives between the arm and the synchronous read, so no
+	// asking SA's line: OpponentPickAsk records the controller's chosen
+	// opponent there (the "opp_pick" answer) and the walk's ChooserFor
+	// consumes it. The entry only lives between that answer and the read, so no
 	// entry can outlive the ask it belongs to. Clone copies it.
 	oppPicksMid map[string]state.PlayerID `clone:"deep"`
 

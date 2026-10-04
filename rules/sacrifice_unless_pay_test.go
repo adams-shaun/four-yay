@@ -128,8 +128,7 @@ func devilToHand3(t *testing.T, reg *cards.Registry, name string) (*Engine, stat
 
 // TestEngineVexingDevilEveryOpponentDeclineEndsTheOffer is the engine-level
 // pin the effects-level cursor test cannot be: it drives rules' REAL
-// unless_pay resume arm (which builds each re-entry's Ctx itself) through a
-// 3-seat game where BOTH opponents decline. A decline cursor that failed to
+// unless_pay settlement through a 3-seat game where BOTH opponents decline. A decline cursor that failed to
 // advance (the vestigial UnlessPayTarget write) re-offered payers[1] -- seat
 // 2 -- its own identical offer forever on the second decline; this test
 // asserts the second decline ends the ask and the game moves on.
@@ -305,7 +304,7 @@ func TestEngineUpkeepSacrificeDeclineSacrifices(t *testing.T) {
 			t.Fatal("engine stalled with no pending decision before the upkeep")
 		}
 		if d.Kind == decision.KModes && d.ResumeKind == "unless_pay" && d.ResumeSA != nil && d.ResumeSA.API == "Sacrifice" {
-			// Answer "pay" from an EMPTY pool: the resume arm cannot cover
+			// Answer "pay" from an EMPTY pool: the settlement cannot cover
 			// {B}, records the decline, and the Zombie is sacrificed.
 			submitChoices(t, e, d.Options[0].Index)
 			if z := e.G.Obj(zid).Zone; z != state.ZGraveyard {

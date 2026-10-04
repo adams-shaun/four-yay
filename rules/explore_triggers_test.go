@@ -218,7 +218,7 @@ func TestMerfolkCaveDiverPumpsOnAnExplore(t *testing.T) {
 // mid-resolution election: the library's top card is arranged to be a Grizzly
 // Bears (the LCI wording: "put a +1/+1 counter on this creature, then put the
 // card back or put it into your graveyard"), so the explore reveals it, poses
-// the real KChoose ("explore" resume arm), and the answered "top" applies the
+// the real KChoose (the "explore" ask), and the answered "top" applies the
 // counter and keeps the card where it is. Wildgrowth Walker is both the
 // explorer and the trigger carrier, so its own "Whenever a creature you
 // control explores" trigger also fires: a second +1/+1 counter and 3 life.

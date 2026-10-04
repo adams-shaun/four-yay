@@ -44,7 +44,7 @@ func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
 	// effCharm runs exactly the chosen modes instead of asking again -- and
 	// the drain resumes through the same continuation every other trigger
 	// drain answer uses. drainAwaitsModes identifies the branch; it is false
-	// for a mid-resolution ask, which falls through to the resume path below.
+	// for a mid-resolution ask, which the kernel answers from its tape.
 	if e.drainAwaitsModes {
 		e.drainAwaitsModes = false
 		chosen := d.Chosen(in)
@@ -148,9 +148,8 @@ func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
 }
 
 // recordModesAnswer is the answer record every mid-resolution KModes answer
-// carries into the log, whichever path answers it (handleModes' resume arm,
-// or the resolution kernel serving the answer from its tape,
-// resolveBoard.Record): the SetChosenMode Choose, the ModeChosen marker on
+// carries into the log when the resolution kernel serves the answer from
+// its tape (resolveBoard.Record): the SetChosenMode Choose, the ModeChosen marker on
 // the resolving object obj, and the ChoiceRestriction$ record.
 func recordModesAnswer(e *Engine, d *decision.Decision, p state.PlayerID, chosen []decision.Option, obj state.ObjID) {
 	if d.ResumeSA != nil && strings.EqualFold(d.ResumeSA.ParamStr(cards.PKSetChosenMode), "True") && len(chosen) == 1 {

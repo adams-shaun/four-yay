@@ -172,8 +172,7 @@ func TestKraulHarpoonerFightSubPosesItsOwnAsk(t *testing.T) {
 	e.Advance()
 
 	// The ETB trigger has no ValidTgts$ (TrigPump), so no placement ask: the
-	// fight's own ask surfaces mid-resolution, as a KChoose over the "tgts"
-	// resume arm.
+	// fight's own ask surfaces mid-resolution, as a "tgts" KChoose.
 	for i := 0; i < 30 && len(e.G.Stack) > 0 && !e.G.Over; i++ {
 		d := e.Pending()
 		if d == nil {

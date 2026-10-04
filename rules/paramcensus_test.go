@@ -197,7 +197,7 @@ var baseBuckets = map[string]bucket{
 	// as generic machinery), rp.sa the resume plan's SA, o.Ability the
 	// stack object's resolved SA, and d.ResumeSA the pending decision's
 	// resume SA (validateSearch's ShareLandType$ read — the same
-	// cards.SA the "search" resume arm re-enters). "body" is the same
+	// cards.SA the "search" ask names). "body" is the same
 	// resolved ReplaceWith$ body under its local name in the CreateToken
 	// replacement dispatcher (continueCreateTokenReplacements /
 	// applyTokenReplacementToPlan read its Type$/Amount$/TokenScript$).
@@ -1600,15 +1600,14 @@ var foreignAbilityReaders = map[string]bool{
 // targeting of any primitive. Their direct SA reads are REMOVED from the
 // generic rules union and attributed to exactly the named APIs, so the mana
 // path's `Amount$`/`Produced$` reads no longer mask e.g. api:Sacrifice's
-// genuinely unread `Amount$`, and the unless-pay resume's `UnlessCost$` read
+// genuinely unread `Amount$`, and an unless-pay `UnlessCost$` read
 // no longer masks api:Sacrifice's unread `UnlessCost$`. Each entry was
 // verified by reading its callers: every call site sits on a path only that
 // API reaches (the mana-ability offer/payment/resolution chain, the Charm
-// mode ask/resume pair, the modal-trigger placement ask, the unless-pay
-// resume arms effCounter/effCopySpellAbility suspend with). The rot guard
-// fails on a stale entry (renamed function, or one that no longer reads SA
-// params); a NEW api-specialised path must be added here or its reads
-// over-suppress every other API's real gaps.
+// mode ask, the modal-trigger placement ask, resumeResolution's surviving
+// body re-entry). The rot guard fails on a stale entry (renamed function, or
+// one that no longer reads SA params); a NEW api-specialised path must be
+// added here or its reads over-suppress every other API's real gaps.
 var apiSpecificRulesSA = map[string][]string{
 	// The mana-ability chain. Since W4 step 3 a mana ability's production
 	// parameters (Produced$, Amount$, RestrictValid$, the riders) are read
@@ -1648,29 +1647,21 @@ var apiSpecificRulesSA = map[string][]string{
 	// botpolicy A6): abilitySelfSkipTurns reads Defined$/NumTurns$ only on
 	// the api:SkipTurn links of an offered ability's Sub chain.
 	"abilitySelfSkipTurns": {"SkipTurn"},
-	// The unless-pay resume arm: only effCounter and effCopySpellAbility
-	// suspend with an UnlessCost$ ask, so resumeResolution's UnlessCost$
-	// read belongs to those two APIs alone. api:Play joins them for the
-	// same reason: the "play" resume arm is the only reader of that
-	// primitive's own riders (WithoutManaCost$/PlayCost$/ReplaceGraveyard$/
-	// ImprintPlayed$/ShowCards$ -- only an answered Play effect re-enters
-	// here), and left in the generic union none of them was ever
-	// attributable to api:Play, which kept WithoutManaCost listed unread on
-	// every repo-deck carrier even though the free-cast read (and its vaan
-	// end-to-end pin) predates this entry. The function-level granularity
-	// over-attributes resumeResolution's OTHER cases' reads to Play too;
-	// measured against the repo-deck Play carriers (Scarlet Witch,
-	// Spinerock Knoll, West Coast Expansion, Conduit of Worlds) none of
-	// them carries a param only another case reads, and Play's genuinely
-	// unread RememberPlayed$ stays unmasked (no case reads it).
+	// resumeResolution, the surviving body re-entry (effect_paid, optional,
+	// copy_targets). The attribution dates from when it also settled the
+	// now-removed unless-pay answer (effCounter/effCopySpellAbility's
+	// UnlessCost$) and the "play" answer (Play's own riders
+	// WithoutManaCost$/PlayCost$/ReplaceGraveyard$/ImprintPlayed$/
+	// ShowCards$). Left in the generic union, those reads were never
+	// attributable to api:Play. Play's genuinely unread RememberPlayed$
+	// stays unmasked (nothing here reads it).
 	"Engine.resumeResolution": {"Counter", "CopySpellAbility", "Play"},
 	// The ward payment path: only the Ward keyword's expanded trigger
-	// reaches these (resumeResolution dispatches on rp.sa.API == "Ward"),
-	// so their UnlessCost$ reads belong to api:Ward alone -- left in the
-	// generic union they would mask every other API's unread UnlessCost$
+	// reaches these, so their UnlessCost$ reads belong to api:Ward alone --
+	// left in the generic union they would mask every other API's unread UnlessCost$
 	// (measured: api:Tap on Blood Crypt/Hallowed Fountain; api:Sacrifice's
 	// UnlessCost$ read moved to the registered effSacrifice gate (vexdev),
-	// so the resume's generic read no longer masks any api:Sacrifice gap).
+	// so no generic read masks any api:Sacrifice gap).
 	"Engine.beginWardPayment":  {"Ward"},
 	"Engine.settleWardPayment": {"Ward"},
 	// The opening-hand pregame actions: applyOpeningEffect, its delayed-

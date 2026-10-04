@@ -10,7 +10,7 @@ import (
 )
 
 // TestUnlessPayTapsForConvertedMana is the end-to-end test for the
-// mid-resolution unless-pay mana window (the `unless_pay` resume arm). Real
+// mid-resolution unless-pay mana window (the `unless_pay` ask). Real
 // corpus card: Knight of the Mists' enters-the-battlefield "you may pay {U}.
 // If you don't, destroy target Knight". The payer controls a Mycosynth Lattice
 // ("Players may spend mana as though it were mana of any color",

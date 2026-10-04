@@ -3,9 +3,9 @@ package rules
 // A NON-optional api:Repeat whose body poses a mid-resolution ask used to
 // drop every remaining iteration: effRepeat returned on the suspension, the
 // enclosing Resolve loop recorded a plain continuation at Repeat.Sub, and the
-// loop cursor was lost. Only RepeatOptional$ reported a loop frame.
-// SuspendRepeatBody now parks every Repeat's cursor and resolved bound, so
-// the counted form (MaxRepeat$) runs its remaining iterations and the gated
+// loop cursor was lost. Only RepeatOptional$ reported a loop frame. With
+// the body's ask answered in place, every Repeat keeps its cursor and
+// resolved bound, so the counted form (MaxRepeat$) runs its remaining iterations and the gated
 // form (RepeatCheckSVar$/RepeatDefined$) re-checks its gate after the
 // answered body (CR 608.2c).
 

@@ -3,17 +3,16 @@ package rules
 // Task repeatopt1: the RepeatOptional$ do/while election. Ad Nauseam is the
 // named corpus carrier (its brief source), and Forbidden Ritual is the
 // corpus carrier whose BODY itself asks (a sacrifice resolving into a
-// GenericChoice modal ask), which is the shape a resumed body must return
+// GenericChoice modal ask), which is the shape an answered body must return
 // to the election for -- never fall straight into the next iteration.
 //
 // The two carriers pin the two distinct resume states:
 //   - Ad Nauseam: the body does not ask, so the loop reaches the election
 //     directly. Guards the base fix (the election is posed at all, and "no"
 //     stops after exactly one iteration).
-//   - Forbidden Ritual: the body SUSPENDS on its own ask. When that body
+//   - Forbidden Ritual: the body poses its own ask. When that body
 //     completes after the answer, the next decision must be the repeat
-//     election for the NEXT iteration, not that iteration's body. This is
-//     the state RepeatContinuation.AfterBody names.
+//     election for the NEXT iteration, not that iteration's body.
 
 import (
 	"testing"

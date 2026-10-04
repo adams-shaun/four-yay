@@ -280,8 +280,8 @@ const genericChoiceNested = "Name:Trial of Choices\nManaCost:R\nTypes:Sorcery\n"
 // TestGenericChoiceNestedAskResumesRemainingChoosers pins the nested-ask
 // continuation: opponent 1's chosen Discard body poses its own KChoose ask, so
 // the GenericChoice must record the chooser cursor and still ask opponent 2
-// once that nested ask's chain completes. Without SuspendGenericChoiceRest the
-// cursor is lost and opponent 2 is never asked.
+// once that nested ask's chain completes. A lost cursor means opponent 2 is
+// never asked.
 func TestGenericChoiceNestedAskResumesRemainingChoosers(t *testing.T) {
 	t.Parallel()
 	trial := card(t, genericChoiceNested)

@@ -14,7 +14,7 @@ func kwFabricate(f *Face, i int, k, head, param string, has func(kind, line stri
 	// whose effect is a DB$ Charm over the two mode sub-abilities --
 	// the Knight of Autumn shape (DB$ Charm | Choices$ DBPump,...). No
 	// new decision kind is needed: effCharm already poses the KModes
-	// ask and rules' "modes" resume arm answers it.
+	// ask and its answer is applied in place.
 	//
 	// The param is a bare literal count on every corpus line (measured:
 	// 16 files, values 1/2/3, no trailing fields), so it is spliced in

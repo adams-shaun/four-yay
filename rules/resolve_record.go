@@ -2,11 +2,8 @@ package rules
 
 // resolve_record.go holds the per-kind answer records the resolution kernel
 // writes when it serves a converted ask from its tape (resolveBoard.Record):
-// the part of a decision's legacy handler that belongs to the ANSWER, not to
-// the resume -- the events a Submit's handler emits before it re-enters the
-// suspended resolution. Each record is shared with that handler, so the two
-// paths emit the same events from one home; the asking code then simply
-// continues with the answer.
+// the events that belong to the ANSWER, emitted in place; the asking code
+// then simply continues with the answer.
 
 import (
 	"strings"
@@ -36,10 +33,8 @@ func tapeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent) {
 	case decision.KArrange:
 		arrangeAnswerRecord(e, d, in, d.ResumeSA)
 	}
-	// Per-resume-kind records: the events a resume arm
-	// (resumeAnswerBinding) emits before re-entering, for the arms whose
-	// answer the asking effect cannot apply itself. Each is a free function
-	// shared with its arm. (An if-chain, not case arms: the
+	// Per-resume-kind records: the answer events for the kinds whose answer
+	// the asking effect cannot apply itself. (An if-chain, not case arms: the
 	// stringCaseLiterals ratchet.)
 	if d.ResumeKind == resumeKindDredge {
 		dredgeAnswerApply(e, d.Acting(), d.Chosen(in))
