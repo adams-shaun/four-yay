@@ -72,3 +72,8 @@ func (r *charsReader) TapPower(id state.ObjID, saKind string) int32 {
 	e := r.eng()
 	return e.tapPowerValue(id, saKind)
 }
+
+// ZoneEntrySeq (chars.Reader) is the zone-entry index's sequence for id.
+func (r *charsReader) ZoneEntrySeq(id state.ObjID) uint64 {
+	return (*Engine)(r).zoneEntrySeq(id)
+}

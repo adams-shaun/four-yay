@@ -284,7 +284,7 @@ func PaymentPlanStepAlternative(e Engine, units []WindowUnit, pa decision.Paymen
 // (payment_zone_entry.go), which answers exactly as the backward scan
 // (paymentSourceZoneSeqScan) does.
 func PaymentSourceZoneSeq(e Engine, id state.ObjID) uint64 {
-	got := e.ZoneEntrySeq(id)
+	got := e.Chars().ZoneEntrySeq(id)
 	if e.Verify() {
 		if want := PaymentSourceZoneSeqScan(e, id); got != want {
 			panic(fmt.Sprintf("payment zone-entry index: object %d seq %d, log scan %d", id, got, want))

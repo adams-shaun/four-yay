@@ -1,6 +1,7 @@
 package pay
 
 import (
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules/chars"
 	"github.com/adams-shaun/gorge/state"
@@ -65,12 +66,45 @@ type Engine interface {
 	Eval() Eval
 	// Session is the engine-owned payment state (the ring's fields).
 	Session() *Session
-	// ZoneEntrySeq is the log sequence of id's entry into its current zone
-	// (the engine's incremental zone-entry index).
-	ZoneEntrySeq(id state.ObjID) uint64
 	// SearchScratch is the plan search's reusable working storage.
 	SearchScratch() *SearchScratch
+
+	// Ask is the flow seam (lasagna spec §9.2, E7 flow slice): it marks
+	// flow as the engine's pending choice and poses d. Under the resolution
+	// kernel the answer is served from the tape and the flow's answer
+	// handler runs in place before Ask returns; otherwise d is posed and
+	// the handler runs when the seat answers. Either way the caller returns
+	// right after Ask: the payment's state (the Session) is what the handler
+	// continues from.
+	Ask(flow AskFlow, d *decision.Decision)
+	// Batch opens (open) or closes one action bracket of kind: the emissions
+	// between are one action for the batch-observing triggers (CR 701.8's
+	// "discard two cards" is one discard action).
+	Batch(kind BatchKind, open bool)
 }
+
+// AskFlow names the payment flow an Engine.Ask belongs to: the engine maps it
+// to its own pending-choice marker and answer handler.
+type AskFlow uint8
+
+const (
+	// AskUnlessCost asks for the payer-chosen objects of an unless cost's
+	// next choice-bearing component.
+	AskUnlessCost AskFlow = iota + 1
+	// AskUnlessMana asks for the next mana source (or Done) of an unless
+	// cost's CR 601.2g window.
+	AskUnlessMana
+)
+
+// BatchKind names the action bracket an Engine.Batch opens or closes.
+type BatchKind uint8
+
+const (
+	// BatchDiscard brackets one discard action (Mode$ DiscardedAll).
+	BatchDiscard BatchKind = iota
+	// BatchMill brackets one mill action (Mode$ MilledAll).
+	BatchMill
+)
 
 // CostBlock names the cost action Engine.CostBlocked asks about.
 type CostBlock uint8

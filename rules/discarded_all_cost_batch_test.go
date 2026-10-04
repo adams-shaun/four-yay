@@ -4,7 +4,7 @@ package rules
 // discards a settled set of cards is ONE discard action (CR 701.8), so a
 // multi-card cost discard queues ONE trigger whose TriggerCount$Amount is the
 // number of matching cards -- never one batch-of-one per emitted DiscardCost
-// event. Every cost discard goes through Engine.payDiscardCost, which brackets
+// event. Every cost discard goes through pay.PayDiscardCost, which brackets
 // its emission loop with BeginDiscardBatch/EndDiscardBatch (the same bracket
 // effects/cardflow.go's effDiscard uses for api:Discard).
 //

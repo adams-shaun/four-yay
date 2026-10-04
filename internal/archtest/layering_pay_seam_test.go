@@ -24,9 +24,10 @@ import (
 // the mana activation gates use: DerivedTypes, HasKeyword, SVarGate,
 // ActivationPhasesOK, PresentGate, GrantedAbilities. Slice 5 added
 // SameColorRevealSets and TapPower (the non-mana cost-part castability walk,
-// nonManaCastableP): 6 -> 8.
+// nonManaCastableP): 6 -> 8. E7 flow slice 1: ZoneEntrySeq (the zone-entry
+// index read, moved off pay.Engine to make room for the flow seam): 8 -> 9.
 const (
-	charsReaderMethods = 8
+	charsReaderMethods = 9
 	charsReaderCeiling = 20
 )
 

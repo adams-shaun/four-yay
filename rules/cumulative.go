@@ -1840,7 +1840,7 @@ func (e *Engine) settleTriggeredMandatory(tc *triggeredEffectCost) {
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone, To: state.ZGraveyard, Text: "moved to its owner's graveyard as a cost"})
 		}
 	}
-	e.payDiscardCost(tc.discards, "")
+	pay.PayDiscardCost(asPayer(e), tc.discards, "")
 	// The cost's own Draw components (the pay arm's draw half -- Ambergris'
 	// "discard your hand. If you do, draw two cards"). The pay gate resolved
 	// every count before offering "pay", so the belt-and-braces re-resolution

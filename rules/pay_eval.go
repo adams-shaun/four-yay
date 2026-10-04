@@ -74,13 +74,6 @@ func (v *payEval) SourceInterference(id state.ObjID, ma *cards.SA) (pay.Tier, pa
 	return e.paymentPlanSourceInterference(id, ma)
 }
 
-// ZoneEntrySeq (pay.Engine) is the zone-entry index's sequence for id
-// (zoneEntrySeq).
-func (pe *payer) ZoneEntrySeq(id state.ObjID) uint64 {
-	e := (*Engine)(pe)
-	return e.zoneEntrySeq(id)
-}
-
 // ManaUnits (pay.Eval) is p's payment-plan source census
 // (paymentPlanManaUnits).
 func (v *payEval) ManaUnits(p state.PlayerID) []pay.WindowUnit {

@@ -163,7 +163,7 @@ func (e *Engine) payCast() {
 		for _, id := range pc.delve {
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZGraveyard, To: state.ZExile, Text: "delved"})
 		}
-		e.payDiscardCost(pc.Discards, e.cyclingKeyword(pc))
+		pay.PayDiscardCost(asPayer(e), pc.Discards, e.cyclingKeyword(pc))
 		// Exile cost parts (ExileFromHand/ExileFromGrave): each chosen card
 		// leaves its zone (hand, or the graveyard for a self-reference) for
 		// exile. Read the zone live: the settled card is still where exAsk
@@ -461,7 +461,7 @@ func (e *Engine) payCast() {
 	for _, id := range pc.delve {
 		e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZGraveyard, To: state.ZExile, Text: "delved"})
 	}
-	e.payDiscardCost(pc.Discards, "")
+	pay.PayDiscardCost(asPayer(e), pc.Discards, "")
 	// Exile cost parts (see the ability branch above for the why).
 	for _, id := range pc.Exiles {
 		if o := e.G.Obj(id); o != nil {

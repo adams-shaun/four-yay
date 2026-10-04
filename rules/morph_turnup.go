@@ -627,7 +627,7 @@ func (e *Engine) settleTurnUp(tp *turnUpPay) {
 			return
 		}
 		if len(tp.discs) > 0 {
-			e.payDiscardCost(tp.discs, "")
+			pay.PayDiscardCost(asPayer(e), tp.discs, "")
 		}
 		for _, id := range tp.returns {
 			if o := e.G.Obj(id); o != nil {

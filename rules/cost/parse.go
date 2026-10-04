@@ -1302,7 +1302,7 @@ func ParseUnlessCost(s string) (Cost, bool) {
 			// CR 701.13a, is payable at ANY library size -- the payer mills
 			// every remaining card when fewer than N remain, so zero cards is
 			// not an unpayable cost. payUnlessCost settles it through the
-			// shared payMillCost, so the two payment sites cannot diverge.
+			// shared pay.PayMillCost, so the two payment sites cannot diverge.
 			// A dynamic or malformed spelling (Mill<X>, Mill<>, a prose head)
 			// never matches here and stays a hard decline.
 			if m, ok := matchMillCost(t); ok {

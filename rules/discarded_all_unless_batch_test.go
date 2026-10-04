@@ -7,7 +7,7 @@ package rules
 // Every unless-payment discard settlement goes through
 // (*Engine).advanceUnlessPayment, which brackets its emission loop with
 // BeginDiscardBatch/EndDiscardBatch (the same bracket rules/cast.go's
-// payDiscardCost and effects/cardflow.go's effDiscard use).
+// pay.PayDiscardCost and effects/cardflow.go's effDiscard use).
 //
 // Real payment, not the batch methods directly: Thrilling Discovery's real
 // corpus switched unless cost (`DBDraw: DB$ Draw | NumCards$ 3 | UnlessCost$

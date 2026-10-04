@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
@@ -195,4 +196,32 @@ func (pe *payer) CostBlocked(op pay.CostBlock, id state.ObjID, cause pay.CostCau
 		return (*Engine)(pe).exileBlockedForCost(id, cause)
 	}
 	return (*Engine)(pe).sacrificeBlockedForCost(id, cause)
+}
+
+// Ask is the payment layer's flow seam (pay.Engine.Ask): the payment flow's
+// pending-choice marker, posed through windowAsk so a tape-driven flow is
+// answered in place.
+func (pe *payer) Ask(flow pay.AskFlow, d *decision.Decision) {
+	windowAsk((*Engine)(pe), d, payAskFlows[flow])
+}
+
+// payAskFlows maps each pay.AskFlow to its chooseFor marker.
+var payAskFlows = [...]chooseFor{
+	pay.AskUnlessCost: chooseUnlessCost,
+	pay.AskUnlessMana: chooseUnlessMana,
+}
+
+// Batch opens or closes one action bracket (pay.Engine.Batch).
+func (pe *payer) Batch(kind pay.BatchKind, open bool) {
+	e := (*Engine)(pe)
+	switch {
+	case kind == pay.BatchMill && open:
+		e.BeginMillBatch()
+	case kind == pay.BatchMill:
+		e.EndMillBatch()
+	case open:
+		e.BeginDiscardBatch()
+	default:
+		e.EndDiscardBatch()
+	}
 }

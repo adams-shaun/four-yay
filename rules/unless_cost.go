@@ -21,7 +21,7 @@ import (
 // components remain synchronous: a Draw<N/Spec> pays by drawing N cards for
 // the player(s) the spec names (default the payer), resolved through the
 // same Ctx roles the UnlessPayer$ grammar reads, and a Mill<N> mills from
-// the top of the payer's own library through the shared payMillCost (CR
+// the top of the payer's own library through the shared pay.PayMillCost (CR
 // 701.13a: every remaining card when fewer than N remain, so any library
 // size is payable). The dynamic life folds
 // (LifeTotalHalfUp, an announced PayLife<X>) and the energy parts (fixed and
@@ -110,7 +110,7 @@ func (e *Engine) payUnlessCost(p state.PlayerID, cost Cost, ctx *effects.Ctx, st
 	// CR 701.13a: the payer mills the SUM of the parts' requirements, taking
 	// every remaining card when the library is short, so this never turns an
 	// empty or short library into an unpayable cost.
-	e.payMillCost(p, cost.Mill)
+	pay.PayMillCost(asPayer(e), p, cost.Mill)
 	for _, d := range drains {
 		e.emit(events.Event{Kind: events.CounterChange, Obj: d.obj, Counter: d.kind, Amount: -d.n})
 	}

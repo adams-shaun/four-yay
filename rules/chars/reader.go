@@ -47,6 +47,9 @@ type Reader interface {
 	// an action of kind saKind's tap-power amount (Station, Crew, Saddle):
 	// its layer-derived power, as any stat:TapPowerValue static adjusts it.
 	TapPower(id state.ObjID, saKind string) int32
+	// ZoneEntrySeq is the log sequence of id's entry into its current zone
+	// (the engine's incremental zone-entry index).
+	ZoneEntrySeq(id state.ObjID) uint64
 }
 
 // KW is a keyword head with its interned cards.KeywordHeadID, compiled once

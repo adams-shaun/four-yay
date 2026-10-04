@@ -1227,14 +1227,14 @@ func (e *Engine) commitManaDiscard() {
 	}
 	// Only a decision posed BY this payment defers the mana effect below.
 	posedBefore := e.pending != nil
-	e.payDiscardCost(md.discards, "")
+	pay.PayDiscardCost(asPayer(e), md.discards, "")
 	for _, id := range md.exiles {
 		if o := e.G.Obj(id); o != nil {
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone,
 				To: state.ZExile, Text: "exiled as a mana ability cost"})
 		}
 	}
-	e.payMillCost(md.player, md.cost.Mill)
+	pay.PayMillCost(asPayer(e), md.player, md.cost.Mill)
 	// The elected tapXType permanents are tapped as part of the cost, before
 	// the source's own {T} (the cast path's pay.EmitChoiceCosts/payCast order), so
 	// a TapsForMana trigger on one of them matches the same way in both
@@ -1735,7 +1735,7 @@ func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.Ob
 	if !e.payManaAbilityMana(p, source, cc) {
 		return
 	}
-	e.payMillCost(p, cost.Mill)
+	pay.PayMillCost(asPayer(e), p, cost.Mill)
 	var manaTriggers []pendingTrigger
 	if cost.Tap {
 		manaTriggers = e.emitManaTap(p, source, ma)
