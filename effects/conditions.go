@@ -292,10 +292,10 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 	g := h.Game()
 	extraMet := true
 	if playerTurn != "" {
-		switch strings.ToLower(playerTurn) {
-		case "true":
+		switch conditionMet4a01Codes.Code(string(strings.ToLower(playerTurn))) {
+		case conditionMet4a01True:
 			extraMet = g.Active == c.Controller
-		case "false":
+		case conditionMet4a01False:
 			extraMet = g.Active != c.Controller
 		default:
 			return false, false
@@ -553,11 +553,10 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		// ValidTgts$ ask. A gate whose SA declares its own targets, whose ask
 		// has NOT been covered yet, and whose group is therefore empty is NOT
 		// the resolved zero above -- it is UNRESOLVED, so Resolve dispatches
-		// the sub and chosenTargetsFor poses the ask inside that dispatch. On
-		// the answered re-entry the recorded answer is visible
-		// (targetedGateGroup reads Ctx.TargetsPick and Ctx.SubPreAsk), the
-		// gate resolves for real, and the ask is never re-posed. Guard Dogs'
-		// DBPrevent is the one measured carrier (a DB sub of an ACTIVATED
+		// the sub and chosenTargetsFor poses the ask inside that dispatch. A
+		// recorded cast-time answer is visible (targetedGateGroup reads
+		// Ctx.SubPreAsk), so the gate resolves for real and the ask is never
+		// re-posed. Guard Dogs' DBPrevent is the one measured carrier (a DB sub of an ACTIVATED
 		// ability, reached by no placement or charm ask).
 		group = targetedGateGroup(c, sa)
 		if len(group) == 0 && TargetsOf(sa).Targeted() &&
@@ -572,7 +571,7 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		// ..."): Forge's group is the cards the resolving chain discarded.
 		// Two provenance channels enumerate it: the unless-payment's settled
 		// Discard<...> component (Ctx.UnlessDiscarded, set by rules'
-		// unless_pay resume arm — the mid-resolution channel), and the
+		// unless-payment settle — the mid-resolution channel), and the
 		// resolving object's own activation cost discards read off the log
 		// (Host.DiscardedInWindow — Moria's channel; the cost discard is
 		// emitted at activation, the sub runs at resolution). Both channels
@@ -816,7 +815,7 @@ func targetedPermanentLKI(c *Ctx, present string, o *state.Object) *state.Object
 	oc := *o
 	oc.Zone = state.ZBattlefield
 	if c != nil {
-		if p, ok := c.TargetControllerLKI[o.ID]; ok {
+		if p, ok := c.Snap.TargetController[o.ID]; ok {
 			oc.Controller = p
 		}
 	}
@@ -921,7 +920,7 @@ func conditionMetBattlefield(h Host, c *Ctx, present, compare string) (met, reso
 		if o.Zone != state.ZBattlefield || o.Face() == nil {
 			continue
 		}
-		if c.Replaced != 0 && o.ID == c.Replaced {
+		if c.Repl.Replaced != 0 && o.ID == c.Repl.Replaced {
 			// The entering object is already a battlefield permanent (see the
 			// doc above): it is not an "other" permanent and must not count.
 			continue
@@ -1007,8 +1006,8 @@ func conditionNotPresentMet(h Host, c *Ctx, defined, spec string) (met, resolved
 	sc := c.SpecContext(c.Controller)
 	sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, spec, h)...)
 	count := 0
-	switch defined {
-	case "":
+	switch conditionNotPresentMet4a02Codes.Code(string(defined)) {
+	case conditionNotPresentMet4a02Empty:
 		// Forge's default group for a group-less ConditionPresent$/NotPresent$
 		// gate is the battlefield (conditionMetBattlefield's group).
 		for i := range g.Objs {
@@ -1020,7 +1019,7 @@ func conditionNotPresentMet(h Host, c *Ctx, defined, spec string) (met, resolved
 				count++
 			}
 		}
-	case "Remembered":
+	case conditionNotPresentMet4a02Remembered:
 		for _, t := range rememberedWithSource(h, c) {
 			if t.IsPlayer {
 				continue
@@ -1033,7 +1032,7 @@ func conditionNotPresentMet(h Host, c *Ctx, defined, spec string) (met, resolved
 				count++
 			}
 		}
-	case "Targeted":
+	case conditionNotPresentMet4a02Targeted:
 		// The resolving ability's own answered targets — the same group
 		// conditionMet's Targeted branch enumerates.
 		for _, t := range targetedGroup(c) {
@@ -1068,15 +1067,13 @@ func targetedGroup(c *Ctx) []state.Target {
 }
 
 // targetedGateGroup is the ConditionDefined$ Targeted gate's effective group.
-// It is targetedGroup PLUS the two answer channels that are populated at GATE
-// time but consumed only later by chosenTargetsFor: a cast-time pre-ask's
-// recorded answer (Ctx.SubPreAsk, keyed by the SA's Line — the same matching
-// convention chosenTargetsFor's OfferedSA check uses) and a mid-resolution
-// pre-ask's recorded answer (Ctx.TargetsPick when Ctx.TargetsPickDone).
-// Resolve evaluates this gate BEFORE chosenTargetsFor, so without reading
-// these the answered re-entry of a sub that carries its own ValidTgts$ would
-// still show the empty group and re-resolve as the ordering bug's resolved
-// zero. An absent answer and an answered-empty one are distinguished by
+// It is targetedGroup PLUS the answer channel that is populated at GATE time
+// but consumed only later by chosenTargetsFor: a cast-time pre-ask's recorded
+// answer (Ctx.SubPreAsk, keyed by the SA's Line — the same matching
+// convention chosenTargetsFor's OfferedSA check uses). Resolve evaluates this
+// gate BEFORE chosenTargetsFor, so without reading it a sub that carries its
+// own ValidTgts$ would still show the empty group and resolve as the
+// ordering bug's resolved zero. An absent answer and an answered-empty one are distinguished by
 // targetedAskCovered, not by this slice's length.
 func targetedGateGroup(c *Ctx, sa *cards.SA) []state.Target {
 	if c.PickedTargets != nil {
@@ -1087,15 +1084,14 @@ func targetedGateGroup(c *Ctx, sa *cards.SA) []state.Target {
 			return ts
 		}
 	}
-
 	return c.Targets
 }
 
 // targetedAskCovered reports whether this SA's own ValidTgts$ ask has already
 // been offered or answered, over exactly the channels chosenTargetsFor
 // consults: an in-flight pre-ask answer (Ctx.PickedTargets), the cast-time
-// pre-ask record (Ctx.SubPreAsk, by Line), a mid-resolution pre-ask answer
-// (Ctx.TargetsPickDone), and the placement/announcement SA marker
+// pre-ask record (Ctx.SubPreAsk, by Line), and the placement/announcement SA
+// marker
 // (Ctx.OfferedSA, by Line — ResolveSVar parses fresh on every call, so pointer
 // identity never holds). The ConditionDefined$ Targeted gate uses it to tell a
 // genuinely empty answered group (a real zero) from the pre-ask state that
@@ -1125,18 +1121,18 @@ func evalConditionCount(count int, compare string) (met, resolved bool) {
 	if !ok {
 		return false, false
 	}
-	switch op {
-	case "EQ":
+	switch evalConditionCount4a03Codes.Code(string(op)) {
+	case evalConditionCount4a03EQ:
 		return count == n, true
-	case "NE":
+	case evalConditionCount4a03NE:
 		return count != n, true
-	case "LT":
+	case evalConditionCount4a03LT:
 		return count < n, true
-	case "LE":
+	case evalConditionCount4a03LE:
 		return count <= n, true
-	case "GT":
+	case evalConditionCount4a03GT:
 		return count > n, true
-	case "GE":
+	case evalConditionCount4a03GE:
 		return count >= n, true
 	}
 	return false, false
@@ -1151,8 +1147,8 @@ func parseConditionCompare(v string) (op string, n int, ok bool) {
 		return "", 0, false
 	}
 	op = strings.ToUpper(v[:2])
-	switch op {
-	case "EQ", "NE", "LT", "LE", "GT", "GE":
+	switch parseConditionCompare4a04Codes.Code(string(op)) {
+	case parseConditionCompare4a04EQ:
 	default:
 		return "", 0, false
 	}
@@ -1370,3 +1366,56 @@ func sourceRuntimeSVar(g *state.Game, c *Ctx, name string) (int32, bool) {
 	v, ok := o.RuntimeSVars[name]
 	return v, ok
 }
+
+const (
+	conditionMet4a01True  uint16 = 1 // "true"
+	conditionMet4a01False uint16 = 2 // "false"
+)
+
+var conditionMet4a01Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "true", Val: conditionMet4a01True},
+	state.StrEntry[uint16]{Key: "false", Val: conditionMet4a01False},
+)
+
+const (
+	conditionNotPresentMet4a02Empty      uint16 = 1 // ""
+	conditionNotPresentMet4a02Remembered uint16 = 2 // "Remembered"
+	conditionNotPresentMet4a02Targeted   uint16 = 3 // "Targeted"
+)
+
+var conditionNotPresentMet4a02Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: conditionNotPresentMet4a02Empty},
+	state.StrEntry[uint16]{Key: "Remembered", Val: conditionNotPresentMet4a02Remembered},
+	state.StrEntry[uint16]{Key: "Targeted", Val: conditionNotPresentMet4a02Targeted},
+)
+
+const (
+	evalConditionCount4a03EQ uint16 = 1 // "EQ"
+	evalConditionCount4a03NE uint16 = 2 // "NE"
+	evalConditionCount4a03LT uint16 = 3 // "LT"
+	evalConditionCount4a03LE uint16 = 4 // "LE"
+	evalConditionCount4a03GT uint16 = 5 // "GT"
+	evalConditionCount4a03GE uint16 = 6 // "GE"
+)
+
+var evalConditionCount4a03Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "EQ", Val: evalConditionCount4a03EQ},
+	state.StrEntry[uint16]{Key: "NE", Val: evalConditionCount4a03NE},
+	state.StrEntry[uint16]{Key: "LT", Val: evalConditionCount4a03LT},
+	state.StrEntry[uint16]{Key: "LE", Val: evalConditionCount4a03LE},
+	state.StrEntry[uint16]{Key: "GT", Val: evalConditionCount4a03GT},
+	state.StrEntry[uint16]{Key: "GE", Val: evalConditionCount4a03GE},
+)
+
+const (
+	parseConditionCompare4a04EQ uint16 = 1 // "EQ", "NE", "LT", "LE", "GT", "GE"
+)
+
+var parseConditionCompare4a04Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "EQ", Val: parseConditionCompare4a04EQ},
+	state.StrEntry[uint16]{Key: "NE", Val: parseConditionCompare4a04EQ},
+	state.StrEntry[uint16]{Key: "LT", Val: parseConditionCompare4a04EQ},
+	state.StrEntry[uint16]{Key: "LE", Val: parseConditionCompare4a04EQ},
+	state.StrEntry[uint16]{Key: "GT", Val: parseConditionCompare4a04EQ},
+	state.StrEntry[uint16]{Key: "GE", Val: parseConditionCompare4a04EQ},
+)

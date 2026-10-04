@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -368,7 +369,7 @@ func (e *Engine) castWindowReachable(p state.PlayerID, cost Cost, spellPool, sno
 	typed [7]state.Mana, life int32, conv *manaConv, units []windowManaUnit) bool {
 	payable := func(pool, snowPool state.Mana, lifeNow int32) bool {
 		_, ok := resolveManaWith(cost, pool, snowPool, typed, lifeNow,
-			e.payerGrantsPayLifeInsteadOfB(p), pipRider{}, conv)
+			asPayer(e).PayLifeInsteadOfB(p), pipRider{}, conv)
 
 		return ok
 	}
@@ -415,12 +416,12 @@ func (e *Engine) castWindowReachable(p state.PlayerID, cost Cost, spellPool, sno
 				if !feeOK {
 					continue
 				}
-				spent := manaSub(activationPool, activationFee.pool)
-				snowSpent := manaSub(activationSnow, activationFee.snow)
+				spent := manaSub(activationPool, activationFee.Pool)
+				snowSpent := manaSub(activationSnow, activationFee.Snow)
 				nextPool := manaSub(pool, spent)
 				nextSpellSnow := manaSub(spellSnow, snowSpent)
-				nextActivation := activationFee.pool
-				nextActivationSnow := activationFee.snow
+				nextActivation := activationFee.Pool
+				nextActivationSnow := activationFee.Snow
 				produced := a.mana()
 				used[i] = true
 				found := rec(manaAdd(nextPool, produced), nextSpellSnow,
@@ -532,9 +533,9 @@ func (e *Engine) striveAffordableTargets(pc *pendingCast, max int) int {
 			cost.Generic = 0
 		}
 		convoked := e.applyConvoke(pc, cost)
-		pay := paymentForCast(pc, convoked)
-		rider := pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}
-		if e.manaFeasibleDescriptor(pc.player, pay, convoked, costMods{}, 0, 0, rider) {
+		desc := paymentForCast(pc, convoked)
+		rider := pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}
+		if e.manaFeasibleDescriptor(pc.player, desc, convoked, costMods{}, 0, 0, rider) {
 			return true
 		}
 		if !convoked.HasManaPayment() {
@@ -543,9 +544,9 @@ func (e *Engine) striveAffordableTargets(pc *pendingCast, max int) int {
 		if !unitsBuilt {
 			units, unitsBuilt = e.castWindowUnits(pc), true
 		}
-		av := e.manaAvailableFor(pc.player, pay)
-		return e.castWindowReachable(pc.player, convoked, av.pool, pl.Snow, av.typed, pl.Life,
-			e.paymentConv(pc.player, pay.id, pay.class == paymentActivated), units)
+		av := pay.AvailableFor(asPayer(e), pc.player, desc)
+		return e.castWindowReachable(pc.player, convoked, av.Pool, pl.Snow, av.Typed, pl.Life,
+			asPayer(e).Conv(pc.player, desc.ID, desc.Class == paymentActivated), units)
 	}
 	// Ascending: the price is monotone in n, so the first unaffordable count
 	// ends the walk and at most one exhaustive (failing) window search runs.

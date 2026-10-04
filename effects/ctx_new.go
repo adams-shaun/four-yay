@@ -49,16 +49,16 @@ type CtxInit struct {
 	Remembered []state.Target
 	Captured   []state.Target
 	// LKI is the source's last-known snapshot and its LKI power/toughness.
-	LKI                    *state.Object
-	LKIPower, LKIToughness int32
-	LKIPTValid             bool
+	LKI *state.Object
+	// Snap carries the snapshot's derived P/T (Snap.Power, Toughness,
+	// PTValid).
+	Snap LKISnapshots
 	// EffectFrame is the Effect registration frame the body resolves under.
 	EffectFrame EffectFrame
 	// ChosenNumber/ChosenNumberBound are an Effect-delivered static's
 	// SetChosenNumber$ binding, which Count$ChosenNumber reads in place of
 	// the source's own logged choice.
-	ChosenNumber      int32
-	ChosenNumberBound bool
+	Num NumberInputs
 }
 
 // NewCtx is a fresh context for source, controlled by controller, seeded
@@ -66,21 +66,18 @@ type CtxInit struct {
 // built with (*Ctx).Child.
 func NewCtx(source state.ObjID, controller state.PlayerID, in CtxInit) Ctx {
 	return Ctx{
-		TriggerContext:    in.TriggerContext,
-		Source:            source,
-		Controller:        controller,
-		SVars:             in.SVars,
-		X:                 in.X,
-		Targets:           in.Targets,
-		Remembered:        in.Remembered,
-		Captured:          in.Captured,
-		LKI:               in.LKI,
-		LKIPower:          in.LKIPower,
-		LKIToughness:      in.LKIToughness,
-		LKIPTValid:        in.LKIPTValid,
-		EffectFrame:       in.EffectFrame,
-		ChosenNumber:      in.ChosenNumber,
-		ChosenNumberBound: in.ChosenNumberBound,
+		TriggerContext: in.TriggerContext,
+		Source:         source,
+		Controller:     controller,
+		SVars:          in.SVars,
+		X:              in.X,
+		Targets:        in.Targets,
+		Remembered:     in.Remembered,
+		Captured:       in.Captured,
+		LKI:            in.LKI,
+		Snap:           in.Snap,
+		EffectFrame:    in.EffectFrame,
+		Num:            in.Num,
 	}
 }
 
@@ -120,21 +117,19 @@ func (c *Ctx) Child(source state.ObjID, controller state.PlayerID) Ctx {
 // ask cursor; the caller sets Remembered to the instance's own set.
 func (c *Ctx) ForTrigger(tc TriggerContext) Ctx {
 	return Ctx{
-		TriggerContext:           tc,
-		Source:                   c.Source,
-		Controller:               c.Controller,
-		EffectFrame:              c.EffectFrame,
-		LKI:                      c.LKI,
-		LKIPower:                 c.LKIPower,
-		LKIToughness:             c.LKIToughness,
-		LKIPTValid:               c.LKIPTValid,
-		SourceLifelinkLKI:        c.SourceLifelinkLKI,
-		SourceLifelinkLKIValid:   c.SourceLifelinkLKIValid,
-		SourceControllerLKI:      c.SourceControllerLKI,
-		SourceControllerLKIValid: c.SourceControllerLKIValid,
-		Sacrificed:               append([]state.SacrificedInfo(nil), c.Sacrificed...),
-		Exiled:                   append([]state.ObjID(nil), c.Exiled...),
-		Revealed:                 append([]state.ObjID(nil), c.Revealed...),
+		TriggerContext: tc,
+		Source:         c.Source,
+		Controller:     c.Controller,
+		EffectFrame:    c.EffectFrame,
+		LKI:            c.LKI,
+		Snap: LKISnapshots{
+			Power: c.Snap.Power, Toughness: c.Snap.Toughness, PTValid: c.Snap.PTValid,
+			SourceLifelink: c.Snap.SourceLifelink, SourceLifelinkValid: c.Snap.SourceLifelinkValid,
+			SourceController: c.Snap.SourceController, SourceControllerValid: c.Snap.SourceControllerValid,
+		},
+		Sacrificed: append([]state.SacrificedInfo(nil), c.Sacrificed...),
+		Exiled:     append([]state.ObjID(nil), c.Exiled...),
+		Revealed:   append([]state.ObjID(nil), c.Revealed...),
 	}
 }
 
@@ -171,7 +166,7 @@ func (c *Ctx) SpecContext(you state.PlayerID) SpecContext {
 	sc := SpecContext{You: you, Source: c.Source, Layers: c.Layers,
 		TriggerContext: c.TriggerContext, ResolutionTargets: c.Targets, Remembered: c.Remembered, Chosen: c.Chosen, ChosenValid: c.ChosenValid, Resolving: true,
 		TargetableObjects:           c.TargetableObjects,
-		ExcludeFromBattlefieldCount: c.ExcludeFromBattlefieldCount}
+		ExcludeFromBattlefieldCount: c.Repl.ExcludeFromBattlefieldCount}
 	// Numeric-RHS resolution for a resolution-time filter spec, in priority
 	// order:
 	//
@@ -206,7 +201,7 @@ func (c *Ctx) SpecContext(you state.PlayerID) SpecContext {
 	// inlinable, and the method value both blows the cost budget and leaks
 	// the receiver. See also the hot statics/layer walk, which builds its
 	// SpecContexts directly and never routes through here.
-	if c.LastRollName != "" || len(c.RollPubs) > 0 || c.numericRHS {
+	if c.Roll.LastName != "" || len(c.Roll.Pubs) > 0 || c.numericRHS {
 		sc.Resolve = func(name string) (int32, bool) {
 			return c.resolveNumericRHS(name)
 		}

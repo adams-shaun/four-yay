@@ -21,16 +21,6 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// PaymentPlanOutcome describes a pure planner query.  Reason is deliberately
-// a small machine-readable vocabulary so callers can distinguish an ordinary
-// shortage from a V1 shape it must leave to manual payment.
-type PaymentPlanOutcome struct {
-	Plan   *decision.PaymentPlan
-	Reason string // "", "unsupported", "insufficient", or "search_limit"
-	Detail string // deterministic unsupported/source diagnostic
-	Nodes  int
-}
-
 func paymentActionFor(d *decision.Decision, id string) (decision.PaymentAction, bool) {
 	if d == nil {
 		return decision.PaymentAction{}, false
@@ -90,9 +80,9 @@ func (e *Engine) planCastPaymentChecked(p state.PlayerID, cast decision.PlannedC
 	// would compose a cost (and, from ZCommand, a commander tax) that
 	// beginCast would never charge.
 	originZone := state.ZHand
-	switch cast.Origin {
-	case "hand":
-	case "command_zone":
+	switch planCastPaymentChecked14b1Codes.Code(string(cast.Origin)) {
+	case planCastPaymentChecked14b1Hand:
+	case planCastPaymentChecked14b1CommandZone:
 		originZone = state.ZCommand
 	default:
 		return PaymentPlanOutcome{Reason: "unsupported"}
@@ -526,10 +516,10 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 	// account for (planCastPaymentChecked), and that verdict reads only the
 	// player, so no walk can change the empty result.
 	if !paymentPlanPoolOK(&e.G.Players[p]) {
-		e.paymentStats.recordBuild(true)
+		e.paymentStats.RecordBuild(true)
 		return nil
 	}
-	e.paymentStats.recordBuild(false)
+	e.paymentStats.RecordBuild(false)
 	// The builder's potential walk is what the priority walk's block record
 	// serves (walk_block_reuse.go): record from now on.
 	e.walkRecDemand = true
@@ -582,7 +572,7 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 		}
 		cast := decision.PlannedCast{Object: opt.Obj, Face: 0, Origin: origin}
 		got := e.planCastPaymentMemo(p, cast, &statics, &legal)
-		e.paymentStats.recordOutcome(got)
+		e.paymentStats.RecordOutcome(got)
 		if got.Plan == nil {
 			continue
 		}
@@ -623,7 +613,7 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 			}
 		}
 		out = append(out, a)
-		e.paymentStats.recordOffered(len(a.Plans))
+		e.paymentStats.RecordOffered(len(a.Plans))
 	}
 	return out
 }
@@ -700,8 +690,8 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	}
 	cost := e.offerCostFor(p, cast.Object, withSpellAbilityExtras(e.G.Obj(cast.Object).Face(), e.rawBaseCost(p, cast.Object)), spellScope(""))
 	payment, ok := resolveManaWith(cost, pool, state.Mana{}, [7]state.Mana{}, e.G.Players[p].Life, false, pipRider{}, nil)
-	expected := pay.Witness(cost, e.G.Players[p].Pool, produced, nil, payment.pool)
-	if !ok || pay.ManaAmount(payment.pool) != plan.PoolAfter || expected.PoolSpend != plan.PoolSpend {
+	expected := pay.Witness(cost, e.G.Players[p].Pool, produced, nil, payment.Pool)
+	if !ok || pay.ManaAmount(payment.Pool) != plan.PoolAfter || expected.PoolSpend != plan.PoolSpend {
 		return fmt.Errorf("payment witness does not settle")
 	}
 	return nil
@@ -1495,15 +1485,10 @@ func paymentPlanKnownManaParam(key string) bool {
 	if strings.HasPrefix(key, "AddsKeywords") {
 		return true
 	}
-	switch key {
-	case "API", "Cost", "Produced", "Amount", "SubAbility", "SpellDescription", "StackDescription", "AILogic", "PrecostDesc",
-		"Activation", "Activator", "ActivationPhases", "PlayerTurn", "OpponentTurn", "ActivationFirstCombat", "ActivationAfterBlockers",
-		"IsPresent", "PresentCompare", "CheckSVar", "SVarCompare", "ActivationLimit", "GameActivationLimit", "InstantSpeed",
-		"RestrictValid", "TriggersWhenSpent", "AddsCounters", "AddsKeywords", "AddsKeywordsAll", "AddsNoCounter", "PersistentMana", "UnlessCost", "Defined":
-		return true
-	default:
-		return false
+	if v, ok := paymentPlanKnownManaParamTab1.Get(key); ok {
+		return v
 	}
+	return false
 }
 
 func paymentPlanSelfCost(part CostPart, id state.ObjID) bool {
@@ -1732,9 +1717,8 @@ func paymentConsequenceEqual(c pay.Consequence, w *decision.PaymentConsequence) 
 // naming no plain colour, an empty commander identity) is
 // paymentPlanChoiceColours' fail-closed answer, not this predicate's.
 func paymentPlanChoiceShape(raw string) bool {
-	switch raw {
-	case "Chosen", "ChosenColor", "ComboChosen":
-		return true
+	if v, ok := paymentPlanChoiceShapeTab2.Get(raw); ok {
+		return v
 	}
 	return strings.HasPrefix(raw, "Combo ")
 }
@@ -1750,15 +1734,15 @@ func paymentPlanChoiceShape(raw string) bool {
 // inventing a colour.
 func (e *Engine) paymentPlanChoiceColours(id state.ObjID, ma *cards.SA) []string {
 	raw := effects.ManaOf(ma).Produced
-	switch raw {
-	case "Any":
+	switch paymentPlanChoiceColours14b2Codes.Code(string(raw)) {
+	case paymentPlanChoiceColours14b2Any:
 		return []string{"W", "U", "B", "R", "G"}
-	case "Chosen", "ChosenColor", "ComboChosen":
+	case paymentPlanChoiceColours14b2Chosen:
 		if col := e.chosenProducedColour(id); col != "" {
 			return []string{col}
 		}
 		return nil
-	case "ColorIdentity":
+	case paymentPlanChoiceColours14b2ColorIdentity:
 		return e.commanderIdentityColours(e.paymentPlanController(id))
 	}
 	// Reuse the manual wheel's own flattener: it substitutes a recorded
@@ -1983,3 +1967,68 @@ func costPips(c Cost) [5]int {
 	}
 	return d
 }
+
+var paymentPlanKnownManaParamTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "API", Val: true},
+	state.StrEntry[bool]{Key: "Cost", Val: true},
+	state.StrEntry[bool]{Key: "Produced", Val: true},
+	state.StrEntry[bool]{Key: "Amount", Val: true},
+	state.StrEntry[bool]{Key: "SubAbility", Val: true},
+	state.StrEntry[bool]{Key: "SpellDescription", Val: true},
+	state.StrEntry[bool]{Key: "StackDescription", Val: true},
+	state.StrEntry[bool]{Key: "AILogic", Val: true},
+	state.StrEntry[bool]{Key: "PrecostDesc", Val: true},
+	state.StrEntry[bool]{Key: "Activation", Val: true},
+	state.StrEntry[bool]{Key: "Activator", Val: true},
+	state.StrEntry[bool]{Key: "ActivationPhases", Val: true},
+	state.StrEntry[bool]{Key: "PlayerTurn", Val: true},
+	state.StrEntry[bool]{Key: "OpponentTurn", Val: true},
+	state.StrEntry[bool]{Key: "ActivationFirstCombat", Val: true},
+	state.StrEntry[bool]{Key: "ActivationAfterBlockers", Val: true},
+	state.StrEntry[bool]{Key: "IsPresent", Val: true},
+	state.StrEntry[bool]{Key: "PresentCompare", Val: true},
+	state.StrEntry[bool]{Key: "CheckSVar", Val: true},
+	state.StrEntry[bool]{Key: "SVarCompare", Val: true},
+	state.StrEntry[bool]{Key: "ActivationLimit", Val: true},
+	state.StrEntry[bool]{Key: "GameActivationLimit", Val: true},
+	state.StrEntry[bool]{Key: "InstantSpeed", Val: true},
+	state.StrEntry[bool]{Key: "RestrictValid", Val: true},
+	state.StrEntry[bool]{Key: "TriggersWhenSpent", Val: true},
+	state.StrEntry[bool]{Key: "AddsCounters", Val: true},
+	state.StrEntry[bool]{Key: "AddsKeywords", Val: true},
+	state.StrEntry[bool]{Key: "AddsKeywordsAll", Val: true},
+	state.StrEntry[bool]{Key: "AddsNoCounter", Val: true},
+	state.StrEntry[bool]{Key: "PersistentMana", Val: true},
+	state.StrEntry[bool]{Key: "UnlessCost", Val: true},
+	state.StrEntry[bool]{Key: "Defined", Val: true},
+)
+
+var paymentPlanChoiceShapeTab2 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "Chosen", Val: true},
+	state.StrEntry[bool]{Key: "ChosenColor", Val: true},
+	state.StrEntry[bool]{Key: "ComboChosen", Val: true},
+)
+
+const (
+	planCastPaymentChecked14b1Hand        uint16 = 1 // "hand"
+	planCastPaymentChecked14b1CommandZone uint16 = 2 // "command_zone"
+)
+
+var planCastPaymentChecked14b1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "hand", Val: planCastPaymentChecked14b1Hand},
+	state.StrEntry[uint16]{Key: "command_zone", Val: planCastPaymentChecked14b1CommandZone},
+)
+
+const (
+	paymentPlanChoiceColours14b2Any           uint16 = 1 // "Any"
+	paymentPlanChoiceColours14b2Chosen        uint16 = 2 // "Chosen", "ChosenColor", "ComboChosen"
+	paymentPlanChoiceColours14b2ColorIdentity uint16 = 3 // "ColorIdentity"
+)
+
+var paymentPlanChoiceColours14b2Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Any", Val: paymentPlanChoiceColours14b2Any},
+	state.StrEntry[uint16]{Key: "Chosen", Val: paymentPlanChoiceColours14b2Chosen},
+	state.StrEntry[uint16]{Key: "ChosenColor", Val: paymentPlanChoiceColours14b2Chosen},
+	state.StrEntry[uint16]{Key: "ComboChosen", Val: paymentPlanChoiceColours14b2Chosen},
+	state.StrEntry[uint16]{Key: "ColorIdentity", Val: paymentPlanChoiceColours14b2ColorIdentity},
+)

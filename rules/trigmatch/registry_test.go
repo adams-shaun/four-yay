@@ -271,7 +271,7 @@ func allRegisteredModeNames() []string {
 func TestEveryDispatchedTriggerModeHasAMatcher(t *testing.T) {
 	t.Parallel()
 	for _, mode := range allRegisteredModeNames() {
-		if trigMatchers[mode] == nil {
+		if Lookup(mode) == nil {
 			t.Errorf("Mode$ %s has no registered matcher: it can never fire", mode)
 		}
 	}
@@ -289,8 +289,8 @@ func TestNoTriggerModeIsRegisteredThatTheSwitchNeverDispatched(t *testing.T) {
 		known[m] = true
 	}
 	var extra []string
-	for mode := range trigMatchers {
-		if !known[mode] {
+	for k, fn := range trigMatchers {
+		if mode := cards.TriggerMode(k).String(); fn != nil && !known[mode] {
 			extra = append(extra, mode)
 		}
 	}
@@ -304,7 +304,7 @@ func TestAnUnregisteredModeNeverFires(t *testing.T) {
 	t.Parallel()
 	// The switch had no default arm: an unknown mode fell off the end with
 	// matched still false. The table must keep that, not panic on a lookup miss.
-	if trigMatchers["NoSuchModeExists"] != nil {
+	if Lookup("NoSuchModeExists") != nil {
 		t.Fatal("test precondition: NoSuchModeExists must not be registered")
 	}
 }
@@ -315,15 +315,27 @@ func TestRegisteringOneModeTwicePanics(t *testing.T) {
 	// Two files claiming one mode is the merge accident the split makes
 	// possible, so it must be loud at startup rather than a matcher that
 	// quietly stopped being reached.
-	const mode = "TestOnlyDuplicateMode"
+	// Phase is registered at init; a second claim must panic and leave the
+	// first matcher in place.
+	const mode = "Phase"
 	fn := func(Board, cards.Trigger, state.ObjID, events.Event, *state.Object) bool { return false }
-	registerTrigMatcher(fn, mode)
-	defer delete(trigMatchers, mode)
-
-	defer func() {
-		if recover() == nil {
-			t.Error("registering a mode twice must panic")
-		}
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Error("registering a mode twice must panic")
+			}
+		}()
+		registerTrigMatcher(fn, mode)
 	}()
-	registerTrigMatcher(fn, mode)
+	if Lookup(mode) == nil {
+		t.Error("the panicking registration dropped the first matcher")
+	}
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Error("registering a mode outside cards.TriggerMode must panic")
+			}
+		}()
+		registerTrigMatcher(fn, "TestOnlyModeOutsideTheVocabulary")
+	}()
 }

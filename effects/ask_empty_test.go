@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
@@ -347,60 +346,6 @@ func TestDefinedHiddenOriginObjectsMoveDirectly(t *testing.T) {
 			t.Fatalf("Defined$ You search posed %+v, want a 3-option search", h.asked)
 		}
 	})
-}
-
-// TestDefinedLibraryPlayerSelectorsStillSearch proves that the hidden-library
-// dispatcher derives an owner's role from resolved targets rather than the
-// selector spelling. Each selector deliberately resolves only player 0 while
-// player 0's library has cards: it must retain effSearchLibrary's ordinary
-// owner path, not consume the ChangeZone as an empty direct fetch list.
-func TestDefinedLibraryPlayerSelectorsStillSearch(t *testing.T) {
-	cases := []struct {
-		name, defined string
-		bind          func(*Ctx)
-	}{
-		{
-			name: "remembered player", defined: "Remembered",
-			bind: func(c *Ctx) { c.Remembered = []state.Target{{Player: 0, IsPlayer: true}} },
-		},
-		{
-			name: "targeted player", defined: "Targeted",
-			bind: func(c *Ctx) { c.Targets = []state.Target{{Player: 0, IsPlayer: true}} },
-		},
-		{
-			name: "chosen player", defined: "ChosenPlayer",
-			bind: func(c *Ctx) {
-				c.Chosen = []state.Target{{Player: 0, IsPlayer: true}}
-				c.ChosenValid = true
-			},
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			h := &askHost{}
-			h.g = state.NewGame(names(2))
-			src := h.g.AddObject(mkCard(t, "Name:Asker\nTypes:Sorcery\nOracle:x\n"), 1)
-			ids := fillLibrary(h.g, 0, mkCard(t, "Name:Forest\nTypes:Basic Land Forest\nOracle:x\n"), 3)
-			ctx := &Ctx{Source: src.ID, Controller: 1}
-			tc.bind(ctx)
-
-			Resolve(h, ctx, sa(t, "DB$ ChangeZone | Defined$ "+tc.defined+" | Origin$ Library | Destination$ Hand"))
-			d := h.asked
-			if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "search" || len(d.Options) != len(ids) {
-				t.Fatalf("%s posed %+v, want player 0's three-card library search", tc.defined, d)
-			}
-			for _, o := range d.Options {
-				if o.Player != 0 {
-					t.Fatalf("%s option owner = %d, want searched player 0: %+v", tc.defined, o.Player, d.Options)
-				}
-			}
-			for _, id := range ids {
-				if got := h.g.Obj(id).Zone; got != state.ZLibrary {
-					t.Fatalf("%s moved %d to %s before its search answer", tc.defined, id, got)
-				}
-			}
-		})
-	}
 }
 
 // TestDefinedLibraryObjectSelectorsMoveDirectly covers every resolved

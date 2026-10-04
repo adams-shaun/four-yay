@@ -69,7 +69,7 @@ func TestCopyPermanentOfIsAllocationFree(t *testing.T) {
 	f.Publish()
 	cached := &cards.SA{API: "CopyPermanent", Params: map[string]string{"Defined": "Remembered"}}
 	CopyPermanentOf(cached)
-	if n := testing.AllocsPerRun(100, func() {
+	if n := allocsPerRun(100, func() {
 		_ = CopyPermanentOf(bound)
 		_ = CopyPermanentOf(cached)
 	}); n != 0 {

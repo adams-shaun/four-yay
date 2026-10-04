@@ -1,0 +1,6 @@
+{
+  "card": "Glimmer of Genius",
+  "rows": {
+    "scry-two-then-draw-two-and-gain-two-energy": "step 0 (cast): [{\"kind\":\"arrange\",\"pick\":[]}]"
+  }
+}

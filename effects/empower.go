@@ -45,8 +45,7 @@ const empowerTokenKey = "u_empower"
 //  4. N loyalty counters go on ONE Jace token the player controls. With
 //     several candidates (a pre-existing pair, or the two mints a CreateToken
 //     doubler such as Anointed Procession makes of the one token) the player
-//     chooses: a KChoose answered through the shared "counter_pick" resume
-//     arm. The R-9 no-host fallback (and botpolicy's first-option answer)
+//     chooses: a KChoose ("counter_pick") answered in place. The R-9 no-host fallback (and botpolicy's first-option answer)
 //     take the first candidate in battlefield order. The counters are one
 //     ordinary CounterChange event, so AddCounter replacements (Doubling
 //     Season) and "whenever you put one or more loyalty counters" triggers
@@ -55,44 +54,18 @@ const empowerTokenKey = "u_empower"
 // An absent Type$ or a missing token script is a loud Note that creates and
 // places nothing.
 func effEmpower(h Host, c *Ctx, sa *cards.SA) {
-	// fx42 scoping: consume the answered pick first, so a nested
-	// PutCounter/Empower later in the chain cannot inherit it.
-	pickAns, pickDone := ([]state.ObjID)(nil), false
-
 	g := h.Game()
 	typ := strings.TrimSpace(sa.ParamStr(cards.PKType))
 	if typ == "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "Empower: no Type$ to empower"})
 		return
 	}
-	if rest := resumingMint(c, sa); rest != nil {
-		// The token's mint parked behind a CR 616.1 replacement-order ask and
-		// the answer has minted it: grant the riders to every mint the answer
-		// produced, then place the counters with the amount frozen on the
-		// first pass.
-		var mints []state.ObjID
-		for _, id := range rest.Parked {
-			if g.Obj(id) != nil {
-				empowerGrant(h, id, typ)
-				mints = append(mints, id)
-			}
-		}
-		empowerPlace(h, c, sa, typ, rest.Amount, mints, nil, false)
-		return
-	}
 	n := Num(h, c, sa, "Num", 1)
 	if n < 0 {
 		n = 0
 	}
-	if pickDone {
-		// Re-entry after the "which Jace token" answer: the token already
-		// exists (the first pass created it or found it), so nothing is
-		// created again.
-		empowerPlace(h, c, sa, typ, n, nil, pickAns, true)
-		return
-	}
 	if len(empowerCandidates(h, c, typ)) > 0 {
-		empowerPlace(h, c, sa, typ, n, nil, nil, false)
+		empowerPlace(h, c, sa, typ, n, nil)
 		return
 	}
 	key := empowerTokenKey + "_" + strings.ToLower(typ)
@@ -114,12 +87,11 @@ func effEmpower(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	if !wasSuspended && h.Suspended() {
-		// The mint parked behind a replacement-order ask: the counters wait
-		// for the mints the answer produces (TokenRest re-entry above).
-		_ = suspendMint(h, c, TokenRest{SA: sa, Amount: n, Script: key})
+		// A resolution-time window opened during the mint: no counters
+		// are placed.
 		return
 	}
-	empowerPlace(h, c, sa, typ, n, live, nil, false)
+	empowerPlace(h, c, sa, typ, n, live)
 }
 
 // empowerGrant makes a freshly minted empower token a <typ> named
@@ -161,7 +133,7 @@ func empowerCandidates(h Host, c *Ctx, typ string) []state.ObjID {
 // this resolution just created (they carry the type grant, which the
 // resolution's published type table does not show yet); otherwise the
 // candidates are re-read from the battlefield. done/ans is the answered pick.
-func empowerPlace(h Host, c *Ctx, sa *cards.SA, typ string, n int32, minted, ans []state.ObjID, done bool) {
+func empowerPlace(h Host, c *Ctx, sa *cards.SA, typ string, n int32, minted []state.ObjID) {
 	if n <= 0 {
 		// Nothing to place (empower 0 still created its token above): no
 		// zero CounterChange, so no "counters put" trigger can see one.
@@ -171,10 +143,6 @@ func empowerPlace(h Host, c *Ctx, sa *cards.SA, typ string, n int32, minted, ans
 	if cands == nil {
 		cands = empowerCandidates(h, c, typ)
 	}
-	if done {
-		empowerPlaceAnswered(h, c, n, ans)
-		return
-	}
 	if len(cands) == 0 {
 		return
 	}
@@ -182,19 +150,16 @@ func empowerPlace(h Host, c *Ctx, sa *cards.SA, typ string, n int32, minted, ans
 		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose,
 			Min: 1, Max: 1, Source: c.Source,
 			ResumeKind: "counter_pick", ResumeSA: sa,
-			ResumeRemembered: copyTargets(c.Remembered),
-			Prompt:           "Empower " + typ + " " + strconv.Itoa(int(n)) + " — choose a " + typ + " token you control"}
+			Prompt: "Empower " + typ + " " + strconv.Itoa(int(n)) + " — choose a " + typ + " token you control"}
 		for _, id := range cands {
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 				Kind: "counter_pick", Label: typ + " Token", Obj: id, Player: c.Controller})
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The "counter_pick" answer in hand: the re-entry's placement.
+			// The "counter_pick" answer in hand.
 			empowerPlaceAnswered(h, c, n, counterAnswerObjs(ans))
 			return
 		}
-		_ = Ask(h, d)
-
 	}
 	h.Emit(events.Event{Kind: events.CounterChange, Obj: cands[0], Counter: "LOYALTY", Amount: n})
 }

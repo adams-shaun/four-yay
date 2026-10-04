@@ -188,8 +188,8 @@ func reflectedDefinedExtras(h Host, c *Ctx, sel string) ([]state.ObjID, bool) {
 		spec = strings.TrimSpace(sel[i+1:])
 		sel = strings.TrimSpace(sel[:i])
 	}
-	switch sel {
-	case "ValidGraveyard":
+	switch reflectedDefinedExtras8c61Codes.Code(string(sel)) {
+	case reflectedDefinedExtras8c61ValidGraveyard:
 		var out []state.ObjID
 		for _, q := range g.AliveFrom(0) {
 			for _, id := range g.Zone(state.ZGraveyard, q) {
@@ -200,13 +200,13 @@ func reflectedDefinedExtras(h Host, c *Ctx, sel string) ([]state.ObjID, bool) {
 			}
 		}
 		return out, true
-	case "Sacrificed":
+	case reflectedDefinedExtras8c61Sacrificed:
 		var out []state.ObjID
 		for _, t := range c.Remembered {
 			out = append(out, t.Obj)
 		}
 		return out, true
-	case "Untapped":
+	case reflectedDefinedExtras8c61Untapped:
 		// The reflected object is the permanent the activation's untapYType
 		// cost elected (for Benthic Explorers, a tapped land an OPPONENT
 		// controls), carried on the resolution Ctx as CostUntapped. The
@@ -220,7 +220,7 @@ func reflectedDefinedExtras(h Host, c *Ctx, sel string) ([]state.ObjID, bool) {
 			}
 		}
 		return out, true
-	case "ExiledWith":
+	case reflectedDefinedExtras8c61ExiledWith:
 		var out []state.ObjID
 		for _, q := range g.AliveFrom(0) {
 			for _, id := range g.Zone(state.ZExile, q) {
@@ -294,18 +294,18 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 		// Produce/Is where Valid$ names reflected objects. Resolve those three
 		// roles locally so the ordinary Defined grammar is not widened for
 		// unrelated effects.
-		switch mr.Defined {
-		case "TriggeredActivator":
+		switch effManaReflected8c62Codes.Code(string(mr.Defined)) {
+		case effManaReflected8c62TriggeredActivator:
 			if c.TriggerActivator.IsPlayer {
 				recipient = c.TriggerActivator.Player
 			}
-		case "TriggeredCardController":
+		case effManaReflected8c62TriggeredCardController:
 			if o := h.Game().Obj(c.TriggerCard); o != nil {
 				recipient = o.Controller
 			}
 		}
 	}
-	// The rules-engine colour-ask path re-enters with Produced$ set to one
+	// The rules-engine colour-ask path resolves with Produced$ set to one
 	// plain letter.
 	if len(produced) == 1 && strings.ContainsRune(ManaSymbols, rune(produced[0])) {
 		manaAdd(recipient, produced)
@@ -319,13 +319,6 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 	// real host is asked, and only a host that cannot answer (or an empty
 	// option list) keeps the deterministic first-candidate stand-in with its
 	// R-9 Note.
-	if answered := string(""); answered != "" {
-
-		// The answer is carried as the structured mana symbol, not the option
-		// label: labels are presentation-only (ManaSymbol on decision.Option).
-		manaReflectedAnswered(cols, answered, recipient, manaAdd)
-		return
-	}
 	switch len(cols) {
 	case 0:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -340,20 +333,17 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "mana", Obj: c.Source, Label: "Add " + col, ManaSymbol: col})
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the "manareflected"
-			// arm's colour, added exactly as the re-entry adds it (the ask
-			// is Min 1, so a served answer always names one option).
-			// The legacy re-entry re-runs effManaReflected from its first
-			// line, which emits the unread-parameter Note again; mirror it.
+			// Answered in place (the ask is Min 1, so a served answer always
+			// names one option). The answer is carried as the structured
+			// mana symbol, not the option label: labels are
+			// presentation-only. The unread-parameter Note is emitted again
+			// first (the recorded event stream depends on it).
 			noteUnreadParams(h, c, "ManaReflected", ManaReflectedOf(sa).Unread)
 			if len(ans) > 0 {
 				manaReflectedAnswered(cols, ans[0].ManaSymbol, recipient, manaAdd)
 			}
 			return
-		} else {
-			_ = Ask(h, d)
 		}
-
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "chose first reflected colour " + cols[0] + " (no ask possible)"})
 		manaAdd(recipient, cols[0])
@@ -362,9 +352,7 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 
 // manaReflectedAnswered adds the answered reflected colour: the colour when
 // this resolution still offers it, else (a malformed or off-list answer) the
-// first candidate rather than a colour the candidates never named. Shared by
-// the legacy re-entry (Ctx.ManaReflectedColor) and the resolution kernel's
-// in-hand answer.
+// first candidate rather than a colour the candidates never named.
 func manaReflectedAnswered(cols []string, col string, recipient state.PlayerID, manaAdd func(state.PlayerID, string)) {
 	for _, cand := range cols {
 		if cand == col {
@@ -376,3 +364,27 @@ func manaReflectedAnswered(cols []string, col string, recipient state.PlayerID, 
 		manaAdd(recipient, cols[0])
 	}
 }
+
+const (
+	reflectedDefinedExtras8c61ValidGraveyard uint16 = 1 // "ValidGraveyard"
+	reflectedDefinedExtras8c61Sacrificed     uint16 = 2 // "Sacrificed"
+	reflectedDefinedExtras8c61Untapped       uint16 = 3 // "Untapped"
+	reflectedDefinedExtras8c61ExiledWith     uint16 = 4 // "ExiledWith"
+)
+
+var reflectedDefinedExtras8c61Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "ValidGraveyard", Val: reflectedDefinedExtras8c61ValidGraveyard},
+	state.StrEntry[uint16]{Key: "Sacrificed", Val: reflectedDefinedExtras8c61Sacrificed},
+	state.StrEntry[uint16]{Key: "Untapped", Val: reflectedDefinedExtras8c61Untapped},
+	state.StrEntry[uint16]{Key: "ExiledWith", Val: reflectedDefinedExtras8c61ExiledWith},
+)
+
+const (
+	effManaReflected8c62TriggeredActivator      uint16 = 1 // "TriggeredActivator"
+	effManaReflected8c62TriggeredCardController uint16 = 2 // "TriggeredCardController"
+)
+
+var effManaReflected8c62Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "TriggeredActivator", Val: effManaReflected8c62TriggeredActivator},
+	state.StrEntry[uint16]{Key: "TriggeredCardController", Val: effManaReflected8c62TriggeredCardController},
+)

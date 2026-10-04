@@ -19,7 +19,7 @@ func TestComboAnyResolutionAllocationConsumesOneAmountPerSelection(t *testing.T)
 		t.Fatalf("source precondition zone=%s, want battlefield", source.Zone)
 	}
 
-	Resolve(h, &Ctx{Source: source.ID, Controller: 0, ManaChoices: []string{"U", "R"}},
+	Resolve(h, &Ctx{Source: source.ID, Controller: 0, Mana: ManaInputs{Choices: []string{"U", "R"}}},
 		sa(t, "AB$ Mana | Produced$ Combo Any | Amount$ 2"))
 	var blue, red int32
 	for _, event := range h.log {

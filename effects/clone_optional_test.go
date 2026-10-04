@@ -2,7 +2,7 @@ package effects
 
 // The Optional$ True election leaves of DB$ Clone (ticket
 // api-clone-trigger-copy, Sarkhan Soul Aflame's shape): the no-host stand-in
-// and the Ctx answer-field contract the rules-side resume arm depends on.
+// and the in-place answer contract.
 
 import (
 	"testing"

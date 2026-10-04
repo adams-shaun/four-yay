@@ -231,8 +231,8 @@ func (e *Engine) announcedManaWindowAsk(pc *pendingCast, mana Cost) bool {
 	// A pay-life grant (K'rrik) can settle what the pool cannot: the legacy
 	// window's "done" is kept for exactly that case (manaWindowAsk's gate
 	// suspended the grant to open this window).
-	if e.costPayableClassLife(p, paymentForCast(pc, mana),
-		pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}, mana, true) {
+	if pay.CostPayableClassLife(asPayer(e), p, paymentForCast(pc, mana),
+		pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}, mana, true) {
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "done", Label: "Pay"})
 	}
 	d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: decision.OptCancelCast, Label: "Cancel cast"})

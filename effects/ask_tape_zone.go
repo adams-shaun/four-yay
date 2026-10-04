@@ -1,14 +1,11 @@
 package effects
 
-// ask_tape_zone.go holds the zone movers' share of the resolution kernel's
-// converted asks (W3 step 2, lasagna spec §7): the answer readers and the
-// re-entry echoes. A converted site continues locally with the answer in
-// hand, but the legacy path it must stay byte-identical with re-enters the
-// primitive from its first line, re-emitting whatever that entry emits (an
-// unread-parameter Note, an unresolvable selector's Note, a limited search's
-// look) before it reaches the answered walk. Each echo replays exactly that
-// entry, through the same helpers the entry itself calls, so the two paths
-// cannot drift.
+// ask_tape_zone.go holds the zone movers' AskTape answer readers and echoes.
+// An answered site continues locally with the answer in hand, first
+// re-emitting the primitive's entry events (an unread-parameter Note, an
+// unresolvable selector's Note, a limited search's look) through the same
+// helpers the entry itself calls, so the recorded event stream (and golden
+// replays) keep that shape.
 
 import (
 	"github.com/adams-shaun/gorge/decision"
@@ -16,9 +13,8 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// tapeAnswerObjs is a served answer's object ids in answer order: the list
-// every Obj-carrying resume arm ("search", "hand_move", "hidden_pick",
-// "sacrifice", "imprint") binds.
+// tapeAnswerObjs is a served answer's object ids in answer order (the
+// "search", "hand_move", "hidden_pick", "sacrifice" and "imprint" asks).
 func tapeAnswerObjs(ans []decision.Option) []state.ObjID {
 	out := make([]state.ObjID, 0, len(ans))
 	for _, o := range ans {
@@ -36,15 +32,15 @@ func tapeAnswerYes(ans []decision.Option) bool {
 	return len(ans) > 0 && ans[0].Kind == "yes"
 }
 
-// changeZoneReentryEcho is a legacy re-entry of effChangeZone up to its
-// dispatch on Origin$ (changeZonePrelude); the dispatch itself emits nothing
-// on the way to an answered walker.
+// changeZoneReentryEcho re-emits effChangeZone's entry up to its dispatch
+// on Origin$ (changeZonePrelude); the dispatch itself emits nothing on the
+// way to an answered walker.
 func changeZoneReentryEcho(h Host, c *Ctx, cz *ChangeZoneParams) {
 	changeZonePrelude(h, c, cz)
 }
 
-// searchReentryEcho is a legacy re-entry of effChangeZone into
-// effSearchLibrary's answered owner: the prelude, the ChooseFromDefined$
+// searchReentryEcho re-emits effChangeZone's entry into effSearchLibrary's
+// answered owner: the prelude, the ChooseFromDefined$
 // Note, and -- for an answered pick or may-shuffle, not for a confirmation,
 // which is asked before the look -- this owner's limited-search look.
 func searchReentryEcho(h Host, c *Ctx, cz *ChangeZoneParams, owner state.PlayerID, zones []state.Zone, look bool) {
@@ -55,14 +51,14 @@ func searchReentryEcho(h Host, c *Ctx, cz *ChangeZoneParams, owner state.PlayerI
 	}
 }
 
-// definedLibraryReentryEcho is a legacy re-entry of effChangeZone into
+// definedLibraryReentryEcho re-emits effChangeZone's entry before
 // moveDefinedLibraryObjects' answered Optional$ election.
 func definedLibraryReentryEcho(h Host, c *Ctx, cz *ChangeZoneParams) {
 	changeZoneReentryEcho(h, c, cz)
 }
 
 // searchChooseFromDefined resolves a library search's ChooseFromDefined$
-// pool (effSearchLibrary's walk and its re-entry echo): an unresolvable
+// pool (effSearchLibrary's walk and its echo): an unresolvable
 // selector fails CLOSED with one Note -- an empty pool, never a
 // whole-library search.
 func searchChooseFromDefined(h Host, c *Ctx, cz *ChangeZoneParams) (pool map[state.ObjID]bool, active, resolved bool) {
@@ -80,7 +76,7 @@ func searchChooseFromDefined(h Host, c *Ctx, cz *ChangeZoneParams) (pool map[sta
 }
 
 // searchLook is one search owner's library and MaxRevealed$ look window
-// (effSearchLibrary's walk and its re-entry echo): a window shorter than the
+// (effSearchLibrary's walk and its echo): a window shorter than the
 // library is looked at (or, with Reveal$, revealed) before anything is
 // chosen from it.
 func searchLook(h Host, c *Ctx, cz *ChangeZoneParams, owner state.PlayerID, zones []state.Zone) (lib, lookWindow []state.ObjID) {
@@ -101,12 +97,12 @@ func searchLook(h Host, c *Ctx, cz *ChangeZoneParams, owner state.PlayerID, zone
 }
 
 // libraryOnlyZones is the origin set a library search's may-shuffle tail
-// re-enters with as far as its look is concerned: the tail is reached only
+// echoes its look with: the tail is reached only
 // when the search's origin includes the library (read-only).
 var libraryOnlyZones = []state.Zone{state.ZLibrary}
 
-// objectPathReentryEcho is a legacy re-entry of effChangeZone's object path
-// up to its answered may-shuffle tail: the prelude, then the Hand-origin
+// objectPathReentryEcho re-emits effChangeZone's object-path entry before
+// its answered may-shuffle tail: the prelude, then the Hand-origin
 // DefinedPlayer$-unread Note the Origin$ dispatch emits on the way through.
 func objectPathReentryEcho(h Host, c *Ctx, cz *ChangeZoneParams) {
 	changeZoneReentryEcho(h, c, cz)
@@ -115,12 +111,10 @@ func objectPathReentryEcho(h Host, c *Ctx, cz *ChangeZoneParams) {
 	}
 }
 
-// objectPathMoveEcho is a legacy re-entry of effChangeZone's object path up
-// to its answered AlternativeDecider$ or Imprint$ choice: objectPathReentryEcho,
-// then the WithCountersAmount$ read the path makes before resolving its
-// objects (loud when malformed). The rest of the way -- the objects'
-// resolution and the forget-other clears the first pass already applied --
-// emits nothing on a re-entry.
+// objectPathMoveEcho re-emits effChangeZone's object-path entry before its
+// answered target, AlternativeDecider$ or Imprint$ choice:
+// objectPathReentryEcho, then the WithCountersAmount$ read the path makes
+// before resolving its objects (loud when malformed).
 func objectPathMoveEcho(h Host, c *Ctx, cz *ChangeZoneParams, to state.Zone) {
 	objectPathReentryEcho(h, c, cz)
 	if cz.WithCountersType != "" && counterDestination(to) {
@@ -144,8 +138,8 @@ func hiddenPickChooseFromDefinedNote(h Host, c *Ctx, cz *ChangeZoneParams) {
 		Text: "ChangeZone ChooseFromDefined$ " + cz.ChooseFromDefined + " is not resolvable; nothing is offered"})
 }
 
-// hiddenPickReentryEcho is a legacy re-entry of effChangeZone into
-// effHiddenPick's answered fetch player: the prelude, then the pick's own
+// hiddenPickReentryEcho re-emits effChangeZone's entry into effHiddenPick's
+// answered fetch player: the prelude, then the pick's own
 // entry reads in their order -- the unmodelled-Origin$ Note, the
 // WithCountersAmount$ read, the ChooseFromDefined$ Note.
 func hiddenPickReentryEcho(h Host, c *Ctx, cz *ChangeZoneParams, to state.Zone, originValid bool, from string) {
@@ -161,7 +155,7 @@ func hiddenPickReentryEcho(h Host, c *Ctx, cz *ChangeZoneParams, to state.Zone, 
 	}
 }
 
-// handMoveReentryEcho is a legacy re-entry of effChangeZone into
+// handMoveReentryEcho re-emits effChangeZone's entry into
 // handMoveOwnersWalk's answered owner: the prelude, then the walk's
 // WithCountersAmount$ read (loud when malformed). The hand dispatchers emit
 // only on shapes that never reach an ask.
@@ -172,8 +166,8 @@ func handMoveReentryEcho(h Host, c *Ctx, cz *ChangeZoneParams, to state.Zone) {
 	}
 }
 
-// tapeAnswerTargets is a served target answer as the "tgts" and "choice"
-// arms bind it: a player option is a player target, any other option with
+// tapeAnswerTargets is a served target answer as a target set: a player
+// option is a player target, any other option with
 // an object an object target. Never nil, so an empty answer stays an answer.
 func tapeAnswerTargets(ans []decision.Option) []state.Target {
 	out := make([]state.Target, 0, len(ans))

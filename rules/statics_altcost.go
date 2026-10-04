@@ -220,10 +220,10 @@ func (e *Engine) alternativeCostScopeOK(params map[string]string, id, srcID stat
 				// casting option; this list prices a spell cast only.
 				continue
 			}
-			switch strings.TrimSpace(constraint) {
-			case "":
+			switch alternativeCostScopeOKf4b1Codes.Code(string(strings.TrimSpace(constraint))) {
+			case alternativeCostScopeOKf4b1Empty:
 				ok = true // bare Spell: any cast
-			case "Self":
+			case alternativeCostScopeOKf4b1Self:
 				if id == srcID {
 					ok = true // the card's own cast (Daze, the Flares)
 				}
@@ -341,3 +341,13 @@ func altCostLabel(name string, i int) string {
 	}
 	return fmt.Sprintf("Cast %s (alternative cost %d)", name, i+1)
 }
+
+const (
+	alternativeCostScopeOKf4b1Empty uint16 = 1 // ""
+	alternativeCostScopeOKf4b1Self  uint16 = 2 // "Self"
+)
+
+var alternativeCostScopeOKf4b1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: alternativeCostScopeOKf4b1Empty},
+	state.StrEntry[uint16]{Key: "Self", Val: alternativeCostScopeOKf4b1Self},
+)

@@ -6,6 +6,7 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -43,13 +44,13 @@ func specializeRider(kw string) (params map[string]string, unsupported string, o
 		}
 		k = strings.TrimSpace(k)
 		params[k] = strings.TrimSpace(v)
-		switch k {
-		case "AdditionalActivationZone", "ReduceCost":
+		switch specializeRiderdaa1Codes.Code(string(k)) {
+		case specializeRiderdaa1AdditionalActivationZone:
 			// Out of scope for this ticket: the option is NOT offered and the
 			// unsupported rider is named instead. Both are loud so a corpus
 			// count can see them rather than a silent merge.
 			return nil, k, true
-		case "IsPresent", "IsPresent2", "PresentCompare", "CheckSVar", "SVarCompare", "Condition":
+		case specializeRiderdaa1IsPresent:
 			// Readable through the shared continuousGateHolds grammar.
 		default:
 			return nil, k, true
@@ -107,10 +108,10 @@ func (e *Engine) specializeLegalPriced(p state.PlayerID, id state.ObjID, faceIdx
 		return Cost{}, false
 	}
 	if hyp == nil {
-		if !e.costPayableOther(p, id, cost) {
+		if !pay.CostPayableOther(asPayer(e), p, id, cost) {
 			return Cost{}, false
 		}
-	} else if !e.costPayablePool(p, id, false, cost, *hyp, e.G.Players[p].ManaUnits()) {
+	} else if !pay.CostPayablePool(asPayer(e), p, id, false, cost, *hyp, e.G.Players[p].ManaUnits()) {
 		return Cost{}, false
 	}
 	for _, kw := range o.Face().Keywords {
@@ -143,8 +144,24 @@ func (e *Engine) specialize(p state.PlayerID, opt decision.Option) {
 		return
 	}
 	e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
-	if !e.payMana(p, cost) {
+	if !pay.PayMana(asPayer(e), p, cost) {
 		return
 	}
 	e.emit(events.Event{Kind: events.Specialize, Obj: opt.Obj, Amount: int32(i)})
 }
+
+const (
+	specializeRiderdaa1AdditionalActivationZone uint16 = 1 // "AdditionalActivationZone", "ReduceCost"
+	specializeRiderdaa1IsPresent                uint16 = 2 // "IsPresent", "IsPresent2", "PresentCompare", "CheckSVar", "SVarCompare", "Condition"
+)
+
+var specializeRiderdaa1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "AdditionalActivationZone", Val: specializeRiderdaa1AdditionalActivationZone},
+	state.StrEntry[uint16]{Key: "ReduceCost", Val: specializeRiderdaa1AdditionalActivationZone},
+	state.StrEntry[uint16]{Key: "IsPresent", Val: specializeRiderdaa1IsPresent},
+	state.StrEntry[uint16]{Key: "IsPresent2", Val: specializeRiderdaa1IsPresent},
+	state.StrEntry[uint16]{Key: "PresentCompare", Val: specializeRiderdaa1IsPresent},
+	state.StrEntry[uint16]{Key: "CheckSVar", Val: specializeRiderdaa1IsPresent},
+	state.StrEntry[uint16]{Key: "SVarCompare", Val: specializeRiderdaa1IsPresent},
+	state.StrEntry[uint16]{Key: "Condition", Val: specializeRiderdaa1IsPresent},
+)

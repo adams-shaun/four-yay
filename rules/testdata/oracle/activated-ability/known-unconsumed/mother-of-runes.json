@@ -1,0 +1,7 @@
+{
+  "card": "Mother of Runes",
+  "rows": {
+    "grants-protection-from-chosen-colour": "step 0 (activate): [{\"kind\":\"choose\",\"pick\":[\"white\"]}]",
+    "protection-is-specific-to-the-chosen-colour": "step 0 (activate): [{\"kind\":\"choose\",\"pick\":[\"white\"]}]"
+  }
+}

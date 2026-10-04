@@ -300,12 +300,12 @@ func (e *Engine) turnFaceUpCantHappen(id state.ObjID) bool {
 // any other value (or a comma list this build does not split) fails closed,
 // leaving the phase to run normally.
 func phaseStep(ph string) (state.Step, bool) {
-	switch strings.TrimSpace(ph) {
-	case "Untap":
+	switch phaseStepae11Codes.Code(string(strings.TrimSpace(ph))) {
+	case phaseStepae11Untap:
 		return state.StepUntap, true
-	case "Upkeep":
+	case phaseStepae11Upkeep:
 		return state.StepUpkeep, true
-	case "Draw":
+	case phaseStepae11Draw:
 		return state.StepDraw, true
 	}
 	return 0, false
@@ -347,3 +347,15 @@ func (e *Engine) posePhaseOptionalChoice(ev events.Event, candidates []replMatch
 		e.askReplacementChoice(e.G.Active)
 	}
 }
+
+const (
+	phaseStepae11Untap  uint16 = 1 // "Untap"
+	phaseStepae11Upkeep uint16 = 2 // "Upkeep"
+	phaseStepae11Draw   uint16 = 3 // "Draw"
+)
+
+var phaseStepae11Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Untap", Val: phaseStepae11Untap},
+	state.StrEntry[uint16]{Key: "Upkeep", Val: phaseStepae11Upkeep},
+	state.StrEntry[uint16]{Key: "Draw", Val: phaseStepae11Draw},
+)

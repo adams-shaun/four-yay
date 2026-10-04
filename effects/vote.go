@@ -221,10 +221,8 @@ func effPlayerVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams) {
 		}
 	}
 	voters := definedPlayers(h, c, sa)
-	picks := append([]state.Target(nil), ([]state.Target)(nil)...)
-	i := int(0)
-
-	for ; i < len(voters); i++ {
+	var picks []state.Target
+	for i := 0; i < len(voters); i++ {
 		voter := voters[i]
 		opts := playerBallotOptions(universe, voter, other)
 		if len(opts) == 0 {
@@ -233,14 +231,13 @@ func effPlayerVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams) {
 		}
 		d := &decision.Decision{Player: voter, Kind: decision.KChoose, Source: c.Source,
 			Min: 1, Max: 1, ResumeKind: "vote", ResumeSA: sa, ResumeTarget: i,
-			ResumeChoices: PayloadTargets(picks), Prompt: "Vote for a player"}
+			Prompt: "Vote for a player"}
 		for j, p := range opts {
 			d.Options = append(d.Options, decision.Option{Index: j, Kind: "player", Player: p,
 				Label: votePlayerLabel(g, p)})
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the pick the "vote"
-			// resume arm's VoteAnswer carries.
+			// The answered pick.
 			pick := state.Target{}
 			if len(ans) > 0 {
 				if ans[0].Kind == "player" {
@@ -252,7 +249,6 @@ func effPlayerVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams) {
 			picks = append(picks, pick)
 			continue
 		}
-		_ = Ask(h, d)
 
 		// No host to ask (the R-9 fuzz/test contract): the deterministic first
 		// admissible entry -- the same pick the pre-ask stand-in made -- under
@@ -344,10 +340,10 @@ func voteCountsForObjects(options []state.ObjID, counts map[state.ObjID]int) []V
 // clears the field rather than leaving a previous vote's stale one in place.
 func publishVoteCounts(c *Ctx, counts []VoteCount) {
 	if len(counts) == 0 {
-		c.VoteCounts = nil
+		c.Vote.Counts = nil
 		return
 	}
-	c.VoteCounts = counts
+	c.Vote.Counts = counts
 }
 
 // voteCountFor resolves an AmountFromVotes$ loop subject's tally. ok=false
@@ -357,15 +353,13 @@ func voteCountFor(c *Ctx, subject state.Target) (int, bool) {
 	if c == nil {
 		return 0, false
 	}
-	return VoteCountForTarget(c.VoteCounts, subject)
+	return VoteCountForTarget(c.Vote.Counts, subject)
 }
 
 // VoteCountForTarget resolves a subject's tally out of a published
-// Ctx.VoteCounts table. It is the ONE home for the subject match, shared by
-// voteCountFor's per-iteration binding and rules' rebuilt-Ctx restoration of a
-// suspended AmountFromVotes$ loop (the tally is a prior chain link, so a
-// resume restores the table and re-derives the scalar from it). ok=false when
-// the table holds no entry for the subject.
+// Ctx.Vote.Counts table: the ONE home for the subject match voteCountFor's
+// per-iteration binding reads. ok=false when the table holds no entry for the
+// subject.
 func VoteCountForTarget(counts []VoteCount, subject state.Target) (int, bool) {
 	for _, vc := range counts {
 		if vc.Subject == subject {

@@ -1751,9 +1751,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 						Remembered:     e.triggerRememberedFor(t, *ev, id),
 						Captured:       e.triggerRememberedFor(t, *ev, id),
 						LKI:            objLKI,
-						LKIPower:       lkiPower,
-						LKIToughness:   lkiToughness,
-						LKIPTValid:     objLKI != nil && lkiPTValid,
+						Snap:           effects.LKISnapshots{Power: lkiPower, Toughness: lkiToughness, PTValid: objLKI != nil && lkiPTValid},
 						TriggerContext: observer.triggerReferents(t, id, *ev, objLKI),
 					}),
 				}
@@ -2440,7 +2438,7 @@ func (e *Engine) triggerMatches(t cards.Trigger, source state.ObjID, ev events.E
 func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object, ownedSVars map[string]string) bool {
 	// The scanner has already run its diagnostic/batch gates. Reject an
 	// impossible event before consulting dynamic zone and phase predicates.
-	if !triggerModeEvents(t.Mode).allows(ev.Kind) {
+	if !triggerLineEvents(&t).allows(ev.Kind) {
 		return false
 	}
 	if !e.zoneGate(t, source, ev) || !e.phaseGate(t) {

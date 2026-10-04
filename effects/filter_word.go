@@ -326,8 +326,8 @@ func wordPredicate(p string) (wordKind, string) {
 	// bare "kicked" word is in the predicates map (any CastFlags kicker
 	// bit); the index form reads the specific part's bit.
 	if rest, ok := strings.CutPrefix(p, "kicked "); ok {
-		switch strings.TrimSpace(rest) {
-		case "1", "2":
+		switch wordPredicatecbf1Codes.Code(string(strings.TrimSpace(rest))) {
+		case wordPredicatecbf11:
 			return wordKickedIndex, strings.TrimSpace(rest)
 		}
 	}
@@ -347,20 +347,20 @@ func wordPredicate(p string) (wordKind, string) {
 			return wordCanReceiveCounters, kind
 		}
 	}
-	switch p {
-	case "Colorless":
+	switch wordPredicatecbf2Codes.Code(string(p)) {
+	case wordPredicatecbf2Colorless:
 		return wordColorless, ""
-	case "MultiColor":
+	case wordPredicatecbf2MultiColor:
 		return wordMultiColor, ""
-	case "MonoColor":
+	case wordPredicatecbf2MonoColor:
 		return wordMonoColor, ""
-	case "Worthy":
+	case wordPredicatecbf2Worthy:
 		return wordWorthy, ""
-	case "ChosenColor":
+	case wordPredicatecbf2ChosenColor:
 		return wordChosenColor, ""
-	case "wasCast":
+	case wordPredicatecbf2WasCast:
 		return wordWasCast, ""
-	case "CopiedSpell":
+	case wordPredicatecbf2CopiedSpell:
 		return wordCopiedSpell, ""
 	// The cast-provenance tokens are recognised here (so the census no longer
 	// reports them unknown) but evaluated by rules' castProvenanceAdmits,
@@ -368,9 +368,7 @@ func wordPredicate(p string) (wordKind, string) {
 	// closed. wasCastFromYourHandByYou is checked before the bare
 	// wasCastFromYourHand because the bare token is a substring of the ByYou
 	// spelling -- the same ordering rule castProvenanceAdmits documents.
-	case "wasCastFromYourHandByYou", "wasCastByYou", "wasCastFromYourHand",
-		"wasCastFromExile", "wasCastFromYourGraveyard",
-		"wasCastFromYourGraveyardByYou", "wasCastFromTheirHand":
+	case wordPredicatecbf2WasCastFromYourHandByYou:
 		return wordCastProvenance, p
 	// The card-level CastSa property tokens (task castsa-provenance): the
 	// five mana-spend spellings the payment path's tagged ManaAdd encoding
@@ -387,54 +385,51 @@ func wordPredicate(p string) (wordKind, string) {
 	// cost-static chain answers it from the may-play permission the cast
 	// rides (rules' castRidesMayPlayOf) -- so it is recognised here as well;
 	// an effects-side read that no rules strip precedes still fails closed.
-	case "CastSa Spell.ManaFromTreasure", "CastSa Spell.ManaFromCave",
-		"CastSa Spell.ManaFromDesert", "CastSa Spell.ManaFromArtifact",
-		"CastSa Spell.ManaSpent EQ0",
-		"CastSa Spell.Mayhem", "CastSa Spell.Warp", "CastSa Spell.MayPlaySource":
+	case wordPredicatecbf2CastSaSpellManaFromTreasure:
 		return wordCastProvenance, p
-	case "ActivePlayerCtrl":
+	case wordPredicatecbf2ActivePlayerCtrl:
 		return wordActivePlayerCtrl, ""
-	case "TopLibrary":
+	case wordPredicatecbf2TopLibrary:
 		return wordTopLibrary, ""
-	case "faceDown":
+	case wordPredicatecbf2FaceDown:
 		return wordFaceDown, ""
-	case "canBeTurnedFaceUp":
+	case wordPredicatecbf2CanBeTurnedFaceUp:
 		return wordCanBeTurnedFaceUp, ""
-	case "IsRingbearer":
+	case wordPredicatecbf2IsRingbearer:
 		return wordRingBearer, ""
-	case "HasCounters":
+	case wordPredicatecbf2HasCounters:
 		return wordHasCounters, ""
-	case "suspended":
+	case wordPredicatecbf2Suspended:
 		return wordSuspended, ""
 	// The pc1 object/game-context families. Each is a bare predicate word
 	// whose body reads provenance outside the object alone (see the
 	// wordKind block's comment); classification here is what makes the
 	// matcher and UnknownPredicates agree that the word is implemented.
-	case "wasDealtDamageThisTurn":
+	case wordPredicatecbf2WasDealtDamageThisTurn:
 		return wordDealtDamageThisTurn, ""
-	case "wasDealtDamageByThisGame":
+	case wordPredicatecbf2WasDealtDamageByThisGame:
 		return wordDealtDamageByThisGame, ""
-	case "IsImprinted":
+	case wordPredicatecbf2IsImprinted:
 		return wordImprinted, ""
-	case "DefenderCtrl":
+	case wordPredicatecbf2DefenderCtrl:
 		return wordDefenderCtrl, ""
-	case "EnchantedControllerCtrl":
+	case wordPredicatecbf2EnchantedControllerCtrl:
 		return wordEnchantedControllerCtrl, ""
-	case "NotDefinedTargeted":
+	case wordPredicatecbf2NotDefinedTargeted:
 		return wordNotDefinedTargeted, ""
-	case "Opponent":
+	case wordPredicatecbf2Opponent:
 		return wordOpponentCtrl, ""
-	case "OppProtect":
+	case wordPredicatecbf2OppProtect:
 		return wordOppProtect, ""
-	case "Historic":
+	case wordPredicatecbf2Historic:
 		return wordHistoric, ""
-	case "AdventureCard":
+	case wordPredicatecbf2AdventureCard:
 		return wordAdventureCard, ""
-	case "IsCommander":
+	case wordPredicatecbf2IsCommander:
 		return wordIsCommander, ""
-	case "blockingSource":
+	case wordPredicatecbf2BlockingSource:
 		return wordBlockingSource, ""
-	case "blockedBySource":
+	case wordPredicatecbf2BlockedBySource:
 		return wordBlockedBySource, ""
 	// Forge's Card.hasANonBasicLandType (the corpus's
 	// `Land.hasANonBasicLandType` qualifier; Wonderscape Sage's
@@ -442,14 +437,14 @@ func wordPredicate(p string) (wordKind, string) {
 	// and the UnknownPredicates census share one recogniser; the `Land.` base
 	// the corpus spells it under is the union spelling (the body re-checks
 	// Land anyway, so a bare `Card.hasANonBasicLandType` stays correct too).
-	case "hasANonBasicLandType":
+	case wordPredicatecbf2HasANonBasicLandType:
 		return wordHasNonBasicLandType, ""
 	// Forge's Card.hasABasicLandType (the corpus's `Land.hasABasicLandType`
 	// qualifier). The bare word is classified here so the matcher and the
 	// UnknownPredicates census share one recogniser; the `Land.` base the
 	// corpus spells it under is the union spelling (the body re-checks Land
 	// anyway, so a bare `Card.hasABasicLandType` stays correct too).
-	case "hasABasicLandType":
+	case wordPredicatecbf2HasABasicLandType:
 		return wordHasBasicLandType, ""
 	}
 	if p == "TargetedPlayerOwn" {
@@ -487,14 +482,14 @@ func wordPredicate(p string) (wordKind, string) {
 		return wordSharesCreatureType, "Self"
 	}
 	if name, arg, ok := sharesTypeArg(p); ok {
-		switch name {
-		case "sharesCreatureTypeWith":
+		switch wordPredicatecbf3Codes.Code(string(name)) {
+		case wordPredicatecbf3SharesCreatureTypeWith:
 			return wordSharesCreatureType, arg
-		case "sharesCardTypeWithOther":
+		case wordPredicatecbf3SharesCardTypeWithOther:
 			return wordSharesCardTypeOther, arg
-		case "SharesColorWithOther":
+		case wordPredicatecbf3SharesColorWithOther:
 			return wordSharesColorOther, arg
-		case "sharesAllCardTypesWithOther":
+		case wordPredicatecbf3SharesAllCardTypesWithOther:
 			return wordSharesAllCardTypes, arg
 		}
 		return wordSharesCardType, arg
@@ -611,10 +606,10 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		// provenance the kicked1/kicked2/kickedboth cast modes ride. A part
 		// never paid never matches, and the bare FlagKicked bit alone (a
 		// single-cost Kicker) never matches an index form.
-		switch key {
-		case "1":
+		switch wordMatchescbf4Codes.Code(string(key)) {
+		case wordMatchescbf41:
 			return o.CastFlags&state.FlagKicked1 != 0
-		case "2":
+		case wordMatchescbf42:
 			return o.CastFlags&state.FlagKicked2 != 0
 		}
 		return false
@@ -1174,3 +1169,117 @@ func nonPredicate(p string) (kind wordKind, key string, ok bool) {
 	}
 	return wordUnknown, "", false
 }
+
+const (
+	wordPredicatecbf11 uint16 = 1 // "1", "2"
+)
+
+var wordPredicatecbf1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "1", Val: wordPredicatecbf11},
+	state.StrEntry[uint16]{Key: "2", Val: wordPredicatecbf11},
+)
+
+const (
+	wordPredicatecbf2Colorless                   uint16 = 1  // "Colorless"
+	wordPredicatecbf2MultiColor                  uint16 = 2  // "MultiColor"
+	wordPredicatecbf2MonoColor                   uint16 = 3  // "MonoColor"
+	wordPredicatecbf2Worthy                      uint16 = 4  // "Worthy"
+	wordPredicatecbf2ChosenColor                 uint16 = 5  // "ChosenColor"
+	wordPredicatecbf2WasCast                     uint16 = 6  // "wasCast"
+	wordPredicatecbf2CopiedSpell                 uint16 = 7  // "CopiedSpell"
+	wordPredicatecbf2WasCastFromYourHandByYou    uint16 = 8  // "wasCastFromYourHandByYou", "wasCastByYou", "wasCastFromYourHand", "wasCastFromExile", "wasCastFromYourGrav...
+	wordPredicatecbf2CastSaSpellManaFromTreasure uint16 = 9  // "CastSa Spell.ManaFromTreasure", "CastSa Spell.ManaFromCave", "CastSa Spell.ManaFromDesert", "CastSa Spell....
+	wordPredicatecbf2ActivePlayerCtrl            uint16 = 10 // "ActivePlayerCtrl"
+	wordPredicatecbf2TopLibrary                  uint16 = 11 // "TopLibrary"
+	wordPredicatecbf2FaceDown                    uint16 = 12 // "faceDown"
+	wordPredicatecbf2CanBeTurnedFaceUp           uint16 = 13 // "canBeTurnedFaceUp"
+	wordPredicatecbf2IsRingbearer                uint16 = 14 // "IsRingbearer"
+	wordPredicatecbf2HasCounters                 uint16 = 15 // "HasCounters"
+	wordPredicatecbf2Suspended                   uint16 = 16 // "suspended"
+	wordPredicatecbf2WasDealtDamageThisTurn      uint16 = 17 // "wasDealtDamageThisTurn"
+	wordPredicatecbf2WasDealtDamageByThisGame    uint16 = 18 // "wasDealtDamageByThisGame"
+	wordPredicatecbf2IsImprinted                 uint16 = 19 // "IsImprinted"
+	wordPredicatecbf2DefenderCtrl                uint16 = 20 // "DefenderCtrl"
+	wordPredicatecbf2EnchantedControllerCtrl     uint16 = 21 // "EnchantedControllerCtrl"
+	wordPredicatecbf2NotDefinedTargeted          uint16 = 22 // "NotDefinedTargeted"
+	wordPredicatecbf2Opponent                    uint16 = 23 // "Opponent"
+	wordPredicatecbf2OppProtect                  uint16 = 24 // "OppProtect"
+	wordPredicatecbf2Historic                    uint16 = 25 // "Historic"
+	wordPredicatecbf2AdventureCard               uint16 = 26 // "AdventureCard"
+	wordPredicatecbf2IsCommander                 uint16 = 27 // "IsCommander"
+	wordPredicatecbf2BlockingSource              uint16 = 28 // "blockingSource"
+	wordPredicatecbf2BlockedBySource             uint16 = 29 // "blockedBySource"
+	wordPredicatecbf2HasANonBasicLandType        uint16 = 30 // "hasANonBasicLandType"
+	wordPredicatecbf2HasABasicLandType           uint16 = 31 // "hasABasicLandType"
+)
+
+var wordPredicatecbf2Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Colorless", Val: wordPredicatecbf2Colorless},
+	state.StrEntry[uint16]{Key: "MultiColor", Val: wordPredicatecbf2MultiColor},
+	state.StrEntry[uint16]{Key: "MonoColor", Val: wordPredicatecbf2MonoColor},
+	state.StrEntry[uint16]{Key: "Worthy", Val: wordPredicatecbf2Worthy},
+	state.StrEntry[uint16]{Key: "ChosenColor", Val: wordPredicatecbf2ChosenColor},
+	state.StrEntry[uint16]{Key: "wasCast", Val: wordPredicatecbf2WasCast},
+	state.StrEntry[uint16]{Key: "CopiedSpell", Val: wordPredicatecbf2CopiedSpell},
+	state.StrEntry[uint16]{Key: "wasCastFromYourHandByYou", Val: wordPredicatecbf2WasCastFromYourHandByYou},
+	state.StrEntry[uint16]{Key: "wasCastByYou", Val: wordPredicatecbf2WasCastFromYourHandByYou},
+	state.StrEntry[uint16]{Key: "wasCastFromYourHand", Val: wordPredicatecbf2WasCastFromYourHandByYou},
+	state.StrEntry[uint16]{Key: "wasCastFromExile", Val: wordPredicatecbf2WasCastFromYourHandByYou},
+	state.StrEntry[uint16]{Key: "wasCastFromYourGraveyard", Val: wordPredicatecbf2WasCastFromYourHandByYou},
+	state.StrEntry[uint16]{Key: "wasCastFromYourGraveyardByYou", Val: wordPredicatecbf2WasCastFromYourHandByYou},
+	state.StrEntry[uint16]{Key: "wasCastFromTheirHand", Val: wordPredicatecbf2WasCastFromYourHandByYou},
+	state.StrEntry[uint16]{Key: "CastSa Spell.ManaFromTreasure", Val: wordPredicatecbf2CastSaSpellManaFromTreasure},
+	state.StrEntry[uint16]{Key: "CastSa Spell.ManaFromCave", Val: wordPredicatecbf2CastSaSpellManaFromTreasure},
+	state.StrEntry[uint16]{Key: "CastSa Spell.ManaFromDesert", Val: wordPredicatecbf2CastSaSpellManaFromTreasure},
+	state.StrEntry[uint16]{Key: "CastSa Spell.ManaFromArtifact", Val: wordPredicatecbf2CastSaSpellManaFromTreasure},
+	state.StrEntry[uint16]{Key: "CastSa Spell.ManaSpent EQ0", Val: wordPredicatecbf2CastSaSpellManaFromTreasure},
+	state.StrEntry[uint16]{Key: "CastSa Spell.Mayhem", Val: wordPredicatecbf2CastSaSpellManaFromTreasure},
+	state.StrEntry[uint16]{Key: "CastSa Spell.Warp", Val: wordPredicatecbf2CastSaSpellManaFromTreasure},
+	state.StrEntry[uint16]{Key: "CastSa Spell.MayPlaySource", Val: wordPredicatecbf2CastSaSpellManaFromTreasure},
+	state.StrEntry[uint16]{Key: "ActivePlayerCtrl", Val: wordPredicatecbf2ActivePlayerCtrl},
+	state.StrEntry[uint16]{Key: "TopLibrary", Val: wordPredicatecbf2TopLibrary},
+	state.StrEntry[uint16]{Key: "faceDown", Val: wordPredicatecbf2FaceDown},
+	state.StrEntry[uint16]{Key: "canBeTurnedFaceUp", Val: wordPredicatecbf2CanBeTurnedFaceUp},
+	state.StrEntry[uint16]{Key: "IsRingbearer", Val: wordPredicatecbf2IsRingbearer},
+	state.StrEntry[uint16]{Key: "HasCounters", Val: wordPredicatecbf2HasCounters},
+	state.StrEntry[uint16]{Key: "suspended", Val: wordPredicatecbf2Suspended},
+	state.StrEntry[uint16]{Key: "wasDealtDamageThisTurn", Val: wordPredicatecbf2WasDealtDamageThisTurn},
+	state.StrEntry[uint16]{Key: "wasDealtDamageByThisGame", Val: wordPredicatecbf2WasDealtDamageByThisGame},
+	state.StrEntry[uint16]{Key: "IsImprinted", Val: wordPredicatecbf2IsImprinted},
+	state.StrEntry[uint16]{Key: "DefenderCtrl", Val: wordPredicatecbf2DefenderCtrl},
+	state.StrEntry[uint16]{Key: "EnchantedControllerCtrl", Val: wordPredicatecbf2EnchantedControllerCtrl},
+	state.StrEntry[uint16]{Key: "NotDefinedTargeted", Val: wordPredicatecbf2NotDefinedTargeted},
+	state.StrEntry[uint16]{Key: "Opponent", Val: wordPredicatecbf2Opponent},
+	state.StrEntry[uint16]{Key: "OppProtect", Val: wordPredicatecbf2OppProtect},
+	state.StrEntry[uint16]{Key: "Historic", Val: wordPredicatecbf2Historic},
+	state.StrEntry[uint16]{Key: "AdventureCard", Val: wordPredicatecbf2AdventureCard},
+	state.StrEntry[uint16]{Key: "IsCommander", Val: wordPredicatecbf2IsCommander},
+	state.StrEntry[uint16]{Key: "blockingSource", Val: wordPredicatecbf2BlockingSource},
+	state.StrEntry[uint16]{Key: "blockedBySource", Val: wordPredicatecbf2BlockedBySource},
+	state.StrEntry[uint16]{Key: "hasANonBasicLandType", Val: wordPredicatecbf2HasANonBasicLandType},
+	state.StrEntry[uint16]{Key: "hasABasicLandType", Val: wordPredicatecbf2HasABasicLandType},
+)
+
+const (
+	wordPredicatecbf3SharesCreatureTypeWith      uint16 = 1 // "sharesCreatureTypeWith"
+	wordPredicatecbf3SharesCardTypeWithOther     uint16 = 2 // "sharesCardTypeWithOther"
+	wordPredicatecbf3SharesColorWithOther        uint16 = 3 // "SharesColorWithOther"
+	wordPredicatecbf3SharesAllCardTypesWithOther uint16 = 4 // "sharesAllCardTypesWithOther"
+)
+
+var wordPredicatecbf3Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "sharesCreatureTypeWith", Val: wordPredicatecbf3SharesCreatureTypeWith},
+	state.StrEntry[uint16]{Key: "sharesCardTypeWithOther", Val: wordPredicatecbf3SharesCardTypeWithOther},
+	state.StrEntry[uint16]{Key: "SharesColorWithOther", Val: wordPredicatecbf3SharesColorWithOther},
+	state.StrEntry[uint16]{Key: "sharesAllCardTypesWithOther", Val: wordPredicatecbf3SharesAllCardTypesWithOther},
+)
+
+const (
+	wordMatchescbf41 uint16 = 1 // "1"
+	wordMatchescbf42 uint16 = 2 // "2"
+)
+
+var wordMatchescbf4Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "1", Val: wordMatchescbf41},
+	state.StrEntry[uint16]{Key: "2", Val: wordMatchescbf42},
+)

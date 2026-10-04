@@ -1,0 +1,6 @@
+{
+  "card": "Deathmist Raptor",
+  "rows": {
+    "any-face-up-permanent-returns-it-from-the-graveyard": "step 4 (resolve): [{\"kind\":\"any\",\"pick\":[\"Face Up\"]}]"
+  }
+}

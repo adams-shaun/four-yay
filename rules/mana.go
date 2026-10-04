@@ -672,437 +672,13 @@ func (e *Engine) energyPayable(p state.PlayerID, c *Cost) bool {
 	return total == 0 || e.G.Players[p].Counter("ENERGY") >= total
 }
 
-// pip is one flexible mana demand inside a cost's mana part, as a list of
-// alternative payments tried in order. The alternative kinds are exactly the
-// mana symbols CR 107.4 knows: one unit of a colour, N generic mana (a
-// monocolour hybrid's "2" face), two life (a Phyrexian face), and snow mana
-// (a {S} pip, payable only by a mana a snow permanent produced). A pip with
-// one colour listed twice is just a strict colour pip.
-type pip struct {
-	alts []pipAlt
-}
-
-type pipAlt struct {
-	color   byte  // one unit of this colour (0 = not a colour alternative)
-	generic int32 // this many generic mana (0 = not a generic alternative)
-	life    int32 // two life (0 = not a life alternative)
-	snow    bool  // one snow mana unit
-}
-
-// pipRider carries the payer-side may-play riders a cost's pip alternatives
-// expand under: anyColor is MayPlayIgnoreColor$ ("mana of any color",
-// CR 401.5), anyType is MayPlayIgnoreType$ ("mana of any type", Rakdos, the
-// Muscle). The zero value is the plain exact-colour payment.
-type pipRider struct {
-	anyColor bool
-	anyType  bool
-}
-
-func expandCostPips(c Cost, dst []pip, bLifeOK bool, rider pipRider) []pip {
-	// Size the list once: every pip source below contributes exactly one
-	// pip per unit counted here.
-	n := len(c.Hybrid) + len(c.Twobrid) + len(c.Phyrexian) + len(c.HybridPhyrexian)
-	if c.Snow > 0 {
-		n += int(c.Snow)
-	}
-	for _, letter := range pipLetters {
-		if k := c.Colored[state.ManaIndex(letter)]; k > 0 {
-			n += int(k)
-		}
-	}
-	// Built into the caller's buffer when it fits (resolveManaWith's stack
-	// array), so the common small cost allocates no pip list.
-	out := dst[:0]
-	if cap(out) < n {
-		out = make([]pip, 0, n)
-	}
-	// The coloured slots including the colourless one: a plain {C} pip is a
-	// strict colourless requirement generic must not satisfy by stealing the
-	// pool's only colourless, so it is reserved like any coloured pip.
-	for _, letter := range pipLetters {
-		for n := c.Colored[state.ManaIndex(letter)]; n > 0; n-- {
-			// The strict one-colour alternative list is shared read-only
-			// (every pip consumer only ranges alts); it is capped at its
-			// length, so the K'rrik append below copies rather than
-			// writing into the shared array.
-			alts := strictColourAlts[state.ManaIndex(letter)][:1:1]
-			if rider.anyType {
-				alts = anyTypeAlts()
-			} else if rider.anyColor && letter != 'C' {
-				alts = anyColorAlts()
-			}
-			if bLifeOK && letter == 'B' {
-				alts = append(alts, pipAlt{life: 2})
-			}
-			out = append(out, pip{alts: alts})
-		}
-	}
-	for _, pair := range c.Hybrid {
-		alts := []pipAlt{{color: pair.A}, {color: pair.B}}
-		if rider.anyType {
-			alts = anyTypeAlts()
-		} else if rider.anyColor {
-			alts = anyColorAlts()
-		}
-		out = append(out, pip{alts: alts})
-	}
-	for _, t := range c.Twobrid {
-		var alts []pipAlt
-		switch {
-		case rider.anyType:
-			alts = anyTypeAlts()
-		case rider.anyColor:
-			alts = anyColorAlts()
-		default:
-			alts = []pipAlt{{color: t.Col}}
-		}
-		if t.Generic > 0 {
-			alts = append(alts, pipAlt{generic: t.Generic})
-		}
-		out = append(out, pip{alts: alts})
-	}
-	for _, letter := range c.Phyrexian {
-		alts := []pipAlt{{color: letter}, {life: 2}}
-		if rider.anyType {
-			alts = append(anyTypeAlts(), pipAlt{life: 2})
-		} else if rider.anyColor {
-			alts = append(anyColorAlts(), pipAlt{life: 2})
-		}
-		out = append(out, pip{alts: alts})
-	}
-	for _, hp := range c.HybridPhyrexian {
-		alts := []pipAlt{{color: hp.A}, {color: hp.B}, {life: 2}}
-		if rider.anyType {
-			alts = append(anyTypeAlts(), pipAlt{life: 2})
-		} else if rider.anyColor {
-			alts = append(anyColorAlts(), pipAlt{life: 2})
-		}
-		out = append(out, pip{alts: alts})
-	}
-	for n := c.Snow; n > 0; n-- {
-		out = append(out, pip{alts: []pipAlt{{snow: true}}})
-	}
-	return out
-}
-
-// strictColourAlts holds, per mana index, the one-element strict colour
-// alternative list costPips hands every plain coloured pip (read-only).
-var strictColourAlts = func() (t [len(pipLetters)][1]pipAlt) {
-	for _, letter := range pipLetters {
-		t[state.ManaIndex(letter)][0] = pipAlt{color: letter}
-	}
-	return t
-}()
-
-// anyColorAlts is the colour alternatives a coloured pip accepts under the
-// may-play ignore-colour rider (MayPlayIgnoreColor$ True, CR 401.5): any of
-// the five colours, tried in fixed WUBRG order. A {C} pip never reaches this
-// helper: CR 107.4c's "any color" never includes colourless.
-func anyColorAlts() []pipAlt {
-	return []pipAlt{{color: 'W'}, {color: 'U'}, {color: 'B'}, {color: 'R'}, {color: 'G'}}
-}
-
-// anyTypeAlts is the MayPlayIgnoreType$ alternative set: ALL six mana types
-// (Rakdos, the Muscle's "mana of any type can be spent to cast those spells"
-// — "any type" is every mana type, colourless included, unlike "any color"
-// which CR 107.4c keeps away from {C}). Used for every pip kind under the
-// anyType rider; coloured pips, {C} pips, hybrids and Phyrexians all widen
-// to it.
-func anyTypeAlts() []pipAlt {
-	return []pipAlt{{color: 'W'}, {color: 'U'}, {color: 'B'}, {color: 'R'}, {color: 'G'}, {color: 'C'}}
-}
-
-// manaPayment is what resolveMana found: the pool and its two parallel
-// tallies after every pip and the generic requirement were paid, plus any
-// Phyrexian face spent. Snow units are always consumed alongside their pool
-// slot (Snow[i] never exceeds Pool[i]); typed units (task castfilter2) are
-// consumed alongside theirs (TypedMana[k][i] never exceeds Pool[i]).
-type manaPayment struct {
-	pool      state.Mana
-	snow      state.Mana
-	typed     [7]state.Mana
-	lifeSpent int32
-}
-
-// takeUnit consumes one mana unit from slot i of rem/sn/typed, preferring a
-// PLAIN unit when one exists, then the typed units in their fixed
-// Treasure > Cave > Desert order, and a SNOW unit LAST so a snow unit stays
-// available for a later {S} pip (typed units have no pips of their own, so
-// they go before snow but after plain); the backtracking search undoes the
-// choice if the rest of the cost cannot be paid that way. plain is the
-// slot's untagged remainder; each tally is <= the pool by construction.
-func takeUnit(rem, sn *state.Mana, typed *[7]state.Mana, i int) {
-	plain := (*rem)[i] - (*sn)[i]
-	for t := range *typed {
-		plain -= (*typed)[t][i]
-	}
-	if plain > 0 {
-		(*rem)[i]--
-		return
-	}
-	for t := range *typed {
-		if (*typed)[t][i] > 0 {
-			(*rem)[i]--
-			(*typed)[t][i]--
-			return
-		}
-	}
-	(*rem)[i]--
-	(*sn)[i]--
-}
-
-// resolveMana finds a concrete payment of the cost's mana and fixed-life
-// parts from pool, the pool's parallel snow tally and the payer's life,
-// preferring to spend coloured pool mana over life for a Phyrexian pip and
-// the first alternative of each pip, so the assignment is deterministic. It
-// returns the payment with the coloured pips and generic requirement spent,
-// and whether the whole cost is payable. The generic requirement is paid
-// last from whatever the pips left, so coloured mana is never spent on
-// generic while a pip still needs it; a monocolour hybrid's generic face
-// competes in the backtracking search as the pip's later alternative (its
-// generic amount joins the requirement for the rest of the search).
-//
-// conv, when non-nil, is the stat:ManaConvert conversion set this payment is
-// resolved under (rules/mana_convert.go): it WIDENS what a pip's colour
-// alternatives accept -- the payer's converted mana may be spent as though
-// it were another colour -- and onlyC may also NARROW it ("spend other mana
-// only as though it were colorless"). A nil conv is the plain exact-colour
-// match every pre-existing caller keeps, so games with no ManaConvert static
-// on the battlefield resolve byte-identically.
-func resolveMana(c Cost, pool, snow state.Mana, typed [7]state.Mana, life int32, conv *manaConv) (manaPayment, bool) {
-	return resolveManaWith(c, pool, snow, typed, life, false, pipRider{}, conv)
-}
-
-// resolveManaWith is resolveMana with the two payer-side grants applied:
-// when bLifeOK is set, every plain {B} pip additionally accepts 2 life
-// (K'rrik, Son of Yawgmoth's "For each {B} in a cost, you may pay 2 life
-// rather than pay that mana"); when anyColor is set, every coloured pip
-// (plain, hybrid, twobrid, Phyrexian or hybrid-Phyrexian) is payable by ANY
-// colour in the pool -- the may-play grant's MayPlayIgnoreColor$ rider, "you
-// may spend mana as though it were mana of any color to cast it" (CR 401.5).
-// A {C} pip stays colourless-only under anyColor: CR 107.4c's "any color"
-// never includes colourless. Both grants keep main search's deterministic
-// first-alternative preference; the expanded alternatives are tried in fixed
-// WUBRG order (see anyColorAlts).
-//
-// The life parameter is the payer's life total, which may already be 0 or
-// less mid-cast (Ancient Tomb's own 2 damage landing between two planned
-// activations): state-based actions are not checked until a player would
-// receive priority (CR 704.3), and the payer may still finish paying. The
-// gate therefore binds only the cost's FIXED life component (c.Life): paying
-// N>0 life requires life >= N (CR 119.4), while a cost with no life
-// component pays 0 life, which is always legal, whatever the life total. The
-// Phyrexian/life pip alternatives inside the search still require life >= 2
-// each, so a dead payer can never pay a pip with life.
-func resolveManaWith(c Cost, pool, snow state.Mana, typed [7]state.Mana, life int32, bLifeOK bool, rider pipRider, conv *manaConv) (manaPayment, bool) {
-	if c.Life > 0 && life < c.Life {
-		return manaPayment{}, false
-	}
-	var pipBuf [8]pip
-	pips := expandCostPips(c, pipBuf[:0], bLifeOK, rider)
-	rem := pool
-	sn := snow
-	tp := typed
-	life -= c.Life
-	lifeSpent := c.Life
-	// pipExact reports whether col is one of the pip's colour alternatives
-	// (a strict colour pip lists its colour once; a hybrid lists two).
-	pipExact := func(p pip, col byte) bool {
-		for _, alt := range p.alts {
-			if alt.color == col {
-				return true
-			}
-		}
-		return false
-	}
-	// pipAccepts reports whether one unit of pool colour col (manaLetters
-	// index) may pay pip p under conv. Exact colours always match; conv
-	// widens (wild/to) and narrows (onlyC) around that base. Non-colour
-	// alternatives (generic, life, snow) are unaffected by conv.
-	pipAccepts := func(p pip, col byte, di int) bool {
-		isC := len(p.alts) == 1 && p.alts[0].color == 'C'
-		if conv == nil {
-			return pipExact(p, col)
-		}
-		if conv.onlyC[di] {
-			// The <-C restriction: this pool colour may be spent ONLY as
-			// colorless mana -- a {C} pip or generic (generic is handled
-			// outside the pip loop and takes any mana), never a coloured
-			// or hybrid pip, not even its own colour's.
-			return isC
-		}
-		if pipExact(p, col) {
-			return true
-		}
-		if conv.wild[di] {
-			// "spend as mana of any color" widens to every coloured or
-			// hybrid pip; the colourless-specific {C} pip is a TYPE, not a
-			// colour (CR 107.4c), so it is covered only by the
-			// AnyType->AnyType wording (conv.wildC).
-			if isC {
-				return conv.wildC
-			}
-			return true
-		}
-		for _, alt := range p.alts {
-			if alt.color != 0 && conv.to[di][state.ManaIndex(alt.color)] {
-				return true
-			}
-		}
-		return false
-	}
-	// finalGeneric is the successful search path's generic requirement: the
-	// cost's own Generic plus every monocolour-hybrid pip that paid its
-	// generic face on that path. The closing deduction spends exactly it.
-	finalGeneric := c.Generic
-	var rec func(i int, generic int32) bool
-	rec = func(i int, generic int32) bool {
-		if i == len(pips) {
-			if rem.Total() < generic {
-				return false
-			}
-			finalGeneric = generic
-			return true
-		}
-		p := pips[i]
-		// Try each alternative in order: for a hybrid this prefers A over B;
-		// for a single-colour pip there is one colour alternative, then the
-		// pip's life face for a Phyrexian pip.
-		for _, alt := range p.alts {
-			switch {
-			case alt.color != 0:
-				di := state.ManaIndex(alt.color)
-				if rem[di] > 0 && pipAccepts(p, alt.color, di) {
-					beforeRem, beforeSn, beforeTyped := rem, sn, tp
-					takeUnit(&rem, &sn, &tp, di)
-					if rec(i+1, generic) {
-						return true
-					}
-					rem, sn, tp = beforeRem, beforeSn, beforeTyped
-				}
-			case alt.generic > 0:
-				// A monocolour hybrid's generic face: this pip joins the
-				// generic requirement (tried after the colour face, so a
-				// colour unit is preferred when the search can still pay).
-				if rec(i+1, generic+alt.generic) {
-					return true
-				}
-			case alt.life > 0:
-				if life >= 2 {
-					life -= 2
-					lifeSpent += 2
-					if rec(i+1, generic) {
-						return true
-					}
-					lifeSpent -= 2
-					life += 2
-				}
-			case alt.snow:
-				// A {S} pip consumes an actual SNOW unit: both the pool slot
-				// and the parallel snow tally, so the unit that leaves is the
-				// unit that was snow (never a plain unit misattributed into
-				// the tally).
-				for di, s := range sn {
-					if s > 0 {
-						beforeRem, beforeSn, beforeTyped := rem, sn, tp
-						rem[di]--
-						sn[di]--
-						if rec(i+1, generic) {
-							return true
-						}
-						rem, sn, tp = beforeRem, beforeSn, beforeTyped
-					}
-				}
-			}
-		}
-		// A conversion may let OTHER pool colours pay this pip too -- e.g.
-		// "spend white mana as though it were red" offers the pool's white
-		// mana for a red pip, which the exact-colour alternatives above
-		// cannot see. The walk order is manaLetters (WUBRGC), so the
-		// assignment stays deterministic; converted mana is tried only after
-		// every exact alternative, so a conversion never displaces an exact
-		// payment.
-		if conv != nil {
-			for di := range manaLetters {
-				col := manaLetters[di][0]
-				if !pipExact(p, col) && rem[di] > 0 && pipAccepts(p, col, di) {
-					beforeRem, beforeSn, beforeTyped := rem, sn, tp
-					takeUnit(&rem, &sn, &tp, di)
-					if rec(i+1, generic) {
-						return true
-					}
-					rem, sn, tp = beforeRem, beforeSn, beforeTyped
-				}
-			}
-		}
-		return false
-	}
-	if !rec(0, c.Generic) {
-		return manaPayment{}, false
-	}
-	// The search found a pip assignment that leaves enough total mana; deduct
-	// the generic requirement from that remainder, preferring colourless then
-	// colours in fixed WUBRG order so payment is deterministic. Generic can
-	// be paid by any leftover mana, so a total >= Generic always suffices.
-	need := finalGeneric
-	for _, i := range [...]int{state.MC, state.MW, state.MU, state.MB, state.MR, state.MG} {
-		for need > 0 && rem[i] > 0 {
-			takeUnit(&rem, &sn, &tp, i)
-			need--
-		}
-	}
-	return manaPayment{pool: rem, snow: sn, typed: tp, lifeSpent: lifeSpent}, true
-}
-
-// payable reports whether the cost's mana and fixed-life parts can be paid
-// by pool, its parallel snow tally and the payer's current life (a Phyrexian
-// pip may additionally be paid with two life; a {S} pip only by snow mana).
-// This is the offering gate's feasibility question, and the real answer to
-// "is there ANY way this cost can be paid right now" -- the same resolveMana
-// the payment stage uses, so an offered cost and the cost it charges can
-// never disagree.
-func payable(c Cost, pool, snow state.Mana, typed [7]state.Mana, life int32) bool {
-	_, ok := resolveMana(c, pool, snow, typed, life, nil)
-	return ok
-}
-
-func poolCanPay(c Cost, p state.Mana) bool {
-	// Pool-only feasibility, no life and no snow offered: a hybrid must be
-	// paid by one of its colours in the pool, a Phyrexian pip by its colour,
-	// a monocolour hybrid by its colour (its generic face is not offered
-	// here) and a {S} pip is unpayable. This is the pure pricing question the
-	// corpus invariants ask, and it never treats a hybrid as generic nor lets
-	// colourless `pay` it.
-	_, ok := resolveMana(c, p, state.Mana{}, [7]state.Mana{}, 0, nil)
-	return ok
-}
-
-// Pay spends the cost from a pool and returns what is left. Coloured
-// requirements come out first so generic can never strand a colour the cost
-// still needs; hybrid pips take one of their pair and Phyrexian pips their
-// colour (pool-only -- the cast flow's payMana handles the life half and
-// passes a fully-resolved cost here). Mana-only: non-mana parts
-// (Tap/Sac/Discard/SubCounter) are the cast flow's own job (rules/cast.go), never
-// this function's.
-func poolPay(c Cost, p state.Mana) (state.Mana, bool) {
-	// Pool-only: no life and no snow are offered, so a Phyrexian pip is paid
-	// by its colour (the cast flow's payMana handles the life half and passes
-	// a fully resolved cost here). resolveMana already reserves the coloured
-	// pips and deducts generic, so the returned pool is fully spent. A failed
-	// search returns the input pool untouched.
-	pay, ok := resolveMana(c, p, state.Mana{}, [7]state.Mana{}, 0, nil)
-	if !ok {
-		return p, false
-	}
-	return pay.pool, true
-}
-
-// payerGrantsPayLifeInsteadOfB reports whether p's side of the battlefield
+// PayLifeInsteadOfB (pay.Engine) reports whether p's side of the battlefield
 // carries a Continuous static granting PayLifeInsteadOf:B to p (K'rrik's
 // "Affected$ You | AddKeyword$ PayLifeInsteadOf:B"). Every mana payment and
 // every cast/activation offer gate consults it, so a plain {B} pip is
 // payable with 2 life anywhere K'rrik is in play under its controller.
-func (e *Engine) payerGrantsPayLifeInsteadOfB(p state.PlayerID) bool {
+func (pe *payer) PayLifeInsteadOfB(p state.PlayerID) bool {
+	e := (*Engine)(pe)
 	for _, sv := range e.activeStatics("Continuous") {
 		// A member equal to the keyword needs the keyword as a substring, so
 		// the allocation-free substring test rejects every other static
@@ -1118,39 +694,33 @@ func (e *Engine) payerGrantsPayLifeInsteadOfB(p state.PlayerID) bool {
 	return false
 }
 
-// payerGrantsIgnoreColor reports whether an active may-play grant of p's
-// carrying MayPlayIgnoreColor$ True selects the card id being cast: the
-// grant is p's, its AffectedZone names the card's CURRENT zone (so a card
-// being cast the ordinary way from hand never inherits an exile grant), and
-// the Affected$ spec matches the card. The IsRemembered predicate inside a
-// grant's spec is matched against the CONTINUOUS EFFECT's Remembered set
-// (the cards the delivering Effect captured), through the SpecContext the
-// ordinary filter grammar already carries -- the same direct-list reading
-// restrictionApplies uses for Effect-delivered CantTarget/CantRegenerate.
-func (e *Engine) payerGrantsIgnoreColor(p state.PlayerID, id state.ObjID) bool {
-	return e.payerGrantsMayPlayRider(p, id, func(ce ContinuousEffect) bool { return ce.MayPlayIgnoreColor })
-}
-
-// payerGrantsIgnoreType is payerGrantsIgnoreColor for the MayPlayIgnoreType$
-// rider (Rakdos, the Muscle's "mana of any type can be spent to cast those
-// spells"): the same zone/Affects/remembered-set reading, keyed on the wider
-// rider.
-func (e *Engine) payerGrantsIgnoreType(p state.PlayerID, id state.ObjID) bool {
-	return e.payerGrantsMayPlayRider(p, id, func(ce ContinuousEffect) bool { return ce.MayPlayIgnoreType })
-}
-
-// payerGrantsMayPlayRider is the shared body of the two may-play payment
-// riders: it walks the active may-play grants of p's and reports whether one
-// carrying the asked rider selects the card id being cast.
-func (e *Engine) payerGrantsMayPlayRider(p state.PlayerID, id state.ObjID, rider func(ContinuousEffect) bool) bool {
+// MayPlayRider (pay.Engine) reports the may-play payment riders an active
+// may-play grant of p's extends to the card id being cast: AnyColor for
+// MayPlayIgnoreColor$ True, AnyType for MayPlayIgnoreType$ (Rakdos, the
+// Muscle's "mana of any type can be spent to cast those spells"). A rider
+// counts when its grant is p's, its AffectedZone names the card's CURRENT
+// zone (so a card being cast the ordinary way from hand never inherits an
+// exile grant), and the Affected$ spec matches the card. The IsRemembered
+// predicate inside a grant's spec is matched against the CONTINUOUS
+// EFFECT's Remembered set (the cards the delivering Effect captured),
+// through the SpecContext the ordinary filter grammar already carries -- the
+// same direct-list reading restrictionApplies uses for Effect-delivered
+// CantTarget/CantRegenerate.
+func (pe *payer) MayPlayRider(p state.PlayerID, id state.ObjID) pipRider {
+	e := (*Engine)(pe)
+	var r pipRider
 	o := e.G.Obj(id)
 	if o == nil {
-		return false
+		return r
 	}
 	ces := e.active()
 	for i := range ces {
 		ce := &ces[i]
-		if !ce.MayPlay || !rider(*ce) || ce.Controller != p {
+		if !ce.MayPlay || ce.Controller != p {
+			continue
+		}
+		color, typ := ce.MayPlayIgnoreColor && !r.AnyColor, ce.MayPlayIgnoreType && !r.AnyType
+		if !color && !typ {
 			continue
 		}
 		if ce.MayPlayPlayerTurn && e.G.Active != p {
@@ -1164,10 +734,14 @@ func (e *Engine) payerGrantsMayPlayRider(p state.PlayerID, id state.ObjID, rider
 			continue
 		}
 		if e.matchesSpec(ce.Affects, id, e.effectGrantSpecContext(ce)) {
-			return true
+			r.AnyColor = r.AnyColor || color
+			r.AnyType = r.AnyType || typ
+			if r.AnyColor && r.AnyType {
+				return r
+			}
 		}
 	}
-	return false
+	return r
 }
 
 // rememberedTargets lifts a ContinuousEffect's Remembered object ids into

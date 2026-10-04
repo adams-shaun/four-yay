@@ -68,7 +68,6 @@ func effPlaneswalk(h Host, c *Ctx, sa *cards.SA) {
 					answer = "yes"
 				}
 			} else {
-				_ = Ask(h, d)
 
 				// R-9: a host without a decision channel deterministically declines.
 				answer = "no"

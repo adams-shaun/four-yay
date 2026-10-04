@@ -2,9 +2,9 @@
 // may put a counter" PutCounter ALWAYS put, unconditionally, with no
 // election recorded anywhere in the log. effPutCounter
 // (effects/counters.go) now poses a real yes/no KChoose through the shared
-// Ask boundary with the "put_optional" resume arm (the attach_optional
-// precedent, rules/attach_optional_test.go): the answer rides Ctx.PutOpt,
-// the decline places nothing while the chained SubAbility$ still runs (the
+// Ask boundary as a "put_optional" ask (the attach_optional precedent,
+// rules/attach_optional_test.go): the answer is applied in place, the
+// decline places nothing while the chained SubAbility$ still runs (the
 // chain is owned by Resolve, never skipped by a decline -- the oracle texts
 // agree; the chain-skip mechanism is the DIFFERENT UnlessCost$ +
 // UnlessResolveSubs$ pair none of these lines carry), and the no-host

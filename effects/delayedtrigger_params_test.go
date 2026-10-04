@@ -58,7 +58,7 @@ func TestDelayedTriggerOfIsAllocationFree(t *testing.T) {
 	f.Publish()
 	cached := &cards.SA{API: "DelayedTrigger", Params: map[string]string{"Mode": "Phase", "Phase": "End of Turn"}}
 	DelayedTriggerOf(cached)
-	if n := testing.AllocsPerRun(100, func() {
+	if n := allocsPerRun(100, func() {
 		_ = DelayedTriggerOf(bound)
 		_ = DelayedTriggerOf(cached)
 	}); n != 0 {

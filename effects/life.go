@@ -52,19 +52,10 @@ func effExchangeLife(h Host, c *Ctx, sa *cards.SA) {
 	}
 	oldA, oldB := h.Game().Players[a].Life, h.Game().Players[b].Life
 	if sa.ParamStr(cards.PKRememberOwnLoss) == "True" || sa.ParamStr(cards.PKRememberDifference) == "True" {
-		// Lazily allocate the chain's shared ExchangeMemory (and re-publish it
-		// through the seam, the way effFlipCoin publishes a lazily allocated
-		// FlipMemory) so an ask this exchange's own walk poses LATER — a
-		// replacement body's draw parking a Dredge ask — captures the pointer
-		// onto its resume point, and the SubAbility$ continuation a resume
-		// rebuilds still shares this same memory.
-		m := c.ExchangeMemory
-		if m == nil {
-			m = &ExchangeMemory{Bound: true}
-			c.ExchangeMemory = m
-			if emh, ok := h.(exchangeMemoryHost); ok {
-				emh.SetResolutionExchangeMemory(m)
-			}
+		// Lazily allocate the chain's shared ExchangeMemory so the
+		// SubAbility$ continuation shares this same memory.
+		if c.ExchangeMemory == nil {
+			c.ExchangeMemory = &ExchangeMemory{Bound: true}
 		}
 	}
 	if oldA == oldB {
@@ -118,11 +109,11 @@ func effExchangeLifeVariant(h Host, c *Ctx, sa *cards.SA) {
 	mode := sa.ParamStr(cards.PKMode)
 	var oldCharacteristic int32
 	var setPower, setToughness bool
-	switch mode {
-	case "Power":
+	switch effExchangeLifeVariant5841Codes.Code(string(mode)) {
+	case effExchangeLifeVariant5841Power:
 		oldCharacteristic = h.Power(c.Source)
 		setPower = true
-	case "Toughness":
+	case effExchangeLifeVariant5841Toughness:
 		oldCharacteristic = h.Toughness(c.Source)
 		setToughness = true
 	default:
@@ -182,8 +173,6 @@ func effSetLife(h Host, c *Ctx, sa *cards.SA) {
 		g := h.Game()
 		i := c.ChoiceTarget - 1
 		if c.ChoiceTarget == 0 {
-			choice := ([]state.Target)(nil)
-
 			pool := g.AliveFrom(c.Controller)
 			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Source: c.Source,
 				Min: 0, Max: len(pool), Prompt: sa.ParamStr(cards.PKChoicePrompt),
@@ -191,20 +180,14 @@ func effSetLife(h Host, c *Ctx, sa *cards.SA) {
 			for j, p := range pool {
 				d.Options = append(d.Options, decision.Option{Index: j, Kind: "player", Player: p, Label: g.Players[p].Name})
 			}
-			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: the recipient
-				// subset the "choice" re-entry records below.
-				choice = ChoiceAnswerTargets(ans)
-			} else {
-				switch Ask(h, d) {
-				case AskAsked, AskNoHost:
-					// With no host, choose nobody: the identity permutation.
-					return
-				}
+			ans, ok := AskTape(h, d)
+			if !ok {
+				// No answer served: choose nobody (the identity permutation).
+				return
 			}
-
-			c.Chosen = nil // this effect owns the resumed choice list
-			choiceRecord(h, c, sa, choice, false)
+			// The answered recipient subset, recorded below.
+			c.Chosen = nil // this effect owns the choice list
+			choiceRecord(h, c, sa, ChoiceAnswerTargets(ans), false)
 
 			i = 0
 		} else {
@@ -221,7 +204,7 @@ func effSetLife(h Host, c *Ctx, sa *cards.SA) {
 			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Source: c.Source,
 				Min: 1, Max: 1, Prompt: fmt.Sprintf("Choose a life total for %s", g.Players[recipient].Name),
 				ResumeKind: "choice", ResumeSA: sa, ResumeTarget: 1 + i,
-				ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid}
+			}
 			for _, src := range c.Chosen[:subsetSize] {
 				used := false
 				for _, pick := range c.Chosen[subsetSize:] {
@@ -236,12 +219,10 @@ func effSetLife(h Host, c *Ctx, sa *cards.SA) {
 				}
 			}
 			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: the source total
-				// the "choice" re-entry records for this recipient.
+				// The answered source total for this recipient.
 				choiceRecord(h, c, sa, ChoiceAnswerTargets(ans), false)
 				continue
 			}
-			_ = Ask(h, d)
 
 			// No host: keep the recipient's own total (identity). No
 			// assignment is applied until all answers have been collected.
@@ -307,3 +288,13 @@ func effLoseLife(h Host, c *Ctx, sa *cards.SA) {
 	// Write even zero: the source can retain a value from an earlier resolution.
 	h.Emit(events.Event{Kind: events.StoreSVar, Obj: c.Source, Text: "AFLifeLost", Amount: total})
 }
+
+const (
+	effExchangeLifeVariant5841Power     uint16 = 1 // "Power"
+	effExchangeLifeVariant5841Toughness uint16 = 2 // "Toughness"
+)
+
+var effExchangeLifeVariant5841Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Power", Val: effExchangeLifeVariant5841Power},
+	state.StrEntry[uint16]{Key: "Toughness", Val: effExchangeLifeVariant5841Toughness},
+)

@@ -413,17 +413,8 @@ func activationZoneMask(az ParamText) uint32 {
 	if !az.Present {
 		return 1 << state.ZBattlefield
 	}
-	switch az.Text {
-	case "Battlefield":
-		return 1 << state.ZBattlefield
-	case "Graveyard":
-		return 1 << state.ZGraveyard
-	case "Hand":
-		return 1 << state.ZHand
-	case "Exile":
-		return 1 << state.ZExile
-	case "Stack":
-		return 1 << state.ZStack
+	if v, ok := activationZoneMaskTab1.Get(az.Text); ok {
+		return v
 	}
 	return 0
 }
@@ -456,17 +447,10 @@ func conditionZoneParam(sa *cards.SA) string {
 	return strings.TrimSpace(sa.ParamStr(cards.PKConditionZone))
 }
 
-// ActivationTierKeys are the keys compileActivation reads for every ability
-// (the rules census check holds them read for every API).
-func ActivationTierKeys() []string {
-	return []string{
-		"Activation", "ActivationAfterBlockers", "ActivationFirstCombat", "ActivationGameTypes",
-		"ActivationLimit", "ActivationPhases", "ActivationZone", "Activator", "CheckSVar",
-		"Condition", "ConditionActivationLimit", "ConditionCheckSVar", "ConditionCompare",
-		"ConditionDefined", "ConditionFirstCombat", "ConditionNotPresent", "ConditionPhases",
-		"ConditionPlayerTurn", "ConditionPresent", "ConditionSVarCompare", "Cost",
-		"GameActivationLimit", "InstantSpeed", "IsPresent", "OpponentTurn", "PlayerTurn",
-		"PresentCompare", "PresentDefined", "PresentZone", "SVarCompare", "SorcerySpeed",
-		"UnlessCost", "UnlessPayer", "UnlessSwitched",
-	}
-}
+var activationZoneMaskTab1 = state.NewStrTable[uint32](
+	state.StrEntry[uint32]{Key: "Battlefield", Val: 1 << state.ZBattlefield},
+	state.StrEntry[uint32]{Key: "Graveyard", Val: 1 << state.ZGraveyard},
+	state.StrEntry[uint32]{Key: "Hand", Val: 1 << state.ZHand},
+	state.StrEntry[uint32]{Key: "Exile", Val: 1 << state.ZExile},
+	state.StrEntry[uint32]{Key: "Stack", Val: 1 << state.ZStack},
+)

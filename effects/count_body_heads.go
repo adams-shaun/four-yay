@@ -61,7 +61,7 @@ func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, dept
 	// ORed with the object's FlagKicked; at resolution no pending cast exists
 	// and the object read is authoritative.
 	if rest, ok := strings.CutPrefix(head, "Kicked."); ok {
-		kicked := c.PendingKicked
+		kicked := c.Kicker.PendingKicked
 		if o := g.Obj(c.Source); o != nil && o.CastFlags&state.FlagKicked != 0 {
 			kicked = true
 		}
@@ -82,8 +82,8 @@ func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, dept
 			return 0, false, true
 		}
 		promised := false
-		if c.PromisedGiftOverride != nil {
-			promised = *c.PromisedGiftOverride
+		if c.Kicker.PromisedGiftOverride != nil {
+			promised = *c.Kicker.PromisedGiftOverride
 		} else if o := g.Obj(c.Source); o != nil {
 			promised = o.CastFlags&state.FlagPromisedGift != 0
 		}
@@ -185,8 +185,8 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 			yesTok, noTok, _ := strings.Cut(head[dot+1:], ".")
 			return countBranchOperand(h, c, holds, yesTok, noTok, depth), true, true
 		}
-		switch head[:dot] {
-		case "wasCastFromGraveyard":
+		switch evalCountBodyDottedc421Codes.Code(string(head[:dot])) {
+		case evalCountBodyDottedc421WasCastFromGraveyard:
 			// The resolving source was CAST FROM A GRAVEYARD (CR 601.2b's
 			// alternative-cost provenance): any graveyard-origin cast bit —
 			// FlagFlashback, FlagHarmonize or FlagEscaped — holds it. This is
@@ -214,7 +214,7 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 				n = 0
 			}
 			return n, true, true
-		case "wasCastFromYourHandByYou":
+		case evalCountBodyDottedc421WasCastFromYourHandByYou:
 			// The resolving source was cast from ITS OWN CONTROLLER's hand by
 			// that controller (the Myojin cycle's etbCounter CheckSVar$ gate:
 			// "enters with a divinity counter on it if you cast it from your
@@ -245,7 +245,7 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 				n2 = 0
 			}
 			return n2, true, true
-		case "wasCastFromYourHand":
+		case evalCountBodyDottedc421WasCastFromYourHand:
 			// The BARE (no "ByYou") hand-provenance branch head (task
 			// castprov3, see_the_truth's SVar:X:Count$wasCastFromYourHand.1.3 —
 			// "put one of those cards into your hand ... If this spell was cast
@@ -275,7 +275,7 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 				n3 = 0
 			}
 			return n3, true, true
-		case "wasCastFromExile":
+		case evalCountBodyDottedc421WasCastFromExile:
 			// The resolving source was CAST FROM EXILE (task wascastfrom; the
 			// delayed_blast_fireball `Count$wasCastFromExile.5.2`,
 			// lifestreams_blessing `.2.0` and the ultimate_magic `.1.0`
@@ -306,7 +306,7 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 				nE = 0
 			}
 			return nE, true, true
-		case "IfCastInOwnMainPhase", "InOwnMainPhase":
+		case evalCountBodyDottedc421IfCastInOwnMainPhase:
 			// CR "if you cast this spell during your main phase": the
 			// yes/no branch head Forge's AbilityUtils reads as
 			// Count$IfCastInOwnMainPhase.<numMain>.<numNotMain> (7 corpus
@@ -352,7 +352,7 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 				n = 0
 			}
 			return n, true, true
-		case "Morbid", "Monarch":
+		case evalCountBodyDottedc421Morbid:
 			holds := false
 			if head[:dot] == "Monarch" {
 				holds = g.IsMonarch(c.Controller)
@@ -368,7 +368,7 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 				}
 			}
 			return dotBranch(h, c, head[dot+1:], holds, depth), true, true
-		case "Revolt":
+		case evalCountBodyDottedc421Revolt:
 			// CR 702.38's branch head (the corpus's two carriers: Lifecraft
 			// Cavalry's SVar:Revolt:Count$Revolt.1.0 etbCounter gate and
 			// Fatal Push's Count$Revolt.4.2 destroy bound): <yes> when a
@@ -378,7 +378,7 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 			// clauses share, so the spellings cannot drift apart. Literal
 			// branches, the Morbid/Monarch precedent.
 			return dotBranch(h, c, head[dot+1:], h.RevoltHolds(c.Controller), depth), true, true
-		case "Blessing":
+		case evalCountBodyDottedc421Blessing:
 			// CR 702.131's city's-blessing branch head (10 corpus carriers:
 			// Golden Demise's SVar:X:Count$Blessing.1.0 pump fork, Kumena's
 			// Awakening's TrigDraw, Expel from Orazca, Anduril/Pride of
@@ -394,7 +394,7 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 			// controller denies, the fail-closed direction its siblings take.
 			blessed := int(c.Controller) < len(g.Players) && g.Players[c.Controller].Blessing
 			return dotBranch(h, c, head[dot+1:], blessed, depth), true, true
-		case "Threshold":
+		case evalCountBodyDottedc421Threshold:
 			// CR 702.24's Threshold branch head (7 corpus carriers: Cabal
 			// Ritual's Count$Threshold.5.3 mana ritual, Thermal Blast and
 			// Swirling Sandstorm's .5.x/.5.0 damage, Far Wanderings' .3.1
@@ -415,7 +415,7 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 				inGrave = len(g.Zone(state.ZGraveyard, c.Controller)) >= 7
 			}
 			return countBranchOperand(h, c, inGrave, yesTok, noTok, depth), true, true
-		case "Devotion":
+		case evalCountBodyDottedc421Devotion:
 			// CR 700.5's devotion head (49 corpus carriers: Aspect of Hydra's
 			// Count$Devotion.Green pump, Gray Merchant of Asphodel's .Black
 			// drain, Nykthos' four .Chosen lines behind a ChooseColor): the
@@ -444,7 +444,7 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 				}
 			}
 			return devotionCount(g, c.Controller, col), true, true
-		case "DevotionDual":
+		case evalCountBodyDottedc421DevotionDual:
 			// CR 700.5's two-colour devotion head (14 corpus carriers: Mogis'
 			// Count$DevotionDual.Black.Red drain and the DevotionDual spellings
 			// the temples/god cycle print): the SUM of the devotion to both
@@ -462,3 +462,33 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 	}
 	return 0, false, false
 }
+
+const (
+	evalCountBodyDottedc421WasCastFromGraveyard     uint16 = 1  // "wasCastFromGraveyard"
+	evalCountBodyDottedc421WasCastFromYourHandByYou uint16 = 2  // "wasCastFromYourHandByYou"
+	evalCountBodyDottedc421WasCastFromYourHand      uint16 = 3  // "wasCastFromYourHand"
+	evalCountBodyDottedc421WasCastFromExile         uint16 = 4  // "wasCastFromExile"
+	evalCountBodyDottedc421IfCastInOwnMainPhase     uint16 = 5  // "IfCastInOwnMainPhase", "InOwnMainPhase"
+	evalCountBodyDottedc421Morbid                   uint16 = 6  // "Morbid", "Monarch"
+	evalCountBodyDottedc421Revolt                   uint16 = 7  // "Revolt"
+	evalCountBodyDottedc421Blessing                 uint16 = 8  // "Blessing"
+	evalCountBodyDottedc421Threshold                uint16 = 9  // "Threshold"
+	evalCountBodyDottedc421Devotion                 uint16 = 10 // "Devotion"
+	evalCountBodyDottedc421DevotionDual             uint16 = 11 // "DevotionDual"
+)
+
+var evalCountBodyDottedc421Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "wasCastFromGraveyard", Val: evalCountBodyDottedc421WasCastFromGraveyard},
+	state.StrEntry[uint16]{Key: "wasCastFromYourHandByYou", Val: evalCountBodyDottedc421WasCastFromYourHandByYou},
+	state.StrEntry[uint16]{Key: "wasCastFromYourHand", Val: evalCountBodyDottedc421WasCastFromYourHand},
+	state.StrEntry[uint16]{Key: "wasCastFromExile", Val: evalCountBodyDottedc421WasCastFromExile},
+	state.StrEntry[uint16]{Key: "IfCastInOwnMainPhase", Val: evalCountBodyDottedc421IfCastInOwnMainPhase},
+	state.StrEntry[uint16]{Key: "InOwnMainPhase", Val: evalCountBodyDottedc421IfCastInOwnMainPhase},
+	state.StrEntry[uint16]{Key: "Morbid", Val: evalCountBodyDottedc421Morbid},
+	state.StrEntry[uint16]{Key: "Monarch", Val: evalCountBodyDottedc421Morbid},
+	state.StrEntry[uint16]{Key: "Revolt", Val: evalCountBodyDottedc421Revolt},
+	state.StrEntry[uint16]{Key: "Blessing", Val: evalCountBodyDottedc421Blessing},
+	state.StrEntry[uint16]{Key: "Threshold", Val: evalCountBodyDottedc421Threshold},
+	state.StrEntry[uint16]{Key: "Devotion", Val: evalCountBodyDottedc421Devotion},
+	state.StrEntry[uint16]{Key: "DevotionDual", Val: evalCountBodyDottedc421DevotionDual},
+)

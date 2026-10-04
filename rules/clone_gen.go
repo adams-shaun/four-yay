@@ -10,24 +10,51 @@ import (
 	state "github.com/adams-shaun/gorge/state"
 )
 
-// cloneEngineFields copies every `deep` Engine field not named in
-// cloneHandFields (clone_gen_test.go).
-func cloneEngineFields(c, e *Engine, remap *cloneRemap) {
-	cloneFieldsEngine(c, e, remap)
-	cloneFieldsEngineTurnLedger(c, e, remap)
-	cloneFieldsEngineRounds(c, e, remap)
-	cloneFieldsEngineTriggerMaps(c, e, remap)
-	cloneFieldsEngineResolution(c, e, remap)
-	cloneFieldsEngineDrain(c, e, remap)
-	cloneFieldsEngineTokenMint(c, e, remap)
-	cloneFieldsEngineTriggerBatches(c, e, remap)
-	cloneFieldsEngineContinuation(c, e, remap)
-	cloneFieldsEngineParked(c, e, remap)
-	cloneFieldsEngineParked2(c, e, remap)
-	cloneFieldsEngineCastWindows(c, e, remap)
+// cloneEngineFields copies every `deep` and `share` Engine field not named
+// in cloneHandFields, and hands the clone its pooled Spare storage
+// (clone_gen_test.go).
+func cloneEngineFields(c, e *Engine, sp *Spare, remap *cloneRemap) {
+	cloneSpareFields(c, sp)
+	cloneFieldsEngine(c, e, sp, remap)
+	cloneFieldsEngineTurnLedger(c, e, sp, remap)
+	cloneFieldsEngineLayerCaches(c, e, sp, remap)
+	cloneFieldsEngineRounds(c, e, sp, remap)
+	cloneFieldsEngineDerivedTables(c, e, sp, remap)
+	cloneFieldsEngineScratch(c, e, sp, remap)
+	cloneFieldsEngineTriggerMaps(c, e, sp, remap)
+	cloneFieldsEngineResolution(c, e, sp, remap)
+	cloneFieldsEngineDrain(c, e, sp, remap)
+	cloneFieldsEngineTokenMint(c, e, sp, remap)
+	cloneFieldsEngineTriggerBatches(c, e, sp, remap)
+	cloneFieldsEngineContinuation(c, e, sp, remap)
+	cloneFieldsEngineContinuation2(c, e, sp, remap)
+	cloneFieldsEngineParked(c, e, sp, remap)
+	cloneFieldsEngineParked2(c, e, sp, remap)
+	cloneFieldsEngineCastWindows(c, e, sp, remap)
+	cloneFieldsEngineResolveKernel(c, e, sp, remap)
 }
 
-func cloneFieldsEngine(c, e *Engine, remap *cloneRemap) {
+// cloneSpareFields gives the clone its pooled storage from sp: a reset
+// field adopts it, a deep one is emptied for its copy.
+func cloneSpareFields(c *Engine, sp *Spare) {
+	c.staticContinuous = sp.static[:0]
+	c.staticGates = sp.gates[:0]
+	c.activeBuf = sp.activeBuf
+	c.activeSrc = sp.activeSrc
+	c.activeBufAlt = sp.activeBufAlt
+	c.typesProbe = sp.probe[:0]
+	c.derivedMemo = sp.memo
+	c.derivedMemoStack = sp.memoStack
+	c.legalOptBuf = sp.legalOpts
+	c.manaAbBuf = sp.manaAb
+	c.lossMemo = sp.lossMemo
+	c.castFree = sp.cast
+}
+
+func cloneFieldsEngine(c, e *Engine, sp *Spare, remap *cloneRemap) {
+	c.deckManifests = e.deckManifests
+	c.compiledText = e.compiledText
+	c.landTypeWords = e.landTypeWords
 	c.format = e.format
 	if e.pending != nil {
 		c.pending = cloneDecision(e.pending)
@@ -117,7 +144,7 @@ func cloneFieldsEngine(c, e *Engine, remap *cloneRemap) {
 	c.controlStaticInPool = e.controlStaticInPool
 }
 
-func cloneFieldsEngineTurnLedger(c, e *Engine, remap *cloneRemap) {
+func cloneFieldsEngineTurnLedger(c, e *Engine, sp *Spare, remap *cloneRemap) {
 	c.turnsTaken = append([]int32(nil), e.turnsTaken...)
 	c.turnsTakenEpoch = e.turnsTakenEpoch
 	if e.turnStartTurns != nil {
@@ -142,9 +169,27 @@ func cloneFieldsEngineTurnLedger(c, e *Engine, remap *cloneRemap) {
 	c.noncombatDamagedSeatsLast = e.noncombatDamagedSeatsLast
 }
 
-func cloneFieldsEngineRounds(c, e *Engine, remap *cloneRemap) {
+func cloneFieldsEngineLayerCaches(c, e *Engine, sp *Spare, remap *cloneRemap) {
+	if cloneCarriesStaticMemo(e) {
+		c.staticContinuous = append(c.staticContinuous, e.staticContinuous...)
+		c.staticEpoch = e.staticEpoch
+		c.staticVersion = c.continuousVersion
+		c.staticObjs = e.staticObjs
+		c.staticMemoGated = e.staticMemoGated
+		c.staticMemoStateRead = e.staticMemoStateRead
+	}
+	if cloneCarriesStaticMemo(e) && e.staticGatesKnown {
+		c.staticGates = append(c.staticGates, e.staticGates...)
+	}
+	if cloneCarriesStaticMemo(e) {
+		c.staticGatesKnown = e.staticGatesKnown
+	}
+}
+
+func cloneFieldsEngineRounds(c, e *Engine, sp *Spare, remap *cloneRemap) {
 	c.pregame = e.pregame
 	c.coloring = e.coloring
+	c.colorRound = e.colorRound
 	c.tossChoice = e.tossChoice
 	c.mulligan = e.mulligan
 	c.mulligan.seats = append([]state.PlayerID(nil), e.mulligan.seats...)
@@ -155,6 +200,9 @@ func cloneFieldsEngineRounds(c, e *Engine, remap *cloneRemap) {
 	if e.opening.exileAsk != nil {
 		c.opening.exileAsk = cloneDecision(e.opening.exileAsk)
 	}
+	c.blockerRound = e.blockerRound
+	c.exertAskState = e.exertAskState
+	c.enlistAskState = e.enlistAskState
 	c.stationing = e.stationing
 	c.combatRound = e.combatRound
 	c.combatRound.queue = append([]state.ObjID(nil), e.combatRound.queue...)
@@ -177,7 +225,44 @@ func cloneFieldsEngineRounds(c, e *Engine, remap *cloneRemap) {
 	c.combatRound.initCtrls = append([]state.PlayerID(nil), e.combatRound.initCtrls...)
 }
 
-func cloneFieldsEngineTriggerMaps(c, e *Engine, remap *cloneRemap) {
+func cloneFieldsEngineDerivedTables(c, e *Engine, sp *Spare, remap *cloneRemap) {
+	c.renames = append([]effects.ObjectName(nil), e.renames...)
+	c.renameEpoch = e.renameEpoch
+	c.renameVersion = rekeyVersion(e.renameVersion, e.continuousVersion)
+	c.renameObjs = e.renameObjs
+	c.layer4Types = append([]effects.ObjectTypes(nil), e.layer4Types...)
+	c.typesEpoch = e.typesEpoch
+	c.typesVersion = rekeyVersion(e.typesVersion, e.continuousVersion)
+	c.typesObjs = e.typesObjs
+	if e.typesIncrReady {
+		c.typesIncrReady = e.typesIncrReady
+		c.typesSelfOnly = e.typesSelfOnly
+		c.typesSrcs = append([]state.ObjID(nil), e.typesSrcs...)
+		c.typesMayDiffer = append([]state.ObjID(nil), e.typesMayDiffer...)
+	}
+	if e.typesProbeReady {
+		c.typesProbe = append(c.typesProbe, e.typesProbe...)
+		c.typesProbeReady = e.typesProbeReady
+		c.typesProbeTrue = e.typesProbeTrue
+		c.typesProbeEpoch = e.typesProbeEpoch
+		c.typesProbeVersion = c.continuousVersion
+		c.typesProbeObjs = e.typesProbeObjs
+	}
+}
+
+func cloneFieldsEngineScratch(c, e *Engine, sp *Spare, remap *cloneRemap) {
+	if cloneCarriesAtkOffers(e) {
+		c.atkOffers = e.atkOffers
+		c.atkOffersEp = e.atkOffersEp
+		c.atkOffersVer = c.continuousVersion
+		c.atkOffersObjs = e.atkOffersObjs
+		c.atkOffersActive = e.atkOffersActive
+	}
+	c.legalScratch = cloneLegalWalkScratch(e.legalScratch)
+	c.lossProof = e.lossProof.forClone()
+}
+
+func cloneFieldsEngineTriggerMaps(c, e *Engine, sp *Spare, remap *cloneRemap) {
 	if e.triggerContexts != nil {
 		c.triggerContexts = make(map[state.ObjID]effects.TriggerContext, len(e.triggerContexts))
 		for k0, v0 := range e.triggerContexts {
@@ -309,6 +394,7 @@ func cloneFieldsEngineTriggerMaps(c, e *Engine, remap *cloneRemap) {
 			c.resolutionTargets[k0] = nv0
 		}
 	}
+	c.trigSub = e.trigSub.clone()
 	if e.charmTargets != nil {
 		c.charmTargets = make(map[state.ObjID][][]state.Target, len(e.charmTargets))
 		for k0, v0 := range e.charmTargets {
@@ -324,13 +410,7 @@ func cloneFieldsEngineTriggerMaps(c, e *Engine, remap *cloneRemap) {
 	}
 }
 
-func cloneFieldsEngineResolution(c, e *Engine, remap *cloneRemap) {
-	if e.resolvingTargetControllerLKI != nil {
-		c.resolvingTargetControllerLKI = make(map[state.ObjID]state.PlayerID, len(e.resolvingTargetControllerLKI))
-		for k0, v0 := range e.resolvingTargetControllerLKI {
-			c.resolvingTargetControllerLKI[k0] = v0
-		}
-	}
+func cloneFieldsEngineResolution(c, e *Engine, sp *Spare, remap *cloneRemap) {
 	if e.exploitedLKI != nil {
 		c.exploitedLKI = make(map[state.ObjID]state.SacrificedInfo, len(e.exploitedLKI))
 		for k0, v0 := range e.exploitedLKI {
@@ -373,28 +453,16 @@ func cloneFieldsEngineResolution(c, e *Engine, remap *cloneRemap) {
 	}
 }
 
-func cloneFieldsEngineDrain(c, e *Engine, remap *cloneRemap) {
+func cloneFieldsEngineDrain(c, e *Engine, sp *Spare, remap *cloneRemap) {
 	c.orderedTriggers = e.orderedTriggers
 	c.applyingReplacement = e.applyingReplacement
 }
 
-func cloneFieldsEngineTokenMint(c, e *Engine, remap *cloneRemap) {
-	c.mintParkFrom = e.mintParkFrom
-	c.mintParkElection = e.mintParkElection
-	if e.mintSinks != nil {
-		c.mintSinks = make([]mintSink, len(e.mintSinks))
-		for i0 := range e.mintSinks {
-			c.mintSinks[i0] = e.mintSinks[i0]
-			c.mintSinks[i0].ids = append([]state.ObjID(nil), e.mintSinks[i0].ids...)
-		}
-	}
-	c.mintSinkSeq = e.mintSinkSeq
-	c.tokenMintSinkID = e.tokenMintSinkID
-	c.pendingMintSink = e.pendingMintSink
+func cloneFieldsEngineTokenMint(c, e *Engine, sp *Spare, remap *cloneRemap) {
 	c.copyMintsPending = append([]state.ObjID(nil), e.copyMintsPending...)
 }
 
-func cloneFieldsEngineTriggerBatches(c, e *Engine, remap *cloneRemap) {
+func cloneFieldsEngineTriggerBatches(c, e *Engine, sp *Spare, remap *cloneRemap) {
 	if e.triggerFireCount != nil {
 		c.triggerFireCount = make(map[triggerKey]int32, len(e.triggerFireCount))
 		for k0, v0 := range e.triggerFireCount {
@@ -484,6 +552,12 @@ func cloneFieldsEngineTriggerBatches(c, e *Engine, remap *cloneRemap) {
 			c.disableTriggersNoted[k0] = v0
 		}
 	}
+	c.trigZones = copyTrigZones(sp.trigZones, e.trigZones)
+	c.trigZonesEp = e.trigZonesEp
+	c.trigGrant = e.trigGrant.forClone()
+	c.replZones = copyReplZones(sp.replZones, e.replZones)
+	c.replZonesEp = e.replZonesEp
+	c.replArena = e.replArena
 	if e.tappedTurn != nil {
 		c.tappedTurn = make(map[state.ObjID]int32, len(e.tappedTurn))
 		for k0, v0 := range e.tappedTurn {
@@ -517,7 +591,7 @@ func cloneFieldsEngineTriggerBatches(c, e *Engine, remap *cloneRemap) {
 	c.triggerTurnDiceTurn = e.triggerTurnDiceTurn
 }
 
-func cloneFieldsEngineContinuation(c, e *Engine, remap *cloneRemap) {
+func cloneFieldsEngineContinuation(c, e *Engine, sp *Spare, remap *cloneRemap) {
 	c.choosing = e.choosing
 	c.oppSel = e.oppSel
 	if e.oppPicksMid != nil {
@@ -531,6 +605,88 @@ func cloneFieldsEngineContinuation(c, e *Engine, remap *cloneRemap) {
 		for k0, v0 := range e.tpCtlChooser {
 			c.tpCtlChooser[k0] = v0
 		}
+	}
+	if e.cast != nil {
+		p0 := *e.cast
+		if e.cast.payment != nil {
+			p1 := *e.cast.payment
+			p1.plan = decision.ClonePaymentPlan(e.cast.payment.plan)
+			p0.payment = &p1
+		}
+		if e.cast.paymentFallback != nil {
+			v := *e.cast.paymentFallback
+			p0.paymentFallback = &v
+		}
+		p0.windowTaps = cloneWindowTaps(e.cast.windowTaps)
+		p0.cost = cloneCost(e.cast.cost)
+		if e.cast.mayPlayRemembered != nil {
+			p0.mayPlayRemembered = make(map[state.ObjID][]state.ObjID, len(e.cast.mayPlayRemembered))
+			for k1, v1 := range e.cast.mayPlayRemembered {
+				var nv1 []state.ObjID
+				nv1 = append([]state.ObjID(nil), v1...)
+				p0.mayPlayRemembered[k1] = nv1
+			}
+		}
+		p0.mayPlayHosts = append([]state.ObjID(nil), e.cast.mayPlayHosts...)
+		if e.cast.costRemembered != nil {
+			p0.costRemembered = make([]costRememberedEntry, len(e.cast.costRemembered))
+			for i1 := range e.cast.costRemembered {
+				p0.costRemembered[i1] = e.cast.costRemembered[i1]
+				p0.costRemembered[i1].ids = append([]state.ObjID(nil), e.cast.costRemembered[i1].ids...)
+			}
+		}
+		p0.delve = append([]state.ObjID(nil), e.cast.delve...)
+		p0.sacs = append([]state.ObjID(nil), e.cast.sacs...)
+		p0.discards = append([]state.ObjID(nil), e.cast.discards...)
+		p0.subCounterPays = append([]subCounterPay(nil), e.cast.subCounterPays...)
+		p0.convoke = append([]convokePayment(nil), e.cast.convoke...)
+		p0.mods = cloneCastMods(e.cast.mods)
+		p0.preModes = append([]string(nil), e.cast.preModes...)
+		p0.targets = append([]state.Target(nil), e.cast.targets...)
+		if e.cast.stageTargets != nil {
+			p0.stageTargets = make([][]state.Target, len(e.cast.stageTargets))
+			for i1 := range e.cast.stageTargets {
+				p0.stageTargets[i1] = append([]state.Target(nil), e.cast.stageTargets[i1]...)
+			}
+		}
+		if e.cast.charmTargets != nil {
+			p0.charmTargets = make([][]state.Target, len(e.cast.charmTargets))
+			for i1 := range e.cast.charmTargets {
+				p0.charmTargets[i1] = append([]state.Target(nil), e.cast.charmTargets[i1]...)
+			}
+		}
+		p0.subAsks = append([]*cards.SA(nil), e.cast.subAsks...)
+		if e.cast.subAns != nil {
+			p0.subAns = make([][]state.Target, len(e.cast.subAns))
+			for i1 := range e.cast.subAns {
+				p0.subAns[i1] = append([]state.Target(nil), e.cast.subAns[i1]...)
+			}
+		}
+		p0.rootOpts = append([]decision.Option(nil), e.cast.rootOpts...)
+		p0.evidence = append([]state.ObjID(nil), e.cast.evidence...)
+		if e.cast.preSuppress != nil {
+			p0.preSuppress = make(map[state.ObjID]bool, len(e.cast.preSuppress))
+			for k1, v1 := range e.cast.preSuppress {
+				p0.preSuppress[k1] = v1
+			}
+		}
+		if e.cast.preAborts != nil {
+			p0.preAborts = make(map[state.ObjID]int32, len(e.cast.preAborts))
+			for k1, v1 := range e.cast.preAborts {
+				p0.preAborts[k1] = v1
+			}
+		}
+		p0.proposalTriggers = append([][2]int(nil), e.cast.proposalTriggers...)
+		p0.exiles = append([]state.ObjID(nil), e.cast.exiles...)
+		p0.returns = append([]state.ObjID(nil), e.cast.returns...)
+		p0.moveGraves = append([]state.ObjID(nil), e.cast.moveGraves...)
+		p0.putToLibs = append([]state.ObjID(nil), e.cast.putToLibs...)
+		p0.reveals = append([]state.ObjID(nil), e.cast.reveals...)
+		p0.beholds = append([]state.ObjID(nil), e.cast.beholds...)
+		p0.taps = append([]state.ObjID(nil), e.cast.taps...)
+		p0.blights = append([]state.ObjID(nil), e.cast.blights...)
+		p0.revealHandArm = append([]bool(nil), e.cast.revealHandArm...)
+		c.cast = &p0
 	}
 	if e.turnUp != nil {
 		p0 := *e.turnUp
@@ -573,6 +729,9 @@ func cloneFieldsEngineContinuation(c, e *Engine, remap *cloneRemap) {
 		p0.Pairs = append([][2]state.ObjID(nil), e.siegeMove.Pairs...)
 		c.siegeMove = &p0
 	}
+}
+
+func cloneFieldsEngineContinuation2(c, e *Engine, sp *Spare, remap *cloneRemap) {
 	if e.entryStageDone != nil {
 		p0 := *e.entryStageDone
 		p0.grants = append([]entryGrant(nil), e.entryStageDone.grants...)
@@ -623,9 +782,10 @@ func cloneFieldsEngineContinuation(c, e *Engine, remap *cloneRemap) {
 	}
 }
 
-func cloneFieldsEngineParked(c, e *Engine, remap *cloneRemap) {
+func cloneFieldsEngineParked(c, e *Engine, sp *Spare, remap *cloneRemap) {
 	c.suspendedCasts = append([]state.ObjID(nil), e.suspendedCasts...)
 	c.defeatedCasts = append([]state.ObjID(nil), e.defeatedCasts...)
+	c.queuedPlays = e.queuedPlays.clone(remap)
 	if e.manaActivation != nil {
 		p0 := *e.manaActivation
 		p0.abilities = append([]*cards.SA(nil), e.manaActivation.abilities...)
@@ -767,7 +927,7 @@ func cloneFieldsEngineParked(c, e *Engine, remap *cloneRemap) {
 	}
 }
 
-func cloneFieldsEngineParked2(c, e *Engine, remap *cloneRemap) {
+func cloneFieldsEngineParked2(c, e *Engine, sp *Spare, remap *cloneRemap) {
 	if e.replChoices != nil {
 		c.replChoices = make([]replChoice, len(e.replChoices))
 		for i0 := range e.replChoices {
@@ -838,7 +998,7 @@ func cloneFieldsEngineParked2(c, e *Engine, remap *cloneRemap) {
 	}
 }
 
-func cloneFieldsEngineCastWindows(c, e *Engine, remap *cloneRemap) {
+func cloneFieldsEngineCastWindows(c, e *Engine, sp *Spare, remap *cloneRemap) {
 	if e.untapResume != nil {
 		p0 := *e.untapResume
 		c.untapResume = &p0
@@ -867,8 +1027,71 @@ func cloneFieldsEngineCastWindows(c, e *Engine, remap *cloneRemap) {
 	c.drainAwaitsTarget = e.drainAwaitsTarget
 	c.drainAwaitsModes = e.drainAwaitsModes
 	c.deferCastTrigger = e.deferCastTrigger
+	if cloneCarriesCast(e) {
+		c.deferredPush = cloneHeldEvent(e.deferredPush)
+		c.deferredPushLKI = e.deferredPushLKI
+	}
 	c.manaExpended = append([]int32(nil), e.manaExpended...)
 	c.manaExpendedTurn = e.manaExpendedTurn
+}
+
+func cloneFieldsEngineResolveKernel(c, e *Engine, sp *Spare, remap *cloneRemap) {
+	c.tape = e.tape.ForClone()
+}
+
+// sparePools is the Spare storage of every `pool=` Engine field, embedded
+// in Spare: Release fills it (releasePools), a clone or genesis adopts it.
+type sparePools struct {
+	// static recycles Engine.staticContinuous.
+	static []state.ContinuousEffect
+	// gates recycles Engine.staticGates.
+	gates []staticGateRec
+	// activeBuf recycles Engine.activeBuf.
+	activeBuf []state.ContinuousEffect
+	// activeSrc recycles Engine.activeSrc.
+	activeSrc []*state.ContinuousEffect
+	// activeBufAlt recycles Engine.activeBufAlt.
+	activeBufAlt []state.ContinuousEffect
+	// probe recycles Engine.typesProbe.
+	probe []uint8
+	// memo recycles Engine.derivedMemo.
+	memo derivedMemoTable
+	// memoStack recycles Engine.derivedMemoStack.
+	memoStack derivedMemoTable
+	// legalOpts recycles Engine.legalOptBuf.
+	legalOpts []decision.Option
+	// manaAb recycles Engine.manaAbBuf.
+	manaAb []*cards.SA
+	// lossMemo recycles Engine.lossMemo.
+	lossMemo abilityLossMemo
+	// pending recycles Engine.pendingTriggers.
+	pending []pendingTrigger
+	// trigZones recycles Engine.trigZones.
+	trigZones []trigZoneSummary
+	// replZones recycles Engine.replZones.
+	replZones []replZoneSummary
+	// cast recycles Engine.castFree.
+	cast *pendingCast
+}
+
+// releasePools hands every `pool=` field's storage to sp and drops it
+// from e.
+func releasePools(e *Engine, sp *Spare) {
+	sp.static, e.staticContinuous = recycledSlice(e.staticContinuous), nil
+	sp.gates, e.staticGates = recycledSlice(e.staticGates), nil
+	sp.activeBuf, e.activeBuf = recycledSlice(e.activeBuf), nil
+	sp.activeSrc, e.activeSrc = e.activeSrc[:0], nil
+	sp.activeBufAlt, e.activeBufAlt = recycledSlice(e.activeBufAlt), nil
+	sp.probe, e.typesProbe = e.typesProbe[:0], nil
+	sp.memo, e.derivedMemo = e.derivedMemo.release(), derivedMemoTable{}
+	sp.memoStack, e.derivedMemoStack = e.derivedMemoStack.release(), derivedMemoTable{}
+	sp.legalOpts, e.legalOptBuf = e.legalOptBuf[:0], nil
+	sp.manaAb, e.manaAbBuf = e.manaAbBuf[:0], nil
+	sp.lossMemo, e.lossMemo = e.lossMemo.recycled(), abilityLossMemo{}
+	sp.pending, e.pendingTriggers = recycledSlice(e.pendingTriggers), nil
+	sp.trigZones, e.trigZones = releasedTrigZones(e.trigZones), nil
+	sp.replZones, e.replZones = releasedReplZones(e.replZones), nil
+	sp.cast, e.castFree = releaseCastFree(e), nil
 }
 
 // resumeFields deepens the reference fields of the resume frame cp, a value

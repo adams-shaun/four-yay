@@ -743,10 +743,10 @@ func affectsReach(spec string) uint8 {
 		}
 		var bit uint8
 		for term := range strings.SplitSeq(props, "+") {
-			switch term {
-			case "Self":
+			switch affectsReach2411Codes.Code(string(term)) {
+			case affectsReach2411Self:
 				bit = reachSelf
-			case "EnchantedBy", "EquippedBy", "AttachedBy":
+			case affectsReach2411EnchantedBy:
 				if bit == 0 {
 					bit = reachAttached
 				}
@@ -1118,3 +1118,15 @@ func (e *Engine) verifyInertDerivedTypes() {
 		panic(fmt.Sprintf("rules: layer-inert derived-type table reuse at log %d disagrees with a rebuild (%d vs %d entries)", len(e.L.Events), len(cached), len(fresh)))
 	}
 }
+
+const (
+	affectsReach2411Self        uint16 = 1 // "Self"
+	affectsReach2411EnchantedBy uint16 = 2 // "EnchantedBy", "EquippedBy", "AttachedBy"
+)
+
+var affectsReach2411Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Self", Val: affectsReach2411Self},
+	state.StrEntry[uint16]{Key: "EnchantedBy", Val: affectsReach2411EnchantedBy},
+	state.StrEntry[uint16]{Key: "EquippedBy", Val: affectsReach2411EnchantedBy},
+	state.StrEntry[uint16]{Key: "AttachedBy", Val: affectsReach2411EnchantedBy},
+)

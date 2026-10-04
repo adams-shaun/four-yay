@@ -95,10 +95,16 @@ func faceHasCostStatics(f *cards.Face) bool {
 		return false
 	}
 	for _, st := range f.Statics {
-		switch st.Mode {
-		case "RaiseCost", "ReduceCost", "SetCost", "OptionalCost":
+		if costStaticModes[st.ModeKind()] {
 			return true
 		}
 	}
 	return false
+}
+
+var costStaticModes = [cards.StaticModeCount]bool{
+	cards.StaticRaiseCost:    true,
+	cards.StaticReduceCost:   true,
+	cards.StaticSetCost:      true,
+	cards.StaticOptionalCost: true,
 }

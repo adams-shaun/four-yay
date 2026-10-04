@@ -64,7 +64,7 @@ func TestProliferateSingleEligibleStillAsks(t *testing.T) {
 }
 
 func TestProliferateNoHostTakesAllEligible(t *testing.T) {
-	// fakeHost.Ask returns false (AskNoHost): the R-9 stand-in takes every
+	// fakeHost serves no answer: the R-9 stand-in takes every
 	// eligible recipient with one Note, the exact mirror of botpolicy's arm.
 	h := &fakeHost{}
 	h.g = state.NewGame(names(2))

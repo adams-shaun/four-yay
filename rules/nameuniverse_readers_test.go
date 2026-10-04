@@ -29,7 +29,7 @@ func TestNameUniverseReadersAreKnown(t *testing.T) {
 		"rules/cast_etbchoice.go",   // as-enters NameCard
 		"rules/chars/types.go",      // CorpusLandTypeWords; AllNonBasicLandType expands Board.LandTypeWords
 		"rules/chars_board.go",      // charsBoard.LandTypeWords serves landTypeWords to the layer-4 walk
-		"rules/clone.go",            // copies landTypeWords into a clone
+		"rules/clone_gen.go",        // copies landTypeWords into a clone
 		"rules/engine.go",           // Config fields
 		"rules/engine_struct.go",    // landTypeWords field
 		"rules/genesis.go",          // derives landTypeWords and the name snapshot

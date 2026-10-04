@@ -1,0 +1,6 @@
+{
+  "card": "Yedora, Grave Gardener",
+  "rows": {
+    "dead-nontoken-creature-returns-face-down-as-forest-land": "step 0 (move): [{\"kind\":\"any\",\"pick\":[\"yes\"]}]"
+  }
+}

@@ -158,9 +158,9 @@ depend on packed 64-bit ints.
 
 Several tables fail both ways:
 
-- `rules/acceptance_test.go` `knownUnsupported` (every repo deck is fully
-  supported except the listed cards).
-- `rules/paramcensus_test.go` `knownUnsupportedParams`.
+- `knownUnsupported`, one file per card in `rules/testdata/known-unsupported/`
+  (every repo deck is fully supported except the listed cards).
+- `knownUnsupportedParams`, one file per card in `rules/testdata/paramcensus/`.
 - `rules/count_head_ratchet_test.go` `knownUnmodelledCountHeads`.
 - `effects.modelledValueHeads`.
 

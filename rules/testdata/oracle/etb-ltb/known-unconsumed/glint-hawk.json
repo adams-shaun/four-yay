@@ -1,0 +1,6 @@
+{
+  "card": "Glint Hawk",
+  "rows": {
+    "returning-an-artifact-keeps-the-hawk": "step 1 (resolve): [{\"kind\":\"any\",\"pick\":[\"p0:Sol Ring\"]}]"
+  }
+}

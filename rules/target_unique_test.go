@@ -389,7 +389,7 @@ func TestWithdrawChangeZoneSubAsksAnotherTarget(t *testing.T) {
 		t.Fatal("the unless gate never posed its pay ask")
 	}
 
-	// The sub's own target ask (KChoose, the "choice" resume arm): it must
+	// The sub's own target ask (KChoose, the "choice" ask): it must
 	// NOT be skipped — pre-fix it never fired and the clause was dead.
 	d = e.Pending()
 	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "choice" {

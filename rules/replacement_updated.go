@@ -159,9 +159,8 @@ func (e *Engine) moveAffectedPlayer(ev events.Event) (state.PlayerID, bool) {
 // Remembered), so composing the record before or after a tap/untap/counter
 // rider changes nothing. Any other API fails closed (the caller poses).
 func updatedNeutralBody(sa *cards.SA) bool {
-	switch sa.API {
-	case "Reveal", "ChooseColor", "ChooseType", "ChooseNumber", "ChooseCard", "Cleanup", "Hideaway":
-		return true
+	if v, ok := updatedNeutralBodyTab1.Get(sa.API); ok {
+		return v
 	}
 	return false
 }
@@ -182,12 +181,12 @@ func updatedBodyClass(m replMatch) string {
 		if updatedNeutralBody(sa) {
 			continue
 		}
-		switch sa.API {
-		case "Tap":
+		switch updatedBodyClass1591Codes.Code(string(sa.API)) {
+		case updatedBodyClass1591Tap:
 			tap = true
-		case "Untap":
+		case updatedBodyClass1591Untap:
 			untap = true
-		case "PutCounter":
+		case updatedBodyClass1591PutCounter:
 			// Additive on a fresh entry: rides with anything.
 		default:
 			return "other"
@@ -216,12 +215,12 @@ func updatedBodyClass(m replMatch) string {
 func updatedReplacementsCommute(matches []replMatch) bool {
 	tap, untap := false, false
 	for _, m := range matches {
-		switch updatedBodyClass(m) {
-		case "tap":
+		switch updatedReplacementsCommute1592Codes.Code(string(updatedBodyClass(m))) {
+		case updatedReplacementsCommute1592Tap:
 			tap = true
-		case "untap":
+		case updatedReplacementsCommute1592Untap:
 			untap = true
-		case "counter", "record":
+		case updatedReplacementsCommute1592Counter:
 		default:
 			return false
 		}
@@ -288,3 +287,38 @@ func (e *Engine) resumeUpdatedComposition(rc replChoice, selected int) {
 		e.finishLandPlay(rc.ev.Obj)
 	}
 }
+
+var updatedNeutralBodyTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "Reveal", Val: true},
+	state.StrEntry[bool]{Key: "ChooseColor", Val: true},
+	state.StrEntry[bool]{Key: "ChooseType", Val: true},
+	state.StrEntry[bool]{Key: "ChooseNumber", Val: true},
+	state.StrEntry[bool]{Key: "ChooseCard", Val: true},
+	state.StrEntry[bool]{Key: "Cleanup", Val: true},
+	state.StrEntry[bool]{Key: "Hideaway", Val: true},
+)
+
+const (
+	updatedBodyClass1591Tap        uint16 = 1 // "Tap"
+	updatedBodyClass1591Untap      uint16 = 2 // "Untap"
+	updatedBodyClass1591PutCounter uint16 = 3 // "PutCounter"
+)
+
+var updatedBodyClass1591Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Tap", Val: updatedBodyClass1591Tap},
+	state.StrEntry[uint16]{Key: "Untap", Val: updatedBodyClass1591Untap},
+	state.StrEntry[uint16]{Key: "PutCounter", Val: updatedBodyClass1591PutCounter},
+)
+
+const (
+	updatedReplacementsCommute1592Tap     uint16 = 1 // "tap"
+	updatedReplacementsCommute1592Untap   uint16 = 2 // "untap"
+	updatedReplacementsCommute1592Counter uint16 = 3 // "counter", "record"
+)
+
+var updatedReplacementsCommute1592Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "tap", Val: updatedReplacementsCommute1592Tap},
+	state.StrEntry[uint16]{Key: "untap", Val: updatedReplacementsCommute1592Untap},
+	state.StrEntry[uint16]{Key: "counter", Val: updatedReplacementsCommute1592Counter},
+	state.StrEntry[uint16]{Key: "record", Val: updatedReplacementsCommute1592Counter},
+)

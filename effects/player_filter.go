@@ -122,10 +122,10 @@ func matchesPlayerClauseCtx(g *state.Game, clause string, p, you state.PlayerID,
 	if !isBarePlayerProperty(clause) {
 		return matchesPlayerSingleSpec(g, clause, p, you, pc)
 	}
-	switch clause {
-	case "IsCorrupted":
+	switch matchesPlayerClauseCtxa2a1Codes.Code(string(clause)) {
+	case matchesPlayerClauseCtxa2a1IsCorrupted:
 		return playerIsCorrupted(g, p)
-	case "IsRemembered", "Chosen", "ChosenPlayer":
+	case matchesPlayerClauseCtxa2a1IsRemembered:
 		o := g.Obj(pc.Source)
 		if o == nil {
 			return false
@@ -155,9 +155,8 @@ func isBarePlayerProperty(clause string) bool {
 		// grammar, so the census gate's knownBase consults this same list.
 		return true
 	}
-	switch clause {
-	case "IsRemembered", "Chosen", "ChosenPlayer", "IsCorrupted":
-		return true
+	if v, ok := isBarePlayerPropertyTab1.Get(clause); ok {
+		return v
 	}
 	return false
 }
@@ -170,12 +169,12 @@ func isBarePlayerProperty(clause string) bool {
 // a membership read can never widen past its base. An unknown base fails
 // closed, exactly as the inline switch does.
 func playerBaseMatches(base string, p, you state.PlayerID) bool {
-	switch base {
-	case "Player", "Any":
+	switch playerBaseMatchesa2a2Codes.Code(string(base)) {
+	case playerBaseMatchesa2a2Player:
 		return true
-	case "You":
+	case playerBaseMatchesa2a2You:
 		return p == you
-	case "Opponent", "Other":
+	case playerBaseMatchesa2a2Opponent:
 		return p != you
 	}
 	return false
@@ -194,9 +193,7 @@ func matchesPlayerSingleSpec(g *state.Game, spec string, p, you state.PlayerID, 
 			// negated -- an unread one would otherwise invert its fail-closed
 			// false into admitting every seat -- and a source-anchored one
 			// fails closed with no source bound.
-			switch inner {
-			case "CardOwner", "Owner", "IsRemembered", "EnchantedBy":
-			default:
+			if !matchesPlayerSingleSpecKeys2.Has(inner) {
 				continue
 			}
 			if inner != "EnchantedBy" && g.Obj(pc.Source) == nil {
@@ -251,8 +248,8 @@ func matchesPlayerSingleSpec(g *state.Game, spec string, p, you state.PlayerID, 
 			continue
 		}
 		matchesBase := false
-		switch base {
-		case "Player", "Any":
+		switch matchesPlayerSingleSpeca2a3Codes.Code(string(base)) {
+		case matchesPlayerSingleSpeca2a3Player:
 			if kind, is := strings.CutPrefix(qualifier, "withMost"); is {
 				// Forge's Player.withMost<kind> property (PlayerProperty), now
 				// evaluated in the shared player filter so a control grant's
@@ -289,9 +286,9 @@ func matchesPlayerSingleSpec(g *state.Game, spec string, p, you state.PlayerID, 
 				continue
 			}
 			matchesBase = true
-		case "You":
+		case matchesPlayerSingleSpeca2a3You:
 			matchesBase = p == you
-		case "Opponent", "Other":
+		case matchesPlayerSingleSpeca2a3Opponent:
 			matchesBase = p != you
 		}
 		if !matchesBase {
@@ -313,8 +310,8 @@ func matchesPlayerSingleSpec(g *state.Game, spec string, p, you state.PlayerID, 
 			}
 			continue
 		}
-		switch qualifier {
-		case "OpponentOf Remembered":
+		switch matchesPlayerSingleSpeca2a4Codes.Code(string(qualifier)) {
+		case matchesPlayerSingleSpeca2a4OpponentOfRemembered:
 			// This supported referent is bound by a resolving ChoosePlayer's
 			// Ctx.Remembered. Other OpponentOf spellings remain fail-closed;
 			// their event roles need distinct, explicit bindings.
@@ -326,29 +323,29 @@ func matchesPlayerSingleSpec(g *state.Game, spec string, p, you state.PlayerID, 
 					}
 				}
 			}
-		case "IsCorrupted":
+		case matchesPlayerSingleSpeca2a4IsCorrupted:
 			if playerIsCorrupted(g, p) {
 				return true
 			}
-		case "You":
+		case matchesPlayerSingleSpeca2a4You:
 			if p == you {
 				return true
 			}
-		case "Opponent", "Other":
+		case matchesPlayerSingleSpeca2a4Opponent:
 			if p != you {
 				return true
 			}
-		case "Active":
+		case matchesPlayerSingleSpeca2a4Active:
 			if p == g.Active {
 				return true
 			}
-		case "NonActive":
+		case matchesPlayerSingleSpeca2a4NonActive:
 			// NonActive is the complement of Active, evaluated after the
 			// Player/You/Opponent/Other base has matched.
 			if p != g.Active {
 				return true
 			}
-		case "isMonarch":
+		case matchesPlayerSingleSpeca2a4IsMonarch:
 			// CR 716.2's monarch designation, on the Player/Any base only:
 			// the state-local qualifier a control static's GainControl$
 			// value (Fealty to the Realm's "The monarch controls enchanted
@@ -358,7 +355,7 @@ func matchesPlayerSingleSpec(g *state.Game, spec string, p, you state.PlayerID, 
 			if (base == "Player" || base == "Any") && g.IsMonarch(p) {
 				return true
 			}
-		case "EnchantedBy":
+		case matchesPlayerSingleSpeca2a4EnchantedBy:
 			// An Aura may enchant a player of either seat, independent of
 			// the source of the filter.
 			for i := range g.Objs {
@@ -368,7 +365,7 @@ func matchesPlayerSingleSpec(g *state.Game, spec string, p, you state.PlayerID, 
 					return true
 				}
 			}
-		case "EnchantedController":
+		case matchesPlayerSingleSpeca2a4EnchantedController:
 			// Player.EnchantedController (Forge PlayerProperty): the seat is
 			// the controller of the permanent this Aura/Equipment source is
 			// attached to. The link is the source object's own battlefield
@@ -378,14 +375,14 @@ func matchesPlayerSingleSpec(g *state.Game, spec string, p, you state.PlayerID, 
 			if ctrl, ok := playerEnchantedController(g, pc.Source); ok && ctrl == p {
 				return true
 			}
-		case "descended":
+		case matchesPlayerSingleSpeca2a4Descended:
 			// CR 700.11: a permanent CARD entered this player's graveyard
 			// this turn from any zone. ZoneEntry captures owner and card type at
 			// the move, and TurnChange clears the ledger on replay as in play.
 			if descendedThisTurn(g, p) > 0 {
 				return true
 			}
-		case "TriggeredDefendingPlayer":
+		case matchesPlayerSingleSpeca2a4TriggeredDefendingPlayer:
 			// Player.TriggeredDefendingPlayer (Forge PlayerProperty): the
 			// seat that defended against the triggering combat. The role is
 			// carried by the caller through PlayerSpecCtx; with no defending
@@ -548,8 +545,8 @@ func splitCountCompare(rem string) (string, string, int32, bool) {
 	if err != nil {
 		return rem, "", 0, false
 	}
-	switch op {
-	case "GE", "GT", "EQ", "LE", "LT":
+	switch splitCountComparea2a5Codes.Code(string(op)) {
+	case splitCountComparea2a5GE:
 		return rem[:i], op, int32(n), true
 	}
 	return rem, "", 0, false
@@ -611,8 +608,8 @@ func playerHasMost(g *state.Game, p state.PlayerID, kind string) bool {
 		only = true
 		kind = x
 	}
-	switch kind {
-	case "Life":
+	switch playerHasMosta2a6Codes.Code(string(kind)) {
+	case playerHasMosta2a6Life:
 		best := g.Players[0].Life
 		for i := range g.Players {
 			if g.Players[i].Life > best {
@@ -620,7 +617,7 @@ func playerHasMost(g *state.Game, p state.PlayerID, kind string) bool {
 			}
 		}
 		return g.Players[p].Life == best
-	case "CardsInHand":
+	case playerHasMosta2a6CardsInHand:
 		// Forge's getPlayerWithMostCardsInHand starts with no candidate and
 		// only binds when a player has a positive hand; all-empty hands name
 		// nobody. Ties retain the first player in seat order.
@@ -686,8 +683,8 @@ func splitPlayerCompareToken(s string) (string, string, bool) {
 		return "", "", false
 	}
 	op := s[4:6]
-	switch op {
-	case "GE", "GT", "EQ", "LE", "LT":
+	switch splitPlayerCompareTokena2a7Codes.Code(string(op)) {
+	case splitPlayerCompareTokena2a7GE:
 		return op, s[6:], true
 	}
 	return "", "", false
@@ -816,25 +813,165 @@ func splitPlayerCountCompare(s string) (string, int32, string, bool) {
 	if err != nil {
 		return "", 0, "", false
 	}
-	switch op {
-	case "GE", "GT", "EQ", "LE", "LT":
+	switch splitPlayerCountComparea2a8Codes.Code(string(op)) {
+	case splitPlayerCountComparea2a8GE:
 		return op, int32(n), kind, true
 	}
 	return "", 0, "", false
 }
 
 func playerCompare(have int32, op string, want int32) bool {
-	switch op {
-	case "GE":
+	switch playerComparea2a9Codes.Code(string(op)) {
+	case playerComparea2a9GE:
 		return have >= want
-	case "GT":
+	case playerComparea2a9GT:
 		return have > want
-	case "EQ":
+	case playerComparea2a9EQ:
 		return have == want
-	case "LE":
+	case playerComparea2a9LE:
 		return have <= want
-	case "LT":
+	case playerComparea2a9LT:
 		return have < want
 	}
 	return false
 }
+
+var isBarePlayerPropertyTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "IsRemembered", Val: true},
+	state.StrEntry[bool]{Key: "Chosen", Val: true},
+	state.StrEntry[bool]{Key: "ChosenPlayer", Val: true},
+	state.StrEntry[bool]{Key: "IsCorrupted", Val: true},
+)
+
+var matchesPlayerSingleSpecKeys2 = state.NewNameSet("CardOwner", "Owner", "IsRemembered", "EnchantedBy")
+
+const (
+	matchesPlayerClauseCtxa2a1IsCorrupted  uint16 = 1 // "IsCorrupted"
+	matchesPlayerClauseCtxa2a1IsRemembered uint16 = 2 // "IsRemembered", "Chosen", "ChosenPlayer"
+)
+
+var matchesPlayerClauseCtxa2a1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "IsCorrupted", Val: matchesPlayerClauseCtxa2a1IsCorrupted},
+	state.StrEntry[uint16]{Key: "IsRemembered", Val: matchesPlayerClauseCtxa2a1IsRemembered},
+	state.StrEntry[uint16]{Key: "Chosen", Val: matchesPlayerClauseCtxa2a1IsRemembered},
+	state.StrEntry[uint16]{Key: "ChosenPlayer", Val: matchesPlayerClauseCtxa2a1IsRemembered},
+)
+
+const (
+	playerBaseMatchesa2a2Player   uint16 = 1 // "Player", "Any"
+	playerBaseMatchesa2a2You      uint16 = 2 // "You"
+	playerBaseMatchesa2a2Opponent uint16 = 3 // "Opponent", "Other"
+)
+
+var playerBaseMatchesa2a2Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Player", Val: playerBaseMatchesa2a2Player},
+	state.StrEntry[uint16]{Key: "Any", Val: playerBaseMatchesa2a2Player},
+	state.StrEntry[uint16]{Key: "You", Val: playerBaseMatchesa2a2You},
+	state.StrEntry[uint16]{Key: "Opponent", Val: playerBaseMatchesa2a2Opponent},
+	state.StrEntry[uint16]{Key: "Other", Val: playerBaseMatchesa2a2Opponent},
+)
+
+const (
+	matchesPlayerSingleSpeca2a3Player   uint16 = 1 // "Player", "Any"
+	matchesPlayerSingleSpeca2a3You      uint16 = 2 // "You"
+	matchesPlayerSingleSpeca2a3Opponent uint16 = 3 // "Opponent", "Other"
+)
+
+var matchesPlayerSingleSpeca2a3Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Player", Val: matchesPlayerSingleSpeca2a3Player},
+	state.StrEntry[uint16]{Key: "Any", Val: matchesPlayerSingleSpeca2a3Player},
+	state.StrEntry[uint16]{Key: "You", Val: matchesPlayerSingleSpeca2a3You},
+	state.StrEntry[uint16]{Key: "Opponent", Val: matchesPlayerSingleSpeca2a3Opponent},
+	state.StrEntry[uint16]{Key: "Other", Val: matchesPlayerSingleSpeca2a3Opponent},
+)
+
+const (
+	matchesPlayerSingleSpeca2a4OpponentOfRemembered     uint16 = 1  // "OpponentOf Remembered"
+	matchesPlayerSingleSpeca2a4IsCorrupted              uint16 = 2  // "IsCorrupted"
+	matchesPlayerSingleSpeca2a4You                      uint16 = 3  // "You"
+	matchesPlayerSingleSpeca2a4Opponent                 uint16 = 4  // "Opponent", "Other"
+	matchesPlayerSingleSpeca2a4Active                   uint16 = 5  // "Active"
+	matchesPlayerSingleSpeca2a4NonActive                uint16 = 6  // "NonActive"
+	matchesPlayerSingleSpeca2a4IsMonarch                uint16 = 7  // "isMonarch"
+	matchesPlayerSingleSpeca2a4EnchantedBy              uint16 = 8  // "EnchantedBy"
+	matchesPlayerSingleSpeca2a4EnchantedController      uint16 = 9  // "EnchantedController"
+	matchesPlayerSingleSpeca2a4Descended                uint16 = 10 // "descended"
+	matchesPlayerSingleSpeca2a4TriggeredDefendingPlayer uint16 = 11 // "TriggeredDefendingPlayer"
+)
+
+var matchesPlayerSingleSpeca2a4Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "OpponentOf Remembered", Val: matchesPlayerSingleSpeca2a4OpponentOfRemembered},
+	state.StrEntry[uint16]{Key: "IsCorrupted", Val: matchesPlayerSingleSpeca2a4IsCorrupted},
+	state.StrEntry[uint16]{Key: "You", Val: matchesPlayerSingleSpeca2a4You},
+	state.StrEntry[uint16]{Key: "Opponent", Val: matchesPlayerSingleSpeca2a4Opponent},
+	state.StrEntry[uint16]{Key: "Other", Val: matchesPlayerSingleSpeca2a4Opponent},
+	state.StrEntry[uint16]{Key: "Active", Val: matchesPlayerSingleSpeca2a4Active},
+	state.StrEntry[uint16]{Key: "NonActive", Val: matchesPlayerSingleSpeca2a4NonActive},
+	state.StrEntry[uint16]{Key: "isMonarch", Val: matchesPlayerSingleSpeca2a4IsMonarch},
+	state.StrEntry[uint16]{Key: "EnchantedBy", Val: matchesPlayerSingleSpeca2a4EnchantedBy},
+	state.StrEntry[uint16]{Key: "EnchantedController", Val: matchesPlayerSingleSpeca2a4EnchantedController},
+	state.StrEntry[uint16]{Key: "descended", Val: matchesPlayerSingleSpeca2a4Descended},
+	state.StrEntry[uint16]{Key: "TriggeredDefendingPlayer", Val: matchesPlayerSingleSpeca2a4TriggeredDefendingPlayer},
+)
+
+const (
+	splitCountComparea2a5GE uint16 = 1 // "GE", "GT", "EQ", "LE", "LT"
+)
+
+var splitCountComparea2a5Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "GE", Val: splitCountComparea2a5GE},
+	state.StrEntry[uint16]{Key: "GT", Val: splitCountComparea2a5GE},
+	state.StrEntry[uint16]{Key: "EQ", Val: splitCountComparea2a5GE},
+	state.StrEntry[uint16]{Key: "LE", Val: splitCountComparea2a5GE},
+	state.StrEntry[uint16]{Key: "LT", Val: splitCountComparea2a5GE},
+)
+
+const (
+	playerHasMosta2a6Life        uint16 = 1 // "Life"
+	playerHasMosta2a6CardsInHand uint16 = 2 // "CardsInHand"
+)
+
+var playerHasMosta2a6Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Life", Val: playerHasMosta2a6Life},
+	state.StrEntry[uint16]{Key: "CardsInHand", Val: playerHasMosta2a6CardsInHand},
+)
+
+const (
+	splitPlayerCompareTokena2a7GE uint16 = 1 // "GE", "GT", "EQ", "LE", "LT"
+)
+
+var splitPlayerCompareTokena2a7Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "GE", Val: splitPlayerCompareTokena2a7GE},
+	state.StrEntry[uint16]{Key: "GT", Val: splitPlayerCompareTokena2a7GE},
+	state.StrEntry[uint16]{Key: "EQ", Val: splitPlayerCompareTokena2a7GE},
+	state.StrEntry[uint16]{Key: "LE", Val: splitPlayerCompareTokena2a7GE},
+	state.StrEntry[uint16]{Key: "LT", Val: splitPlayerCompareTokena2a7GE},
+)
+
+const (
+	splitPlayerCountComparea2a8GE uint16 = 1 // "GE", "GT", "EQ", "LE", "LT"
+)
+
+var splitPlayerCountComparea2a8Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "GE", Val: splitPlayerCountComparea2a8GE},
+	state.StrEntry[uint16]{Key: "GT", Val: splitPlayerCountComparea2a8GE},
+	state.StrEntry[uint16]{Key: "EQ", Val: splitPlayerCountComparea2a8GE},
+	state.StrEntry[uint16]{Key: "LE", Val: splitPlayerCountComparea2a8GE},
+	state.StrEntry[uint16]{Key: "LT", Val: splitPlayerCountComparea2a8GE},
+)
+
+const (
+	playerComparea2a9GE uint16 = 1 // "GE"
+	playerComparea2a9GT uint16 = 2 // "GT"
+	playerComparea2a9EQ uint16 = 3 // "EQ"
+	playerComparea2a9LE uint16 = 4 // "LE"
+	playerComparea2a9LT uint16 = 5 // "LT"
+)
+
+var playerComparea2a9Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "GE", Val: playerComparea2a9GE},
+	state.StrEntry[uint16]{Key: "GT", Val: playerComparea2a9GT},
+	state.StrEntry[uint16]{Key: "EQ", Val: playerComparea2a9EQ},
+	state.StrEntry[uint16]{Key: "LE", Val: playerComparea2a9LE},
+	state.StrEntry[uint16]{Key: "LT", Val: playerComparea2a9LT},
+)

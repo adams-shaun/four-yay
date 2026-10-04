@@ -65,7 +65,7 @@ func TestDigOfIsAllocationFree(t *testing.T) {
 	f.Publish()
 	cached := &cards.SA{API: "Dig", Params: map[string]string{"DigNum": "2"}}
 	DigOf(cached)
-	if n := testing.AllocsPerRun(100, func() {
+	if n := allocsPerRun(100, func() {
 		_ = DigOf(bound)
 		_ = DigOf(cached)
 	}); n != 0 {

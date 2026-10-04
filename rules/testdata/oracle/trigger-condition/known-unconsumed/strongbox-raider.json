@@ -1,0 +1,6 @@
+{
+  "card": "Strongbox Raider",
+  "rows": {
+    "exile-is-not-optional": "step 3 (resolve): [{\"kind\":\"trigger_optional\",\"pick\":[\"no\"]}]"
+  }
+}

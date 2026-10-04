@@ -1,0 +1,6 @@
+{
+  "card": "Thousand-Year Storm",
+  "rows": {
+    "copy-may-choose-new-target": "step 3 (resolve): [{\"kind\":\"any\",\"pick\":[\"yes\"]}]"
+  }
+}

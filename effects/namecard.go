@@ -221,21 +221,8 @@ func filterNameList(names []string, chooseFromList string) []string {
 }
 
 func descriptionSpec(description string) string {
-	switch strings.ToLower(strings.TrimSpace(description)) {
-	case "nonland":
-		return "Card.nonLand"
-	case "creature", "creature card":
-		return "Card.Creature"
-	case "artifact", "artifact card":
-		return "Card.Artifact"
-	case "land", "land card":
-		return "Card.Land"
-	case "nonbasic land", "card other than a basic land":
-		return "Card.Land+nonBasic"
-	case "nonartifact, nonland":
-		return "Card.nonLand+nonArtifact"
-	case "noncreature, nonland":
-		return "Card.nonLand+nonCreature"
+	if v, ok := descriptionSpecTab1.Get(strings.ToLower(strings.TrimSpace(description))); ok {
+		return v
 	}
 	return ""
 }
@@ -290,3 +277,17 @@ func nameSet(names []string) map[string]bool {
 	}
 	return out
 }
+
+var descriptionSpecTab1 = state.NewStrTable[string](
+	state.StrEntry[string]{Key: "nonland", Val: "Card.nonLand"},
+	state.StrEntry[string]{Key: "creature", Val: "Card.Creature"},
+	state.StrEntry[string]{Key: "creature card", Val: "Card.Creature"},
+	state.StrEntry[string]{Key: "artifact", Val: "Card.Artifact"},
+	state.StrEntry[string]{Key: "artifact card", Val: "Card.Artifact"},
+	state.StrEntry[string]{Key: "land", Val: "Card.Land"},
+	state.StrEntry[string]{Key: "land card", Val: "Card.Land"},
+	state.StrEntry[string]{Key: "nonbasic land", Val: "Card.Land+nonBasic"},
+	state.StrEntry[string]{Key: "card other than a basic land", Val: "Card.Land+nonBasic"},
+	state.StrEntry[string]{Key: "nonartifact, nonland", Val: "Card.nonLand+nonArtifact"},
+	state.StrEntry[string]{Key: "noncreature, nonland", Val: "Card.nonLand+nonCreature"},
+)

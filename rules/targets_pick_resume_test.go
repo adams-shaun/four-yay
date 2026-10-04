@@ -1,12 +1,12 @@
 package rules
 
-// The generic ValidTgts$ pre-ask (task mvts1, the "tgts" resume arm) is
-// CONSUMED by chosenTargetsFor before the body runs, and every resume builds
-// a fresh Ctx. So when the body then suspends on an ask of its own, the next
-// resume re-enters the SA from its top with no answer and re-poses the
-// pre-ask -- and the two asks alternate forever.
+// The generic ValidTgts$ pre-ask (task mvts1, the "tgts" decision kind) is
+// CONSUMED by chosenTargetsFor before the body runs. When the body then asks
+// again on its own, the pre-ask's answer must still be in hand for the rest
+// of the resolution; under the removed suspend/resume protocol it was not,
+// the pre-ask was re-posed, and the two asks alternated forever.
 //
-// That livelock was fixed once, for MoveCounter alone, by the per-object
+// That livelock was once fixed, for MoveCounter alone, by the per-object
 // moveCounterAsk cursor (the movecounter1 fix). It is a defect of the SHARED
 // pre-ask, not of MoveCounter, and the live corpus carrier is Kozilek's
 // Command: its CharmNum$ 2 election can pick `DBScry` (`DB$ Scry | ScryNum$ X
@@ -20,7 +20,7 @@ package rules
 // trigger whose Execute$ root carries no ValidTgts$ (so the CR 603.3c
 // placement ask covers nothing) and whose depth-1 SubAbility$ is a
 // ValidTgts$-bearing Scry (so the pre-ask fires there, and the Scry then
-// suspends on its KArrange). Kozilek's Command reaches the identical pair
+// asks its KArrange). Kozilek's Command reaches the identical pair
 // through its Charm election; this fixture reaches it without needing an
 // announced X, a two-mode election or a 19-card library.
 
@@ -53,12 +53,11 @@ func asksOfKind(e *Engine, n0 int, kind decision.Kind) int {
 }
 
 // TestTargetsPickSurvivesALaterSuspension pins the fix: an answered generic
-// ValidTgts$ pre-ask is re-seeded into the fresh Ctx of a LATER resume of the
-// same SA, so the pre-ask is posed exactly ONCE and the arrange answer
-// completes the resolution instead of re-entering the pre-ask.
+// ValidTgts$ pre-ask stays answered across a LATER ask of the same SA, so the
+// pre-ask is posed exactly ONCE and the arrange answer completes the
+// resolution instead of re-posing the pre-ask.
 //
-// Reverting rules/resolution.go's recordTargetsPick/seedTargetsPick pair
-// makes this leaf fail on the second `choose` ask (and, driven further, the
+// Losing the pre-ask answer across the arrange ask makes this leaf fail on the second `choose` ask (and, driven further, the
 // livelock watcher panics) -- it is not a leaf that passes against a no-op.
 func TestTargetsPickSurvivesALaterSuspension(t *testing.T) {
 	t.Parallel()
@@ -99,9 +98,9 @@ func TestTargetsPickSurvivesALaterSuspension(t *testing.T) {
 	submitChoices(t, e)
 
 	// The fix: the arrange answer completes the resolution. Without it the
-	// re-entry re-poses the pre-ask and the pair alternates forever.
+	// pre-ask is re-posed and the pair alternates forever.
 	if d := e.Pending(); d != nil && d.Kind == decision.KChoose && d.ResumeKind == "tgts" {
-		t.Fatal("the arrange answer re-posed the ValidTgts$ pre-ask: the answer was not re-seeded (livelock)")
+		t.Fatal("the arrange answer re-posed the ValidTgts$ pre-ask: the pre-ask answer was lost (livelock)")
 	}
 	if got := asksOfKind(e, n0, decision.KChoose); got != 1 {
 		t.Fatalf("ValidTgts$ pre-ask posed %d times, want exactly 1", got)

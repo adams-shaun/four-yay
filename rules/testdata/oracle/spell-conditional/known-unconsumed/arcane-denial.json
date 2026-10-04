@@ -1,0 +1,6 @@
+{
+  "card": "Arcane Denial",
+  "rows": {
+    "next-upkeep-denied-players-draw": "step 6 (resolve): [{\"kind\":\"trigger_optional\",\"pick\":[\"yes\"]},{\"kind\":\"choose\",\"pick\":[\"2\"]}]"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "card": "Incinerating Blast",
+  "rows": {
+    "discard-then-draw": "step 1 (resolve): [{\"kind\":\"choose\",\"pick\":[\"p0:Grizzly Bears\"]}]",
+    "target-gone-no-loot-either": "step 2 (resolve): [{\"kind\":\"choose\",\"pick\":[\"p0:Grizzly Bears\"]}]"
+  }
+}

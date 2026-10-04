@@ -1,0 +1,7 @@
+{
+  "card": "Faithless Looting",
+  "rows": {
+    "draw-two-then-discard-two": "step 1 (resolve): [{\"kind\":\"choose\",\"pick\":[\"p0:Grizzly Bears\",\"p0:Forest\"]}]",
+    "flashback-casts-from-graveyard-then-exiles": "step 1 (resolve): [{\"kind\":\"choose\",\"pick\":[\"p0:Grizzly Bears\",\"p0:Forest\"]}]"
+  }
+}

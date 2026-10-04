@@ -473,17 +473,17 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 	if qual, ok := strings.CutPrefix(spec, "ReplacedCards."); ok {
 		qual = strings.TrimSpace(qual)
 		var out []state.Target
-		for _, id := range c.ReplacedCards {
+		for _, id := range c.Repl.Cards {
 			if o := g.Obj(id); o != nil && definedCardQualifierMatches(h, g, c, qual, o) {
 				out = append(out, state.Target{Obj: id})
 			}
 		}
 		return out, true
 	}
-	switch spec {
-	case "":
+	switch definedSpecf8b1Codes.Code(string(spec)) {
+	case definedSpecf8b1Empty:
 		return nil, false
-	case "OriginalHost":
+	case definedSpecf8b1OriginalHost:
 		// The card that originally generated the ability: for a granted
 		// activated ability (Fishing Pole's bait counter, Blazing Torch's
 		// damage source) that is the GRANTOR, not the recipient the ability
@@ -493,7 +493,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return []state.Target{{Obj: c.Grantor}}, true
 		}
 		return []state.Target{{Obj: c.Source}}, true
-	case "Self", "Parent", "EffectSource", "CorrectedSelf":
+	case definedSpecf8b1Self:
 		// EffectSource/OriginalHost name the ability's own source object --
 		// the permanent that pushed the resolving ability, or the card that
 		// originally generated it before any copies. newDamageRider unwraps
@@ -505,9 +505,9 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		// stable across that self-exile -- no zone change mints a new id --
 		// so the raw c.Source is already the corrected identity.
 		return []state.Target{{Obj: c.Source}}, true
-	case "You":
+	case definedSpecf8b1You:
 		return []state.Target{{Player: c.Controller, IsPlayer: true}}, true
-	case "TopThirdOfLibrary":
+	case definedSpecf8b1TopThirdOfLibrary:
 		// Forge's library-search population (Assemble the Team's
 		// `ChooseFromDefined$ TopThirdOfLibrary`): the top THIRD of the
 		// resolving controller's library, ROUNDED UP, in zone order. It names
@@ -521,7 +521,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			out = append(out, state.Target{Obj: id})
 		}
 		return out, true
-	case "EnchantedPlayer":
+	case definedSpecf8b1EnchantedPlayer:
 		// Forge's EnchantedPlayer on a Defined-position reader (Curse of
 		// Misfortunes' `AttachedToPlayer$ EnchantedPlayer`): the seat the
 		// resolving SOURCE -- an Aura/Curse -- enchants. The link is the
@@ -536,7 +536,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return []state.Target{{Player: o.AttachedPlayer, IsPlayer: true}}, true
 		}
 		return nil, true
-	case "TopOfLibrary", "BottomOfLibrary":
+	case definedSpecf8b1TopOfLibrary:
 		// Library order is top-first. These selectors name one known card, not
 		// a player whose whole library should be searched; hidden-origin
 		// ChangeZone therefore consumes the returned identity as its fetch list.
@@ -549,7 +549,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			i = len(lib) - 1
 		}
 		return []state.Target{{Obj: lib[i]}}, true
-	case "TriggeredOpponentVotedSame", "TriggeredOpponentVotedDiff":
+	case definedSpecf8b1TriggeredOpponentVotedSame:
 		// The canonical vote-finished carrier's two List$ referent sets
 		// (trig:Vote): the players other than the TRIGGER SOURCE'S CONTROLLER
 		// who voted for a choice that controller voted for / for a different
@@ -569,7 +569,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			out = append(out, state.Target{Player: p, IsPlayer: true})
 		}
 		return out, true
-	case "FlippedHeads", "FlippedTails":
+	case definedSpecf8b1FlippedHeads:
 		// Forge's RememberResult$ flip-result memory: DB$ FlipCoin |
 		// RememberResult$ True, then a chained sub reading Defined$
 		// FlippedHeads/FlippedTails (Goblin Assassin's tails sacrifice and
@@ -594,9 +594,9 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			out = append(out, state.Target{Player: fr.Player, IsPlayer: true})
 		}
 		return out, true
-	case "Remembered":
+	case definedSpecf8b1Remembered:
 		return resolvedRemembered(h, c), true
-	case "RememberedPlayer", "RememberedPlayers":
+	case definedSpecf8b1RememberedPlayer:
 		// Forge's RememberedPlayer names the resolution's remembered PLAYER
 		// entries only; a remembered CARD contributes no player (the plain
 		// Remembered family's getDefinedPlayers rule, the same one
@@ -607,7 +607,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		// charging NOBODY. An empty remembered-player pool is the known-empty
 		// set (ok=true), never a fallback to the source.
 		return playersOf(resolvedRemembered(h, c)), true
-	case "Exiled", "Revealed":
+	case definedSpecf8b1Exiled:
 		// Forge's cast-cost PAID lists: the cards this cast's/activation's own
 		// cost exiled or revealed (see paidCostTargets -- the one shared home
 		// with count.go's refTargets case). A `Defined$ Exiled`/`Revealed`
@@ -616,7 +616,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		// the chosen targets. This is NOT Object.ExiledWith: an ExileFromGrave
 		// cost emits a plain MoveZone with no ExiledWith marker.
 		return paidCostTargets(c, spec), true
-	case "ImprintedLKI":
+	case definedSpecf8b1ImprintedLKI:
 		// Forge's LKI spelling of the imprint pile, distinct from the bare
 		// "Imprinted" case below: the SOURCE's persistent imprint association,
 		// deliberately NOT the RepeatEach subject binding "Imprinted" takes --
@@ -626,7 +626,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		// not the last iteration's subject. All five corpus DelTrig carriers
 		// read it exactly this way.
 		return imprintPileTargets(g, c), true
-	case "Imprinted", "ImprintedController":
+	case definedSpecf8b1Imprinted:
 		// Two populations share the spelling. Inside a RepeatEach iteration
 		// (this build's own binding) Forge's UseImprinted$ names the loop's
 		// CURRENT SUBJECT: Heroism pumps it, Stench of Evil deals its damage
@@ -675,7 +675,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		// refTargets Imprinted case. Do not widen this one -- the regression
 		// TestDefinedImprintedKeepsTheExileGate pins it.
 		return imprintPileTargets(g, c), true
-	case "RememberedCard":
+	case definedSpecf8b1RememberedCard:
 		// Forge's RememberedCard names the resolution's remembered CARD entries
 		// in remember order: the ChooseCard answers RememberChosen$ captured
 		// (Dreams of Steel and Oil's "Exile the chosen cards" -- a mixed-Hand
@@ -694,14 +694,14 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			}
 		}
 		return remembered, true
-	case "ChosenCard", "ChosenPlayer":
+	case definedSpecf8b1ChosenCard:
 		// ChooseCard/ChoosePlayer bind the current resolution's most recent
 		// choice here. This is deliberately distinct from Remembered: Forge
 		// only copies the answer there when RememberChosen$ is set. A later,
 		// independently resolving ability reads the same event-backed choice
 		// from its source permanent.
 		return ChosenTargets(g, c), true
-	case "Player.IsRemembered":
+	case definedSpecf8b1PlayerIsRemembered:
 		// Forge's Player.IsRemembered names the source permanent's persistent
 		// player-Remembered list -- the same set the filter spelling of the
 		// same name reads (MatchesPlayerSpecFrom). The resolution-time
@@ -719,7 +719,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			}
 		}
 		return playersOf(c.Remembered), true
-	case "Player.Chosen":
+	case definedSpecf8b1PlayerChosen:
 		// Forge's Player.Chosen names the most recent ChoosePlayer answer:
 		// the in-flight choice while this resolution holds one (the mid-chain
 		// family -- Booby Trap, Infernal Denizen, Cruel Entertainment -- and
@@ -738,9 +738,9 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return playersOf(o.Chosen), true
 		}
 		return nil, true
-	case "RememberedController":
+	case definedSpecf8b1RememberedController:
 		return controllersOf(g, c.Remembered), true
-	case "NonRememberedController", "OppNonRememberedController":
+	case definedSpecf8b1NonRememberedController:
 		// These selectors name living players other than the controller of a
 		// remembered CARD. A remembered player is not a card anchor, and an
 		// absent remembered card fails closed to nobody.
@@ -766,11 +766,11 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			out = append(out, state.Target{Player: p, IsPlayer: true})
 		}
 		return out, true
-	case "RememberedOwner":
+	case definedSpecf8b1RememberedOwner:
 		return ownersOf(g, c.Remembered), true
-	case "TargetedController", "TargetedPlayer":
+	case definedSpecf8b1TargetedController:
 		return controllersOf(g, c.Targets), true
-	case "TargetedOwner":
+	case definedSpecf8b1TargetedOwner:
 		// The OWNER (CR 108.3) of the resolving ability's targets, not their
 		// controller: Chaos Warp's DBDig sub-ability ("The owner of target
 		// permanent ... reveals the top card of THEIR library") and Palace
@@ -779,9 +779,9 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		// the EMPTY set with ok=true -- the fail-closed direction, never the
 		// source controller. The same ownersOf helper RememberedOwner calls.
 		return ownersOf(g, c.Targets), true
-	case "ChosenController":
+	case definedSpecf8b1ChosenController:
 		return controllersOf(g, c.Chosen), true
-	case "ChosenCardController":
+	case definedSpecf8b1ChosenCardController:
 		// Forge's ChosenCardController (Deflecting Palm's retaliation, New Way
 		// Forward's redirect): the controller of the chosen CARD. The chosen
 		// binding is the same one ChosenCard reads -- the in-flight choice
@@ -790,7 +790,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		// choice yields nothing, so the body acts on nobody rather than
 		// inventing a seat.
 		return controllersOf(g, ChosenTargets(g, c)), true
-	case "CardController":
+	case definedSpecf8b1CardController:
 		// Forge's CardController (AbilityUtils.getDefinedPlayers): the
 		// ANCHORING card's controller -- the resolving context's source. The
 		// corpus spellings: aura barbs' RelativeTarget$ pairing (each
@@ -803,7 +803,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return []state.Target{{Player: o.Controller, IsPlayer: true}}, true
 		}
 		return nil, true
-	case "Targeted":
+	case definedSpecf8b1Targeted:
 		// Forge's Targeted is the union of every target choice down the
 		// root's SubAbility$ chain (SpellAbility.getAllTargetChoices). It
 		// differs from the resolving SA's own Ctx.Targets only when the chain's
@@ -811,24 +811,24 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		// union (Ctx.AllTargets: rules' chainTargetUnion) -- Uldaros Theorix's
 		// and Urgent Necropsy's untargeted "exile/destroy them" tail link.
 		return copyTargets(refTargetUnion(c)), true
-	case "ParentTarget", "ParentTargeted":
+	case definedSpecf8b1ParentTarget:
 		// The NEAREST targeting parent link's targets (parent_targets.go).
 		return copyTargets(parentLinkTargets(c)), true
-	case "ParentTargetedController":
+	case definedSpecf8b1ParentTargetedController:
 		// Forge's getDefinedPlayers "ParentTargetedController": the
 		// controllers of the ParentTarget cards (Intruder's Inquisition's
 		// "its controller discards" names the creature DBDamage targeted).
 		return controllersOf(g, parentLinkTargets(c)), true
-	case "ThisTargetedCard":
+	case definedSpecf8b1ThisTargetedCard:
 		return copyTargets(c.Targets), true
-	case "TriggeredAttackers":
+	case definedSpecf8b1TriggeredAttackers:
 		// Forge's plural attack-batch referent (Love on the Battlefield's
 		// "those creatures gain first strike"): the attackers the
 		// AttackersDeclared trigger fired for. The queue entry's Remembered
 		// carries the declared batch (triggerRemembered's DeclareAttackers
 		// case), so this resolves the whole per-defender attacker group.
 		return objectsOf(c.Remembered), true
-	case "TriggeredTargetLKICopy":
+	case definedSpecf8b1TriggeredTargetLKICopy:
 		// The BEARER the Attached referent walk captured (triggerReferents'
 		// Attached case): the permanent an Aura/Equipment became attached to
 		// -- Enormous Energy Blade's "tap that creature". Only the Attached
@@ -841,22 +841,12 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return []state.Target{{Obj: c.TriggerBearer}}, true
 		}
 		return objectsOf(c.Remembered), true
-	case "TriggeredObject", "TriggeredObjectLKICopy":
+	case definedSpecf8b1TriggeredObject:
 		if c.DelayedObject != 0 {
 			return []state.Target{{Obj: c.DelayedObject}}, true
 		}
 		return objectsOf(c.Remembered), true
-	case "TriggeredCard", "TriggeredCardLKICopy", "TriggeredNewCard",
-		"TriggeredNewCardLKICopy",
-		"TriggeredSourceSA", "TriggeredAttacker",
-		"TriggeredAttackerLKICopy",
-		// TriggeredCards is the PLURAL batch spelling of the same captured
-		// set (Colossal Grave-Reaver's, Paranormal Analyst's and Rinoa
-		// Angel Wing's `ChooseFromDefined$ TriggeredCards` -- "one of those
-		// milled cards"); choose_control's definedCardPool resolves it
-		// through the identical read, so the two spellings of one referent
-		// cannot drift.
-		"TriggeredCards":
+	case definedSpecf8b1TriggeredCard:
 		// M1 does not model LKI copies, new-object identity or the
 		// ability-vs-card distinction separately: every one of these forms
 		// names the same Remembered object entry a trigger captured.
@@ -878,7 +868,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		// a Blocks trigger's Remembered carries the pair's ATTACKER, so the
 		// blocker role is the only exact referent -- see the case below.
 		return objectsOf(c.Remembered), true
-	case "RememberedLKI":
+	case definedSpecf8b1RememberedLKI:
 		// The LKI spelling of the Remembered$ group names the SAME object set
 		// the RememberedLKI ref group (effects/count.go rememberedLKIGroup)
 		// resolves -- Forge's remembered list, which never contains the event
@@ -898,7 +888,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		// object entries are named, matching the family above and the LKI
 		// spelling's object-only read.
 		return objectsOf(rememberedLKIGroup(h, c)), true
-	case "TriggeredBlocker", "TriggeredBlockerLKICopy":
+	case definedSpecf8b1TriggeredBlocker:
 		// The pair's BLOCKER (trig:Blocks): prefer the fire-time TriggerBlocker
 		// role when the Blocks capture set it (Remembered names the attacker
 		// there); the role-absent fallback -- the AttackerBlockedByCreature
@@ -909,7 +899,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return []state.Target{{Obj: c.TriggerBlocker}}, true
 		}
 		return objectsOf(c.Remembered), true
-	case "DelayTriggerRememberedLKI":
+	case definedSpecf8b1DelayTriggerRememberedLKI:
 		// The registration's own capture (objects only, the LKI spelling's
 		// read), with the pre-field fallback to Remembered for a context
 		// built without one.
@@ -917,7 +907,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return objectsOf(c.DelayedRemembered), true
 		}
 		return objectsOf(c.Remembered), true
-	case "DelayTriggerRemembered":
+	case definedSpecf8b1DelayTriggerRemembered:
 		// The delayed trigger's remembered set AS-IS, players included (task
 		// mordorparams1): a DelayedTrigger registration that remembered a
 		// PLAYER (Arcane Denial's RememberObjects$ RememberedController —
@@ -932,7 +922,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return copyTargets(c.DelayedRemembered), true
 		}
 		return copyTargets(c.Remembered), true
-	case "TriggeredSpellAbility":
+	case definedSpecf8b1TriggeredSpellAbility:
 		// The activation arm (abcopy1): an ability-cast trigger's Remembered
 		// names the SOURCE PERMANENT (an AbilityPush's Obj -- the minted
 		// ability wrapper never travels on the event), so the fire-time
@@ -944,7 +934,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return []state.Target{{Obj: c.TriggerAbility}}, true
 		}
 		return objectsOf(c.Remembered), true
-	case "TriggeredTarget":
+	case definedSpecf8b1TriggeredTarget:
 		// The object or player that received the triggering event. Spiteful
 		// Shadows uses this as a DamageSource$: the enchanted creature, not the
 		// Aura whose trigger is resolving, deals the reflected damage. Preserve
@@ -957,7 +947,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return []state.Target{c.TriggerTarget}, true
 		}
 		return copyTargets(c.Targets), true
-	case "TriggeredSource", "TriggeredSources", "TriggeredSourceLKICopy":
+	case definedSpecf8b1TriggeredSource:
 		// The damage source the causing event recorded (pg2's
 		// TriggerContext.TriggerSource): a DamageDone execute's "that source
 		// deals ..." reading, and its PLURAL batch spelling (Zurgo and
@@ -979,7 +969,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return []state.Target{{Obj: c.TriggerSource}}, true
 		}
 		return objectsOf(c.Remembered), true
-	case "TriggeredSourceSAController", "TriggeredSourceController", "TriggeredTargetController":
+	case definedSpecf8b1TriggeredSourceSAController:
 		// The controller of the source/target the causing event recorded:
 		// Flameblade Angel's and Harsh Justice's "deals 1 damage to that
 		// source's controller", Greatbow Doyen's "to that creature's
@@ -1012,7 +1002,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return []state.Target{{Player: o.Controller, IsPlayer: true}}, true
 		}
 		return nil, true
-	case "TriggeredTargets":
+	case definedSpecf8b1TriggeredTargets:
 		// The batch's matching TARGET set (trig:DamageAll): Breeches, Brazen
 		// Plunderer's "exile the top card of each of those opponents'
 		// libraries" reads Defined$ TriggeredTargets -- every target the
@@ -1023,7 +1013,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return copyTargets(c.TriggerDamageTargets), true
 		}
 		return definedSpec(h, c, "TriggeredTarget")
-	case "TriggeredSourcesController":
+	case definedSpecf8b1TriggeredSourcesController:
 		// The controllers of the batch's matching SOURCE set (trig:DamageAll):
 		// Nelly Borca's "you and the controller of those creatures each draw a
 		// card" reads Defined$ TriggeredSourcesController & You. Controllers
@@ -1043,7 +1033,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return out, true
 		}
 		return definedSpec(h, c, "TriggeredSourceController")
-	case "Convoked":
+	case definedSpecf8b1Convoked:
 		// CR 702.66's "each creature that convoked it" (task connive1): the
 		// creatures the caster tapped to help pay for the resolving spell's
 		// cast, carried by the pay-time CastInfo's FlagConvoked IDs into
@@ -1064,7 +1054,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return out, true
 		}
 		return nil, true
-	case "Promised":
+	case definedSpecf8b1Promised:
 		// CR 702.168: the opponent the resolving source's cast promised a
 		// gift (Wear Down's `DB$ Draw | Defined$ Promised`, Valley Rally's
 		// `TokenOwner$ Promised`, Perch Protection's `DB$ AddTurn | Defined$
@@ -1083,7 +1073,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			}
 		}
 		return nil, true
-	case "PromisedSnapshot":
+	case definedSpecf8b1PromisedSnapshot:
 		// CR 702.168c: the promised receiver a PERMANENT's gift trigger
 		// carries. The receiver is snapshotted at queue time (rules'
 		// altCostEnter reads the entering object's GiftPromisedTo), rides the
@@ -1109,86 +1099,86 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			}
 		}
 		return nil, true
-	case "ReplacedCard":
+	case definedSpecf8b1ReplacedCard:
 		// The card a zone-change replacement is acting on. Outside such a
 		// replacement (or after the object ceased to exist), resolve nothing.
-		if c.Replaced != 0 && g.Obj(c.Replaced) != nil {
-			return []state.Target{{Obj: c.Replaced}}, true
+		if c.Repl.Replaced != 0 && g.Obj(c.Repl.Replaced) != nil {
+			return []state.Target{{Obj: c.Repl.Replaced}}, true
 		}
 		return nil, true
-	case "ReplacedCards":
+	case definedSpecf8b1ReplacedCards:
 		// The whole plural replaced-instruction batch (the bare spelling of
 		// the dotted `ReplacedCards <qualifier>` arm above). An absent or
 		// empty batch is a known-empty result, never a source fallback.
 		var out []state.Target
-		for _, id := range c.ReplacedCards {
+		for _, id := range c.Repl.Cards {
 			if id != 0 && g.Obj(id) != nil {
 				out = append(out, state.Target{Obj: id})
 			}
 		}
 		return out, true
-	case "ReplacedTarget":
+	case definedSpecf8b1ReplacedTarget:
 		// Damage replacements may affect either an object or a player. Preserve
 		// that distinction rather than deriving a player through object zero.
-		if c.ReplacementTarget.IsPlayer {
-			if int(c.ReplacementTarget.Player) < len(g.Players) {
-				return []state.Target{c.ReplacementTarget}, true
+		if c.Repl.Target.IsPlayer {
+			if int(c.Repl.Target.Player) < len(g.Players) {
+				return []state.Target{c.Repl.Target}, true
 			}
 			return nil, true
 		}
-		if c.ReplacementTarget.Obj != 0 && g.Obj(c.ReplacementTarget.Obj) != nil {
-			return []state.Target{c.ReplacementTarget}, true
+		if c.Repl.Target.Obj != 0 && g.Obj(c.Repl.Target.Obj) != nil {
+			return []state.Target{c.Repl.Target}, true
 		}
 		return nil, true
-	case "ReplacedSource":
-		if c.ReplacementSource != 0 && g.Obj(c.ReplacementSource) != nil {
-			return []state.Target{{Obj: c.ReplacementSource}}, true
+	case definedSpecf8b1ReplacedSource:
+		if c.Repl.Source != 0 && g.Obj(c.Repl.Source) != nil {
+			return []state.Target{{Obj: c.Repl.Source}}, true
 		}
 		return nil, true
-	case "ReplacedSourceController":
-		if o := g.Obj(c.ReplacementSource); o != nil && int(o.Controller) < len(g.Players) {
+	case definedSpecf8b1ReplacedSourceController:
+		if o := g.Obj(c.Repl.Source); o != nil && int(o.Controller) < len(g.Players) {
 			return []state.Target{{Player: o.Controller, IsPlayer: true}}, true
 		}
 		return nil, true
-	case "ReplacedTargetController":
-		if c.ReplacementTarget.IsPlayer {
-			return []state.Target{c.ReplacementTarget}, true
+	case definedSpecf8b1ReplacedTargetController:
+		if c.Repl.Target.IsPlayer {
+			return []state.Target{c.Repl.Target}, true
 		}
-		if o := g.Obj(c.ReplacementTarget.Obj); o != nil && int(o.Controller) < len(g.Players) {
+		if o := g.Obj(c.Repl.Target.Obj); o != nil && int(o.Controller) < len(g.Players) {
 			return []state.Target{{Player: o.Controller, IsPlayer: true}}, true
 		}
 		return nil, true
-	case "TriggeredDefendingPlayer":
+	case definedSpecf8b1TriggeredDefendingPlayer:
 		if out := oneTriggerPlayer(c.DefendingPlayer); out != nil {
 			return out, true
 		}
 		return playersOf(c.Remembered), true
-	case "TriggeredPlayer":
+	case definedSpecf8b1TriggeredPlayer:
 		if out := oneTriggerPlayer(c.TriggerPlayer); out != nil {
 			return out, true
 		}
 		return playersOf(c.Remembered), true
-	case "TriggeredAttackingPlayer":
+	case definedSpecf8b1TriggeredAttackingPlayer:
 		if out := oneTriggerPlayer(c.AttackingPlayer); out != nil {
 			return out, true
 		}
 		return nil, true
-	case "TriggeredAttackedTarget":
+	case definedSpecf8b1TriggeredAttackedTarget:
 		if out := oneTriggerPlayer(c.AttackedTarget); out != nil {
 			return out, true
 		}
 		return nil, true
-	case "TriggeredActivator":
+	case definedSpecf8b1TriggeredActivator:
 		if out := oneTriggerPlayer(c.TriggerActivator); out != nil {
 			return out, true
 		}
 		return nil, true
-	case "TriggeredCardController":
+	case definedSpecf8b1TriggeredCardController:
 		if p, ok := TriggeredCardController(g, c.TriggerContext, c.Remembered); ok {
 			return []state.Target{{Player: p, IsPlayer: true}}, true
 		}
 		return nil, true
-	case "TriggeredCardOwner", "NonTriggeredCardOwner":
+	case definedSpecf8b1TriggeredCardOwner:
 		// These selectors use the triggering card's immutable owner (CR
 		// 108.3), never a remembered-object fallback. A stolen creature that
 		// dies is still its owner's (Oft-Nabbed Goat's "its owner draws").
@@ -1208,7 +1198,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			}
 		}
 		return out, true
-	case "TriggeredAttackerController", "TriggeredBlockerController":
+	case definedSpecf8b1TriggeredAttackerController:
 		// The controller of the triggering event's attacker or blocker. The
 		// Blocks mode captures both roles per pair (rules/trigger_match.go's
 		// checkBlocksTriggers); TriggeredBlockerController prefers the
@@ -1231,9 +1221,9 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return []state.Target{{Player: p, IsPlayer: true}}, true
 		}
 		return nil, true
-	case "ExiledWith":
+	case definedSpecf8b1ExiledWith:
 		return exiledWithSet(g, c), true
-	case "Equipped", "Enchanted", "AttachedTo":
+	case definedSpecf8b1Equipped:
 		// The corpus spells this three ways depending on whether the source
 		// is Equipment, an Aura, or a generic script; all three name the
 		// same field (Task 14 wires its producer).
@@ -1241,7 +1231,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return []state.Target{{Obj: o.AttachedTo}}, true
 		}
 		return nil, true
-	case "Opponent", "Player.Opponent", "Player.Other":
+	case definedSpecf8b1Opponent:
 		var out []state.Target
 		for _, p := range g.AliveFrom(c.Controller) {
 			if p != c.Controller {
@@ -1249,28 +1239,28 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			}
 		}
 		return out, true
-	case "ReplacedPlayer":
+	case definedSpecf8b1ReplacedPlayer:
 		// The draw-er of the replaced Draw event (Breathstealer's Crypt draws
 		// and reveals for "that player"). Set only on a Draw replacement's
 		// own context; nil outside one.
-		if c.ReplacedPlayer.IsPlayer {
-			return []state.Target{{Player: c.ReplacedPlayer.Player, IsPlayer: true}}, true
+		if c.Repl.Player.IsPlayer {
+			return []state.Target{{Player: c.Repl.Player.Player, IsPlayer: true}}, true
 		}
 		return nil, true
-	case "NonReplacedPlayer":
+	case definedSpecf8b1NonReplacedPlayer:
 		// Every OTHER player (Zur's Weirding: "any other player may pay 2
 		// life"), in AliveFrom order, excluding the draw-er.
-		if !c.ReplacedPlayer.IsPlayer {
+		if !c.Repl.Player.IsPlayer {
 			return nil, true
 		}
 		var out []state.Target
 		for _, p := range g.AliveFrom(0) {
-			if p != c.ReplacedPlayer.Player {
+			if p != c.Repl.Player.Player {
 				out = append(out, state.Target{Player: p, IsPlayer: true})
 			}
 		}
 		return out, true
-	case "Player":
+	case definedSpecf8b1Player:
 		var out []state.Target
 		for _, p := range g.AliveFrom(c.Controller) {
 			out = append(out, state.Target{Player: p, IsPlayer: true})
@@ -1522,7 +1512,7 @@ func lkiControllerFor(c *Ctx, id state.ObjID) (state.PlayerID, bool) {
 	if id == 0 {
 		return 0, false
 	}
-	for _, e := range c.ChangeZoneLKI {
+	for _, e := range c.Snap.ChangeZone {
 		if e.Obj == id {
 			return e.Controller, true
 		}
@@ -1647,10 +1637,10 @@ func definedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 // the source controller as the owner.
 func EffectOwnerPlayers(h Host, c *Ctx, raw string) ([]state.PlayerID, bool) {
 	sel := strings.TrimSpace(raw)
-	switch sel {
-	case "", "You":
+	switch effectOwnerPlayersf8b2Codes.Code(string(sel)) {
+	case effectOwnerPlayersf8b2Empty:
 		return []state.PlayerID{c.Controller}, true
-	case "Opponent", "Other":
+	case effectOwnerPlayersf8b2Opponent:
 		out := make([]state.PlayerID, 0, len(h.Game().Players))
 		for _, p := range h.Game().AliveFrom(0) {
 			if p != c.Controller {
@@ -2095,14 +2085,14 @@ func validStackTokens(spec string) []validStackToken {
 			// validStackAdmits re-reads through state.StackKindAdmits. The
 			// plain forms keep their exact state-side reading either way.
 			for sub := range strings.SplitSeq(q, "+") {
-				switch strings.TrimSpace(sub) {
-				case "YouCtrl":
+				switch validStackTokensf8b3Codes.Code(string(strings.TrimSpace(sub))) {
+				case validStackTokensf8b3YouCtrl:
 					tok.kt.YouCtrl = true
-				case "OppCtrl":
+				case validStackTokensf8b3OppCtrl:
 					tok.kt.OppCtrl = true
-				case "Other":
+				case validStackTokensf8b3Other:
 					tok.other = true
-				case "otherAbility":
+				case validStackTokensf8b3OtherAbility:
 					tok.otherAbility = true
 				}
 			}
@@ -2215,3 +2205,201 @@ func validStackAdmits(toks []validStackToken, k state.StackObjKind, o *state.Obj
 	}
 	return false
 }
+
+const (
+	definedSpecf8b1Empty                       uint16 = 1  // ""
+	definedSpecf8b1OriginalHost                uint16 = 2  // "OriginalHost"
+	definedSpecf8b1Self                        uint16 = 3  // "Self", "Parent", "EffectSource", "CorrectedSelf"
+	definedSpecf8b1You                         uint16 = 4  // "You"
+	definedSpecf8b1TopThirdOfLibrary           uint16 = 5  // "TopThirdOfLibrary"
+	definedSpecf8b1EnchantedPlayer             uint16 = 6  // "EnchantedPlayer"
+	definedSpecf8b1TopOfLibrary                uint16 = 7  // "TopOfLibrary", "BottomOfLibrary"
+	definedSpecf8b1TriggeredOpponentVotedSame  uint16 = 8  // "TriggeredOpponentVotedSame", "TriggeredOpponentVotedDiff"
+	definedSpecf8b1FlippedHeads                uint16 = 9  // "FlippedHeads", "FlippedTails"
+	definedSpecf8b1Remembered                  uint16 = 10 // "Remembered"
+	definedSpecf8b1RememberedPlayer            uint16 = 11 // "RememberedPlayer", "RememberedPlayers"
+	definedSpecf8b1Exiled                      uint16 = 12 // "Exiled", "Revealed"
+	definedSpecf8b1ImprintedLKI                uint16 = 13 // "ImprintedLKI"
+	definedSpecf8b1Imprinted                   uint16 = 14 // "Imprinted", "ImprintedController"
+	definedSpecf8b1RememberedCard              uint16 = 15 // "RememberedCard"
+	definedSpecf8b1ChosenCard                  uint16 = 16 // "ChosenCard", "ChosenPlayer"
+	definedSpecf8b1PlayerIsRemembered          uint16 = 17 // "Player.IsRemembered"
+	definedSpecf8b1PlayerChosen                uint16 = 18 // "Player.Chosen"
+	definedSpecf8b1RememberedController        uint16 = 19 // "RememberedController"
+	definedSpecf8b1NonRememberedController     uint16 = 20 // "NonRememberedController", "OppNonRememberedController"
+	definedSpecf8b1RememberedOwner             uint16 = 21 // "RememberedOwner"
+	definedSpecf8b1TargetedController          uint16 = 22 // "TargetedController", "TargetedPlayer"
+	definedSpecf8b1TargetedOwner               uint16 = 23 // "TargetedOwner"
+	definedSpecf8b1ChosenController            uint16 = 24 // "ChosenController"
+	definedSpecf8b1ChosenCardController        uint16 = 25 // "ChosenCardController"
+	definedSpecf8b1CardController              uint16 = 26 // "CardController"
+	definedSpecf8b1Targeted                    uint16 = 27 // "Targeted"
+	definedSpecf8b1ParentTarget                uint16 = 28 // "ParentTarget", "ParentTargeted"
+	definedSpecf8b1ParentTargetedController    uint16 = 29 // "ParentTargetedController"
+	definedSpecf8b1ThisTargetedCard            uint16 = 30 // "ThisTargetedCard"
+	definedSpecf8b1TriggeredAttackers          uint16 = 31 // "TriggeredAttackers"
+	definedSpecf8b1TriggeredTargetLKICopy      uint16 = 32 // "TriggeredTargetLKICopy"
+	definedSpecf8b1TriggeredObject             uint16 = 33 // "TriggeredObject", "TriggeredObjectLKICopy"
+	definedSpecf8b1TriggeredCard               uint16 = 34 // "TriggeredCard", "TriggeredCardLKICopy", "TriggeredNewCard", "TriggeredNewCardLKICopy", "TriggeredSourceSA"...
+	definedSpecf8b1RememberedLKI               uint16 = 35 // "RememberedLKI"
+	definedSpecf8b1TriggeredBlocker            uint16 = 36 // "TriggeredBlocker", "TriggeredBlockerLKICopy"
+	definedSpecf8b1DelayTriggerRememberedLKI   uint16 = 37 // "DelayTriggerRememberedLKI"
+	definedSpecf8b1DelayTriggerRemembered      uint16 = 38 // "DelayTriggerRemembered"
+	definedSpecf8b1TriggeredSpellAbility       uint16 = 39 // "TriggeredSpellAbility"
+	definedSpecf8b1TriggeredTarget             uint16 = 40 // "TriggeredTarget"
+	definedSpecf8b1TriggeredSource             uint16 = 41 // "TriggeredSource", "TriggeredSources", "TriggeredSourceLKICopy"
+	definedSpecf8b1TriggeredSourceSAController uint16 = 42 // "TriggeredSourceSAController", "TriggeredSourceController", "TriggeredTargetController"
+	definedSpecf8b1TriggeredTargets            uint16 = 43 // "TriggeredTargets"
+	definedSpecf8b1TriggeredSourcesController  uint16 = 44 // "TriggeredSourcesController"
+	definedSpecf8b1Convoked                    uint16 = 45 // "Convoked"
+	definedSpecf8b1Promised                    uint16 = 46 // "Promised"
+	definedSpecf8b1PromisedSnapshot            uint16 = 47 // "PromisedSnapshot"
+	definedSpecf8b1ReplacedCard                uint16 = 48 // "ReplacedCard"
+	definedSpecf8b1ReplacedCards               uint16 = 49 // "ReplacedCards"
+	definedSpecf8b1ReplacedTarget              uint16 = 50 // "ReplacedTarget"
+	definedSpecf8b1ReplacedSource              uint16 = 51 // "ReplacedSource"
+	definedSpecf8b1ReplacedSourceController    uint16 = 52 // "ReplacedSourceController"
+	definedSpecf8b1ReplacedTargetController    uint16 = 53 // "ReplacedTargetController"
+	definedSpecf8b1TriggeredDefendingPlayer    uint16 = 54 // "TriggeredDefendingPlayer"
+	definedSpecf8b1TriggeredPlayer             uint16 = 55 // "TriggeredPlayer"
+	definedSpecf8b1TriggeredAttackingPlayer    uint16 = 56 // "TriggeredAttackingPlayer"
+	definedSpecf8b1TriggeredAttackedTarget     uint16 = 57 // "TriggeredAttackedTarget"
+	definedSpecf8b1TriggeredActivator          uint16 = 58 // "TriggeredActivator"
+	definedSpecf8b1TriggeredCardController     uint16 = 59 // "TriggeredCardController"
+	definedSpecf8b1TriggeredCardOwner          uint16 = 60 // "TriggeredCardOwner", "NonTriggeredCardOwner"
+	definedSpecf8b1TriggeredAttackerController uint16 = 61 // "TriggeredAttackerController", "TriggeredBlockerController"
+	definedSpecf8b1ExiledWith                  uint16 = 62 // "ExiledWith"
+	definedSpecf8b1Equipped                    uint16 = 63 // "Equipped", "Enchanted", "AttachedTo"
+	definedSpecf8b1Opponent                    uint16 = 64 // "Opponent", "Player.Opponent", "Player.Other"
+	definedSpecf8b1ReplacedPlayer              uint16 = 65 // "ReplacedPlayer"
+	definedSpecf8b1NonReplacedPlayer           uint16 = 66 // "NonReplacedPlayer"
+	definedSpecf8b1Player                      uint16 = 67 // "Player"
+)
+
+var definedSpecf8b1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: definedSpecf8b1Empty},
+	state.StrEntry[uint16]{Key: "OriginalHost", Val: definedSpecf8b1OriginalHost},
+	state.StrEntry[uint16]{Key: "Self", Val: definedSpecf8b1Self},
+	state.StrEntry[uint16]{Key: "Parent", Val: definedSpecf8b1Self},
+	state.StrEntry[uint16]{Key: "EffectSource", Val: definedSpecf8b1Self},
+	state.StrEntry[uint16]{Key: "CorrectedSelf", Val: definedSpecf8b1Self},
+	state.StrEntry[uint16]{Key: "You", Val: definedSpecf8b1You},
+	state.StrEntry[uint16]{Key: "TopThirdOfLibrary", Val: definedSpecf8b1TopThirdOfLibrary},
+	state.StrEntry[uint16]{Key: "EnchantedPlayer", Val: definedSpecf8b1EnchantedPlayer},
+	state.StrEntry[uint16]{Key: "TopOfLibrary", Val: definedSpecf8b1TopOfLibrary},
+	state.StrEntry[uint16]{Key: "BottomOfLibrary", Val: definedSpecf8b1TopOfLibrary},
+	state.StrEntry[uint16]{Key: "TriggeredOpponentVotedSame", Val: definedSpecf8b1TriggeredOpponentVotedSame},
+	state.StrEntry[uint16]{Key: "TriggeredOpponentVotedDiff", Val: definedSpecf8b1TriggeredOpponentVotedSame},
+	state.StrEntry[uint16]{Key: "FlippedHeads", Val: definedSpecf8b1FlippedHeads},
+	state.StrEntry[uint16]{Key: "FlippedTails", Val: definedSpecf8b1FlippedHeads},
+	state.StrEntry[uint16]{Key: "Remembered", Val: definedSpecf8b1Remembered},
+	state.StrEntry[uint16]{Key: "RememberedPlayer", Val: definedSpecf8b1RememberedPlayer},
+	state.StrEntry[uint16]{Key: "RememberedPlayers", Val: definedSpecf8b1RememberedPlayer},
+	state.StrEntry[uint16]{Key: "Exiled", Val: definedSpecf8b1Exiled},
+	state.StrEntry[uint16]{Key: "Revealed", Val: definedSpecf8b1Exiled},
+	state.StrEntry[uint16]{Key: "ImprintedLKI", Val: definedSpecf8b1ImprintedLKI},
+	state.StrEntry[uint16]{Key: "Imprinted", Val: definedSpecf8b1Imprinted},
+	state.StrEntry[uint16]{Key: "ImprintedController", Val: definedSpecf8b1Imprinted},
+	state.StrEntry[uint16]{Key: "RememberedCard", Val: definedSpecf8b1RememberedCard},
+	state.StrEntry[uint16]{Key: "ChosenCard", Val: definedSpecf8b1ChosenCard},
+	state.StrEntry[uint16]{Key: "ChosenPlayer", Val: definedSpecf8b1ChosenCard},
+	state.StrEntry[uint16]{Key: "Player.IsRemembered", Val: definedSpecf8b1PlayerIsRemembered},
+	state.StrEntry[uint16]{Key: "Player.Chosen", Val: definedSpecf8b1PlayerChosen},
+	state.StrEntry[uint16]{Key: "RememberedController", Val: definedSpecf8b1RememberedController},
+	state.StrEntry[uint16]{Key: "NonRememberedController", Val: definedSpecf8b1NonRememberedController},
+	state.StrEntry[uint16]{Key: "OppNonRememberedController", Val: definedSpecf8b1NonRememberedController},
+	state.StrEntry[uint16]{Key: "RememberedOwner", Val: definedSpecf8b1RememberedOwner},
+	state.StrEntry[uint16]{Key: "TargetedController", Val: definedSpecf8b1TargetedController},
+	state.StrEntry[uint16]{Key: "TargetedPlayer", Val: definedSpecf8b1TargetedController},
+	state.StrEntry[uint16]{Key: "TargetedOwner", Val: definedSpecf8b1TargetedOwner},
+	state.StrEntry[uint16]{Key: "ChosenController", Val: definedSpecf8b1ChosenController},
+	state.StrEntry[uint16]{Key: "ChosenCardController", Val: definedSpecf8b1ChosenCardController},
+	state.StrEntry[uint16]{Key: "CardController", Val: definedSpecf8b1CardController},
+	state.StrEntry[uint16]{Key: "Targeted", Val: definedSpecf8b1Targeted},
+	state.StrEntry[uint16]{Key: "ParentTarget", Val: definedSpecf8b1ParentTarget},
+	state.StrEntry[uint16]{Key: "ParentTargeted", Val: definedSpecf8b1ParentTarget},
+	state.StrEntry[uint16]{Key: "ParentTargetedController", Val: definedSpecf8b1ParentTargetedController},
+	state.StrEntry[uint16]{Key: "ThisTargetedCard", Val: definedSpecf8b1ThisTargetedCard},
+	state.StrEntry[uint16]{Key: "TriggeredAttackers", Val: definedSpecf8b1TriggeredAttackers},
+	state.StrEntry[uint16]{Key: "TriggeredTargetLKICopy", Val: definedSpecf8b1TriggeredTargetLKICopy},
+	state.StrEntry[uint16]{Key: "TriggeredObject", Val: definedSpecf8b1TriggeredObject},
+	state.StrEntry[uint16]{Key: "TriggeredObjectLKICopy", Val: definedSpecf8b1TriggeredObject},
+	state.StrEntry[uint16]{Key: "TriggeredCard", Val: definedSpecf8b1TriggeredCard},
+	state.StrEntry[uint16]{Key: "TriggeredCardLKICopy", Val: definedSpecf8b1TriggeredCard},
+	state.StrEntry[uint16]{Key: "TriggeredNewCard", Val: definedSpecf8b1TriggeredCard},
+	state.StrEntry[uint16]{Key: "TriggeredNewCardLKICopy", Val: definedSpecf8b1TriggeredCard},
+	state.StrEntry[uint16]{Key: "TriggeredSourceSA", Val: definedSpecf8b1TriggeredCard},
+	state.StrEntry[uint16]{Key: "TriggeredAttacker", Val: definedSpecf8b1TriggeredCard},
+	state.StrEntry[uint16]{Key: "TriggeredAttackerLKICopy", Val: definedSpecf8b1TriggeredCard},
+	state.StrEntry[uint16]{Key: "TriggeredCards", Val: definedSpecf8b1TriggeredCard},
+	state.StrEntry[uint16]{Key: "RememberedLKI", Val: definedSpecf8b1RememberedLKI},
+	state.StrEntry[uint16]{Key: "TriggeredBlocker", Val: definedSpecf8b1TriggeredBlocker},
+	state.StrEntry[uint16]{Key: "TriggeredBlockerLKICopy", Val: definedSpecf8b1TriggeredBlocker},
+	state.StrEntry[uint16]{Key: "DelayTriggerRememberedLKI", Val: definedSpecf8b1DelayTriggerRememberedLKI},
+	state.StrEntry[uint16]{Key: "DelayTriggerRemembered", Val: definedSpecf8b1DelayTriggerRemembered},
+	state.StrEntry[uint16]{Key: "TriggeredSpellAbility", Val: definedSpecf8b1TriggeredSpellAbility},
+	state.StrEntry[uint16]{Key: "TriggeredTarget", Val: definedSpecf8b1TriggeredTarget},
+	state.StrEntry[uint16]{Key: "TriggeredSource", Val: definedSpecf8b1TriggeredSource},
+	state.StrEntry[uint16]{Key: "TriggeredSources", Val: definedSpecf8b1TriggeredSource},
+	state.StrEntry[uint16]{Key: "TriggeredSourceLKICopy", Val: definedSpecf8b1TriggeredSource},
+	state.StrEntry[uint16]{Key: "TriggeredSourceSAController", Val: definedSpecf8b1TriggeredSourceSAController},
+	state.StrEntry[uint16]{Key: "TriggeredSourceController", Val: definedSpecf8b1TriggeredSourceSAController},
+	state.StrEntry[uint16]{Key: "TriggeredTargetController", Val: definedSpecf8b1TriggeredSourceSAController},
+	state.StrEntry[uint16]{Key: "TriggeredTargets", Val: definedSpecf8b1TriggeredTargets},
+	state.StrEntry[uint16]{Key: "TriggeredSourcesController", Val: definedSpecf8b1TriggeredSourcesController},
+	state.StrEntry[uint16]{Key: "Convoked", Val: definedSpecf8b1Convoked},
+	state.StrEntry[uint16]{Key: "Promised", Val: definedSpecf8b1Promised},
+	state.StrEntry[uint16]{Key: "PromisedSnapshot", Val: definedSpecf8b1PromisedSnapshot},
+	state.StrEntry[uint16]{Key: "ReplacedCard", Val: definedSpecf8b1ReplacedCard},
+	state.StrEntry[uint16]{Key: "ReplacedCards", Val: definedSpecf8b1ReplacedCards},
+	state.StrEntry[uint16]{Key: "ReplacedTarget", Val: definedSpecf8b1ReplacedTarget},
+	state.StrEntry[uint16]{Key: "ReplacedSource", Val: definedSpecf8b1ReplacedSource},
+	state.StrEntry[uint16]{Key: "ReplacedSourceController", Val: definedSpecf8b1ReplacedSourceController},
+	state.StrEntry[uint16]{Key: "ReplacedTargetController", Val: definedSpecf8b1ReplacedTargetController},
+	state.StrEntry[uint16]{Key: "TriggeredDefendingPlayer", Val: definedSpecf8b1TriggeredDefendingPlayer},
+	state.StrEntry[uint16]{Key: "TriggeredPlayer", Val: definedSpecf8b1TriggeredPlayer},
+	state.StrEntry[uint16]{Key: "TriggeredAttackingPlayer", Val: definedSpecf8b1TriggeredAttackingPlayer},
+	state.StrEntry[uint16]{Key: "TriggeredAttackedTarget", Val: definedSpecf8b1TriggeredAttackedTarget},
+	state.StrEntry[uint16]{Key: "TriggeredActivator", Val: definedSpecf8b1TriggeredActivator},
+	state.StrEntry[uint16]{Key: "TriggeredCardController", Val: definedSpecf8b1TriggeredCardController},
+	state.StrEntry[uint16]{Key: "TriggeredCardOwner", Val: definedSpecf8b1TriggeredCardOwner},
+	state.StrEntry[uint16]{Key: "NonTriggeredCardOwner", Val: definedSpecf8b1TriggeredCardOwner},
+	state.StrEntry[uint16]{Key: "TriggeredAttackerController", Val: definedSpecf8b1TriggeredAttackerController},
+	state.StrEntry[uint16]{Key: "TriggeredBlockerController", Val: definedSpecf8b1TriggeredAttackerController},
+	state.StrEntry[uint16]{Key: "ExiledWith", Val: definedSpecf8b1ExiledWith},
+	state.StrEntry[uint16]{Key: "Equipped", Val: definedSpecf8b1Equipped},
+	state.StrEntry[uint16]{Key: "Enchanted", Val: definedSpecf8b1Equipped},
+	state.StrEntry[uint16]{Key: "AttachedTo", Val: definedSpecf8b1Equipped},
+	state.StrEntry[uint16]{Key: "Opponent", Val: definedSpecf8b1Opponent},
+	state.StrEntry[uint16]{Key: "Player.Opponent", Val: definedSpecf8b1Opponent},
+	state.StrEntry[uint16]{Key: "Player.Other", Val: definedSpecf8b1Opponent},
+	state.StrEntry[uint16]{Key: "ReplacedPlayer", Val: definedSpecf8b1ReplacedPlayer},
+	state.StrEntry[uint16]{Key: "NonReplacedPlayer", Val: definedSpecf8b1NonReplacedPlayer},
+	state.StrEntry[uint16]{Key: "Player", Val: definedSpecf8b1Player},
+)
+
+const (
+	effectOwnerPlayersf8b2Empty    uint16 = 1 // "", "You"
+	effectOwnerPlayersf8b2Opponent uint16 = 2 // "Opponent", "Other"
+)
+
+var effectOwnerPlayersf8b2Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: effectOwnerPlayersf8b2Empty},
+	state.StrEntry[uint16]{Key: "You", Val: effectOwnerPlayersf8b2Empty},
+	state.StrEntry[uint16]{Key: "Opponent", Val: effectOwnerPlayersf8b2Opponent},
+	state.StrEntry[uint16]{Key: "Other", Val: effectOwnerPlayersf8b2Opponent},
+)
+
+const (
+	validStackTokensf8b3YouCtrl      uint16 = 1 // "YouCtrl"
+	validStackTokensf8b3OppCtrl      uint16 = 2 // "OppCtrl"
+	validStackTokensf8b3Other        uint16 = 3 // "Other"
+	validStackTokensf8b3OtherAbility uint16 = 4 // "otherAbility"
+)
+
+var validStackTokensf8b3Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "YouCtrl", Val: validStackTokensf8b3YouCtrl},
+	state.StrEntry[uint16]{Key: "OppCtrl", Val: validStackTokensf8b3OppCtrl},
+	state.StrEntry[uint16]{Key: "Other", Val: validStackTokensf8b3Other},
+	state.StrEntry[uint16]{Key: "otherAbility", Val: validStackTokensf8b3OtherAbility},
+)

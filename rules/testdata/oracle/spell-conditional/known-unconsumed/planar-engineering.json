@@ -1,0 +1,6 @@
+{
+  "card": "Planar Engineering",
+  "rows": {
+    "sacrifice-two-lands-search-four-basics-tapped": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"p0:Forest\",\"p0:Forest#2\"]}]"
+  }
+}

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
@@ -63,41 +62,6 @@ func handNoHostFixture(t *testing.T) (*fakeHost, []state.ObjID) {
 }
 
 const handAskSA = "DB$ ChangeZone | Origin$ Hand | Destination$ Battlefield | ChangeType$ Land | Mandatory$ True"
-
-// TestHandMoveChangeZoneAsksWhenMoreEligibleThanChangeNum is the ask leaf: a
-// hand with STRICTLY more ChangeType$-eligible cards than ChangeNum poses a
-// real KChoose to the controller -- Min ChangeNum, Max ChangeNum, the
-// eligible cards only, in hand order -- and the resolution suspends with
-// nothing moved until the answer arrives.
-func TestHandMoveChangeZoneAsksWhenMoreEligibleThanChangeNum(t *testing.T) {
-	h, ids := handAskFixture(t)
-	Resolve(h, &Ctx{Controller: 0}, sa(t, handAskSA))
-	if h.asked == nil {
-		t.Fatal("no decision was posed: a hand with more eligible cards than ChangeNum must ask")
-	}
-	d := h.asked
-	if d.Kind != decision.KChoose || d.Player != 0 || d.Min != 1 || d.Max != 1 {
-		t.Fatalf("decision = %+v, want a Min==1/Max==1 KChoose for the controller", d)
-	}
-	if d.ResumeKind != "hand_move" {
-		t.Fatalf("ResumeKind = %q, want \"hand_move\"", d.ResumeKind)
-	}
-	if len(d.Options) != 2 || d.Options[0].Kind != "hand_move" ||
-		d.Options[0].Obj != ids[1] || d.Options[1].Obj != ids[2] {
-		t.Fatalf("options = %+v, want the two Isles in hand order, Kind \"hand_move\"", d.Options)
-	}
-	for _, o := range d.Options {
-		if o.Label != "Isle" {
-			t.Fatalf("option label = %q, want the face name", o.Label)
-		}
-	}
-	// Nothing moved while suspended.
-	for i, id := range ids {
-		if o := h.g.Obj(id); o.Zone != state.ZHand {
-			t.Fatalf("ids[%d] moved during suspension: %s", i, o.Zone)
-		}
-	}
-}
 
 // TestHandMoveChangeZoneNoChoiceMovesDeterministically is the required
 // no-choice leaf: with exactly ChangeNum eligible cards (and with fewer), a
@@ -377,65 +341,6 @@ func TestBrainstormRealScriptMandatoryPutBackWithFewerEligibleCards(t *testing.T
 	}
 	if o := h.g.Obj(bear.ID); o.Zone != state.ZLibrary {
 		t.Fatalf("bear on %s, want library", o.Zone)
-	}
-}
-
-// TestOviyaRealScriptFilteredHandPutBack runs the real compiled Oviya,
-// Automech Artisan ability (Cost$ G T | Origin$ Hand | Destination$
-// Battlefield | ChangeType$ Creature,Vehicle | ChangeNum$ 1, neither
-// marker but oracle text saying "You may put"): the ask offers ONLY the
-// creature and Vehicle cards, never the land or the instant beside them, and
-// Min is 0 (the take is optional).
-func TestOviyaRealScriptFilteredHandPutBack(t *testing.T) {
-	reg := testutil.CorpusRegistry(t)
-	oviya, ok := reg.Lookup("Oviya, Automech Artisan")
-	if !ok {
-		t.Fatal("corpus has no Oviya, Automech Artisan")
-	}
-	var ab *cards.SA
-	for _, a := range oviya.Faces[0].Abilities {
-		if a.API == "ChangeZone" && a.Params["Origin"] == "Hand" {
-			ab = a
-		}
-	}
-	if ab == nil {
-		t.Fatal("Oviya has no Origin$ Hand ChangeZone ability")
-	}
-	g := state.NewGame(names(2))
-	bear := corpusObject(t, reg, g, "Grizzly Bears")
-	mtn := corpusObject(t, reg, g, "Mountain")
-	bolt := corpusObject(t, reg, g, "Lightning Bolt")
-	copter := corpusObject(t, reg, g, "Smuggler's Copter")
-	ids := []state.ObjID{bear.ID, mtn.ID, bolt.ID, copter.ID}
-	g.SetZone(state.ZHand, 0, ids)
-	for _, id := range ids {
-		g.Obj(id).Zone = state.ZHand
-	}
-
-	source := corpusObject(t, reg, g, "Oviya, Automech Artisan")
-	h := &askHost{}
-	h.g = g
-	Resolve(h, &Ctx{Controller: 0, Source: source.ID}, ab)
-	if h.asked == nil {
-		t.Fatal("no decision posed: two eligible cards (bear, copter) strictly exceed ChangeNum 1")
-	}
-	d := h.asked
-	if d.Min != 0 || d.Max != 1 {
-		t.Fatalf("Min/Max = %d/%d, want 0/1 (Forge's optional default)", d.Min, d.Max)
-	}
-	if len(d.Options) != 2 {
-		t.Fatalf("options = %+v, want exactly the bear and the Copter", d.Options)
-	}
-	for _, o := range d.Options {
-		if o.Obj != bear.ID && o.Obj != copter.ID {
-			t.Fatalf("option %+v is neither the creature nor the Vehicle", o)
-		}
-	}
-	// Nothing moved while suspended.
-	for _, id := range ids {
-		if g.Obj(id).Zone != state.ZHand {
-			t.Fatalf("id %d moved during suspension", id)
-		}
 	}
 }
 

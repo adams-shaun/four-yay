@@ -124,8 +124,8 @@ DIVERGED exactly as a stale report would.
 
 ## Status
 
-**The coverage ratchet.** `rules/acceptance_test.go`'s `knownUnsupported`
-(Ruling P12/D2-a) names exactly the repo-deck cards the build does not fully
+**The coverage ratchet.** `knownUnsupported`, one file per card in
+`rules/testdata/known-unsupported/` (Ruling P12/D2-a), names exactly the repo-deck cards the build does not fully
 support. `TestEveryRepoDeckIsFullySupported` asserts that the measured gap
 equals the table in both directions (Ruling R-20). A card the build newly
 cannot support fails, named together with its missing primitives. A table
@@ -144,7 +144,7 @@ Measured 2026-09-28 on `main` (`go test ./rules/ -run
   - Ojer Axonil, Deepest Might (`count:NonCombatDamageThisTurn`)
 - **Param census: 23 of 1110.** `TestEveryRepoDeckParamsAreRead`
   (`rules/paramcensus_test.go`) is the companion ratchet over the same decks'
-  parameters. Its `knownUnsupportedParams` table holds 23 cards that carry an
+  parameters. Its per-card files in `rules/testdata/paramcensus/` held 23 cards that carry an
   unread param or an unmodelled cost token: 20 distinct param labels and 1
   cost label.
 - **Golden games.** The 12 pinned Legacy decks (`legacyDeckNames`, which

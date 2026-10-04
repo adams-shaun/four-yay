@@ -81,51 +81,26 @@ func effDemonstrate(h Host, c *Ctx, sa *cards.SA) {
 		name = f.Name
 	}
 
-	answered := false
-	stage := int(0)
-
-	yes := false
-	opp := demonstratePlayer(([]state.Target)(nil))
-
-	if answered {
-		if stage != 1 {
-			// The election was answered. A decline ends the trigger having
-			// copied nothing; an acceptance moves on to the opponent
-			// clause below. Any other stage is a malformed resume and
-			// copies nothing.
-			if !yes {
-				return
-			}
-		} else {
-			demonstrateCopies(h, spell, c.Controller, opp)
+	// The may-copy election.
+	d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose,
+		Source: c.Source, Min: 1, Max: 1, ResumeKind: "demonstrate",
+		ResumeSA: sa, ResumeTarget: 0,
+		Prompt: "Demonstrate: copy " + name + "?"}
+	d.Options = append(d.Options,
+		decision.Option{Index: 0, Kind: "yes", Label: "Yes — copy", Player: c.Controller},
+		decision.Option{Index: 1, Kind: "no", Label: "No", Player: c.Controller})
+	if ans, ok := AskTape(h, d); ok {
+		// The election's answer in hand: a decline ends the trigger, a yes
+		// goes on to the opponent clause below.
+		if len(ans) == 0 || ans[0].Kind != "yes" {
 			return
 		}
 	} else {
-		// Stage 0: the may-copy election.
-		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose,
-			Source: c.Source, Min: 1, Max: 1, ResumeKind: "demonstrate",
-			ResumeSA: sa, ResumeTarget: 0,
-			Prompt: "Demonstrate: copy " + name + "?"}
-		d.Options = append(d.Options,
-			decision.Option{Index: 0, Kind: "yes", Label: "Yes — copy", Player: c.Controller},
-			decision.Option{Index: 1, Kind: "no", Label: "No", Player: c.Controller})
-		if ans, ok := AskTape(h, d); ok {
-			// The election's answer in hand (the "demonstrate" arm's
-			// stage 0): a decline ends the trigger, a yes goes on to the
-			// opponent clause below, as the re-entry does.
-			if len(ans) == 0 || ans[0].Kind != "yes" {
-				return
-			}
-		} else {
-			_ = Ask(h, d)
-
-			// No host to ask (the R-9 fuzz/test contract): the deterministic
-			// decline -- a may-copy the engine cannot ask is never copied.
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-				Text: "demonstrate copy resolved as the decline (no engine host to ask)"})
-			return
-		}
-
+		// No host to ask (the R-9 fuzz/test contract): the deterministic
+		// decline -- a may-copy the engine cannot ask is never copied.
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "demonstrate copy resolved as the decline (no engine host to ask)"})
+		return
 	}
 
 	// The opponent choice: "choose an opponent to also copy it". The
@@ -151,7 +126,7 @@ func effDemonstrate(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.StackCopy, Obj: spell, Player: opps[0]})
 		return
 	}
-	d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose,
+	d = &decision.Decision{Player: c.Controller, Kind: decision.KChoose,
 		Source: c.Source, Min: 1, Max: 1, ResumeKind: "demonstrate",
 		ResumeSA: sa, ResumeTarget: 1,
 		Prompt: "Choose an opponent to also copy " + name}
@@ -160,7 +135,7 @@ func effDemonstrate(h Host, c *Ctx, sa *cards.SA) {
 			Player: p, Label: g.Players[p].Name})
 	}
 	if ans, ok := AskTape(h, d); ok {
-		// The opponent pick in hand (the "demonstrate" arm's stage 1).
+		// The opponent pick in hand.
 		var picked []state.Target
 		for _, o := range ans {
 			if o.Kind == "player" {
@@ -170,7 +145,6 @@ func effDemonstrate(h Host, c *Ctx, sa *cards.SA) {
 		demonstrateCopies(h, spell, c.Controller, demonstratePlayer(picked))
 		return
 	}
-	_ = Ask(h, d)
 
 	h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 		Text: "demonstrate opponent resolved as the first opponent (no engine host to ask)"})
@@ -179,8 +153,7 @@ func effDemonstrate(h Host, c *Ctx, sa *cards.SA) {
 }
 
 // demonstrateCopies emits the answered opponent clause's copies, the
-// caster's first. An unanswered pick (a malformed resume) keeps only the
-// caster's copy.
+// caster's first. An answer naming no player keeps only the caster's copy.
 func demonstrateCopies(h Host, spell state.ObjID, caster, opp state.PlayerID) {
 	h.Emit(events.Event{Kind: events.StackCopy, Obj: spell, Player: caster})
 	if opp != 0 {

@@ -1,0 +1,7 @@
+{
+  "card": "C.A.M.P.",
+  "rows": {
+    "non-shared-color-tap-makes-counter-no-junk": "step 5 (resolve): [{\"kind\":\"any\",\"pick\":[\"Welcoming Vampire\"]}]",
+    "shared-color-tap-makes-counter-and-junk": "step 5 (resolve): [{\"kind\":\"any\",\"pick\":[\"Grizzly Bears\"]}]"
+  }
+}

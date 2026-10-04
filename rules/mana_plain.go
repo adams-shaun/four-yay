@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -90,7 +91,7 @@ func (e *Engine) produceManaReplacementPossible(ev events.Event) bool {
 		}
 	}
 	found := false
-	e.forEachReplacementSourceFor(replEventBit("ProduceMana"), func(id state.ObjID) {
+	e.forEachReplacementSourceFor(replEventBits[cards.ReplProduceMana], func(id state.ObjID) {
 		if found {
 			return
 		}
@@ -137,7 +138,7 @@ func (e *Engine) payManaAbilityMana(p state.PlayerID, source state.ObjID, cc *co
 		return true
 	}
 	n0 := len(e.L.Events)
-	ok := e.payManaConvFor(p, source, true, cc.Cost, e.paymentConv(p, source, true))
+	ok := pay.PayManaConvFor(asPayer(e), p, source, true, cc.Cost, asPayer(e).Conv(p, source, true))
 	if cc.bareTap && (!ok || len(e.L.Events) != n0 || e.noCounterSpend != 0 || e.manaSpentSources != nil || e.manaSpentAddsCounters != nil) {
 		panic(fmt.Sprintf("rules: bare-tap mana payment for %d was not a no-op (ok=%v, %d events)", source, ok, len(e.L.Events)-n0))
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -180,7 +181,7 @@ func (e *Engine) morphTurnUpPayable(p state.PlayerID, id state.ObjID, cost Cost,
 		min = 0
 	}
 	if cost.X == 0 {
-		return e.costPayable(p, id, false, mods.apply(cost))
+		return pay.CostPayable(asPayer(e), p, id, false, mods.apply(cost))
 	}
 	// Each extra X adds one generic, so the pool total is the finite ceiling
 	// past which no further X can be paid (the same safe bound xAsk uses).
@@ -188,7 +189,7 @@ func (e *Engine) morphTurnUpPayable(p state.PlayerID, id state.ObjID, cost Cost,
 	// reduction total widens the ceiling rather than cutting it short.
 	bound := e.G.Players[p].Pool.Total() + cost.Generic + int32(cost.X) + 1 + mods.reduceTotal()
 	for x := min; x <= bound; x++ {
-		if e.costPayable(p, id, false, mods.apply(cost.WithX(x))) {
+		if pay.CostPayable(asPayer(e), p, id, false, mods.apply(cost.WithX(x))) {
 			return true
 		}
 	}
@@ -214,7 +215,7 @@ func (e *Engine) morphTurnUpPayablePriced(p state.PlayerID, id state.ObjID, cost
 	if cost.X != 0 {
 		cost = cost.WithX(max(cost.XMin, 0))
 	}
-	return e.costPayablePool(p, id, false, mods.apply(cost), *hyp, e.G.Players[p].ManaUnits())
+	return pay.CostPayablePool(asPayer(e), p, id, false, mods.apply(cost), *hyp, e.G.Players[p].ManaUnits())
 }
 
 // turnUpPay carries the CR 708.6 turn-face-up special action's payment
@@ -325,7 +326,7 @@ func (e *Engine) turnUpXAsk(tp *turnUpPay) bool {
 	var legal []int32
 	bound := e.G.Players[tp.player].Pool.Total() + tp.cost.Generic + int32(tp.cost.X) + 1 + tp.mods.reduceTotal()
 	for x := min; x <= bound; x++ {
-		if e.costPayable(tp.player, tp.card, false, tp.mods.apply(tp.cost.WithX(x))) {
+		if pay.CostPayable(asPayer(e), tp.player, tp.card, false, tp.mods.apply(tp.cost.WithX(x))) {
 			legal = append(legal, x)
 		}
 	}
@@ -549,22 +550,22 @@ func (e *Engine) turnUpAnswer(d *decision.Decision, chosen []decision.Option) {
 	if tp == nil || len(chosen) == 0 {
 		return
 	}
-	switch chosen[0].Kind {
-	case "x":
+	switch turnUpAnswer6e01Codes.Code(string(chosen[0].Kind)) {
+	case turnUpAnswer6e01X:
 		tp.x = int32(chosen[0].Amount)
-	case "sacrifice":
+	case turnUpAnswer6e01Sacrifice:
 		for _, o := range chosen {
 			tp.sacs = append(tp.sacs, o.Obj)
 		}
-	case "discard":
+	case turnUpAnswer6e01Discard:
 		for _, o := range chosen {
 			tp.discs = append(tp.discs, o.Obj)
 		}
-	case "revealcost":
+	case turnUpAnswer6e01Revealcost:
 		for _, o := range chosen {
 			tp.reveal = append(tp.reveal, o.Obj)
 		}
-	case "returncost":
+	case turnUpAnswer6e01Returncost:
 		for _, o := range chosen {
 			tp.returns = append(tp.returns, o.Obj)
 		}
@@ -612,7 +613,7 @@ func (e *Engine) settleTurnUp(tp *turnUpPay) {
 			e.abortTurnUp(tp)
 			return
 		}
-		if !e.costPayable(tp.player, tp.card, false, paidCost) {
+		if !pay.CostPayable(asPayer(e), tp.player, tp.card, false, paidCost) {
 			e.abortTurnUp(tp)
 			return
 		}
@@ -621,7 +622,7 @@ func (e *Engine) settleTurnUp(tp *turnUpPay) {
 		// CR 616.1 replacement order choice, a madness choice); the
 		// continuation then resumes from resumeTurnUpAfterCost without
 		// charging any of these components again.
-		if !e.payMana(tp.player, paidCost) {
+		if !pay.PayMana(asPayer(e), tp.player, paidCost) {
 			e.abortTurnUp(tp)
 			return
 		}
@@ -887,3 +888,19 @@ func (e *Engine) abortTurnUp(tp *turnUpPay) {
 	e.emit(events.Event{Kind: events.Note, Player: tp.player, Obj: tp.card,
 		Text: "turn-face-up cost no longer payable; the special action did nothing"})
 }
+
+const (
+	turnUpAnswer6e01X          uint16 = 1 // "x"
+	turnUpAnswer6e01Sacrifice  uint16 = 2 // "sacrifice"
+	turnUpAnswer6e01Discard    uint16 = 3 // "discard"
+	turnUpAnswer6e01Revealcost uint16 = 4 // "revealcost"
+	turnUpAnswer6e01Returncost uint16 = 5 // "returncost"
+)
+
+var turnUpAnswer6e01Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "x", Val: turnUpAnswer6e01X},
+	state.StrEntry[uint16]{Key: "sacrifice", Val: turnUpAnswer6e01Sacrifice},
+	state.StrEntry[uint16]{Key: "discard", Val: turnUpAnswer6e01Discard},
+	state.StrEntry[uint16]{Key: "revealcost", Val: turnUpAnswer6e01Revealcost},
+	state.StrEntry[uint16]{Key: "returncost", Val: turnUpAnswer6e01Returncost},
+)

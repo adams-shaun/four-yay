@@ -1,0 +1,6 @@
+{
+  "card": "Quilled Greatwurm",
+  "rows": {
+    "cast-from-graveyard-removing-six-counters": "step 2 (cast): [{\"kind\":\"any\",\"pick\":[\"p0:Quilled Greatwurm\"]}]"
+  }
+}

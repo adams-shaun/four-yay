@@ -1,0 +1,6 @@
+{
+  "card": "Vesuva",
+  "rows": {
+    "enters-as-a-copy-of-a-land": "step 1 (resolve): [{\"kind\":\"choose\",\"pick\":[\"Forest\"]}]"
+  }
+}

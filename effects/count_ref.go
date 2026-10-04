@@ -90,12 +90,12 @@ func countMostCardName(h Host, c *Ctx, spec string) (int32, bool) {
 func evalTriggerCountOK(c *Ctx, body string, max bool) (int32, bool) {
 	body, op, hasOp := strings.Cut(body, "/")
 	var n int32
-	switch strings.TrimSpace(body) {
-	case "DamageAmount", "LifeAmount", "Amount", "ScryBottom":
+	switch evalTriggerCountOKab11Codes.Code(string(strings.TrimSpace(body))) {
+	case evalTriggerCountOKab11DamageAmount:
 		// ScryBottom is the events.Scry marker's Amount (the number put on
 		// the bottom), captured into TriggerAmount by rules for Mode$ Scry.
 		n = c.TriggerAmount
-	case "Result":
+	case evalTriggerCountOKab11Result:
 		if max {
 			n = c.TriggerResultMax
 		} else {
@@ -130,14 +130,14 @@ func evalTriggerCountOK(c *Ctx, body string, max bool) (int32, bool) {
 func evalSacrificedOK(c *Ctx, body string) (int32, bool) {
 	body, op, hasOp := strings.Cut(body, "/")
 	var n int32
-	switch strings.TrimSpace(body) {
-	case "CardPower":
+	switch evalSacrificedOKab12Codes.Code(string(strings.TrimSpace(body))) {
+	case evalSacrificedOKab12CardPower:
 		n = sacrificedNumeric(c, func(s state.SacrificedInfo) int32 { return s.Power })
-	case "CardToughness":
+	case evalSacrificedOKab12CardToughness:
 		n = sacrificedNumeric(c, func(s state.SacrificedInfo) int32 { return s.Toughness })
-	case "CardManaCost":
+	case evalSacrificedOKab12CardManaCost:
 		n = sacrificedNumeric(c, func(s state.SacrificedInfo) int32 { return s.ManaValue })
-	case "Amount":
+	case evalSacrificedOKab12Amount:
 		n = int32(len(c.Sacrificed))
 	default:
 		// An out-of-scope head (Valid, CardTypes, ChromaSource, CardNumColors,
@@ -298,15 +298,15 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 		sc.Captured = nil
 		return refTargets(h, &sc, inner)
 	}
-	switch ref {
-	case "Targeted", "ThisTargetedCard":
+	switch refTargetsab13Codes.Code(string(ref)) {
+	case refTargetsab13Targeted:
 		return c.Targets, true
-	case "ParentTarget", "ParentTargeted":
+	case refTargetsab13ParentTarget:
 		// The NEAREST targeting parent link's targets (parent_targets.go):
 		// Flourishing Grapple's X = ParentTargeted$CardPower is DBPump's
 		// creature, not the root's.
 		return parentLinkTargets(c), true
-	case "AllTargeted":
+	case refTargetsab13AllTargeted:
 		// AllTargeted (task alltargeted1) is Forge's UNION of every targeting
 		// SA's targets down the root ability's sub-ability chain. The cast
 		// flow pre-asks the whole chain's targets before payment (CR 601.2c)
@@ -320,13 +320,9 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 			return c.AllTargets, true
 		}
 		return c.Targets, true
-	case "TriggeredCard", "TriggeredCardLKICopy", "TriggeredNewCard",
-		"TriggeredNewCardLKICopy",
-		"TriggeredAttacker", "TriggeredAttackerLKICopy",
-		"TriggeredTargetLKICopy", "DelayTriggerRemembered",
-		"DelayTriggerRememberedLKI":
+	case refTargetsab13TriggeredCard:
 		return c.Remembered, true
-	case "RememberedLKI":
+	case refTargetsab13RememberedLKI:
 		// The LKI spelling of the Remembered$ group names the SAME objects
 		// (Forge's remembered list, which never contains the event object the
 		// trigger fired on); only the characteristic read differs, through
@@ -342,7 +338,7 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 		// RememberChanged$ one). The capture-occurrence exclusion is precise;
 		// the source itself is kept.
 		return rememberedLKIGroup(h, c), true
-	case "TriggerRemembered":
+	case refTargetsab13TriggerRemembered:
 		// TriggerRemembered (task triggerremembered1) is Forge's name for the
 		// trigger's own RememberObjects$ capture -- the set the resolving
 		// body introspects ("return up to that many"). It is NOT the whole
@@ -361,7 +357,7 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 		// CardPower/CardToughness/CardManaCost/CardManaCostLKI/
 		// CardCounters.*) read through the one property switch below.
 		return rememberedExcludingCapture(h, c), true
-	case "TriggeredExploited":
+	case refTargetsab13TriggeredExploited:
 		// The exploited creature (CR 702.58c's "that creature"): the Exploit
 		// marker's triggerReferents case binds ev.IDs[0] to TriggerCard at
 		// fire time, so Henry Wu's TriggeredExploited$CardPower and Profaner
@@ -377,7 +373,7 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 			return []state.Target{{Obj: c.TriggerCard}}, true
 		}
 		return c.Remembered, true
-	case "TriggeredBlocker", "TriggeredBlockerLKICopy":
+	case refTargetsab13TriggeredBlocker:
 		// The pair's BLOCKER (trig:Blocks): prefer the fire-time TriggerBlocker
 		// role when the Blocks capture set it (Remembered names the attacker
 		// there); the role-absent fallback keeps the old Remembered read --
@@ -389,7 +385,7 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 			return []state.Target{{Obj: c.TriggerBlocker}}, true
 		}
 		return c.Remembered, true
-	case "TriggeredSpellAbility":
+	case refTargetsab13TriggeredSpellAbility:
 		// The activation arm (abcopy1): the fire-time TriggerAbility role is
 		// the exact referent (Remembered names the source permanent); the
 		// spell-cast arm and hand-built contexts keep the Remembered entry.
@@ -397,7 +393,7 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 			return []state.Target{{Obj: c.TriggerAbility}}, true
 		}
 		return c.Remembered, true
-	case "CastSA":
+	case refTargetsab13CastSA:
 		// The cast spell ability (Graven Archfiend's ETB gate
 		// "CastSA>Count$OptionalGenericCostPaid.1.0"): the cast spell's own
 		// object. For the corpus shape -- an ETB trigger of the permanent the
@@ -422,12 +418,12 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 			return []state.Target{{Obj: c.Source}}, true
 		}
 		return nil, false
-	case "Remembered":
+	case refTargetsab13Remembered:
 		// Forge's plain Remembered$ form reads the executing ability's shared
 		// host-card remembered list: the ctx walk's set UNIONED with the
 		// source's persistent event-backed list (rememberedWithSource).
 		return rememberedWithSource(h, c), true
-	case "Imprinted":
+	case refTargetsab13Imprinted:
 		// The imprint reference the <Ref>$<Property> family reads RAW: the
 		// RepeatEach subject first (the same precedence definedSpec's Imprinted
 		// case takes -- the loop's CURRENT subject, Master of the Wild Hunt's
@@ -440,13 +436,13 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 			return []state.Target{{Obj: c.RepeatSubject.Obj}}, true
 		}
 		return rawImprintTargets(h.Game(), c), true
-	case "ChosenCard":
+	case refTargetsab13ChosenCard:
 		// The chosen-card read resolutionChosenCards already serves definedSpec's
 		// ChosenCard case -- the same shared read here keeps a count body from
 		// disagreeing with a Defined$ ChosenCard (Crush Underfoot's
 		// X:ChosenCard$CardPower sizes its DamageSource$ ChosenCard hit).
 		return resolutionChosenCards(h.Game(), c), true
-	case "ExiledWith":
+	case refTargetsab13ExiledWith:
 		// The same defined-targets resolver case effects/context.go's
 		// knownDefinedTargets carries, so a count body over the ref (the
 		// CheckSVar gate SVar:X:ExiledWith$Amount of Colfenor's Urn,
@@ -462,7 +458,7 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 			}
 		}
 		return out, true
-	case "Exiled", "Revealed":
+	case refTargetsab13Exiled:
 		// Forge's cast-cost PAID lists (AbilityUtils.getPaidCards ->
 		// SpellAbility.getPaidList): the cards this cast's own cost removed --
 		// CostExile's row is keyed "Exiled" (HashLKIListKey),
@@ -478,7 +474,7 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 		// association would read zero for the real carriers. paidCostTargets
 		// is the shared home with definedSpec's own case.
 		return paidCostTargets(c, ref), true
-	case "ExiledCards":
+	case refTargetsab13ExiledCards:
 		// Forge's `ExiledCards` count referent (Corpseweft's
 		// `SVar:Y:ExiledCards$Amount/Twice` -- the only corpus carrier at this
 		// pin): the cards THIS cast or activation exiled as a cost, i.e. the
@@ -494,7 +490,7 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 		// `Amount` property, this sizes the token; the corpus's `/Twice` op
 		// rides the ordinary applyCountOp suffix.
 		return paidCostTargets(c, "Exiled"), true
-	case "Equipped", "Enchanted", "AttachedTo":
+	case refTargetsab13Equipped:
 		// The object the source is attached to (Glamdring's "where X is
 		// equipped creature's power", Equipped$CardPower). Claimed here rather
 		// than through the defined-targets fallback below, which refuses an
@@ -505,7 +501,7 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 			return []state.Target{{Obj: o.AttachedTo}}, true
 		}
 		return nil, true
-	case "TargetedObjects", "TargetedObjectsDistinct":
+	case refTargetsab13TargetedObjects:
 		// Forge's TargetedObjects referent (AbilityUtils.calcX's
 		// `calcX[0].startsWith("TargetedObjects")` arm): the UNION of every
 		// targeting SA's chosen targets down the root ability's sub-ability
@@ -534,7 +530,7 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 			out = append(out, t)
 		}
 		return out, true
-	case "SpellTargeted":
+	case refTargetsab13SpellTargeted:
 		// Forge's SpellTargeted names the targeted SPELL -- the target that is
 		// a spell on the stack (AbilityUtils.calcX's
 		// `calcX[0].equals("SpellTargeted")` arm, which reads the FIRST of
@@ -564,7 +560,7 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 			if t.IsPlayer || t.Obj == 0 {
 				continue
 			}
-			if c.TargetSpellLKI[t.Obj] {
+			if c.Snap.TargetSpell[t.Obj] {
 				return []state.Target{t}, true
 			}
 			if o := h.Game().Obj(t.Obj); o == nil || o.Zone != state.ZStack {
@@ -643,10 +639,10 @@ func manaSpentTotalsOf(o *state.Object) castManaSpentTotals {
 // the bare total for an empty arg, the snow part for "Snow", a modelled typed
 // tag for its word, and the fail-closed 0 for anything the pool cannot tag.
 func (t castManaSpentTotals) byTag(arg string) int32 {
-	switch arg {
-	case "":
+	switch byTagab14Codes.Code(string(arg)) {
+	case byTagab14Empty:
 		return t.total
-	case "Snow":
+	case byTagab14Snow:
 		return t.snow
 	default:
 		for i, tagWord := range state.TypedManaTags {
@@ -657,3 +653,99 @@ func (t castManaSpentTotals) byTag(arg string) int32 {
 		return 0
 	}
 }
+
+const (
+	evalTriggerCountOKab11DamageAmount uint16 = 1 // "DamageAmount", "LifeAmount", "Amount", "ScryBottom"
+	evalTriggerCountOKab11Result       uint16 = 2 // "Result"
+)
+
+var evalTriggerCountOKab11Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "DamageAmount", Val: evalTriggerCountOKab11DamageAmount},
+	state.StrEntry[uint16]{Key: "LifeAmount", Val: evalTriggerCountOKab11DamageAmount},
+	state.StrEntry[uint16]{Key: "Amount", Val: evalTriggerCountOKab11DamageAmount},
+	state.StrEntry[uint16]{Key: "ScryBottom", Val: evalTriggerCountOKab11DamageAmount},
+	state.StrEntry[uint16]{Key: "Result", Val: evalTriggerCountOKab11Result},
+)
+
+const (
+	evalSacrificedOKab12CardPower     uint16 = 1 // "CardPower"
+	evalSacrificedOKab12CardToughness uint16 = 2 // "CardToughness"
+	evalSacrificedOKab12CardManaCost  uint16 = 3 // "CardManaCost"
+	evalSacrificedOKab12Amount        uint16 = 4 // "Amount"
+)
+
+var evalSacrificedOKab12Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "CardPower", Val: evalSacrificedOKab12CardPower},
+	state.StrEntry[uint16]{Key: "CardToughness", Val: evalSacrificedOKab12CardToughness},
+	state.StrEntry[uint16]{Key: "CardManaCost", Val: evalSacrificedOKab12CardManaCost},
+	state.StrEntry[uint16]{Key: "Amount", Val: evalSacrificedOKab12Amount},
+)
+
+const (
+	refTargetsab13Targeted              uint16 = 1  // "Targeted", "ThisTargetedCard"
+	refTargetsab13ParentTarget          uint16 = 2  // "ParentTarget", "ParentTargeted"
+	refTargetsab13AllTargeted           uint16 = 3  // "AllTargeted"
+	refTargetsab13TriggeredCard         uint16 = 4  // "TriggeredCard", "TriggeredCardLKICopy", "TriggeredNewCard", "TriggeredNewCardLKICopy", "TriggeredAttacker"...
+	refTargetsab13RememberedLKI         uint16 = 5  // "RememberedLKI"
+	refTargetsab13TriggerRemembered     uint16 = 6  // "TriggerRemembered"
+	refTargetsab13TriggeredExploited    uint16 = 7  // "TriggeredExploited"
+	refTargetsab13TriggeredBlocker      uint16 = 8  // "TriggeredBlocker", "TriggeredBlockerLKICopy"
+	refTargetsab13TriggeredSpellAbility uint16 = 9  // "TriggeredSpellAbility"
+	refTargetsab13CastSA                uint16 = 10 // "CastSA"
+	refTargetsab13Remembered            uint16 = 11 // "Remembered"
+	refTargetsab13Imprinted             uint16 = 12 // "Imprinted"
+	refTargetsab13ChosenCard            uint16 = 13 // "ChosenCard"
+	refTargetsab13ExiledWith            uint16 = 14 // "ExiledWith"
+	refTargetsab13Exiled                uint16 = 15 // "Exiled", "Revealed"
+	refTargetsab13ExiledCards           uint16 = 16 // "ExiledCards"
+	refTargetsab13Equipped              uint16 = 17 // "Equipped", "Enchanted", "AttachedTo"
+	refTargetsab13TargetedObjects       uint16 = 18 // "TargetedObjects", "TargetedObjectsDistinct"
+	refTargetsab13SpellTargeted         uint16 = 19 // "SpellTargeted"
+)
+
+var refTargetsab13Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Targeted", Val: refTargetsab13Targeted},
+	state.StrEntry[uint16]{Key: "ThisTargetedCard", Val: refTargetsab13Targeted},
+	state.StrEntry[uint16]{Key: "ParentTarget", Val: refTargetsab13ParentTarget},
+	state.StrEntry[uint16]{Key: "ParentTargeted", Val: refTargetsab13ParentTarget},
+	state.StrEntry[uint16]{Key: "AllTargeted", Val: refTargetsab13AllTargeted},
+	state.StrEntry[uint16]{Key: "TriggeredCard", Val: refTargetsab13TriggeredCard},
+	state.StrEntry[uint16]{Key: "TriggeredCardLKICopy", Val: refTargetsab13TriggeredCard},
+	state.StrEntry[uint16]{Key: "TriggeredNewCard", Val: refTargetsab13TriggeredCard},
+	state.StrEntry[uint16]{Key: "TriggeredNewCardLKICopy", Val: refTargetsab13TriggeredCard},
+	state.StrEntry[uint16]{Key: "TriggeredAttacker", Val: refTargetsab13TriggeredCard},
+	state.StrEntry[uint16]{Key: "TriggeredAttackerLKICopy", Val: refTargetsab13TriggeredCard},
+	state.StrEntry[uint16]{Key: "TriggeredTargetLKICopy", Val: refTargetsab13TriggeredCard},
+	state.StrEntry[uint16]{Key: "DelayTriggerRemembered", Val: refTargetsab13TriggeredCard},
+	state.StrEntry[uint16]{Key: "DelayTriggerRememberedLKI", Val: refTargetsab13TriggeredCard},
+	state.StrEntry[uint16]{Key: "RememberedLKI", Val: refTargetsab13RememberedLKI},
+	state.StrEntry[uint16]{Key: "TriggerRemembered", Val: refTargetsab13TriggerRemembered},
+	state.StrEntry[uint16]{Key: "TriggeredExploited", Val: refTargetsab13TriggeredExploited},
+	state.StrEntry[uint16]{Key: "TriggeredBlocker", Val: refTargetsab13TriggeredBlocker},
+	state.StrEntry[uint16]{Key: "TriggeredBlockerLKICopy", Val: refTargetsab13TriggeredBlocker},
+	state.StrEntry[uint16]{Key: "TriggeredSpellAbility", Val: refTargetsab13TriggeredSpellAbility},
+	state.StrEntry[uint16]{Key: "CastSA", Val: refTargetsab13CastSA},
+	state.StrEntry[uint16]{Key: "Remembered", Val: refTargetsab13Remembered},
+	state.StrEntry[uint16]{Key: "Imprinted", Val: refTargetsab13Imprinted},
+	state.StrEntry[uint16]{Key: "ChosenCard", Val: refTargetsab13ChosenCard},
+	state.StrEntry[uint16]{Key: "ExiledWith", Val: refTargetsab13ExiledWith},
+	state.StrEntry[uint16]{Key: "Exiled", Val: refTargetsab13Exiled},
+	state.StrEntry[uint16]{Key: "Revealed", Val: refTargetsab13Exiled},
+	state.StrEntry[uint16]{Key: "ExiledCards", Val: refTargetsab13ExiledCards},
+	state.StrEntry[uint16]{Key: "Equipped", Val: refTargetsab13Equipped},
+	state.StrEntry[uint16]{Key: "Enchanted", Val: refTargetsab13Equipped},
+	state.StrEntry[uint16]{Key: "AttachedTo", Val: refTargetsab13Equipped},
+	state.StrEntry[uint16]{Key: "TargetedObjects", Val: refTargetsab13TargetedObjects},
+	state.StrEntry[uint16]{Key: "TargetedObjectsDistinct", Val: refTargetsab13TargetedObjects},
+	state.StrEntry[uint16]{Key: "SpellTargeted", Val: refTargetsab13SpellTargeted},
+)
+
+const (
+	byTagab14Empty uint16 = 1 // ""
+	byTagab14Snow  uint16 = 2 // "Snow"
+)
+
+var byTagab14Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: byTagab14Empty},
+	state.StrEntry[uint16]{Key: "Snow", Val: byTagab14Snow},
+)

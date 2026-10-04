@@ -3,6 +3,8 @@ package trigmatch
 import (
 	"strconv"
 	"strings"
+
+	"github.com/adams-shaun/gorge/state"
 )
 
 // CompareLife compares a life total against a Forge comparison literal such as
@@ -44,19 +46,37 @@ func SplitCompare(cmp string) (op string, n int, ok bool) {
 }
 
 func ApplyCompare(have int, op string, n int) bool {
-	switch op {
-	case "GE":
+	switch applyCompareff81Codes.Code(string(op)) {
+	case applyCompareff81GE:
 		return have >= n
-	case "LE":
+	case applyCompareff81LE:
 		return have <= n
-	case "EQ":
+	case applyCompareff81EQ:
 		return have == n
-	case "GT":
+	case applyCompareff81GT:
 		return have > n
-	case "LT":
+	case applyCompareff81LT:
 		return have < n
-	case "NE":
+	case applyCompareff81NE:
 		return have != n
 	}
 	return false
 }
+
+const (
+	applyCompareff81GE uint16 = 1 // "GE"
+	applyCompareff81LE uint16 = 2 // "LE"
+	applyCompareff81EQ uint16 = 3 // "EQ"
+	applyCompareff81GT uint16 = 4 // "GT"
+	applyCompareff81LT uint16 = 5 // "LT"
+	applyCompareff81NE uint16 = 6 // "NE"
+)
+
+var applyCompareff81Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "GE", Val: applyCompareff81GE},
+	state.StrEntry[uint16]{Key: "LE", Val: applyCompareff81LE},
+	state.StrEntry[uint16]{Key: "EQ", Val: applyCompareff81EQ},
+	state.StrEntry[uint16]{Key: "GT", Val: applyCompareff81GT},
+	state.StrEntry[uint16]{Key: "LT", Val: applyCompareff81LT},
+	state.StrEntry[uint16]{Key: "NE", Val: applyCompareff81NE},
+)

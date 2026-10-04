@@ -8,6 +8,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -450,15 +451,15 @@ func TestBucolicRanchRestrictedDesertManaKeepsItsRestriction(t *testing.T) {
 
 	// Admitted for the Mount spell, withheld from the non-Mount in BOTH the
 	// pool and the typed tally.
-	if av := e.manaAvailableFor(0, paymentFor(mountID, false, Cost{})); av.pool.Total() != 1 ||
-		av.typed[state.TypedDesert][state.MW] != 1 {
+	if av := pay.AvailableFor(asPayer(e), 0, paymentFor(mountID, false, Cost{})); av.Pool.Total() != 1 ||
+		av.Typed[state.TypedDesert][state.MW] != 1 {
 		t.Fatalf("manaAvailableFor(Mount) = pool %d typed %d, want 1/1 (restriction admitted)",
-			av.pool.Total(), av.typed[state.TypedDesert][state.MW])
+			av.Pool.Total(), av.Typed[state.TypedDesert][state.MW])
 	}
-	if av := e.manaAvailableFor(0, paymentFor(wallID, false, Cost{})); av.pool.Total() != 0 ||
-		av.typed[state.TypedDesert][state.MW] != 0 {
+	if av := pay.AvailableFor(asPayer(e), 0, paymentFor(wallID, false, Cost{})); av.Pool.Total() != 0 ||
+		av.Typed[state.TypedDesert][state.MW] != 0 {
 		t.Fatalf("manaAvailableFor(non-Mount) = pool %d typed %d, want 0/0 (restriction withheld)",
-			av.pool.Total(), av.typed[state.TypedDesert][state.MW])
+			av.Pool.Total(), av.Typed[state.TypedDesert][state.MW])
 	}
 
 	// Behavioural: the non-Mount {1} cast is not offered on the restricted-only
@@ -493,7 +494,7 @@ func TestRestrictedTaggedManaSpendIsNotDoubleCounted(t *testing.T) {
 	if len(e.G.Players[0].RestrictedMana) != 1 {
 		t.Fatalf("restricted batch not registered: %+v", e.G.Players[0].RestrictedMana)
 	}
-	if ok, _, _, _, _ := e.payManaForSpent(0, mount, false, ParseCost("2"), nil, pipRider{}); !ok {
+	if ok, _, _, _, _ := pay.PayManaForSpent(asPayer(e), 0, mount, false, ParseCost("2"), nil, pipRider{}); !ok {
 		t.Fatal("payment refused: the restricted Cave unit is admitted for a Mount spell")
 	}
 	if got := e.G.Players[0].Pool[state.MC]; got != 0 {
@@ -544,7 +545,7 @@ func TestRestrictedTaggedManaSpendNeverOverSpends(t *testing.T) {
 				t.Fatalf("restricted batch not registered: %+v", e.G.Players[0].RestrictedMana)
 			}
 			before := e.G.Players[0].Pool.Total()
-			ok, _, _, _, typed := e.payManaForSpent(0, mount, false, ParseCost("1 W"), nil, pipRider{})
+			ok, _, _, _, typed := pay.PayManaForSpent(asPayer(e), 0, mount, false, ParseCost("1 W"), nil, pipRider{})
 			if !ok {
 				t.Fatal("payment refused: the restricted Desert unit is admitted for a Mount spell")
 			}
@@ -582,7 +583,7 @@ func TestRestrictedTaggedManaPartialConsumptionIsExact(t *testing.T) {
 		t.Fatalf("restricted batches = %+v, want one DesertW batch of 2", rest)
 	}
 	before := e.G.Players[0].Pool.Total()
-	ok, _, _, _, typed := e.payManaForSpent(0, mount, false, ParseCost("W"), nil, pipRider{})
+	ok, _, _, _, typed := pay.PayManaForSpent(asPayer(e), 0, mount, false, ParseCost("W"), nil, pipRider{})
 	if !ok {
 		t.Fatal("payment refused")
 	}

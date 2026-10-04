@@ -1,0 +1,6 @@
+{
+  "card": "It That Betrays",
+  "rows": {
+    "annihilator-sacrifices-and-steals-two-permanents": "step 0 (attack): [{\"kind\":\"choose\",\"pick\":[\"p1:Grizzly Bears\",\"p1:Savannah Lions\"]}]"
+  }
+}

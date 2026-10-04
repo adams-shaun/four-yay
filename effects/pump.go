@@ -49,17 +49,14 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 	// of ..." family): the pump's keyword grant is not a fixed list but a
 	// player's choice from a fixed candidate list, chosen ONE per execution
 	// (every corpus line reads "your choice of X, Y or Z"). The ask is the
-	// same mid-resolution KModes vocabulary effCharm uses — ResumeKind
-	// "modes" with ResumeSA, the answer re-entering this effect through
-	// rules' resumeResolution with Ctx.Modes set to the chosen labels. The
-	// ask comes FIRST, before any registration, so a suspension never leaves
-	// a half-applied pump behind; on re-entry the whole effect re-runs with
-	// the answer in hand (the charm pattern).
+	// same mid-resolution KModes vocabulary effCharm uses (ResumeKind
+	// "modes"), answered in place. The ask comes FIRST, before any
+	// registration.
 	var chosenKW []string
 	if p.HasKWChoice {
 		if c.Modes != nil {
-			// fx42 scoping: consume the answer once; a nested KWChoice pump
-			// reached below poses its own ask.
+			// Consume Ctx.Modes once; a nested KWChoice pump reached below
+			// poses its own ask.
 			chosenKW = c.Modes
 			c.Modes = nil
 		} else {
@@ -73,13 +70,11 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 					Index: i, Kind: "mode", Label: name, Obj: c.Source, Player: c.Controller})
 			}
 			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand (its Record wrote
-				// the ModeChosen a KModes answer records): the chosen
-				// keywords by option index into KWChoice$, exactly the
-				// names the "modes" arm binds into Ctx.Modes. The legacy
-				// re-entry re-runs this body from its first line, so the
-				// emissions before the ask are repeated first, exactly as
-				// it repeats them.
+				// The answer in hand (its Record wrote the ModeChosen a
+				// KModes answer records): the chosen keywords by option
+				// index into KWChoice$. The emissions before the ask are
+				// repeated first (the event stream the answered path has
+				// always emitted).
 				noteUnreadParams(h, c, "Pump", p.Unread)
 				pumpNotes(h, c, sa, p)
 				chosenKW = make([]string, 0, len(ans))
@@ -89,15 +84,12 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 					}
 				}
 			} else {
-				_ = Ask(h, d)
-
 				// No engine host (R-9): the deterministic first candidate, with
 				// the Note that records why the richer path did not run.
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 					Text: "chose its first keyword (no engine host to ask)"})
 				chosenKW = choices[:1]
 			}
-
 		}
 	}
 	zone := p.PumpZone
@@ -181,7 +173,7 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 }
 
 // pumpNotes is effPump's ClearNotedCardsFor$ and NoteCards$ notation, run
-// before any KWChoice$ ask (and so repeated by that ask's re-entry).
+// before any KWChoice$ ask (and repeated after that ask's answer).
 func pumpNotes(h Host, c *Ctx, sa *cards.SA, p *PumpParams) {
 	// ClearNotedCardsFor$ clears the requested player labels from its Defined$
 	// player set. The event fold keeps a later resolution and a replay from
@@ -218,8 +210,8 @@ func pumpNotes(h Host, c *Ctx, sa *cards.SA, p *PumpParams) {
 	// skipped by the object walk below). Any other NoteCards$ form stays
 	// loud-unimplemented (transcript note, no state write).
 	if label := p.NoteCardsFor; label != "" {
-		switch p.NoteCards {
-		case "Self":
+		switch pumpNotes6381Codes.Code(string(p.NoteCards)) {
+		case pumpNotes6381Self:
 			spec := p.Defined
 			noted := false
 			for _, t := range Defined(h, c, sa) {
@@ -232,14 +224,14 @@ func pumpNotes(h Host, c *Ctx, sa *cards.SA, p *PumpParams) {
 			if !noted && spec == "" {
 				h.Emit(events.Event{Kind: events.PlayerNoted, Player: c.Controller, Text: label})
 			}
-		case "Remembered":
+		case pumpNotes6381Remembered:
 			for _, t := range resolvedRemembered(h, c) {
 				if t.IsPlayer || t.Obj == 0 {
 					continue
 				}
 				h.Emit(events.Event{Kind: events.CardNoted, Obj: t.Obj, Text: label})
 			}
-		case "TriggeredSource":
+		case pumpNotes6381TriggeredSource:
 			if c.TriggerSource != 0 {
 				h.Emit(events.Event{Kind: events.CardNoted, Obj: c.TriggerSource, Text: label})
 			}
@@ -249,3 +241,15 @@ func pumpNotes(h Host, c *Ctx, sa *cards.SA, p *PumpParams) {
 		}
 	}
 }
+
+const (
+	pumpNotes6381Self            uint16 = 1 // "Self"
+	pumpNotes6381Remembered      uint16 = 2 // "Remembered"
+	pumpNotes6381TriggeredSource uint16 = 3 // "TriggeredSource"
+)
+
+var pumpNotes6381Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Self", Val: pumpNotes6381Self},
+	state.StrEntry[uint16]{Key: "Remembered", Val: pumpNotes6381Remembered},
+	state.StrEntry[uint16]{Key: "TriggeredSource", Val: pumpNotes6381TriggeredSource},
+)

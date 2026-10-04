@@ -33,7 +33,7 @@ func TestCompileManaReflected(t *testing.T) {
 	if !slices.Equal(p.Unread, []string{"Bogus"}) {
 		t.Fatalf("unread = %v", p.Unread)
 	}
-	if allocs := testing.AllocsPerRun(100, func() { _ = ManaReflectedOf(sa) }); allocs != 0 {
+	if allocs := allocsPerRun(100, func() { _ = ManaReflectedOf(sa) }); allocs != 0 {
 		t.Fatalf("ManaReflectedOf front-cache hit allocates %v", allocs)
 	}
 	b := ManaReflectedOf(&cards.SA{API: "ManaReflected", Params: map[string]string{"IsPresent": "  ", "ColorOrType": "Color"}})

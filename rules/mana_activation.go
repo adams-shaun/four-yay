@@ -10,6 +10,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -276,9 +277,9 @@ func (e *Engine) answerNestedManaColor(ma *manaColorActivation, chosen []decisio
 			continue
 		}
 		if len(chosen) == 1 {
-			ctx.ManaChoice = colour
+			ctx.Mana.Choice = colour
 		} else {
-			ctx.ManaChoices = append(ctx.ManaChoices, colour)
+			ctx.Mana.Choices = append(ctx.Mana.Choices, colour)
 		}
 	}
 	savedTap, savedProducer := e.manaFromTap, e.manaProducer
@@ -1089,8 +1090,8 @@ func manaAbilityLabel(ma *cards.SA, chosen string) string {
 func manaProducedLabel(ma *cards.SA, chosen string) string {
 	mp := effects.ManaOf(ma)
 	produced := substituteChosenProduced(mp.Produced, chosen)
-	switch produced {
-	case "Any", "Combo Any":
+	switch manaProducedLabelc11Codes.Code(string(produced)) {
+	case manaProducedLabelc11Any:
 		// A literal amount above one is named so a source whose abilities
 		// differ only in amount -- Sceptre of Eternal Glory's one-mana and
 		// three-mana "any color" abilities -- offers two distinguishable
@@ -1105,7 +1106,7 @@ func manaProducedLabel(ma *cards.SA, chosen string) string {
 			return "Add " + manaNumberWord(n) + " mana of any one color"
 		}
 		return "Add any color"
-	case "Chosen":
+	case manaProducedLabelc11Chosen:
 		return "Add chosen color"
 	}
 	if cols, ok := effects.ComboColours(produced); ok {
@@ -1384,9 +1385,9 @@ func (e *Engine) manaCostPayable(p state.PlayerID, o *state.Object, source state
 
 // manaCostPayableFull is the full cost walk of manaCostPayable.
 func (e *Engine) manaCostPayableFull(p state.PlayerID, o *state.Object, source state.ObjID, cost Cost, hyp *state.Mana) bool {
-	av := e.manaAvailableFor(p, paymentFor(source, true, cost))
-	pool := av.pool
-	typed := av.typed
+	av := pay.AvailableFor(asPayer(e), p, paymentFor(source, true, cost))
+	pool := av.Pool
+	typed := av.Typed
 	if hyp != nil {
 		pool = *hyp
 		// A hypothetical bound is a pure mana bound that may include
@@ -1395,7 +1396,7 @@ func (e *Engine) manaCostPayableFull(p state.PlayerID, o *state.Object, source s
 		typed = e.G.Players[p].ManaUnits()
 	}
 	if cost.X != 0 || len(cost.Reveal) > 0 || len(cost.RevealOrChoose) > 0 || len(cost.RevealChosen) > 0 || len(cost.Behold) > 0 ||
-		len(cost.Blight) > 0 || activationTapCostUnavailable(o, &cost) || !e.costPayablePool(p, source, true, cost, pool, typed) {
+		len(cost.Blight) > 0 || activationTapCostUnavailable(o, &cost) || !pay.CostPayablePool(asPayer(e), p, source, true, cost, pool, typed) {
 		return false
 	}
 	// A Forage cost is payable when the payer's graveyard holds three cards OR
@@ -1967,7 +1968,7 @@ func (e *Engine) continueManaDiscard() {
 
 func (e *Engine) commitManaDiscard() {
 	md := e.manaDiscardActivation
-	if md == nil || !e.payManaConvFor(md.player, md.source, true, md.cost, e.paymentConv(md.player, md.source, true)) {
+	if md == nil || !pay.PayManaConvFor(asPayer(e), md.player, md.source, true, md.cost, asPayer(e).Conv(md.player, md.source, true)) {
 		e.manaDiscardActivation = nil
 		e.choosing = chooseNone
 		return
@@ -3345,3 +3346,14 @@ func manaWalkHasLType(e *Engine, statics *actionStaticSource) bool {
 	}
 	return e.activeSummaryOf(e.active()).hasLType
 }
+
+const (
+	manaProducedLabelc11Any    uint16 = 1 // "Any", "Combo Any"
+	manaProducedLabelc11Chosen uint16 = 2 // "Chosen"
+)
+
+var manaProducedLabelc11Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Any", Val: manaProducedLabelc11Any},
+	state.StrEntry[uint16]{Key: "Combo Any", Val: manaProducedLabelc11Any},
+	state.StrEntry[uint16]{Key: "Chosen", Val: manaProducedLabelc11Chosen},
+)

@@ -1,0 +1,12 @@
+{
+  "card": "Banner of Kinship",
+  "rows": {
+    "chosen-type-only-opponent-has-no-counters": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"Bear\"]}]; step 1 (resolve): [{\"kind\":\"any\",\"pick\":[\"Bear\"]}]",
+    "counters-for-each-creature-of-chosen-type": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"Bear\"]}]",
+    "later-creature-of-type-gets-bonus-counters-fixed": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"Bear\"]}]; step 1 (resolve): [{\"kind\":\"any\",\"pick\":[\"Bear\"]}]",
+    "minority-type-can-be-chosen": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"Bear\"]}]",
+    "no-creature-of-type-no-counters": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"Bear\"]}]; step 1 (resolve): [{\"kind\":\"any\",\"pick\":[\"Bear\"]}]",
+    "opponents-creatures-neither-counted-nor-pumped": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"Bear\"]}]; step 1 (resolve): [{\"kind\":\"any\",\"pick\":[\"Bear\"]}]",
+    "other-type-chosen-pumps-that-type": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"Cat\"]}]"
+  }
+}

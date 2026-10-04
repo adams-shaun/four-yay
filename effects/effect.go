@@ -133,8 +133,8 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 	// default. Any other value (an LKI grammar this build does not model —
 	// the LKI persistence a vanished card would need) is a loud Note.
 	if rl := ep.RememberLKI; rl != "" {
-		switch rl {
-		case "Targeted", "True":
+		switch effEffect7bd1Codes.Code(string(rl)) {
+		case effEffect7bd1Targeted:
 		default:
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "unmodelled Effect RememberLKI$ " + rl})
@@ -431,8 +431,8 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 		if permanentComeback && strings.Contains(raw, "Card.IsImprinted") {
 			regTrigger = strings.ReplaceAll(raw, "Card.IsImprinted", "Card.Self")
 		}
-		switch tr.Mode {
-		case "SpellCast", "ChangesZone":
+		switch tr.ModeKind() {
+		case cards.TriggerSpellCast, cards.TriggerChangesZone:
 			// Fire-time match re-parses the named body on the source face.
 			// An Effect's "whenever you cast a spell" / "whenever a creature
 			// enters" is an ordinary REPEATABLE trigger for the Effect's
@@ -450,7 +450,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 					IDs: encodeRemembered(regIDs), Text: tr.Mode + ":" + regTrigger + expiry + odSuffix + efMarker})
 			}
 			registered = true
-		case "Phase":
+		case cards.TriggerPhase:
 			// A phase promise fires at the FIRST listed step still ahead
 			// (state.EarliestAfter), exactly like the DelayedTrigger SA's
 			// multi-step Phase$ reading; ValidPlayer$ rides |VP= so the
@@ -620,8 +620,8 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 		return r == ',' || r == ' ' || r == '\t' || r == '\n'
 	}) {
 		mode, params := parseStaticLine(c.SVars, name)
-		switch mode {
-		case "Continuous":
+		switch cards.StaticModeOf(mode) {
+		case cards.StaticContinuous:
 			// GainsAbilitiesOfDefined$ is the dynamic Defined-set spelling of
 			// the has-all-activated-abilities grant. Resolve it while the
 			// Effect's captured context is still available; unlike the printed
@@ -671,7 +671,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 				// MayPlayWithoutManaCost$ True rider carried as the MayPlayFree
 				// field rules' grant walk reads for the free half. mayPlayEffectFreeParams
 				// keeps this path honest the same way -- the printed route's
-				// MayPlayFreeStaticParams plus the ValidAfterStack$ qualifier
+				// free-play params plus the ValidAfterStack$ qualifier
 				// (Nahiri's STPlay2: free Equipment casts gated on
 				// Spell.Equipment): a rider this build does not read fails
 				// closed here too. The lifetime fields are exactly the plain
@@ -845,7 +845,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 					Text: "continuous effect " + mode + " unimplemented (" + what + ")"})
 				registered = true
 			}
-		case "CantTarget", "CantRegenerate", "CantPreventDamage", "CantAttack", "CantSacrifice", "CantExile", "CantPutCounter", "CantBlockBy", "CanAttackDefender", "UnspentMana", "CantBlockUnless", "CantAttackUnless", "MustBlock", "NumLoyaltyAct", "CantGainLife", "CastWithFlash":
+		case cards.StaticCantTarget, cards.StaticCantRegenerate, cards.StaticCantPreventDamage, cards.StaticCantAttack, cards.StaticCantSacrifice, cards.StaticCantExile, cards.StaticCantPutCounter, cards.StaticCantBlockBy, cards.StaticCanAttackDefender, cards.StaticUnspentMana, cards.StaticCantBlockUnless, cards.StaticCantAttackUnless, cards.StaticMustBlock, cards.StaticNumLoyaltyAct, cards.StaticCantGainLife, cards.StaticCastWithFlash:
 			// A COMPOUND IsRemembered spec (Card.IsRemembered+Creature) resolves
 			// faithfully through the general filter now that it implements
 			// IsRemembered (rules/layers.go restrictionApplies consults the
@@ -1059,7 +1059,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 			}
 			effectContinuous(h, ce)
 			registered = true
-		case "CombatDamageToughness":
+		case cards.StaticCombatDamageToughness:
 			// This assignment static is consumed by rules' existing combat
 			// assignment collector. Keep its body parameters and SVar table on
 			// the registration so the ordinary static applicability gates run
@@ -1080,7 +1080,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 			}
 			effectContinuous(h, ce)
 			registered = true
-		case "ReduceCost", "RaiseCost", "SetCost", "AlternativeCost", "ManaConvert":
+		case cards.StaticReduceCost, cards.StaticRaiseCost, cards.StaticSetCost, cards.StaticAlternativeCost, cards.StaticManaConvert:
 			// An Effect-delivered cost-modifier or ManaConvert static (task
 			// param:api:Effect.ForgetOnCast; Marshland Bloodcaster's "Rather
 			// than pay the mana cost of the next spell you cast this turn, you
@@ -1144,7 +1144,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 			}
 			effectContinuous(h, ce)
 			registered = true
-		case "MustAttack":
+		case cards.StaticMustAttack:
 			// An Effect-delivered per-player attack REQUIREMENT (Forge's
 			// MustAttack$ "that creature attacks that player this combat if
 			// able"): Territory Hellkite's DBPump, and the four plain-
@@ -1226,3 +1226,12 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 	// while leaving the source's printed statics alone.
 	c.EffectFrame = EffectFrame{Source: c.Source}
 }
+
+const (
+	effEffect7bd1Targeted uint16 = 1 // "Targeted", "True"
+)
+
+var effEffect7bd1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Targeted", Val: effEffect7bd1Targeted},
+	state.StrEntry[uint16]{Key: "True", Val: effEffect7bd1Targeted},
+)

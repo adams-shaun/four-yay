@@ -397,10 +397,10 @@ func (e *Engine) paymentPlanCensusTotal(p state.PlayerID) int32 {
 func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *cards.Face, o decision.Option) (Cost, bool) {
 	cost := e.rawBaseCost(p, id)
 	mode := o.Mode
-	switch mode {
-	case "":
+	switch potentialModeBaseCostdcf1Codes.Code(string(mode)) {
+	case potentialModeBaseCostdcf1Empty:
 		return withSpellAbilityExtras(f, cost), true
-	case "mayplay":
+	case potentialModeBaseCostdcf1Mayplay:
 		// A may-play grant (an impulse draw's exile): the printed cost, or
 		// none, plus the grant's own raise -- the same read beginCast makes.
 		free, raise, hasRaise, priced := e.mayPlayPermFreeRaise(p, id, o.MayPlayPerm)
@@ -414,29 +414,29 @@ func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *card
 			cost = cost.Plus(raise)
 		}
 		return withSpellAbilityExtras(f, cost), true
-	case "plot":
+	case potentialModeBaseCostdcf1Plot:
 		// The plot special action pays the K:Plot parameter.
 		raw, ok := f.KeywordParam("Plot")
 		if !ok {
 			return Cost{}, false
 		}
 		return ParseCost(raw), true
-	case "flashback":
+	case potentialModeBaseCostdcf1Flashback:
 		return withSpellAbilityExtras(f, e.flashbackCostFor(id, o)), true
-	case "bestowed":
+	case potentialModeBaseCostdcf1Bestowed:
 		return bestowCost(f)
-	case "kicked":
+	case potentialModeBaseCostdcf1Kicked:
 		kc, ok := kickerCost(f)
 		return cost.Plus(kc), ok
-	case "buyback":
+	case potentialModeBaseCostdcf1Buyback:
 		bc, ok := buybackCost(f)
 		return cost.Plus(bc), ok
-	case "entwined":
+	case potentialModeBaseCostdcf1Entwined:
 		ec, ok := entwineCost(f)
 		return cost.Plus(ec), ok
-	case "surged":
+	case potentialModeBaseCostdcf1Surged:
 		return surgeCost(f)
-	case "evoked", "dashed", "overloaded", "warped", "madness", "miracle":
+	case potentialModeBaseCostdcf1Evoked:
 		head := map[string]string{"evoked": "Evoke", "dashed": "Dash", "overloaded": "Overload", "warped": "Warp",
 			"madness": "Madness", "miracle": "Miracle"}[mode]
 		mc, ok := f.KeywordParam(head)
@@ -1029,3 +1029,34 @@ func (e *Engine) paymentPlanRelaxedAlternatives(p state.PlayerID, id state.ObjID
 	rec(0, amt)
 	return out, fee, true
 }
+
+const (
+	potentialModeBaseCostdcf1Empty     uint16 = 1  // ""
+	potentialModeBaseCostdcf1Mayplay   uint16 = 2  // "mayplay"
+	potentialModeBaseCostdcf1Plot      uint16 = 3  // "plot"
+	potentialModeBaseCostdcf1Flashback uint16 = 4  // "flashback"
+	potentialModeBaseCostdcf1Bestowed  uint16 = 5  // "bestowed"
+	potentialModeBaseCostdcf1Kicked    uint16 = 6  // "kicked"
+	potentialModeBaseCostdcf1Buyback   uint16 = 7  // "buyback"
+	potentialModeBaseCostdcf1Entwined  uint16 = 8  // "entwined"
+	potentialModeBaseCostdcf1Surged    uint16 = 9  // "surged"
+	potentialModeBaseCostdcf1Evoked    uint16 = 10 // "evoked", "dashed", "overloaded", "warped", "madness", "miracle"
+)
+
+var potentialModeBaseCostdcf1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: potentialModeBaseCostdcf1Empty},
+	state.StrEntry[uint16]{Key: "mayplay", Val: potentialModeBaseCostdcf1Mayplay},
+	state.StrEntry[uint16]{Key: "plot", Val: potentialModeBaseCostdcf1Plot},
+	state.StrEntry[uint16]{Key: "flashback", Val: potentialModeBaseCostdcf1Flashback},
+	state.StrEntry[uint16]{Key: "bestowed", Val: potentialModeBaseCostdcf1Bestowed},
+	state.StrEntry[uint16]{Key: "kicked", Val: potentialModeBaseCostdcf1Kicked},
+	state.StrEntry[uint16]{Key: "buyback", Val: potentialModeBaseCostdcf1Buyback},
+	state.StrEntry[uint16]{Key: "entwined", Val: potentialModeBaseCostdcf1Entwined},
+	state.StrEntry[uint16]{Key: "surged", Val: potentialModeBaseCostdcf1Surged},
+	state.StrEntry[uint16]{Key: "evoked", Val: potentialModeBaseCostdcf1Evoked},
+	state.StrEntry[uint16]{Key: "dashed", Val: potentialModeBaseCostdcf1Evoked},
+	state.StrEntry[uint16]{Key: "overloaded", Val: potentialModeBaseCostdcf1Evoked},
+	state.StrEntry[uint16]{Key: "warped", Val: potentialModeBaseCostdcf1Evoked},
+	state.StrEntry[uint16]{Key: "madness", Val: potentialModeBaseCostdcf1Evoked},
+	state.StrEntry[uint16]{Key: "miracle", Val: potentialModeBaseCostdcf1Evoked},
+)

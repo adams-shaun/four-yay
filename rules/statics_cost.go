@@ -6,6 +6,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/rules/chars"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -45,9 +46,8 @@ func specialActionScope(mode string) costScope { return costScope{kind: "Static"
 // constraint shares with the cast flow's own faceDown mark (beginCast sets
 // pendingCast.faceDown for exactly these modes).
 func modeIsCastFaceDown(mode string) bool {
-	switch mode {
-	case "morphed", "megamorphed", "disguised":
-		return true
+	if v, ok := modeIsCastFaceDownTab1.Get(mode); ok {
+		return v
 	}
 	return false
 }
@@ -305,12 +305,12 @@ func (m costMods) feasibleAny(c Cost, pool, snow state.Mana, typed [7]state.Mana
 		for _, alt := range announcePip(c, 0) {
 			r := c
 			switch {
-			case alt.color != 0:
-				r.Colored[state.ManaIndex(alt.color)]++
-			case alt.generic > 0:
-				r.Generic = addClampedGeneric(r.Generic, int64(alt.generic))
-			case alt.life > 0:
-				r.Life = addClampedGeneric(r.Life, int64(alt.life))
+			case alt.Color != 0:
+				r.Colored[state.ManaIndex(alt.Color)]++
+			case alt.Generic > 0:
+				r.Generic = addClampedGeneric(r.Generic, int64(alt.Generic))
+			case alt.Life > 0:
+				r.Life = addClampedGeneric(r.Life, int64(alt.Life))
 			}
 			if walk(r.DropAnnouncePrefix(1)) {
 				return true
@@ -323,7 +323,7 @@ func (m costMods) feasibleAny(c Cost, pool, snow state.Mana, typed [7]state.Mana
 
 // manaFeasibleGrant is manaFeasible with the may-play ignore-colour rider
 // passed explicitly (a pendingCast's pc.mayPlayIgnore, or the offer-side
-// payerGrantsIgnoreColor derivation), and the payer's PayLifeInsteadOf:B
+// MayPlayRider derivation), and the payer's PayLifeInsteadOf:B
 // grant derived here. Both widen the leaf payable check the same way the
 // payment (resolveManaWith) widens it, so an offered cast, an offered
 // announcement face and the charged total can never disagree on a
@@ -335,9 +335,9 @@ func (m costMods) feasibleAny(c Cost, pool, snow state.Mana, typed [7]state.Mana
 // where the offer and the payment both admit it.
 func (e *Engine) manaFeasibleDescriptor(p state.PlayerID, d paymentDescriptor, c Cost, mods costMods, taxGeneric, delve int32, rider pipRider) bool {
 	pl := e.G.Players[p]
-	av := e.manaAvailableFor(p, d)
-	return mods.feasibleAny(c, av.pool, pl.Snow, av.typed, pl.Life, taxGeneric, delve,
-		e.payerGrantsPayLifeInsteadOfB(p), rider, e.paymentConv(p, d.id, d.class == paymentActivated))
+	av := pay.AvailableFor(asPayer(e), p, d)
+	return mods.feasibleAny(c, av.Pool, pl.Snow, av.Typed, pl.Life, taxGeneric, delve,
+		asPayer(e).PayLifeInsteadOfB(p), rider, asPayer(e).Conv(p, d.ID, d.Class == paymentActivated))
 }
 
 // manaFeasiblePool is manaFeasible priced against an EXPLICIT pool instead of
@@ -365,9 +365,9 @@ func (e *Engine) manaFeasiblePoolP(p state.PlayerID, id state.ObjID, ability boo
 	}
 	pl := &e.G.Players[p]
 	return mods.feasibleAny(*c, pool, pl.Snow, typed, pl.Life, taxGeneric, delve,
-		e.payerGrantsPayLifeInsteadOfB(p),
-		pipRider{anyColor: e.payerGrantsIgnoreColor(p, id), anyType: e.payerGrantsIgnoreType(p, id)},
-		e.paymentConv(p, id, ability))
+		asPayer(e).PayLifeInsteadOfB(p),
+		asPayer(e).MayPlayRider(p, id),
+		asPayer(e).Conv(p, id, ability))
 }
 
 // manaFeasiblePriced is manaFeasible's priced-mode entry: hyp nil keeps the
@@ -394,8 +394,8 @@ func (e *Engine) manaFeasiblePricedP(p state.PlayerID, id state.ObjID, ability b
 	case len(pl.RestrictedMana) == 0:
 		pool, typed = pl.Pool, pl.ManaUnits()
 	default:
-		av := e.manaAvailableFor(p, paymentFor(id, ability, *c))
-		pool, typed = av.pool, av.typed
+		av := pay.AvailableFor(asPayer(e), p, paymentFor(id, ability, *c))
+		pool, typed = av.Pool, av.Typed
 	}
 	return e.manaFeasiblePoolP(p, id, ability, c, mods, taxGeneric, delve, pool, typed)
 }
@@ -442,3 +442,9 @@ func composedPoolFloor(m *costMods, c *Cost, taxGeneric, delve int32) int64 {
 	}
 	return n
 }
+
+var modeIsCastFaceDownTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "morphed", Val: true},
+	state.StrEntry[bool]{Key: "megamorphed", Val: true},
+	state.StrEntry[bool]{Key: "disguised", Val: true},
+)

@@ -22,36 +22,13 @@ func SetSVars(c *Ctx, sv map[string]string) {
 	c.SVars = copied
 }
 
-// SVarBinding is one resolution-scoped SVar publication (Ctx.PublishedSVars).
-type SVarBinding struct {
-	Name, Value string
-}
-
-// publishSVar binds name to value in the resolution's SVar table and records
-// the publication, so a resume across a later ask re-binds it.
+// publishSVar binds name to value in the resolution's SVar table, for a
+// chained SubAbility$ to read (DealDamage's ExcessSVar$).
 func publishSVar(c *Ctx, name, value string) {
 	if c.SVars == nil {
 		c.SVars = make(map[string]string, 1)
 	}
 	c.SVars[name] = value
-	c.PublishedSVars = append(c.PublishedSVars, SVarBinding{Name: name, Value: value})
-}
-
-// PublishedSVarsOf is a copy of c's published SVar bindings (nil for a nil
-// Ctx or none published): what a suspended resolution's resume point keeps.
-func PublishedSVarsOf(c *Ctx) []SVarBinding {
-	if c == nil || len(c.PublishedSVars) == 0 {
-		return nil
-	}
-	return append([]SVarBinding(nil), c.PublishedSVars...)
-}
-
-// RebindPublishedSVars re-applies a resume point's published SVar bindings,
-// in publication order, over a rebuilt Ctx's SVar table (SetSVars first).
-func RebindPublishedSVars(c *Ctx, bs []SVarBinding) {
-	for _, b := range bs {
-		publishSVar(c, b.Name, b.Value)
-	}
 }
 
 // stripCastSourceAggregate peels the COUNT-level trailing `$<Property>`
@@ -131,14 +108,14 @@ func aggregateCastProperty(h Host, ids []state.ObjID, prop string) (int32, bool)
 	g := h.Game()
 	var n int32
 	for _, id := range ids {
-		switch prop {
-		case "CardManaCost":
+		switch aggregateCastProperty3fd1Codes.Code(string(prop)) {
+		case aggregateCastProperty3fd1CardManaCost:
 			if o := g.Obj(id); o != nil && o.Face() != nil {
 				n += o.Face().Cmc()
 			}
-		case "CardPower":
+		case aggregateCastProperty3fd1CardPower:
 			n += h.Power(id)
-		case "CardToughness":
+		case aggregateCastProperty3fd1CardToughness:
 			n += h.Toughness(id)
 		default:
 			return 0, false
@@ -213,3 +190,15 @@ func partySize(g *state.Game, c *Ctx) int32 {
 	}
 	return int32(best)
 }
+
+const (
+	aggregateCastProperty3fd1CardManaCost  uint16 = 1 // "CardManaCost"
+	aggregateCastProperty3fd1CardPower     uint16 = 2 // "CardPower"
+	aggregateCastProperty3fd1CardToughness uint16 = 3 // "CardToughness"
+)
+
+var aggregateCastProperty3fd1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "CardManaCost", Val: aggregateCastProperty3fd1CardManaCost},
+	state.StrEntry[uint16]{Key: "CardPower", Val: aggregateCastProperty3fd1CardPower},
+	state.StrEntry[uint16]{Key: "CardToughness", Val: aggregateCastProperty3fd1CardToughness},
+)

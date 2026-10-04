@@ -231,17 +231,7 @@ func modeTrigKinds(mode string) trigKinds {
 //
 // A mode not listed keeps every high kind (the fail-open reading).
 func modeRejectsHighKinds(mode string) bool {
-	switch mode {
-	case "ChangesZone", "ChangesZoneAll", "SpellCast", "SpellCastOrCopy", "SpellCopy",
-		"Attacks", "AttackersDeclared", "AttackersDeclaredOneTarget", "Untaps", "Taps", "TapsForMana",
-		"Sacrificed", "Discarded", "DiscardedAll", "Milled", "MilledAll", "LandPlayed", "Explores",
-		"BecomeMonarch", "CommitCrime", "BecomesTarget", "BecomesTargetOnce", "Attached", "Exerted",
-		"DamageDone", "DamageDealtOnce", "DamageDoneOnce", "DamageAll",
-		"CounterAdded", "CounterAddedOnce", "ClassLevelGained", "Transformed",
-		"TokenCreated", "TokenCreatedOnce", "Drawn", "LifeLost", "LifeGained", "Phase":
-		return true
-	}
-	return false
+	return modeRejectsHighKindsTab[cards.TriggerModeOf(mode)]
 }
 
 // computeFaceTrigSigs is a face's exact signature, the union of its lines'
@@ -468,4 +458,45 @@ func (e *Engine) lookBackNoopBoard() bool {
 		}
 	}
 	return true
+}
+
+var modeRejectsHighKindsTab = [cards.TriggerModeCount]bool{
+	cards.TriggerChangesZone:                true,
+	cards.TriggerChangesZoneAll:             true,
+	cards.TriggerSpellCast:                  true,
+	cards.TriggerSpellCastOrCopy:            true,
+	cards.TriggerSpellCopy:                  true,
+	cards.TriggerAttacks:                    true,
+	cards.TriggerAttackersDeclared:          true,
+	cards.TriggerAttackersDeclaredOneTarget: true,
+	cards.TriggerUntaps:                     true,
+	cards.TriggerTaps:                       true,
+	cards.TriggerTapsForMana:                true,
+	cards.TriggerSacrificed:                 true,
+	cards.TriggerDiscarded:                  true,
+	cards.TriggerDiscardedAll:               true,
+	cards.TriggerMilled:                     true,
+	cards.TriggerMilledAll:                  true,
+	cards.TriggerLandPlayed:                 true,
+	cards.TriggerExplores:                   true,
+	cards.TriggerBecomeMonarch:              true,
+	cards.TriggerCommitCrime:                true,
+	cards.TriggerBecomesTarget:              true,
+	cards.TriggerBecomesTargetOnce:          true,
+	cards.TriggerAttached:                   true,
+	cards.TriggerExerted:                    true,
+	cards.TriggerDamageDone:                 true,
+	cards.TriggerDamageDealtOnce:            true,
+	cards.TriggerDamageDoneOnce:             true,
+	cards.TriggerDamageAll:                  true,
+	cards.TriggerCounterAdded:               true,
+	cards.TriggerCounterAddedOnce:           true,
+	cards.TriggerClassLevelGained:           true,
+	cards.TriggerTransformed:                true,
+	cards.TriggerTokenCreated:               true,
+	cards.TriggerTokenCreatedOnce:           true,
+	cards.TriggerDrawn:                      true,
+	cards.TriggerLifeLost:                   true,
+	cards.TriggerLifeGained:                 true,
+	cards.TriggerPhase:                      true,
 }

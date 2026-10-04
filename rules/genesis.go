@@ -41,10 +41,6 @@ type Spare struct {
 	evFrom            *events.Event
 	evN               int
 	evDirty, objDirty int
-	// The Derived memo tables (derivedmemo.go): an ObjID index grown to the
-	// arena's size plus the slots; cleared by Release, which is exactly the
-	// zeroed never-written state derivedMemoTable.slot's growth relies on.
-	memo, memoStack derivedMemoTable
 	// The livelock watcher's signature and event windows (livelock.go):
 	// filled from empty by every engine, so a recycled pair saves their
 	// regrowth; the watcher reads only their length.
@@ -70,46 +66,23 @@ type Spare struct {
 	// preview is the spent engine's zeroed entry-preview struct
 	// (entry_counters.go), reused by the next engine.
 	preview *Engine
-	// legalOpts / manaAb are the offer walk's cleared scratch lists
-	// (legalOptBuf, manaAbBuf), so the next engine's first walks append
-	// into grown arrays instead of regrowing them from nil.
-	legalOpts []decision.Option
-	manaAb    []*cards.SA
 	// hyp is the spent engine's hypothetical-clone and read scratch pool
 	// (hypclone.go), adopted by the next engine.
 	hyp *hypSparePool
-	// static is a spent engine's cleared staticEffects memo storage, which
-	// the next clone copies its parent's memo into (clone.go).
-	static []ContinuousEffect
-	// gates is the static memo's cleared gate-record storage
-	// (static_gatememo.go), copied into by the next clone like static.
-	gates []staticGateRec
-	// probe is a spent engine's layer-4 statics probe cells
-	// (Engine.typesProbe), copied into by the next clone.
-	probe []uint8
-	// The emit path's per-engine working storage, recycled cleared: the
-	// trigger and replacement zone summaries (every summary invalid, its id
-	// lists emptied), active()'s two list arrays and the pending-trigger
-	// queue's array. Each is overwritten before it is read.
-	trigZones               []trigZoneSummary
-	replZones               []replZoneSummary
-	activeBuf, activeBufAlt []ContinuousEffect
-	activeSrc               []*ContinuousEffect
-	pending                 []pendingTrigger
-	// lossMemo is the spent engine's ability-loss memo storage
-	// (abilityloss_memo.go), recycled so no stale entry can match.
-	lossMemo abilityLossMemo
 	// walkCls is a spent engine's object-class array (walk_objclass.go),
 	// copied into by the next clone.
 	walkCls []walkObjClass
-	// cast is the spent engine's recycled pendingCast storage
-	// (cast_pool.go), zeroed, adopted as the next engine's castFree.
-	cast *pendingCast
 	// tapeCkpt is the spent engine's recycled resolution-kernel checkpoint
 	// storage (engineResolveKernel.tapeSpare: a dropped S0's Spare), adopted
 	// by the next clone so a search's per-simulation checkpoints recycle
 	// too. nil unless the kernel dropped a checkpoint.
 	tapeCkpt *Spare
+	// The Engine fields tagged `pool=` (clone_gen.go): the Derived memo
+	// tables, the offer walk's scratch lists, the static memo and probe
+	// storage, the emit path's zone summaries, list arrays and trigger
+	// queue, the ability-loss memo and the pendingCast storage. Each is
+	// cleared (or emptied) by Release and overwritten before it is read.
+	sparePools
 }
 
 // Release returns e's log and object-arena arrays as a Spare for the next
@@ -147,8 +120,6 @@ func (e *Engine) Release() Spare {
 		objs:       e.G.Objs[:cap(e.G.Objs)],
 		intents:    ints,
 		objDirty:   len(e.G.Objs),
-		memo:       e.derivedMemo.release(),
-		memoStack:  e.derivedMemoStack.release(),
 		loopSigs:   e.loop.sigs[:0],
 		loopRecent: e.loop.recent[:cap(e.loop.recent)],
 		loopPrev:   e.loop.prevPos[:0],
@@ -158,43 +129,14 @@ func (e *Engine) Release() Spare {
 	}
 	sp.arena = e.releaseArena()
 	sp.hyp = e.releaseHypPool()
-	// The walk scratch lists are cleared at the end of every walk (legal.go,
+	// Every `pool=` field (clone_gen.go); the walk scratch lists among them
+	// are cleared at the end of every walk (legal.go,
 	// legal_walk_battlefield.go), so they hold no reference to recycle away.
-	sp.legalOpts, sp.manaAb = e.legalOptBuf[:0], e.manaAbBuf[:0]
-	e.legalOptBuf, e.manaAbBuf = nil, nil
+	releasePools(e, &sp)
 	if e.walkClsOwner == e {
 		sp.walkCls = e.walkObjCls[:0]
 	}
 	e.walkObjCls, e.walkClsOwner = nil, nil
-	// The static memo's outer storage is always this engine's own (a build
-	// writes into it, and a clone copies into its own), so it is recycled
-	// cleared: the nested slices it held are never reached again.
-	sp.static = e.staticContinuous[:cap(e.staticContinuous)]
-	clear(sp.static)
-	sp.static = sp.static[:0]
-	e.staticContinuous = nil
-	sp.gates = e.staticGates[:cap(e.staticGates)]
-	clear(sp.gates)
-	sp.gates, e.staticGates, e.staticGatesKnown = sp.gates[:0], nil, false
-	sp.probe, e.typesProbe, e.typesProbeReady = e.typesProbe[:0], nil, false
-	for i := range e.trigZones {
-		z := &e.trigZones[i]
-		z.resetSummary()
-	}
-	for i := range e.replZones {
-		z := &e.replZones[i]
-		*z = replZoneSummary{ids: z.ids[:0], hotIDs: z.hotIDs[:0]}
-	}
-	sp.trigZones, sp.replZones, e.trigZones, e.replZones = e.trigZones[:0], e.replZones[:0], nil, nil
-	sp.activeBuf, sp.activeBufAlt = clearedEffects(e.activeBuf), clearedEffects(e.activeBufAlt)
-	e.activeBuf, e.activeBufAlt = nil, nil
-	sp.activeSrc, e.activeSrc = e.activeSrc[:0], nil
-	sp.lossMemo, e.lossMemo = e.lossMemo.recycled(), abilityLossMemo{}
-	sp.pending = e.pendingTriggers[:cap(e.pendingTriggers)]
-	clear(sp.pending)
-	sp.pending, e.pendingTriggers = sp.pending[:0], nil
-	e.recycleCast()
-	sp.cast, e.castFree, e.castIssued = e.castFree, nil, nil
 	if e.lookBackOwner == e && !e.lookBackBusy {
 		sp.lookBack = e.lookBack
 	}
@@ -214,7 +156,7 @@ func (e *Engine) Release() Spare {
 	}
 	clear(sp.intents)
 	e.L.Events, e.G.Objs, e.L.Intents = nil, nil, nil
-	e.derivedMemo, e.derivedMemoStack, e.intentBuf = derivedMemoTable{}, derivedMemoTable{}, nil
+	e.intentBuf = nil
 	if e.tapeSpare.objs != nil {
 		ts := e.tapeSpare
 		sp.tapeCkpt = &ts
@@ -231,14 +173,6 @@ func (sp *Spare) clearDirty() {
 	clear(sp.events[:sp.evDirty])
 	clear(sp.objs[:sp.objDirty])
 	sp.evFrom, sp.evN, sp.evDirty, sp.objDirty = nil, 0, 0, 0
-}
-
-// clearedEffects zeroes a spent effect array to its capacity (so it pins
-// none of the effects' slices and maps) and returns it empty.
-func clearedEffects(b []ContinuousEffect) []ContinuousEffect {
-	b = b[:cap(b)]
-	clear(b)
-	return b[:0]
 }
 
 // objectHeadroom is the extra Objs capacity newWithRNG reserves beyond the

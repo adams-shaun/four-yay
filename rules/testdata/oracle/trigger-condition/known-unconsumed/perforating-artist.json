@@ -1,0 +1,6 @@
+{
+  "card": "Perforating Artist",
+  "rows": {
+    "opponent-discards-a-card-instead": "step 2 (resolve): [{\"kind\":\"any\",\"pick\":[\"p1:Lightning Bolt\"]}]"
+  }
+}

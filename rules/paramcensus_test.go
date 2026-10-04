@@ -70,11 +70,14 @@ package rules
 // plus one visit per SVar name.
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
@@ -194,7 +197,7 @@ var baseBuckets = map[string]bucket{
 	// as generic machinery), rp.sa the resume plan's SA, o.Ability the
 	// stack object's resolved SA, and d.ResumeSA the pending decision's
 	// resume SA (validateSearch's ShareLandType$ read — the same
-	// cards.SA the "search" resume arm re-enters). "body" is the same
+	// cards.SA the "search" ask names). "body" is the same
 	// resolved ReplaceWith$ body under its local name in the CreateToken
 	// replacement dispatcher (continueCreateTokenReplacements /
 	// applyTokenReplacementToPlan read its Type$/Amount$/TokenScript$).
@@ -1597,15 +1600,14 @@ var foreignAbilityReaders = map[string]bool{
 // targeting of any primitive. Their direct SA reads are REMOVED from the
 // generic rules union and attributed to exactly the named APIs, so the mana
 // path's `Amount$`/`Produced$` reads no longer mask e.g. api:Sacrifice's
-// genuinely unread `Amount$`, and the unless-pay resume's `UnlessCost$` read
+// genuinely unread `Amount$`, and an unless-pay `UnlessCost$` read
 // no longer masks api:Sacrifice's unread `UnlessCost$`. Each entry was
 // verified by reading its callers: every call site sits on a path only that
 // API reaches (the mana-ability offer/payment/resolution chain, the Charm
-// mode ask/resume pair, the modal-trigger placement ask, the unless-pay
-// resume arms effCounter/effCopySpellAbility suspend with). The rot guard
-// fails on a stale entry (renamed function, or one that no longer reads SA
-// params); a NEW api-specialised path must be added here or its reads
-// over-suppress every other API's real gaps.
+// mode ask, the modal-trigger placement ask, resumeResolution's surviving
+// body re-entry). The rot guard fails on a stale entry (renamed function, or
+// one that no longer reads SA params); a NEW api-specialised path must be
+// added here or its reads over-suppress every other API's real gaps.
 var apiSpecificRulesSA = map[string][]string{
 	// The mana-ability chain. Since W4 step 3 a mana ability's production
 	// parameters (Produced$, Amount$, RestrictValid$, the riders) are read
@@ -1645,29 +1647,21 @@ var apiSpecificRulesSA = map[string][]string{
 	// botpolicy A6): abilitySelfSkipTurns reads Defined$/NumTurns$ only on
 	// the api:SkipTurn links of an offered ability's Sub chain.
 	"abilitySelfSkipTurns": {"SkipTurn"},
-	// The unless-pay resume arm: only effCounter and effCopySpellAbility
-	// suspend with an UnlessCost$ ask, so resumeResolution's UnlessCost$
-	// read belongs to those two APIs alone. api:Play joins them for the
-	// same reason: the "play" resume arm is the only reader of that
-	// primitive's own riders (WithoutManaCost$/PlayCost$/ReplaceGraveyard$/
-	// ImprintPlayed$/ShowCards$ -- only an answered Play effect re-enters
-	// here), and left in the generic union none of them was ever
-	// attributable to api:Play, which kept WithoutManaCost listed unread on
-	// every repo-deck carrier even though the free-cast read (and its vaan
-	// end-to-end pin) predates this entry. The function-level granularity
-	// over-attributes resumeResolution's OTHER cases' reads to Play too;
-	// measured against the repo-deck Play carriers (Scarlet Witch,
-	// Spinerock Knoll, West Coast Expansion, Conduit of Worlds) none of
-	// them carries a param only another case reads, and Play's genuinely
-	// unread RememberPlayed$ stays unmasked (no case reads it).
+	// resumeResolution, the surviving body re-entry (effect_paid, optional,
+	// copy_targets). The attribution dates from when it also settled the
+	// now-removed unless-pay answer (effCounter/effCopySpellAbility's
+	// UnlessCost$) and the "play" answer (Play's own riders
+	// WithoutManaCost$/PlayCost$/ReplaceGraveyard$/ImprintPlayed$/
+	// ShowCards$). Left in the generic union, those reads were never
+	// attributable to api:Play. Play's genuinely unread RememberPlayed$
+	// stays unmasked (nothing here reads it).
 	"Engine.resumeResolution": {"Counter", "CopySpellAbility", "Play"},
 	// The ward payment path: only the Ward keyword's expanded trigger
-	// reaches these (resumeResolution dispatches on rp.sa.API == "Ward"),
-	// so their UnlessCost$ reads belong to api:Ward alone -- left in the
-	// generic union they would mask every other API's unread UnlessCost$
+	// reaches these, so their UnlessCost$ reads belong to api:Ward alone --
+	// left in the generic union they would mask every other API's unread UnlessCost$
 	// (measured: api:Tap on Blood Crypt/Hallowed Fountain; api:Sacrifice's
 	// UnlessCost$ read moved to the registered effSacrifice gate (vexdev),
-	// so the resume's generic read no longer masks any api:Sacrifice gap).
+	// so no generic read masks any api:Sacrifice gap).
 	"Engine.beginWardPayment":  {"Ward"},
 	"Engine.settleWardPayment": {"Ward"},
 	// The opening-hand pregame actions: applyOpeningEffect, its delayed-
@@ -2922,9 +2916,13 @@ func walkRepoDeckCensus(t *testing.T, d *derivedReads, drop map[string]map[strin
 // ---------------------------------------------------------------------------
 
 // knownUnsupportedParams is the PARAMETER ratchet (task
-// inbox-engine-ratchet-parameter-census), measured by
-// TestEveryRepoDeckParamsAreRead on its first run against the current repo
-// decks and seeded by hand, exactly like knownUnsupported. Label grammar:
+// inbox-engine-ratchet-parameter-census), checked in both directions by
+// TestEveryRepoDeckParamsAreRead exactly like knownUnsupported. It lives one
+// file per card, testdata/paramcensus/<slug>.json, {"card": "<Card>",
+// "labels": [...]} (spec 2026-10-03-rules-engine-lasagna-design.md W2): a
+// shared table made every ticket that retired a label conflict with every
+// other. Why a label left goes in the commit message, never a file. Label
+// grammar:
 //
 //	param:<Primitive>.<Key>  a key the card's script carries on a registered
 //	                         primitive whose implementation never reads it
@@ -2933,126 +2931,79 @@ func walkRepoDeckCensus(t *testing.T, d *derivedReads, drop map[string]map[strin
 //	                         generic mana for (e.g. cost:PayEnergy).
 //
 // Presentation/AI keys are never measured (ignoredParamKeys above, each with
-// its Forge citation; stat-mode-scoped ones through ignoredStatParams). The table is checked in both directions -- a newly
-// unread key is a regression; a stale entry means the key is now read and
-// must be deleted -- so it only ever shrinks, and only when a real read or a
-// real ParseCost model is added.
-var knownUnsupportedParams = map[string][]string{
-	// Arcane Denial's param:api:Draw.Upto entry was deleted when Upto$ read
-	// a real per-target "draw up to N" ask (task mordorparams1,
-	// effects/cardflow.go effDraw's upto branch, rules' draw_upto resume
-	// arm) — pinned by TestArcaneDenialSlowtripDrawsUpToTwo.
-	"Arcane Denial":    {"param:api:Counter.RememberTargets"},
-	"Avengers Quinjet": {"param:api:ChangeZone.ValidTgtsDesc"},
-	// Acclaimed Contender's param:api:Dig.RestRandomOrder entry was deleted
-	// when RestRandomOrder$ became a real read (task
-	// fdn-dig-rest-random-order): effDig shuffles the untaken remainder into
-	// the library bottom from the seeded generator and poses no ask.
-	// Adeline, Resplendent Cathar's param:api:RepeatEach.ChangeZoneTable entry
-	// was deleted when the parameter became read (task agent-20260922T090929Z-
-	// 07378594): effRepeatEach opens the zone batch the parameter asks for, so
-	// the census now sees it read.
-	// Captain Marvel, Apex Avenger's param:api:PutCounter.Placer label was
-	// deleted when the bare-Choices$ PutCounter pick read Placer$ (task
-	// vow1, effects/counters.go putCounterChoose) -- the static scan now
-	// sees the read in effPutCounter's closure; its TriggeredCounterMap$
-	// shape stays unread and labelled. The param:api:PutCounter.Optional
-	// label was deleted when the Optional$ True election read landed
-	// (effects/counters.go effPutCounter's put_optional ask) -- the may-put
-	// election is pinned end to end in rules/putcounter_optional_test.go.
-	"Captain Marvel, Apex Avenger": {"param:api:PutCounter.TriggeredCounterMap"},
-	"Conduit of Worlds":            {"param:api:Play.RememberPlayed"},
-	// Gift of Immortality's param:api:ChangeZone.ForgetOtherRemembered label
-	// (and the whole entry) was deleted when the ForgetOtherRemembered read
-	// landed (ticket agent-20260919T181318Z-316d7b2a): effChangeZone and
-	// effChangeZoneAll clear the prior remembered set before re-remembering
-	// (RememberChanged$), pinned end to end on the real corpus carrier The
-	// Mimeoplasm in rules/mimeoplasm_forget_test.go (its MimeoExile /
-	// MimeoChooseCopy chain) and at the bookkeeping choke points in
-	// effects/forget_remembered_test.go.
-	// Haakon, Stromgald Scourge's param:stat:Continuous.MayPlay.ValidAfterStack
-	// entry was deleted when mayPlayStatic began consuming ValidAfterStack$ as
-	// a derived spell filter (task mayplay-validafterstack).
-	"Heroic Return": {"param:api:ChangeZone.ValidTgtsDesc"},
-	// Heroic Sacrifice's param:api:PutCounter.EachFromSource entry was deleted
-	// when the CounterType$ EachFromSource copy-each-kind shape was read
-	// (task eachfromsource, effects/counters.go effPutCounter's dispatch) --
-	// the shape is pinned end to end on real corpus carriers in
-	// rules/eachfromsource_test.go (Resourceful Defense, The Ozolith, Denry
-	// Klin, Ambitious Augmenter, Zack Fair). Heroic Sacrifice's own carrier
-	// path (its delayed trigger, Mode$ ChangesZone) stays unimplemented and
-	// the card's OTHER labels above are untouched.
-	"Heroic Sacrifice":          {"param:api:Effect.ValidTgtsDesc", "param:api:PutCounter.ValidTgtsDesc", "param:api:ReplaceEffect.VarType"},
-	"Iron Man, Armored Avenger": {"param:api:PutCounter.ValidTgtsDesc"},
-	// (Love on the Battlefield's param:trig:AttackersDeclared.NoResolvingCheck
-	// row retired when the NoResolvingCheck$ read landed: the resolution-time
-	// CR 603.4 recheck skips a trigger carrying the param
-	// (rules/trigger_condition.go noResolvingCheck/triggerResolvingCheckHolds,
-	// consulted by resolveTop) -- pinned end to end on the real corpus
-	// carrier Ugin's Mastery in rules/no_resolving_check_test.go, with a
-	// no-param control proving the recheck stays live for everyone else.)
-	// (Mogis, God of Slaughter's param:stat:Continuous.RemoveType row retired
-	// when the layer-4 type-static emission read RemoveType$: the devotion
-	// gods' "isn't a creature" gate is pinned end to end on the real corpus
-	// carrier Purphoros in rules/remove_type_static_test.go.)
-	"Methods of the Mighty": {"param:api:Destroy.ValidTgtsDesc"},
-	// Opposition Agent's and Rakdos, the Muscle's MayPlayIgnoreColor$/
-	// MayPlayIgnoreType$ keys are consumed by effects/mayPlayParams; their
-	// former labels were analyzer attribution gaps, not unsupported params.
-	"Patriot, Shield Wielder": {"param:api:Pump.ValidTgtsDesc"},
-	// (Photon, Mighty Marvel's param:api:Mana.PersistentMana row retired when
-	// the PersistentMana$ read landed — the pm ManaAdd suffix, ManaClear's
-	// partial clear and the TurnChange expiry — pinned end to end on the real
-	// corpus carrier Rousing Refrain in rules/persistent_mana_test.go.)
-	"Rescue, Pepper Potts": {"param:api:ChangeZone.ValidTgtsDesc"},
-	// Scarlet Witch, Chaotic Avenger's param:api:Dig.WithMayLook entry was
-	// deleted when effDig's shared face-down marker learned to read
-	// WithMayLook$ (ticket agent-20260919T181318Z-631ddc68): the exiling
-	// effect's controller is recorded as the one player who may look at the
-	// face-down exiled card (effects/zone.go applyFaceDownMarker, the
-	// "exiled_with_face_down_maylook" MoveZone marker; view/cardViews redacts
-	// to that looker), pinned end to end on the real corpus Ixhel carrier in
-	// rules/dig_withmaylook_test.go. The Dig library-position and
-	// random-order variants are separate, already-listed gaps.
-	"Speed, Young Avenger": {"param:api:Effect.ValidTgtsDesc"},
-	// (Spinerock Knoll and West Coast Expansion's param:api:Play.Controller
-	// / param:api:Play.WithoutManaCost rows retired when the Play
-	// Controller$ read landed and the play resume arm's rider reads were
-	// attributed to api:Play — ticket agent-20260918T221252Z-d504b33b; the
-	// vaan_forget_played_test.go pair is the free-cast end-to-end pin.)
-	// Vesuva's IntoPlayTapped$ is read on the ETB replacement path.
-	"Sundering Eruption": {"param:stat:Continuous.AddHiddenKeyword"},
-	// West Coast Expansion's param:api:Play.Controller /
-	// param:api:Play.WithoutManaCost row retired with the same attribution
-	// fix (see the Spinerock Knoll note above).
-	"World Shaper": {"param:api:Mill.Optional"},
-	// Torment of Hailfire and Hag of Ceaseless Torment carry
-	// api:GenericChoice's FallbackAbility$/TempRemember$ on the per-player
-	// path; both are read now (effects/misc.go charmGenericPlayersRun
-	// gates the chooser binding on TempRemember$ Chooser and filters the
-	// Choices$ to those the chooser can pay, resolving FallbackAbility$
-	// when none can), pinned end to end on the FDN carrier Perforating
-	// Artist in rules/perforating_artist_test.go. Their entries left this
-	// table with the read.
-	//
-	// The pro-shaper player-submitted Commander import (2026-09-18): the
-	// parameter reads its cards expose that this build does not implement.
-	// Each label is the unimplemented parameter on a fully-registered
-	// primitive (the primitive ratchet above separately carries the four
-	// unregistered APIs/keywords the deck needs).
-	"Chord of Calling":      {"param:api:ChangeZone.AIXMax"},
-	"Earthbender Ascension": {"param:api:PutCounter.RememberAmount"},
-	"Glacial Chasm":         {"param:api:Sacrifice.ChangeNum"},
-	"Green Sun's Zenith":    {"param:api:ChangeZone.AIXMax"},
-	// The Science! (pip) Commander precon import (2026-09-26,
-	// internal/testutil/decks/science-pip.json). Its 90 distinct cards expose
-	// exactly one parameter gap, measured by the first ratchet run; the deck
-	// added no primitive gap (C.A.M.P.'s kw:Fortify was already implemented).
-	// Overencumbered's cost token Y is the {Y} Phyrexian-style generic payment
-	// ParseCost does not model. Expert-Level Safe's ChooseNumber
-	// Secretly/MatchedAbility/UnmatchedAbility shape is now read by the
-	// multi-chooser secret election, so its row was deleted (task els-secret).
-	"Overencumbered": {"cost:Y"},
+// its Forge citation; stat-mode-scoped ones through ignoredStatParams). A
+// newly unread key is a regression; a stale file means the key is now read
+// and must be deleted -- so the set only ever shrinks, and only when a real
+// read or a real ParseCost model is added. It needs no corpus, so
+// TestParamCensusFilesWellFormed holds the files to their shape anywhere.
+func knownUnsupportedParams(t *testing.T) map[string][]string {
+	t.Helper()
+	return loadPerCardLabels(t, filepath.Join("testdata", "paramcensus"))
+}
+
+// loadPerCardLabels reads a per-card ratchet directory: one
+// {"card": "<Card>", "labels": [...]} file per card, named cardFileSlug(card)
+// + ".json", with a non-empty sorted label list.
+func loadPerCardLabels(t *testing.T, dir string) map[string][]string {
+	t.Helper()
+	paths, err := filepath.Glob(filepath.Join(dir, "*.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := make(map[string][]string, len(paths))
+	for _, p := range paths {
+		raw, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		dec := json.NewDecoder(bytes.NewReader(raw))
+		dec.DisallowUnknownFields()
+		var f struct {
+			Card   string   `json:"card"`
+			Labels []string `json:"labels"`
+		}
+		if err := dec.Decode(&f); err != nil {
+			t.Fatalf("%s: want {\"card\": \"<Card>\", \"labels\": [...]}: %v", p, err)
+		}
+		if want := cardFileSlug(f.Card) + ".json"; f.Card == "" || filepath.Base(p) != want {
+			t.Errorf("%s: card %q belongs in %s", p, f.Card, want)
+			continue
+		}
+		if len(f.Labels) == 0 || !sort.StringsAreSorted(f.Labels) {
+			t.Errorf("%s: labels must be a non-empty sorted list, got %v", p, f.Labels)
+		}
+		out[f.Card] = f.Labels
+	}
+	return out
+}
+
+// cardFileSlug is a card's per-card ratchet file name (without extension):
+// lower case, apostrophes dropped, every other run of non-alphanumerics one
+// hyphen.
+func cardFileSlug(card string) string {
+	var b strings.Builder
+	hyphen := false
+	for _, r := range strings.ToLower(card) {
+		switch {
+		case r == '\'' || r == '’':
+		case r >= 'a' && r <= 'z' || r >= '0' && r <= '9':
+			if hyphen && b.Len() > 0 {
+				b.WriteByte('-')
+			}
+			hyphen = false
+			b.WriteRune(r)
+		default:
+			hyphen = true
+		}
+	}
+	return b.String()
+}
+
+// TestParamCensusFilesWellFormed holds testdata/paramcensus to its schema
+// without a corpus.
+func TestParamCensusFilesWellFormed(t *testing.T) {
+	t.Parallel()
+	knownUnsupportedParams(t)
 }
 
 // TestEveryRepoDeckParamsAreRead is the parameter ratchet: every card across
@@ -3062,6 +3013,7 @@ var knownUnsupportedParams = map[string][]string{
 func TestEveryRepoDeckParamsAreRead(t *testing.T) {
 	t.Parallel()
 	res, _ := measureParamCensus(t, nil)
+	knownUnsupportedParams := knownUnsupportedParams(t)
 	t.Logf("param census: %d of %d distinct repo-deck cards carry at least one unread param or unmodelled cost token; %d distinct param labels, %d distinct cost labels",
 		len(res.labels), distinctRepoDeckCards(t), len(res.paramLabels), len(res.costLabels))
 	for card, got := range res.labels {

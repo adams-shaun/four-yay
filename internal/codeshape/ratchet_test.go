@@ -20,17 +20,20 @@ const (
 	// effects/ spanning more than 300 lines.
 	// W4 step 3's ChangeZoneAll compiler shrank effChangeZoneAll: 54 -> 53.
 	// W1a generated Engine.cloneWith's field copies from the clone tags
-	// (rules/clone_gen.go): 53 -> 52.
-	maxFuncLinesOver300 = 52
+	// (rules/clone_gen.go): 53 -> 52. Re-measured at W1a pool/rekey/if tags: 48. W3 dead: 45.
+	maxFuncLinesOver300 = 45
 	// engineMethodCount is the number of non-test methods on rules.Engine.
 	// W5 E5 moved combat legality onto rules/combat's Board (2159 -> 2126)
 	// and W5 E3 the trigger matchers onto rules/trigmatch's: -> 2022. W5 E4
-	// moved the layer walk onto rules/chars: -> 2019.
-	engineMethodCount = 1973
+	// moved the layer walk onto rules/chars: -> 2019. W3 clean deleted the
+	// Suspend* no-ops: -> 1965. W5 E7 moved mana payment onto rules/pay:
+	// -> 1944. Slice 4 made the payer grants pay.Engine adapter methods: -> 1940. W3 dead deleted the resume-scratch setters: -> 1931.
+	engineMethodCount = 1931
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
-	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94.
-	hostMethodCount = 94
+	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94. W3 clean
+	// deleted the eight Suspend* no-ops: 94 -> 86.
+	hostMethodCount = 85
 	// hostDirectMethodCount is the number of methods effects.Host declares
 	// itself rather than takes from a role interface (W1d split it into
 	// roles; host_roles.go).
@@ -42,12 +45,15 @@ const (
 	// effects to an interface other than Host and its roles (inline
 	// `interface{...}` or a named optional interface). W1d replaced five
 	// per-table optional interfaces with layerTablesHost: 54 -> 45.
-	hostOptionalAssertions = 45
+	hostOptionalAssertions = 38
 	// ctxFieldCount is the number of named fields in effects.Ctx; embeds are
 	// ratcheted separately by ctxEmbedCount.
 	// W1d folded EffectiveNames, EffectiveTypes, StaticGoads and the embedded
-	// LayerTables into the one named Layers field: 293/2 -> 291/1.
-	ctxFieldCount = 121
+	// LayerTables into the one named Layers field: 293/2 -> 291/1. W3 clean
+	// grouped the LKI snapshot set, the replacement context, clone-as-enters,
+	// mana, kicker and the per-primitive cursors (effects/ctx_groups.go): 121 -> 73.
+	// W3 dead removed write-only/never-set fields: 73 -> 68.
+	ctxFieldCount = 68
 	ctxEmbedCount = 1
 	// resumePointFieldCount is the number of fields in rules' resumePoint.
 	resumePointFieldCount = 5
@@ -95,12 +101,19 @@ const (
 	// W4 tail: every remaining literal read in effects/ and rules/ went through
 	// the ParamKey accessors (state.ContinuousEffect.RestrictParam and kin for
 	// the continuous-effect maps); what is left is writes and rules/play_tape.go
-	// (left to its live branch): 549 -> 20.
-	stringParamReads = 20
+	// (left to its live branch): 549 -> 20. W4 cases: play_tape.go and
+	// resolution_modes.go reads moved to ParamStr (7 new keys): 20 -> 12 (what
+	// is left are writes).
+	stringParamReads = 12
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
-	// W4 step 3: Attach: 2886 -> 2883. RepeatEach: 2883 -> 2876.
-	stringCaseLiterals = 2876
+	// W4 step 3: Attach: 2886 -> 2883. RepeatEach: 2883 -> 2876. W4 cases:
+	// constant-returning switches and param whitelists became cards.StrTable /
+	// cards.NameSet (sorted dense slices, built once at init): 2876 -> 2046. Every
+	// other literal-case switch dispatches on a cards.StrCodes code (one lookup,
+	// integer switch, vocabulary in one table): 2046 -> 181. What is left is the
+	// case-whitelists the param census reads over a Params range.
+	stringCaseLiterals = 181
 	// ctxLiterals, specContextLiterals and triggerContextLiterals are the
 	// effects.Ctx / SpecContext / TriggerContext composite literals in rules/
 	// and effects/ non-test files outside codeshape.CtxConstructorFiles (W1c,
@@ -108,7 +121,7 @@ const (
 	// constructors landed.
 	ctxLiterals            = 0
 	specContextLiterals    = 0
-	triggerContextLiterals = 14
+	triggerContextLiterals = 13
 	// trigmatchBoardMethods is the method count of trigmatch.Board, the
 	// read-only view rules/trigmatch's matchers read the engine through (W5
 	// E3). It replaced 21 distinct *Engine methods, 15 Engine fields and
@@ -120,6 +133,10 @@ const (
 	// escape hatch (the whole engine as an effects.Host) for the one narrow
 	// EvalCount the matchers needed: 27 -> 27.
 	trigmatchBoardMethods = 27
+	// payEngineMethods is the method count of pay.Engine, the payment
+	// layer's whole view of the engine (W5 E7; the spec's target is under
+	// 20). Slice 2 moved mana payment behind it with 10.
+	payEngineMethods = 10
 	// changeZoneParamLeaks is the number of ChangeZone parameter reads
 	// outside its compiler, effects/changezone_params.go (W4 step 3, spec
 	// section 8): any read in ChangeZone's own resolution files, plus any
@@ -311,6 +328,10 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"new fact from an existing method (Chars carries every characteristic, Facts " +
 				"every per-emit trigger context value) or pass it precomputed, instead of " +
 				"adding a method."},
+		{"payEngineMethods", m.PayEngineMethods, payEngineMethods,
+			"pay.Engine is the payment layer's whole view of the engine (target under " +
+				"20); derive a new fact from an existing method or pass it precomputed, " +
+				"instead of adding a method."},
 		{"changeZoneParamLeaks", m.ChangeZoneParamLeaks, changeZoneParamLeaks,
 			"Read the parameter through effects.ChangeZoneOf's compiled ChangeZoneParams " +
 				"(add a field to compileChangeZone in effects/changezone_params.go) instead " +

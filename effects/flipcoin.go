@@ -89,8 +89,7 @@ func flipRememberKind(v string) (string, bool) {
 // flipRecord appends one flip to the resolution's flip memory (Ctx.FlipMemory,
 // allocated lazily) and publishes the per-flip Wins/Losses SVars plus the
 // cumulative RememberNumber$ tally. The memory is a shared pointer mutated in
-// place, so a Ctx copy (a RepeatEach iteration, a resume rebuild) and the
-// pointer rules' Ask captured onto a pending resume point all see the flip.
+// place, so a Ctx copy (a RepeatEach iteration) sees the flip.
 // player is the flipper and win the outcome (heads = win); rememberResult
 // controls the separate RememberResult$ result list, while rememberKind is the
 // normalised RememberNumber$ side (empty means no number was remembered).
@@ -99,11 +98,6 @@ func flipRecord(h Host, c *Ctx, player state.PlayerID, win, rememberResult bool,
 	if m == nil {
 		m = &FlipMemory{}
 		c.FlipMemory = m
-		// Re-publish through the optional seam so an ask later in this chain
-		// captures the allocated pointer onto its resume point.
-		if fh, ok := h.(flipMemoryHost); ok {
-			fh.SetResolutionFlipMemory(m)
-		}
 	}
 	if rememberResult {
 		m.Results = append(m.Results, FlipResult{Player: player, Heads: win})
@@ -137,8 +131,8 @@ func flipRecord(h Host, c *Ctx, player state.PlayerID, win, rememberResult bool,
 // order, not seat number order.
 func forEachPlayerFlippers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool) {
 	g := h.Game()
-	switch strings.ToLower(strings.TrimSpace(spec)) {
-	case "opponent", "opponents":
+	switch forEachPlayerFlippersc8c1Codes.Code(string(strings.ToLower(strings.TrimSpace(spec)))) {
+	case forEachPlayerFlippersc8c1Opponent:
 		var out []state.PlayerID
 		for _, p := range g.AliveFrom(c.Controller) {
 			if p != c.Controller {
@@ -146,7 +140,7 @@ func forEachPlayerFlippers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool)
 			}
 		}
 		return out, true
-	case "true", "player", "players", "all":
+	case forEachPlayerFlippersc8c1True:
 		return g.AliveFrom(c.Controller), true
 	}
 	ts, ok := knownDefinedTargets(h, c, spec)
@@ -207,9 +201,7 @@ func forEachPlayerFlippers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool)
 //   - FlipUntilYouLose$ True (5 corpus lines: Okaun, Zndrsplt, Toothy and
 //     Zndrsplt, Crazed Firecat, Mirror March): flip until the first tails,
 //     running the win branch per winning flip and the lose branch once on
-//     the losing flip. A win branch that suspends on an ask does NOT abandon
-//     the loop: the remaining cursor rides SuspendFlipRest and the host
-//     re-enters this primitive once the answered ask's chain completes.
+//     the losing flip.
 func abilityReferencesX(sa *cards.SA) bool {
 	for cur := sa; cur != nil; cur = cur.Sub {
 		for _, value := range cur.Params {
@@ -251,70 +243,44 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 
-	// Resume cursor (fx-style scoping): consumed and cleared here, so a
-	// nested FlipCoin poses its own loop.
-	rest := (*FlipRest)(nil)
-
+	// X for a coin-flip resolution: the per-flip outcome branches see the
+	// heads tally so far (reset here, one win each). A NoCall$ True branch
+	// ignores this running tally — its deferred call below sets X to the
+	// side's final total before it fires.
+	c.X = 0
 	var players []state.PlayerID
-	var playerIndex int
-	var iter int32
-	amount := int32(1)
-	if rest != nil {
-		players, playerIndex, iter = rest.Players, rest.PlayerIndex, rest.Iter
-		amount, untilLose = rest.Amount, rest.UntilLose
+	if spec := strings.TrimSpace(sa.ParamStr(cards.PKForEachPlayer)); forEach {
+		ps, ok := forEachPlayerFlippers(h, c, spec)
+		if !ok {
+			return // present but unresolvable: fail closed, nobody flips
+		}
+		players = ps
 	} else {
-		// X for a coin-flip resolution: the per-flip outcome branches see the
-		// heads tally so far (reset here, one win each). A NoCall$ True branch
-		// ignores this running tally — its deferred call below sets X to the
-		// side's final total before it fires.
-		c.X = 0
-		if spec := strings.TrimSpace(sa.ParamStr(cards.PKForEachPlayer)); forEach {
-			ps, ok := forEachPlayerFlippers(h, c, spec)
-			if !ok {
-				return // present but unresolvable: fail closed, nobody flips
+		flippers, named := flipperPlayers(h, c, sa)
+		if len(flippers) == 0 {
+			if named {
+				return
 			}
-			players = ps
-		} else {
-			flippers, named := flipperPlayers(h, c, sa)
-			if len(flippers) == 0 {
-				if named {
-					return
-				}
-				flippers = []state.Target{{Player: c.Controller, IsPlayer: true}}
-			}
-			for _, t := range flippers {
-				if t.IsPlayer {
-					players = append(players, t.Player)
-				}
+			flippers = []state.Target{{Player: c.Controller, IsPlayer: true}}
+		}
+		for _, t := range flippers {
+			if t.IsPlayer {
+				players = append(players, t.Player)
 			}
 		}
-		amount = Num(h, c, sa, "Amount", 1)
-		if amount < 1 {
-			amount = 1
-		}
+	}
+	amount := Num(h, c, sa, "Amount", 1)
+	if amount < 1 {
+		amount = 1
 	}
 
 	wins, losses := int32(0), int32(0)
 	noCall := strings.EqualFold(sa.ParamStr(cards.PKNoCall), "True")
-	// A NoCall$ deferred-outcome resume: every flip was already made, so the
-	// flip loop is skipped and the deferred calls continue at the cursor.
-	noCallSide, noCallNext := int8(0), int32(0)
-	if rest != nil && rest.NoCallSide != 0 {
-		noCallSide, noCallNext = rest.NoCallSide, rest.NoCallNext
-		wins, losses = rest.Wins, rest.Losses
-		c.X = wins // the flip loop's heads tally, as the suspended pass left it
-		playerIndex = len(players)
-	}
-	for pi := playerIndex; pi < len(players); pi++ {
-		p := players[pi]
+	for _, p := range players {
 		if int(p) < 0 || int(p) >= len(g.Players) || g.Players[p].Lost {
 			continue
 		}
-		start := int32(0)
-		if pi == playerIndex {
-			start = iter
-		}
-		for i := start; untilLose || i < amount; i++ {
+		for i := int32(0); untilLose || i < amount; i++ {
 			win := h.Rand(2) == 0
 			h.Emit(FlipCoinNote(c.Source, p, win))
 			flipRecord(h, c, p, win, rememberResult, rememberKind)
@@ -339,30 +305,6 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 			if !noCall && name != "" && c.SVars != nil {
 				Resolve(h, c, cards.ResolveSVar(c.SVars, name))
 				if h.Suspended() {
-					// Only a suspension with flips still owed needs a cursor. A
-					// losing flip of an until-lose loop ends it, and the last
-					// iteration of an Amount$ loop is the last; if no later
-					// flipper remains, there is nothing to resume and the host
-					// gets no frame (the pre-existing shape for a terminal
-					// suspension).
-					moreIter := (untilLose && win) || (!untilLose && i+1 < amount)
-					nextPlayer, nextIter := pi, i+1
-					if untilLose && !win {
-						// A losing until-lose flip finishes this player's loop. If
-						// its lose branch asked, resume at the NEXT ForEachPlayer$
-						// flipper, not at this player with Iter+1 (untilLose would
-						// otherwise ignore that bound and flip the loser again).
-						nextPlayer, nextIter = pi+1, 0
-					}
-					if moreIter || pi+1 < len(players) {
-						h.SuspendFlipRest(sa, FlipRest{
-							Players:     append([]state.PlayerID(nil), players...),
-							PlayerIndex: nextPlayer,
-							Iter:        nextIter,
-							Amount:      amount,
-							UntilLose:   untilLose,
-						})
-					}
 					return
 				}
 			}
@@ -375,17 +317,9 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 	// X-dependent branches need one call with the final tally (e.g. Ral
 	// Zarek's NumTurns$ X); branches independent of X are still per-outcome
 	// effects (e.g. Urza Academy Headmaster grants one extra turn per head).
-	// A call that suspends on an ask reports the deferred-call cursor
-	// (SuspendFlipRest with NoCallSide set) whenever calls remain on its
-	// side or the tails side is still owed, so the answered ask re-enters
-	// here and the remaining calls run (CR 608.2c) instead of the chain
-	// falling through to the FlipCoin's Sub.
+	// A call that opens a resolution-time window stops the deferred calls.
 	if noCall && c.SVars != nil {
-		if noCallSide == 0 {
-			noCallSide = NoCallWin
-		}
-		loseOwed := loseName != "" && losses > 0
-		resolveOutcome := func(side int8, name string, count, start int32) bool {
+		resolveOutcome := func(name string, count int32) bool {
 			if name == "" || count == 0 {
 				return false
 			}
@@ -398,36 +332,31 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 				calls = 1
 				c.X = count
 			}
-			for i := start; i < calls; i++ {
+			for i := int32(0); i < calls; i++ {
 				Resolve(h, c, branch)
 				if h.Suspended() {
-					// Owed: a later call on this side, else the whole tails
-					// side after the heads side. Nothing owed reports no frame
-					// (the plain continuation walks the FlipCoin's Sub).
-					owed, nextSide, next := i+1 < calls, side, i+1
-					if !owed && side == NoCallWin && loseOwed {
-						owed, nextSide, next = true, NoCallLose, 0
-					}
-					if owed {
-						h.SuspendFlipRest(sa, FlipRest{
-							Players: append([]state.PlayerID(nil), players...), PlayerIndex: len(players),
-							Amount: amount, UntilLose: untilLose,
-							NoCallSide: nextSide, NoCallNext: next, Wins: wins, Losses: losses,
-						})
-					}
 					return true
 				}
 			}
 			return false
 		}
-		if noCallSide == NoCallWin {
-			if resolveOutcome(NoCallWin, winName, wins, noCallNext) {
-				return
-			}
-			noCallNext = 0
-		}
-		if resolveOutcome(NoCallLose, loseName, losses, noCallNext) {
+		if resolveOutcome(winName, wins) {
 			return
 		}
+		resolveOutcome(loseName, losses)
 	}
 }
+
+const (
+	forEachPlayerFlippersc8c1Opponent uint16 = 1 // "opponent", "opponents"
+	forEachPlayerFlippersc8c1True     uint16 = 2 // "true", "player", "players", "all"
+)
+
+var forEachPlayerFlippersc8c1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "opponent", Val: forEachPlayerFlippersc8c1Opponent},
+	state.StrEntry[uint16]{Key: "opponents", Val: forEachPlayerFlippersc8c1Opponent},
+	state.StrEntry[uint16]{Key: "true", Val: forEachPlayerFlippersc8c1True},
+	state.StrEntry[uint16]{Key: "player", Val: forEachPlayerFlippersc8c1True},
+	state.StrEntry[uint16]{Key: "players", Val: forEachPlayerFlippersc8c1True},
+	state.StrEntry[uint16]{Key: "all", Val: forEachPlayerFlippersc8c1True},
+)

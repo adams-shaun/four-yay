@@ -141,13 +141,6 @@ func (e *Engine) ask(d *decision.Decision) {
 	if d.Kind == decision.KPriority {
 		e.recordDerivedMemoTail(d)
 	}
-	// pendingMintSink records the named mint collector (tokenMintSinkID) this
-	// pose runs under, so an as-enters election parked here from inside a
-	// resolving DB$ Token's mint emit carries that collector to its answer
-	// (rules/turn.go's election arms re-emit the parked entry under
-	// withMintSink with it). A pose outside any collector scope records 0 and
-	// the arms run unchanged.
-	e.pendingMintSink = e.tokenMintSinkID
 	e.emit(events.Event{Kind: events.DecisionAsk, Player: d.Player, Text: string(d.Kind)})
 	e.pending = d
 	e.potentialAskSerial++

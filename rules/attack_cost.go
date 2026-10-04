@@ -38,6 +38,7 @@ import (
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules/combat"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -96,7 +97,7 @@ func (e *Engine) attackUnlessCharge(sv staticView, attacker state.ObjID) (blockC
 		return blockCharge{mana: int32(n)}, true
 	}
 	ctx := effects.NewCtxPtr(sv.Source, sv.Controller, effects.CtxInit{SVars: sv.SVars,
-		ChosenNumber: sv.ChosenNumber, ChosenNumberBound: sv.chosenNumberBound})
+		Num: effects.NumberInputs{Chosen: sv.ChosenNumber, ChosenBound: sv.chosenNumberBound}})
 	// RememberingAttacker$ True makes the attacking creature the resolution's
 	// Remembered referent (Forge's CostRememberingAttacker convention), so an
 	// SVar body such as Nils's `Remembered$CardCounters.ALL` prices the charge
@@ -343,7 +344,7 @@ func (e *Engine) blockUnlessCharge(sv staticView) (blockCharge, bool) {
 		return blockCharge{}, false
 	}
 	ctx := effects.NewCtxPtr(sv.Source, sv.Controller, effects.CtxInit{SVars: sv.SVars,
-		ChosenNumber: sv.ChosenNumber, ChosenNumberBound: sv.chosenNumberBound})
+		Num: effects.NumberInputs{Chosen: sv.ChosenNumber, ChosenBound: sv.chosenNumberBound}})
 	if n, err := strconv.Atoi(raw); err == nil {
 		if n < 0 {
 			return blockCharge{}, false
@@ -573,10 +574,10 @@ func (e *Engine) chargeObjPlan(p state.PlayerID, c blockCharge, excluded map[sta
 		return nil, nil, nil, false
 	}
 	for i, ob := range obs {
-		switch ob.kind {
-		case "tap":
+		switch chargeObjPlan1691Codes.Code(string(ob.kind)) {
+		case chargeObjPlan1691Tap:
 			taps = append(taps, picks[i]...)
-		case "sacrifice":
+		case chargeObjPlan1691Sacrifice:
 			sacs = append(sacs, picks[i]...)
 		default:
 			returns = append(returns, picks[i]...)
@@ -691,7 +692,7 @@ func (e *Engine) manaSatisfied(pl *combatPayPlan) bool {
 		return true
 	}
 	_, ok := resolveManaWith(cost, player.Pool, player.Snow, player.ManaUnits(),
-		player.Life-pl.lifeExtra(), false, pipRider{}, e.paymentConv(pc, 0, false))
+		player.Life-pl.lifeExtra(), false, pipRider{}, asPayer(e).Conv(pc, 0, false))
 
 	return ok
 }
@@ -718,7 +719,7 @@ func (e *Engine) combatPhyBothBranches(p state.PlayerID, c blockCharge, manaExcl
 		return false, false, false
 	}
 	player := e.G.Players[p]
-	conv := e.paymentConv(p, 0, false)
+	conv := asPayer(e).Conv(p, 0, false)
 	exclude := make(map[state.ObjID]bool)
 	for _, set := range manaExcluded {
 		for id := range set {
@@ -805,7 +806,7 @@ func (e *Engine) combatChargeAffordable(p state.PlayerID, c blockCharge, exclude
 		exclude[id] = true
 	}
 	reachable := e.unlessManaReachable(p, mc, player.Pool, player.Snow, player.ManaUnits(),
-		life-c.life, e.paymentConv(p, 0, false), e.attackWindowUnits(p, exclude))
+		life-c.life, asPayer(e).Conv(p, 0, false), e.attackWindowUnits(p, exclude))
 	if !reachable || len(c.phyrexian) == 0 {
 		return reachable
 	}
@@ -868,7 +869,7 @@ func (e *Engine) combatPlanSettlesInline(plan *combatPayPlan) bool {
 func (e *Engine) payCombatChargeInline(plan *combatPayPlan) {
 	cost := plan.manaCost()
 	if cost.Generic > 0 || len(cost.Phyrexian) > 0 {
-		e.payManaConv(plan.player, cost, e.paymentConv(plan.player, 0, false))
+		pay.PayManaConv(asPayer(e), plan.player, cost, asPayer(e).Conv(plan.player, 0, false))
 	}
 	e.payCombatExtras(plan.player, plan.charge, plan.taps, plan.sacs, plan.returns, plan.lifeExtra())
 }
@@ -937,7 +938,7 @@ func (e *Engine) declineBlockDeclaration(player state.PlayerID) {
 func (e *Engine) completeBlockPay(chosen []decision.Option, plan *combatPayPlan) {
 	cost := plan.manaCost()
 	if cost.Generic > 0 || len(cost.Phyrexian) > 0 {
-		e.payManaConv(plan.player, cost, e.paymentConv(plan.player, 0, false))
+		pay.PayManaConv(asPayer(e), plan.player, cost, asPayer(e).Conv(plan.player, 0, false))
 	}
 	e.payCombatExtras(plan.player, plan.charge, plan.taps, plan.sacs, plan.returns, plan.lifeExtra())
 	chosenPairs := make([][2]state.ObjID, 0, len(chosen))
@@ -1008,11 +1009,11 @@ func (e *Engine) blockPayAnswer(d *decision.Decision, in decision.Intent) {
 	}
 	chosen := d.Chosen(in)
 	if len(chosen) == 1 {
-		switch chosen[0].Kind {
-		case "block_phy_colour":
+		switch blockPayAnswer1692Codes.Code(string(chosen[0].Kind)) {
+		case blockPayAnswer1692BlockPhyColour:
 			st.plan.phyDecided = true
 			st.plan.phyToLife = 0
-		case "block_phy_life":
+		case blockPayAnswer1692BlockPhyLife:
 			st.plan.phyDecided = true
 			st.plan.phyToLife = int32(len(st.plan.charge.phyrexian))
 		default:
@@ -1282,9 +1283,8 @@ func (e *Engine) attackChoiceManaSources(p state.PlayerID) []attackManaSource {
 // source's recorded as-enters colour before it can be priced.
 func producedNeedsChosen(produced string) bool {
 	for tok := range strings.FieldsSeq(produced) {
-		switch strings.Trim(tok, "{}") {
-		case "Chosen", "ChosenColor", "ComboChosen":
-			return true
+		if v, ok := producedNeedsChosenTab1.Get(strings.Trim(tok, "{}")); ok {
+			return v
 		}
 	}
 	return false
@@ -1799,7 +1799,7 @@ func chosenAttackers(chosen []decision.Option) map[state.ObjID]bool {
 func (e *Engine) completeAttackPay(chosen []decision.Option, plan *combatPayPlan) {
 	cost := plan.manaCost()
 	if cost.Generic > 0 || len(cost.Phyrexian) > 0 {
-		e.payManaConv(plan.player, cost, e.paymentConv(plan.player, 0, false))
+		pay.PayManaConv(asPayer(e), plan.player, cost, asPayer(e).Conv(plan.player, 0, false))
 	}
 	e.payCombatExtras(plan.player, plan.charge, plan.taps, plan.sacs, plan.returns, plan.lifeExtra())
 	if !e.startEnlistAsks(chosen, plan.player) {
@@ -1884,11 +1884,11 @@ func (e *Engine) attackPayAnswer(d *decision.Decision, in decision.Intent) {
 	}
 	chosen := d.Chosen(in)
 	if len(chosen) == 1 {
-		switch chosen[0].Kind {
-		case "attack_phy_colour":
+		switch attackPayAnswer1693Codes.Code(string(chosen[0].Kind)) {
+		case attackPayAnswer1693AttackPhyColour:
 			st.plan.phyDecided = true
 			st.plan.phyToLife = 0
-		case "attack_phy_life":
+		case attackPayAnswer1693AttackPhyLife:
 			st.plan.phyDecided = true
 			st.plan.phyToLife = int32(len(st.plan.charge.phyrexian))
 		default:
@@ -1919,3 +1919,39 @@ func (e *Engine) attackPayAnswer(d *decision.Decision, in decision.Intent) {
 		e.completeAttackPay(st.chosen, plan)
 	}
 }
+
+var producedNeedsChosenTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "Chosen", Val: true},
+	state.StrEntry[bool]{Key: "ChosenColor", Val: true},
+	state.StrEntry[bool]{Key: "ComboChosen", Val: true},
+)
+
+const (
+	chargeObjPlan1691Tap       uint16 = 1 // "tap"
+	chargeObjPlan1691Sacrifice uint16 = 2 // "sacrifice"
+)
+
+var chargeObjPlan1691Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "tap", Val: chargeObjPlan1691Tap},
+	state.StrEntry[uint16]{Key: "sacrifice", Val: chargeObjPlan1691Sacrifice},
+)
+
+const (
+	blockPayAnswer1692BlockPhyColour uint16 = 1 // "block_phy_colour"
+	blockPayAnswer1692BlockPhyLife   uint16 = 2 // "block_phy_life"
+)
+
+var blockPayAnswer1692Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "block_phy_colour", Val: blockPayAnswer1692BlockPhyColour},
+	state.StrEntry[uint16]{Key: "block_phy_life", Val: blockPayAnswer1692BlockPhyLife},
+)
+
+const (
+	attackPayAnswer1693AttackPhyColour uint16 = 1 // "attack_phy_colour"
+	attackPayAnswer1693AttackPhyLife   uint16 = 2 // "attack_phy_life"
+)
+
+var attackPayAnswer1693Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "attack_phy_colour", Val: attackPayAnswer1693AttackPhyColour},
+	state.StrEntry[uint16]{Key: "attack_phy_life", Val: attackPayAnswer1693AttackPhyLife},
+)

@@ -162,19 +162,19 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		reflexiveCaptured(ctx)
 		if lki, ok := e.triggerLKI[rp.obj]; ok {
 			ctx.LKI = lki.object
-			ctx.LKIPower, ctx.LKIToughness, ctx.LKIPTValid =
+			ctx.Snap.Power, ctx.Snap.Toughness, ctx.Snap.PTValid =
 				lki.power, lki.toughness, lki.ptValid
 		}
 		if link, ok := e.sourceLifelinkLKI[rp.obj]; ok {
-			ctx.SourceLifelinkLKI = link
-			ctx.SourceLifelinkLKIValid = true
+			ctx.Snap.SourceLifelink = link
+			ctx.Snap.SourceLifelinkValid = true
 		}
 		if controller, ok := e.sourceControllerLKI[rp.obj]; ok {
-			ctx.SourceControllerLKI = controller
-			ctx.SourceControllerLKIValid = true
+			ctx.Snap.SourceController = controller
+			ctx.Snap.SourceControllerValid = true
 		}
 		if lki := e.damageSourceLKI[rp.obj]; lki != nil {
-			ctx.DamageSourceLKI = cloneDamageSourceLKI(lki)
+			ctx.Snap.DamageSource = cloneDamageSourceLKI(lki)
 		}
 		// CR 603.3c: keep the placement-announced mode choice.
 		ctx.Modes = resumeChosenModes(rp, o)
@@ -218,9 +218,6 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			src = o.Source
 		}
 		e.damaging = src
-		savedWinX := e.windowPaidX
-		e.windowPaidX = rp.winPaidX
-		defer func() { e.windowPaidX = savedWinX }()
 		effects.Resolve(e, ctx, rp.sa)
 		e.damaging = 0
 		// A resumed EndTurn has already exiled the stack, including the

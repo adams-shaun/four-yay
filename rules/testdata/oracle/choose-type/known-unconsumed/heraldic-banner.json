@@ -1,0 +1,12 @@
+{
+  "card": "Heraldic Banner",
+  "rows": {
+    "bonus-ends-when-the-banner-leaves": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"green\"]}]",
+    "colourless-creature-gets-nothing": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"blue\"]}]",
+    "creature-entering-later-is-pumped": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"green\"]}]",
+    "green-chosen-pumps-green-creatures-and-taps-for-green": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"green\"]}]",
+    "multicolour-creature-of-the-colour-is-pumped": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"red\"]}]",
+    "opponents-creatures-of-the-colour-get-nothing": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"green\"]}]",
+    "white-chosen-pumps-white-creatures-and-taps-for-white": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"white\"]}]"
+  }
+}

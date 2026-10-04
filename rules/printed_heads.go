@@ -1,6 +1,9 @@
 package rules
 
-import "github.com/adams-shaun/gorge/cards"
+import (
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/state"
+)
 
 // printedHeads is the set of PRINTED keyword heads a face carries, over the
 // heads the offer walk's hand loop reads off a card's front face through
@@ -72,48 +75,48 @@ func printedHeadsOf(f *cards.Face) printedHeads {
 			}
 			buf[i] = c
 		}
-		switch string(buf[:len(h)]) {
-		case "kicker":
+		switch printedHeadsOfae71Codes.Code(string(string(buf[:len(h)]))) {
+		case printedHeadsOfae71Kicker:
 			m |= phKicker
-		case "surge":
+		case printedHeadsOfae71Surge:
 			m |= phSurge
-		case "entwine":
+		case printedHeadsOfae71Entwine:
 			m |= phEntwine
-		case "replicate":
+		case printedHeadsOfae71Replicate:
 			m |= phReplicate
-		case "multikicker":
+		case printedHeadsOfae71Multikicker:
 			m |= phMultikicker
-		case "squad":
+		case printedHeadsOfae71Squad:
 			m |= phSquad
-		case "evoke":
+		case printedHeadsOfae71Evoke:
 			m |= phEvoke
-		case "dash":
+		case printedHeadsOfae71Dash:
 			m |= phDash
-		case "overload":
+		case printedHeadsOfae71Overload:
 			m |= phOverload
-		case "warp":
+		case printedHeadsOfae71Warp:
 			m |= phWarp
-		case "emerge":
+		case printedHeadsOfae71Emerge:
 			m |= phEmerge
-		case "bestow":
+		case printedHeadsOfae71Bestow:
 			m |= phBestow
-		case "mutate":
+		case printedHeadsOfae71Mutate:
 			m |= phMutate
-		case "buyback":
+		case printedHeadsOfae71Buyback:
 			m |= phBuyback
-		case "suspend":
+		case printedHeadsOfae71Suspend:
 			m |= phSuspend
-		case "plot":
+		case printedHeadsOfae71Plot:
 			m |= phPlot
-		case "morph":
+		case printedHeadsOfae71Morph:
 			m |= phMorph
-		case "megamorph":
+		case printedHeadsOfae71Megamorph:
 			m |= phMegamorph
-		case "disguise":
+		case printedHeadsOfae71Disguise:
 			m |= phDisguise
-		case "mayflashcost":
+		case printedHeadsOfae71Mayflashcost:
 			m |= phMayFlashCost
-		case "alternateadditionalcost":
+		case printedHeadsOfae71Alternateadditionalcost:
 			m |= phAlternateAdditionalCost
 		}
 	}
@@ -144,3 +147,51 @@ func verifyPrintedHeads(f *cards.Face, ph printedHeads) {
 		}
 	}
 }
+
+const (
+	printedHeadsOfae71Kicker                  uint16 = 1  // "kicker"
+	printedHeadsOfae71Surge                   uint16 = 2  // "surge"
+	printedHeadsOfae71Entwine                 uint16 = 3  // "entwine"
+	printedHeadsOfae71Replicate               uint16 = 4  // "replicate"
+	printedHeadsOfae71Multikicker             uint16 = 5  // "multikicker"
+	printedHeadsOfae71Squad                   uint16 = 6  // "squad"
+	printedHeadsOfae71Evoke                   uint16 = 7  // "evoke"
+	printedHeadsOfae71Dash                    uint16 = 8  // "dash"
+	printedHeadsOfae71Overload                uint16 = 9  // "overload"
+	printedHeadsOfae71Warp                    uint16 = 10 // "warp"
+	printedHeadsOfae71Emerge                  uint16 = 11 // "emerge"
+	printedHeadsOfae71Bestow                  uint16 = 12 // "bestow"
+	printedHeadsOfae71Mutate                  uint16 = 13 // "mutate"
+	printedHeadsOfae71Buyback                 uint16 = 14 // "buyback"
+	printedHeadsOfae71Suspend                 uint16 = 15 // "suspend"
+	printedHeadsOfae71Plot                    uint16 = 16 // "plot"
+	printedHeadsOfae71Morph                   uint16 = 17 // "morph"
+	printedHeadsOfae71Megamorph               uint16 = 18 // "megamorph"
+	printedHeadsOfae71Disguise                uint16 = 19 // "disguise"
+	printedHeadsOfae71Mayflashcost            uint16 = 20 // "mayflashcost"
+	printedHeadsOfae71Alternateadditionalcost uint16 = 21 // "alternateadditionalcost"
+)
+
+var printedHeadsOfae71Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "kicker", Val: printedHeadsOfae71Kicker},
+	state.StrEntry[uint16]{Key: "surge", Val: printedHeadsOfae71Surge},
+	state.StrEntry[uint16]{Key: "entwine", Val: printedHeadsOfae71Entwine},
+	state.StrEntry[uint16]{Key: "replicate", Val: printedHeadsOfae71Replicate},
+	state.StrEntry[uint16]{Key: "multikicker", Val: printedHeadsOfae71Multikicker},
+	state.StrEntry[uint16]{Key: "squad", Val: printedHeadsOfae71Squad},
+	state.StrEntry[uint16]{Key: "evoke", Val: printedHeadsOfae71Evoke},
+	state.StrEntry[uint16]{Key: "dash", Val: printedHeadsOfae71Dash},
+	state.StrEntry[uint16]{Key: "overload", Val: printedHeadsOfae71Overload},
+	state.StrEntry[uint16]{Key: "warp", Val: printedHeadsOfae71Warp},
+	state.StrEntry[uint16]{Key: "emerge", Val: printedHeadsOfae71Emerge},
+	state.StrEntry[uint16]{Key: "bestow", Val: printedHeadsOfae71Bestow},
+	state.StrEntry[uint16]{Key: "mutate", Val: printedHeadsOfae71Mutate},
+	state.StrEntry[uint16]{Key: "buyback", Val: printedHeadsOfae71Buyback},
+	state.StrEntry[uint16]{Key: "suspend", Val: printedHeadsOfae71Suspend},
+	state.StrEntry[uint16]{Key: "plot", Val: printedHeadsOfae71Plot},
+	state.StrEntry[uint16]{Key: "morph", Val: printedHeadsOfae71Morph},
+	state.StrEntry[uint16]{Key: "megamorph", Val: printedHeadsOfae71Megamorph},
+	state.StrEntry[uint16]{Key: "disguise", Val: printedHeadsOfae71Disguise},
+	state.StrEntry[uint16]{Key: "mayflashcost", Val: printedHeadsOfae71Mayflashcost},
+	state.StrEntry[uint16]{Key: "alternateadditionalcost", Val: printedHeadsOfae71Alternateadditionalcost},
+)

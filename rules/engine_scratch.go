@@ -48,8 +48,8 @@ type engineScratch struct {
 	// it, and derivedMemo (keyed by ObjID) owns each cached result's slices.
 	// Pure per-walk scratch: Clone copies none of it (a clone starts with an
 	// empty memo and generation 0, which no entry ever matches).
-	derivedMemo      derivedMemoTable `clone:"reset"`
-	derivedMemoStack derivedMemoTable `clone:"reset"`
+	derivedMemo      derivedMemoTable `clone:"reset,pool=memo,release=.release"`
+	derivedMemoStack derivedMemoTable `clone:"reset,pool=memoStack,release=.release"`
 	derivedMemoDepth int              `clone:"reset"`
 	derivedMemoGen   uint64           `clone:"reset"`
 	// derivedMemoTail / derivedMemoAlias* carry the priority walk's memo
@@ -218,11 +218,11 @@ type engineScratch struct {
 	// atkOffers is attackOffers' last list and atkOffersEp/Ver/Objs/Active
 	// its key (log length -- 0: none --, registry version, arena size,
 	// active player); reused across a layer-inert run. Clone leaves it zero.
-	atkOffers       []attackOffer  `clone:"share"`
-	atkOffersEp     int            `clone:"deep"`
-	atkOffersVer    int            `clone:"deep"`
-	atkOffersObjs   int            `clone:"deep"`
-	atkOffersActive state.PlayerID `clone:"deep"`
+	atkOffers       []attackOffer  `clone:"share,if=cloneCarriesAtkOffers"`
+	atkOffersEp     int            `clone:"deep,if=cloneCarriesAtkOffers"`
+	atkOffersVer    int            `clone:"deep,if=cloneCarriesAtkOffers,rekey=now"`
+	atkOffersObjs   int            `clone:"deep,if=cloneCarriesAtkOffers"`
+	atkOffersActive state.PlayerID `clone:"deep,if=cloneCarriesAtkOffers"`
 
 	// trigZeroNoopKinds is the set of event kinds the memo holds: the walk
 	// is narrowed per kind (trigger_kinds.go), so an empty walk for one
@@ -238,7 +238,7 @@ type engineScratch struct {
 	// walk takes the buffer (leaving nil) for its duration, so a re-entrant
 	// walk allocates its own rather than clobbering the outer one. Owned by
 	// this Engine alone: Clone leaves it nil, like foreachBuf.
-	legalOptBuf []decision.Option `clone:"reset"`
+	legalOptBuf []decision.Option `clone:"reset,pool=legalOpts"`
 	// targetCensusBuf is candidatesCountForLimit's scratch list (taken for
 	// the call; Clone leaves it nil).
 	targetCensusBuf []targetCandidate `clone:"reset"`
@@ -249,7 +249,7 @@ type engineScratch struct {
 	// legalScratch is the offer walk's incremental log-derived indexes and
 	// their watermarks (legal_walk_scratch.go). Clone carries it
 	// (cloneLegalWalkScratch): copy-on-write, so nothing is shared mutably.
-	legalScratch legalWalkScratch `clone:"share"`
+	legalScratch legalWalkScratch `clone:"share,copy=cloneLegalWalkScratch"`
 	// legalActionWalks counts every legalActionsPriced call (test-visible
 	// only; unexported, bumped unconditionally, no event and no effect on
 	// determinism or chain heads -- a plain monotonic read-only diagnostic
@@ -262,7 +262,7 @@ type engineScratch struct {
 	// (legal.go), and manaLabels its "Activate <name> for mana" label cache
 	// (manaActivateLabel; a pure function of the name, only ever looked up,
 	// never ranged). Both are Engine-owned scratch: Clone leaves them nil.
-	manaAbBuf  []*cards.SA       `clone:"reset"`
+	manaAbBuf  []*cards.SA       `clone:"reset,pool=manaAb"`
 	manaLabels map[string]string `clone:"reset"`
 	// activeSum is active()'s per-build digest for the mana walk and
 	// grantedAbilities (active_summary.go). Clone leaves it zero.
@@ -272,7 +272,7 @@ type engineScratch struct {
 	lossProof abilityLossProof `clone:"deep"`
 	// lossMemo is abilityLoss's per-active()-build answer cache
 	// (abilityloss_memo.go). Clone leaves it zero.
-	lossMemo abilityLossMemo `clone:"reset"`
+	lossMemo abilityLossMemo `clone:"reset,pool=lossMemo,release=.recycled"`
 	// layer5Colors is the on-demand layer-5 derived-colour table
 	// (layer5colors.go) and its key. Clone leaves it zero.
 	layer5Colors   []effects.ObjectColors `clone:"reset"`

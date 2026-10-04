@@ -26,15 +26,14 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 	// Remembered (Breathstealer's Crypt's reveal-and-maybe-discard chain acts
 	// on exactly the drawn card; a library that ran out mid-draw records only
 	// what moved). Unread before this — the whole sub-chain saw nothing. A
-	// draw that parked on a dredge ask has not happened yet, so the record
-	// waits until the draw is real (the suspend check below).
+	// suspended draw has not happened yet, so the record waits until the
+	// draw is real (the suspend check below).
 	// The corpus uses both True and AllReplaced; both record cards this
 	// ability's draws actually moved into a hand (replaced draws are not here).
 	remember := dp.RememberDrawn
-	// tapeReentry is what a legacy re-entry re-runs from this primitive's
-	// first line before it reaches its answer: the unread-parameter Note
-	// and the capture exclusion. A resolution-kernel tape answer continues
-	// in place instead, so it emits the same at the same point.
+	// tapeReentry repeats the unread-parameter Note and the capture
+	// exclusion after each answer served in place (the event stream the
+	// answered path has always emitted).
 	tapeReentry := func() {
 		noteUnreadParams(h, c, "Draw", dp.Unread)
 		if remember {
@@ -69,8 +68,8 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 	// a card"), TriggeredCardController the entering creature's (Selvala),
 	// Opponent the controller's opponents). The ask is the same mid-
 	// resolution KChoose yes/no every other asking primitive poses, answered
-	// through rules' "draw_optional" resume arm into Ctx.DrawOpt; a host that
-	// cannot ask keeps the pre-ask mandatory draw (the R-9 degradation). A
+	// in place (ResumeKind "draw_optional"); no answer keeps the pre-ask
+	// mandatory draw (the R-9 degradation). A
 	// spec the grammar cannot resolve fails closed below this read's own
 	// convention: the pre-ask mandatory draw stays and one loud Note names
 	// the unmodelled value. A target with an empty library makes the draw a
@@ -79,13 +78,11 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 	// question is posed and nothing is drawn (an empty-library draw event is
 	// a no-op either way).
 	if decider := dp.OptionalDecider; decider != "" && total > 0 {
-		answered := string("")
-
-		if answered == "" && c.DrawDone > 0 {
-			// A Dredge re-entry mid-draw (the "dredge" arm restored the draw
-			// cursor): draws happen only after the decider said yes, so the
-			// election is already made -- re-posing it would ask again and,
-			// on a second yes, restart the draws from zero.
+		answered := ""
+		if c.Draw.Done > 0 {
+			// Draws already made: draws happen only after the decider said
+			// yes, so the election is already made -- re-posing it would ask
+			// again and, on a second yes, restart the draws from zero.
 			answered = "yes"
 		}
 		if answered == "" {
@@ -130,17 +127,12 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 						{Index: 1, Kind: "no", Label: "No", Player: seat},
 					}
 					if ans, ok := AskTape(h, d); ok {
-						// The resolution kernel's answer in hand (the
-						// "draw_optional" arm's DrawOpt).
 						answered = "no"
 						if answerYes(ans) {
 							answered = "yes"
 						}
 						tapeReentry()
-					} else {
-						_ = Ask(h, d)
 					}
-
 				}
 			} else {
 				answered = "no"
@@ -159,45 +151,30 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 	// target's draws, Min 0, Max min(NumCards, the target's library size),
 	// options the top cards of the TARGET's own library (the library-search
 	// ask's private card options — a decision is visible only to
-	// Decision.Player, so no leak). Answered through rules' "draw_upto"
-	// resume arm into Ctx.DrawUptoIdx/Count/Answered (the DrawOpt pattern,
-	// fx42-scoped per target); a batch that parks on a Dredge choice
-	// re-enters through the dredge arm, which restores the in-flight
-	// target's cursor from the ask's ResumeUpto rider. A host that cannot
-	// ask keeps the pre-ask mandatory draw (the R-9 degradation every
+	// Decision.Player, so no leak). Answered in place (ResumeKind
+	// "draw_upto"), the count tracked per target in Ctx.Draw. No answer
+	// keeps the pre-ask mandatory draw (the R-9 degradation every
 	// effDraw arm takes). A library with fewer than n cards caps the ask at
 	// what is there; an empty library is a no-op (never a decision whose
 	// only answer is empty — OnlyEmptyAnswer refuses it — and never a
 	// mandatory draw event that would mill a player the card only offered
 	// to draw).
 	if dp.Upto {
-		for idx := int(c.DrawUptoIdx); idx < len(targets); idx++ {
+		for idx := int(c.Draw.UptoIdx); idx < len(targets); idx++ {
 			p := targets[idx]
-			if !c.DrawUptoAnswered {
+			if !c.Draw.UptoAnswered {
 				lib := zoneOf(h.Game(), state.ZLibrary, p)
 				m := n
 				if int32(len(lib)) < m {
 					m = int32(len(lib))
 				}
 				if m <= 0 {
-					c.DrawUptoIdx = int32(idx + 1)
+					c.Draw.UptoIdx = int32(idx + 1)
 					continue
 				}
 				d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 0, Max: int(m),
 					ResumeKind: "draw_upto", ResumeSA: sa, ResumeTarget: idx, Source: c.Source,
-					// The walk's Remembered rides the ask (the hidden-library
-					// search's ResumeRemembered precedent): the re-entered
-					// effDraw recomputes `targets` from Defined$, and for the
-					// Remembered-valued selectors -- Arcane Denial's
-					// `Defined$ DelayTriggerRemembered` is the corpus shape --
-					// a resume that rebuilt an empty set would resolve a
-					// DIFFERENT target list than the one the cursor indexes,
-					// so the answered count would be drawn for the wrong
-					// player or for nobody. The ability-object resume path
-					// restores the same set from o.Remembered; this covers
-					// every other frame.
-					ResumeRemembered: append([]state.Target(nil), c.Remembered...),
-					Prompt:           "Draw up to " + strconv.Itoa(int(n)) + " card(s)?"}
+					Prompt: "Draw up to " + strconv.Itoa(int(n)) + " card(s)?"}
 				for i := int32(0); i < m; i++ {
 					id := lib[i]
 					label := "a card"
@@ -208,71 +185,63 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 						Kind: "card", Label: label, Obj: id, Player: p})
 				}
 				if ans, ok := AskTape(h, d); ok {
-					// The resolution kernel's answer in hand: the count the
-					// "draw_upto" arm binds, drawn for this target now.
-					c.DrawUptoCount, c.DrawUptoAnswered = int32(len(ans)), true
+					// The answered count, drawn for this target now.
+					c.Draw.UptoCount, c.Draw.UptoAnswered = int32(len(ans)), true
 					tapeReentry()
 				} else {
-					_ = Ask(h, d)
-
-					// No-host (R-9): the pre-ask mandatory draw of what was offered.
-					c.DrawUptoCount, c.DrawUptoAnswered = m, true
+					// No answer (R-9): the pre-ask mandatory draw of what was offered.
+					c.Draw.UptoCount, c.Draw.UptoAnswered = m, true
 				}
-
 			}
-			for c.DrawDone < c.DrawUptoCount {
+			for c.Draw.Done < c.Draw.UptoCount {
 				var lib []state.ObjID
 				if remember {
 					lib = zoneOf(h.Game(), state.ZLibrary, p)
 				}
-				if drawFor(h, p, int(c.DrawDone), sa, drawUptoRider{idx: idx, count: c.DrawUptoCount}) {
-					// A tape-served Dredge answer, already applied: on past
-					// this draw, as the "dredge" re-entry continues.
+				if drawFor(h, p, int(c.Draw.Done), sa, drawUptoRider{idx: idx, count: c.Draw.UptoCount}) {
+					// A Dredge answer, already applied: on past this draw.
 					tapeReentry()
-					c.DrawDone++
+					c.Draw.Done++
 					continue
 				}
 				if h.Suspended() {
-					// A Dredge choice is between individual draws. Its resume
-					// point restores this target's cursor (idx, answered count
-					// and DrawDone); do not run later targets yet.
+					// The resolution suspended between individual draws; do
+					// not run later targets yet.
 					return
 				}
 				if remember && len(lib) > 0 {
 					c.Remembered = append(c.Remembered, state.Target{Obj: lib[0]})
 				}
-				c.DrawDone++
+				c.Draw.Done++
 			}
-			c.DrawDone = 0
-			c.DrawUptoIdx = int32(idx + 1)
-			c.DrawUptoCount, c.DrawUptoAnswered = 0, false
+			c.Draw.Done = 0
+			c.Draw.UptoIdx = int32(idx + 1)
+			c.Draw.UptoCount, c.Draw.UptoAnswered = 0, false
 		}
 		return
 	}
-	for c.DrawDone < total {
-		p := targets[c.DrawDone/n]
+	for c.Draw.Done < total {
+		p := targets[c.Draw.Done/n]
 		var lib []state.ObjID
 		if remember {
 			lib = zoneOf(h.Game(), state.ZLibrary, p)
 		}
-		if drawFor(h, p, int(c.DrawDone), sa, drawUptoRider{}) {
-			// A tape-served Dredge answer, already applied: on past this
-			// draw, as the "dredge" re-entry continues.
+		if drawFor(h, p, int(c.Draw.Done), sa, drawUptoRider{}) {
+			// A Dredge answer, already applied: on past this draw.
 			tapeReentry()
-			c.DrawDone++
+			c.Draw.Done++
 			continue
 		}
 		if h.Suspended() {
-			// A Dredge choice is between individual draws. Its resume point
-			// carries this cursor; do not run later draws, Remembered or
-			// SubAbility$ yet.
+			// The resolution suspended between individual draws; do not run
+			// later draws, Remembered or SubAbility$ yet.
 			return
 		}
 		if remember && len(lib) > 0 {
 			c.Remembered = append(c.Remembered, state.Target{Obj: lib[0]})
 		}
-		c.DrawDone++
+		c.Draw.Done++
 	}
-	// DrawDone is scoped to this primitive like the other Ctx answer fields.
-	c.DrawDone = 0
+	// The draw cursor is scoped to this primitive.
+	c.Draw.Done = 0
 }

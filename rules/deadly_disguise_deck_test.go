@@ -94,6 +94,7 @@ func TestDeadlyDisguiseMorphCarriersAreFullySupported(t *testing.T) {
 	// PRECONDITION: the deck genuinely carries morph-family cards. Without
 	// this, the per-card loop below would pass vacuously over an empty set.
 	carriers := 0
+	known := knownUnsupported(t)
 	for _, c := range testutil.RepoDeck(t, reg, "deadly-disguise") {
 		head := morphHeadOn(c.Faces[0])
 		if head == "" {
@@ -103,7 +104,7 @@ func TestDeadlyDisguiseMorphCarriersAreFullySupported(t *testing.T) {
 		if got := reg.Unsupported(c, supported); len(got) > 0 {
 			t.Errorf("%s carries %s but still measures unsupported primitives %v", c.Faces[0].Name, head, got)
 		}
-		if want, ok := knownUnsupported[c.Faces[0].Name]; ok {
+		if want, ok := known[c.Faces[0].Name]; ok {
 			t.Errorf("%s is fully supported now -- delete it from knownUnsupported (was %v)", c.Faces[0].Name, want)
 		}
 	}

@@ -13,12 +13,7 @@ import (
 func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	pc := PutCounterOf(sa)
 
-	// Once per resolution: an answered re-entry already noted.
 	noteUnreadParams(h, c, "PutCounter", pc.Unread)
-
-	// fx42 scoping: consume and clear the answered Optional$ election at the
-	// top, so a nested PutCounter in the same chain poses its own ask.
-	optAns := string("")
 
 	// Adapt$ (CR 702.35a; task param-adapt): an AB/DB$ PutCounter carrying
 	// Adapt$ N reads N as the count -- Pteramander's `Adapt$ 4`, Jetfire's
@@ -45,15 +40,9 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	adapt := pc.AdaptSet
 	mono := pc.MonstrositySet
 	renown := pc.RenownSet
-	// fx42 scoping: take every answered comma-list transport at entry and
-	// clear it before this SA can resolve a sub-ability. Resolve shares one
-	// Ctx across the chain, so leaving any of these live makes a nested
-	// PutCounter reuse the outer kind instead of asking its own question.
-	kindAns, kindDone := string(""), false
-
-	kindsAns, kindsDone := append([]string(nil), ([]string)(nil)...), false
-	kindAnswers := append([]string(nil), ([]string)(nil)...)
-	kindAnswerIndex, kindAnswerSet := int(0), false
+	// kindsAns holds the ChooseDifferent$ answer; kindAnswers the per-
+	// recipient CounterTypePerDefined$ answers.
+	var kindsAns, kindAnswers []string
 
 	kind := pc.Kind
 	if placer := pc.Placer; placer != "" {
@@ -64,59 +53,33 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	if pc.OptionalTrue {
-		switch {
-		case optAns != "" && optAns != "yes":
-			// Answered "no" (or any non-affirmative marker): the decline. No
-			// counter is placed and no Note is emitted; the chained
-			// SubAbility$ STILL RUNS -- the chain is owned by Resolve, not by
-			// this body (the Attach.Optional precedent,
-			// effects/attach.go:96-131; the chain-skip mechanism is the
-			// DIFFERENT UnlessCost$ + UnlessResolveSubs$ pair, which none of
-			// the corpus's Optional$ PutCounter lines carry). Black Widow's
-			// "If you don't, ..." sub gates itself on its own Condition$ read
-			// of the (empty) Remembered set, exactly as the oracle says.
-			return
-		case optAns == "":
-			// Unanswered: pose the yes/no election -- but only when the put
-			// would actually place something (at least one live recipient and
-			// n > 0); with nothing legal to put on, decline and accept are the
-			// same, so no ask (the Attach precedent's len(legal) == 0 gate).
-			// The pickAnswered guard is the two-ask shape's own discipline:
-			// an Optional$ bare-Choices$/DividedAsYouChoose$ SA asks TWICE
-			// (election, then the recipient pick), and each resume builds a
-			// FRESH Ctx -- the pick re-entry arrives with PutOpt already
-			// consumed, so without this guard the election would re-pose over
-			// the answered pick. The Done flag names the pick, never the
-			// election: a pickDone pass is past the election by construction.
-			pickAnswered := false
-			if n > 0 && !pickAnswered && putCounterWouldPlace(h, c, sa) {
-				d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
-					Source: c.Source, ResumeKind: "put_optional", ResumeSA: sa,
-					ResumeRemembered: copyTargets(c.Remembered),
-					Prompt:           "Put a counter on it?",
-					Options: []decision.Option{
-						{Index: 0, Kind: "yes", Label: "Yes — put the counter", Player: c.Controller},
-						{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
-					}}
-				if ans, ok := AskTape(h, d); ok {
-					// The resolution kernel's answer in hand (the
-					// "put_optional" arm's PutOpt): a decline places
-					// nothing, a yes falls through to the placement paths.
-					if len(ans) == 0 || ans[0].Kind != "yes" {
-						return
-					}
-				} else {
-					// AskAsked suspends; the answer re-enters with Ctx.PutOpt set.
-					// AskNoHost is the deterministic decline stand-in (R-9) — the
-					// same class the Attach election falls back to (the clamp-
-					// answered bot path answers option 0 = "yes", so a bot game
-					// stays byte-identical to the pre-ask silent always-put).
-					_ = Ask(h, d)
+		// Pose the yes/no election -- but only when the put would actually
+		// place something (at least one live recipient and n > 0); with
+		// nothing legal to put on, decline and accept are the same, so no ask
+		// (the Attach precedent's len(legal) == 0 gate).
+		if n > 0 && putCounterWouldPlace(h, c, sa) {
+			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
+				Source: c.Source, ResumeKind: "put_optional", ResumeSA: sa,
+				Prompt: "Put a counter on it?",
+				Options: []decision.Option{
+					{Index: 0, Kind: "yes", Label: "Yes — put the counter", Player: c.Controller},
+					{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
+				}}
+			if ans, ok := AskTape(h, d); ok {
+				// A decline places nothing and emits no Note; the chained
+				// SubAbility$ STILL RUNS -- the chain is owned by Resolve, not
+				// by this body (the Attach.Optional precedent). Black Widow's
+				// "If you don't, ..." sub gates itself on its own Condition$
+				// read of the (empty) Remembered set. A yes falls through to
+				// the placement paths.
+				if len(ans) == 0 || ans[0].Kind != "yes" {
 					return
 				}
+			} else {
+				// No answer: the deterministic decline stand-in (R-9) — the
+				// same class the Attach election falls back to.
+				return
 			}
-			// optAns == "yes" (or nothing to place): fall through to the
-			// ordinary placement paths.
 		}
 	}
 	// Bolster$ (CR 701.36's bolster keyword action; 24 raw corpus lines, every
@@ -125,14 +88,9 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	// among creatures you control and put N +1/+1 counters on it." Bolster$
 	// names N (a literal, or an SVar -- Sandsteppe War Riders' Bolster$ X);
 	// the counter kind is the ordinary CounterType$ (default P1P1) computed
-	// above. fx42 scoping: consume and clear the answered tie pick first, so
-	// a nested PutCounter in the same chain cannot inherit it.
+	// above.
 	if pc.Bolster.Present {
-		pickAns := ([]state.ObjID)(nil)
-
-		pickDone := false
-
-		putCounterBolster(h, c, sa, kind, pickAns, pickDone)
+		putCounterBolster(h, c, sa, kind)
 		return
 	}
 	// Support$ N (CR 701.41's support keyword action; 19 raw corpus lines,
@@ -144,18 +102,11 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	// chosen creature; N is the TARGET COUNT (literal, X -- the announced X
 	// of a spell with X in its cost -- or SVar, through the shared Num read),
 	// never a per-creature count. The recipient pick is the counter_pick
-	// decision shape (Min 0: "up to"), reusing the bare-Choices$ pick's
-	// answer fields and resume arm; the default spec follows the CR 701.41a
-	// split (putCounterSupport), or the SA's own Choices$ spec when it
-	// carries one (no corpus support line does, measured). fx42 scoping:
-	// consume and clear the answered pick first, so a nested PutCounter
-	// below cannot inherit it.
+	// decision shape (Min 0: "up to"); the default spec follows the CR
+	// 701.41a split (putCounterSupport), or the SA's own Choices$ spec when
+	// it carries one (no corpus support line does, measured).
 	if pc.Support.Present {
-		supAns := ([]state.ObjID)(nil)
-
-		supDone := false
-
-		putCounterSupport(h, c, sa, kind, supAns, supDone)
+		putCounterSupport(h, c, sa, kind)
 		return
 	}
 	// DividedAsYouChoose$ (Vastwood Hydra's "you may distribute a number of
@@ -168,23 +119,9 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	// ordinary chosen targets (ValidTgts$, already asked by the targeting
 	// machinery).
 	divided := pc.Divided
-	// fx45 scoping: capture and clear the answered Choices$ pick BEFORE the
-	// branch, so a nested PutCounter below cannot inherit the outer answer
-	// (the fx42 discipline every answered field follows).
-	distAns := ([]state.ObjID)(nil)
-
-	distDone := false
-
-	// The bare-Choices$ pick's answer rides its own pair of fields (the
-	// divided family and the bare pick can never both ask for one SA, but
-	// each consumes and clears only its own).
-	pickAns := ([]state.ObjID)(nil)
-
-	pickDone := false
-
 	if divided {
 		if pc.Choices != "" {
-			putCounterPickDistribute(h, c, sa, n, kind, distAns, distDone)
+			putCounterPickDistribute(h, c, sa, n, kind)
 			return
 		}
 		placed := putCounterSplit(h, n, kind, Defined(h, c, sa))
@@ -224,7 +161,7 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	counterKinds := pc.Kinds
 	perKind := pc.CounterTypePerDefined
 	if pc.Choices != "" {
-		putCounterChoose(h, c, sa, n, kind, pickAns, pickDone, counterKinds, kindAns, kindDone)
+		putCounterChoose(h, c, sa, n, kind, counterKinds)
 		return
 	}
 	if len(counterKinds) > 1 {
@@ -249,43 +186,28 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 			kind = eligible[h.Rand(len(eligible))]
 			counterKinds = []string{kind}
 		} else if pc.ChooseDifferent {
-			if !kindsDone {
-				d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 2, Max: 2, Source: c.Source, ResumeKind: "counter_kinds", ResumeSA: sa, ResumeRemembered: copyTargets(c.Remembered), Prompt: "Choose different counter kinds"}
-				for i, k := range counterKinds {
-					d.Options = append(d.Options, decision.Option{Index: i, Kind: "counter_kinds", Label: k, Player: c.Controller})
-				}
-				if ans, ok := AskTape(h, d); ok {
-					// The "counter_kinds" arm's answer, in hand.
-					kindsAns = counterAnswerLabels(ans)
-				} else {
-					_ = Ask(h, d)
-
-					kindsAns = append([]string(nil), counterKinds[:2]...)
-				}
-
-				kindsDone = true
+			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 2, Max: 2, Source: c.Source, ResumeKind: "counter_kinds", ResumeSA: sa, Prompt: "Choose different counter kinds"}
+			for i, k := range counterKinds {
+				d.Options = append(d.Options, decision.Option{Index: i, Kind: "counter_kinds", Label: k, Player: c.Controller})
+			}
+			if ans, ok := AskTape(h, d); ok {
+				kindsAns = counterAnswerLabels(ans)
+			} else {
+				kindsAns = append([]string(nil), counterKinds[:2]...)
 			}
 			counterKinds = append([]string(nil), kindsAns...)
 		} else if perKind {
 			// PerDefined asks independently below, once for each recipient.
-		} else if !kindDone {
-			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1, Source: c.Source, ResumeKind: "counter_kind", ResumeSA: sa, ResumeRemembered: copyTargets(c.Remembered), Prompt: "Choose a counter kind"}
+		} else {
+			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1, Source: c.Source, ResumeKind: "counter_kind", ResumeSA: sa, Prompt: "Choose a counter kind"}
 			for i, k := range counterKinds {
 				d.Options = append(d.Options, decision.Option{Index: i, Kind: "counter", Label: k, Player: c.Controller})
 			}
 			if ans, ok := AskTape(h, d); ok {
-				// The "counter_kind" arm's answer, in hand.
-				kindAns = counterAnswerLabel(ans)
+				kind = counterAnswerLabel(ans)
 			} else {
-				_ = Ask(h, d)
-
-				kindAns = counterKinds[0]
+				kind = counterKinds[0]
 			}
-
-			kindDone = true
-		}
-		if kindDone && !perKind {
-			kind = kindAns
 		}
 	}
 	// CounterNumPerDefined$ (task param-putcounter-counternumperdefined): the
@@ -310,25 +232,16 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	var placed []state.Target
 	for ti, t := range Defined(h, c, sa) {
 		if perKind && len(counterKinds) > 1 {
-			// A resumed later recipient must not replay CounterChange events
-			// already emitted before its ask suspended the same SA.
-			if kindAnswerSet && ti < kindAnswerIndex {
-				continue
-			}
 			if ti >= len(kindAnswers) || kindAnswers[ti] == "" {
-				d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1, Source: c.Source, ResumeKind: "counter_kind", ResumeSA: sa, ResumeTarget: ti, ResumeRemembered: copyTargets(c.Remembered), Prompt: "Choose a counter kind"}
+				d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1, Source: c.Source, ResumeKind: "counter_kind", ResumeSA: sa, ResumeTarget: ti, Prompt: "Choose a counter kind"}
 				for i, k := range counterKinds {
 					d.Options = append(d.Options, decision.Option{Index: i, Kind: "counter", Label: k, Player: c.Controller})
 				}
-				// The no-host fallback is the same first option botpolicy takes;
-				// no persistent state is needed because it did not suspend. A
-				// tape-served answer (the "counter_kind" arm's kind for this
-				// recipient) continues the walk the same way.
+				// The no-answer fallback is the same first option botpolicy
+				// takes.
 				pick := counterKinds[0]
 				if ans, ok := AskTape(h, d); ok {
 					pick = counterAnswerLabel(ans)
-				} else {
-					_ = Ask(h, d)
 				}
 
 				kindAnswers = append(kindAnswers, make([]string, ti-len(kindAnswers)+1)...)
@@ -414,7 +327,7 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 				amount = 0
 			}
 		}
-		if len(kindsAns) > 0 && kindsDone {
+		if len(kindsAns) > 0 {
 			for _, chosenKind := range kindsAns {
 				emitPutCounterChange(h, c, sa, events.Event{Kind: events.CounterChange, Obj: o.ID, Counter: chosenKind, Amount: amount})
 			}
@@ -603,10 +516,10 @@ func targetCountersLKI(c *Ctx, id state.ObjID, o *state.Object) ([]state.Counter
 	if o != nil && o.Zone == state.ZBattlefield {
 		return nil, false
 	}
-	if c == nil || c.TargetCountersLKI == nil {
+	if c == nil || c.Snap.TargetCounters == nil {
 		return nil, false
 	}
-	cs, ok := c.TargetCountersLKI[id]
+	cs, ok := c.Snap.TargetCounters[id]
 	if !ok {
 		return nil, false
 	}
@@ -706,17 +619,13 @@ func rememberPlaced(c *Ctx, sa *cards.SA, placed []state.Target) {
 // one counter at a time, round-robin in the player's answer order, so the
 // earlier-chosen recipients take the extras. A per-counter division ask (the
 // repeated one-pick ask Forge's UI models by clicking) is not posed.
-func putCounterPickDistribute(h Host, c *Ctx, sa *cards.SA, total int32, kind string, ans []state.ObjID, ansDone bool) {
+func putCounterPickDistribute(h Host, c *Ctx, sa *cards.SA, total int32, kind string) {
 	if total <= 0 {
 		return
 	}
 	g := h.Game()
 	pc := PutCounterOf(sa)
 	spec := pc.Choices
-	if ansDone {
-		putCounterDistApply(h, c, sa, total, kind, ans)
-		return
-	}
 	var eligible []state.ObjID
 	for _, p := range g.AliveFrom(0) {
 		for _, id := range g.Zone(state.ZBattlefield, p) {
@@ -779,14 +688,12 @@ func putCounterPickDistribute(h Host, c *Ctx, sa *cards.SA, total int32, kind st
 		putCounterDistApply(h, c, sa, total, kind, counterAnswerObjs(ans))
 		return
 	}
-	_ = Ask(h, d)
 
 	fallback()
 }
 
 // putCounterDistApply places an answered DividedAsYouChoose$ Choices$ pick
-// (the "counter_dist" answer, in answer order) -- the legacy re-entry and the
-// resolution kernel's tape-served answer share it. A recipient that left the
+// (the "counter_dist" answer, in answer order). A recipient that left the
 // battlefield while the decision was outstanding takes nothing (its share is
 // lost, not redistributed -- the same totality stance the target-based split
 // takes).
@@ -872,8 +779,8 @@ func putCounterSplitRandom(h Host, total int32, kind string, ts []state.Target) 
 	return placed
 }
 
-// The result is never nil: it rides Decision.ResumeChoices as a payload
-// (PayloadTargets).
+// objTargets wraps the non-zero ids as object targets. The result is never
+// nil.
 func objTargets(ids []state.ObjID) []state.Target {
 	out := make([]state.Target, 0, len(ids))
 	for _, id := range ids {
@@ -891,8 +798,8 @@ func objTargets(ids []state.ObjID) []state.Target {
 // (Chooser$, default the resolving controller) picks
 // MinChoiceAmount$..ChoiceAmount$ (default 1..1) battlefield objects out of
 // the Choices$ pool, and EACH chosen object takes the full CounterNum$
-// counters. The answer re-enters through ResumeKind "counter_pick" with
-// Ctx.CounterPick; RememberCards$ True remembers the countered objects (the
+// counters. The pick is answered in place (ResumeKind "counter_pick");
+// RememberCards$ True remembers the countered objects (the
 // vow chain's SacAllOthers and DBEffect read them in the same walk).
 //
 // The ask gate is the strict-supersets rule every asking primitive here
@@ -902,17 +809,13 @@ func objTargets(ids []state.ObjID) []state.Target {
 // so the placement runs without an ask. Promise of Loyalty's "each player
 // chooses ONE creature" asks exactly when that player controls two or more
 // eligible creatures.
-func putCounterChoose(h Host, c *Ctx, sa *cards.SA, n int32, kind string, ans []state.ObjID, done bool, kinds []string, kindAns string, kindDone bool) {
+func putCounterChoose(h Host, c *Ctx, sa *cards.SA, n int32, kind string, kinds []string) {
 	if n <= 0 {
 		return
 	}
 	g := h.Game()
 	pc := PutCounterOf(sa)
 	spec := pc.Choices
-	if done {
-		putCounterChooseApply(h, c, sa, n, kind, ans, kinds, kindAns, kindDone)
-		return
-	}
 	chooser, ok := putCounterChooserFor(h, c, strings.TrimSpace(pc.Chooser))
 	if !ok {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -955,7 +858,7 @@ func putCounterChoose(h Host, c *Ctx, sa *cards.SA, n int32, kind string, ans []
 		// A deterministic recipient is not a deterministic counter kind.
 		// Route it through the same continuation as an answered recipient
 		// selection so a comma list still gets its own real election.
-		putCounterChooseApply(h, c, sa, n, kind, picks, kinds, kindAns, kindDone)
+		putCounterChooseApply(h, c, sa, n, kind, picks, kinds)
 	}
 	if len(eligible) < 2 || maxCh < 1 || minCh >= int32(len(eligible)) {
 		fallback()
@@ -977,11 +880,9 @@ func putCounterChoose(h Host, c *Ctx, sa *cards.SA, n int32, kind string, ans []
 			Kind: "counter_pick", Label: name, Obj: id, Player: chooser})
 	}
 	if ans, ok := AskTape(h, d); ok {
-		// The "counter_pick" answer in hand: the re-entry's continuation.
-		putCounterChooseApply(h, c, sa, n, kind, counterAnswerObjs(ans), kinds, kindAns, kindDone)
+		putCounterChooseApply(h, c, sa, n, kind, counterAnswerObjs(ans), kinds)
 		return
 	}
-	_ = Ask(h, d)
 
 	fallback()
 }
@@ -990,29 +891,20 @@ func putCounterChoose(h Host, c *Ctx, sa *cards.SA, n int32, kind string, ans []
 // PutCounter. It is shared by an answered recipient election and a forced
 // recipient set: only the recipient can be deterministic; a comma list is
 // always a real counter-kind choice.
-func putCounterChooseApply(h Host, c *Ctx, sa *cards.SA, n int32, kind string, picks []state.ObjID, kinds []string, kindAns string, kindDone bool) {
-	if len(kinds) > 1 && !kindDone {
+func putCounterChooseApply(h Host, c *Ctx, sa *cards.SA, n int32, kind string, picks []state.ObjID, kinds []string) {
+	if len(kinds) > 1 {
 		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose,
 			Min: 1, Max: 1, Source: c.Source, ResumeKind: "counter_kind",
-			ResumeSA: sa, ResumeChoices: objTargets(picks),
-			ResumeRemembered: copyTargets(c.Remembered), Prompt: "Choose a counter kind"}
+			ResumeSA: sa,
+			Prompt:   "Choose a counter kind"}
 		for i, k := range kinds {
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "counter", Label: k, Player: c.Controller})
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The "counter_kind" answer in hand (its arm's ResumeChoices
-			// ride is the picks this call already holds).
-			kindAns = counterAnswerLabel(ans)
+			kind = counterAnswerLabel(ans)
 		} else {
-			_ = Ask(h, d)
-
-			kindAns = kinds[0]
+			kind = kinds[0]
 		}
-
-		kindDone = true
-	}
-	if kindDone {
-		kind = kindAns
 	}
 	// A chosen creature that left while the decision was outstanding takes
 	// nothing (the same totality stance the divided sibling takes).
@@ -1049,13 +941,12 @@ func putCounterPickApply(h Host, c *Ctx, sa *cards.SA, n int32, kind string, pic
 // (face toughness plus P1P1 counters, the Count$CardToughness read --
 // layer-derived toughness is not visible below rules). A tie at the minimum
 // is a real election (CR 701.36's "choose"): a KChoose over the tied
-// creatures answered through the shared "counter_pick" resume arm
-// (Ctx.CounterPick/CounterPickDone, consumed and cleared by the caller --
-// fx42); botpolicy's "counter_pick" arm takes the first option, so a
+// creatures with the shared "counter_pick" decision shape, answered in place;
+// botpolicy's "counter_pick" arm takes the first option, so a
 // bot-answered game emits the same events the R-9 no-host fallback (the
 // first tied creature in zone order) does. RememberCards$ True rides
 // putCounterPickApply, exactly like the bare Choices$ pick.
-func putCounterBolster(h Host, c *Ctx, sa *cards.SA, kind string, ans []state.ObjID, done bool) {
+func putCounterBolster(h Host, c *Ctx, sa *cards.SA, kind string) {
 	n := numText(h, c, PutCounterOf(sa).Bolster, 1)
 	if n < 0 {
 		n = 0
@@ -1090,13 +981,6 @@ func putCounterBolster(h Host, c *Ctx, sa *cards.SA, kind string, ans []state.Ob
 		putCounterPickApply(h, c, sa, n, kind, cands)
 		return
 	}
-	if done {
-		// Re-entry: the answered tie pick, applied as-is (a chosen creature
-		// that left the battlefield while the decision was outstanding takes
-		// nothing -- putCounterPickApply's zone guard).
-		putCounterPickApply(h, c, sa, n, kind, ans)
-		return
-	}
 	d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose,
 		Min: 1, Max: 1, Source: c.Source,
 		ResumeKind: "counter_pick", ResumeSA: sa,
@@ -1110,11 +994,9 @@ func putCounterBolster(h Host, c *Ctx, sa *cards.SA, kind string, ans []state.Ob
 			Kind: "counter_pick", Label: name, Obj: id, Player: c.Controller})
 	}
 	if ans, ok := AskTape(h, d); ok {
-		// The "counter_pick" answer in hand: the re-entry's placement.
 		putCounterPickApply(h, c, sa, n, kind, counterAnswerObjs(ans))
 		return
 	}
-	_ = Ask(h, d)
 
 	// The R-9 no-host fallback: the first tied creature in zone order -- the
 	// exact mirror of botpolicy's "counter_pick" first-option answer.
@@ -1133,8 +1015,7 @@ func putCounterBolster(h Host, c *Ctx, sa *cards.SA, kind string, ans []state.Ob
 // the Player.IsRemembered Defined selector does.
 // putCounterSupport implements the Support$ N branch of effPutCounter: the
 // "up to N target creatures, one counter each" pick. The choice reuses the
-// bare-Choices$ pick's decision shape (ResumeKind "counter_pick", the
-// CounterPick/CounterPickDone answer fields, the same resume arm and
+// bare-Choices$ pick's decision shape (ResumeKind "counter_pick" and the same
 // botpolicy arm), but its Max is the SUPPORT value and its Min is always 0
 // -- "up to" -- so a decline is a real answer. The default spec encodes CR
 // 701.41a verbatim: on a PERMANENT source (the ETB/ability carriers) it is
@@ -1148,14 +1029,7 @@ func putCounterBolster(h Host, c *Ctx, sa *cards.SA, kind string, ans []state.Ob
 // so the rule lives where the spec is built, not in a reminder text. The
 // SA's own Choices$ spec (no corpus carrier has one, measured) overrides
 // both. One counter of the SA's kind per chosen creature.
-func putCounterSupport(h Host, c *Ctx, sa *cards.SA, kind string, ans []state.ObjID, done bool) {
-	if done {
-		// Re-entry: the answered pick, in answer order. A chosen creature
-		// that left the battlefield while the decision was outstanding takes
-		// nothing (putCounterPickApply's zone guard).
-		putCounterPickApply(h, c, sa, 1, kind, ans)
-		return
-	}
+func putCounterSupport(h Host, c *Ctx, sa *cards.SA, kind string) {
 	pc := PutCounterOf(sa)
 	maxT := numText(h, c, pc.Support, 1)
 	if maxT < 0 {
@@ -1205,11 +1079,9 @@ func putCounterSupport(h Host, c *Ctx, sa *cards.SA, kind string, ans []state.Ob
 			Kind: "counter_pick", Label: name, Obj: id, Player: c.Controller})
 	}
 	if ans, ok := AskTape(h, d); ok {
-		// The "counter_pick" answer in hand: the re-entry's placement.
 		putCounterPickApply(h, c, sa, 1, kind, counterAnswerObjs(ans))
 		return
 	}
-	_ = Ask(h, d)
 
 	// The no-host stand-in (R-9): the first max eligible creatures in zone
 	// order -- the exact mirror of botpolicy's "counter_pick" arm, so a
@@ -1224,20 +1096,20 @@ func putCounterSupport(h Host, c *Ctx, sa *cards.SA, kind string, ans []state.Ob
 
 func putCounterPlacerFor(h Host, c *Ctx, v string) (state.PlayerID, bool) {
 	g := h.Game()
-	switch v {
-	case "Controller":
+	switch putCounterPlacerFor5ab1Codes.Code(string(v)) {
+	case putCounterPlacerFor5ab1Controller:
 		return c.Controller, true
-	case "Owner":
+	case putCounterPlacerFor5ab1Owner:
 		if o := g.Obj(c.Source); o != nil {
 			return o.Owner, true
 		}
 		return 0, false
-	case "TriggeredSource":
+	case putCounterPlacerFor5ab1TriggeredSource:
 		if o := g.Obj(c.TriggerSource); o != nil {
 			return o.Controller, true
 		}
 		return 0, false
-	case "TriggeredSourceController":
+	case putCounterPlacerFor5ab1TriggeredSourceController:
 		if o := g.Obj(c.TriggerSource); o != nil {
 			return o.Controller, true
 		}
@@ -1294,19 +1166,19 @@ func putCounterChooserFor(h Host, c *Ctx, v string) (state.PlayerID, bool) {
 		}
 		return 0, false
 	}
-	switch v {
-	case "", "You", "True":
+	switch putCounterChooserFor5ab2Codes.Code(string(v)) {
+	case putCounterChooserFor5ab2Empty:
 		return c.Controller, true
-	case "Player.IsRemembered", "Remembered", "RememberedController":
+	case putCounterChooserFor5ab2PlayerIsRemembered:
 		return firstRememberedPlayer()
-	case "ChosenPlayer", "Player.Chosen":
+	case putCounterChooserFor5ab2ChosenPlayer:
 		return firstChosenPlayer()
-	case "TriggeredPlayer":
+	case putCounterChooserFor5ab2TriggeredPlayer:
 		if c.TriggerPlayer.IsPlayer {
 			return c.TriggerPlayer.Player, true
 		}
 		return 0, false
-	case "ThisTargetedPlayer", "TargetedPlayer", "Targeted":
+	case putCounterChooserFor5ab2ThisTargetedPlayer:
 		for _, t := range c.Targets {
 			if t.IsPlayer {
 				return t.Player, true
@@ -1319,3 +1191,40 @@ func putCounterChooserFor(h Host, c *Ctx, v string) (state.PlayerID, bool) {
 	}
 	return 0, false
 }
+
+const (
+	putCounterPlacerFor5ab1Controller                uint16 = 1 // "Controller"
+	putCounterPlacerFor5ab1Owner                     uint16 = 2 // "Owner"
+	putCounterPlacerFor5ab1TriggeredSource           uint16 = 3 // "TriggeredSource"
+	putCounterPlacerFor5ab1TriggeredSourceController uint16 = 4 // "TriggeredSourceController"
+)
+
+var putCounterPlacerFor5ab1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Controller", Val: putCounterPlacerFor5ab1Controller},
+	state.StrEntry[uint16]{Key: "Owner", Val: putCounterPlacerFor5ab1Owner},
+	state.StrEntry[uint16]{Key: "TriggeredSource", Val: putCounterPlacerFor5ab1TriggeredSource},
+	state.StrEntry[uint16]{Key: "TriggeredSourceController", Val: putCounterPlacerFor5ab1TriggeredSourceController},
+)
+
+const (
+	putCounterChooserFor5ab2Empty              uint16 = 1 // "", "You", "True"
+	putCounterChooserFor5ab2PlayerIsRemembered uint16 = 2 // "Player.IsRemembered", "Remembered", "RememberedController"
+	putCounterChooserFor5ab2ChosenPlayer       uint16 = 3 // "ChosenPlayer", "Player.Chosen"
+	putCounterChooserFor5ab2TriggeredPlayer    uint16 = 4 // "TriggeredPlayer"
+	putCounterChooserFor5ab2ThisTargetedPlayer uint16 = 5 // "ThisTargetedPlayer", "TargetedPlayer", "Targeted"
+)
+
+var putCounterChooserFor5ab2Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: putCounterChooserFor5ab2Empty},
+	state.StrEntry[uint16]{Key: "You", Val: putCounterChooserFor5ab2Empty},
+	state.StrEntry[uint16]{Key: "True", Val: putCounterChooserFor5ab2Empty},
+	state.StrEntry[uint16]{Key: "Player.IsRemembered", Val: putCounterChooserFor5ab2PlayerIsRemembered},
+	state.StrEntry[uint16]{Key: "Remembered", Val: putCounterChooserFor5ab2PlayerIsRemembered},
+	state.StrEntry[uint16]{Key: "RememberedController", Val: putCounterChooserFor5ab2PlayerIsRemembered},
+	state.StrEntry[uint16]{Key: "ChosenPlayer", Val: putCounterChooserFor5ab2ChosenPlayer},
+	state.StrEntry[uint16]{Key: "Player.Chosen", Val: putCounterChooserFor5ab2ChosenPlayer},
+	state.StrEntry[uint16]{Key: "TriggeredPlayer", Val: putCounterChooserFor5ab2TriggeredPlayer},
+	state.StrEntry[uint16]{Key: "ThisTargetedPlayer", Val: putCounterChooserFor5ab2ThisTargetedPlayer},
+	state.StrEntry[uint16]{Key: "TargetedPlayer", Val: putCounterChooserFor5ab2ThisTargetedPlayer},
+	state.StrEntry[uint16]{Key: "Targeted", Val: putCounterChooserFor5ab2ThisTargetedPlayer},
+)

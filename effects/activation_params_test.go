@@ -39,7 +39,7 @@ func TestCompareOf(t *testing.T) {
 	if c := CompareOf("GEX"); c.Holds(5) || c.Rhs() != "X" {
 		t.Errorf("GEX must not hold as a literal: %+v", c)
 	}
-	if n := testing.AllocsPerRun(100, func() { _ = CompareOf(" ge12 ") }); n != 0 {
+	if n := allocsPerRun(100, func() { _ = CompareOf(" ge12 ") }); n != 0 {
 		t.Errorf("CompareOf allocates %v", n)
 	}
 }
@@ -91,7 +91,7 @@ func TestCompileActivation(t *testing.T) {
 	if empty := ActivationOf(nil); !empty.ZoneOK(state.ZBattlefield) || empty.Flags != 0 {
 		t.Fatalf("empty = %+v", empty)
 	}
-	if n := testing.AllocsPerRun(100, func() { _ = ActivationOf(sa) }); n != 0 {
+	if n := allocsPerRun(100, func() { _ = ActivationOf(sa) }); n != 0 {
 		t.Errorf("ActivationOf front-cache hit allocates %v", n)
 	}
 }

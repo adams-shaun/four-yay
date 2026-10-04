@@ -1,0 +1,6 @@
+{
+  "card": "Training Center",
+  "rows": {
+    "untaps-and-adds-blue": "step 0 (activate): [{\"kind\":\"any\",\"pick\":[\"Add U\"]}]"
+  }
+}

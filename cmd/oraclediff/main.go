@@ -489,6 +489,7 @@ func runStatus(dir, set, level string) error {
 		fmt.Printf("%-40s %s\n", p.Card, p.Reason)
 	}
 	fmt.Printf("%s:%s -- %d of %d printed cards outstanding\n", set, level, len(probs), total)
+	fmt.Println(gate.LevelMeaning(level))
 	return nil
 }
 

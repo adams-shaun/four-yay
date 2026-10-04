@@ -152,17 +152,8 @@ type compiledPred struct {
 // list exactly those conditions; a token it misses would be dispatched to a
 // later branch the oracle never reaches for it.
 func specialPositiveToken(p string) bool {
-	switch p {
-	case "token$DifferentCardNames",
-		"ChosenCard", "ChosenCardStrict", "nonChosenCard",
-		"RememberedPlayerCtrl",
-		"CanBeTargetedByTriggeredSpellAbility",
-		"TriggeredNewCard", "TriggeredCard",
-		"blockingTriggeredAttacker",
-		"EffectSource",
-		"IsGoaded",
-		"IsRemembered", "IsTriggerRemembered":
-		return true
+	if v, ok := specialPositiveTokenTab1.Get(p); ok {
+		return v
 	}
 	if arg, has := strings.CutPrefix(p, "SharesColorWith "); has {
 		// The one bare referent token matchSharesColorWith binds (C.A.M.P.'s
@@ -187,10 +178,8 @@ func specialPositiveToken(p string) bool {
 
 // typePredicateToken lists typePredicate's switch cases.
 func typePredicateToken(p string) bool {
-	switch p {
-	case "Legendary", "Basic", "Snow", "nonLand", "nonCreature", "nonBasic",
-		"ChosenType", "IsNotChosenType", "ChosenCtrl":
-		return true
+	if v, ok := typePredicateTokenTab2.Get(p); ok {
+		return v
 	}
 	return false
 }
@@ -321,18 +310,18 @@ func compileSpec(spec string) *compiledSpec {
 			a.baseNeg = !a.baseNeg
 			b = neg
 		}
-		switch b {
-		case "Any":
+		switch compileSpec35e1Codes.Code(string(b)) {
+		case compileSpec35e1Any:
 			a.kind = cbAny
-		case "Card":
+		case compileSpec35e1Card:
 			a.kind = cbCard
-		case "Permanent":
+		case compileSpec35e1Permanent:
 			a.kind = cbPermanent
-		case "Affinity":
+		case compileSpec35e1Affinity:
 			a.kind = cbAffinity
-		case "PermanentCard":
+		case compileSpec35e1PermanentCard:
 			a.kind = cbPermanentCard
-		case "Spell", "SpellAbility":
+		case compileSpec35e1Spell:
 			a.kind = cbSpell
 		default:
 			a.kind, a.typ, a.typID, a.typSub = cbType, b, cards.InternTypeWord(b), changelingType(b)
@@ -651,3 +640,50 @@ func (c *specCache) slow(spec string) *compiledSpec {
 	}
 	return cs
 }
+
+var specialPositiveTokenTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "token$DifferentCardNames", Val: true},
+	state.StrEntry[bool]{Key: "ChosenCard", Val: true},
+	state.StrEntry[bool]{Key: "ChosenCardStrict", Val: true},
+	state.StrEntry[bool]{Key: "nonChosenCard", Val: true},
+	state.StrEntry[bool]{Key: "RememberedPlayerCtrl", Val: true},
+	state.StrEntry[bool]{Key: "CanBeTargetedByTriggeredSpellAbility", Val: true},
+	state.StrEntry[bool]{Key: "TriggeredNewCard", Val: true},
+	state.StrEntry[bool]{Key: "TriggeredCard", Val: true},
+	state.StrEntry[bool]{Key: "blockingTriggeredAttacker", Val: true},
+	state.StrEntry[bool]{Key: "EffectSource", Val: true},
+	state.StrEntry[bool]{Key: "IsGoaded", Val: true},
+	state.StrEntry[bool]{Key: "IsRemembered", Val: true},
+	state.StrEntry[bool]{Key: "IsTriggerRemembered", Val: true},
+)
+
+var typePredicateTokenTab2 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "Legendary", Val: true},
+	state.StrEntry[bool]{Key: "Basic", Val: true},
+	state.StrEntry[bool]{Key: "Snow", Val: true},
+	state.StrEntry[bool]{Key: "nonLand", Val: true},
+	state.StrEntry[bool]{Key: "nonCreature", Val: true},
+	state.StrEntry[bool]{Key: "nonBasic", Val: true},
+	state.StrEntry[bool]{Key: "ChosenType", Val: true},
+	state.StrEntry[bool]{Key: "IsNotChosenType", Val: true},
+	state.StrEntry[bool]{Key: "ChosenCtrl", Val: true},
+)
+
+const (
+	compileSpec35e1Any           uint16 = 1 // "Any"
+	compileSpec35e1Card          uint16 = 2 // "Card"
+	compileSpec35e1Permanent     uint16 = 3 // "Permanent"
+	compileSpec35e1Affinity      uint16 = 4 // "Affinity"
+	compileSpec35e1PermanentCard uint16 = 5 // "PermanentCard"
+	compileSpec35e1Spell         uint16 = 6 // "Spell", "SpellAbility"
+)
+
+var compileSpec35e1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Any", Val: compileSpec35e1Any},
+	state.StrEntry[uint16]{Key: "Card", Val: compileSpec35e1Card},
+	state.StrEntry[uint16]{Key: "Permanent", Val: compileSpec35e1Permanent},
+	state.StrEntry[uint16]{Key: "Affinity", Val: compileSpec35e1Affinity},
+	state.StrEntry[uint16]{Key: "PermanentCard", Val: compileSpec35e1PermanentCard},
+	state.StrEntry[uint16]{Key: "Spell", Val: compileSpec35e1Spell},
+	state.StrEntry[uint16]{Key: "SpellAbility", Val: compileSpec35e1Spell},
+)

@@ -57,12 +57,12 @@ func TestActivatedAbilityWithXInCostResolvesItsPaidX(t *testing.T) {
 	replayCheck(t, e, cfg)
 }
 
-// TestPaidXSurvivesAMidResolutionSuspension pins the resume arm of the same
-// binding: a spell whose resolution suspends on a mid-resolution ask keeps
-// the paid X for the rest of the walk. The fixture discards one card from
-// the opponent's hand (which suspends on the discard ask) and then, via its
-// SubAbility, creates TokenAmount$ X Angels -- so the token count proves the
-// resumed Ctx still carries X = 2.
+// TestPaidXSurvivesAMidResolutionSuspension pins the same binding across a
+// mid-resolution ask: a spell whose resolution asks a player keeps the paid X
+// for the rest of the walk. The fixture discards one card from the
+// opponent's hand (the discard ask) and then, via its SubAbility, creates
+// TokenAmount$ X Angels -- so the token count proves the walk after the
+// answer still carries X = 2.
 func TestPaidXSurvivesAMidResolutionSuspension(t *testing.T) {
 	t.Parallel()
 	src := "Name:Torment\nManaCost:X B\nTypes:Sorcery\n" +

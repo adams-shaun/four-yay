@@ -93,20 +93,20 @@ func (e *Engine) bindReflexiveContext(id state.ObjID, pt *pendingTrigger) {
 		}
 		lki := pt.Ctx.LKI.CloneDeep()
 		e.triggerLKI[id] = triggerObjectLKI{object: &lki,
-			power: pt.Ctx.LKIPower, toughness: pt.Ctx.LKIToughness,
-			ptValid: pt.Ctx.LKIPTValid}
+			power: pt.Ctx.Snap.Power, toughness: pt.Ctx.Snap.Toughness,
+			ptValid: pt.Ctx.Snap.PTValid}
 	}
-	if pt.Ctx.SourceLifelinkLKIValid {
+	if pt.Ctx.Snap.SourceLifelinkValid {
 		if e.sourceLifelinkLKI == nil {
 			e.sourceLifelinkLKI = make(map[state.ObjID]bool)
 		}
-		e.sourceLifelinkLKI[id] = pt.Ctx.SourceLifelinkLKI
+		e.sourceLifelinkLKI[id] = pt.Ctx.Snap.SourceLifelink
 	}
-	if pt.Ctx.SourceControllerLKIValid {
+	if pt.Ctx.Snap.SourceControllerValid {
 		if e.sourceControllerLKI == nil {
 			e.sourceControllerLKI = make(map[state.ObjID]state.PlayerID)
 		}
-		e.sourceControllerLKI[id] = pt.Ctx.SourceControllerLKI
+		e.sourceControllerLKI[id] = pt.Ctx.Snap.SourceController
 	}
 	if len(pt.Ctx.Sacrificed) > 0 {
 		if e.sacrificedLKI == nil {

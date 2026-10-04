@@ -125,8 +125,8 @@ func (e *Engine) replacementMatchesRememberedUngated(r cards.Repl, source state.
 
 func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source state.ObjID, ev events.Event,
 	remembered []state.ObjID, rememberedPlayers []state.PlayerID, tokenOverride *state.Object, you state.PlayerID) bool {
-	switch r.Event {
-	case "Attached":
+	switch r.EventKind() {
+	case cards.ReplAttached:
 		if ev.Kind != events.Attach || len(ev.IDs) == 0 {
 			return false
 		}
@@ -141,7 +141,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case "TurnFaceUp":
+	case cards.ReplTurnFaceUp:
 		// The "as this is turned face up" class (CR 614.1a with CR 708.6/
 		// CR 702.36e): the turned permanent is the turn-up event's own Obj
 		// (events.TurnFaceUp), and ValidCard$ scopes it in the replacement
@@ -161,7 +161,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			}
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case "Counter":
+	case cards.ReplCounter:
 		// The Effect-created bodyless CantHappen form (Mistrise Village's
 		// AntiMagic, reached only from counterReplacementMatchesAll's scan,
 		// which passes a synthetic Event{Obj: target}): the remembered-scoped
@@ -176,7 +176,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			}
 		}
 		return true
-	case "Moved":
+	case cards.ReplMoved:
 		if ev.Kind != events.MoveZone {
 			return false
 		}
@@ -282,7 +282,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// etbCounter passthrough is the one carrier, and the shared read is a
 		// no-op for every Moved line without the params.
 		return e.replacementConditionHolds(r, source, you)
-	case "Untap":
+	case cards.ReplUntap:
 		if ev.Kind != events.Untap {
 			return false
 		}
@@ -305,7 +305,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case "BeginPhase":
+	case cards.ReplBeginPhase:
 		if ev.Kind != events.StepChange {
 			return false
 		}
@@ -330,7 +330,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case "BeginTurn":
+	case cards.ReplBeginTurn:
 		// The skip-an-extra-turn class (Trouble in Pairs, Stranglehold,
 		// Ugin's Nexus, Gerrard's Hourglass Pendant). Reached ONLY through the
 		// synthetic events.ExtraTurn{Amount: 0} event extraTurnSkipped poses
@@ -364,7 +364,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// extraTurnSkipped reports a matched line whose action is not Skip$
 		// True loudly instead of silently skipping, and never silently skips.
 		return e.replacementConditionHolds(r, source, you)
-	case "Transform":
+	case cards.ReplTransform:
 		if ev.Kind != events.FlipFace {
 			return false
 		}
@@ -376,7 +376,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case "GainLife":
+	case cards.ReplGainLife:
 		if ev.Kind != events.LifeChange || ev.Amount <= 0 {
 			return false
 		}
@@ -397,7 +397,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			}
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case "DamageDone":
+	case cards.ReplDamageDone:
 		// A Damage event with a non-positive Amount is not damage being
 		// dealt: it is the cleanup step's CR 514.2 removal of marked damage
 		// (cleanupBody's negative Damage) or a hit already reduced to zero
@@ -414,7 +414,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case "ProduceMana":
+	case cards.ReplProduceMana:
 		// Only genuine production replaces: a ManaAdd without a producing
 		// source (a test seed, a spend) and a negative Amount (spending, not
 		// producing) are outside the class.
@@ -451,7 +451,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			}
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case "Explore":
+	case cards.ReplExplore:
 		// The explore replacement (R:Event$ Explore, task explore1 —
 		// Topography Tracker, Twists and Turns). ValidExplorer$ names the
 		// creature that would explore (the synthetic proposal's Obj), matched
@@ -465,7 +465,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case "Scry":
+	case cards.ReplScry:
 		// The scry replacement (R:Event$ Scry, task scryrepl — Kenessos,
 		// Priest of Thassa; Eligeth, Crossroads Augur). The event is the
 		// synthetic instruction PROPOSAL effects' effLookAndArrange builds
@@ -483,7 +483,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case "RollDice":
+	case cards.ReplRollDice:
 		// The roll-action replacement (R:Event$ RollDice, task rolldice-repl
 		// -- Wyll, Blade of Frontiers; Barbarian Class; Pixie Guide; the
 		// SwapRoll carrier Vedalken Squirrel-Whacker). The event is the
@@ -505,7 +505,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// the unmodelled SwapRoll body the dispatch skips loudly -- a sides
 		// gate is never silently widened onto a die of another size.
 		return e.replacementConditionHolds(r, source, you)
-	case "Draw", "DrawCards":
+	case cards.ReplDraw, cards.ReplDrawCards:
 		if ev.Kind != events.Draw {
 			return false
 		}
@@ -574,7 +574,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// repo deck carries any of the class's 39 carriers, so no golden
 		// game changes (measured).
 		return e.replacementConditionHolds(r, source, you)
-	case "CreateToken":
+	case cards.ReplCreateToken:
 		// The token-creation replacement class (Divine Visitation, Doubling
 		// Season, Academy Manufactor, Xorn, ...). Applied by
 		// continueCreateTokenReplacements, which reads each body's Type$
@@ -616,7 +616,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// alone: the AddCounter case below DOES read EffectOnly$, because
 		// CounterChange has non-effect emitters (turn-based actions, costs).
 		return e.replacementConditionHolds(r, source, you)
-	case "AddCounter":
+	case cards.ReplAddCounter:
 		// The counter-placement replacement class (Hardened Scales, Branching
 		// Evolution, Doubling Season, Vorinclex, ...). Applied by
 		// applyAddCounterReplacements, which reads each body's ReplaceCounter
@@ -732,7 +732,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			}
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case "RollPlanarDice":
+	case cards.ReplRollPlanarDice:
 		// The planar-dice replacement class (Ichor Elixir, task rollplanar1):
 		// "if you would roll one or more planar dice, instead roll that many
 		// planar dice plus one and ignore one". ValidPlayer$ scopes the roller
@@ -746,7 +746,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case "Cascade":
+	case cards.ReplCascade:
 		// The cascade instruction's replacement boundary (CR 614.4;
 		// Averna, the Chaos Bloom's `ValidPlayer$ You | ActiveZones$
 		// Battlefield`). Only the synthetic proposal reaches here, so there
@@ -760,7 +760,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case "GameLoss", "GameWin":
+	case cards.ReplGameLoss, cards.ReplGameWin:
 		// The "you can't lose the game" / "your opponents can't win the
 		// game" class (CR 104.3 / 704.5a-c, task fdn-repl-cant-lose). Only
 		// the SYNTHETIC proposal reaches here (Engine.gameLossPrevented /
@@ -874,12 +874,12 @@ func (e *Engine) replacementConditionHolds(r cards.Repl, source state.ObjID, you
 	// corpus's sole carrier; an unrecognised value fails closed like every
 	// other condition gate here.
 	if raw, ok := r.Param(cards.PKEnduringStory); ok {
-		switch strings.TrimSpace(raw) {
-		case "True", "true":
+		switch replacementConditionHolds5932Codes.Code(string(strings.TrimSpace(raw))) {
+		case replacementConditionHolds5932True:
 			if !e.playerHasEnduringStory(you) {
 				return false
 			}
-		case "False", "false":
+		case replacementConditionHolds5932False:
 			if e.playerHasEnduringStory(you) {
 				return false
 			}
@@ -915,16 +915,16 @@ func (e *Engine) replacementAmountMatches(spec string, amount int32, c *effects.
 	for _, op := range []string{"GE", "GT", "LE", "LT", "EQ"} {
 		if rhs, ok := strings.CutPrefix(spec, op); ok {
 			v := effects.Num(e, c, &cards.SA{Params: map[string]string{"N": rhs}}, "N", 0)
-			switch op {
-			case "GE":
+			switch replacementAmountMatches5933Codes.Code(string(op)) {
+			case replacementAmountMatches5933GE:
 				return amount >= v
-			case "GT":
+			case replacementAmountMatches5933GT:
 				return amount > v
-			case "LE":
+			case replacementAmountMatches5933LE:
 				return amount <= v
-			case "LT":
+			case replacementAmountMatches5933LT:
 				return amount < v
-			case "EQ":
+			case replacementAmountMatches5933EQ:
 				return amount == v
 			}
 		}
@@ -955,21 +955,21 @@ func (e *Engine) replacementCheckValue(source state.ObjID, check string) int32 {
 	if body == check && check == "X" {
 		return o.X
 	}
-	switch body {
-	case "Count$Party":
+	switch replacementCheckValue5934Codes.Code(string(body)) {
+	case replacementCheckValue5934CountParty:
 		roles := map[string]bool{}
 		for _, id := range e.G.Zone(state.ZBattlefield, o.Controller) {
 			if f := e.G.Obj(id).Face(); f != nil {
 				for _, typ := range f.Types {
-					switch typ {
-					case "Cleric", "Rogue", "Warrior", "Wizard":
+					switch replacementCheckValue5935Codes.Code(string(typ)) {
+					case replacementCheckValue5935Cleric:
 						roles[typ] = true
 					}
 				}
 			}
 		}
 		return int32(len(roles))
-	case "Count$Valid Permanent.YouCtrl$Colors":
+	case replacementCheckValue5934CountValidPermanentYouCtrlCo:
 		colors := ""
 		for _, id := range e.G.Zone(state.ZBattlefield, o.Controller) {
 			colors += e.objColors(e.G.Obj(id))
@@ -981,7 +981,7 @@ func (e *Engine) replacementCheckValue(source state.ObjID, check string) int32 {
 			}
 		}
 		return n
-	case "Count$Presence_Dragon.1.0":
+	case replacementCheckValue5934CountPresenceDragon10:
 		for _, id := range e.G.Zone(state.ZBattlefield, o.Controller) {
 			if faceHasType(e.G.Obj(id), "Dragon") {
 				return 1
@@ -1076,8 +1076,8 @@ func (e *Engine) graveyardCardTypeCount(controller state.PlayerID) int {
 	for _, id := range e.G.Zone(state.ZGraveyard, controller) {
 		if o := e.G.Obj(id); o != nil && o.Face() != nil {
 			for _, typ := range o.Face().Types {
-				switch typ {
-				case "Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery":
+				switch graveyardCardTypeCount5936Codes.Code(string(typ)) {
+				case graveyardCardTypeCount5936Artifact:
 					seen[typ] = true
 				}
 			}
@@ -1104,14 +1104,14 @@ func (e *Engine) replacementCauseMatches(spec string, replacementSource, cause s
 		return false
 	}
 	kind, quals, _ := strings.Cut(strings.TrimSpace(spec), ".")
-	switch kind {
-	case "Spell":
+	switch replacementCauseMatches5937Codes.Code(string(kind)) {
+	case replacementCauseMatches5937Spell:
 		if o.Ability != nil {
 			return false
 		}
-	case "SpellAbility":
+	case replacementCauseMatches5937SpellAbility:
 		// Both spell cards and minted ability objects qualify.
-	case "Triggered":
+	case replacementCauseMatches5937Triggered:
 		// A triggered-ability wrapper (TriggerPush/DelayedPush). Classified
 		// through state.StackKindOf -- the ONE classifier view's
 		// StackView.Kind and rules' TargetType$ legality also use, so the
@@ -1134,12 +1134,12 @@ func (e *Engine) replacementCauseMatches(spec string, replacementSource, cause s
 		}
 		return false
 	}
-	switch quals {
-	case "YouCtrl":
+	switch replacementCauseMatches5938Codes.Code(string(quals)) {
+	case replacementCauseMatches5938YouCtrl:
 		return o.Controller == e.controllerOf(replacementSource)
-	case "OppCtrl", "YouDontCtrl":
+	case replacementCauseMatches5938OppCtrl:
 		return o.Controller != e.controllerOf(replacementSource)
-	case "Modular":
+	case replacementCauseMatches5938Modular:
 		// ValidCause$ Triggered.Modular names the modular keyword's own
 		// put-counters trigger (Zabaz, the Glimmerwasp): the wrapper's source
 		// card must carry K:Modular. HasKeyword reads the printed plus
@@ -1158,3 +1158,95 @@ func isTriggered(g *state.Game, o *state.Object) bool {
 	_, ok := state.TriggerOf(g, o)
 	return ok
 }
+
+const (
+	replacementConditionHolds5932True  uint16 = 1 // "True", "true"
+	replacementConditionHolds5932False uint16 = 2 // "False", "false"
+)
+
+var replacementConditionHolds5932Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "True", Val: replacementConditionHolds5932True},
+	state.StrEntry[uint16]{Key: "true", Val: replacementConditionHolds5932True},
+	state.StrEntry[uint16]{Key: "False", Val: replacementConditionHolds5932False},
+	state.StrEntry[uint16]{Key: "false", Val: replacementConditionHolds5932False},
+)
+
+const (
+	replacementAmountMatches5933GE uint16 = 1 // "GE"
+	replacementAmountMatches5933GT uint16 = 2 // "GT"
+	replacementAmountMatches5933LE uint16 = 3 // "LE"
+	replacementAmountMatches5933LT uint16 = 4 // "LT"
+	replacementAmountMatches5933EQ uint16 = 5 // "EQ"
+)
+
+var replacementAmountMatches5933Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "GE", Val: replacementAmountMatches5933GE},
+	state.StrEntry[uint16]{Key: "GT", Val: replacementAmountMatches5933GT},
+	state.StrEntry[uint16]{Key: "LE", Val: replacementAmountMatches5933LE},
+	state.StrEntry[uint16]{Key: "LT", Val: replacementAmountMatches5933LT},
+	state.StrEntry[uint16]{Key: "EQ", Val: replacementAmountMatches5933EQ},
+)
+
+const (
+	replacementCheckValue5934CountParty                   uint16 = 1 // "Count$Party"
+	replacementCheckValue5934CountValidPermanentYouCtrlCo uint16 = 2 // "Count$Valid Permanent.YouCtrl$Colors"
+	replacementCheckValue5934CountPresenceDragon10        uint16 = 3 // "Count$Presence_Dragon.1.0"
+)
+
+var replacementCheckValue5934Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Count$Party", Val: replacementCheckValue5934CountParty},
+	state.StrEntry[uint16]{Key: "Count$Valid Permanent.YouCtrl$Colors", Val: replacementCheckValue5934CountValidPermanentYouCtrlCo},
+	state.StrEntry[uint16]{Key: "Count$Presence_Dragon.1.0", Val: replacementCheckValue5934CountPresenceDragon10},
+)
+
+const (
+	replacementCheckValue5935Cleric uint16 = 1 // "Cleric", "Rogue", "Warrior", "Wizard"
+)
+
+var replacementCheckValue5935Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Cleric", Val: replacementCheckValue5935Cleric},
+	state.StrEntry[uint16]{Key: "Rogue", Val: replacementCheckValue5935Cleric},
+	state.StrEntry[uint16]{Key: "Warrior", Val: replacementCheckValue5935Cleric},
+	state.StrEntry[uint16]{Key: "Wizard", Val: replacementCheckValue5935Cleric},
+)
+
+const (
+	graveyardCardTypeCount5936Artifact uint16 = 1 // "Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery"
+)
+
+var graveyardCardTypeCount5936Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Artifact", Val: graveyardCardTypeCount5936Artifact},
+	state.StrEntry[uint16]{Key: "Battle", Val: graveyardCardTypeCount5936Artifact},
+	state.StrEntry[uint16]{Key: "Creature", Val: graveyardCardTypeCount5936Artifact},
+	state.StrEntry[uint16]{Key: "Enchantment", Val: graveyardCardTypeCount5936Artifact},
+	state.StrEntry[uint16]{Key: "Instant", Val: graveyardCardTypeCount5936Artifact},
+	state.StrEntry[uint16]{Key: "Kindred", Val: graveyardCardTypeCount5936Artifact},
+	state.StrEntry[uint16]{Key: "Land", Val: graveyardCardTypeCount5936Artifact},
+	state.StrEntry[uint16]{Key: "Planeswalker", Val: graveyardCardTypeCount5936Artifact},
+	state.StrEntry[uint16]{Key: "Sorcery", Val: graveyardCardTypeCount5936Artifact},
+)
+
+const (
+	replacementCauseMatches5937Spell        uint16 = 1 // "Spell"
+	replacementCauseMatches5937SpellAbility uint16 = 2 // "SpellAbility"
+	replacementCauseMatches5937Triggered    uint16 = 3 // "Triggered"
+)
+
+var replacementCauseMatches5937Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Spell", Val: replacementCauseMatches5937Spell},
+	state.StrEntry[uint16]{Key: "SpellAbility", Val: replacementCauseMatches5937SpellAbility},
+	state.StrEntry[uint16]{Key: "Triggered", Val: replacementCauseMatches5937Triggered},
+)
+
+const (
+	replacementCauseMatches5938YouCtrl uint16 = 1 // "YouCtrl"
+	replacementCauseMatches5938OppCtrl uint16 = 2 // "OppCtrl", "YouDontCtrl"
+	replacementCauseMatches5938Modular uint16 = 3 // "Modular"
+)
+
+var replacementCauseMatches5938Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "YouCtrl", Val: replacementCauseMatches5938YouCtrl},
+	state.StrEntry[uint16]{Key: "OppCtrl", Val: replacementCauseMatches5938OppCtrl},
+	state.StrEntry[uint16]{Key: "YouDontCtrl", Val: replacementCauseMatches5938OppCtrl},
+	state.StrEntry[uint16]{Key: "Modular", Val: replacementCauseMatches5938Modular},
+)

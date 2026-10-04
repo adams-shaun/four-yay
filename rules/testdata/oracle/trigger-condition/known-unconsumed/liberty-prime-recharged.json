@@ -1,0 +1,7 @@
+{
+  "card": "Liberty Prime, Recharged",
+  "rows": {
+    "attacking-without-energy-sacrifices-it": "step 1 (resolve): [{\"kind\":\"choose\",\"pick\":[\"no\"]}]",
+    "two-energy-counters-pay-and-it-stays": "step 5 (resolve): [{\"kind\":\"choose\",\"pick\":[\"yes\"]}]"
+  }
+}

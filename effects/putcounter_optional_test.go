@@ -13,8 +13,7 @@ import (
 // Task put-optional: api:PutCounter.Optional$ True was unread -- "you may put
 // a counter" ALWAYS put, with no election recorded anywhere. effPutCounter
 // now poses a real yes/no KChoose (the attach_optional precedent, the shared
-// Ask boundary), the answer rides Ctx.PutOpt through rules' "put_optional"
-// resume arm, and a decline places nothing while the chained SubAbility$
+// Ask boundary), the answer is applied in place, and a decline places nothing while the chained SubAbility$
 // still runs (the chain is owned by Resolve, never skipped by a decline).
 //
 // These are the effects-package unit pins, against the REAL compiled corpus

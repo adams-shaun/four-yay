@@ -112,8 +112,7 @@ func TestToymakersTrapRememberedPlayerLoseLife(t *testing.T) {
 		Remembered: []state.Target{{Player: 2, IsPlayer: true}},
 		// The bound chosen number (Ctx.ChosenNumberBound, rules'
 		// seedEffectReplCtx shape): the guess that resolved this branch.
-		ChosenNumber:      3,
-		ChosenNumberBound: true,
+		Num: NumberInputs{Chosen: 3, ChosenBound: true},
 	}
 	if h.g.Players[2].Life != 20 || h.g.Players[1].Life != 20 {
 		t.Fatal("precondition: starting lives are not equal")

@@ -48,8 +48,8 @@ func substituteManaChosen(produced, chosen string) string {
 // one-unit-per-symbol allocation, and whether the legacy ask suspended.
 func askManaChoice(h Host, c *Ctx, sa *cards.SA, produced string) (string, bool, bool) {
 	var colours []string
-	switch produced {
-	case "Any", "Combo Any":
+	switch askManaChoicecf91Codes.Code(string(produced)) {
+	case askManaChoicecf91Any:
 		colours = manaChoiceColours
 	default:
 		if parsed, ok := ComboColours(produced); ok && len(parsed) > 1 {
@@ -83,21 +83,22 @@ func askManaChoice(h Host, c *Ctx, sa *cards.SA, produced string) (string, bool,
 	}
 	// The resolution kernel's answer in hand (lasagna spec §7): the
 	// "mana_color" arm's binding, applied here so effMana simply continues.
-	// An answer naming no valid colour is the arm's no-binding, on which the
-	// legacy re-entry poses the same ask again; so does this loop.
+	// An answer naming no valid colour poses the same ask again. An unserved
+	// ask goes to Host.Ask, which poses the off-stack colour choice.
 	for {
-		ans, ok := AskTape(h, d)
+		in, ok, _ := tapeAnswer(h, d)
 		if !ok {
 			break
 		}
+		ans := d.Chosen(in)
 		if answered, units, ok := manaChoiceProduced(ans); ok {
-			// The legacy re-entry re-runs effMana from its first line,
-			// which emits the unread-parameter Note again; mirror it.
+			// The unread-parameter Note is emitted again here, a pinned
+			// part of the log kept from the removed re-entry protocol.
 			noteUnreadParams(h, c, "Mana", ManaOf(sa).Unread)
 			return answered, units, false
 		}
 	}
-	if Ask(h, d) == AskAsked {
+	if !askUnposable(d) && h.Ask(d) {
 		return produced, false, true
 	}
 	return produced, false, false
@@ -172,15 +173,15 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 	// A resumed Combo allocation supplies one concrete symbol per unit.
 	// Consume it before walking the SA so the same choice is not posed again;
 	// its units carry Amount 1 below rather than being multiplied again.
-	allocation := len(c.ManaChoices) > 0
+	allocation := len(c.Mana.Choices) > 0
 	if allocation {
-		produced = strings.Join(c.ManaChoices, "")
-		c.ManaChoices = nil
+		produced = strings.Join(c.Mana.Choices, "")
+		c.Mana.Choices = nil
 		// A resumed colour ask supplies one concrete symbol. Consume the answer
 		// before walking the SA so the same choice is not posed again on re-entry.
-	} else if validManaChoice(c.ManaChoice) {
-		produced = c.ManaChoice
-		c.ManaChoice = ""
+	} else if validManaChoice(c.Mana.Choice) {
+		produced = c.Mana.Choice
+		c.Mana.Choice = ""
 	} else if o := h.Game().Obj(c.Source); o != nil {
 		// Chosen is normally stamped by an as-enters ChooseColor event.  A
 		// triggered/nested Mana effect does not pass through rules' activation
@@ -335,11 +336,11 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 	// other value is a loud Note and NO protection — an unrecognised condition
 	// must not silently promise something the engine cannot model.
 	noCounter := ""
-	switch mp.AddsNoCounter {
-	case "":
-	case "True":
+	switch effManacf92Codes.Code(string(mp.AddsNoCounter)) {
+	case effManacf92Empty:
+	case effManacf92True:
 		noCounter = "True"
-	case "!Permanent":
+	case effManacf92Permanent:
 		noCounter = "NotPermanent"
 	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -355,9 +356,9 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 	// with RestrictValid$). Any other value is a loud Note and ordinary
 	// mana.
 	persistent := false
-	switch mp.PersistentMana {
-	case "":
-	case "True":
+	switch effManacf93Codes.Code(string(mp.PersistentMana)) {
+	case effManacf93Empty:
+	case effManacf93True:
 		persistent = true
 	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -371,9 +372,9 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 	// by, and composes with, the printed keyword expansion (cards/
 	// kw_firebending.go); any other value is a loud Note and ordinary mana.
 	combat := false
-	switch mp.PersistentUntilEndOfCombat {
-	case "":
-	case "True":
+	switch effManacf94Codes.Code(string(mp.PersistentUntilEndOfCombat)) {
+	case effManacf94Empty:
+	case effManacf94True:
 		combat, persistent = true, true
 	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -519,3 +520,44 @@ func ManaRecipients(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 	// never for the plain Remembered family (a RepeatEach loop's subject).
 	return definedPlayers(h, c, sa)
 }
+
+const (
+	askManaChoicecf91Any uint16 = 1 // "Any", "Combo Any"
+)
+
+var askManaChoicecf91Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Any", Val: askManaChoicecf91Any},
+	state.StrEntry[uint16]{Key: "Combo Any", Val: askManaChoicecf91Any},
+)
+
+const (
+	effManacf92Empty     uint16 = 1 // ""
+	effManacf92True      uint16 = 2 // "True"
+	effManacf92Permanent uint16 = 3 // "!Permanent"
+)
+
+var effManacf92Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: effManacf92Empty},
+	state.StrEntry[uint16]{Key: "True", Val: effManacf92True},
+	state.StrEntry[uint16]{Key: "!Permanent", Val: effManacf92Permanent},
+)
+
+const (
+	effManacf93Empty uint16 = 1 // ""
+	effManacf93True  uint16 = 2 // "True"
+)
+
+var effManacf93Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: effManacf93Empty},
+	state.StrEntry[uint16]{Key: "True", Val: effManacf93True},
+)
+
+const (
+	effManacf94Empty uint16 = 1 // ""
+	effManacf94True  uint16 = 2 // "True"
+)
+
+var effManacf94Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: effManacf94Empty},
+	state.StrEntry[uint16]{Key: "True", Val: effManacf94True},
+)

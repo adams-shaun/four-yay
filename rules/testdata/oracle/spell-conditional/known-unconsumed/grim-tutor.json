@@ -1,0 +1,6 @@
+{
+  "card": "Grim Tutor",
+  "rows": {
+    "search-puts-card-in-hand-lose-three-life": "step 0 (cast): [{\"kind\":\"choose\",\"pick\":[\"Lightning Bolt\"]}]"
+  }
+}

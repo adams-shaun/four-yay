@@ -207,9 +207,7 @@ func (e *Engine) mayDeriveKeywordLine(id state.ObjID) bool {
 func (e *Engine) grantedKeywordLinesFull(id state.ObjID) []string {
 	var out []string
 	for _, k := range e.Derived(id).Keywords {
-		switch cards.KeywordHead(k) {
-		case "Cycling", "TypeCycling", "Saddle", "Crew":
-		default:
+		if !grantedKeywordLinesFullKeys1.Has(cards.KeywordHead(k)) {
 			continue
 		}
 		dup := false
@@ -290,14 +288,14 @@ func (e *Engine) gainsValidAbilitiesAdmits(spec string, ab *cards.SA) bool {
 		}
 		ok := true
 		for q := range strings.SplitSeq(tail, ".") {
-			switch strings.TrimSpace(q) {
-			case "":
+			switch gainsValidAbilitiesAdmits8ae1Codes.Code(string(strings.TrimSpace(q))) {
+			case gainsValidAbilitiesAdmits8ae1Empty:
 				// A trailing dot ("Activated."): no qualifier, vacuous.
-			case "!ManaAbility":
+			case gainsValidAbilitiesAdmits8ae1ManaAbility:
 				ok = ok && !cards.IsManaAbilityAPI(ab.API)
-			case "!Loyalty":
+			case gainsValidAbilitiesAdmits8ae1Loyalty:
 				ok = ok && !e.isLoyaltyAbility(ab)
-			case "Loyalty":
+			case gainsValidAbilitiesAdmits8ae1LoyaltyX:
 				ok = ok && e.isLoyaltyAbility(ab)
 			default:
 				// Unmodelled qualifier: fail closed for this alternative.
@@ -357,3 +355,19 @@ func (e *Engine) gainedActivationsThisTurn(id, foreign state.ObjID, idx int) int
 func existsOnBattlefield(o *state.Object) bool {
 	return o != nil && o.Zone == state.ZBattlefield && !o.PhasedOut
 }
+
+var grantedKeywordLinesFullKeys1 = state.NewNameSet("Cycling", "TypeCycling", "Saddle", "Crew")
+
+const (
+	gainsValidAbilitiesAdmits8ae1Empty       uint16 = 1 // ""
+	gainsValidAbilitiesAdmits8ae1ManaAbility uint16 = 2 // "!ManaAbility"
+	gainsValidAbilitiesAdmits8ae1Loyalty     uint16 = 3 // "!Loyalty"
+	gainsValidAbilitiesAdmits8ae1LoyaltyX    uint16 = 4 // "Loyalty"
+)
+
+var gainsValidAbilitiesAdmits8ae1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: gainsValidAbilitiesAdmits8ae1Empty},
+	state.StrEntry[uint16]{Key: "!ManaAbility", Val: gainsValidAbilitiesAdmits8ae1ManaAbility},
+	state.StrEntry[uint16]{Key: "!Loyalty", Val: gainsValidAbilitiesAdmits8ae1Loyalty},
+	state.StrEntry[uint16]{Key: "Loyalty", Val: gainsValidAbilitiesAdmits8ae1LoyaltyX},
+)

@@ -1,0 +1,6 @@
+{
+  "card": "Captain Marvel, Apex Avenger",
+  "rows": {
+    "non-kree-creature-counter-is-copied": "Experiment One gets a counter, but Captain Marvel stays 4/4 with none (nonKree filter fails closed)"
+  }
+}

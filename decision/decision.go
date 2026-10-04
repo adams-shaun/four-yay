@@ -569,14 +569,6 @@ type DamageEffect struct {
 	Amount *int `json:"amount"`
 }
 
-// ClashResume is the immutable snapshot and cursor for CR 701.31's sequential owner choices.
-type ClashResume struct {
-	Players  []state.PlayerID
-	Revealed []state.ObjID
-	Winner   int
-	Cursor   int
-}
-
 // WindowReason is a closed-vocabulary explanation for one withheld option.
 type WindowReason struct {
 	Obj    state.ObjID `json:"obj"`
@@ -790,8 +782,7 @@ type Decision struct {
 	// second list exists. omitempty: every decision a client sees today
 	// serialises byte-identically.
 	Restable bool `json:"restable,omitempty"`
-	// ResumeKind, ResumeSA, ResumeModes, ResumeTarget, ResumeChoices and
-	// ResumeRemembered are server-side only.
+	// ResumeKind, ResumeSA, ResumeModes and ResumeTarget are server-side only.
 	// ResumeKind selects a cast/placement/resolution continuation ("cast_modes",
 	// "modes", "unless_pay", "discard", "arrange", "search", "imprint",
 	// "untap", "dig"); ResumeSA
@@ -802,11 +793,10 @@ type Decision struct {
 	// targets already completed before suspension, and continues with later
 	// libraries. rules alone selects these fields; clients never see them. Card data is shared immutable compiled corpus, so the SA
 	// pointer is safe across Clone/replay.
-	ResumeKind   string       `json:"-"`
-	ResumeClash  *ClashResume `json:"-"`
-	ResumeSA     *cards.SA    `json:"-"`
-	ResumeModes  []string     `json:"-"`
-	ResumeTarget int          `json:"-"`
+	ResumeKind   string    `json:"-"`
+	ResumeSA     *cards.SA `json:"-"`
+	ResumeModes  []string  `json:"-"`
+	ResumeTarget int       `json:"-"`
 	// Rolls is engine-internal context for the one KChoose that asks a
 	// player to choose among ALREADY-ROLLED dice (effects/dice.go's
 	// ChosenSVar$/OtherSVar$ shape, the Endeavor cycle): the per-die results
@@ -817,114 +807,12 @@ type Decision struct {
 	// Index names a slot in this slice. Server-side only (json:"-"): a
 	// replay re-derives the same rolls from the same seeded draws.
 	Rolls []int32 `json:"-"`
-	// ResumeChoices carries selections completed by earlier per-player choice
-	// asks. It is runtime continuation state, never client input.
-	ResumeChoices     []state.Target `json:"-"`
-	ResumeChosenValid bool           `json:"-"`
-	ResumeRemembered  []state.Target `json:"-"`
-	// ResumeNumberPicks carries the numbers every chooser answered so far in a
-	// multi-chooser secret ChooseNumber election (api:ChooseNumber's
-	// MatchedAbility$/UnmatchedAbility$ shape, Expert-Level Safe), in chooser
-	// order. It is the numeric sibling of ResumeChoices, which cannot hold a
-	// bare number: the re-entered effect appends the answered pick and asks the
-	// next chooser, exactly as effPlayerVote rides ResumeChoices across its
-	// per-voter asks. Server-side only (json:"-"): runtime continuation state,
-	// never client input, and a replay re-derives the same picks from the same
-	// recorded intents.
-	ResumeNumberPicks []int32 `json:"-"`
-	// ResumeSearchKnown carries the effects.Ctx.SearchKnown set of an earlier
-	// ask in the same search chain (effects/zone.go effSearchLibrary): the
-	// library cards the chooser has already legitimately seen. A planted
-	// placement leg poses a second ask after the first leg's own suspension
-	// rebuilt a fresh Ctx, and without the ride the second leg would go blind
-	// again. Server-side runtime continuation state, never client input --
-	// the same class as ResumeRemembered.
-	ResumeSearchKnown []state.Target `json:"-"`
-	// ResumeForgetOtherSnapshot is the original eligibility set for a
-	// multi-owner ChangeZone whose first move cleared remembered memory.
-	ResumeForgetOtherSnapshot []state.Target   `json:"-"`
-	ResumeForgetOtherOwners   []state.PlayerID `json:"-"`
-	ResumeForgetOtherReady    bool             `json:"-"`
-	ResumeForgetOtherCleared  bool             `json:"-"`
-	// ResumeDigUntilMove carries an earlier OptionalFoundMove$ answer through
-	// a nested DigUntil Aura-bearer ask. It is runtime continuation state only.
-	// Empty until the election is answered.
-	ResumeDigUntilMove string `json:"-"`
-	// ResumeClonePick carries an earlier DB$ Clone Choices$ copy-source pick
-	// through a later Optional$ may-copy ask in the same walk, so the answered
-	// re-entry consumes the selection rather than posing the Choices$ ask
-	// again. Runtime continuation state only.
-	ResumeClonePick     state.ObjID `json:"-"`
-	ResumeClonePickDone bool        `json:"-"`
-	// ResumeTargetsUnique carries the TargetUnique$ accumulator of the
-	// resolution that posed this ask (Ctx.TargetsUnique at suspension time):
-	// the resume rebuilds a fresh Ctx, which without the ride loses every
-	// earlier TargetUnique pick and a later rider in the same chain re-offers
-	// them. Runtime continuation state, never client input, the same class
-	// as ResumeRemembered.
-	ResumeTargetsUnique []state.Target `json:"-"`
-	// ResumeMoved carries the objects a ShuffleNonMandatory$ search's first
-	// pass already moved (Path to Exile, Stoneforge Mystic): the may-shuffle
-	// confirm suspends after the moves, and the re-entry's LibraryPosition$
-	// placement needs the moved list the suspension lost. It is runtime
-	// continuation state, never client input, the same class as
-	// ResumeRemembered.
-	ResumeMoved []state.ObjID `json:"-"`
 	// ResumeDigPrimary carries a Dig's primary cards when its remainder's
 	// ordered-bottom ask suspends after those cards were moved to a library.
 	// The arrange handler needs this to place the primary pile on top after it
 	// applies the remainder order; it is runtime continuation state, never
 	// client input.
 	ResumeDigPrimary []state.ObjID `json:"-"`
-	// ResumeObjects carries an ASK's own immutable object snapshot when the
-	// continuation must walk a list the answer can shrink out from under it.
-	// Time Travel (Doctor Who) is the first user: its per-object election
-	// offers add/remove/skip, so deriving the walk list from the decision's
-	// options would record the asked object three times instead of the full
-	// eligible set, and recomputing the set on re-entry would shift the
-	// cursor when a removal drops an object. The effect sets it to the exact
-	// list it is walking; rules stores it on the resume point and hands it
-	// back on re-entry. Runtime continuation state, never client input, the
-	// same class as ResumeMoved.
-	ResumeObjects []state.ObjID `json:"-"`
-	// ResumeRound carries a repeating continuation's completed-repetition
-	// count beside ResumeTarget's index into that repetition's own list.
-	// Time Travel (Doctor Who) is the first user: The Tenth Doctor's
-	// Amount$ 3 runs the action three times, so the continuation must name
-	// BOTH the repetition and the object. It is a field of its own rather
-	// than a pair packed into ResumeTarget because `int` is 32 bits on a
-	// 32-bit build, where a `(round << 32) | idx` packing both fails to
-	// compile and loses the round. Runtime continuation state, never client
-	// input, the same class as ResumeMoved.
-	ResumeRound int `json:"-"`
-	// ResumeRepeatNext is the completed-iteration cursor for RepeatOptional$.
-	ResumeRepeatNext int32 `json:"-"`
-	// ResumeUptoIdx/ResumeUptoCount ride an Upto$ Draw's in-flight per-target
-	// state across a Dredge ask parked inside that target's answered batch
-	// (Arcane Denial's "may draw up to two"): the re-entering upto branch
-	// resumes exactly that target's remaining draws instead of re-asking a
-	// decision already answered. Idx -1 (the default every non-upto caller
-	// leaves) means no upto is in flight. Runtime continuation state, never
-	// client input, the same class as ResumeMoved.
-	ResumeUptoIdx   int   `json:"-"`
-	ResumeUptoCount int32 `json:"-"`
-	// ResumeExploreDone rides an api:Explore destination election: the
-	// number of explores the pending explorer had completed before the one
-	// that asked, so the resumed Num$ loop continues at that explore instead
-	// of restarting its count (effects.Ctx.ExploreCount). Runtime
-	// continuation state, never client input, the same class as
-	// ResumeUptoCount.
-	ResumeExploreDone int32 `json:"-"`
-	// ResumeVillainousVictims and ResumeVillainousIndex carry the ordered
-	// victim cursor for a multi-player VillainousChoice resolution.
-	ResumeVillainousVictims []state.Target `json:"-"`
-	ResumeVillainousIndex   int            `json:"-"`
-	// ResumeGenericChoosers and ResumeGenericChooserIndex carry the ordered
-	// Defined$ player cursor for a multi-player api:GenericChoice resolution:
-	// each chooser answers the same Choices$ list in turn, with that chooser
-	// bound as Ctx.Remembered.
-	ResumeGenericChoosers     []state.Target `json:"-"`
-	ResumeGenericChooserIndex int            `json:"-"`
 }
 
 // New is a convenience constructor that fills a Decision's Player, Kind,

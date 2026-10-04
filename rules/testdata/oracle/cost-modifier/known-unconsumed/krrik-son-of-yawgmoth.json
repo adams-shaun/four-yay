@@ -1,0 +1,6 @@
+{
+  "card": "K'rrik, Son of Yawgmoth",
+  "rows": {
+    "static-pays-life-for-a-black-spell": "step 1 (cast): [{\"kind\":\"any\",\"pick\":[\"life\"]}]"
+  }
+}

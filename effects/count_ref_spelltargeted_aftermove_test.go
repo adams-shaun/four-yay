@@ -191,7 +191,7 @@ func TestSpellTargetedLiveZoneFallbackWithoutSnapshot(t *testing.T) {
 	h.g.Obj(obj.ID).Zone = state.ZStack
 	h.g.SetZone(state.ZStack, 1, []state.ObjID{obj.ID})
 	c.Targets = []state.Target{{Obj: obj.ID}}
-	if c.TargetSpellLKI != nil {
+	if c.Snap.TargetSpell != nil {
 		t.Fatal("precondition: a fresh Ctx must not carry a snapshot")
 	}
 	if got := EvalCount(h, c, "SpellTargeted$CardManaCostLKI"); got != 3 {

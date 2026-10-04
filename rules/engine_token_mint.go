@@ -13,44 +13,11 @@ import (
 type engineTokenMint struct {
 	// tokenMintSink, when non-nil, collects every object the TokenCreate or
 	// CardToken event currently being emitted actually created
-	// (EmitTokenCreate, and a parked mint's answer through withMintSink). It is a
+	// (EmitTokenCreate). It is a
 	// stack discipline: a nested token creation saves and restores the outer
 	// sink, so the outer effect's rider loop sees only its own mints. Nil on
 	// every ordinary Emit, so no other emit pays for the collection.
 	tokenMintSink *[]state.ObjID `clone:"reset"`
-	// mintParkFrom is EmitTokenCreate's report to SuspendTokenRest (rules/
-	// token_rest.go): 1 + the replacement-choice queue length before an emit
-	// that parked the resolution behind a replacement-order ask, else 0.
-	// mintSinks are the collectors those parked mints' answers mint into,
-	// keyed by an id from mintSinkSeq and consumed by the "token_rest" frame.
-	// mintParkElection is the same report for the OTHER park: an as-enters
-	// election (etbMove/riotMove/unleashMove/siegeMove) posed from inside the
-	// emit parked the mint's own entry, so the election -- not a queued
-	// competition -- is the continuation the collector rides (SuspendTokenRest
-	// tags it through pendingMintSink).
-	mintParkFrom     int        `clone:"deep"`
-	mintParkElection bool       `clone:"deep"`
-	mintSinks        []mintSink `clone:"deep"`
-	mintSinkSeq      uint64     `clone:"deep"`
-	// tokenMintSinkID is the named collector (a mintSinks key) the current
-	// tokenMintSink scope belongs to: withMintSink sets it to its collector's
-	// id for the scope's duration and EmitTokenCreate resets it to 0 (its own
-	// sink is a local buffer, never a named collector), both restored after.
-	// An ask posed inside the scope records it as pendingMintSink, so an
-	// as-enters election the scope's entry parked on carries the collector to
-	// its answer. Engine scratch, never logged; Clone-copied (clone.go).
-	tokenMintSinkID uint64 `clone:"deep"`
-	// pendingMintSink is the collector id the PENDING mid-resolution ask's
-	// answer must run under when that ask is an as-enters election that
-	// parked a resolving DB$ Token's mint entry: Engine.ask records it from
-	// tokenMintSinkID at pose time, and the election answer arms (rules/
-	// turn.go's chooseETBEntry, chooseRiot, chooseUnleash, chooseSiege)
-	// re-emit the parked entry under withMintSink with it, so publishTokenEntry
-	// lands the minted id in the waiting collector. 0 = no collector. It is
-	// overwritten at every pose, never cleared: a stale id names a collector
-	// takeMintSink has already consumed, and withMintSink(0-or-spent) runs
-	// unchanged. Engine scratch, never logged; Clone-copied (clone.go).
-	pendingMintSink uint64 `clone:"deep"`
 	// copyMintsPending are the CopyToken mints (a chosen-copy token plan's,
 	// a DB$ CopyPermanent's) whose battlefield MoveZone has not completed
 	// yet: the object exists in the library but has not entered. The emit

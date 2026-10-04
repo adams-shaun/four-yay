@@ -78,10 +78,10 @@ func NumForObject(h Host, c *Ctx, sa *cards.SA, key string, def int32, obj state
 // Animate's Power/Toughness, SetPower$/SetToughness$-style base-sets, and the
 // token / face-down families.
 func statIsPowerKey(key string) (power, ok bool) {
-	switch key {
-	case "NumAtt", "Power", "SetPower", "TokenPower", "FaceDownPower":
+	switch statIsPowerKeyf1f1Codes.Code(string(key)) {
+	case statIsPowerKeyf1f1NumAtt:
 		return true, true
-	case "NumDef", "Toughness", "SetToughness", "TokenToughness", "FaceDownToughness":
+	case statIsPowerKeyf1f1NumDef:
 		return false, true
 	}
 	return false, false
@@ -518,7 +518,7 @@ func evalCountExprOK(h Host, c *Ctx, expr string, depth int) (int32, bool) {
 		if field != "DamageAmount" && field != "Amount" && field != "Number" && field != "CounterNum" {
 			return 0, false
 		}
-		n := c.ReplacementAmount
+		n := c.Repl.Amount
 		if hasOp {
 			// Resolve named operands consistently with the SVar$ head above.
 			// Runtime-published roll values are resolved on the live
@@ -673,3 +673,21 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 	}
 	return 0, false
 }
+
+const (
+	statIsPowerKeyf1f1NumAtt uint16 = 1 // "NumAtt", "Power", "SetPower", "TokenPower", "FaceDownPower"
+	statIsPowerKeyf1f1NumDef uint16 = 2 // "NumDef", "Toughness", "SetToughness", "TokenToughness", "FaceDownToughness"
+)
+
+var statIsPowerKeyf1f1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "NumAtt", Val: statIsPowerKeyf1f1NumAtt},
+	state.StrEntry[uint16]{Key: "Power", Val: statIsPowerKeyf1f1NumAtt},
+	state.StrEntry[uint16]{Key: "SetPower", Val: statIsPowerKeyf1f1NumAtt},
+	state.StrEntry[uint16]{Key: "TokenPower", Val: statIsPowerKeyf1f1NumAtt},
+	state.StrEntry[uint16]{Key: "FaceDownPower", Val: statIsPowerKeyf1f1NumAtt},
+	state.StrEntry[uint16]{Key: "NumDef", Val: statIsPowerKeyf1f1NumDef},
+	state.StrEntry[uint16]{Key: "Toughness", Val: statIsPowerKeyf1f1NumDef},
+	state.StrEntry[uint16]{Key: "SetToughness", Val: statIsPowerKeyf1f1NumDef},
+	state.StrEntry[uint16]{Key: "TokenToughness", Val: statIsPowerKeyf1f1NumDef},
+	state.StrEntry[uint16]{Key: "FaceDownToughness", Val: statIsPowerKeyf1f1NumDef},
+)

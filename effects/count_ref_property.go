@@ -80,7 +80,7 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 			// TriggerPush wrapper to both initial and resumed resolution.
 			o = c.LKI
 		} else if ref == "Remembered" {
-			for _, rememberedLKI := range c.ChangeZoneLKI {
+			for _, rememberedLKI := range c.Snap.ChangeZone {
 				if rememberedLKI.Obj == t.Obj && rememberedLKI.Snapshot.Card != nil {
 					snapshot := rememberedLKI.Snapshot
 					o = &snapshot
@@ -108,8 +108,8 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 			}
 		case prop == "CardPower":
 			if f != nil {
-				if lki && c.LKIPTValid {
-					n += c.LKIPower
+				if lki && c.Snap.PTValid {
+					n += c.Snap.Power
 				} else if pt, ok := targetPTLKI(c, o); ok && !lki {
 					n += pt.Power
 				} else {
@@ -118,8 +118,8 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 			}
 		case prop == "CardToughness":
 			if f != nil {
-				if lki && c.LKIPTValid {
-					n += c.LKIToughness
+				if lki && c.Snap.PTValid {
+					n += c.Snap.Toughness
 				} else if pt, ok := targetPTLKI(c, o); ok && !lki {
 					n += pt.Toughness
 				} else {
@@ -255,14 +255,14 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 				case diffKind == diffPower:
 					// The derived power, with the zone-change snapshot when one
 					// is carried -- the CardPower case's exact read.
-					if lki && c.LKIPTValid {
-						seenDiffValues[c.LKIPower] = true
+					if lki && c.Snap.PTValid {
+						seenDiffValues[c.Snap.Power] = true
 					} else {
 						seenDiffValues[refPower(h, o, lki)] = true
 					}
 				case diffKind == diffToughness:
-					if lki && c.LKIPTValid {
-						seenDiffValues[c.LKIToughness] = true
+					if lki && c.Snap.PTValid {
+						seenDiffValues[c.Snap.Toughness] = true
 					} else {
 						seenDiffValues[refToughness(h, o, lki)] = true
 					}
@@ -351,13 +351,13 @@ func evalPlayerRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 	prop, op, hasOp := strings.Cut(prop, "/")
 	prop = strings.TrimSpace(prop)
 	var ts []state.Target
-	switch ref {
-	case "TargetedPlayer", "ThisTargetedPlayer":
+	switch evalPlayerRefPropertyfc31Codes.Code(string(ref)) {
+	case evalPlayerRefPropertyfc31TargetedPlayer:
 		ts = c.Targets
 		if c.PickedTargets != nil {
 			ts = c.PickedTargets
 		}
-	case "TargetedController":
+	case evalPlayerRefPropertyfc31TargetedController:
 		// The target list read through its controllers: the same
 		// PickedTargets-else-Targets precedence as the TargetedPlayer arm,
 		// converted with the shared controllersOf helper the Defined$
@@ -371,7 +371,7 @@ func evalPlayerRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 			src = c.PickedTargets
 		}
 		ts = controllersOf(h.Game(), src)
-	case "TriggeredPlayersOpponentVotedDiff":
+	case evalPlayerRefPropertyfc31TriggeredPlayersOpponentVote:
 		// The canonical vote-finished carrier's diff set (trig:Vote): the
 		// fire-time referent capture is the ONLY binding, so a count read
 		// outside a Vote resolution fails closed to the empty list -- the
@@ -408,7 +408,7 @@ func evalPlayerRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 				ts = append(ts, t)
 			}
 		}
-	case "TriggeredCapturedPlayers":
+	case evalPlayerRefPropertyfc31TriggeredCapturedPlayers:
 		// The firing trigger's fire-time PLAYER capture (Ctx.Captured) read
 		// on purpose. The plain Remembered heads (Remembered$Amount,
 		// Count$RememberedNumber) exclude that capture -- Forge's host
@@ -425,7 +425,7 @@ func evalPlayerRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 				ts = append(ts, t)
 			}
 		}
-	case "TriggeredPlayersTargets":
+	case evalPlayerRefPropertyfc31TriggeredPlayersTargets:
 		// The batch's matching TARGET PLAYERS (trig:DamageAll): Malcolm
 		// Keen-Eyed Navigator's and Hordewing Skaab's SVar:X reads the count
 		// of opponents the damage batch dealt damage to ("create a Treasure
@@ -587,3 +587,20 @@ func delayedRemembers(c *Ctx, id state.ObjID) bool {
 	}
 	return false
 }
+
+const (
+	evalPlayerRefPropertyfc31TargetedPlayer               uint16 = 1 // "TargetedPlayer", "ThisTargetedPlayer"
+	evalPlayerRefPropertyfc31TargetedController           uint16 = 2 // "TargetedController"
+	evalPlayerRefPropertyfc31TriggeredPlayersOpponentVote uint16 = 3 // "TriggeredPlayersOpponentVotedDiff"
+	evalPlayerRefPropertyfc31TriggeredCapturedPlayers     uint16 = 4 // "TriggeredCapturedPlayers"
+	evalPlayerRefPropertyfc31TriggeredPlayersTargets      uint16 = 5 // "TriggeredPlayersTargets"
+)
+
+var evalPlayerRefPropertyfc31Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "TargetedPlayer", Val: evalPlayerRefPropertyfc31TargetedPlayer},
+	state.StrEntry[uint16]{Key: "ThisTargetedPlayer", Val: evalPlayerRefPropertyfc31TargetedPlayer},
+	state.StrEntry[uint16]{Key: "TargetedController", Val: evalPlayerRefPropertyfc31TargetedController},
+	state.StrEntry[uint16]{Key: "TriggeredPlayersOpponentVotedDiff", Val: evalPlayerRefPropertyfc31TriggeredPlayersOpponentVote},
+	state.StrEntry[uint16]{Key: "TriggeredCapturedPlayers", Val: evalPlayerRefPropertyfc31TriggeredCapturedPlayers},
+	state.StrEntry[uint16]{Key: "TriggeredPlayersTargets", Val: evalPlayerRefPropertyfc31TriggeredPlayersTargets},
+)

@@ -420,18 +420,18 @@ func compileChangeZone(sa *cards.SA, tp *TargetParams, dr *DefinedParams) *Chang
 	p.changeZoneTargeting = compileChangeZoneTargeting(tp, dr)
 	p.DefinedPlayer = definedPlayerRef(sa).Param()
 	p.Chooser = strings.TrimSpace(sa.ParamStr(cards.PKChooser))
-	switch p.Chooser {
-	case "", "Owner":
+	switch compileChangeZone8511Codes.Code(string(p.Chooser)) {
+	case compileChangeZone8511Empty:
 		p.handChooser = handChooserOwner
-	case "You":
+	case compileChangeZone8511You:
 		p.handChooser = handChooserYou
-	case "Targeted":
+	case compileChangeZone8511Targeted:
 		p.handChooser = handChooserTargeted
-	case "TriggeredTarget":
+	case compileChangeZone8511TriggeredTarget:
 		p.handChooser = handChooserTriggeredTarget
-	case "TriggeredPlayer":
+	case compileChangeZone8511TriggeredPlayer:
 		p.handChooser = handChooserTriggeredPlayer
-	case "ChosenPlayer", "Player.Chosen":
+	case compileChangeZone8511ChosenPlayer:
 		p.handChooser = handChooserChosenPlayer
 	default:
 		p.handChooser = handChooserUnknown
@@ -604,3 +604,23 @@ func fetchSelectorsParam(sa *cards.SA) fetchSelectors {
 
 // ChangeZoneKnownKeys is a copy of changeZoneKnownKeys, for the census check.
 func ChangeZoneKnownKeys() []string { return slices.Clone(changeZoneKnownKeys[:]) }
+
+const (
+	compileChangeZone8511Empty           uint16 = 1 // "", "Owner"
+	compileChangeZone8511You             uint16 = 2 // "You"
+	compileChangeZone8511Targeted        uint16 = 3 // "Targeted"
+	compileChangeZone8511TriggeredTarget uint16 = 4 // "TriggeredTarget"
+	compileChangeZone8511TriggeredPlayer uint16 = 5 // "TriggeredPlayer"
+	compileChangeZone8511ChosenPlayer    uint16 = 6 // "ChosenPlayer", "Player.Chosen"
+)
+
+var compileChangeZone8511Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: compileChangeZone8511Empty},
+	state.StrEntry[uint16]{Key: "Owner", Val: compileChangeZone8511Empty},
+	state.StrEntry[uint16]{Key: "You", Val: compileChangeZone8511You},
+	state.StrEntry[uint16]{Key: "Targeted", Val: compileChangeZone8511Targeted},
+	state.StrEntry[uint16]{Key: "TriggeredTarget", Val: compileChangeZone8511TriggeredTarget},
+	state.StrEntry[uint16]{Key: "TriggeredPlayer", Val: compileChangeZone8511TriggeredPlayer},
+	state.StrEntry[uint16]{Key: "ChosenPlayer", Val: compileChangeZone8511ChosenPlayer},
+	state.StrEntry[uint16]{Key: "Player.Chosen", Val: compileChangeZone8511ChosenPlayer},
+)

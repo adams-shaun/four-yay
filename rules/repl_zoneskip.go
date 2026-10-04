@@ -67,43 +67,10 @@ func faceReplHot(f *cards.Face) bool { return f != nil && len(f.Repls) > 0 }
 // a logged event -- to its bit; DrawCards shares Draw's (the one alias
 // replacementEventNameMatches accepts). A name replacementEvent never
 // returns gets no bit: no event can match it.
-func replEventBit(name string) uint32 {
-	switch name {
-	case "Attached":
-		return 1 << 0
-	case "Moved":
-		return 1 << 1
-	case "Untap":
-		return 1 << 2
-	case "BeginPhase":
-		return 1 << 3
-	case "Transform":
-		return 1 << 4
-	case "ProduceMana":
-		return 1 << 5
-	case "DamageDone":
-		return 1 << 6
-	case "Draw", "DrawCards":
-		return 1 << 7
-	case "CreateToken":
-		return 1 << 8
-	case "Explore":
-		return 1 << 9
-	case "Cascade":
-		return 1 << 10
-	case "Scry":
-		return 1 << 11
-	case "RollDice":
-		return 1 << 12
-	case "RollPlanarDice":
-		return 1 << 13
-	case "AddCounter":
-		return 1 << 14
-	case "TurnFaceUp":
-		return 1 << 15
-	}
-	return 0
-}
+func replEventBit(name string) uint32 { return replEventBits[cards.ReplEventOf(name)] }
+
+// replLineBit is replEventBit for an R: line, through its load-time code.
+func replLineBit(r *cards.Repl) uint32 { return replEventBits[r.EventKind()] }
 
 // objectReplMask is the union of replEventBit over every R: line of every
 // face objectReplHot reads (CopyFace and each of the card's faces), the
@@ -115,7 +82,7 @@ func objectReplMask(o *state.Object) uint32 {
 	var m uint32
 	if o.CopyFace != nil {
 		for i := range o.CopyFace.Repls {
-			m |= replEventBit(o.CopyFace.Repls[i].Event)
+			m |= replLineBit(&o.CopyFace.Repls[i])
 		}
 	}
 	if o.Card != nil {
@@ -124,7 +91,7 @@ func objectReplMask(o *state.Object) uint32 {
 				continue
 			}
 			for i := range f.Repls {
-				m |= replEventBit(f.Repls[i].Event)
+				m |= replLineBit(&f.Repls[i])
 			}
 		}
 	}
@@ -404,4 +371,24 @@ func copyReplZones(dst, src []replZoneSummary) []replZoneSummary {
 		d.live, d.mask, d.epoch, d.valid = d.ids, s.mask, s.epoch, s.valid
 	}
 	return dst
+}
+
+var replEventBits = [cards.ReplEventCount]uint32{
+	cards.ReplAttached:       1 << 0,
+	cards.ReplMoved:          1 << 1,
+	cards.ReplUntap:          1 << 2,
+	cards.ReplBeginPhase:     1 << 3,
+	cards.ReplTransform:      1 << 4,
+	cards.ReplProduceMana:    1 << 5,
+	cards.ReplDamageDone:     1 << 6,
+	cards.ReplDraw:           1 << 7,
+	cards.ReplDrawCards:      1 << 7,
+	cards.ReplCreateToken:    1 << 8,
+	cards.ReplExplore:        1 << 9,
+	cards.ReplCascade:        1 << 10,
+	cards.ReplScry:           1 << 11,
+	cards.ReplRollDice:       1 << 12,
+	cards.ReplRollPlanarDice: 1 << 13,
+	cards.ReplAddCounter:     1 << 14,
+	cards.ReplTurnFaceUp:     1 << 15,
 }

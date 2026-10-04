@@ -1,0 +1,6 @@
+{
+  "card": "Campus Guide",
+  "rows": {
+    "may-decline-the-search": "step 1 (resolve): [{\"kind\":\"choose\",\"pick\":[]}]"
+  }
+}

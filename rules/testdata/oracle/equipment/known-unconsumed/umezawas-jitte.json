@@ -1,0 +1,7 @@
+{
+  "card": "Umezawa's Jitte",
+  "rows": {
+    "charge-counter-pumps-equipped-creature": "step 4 (activate): [{\"kind\":\"modes\",\"pick\":[\"+2/+2\"]}]; step 6 (activate): [{\"kind\":\"modes\",\"pick\":[\"+2/+2\"]}]",
+    "remove-counter-mode-pumps-equipped": "step 4 (activate): [{\"kind\":\"modes\",\"pick\":[\"+2/+2\"]}]"
+  }
+}

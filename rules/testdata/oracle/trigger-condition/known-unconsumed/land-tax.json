@@ -1,0 +1,6 @@
+{
+  "card": "Land Tax",
+  "rows": {
+    "condition-false-at-resolution-searches-nothing": "step 3 (resolve): [{\"kind\":\"choose\",\"pick\":[\"Forest\"]}]"
+  }
+}

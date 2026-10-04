@@ -57,28 +57,12 @@ func init() { Register("Clone", effClone) }
 // the battlefield.
 func effClone(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
-
-	// The answered Optional$ may-copy election, consumed and cleared at the
-	// top of the walk (the fx42 scoping discipline): a nested Clone cannot
-	// inherit the outer answer.
-	cloneAns := string("")
-
-	cloneDone := false
-
-	clonePick := state.ObjID(0)
-
-	clonePickDone := false
-
 	cp := CloneOf(sa)
-	if !cloneDone && !clonePickDone {
-		// Once per call: an answered re-entry (either flag set) already
-		// noted on its first pass.
-		noteUnreadParams(h, c, "Clone", cp.Unread)
-	}
-	if c.CloneETB {
+	noteUnreadParams(h, c, "Clone", cp.Unread)
+	if c.CloneEnter.ETB {
 		// The ETB election is answered before the move. A decline is a real
 		// answer, not the deterministic Choices$ fallback.
-		if !c.CloneChoiceValid {
+		if !c.CloneEnter.ChoiceValid {
 			// No recorded election: a non-cast entry (reanimation, blink,
 			// ChangeZone) of any carrier, or a cast whose body the ETB
 			// whitelist declined (an out-of-scope rider -- Vesuva's
@@ -90,7 +74,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 				Text: "unimplemented API " + sa.API})
 			return
 		}
-		if c.CloneChoice == 0 {
+		if c.CloneEnter.Choice == 0 {
 			return
 		}
 		// The election was made while the spell was announced, but a player
@@ -136,8 +120,8 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 		// A name has no source ObjID. The copied face is resolved in Apply
 		// from the universe carried by the game, keyed by this chosen name.
 		source = []state.Target{{Obj: c.Source}}
-	case c.CloneETB:
-		source = []state.Target{{Obj: c.CloneChoice}}
+	case c.CloneEnter.ETB:
+		source = []state.Target{{Obj: c.CloneEnter.Choice}}
 	case spec != "":
 		ts, ok := knownDefinedTargets(h, c, spec)
 		if !ok {
@@ -165,24 +149,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 		// convention -- a wrong copy is worse than none).
 		zone, zoneOK := cp.ChoiceZoneKind, cp.ChoiceZoneOK
 		optional := cp.ChoiceOptional
-		if clonePickDone {
-			// The answered re-entry: the selected object travels through
-			// Ctx.ClonePick, which rules' resumeResolution filled. A zero id is
-			// a real decline when the ask offered one (ChoiceOptional$ True),
-			// and otherwise a malformed or empty answer -- one loud Note and no
-			// copy, never a silent fall-through to an object the chooser did
-			// not name.
-			if clonePick == 0 {
-				if optional {
-					return // the answered decline: no copy; the decision_made event carries it.
-				}
-				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-					Text: "Clone Choices$ answer named no object; no copy"})
-				return
-			}
-			source = []state.Target{{Obj: clonePick}}
-			chosenPick = clonePick
-		} else if !zoneOK {
+		if !zoneOK {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 				Text: "Clone ChoiceZone$ " + cp.ChoiceZone +
 					" is not a zone this build can choose from; no copy"})
@@ -220,16 +187,15 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 					Label: "No — do not copy", Player: c.Controller})
 			}
 			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: the pick the
-				// "clone_choice" re-entry consumes (a zero id is the
-				// optional decline, or a malformed answer's loud no-copy).
-				// The pick also rides a later Optional$ ask exactly as the
-				// re-entry's answered fields do.
+				// Answered in place. A zero id is a real decline when the
+				// ask offered one (ChoiceOptional$ True), and otherwise a
+				// malformed or empty answer -- one loud Note and no copy,
+				// never a silent fall-through to an object the chooser did
+				// not name.
 				pick := state.ObjID(0)
 				if len(ans) > 0 {
 					pick = ans[0].Obj
 				}
-				clonePick, clonePickDone = pick, true
 				if pick == 0 {
 					if optional {
 						return
@@ -241,13 +207,8 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 				source = []state.Target{{Obj: pick}}
 				chosenPick = pick
 			} else {
-				switch Ask(h, d) {
-				case AskAsked:
-					return // resolution suspended; the answer re-enters with Ctx.ClonePick set.
-				case AskNoHost, AskEmpty:
-					h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-						Text: "Clone Choices$ picks the first eligible object (no engine host to ask)"})
-				}
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+					Text: "Clone Choices$ picks the first eligible object (no engine host to ask)"})
 				source = []state.Target{{Obj: cands[0].Obj}}
 				chosenPick = cands[0].Obj
 			}
@@ -342,43 +303,32 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	// Optional$ True: the copier -- the resolving controller, who for every
 	// corpus carrier is also the become object's controller -- takes the real
 	// may-copy election (ticket api-clone-trigger-copy; Sarkhan Soul Aflame's
-	// "you may have CARDNAME become a copy of it"). The ask re-enters the
-	// whole walk with Ctx.Clone/CloneDone set; the answered decline returns
-	// without copying. A no-host run (an effects test double, a fuzz run)
+	// "you may have CARDNAME become a copy of it"), answered in place via
+	// AskTape; the answered decline returns without copying. A no-host run (an effects test double, a fuzz run)
 	// keeps the deterministic take stand-in the pre-election build shipped,
 	// byte-identical (the same convention the optional-discard family
 	// records) -- a "may" that cannot ask never wedges.
-	if !c.CloneETB && cp.Optional {
-		if !cloneDone {
-			prompt := "You may have a permanent become a copy?"
-			if ob := g.Obj(pairs[0].become.Obj); ob != nil && ob.Face() != nil {
-				prompt = "You may have " + ob.Face().Name + " become a copy?"
+	if !c.CloneEnter.ETB && cp.Optional {
+		prompt := "You may have a permanent become a copy?"
+		if ob := g.Obj(pairs[0].become.Obj); ob != nil && ob.Face() != nil {
+			prompt = "You may have " + ob.Face().Name + " become a copy?"
+		}
+		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
+			Source:     c.Source,
+			ResumeKind: "clone", ResumeSA: sa,
+			Prompt: prompt,
+			Options: []decision.Option{
+				{Index: 0, Kind: "yes", Label: "Yes — make the copy", Player: c.Controller},
+				{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
+			}}
+		if ans, ok := AskTape(h, d); ok {
+			// Answered in place: copy on a yes, decline otherwise.
+			if len(ans) == 0 || ans[0].Kind != "yes" {
+				return
 			}
-			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
-				Source:     c.Source,
-				ResumeKind: "clone", ResumeSA: sa,
-				ResumeClonePick: clonePick, ResumeClonePickDone: clonePickDone,
-				Prompt: prompt,
-				Options: []decision.Option{
-					{Index: 0, Kind: "yes", Label: "Yes — make the copy", Player: c.Controller},
-					{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
-				}}
-			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: the "clone"
-				// re-entry copies on a yes and declines otherwise.
-				if len(ans) == 0 || ans[0].Kind != "yes" {
-					return
-				}
-			} else {
-				_ = Ask(h, d)
-
-				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-					Text: "Clone Optional$ resolved as take (no engine host to ask)"})
-			}
-		} else if cloneAns != "yes" {
-			// The answered decline: no copy. The decision_made event already
-			// carries the answer, so nothing else is emitted.
-			return
+		} else {
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+				Text: "Clone Optional$ resolved as take (no engine host to ask)"})
 		}
 	}
 
@@ -469,7 +419,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	if len(lostTriggers) > 0 {
 		unread = append(unread, "AddTriggers$ "+strings.Join(lostTriggers, ","))
 	}
-	if cp.IntoPlayTappedSet && !c.CloneETB {
+	if cp.IntoPlayTappedSet && !c.CloneEnter.ETB {
 		unread = append(unread, "IntoPlayTapped$ "+cp.IntoPlayTapped+" (no entry)")
 	}
 	// Preserve every named static's original body: the event fold installs
@@ -483,14 +433,8 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 			unread = append(unread, "AddStaticAbilities$ "+name)
 		}
 	}
-	// The `!cloneDone` guard the first cut carried here was WRONG: with a
-	// real host the initial pass always returns at the Ask above, so these
-	// diagnostics can only ever fire on the ANSWERED-YES re-entry (the
-	// decline path returned before this point) -- gating them on
-	// `!cloneDone` silenced them for exactly the carriers that ask
-	// (findings-r2 MAJOR; 7 corpus Optional$+AddSVars$ lines incl. Kimahri,
-	// Vesuvan Doppelganger, Lazav). The no-host path keeps cloneDone=false,
-	// so it still emits once.
+	// Emitted once per call, after an Optional$ yes (the decline path
+	// returned before this point) or on the no-host take.
 	if len(unread) > 0 {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "Clone does not read: " + strings.Join(unread, ", ")})
@@ -520,9 +464,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 				Text: "Clone PumpDuration$ " + pumpDuration + " is not implemented; the keyword lasts as long as the copy"})
 		}
 	}
-	// Same shape as the unread-modifier Note above: reachable only on the
-	// answered-yes re-entry (real host) or the no-host pass, never
-	// duplicated.
+	// Same shape as the unread-modifier Note above: emitted once per call.
 	if durNote != "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller, Text: durNote})
 	}
@@ -686,7 +628,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 		}
 		// A standalone copy did not enter. Entry tapping is applied by the
 		// replacement body only; ordinary Clone never changes tap status.
-		if c.CloneETB && cp.IntoPlayTappedTrue {
+		if c.CloneEnter.ETB && cp.IntoPlayTappedTrue {
 			h.Emit(events.Event{Kind: events.Tap, Obj: b.Obj})
 		}
 		// The layer-1 LCopy MARKER owns the copy's lifetime. It is always
@@ -745,8 +687,8 @@ func cloneNames(raw string) []string {
 // ability's own source object) -- "this permanent becomes a copy". The
 // named forms reuse the same Defined$ referent grammar the source half uses.
 func cloneBecome(h Host, c *Ctx, cp *CloneParams) ([]state.Target, bool) {
-	if c.CloneBecomeValid {
-		return []state.Target{{Obj: c.CloneBecome}}, true
+	if c.CloneEnter.BecomeValid {
+		return []state.Target{{Obj: c.CloneEnter.Become}}, true
 	}
 	spec := cp.CloneTarget
 	if spec == "" {
@@ -782,7 +724,7 @@ func cloneBecome(h Host, c *Ctx, cp *CloneParams) ([]state.Target, bool) {
 // (SpecNeedsResolver), so no election is ever recorded for one and this
 // revalidation only ever sees selectors the no-resolver matcher can decide.
 func cloneETBTemplateLegal(g *state.Game, c *Ctx, cp *CloneParams) bool {
-	o := g.Obj(c.CloneChoice)
+	o := g.Obj(c.CloneEnter.Choice)
 	if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
 		return false
 	}
@@ -793,7 +735,7 @@ func cloneETBTemplateLegal(g *state.Game, c *Ctx, cp *CloneParams) bool {
 	if !strings.Contains(spec, ".") && !strings.HasPrefix(spec, "Card") {
 		spec = "Card." + spec
 	}
-	return c.MatchSpec(g, spec, c.CloneChoice, c.Controller)
+	return c.MatchSpec(g, spec, c.CloneEnter.Choice, c.Controller)
 }
 
 // cloneChoiceZone classifies ChoiceZone$, the zone a Choices$ pick draws its
@@ -804,12 +746,12 @@ func cloneETBTemplateLegal(g *state.Game, c *Ctx, cp *CloneParams) bool {
 // named zone spellings are matched case-insensitively, the same discipline
 // cloneDuration keeps for Duration$.
 func cloneChoiceZone(raw string) (state.Zone, bool) {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "", "battlefield":
+	switch cloneChoiceZoneaf51Codes.Code(string(strings.ToLower(strings.TrimSpace(raw)))) {
+	case cloneChoiceZoneaf51Empty:
 		return state.ZBattlefield, true
-	case "graveyard":
+	case cloneChoiceZoneaf51Graveyard:
 		return state.ZGraveyard, true
-	case "exile":
+	case cloneChoiceZoneaf51Exile:
 		return state.ZExile, true
 	default:
 		return 0, false
@@ -879,30 +821,30 @@ func clonePT(h Host, c *Ctx, p ParamText) (present bool, value int32) {
 // UntilHostLeavesPlay, UntilFacedown and EOT; 105 lines carry no Duration$
 // (a permanent copy).
 func cloneDuration(dur string) (permanent, untilEOT bool, untilTurn int32, untilUnattached bool, note string) {
-	switch strings.ToLower(strings.TrimSpace(dur)) {
-	case "", "permanent":
+	switch cloneDurationaf52Codes.Code(string(strings.ToLower(strings.TrimSpace(dur)))) {
+	case cloneDurationaf52Empty:
 		return true, false, 0, false, ""
-	case "untilendofcombat":
+	case cloneDurationaf52Untilendofcombat:
 		// durationTiming's combat scope: dropped by EndOfTurnCleanup on the
 		// same turn (the engine's UntilEndOfCombat reclamation).
 		return false, false, 0, false, ""
-	case "untileadofturn", "untilendofturn", "eot":
+	case cloneDurationaf52Untileadofturn:
 		return false, true, 0, false, ""
-	case "untilyournextturn", "untiltheendofyournextturn":
+	case cloneDurationaf52Untilyournextturn:
 		// AddContinuous computes the real turn boundary from Duration.
 		return false, false, 0, false, ""
-	case "untilyournextendstep", "untilnextendstep":
+	case cloneDurationaf52Untilyournextendstep:
 		// The engine's until-next-end-step window is this turn's cleanup, the
 		// same mapping effects.effectUntilEOT uses for this spelling (the one
 		// corpus carrier is niko_light_of_hope).
 		return false, true, 0, false, ""
-	case "untilunattached":
+	case cloneDurationaf52Untilunattached:
 		return false, false, 0, true, ""
-	case "untilhostleavesplay":
+	case cloneDurationaf52Untilhostleavesplay:
 		// Exactly the source-leaves lifetime the default arm gives an unknown
 		// duration, so no Note is needed (secret_invasion).
 		return false, false, 0, false, ""
-	case "untilfacedown", "untiltargeteduntaps":
+	case cloneDurationaf52Untilfacedown:
 		// Settled on the actual turn-down or untap event, not at cleanup.
 		return false, false, 0, false, ""
 	default:
@@ -925,3 +867,44 @@ func splitAmp(s string) []string {
 	}
 	return out
 }
+
+const (
+	cloneChoiceZoneaf51Empty     uint16 = 1 // "", "battlefield"
+	cloneChoiceZoneaf51Graveyard uint16 = 2 // "graveyard"
+	cloneChoiceZoneaf51Exile     uint16 = 3 // "exile"
+)
+
+var cloneChoiceZoneaf51Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: cloneChoiceZoneaf51Empty},
+	state.StrEntry[uint16]{Key: "battlefield", Val: cloneChoiceZoneaf51Empty},
+	state.StrEntry[uint16]{Key: "graveyard", Val: cloneChoiceZoneaf51Graveyard},
+	state.StrEntry[uint16]{Key: "exile", Val: cloneChoiceZoneaf51Exile},
+)
+
+const (
+	cloneDurationaf52Empty                uint16 = 1 // "", "permanent"
+	cloneDurationaf52Untilendofcombat     uint16 = 2 // "untilendofcombat"
+	cloneDurationaf52Untileadofturn       uint16 = 3 // "untileadofturn", "untilendofturn", "eot"
+	cloneDurationaf52Untilyournextturn    uint16 = 4 // "untilyournextturn", "untiltheendofyournextturn"
+	cloneDurationaf52Untilyournextendstep uint16 = 5 // "untilyournextendstep", "untilnextendstep"
+	cloneDurationaf52Untilunattached      uint16 = 6 // "untilunattached"
+	cloneDurationaf52Untilhostleavesplay  uint16 = 7 // "untilhostleavesplay"
+	cloneDurationaf52Untilfacedown        uint16 = 8 // "untilfacedown", "untiltargeteduntaps"
+)
+
+var cloneDurationaf52Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: cloneDurationaf52Empty},
+	state.StrEntry[uint16]{Key: "permanent", Val: cloneDurationaf52Empty},
+	state.StrEntry[uint16]{Key: "untilendofcombat", Val: cloneDurationaf52Untilendofcombat},
+	state.StrEntry[uint16]{Key: "untileadofturn", Val: cloneDurationaf52Untileadofturn},
+	state.StrEntry[uint16]{Key: "untilendofturn", Val: cloneDurationaf52Untileadofturn},
+	state.StrEntry[uint16]{Key: "eot", Val: cloneDurationaf52Untileadofturn},
+	state.StrEntry[uint16]{Key: "untilyournextturn", Val: cloneDurationaf52Untilyournextturn},
+	state.StrEntry[uint16]{Key: "untiltheendofyournextturn", Val: cloneDurationaf52Untilyournextturn},
+	state.StrEntry[uint16]{Key: "untilyournextendstep", Val: cloneDurationaf52Untilyournextendstep},
+	state.StrEntry[uint16]{Key: "untilnextendstep", Val: cloneDurationaf52Untilyournextendstep},
+	state.StrEntry[uint16]{Key: "untilunattached", Val: cloneDurationaf52Untilunattached},
+	state.StrEntry[uint16]{Key: "untilhostleavesplay", Val: cloneDurationaf52Untilhostleavesplay},
+	state.StrEntry[uint16]{Key: "untilfacedown", Val: cloneDurationaf52Untilfacedown},
+	state.StrEntry[uint16]{Key: "untiltargeteduntaps", Val: cloneDurationaf52Untilfacedown},
+)

@@ -51,116 +51,6 @@ type Host interface {
 	HostAsk
 }
 
-// RepeatCursor is a RepeatEach loop re-entered after an iteration suspended:
-// the subjects captured when the loop started (never re-derived mid-loop),
-// the index of the next subject, and the completed iteration's final
-// Remembered so the objects that iteration remembered outlive it.
-type RepeatCursor struct {
-	SA       *cards.SA
-	Subjects []state.Target
-	Next     int
-	Last     []state.Target
-	HasLast  bool
-	// Election marks a cursor parked on a RepeatEach
-	// RepeatOptionalForEachPlayer$ election rather than on a completed body.
-	// Next is the subject whose offer was posed; the answer rides
-	// Ctx.RepeatEachOptional on re-entry (Accept false skips that subject's
-	// body and continues at Next+1).
-	Election bool
-	// ChooseOrder marks a cursor parked on a RepeatEach ChooseOrder$ loop's
-	// one-before-the-loop ordering ask rather than on a body or an election.
-	// Next is 0 (no iteration has run); the answer permutes Subjects before
-	// the first body, and the reordered slice then rides every later
-	// cursor, so the order a body suspension carries is the chosen one.
-	ChooseOrder bool
-}
-
-// RepeatSuspension is what effRepeatEach reports when an iteration asks.
-// Body is the suspended iteration's Remembered (the loop subject plus
-// anything the iteration remembered before asking); Subject is that
-// iteration's current subject (the Imprinted binding); Outer and Chosen are
-// the RepeatEach resolution's own bindings, restored when the loop re-enters.
-type RepeatSuspension struct {
-	RepeatCursor
-	Body        []state.Target
-	Subject     state.Target
-	Outer       []state.Target
-	Chosen      []state.Target
-	ChosenValid bool
-	// VoteCounts is a deep copy of the outer resolution's Ctx.VoteCounts at
-	// the moment an AmountFromVotes$ iteration suspended. The tally is
-	// resolution-local (the api:Vote that built it is a prior chain link), so
-	// the fresh Ctx a resume rebuilds would otherwise lose it and every
-	// frame that re-derives "Votes" would read an unbound/zero value. The
-	// host carries this snapshot on the same continuation frame as the loop
-	// cursor, so both the suspended iteration's own body and the still-owed
-	// later iterations re-bind the right per-subject tally. Nil when the
-	// loop's resolution never published a tally (an ordinary RepeatEach, or
-	// one on a vote without StoreVoteNum$), preserving the unbound read.
-	VoteCounts []VoteCount
-}
-
-// FlipRest is a DB$ FlipCoin loop's continuation once a per-flip sub-ability
-// suspended on its own mid-resolution ask (FlipUntilYouLose$ or Amount$ > 1).
-// The host re-enters the FlipCoin primitive with this cursor so the remaining
-// flips run rather than being abandoned. Plain data, so the host can carry it
-// on its own continuation frame and replay re-derives it identically.
-type FlipRest struct {
-	// Players is the flipper set and PlayerIndex the index of the flipper
-	// whose loop is in progress. Iter is the next iteration for that flipper
-	// (the number already flipped); Amount is the loop bound for a
-	// non-until-lose flip and UntilLose whether the loop runs until the first
-	// tail.
-	Players     []state.PlayerID
-	PlayerIndex int
-	Iter        int32
-	Amount      int32
-	UntilLose   bool
-	// NoCallSide is non-zero when the suspension happened in a NoCall$
-	// True line's DEFERRED outcome calls, after every flip was made:
-	// NoCallWin while the heads branch was being called, NoCallLose for the
-	// tails branch. NoCallNext is the next call index on that side, and
-	// Wins/Losses the flip tallies the deferred calls are counted from. The
-	// resumed primitive flips nothing and continues those calls (then the
-	// tails side, when the heads side was in progress).
-	NoCallSide int8
-	NoCallNext int32
-	Wins       int32
-	Losses     int32
-}
-
-// NoCallSide values of FlipRest.
-const (
-	NoCallWin  int8 = 1
-	NoCallLose int8 = 2
-)
-
-// VillainousRest is a VillainousChoice's continuation once its chosen body
-// has completed: Victims is the ordered Defined$ player set and Next is the
-// index of the victim still to ask (the completed victim's index + 1). The
-// host re-enters the VillainousChoice primitive with that cursor, so a body
-// that suspended on its own nested ask does not strand the remaining
-// victims. Plain data, so the host can carry it on its own continuation
-// frame and replay re-derives it identically.
-type VillainousRest struct {
-	Victims []state.Target
-	Next    int
-}
-
-// GenericChoiceRest is a multi-player api:GenericChoice's continuation after
-// one chooser's chosen body suspended on a nested mid-resolution ask.
-// Choosers is the ordered Defined$ player set and Next is the index of the
-// chooser still to ask (the completed chooser's index + 1). The host re-enters
-// the GenericChoice primitive with that cursor, so a body that suspended on its
-// own nested ask does not strand the remaining choosers. Plain data, so the
-// host can carry it on its own continuation frame and replay re-derives it
-// identically.
-type GenericChoiceRest struct {
-	Choosers   []state.Target
-	Next       int
-	Remembered []state.Target
-}
-
 // DamageSourceLKI is the pre-departure damage provenance of one object.
 // It remains separate from Ctx's own-source fields because DamageSource$ may
 // name an object distinct from the resolving spell or ability's source.
@@ -190,51 +80,6 @@ type EffectFrame struct {
 	Stamp  uint32
 }
 
-// RepeatContinuation is the scoped continuation of an api:Repeat loop that
-// suspended: a RepeatOptional$ election's answer, or ANY Repeat whose body
-// posed a mid-resolution ask (CR 608.2c: the remaining iterations still run
-// once the answer is applied). It is carried only by the resolving Ctx;
-// rules transports it across a mid-resolution ask and it is never event
-// state. effRepeat consumes it (the first reader), so a later Repeat on the
-// same Ctx starts fresh.
-//
-// It represents DISTINCT resume states, never conflated (fx42):
-//   - Continue false: the player answered a RepeatOptional$ "no" and the
-//     loop stops.
-//   - Continue true, AfterBody false: a completed RepeatOptional$ election
-//     was answered "yes", so the next body to run is iteration Next -- no
-//     further election is owed for it.
-//   - Continue true, AfterBody true: the body of iteration Next-1 completed
-//     after its own suspension (a body ask), so the between-iteration step
-//     owed before iteration Next has NOT run yet: the RepeatCheckSVar$/
-//     RepeatDefined$ gate, then -- for RepeatOptional$ only -- the do/while
-//     election. A non-optional Repeat whose gate holds (or that has none)
-//     runs iteration Next's body directly.
-//
-// Count is the iteration bound the suspended pass resolved (MaxRepeat$/
-// RepeatNum$, or the 1000 cap), so the resumed loop keeps the count Forge
-// computes once before the first iteration rather than re-reading a value
-// the body itself may have changed. Zero means "not recorded" (an election
-// answer): the bound is re-evaluated.
-type RepeatContinuation struct {
-	Continue  bool
-	Next      int32
-	AfterBody bool
-	Count     int32
-}
-
-// RepeatEachOptionalContinuation is the scoped answer of one subject's
-// RepeatOptionalForEachPlayer$ election, carried only by the resolving Ctx
-// across the mid-resolution ask (rules transports it; it is never event
-// state). Next is the subject index whose offer was answered. Accept runs
-// that subject's body; a false skips it and continues at Next+1. The subject
-// list itself rides the RepeatSuspension/RepeatCursor, exactly as a body
-// suspension's does, so the loop never re-derives its subjects mid-flight.
-type RepeatEachOptionalContinuation struct {
-	Next   int32
-	Accept bool
-}
-
 type Ctx struct {
 	TriggerContext
 
@@ -259,17 +104,13 @@ type Ctx struct {
 	// is an ability's source (nil for a spell): the in-flight activation a
 	// Count$ThisTurnActivated_ gate counts alongside this turn's earlier ones.
 	AffectedAbility *cards.SA
-	// PromisedGiftOverride is bound only by rules' pre-election target-feasibility
-	// census, which must consider either branch before the player elects Gift.
-	PromisedGiftOverride *bool
-	// NameChoice carries a mid-resolution NameCard answer across re-entry.
+	// NameChoice is the card name a mid-resolution NameCard chose, read by
+	// the rest of the chain.
 	NameChoice string
 
-	// ChosenDirection carries a mid-resolution ChooseDirection answer across
-	// re-entry: the "left"/"right" pick (Aminatou's [-6], Order of
-	// Succession). It is resolution-scratch like NameChoice -- never
-	// event-encoded; a replay re-derives it from the recorded intent through
-	// rules' "choosedirection" resume arm. Empty on the first pass, and left
+	// ChosenDirection is a mid-resolution ChooseDirection answer: the
+	// "left"/"right" pick (Aminatou's [-6], Order of Succession). It is
+	// resolution-scratch like NameChoice -- never event-encoded -- and left
 	// set for the rest of the chain because the SubAbility$ that consumes it
 	// (DBControl / DBGainControl) runs in the same walk.
 	ChosenDirection string
@@ -321,54 +162,6 @@ type Ctx struct {
 	// re-binds it, the same shape rp.fusedTargets uses for a fused half.
 	CharmModeScope []state.Target
 	CharmModeSA    *cards.SA
-	// TargetControllerLKI captures each object target's controller at the
-	// start of resolution. A target may leave the battlefield before a
-	// chained TokenOwner$ TargetedController is evaluated; events.Apply then
-	// resets its live Controller to Owner, so the live object is no longer the
-	// CR 608.2h last-known controller.
-	TargetControllerLKI map[state.ObjID]state.PlayerID
-	// TargetCountersLKI captures each object target's counters for the CR
-	// 608.2b/h look-back. The authoritative capture is at the DEPARTURE
-	// boundary: rules' Engine.emit refreshes the entry -- overwriting this
-	// resolution-start snapshot -- on the MoveZone that actually moves a
-	// target off the battlefield, so a chain that changed a target's counters
-	// earlier in the same resolution reads the counters as they were
-	// immediately before the zone change (Dismantle's DBPutCounter is the
-	// corpus shape). Keyed by target ObjID, carried across a suspension the
-	// same way as TargetControllerLKI (rules' resumePoint). The
-	// resolution-start capture here is the fallback for a departure this
-	// host did not see (a test host folding events without Engine.emit):
-	// only battlefield objects carrying at least one counter are captured at
-	// entry; an object already off the battlefield, or with no counters to
-	// look back at, needs no entry.
-	TargetCountersLKI map[state.ObjID][]state.Counter
-	// TargetPTLKI is the power/toughness half of the same CR 608.2h
-	// look-back: each object target's LAYER-DERIVED power and toughness as it
-	// last existed on the battlefield. Captured, overwritten and carried
-	// exactly like TargetCountersLKI (rules refreshes it at the departure
-	// boundary; the resolution-start capture below is the fallback). Condemn's
-	// "its controller gains life equal to its toughness" and Swords to
-	// Plowshares' "equal to its power" read it once the target is in the
-	// library or exile, where the live object answers only the printed face.
-	TargetPTLKI map[state.ObjID]TargetPT
-	// TargetSpellLKI records which object targets were SPELLS on the stack at
-	// the instant this Resolve chain began. The count ref SpellTargeted (Forge
-	// AbilityUtils.calcX's `calcX[0].equals("SpellTargeted")` arm, which reads
-	// getDefinedSpellAbilities' target SPELLS) names the target that WAS a
-	// spell; a target chosen as a battlefield permanent is not one. The target
-	// object's live zone cannot answer that after resolution begins: a Counter
-	// or a ChangeZone moves the spell off the stack and events.Apply's Move
-	// leaves no "was a spell" marker, so a later sub-ability reading
-	// SpellTargeted$CardManaCostLKI (Reject Imperfection's proliferate gate,
-	// Gale's Redirection's roll modifier, Press the Enemy's Z) would read the
-	// moved target as a non-spell and return 0. The mana VALUE itself survives
-	// the move -- a face's converted cost is printed and the object id is
-	// stable -- so only the stack-kind needs the snapshot. Captured at Resolve
-	// entry (keep an existing map on re-entry: after a move the target is no
-	// longer on the stack, so a re-capture would wrongly lose it) and carried
-	// across a suspension the same way as TargetControllerLKI (rules'
-	// resumePoint). Nil when the chain's targets were never spells.
-	TargetSpellLKI map[state.ObjID]bool
 	Remembered     []state.Target
 	// ExchangeLife publishes numeric riders to Count$RememberedNumber for
 	// the remainder of the resolution (not the source's remembered objects).
@@ -378,13 +171,6 @@ type Ctx struct {
 	// settle) stays visible to the chained SubAbility$ reader across a
 	// suspension and its Ctx rebuild.
 	ExchangeMemory *ExchangeMemory
-	// ForgetOtherSnapshot retains the pre-clear IsRemembered candidates across
-	// a multi-owner ChangeZone pick/search and its mid-resolution asks. It is
-	// resolution-local; only the actual remembered set is event-backed.
-	ForgetOtherSnapshot []state.Target
-	ForgetOtherOwners   []state.PlayerID
-	ForgetOtherReady    bool
-	ForgetOtherCleared  bool
 
 	// TargetsOffered marks that the resolution's OWN ValidTgts$ targeting was
 	// already offered at announcement (rules' resolveTop sets it on both the
@@ -429,25 +215,6 @@ type Ctx struct {
 	// neither in a host's remembered list, so a RepeatEach over players does
 	// not carry these into its iterations.
 	Captured []state.Target
-	// SourceLifelinkLKI is the source permanent's derived lifelink state at
-	// the last moment it existed on the battlefield. The validity bit is
-	// separate because "it did not have lifelink" is authoritative LKI too.
-	// Rules seeds this on independently resolving abilities; damage uses it
-	// only after the source has departed, and continues to read the live
-	// derived source while it remains a permanent.
-	SourceLifelinkLKI      bool
-	SourceLifelinkLKIValid bool
-	// SourceControllerLKI is the source permanent's controller immediately
-	// before it left the battlefield. Move resets Controller to Owner, so an
-	// independently resolving lifelink ability needs this companion snapshot
-	// to credit its last controller rather than its owner.
-	SourceControllerLKI      state.PlayerID
-	SourceControllerLKIValid bool
-	// DamageSourceLKI preserves lifelink and controller LKI by object id for
-	// a distinct DamageSource$ object that left while this resolution waited.
-	// Rules transports it with the stack object; DamageSource$ consults it only
-	// after that named object is no longer a battlefield permanent.
-	DamageSourceLKI map[state.ObjID]DamageSourceLKI
 	// Sacrificed carries the last-known-information snapshot of every object
 	// this resolving spell/ability sacrificed, as it was at the instant of the
 	// sacrifice (state.SacrificedInfo). Built two ways, feeding one field: a
@@ -473,16 +240,6 @@ type Ctx struct {
 	// chosen targets.
 	Exiled   []state.ObjID
 	Revealed []state.ObjID
-	// ChangeZoneLKI is the resolution's last-known-information table for
-	// ChangeZoneRememberLKI$ moves: one entry per object the move captured,
-	// holding the controller/owner it had at that instant. events.Apply's Move
-	// resets a battlefield departure's controller to its owner (CR 400.7), so
-	// the live object can no longer answer "the exiled creature's controller"
-	// -- exactly Forge's reason for storing a Card LKI copy in Remembered
-	// (ChangeZoneEffect's CardCopyService.getLKICopy). A RepeatEach body's
-	// TokenOwner$ ImprintedController / Defined$ ImprintedController reads it
-	// for the current iteration subject (Curse of the Swine's Boars).
-	ChangeZoneLKI []state.LKIObject
 	// ResolvingObj is the stack-object WRAPPER of the spell/ability currently
 	// resolving -- rules' e.resolvingObj (resolveTop's ability and spell
 	// branches) and rp.obj (resumeResolution) -- set at those two ctx
@@ -500,12 +257,6 @@ type Ctx struct {
 	// Both are bound by the rules package when it builds the context.
 	SVars map[string]string
 	X     int32
-	// PublishedSVars records, in publication order, the resolution-scoped
-	// SVar bindings an effect published into SVars for a chained
-	// SubAbility$ to read (DealDamage's ExcessSVar$). It rides a suspended
-	// resolution's resume point, so the rebuilt Ctx re-binds them over the
-	// face table (RebindPublishedSVars) instead of losing them across an ask.
-	PublishedSVars []SVarBinding
 	// XAnnounced marks that X above IS a real CR 601.2b/107.3i announcement
 	// (the resolving spell or ability paid a {X} cost, possibly zero), set by
 	// the rules package at the same sites that bind X from the stack object's
@@ -513,63 +264,6 @@ type Ctx struct {
 	// never-announced, and an UnlessCost$ X on a zero-X cast (Power Sink
 	// announced 0) would stay an unpriceable raw token instead of {0}.
 	XAnnounced bool
-	// TimesKicked is the pending cast's settled multikicker payment count
-	// (CR 702.43), seeded by rules' targetBoundCtx when the spell's OWN
-	// announcement ask resolves a Count$TimesKicked bound BEFORE payment has
-	// stamped the stack object (Comet Storm's TargetMin/Max$ TargetsNum).
-	// Everywhere else it is zero and the TimesKicked count head falls back to
-	// the source object's stamped field -- the same priority the xPaid head
-	// gives ctx.X over the object read.
-	TimesKicked int32
-	// PendingKicked is the pending cast's CHOSEN kicked mode (CR 702.4/702.33),
-	// seeded by rules' targetBoundCtx when the spell's OWN announcement ask
-	// resolves a Count$Kicked body BEFORE payment has stamped the stack
-	// object's CastFlags. Tear Asunder's kicked main SA is
-	// TargetMin$ X | TargetMax$ X over SVar:X:Count$Kicked.0.1, so pre-payment
-	// the object reads Kicked false and X stays 1 -- the ask then demands an
-	// artifact/enchantment the kicked spell must not take. The Kicked count
-	// head ORs this bit with the object's FlagKicked, so a mid-resolution read
-	// (no pending cast, the flag actually stamped) is unaffected. Zero (false)
-	// everywhere else; it is derived data, never event-encoded.
-	PendingKicked bool
-	// ChosenNumber is the Effect's SetChosenNumber$ binding (task
-	// wildgrowth1): the number the Effect resolved at creation, threaded into
-	// a registered replacement's body Ctx by rules' replCtx so the body's
-	// Count$ChosenNumber head (evalCountBody) reads the frozen binding rather
-	// than re-deriving. Zero wherever nothing bound -- the same number a
-	// failed binding degrades to.
-	ChosenNumber int32
-	// ChosenNumberBound marks a Ctx whose ChosenNumber IS a real
-	// SetChosenNumber$ binding (rules' seedEffectReplCtx sets it exactly when
-	// the match is effect-created, m.key != ""). It is the Count$ChosenNumber
-	// head's verdict: bound means evaluated (the value reads, zero
-	// legitimately), unbound means the head is UNRESOLVED so the
-	// EvalCountOK consumers keep their pre-wildgrowth fail direction --
-	// CheckSVarHolds fails open, a numeric filter RHS (cmcEQX via
-	// resolveNumericRHS) never matches -- instead of enforcing a meaningless
-	// zero on the Choose-event corpus population (77 files whose binding
-	// lives on state.Object.ChosenNumber via effects/choose.go, never on
-	// Ctx). A zero binding with the flag set is still bound (torgal with no
-	// Dogs); only the flag distinguishes the two.
-	ChosenNumberBound bool
-	// RememberedCMC is the mana value the Counter primitive's
-	// RememberCounteredCMC$ rider remembered (task counter-cmc: Electrosiphon's
-	// "an amount of {E} equal to its mana value", Overwhelming Intellect's
-	// draw-equal-to-mana-value family -- 14 corpus carriers). effCounter sums
-	// every countered CARD's mana value into it (an ability has none and
-	// contributes nothing); the Count$RememberedNumber head reads it in
-	// preference to the list-length channel, because the number is a VALUE,
-	// not a count of remembered entries. Resolution-scratch like
-	// Ctx.Remembered -- never event-encoded; a replay re-derives it by
-	// replaying the same resolution.
-	RememberedCMC int32
-	// RememberedCMCBound marks a Ctx whose RememberedCMC IS a real
-	// RememberCounteredCMC$ binding. It is the Count$RememberedNumber head's
-	// verdict, the same shape ChosenNumberBound gives Count$ChosenNumber:
-	// bound means evaluated (a zero mana value reads as zero), unbound means
-	// the head falls through to the list-length read every pre-existing
-	// consumer keeps.
-	RememberedCMCBound bool
 	// PendingDamage holds the damage a DealDamage with DamageMap$ True MARKED
 	// for this chain's later DB$ DamageResolve flush instead of dealing it
 	// (Forge's mark-then-resolve damage pattern). It is resolution-scratch
@@ -616,68 +310,24 @@ type Ctx struct {
 	// (never matches), the documented unresolvable-RHS contract. Not
 	// event-backed, not state: resolution-scratch like Targets or SVars.
 	resolvingRHS bool
-	// ExcludeFromBattlefieldCount is the entrant of a battlefield MoveZone
-	// replacement. Count$Valid bodies evaluating the Updated entry must use
-	// the pre-entry battlefield population (CR 614.12), even though the move
-	// has already been folded before the body runs. Zero outside that context.
-	ExcludeFromBattlefieldCount state.ObjID
-	// Replaced is the object the replaced event was about (Defined$ ReplacedCard):
-	// the card a "would go to the graveyard from anywhere, exile it instead"
-	// replacement is acting ON. Set by rules/replacement.go on the context it
-	// builds for a matching ReplaceWith$; zero outside a replacement, and nil for
-	// a zero (or gone) object when Defined resolves it. It is context, not state
-	// -- it drives the replacement's own resolution but is never itself persisted
-	// to the event log.
-	Replaced state.ObjID
-	// ReplacedCards is the ordered plural batch a replaced INSTRUCTION was
-	// about (Defined$ ReplacedCards / ReplacedCards.<qual>): the cascade
-	// instruction's exiled cards, which Averna, the Chaos Bloom picks a land
-	// from. It is the plural counterpart of Replaced, set by
-	// rules/replacement.go on the ReplaceWith$ context of a Cascade
-	// proposal and carried through a suspension; empty outside one, and an
-	// empty batch resolves to nobody (fail closed). Context, never state.
-	ReplacedCards []state.ObjID
-	// ReplacedPlayer is the player a replaced DRAW event was about — the
-	// draw-er (Breathstealer's Crypt draws/reveals/discards "that player",
-	// Zur's Weirding's other players pay relative to them). Set only on a
-	// Draw replacement's own context, like Replaced; zero outside one.
-	ReplacedPlayer state.Target
-	// ReplacementTarget, ReplacementSource and
-	// ReplacementAmount carry the corresponding roles of an in-flight damage
-	// ReplacementAmount carry the corresponding roles of an in-flight damage
-	// event. They are resolution context, never persisted state; rules seeds
-	// them before resolving ReplaceWith$ so ReplacedTarget/ReplacedSource and
-	// ReplaceCount$DamageAmount are available to every replacement body API.
-	ReplacementTarget state.Target
-	ReplacementSource state.ObjID
-	ReplacementAmount int32
 	// LKI is the object a zone-change trigger fired for, as it was just
 	// before the move (CR 603.10 "look back in time"): Move resets counters,
 	// tapped state and damage on the way out, so a "dies" condition such as
 	// Undying's "if it had no +1/+1 counters" must read this, not the live
 	// object. nil for every other trigger.
 	LKI *state.Object
-	// LKIPower/LKIToughness are that snapshot's derived battlefield P/T,
-	// captured before the move removes continuous effects. The validity bit
-	// distinguishes a real zero from a non-battlefield/no-characteristic LKI.
-	LKIPower, LKIToughness int32
-	LKIPTValid             bool
-	// Modes is the answered modal choice on a re-entered mid-resolution
-	// resolution (M2d-2): the SVar names of the chosen Choices$ sub-abilities,
-	// in execution order. rules' resumeResolution sets it from the recorded
-	// answer before re-running the suspended sub-ability, so effCharm's
-	// re-entry runs exactly the chosen modes instead of asking again. Nil on
-	// the first pass and on any non-modes resume.
+	// Modes is an announced modal choice (CR 601.2b, 603.3c): the SVar
+	// names of the chosen Choices$ sub-abilities, in execution order, so
+	// effCharm runs exactly the chosen modes instead of asking.
 	Modes []string
-	// UnlessPay is the answered unless-pay choice on a re-entered
-	// mid-resolution resolution (M2d-2): "pay" means rules' resumeResolution
-	// has already paid the UnlessCost$ from the payer's pool and the asking
+	// UnlessPay is the settled unless-pay choice (rules/unless_tape.go):
+	// "pay" means rules has already paid the UnlessCost$ and the asking
 	// effect proceeds with its body; "decline" means it proceeds as if the
-	// player declined (no effect). "" on the first pass, where the effect
-	// poses the ask instead. For Sacrifice's damage-payment shape (Vexing
-	// Devil), "pay" additionally means the accepting opponent's Damage event
-	// has already been emitted by rules' resume arm — payment events belong
-	// to rules, never to the effects layer.
+	// player declined. "" when nothing is settled, where the effect poses
+	// the ask instead. For Sacrifice's damage-payment shape (Vexing Devil),
+	// "pay" additionally means rules has already emitted the accepting
+	// opponent's Damage event -- payment events belong to rules, never to
+	// the effects layer.
 	UnlessPay string
 
 	DamageSplitDone bool
@@ -755,50 +405,6 @@ type Ctx struct {
 	// carries the iteration's Remembered. Zero outside a loop iteration, and
 	// the Imprinted/ImprintedController selectors fail closed on zero.
 	RepeatSubject state.Target
-	// VillainousVictims is the ordered Defined$ player set for a
-	// VillainousChoice. The index advances only after the current victim's
-	// chosen body has completed.
-	VillainousVictims []state.Target
-	VillainousIndex   int
-	// GenericChoosers is the ordered Defined$ player set for a multi-player
-	// api:GenericChoice resolution (each opponent chooses one of the same
-	// Choices$), and GenericChooserIndex is the index of the chooser being
-	// asked. The index advances only after the current chooser's chosen body
-	// has completed, so the remaining choosers are asked once the body's own
-	// nested ask (if any) finishes. Nil outside the per-player path, which
-	// keeps the single-controller Charm/GenericChoice ask unchanged.
-	GenericChoosers     []state.Target
-	GenericChooserIndex int
-
-	// LibraryTarget is the index in the deterministic per-library target list
-	// whose answer is being resumed. Search, KArrange and their follow-up
-	// confirms share this cursor so a suspended walk continues with the next
-	// library instead of restarting at the first one.
-	LibraryTarget int
-	// SearchShuffle is the answered ShuffleNonMandatory$ may-shuffle confirm
-	// ("yes"/"no") on a re-entered ChangeZone search; SearchShuffleMoved
-	// carries the objects the search's first pass moved, so the re-entry can
-	// run the LibraryPosition$ placement after the answered shuffle. Both
-	// ride the ask (the moved list via Decision.ResumeMoved, the same
-	// runtime-continuation class as ResumeRemembered) and are consumed and
-	// cleared at the re-entry's top (fx42 scoping), so a nested search poses
-	// its own confirm.
-	SearchShuffle      string
-	SearchShuffleMoved []state.ObjID
-	// SearchKnown names, per choosing player, the library cards whose identity
-	// that player has legitimately learned during this resolution's search
-	// chain (effects/zone.go applyLibrarySearch): a card the head ask publicly
-	// revealed is known to every seat, and a card the head ask offered BY NAME
-	// is known to the player who picked it. A Cultivate-family placement leg
-	// (NoLooking$ True, ChangeType$ ...IsRemembered) must label its options
-	// with those real names -- the blind "a card" label would hide information
-	// the chooser already holds -- while an option the chooser genuinely never
-	// saw stays fail-closed blind. It rides the ask via Decision
-	// .ResumeSearchKnown, because the first leg's own suspension rebuilds a
-	// fresh Ctx and a plain field would be lost before the second leg asks.
-	// Resolution-scratch like Remembered -- never event-encoded; a replay
-	// re-derives the same set by replaying the same resolution.
-	SearchKnown []state.Target
 
 	// Play is the answered card a resolved Play effect chose to play from a
 	// zone (CR 701.23): the object the controller selected among the offered
@@ -808,199 +414,32 @@ type Ctx struct {
 	// from the first pass.
 	Play     state.ObjID
 	PlayDone bool
-	// DrawDone is the number of individual draws a multi-card Draw has already
-	// completed. A dredge choice suspends between draws; rules restores this
-	// cursor after applying the selected replacement so the enclosing Draw
-	// continues rather than restarting or abandoning its remaining cards.
-	DrawDone int32
 
-	// CloneETB carries the cast/replacement ETB copy election into DB$ Clone.
-	// The answer is event-backed on the entering object, so replacement-time
-	// resolution and log-only replay use the same selected permanent.
-	CloneETB         bool
-	CloneChoice      state.ObjID
-	CloneChoiceValid bool
-	CloneBecome      state.ObjID
-	CloneBecomeValid bool
-
-	// UnlessNext is the index of the UnlessPayer$ payer whose answered
-	// unless-pay choice this re-entry applies (0 on a first pass). The
-	// unlessProceed gate (Resolve) consumes and clears it; rules' resume
-	// arm copies it off the resume point, where Ask stored the asking
-	// decision's ResumeTarget. A decline moves the gate on to payer idx+1,
-	// so a multi-payer UnlessPayer$ asks each payer in turn.
+	// UnlessNext is the index of the UnlessPayer$ payer whose settled
+	// unless-pay choice applies (rules/unless_tape.go sets it from the
+	// decision's ResumeTarget). The unlessProceed gate (Resolve) consumes and
+	// clears it. A decline moves the gate on to payer idx+1, so a
+	// multi-payer UnlessPayer$ asks each payer in turn.
 	UnlessNext int
 	// UnlessDiscarded is the object list the settled unless-payment
-	// discarded (the UnlessCost$ Discard<...> component's picks): rules'
-	// unless_pay resume arm copies it off the resume point when the
-	// payment completed, so the continuing walk's ConditionDefined$
+	// discarded (the UnlessCost$ Discard<...> component's picks), set by
+	// rules/unless_tape.go when the payment completed, so the continuing
+	// walk's ConditionDefined$
 	// Discarded gates (Argentum Masticore's "When you discard a card this
 	// way") see exactly the card(s) the payment discarded. It rides
 	// Ctx.UnlessPay's lifetime rather than being cleared at first read: the
-	// unless resolution's whole sub-chain may consult the group, and the
-	// fresh-per-resume Ctx already keeps it from leaking into any other
-	// resolution.
+	// unless resolution's whole sub-chain may consult the group.
 	UnlessDiscarded []state.Target
 
-	ManifestDreadPlayer state.PlayerID
-
-	// ManaAmount and ManaType are the in-flight unit of mana a ProduceMana
-	// replacement modifies. rules seeds them from a ManaAdd event and then
-	// emits the transformed event, so ReplaceMana never writes game state
-	// directly and replay records the final mana production normally.
-	ManaAmount int32
-	ManaType   string
-	// ManaChoice is the W/U/B/R/G answer to a choice-valued ReplaceMana
-	// body (ReplaceType$ Any, ReplaceColor$ Chosen, ReplaceMana$ Any).
-	// Rules parks the ManaAdd and supplies this on resume.
-	ManaChoice string
-	// ManaChoices is the allocation chosen for Produced$ Combo with Amount$ >
-	// 1. Each entry is one W/U/B/R/G unit; effMana consumes it with Amount 1
-	// so a split such as U,R produces one of each rather than doubling both.
-	ManaChoices []string
-
-	// ETBColorRecorded marks the ONE ChooseColor invocation that must not
-	// ask: the as-enters ENTRY-choice body (K:ETBReplacement:Other:
-	// ChooseColor). The entry machinery (rules' applyETBChoiceReplacement ->
-	// resumeETBEntry) already posed the entry ask and recorded the answer on
-	// the entering object before this body runs at the re-emitted MoveZone,
-	// so rules' replCtx flags that invocation and effChooseColor keeps the
-	// historical no-op for it alone. Without the flag an unconditional
-	// o.ChosenColor guard also suppressed a FRESH resolution-time ask after
-	// an earlier ChooseColor had set the field (a second sequential SA in
-	// one resolution, or an ability activation on an already-chosen
-	// permanent) -- the stale-source-state bug the same ticket's review
-	// named. Consumed and cleared by the effect (the fx42 scoping
-	// discipline), so a nested ChooseColor deeper in the same chain poses
-	// its own fresh ask.
-	ETBColorRecorded bool
-
-	// ETBNumberRecorded marks the ONE ChooseNumber invocation that must not
-	// ask: the as-enters ENTRY-choice body (K:ETBReplacement:Other:
-	// ChooseNumber). The entry machinery (rules' applyETBChoiceReplacement ->
-	// resumeETBEntry) already posed the entry ask and recorded the answer on
-	// the entering object before this body runs at the re-emitted MoveZone, so
-	// rules' replCtx flags that invocation and effChooseNumber keeps the
-	// historical no-op for it alone. Without the flag an unconditional
-	// o.ChosenNumber guard also suppressed a FRESH resolution-time ask after an
-	// earlier ChooseNumber had set the field -- the stale-source-state bug the
-	// sibling colour ticket's review named. The flag is what makes the entry
-	// no-op exact even when the recorded entry answer is 0 (the value a bare
-	// o.ChosenNumber guard cannot distinguish from unset). Consumed and cleared
-	// by the effect (the fx42 scoping discipline), so a nested ChooseNumber
-	// deeper in the same chain poses its own fresh ask.
-	ETBNumberRecorded bool
-
-	// ETBEvenOddRecorded marks the ChooseEvenOdd body of an ETB replacement:
-	// the entry boundary already asked and recorded the answer on the entering
-	// permanent, so this invocation must not ask a second time.
-	ETBEvenOddRecorded bool
-
-	// DrawUptoIdx/DrawUptoCount/DrawUptoAnswered carry an Upto$ Draw's
-	// per-target continuation (Arcane Denial, Truce): Idx is the Defined$
-	// target index whose "draw up to N" ask or answered batch is in flight,
-	// Count the answered count for it, Answered distinguishes an answered
-	// ZERO (draw nothing) from a target not yet asked. rules' draw_upto
-	// resume arm sets all three from the recorded answer (Count = the
-	// number of chosen card options), and the dredge arm restores them
-	// across a Dredge choice parked inside the batch (riding the ask's
-	// ResumeUpto rider). effDraw consumes the three as it completes each
-	// target, so the next target poses its own ask (fx42 scoping).
-	DrawUptoIdx      int32
-	DrawUptoCount    int32
-	DrawUptoAnswered bool
-	// InvestigateOptIdx/InvestigateOpt carry an Optional$ True Investigate's
-	// per-player continuation (Will the Wise's "each opponent may
-	// investigate", Nick Valentine, Private Eye's "you may investigate"):
-	// Idx is the actingPlayers index whose may-investigate ask or answered
-	// election is in flight, Opt the answered election ("yes" or "no") for
-	// that player. rules' "investigate_optional" resume arm sets both from
-	// the recorded answer (Idx = the ask's ResumeTarget cursor). effInvestigate
-	// consumes the marker as it completes each player, so the next player
-	// poses its own ask (fx42 scoping), and resets Idx when the walk finishes
-	// so a chained optional Investigate poses its own elections.
-	InvestigateOptIdx int32
-
-	// ExploreObj/ExploreCard/ExploreChoice/ExploreDone carry one pending
-	// explore across the LCI destination ask (api:Explore): "...then put
-	// the card back or put it into your graveyard" (CR 701.35a). The
-	// nonland explore reveals its top card, poses the KChoose (option 0 is
-	// the state-changing "graveyard", option 1 "back on top", the
-	// TapOrUntap ordering discipline), and parks with ExploreObj the
-	// explorer and ExploreCard the revealed card. rules' "explore" resume
-	// arm re-enters with ExploreDone set, ExploreChoice the answered kind
-	// and ExploreCard/ExploreObj restored from the resume point. Consumed
-	// and cleared at the point of application (fx42 scoping), so the
-	// pending explorer's remaining explores and every later target pose
-	// their own fresh path.
-	ExploreObj state.ObjID
-
-	// LastRoll/LastRollName carry the result of a DB$ RollDice this same
-	// resolution just made (effects/dice.go), under the SVar name its
-	// ResultSVar$ parameter named (usually "Result" or "X"). evalCountExpr's
-	// SVar$ head resolves a body of the form "SVar$<name>" against them, so
-	// a chained sub's own SVar body (Velukan Dragon's
-	// "SVar:X:SVar$Result/Minus.1") and a ConditionCheckSVar$ can read the
-	// roll. Zero/"" on any resolution that did not roll, and the values are
-	// never persisted beyond the resolution; a mid-resolution ask carries them
-	// across its suspension (effects.RollRide on the resume point). RollPubs is
-	// the general form of the same publication (both are read through
-	// effects.dice.go's rollPublished, and this slot stays the primary
-	// result's mirror for the existing readers).
-	LastRoll     int32
-	LastRollName string
-	// RollPub is one name→value publication a DB$ RollDice of this
-	// resolution made, beyond the primary ResultSVar$ slot above:
-	// ChosenSVar$/OtherSVar$ (the Endeavor cycle's choose-one-result), and
-	// the MaxRollsResults$/EvenOddResults$ counts ("MaxRolls",
-	// "EvenResults", "OddResults" -- Luck Bobblehead). Read by Name's
-	// bare-name fallback and evalCountExpr's SVar$ head through
-	// rollPublished, and by Ctx.SpecContext's numeric-RHS resolver, so a
-	// chained sub's filter spec (Valiant Endeavor's Creature.powerGEX,
-	// Arcane Endeavor's Instant.cmcLEY) reads the roll too. Carried across a
-	// suspension with LastRoll (effects.RollRide); the chosen/other
-	// publications are rebuilt from the answered decision on the roll resume
-	// (Ctx.RollResults/RollPick).
-	RollPubs []RollPub
-
-	// VoteCounts is the per-subject tally the most recent api:Vote left for
-	// this resolution's AmountFromVotes$ readers (effects/choose_control.go's
-	// effRepeatEach): one entry per ballot subject -- every player the
-	// player-ballot universe admitted, or every permanent a card ballot
-	// admitted -- with the votes it received. Forge's VoteEffect stores the
-	// same tally as VoteNum<SVar>s on the vote ability and RepeatEachEffect's
-	// setVoteAmount reads it back per loop subject; this is the engine's
-	// per-resolution form of that side channel, read through voteCountFor. It
-	// is built on the pass the ballot completes and lives on the resolution
-	// Ctx, so the chained SubAbility$ (Mob Verdict's DBRepeatOpp) sees it; a
-	// vote with no ballot publishes nothing (the field stays nil).
-	VoteCounts []VoteCount
-	// VotePublished/VotePublishedSet are the per-iteration binding the
-	// AmountFromVotes$ RepeatEach writes before resolving one loop body: the
-	// vote count of the iteration's subject, resolved by the reserved name
-	// "Votes" through runtimePublished -- the same seam Ctx.RollPubs serves
-	// for DB$ RollDice, and the name Forge's setVoteAmount sets
-	// (sa.setSVar("Votes", "Number$<n>")). Set only on an
-	// AmountFromVotes$ loop's per-iteration Ctx copy, so an ordinary SVar
-	// table is never shadowed outside one loop body.
-	VotePublished    int32
-	VotePublishedSet bool
 	// FlipMemory is this resolution's coin-flip memory (nil until a flip
 	// happens). It is a POINTER so a Ctx copy -- a RepeatEach iteration's
-	// cc := *c, or the fresh Ctx a resume rebuilds -- shares the SAME memory:
-	// flips performed before a suspension or in a loop iteration stay visible
-	// to the chained reader. effFlipCoin lazily allocates it and mutates it in
-	// place (never replacing the pointer), so the value rules' Ask captured
-	// onto the pending resume point stays live. The cumulative-upkeep FlipCoin
+	// cc := *c -- shares the SAME memory: flips performed in a loop iteration
+	// stay visible to the chained reader. effFlipCoin lazily allocates it and
+	// mutates it in place (never replacing the pointer). The cumulative-upkeep FlipCoin
 	// cost action (rules/cumulative.go) does not go through effFlipCoin and so
 	// does not populate it (see AGENTS.md).
 	FlipMemory *FlipMemory
 
-	// tokensSuspended is set by effToken when a mint parked and it handed its
-	// continuation to the host (TokenRest): Resolve then defers the SA's
-	// ImprintCards$/ClearImprinted$ tail to the re-entry that finishes the
-	// mints, so it sees (and clears after) the tokens. Consumed by Resolve.
-	tokensSuspended bool
 	// ClashWon records the resolving controller's CR 701.31 clash outcome:
 	// true when their revealed card had the strictly higher mana value, false
 	// on a loss and on a tie (no winner). effClash sets it from the reveal
@@ -1010,6 +449,32 @@ type Ctx struct {
 	// Targets/SVars -- never event-encoded (the marker carries the same bit
 	// in Amount), a replay re-derives the same value.
 	ClashWon bool
+	// Snap is the last-known-information snapshots a resolution reads (target controllers, counters and P/T, the source's lifelink and controller, damage sources, zone-change records and the source's derived P/T).
+	Snap LKISnapshots
+	// Repl is the replacement-effect context a replacement's body resolves under (the replaced object, cards, player, the redirect target, source and amount).
+	Repl ReplacementInputs
+	// CloneEnter is the as-enters Clone inputs rules records for a clone replacement.
+	CloneEnter CloneAsEnters
+	// Mana is the mana a replacement or reflected-mana effect reads and a Mana colour choice records.
+	Mana ManaInputs
+	// Kicker is the kicker and gift state a count reads.
+	Kicker KickerInputs
+	// Vote is a Vote's tally and the RollPub-style publication state its sub-abilities read.
+	Vote VoteInputs
+	// Roll is the last die roll and the roll publications a roll's sub-abilities read.
+	Roll RollInputs
+	// Forget is the ForgetOtherRemembered$ pre-clear snapshot a choose walk keeps across its choosers.
+	Forget ForgetOtherInputs
+	// Choosers is the victim and chooser lists a VillainousChoice or GenericChoice walks.
+	Choosers ChooserCursors
+	// Search is a library search's per-target index, shuffle answer, moved list and known set.
+	Search SearchInputs
+	// Num is the chosen and remembered numbers a Count$ reads.
+	Num NumberInputs
+	// Draw is an Upto$ Draw's per-target answer and the cards drawn so far.
+	Draw DrawInputs
+	// ETB is which as-enters answers rules has already recorded on the entering object.
+	ETB ETBRecords
 }
 
 // VoteCount is one ballot subject's tally (see Ctx.VoteCounts).
@@ -1103,19 +568,6 @@ func newAtomicMap[V any]() *atomicMap[V] {
 
 func (a *atomicMap[V]) load() map[string]V { return *a.ptr.Load() }
 
-// set installs or replaces one entry.
-func (a *atomicMap[V]) set(key string, val V) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	old := *a.ptr.Load()
-	next := make(map[string]V, len(old)+1)
-	for k, v := range old {
-		next[k] = v
-	}
-	next[key] = val
-	a.ptr.Store(&next)
-}
-
 // setAll installs or replaces several entries as a single atomic publish.
 func (a *atomicMap[V]) setAll(kv map[string]V) {
 	a.mu.Lock()
@@ -1127,21 +579,6 @@ func (a *atomicMap[V]) setAll(kv map[string]V) {
 	}
 	for k, v := range kv {
 		next[k] = v
-	}
-	a.ptr.Store(&next)
-}
-
-// delete removes the given keys, if present.
-func (a *atomicMap[V]) delete(keys ...string) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	old := *a.ptr.Load()
-	next := make(map[string]V, len(old))
-	for k, v := range old {
-		next[k] = v
-	}
-	for _, k := range keys {
-		delete(next, k)
 	}
 	a.ptr.Store(&next)
 }
@@ -1249,22 +686,6 @@ func RegisterNonAPI(prefixed ...string) {
 
 const maxChain = 32
 
-// CloneTargetControllerLKI returns an independent copy of a target-controller
-// LKI map threaded across a suspension (rules' resumePoint). The map is treated
-// as immutable once captured -- Resolve never mutates a non-nil one -- so a
-// shared reference would be safe, but an explicit copy keeps a cloned engine's
-// pending frame from ever aliasing another's.
-func CloneTargetControllerLKI(m map[state.ObjID]state.PlayerID) map[state.ObjID]state.PlayerID {
-	if m == nil {
-		return nil
-	}
-	out := make(map[state.ObjID]state.PlayerID, len(m))
-	for id, controller := range m {
-		out[id] = controller
-	}
-	return out
-}
-
 // CloneTargetSpellLKI returns an independent copy of a target-spell LKI set
 // threaded across a suspension (rules' resumePoint). The map is treated as
 // immutable once captured, but an explicit copy keeps a cloned engine's
@@ -1317,10 +738,10 @@ func CloneTargetPTLKI(m map[state.ObjID]TargetPT) map[state.ObjID]TargetPT {
 // power/toughness, when this chain captured one and the object is no longer
 // on the battlefield; a live permanent (or an uncaptured object) reads live.
 func targetPTLKI(c *Ctx, o *state.Object) (TargetPT, bool) {
-	if c == nil || c.TargetPTLKI == nil || o == nil || o.Zone == state.ZBattlefield {
+	if c == nil || c.Snap.TargetPT == nil || o == nil || o.Zone == state.ZBattlefield {
 		return TargetPT{}, false
 	}
-	pt, ok := c.TargetPTLKI[o.ID]
+	pt, ok := c.Snap.TargetPT[o.ID]
 	return pt, ok
 }
 
@@ -1336,14 +757,9 @@ type effectFrameHost interface {
 }
 
 // resolutionCtxHost is implemented by the rules engine to publish the Ctx of
-// the Resolve chain that is CURRENTLY running, so the ask boundary can stamp
-// the chain's live TargetUnique$ accumulator onto EVERY decision it poses
-// (Host.Ask copies it onto the decision's resume state, hence onto the
-// pending resumePoint). The accumulator is appended to in place as the walk
-// runs, so a snapshot taken at Resolve entry would be stale; the LIVE pointer
-// is what makes an intervening ask of ANY kind -- a modal election, a ward
-// pay, a dig/scry/arrange pick -- carry the picks earlier TargetUnique$
-// riders chose. It is optional so the effects test doubles stay small.
+// the Resolve chain that is CURRENTLY running, read by rules' tape seams
+// (unless payment, Ward, Play) and its departing-target snapshots. It is
+// optional so the effects test doubles stay small.
 type resolutionCtxHost interface {
 	SetResolutionCtx(*Ctx) *Ctx
 }
@@ -1378,27 +794,6 @@ func opponentPick(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID) (state.P
 		return ch, false
 	}
 	return chooser, false
-}
-
-// flipMemoryHost is implemented by the rules engine to publish the resolving
-// chain's shared coin-flip memory (Ctx.FlipMemory) for the whole of the walk,
-// so an ask posed from inside the chain (Host.Ask) can capture the pointer
-// onto the pending resume point and re-attach it to the fresh Ctx a resume
-// rebuilds. Optional, like effectFrameHost, so the effects test doubles need
-// no method. effFlipCoin re-publishes whenever it lazily allocates the memory.
-type flipMemoryHost interface {
-	SetResolutionFlipMemory(*FlipMemory) *FlipMemory
-}
-
-// exchangeMemoryHost is implemented by the rules engine to publish the
-// resolving chain's shared ExchangeLife rider memory (Ctx.ExchangeMemory)
-// for the whole of the walk, so an ask posed from inside the chain (Host.Ask)
-// can capture the pointer onto the pending resume point and re-attach it to
-// the fresh Ctx a resume rebuilds. Optional, like flipMemoryHost, so the
-// effects test doubles need no method. effExchangeLife re-publishes when it
-// lazily allocates the memory.
-type exchangeMemoryHost interface {
-	SetResolutionExchangeMemory(*ExchangeMemory) *ExchangeMemory
 }
 
 // LayerTableSet selects the on-demand tables a layerTablesHost publishes
@@ -1535,18 +930,14 @@ func prefetchRememberedChangeZoneTarget(h Host, c *Ctx, sa *cards.SA) ([]state.T
 	// while using ChangeZone's normal chooser and restore it before dispatch.
 	offeredSA, targetsOffered := c.OfferedSA, c.TargetsOffered
 	previousResume := c.TargetAskResume
-	answeredEmpty := false
 	c.OfferedSA, c.TargetsOffered, c.TargetAskResume = nil, false, sa
 	ts, handled := changeZoneChosenTargets(h, c, child)
 	c.OfferedSA, c.TargetsOffered, c.TargetAskResume = offeredSA, targetsOffered, previousResume
 	if !handled {
 		return nil, false, false
 	}
-	if ts == nil && !answeredEmpty {
-		return nil, false, true
-	}
 	if ts == nil {
-		ts = []state.Target{}
+		return nil, false, true
 	}
 	if c.SubPreAsk == nil {
 		c.SubPreAsk = make(map[string][]state.Target)
@@ -1571,28 +962,6 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		}
 		defer fh.SetCurrentEffectFrame(previous)
 	}
-	// Publish the chain's shared coin-flip memory for the whole walk (and
-	// restore the enclosing value on return), so an ask inside the chain can
-	// capture the pointer. nil when the chain has performed no flip yet; an
-	// effect that allocates the memory (effFlipCoin) re-publishes through the
-	// same seam.
-	if c != nil {
-		if fh, ok := h.(flipMemoryHost); ok {
-			previous := fh.SetResolutionFlipMemory(c.FlipMemory)
-			defer fh.SetResolutionFlipMemory(previous)
-		}
-	}
-	// Publish the chain's shared ExchangeLife rider memory for the whole walk
-	// (and restore the enclosing value on return), so an ask inside the chain
-	// can capture the pointer. nil when the chain has performed no exchange
-	// rider yet; effExchangeLife re-publishes through the same seam when it
-	// lazily allocates the memory.
-	if c != nil {
-		if emh, ok := h.(exchangeMemoryHost); ok {
-			previous := emh.SetResolutionExchangeMemory(c.ExchangeMemory)
-			defer emh.SetResolutionExchangeMemory(previous)
-		}
-	}
 	if c != nil {
 		c.Host = h
 		// Publish the board's derived-characteristic tables for the whole of
@@ -1612,14 +981,14 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// Capture target controllers before the first effect can move a target.
 		// Keep an existing map on re-entry: it is the earlier battlefield state,
 		// not the current (possibly reset) object, that TokenOwner needs.
-		if c.TargetControllerLKI == nil {
-			c.TargetControllerLKI = make(map[state.ObjID]state.PlayerID)
+		if c.Snap.TargetController == nil {
+			c.Snap.TargetController = make(map[state.ObjID]state.PlayerID)
 			for _, target := range c.Targets {
 				if target.IsPlayer {
 					continue
 				}
 				if object := h.Game().Obj(target.Obj); object != nil {
-					c.TargetControllerLKI[target.Obj] = object.Controller
+					c.Snap.TargetController[target.Obj] = object.Controller
 				}
 			}
 		}
@@ -1628,31 +997,31 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// events.Apply's Move fold, so a chained condition gate or amount read
 		// (Dismantle's `ConditionPresent$ Card.HasCounters` and
 		// `X:Targeted$CardCounters.ALL`) must read the counters from here.
-		if c.TargetCountersLKI == nil {
-			c.TargetCountersLKI = make(map[state.ObjID][]state.Counter)
+		if c.Snap.TargetCounters == nil {
+			c.Snap.TargetCounters = make(map[state.ObjID][]state.Counter)
 			for _, target := range c.Targets {
 				if target.IsPlayer {
 					continue
 				}
 				if object := h.Game().Obj(target.Obj); object != nil &&
 					object.Zone == state.ZBattlefield && len(object.Counters) > 0 {
-					c.TargetCountersLKI[target.Obj] = append([]state.Counter(nil), object.Counters...)
+					c.Snap.TargetCounters[target.Obj] = append([]state.Counter(nil), object.Counters...)
 				}
 			}
 		}
 		// The P/T half of the same entry capture (the fallback for a
 		// departure the host did not see; rules refreshes it at the move).
-		if c.TargetPTLKI == nil {
+		if c.Snap.TargetPT == nil {
 			for _, target := range c.Targets {
 				if target.IsPlayer {
 					continue
 				}
 				if object := h.Game().Obj(target.Obj); object != nil && object.Zone == state.ZBattlefield &&
 					object.Face() != nil {
-					if c.TargetPTLKI == nil {
-						c.TargetPTLKI = make(map[state.ObjID]TargetPT)
+					if c.Snap.TargetPT == nil {
+						c.Snap.TargetPT = make(map[state.ObjID]TargetPT)
 					}
-					c.TargetPTLKI[target.Obj] = TargetPT{Power: h.Power(target.Obj), Toughness: h.Toughness(target.Obj)}
+					c.Snap.TargetPT[target.Obj] = TargetPT{Power: h.Power(target.Obj), Toughness: h.Toughness(target.Obj)}
 				}
 			}
 		}
@@ -1665,15 +1034,15 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// a resumed chain's target has already left the stack, so a re-capture
 		// would wrongly answer "never a spell". The refTargetUnion set is what
 		// SpellTargeted itself enumerates, so both bindings are captured.
-		if c.TargetSpellLKI == nil {
-			c.TargetSpellLKI = make(map[state.ObjID]bool)
+		if c.Snap.TargetSpell == nil {
+			c.Snap.TargetSpell = make(map[state.ObjID]bool)
 			captureTargetSpells := func(ts []state.Target) {
 				for _, target := range ts {
 					if target.IsPlayer || target.Obj == 0 {
 						continue
 					}
 					if object := h.Game().Obj(target.Obj); object != nil && object.Zone == state.ZStack {
-						c.TargetSpellLKI[target.Obj] = true
+						c.Snap.TargetSpell[target.Obj] = true
 					}
 				}
 			}
@@ -1682,19 +1051,9 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 				captureTargetSpells(c.AllTargets)
 			}
 		}
-		// Publish the snapshot to the host for the whole of this chain, so an
-		// ask posed by any of its effects (or a nested Resolve that inherits
-		// the same Ctx) carries it onto the resumePoint. Restored on return:
-		// the map belongs to THIS chain, and an enclosing chain must not see
-		// it after a nested one has finished.
-		prev := h.SetResolutionTargetControllerLKI(c.TargetControllerLKI)
-		defer h.SetResolutionTargetControllerLKI(prev)
-		// Publish the live Ctx for the whole of this chain (the same
-		// restore-on-return bracket), so any ask posed by any of its effects --
-		// or by a nested Resolve that inherits the same Ctx -- carries the
-		// chain's TargetUnique$ accumulator onto its resume state. The
-		// accumulator is appended to in place during the walk, so the host
-		// reads the CURRENT value at ask time, never a stale entry snapshot.
+		// Publish the live Ctx to the host for the whole of this chain
+		// (restored on return), so rules' tape seams (unless payment, Ward,
+		// Play) read the chain's current Ctx.
 		if rh, ok := h.(resolutionCtxHost); ok {
 			prevCtx := rh.SetResolutionCtx(c)
 			defer rh.SetResolutionCtx(prevCtx)
@@ -1728,19 +1087,8 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// remembered (effPlay's trigger-capture exclusion), never the
 		// triggering event's capture. An unresolved shape (supported=false)
 		// runs unconditionally, the documented pre-gate behaviour — see
-		// conditions.go for the exact boundary and the counts behind it. A
-		// RepeatEach re-entered at its loop cursor already passed its gate
-		// when the loop began; its remaining iterations are part of that
-		// same resolution.
-		resumingLoop := false
-		// A DB$ Token re-entered after its parked mint's answer (Ctx.TokenRest)
-		// is the rest of the body that already passed its gate on the first
-		// pass: the mints it made may have changed what the condition reads.
-		resumingTokens := false
-		gatePassed := (*cards.SA)(nil) ==
-			sa
-
-		if !resumingLoop && !resumingTokens && !gatePassed {
+		// conditions.go for the exact boundary and the counts behind it.
+		if sa != nil {
 			if met, supported := conditionMet(h, c, sa); supported && !met {
 				continue
 			}
@@ -1761,8 +1109,8 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		}
 		// UnlessCost$ gate: every API with an UnlessCost$ pays (or declines)
 		// before its body runs. This is the one shared unless-cost path —
-		// the gate poses the pay decision, rules' resume arm charges the
-		// cost, and the re-entry applies the orientation. UnlessResolveSubs$
+		// the gate poses the pay decision, rules charges the cost, and the
+		// gate applies the orientation. UnlessResolveSubs$
 		// (Forge's AbilityUtils.handleUnlessCost) then gates the SubAbility$
 		// walk on the pay outcome: absent/'Always' resolves the subs either
 		// way, WhenPaid only when the cost was paid, WhenNotPaid only when it
@@ -1788,13 +1136,8 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// which leaves Suspended() unchanged. A tape-served election counts
 		// as an ask taken but suspended nothing.
 		if !unlessServed && ((!wasSuspended && h.Suspended()) || askCount(h) != asksBefore) {
-			// The gate posed the unless-pay ask and suspended the
-			// resolution: stop here exactly as an asking effect body
-			// would. The resume re-enters THIS SA (the ask's ResumeSA),
-			// where the gate consumes the answer and the loop walks
-			// sa.Sub — so this loop's own continuation is dropped, like
-			// any asking loop's (SuspendContinuation's innermost rule).
-			h.SuspendContinuation(sa)
+			// The gate opened the unless-payment window: stop here exactly
+			// as an asking effect body would.
 			return
 		}
 		if !runBody {
@@ -1812,9 +1155,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// Kor Outfitter's Attach, Rhino's second PutCounter) -- poses its own
 		// target ask here, before its body reads Defined's ValidTgts$
 		// fallthrough. The SA the placement ask covered (Ctx.OfferedSA) is
-		// skipped; an ANSWERED ask re-enters this same SA (the pending
-		// frame's ResumeSA), so the consumption inside chosenTargetsFor runs
-		// before any skip could suppress it. API$ ChangeZone is left to
+		// skipped. API$ ChangeZone is left to
 		// effChangeZone's own mid-resolution ask (changeZoneChosenTargets),
 		// which the closed ChangeZone slice owns.
 		// An Effect that remembers Targeted may own a replacement whose
@@ -1825,26 +1166,12 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		rememberedSubTargets, prefetchedRememberedSub, suspendedForRememberedSub :=
 			prefetchRememberedChangeZoneTarget(h, c, sa)
 		if suspendedForRememberedSub {
-			h.SuspendContinuation(sa)
 			return
 		}
 		if ts, done := chosenTargetsFor(h, c, sa, d == 0); done {
 			if ts == nil {
-				// The ask was posed and suspended the resolution: stop here
-				// exactly as an asking body would. The ask's ResumeSA is THIS
-				// SA, so the pending frame re-enters it (the innermost rule),
-				// the "tgts" arm fills Ctx.TargetsPick, and the re-entered
-				// pass consumes the answer and dispatches with it visible to
-				// Defined for this SA.
-				h.SuspendContinuation(sa)
-				// The same asking-body-under-UnlessCost$ class as the body
-				// path below: when the gate already resolved on THIS pass,
-				// record its outcome on the ask's own resume point so the
-				// answered re-entry consumes it instead of re-posing the pay
-				// ask.
-				if ActivationOf(sa).Unless() {
-					h.SuspendUnless(sa, paid)
-				}
+				// No target answer: stop here exactly as an asking body
+				// would.
 				return
 			}
 			c.PickedTargets = ts
@@ -1857,11 +1184,9 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			// targets of its own: an SA with its own ValidTgts$ never reads the
 			// inherited list (it asks or consumes its own answer), and a seed
 			// beside such a member would leak into TargetsAlreadyChosen's
-			// TargetUnique$ exclusion set -- a fresh resume Ctx carries an empty
-			// Ctx.Targets (the accumulator ride stamps TargetsUnique only), so
-			// Rider Suspension's middle rider's own answer would enter the set
-			// and its TargetUnique$ successor would be offered nobody (the ask
-			// silently skipped). The CLOBBER rule above keeps an outer root's
+			// TargetUnique$ exclusion set (Rider Suspension's middle rider's
+			// own answer would enter the set and its TargetUnique$ successor
+			// would be offered nobody). The CLOBBER rule above keeps an outer root's
 			// targets authoritative (the root's own list is never overwritten),
 			// so this cannot repoint a sub's explicit Defined$ Targeted away
 			// from what it meant.
@@ -1882,16 +1207,8 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			}
 			recordParentLink(c, sa, nil, false)
 		}
-		// A DB$ Token whose mint parked has not finished: its Imprint/
-		// ClearImprinted tail belongs after the mints, so it runs on the
-		// TokenRest re-entry that completes them (which may itself park again
-		// and defer once more). Every other body keeps the tail here.
-		tokensSuspended := c.tokensSuspended
-		c.tokensSuspended = false
-		if !tokensSuspended {
-			imprint(h, c, sa)
-		}
-		if !tokensSuspended && strings.EqualFold(sa.ParamStr(cards.PKClearImprinted), "True") && c.Source != 0 {
+		imprint(h, c, sa)
+		if strings.EqualFold(sa.ParamStr(cards.PKClearImprinted), "True") && c.Source != 0 {
 			// Only a real clear is an event (the ClearRemembered$
 			// discipline effCleanup documents): clearing lists that are
 			// already empty is a no-op, and logging it as a state change hid
@@ -1903,30 +1220,8 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 		if h.Suspended() {
-			// A sub-ability in this chain posed a mid-resolution ask and
-			// suspended the resolution: do NOT descend into the rest of the
-			// chain. The B1 bug was that this loop kept walking sa.Sub
-			// unconditionally, so a chained SA ran its SubAbility$ on the
-			// initial pass (before the answer existed) AND again when the
-			// answered decision re-entered at the asking SA — Thoughtseize's
-			// Discard | SubAbility$ DBLoseLife lost 4 life instead of 2. The
-			// resume re-enters at THIS asking SA (rules' resumeResolution),
-			// which re-runs the asking effect to apply the answer and then
-			// continues walking sa.Sub exactly once.
-			// Report this loop's suspension point to the host so a NESTED ask
-			// (an ask posed from inside this loop's own effect, e.g. the mode
-			// a Charm runs) does not lose the chain this loop was still
-			// carrying — fx32's defect. The host keeps the enclosing levels as
-			// outer continuations and drops this one when it is the asking
-			// loop's own level, which re-enters sa.Sub itself.
-			h.SuspendContinuation(sa)
-			// The gate had already resolved when the body asked: record the
-			// outcome so the answer's re-entry pass consumes it instead of
-			// re-posing the pay ask (the asking-body-under-UnlessCost$
-			// livelock — Rhystic Study's pay-or-draw was the live carrier).
-			if ActivationOf(sa).Unless() {
-				h.SuspendUnless(sa, paid)
-			}
+			// A sub-ability in this chain opened a resolution-time payment
+			// window: do NOT descend into the rest of the chain.
 			return
 		}
 		// UnlessResolveSubs$ also gates the sub walk when the body RAN: Forge

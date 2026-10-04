@@ -79,13 +79,13 @@ func (e *Engine) targetBoundCtx(p state.PlayerID, source state.ObjID) (*effects.
 	// exactly the `x` resolvedTargetBounds threads for a Count$xPaid bound.
 	if pc := e.cast; pc != nil && pc.card == source {
 		if pc.multikickSet {
-			ctx.TimesKicked = pc.multikickTimes
+			ctx.Kicker.TimesKicked = pc.multikickTimes
 		}
 		// The CHOSEN cast mode's kicked bit (Tear Asunder's kicked main SA is
 		// TargetMin$ X | TargetMax$ X over SVar:X:Count$Kicked.0.1): the same
 		// pre-payment gap TimesKicked closes, for the FlagKicked half. The
 		// mode was settled when the cast OPTION was picked, before this ask.
-		ctx.PendingKicked = modeIsKicked(pc.mode)
+		ctx.Kicker.PendingKicked = modeIsKicked(pc.mode)
 	}
 	if f := o.Face(); f != nil {
 		ctx.Source = source
@@ -161,7 +161,7 @@ func (e *Engine) resolvedTargetBoundsWithGift(p state.PlayerID, source state.Obj
 		return min, max
 	}
 	ctx.X = x
-	ctx.PromisedGiftOverride = promised
+	ctx.Kicker.PromisedGiftOverride = promised
 	tp := effects.TargetsOf(sa)
 	if tp.Min.Present && !isLiteralBound(tp.Min.Text) {
 		if n, resolved := effects.NumTextResolvedStrict(e, ctx, tp.Min, 1); resolved {
@@ -457,18 +457,18 @@ func stackHasType(types []string, want string) bool {
 }
 
 func targetCountMatches(count int, op string, want int) bool {
-	switch op {
-	case "EQ":
+	switch targetCountMatchesdc21Codes.Code(string(op)) {
+	case targetCountMatchesdc21EQ:
 		return count == want
-	case "NE":
+	case targetCountMatchesdc21NE:
 		return count != want
-	case "GE":
+	case targetCountMatchesdc21GE:
 		return count >= want
-	case "GT":
+	case targetCountMatchesdc21GT:
 		return count > want
-	case "LE":
+	case targetCountMatchesdc21LE:
 		return count <= want
-	case "LT":
+	case targetCountMatchesdc21LT:
 		return count < want
 	default:
 		return false
@@ -554,8 +554,8 @@ func (e *Engine) describeTargetEffect(p state.PlayerID, source state.ObjID, sa *
 	if sa.API == "Effect" {
 		out.Statics = e.grantedStaticModes(p, source, sa)
 	}
-	switch sa.API {
-	case "DealDamage", "DamageAll":
+	switch describeTargetEffectdc22Codes.Code(string(sa.API)) {
+	case describeTargetEffectdc22DealDamage:
 		out.Damage = &decision.DamageEffect{}
 		// A missing amount remains null even though the effect implementation
 		// has a defensive runtime default. A literal or a resolvable X/SVar is
@@ -741,12 +741,12 @@ func targetRemoval(sa *cards.SA) *decision.RemovalEffect {
 	if sa == nil {
 		return nil
 	}
-	switch sa.API {
-	case "Destroy", "DestroyAll":
+	switch targetRemovaldc23Codes.Code(string(sa.API)) {
+	case targetRemovaldc23Destroy:
 		return &decision.RemovalEffect{Kind: "destroy"}
-	case "Sacrifice", "SacrificeAll":
+	case targetRemovaldc23Sacrifice:
 		return &decision.RemovalEffect{Kind: "sacrifice"}
-	case "ChangeZone":
+	case targetRemovaldc23ChangeZone:
 		// ChangeZone's Destination$ through its compiled parameters: the
 		// zone the resolver moves to, named by its lower-case word.
 		cz := effects.ChangeZoneOf(sa)
@@ -769,20 +769,20 @@ func targetRemoval(sa *cards.SA) *decision.RemovalEffect {
 			return nil
 		}
 		return &decision.RemovalEffect{Kind: kind, Destination: cz.Destination.String()}
-	case "ChangeZoneAll":
+	case targetRemovaldc23ChangeZoneAll:
 		// ChangeZoneAll's Destination$ through its compiled parameters.
 		destination := effects.ChangeZoneAllOf(sa).DestinationLower
 		kind := destination
-		switch destination {
-		case "exile":
+		switch targetRemovaldc24Codes.Code(string(destination)) {
+		case targetRemovaldc24Exile:
 			kind = "exile"
-		case "hand":
+		case targetRemovaldc24Hand:
 			kind = "bounce"
-		case "graveyard":
+		case targetRemovaldc24Graveyard:
 			kind = "graveyard"
-		case "library":
+		case targetRemovaldc24Library:
 			kind = "library"
-		case "command":
+		case targetRemovaldc24Command:
 			kind = "command"
 		default:
 			return nil
@@ -852,10 +852,10 @@ func (e *Engine) triggerRolePlayerAlt(sc effects.SpecContext, alt string, q, you
 	neg := strings.HasPrefix(qualifier, "!")
 	var role state.PlayerID
 	bound := false
-	switch strings.TrimPrefix(qualifier, "!") {
-	case "TriggeredActivator":
+	switch triggerRolePlayerAltdc25Codes.Code(string(strings.TrimPrefix(qualifier, "!"))) {
+	case triggerRolePlayerAltdc25TriggeredActivator:
 		role, bound = sc.TriggerContext.TriggerActivator.Player, sc.TriggerContext.TriggerActivator.IsPlayer
-	case "TriggeredCardController":
+	case triggerRolePlayerAltdc25TriggeredCardController:
 		// effects.TriggeredCardController is the one resolver -- Defined$,
 		// OptionalDecider$ and the targeting restriction all read it.
 		if p, ok := effects.TriggeredCardController(e.G, sc.TriggerContext, sc.Remembered); ok {
@@ -866,13 +866,13 @@ func (e *Engine) triggerRolePlayerAlt(sc effects.SpecContext, alt string, q, you
 	}
 	// The base still applies to the role alternative, exactly as
 	// MatchesPlayerSpecFrom applies it to every other qualifier.
-	switch base {
-	case "Player", "Any":
-	case "You":
+	switch triggerRolePlayerAltdc26Codes.Code(string(base)) {
+	case triggerRolePlayerAltdc26Player:
+	case triggerRolePlayerAltdc26You:
 		if q != you {
 			return false, true
 		}
-	case "Opponent", "Other":
+	case triggerRolePlayerAltdc26Opponent:
 		if q == you {
 			return false, true
 		}
@@ -1184,35 +1184,35 @@ func (e *Engine) filterTargetsWithDefinedController(in []targetCandidate, sa *ca
 	var ok bool
 	failClosed := false
 	nonTriggeredController := false
-	switch ref {
-	case "NonTriggeredCardController":
+	switch filterTargetsWithDefinedControllerdc27Codes.Code(string(ref)) {
+	case filterTargetsWithDefinedControllerdc27NonTriggeredCardController:
 		nonTriggeredController = true
 		player, ok = effects.TriggeredCardController(e.G, sc.TriggerContext, sc.Remembered)
-	case "TriggeredTarget":
+	case filterTargetsWithDefinedControllerdc27TriggeredTarget:
 		if sc.TriggerTarget.IsPlayer {
 			player, ok = sc.TriggerTarget.Player, true
 		} else if o := e.G.Obj(sc.TriggerTarget.Obj); o != nil {
 			player, ok = o.Controller, true
 		}
-	case "TriggeredDefendingPlayer":
+	case filterTargetsWithDefinedControllerdc27TriggeredDefendingPlayer:
 		if sc.DefendingPlayer.IsPlayer {
 			player, ok = sc.DefendingPlayer.Player, true
 		}
-	case "TriggeredPlayer":
+	case filterTargetsWithDefinedControllerdc27TriggeredPlayer:
 		if sc.TriggerPlayer.IsPlayer {
 			player, ok = sc.TriggerPlayer.Player, true
 		}
-	case "TriggeredAttackingPlayer":
+	case filterTargetsWithDefinedControllerdc27TriggeredAttackingPlayer:
 		failClosed = true
 		if sc.AttackingPlayer.IsPlayer {
 			player, ok = sc.AttackingPlayer.Player, true
 		}
-	case "TriggeredAttackedTarget":
+	case filterTargetsWithDefinedControllerdc27TriggeredAttackedTarget:
 		failClosed = true
 		if sc.AttackedTarget.IsPlayer {
 			player, ok = sc.AttackedTarget.Player, true
 		}
-	case "TriggeredCardController":
+	case filterTargetsWithDefinedControllerdc27TriggeredCardController:
 		player, ok = effects.TriggeredCardController(e.G, sc.TriggerContext, nil)
 	}
 	if !ok {
@@ -1260,3 +1260,106 @@ func nonTriggeredControllerAdmits(o *state.Object, controller state.PlayerID, ok
 // charmTargetSlots returns the selected DISTINCT target-bearing mode bodies.
 // Repeated mode instances deliberately return nil: their later occurrences
 // retain the established per-instance ask path.
+
+const (
+	targetCountMatchesdc21EQ uint16 = 1 // "EQ"
+	targetCountMatchesdc21NE uint16 = 2 // "NE"
+	targetCountMatchesdc21GE uint16 = 3 // "GE"
+	targetCountMatchesdc21GT uint16 = 4 // "GT"
+	targetCountMatchesdc21LE uint16 = 5 // "LE"
+	targetCountMatchesdc21LT uint16 = 6 // "LT"
+)
+
+var targetCountMatchesdc21Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "EQ", Val: targetCountMatchesdc21EQ},
+	state.StrEntry[uint16]{Key: "NE", Val: targetCountMatchesdc21NE},
+	state.StrEntry[uint16]{Key: "GE", Val: targetCountMatchesdc21GE},
+	state.StrEntry[uint16]{Key: "GT", Val: targetCountMatchesdc21GT},
+	state.StrEntry[uint16]{Key: "LE", Val: targetCountMatchesdc21LE},
+	state.StrEntry[uint16]{Key: "LT", Val: targetCountMatchesdc21LT},
+)
+
+const (
+	describeTargetEffectdc22DealDamage uint16 = 1 // "DealDamage", "DamageAll"
+)
+
+var describeTargetEffectdc22Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "DealDamage", Val: describeTargetEffectdc22DealDamage},
+	state.StrEntry[uint16]{Key: "DamageAll", Val: describeTargetEffectdc22DealDamage},
+)
+
+const (
+	targetRemovaldc23Destroy       uint16 = 1 // "Destroy", "DestroyAll"
+	targetRemovaldc23Sacrifice     uint16 = 2 // "Sacrifice", "SacrificeAll"
+	targetRemovaldc23ChangeZone    uint16 = 3 // "ChangeZone"
+	targetRemovaldc23ChangeZoneAll uint16 = 4 // "ChangeZoneAll"
+)
+
+var targetRemovaldc23Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Destroy", Val: targetRemovaldc23Destroy},
+	state.StrEntry[uint16]{Key: "DestroyAll", Val: targetRemovaldc23Destroy},
+	state.StrEntry[uint16]{Key: "Sacrifice", Val: targetRemovaldc23Sacrifice},
+	state.StrEntry[uint16]{Key: "SacrificeAll", Val: targetRemovaldc23Sacrifice},
+	state.StrEntry[uint16]{Key: "ChangeZone", Val: targetRemovaldc23ChangeZone},
+	state.StrEntry[uint16]{Key: "ChangeZoneAll", Val: targetRemovaldc23ChangeZoneAll},
+)
+
+const (
+	targetRemovaldc24Exile     uint16 = 1 // "exile"
+	targetRemovaldc24Hand      uint16 = 2 // "hand"
+	targetRemovaldc24Graveyard uint16 = 3 // "graveyard"
+	targetRemovaldc24Library   uint16 = 4 // "library"
+	targetRemovaldc24Command   uint16 = 5 // "command"
+)
+
+var targetRemovaldc24Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "exile", Val: targetRemovaldc24Exile},
+	state.StrEntry[uint16]{Key: "hand", Val: targetRemovaldc24Hand},
+	state.StrEntry[uint16]{Key: "graveyard", Val: targetRemovaldc24Graveyard},
+	state.StrEntry[uint16]{Key: "library", Val: targetRemovaldc24Library},
+	state.StrEntry[uint16]{Key: "command", Val: targetRemovaldc24Command},
+)
+
+const (
+	triggerRolePlayerAltdc25TriggeredActivator      uint16 = 1 // "TriggeredActivator"
+	triggerRolePlayerAltdc25TriggeredCardController uint16 = 2 // "TriggeredCardController"
+)
+
+var triggerRolePlayerAltdc25Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "TriggeredActivator", Val: triggerRolePlayerAltdc25TriggeredActivator},
+	state.StrEntry[uint16]{Key: "TriggeredCardController", Val: triggerRolePlayerAltdc25TriggeredCardController},
+)
+
+const (
+	triggerRolePlayerAltdc26Player   uint16 = 1 // "Player", "Any"
+	triggerRolePlayerAltdc26You      uint16 = 2 // "You"
+	triggerRolePlayerAltdc26Opponent uint16 = 3 // "Opponent", "Other"
+)
+
+var triggerRolePlayerAltdc26Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Player", Val: triggerRolePlayerAltdc26Player},
+	state.StrEntry[uint16]{Key: "Any", Val: triggerRolePlayerAltdc26Player},
+	state.StrEntry[uint16]{Key: "You", Val: triggerRolePlayerAltdc26You},
+	state.StrEntry[uint16]{Key: "Opponent", Val: triggerRolePlayerAltdc26Opponent},
+	state.StrEntry[uint16]{Key: "Other", Val: triggerRolePlayerAltdc26Opponent},
+)
+
+const (
+	filterTargetsWithDefinedControllerdc27NonTriggeredCardController uint16 = 1 // "NonTriggeredCardController"
+	filterTargetsWithDefinedControllerdc27TriggeredTarget            uint16 = 2 // "TriggeredTarget"
+	filterTargetsWithDefinedControllerdc27TriggeredDefendingPlayer   uint16 = 3 // "TriggeredDefendingPlayer"
+	filterTargetsWithDefinedControllerdc27TriggeredPlayer            uint16 = 4 // "TriggeredPlayer"
+	filterTargetsWithDefinedControllerdc27TriggeredAttackingPlayer   uint16 = 5 // "TriggeredAttackingPlayer"
+	filterTargetsWithDefinedControllerdc27TriggeredAttackedTarget    uint16 = 6 // "TriggeredAttackedTarget"
+	filterTargetsWithDefinedControllerdc27TriggeredCardController    uint16 = 7 // "TriggeredCardController"
+)
+
+var filterTargetsWithDefinedControllerdc27Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "NonTriggeredCardController", Val: filterTargetsWithDefinedControllerdc27NonTriggeredCardController},
+	state.StrEntry[uint16]{Key: "TriggeredTarget", Val: filterTargetsWithDefinedControllerdc27TriggeredTarget},
+	state.StrEntry[uint16]{Key: "TriggeredDefendingPlayer", Val: filterTargetsWithDefinedControllerdc27TriggeredDefendingPlayer},
+	state.StrEntry[uint16]{Key: "TriggeredPlayer", Val: filterTargetsWithDefinedControllerdc27TriggeredPlayer},
+	state.StrEntry[uint16]{Key: "TriggeredAttackingPlayer", Val: filterTargetsWithDefinedControllerdc27TriggeredAttackingPlayer},
+	state.StrEntry[uint16]{Key: "TriggeredAttackedTarget", Val: filterTargetsWithDefinedControllerdc27TriggeredAttackedTarget},
+	state.StrEntry[uint16]{Key: "TriggeredCardController", Val: filterTargetsWithDefinedControllerdc27TriggeredCardController},
+)

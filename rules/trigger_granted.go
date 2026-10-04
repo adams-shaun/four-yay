@@ -697,9 +697,7 @@ func (e *Engine) checkGrantedWardTriggers(observer *Engine, id state.ObjID, o *s
 				Remembered:     triggerRemembered(ev, id),
 				Captured:       triggerRemembered(ev, id),
 				LKI:            objLKI,
-				LKIPower:       lkiPower,
-				LKIToughness:   lkiToughness,
-				LKIPTValid:     objLKI != nil && lkiPTValid,
+				Snap:           effects.LKISnapshots{Power: lkiPower, Toughness: lkiToughness, PTValid: objLKI != nil && lkiPTValid},
 				TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
 			}),
 		})
@@ -838,9 +836,7 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 						Remembered:     triggerRememberedMode(t, ev, id),
 						Captured:       triggerRememberedMode(t, ev, id),
 						LKI:            objLKI,
-						LKIPower:       lkiPower,
-						LKIToughness:   lkiToughness,
-						LKIPTValid:     objLKI != nil && lkiPTValid,
+						Snap:           effects.LKISnapshots{Power: lkiPower, Toughness: lkiToughness, PTValid: objLKI != nil && lkiPTValid},
 						TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
 					}),
 				})
@@ -929,9 +925,7 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 			Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 				Remembered:     triggerRememberedMode(t, ev, id),
 				LKI:            objLKI,
-				LKIPower:       lkiPower,
-				LKIToughness:   lkiToughness,
-				LKIPTValid:     objLKI != nil && lkiPTValid,
+				Snap:           effects.LKISnapshots{Power: lkiPower, Toughness: lkiToughness, PTValid: objLKI != nil && lkiPTValid},
 				TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
 			}),
 		})
@@ -961,7 +955,7 @@ func grantedTriggerStaticsFor(statics []ContinuousEffect, kind events.Kind, buf 
 // grantedTriggerStaticObserves reports whether any trigger ce grants could
 // pass triggerMatches' leading event-kind gate for kind.
 func grantedTriggerStaticObserves(ce *ContinuousEffect, kind events.Kind) bool {
-	if ce.AddTrigger != nil && triggerModeEvents(ce.AddTrigger.Mode).allows(kind) {
+	if ce.AddTrigger != nil && triggerLineEvents(ce.AddTrigger).allows(kind) {
 		return true
 	}
 	for _, gf := range ce.GainedTriggerFaces {
@@ -970,7 +964,7 @@ func grantedTriggerStaticObserves(ce *ContinuousEffect, kind events.Kind) bool {
 		}
 		for ti := range gf.Face.Triggers {
 			t := &gf.Face.Triggers[ti]
-			if t.Effect != nil && triggerModeEvents(t.Mode).allows(kind) {
+			if t.Effect != nil && triggerLineEvents(t).allows(kind) {
 				return true
 			}
 		}

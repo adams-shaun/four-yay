@@ -20,10 +20,10 @@ type plannedCastPayment struct {
 // The spec §6 PaymentFallback vocabulary. It is closed: a plan that stops
 // names exactly one of these on the manual window the cast returns to.
 const (
-	paymentFallbackCostChanged       = "cost_changed"
-	paymentFallbackSourceChanged     = "source_changed"
-	paymentFallbackProductionChanged = "production_changed"
-	paymentFallbackChoiceRequired    = "choice_required"
+	paymentFallbackCostChanged       = pay.FallbackCostChanged
+	paymentFallbackSourceChanged     = pay.FallbackSourceChanged
+	paymentFallbackProductionChanged = pay.FallbackProductionChanged
+	paymentFallbackChoiceRequired    = pay.FallbackChoiceRequired
 )
 
 // paymentPlanFallback stops automation for the rest of the cast: the witness
@@ -35,7 +35,7 @@ func (e *Engine) paymentPlanFallback(pc *pendingCast, reason string) {
 		return
 	}
 	pc.paymentFallback = &decision.PaymentFallback{PlanID: pc.payment.plan.ID, Reason: reason}
-	e.paymentStats.recordFallback(reason)
+	e.paymentStats.RecordFallback(reason)
 	pc.payment = nil
 	pc.paymentNext = 0
 }
@@ -149,7 +149,7 @@ func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUni
 		pool = manaAdd(pool, step.Mana)
 	}
 	payment, ok := resolveManaWith(cost, pool, state.Mana{}, [7]state.Mana{}, e.G.Players[pc.player].Life, false, pipRider{}, nil)
-	if !ok || pay.ManaAmount(payment.pool) != plan.PoolAfter {
+	if !ok || pay.ManaAmount(payment.Pool) != plan.PoolAfter {
 		return paymentFallbackProductionChanged, units, pay.Alt{}, false
 	}
 	return "", units, first, next < len(plan.Activations)
@@ -338,8 +338,8 @@ func (e *Engine) manaWindowAsk() bool {
 	// and let the payer choose an untapped source over the life. Answering
 	// "done" still spends the life through the ordinary payment, which keeps
 	// the grant.
-	if e.costPayableClassLife(pc.player, paymentForCast(pc, mana),
-		pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}, mana, false) {
+	if pay.CostPayableClassLife(asPayer(e), pc.player, paymentForCast(pc, mana),
+		pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}, mana, false) {
 		return false
 	}
 	if pc.announced {

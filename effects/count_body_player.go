@@ -253,13 +253,13 @@ func evalCountBodyPlayer(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 	// state. Unsupported properties and all other group spellings retain the
 	// fail-closed unresolvable verdict.
 	if rest, ok := strings.CutPrefix(head, "PlayerCountPropertyYou$"); ok {
-		switch strings.TrimSpace(rest) {
-		case "HasPropertyActive":
+		switch evalCountBodyPlayer70e1Codes.Code(string(strings.TrimSpace(rest))) {
+		case evalCountBodyPlayer70e1HasPropertyActive:
 			if c.Controller == g.Active {
 				return 1, true, true
 			}
 			return 0, true, true
-		case "CardsDiscardedThisTurn":
+		case evalCountBodyPlayer70e1CardsDiscardedThisTurn:
 			// The log-derived discard count (trigcost2): how many cards the
 			// RESOLVING controller discarded this turn — every
 			// events.IsDiscard move naming p since the last TurnChange, the
@@ -272,14 +272,14 @@ func evalCountBodyPlayer(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 			// the fail-closed verdict below — no group machinery here prices
 			// them, and a fake zero is worse.
 			return h.CardsDiscardedThisTurn(c.Controller), true, true
-		case "LifeLostThisTurn":
+		case evalCountBodyPlayer70e1LifeLostThisTurn:
 			return h.LifeLostThisTurn(c.Controller), true, true
-		case "LandsPlayed":
+		case evalCountBodyPlayer70e1LandsPlayed:
 			if c.Controller < 0 || int(c.Controller) >= len(g.Players) {
 				return 0, false, true
 			}
 			return g.Players[c.Controller].LandsPlayed, true, true
-		case "RingTemptedYou":
+		case evalCountBodyPlayer70e1RingTemptedYou:
 			// The resolving controller's own "the Ring has tempted you" count
 			// (CR 701.54a, folded by events.Apply's RingTemptsYou case): what
 			// Frodo, Adventurous Hobbit / Frodo, Sauron's Bane's
@@ -305,3 +305,19 @@ func evalCountBodyPlayer(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 	}
 	return 0, false, false
 }
+
+const (
+	evalCountBodyPlayer70e1HasPropertyActive      uint16 = 1 // "HasPropertyActive"
+	evalCountBodyPlayer70e1CardsDiscardedThisTurn uint16 = 2 // "CardsDiscardedThisTurn"
+	evalCountBodyPlayer70e1LifeLostThisTurn       uint16 = 3 // "LifeLostThisTurn"
+	evalCountBodyPlayer70e1LandsPlayed            uint16 = 4 // "LandsPlayed"
+	evalCountBodyPlayer70e1RingTemptedYou         uint16 = 5 // "RingTemptedYou"
+)
+
+var evalCountBodyPlayer70e1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "HasPropertyActive", Val: evalCountBodyPlayer70e1HasPropertyActive},
+	state.StrEntry[uint16]{Key: "CardsDiscardedThisTurn", Val: evalCountBodyPlayer70e1CardsDiscardedThisTurn},
+	state.StrEntry[uint16]{Key: "LifeLostThisTurn", Val: evalCountBodyPlayer70e1LifeLostThisTurn},
+	state.StrEntry[uint16]{Key: "LandsPlayed", Val: evalCountBodyPlayer70e1LandsPlayed},
+	state.StrEntry[uint16]{Key: "RingTemptedYou", Val: evalCountBodyPlayer70e1RingTemptedYou},
+)

@@ -35,7 +35,7 @@ func handChangeNum(cz *ChangeZoneParams) (int32, bool) {
 // Sculptor's [0], Sawtooth Loon, Burgeoning). The mechanics -- the ask gate
 // (the dig1/effDiscard strict-supersets rule), explicit markers plus real
 // card/script text for markerless optionality (never an assumed "may"), the
-// fx42 re-entry scoping, the R-9 stand-in, the Destination$ Library placement
+// the R-9 stand-in, the Destination$ Library placement
 // (absent LibraryPosition$ = TOP in answer order; Shuffle$ True randomises instead)
 // and the unread-parameter list -- are handMoveOwnersWalk's, which this
 // delegates to with the one-owner, chooser==owner, no-random configuration.
@@ -47,11 +47,11 @@ func forgetOtherRemembered(h Host, c *Ctx, sa *cards.SA) {
 
 // forgetOther is forgetOtherRemembered over a compiled ForgetOtherRemembered$.
 func forgetOther(h Host, c *Ctx, forget bool) {
-	if forget && !c.ForgetOtherCleared {
+	if forget && !c.Forget.Cleared {
 		c.Remembered = nil
 		clearEventRemembered(h, c)
-		if c.ForgetOtherReady {
-			c.ForgetOtherCleared = true
+		if c.Forget.Ready {
+			c.Forget.Cleared = true
 		}
 	}
 }
@@ -63,8 +63,7 @@ func forgetOther(h Host, c *Ctx, forget bool) {
 // across asks, including the answered owner's recheck. minOwners is the
 // walk's own continuation shape: 2 for a walk whose filter is only read for
 // owners AFTER an answered ask, 1 for a walk whose answered owner's filter
-// re-runs on re-entry (effDigUntil's re-scan). A walk whose answered
-// revalidation instead reads the ask's ResumeRemembered ride never arms it.
+// re-runs after the answer (effDigUntil's re-scan).
 func initForgetOtherSnapshot(h Host, c *Ctx, sa *cards.SA, owners []state.PlayerID, minOwners int) {
 	initForgetOther(h, c, forgetOtherRememberedParam(sa), owners, minOwners)
 }
@@ -72,27 +71,27 @@ func initForgetOtherSnapshot(h Host, c *Ctx, sa *cards.SA, owners []state.Player
 // initForgetOther is initForgetOtherSnapshot over a compiled
 // ForgetOtherRemembered$.
 func initForgetOther(h Host, c *Ctx, forget bool, owners []state.PlayerID, minOwners int) {
-	if len(owners) < minOwners || c.ForgetOtherReady || !forget {
+	if len(owners) < minOwners || c.Forget.Ready || !forget {
 		return
 	}
-	c.ForgetOtherReady = true
-	c.ForgetOtherOwners = append([]state.PlayerID(nil), owners...)
-	c.ForgetOtherSnapshot = append([]state.Target(nil), c.Remembered...)
+	c.Forget.Ready = true
+	c.Forget.Owners = append([]state.PlayerID(nil), owners...)
+	c.Forget.Snapshot = append([]state.Target(nil), c.Remembered...)
 	if src := h.Game().Obj(c.Source); src != nil {
-		c.ForgetOtherSnapshot = append(c.ForgetOtherSnapshot, src.Remembered...)
+		c.Forget.Snapshot = append(c.Forget.Snapshot, src.Remembered...)
 	}
 }
 
 func endForgetOtherSnapshot(c *Ctx) {
-	c.ForgetOtherSnapshot = nil
-	c.ForgetOtherOwners = nil
-	c.ForgetOtherReady, c.ForgetOtherCleared = false, false
+	c.Forget.Snapshot = nil
+	c.Forget.Owners = nil
+	c.Forget.Ready, c.Forget.Cleared = false, false
 }
 
 func forgetOtherSpecContext(c *Ctx) SpecContext {
 	sc := c.SpecContext(c.Controller)
-	if c.ForgetOtherReady {
-		sc.Remembered = append(append([]state.Target(nil), sc.Remembered...), c.ForgetOtherSnapshot...)
+	if c.Forget.Ready {
+		sc.Remembered = append(append([]state.Target(nil), sc.Remembered...), c.Forget.Snapshot...)
 	}
 	return sc
 }
@@ -102,11 +101,11 @@ func forgetOtherSpecContext(c *Ctx) SpecContext {
 // snapshot exists the walk's own pre-clear shallow copy is authoritative
 // (the set the first pass matched its options under), and once
 // initForgetOtherSnapshot has armed the Ctx the snapshot is authoritative,
-// riding every ask so a resumed walk re-matches the pre-clear candidates
-// against memory the first move cleared. One read for every affected
+// so a later owner's filter re-matches the pre-clear candidates against
+// memory the first move cleared. One read for every affected
 // primitive so the two carriers cannot drift.
 func forgetOtherPreClearContext(sel, c *Ctx) SpecContext {
-	if c.ForgetOtherReady {
+	if c.Forget.Ready {
 		return forgetOtherSpecContext(c)
 	}
 	return sel.SpecContext(sel.Controller)
@@ -169,26 +168,23 @@ func handMoveCountOf(h Host, c *Ctx, cz *ChangeZoneParams) (handMoveCount, bool)
 // Conjurer Adept, Mindleech Ghoul) or ValidTgts$-alone naming the players
 // whose hand moves (Karn Liberated's "[+4]: Target player exiles a card from
 // their hand", Kyoki, Sanity's Eclipse). One chooser ask per hand owner,
-// chained across owners through the persisted Ctx.HandMoveTarget cursor --
-// the walk restarts on every answer, skips the owners already answered, and
-// asks the next one -- exactly effDig's per-target continuation, but with a
-// REAL ask for every later owner rather than a deterministic stand-in (the
+// each answered in place via AskTape, in owner order -- effDig's per-target
+// shape, but with a REAL ask for every later owner rather than a
+// deterministic stand-in (the
 // hand owners are few and each ask is short). Whose hand and who answers are
 // the two selectors this shape carries: the owners come from
 // DefinedPlayer$/ValidTgts$, the chooser from Chooser$ (Forge's default is
 // the hand owner). Every shape this function cannot model emits a Note and
 // moves nothing -- the finding's floor: never a silent no-op.
 func effChangeZoneHandOwners(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.Zone) {
-	// On a resume of a multi-owner walk, the owner cursor's captured list is
-	// authoritative: the first move may have cleared the remembered set the
+	// Once the ForgetOther owner snapshot is armed, its captured list is
+	// authoritative: an earlier move may have cleared the remembered set the
 	// owner selector reads (DefinedPlayer$ RememberedOwner with
 	// ForgetOtherRemembered$ and no RememberChanged$), so recomputing here
-	// would return no owners and the empty-owner guard below would return
-	// before handMoveOwnersWalk can restore the list -- dropping the later
-	// owner's already-answered move. handMoveOwnersWalk's own entry restores
-	// the same list; this restores it early enough to survive the guards.
-	owners, ok := c.ForgetOtherOwners, true
-	if !c.ForgetOtherReady {
+	// could return no owners. handMoveOwnersWalk's own entry restores the
+	// same list; this restores it early enough to survive the guards.
+	owners, ok := c.Forget.Owners, true
+	if !c.Forget.Ready {
 		owners, ok = handMoveOwners(h, c, sa, cz)
 	}
 	if !ok {
@@ -329,20 +325,16 @@ func handMoveChooserFor(h Host, c *Ctx, cz *ChangeZoneParams, owner state.Player
 // ChangeType$ (absent: the whole hand), the bound is the count (perOwner:
 // that pool's own size), and the pick is one of three shapes -- the chained
 // ask (STRICTLY more eligible cards than the bound: a real KChoose to the
-// chooser, Min 0 when the take is optional else the bound, Max the bound, the
-// answer re-entering through ResumeKind "hand_move" with ResumeTarget
-// binding it to this owner), the no-choice deterministic take (a REQUIRED
+// chooser, Min 0 when the take is optional else the bound, Max the bound,
+// answered in place via AskTape), the no-choice deterministic take (a REQUIRED
 // move with eligible <= bound: every eligible card moves, in hand order, no
 // ask), or AtRandom$'s engine-random pick (no ask: randomness, not a player
 // choice, picks). An OPTIONAL move takes the choice path whenever there is
 // at least one eligible card, including eligible <= bound: declining remains
 // a meaningful answer even when taking every card is the only nonempty pick
-// (an empty-only ChangeNum$ 0 still resolves through AskEmpty). The re-entry
-// contract (fx42 scoping): Ctx.HandMove/HandMoveDone/HandMoveTarget are captured and
-// cleared at the top of the walk; owners before the cursor completed before a
-// later owner suspended and are skipped, the cursor's owner consumes the
-// answer (moved exactly as answered, revalidated against the CURRENT hand
-// and filter), and owners after it continue the chain.
+// (an empty-only ChangeNum$ 0 is never posted and takes the stand-in, which
+// moves nothing). An answer is moved exactly as answered, revalidated against
+// the CURRENT hand and filter; a host with no answer takes the R-9 stand-in.
 //
 // The whole-hand shape (handmove1/rv2b r1) is the one-owner case of this
 // walk, with the chooser == the owner -- the r1 contracts (ask shape, card
@@ -371,26 +363,10 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 	// The per-type groups an EACH ChangeType asks for, computed once: the
 	// sub-specs are a property of the SA, not of the hand owner.
 	eachSubs, isEach := eachAlternatives(spec)
-	if c.ForgetOtherReady {
-		owners = c.ForgetOtherOwners
+	if c.Forget.Ready {
+		owners = c.Forget.Owners
 	}
 	g := h.Game()
-	// fx42 scoping: capture and clear the answered pick (and the cursor that
-	// binds it to the owner that asked) BEFORE anything else, so a nested
-	// hand-move ask below cannot inherit them.
-	ans := ([]state.ObjID)(nil)
-
-	done := false
-	cursor := int(0)
-
-	// fx42 scoping for the Optional$ confirmation answer: consumed and cleared
-	// before anything else so a nested hand move poses its own confirmation.
-	confirmDone := false
-	confirmYes := strings.EqualFold(string(""),
-
-		"yes")
-	confirmTarget := int(0)
-
 	withKind := cz.WithCountersType
 	var withAmt int32
 	if withKind != "" && counterDestination(to) {
@@ -411,7 +387,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 	// owner A's settle cleared both halves of the remembered state. It is
 	// armed for a single owner too now that the walk clears BEFORE its first
 	// ask (an accepted Optional$ confirmation or a mandatory entry), so the
-	// answered re-entry's eligibility filter still sees the pre-clear set.
+	// answered pick's eligibility filter still sees the pre-clear set.
 	initForgetOther(h, c, cz.Riders.ForgetOtherRemembered, owners, 1)
 	// Snapshot eligibility before forgetting: an IsRemembered filter must
 	// still admit an answered card after the old set has been cleared.
@@ -434,8 +410,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 			eventRemember(h, c, id)
 		}
 	}
-	// applyAnswered moves one owner's answered pick: the answer re-entry's
-	// branch, and the resolution kernel's served answer alike.
+	// applyAnswered moves one owner's answered pick.
 	applyAnswered := func(owner state.PlayerID, hand, eligible, ans []state.ObjID) {
 		// Move exactly the answered cards that still sit in THIS owner's hand
 		// and still match the filter (a stray answer must not move an object
@@ -464,25 +439,11 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 		}
 		handLibraryTail(h, g, cz, c.Source, owner, moved, to)
 		// AtEOT$ on the hand walk: the owner's answered batch is the
-		// affected set, scheduled per owner BEFORE the walk can suspend on a
-		// later owner's ask (a suspension must not lose this batch's
-		// registrations -- the re-entry skips already-answered owners and
-		// never re-schedules them).
+		// affected set, scheduled per owner.
 		scheduleAtEOT(h, c, sa, moved)
 	}
 	for i, owner := range owners {
-		hand := zoneOf(g, state.ZHand, owner)
 		eligible := eligibleByOwner[i]
-		if done && i < cursor {
-			// This owner answered on an earlier pass, before a later owner
-			// suspended the walk. Re-running it could move a second batch, so
-			// skip it (effDig's per-target continuation contract).
-			continue
-		}
-		if done && i == cursor {
-			applyAnswered(owner, hand, eligible, ans)
-			continue
-		}
 		n := count.fixed
 		if count.perOwner {
 			n = int32(len(eligible))
@@ -525,56 +486,34 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 		// confirmation-free: Forge expresses their may as a null pick, not as a
 		// confirmation, so their empty answer is an accepted fetch that clears.
 		if handMoveConfirms(cz) {
-			if confirmDone && i < confirmTarget {
-				// This owner's confirmation was already answered on an earlier
-				// pass (declined, or accepted with its pick completed); do not
-				// ask again and do not clear for it.
-				continue
+			prompt := cz.OptionalPrompt
+			if prompt == "" {
+				prompt = "Proceed with moving a card from hand?"
 			}
-			if !confirmDone {
-				prompt := cz.OptionalPrompt
-				if prompt == "" {
-					prompt = "Proceed with moving a card from hand?"
+			cd := &decision.Decision{Player: chooser, Kind: decision.KChoose,
+				Min: 1, Max: 1, Source: c.Source,
+				ResumeKind: "hand_move_confirm", ResumeSA: sa, ResumeTarget: i,
+				Prompt: prompt,
+				Options: []decision.Option{
+					{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
+					{Index: 1, Kind: "no", Label: "No", Player: chooser},
+				}}
+			// Answered in place: the echo events, then a decline skips this
+			// owner with the remembered set intact and an acceptance enters
+			// the fetch. R-9: with no answer, play "may" as "do"
+			// deterministically, the same fallback moveDefinedLibraryObjects
+			// applies.
+			if ans, ok := AskTape(h, cd); ok {
+				handMoveReentryEcho(h, c, cz, to)
+				if !tapeAnswerYes(ans) {
+					continue
 				}
-				cd := &decision.Decision{Player: chooser, Kind: decision.KChoose,
-					Min: 1, Max: 1, Source: c.Source,
-					ResumeKind: "hand_move_confirm", ResumeSA: sa, ResumeTarget: i,
-					ResumeRemembered:          copyTargets(c.Remembered),
-					ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
-					ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
-					ResumeForgetOtherReady:    c.ForgetOtherReady,
-					ResumeForgetOtherCleared:  c.ForgetOtherCleared,
-					Prompt:                    prompt,
-					Options: []decision.Option{
-						{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
-						{Index: 1, Kind: "no", Label: "No", Player: chooser},
-					}}
-				if ans, ok := AskTape(h, cd); ok {
-					// The resolution kernel's answer in hand: the
-					// "hand_move_confirm" re-entry's own events, then a
-					// decline skips this owner and an acceptance enters the
-					// fetch.
-					handMoveReentryEcho(h, c, cz, to)
-					if !tapeAnswerYes(ans) {
-						continue
-					}
-				} else {
-					_ = Ask(h, cd)
-				}
-
-				// R-9: no host to ask -- play "may" as "do" deterministically,
-				// the same fallback moveDefinedLibraryObjects applies.
-			} else if i == confirmTarget && !confirmYes {
-				confirmDone = false // this owner's decline is consumed; later owners still confirm
-				continue            // declined: keep the remembered set
-			} else if i == confirmTarget {
-				confirmDone = false // this owner's acceptance is consumed
 			}
 		}
 		if len(eligible) == 0 || n == 0 {
 			// No eligible card, or an empty-only ChangeNum$ 0 choice. An
 			// ordinary (non-ForgetOther) empty hand move completes silently
-			// before optionality is read -- AskEmpty's contract. A
+			// before optionality is read. A
 			// ForgetOtherRemembered$ fetch that is entered (mandatory, a
 			// markerless may-shape, or an accepted Optional$ confirmation)
 			// clears its remembered set: Forge clears before the choose and
@@ -657,23 +596,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 		d := &decision.Decision{Player: chooser, Kind: decision.KChoose,
 			Min: min, Max: int(n), Source: c.Source,
 			ResumeKind: "hand_move", ResumeSA: sa, ResumeTarget: i,
-			// The re-entered walk revalidates the answered cards against the
-			// SAME filter it offered them under (Card.IsRemembered in Vizkopa
-			// Confessor's PickOne, whose remembered population is ctx-level
-			// only -- RememberRevealed$), so the ask must RIDE that set the way
-			// every other mid-resolution ask boundary does (attach.go,
-			// counters.go, play.go): without it the rebuild loses the ctx-level
-			// Remembered and the revalidation re-eligible-matches nothing.
-			// The ForgetOtherRemembered$ pre-clear snapshot rides with it: a
-			// LATER owner's pool (and any answered revalidation after an
-			// earlier owner's settle cleared the live set) still reads the
-			// candidates the walk started with.
-			ResumeRemembered:          copyTargets(c.Remembered),
-			ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
-			ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
-			ResumeForgetOtherReady:    c.ForgetOtherReady,
-			ResumeForgetOtherCleared:  c.ForgetOtherCleared,
-			Prompt:                    handMovePromptFor(cz, to, int(n), chooser == owner)}
+			Prompt: handMovePromptFor(cz, to, int(n), chooser == owner)}
 		for _, id := range eligible {
 			name := "a card"
 			if o := g.Obj(id); o != nil && o.Face() != nil {
@@ -703,30 +626,26 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 		// The iteration is entered (a mandatory move, a markerless may-shape, or
 		// an accepted Optional$ confirmation): Forge clears the source's
 		// remembered cards here, before the choose, so this applies even when
-		// the answer picks nothing. The decision above already captured the
-		// pre-clear Remembered, so the resumed revalidation keeps matching.
+		// the answer picks nothing. The pre-clear snapshot keeps the answered
+		// pick's revalidation matching.
 		forgetOther(h, c, cz.Riders.ForgetOtherRemembered)
 		// The shared ask boundary (effects.Ask): a ChangeNum$ 0 pick over a
 		// nonempty eligible hand is Min == Max == 0 -- the empty-answer-only
-		// shape -- so it is never posted; AskEmpty resolves silently through
-		// the stand-in below, which moves zero cards.
+		// shape -- so it is never posted and resolves silently through the
+		// stand-in below, which moves zero cards.
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the "hand_move"
-			// re-entry's own events, then its answered branch over the hand
-			// as it stands.
+			// Answered in place: the echo events, then the answered pick over
+			// the hand as it stands.
 			handMoveReentryEcho(h, c, cz, to)
 			applyAnswered(owner, zoneOf(g, state.ZHand, owner), eligible, tapeAnswerObjs(ans))
 			continue
 		}
-		oc := Ask(h, d)
-		if oc == AskAsked {
-			return // resolution suspended; the answer re-enters with Ctx.HandMove set.
-		}
+		unposable := askUnposable(d)
 		// R-9: a host without a decision channel cannot ask a player, so it
 		// supplies the deterministic answer in the player's place -- the first
 		// ChangeNum eligible cards in the same ordered eligible list the
 		// decision's options were built from.
-		if oc == AskNoHost {
+		if !unposable {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: chooser,
 				Text: "moves the first matching card(s) from hand (no engine host to ask)"})
 		}
@@ -1134,7 +1053,7 @@ func withCounterAmountReadsMoved(c *Ctx, cz *ChangeZoneParams, v string) bool {
 // effSearchLibrary implements the hidden-origin ChangeZone shape. The option
 // list is rebuilt deterministically from library order and ChangeType$, while
 // the answer is carried only as option indices and object ids through the
-// ordinary KChoose/resume mechanism.
+// ordinary KChoose ask, answered in place via AskTape.
 //
 // zones is the full origin set (Origin$ merged with OriginAlternative$):
 // Library is the hidden half, and any public zones in the set (Graveyard,
@@ -1142,11 +1061,6 @@ func withCounterAmountReadsMoved(c *Ctx, cz *ChangeZoneParams, v string) bool {
 // list, exactly Forge's choose-a-card-from-any-of-these-zones step. The
 // library is searched first in candidate order so a pure-library search's
 // option list -- and therefore its chain heads -- is unchanged.
-//
-// The per-library answer cursor rides the same resume point as every other
-// mid-resolution choice. That makes a multi-player search continue after the
-// owner whose answer suspended the effect, rather than rebuilding from the
-// first owner on every re-entry.
 // chooseFromDefinedPool is the ONE resolver for the ChangeZone
 // ChooseFromDefined$ selector: the value is a full Defined selector, resolved
 // through the shared Defined machinery (knownDefinedTargets) into the

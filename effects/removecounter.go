@@ -59,26 +59,13 @@ import (
 // The note records the skip loudly; nothing moves (removal off-battlefield
 // stays a TgtZone$ task).
 func effRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
-	// fx42 scoping: the answered bare-Choices$ pick rides the SHARED
-	// "counter_pick" arm's fields (Ctx.CounterPick — the same transport
-	// PutCounter's bare pick uses, since the option lists decode identically),
-	// so capture and clear them at the very top, before any exotic check or
-	// nested RemoveCounter in the same chain can see them.
-	pickAns := ([]state.ObjID)(nil)
-
-	pickDone := false
-
 	rp := RemoveCounterOf(sa)
-	if !pickDone {
-		// Once per call: the answered re-entry already noted on its first
-		// pass.
-		noteUnreadParams(h, c, "RemoveCounter", rp.Unread)
-	}
+	noteUnreadParams(h, c, "RemoveCounter", rp.Unread)
 	if rp.Choices != "" {
 		// The card-election arm (counterchoice1): the 10 raw corpus
 		// RemoveCounter lines carrying Choices$. Shapes this arm cannot
 		// express stay loud inside removeCounterChoose.
-		removeCounterChoose(h, c, sa, rp, pickAns, pickDone)
+		removeCounterChoose(h, c, sa, rp)
 		return
 	}
 	if rp.ExoticNote != "" {
@@ -166,9 +153,8 @@ func effRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 // Choices$ pool in ChoiceZone$ (default the battlefield; Amy Pond's and Mari
 // the Killing Quill's triggers name Exile), and EACH chosen object loses
 // CounterNum$ counters of CounterType$ (the shared Num grammar — Amy Pond's
-// CounterNum$ X is the triggering damage amount). The answer re-enters
-// through the shared "counter_pick" resume arm (Ctx.CounterPick), consumed
-// and cleared by effRemoveCounter at its top (fx42).
+// CounterNum$ X is the triggering damage amount). The pick is answered in
+// place with the shared "counter_pick" decision shape.
 //
 // How many objects: ChoiceNum$-exact (default 1; Amy Pond, Mari the Killing
 // Quill) unless ChoiceOptional$ True is present, which is Forge's "each of
@@ -202,15 +188,11 @@ func effRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 // which-kind pick stacked on the card election), CounterNum$ Any (a
 // how-many-per-card ask), UpTo$/CounterNumShared$ (a divided total), and a
 // ChoiceZone$ naming neither the battlefield nor exile.
-func removeCounterChoose(h Host, c *Ctx, sa *cards.SA, rp *RemoveCounterParams, ans []state.ObjID, done bool) {
+func removeCounterChoose(h Host, c *Ctx, sa *cards.SA, rp *RemoveCounterParams) {
 	kind := rp.Kind
 	zone := rp.ChoiceZone
 	if rp.ChoiceNote != "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: rp.ChoiceNote})
-		return
-	}
-	if done {
-		removeCounterPickApply(h, c, rp, zone, kind, numText(h, c, rp.CounterNum, 1), ans)
 		return
 	}
 	g := h.Game()
@@ -277,12 +259,11 @@ func removeCounterChoose(h Host, c *Ctx, sa *cards.SA, rp *RemoveCounterParams, 
 			Kind: "counter_pick", Label: name, Obj: id, Player: c.Controller})
 	}
 	if ans, ok := AskTape(h, d); ok {
-		// The "counter_pick" answer in hand: the re-entry's removal, with
-		// the count read exactly as the re-entry reads it.
+		// The "counter_pick" answer in hand; the count is re-read here
+		// without the num clamp above.
 		removeCounterPickApply(h, c, rp, zone, kind, numText(h, c, rp.CounterNum, 1), counterAnswerObjs(ans))
 		return
 	}
-	_ = Ask(h, d)
 
 	fallback()
 }

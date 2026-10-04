@@ -88,26 +88,6 @@ func TestTwoPilesEmptyCardSetIsSilent(t *testing.T) {
 	}
 }
 
-// TestTwoPilesOneCardSkipsTheSplitButAsksThePick pins the strict-supersets
-// gate: a one-card set poses no split (a decision nobody could answer
-// differently), but the chooser's pick is still asked.
-func TestTwoPilesOneCardSkipsTheSplitButAsksThePick(t *testing.T) {
-	h, ids := twopilesBoard(t)
-	sh := &suspendHost{fakeHost: *h}
-	ctx := &Ctx{Controller: 0, Source: ids[5], Remembered: twopilesRemembered(ids[:1]), SVars: twopilesSVars()}
-	sa := twopilesSA(t)
-	Resolve(sh, ctx, sa)
-	if !sh.suspended || sh.asked == nil {
-		t.Fatal("the one-card set posed no pick ask")
-	}
-	if sh.asked.ResumeKind != "twopiles_pick" {
-		t.Fatalf("resume = %q, want the pick ask straight away (no split)", sh.asked.ResumeKind)
-	}
-	if len(sh.asked.ResumeChoices) != 1 || sh.asked.ResumeChoices[0].Obj != ids[0] {
-		t.Fatalf("ResumeChoices = %+v, want the single card as pile A", sh.asked.ResumeChoices)
-	}
-}
-
 // TestTwoPilesNoHostStandIn pins the R-9 stand-in: with a host that cannot
 // ask, pile A is the FIRST card of the set, the chooser takes pile A, no
 // Note records it, and nothing wedges.

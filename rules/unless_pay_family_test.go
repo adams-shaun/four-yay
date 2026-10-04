@@ -94,7 +94,7 @@ func TestUnlessPayTapBloodCryptPayEntersUntapped(t *testing.T) {
 	if ask.ResumeSA == nil || ask.ResumeSA.API != "Tap" {
 		t.Fatalf("ask SA = %+v, want the DB$ Tap body", ask.ResumeSA)
 	}
-	// Pay: the shared resume arm's payMana charges the PayLife<2>.
+	// Pay: the shared unless-pay settlement charges the PayLife<2>.
 	submitChoices(t, e, ask.Options[0].Index)
 	o := e.G.Obj(crypt)
 	if o == nil || o.Zone != state.ZBattlefield {

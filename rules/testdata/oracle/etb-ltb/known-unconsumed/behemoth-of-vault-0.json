@@ -1,0 +1,6 @@
+{
+  "card": "Behemoth of Vault 0",
+  "rows": {
+    "cast-gains-four-energy-and-dies-destroys-mana-value-two-permanent": "step 3 (resolve): [{\"kind\":\"any\",\"pick\":[\"p0:Mind Stone\"]}]"
+  }
+}

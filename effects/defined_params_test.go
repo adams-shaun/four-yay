@@ -79,7 +79,7 @@ func TestDefinedOfIsAllocationFree(t *testing.T) {
 	f.Publish()
 	cached := &cards.SA{API: "Destroy", Params: map[string]string{"Defined": "Remembered"}}
 	DefinedOf(cached)
-	if n := testing.AllocsPerRun(100, func() {
+	if n := allocsPerRun(100, func() {
 		_ = DefinedOf(bound)
 		_ = DefinedOf(cached)
 		_ = DefinedRefOf(cached)

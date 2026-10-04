@@ -1,0 +1,6 @@
+{
+  "card": "Assaultron Dominator",
+  "rows": {
+    "artifact-creature-attacks-without-energy-no-counter": "step 1 (resolve): [{\"kind\":\"any\",\"pick\":[\"do not pay\"]}]"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "card": "Shaun, Father of Synths",
+  "rows": {
+    "attack-copies-another-attacking-legend": "step 1 (resolve): [{\"kind\":\"any\",\"pick\":[\"p0:Isamaru, Hound of Konda\"]}]",
+    "leaving-battlefield-exiles-synth-tokens": "step 1 (resolve): [{\"kind\":\"any\",\"pick\":[\"p0:Isamaru, Hound of Konda\"]}]"
+  }
+}

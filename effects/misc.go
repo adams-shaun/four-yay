@@ -156,7 +156,6 @@ func effWard(h Host, c *Ctx, sa *cards.SA) {
 			Prompt: pay + " for ward?", ResumeKind: "unless_pay", ResumeSA: sa,
 			Options: []decision.Option{{Index: 0, Kind: "mode", Label: pay, Player: o.Controller, Mode: decision.ModeUnlessPay}, {Index: 1, Kind: "mode", Label: "Don't pay", Player: o.Controller, Mode: decision.ModeUnlessDecline}}}
 		if _, ok := AskTape(h, d); !ok {
-			h.Ask(d)
 			return
 		}
 		// Served from the resolution kernel's tape: the host's answer record

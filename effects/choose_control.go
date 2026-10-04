@@ -62,18 +62,18 @@ func choiceZones(sa *cards.SA) map[state.Zone]bool {
 	}
 	out := map[state.Zone]bool{}
 	for z := range strings.SplitSeq(s, ",") {
-		switch strings.TrimSpace(z) {
-		case "Battlefield":
+		switch choiceZones47f1Codes.Code(string(strings.TrimSpace(z))) {
+		case choiceZones47f1Battlefield:
 			out[state.ZBattlefield] = true
-		case "Hand":
+		case choiceZones47f1Hand:
 			out[state.ZHand] = true
-		case "Library":
+		case choiceZones47f1Library:
 			out[state.ZLibrary] = true
-		case "Graveyard":
+		case choiceZones47f1Graveyard:
 			out[state.ZGraveyard] = true
-		case "Exile":
+		case choiceZones47f1Exile:
 			out[state.ZExile] = true
-		case "Stack":
+		case choiceZones47f1Stack:
 			out[state.ZStack] = true
 		}
 	}
@@ -85,21 +85,21 @@ func choiceZones(sa *cards.SA) map[state.Zone]bool {
 // targets: that would widen a constrained choice to unrelated objects.
 func definedCardPool(g *state.Game, c *Ctx, raw string) ([]state.Target, string) {
 	root, qualifier, _ := strings.Cut(strings.TrimSpace(raw), ".")
-	switch root {
-	case "Targeted", "TargetedCard":
+	switch definedCardPool47f2Codes.Code(string(root)) {
+	case definedCardPool47f2Targeted:
 		return objectsOf(c.Targets), qualifier
-	case "ParentTargeted":
+	case definedCardPool47f2ParentTargeted:
 		return objectsOf(parentLinkTargets(c)), qualifier
-	case "Remembered", "RememberedLKI":
+	case definedCardPool47f2Remembered:
 		return objectsOf(c.Remembered), qualifier
-	case "TriggeredCards", "TriggeredAttackers", "TriggeredBlockers":
+	case definedCardPool47f2TriggeredCards:
 		return objectsOf(c.Remembered), qualifier
-	case "TriggeredSources":
+	case definedCardPool47f2TriggeredSources:
 		if c.TriggerSource != 0 {
 			return []state.Target{{Obj: c.TriggerSource}}, qualifier
 		}
 		return nil, qualifier
-	case "ExiledWith":
+	case definedCardPool47f2ExiledWith:
 		// Forge's hostCard.getExiledCards is the source's ChangeZone exile
 		// association, not ImprintCards$ and not every card in the shared exile
 		// zone. The list is event-backed by Imprint's "exiled-with"
@@ -295,18 +295,18 @@ func sacrificeableAlternative(h Host, g *state.Game, c *Ctx, alt string, o *stat
 // turn order and Right the previous one. An unrecognised value offers
 // nothing rather than every object in the zone.
 func controlledByChoicePlayer(g *state.Game, c *Ctx, v string, chooser state.PlayerID, o *state.Object) bool {
-	switch strings.TrimSpace(v) {
-	case "":
+	switch controlledByChoicePlayer47f3Codes.Code(string(strings.TrimSpace(v))) {
+	case controlledByChoicePlayer47f3Empty:
 		return true
-	case "Chooser":
+	case controlledByChoicePlayer47f3Chooser:
 		return o.Controller == chooser
-	case "You":
+	case controlledByChoicePlayer47f3You:
 		return o.Controller == c.Controller
-	case "Remembered":
+	case controlledByChoicePlayer47f3Remembered:
 		return targetIn(c.Remembered, state.Target{Player: o.Controller, IsPlayer: true})
-	case "Left":
+	case controlledByChoicePlayer47f3Left:
 		return o.Controller == g.NextAlive(chooser)
-	case "Right":
+	case controlledByChoicePlayer47f3Right:
 		alive := g.AliveFrom(chooser)
 		return len(alive) > 0 && o.Controller == alive[len(alive)-1]
 	}
@@ -388,12 +388,7 @@ func chooseCardChoosers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 }
 
 // choiceRecord records a completed pick into the chain's chosen binding
-// (Ctx.Chosen), the Remembered set and the source's event-backed lists. It
-// leaves Ctx.Choice alone: that is the ANSWER channel a resume arm fills for
-// one re-entry (read only beside Ctx.ChoiceDone), and a pick left in it is a
-// stale answer the next choice SA on the same Ctx reads at its entry --
-// skipping the fresh-entry replacement of the earlier SA's cards, so Shrouded
-// Lore's Defined$ ChosenCard named every card chosen so far.
+// (Ctx.Chosen), the Remembered set and the source's event-backed lists.
 func choiceRecord(h Host, c *Ctx, sa *cards.SA, picked []state.Target, playerChoice bool) {
 	if playerChoice {
 		// Forge's ChoosePlayerEffect calls host.setChosenPlayer(chosen) once
@@ -426,8 +421,7 @@ func choiceRecord(h Host, c *Ctx, sa *cards.SA, picked []state.Target, playerCho
 }
 
 // ChoiceAnswerTargets is the "choice" answer's target shape, the one home
-// the rules "choice" resume arm and the resolution kernel's tape branches
-// share: a "player" option is a player target (player zero is a real
+// every tape-answered choice shares: a "player" option is a player target (player zero is a real
 // target), any other option naming an object is that object.
 func ChoiceAnswerTargets(chosen []decision.Option) []state.Target {
 	out := make([]state.Target, 0, len(chosen))
@@ -529,19 +523,19 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 	selection := *c // candidate filters read the pre-clear remembered set
 	initForgetOtherSnapshot(h, c, sa, choosers, 2)
 	forgetOtherRemembered(h, c, sa)
-	if c.ForgetOtherReady {
-		// The snapshot is authoritative across the asks: a resumed chooser's
+	if c.Forget.Ready {
+		// The snapshot is authoritative across the asks: a later chooser's
 		// pool must still match the pre-clear candidates (plus anything
 		// re-remembered since) after the first move cleared the live set.
-		selection.Remembered = append(append([]state.Target(nil), selection.Remembered...), c.ForgetOtherSnapshot...)
+		selection.Remembered = append(append([]state.Target(nil), selection.Remembered...), c.Forget.Snapshot...)
 	}
 	// Reveal$ True (Planetary Annihilation's "each player chooses six lands
 	// they keep" is public knowledge — CR 701.x's open choice): each chooser's
 	// ANSWERED choice is revealed to every seat with the same ids-Note
 	// effReveal's public reveal emits (empty Text, view.Describe renders
 	// "player N reveals ...", RedactEvents passes it through unchanged). The
-	// reveal fires per chooser as their choice is recorded — both on the
-	// answered re-entry and on the no-host fallback below — so every seat
+	// reveal fires per chooser as their choice is recorded — both on an
+	// answered ask and on the no-host fallback below — so every seat
 	// learns the kept set before the next chooser picks. Player entries
 	// (a ChoosePlayer follow-up) reveal nothing: a player is not hidden.
 	reveal := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKReveal)), "True")
@@ -565,11 +559,10 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 	budget, hasBudget := NumResolved(h, c, sa, "WithTotalPower", 0)
 	// The walk is chooser-major, group-minor: every chooser picks from ALL
 	// groups before the next chooser starts, groups in ChooseEach$ order —
-	// Forge's ChooseCardEffect loop shape. With ChooseEach$ the resume cursor
-	// i is the flat index into that (chooser, group) pair list
+	// Forge's ChooseCardEffect loop shape. With ChooseEach$ the cursor i is
+	// the flat index into that (chooser, group) pair list
 	// (i = chooser*groups + group), so ONE ResumeTarget int carries both
-	// halves across a suspension — the group count comes from the SA itself,
-	// deterministic on re-entry.
+	// halves — the group count comes from the SA itself.
 	i := c.ChoiceTarget
 
 	if i == 0 {
@@ -609,9 +602,8 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 		}
 		// With ChooseEach$ the shared Amount$/MinAmount$/Mandatory$ bounds are
 		// PER GROUP (revival_experiment's Amount$ 1 | MinAmount$ 0: "up to one
-		// card of that type"), so one answer re-enters per group through the
-		// ordinary "choice" resume arm and choiceRecord accumulates each
-		// group's pick. A group whose narrowed pool is empty resolves
+		// card of that type"), so one "choice" ask is answered per group and
+		// choiceRecord accumulates each group's pick. A group whose narrowed pool is empty resolves
 		// silently: Ask's empty-decision guard declines the shape and the
 		// choice below records nothing, exactly like Forge's per-type loop
 		// with no candidate of that type.
@@ -641,13 +633,7 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 			chooseCardRecord(h, c, sa, randomChoices(h, choices, max))
 			continue
 		}
-		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Source: c.Source, Min: min, Max: max, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i, ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid, ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: sa.ParamStr(cards.PKChoiceTitle)}
-		// The ForgetOtherRemembered$ pre-clear snapshot rides the ask: a later
-		// chooser's pool (the cardChoices read above re-runs on every resumed
-		// pass) still matches the pre-clear candidates after the clear.
-		d.ResumeForgetOtherSnapshot = copyTargets(c.ForgetOtherSnapshot)
-		d.ResumeForgetOtherOwners = append([]state.PlayerID(nil), c.ForgetOtherOwners...)
-		d.ResumeForgetOtherReady, d.ResumeForgetOtherCleared = c.ForgetOtherReady, c.ForgetOtherCleared
+		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Source: c.Source, Min: min, Max: max, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i, Prompt: sa.ParamStr(cards.PKChoiceTitle)}
 		if hasBudget {
 			d.MaxSum, d.Budgeted = int(budget), true
 		}
@@ -668,13 +654,12 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 			d.Prompt += " (total power " + strconv.Itoa(int(budget)) + " or less)"
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: what the "choice"
-			// resume arm's re-entry does. The legacy re-entry rebuilds the
-			// candidate selection from the Ctx as it stood at the ask (before
-			// this record), then records, reveals and re-reads the bounds.
+			// Answered in place: rebuild the candidate selection from the
+			// Ctx as it stood at the ask (before this record), then record,
+			// reveal and re-read the bounds.
 			selection = *c
-			if c.ForgetOtherReady {
-				selection.Remembered = append(append([]state.Target(nil), selection.Remembered...), c.ForgetOtherSnapshot...)
+			if c.Forget.Ready {
+				selection.Remembered = append(append([]state.Target(nil), selection.Remembered...), c.Forget.Snapshot...)
 			}
 			answered := ChoiceAnswerTargets(ans)
 			chooseCardRecord(h, c, sa, answered)
@@ -684,7 +669,6 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 			minBase, maxBase = choiceBounds(h, c, sa, true)
 			continue
 		}
-		_ = Ask(h, d)
 
 		recorded := choices[:min]
 		if hasBudget {
@@ -725,8 +709,7 @@ func chooseCardPower(h Host, id state.ObjID) int {
 // budgetGreedyTake is the deterministic forced take under a WithTotalPower$
 // cumulative budget: walk the affordable pool in its given order and take
 // each card only while the running power sum still fits the cap, up to max
-// picks. The no-host fallback applies exactly this take, so a suspension
-// cannot change which cards a budgeted pick keeps.
+// picks. The no-host fallback applies exactly this take.
 func budgetGreedyTake(h Host, pool []state.Target, max, budget int) []state.Target {
 	out := make([]state.Target, 0, len(pool))
 	running := 0
@@ -782,10 +765,9 @@ func sourceChoices(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID) []state
 // matches nothing -- asks nothing and records nothing, so the follow-up
 // replacement simply has no chosen source and does not fire.
 //
-// The KChoose/"choice" resume machinery is shared with ChooseCard: the
-// decision carries ResumeSA/ResumeTarget, and rules' resume arm rebuilds
-// Ctx.Choice/ChoiceDone/ChoiceTarget before re-entering this function, so a
-// suspended answer is applied on the second pass without re-asking.
+// The KChoose/"choice" ask shape is shared with ChooseCard: the decision
+// carries ResumeSA/ResumeTarget and each chooser's ask is answered in place
+// via AskTape.
 func effChooseSource(h Host, c *Ctx, sa *cards.SA) {
 	choosers := choiceChoosers(h, c, sa)
 	i := c.ChoiceTarget
@@ -817,10 +799,7 @@ func effChooseSource(h Host, c *Ctx, sa *cards.SA) {
 		}
 		d := &decision.Decision{Player: choosers[i], Kind: decision.KChoose, Source: c.Source,
 			Min: min, Max: max, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i,
-			ResumeChoices:     append([]state.Target(nil), c.Chosen...),
-			ResumeChosenValid: c.ChosenValid,
-			ResumeRemembered:  append([]state.Target(nil), c.Remembered...),
-			Prompt:            sa.ParamStr(cards.PKChoiceTitle)}
+			Prompt: sa.ParamStr(cards.PKChoiceTitle)}
 		for j, t := range choices {
 			d.Options = append(d.Options, decision.Option{Index: j, Kind: "card", Obj: t.Obj, Player: choosers[i]})
 		}
@@ -828,13 +807,12 @@ func effChooseSource(h Host, c *Ctx, sa *cards.SA) {
 			d.Prompt = "Choose a source"
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the "choice" re-entry's
-			// record, then the bounds re-read it makes before the next chooser.
+			// Answered in place: record, then re-read the bounds before the
+			// next chooser.
 			choiceRecord(h, c, sa, ChoiceAnswerTargets(ans), false)
 			minBase, maxBase = choiceBounds(h, c, sa, false)
 			continue
 		}
-		_ = Ask(h, d)
 
 		choiceRecord(h, c, sa, choices[:min], false)
 	}
@@ -931,7 +909,7 @@ func effChoosePlayer(h Host, c *Ctx, sa *cards.SA) {
 			choiceRecord(h, c, sa, randomChoices(h, choices, max), true)
 			continue
 		}
-		d := &decision.Decision{Player: choosers[i], Kind: decision.KChoose, Source: c.Source, Min: min, Max: max, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i, ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid, ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: sa.ParamStr(cards.PKChoiceTitle)}
+		d := &decision.Decision{Player: choosers[i], Kind: decision.KChoose, Source: c.Source, Min: min, Max: max, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i, Prompt: sa.ParamStr(cards.PKChoiceTitle)}
 		for j, t := range choices {
 			d.Options = append(d.Options, decision.Option{Index: j, Kind: "player", Player: t.Player})
 		}
@@ -939,13 +917,12 @@ func effChoosePlayer(h Host, c *Ctx, sa *cards.SA) {
 			d.Prompt = "Choose player"
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the "choice" re-entry's
-			// record, then the bounds re-read it makes before the next chooser.
+			// Answered in place: record, then re-read the bounds before the
+			// next chooser.
 			choiceRecord(h, c, sa, ChoiceAnswerTargets(ans), true)
 			minBase, maxBase = choiceBounds(h, c, sa, false)
 			continue
 		}
-		_ = Ask(h, d)
 
 		choiceRecord(h, c, sa, choices[:min], true)
 	}
@@ -958,9 +935,8 @@ func effChoosePlayer(h Host, c *Ctx, sa *cards.SA) {
 	// under the same Ctx the choice was recorded on, so it reads the just-made
 	// choice through Ctx.Chosen and the source object's event-backed Chosen.
 	//
-	// The decision is per RESOLUTION, not per chooser: the Choosers loop's
-	// re-entry/suspend discipline means this block is reached exactly once,
-	// after every chooser has answered, so a multi-chooser ChoosePlayer runs
+	// The decision is per RESOLUTION, not per chooser: this block is reached
+	// exactly once, after every chooser has answered, so a multi-chooser ChoosePlayer runs
 	// its rider once (the last non-empty answer is what the source holds --
 	// the same last-chooser-wins rule choiceRecord's playerChoice branch
 	// already applies). A multi-chooser rider carrier is corpus-unreachable
@@ -1029,8 +1005,8 @@ func playerTargetIn(ts []state.Target) (state.PlayerID, bool) {
 func controlPlayer(h Host, c *Ctx, sa *cards.SA) (state.PlayerID, bool) {
 	g := h.Game()
 	v := strings.TrimSpace(sa.ParamStr(cards.PKNewController))
-	switch v {
-	case "":
+	switch controlPlayer47f4Codes.Code(string(v)) {
+	case controlPlayer47f4Empty:
 		if p, ok := playerTargetIn(c.PickedTargets); ok {
 			return p, true
 		}
@@ -1038,9 +1014,9 @@ func controlPlayer(h Host, c *Ctx, sa *cards.SA) (state.PlayerID, bool) {
 			return p, true
 		}
 		return c.Controller, true
-	case "You", "True":
+	case controlPlayer47f4You:
 		return c.Controller, true
-	case "ChosenPlayer", "Player.Chosen":
+	case controlPlayer47f4ChosenPlayer:
 		for _, t := range c.Chosen {
 			if t.IsPlayer {
 				return t.Player, true
@@ -1056,14 +1032,14 @@ func controlPlayer(h Host, c *Ctx, sa *cards.SA) (state.PlayerID, bool) {
 			}
 		}
 		return 0, false
-	case "Player.IsRemembered":
+	case controlPlayer47f4PlayerIsRemembered:
 		for _, t := range c.Remembered {
 			if t.IsPlayer {
 				return t.Player, true
 			}
 		}
 		return 0, false
-	case "ImprintedController":
+	case controlPlayer47f4ImprintedController:
 		// Forge's addPlayer(host.getImprintedCards(), "ImprintedController")
 		// returns the first imprinted card's current controller.
 		if src := g.Obj(c.Source); src != nil {
@@ -1074,13 +1050,13 @@ func controlPlayer(h Host, c *Ctx, sa *cards.SA) (state.PlayerID, bool) {
 			}
 		}
 		return 0, false
-	case "TriggeredSourceController":
+	case controlPlayer47f4TriggeredSourceController:
 		// DamageDone's source: "that creature's controller".
 		if o := g.Obj(c.TriggerSource); o != nil {
 			return o.Controller, true
 		}
 		return 0, false
-	case "TriggeredTarget":
+	case controlPlayer47f4TriggeredTarget:
 		if t := c.TriggerTarget; t.IsPlayer {
 			return t.Player, true
 		} else if o := g.Obj(t.Obj); o != nil {
@@ -1116,10 +1092,8 @@ func controlPlayer(h Host, c *Ctx, sa *cards.SA) (state.PlayerID, bool) {
 		}
 		return 0, false
 	}
-	switch v {
-	case "Remembered", "RememberedController", "TriggeredPlayer", "TriggeredActivator",
-		"TriggeredAttackingPlayer", "TriggeredDefendingPlayer", "TriggeredCardController",
-		"Opponent", "Player.Opponent", "Targeted", "TargetedPlayer", "TargetedController", "ParentTarget":
+	switch controlPlayer47f5Codes.Code(string(v)) {
+	case controlPlayer47f5Remembered:
 	default:
 		// Defined() falls back to the resolution's targets for a form it does
 		// not model; that is never a meaningful new controller.
@@ -1182,7 +1156,7 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 		if len(choices) > 1 {
-			d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Source: c.Source, Min: 1, Max: 1, ResumeKind: "choice", ResumeSA: sa, ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid, ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: sa.ParamStr(cards.PKChoiceTitle)}
+			d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Source: c.Source, Min: 1, Max: 1, ResumeKind: "choice", ResumeSA: sa, Prompt: sa.ParamStr(cards.PKChoiceTitle)}
 			for i, t := range choices {
 				d.Options = append(d.Options, decision.Option{Index: i, Kind: "card", Obj: t.Obj, Player: chooser})
 			}
@@ -1191,12 +1165,10 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 			}
 			ans, ok := AskTape(h, d)
 			if !ok {
-				_ = Ask(h, d)
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControl Choices$ requires a player choice"})
 				return
 			}
-			// The resolution kernel's answer in hand: the "choice"
-			// re-entry's record below, then the transfer.
+			// Answered in place: the record below, then the transfer.
 			ts = ChoiceAnswerTargets(ans)
 		} else {
 			ts = choices
@@ -1505,9 +1477,8 @@ func gainControlVariantOrder(h Host, c *Ctx, sa *cards.SA, g *state.Game) {
 // positional empty pick so the cursor stays aligned with recipients.
 //
 // The picks are gathered across every ask BEFORE any transfer is applied, so
-// an earlier hand-off cannot change a later recipient's pool; a suspension
-// carries the cursor (Decision.ResumeTarget) and the picks so far
-// (Decision.ResumeChoices) across the answer.
+// an earlier hand-off cannot change a later recipient's pool. Each ask is
+// answered in place via AskTape; the cursor rides Decision.ResumeTarget.
 func gainControlVariantAskLoop(h Host, c *Ctx, sa *cards.SA, base ControlGrant,
 	recipients []state.PlayerID,
 	chooserFor func(state.PlayerID) state.PlayerID,
@@ -1534,13 +1505,13 @@ func gainControlVariantAskLoop(h Host, c *Ctx, sa *cards.SA, base ControlGrant,
 		c.ChoiceTarget, c.Chosen = i, picks
 		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,
 			Source: c.Source, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i,
-			ResumeChoices: append([]state.Target(nil), picks...), Prompt: prompt}
+			Prompt: prompt}
 		for j, id := range pool {
 			d.Options = append(d.Options, decision.Option{Index: j, Kind: "card", Obj: id, Player: chooser})
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: the pick the "choice"
-			// re-entry appends (an empty answer keeps the positional blank).
+			// Answered in place: append the pick (an empty answer keeps the
+			// positional blank).
 			pick := state.Target{}
 			if ts := ChoiceAnswerTargets(ans); len(ts) > 0 {
 				pick = ts[0]
@@ -1548,7 +1519,6 @@ func gainControlVariantAskLoop(h Host, c *Ctx, sa *cards.SA, base ControlGrant,
 			picks = append(picks[:len(picks):len(picks)], pick)
 			continue
 		}
-		_ = Ask(h, d)
 
 		picks = append(picks, state.Target{Obj: pool[0]})
 		c.Chosen = picks
@@ -1574,8 +1544,8 @@ func effControlSpell(h Host, c *Ctx, sa *cards.SA) {
 	// direction — a control change applied to the wrong kind of object is
 	// not recoverable.
 	mode := strings.TrimSpace(sa.ParamStr(cards.PKMode))
-	switch mode {
-	case "", "Gain":
+	switch effControlSpell47f6Codes.Code(string(mode)) {
+	case effControlSpell47f6Empty:
 	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unhandled ControlSpell Mode$ " + mode})
@@ -1784,13 +1754,9 @@ func effChangeTargets(h Host, c *Ctx, sa *cards.SA) {
 		d.Options = append(d.Options, o)
 	}
 	if ans, ok := AskTape(h, d); ok {
-		// The resolution kernel's answer in hand: the "choice" re-entry's
-		// redirect.
+		// Answered in place: apply the redirect.
 		changeTargetsApply(h, sa, target, ChoiceAnswerTargets(ans))
-		return
 	}
-	_ = Ask(h, d)
-
 }
 
 // changeTargetsApply records an answered ChangeTargets redirect: the chosen
@@ -1817,35 +1783,35 @@ func repeatPlayers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool) {
 			}
 		}
 	}
-	switch spec {
-	case "Player":
+	switch repeatPlayers47f7Codes.Code(string(spec)) {
+	case repeatPlayers47f7Player:
 		for _, p := range h.Game().AliveFrom(c.Controller) {
 			selected[p] = true
 		}
-	case "Opponent", "Player.Opponent":
+	case repeatPlayers47f7Opponent:
 		for _, p := range h.Game().AliveFrom(c.Controller) {
 			selected[p] = p != c.Controller
 		}
-	case "You", "NonOpponent":
+	case repeatPlayers47f7You:
 		selected[c.Controller] = true
-	case "Targeted", "TargetedPlayer", "TargetedController":
+	case repeatPlayers47f7Targeted:
 		add(c.Targets)
-	case "TargetedAndYou":
+	case repeatPlayers47f7TargetedAndYou:
 		add(c.Targets)
 		selected[c.Controller] = true
-	case "Remembered", "RememberedController":
+	case repeatPlayers47f7Remembered:
 		add(c.Remembered)
-	case "NonTargetedController":
+	case repeatPlayers47f7NonTargetedController:
 		add(c.Targets)
 		for _, p := range h.Game().AliveFrom(c.Controller) {
 			selected[p] = !selected[p]
 		}
-	case "OppNonRememberedController":
+	case repeatPlayers47f7OppNonRememberedController:
 		add(c.Remembered)
 		for _, p := range h.Game().AliveFrom(c.Controller) {
 			selected[p] = p != c.Controller && !selected[p]
 		}
-	case "OppNonTriggeredDefender":
+	case repeatPlayers47f7OppNonTriggeredDefender:
 		// Attacks triggers capture the player being attacked separately from
 		// the player whose action/event caused the trigger. These carriers
 		// copy the attacker for each OTHER opponent: omit the captured
@@ -1856,7 +1822,7 @@ func repeatPlayers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool) {
 		for _, p := range h.Game().AliveFrom(c.Controller) {
 			selected[p] = p != c.Controller && p != c.DefendingPlayer.Player
 		}
-	case ".Chosen,You", "Chosen,You":
+	case repeatPlayers47f7ChosenYou:
 		add(c.Chosen)
 		selected[c.Controller] = true
 	default:
@@ -1971,3 +1937,144 @@ func effBranch(h Host, c *Ctx, sa *cards.SA) {
 		Resolve(h, c, sub)
 	}
 }
+
+const (
+	choiceZones47f1Battlefield uint16 = 1 // "Battlefield"
+	choiceZones47f1Hand        uint16 = 2 // "Hand"
+	choiceZones47f1Library     uint16 = 3 // "Library"
+	choiceZones47f1Graveyard   uint16 = 4 // "Graveyard"
+	choiceZones47f1Exile       uint16 = 5 // "Exile"
+	choiceZones47f1Stack       uint16 = 6 // "Stack"
+)
+
+var choiceZones47f1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Battlefield", Val: choiceZones47f1Battlefield},
+	state.StrEntry[uint16]{Key: "Hand", Val: choiceZones47f1Hand},
+	state.StrEntry[uint16]{Key: "Library", Val: choiceZones47f1Library},
+	state.StrEntry[uint16]{Key: "Graveyard", Val: choiceZones47f1Graveyard},
+	state.StrEntry[uint16]{Key: "Exile", Val: choiceZones47f1Exile},
+	state.StrEntry[uint16]{Key: "Stack", Val: choiceZones47f1Stack},
+)
+
+const (
+	definedCardPool47f2Targeted         uint16 = 1 // "Targeted", "TargetedCard"
+	definedCardPool47f2ParentTargeted   uint16 = 2 // "ParentTargeted"
+	definedCardPool47f2Remembered       uint16 = 3 // "Remembered", "RememberedLKI"
+	definedCardPool47f2TriggeredCards   uint16 = 4 // "TriggeredCards", "TriggeredAttackers", "TriggeredBlockers"
+	definedCardPool47f2TriggeredSources uint16 = 5 // "TriggeredSources"
+	definedCardPool47f2ExiledWith       uint16 = 6 // "ExiledWith"
+)
+
+var definedCardPool47f2Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Targeted", Val: definedCardPool47f2Targeted},
+	state.StrEntry[uint16]{Key: "TargetedCard", Val: definedCardPool47f2Targeted},
+	state.StrEntry[uint16]{Key: "ParentTargeted", Val: definedCardPool47f2ParentTargeted},
+	state.StrEntry[uint16]{Key: "Remembered", Val: definedCardPool47f2Remembered},
+	state.StrEntry[uint16]{Key: "RememberedLKI", Val: definedCardPool47f2Remembered},
+	state.StrEntry[uint16]{Key: "TriggeredCards", Val: definedCardPool47f2TriggeredCards},
+	state.StrEntry[uint16]{Key: "TriggeredAttackers", Val: definedCardPool47f2TriggeredCards},
+	state.StrEntry[uint16]{Key: "TriggeredBlockers", Val: definedCardPool47f2TriggeredCards},
+	state.StrEntry[uint16]{Key: "TriggeredSources", Val: definedCardPool47f2TriggeredSources},
+	state.StrEntry[uint16]{Key: "ExiledWith", Val: definedCardPool47f2ExiledWith},
+)
+
+const (
+	controlledByChoicePlayer47f3Empty      uint16 = 1 // ""
+	controlledByChoicePlayer47f3Chooser    uint16 = 2 // "Chooser"
+	controlledByChoicePlayer47f3You        uint16 = 3 // "You"
+	controlledByChoicePlayer47f3Remembered uint16 = 4 // "Remembered"
+	controlledByChoicePlayer47f3Left       uint16 = 5 // "Left"
+	controlledByChoicePlayer47f3Right      uint16 = 6 // "Right"
+)
+
+var controlledByChoicePlayer47f3Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: controlledByChoicePlayer47f3Empty},
+	state.StrEntry[uint16]{Key: "Chooser", Val: controlledByChoicePlayer47f3Chooser},
+	state.StrEntry[uint16]{Key: "You", Val: controlledByChoicePlayer47f3You},
+	state.StrEntry[uint16]{Key: "Remembered", Val: controlledByChoicePlayer47f3Remembered},
+	state.StrEntry[uint16]{Key: "Left", Val: controlledByChoicePlayer47f3Left},
+	state.StrEntry[uint16]{Key: "Right", Val: controlledByChoicePlayer47f3Right},
+)
+
+const (
+	controlPlayer47f4Empty                     uint16 = 1 // ""
+	controlPlayer47f4You                       uint16 = 2 // "You", "True"
+	controlPlayer47f4ChosenPlayer              uint16 = 3 // "ChosenPlayer", "Player.Chosen"
+	controlPlayer47f4PlayerIsRemembered        uint16 = 4 // "Player.IsRemembered"
+	controlPlayer47f4ImprintedController       uint16 = 5 // "ImprintedController"
+	controlPlayer47f4TriggeredSourceController uint16 = 6 // "TriggeredSourceController"
+	controlPlayer47f4TriggeredTarget           uint16 = 7 // "TriggeredTarget"
+)
+
+var controlPlayer47f4Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: controlPlayer47f4Empty},
+	state.StrEntry[uint16]{Key: "You", Val: controlPlayer47f4You},
+	state.StrEntry[uint16]{Key: "True", Val: controlPlayer47f4You},
+	state.StrEntry[uint16]{Key: "ChosenPlayer", Val: controlPlayer47f4ChosenPlayer},
+	state.StrEntry[uint16]{Key: "Player.Chosen", Val: controlPlayer47f4ChosenPlayer},
+	state.StrEntry[uint16]{Key: "Player.IsRemembered", Val: controlPlayer47f4PlayerIsRemembered},
+	state.StrEntry[uint16]{Key: "ImprintedController", Val: controlPlayer47f4ImprintedController},
+	state.StrEntry[uint16]{Key: "TriggeredSourceController", Val: controlPlayer47f4TriggeredSourceController},
+	state.StrEntry[uint16]{Key: "TriggeredTarget", Val: controlPlayer47f4TriggeredTarget},
+)
+
+const (
+	controlPlayer47f5Remembered uint16 = 1 // "Remembered", "RememberedController", "TriggeredPlayer", "TriggeredActivator", "TriggeredAttackingPlayer", ...
+)
+
+var controlPlayer47f5Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Remembered", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "RememberedController", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "TriggeredPlayer", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "TriggeredActivator", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "TriggeredAttackingPlayer", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "TriggeredDefendingPlayer", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "TriggeredCardController", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "Opponent", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "Player.Opponent", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "Targeted", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "TargetedPlayer", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "TargetedController", Val: controlPlayer47f5Remembered},
+	state.StrEntry[uint16]{Key: "ParentTarget", Val: controlPlayer47f5Remembered},
+)
+
+const (
+	effControlSpell47f6Empty uint16 = 1 // "", "Gain"
+)
+
+var effControlSpell47f6Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: effControlSpell47f6Empty},
+	state.StrEntry[uint16]{Key: "Gain", Val: effControlSpell47f6Empty},
+)
+
+const (
+	repeatPlayers47f7Player                     uint16 = 1  // "Player"
+	repeatPlayers47f7Opponent                   uint16 = 2  // "Opponent", "Player.Opponent"
+	repeatPlayers47f7You                        uint16 = 3  // "You", "NonOpponent"
+	repeatPlayers47f7Targeted                   uint16 = 4  // "Targeted", "TargetedPlayer", "TargetedController"
+	repeatPlayers47f7TargetedAndYou             uint16 = 5  // "TargetedAndYou"
+	repeatPlayers47f7Remembered                 uint16 = 6  // "Remembered", "RememberedController"
+	repeatPlayers47f7NonTargetedController      uint16 = 7  // "NonTargetedController"
+	repeatPlayers47f7OppNonRememberedController uint16 = 8  // "OppNonRememberedController"
+	repeatPlayers47f7OppNonTriggeredDefender    uint16 = 9  // "OppNonTriggeredDefender"
+	repeatPlayers47f7ChosenYou                  uint16 = 10 // ".Chosen,You", "Chosen,You"
+)
+
+var repeatPlayers47f7Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Player", Val: repeatPlayers47f7Player},
+	state.StrEntry[uint16]{Key: "Opponent", Val: repeatPlayers47f7Opponent},
+	state.StrEntry[uint16]{Key: "Player.Opponent", Val: repeatPlayers47f7Opponent},
+	state.StrEntry[uint16]{Key: "You", Val: repeatPlayers47f7You},
+	state.StrEntry[uint16]{Key: "NonOpponent", Val: repeatPlayers47f7You},
+	state.StrEntry[uint16]{Key: "Targeted", Val: repeatPlayers47f7Targeted},
+	state.StrEntry[uint16]{Key: "TargetedPlayer", Val: repeatPlayers47f7Targeted},
+	state.StrEntry[uint16]{Key: "TargetedController", Val: repeatPlayers47f7Targeted},
+	state.StrEntry[uint16]{Key: "TargetedAndYou", Val: repeatPlayers47f7TargetedAndYou},
+	state.StrEntry[uint16]{Key: "Remembered", Val: repeatPlayers47f7Remembered},
+	state.StrEntry[uint16]{Key: "RememberedController", Val: repeatPlayers47f7Remembered},
+	state.StrEntry[uint16]{Key: "NonTargetedController", Val: repeatPlayers47f7NonTargetedController},
+	state.StrEntry[uint16]{Key: "OppNonRememberedController", Val: repeatPlayers47f7OppNonRememberedController},
+	state.StrEntry[uint16]{Key: "OppNonTriggeredDefender", Val: repeatPlayers47f7OppNonTriggeredDefender},
+	state.StrEntry[uint16]{Key: ".Chosen,You", Val: repeatPlayers47f7ChosenYou},
+	state.StrEntry[uint16]{Key: "Chosen,You", Val: repeatPlayers47f7ChosenYou},
+)

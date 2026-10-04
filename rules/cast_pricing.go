@@ -8,6 +8,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -21,25 +22,25 @@ import (
 func announcePip(c Cost, i int) []pipAlt {
 	if i < len(c.Hybrid) {
 		p := c.Hybrid[i]
-		return []pipAlt{{color: p.A}, {color: p.B}}
+		return []pipAlt{{Color: p.A}, {Color: p.B}}
 	}
 	i -= len(c.Hybrid)
 	if i < len(c.Twobrid) {
 		t := c.Twobrid[i]
-		alts := []pipAlt{{color: t.Col}}
+		alts := []pipAlt{{Color: t.Col}}
 		if t.Generic > 0 {
-			alts = append(alts, pipAlt{generic: t.Generic})
+			alts = append(alts, pipAlt{Generic: t.Generic})
 		}
 		return alts
 	}
 	i -= len(c.Twobrid)
 	if i < len(c.Phyrexian) {
 		letter := c.Phyrexian[i]
-		return []pipAlt{{color: letter}, {life: 2}}
+		return []pipAlt{{Color: letter}, {Life: 2}}
 	}
 	i -= len(c.Phyrexian)
 	hp := c.HybridPhyrexian[i]
-	return []pipAlt{{color: hp.A}, {color: hp.B}, {life: 2}}
+	return []pipAlt{{Color: hp.A}, {Color: hp.B}, {Life: 2}}
 }
 
 // annPipCount is how many announcement pips a cost carries: the two-colour
@@ -259,7 +260,7 @@ func (e *Engine) targetDependentCostMayPay(pc *pendingCast) bool {
 		delve = int32(len(pc.delve))
 	}
 	_, ok = e.potentialCostModsUsing(e.collectCostStatics(), pc.player, pc.card, scope, e.costPotentialTargets(pc.player, pc.card, scope), 0, func(mods costMods) bool {
-		return e.manaFeasibleDescriptor(pc.player, paymentForCast(pc, pc.resolvedMana()), pc.resolvedMana(), mods, pc.taxGeneric, delve, pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType})
+		return e.manaFeasibleDescriptor(pc.player, paymentForCast(pc, pc.resolvedMana()), pc.resolvedMana(), mods, pc.taxGeneric, delve, pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType})
 	})
 	return ok
 }
@@ -421,8 +422,8 @@ func (e *Engine) affordableTargetCandidates(pc *pendingCast, candidates []target
 		// (convokeAbsorbs), so the fold is the payment's own arithmetic,
 		// probed, never charged.
 		convoked := e.applyConvoke(pc, cost)
-		pay := paymentForCast(pc, convoked)
-		if e.manaFeasibleDescriptor(pc.player, pay, convoked, costMods{}, 0, 0, pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}) {
+		desc := paymentForCast(pc, convoked)
+		if e.manaFeasibleDescriptor(pc.player, desc, convoked, costMods{}, 0, 0, pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}) {
 			out = append(out, candidate)
 			continue
 		}
@@ -436,9 +437,9 @@ func (e *Engine) affordableTargetCandidates(pc *pendingCast, candidates []target
 			// the difference. Probe the window's concrete free productions,
 			// one alternative per source, instead of offering a target whose
 			// activation will abort at payment (CR 601.2h).
-			av := e.manaAvailableFor(pc.player, pay)
-			if e.castWindowReachable(pc.player, convoked, av.pool, pl.Snow, av.typed, pl.Life,
-				e.paymentConv(pc.player, pay.id, pay.class == paymentActivated), windowUnits) {
+			av := pay.AvailableFor(asPayer(e), pc.player, desc)
+			if e.castWindowReachable(pc.player, convoked, av.Pool, pl.Snow, av.Typed, pl.Life,
+				asPayer(e).Conv(pc.player, desc.ID, desc.Class == paymentActivated), windowUnits) {
 				out = append(out, candidate)
 			}
 		} else if e.hasUntappedManaSource(pc.player) {

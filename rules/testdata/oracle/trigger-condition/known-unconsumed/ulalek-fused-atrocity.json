@@ -1,0 +1,7 @@
+{
+  "card": "Ulalek, Fused Atrocity",
+  "rows": {
+    "declining-pays-no-copy": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"no\"]}]",
+    "paying-cc-copies-the-eldrazi-spell": "step 0 (cast): [{\"kind\":\"any\",\"pick\":[\"pay\"]}]"
+  }
+}

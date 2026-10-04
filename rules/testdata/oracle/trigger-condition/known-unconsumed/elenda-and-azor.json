@@ -1,0 +1,6 @@
+{
+  "card": "Elenda and Azor",
+  "rows": {
+    "attacking-pays-two-and-draws-two": "step 0 (attack): [{\"kind\":\"choose\",\"pick\":[\"2\"]},{\"kind\":\"choose\",\"pick\":[\"W\",\"U\",\"B\"]}]"
+  }
+}

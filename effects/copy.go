@@ -49,8 +49,8 @@ func init() {
 // every API): the payer is UnlessPayer$'s resolved target (default the
 // target's controller), the pay/decline labels live in poseUnlessAsk's
 // CopySpellAbility arm, and the copy loop below runs, or not, exactly once
-// per the gate's orientation (rules' unless_pay resume arm charged the cost
-// on an affordable "pay"). A host that cannot ask (an effects-package test
+// per the gate's orientation (an affordable "pay" answer charged the cost).
+// A host that cannot ask (an effects-package test
 // double) keeps the deterministic decline.
 func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
@@ -59,15 +59,12 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 	// family, and the Optional$+UnlessCost$ carriers Wandering Archaic and
 	// Chain of Silence) makes the copy itself a may effect: the copy's
 	// controller is asked a yes/no before any copy is made, and a decline
-	// makes none. The answered election rides Ctx.CopyOpt (the same
-	// runtime-continuation class as AttachOpt), consumed and cleared here so
-	// a nested CopySpellAbility poses its own ask (fx42 scoping). An absent
+	// makes none; the election is answered in place via AskTape. An absent
 	// key leaves the historical unconditional copy. A host that cannot ask
 	// (an effects-package double, fuzz) keeps the deterministic pre-ask
 	// behaviour -- the copy is made -- the no-host stand-in the election's
 	// own branch implements below (the ask's bracket is Min == Max == 1, so
 	// Clamp and the bot answer option 0 = yes).
-	copyOpt := string("")
 
 	// Resolve which spell to copy. For a trigger the remembered entry is the
 	// cast spell (the first object entry); for a direct Parent copy it is the
@@ -78,8 +75,8 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 	// stack-arena order, each copied Amount$ times. It is nil for every other
 	// Defined form, whose established single-spell shape is unchanged.
 	var validStackSpells []state.ObjID
-	switch DefinedRefOf(sa).Text {
-	case "TriggeredSpellAbility":
+	switch effCopySpellAbilitycdd1Codes.Code(string(DefinedRefOf(sa).Text)) {
+	case effCopySpellAbilitycdd1TriggeredSpellAbility:
 		// The activation arm (abcopy1): the trigger context's TriggerAbility
 		// names the minted ability wrapper -- an AbilityPush's Obj is the
 		// source permanent, so Remembered alone cannot identify it -- and the
@@ -96,7 +93,7 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 				}
 			}
 		}
-	case "Parent":
+	case effCopySpellAbilitycdd1Parent:
 		// An explicit Parent copy copies the resolving spell itself.
 		spell = c.Source
 	default: // "Targeted" and any unset/other name
@@ -221,42 +218,24 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 	// copy" runs the body on the DECLINE, Chain of Silence's UnlessSwitched$
 	// "may sacrifice a land. If the player does, they may copy" runs it on the
 	// PAY. By the time this dispatch runs the unless question is fully
-	// answered -- a body ask suspends with Host.SuspendUnless's marker, so the
-	// answered re-entry consumes it and never re-poses the pay ask -- so the
-	// may-copy election is the SECOND ask in Forge's own sequence: posing it
+	// answered -- so the may-copy election is the SECOND ask in Forge's own sequence: posing it
 	// duplicates nothing and inverts nothing (the round-1 read that scoped
 	// this arm to UnlessCost$-free SAs was wrong, findings-r2).
 	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
-		switch copyOpt {
-		case "yes":
-			// Answered yes: fall through to the copy below.
-		case "no":
+		d := &decision.Decision{Player: controller, Kind: decision.KChoose, Min: 1, Max: 1,
+			Source: c.Source, ResumeKind: "copy_optional", ResumeSA: sa,
+			CopyOfCopy: copyOfCopy(g, spell),
+			Prompt:     "Copy it?",
+			Options: []decision.Option{
+				{Index: 0, Kind: "yes", Label: "Yes — copy", Player: controller},
+				{Index: 1, Kind: "no", Label: "No", Player: controller},
+			}}
+		// Answered in place: copy on a yes, make none otherwise. With no
+		// answer (an effects-package double, a fuzz run) the deterministic
+		// pre-ask stand-in the doc comment above records holds: the copy is
+		// made.
+		if ans, ok := AskTape(h, d); ok && (len(ans) == 0 || ans[0].Kind != "yes") {
 			return
-		default:
-			d := &decision.Decision{Player: controller, Kind: decision.KChoose, Min: 1, Max: 1,
-				Source: c.Source, ResumeKind: "copy_optional", ResumeSA: sa,
-				CopyOfCopy:       copyOfCopy(g, spell),
-				ResumeRemembered: copyTargets(c.Remembered),
-				Prompt:           "Copy it?",
-				Options: []decision.Option{
-					{Index: 0, Kind: "yes", Label: "Yes — copy", Player: controller},
-					{Index: 1, Kind: "no", Label: "No", Player: controller},
-				}}
-			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: the
-				// "copy_optional" re-entry copies on a yes and makes none
-				// otherwise.
-				if len(ans) == 0 || ans[0].Kind != "yes" {
-					return
-				}
-			} else {
-				_ = Ask(h, d)
-			}
-
-			// AskNoHost (an effects-package double, a fuzz run) and AskEmpty
-			// (unreachable with a two-option Min-1 ask) keep the deterministic
-			// pre-ask stand-in the doc comment above records: the copy is made.
-			// Fall through to the copy below.
 		}
 	}
 	// IgnoreFreeze$ True (Ulalek, Fused Atrocity's copy trigger; Forge's
@@ -405,8 +384,8 @@ func copyDefinedTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 		return nil, false
 	}
 	g := h.Game()
-	switch spec {
-	case "ChosenCard":
+	switch copyDefinedTargetscdd3Codes.Code(string(spec)) {
+	case copyDefinedTargetscdd3ChosenCard:
 		// The ChooseCard chain's answered set (resolutionChosenCards is the
 		// shared read Count$ChosenSize and Defined$ ChosenCard take, so the
 		// copies can never disagree with either). Only object entries copy:
@@ -418,7 +397,7 @@ func copyDefinedTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 			}
 		}
 		return out, true
-	case "Self":
+	case copyDefinedTargetscdd3Self:
 		// Ivy, Gleeful Spellthief: the copy targets the trigger's source
 		// permanent ("The copy targets NICKNAME"). An absent source fails
 		// the set empty -- defined, but nothing to target.
@@ -446,9 +425,8 @@ func copyOfCopy(g *state.Game, spell state.ObjID) bool {
 }
 
 func copyControllerFor(g *state.Game, c *Ctx, spec string) (state.PlayerID, bool) {
-	switch spec {
-	case "TargetedOrController", "Targeted", "TargetedController", "TargetedPlayer",
-		"ThisTargetedController", "ThisTargetedPlayer":
+	switch copyControllerForcdd4Codes.Code(string(spec)) {
+	case copyControllerForcdd4TargetedOrController:
 		for _, t := range c.Targets {
 			if t.IsPlayer {
 				return t.Player, true
@@ -458,14 +436,14 @@ func copyControllerFor(g *state.Game, c *Ctx, spec string) (state.PlayerID, bool
 			}
 		}
 		return 0, false
-	case "ChosenPlayer", "Player.Chosen":
+	case copyControllerForcdd4ChosenPlayer:
 		for _, t := range c.Chosen {
 			if t.IsPlayer {
 				return t.Player, true
 			}
 		}
 		return 0, false
-	case "Remembered", "RememberedController":
+	case copyControllerForcdd4Remembered:
 		// Tempt with Mayhem's per-opponent copy: the RepeatEach loop binds its
 		// current subject (a player) as Remembered, and prior iterations' copy
 		// objects are remembered too. A remembered PLAYER named directly wins
@@ -484,9 +462,9 @@ func copyControllerFor(g *state.Game, c *Ctx, spec string) (state.PlayerID, bool
 			}
 		}
 		return 0, false
-	case "You":
+	case copyControllerForcdd4You:
 		return c.Controller, true
-	case "NextOpponentToYourLeft", "NextPlayerToYourLeft":
+	case copyControllerForcdd4NextOpponentToYourLeft:
 		// Barroom Brawl's "Then that player [the opponent to your left] may
 		// copy this spell": the next living seat after the resolving
 		// controller in turn order (this build has no teams). Before this arm
@@ -501,3 +479,47 @@ func copyControllerFor(g *state.Game, c *Ctx, spec string) (state.PlayerID, bool
 	}
 	return 0, false
 }
+
+const (
+	effCopySpellAbilitycdd1TriggeredSpellAbility uint16 = 1 // "TriggeredSpellAbility"
+	effCopySpellAbilitycdd1Parent                uint16 = 2 // "Parent"
+)
+
+var effCopySpellAbilitycdd1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "TriggeredSpellAbility", Val: effCopySpellAbilitycdd1TriggeredSpellAbility},
+	state.StrEntry[uint16]{Key: "Parent", Val: effCopySpellAbilitycdd1Parent},
+)
+
+const (
+	copyDefinedTargetscdd3ChosenCard uint16 = 1 // "ChosenCard"
+	copyDefinedTargetscdd3Self       uint16 = 2 // "Self"
+)
+
+var copyDefinedTargetscdd3Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "ChosenCard", Val: copyDefinedTargetscdd3ChosenCard},
+	state.StrEntry[uint16]{Key: "Self", Val: copyDefinedTargetscdd3Self},
+)
+
+const (
+	copyControllerForcdd4TargetedOrController   uint16 = 1 // "TargetedOrController", "Targeted", "TargetedController", "TargetedPlayer", "ThisTargetedController", "This...
+	copyControllerForcdd4ChosenPlayer           uint16 = 2 // "ChosenPlayer", "Player.Chosen"
+	copyControllerForcdd4Remembered             uint16 = 3 // "Remembered", "RememberedController"
+	copyControllerForcdd4You                    uint16 = 4 // "You"
+	copyControllerForcdd4NextOpponentToYourLeft uint16 = 5 // "NextOpponentToYourLeft", "NextPlayerToYourLeft"
+)
+
+var copyControllerForcdd4Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "TargetedOrController", Val: copyControllerForcdd4TargetedOrController},
+	state.StrEntry[uint16]{Key: "Targeted", Val: copyControllerForcdd4TargetedOrController},
+	state.StrEntry[uint16]{Key: "TargetedController", Val: copyControllerForcdd4TargetedOrController},
+	state.StrEntry[uint16]{Key: "TargetedPlayer", Val: copyControllerForcdd4TargetedOrController},
+	state.StrEntry[uint16]{Key: "ThisTargetedController", Val: copyControllerForcdd4TargetedOrController},
+	state.StrEntry[uint16]{Key: "ThisTargetedPlayer", Val: copyControllerForcdd4TargetedOrController},
+	state.StrEntry[uint16]{Key: "ChosenPlayer", Val: copyControllerForcdd4ChosenPlayer},
+	state.StrEntry[uint16]{Key: "Player.Chosen", Val: copyControllerForcdd4ChosenPlayer},
+	state.StrEntry[uint16]{Key: "Remembered", Val: copyControllerForcdd4Remembered},
+	state.StrEntry[uint16]{Key: "RememberedController", Val: copyControllerForcdd4Remembered},
+	state.StrEntry[uint16]{Key: "You", Val: copyControllerForcdd4You},
+	state.StrEntry[uint16]{Key: "NextOpponentToYourLeft", Val: copyControllerForcdd4NextOpponentToYourLeft},
+	state.StrEntry[uint16]{Key: "NextPlayerToYourLeft", Val: copyControllerForcdd4NextOpponentToYourLeft},
+)

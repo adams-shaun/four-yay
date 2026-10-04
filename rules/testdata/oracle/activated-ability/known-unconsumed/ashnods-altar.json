@@ -1,0 +1,6 @@
+{
+  "card": "Ashnod's Altar",
+  "rows": {
+    "sacrifice-creature-for-two-colourless": "step 0 (activate): [{\"kind\":\"choose\",\"pick\":[\"p0:Grizzly Bears\"]}]"
+  }
+}

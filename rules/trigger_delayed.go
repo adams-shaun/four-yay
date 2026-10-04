@@ -82,17 +82,17 @@ func (e *Engine) delayedRegistrationLive(dt *state.DelayedTrigger) bool {
 	// (Chancellor of the Annex, source in hand) or an emblem/command-zone
 	// source has no battlefield incarnation to lose, so its Permanent
 	// promise is unbounded (SourceBattlefield false).
-	switch dt.EffectDuration {
-	case "permanent":
+	switch delayedRegistrationLivef3a1Codes.Code(string(dt.EffectDuration)) {
+	case delayedRegistrationLivef3a1Permanent:
 		if dt.SourceBattlefield &&
 			(src.Zone != state.ZBattlefield || src.Incarnation != dt.SourceIncarnation) {
 			return false
 		}
-	case "untilendofcombat":
+	case delayedRegistrationLivef3a1Untilendofcombat:
 		if !isCombatStep(e.G.Step) {
 			return false
 		}
-	case "untilyournextturn", "untiltheendofyournextturn":
+	case delayedRegistrationLivef3a1Untilyournextturn:
 		// Read the folded turn history through the shared turn-start cache
 		// (nextTurnFor/rescheduleNextTurnBoundaries' own source of truth),
 		// not a frozen absolute turn: late extra-turn grants and skipped
@@ -496,7 +496,7 @@ func (e *Engine) checkEventDelayedTriggers(ev events.Event, lki *state.Object) {
 			// be in the graveyard). The event mask prevents a mismatched event
 			// from reaching a matcher that assumes its own event shape.
 			fn := trigmatch.Lookup(t.Mode)
-			if fn == nil || !triggerModeEvents(t.Mode).allows(ev.Kind) ||
+			if fn == nil || !triggerLineEvents(&t).allows(ev.Kind) ||
 				!fn(boardOf(e), t, dt.Source, ev, lki) {
 				continue
 			}
@@ -672,9 +672,8 @@ func effectDelayedFrame(dt *state.DelayedTrigger) effects.EffectFrame {
 // a delayed-registration matcher of its own. Every other mode an Effect
 // registration may name falls through to the generic trigMatchers dispatch.
 func delayedEventModeHandled(mode string) bool {
-	switch mode {
-	case "SpellCast", "ChangesController", "DamageDone", "AttackersDeclared":
-		return true
+	if v, ok := delayedEventModeHandledTab1.Get(mode); ok {
+		return v
 	}
 	return false
 }
@@ -689,14 +688,14 @@ func delayedSpecCtx(sc effects.SpecContext, remembered []state.Target) effects.S
 // delayed registration. Keeping this on the ordinary matcher helpers makes a
 // delayed body and a printed T: line agree on zone, damage and attack filters.
 func (e *Engine) delayedEventMatches(t cards.Trigger, dt *state.DelayedTrigger, ev events.Event, lki *state.Object) bool {
-	switch t.Mode {
-	case "SpellCast":
+	switch t.ModeKind() {
+	case cards.TriggerSpellCast:
 		return e.eventDelayedSpellCastMatches(t, dt, ev)
-	case "ChangesController":
+	case cards.TriggerChangesController:
 		return e.delayedChangesControllerMatches(t, dt, ev, lki)
-	case "DamageDone":
+	case cards.TriggerDamageDone:
 		return trigmatch.DamageMatchesWithCapture(boardOf(e), t, dt.Source, ev, dt.Remembered)
-	case "AttackersDeclared":
+	case cards.TriggerAttackersDeclared:
 		return trigmatch.AttackersDeclaredOneTargetMatches(boardOf(e), t, dt.Source, ev, dt.Remembered)
 	default:
 		return false
@@ -707,24 +706,24 @@ func (e *Engine) delayedEventMatches(t cards.Trigger, dt *state.DelayedTrigger, 
 // Event modes use the event's natural actor/recipient, while a zone or control
 // change uses the pre-event controller captured in LKI.
 func (e *Engine) delayedEventPlayer(t cards.Trigger, ev events.Event, lki *state.Object) (state.PlayerID, bool) {
-	switch t.Mode {
-	case "ChangesZone", "ChangesController":
+	switch t.ModeKind() {
+	case cards.TriggerChangesZone, cards.TriggerChangesController:
 		if lki != nil {
 			return lki.Controller, true
 		}
 		if o := e.G.Obj(ev.Obj); o != nil {
 			return o.Controller, true
 		}
-	case "SpellCast":
+	case cards.TriggerSpellCast:
 		return ev.Player, int(ev.Player) < len(e.G.Players)
-	case "DamageDone":
+	case cards.TriggerDamageDone:
 		if ev.Obj == 0 {
 			return ev.Player, int(ev.Player) < len(e.G.Players)
 		}
 		if src := trigmatch.DamageEventSource(boardOf(e)); src != 0 {
 			return e.controllerOf(src), true
 		}
-	case "AttackersDeclared":
+	case cards.TriggerAttackersDeclared:
 		if len(ev.IDs) > 0 {
 			return e.controllerOf(ev.IDs[0]), true
 		}
@@ -848,3 +847,23 @@ func (e *Engine) clearEffectMatchScope() {
 	e.effectMatchRemembered = nil
 	e.effectMatchOverride = false
 }
+
+var delayedEventModeHandledTab1 = state.NewStrTable[bool](
+	state.StrEntry[bool]{Key: "SpellCast", Val: true},
+	state.StrEntry[bool]{Key: "ChangesController", Val: true},
+	state.StrEntry[bool]{Key: "DamageDone", Val: true},
+	state.StrEntry[bool]{Key: "AttackersDeclared", Val: true},
+)
+
+const (
+	delayedRegistrationLivef3a1Permanent         uint16 = 1 // "permanent"
+	delayedRegistrationLivef3a1Untilendofcombat  uint16 = 2 // "untilendofcombat"
+	delayedRegistrationLivef3a1Untilyournextturn uint16 = 3 // "untilyournextturn", "untiltheendofyournextturn"
+)
+
+var delayedRegistrationLivef3a1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "permanent", Val: delayedRegistrationLivef3a1Permanent},
+	state.StrEntry[uint16]{Key: "untilendofcombat", Val: delayedRegistrationLivef3a1Untilendofcombat},
+	state.StrEntry[uint16]{Key: "untilyournextturn", Val: delayedRegistrationLivef3a1Untilyournextturn},
+	state.StrEntry[uint16]{Key: "untiltheendofyournextturn", Val: delayedRegistrationLivef3a1Untilyournextturn},
+)

@@ -120,8 +120,7 @@ func drainVillainousChoice(t *testing.T, e *Engine, limit int) []answeredDecisio
 		}
 		answered = append(answered, answeredDecision{dec: &decision.Decision{
 			Kind: d.Kind, Player: d.Player, Min: d.Min, Max: d.Max, ResumeKind: d.ResumeKind,
-			ResumeVillainousVictims: append([]state.Target(nil), d.ResumeVillainousVictims...),
-			Options:                 append([]decision.Option(nil), d.Options...)}})
+			Options: append([]decision.Option(nil), d.Options...)}})
 		var choices []int
 		switch d.Kind {
 		case decision.KPriority:
@@ -296,16 +295,10 @@ func TestVillainousChoiceCloneKeepsTheVictimCursor(t *testing.T) {
 	if second.Player != 2 {
 		t.Fatalf("second villainous mode chooser = seat %d, want the second victim seat 2", second.Player)
 	}
-	if second.ResumeVillainousIndex != 1 {
-		t.Fatalf("second victim's pending cursor = %d, want 1", second.ResumeVillainousIndex)
-	}
 
 	clone := e.Clone()
 	if clone.Pending() == nil || clone.Pending().Kind != decision.KModes {
 		t.Fatalf("clone pending = %+v, want the second victim's KModes ask", clone.Pending())
-	}
-	if got := clone.Pending().ResumeVillainousIndex; got != 1 {
-		t.Fatalf("clone pending cursor = %d, want 1 (Engine.Clone must copy ResumeVillainousIndex)", got)
 	}
 
 	// Answer the second victim's mode and sacrifice on the clone, then drain.
@@ -397,10 +390,6 @@ func TestDamoclesBaseVillainousChoiceAsksTheDamagedPlayer(t *testing.T) {
 		switch a.dec.Kind {
 		case decision.KModes:
 			modeChooser = a.dec.Player
-			if len(a.dec.ResumeVillainousVictims) != 1 ||
-				a.dec.ResumeVillainousVictims[0] != (state.Target{Player: 1, IsPlayer: true}) {
-				t.Fatalf("villainous victims = %+v, want exactly the damaged player seat 1", a.dec.ResumeVillainousVictims)
-			}
 		case decision.KChoose:
 			sacChooser = a.dec.Player
 			if len(a.dec.Options) != 2 {

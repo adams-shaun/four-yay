@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -11,167 +12,31 @@ import (
 )
 
 // knownUnsupported is the M1 coverage RATCHET (Ruling P12/D2-a): the exact
-// card -> missing-primitive set TestEveryRepoDeckIsFullySupported measured
-// on its first run against the 12 repo decks, checked in by hand. The test
-// below asserts the MEASURED set equals this table EXACTLY, in both
-// directions -- a newly-missing card is a regression, a table entry that is
+// card -> missing-primitive set TestEveryRepoDeckIsFullySupported measures
+// over the repo decks. It lives one file per card,
+// testdata/known-unsupported/<slug>.json, {"card": "<Card>", "labels":
+// [...]} (spec 2026-10-03-rules-engine-lasagna-design.md W2): a shared
+// table made every ticket that retired an entry conflict with every other.
+// The test asserts the MEASURED set equals the files EXACTLY, in both
+// directions -- a newly-missing card is a regression, a file whose card is
 // now fully supported is stale and must be deleted -- so, for a fixed deck
-// catalogue, this table only ever shrinks, and only by implementing a real
+// catalogue, the set only ever shrinks, and only by implementing a real
 // primitive (Ruling W2: this project does not grow the "supported" set just
-// to make the ratchet green). Adding a newly imported deck can extend the
-// measured worklist; its entries must be measured from the compiled corpus,
-// never marked supported without an implementation.
-//
-// Measured 2026-09-04 against the compiled IR cache at .cards/ir.gob.gz
-// (corpus master @ 95f04e8a04c8925fa97cb226fc3341cabcc90a53): originally 35
-// of the 136 distinct cards across the 12 decks needed at least one
-// primitive this build did not implement -- overwhelmingly individual
-// keywords (kw:Equip, kw:Flash, kw:Kicker, kw:Delve, kw:Undying,
-// kw:etbCounter, kw:Storm, and so on) rather than whole missing APIs. The
-// M2r plan's "Ratchet schedule" table
-// (docs/superpowers/plans/2026-09-05-gorge-m2r-ratchet-to-zero.md) is the
-// authority on which task retires each entry, down to 0; this table stood
-// at 31 after Task 3 (kw:Flash, kw:Indestructible and kw:Devoid retire
-// Snapcaster Mage, Spectral Sailor, Ulamog and World Breaker), at 29 after
-// Task 13 (api:Token registers, deleting Wurmcoil Engine's and Young
-// Pyromancer's entries outright and shrinking Batterskull's, Empty the
-// Warrens' and Entreat the Angels' entries to whatever else they still need
-// -- kw:Living Weapon's own Attach/Equip is Task 14's, Storm and
-// CopySpellAbility and Miracle are each a separate, still-open primitive),
-// and now stands at 22 (Task 9: kw:Kicker, kw:Surge, kw:Flashback and
-// kw:Delve retire Gatekeeper of Malakir, Goblin Bushwhacker, Vines of
-// Vastwood, Reckless Bushwhacker, Cabal Therapy, Gurmag Angler and
-// Tombstalker), and at 18 after Task 16 (kw:Undying, kw:Evolve, kw:Exalted
-// and kw:Prowess register: Geralf's Messenger, Strangleroot Geist, Experiment
-// One and Monastery Swiftspear retire outright, and Knight of Infamy shrinks
-// to just its still-open kw:Protection from white). Every unimplemented
-// ability on these
-// cards is inert for the acceptance run (Ruling U13's Sword of Fire and Ice
-// note is this same shape, one card up): the point of Task 26 is that the
-// games terminate, invariants hold and replay is exact with these cards
-// shuffled in, not that every card plays with full fidelity yet -- that is
-// M4's coverage work, and this table is its worklist.
-//
-// Task 14 (attachments) registered api:Attach, kw:Equip, kw:Enchant and
-// kw:Living Weapon, deleting Batterskull, Rancor, Sword of Fire and Ice and
-// Umezawa's Jitte outright -- the four entries whose only gaps were those
-// primitives.
-//
-// Merge wt/r14 <- main (Task 14 fix round 1): main's M2r tasks retired nine
-// of the eighteen post-Task-16 entries before this branch merged -- Task 18's
-// kw:Miracle (Entreat the Angels, Terminus), Task 12's ETB replacement +
-// as-enters choice machinery (api:ChooseType/api:ChooseNumber/kw:ETBReplacement
-// /kw:etbCounter: Cavern of Souls, Phyrexian Revoker, Pithing Needle, Sanctum
-// Prelate, Chalice of the Void, Endless One, Walking Ballista) -- and Task 14
-// above retired the four attachment entries, so the merged table is exactly
-// the five entries BOTH sides still listed: the two CopySpellAbility+Storm
-// pairs, and the two Protection entries, nothing else. It now stands at 5.
-//
-// Task 17 (Storm and CopySpellAbility) registered api:CopySpellAbility and
-// kw:Storm, deleting Chain Lightning, Empty the Warrens and Tendrils of Agony
-// outright -- three more of the post-Task-16 entries -- leaving only the two
-// Protection entries.
-//
-// Task 15 (protection) registered the five kw:Protection from <colour>
-// keywords, retiring Goblin Piledriver (Protection from blue) and Knight of
-// Infamy (Protection from white) -- the last two entries on this table -- so
-// the ratchet became EMPTY for the original Legacy and interim Commander
-// decks. The Hearthhull and Valgavoth imports add 54 measured gaps across 579
-// distinct cards in the pinned corpus; entries retire only when their
-// primitives are implemented. The untap/mana wave (api:Untap, api:ManaReflected,
-// stat:ManaConvert, stat:UntapOtherPlayer and kw:Cumulative upkeep)
-// retired Fabled Passage, Exotic Orchard, Baloth Prime, Horizon Explorer and
-// Chromatic Orrery outright (every entry's primitives are implemented). The
-// one recorded remainder for Horizon Explorer is the param-level gap
-// `param:api:Untap.ETB` in paramcensus_test.go's knownUnsupportedParams.
-//
-// Task altcosts (the alternative-cost keyword family) retired the one entry
-// the merged decks carried: kw:Dash (Ragavan, Nimble Pilferer), implemented
-// to CR 702's dash shape in rules/altcast.go with a named proof test in
-// rules/altcast_test.go. kw:Evoke, kw:Encore, kw:Overload, kw:Warp,
-// kw:Madness and kw:AlternateAdditionalCost registered in the same task for
-// the commander decks then held: Rakdos Scam.exe and Ulalek Eldrazi have
-// since been imported and measured fully supported (no entry of theirs ever
-// landed here); the Vivi cEDH deck the task also named was never imported.
-var knownUnsupported = map[string][]string{
-	// The avengers-assemble Commander deck import (the Marvel Super Heroes
-	// Commander precon, measured 2026-09-17) held "Avengers Quinjet":
-	// {"kw:Crew"}. The entry was deleted when kw:Crew registered
-	// (cards/kw_crew.go, effects/crew.go): the Vehicle crews through the
-	// tapXType<Any/Creature.Other+withTotalPowerGE<N>> cost the expansion
-	// mints, whose set-level power floor the tap-cost machinery enforces --
-	// the real card test rules/crew_test.go's
-	// TestCrewAvengersQuinjetAnimatesUntilEndOfTurn drives the activation
-	// end to end, which is what licensed the shrink. Everything else the
-	// deck exposed (kw:Crew's siblings trig:AttackersDeclared, trig:Cycled,
-	// trig:CounterAdded, trig:AttackerBlocked, the PresentZone$ clause) was
-	// implemented and is pinned in rules/msh_commander_trigger_test.go.
-	// Captain Marvel, Apex Avenger's trig:CounterPlayerAddedAll entry was
-	// deleted when the mode was registered (trigmatch_counters.go's
-	// trigmatch.counterPlayerAddedAllMatches) -- its own trigger's ValidObject$
-	// Creature...+nonKree spec still fails closed on the unknown nonKree
-	// predicate (a filter-vocabulary gap, ledgered), so the trigger is
-	// primitive-supported but silent; the card's OTHER gap
-	// (param:api:PutCounter.TriggeredCounterMap) stays in the param census.
-	// Speed, Young Avenger's api:ImmediateTrigger entry was deleted when the
-	// API was registered (effects/immediate.go): the real card test
-	// rules/forum_filibuster_test.go's TestSpeedYoungAvengerImmediateTrigger
-	// pays its AB Cost$ 1 through the triggered-cost window and executes
-	// TrigEffect, which is what licensed the shrink.
-	//
-	// The pro-shaper player-submitted Commander import (2026-09-18): Earthbend
-	// (7 cards) and Clone (2) were unregistered APIs; Devour (1) is an
-	// unregistered primitive. api:Earthbend's seven carriers left this table
-	// when the primitive registered (effects/earthbend.go): the real card
-	// tests rules/earthbend_test.go drive Ba Sing Se's own AB$ Earthbend and
-	// the trigger-Execute carriers end to end, which is what licensed the
-	// shrink. Clone's two left earlier (effects/clone.go). api:GenericChoice
-	// left when the primitive registered (effects/misc.go,
-	// GenericChoice -> effCharm) -- Tireless Provisioner and Torment of
-	// Hailfire are fully supported now, pinned in
-	// rules/generic_choice_test.go. kw:Hexproof was implemented in the same
-	// change (rules/protection.go hexproofBlocksTarget, pinned in
-	// rules/hexproof_test.go), so its two carriers -- Lotus Field and Tectonic
-	// Split -- are deliberately absent here: they are fully supported now.
-	// Shifting Woodland and Vesuva's api:Clone entries were deleted when
-	// api:Clone was registered (effects/clone.go): the real card test
-	// rules/clone_api_test.go's TestMirageMirrorBecomesACopyOfTargetCreature
-	// drives the standalone DB$ Clone through the layer-1 CopyFace basis,
-	// its Duration$ expiry and the NewName$/GainThisAbility$ riders, which
-	// is what licensed the shrink, together with
-	// rules/clone_overlap_test.go's TestShiftingWoodlandCopiesAGraveyardCard,
-	// which drives Shifting Woodland's own standalone A:AB$ Clone (the
-	// TgtZone$ Graveyard copy source the battlefield sweep never reaches).
-	// Vesuva reaches api:Clone ONLY through the still-unimplemented
-	// ETB-replacement route (the open ETB-copy ticket), so its shrink is the
-	// mechanically forced one: the measured gap set no longer holds it
-	// (the primitive it names IS registered) and leaving the entry in place
-	// would fail the ratchet as stale. That narrowing is recorded in
-	// AGENTS.md's api:Clone row.
-	// The pro-shaper/Commander cards whose gap was previously invisible
-	// because Primitive() walked the Sub chain only: an SVar-naming
-	// parameter (Charm's Choices$, Repeat's RepeatSubAbility$) resolved
-	// the body at runtime, so Face.Primitives never surfaced the API
-	// (prims1). Vision, Synthezoid Avenger's entry was deleted when
-	// api:Phases was registered (effects/phases.go, task phases1): its
-	// Charm branch reaches `DB$ Phases | Defined$ Self`, and the real card
-	// tests rules/phases_test.go (Talon Gates of Madara, Guardian of
-	// Faith) drive the primitive end to end, so the measured gap set no
-	// longer holds it and leaving the entry would fail the ratchet as
-	// stale.
-	// Raw Effect child census correction surfaced these existing unsupported
-	// capabilities; the underlying primitives were not changed.
-	"Incinerate":        {"stat:CantRegenerate"},
-	"Vines of Vastwood": {"stat:CantTarget"},
-	// fuzz-cov3's registration-honesty gate (cards.Registry.Unsupported now
-	// checks the count heads a card's referenced value SVars read): Temple of
-	// Power's transform gate reads Count$NonCombatDamageThisTurn Card.Red+
-	// YouCtrl Any, a source-filtered noncombat damage tally the log cannot
-	// answer (a Damage event does not record its source). The gate failed
-	// OPEN (an AB's CheckSVar$), so the land transformed unconditionally; it
-	// was never fully supported, only counted so. Also held by
-	// count_head_ratchet_test.go's knownUnmodelledCountHeads.
-	"Ojer Axonil, Deepest Might": {"count:NonCombatDamageThisTurn"},
+// to make the ratchet green). A newly imported deck can extend it; its
+// entries must be measured from the compiled corpus, never marked supported
+// without an implementation. Which task retired an entry goes in the commit
+// message (git log -- rules/acceptance_test.go holds the history to
+// 2026-10-03).
+func knownUnsupported(t *testing.T) map[string][]string {
+	t.Helper()
+	return loadPerCardLabels(t, filepath.Join("testdata", "known-unsupported"))
+}
+
+// TestKnownUnsupportedFilesWellFormed holds testdata/known-unsupported to
+// its schema without a corpus.
+func TestKnownUnsupportedFilesWellFormed(t *testing.T) {
+	t.Parallel()
+	knownUnsupported(t)
 }
 
 // TestEveryRepoDeckIsFullySupported is the M1 coverage ratchet: every card
@@ -203,6 +68,7 @@ func TestEveryRepoDeckIsFullySupported(t *testing.T) {
 			}
 		}
 	}
+	knownUnsupported := knownUnsupported(t)
 	t.Logf("ratchet: %d of %d distinct cards across the repo decks are not fully supported",
 		len(measured), total)
 

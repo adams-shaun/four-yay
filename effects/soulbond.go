@@ -74,9 +74,6 @@ func effPair(h Host, c *Ctx, sa *cards.SA) {
 		}
 		return
 	}
-	if h.Ask(d) {
-		return
-	}
 	// A host without decisions takes the legal optional decline.
 }
 

@@ -229,10 +229,10 @@ func namedAnnouncePart(head, name, rest string) (Cost, bool) {
 	if len(fields) > 1 {
 		desc = fields[1]
 	}
-	switch head {
-	case "ExileFromHand":
+	switch namedAnnouncePartca01Codes.Code(string(head)) {
+	case namedAnnouncePartca01ExileFromHand:
 		return Cost{Exile: []CostPart{{Spec: spec, Dyn: "@" + name, Desc: desc}}}, true
-	case "tapXType":
+	case namedAnnouncePartca01TapXType:
 		return Cost{TapPermanent: []CostPart{{Spec: spec, Dyn: "@" + name, Desc: desc}}}, true
 	}
 	return Cost{}, false
@@ -246,16 +246,16 @@ func namedAnnouncePart(head, name, rest string) (Cost, bool) {
 // ManaCostShard colour test does. ok=false is an unrecognised colour word.
 func (e *Engine) forEachShardCount(word string, id state.ObjID, scope costScope) (int, bool) {
 	var letter byte
-	switch strings.ToLower(strings.TrimSpace(word)) {
-	case "white":
+	switch forEachShardCountca02Codes.Code(string(strings.ToLower(strings.TrimSpace(word)))) {
+	case forEachShardCountca02White:
 		letter = 'W'
-	case "blue":
+	case forEachShardCountca02Blue:
 		letter = 'U'
-	case "black":
+	case forEachShardCountca02Black:
 		letter = 'B'
-	case "red":
+	case forEachShardCountca02Red:
 		letter = 'R'
-	case "green":
+	case forEachShardCountca02Green:
 		letter = 'G'
 	default:
 		return 0, false
@@ -385,7 +385,7 @@ func (e *Engine) raiseExtraFor(sv staticView, raw string, x int32, targets []sta
 			return 0, false
 		}
 		ctx := effects.NewCtxPtr(sv.Source, sv.Controller, effects.CtxInit{SVars: svars, X: x,
-			ChosenNumber: sv.ChosenNumber, ChosenNumberBound: sv.chosenNumberBound, Targets: targets})
+			Num: effects.NumberInputs{Chosen: sv.ChosenNumber, ChosenBound: sv.chosenNumberBound}, Targets: targets})
 		return effects.EvalCountOK(e, ctx, body)
 	}
 	return raiseExtraResolve(raw, svars, announces, eval)
@@ -767,3 +767,29 @@ func (e *Engine) offerNamedMods(p state.PlayerID, id state.ObjID, ability bool, 
 	}
 	return costMods{}, false
 }
+
+const (
+	namedAnnouncePartca01ExileFromHand uint16 = 1 // "ExileFromHand"
+	namedAnnouncePartca01TapXType      uint16 = 2 // "tapXType"
+)
+
+var namedAnnouncePartca01Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "ExileFromHand", Val: namedAnnouncePartca01ExileFromHand},
+	state.StrEntry[uint16]{Key: "tapXType", Val: namedAnnouncePartca01TapXType},
+)
+
+const (
+	forEachShardCountca02White uint16 = 1 // "white"
+	forEachShardCountca02Blue  uint16 = 2 // "blue"
+	forEachShardCountca02Black uint16 = 3 // "black"
+	forEachShardCountca02Red   uint16 = 4 // "red"
+	forEachShardCountca02Green uint16 = 5 // "green"
+)
+
+var forEachShardCountca02Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "white", Val: forEachShardCountca02White},
+	state.StrEntry[uint16]{Key: "blue", Val: forEachShardCountca02Blue},
+	state.StrEntry[uint16]{Key: "black", Val: forEachShardCountca02Black},
+	state.StrEntry[uint16]{Key: "red", Val: forEachShardCountca02Red},
+	state.StrEntry[uint16]{Key: "green", Val: forEachShardCountca02Green},
+)

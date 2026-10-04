@@ -486,12 +486,12 @@ func ParseCost(s string) Cost {
 					continue
 				}
 				part := CostPart{N: int32(n), Spec: strings.ReplaceAll(m[3], ";", ","), Desc: m[4]}
-				switch m[1] {
-				case "Reveal":
+				switch parseCost18c1Codes.Code(string(m[1])) {
+				case parseCost18c1Reveal:
 					c.Reveal = append(c.Reveal, part)
-				case "Behold":
+				case parseCost18c1Behold:
 					c.Behold = append(c.Behold, part)
-				case "BeholdExile":
+				case parseCost18c1BeholdExile:
 					// Behold, then exile the beheld object (CostPart.ThenExile).
 					part.ThenExile = true
 					c.Behold = append(c.Behold, part)
@@ -645,12 +645,12 @@ func ParseCost(s string) Cost {
 				// already uses, so "Artifact;Creature" matches either.
 				spec := strings.ReplaceAll(m[3], ";", ",")
 				part := CostPart{N: int32(n), Spec: spec, Desc: m[4]}
-				switch m[1] {
-				case "Sac":
+				switch parseCost18c2Codes.Code(string(m[1])) {
+				case parseCost18c2Sac:
 					c.Sac = append(c.Sac, part)
-				case "Discard":
+				case parseCost18c2Discard:
 					c.Discard = append(c.Discard, part)
-				case "Draw":
+				case parseCost18c2Draw:
 					c.Draw = append(c.Draw, part)
 				default:
 					c.SubCounter = append(c.SubCounter, part)
@@ -874,10 +874,10 @@ func ParseCost(s string) Cost {
 				}
 				part := CostPart{N: int32(n), Spec: strings.ReplaceAll(m[4], ";", ","),
 					LibraryPos: int32(pos), Desc: m[5]}
-				switch m[1] {
-				case "Hand":
+				switch parseCost18c3Codes.Code(string(m[1])) {
+				case parseCost18c3Hand:
 					part.Zone = state.ZHand
-				case "Grave":
+				case parseCost18c3Grave:
 					part.Zone = state.ZGraveyard
 				default: // Battlefield
 					part.Zone = state.ZBattlefield
@@ -1213,12 +1213,12 @@ func ParseUnlessCost(s string) (Cost, bool) {
 				// already uses, so "Artifact;Creature" matches either.
 				spec := strings.ReplaceAll(m[3], ";", ",")
 				part := CostPart{N: int32(n), Spec: spec, Desc: m[4]}
-				switch m[1] {
-				case "Sac":
+				switch parseUnlessCost18c4Codes.Code(string(m[1])) {
+				case parseUnlessCost18c4Sac:
 					c.Sac = append(c.Sac, part)
-				case "Discard":
+				case parseUnlessCost18c4Discard:
 					c.Discard = append(c.Discard, part)
-				case "Draw":
+				case parseUnlessCost18c4Draw:
 					c.Draw = append(c.Draw, part)
 				default:
 					c.SubCounter = append(c.SubCounter, part)
@@ -1383,3 +1383,49 @@ func MatchPayLife(sym string) (digits string, ok bool) {
 	}
 	return "", false
 }
+
+const (
+	parseCost18c1Reveal      uint16 = 1 // "Reveal"
+	parseCost18c1Behold      uint16 = 2 // "Behold"
+	parseCost18c1BeholdExile uint16 = 3 // "BeholdExile"
+)
+
+var parseCost18c1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Reveal", Val: parseCost18c1Reveal},
+	state.StrEntry[uint16]{Key: "Behold", Val: parseCost18c1Behold},
+	state.StrEntry[uint16]{Key: "BeholdExile", Val: parseCost18c1BeholdExile},
+)
+
+const (
+	parseCost18c2Sac     uint16 = 1 // "Sac"
+	parseCost18c2Discard uint16 = 2 // "Discard"
+	parseCost18c2Draw    uint16 = 3 // "Draw"
+)
+
+var parseCost18c2Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Sac", Val: parseCost18c2Sac},
+	state.StrEntry[uint16]{Key: "Discard", Val: parseCost18c2Discard},
+	state.StrEntry[uint16]{Key: "Draw", Val: parseCost18c2Draw},
+)
+
+const (
+	parseCost18c3Hand  uint16 = 1 // "Hand"
+	parseCost18c3Grave uint16 = 2 // "Grave"
+)
+
+var parseCost18c3Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Hand", Val: parseCost18c3Hand},
+	state.StrEntry[uint16]{Key: "Grave", Val: parseCost18c3Grave},
+)
+
+const (
+	parseUnlessCost18c4Sac     uint16 = 1 // "Sac"
+	parseUnlessCost18c4Discard uint16 = 2 // "Discard"
+	parseUnlessCost18c4Draw    uint16 = 3 // "Draw"
+)
+
+var parseUnlessCost18c4Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Sac", Val: parseUnlessCost18c4Sac},
+	state.StrEntry[uint16]{Key: "Discard", Val: parseUnlessCost18c4Discard},
+	state.StrEntry[uint16]{Key: "Draw", Val: parseUnlessCost18c4Draw},
+)

@@ -213,10 +213,10 @@ func (e *Engine) captureSourceLifelinkLKI(ev events.Event) (bool, damageKeywordL
 	}
 	for i := range e.pendingTriggers {
 		if e.pendingTriggers[i].Source == ev.Obj {
-			e.pendingTriggers[i].Ctx.SourceLifelinkLKI = kw.lifelink
-			e.pendingTriggers[i].Ctx.SourceLifelinkLKIValid = true
-			e.pendingTriggers[i].Ctx.SourceControllerLKI = controller
-			e.pendingTriggers[i].Ctx.SourceControllerLKIValid = true
+			e.pendingTriggers[i].Ctx.Snap.SourceLifelink = kw.lifelink
+			e.pendingTriggers[i].Ctx.Snap.SourceLifelinkValid = true
+			e.pendingTriggers[i].Ctx.Snap.SourceController = controller
+			e.pendingTriggers[i].Ctx.Snap.SourceControllerValid = true
 		}
 		e.capturePendingNamedDamageSourceLKI(&e.pendingTriggers[i].Ctx, ev.Obj, kw, controller)
 	}
@@ -232,10 +232,10 @@ func (e *Engine) finishSourceLifelinkLKI(ev events.Event, departing bool, kw dam
 	}
 	for i := range e.pendingTriggers {
 		if e.pendingTriggers[i].Source == ev.Obj {
-			e.pendingTriggers[i].Ctx.SourceLifelinkLKI = kw.lifelink
-			e.pendingTriggers[i].Ctx.SourceLifelinkLKIValid = true
-			e.pendingTriggers[i].Ctx.SourceControllerLKI = controller
-			e.pendingTriggers[i].Ctx.SourceControllerLKIValid = true
+			e.pendingTriggers[i].Ctx.Snap.SourceLifelink = kw.lifelink
+			e.pendingTriggers[i].Ctx.Snap.SourceLifelinkValid = true
+			e.pendingTriggers[i].Ctx.Snap.SourceController = controller
+			e.pendingTriggers[i].Ctx.Snap.SourceControllerValid = true
 		}
 		e.capturePendingNamedDamageSourceLKI(&e.pendingTriggers[i].Ctx, ev.Obj, kw, controller)
 	}
@@ -257,10 +257,10 @@ func (e *Engine) captureNamedDamageSourceLKI(stack, source state.ObjID, kw damag
 }
 
 func (e *Engine) capturePendingNamedDamageSourceLKI(ctx *effects.Ctx, source state.ObjID, kw damageKeywordLKI, controller state.PlayerID) {
-	if ctx.DamageSourceLKI == nil {
-		ctx.DamageSourceLKI = make(map[state.ObjID]effects.DamageSourceLKI)
+	if ctx.Snap.DamageSource == nil {
+		ctx.Snap.DamageSource = make(map[state.ObjID]effects.DamageSourceLKI)
 	}
-	ctx.DamageSourceLKI[source] = damageSourceLKIOf(kw, controller)
+	ctx.Snap.DamageSource[source] = damageSourceLKIOf(kw, controller)
 }
 
 func cloneDamageSourceLKI(in map[state.ObjID]effects.DamageSourceLKI) map[state.ObjID]effects.DamageSourceLKI {

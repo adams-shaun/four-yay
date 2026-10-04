@@ -333,28 +333,28 @@ func (e *Engine) continuousConditionHolds(sv staticView) bool {
 	if !ok {
 		return true
 	}
-	switch strings.TrimSpace(raw) {
-	case "":
+	switch continuousConditionHoldsbde1Codes.Code(string(strings.TrimSpace(raw))) {
+	case continuousConditionHoldsbde1Empty:
 		return true
-	case "Delirium":
+	case continuousConditionHoldsbde1Delirium:
 		return e.graveyardCardTypeCount(sv.Controller) >= 4
-	case "PlayerTurn":
+	case continuousConditionHoldsbde1PlayerTurn:
 		return e.G.Active == sv.Controller
-	case "NotPlayerTurn":
+	case continuousConditionHoldsbde1NotPlayerTurn:
 		return e.G.Active != sv.Controller
-	case "Metalcraft":
+	case continuousConditionHoldsbde1Metalcraft:
 		return e.metalcraftHolds(sv.Controller)
-	case "Threshold":
+	case continuousConditionHoldsbde1Threshold:
 		return e.thresholdHolds(sv.Controller)
-	case "Hellbent":
+	case continuousConditionHoldsbde1Hellbent:
 		return len(e.G.Zone(state.ZHand, sv.Controller)) == 0
-	case "Blessing":
+	case continuousConditionHoldsbde1Blessing:
 		// CR 702.131: the city's blessing is a one-way event-folded latch.
 		if int(sv.Controller) >= len(e.G.Players) {
 			return false
 		}
 		return e.G.Players[sv.Controller].Blessing
-	case "EnduringStory":
+	case continuousConditionHoldsbde1EnduringStory:
 		return e.playerHasEnduringStory(sv.Controller)
 	}
 	return false
@@ -539,3 +539,27 @@ func resolveChosenColors(raw string, o *state.Object) ([]string, bool) {
 	}
 	return effects.ColorLetters(raw)
 }
+
+const (
+	continuousConditionHoldsbde1Empty         uint16 = 1 // ""
+	continuousConditionHoldsbde1Delirium      uint16 = 2 // "Delirium"
+	continuousConditionHoldsbde1PlayerTurn    uint16 = 3 // "PlayerTurn"
+	continuousConditionHoldsbde1NotPlayerTurn uint16 = 4 // "NotPlayerTurn"
+	continuousConditionHoldsbde1Metalcraft    uint16 = 5 // "Metalcraft"
+	continuousConditionHoldsbde1Threshold     uint16 = 6 // "Threshold"
+	continuousConditionHoldsbde1Hellbent      uint16 = 7 // "Hellbent"
+	continuousConditionHoldsbde1Blessing      uint16 = 8 // "Blessing"
+	continuousConditionHoldsbde1EnduringStory uint16 = 9 // "EnduringStory"
+)
+
+var continuousConditionHoldsbde1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "", Val: continuousConditionHoldsbde1Empty},
+	state.StrEntry[uint16]{Key: "Delirium", Val: continuousConditionHoldsbde1Delirium},
+	state.StrEntry[uint16]{Key: "PlayerTurn", Val: continuousConditionHoldsbde1PlayerTurn},
+	state.StrEntry[uint16]{Key: "NotPlayerTurn", Val: continuousConditionHoldsbde1NotPlayerTurn},
+	state.StrEntry[uint16]{Key: "Metalcraft", Val: continuousConditionHoldsbde1Metalcraft},
+	state.StrEntry[uint16]{Key: "Threshold", Val: continuousConditionHoldsbde1Threshold},
+	state.StrEntry[uint16]{Key: "Hellbent", Val: continuousConditionHoldsbde1Hellbent},
+	state.StrEntry[uint16]{Key: "Blessing", Val: continuousConditionHoldsbde1Blessing},
+	state.StrEntry[uint16]{Key: "EnduringStory", Val: continuousConditionHoldsbde1EnduringStory},
+)

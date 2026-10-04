@@ -122,45 +122,36 @@ func hasChosenPlayers(ts []state.Target) bool {
 // actually change, so a no-op shape asks nothing (the Attach/PutCounter
 // len(legal) == 0 gate). Option 0 is "yes" and option 1 "no", so the
 // deterministic bot clamp answers "yes" and bot games stay byte-identical to
-// the pre-ask always-change. The answer rides Ctx.SetStateOpt (fx42 scoping:
-// consumed and cleared at the top); a decline changes nothing and the chained
+// the pre-ask always-change. A decline changes nothing and the chained
 // SubAbility$ still runs (the chain is owned by Resolve, never by a decline).
 func effSetState(h Host, c *Ctx, sa *cards.SA) {
-	// fx42 scoping: consume and clear the answered Optional$ election at the
-	// top, so a nested SetState in the same chain poses its own ask.
-	optAns := string("")
+	optAns := ""
 
 	mode := sa.ParamStr(cards.PKMode)
 	turnUp := strings.EqualFold(strings.TrimSpace(mode), "TurnFaceUp")
 	turnDown := strings.EqualFold(strings.TrimSpace(mode), "TurnFaceDown")
 	unspecialize := strings.EqualFold(strings.TrimSpace(mode), "Unspecialize")
 	optional := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True")
-	if optional && optAns == "" {
-		// Unanswered: pose the yes/no election -- but only when the change
-		// would actually do something; with nothing to change, decline and
-		// accept are the same, so no ask (the Attach precedent's
-		// len(legal) == 0 gate). AskAsked suspends; the answer re-enters
-		// with Ctx.SetStateOpt set. AskNoHost is the deterministic decline
-		// stand-in (R-9): the clamp-answered bot path answers option 0 =
-		// "yes", so a bot game stays byte-identical to the pre-ask
-		// always-change.
+	if optional {
+		// Pose the yes/no election -- but only when the change would
+		// actually do something; with nothing to change, decline and accept
+		// are the same, so no ask (the Attach precedent's len(legal) == 0
+		// gate). No served answer ends the effect (R-9); the clamp-answered
+		// bot path answers option 0 = "yes", so a bot game stays
+		// byte-identical to the pre-ask always-change.
 		if setStateWouldChange(h, c, sa, turnUp, turnDown, unspecialize) {
 			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 				Source: c.Source, ResumeKind: "setstate_optional", ResumeSA: sa,
-				ResumeRemembered: copyTargets(c.Remembered),
-				Prompt:           "Change this permanent's face?",
+				Prompt: "Change this permanent's face?",
 				Options: []decision.Option{
 					{Index: 0, Kind: "yes", Label: "Yes", Player: c.Controller},
 					{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
 				}}
 			ans, ok := AskTape(h, d)
 			if !ok {
-				_ = Ask(h, d)
 				return
 			}
-			// The resolution kernel's answer in hand: the
-			// "setstate_optional" arm's yes/no, consumed below as the
-			// re-entry consumes Ctx.SetStateOpt.
+			// The resolution kernel's answer in hand.
 			optAns = "no"
 			if len(ans) > 0 && ans[0].Kind == "yes" {
 				optAns = "yes"
@@ -381,8 +372,8 @@ func effCounter(h Host, c *Ctx, sa *cards.SA) {
 		// than moving a spell somewhere the card text never asked for.
 		to := state.ZGraveyard
 		if dest := strings.TrimSpace(sa.ParamStr(cards.PKDestination)); dest != "" {
-			switch dest {
-			case "Hand", "Graveyard", "Exile":
+			switch effCounter84e1Codes.Code(string(dest)) {
+			case effCounter84e1Hand:
 				to, _ = parseZone(dest)
 			default:
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -408,9 +399,9 @@ func effCounter(h Host, c *Ctx, sa *cards.SA) {
 		}
 		if rememberCMC {
 			if f := o.Face(); f != nil {
-				c.RememberedCMC += f.Cmc()
+				c.Num.RememberedCMC += f.Cmc()
 			}
-			c.RememberedCMCBound = true
+			c.Num.RememberedCMCBound = true
 		}
 		h.Emit(events.Event{Kind: events.MoveZone, Obj: o.ID,
 			From: state.ZStack, To: to, Text: "countered"})
@@ -459,13 +450,6 @@ func encodeRemembered(remembered []state.Target) []state.ObjID {
 // sharesCardTypeWithOther one, so those repeat while two milled cards share
 // a colour (a card type), capped by MaxRepeat$ CardsInLibrary.
 func effRepeat(h Host, c *Ctx, sa *cards.SA) {
-	// The RepeatOptional$ continuation is this Repeat's own one-shot answer
-	// (the resume re-enters rp.sa = this Repeat, so it is the first reader):
-	// consume it here, so a later Repeat on the same Ctx -- the next link of
-	// the chain, or one nested in the body -- never reads this election's
-	// answer as its own (a "Stop" used to stop the chained Repeat too).
-	cont := (*RepeatContinuation)(nil)
-
 	check := strings.TrimSpace(sa.ParamStr(cards.PKRepeatCheckSVar))
 	cmp := strings.TrimSpace(sa.ParamStr(cards.PKRepeatSVarCompare))
 	defined := strings.TrimSpace(sa.ParamStr(cards.PKRepeatDefined))
@@ -473,12 +457,6 @@ func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 	gated := check != "" || defined != ""
 	optional := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRepeatOptional)), "True")
 	n := Num(h, c, sa, "MaxRepeat", -1)
-	if cont != nil && cont.Count > 0 {
-		// A body-suspension resume: keep the bound the suspended pass
-		// resolved (Forge computes MaxRepeat$ once, before the first
-		// iteration) instead of re-reading a value the body may have changed.
-		n = cont.Count
-	}
 	if n < 0 {
 		if gated {
 			// Gate-governed: Forge's default cap is unbounded (the gate
@@ -507,67 +485,12 @@ func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 	if sub == nil {
 		return
 	}
-	start := int32(0)
-	// afterBody marks a resume whose previous iteration's body (start-1)
-	// completed after its ask was answered, so the between-iteration step
-	// owed before iteration `start` has not run yet: the gate, and for
-	// RepeatOptional$ the do/while election (then that iteration's body runs
-	// only on a yes). It is distinct from a completed election answered yes,
-	// which begins the next body with no further election (see
-	// RepeatContinuation).
-	afterBody := false
-	if cont != nil {
-		if !cont.Continue {
-			return
-		}
-		start = cont.Next
-		afterBody = cont.AfterBody
-	}
-	for i := start; i < n; i++ {
-		if afterBody {
-			afterBody = false
-			// The previous iteration's body completed after suspending. Its
-			// between-iteration gate is owed first, just like the ordinary
-			// post-body path below: a false or unreadable gate ends the loop.
-			if gated {
-				holds, evaluated := repeatGateEvaluates(h, c, sa, check, cmp, defined, present)
-				if !evaluated || !holds {
-					return
-				}
-			}
-			if optional {
-				// Pose the repeat election that iteration i's body has not
-				// yet earned (CR 608.2c's do/while). The election concerns
-				// iteration i, so a yes resumes the body at i, not i+1.
-				if yes, tape := repeatOptionalElectionTape(h, c, sa, i); tape {
-					// The resolution kernel's answer in hand: a yes runs
-					// iteration i's body now (the "repeat_optional" arm's
-					// continuation), a no ends the loop.
-					if !yes {
-						return
-					}
-				} else {
-					if !poseRepeatOptionalElection(h, c, sa, i) {
-						return // R-9: a host that cannot answer stops here.
-					}
-					return
-				}
-			}
-			// A counted or gated Repeat owes no election: iteration i runs.
-		}
+	for i := int32(0); i < n; i++ {
 		mark, marked := eventMark(h)
 		asksBefore := askCount(h)
 		Resolve(h, c, sub)
 		if h.Suspended() {
-			// The body asked (a sacrifice/choice/target pick, an unless-pay
-			// gate): the remaining iterations must still run once the answer
-			// is applied (CR 608.2c). Every Repeat parks its cursor -- the
-			// RepeatOptional$ do/while (Forbidden Ritual) re-enters at the
-			// election for i+1; a counted or gated one (Torment of
-			// Hailfire, Remorseless Punishment, Struggle for Sanity) re-enters
-			// at body i+1 after its gate. Without it the enclosing loop fell
-			// through to Repeat.Sub and every later iteration was dropped.
-			h.SuspendRepeatBody(sa, i+1, n)
+			// The body opened a resolution-time payment window.
 			return
 		}
 		if gated {
@@ -606,19 +529,11 @@ func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 					Text: "the repeated process changed nothing; it is not offered again"})
 				return
 			}
-			if yes, tape := repeatOptionalElectionTape(h, c, sa, i+1); tape {
-				// The resolution kernel's answer in hand: a yes runs
-				// iteration i+1's body (the "repeat_optional" arm's
-				// continuation), a no ends the loop.
-				if !yes {
-					return
-				}
-				continue
+			// A yes runs iteration i+1's body, a no (or no answer) ends the loop.
+			if !repeatOptionalElectionYes(h, c, sa, i+1) {
+				return
 			}
-			if !poseRepeatOptionalElection(h, c, sa, i+1) {
-				return // R-9: a host that cannot answer stops after one pass.
-			}
-			return
+			continue
 		}
 		if !gated {
 			continue
@@ -630,9 +545,7 @@ func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 // repeatGateEvaluates evaluates a Repeat's full between-iteration gate: the
 // RepeatCheckSVar$/RepeatSVarCompare$ pair and, when the line names one, the
 // RepeatDefined$/RepeatPresent$ pair (RepeatCompare$ overrides the compare;
-// an absent RepeatCompare$ with no check gate falls back to cmp). Both the
-// ordinary post-body path and the AfterBody resume path call it, so a
-// gated optional repeat cannot skip its gate by suspending inside the body.
+// an absent RepeatCompare$ with no check gate falls back to cmp).
 func repeatGateEvaluates(h Host, c *Ctx, sa *cards.SA, check, cmp, defined, present string) (holds, evaluated bool) {
 	holds, evaluated = repeatGateHolds(h, c, check, cmp)
 	if defined == "" {
@@ -646,25 +559,13 @@ func repeatGateEvaluates(h Host, c *Ctx, sa *cards.SA, check, cmp, defined, pres
 	return holds && definedHolds, evaluated && definedEvaluated
 }
 
-// poseRepeatOptionalElection asks the RepeatOptional$ "Repeat this process?"
-// election for the iteration `next` whose body a yes would run, parking the
-// loop cursor on it (ResumeRepeatNext = next). RepeatOptionalDecider$
-// Remembered routes the ask to the remembered player when the line names
-// one. It returns h.Ask(d): false when the host cannot answer, the R-9
-// deterministic stop after one pass.
-func poseRepeatOptionalElection(h Host, c *Ctx, sa *cards.SA, next int32) bool {
-	return h.Ask(repeatOptionalDecision(c, sa, next))
-}
-
-// repeatOptionalElectionTape asks the same election through the resolution
-// kernel (AskTape): tape reports that the answer is in hand, and yes is it.
-// !tape means the caller takes the legacy ask.
-func repeatOptionalElectionTape(h Host, c *Ctx, sa *cards.SA, next int32) (yes, tape bool) {
+// repeatOptionalElectionYes asks the RepeatOptional$ "Repeat this process?"
+// election for the iteration next through the resolution kernel (AskTape)
+// and reports whether the answer is yes. RepeatOptionalDecider$ Remembered
+// routes the ask to the remembered player. No served answer is a stop.
+func repeatOptionalElectionYes(h Host, c *Ctx, sa *cards.SA, next int32) bool {
 	ans, ok := AskTape(h, repeatOptionalDecision(c, sa, next))
-	if !ok {
-		return false, false
-	}
-	return len(ans) > 0 && ans[0].Kind == "yes", true
+	return ok && len(ans) > 0 && ans[0].Kind == "yes"
 }
 
 // repeatOptionalDecision is the RepeatOptional$ election for iteration next.
@@ -681,7 +582,6 @@ func repeatOptionalDecision(c *Ctx, sa *cards.SA, next int32) *decision.Decision
 	d := &decision.Decision{Player: player, Kind: decision.KChoose,
 		Min: 1, Max: 1, Prompt: "Repeat this process?", Source: c.Source,
 		ResumeKind: "repeat_optional", ResumeSA: sa,
-		ResumeRepeatNext: next,
 		Options: []decision.Option{{Index: 0, Kind: "yes", Label: "Repeat", Player: player},
 			{Index: 1, Kind: "no", Label: "Stop", Player: player}}}
 	return d
@@ -764,9 +664,12 @@ func repeatDefinedGateHolds(h Host, c *Ctx, sa *cards.SA, defined, present, comp
 	return evalConditionCount(count, compare)
 }
 
-// CharmRepeatModes reports whether a Charm's CanRepeatModes$ True grants
-// CR 601.2b's "you may choose the same mode more than once": the mode pick
-// becomes an ordered multiset over the distinct Choices$ modes, so the same
-// mode may fill several of the CharmNum$ slots. Measured at the corpus pin:
-// 23 files, every one api:Charm, every one the literal "True" (the Confluence
-// cycle, Fiery Confluence, Moment of Reckoning, the Commands cycle).
+const (
+	effCounter84e1Hand uint16 = 1 // "Hand", "Graveyard", "Exile"
+)
+
+var effCounter84e1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "Hand", Val: effCounter84e1Hand},
+	state.StrEntry[uint16]{Key: "Graveyard", Val: effCounter84e1Hand},
+	state.StrEntry[uint16]{Key: "Exile", Val: effCounter84e1Hand},
+)

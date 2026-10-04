@@ -1,0 +1,6 @@
+{
+  "card": "Reclamation Sage",
+  "rows": {
+    "target-gone-in-response-does-nothing": "step 6 (resolve): [{\"kind\":\"any\",\"pick\":[\"yes\"]}]"
+  }
+}

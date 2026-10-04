@@ -46,8 +46,8 @@ zone order and poses one `KChoose` add/remove/skip election per object,
 `Amount$` repetitions deep. Each ask rides an immutable snapshot
 (`Decision.ResumeObjects`) with its cursor and repetition in `ResumeTarget`
 and `ResumeRound`, so an answer that drops a counter cannot shift the next
-object's cursor. `effects/time_travel.go`, `rules/resolution.go` (the
-`time_travel` resume arm). The only stand-in is R-9 above.
+object's cursor. `effects/time_travel.go` (each answer is applied in
+place). The only stand-in is R-9 above.
 
 ## ActivationLimit$ is enforced for every shape the corpus carries
 

@@ -12,6 +12,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -417,10 +418,10 @@ func TestMasterOfDarkRitesRestrictsSpend(t *testing.T) {
 		t.Fatalf("pool after the activation = %+v, want three {B}", pool)
 	}
 	// The restricted {B}{B}{B} pays the Cleric spell, never the plain one.
-	if e.costPayable(0, e.G.Zone(state.ZHand, 0)[0], false, ParseCost("B")) != true {
+	if pay.CostPayable(asPayer(e), 0, e.G.Zone(state.ZHand, 0)[0], false, ParseCost("B")) != true {
 		t.Fatal("the Cleric spell must be payable with the restricted mana")
 	}
-	if e.costPayable(0, e.G.Zone(state.ZHand, 0)[1], false, ParseCost("B")) {
+	if pay.CostPayable(asPayer(e), 0, e.G.Zone(state.ZHand, 0)[1], false, ParseCost("B")) {
 		t.Fatal("the plain spell must not be payable with the restricted mana")
 	}
 }

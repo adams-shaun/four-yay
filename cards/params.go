@@ -722,6 +722,13 @@ const (
 	PKCounterTypeChoice
 	PKPromptToSkipOptionalAbility
 	PKOptionalAbilityPrompt
+	PKSetChosenMode
+	PKWithoutManaCost
+	PKPlayCost
+	PKReplaceGraveyard
+	PKReplaceGraveyardValid
+	PKImprintPlayed
+	PKShowCards
 	paramKeyCount
 )
 
@@ -1446,6 +1453,13 @@ var paramKeyNames = [paramKeyCount]string{
 	PKCounterTypeChoice:                "CounterTypeChoice",
 	PKPromptToSkipOptionalAbility:      "PromptToSkipOptionalAbility",
 	PKOptionalAbilityPrompt:            "OptionalAbilityPrompt",
+	PKSetChosenMode:                    "SetChosenMode",
+	PKWithoutManaCost:                  "WithoutManaCost",
+	PKPlayCost:                         "PlayCost",
+	PKReplaceGraveyard:                 "ReplaceGraveyard",
+	PKReplaceGraveyardValid:            "ReplaceGraveyardValid",
+	PKImprintPlayed:                    "ImprintPlayed",
+	PKShowCards:                        "ShowCards",
 }
 
 // String is the key's Forge text.
@@ -1655,13 +1669,19 @@ func (sa *SA) MayHaveAnyParam(mask ParamMask) bool { return paramMayHaveAny(sa.p
 // bodies); a node built later stays unbound and reads its map.
 func (f *Face) deriveParamSets() {
 	for i := range f.Statics {
-		f.Statics[i].ps = newParamSet(f.Statics[i].Params)
+		st := &f.Statics[i]
+		st.ps = newParamSet(st.Params)
+		st.mode, st.modeBound = StaticModeOf(st.Mode), true
 	}
 	for i := range f.Triggers {
-		f.Triggers[i].ps = newParamSet(f.Triggers[i].Params)
+		t := &f.Triggers[i]
+		t.ps = newParamSet(t.Params)
+		t.mode, t.modeBound = TriggerModeOf(t.Mode), true
 	}
 	for i := range f.Repls {
-		f.Repls[i].ps = newParamSet(f.Repls[i].Params)
+		r := &f.Repls[i]
+		r.ps = newParamSet(r.Params)
+		r.event, r.eventBound = ReplEventOf(r.Event), true
 	}
 	bindSA := func(sa *SA) {
 		for d := 0; sa != nil && d <= maxSVarDepth+1; d++ {

@@ -73,9 +73,7 @@ func (e *Engine) costRememberedCapture(id state.ObjID) []costRememberedEntry {
 	var out []costRememberedEntry
 	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
 		ce := &ceL[ceI]
-		switch ce.CostStaticMode {
-		case "RaiseCost", "ReduceCost", "SetCost":
-		default:
+		if !costRememberedCaptureKeys1.Has(ce.CostStaticMode) {
 			continue
 		}
 		if ce.CostStaticGranted || !slices.Contains(ce.Remembered, id) {
@@ -284,18 +282,18 @@ func (e *Engine) scanActionStaticsMode(carriersOnly bool) actionStaticViews {
 					}
 					st := pst.Static
 					var dst *[]staticView
-					switch st.Mode {
-					case "CantBeCast":
+					switch st.ModeKind() {
+					case cards.StaticCantBeCast:
 						if carriersOnly || z != state.ZBattlefield {
 							continue
 						}
 						dst = &out.cantCast
-					case "CantBeActivated":
+					case cards.StaticCantBeActivated:
 						if carriersOnly || z != state.ZBattlefield {
 							continue
 						}
 						dst = &out.cantActivate
-					case "Continuous":
+					case cards.StaticContinuous:
 						// The EffectZone$ gate (the default is the battlefield,
 						// so every battlefield Continuous static keeps today's
 						// admission exactly): a static naming another zone is
@@ -694,3 +692,5 @@ func (sv staticView) HasParam(k cards.ParamKey) bool {
 	_, ok := cards.ParamSetParam(sv.PS, sv.Params, k)
 	return ok
 }
+
+var costRememberedCaptureKeys1 = state.NewNameSet("RaiseCost", "ReduceCost", "SetCost")

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/rules/resolve"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -61,8 +62,8 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 
 	if m := wardSpecialCost.FindStringSubmatch(raw); m != nil {
 		n, _ := strconv.Atoi(m[2])
-		switch m[1] {
-		case "AddCounterYou":
+		switch beginWardPayment9a51Codes.Code(string(m[1])) {
+		case beginWardPayment9a51AddCounterYou:
 			// The ward cost's poison counters are put by the PAYER, not by
 			// the ward permanent's controller (which is the triggering
 			// ward ability's controller, so inFlightCounterAdder's
@@ -73,25 +74,25 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 			e.emit(events.Event{Kind: events.PlayerCounterChange, Player: payer, Counter: "POISON", Amount: int32(n)})
 			e.SetCounterAdder(prevAdder)
 			return true, false
-		case "Blight":
+		case beginWardPayment9a51Blight:
 			// Blight's cost is "a creature you control gets -N/-N"; unlike
 			// Waterbend and a tap cost it does not require that creature to be
 			// untapped (Auntie Ool, Cursewretch).
 			return e.askWardObjects(rp, ctx, payer, "ward_blight", "Choose a creature to blight", 1, 1,
 				e.wardPermanents(payer, ctx.Source, "Creature", false))
-		case "CollectEvidence":
+		case beginWardPayment9a51CollectEvidence:
 			ids := append([]state.ObjID(nil), e.G.Zone(state.ZGraveyard, payer)...)
 			if wardManaValue(e.G, ids) < int32(n) {
 				return false, false
 			}
 			return e.askWardObjects(rp, ctx, payer, "ward_evidence", "Exile evidence with total mana value "+strconv.Itoa(n), 1, len(ids), ids)
-		case "Waterbend":
+		case beginWardPayment9a51Waterbend:
 			need := n - int(e.G.Players[payer].Pool.Total())
 			if need < 0 {
 				need = 0
 			}
 			if need == 0 {
-				return e.payMana(payer, Cost{Generic: int32(n)}), false
+				return pay.PayMana(asPayer(e), payer, Cost{Generic: int32(n)}), false
 			}
 			ids := e.wardPermanents(payer, ctx.Source, "Artifact,Creature", true)
 			if len(ids) < need {
@@ -145,7 +146,7 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 				chosen = append(chosen, ids[pick])
 				ids = append(ids[:pick], ids[pick+1:]...)
 			}
-			if !e.payMana(payer, wardManaCost(cost)) {
+			if !pay.PayMana(asPayer(e), payer, wardManaCost(cost)) {
 				return false, false
 			}
 			for _, id := range chosen {
@@ -162,7 +163,7 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 		}
 		return e.askWardObjects(rp, ctx, payer, "ward_tap", "Choose a permanent to tap for ward", 1, 1, ids)
 	}
-	if e.payMana(payer, cost) {
+	if pay.PayMana(asPayer(e), payer, cost) {
 		return true, false
 	}
 	// CR 702.21a payment is a mana-payment window, not a check of only
@@ -238,21 +239,21 @@ func (e *Engine) settleWardPayment(kind string, sa *cards.SA, ctx *effects.Ctx, 
 		}
 	}
 
-	switch kind {
-	case "ward_alt":
+	switch settleWardPayment9a52Codes.Code(string(kind)) {
+	case settleWardPayment9a52WardAlt:
 		if len(chosen) != 1 {
 			return false
 		}
 		if chosen[0].Kind == "ward_mana" {
 			_, manaRaw, _ := strings.Cut(raw, ">:")
-			return e.payMana(payer, e.parseCost(manaRaw))
+			return pay.PayMana(asPayer(e), payer, e.parseCost(manaRaw))
 		}
 		if chosen[0].Kind != "ward_discard" || len(ids) != 1 || !slices.Contains(e.G.Zone(state.ZHand, payer), ids[0]) {
 			return false
 		}
 		e.emit(events.Event{Kind: events.MoveZone, Obj: ids[0], From: state.ZHand, To: state.ZGraveyard, Text: "discarded for ward"})
 		return true
-	case "ward_blight":
+	case settleWardPayment9a52WardBlight:
 		if len(ids) != 1 || !slices.Contains(e.wardPermanents(payer, ctx.Source, "Creature", false), ids[0]) {
 			return false
 		}
@@ -266,7 +267,7 @@ func (e *Engine) settleWardPayment(kind string, sa *cards.SA, ctx *effects.Ctx, 
 		e.emit(events.Event{Kind: events.CounterChange, Obj: ids[0], Counter: "M1M1", Amount: int32(n)})
 		e.SetCounterAdder(prevAdder)
 		return true
-	case "ward_evidence":
+	case settleWardPayment9a52WardEvidence:
 		for _, id := range ids {
 			if !slices.Contains(e.G.Zone(state.ZGraveyard, payer), id) {
 				return false
@@ -281,7 +282,7 @@ func (e *Engine) settleWardPayment(kind string, sa *cards.SA, ctx *effects.Ctx, 
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZGraveyard, To: state.ZExile, Text: "collected as evidence for ward"})
 		}
 		return true
-	case "ward_waterbend":
+	case settleWardPayment9a52WardWaterbend:
 		for _, id := range ids {
 			if !slices.Contains(e.wardPermanents(payer, ctx.Source, "Artifact,Creature", true), id) {
 				return false
@@ -290,20 +291,20 @@ func (e *Engine) settleWardPayment(kind string, sa *cards.SA, ctx *effects.Ctx, 
 		m := wardSpecialCost.FindStringSubmatch(raw)
 		n, _ := strconv.Atoi(m[2])
 		remaining := n - len(ids)
-		if remaining < 0 || !e.payMana(payer, Cost{Generic: int32(remaining)}) {
+		if remaining < 0 || !pay.PayMana(asPayer(e), payer, Cost{Generic: int32(remaining)}) {
 			return false
 		}
 		for _, id := range ids {
 			e.emit(events.Event{Kind: events.Tap, Obj: id})
 		}
 		return true
-	case "ward_tap":
+	case settleWardPayment9a52WardTap:
 		if len(ids) != 1 || !slices.Contains(e.wardPermanents(payer, ctx.Source, "Artifact,Creature", true), ids[0]) {
 			return false
 		}
 		e.emit(events.Event{Kind: events.Tap, Obj: ids[0]})
 		return true
-	case "ward_sac", "ward_discard":
+	case settleWardPayment9a52WardSac:
 		cost := e.parseCost(raw)
 		var part CostPart
 		var zone state.Zone
@@ -328,7 +329,7 @@ func (e *Engine) settleWardPayment(kind string, sa *cards.SA, ctx *effects.Ctx, 
 				return false
 			}
 		}
-		if !e.payMana(payer, wardManaCost(cost)) {
+		if !pay.PayMana(asPayer(e), payer, wardManaCost(cost)) {
 			return false
 		}
 		toText := "discarded for ward"
@@ -411,8 +412,8 @@ func wardManaDecision(e *Engine, wm *wardManaPayment) *decision.Decision {
 	// the window (unlessManaWindowNeeded / advanceUnlessPayment): a {B} pip
 	// K'rrik's grant could settle with life must NOT mark the cost payable
 	// here, or the window would offer only Done and hide the untapped source.
-	payable := wm.cost.Priceable() && e.costPayableClassLife(wm.payer,
-		paymentDescriptor{id: wm.obj, class: paymentOther, cost: &wm.cost}, pipRider{}, wm.cost, false)
+	payable := wm.cost.Priceable() && pay.CostPayableClassLife(asPayer(e), wm.payer,
+		paymentDescriptor{ID: wm.obj, Class: paymentOther, Cost: &wm.cost}, pipRider{}, wm.cost, false)
 	if !payable {
 		for _, id := range e.G.Zone(state.ZBattlefield, wm.payer) {
 			if e.untappedManaSource(wm.payer, id) {
@@ -430,3 +431,36 @@ func wardManaDecision(e *Engine, wm *wardManaPayment) *decision.Decision {
 	d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "done", Label: "Done"})
 	return d
 }
+
+const (
+	beginWardPayment9a51AddCounterYou   uint16 = 1 // "AddCounterYou"
+	beginWardPayment9a51Blight          uint16 = 2 // "Blight"
+	beginWardPayment9a51CollectEvidence uint16 = 3 // "CollectEvidence"
+	beginWardPayment9a51Waterbend       uint16 = 4 // "Waterbend"
+)
+
+var beginWardPayment9a51Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "AddCounterYou", Val: beginWardPayment9a51AddCounterYou},
+	state.StrEntry[uint16]{Key: "Blight", Val: beginWardPayment9a51Blight},
+	state.StrEntry[uint16]{Key: "CollectEvidence", Val: beginWardPayment9a51CollectEvidence},
+	state.StrEntry[uint16]{Key: "Waterbend", Val: beginWardPayment9a51Waterbend},
+)
+
+const (
+	settleWardPayment9a52WardAlt       uint16 = 1 // "ward_alt"
+	settleWardPayment9a52WardBlight    uint16 = 2 // "ward_blight"
+	settleWardPayment9a52WardEvidence  uint16 = 3 // "ward_evidence"
+	settleWardPayment9a52WardWaterbend uint16 = 4 // "ward_waterbend"
+	settleWardPayment9a52WardTap       uint16 = 5 // "ward_tap"
+	settleWardPayment9a52WardSac       uint16 = 6 // "ward_sac", "ward_discard"
+)
+
+var settleWardPayment9a52Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "ward_alt", Val: settleWardPayment9a52WardAlt},
+	state.StrEntry[uint16]{Key: "ward_blight", Val: settleWardPayment9a52WardBlight},
+	state.StrEntry[uint16]{Key: "ward_evidence", Val: settleWardPayment9a52WardEvidence},
+	state.StrEntry[uint16]{Key: "ward_waterbend", Val: settleWardPayment9a52WardWaterbend},
+	state.StrEntry[uint16]{Key: "ward_tap", Val: settleWardPayment9a52WardTap},
+	state.StrEntry[uint16]{Key: "ward_sac", Val: settleWardPayment9a52WardSac},
+	state.StrEntry[uint16]{Key: "ward_discard", Val: settleWardPayment9a52WardSac},
+)

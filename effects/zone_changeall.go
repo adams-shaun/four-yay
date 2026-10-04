@@ -196,7 +196,7 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 		if cza.RememberLKI {
 			if o := g.Obj(id); o != nil {
 				snapshot := o.CloneDeep()
-				c.ChangeZoneLKI = append(c.ChangeZoneLKI, state.LKIObject{
+				c.Snap.ChangeZone = append(c.Snap.ChangeZone, state.LKIObject{
 					Obj: id, Controller: o.Controller, Owner: o.Owner, Snapshot: snapshot,
 				})
 			}
@@ -350,9 +350,9 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 		// ChangeZoneAllEffect computes libPos = 0 when LibraryPosition$ is
 		// absent, the same default the hand path and the object-target path
 		// apply. Any other value is loud rather than silently inert.
-		switch position {
-		case "-1":
-		case "", "0":
+		switch effChangeZoneAllcc1Codes.Code(string(position)) {
+		case effChangeZoneAllcc11:
+		case effChangeZoneAllcc1Empty:
 			for _, pm := range placements {
 				libraryOrderPlacement(h, pm.owner, pm.ids, false)
 			}
@@ -372,3 +372,14 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 	}
 	scheduleAtEOT(h, c, sa, moved)
 }
+
+const (
+	effChangeZoneAllcc11     uint16 = 1 // "-1"
+	effChangeZoneAllcc1Empty uint16 = 2 // "", "0"
+)
+
+var effChangeZoneAllcc1Codes = state.NewStrCodes(
+	state.StrEntry[uint16]{Key: "-1", Val: effChangeZoneAllcc11},
+	state.StrEntry[uint16]{Key: "", Val: effChangeZoneAllcc1Empty},
+	state.StrEntry[uint16]{Key: "0", Val: effChangeZoneAllcc1Empty},
+)

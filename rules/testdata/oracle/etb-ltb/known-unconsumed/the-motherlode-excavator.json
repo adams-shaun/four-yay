@@ -1,0 +1,7 @@
+{
+  "card": "The Motherlode, Excavator",
+  "rows": {
+    "entering-counts-the-chosen-opponents-nonbasic-lands": "step 0 (cast): [{\"kind\":\"choose\",\"pick\":[\"p1\"]}]",
+    "no-nonbasic-lands-gains-no-energy": "step 0 (cast): [{\"kind\":\"choose\",\"pick\":[\"p1\"]}]"
+  }
+}
