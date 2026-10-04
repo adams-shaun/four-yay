@@ -65,8 +65,8 @@ func faceReplHot(f *cards.Face) bool { return f != nil && len(f.Repls) > 0 }
 
 // replEventBit maps an R:Event$ name -- or the name replacementEvent gives
 // a logged event -- to its bit; DrawCards shares Draw's (the one alias
-// replacementEventNameMatches accepts). A name replacementEvent never
-// returns gets no bit: no event can match it.
+// replacementEventNameMatches accepts). Every cards.ReplEvent kind has a
+// bit; a name outside the vocabulary gets none: no event can match it.
 func replEventBit(name string) uint32 { return replEventBits[cards.ReplEventOf(name)] }
 
 // replLineBit is replEventBit for an R: line, through its load-time code.
@@ -391,4 +391,14 @@ var replEventBits = [cards.ReplEventCount]uint32{
 	cards.ReplRollPlanarDice: 1 << 13,
 	cards.ReplAddCounter:     1 << 14,
 	cards.ReplTurnFaceUp:     1 << 15,
+	// Every remaining kind has its own bit too: a line with no bit sits in
+	// a zone whose summary mask cannot see it, so an every-event body scan
+	// (tapeAnyReplBodyMayAsk's ^0) would miss its asking body.
+	// TestReplEventBitCensus holds every kind reachable.
+	cards.ReplGainLife:    1 << 16,
+	cards.ReplLifeReduced: 1 << 17,
+	cards.ReplCounter:     1 << 18,
+	cards.ReplBeginTurn:   1 << 19,
+	cards.ReplGameLoss:    1 << 20,
+	cards.ReplGameWin:     1 << 21,
 }
