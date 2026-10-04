@@ -306,7 +306,7 @@ func (e *Engine) unlessChoiceComponentsPayable(p state.PlayerID, cost Cost, ctx 
 		if !isWholeZoneExileSpec(part.Spec) {
 			continue
 		}
-		avail := e.unlessCandidatesFor(p, *ctx, unlessExileZone(part), "exilecost", part, used)
+		avail := e.unlessCandidatesFor(p, *ctx, pay.UnlessExileZone(part), "exilecost", part, used)
 		if int32(len(avail)) < part.N {
 			return false
 		}
@@ -317,7 +317,7 @@ func (e *Engine) unlessChoiceComponentsPayable(p state.PlayerID, cost Cost, ctx 
 			continue
 		}
 		for i := int32(0); i < part.N; i++ {
-			subs = append(subs, slot{zone: unlessExileZone(part), kind: "exilecost", part: part})
+			subs = append(subs, slot{zone: pay.UnlessExileZone(part), kind: "exilecost", part: part})
 		}
 	}
 	if len(subs) == 0 {
@@ -327,34 +327,7 @@ func (e *Engine) unlessChoiceComponentsPayable(p state.PlayerID, cost Cost, ctx 
 	for i, s := range subs {
 		cands[i] = e.unlessCandidatesFor(p, *ctx, s.zone, s.kind, s.part, used)
 	}
-	return maxBipartiteMatch(cands) == len(subs)
-}
-
-// maxBipartiteMatch returns the maximum matching size between left slots and
-// the distinct right-side candidates, in deterministic slot/candidate order.
-func maxBipartiteMatch(cands [][]state.ObjID) int {
-	matchOf := map[state.ObjID]int{} // candidate -> slot
-	var try func(slot int, seen map[state.ObjID]bool) bool
-	try = func(slot int, seen map[state.ObjID]bool) bool {
-		for _, c := range cands[slot] {
-			if seen[c] {
-				continue
-			}
-			seen[c] = true
-			if prev, ok := matchOf[c]; !ok || try(prev, seen) {
-				matchOf[c] = slot
-				return true
-			}
-		}
-		return false
-	}
-	n := 0
-	for i := range cands {
-		if try(i, map[state.ObjID]bool{}) {
-			n++
-		}
-	}
-	return n
+	return pay.MaxBipartiteMatch(cands) == len(subs)
 }
 
 func (e *Engine) unlessDrawsResolvable(p state.PlayerID, cost Cost, ctx *effects.Ctx) bool {
@@ -382,47 +355,6 @@ func (e *Engine) beginUnlessPayment(payer state.PlayerID, cost Cost, ctx *effect
 	}
 	e.unlessPayment = &unlessPayment{payer: payer, cost: cost, ctx: cloneUnlessCtx(*ctx), stackObj: stackObj}
 	e.advanceUnlessPayment()
-}
-
-// unlessPartAt returns the cost component at flat index i across the
-// unlessPayment's Sac, Discard, Reveal, Behold, Return and Exile lists,
-// together with the zone its candidates come from and the option kind the wire
-// carries. The
-// option kind "revealcost" is the cast flow's own reveal-cost string
-// (rules/cast.go), and "exilecost" its exile-cost string, so a client sees
-// the same vocabulary for both paths.
-func unlessPartAt(cost Cost, i int) (CostPart, state.Zone, string) {
-	nSac, nDisc, nRev, nBeh := len(cost.Sac), len(cost.Discard), len(cost.Reveal), len(cost.Behold)
-	nRet := len(cost.Return)
-	switch {
-	case i < nSac:
-		return cost.Sac[i], state.ZBattlefield, "sacrifice"
-	case i < nSac+nDisc:
-		return cost.Discard[i-nSac], state.ZHand, "discard"
-	case i < nSac+nDisc+nRev:
-		return cost.Reveal[i-nSac-nDisc], state.ZHand, "revealcost"
-	case i < nSac+nDisc+nRev+nBeh:
-		// The zone field is the primary (battlefield) scan; the candidate
-		// enumeration for a beholdcost part deliberately scans BOTH the
-		// battlefield and the hand (CR 702.176).
-		return cost.Behold[i-nSac-nDisc-nRev], state.ZBattlefield, "beholdcost"
-	case i < nSac+nDisc+nRev+nBeh+nRet:
-		return cost.Return[i-nSac-nDisc-nRev-nBeh], state.ZBattlefield, "returncost"
-	default:
-		part := cost.Exile[i-nSac-nDisc-nRev-nBeh-nRet]
-		return part, unlessExileZone(part), "exilecost"
-	}
-}
-
-// unlessExileZone is the zone an Exile cost part draws from. CostPart.Zone's
-// zero value means the hand (the same reading the cast-cost parser's
-// FromHand arm leaves behind), so a FromGrave/AnyGrave part carries
-// state.ZGraveyard and a FromHand part reads as state.ZHand.
-func unlessExileZone(part CostPart) state.Zone {
-	if part.Zone == 0 {
-		return state.ZHand
-	}
-	return part.Zone
 }
 
 // paymentPartCount is the flat count of the choice-bearing components
@@ -464,7 +396,7 @@ func (e *Engine) advanceUnlessPayment() {
 		return
 	}
 	for u.part < u.paymentPartCount() {
-		part, zone, kind := unlessPartAt(u.cost, u.part)
+		part, zone, kind := pay.UnlessPartAt(u.cost, u.part)
 		eligible := e.unlessPaymentCandidates(u, zone, kind, part)
 		if int32(len(eligible)) < part.N {
 			e.finishUnlessPayment(false)
@@ -899,7 +831,7 @@ func (e *Engine) answerUnlessPayment(chosen []decision.Option) {
 	if u == nil || u.part >= u.paymentPartCount() {
 		return
 	}
-	part, zone, kind := unlessPartAt(u.cost, u.part)
+	part, zone, kind := pay.UnlessPartAt(u.cost, u.part)
 	ids := make([]state.ObjID, 0, len(chosen))
 	for _, o := range chosen {
 		if o.Obj != 0 {

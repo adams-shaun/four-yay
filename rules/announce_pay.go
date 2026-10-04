@@ -91,36 +91,6 @@ func decisionMadeAnnounceText(kind decision.Kind, choices []int, announce *decis
 	return decisionMadeText(kind, choices) + ";announce:" + announce.ActionID
 }
 
-// paymentOwed is what the floating pool does not yet cover of cost, for the
-// window readout (spec §4.1): each coloured and {C} pip is covered only by
-// its own pool slot, generic by whatever remains. It is exact for the V1
-// cost shapes an announce admits.
-func paymentOwed(c Cost, pool state.Mana) decision.PaymentCost {
-	var owed decision.PaymentCost
-	left := pool
-	for i := range c.Colored {
-		need := c.Colored[i]
-		if need <= 0 {
-			continue
-		}
-		use := min(need, max(left[i], 0))
-		left[i] -= use
-		owed.Mana[i] = uint32(need - use)
-	}
-	gen := c.Generic
-	for i := range left {
-		if gen <= 0 {
-			break
-		}
-		take := min(gen, max(left[i], 0))
-		gen -= take
-	}
-	if gen > 0 {
-		owed.Generic = uint32(gen)
-	}
-	return owed
-}
-
 // announcedAbilityColours is the colour list one ability flattens into in the
 // announced window (spec §4.2), or nil for a single option: an explicit Combo
 // (the manual wheel's own flattener), or -- for a planner-tier ability whose
@@ -185,7 +155,7 @@ func (e *Engine) announcedManaWindowAsk(pc *pendingCast, mana Cost) bool {
 	d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 		Prompt: "Pay for " + name, Source: pc.card}
 	d.ManaPayment = &decision.ManaPaymentWindow{Card: pc.card, Cost: pay.WireCost(mana),
-		Owed: paymentOwed(mana, pool), Pool: pay.ManaAmount(pool)}
+		Owed: pay.PaymentOwed(mana, pool), Pool: pay.ManaAmount(pool)}
 	if pc.paymentFallback != nil {
 		f := *pc.paymentFallback
 		d.PaymentFallback = &f
@@ -296,7 +266,7 @@ func (e *Engine) closeWindowTap(pc *pendingCast) {
 			}
 			taps++
 		case events.ManaAdd:
-			if ev.Player != pc.player || ev.Amount <= 0 || ev.Text != "" || !plainOrSnowManaCounter(ev.Counter) {
+			if ev.Player != pc.player || ev.Amount <= 0 || ev.Text != "" || !pay.PlainOrSnowManaCounter(ev.Counter) {
 				return
 			}
 			adds = append(adds, windowTapAdd{counter: ev.Counter, amount: ev.Amount})
@@ -308,20 +278,6 @@ func (e *Engine) closeWindowTap(pc *pendingCast) {
 		return
 	}
 	t.adds, t.reversible = adds, true
-}
-
-// plainOrSnowManaCounter admits a bare WUBRGC counter (or the empty default)
-// and a snow "S<colour>" counter; a typed-producer counter is not reversed.
-func plainOrSnowManaCounter(c string) bool {
-	switch len(c) {
-	case 0:
-		return true
-	case 1:
-		return strings.Contains("WUBRGC", c)
-	case 2:
-		return c[0] == 'S' && strings.ContainsRune("WUBRGC", rune(c[1]))
-	}
-	return false
 }
 
 // undoableWindowTap reports the last record when it can be reversed now
@@ -344,7 +300,7 @@ func (e *Engine) undoableWindowTap(pc *pendingCast) (windowTap, bool) {
 	pl := e.G.Players[pc.player]
 	var need, snow state.Mana
 	for _, a := range t.adds {
-		idx := manaCounterSlot(a.counter)
+		idx := pay.ManaCounterSlot(a.counter)
 		need[idx] += a.amount
 		if len(a.counter) == 2 {
 			snow[idx] += a.amount
@@ -356,17 +312,6 @@ func (e *Engine) undoableWindowTap(pc *pendingCast) (windowTap, bool) {
 		}
 	}
 	return t, true
-}
-
-// manaCounterSlot is the pool slot of a plain or snow ManaAdd counter.
-func manaCounterSlot(c string) int {
-	switch len(c) {
-	case 1:
-		return state.ManaIndex(c[0])
-	case 2:
-		return state.ManaIndex(c[1])
-	}
-	return state.MC
 }
 
 // undoWindowTap reverses the last record (spec §5): one ManaUndo per recorded
