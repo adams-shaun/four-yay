@@ -108,7 +108,7 @@ func TestSAChainMayAskAttachAndAbilitySubTargets(t *testing.T) {
 	if !SAChainMayAsk(ab.Abilities[0], ab.SVars, ab, true) {
 		t.Fatal("an ability's sub-ability target set is asked mid-resolution")
 	}
-	if g := SAChainBoardGates(ab.Abilities[0], ab.SVars); g != GateDamage {
+	if g := SAChainBoardGates(ab.Abilities[0], ab.SVars); !g.Has(ReplDamageDone) || g.Has(ReplMoved) {
 		t.Fatalf("board gates %b, want the damage gate", g)
 	}
 }

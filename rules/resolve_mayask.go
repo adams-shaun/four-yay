@@ -22,6 +22,7 @@ package rules
 // so the per-resolution cost is a few loads.
 
 import (
+	"math/bits"
 	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -147,16 +148,20 @@ func saMayAskState(sa *cards.SA, svars map[string]string, self *cards.Face) uint
 }
 
 // mayAskOnBoard resolves a cache state against the board: an ask-free text
-// asks only through a board gate it opens.
+// asks only through a board gate it opens (replEventGates).
 func mayAskOnBoard(e *Engine, st uint32) bool {
 	if st&mayAskText != 0 {
 		return true
 	}
-	g := uint8(st >> mayAskGateShift)
-	return (g&cards.GateTokens != 0 && tapeReplMayAsk(e, "CreateToken")) ||
-		(g&cards.GateDamage != 0 && tapeReplMayAsk(e, "DamageDone")) ||
-		(g&cards.GateDraw != 0 && tapeDredgeMayAsk(e)) ||
-		(g&cards.GateLife != 0 && tapeReplMayAsk(e, "GainLife"))
+	g := cards.ReplEventMask(st >> mayAskGateShift)
+	for g != 0 {
+		k := cards.ReplEvent(bits.TrailingZeros32(uint32(g)))
+		g &^= 1 << k
+		if ask := replEventGates[k].ask; ask == nil || ask(e) {
+			return true // an ungated event is "may ask" (the census holds this empty)
+		}
+	}
+	return false
 }
 
 // tapeDredgeMayAsk is the draw gate: a card with Dredge in any graveyard
@@ -188,7 +193,7 @@ func tapeReplMayAsk(e *Engine, event string) bool {
 	// Effect-created replacements (an Effect's ReplacementEffects$: Soul
 	// Echo's per-upkeep damage shield) live on the continuous effects.
 	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
-		if ce := &ceL[ceI]; ce.ReplacementEvent == event {
+		if ce := &ceL[ceI]; replacementEventNameMatches(ce.ReplacementEvent, event) {
 			if n++; n > 1 || event == "CreateToken" || cards.ReplParamsMayElect(ce.ReplacementParams) {
 				return true
 			}
@@ -205,7 +210,7 @@ func tapeReplMayAsk(e *Engine, event string) bool {
 		}
 		for i := range f.Repls {
 			r := &f.Repls[i]
-			if r.Event != event {
+			if !replacementEventNameMatches(r.Event, event) {
 				continue
 			}
 			if n++; n > 1 || cards.ReplMayElect(r) {

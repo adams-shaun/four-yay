@@ -121,16 +121,111 @@ func saDenied(s *SA) bool {
 // askFreeAPI reports whether api's primitive poses no decision unless a
 // denied parameter is present. Every API not listed is "may ask".
 func askFreeAPI(api string) bool {
-	switch api {
-	case "Pump", "PumpAll", "DealDamage", "DamageAll", "GainLife", "LoseLife",
-		"Draw", "Mill", "PutCounter", "PutCounterAll", "Token", "Destroy",
-		"DestroyAll", "Tap", "TapAll", "UntapAll", "Attach", "Counter", "Charm",
-		"ImmediateTrigger", "Cleanup", "ChangeZone", "Animate", "Debuff",
-		"Regenerate", "StoreSVar", "MultiplyCounter", "Effect", "Fight",
-		"CopyPermanent":
-		return true
+	_, ok := AskFreeAPIEvents(api)
+	return ok
+}
+
+// ReplEventMask is a set of ReplEvents: bit k is ReplEvent(k).
+type ReplEventMask uint32
+
+// Has reports whether ev is in m.
+func (m ReplEventMask) Has(ev ReplEvent) bool { return m&(1<<ev) != 0 }
+
+func replMask(evs ...ReplEvent) ReplEventMask {
+	var m ReplEventMask
+	for _, ev := range evs {
+		m |= 1 << ev
 	}
-	return false
+	return m
+}
+
+// askFreeAPIEntry is one allowlisted API and the replaceable events its
+// primitive -- and the moves it makes -- can propose while it resolves: the
+// board gates (rules' replEventGates) an otherwise ask-free chain opens. A
+// replacement on such an event can ask as it applies (an Optional$
+// election, or two of them competing for one event: the CR 616.1 order
+// choice), which text alone cannot see.
+type askFreeAPIEntry struct {
+	api    string
+	events ReplEventMask
+}
+
+// askFreeAPITable is the allowlist, sorted by api (AskFreeAPIEvents binary
+// searches it). An API with no events still names its decision: nothing it
+// does is a replaceable event an R: line can name.
+var askFreeAPITable = [...]askFreeAPIEntry{
+	{"Animate", 0},
+	{"Attach", replMask(ReplAttached)},
+	{"ChangeZone", replMask(ReplMoved)},
+	{"Charm", 0}, // its Choices$ bodies are walked themselves
+	{"Cleanup", 0},
+	{"CopyPermanent", replMask(ReplCreateToken, ReplMoved)},
+	{"Counter", replMask(ReplCounter, ReplMoved)},
+	// Damage to a player is life loss; lifelink gains life; infect, wither
+	// and toxic place counters.
+	{"DamageAll", replMask(ReplDamageDone, ReplLifeReduced, ReplGainLife, ReplAddCounter)},
+	{"DealDamage", replMask(ReplDamageDone, ReplLifeReduced, ReplGainLife, ReplAddCounter)},
+	{"Debuff", 0},
+	{"Destroy", replMask(ReplMoved)},
+	{"DestroyAll", replMask(ReplMoved)},
+	// A draw is a Draw event (DrawCards is its alias: rules' replEventBit
+	// shares the bit) and a library-to-hand move.
+	{"Draw", replMask(ReplDraw, ReplMoved)},
+	{"Effect", 0},
+	{"Fight", replMask(ReplDamageDone, ReplLifeReduced, ReplGainLife, ReplAddCounter)},
+	{"GainLife", replMask(ReplGainLife)},
+	{"ImmediateTrigger", 0},
+	{"LoseLife", replMask(ReplLifeReduced)},
+	{"Mill", replMask(ReplMoved)},
+	{"MultiplyCounter", replMask(ReplAddCounter)},
+	{"Pump", 0},
+	{"PumpAll", 0},
+	{"PutCounter", replMask(ReplAddCounter)},
+	{"PutCounterAll", replMask(ReplAddCounter)},
+	{"Regenerate", 0},
+	{"StoreSVar", 0},
+	{"Tap", 0}, // no Tap event in the R: vocabulary
+	{"TapAll", 0},
+	{"Token", replMask(ReplCreateToken, ReplMoved)},
+	{"UntapAll", replMask(ReplUntap)},
+}
+
+// AskFreeAPIEvents reports whether api is allowlisted (its primitive poses
+// no decision unless a denied parameter is present) and the replaceable
+// events it can propose.
+func AskFreeAPIEvents(api string) (ReplEventMask, bool) {
+	lo, hi := 0, len(askFreeAPITable)
+	for lo < hi {
+		m := int(uint(lo+hi) >> 1)
+		if askFreeAPITable[m].api < api {
+			lo = m + 1
+		} else {
+			hi = m
+		}
+	}
+	if lo < len(askFreeAPITable) && askFreeAPITable[lo].api == api {
+		return askFreeAPITable[lo].events, true
+	}
+	return 0, false
+}
+
+// AskFreeAPIGates is the union of every allowlisted API's events: the
+// replaceable events an ask-free chain can reach at all.
+func AskFreeAPIGates() ReplEventMask {
+	var m ReplEventMask
+	for _, e := range askFreeAPITable {
+		m |= e.events
+	}
+	return m
+}
+
+// AskFreeAPINames lists the allowlist, sorted.
+func AskFreeAPINames() []string {
+	out := make([]string, len(askFreeAPITable))
+	for i, e := range askFreeAPITable {
+		out[i] = e.api
+	}
+	return out
 }
 
 // maxMayAskDepth bounds the Charm Choices$ recursion.
@@ -252,46 +347,29 @@ func changeZoneMayAsk(s *SA, self *Face) bool {
 	return false
 }
 
-// Board gates: the board-dependent asks an otherwise ask-free chain can
-// meet, which rules' object half reads off the replacement sources.
-const (
-	// GateTokens: the chain creates tokens, so a CreateToken replacement
-	// (an optional copy election, a CR 616.1 order choice) can ask.
-	GateTokens uint8 = 1 << iota
-	// GateDamage: the chain deals damage, so competing DamageDone
-	// replacements (CR 616.1) or an optional one can ask.
-	GateDamage
-	// GateDraw: the chain draws, so a Dredge card in the drawer's graveyard
-	// (CR 702.55) offers its replacement.
-	GateDraw
-	// GateLife: the chain gains life, so competing GainLife replacements
-	// (CR 616.1: two Rhox Faithmender-style rewrites) or an optional one
-	// can ask.
-	GateLife
-)
-
-// SAChainBoardGates reports which board gates sa's SubAbility$ chain (and a
-// Charm's Choices$ bodies) opens through its allowlisted APIs.
-func SAChainBoardGates(sa *SA, svars map[string]string) uint8 {
+// SAChainBoardGates reports which replaceable events sa's SubAbility$ chain
+// (and a Charm's Choices$ bodies) can propose through its allowlisted APIs:
+// the board gates rules reads off the replacement sources. A chain outside
+// the allowlist is judged "may ask" by SAChainMayAsk before its gates matter.
+func SAChainBoardGates(sa *SA, svars map[string]string) ReplEventMask {
 	return saChainBoardGates(sa, svars, 0)
 }
 
-func saChainBoardGates(sa *SA, svars map[string]string, depth int) uint8 {
+// allReplEvents is every event bit, the depth-exhausted answer.
+const allReplEvents = ReplEventMask(1<<ReplEventCount-1) &^ 1
+
+func saChainBoardGates(sa *SA, svars map[string]string, depth int) ReplEventMask {
 	if depth > maxMayAskDepth {
-		return GateTokens | GateDamage | GateDraw | GateLife
+		return allReplEvents
 	}
-	var g uint8
+	var g ReplEventMask
 	for s := sa; s != nil; s = s.Sub {
-		switch s.API {
-		case "Token", "CopyPermanent":
-			g |= GateTokens
-		case "DealDamage", "DamageAll", "Fight":
-			g |= GateDamage
-		case "Draw":
-			g |= GateDraw
-		case "GainLife":
-			g |= GateLife
-		case "Charm":
+		ev, ok := AskFreeAPIEvents(s.API)
+		if !ok {
+			return allReplEvents
+		}
+		g |= ev
+		if s.API == "Charm" {
 			choices, _ := s.Param(PKChoices)
 			for _, n := range strings.Split(choices, ",") {
 				if body := ResolveSVar(svars, strings.TrimSpace(n)); body != nil {
