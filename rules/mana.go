@@ -472,7 +472,7 @@ func (e *Engine) offerSacXMods(p state.PlayerID, id state.ObjID, ability bool, b
 // announcement exist" half of CR 601.2. Modal spells have no selected mode
 // yet and therefore conservatively contribute no potential discount.
 func (e *Engine) costPotentialTargets(p state.PlayerID, id state.ObjID, scope costScope) []state.Target {
-	sa := e.costTargetingSA(id, scope)
+	sa := pay.CostTargetingSA(e.G, id, scope)
 	if sa == nil || !effects.TargetsOf(sa).Targeted() || sa.ParamStr(cards.PKChoices) != "" {
 		return nil
 	}
@@ -490,26 +490,6 @@ func (e *Engine) costPotentialTargets(p state.PlayerID, id state.ObjID, scope co
 		}
 	}
 	return out
-}
-
-// costTargetingSA returns the spell or activated ability whose ValidTgts$ and
-// TargetMin$/TargetMax$ a target-relative cost read shares. A spell's face
-// carries the declaration while it is in hand; an activated ability is the
-// scope's own SA. This is the ONE derivation costPotentialTargets and
-// costAmountTargets use, so the offer census and the amount's legal-assignment
-// size can never name different declarations.
-func (e *Engine) costTargetingSA(id state.ObjID, scope costScope) *cards.SA {
-	if scope.Kind == "Static" {
-		// A special action (specialActionScope) announces no targets.
-		return nil
-	}
-	if scope.Kind == "Ability" {
-		return scope.Ab
-	}
-	if o := e.G.Obj(id); o != nil && o.Face() != nil {
-		return o.Face().SpellAbility()
-	}
-	return nil
 }
 
 // costAmountTargets trims a potential-target census to a COMPLETE LEGAL TARGET
@@ -532,7 +512,7 @@ func (e *Engine) costAmountTargets(p state.PlayerID, id state.ObjID, scope costS
 	if len(targets) == 0 {
 		return targets
 	}
-	sa := e.costTargetingSA(id, scope)
+	sa := pay.CostTargetingSA(e.G, id, scope)
 	if sa == nil {
 		return targets
 	}
@@ -662,15 +642,6 @@ func (e *Engine) manaActivationCostMarker(abilities []*cards.SA) string {
 		}
 	}
 	return ""
-}
-
-// energyPayable reports whether the payer's ENERGY counter total covers the
-// cost's fixed energy parts (Forge CostPayEnergy.canPay reads the same total).
-// A dynamic PayEnergy<X> part is bounded by that total at its own X ask, so
-// this gate makes no assumption about the not-yet-chosen value.
-func (e *Engine) energyPayable(p state.PlayerID, c *Cost) bool {
-	total := c.EnergyCostTotal()
-	return total == 0 || e.G.Players[p].Counter("ENERGY") >= total
 }
 
 // PayLifeInsteadOfB (pay.Engine) reports whether p's side of the battlefield

@@ -10,6 +10,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -607,7 +608,7 @@ func (e *Engine) exAsk() bool {
 			sc = &bound
 		}
 		var candidates []state.ObjID
-		for _, oid := range e.exileCostCandidates(zone, pc.player, part) {
+		for _, oid := range pay.ExileCostCandidates(e.G, zone, pc.player, part) {
 			// A CAST (pc.ability < 0) can never exile the card it is casting:
 			// the card sits in this zone until pushCast runs (CR 601.2a pushes
 			// AFTER the cost asks), so without this skip a `Card` spec would

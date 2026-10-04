@@ -553,7 +553,7 @@ func (e *Engine) advanceUnlessPayment() {
 	if u.ctx.XAnnounced {
 		x = u.ctx.X
 	}
-	e.chargeEnergyCost(u.payer, u.cost, x)
+	pay.ChargeEnergyCost(asPayer(e), u.payer, u.cost, x)
 	// The settled reveal picks are announced exactly like the cast flow's
 	// emitChoiceCosts announces them: one public Note carrying the revealed
 	// ids (the cards STAY in hand), emitted only on the paid path. The

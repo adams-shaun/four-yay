@@ -616,7 +616,7 @@ func srchPhaseTwoChoices(t *testing.T, e *Engine, p state.PlayerID) [][]pay.Alt 
 			if tier == pay.TierDeferred || !paymentPlanTapOnlyCost(e.parseCost(alt.Ma.Params["Cost"])) {
 				continue
 			}
-			ab, ok := e.paymentAbility(u.ID, alt.Ma)
+			ab, ok := pay.PaymentAbility(e.G, u.ID, alt.Ma)
 			if !ok {
 				continue
 			}

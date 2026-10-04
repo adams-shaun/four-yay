@@ -190,11 +190,11 @@ func (e *Engine) announcedManaWindowAsk(pc *pendingCast, mana Cost) bool {
 		f := *pc.paymentFallback
 		d.PaymentFallback = &f
 	}
-	for _, id := range e.manaSourceIDs(p) {
+	for _, id := range pay.ManaSourceIDs(e.G, p) {
 		if e.convokeCommitted(pc, id) || !e.untappedManaSource(p, id) {
 			continue
 		}
-		chosen := e.chosenProducedColour(id)
+		chosen := pay.ChosenProducedColour(e.G, id)
 		for i, ma := range e.availableManaAbilitiesForWindow(p, id, false) {
 			marker := e.manaActivationCostMarker([]*cards.SA{ma})
 			if cols := e.announcedAbilityColours(p, id, ma, chosen); len(cols) > 0 {

@@ -1116,7 +1116,7 @@ func censusZone(z string) (state.Zone, bool) {
 // v1Member is the ground truth: the ability is one of the exact one-tap
 // outcomes the real planner would search over for this source.
 func (cz *autopayCensus) v1Member(e *Engine, id state.ObjID, ma *cards.SA) bool {
-	ab, ok := e.paymentAbility(id, ma)
+	ab, ok := pay.PaymentAbility(e.G, id, ma)
 	if !ok {
 		return false
 	}
@@ -1182,7 +1182,7 @@ func (cz *autopayCensus) v1Structural(e *Engine, id state.ObjID, ma *cards.SA) s
 	if !paymentPlanTapOnlyCost(cost) {
 		return "paymentPlanTapOnlyCost (no {T} or extra part)"
 	}
-	if _, ok := e.paymentAbility(id, ma); !ok {
+	if _, ok := pay.PaymentAbility(e.G, id, ma); !ok {
 		return "paymentAbility (granted/merged/foreign)"
 	}
 	altOK := !any && ma.API == "Mana" && total > 0
@@ -1220,7 +1220,7 @@ func (cz *autopayCensus) v1WindowGate(e *Engine, id state.ObjID, ma *cards.SA) s
 		return "CantBeActivated"
 	case !e.manaAbilityPayable(0, id, ma):
 		return "manaAbilityPayable (cost unpayable on census board)"
-	case e.instantSpeedOnly(ma):
+	case pay.InstantSpeedOnly(ma):
 		return "InstantSpeed$ (payment window withholds)"
 	}
 	return "other (activation limit / granted walk)"
@@ -1258,7 +1258,7 @@ func (cz *autopayCensus) evalActivated(row *censusRow) {
 	// Structural: the planner's own predicates admit the shape, so a board
 	// where its activation gate holds (Activation$, IsPresent$, ...) and no
 	// interference is live makes it a V1 source.
-	row.v1Structural = yn(structural == "ok" && !intf && zone == state.ZBattlefield && !e.instantSpeedOnly(ma))
+	row.v1Structural = yn(structural == "ok" && !intf && zone == state.ZBattlefield && !pay.InstantSpeedOnly(ma))
 	switch {
 	case member && intf:
 		row.v1Eligible, row.v1Reason = "N", "paymentPlanManaInterference (a global mana effect reaches the payer)"

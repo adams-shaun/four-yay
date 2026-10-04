@@ -11,6 +11,7 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -22,7 +23,7 @@ func recordChosenGreen(t *testing.T, e *Engine, id state.ObjID) {
 		t.Fatalf("precondition: source %d is not an untapped battlefield permanent: %+v", id, o)
 	}
 	e.emit(events.Event{Kind: events.Choose, Obj: id, Counter: "color", Text: "G"})
-	if got := e.chosenProducedColour(id); got != "G" {
+	if got := pay.ChosenProducedColour(e.G, id); got != "G" {
 		t.Fatalf("precondition: recorded chosen colour = %q, want G", got)
 	}
 }

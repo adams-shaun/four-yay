@@ -884,7 +884,7 @@ func (e *Engine) triggeredCostXAsk(tc *triggeredEffectCost) bool {
 	var opts []decision.Option
 	for x := int32(0); x <= bound; x++ {
 		v := foldCostX(tc.amount, x)
-		if !e.energyPayable(tc.player, &v) || !pay.CostPayablePool(asPayer(e), tc.player, tc.source, false, v, pot, e.G.Players[tc.player].ManaUnits()) {
+		if !pay.EnergyPayable(e.G, tc.player, &v) || !pay.CostPayablePool(asPayer(e), tc.player, tc.source, false, v, pot, e.G.Players[tc.player].ManaUnits()) {
 			continue
 		}
 		opts = append(opts, decision.Option{Index: len(opts), Kind: "trigger_cost_x",
@@ -1045,7 +1045,7 @@ func (tc *triggeredEffectCost) announcedCost() Cost {
 // is (CR 107.4e).
 func (e *Engine) triggeredCostPayable(tc *triggeredEffectCost) bool {
 	amt := tc.announcedCost()
-	if !e.energyPayable(tc.player, &amt) {
+	if !pay.EnergyPayable(e.G, tc.player, &amt) {
 		return false
 	}
 	rest := amt.WithoutEnergy()
@@ -1477,7 +1477,7 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 			draws, ok := e.triggeredCostDrawCounts(tc)
 			if ok && pay.PayManaConv(asPayer(e), tc.player, announced.WithoutEnergy(), asPayer(e).Conv(tc.player, tc.source, false)) {
 				paid = true
-				e.chargeEnergyCost(tc.player, tc.amount, tc.xPaid)
+				pay.ChargeEnergyCost(asPayer(e), tc.player, tc.amount, tc.xPaid)
 				for i, part := range announced.Draw {
 					if drawer, ok := castFlowDrawPlayer(part.Spec, tc.player); ok {
 						for n := int32(0); n < draws[i]; n++ {
@@ -1495,7 +1495,7 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 			paid = lower.Priceable() &&
 				pay.PayManaConv(asPayer(e), tc.player, lower, asPayer(e).Conv(tc.player, tc.source, false))
 			if paid {
-				e.chargeEnergyCost(tc.player, tc.amount, tc.xPaid)
+				pay.ChargeEnergyCost(asPayer(e), tc.player, tc.amount, tc.xPaid)
 			}
 		}
 	}
@@ -1821,7 +1821,7 @@ func (e *Engine) settleTriggeredMandatory(tc *triggeredEffectCost) {
 	}
 	// The energy half of the component cost (payMana ignores Energy parts):
 	// the gate already confirmed the payer covers it (triggeredCostPayable).
-	e.chargeEnergyCost(tc.player, tc.amount, tc.xPaid)
+	pay.ChargeEnergyCost(asPayer(e), tc.player, tc.amount, tc.xPaid)
 	rp := tc.resume
 	e.triggerCost = nil
 	e.choosing = chooseNone

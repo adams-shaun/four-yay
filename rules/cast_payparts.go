@@ -9,27 +9,9 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
-
-// chargeEnergyCost spends a cost's energy parts from the payer's pool, one
-// PlayerCounterChange per part (a player counter, not an object's -- CR
-// 118.2d). A fixed part spends its N; a dynamic part spends the announced x.
-// This is the ONE energy-charging site, shared by the cast/activation payment
-// path and the triggered-cost window, so a paid cost can never spend its
-// energy in one place and skip it in another.
-func (e *Engine) chargeEnergyCost(p state.PlayerID, c Cost, x int32) {
-	for _, part := range c.Energy {
-		amt := part.N
-		if part.Spec == "X" {
-			amt = x
-		}
-		if amt > 0 {
-			e.emit(events.Event{Kind: events.PlayerCounterChange, Player: p,
-				Counter: "ENERGY", Amount: -amt})
-		}
-	}
-}
 
 // exileFromTopCards returns the aggregate top-of-library prefix paid by a set
 // of ExileFromTop parts. Parts do not each get to reuse the same prefix.
@@ -45,35 +27,6 @@ func exileFromTopCards(lib []state.ObjID, parts []CostPart) ([]state.ObjID, bool
 		return nil, false
 	}
 	return append([]state.ObjID(nil), lib[:int(n)]...), true
-}
-
-// exileCostCandidates is the zone scan both the offerability walk
-// (nonManaCastable) and the payment chooser (exAsk) use for one Exile cost
-// part. A bound referent (a granted ability's OriginalHost -- The Dominion
-// Bracelet) names the GRANTOR permanent, which need not be controlled by the
-// activating player: control of the creature carrying the granted ability
-// can change hands while the grant stays, and its new controller may still
-// activate it. Such a referent is therefore appended to the payer's own zone
-// list whenever it sits in the required zone, regardless of controller; the
-// ordinary filter path below stays payer-only. One helper means offer and
-// payment can never disagree about which objects can pay.
-func (e *Engine) exileCostCandidates(zone state.Zone, p state.PlayerID, part CostPart) []state.ObjID {
-	cands := e.G.Zone(zone, p)
-	if part.Referent == 0 {
-		return cands
-	}
-	o := e.G.Obj(part.Referent)
-	if o == nil || o.Zone != zone {
-		return cands
-	}
-	for _, oid := range cands {
-		if oid == part.Referent {
-			return cands
-		}
-	}
-	out := make([]state.ObjID, 0, len(cands)+1)
-	out = append(out, cands...)
-	return append(out, part.Referent)
 }
 
 // nonManaCastable is castable's payment-independent tail. Cost-modifier
@@ -151,7 +104,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 		selfInZone := !ability && castObj != nil && castObj.Zone == zone
 		wholeZone := isWholeZoneExileSpec(part.Spec)
 		var avail []state.ObjID
-		for _, oid := range e.exileCostCandidates(zone, p, part) {
+		for _, oid := range pay.ExileCostCandidates(e.G, zone, p, part) {
 			if reserved[oid] || (selfInZone && oid == id) {
 				continue
 			}
@@ -349,7 +302,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 	// total at the X ask, so the offer gate needs no assumption about the
 	// not-yet-chosen value. The read is the shared energyPayable helper, so
 	// the cast path and the triggered-cost window cannot disagree about it.
-	if !e.energyPayable(p, cost) {
+	if !pay.EnergyPayable(e.G, p, cost) {
 		return false
 	}
 	// Return cost parts (Return<N/Spec>): the source itself (Spec CARDNAME,
@@ -622,45 +575,8 @@ func (e *Engine) settlePutToLibCost(pc *pendingCast) {
 			}
 		}
 		if part.LibraryPos == 0 && len(picks) > 0 {
-			e.putLibPicksOnTop(picks)
+			pay.PutLibPicksOnTop(asPayer(e), picks)
 		}
-	}
-}
-
-// putLibPicksOnTop emits the LibraryOrder that lifts the just-moved picks to
-// the top of each owner's library, preserving pick order. MoveZone already
-// appended them to the bottom; the order carries the complete new library and
-// is Secret (a hidden zone must not leak). Grouped per owner in first-pick
-// order -- deterministic because the picks slice is -- so a pick owned by
-// another player lands in the right library (the zone owner Move already used).
-func (e *Engine) putLibPicksOnTop(picks []state.ObjID) {
-	byOwner := map[state.PlayerID][]state.ObjID{}
-	var owners []state.PlayerID
-	for _, id := range picks {
-		o := e.G.Obj(id)
-		if o == nil || o.Zone != state.ZLibrary {
-			continue
-		}
-		if _, ok := byOwner[o.Owner]; !ok {
-			owners = append(owners, o.Owner)
-		}
-		byOwner[o.Owner] = append(byOwner[o.Owner], id)
-	}
-	for _, owner := range owners {
-		sel := byOwner[owner]
-		selected := make(map[state.ObjID]bool, len(sel))
-		for _, id := range sel {
-			selected[id] = true
-		}
-		lib := e.G.Zone(state.ZLibrary, owner)
-		order := make([]state.ObjID, 0, len(lib))
-		order = append(order, sel...)
-		for _, id := range lib {
-			if !selected[id] {
-				order = append(order, id)
-			}
-		}
-		e.emit(events.Event{Kind: events.LibraryOrder, Player: owner, IDs: order, Secret: true})
 	}
 }
 

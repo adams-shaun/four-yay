@@ -14,6 +14,7 @@ package rules
 import (
 	"testing"
 
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -52,7 +53,7 @@ func TestRelativeReduceCostResolvedZeroMaxEmptyOnSingleCandidate(t *testing.T) {
 	if n := countType(t, e, 0); n != 0 {
 		t.Fatalf("precondition: caster must control 0 creatures (X=0), got %d", n)
 	}
-	sa := e.costTargetingSA(spellID, spellScope(""))
+	sa := pay.CostTargetingSA(e.G, spellID, spellScope(""))
 	if sa == nil {
 		t.Fatal("precondition: spell has no targeting SA")
 	}
@@ -84,7 +85,7 @@ func TestRelativeReduceCostResolvedOneMaxKeepsSingleCandidate(t *testing.T) {
 	if n := countType(t, e, 0); n != 1 {
 		t.Fatalf("precondition: caster must control exactly 1 creature (X=1), got %d", n)
 	}
-	sa := e.costTargetingSA(spellID, spellScope(""))
+	sa := pay.CostTargetingSA(e.G, spellID, spellScope(""))
 	if sa == nil {
 		t.Fatal("precondition: spell has no targeting SA")
 	}

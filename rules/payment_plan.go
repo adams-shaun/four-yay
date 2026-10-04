@@ -1121,7 +1121,7 @@ func (e *Engine) paymentPlanAbilityShapeTier(p state.PlayerID, id state.ObjID, m
 	deferred := func(detail string) (pay.Tier, pay.Consequence, string) {
 		return pay.TierDeferred, pay.Consequence{}, detail
 	}
-	if e.paymentPlanRiderHasTarget(id, ma) {
+	if pay.PlanRiderHasTarget(e.G, id, ma) {
 		return deferred("source:target")
 	}
 	if !paymentPlanTapOnlyCost(cost) {
@@ -1255,23 +1255,6 @@ func paymentPlanDamageBody(rider *cards.SA) (uint32, bool) {
 	return uint32(n), true
 }
 
-func (e *Engine) paymentPlanRiderHasTarget(id state.ObjID, mana *cards.SA) bool {
-	o := e.G.Obj(id)
-	if o == nil || o.Face() == nil {
-		return true
-	}
-	rider := cards.ResolveSVar(o.Face().SVars, strings.TrimSpace(mana.ParamStr(cards.PKSubAbility)))
-	if rider == nil {
-		return false
-	}
-	for _, key := range slices.Sorted(maps.Keys(rider.Params)) {
-		if strings.Contains(strings.ToLower(key), "target") || key == "ValidTgts" || key == "ValidTarget" {
-			return true
-		}
-	}
-	return false
-}
-
 func (e *Engine) paymentPlanParadiseRider(id state.ObjID, mana *cards.SA) bool {
 	o := e.G.Obj(id)
 	if o == nil || o.Face() == nil {
@@ -1335,7 +1318,7 @@ func (e *Engine) appendUnitAlternatives(dst []pay.Alt, u windowManaUnit) (grown,
 		default:
 			continue
 		}
-		ab, ok := e.paymentAbility(u.ID, alt.Ma)
+		ab, ok := pay.PaymentAbility(e.G, u.ID, alt.Ma)
 		if !ok {
 			continue
 		}
@@ -1430,17 +1413,17 @@ func (e *Engine) paymentPlanChoiceColours(id state.ObjID, ma *cards.SA) []string
 	case paymentPlanChoiceColoursAny:
 		return []string{"W", "U", "B", "R", "G"}
 	case paymentPlanChoiceColoursChosen:
-		if col := e.chosenProducedColour(id); col != "" {
+		if col := pay.ChosenProducedColour(e.G, id); col != "" {
 			return []string{col}
 		}
 		return nil
 	case paymentPlanChoiceColoursColorIdentity:
-		return e.commanderIdentityColours(e.paymentPlanController(id))
+		return e.commanderIdentityColours(pay.PlanController(e.G, id))
 	}
 	// Reuse the manual wheel's own flattener: it substitutes a recorded
 	// Chosen tail and dedups a recorded colour equal to a fixed token, so the
 	// plan and the wheel cannot disagree about a Combo that resolves cleanly.
-	if cols, ok := manaAbilityComboColours(ma, e.chosenProducedColour(id)); ok {
+	if cols, ok := manaAbilityComboColours(ma, pay.ChosenProducedColour(e.G, id)); ok {
 		return cols
 	}
 	if !strings.HasPrefix(raw, "Combo ") {
@@ -1456,11 +1439,11 @@ func (e *Engine) paymentPlanChoiceColours(id state.ObjID, ma *cards.SA) []string
 		switch {
 		case tok == "Combo":
 		case tok == "Chosen" || tok == "ChosenColor":
-			if col := e.chosenProducedColour(id); col != "" {
+			if col := pay.ChosenProducedColour(e.G, id); col != "" {
 				cols = pay.AppendColourOnce(cols, col)
 			}
 		case tok == "ColorIdentity":
-			for _, col := range e.commanderIdentityColours(e.paymentPlanController(id)) {
+			for _, col := range e.commanderIdentityColours(pay.PlanController(e.G, id)) {
 				cols = pay.AppendColourOnce(cols, col)
 			}
 		case len(tok) == 1 && strings.ContainsRune("WUBRG", rune(tok[0])):
@@ -1473,16 +1456,6 @@ func (e *Engine) paymentPlanChoiceColours(id state.ObjID, ma *cards.SA) []string
 		return nil
 	}
 	return cols
-}
-
-// paymentPlanController is the controller of source id, or seat 0 for a
-// source that is no longer on the battlefield (the helper is only reached
-// with a live battlefield source, but a nil read must never panic).
-func (e *Engine) paymentPlanController(id state.ObjID) state.PlayerID {
-	if o := e.G.Obj(id); o != nil {
-		return o.Controller
-	}
-	return 0
 }
 
 // paymentPlanStepAlternative resolves one witness step to the exact
@@ -1513,22 +1486,6 @@ func (e *Engine) paymentPlanStepAlternative(units []windowManaUnit, pa decision.
 		}
 	}
 	return pay.Alt{}, false
-}
-
-func (e *Engine) paymentAbility(id state.ObjID, ma *cards.SA) (decision.PaymentAbility, bool) {
-	o := e.G.Obj(id)
-	if o == nil || o.Face() == nil || ma == nil {
-		return decision.PaymentAbility{}, false
-	}
-	if strings.HasPrefix(ma.Line, "intrinsic:") {
-		return decision.PaymentAbility{Kind: decision.PaymentAbilityIntrinsic, Intrinsic: "basic_land"}, true
-	}
-	for i, a := range o.Face().Abilities {
-		if a == ma {
-			return decision.PaymentAbility{Kind: decision.PaymentAbilityPrinted, Face: uint32(o.FaceIdx), Index: uint32(i)}, true
-		}
-	}
-	return decision.PaymentAbility{}, false // grants, merged and foreign abilities are V1 exclusions.
 }
 
 // paymentSourceZoneSeq is the existing log sequence of this object's current

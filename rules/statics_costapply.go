@@ -9,6 +9,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -289,7 +290,7 @@ func (e *Engine) costTargetsMatch(sv staticView, spec string, targets []state.Ta
 // (affordableTargetCandidates).
 func (e *Engine) costTargetsUnless(sv staticView, spec string, id state.ObjID, scope costScope, targets []state.Target) bool {
 	if len(targets) == 0 {
-		sa := e.costTargetingSA(id, scope)
+		sa := pay.CostTargetingSA(e.G, id, scope)
 		return sa == nil || !effects.TargetsOf(sa).Targeted()
 	}
 	return !e.costTargetsMatch(sv, spec, targets)

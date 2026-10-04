@@ -346,7 +346,7 @@ func (e *Engine) manaWindowAsk() bool {
 		return e.announcedManaWindowAsk(pc, mana)
 	}
 	var sources []state.ObjID
-	for _, id := range e.manaSourceIDs(pc.player) {
+	for _, id := range pay.ManaSourceIDs(e.G, pc.player) {
 		if !e.convokeCommitted(pc, id) && e.untappedManaSource(pc.player, id) {
 			sources = append(sources, id)
 		}
@@ -419,7 +419,7 @@ func (e *Engine) convokeCommitted(pc *pendingCast, id state.ObjID) bool {
 // restriction).
 func (e *Engine) untappedManaSource(p state.PlayerID, id state.ObjID) bool {
 	for _, ma := range e.availableManaAbilities(p, id) {
-		if e.instantSpeedOnly(ma) {
+		if pay.InstantSpeedOnly(ma) {
 			continue
 		}
 		return true
@@ -431,7 +431,7 @@ func (e *Engine) untappedManaSource(p state.PlayerID, id state.ObjID) bool {
 // with a usable mana ability -- the condition under which the 601.2g window
 // could supply the mana a pool alone cannot.
 func (e *Engine) hasUntappedManaSource(p state.PlayerID) bool {
-	for _, id := range e.manaSourceIDs(p) {
+	for _, id := range pay.ManaSourceIDs(e.G, p) {
 		if e.untappedManaSource(p, id) {
 			return true
 		}

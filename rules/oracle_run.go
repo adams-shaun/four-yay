@@ -30,6 +30,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -588,7 +589,7 @@ func (r *oracleRun) manaAbilityLabels(seat state.PlayerID, id state.ObjID) []str
 	abilities := r.e.availableManaAbilities(seat, id)
 	labels := make([]string, 0, len(abilities))
 	for _, ma := range abilities {
-		labels = append(labels, manaAbilityLabel(ma, r.e.chosenProducedColour(id)))
+		labels = append(labels, manaAbilityLabel(ma, pay.ChosenProducedColour(r.e.G, id)))
 	}
 	return labels
 }

@@ -55,7 +55,7 @@ import (
 // pool event records only the selected colour.
 func (e *Engine) AvailableMana(p state.PlayerID) state.Mana {
 	var out state.Mana
-	ids := e.appendBattlefieldManaSourceIDs(e.idsBorrow(), p)
+	ids := pay.AppendBattlefieldManaSourceIDs(e.G, e.idsBorrow(), p)
 	defer e.idsRelease(ids)
 	for _, id := range ids {
 		o := e.G.Obj(id)
@@ -78,41 +78,10 @@ func (e *Engine) AvailableMana(p state.PlayerID) state.Mana {
 		// several distinct abilities is omitted because the vector cannot encode
 		// which ability the tap will select.
 		if len(free) == 1 {
-			addAvailable(&out, free[0], e.chosenProducedColour(id))
+			addAvailable(&out, free[0], pay.ChosenProducedColour(e.G, id))
 		}
 	}
 	return out
-}
-
-// battlefieldManaSourceIDs lists the payer's battlefield permanents first,
-// followed by other players' battlefield permanents in seat order. The latter
-// matter when an ability's Activator$ explicitly permits the payer; the shared
-// availableManaAbilities gate filters each source. Zone order within each
-// owner is retained for deterministic option ordering.
-func (e *Engine) battlefieldManaSourceIDs(p state.PlayerID) []state.ObjID {
-	return e.appendBattlefieldManaSourceIDs(nil, p)
-}
-
-// appendBattlefieldManaSourceIDs is battlefieldManaSourceIDs appending to
-// dst (a list borrowed with idsBorrow by a caller that only ranges it).
-func (e *Engine) appendBattlefieldManaSourceIDs(dst []state.ObjID, p state.PlayerID) []state.ObjID {
-	ids := append(dst, e.G.Zone(state.ZBattlefield, p)...)
-	for _, owner := range e.G.AliveFrom(0) {
-		if owner != p {
-			ids = append(ids, e.G.Zone(state.ZBattlefield, owner)...)
-		}
-	}
-	return ids
-}
-
-// manaSourceIDs adds the payer's non-battlefield printed mana sources to the
-// public battlefield set. Hand and graveyard sources remain owner-scoped.
-func (e *Engine) manaSourceIDs(p state.PlayerID) []state.ObjID {
-	ids := e.battlefieldManaSourceIDs(p)
-	for _, z := range []state.Zone{state.ZHand, state.ZGraveyard} {
-		ids = append(ids, e.G.Zone(z, p)...)
-	}
-	return ids
 }
 
 // windowManaUnits walks p's battlefield in zone order and returns every
@@ -172,7 +141,7 @@ func (e *Engine) windowManaUnitsWith(p state.PlayerID, only []state.ObjID, pre [
 	var flat []windowManaAlt
 	var boundsBuf [64]int32
 	bounds := boundsBuf[:0] // each unit's first alt in flat
-	ids := e.appendBattlefieldManaSourceIDs(e.idsBorrow(), p)
+	ids := pay.AppendBattlefieldManaSourceIDs(e.G, e.idsBorrow(), p)
 	defer e.idsRelease(ids)
 	for k, id := range ids {
 		if only != nil && !slices.Contains(only, id) {

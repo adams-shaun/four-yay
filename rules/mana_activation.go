@@ -894,20 +894,6 @@ func (e *Engine) activatePaymentMana(p state.PlayerID, source state.ObjID) {
 	e.activateManaFor(p, source, false, true, false)
 }
 
-// instantSpeedOnly reports whether a mana ability's InstantSpeed$ True
-// timing restriction is present ("Activate only as an instant", Lion's Eye
-// Diamond): the ability is activatable exactly when its controller holds
-// priority. The engine activates mana abilities in exactly two contexts: a
-// priority window (the "activate for mana" action) and a payment window
-// (paying for a spell, a ward or a cumulative-upkeep cost). CR 605.4 lets a
-// player activate mana abilities while paying a cost only as far as the
-// ability's own rules permit, and the card's text bars everything but a
-// priority moment -- so the ability is activatable at priority and never
-// inside a payment window.
-func (e *Engine) instantSpeedOnly(ma *cards.SA) bool {
-	return strings.EqualFold(strings.TrimSpace(ma.ParamStr(cards.PKInstantSpeed)), "True")
-}
-
 // availableManaAbilitiesForWindow is the member set for one window: the
 // ordinary priority set, or the payment-window set with the InstantSpeed$
 // timing-restricted abilities withheld.
@@ -930,7 +916,7 @@ func (e *Engine) availableManaAbilitiesForWindow(p state.PlayerID, id state.ObjI
 	}
 	out := make([]*cards.SA, 0, len(all))
 	for _, ma := range all {
-		if e.instantSpeedOnly(ma) {
+		if pay.InstantSpeedOnly(ma) {
 			continue
 		}
 		out = append(out, ma)
@@ -979,7 +965,7 @@ func (e *Engine) activateManaFor(p state.PlayerID, source state.ObjID, cast, cum
 	o := e.G.Obj(source)
 	d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 		Prompt: "Choose a mana ability of " + o.Face().Name, Source: source}
-	chosen := e.chosenProducedColour(source)
+	chosen := pay.ChosenProducedColour(e.G, source)
 	for i, ma := range abilities {
 		// An explicit multi-colour "Produced$ Combo <colours>" ability is
 		// flattened into one option per colour (task fb-20260917T232800Z):
@@ -1481,7 +1467,7 @@ func (e *Engine) manaCostPayableFull(p state.PlayerID, o *state.Object, source s
 	if !ok {
 		return false
 	}
-	exiles, ok := e.manaExiles(p, source, cost)
+	exiles, ok := pay.ManaExiles(asPayer(e), p, source, cost)
 	if !ok {
 		return false
 	}
@@ -1667,34 +1653,6 @@ func (e *Engine) manaSacrifices(p state.PlayerID, source state.ObjID, cost Cost)
 		return nil, false
 	}
 	return chosen, true
-}
-
-// manaDiscards performs the pure offer-side feasibility walk for a mana
-// ability's discard cost. It reserves deterministic candidates but consumes
-// no RNG; the payment continuation makes the actual choice.
-func (e *Engine) manaExiles(p state.PlayerID, source state.ObjID, cost Cost) ([]state.ObjID, bool) {
-	var exiles []state.ObjID
-	reserved := map[state.ObjID]bool{}
-	for _, part := range cost.Exile {
-		zone := part.Zone
-		if zone == 0 {
-			zone = state.ZHand
-		}
-		var candidates []state.ObjID
-		for _, id := range e.G.Zone(zone, p) {
-			if !reserved[id] && e.matchesSpecFrom(part.Spec, id, p, source) {
-				candidates = append(candidates, id)
-			}
-		}
-		if part.N <= 0 || int(part.N) > len(candidates) {
-			return nil, false
-		}
-		for i := 0; i < int(part.N); i++ {
-			reserved[candidates[i]] = true
-			exiles = append(exiles, candidates[i])
-		}
-	}
-	return exiles, true
 }
 
 func (e *Engine) manaDiscards(p state.PlayerID, source state.ObjID, cost Cost) ([]state.ObjID, bool) {
@@ -2525,18 +2483,6 @@ func substituteChosenProduced(produced, chosen string) string {
 	return produced
 }
 
-// chosenProducedColour reads the recorded as-enters chosen colour for
-// source: a single WUBRG letter, else "" (nothing valid recorded). Shared
-// by the activation-path Produced$ read sites.
-func (e *Engine) chosenProducedColour(source state.ObjID) string {
-	if o := e.G.Obj(source); o != nil {
-		if col := strings.TrimSpace(o.ChosenColor); len(col) == 1 && strings.ContainsRune("WUBRG", rune(col[0])) {
-			return col
-		}
-	}
-	return ""
-}
-
 // resolveManaAbility pays this ability's actual activation cost, then resolves
 // it outside the stack. In particular, Sac and Discard costs are emitted
 // before the mana effect, and no phantom generic mana is charged.
@@ -2712,7 +2658,7 @@ func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *car
 	// (state.Object.ChosenColor). With nothing recorded the local keeps the
 	// raw value and the fall-through keeps effMana's loud fail-closed (never
 	// invent a colour).
-	if col := e.chosenProducedColour(source); col != "" {
+	if col := pay.ChosenProducedColour(e.G, source); col != "" {
 		produced = substituteChosenProduced(produced, col)
 	}
 	if ma.API == "ManaReflected" {
@@ -3127,7 +3073,7 @@ func (e *Engine) answerManaActivation(chosen []decision.Option) bool {
 		if idx < len(ma.gained) {
 			gained = ma.gained[idx]
 		}
-		if _, ok := manaAbilityComboColours(ab, e.chosenProducedColour(ma.source)); ok {
+		if _, ok := manaAbilityComboColours(ab, pay.ChosenProducedColour(e.G, ma.source)); ok {
 			// WUBRGC matches the set the removed label parser accepted, so a
 			// combo colour is admitted exactly as it was before the field.
 			color := chosen[0].ManaSymbol
@@ -3320,7 +3266,7 @@ func (e *Engine) payManaSourceParts(p state.PlayerID, source state.ObjID, cost C
 		}
 		e.emit(events.Event{Kind: events.CounterChange, Obj: source, Counter: part.Spec, Amount: -part.N})
 	}
-	e.chargeEnergyCost(p, cost, 0)
+	pay.ChargeEnergyCost(asPayer(e), p, cost, 0)
 	for _, part := range cost.AddCounter {
 		if part.N != 0 {
 			e.emit(events.Event{Kind: events.CounterChange, Obj: source, Counter: part.Spec, Amount: part.N})

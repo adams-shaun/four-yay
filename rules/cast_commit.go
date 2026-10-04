@@ -196,7 +196,7 @@ func (e *Engine) payCast() {
 		// counter, not an object's -- CR 118.2d). The X form spends exactly
 		// the announced value (xAsk bounded it by this same total). The
 		// shared chargeEnergyCost helper is the ONE energy-charging site.
-		e.chargeEnergyCost(pc.player, pc.cost, pc.x)
+		pay.ChargeEnergyCost(asPayer(e), pc.player, pc.cost, pc.x)
 		// Announced PayLife<X> parts (Toxic Deluge's "pay X life"): each pays
 		// the announced X as one LifeChange beside the fixed life payMana
 		// charged above (payLife). xAsk bounded the announcement by the payer's
@@ -482,7 +482,7 @@ func (e *Engine) payCast() {
 	// Mill cost parts (see the ability branch above for the why).
 	e.payMillCostParts(pc)
 	// Energy cost parts (see the ability branch above for the why).
-	e.chargeEnergyCost(pc.player, pc.cost, pc.x)
+	pay.ChargeEnergyCost(asPayer(e), pc.player, pc.cost, pc.x)
 	// Announced PayLife<X>, DamageYou<N> and Draw<N/Spec> cost parts (see the
 	// ability branch above for the why).
 	for range pc.cost.LifeX {

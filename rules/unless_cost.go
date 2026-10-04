@@ -103,7 +103,7 @@ func (e *Engine) payUnlessCost(p state.PlayerID, cost Cost, ctx *effects.Ctx, st
 	if ctx != nil && ctx.XAnnounced {
 		x = ctx.X
 	}
-	e.chargeEnergyCost(p, cost, x)
+	pay.ChargeEnergyCost(asPayer(e), p, cost, x)
 	// Mill parts (Mill<N>) settle through the ONE shared mill site, after
 	// every payability check above has passed and beside the other charges,
 	// so the ordinary cast/activation cost and an unless cost cannot diverge.

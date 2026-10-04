@@ -1197,7 +1197,7 @@ func (e *Engine) attackManaSources(p state.PlayerID) []attackManaSource {
 // known literal Amount$ scales the units.
 func (e *Engine) attackChoiceManaSources(p state.PlayerID) []attackManaSource {
 	var out []attackManaSource
-	for _, id := range e.battlefieldManaSourceIDs(p) {
+	for _, id := range pay.BattlefieldManaSourceIDs(e.G, p) {
 		o := e.G.Obj(id)
 		if o == nil || o.Tapped || o.Face() == nil {
 			continue
@@ -1226,7 +1226,7 @@ func (e *Engine) attackChoiceManaSources(p state.PlayerID) []attackManaSource {
 			// raw parser's source-agnostic WUBRG superset. Without a valid record
 			// it cannot produce a colour and stays out of this payment window.
 			if producedNeedsChosen(produced) {
-				chosen := e.chosenProducedColour(id)
+				chosen := pay.ChosenProducedColour(e.G, id)
 				if chosen == "" {
 					continue
 				}

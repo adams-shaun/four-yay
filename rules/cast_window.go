@@ -121,7 +121,7 @@ func (e *Engine) castWindowUnits(pc *pendingCast) []windowManaUnit {
 func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaUnit) []windowManaUnit {
 	p := pc.player
 	pl := e.G.Players[p]
-	for _, id := range e.battlefieldManaSourceIDs(p) {
+	for _, id := range pay.BattlefieldManaSourceIDs(e.G, p) {
 		o := e.G.Obj(id)
 		if o == nil || o.Face() == nil {
 			continue
@@ -166,7 +166,7 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 			// (the same fail-closed direction the shared walk takes).
 			produced := mp.Produced
 			if producedNeedsChosen(produced) {
-				chosen := e.chosenProducedColour(id)
+				chosen := pay.ChosenProducedColour(e.G, id)
 				if chosen == "" {
 					continue
 				}
@@ -214,7 +214,7 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 func (e *Engine) castWindowProbeAbilities(p state.PlayerID, id state.ObjID) []*cards.SA {
 	var out []*cards.SA
 	for _, ma := range e.appendAvailableManaAbilitiesGate(nil, nil, p, id, true) {
-		if e.instantSpeedOnly(ma) {
+		if pay.InstantSpeedOnly(ma) {
 			continue
 		}
 		out = append(out, ma)
