@@ -33,6 +33,7 @@ func cloneEngineFields(c, e *Engine, sp *Spare, remap *cloneRemap) {
 	cloneFieldsEngineParked2(c, e, sp, remap)
 	cloneFieldsEngineCastWindows(c, e, sp, remap)
 	cloneFieldsEngineResolveKernel(c, e, sp, remap)
+	cloneFieldsPaySession(c, e, sp, remap)
 }
 
 // cloneSpareFields gives the clone its pooled storage from sp: a reset
@@ -845,18 +846,6 @@ func cloneFieldsEngineParked(c, e *Engine, sp *Spare, remap *cloneRemap) {
 			}
 		}
 	}
-	if e.unlessPayment != nil {
-		p0 := *e.unlessPayment
-		p0.cost = cloneCost(e.unlessPayment.cost)
-		p0.ctx = remap.unlessCtx(e.unlessPayment.ctx)
-		p0.sacs = append([]state.ObjID(nil), e.unlessPayment.sacs...)
-		p0.discards = append([]state.ObjID(nil), e.unlessPayment.discards...)
-		p0.reveals = append([]state.ObjID(nil), e.unlessPayment.reveals...)
-		p0.beholds = append([]state.ObjID(nil), e.unlessPayment.beholds...)
-		p0.returns = append([]state.ObjID(nil), e.unlessPayment.returns...)
-		p0.exiles = append([]state.ObjID(nil), e.unlessPayment.exiles...)
-		c.unlessPayment = &p0
-	}
 	if e.cumulative != nil {
 		p0 := *e.cumulative
 		p0.amount = cloneCost(e.cumulative.amount)
@@ -1038,6 +1027,21 @@ func cloneFieldsEngineCastWindows(c, e *Engine, sp *Spare, remap *cloneRemap) {
 
 func cloneFieldsEngineResolveKernel(c, e *Engine, sp *Spare, remap *cloneRemap) {
 	c.tape = e.tape.ForClone()
+}
+
+func cloneFieldsPaySession(c, e *Engine, sp *Spare, remap *cloneRemap) {
+	if e.UnlessPayment != nil {
+		p0 := *e.UnlessPayment
+		p0.Cost = cloneCost(e.UnlessPayment.Cost)
+		p0.Ctx = remap.unlessCtx(e.UnlessPayment.Ctx)
+		p0.Sacs = append([]state.ObjID(nil), e.UnlessPayment.Sacs...)
+		p0.Discards = append([]state.ObjID(nil), e.UnlessPayment.Discards...)
+		p0.Reveals = append([]state.ObjID(nil), e.UnlessPayment.Reveals...)
+		p0.Beholds = append([]state.ObjID(nil), e.UnlessPayment.Beholds...)
+		p0.Returns = append([]state.ObjID(nil), e.UnlessPayment.Returns...)
+		p0.Exiles = append([]state.ObjID(nil), e.UnlessPayment.Exiles...)
+		c.UnlessPayment = &p0
+	}
 }
 
 // sparePools is the Spare storage of every `pool=` Engine field, embedded

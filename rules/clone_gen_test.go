@@ -103,6 +103,7 @@ var cloneForeignDeep = map[string]bool{
 	"state.ContinuousEffect": true,
 	"pay.CostMods":           true,
 	"pay.PaidCost":           true,
+	"pay.UnlessPayment":      true,
 }
 
 // cloneSharedLocal names the pointers to engine-local types the clone shares

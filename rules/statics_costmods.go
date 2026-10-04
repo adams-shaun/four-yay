@@ -281,7 +281,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 func (e *Engine) costModifiersCompose(statics costStaticViews, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, potential bool, x int32, mayApply *bool) costMods {
 	// Each pass owns the provenance capture: cleared here, set by
 	// costStaticApplies when a ValidCard$ carries a cast-provenance token.
-	e.costProvenanceSeen = false
+	e.CostProvenanceSeen = false
 	// The potential pass hands the whole candidate census to the gate chain
 	// (so ValidTarget$/ValidSpell$ can match ANY candidate) but a
 	// target-relative Amount$ reads only a complete legal assignment

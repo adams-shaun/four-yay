@@ -230,12 +230,12 @@ func wardAnswerSettle(e *Engine, ctx *effects.Ctx, sa *cards.SA, obj state.ObjID
 // (tapeUnlessSettled) instead of resuming a parked frame.
 func tapeUnlessComponents(e *Engine, ctx *effects.Ctx, payer state.PlayerID, cost Cost, obj state.ObjID) {
 	cost, ok := pay.UnlessFoldDynamic(asPayer(e), payer, cost, ctx)
-	e.unlessPayment = &unlessPayment{payer: payer, ctx: pay.CloneUnlessCtx(*ctx), stackObj: obj, tape: true}
+	e.UnlessPayment = &unlessPayment{Payer: payer, Ctx: pay.CloneUnlessCtx(*ctx), StackObj: obj, Tape: true}
 	if !ok {
 		e.finishUnlessPayment(false)
 		return
 	}
-	e.unlessPayment.cost = cost
+	e.UnlessPayment.Cost = cost
 	e.advanceUnlessPayment()
 }
 
@@ -251,9 +251,9 @@ func tapeUnlessSettled(e *Engine, u *unlessPayment, paid bool) {
 	ctx.UnlessPay = "decline"
 	if paid {
 		ctx.UnlessPay = "pay"
-		if len(u.discards) > 0 {
-			ctx.UnlessDiscarded = make([]state.Target, 0, len(u.discards))
-			for _, id := range u.discards {
+		if len(u.Discards) > 0 {
+			ctx.UnlessDiscarded = make([]state.Target, 0, len(u.Discards))
+			for _, id := range u.Discards {
 				ctx.UnlessDiscarded = append(ctx.UnlessDiscarded, state.Target{Obj: id})
 			}
 		}

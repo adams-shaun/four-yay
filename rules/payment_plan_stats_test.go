@@ -155,7 +155,7 @@ func TestPaymentPlanStatsNotCloned(t *testing.T) {
 	paymentPlanReask(t, b.e)
 	before := *stats
 	c := b.e.Clone()
-	if c.PaymentPlanStats() != nil || c.paymentStats != nil {
+	if c.PaymentPlanStats() != nil || c.PaymentStats != nil {
 		t.Fatal("Clone carried the payment-plan stats sink")
 	}
 	if got := c.PaymentActionsForPriority(0, c.Pending().Seq); len(got) != 1 {

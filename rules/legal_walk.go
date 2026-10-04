@@ -79,7 +79,7 @@ func (w *legalWalk) offerCastable(p state.PlayerID, id state.ObjID, base Cost, s
 		}
 		// The skipped composition is the empty one, which clears the
 		// provenance capture and sets nothing else.
-		w.e.costProvenanceSeen = false
+		w.e.CostProvenanceSeen = false
 		return false
 	}
 	return w.e.offerCastableUsing(statics, p, id, &base, scope, ability, pool)

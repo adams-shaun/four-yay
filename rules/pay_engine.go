@@ -196,6 +196,3 @@ func (pe *payer) CostBlocked(op pay.CostBlock, id state.ObjID, cause pay.CostCau
 	}
 	return (*Engine)(pe).sacrificeBlockedForCost(id, cause)
 }
-func (pe *payer) Capture() pay.Capture {
-	return pay.Capture{NoCounter: &pe.noCounterSpend, Sources: &pe.manaSpentSources, AddsCounters: &pe.manaSpentAddsCounters}
-}

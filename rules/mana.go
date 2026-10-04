@@ -204,7 +204,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	// needs to know of this pass (offerRetryFutile).
 	mayApply := false
 	mods := e.costModifiersCompose(statics, p, id, scope, nil, false, 0, &mayApply)
-	provenance := e.costProvenanceSeen
+	provenance := e.CostProvenanceSeen
 	// A Waterbend<N>/<X> part carried by the cost itself (an ability's own
 	// Cost$ like Giant Koi's, or a spell's optional-cost part) credits the
 	// same taps a RaiseCost Waterbend does (mods.waterbend), so the offer is

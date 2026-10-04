@@ -1600,7 +1600,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 	case chooseManaSacrifice:
 		cast := e.answerManaSacrifice(chosen)
 		if e.pending == nil && !e.manaCostChoicePending() {
-			if e.unlessPayment != nil {
+			if e.UnlessPayment != nil {
 				e.advanceUnlessPayment()
 			} else if cast {
 				e.continueCast()
@@ -1612,7 +1612,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		// tail (Ward window, unless cost, or the cast) runs.
 		cast := e.answerManaTap(chosen)
 		if e.pending == nil && !e.manaCostChoicePending() {
-			if e.unlessPayment != nil {
+			if e.UnlessPayment != nil {
 				e.advanceUnlessPayment()
 			} else if cast {
 				e.continueCast()
@@ -1624,7 +1624,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		// continuation, then the same Ward/unless/cast tail runs.
 		cast := e.answerManaSubCounter(chosen)
 		if e.pending == nil && !e.manaCostChoicePending() {
-			if e.unlessPayment != nil {
+			if e.UnlessPayment != nil {
 				e.advanceUnlessPayment()
 			} else if cast {
 				e.continueCast()
@@ -1633,7 +1633,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 	case chooseManaForage:
 		cast := e.answerManaForage(chosen)
 		if e.pending == nil && !e.manaCostChoicePending() {
-			if e.unlessPayment != nil {
+			if e.UnlessPayment != nil {
 				e.advanceUnlessPayment()
 			} else if cast {
 				e.continueCast()
@@ -1642,7 +1642,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 	case chooseManaUntap:
 		cast := e.answerManaUntap(chosen)
 		if e.pending == nil && !e.manaCostChoicePending() {
-			if e.unlessPayment != nil {
+			if e.UnlessPayment != nil {
 				e.advanceUnlessPayment()
 			} else if cast {
 				e.continueCast()
@@ -1651,7 +1651,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 	case chooseManaDiscard:
 		cast := e.answerManaDiscard(chosen)
 		if e.pending == nil && !e.manaCostChoicePending() {
-			if e.unlessPayment != nil {
+			if e.UnlessPayment != nil {
 				e.advanceUnlessPayment()
 			} else if cast {
 				e.continueCast()
@@ -1660,7 +1660,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 	case chooseManaExile:
 		cast := e.answerManaExile(chosen)
 		if e.pending == nil && !e.manaCostChoicePending() {
-			if e.unlessPayment != nil {
+			if e.UnlessPayment != nil {
 				e.advanceUnlessPayment()
 			} else if cast {
 				e.continueCast()

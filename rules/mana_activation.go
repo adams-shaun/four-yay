@@ -144,7 +144,7 @@ func (e *Engine) withOffStackMana(act manaColorActivation, run func()) bool {
 		f = new(offStackManaFrame)
 	}
 	e.offStackDepth++
-	*f = offStackManaFrame{act: act, baseUnless: e.unlessPayment != nil,
+	*f = offStackManaFrame{act: act, baseUnless: e.UnlessPayment != nil,
 		baseCumulative: e.cumulative != nil, baseTriggerCost: e.triggerCost != nil}
 	e.offStackMana = f
 	// A mana ability's own chain is not a contChain-draining pass: an ask it
@@ -198,7 +198,7 @@ func (e *Engine) askOffStackMana(d *decision.Decision) bool {
 // offStackSuspended is Suspended() inside an offStackManaFrame.
 func (f *offStackManaFrame) suspended(e *Engine) bool {
 	return f.asked ||
-		(e.unlessPayment != nil && !f.baseUnless) ||
+		(e.UnlessPayment != nil && !f.baseUnless) ||
 		(e.cumulative != nil && !f.baseCumulative) ||
 		(e.triggerCost != nil && !f.baseTriggerCost)
 }
@@ -812,12 +812,12 @@ func (e *Engine) activatePaymentMana(p state.PlayerID, source state.ObjID) {
 // priorityManaAbilityCount is len(availableManaAbilitiesForWindow(p, id,
 // true)), counted in the engine's scratch list.
 func (e *Engine) priorityManaAbilityCount(p state.PlayerID, id state.ObjID) int {
-	buf := e.manaAbScratch
-	e.manaAbScratch = nil
+	buf := e.ManaAbScratch
+	e.ManaAbScratch = nil
 	all := e.appendAvailableManaAbilities(buf[:0], nil, p, id)
 	n := len(all)
 	clear(all)
-	e.manaAbScratch = all[:0]
+	e.ManaAbScratch = all[:0]
 	return n
 }
 
@@ -842,8 +842,8 @@ func (e *Engine) activateManaFor(p state.PlayerID, source state.ObjID, cast, cum
 		// The priority member set is built in the engine's scratch list:
 		// the common single-ability source resolves from it and keeps
 		// nothing; a choice among several keeps an owned copy below.
-		buf := e.manaAbScratch
-		e.manaAbScratch = nil
+		buf := e.ManaAbScratch
+		e.ManaAbScratch = nil
 		abilities = e.appendAvailableManaAbilities(buf[:0], nil, p, source)
 		if len(abilities) <= 1 {
 			var only *cards.SA
@@ -851,7 +851,7 @@ func (e *Engine) activateManaFor(p state.PlayerID, source state.ObjID, cast, cum
 				only = abilities[0]
 			}
 			clear(abilities)
-			e.manaAbScratch = abilities[:0]
+			e.ManaAbScratch = abilities[:0]
 			if only == nil {
 				return
 			}
@@ -861,7 +861,7 @@ func (e *Engine) activateManaFor(p state.PlayerID, source state.ObjID, cast, cum
 		}
 		owned := slices.Clone(abilities)
 		clear(abilities)
-		e.manaAbScratch = abilities[:0]
+		e.ManaAbScratch = abilities[:0]
 		abilities = owned
 	} else {
 		abilities = e.availableManaAbilitiesForWindow(p, source, atPriority)
@@ -1310,7 +1310,7 @@ func (e *Engine) resumeManaAfterCost() {
 	if e.pending != nil || e.manaCostChoicePending() {
 		return
 	}
-	if e.unlessPayment != nil {
+	if e.UnlessPayment != nil {
 		e.advanceUnlessPayment()
 	} else if r.cast {
 		e.continueCast()

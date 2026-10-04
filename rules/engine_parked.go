@@ -61,10 +61,6 @@ type engineParked struct {
 	// once nothing is pending (drainDeferredAsks, from Submit). Deep-copied
 	// by Clone like pending.
 	deferredAsks []*decision.Decision `clone:"deep"`
-	// unlessPayment carries an in-progress non-mana unless-cost payment. It
-	// keeps the enclosing resolution suspended while the payer chooses the
-	// sacrifice/discard objects that pay it.
-	unlessPayment *unlessPayment `clone:"deep"`
 	// Resolution-time payment windows. cumulative belongs to the replayable
 	// keyword trigger; triggerCost belongs to an ordinary triggered effect
 	// carrying Cost$ (Mana Vault). Both are plain data and Clone-copied.

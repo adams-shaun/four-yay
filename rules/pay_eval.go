@@ -29,3 +29,10 @@ func (v *payEval) MatchesSpec(spec string, id state.ObjID, sc effects.SpecContex
 func (v *payEval) WindowUnits(p state.PlayerID) []pay.WindowUnit {
 	return (*Engine)(v).windowManaUnits(p)
 }
+
+// paySession is pay.Session under an unexported name, so the embedded field
+// does not export the payment state from the Engine.
+type paySession = pay.Session
+
+// Session (pay.Engine) is the engine's payment-layer state.
+func (pe *payer) Session() *pay.Session { return &pe.paySession }

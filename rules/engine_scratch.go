@@ -6,7 +6,6 @@ import (
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules/chars"
-	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -90,18 +89,6 @@ type engineScratch struct {
 	// reads (payment_zone_entry.go), validated against the log on every
 	// read. Pure scratch over the log: Clone copies none of it.
 	zoneEntry zoneEntryIndex `clone:"reset"`
-	// paymentPlanRelaxed is PotentialPaymentPlans' transient proof mode
-	// (rules/potential_plan.go paymentPlanRelaxProof): relaxed, never
-	// executed alternatives for the mana abilities the planner census does
-	// not price, appended to every search while it is set. Pure per-query
-	// scratch: Clone copies none of it.
-	paymentPlanRelaxed [][]pay.Alt `clone:"reset"`
-	// paymentPlanRelaxedFee is the generic the relaxed proof charges on top
-	// of every planned cost for the paid relaxed abilities it admits.
-	paymentPlanRelaxedFee int32 `clone:"reset"`
-	// paymentPlanPotentialPool marks a PotentialPaymentPlans query
-	// (paymentPlanPoolAccepted). Pure per-query scratch: Clone copies none.
-	paymentPlanPotentialPool bool `clone:"reset"`
 	// potentialWalk is one posed priority decision's PotentialMana and the
 	// legal-offer walk priced against it, shared by the offer builder, the
 	// PotentialActions projection and PotentialPaymentPlans
@@ -126,10 +113,6 @@ type engineScratch struct {
 	// (walk_block_reuse.go). Clone copies none.
 	walkRec   walkBlockRec  `clone:"reset"`
 	walkReuse *walkBlockRec `clone:"reset"`
-	// walkRecDemand: the payment offer builder has run on this engine, so
-	// its potential walk follows priority walks and they record
-	// (walk_block_reuse.go). Clone copies none.
-	walkRecDemand bool `clone:"reset"`
 	// potentialManaRec is the record armed for the next PotentialMana's
 	// membership walk (walk_block_reuse.go potentialMembers). Clone copies
 	// none.
@@ -242,10 +225,6 @@ type engineScratch struct {
 	// targetCensusBuf is candidatesCountForLimit's scratch list (taken for
 	// the call; Clone leaves it nil).
 	targetCensusBuf []targetCandidate `clone:"reset"`
-	// manaAbScratch is the priority mana member-set scratch list
-	// (activateManaFor, priorityManaAbilityCount; taken for the call,
-	// Clone leaves it nil).
-	manaAbScratch []*cards.SA `clone:"reset"`
 	// legalScratch is the offer walk's incremental log-derived indexes and
 	// their watermarks (legal_walk_scratch.go). Clone carries it
 	// (cloneLegalWalkScratch): copy-on-write, so nothing is shared mutably.

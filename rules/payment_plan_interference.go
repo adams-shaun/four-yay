@@ -382,8 +382,8 @@ func (e *Engine) paymentPlanProductionReplaced(id state.ObjID, activator state.P
 // own the zone gates -- so it changes only when an object is created or a
 // logged event runs, and is memoised on exactly that key.
 func (e *Engine) paymentPlanInterferenceCarriers() []state.ObjID {
-	if e.paymentPlanCarriersValid && e.paymentPlanCarriersObjs == len(e.G.Objs) && e.paymentPlanCarriersEvents == len(e.L.Events) {
-		return e.paymentPlanCarriers
+	if e.PaymentPlanCarriersValid && e.PaymentPlanCarriersObjs == len(e.G.Objs) && e.PaymentPlanCarriersEvents == len(e.L.Events) {
+		return e.PaymentPlanCarriers
 	}
 	carries := func(f *cards.Face) bool {
 		if f == nil {
@@ -414,8 +414,8 @@ func (e *Engine) paymentPlanInterferenceCarriers() []state.ObjID {
 	}
 	// A fresh slice every rebuild: a Clone never shares this memo, and a
 	// caller may still be walking the previous one.
-	e.paymentPlanCarriers, e.paymentPlanCarriersValid = out, true
-	e.paymentPlanCarriersObjs, e.paymentPlanCarriersEvents = len(e.G.Objs), len(e.L.Events)
+	e.PaymentPlanCarriers, e.PaymentPlanCarriersValid = out, true
+	e.PaymentPlanCarriersObjs, e.PaymentPlanCarriersEvents = len(e.G.Objs), len(e.L.Events)
 	return out
 }
 

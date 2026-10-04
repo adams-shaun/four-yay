@@ -401,13 +401,13 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 	// account for (planCastPaymentChecked), and that verdict reads only the
 	// player, so no walk can change the empty result.
 	if !pay.PlanPoolOK(&e.G.Players[p]) {
-		e.paymentStats.RecordBuild(true)
+		e.PaymentStats.RecordBuild(true)
 		return nil
 	}
-	e.paymentStats.RecordBuild(false)
+	e.PaymentStats.RecordBuild(false)
 	// The builder's potential walk is what the priority walk's block record
 	// serves (walk_block_reuse.go): record from now on.
-	e.walkRecDemand = true
+	e.WalkRecDemand = true
 	// The build is a pure read: one memo scope makes every nested walk
 	// (PotentialMana, the candidate walk, each candidate's window-unit and
 	// legality reads) share one generation and one board-static scan.
@@ -457,7 +457,7 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 		}
 		cast := decision.PlannedCast{Object: opt.Obj, Face: 0, Origin: origin}
 		got := e.planCastPaymentMemo(p, cast, &statics, &legal)
-		e.paymentStats.RecordOutcome(got)
+		e.PaymentStats.RecordOutcome(got)
 		if got.Plan == nil {
 			continue
 		}
@@ -498,7 +498,7 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 			}
 		}
 		out = append(out, a)
-		e.paymentStats.RecordOffered(len(a.Plans))
+		e.PaymentStats.RecordOffered(len(a.Plans))
 	}
 	return out
 }
@@ -591,7 +591,7 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 // spells may spend, is still declined.
 func (e *Engine) paymentPlanPoolAccepted(p state.PlayerID) bool {
 	pl := &e.G.Players[p]
-	if e.paymentPlanPotentialPool {
+	if e.PaymentPlanPotentialPool {
 		return len(pl.RestrictedMana) == 0
 	}
 	return pay.PlanPoolOK(pl)
@@ -599,7 +599,7 @@ func (e *Engine) paymentPlanPoolAccepted(p state.PlayerID) bool {
 
 func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, cost Cost) PaymentPlanOutcome {
 	q := e.paymentPlanQuery
-	if !q.valid(e) || e.paymentPlanRelaxed != nil || e.paymentPlanRelaxedFee != 0 || !plainManaCost(cost) {
+	if !q.valid(e) || e.PaymentPlanRelaxed != nil || e.PaymentPlanRelaxedFee != 0 || !plainManaCost(cost) {
 		return e.planPaymentCostExcluding(p, cast, cost, nil)
 	}
 	// Within one query scope (one state), the planner's outcome for a plain
@@ -743,13 +743,13 @@ func (e *Engine) planPaymentCostWithDemand(p state.PlayerID, demand [5]int, cost
 	for i, u := range units {
 		choices[i] = withhold(e.paymentPlanQueryAlternatives(u))
 	}
-	if len(e.paymentPlanRelaxed) != 0 {
+	if len(e.PaymentPlanRelaxed) != 0 {
 		// PotentialPaymentPlans' relaxed proof (paymentPlanRelaxProof): the
 		// census's uncovered sources as free, never-executed alternatives,
 		// withheld exactly like the census's own, and the fees of the paid
 		// ones it admits charged as generic.
-		cost.Generic += e.paymentPlanRelaxedFee
-		for _, alts := range e.paymentPlanRelaxed {
+		cost.Generic += e.PaymentPlanRelaxedFee
+		for _, alts := range e.PaymentPlanRelaxed {
 			if len(alts) == 0 || slices.Contains(gone, alts[0].Activation.Source) {
 				continue
 			}

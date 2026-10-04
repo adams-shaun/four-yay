@@ -51,8 +51,6 @@ type Engine interface {
 	// AddsCounterGrant resolves one consumed AddsCounters$ rider batch into
 	// the grant a cast records (used units of it), ok=false to drop it.
 	AddsCounterGrant(r state.ManaRestriction, used int32) (state.ManaAddsCounterGrant, bool)
-	// Capture is the engine's transient spend capture a cast payment fills.
-	Capture() Capture
 
 	// ConfiguredCost is the engine's compiled-text sidecar entry for a cost
 	// text (its frozen parse and facts), nil for a text outside the
@@ -65,16 +63,8 @@ type Engine interface {
 	// Eval is the evaluation seam: everything that needs the engine as an
 	// effects.Host (lasagna spec §9.2).
 	Eval() Eval
-}
-
-// Capture points at the engine's transient spend-capture fields that a
-// restricted-mana spend fills for the cast flow to fold in later: the spell
-// a consumed AddsNoCounter$ batch protects, the consumed batches' producing
-// sources (TriggersWhenSpent$) and the consumed AddsCounters$ grants.
-type Capture struct {
-	NoCounter    *state.ObjID
-	Sources      *[]state.ObjID
-	AddsCounters *[]state.ManaAddsCounterGrant
+	// Session is the engine-owned payment state (the ring's fields).
+	Session() *Session
 }
 
 // CostBlock names the cost action Engine.CostBlocked asks about.

@@ -35,13 +35,6 @@ type Engine struct {
 	// leaves the event stream and every chain head byte-identical.
 	ManaAbilityHook func(p state.PlayerID, source state.ObjID, sa *cards.SA) `clone:"hook"`
 
-	// paymentStats is the optional auto-pay diagnostics sink
-	// (SetPaymentPlanStats, rules/payment_plan_stats.go). Like
-	// ManaAbilityHook it is a harness-only observer: nil by default, it emits
-	// nothing, never changes an offer, and Clone deliberately does not copy
-	// it (spec §7: no pointer is shared across engines).
-	paymentStats *PaymentPlanStats `clone:"hook"`
-
 	// format is the construction format New was configured with (Config.
 	// Format). It is the explicit gate the Commander rules (the tax, CR
 	// 903.9, commander damage) check -- "in a non-Commander game none of
@@ -179,4 +172,9 @@ type Engine struct {
 	engineCastWindows
 	engineEmitCtx
 	engineResolveKernel
+
+	// paySession is the payment layer's engine-owned state (pay.Session,
+	// lasagna spec §9.2): embedded so its fields read as Engine fields, and
+	// handed to rules/pay through pay.Engine's Session.
+	paySession
 }

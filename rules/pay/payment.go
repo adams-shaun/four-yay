@@ -406,10 +406,10 @@ func visiblePersistentMana(e Engine, p state.PlayerID, d Descriptor) state.Mana 
 // actual spend reconciles the carve's restricted-first attribution with the
 // search's plain-first consumption and keeps every emission tally >= 0.
 func emitRestrictedManaSpend(e Engine, p state.PlayerID, d Descriptor, spent *state.Mana, emitSnow *state.Mana, emitTyped *[7]state.Mana, perVis *state.Mana, perFresh *state.Mana) {
-	capt := e.Capture()
-	*capt.NoCounter = 0
-	*capt.Sources = nil
-	*capt.AddsCounters = nil
+	capt := e.Session()
+	capt.NoCounterSpend = 0
+	capt.ManaSpentSources = nil
+	capt.ManaSpentAddsCounters = nil
 	// Emit mutates RestrictedMana through events.Apply, so range a snapshot:
 	// otherwise removing the first of two matching batches would make the
 	// live slice shift under this loop and could skip or double-spend one.
@@ -448,15 +448,15 @@ func emitRestrictedManaSpend(e Engine, p state.PlayerID, d Descriptor, spent *st
 		if used <= 0 {
 			continue
 		}
-		if r.NoCounter != "" && d.Class == PurposeSpell && *capt.NoCounter == 0 && addsNoCounterHolds(e.Game(), d.ID, r.NoCounter) {
-			*capt.NoCounter = d.ID
+		if r.NoCounter != "" && d.Class == PurposeSpell && capt.NoCounterSpend == 0 && addsNoCounterHolds(e.Game(), d.ID, r.NoCounter) {
+			capt.NoCounterSpend = d.ID
 		}
 		// A consumed batch's producing source keys TriggersWhenSpent$.
 		// Capture spell and activated-ability payments; PurposeOther (including
 		// unless-pay) and every other unclassified payment do not dispatch.
 		// Dedup keeps one entry per source, in deterministic batch order.
-		if (d.Class == PurposeSpell || d.Class == PurposeActivated) && r.Source != 0 && !slices.Contains(*capt.Sources, r.Source) {
-			*capt.Sources = append(*capt.Sources, r.Source)
+		if (d.Class == PurposeSpell || d.Class == PurposeActivated) && r.Source != 0 && !slices.Contains(capt.ManaSpentSources, r.Source) {
+			capt.ManaSpentSources = append(capt.ManaSpentSources, r.Source)
 		}
 		// AddsCounters$ (task opalp): a consumed batch that carries the
 		// producing ability's rider contributes THIS batch's spent unit count
@@ -470,7 +470,7 @@ func emitRestrictedManaSpend(e Engine, p state.PlayerID, d Descriptor, spent *st
 		// dropped (fail closed), never guessed.
 		if (d.Class == PurposeSpell || d.Class == PurposeActivated) && strings.TrimSpace(r.AddsCounters) != "" {
 			if g, ok := e.AddsCounterGrant(r, used); ok {
-				*capt.AddsCounters = append(*capt.AddsCounters, g)
+				capt.ManaSpentAddsCounters = append(capt.ManaSpentAddsCounters, g)
 			}
 		}
 		e.Emit(events.Event{Kind: events.ManaAdd, Player: p, Counter: r.Color, Amount: -used,

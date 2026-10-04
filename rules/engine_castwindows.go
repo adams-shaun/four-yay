@@ -129,45 +129,6 @@ type engineCastWindows struct {
 	// the card as it was just before the stack move.
 	deferredPushLKI *state.Object `clone:"share,if=cloneCarriesCast"`
 
-	// noCounterSpend is the transient capture of emitRestrictedManaSpend: the
-	// id of the SPELL whose payment just consumed a batch carrying
-	// AddsNoCounter$ provenance (Cavern of Souls' "that spell can't be
-	// countered"), zero when none. payManaCast's caller (payCast) reads it
-	// once, synchronously, right after the payment — no ask can suspend
-	// between the spend and the read (emitRestrictedManaSpend emits, never
-	// asks) — and folds state.FlagNoCounter into the pay-time CastInfo, so
-	// replay re-derives the flag from the recorded event exactly like every
-	// other cast flag. Zero whenever no such spend is in flight, so Clone
-	// copies nothing of it.
-	noCounterSpend state.ObjID `clone:"reset"`
-
-	// manaSpentSources is the transient capture of emitRestrictedManaSpend's
-	// SPELL arm: the deduplicated Source of every restriction batch consumed
-	// by the payment, in insertion order. payCast reads it once, synchronously,
-	// right after the payment and queues each source's TriggersWhenSpent$
-	// rider (Path of Ancestry's "when that mana is spent to cast ..."). Empty
-	// Valid provenance batches -- the Boseiju shape effMana emits for a rider'd
-	// mana ability -- are what make the attribution exact: emitRestrictedManaSpend
-	// consumes batches before ordinary mana. Nothing can suspend between the
-	// capture and the read (it emits, never asks), and Clone copies nothing of
-	// it (like noCounterSpend), so a replay re-derives the same list from the
-	// recorded ManaAdd events.
-	manaSpentSources []state.ObjID `clone:"reset"`
-
-	// manaSpentAddsCounters is the transient capture of emitRestrictedManaSpend's
-	// SPELL/ACTIVATED arm for the AddsCounters$ rider: every consumed
-	// restriction batch that carries a rider (state.ManaRestriction.AddsCounters,
-	// the producing ability's snapshot) contributes its spent unit count as one
-	// grant record, in insertion order. Unlike manaSpentSources this is NOT
-	// deduplicated by source: two units from the same permanent's rider ability
-	// are two grants, and two different abilities of the same permanent keep
-	// their own rider snapshots. payCast reads it once, synchronously, right
-	// after the payment. Nothing can suspend between the capture and the read
-	// (it emits, never asks), and Clone copies nothing of it, so a replay
-	// re-derives the same grants from the recorded ManaAdd/ManaRestriction
-	// events.
-	manaSpentAddsCounters []state.ManaAddsCounterGrant `clone:"reset"`
-
 	// stackGrantCast is the in-flight cast whose OWN stack-grant walk is
 	// running (queueCascadeTriggers' cascadeInstances read, the only
 	// consumer): set around that one walk and cleared before it returns —

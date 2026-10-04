@@ -1106,7 +1106,7 @@ func (e *Engine) continueCast() {
 	// recompute is byte-identical to the offer snapshot (both are the
 	// nil-target base snapshot), so no existing price — and no chain head —
 	// moves.
-	if pc := e.cast; pc != nil && pc.pushed && !pc.provenanceRepriced && e.costProvenanceSeen {
+	if pc := e.cast; pc != nil && pc.pushed && !pc.provenanceRepriced && e.CostProvenanceSeen {
 		pc.provenanceRepriced = true
 		pc.mods = e.costModifiers(pc.player, pc.card, spellScope(pc.mode))
 	}

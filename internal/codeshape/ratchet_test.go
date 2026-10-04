@@ -155,7 +155,9 @@ const (
 	// the mana activation gates move: 12 -> 14. E4 slice 2: Eval (the
 	// pay.Eval evaluation seam, budgeted by archtest TestPayEvalBudget) let
 	// the unless-payment reachability and the SVar-fixed cost counts move:
-	// 14 -> 15.
+	// 14 -> 15. E4 slice 3: Session (pay.Session, the ring's engine-owned
+	// fields, embedded in the Engine) replaced Capture, whose three spend
+	// capture fields moved into it: 15 -> 15.
 	payEngineMethods = 15
 	// changeZoneParamLeaks is the number of ChangeZone parameter reads
 	// outside its compiler, effects/changezone_params.go (W4 step 3, spec

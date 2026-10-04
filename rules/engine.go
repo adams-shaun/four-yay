@@ -299,7 +299,7 @@ func submitCommit(e *Engine, d *decision.Decision, in decision.Intent) {
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
 		e.beginCastAnnounced(in.Player, decision.Option{Kind: "cast", Obj: action.Cast.Object})
 	} else if in.Payment != nil {
-		e.paymentStats.RecordPlannedSubmission()
+		e.PaymentStats.RecordPlannedSubmission()
 		action, _ := pay.ActionFor(d, in.Payment.ActionID)
 		// Match the ordinary cast priority action exactly, then enter the same
 		// cast transaction.  The plan is only an immutable payment continuation;

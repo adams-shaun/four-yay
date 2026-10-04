@@ -14,7 +14,7 @@ type (
 // nil (the default) detaches it and costs nothing. The sink belongs to this
 // engine alone: Clone does not carry it, and it must not be shared between
 // engines driven on different goroutines.
-func (e *Engine) SetPaymentPlanStats(s *PaymentPlanStats) { e.paymentStats = s }
+func (e *Engine) SetPaymentPlanStats(s *PaymentPlanStats) { e.PaymentStats = s }
 
 // PaymentPlanStats returns the attached sink, or nil.
-func (e *Engine) PaymentPlanStats() *PaymentPlanStats { return e.paymentStats }
+func (e *Engine) PaymentPlanStats() *PaymentPlanStats { return e.PaymentStats }

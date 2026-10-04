@@ -97,11 +97,11 @@ func (b *resolveBoard) Busy() bool {
 	// (askOffStackMana), not the resolution's: a converted site inside one
 	// asks through the legacy path.
 	if e.tapeWindowAsking && (e.offStackMana == nil || e.tapeOffStackAsking) &&
-		(e.unlessPayment == nil || e.unlessPayment.tape) {
+		(e.UnlessPayment == nil || e.UnlessPayment.Tape) {
 		// windowAsk's own window: the holder it asks for is open by design.
 		return false
 	}
-	if u := e.unlessPayment; u != nil && u.tape && e.offStackMana == nil &&
+	if u := e.UnlessPayment; u != nil && u.Tape && e.offStackMana == nil &&
 		e.cumulative == nil && e.triggerCost == nil && e.echo == nil {
 		// A tape-driven unless payment is the kernel's own, not a legacy
 		// suspension: an ask its component walk reaches (a discard's
@@ -217,7 +217,7 @@ func (b *resolveBoard) Restore(cp *resolve.Checkpoint, evEnd int) {
 	g, l := e.G, e.L
 	arenaOn := e.decArena != nil && e.decArena.owner == e && e.decArena.on
 	kernel, epoch := e.tape, e.tapeEpoch+1
-	hook, stats := e.ManaAbilityHook, e.paymentStats
+	hook, stats := e.ManaAbilityHook, e.PaymentStats
 	if hook == nil && stats == nil {
 		hook, stats = e.tapeHeldHook, e.tapeHeldStats // already parked
 	}
@@ -286,7 +286,7 @@ func tapeRebindOwner(e *Engine, sc *Engine, arenaOn bool) {
 
 func (b *resolveBoard) Observe() {
 	if b.tapeHeldHook != nil || b.tapeHeldStats != nil {
-		b.ManaAbilityHook, b.paymentStats = b.tapeHeldHook, b.tapeHeldStats
+		b.ManaAbilityHook, b.PaymentStats = b.tapeHeldHook, b.tapeHeldStats
 		b.tapeHeldHook, b.tapeHeldStats = nil, nil
 	}
 }

@@ -10,5 +10,5 @@ func (e *Engine) Suspended() bool {
 	if f := e.offStackMana; f != nil {
 		return f.suspended(e)
 	}
-	return e.unlessPayment != nil || e.cumulative != nil || e.triggerCost != nil || e.echo != nil
+	return e.UnlessPayment != nil || e.cumulative != nil || e.triggerCost != nil || e.echo != nil
 }

@@ -29,7 +29,7 @@ func tapeWindowFlow(e *Engine, flow chooseFor) bool {
 	case chooseUnlessCost, chooseUnlessMana:
 		// Only the tape-driven unless payment (tapeUnlessComponents); the
 		// legacy one parks its frame.
-		return e.unlessPayment != nil && e.unlessPayment.tape
+		return e.UnlessPayment != nil && e.UnlessPayment.Tape
 	}
 	return false
 }

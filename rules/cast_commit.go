@@ -446,7 +446,7 @@ func (e *Engine) payCast() {
 	// emits). The capture is already filtered to rider-bearing batches and
 	// keeps one record per spent unit, so a cast that spent ordinary (or only
 	// restricted) mana emits no rider event and stays byte-identical.
-	pc.addsCounterGrants = append([]state.ManaAddsCounterGrant(nil), e.manaSpentAddsCounters...)
+	pc.addsCounterGrants = append([]state.ManaAddsCounterGrant(nil), e.ManaSpentAddsCounters...)
 	if pc.payLife != 0 {
 		e.emit(events.Event{Kind: events.LifeChange, Player: pc.player, Amount: -pc.payLife})
 	}
@@ -605,8 +605,8 @@ func (e *Engine) payCast() {
 	// the spell exactly like every other cast flag. The capture is read once
 	// here and cleared — nothing can suspend between emitRestrictedManaSpend's
 	// set and this read (it emits, never asks).
-	noCounter := e.noCounterSpend == pc.stackObj
-	e.noCounterSpend = 0
+	noCounter := e.NoCounterSpend == pc.stackObj
+	e.NoCounterSpend = 0
 	// CR 601.2b: record how the spell was cast (the X value and mode flags).
 	// Deferred to payment rather than the up-front push so an aborted
 	// proposal leaves no cast-time trace on the card. A cast trigger that
@@ -1086,8 +1086,8 @@ func (e *Engine) fireDeferredCastTrigger() {
 // of a deduplicated source list that re-read the source face at entry.
 
 func (e *Engine) fireManaSpentTriggers(ev events.Event, lki *state.Object) {
-	sources := e.manaSpentSources
-	e.manaSpentSources = nil
+	sources := e.ManaSpentSources
+	e.ManaSpentSources = nil
 	if len(sources) == 0 || (ev.Kind != events.PutOnStack && ev.Kind != events.AbilityPush && ev.Kind != events.KeywordAbilityPush) {
 		return
 	}

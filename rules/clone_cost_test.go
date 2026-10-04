@@ -106,94 +106,94 @@ func TestCloneCostCoversEveryCostSlice(t *testing.T) {
 func TestUnlessPaymentCloneOwnsItsSlices(t *testing.T) {
 	t.Parallel()
 	e := stealEngine(t, 731)
-	e.unlessPayment = &unlessPayment{
-		payer: 0,
-		cost:  Cost{Return: make([]CostPart, 2, 4), Exile: make([]CostPart, 2, 4)},
+	e.UnlessPayment = &unlessPayment{
+		Payer: 0,
+		Cost:  Cost{Return: make([]CostPart, 2, 4), Exile: make([]CostPart, 2, 4)},
 	}
-	e.unlessPayment.returns = make([]state.ObjID, 2, 4)
-	e.unlessPayment.exiles = make([]state.ObjID, 2, 4)
-	for i := range e.unlessPayment.cost.Return {
-		e.unlessPayment.cost.Return[i] = CostPart{N: int32(i + 1), Spec: "Plains"}
-		e.unlessPayment.cost.Exile[i] = CostPart{N: int32(i + 1), Spec: "Card"}
-		e.unlessPayment.returns[i] = state.ObjID(i + 1)
-		e.unlessPayment.exiles[i] = state.ObjID(i + 3)
+	e.UnlessPayment.Returns = make([]state.ObjID, 2, 4)
+	e.UnlessPayment.Exiles = make([]state.ObjID, 2, 4)
+	for i := range e.UnlessPayment.Cost.Return {
+		e.UnlessPayment.Cost.Return[i] = CostPart{N: int32(i + 1), Spec: "Plains"}
+		e.UnlessPayment.Cost.Exile[i] = CostPart{N: int32(i + 1), Spec: "Card"}
+		e.UnlessPayment.Returns[i] = state.ObjID(i + 1)
+		e.UnlessPayment.Exiles[i] = state.ObjID(i + 3)
 	}
-	ret0, ret1 := e.unlessPayment.returns[0], e.unlessPayment.returns[1]
-	exl0, exl1 := e.unlessPayment.exiles[0], e.unlessPayment.exiles[1]
-	costRet0, costRet1 := e.unlessPayment.cost.Return[0], e.unlessPayment.cost.Return[1]
-	costExl0, costExl1 := e.unlessPayment.cost.Exile[0], e.unlessPayment.cost.Exile[1]
+	ret0, ret1 := e.UnlessPayment.Returns[0], e.UnlessPayment.Returns[1]
+	exl0, exl1 := e.UnlessPayment.Exiles[0], e.UnlessPayment.Exiles[1]
+	costRet0, costRet1 := e.UnlessPayment.Cost.Return[0], e.UnlessPayment.Cost.Return[1]
+	costExl0, costExl1 := e.UnlessPayment.Cost.Exile[0], e.UnlessPayment.Cost.Exile[1]
 	if ret1 == 0 || costRet1.Spec == "" {
 		t.Fatal("test precondition failed: populated unlessPayment slices are empty")
 	}
 
 	c := e.Clone()
-	if c.unlessPayment == nil {
+	if c.UnlessPayment == nil {
 		t.Fatal("clone lost unlessPayment entirely")
 	}
-	cp := c.unlessPayment
+	cp := c.UnlessPayment
 	// Precondition: the clone carries the populated slices before any
 	// mutation.
-	if len(cp.returns) != 2 || len(cp.exiles) != 2 || len(cp.cost.Return) != 2 || len(cp.cost.Exile) != 2 {
+	if len(cp.Returns) != 2 || len(cp.Exiles) != 2 || len(cp.Cost.Return) != 2 || len(cp.Cost.Exile) != 2 {
 		t.Fatalf("clone pick slices = %d/%d/%d/%d, want 2 each",
-			len(cp.returns), len(cp.exiles), len(cp.cost.Return), len(cp.cost.Exile))
+			len(cp.Returns), len(cp.Exiles), len(cp.Cost.Return), len(cp.Cost.Exile))
 	}
-	if cp.returns[0] != ret0 || cp.returns[1] != ret1 ||
-		cp.exiles[0] != exl0 || cp.exiles[1] != exl1 ||
-		cp.cost.Return[0] != costRet0 || cp.cost.Return[1] != costRet1 ||
-		cp.cost.Exile[0] != costExl0 || cp.cost.Exile[1] != costExl1 {
+	if cp.Returns[0] != ret0 || cp.Returns[1] != ret1 ||
+		cp.Exiles[0] != exl0 || cp.Exiles[1] != exl1 ||
+		cp.Cost.Return[0] != costRet0 || cp.Cost.Return[1] != costRet1 ||
+		cp.Cost.Exile[0] != costExl0 || cp.Cost.Exile[1] != costExl1 {
 		t.Fatalf("clone's populated slices differ from the original before any mutation")
 	}
 
 	// Advance BOTH engines the way two live continuations would: one pick
 	// appended through the clone, one through the original, per slice.
-	cp.returns = append(cp.returns, 9001)
-	cp.exiles = append(cp.exiles, 9002)
-	cp.cost.Return = append(cp.cost.Return, CostPart{N: 99, Spec: "cloneRet"})
-	cp.cost.Exile = append(cp.cost.Exile, CostPart{N: 98, Spec: "cloneExl"})
-	e.unlessPayment.returns = append(e.unlessPayment.returns, 5001)
-	e.unlessPayment.exiles = append(e.unlessPayment.exiles, 5002)
-	e.unlessPayment.cost.Return = append(e.unlessPayment.cost.Return, CostPart{N: 88, Spec: "origRet"})
-	e.unlessPayment.cost.Exile = append(e.unlessPayment.cost.Exile, CostPart{N: 87, Spec: "origExl"})
+	cp.Returns = append(cp.Returns, 9001)
+	cp.Exiles = append(cp.Exiles, 9002)
+	cp.Cost.Return = append(cp.Cost.Return, CostPart{N: 99, Spec: "cloneRet"})
+	cp.Cost.Exile = append(cp.Cost.Exile, CostPart{N: 98, Spec: "cloneExl"})
+	e.UnlessPayment.Returns = append(e.UnlessPayment.Returns, 5001)
+	e.UnlessPayment.Exiles = append(e.UnlessPayment.Exiles, 5002)
+	e.UnlessPayment.Cost.Return = append(e.UnlessPayment.Cost.Return, CostPart{N: 88, Spec: "origRet"})
+	e.UnlessPayment.Cost.Exile = append(e.UnlessPayment.Cost.Exile, CostPart{N: 87, Spec: "origExl"})
 
 	// The clone's own entries survive at their own indices, and the earlier
 	// elements are untouched on both sides.
-	if got := cp.returns[2]; got != 9001 {
+	if got := cp.Returns[2]; got != 9001 {
 		t.Errorf("clone.returns[2] = %d, want 9001 (its own appended pick; a shared backing slot reads the original's 5001)", got)
 	}
-	if got := cp.exiles[2]; got != 9002 {
+	if got := cp.Exiles[2]; got != 9002 {
 		t.Errorf("clone.exiles[2] = %d, want 9002 (its own appended pick; a shared backing slot reads the original's 5002)", got)
 	}
-	if got := cp.cost.Return[2]; got != (CostPart{N: 99, Spec: "cloneRet"}) {
+	if got := cp.Cost.Return[2]; got != (CostPart{N: 99, Spec: "cloneRet"}) {
 		t.Errorf("clone.cost.Return[2] = %+v, want {99 cloneRet} (a shared backing slot reads the original's appended part)", got)
 	}
-	if got := cp.cost.Exile[2]; got != (CostPart{N: 98, Spec: "cloneExl"}) {
+	if got := cp.Cost.Exile[2]; got != (CostPart{N: 98, Spec: "cloneExl"}) {
 		t.Errorf("clone.cost.Exile[2] = %+v, want {98 cloneExl} (a shared backing slot reads the original's appended part)", got)
 	}
-	if got := e.unlessPayment.returns[2]; got != 5001 {
+	if got := e.UnlessPayment.Returns[2]; got != 5001 {
 		t.Errorf("orig.returns[2] = %d, want 5001 (its own appended pick; a shared backing slot reads the clone's 9001)", got)
 	}
-	if got := e.unlessPayment.exiles[2]; got != 5002 {
+	if got := e.UnlessPayment.Exiles[2]; got != 5002 {
 		t.Errorf("orig.exiles[2] = %d, want 5002 (its own appended pick)", got)
 	}
-	if got := e.unlessPayment.cost.Return[2]; got != (CostPart{N: 88, Spec: "origRet"}) {
+	if got := e.UnlessPayment.Cost.Return[2]; got != (CostPart{N: 88, Spec: "origRet"}) {
 		t.Errorf("orig.cost.Return[2] = %+v, want {88 origRet}", got)
 	}
-	if got := e.unlessPayment.cost.Exile[2]; got != (CostPart{N: 87, Spec: "origExl"}) {
+	if got := e.UnlessPayment.Cost.Exile[2]; got != (CostPart{N: 87, Spec: "origExl"}) {
 		t.Errorf("orig.cost.Exile[2] = %+v, want {87 origExl}", got)
 	}
-	if e.unlessPayment.returns[0] != ret0 || e.unlessPayment.returns[1] != ret1 ||
-		cp.returns[0] != ret0 || cp.returns[1] != ret1 {
+	if e.UnlessPayment.Returns[0] != ret0 || e.UnlessPayment.Returns[1] != ret1 ||
+		cp.Returns[0] != ret0 || cp.Returns[1] != ret1 {
 		t.Errorf("earlier return picks were clobbered by the appends: orig=[%d %d] clone=[%d %d], want [%d %d] both",
-			e.unlessPayment.returns[0], e.unlessPayment.returns[1], cp.returns[0], cp.returns[1], ret0, ret1)
+			e.UnlessPayment.Returns[0], e.UnlessPayment.Returns[1], cp.Returns[0], cp.Returns[1], ret0, ret1)
 	}
-	if e.unlessPayment.exiles[0] != exl0 || e.unlessPayment.exiles[1] != exl1 ||
-		cp.exiles[0] != exl0 || cp.exiles[1] != exl1 {
+	if e.UnlessPayment.Exiles[0] != exl0 || e.UnlessPayment.Exiles[1] != exl1 ||
+		cp.Exiles[0] != exl0 || cp.Exiles[1] != exl1 {
 		t.Errorf("earlier exile picks were clobbered by the appends")
 	}
-	if e.unlessPayment.cost.Return[0] != costRet0 || e.unlessPayment.cost.Return[1] != costRet1 ||
-		cp.cost.Return[0] != costRet0 || cp.cost.Return[1] != costRet1 ||
-		e.unlessPayment.cost.Exile[0] != costExl0 || e.unlessPayment.cost.Exile[1] != costExl1 ||
-		cp.cost.Exile[0] != costExl0 || cp.cost.Exile[1] != costExl1 {
+	if e.UnlessPayment.Cost.Return[0] != costRet0 || e.UnlessPayment.Cost.Return[1] != costRet1 ||
+		cp.Cost.Return[0] != costRet0 || cp.Cost.Return[1] != costRet1 ||
+		e.UnlessPayment.Cost.Exile[0] != costExl0 || e.UnlessPayment.Cost.Exile[1] != costExl1 ||
+		cp.Cost.Exile[0] != costExl0 || cp.Cost.Exile[1] != costExl1 {
 		t.Errorf("earlier cost parts were clobbered by the appends")
 	}
 }
@@ -213,16 +213,16 @@ func TestUnlessPaymentCloneOwnsEveryPickSlice(t *testing.T) {
 	t.Parallel()
 	e := stealEngine(t, 733)
 	up := &unlessPayment{}
-	up.sacs = make([]state.ObjID, 2, 4)
-	up.discards = make([]state.ObjID, 2, 4)
-	up.reveals = make([]state.ObjID, 2, 4)
-	up.beholds = make([]state.ObjID, 2, 4)
-	up.returns = make([]state.ObjID, 2, 4)
-	up.exiles = make([]state.ObjID, 2, 4)
-	for _, s := range [][]state.ObjID{up.sacs, up.discards, up.reveals, up.beholds, up.returns, up.exiles} {
+	up.Sacs = make([]state.ObjID, 2, 4)
+	up.Discards = make([]state.ObjID, 2, 4)
+	up.Reveals = make([]state.ObjID, 2, 4)
+	up.Beholds = make([]state.ObjID, 2, 4)
+	up.Returns = make([]state.ObjID, 2, 4)
+	up.Exiles = make([]state.ObjID, 2, 4)
+	for _, s := range [][]state.ObjID{up.Sacs, up.Discards, up.Reveals, up.Beholds, up.Returns, up.Exiles} {
 		s[0], s[1] = 1, 2
 	}
-	e.unlessPayment = up
+	e.UnlessPayment = up
 
 	// Ratchet: enumerate every []state.ObjID field of unlessPayment and
 	// require the populated set to match exactly, so a newly added pick
@@ -236,9 +236,9 @@ func TestUnlessPaymentCloneOwnsEveryPickSlice(t *testing.T) {
 			enumerated[ut.Field(i).Name] = true
 		}
 	}
-	populated := map[string]bool{"sacs": true, "discards": true, "reveals": true,
-		"beholds": true, "returns": true, "exiles": true}
-	for _, name := range []string{"sacs", "discards", "reveals", "beholds", "returns", "exiles"} {
+	populated := map[string]bool{"Sacs": true, "Discards": true, "Reveals": true,
+		"Beholds": true, "Returns": true, "Exiles": true}
+	for _, name := range []string{"Sacs", "Discards", "Reveals", "Beholds", "Returns", "Exiles"} {
 		if !enumerated[name] {
 			t.Errorf("the walk did not enumerate unlessPayment pick slice %q; its struct shape changed and the walk must follow", name)
 		}
@@ -253,7 +253,7 @@ func TestUnlessPaymentCloneOwnsEveryPickSlice(t *testing.T) {
 	}
 
 	c := e.Clone()
-	if c.unlessPayment == nil {
+	if c.UnlessPayment == nil {
 		t.Fatal("clone lost unlessPayment entirely")
 	}
 	checkPickSliceClone := func(name string, orig, clone *[]state.ObjID) {
@@ -280,10 +280,10 @@ func TestUnlessPaymentCloneOwnsEveryPickSlice(t *testing.T) {
 			t.Errorf("original %s[%d] = %d, want 51 (its own appended pick; a shared slot reads the clone's 91)", name, before, got)
 		}
 	}
-	checkPickSliceClone("sacs", &e.unlessPayment.sacs, &c.unlessPayment.sacs)
-	checkPickSliceClone("discards", &e.unlessPayment.discards, &c.unlessPayment.discards)
-	checkPickSliceClone("reveals", &e.unlessPayment.reveals, &c.unlessPayment.reveals)
-	checkPickSliceClone("beholds", &e.unlessPayment.beholds, &c.unlessPayment.beholds)
-	checkPickSliceClone("returns", &e.unlessPayment.returns, &c.unlessPayment.returns)
-	checkPickSliceClone("exiles", &e.unlessPayment.exiles, &c.unlessPayment.exiles)
+	checkPickSliceClone("sacs", &e.UnlessPayment.Sacs, &c.UnlessPayment.Sacs)
+	checkPickSliceClone("discards", &e.UnlessPayment.Discards, &c.UnlessPayment.Discards)
+	checkPickSliceClone("reveals", &e.UnlessPayment.Reveals, &c.UnlessPayment.Reveals)
+	checkPickSliceClone("beholds", &e.UnlessPayment.Beholds, &c.UnlessPayment.Beholds)
+	checkPickSliceClone("returns", &e.UnlessPayment.Returns, &c.UnlessPayment.Returns)
+	checkPickSliceClone("exiles", &e.UnlessPayment.Exiles, &c.UnlessPayment.Exiles)
 }

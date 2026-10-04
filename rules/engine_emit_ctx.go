@@ -19,22 +19,6 @@ type engineEmitCtx struct {
 	subOfferParent []state.Target `clone:"reset"`
 	subOfferBound  bool           `clone:"reset"`
 
-	// costProvenanceSeen is the transient capture of the last cost-modifier
-	// pass (castprov3): true when that pass evaluated a cost static whose
-	// ValidCard$ carries a cast-provenance token (Bilbo's
-	// "!wasCastFromYourHand" ReduceCost) — such a static is unresolvable
-	// pre-push, so the pass denied it and the pending cast's payment needs
-	// the post-push re-price continueCast runs right after CR 601.2a's push.
-	// Set inside costStaticApplies (inside the costModifiers attribution
-	// roots, so the param census sees no new read), cleared at the top of
-	// every costModifiersWithTargets[ X]Using pass. Like noCounterSpend it
-	// is synchronous computation state: every read of it (the option-
-	// selection sites and continueCast's post-push re-price) happens in the
-	// same driven flow as the pass that set it, and no ask suspends between
-	// the pass and the read. Like noCounterSpend, Clone copies nothing of
-	// it.
-	costProvenanceSeen bool `clone:"reset"`
-
 	// damaging names the source object responsible for the damage emit
 	// currently in flight (CR 609.7a): the resolution source for a spell or
 	// ability being resolved, or the dealing creature for a combat
@@ -94,16 +78,6 @@ type engineEmitCtx struct {
 	// resolving. They are synchronous context rather than ManaAdd fields.
 	manaFromTap  bool        `clone:"reset"`
 	manaProducer state.ObjID `clone:"reset"`
-	// paymentPlanCarriers memoises the objects whose faces carry a
-	// Taps/TapsForMana trigger or a ProduceMana replacement -- the only
-	// printed text the payment-plan source-interference check must run its
-	// matchers over (rules/payment_plan_interference.go). The key is the
-	// object-arena size plus the log head: a face or zone only changes through
-	// an event or a new object. A pure derived memo, never copied by Clone.
-	paymentPlanCarriers       []state.ObjID `clone:"reset"`
-	paymentPlanCarriersObjs   int           `clone:"reset"`
-	paymentPlanCarriersEvents int           `clone:"reset"`
-	paymentPlanCarriersValid  bool          `clone:"reset"`
 	// stepLeaving is the step transition currently offered to BeginPhase
 	// replacements (valid while stepLeavingSet); parked choices own a value
 	// copy. Held by value so a step change allocates nothing.

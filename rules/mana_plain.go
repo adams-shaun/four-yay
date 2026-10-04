@@ -132,14 +132,14 @@ func (e *Engine) verifyPlainMana(want events.Event, n0 int) {
 // panics if it emitted or failed.
 func (e *Engine) payManaAbilityMana(p state.PlayerID, source state.ObjID, cc *compiledCost) bool {
 	if cc.BareTap && !manaPlainVerify {
-		e.noCounterSpend = 0
-		e.manaSpentSources = nil
-		e.manaSpentAddsCounters = nil
+		e.NoCounterSpend = 0
+		e.ManaSpentSources = nil
+		e.ManaSpentAddsCounters = nil
 		return true
 	}
 	n0 := len(e.L.Events)
 	ok := pay.PayManaConvFor(asPayer(e), p, source, true, cc.Cost, asPayer(e).Conv(p, source, true))
-	if cc.BareTap && (!ok || len(e.L.Events) != n0 || e.noCounterSpend != 0 || e.manaSpentSources != nil || e.manaSpentAddsCounters != nil) {
+	if cc.BareTap && (!ok || len(e.L.Events) != n0 || e.NoCounterSpend != 0 || e.ManaSpentSources != nil || e.ManaSpentAddsCounters != nil) {
 		panic(fmt.Sprintf("rules: bare-tap mana payment for %d was not a no-op (ok=%v, %d events)", source, ok, len(e.L.Events)-n0))
 	}
 	return ok

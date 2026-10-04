@@ -86,7 +86,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 		// re-price is owed; the read stays inside the attributed cost-static
 		// pass, so the param census sees no new Params site.
 		if strings.Contains(spec, "wasCastFromYourHand") || strings.Contains(spec, "wasCastByYou") {
-			e.costProvenanceSeen = true
+			e.CostProvenanceSeen = true
 		}
 		if strings.Contains(spec, castSaMayPlaySource) {
 			// Card.CastSa Spell.MayPlaySource (the "spell cast this way"

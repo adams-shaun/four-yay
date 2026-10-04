@@ -95,9 +95,9 @@ func (e *Engine) PotentialPaymentPlans(p state.PlayerID) []PotentialPlan {
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
 	defer e.paymentPlanQueryEnd(e.paymentPlanQueryResumeBegin(p))
-	prevPool := e.paymentPlanPotentialPool
-	e.paymentPlanPotentialPool = true
-	defer func() { e.paymentPlanPotentialPool = prevPool }()
+	prevPool := e.PaymentPlanPotentialPool
+	e.PaymentPlanPotentialPool = true
+	defer func() { e.PaymentPlanPotentialPool = prevPool }()
 	hyp, opts := e.potentialWalkOf(p, true)
 	// ambiguous[i]: another potential play shares opts[i]'s (kind, object,
 	// ability, mode) identity. A pairwise scan over the walk's few plays
@@ -274,8 +274,8 @@ const relaxedPaidLimit = 3
 // for that set already covers it. A relaxed alternative is never
 // executable, so no Plan is returned.
 func (e *Engine) paymentPlanRelaxProof(c paymentPlanCensus, verdict func() PaymentPlanOutcome) PaymentPlanOutcome {
-	prev, prevFee := e.paymentPlanRelaxed, e.paymentPlanRelaxedFee
-	defer func() { e.paymentPlanRelaxed, e.paymentPlanRelaxedFee = prev, prevFee }()
+	prev, prevFee := e.PaymentPlanRelaxed, e.PaymentPlanRelaxedFee
+	defer func() { e.PaymentPlanRelaxed, e.PaymentPlanRelaxedFee = prev, prevFee }()
 	for mask := 0; mask < 1<<len(c.paid); mask++ {
 		relaxed := slices.Clone(c.relaxed)
 		fee := int32(0)
@@ -288,7 +288,7 @@ func (e *Engine) paymentPlanRelaxProof(c paymentPlanCensus, verdict func() Payme
 		if len(relaxed) == 0 {
 			relaxed = [][]pay.Alt{nil} // the census alone, still a relaxed run
 		}
-		e.paymentPlanRelaxed, e.paymentPlanRelaxedFee = relaxed, fee
+		e.PaymentPlanRelaxed, e.PaymentPlanRelaxedFee = relaxed, fee
 		if got := verdict(); got.Reason != "insufficient" {
 			return PaymentPlanOutcome{Reason: got.Reason, Detail: got.Detail}
 		}
@@ -351,7 +351,7 @@ func (e *Engine) potentialModeCastPlan(p state.PlayerID, o decision.Option) Paym
 		// does not see it, so it proves nothing.
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: "shape:target_dependent_cost"}
 	}
-	if best.Plan == nil || best.Reason != "" || len(e.paymentPlanRelaxed) != 0 {
+	if best.Plan == nil || best.Reason != "" || len(e.PaymentPlanRelaxed) != 0 {
 		// No witness, or a relaxed proof run (which reads only whether the
 		// minimum is payable, and whose plans are never executed).
 		return best

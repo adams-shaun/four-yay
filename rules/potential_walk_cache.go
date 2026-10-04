@@ -320,7 +320,7 @@ func (e *Engine) planCastPaymentAtDecision(p state.PlayerID, cast decision.Plann
 // (walkCacheVerify) re-plans every hit with fresh inputs and panics on any
 // difference.
 func (e *Engine) planCastPaymentMemo(p state.PlayerID, cast decision.PlannedCast, statics *costStaticSource, candidates *paymentCastCandidates) PaymentPlanOutcome {
-	if e.paymentPlanRelaxed != nil || e.paymentPlanRelaxedFee != 0 || !pay.PlanPoolOK(&e.G.Players[p]) ||
+	if e.PaymentPlanRelaxed != nil || e.PaymentPlanRelaxedFee != 0 || !pay.PlanPoolOK(&e.G.Players[p]) ||
 		!e.potentialWalkUsable() || !e.potentialWalkHit(p, false) {
 		return e.planCastPaymentChecked(p, cast, statics, candidates)
 	}
