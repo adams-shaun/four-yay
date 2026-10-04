@@ -43,7 +43,7 @@ func TestChooserChosenPlayerResolvesTheChosenSeat(t *testing.T) {
 
 	// No chosen answer: each chooser keeps its own default (search =
 	// controller, hidden pick = the fetch `owner`).
-	if got := searchChooser(h, c, ChangeZoneOf(chooserSA("ChosenPlayer"))); got != 0 {
+	if got := searchChooser(h, c, ChangeZoneOf(chooserSA("ChosenPlayer")), 0); got != 0 {
 		t.Fatalf("searchChooser with no chosen answer = %d, want controller 0", got)
 	}
 	if got := hiddenPickChooser(h, c, ChangeZoneOf(chooserSA("ChosenPlayer")), 2); got != 2 {
@@ -60,7 +60,7 @@ func TestChooserChosenPlayerResolvesTheChosenSeat(t *testing.T) {
 	// pick's `owner` is deliberately 2 (a different seat), to prove the chosen
 	// answer wins over the owner fallback.
 	for _, spelling := range []string{"ChosenPlayer", "Player.Chosen"} {
-		if got := searchChooser(h, c, ChangeZoneOf(chooserSA(spelling))); got != 1 {
+		if got := searchChooser(h, c, ChangeZoneOf(chooserSA(spelling)), 2); got != 1 {
 			t.Fatalf("searchChooser Chooser$ %s = %d, want chosen seat 1", spelling, got)
 		}
 		if got := hiddenPickChooser(h, c, ChangeZoneOf(chooserSA(spelling)), 2); got != 1 {
@@ -89,7 +89,7 @@ func TestChooserChosenPlayerResolvesTheChosenSeat(t *testing.T) {
 	// A chosen seat that has left the game must not receive the ask: each
 	// chooser returns its own deterministic default instead.
 	h.g.Players[1].Lost = true
-	if got := searchChooser(h, c, ChangeZoneOf(chooserSA("ChosenPlayer"))); got != 0 {
+	if got := searchChooser(h, c, ChangeZoneOf(chooserSA("ChosenPlayer")), 0); got != 0 {
 		t.Fatalf("searchChooser with a dead chosen seat = %d, want controller 0", got)
 	}
 	if got := hiddenPickChooser(h, c, ChangeZoneOf(chooserSA("ChosenPlayer")), 2); got != 2 {
@@ -97,5 +97,25 @@ func TestChooserChosenPlayerResolvesTheChosenSeat(t *testing.T) {
 	}
 	if got, ok := handMoveChooserFor(h, c, ChangeZoneOf(chooserSA("ChosenPlayer")), 2); ok || got != 2 {
 		t.Fatalf("handMoveChooserFor with a dead chosen seat = (%d, %v), want fail-closed (2, false)", got, ok)
+	}
+}
+
+// TestSearchChooserDefaultsToTheFetcher: with no Chooser$, an Optional$ (or
+// any) library search is decided by the player whose DefinedPlayer$/Defined$
+// names the search -- Path to Exile's DefinedPlayer$ TargetedController is
+// answered by the exiled creature's controller, not the caster -- while a
+// ValidTgts$-only search (Bribery) is decided by the activator.
+func TestSearchChooserDefaultsToTheFetcher(t *testing.T) {
+	h := newHost(t, 3)
+	c := &Ctx{Controller: 0}
+	path := &cards.SA{Params: map[string]string{"Optional": "True", "Origin": "Library",
+		"DefinedPlayer": "TargetedController", "ChangeType": "Land.Basic"}}
+	if got := searchChooser(h, c, ChangeZoneOf(path), 2); got != 2 {
+		t.Fatalf("Path to Exile search decider = %d, want the searching player 2", got)
+	}
+	bribery := &cards.SA{Params: map[string]string{"Origin": "Library", "ValidTgts": "Opponent",
+		"ChangeType": "Creature"}}
+	if got := searchChooser(h, c, ChangeZoneOf(bribery), 2); got != 0 {
+		t.Fatalf("Bribery search decider = %d, want the activator 0", got)
 	}
 }

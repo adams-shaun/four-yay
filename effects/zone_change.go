@@ -73,8 +73,8 @@ func clearChangeZoneImprint(h Host, c *Ctx) {
 // changeZonePrelude is effChangeZone's entry, up to the dispatch on Origin$:
 // the unread-parameter Note, the UntilHostLeavesPlay bail (stop), Unimprint's
 // pre-move clear, the DestAltSVar$ destination and the unrecognised
-// OriginAlternative$ Note. The answered asks re-emit it through
-// changeZoneReentryEcho before applying their answer.
+// OriginAlternative$ Note. It runs once per resolution: an ask answered in
+// place continues past it and never re-emits it.
 func changeZonePrelude(h Host, c *Ctx, cz *ChangeZoneParams) (to state.Zone, stop bool) {
 	cz.noteUnread(h, c)
 	if exileHostGoneFor(h, c, cz.Riders.Duration) {
@@ -322,12 +322,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	// count; a bound pair that admits nothing (Min == Max == 0, or no eligible
 	// candidate) poses no ask and moves nothing -- a decision nobody could
 	// answer differently is never emitted.
-	if ans, ok, served := changeZoneChosenTargetsFor(h, c, sa, &cz.changeZoneTargeting); ok {
-		if served {
-			// Answered in place: the echo events come before the answer is
-			// used.
-			objectPathMoveEcho(h, c, cz, to)
-		}
+	if ans, ok, _ := changeZoneChosenTargetsFor(h, c, sa, &cz.changeZoneTargeting); ok {
 		targets = ans
 		// A nil answer with ok (a posed which-opponent selection, or an empty
 		// recorded pre-ask) leaves the target ask pending: the mixed-origin
@@ -402,9 +397,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 						{Index: 1, Kind: "bottom", Label: "bottom"},
 					}}
 				if ans, ok := AskTape(h, d); ok {
-					// Answered in place: the echo events, then the answered
-					// position.
-					objectPathMoveEcho(h, c, cz, to)
+					// Answered in place: the answered position.
 					altBottom = len(ans) > 0 && ans[0].Label == "bottom"
 					altEngaged = true
 				} else {
@@ -449,9 +442,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "imprint", Obj: target.Obj, Label: o.Face().Name})
 			}
 			if ans, ok := AskTape(h, d); ok {
-				// Answered in place: the echo events, then the answered
-				// cards are the ones moved.
-				objectPathMoveEcho(h, c, cz, to)
+				// Answered in place: the answered cards are the ones moved.
 				targets = targets[:0]
 				for _, id := range tapeAnswerObjs(ans) {
 					targets = append(targets, state.Target{Obj: id})

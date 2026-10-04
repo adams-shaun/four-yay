@@ -498,13 +498,12 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 					{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
 					{Index: 1, Kind: "no", Label: "No", Player: chooser},
 				}}
-			// Answered in place: the echo events, then a decline skips this
+			// Answered in place: a decline skips this
 			// owner with the remembered set intact and an acceptance enters
 			// the fetch. R-9: with no answer, play "may" as "do"
 			// deterministically, the same fallback moveDefinedLibraryObjects
 			// applies.
 			if ans, ok := AskTape(h, cd); ok {
-				handMoveReentryEcho(h, c, cz, to)
 				if !tapeAnswerYes(ans) {
 					continue
 				}
@@ -634,9 +633,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 		// shape -- so it is never posted and resolves silently through the
 		// stand-in below, which moves zero cards.
 		if ans, ok := AskTape(h, d); ok {
-			// Answered in place: the echo events, then the answered pick over
-			// the hand as it stands.
-			handMoveReentryEcho(h, c, cz, to)
+			// Answered in place: the answered pick over the hand as it stands.
 			applyAnswered(owner, zoneOf(g, state.ZHand, owner), eligible, tapeAnswerObjs(ans))
 			continue
 		}

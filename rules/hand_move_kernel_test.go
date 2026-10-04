@@ -118,11 +118,11 @@ func TestKr1HandMoveChangeZoneExileCounters(t *testing.T) {
 					counterNotes = append(counterNotes, n)
 				}
 			}
-			// The legacy test read the LAST Note only. The dynamic amount is
-			// parsed both when the pick is built and when the answer settles,
-			// so the same loud Note can appear twice; every one must be it.
-			if tc.note == "" && len(counterNotes) != 0 || tc.note != "" && len(counterNotes) == 0 {
-				t.Fatalf("counter Notes = %q, want %q", counterNotes, tc.note)
+			// The amount is read once per resolution: an ask answered in
+			// place never re-emits the entry's loud Note, so a malformed
+			// amount is reported exactly once.
+			if tc.note == "" && len(counterNotes) != 0 || tc.note != "" && len(counterNotes) != 1 {
+				t.Fatalf("counter Notes = %q, want exactly one %q", counterNotes, tc.note)
 			}
 			for _, n := range counterNotes {
 				if n != tc.note {

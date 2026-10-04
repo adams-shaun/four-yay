@@ -246,7 +246,6 @@ func charmCrossModeRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 		if sub == nil {
 			continue
 		}
-		asks := askCount(h)
 		if ti < k && tbmIdx[ti] == i {
 			saved := c.Targets
 			savedOffered := c.OfferedSA
@@ -267,7 +266,6 @@ func charmCrossModeRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 			// The mode's chain opened a resolution-time window: stop here.
 			return true
 		}
-		charmRestNote(h, c, sa, asks)
 	}
 	return true
 }
@@ -344,16 +342,6 @@ func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
 	c.Choosers.VictimIndex = 0
 }
 
-// charmRestNote re-emits the unread-parameter Note after a mode or chooser
-// body that asked (asks counted since asksBefore), before the remaining
-// modes or choosers run. The extra Note is a pinned part of the log (golden
-// heads), kept from the removed rest-frame protocol.
-func charmRestNote(h Host, c *Ctx, sa *cards.SA, asksBefore uint64) {
-	if askCount(h) != asksBefore {
-		noteUnreadParams(h, c, sa.API, CharmOf(sa).Unread)
-	}
-}
-
 // villainousRunChoice runs the current victim's chosen body (names) and
 // reports whether it opened a resolution-time window.
 func villainousRunChoice(h Host, c *Ctx, sa *cards.SA, names []string) bool {
@@ -381,7 +369,6 @@ func charmDistinctTargetRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 		if sub == nil {
 			continue
 		}
-		asks := askCount(h)
 		savedTargets, savedOffered, savedMarker := c.Targets, c.OfferedSA, c.TargetsOffered
 		savedScope, savedScopeSA := c.CharmModeScope, c.CharmModeSA
 		if ModeTargetSpec(sub) != "" {
@@ -404,7 +391,6 @@ func charmDistinctTargetRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 		if h.Suspended() {
 			return true
 		}
-		charmRestNote(h, c, sa, asks)
 	}
 	return true
 }
@@ -530,13 +516,11 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 		}
 		savedChoosers, savedIndex := c.Choosers.Choosers, c.Choosers.ChooserIndex
 		c.Choosers.Choosers, c.Choosers.ChooserIndex = nil, 0
-		asks := askCount(h)
 		Resolve(h, c, sub)
 		c.Choosers.Choosers, c.Choosers.ChooserIndex = savedChoosers, savedIndex
 		if h.Suspended() {
 			return true
 		}
-		charmRestNote(h, c, sa, asks)
 		return false
 	}
 	if c.Modes != nil {
@@ -801,9 +785,6 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 				names = append(names, vocab[o.Index])
 			}
 		}
-		// The unread-parameter Note is emitted again here: a pinned part of
-		// the log (golden heads), kept from the removed re-entry protocol.
-		noteUnreadParams(h, c, sa.API, cp.Unread)
 		charmRunModes(h, c, sa, names)
 		return
 	}
@@ -867,7 +848,6 @@ func charmRunModes(h Host, c *Ctx, sa *cards.SA, names []string) {
 	// re-running the mode against the one shared target.
 	seen := make(map[string]bool, len(names))
 	for _, name := range names {
-		asks := askCount(h)
 		if sub := cards.ResolveSVar(c.SVars, name); sub != nil {
 			savedOffered, savedTargets, savedMark := c.OfferedSA, c.Targets, c.TargetsOffered
 			first := !seen[name]
@@ -891,7 +871,6 @@ func charmRunModes(h Host, c *Ctx, sa *cards.SA, names []string) {
 			// modes do not run.
 			return
 		}
-		charmRestNote(h, c, sa, asks)
 	}
 }
 

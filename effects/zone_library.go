@@ -61,9 +61,7 @@ func objectPathShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, m
 			{Index: 1, Kind: "no", Label: "No — keep the order", Player: c.Controller},
 		}}
 	if ans, ok := AskTape(h, d); ok {
-		// Answered in place: the echo events, then the answered tail; the
-		// caller stops after it.
-		objectPathReentryEcho(h, c, cz)
+		// Answered in place: the answered tail; the caller stops after it.
 		if tapeAnswerYes(ans) {
 			objectPathShuffleOwners(h, moved)
 		}
@@ -124,9 +122,7 @@ func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owner
 			{Index: 1, Kind: "no", Label: "No — keep the order", Player: owner},
 		}}
 	if ans, ok := AskTape(h, d); ok {
-		// Answered in place: the echo events (the prelude and this
-		// library's look), then the answered tail.
-		searchReentryEcho(h, c, cz, owner, libraryOnlyZones, true)
+		// Answered in place: the answered tail.
 		if tapeAnswerYes(ans) {
 			shuffleLibraryOrder(h, owner)
 		}

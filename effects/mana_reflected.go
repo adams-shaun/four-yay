@@ -336,9 +336,7 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 			// Answered in place (the ask is Min 1, so a served answer always
 			// names one option). The answer is carried as the structured
 			// mana symbol, not the option label: labels are
-			// presentation-only. The unread-parameter Note is emitted again
-			// first (the recorded event stream depends on it).
-			noteUnreadParams(h, c, "ManaReflected", ManaReflectedOf(sa).Unread)
+			// presentation-only.
 			if len(ans) > 0 {
 				manaReflectedAnswered(cols, ans[0].ManaSymbol, recipient, manaAdd)
 			}

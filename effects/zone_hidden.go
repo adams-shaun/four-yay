@@ -272,12 +272,11 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 					{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
 					{Index: 1, Kind: "no", Label: "No", Player: chooser},
 				}}
-			// Answered in place: the echo events, then a decline skips this
+			// Answered in place: a decline skips this
 			// player and an acceptance enters the pick. R-9: with no answer,
 			// play "may" as "do" deterministically, the same fallback the
 			// hand walk's confirmation applies.
 			if ans, ok := AskTape(h, cd); ok {
-				hiddenPickReentryEcho(h, c, cz, to, originValid, from)
 				if !tapeAnswerYes(ans) {
 					continue
 				}
@@ -376,8 +375,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 			}
 		}
 		if ans, ok := AskTape(h, d); ok {
-			// Answered in place: the echo events, then the answered pick.
-			hiddenPickReentryEcho(h, c, cz, to, originValid, from)
+			// Answered in place: the answered pick.
 			applyAnswered(owner, tapeAnswerObjs(ans))
 			continue
 		}

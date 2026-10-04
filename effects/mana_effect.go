@@ -92,9 +92,6 @@ func askManaChoice(h Host, c *Ctx, sa *cards.SA, produced string) (string, bool,
 		}
 		ans := d.Chosen(in)
 		if answered, units, ok := manaChoiceProduced(ans); ok {
-			// The unread-parameter Note is emitted again here, a pinned
-			// part of the log kept from the removed re-entry protocol.
-			noteUnreadParams(h, c, "Mana", ManaOf(sa).Unread)
 			return answered, units, false
 		}
 	}

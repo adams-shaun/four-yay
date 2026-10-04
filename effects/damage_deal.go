@@ -147,10 +147,8 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 					Prompt: "Assign " + strconv.Itoa(int(total)) + " damage"}
 				if ans, ok := AskTape(h, d); ok {
 					// Answered in place: the shares; the walk below emits
-					// them. The rider is rebuilt after the answer (an
-					// unresolvable DamageSource$ re-emits its Note there).
+					// them with the rider built on the way in.
 					split = damageSplitAnswer(ans)
-					rider = newDamageRider(h, c, dp.DamageSource, n)
 				} else {
 					// No host (R-9): the deterministic round-robin stand-in.
 					split = roundRobinSplit(len(divTargets), total)

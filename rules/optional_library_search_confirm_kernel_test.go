@@ -141,8 +141,17 @@ func TestPathToExileSearchConfirmsBeforeTheBasicLandSearch(t *testing.T) {
 	if z := e.G.Obj(victim).Zone; z != state.ZExile {
 		t.Fatalf("victim is on %s, want exile", z)
 	}
+	// "Its controller may search their library": the exiled creature's
+	// controller (seat 1) decides and picks, never the caster (Forge's
+	// decider is the DefinedPlayer$ fetcher absent a Chooser$).
+	if d.Player != 1 {
+		t.Fatalf("search_confirm decider = seat %d, want the exiled creature's controller 1", d.Player)
+	}
 	lands := len(e.G.Zone(state.ZBattlefield, 1))
 	d = kr2Want(t, kr2Answer(t, e, d, kr2Kind(t, d, "yes")), "search")
+	if d.Player != 1 {
+		t.Fatalf("search pick decider = seat %d, want the searching player 1", d.Player)
+	}
 	for i := 0; d != nil && i < 4; i++ {
 		if d.ResumeKind == "search" {
 			d = kr2Answer(t, e, d, d.Options[0].Index)

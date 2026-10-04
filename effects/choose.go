@@ -382,18 +382,12 @@ func effChooseNumberElection(h Host, c *Ctx, sa *cards.SA, matched, unmatched st
 		d.Options = opts
 		if ans, ok := AskTape(h, d); ok {
 			// Answered in place: the pick (a malformed empty answer keeps
-			// 0), then the next chooser. The Defined$ degrade Note is
-			// emitted again after every answered chooser (the recorded
-			// event stream depends on it).
+			// 0), then the next chooser.
 			pick := int32(0)
 			if len(ans) > 0 {
 				pick = int32(ans[0].Amount)
 			}
 			picks = append(picks, pick)
-			if degraded {
-				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-					Text: "ChooseNumber election could not resolve Defined$ " + defined + "; asking the controller"})
-			}
 			continue
 		}
 

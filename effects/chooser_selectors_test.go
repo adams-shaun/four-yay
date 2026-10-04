@@ -36,7 +36,7 @@ func TestChooserSelectorsResolveThroughDefined(t *testing.T) {
 
 	for _, spelling := range []string{"Remembered", "TriggeredPlayer", "TriggeredCardController"} {
 		for _, got := range []state.PlayerID{
-			searchChooser(h, c, ChangeZoneOf(chooserSA(spelling))),
+			searchChooser(h, c, ChangeZoneOf(chooserSA(spelling)), 2),
 			hiddenPickChooser(h, c, ChangeZoneOf(chooserSA(spelling)), 2),
 		} {
 			if got != 1 {
@@ -51,7 +51,7 @@ func TestChooserSelectorsResolveThroughDefined(t *testing.T) {
 		unbound := *c
 		unbound.Remembered = nil
 		unbound.TriggerPlayer = state.Target{}
-		if got := searchChooser(h, &unbound, ChangeZoneOf(chooserSA(spelling))); got != 0 {
+		if got := searchChooser(h, &unbound, ChangeZoneOf(chooserSA(spelling)), 0); got != 0 {
 			t.Fatalf("searchChooser %s fallback = %d, want controller 0", spelling, got)
 		}
 		if got := hiddenPickChooser(h, &unbound, ChangeZoneOf(chooserSA(spelling)), 2); got != 2 {
@@ -60,7 +60,7 @@ func TestChooserSelectorsResolveThroughDefined(t *testing.T) {
 	}
 	dead := *c
 	h.g.Players[1].Lost = true
-	if got := searchChooser(h, &dead, ChangeZoneOf(chooserSA("Remembered"))); got != 0 {
+	if got := searchChooser(h, &dead, ChangeZoneOf(chooserSA("Remembered")), 0); got != 0 {
 		t.Fatalf("searchChooser dead Remembered = %d, want controller 0", got)
 	}
 	if got := hiddenPickChooser(h, &dead, ChangeZoneOf(chooserSA("Remembered")), 2); got != 2 {

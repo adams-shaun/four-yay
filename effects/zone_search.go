@@ -45,7 +45,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 		// cardinality marker, never a yes/no gate, and a markerless text-may
 		// search stays confirmation-free.
 		if optionalConfirmMarker(cz) {
-			chooser := searchChooser(h, c, cz)
+			chooser := searchChooser(h, c, cz, owner)
 			prompt := cz.OptionalPrompt
 			if prompt == "" {
 				prompt = "Proceed with searching a library?"
@@ -58,13 +58,12 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 					{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
 					{Index: 1, Kind: "no", Label: "No", Player: chooser},
 				}}
-			// Answered in place: the echo events, then a decline skips this
+			// Answered in place: a decline skips this
 			// player's search/tail with the remembered set intact and an
 			// acceptance enters the fetch. R-9: with no answer, play "may" as
 			// "do" deterministically, then let the search path apply its own
 			// no-host pick policy.
 			if ans, ok := AskTape(h, cd); ok {
-				searchReentryEcho(h, c, cz, owner, zones, false)
 				if !tapeAnswerYes(ans) {
 					continue
 				}
@@ -250,7 +249,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 		// generic text exactly as effHiddenPick already does. Building it here
 		// -- before the clamp -- is what made a mandatory leg advertise "up to
 		// 1 card(s)" over a Min == Max == 1 decision.
-		chooser := searchChooser(h, c, cz)
+		chooser := searchChooser(h, c, cz, owner)
 		// NoLooking$ True (Forge's line-1020 gate: with NoLooking the searching
 		// player never LOOKS at the library -- no delayedReveal -- so the choose
 		// is made over card backs): the options must not carry card names. The
@@ -398,9 +397,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 		// search still shuffles, and a fail-to-find is legitimate under
 		// CR 701.23b, so nothing is degraded and no R-9 Note is recorded.
 		if ans, ok := AskTape(h, d); ok {
-			// Answered in place: the echo events (the prelude and this
-			// library's look), then the answered ordered subset applies.
-			searchReentryEcho(h, c, cz, owner, zones, true)
+			// Answered in place: the answered ordered subset applies.
 			c.Search.Target = targetIndex
 			applyLibrarySearch(h, c, sa, cz, owner, to, tapeAnswerObjs(ans), zones)
 			continue
@@ -593,10 +590,9 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 				{Index: 0, Kind: "yes", Label: "Yes", Player: c.Controller},
 				{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
 			}}
-		// Answered in place: the echo events, then a decline stops here.
+		// Answered in place: a decline stops here.
 		// With no answer the deterministic default is the direct move.
 		if ans, ok := AskTape(h, d); ok {
-			definedLibraryReentryEcho(h, c, cz)
 			if !tapeAnswerYes(ans) {
 				return true
 			}
@@ -692,7 +688,7 @@ func searchPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 
 // searchPlayersFor is searchPlayers over compiled fetch selectors.
 func searchPlayersFor(h Host, c *Ctx, sel fetchSelectors) []state.PlayerID {
-	if sel.DefinedPlayer.Text == "" && sel.Defined.Text == "" && sel.ValidTgts.Text != "" {
+	if searchTargetedOwner(sel) {
 		return hiddenPickPlayers(h, c, sel)
 	}
 	spec, explicit := sel.DefinedPlayer.Text, sel.DefinedPlayer.Present
@@ -749,15 +745,33 @@ func chooserPlayer(h Host, c *Ctx, spec string) (state.PlayerID, bool) {
 	return 0, false
 }
 
-// searchChooser resolves who answers the search prompt. A known Chooser$
-// selector wins; an unbound or unknown selector falls back to the controller.
-func searchChooser(h Host, c *Ctx, cz *ChangeZoneParams) state.PlayerID {
+// searchChooser resolves who answers owner's search prompts -- the Optional$
+// confirmation, the card pick and the look. A known Chooser$ selector wins.
+// Otherwise the decider is the FETCHER, Forge's changeHiddenOriginResolve
+// `decider = firstNonNull(chooser, player)` over the fetchers its
+// DefinedPlayer$/Defined$ names: Path to Exile's "its controller may search
+// their library" is answered by the exiled creature's controller, never the
+// caster. A targeted search with no DefinedPlayer$/Defined$ (Bribery's
+// ValidTgts$ Opponent) has the activator as its only fetcher -- the target
+// names whose library is searched, not who searches -- so it falls back to
+// the controller, as does an unbound or dead Chooser$ referent on that shape.
+func searchChooser(h Host, c *Ctx, cz *ChangeZoneParams, owner state.PlayerID) state.PlayerID {
 	if spec := cz.Chooser; spec != "" {
 		if p, ok := chooserPlayer(h, c, spec); ok {
 			return p
 		}
 	}
-	return c.Controller
+	if searchTargetedOwner(cz.fetch()) {
+		return c.Controller
+	}
+	return owner
+}
+
+// searchTargetedOwner reports the search shape whose owners come from the
+// targets (searchPlayersFor's hiddenPickPlayers branch): no DefinedPlayer$ or
+// Defined$ fetcher, only ValidTgts$.
+func searchTargetedOwner(sel fetchSelectors) bool {
+	return sel.DefinedPlayer.Text == "" && sel.Defined.Text == "" && sel.ValidTgts.Text != ""
 }
 
 // searchKnownTo reports whether player p has already legitimately learned the
@@ -1291,7 +1305,7 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owne
 			}
 		}
 		if !cz.NoLooking {
-			chooser := searchChooser(h, c, cz)
+			chooser := searchChooser(h, c, cz, owner)
 			for _, id := range moved {
 				c.Search.Known = append(c.Search.Known, state.Target{Obj: id, Player: chooser})
 			}
