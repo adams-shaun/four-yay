@@ -51,6 +51,43 @@ func tapeLandReplMayAsk(e *Engine, obj state.ObjID) bool {
 		}
 	}
 	ev := events.Event{Obj: obj, To: state.ZBattlefield}
+	if !replArenaAskFor(e, replAskMovedOther) {
+		// No arena object carries a Moved line another object's entry can
+		// meet: only obj's own lines count (replArenaMask.ask).
+		ask := tapeOwnEntryReplMayAsk(e, obj, ev, n)
+		if replZoneSkipVerify && ask != tapeLandReplWalk(e, ev, n) {
+			panic("rules: replacement ask class skipped a land entry walk that disagrees")
+		}
+		return ask
+	}
+	return tapeLandReplWalk(e, ev, n)
+}
+
+// tapeOwnEntryReplMayAsk is tapeLandReplWalk over obj's own face alone.
+func tapeOwnEntryReplMayAsk(e *Engine, obj state.ObjID, ev events.Event, n int) bool {
+	o := e.G.Obj(obj)
+	if o == nil {
+		return false
+	}
+	f := o.Face()
+	if f == nil {
+		return false
+	}
+	for i := range f.Repls {
+		r := &f.Repls[i]
+		if r.Event != "Moved" || movedLineRejects(r, obj, ev) {
+			continue
+		}
+		if n++; n > 1 || cards.ReplMayElect(r) {
+			return true
+		}
+	}
+	return false
+}
+
+// tapeLandReplWalk is tapeLandReplMayAsk's walk over every replacement
+// source, n lines already counted.
+func tapeLandReplWalk(e *Engine, ev events.Event, n int) bool {
 	ask := false
 	e.forEachReplacementSourceFor(replEventBits[cards.ReplMoved], func(id state.ObjID) {
 		o := e.G.Obj(id)
@@ -101,6 +138,20 @@ func tapeAnyReplBodyMayAsk(e *Engine) bool {
 			return true
 		}
 	}
+	if !replArenaAskFor(e, replAskBody) {
+		// No arena object carries a line the walk below could count
+		// (replArenaMask.ask).
+		if replZoneSkipVerify && tapeAnyReplBodyWalk(e) {
+			panic("rules: replacement ask class skipped a body walk that asks")
+		}
+		return false
+	}
+	return tapeAnyReplBodyWalk(e)
+}
+
+// tapeAnyReplBodyWalk is tapeAnyReplBodyMayAsk's walk over every
+// replacement source.
+func tapeAnyReplBodyWalk(e *Engine) bool {
 	ask := false
 	e.forEachReplacementSourceFor(^uint32(0), func(id state.ObjID) {
 		o := e.G.Obj(id)

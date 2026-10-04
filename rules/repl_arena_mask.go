@@ -3,6 +3,7 @@ package rules
 import (
 	"fmt"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -33,6 +34,10 @@ import (
 // would have visited an object.
 type replArenaMask struct {
 	mask uint32
+	// ask is the same kind of superset for the ask-free predicate's board
+	// scans (objectReplAsk's classes): an arena with no object carrying a
+	// class lets tapeAnyReplBodyMayAsk / tapeLandReplMayAsk skip the walk.
+	ask uint32
 	// objs is how many arena objects the mask has classified; ep the log
 	// length its touch catch-up has reached. ok is false until the first
 	// full classification (a fresh or recycled engine).
@@ -48,7 +53,7 @@ func (e *Engine) replArenaMaskFor(bit uint32) bool {
 	if !a.ok || a.objs > len(objs) || a.ep > n {
 		*a = replArenaMask{ok: true}
 		for i := range objs {
-			a.mask |= objectReplMask(&objs[i])
+			a.classify(&objs[i])
 		}
 		a.objs, a.ep = len(objs), n
 		return a.mask&bit != 0
@@ -60,7 +65,7 @@ func (e *Engine) replArenaMaskFor(bit uint32) bool {
 	}
 	a.ep = n
 	for i := a.objs; i < len(objs); i++ {
-		a.mask |= objectReplMask(&objs[i])
+		a.classify(&objs[i])
 	}
 	a.objs = len(objs)
 	return a.mask&bit != 0
@@ -77,13 +82,82 @@ func (e *Engine) replArenaTouchEvent(ev *events.Event) {
 		return
 	}
 	a := &e.replArena
-	a.mask |= objectReplMask(e.G.Obj(ev.Obj))
+	a.classify(e.G.Obj(ev.Obj))
 	for _, id := range ev.IDs {
-		a.mask |= objectReplMask(e.G.Obj(id))
+		a.classify(e.G.Obj(id))
 	}
 	for _, pr := range ev.Pairs {
-		a.mask |= objectReplMask(e.G.Obj(pr[0])) | objectReplMask(e.G.Obj(pr[1]))
+		a.classify(e.G.Obj(pr[0]))
+		a.classify(e.G.Obj(pr[1]))
 	}
+}
+
+// classify ORs o's event bits and ask classes into the union. The ask
+// classes are read even for an object whose lines carry no event bit (an
+// out-of-vocabulary R:Event$): a walk still visits it in a zone another
+// object makes hot.
+func (a *replArenaMask) classify(o *state.Object) {
+	a.mask |= objectReplMask(o)
+	a.ask |= objectReplAsk(o)
+}
+
+// The ask classes of an R: line (replLineAsk), unioned over an object's
+// faces by objectReplAsk: the per-line facts the ask-free predicate's board
+// scans count, so an arena carrying none of a class answers without a walk.
+const (
+	// replAskBody: a non-Moved line tapeAnyReplBodyMayAsk can count -- it
+	// elects, its ReplaceWith$ body may ask, or the body opens a board gate.
+	replAskBody uint32 = 1 << iota
+	// replAskMovedOther: a Moved line that can apply to ANOTHER object's
+	// battlefield entry (movedLineRejects admits it), which
+	// tapeLandReplMayAsk counts for every entering object.
+	replAskMovedOther
+)
+
+// replLineAsk is r's ask classes, read with its own face's SVars.
+func replLineAsk(r *cards.Repl, f *cards.Face) uint32 {
+	if r.Event == "Moved" {
+		if !movedLineRejects(r, 1, events.Event{Obj: 2, To: state.ZBattlefield}) {
+			return replAskMovedOther
+		}
+		return 0
+	}
+	if cards.ReplMayElect(r) || (r.With != nil && (cards.SAChainMayAsk(r.With, f.SVars, nil, false) || cards.SAChainBoardGates(r.With, f.SVars) != 0)) {
+		return replAskBody
+	}
+	return 0
+}
+
+// objectReplAsk is the union of replLineAsk over every face objectReplMask
+// reads (CopyFace and each of the card's faces).
+func objectReplAsk(o *state.Object) uint32 {
+	if o == nil {
+		return 0
+	}
+	var m uint32
+	if f := o.CopyFace; f != nil {
+		for i := range f.Repls {
+			m |= replLineAsk(&f.Repls[i], f)
+		}
+	}
+	if o.Card != nil {
+		for _, f := range o.Card.Faces {
+			if f == nil {
+				continue
+			}
+			for i := range f.Repls {
+				m |= replLineAsk(&f.Repls[i], f)
+			}
+		}
+	}
+	return m
+}
+
+// replArenaAskFor brings the union up to date and reports whether some
+// arena object may carry an R: line of ask class c.
+func replArenaAskFor(e *Engine, c uint32) bool {
+	e.replArenaMaskFor(0)
+	return e.replArena.ask&c != 0
 }
 
 // replArenaNoteApplied is the touch for a fold applied without a log entry
