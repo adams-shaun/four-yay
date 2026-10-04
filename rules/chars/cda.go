@@ -143,8 +143,8 @@ func StaticZoneAdmitsStatic(st cards.Static, z state.Zone) bool {
 }
 
 func init() {
-	cards.RegisterParamCoder(cards.PKEffectZone, func(v string) uint16 { return uint16(EffectZonesOf(v)) })
-	cards.RegisterParamCoder(cards.PKExcludeZone, func(v string) uint16 { return uint16(effects.ZoneListOf(v)) })
+	cards.RegisterParamCoder(cards.PKEffectZone, "chars.EffectZones", func(v string) uint16 { return uint16(EffectZonesOf(v)) })
+	cards.RegisterParamCoder(cards.PKExcludeZone, "effects.ZoneList", func(v string) uint16 { return uint16(effects.ZoneListOf(v)) })
 }
 
 // CDAPTStatic resolves ONE static's characteristic-defining P/T claim

@@ -112,7 +112,7 @@ func (d Destination) IsAny() bool { return d&destinationAny != 0 }
 func (d Destination) IsEmpty() bool { return d&destinationEmpty != 0 }
 
 func init() {
-	cards.RegisterParamCoder(cards.PKOrigin, func(s string) uint16 { return uint16(ZoneListOf(s)) })
-	cards.RegisterParamCoder(cards.PKExcludedOrigins, func(s string) uint16 { return uint16(ZoneWordsOf(s)) })
-	cards.RegisterParamCoder(cards.PKDestination, func(s string) uint16 { return uint16(DestinationOf(s)) })
+	cards.RegisterParamCoder(cards.PKOrigin, "effects.ZoneList", func(s string) uint16 { return uint16(ZoneListOf(s)) })
+	cards.RegisterParamCoder(cards.PKExcludedOrigins, "effects.ZoneWords", func(s string) uint16 { return uint16(ZoneWordsOf(s)) })
+	cards.RegisterParamCoder(cards.PKDestination, "effects.Destination", func(s string) uint16 { return uint16(DestinationOf(s)) })
 }

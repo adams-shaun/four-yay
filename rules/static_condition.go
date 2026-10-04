@@ -41,7 +41,7 @@ var staticConditionCodes = state.NewStrCodes(
 )
 
 func init() {
-	cards.RegisterParamCoder(cards.PKCondition, func(s string) uint16 {
+	cards.RegisterParamCoder(cards.PKCondition, "rules.staticCondition", func(s string) uint16 {
 		return uint16(staticConditionCodes.Code(strings.TrimSpace(s)))
 	})
 }

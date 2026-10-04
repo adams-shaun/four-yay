@@ -1560,26 +1560,31 @@ func newParamSet(m map[string]string) *ParamSet {
 // function of the text.
 type ParamCoder func(value string) uint16
 
-// paramCoders is the registered coder per key; paramCodersSealed is set by
-// the first ParamSet built, after which a registration would leave earlier
-// sets without their codes.
+// paramCoders is the registered coder per key and paramCoderOwners the
+// registering vocabulary's name; paramCodersSealed is set by the first
+// ParamSet built, after which a registration would leave earlier sets
+// without their codes.
 var (
 	paramCoders       [paramKeyCount]ParamCoder
+	paramCoderOwners  [paramKeyCount]string
 	paramCodersSealed atomic.Bool
 )
 
 // RegisterParamCoder makes every ParamSet built from now on store key k's
 // value classified by f, so a hot read takes the stored code (ParamCode)
-// instead of re-classifying the text on every call. Package init only: it
-// panics once a set has been built, and on a second coder for one key.
-func RegisterParamCoder(k ParamKey, f ParamCoder) {
+// instead of re-classifying the text on every call. owner names the
+// vocabulary ("effects.ZoneList"); a second registration for k is allowed
+// only under the same owner -- a test binary can link two copies of one
+// package, each running its init. Package init only: it panics once a set
+// has been built.
+func RegisterParamCoder(k ParamKey, owner string, f ParamCoder) {
 	if paramCodersSealed.Load() {
 		panic("cards: RegisterParamCoder after a ParamSet was built: " + paramKeyNames[k])
 	}
-	if paramCoders[k] != nil {
-		panic("cards: duplicate ParamCoder for " + paramKeyNames[k])
+	if paramCoders[k] != nil && paramCoderOwners[k] != owner {
+		panic("cards: ParamCoder for " + paramKeyNames[k] + " registered by " + paramCoderOwners[k] + " and " + owner)
 	}
-	paramCoders[k] = f
+	paramCoders[k], paramCoderOwners[k] = f, owner
 }
 
 func (ps *ParamSet) index(k ParamKey) (int, bool) {
