@@ -506,38 +506,6 @@ func resolveChosenTypes(list []string, o *state.Object) ([]string, bool) {
 	return out, true
 }
 
-// resolveChosenColors resolves a SetColor$/AddColor$ value against the static
-// host's own recorded "as this enters, choose a color" / CR 903.4b pregame
-// choice (state.Object.ChosenColor, set by the Choose event the ask emitted).
-// It is the layer-5 twin of resolveChosenTypes. A value of "ChosenColor"
-// resolves to the host's recorded colour -- the event records a single WUBRG
-// letter (rules/resolution.go resumeETBEntry), but a full colour word is accepted too so
-// the two spellings cannot drift -- and a host with NO recorded choice fails
-// closed: ok=false, the caller emits nothing and the object keeps its printed
-// colours (today's shipped behaviour for the whole family).
-//
-// Everything else passes through the ordinary colour-word parser. A bare
-// WUBRG letter is accepted directly (the layer-5 walk at ~1652 reads
-// strings.IndexByte("WUBRG", l[0]), so a letter element is already legal),
-// which is the shape the recorded choice itself carries; a value the parser
-// cannot fully recognise still fails closed, exactly as before.
-func resolveChosenColors(raw string, o *state.Object) ([]string, bool) {
-	if strings.EqualFold(strings.TrimSpace(raw), "ChosenColor") {
-		if o == nil || o.ChosenColor == "" {
-			return nil, false
-		}
-		if cols, ok := effects.ColorLetters(o.ChosenColor); ok && len(cols) > 0 {
-			return cols, true
-		}
-		// A bare WUBRG letter (the recorded form) bypasses the word parser.
-		if l := strings.ToUpper(strings.TrimSpace(o.ChosenColor)); len(l) == 1 && strings.IndexByte("WUBRG", l[0]) >= 0 {
-			return []string{l}, true
-		}
-		return nil, false
-	}
-	return effects.ColorLetters(raw)
-}
-
 // adjustLandPlaysKeys are the keys the implemented AdjustLandPlays grant carries.
 var adjustLandPlaysKeys = state.NewNameSet(
 	"Mode", "AdjustLandPlays", "Affected", "Description",

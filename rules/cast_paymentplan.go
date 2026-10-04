@@ -85,7 +85,7 @@ func (e *Engine) paymentPlanCheck(pc *pendingCast) string {
 // the unchanged state.
 func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUnit, pay.Alt, bool) {
 	// A pure read: one zone-entry index serves every remaining step.
-	defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
+	defer pay.PaymentPlanQueryEnd(asPayer(e), pay.PaymentPlanQueryBegin(asPayer(e)))
 	plan := pc.payment.plan
 	cost := e.castPaymentMana(pc)
 	if plan.Version != decision.PaymentPlanV1 || plan.Cost != pay.WireCost(cost) {

@@ -64,7 +64,7 @@ func srchSpell(cost string) string {
 //   - a prefix whose pool plus everything the rest of the board could add is
 //     below the cost's total, or below one colour's requirement, cannot pay.
 func paymentPlanSearchOracle(e *Engine, p state.PlayerID, cast state.ObjID, cost Cost) (*decision.PaymentPlan, int) {
-	return paymentPlanSearchOracleOver(e, p, cost, e.paymentPlanQueryChoices(p), e.paymentPlanHandDemand(p, cast))
+	return paymentPlanSearchOracleOver(e, p, cost, e.paymentPlanQueryChoices(p), pay.PaymentPlanHandDemand(asPayer(e), p, cast))
 }
 
 // paymentPlanSearchOracleOver is the oracle over an explicit alternative
@@ -631,7 +631,7 @@ func srchPhaseTwoChoices(t *testing.T, e *Engine, p state.PlayerID) [][]pay.Alt 
 			if !alt.Any || alt.Amt <= 0 {
 				continue
 			}
-			for _, col := range e.paymentPlanChoiceColours(u.ID, alt.Ma) {
+			for _, col := range pay.PaymentPlanChoiceColours(asPayer(e), u.ID, alt.Ma) {
 				a := base
 				a.Mana = state.Mana{}
 				a.Mana[strings.IndexByte("WUBRG", col[0])] = alt.Amt
@@ -691,7 +691,7 @@ func TestPaymentPlanSearchMatchesOracleWithLastResortTiers(t *testing.T) {
 	lastResort, vaultUsed := 0, 0
 	for _, s := range []string{"U", "W", "W B", "3", "4", "5", "6", "7", "U R", "1 W", "2 G", "W U B", "3 U", "C C", "8", "W W W"} {
 		cost := srchCost(t, s)
-		demand := e.paymentPlanHandDemand(0, 0)
+		demand := pay.PaymentPlanHandDemand(asPayer(e), 0, 0)
 		want, _ := paymentPlanSearchOracleOver(e, 0, cost, choices, demand)
 		got := pay.Run(cost, pool, life, pay.NewRankContext(choices, demand), choices, pay.Classes(choices), paymentSearchEnv())
 		if got.Limited {
@@ -759,7 +759,7 @@ func TestPaymentPlanSearchHandReserveDecidesOnClassBoard(t *testing.T) {
 		}
 	}
 	choiceHand(t, e, "Name:Green Three\nManaCost:G G G\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
-	if d := e.paymentPlanHandDemand(0, spell); d != [5]int{0, 0, 0, 0, 3} {
+	if d := pay.PaymentPlanHandDemand(asPayer(e), 0, spell); d != [5]int{0, 0, 0, 0, 3} {
 		t.Fatalf("hand demand = %v, want G=3", d)
 	}
 	planned, decided := srchCheckAgainstOracle(t, e, spell, srchCost(t, "3 W"), "{3}{W}")
@@ -811,7 +811,7 @@ func TestPaymentPlanSearchMatchesOracleWithHandDemand(t *testing.T) {
 			}
 			choiceHand(t, e, "Name:Hand Card\nManaCost:"+strings.Join(pips, " ")+"\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 		}
-		if e.paymentPlanHandDemand(0, spell) == ([5]int{}) {
+		if pay.PaymentPlanHandDemand(asPayer(e), 0, spell) == ([5]int{}) {
 			t.Fatalf("board %d: hand demand is zero", board)
 		}
 		for k := 0; k < 5; k++ {

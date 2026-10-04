@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"sync/atomic"
 
+	"github.com/adams-shaun/gorge/cards"
 	costvocab "github.com/adams-shaun/gorge/rules/cost"
 )
 
@@ -118,3 +119,23 @@ func FreezeCost(c Cost) Cost {
 	c.Unknown = c.Unknown[:len(c.Unknown):len(c.Unknown)]
 	return c
 }
+
+// FaceCompiledCost is CompiledCostOf(f.ManaCost) through the face's ManaCost
+// slot: the compiled cost (the configured frozen parse, or a fresh one for a
+// face outside the configured set -- the same content) is hung on the face at
+// first use, so later reads follow a pointer instead of hashing the text.
+func FaceCompiledCost(e Engine, f *cards.Face) *CompiledCost {
+	slot := f.ManaCostSlot()
+	if v, ok := slot.Load(f.ManaCost); ok {
+		return v.(*CompiledCost)
+	}
+	c := CompiledCostOf(e, f.ManaCost)
+	if slot == nil {
+		return c
+	}
+	return slot.Store(f.ManaCost, c).(*CompiledCost)
+}
+
+// FaceCost is ParseCostOf(f.ManaCost) through the face's slot: a value copy
+// the caller may modify.
+func FaceCost(e Engine, f *cards.Face) Cost { return FaceCompiledCost(e, f).Cost }

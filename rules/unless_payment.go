@@ -59,7 +59,7 @@ func (e *Engine) advanceUnlessPayment() {
 		return
 	}
 	if int(u.Payer) < 0 || int(u.Payer) >= len(e.G.Players) ||
-		!e.unlessCountersAffordable(u) ||
+		!pay.UnlessCountersAffordable(asPayer(e), u) ||
 		!pay.UnlessRevealChosenDesignated(e.G, u.Cost, u.Ctx) {
 		e.finishUnlessPayment(false)
 		return
@@ -86,7 +86,7 @@ func (e *Engine) advanceUnlessPayment() {
 	}
 	for u.Part < u.PaymentPartCount() {
 		part, zone, kind := pay.UnlessPartAt(u.Cost, u.Part)
-		eligible := e.unlessPaymentCandidates(u, zone, kind, part)
+		eligible := pay.UnlessPaymentCandidates(asPayer(e), u, zone, kind, part)
 		if int32(len(eligible)) < part.N {
 			e.finishUnlessPayment(false)
 			return
@@ -97,12 +97,12 @@ func (e *Engine) advanceUnlessPayment() {
 			// isWholeZoneExileSpec reading the cast gate and the
 			// triggered-cost window take). The count check above still
 			// demands part.N cards, so an empty zone declines.
-			e.recordUnlessPaymentPick(u, kind, eligible)
+			pay.RecordUnlessPaymentPick(asPayer(e), u, kind, eligible)
 			u.Part++
 			continue
 		}
 		if int32(len(eligible)) == part.N {
-			e.recordUnlessPaymentPick(u, kind, eligible)
+			pay.RecordUnlessPaymentPick(asPayer(e), u, kind, eligible)
 			u.Part++
 			continue
 		}
@@ -345,44 +345,6 @@ func (e *Engine) answerUnlessMana(chosen []decision.Option) {
 	e.finishUnlessPayment(false)
 }
 
-func (e *Engine) unlessPaymentCandidates(u *unlessPayment, zone state.Zone, kind string, part CostPart) []state.ObjID {
-	// The dedup is over the union of every component's picks, not just this
-	// one's list: one card must not pay two parts, and a card already
-	// sacrificed has left its zone anyway, so the wider union only ever
-	// removes an already-impossible candidate. Revealed and beheld cards are
-	// NOT removed from the hand, which is exactly why they need the explicit
-	// exclusion.
-	used := make([]state.ObjID, 0, len(u.Sacs)+len(u.Discards)+len(u.Reveals)+len(u.Beholds)+len(u.Returns)+len(u.Exiles))
-	used = append(used, u.Sacs...)
-	used = append(used, u.Discards...)
-	used = append(used, u.Reveals...)
-	used = append(used, u.Beholds...)
-	used = append(used, u.Returns...)
-	used = append(used, u.Exiles...)
-	return pay.UnlessCandidatesFor(asPayer(e), u.Payer, u.Ctx, zone, kind, part, used)
-}
-
-func (e *Engine) recordUnlessPaymentPick(u *unlessPayment, kind string, ids []state.ObjID) {
-	switch recordUnlessPaymentPickCodes.Code(string(kind)) {
-	case recordUnlessPaymentPickSacrifice:
-		u.Sacs = append(u.Sacs, ids...)
-	case recordUnlessPaymentPickRevealcost:
-		u.Reveals = append(u.Reveals, ids...)
-	case recordUnlessPaymentPickBeholdcost:
-		u.Beholds = append(u.Beholds, ids...)
-	case recordUnlessPaymentPickReturncost:
-		u.Returns = append(u.Returns, ids...)
-	case recordUnlessPaymentPickExilecost:
-		u.Exiles = append(u.Exiles, ids...)
-	default:
-		u.Discards = append(u.Discards, ids...)
-	}
-}
-
-func (e *Engine) unlessCountersAffordable(u *unlessPayment) bool {
-	return pay.UnlessCountersAffordableFor(asPayer(e), u.Cost, u.Ctx, u.StackObj)
-}
-
 func (e *Engine) answerUnlessPayment(chosen []decision.Option) {
 	u := e.UnlessPayment
 	if u == nil || u.Part >= u.PaymentPartCount() {
@@ -398,7 +360,7 @@ func (e *Engine) answerUnlessPayment(chosen []decision.Option) {
 	// Decision.Validate guaranteed the count and offered identity. Recheck the
 	// zone/filter against the current game before any event is emitted so a
 	// malformed resumed state declines rather than paying an illegal cost.
-	eligible := e.unlessPaymentCandidates(u, zone, kind, part)
+	eligible := pay.UnlessPaymentCandidates(asPayer(e), u, zone, kind, part)
 	allowed := make(map[state.ObjID]bool, len(eligible))
 	for _, id := range eligible {
 		allowed[id] = true
@@ -413,7 +375,7 @@ func (e *Engine) answerUnlessPayment(chosen []decision.Option) {
 			return
 		}
 	}
-	e.recordUnlessPaymentPick(u, kind, ids)
+	pay.RecordUnlessPaymentPick(asPayer(e), u, kind, ids)
 	u.Part++
 	e.choosing = chooseNone
 	e.advanceUnlessPayment()
@@ -432,21 +394,3 @@ func (e *Engine) finishUnlessPayment(paid bool) {
 	}
 	e.finishManaUnlessPayment(paid)
 }
-
-type recordUnlessPaymentPickCode uint16
-
-const (
-	recordUnlessPaymentPickSacrifice recordUnlessPaymentPickCode = iota + 1
-	recordUnlessPaymentPickRevealcost
-	recordUnlessPaymentPickBeholdcost
-	recordUnlessPaymentPickReturncost
-	recordUnlessPaymentPickExilecost
-)
-
-var recordUnlessPaymentPickCodes = state.NewStrCodes(
-	state.StrEntry[recordUnlessPaymentPickCode]{Key: "sacrifice", Val: recordUnlessPaymentPickSacrifice},
-	state.StrEntry[recordUnlessPaymentPickCode]{Key: "revealcost", Val: recordUnlessPaymentPickRevealcost},
-	state.StrEntry[recordUnlessPaymentPickCode]{Key: "beholdcost", Val: recordUnlessPaymentPickBeholdcost},
-	state.StrEntry[recordUnlessPaymentPickCode]{Key: "returncost", Val: recordUnlessPaymentPickReturncost},
-	state.StrEntry[recordUnlessPaymentPickCode]{Key: "exilecost", Val: recordUnlessPaymentPickExilecost},
-)

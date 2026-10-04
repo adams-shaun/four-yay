@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -133,7 +134,7 @@ func (sr *scriptSearch) offered(o *decision.Option) bool {
 // is neither a witness nor a proof marks the search unproven.
 func (sr *scriptSearch) priced(c *Engine) bool {
 	c.PaymentPlanPotentialPool = true
-	defer c.paymentPlanQueryEnd(c.paymentPlanQueryBegin())
+	defer pay.PaymentPlanQueryEnd(asPayer(c), pay.PaymentPlanQueryBegin(asPayer(c)))
 	o := decision.Option{Kind: sr.play.Kind, Obj: sr.play.Obj, Ability: sr.play.Ability, Mode: sr.play.Mode, AltCostIndex: max(sr.altCost, 0)}
 	got, _ := c.potentialPlayVerdict(sr.p, o)
 	// Only a search that leans on these verdicts for its proof (nodePlans)
@@ -270,7 +271,7 @@ func (sr *scriptSearch) visit(c *Engine, funded int, gapUsed bool) bool {
 func (e *Engine) scriptNodeGaps(p state.PlayerID) []state.ObjID {
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
-	defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
+	defer pay.PaymentPlanQueryEnd(asPayer(e), pay.PaymentPlanQueryBegin(asPayer(e)))
 	e.PaymentPlanPotentialPool = true
 	hyp := e.PotentialMana(p)
 	return e.paymentPlanCensusOf(p, &hyp).gaps
@@ -508,7 +509,7 @@ func (e *Engine) PotentialPlayScript(p state.PlayerID, a decision.PotentialActio
 	func() {
 		e.beginDerivedMemo()
 		defer e.endDerivedMemo()
-		defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
+		defer pay.PaymentPlanQueryEnd(asPayer(e), pay.PaymentPlanQueryBegin(asPayer(e)))
 		prev := e.PaymentPlanPotentialPool
 		e.PaymentPlanPotentialPool = true
 		defer func() { e.PaymentPlanPotentialPool = prev }()

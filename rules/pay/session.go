@@ -116,6 +116,22 @@ type Session struct {
 	// re-derives the same grants from the recorded ManaAdd/ManaRestriction
 	// events.
 	ManaSpentAddsCounters []state.ManaAddsCounterGrant `clone:"reset"`
+
+	// PlanQuery is the payment planner's per-query scratch (the
+	// zone-entry index and source census, rules/payment_plan_search.go),
+	// installed for one query and validated against the log on every read.
+	// Pure per-query scratch: Clone copies none of it.
+	PlanQuery *PlanQuery `clone:"reset"`
+
+	// PlanQueryKept / paymentPlanQueryKeptStamp are the offer
+	// builder's query scope kept at its posed decision for the decision's
+	// other pure payment readers (paymentPlanQueryResumeBegin). Pure scratch:
+	// Clone copies none of it.
+	PlanQueryKept *PlanQuery `clone:"reset"`
+
+	// PlanQueryFree is the last finished query scope, reset and
+	// reused by the next (paymentPlanQueryBegin). Clone copies none.
+	PlanQueryFree *PlanQuery `clone:"reset"`
 }
 
 // UnlessPayment is the continuation between accepting an UnlessCost$ and

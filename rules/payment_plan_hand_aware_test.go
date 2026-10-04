@@ -322,7 +322,7 @@ func TestPaymentPlanManaPips(t *testing.T) {
 	}
 	// Through the real parser: the authored printed costs of the board above.
 	e := layerEngine(t)
-	if got := pay.CostPips(e.rawBaseCost(0, 0)); got != [5]int{} {
+	if got := pay.CostPips(pay.RawBaseCost(asPayer(e), 0, 0)); got != [5]int{} {
 		t.Errorf("empty cost: costPips = %v, want zeros", got)
 	}
 }

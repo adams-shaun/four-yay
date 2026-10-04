@@ -11,6 +11,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -119,7 +120,7 @@ func TestEmergeCastPaysReducedCost(t *testing.T) {
 	if !ok || ec.Generic != 5 || ec.Colored[state.ManaIndex('U')] != 2 {
 		t.Fatalf("emerge cost %+v (ok=%v), want {{5}{U}{U}}", ec, ok)
 	}
-	if base := e.rawBaseCost(0, deep); base.Generic != 8 {
+	if base := pay.RawBaseCost(asPayer(e), 0, deep); base.Generic != 8 {
 		t.Fatalf("printed cost %+v, want {8}", base)
 	}
 

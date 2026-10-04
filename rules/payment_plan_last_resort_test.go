@@ -654,7 +654,7 @@ func TestPaymentPlanLastResortSearchMatchesOracle(t *testing.T) {
 		all := e.paymentPlanQueryChoices(0)
 		normalTable := pay.PhaseChoices(all, pay.TierNormal)
 		table := pay.PlanLastResortChoices(all, life)
-		demand := e.paymentPlanHandDemand(0, spell)
+		demand := pay.PaymentPlanHandDemand(asPayer(e), 0, spell)
 		for k := 0; k < 4; k++ {
 			var c Cost
 			c.Generic = int32(rng.IntN(4))

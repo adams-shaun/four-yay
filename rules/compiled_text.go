@@ -418,15 +418,7 @@ func (e *Engine) faceCost(f *cards.Face) Cost {
 }
 
 func (e *Engine) faceCompiledCost(f *cards.Face) *compiledCost {
-	slot := f.ManaCostSlot()
-	if v, ok := slot.Load(f.ManaCost); ok {
-		return v.(*compiledCost)
-	}
-	c := e.compiledCostOf(f.ManaCost)
-	if slot == nil {
-		return c
-	}
-	return slot.Store(f.ManaCost, c).(*compiledCost)
+	return pay.FaceCompiledCost(asPayer(e), f)
 }
 
 // freeCost is the parse of an empty cost text, shared read-only by costRef.

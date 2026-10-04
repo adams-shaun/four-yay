@@ -20,6 +20,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -280,7 +281,7 @@ func TestCommanderPregameColourChoices(t *testing.T) {
 			// The identity union reads the recorded choice even in the command
 			// zone (the mana-ask path's "any color in your commander's color
 			// identity" read).
-			if cols := e.commanderIdentityColours(0); !containsWord(cols, tc.want) {
+			if cols := pay.CommanderIdentityColours(asPayer(e), 0); !containsWord(cols, tc.want) {
 				t.Fatalf("%s identity colours %v missing %q", tc.card, cols, tc.want)
 			}
 			// The whole pregame round (the recorded choice, the identity union)

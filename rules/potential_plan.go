@@ -94,7 +94,7 @@ func (e *Engine) PotentialPaymentPlans(p state.PlayerID) []PotentialPlan {
 	}
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
-	defer e.paymentPlanQueryEnd(e.paymentPlanQueryResumeBegin(p))
+	defer pay.PaymentPlanQueryEnd(asPayer(e), e.paymentPlanQueryResumeBegin(p))
 	prevPool := e.PaymentPlanPotentialPool
 	e.PaymentPlanPotentialPool = true
 	defer func() { e.PaymentPlanPotentialPool = prevPool }()
@@ -121,7 +121,7 @@ func (e *Engine) PotentialPaymentPlans(p state.PlayerID) []PotentialPlan {
 			}
 		}
 	}
-	poolOK := e.paymentPlanPoolAccepted(p)
+	poolOK := pay.PaymentPlanPoolAccepted(asPayer(e), p)
 	// Every ordinary cast verdict below names a plain cast the PotentialMana
 	// walk above listed, so the planner shares one cost-static collection
 	// and a priced candidate set across them (castPlanShare).
@@ -395,7 +395,7 @@ func (e *Engine) paymentPlanCensusTotal(p state.PlayerID) int32 {
 // cast of id in mode, for the modes potentialModeCastPlan prices; ok is
 // false for any other mode.
 func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *cards.Face, o decision.Option) (Cost, bool) {
-	cost := e.rawBaseCost(p, id)
+	cost := pay.RawBaseCost(asPayer(e), p, id)
 	mode := o.Mode
 	switch potentialModeBaseCostCodes.Code(string(mode)) {
 	case potentialModeBaseCostEmpty:

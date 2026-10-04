@@ -43,7 +43,7 @@ func (e *Engine) CastPaymentCost(p state.PlayerID, id state.ObjID) (cost decisio
 	if o == nil || o.Zone != state.ZHand || o.Owner != p || o.Face() == nil {
 		return decision.PaymentCost{}, false
 	}
-	base := pay.WithSpellAbilityExtras(o.Face(), e.rawBaseCost(p, id))
+	base := pay.WithSpellAbilityExtras(o.Face(), pay.RawBaseCost(asPayer(e), p, id))
 	return pay.WireCost(e.offerCostFor(p, id, base, spellScope(""))), true
 }
 
@@ -85,13 +85,13 @@ func (e *Engine) planCastPaymentChecked(p state.PlayerID, cast decision.PlannedC
 	// V1 has no way to carry a target-dependent reprice or a choice made at
 	// announcement. Candidate discovery below owns timing, targets and
 	// prohibitions; this method owns the exact cost/witness subset.
-	base := e.rawBaseCost(p, cast.Object)
+	base := pay.RawBaseCost(asPayer(e), p, cast.Object)
 	base = pay.WithSpellAbilityExtras(o.Face(), base)
 	cost := e.offerCostForUsing(statics.get(), p, cast.Object, base, spellScope(""))
 	if detail := pay.PlanNonManaAdmissible(cost); detail != "" {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: detail}
 	}
-	if !e.paymentPlanPoolAccepted(p) {
+	if !pay.PaymentPlanPoolAccepted(asPayer(e), p) {
 		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
 	if global, detail := e.paymentPlanGlobalManaEffect(p, cast.Object); global {
@@ -366,11 +366,11 @@ func (e *Engine) PaymentActionsForPriority(p state.PlayerID, seq uint64) []decis
 	// The builder's plans may be shared with the decision's cast-plan memo
 	// (planCastPaymentMemo); hand the caller its own copy, as
 	// EnsurePaymentActions does.
-	out := e.paymentActionsForPriority(p, p, seq, nil)
-	if out == nil {
+	Out := e.paymentActionsForPriority(p, p, seq, nil)
+	if Out == nil {
 		return nil
 	}
-	return (&decision.Decision{PaymentActions: out}).Clone().PaymentActions
+	return (&decision.Decision{PaymentActions: Out}).Clone().PaymentActions
 }
 
 // paymentActionsForPriority is the one-pass offer builder (spec 5 as amended:
@@ -416,7 +416,7 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 	// One query scope (source census, alternatives) serves every
 	// candidate's planner query, and is kept for the decision's other pure
 	// payment readers (paymentPlanQueryResumeBegin).
-	defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
+	defer pay.PaymentPlanQueryEnd(asPayer(e), pay.PaymentPlanQueryBegin(asPayer(e)))
 	defer e.paymentPlanQueryKeep(p)
 	// legalActionsPriced is the authoritative candidate walk.  Its hypothetical
 	// pool is only a superset gate; every admission below still has an exact
@@ -512,7 +512,7 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	// serves the planner's census to the rebuild.
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
-	defer e.paymentPlanQueryEnd(e.paymentPlanQueryResumeBegin(p))
+	defer pay.PaymentPlanQueryEnd(asPayer(e), e.paymentPlanQueryResumeBegin(p))
 	got := e.planCastPaymentAtDecision(p, cast)
 	// PP-14: a Sac-bearing additional cost is answered by the ordinary in-flow
 	// ask AFTER this validation, so the distinct-candidate assignment must
@@ -522,7 +522,7 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	// submit; the seat then falls back to the manual window instead of
 	// committing a cast whose additional cost can no longer be paid.
 	if o := e.G.Obj(cast.Object); o != nil && o.Face() != nil {
-		composed := e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(o.Face(), e.rawBaseCost(p, cast.Object)), spellScope(""))
+		composed := e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(o.Face(), pay.RawBaseCost(asPayer(e), p, cast.Object)), spellScope(""))
 		if len(composed.Sac) != 0 && !e.nonManaCastable(p, cast.Object, composed, false, "") {
 			return fmt.Errorf("payment plan sacrifice cost no longer payable")
 		}
@@ -573,7 +573,7 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	if lastResort && !pay.PlanUsesLastResort(*got.Plan) {
 		return fmt.Errorf("payment plan uses a last-resort source while a normal plan exists")
 	}
-	cost := e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(e.G.Obj(cast.Object).Face(), e.rawBaseCost(p, cast.Object)), spellScope(""))
+	cost := e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(e.G.Obj(cast.Object).Face(), pay.RawBaseCost(asPayer(e), p, cast.Object)), spellScope(""))
 	payment, ok := resolveManaWith(cost, pool, state.Mana{}, [7]state.Mana{}, e.G.Players[p].Life, false, pipRider{}, nil)
 	expected := pay.Witness(cost, e.G.Players[p].Pool, produced, nil, payment.Pool)
 	if !ok || pay.ManaAmount(payment.Pool) != plan.PoolAfter || expected.PoolSpend != plan.PoolSpend {
@@ -582,40 +582,25 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	return nil
 }
 
-// paymentPlanPoolAccepted is paymentPlanPoolOK, relaxed inside a
-// PotentialPaymentPlans query (paymentPlanPotentialPool): there the witness
-// is never submitted as an Intent.Payment -- the seat taps its sources on
-// the manual surface and the ordinary payment spends the pool -- so snow,
-// persistent and producer-typed units (Treasure, Cave, Desert, artifact
-// mana) are ordinary mana of their colour. Restricted mana, which only some
-// spells may spend, is still declined.
-func (e *Engine) paymentPlanPoolAccepted(p state.PlayerID) bool {
-	pl := &e.G.Players[p]
-	if e.PaymentPlanPotentialPool {
-		return len(pl.RestrictedMana) == 0
-	}
-	return pay.PlanPoolOK(pl)
-}
-
 func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, cost Cost) PaymentPlanOutcome {
-	q := e.paymentPlanQuery
-	if !q.valid(e) || e.PaymentPlanRelaxed != nil || e.PaymentPlanRelaxedFee != 0 || !plainManaCost(cost) {
+	q := e.PlanQuery
+	if !q.Valid(e.L) || e.PaymentPlanRelaxed != nil || e.PaymentPlanRelaxedFee != 0 || !plainManaCost(cost) {
 		return e.planPaymentCostExcluding(p, cast, cost, nil)
 	}
 	// Within one query scope (one state), the planner's outcome for a plain
-	// mana cost reads the cast only through the hand demand that excludes
+	// mana cost reads the cast only through the hand Demand that excludes
 	// it (planPaymentCostWithout's rank context): two casts with the same
-	// payer, cost and demand -- two copies of a card in hand -- plan
+	// payer, cost and Demand -- two copies of a card in hand -- plan
 	// identically, so the scope serves the first one's outcome, with its
 	// own copy of the witness.
-	demand := e.paymentPlanHandDemand(p, cast.Object)
-	key := paymentPlanCostKey{payer: p, colored: cost.Colored, generic: cost.Generic, demand: demand}
-	for i := range q.plans {
-		if q.plans[i].key == key {
-			out := q.plans[i].out
+	Demand := pay.PaymentPlanHandDemand(asPayer(e), p, cast.Object)
+	Key := pay.PlanCostKey{Payer: p, Colored: cost.Colored, Generic: cost.Generic, Demand: Demand}
+	for i := range q.Plans {
+		if q.Plans[i].Key == Key {
+			out := q.Plans[i].Out
 			if walkCacheVerify {
-				if want := e.planPaymentCostWithDemand(p, demand, cost, nil, nil, nil); !reflect.DeepEqual(want, out) {
-					panic(fmt.Sprintf("payment plan query: cost memo for %+v served %+v, planned %+v", key, out, want))
+				if want := e.planPaymentCostWithDemand(p, Demand, cost, nil, nil, nil); !reflect.DeepEqual(want, out) {
+					panic(fmt.Sprintf("payment plan query: cost memo for %+v served %+v, planned %+v", Key, out, want))
 				}
 			}
 			if out.Plan != nil {
@@ -625,29 +610,14 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 			return out
 		}
 	}
-	out := e.planPaymentCostWithDemand(p, demand, cost, nil, nil, nil)
+	out := e.planPaymentCostWithDemand(p, Demand, cost, nil, nil, nil)
 	stored := out
 	if out.Plan != nil {
 		plan := decision.ClonePaymentPlan(*out.Plan)
 		stored.Plan = &plan
 	}
-	q.plans = append(q.plans, paymentPlanCostMemo{key: key, out: stored})
+	q.Plans = append(q.Plans, pay.PlanCostMemo{Key: Key, Out: stored})
 	return out
-}
-
-// paymentPlanCostKey is a query scope's planner memo key: everything a
-// plain mana cost's plan reads besides the scope's state.
-type paymentPlanCostKey struct {
-	payer   state.PlayerID
-	colored state.Mana
-	generic int32
-	demand  [5]int
-}
-
-// paymentPlanCostMemo is one memoised planner outcome (its own plan copy).
-type paymentPlanCostMemo struct {
-	key paymentPlanCostKey
-	out PaymentPlanOutcome
 }
 
 // plainManaCost reports whether c is only coloured and generic mana -- the
@@ -688,14 +658,14 @@ func (e *Engine) planPaymentCostExcluding(p state.PlayerID, cast decision.Planne
 // groups its own classes, because the query cache's classes are keyed by
 // payer and phase only.
 func (e *Engine) planPaymentCostWithout(p state.PlayerID, cast decision.PlannedCast, cost Cost, tapped, gone, kept []state.ObjID) PaymentPlanOutcome {
-	return e.planPaymentCostWithDemand(p, e.paymentPlanHandDemand(p, cast.Object), cost, tapped, gone, kept)
+	return e.planPaymentCostWithDemand(p, pay.PaymentPlanHandDemand(asPayer(e), p, cast.Object), cost, tapped, gone, kept)
 }
 
 // planPaymentCostWithDemand is planPaymentCostWithout over the hand demand
 // that excludes the cast (paymentPlanHandDemand), the one place the cast
 // enters the plan.
 func (e *Engine) planPaymentCostWithDemand(p state.PlayerID, demand [5]int, cost Cost, tapped, gone, kept []state.ObjID) PaymentPlanOutcome {
-	defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
+	defer pay.PaymentPlanQueryEnd(asPayer(e), pay.PaymentPlanQueryBegin(asPayer(e)))
 	units := e.paymentPlanQueryUnits(p)
 	queryClasses := e.paymentPlanQueryClasses
 	ownClasses := func(_ state.PlayerID, _ pay.Tier, choices [][]pay.Alt) []pay.Class {
@@ -1190,7 +1160,7 @@ func (e *Engine) appendUnitAlternatives(dst []pay.Alt, u windowManaUnit) (grown,
 		if !alt.Any || alt.Amt <= 0 {
 			continue
 		}
-		for _, col := range e.paymentPlanChoiceColours(u.ID, alt.Ma) {
+		for _, col := range pay.PaymentPlanChoiceColours(asPayer(e), u.ID, alt.Ma) {
 			i := strings.IndexByte("WUBRG", col[0])
 			if i < 0 {
 				continue
@@ -1234,66 +1204,6 @@ func (e *Engine) appendUnitAlternatives(dst []pay.Alt, u windowManaUnit) (grown,
 		out[i].Colours = colours
 	}
 	return grown, out
-}
-
-// paymentPlanChoiceColours returns the concrete colours a choice-shaped
-// Produced$ resolves to for source id, or nil when the production is fixed
-// or cannot be resolved. The order is deterministic: WUBRG for Produced$ Any
-// and a commander identity is already WUBRG (commanderIdentityColours), and
-// the ability's own token order for a Combo -- the same order
-// manaAbilityComboColours and askManaColor use. A bare Chosen/ChosenColor
-// with nothing recorded, a Combo whose tokens name no plain colour, and an
-// empty commander identity all yield nil: V1 fails closed rather than
-// inventing a colour.
-func (e *Engine) paymentPlanChoiceColours(id state.ObjID, ma *cards.SA) []string {
-	raw := effects.ManaOf(ma).Produced
-	switch paymentPlanChoiceColoursCodes.Code(string(raw)) {
-	case paymentPlanChoiceColoursAny:
-		return []string{"W", "U", "B", "R", "G"}
-	case paymentPlanChoiceColoursChosen:
-		if col := pay.ChosenProducedColour(e.G, id); col != "" {
-			return []string{col}
-		}
-		return nil
-	case paymentPlanChoiceColoursColorIdentity:
-		return e.commanderIdentityColours(pay.PlanController(e.G, id))
-	}
-	// Reuse the manual wheel's own flattener: it substitutes a recorded
-	// Chosen tail and dedups a recorded colour equal to a fixed token, so the
-	// plan and the wheel cannot disagree about a Combo that resolves cleanly.
-	if cols, ok := pay.ManaAbilityComboColours(ma, pay.ChosenProducedColour(e.G, id)); ok {
-		return cols
-	}
-	if !strings.HasPrefix(raw, "Combo ") {
-		return nil
-	}
-	// A Combo still naming a token manaAbilityComboColours cannot flatten (a
-	// Chosen with nothing recorded, a ColorIdentity) has no single colour
-	// list; walk its tokens so a fixed token ("Combo U Chosen" with nothing
-	// recorded) still yields its own colour, and fail closed on any token this
-	// engine cannot resolve ("Combo Any", "Special ...").
-	var cols []string
-	for _, tok := range strings.Fields(raw) {
-		switch {
-		case tok == "Combo":
-		case tok == "Chosen" || tok == "ChosenColor":
-			if col := pay.ChosenProducedColour(e.G, id); col != "" {
-				cols = pay.AppendColourOnce(cols, col)
-			}
-		case tok == "ColorIdentity":
-			for _, col := range e.commanderIdentityColours(pay.PlanController(e.G, id)) {
-				cols = pay.AppendColourOnce(cols, col)
-			}
-		case len(tok) == 1 && strings.ContainsRune("WUBRG", rune(tok[0])):
-			cols = pay.AppendColourOnce(cols, tok)
-		default:
-			return nil
-		}
-	}
-	if len(cols) == 0 {
-		return nil
-	}
-	return cols
 }
 
 // paymentPlanStepAlternative resolves one witness step to the exact
@@ -1362,31 +1272,6 @@ func (e *Engine) paymentPlanManaInterference() bool {
 	return false
 }
 
-// paymentPlanHandDemand measures the acting player's OWN hand's colour
-// demand (spec 5 key 6): for each WUBRG colour, the largest number of that
-// colour's pips on any single nonland card in hand other than the card being
-// cast. It reads only the acting player's own hand and the printed mana
-// costs, so an opponent's hand and every other zone stay out of the rank.
-func (e *Engine) paymentPlanHandDemand(p state.PlayerID, exclude state.ObjID) [5]int {
-	var demand [5]int
-	for _, id := range e.G.Zone(state.ZHand, p) {
-		if id == exclude {
-			continue
-		}
-		o := e.G.Obj(id)
-		if o == nil || o.Face() == nil || o.Face().IsLand() {
-			continue
-		}
-		pips := pay.CostPips(e.rawBaseCost(p, id))
-		for c := range demand {
-			if pips[c] > demand[c] {
-				demand[c] = pips[c]
-			}
-		}
-	}
-	return demand
-}
-
 type planCastPaymentCheckedCode uint16
 
 const (
@@ -1397,20 +1282,4 @@ const (
 var planCastPaymentCheckedCodes = state.NewStrCodes(
 	state.StrEntry[planCastPaymentCheckedCode]{Key: "hand", Val: planCastPaymentCheckedHand},
 	state.StrEntry[planCastPaymentCheckedCode]{Key: "command_zone", Val: planCastPaymentCheckedCommandZone},
-)
-
-type paymentPlanChoiceColoursCode uint16
-
-const (
-	paymentPlanChoiceColoursAny paymentPlanChoiceColoursCode = iota + 1
-	paymentPlanChoiceColoursChosen
-	paymentPlanChoiceColoursColorIdentity
-)
-
-var paymentPlanChoiceColoursCodes = state.NewStrCodes(
-	state.StrEntry[paymentPlanChoiceColoursCode]{Key: "Any", Val: paymentPlanChoiceColoursAny},
-	state.StrEntry[paymentPlanChoiceColoursCode]{Key: "Chosen", Val: paymentPlanChoiceColoursChosen},
-	state.StrEntry[paymentPlanChoiceColoursCode]{Key: "ChosenColor", Val: paymentPlanChoiceColoursChosen},
-	state.StrEntry[paymentPlanChoiceColoursCode]{Key: "ComboChosen", Val: paymentPlanChoiceColoursChosen},
-	state.StrEntry[paymentPlanChoiceColoursCode]{Key: "ColorIdentity", Val: paymentPlanChoiceColoursColorIdentity},
 )

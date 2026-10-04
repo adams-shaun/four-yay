@@ -120,9 +120,9 @@ func (e *Engine) paymentPlanHoldsOnStack(p state.PlayerID, id state.ObjID, plan 
 		return true
 	}
 	return e.offerAsSpellOnStack(id, func() bool {
-		prevQuery := e.paymentPlanQuery
-		e.paymentPlanQuery = nil
-		defer func() { e.paymentPlanQuery = prevQuery }()
+		prevQuery := e.PlanQuery
+		e.PlanQuery = nil
+		defer func() { e.PlanQuery = prevQuery }()
 		// Only the plan's own sources are resolved, so the census is taken
 		// for those alone (exactly the full census's units for them).
 		only := make([]state.ObjID, 0, len(plan.Activations))

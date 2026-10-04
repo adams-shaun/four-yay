@@ -69,22 +69,9 @@ type engineScratch struct {
 	actIndex activationIndex `clone:"reset"`
 	// boardScanBuf is the printed board scan's gathered zone lists
 	// (static_scan_reuse.go: gatherBoardScan). Pure scratch.
-	boardScanBuf  []boardScanList `clone:"reset"`
-	mayPlaysCache []mayPlaysEntry `clone:"reset"`
-	// paymentPlanQuery is the payment planner's per-query scratch (the
-	// zone-entry index and source census, rules/payment_plan_search.go),
-	// installed for one query and validated against the log on every read.
-	// Pure per-query scratch: Clone copies none of it.
-	paymentPlanQuery *paymentPlanQuery `clone:"reset"`
-	// paymentPlanQueryKept / paymentPlanQueryKeptStamp are the offer
-	// builder's query scope kept at its posed decision for the decision's
-	// other pure payment readers (paymentPlanQueryResumeBegin). Pure scratch:
-	// Clone copies none of it.
-	paymentPlanQueryKept      *paymentPlanQuery `clone:"reset"`
-	paymentPlanQueryKeptStamp potentialStamp    `clone:"reset"`
-	// paymentPlanQueryFree is the last finished query scope, reset and
-	// reused by the next (paymentPlanQueryBegin). Clone copies none.
-	paymentPlanQueryFree *paymentPlanQuery `clone:"reset"`
+	boardScanBuf              []boardScanList `clone:"reset"`
+	mayPlaysCache             []mayPlaysEntry `clone:"reset"`
+	paymentPlanQueryKeptStamp potentialStamp  `clone:"reset"`
 	// zoneEntry is the incremental zone-entry index paymentSourceZoneSeq
 	// reads (payment_zone_entry.go), validated against the log on every
 	// read. Pure scratch over the log: Clone copies none of it.

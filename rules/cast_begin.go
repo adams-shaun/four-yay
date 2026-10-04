@@ -154,7 +154,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 	// form must not be stored here, or a spell with an {X} in it would have
 	// its reduction applied before X is known (and lost), and a
 	// flashback/alternative recast would drop the modifiers entirely.
-	cost := e.rawBaseCost(p, id)
+	cost := pay.RawBaseCost(asPayer(e), p, id)
 	var announceAlt *altCostView
 	if opt.AltCostIndex > 0 {
 		if alts := e.alternativeCosts(p, id); opt.AltCostIndex-1 < len(alts) {
@@ -858,7 +858,7 @@ func (e *Engine) beginPlay(p state.PlayerID, id state.ObjID, withoutManaCost boo
 		}
 		id = copyID
 	}
-	cost := e.rawBaseCost(p, id)
+	cost := pay.RawBaseCost(asPayer(e), p, id)
 	if withoutManaCost {
 		cost = Cost{}
 	} else if playCost != "" {

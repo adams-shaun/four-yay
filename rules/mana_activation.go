@@ -1861,7 +1861,7 @@ func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *car
 	// identity is nothing, not colourless), one resolves directly (a decision
 	// nobody could answer differently must not be posed), two or more ask.
 	if pay.IsColourIdentityProduced(produced) {
-		cols := e.commanderIdentityColours(p)
+		cols := pay.CommanderIdentityColours(asPayer(e), p)
 		switch len(cols) {
 		case 1:
 			e.finishManaEffect(p, source, ma, cols[0], gained, sacs, cast, cumulative, triggers)
@@ -2163,56 +2163,6 @@ func (e *Engine) answerManaActivation(chosen []decision.Option) bool {
 	return ma.cast
 }
 
-// commanderIdentityColours expands seat p's commander colour identity to the
-// colours it names, in fixed WUBRG order (the order cards.Face's colour bits
-// are declared in, and the order deck/deck.go's identity checks read — no map
-// range, so the offer order is deterministic). The identity is the bitwise
-// union of every commander's full-card identity (cards.Card.ColourIdentity
-// unions over faces), read off the live command-zone objects
-// (state.Player.Commanders, populated at genesis and stable across zone
-// moves). A seat with no commanders — or commanders whose identity is empty
-// (colourless, CR 903.4) — yields a nil slice: "any color" of an empty
-// identity is no colour at all, so the caller keeps its fail-closed
-// behaviour.
-func (e *Engine) commanderIdentityColours(p state.PlayerID) []string {
-	if int(p) >= len(e.G.Players) {
-		return nil
-	}
-	var m uint8
-	for _, cid := range e.G.Players[p].Commanders {
-		o := e.G.Obj(cid)
-		if o == nil || o.Card == nil {
-			continue
-		}
-		m |= o.Card.ColourIdentity()
-		// CR 903.4b: a commander whose printed CDA says "choose a color before
-		// the game begins" derives its identity from the recorded choice. Gate
-		// on the CDA static, never the bare ChosenColor field: a commander with
-		// an ordinary "as this enters" colour choice must not leak its
-		// battlefield choice into its identity, and before the pregame answer
-		// (or for a non-commander) ChosenColor is empty anyway.
-		if o.Card.Faces[0] != nil && o.Card.Faces[0].CommanderColourChoiceCDA() {
-			if cols, ok := resolveChosenColors("ChosenColor", o); ok {
-				for _, l := range cols {
-					if len(l) == 0 {
-						continue
-					}
-					if i := strings.IndexByte("WUBRG", l[0]); i >= 0 {
-						m |= 1 << uint(i)
-					}
-				}
-			}
-		}
-	}
-	var cols []string
-	for i, sym := range []string{"W", "U", "B", "R", "G"} {
-		if m&(1<<uint(i)) != 0 {
-			cols = append(cols, sym)
-		}
-	}
-	return cols
-}
-
 // CommanderIdentityColourCount is the effects.Host read over
 // commanderIdentityColours: how many colours seat p's commander colour
 // identity names. This is Count$ColorsColorIdentity's backing (War Room's
@@ -2220,7 +2170,7 @@ func (e *Engine) commanderIdentityColours(p state.PlayerID) []string {
 // identity"); it reads the same genesis bookkeeping the replay rebuilds in
 // Config order, so a replay derives the identical count.
 func (e *Engine) CommanderIdentityColourCount(p state.PlayerID) int {
-	return len(e.commanderIdentityColours(p))
+	return len(pay.CommanderIdentityColours(asPayer(e), p))
 }
 
 // manaWalkHasLType is activeSummaryOf(active()).hasLType, answered from the

@@ -24,7 +24,6 @@ package rules
 // (paymentPlanGlobalManaEffect).
 
 import (
-	"slices"
 	"strings"
 
 	"github.com/adams-shaun/gorge/rules/pay"
@@ -132,7 +131,7 @@ func (e *Engine) paymentPlanSourceInterference(id state.ObjID, ma *cards.SA) (pa
 	}
 	controller := src.Controller
 	cost := e.parseCost(ma.ParamStr(cards.PKCost))
-	for _, produced := range e.paymentPlanProductions(id, ma) {
+	for _, produced := range pay.PaymentPlanProductions(asPayer(e), id, ma) {
 		if cost.Tap {
 			dmg, by, ok := e.paymentPlanTapObservers(id, controller, produced)
 			if !ok {
@@ -150,18 +149,6 @@ func (e *Engine) paymentPlanSourceInterference(id state.ObjID, ma *cards.SA) (pa
 		return pay.TierLastResort, c, "source:last_resort"
 	}
 	return pay.TierNormal, pay.Consequence{}, ""
-}
-
-// paymentPlanProductions lists the concrete Produced$ values a plan can
-// execute for ma: the fixed declaration itself, or each colour a choice
-// shape resolves to (the withProduced rewrite execution activates).
-func (e *Engine) paymentPlanProductions(id state.ObjID, ma *cards.SA) []string {
-	mp := effects.ManaOf(ma)
-	raw := mp.Produced
-	if mp.CountsAny {
-		return e.paymentPlanChoiceColours(id, ma)
-	}
-	return []string{raw}
 }
 
 // paymentPlanTapObservers runs every Taps/TapsForMana trigger that could see
@@ -188,7 +175,7 @@ func (e *Engine) paymentPlanTapObservers(id state.ObjID, activator state.PlayerI
 	}()
 	ev := events.Event{Kind: events.Tap, Obj: id}
 	tapMode := func(mode string) bool { return mode == "Taps" || mode == "TapsForMana" }
-	for _, oid := range e.paymentPlanInterferenceCarriers() {
+	for _, oid := range pay.PaymentPlanInterferenceCarriers(asPayer(e)) {
 		o := e.G.Obj(oid)
 		if o == nil || o.PhasedOut || o.Face() == nil || e.printedAbilitiesGone(o) || !pay.PaymentPlanAlive(asPayer(e), o) {
 			continue
@@ -322,7 +309,7 @@ func (e *Engine) paymentPlanProductionReplaced(id state.ObjID, activator state.P
 		amount = 1
 	}
 	active := e.active()
-	carriers := e.paymentPlanInterferenceCarriers()
+	carriers := pay.PaymentPlanInterferenceCarriers(asPayer(e))
 	// With no effect-created ProduceMana replacement and no carrier object
 	// both walks below find nothing for any symbol: answer without parsing
 	// the production.
@@ -374,49 +361,6 @@ func (e *Engine) paymentPlanProductionReplaced(id state.ObjID, activator state.P
 		}
 	}
 	return 0, false
-}
-
-// paymentPlanInterferenceCarriers lists, in object-ID order, every object
-// any of whose card faces or mutated under-cards prints a Taps/TapsForMana
-// trigger or a ProduceMana replacement. It is zone-agnostic -- the matchers
-// own the zone gates -- so it changes only when an object is created or a
-// logged event runs, and is memoised on exactly that key.
-func (e *Engine) paymentPlanInterferenceCarriers() []state.ObjID {
-	if e.PaymentPlanCarriersValid && e.PaymentPlanCarriersObjs == len(e.G.Objs) && e.PaymentPlanCarriersEvents == len(e.L.Events) {
-		return e.PaymentPlanCarriers
-	}
-	carries := func(f *cards.Face) bool {
-		if f == nil {
-			return false
-		}
-		for _, t := range f.Triggers {
-			if t.Mode == "Taps" || t.Mode == "TapsForMana" {
-				return true
-			}
-		}
-		for _, r := range f.Repls {
-			if r.Event == "ProduceMana" {
-				return true
-			}
-		}
-		return false
-	}
-	var out []state.ObjID
-	for i := range e.G.Objs {
-		o := &e.G.Objs[i]
-		found := o.Card != nil && slices.ContainsFunc(o.Card.Faces, carries)
-		for j := 0; !found && j < len(o.MergedCards); j++ {
-			found = carries(o.MergedFaceAt(j))
-		}
-		if found {
-			out = append(out, o.ID)
-		}
-	}
-	// A fresh slice every rebuild: a Clone never shares this memo, and a
-	// caller may still be walking the previous one.
-	e.PaymentPlanCarriers, e.PaymentPlanCarriersValid = out, true
-	e.PaymentPlanCarriersObjs, e.PaymentPlanCarriersEvents = len(e.G.Objs), len(e.L.Events)
-	return out
 }
 
 // paymentPlanSunburstGrantOut is the planner-local sunburst arm of the cast

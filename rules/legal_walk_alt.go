@@ -120,7 +120,7 @@ func (w *legalWalk) mayPlaySpellWalk() {
 			continue
 		}
 		if plain && e.castTargetsAvailable(p, id, f.SpellAbility()) {
-			base := e.rawBaseCost(p, id)
+			base := pay.RawBaseCost(asPayer(e), p, id)
 			// A MayPlayText$-typed offer carries its own permission's riders
 			// (mayPlayPermissions); an untyped offer keeps the aggregate read
 			// every existing grant used.
@@ -239,12 +239,12 @@ func (w *legalWalk) commandZoneWalk() {
 			continue
 		}
 		targetsAvailable := e.castTargetsAvailable(p, id, f.SpellAbility())
-		if targetsAvailable && w.offerCastable(p, id, e.rawBaseCost(p, id), spellScope(""), false) {
+		if targetsAvailable && w.offerCastable(p, id, pay.RawBaseCost(asPayer(e), p, id), spellScope(""), false) {
 			w.add("cast", w.castLabel(f), id)
 		}
 		if targetsAvailable {
 			for i, extra := range e.optionalCostViews(costStatics.get(), p, id) {
-				if w.offerCastable(p, id, pay.WithSpellAbilityExtras(f, e.rawBaseCost(p, id)).Plus(extra), spellScope("optionalcost"), false) {
+				if w.offerCastable(p, id, pay.WithSpellAbilityExtras(f, pay.RawBaseCost(asPayer(e), p, id)).Plus(extra), spellScope("optionalcost"), false) {
 					*out = append(*out, decision.Option{Index: len(*out), Kind: "cast", Label: "Cast " + f.Name + " (optional cost)", Obj: id, Mode: "optionalcost", AltCostIndex: i + 1})
 				}
 			}
@@ -285,7 +285,7 @@ func (w *legalWalk) commandZoneWalk() {
 		// composition the hand walk offers.
 		if targetsAvailable && e.hasCastOffspring(id) {
 			if oc, ok := e.offspringCost(id); ok &&
-				w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(oc), spellScope("offspring"), false) {
+				w.offerCastable(p, id, pay.RawBaseCost(asPayer(e), p, id).Plus(oc), spellScope("offspring"), false) {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (offspring)", Obj: id, Mode: "offspring"})
 			}
@@ -635,7 +635,7 @@ func (w *legalWalk) exileCastsWalk() {
 				!w.castRestricted(p, id) && !e.castSuppressed(p, id) &&
 				e.spellTimingOK(p, id, f, sorcery) &&
 				e.castTargetsAvailable(p, id, f.SpellAbility()) {
-				if w.offerCastable(p, id, e.rawBaseCost(p, id), spellScope("prepared_copy"), false) {
+				if w.offerCastable(p, id, pay.RawBaseCost(asPayer(e), p, id), spellScope("prepared_copy"), false) {
 					*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 						Label: "Cast " + f.Name + " (prepared)", Obj: id, Mode: "prepared_copy"})
 				}
@@ -743,7 +743,7 @@ func (w *legalWalk) exileCastsWalk() {
 		if !e.castTargetsAvailable(p, id, f.SpellAbility()) {
 			continue
 		}
-		normal := e.rawBaseCost(p, id)
+		normal := pay.RawBaseCost(asPayer(e), p, id)
 		if w.offerCastable(p, id, normal, spellScope("warp_recast"), false) {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 				Label: "Cast " + f.Name + " (from warp exile)", Obj: id, Mode: "warp_recast"})

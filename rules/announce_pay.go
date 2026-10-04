@@ -67,9 +67,9 @@ func cloneWindowTaps(in []windowTap) []windowTap {
 func (e *Engine) ValidateCastAnnounce(p state.PlayerID, cast decision.PlannedCast) error {
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
-	defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
+	defer pay.PaymentPlanQueryEnd(asPayer(e), pay.PaymentPlanQueryBegin(asPayer(e)))
 	if o := e.G.Obj(cast.Object); o != nil && o.Face() != nil && o.Zone == state.ZHand {
-		composed := e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(o.Face(), e.rawBaseCost(p, cast.Object)), spellScope(""))
+		composed := e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(o.Face(), pay.RawBaseCost(asPayer(e), p, cast.Object)), spellScope(""))
 		if len(composed.Sac) != 0 && !e.nonManaCastable(p, cast.Object, composed, false, "") {
 			return fmt.Errorf("announced cast's sacrifice cost is no longer payable")
 		}
@@ -109,7 +109,7 @@ func (e *Engine) announcedAbilityColours(p state.PlayerID, id state.ObjID, ma *c
 	if tier, _, _ := e.paymentPlanAbilityTier(p, id, ma); tier != pay.TierNormal && tier != pay.TierLastResort {
 		return nil
 	}
-	return e.paymentPlanChoiceColours(id, ma)
+	return pay.PaymentPlanChoiceColours(asPayer(e), id, ma)
 }
 
 // announcedAutoFillPlan is the planner's plan for what the announced cast

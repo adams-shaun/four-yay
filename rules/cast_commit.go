@@ -213,7 +213,7 @@ func (e *Engine) payCast() {
 		}
 		// GainLife<N/Player...> cost parts (see payGainLifeCost): every player
 		// the part names relative to the payer gains N life.
-		e.payGainLifeCost(pc.player, pc.cost.GainLife)
+		pay.PayGainLifeCost(asPayer(e), pc.player, pc.cost.GainLife)
 		// Mill cost parts (Mill<N>): the payer mills the summed requirement
 		// from the top of their library as part of the payment.
 		e.payMillCostParts(pc)
@@ -494,7 +494,7 @@ func (e *Engine) payCast() {
 	for _, part := range pc.cost.DamageYou {
 		e.payDamageCost(pc.player, part.N, pc.card, sourceKeywordLKI, sourceControllerLKI)
 	}
-	e.payGainLifeCost(pc.player, pc.cost.GainLife)
+	pay.PayGainLifeCost(asPayer(e), pc.player, pc.cost.GainLife)
 	e.payDrawCostParts(pc)
 	// Return cost parts (see the ability branch above for the why).
 	for _, id := range pc.returns {

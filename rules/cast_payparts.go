@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/decision"
-	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
@@ -374,7 +373,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 	// therefore unoffered, the fail-closed direction. The same helper the
 	// payment uses resolves the candidates, so gate and settlement agree.
 	for _, part := range cost.GainLife {
-		if len(e.gainLifeCostPlayers(p, part)) == 0 {
+		if len(pay.GainLifeCostPlayers(asPayer(e), p, part)) == 0 {
 			return false
 		}
 	}
@@ -544,50 +543,6 @@ func (e *Engine) settlePutToLibCost(pc *pendingCast) {
 		}
 		if part.LibraryPos == 0 && len(picks) > 0 {
 			pay.PutLibPicksOnTop(asPayer(e), picks)
-		}
-	}
-}
-
-// gainLifeCostPlayers lists the seats a GainLife cost part's Spec names
-// relative to the payer, in APNAP order starting at the payer (the same walk
-// every multi-player effect uses). Spec is Forge's raw player word
-// (Player.Opponent / Player.Other); both mean "a player other than the
-// payer", and the engine evaluates them through the ONE shared player-spec
-// evaluator (effects.MatchesPlayerSpec) so this can never disagree with the
-// ValidPlayer$ rider arm that reads the same call. The payer is never its
-// own gain-life target ("an opponent"/"each other player"), so a part that
-// somehow matched the payer is skipped -- harmless for the corpus spellings,
-// and it keeps the payer's own life out of a cost payment.
-func (e *Engine) gainLifeCostPlayers(payer state.PlayerID, part CostPart) []state.PlayerID {
-	var out []state.PlayerID
-	for _, p := range e.G.AliveFrom(payer) {
-		if p == payer {
-			continue
-		}
-		if effects.MatchesPlayerSpec(e.G, part.Spec, p, payer) {
-			out = append(out, p)
-		}
-	}
-	return out
-}
-
-// payGainLifeCost settles the payer's GainLife<N/Player...> cost parts
-// (Forge CostGainLife; Invigorate/Reverent Silence/Skyshroud Cutter): each
-// part has every player its Spec names relative to the payer gain N life as
-// one POSITIVE LifeChange per player. That is exactly the oracle for the
-// /* "each other player" spelling and exact in the two-seat game for the
-// bare Player.Opponent spelling; in a larger pod the bare spelling pays
-// EVERY opponent rather than one chosen opponent (a documented deviation --
-// the alternative-cost route has no mid-cast choose-an-opponent ask). The
-// emit routes through applyReplacements/applyLifeReplacements, so a CR 616
-// GainLife replacement and the CantGainLife static apply for free.
-func (e *Engine) payGainLifeCost(payer state.PlayerID, parts []CostPart) {
-	for _, part := range parts {
-		if part.N <= 0 {
-			continue
-		}
-		for _, p := range e.gainLifeCostPlayers(payer, part) {
-			e.emit(events.Event{Kind: events.LifeChange, Player: p, Amount: part.N})
 		}
 	}
 }

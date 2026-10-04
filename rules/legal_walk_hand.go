@@ -380,7 +380,7 @@ func (w *legalWalk) handWalk() {
 		// "Card.Self+kicked <n>" trigger and replacement specs read.
 		if ph.has(phKicker) {
 			if c1, c2, ok := twoPartKickerCosts(f); ok {
-				base := e.rawBaseCost(p, id)
+				base := pay.RawBaseCost(asPayer(e), p, id)
 				for _, kp := range [...]struct {
 					mode, label string
 					cost        Cost
@@ -394,7 +394,7 @@ func (w *legalWalk) handWalk() {
 							Label: kp.label, Obj: id, Mode: kp.mode})
 					}
 				}
-			} else if kc, ok := kickerCost(f); ok && w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(kc), spellScope("kicked"), false) && targetsAvailable() {
+			} else if kc, ok := kickerCost(f); ok && w.offerCastable(p, id, pay.RawBaseCost(asPayer(e), p, id).Plus(kc), spellScope("kicked"), false) && targetsAvailable() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (kicked)", Obj: id, Mode: "kicked"})
 			}
@@ -419,7 +419,7 @@ func (w *legalWalk) handWalk() {
 		// keeps its printed-cast path and its coverage gap stays visible.
 		if ph.has(phEntwine) {
 			if ec, ok := entwineCost(f); ok && isCharmSpell(f) &&
-				w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(ec), spellScope("entwined"), false) && targetsAvailable() {
+				w.offerCastable(p, id, pay.RawBaseCost(asPayer(e), p, id).Plus(ec), spellScope("entwined"), false) && targetsAvailable() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (entwined)", Obj: id, Mode: "entwined"})
 			}
@@ -434,7 +434,7 @@ func (w *legalWalk) handWalk() {
 		// tail), so the two tapXType carriers' replicate never offers.
 		if ph.has(phReplicate) {
 			if rc, ok := replicateCost(f); ok &&
-				w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(rc), spellScope("replicated"), false) && targetsAvailable() {
+				w.offerCastable(p, id, pay.RawBaseCost(asPayer(e), p, id).Plus(rc), spellScope("replicated"), false) && targetsAvailable() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (replicated)", Obj: id, Mode: "replicated"})
 			}
@@ -447,7 +447,7 @@ func (w *legalWalk) handWalk() {
 		// never collides with the kicked family above.
 		if ph.has(phMultikicker) {
 			if mkc, ok := multikickerCost(f); ok &&
-				w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(mkc), spellScope("multikicked"), false) && targetsAvailable() {
+				w.offerCastable(p, id, pay.RawBaseCost(asPayer(e), p, id).Plus(mkc), spellScope("multikicked"), false) && targetsAvailable() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (multikicked)", Obj: id, Mode: "multikicked"})
 			}
@@ -463,7 +463,7 @@ func (w *legalWalk) handWalk() {
 		// squad cost ParseCost cannot price never offers.
 		if ph.has(phSquad) {
 			if sqc, ok := squadCost(f); ok &&
-				w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(sqc), spellScope("squadded"), false) && targetsAvailable() {
+				w.offerCastable(p, id, pay.RawBaseCost(asPayer(e), p, id).Plus(sqc), spellScope("squadded"), false) && targetsAvailable() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (squadded)", Obj: id, Mode: "squadded"})
 			}
@@ -632,7 +632,7 @@ func (w *legalWalk) handWalk() {
 			}
 		}
 		if ph.has(phBuyback) {
-			if bc, ok := buybackCost(f); ok && w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(bc), spellScope("buyback"), false) {
+			if bc, ok := buybackCost(f); ok && w.offerCastable(p, id, pay.RawBaseCost(asPayer(e), p, id).Plus(bc), spellScope("buyback"), false) {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast", Label: "Cast " + f.Name + " (buyback)", Obj: id, Mode: "buyback"})
 			}
 		}
@@ -649,7 +649,7 @@ func (w *legalWalk) handWalk() {
 		// (the plain cast's gate, which the offspring cast shares).
 		if e.hasCastOffspring(id) {
 			if oc, ok := e.offspringCost(id); ok &&
-				w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(oc), spellScope("offspring"), false) && targetsAvailable() {
+				w.offerCastable(p, id, pay.RawBaseCost(asPayer(e), p, id).Plus(oc), spellScope("offspring"), false) && targetsAvailable() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (offspring)", Obj: id, Mode: "offspring"})
 			}

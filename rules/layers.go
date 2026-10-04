@@ -16,6 +16,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/rules/chars"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -475,7 +476,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 							// CDA's zone width is every zone by CR 604.3 anyway.
 							if _, isCDA, parsed := effects.CDASetColourClaimStatic(st); isCDA && parsed {
 								// withheld: the base read applies it in every zone
-							} else if cols, ok := resolveChosenColors(raw, o); ok {
+							} else if cols, ok := pay.ResolveChosenColors(raw, o); ok {
 								sc := base
 								sc.Layer = LColor
 								sc.AddColors = cols
@@ -488,7 +489,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 							if !isAdd {
 								raw = st.ParamStr(cards.PKAddColors)
 							}
-							if cols, ok := resolveChosenColors(raw, o); ok {
+							if cols, ok := pay.ResolveChosenColors(raw, o); ok {
 								sc := base
 								sc.Layer = LColor
 								sc.AddColors = cols

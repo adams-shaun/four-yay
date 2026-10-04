@@ -64,19 +64,6 @@ func (e *Engine) commanderTaxAmount(p state.PlayerID, id state.ObjID) int32 {
 	return 0
 }
 
-// rawBaseCost is id's printed mana cost, without any cost modifier applied:
-// the CR 601.2f "mana cost or alternative cost" basis onto which the chosen
-// {X} and the RaiseCost/ReduceCost composition (manaToPay) are built. A
-// missing object or a Face()-less one degrades to the zero Cost rather than
-// panicking, matching adjustedCost's own guard.
-func (e *Engine) rawBaseCost(p state.PlayerID, id state.ObjID) Cost {
-	o := e.G.Obj(id)
-	if o == nil || o.Face() == nil {
-		return Cost{}
-	}
-	return e.faceCost(o.Face())
-}
-
 // castOfferBase is the composed RAW base every ordinary cast offer is gated on:
 // the printed mana cost with CR 702.51 Convoke's creatures and CR 702.66
 // Improvise's artifacts credited as generic, in that order (improviseCost
@@ -92,9 +79,9 @@ func (e *Engine) castOfferBase(p state.PlayerID, id state.ObjID) Cost {
 	// improviseCost return the cost they were handed), so the raw base is
 	// the answer and the two Cost round trips are skipped.
 	if !e.hasCastConvoke(id) && !e.hasCastImprovise(id) {
-		return e.rawBaseCost(p, id)
+		return pay.RawBaseCost(asPayer(e), p, id)
 	}
-	base, taps := e.convokeCost(p, id, e.rawBaseCost(p, id))
+	base, taps := e.convokeCost(p, id, pay.RawBaseCost(asPayer(e), p, id))
 	base, _ = e.improviseCost(p, id, base, taps)
 	return base
 }
