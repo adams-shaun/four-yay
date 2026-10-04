@@ -88,7 +88,7 @@ func TestCloneOfIsAllocationFree(t *testing.T) {
 	f.Publish()
 	cached := &cards.SA{API: "Clone", Params: map[string]string{"Choices": "Creature.Other"}}
 	CloneOf(cached)
-	if n := testing.AllocsPerRun(100, func() {
+	if n := allocsPerRun(100, func() {
 		_ = CloneOf(bound)
 		_ = CloneOf(cached)
 	}); n != 0 {

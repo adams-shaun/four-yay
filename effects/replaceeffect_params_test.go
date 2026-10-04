@@ -29,7 +29,7 @@ func TestCompileReplaceEffect(t *testing.T) {
 	if !slices.Equal(p.Unread, []string{"VarType"}) {
 		t.Fatalf("unread = %v", p.Unread)
 	}
-	if allocs := testing.AllocsPerRun(100, func() { _ = ReplaceEffectOf(sa) }); allocs != 0 {
+	if allocs := allocsPerRun(100, func() { _ = ReplaceEffectOf(sa) }); allocs != 0 {
 		t.Fatalf("ReplaceEffectOf front-cache hit allocates %v", allocs)
 	}
 	if d := ReplaceEffectOf(&cards.SA{API: "ReplaceEffect", Params: map[string]string{}}); d.VarName != "" || d.VarValue.Present || d.Unread != nil {

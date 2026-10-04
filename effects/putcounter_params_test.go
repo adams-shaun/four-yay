@@ -64,7 +64,7 @@ func TestPutCounterOfIsAllocationFree(t *testing.T) {
 	f := NewSAFacts(bound)
 	cached := &cards.SA{API: "PutCounter", Params: map[string]string{"CounterNum": "2"}}
 	PutCounterOf(cached)
-	if n := testing.AllocsPerRun(100, func() {
+	if n := allocsPerRun(100, func() {
 		_ = PutCounterOf(bound)
 		_ = PutCounterOf(cached)
 	}); n != 0 {

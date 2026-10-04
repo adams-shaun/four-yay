@@ -69,7 +69,7 @@ func TestDigUntilOfIsAllocationFree(t *testing.T) {
 	f.Publish()
 	cached := &cards.SA{API: "DigUntil", Params: map[string]string{"Valid": "Land"}}
 	DigUntilOf(cached)
-	if n := testing.AllocsPerRun(100, func() {
+	if n := allocsPerRun(100, func() {
 		_ = DigUntilOf(bound)
 		_ = DigUntilOf(cached)
 	}); n != 0 {

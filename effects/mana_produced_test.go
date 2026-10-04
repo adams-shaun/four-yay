@@ -99,7 +99,7 @@ func TestManaLiteralProductionReusesRuneNormalizer(t *testing.T) {
 	c := &Ctx{Source: 0, Controller: 0}
 	mana := sa(t, "AB$ Mana | Cost$ T | Produced$ {W}")
 
-	if allocs := testing.AllocsPerRun(1000, func() {
+	if allocs := allocsPerRun(1000, func() {
 		h.log = h.log[:0]
 		effMana(h, c, mana)
 	}); allocs > 2 {

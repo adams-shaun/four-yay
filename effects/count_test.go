@@ -914,7 +914,7 @@ func TestEvalCountValidZoneScanIsAllocationFree(t *testing.T) {
 	if got := EvalCount(h, c, "Count$Valid Creature"); got != 3 {
 		t.Fatalf("precondition: Count$Valid Creature = %d, want 3", got)
 	}
-	allocs := testing.AllocsPerRun(100, func() {
+	allocs := allocsPerRun(100, func() {
 		if got := EvalCount(h, c, "Count$Valid Creature"); got != 3 {
 			t.Fatalf("Count$Valid Creature = %d, want 3", got)
 		}

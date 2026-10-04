@@ -71,7 +71,7 @@ func TestColorsOfDoesNotAllocateForImmutableFace(t *testing.T) {
 	if got := ColorsOf(o); got != "UG" {
 		t.Fatalf("ColorsOf = %q, want UG", got)
 	}
-	if allocs := testing.AllocsPerRun(1000, func() { ColorsOf(o) }); allocs != 0 {
+	if allocs := allocsPerRun(1000, func() { ColorsOf(o) }); allocs != 0 {
 		t.Fatalf("ColorsOf allocated %.2f objects/call, want zero", allocs)
 	}
 }
