@@ -54,3 +54,11 @@ func (pe *payer) Chars() chars.Reader { return (*charsReader)(pe) }
 func (pe *payer) ConfiguredCost(raw string) *pay.CompiledCost {
 	return (*Engine)(pe).configuredCost(raw)
 }
+
+func (r *charsReader) SameColorRevealSets(p state.PlayerID, source state.ObjID, excludeSource bool) ([]state.ObjID, [][]string) {
+	return r.eng().sameColorRevealSets(p, source, excludeSource)
+}
+
+func (r *charsReader) TapPower(id state.ObjID, saKind string) int32 {
+	return r.eng().tapPowerValue(id, saKind)
+}

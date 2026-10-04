@@ -29,7 +29,7 @@ const (
 	// Suspend* no-ops: -> 1965. W5 E7 moved mana payment onto rules/pay:
 	// -> 1944. Slice 4 made the payer grants pay.Engine adapter methods: -> 1940. W3 dead deleted the resume-scratch setters: -> 1931.
 	// E7 slice 9 moved the payment board reads to rules/pay funcs: -> 1917.
-	engineMethodCount = 1853
+	engineMethodCount = 1848
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
 	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94. W3 clean

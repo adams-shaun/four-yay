@@ -22,9 +22,11 @@ import (
 // comment recording the step, and never above charsReaderCeiling (the
 // spec's narrow-interface target). E4 slice 1 landed it with the six reads
 // the mana activation gates use: DerivedTypes, HasKeyword, SVarGate,
-// ActivationPhasesOK, PresentGate, GrantedAbilities.
+// ActivationPhasesOK, PresentGate, GrantedAbilities. Slice 5 added
+// SameColorRevealSets and TapPower (the non-mana cost-part castability walk,
+// nonManaCastableP): 6 -> 8.
 const (
-	charsReaderMethods = 6
+	charsReaderMethods = 8
 	charsReaderCeiling = 20
 )
 

@@ -523,7 +523,7 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	// committing a cast whose additional cost can no longer be paid.
 	if o := e.G.Obj(cast.Object); o != nil && o.Face() != nil {
 		composed := e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(o.Face(), pay.RawBaseCost(asPayer(e), p, cast.Object)), spellScope(""))
-		if len(composed.Sac) != 0 && !e.nonManaCastable(p, cast.Object, composed, false, "") {
+		if len(composed.Sac) != 0 && !pay.NonManaCastable(asPayer(e), p, cast.Object, composed, false, "") {
 			return fmt.Errorf("payment plan sacrifice cost no longer payable")
 		}
 	}

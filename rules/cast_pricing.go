@@ -366,7 +366,7 @@ func (e *Engine) affordableTargetCandidates(pc *pendingCast, candidates []target
 		// Mana abilities cannot make a non-mana payment or a life shortage
 		// disappear, so preserve a candidate for the mana window only after
 		// those independent requirements pass.
-		if !e.nonManaCastable(pc.player, pc.card, cost, pc.isAbility(), tapCostSAKind(e.pcAbility(pc))) {
+		if !pay.NonManaCastable(asPayer(e), pc.player, pc.card, cost, pc.isAbility(), tapCostSAKind(e.pcAbility(pc))) {
 			continue
 		}
 		// A life cost with a POSITIVE component needs that much life (CR

@@ -39,6 +39,14 @@ type Reader interface {
 	// grants give id right now, as p would activate them, in the active
 	// list's deterministic order.
 	GrantedAbilities(p state.PlayerID, id state.ObjID) []Granted
+	// SameColorRevealSets is p's hand cards (source excluded when
+	// excludeSource) a RevealSameColor cost part may reveal together, with
+	// each card's current colour words.
+	SameColorRevealSets(p state.PlayerID, source state.ObjID, excludeSource bool) ([]state.ObjID, [][]string)
+	// TapPower is the value creature id contributes when it is tapped to pay
+	// an action of kind saKind's tap-power amount (Station, Crew, Saddle):
+	// its layer-derived power, as any stat:TapPowerValue static adjusts it.
+	TapPower(id state.ObjID, saKind string) int32
 }
 
 // KW is a keyword head with its interned cards.KeywordHeadID, compiled once

@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -307,21 +308,21 @@ func TestPutCardToLibOfferGateRequiresCandidates(t *testing.T) {
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Battlefield Scrounger")
 	id := searchMoveByName(t, e, "Battlefield Scrounger", state.ZBattlefield)
-	if e.nonManaCastable(0, id, ParseCost("PutCardToLibFromGrave<99/-1/Card>"), true, "") {
+	if pay.NonManaCastable(asPayer(e), 0, id, ParseCost("PutCardToLibFromGrave<99/-1/Card>"), true, "") {
 		t.Fatal("offered a graveyard PutCardToLib cost the graveyard cannot pay")
 	}
-	if !e.nonManaCastable(0, id, ParseCost("PutCardToLibFromBattlefield<1/-1/CARDNAME>"), true, "") {
+	if !pay.NonManaCastable(asPayer(e), 0, id, ParseCost("PutCardToLibFromBattlefield<1/-1/CARDNAME>"), true, "") {
 		t.Fatal("withheld a self PutCardToLib cost while the source is in play")
 	}
 	// The singleton self-reference fast path only covers N=1: with a larger N
 	// the offer gate must fall through to the general candidate walk, which
 	// cannot supply CARDNAME twice, rather than offering on the source alone
 	// and aborting at payment time. (0 corpus carriers -- latent.)
-	if e.nonManaCastable(0, id, ParseCost("PutCardToLibFromBattlefield<2/-1/CARDNAME>"), true, "") {
+	if pay.NonManaCastable(asPayer(e), 0, id, ParseCost("PutCardToLibFromBattlefield<2/-1/CARDNAME>"), true, "") {
 		t.Fatal("offered a self PutCardToLib cost needing 2 candidates when only the source matches CARDNAME")
 	}
 	e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZBattlefield, To: state.ZGraveyard})
-	if e.nonManaCastable(0, id, ParseCost("PutCardToLibFromBattlefield<1/-1/CARDNAME>"), true, "") {
+	if pay.NonManaCastable(asPayer(e), 0, id, ParseCost("PutCardToLibFromBattlefield<1/-1/CARDNAME>"), true, "") {
 		t.Fatal("offered a self PutCardToLib cost while the source is not in play")
 	}
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -101,7 +102,7 @@ func TestIlluminatedFolioSameColorRevealCost(t *testing.T) {
 	}
 
 	// The offer gate: the cost is payable with this hand.
-	if !e.nonManaCastable(0, folio, ParseCost("Reveal<2/SameColor>"), true, "") {
+	if !pay.NonManaCastable(asPayer(e), 0, folio, ParseCost("Reveal<2/SameColor>"), true, "") {
 		t.Fatal("nonManaCastable refuses Reveal<2/SameColor> with two same-colour cards in hand")
 	}
 
@@ -177,7 +178,7 @@ func TestIlluminatedFolioNotOfferedWithoutSharedColor(t *testing.T) {
 	if got := folioColoursOf(t, e, sphere); got != "" {
 		t.Fatalf("precondition: Chromatic Sphere colours = %q, want empty", got)
 	}
-	if e.nonManaCastable(0, folio, ParseCost("Reveal<2/SameColor>"), true, "") {
+	if pay.NonManaCastable(asPayer(e), 0, folio, ParseCost("Reveal<2/SameColor>"), true, "") {
 		t.Fatal("a coloured and a colourless card were treated as sharing a colour")
 	}
 
@@ -200,7 +201,7 @@ func TestIlluminatedFolioNotOfferedWithoutSharedColor(t *testing.T) {
 	if got := folioColoursOf(t, e, growth); got != "G" {
 		t.Fatalf("precondition: Giant Growth colours = %q, want G", got)
 	}
-	if !e.nonManaCastable(0, folio, ParseCost("Reveal<2/SameColor>"), true, "") {
+	if !pay.NonManaCastable(asPayer(e), 0, folio, ParseCost("Reveal<2/SameColor>"), true, "") {
 		t.Fatal("with two green cards in hand the cost must be payable again")
 	}
 }

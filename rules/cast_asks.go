@@ -2,7 +2,6 @@ package rules
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -407,7 +406,7 @@ func (e *Engine) tapPermanentCostAsk() bool {
 				e.abortCast(pc, "tap cost no longer payable; cast aborted", true)
 				return true
 			}
-			if part.Dyn == "Any" && part.MinPower > 0 && e.tapPowerSum(candidates, tapKind) < part.MinPower {
+			if part.Dyn == "Any" && part.MinPower > 0 && pay.TapPowerSum(asPayer(e), candidates, tapKind) < part.MinPower {
 				e.abortCast(pc, "tap cost no longer payable; cast aborted", true)
 				return true
 			}
@@ -477,7 +476,7 @@ func (e *Engine) tapPermanentCostAsk() bool {
 		// no longer satisfy aborts like the Any form above -- an auto-tap of
 		// the only N candidates (next branch) or an election with no legal
 		// answer would pay a floor the state no longer reaches.
-		if part.MinPower > 0 && e.tapTopPowerSum(candidates, int(part.N), tapKind) < part.MinPower {
+		if part.MinPower > 0 && pay.TapTopPowerSum(asPayer(e), candidates, int(part.N), tapKind) < part.MinPower {
 			e.abortCast(pc, "tap cost no longer payable; cast aborted", true)
 			return true
 		}
@@ -500,41 +499,6 @@ func (e *Engine) tapPermanentCostAsk() bool {
 		return true
 	}
 	return false
-}
-
-// tapPowerSum sums the current power of a tap-cost candidate list -- the
-// set-level read a withTotalPowerGE<N> group predicate (Crew, Mossbridge
-// Troll) constrains. "Any number" may tap the whole list, so the list's
-// total is the most power a payment can tap.
-func (e *Engine) tapPowerSum(ids []state.ObjID, saKind string) int32 {
-	sum := int32(0)
-	for _, id := range ids {
-		sum += e.tapPowerValue(id, saKind)
-	}
-	return sum
-}
-
-// tapTopPowerSum is tapPowerSum for a literal tapXType<N/...> part with a
-// group predicate: exactly N are tapped, so the most a payment can tap is
-// the power of the N largest candidates. A slice sort is fine here -- the
-// result is a sum, so the order equal powers sort in cannot reach an event.
-func (e *Engine) tapTopPowerSum(ids []state.ObjID, n int, saKind string) int32 {
-	if n <= 0 {
-		return 0
-	}
-	if n >= len(ids) {
-		return e.tapPowerSum(ids, saKind)
-	}
-	pw := make([]int32, 0, len(ids))
-	for _, id := range ids {
-		pw = append(pw, e.tapPowerValue(id, saKind))
-	}
-	sort.Slice(pw, func(a, b int) bool { return pw[a] > pw[b] })
-	sum := int32(0)
-	for _, v := range pw[:n] {
-		sum += v
-	}
-	return sum
 }
 
 func (e *Engine) blightCostAsk() bool {
@@ -840,33 +804,6 @@ func putToLibZoneName(z state.Zone) string {
 	}
 }
 
-// moveToGraveCandidates returns the cards matching spec (you-relative to p,
-// source-relative to source) still available in ANY alive player's exile
-// zone, minus everything in reserved. Exiled cards live in their OWNER's
-// exile zone (events/apply.go's zoneOwner), so the scan iterates the
-// players rather than p's own zone: Shelob, Dread Weaver's exiles land in
-// the OPPONENT's exile zone, and a controller-only scan would find nothing.
-// Zone order is deterministic (players in seat order, each zone in list
-// order), so the candidate order -- and therefore every pick built from it
-// -- replays.
-func (e *Engine) moveToGraveCandidates(p state.PlayerID, source state.ObjID, spec string, reserved map[state.ObjID]bool) []state.ObjID {
-	var out []state.ObjID
-	for i := range e.G.Players {
-		if e.G.Players[i].Lost {
-			continue
-		}
-		for _, id := range e.G.Zone(state.ZExile, state.PlayerID(i)) {
-			if reserved[id] {
-				continue
-			}
-			if e.matchesSpecFrom(spec, id, p, source) {
-				out = append(out, id)
-			}
-		}
-	}
-	return out
-}
-
 // moveGraveAsk offers the next unsettled ExiledMoveToGrave cost part, walking
 // pc.cost.MoveToGrave in order (pc.moveGravePart) the way exAsk walks
 // pc.cost.Exile. Candidates come from EVERY alive player's exile zone
@@ -882,7 +819,7 @@ func (e *Engine) moveGraveAsk() bool {
 		for _, s := range pc.moveGraves {
 			seen[s] = true
 		}
-		candidates := e.moveToGraveCandidates(pc.player, pc.card, part.Spec, seen)
+		candidates := pay.MoveToGraveCandidates(asPayer(e), pc.player, pc.card, part.Spec, seen)
 		n := int(part.N)
 		if n <= 0 || n > len(candidates) {
 			e.abortCast(pc, "move-to-graveyard cost no longer payable; cast/activation aborted", true)

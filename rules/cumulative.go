@@ -1601,7 +1601,7 @@ func (e *Engine) triggeredMandatoryCandidatesWith(tc *triggeredEffectCost, idx i
 		// An ExiledMoveToGrave part's candidates come from EVERY player's
 		// exile zone (exiled cards live in their OWNER's exile zone --
 		// events/apply.go's zoneOwner), not tc.player's own.
-		return e.moveToGraveCandidates(tc.player, tc.source, part.Spec, used)
+		return pay.MoveToGraveCandidates(asPayer(e), tc.player, tc.source, part.Spec, used)
 	}
 	zone := triggeredMandatoryZone(part, isSac)
 	spec := part.Spec

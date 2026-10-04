@@ -875,7 +875,7 @@ func (e *Engine) beginPlay(p state.PlayerID, id state.ObjID, withoutManaCost boo
 		// offered cast's would be (the energy total, the discard
 		// candidates): a YES answer the payment cannot settle is declined
 		// with a Note, not begun and short-changed at the settle.
-		if !e.nonManaCastable(p, id, alt, false, "") {
+		if !pay.NonManaCastable(asPayer(e), p, id, alt, false, "") {
 			e.emit(events.Event{Kind: events.Note, Player: p,
 				Text: "The alternative cost cannot be paid (" + playCost + "); the play is declined"})
 			return

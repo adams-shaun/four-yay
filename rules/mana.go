@@ -238,7 +238,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 				}
 				var c Cost
 				e.composedOfferCostInto(&c, p, id, base, &m, scope)
-				return e.nonManaCastableP(p, id, &c, ability, tapCostSAKind(scope.Ab))
+				return pay.NonManaCastableP(asPayer(e), p, id, &c, ability, tapCostSAKind(scope.Ab))
 			})
 			if futile && potentialOK {
 				panic(fmt.Sprintf("rules: futile potential-target retry for obj %d accepted %+v", id, potential))
@@ -274,7 +274,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	// shared tail preserves every Sac/Discard/counter/tap legality check.
 	var composed Cost
 	e.composedOfferCostInto(&composed, p, id, base, &mods, scope)
-	return e.nonManaCastableP(p, id, &composed, ability, tapCostSAKind(scope.Ab))
+	return pay.NonManaCastableP(asPayer(e), p, id, &composed, ability, tapCostSAKind(scope.Ab))
 }
 
 // offerSacXMods is the offer gate's announced-sacrifice-count affordability

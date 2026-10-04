@@ -835,7 +835,7 @@ func (e *Engine) castable(p state.PlayerID, id state.ObjID, cost Cost, ability b
 	if !pay.CostPayable(asPayer(e), p, id, ability, mana) {
 		return false
 	}
-	return e.nonManaCastable(p, id, cost, ability, "")
+	return pay.NonManaCastable(asPayer(e), p, id, cost, ability, "")
 }
 
 // countCandPayable reports whether a repeatable-additional-cost count walk's
@@ -858,7 +858,7 @@ func (e *Engine) countCandPayable(pc *pendingCast, cand Cost) bool {
 	if !pay.CostPayable(asPayer(e), pc.player, pc.card, false, mana) {
 		return false
 	}
-	return e.nonManaCastable(pc.player, pc.card, cand, false, tapCostSAKind(e.pcAbility(pc)))
+	return pay.NonManaCastable(asPayer(e), pc.player, pc.card, cand, false, tapCostSAKind(e.pcAbility(pc)))
 }
 
 // countComposedCost is the CR 601.2f/903.8 composition of a count walk's
@@ -892,5 +892,5 @@ func (e *Engine) castablePriced(p state.PlayerID, id state.ObjID, cost Cost, abi
 	if !pay.CostPayablePool(asPayer(e), p, id, ability, mana, pool, e.G.Players[p].ManaUnits()) {
 		return false
 	}
-	return e.nonManaCastable(p, id, cost, ability, "")
+	return pay.NonManaCastable(asPayer(e), p, id, cost, ability, "")
 }

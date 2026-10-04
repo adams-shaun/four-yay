@@ -70,7 +70,7 @@ func (e *Engine) ValidateCastAnnounce(p state.PlayerID, cast decision.PlannedCas
 	defer pay.PaymentPlanQueryEnd(asPayer(e), pay.PaymentPlanQueryBegin(asPayer(e)))
 	if o := e.G.Obj(cast.Object); o != nil && o.Face() != nil && o.Zone == state.ZHand {
 		composed := e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(o.Face(), pay.RawBaseCost(asPayer(e), p, cast.Object)), spellScope(""))
-		if len(composed.Sac) != 0 && !e.nonManaCastable(p, cast.Object, composed, false, "") {
+		if len(composed.Sac) != 0 && !pay.NonManaCastable(asPayer(e), p, cast.Object, composed, false, "") {
 			return fmt.Errorf("announced cast's sacrifice cost is no longer payable")
 		}
 	}

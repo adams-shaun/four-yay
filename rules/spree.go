@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -124,5 +125,5 @@ func (e *Engine) modeCostFeasible(pc *pendingCast, extra Cost, pot state.Mana) b
 		}
 		mods = potential
 	}
-	return e.nonManaCastable(pc.player, pc.card, e.composedOfferCost(pc.player, pc.card, base, mods, scope), pc.isAbility(), tapCostSAKind(scope.Ab))
+	return pay.NonManaCastable(asPayer(e), pc.player, pc.card, e.composedOfferCost(pc.player, pc.card, base, mods, scope), pc.isAbility(), tapCostSAKind(scope.Ab))
 }

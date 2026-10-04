@@ -173,7 +173,7 @@ func morphTurnUpCountAnnounced(c Cost) bool {
 // order the cast flow's charge takes -- so the offer, the X ask and the
 // settlement price one total.
 func (e *Engine) morphTurnUpPayable(p state.PlayerID, id state.ObjID, cost Cost, mods costMods) bool {
-	if !e.nonManaCastable(p, id, cost, false, "") {
+	if !pay.NonManaCastable(asPayer(e), p, id, cost, false, "") {
 		return false
 	}
 	min := cost.XMin
@@ -209,7 +209,7 @@ func (e *Engine) morphTurnUpPayablePriced(p state.PlayerID, id state.ObjID, cost
 	if hyp == nil {
 		return e.morphTurnUpPayable(p, id, cost, mods)
 	}
-	if !e.nonManaCastable(p, id, cost, false, "") {
+	if !pay.NonManaCastable(asPayer(e), p, id, cost, false, "") {
 		return false
 	}
 	if cost.X != 0 {
