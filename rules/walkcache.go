@@ -263,28 +263,28 @@ func (e *Engine) scanBoardStaticsPrintedLists(out boardStatics, lists []boardSca
 					st := pst.Static
 					var dst *[]staticView
 					zoneGated := true
-					switch scanBoardStaticsPrintedLists9221Codes.Code(string(st.Mode)) {
-					case scanBoardStaticsPrintedLists9221CantBeCast:
+					switch st.ModeKind() {
+					case cards.StaticCantBeCast:
 						if z != state.ZBattlefield {
 							continue
 						}
 						dst, zoneGated = &out.action.cantCast, false
-					case scanBoardStaticsPrintedLists9221CantBeActivated:
+					case cards.StaticCantBeActivated:
 						if z != state.ZBattlefield {
 							continue
 						}
 						dst, zoneGated = &out.action.cantActivate, false
-					case scanBoardStaticsPrintedLists9221Continuous:
+					case cards.StaticContinuous:
 						dst = &out.action.continuous
-					case scanBoardStaticsPrintedLists9221RaiseCost:
+					case cards.StaticRaiseCost:
 						dst = &out.cost.raise
-					case scanBoardStaticsPrintedLists9221ReduceCost:
+					case cards.StaticReduceCost:
 						dst = &out.cost.reduce
-					case scanBoardStaticsPrintedLists9221SetCost:
+					case cards.StaticSetCost:
 						dst = &out.cost.set
-					case scanBoardStaticsPrintedLists9221OptionalCost:
+					case cards.StaticOptionalCost:
 						dst = &out.cost.optional
-					case scanBoardStaticsPrintedLists9221ManaConvert:
+					case cards.StaticManaConvert:
 						if !effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
 							continue
 						}
@@ -594,25 +594,3 @@ func (e *Engine) mayPlaysThisTurnCached(p state.PlayerID) int {
 	e.mayPlaysCache = append(e.mayPlaysCache, mayPlaysEntry{key: now, p: p, n: n})
 	return n
 }
-
-const (
-	scanBoardStaticsPrintedLists9221CantBeCast      uint16 = 1 // "CantBeCast"
-	scanBoardStaticsPrintedLists9221CantBeActivated uint16 = 2 // "CantBeActivated"
-	scanBoardStaticsPrintedLists9221Continuous      uint16 = 3 // "Continuous"
-	scanBoardStaticsPrintedLists9221RaiseCost       uint16 = 4 // "RaiseCost"
-	scanBoardStaticsPrintedLists9221ReduceCost      uint16 = 5 // "ReduceCost"
-	scanBoardStaticsPrintedLists9221SetCost         uint16 = 6 // "SetCost"
-	scanBoardStaticsPrintedLists9221OptionalCost    uint16 = 7 // "OptionalCost"
-	scanBoardStaticsPrintedLists9221ManaConvert     uint16 = 8 // "ManaConvert"
-)
-
-var scanBoardStaticsPrintedLists9221Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "CantBeCast", Val: scanBoardStaticsPrintedLists9221CantBeCast},
-	state.StrEntry[uint16]{Key: "CantBeActivated", Val: scanBoardStaticsPrintedLists9221CantBeActivated},
-	state.StrEntry[uint16]{Key: "Continuous", Val: scanBoardStaticsPrintedLists9221Continuous},
-	state.StrEntry[uint16]{Key: "RaiseCost", Val: scanBoardStaticsPrintedLists9221RaiseCost},
-	state.StrEntry[uint16]{Key: "ReduceCost", Val: scanBoardStaticsPrintedLists9221ReduceCost},
-	state.StrEntry[uint16]{Key: "SetCost", Val: scanBoardStaticsPrintedLists9221SetCost},
-	state.StrEntry[uint16]{Key: "OptionalCost", Val: scanBoardStaticsPrintedLists9221OptionalCost},
-	state.StrEntry[uint16]{Key: "ManaConvert", Val: scanBoardStaticsPrintedLists9221ManaConvert},
-)

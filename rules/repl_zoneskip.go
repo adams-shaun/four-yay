@@ -67,12 +67,10 @@ func faceReplHot(f *cards.Face) bool { return f != nil && len(f.Repls) > 0 }
 // a logged event -- to its bit; DrawCards shares Draw's (the one alias
 // replacementEventNameMatches accepts). A name replacementEvent never
 // returns gets no bit: no event can match it.
-func replEventBit(name string) uint32 {
-	if v, ok := replEventBitTab1.Get(name); ok {
-		return v
-	}
-	return 0
-}
+func replEventBit(name string) uint32 { return replEventBits[cards.ReplEventOf(name)] }
+
+// replLineBit is replEventBit for an R: line, through its load-time code.
+func replLineBit(r *cards.Repl) uint32 { return replEventBits[r.EventKind()] }
 
 // objectReplMask is the union of replEventBit over every R: line of every
 // face objectReplHot reads (CopyFace and each of the card's faces), the
@@ -84,7 +82,7 @@ func objectReplMask(o *state.Object) uint32 {
 	var m uint32
 	if o.CopyFace != nil {
 		for i := range o.CopyFace.Repls {
-			m |= replEventBit(o.CopyFace.Repls[i].Event)
+			m |= replLineBit(&o.CopyFace.Repls[i])
 		}
 	}
 	if o.Card != nil {
@@ -93,7 +91,7 @@ func objectReplMask(o *state.Object) uint32 {
 				continue
 			}
 			for i := range f.Repls {
-				m |= replEventBit(f.Repls[i].Event)
+				m |= replLineBit(&f.Repls[i])
 			}
 		}
 	}
@@ -375,22 +373,22 @@ func copyReplZones(dst, src []replZoneSummary) []replZoneSummary {
 	return dst
 }
 
-var replEventBitTab1 = state.NewStrTable[uint32](
-	state.StrEntry[uint32]{Key: "Attached", Val: 1 << 0},
-	state.StrEntry[uint32]{Key: "Moved", Val: 1 << 1},
-	state.StrEntry[uint32]{Key: "Untap", Val: 1 << 2},
-	state.StrEntry[uint32]{Key: "BeginPhase", Val: 1 << 3},
-	state.StrEntry[uint32]{Key: "Transform", Val: 1 << 4},
-	state.StrEntry[uint32]{Key: "ProduceMana", Val: 1 << 5},
-	state.StrEntry[uint32]{Key: "DamageDone", Val: 1 << 6},
-	state.StrEntry[uint32]{Key: "Draw", Val: 1 << 7},
-	state.StrEntry[uint32]{Key: "DrawCards", Val: 1 << 7},
-	state.StrEntry[uint32]{Key: "CreateToken", Val: 1 << 8},
-	state.StrEntry[uint32]{Key: "Explore", Val: 1 << 9},
-	state.StrEntry[uint32]{Key: "Cascade", Val: 1 << 10},
-	state.StrEntry[uint32]{Key: "Scry", Val: 1 << 11},
-	state.StrEntry[uint32]{Key: "RollDice", Val: 1 << 12},
-	state.StrEntry[uint32]{Key: "RollPlanarDice", Val: 1 << 13},
-	state.StrEntry[uint32]{Key: "AddCounter", Val: 1 << 14},
-	state.StrEntry[uint32]{Key: "TurnFaceUp", Val: 1 << 15},
-)
+var replEventBits = [cards.ReplEventCount]uint32{
+	cards.ReplAttached:       1 << 0,
+	cards.ReplMoved:          1 << 1,
+	cards.ReplUntap:          1 << 2,
+	cards.ReplBeginPhase:     1 << 3,
+	cards.ReplTransform:      1 << 4,
+	cards.ReplProduceMana:    1 << 5,
+	cards.ReplDamageDone:     1 << 6,
+	cards.ReplDraw:           1 << 7,
+	cards.ReplDrawCards:      1 << 7,
+	cards.ReplCreateToken:    1 << 8,
+	cards.ReplExplore:        1 << 9,
+	cards.ReplCascade:        1 << 10,
+	cards.ReplScry:           1 << 11,
+	cards.ReplRollDice:       1 << 12,
+	cards.ReplRollPlanarDice: 1 << 13,
+	cards.ReplAddCounter:     1 << 14,
+	cards.ReplTurnFaceUp:     1 << 15,
+}

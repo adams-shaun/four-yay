@@ -65,7 +65,7 @@ func (e *Engine) applyTokenEntryUpdates(id state.ObjID) {
 			}
 		}
 	}
-	e.forEachReplacementSourceFor(replEventBit("Moved"), func(src state.ObjID) {
+	e.forEachReplacementSourceFor(replEventBits[cards.ReplMoved], func(src state.ObjID) {
 		if src == id {
 			return
 		}

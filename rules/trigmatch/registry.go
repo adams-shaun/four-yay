@@ -15,11 +15,12 @@ import (
 // live behind one table.
 type Matcher func(b Board, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool
 
-// trigMatchers maps Mode$ to its matcher. A mode with no entry never fires,
-// which is exactly what the switch this replaced did by falling off its end
-// with matched still false -- there was no default arm, and there must not be
-// one now.
-var trigMatchers = map[string]Matcher{}
+// trigMatchers maps Mode$ (as its load-time cards.TriggerMode code) to its
+// matcher. A mode with no entry never fires, which is exactly what the switch
+// this replaced did by falling off its end with matched still false -- there
+// was no default arm, and there must not be one now. Code 0 (a name outside
+// the vocabulary) is never registered.
+var trigMatchers [cards.TriggerModeCount]Matcher
 
 // registerTrigMatcher installs fn for each named mode. Called from init() in
 // this package's per-mode files.
@@ -30,10 +31,14 @@ var trigMatchers = map[string]Matcher{}
 // at startup and not a matcher that quietly stopped being reached.
 func registerTrigMatcher(fn Matcher, modes ...string) {
 	for _, mode := range modes {
-		if _, dup := trigMatchers[mode]; dup {
+		k := cards.TriggerModeOf(mode)
+		if k == 0 {
+			panic("trigmatch: Mode$ " + mode + " is not in the cards.TriggerMode vocabulary")
+		}
+		if trigMatchers[k] != nil {
 			panic("trigmatch: duplicate trigger matcher registered for Mode$ " + mode)
 		}
-		trigMatchers[mode] = fn
+		trigMatchers[k] = fn
 	}
 }
 
@@ -41,13 +46,13 @@ func registerTrigMatcher(fn Matcher, modes ...string) {
 // matcher never fires. It is the one read of the table outside this package
 // (rules' delayed-trigger and Effect-registration paths, which run their own
 // gates before calling the matcher).
-func Lookup(mode string) Matcher { return trigMatchers[mode] }
+func Lookup(mode string) Matcher { return trigMatchers[cards.TriggerModeOf(mode)] }
 
 // Match reports whether t fires for ev through its mode's registered matcher.
 // A mode with no entry never fires: the switch the table replaced had no
 // default arm, so an unknown mode fell off its end with matched still false.
 func Match(b Board, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
-	if fn := trigMatchers[t.Mode]; fn != nil {
+	if fn := trigMatchers[t.ModeKind()]; fn != nil {
 		return fn(b, t, source, ev, lki)
 	}
 	return false

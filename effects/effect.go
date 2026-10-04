@@ -431,8 +431,8 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 		if permanentComeback && strings.Contains(raw, "Card.IsImprinted") {
 			regTrigger = strings.ReplaceAll(raw, "Card.IsImprinted", "Card.Self")
 		}
-		switch effEffect7bd2Codes.Code(string(tr.Mode)) {
-		case effEffect7bd2SpellCast:
+		switch tr.ModeKind() {
+		case cards.TriggerSpellCast, cards.TriggerChangesZone:
 			// Fire-time match re-parses the named body on the source face.
 			// An Effect's "whenever you cast a spell" / "whenever a creature
 			// enters" is an ordinary REPEATABLE trigger for the Effect's
@@ -450,7 +450,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 					IDs: encodeRemembered(regIDs), Text: tr.Mode + ":" + regTrigger + expiry + odSuffix + efMarker})
 			}
 			registered = true
-		case effEffect7bd2Phase:
+		case cards.TriggerPhase:
 			// A phase promise fires at the FIRST listed step still ahead
 			// (state.EarliestAfter), exactly like the DelayedTrigger SA's
 			// multi-step Phase$ reading; ValidPlayer$ rides |VP= so the
@@ -620,8 +620,8 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 		return r == ',' || r == ' ' || r == '\t' || r == '\n'
 	}) {
 		mode, params := parseStaticLine(c.SVars, name)
-		switch effEffect7bd3Codes.Code(string(mode)) {
-		case effEffect7bd3Continuous:
+		switch cards.StaticModeOf(mode) {
+		case cards.StaticContinuous:
 			// GainsAbilitiesOfDefined$ is the dynamic Defined-set spelling of
 			// the has-all-activated-abilities grant. Resolve it while the
 			// Effect's captured context is still available; unlike the printed
@@ -845,7 +845,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 					Text: "continuous effect " + mode + " unimplemented (" + what + ")"})
 				registered = true
 			}
-		case effEffect7bd3CantTarget:
+		case cards.StaticCantTarget, cards.StaticCantRegenerate, cards.StaticCantPreventDamage, cards.StaticCantAttack, cards.StaticCantSacrifice, cards.StaticCantExile, cards.StaticCantPutCounter, cards.StaticCantBlockBy, cards.StaticCanAttackDefender, cards.StaticUnspentMana, cards.StaticCantBlockUnless, cards.StaticCantAttackUnless, cards.StaticMustBlock, cards.StaticNumLoyaltyAct, cards.StaticCantGainLife, cards.StaticCastWithFlash:
 			// A COMPOUND IsRemembered spec (Card.IsRemembered+Creature) resolves
 			// faithfully through the general filter now that it implements
 			// IsRemembered (rules/layers.go restrictionApplies consults the
@@ -1059,7 +1059,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 			}
 			effectContinuous(h, ce)
 			registered = true
-		case effEffect7bd3CombatDamageToughness:
+		case cards.StaticCombatDamageToughness:
 			// This assignment static is consumed by rules' existing combat
 			// assignment collector. Keep its body parameters and SVar table on
 			// the registration so the ordinary static applicability gates run
@@ -1080,7 +1080,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 			}
 			effectContinuous(h, ce)
 			registered = true
-		case effEffect7bd3ReduceCost:
+		case cards.StaticReduceCost, cards.StaticRaiseCost, cards.StaticSetCost, cards.StaticAlternativeCost, cards.StaticManaConvert:
 			// An Effect-delivered cost-modifier or ManaConvert static (task
 			// param:api:Effect.ForgetOnCast; Marshland Bloodcaster's "Rather
 			// than pay the mana cost of the next spell you cast this turn, you
@@ -1144,7 +1144,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 			}
 			effectContinuous(h, ce)
 			registered = true
-		case effEffect7bd3MustAttack:
+		case cards.StaticMustAttack:
 			// An Effect-delivered per-player attack REQUIREMENT (Forge's
 			// MustAttack$ "that creature attacks that player this combat if
 			// able"): Territory Hellkite's DBPump, and the four plain-
@@ -1234,50 +1234,4 @@ const (
 var effEffect7bd1Codes = state.NewStrCodes(
 	state.StrEntry[uint16]{Key: "Targeted", Val: effEffect7bd1Targeted},
 	state.StrEntry[uint16]{Key: "True", Val: effEffect7bd1Targeted},
-)
-
-const (
-	effEffect7bd2SpellCast uint16 = 1 // "SpellCast", "ChangesZone"
-	effEffect7bd2Phase     uint16 = 2 // "Phase"
-)
-
-var effEffect7bd2Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "SpellCast", Val: effEffect7bd2SpellCast},
-	state.StrEntry[uint16]{Key: "ChangesZone", Val: effEffect7bd2SpellCast},
-	state.StrEntry[uint16]{Key: "Phase", Val: effEffect7bd2Phase},
-)
-
-const (
-	effEffect7bd3Continuous            uint16 = 1 // "Continuous"
-	effEffect7bd3CantTarget            uint16 = 2 // "CantTarget", "CantRegenerate", "CantPreventDamage", "CantAttack", "CantSacrifice", "CantExile", "CantPutCo...
-	effEffect7bd3CombatDamageToughness uint16 = 3 // "CombatDamageToughness"
-	effEffect7bd3ReduceCost            uint16 = 4 // "ReduceCost", "RaiseCost", "SetCost", "AlternativeCost", "ManaConvert"
-	effEffect7bd3MustAttack            uint16 = 5 // "MustAttack"
-)
-
-var effEffect7bd3Codes = state.NewStrCodes(
-	state.StrEntry[uint16]{Key: "Continuous", Val: effEffect7bd3Continuous},
-	state.StrEntry[uint16]{Key: "CantTarget", Val: effEffect7bd3CantTarget},
-	state.StrEntry[uint16]{Key: "CantRegenerate", Val: effEffect7bd3CantTarget},
-	state.StrEntry[uint16]{Key: "CantPreventDamage", Val: effEffect7bd3CantTarget},
-	state.StrEntry[uint16]{Key: "CantAttack", Val: effEffect7bd3CantTarget},
-	state.StrEntry[uint16]{Key: "CantSacrifice", Val: effEffect7bd3CantTarget},
-	state.StrEntry[uint16]{Key: "CantExile", Val: effEffect7bd3CantTarget},
-	state.StrEntry[uint16]{Key: "CantPutCounter", Val: effEffect7bd3CantTarget},
-	state.StrEntry[uint16]{Key: "CantBlockBy", Val: effEffect7bd3CantTarget},
-	state.StrEntry[uint16]{Key: "CanAttackDefender", Val: effEffect7bd3CantTarget},
-	state.StrEntry[uint16]{Key: "UnspentMana", Val: effEffect7bd3CantTarget},
-	state.StrEntry[uint16]{Key: "CantBlockUnless", Val: effEffect7bd3CantTarget},
-	state.StrEntry[uint16]{Key: "CantAttackUnless", Val: effEffect7bd3CantTarget},
-	state.StrEntry[uint16]{Key: "MustBlock", Val: effEffect7bd3CantTarget},
-	state.StrEntry[uint16]{Key: "NumLoyaltyAct", Val: effEffect7bd3CantTarget},
-	state.StrEntry[uint16]{Key: "CantGainLife", Val: effEffect7bd3CantTarget},
-	state.StrEntry[uint16]{Key: "CastWithFlash", Val: effEffect7bd3CantTarget},
-	state.StrEntry[uint16]{Key: "CombatDamageToughness", Val: effEffect7bd3CombatDamageToughness},
-	state.StrEntry[uint16]{Key: "ReduceCost", Val: effEffect7bd3ReduceCost},
-	state.StrEntry[uint16]{Key: "RaiseCost", Val: effEffect7bd3ReduceCost},
-	state.StrEntry[uint16]{Key: "SetCost", Val: effEffect7bd3ReduceCost},
-	state.StrEntry[uint16]{Key: "AlternativeCost", Val: effEffect7bd3ReduceCost},
-	state.StrEntry[uint16]{Key: "ManaConvert", Val: effEffect7bd3ReduceCost},
-	state.StrEntry[uint16]{Key: "MustAttack", Val: effEffect7bd3MustAttack},
 )

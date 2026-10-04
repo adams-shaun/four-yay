@@ -379,7 +379,7 @@ func (e *Engine) paymentPlanDelayedTapObserver(id state.ObjID, ev events.Event) 
 			continue
 		}
 		fn := trigmatch.Lookup(t.Mode)
-		if fn == nil || !triggerModeEvents(t.Mode).allows(ev.Kind) {
+		if fn == nil || !triggerLineEvents(&t).allows(ev.Kind) {
 			continue
 		}
 		e.effectMatchSource, e.effectMatchController = dt.Source, dt.Controller
