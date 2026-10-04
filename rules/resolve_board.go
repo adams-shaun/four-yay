@@ -112,7 +112,7 @@ func (b *resolveBoard) Busy() bool {
 		// madness election) is served in place.
 		return false
 	}
-	return e.Suspended() || e.offStackMana != nil
+	return e.Suspended() || (e.offStackMana != nil && !offStackTapeServed(e))
 }
 
 func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent) bool {
@@ -121,6 +121,9 @@ func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent
 		// A pregame "begin the game with" effect: its entry is asked inside
 		// this one Submit.
 		return len(in.Choices) > 0 && firstChosen(d, in).Kind == "opening_yes"
+	}
+	if in.Payment == nil && in.Announce == nil && !e.Suspended() && tapeTurnUpStarts(e, d, in) {
+		return true // a turn-up whose TurnFaceUp replacement may ask (turnup_tape.go)
 	}
 	if d.Kind != decision.KPriority || in.Payment != nil || in.Announce != nil {
 		return false
@@ -131,6 +134,9 @@ func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent
 	switch firstChosen(d, in).Kind {
 	case optPlayLand:
 		return true
+	case optActivate:
+		// A mana ability whose rider may ask (offstack_mana_rider_tape.go).
+		return tapeManaRiderMayAsk(e, in.Player, firstChosen(d, in).Obj)
 	case optPass:
 		if e.G.Passes+1 < int32(e.G.AliveCount()) {
 			return false
@@ -142,6 +148,12 @@ func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent
 
 func (b *resolveBoard) MayAsk(d *decision.Decision, in decision.Intent) bool {
 	e := (*Engine)(b)
+	if tapeTurnUpStarts(e, d, in) {
+		return true
+	}
+	if firstChosen(d, in).Kind == optActivate {
+		return true // StartsResolution already proved the rider may ask
+	}
 	if len(e.G.Stack) == 0 || firstChosen(d, in).Kind == "play_land" {
 		return tapeLandMayAsk(e, firstChosen(d, in).Obj)
 	}

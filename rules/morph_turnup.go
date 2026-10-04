@@ -720,6 +720,9 @@ func (e *Engine) finishTurnUp(tp *turnUpPay) {
 	if megamorph {
 		e.emit(events.Event{Kind: events.CounterChange, Obj: tp.card, Counter: "P1P1", Amount: 1})
 	}
+	// The special action is settled: asks after it (triggers, the next
+	// priority) are ordinary (turnup_tape.go).
+	e.tape.ResolutionDone()
 }
 
 // turnUpChoicesValid re-derives every saved cost-object choice against the

@@ -62,8 +62,7 @@ func DrawForTurn(h Host, p state.PlayerID) { drawFor(h, p, -1, nil, drawUptoRide
 type drawUptoRider struct {
 	idx   int
 	count int32
-	// turn marks the draw step's own draw (DrawForTurn): the one bare draw
-	// whose Dredge ask the kernel serves.
+	// turn marks the draw step's own draw (DrawForTurn).
 	turn bool
 }
 
@@ -117,10 +116,13 @@ func drawFor(h Host, p state.PlayerID, cursor int, resumeSA *cards.SA, upto draw
 				Label: "Dredge " + strconv.Itoa(int(candidate.n)) + " (mill, then return " + objName(g, candidate.id) + " to hand)", Obj: candidate.id, Player: p})
 		}
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "draw", Label: "Draw card", Player: p})
-		if (cursor >= 0 && resumeSA != nil) || upto.turn {
-			if _, ok := AskTape(h, d); ok {
-				return true
-			}
+		// Every draw's Dredge ask is served from the resolution kernel's
+		// tape when a run serves it -- a bare DrawFor too (a GainLife->Draw
+		// replacement's draws, Nefarious Lich): the answer record
+		// (rules' dredgeAnswerApply) performs the replacement or the
+		// ordinary draw, so nothing is left for the caller.
+		if _, ok := AskTape(h, d); ok {
+			return true
 		}
 	}
 	h.Emit(events.Event{Kind: events.Draw, Player: p, Obj: lib[0],
