@@ -12,6 +12,25 @@ import (
 // legal combination, not merely for each mode considered in isolation.
 func TestCharmCombinationFixtureCensus(t *testing.T) {
 	reg := censusRegistry(t)
+	t.Run("stack target non-charm", func(t *testing.T) {
+		card, ok := reg.Lookup("Cancel")
+		if !ok || len(card.Faces) == 0 {
+			t.Fatal("Cancel missing from corpus")
+		}
+		face := card.Faces[0]
+		slots := SlotSpecs(face)
+		if len(slots) == 0 || !SlotIsStack(slots[0].Filter) {
+			t.Fatalf("Cancel precondition: expected a stack-target slot, got %+v", slots)
+		}
+		for _, ability := range face.Abilities {
+			if ability.Kind == "SP" && ability.API == "Charm" {
+				t.Fatal("Cancel precondition: expected a non-Charm spell")
+			}
+		}
+		if fixtureable, reason := FaceHasFixture(reg, face); !fixtureable {
+			t.Fatalf("stack target should be covered by a precast, got no fixture (%s)", reason)
+		}
+	})
 	cases := []struct {
 		name  string
 		count int

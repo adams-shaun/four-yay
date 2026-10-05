@@ -194,8 +194,20 @@ func FaceHasFixture(reg *cards.Registry, f *cards.Face) (bool, string) {
 				break
 			}
 		}
-		if possible && len(fixtures(reg, slots)) > 0 {
-			return true, ""
+		if possible {
+			// Stack targets are supplied by castWith's precast step, not by
+			// ordinary board candidates. Keep them in the feasibility scan
+			// above (where they are deliberately skipped), but do not ask the
+			// fixture cross-product to materialize them.
+			fixtureSlots := make([]Slot, 0, len(slots))
+			for _, s := range slots {
+				if !SlotIsStack(s.Filter) {
+					fixtureSlots = append(fixtureSlots, s)
+				}
+			}
+			if len(fixtures(reg, fixtureSlots)) > 0 {
+				return true, ""
+			}
 		}
 	}
 	if firstReason == "" {
