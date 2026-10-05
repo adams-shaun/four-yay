@@ -42,8 +42,10 @@ func TestOptionalManaConvertMayAskOnStacklessCast(t *testing.T) {
 	if !asResolve(e).StartsResolution(d, in) {
 		t.Fatal("precondition: modal land does not start a tape run")
 	}
-	if asResolve(e).MayAsk(d, in) {
-		t.Fatal("modal land's Optional$ ManaConvert election must not checkpoint the land play")
+	// Modal lands conservatively checkpoint because a selectable back face may
+	// have a replacement ask. This checkpoint is not a ManaConvert election.
+	if !asResolve(e).MayAsk(d, in) {
+		t.Fatal("modal land must retain its selectable-face ask checkpoint")
 	}
 	if err := e.Submit(in); err != nil {
 		t.Fatal(err)
