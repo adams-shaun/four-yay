@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/adams-shaun/gorge/compliance"
 	"github.com/adams-shaun/gorge/rules"
 )
 
@@ -48,13 +49,18 @@ type Verdict struct {
 	Msg        string `json:"msg,omitempty"`    // for Harness
 }
 
-// XMageLacksCard reports whether an XMage driver message is the card-
-// database miss (Mage.Tests' CardTestPlayerAPIImpl: "[TEST] Couldn't find
-// a card: X"). The card is in the set class's SetCardInfo entries but a set
-// marks it unfinished, so XMage removed it from the set: there is nothing to
-// compare, and it is not a driver harness gap.
-func XMageLacksCard(msg string) bool {
-	return strings.Contains(msg, "Couldn't find a card")
+// XMageLacksCard reports an XMage database miss only when the named missing
+// card is the scenario card. Setup cards and targets can trigger the same
+// driver exception; those failures remain HARNESS rather than exempting the
+// card under test.
+func XMageLacksCard(msg, scenarioCard string) bool {
+	const marker = "Couldn't find a card:"
+	_, missing, ok := strings.Cut(msg, marker)
+	if !ok {
+		return false
+	}
+	missing = strings.TrimSpace(strings.TrimRight(missing, "]"))
+	return missing != "" && compliance.FoldName(missing) == compliance.FoldName(scenarioCard)
 }
 
 // Compare walks both engines' checkpoints in order. A harness failure on

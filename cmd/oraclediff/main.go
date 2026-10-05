@@ -229,6 +229,15 @@ func runGen(dir, manifest, out string) error {
 			continue
 		}
 		name, ok := compliance.CorpusNameFold(has, folded, mc.Name)
+		// Registry lookup accepts punctuation aliases as well as canonical
+		// names. Scenarios must use the face's corpus spelling: otherwise
+		// the fixture itself can fail to find/cast the card (e.g. XMage's
+		// "With Great Power..." alias for Forge's "With Great Power . . .").
+		if ok {
+			if c, found := reg.Lookup(name); found && len(c.Faces) > 0 {
+				name = c.Faces[0].Name
+			}
+		}
 		var it oraclegen.Item
 		var skip *oraclegen.Skip
 		switch {
@@ -362,7 +371,7 @@ func runDiff(dir, scen, xm, cacheDir, out, write, ref, rulingDir string) error {
 				vr.Status = compliance.StatusDiverge
 				vr.Detail = fmt.Sprintf("%s %s: gorge %q, xmage %q", row.Verdict.Checkpoint, row.Verdict.Field, row.Verdict.Gorge, row.Verdict.XMage)
 			default:
-				if row.Verdict.Engine == "xmage" && oraclediff.XMageLacksCard(row.Verdict.Msg) {
+				if row.Verdict.Engine == "xmage" && oraclediff.XMageLacksCard(row.Verdict.Msg, it.Card) {
 					// XMage's card database does not hold the card (an
 					// unfinished set): not a driver gap, and not a card the
 					// gate should require a verdict for.
