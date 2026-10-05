@@ -34,7 +34,7 @@ func TestAnimateAllPlayerKindValidTgtsCensus(t *testing.T) {
 			return err
 		}
 		for _, line := range strings.Split(string(b), "\n") {
-			if !strings.Contains(line, "DB$ AnimateAll") {
+			if !isAnimateAllAPI(line) {
 				continue
 			}
 			tg := animateAllValidTgts(line)
@@ -47,7 +47,14 @@ func TestAnimateAllPlayerKindValidTgtsCensus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("walk corpus: %v", err)
 	}
-	want := []string{"curious_colossus.txt", "quick_draw.txt"}
+	want := []string{
+		"curious_colossus.txt",
+		"jolrael_empress_of_beasts.txt",
+		"mass_diminish.txt",
+		"polymorphists_jest.txt",
+		"quick_draw.txt",
+		"sudden_spoiling.txt",
+	}
 	var names []string
 	for n := range got {
 		names = append(names, n)
@@ -58,6 +65,22 @@ func TestAnimateAllPlayerKindValidTgtsCensus(t *testing.T) {
 		t.Fatalf("AnimateAll carriers with a player-kind ValidTgts$ = %v, want %v\n"+
 			"a new carrier must be confirmed against targetPlayerKindScope and this list updated", names, want)
 	}
+}
+
+// isAnimateAllAPI reports whether line's API token is exactly AnimateAll.
+// A Forge line is `A:<prefix>$ <API> | ...` or `SVar:<name>:<prefix>$ <API> |
+// ...`; the prefix is DB$/SP$/AB$ (and any future one) and the sub-ability
+// NAME lives before the colon, so matching the token after the first "$"
+// catches every prefix without a hand-maintained list.  Matching the whole
+// `DB$ AnimateAll` substring instead missed the SP$/AB$ carriers (4 of the 6
+// players-scoped ones), which is what this census exists to catch.
+func isAnimateAllAPI(line string) bool {
+	_, rest, ok := strings.Cut(line, "$")
+	if !ok {
+		return false
+	}
+	api, _, _ := strings.Cut(strings.TrimSpace(rest), " | ")
+	return strings.TrimSpace(api) == "AnimateAll"
 }
 
 // animateAllValidTgts extracts the ValidTgts$ value from an AnimateAll line,
