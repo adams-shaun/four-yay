@@ -16,6 +16,7 @@ package oraclegen
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -43,7 +44,24 @@ type Step struct {
 	Card    string   `json:"card,omitempty"`
 	Mana    string   `json:"mana,omitempty"`
 	Targets []string `json:"targets,omitempty"`
-	Answers []Answer `json:"answers,omitempty"`
+	// TargetGroups is the per-slot target shape for a multi-target cast:
+	// one group per ValidTgts$ slot in the order the cast asks for them,
+	// each carrying the refs this scenario picked and the slot's max
+	// (TargetMax$, at least the number of picks). XMage consumes a fixed
+	// and optional target list positionally, so the driver can only close
+	// an "up to N" slot from the group it belongs to -- Targets alone
+	// cannot say which decision a TARGET_SKIP terminates. Gorge's runner
+	// ignores the field (it reads Targets).
+	TargetGroups []TargetGroup `json:"target_groups,omitempty"`
+	Answers      []Answer      `json:"answers,omitempty"`
+}
+
+// TargetGroup is one slot's chosen targets and its cap: Picks are the refs
+// this scenario answers, Max the slot's TargetMax$ (0 means unlimited, a
+// group that is never short). Picks may be empty when a slot's minimum is 0.
+type TargetGroup struct {
+	Picks []string `json:"picks,omitempty"`
+	Max   int      `json:"max"`
 }
 
 // Answer is a queued answer for gorge's runner (kind = decision kind).
@@ -159,9 +177,28 @@ func charmModes(f *cards.Face) []charmMode {
 	return nil
 }
 
-// chainSlots lists the target filters along one SVar ability chain.
-func chainSlots(f *cards.Face, svar string) []string {
-	var out []string
+// slot is one ValidTgts$ target slot: its filter (with a "@zone" suffix)
+// and its TargetMin$/TargetMax$ as written (0 for absent).
+type slot struct {
+	filter string
+	min    int
+	max    int
+}
+
+// parseSlotMax reads a TargetMax$ value for the group cap. An absent or
+// non-numeric value ("any", an SVar reference) means unlimited, which a
+// one-pick group never makes short, so the driver never needs a skip.
+func parseSlotMax(s string) int {
+	n, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
+}
+
+// chainSlots lists the target slots along one SVar ability chain.
+func chainSlots(f *cards.Face, svar string) []slot {
+	var out []slot
 	for name := svar; name != ""; {
 		params := svarParams(f.SVars[name])
 		if v := params["ValidTgts"]; v != "" {
@@ -172,7 +209,7 @@ func chainSlots(f *cards.Face, svar string) []string {
 			if z != "" {
 				v += "@" + z
 			}
-			out = append(out, v)
+			out = append(out, slot{filter: v, min: parseSlotMax(params["TargetMin"]), max: parseSlotMax(params["TargetMax"])})
 		}
 		name = params["SubAbility"]
 	}
@@ -509,10 +546,10 @@ func poolFor(cost string) (string, string) {
 	return b.String(), ""
 }
 
-// targetSlots lists the ValidTgts$ filters along the card's spell ability
-// chain (permanent spells have none), in the order the cast asks for them.
-func targetSlots(f *cards.Face) []string {
-	var out []string
+// targetSlots lists the target slots along the card's spell ability chain
+// (permanent spells have none), in the order the cast asks for them.
+func targetSlots(f *cards.Face) []slot {
+	var out []slot
 	add := func(params map[string]string) {
 		v := params["ValidTgts"]
 		if v == "" {
@@ -525,7 +562,7 @@ func targetSlots(f *cards.Face) []string {
 		if z != "" {
 			v += "@" + z
 		}
-		out = append(out, v)
+		out = append(out, slot{filter: v, min: parseSlotMax(params["TargetMin"]), max: parseSlotMax(params["TargetMax"])})
 	}
 	for _, sa := range f.Abilities {
 		if sa.Kind != "SP" {
@@ -567,6 +604,11 @@ func svarParams(body string) map[string]string {
 type fixture struct {
 	p0, p1  Seat
 	targets []string
+	// groups is one TargetGroup per slot, in slot order: the refs this
+	// fixture picked from that slot and the slot's max. A group whose
+	// len(Picks) < max is short, so XMage must be told to stop offering
+	// that slot's further picks before the cast reaches the next slot.
+	groups []TargetGroup
 }
 
 // candidates for one target filter, most generic first. Each puts the
@@ -647,20 +689,29 @@ func zoneCandidates(filter, zone string) []cand {
 	return out
 }
 
-// fixtures is the cross product of every slot's candidates, capped.
-func fixtures(slots []string) []fixture {
+// fixtures is the cross product of every slot's candidates, capped. One
+// target is picked per slot (a short group when the slot's max is larger),
+// and each fixture carries the per-slot TargetGroups the XMage driver needs
+// to place a TARGET_SKIP inside the right decision.
+func fixtures(slots []slot) []fixture {
 	out := []fixture{{}}
-	for _, s := range slots {
-		cs := candidatesFor(s)
+	for si, s := range slots {
+		cs := candidatesFor(s.filter)
 		if len(cs) == 0 {
 			return nil
 		}
 		var next []fixture
 		for _, fx := range out {
 			for _, c := range cs {
-				n := fixture{p0: clone(fx.p0), p1: clone(fx.p1), targets: append([]string(nil), fx.targets...)}
+				n := fixture{p0: clone(fx.p0), p1: clone(fx.p1), targets: append([]string(nil), fx.targets...),
+					groups: append([]TargetGroup(nil), fx.groups...)}
+				for len(n.groups) <= si {
+					n.groups = append(n.groups, TargetGroup{Max: 0})
+				}
+				n.groups[si].Max = s.max
 				if c.card == "" {
 					n.targets = append(n.targets, c.seat)
+					n.groups[si].Picks = append(n.groups[si].Picks, c.seat)
 				} else {
 					s := &n.p1
 					if c.seat == "p0" {
@@ -687,6 +738,7 @@ func fixtures(slots []string) []fixture {
 						ref = fmt.Sprintf("%s#%d", ref, count+1)
 					}
 					n.targets = append(n.targets, ref)
+					n.groups[si].Picks = append(n.groups[si].Picks, ref)
 				}
 				next = append(next, n)
 				if len(next) >= 24 {

@@ -24,15 +24,15 @@ func castResolve(reg *cards.Registry, f *cards.Face, name, mana string) (oracleg
 	// A charm is generated mode by mode: the first mode some fixture can
 	// cast, with the mode scripted so both engines take it.
 	type plan struct {
-		slots   []string
+		slots   []oraclegen.Slot
 		answers []oraclegen.Answer
 	}
 	xAns := xAnswers(f)
-	plans := []plan{{slots: oraclegen.TargetSlots(f), answers: xAns}}
+	plans := []plan{{slots: oraclegen.SlotInfos(f), answers: xAns}}
 	if modes := oraclegen.CharmModes(f); len(modes) > 0 {
 		plans = nil
 		for _, m := range modes {
-			plans = append(plans, plan{slots: oraclegen.ChainSlots(f, m.SVar()), answers: append([]oraclegen.Answer{{Kind: "modes", Pick: []string{m.Label()}}}, xAns...)})
+			plans = append(plans, plan{slots: oraclegen.ChainSlotInfos(f, m.SVar()), answers: append([]oraclegen.Answer{{Kind: "modes", Pick: []string{m.Label()}}}, xAns...)})
 		}
 	}
 	for _, m := range []string{mana, mana + "C"} {
@@ -42,11 +42,11 @@ func castResolve(reg *cards.Registry, f *cards.Face, name, mana string) (oracleg
 			}
 		}
 	}
-	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: fmt.Sprintf("no fixture gorge can cast (targets %v)", plans[0].slots)}
+	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: fmt.Sprintf("no fixture gorge can cast (targets %v)", oraclegen.TargetSlots(f))}
 }
 
 // castWith tries every fixture for one target plan.
-func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []string, answers []oraclegen.Answer) (oraclegen.Item, bool) {
+func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []oraclegen.Slot, answers []oraclegen.Answer) (oraclegen.Item, bool) {
 	// Extras satisfy casting conditions the target fixture does not: a
 	// threshold graveyard, a creature of your own to sacrifice for a cost.
 	extras := []func(*oraclegen.Fixture){
@@ -64,9 +64,19 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 		}
 	}
 	for _, fx := range all {
+		groups := fx.TargetGroups()
+		needsGroups := len(groups) > 1
+		for _, group := range groups {
+			if group.Max > 0 && len(group.Picks) < group.Max {
+				needsGroups = true
+			}
+		}
+		if !needsGroups {
+			groups = nil // preserve the existing wire shape for ordinary casts
+		}
 		sc := oraclegen.Scenario{
 			Setup: map[string]oraclegen.Seat{"p0": *fx.P0(), "p1": *fx.P1()},
-			Steps: []oraclegen.Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: fx.Targets(), Answers: answers}},
+			Steps: []oraclegen.Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: fx.Targets(), TargetGroups: groups, Answers: answers}},
 		}
 		sc.Setup["p0"] = oraclegen.WithHand(sc.Setup["p0"], name)
 		oraclegen.Baseline(sc.Setup, f)

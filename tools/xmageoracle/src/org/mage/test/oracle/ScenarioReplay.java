@@ -179,10 +179,15 @@ public class ScenarioReplay extends CardTestPlayerBase {
             removeAllCardsFromHand(p);
             JsonObject s = setup.has("p" + i) ? setup.getAsJsonObject("p" + i) : new JsonObject();
             int named = 0;
+            // Add order is the ref-numbering order oraclegen uses to spell
+            // a duplicate name ("p1:Shock#2"): battlefield, graveyard, exile,
+            // hand. Keep the two in lockstep -- registerAliases' counts and
+            // add()'s buildCounts must number the same object the same way,
+            // or a same-name ref in two zones binds to the wrong one.
             named += add(s, "battlefield", Zone.BATTLEFIELD, p);
-            named += add(s, "hand", Zone.HAND, p);
             named += add(s, "graveyard", Zone.GRAVEYARD, p);
             named += add(s, "exile", Zone.EXILED, p);
+            named += add(s, "hand", Zone.HAND, p);
             named += add(s, "library", Zone.LIBRARY, p);
             if (s.has("command")) {
                 throw new IllegalArgumentException("command zone setup unsupported");
@@ -231,11 +236,13 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     objs.add(perm);
                 }
             }
-            for (Card c : pl.getHand().getCards(g)) objs.add(c);
+            // Same zone order as build(): battlefield, graveyard, exile,
+            // hand, library -- oraclegen's ref numbering order.
             for (Card c : pl.getGraveyard().getCards(g)) objs.add(c);
             for (Card c : g.getExile().getAllCards(g)) {
                 if (pl.getId().equals(c.getOwnerId())) objs.add(c);
             }
+            for (Card c : pl.getHand().getCards(g)) objs.add(c);
             for (Card c : pl.getLibrary().getCards(g)) objs.add(c);
             for (mage.MageObject o : objs) {
                 String xmageCardName = o.getName();
@@ -357,7 +364,29 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 }
                 String card = xmageSpelling(refName(str(st, "card")));
                 List<String> tg = targets(st);
-                if (tg.size() == 1 && isSeatRef(tg.get(0))) {
+                List<JsonObject> groups = targetGroups(st);
+                if (!groups.isEmpty() && (groups.size() > 1 || groupIsShort(groups.get(0)))) {
+                    // A multi-slot cast, or one slot short of its max: queue
+                    // each slot's picks through addTarget and close ONLY a
+                    // short slot with a skip, in slot order. XMage consumes
+                    // the queued strings positionally as it poses each
+                    // target decision, so a skip appended after a fully
+                    // filled slot would leak into the next decision.
+                    for (JsonObject grp : groups) {
+                        List<String> picks = names(grp, "picks");
+                        for (String t : picks) {
+                            if (isSeatRef(t)) {
+                                addTarget(p, seat(seatOf(t)));
+                            } else {
+                                addTarget(p, targetName(t));
+                            }
+                        }
+                        if (groupIsShort(grp)) {
+                            addTarget(p, TestPlayer.TARGET_SKIP);
+                        }
+                    }
+                    castSpell(TURN, MAIN, p, card);
+                } else if (tg.size() == 1 && isSeatRef(tg.get(0))) {
                     castSpell(TURN, MAIN, p, card, seat(seatOf(tg.get(0))));
                 } else if (tg.isEmpty()) {
                     castSpell(TURN, MAIN, p, card);
@@ -373,12 +402,9 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // pick the split as it always did.
                     castSpell(TURN, MAIN, p, card, targetName(tg.get(0)));
                 } else {
-                    // Two or more targets: queue each through addTarget and
-                    // cast with no $target, so an "up to N" slot stays open
-                    // and same-name permanents are told apart by the alias
-                    // each ref carries. A trailing skip closes any slot XMage
-                    // offers that this scenario did not fill (a reflexive
-                    // sub-ability with no legal target, say).
+                    // Several targets with no per-slot grouping (a hand-authored
+                    // scenario): queue each, then a skip to close any further
+                    // slot XMage offers.
                     for (String t : tg) {
                         if (isSeatRef(t)) {
                             addTarget(p, seat(seatOf(t)));
@@ -481,6 +507,27 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     private List<String> targets(JsonObject st) {
         return new ArrayList<>(names(st, "targets"));
+    }
+
+    /** The step's per-slot target groups (oraclegen TargetGroup), in slot
+     * order; empty when the scenario carries none. */
+    private List<JsonObject> targetGroups(JsonObject st) {
+        List<JsonObject> out = new ArrayList<>();
+        if (st.has("target_groups") && st.get("target_groups").isJsonArray()) {
+            for (JsonElement e : st.getAsJsonArray("target_groups")) {
+                out.add(e.getAsJsonObject());
+            }
+        }
+        return out;
+    }
+
+    /** A slot is short when it offers a finite max the scenario did not
+     * fill (max 0 = unlimited, never short). */
+    private static boolean groupIsShort(JsonObject grp) {
+        int max = grp.has("max") ? grp.get("max").getAsInt() : 0;
+        int picks = grp.has("picks") && grp.get("picks").isJsonArray()
+                ? grp.getAsJsonArray("picks").size() : 0;
+        return max > 0 && picks < max;
     }
 
     private static boolean isSeatRef(String s) {
