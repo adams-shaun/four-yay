@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
@@ -70,10 +71,24 @@ func TestExcessDamageHistory(t *testing.T) {
 	e.emit(events.Event{Kind: events.Damage, Obj: lethalTouch, Amount: 2})
 	e.damaging = 0
 	if !e.G.Obj(lethalTouch).WasDealtExcessDamageThisTurn {
-		t.Fatal("one deathtouch damage was not classified as excess over lethal damage")
+		t.Fatal("two deathtouch damage was not classified as excess over lethal damage")
+	}
+	// Remaining lethal is zero even with deathtouch when an indestructible
+	// creature has already taken lethal marked damage.
+	marked := excessTestPermanent(t, e, "Name:Marked Touch Victim\nTypes:Creature Beast\nPT:4/4\nK:Indestructible\nOracle:x\n", 1)
+	markedObj := e.G.Obj(marked)
+	e.emit(events.Event{Kind: events.Damage, Obj: marked, Amount: 4})
+	if markedObj.Zone != state.ZBattlefield || markedObj.Damage != 4 || markedObj.WasDealtExcessDamageThisTurn || e.Toughness(marked) != 4 {
+		t.Fatalf("precondition marked 4/4: zone=%v damage=%d excess=%v toughness=%d", markedObj.Zone, markedObj.Damage, markedObj.WasDealtExcessDamageThisTurn, e.Toughness(marked))
+	}
+	e.damaging = killer
+	e.emit(events.Event{Kind: events.Damage, Obj: marked, Amount: 1})
+	e.damaging = 0
+	if !markedObj.WasDealtExcessDamageThisTurn {
+		t.Fatal("deathtouch raised already-zero remaining lethal to one")
 	}
 	e.emit(events.Event{Kind: events.TurnChange, Player: 0})
-	if priorObj.WasDealtExcessDamageThisTurn || two.WasDealtExcessDamageThisTurn {
+	if priorObj.WasDealtExcessDamageThisTurn || two.WasDealtExcessDamageThisTurn || len(e.G.ExcessDamageVictims) != 0 {
 		t.Fatal("excess-damage history survived TurnChange")
 	}
 }
@@ -95,16 +110,21 @@ func TestRithExcessDamageToken(t *testing.T) {
 	if len(rith.Faces[0].Triggers) == 0 {
 		t.Fatalf("fixture Rith has no parsed triggers")
 	}
-	e.setStep(state.StepEnd)
-	e.finishEnteredStep()
-	if !e.phaseGate(rith.Faces[0].Triggers[0]) {
-		t.Fatal("fixture did not reach Rith's end step")
+	ctx := effects.NewCtxPtr(rithID, 0, effects.CtxInit{SVars: rith.Faces[0].SVars})
+	if n, ok := effects.EvalCountOK(e, ctx, rith.Faces[0].SVars["DragonCheck"]); !ok || n != 1 {
+		t.Fatalf("precondition Rith DragonCheck = %d, %v, want 1, true", n, ok)
+	}
+	if holds, ok := effects.CheckSVarHolds(e, ctx, "DragonCheck", ""); !ok || !holds {
+		t.Fatalf("precondition Rith check = %v, %v", holds, ok)
 	}
 	// Enter the end step through the ordinary StepChange trigger scan; no
-	// synthetic pendingTrigger is injected. Clear setup-time pending triggers
-	// before the event whose normal trigger match is under test.
+	// synthetic pendingTrigger is injected. Clear setup-time decisions before
+	// the event whose normal trigger match is under test.
 	e.pending = nil
 	e.emit(events.Event{Kind: events.StepChange, Step: state.StepEnd})
+	if !e.phaseGate(rith.Faces[0].Triggers[0]) || e.G.Active != 0 {
+		t.Fatalf("precondition: end step/active seat = %v/%d", e.G.Step, e.G.Active)
+	}
 	e.priorityRound()
 	if n := crTriggerStackCount(e, rithID); n != 1 {
 		t.Fatalf("Rith's real end-step trigger queued %d stack objects, want 1", n)
@@ -114,4 +134,42 @@ func TestRithExcessDamageToken(t *testing.T) {
 		t.Fatalf("Rith created %d Dragon tokens, want 1", n)
 	}
 	replayCheck(t, e, cfg)
+
+	// The same printed CheckSVar$ must see a planeswalker as well: loyalty,
+	// not toughness, sets its lethal threshold. Exactly lethal stays false.
+	walker := card(t, "Name:Opponent Walker\nTypes:Planeswalker Test\nLoyalty:3\nOracle:x\n")
+	w, wc := tokenReplGameSeats(t, 819, []*cards.Card{rith}, []*cards.Card{walker})
+	wr := moveSeededCard(t, w, 0, rith, state.ZBattlefield)
+	wid := moveSeededCard(t, w, 1, walker, state.ZBattlefield)
+	wo := w.G.Obj(wid)
+	if w.G.Obj(wr).Zone != state.ZBattlefield || wo.Zone != state.ZBattlefield || wo.Counter("LOYALTY") != 3 {
+		t.Fatalf("precondition walker/Rith zones or loyalty: %v/%v/%d", w.G.Obj(wr).Zone, wo.Zone, wo.Counter("LOYALTY"))
+	}
+	w.emit(events.Event{Kind: events.Damage, Obj: wid, Amount: 3})
+	if wo.WasDealtExcessDamageThisTurn || wo.Counter("LOYALTY") != 0 {
+		t.Fatalf("exactly lethal walker hit: excess=%v loyalty=%d", wo.WasDealtExcessDamageThisTurn, wo.Counter("LOYALTY"))
+	}
+	walkerCtx := effects.NewCtxPtr(wr, 0, effects.CtxInit{SVars: rith.Faces[0].SVars})
+	if n, ok := effects.EvalCountOK(w, walkerCtx, rith.Faces[0].SVars["DragonCheck"]); !ok || n != 0 {
+		t.Fatalf("exactly lethal walker counted: %d, %v", n, ok)
+	}
+	w.emit(events.Event{Kind: events.Damage, Obj: wid, Amount: 1})
+	if !wo.WasDealtExcessDamageThisTurn {
+		t.Fatal("precondition: one above zero loyalty must record excess")
+	}
+	w.pending = nil
+	w.emit(events.Event{Kind: events.StepChange, Step: state.StepEnd})
+	w.checkStateBased()
+	w.priorityRound()
+	if wo.Zone != state.ZGraveyard {
+		t.Fatalf("precondition: excess-damaged walker must have died before Rith resolves, zone=%v", wo.Zone)
+	}
+	if n := crTriggerStackCount(w, wr); n != 1 {
+		t.Fatalf("Rith's planeswalker excess trigger queued %d, want 1", n)
+	}
+	passUntilStackEmpty(t, w, 20)
+	if n := countTokensNamedOnSeat(t, w, 0, "Dragon Token"); n != 1 {
+		t.Fatalf("Rith's planeswalker excess created %d Dragons, want 1", n)
+	}
+	replayCheck(t, w, wc)
 }

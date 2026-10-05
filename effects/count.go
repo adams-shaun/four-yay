@@ -653,6 +653,10 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 			head, arg = "OptionalGenericCostPaid", strings.TrimSpace(rest)
 		}
 	}
+	if evalCountBodyCostCodes.Code(head) == evalCountBodyCostNumDamageThisTurn {
+		v, ok := countExcessDamagedOpponents(g, c, arg)
+		return v, ok
+	}
 	if v, ok, matched := evalCountBodyCost(h, c, g, head, arg, depth); matched {
 		return v, ok
 	}

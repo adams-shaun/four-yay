@@ -376,6 +376,7 @@ const (
 	evalCountBodyCostXPaid
 	evalCountBodyCostReplicatePaid
 	evalCountBodyCostSquadPaid
+	evalCountBodyCostNumDamageThisTurn
 	// The "plain" heads evalCountBodySimple claims. They share this
 	// vocabulary (there is a hard cap on StrCodes tables, so a new one is not
 	// an option); evalCountBodyCost's own switch has no case for them, so its
@@ -396,6 +397,7 @@ var evalCountBodyCostCodes = state.NewStrCodes(
 	state.StrEntry[evalCountBodyCostCode]{Key: "xPaid", Val: evalCountBodyCostXPaid},
 	state.StrEntry[evalCountBodyCostCode]{Key: "ReplicatePaid", Val: evalCountBodyCostReplicatePaid},
 	state.StrEntry[evalCountBodyCostCode]{Key: "SquadPaid", Val: evalCountBodyCostSquadPaid},
+	state.StrEntry[evalCountBodyCostCode]{Key: "NumDamageThisTurn", Val: evalCountBodyCostNumDamageThisTurn},
 	state.StrEntry[evalCountBodyCostCode]{Key: "IsPrime", Val: evalCountBodyCostIsPrime},
 	state.StrEntry[evalCountBodyCostCode]{Key: "ImprintedSize", Val: evalCountBodyCostImprintedSize},
 	state.StrEntry[evalCountBodyCostCode]{Key: "FinishedEndOfTurnsThisTurn", Val: evalCountBodyCostFinishedEndOfTurnsThisTurn},

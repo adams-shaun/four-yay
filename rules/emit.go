@@ -321,21 +321,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			wasTapped = o.Tapped
 		}
 	}
-	var lethal int32
-	hasLethal := false
-	if ev.Kind == events.Damage && ev.Amount > 0 && ev.Obj != 0 {
-		if o := e.G.Obj(ev.Obj); o != nil && o.Zone == state.ZBattlefield {
-			src := e.inFlightDamageSource()
-			if src == 0 {
-				src = e.damaging
-			}
-			lethal, hasLethal = excessDamageLethal(o, e.IsCreature(ev.Obj), e.Toughness(ev.Obj), src != 0 && e.hasKeywordH(src, kwhDeathtouch))
-		}
-	}
-	stored, _ := e.foldEntryMove(ev)
-	if stored.Kind == events.Damage && hasLethal && stored.Amount > lethal {
-		e.emit(events.Event{Kind: events.ExcessDamage, Obj: stored.Obj})
-	}
+	stored := e.foldAndMarkExcess(ev)
 	e.expireClonesOnEvent(stored, wasTapped)
 	// CR 303.4f: a non-cast Aura enters attached to its chosen bearer.
 	if stored.Kind == events.MoveZone {
@@ -819,7 +805,7 @@ func excessDamageLethal(o *state.Object, creature bool, toughness int32, deathto
 	switch {
 	case creature:
 		lethal = toughness - o.Damage
-		if deathtouch {
+		if deathtouch && lethal > 1 {
 			lethal = 1
 		}
 	case o.Face() != nil && o.Face().IsPlaneswalker():

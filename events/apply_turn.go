@@ -142,6 +142,7 @@ func foldTurnChange(g *state.Game, e *Event) {
 				o.SummonSick = false
 			}
 		}
+		g.ExcessDamageVictims = nil
 		// TurnChange is the existing per-turn reset boundary. Zone-entry
 		// provenance and damage history are object facts rather than facts
 		// of the incoming active player, so reset every arena object here.

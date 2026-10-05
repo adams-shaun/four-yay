@@ -69,6 +69,7 @@ var modelledValueHeads = []string{
 	"MostCardName",
 	"MostProminentCreatureType",
 	"NotedNumber",
+	"NumDamageThisTurn",
 	"OppGreatestLifeTotal",
 	"OptionalGenericCostPaid",
 	"Party",
