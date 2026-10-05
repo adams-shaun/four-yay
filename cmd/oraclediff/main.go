@@ -202,6 +202,11 @@ func runGen(dir, manifest, out string) error {
 	}
 	sup := effects.Supported()
 	has := func(n string) bool { _, ok := reg.Lookup(n); return ok }
+	folded := compliance.FoldedNames(reg)
+	unfinished := map[string]bool{}
+	for _, u := range m.Unfinished {
+		unfinished[compliance.FoldName(u)] = true
+	}
 	of, err := os.Create(out)
 	if err != nil {
 		return err
@@ -217,7 +222,13 @@ func runGen(dir, manifest, out string) error {
 	defer sw.Flush()
 	n, skipped := 0, 0
 	for _, mc := range m.Cards {
-		name, ok := compliance.CorpusName(has, mc.Name)
+		if unfinished[compliance.FoldName(mc.Name)] {
+			b, _ := json.Marshal(&oraclegen.Skip{Card: mc.Name, Reason: "XMage does not implement it (the set marks it unfinished)"})
+			fmt.Fprintln(sw, string(b))
+			skipped++
+			continue
+		}
+		name, ok := compliance.CorpusNameFold(has, folded, mc.Name)
 		var it oraclegen.Item
 		var skip *oraclegen.Skip
 		switch {
@@ -236,6 +247,9 @@ func runGen(dir, manifest, out string) error {
 			fmt.Fprintln(sw, string(b))
 			skipped++
 			continue
+		}
+		if name != mc.Name {
+			it.XMageName = mc.Name
 		}
 		b, _ := json.Marshal(it)
 		fmt.Fprintln(ow, string(b))
@@ -348,8 +362,17 @@ func runDiff(dir, scen, xm, cacheDir, out, write, ref, rulingDir string) error {
 				vr.Status = compliance.StatusDiverge
 				vr.Detail = fmt.Sprintf("%s %s: gorge %q, xmage %q", row.Verdict.Checkpoint, row.Verdict.Field, row.Verdict.Gorge, row.Verdict.XMage)
 			default:
-				vr.Status = compliance.StatusHarness
-				vr.Detail = row.Verdict.Engine + ": " + firstLine(row.Verdict.Msg)
+				if row.Verdict.Engine == "xmage" && oraclediff.XMageLacksCard(row.Verdict.Msg) {
+					// XMage's card database does not hold the card (an
+					// unfinished set): not a driver gap, and not a card the
+					// gate should require a verdict for.
+					row.Verdict.Status = oraclediff.XMageLacks
+					vr.Status = compliance.StatusXMageLacks
+					vr.Detail = "xmage: " + firstLine(row.Verdict.Msg)
+				} else {
+					vr.Status = compliance.StatusHarness
+					vr.Detail = row.Verdict.Engine + ": " + firstLine(row.Verdict.Msg)
+				}
 			}
 			if r, _, _ := shape.Classify(&vr, rs, cardAPI(reg, it.Card)); r != nil {
 				auto[r.ID]++

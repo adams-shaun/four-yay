@@ -6,6 +6,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 import mage.Mana;
 import mage.abilities.Ability;
 import mage.abilities.common.SimpleStaticAbility;
@@ -112,6 +113,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
             skipInitShuffling();
             setStrictChooseMode(strict);
             sc0 = sc;
+            gorgeName = str(sc, "card");
+            xmageName = str(sc, "xmage_name");
             cast.clear();
             build(sc);
             runCode("setup", TURN, MAIN, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
@@ -132,6 +135,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
             execute();
         } catch (Throwable t) {
             String msg = t.getClass().getSimpleName() + ": " + t.getMessage();
+            if (!xmageName.isEmpty()) {
+                // Name the card the way the scenario (and gorge) does.
+                msg = msg.replace(xmageName, gorgeName);
+            }
             int want = (sc.has("steps") ? sc.getAsJsonArray("steps").size() : 0) + 1;
             if (snaps.size() == want && msg.contains("Count are not equal")) {
                 res.addProperty("leftover", msg.length() > 300 ? msg.substring(0, 300) : msg);
@@ -193,7 +200,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private int add(JsonObject s, String key, Zone zone, TestPlayer p) {
         List<String> ns = names(s, key);
         for (String n : ns) {
-            addCard(zone, p, n);
+            addCard(zone, p, xmageSpelling(n));
         }
         return ns.size();
     }
@@ -212,6 +219,43 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     private JsonObject sc0 = new JsonObject();
     private final List<String> cast = new ArrayList<>();
+    // The card under test's two spellings: the scenario's (gorge/corpus) name
+    // and XMage's card-database name when they differ (Forge prints "Dáin
+    // Ironfoot", XMage stores "Dain Ironfoot"). xmageName is empty when equal.
+    private String gorgeName = "";
+    private String xmageName = "";
+
+    /** The spelling to give XMage for a scenario card: the card under test's
+     * XMage spelling, else the name unchanged. */
+    private String xmageSpelling(String n) {
+        return (!xmageName.isEmpty() && n.equals(gorgeName)) ? xmageName : n;
+    }
+
+    /** Rewrites XMage's spelling of the card under test back to the scenario's
+     * (gorge) spelling throughout a value, so the comparator sees one name. */
+    private JsonElement gorgeSpellings(JsonElement e) {
+        if (xmageName.isEmpty()) {
+            return e;
+        }
+        if (e.isJsonPrimitive() && e.getAsJsonPrimitive().isString()) {
+            return e.getAsString().equals(xmageName) ? new JsonPrimitive(gorgeName) : e;
+        }
+        if (e.isJsonArray()) {
+            JsonArray a = new JsonArray();
+            for (JsonElement x : e.getAsJsonArray()) {
+                a.add(gorgeSpellings(x));
+            }
+            return a;
+        }
+        if (e.isJsonObject()) {
+            JsonObject o = new JsonObject();
+            for (Map.Entry<String, JsonElement> en : e.getAsJsonObject().entrySet()) {
+                o.add(en.getKey(), gorgeSpellings(en.getValue()));
+            }
+            return o;
+        }
+        return e;
+    }
 
     private void step(JsonObject st, String op) {
         int seatIdx = st.has("seat") ? st.get("seat").getAsInt() : 0;
@@ -233,7 +277,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 if (!sc0.has("xmage_answers")) {
                     answers(st, p);
                 }
-                String card = refName(str(st, "card"));
+                String card = xmageSpelling(refName(str(st, "card")));
                 List<String> tg = targets(st);
                 if (tg.size() == 1 && isSeatRef(tg.get(0))) {
                     castSpell(TURN, MAIN, p, card, seat(seatOf(tg.get(0))));
@@ -256,7 +300,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 return;
             }
             case "play":
-                playLand(TURN, MAIN, p, refName(str(st, "card")));
+                playLand(TURN, MAIN, p, xmageSpelling(refName(str(st, "card"))));
                 return;
             case "resolve":
                 // gorge's resolve op passes priority until the stack is empty.
@@ -279,7 +323,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     if (isSeatRef(v)) {
                         addTarget(p, seat(seatOf(v)));
                     } else {
-                        addTarget(p, v.equals("[target_skip]") ? TestPlayer.TARGET_SKIP : v);
+                        addTarget(p, v.equals("[target_skip]") ? TestPlayer.TARGET_SKIP : xmageSpelling(v));
                     }
                     break;
                 case "mode":
@@ -312,7 +356,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                         if (isSeatRef(t)) {
                             addTarget(p, seat(seatOf(t)));
                         } else {
-                            addTarget(p, refName(t));
+                            addTarget(p, xmageSpelling(refName(t)));
                         }
                     }
                     break;
@@ -335,7 +379,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private List<String> targets(JsonObject st) {
         List<String> out = new ArrayList<>();
         for (String t : names(st, "targets")) {
-            out.add(isSeatRef(t) ? t : refName(t));
+            out.add(isSeatRef(t) ? t : xmageSpelling(refName(t)));
         }
         return out;
     }
@@ -493,7 +537,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             stack.add(o);
         }
         s.add("stack", stack);
-        return s;
+        return (JsonObject) gorgeSpellings(s);
     }
 
     private static JsonArray sortedNames(java.util.Collection<Card> cs) {

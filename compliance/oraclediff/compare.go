@@ -30,6 +30,11 @@ const (
 	Agree   Status = "AGREE"
 	Diverge Status = "DIVERGE"
 	Harness Status = "HARNESS"
+	// XMageLacks is not a disagreement: XMage's card database does not hold
+	// the card (a set marks it unfinished, so its SetCardInfo entry is
+	// removed from the set), and the driver's "Couldn't find a card" is not
+	// a driver gap. The card belongs in the gate's no-XMage bucket.
+	XMageLacks Status = "XMAGE_LACKS"
 )
 
 // Verdict is the first difference between the two engines, or Agree.
@@ -41,6 +46,15 @@ type Verdict struct {
 	XMage      string `json:"xmage,omitempty"`
 	Engine     string `json:"engine,omitempty"` // for Harness
 	Msg        string `json:"msg,omitempty"`    // for Harness
+}
+
+// XMageLacksCard reports whether an XMage driver message is the card-
+// database miss (Mage.Tests' CardTestPlayerAPIImpl: "[TEST] Couldn't find
+// a card: X"). The card is in the set class's SetCardInfo entries but a set
+// marks it unfinished, so XMage removed it from the set: there is nothing to
+// compare, and it is not a driver harness gap.
+func XMageLacksCard(msg string) bool {
+	return strings.Contains(msg, "Couldn't find a card")
 }
 
 // Compare walks both engines' checkpoints in order. A harness failure on
