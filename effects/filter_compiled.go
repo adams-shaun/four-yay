@@ -232,7 +232,7 @@ func compiledPositive(c *compiledPred, g *state.Game, o *state.Object, sc *SpecC
 		return false, false
 	}
 	if c.hasKP {
-		has := keywordInCtx(o, c.kp.keyword, sc)
+		has := keywordPredicateMatches(o, c.kp, sc)
 		if c.kp.negated {
 			has = !has
 		}

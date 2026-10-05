@@ -1215,6 +1215,7 @@ const (
 	castModeMorphed
 	castModeMayflash
 	castModeEmerged
+	castModeLand
 )
 
 var castModeCodes = state.NewStrCodes(append([]state.StrEntry[castModeCode]{
@@ -1254,6 +1255,7 @@ var castModeCodes = state.NewStrCodes(append([]state.StrEntry[castModeCode]{
 	state.StrEntry[castModeCode]{Key: "disguised", Val: castModeMorphed},
 	state.StrEntry[castModeCode]{Key: "mayflash", Val: castModeMayflash},
 	state.StrEntry[castModeCode]{Key: "emerged", Val: castModeEmerged},
+	state.StrEntry[castModeCode]{Key: "land", Val: castModeLand},
 }, append(altCastModeEntries(),
 	// The Bargain row's mode word lives in rules/optional_sacrifice.go.
 	state.StrEntry[castModeCode]{Key: optionalSacrifices[optSacBargain].mode, Val: castModeBargained})...)...)

@@ -265,7 +265,7 @@ func (e *Engine) manaAsk() bool {
 // meaningful player choice and the grant may matter to a later repricing.
 func (e *Engine) manaConvertAsk() bool {
 	pc := e.cast
-	if pc == nil || pc.ManaConvertDone {
+	if pc == nil || castModeCodes.Code(pc.mode) == castModeLand || pc.ManaConvertDone {
 		return false
 	}
 	_, optional := e.manaConversionParts(pc.player, pc.card, pc.isAbility())
@@ -394,6 +394,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		// An empty answer declines: no taps and no paid provenance.
 		for _, o := range chosen {
 			pc.Taps = append(pc.Taps, o.Obj)
+			pc.TeamworkTaps = append(pc.TeamworkTaps, o.Obj)
 		}
 		pc.teamworkPaid = len(chosen) > 0
 	case castAnswerConspire:

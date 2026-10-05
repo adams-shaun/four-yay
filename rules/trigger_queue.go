@@ -1338,14 +1338,15 @@ func (e *Engine) findTriggerForAbilityFace(source state.ObjID, sa *cards.SA) (ca
 	return cards.Trigger{}, nil, false
 }
 
-// recordTriggerLine stores the granted/delayed trigger line for a freshly
-// minted triggered-ability stack object (see Engine.triggerLines). It is a
-// no-op for a printed trigger, whose line the pointer scan already recovers,
-// so every existing push is unchanged. pushTrigger calls it from the Gained,
-// Granted and Delayed arms -- the three that mint a body events.Apply resolves
-// from an SVar name rather than a compiled Face.Triggers entry.
+// recordTriggerLine stores the identity of a freshly minted triggered-ability
+// stack object (see Engine.triggerLines). It is a no-op for a printed trigger,
+// whose line the pointer scan already recovers, so every existing push is
+// unchanged. A Saga chapter stores an empty trigger marker: its SVar body is a
+// trigger, but it has no T: line. pushTrigger calls this from the Gained,
+// Granted and Delayed arms -- the paths that mint an SVar body rather than a
+// compiled Face.Triggers entry.
 func (e *Engine) recordTriggerLine(id state.ObjID, pt pendingTrigger) {
-	if pt.Trigger.Mode == "" {
+	if pt.Trigger.Mode == "" && !pt.Chapter {
 		return
 	}
 	if e.triggerLines == nil {

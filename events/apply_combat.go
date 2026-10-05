@@ -5,7 +5,11 @@
 // Apply (g, e) switch; see apply.go for the dispatch.
 package events
 
-import "github.com/adams-shaun/gorge/state"
+import (
+	"strings"
+
+	"github.com/adams-shaun/gorge/state"
+)
 
 // foldDeclareAttackers folds Kind DeclareAttackers into state.
 func foldDeclareAttackers(g *state.Game, e *Event) {
@@ -228,6 +232,25 @@ func foldDamageProvenance(g *state.Game, e *Event) {
 		return
 	}
 	src := e.Obj
+	if o := g.Obj(src); o != nil && e.Amount > 0 {
+		head, typeWords, hasTypes := strings.Cut(e.Text, DamageProvenanceTypeSeparator)
+		provenance, colours, hasColours := strings.Cut(head, DamageProvenanceColorSeparator)
+		record := state.DamageDealtRecord{
+			SourceControl: o.Controller, Recipient: e.IDs[0], Amount: e.Amount, Combat: provenance == DamageProvenanceCombat,
+			SourceColors: colours, HasSourceColors: hasColours,
+		}
+		if hasTypes {
+			record.RecipientTypes = strings.Split(typeWords, DamageProvenanceTypeWordSeparator)
+		}
+		if recipient := g.Obj(e.IDs[0]); recipient != nil {
+			record.RecipientZone = recipient.Zone
+			record.RecipientControl = recipient.Controller
+			if face := recipient.Face(); face != nil && !hasTypes {
+				record.RecipientTypes = append([]string(nil), face.Types...)
+			}
+		}
+		o.DamageDealtThisTurn = append(o.DamageDealtThisTurn, record)
+	}
 	if p, isPlayer := e.IDs[0].PlayerRef(); isPlayer {
 		if !validPlayer(g, p) {
 			return

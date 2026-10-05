@@ -2042,6 +2042,7 @@
       "kind": 93,
       "obj": 44,
       "amount": 2,
+      "text": "\u001dR",
       "ids": [
         2147483649
       ]
@@ -3565,6 +3566,7 @@
       "kind": 93,
       "obj": 20,
       "amount": 1,
+      "text": "damage-combat\u001dR",
       "ids": [
         2147483649
       ]
@@ -4313,6 +4315,7 @@
       "kind": 93,
       "obj": 123,
       "amount": 3,
+      "text": "damage-combat\u001dB",
       "ids": [
         2147483648
       ]
@@ -5154,6 +5157,7 @@
       "kind": 93,
       "obj": 20,
       "amount": 1,
+      "text": "damage-combat\u001dR",
       "ids": [
         2147483649
       ]
@@ -6082,6 +6086,7 @@
       "kind": 93,
       "obj": 123,
       "amount": 3,
+      "text": "damage-combat\u001dB",
       "ids": [
         2147483648
       ]
@@ -6950,6 +6955,7 @@
       "kind": 93,
       "obj": 26,
       "amount": 1,
+      "text": "\u001dR",
       "ids": [
         123
       ]
@@ -7203,6 +7209,7 @@
       "kind": 93,
       "obj": 20,
       "amount": 1,
+      "text": "damage-combat\u001dR",
       "ids": [
         2147483649
       ]
@@ -7225,6 +7232,7 @@
       "kind": 93,
       "obj": 1,
       "amount": 7,
+      "text": "damage-combat\u001dR",
       "ids": [
         2147483649
       ]
@@ -7247,6 +7255,7 @@
       "kind": 93,
       "obj": 19,
       "amount": 2,
+      "text": "damage-combat\u001dR",
       "ids": [
         2147483649
       ]
@@ -8095,6 +8104,7 @@
       "kind": 93,
       "obj": 123,
       "amount": 3,
+      "text": "damage-combat\u001dB",
       "ids": [
         2147483648
       ]
@@ -8115,6 +8125,7 @@
       "kind": 93,
       "obj": 118,
       "amount": 2,
+      "text": "damage-combat\u001dB",
       "ids": [
         2147483648
       ]
@@ -8701,6 +8712,7 @@
       "kind": 93,
       "obj": 20,
       "amount": 1,
+      "text": "damage-combat\u001dR",
       "ids": [
         2147483649
       ]
@@ -8723,6 +8735,7 @@
       "kind": 93,
       "obj": 1,
       "amount": 6,
+      "text": "damage-combat\u001dR",
       "ids": [
         2147483649
       ]
@@ -8745,6 +8758,7 @@
       "kind": 93,
       "obj": 19,
       "amount": 2,
+      "text": "damage-combat\u001dR",
       "ids": [
         2147483649
       ]
@@ -9873,6 +9887,7 @@
       "kind": 93,
       "obj": 123,
       "amount": 2,
+      "text": "damage-combat\u001dB",
       "ids": [
         2147483648
       ]
@@ -10717,6 +10732,7 @@
       "kind": 93,
       "obj": 20,
       "amount": 1,
+      "text": "damage-combat\u001dR",
       "ids": [
         2147483649
       ]
@@ -10739,6 +10755,7 @@
       "kind": 93,
       "obj": 1,
       "amount": 6,
+      "text": "damage-combat\u001dR",
       "ids": [
         2147483649
       ]
@@ -10761,6 +10778,7 @@
       "kind": 93,
       "obj": 19,
       "amount": 2,
+      "text": "damage-combat\u001dR",
       "ids": [
         2147483649
       ]
@@ -11818,6 +11836,7 @@
       "kind": 93,
       "obj": 6,
       "amount": 5,
+      "text": "\u001dR",
       "ids": [
         101
       ]
@@ -11833,6 +11852,7 @@
       "kind": 93,
       "obj": 6,
       "amount": 5,
+      "text": "\u001dR",
       "ids": [
         206
       ]
@@ -11848,6 +11868,7 @@
       "kind": 93,
       "obj": 6,
       "amount": 5,
+      "text": "\u001dR",
       "ids": [
         207
       ]
@@ -11863,6 +11884,7 @@
       "kind": 93,
       "obj": 6,
       "amount": 5,
+      "text": "\u001dR",
       "ids": [
         212
       ]
@@ -11878,6 +11900,7 @@
       "kind": 93,
       "obj": 6,
       "amount": 5,
+      "text": "\u001dR",
       "ids": [
         213
       ]
@@ -14620,7 +14643,7 @@
       ]
     }
   ],
-  "head": "5775daf7a611571c",
+  "head": "f8d6151ddd8d7d50",
   "intent_count": 378,
   "turn": 14,
   "step": "main1",

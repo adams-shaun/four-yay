@@ -134,10 +134,11 @@ const (
 	// Appended after AlterAttribute (task api-winsgame), following the enum's
 	// own append-only precedent: no assigned value moves, so an existing
 	// compiled cache stays valid.
-	APIWinsGame APICode = 79
+	APIWinsGame    APICode = 79
+	APIDigMultiple APICode = 80
 
 	// APICodeCount includes the zero/unknown slot and sizes dense dispatch.
-	APICodeCount = 80
+	APICodeCount = 81
 )
 
 // APICodeForName returns the stable opcode for an engine-owned effect API.
@@ -202,6 +203,8 @@ func APICodeForName(api string) APICode {
 		return APIDestroyAll
 	case "Dig":
 		return APIDig
+	case "DigMultiple":
+		return APIDigMultiple
 	case "Discard":
 		return APIDiscard
 	case "Draw":

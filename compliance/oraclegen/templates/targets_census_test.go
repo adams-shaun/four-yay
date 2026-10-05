@@ -52,10 +52,9 @@ func uniqueSorted(names []string) []string {
 	return out
 }
 
-// TestGeneratedTargetsAreGorgeChoices is the class ratchet: no scenario the
-// generator emits may list a target gorge's own run does not consume. It
-// walks every target-bearing card in the pinned Forge corpus, generates each
-// supported scenario, and replays it through the runner's unused-target check.
+// TestGeneratedTargetsAreGorgeChoices checks representative target scenarios
+// by default. Set GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1 to run the exhaustive
+// generation/replay audit over every identity in target-carriers.json.
 //
 // Without the rewrite this fails loudly: the fixture's over-offered targets
 // (an "up to N" slot gorge declines, a token slot with no token, a wrong-type
@@ -63,7 +62,7 @@ func uniqueSorted(names []string) []string {
 // OracleUnusedTargetMarker for each.
 func TestGeneratedTargetsAreGorgeChoices(t *testing.T) {
 	reg := loadGenRegistry(t)
-	carriers := targetCarriers(t, reg)
+	carriers := targetAuditCards(t, reg)
 	checked := 0
 	for _, name := range carriers {
 		it, skip := Generate(reg, name)

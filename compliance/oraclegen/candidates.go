@@ -21,6 +21,58 @@ import (
 type Slot struct {
 	Filter   string
 	Optional bool
+	// Mirror places this slot's candidate on the other seat: the second
+	// pick of a TargetsWithDifferentControllers$ slot (Run Away Together)
+	// needs a different controller than the first.
+	Mirror bool
+}
+
+// requiredSlotCount is how many distinct targets one ability demands: its
+// TargetMin$ when that is a literal above one, or the paid X when it names
+// a Count$xPaid SVar (the generator casts X at xValue). Any other dynamic
+// minimum (Count$Kicked, Count$Teamwork) is not priceable here and keeps one
+// slot. The repeated slots get distinct objects from fixtures' same-card
+// check, so N slots are N distinct targets.
+func requiredSlotCount(f *cards.Face, params map[string]string) int {
+	raw := strings.TrimSpace(params["TargetMin"])
+	if n, err := strconv.Atoi(raw); err == nil {
+		if n > 1 {
+			return n
+		}
+		return 1
+	}
+	if raw == "X" {
+		// templates.xAnswers casts a TargetMin$ X spell with X = 1, so it
+		// demands one target; more slots would only add decoys.
+		return 1
+	}
+	if body, ok := f.SVars[raw]; ok && strings.EqualFold(strings.TrimSpace(body), "Count$xPaid") {
+		return xValue
+	}
+	return 1
+}
+
+// paramTrue reports whether a boolean ability param is set.
+func paramTrue(params map[string]string, key string) bool {
+	return strings.EqualFold(strings.TrimSpace(params[key]), "True")
+}
+
+// repeatedSlots expands one ability's slot to the number of targets it
+// demands (requiredSlotCount, or the combat expansion when combat is set),
+// marking the mirror picks of a different-controllers slot.
+func repeatedSlots(f *cards.Face, params map[string]string, v string, combat bool) []Slot {
+	count := requiredSlotCount(f, params)
+	if combat {
+		if role, _ := filterCombat(params["ValidTgts"]); role != roleNone {
+			count = targetSlotCount(params)
+		}
+	}
+	diff := paramTrue(params, "TargetsWithDifferentControllers")
+	out := make([]Slot, 0, count)
+	for i := 0; i < count; i++ {
+		out = append(out, Slot{Filter: v, Optional: optionalTarget(params), Mirror: diff && i%2 == 1})
+	}
+	return out
 }
 
 // SlotSpecs lists the ValidTgts$ filters along the card's spell-ability chain
@@ -36,16 +88,10 @@ func SlotSpecs(f *cards.Face) []Slot {
 		if z := targetZone(params, false); z != "" && !playerTargetHead(v) {
 			v += "@" + z
 		}
-		// Only a combat-state filter is expanded to its target maximum: a
-		// plain multi-target filter keeps one fixture slot, so its setup
-		// gains no decoys the cast never names.
-		count := 1
-		if role, _ := filterCombat(params["ValidTgts"]); role != roleNone {
-			count = targetSlotCount(params)
-		}
-		for i := 0; i < count; i++ {
-			out = append(out, Slot{Filter: v, Optional: optionalTarget(params)})
-		}
+		// A combat-state filter is expanded to its target maximum, any
+		// other filter only to its required minimum: an "up to N" slot keeps
+		// one fixture slot, so its setup gains no decoys the cast never names.
+		out = append(out, repeatedSlots(f, params, v, true)...)
 	}
 	for _, sa := range f.Abilities {
 		if sa.Kind != "SP" {
@@ -80,7 +126,7 @@ func ChainSlotSpecs(f *cards.Face, svar string) []Slot {
 			if z := targetZone(params, true); z != "" && !playerTargetHead(v) {
 				v += "@" + z
 			}
-			out = append(out, Slot{Filter: v, Optional: optionalTarget(params)})
+			out = append(out, repeatedSlots(f, params, v, false)...)
 		}
 		name = params["SubAbility"]
 	}
@@ -116,23 +162,69 @@ func filters(slots []Slot) []string {
 // scan -- it runs no game -- so the census ratchet can scan the whole corpus.
 func FaceHasFixture(reg *cards.Registry, f *cards.Face) (bool, string) {
 	plans := [][]Slot{SlotSpecs(f)}
-	if modes := charmModes(f); len(modes) > 0 {
-		plans = nil
-		for _, m := range modes {
-			plans = append(plans, ChainSlotSpecs(f, m.svar))
+	isCharm := false
+	for _, ability := range f.Abilities {
+		if ability.Kind == "SP" && ability.API == "Charm" {
+			isCharm = true
+			break
 		}
 	}
+	if isCharm {
+		combos := CharmCombinations(f)
+		if len(combos) == 0 {
+			return false, "charm combination"
+		}
+		plans = nil
+		for _, combo := range combos {
+			plans = append(plans, combo.Slots)
+		}
+	}
+	firstReason := ""
 	for _, slots := range plans {
+		possible := true
 		for _, s := range slots {
 			if SlotIsStack(s.Filter) || s.Optional {
 				continue
 			}
-			if len(candidatesFor(reg, s.Filter)) == 0 {
-				return false, s.Filter
+			// ParentTarget candidates need only a placeholder during this
+			// static availability scan; fixtures supplies the actual earlier
+			// target reference when it assembles the cross-product below.
+			parentTarget := ""
+			if strings.Contains(s.Filter, "AttachedTo ParentTarget") {
+				parentTarget = "p0:ParentTarget"
+			}
+			if len(candidatesFor(reg, s.Filter, parentTarget)) == 0 {
+				if firstReason == "" {
+					firstReason = s.Filter
+				}
+				possible = false
+				break
+			}
+		}
+		if possible {
+			// Stack targets are supplied by castWith's precast step, not by
+			// ordinary board candidates. Keep them in the feasibility scan
+			// above (where they are deliberately skipped), but do not ask the
+			// fixture cross-product to materialize them.
+			fixtureSlots := make([]Slot, 0, len(slots))
+			for _, s := range slots {
+				if !SlotIsStack(s.Filter) {
+					fixtureSlots = append(fixtureSlots, s)
+				}
+			}
+			if len(fixtures(reg, fixtureSlots)) > 0 {
+				return true, ""
 			}
 		}
 	}
-	return true, ""
+	if firstReason == "" {
+		if isCharm {
+			firstReason = "charm combination"
+		} else {
+			firstReason = "fixture combination"
+		}
+	}
+	return false, firstReason
 }
 
 // targetSlotCount expands a repeated target filter to the configured target
@@ -245,6 +337,8 @@ type cand struct {
 	// ref overrides the target reference (a token has no card name in a
 	// zone: it is "pN:token:<subtype>").
 	ref string
+	// attachTo is the earlier target for ParentTarget attachment filters.
+	attachTo string
 	// pre are steps inserted before the card's cast.
 	pre []Step
 }
@@ -253,7 +347,7 @@ type cand struct {
 // cannot see (Elf/Goblin/... .YouCtrl, Villain/Hero in a graveyard, an
 // enchanted creature, a token), and marks a board-history filter
 // (ThisTurnEntered) with a move prelude.
-func candidatesFor(reg *cards.Registry, filter string) []cand {
+func candidatesFor(reg *cards.Registry, filter, parentTarget string) []cand {
 	zone := ""
 	if i := strings.LastIndexByte(filter, '@'); i >= 0 {
 		filter, zone = filter[:i], strings.ToLower(filter[i+1:])
@@ -279,10 +373,14 @@ func candidatesFor(reg *cards.Registry, filter string) []cand {
 			return enchantedCandidates(mine)
 		}
 		if strings.Contains(filter, "AttachedTo") {
-			// An attachment tied to a parent target needs an attach op the
-			// runner does not pose; the mandatory case is a real gap, the
-			// optional case is dropped by fixtures.
-			return nil
+			if !strings.Contains(filter, "AttachedTo ParentTarget") || parentTarget == "" {
+				return nil
+			}
+			name, ok := registryEquipment(reg)
+			if !ok {
+				return nil
+			}
+			return []cand{{seat: "p1", zone: "battlefield", card: name, attachTo: parentTarget}}
 		}
 		if !isCardTypeBase(base) {
 			return subtypeBattlefield(reg, base, mine)
@@ -426,6 +524,15 @@ func seatIndex(seat string) int {
 		return 0
 	}
 	return 1
+}
+
+// registryEquipment finds a real Equipment, whether the IR represents the
+// supertype as a type or a subtype.
+func registryEquipment(reg *cards.Registry) (string, bool) {
+	if name, ok := registrySubtype(reg, "Equipment"); ok {
+		return name, true
+	}
+	return registryCardType(reg, "Equipment")
 }
 
 // registryCardType returns the first card (in corpus order) whose front face
@@ -590,7 +697,11 @@ func firstFilterBase(filter string) string {
 func fixtures(reg *cards.Registry, slots []Slot) []fixture {
 	out := []fixture{{}}
 	for _, s := range slots {
-		cs := candidatesFor(reg, s.Filter)
+		parentTarget := ""
+		if len(out) > 0 && len(out[0].targets) > 0 {
+			parentTarget = out[0].targets[0]
+		}
+		cs := candidatesFor(reg, s.Filter, parentTarget)
 		if len(cs) == 0 {
 			if s.Optional {
 				continue
@@ -600,6 +711,12 @@ func fixtures(reg *cards.Registry, slots []Slot) []fixture {
 		var next []fixture
 		for _, fx := range out {
 			for _, c := range cs {
+				if c.attachTo != "" && len(fx.targets) > 0 {
+					c.attachTo = fx.targets[0]
+				}
+				if s.Mirror && c.card != "" && !controllerQualified(s.Filter) {
+					c.seat = otherSeat(c.seat)
+				}
 				if c.card != "" && fixtureAlreadyTargetsCard(fx.targets, c.seat, c.card) {
 					continue
 				}
@@ -617,6 +734,9 @@ func fixtures(reg *cards.Registry, slots []Slot) []fixture {
 					}
 					place(&n, c)
 					n.targets = append(n.targets, ref)
+					if c.attachTo != "" {
+						n.pre = append(n.pre, Step{Op: "attach", Seat: seatIndex(c.seat), Card: ref, AttachedTo: c.attachTo})
+					}
 					switch c.role {
 					case roleAttacker:
 						n.combat.attackers = append(n.combat.attackers, ref)
@@ -765,4 +885,22 @@ func clone(s Seat) Seat {
 		Graveyard: append([]string(nil), s.Graveyard...), Exile: append([]string(nil), s.Exile...),
 		Library: append([]string(nil), s.Library...), LibraryTop: append([]string(nil), s.LibraryTop...),
 	}
+}
+
+// controllerQualified reports whether a filter pins its target's controller
+// or owner, so a candidate cannot be mirrored onto the other seat.
+func controllerQualified(filter string) bool {
+	for _, q := range []string{"YouCtrl", "OppCtrl", "YouOwn", "OppOwn", "YouDontCtrl"} {
+		if strings.Contains(filter, q) {
+			return true
+		}
+	}
+	return false
+}
+
+func otherSeat(seat string) string {
+	if seat == "p1" {
+		return "p0"
+	}
+	return "p1"
 }

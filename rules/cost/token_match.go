@@ -34,6 +34,7 @@ const (
 	hBehold
 	hBeholdExile
 	hBlight
+	hChooseCard
 	hCollectEvidence
 	hDamageYou
 	hDiscard
@@ -75,6 +76,7 @@ var costHeadNames = [numCostHeads]string{
 	hBehold:                      "Behold",
 	hBeholdExile:                 "BeholdExile",
 	hBlight:                      "Blight",
+	hChooseCard:                  "ChooseCard",
 	hCollectEvidence:             "CollectEvidence",
 	hDamageYou:                   "DamageYou",
 	hDiscard:                     "Discard",
@@ -367,6 +369,15 @@ func matchChoiceCost(t costTok) (groups, bool) {
 		return groups{}, false
 	}
 	return groups{t.sym, t.head, n, spec, desc}, true
+}
+
+// CloseEncounterChooseSpec is the sole supported ChooseCard cost filter.
+const CloseEncounterChooseSpec = "Creature.YouCtrl+inZoneBattlefield;Creature.YouOwn+inZoneExile+warped"
+
+// matchChooseCardCost accepts only Close Encounter's literal count and filter.
+// Every other ChooseCard grammar remains unknown and is withheld by RaiseCost.
+func matchChooseCardCost(t costTok) bool {
+	return t.angle && t.id == hChooseCard && t.inner == "1/"+CloseEncounterChooseSpec
 }
 
 // matchRevealOrChooseCost is ^RevealOrChoose<(\d+)/([^/>]+)(?:/([^>]*))?>$.

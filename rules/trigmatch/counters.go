@@ -267,8 +267,52 @@ func gainingPlayerOf(e Board, ev events.Event) state.PlayerID {
 	return 0
 }
 
+func counterAddedAllMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+	if ev.Kind != events.CounterChange || ev.Amount <= 0 || ev.Obj == 0 || e.Game().Obj(ev.Obj) == nil {
+		return false
+	}
+	if kind := t.ParamStr(cards.PKCounterType); kind != "" && !strings.EqualFold(kind, ev.Counter) {
+		return false
+	}
+	ctrl := e.ControllerOf(source)
+	spec := t.ParamStr(cards.PKValid)
+	if spec != "" && !e.MatchesSpec(spec, ev.Obj, source, ctrl, SpecOpts{}) {
+		return false
+	}
+	if mode := t.ModeKind(); mode == cards.TriggerCounterTypeAddedAll {
+		if spec := strings.TrimSpace(t.ParamStr(cards.PKValidObject)); spec != "" &&
+			!e.MatchesSpec(spec, ev.Obj, source, ctrl, SpecOpts{}) {
+			return false
+		}
+	}
+	if vs := strings.TrimSpace(t.ParamStr(cards.PKValidSource)); vs != "" {
+		adder, ok := e.InFlightCounterAdder()
+		if !ok || !effects.MatchesPlayerSpec(e.Game(), vs, adder, ctrl) {
+			return false
+		}
+	}
+	if t.ModeKind() == cards.TriggerCounterTypeAddedAll && ParamTrue(t, cards.PKFirstTime) {
+		current := true
+		for i := len(e.Log().Events) - 1; i >= 0; i-- {
+			prior := e.Log().Events[i]
+			if prior.Kind == events.TurnChange {
+				break
+			}
+			if current && prior.Kind == ev.Kind && prior.Obj == ev.Obj && prior.Counter == ev.Counter && prior.Amount == ev.Amount {
+				current = false
+				continue
+			}
+			if !current && prior.Kind == events.CounterChange && prior.Obj == ev.Obj && prior.Amount > 0 {
+				return false
+			}
+		}
+	}
+	return eventCardAndPlayerMatch(e, t, source, ev.Obj, e.Game().Obj(ev.Obj).Controller)
+}
+
 func init() {
 	registerTrigMatcher(counterAddedMatches, "CounterAdded", "CounterAddedOnce")
+	registerTrigMatcher(counterAddedAllMatches, "CounterAddedAll", "CounterTypeAddedAll")
 	registerTrigMatcher(counterRemovedMatches, "CounterRemoved", "CounterRemovedOnce")
 	registerTrigMatcher(counterPlayerAddedAllMatches, "CounterPlayerAddedAll")
 }

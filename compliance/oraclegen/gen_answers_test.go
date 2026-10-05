@@ -23,17 +23,16 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 		want []XAnswer
 	}{
 		{
-			// Surveil/scry keeping every card: XMage's selection is a
-			// TargetCard on the target queue and a skip dismisses it.
-			// Measured on the 2026-10-05 std pass: 25 surveil/scry carriers
-			// (Refute Destiny, Proctor of Potential, ...) agree with XMage
-			// only with this answer; a choice skip plus ORDER picks diverged.
+			// Generic all-kept arrange routing shape. This synthetic decision
+			// pins xanswers only; generated card coverage is pinned separately.
 			name: "arrange keeps all cards: target skip",
 			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "order", GorgeKind: "arrange", Options: 2, Min: 0, Max: 2, Picks: []string{"Forest", "Island"}, PickIdx: []int{0, 1}, PickKinds: []string{"graveyard", "graveyard"}},
 			want: []XAnswer{{0, "target", "[target_skip]"}},
 		},
 		{
-			name: "arrange partial selection: selected, stop, then order",
+			// Generic partial arrange queue shape: selection, terminator, then
+			// the emitted order labels. The driver must preserve that order.
+			name: "arrange partial selection: selection skip then independent order",
 			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "order", GorgeKind: "arrange", Options: 3, Min: 0, Max: 2, Picks: []string{"Forest"}, PickIdx: []int{0}, PickKinds: []string{"graveyard"}},
 			want: []XAnswer{{0, "choice", "Forest"}, {0, "choice", "[choice_skip]"}, {0, "choice", "Forest"}},
 		},

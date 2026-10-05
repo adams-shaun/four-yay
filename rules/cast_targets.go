@@ -816,6 +816,7 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 			candidates = uniqueChainViableCandidates(e, pc, pc.subAsks, pc.subStage+1, chosen, subMin, candidates)
 		}
 		min, max := e.resolvedTargetBounds(pc.player, pc.card, sub, pc.x)
+		min, max, _, _ = e.oneEachTargetBounds(sub, candidates, min, max)
 		if min > 0 && len(candidates) < min {
 			e.abortCast(pc, "cast aborted: no legal target for a chained ability", true)
 			return true
@@ -901,7 +902,7 @@ func castSubChangeZoneAnnounceable(sa *cards.SA) bool {
 			!tp.Has(effects.TgtTypeStack) && !tp.Has(effects.TgtValidPlayers) &&
 			effects.ChangeZoneOf(sa).OriginExactly(state.ZGraveyard)
 	}
-	_, ok := originImpliedTargetZone(sa)
+	_, ok, _ := originImpliedTargetZone(sa)
 	return ok
 }
 

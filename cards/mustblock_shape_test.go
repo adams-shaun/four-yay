@@ -15,6 +15,11 @@ func TestMustBlockCoverageRejectsOtherShapes(t *testing.T) {
 	}{
 		{"named target", "DB$ MustBlock | ValidTgts$ Creature.OppCtrl | DefinedAttacker$ TriggeredAttacker | Duration$ UntilEndOfCombat", true},
 		{"creature target", "DB$ MustBlock | ValidTgts$ Creature | DefinedAttacker$ TriggeredAttacker", true},
+		{"Crashing Boars choice pool", "DB$ MustBlock | Choices$ Creature.untapped+DefenderCtrl | Chooser$ TriggeredDefendingPlayer", true},
+		{"other choice selector", "DB$ MustBlock | Choices$ Creature.DefenderCtrl | Chooser$ TriggeredDefendingPlayer", false},
+		{"other chooser", "DB$ MustBlock | Choices$ Creature.untapped+DefenderCtrl | Chooser$ You", false},
+		{"choice pool with attacker override", "DB$ MustBlock | Choices$ Creature.untapped+DefenderCtrl | Chooser$ TriggeredDefendingPlayer | DefinedAttacker$ TriggeredAttacker", false},
+		{"choice pool unknown duration", "DB$ MustBlock | Choices$ Creature.untapped+DefenderCtrl | Chooser$ TriggeredDefendingPlayer | Duration$ UntilYourNextTurn", false},
 		{"player target", "DB$ MustBlock | ValidTgts$ Player | DefinedAttacker$ TriggeredAttacker | Duration$ UntilEndOfCombat", false},
 		{"mixed targets", "DB$ MustBlock | ValidTgts$ Creature.OppCtrl,Player | DefinedAttacker$ TriggeredAttacker | Duration$ UntilEndOfCombat", false},
 		{"any target", "DB$ MustBlock | ValidTgts$ Any | DefinedAttacker$ TriggeredAttacker", false},

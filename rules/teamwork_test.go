@@ -15,8 +15,8 @@ import (
 func teamworkAskOptions(t *testing.T, e *Engine) *decision.Decision {
 	t.Helper()
 	d := e.Pending()
-	if d == nil || d.Kind != decision.KChoose || !d.AllowNone || d.Min != 1 || len(d.Options) < 2 || d.Options[0].Kind != "teamwork" {
-		t.Fatalf("expected optional Teamwork KChoose, got %+v", d)
+	if d == nil || d.Kind != decision.KChoose || d.Min != 1 || len(d.Options) < 2 {
+		t.Fatalf("expected Teamwork KChoose, got %+v", d)
 	}
 	return d
 }
@@ -86,11 +86,25 @@ func TestTeamworkCastCostAndPaidProvenance(t *testing.T) {
 	if d.MinSum != 3 {
 		t.Fatalf("Teamwork threshold = %d, want 3", d.MinSum)
 	}
+	// Go Nuts!'s decline is the empty answer, while the actual decision also
+	// offers creatures. A legacy synthetic decline option here could combine
+	// its threshold value with an under-threshold creature during repair.
+	below := teamworkOption(t, d, a)
+	if !d.AllowNone || len(d.Options) < 1 {
+		t.Fatalf("precondition: Go Nuts! Teamwork decision must offer decline and creatures: %+v", d)
+	}
+	for _, option := range d.Options {
+		if option.Kind != "teamwork" {
+			t.Fatalf("precondition: decline must not be a power-bearing option: %+v", option)
+		}
+	}
+	if err := d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player}); err != nil {
+		t.Fatalf("empty Teamwork decline rejected: %v", err)
+	}
 	botAnswer := botpolicy.Decide(botpolicy.Board{}, d, rand.New(rand.NewPCG(1, 2)))
 	if err := d.Validate(botAnswer); err != nil {
 		t.Fatalf("bot's default Teamwork answer violates the shared threshold rule: %v (answer=%+v, fit=%v, max=%d options=%+v)", err, botAnswer, d.FitRequired(botAnswer.Choices), d.Max, d.Options)
 	}
-	below := teamworkOption(t, d, a)
 	// A partial client answer must be repaired from the SAME floor rule
 	// Validate enforces. There is no power-bearing decline option for the
 	// repair to combine with a creature (the former livelock).

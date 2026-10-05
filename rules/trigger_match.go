@@ -82,7 +82,10 @@ type pendingTrigger struct {
 	// state.DelayedTrigger.ID (so the fired event can remove exactly it), and
 	// Execute is the Execute$ SVar name (which events.Apply's DelayedPush case
 	// resolves from the source's SVar table).
-	Delayed   bool
+	Delayed bool
+	// Chapter marks a Saga chapter ability: it is a triggered ability even
+	// though its delayed-shape stack object has no T: line to record.
+	Chapter   bool
 	DelayedID uint32
 	// MonarchDraw is the CR 724.2a beginning-of-end-step triggered draw.
 	// It is represented as a real stack ability through the existing delayed
@@ -1357,7 +1360,9 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 					e.secondaryYields(observer, fc.face, ti, t, id, *ev, objLKI) {
 					continue
 				}
-				if (t.Mode == "DamageDealtOnce" || t.Mode == "DamageDoneOnce" || t.Mode == "DamageAll") && ev.Amount <= 0 {
+				mk := t.ModeKind()
+				damageAmount := damageTriggerAmount(e.excessDamageBaseline, mk, *ev, damageSourceHasDeathtouch(e, e.damageSourceLKI, *ev))
+				if damageAmount <= 0 && (mk == cards.TriggerExcessDamageAll || mk == cards.TriggerDamageDealtOnce || mk == cards.TriggerDamageDoneOnce || mk == cards.TriggerDamageAll) {
 					continue
 				}
 				key := triggerKey{Source: id, Idx: ti, Face: fc.faceIdx}
@@ -1405,7 +1410,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 						continue // ResolvedLimit$: already resolved enough this turn.
 					}
 				}
-				if t.Mode == "DamageDealtOnce" || t.Mode == "DamageDoneOnce" || t.Mode == "DamageAll" {
+				if mk == cards.TriggerDamageDealtOnce || mk == cards.TriggerDamageDoneOnce || mk == cards.TriggerDamageAll || mk == cards.TriggerExcessDamageAll {
 					// The "Once" gate latches once per DAMAGE BATCH, not per turn
 					// (CR 510.4; Forge PhaseHandler.dealAssignedDamage fires
 					// triggerDamageDoneOnce once per damage step, and one
@@ -1430,12 +1435,9 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 					// event queues the single instance and every later matching
 					// pair in the batch accumulates into it -- the "one or more"
 					// reading.
-					// Non-positive amounts (the negative-amount Damage events the
-					// cleanup/regeneration repair paths emit to clear marked
-					// damage) are not damage and never latch or queue a Once
-					// trigger.
+					// Non-positive damage never latches (including cleanup repairs).
 					if ev.Amount > 0 {
-						bk := damageBatchKey{triggerKey: key, dealt: t.Mode == "DamageDealtOnce", all: t.Mode == "DamageAll"}
+						bk := damageBatchKey{triggerKey: key, dealt: mk == cards.TriggerDamageDealtOnce, all: mk == cards.TriggerDamageAll || mk == cards.TriggerExcessDamageAll}
 						var allSrc state.ObjID
 						var allTgt state.Target
 						if bk.dealt {
@@ -1478,7 +1480,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 							}
 							if entIdx, ok := e.damageBatchIdx[bk]; ok {
 								ent := &e.damageBatchLog[entIdx]
-								ent.amount += ev.Amount
+								ent.amount += damageAmount
 								if bk.all {
 									ent.sources = batchAppendSource(ent.sources, allSrc)
 									ent.targets = batchAppendTarget(ent.targets, allTgt)
@@ -1487,7 +1489,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 							}
 							e.damageBatchIdx[bk] = len(e.damageBatchLog)
 							ent := damageBatchEntry{
-								key: bk, idx: len(e.pendingTriggers), amount: ev.Amount,
+								key: bk, idx: len(e.pendingTriggers), amount: damageAmount,
 							}
 							if bk.all {
 								ent.sources = batchAppendSource(ent.sources, allSrc)
@@ -1552,26 +1554,8 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 				// set into Remembered/Captured. No batch open means every event is
 				// its own batch-of-one and the referent below already carries
 				// count 1.
-				if mk := t.ModeKind(); e.millBatchOpen && (mk == cards.TriggerMilledAll || mk == cards.TriggerTapAll || mk == cards.TriggerUntapAll) {
-					if e.millBatchIdx == nil {
-						e.millBatchIdx = map[triggerKey]int{}
-					}
-					if entIdx, ok := e.millBatchIdx[key]; ok {
-						ent := &e.millBatchLog[entIdx]
-						ent.amount++
-						if ev.Obj != 0 {
-							ent.milled = batchAppendTarget(ent.milled, state.Target{Obj: ev.Obj})
-						}
-						continue // already queued once for this mill action.
-					}
-					ent := millBatchEntry{key: key, idx: len(e.pendingTriggers), amount: 1}
-					if ev.Obj != 0 {
-						ent.milled = batchAppendTarget(ent.milled, state.Target{Obj: ev.Obj})
-					}
-					e.millBatchIdx[key] = len(e.millBatchLog)
-					e.millBatchLog = append(e.millBatchLog, ent)
-					// Fall through: the trigger queues now; closeMillBatch patches
-					// its count and plural capture to the mill action's totals.
+				if batchTriggerAlreadyQueued(e.millBatchOpen, &e.millBatchIdx, &e.millBatchLog, len(e.pendingTriggers), t, key, ev) {
+					continue
 				}
 				// DiscardedAll inside an open discard batch (one api:Discard
 				// resolution, effects/cardflow.go's effDiscard) is the discard twin
@@ -1777,6 +1761,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 					// CardToughness must read.
 					e.attachExploitedLKI(&pt, *ev)
 				}
+				setExcessTriggerAmount(&pt, mk, damageAmount)
 				e.pendingTriggers = append(e.pendingTriggers, pt)
 				// stat:Panharmonicon (CR 702.109): "If a triggered ability of a
 				// ... permanent you control triggers, that ability triggers an
@@ -2015,6 +2000,7 @@ func (e *Engine) openDamageBatch() {
 		e.damageBatchOpen = true
 		e.damageBatchIdx = nil
 		e.damageBatchLog = nil
+		e.excessDamageBaseline = nil
 	}
 	e.damageBatchDepth++
 }
@@ -2064,6 +2050,7 @@ func (e *Engine) closeDamageBatch() {
 	}
 	e.damageBatchIdx = nil
 	e.damageBatchLog = nil
+	e.excessDamageBaseline = nil
 }
 
 // batchAppendSource appends id to a DamageAll entry's deduplicated source
@@ -2693,7 +2680,7 @@ func init() {
 
 	effects.RegisterNonAPI(
 		"trig:ChangesZone", "trig:ChangesZoneAll", "trig:SpellCast", "trig:Attacks", "trig:AttackersDeclaredOneTarget",
-		"trig:AttackersDeclared", "trig:AttackerBlocked", "trig:AttackerBlockedByCreature", "trig:AttackerUnblocked", "trig:AttackerUnblockedOnce", "trig:Blocks", "trig:Cycled", "trig:CounterAdded", "trig:CounterAddedOnce", "trig:CounterRemoved", "trig:CounterRemovedOnce", "trig:CounterPlayerAddedAll",
+		"trig:AttackersDeclared", "trig:AttackerBlocked", "trig:AttackerBlockedByCreature", "trig:AttackerUnblocked", "trig:AttackerUnblockedOnce", "trig:Blocks", "trig:Cycled", "trig:CounterAdded", "trig:CounterAddedOnce", "trig:CounterRemoved", "trig:CounterRemovedOnce", "trig:CounterPlayerAddedAll", "trig:CounterAddedAll", "trig:CounterTypeAddedAll",
 		"trig:Sacrificed", "trig:Discarded", "trig:CommitCrime", "trig:Taps", "trig:TapsForMana", "trig:Untaps",
 		// Aggregate tap trigger modes (task cli-20261005T075020Z-05241a06),
 		// matched by trigmatch.tapAllMatches/untapAllMatches off the ordinary
@@ -2701,7 +2688,11 @@ func init() {
 		"trig:TapAll", "trig:UntapAll",
 		"trig:ClassLevelGained", "trig:BecomeMonstrous",
 		"trig:TokenCreated", "trig:TokenCreatedOnce",
-		"trig:DamageDone", "trig:DamageDealtOnce", "trig:DamageDoneOnce", "trig:DamageAll", "trig:Drawn", "trig:LifeLost", "trig:LifeLostAll",
+		"trig:DamageDone", "trig:DamageDealtOnce", "trig:DamageDoneOnce", "trig:DamageAll",
+		// ExcessDamageAll (agent-20261005T061534Z-7ace93d1): dispatched by the
+		// aggregate damage-batch matcher; declaring support keeps real card
+		// carriers eligible for deck validation and coverage.
+		"trig:ExcessDamageAll", "trig:Drawn", "trig:LifeLost", "trig:LifeLostAll",
 		"trig:LifeGained",
 		"trig:BecomesTarget", "trig:BecomesTargetOnce", "trig:LandPlayed", "trig:Phase", "trig:Attached", "trig:Unattached", "trig:FlippedCoin",
 		"trig:Vote", "trig:RolledDie", "trig:RolledDieOnce",

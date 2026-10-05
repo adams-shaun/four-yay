@@ -66,6 +66,9 @@ type engineTriggerBatches struct {
 	damageBatchDepth int                    `clone:"deep"`
 	damageBatchIdx   map[damageBatchKey]int `clone:"deep"`
 	damageBatchLog   []damageBatchEntry     `clone:"deep"`
+	// Pre-fold lethal threshold per recipient, fixed at its first hit in the
+	// batch so earlier simultaneous hits never lower the threshold.
+	excessDamageBaseline map[state.ObjID]int32 `clone:"deep"`
 	// zoneBatch (RepeatEach's ChangeZoneTable$ True): the zone changes every
 	// loop iteration's body causes are ONE ChangesZoneAll batch, presented
 	// once after the loop completes. Same shape as the damage batch above:

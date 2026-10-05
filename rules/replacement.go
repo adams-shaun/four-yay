@@ -14,6 +14,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -304,12 +305,14 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 		return e.continueManaReplacements(ev, manaCandidates, nil, false, e.manaFromTap, e.manaProducer)
 	}
 	if ev.Kind == events.Scry {
-		// The scry instruction boundary (CR 614.4): the proposal is held, not
-		// logged, so continueScryReplacements owns the whole return -- it
+		// CR 614.4: the held scry proposal is not logged; its continuation
 		// rewrites the held instruction's count in place (handled=true, event
 		// still a Scry) or replaces it whole (handled=true, zero event), so
 		// the generic single-match/CR-616.1 path below must never see it.
 		return e.continueScryReplacements(ev, matches, nil, nil, 0)
+	}
+	if ev.Kind == events.MillProposal {
+		return continueMillReplacements(e, e.G, millReplacementAsk(e), ev, matches)
 	}
 	if ev.Kind == events.RollDice {
 		// The roll-action boundary (CR 614.4, task rolldice-repl): the
@@ -366,13 +369,24 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 
 	// CR 616.1 competitions either compose commutative Updated effects or
 	// park destination-changing effects for the affected player to order.
-	if ev.Kind == events.Draw && len(matches) == 1 && matches[0].repl.With == nil &&
-		matches[0].repl.OptionalValue() {
+	if ev.Kind == events.Draw && len(matches) == 1 && matches[0].repl.OptionalValue() {
 		e.poseReplacementChoice(ev, matches)
 		return ev, true
 	}
 	if len(matches) == 1 {
 		return e.applyReplacement(ev, matches[0])
+	}
+	if ev.Kind == events.LifeChange && ev.Text == pay.PayLifeProposalText {
+		// A payment proposal has no object; CR 616.1's affected player is
+		// the payer. Unlike ordinary life-change replacements, this synthetic
+		// boundary is consumed if any one replacement is selected.
+		if int(ev.Player) < len(e.G.Players) && !e.G.Players[ev.Player].Lost {
+			e.poseReplacementChoice(ev, matches)
+			return ev, true
+		}
+		for _, m := range matches {
+			return e.applyReplacement(ev, m)
+		}
 	}
 	allUpdated := true
 	for _, m := range matches {
@@ -704,6 +718,8 @@ func replacementEventKind(ev events.Event) cards.ReplEvent {
 		// emitted, so no logged event can ever map here. The exiled batch
 		// rides ev.IDs and becomes Ctx.ReplacedCards on the body's context.
 		return cards.ReplCascade
+	case events.MillProposal:
+		return cards.ReplMill
 	case events.Scry:
 		// The scry instruction boundary. Only the synthetic PROPOSAL
 		// (Engine.Scry) reaches the collection; the completed record is
@@ -711,7 +727,7 @@ func replacementEventKind(ev events.Event) cards.ReplEvent {
 		return cards.ReplScry
 	case events.RollDice:
 		// The roll-action boundary (task rolldice-repl). Only the synthetic
-		// PROPOSAL (Engine.RollDiceProposed) reaches the collection: the Kind
+		// PROPOSAL (effects.CountReplacementProposed) reaches the collection: the Kind
 		// is never emitted, so no logged event can ever map here.
 		return cards.ReplRollDice
 	case events.PlanarRoll:
@@ -732,6 +748,11 @@ func replacementEventKind(ev events.Event) cards.ReplEvent {
 		// These match the marker events.TurnFaceUp that the morph-family
 		// special action and the SetState effect's turn-up arm emit.
 		return cards.ReplTurnFaceUp
+	case events.LifeChange:
+		if ev.Text == pay.PayLifeProposalText && ev.Amount > 0 {
+			return cards.ReplPayLife
+		}
+		return 0
 	default:
 		return 0
 	}

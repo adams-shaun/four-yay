@@ -461,7 +461,11 @@ func TestTargetZonesChangeZoneOriginTable(t *testing.T) {
 		{"Any-targeted likewise", "A:AB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Any", []state.Zone{state.ZBattlefield}},
 		{"origin Any", "A:AB$ ChangeZone | Origin$ Any | Destination$ Hand | ValidTgts$ Card", []state.Zone{state.ZBattlefield}},
 		{"origin All", "A:AB$ ChangeZone | Origin$ All | Destination$ Hand | ValidTgts$ Card", []state.Zone{state.ZBattlefield}},
-		{"multi-zone origin", "A:AB$ ChangeZone | Origin$ Graveyard,Hand | Destination$ Hand | ValidTgts$ Card", []state.Zone{state.ZBattlefield}},
+		{"multi-zone origin without inZone alternatives", "A:AB$ ChangeZone | Origin$ Graveyard,Hand | Destination$ Hand | ValidTgts$ Card", []state.Zone{state.ZBattlefield}},
+		{"multi-zone alternative lacks zone", "A:SP$ ChangeZone | Origin$ Graveyard,Exile | ValidTgts$ Instant.inZoneGraveyard,Card", []state.Zone{state.ZStack}},
+		{"multi-zone filter outside origin", "A:SP$ ChangeZone | Origin$ Graveyard,Exile | ValidTgts$ Instant.inZoneBattlefield", []state.Zone{state.ZStack}},
+		{"multi-zone unknown filter zone", "A:SP$ ChangeZone | Origin$ Graveyard,Exile | ValidTgts$ Instant.inZoneUnknown", []state.Zone{state.ZStack}},
+		{"unknown explicit TgtZone blocks inference", "A:SP$ ChangeZone | TgtZone$ Unknown | Origin$ Graveyard,Exile | ValidTgts$ Instant.inZoneGraveyard,Card.withFlashback+inZoneExile", []state.Zone{state.ZBattlefield}},
 		{"unknown origin token", "A:AB$ ChangeZone | Origin$ Somewhere | Destination$ Hand | ValidTgts$ Card", []state.Zone{state.ZBattlefield}},
 		{"non-ChangeZone API", "A:AB$ Destroy | Origin$ Graveyard | ValidTgts$ Card", []state.Zone{state.ZBattlefield}},
 	}

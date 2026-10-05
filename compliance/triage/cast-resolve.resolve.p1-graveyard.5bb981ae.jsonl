@@ -1,5 +1,4 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.graveyard","diff":"gorge+[] xmage+[Grizzly Bears]"},"key":"cast-resolve | resolve | p1.graveyard | gorge+[] xmage+[Grizzly Bears]","cards":4}
-{"card":"Depressurize","template":"cast-resolve","status":"diverge","api":"Pump+Destroy","sets":["EOE"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[]\", xmage \"[Grizzly Bears]\""}
+{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.graveyard","diff":"gorge+[] xmage+[Grizzly Bears]"},"key":"cast-resolve | resolve | p1.graveyard | gorge+[] xmage+[Grizzly Bears]","cards":3}
 {"card":"Graceful Takedown","template":"cast-resolve","status":"diverge","api":"Pump+EachDamage+Cleanup","sets":["WOE"],"detail":"step 3 (resolve) p1.graveyard: gorge \"[]\", xmage \"[Grizzly Bears]\""}
 {"card":"Rite of Renewal","template":"cast-resolve","status":"diverge","api":"ChangeZone+Pump","sets":["TDM"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[]\", xmage \"[Grizzly Bears]\""}
 {"card":"The Fire Nation Drill","template":"cast-resolve","status":"diverge","api":"ChangesZone:ImmediateTrigger","sets":["TLA"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[]\", xmage \"[Grizzly Bears]\""}
