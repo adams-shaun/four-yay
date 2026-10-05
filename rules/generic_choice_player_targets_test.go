@@ -68,6 +68,24 @@ func TestGenericChoicePlayerTgtsCensus(t *testing.T) {
 	t.Logf("no-Defined$ player-targeted GenericChoice class: %d cards", len(got))
 }
 
+func TestGenericChoicePlayerTargetBodyUsesBaseType(t *testing.T) {
+	for _, tc := range []struct {
+		body string
+		want bool
+	}{
+		{"DB$ GenericChoice | ValidTgts$ Player.Opponent", true},
+		{"DB$ GenericChoice | ValidTgts$ Any.Opponent", true},
+		{"DB$ GenericChoice | ValidTgts$ Opponent.Other", true},
+		{"DB$ GenericChoice | ValidTgts$ You.Controller", true},
+		{"DB$ GenericChoice | ValidTgts$ Creature.YouCtrl", false},
+		{"DB$ GenericChoice | ValidTgts$ Creature", false},
+	} {
+		if got := genericChoicePlayerTargetBody(tc.body); got != tc.want {
+			t.Errorf("genericChoicePlayerTargetBody(%q) = %t, want %t", tc.body, got, tc.want)
+		}
+	}
+}
+
 func genericChoicePlayerTargetBody(body string) bool {
 	if !strings.Contains(body, "DB$ GenericChoice") || strings.Contains(body, "Defined$") {
 		return false
@@ -79,8 +97,9 @@ func genericChoicePlayerTargetBody(body string) bool {
 		}
 		value := strings.TrimSpace(strings.TrimPrefix(part, "ValidTgts$"))
 		for _, alternative := range strings.Split(value, ",") {
-			spec := strings.TrimSpace(alternative)
-			if spec == "Player" || spec == "Opponent" || spec == "You" || strings.HasPrefix(spec, "Player.") || spec == "Any" {
+			base, _, _ := strings.Cut(strings.TrimSpace(alternative), ".")
+			switch base {
+			case "Player", "Any", "Opponent", "You":
 				return true
 			}
 		}

@@ -90,7 +90,7 @@ func isCharmAPI(sa *cards.SA) bool {
 // GenericChoicePlayerChoosers reports the targeted-player GenericChoice shape
 // whose chooser is supplied by its ValidTgts$ target rather than Defined$.
 func GenericChoicePlayerChoosers(sa *cards.SA) bool {
-	return sa != nil && sa.API == "GenericChoice" && CharmOf(sa).Defined == "" && TargetsOf(sa).Has(TgtValidPlayers)
+	return sa != nil && CharmOf(sa).Defined == "" && TargetsOf(sa).Has(TgtValidPlayers)
 }
 
 // CharmOf returns sa's compiled modal parameters: the configured record's
