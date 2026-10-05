@@ -46,6 +46,23 @@ func evalCountBodySimple(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 			return evalCountOperand(h, c, trueTok, depth), true, true
 		}
 		return evalCountOperand(h, c, falseTok, depth), true, true
+	case countBodySimpleImprintedSize:
+		// Forge's Count$ImprintedSize is c.getImprintedCards().size(): the
+		// cards Imprint$/ImprintCards$ associated with the ability's host. In
+		// this engine those associations are state.Object.Imprinted, written
+		// by foldImprint for both spellings (DSK Oblivious Bookworm's
+		// TurnFaceUp `ImprintCards$ TriggeredCard`, cleared at the upkeep by
+		// ClearImprinted$; TDM Unexpected Conversion / Grizzled Huntmaster's
+		// ChangeZone `Imprint$ True`). c.Source is that host, so the read is
+		// the same object's persistent list. A missing source reads a
+		// legitimate zero.
+		if arg != "" {
+			return 0, false, true
+		}
+		if o := g.Obj(c.Source); o != nil {
+			return int32(len(o.Imprinted)), true, true
+		}
+		return 0, true, true
 	}
 	return 0, false, false
 }
@@ -72,8 +89,10 @@ type countBodySimpleCode uint16
 
 const (
 	countBodySimpleIsPrime countBodySimpleCode = iota + 1
+	countBodySimpleImprintedSize
 )
 
 var countBodySimpleCodes = state.NewStrCodes(
 	state.StrEntry[countBodySimpleCode]{Key: "IsPrime", Val: countBodySimpleIsPrime},
+	state.StrEntry[countBodySimpleCode]{Key: "ImprintedSize", Val: countBodySimpleImprintedSize},
 )

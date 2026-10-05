@@ -51,6 +51,7 @@ var modelledValueHeads = []string{
 	"Foretold",
 	"Hellbent",
 	"IfCastInOwnMainPhase",
+	"ImprintedSize",
 	"InOwnMainPhase",
 	"IsPrime",
 	"Kicked",
