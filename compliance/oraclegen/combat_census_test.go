@@ -14,24 +14,27 @@ import (
 // attacking/blocking spell (Focus Fire) the fixtureCensus list predates.
 var combatCensusSets = append(append([]string(nil), censusSets...), "EOE")
 
-// combatCorpusCount pins, corpus-wide, how many nonland named-cost spell faces
-// demand a creature that is attacking, blocking or tapped. OppCtrl's
-// attacking-or-blocking OR filters are bucketed as blocking: their attacking
-// branch cannot be met on p0's turn, but their blocking branch can. A new
-// carrier anywhere in .cards/cardsfolder changes its bucket and fails loudly.
-// The audit-set names below are pinned alongside it so a new carrier in an
-// audited set is named, not just counted.
+// combatCorpusCensus pins the exact sorted corpus-wide spell-face identities
+// per demanded-state bucket. OppCtrl's attacking-or-blocking OR filters are
+// bucketed as blocking: their attacking branch cannot be met on p0's turn,
+// but their blocking branch can. Comparing full identity lists prevents a new
+// carrier replacing a removed one while preserving the old total.
 //
 // Measured 2026-10-05 after combat planning learned to choose a feasible OR
 // alternative for controller-constrained filters. A raw
 // `/usr/bin/grep -rlE 'ValidTgts\$...attacking|blocking' .cards/cardsfolder`
 // counts 378 files and 77 tapped because it sees activated abilities and
-// non-spell targets too; the registry scan here counts the spell faces by
-// demanded-state bucket (103 / 13 / 34).
-var combatCorpusCount = map[string]int{
-	"attacking": 103,
-	"blocking":  13,
-	"tapped":    34,
+// non-spell targets too; these lists are spell faces grouped by demanded state.
+var combatCorpusCensus = map[string][]string{
+	"attacking": {
+		"AWOL", "Aethertow", "Airbender's Reversal", "Armed Response", "Arrow Volley Trap", "Arrows of Justice", "Assassin's Blade", "Balduvian Rage", "Barge In", "Blood Frenzy", "Boros Fury-Shield", "Bright Reprisal", "Broken Visage", "Built to Smash", "Burning Oil", "Champion's Victory", "Chastise", "Choking Vines", "Command of Unsummoning", "Condemn", "Coordinated Barrage", "Cosmium Blast", "Curtain of Light", "Dazzling Beauty", "Deft Dismissal", "Devouring Light", "Disharmony", "Divine Arrow", "Divine Retribution", "Divine Verdict", "Dragon's Presence", "Dreadmaw's Ire", "Eightfold Maze", "Elspeth's Smite", "Enduring Victory", "Excise", "Exile", "Farm", "Feint", "Fierce Retribution", "Fire at Will", "Focus Fire", "Foxfire", "Gideon's Defeat", "Gideon's Reproach", "Hail of Arrows", "Hamato Ninpō", "Helicarrier Strike", "Immolating Glare", "Impeccable Timing", "Inquisitor's Snare", "Joust Through", "Judge Unworthy", "Just Fate", "Kellan's Lightblades", "Kill Shot", "Knockout Blow", "Lagoon Breach", "Lens Flare", "Mirror Strike", "Neck Snap", "Nemesis Trap", "Not on My Watch", "Order", "Osseous Exhale", "Outflank", "Piercing Light", "Pitfall Trap", "Practiced Tactics", "Protective Response", "Puncturing Light", "Razor Rings", "Razorgrass Ambush", "Rebuke", "Remove", "Resounding Silence", "Response", "Restrain", "Righteous Blow", "Rock Slide", "Roil's Retribution", "Run Amok", "Sandblast", "Searing Light", "Second Thoughts", "Silverstrike", "Slash of Talons", "Slingbow Trap", "Smashing Spree", "Sonar Strike", "Soul Nova", "Steer Clear", "Sudden Strike", "Surge of Righteousness", "Terashi's Verdict", "Turn the Tables", "Unified Strike", "Vengeful Dreams", "Wanderer's Intervention", "Warning", "Warrant", "Whisk Away", "Winter's Chill",
+	},
+	"blocking": {
+		"Aang's Defense", "Aliban's Tower", "Captain's Defense", "Dissension in the Ranks", "Evasive Maneuvers", "Furious Resistance", "Gallantry", "Glyph of Destruction", "Ride Down", "Righteousness", "Spirit Flare", "Tactical Advantage", "Vanquish",
+	},
+	"tapped": {
+		"A-Knockout Blow", "Aerial Assault", "Artillery Blast", "Assassinate", "Banishing Slash", "Cloud's Limit Break", "Cut Short", "Deadly Riposte", "Death Stroke", "Dovin's Dismissal", "Entangling Vines", "Eriette's Lullaby", "Excoriate", "Expel", "Galestrike", "Glimmerdust Nap", "Hyperion's Atomic Vision", "Iron Verdict", "Keep Out", "Murderous Compulsion", "Piercing Rays", "Push", "Radiant Strike", "Resolute Rejection", "Rip the Seams", "Runic Shot", "Select for Inspection", "Sheer Drop", "Summary Judgment", "Swallow Whole", "Swift Reckoning", "Swift Response", "Take Vengeance", "Vengeance",
+	},
 }
 
 // combatFixtureCensus pins, per demanded state, the exact audit-set faces
@@ -181,13 +184,19 @@ func TestCombatFixtureCensus(t *testing.T) {
 	}
 }
 
-// TestCombatFixtureCorpusCount pins the corpus-wide carrier count per bucket,
-// so a carrier outside the audited sets fails loudly too.
-func TestCombatFixtureCorpusCount(t *testing.T) {
+// TestCombatFixtureCorpusCensus pins exact carrier identities, so a carrier
+// outside the audited sets (or a replacement that leaves totals unchanged)
+// fails loudly.
+func TestCombatFixtureCorpusCensus(t *testing.T) {
 	got := combatCensus(t, nil)
-	for state, want := range combatCorpusCount {
-		if len(got[state]) != want {
-			t.Errorf("corpus combat fixture: %s = %d, want %d; carriers:\n%v", state, len(got[state]), want, got[state])
+	for state, want := range combatCorpusCensus {
+		if strings.Join(got[state], "|") != strings.Join(want, "|") {
+			t.Errorf("corpus combat fixture: %s\n got %v\nwant %v", state, got[state], want)
+		}
+	}
+	for state, carriers := range got {
+		if _, pinned := combatCorpusCensus[state]; !pinned {
+			t.Errorf("corpus combat fixture: %s %v (not pinned; add it deliberately)", state, carriers)
 		}
 	}
 }
