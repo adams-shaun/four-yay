@@ -393,7 +393,6 @@ const (
 	evalCountBodyCostImprintedSize
 	evalCountBodyCostFinishedEndOfTurnsThisTurn
 	evalCountBodyCostMaxCombatDamageThisTurn
-	evalCountBodyCostNumDamageThisTurn
 	evalCountBodyCostNonCombatDamageThisTurn
 )
 
@@ -413,6 +412,5 @@ var evalCountBodyCostCodes = state.NewStrCodes(
 	state.StrEntry[evalCountBodyCostCode]{Key: "ImprintedSize", Val: evalCountBodyCostImprintedSize},
 	state.StrEntry[evalCountBodyCostCode]{Key: "FinishedEndOfTurnsThisTurn", Val: evalCountBodyCostFinishedEndOfTurnsThisTurn},
 	state.StrEntry[evalCountBodyCostCode]{Key: "MaxCombatDamageThisTurn", Val: evalCountBodyCostMaxCombatDamageThisTurn},
-	state.StrEntry[evalCountBodyCostCode]{Key: "NumDamageThisTurn", Val: evalCountBodyCostNumDamageThisTurn},
 	state.StrEntry[evalCountBodyCostCode]{Key: "NonCombatDamageThisTurn", Val: evalCountBodyCostNonCombatDamageThisTurn},
 )
