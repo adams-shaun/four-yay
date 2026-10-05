@@ -1,2 +1,3 @@
-{"shape":{"template":"cast-resolve","op":"cast","field":"p0.pool","diff":"gorge= xmage=CCCC"},"key":"cast-resolve | cast | p0.pool | gorge= xmage=CCCC","cards":1}
-{"card":"Emptiness","template":"cast-resolve","status":"diverge","api":"ChangesZone:ChangeZone+ChangesZone:PutCounter","sets":["ECL"],"detail":"step 0 (cast) p0.pool: gorge \"\", xmage \"CCCC\""}
+{"shape":{"template":"cast-resolve","op":"cast","field":"p0.pool","diff":"gorge= xmage=CCCC"},"key":"cast-resolve | cast | p0.pool | gorge= xmage=CCCC","cards":2}
+{"card":"Catharsis","template":"cast-resolve","status":"diverge","api":"ChangesZone:Token+ChangesZone:PumpAll","sets":["ECL"],"detail":"step 0 (cast) p0.pool: gorge \"\", xmage \"CCCC\""}
+{"card":"Deceit","template":"cast-resolve","status":"diverge","api":"ChangesZone:ChangeZone+ChangesZone:Discard","sets":["ECL"],"detail":"step 0 (cast) p0.pool: gorge \"\", xmage \"CCCC\""}

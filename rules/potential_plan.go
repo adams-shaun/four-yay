@@ -445,6 +445,9 @@ func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *card
 		}
 		return ParseCost(mc), true
 	}
+	if castModeCodes.Code(string(mode)) == castModeImpended {
+		return keywordAltCost(f, "Impending")
+	}
 	return Cost{}, false
 }
 

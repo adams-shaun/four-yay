@@ -53,11 +53,11 @@ func AbilityTargetsStack(params map[string]string) bool { return abilityTargetsS
 func ModeNumbers(f *cards.Face) map[string]int { return modeNumbers(f) }
 
 // XAnswers turns gorge's recorded decisions into XMage's scripted answers.
-// castSteps is the set of cast step indices whose targets ChooseTargets took
-// from the cast: their target decisions travel through castSpell, so xanswers
-// must not script them a second time.
-func XAnswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSteps map[int]bool) [][]XAnswer {
-	return xanswers(ds, steps, modes, castSteps)
+// It scripts every decision as an ordinary answer; a caller that has already
+// rewritten cast-step targets (ChooseTargets) uses XAnswersForScenario so
+// those target decisions are not scripted a second time.
+func XAnswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XAnswer {
+	return xanswers(ds, steps, modes, nil)
 }
 
 // ChooseTargets rewrites cast steps' targets from gorge's own target
@@ -65,6 +65,14 @@ func XAnswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 // targets came from.
 func ChooseTargets(sc Scenario, ds []rules.OracleDecision) (Scenario, map[int]bool) {
 	return chooseTargets(sc, ds)
+}
+
+// XAnswersForScenario also uses the observed result of a compound may/pick.
+// castSteps is the set of cast step indices whose targets ChooseTargets took
+// from the cast; those target decisions travel through castSpell and are not
+// scripted a second time.
+func XAnswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]int, castSteps map[int]bool) [][]XAnswer {
+	return xanswersForScenario(res, sc, modes, castSteps)
 }
 
 // MayYes re-scripts every declined optional pick to take the first option.

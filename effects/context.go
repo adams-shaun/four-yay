@@ -740,7 +740,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		}
 		return nil, true
 	case definedSpecRememberedController:
-		return controllersOf(g, c.Remembered), true
+		return controllersOf(g, resolvedRemembered(h, c)), true // persistent-aware, as plain Remembered
 	case definedSpecNonRememberedController:
 		// These selectors name living players other than the controller of a
 		// remembered CARD. A remembered player is not a card anchor, and an

@@ -156,10 +156,10 @@ func (b *resolveBoard) MayAsk(d *decision.Decision, in decision.Intent) bool {
 	case optActivate, optTurnFaceUp:
 		return true // StartsResolution already proved the rider may ask
 	case optPlayLand:
-		return tapeLandMayAsk(e, first.Obj)
+		return tapeLandMayAsk(e, first.Player, first.Obj)
 	}
 	if len(e.G.Stack) == 0 {
-		return tapeLandMayAsk(e, first.Obj)
+		return tapeLandMayAsk(e, first.Player, first.Obj)
 	}
 	return tapeMayAsk(e)
 }

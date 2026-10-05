@@ -519,7 +519,7 @@ func (w *legalWalk) handWalk() {
 			mode, head string
 			bit        printedHeads
 		}{
-			{"evoked", "Evoke", phEvoke}, {"dashed", "Dash", phDash}, {"overloaded", "Overload", phOverload}, {"warped", "Warp", phWarp},
+			{"evoked", "Evoke", phEvoke}, {"dashed", "Dash", phDash}, {"overloaded", "Overload", phOverload}, {"warped", "Warp", phWarp}, {"impended", "Impending", phImpending},
 		} {
 			if !ph.has(ka.bit) {
 				continue

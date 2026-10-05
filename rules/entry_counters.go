@@ -148,7 +148,16 @@ func (e *Engine) entryCounterGrants(ev events.Event) []events.EntryCounterGrant 
 		if o == nil || o.Zone == state.ZBattlefield {
 			return nil
 		}
-		return events.EntryCounterGrants(o, events.IsFaceDownEntry(ev.Counter))
+		grants := events.EntryCounterGrants(o, events.IsFaceDownEntry(ev.Counter))
+		// CR 702.176a: paid-Impending provenance is still on the stack object
+		// immediately before the move folds. Include its time counters in the
+		// common entry plan so AddCounter replacements are settled before entry.
+		if !events.IsFaceDownEntry(ev.Counter) && o.CastFlags&state.FlagImpending != 0 {
+			if n := impendingCount(o.Face()); n > 0 {
+				grants = append(grants, events.EntryCounterGrant{Kind: "TIME", Amount: n})
+			}
+		}
+		return grants
 	case events.TokenCreate:
 		return events.EntryCounterGrants(e.tokenSnapshot(ev), false)
 	case events.CardToken:

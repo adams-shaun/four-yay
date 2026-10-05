@@ -103,7 +103,7 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 						}
 					}
 					it := CastResolve.item(name, sc)
-					it.XAnswers = oraclegen.XAnswers(res.Decisions, len(sc.Steps), oraclegen.ModeNumbers(f), castSteps)
+					it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
 					if oraclegen.SearchesLibrary(f) || strings.Contains(strings.ToLower(f.Oracle), "shuffle") {
 						it.Ignore = []string{"library_top"}
 					}

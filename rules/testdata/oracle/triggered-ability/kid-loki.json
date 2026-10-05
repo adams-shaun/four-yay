@@ -1,0 +1,50 @@
+{
+  "card": "Kid Loki",
+  "family": "triggered-ability",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "3adc7ea5d8ac",
+  "scenarios": [
+    {
+      "name": "second-draw-puts-counter-on-kid-loki",
+      "cr": [
+        "603.2",
+        "121.1"
+      ],
+      "why": "Casting Divination draws two cards in one turn; the second draw triggers Kid Loki and puts a +1/+1 counter on him.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Kid Loki"
+          ],
+          "hand": [
+            "Divination"
+          ],
+          "library": [
+            "Grizzly Bears",
+            "Hill Giant"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Divination",
+          "mana": "CCU"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Kid Loki",
+          "counters": {
+            "+1/+1": 1
+          },
+          "pt": "2/2"
+        }
+      ]
+    }
+  ]
+}

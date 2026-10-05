@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.graveyard","diff":"gorge+[Jace Beleren] xmage+[]"},"key":"cast-resolve | resolve | p0.graveyard | gorge+[Jace Beleren] xmage+[]","cards":1}
+{"card":"Threats Around Every Corner","template":"cast-resolve","status":"diverge","api":"ChangesZone:ManifestDread+ChangesZone:ChangeZone","sets":["DSK"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Grizzly Bears, Jace Beleren]\", xmage \"[Grizzly Bears]\""}

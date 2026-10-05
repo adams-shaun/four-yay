@@ -1687,6 +1687,12 @@ var flagNames = [...]struct {
 	// CR 702.190b's tapped-and-attacking entry. Appended at the end per the
 	// table's own ordering rule.
 	{"sneaked", state.FlagSneaked},
+	// The kw:Impending alternative-cost cast (CR 702.176a): the flag is the
+	// provenance rules/altcast.go's entry hook (impendingTickGrant) reads to place
+	// the N time counters and register the end-step removal, and the one
+	// state.Object.ImpendingDormant reads to strip Creature while a time
+	// counter remains. Appended at the end per the table's own ordering rule.
+	{"impending", state.FlagImpending},
 }
 
 // FlagsFrom parses a comma-separated flag list (CastInfo.Counter's shape)

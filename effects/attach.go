@@ -246,9 +246,8 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 		// Weapon's Object$ Self all name the source: today's default, kept
 		// byte-identical.
 	case attachObjectRemembered:
-		if ts := objectsOf(c.Remembered); len(ts) > 0 {
-			obj = ts[0].Obj
-			objs = []state.ObjID{obj}
+		if ids := rememberedAttachObjects(c); len(ids) > 0 {
+			obj, objs = ids[0], ids
 		}
 	default:
 		// TriggeredCardLKICopy (Ajani's Chosen -- the ENTERING Aura, not the
@@ -677,4 +676,26 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	if attached == 0 {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "cannot attach: no legal target"})
 	}
+}
+
+// rememberedAttachObjects is Object$ Remembered's attach list. Forge's
+// AttachEffect fastens EVERY object its Object$ list names, and Object$
+// Remembered names the whole remembered set. A trigger's Remembered carries
+// the triggering object first and then whatever the effect itself remembered
+// (a RememberTokens$ token, a RememberChanged$ card, a RememberMade$ conjure),
+// so attaching each object by its own legality lets the newly remembered
+// object attach while the triggering source -- which IS the destination for
+// `Defined$ Self`, hence an illegal self-attach -- is skipped. Taking only
+// Remembered[0] made MSH U.S.Agent's Sturdy Shield attach the entering
+// creature to itself and fail, and Outfitted Jouster's two conjured Equipment
+// attach nothing. A RepeatEach loop's Remembered holds exactly one object per
+// iteration (Balan, Bruna, Inventory Management), so those are unchanged.
+func rememberedAttachObjects(c *Ctx) []state.ObjID {
+	var ids []state.ObjID
+	for _, t := range objectsOf(c.Remembered) {
+		if t.Obj != 0 {
+			ids = append(ids, t.Obj)
+		}
+	}
+	return ids
 }

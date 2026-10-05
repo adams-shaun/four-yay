@@ -482,7 +482,7 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 	r.logf("  [%s] p%d %s -> %q", why, d.Player, d.Kind, labels)
 	if kind, ok := oracleDecisionKind(d.Kind); ok {
 		od := OracleDecision{Step: r.step, Seat: int(d.Player), Kind: kind, Options: len(d.Options), Picks: labels,
-			PickIdx: append([]int{}, choices...), PickRefs: []string{}, Via: why, GorgeKind: string(d.Kind), Min: d.Min, Max: d.Max}
+			PickIdx: append([]int{}, choices...), PickRefs: []string{}, Via: why, GorgeKind: string(d.Kind), Resume: d.ResumeKind, Min: d.Min, Max: d.Max}
 		if len(d.Options) > 0 {
 			od.First = d.Options[0].Label
 		}
@@ -490,7 +490,9 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 			if c < 0 || c >= len(d.Options) {
 				continue
 			}
-			switch o := d.Options[c]; {
+			o := d.Options[c]
+			od.PickKinds = append(od.PickKinds, o.Kind)
+			switch {
 			case o.Obj != 0:
 				od.PickRefs = append(od.PickRefs, r.objRef(r.e.G.Obj(o.Obj)))
 			case strings.Contains(o.Kind, "player"):

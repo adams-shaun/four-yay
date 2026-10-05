@@ -16,6 +16,7 @@ package oraclegen
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -114,7 +115,7 @@ func mayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
 	out.Steps = append([]Step(nil), sc.Steps...)
 	changed := false
 	for _, d := range ds {
-		if d.Step < 0 || d.Step >= len(out.Steps) || len(d.PickIdx) > 0 || d.Options == 0 || d.First == "" ||
+		if d.Step < 0 || d.Step >= len(out.Steps) || d.Options == 0 || d.First == "" ||
 			d.Via == "target" || d.Via == "answer" || (d.GorgeKind != "choose" && d.GorgeKind != "target") {
 			continue
 		}
@@ -525,13 +526,22 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			// target decision posed at a resolve step is scripted below.
 			continue
 		}
-		if d.Options <= 1 && d.Kind != "target" && d.Kind != "order" {
-			// A forced one-option ask: XMage does not pose it.
+		if d.Options <= 1 && d.Kind != "target" && d.Kind != "order" && !hasTargetPick(d) && !(d.Kind == "mode" && pickKind(d, 0) == "discard") {
+			// A forced one-option ask: XMage does not pose it. A forced
+			// target-kind pick is the exception -- one legal opponent is still
+			// a chooseTarget XMage asks for.
 			continue
 		}
 		var as []XAnswer
 		switch d.Kind {
 		case "target":
+			if d.Resume == "trig_sub" && d.Options == 1 && d.Min == 1 && d.Max == 1 {
+				// A CR 603.3d chain link's forced single target (Mechanical
+				// Mobster's "target creature you control" with only itself):
+				// XMage picks it without asking, so a scripted answer is left
+				// unused (measured on the std pass).
+				continue
+			}
 			for _, ref := range d.PickRefs {
 				v := ref
 				if !isSeat(ref) {
@@ -543,6 +553,17 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
 			}
 		case "mode":
+			if pickKind(d, 0) == "discard" {
+				// Gorge's discard card picker is KModes; XMage uses
+				// TargetDiscard.choose -> makeChoose (not chooseMode).
+				for _, ref := range d.PickRefs {
+					as = append(as, XAnswer{d.Seat, "choice", oraclediffRefName(ref)})
+				}
+				if d.Max > len(d.PickRefs) {
+					as = append(as, XAnswer{d.Seat, "choice", "[choice_skip]"})
+				}
+				break
+			}
 			// gorge offers only the modes with legal targets, so an option
 			// index is not the mode number; the label is.
 			for k, i := range d.PickIdx {
@@ -571,45 +592,107 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 				as = append(as, XAnswer{d.Seat, "choice", "X=" + strings.TrimPrefix(d.Picks[0], "X = ")})
 				break
 			}
+			if len(d.Picks) == 1 && pickKind(d, 0) == "number" {
+				if _, err := strconv.Atoi(d.Picks[0]); err == nil {
+					// "Choose a number": XMage's getAmount reads an "X=<n>"
+					// choice, exactly like announceX (TestPlayer.getAmount).
+					as = append(as, XAnswer{d.Seat, "choice", "X=" + d.Picks[0]})
+					break
+				}
+			}
 			if yn, ok := yesNo(d); ok {
 				as = append(as, XAnswer{d.Seat, "choice", yn})
 				break
 			}
-			for k, ref := range d.PickRefs {
-				label := ""
-				if k < len(d.Picks) {
-					label = d.Picks[k]
+			for k, label := range d.Picks {
+				switch xmQueue(pickKind(d, k), label) {
+				case "skip":
+					// XMage resolves this pick inside its computer player (a
+					// library search) or pays it from the pool (a mana-tapping
+					// cost); a scripted answer would only be an unused leftover.
+					continue
+				case "target":
+					v := label
+					if k < len(d.PickRefs) {
+						v = d.PickRefs[k]
+					}
+					if !isSeat(v) {
+						v = oraclediffRefName(v)
+					}
+					as = append(as, XAnswer{d.Seat, "target", v})
+					continue
 				}
-				// An option naming an object is a card pick (XMage: a
-				// target); one whose Obj is only the source is a labelled
-				// choice.
-				if name := oraclediffRefName(ref); ref != label && strings.HasPrefix(label, name) {
-					as = append(as, XAnswer{d.Seat, "target", name})
-				} else {
-					as = append(as, XAnswer{d.Seat, "choice", label})
+				// The choice queue: makeChoose shows the option's label, which
+				// for an unlabelled object pick is the object's name.
+				if label == "" && k < len(d.PickRefs) {
+					label = oraclediffRefName(d.PickRefs[k])
 				}
+				if colour, ok := manaColourLabel(label); ok {
+					label = colour
+				}
+				as = append(as, XAnswer{d.Seat, "choice", label})
 			}
-			if len(d.PickRefs) == 0 {
-				// Declined: XMage may ask it as a yes/no or as an "up to"
-				// pick; script both, a leftover is harmless.
+			switch {
+			case len(d.Picks) == 0:
+				// Declined: XMage may pose it as a yes/no or as an "up to"
+				// pick; script both (measured: Zimone's Experiment agrees
+				// only with this pair).
 				as = append(as, XAnswer{d.Seat, "choice", "no"}, XAnswer{d.Seat, "target", "[target_skip]"})
-			} else if d.Max > len(d.PickRefs) && len(as) > 0 && as[len(as)-1].Kind == "target" {
-				// Fewer than "up to N": stop XMage picking more.
+			case d.Max > len(d.Picks) && len(as) > 0 && as[len(as)-1].Kind == "target":
+				// Fewer than "up to N" on the target queue: stop XMage
+				// picking more.
 				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
+			case d.Max > len(d.Picks) && len(as) > 0:
+				// A short makeChoose; its queue has its own skip token.
+				as = append(as, XAnswer{d.Seat, "choice", "[choice_skip]"})
 			}
 		case "order":
-			// Scry/surveil (arrange): XMage asks which cards to move; keeping
-			// every card where it is is a skip.
-			if d.Via != "" && len(d.PickIdx) == d.Options {
-				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
+			if d.GorgeKind == "trigger_order" {
+				// chooseTriggeredAbility compares the choice against the ability's
+				// rule text (getRule) or its source's name, not gorge's
+				// "<Source>: <text>" label, so drop the source prefix here.
+				for _, label := range d.Picks {
+					as = append(as, XAnswer{d.Seat, "choice", triggerRule(label)})
+				}
+				break
+			}
+			// Arrange first asks which cards move; its follow-up ordering is
+			// also on XMage's choice queue. Keeping all cards is a choice skip.
+			if d.GorgeKind == "arrange" {
+				forcedOrder := d.Min == d.Max && d.Max == d.Options
+				if !forcedOrder && len(d.PickIdx) == d.Options {
+					// Keeping every card where it is: XMage's surveil/scry
+					// selection is a TargetCard on the target queue, and a
+					// skip dismisses it. Measured against XMage on the std
+					// pass (Refute Destiny, Proctor of Potential, ... -- 25
+					// cards that agree only with this answer); no ORDER
+					// answer follows, XMage keeps the cards in place.
+					as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
+					break
+				}
+				if !forcedOrder {
+					// A proper subset is selected on the choice queue,
+					// then choice_skip terminates that dialog.
+					for _, label := range d.Picks {
+						as = append(as, XAnswer{d.Seat, "choice", label})
+					}
+					as = append(as, XAnswer{d.Seat, "choice", "[choice_skip]"})
+				}
+				// The subsequent ORDER prompt consumes one choice for each
+				// kept card, in the order gorge selected them.
+				for _, label := range d.Picks {
+					as = append(as, XAnswer{d.Seat, "choice", label})
+				}
 			} else {
 				continue
 			}
 		default:
 			continue
 		}
-		out[d.Step] = append(out[d.Step], as...)
-		any = true
+		if len(as) > 0 {
+			out[d.Step] = append(out[d.Step], as...)
+			any = true
+		}
 	}
 	if !any {
 		return nil
@@ -646,25 +729,140 @@ func modeNumbers(f *cards.Face) map[string]int {
 	return out
 }
 
-// yesNo recognises a two-way "do it / don't" choice and returns XMage's
-// boolean answer for gorge's pick.
+// yesNo recognises a bare two-way boolean choice. The engine's option kind
+// and exact label/ref identity must both agree; composed choices such as
+// "Yes — discard" are ordinary makeChoose picks, not boolean answers. Older
+// snapshots without PickKinds use the same exact-label/ref rule.
 func yesNo(d rules.OracleDecision) (string, bool) {
-	if d.Options != 2 || len(d.Picks) != 1 || len(d.PickRefs) != 1 || isSeat(d.PickRefs[0]) ||
-		(d.PickRefs[0] != d.Picks[0] && strings.HasPrefix(d.Picks[0], oraclediffRefName(d.PickRefs[0]))) {
-		// Only a labelled two-way choice (its option may carry the source
-		// object); a player or card pick is not a yes/no.
+	if d.Options != 2 || len(d.Picks) != 1 || len(d.PickRefs) != 1 {
 		return "", false
 	}
-	l := strings.ToLower(d.Picks[0])
-	for _, neg := range []string{"do not", "don't", "no", "decline", "skip"} {
-		if strings.HasPrefix(l, neg) {
-			return "no", true
+	switch kind := pickKind(d, 0); kind {
+	case "yes", "no":
+		// The engine's own boolean option ("Yes — shuffle", a may
+		// trigger): XMage's chooseUse.
+		return kind, true
+	case "altaddcost", "gift_decline", "gift_promise", "primary":
+		// An optional additional cost, a gift promise and a two-way
+		// primary/secondary pick are chooseUse asks in XMage too
+		// (measured: Silence the Echo, Kitnap, Lost in Space agree only
+		// with a yes/no answer). Option 0 is the "do it" side.
+		l := strings.ToLower(d.Picks[0])
+		for _, neg := range []string{"do not", "don't", "no", "decline", "skip"} {
+			if strings.HasPrefix(l, neg) {
+				return "no", true
+			}
+		}
+		if len(d.PickIdx) == 1 && d.PickIdx[0] == 0 {
+			return "yes", true
+		}
+		return "no", true
+	case "":
+		// A snapshot without PickKinds: only an exact Yes/No label.
+		label := strings.ToLower(strings.TrimSpace(d.Picks[0]))
+		if d.Picks[0] == d.PickRefs[0] && (label == "yes" || label == "no") {
+			return label, true
 		}
 	}
-	if len(d.PickIdx) == 1 && d.PickIdx[0] == 0 && !strings.Contains(l, "(") {
-		return "yes", true
+	return "", false
+}
+
+// hasTargetPick reports whether any picked option reaches XMage's target
+// queue (a real TargetXxx), which XMage poses even when the engine offered
+// exactly one legal option.
+func hasTargetPick(d rules.OracleDecision) bool {
+	for k := range d.Picks {
+		switch pickKind(d, k) {
+		case "permanent", "player":
+			return true
+		}
+	}
+	return false
+}
+
+// pickKind is the engine option kind of the k-th pick. A snapshot written
+// before PickKinds existed returns "", which every caller treats as the
+// choice queue.
+func pickKind(d rules.OracleDecision, k int) string {
+	if k >= 0 && k < len(d.PickKinds) {
+		if d.Resume == "opp_pick" && d.PickKinds[k] == "player" {
+			// The TargetingPlayer$ Opponent flow's controller-facing
+			// which-opponent ask: XMage's ChoicePlayer, the choice queue.
+			return "opponent_choice"
+		}
+		return d.PickKinds[k]
+	}
+	return ""
+}
+
+// xmQueue says which TestPlayer queue an engine option kind reaches. The
+// choice queue is makeChoose/setChoice -- XMage's choose(Cards, TargetCard),
+// choose(Choice) and choose(ChoicePlayer) all land there. The target queue is
+// addTarget/chooseTarget, reached by a real TargetXxx. "skip" is for a pick
+// XMage never asks TestPlayer about: a library search (TestPlayer.searchLibrary
+// delegates to the computer player, exactly as doSurveil does) and a
+// mana-tapping cost (paid from the pool). The engine option kind, not the
+// label text, is the authority -- the mechanism the census test pins.
+func xmQueue(kind, label string) string {
+	switch kind {
+	case "search", "exilecost":
+		// A library search (TargetCardInLibrary) and an exile-from-graveyard
+		// cost (TargetCardInYourGraveyard) are answered from the target
+		// queue: measured on the std pass, 47 search carriers (Shared Roots,
+		// Nature's Rhythm, Solemn Simulacrum, ...) and Feed the Cycle /
+		// Soaring Stoneglider agree only with a target answer.
+		return "target"
+	case "trigger_cost_pay":
+		return "skip"
+	case "mana":
+		if _, ok := manaColourLabel(label); ok {
+			// A mana ability's "add one mana of any colour" pick is a real
+			// choice dialog; only a mana-tapping cost is paid silently.
+			return "choice"
+		}
+		return "skip"
+	case "permanent", "player":
+		return "target"
+	case "opponent_choice":
+		return "choice"
+	}
+	return "choice"
+}
+
+// triggerRule drops gorge's "<SourceName>: " prefix from a trigger-order
+// label: XMage's chooseTriggeredAbility compares its choice against the
+// ability's rule text (getRule), which carries no source prefix.
+func triggerRule(label string) string {
+	if i := strings.Index(label, ": "); i >= 0 {
+		return label[i+2:]
+	}
+	return label
+}
+
+// manaColourLabel maps gorge's "Add W" mana option to the colour name
+// XMage's colour chooser shows (its Choice key is "White", not "Add W").
+func manaColourLabel(label string) (string, bool) {
+	if strings.HasPrefix(label, "Add ") && len(label) == 5 {
+		return manaColour(label[4])
 	}
 	return "", false
+}
+
+func manaColour(code byte) (string, bool) {
+	switch code {
+	case 'W':
+		return "White", true
+	case 'U':
+		return "Blue", true
+	case 'B':
+		return "Black", true
+	case 'R':
+		return "Red", true
+	case 'G':
+		return "Green", true
+	default:
+		return "", false
+	}
 }
 
 func payment(picks []string) bool {

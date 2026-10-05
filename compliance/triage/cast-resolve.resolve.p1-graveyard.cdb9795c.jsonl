@@ -1,3 +1,3 @@
 {"shape":{"template":"cast-resolve","op":"resolve","field":"p1.graveyard","diff":"gorge+[Grizzly Bears] xmage+[]"},"key":"cast-resolve | resolve | p1.graveyard | gorge+[Grizzly Bears] xmage+[]","cards":2}
 {"card":"Destined Confrontation","template":"cast-resolve","status":"diverge","api":"ChooseCard+SacrificeAll","sets":["TLA"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}
-{"card":"Gnashing of Teeth","template":"cast-resolve","status":"diverge","api":"Charm","sets":["HOB"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}
+{"card":"Jeskai Revelation","template":"cast-resolve","status":"diverge","api":"ChangeZone+DealDamage+Token+Draw+GainLife","sets":["TDM"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}

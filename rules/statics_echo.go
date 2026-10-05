@@ -61,6 +61,14 @@ func (e *Engine) panharmoniconEchoes(observer *Engine, src state.ObjID, ev event
 	modes := panharmoniconModes(ev)
 	n := 0
 	for _, sv := range e.activeStatics("Panharmonicon") {
+		// The "as long as" gates (Condition$, IsPresent$, ClassBand$,
+		// CheckSVar$) share the ONE continuous gate the other static
+		// families use. Bifur, Melodic Rider's `Condition$ EnduringStory`
+		// is the corpus's only gated Panharmonicon static; without this the
+		// echo doubled its Dwarf triggers even with no enduring story.
+		if !e.continuousGateHolds(sv) {
+			continue
+		}
 		if vm := sv.ParamStr(cards.PKValidMode); vm != "" {
 			ok := false
 			for want := range strings.SplitSeq(vm, ",") {

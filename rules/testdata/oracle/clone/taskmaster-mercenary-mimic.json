@@ -1,0 +1,73 @@
+{
+  "card": "Taskmaster, Mercenary Mimic",
+  "family": "clone",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "4e7f5bdd12c2",
+  "scenarios": [
+    {
+      "name": "first-main-copies-a-battlefield-creature",
+      "cr": [
+        "706.2",
+        "706.5",
+        "707.2"
+      ],
+      "why": "At the beginning of your first main phase Taskmaster may become a copy of a target creature; copying a 2/2 Grizzly Bears makes him 2/2 while his name stays Taskmaster, Mercenary Mimic.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Taskmaster, Mercenary Mimic",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [],
+      "setup_answers": [
+        {
+          "kind": "any",
+          "pick": [
+            "Grizzly Bears"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Taskmaster, Mercenary Mimic",
+          "pt": "2/2"
+        }
+      ]
+    },
+    {
+      "name": "copies-a-creature-card-in-a-graveyard",
+      "cr": [
+        "706.2",
+        "706.5"
+      ],
+      "why": "The target may instead be a creature card in a graveyard; copying the graveyard's Hill Giant makes Taskmaster 3/3.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Taskmaster, Mercenary Mimic"
+          ],
+          "graveyard": [
+            "Hill Giant"
+          ]
+        }
+      },
+      "steps": [],
+      "setup_answers": [
+        {
+          "kind": "any",
+          "pick": [
+            "Hill Giant"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Taskmaster, Mercenary Mimic",
+          "pt": "3/3"
+        }
+      ]
+    }
+  ]
+}
