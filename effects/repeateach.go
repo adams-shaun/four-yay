@@ -57,21 +57,32 @@ func repeatedCards(h Host, c *Ctx, rp *RepeatEachParams) ([]state.Target, bool) 
 	return out, true
 }
 
+// repeatEachTypesFrom enumerates the distinct Magic card types represented
+// by cards matching a RepeatTypesFrom$ selector, in rules-defined type order
+// (not map iteration order). The selector's leading token is Forge's
+// Valid<Zone> grammar -- the same vocabulary RepeatCards$'s Zone$ set uses --
+// so the scan reads that zone rather than always the library:
+//
+//	ValidLibrary Card.IsImprinted        (Portent of Calamity, Atraxa)
+//	ValidGraveyard Card.OwnedBy X        (Grime Gorger)
+//	Valid Permanent.OppCtrl              (Only I Know What Awaits)
+//
+// The remaining token(s) are the card selector handed to the ordinary
+// filter. A selector whose leading token is not a known zone (Hurkyl, Master
+// Wizard's `ThisTurnCast_...` cast-history form) returns ok=false so the
+// caller emits its loud "RepeatEach selector unimplemented" Note rather than
+// silently finding no types.
 func repeatEachTypesFrom(h Host, c *Ctx, spec string) ([]string, bool) {
-	// RepeatTypesFrom enumerates distinct Magic card types represented by
-	// matching cards, in rules-defined type order (not map iteration order).
-	// This is the Portent of Calamity shape: cards remain in the library but
-	// carry the source's IsImprinted association.
 	const types = "Artifact Battle Creature Enchantment Instant Land Planeswalker Sorcery"
-	selector := strings.TrimSpace(strings.TrimPrefix(spec, "ValidLibrary"))
-	if selector == "" {
+	zoneName, selector, ok := splitTypesFromSelector(spec)
+	if !ok {
 		return nil, false
 	}
 	var out []string
 	seen := map[string]bool{}
 	players := h.Game().AliveFrom(c.Controller)
 	for _, p := range players {
-		for _, id := range h.Game().Zone(state.ZLibrary, p) {
+		for _, id := range h.Game().Zone(zoneName, p) {
 			obj := h.Game().Obj(id)
 			if obj == nil || !choiceMatches(h, h.Game(), c, selector, obj) || obj.Face() == nil {
 				continue
@@ -92,6 +103,31 @@ func repeatEachTypesFrom(h Host, c *Ctx, spec string) ([]string, bool) {
 		}
 	}
 	return out, true
+}
+
+// splitTypesFromSelector splits RepeatTypesFrom$'s leading Valid<Zone> token
+// from its card selector using the RepeatCards$ scan's zone vocabulary. A
+// bare `Valid` token (Forge's shorthand for the battlefield) is recognized
+// too. ok is false for a token that names no zone.
+func splitTypesFromSelector(spec string) (state.Zone, string, bool) {
+	spec = strings.TrimSpace(spec)
+	if spec == "" {
+		return 0, "", false
+	}
+	head, rest, _ := strings.Cut(spec, " ")
+	zoneName := strings.TrimPrefix(head, "Valid")
+	if zoneName == head { // no Valid prefix at all
+		return 0, "", false
+	}
+	if zoneName == "" { // bare `Valid`: the battlefield
+		return state.ZBattlefield, strings.TrimSpace(rest), true
+	}
+	for _, rz := range repeatCardsZones {
+		if rz.name == zoneName {
+			return rz.zone, strings.TrimSpace(rest), true
+		}
+	}
+	return 0, "", false
 }
 
 func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
