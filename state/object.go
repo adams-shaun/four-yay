@@ -574,8 +574,12 @@ type DamageDealtRecord struct {
 	// SourceColors are the source's WUBRG colours when the hit landed
 	// (HasSourceColors false for a log recorded before they were kept: the
 	// count then reads the source's current colours).
-	SourceColors     string
-	HasSourceColors  bool
+	SourceColors    string
+	HasSourceColors bool
+	// Old provenance logs omit these fields; absent values use live characteristics.
+	SourceZone       Zone
+	HasSourceZone    bool
+	SourceTypes      []string
 	Recipient        ObjID
 	RecipientZone    Zone
 	RecipientControl PlayerID

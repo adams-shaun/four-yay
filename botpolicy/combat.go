@@ -313,6 +313,7 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 				instantSpeed = f.TypeLineHas("Instant", twInstant) || hasFlash(ch.Keywords(id))
 			}
 			*b.Cards.slot(id) = Card{
+				PrintedName:   f.Name,
 				Creature:      f.IsCreature(),
 				Power:         power,
 				Toughness:     toughness,
@@ -391,13 +392,14 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 			}
 			f := o.Face()
 			*b.Cards.slot(id) = Card{
-				Creature:  f.IsCreature(),
-				Power:     power,
-				CMC:       cmcOfFace(f),
-				Basic:     f.TypeLineHas("Basic", twBasic),
-				ManaCost:  f.ManaCost,
-				Toughness: toughness,
-				Activated: o.ActivatedThisTurn,
+				PrintedName: f.Name,
+				Creature:    f.IsCreature(),
+				Power:       power,
+				CMC:         cmcOfFace(f),
+				Basic:       f.TypeLineHas("Basic", twBasic),
+				ManaCost:    f.ManaCost,
+				Toughness:   toughness,
+				Activated:   o.ActivatedThisTurn,
 			}
 		}
 	}
