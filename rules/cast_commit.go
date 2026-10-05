@@ -54,6 +54,40 @@ func manaColorSpentCastInfo(pc *pendingCast, flags string) (events.Event, bool) 
 	return events.Event{Kind: events.CastInfo, Obj: pc.card, Text: events.ManaColorSpentText(pc.manaColorSpent), Counter: csFlags}, true
 }
 
+type craftMaterialRecorder interface {
+	emit(events.Event) events.Event
+}
+
+func rememberCraftMaterials(e craftMaterialRecorder, source state.ObjID, materials []state.ObjID) {
+	for _, id := range materials {
+		e.emit(events.Event{Kind: events.Choose, Obj: source, Counter: "remembered", IDs: []state.ObjID{id}})
+	}
+}
+
+type craftMaterialSource interface {
+	Game() *state.Game
+	matchesSpecFrom(string, state.ObjID, state.PlayerID, state.ObjID) bool
+}
+
+func craftExiledMaterials(e craftMaterialSource, pc *pendingCast) []state.ObjID {
+	var materials []state.ObjID
+	for _, part := range pc.cost.Exile {
+		if part.ZoneSet == 0 {
+			continue
+		}
+		for _, id := range pc.Exiles {
+			o := e.Game().Obj(id)
+			if o == nil || (o.Zone != state.ZBattlefield && o.Zone != state.ZGraveyard) || id == pc.card {
+				continue
+			}
+			if e.matchesSpecFrom(part.Spec, id, pc.player, pc.card) {
+				materials = append(materials, id)
+			}
+		}
+	}
+	return materials
+}
+
 func (e *Engine) payCast() {
 	pc := e.cast
 	if pc == nil {
@@ -197,11 +231,13 @@ func (e *Engine) payCast() {
 		// exile. Read the zone live: the settled card is still where exAsk
 		// found it, but a From read from the object keeps a graveyard
 		// self-exile honest about where it moved from.
+		craftMaterials := craftExiledMaterials(e, pc)
 		for _, id := range pc.Exiles {
 			if o := e.G.Obj(id); o != nil {
 				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone, To: state.ZExile, Text: "exiled as a cost"})
 			}
 		}
+		rememberCraftMaterials(e, pc.card, craftMaterials)
 		// CollectEvidence parts (alltargeted1): the evidence chosen at the
 		// evidenceAsk stage leaves the payer's graveyard for exile, the same
 		// action the Ward evidence payment performs.

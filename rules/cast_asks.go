@@ -549,10 +549,18 @@ func (e *Engine) exAsk() bool {
 	// pay a card that is no longer on top. There is no chooser for this cost.
 	for pc.ExilePart < len(pc.cost.Exile) {
 		part := pc.cost.Exile[pc.ExilePart]
-		zone := part.Zone
-		if zone == 0 {
-			zone = state.ZHand
+		zones := []state.Zone{part.Zone}
+		if part.ZoneSet != 0 {
+			zones = zones[:0]
+			for _, z := range []state.Zone{state.ZBattlefield, state.ZGraveyard} {
+				if part.ZoneSet&(1<<z) != 0 {
+					zones = append(zones, z)
+				}
+			}
+		} else if part.Zone == 0 {
+			zones[0] = state.ZHand
 		}
+
 		// The announce-bound filter (the Shoal cycle's cmcEQX): the announced
 		// X binds the spec's non-literal RHS through SpecContext.Resolve — the
 		// same closure mechanism a Chosen* predicate resolves through — so
@@ -572,43 +580,45 @@ func (e *Engine) exAsk() bool {
 			sc = &bound
 		}
 		var candidates []state.ObjID
-		for _, oid := range pay.ExileCostCandidates(e.G, zone, pc.player, part) {
-			// A CAST (pc.ability < 0) can never exile the card it is casting:
-			// the card sits in this zone until pushCast runs (CR 601.2a pushes
-			// AFTER the cost asks), so without this skip a `Card` spec would
-			// offer the cast card as its own ExileFromGrave fodder -- the
-			// payment side of the same self-exclusion nonManaCastable applies
-			// to the affordability walk. An ability activation (pc.ability >=
-			// 0) is untouched: encore's Cost$ ExileFromGrave<1/CARDNAME>
-			// really does exile its own source.
-			if !pc.isAbility() && oid == pc.card {
-				continue
-			}
-			// A battlefield Exile cost candidate is withheld by a CantExile
-			// static whose ForCost$ True restricts cost payments -- the
-			// exAsk half of the same guard nonManaCastable's offer walk
-			// applies, keeping the ask from offering an unpayable permanent
-			// (which would abort the cast). ForCost$ False (The Master)
-			// leaves the candidate offered.
-			if zone == state.ZBattlefield && e.exileBlockedForCost(oid, pay.CostCauseForAbility(pc.isAbility())) {
-				continue
-			}
-			wholeZone := isWholeZoneExileSpec(part.Spec)
-			match := wholeZone || (part.Referent != 0 && oid == part.Referent) ||
-				(part.Referent == 0 && e.matchesSpecFrom(part.Spec, oid, pc.player, pc.card))
-			if sc != nil && !wholeZone && part.Referent == 0 {
-				match = e.matchesSpec(part.Spec, oid, *sc)
-			}
-			if match {
-				already := false
-				for _, s := range pc.Exiles {
-					if s == oid {
-						already = true
-						break
-					}
+		for _, zone := range zones {
+			for _, oid := range pay.ExileCostCandidates(e.G, zone, pc.player, part) {
+				// A CAST (pc.ability < 0) can never exile the card it is casting:
+				// the card sits in this zone until pushCast runs (CR 601.2a pushes
+				// AFTER the cost asks), so without this skip a `Card` spec would
+				// offer the cast card as its own ExileFromGrave fodder -- the
+				// payment side of the same self-exclusion nonManaCastable applies
+				// to the affordability walk. An ability activation (pc.ability >=
+				// 0) is untouched: encore's Cost$ ExileFromGrave<1/CARDNAME>
+				// really does exile its own source.
+				if !pc.isAbility() && oid == pc.card {
+					continue
 				}
-				if !already {
-					candidates = append(candidates, oid)
+				// A battlefield Exile cost candidate is withheld by a CantExile
+				// static whose ForCost$ True restricts cost payments -- the
+				// exAsk half of the same guard nonManaCastable's offer walk
+				// applies, keeping the ask from offering an unpayable permanent
+				// (which would abort the cast). ForCost$ False (The Master)
+				// leaves the candidate offered.
+				if zone == state.ZBattlefield && e.exileBlockedForCost(oid, pay.CostCauseForAbility(pc.isAbility())) {
+					continue
+				}
+				wholeZone := isWholeZoneExileSpec(part.Spec)
+				match := wholeZone || (part.Referent != 0 && oid == part.Referent) ||
+					(part.Referent == 0 && e.matchesSpecFrom(part.Spec, oid, pc.player, pc.card))
+				if sc != nil && !wholeZone && part.Referent == 0 {
+					match = e.matchesSpec(part.Spec, oid, *sc)
+				}
+				if match {
+					already := false
+					for _, s := range pc.Exiles {
+						if s == oid {
+							already = true
+							break
+						}
+					}
+					if !already {
+						candidates = append(candidates, oid)
+					}
 				}
 			}
 		}
@@ -647,10 +657,11 @@ func (e *Engine) exAsk() bool {
 			continue
 		}
 		zoneName := "hand"
-		switch zone {
-		case state.ZGraveyard:
+		if part.ZoneSet != 0 {
+			zoneName = "battlefield or graveyard"
+		} else if len(zones) != 0 && zones[0] == state.ZGraveyard {
 			zoneName = "graveyard"
-		case state.ZBattlefield:
+		} else if len(zones) != 0 && zones[0] == state.ZBattlefield {
 			zoneName = "battlefield"
 		}
 		d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: n, Max: n,
