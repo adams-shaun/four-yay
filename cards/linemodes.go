@@ -249,7 +249,8 @@ const (
 	StaticCombatDamageToughness StaticMode = 29
 	StaticMustBlock             StaticMode = 30
 	StaticUnspentMana           StaticMode = 31
-	StaticModeCount                        = 32 // one past the last; sizes a dense per-StaticMode array
+	StaticCantPlayLand          StaticMode = 32
+	StaticModeCount                        = 33 // one past the last; sizes a dense per-StaticMode array
 )
 
 var staticModeNames = [StaticModeCount]string{
@@ -284,6 +285,7 @@ var staticModeNames = [StaticModeCount]string{
 	StaticCombatDamageToughness: "CombatDamageToughness",
 	StaticMustBlock:             "MustBlock",
 	StaticUnspentMana:           "UnspentMana",
+	StaticCantPlayLand:          "CantPlayLand",
 }
 
 var staticModeCodes = func() StrCodes[StaticMode] {
