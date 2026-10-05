@@ -553,6 +553,14 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 // dotBranch (literal or SVar name), the Revolt/Morbid precedent. A malformed
 // tail or an unreadable colour returns ok=false so the caller reports the
 // body unresolvable rather than a fake zero.
+// AdamantHolds reports whether the source spent at least n mana in the
+// requested colour, using the same per-colour branch evaluator as Count$Adamant.
+// evaluated is false for an unsupported colour or an unreadable source.
+func AdamantHolds(h Host, c *Ctx, g *state.Game, n int32, colour string) (holds, evaluated bool) {
+	v, evaluated := evalAdamantBranch(h, c, g, n, colour+".1.0", 0)
+	return evaluated && v == 1, evaluated
+}
+
 func evalAdamantBranch(h Host, c *Ctx, g *state.Game, n int32, rest string, depth int) (int32, bool) {
 	colTok, branch, found := strings.Cut(rest, ".")
 	if !found {
