@@ -105,8 +105,9 @@ type replChoice struct {
 	// which may differ from the CR 616.1e affected player recomputed fresh
 	// into damageAffectedPlayer at every cycle) for kind == replChoiceDamage
 	// or replChoiceCounter.
-	used   []replMatch
-	player state.PlayerID
+	used            []replMatch
+	player          state.PlayerID
+	drawCompetition bool // optional Draw candidate chosen from a multi-replacement order ask
 	// combat marks a damage competition parked from the combat-damage step's
 	// own assignment loop (rules/combat.go): the chosen replacement's
 	// lifelink/deathtouch riders and commander-damage tally pay the way
@@ -382,8 +383,7 @@ func (e *Engine) askReplacementChoice(p state.PlayerID) {
 		}
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "replacement", Obj: c.id, Label: label})
 	}
-	if (rc.ev.Kind == events.Damage && hasOptionalReplacement(rc.cands)) ||
-		(rc.ev.Kind == events.Draw && hasOptionalBodylessDrawReplacement(rc.cands)) {
+	if rc.ev.Kind == events.Damage && hasOptionalReplacement(rc.cands) {
 		d.Options = append(d.Options, decision.Option{Index: len(rc.cands), Kind: "skip_replacement",
 			Label: "Do not apply an optional replacement"})
 		// A single-optional competition asked of its OptionalDecider$ is the
@@ -433,12 +433,39 @@ func hasOptionalBodylessDrawReplacement(matches []replMatch) bool {
 	return false
 }
 
+func scheduleSelectedOptionalDraw(rc replChoice, index int,
+	askPlayer func([]replMatch, state.PlayerID) state.PlayerID,
+	choices *[]replChoice, ask func(state.PlayerID)) bool {
+	if rc.ev.Kind != events.Draw || rc.kind == replChoiceDraw || index < 0 || index >= len(rc.cands) {
+		return false
+	}
+	m := rc.cands[index]
+	if m.repl.With != nil || !m.repl.OptionalValue() {
+		return false
+	}
+	rc.kind = replChoiceDraw
+	rc.selected = 0
+	rc.drawCompetition = true
+	rc.cands = []replMatch{m}
+	rc.player = askPlayer(rc.cands, rc.ev.Player)
+	*choices = append([]replChoice{rc}, *choices...)
+	ask(rc.player)
+	return true
+}
+
 func handleDrawReplacementChoice(rc replChoice, choice int, before *triggerSnapshot,
 	emit func(events.Event) events.Event, applying *bool, exclude *[]string,
 	triggerBefore **triggerSnapshot, askNext func()) bool {
 	if rc.kind == replChoiceDraw {
 		if choice == 1 {
-			emitDeclinedDrawReplacement(emit, applying, rc.ev)
+			if rc.drawCompetition {
+				priorExclude := *exclude
+				*exclude = append(append([]string(nil), priorExclude...), replIdentity(rc.cands[rc.selected]))
+				emit(rc.ev)
+				*exclude = priorExclude
+			} else {
+				emitDeclinedDrawReplacement(emit, applying, rc.ev)
+			}
 		}
 		*triggerBefore = before
 		askNext()
@@ -537,6 +564,10 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 	}
 	before := e.triggerBefore
 	e.triggerBefore = rc.before
+	if scheduleSelectedOptionalDraw(rc, chosen[0].Index, e.replacementAskPlayer,
+		&e.replChoices, e.askReplacementChoice) {
+		return
+	}
 	if handleDrawReplacementChoice(rc, chosen[0].Index, before, e.emit,
 		&e.applyingReplacement, &e.replExclude, &e.triggerBefore, e.askNextReplacementChoice) {
 		return
