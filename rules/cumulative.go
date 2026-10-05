@@ -1085,6 +1085,22 @@ func (tc *triggeredEffectCost) announcedCost() Cost {
 // is (CR 107.4e).
 func (e *Engine) triggeredCostPayable(tc *triggeredEffectCost) bool {
 	amt := tc.announcedCost()
+	if len(amt.TapPermanent) > 0 && !costCarriesDynTap(amt) {
+		if amt.Tap || amt.X != 0 || len(amt.Sac)+len(amt.Discard)+len(amt.Exile)+len(amt.MoveToGrave)+len(amt.Evidence)+len(amt.Draw) > 0 {
+			return false
+		}
+		rest := amt
+		rest.TapPermanent = nil
+		if !rest.Priceable() || rest.HasManaPayment() || rest.Life != 0 || rest.Snow != 0 || len(rest.Hybrid)+len(rest.Phyrexian)+len(rest.Twobrid)+len(rest.HybridPhyrexian) > 0 {
+			return false
+		}
+		for _, part := range amt.TapPermanent {
+			if part.N <= 0 || int32(len(pay.TapCostCandidates(asPayer(e), tc.player, tc.source, part))) < part.N {
+				return false
+			}
+		}
+		return true
+	}
 	if !pay.EnergyPayable(e.G, tc.player, &amt) {
 		return false
 	}
@@ -1312,6 +1328,22 @@ func (e *Engine) triggeredCostPaymentAsk() {
 			return
 		}
 		// fall through: the unpayable-cost decline-only ask below
+	}
+	if len(tc.amount.TapPermanent) > 0 && !costCarriesDynTap(tc.amount) {
+		parts := tc.amount.TapPermanent
+		if tc.tapIdx < len(parts) {
+			part := parts[tc.tapIdx]
+			candidates := pay.TapCostCandidates(asPayer(e), tc.player, tc.source, part)
+			if int32(len(candidates)) >= part.N {
+				d := &decision.Decision{Player: tc.player, Kind: decision.KChoose, Min: int(part.N), Max: int(part.N),
+					Prompt: tc.costLabel, Source: tc.source}
+				for _, id := range candidates {
+					d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "trigger_cost_tap", Obj: id, Label: e.targetName(id)})
+				}
+				windowAsk(e, d, chooseTriggeredCost)
+				return
+			}
+		}
 	}
 	if e.triggeredCostXAsk(tc) {
 		return
@@ -2044,6 +2076,26 @@ func (e *Engine) triggeredTapAsk(tc *triggeredEffectCost, part CostPart) {
 // priority pass runs between its asks -- so the chosen objects cannot have
 // moved; the zone guard is the same read the cumulative actions take.
 func (e *Engine) triggeredTapAnswer(tc *triggeredEffectCost, chosen []decision.Option) {
+	if len(dynTapParts(tc.amount)) == 0 {
+		if tc.tapIdx >= len(tc.amount.TapPermanent) || len(chosen) == 0 {
+			return
+		}
+		for _, option := range chosen {
+			if o := e.G.Obj(option.Obj); o != nil && o.Zone == state.ZBattlefield && !o.Tapped {
+				e.emit(events.Event{Kind: events.Tap, Obj: o.ID, Text: "tapped as a cost"})
+			}
+		}
+		tc.tapIdx++
+		if tc.tapIdx < len(tc.amount.TapPermanent) {
+			e.triggeredCostPaymentAsk()
+			return
+		}
+		rp := tc.resume
+		e.triggerCost = nil
+		rp.kind = "effect_paid"
+		e.resumeResolution(rp, nil)
+		return
+	}
 	dyn := dynTapParts(tc.amount)
 	idx := tc.tapIdx
 	if idx >= len(dyn) {
