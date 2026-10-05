@@ -13,12 +13,17 @@ import (
 // It is claimed after every existing arm and before the zone arm, so no head
 // another evaluator already owns is preempted.
 //
+// The head vocabulary is evalCountBodyCostCodes (shared because the codeshape
+// ratchet caps the number of StrCodes tables); evalCountBodyCost's own switch
+// has no case for these codes, so its matched verdict stays false and the
+// dispatch falls through to here.
+//
 // Each arm follows the dispatch's verdict convention: a recognised head is
 // modelled (ok true) even when it legitimately counts zero, and only a
 // malformed argument this build cannot parse fails the head's own verdict.
 func evalCountBodySimple(h Host, c *Ctx, g *state.Game, head, arg string, depth int) (int32, bool, bool) {
-	switch countBodySimpleCodes.Code(string(head)) {
-	case countBodySimpleIsPrime:
+	switch evalCountBodyCostCodes.Code(string(head)) {
+	case evalCountBodyCostIsPrime:
 		// Forge's Count$IsPrime <SVar>.<True>.<False> (DSK Zimone,
 		// All-Questioning): evaluate <SVar>, then answer the <True> operand
 		// when the value is prime and <False> otherwise. The corpus splits as
@@ -46,7 +51,7 @@ func evalCountBodySimple(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 			return evalCountOperand(h, c, trueTok, depth), true, true
 		}
 		return evalCountOperand(h, c, falseTok, depth), true, true
-	case countBodySimpleImprintedSize:
+	case evalCountBodyCostImprintedSize:
 		// Forge's Count$ImprintedSize is c.getImprintedCards().size(): the
 		// cards Imprint$/ImprintCards$ associated with the ability's host. In
 		// this engine those associations are state.Object.Imprinted, written
@@ -63,7 +68,7 @@ func evalCountBodySimple(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 			return int32(len(o.Imprinted)), true, true
 		}
 		return 0, true, true
-	case countBodySimpleFinishedEndOfTurnsThisTurn:
+	case evalCountBodyCostFinishedEndOfTurnsThisTurn:
 		// Forge's Count$FinishedEndOfTurnsThisTurn (FIN Y'shtola Rhul's "if
 		// it's the first end step of the turn" gate): getNumEndOfTurn() minus
 		// one while the walk is currently IN an end step. state.Game's
@@ -102,17 +107,3 @@ func isPrime(n int32) bool {
 	}
 	return true
 }
-
-type countBodySimpleCode uint16
-
-const (
-	countBodySimpleIsPrime countBodySimpleCode = iota + 1
-	countBodySimpleImprintedSize
-	countBodySimpleFinishedEndOfTurnsThisTurn
-)
-
-var countBodySimpleCodes = state.NewStrCodes(
-	state.StrEntry[countBodySimpleCode]{Key: "IsPrime", Val: countBodySimpleIsPrime},
-	state.StrEntry[countBodySimpleCode]{Key: "ImprintedSize", Val: countBodySimpleImprintedSize},
-	state.StrEntry[countBodySimpleCode]{Key: "FinishedEndOfTurnsThisTurn", Val: countBodySimpleFinishedEndOfTurnsThisTurn},
-)
