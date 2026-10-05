@@ -10,6 +10,22 @@ import (
 // The engine's yes-election is not the object chooser XMage poses: XMage
 // asks directly for the card to discard / put onto the battlefield. Assert
 // the actual selected card, not merely that a yes-looking label was skipped.
+func TestCompositeMayDoesNotConsumeWholeHandElection(t *testing.T) {
+	sc := Scenario{Steps: []Step{{Op: "cast", Card: "p0:Test Spell"}, {Op: "resolve"}}}
+	res := rules.OracleResult{
+		Snapshots: []rules.OracleSnapshot{
+			{}, {Players: []rules.OracleSnapPlayer{{Seat: 0}}},
+			{Players: []rules.OracleSnapPlayer{{Seat: 0, Graveyard: []string{"Wastes", "Test Spell"}}},
+		},
+		Decisions: []rules.OracleDecision{{Step: 1, Seat: 0, Kind: "choose_n", Options: 2,
+			Picks: []string{"Yes — discard your hand"}, PickRefs: []string{"Yes — discard your hand"}, PickKinds: []string{"yes"}}},
+	}
+	want := [][]XAnswer{nil, {{Seat: 0, Kind: "choice", Value: "Yes — discard your hand"}}}
+	if got := xanswersForScenario(res, sc, nil); !reflect.DeepEqual(got, want) {
+		t.Fatalf("whole-hand election = %#v, want %#v", got, want)
+	}
+}
+
 func TestDiscardModeUsesChoiceQueueEvenForOneOption(t *testing.T) {
 	d := rules.OracleDecision{Step: 0, Seat: 0, Kind: "mode", Options: 1, Min: 1, Max: 1,
 		Picks: []string{"Discard Wastes"}, PickRefs: []string{"p0:Wastes"}, PickKinds: []string{"discard"}}

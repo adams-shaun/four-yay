@@ -21,7 +21,7 @@ func xanswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]i
 		}
 		var zone string
 		switch {
-		case strings.HasPrefix(d.Picks[0], "Yes — discard"):
+		case d.Picks[0] == "Yes — discard":
 			zone = "graveyard"
 		case strings.HasPrefix(d.Picks[0], "Yes — put into the battlefield"):
 			zone = "battlefield"
