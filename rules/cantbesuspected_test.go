@@ -70,6 +70,67 @@ func TestCantBeSuspectedSuppressesTheDesignation(t *testing.T) {
 	}
 }
 
+// TestCantBeSuspectedAirtightAlibiProtectsEnchantedCreature pins the real
+// corpus Aura's Creature.EnchantedBy scope end to end. The unattached Bear is
+// the control proving the designation effect ran normally.
+func TestCantBeSuspectedAirtightAlibiProtectsEnchantedCreature(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	alibi, ok := reg.Lookup("Airtight Alibi")
+	if !ok {
+		t.Fatal("corpus missing Airtight Alibi")
+	}
+	e, cfg, bear := staticGainControlGame(t, 702157, []*cards.Card{alibi}, 2)
+	unattached := state.ObjID(0)
+	for _, zone := range []state.Zone{state.ZHand, state.ZLibrary} {
+		for _, id := range e.G.Zone(zone, 1) {
+			if e.G.Obj(id).Face().Name == "Grizzly Bears" {
+				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: zone, To: state.ZBattlefield})
+				unattached = id
+				break
+			}
+		}
+		if unattached != 0 {
+			break
+		}
+	}
+	if unattached == 0 {
+		t.Fatal("precondition: no second Bear available to put on the battlefield")
+	}
+	aura := findAndMoveToHand(t, e, 0, "Airtight Alibi")
+	addMana(t, e, 0, "GGGGG")
+	castFromPriority(t, e, aura)
+	answerKTarget(t, e, bear)
+	passUntilStackEmpty(t, e, 60)
+	if got := e.G.Obj(aura).AttachedTo; got != bear {
+		t.Fatalf("precondition: Airtight Alibi AttachedTo = %d, want bearer %d", got, bear)
+	}
+	if got := len(e.activeStatics("CantBeSuspected")); got != 1 {
+		t.Fatalf("precondition: expected one live CantBeSuspected static, got %d", got)
+	}
+	if !cantBeSuspected(e, bear) {
+		t.Fatal("precondition: Airtight Alibi must protect its enchanted creature")
+	}
+	if cantBeSuspected(e, unattached) {
+		t.Fatal("precondition: the unattached control creature must not be protected")
+	}
+
+	suspect := func(id state.ObjID) {
+		sa := &cards.SA{Kind: "DB", API: "AlterAttribute", Params: map[string]string{"Attributes": "Suspected", "ValidTgts": "Creature"}}
+		effects.Resolve(e, &effects.Ctx{Source: aura, Controller: 0,
+			Targets: []state.Target{{Obj: id}}, TargetsOffered: true}, sa)
+	}
+	suspect(bear)
+	suspect(unattached)
+	if !e.G.Obj(unattached).Suspected {
+		t.Fatal("precondition: unattached control creature did not become suspected; effect path did not run")
+	}
+	if e.G.Obj(bear).Suspected {
+		t.Fatal("Airtight Alibi did not suppress Suspected on its enchanted creature")
+	}
+	replayCheck(t, e, cfg)
+}
+
 // TestCantBeSuspectedRemovalStillApplies pins that the prohibition only blocks
 // the activating direction: an Activate$ False (un-suspect) still clears a
 // designation, so the CantBeSuspected family can never strand a suspected
