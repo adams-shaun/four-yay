@@ -18,6 +18,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/state"
 )
 
 const ignoreHexproofSrc = "Name:Test Nowhere\nManaCost:2 B\nTypes:Enchantment\n" +
@@ -68,6 +69,40 @@ func TestIgnoreHexproofLiftsHexproofForScopedController(t *testing.T) {
 	// asymmetric, and ignore-hexproof never ADDS a restriction).
 	if e.hexproofBlocksTarget(hexID, 1, 0) {
 		t.Fatal("IgnoreHexproof wrongly withheld the hexproof creature's own controller")
+	}
+}
+
+// TestIgnoreHexproofNowhereToRunRealCorpusCard ties the corpus script's
+// IgnoreHexproof mode to the real targeting gate.
+func TestIgnoreHexproofNowhereToRunRealCorpusCard(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	nowhere := mustCorpusCard(t, reg, "Nowhere to Run")
+	giant := mustCorpusCard(t, reg, "Benthic Giant")
+	e := handEngine(t)
+	hexID := onBoardCard(t, e, 1, giant)
+
+	// Preconditions: the real creature is on the battlefield and its real
+	// Hexproof keyword withholds seat 0's targeting before the static is live.
+	if e.G.Obj(hexID).Zone != state.ZBattlefield {
+		t.Fatalf("precondition: Benthic Giant zone = %v, want battlefield", e.G.Obj(hexID).Zone)
+	}
+	if !e.HasKeyword(hexID, "Hexproof") {
+		t.Fatalf("precondition: Benthic Giant lacks Hexproof: %v", e.Keywords(hexID))
+	}
+	if !e.hexproofBlocksTarget(hexID, 0, 0) {
+		t.Fatal("precondition: Benthic Giant's hexproof did not withhold seat 0 targeting before Nowhere to Run")
+	}
+
+	onBoardCard(t, e, 0, nowhere)
+	if got := len(e.activeStatics("IgnoreHexproof")); got != 1 {
+		t.Fatalf("precondition: active IgnoreHexproof statics = %d, want 1", got)
+	}
+	if e.hexproofBlocksTarget(hexID, 0, 0) {
+		t.Fatal("Nowhere to Run's real Creature.OppCtrl static did not lift seat 0's hexproof gate")
+	}
+	if e.hexproofBlocksTarget(hexID, 1, 0) {
+		t.Fatal("Nowhere to Run wrongly withheld Benthic Giant from its own controller")
 	}
 }
 
