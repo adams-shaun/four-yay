@@ -1872,6 +1872,17 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 		h.Emit(events.Event{Kind: events.LibraryOrder, Player: p,
 			IDs:    append([]state.ObjID(nil), lib...),
 			Secret: true})
+		// RememberKept$ True on the no-host path: the stand-in keeps every
+		// looked-at card on top, so each joins the source's remembered list
+		// exactly as the answered arm (rules' arrangeAnswerRecord) records
+		// pile A. Without this the deterministic replay would drop the
+		// recollection the answered path keeps, and Starving Revenant's
+		// draw/lose would differ between a tape run and a no-ask host.
+		// Bounded to the looked-at window (k).
+		if strings.EqualFold(strings.TrimSpace(rawParamText(sa, "RememberKept").Text), "True") && k > 0 && c.Source != 0 {
+			kept := append([]state.ObjID(nil), lib[:k]...)
+			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "remembered", IDs: kept})
+		}
 		// A Scry that completes HERE -- no-host, or the never-posted empty
 		// KArrange an empty library or ScryNum$ 0 produces -- still completed:
 		// record its zero-card bottom pile (task scrybottom) through

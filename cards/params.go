@@ -686,6 +686,7 @@ const (
 	PKRepeatPlayers
 	PKRepeatSpellAbilities
 	PKRepeatTargeted
+	PKRepeatTypesFrom
 	PKReplaceDyingDefined
 	PKReplacementEffects
 	PKSetChosenNumber
@@ -1419,6 +1420,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKRepeatPlayers:                    "RepeatPlayers",
 	PKRepeatSpellAbilities:             "RepeatSpellAbilities",
 	PKRepeatTargeted:                   "RepeatTargeted",
+	PKRepeatTypesFrom:                  "RepeatTypesFrom",
 	PKReplaceDyingDefined:              "ReplaceDyingDefined",
 	PKReplacementEffects:               "ReplacementEffects",
 	PKSetChosenNumber:                  "SetChosenNumber",

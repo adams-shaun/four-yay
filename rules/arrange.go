@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"strings"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
@@ -201,6 +203,20 @@ func arrangeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent, sa
 		for _, id := range pileB {
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id,
 				From: state.ZLibrary, To: state.ZGraveyard, Player: d.Player})
+		}
+		// RememberKept$ True (task surveil-remember-kept; LCI Starving
+		// Revenant's "for each card you put on top of your library, you
+		// draw a card and you lose 3 life"): the KEPT pile (pile A) joins
+		// the source's event-backed remembered list, exactly as
+		// effects.discardAndRemember records a discarded card, so a chained
+		// `Remembered$Amount` / Count$RememberedSize read finds it. Applied
+		// here, in the one answer record every answered arrange passes
+		// through, rather than in the asking effect: an answered KArrange is
+		// applied by the resolution kernel (resolveBoard.Record), which the
+		// effects walk never sees.
+		if sa != nil && strings.EqualFold(strings.TrimSpace(sa.Params["RememberKept"]), "True") && len(pileA) > 0 {
+			e.emit(events.Event{Kind: events.Choose, Obj: d.Source, Counter: "remembered",
+				IDs: append([]state.ObjID(nil), pileA...)})
 		}
 	default:
 		// "" / "top": pile B beneath pile A, above the untouched remainder

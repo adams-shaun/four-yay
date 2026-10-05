@@ -57,6 +57,43 @@ func repeatedCards(h Host, c *Ctx, rp *RepeatEachParams) ([]state.Target, bool) 
 	return out, true
 }
 
+func repeatEachTypesFrom(h Host, c *Ctx, spec string) ([]string, bool) {
+	// RepeatTypesFrom enumerates distinct Magic card types represented by
+	// matching cards, in rules-defined type order (not map iteration order).
+	// This is the Portent of Calamity shape: cards remain in the library but
+	// carry the source's IsImprinted association.
+	const types = "Artifact Battle Creature Enchantment Instant Land Planeswalker Sorcery"
+	selector := strings.TrimSpace(strings.TrimPrefix(spec, "ValidLibrary"))
+	if selector == "" {
+		return nil, false
+	}
+	var out []string
+	seen := map[string]bool{}
+	players := h.Game().AliveFrom(c.Controller)
+	for _, p := range players {
+		for _, id := range h.Game().Zone(state.ZLibrary, p) {
+			obj := h.Game().Obj(id)
+			if obj == nil || !choiceMatches(h, h.Game(), c, selector, obj) || obj.Face() == nil {
+				continue
+			}
+			for typ := range strings.SplitSeq(types, " ") {
+				hasType := false
+				for _, printed := range obj.Face().Types {
+					if strings.EqualFold(printed, typ) {
+						hasType = true
+						break
+					}
+				}
+				if hasType && !seen[typ] {
+					seen[typ] = true
+					out = append(out, typ)
+				}
+			}
+		}
+	}
+	return out, true
+}
+
 func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 	if c.SVars == nil {
 		return
@@ -67,6 +104,7 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	var subjects []state.Target
+	var repeatedTypes []string
 	// DamageMap$ True (Price of Progress, Wing Storm, Baki's Curse -- 87
 	// corpus files): the loop's damage is ONE damage batch. Forge accumulates
 	// every iteration's dealDamage into a per-SA damage table and deals it
@@ -138,6 +176,8 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 		subjects, ok = validStackTargets(h.Game(), rp.SpellAbilities, c), true
 	case rp.Targeted:
 		subjects, ok = copyTargets(c.Targets), true
+	case rp.TypesFrom != "":
+		repeatedTypes, ok = repeatEachTypesFrom(h, c, rp.TypesFrom)
 	default:
 		subjects, ok = repeatedCards(h, c, rp)
 		cardsSubjects = true
@@ -233,6 +273,18 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 		c.Remembered = rememberIteration(c.Remembered, cc.Remembered, base, t)
+	}
+	for _, typ := range repeatedTypes {
+		// RepeatTypesFrom binds the current type to the resolving source;
+		// predicates such as Card.ChosenType in the repeated body see this
+		// iteration through the ordinary event fold.
+		h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: typ})
+		cc := *c
+		cc.Remembered = append([]state.Target(nil), c.Remembered...)
+		Resolve(h, &cc, sub)
+		if h.Suspended() {
+			return
+		}
 	}
 	if batched && batcher != nil {
 		// The loop completed: close the batch opened for it.
