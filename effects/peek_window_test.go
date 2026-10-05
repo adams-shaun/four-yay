@@ -113,6 +113,47 @@ func TestPeekAndRevealImprintRevealed(t *testing.T) {
 	}
 }
 
+// peekFilteredCarriers pins every PeekAndReveal card carrying RevealValid$,
+// RevealType$, or RevealAllValid$. The census checks both additions and removals.
+var peekFilteredCarriers = []string{
+	"Archghoul of Thraben",
+	"Bucolic Ranch",
+	"Cabaretti Ascendancy",
+	"Deceiver of Form",
+	"Descendants' Path",
+	"Domri Rade",
+	"Dryad Greenseeker",
+	"Fisher's Talent",
+	"Frost Augur",
+	"Gathering Stone",
+	"Herald's Horn",
+	"Ink Dissolver",
+	"Kithkin Zephyrnaut",
+	"Leaf-Crowned Elder",
+	"Manifold Insights",
+	"Mudbutton Clanger",
+	"Narset Transcendent",
+	"Nightshade Schemers",
+	"Plane-Merge Elf",
+	"Pyroclast Consul",
+	"Quest for Ula's Temple",
+	"Rashmi, Eternities Crafter",
+	"Sarinth Steelseeker",
+	"Sensation Gorger",
+	"Sidequest: Catch a Fish",
+	"Sin Prodder",
+	"Squeaking Pie Grubfellows",
+	"Territory Culler",
+	"The Biblioplex",
+	"Traveling Botanist",
+	"Vivien's Grizzly",
+	"Wandering Graybeard",
+	"Waterspout Weavers",
+	"Winnower Patrol",
+	"Wolf-Skull Shaman",
+	"Yennett, Cryptic Sovereign",
+}
+
 // peekImprintCarriers pins the PeekAndReveal cards that carry
 // ImprintRevealed$ True; the census below holds the set exact.
 var peekImprintCarriers = []string{
@@ -167,8 +208,28 @@ func TestPeekAndRevealCensus(t *testing.T) {
 	if sawPeek < 100 {
 		t.Fatalf("census saw only %d PeekAndReveal SAs: the scan is not reading the corpus", sawPeek)
 	}
-	if len(filtered) < 20 {
-		t.Fatalf("filtered PeekAndReveal carriers = %d, expected the kinship family", len(filtered))
+	wantFiltered := map[string]bool{}
+	for _, n := range peekFilteredCarriers {
+		wantFiltered[n] = true
+	}
+	var addedFiltered, removedFiltered []string
+	for n := range filtered {
+		if !wantFiltered[n] {
+			addedFiltered = append(addedFiltered, n)
+		}
+	}
+	for n := range wantFiltered {
+		if !filtered[n] {
+			removedFiltered = append(removedFiltered, n)
+		}
+	}
+	sort.Strings(addedFiltered)
+	sort.Strings(removedFiltered)
+	if len(addedFiltered) > 0 {
+		t.Errorf("new filtered PeekAndReveal carriers: %v", addedFiltered)
+	}
+	if len(removedFiltered) > 0 {
+		t.Errorf("pinned filtered PeekAndReveal carriers gone: %v", removedFiltered)
 	}
 	want := map[string]bool{}
 	for _, n := range peekImprintCarriers {
