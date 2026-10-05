@@ -592,8 +592,11 @@ func (pc *pendingCast) allTargets() []state.Target {
 // collectSubTargetPreAsks walks the root SA's SubAbility$ chain in order and
 // returns the links whose targets are announced as the spell is cast or the
 // ability activated (CR 601.2c): every link that declares ValidTgts$, except
-// the ChangeZone family (effChangeZone's own mid-resolution ask,
-// changeZoneChosenTargets, still owns that shape -- a later stage).
+// a ChangeZone link whose target zone this census cannot resolve
+// (castSubChangeZoneAnnounceable -- effChangeZone's own mid-resolution ask,
+// changeZoneChosenTargets, still owns those shapes -- a later stage). The
+// graveyard-origin ChangeZone link is announced, not excluded: its public
+// graveyard is the one non-battlefield zone the cast census establishes.
 //
 // A link's Defined$ does not excuse it. `Defined$ You | ValidTgts$ Player`
 // (Biomantic Mastery's "another target player", Humble Defector's "target
@@ -618,7 +621,11 @@ func (e *Engine) collectSubTargetPreAsks(root *cards.SA) []*cards.SA {
 		if !effects.TargetsOf(sa).Targeted() {
 			continue
 		}
-		if sa.CompiledAPI() == cards.APIChangeZone || sa.API == "ChangeZone" {
+		// CR 601.2c: a targeted ChangeZone link announces on cast only when
+		// the cast census can resolve its target zone (see
+		// castSubChangeZoneAnnounceable); the unjudgeable ChangeZone shapes
+		// keep their mid-resolution ask (changeZoneChosenTargets).
+		if !castSubChangeZoneAnnounceable(sa) {
 			continue
 		}
 		out = append(out, sa)
@@ -766,7 +773,9 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 		//   - Overload: "target" reads "each" (CR 702.96a), so nothing in the
 		//     chain is a target at all.
 		//   - a link the census cannot judge yet (castSubPreAskable), which
-		//     also keeps its mid-resolution ask.
+		//     also keeps its mid-resolution ask. A targeted ChangeZone link
+		//     the cast census cannot resolve (castSubChangeZoneAnnounceable)
+		//     never reaches this list: collectSubTargetPreAsks drops it.
 		pc.subAsks = castSubAskLinks(e, pc, root)
 		pc.subAns = make([][]state.Target, len(pc.subAsks))
 	}
@@ -853,6 +862,48 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 		return true
 	}
 	return false
+}
+
+// castSubChangeZoneAnnounceable reports whether the cast flow can announce a
+// targeted ChangeZone chain link's targets while the spell is being cast
+// (CR 601.2c). It returns true for every non-ChangeZone link -- those are
+// judged by the ordinary cast flow -- and, for a ChangeZone link, when the
+// cast census can resolve its targets: a player-target link (zone-free) or an
+// explicit Origin$ Graveyard OBJECT target (originImpliedTargetZone, the same
+// resolver targetZones feeds the offer census, the cast ask and the CR 608.2b
+// resolution recheck). Every other ChangeZone object origin (Hand, Library,
+// Exile, a multi-zone union, Any) leaves targetZones' empty-range fallback at
+// the battlefield, so announcing the link on cast would offer a wrong pool and
+// a chosen answer would fail the recheck; those links keep their mid-resolution
+// ask (changeZoneChosenTargets, which resolves the hidden zone itself).
+// Cathartic Parting's graveyard link is exactly the admitted shape: its four
+// "target cards from your graveyard" are announced with the spell instead of
+// asked at resolution. Battlefield-origin object links (a bounce spell's
+// second "target creature") are the same announcement class but are NOT
+// admitted here: that is a wider change than this ticket scopes, and the
+// castCensusChangeZoneCarriers ratchet pins them.
+func castSubChangeZoneAnnounceable(sa *cards.SA) bool {
+	if sa.API != "ChangeZone" && sa.CompiledAPI() != cards.APIChangeZone {
+		return true
+	}
+	tp := effects.TargetsOf(sa)
+	// A player target is not zone-bound: the cast census offers players by
+	// the same path every other player-target link uses, so the link's Origin$
+	// is irrelevant (a player-targeted hidden search stays supported as a
+	// normal player target).
+	if tp.Has(effects.TgtValidPlayers) {
+		return true
+	}
+	// Origin$ Graveyard is the one non-battlefield OBJECT zone the census
+	// establishes for ChangeZone (originImpliedTargetZone, which also requires
+	// no explicit TgtZone$ and an object-only ValidTgts$). Every other
+	// object-target origin (Hand, Library, Exile, a multi-zone union, Any)
+	// leaves targetZones' empty-range fallback at the battlefield, so
+	// announcing the link on cast would offer a wrong pool and a chosen answer
+	// would fail the CR 608.2b recheck; those links keep their mid-resolution
+	// ask (changeZoneChosenTargets, which resolves the hidden zone itself).
+	_, ok := originImpliedTargetZone(sa)
+	return ok
 }
 
 // castSubPreAskable reports whether the cast flow can announce this chain

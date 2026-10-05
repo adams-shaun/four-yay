@@ -32,19 +32,19 @@
      "op": "cast",
      "seat": 0,
      "card": "p0:Victimize",
-     "mana": "CBB"
-    },
-    {
-     "op": "resolve",
+     "mana": "CBB",
      "answers": [
       {
-       "kind": "any",
+       "kind": "target",
        "pick": [
         "p0:Grizzly Bears",
         "p0:Centaur Courser"
        ]
       }
      ]
+    },
+    {
+     "op": "resolve"
     }
    ],
    "expect": [

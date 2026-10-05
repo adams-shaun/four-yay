@@ -92,10 +92,11 @@ func chooseObj(t *testing.T, e *Engine, kind string, obj state.ObjID) {
 // on the real corpus card: seat 0 casts Grizzly Bears, then Put Away
 // countering it. The sub (`DB$ ChangeZone | Origin$ Graveyard | ... |
 // Shuffle$ True | ShuffleNonMandatory$ True`) must pose its own graveyard
-// ask (KChoose, resume "choice"), the answered card -- deliberately a
-// DIFFERENT card than the countered spell, proving the answer decoupled from
-// Ctx.Targets -- moves to the library, and the may-shuffle confirm appears
-// and is honoured on both branches.
+// target ask WITH THE CAST (CR 601.2c: a cast_sub KTarget, not a resolution
+// KChoose), the answered card -- deliberately a DIFFERENT card than the
+// countered spell, proving the answer decoupled from Ctx.Targets -- moves to
+// the library, and the may-shuffle confirm appears and is honoured on both
+// branches.
 func TestPutAwaySubAsksGraveyardTarget(t *testing.T) {
 	t.Parallel()
 	for _, accept := range []bool{true, false} {
@@ -152,17 +153,17 @@ func TestPutAwaySubAsksGraveyardTarget(t *testing.T) {
 			}
 			chooseObj(t, e, "spell", bearStack)
 
-			// The sub's own graveyard ask: pre-fix this never fired (the sub
+			// The sub's own graveyard target, announced with the cast
+			// (CR 601.2c): a cast_sub KTarget. Pre-fix this never fired (the sub
 			// inherited the countered spell and its Origin$ Graveyard filter
 			// silently no-oped).
-			start := len(e.L.Events)
-			d = passUntilAskKind(t, e, decision.KChoose, 30)
-			if d.ResumeKind != "choice" || d.Prompt != "Select target card from your graveyard" {
-				t.Fatalf("graveyard ask = %+v, want the sub's KChoose \"choice\" graveyard ask", d)
+			d = e.Pending()
+			if d == nil || d.Kind != decision.KTarget || d.ResumeKind != "cast_sub" {
+				t.Fatalf("graveyard ask = %+v, want the sub's cast-time KTarget ask", d)
 			}
 			graveIdx := -1
 			for _, o := range d.Options {
-				if o.Kind == "card" && o.Obj == forest {
+				if o.Obj == forest {
 					graveIdx = o.Index
 				}
 			}
@@ -170,8 +171,11 @@ func TestPutAwaySubAsksGraveyardTarget(t *testing.T) {
 				t.Fatalf("the graveyard ask does not offer the graveyard card %d the sub's own filter admits: %+v", forest, d.Options)
 			}
 			submitChoices(t, e, graveIdx)
+			start := len(e.L.Events)
 
-			// The live may-shuffle confirm (ShuffleNonMandatory$ True).
+			// The cast resolves first; then the live may-shuffle confirm
+			// (ShuffleNonMandatory$ True) fires.
+			passUntilAskKind(t, e, decision.KChoose, 30)
 			yes, no := mayShuffleConfirm(t, e, 0)
 			if accept {
 				submitChoices(t, e, yes)
@@ -232,14 +236,15 @@ func TestCatharticPartingSubAsksGraveyardTargetElectedZero(t *testing.T) {
 	castFirst(t, e, "cast")
 	chooseObj(t, e, "permanent", orb)
 
-	// The sub's own graveyard ask: pre-fix it never fired.
-	d := passUntilAskKind(t, e, decision.KChoose, 30)
-	if d.ResumeKind != "choice" || d.Prompt != "Select target card from your graveyard" {
-		t.Fatalf("graveyard ask = %+v, want the sub's KChoose \"choice\" graveyard ask", d)
+	// The sub's own graveyard target: CR 601.2c announces it with the cast
+	// (a cast_sub KTarget), not at resolution. Pre-fix it never fired.
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KTarget || d.ResumeKind != "cast_sub" {
+		t.Fatalf("graveyard ask = %+v, want the sub's cast-time KTarget ask", d)
 	}
 	graveIdx := -1
 	for _, o := range d.Options {
-		if o.Kind == "card" && o.Obj == graveCard {
+		if o.Obj == graveCard {
 			graveIdx = o.Index
 		}
 	}
