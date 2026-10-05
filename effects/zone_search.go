@@ -632,9 +632,7 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 			if o == nil || o.Zone != state.ZLibrary || o.Owner != f.owner {
 				continue
 			}
-			if to != state.ZLibrary {
-				settleChangeZoneMove(h, c, sa, cz, id, state.ZLibrary, to, withKind, withAmt, &rider)
-			}
+			settleChangeZoneMove(h, c, sa, cz, id, state.ZLibrary, to, withKind, withAmt, &rider)
 			if cz.RememberChanged {
 				eventRemember(h, c, id)
 			}
