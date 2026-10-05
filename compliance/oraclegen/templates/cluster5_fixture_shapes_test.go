@@ -207,9 +207,8 @@ func TestThisTurnEnteredFixture(t *testing.T) {
 	}
 }
 
-// TestBoardHistoryCardsGenerate: the five cards of this ticket's cluster that
-// the generator skipped before its board-history, token, Aura, optional-slot
-// and registry-typed fixes now each get a scenario.
+// TestBoardHistoryCardsGenerate: the five cards closed by the board-history,
+// token, Aura, optional-slot and registry-typed fixtures now get scenarios.
 func TestBoardHistoryCardsGenerate(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, name := range []string{
@@ -222,6 +221,44 @@ func TestBoardHistoryCardsGenerate(t *testing.T) {
 		if _, skip := Generate(reg, name); skip != nil {
 			t.Errorf("%s: %s", name, skip.Reason)
 		}
+	}
+
+	decoy, skip := Generate(reg, "Decoy Ploy")
+	if skip != nil {
+		t.Fatal(skip.Reason)
+	}
+	decoyCast := castStep(t, decoy, "Decoy Ploy")
+	modeAnswered := false
+	for _, answer := range decoyCast.Answers {
+		if answer.Kind == "modes" && len(answer.Pick) > 0 && strings.Contains(answer.Pick[0], "Villain") {
+			modeAnswered = true
+		}
+	}
+	if !modeAnswered {
+		t.Fatalf("Decoy Ploy cast answers = %v, want its Villain mode", decoyCast.Answers)
+	}
+
+}
+
+// TestMixedZoneCandidateUsesARealMatchingCard proves the mixed-zone selector
+// does not use an arbitrary card from the legacy fallback list.
+func TestMixedZoneCandidateUsesARealMatchingCard(t *testing.T) {
+	reg := loadGenRegistry(t)
+	face := faceOf(t, reg, "Sorceress's Schemes")
+	slots := oraclegen.SlotSpecs(face)
+	if len(slots) != 1 || !strings.Contains(slots[0].Filter, "inZoneExile") {
+		t.Fatalf("Sorceress's Schemes slot = %v, want one mixed graveyard/exile slot", slots)
+	}
+	fixtures := oraclegen.Fixtures(reg, slots)
+	if len(fixtures) == 0 || len(fixtures[0].Targets()) != 1 {
+		t.Fatalf("Sorceress's Schemes fixtures = %v, want one candidate", fixtures)
+	}
+	ref := strings.TrimPrefix(fixtures[0].Targets()[0], "p0:")
+	if !containsName(fixtures[0].P0().Graveyard, ref) && !containsName(fixtures[0].P0().Exile, ref) {
+		t.Fatalf("target %q absent from p0 graveyard %v and exile %v", ref, fixtures[0].P0().Graveyard, fixtures[0].P0().Exile)
+	}
+	if !faceHasType(t, reg, ref, "Instant") && !faceHasType(t, reg, ref, "Sorcery") {
+		t.Fatalf("target %q is neither Instant nor Sorcery", ref)
 	}
 }
 

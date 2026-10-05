@@ -291,6 +291,25 @@ func seatIndex(seat string) int {
 	return 1
 }
 
+// registryCardType returns the first card (in corpus order) whose front face
+// carries a card type named by a mixed-zone filter alternative.
+func registryCardType(reg *cards.Registry, cardType string) (string, bool) {
+	if reg == nil {
+		return "", false
+	}
+	for i := range reg.Cards {
+		c := reg.Cards[i]
+		for fi := range c.Faces {
+			for _, typ := range c.Faces[fi].Types {
+				if strings.EqualFold(strings.TrimSpace(typ), cardType) {
+					return c.Faces[fi].Name, true
+				}
+			}
+		}
+	}
+	return "", false
+}
+
 // registrySubtype returns the first card (in corpus order) whose front face
 // carries the subtype.
 func registrySubtype(reg *cards.Registry, subtype string) (string, bool) {
@@ -324,6 +343,42 @@ func faceHasSubtype(f *cards.Face, subtype string) bool {
 // qualifier (Villain, Hero) and a this-turn entry stamp are resolved from the
 // registry rather than the fixed type list.
 func zoneCandidates(reg *cards.Registry, filter, zone string) []cand {
+	alts := strings.Split(filter, ",")
+	if len(alts) > 1 {
+		var out []cand
+		seats := []string{"p0", "p1"}
+		if strings.Contains(filter, "YouOwn") || strings.Contains(filter, "YouCtrl") {
+			seats = []string{"p0"}
+		} else if strings.Contains(filter, "OppOwn") || strings.Contains(filter, "OppCtrl") {
+			seats = []string{"p1"}
+		}
+		for _, alt := range alts {
+			altZone := zone
+			for _, candidateZone := range []string{"graveyard", "exile", "hand"} {
+				if strings.Contains(strings.ToLower(alt), "inzone"+candidateZone) {
+					altZone = candidateZone
+					break
+				}
+			}
+			base := firstFilterBase(alt)
+			if isCardTypeBase(base) && base != "card" && base != "permanent" && base != "any" {
+				preferred := map[string]string{"instant": "Shock", "sorcery": "Duress"}[base]
+				if preferred != "" {
+					for _, seat := range seats {
+						out = append(out, cand{seat: seat, zone: altZone, card: preferred})
+					}
+				}
+				if name, ok := registryCardType(reg, base); ok && name != preferred {
+					for _, seat := range seats {
+						out = append(out, cand{seat: seat, zone: altZone, card: name})
+					}
+				}
+			}
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
 	if strings.Contains(zone, ",") {
 		zone = strings.Split(zone, ",")[0]
 	}
