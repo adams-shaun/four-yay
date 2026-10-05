@@ -200,6 +200,13 @@ func (e *Engine) askTriggerSubTargets() bool {
 func (e *Engine) answerTriggerSubTarget(in decision.Intent, chosen []decision.Option) {
 	if ts := e.trigSub; ts != nil && ts.stage < len(ts.subs) {
 		ts.ans[ts.stage] = targetOptions(chosen)
+		// CR 603.3d/601.2c: the placement announcement is a real targeting.
+		// Record it through the same fold the cast flow's chain pre-ask uses
+		// (recordSubTargets, rules/cast_targets.go), so ward (CR 702.21a) and
+		// "becomes the target" triggers see the link's target exactly as they
+		// see the root's. The answers stay in ts.ans/castSubTargets for the
+		// CR 608.2b recheck (recheckCastSubTargets) unchanged.
+		e.recordSubTargets(ts.obj, ts.ans[ts.stage])
 		ts.stage++
 	}
 	if e.askTriggerSubTargets() {
