@@ -90,8 +90,13 @@ func evalCountBodyProvenance(h Host, c *Ctx, body string, depth int) (int32, boo
 // Convoked$/TargetedByTarget$ forms, the fuzz-cov3 heads and the first
 // switch-arm group (YouDescendedThisTurn through SquadPaid).
 func evalCountBodyCost(h Host, c *Ctx, g *state.Game, head, arg string, depth int) (int32, bool, bool) {
-	if v, ok, matched := evalDamageHistory(h, c, g, head, arg); matched {
-		return v, ok, true
+	// The recipient matcher may retain its context for damage-time type
+	// filtering. Keep the caller's Ctx on the stack for every other count
+	// head (in particular the allocation-free Valid zone scan).
+	code := evalCountBodyCostCodes.Code(head)
+	if code == evalCountBodyCostMaxCombatDamageThisTurn || code == evalCountBodyCostNumDamageThisTurn || code == evalCountBodyCostNonCombatDamageThisTurn {
+		damageCtx := *c
+		return evalDamageHistory(h, &damageCtx, g, head, arg)
 	}
 	if head == "TotalDamageReceivedThisTurn" && arg == "" {
 		self := c.TriggerCard
