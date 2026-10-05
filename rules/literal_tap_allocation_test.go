@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -99,6 +101,46 @@ func TestLiteralTapTriggeredCostDisjointAllocation(t *testing.T) {
 	remaining := literalTapOptions(asPayer(e), tc.player, tc.source, tc.amount.TapPermanent, 1)
 	if len(remaining) != 1 || remaining[0] != tc.source || e.G.Obj(tc.source).Tapped || e.G.Obj(bear).Tapped {
 		t.Fatalf("precondition: second part needs untapped self, not bear: %+v", remaining)
+	}
+}
+
+func TestLiteralTapTriggeredCostOffersEveryFeasibleFirstChoice(t *testing.T) {
+	e := literalTapWindow(t)
+	tc := e.triggerCost
+	var bears []state.ObjID
+	for _, zone := range []state.Zone{state.ZHand, state.ZLibrary} {
+		for _, id := range e.G.Zone(zone, tc.player) {
+			o := e.G.Obj(id)
+			if o != nil && o.Face() != nil && o.Face().Name == "Grizzly Bears" {
+				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: zone, To: state.ZBattlefield})
+				bears = append(bears, id)
+				if len(bears) == 2 {
+					break
+				}
+			}
+		}
+		if len(bears) == 2 {
+			break
+		}
+	}
+	if len(bears) != 2 || bears[0] == bears[1] || e.G.Obj(bears[0]).Tapped || e.G.Obj(bears[1]).Tapped {
+		t.Fatalf("precondition: two distinct untapped bears required: %v", bears)
+	}
+	tc.amount.TapPermanent = []CostPart{{N: 1, Spec: "Creature"}, {N: 1, Spec: "Creature"}}
+	want := pay.TapCostCandidates(asPayer(e), tc.player, tc.source, tc.amount.TapPermanent[0])
+	if len(want) < 3 {
+		t.Fatalf("precondition: at least three overlapping creature candidates required, got %v", want)
+	}
+	e.pending = nil
+	e.triggeredCostPaymentAsk()
+	d := e.Pending()
+	if d == nil || d.Min != 1 || d.Max != 1 || len(d.Options) != len(want) {
+		t.Fatalf("first election omitted feasible choices: %+v; want candidates %v", d, want)
+	}
+	for _, id := range want {
+		if optionIndexForObj(t, d, id) < 0 {
+			t.Fatalf("feasible first choice %d not offered: %+v", id, d.Options)
+		}
 	}
 }
 

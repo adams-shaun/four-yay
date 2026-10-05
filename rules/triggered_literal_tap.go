@@ -5,10 +5,10 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// literalTapOptions offers a complete allocation, not just independently
-// payable parts. When later parts compete for the same permanent, expose only
-// the current part's reserved objects: any legal answer must leave the rest
-// payable. A single part retains the full candidate choice.
+// literalTapOptions offers choices for the current part that can still be
+// completed by the later parts. For a one-object election, retain every legal
+// first choice with a feasible completion; a single matching would hide other
+// valid choices from the player.
 func literalTapOptions(p pay.Engine, player state.PlayerID, source state.ObjID, parts []CostPart, start int) []state.ObjID {
 	if start >= len(parts) {
 		return nil
@@ -27,9 +27,18 @@ func literalTapOptions(p pay.Engine, player state.PlayerID, source state.ObjID, 
 	if len(candidates) == 1 {
 		return candidates[0]
 	}
-	// Deterministic bipartite matching: each slot receives a distinct object.
-	// Augmenting paths find a full allocation even when a greedy reservation
-	// of an early broad filter would starve a later self-only part.
+	if parts[start].N == 1 {
+		var offered []state.ObjID
+		for _, id := range candidates[0] {
+			if literalTapMatching(candidates, slots[1:], map[state.ObjID]bool{id: true}) {
+				offered = append(offered, id)
+			}
+		}
+		return offered
+	}
+	// Multi-object decisions accept an arbitrary subset of their options. A
+	// deterministic full matching is therefore the safe offer when a part
+	// needs multiple objects: every offered subset is exactly that matching.
 	owner := make(map[state.ObjID]int, len(slots))
 	var augment func(int, map[state.ObjID]bool) bool
 	augment = func(slot int, seen map[state.ObjID]bool) bool {
@@ -58,4 +67,31 @@ func literalTapOptions(p pay.Engine, player state.PlayerID, source state.ObjID, 
 		}
 	}
 	return offered
+}
+
+// literalTapMatching reports whether the requested slots can be assigned
+// distinct candidates, excluding objects already selected by the current ask.
+func literalTapMatching(candidates [][]state.ObjID, slots []int, excluded map[state.ObjID]bool) bool {
+	owner := make(map[state.ObjID]int, len(slots))
+	var augment func(int, map[state.ObjID]bool) bool
+	augment = func(slot int, seen map[state.ObjID]bool) bool {
+		for _, id := range candidates[slots[slot]] {
+			if excluded[id] || seen[id] {
+				continue
+			}
+			seen[id] = true
+			prev, used := owner[id]
+			if !used || augment(prev, seen) {
+				owner[id] = slot
+				return true
+			}
+		}
+		return false
+	}
+	for slot := range slots {
+		if !augment(slot, make(map[state.ObjID]bool)) {
+			return false
+		}
+	}
+	return true
 }
