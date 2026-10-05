@@ -603,19 +603,19 @@ func init() {
 	// a gap on every changeling carrier.
 	RegisterNonAPI("kw:Changeling")
 
-	// Flash and Mutate (task costfilter): Cunning Nightbonder's
-	// `Card.hasKeywordFlash` and Pollywog Symbiote's `Creature.withMutate`
-	// cost reductions, plus every other corpus withFlash/hasKeywordFlash
-	// filter. Forge's hasKeyword<X> is the exact-keyword spelling of the same
-	// test (CardProperty: card.hasKeyword(X), introduced so "withFlash" could
-	// not prefix-match Flashback); this matcher's KeywordHead comparison is
-	// already exact, so hasKeyword<X> registers as a plain alias of with<X>
-	// for every keyword in this list. Any other hasKeyword<X> (Landwalk,
-	// Enchant, ...) stays unknown and fails closed.
+	// Register keyword predicates only for heads the exact keyword reader can
+	// answer. Forge's hasKeyword<X> is the exact-keyword spelling of with<X>
+	// (CardProperty: card.hasKeyword(X)); keywordPredicateFor and
+	// UnknownPredicates share this registry, so unsupported names remain
+	// unknown to both matching and census. Keep the recognized vocabulary
+	// explicit: InternKeywordHead assigns ids but cannot enumerate valid heads.
 	for _, kw := range [...]string{"Flying", "Trample", "Deathtouch", "Lifelink",
 		"Vigilance", "Reach", "Haste", "Indestructible", "First Strike", "Double Strike", "Menace",
 		"Flanking", "Horsemanship", "Defender", "Foretell", "Shadow", "Doctor's companion",
-		"Flash", "Mutate", "Decayed"} {
+		"Flash", "Mutate", "Decayed", "Hexproof", "Ward", "Toxic", "Infect",
+		"Morph", "Megamorph", "Devoid", "Madness", "Persist", "Phasing", "Unearth",
+		"Cascade", "Convoke", "Cycling", "Disturb", "Flashback", "Kicker", "Multikicker",
+		"Landwalk", "Enchant"} {
 		k := kw
 		with := func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 			return objectHasKeyword(o, k)
