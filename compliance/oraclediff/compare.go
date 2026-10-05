@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/compliance"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/rules"
 )
 
@@ -296,15 +297,38 @@ func colors(s string) string {
 
 func types(ts []string) string {
 	c := make([]string, 0, len(ts))
-	for _, t := range ts {
-		c = append(c, strings.ToLower(strings.ReplaceAll(t, " ", "")))
+	subtypeWords := make(map[string]bool, len(effects.CreatureTypeWordList()))
+	for _, subtype := range effects.CreatureTypeWordList() {
+		subtypeWords[strings.ToLower(strings.ReplaceAll(subtype, " ", ""))] = true
 	}
-	// The oracle driver represents the rules-defined “all creature types”
-	// bundle as one marker; gorge expands it to every current subtype.
-	if len(c) > 100 {
-		var kept []string
+	seenSubtypes := make(map[string]bool, len(ts))
+	subtypeCount := 0
+	for _, t := range ts {
+		normalized := strings.ToLower(strings.ReplaceAll(t, " ", ""))
+		c = append(c, normalized)
+		if subtypeWords[normalized] {
+			subtypeCount++
+			seenSubtypes[normalized] = true
+		}
+	}
+	// XMage's oracle driver prints one marker for the rules-defined
+	// “all creature types” bundle, while gorge materializes the exact shared
+	// creature-subtype vocabulary. Collapse only when every vocabulary word
+	// occurs exactly once; a large but incomplete or extended list must retain
+	// its distinguishing subtype names.
+	allCreatureTypes := len(seenSubtypes) == len(effects.CreatureTypeWordList()) && subtypeCount == len(seenSubtypes)
+	if allCreatureTypes {
+		for _, subtype := range effects.CreatureTypeWordList() {
+			if !seenSubtypes[strings.ToLower(strings.ReplaceAll(subtype, " ", ""))] {
+				allCreatureTypes = false
+				break
+			}
+		}
+	}
+	if allCreatureTypes {
+		kept := make([]string, 0, len(c)-subtypeCount+1)
 		for _, typ := range c {
-			if typ == "creature" || typ == "artifact" || typ == "enchantment" || typ == "land" || typ == "planeswalker" || typ == "battle" || typ == "kindred" || typ == "instant" || typ == "sorcery" {
+			if !subtypeWords[typ] {
 				kept = append(kept, typ)
 			}
 		}
