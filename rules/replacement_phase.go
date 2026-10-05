@@ -140,7 +140,14 @@ func (e *Engine) applicablePhaseReplacements(ev events.Event, candidates []replM
 // guard (all applicable replacements have already had their opportunity).
 func (e *Engine) finishParkedPhase(rc replChoice, selected int) {
 	if rc.boundary {
-		e.finishStepBoundary(rc.leaving, rc.ev.Step)
+		e.finishStepBoundary(rc.leaving, rc.ev.Step, 0)
+		if e.pending != nil {
+			// The boundary's mana choice must settle before the phase body.
+			rc.boundary = false
+			e.replChoices[len(e.replChoices)-1].manaBoundary.phase = &rc
+			e.replChoices[len(e.replChoices)-1].manaBoundary.phaseSelected = selected
+			return
+		}
 	}
 	if selected >= 0 {
 		e.applyBeginPhaseReplacement(rc.ev, rc.cands[selected])

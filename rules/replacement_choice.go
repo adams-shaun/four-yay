@@ -178,6 +178,15 @@ type replChoice struct {
 	// and a stale frame makes it abandon a resolution that actually finished,
 	// re-resolving it on every pass.
 	resumeAtPose *resumePoint
+	// Set only on a LoseMana choice posed by step-boundary cleanup.
+	manaBoundary *manaBoundaryContinuation
+}
+
+type manaBoundaryContinuation struct {
+	leaving, entering state.Step
+	next              int
+	phase             *replChoice
+	phaseSelected     int
 }
 
 // replacementChoicePlayer is the affected player a parked competition asks:
@@ -485,14 +494,12 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		return
 	}
 	if len(e.replChoices) == 0 {
-		e.emit(events.Event{Kind: events.Note, Player: in.Player,
-			Text: "replacement decision answered with no event parked"})
+		e.emit(events.Event{Kind: events.Note, Player: in.Player, Text: "replacement decision answered with no event parked"})
 		return
 	}
 	rc := e.replChoices[0]
-	e.replChoices = e.replChoices[1:]
 	savedAnswerInRes := e.answerInResolution
-	e.answerInResolution = savedAnswerInRes || rc.inResolution
+	e.replChoices, e.answerInResolution = e.replChoices[1:], savedAnswerInRes || rc.inResolution
 	defer func() { e.answerInResolution = savedAnswerInRes }()
 	chosen := d.Chosen(in)
 	if rc.kind == replChoiceFaceUp {
@@ -749,7 +756,8 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		}
 		e.resumeUpdatedComposition(rc, chosen[0].Index)
 	case replChoiceLoseMana:
-		handleLoseManaChoiceForEngine(rc, chosen[0].Index, in.Player, before, e)
+		handleLoseManaChoice(rc, chosen[0].Index, in.Player, before, e.G, e, e.emit, func(v bool) { e.applyingReplacement = v }, func(v *triggerSnapshot) { e.triggerBefore = v }, e.poseReplacementChoice)
+		continueLoseManaBoundary(rc.manaBoundary, func() bool { return e.pending != nil }, &e.replChoices, func(leaving, entering state.Step, next int) { e.finishStepBoundary(leaving, entering, next) }, e.finishParkedPhase)
 	case replChoiceUntap:
 		if chosen[0].Index < 0 || chosen[0].Index >= len(rc.cands) {
 			e.triggerBefore = before
@@ -778,6 +786,28 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		e.continueCast()
 	}
 	e.askNextReplacementChoice()
+}
+
+// continueLoseManaBoundary resumes only after all competing replacements of
+// this seat's loss have settled. Callbacks keep Engine bookkeeping at its owner.
+func continueLoseManaBoundary(b *manaBoundaryContinuation, pending func() bool, queue *[]replChoice,
+	finish func(state.Step, state.Step, int), phase func(replChoice, int)) {
+	if b == nil {
+		return
+	}
+	if pending() {
+		(*queue)[len(*queue)-1].manaBoundary = b
+		return
+	}
+	finish(b.leaving, b.entering, b.next)
+	if pending() {
+		if b.phase != nil {
+			(*queue)[len(*queue)-1].manaBoundary.phase = b.phase
+			(*queue)[len(*queue)-1].manaBoundary.phaseSelected = b.phaseSelected
+		}
+	} else if b.phase != nil {
+		phase(*b.phase, b.phaseSelected)
+	}
 }
 
 // askNextReplacementChoice hands over to either an ordinary replacement

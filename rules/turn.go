@@ -579,21 +579,33 @@ func (e *Engine) setStep(s state.Step) {
 		// after DecisionAsk would mutate the game while a decision is pending.
 		return
 	}
-	e.finishStepBoundary(leaving, s)
+	e.finishStepBoundary(leaving, s, 0)
 }
 
-func (e *Engine) finishStepBoundary(leaving, entering state.Step) {
+func (e *Engine) finishStepBoundary(leaving, entering state.Step, start ...int) {
+	from := 0
+	if len(start) > 0 {
+		from = start[0]
+	}
 	// Mana pools empty as each step ends (CR 500.4). A live stat:UnspentMana
 	// static protects a seat's unspent mana of the named colour: its keep
 	// letters ride the event Text ("" = nothing protected, the historical
 	// shape every game without a carrier emits) and the ManaClear fold honours
 	// them, so the replay derives the same keep set from the same deterministic
 	// static walk.
-	for i := range e.G.Players {
+	for i := from; i < len(e.G.Players); i++ {
 		if e.G.Players[i].Pool.Total() > 0 {
 			ev := events.Event{Kind: events.ManaClear, Player: state.PlayerID(i)}
 			ev.Text = e.unspentManaKeep(state.PlayerID(i))
+			choicesBefore := len(e.replChoices)
 			e.emit(ev)
+			if len(e.replChoices) > choicesBefore {
+				// An order choice owns this loss. Finish other seats and combat
+				// cleanup only after the last replacement answer has settled.
+				e.replChoices[len(e.replChoices)-1].manaBoundary = &manaBoundaryContinuation{
+					leaving: leaving, entering: entering, next: i + 1}
+				return
+			}
 		}
 	}
 	if leaving == state.StepEndCombat && entering != leaving {
