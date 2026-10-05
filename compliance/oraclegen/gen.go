@@ -165,7 +165,7 @@ func chainSlots(f *cards.Face, svar string) []string {
 	for name := svar; name != ""; {
 		params := svarParams(f.SVars[name])
 		if v := params["ValidTgts"]; v != "" {
-			if z := targetZone(params); z != "" {
+			if z := targetZone(params, true); z != "" {
 				v += "@" + z
 			}
 			out = append(out, v)
@@ -179,7 +179,15 @@ func chainSlots(f *cards.Face, svar string) []string {
 // else a non-battlefield Origin$, else Stack for a slot that names a spell
 // or ability on the stack (TargetType$ Spell/SpellAbility/Activated/
 // Triggered, or ValidTgts$ with inZoneStack).
-func targetZone(params map[string]string) string {
+//
+// charmMode selects the narrower stack rule a charm's SVar mode needs: a
+// mode whose ValidTgts$ also names a battlefield type (Icy Reception's
+// "creature or legendary spell", Theorix Charm's "noncreature card") keeps
+// its battlefield fixture, because the historical generator read it that
+// way and its verdict is pinned to the battlefield scenario. A top-level
+// Counter (Precise Redaction, Countersculpt) is routed before this by
+// targetsSpell, so its broader reading is unchanged.
+func targetZone(params map[string]string, charmMode bool) string {
 	if z := params["TgtZone"]; z != "" {
 		return z
 	}
@@ -191,6 +199,12 @@ func targetZone(params map[string]string) string {
 		if !strings.Contains(o, "Battlefield") || strings.Contains(o, "Stack") {
 			return o
 		}
+	}
+	if charmMode {
+		if charmModeTargetsStack(params) {
+			return "Stack"
+		}
+		return ""
 	}
 	if abilityTargetsStack(params) {
 		return "Stack"
@@ -229,6 +243,60 @@ func abilityTargetsStack(params map[string]string) bool {
 		}
 	}
 	return false
+}
+
+// charmModeTargetsStack is abilityTargetsStack narrowed for a charm SVar
+// mode: an ability-type TargetType$ (SpellAbility/Activated/Triggered) is
+// always stack-only, but a Spell/Instant/Sorcery target is routed to the
+// stack only when its ValidTgts$ cannot be read as a battlefield permanent.
+// A mode whose ValidTgts$ names a battlefield base type (Creature, Card, ...)
+// keeps the battlefield fixture its committed verdict was generated for.
+func charmModeTargetsStack(params map[string]string) bool {
+	if strings.Contains(params["ValidTgts"], "inZoneStack") {
+		return true
+	}
+	if params["TargetType"] == "" {
+		return false
+	}
+	for _, part := range strings.Split(params["TargetType"], ",") {
+		base := strings.SplitN(strings.TrimSpace(part), ".", 2)[0]
+		switch base {
+		case "SpellAbility", "Activated", "Triggered":
+			return true
+		}
+	}
+	for _, part := range strings.Split(params["TargetType"], ",") {
+		base := strings.SplitN(strings.TrimSpace(part), ".", 2)[0]
+		switch base {
+		case "Spell", "Instant", "Sorcery":
+			return !validTgtsNamesBattlefield(params["ValidTgts"])
+		}
+	}
+	return false
+}
+
+// validTgtsBattlefieldBases are the ValidTgts$ base types that the
+// battlefield candidate table can serve. A filter that names any of them is
+// satisfiable on the battlefield, so a charm mode's Spell-family
+// TargetType$ on such a filter is not forced onto the stack.
+var validTgtsBattlefieldBases = map[string]bool{
+	"any": true, "creature": true, "player": true, "opponent": true,
+	"permanent": true, "card": true, "artifact": true, "enchantment": true,
+	"land": true, "planeswalker": true,
+}
+
+// validTgtsNamesBattlefield reports whether a ValidTgts$ filter names a
+// battlefield-card base type. An inZoneStack qualifier wins (the card is on
+// the stack), and only the first alternative is consulted -- the fixture
+// builder serves a filter from its first alternative's shape. An empty
+// filter names no type and is never battlefield-satisfiable here.
+func validTgtsNamesBattlefield(validTgts string) bool {
+	if strings.Contains(validTgts, "inZoneStack") {
+		return false
+	}
+	first := strings.SplitN(validTgts, ",", 2)[0]
+	base := strings.ToLower(strings.SplitN(strings.TrimSpace(first), ".", 2)[0])
+	return validTgtsBattlefieldBases[base]
 }
 
 // SlotIsStack reports whether a target filter (as TargetSlots/ChainSlots
@@ -591,7 +659,7 @@ func targetSlots(f *cards.Face) []string {
 		if v == "" {
 			return
 		}
-		if z := targetZone(params); z != "" {
+		if z := targetZone(params, false); z != "" {
 			v += "@" + z
 		}
 		out = append(out, v)
