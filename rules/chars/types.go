@@ -32,9 +32,17 @@ var faceDownBasis = &cards.Face{Types: []string{"Creature"}}
 // that proof, and rules' layer4PrecheckVerify compares every such fast build
 // against the full walk.
 func Types(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.Zone) []string {
+	ty, _ := TypesAndAllCreatureTypes(b, act, id, atStack)
+	return ty
+}
+
+// TypesAndAllCreatureTypes is the layer-4 walk and its semantic all-types
+// marker. The marker is captured at the same point as the expansion so
+// snapshots need not infer rules state from today's subtype vocabulary.
+func TypesAndAllCreatureTypes(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.Zone) ([]string, bool) {
 	o := b.Game().Obj(id)
 	if o == nil || o.Face() == nil {
-		return nil
+		return nil, false
 	}
 	// CR 708.5: a face-down battlefield permanent's type set is exactly
 	// {Creature} -- its printed types do not exist while it is face down
@@ -83,7 +91,7 @@ func Types(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.
 		}
 	}
 	if !anyLType {
-		return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, base)))
+		return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, base))), false
 	}
 	// Copy-on-write: the printed list is copied only once an effect actually
 	// applies to this object (most objects are untouched by the layer-4
@@ -91,6 +99,7 @@ func Types(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.
 	// and the appends -- runs on the owned copy, never on the face's array.
 	ty := base
 	owned := false
+	allCreatureTypes := false
 	for i := range act {
 		ce := &act[i]
 		if ce.Layer != state.LType || !matchesWithTypes(b, ce, id, ty, atStack) {
@@ -161,13 +170,14 @@ func Types(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.
 		ty = appendLandTypes(ty, ce.AddTypes, b.LandTypeWords())
 		if ce.AddAllCreatureTypes {
 			ty = appendAllCreatureTypes(ty)
+			allCreatureTypes = true
 		}
 	}
 	if !owned && len(ty) == 0 {
 		// The copy of an empty list was nil; keep that exact value.
 		ty = nil
 	}
-	return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, ty)))
+	return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, ty))), allCreatureTypes
 }
 
 // landTypeWordsCache memoises CorpusLandTypeWords per universe, keyed by the

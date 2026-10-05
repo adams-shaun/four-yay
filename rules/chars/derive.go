@@ -227,7 +227,7 @@ func Compute(b Board, s *Scratch, id state.ObjID, atStack state.Zone) effects.Ch
 	// Layer 4 runs first through Types (see above), so every
 	// later effect's Affected$ filter — and every layer-4 effect's own —
 	// sees the derived type list, not the printed face.
-	tyRaw := Types(b, b.Active(), id, atStack)
+	tyRaw, allCreatureTypes := TypesAndAllCreatureTypes(b, b.Active(), id, atStack)
 	ty = append(ty[:0], tyRaw...)
 	// A faced object's keyword and type lists are always BOUND, even when
 	// empty, from here through the layer walk to the returned Derived: a nil
@@ -401,7 +401,7 @@ func Compute(b Board, s *Scratch, id state.ObjID, atStack state.Zone) effects.Ch
 	s.ColorsSet, s.ColorsID, s.Colors = prevStashSet, prevStashID, prevStashColors
 	s.Depth--
 	return effects.Chars{Power: power, Toughness: toughness, BasePower: basePower, BaseToughness: baseToughness,
-		Keywords: kw, Types: ty, Name: name, Text: text, Colors: colors, Controller: b.ControllerOf(id)}
+		Keywords: kw, Types: ty, AllCreatureTypes: allCreatureTypes, Name: name, Text: text, Colors: colors, Controller: b.ControllerOf(id)}
 }
 
 // Name is Derived(id).Name without the rest of the walk. The name is
