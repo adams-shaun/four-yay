@@ -409,7 +409,7 @@ func isCreatureFace(f *cards.Face) bool {
 // (Banner of Kinship with no creature of the type, a type only an opponent
 // has). It used to be owner-scoped only, and a lone owned type was
 // auto-picked without asking.
-func (e *Engine) creatureTypeOptions(you state.PlayerID) []decision.Option {
+func (e *Engine) creatureTypeOptions(you state.PlayerID, validTypes, invalidTypes string) []decision.Option {
 	seen := map[string]bool{}
 	types := []string{}
 	for i := range e.G.Objs {
@@ -435,14 +435,24 @@ func (e *Engine) creatureTypeOptions(you state.PlayerID) []decision.Option {
 	}
 	sort.Strings(types)
 	all := effects.CreatureTypeWordList()
-	out := make([]decision.Option, 0, len(all)+1)
-	for _, t := range types {
-		out = append(out, decision.Option{Index: len(out), Kind: "type", Label: t})
-	}
+	ordered := make([]string, 0, len(all)+len(types))
+	ordered = append(ordered, types...)
 	for _, t := range all {
 		if !seen[t] {
-			out = append(out, decision.Option{Index: len(out), Kind: "type", Label: t})
+			ordered = append(ordered, t)
 		}
+	}
+	// ValidTypes$/InvalidTypes$ (Dawn-Blessed Pennant's Type$ Creature with
+	// ValidTypes$ eight named types) narrow the offer to exactly the types the
+	// card allows; both empty keeps the whole vocabulary. A filter that removes
+	// everything fails closed to no options rather than re-offering the full
+	// list the card forbade.
+	if strings.TrimSpace(validTypes) != "" || strings.TrimSpace(invalidTypes) != "" {
+		ordered = effects.FilterTypeWords(ordered, validTypes, invalidTypes)
+	}
+	out := make([]decision.Option, 0, len(ordered))
+	for _, t := range ordered {
+		out = append(out, decision.Option{Index: len(out), Kind: "type", Label: t})
 	}
 	return out
 }
@@ -459,7 +469,7 @@ func (e *Engine) creatureTypeOptions(you state.PlayerID) []decision.Option {
 func (e *Engine) typeChoiceOptions(you state.PlayerID, source state.ObjID, params map[string]string) []decision.Option {
 	cat := strings.TrimSpace(params["Type"])
 	if cat == "" || strings.EqualFold(cat, "Creature") {
-		return e.creatureTypeOptions(you)
+		return e.creatureTypeOptions(you, params["ValidTypes"], params["InvalidTypes"])
 	}
 	var labels []string
 	if strings.EqualFold(cat, "Shared") {
@@ -468,7 +478,7 @@ func (e *Engine) typeChoiceOptions(you state.PlayerID, source state.ObjID, param
 		labels = effects.TypeChoiceLabels(cat, params["ValidTypes"], params["InvalidTypes"])
 	}
 	if len(labels) == 0 {
-		return e.creatureTypeOptions(you)
+		return e.creatureTypeOptions(you, "", "")
 	}
 	out := make([]decision.Option, 0, len(labels))
 	for _, label := range labels {
@@ -485,11 +495,11 @@ func (e *Engine) typeChoiceOptions(you state.PlayerID, source state.ObjID, param
 // own context) directly. An absent or "Creature" category returns the shared
 // creatureTypeOptions; any other category yields nil, which the asking effect
 // no longer reaches (it answers those categories itself).
-func (e *Engine) TypeChoices(chooser state.PlayerID, category string) []decision.Option {
+func (e *Engine) TypeChoices(chooser state.PlayerID, category, validTypes, invalidTypes string) []decision.Option {
 	if category != "" && !strings.EqualFold(category, "Creature") {
 		return nil
 	}
-	return e.creatureTypeOptions(chooser)
+	return e.creatureTypeOptions(chooser, validTypes, invalidTypes)
 }
 
 // etbChoicePrompt names the kind of an "as this enters" choice for a client

@@ -85,6 +85,14 @@ type CopyPermanentParams struct {
 	ImprintTokens  bool
 	// AttachedTo is AttachedTo$.
 	AttachedTo string
+	// DefinedName$ names the card to copy from the compiled corpus (Mutable
+	// Explorer's "create a tapped Mutavault token", 19 raw CopyPermanent lines
+	// over 18 files at the corpus pin). Unlike a Defined$ object selector the
+	// source is a CARD DEFINITION, resolved at resolution through the game's
+	// named-card lookup (state.Game.NamedCard) over the supplied corpus; a
+	// name the corpus cannot resolve is one loud Note and no copy, never a
+	// silent fall-through to the resolving source.
+	DefinedName string
 	// TokenRemembered is TokenRemembered$: the Defined$ group bound to each
 	// copy's memory (tokenRememberedTargets, shared with api:Token).
 	TokenRemembered string
@@ -189,10 +197,10 @@ func compileCopyPermanent(sa *cards.SA, dp *DefinedParams) *CopyPermanentParams 
 	// cannot attribute.
 	var skipped []string
 	note := func(label string) { skipped = append(skipped, label) }
-	if _, ok := sa.Param(cards.PKDefinedName); ok {
-		note("DefinedName$")
-		p.Blocked = true
-	}
+	// DefinedName$ is a source selector this compiler CONSUMES (the copy is
+	// the named card from the supplied corpus), so it is read here rather than
+	// left to the skipped-family Note.
+	p.DefinedName = strings.TrimSpace(sa.ParamStr(cards.PKDefinedName))
 	if _, ok := sa.Param(cards.PKPawprint); ok {
 		note("Pawprint$")
 		p.Blocked = true

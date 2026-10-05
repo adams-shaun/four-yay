@@ -94,6 +94,10 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 	}
 	zone := p.PumpZone
 	var ateotIDs []state.ObjID
+	// pumpedTargets collects the objects this Pump actually affected, for the
+	// ReplaceDyingDefined$ rider below (the same []state.Target shape
+	// DealDamage's registration takes).
+	var pumpedTargets []state.Target
 	for _, t := range Defined(h, c, sa) {
 		if t.IsPlayer {
 			continue
@@ -137,11 +141,20 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 		att := numForObjectText(h, c, p.NumAtt, true, 0, o.ID)
 		def := numForObjectText(h, c, p.NumDef, false, 0, o.ID)
 		registerPumpEffects(h, c, o.ID, att, def, false, false, &p.Grant, zone, chosenKW)
+		pumpedTargets = append(pumpedTargets, t)
 		if atEOTInclude(h, c, sa, o.ID) {
 			ateotIDs = append(ateotIDs, o.ID)
 		}
 	}
 	scheduleAtEOT(h, c, sa, ateotIDs)
+	// ReplaceDyingDefined$ (Gnashing of Teeth's -5/-5 "if that creature would
+	// die this turn, exile it instead"): register the same Moved replacement
+	// DealDamage's rider builds, over the objects this Pump affected. The
+	// qualifier grammar is shared (registerReplaceDying), so a list name or
+	// filter it does not know is loud rather than inert.
+	if p.ReplaceDyingDefined != "" {
+		registerReplaceDying(h, c, p.ReplaceDyingDefined, pumpedTargets)
+	}
 	// ForgetImprinted$ names (in the Defined$ grammar) the imprinted card(s)
 	// to forget (Chrome Mox's DBForget: the exiled card left exile): each is
 	// removed from the source's persistent Imprinted list. Forge's

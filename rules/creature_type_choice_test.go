@@ -11,7 +11,7 @@ import (
 func TestCreatureTypeChoiceOffersEveryType(t *testing.T) {
 	t.Parallel()
 	e, _ := pcdrEngine(t, "Savannah Lions")
-	opts := e.creatureTypeOptions(0)
+	opts := e.creatureTypeOptions(0, "", "")
 	if len(opts) == 0 || opts[0].Label != "Cat" {
 		t.Fatalf("first option = %v, want the chooser's own Cat first", opts[:min(3, len(opts))])
 	}

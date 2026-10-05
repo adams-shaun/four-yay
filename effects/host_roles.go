@@ -743,12 +743,15 @@ type HostAsk interface {
 	// (task ct1) — the SAME list the cast-time "as this enters" type ask
 	// builds (rules/etbOptions' "type" arm), so the two asks and the no-ask
 	// fallback can never disagree about what a creature-type choice ranges
-	// over. The other categories (Basic Land, Card, Land, Planeswalker,
+	// over. validTypes/invalidTypes carry the SA's ValidTypes$/InvalidTypes$
+	// filters (Dawn-Blessed Pennant's Type$ Creature + ValidTypes$ restricts
+	// the choice to its eight named types); both empty means the whole
+	// vocabulary. The other categories (Basic Land, Card, Land, Planeswalker,
 	// Shared, CreatureInTargetedDeck) no longer reach this method: the asking
 	// primitive builds their option lists from immutable game state itself
 	// (effects/type_choices.go), and an absent or non-creature category here
 	// still yields nil as a defensive guard.
-	TypeChoices(chooser state.PlayerID, category string) []decision.Option
+	TypeChoices(chooser state.PlayerID, category, validTypes, invalidTypes string) []decision.Option
 	// Suspended reports whether the resolution is currently suspended on a
 	// mid-resolution ask — Ask returned true and set the host's resume state,
 	// which has not yet been cleared by the answer arriving. effects.Resolve

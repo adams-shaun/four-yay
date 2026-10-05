@@ -19,7 +19,7 @@ type chooseTypeHost struct {
 	suspended bool
 }
 
-func (h *chooseTypeHost) TypeChoices(_ state.PlayerID, _ string) []decision.Option {
+func (h *chooseTypeHost) TypeChoices(_ state.PlayerID, _ string, _ string, _ string) []decision.Option {
 	return h.typeChoices
 }
 

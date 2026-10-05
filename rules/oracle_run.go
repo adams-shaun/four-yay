@@ -333,7 +333,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			sideboards[p] = append(sideboards[p], c)
 		}
 	}
-	cfg := Config{Seed: 42, Names: []string{"a", "b"}, Decks: decks, Tokens: r.reg.Tokens}
+	cfg := Config{Seed: 42, Names: []string{"a", "b"}, Decks: decks, Tokens: r.reg.Tokens, NamedCorpus: r.reg.Cards}
 	for p := range sideboards {
 		if len(sideboards[p]) > 0 {
 			// Only a scenario that names a sideboard sets the field, so every

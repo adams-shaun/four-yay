@@ -404,6 +404,12 @@ type Game struct {
 	// NameUniverse is the immutable compiled card-name universe used by
 	// NameCard choices. It is supplied by the embedder and shared by clones.
 	NameUniverse []*cards.Card
+	// NamedCorpus is a compiled corpus consulted only by Game.NamedCard (the
+	// CopyPermanent DefinedName$ "copy the card named N" mechanic). An
+	// embedder that must not gain NameCard asks (the oracle harness, whose
+	// recorded verdicts predate them) sets this instead of NameUniverse;
+	// NameUniverse is searched first when both are present.
+	NamedCorpus []*cards.Card
 	// NameUniverseNames is its sorted, distinct primary-face-name snapshot.
 	// A persisted match supplies it on replay so a later corpus update cannot
 	// renumber a NameCard decision's options.
@@ -650,6 +656,32 @@ func (g *Game) Obj(id ObjID) *Object {
 		return nil
 	}
 	return &g.Objs[id-1]
+}
+
+// NamedCard returns the compiled card in the game's NameUniverse whose
+// primary face normalizes (cards.NormalizeName) to name, or nil when the
+// universe is absent or holds no such card. It is the ONE home for the
+// name-to-card lookup every "copy/create the card named N" path shares
+// (CopyPermanent DefinedName$, and the events fold that mints it), so the
+// effect's reachability check and the fold's mint can never disagree about
+// which card a name names. The walk is over the immutable universe slice in
+// order, so the first match is deterministic.
+func (g *Game) NamedCard(name string) *cards.Card {
+	want := cards.NormalizeName(name)
+	if want == "" {
+		return nil
+	}
+	for _, corpus := range [2][]*cards.Card{g.NameUniverse, g.NamedCorpus} {
+		for _, c := range corpus {
+			if c == nil || len(c.Faces) == 0 || c.Faces[0] == nil {
+				continue
+			}
+			if cards.NormalizeName(c.Faces[0].Name) == want {
+				return c
+			}
+		}
+	}
+	return nil
 }
 
 // NoteGoad records that an object has gained a goad (see goadsSeen).

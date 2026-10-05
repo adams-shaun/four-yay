@@ -301,6 +301,7 @@ func newEngineShell(cfg Config, random *rng) *Engine {
 	e.controlStaticInPool = poolHasControlStatic(cfg)
 	e.trigGrant.free = true // held per object as they appear (trigger_grantfree.go)
 	e.G.NameUniverse = cfg.NameUniverse
+	e.G.NamedCorpus = cfg.NamedCorpus
 	e.G.NameUniverseNames = append([]string(nil), cfg.NameUniverseNames...)
 	if len(e.G.NameUniverseNames) == 0 && len(cfg.NameUniverse) > 0 {
 		e.G.NameUniverseNames = effects.NameUniverseNames(cfg.NameUniverse)

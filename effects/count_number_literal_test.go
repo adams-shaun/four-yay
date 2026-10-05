@@ -42,10 +42,9 @@ func TestPoisonCounterNumberLiteralSVarBody(t *testing.T) {
 		{"Number$abc", 0, false, "", nil},
 		// The empty literal (SVar:RepeatCheck:Number$) stays fail-closed.
 		{"Number$", 0, false, "", nil},
-		// Only the Plus/Minus/Times SVar-operand subset is implemented for
-		// Number$ literals. Mathemagics carries this unsupported Pow suffix;
-		// it must fail closed rather than silently return the base literal 2.
-		{"Number$2/Pow.X", 0, false, "", nil},
+		// Mathemagics' Pow suffix uses the same named-operand resolution.
+		// Here X is the target's three poison counters, so 2^3 is 8.
+		{"Number$2/Pow.X", 8, true, "", nil},
 	} {
 		got, ok := EvalCountOK(h, c, tc.expr)
 		if got != tc.want || ok != tc.wantOK {
