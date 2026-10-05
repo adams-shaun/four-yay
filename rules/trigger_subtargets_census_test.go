@@ -17,8 +17,8 @@ import (
 // 2026-10-03 at FORGE_REF over every face's T: lines. The whole point of the
 // widening is that every one of these now asks its link targets while the
 // ability is put on the stack -- before any player gets priority -- instead of
-// mid-resolution. Every chain the walk finds but the scope excludes is pinned
-// in triggerChainPreAskExclusions with its reason.
+// mid-resolution. The one chain the walk finds but the scope excludes is
+// pinned in triggerChainPreAskExclusions with its reason.
 var triggerChainPreAskCarriers = []string{
 	"A-Elderfang Ritualist",
 	"Absolving Lammasu",
@@ -147,7 +147,9 @@ var triggerChainPreAskCarriers = []string{
 	"Yosei, the Morning Star",
 	"Yoshimaru, Scrappy Stray",
 	"Éomer, King of Rohan",
-} // triggerChainPreAskExclusions is every corpus card whose trigger body carries
+}
+
+// triggerChainPreAskExclusions is every corpus card whose trigger body carries
 // a targeting SubAbility$ link but stays out of the placement announcement,
 // with the reason it does. Each reason is a shape the census test can detect:
 // a card that leaves this set, or a card that enters it for any OTHER reason,
@@ -159,9 +161,9 @@ var triggerChainPreAskExclusions = map[string]string{
 	// reason (collectSubTargetPreAsks). ModeTargets carries the per-mode
 	// groups instead, so the two bindings stay disjoint.
 	"My Will Is Irresistible": "modal root (Choices$): CR 603.3c mode election owns the ask",
-	// These Defined$ target-reuse links use the previous target rather than
-	// asking for a second one; chosenTargetsFor suppresses their duplicate
-	// ask, so placement must not invent one.
+	// Defined$ target-reuse links use a prior target rather than asking for
+	// another one; chosenTargetsFor suppresses their duplicate ask, so
+	// placement must not invent one.
 	"Chromeshell Crab": "Defined$ target reuse: chosenTargetsFor suppresses the duplicate ask",
 	"Daring Thief":     "Defined$ target reuse: chosenTargetsFor suppresses the duplicate ask",
 	"Glen Elendra":     "Defined$ target reuse: chosenTargetsFor suppresses the duplicate ask",
@@ -170,6 +172,11 @@ var triggerChainPreAskExclusions = map[string]string{
 	"Puca's Mischief":  "Defined$ target reuse: chosenTargetsFor suppresses the duplicate ask",
 	"Spawnbroker":      "Defined$ target reuse: chosenTargetsFor suppresses the duplicate ask",
 	"Vedalken Plotter": "Defined$ target reuse: chosenTargetsFor suppresses the duplicate ask",
+	// No current trigger chain names TargetingPlayer$. If one enters the
+	// corpus, the census reports it as unpinned: its link ask belongs to the
+	// named seat, but trig_sub currently only resumes the trigger controller.
+	// It must not silently ask the wrong player; implement a seat-aware
+	// continuation before pinning such a card in this set.
 }
 
 // TestTriggerChainPreAskCensus pins the scoped class both ways: a carrier
@@ -199,7 +206,7 @@ func TestTriggerChainPreAskCensus(t *testing.T) {
 				if !chainHasTargetingLink(tr.Effect) {
 					continue
 				}
-				excluded[c.Faces[0].Name] = exclusionReason(tr)
+				excluded[c.Faces[0].Name] = exclusionReason(tr.Effect)
 			}
 		}
 	}
@@ -232,10 +239,11 @@ func TestTriggerChainPreAskCensus(t *testing.T) {
 }
 
 // chainHasTargetingLink reports whether ANY SubAbility$ link of the trigger
-// body declares a ValidTgts$. The census pins the full raw class, including
-// links excluded because Defined$ reuses an earlier target or because a
-// TargetingPlayer$ chooser needs a placement continuation not implemented
-// here; ChangeZone's dedicated chooser is now included in scope.
+// body declares a ValidTgts$ -- the brief's raw class, wider than the
+// collector's: it includes the ChangeZone link whose ask changeZoneChosenTargets
+// owns and the Defined$-reuse link that is never asked. The census pins every
+// such card as either in scope or an exclusion with a reason, so the raw set
+// cannot silently grow.
 func chainHasTargetingLink(root *cards.SA) bool {
 	for sa := root.Sub; sa != nil; sa = sa.Sub {
 		if strings.TrimSpace(sa.Params["ValidTgts"]) != "" {
@@ -249,8 +257,7 @@ func chainHasTargetingLink(root *cards.SA) bool {
 // is out of the placement scope. It returns the machine-checkable reason the
 // census pins; an unrecognised shape returns a reason no pinned entry matches,
 // which fails the census above.
-func exclusionReason(tr cards.Trigger) string {
-	root := tr.Effect
+func exclusionReason(root *cards.SA) string {
 	if strings.TrimSpace(root.Params["Choices"]) != "" {
 		return "modal root (Choices$): CR 603.3c mode election owns the ask"
 	}
@@ -259,17 +266,20 @@ func exclusionReason(tr cards.Trigger) string {
 			return "TargetingPlayer$ chooser: cast/placement-root opponent-pick machinery owns the ask"
 		}
 	}
-	// TargetingPlayer$ above excludes a whole chain because placement cannot
-	// currently hand that link's decision to the named chooser. Classify the
-	// remaining recognized exclusions by the first target declaration.
+	// Collector-recognised links reach here only through a TargetingPlayer$
+	// bail-out above, so every remaining raw link is one the collector itself
+	// skips: classify the first such link.
 	for sa := root.Sub; sa != nil; sa = sa.Sub {
 		if strings.TrimSpace(sa.Params["ValidTgts"]) == "" {
 			continue
 		}
-		if (sa.CompiledAPI() == cards.APIChangeZone || sa.API == "ChangeZone") && effects.DefinedRefOf(sa).Set() {
-			return "ChangeZone Defined$: the effect uses its named referent instead of asking"
+		if sa.CompiledAPI() == cards.APIChangeZone || sa.API == "ChangeZone" {
+			if effects.DefinedRefOf(sa).Set() {
+				return "ChangeZone Defined$: effect uses its named referent instead of asking"
+			}
+			continue
 		}
-		if effects.DefinedIsTargetReuse(sa.Params["Defined"]) && sa.API != "Fight" {
+		if effects.DefinedIsTargetReuse(effects.DefinedRefOf(sa).Text) && sa.API != "Fight" {
 			return "Defined$ target reuse: chosenTargetsFor suppresses the duplicate ask"
 		}
 		return "unrecognised exclusion shape"
