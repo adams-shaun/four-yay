@@ -377,24 +377,20 @@ func reconfigureTypeSwitch(o *state.Object, types []string) []string {
 
 // impendingTypeSwitch applies CR 702.176a's switch to a DERIVED type list: a
 // permanent cast for its impending cost is not a creature while it has a time
-// counter -- the printed "Enchantment Creature Avatar Horror" list loses only
-// its Creature half and keeps Enchantment and the creature subtypes (the same
-// deliberate keep-subtypes narrowing bestowedTypeSwitch and
-// reconfigureTypeSwitch practise: the subtype words are inert on a
-// non-creature in every filter this engine evaluates, and stripping them would
-// widen the diff into every subtype-affected static). An object not
-// impending-dormant -- printed without Impending, cast for its plain mana cost,
-// or with its last time counter removed -- keeps the list unchanged, returning
-// the SAME slice so the common game stays byte-identical and allocation-free.
-// The dormancy is derived live (state.Object.ImpendingDormant), so every
-// replay derives the switch identically.
+// counter, so its creature subtypes are removed along with Creature. Other card
+// types and supertypes remain. An object not impending-dormant -- printed
+// without Impending, cast for its plain mana cost, or with its last time
+// counter removed -- keeps the list unchanged, returning the SAME slice so the
+// common game stays byte-identical and allocation-free. The dormancy is
+// derived live (state.Object.ImpendingDormant), so every replay derives the
+// switch identically.
 func impendingTypeSwitch(o *state.Object, types []string) []string {
 	if !o.ImpendingDormant() {
 		return types
 	}
 	out := make([]string, 0, len(types))
 	for _, t := range types {
-		if t == "Creature" {
+		if t == "Creature" || IsCreatureSubtype(t) {
 			continue
 		}
 		out = append(out, t)

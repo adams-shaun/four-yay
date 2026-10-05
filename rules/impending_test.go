@@ -115,11 +115,14 @@ func TestImpendingCastEntersWithTimeCountersAndIsNotACreature(t *testing.T) {
 		t.Error("impending-dormant permanent reads as a creature via the layer-derived IsCreature")
 	}
 	types := e.Derived(id).Types
-	if !impendingContainsWord(types, "Golem") {
-		t.Errorf("derived types %v dropped the creature subtype; want Golem kept", types)
+	if impendingContainsWord(types, "Golem") {
+		t.Errorf("derived types %v retain Golem after Creature is removed", types)
 	}
 	if impendingContainsWord(types, "Creature") {
 		t.Errorf("derived types %v still name Creature; the layer-4 switch dropped nothing", types)
+	}
+	if len(types) != 0 {
+		t.Errorf("derived types %v retain unrelated words; the Creature Golem fixture should become typeless", types)
 	}
 	// The entry rider really ran: it granted the recurring end-step removal.
 	grants := 0
