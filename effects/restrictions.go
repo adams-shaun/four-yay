@@ -553,7 +553,7 @@ func CantPlayLandParamsReadable(params map[string]string) bool {
 			return false
 		}
 	}
-	origin, ok := params[cards.PKOrigin.String()]
+	origin, ok := params["Origin"]
 	return ok && strings.EqualFold(strings.TrimSpace(origin), "Hand")
 }
 
