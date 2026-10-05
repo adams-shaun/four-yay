@@ -322,7 +322,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             sc0 = sc;
             gorgeName = str(sc, "card");
             xmageName = str(sc, "xmage_name");
-            endTurnScenario = hasEndTurnEffect(xmageName);
+            endTurnScenario = hasEndTurnEffect(xmageName.isEmpty() ? gorgeName : xmageName);
             cast.clear();
             refAlias.clear();
             phase = MAIN;
