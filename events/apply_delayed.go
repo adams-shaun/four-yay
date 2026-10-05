@@ -42,7 +42,8 @@ func foldDelayedRegister(g *state.Game, e *Event) {
 		strings.HasPrefix(e.Counter, "__kwWarp") ||
 		strings.HasPrefix(e.Counter, "__kwUnearth") ||
 		strings.HasPrefix(e.Counter, "__kwAtEOT") ||
-		strings.HasPrefix(e.Counter, "__kwMayFlashSac")
+		strings.HasPrefix(e.Counter, "__kwMayFlashSac") ||
+		strings.HasPrefix(e.Counter, "__kwDecayed")
 	// Event-matched (non-phase) registrations encode
 	// "<Mode$ value>:<trigger SVar name>" in Text. The DelayedRegister
 	// event gains no field of its own (Ruling T20-a's field-reuse

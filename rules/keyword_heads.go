@@ -27,6 +27,7 @@ var (
 	kwhCumulativeUpkeep = newKWHead("Cumulative upkeep")
 	kwhCycling          = newKWHead("Cycling")
 	kwhDeathtouch       = newKWHead("Deathtouch")
+	kwhDecayed          = newKWHead("Decayed")
 	kwhDefender         = newKWHead("Defender")
 	kwhDelve            = newKWHead("Delve")
 	kwhDemonstrate      = newKWHead("Demonstrate")
