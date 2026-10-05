@@ -33,6 +33,7 @@ var replEventGates = [cards.ReplEventCount]replEventGate{
 	cards.ReplAddCounter:  {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "AddCounter") }},
 	cards.ReplGainLife:    {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "GainLife") }},
 	cards.ReplLifeReduced: {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "LifeReduced") }},
+	cards.ReplPayLife:     {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "PayLife") }},
 	cards.ReplDamageDone:  {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "DamageDone") }},
 	cards.ReplCreateToken: {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "CreateToken") }},
 	cards.ReplAttached:    {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "Attached") }},
