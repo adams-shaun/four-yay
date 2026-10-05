@@ -399,7 +399,9 @@ patterns = [
 staging_worktree = true
 strategy = "merge-push"
 remote = "origin"
-push = true
+push = false
+# 2026-10-05 (operator): main is pushed by scripts/postmerge_batch.sh only
+# after the full suite passes, every 5 landings (or 60 min).
 # 2026-09-22 (operator): the demo is no longer redeployed on every merge --
 # a redeploy kills every in-flight vs-bot game (SIGTERM aborts live matches
 # and the persistence dir is wiped). Deploy by hand: `make deploy-demo`.
