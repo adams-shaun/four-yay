@@ -20,7 +20,9 @@ func TestCompositeMayDoesNotConsumeWholeHandElection(t *testing.T) {
 		Decisions: []rules.OracleDecision{{Step: 1, Seat: 0, Kind: "choose_n", Options: 2,
 			Picks: []string{"Yes — discard your hand"}, PickRefs: []string{"Yes — discard your hand"}, PickKinds: []string{"yes"}}},
 	}
-	want := [][]XAnswer{nil, {{Seat: 0, Kind: "choice", Value: "Yes — discard your hand"}}}
+	// The engine's yes option is XMage's chooseUse: "yes" (measured on the
+	// 2026-10-05 std pass, no carrier diverged with it).
+	want := [][]XAnswer{nil, {{Seat: 0, Kind: "choice", Value: "yes"}}}
 	if got := xanswersForScenario(res, sc, nil); !reflect.DeepEqual(got, want) {
 		t.Fatalf("whole-hand election = %#v, want %#v", got, want)
 	}

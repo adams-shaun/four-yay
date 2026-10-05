@@ -23,11 +23,14 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 		want []XAnswer
 	}{
 		{
-			// Surveil/scry: the graveyard pick is a makeChoose (choice queue),
-			// and keeping every card is the queue's own skip token.
-			name: "arrange keeps all cards: choice skip then one order per kept card",
+			// Surveil/scry keeping every card: XMage's selection is a
+			// TargetCard on the target queue and a skip dismisses it.
+			// Measured on the 2026-10-05 std pass: 25 surveil/scry carriers
+			// (Refute Destiny, Proctor of Potential, ...) agree with XMage
+			// only with this answer; a choice skip plus ORDER picks diverged.
+			name: "arrange keeps all cards: target skip",
 			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "order", GorgeKind: "arrange", Options: 2, Min: 0, Max: 2, Picks: []string{"Forest", "Island"}, PickIdx: []int{0, 1}, PickKinds: []string{"graveyard", "graveyard"}},
-			want: []XAnswer{{0, "choice", "[choice_skip]"}, {0, "choice", "Forest"}, {0, "choice", "Island"}},
+			want: []XAnswer{{0, "target", "[target_skip]"}},
 		},
 		{
 			name: "arrange partial selection: selected, stop, then order",
@@ -62,12 +65,26 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 			want: []XAnswer{{0, "choice", "Wastes"}},
 		},
 		{
-			// A library search is resolved by XMage's computer player
-			// (TestPlayer.searchLibrary delegates), so a scripted answer is an
-			// unused leftover: it must not be queued at all.
-			name: "choose_n library search: skipped, XMage searches with its AI",
+			// A library search is a TargetCardInLibrary: the target queue.
+			// Measured on the 2026-10-05 std pass: 47 search carriers (Shared
+			// Roots, Nature's Rhythm, ...) agree only with the target answer;
+			// leaving the search to XMage's AI diverged.
+			name: "choose_n library search: target queue",
 			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 39, Max: 1, Picks: []string{"Wastes"}, PickRefs: []string{"p1:Wastes#9"}, PickIdx: []int{0}, PickKinds: []string{"search"}},
-			want: nil,
+			want: []XAnswer{{0, "target", "Wastes"}},
+		},
+		{
+			// A short library search stops XMage picking more with the
+			// target queue's skip token.
+			name: "choose_n short library search: target then target skip",
+			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 39, Max: 2, Picks: []string{"Forest"}, PickRefs: []string{"p0:Forest"}, PickIdx: []int{0}, PickKinds: []string{"search"}},
+			want: []XAnswer{{0, "target", "Forest"}, {0, "target", "[target_skip]"}},
+		},
+		{
+			// "Choose a number" is TestPlayer.getAmount, which reads X=<n>.
+			name: "choose a number: X=n on the choice queue",
+			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 11, Max: 1, Picks: []string{"0"}, PickRefs: []string{"0"}, PickIdx: []int{0}, PickKinds: []string{"number"}},
+			want: []XAnswer{{0, "choice", "X=0"}},
 		},
 		{
 			// "Look at an opponent's hand" is a TargetOpponent: the target
@@ -88,11 +105,11 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 			want: []XAnswer{{0, "choice", "yes"}},
 		},
 		{
-			// A yes-like verb option is a real pick, not the bare yes/no
-			// response. Keep its label so XMage can resolve the follow-up.
-			name: "yes with verb: preserve the selected option label",
-			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 2, Max: 1, Picks: []string{"Yes — discard"}, PickRefs: []string{"Yes — discard"}, PickIdx: []int{0}, PickKinds: []string{"yes"}},
-			want: []XAnswer{{0, "choice", "Yes — discard"}},
+			// The engine's own "yes" option with a verb ("Yes — shuffle") is
+			// still XMage's chooseUse (measured: Changeling Wayfinder).
+			name: "yes with verb: chooseUse yes",
+			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 2, Max: 1, Picks: []string{"Yes — shuffle"}, PickRefs: []string{"Yes — shuffle"}, PickIdx: []int{0}, PickKinds: []string{"yes"}},
+			want: []XAnswer{{0, "choice", "yes"}},
 		},
 		{
 			// A pile pick is not a boolean however yes-like "First pile" reads.
@@ -101,10 +118,25 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 			want: []XAnswer{{1, "choice", "First pile"}},
 		},
 		{
-			// An alternative additional cost "or" choice is a choice dialog.
-			name: "alternative additional cost: choice, not a boolean yes",
+			// An optional additional cost is XMage's chooseUse (measured:
+			// Stir Up Trouble, Silence the Echo, Bogslither's Embrace agree
+			// only with yes; the label as a choice diverged).
+			name: "optional additional cost: chooseUse yes",
 			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 2, Max: 1, Picks: []string{"Sacrifice artifact or creature"}, PickRefs: []string{"Sacrifice artifact or creature"}, PickIdx: []int{0}, PickKinds: []string{"altaddcost"}},
-			want: []XAnswer{{0, "choice", "Sacrifice artifact or creature"}},
+			want: []XAnswer{{0, "choice", "yes"}},
+		},
+		{
+			// Declining a gift is chooseUse no (measured: Kitnap, Parting Gust).
+			name: "gift declined: chooseUse no",
+			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 2, Max: 1, Picks: []string{"Don't promise a gift"}, PickRefs: []string{"Don't promise a gift"}, PickIdx: []int{0}, PickKinds: []string{"gift_decline"}},
+			want: []XAnswer{{0, "choice", "no"}},
+		},
+		{
+			// A declined pick may be posed as a yes/no or an "up to" target;
+			// both are scripted (measured: Zimone's Experiment).
+			name: "declined pick: no then target skip",
+			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 3, Min: 0, Max: 2, PickKinds: nil},
+			want: []XAnswer{{0, "choice", "no"}, {0, "target", "[target_skip]"}},
 		},
 		{
 			// A mana ability's colour pick is a real choice dialog; XMage's
@@ -136,7 +168,7 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Every non-skip fixture must genuinely offer the picks it pins;
 			// a vacuous fixture would assert nothing about the routing.
-			if tt.want != nil && len(tt.d.Picks) == 0 {
+			if tt.want != nil && len(tt.d.Picks) == 0 && tt.d.Options < 2 {
 				t.Fatal("fixture must contain at least one pick")
 			}
 			got := XAnswers([]rules.OracleDecision{tt.d}, 1, nil)
@@ -151,9 +183,11 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 	}
 }
 
-// TestYesNoRequiresAnEngineBoolean proves yesNo accepts only an exact boolean
-// option whose ref is the same exact label. A composed option such as
-// "Yes — discard" is a makeChoose pick, not a bare boolean response.
+// TestYesNoRequiresAnEngineBoolean proves yesNo accepts the engine's own
+// boolean kinds (yes/no) and the measured chooseUse families (optional
+// additional cost, gift, primary), and rejects every other labelled pick --
+// an endure or activation choice is a real makeChoose (measured: Dusyut
+// Earthcarver, Phantom Interference agree only with the label).
 func TestYesNoRequiresAnEngineBoolean(t *testing.T) {
 	valid := rules.OracleDecision{Options: 2, Picks: []string{"Yes"}, PickRefs: []string{"Yes"}, PickIdx: []int{0}, PickKinds: []string{"yes"}}
 	if got, ok := yesNo(valid); !ok || got != "yes" {
@@ -162,10 +196,10 @@ func TestYesNoRequiresAnEngineBoolean(t *testing.T) {
 	for name, d := range map[string]rules.OracleDecision{
 		"card type":     {Options: 2, Picks: []string{"Artifact"}, PickRefs: []string{"Artifact"}, PickIdx: []int{0}, PickKinds: []string{"type"}},
 		"first pile":    {Options: 2, Picks: []string{"First pile"}, PickRefs: []string{"First pile"}, PickIdx: []int{0}, PickKinds: []string{"pile-a"}},
-		"alt cost":      {Options: 2, Picks: []string{"Sacrifice 1 permanent"}, PickRefs: []string{"Sacrifice 1 permanent"}, PickIdx: []int{0}, PickKinds: []string{"altaddcost"}},
 		"empty label":   {Options: 2, Picks: []string{""}, PickRefs: []string{"p0:Wastes#27"}, PickIdx: []int{0}, PickKinds: []string{"card"}},
-		"yes with verb": {Options: 2, Picks: []string{"Yes — discard"}, PickRefs: []string{"Yes — discard"}, PickIdx: []int{0}, PickKinds: []string{"yes"}},
-		"ref differs":   {Options: 2, Picks: []string{"Yes"}, PickRefs: []string{"p0:Yes"}, PickIdx: []int{0}, PickKinds: []string{"yes"}},
+		"legacy label":  {Options: 2, Picks: []string{"Yes — discard"}, PickRefs: []string{"Yes — discard"}, PickIdx: []int{0}},
+		"activate":      {Options: 2, Picks: []string{"Activate Llanowar Elves for mana"}, PickRefs: []string{"p0:Llanowar Elves"}, PickIdx: []int{0}, PickKinds: []string{"activate"}},
+		"endure":        {Options: 2, Picks: []string{"Put +1/+1 counters on it"}, PickRefs: []string{"p0:Dusyut Earthcarver"}, PickIdx: []int{0}, PickKinds: []string{"endure_counters"}},
 		"three options": {Options: 3, Picks: []string{"Yes"}, PickRefs: []string{"Yes"}, PickIdx: []int{0}, PickKinds: []string{"yes"}},
 		"two picks":     {Options: 2, Picks: []string{"Yes", "No"}, PickRefs: []string{"Yes", "No"}, PickIdx: []int{0, 1}, PickKinds: []string{"yes", "no"}},
 	} {
@@ -215,7 +249,8 @@ func TestXMQueueCensus(t *testing.T) {
 	cases := []struct {
 		kind, label, want string
 	}{
-		{"search", "Wastes", "skip"},
+		{"search", "Wastes", "target"},
+		{"exilecost", "Wastes", "target"},
 		{"trigger_cost_pay", "Pay {2}", "skip"},
 		{"mana", "Pay 3 life", "skip"},
 		{"mana", "Add W", "choice"},

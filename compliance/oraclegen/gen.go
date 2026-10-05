@@ -16,6 +16,7 @@ package oraclegen
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -483,6 +484,14 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 				as = append(as, XAnswer{d.Seat, "choice", "X=" + strings.TrimPrefix(d.Picks[0], "X = ")})
 				break
 			}
+			if len(d.Picks) == 1 && pickKind(d, 0) == "number" {
+				if _, err := strconv.Atoi(d.Picks[0]); err == nil {
+					// "Choose a number": XMage's getAmount reads an "X=<n>"
+					// choice, exactly like announceX (TestPlayer.getAmount).
+					as = append(as, XAnswer{d.Seat, "choice", "X=" + d.Picks[0]})
+					break
+				}
+			}
 			if yn, ok := yesNo(d); ok {
 				as = append(as, XAnswer{d.Seat, "choice", yn})
 				break
@@ -515,9 +524,18 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 				}
 				as = append(as, XAnswer{d.Seat, "choice", label})
 			}
-			if len(d.Picks) == 0 || d.Max > len(d.Picks) {
-				// A declined or short makeChoose picks fewer than the maximum;
-				// its queue has its own skip token.
+			switch {
+			case len(d.Picks) == 0:
+				// Declined: XMage may pose it as a yes/no or as an "up to"
+				// pick; script both (measured: Zimone's Experiment agrees
+				// only with this pair).
+				as = append(as, XAnswer{d.Seat, "choice", "no"}, XAnswer{d.Seat, "target", "[target_skip]"})
+			case d.Max > len(d.Picks) && len(as) > 0 && as[len(as)-1].Kind == "target":
+				// Fewer than "up to N" on the target queue: stop XMage
+				// picking more.
+				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
+			case d.Max > len(d.Picks) && len(as) > 0:
+				// A short makeChoose; its queue has its own skip token.
 				as = append(as, XAnswer{d.Seat, "choice", "[choice_skip]"})
 			}
 		case "order":
@@ -534,19 +552,23 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 			// also on XMage's choice queue. Keeping all cards is a choice skip.
 			if d.GorgeKind == "arrange" {
 				forcedOrder := d.Min == d.Max && d.Max == d.Options
+				if !forcedOrder && len(d.PickIdx) == d.Options {
+					// Keeping every card where it is: XMage's surveil/scry
+					// selection is a TargetCard on the target queue, and a
+					// skip dismisses it. Measured against XMage on the std
+					// pass (Refute Destiny, Proctor of Potential, ... -- 25
+					// cards that agree only with this answer); no ORDER
+					// answer follows, XMage keeps the cards in place.
+					as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
+					break
+				}
 				if !forcedOrder {
-					if len(d.PickIdx) == d.Options {
-						// Keeping every card means the selection dialog is
-						// dismissed immediately.
-						as = append(as, XAnswer{d.Seat, "choice", "[choice_skip]"})
-					} else {
-						// A proper subset is selected on the choice queue,
-						// then choice_skip terminates that dialog.
-						for _, label := range d.Picks {
-							as = append(as, XAnswer{d.Seat, "choice", label})
-						}
-						as = append(as, XAnswer{d.Seat, "choice", "[choice_skip]"})
+					// A proper subset is selected on the choice queue,
+					// then choice_skip terminates that dialog.
+					for _, label := range d.Picks {
+						as = append(as, XAnswer{d.Seat, "choice", label})
 					}
+					as = append(as, XAnswer{d.Seat, "choice", "[choice_skip]"})
 				}
 				// The subsequent ORDER prompt consumes one choice for each
 				// kept card, in the order gorge selected them.
@@ -604,26 +626,46 @@ func modeNumbers(f *cards.Face) map[string]int {
 // "Yes — discard" are ordinary makeChoose picks, not boolean answers. Older
 // snapshots without PickKinds use the same exact-label/ref rule.
 func yesNo(d rules.OracleDecision) (string, bool) {
-	if d.Options != 2 || len(d.Picks) != 1 || len(d.PickRefs) != 1 || d.Picks[0] != d.PickRefs[0] {
+	if d.Options != 2 || len(d.Picks) != 1 || len(d.PickRefs) != 1 {
 		return "", false
 	}
-	label := strings.ToLower(strings.TrimSpace(d.Picks[0]))
-	if label != "yes" && label != "no" {
-		return "", false
+	switch kind := pickKind(d, 0); kind {
+	case "yes", "no":
+		// The engine's own boolean option ("Yes — shuffle", a may
+		// trigger): XMage's chooseUse.
+		return kind, true
+	case "altaddcost", "gift_decline", "gift_promise", "primary":
+		// An optional additional cost, a gift promise and a two-way
+		// primary/secondary pick are chooseUse asks in XMage too
+		// (measured: Silence the Echo, Kitnap, Lost in Space agree only
+		// with a yes/no answer). Option 0 is the "do it" side.
+		l := strings.ToLower(d.Picks[0])
+		for _, neg := range []string{"do not", "don't", "no", "decline", "skip"} {
+			if strings.HasPrefix(l, neg) {
+				return "no", true
+			}
+		}
+		if len(d.PickIdx) == 1 && d.PickIdx[0] == 0 {
+			return "yes", true
+		}
+		return "no", true
+	case "":
+		// A snapshot without PickKinds: only an exact Yes/No label.
+		label := strings.ToLower(strings.TrimSpace(d.Picks[0]))
+		if d.Picks[0] == d.PickRefs[0] && (label == "yes" || label == "no") {
+			return label, true
+		}
 	}
-	kind := pickKind(d, 0)
-	if kind != "" && kind != label {
-		return "", false
-	}
-	return label, true
+	return "", false
 }
 
 // hasTargetPick reports whether any picked option reaches XMage's target
 // queue (a real TargetXxx), which XMage poses even when the engine offered
 // exactly one legal option.
 func hasTargetPick(d rules.OracleDecision) bool {
-	for k, label := range d.Picks {
-		if xmQueue(pickKind(d, k), label) == "target" {
+	for k := range d.Picks {
+		switch pickKind(d, k) {
+		case "permanent", "player":
 			return true
 		}
 	}
@@ -650,7 +692,14 @@ func pickKind(d rules.OracleDecision, k int) string {
 // label text, is the authority -- the mechanism the census test pins.
 func xmQueue(kind, label string) string {
 	switch kind {
-	case "search", "trigger_cost_pay":
+	case "search", "exilecost":
+		// A library search (TargetCardInLibrary) and an exile-from-graveyard
+		// cost (TargetCardInYourGraveyard) are answered from the target
+		// queue: measured on the std pass, 47 search carriers (Shared Roots,
+		// Nature's Rhythm, Solemn Simulacrum, ...) and Feed the Cycle /
+		// Soaring Stoneglider agree only with a target answer.
+		return "target"
+	case "trigger_cost_pay":
 		return "skip"
 	case "mana":
 		if _, ok := manaColourLabel(label); ok {
