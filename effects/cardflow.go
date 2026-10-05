@@ -263,6 +263,21 @@ func discardAndRemember(h Host, c *Ctx, r discardRiders, id state.ObjID, p state
 	discardAndRememberEvent(h, c, r, events.Discard(id, p))
 }
 
+// resolveOptionalHandDiscard applies an answered whole-hand election. An
+// affirmative choice is remembered even when there are no cards to move;
+// per-card calls deduplicate this for a non-empty hand.
+func resolveOptionalHandDiscard(h Host, c *Ctx, r discardRiders, hand []state.ObjID, p state.PlayerID, ans []decision.Option) {
+	if !answerYes(ans) {
+		return
+	}
+	if r.rememberPlayers {
+		rememberPlayerBothHalves(h, c, p)
+	}
+	for _, id := range hand {
+		discardAndRemember(h, c, r, id, p)
+	}
+}
+
 // The random choice rides the canonical discard move itself: Amount is the
 // one-based index into the remaining eligible hand (0 means an ordinary
 // discard). Apply moves Obj, while the event records both the RNG outcome and
@@ -706,12 +721,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 						{Index: 1, Kind: "no", Label: "No — keep it", Player: p},
 					}}
 				if ans, ok := AskTape(h, d); ok {
-					// Answered in place: the whole-hand discard (or decline).
-					if answerYes(ans) {
-						for _, id := range hand {
-							discardAndRemember(h, c, riders, id, p)
-						}
-					}
+					resolveOptionalHandDiscard(h, c, riders, hand, p, ans)
 					continue
 				}
 
