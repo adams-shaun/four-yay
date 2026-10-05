@@ -35,6 +35,15 @@ type millReplacementHost interface {
 	emit(events.Event) events.Event
 }
 
+// millReplacementAsk keeps the decision-tape callback outside the already
+// ceiling-limited replacement dispatch.
+func millReplacementAsk(h effects.Host) func(*decision.Decision) []decision.Option {
+	return func(d *decision.Decision) []decision.Option {
+		chosen, _ := effects.AskTape(h, d)
+		return chosen
+	}
+}
+
 // continueMillReplacements rewrites the count of one proposed Mill instruction.
 // The only supported bodies are ReplaceEffect count rewrites of Number; other
 // bodies fail closed and are surfaced with a Note.
