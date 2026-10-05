@@ -391,13 +391,6 @@ func (e *Engine) castWithFlash(p state.PlayerID, id state.ObjID) bool {
 // sources alternativeCosts reads for a self-carried AlternativeCost) -- so the
 // offer and the recheck cannot disagree about which statics grant the
 // permission.
-func (e *Engine) castWithFlashTeamwork(p state.PlayerID, id state.ObjID, f *cards.Face) bool {
-	if f == nil || !e.activationPhasesOK(p, f.SpellAbility()) {
-		return false
-	}
-	return e.castWithFlashTargets(p, id, e.costPotentialTargets(p, id, spellScope("")), true)
-}
-
 func (e *Engine) castWithFlashTargets(p state.PlayerID, id state.ObjID, targets []state.Target, teamworkOffer bool) bool {
 	o := e.G.Obj(id)
 	if o == nil || o.Face() == nil {
