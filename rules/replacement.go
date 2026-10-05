@@ -122,10 +122,8 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 	if !ok {
 		return ev, false
 	}
-	// The CantPutCounter prohibition that used to sit here is now enforced in
-	// Engine.emit, BEFORE this replacement dispatch, so it applies even while
-	// a replacement body is in flight (task addcounter1/2). Keeping it here
-	// would skip it under applyingReplacement, the hole this task closes.
+	// CantPutCounter is enforced in Engine.emit before this dispatch, even
+	// while a replacement body is in flight (task addcounter1/2).
 	// FINALITY (CR 122.1) is a replacement at the common move boundary:
 	// a creature with a finality counter that would go from the battlefield to
 	// a graveyard is exiled instead. This covers destruction, toughness-based
@@ -335,10 +333,9 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 	if len(matches) == 0 {
 		return ev, false
 	}
-	if ev.Kind == events.ManaClear {
-		return applyLoseManaBoundary(ev, matches, e.G, e, e.emit, func(value bool) { e.applyingReplacement = value }, e.poseReplacementChoice)
-	}
 	switch ev.Kind {
+	case events.ManaClear:
+		return applyLoseManaBoundary(ev, matches, e.G, e, e.emit, func(value bool) { e.applyingReplacement = value }, e.poseReplacementChoice)
 	case events.Untap:
 		return e.continueUntapReplacements(ev, matches)
 	case events.StepChange:

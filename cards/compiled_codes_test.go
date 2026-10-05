@@ -227,7 +227,7 @@ func TestLineModeCatalogValuesArePinned(t *testing.T) {
 		"GainLife", "LifeReduced", "DamageDone", "Counter", "Draw",
 		"AddCounter", "Attached", "BeginTurn", "Cascade", "CreateToken",
 		"DrawCards", "Explore", "GameLoss", "GameWin", "RollDice",
-		"RollPlanarDice", "Scry", "TurnFaceUp", "PayLife", "LoseMana",
+		"RollPlanarDice", "Scry", "TurnFaceUp", "Mill", "PayLife", "LoseMana",
 	}
 	for i, n := range repls {
 		if got := ReplEventOf(n); int(got) != i+1 {

@@ -144,7 +144,7 @@ func (e *Engine) finishParkedPhase(rc replChoice, selected int) {
 		if e.pending != nil {
 			// The boundary's mana choice must settle before the phase body.
 			rc.boundary = false
-			e.replChoices[len(e.replChoices)-1].manaBoundary.phase = &rc
+			e.replChoices[len(e.replChoices)-1].manaBoundary.phase = &parkedPhaseFinish{ev: rc.ev, cands: rc.cands}
 			e.replChoices[len(e.replChoices)-1].manaBoundary.phaseSelected = selected
 			return
 		}

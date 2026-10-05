@@ -185,8 +185,16 @@ type replChoice struct {
 type manaBoundaryContinuation struct {
 	leaving, entering state.Step
 	next              int
-	phase             *replChoice
+	phase             *parkedPhaseFinish
 	phaseSelected     int
+}
+
+// Only the proposed step and its replacement candidates are needed after
+// boundary cleanup; holding a replChoice here would recursively embed another
+// manaBoundaryContinuation and make a parked choice impossible to clone.
+type parkedPhaseFinish struct {
+	ev    events.Event
+	cands []replMatch
 }
 
 // replacementChoicePlayer is the affected player a parked competition asks:
@@ -806,7 +814,7 @@ func continueLoseManaBoundary(b *manaBoundaryContinuation, pending func() bool, 
 			(*queue)[len(*queue)-1].manaBoundary.phaseSelected = b.phaseSelected
 		}
 	} else if b.phase != nil {
-		phase(*b.phase, b.phaseSelected)
+		phase(replChoice{ev: b.phase.ev, cands: b.phase.cands}, b.phaseSelected)
 	}
 }
 
