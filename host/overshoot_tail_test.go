@@ -620,6 +620,12 @@ func TestCrashedMatchFeedbackCaptureStillTrims(t *testing.T) {
 // only difference from that stream apart from shifted seqs/head. Re-recorded
 // via TestGenerateOvershootCapture: 2142 events, 378 intents, head
 // 5775daf7a611571c.
+//
+// Source damage-history re-record (2026-10-05): DamageProvenance's text now
+// carries the source's colours at the hit and the recipient's derived types
+// (Count$ damage-history heads), so the capture diverged at its first
+// damage_provenance event. Re-recorded via TestGenerateOvershootCapture:
+// 2142 events, 378 intents (unchanged), head f8d6151ddd8d7d50.
 const committedCaptureRel = "../cmd/repro/testdata/feedback/20260915T094418Z-e484f1db"
 
 // requireCommittedCapture skips when the worktree has no .cards/ corpus:
