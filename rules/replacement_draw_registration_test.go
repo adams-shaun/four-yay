@@ -44,6 +44,79 @@ func TestReplDrawPrimitivesAreRegistered(t *testing.T) {
 	}
 }
 
+// drawReplCarriers is every corpus card measured on 2026-10-04 to carry an
+// `R:Event$ Draw` line, and drawCardsReplCarriers every one carrying
+// `R:Event$ DrawCards`:
+//
+//	/usr/bin/grep -rlE '^R:Event\$ Draw( |$)' .cards/cardsfolder | wc -l  ==  37
+//	/usr/bin/grep -rlE '^R:Event\$ DrawCards( |$)' .cards/cardsfolder | wc -l == 2
+//
+// The two names share one events.Draw match (replacementEventNameMatches's
+// one alias), so the census pins them as one class while keeping the two
+// spellings distinct. A new carrier of either spelling fails here, which is
+// how the class stays a ratchet rather than a snapshot.
+var drawReplCarriers = []string{
+	"Abundance", "Alhammarret's Archive", "Archmage Ascension",
+	"Asmodeus the Archfiend", "Bard, King of Dale", "Blood Scrivener",
+	"Booby Trap", "Breathstealer's Crypt", "Chains of Mephistopheles",
+	"Enduring Renewal", "Eruth, Tormented Prophet", "Forbidden Crypt",
+	"Hullbreacher", "Island Sanctuary", "Jace, Wielder of Mysteries",
+	"Laboratory Maniac", "Living Conundrum", "Magus of the Chains",
+	"Notion Thief", "Obstinate Familiar", "Ormos, Archive Keeper",
+	"Out of the Tombs", "Parallel Thoughts", "Phial of Galadriel",
+	"Possessed Portal", "Pursuit of Knowledge", "Reed Richards, Smartest Man",
+	"Sages of the Anima", "Sea of Sand", "Shared Fate",
+	"Teferi's Ageless Insight", "Thought Reflection", "Tomorrow, Azami's Familiar",
+	"Uba Mask", "Underrealm Lich", "Unpredictable Cyclone", "Zur's Weirding",
+}
+
+var drawCardsReplCarriers = []string{"Alms Collector", "Quantum Riddler"}
+
+// TestReplDrawClassCensus pins every corpus carrier of the class in both
+// directions: each pinned name still carries its R: line, and the corpus
+// holds no unpinned carrier. Removing the registration or adding a carrier
+// changes the measured set and fails here.
+func TestReplDrawClassCensus(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	measured := map[string]string{} // name -> "Draw"/"DrawCards"
+	for _, c := range reg.Cards {
+		if len(c.Faces) == 0 {
+			continue
+		}
+		for _, f := range c.Faces {
+			for i := range f.Repls {
+				switch f.Repls[i].Event {
+				case "Draw", "DrawCards":
+					measured[f.Name] = f.Repls[i].Event
+				}
+			}
+		}
+	}
+	pinned := map[string]string{}
+	for _, n := range drawReplCarriers {
+		pinned[n] = "Draw"
+	}
+	for _, n := range drawCardsReplCarriers {
+		pinned[n] = "DrawCards"
+	}
+	for n, ev := range pinned {
+		if _, ok := reg.Lookup(n); !ok {
+			t.Errorf("%s: pinned carrier no longer in the corpus", n)
+		} else if measured[n] != ev {
+			t.Errorf("%s: measured event %q, want %q", n, measured[n], ev)
+		}
+	}
+	for n, ev := range measured {
+		if _, ok := pinned[n]; !ok {
+			t.Errorf("new R:Event$ %s carrier %q -- add it to the census", ev, n)
+		}
+	}
+	if len(measured) != 39 {
+		t.Errorf("measured %d Draw-class carriers, want 39", len(measured))
+	}
+}
+
 // drawReplEngine is a two-seat game at Main 1 of turn 1 (seat 0 active), the
 // board every Draw-replacement pin reads: NotFirstCardInDrawStep$ is
 // false there, so a raw Draw is an "extra" draw the class may replace.
