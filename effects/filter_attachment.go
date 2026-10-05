@@ -176,20 +176,22 @@ func sharesTypeArg(p string) (name, arg string, ok bool) {
 }
 
 // sharesNameWithArg recognises the supported two-token name-comparison
-// referents. Keep this narrower than sharesTypeArg: name comparison currently
-// binds Targeted, Remembered and TriggeredCard only.
+// referents. It matches on the shared referent resolver's OWN vocabulary
+// table, whose supported referents (Targeted, Remembered, RememberedCard,
+// TriggeredCard) each carry a distinct code, so an unintended referent cannot
+// leak in through a shared code. Anything else stays unbound and fails closed.
 func sharesNameWithArg(p string) (string, bool) {
 	name, arg, ok := strings.Cut(p, " ")
 	if !ok || wordPredicateSharesCodes.Code(name) != wordPredicateSharesNameWith {
 		return "", false
 	}
 	arg = strings.TrimSpace(arg)
-	switch sharesTypeArgCodes.Code(arg) {
-	case sharesTypeArgTargeted, sharesTypeArgRemembered, sharesTypeArgRememberedCard, sharesTypeArgTriggeredCard:
+	switch sharesTypeReferentsCodes.Code(arg) {
+	case sharesTypeReferentsTargeted, sharesTypeReferentsRemembered,
+		sharesTypeReferentsRememberedCard, sharesTypeReferentsTriggeredCard:
 		return arg, true
-	default:
-		return "", false
 	}
+	return "", false
 }
 
 func isTargetedCardBase(base string) bool {
@@ -302,13 +304,13 @@ func sharesTypeReferents(g *state.Game, sc SpecContext, ref string) []state.Targ
 				break // the FIRST card entry, per Forge's RememberedCard
 			}
 		}
-	case sharesTypeReferentsRemembered:
+	case sharesTypeReferentsRemembered, sharesTypeReferentsRememberedLKI:
 		for _, t := range sc.Remembered {
 			if !t.IsPlayer {
 				ts = append(ts, t)
 			}
 		}
-	case sharesTypeReferentsTriggeredCard:
+	case sharesTypeReferentsTriggeredCard, sharesTypeReferentsTriggeredCardLKICopy:
 		if sc.TriggerCard != 0 {
 			ts = append(ts, state.Target{Obj: sc.TriggerCard})
 		}
@@ -897,7 +899,9 @@ const (
 	sharesTypeReferentsCommander
 	sharesTypeReferentsRememberedCard
 	sharesTypeReferentsRemembered
+	sharesTypeReferentsRememberedLKI
 	sharesTypeReferentsTriggeredCard
+	sharesTypeReferentsTriggeredCardLKICopy
 	sharesTypeReferentsTargeted
 	sharesTypeReferentsSelf
 	sharesTypeReferentsImprinted
@@ -908,9 +912,9 @@ var sharesTypeReferentsCodes = state.NewStrCodes(
 	state.StrEntry[sharesTypeReferentsCode]{Key: "Commander", Val: sharesTypeReferentsCommander},
 	state.StrEntry[sharesTypeReferentsCode]{Key: "RememberedCard", Val: sharesTypeReferentsRememberedCard},
 	state.StrEntry[sharesTypeReferentsCode]{Key: "Remembered", Val: sharesTypeReferentsRemembered},
-	state.StrEntry[sharesTypeReferentsCode]{Key: "RememberedLKI", Val: sharesTypeReferentsRemembered},
+	state.StrEntry[sharesTypeReferentsCode]{Key: "RememberedLKI", Val: sharesTypeReferentsRememberedLKI},
 	state.StrEntry[sharesTypeReferentsCode]{Key: "TriggeredCard", Val: sharesTypeReferentsTriggeredCard},
-	state.StrEntry[sharesTypeReferentsCode]{Key: "TriggeredCardLKICopy", Val: sharesTypeReferentsTriggeredCard},
+	state.StrEntry[sharesTypeReferentsCode]{Key: "TriggeredCardLKICopy", Val: sharesTypeReferentsTriggeredCardLKICopy},
 	state.StrEntry[sharesTypeReferentsCode]{Key: "Targeted", Val: sharesTypeReferentsTargeted},
 	state.StrEntry[sharesTypeReferentsCode]{Key: "Self", Val: sharesTypeReferentsSelf},
 	state.StrEntry[sharesTypeReferentsCode]{Key: "Imprinted", Val: sharesTypeReferentsImprinted},

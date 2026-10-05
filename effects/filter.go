@@ -2638,9 +2638,6 @@ func matchesObjectText(g *state.Game, spec string, o *state.Object, sc SpecConte
 			continue
 		}
 		base, rest, _ := strings.Cut(alt, ".")
-		if isTargetedCardBase(base) && !strings.Contains("+"+rest+"+", "+Self+") {
-			continue
-		}
 		asc := sc
 		contextualSameName := sameNameContextBase(base, rest)
 		// Forge's sameName forms can name their referent in the base:
@@ -2803,9 +2800,6 @@ func matchesZoneSpecText(g *state.Game, spec string, o *state.Object, sc SpecCon
 			continue
 		}
 		base, rest, _ := strings.Cut(alt, ".")
-		if isTargetedCardBase(base) && !strings.Contains("+"+rest+"+", "+Self+") {
-			continue
-		}
 		if base == "CARDNAME" {
 			if sc.Source == 0 || o.ID != sc.Source {
 				continue

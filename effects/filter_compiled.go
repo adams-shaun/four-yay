@@ -312,12 +312,6 @@ func compileSpec(spec string) *compiledSpec {
 			a.kind = cbTargetedCard
 		} else {
 			switch compileSpecCodes.Code(string(b)) {
-			case compileSpecTargetedCard:
-				if strings.Contains("+"+rest+"+", "+Self+") {
-					a.kind = cbTargetedCard
-				} else {
-					a.kind, a.typ, a.typID, a.typSub = cbType, b, cards.InternTypeWord(b), changelingType(b)
-				}
 			case compileSpecAny:
 				a.kind = cbAny
 			case compileSpecCard:
@@ -684,7 +678,6 @@ type compileSpecCode uint16
 
 const (
 	compileSpecAny compileSpecCode = iota + 1
-	compileSpecTargetedCard
 	compileSpecCard
 	compileSpecPermanent
 	compileSpecAffinity
