@@ -38,6 +38,13 @@ func emitLoseManaClear(ev events.Event, emit func(events.Event) events.Event, se
 	emit(ev)
 }
 
+func handleLoseManaChoiceForEngine(rc replChoice, selected int, player state.PlayerID, before *triggerSnapshot, e *Engine) {
+	handleLoseManaChoice(rc, selected, player, before, e.G, e, e.emit,
+		func(v bool) { e.applyingReplacement = v }, func(v *triggerSnapshot) {
+			e.triggerBefore = v
+		}, e.poseReplacementChoice)
+}
+
 func handleLoseManaChoice(rc replChoice, selected int, player state.PlayerID, before *triggerSnapshot,
 	game *state.Game, runtime loseManaRuntime, emit func(events.Event) events.Event,
 	setApplying func(bool), setBefore func(*triggerSnapshot), pose func(events.Event, []replMatch)) {

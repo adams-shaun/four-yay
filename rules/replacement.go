@@ -100,6 +100,11 @@ func (e *Engine) applyReplacements(ev events.Event) (events.Event, bool) {
 	return e.applyReplacementsDispatch(ev)
 }
 
+func replacementEventDetails(ev events.Event) (string, cards.ReplEvent, bool) {
+	kind := replacementEventKind(ev)
+	return kind.String(), kind, kind != 0
+}
+
 func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool) {
 	if ev.Kind == events.Attach && e.attachedApplying {
 		return ev, false
@@ -113,8 +118,7 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 		// their own continuation is implemented.
 		return ev, false
 	}
-	eventKind := replacementEventKind(ev)
-	event, ok := eventKind.String(), eventKind != 0
+	event, eventKind, ok := replacementEventDetails(ev)
 	if !ok {
 		return ev, false
 	}
@@ -330,8 +334,7 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 		return ev, false
 	}
 	if ev.Kind == events.ManaClear {
-		return applyLoseManaBoundary(ev, matches, e.G, e, e.emit,
-			func(value bool) { e.applyingReplacement = value }, e.poseReplacementChoice)
+		return applyLoseManaBoundary(ev, matches, e.G, e, e.emit, func(value bool) { e.applyingReplacement = value }, e.poseReplacementChoice)
 	}
 	switch ev.Kind {
 	case events.Untap:
