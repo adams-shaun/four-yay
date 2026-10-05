@@ -13,8 +13,8 @@ package effects
 // (not part of effects.Host): a host double simply fires the batch modes
 // per event.
 type actionBatcher interface {
-	BeginMillBatch()
-	EndMillBatch()
+	BeginActionBatch()
+	EndActionBatch()
 }
 
 // beginActionBatch opens one action bracket and returns the function that
@@ -22,8 +22,8 @@ type actionBatcher interface {
 // close. Callers use it as `defer beginActionBatch(h)()`.
 func beginActionBatch(h Host) func() {
 	if b, ok := h.(actionBatcher); ok {
-		b.BeginMillBatch()
-		return b.EndMillBatch
+		b.BeginActionBatch()
+		return b.EndActionBatch
 	}
 	return func() {}
 }

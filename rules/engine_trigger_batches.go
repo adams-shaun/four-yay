@@ -96,13 +96,18 @@ type engineTriggerBatches struct {
 	// matching pairs. It is opened by effects/action_batch.go's
 	// beginActionBatch (effMill, effTapAll, effUntapAll) and by rules-side
 	// action boundaries (rules/combat.go's declare-attackers taps,
-	// rules/turn.go's untap step, rules/pay's BatchTap cost bracket). Never
-	// opened across a drain: pendingTriggers is append-only while the batch
-	// is open, so the recorded index stays valid.
-	millBatchOpen  bool               `clone:"reset"`
-	millBatchDepth int                `clone:"reset"`
-	millBatchIdx   map[triggerKey]int `clone:"reset"`
-	millBatchLog   []millBatchEntry   `clone:"reset"`
+	// rules/turn.go's untap step, rules/pay's BatchTap cost bracket). The
+	// untap-step bracket is held open across a pending untap choice or
+	// replacement (rules/turn.go's finishUntapStep suspends mid-step), so the
+	// bracket state is clone:"deep" (the discard bracket's shape): a clone or
+	// snapshot taken at that pending decision must carry the open bracket, or
+	// a resume in the clone would re-derive per-event triggers instead of the
+	// single batched one. Never opened across a drain: pendingTriggers is
+	// append-only while the batch is open, so the recorded index stays valid.
+	millBatchOpen  bool               `clone:"deep"`
+	millBatchDepth int                `clone:"deep"`
+	millBatchIdx   map[triggerKey]int `clone:"deep"`
+	millBatchLog   []millBatchEntry   `clone:"deep"`
 	// discardBatch (effects' api:Discard): one api:Discard resolution is ONE
 	// discard action, so the Mode$ DiscardedAll "whenever you discard one or
 	// more cards" trigger fires once for the whole resolution, not once per

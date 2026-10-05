@@ -187,7 +187,7 @@ func (e *Engine) payCast() {
 		// tapped as part of paying the cost, the same Tap event a cast's
 		// Convoke/Harmonize/Improvise contributions emit (CR 701.67a), and
 		// they are ONE cost action for the aggregate Mode$ TapAll trigger.
-		e.emitConvokeTaps(pc)
+		pay.EmitConvokeTaps(asPayer(e), pc.card, pc.player, pc.Convoke)
 		for _, id := range pc.delve {
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZGraveyard, To: state.ZExile, Text: "delved"})
 		}
@@ -470,7 +470,7 @@ func (e *Engine) payCast() {
 	if pc.PayLife != 0 {
 		e.emit(events.Event{Kind: events.LifeChange, Player: pc.player, Amount: -pc.PayLife})
 	}
-	e.emitConvokeTaps(pc)
+	pay.EmitConvokeTaps(asPayer(e), pc.card, pc.player, pc.Convoke)
 	for _, id := range pc.delve {
 		e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZGraveyard, To: state.ZExile, Text: "delved"})
 	}
@@ -969,28 +969,6 @@ func (e *Engine) payCast() {
 	// see pre-sweep state.
 	e.effectCastSweep(castEv)
 	e.cast, e.choosing = nil, chooseNone
-}
-
-// emitConvokeTaps emits the Tap events an activation's or cast's announced
-// Convoke/Harmonize/Improvise/waterbend contributions pay (pc.Convoke, CR
-// 701.67a), followed by the waterbend ElementalBend marker. Every announced
-// tap belongs to ONE cost action, so the Mode$ TapAll aggregate trigger must
-// fire once for the whole announcement, not once per tapped creature: the
-// taps are wrapped in the shared action bracket (rules/trigger_match.go's
-// openMillBatch/closeMillBatch). It is a named helper -- not inline at the two
-// call sites -- because payCast is a frozen >300-line function (codeshape
-// longFuncCeilings) and the bracket pair must open and close in every branch.
-func (e *Engine) emitConvokeTaps(pc *pendingCast) {
-	e.openMillBatch()
-	waterbent := false
-	for _, pay := range pc.Convoke {
-		e.emit(events.Event{Kind: events.Tap, Obj: pay.ID})
-		waterbent = waterbent || pay.Waterbend
-	}
-	e.closeMillBatch()
-	if waterbent {
-		e.emit(events.Event{Kind: events.ElementalBend, Obj: pc.card, Player: pc.player, Text: "water"})
-	}
 }
 
 // abortCast reverses a cast or activation proposal that cannot complete, per

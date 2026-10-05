@@ -2104,15 +2104,15 @@ func (e *Engine) EndDamageBatch()   { e.closeDamageBatch() }
 func (e *Engine) BeginZoneBatch() { e.openZoneBatch() }
 func (e *Engine) EndZoneBatch()   { e.closeZoneBatch() }
 
-// BeginMillBatch/EndMillBatch are effects.Host's shared action-batch bracket
+// BeginActionBatch/EndActionBatch are effects.Host's shared action-batch bracket
 // (effects/action_batch.go's beginActionBatch, opened by effMill and by
 // effTapAll/effUntapAll, and directly by rules-side action boundaries): the
-// MoveZone (mill) or Tap/Untap events emitted until the matching EndMillBatch
+// MoveZone (mill) or Tap/Untap events emitted until the matching EndActionBatch
 // are one action for the Mode$ MilledAll/TapAll/UntapAll latch. Reentrant
 // brackets nest by depth so an inner action cannot close its caller's batch
 // early.
-func (e *Engine) BeginMillBatch() { e.openMillBatch() }
-func (e *Engine) EndMillBatch()   { e.closeMillBatch() }
+func (e *Engine) BeginActionBatch() { e.openMillBatch() }
+func (e *Engine) EndActionBatch()   { e.closeMillBatch() }
 
 // openMillBatch opens a mill batch: the mill MoveZone events emitted until
 // the matching closeMillBatch are one mill action for Mode$ MilledAll.
