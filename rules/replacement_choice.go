@@ -64,8 +64,9 @@ const (
 	// appended so existing in-memory enum values remain unchanged.
 	replChoiceEntryOrder
 	replChoiceFaceUp
-	// replChoiceDraw asks whether to apply a bodyless optional draw replacement.
-	// It is appended so existing in-memory enum values remain unchanged.
+	// replChoiceDraw asks whether to apply an optional draw replacement, with
+	// or without a ReplaceWith body. It is appended so existing in-memory enum
+	// values remain unchanged.
 	replChoiceDraw
 )
 
@@ -245,8 +246,7 @@ func (e *Engine) poseUntapReplacementChoice(ev events.Event, matches []replMatch
 func (e *Engine) poseReplacementChoice(ev events.Event, matches []replMatch) {
 	p := ev.Player
 	kind := replChoiceMove
-	if ev.Kind == events.Draw && len(matches) == 1 && matches[0].repl.With == nil &&
-		matches[0].repl.OptionalValue() {
+	if ev.Kind == events.Draw && len(matches) == 1 && matches[0].repl.OptionalValue() {
 		kind = replChoiceDraw
 		p = e.replacementAskPlayer(matches, ev.Player)
 	}
@@ -323,7 +323,11 @@ func (e *Engine) askReplacementChoice(p state.PlayerID) {
 			name = o.Face().Name
 		}
 		d.Prompt = "Apply " + name + "'s optional draw replacement?"
-		d.Options = []decision.Option{{Index: 0, Kind: "apply", Obj: m.id, Label: "Yes — skip that draw"},
+		applyLabel := "Yes — skip that draw"
+		if m.repl.With != nil {
+			applyLabel = "Yes — apply the replacement"
+		}
+		d.Options = []decision.Option{{Index: 0, Kind: "apply", Obj: m.id, Label: applyLabel},
 			{Index: 1, Kind: "decline", Obj: m.id, Label: "No — draw the card"}}
 		if in, ok := parkTapeAnswer(e, d); ok {
 			e.handle(d, in)
@@ -430,6 +434,20 @@ func emitDeclinedDrawReplacement(emit func(events.Event) events.Event, applying 
 	*applying = prior
 }
 
+func handleDrawReplacementAnswer(rc replChoice, index int, apply func(events.Event, replMatch), decline func(events.Event), invalid, done func()) {
+	if index == 1 {
+		decline(rc.ev)
+	} else if index == 0 && rc.selected >= 0 && rc.selected < len(rc.cands) {
+		m := rc.cands[rc.selected]
+		if m.repl.With != nil {
+			apply(rc.ev, m)
+		}
+	} else {
+		invalid()
+	}
+	done()
+}
+
 // handleReplacement applies an answered CR 616.1 order choice: the front
 // parked competition's chosen replacement is applied for real -- the SAME
 // applyReplacement a lone matching replacement would run -- and, if more
@@ -487,11 +505,10 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 	before := e.triggerBefore
 	e.triggerBefore = rc.before
 	if rc.kind == replChoiceDraw {
-		if chosen[0].Index == 1 {
-			emitDeclinedDrawReplacement(e.emit, &e.applyingReplacement, rc.ev)
-		}
-		e.triggerBefore = before
-		e.askNextReplacementChoice()
+		handleDrawReplacementAnswer(rc, chosen[0].Index, func(ev events.Event, m replMatch) { e.applyReplacement(ev, m) },
+			func(ev events.Event) { emitDeclinedDrawReplacement(e.emit, &e.applyingReplacement, ev) }, func() {
+				e.emit(events.Event{Kind: events.Note, Player: in.Player, Text: "draw replacement answer out of range"})
+			}, func() { e.triggerBefore = before; e.askNextReplacementChoice() })
 		return
 	}
 	if damageKind {
