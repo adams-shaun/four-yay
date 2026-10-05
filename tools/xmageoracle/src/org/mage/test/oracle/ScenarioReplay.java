@@ -152,7 +152,14 @@ public class ScenarioReplay extends CardTestPlayerBase {
             if (queue.isEmpty()) {
                 return null;
             }
-            List<Card> lookedAtOrder = new ArrayList<>(cards.getCards(game));
+            // Cards#getCards is a Set and does not promise library order.
+            // Reconstruct the looked-at prefix from Library's ordered view.
+            List<Card> lookedAtOrder = new ArrayList<>();
+            for (Card card : getLibrary().getCards(game)) {
+                if (cards.contains(card.getId())) {
+                    lookedAtOrder.add(card);
+                }
+            }
             Set<Card> available = new java.util.LinkedHashSet<>(lookedAtOrder);
             Cards selected = new CardsImpl();
             boolean scripted = false;
