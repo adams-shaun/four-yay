@@ -891,7 +891,7 @@ func castSubChangeZoneAnnounceable(sa *cards.SA) bool {
 	// the same path every other player-target link uses, so the link's Origin$
 	// is irrelevant (a player-targeted hidden search stays supported as a
 	// normal player target).
-	if tp.Has(effects.TgtValidPlayers) {
+	if effects.SpecTargetsOnlyPlayers(tp.ValidTgts) {
 		return true
 	}
 	// Origin$ Graveyard is the one non-battlefield OBJECT zone the census

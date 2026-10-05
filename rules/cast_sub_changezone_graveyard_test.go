@@ -205,6 +205,26 @@ var knownUnjudgedChangeZoneSubTargets = map[string]string{
 // Parting among them); the Battlefield-origin object links -- the same
 // announcement class, but out of this ticket's scope -- are left to the
 // mid-resolution ask and pinned in the ratchet above.
+func TestChangeZoneSubPreAskRejectsMixedPlayerObjectTargets(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		spec string
+		want bool
+	}{
+		{name: "player only", spec: "Player", want: true},
+		{name: "mixed Any", spec: "Any", want: false},
+		{name: "mixed alternatives", spec: "Player,Card", want: false},
+		{name: "graveyard objects", spec: "Card.YouOwn", want: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sa := kr0SA(t, "DB$ ChangeZone | Origin$ Graveyard | Destination$ Library | ValidTgts$ "+tc.spec+" | TargetMin$ 0 | TargetMax$ 4")
+			if got := castSubChangeZoneAnnounceable(sa); got != tc.want {
+				t.Fatalf("castSubChangeZoneAnnounceable(%q) = %v, want %v", tc.spec, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestSubAbilityChangeZonePreAskCensus(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
