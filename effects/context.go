@@ -740,15 +740,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		}
 		return nil, true
 	case definedSpecRememberedController:
-		// The CONTROLLER of the remembered pool, read through the same
-		// persistent-aware resolver the plain Remembered selector uses:
-		// a sub-ability (Azog, Moria's Ruin's `DB$ Amass |
-		// Defined$ RememberedController`) reaches the parent Destroy's
-		// remembered card through the source's persistent list, which a raw
-		// c.Remembered read drops. Returning the resolved pool's controllers
-		// keeps this selector and plain Remembered from disagreeing about
-		// WHICH objects are remembered.
-		return controllersOf(g, resolvedRemembered(h, c)), true
+		return controllersOf(g, resolvedRemembered(h, c)), true // persistent-aware, as plain Remembered
 	case definedSpecNonRememberedController:
 		// These selectors name living players other than the controller of a
 		// remembered CARD. A remembered player is not a card anchor, and an
