@@ -534,6 +534,29 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 	}
 	g := h.Game()
 	targets, known := knownDefinedTargets(h, c, cz.Defined)
+	if known && cz.DefinedImprinted && cz.RandomOrder && cz.NoShuffle {
+		// Green Sun's Twilight imprints its deferred rest while those cards
+		// remain in the library. The ordinary CR 607.2a Defined$ Imprinted
+		// reader is exile-gated; this exact RandomOrder$ NoShuffle$ ChangeZone
+		// carrier consumes the source's library-resident rest pile instead.
+		if source := g.Obj(c.Source); source != nil {
+			for _, id := range source.Imprinted {
+				if object := g.Obj(id); object == nil || object.Zone != state.ZLibrary {
+					continue
+				}
+				present := false
+				for _, target := range targets {
+					if !target.IsPlayer && target.Obj == id {
+						present = true
+						break
+					}
+				}
+				if !present {
+					targets = append(targets, state.Target{Obj: id})
+				}
+			}
+		}
+	}
 	if !known {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unrecognised Defined library fetch " + cz.Defined})
@@ -634,7 +657,16 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 				h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: f.owner, Text: "entered tapped"})
 			}
 		}
-		shuffleLibrary(h, cz, f.owner)
+		// Green Sun's Twilight's first ChangeZone consumes Remembered while
+		// the same resolving source carries the deferred, still-in-library
+		// Imprinted rest pile. Shuffling here would mix the untouched library
+		// into the later RandomOrder$ bottom placement before RestBottom runs.
+		source := g.Obj(c.Source)
+		preserveDeferredRest := cz.DefinedRemembered && to != state.ZLibrary &&
+			source != nil && len(source.Imprinted) > 0
+		if !preserveDeferredRest {
+			shuffleLibrary(h, cz, f.owner)
+		}
 		placeLibraryObjects(h, c, cz, f.owner, moved, to)
 		// Explicit Reveal$ on a Defined$ fetch list (Forge reveals movedCards
 		// whenever Reveal$ names the effect, defined or not): the same public

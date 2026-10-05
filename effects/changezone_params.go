@@ -180,6 +180,7 @@ type ChangeZoneParams struct {
 	ShuffleFalse        bool // Shuffle$ False
 	NoShuffle           bool
 	ShuffleNonMandatory bool
+	RandomOrder         bool
 	Reorder             bool
 
 	// Unread are the parameters present on the ability that no ChangeZone
@@ -242,7 +243,7 @@ var changeZoneKnownKeys = [...]string{
 	"NumDmg", "OpponentTurn", "Optional",
 	"OptionalPrompt", "Origin", "OriginAlternative", "Planeswalker", "PlayCost",
 	"PlayerTurn", "PowerUp", "PrecostDesc", "PresentCompare", "PresentDefined",
-	"PresentZone", "RandomNumTargets", "ReduceAmount", "ReduceCost", "RememberAnimated", "RememberChanged", "RememberCostMana",
+	"PresentZone", "RandomNumTargets", "RandomOrder", "ReduceAmount", "ReduceCost", "RememberAnimated", "RememberChanged", "RememberCostMana",
 	"RememberLKI", "RememberObjects", "RememberSearched", "RememberTargets", "Reorder",
 	"ReplaceColor", "ReplaceGraveyard", "ReplaceGraveyardValid", "ReplaceMana",
 	"ReplaceOnly", "ReplaceType", "Reveal", "SVarCompare",
@@ -499,6 +500,7 @@ func compileChangeZone(sa *cards.SA, tp *TargetParams, dr *DefinedParams) *Chang
 	p.ShuffleFalse = strings.EqualFold(shuffle, "False")
 	p.NoShuffle = isTrue(sa.ParamStr(cards.PKNoShuffle))
 	p.ShuffleNonMandatory = isTrue(sa.ParamStr(cards.PKShuffleNonMandatory))
+	p.RandomOrder = compileChangeZoneRandomOrder(sa)
 	p.Reorder = isTrue(sa.ParamStr(cards.PKReorder))
 	p.Unread = changeZoneUnread(sa)
 	return p
