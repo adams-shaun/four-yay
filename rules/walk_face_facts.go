@@ -62,7 +62,15 @@ type walkFaceFacts struct {
 	// the potential-plan pricing and the charge read altCastMode.faceCost's
 	// sidecar arm instead of reparsing the parameter on every offer. A pure
 	// function of the keyword list, so it rides the keywordsCurrent guard.
-	altCosts [altCastCount]altFaceCost
+	//
+	// It is SPARSE: only the PRESENT rows are stored, in row order, because
+	// altFaceCost embeds an 824-byte Cost and the overwhelming majority of
+	// faces carry no alt-cost keyword. altCostMask bit i marks that
+	// altCastModes[i] is present; the position of row id in altCosts is the
+	// population count of the mask's lower bits, so a face with none
+	// allocates nothing and pays only the 1-byte mask.
+	altCosts    []altFaceCost
+	altCostMask uint8
 	// name and the option labels the walk offers for this face, built once
 	// so a walk shares them instead of concatenating per option (Go strings
 	// are immutable; a shared label is the same value the concatenation
@@ -111,7 +119,7 @@ func (ff *walkFaceFacts) verifyFresh(f *cards.Face) {
 	got := *ff
 	if !ff.keywordsCurrent(f) {
 		got.kwGranted, got.kwFirst, got.kwLen, got.ph = fresh.kwGranted, fresh.kwFirst, fresh.kwLen, fresh.ph
-		got.altCosts = fresh.altCosts
+		got.altCosts, got.altCostMask = fresh.altCosts, fresh.altCostMask
 	}
 	if !ff.triggersCurrent(f) {
 		got.trigZones, got.trigSig, got.trigSigOther, got.trigLookBack = fresh.trigZones, fresh.trigSig, fresh.trigSigOther, fresh.trigLookBack
@@ -182,10 +190,11 @@ func computeWalkFaceFacts(f *cards.Face) walkFaceFacts {
 	ff.ph = printedHeadsOf(f)
 	for i := range altCastModes {
 		c, ok := altCastModes[i].faceCostRaw(f)
-		if ok {
-			c = freezeCost(c)
+		if !ok {
+			continue
 		}
-		ff.altCosts[i] = altFaceCost{cost: c, ok: ok}
+		ff.altCostMask |= 1 << altCastID(i)
+		ff.altCosts = append(ff.altCosts, altFaceCost{cost: freezeCost(c), ok: true})
 	}
 	if len(f.Keywords) > 0 {
 		ff.kwFirst = &f.Keywords[0]

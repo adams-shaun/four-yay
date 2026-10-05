@@ -16,6 +16,8 @@ package rules
 // on the mode string.
 
 import (
+	"math/bits"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -109,7 +111,8 @@ func altCastFor(mode string) *altCastMode {
 func altCastIs(mode string, id altCastID) bool { return mode == altCastModes[id].mode }
 
 // altFaceCost is one row's compiled printed cost on a face: walkFaceFacts'
-// sidecar entry. ok is faceCostRaw's ok at compile time.
+// sidecar entry. ok is faceCostRaw's ok at compile time; only present rows
+// (ok true) are stored in walkFaceFacts.altCosts, indexed via altCostMask.
 type altFaceCost struct {
 	cost Cost
 	ok   bool
@@ -131,13 +134,19 @@ func (m *altCastMode) faceCostRaw(f *cards.Face) (Cost, bool) {
 // keyword half is current for f, and parsed fresh otherwise. The parameter
 // is a pure function of the face, so the offer walk, the command-zone offer,
 // the potential-plan pricing and the charge all share ONE compiled parse per
-// face instead of reparsing on every offer.
+// face instead of reparsing on every offer. The sidecar is sparse: m.id's
+// entry sits at the population count of altCostMask's lower bits, and an
+// absent bit means the face does not carry the keyword (no reparse).
 func (m *altCastMode) faceCost(f *cards.Face, ff *walkFaceFacts) (Cost, bool) {
-	if ff != nil && ff.keywordsCurrent(f) {
-		c := ff.altCosts[m.id]
-		return c.cost, c.ok
+	if ff == nil || !ff.keywordsCurrent(f) {
+		return m.faceCostRaw(f)
 	}
-	return m.faceCostRaw(f)
+	bit := uint8(1) << m.id
+	if ff.altCostMask&bit == 0 {
+		return Cost{}, false
+	}
+	c := ff.altCosts[bits.OnesCount8(ff.altCostMask&(bit-1))]
+	return c.cost, c.ok
 }
 
 // altCastModeEntries are castModeCodes' rows for the family, all sharing the
