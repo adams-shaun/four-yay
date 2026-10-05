@@ -8,12 +8,11 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-func recordDamageProvenance(emit func(events.Event) events.Event, source, recipient state.ObjID, amount int32, combat bool, sourceColors string, derived []effects.ObjectTypes) {
+func recordDamageProvenance(emit func(events.Event) events.Event, source, recipient state.ObjID, amount int32, combat bool, derived []effects.ObjectTypes) {
 	text := ""
 	if combat {
 		text = events.DamageProvenanceCombat
 	}
-	text += events.DamageProvenanceColorSeparator + sourceColors
 	if types := damageRecipientDerivedTypes(recipient, derived); types != nil {
 		text += events.DamageProvenanceTypeSeparator + strings.Join(types, events.DamageProvenanceTypeWordSeparator)
 	}

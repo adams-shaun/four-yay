@@ -137,33 +137,3 @@ func TestOjerNonCombatDamageUsesControlAtHit(t *testing.T) {
 		t.Fatalf("after new hits = %d, want only 2+4 under seat-0 control", got)
 	}
 }
-
-// TestOjerNonCombatDamageUsesColourAtHit: Temple of Power counts damage dealt
-// by RED sources you controlled this turn, so the colour is the source's at
-// the hit (CR 608.2h reads it then). Ojer deals 4 while red, then flips to its
-// colourless Temple face: the earlier 4 still count.
-func TestOjerNonCombatDamageUsesColourAtHit(t *testing.T) {
-	reg := testutil.CorpusRegistry(t)
-	card, ok := reg.Lookup("Ojer Axonil, Deepest Might")
-	if !ok {
-		t.Fatal("corpus missing Ojer Axonil, Deepest Might")
-	}
-	body := card.Faces[1].SVars["X"]
-	if body != "Count$NonCombatDamageThisTurn Card.Red+YouCtrl Any" {
-		t.Fatalf("Ojer corpus back-face SVar X = %q", body)
-	}
-	e, ids := pcdrEngine(t, "Ojer Axonil, Deepest Might", "Grizzly Bears")
-	own, recipient := ids["Ojer Axonil, Deepest Might"], ids["Grizzly Bears"]
-	ctx := &effects.Ctx{Controller: 0, Source: own}
-	if e.ObjectColors(e.G.Obj(own)) != "R" {
-		t.Fatalf("precondition: Ojer front face is red, got %q", e.ObjectColors(e.G.Obj(own)))
-	}
-	damageCountEvent(e, own, recipient, 0, 4, false)
-	e.emit(events.Event{Kind: events.FlipFace, Obj: own, Amount: 1})
-	if c := e.ObjectColors(e.G.Obj(own)); c != "" {
-		t.Fatalf("precondition: Temple face is colourless, got %q", c)
-	}
-	if got := effects.EvalCount(e, ctx, body); got != 4 {
-		t.Fatalf("after flipping to Temple = %d, want the 4 dealt while red", got)
-	}
-}

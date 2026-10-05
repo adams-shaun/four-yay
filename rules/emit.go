@@ -420,7 +420,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			} else {
 				recipient = state.PlayerRef(stored.Player)
 			}
-			recordDamageProvenance(e.emit, src, recipient, stored.Amount, e.combatDamaging, e.objColors(e.G.Obj(src)), e.EffectiveTypes())
+			recordDamageProvenance(e.emit, src, recipient, stored.Amount, e.combatDamaging, e.EffectiveTypes())
 		}
 	}
 	e.noteTurnsTaken(&stored)
