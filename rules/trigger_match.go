@@ -935,7 +935,7 @@ func (e *Engine) checkTriggers(ev *events.Event, lki *state.Object,
 	// alternate face (FaceIdx 1), which the ordinary face scan above does
 	// not walk.
 	if ev.Kind == events.DoorUnlock {
-		e.checkUnlockTriggers(*ev)
+		e.checkUnlockTriggers(*ev, lki)
 	}
 	// Rooms (CR 709.5d/709.5h): the CAST face is given the unlocked
 	// designation as it enters, so its own "when you unlock this door"
@@ -1205,7 +1205,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 		// eligible alternate face. Granted Ward is independent of both -- and
 		// so is a static-grant's trigger (AddTrigger$): the granted walk below
 		// runs on BOTH paths, like Ward and Dethrone do.
-		if !o.Unlocked && len(o.MergedCards) == 0 && !e.objectFaceMayTriggerHoisted(id, o.FaceIdx, f, ev.Kind, evAll, evMask) {
+		if !o.RoomOtherDoorUnlocked() && len(o.MergedCards) == 0 && !e.objectFaceMayTriggerHoisted(id, o.FaceIdx, f, ev.Kind, evAll, evMask) {
 			if grantedKeywordTriggerEvent(ev.Kind) {
 				switch ev.Kind {
 				case events.TargetsChosen:
@@ -1252,7 +1252,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 			// Ordinary (unmutated) objects keep the allocation-free [2]array
 			// path above.
 			walk = triggerFacesWithMerged(o, faces[:n])
-		} else if !o.Unlocked && !e.faceTrigSig(f).admits(ev, observer.G.Step) {
+		} else if !o.RoomOtherDoorUnlocked() && !e.faceTrigSig(f).admits(ev, observer.G.Step) {
 			// The face's exact kind mask (trigger_kinds.go) rules out every
 			// printed line for this event, so the face loop below is a no-op;
 			// the granted walks after it still run, exactly as on this path
@@ -1265,7 +1265,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 			walk = nil
 		}
 		for _, fc := range walk {
-			if o.Unlocked && !e.objectFaceMayTrigger(id, fc.faceIdx, fc.face, ev.Kind) {
+			if o.RoomOtherDoorUnlocked() && !e.objectFaceMayTrigger(id, fc.faceIdx, fc.face, ev.Kind) {
 				continue
 			}
 			for ti, t := range fc.face.Triggers {
@@ -1952,7 +1952,16 @@ func roomTriggerFaces(o *state.Object, active *cards.Face) ([2]triggerFace, int)
 	// never allocates a backing slice per object per event. merged is left 0
 	// ("not merged") on both.
 	out := [2]triggerFace{{face: active, faceIdx: o.FaceIdx, active: true}}
-	if o.Unlocked && isRoom(o) && len(o.Card.Faces) == 2 && int(o.FaceIdx) < len(o.Card.Faces) {
+	if isRoom(o) && !o.DoorUnlocked(int(o.FaceIdx)) {
+		out[0] = triggerFace{}
+		if !o.RoomOtherDoorUnlocked() {
+			return out, 0
+		}
+		other := uint8(1 - int(o.FaceIdx))
+		out[0] = triggerFace{face: o.Card.Faces[other], faceIdx: other}
+		return out, 1
+	}
+	if o.RoomOtherDoorUnlocked() && isRoom(o) && len(o.Card.Faces) == 2 && int(o.FaceIdx) < len(o.Card.Faces) {
 		other := uint8(1 - int(o.FaceIdx))
 		out[1] = triggerFace{face: o.Card.Faces[other], faceIdx: other}
 		return out, 2
@@ -2473,6 +2482,24 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 	}
 	if !trigmatch.Match(boardOf(e), t, source, ev, lki) {
 		return false
+	}
+	// Condition$ Evolve (CR 702.99a): the evolve ability word written as a
+	// bare trigger condition rather than the K:Evolve keyword (MKM
+	// Sharp-Eyed Rookie, EOE Evolving Adaptive -- the corpus's only two).
+	// Before this arm the clause was unread, so the trigger fired
+	// UNCONDITIONALLY: an equal-or-smaller creature entering evolved the
+	// source, and so did the source's own entry. The comparison is
+	// event-relative (it names the entering creature), so it is evaluated
+	// here, beside trigmatch.Match, where ev is in scope -- not in the
+	// shared triggerConditionHolds walk above (which has no event). Like
+	// Evolve$, it is fire-time only; the resolution-time CR 603.4 recheck
+	// has no entering object to re-derive it from. The word is dispatched
+	// through the PKCondition vocabulary (rules/static_condition.go), not a
+	// literal, so the codeshape dispatch ratchet is untouched.
+	if code, ok := t.ParamCode(cards.PKCondition); ok && staticCondition(code) == condEvolve {
+		if !evolveConditionHolds(e, ev, source) {
+			return false
+		}
 	}
 	// FirstCombat$ True -- the "if it's the first combat phase of the turn"
 	// trigger gate (8 corpus T: lines: hexplate_wallbreaker, genji_glove,

@@ -1094,10 +1094,15 @@ const (
 	// setup enters them during turn 1. Obj is the staged permanent. This is
 	// harness provenance only: it does not change zones or fire ETB triggers.
 	SetupEntered
+	// DoorLock records a Room door becoming locked. Amount is face index + 1,
+	// preserving zero as the legacy DoorUnlock alternate-face encoding.
+	// Appended after SetupEntered so main's existing ordinals (and the oracle
+	// fixtures that encode SetupEntered) are unchanged.
+	DoorLock
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(SetupEntered) + 1
+	NumKinds = int(DoorLock) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving

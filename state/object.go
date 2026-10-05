@@ -1432,12 +1432,35 @@ type Object struct {
 	// halves' rules text is live (rules-side scans consult this field). Only
 	// events.Apply writes it, so a replay rebuilds it.
 	Unlocked bool
+	// LockedDoors overrides the default cast-face/alternate-face designation.
+	// DoorLock/DoorUnlock events alone update this per-face lock bitset.
+	LockedDoors uint8
 
 	// _ pads the Object to 1088 bytes (17 64-byte cache lines), so in the
 	// page-aligned Objs arena every object's hot head (the fields declared
 	// first) starts on a line of its own. Purely layout: it is never read or
 	// written. A field added above must re-pad it (TestObjectCacheLinePadded).
 	_ [56]byte
+}
+
+// DoorUnlocked reports the designation of a printed Room face. The cast
+// face starts unlocked, and the alternate face starts locked; later events
+// can lock either face independently.
+func (o *Object) DoorUnlocked(fi int) bool {
+	if o == nil || o.Card == nil || fi < 0 || fi >= len(o.Card.Faces) || !o.Card.Faces[fi].IsRoom() {
+		return false
+	}
+	return o.LockedDoors&(1<<uint(fi)) == 0 && (fi == int(o.FaceIdx) || o.Unlocked)
+}
+
+// RoomOtherDoorUnlocked reports whether the non-cast Room face is live.
+func (o *Object) RoomOtherDoorUnlocked() bool {
+	return o != nil && o.Card != nil && len(o.Card.Faces) == 2 && int(o.FaceIdx) < 2 && o.DoorUnlocked(1-int(o.FaceIdx))
+}
+
+// RoomFullyUnlocked is true only when both printed Room doors are unlocked.
+func (o *Object) RoomFullyUnlocked() bool {
+	return o != nil && o.Card != nil && len(o.Card.Faces) == 2 && o.DoorUnlocked(0) && o.DoorUnlocked(1)
 }
 
 // MergedCard is one card stacked beneath a mutated permanent's top card
