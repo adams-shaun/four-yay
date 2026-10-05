@@ -116,9 +116,8 @@ func counterSpell(reg *cards.Registry, f *cards.Face, name, mana string) (oracle
 
 func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre precast, fx oraclegen.Fixture, slots []string, stackIdx []int, answers []oraclegen.Answer) (oraclegen.Item, bool) {
 	p0, p1 := *fx.P0(), *fx.P1()
-	// The counterspell first in hand, the spell it counters second (the
-	// order main's fixture always used; XMage's alias binding for the
-	// precast fails with the spell first -- measured on the std pass).
+	// The counterspell first in hand, the spell it counters second: the
+	// order main's fixture always used, so the scenario stays the same.
 	p0 = oraclegen.WithHand(oraclegen.WithHand(p0, pre.card), name)
 	targets := insertStackTargets(slots, stackIdx, fx.Targets(), pre)
 	sc := oraclegen.Scenario{
