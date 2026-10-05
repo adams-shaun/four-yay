@@ -86,7 +86,9 @@ func ChainSlots(f *cards.Face, svar string) []string { return chainSlots(f, svar
 // spell or ability on the stack.
 func AbilityTargetsStack(params map[string]string) bool { return abilityTargetsStack(params) }
 
-// ModeNumbers maps each charm mode label to its 1-based Choices$ position.
+// ModeNumbers maps each charm mode label to its 1-based Choices$ position,
+// and each DB$ GenericChoice | SetChosenMode$ True label to ModeChoiceQueue
+// (answered on XMage's choice queue, not the numeric mode queue).
 func ModeNumbers(f *cards.Face) map[string]int { return modeNumbers(f) }
 
 // XAnswers turns gorge's recorded decisions into XMage's scripted answers.
