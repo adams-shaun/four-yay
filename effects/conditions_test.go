@@ -92,11 +92,13 @@ func TestConditionGateCompareOperators(t *testing.T) {
 	}
 }
 
-// TestConditionGateUnresolvedShapesRunUnconditionally pins the documented
-// boundary: a gate this build cannot evaluate leaves the sub ungated —
-// conditionMet reports resolved=false and Resolve runs the sub, exactly the
-// pre-gate behaviour (see conditions.go's scope comment).
-func TestConditionGateUnresolvedShapesRunUnconditionally(t *testing.T) {
+// TestConditionGateUnresolvedShapesReportFalse pins the conditionMet-level
+// boundary: a gate this build cannot evaluate reports resolved=false, and a
+// sub with NO Condition* key at all reports met=true, resolved=false (not
+// gated). What Resolve's walk does with each is the census classifier's call
+// (effects/conditions.go's scope comment): a classifier-named shape is skipped
+// with a Note, the residual unclassified shape still runs.
+func TestConditionGateUnresolvedShapesReportFalse(t *testing.T) {
 	h, _ := conditionBoard(t)
 	other := "DB$ Pump | ConditionDefined$ ChosenCard | ConditionPresent$ Creature | ConditionCompare$ EQ1"
 	if _, resolved := conditionMet(h, &Ctx{Controller: 0}, sa(t, other)); resolved {
