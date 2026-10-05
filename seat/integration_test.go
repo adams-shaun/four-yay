@@ -467,6 +467,7 @@ func agreeOverGame(t testing.TB, names []string, decks [][]*cards.Card, seed uin
 	botView := newBot(7)
 	botGame := newBot(7)
 	attachedN := 0
+	publicNameN := 0
 	poolN := 0
 	sawUnequalLife := false
 	n := 0
@@ -509,6 +510,26 @@ func agreeOverGame(t testing.TB, names []string, decks [][]*cards.Card, seed uin
 		}
 		if !maps.Equal(boardView.Cards.Map(), boardGame.Cards.Map()) {
 			t.Fatalf("intent %d: casting Card census diverged: view %v vs game %v (step %s)", n, boardView.Cards.Map(), boardGame.Cards.Map(), eGame.G.Step)
+		}
+		// Replacement sources may be controlled by another seat. Their
+		// printed identity is public and must agree across the view and game
+		// adapters, not just for the deciding seat's own battlefield cards.
+		for i := range eView.G.Players {
+			p := &eView.G.Players[i]
+			if p.ID == d.Player {
+				continue
+			}
+			for _, id := range eView.G.Zone(state.ZBattlefield, p.ID) {
+				o := eView.G.Obj(id)
+				if o == nil || o.Face() == nil || o.FaceDown || o.Ephemeral() {
+					continue
+				}
+				gameCard, viewCard := boardGame.Cards.Get(id), boardView.Cards.Get(id)
+				if gameCard.PrintedName == "" || viewCard.PrintedName != gameCard.PrintedName {
+					t.Fatalf("intent %d: public battlefield printed name diverged for %d: view %q, game %q", n, id, viewCard.PrintedName, gameCard.PrintedName)
+				}
+				publicNameN++
+			}
 		}
 		// The exact step fact (the cast scorer's timing features): the view
 		// half parses the projected View.Step string, the game half reads
@@ -609,6 +630,9 @@ func agreeOverGame(t testing.TB, names []string, decks [][]*cards.Card, seed uin
 	}
 	if wantCounter && foreignSpellN == 0 {
 		t.Fatal("no decision ever saw a foreign spell on the stack -- the C8 census was never exercised over the whole game")
+	}
+	if publicNameN == 0 {
+		t.Fatal("no decision ever compared a public non-viewer battlefield printed name -- adapter parity was not exercised")
 	}
 	if stepN == 0 {
 		t.Fatal("no decision ever landed outside a main phase -- the step fact was never exercised over the whole game")

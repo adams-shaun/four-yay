@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"maps"
 	"strconv"
 	"strings"
 
@@ -533,6 +534,46 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 		return false
 	}
 	g := h.Game()
+	// Green Sun's Twilight temporarily associates its unselected cards with
+	// the source while they remain in the library. They are not ordinary
+	// CR 607.2a Imprinted cards (which must be exiled), but its immediate
+	// RestBottom ChangeZone must still be able to randomize just that pile.
+	// The narrow NoShuffle + bottom shape avoids widening the ordinary
+	// Defined$ Imprinted rules contract; corpus census finds this exact
+	// ChangeZone shape only on Green Sun's Twilight.
+	if deferredDigImprintReturn(g, c, sa, cz) &&
+		DefinedRefOf(sa).Is(RefImprinted) && to == state.ZLibrary &&
+		effDigCodes.Code(cz.LibraryPositionText) == effDigBottom {
+		if source := g.Obj(c.Source); source != nil {
+			byOwner := make([]libraryFetch, 0, 1)
+			for _, id := range source.Imprinted {
+				obj := g.Obj(id)
+				if obj == nil || obj.Zone != state.ZLibrary || int(obj.Owner) >= len(g.Players) {
+					continue
+				}
+				ownerIndex := -1
+				for i := range byOwner {
+					if byOwner[i].owner == obj.Owner {
+						ownerIndex = i
+						break
+					}
+				}
+				if ownerIndex < 0 {
+					byOwner = append(byOwner, libraryFetch{owner: obj.Owner})
+					ownerIndex = len(byOwner) - 1
+				}
+				byOwner[ownerIndex].ids = append(byOwner[ownerIndex].ids, id)
+			}
+			for _, pile := range byOwner {
+				for i := len(pile.ids) - 1; i > 0; i-- {
+					j := h.Rand(i + 1)
+					pile.ids[i], pile.ids[j] = pile.ids[j], pile.ids[i]
+				}
+				libraryOrderPlacement(h, pile.owner, pile.ids, true)
+			}
+		}
+		return true
+	}
 	targets, known := knownDefinedTargets(h, c, cz.Defined)
 	if !known {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -634,7 +675,21 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 				h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: f.owner, Text: "entered tapped"})
 			}
 		}
-		shuffleLibrary(h, cz, f.owner)
+		source := g.Obj(c.Source)
+		preserveDeferredRest := deferredDigLibraryFetch(g, c, cz) &&
+			!cz.ShuffleTrue && source != nil
+		if preserveDeferredRest {
+			for _, id := range source.Imprinted {
+				object := g.Obj(id)
+				if object == nil || object.Zone != state.ZLibrary || object.Owner != f.owner || containsID(moved, id) {
+					preserveDeferredRest = false
+					break
+				}
+			}
+		}
+		if !preserveDeferredRest {
+			shuffleLibrary(h, cz, f.owner)
+		}
 		placeLibraryObjects(h, c, cz, f.owner, moved, to)
 		// Explicit Reveal$ on a Defined$ fetch list (Forge reveals movedCards
 		// whenever Reveal$ names the effect, defined or not): the same public
@@ -646,6 +701,72 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 	}
 	scheduleAtEOT(h, c, sa, ateotMoved)
 	return true
+}
+
+// deferredDigImprintReturn is the return leg of the same named deferred
+// DigMultiple pair. Requiring both the named fetch and the current ability to
+// match the named return prevents an unrelated Imprinted library fetch from
+// bypassing the ordinary exile gate just because it shares a source or shape.
+func deferredDigImprintReturn(g *state.Game, c *Ctx, sa *cards.SA, cz *ChangeZoneParams) bool {
+	if c == nil || cz.Defined != "Imprinted" || !cz.OriginExactly(state.ZLibrary) ||
+		!cz.DestinationIs(state.ZLibrary) || cz.LibraryPosition.Text != "-1" ||
+		!cz.RandomOrder || !cz.NoShuffle || cz.ShuffleTrue {
+		return false
+	}
+	fetch := cards.ResolveSVar(c.SVars, "DBChangeZone")
+	if fetch == nil || !deferredDigLibraryFetch(g, c, ChangeZoneOf(fetch)) {
+		return false
+	}
+	returnAbility := cards.ResolveSVar(c.SVars, ChangeZoneOf(fetch).SubAbility)
+	return returnAbility != nil && returnAbility.API == "ChangeZone" &&
+		maps.Equal(returnAbility.Params, sa.Params)
+}
+
+// deferredDigLibraryFetch recognizes Green Sun's paired deferred move: the
+// selected Remembered cards are moved to hand unless the destination-alternate
+// threshold puts them onto the battlefield, while a separately imprinted
+// remainder is handled by the next subability.
+func deferredDigLibraryFetch(g *state.Game, c *Ctx, cz *ChangeZoneParams) bool {
+	if cz.Defined != "Remembered" || cz.Destination != state.ZHand ||
+		cz.DestinationAlt != state.ZBattlefield || cz.DestAltSVarCompare != "GE5" ||
+		cz.SubAbility == "" || c == nil {
+		return false
+	}
+	// The shuffle exemption belongs only to the paired Green Sun sequence:
+	// this fetch must be followed by the exact Imprinted RandomOrder return.
+	// Match the paired continuation, not the size of its pile: when every
+	// revealed card was chosen (X=0), Imprinted is empty but the untouched
+	// library must still retain its order. Unpaired fetches keep shuffling.
+	remainder := cards.ResolveSVar(c.SVars, cz.SubAbility)
+	if remainder == nil || remainder.API != "ChangeZone" {
+		return false
+	}
+	rest := ChangeZoneOf(remainder)
+	if rest.Defined != "Imprinted" || !rest.OriginExactly(state.ZLibrary) ||
+		!rest.DestinationIs(state.ZLibrary) || !rest.RandomOrder || !rest.NoShuffle ||
+		rest.LibraryPosition.Text != "-1" {
+		return false
+	}
+	// The Remembered fetch must actually be the source's named deferred
+	// DBChangeZone leg, not merely an unrelated fetch with a matching return
+	// ability. The rest may be empty, so its pile size cannot prove pairing.
+	fetch := cards.ResolveSVar(c.SVars, "DBChangeZone")
+	if fetch == nil || fetch.API != "ChangeZone" || g.Obj(c.Source) == nil || len(c.Remembered) == 0 {
+		return false
+	}
+	paired := ChangeZoneOf(fetch)
+	if paired.Defined != cz.Defined || paired.SubAbility != cz.SubAbility ||
+		!paired.OriginExactly(state.ZLibrary) || paired.Destination != cz.Destination ||
+		paired.DestinationAlt != cz.DestinationAlt || paired.DestAltSVarCompare != cz.DestAltSVarCompare {
+		return false
+	}
+	for _, target := range c.Remembered {
+		if target.IsPlayer || g.Obj(target.Obj) == nil {
+			return false
+		}
+	}
+	return true
+
 }
 
 // changeZoneFetchSelector distinguishes a fetch player from an already chosen
