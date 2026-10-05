@@ -12,6 +12,9 @@ import (
 func TestLoseManaBoundaryChoiceClonesAndResumes(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := realCardEngine(t, reg, 8675403, "Horizon Stone", "Ozai, the Phoenix King")
+	if len(ids) != 2 || ids[0] == ids[1] {
+		t.Fatalf("precondition: need two distinct sources, got %v", ids)
+	}
 	for _, id := range ids {
 		if o := e.G.Obj(id); o == nil || o.Zone != state.ZBattlefield {
 			t.Fatalf("precondition: replacement source %d not on battlefield", id)
