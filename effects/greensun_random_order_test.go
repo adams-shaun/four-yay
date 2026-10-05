@@ -89,6 +89,67 @@ func TestGreenSunsTwilightRestBottomRandomizesOnlyImprintedRemainder(t *testing.
 	}
 }
 
+// At X=0 the one revealed card can be chosen, leaving NO imprint event.
+// That empty remainder still belongs to the same deferred pair.
+func TestGreenSunsTwilightEmptyRemainderKeepsUntouchedTail(t *testing.T) {
+	_, ability, vars := corpusRiderSA(t, "Green Sun's Twilight", "")
+	chosen := cards.ResolveSVar(vars, "DBChangeZone")
+	rest := cards.ResolveSVar(vars, "RestBottom")
+	if ability == nil || ability.API != "DigMultiple" || ability.Params["ChangeLater"] != "True" ||
+		ability.Params["ImprintRest"] != "True" || chosen == nil || chosen.Params["SubAbility"] != "RestBottom" ||
+		rest == nil || rest.Params["RandomOrder"] != "True" || rest.Params["NoShuffle"] != "True" {
+		t.Fatalf("precondition: corpus deferred pair = %+v / %+v / %+v", ability, chosen, rest)
+	}
+	h, ids := digMultipleBoard(t)
+	if len(ids) < 3 || ids[0] == ids[1] || ids[1] == ids[2] || h.g.Obj(ids[0]).Zone != state.ZLibrary {
+		t.Fatal("precondition: chosen creature and two distinct untouched library cards")
+	}
+	source := h.g.AddObject(mkCard(t, "Name:Source\nTypes:Sorcery\nOracle:x\n"), 0).ID
+	h.choices = []int{0}
+	ctx := &Ctx{Source: source, Controller: 0, SVars: map[string]string{"X": "Number$0", "DBChangeZone": vars["DBChangeZone"], "RestBottom": vars["RestBottom"]}}
+	effDigMultiple(h, ctx, ability)
+	if len(ctx.Remembered) != 1 || ctx.Remembered[0].Obj != ids[0] || len(h.g.Obj(source).Imprinted) != 0 ||
+		!reflect.DeepEqual(h.g.Zone(state.ZLibrary, 0), ids) {
+		t.Fatalf("precondition: chosen one with empty remainder in original library: remembered=%v imprinted=%v library=%v", ctx.Remembered, h.g.Obj(source).Imprinted, h.g.Zone(state.ZLibrary, 0))
+	}
+	Resolve(h, ctx, chosen)
+	want := ids[1:]
+	if !reflect.DeepEqual(h.g.Zone(state.ZHand, 0), ids[:1]) || !reflect.DeepEqual(h.g.Zone(state.ZLibrary, 0), want) {
+		t.Fatalf("chosen/tail = %v / %v, want %v / %v", h.g.Zone(state.ZHand, 0), h.g.Zone(state.ZLibrary, 0), ids[:1], want)
+	}
+	for _, ev := range h.log {
+		if ev.Kind == events.Shuffle || ev.Kind == events.LibraryOrder {
+			t.Fatalf("empty remainder shuffled or reordered untouched tail: %+v", ev)
+		}
+	}
+	greenSunUnpairedNoProducerCheck(t)
+}
+
+func greenSunUnpairedNoProducerCheck(t *testing.T) {
+	_, _, vars := corpusRiderSA(t, "Green Sun's Twilight", "")
+	h, ids := digMultipleBoard(t)
+	source := h.g.AddObject(mkCard(t, "Name:Source\nTypes:Sorcery\nOracle:x\n"), 0).ID
+	chosen := cards.ResolveSVar(vars, "DBChangeZone")
+	if chosen == nil || len(ids) < 3 || h.g.Obj(ids[0]).Zone != state.ZLibrary ||
+		ids[1] == ids[2] {
+		t.Fatal("precondition: real fetch, no producer, and two untouched cards")
+	}
+	// Merely attaching the exact return ability does not make an ordinary
+	// fetch a deferred DigMultiple continuation.
+	ctx := &Ctx{Source: source, Controller: 0, Remembered: []state.Target{{Obj: ids[0]}},
+		SVars: map[string]string{"RestBottom": vars["RestBottom"]}}
+	Resolve(h, ctx, chosen)
+	var shuffles int
+	for _, ev := range h.log {
+		if ev.Kind == events.Shuffle && ev.Player == 0 {
+			shuffles++
+		}
+	}
+	if shuffles != 1 {
+		t.Fatalf("unpaired fetch Shuffle events = %d, want one; log=%+v", shuffles, h.log)
+	}
+}
+
 func TestDefinedLibraryFetchKeepsDefaultShuffleOutsideGreenSunContinuation(t *testing.T) {
 	h := newHost(t, 2)
 	source := h.g.AddObject(mkCard(t, "Name:Ordinary Fetch\nTypes:Sorcery\nOracle:x\n"), 0)

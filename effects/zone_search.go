@@ -681,9 +681,9 @@ func deferredDigLibraryFetch(g *state.Game, c *Ctx, cz *ChangeZoneParams) bool {
 	}
 	// The shuffle exemption belongs only to the paired Green Sun sequence:
 	// this fetch must be followed by the exact Imprinted RandomOrder return.
-	// Matching only the fetch's shape and a nonempty imprint would suppress
-	// established shuffles for unrelated abilities that happen to share those
-	// parameters.
+	// Match the paired continuation, not the size of its pile: when every
+	// revealed card was chosen (X=0), Imprinted is empty but the untouched
+	// library must still retain its order. Unpaired fetches keep shuffling.
 	remainder := cards.ResolveSVar(c.SVars, cz.SubAbility)
 	if remainder == nil || remainder.API != "ChangeZone" {
 		return false
@@ -694,8 +694,25 @@ func deferredDigLibraryFetch(g *state.Game, c *Ctx, cz *ChangeZoneParams) bool {
 		rest.LibraryPosition.Text != "-1" {
 		return false
 	}
-	source := g.Obj(c.Source)
-	return source != nil && len(source.Imprinted) > 0
+	// The Remembered fetch must actually be the source's named deferred
+	// DBChangeZone leg, not merely an unrelated fetch with a matching return
+	// ability. The rest may be empty, so its pile size cannot prove pairing.
+	fetch := cards.ResolveSVar(c.SVars, "DBChangeZone")
+	if fetch == nil || fetch.API != "ChangeZone" || g.Obj(c.Source) == nil || len(c.Remembered) == 0 {
+		return false
+	}
+	paired := ChangeZoneOf(fetch)
+	if paired.Defined != cz.Defined || paired.SubAbility != cz.SubAbility ||
+		!paired.OriginExactly(state.ZLibrary) || paired.Destination != cz.Destination ||
+		paired.DestinationAlt != cz.DestinationAlt || paired.DestAltSVarCompare != cz.DestAltSVarCompare {
+		return false
+	}
+	for _, target := range c.Remembered {
+		if target.IsPlayer || g.Obj(target.Obj) == nil {
+			return false
+		}
+	}
+	return true
 }
 
 // changeZoneFetchSelector distinguishes a fetch player from an already chosen
