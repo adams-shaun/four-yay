@@ -502,6 +502,12 @@ func cloneFieldsEngineTriggerBatches(c, e *Engine, sp *Spare, remap *cloneRemap)
 			}
 		}
 	}
+	if e.excessDamageBaseline != nil {
+		c.excessDamageBaseline = make(map[state.ObjID]int32, len(e.excessDamageBaseline))
+		for k0, v0 := range e.excessDamageBaseline {
+			c.excessDamageBaseline[k0] = v0
+		}
+	}
 	if e.zoneBatchOpen {
 		c.zoneBatchOpen = e.zoneBatchOpen
 		c.zoneBatchDepth = e.zoneBatchDepth
