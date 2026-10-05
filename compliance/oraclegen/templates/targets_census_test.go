@@ -4,38 +4,49 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/compliance/oraclegen"
 	"github.com/adams-shaun/gorge/rules"
 )
 
-// targetSets are the sets the target-rewrite ticket names: every card here
-// whose scenario the generator emits must carry exactly the targets gorge's
-// own run consumes. The sweep below is the class ratchet -- a card whose
-// fixture still over-offers (or whose resolve-step target is dropped) fails
-// and is named, so a new carrier cannot slip in silently.
-var targetSets = []string{"SOS", "DFT", "BLB", "OTJ", "MKM", "LCI", "TDM", "WOE", "ECL", "TMT"}
-
-// targetSetCards loads a set manifest's card names.
-func targetSetCards(t *testing.T, set string) []string {
+// targetCarriers is generated from every front face in the pinned Forge
+// corpus whose script contains target slots. Keeping identities, rather than
+// only a count, makes a newly added carrier fail the ratchet by name.
+func targetCarriers(t *testing.T, reg *cards.Registry) []string {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "compliance", "manifests", set+".json"))
+	raw, err := os.ReadFile(filepath.Join("testdata", "target-carriers.json"))
 	if err != nil {
-		t.Fatalf("manifest %s: %v", set, err)
+		t.Fatalf("read pinned target carrier census: %v", err)
 	}
-	var m struct {
-		Cards []struct {
-			Name string `json:"name"`
-		} `json:"cards"`
+	var want []string
+	if err := json.Unmarshal(raw, &want); err != nil {
+		t.Fatalf("decode pinned target carrier census: %v", err)
 	}
-	if err := json.Unmarshal(raw, &m); err != nil {
-		t.Fatalf("manifest %s: %v", set, err)
+	var got []string
+	for _, c := range reg.Cards {
+		if len(c.Faces) != 0 && len(oraclegen.TargetSlots(c.Faces[0])) != 0 {
+			got = append(got, c.Faces[0].Name)
+		}
 	}
-	out := make([]string, 0, len(m.Cards))
-	for _, c := range m.Cards {
-		if n := strings.TrimSpace(c.Name); n != "" {
-			out = append(out, n)
+	sort.Strings(got)
+	got = uniqueSorted(got)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("target carrier census changed: got %d carriers, want %d; update the pinned identities only for an intentional corpus change\nfirst got: %v\nfirst want: %v", len(got), len(want), got[:min(10, len(got))], want[:min(10, len(want))])
+	}
+	return got
+}
+
+func uniqueSorted(names []string) []string {
+	sort.Strings(names)
+	out := names[:0]
+	for _, name := range names {
+		if len(out) == 0 || out[len(out)-1] != name {
+			out = append(out, name)
 		}
 	}
 	return out
@@ -43,8 +54,8 @@ func targetSetCards(t *testing.T, set string) []string {
 
 // TestGeneratedTargetsAreGorgeChoices is the class ratchet: no scenario the
 // generator emits may list a target gorge's own run does not consume. It
-// walks every card in the ticket's sets, generates its scenario, and replays
-// that scenario through the runner's unused-target self-check.
+// walks every target-bearing card in the pinned Forge corpus, generates each
+// supported scenario, and replays it through the runner's unused-target check.
 //
 // Without the rewrite this fails loudly: the fixture's over-offered targets
 // (an "up to N" slot gorge declines, a token slot with no token, a wrong-type
@@ -52,28 +63,27 @@ func targetSetCards(t *testing.T, set string) []string {
 // OracleUnusedTargetMarker for each.
 func TestGeneratedTargetsAreGorgeChoices(t *testing.T) {
 	reg := loadGenRegistry(t)
+	carriers := targetCarriers(t, reg)
 	checked := 0
-	for _, set := range targetSets {
-		for _, name := range targetSetCards(t, set) {
-			it, skip := Generate(reg, name)
-			if skip != nil {
-				continue // no scenario emitted; nothing to check
-			}
-			checked++
-			res, err := rules.RunOracleScenarioJSON(reg, it.Raw())
-			if err != nil {
-				t.Errorf("%s/%s: replay: %v", set, name, err)
-				continue
-			}
-			for _, f := range res.Fails {
-				if strings.Contains(f, rules.OracleUnusedTargetMarker) {
-					t.Errorf("%s/%s emitted a scenario with a target gorge did not choose: %s", set, name, f)
-				}
+	for _, name := range carriers {
+		it, skip := Generate(reg, name)
+		if skip != nil {
+			continue // Census still pins skipped carriers; no scenario was emitted.
+		}
+		checked++
+		res, err := rules.RunOracleScenarioJSON(reg, it.Raw())
+		if err != nil {
+			t.Errorf("%s: replay: %v", name, err)
+			continue
+		}
+		for _, f := range res.Fails {
+			if strings.Contains(f, rules.OracleUnusedTargetMarker) {
+				t.Errorf("%s emitted a scenario with a target gorge did not choose: %s", name, f)
 			}
 		}
 	}
-	if checked == 0 {
-		t.Fatal("precondition: the sweep generated no scenario, so the ratchet is vacuous")
+	if len(carriers) == 0 || checked == 0 {
+		t.Fatalf("precondition: corpus has %d target carriers, generator emitted %d scenarios", len(carriers), checked)
 	}
 }
 
