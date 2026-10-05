@@ -518,6 +518,8 @@ func wordPredicate(p string) (wordKind, string) {
 			return wordSharesColorOther, arg
 		case wordPredicateSharesAllCardTypesWithOther:
 			return wordSharesAllCardTypes, arg
+		case wordPredicateSharesNameWith:
+			return wordSharesNameWith, arg
 		}
 		return wordSharesCardType, arg
 	}
@@ -596,7 +598,23 @@ func outlawMatches(o *state.Object, sc SpecContext) bool {
 // game/source-aware families read the live game, the object's own zone or
 // counters, and the effect's source (for combat pairing and commander
 // membership).
+func wordColorCountMatches(kind wordKind, o *state.Object, sc SpecContext) bool {
+	switch kind {
+	case wordMultiColor:
+		return len(colorsCtx(o, &sc)) > 1
+	case wordMonoColor:
+		return len(colorsCtx(o, &sc)) == 1
+	case wordColorless:
+		return colorMaskCtx(o, &sc) == 0
+	default:
+		return false
+	}
+}
+
 func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc SpecContext) bool {
+	if kind == wordMultiColor || kind == wordMonoColor || kind == wordColorless {
+		return wordColorCountMatches(kind, o, sc)
+	}
 	source := sc.Source
 	switch kind {
 	case wordSharesCardType:
@@ -610,14 +628,7 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 	case wordSharesAllCardTypes:
 		return sharesAllCardTypesWithOther(g, o, sc, key)
 	case wordSharesNameWith:
-		for _, target := range sharesTypeReferents(g, sc, key) {
-			if !target.IsPlayer {
-				if referent := g.Obj(target.Obj); referent != nil && sharesNameWithObject(o, referent, sc) {
-					return true
-				}
-			}
-		}
-		return false
+		return sharesNameReferentMatches(g, o, sc, key)
 	case wordColor:
 		return strings.Contains(colorsCtx(o, &sc), key)
 	case wordChosenColor:
@@ -628,8 +639,6 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		return o != nil && o.RoomFullyUnlocked()
 	case wordOutlaw:
 		return outlawMatches(o, sc)
-	case wordColorless:
-		return colorMaskCtx(o, &sc) == 0
 	case wordControllerDealtCombatDamageBySource:
 		return dealtCombatDamageBySource(g, o, sc, source)
 	case wordColourSource:
@@ -655,10 +664,6 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		// '!'-negated spellings both evaluate on the object alone, and an
 		// unnoted object simply does not match.
 		return slices.Contains(o.Notes, key)
-	case wordMultiColor:
-		return len(colorsCtx(o, &sc)) > 1
-	case wordMonoColor:
-		return len(colorsCtx(o, &sc)) == 1
 	case wordWorthy:
 		colors := colorsCtx(o, &sc)
 		return hasTypeCtx(o, "Legendary", sc) && !hasTypeCtx(o, "Villain", sc) &&
@@ -1312,6 +1317,7 @@ const (
 	wordPredicateSharesCardTypeWithOther
 	wordPredicateSharesColorWithOther
 	wordPredicateSharesAllCardTypesWithOther
+	wordPredicateSharesNameWith
 )
 
 var wordPredicateSharesCodes = state.NewStrCodes(
@@ -1319,6 +1325,7 @@ var wordPredicateSharesCodes = state.NewStrCodes(
 	state.StrEntry[wordPredicateSharesCode]{Key: "sharesCardTypeWithOther", Val: wordPredicateSharesCardTypeWithOther},
 	state.StrEntry[wordPredicateSharesCode]{Key: "SharesColorWithOther", Val: wordPredicateSharesColorWithOther},
 	state.StrEntry[wordPredicateSharesCode]{Key: "sharesAllCardTypesWithOther", Val: wordPredicateSharesAllCardTypesWithOther},
+	state.StrEntry[wordPredicateSharesCode]{Key: "sharesNameWith", Val: wordPredicateSharesNameWith},
 )
 
 type wordMatchesCode uint16

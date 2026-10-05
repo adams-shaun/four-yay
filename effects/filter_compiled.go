@@ -308,27 +308,31 @@ func compileSpec(spec string) *compiledSpec {
 			a.baseNeg = !a.baseNeg
 			b = neg
 		}
-		switch compileSpecCodes.Code(string(b)) {
-		case compileSpecTargetedCard:
-			if strings.Contains("+"+rest+"+", "+Self+") {
-				a.kind = cbTargetedCard
-			} else {
+		if isTargetedCardBase(b) {
+			a.kind = cbTargetedCard
+		} else {
+			switch compileSpecCodes.Code(string(b)) {
+			case compileSpecTargetedCard:
+				if strings.Contains("+"+rest+"+", "+Self+") {
+					a.kind = cbTargetedCard
+				} else {
+					a.kind, a.typ, a.typID, a.typSub = cbType, b, cards.InternTypeWord(b), changelingType(b)
+				}
+			case compileSpecAny:
+				a.kind = cbAny
+			case compileSpecCard:
+				a.kind = cbCard
+			case compileSpecPermanent:
+				a.kind = cbPermanent
+			case compileSpecAffinity:
+				a.kind = cbAffinity
+			case compileSpecPermanentCard:
+				a.kind = cbPermanentCard
+			case compileSpecSpell:
+				a.kind = cbSpell
+			default:
 				a.kind, a.typ, a.typID, a.typSub = cbType, b, cards.InternTypeWord(b), changelingType(b)
 			}
-		case compileSpecAny:
-			a.kind = cbAny
-		case compileSpecCard:
-			a.kind = cbCard
-		case compileSpecPermanent:
-			a.kind = cbPermanent
-		case compileSpecAffinity:
-			a.kind = cbAffinity
-		case compileSpecPermanentCard:
-			a.kind = cbPermanentCard
-		case compileSpecSpell:
-			a.kind = cbSpell
-		default:
-			a.kind, a.typ, a.typID, a.typSub = cbType, b, cards.InternTypeWord(b), changelingType(b)
 		}
 		// Forge's base-qualified Spell.IsTargeting form (and the SpellAbility
 		// spelling) is ONE alternative: the whole rest after `IsTargeting `
@@ -350,7 +354,7 @@ func compileSpec(spec string) *compiledSpec {
 			}
 		} else {
 			for p := range strings.SplitSeq(rest, "+") {
-				if p == "" || (base == "TargetedCard" && p == "Self") {
+				if p == "" || (isTargetedCardBase(base) && compilePredicateTermCodes.Code(p) == compilePredicateTermSelf) {
 					continue
 				}
 				a.preds = append(a.preds, compilePred(p))
@@ -689,7 +693,6 @@ const (
 )
 
 var compileSpecCodes = state.NewStrCodes(
-	state.StrEntry[compileSpecCode]{Key: "TargetedCard", Val: compileSpecTargetedCard},
 	state.StrEntry[compileSpecCode]{Key: "Any", Val: compileSpecAny},
 	state.StrEntry[compileSpecCode]{Key: "Card", Val: compileSpecCard},
 	state.StrEntry[compileSpecCode]{Key: "Permanent", Val: compileSpecPermanent},

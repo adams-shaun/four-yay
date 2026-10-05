@@ -164,7 +164,7 @@ func sharesTypeArg(p string) (name, arg string, ok bool) {
 		return "", "", false
 	}
 	switch sharesTypeArgCodes.Code(string(arg)) {
-	case sharesTypeArgRememberedCard:
+	case sharesTypeArgRememberedCard, sharesTypeArgRemembered, sharesTypeArgTriggeredCard, sharesTypeArgTargeted:
 		return name, arg, true
 	case sharesTypeArgImprinted:
 		// Forge special-cases only sharesCardTypeWith Imprinted (Semblance
@@ -180,16 +180,31 @@ func sharesTypeArg(p string) (name, arg string, ok bool) {
 // binds Targeted, Remembered and TriggeredCard only.
 func sharesNameWithArg(p string) (string, bool) {
 	name, arg, ok := strings.Cut(p, " ")
-	if !ok || name != "sharesNameWith" {
+	if !ok || wordPredicateSharesCodes.Code(name) != wordPredicateSharesNameWith {
 		return "", false
 	}
 	arg = strings.TrimSpace(arg)
-	switch arg {
-	case "Targeted", "Remembered", "RememberedCard", "TriggeredCard":
+	switch sharesTypeArgCodes.Code(arg) {
+	case sharesTypeArgTargeted, sharesTypeArgRemembered, sharesTypeArgRememberedCard, sharesTypeArgTriggeredCard:
 		return arg, true
 	default:
 		return "", false
 	}
+}
+
+func isTargetedCardBase(base string) bool {
+	return definedCardPoolCodes.Code(base) == definedCardPoolTargetedCard
+}
+
+func sharesNameReferentMatches(g *state.Game, o *state.Object, sc SpecContext, key string) bool {
+	for _, target := range sharesTypeReferents(g, sc, key) {
+		if !target.IsPlayer {
+			if referent := g.Obj(target.Obj); referent != nil && sharesNameWithObject(o, referent, sc) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // SpecUsesConvokedAmount reports whether spec reads the `Convoked$Amount`
@@ -857,15 +872,18 @@ type sharesTypeArgCode uint16
 const (
 	sharesTypeArgRememberedCard sharesTypeArgCode = iota + 1
 	sharesTypeArgImprinted
+	sharesTypeArgRemembered
+	sharesTypeArgTriggeredCard
+	sharesTypeArgTargeted
 )
 
 var sharesTypeArgCodes = state.NewStrCodes(
 	state.StrEntry[sharesTypeArgCode]{Key: "RememberedCard", Val: sharesTypeArgRememberedCard},
-	state.StrEntry[sharesTypeArgCode]{Key: "Remembered", Val: sharesTypeArgRememberedCard},
+	state.StrEntry[sharesTypeArgCode]{Key: "Remembered", Val: sharesTypeArgRemembered},
 	state.StrEntry[sharesTypeArgCode]{Key: "RememberedLKI", Val: sharesTypeArgRememberedCard},
-	state.StrEntry[sharesTypeArgCode]{Key: "TriggeredCard", Val: sharesTypeArgRememberedCard},
+	state.StrEntry[sharesTypeArgCode]{Key: "TriggeredCard", Val: sharesTypeArgTriggeredCard},
 	state.StrEntry[sharesTypeArgCode]{Key: "TriggeredCardLKICopy", Val: sharesTypeArgRememberedCard},
-	state.StrEntry[sharesTypeArgCode]{Key: "Targeted", Val: sharesTypeArgRememberedCard},
+	state.StrEntry[sharesTypeArgCode]{Key: "Targeted", Val: sharesTypeArgTargeted},
 	state.StrEntry[sharesTypeArgCode]{Key: "Self", Val: sharesTypeArgRememberedCard},
 	state.StrEntry[sharesTypeArgCode]{Key: "Commander", Val: sharesTypeArgRememberedCard},
 	state.StrEntry[sharesTypeArgCode]{Key: "Convoked", Val: sharesTypeArgRememberedCard},

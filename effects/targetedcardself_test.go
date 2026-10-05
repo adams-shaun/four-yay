@@ -58,6 +58,9 @@ func TestSharesNameWithTargetedReferent(t *testing.T) {
 	namesakeID := addBattlefieldCard(t, g, "Bear", "Creature Bear")
 	otherID := ids["myFlier"]
 	target, namesake, other := g.Obj(targetID), g.Obj(namesakeID), g.Obj(otherID)
+	if target.Zone != state.ZBattlefield || namesake.Zone != state.ZBattlefield || other.Zone != state.ZBattlefield || targetID == namesakeID || targetID == otherID || namesakeID == otherID {
+		t.Fatal("precondition: all three objects must be distinct permanents on the battlefield")
+	}
 	if target.Face().Name != namesake.Face().Name || target.Face().Name == other.Face().Name {
 		t.Fatalf("precondition: target/namesake names must equal and differ from bystander: %q, %q, %q", target.Face().Name, namesake.Face().Name, other.Face().Name)
 	}
