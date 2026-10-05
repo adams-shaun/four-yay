@@ -1,6 +1,5 @@
-{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Cast $CARD"},"key":"cast-resolve | harness | xmage | AssertionError: Can't find ability to activate command: Cast $CARD","cards":79}
+{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Cast $CARD"},"key":"cast-resolve | harness | xmage | AssertionError: Can't find ability to activate command: Cast $CARD","cards":88}
 {"card":"Allies at Last","template":"cast-resolve","status":"harness","api":"Pump+EachDamage","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Allies at Last$target=Grizzly Bears^Grizzly Bears"}
-{"card":"Ancient Vendetta","template":"cast-resolve","status":"harness","api":"NameCard+ChangeZone","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Ancient Vendetta$target=Grizzly Bears"}
 {"card":"Betrayal at the Vault","template":"cast-resolve","status":"harness","api":"Pump+DealDamage","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Betrayal at the Vault$target=Grizzly Bears^Grizzly Bears"}
 {"card":"Bottomless Pool","template":"cast-resolve","status":"harness","api":"UnlockDoor:ChangeZone","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Bottomless Pool"}
 {"card":"Bushy Bodyguard","template":"cast-resolve","status":"harness","api":"ChangesZone:PutCounter+ChangesZone:CopyPermanent","sets":["BLB"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Bushy Bodyguard"}
@@ -35,6 +34,13 @@
 {"card":"Intrepid Rabbit","template":"cast-resolve","status":"harness","api":"ChangesZone:Pump+ChangesZone:CopyPermanent","sets":["BLB"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Intrepid Rabbit"}
 {"card":"Iridescent Vinelasher","template":"cast-resolve","status":"harness","api":"ChangesZone:DealDamage+ChangesZone:CopyPermanent","sets":["BLB"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Iridescent Vinelasher"}
 {"card":"Jailbreak Scheme","template":"cast-resolve","status":"harness","api":"Charm","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Jailbreak Scheme$target=Ornithopter"}
+{"card":"Leyline Axe","template":"cast-resolve","status":"harness","api":"-","sets":["FDN"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Leyline Axe"}
+{"card":"Leyline of Hope","template":"cast-resolve","status":"harness","api":"-","sets":["DSK"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Leyline of Hope"}
+{"card":"Leyline of Mutation","template":"cast-resolve","status":"harness","api":"-","sets":["DSK"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Leyline of Mutation"}
+{"card":"Leyline of Resonance","template":"cast-resolve","status":"harness","api":"SpellCast:CopySpellAbility","sets":["DSK"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Leyline of Resonance"}
+{"card":"Leyline of Transformation","template":"cast-resolve","status":"harness","api":"-","sets":["DSK"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Leyline of Transformation"}
+{"card":"Leyline of the Guildpact","template":"cast-resolve","status":"harness","api":"-","sets":["MKM"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Leyline of the Guildpact"}
+{"card":"Leyline of the Void","template":"cast-resolve","status":"harness","api":"-","sets":["DSK"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Leyline of the Void"}
 {"card":"Lively Dirge","template":"cast-resolve","status":"harness","api":"Charm","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Lively Dirge"}
 {"card":"Manifold Mouse","template":"cast-resolve","status":"harness","api":"Phase:Pump+ChangesZone:CopyPermanent","sets":["BLB"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Manifold Mouse"}
 {"card":"Meat Locker","template":"cast-resolve","status":"harness","api":"UnlockDoor:Tap","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Meat Locker"}
@@ -44,6 +50,8 @@
 {"card":"Moldering Gym","template":"cast-resolve","status":"harness","api":"UnlockDoor:ChangeZone","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Moldering Gym"}
 {"card":"Painter's Studio","template":"cast-resolve","status":"harness","api":"UnlockDoor:Dig","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Painter's Studio"}
 {"card":"Pawpatch Recruit","template":"cast-resolve","status":"harness","api":"BecomesTarget:PutCounter+ChangesZone:CopyPermanent","sets":["BLB"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Pawpatch Recruit"}
+{"card":"Push","template":"cast-resolve","status":"harness","api":"Destroy","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Push$target=Grizzly Bears"}
+{"card":"Quicksilver, Brash Blur","template":"cast-resolve","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Quicksilver, Brash Blur"}
 {"card":"Relive the Past","template":"cast-resolve","status":"harness","api":"Pump+ChangeZone","sets":["MKM"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Relive the Past$target=Grizzly Bears^Grizzly Bears^Grizzly Bears"}
 {"card":"Repulsive Mutation","template":"cast-resolve","status":"harness","api":"PutCounter+Counter","sets":["MKM"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Repulsive Mutation$target=Grizzly Bears^Grizzly Bears"}
 {"card":"Requisition Raid","template":"cast-resolve","status":"harness","api":"Charm","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Requisition Raid$target=Ornithopter"}
@@ -56,6 +64,7 @@
 {"card":"Rust-Shield Rampager","template":"cast-resolve","status":"harness","api":"ChangesZone:CopyPermanent","sets":["BLB"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Rust-Shield Rampager"}
 {"card":"Rustler Rampage","template":"cast-resolve","status":"harness","api":"Charm","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Rustler Rampage$targetPlayer=PlayerB"}
 {"card":"Sazacap's Brew","template":"cast-resolve","status":"harness","api":"Draw+Pump","sets":["BLB"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Sazacap's Brew$target=targetPlayer=PlayerB^Grizzly Bears"}
+{"card":"Shifting Grift","template":"cast-resolve","status":"harness","api":"Charm","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Shifting Grift$target=Serra Angel"}
 {"card":"Smuggler's Surprise","template":"cast-resolve","status":"harness","api":"Charm","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Smuggler's Surprise"}
 {"card":"Soul Immolation","template":"cast-resolve","status":"harness","api":"DamageAll","sets":["ECL"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Soul Immolation"}
 {"card":"Spirit Water Revival","template":"cast-resolve","status":"harness","api":"ChangeZoneAll+Draw+Effect+ChangeZone","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Spirit Water Revival"}
