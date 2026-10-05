@@ -24,6 +24,20 @@ func (e *Engine) validateCastContributions(d *decision.Decision, in decision.Int
 	if pc == nil || len(in.Choices) == 0 {
 		return nil
 	}
+	if len(d.Options) > 0 && castAnswerCodes.Code(d.Options[0].Kind) == castAnswerTeamwork {
+
+		for _, choice := range in.Choices {
+			o := d.Options[choice]
+			switch castAnswerCodes.Code(o.Kind) {
+			case castAnswerTeamwork:
+				creature := e.G.Obj(o.Obj)
+				if creature == nil || creature.Tapped || creature.Controller != pc.player || !e.matchesSpecFrom("Creature.YouCtrl", o.Obj, pc.player, pc.card) {
+					return fmt.Errorf("teamwork creature is no longer an untapped creature you control")
+				}
+			}
+		}
+		return nil
+	}
 	var pays []convokePayment
 	for _, c := range in.Choices {
 		if c < 0 || c >= len(d.Options) {
@@ -33,6 +47,8 @@ func (e *Engine) validateCastContributions(d *decision.Decision, in decision.Int
 		switch {
 		case o.Kind == "harmonize":
 			pays = append(pays, convokePayment{ID: o.Obj, Power: int32(o.Amount)})
+		case strings.HasPrefix(o.Kind, "activation_creature"):
+			pays = append(pays, convokePayment{ID: o.Obj})
 		case o.Kind == "improvise_generic":
 			pays = append(pays, convokePayment{ID: o.Obj})
 		case o.Kind == "waterbend_generic":
@@ -85,7 +101,8 @@ func (e *Engine) convokeAsk() bool {
 	// foldRaiseExtra): each untapped artifact or creature tapped while paying
 	// it pays for {1} of the waterbend amount (CR 701.67a).
 	isWaterbend := pc.mods.Waterbend > 0 || pc.mods.WaterbendX
-	if !isConvoke && !isHarmonize && !isImprovise && !isWaterbend {
+	creatureMana := isAbility && pay.TapCreaturesForMana(e.pcAbility(pc))
+	if !isConvoke && !isHarmonize && !isImprovise && !isWaterbend && !creatureMana {
 		return false
 	}
 	// Before X is announced, its generic requirement is not folded into
@@ -95,6 +112,7 @@ func (e *Engine) convokeAsk() bool {
 	return pay.ConvokeAsk(asPayer(e), &pc.CastPayment, &pc.PaidCost, pay.ConvokeOffer{
 		Player: pc.player, Card: pc.card,
 		Convoke: isConvoke, Harmonize: isHarmonize, Improvise: isImprovise, Waterbend: isWaterbend,
+		CreatureMana: creatureMana, SourceTaps: pc.cost.Tap,
 		Mana: e.manaToPay(pc), HasX: pc.cost.X > 0,
 		WaterbendN: pc.mods.Waterbend, WaterbendOpen: pc.mods.RaiseX != 0 || pc.mods.WaterbendX,
 	})
@@ -350,6 +368,12 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			// settles.
 			pc.casualtySac = chosen[0].Obj
 		}
+	case castAnswerBargain:
+		// CR 702.166: the answered sacrifice settles through pc.Sacs with
+		// every other cost part; the cast mode already names the election.
+		if len(chosen) == 1 {
+			pc.Sacs = append(pc.Sacs, chosen[0].Obj)
+		}
 	case castAnswerGiftDecline:
 		// CR 702.168: a declined gift is the plain cast -- no promise, and
 		// pushCast emits only the Amount-0 record. The byte-identical shape
@@ -366,6 +390,12 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			pc.giftPromise = true
 			pc.giftTo = chosen[0].Player
 		}
+	case castAnswerTeamwork:
+		// An empty answer declines: no taps and no paid provenance.
+		for _, o := range chosen {
+			pc.Taps = append(pc.Taps, o.Obj)
+		}
+		pc.teamworkPaid = len(chosen) > 0
 	case castAnswerConspire:
 		// CR 702.78a: the two chosen creatures are the tap the conspired cast
 		// pays. They settle through pc.taps (payCast taps them) and
@@ -495,9 +525,12 @@ const (
 	castAnswerSquad
 	castAnswerMutatePlace
 	castAnswerCasualty
+	castAnswerBargain
 	castAnswerGiftDecline
 	castAnswerGiftPromise
 	castAnswerConspire
+	castAnswerTeamwork
+	castAnswerTeamworkMode
 	castAnswerExile
 	castAnswerAltaddcost
 	castAnswerEvidence
@@ -521,9 +554,12 @@ var castAnswerCodes = state.NewStrCodes(
 	state.StrEntry[castAnswerCode]{Key: "squad", Val: castAnswerSquad},
 	state.StrEntry[castAnswerCode]{Key: "mutate_place", Val: castAnswerMutatePlace},
 	state.StrEntry[castAnswerCode]{Key: "casualty", Val: castAnswerCasualty},
+	state.StrEntry[castAnswerCode]{Key: "bargain", Val: castAnswerBargain},
 	state.StrEntry[castAnswerCode]{Key: "gift_decline", Val: castAnswerGiftDecline},
 	state.StrEntry[castAnswerCode]{Key: "gift_promise", Val: castAnswerGiftPromise},
 	state.StrEntry[castAnswerCode]{Key: "conspire", Val: castAnswerConspire},
+	state.StrEntry[castAnswerCode]{Key: "teamwork", Val: castAnswerTeamwork},
+	state.StrEntry[castAnswerCode]{Key: "teamworked", Val: castAnswerTeamworkMode},
 	state.StrEntry[castAnswerCode]{Key: "exile", Val: castAnswerExile},
 	state.StrEntry[castAnswerCode]{Key: "altaddcost", Val: castAnswerAltaddcost},
 	state.StrEntry[castAnswerCode]{Key: "evidence", Val: castAnswerEvidence},

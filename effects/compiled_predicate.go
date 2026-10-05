@@ -82,6 +82,7 @@ const (
 	predicateTermAttacking
 	predicateTermToken
 	predicateTermKicked
+	predicateTermBargained
 	predicateTermSurged
 	predicateTermEscaped
 	predicateTermWasCastFromGraveyard
@@ -252,6 +253,8 @@ func compilePredicateTerm(term string) predicateTerm {
 		kind = predicateTermToken
 	case compilePredicateTermKicked:
 		kind = predicateTermKicked
+	case compilePredicateTermBargained:
+		kind = predicateTermBargained
 	case compilePredicateTermSurged:
 		kind = predicateTermSurged
 	case compilePredicateTermEscaped:
@@ -431,6 +434,8 @@ func matchesCompiledTerm(term predicateTerm, g *state.Game, o *state.Object, sc 
 		matched = o.IsToken
 	case predicateTermKicked:
 		matched = o.CastFlags&state.FlagKicked != 0
+	case predicateTermBargained:
+		matched = o.CastFlags&state.FlagBargained != 0
 	case predicateTermSurged:
 		matched = o.CastFlags&state.FlagSurged != 0
 	case predicateTermEscaped:
@@ -495,6 +500,7 @@ const (
 	compilePredicateTermAttacking
 	compilePredicateTermToken
 	compilePredicateTermKicked
+	compilePredicateTermBargained
 	compilePredicateTermSurged
 	compilePredicateTermEscaped
 	compilePredicateTermWasCastFromGraveyard
@@ -515,6 +521,7 @@ var compilePredicateTermCodes = state.NewStrCodes(
 	state.StrEntry[compilePredicateTermCode]{Key: "attacking", Val: compilePredicateTermAttacking},
 	state.StrEntry[compilePredicateTermCode]{Key: "token", Val: compilePredicateTermToken},
 	state.StrEntry[compilePredicateTermCode]{Key: "kicked", Val: compilePredicateTermKicked},
+	state.StrEntry[compilePredicateTermCode]{Key: "bargained", Val: compilePredicateTermBargained},
 	state.StrEntry[compilePredicateTermCode]{Key: "surged", Val: compilePredicateTermSurged},
 	state.StrEntry[compilePredicateTermCode]{Key: "escaped", Val: compilePredicateTermEscaped},
 	state.StrEntry[compilePredicateTermCode]{Key: "wasCastFromGraveyard", Val: compilePredicateTermWasCastFromGraveyard},

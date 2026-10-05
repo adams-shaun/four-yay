@@ -139,8 +139,10 @@ func classifyCounterUnlessSVarLines(t *testing.T, reg *cards.Registry) []string 
 // corpus whose UnlessCost$ names a face SVar, one row per LINE, with the
 // verdict the shared fold gives it. Measured 2026-09-22 at FORGE_REF
 // 95f04e8a: 53 lines across 41 cards, 50 folded to a concrete amount and 3
-// still hard declines because their bodies (Count$Party/Plus, Count$Domain,
-// Count$Teamwork) are outside the shared evaluator.
+// still hard declined because their bodies (Count$Party/Plus, Count$Domain,
+// Count$Teamwork) were outside the shared evaluator. Domain and Teamwork now
+// fold; We Say Thee Nay!'s unpaid branch resolves to {2}. The remaining
+// hard decline is Count$Party/Plus.
 //
 // Re-measured 2026-09-23 (task api:Poison): Rune Snag's
 // `SVar:Z:Number$2/Plus.Y` MOVED from `decline` to `resolves:{2}`. That is
@@ -215,7 +217,7 @@ var counterUnlessSVarCensus = []string{
 	"Syncopate#0|ability0|UnlessCost$X => resolves:{2}",
 	"Thassa's Intervention#0|svar[DBCounter]|UnlessCost$XX => resolves:{4}",
 	"Thassa's Rebuff#0|ability0|UnlessCost$X => resolves:{0}",
-	"We Say Thee Nay!#0|ability0|UnlessCost$X => decline",
+	"We Say Thee Nay!#0|ability0|UnlessCost$X => resolves:{2}",
 }
 
 // TestCounterUnlessCostSVarResolvedPopulation ratchets the census above per

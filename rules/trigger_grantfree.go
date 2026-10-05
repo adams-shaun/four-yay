@@ -137,6 +137,16 @@ func faceGrantsTriggers(f *cards.Face) bool {
 		if strings.TrimSpace(st.ParamStr(cards.PKAddTrigger)) != "" || strings.TrimSpace(st.ParamStr(cards.PKGainsTriggerAbsOf)) != "" {
 			return true
 		}
+		// A layer-6 AddKeyword$ grant of a triggered keyword (Prowess) is a
+		// granted trigger too: the rule granting the keyword grants its
+		// triggered ability (grantedKeywordTrigger). Without this the
+		// grant-free proof would hold and the walk would never build the
+		// granted-static list that carries the synthesized keyword trigger.
+		for _, line := range cards.SplitKeywordList(st.ParamStr(cards.PKAddKeyword)) {
+			if grantedKeywordTrigger(line) != nil {
+				return true
+			}
+		}
 	}
 	for _, v := range f.SVars {
 		if strings.Contains(v, "AddTrigger") || strings.Contains(v, "GainsTriggerAbsOf") {

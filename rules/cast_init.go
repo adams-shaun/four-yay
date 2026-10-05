@@ -196,5 +196,15 @@ func init() {
 		// exile-zone walk; no upkeep ask, unlike Suspend's cast-if-able). No
 		// keyword expansion: the K:Plot line is read directly. Proof:
 		// rules/plot_test.go.
+		// kw:Bargain: CR 702.166, the optional additional cost "you may
+		// sacrifice an artifact, enchantment, or token as you cast this
+		// spell". The offer lives in legal.go's hand cast walk (the
+		// "bargained" mode, priced through the same Spell.Bargain cost
+		// statics), the election in bargainAsk (rules/cast.go), and the
+		// pay-time FlagBargained provenance in modeFlags -- read by the
+		// Count$Bargained/Count$Bargain heads, the bare Condition$ Bargain
+		// gate, the `bargained` predicate and the Spell.Bargain constraint.
+		// Proof: rules/bargain_test.go.
+		"kw:Bargain",
 		"kw:Plot")
 }

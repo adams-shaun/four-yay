@@ -137,7 +137,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 	if digNum < 0 {
 		digNum = 0
 	}
-	changeNum := digNum
+	changeNum := defaultDigChangeNum(dp, digNum)
 	anyNum := false
 	if dp.ChangeNumAny || dp.ChangeNumCapped {
 		if dp.ChangeNumAny {
@@ -639,6 +639,15 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 	// The walk completed: release the ride (the same boundary the search and
 	// hidden walks end at), so a later ability in the chain cannot inherit it.
 	endForgetOtherSnapshot(c)
+}
+
+// defaultDigChangeNum is one for an omitted ChangeNum$, or the full window
+// for an explicit All; a capped value is resolved by the caller.
+func defaultDigChangeNum(dp *DigParams, digNum int32) int32 {
+	if !dp.ChangeNum.Present {
+		return 1
+	}
+	return digNum
 }
 
 // digRemember honours a Dig's RememberChanged$ True: each card the dig moved

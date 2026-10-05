@@ -634,8 +634,7 @@ func init() {
 		// asUnblockedNeeding / damageStep's chosenElection case, CR 509's
 		// optional "assign as though it weren't blocked"). Only the printed
 		// S:Mode$ statics are read; the SVar:Static: family that rides the
-		// Effect path is a separate ledgered gap, and Ruxa's NoAbilities
-		// predicate stays an unknown that fails closed.
+		// Effect path is a separate ledgered gap.
 		"stat:AssignCombatDamageAsUnblocked",
 		// toughtdmg1: the CR 510.1 combat-damage assignment statics
 		// (rules/statics.go combatDamageToughnessMatches, consumed by the ONE

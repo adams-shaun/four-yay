@@ -354,9 +354,6 @@ func TestZimoneManifestDreadEmptyLibrary(t *testing.T) {
 func TestManifestDreadOutOfScopeShapesStayLoud(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct{ name, params string }{
-		{"Amount", "Amount$ 1"},
-		{"DefinedPlayer", "DefinedPlayer$ TargetedController"},
-		{"RememberManifested", "RememberManifested$ True"},
 		{"Choices", "Choices$ Creature"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

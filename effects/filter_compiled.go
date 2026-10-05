@@ -61,6 +61,7 @@ type compiledBaseKind uint8
 
 const (
 	cbType compiledBaseKind = iota // hasTypeCtx(o, typ, sc)
+	cbTargetedCard
 	cbAny
 	cbCard
 	cbPermanent
@@ -307,21 +308,25 @@ func compileSpec(spec string) *compiledSpec {
 			a.baseNeg = !a.baseNeg
 			b = neg
 		}
-		switch compileSpecCodes.Code(string(b)) {
-		case compileSpecAny:
-			a.kind = cbAny
-		case compileSpecCard:
-			a.kind = cbCard
-		case compileSpecPermanent:
-			a.kind = cbPermanent
-		case compileSpecAffinity:
-			a.kind = cbAffinity
-		case compileSpecPermanentCard:
-			a.kind = cbPermanentCard
-		case compileSpecSpell:
-			a.kind = cbSpell
-		default:
-			a.kind, a.typ, a.typID, a.typSub = cbType, b, cards.InternTypeWord(b), changelingType(b)
+		if isTargetedCardBase(b) {
+			a.kind = cbTargetedCard
+		} else {
+			switch compileSpecCodes.Code(string(b)) {
+			case compileSpecAny:
+				a.kind = cbAny
+			case compileSpecCard:
+				a.kind = cbCard
+			case compileSpecPermanent:
+				a.kind = cbPermanent
+			case compileSpecAffinity:
+				a.kind = cbAffinity
+			case compileSpecPermanentCard:
+				a.kind = cbPermanentCard
+			case compileSpecSpell:
+				a.kind = cbSpell
+			default:
+				a.kind, a.typ, a.typID, a.typSub = cbType, b, cards.InternTypeWord(b), changelingType(b)
+			}
 		}
 		// Forge's base-qualified Spell.IsTargeting form (and the SpellAbility
 		// spelling) is ONE alternative: the whole rest after `IsTargeting `
@@ -343,7 +348,7 @@ func compileSpec(spec string) *compiledSpec {
 			}
 		} else {
 			for p := range strings.SplitSeq(rest, "+") {
-				if p == "" {
+				if p == "" || (isTargetedCardBase(base) && compilePredicateTermCodes.Code(p) == compilePredicateTermSelf) {
 					continue
 				}
 				a.preds = append(a.preds, compilePred(p))
@@ -356,9 +361,12 @@ func compileSpec(spec string) *compiledSpec {
 
 // compiledBaseMatch is matchesBase(g, a.base, o, sc) (or, with zone set,
 // matchesBaseInZone) for a non-CARDNAME alternative.
-func compiledBaseMatch(a *compiledAlt, o *state.Object, sc *SpecContext, zone state.Zone, inZone bool) bool {
+func compiledBaseMatch(g *state.Game, a *compiledAlt, o *state.Object, sc *SpecContext, zone state.Zone, inZone bool) bool {
 	var m bool
 	switch a.kind {
+	case cbTargetedCard:
+		id, bound := targetedCardSelfReferent(*sc)
+		m = bound && o.ID == id
 	case cbAny:
 		m = hasTypeCtxSub(o, "Creature", twCreature, subCreature, sc) || hasTypeCtxSub(o, "Planeswalker", twPlaneswalker, subPlaneswalker, sc) ||
 			hasTypeCtxSub(o, "Battle", twBattle, subBattle, sc)
@@ -452,7 +460,7 @@ func compiledMatch(cs *compiledSpec, g *state.Game, o *state.Object, sc *SpecCon
 			if sc.Source == 0 || o.ID != sc.Source {
 				continue
 			}
-		} else if !compiledBaseMatch(a, o, sc, 0, false) {
+		} else if !compiledBaseMatch(g, a, o, sc, 0, false) {
 			continue
 		}
 		if a.spellTargeting {
@@ -508,7 +516,7 @@ func compiledMatchZone(cs *compiledSpec, g *state.Game, o *state.Object, sc *Spe
 			if sc.Source == 0 || o.ID != sc.Source {
 				continue
 			}
-		} else if !compiledBaseMatch(a, o, sc, zone, true) {
+		} else if !compiledBaseMatch(g, a, o, sc, zone, true) {
 			continue
 		}
 		if a.spellTargeting {

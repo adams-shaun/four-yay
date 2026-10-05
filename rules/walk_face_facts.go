@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"reflect"
 	"unsafe"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -55,6 +56,24 @@ type walkFaceFacts struct {
 	kwLen     int
 	// ph is printedHeadsOf(f), under the same keyword guard.
 	ph printedHeads
+	// altCosts is the alternative-cost keyword family's compiled printed cost
+	// on this face (rules/altcast_modes.go): altCastModes[i]'s K: parameter,
+	// parsed once here and frozen, so the offer walk, the command-zone offer,
+	// the potential-plan pricing and the charge read altCastMode.faceCost's
+	// sidecar arm instead of reparsing the parameter on every offer. A pure
+	// function of the keyword list, so it rides the keywordsCurrent guard.
+	//
+	// It is SPARSE: only the PRESENT rows are stored, in row order, because
+	// altFaceCost embeds an 824-byte Cost and the overwhelming majority of
+	// faces carry no alt-cost keyword. altCostMask bit i marks that
+	// altCastModes[i] is present; the position of row id in altCosts is the
+	// population count of the mask's lower bits, so a face with none
+	// allocates nothing and pays only the 1-byte mask.
+	altCosts    []altFaceCost
+	altCostMask uint8
+	// impendingCount is the compiled N from K:Impending:N:cost, read under
+	// the same keyword-list identity guard as altCosts.
+	impendingCount int32
 	// name and the option labels the walk offers for this face, built once
 	// so a walk shares them instead of concatenating per option (Go strings
 	// are immutable; a shared label is the same value the concatenation
@@ -103,6 +122,8 @@ func (ff *walkFaceFacts) verifyFresh(f *cards.Face) {
 	got := *ff
 	if !ff.keywordsCurrent(f) {
 		got.kwGranted, got.kwFirst, got.kwLen, got.ph = fresh.kwGranted, fresh.kwFirst, fresh.kwLen, fresh.ph
+		got.altCosts, got.altCostMask = fresh.altCosts, fresh.altCostMask
+		got.impendingCount = fresh.impendingCount
 	}
 	if !ff.triggersCurrent(f) {
 		got.trigZones, got.trigSig, got.trigSigOther, got.trigLookBack = fresh.trigZones, fresh.trigSig, fresh.trigSigOther, fresh.trigLookBack
@@ -116,7 +137,9 @@ func (ff *walkFaceFacts) verifyFresh(f *cards.Face) {
 	}
 	got.statFirst, got.statLen, got.replFirst, got.replLen = fresh.statFirst, fresh.statLen, fresh.replFirst, fresh.replLen
 	got.svars, got.svarsLen = fresh.svars, fresh.svarsLen
-	if got != fresh {
+	// DeepEqual, not ==: altCosts holds Cost slices, which are not
+	// comparable. This verify path runs only in the rules test binary.
+	if !reflect.DeepEqual(got, fresh) {
 		panic(fmt.Sprintf("rules: walk face facts for %q are stale (%+v vs %+v)", f.Name, *ff, fresh))
 	}
 }
@@ -169,6 +192,15 @@ func computeWalkFaceFacts(f *cards.Face) walkFaceFacts {
 		ff.replFirst = &f.Repls[0]
 	}
 	ff.ph = printedHeadsOf(f)
+	ff.impendingCount = impendingCount(f)
+	for i := range altCastModes {
+		c, ok := altCastModes[i].faceCostRaw(f)
+		if !ok {
+			continue
+		}
+		ff.altCostMask |= 1 << altCastID(i)
+		ff.altCosts = append(ff.altCosts, altFaceCost{cost: freezeCost(c), ok: true})
+	}
 	if len(f.Keywords) > 0 {
 		ff.kwFirst = &f.Keywords[0]
 		for _, h := range grantedKWHeads {

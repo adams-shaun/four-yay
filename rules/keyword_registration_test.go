@@ -28,6 +28,7 @@ func TestRegisteredKeywordsAreHonoured(t *testing.T) {
 		"kw:Melee":          "TestTitaniaMeleeCountsDistinctAttackedOpponents",
 		"kw:Mentor":         "TestMentorCounterOnLesserPowerAttacker",
 		"kw:Firebending":    "TestFirebendingCorpusCensus",
+		"kw:Decayed":        "TestDecayedCannotBlock",
 		"kw:Riot":           "TestRiotAndHideawayUseRealCorpusCards",
 		"kw:Hideaway":       "TestRiotAndHideawayUseRealCorpusCards",
 		"kw:Extort":         "TestExtortUsesRealCorpusCard",

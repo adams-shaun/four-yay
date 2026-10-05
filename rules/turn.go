@@ -230,6 +230,18 @@ func (e *Engine) finishUntapStep(next int) bool {
 			}
 		}
 	}
+	// CR 502.3: the active player untaps their permanents as ONE turn-based
+	// action, so the untaps this step emits are ONE untapping action for the
+	// aggregate Mode$ UntapAll trigger (task cli-20261005T075020Z-05241a06):
+	// the shared action bracket makes it fire once for the whole step, not
+	// once per permanent. It is opened after the phase-in scan above so the
+	// PhaseOut events that scan emits are never caught by this bracket, and
+	// opened only on the first pass so a step that suspends on an untap
+	// choice or a replacement does not nest a second bracket on resume; the
+	// close below runs only when the step completes.
+	if next == 0 && !e.millBatchOpen {
+		e.openMillBatch()
+	}
 	ids := e.G.Zone(state.ZBattlefield, e.G.Active)
 	for i := next; i < len(ids); i++ {
 		o := e.G.Obj(ids[i])
@@ -314,6 +326,10 @@ func (e *Engine) finishUntapStep(next int) bool {
 			}
 		}
 	}
+	// The untap step completed: close the action bracket opened above (a
+	// no-op if the step was entered with no bracket to own, e.g. a resumed
+	// pass whose opener ran on the first pass).
+	e.closeMillBatch()
 	e.setStep(state.StepUpkeep)
 	return e.pending == nil
 }

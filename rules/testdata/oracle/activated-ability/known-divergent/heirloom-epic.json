@@ -1,6 +1,0 @@
-{
-  "card": "Heirloom Epic",
-  "rows": {
-    "tap-four-creatures-instead-of-mana": "The 'for each mana in this ability's activation cost, you may tap an untapped creature you control rather than pay that mana' alternative is not modelled. With four untapped creatures and no mana the ability is not offered at all (only play_land/pass/concede)."
-  }
-}

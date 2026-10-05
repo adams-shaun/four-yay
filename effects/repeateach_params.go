@@ -59,6 +59,9 @@ type RepeatEachParams struct {
 	// ChooseOrder is ChooseOrder$: True orders the card subjects by the
 	// controller, any other non-empty value names the chooser.
 	ChooseOrder string
+	// TypesFrom is RepeatTypesFrom$: its matching cards supply the distinct
+	// card types bound as ChosenType for each iteration.
+	TypesFrom string
 
 	// Unread are the parameters present on the ability that no RepeatEach
 	// reader consumes: the resolution Notes them once.
@@ -93,7 +96,7 @@ var repeatEachKnownKeys = [...]string{
 	"PresentCompare", "PresentDefined", "PresentZone", "RandomNumTargets", "ReduceAmount",
 	"ReduceCost", "RememberAnimated", "RememberCostMana", "RememberObjects", "RememberTargets", "RepeatCards",
 	"RepeatOptionalForEachPlayer", "RepeatOptionalMessage", "RepeatPlayers",
-	"RepeatSpellAbilities", "RepeatSubAbility", "RepeatTargeted", "ReplaceColor",
+	"RepeatSpellAbilities", "RepeatSubAbility", "RepeatTargeted", "RepeatTypesFrom", "ReplaceColor",
 	"ReplaceGraveyard", "ReplaceGraveyardValid", "ReplaceMana", "ReplaceOnly",
 	"ReplaceType", "SVarCompare", "SelectPrompt", "SetChosenMode", "SetColor",
 	"ShowCards", "SorcerySpeed", "SpellDescription", "StackDescription",
@@ -181,6 +184,7 @@ func compileRepeatEach(sa *cards.SA, dr *DefinedParams) *RepeatEachParams {
 		}
 	}
 	p.ChooseOrder = strings.TrimSpace(sa.ParamStr(cards.PKChooseOrder))
+	p.TypesFrom = strings.TrimSpace(sa.ParamStr(cards.PKRepeatTypesFrom))
 	p.Unread = unreadKeys(sa, repeatEachKnownKeys[:])
 	return p
 }

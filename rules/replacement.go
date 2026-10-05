@@ -364,26 +364,13 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 		return e.applyCascadeReplacements(ev, matches)
 	}
 
-	// CR 616.1: if two or more replacement effects would modify the way this
-	// event affects an object, each gets one opportunity to apply and the
-	// affected player chooses the order. Two shapes follow.
-	//
-	//   - All matches are "Updated" (Forge's "the event still happens,
-	//     augmented" idiom, e.g. an "enters tapped" plus an "enters with
-	//     counters"). The original event is emitted once and each With is
-	//     resolved in turn, so the object finishes with BOTH characteristics
-	//     set (CR 616.1f) instead of whichever scan happened to reach first.
-	//     Every ordering lands the same result for that commute shape, so no
-	//     player order choice is posed -- the CR 616.1 choice is about order
-	//     that can CHANGE the result, and a pure-augment competition never
-	//     reorders a destination, so it would be a decision nobody answers
-	//     differently.
-	//
-	//   - Otherwise at least one "Replaced"/destination-changing replacement
-	//     competes (Rest in Peace's exile vs. Darksteel Colossus's shuffle):
-	//     the affected controller must choose BEFORE anything relocates, so
-	//     the event is parked and a KReplacement choice is posed (see
-	//     poseReplacementChoice / handleReplacement).
+	// CR 616.1 competitions either compose commutative Updated effects or
+	// park destination-changing effects for the affected player to order.
+	if ev.Kind == events.Draw && len(matches) == 1 && matches[0].repl.With == nil &&
+		matches[0].repl.OptionalValue() {
+		e.poseReplacementChoice(ev, matches)
+		return ev, true
+	}
 	if len(matches) == 1 {
 		return e.applyReplacement(ev, matches[0])
 	}
@@ -492,6 +479,15 @@ func (e *Engine) applyNonMoveReplacements(ev events.Event, matches []replMatch) 
 			// The body rewrote the held amount (changed) or could not resolve
 			// its value and left it alone; either way the event stands and the
 			// next modifier applies to the result.
+			continue
+		}
+		if m.repl.ParamStr(cards.PKReplacementResult) == "Updated" {
+			// ReplacementResult$ Updated (CR 616.1: "modifies how an event
+			// occurs") keeps the event even though the body did not rewrite
+			// it. The body's own emissions already happened; the held event
+			// still folds. Wolverine, Fierce Fighter's HealDamage is the
+			// unique carrier: the incoming damage is dealt, the pre-existing
+			// marked damage is what the body heals.
 			continue
 		}
 		// A body that does not rewrite the held event (DB$ DealDamage,
@@ -1090,19 +1086,11 @@ func (e *Engine) applyReplacement(ev events.Event, m replMatch) (events.Event, b
 			// not reach the battlefield, so report it handled.
 			return ev, true
 		}
-		if ev.Kind == events.Draw && !m.repl.OptionalValue() {
-			// A bodyless R:Event$ Draw line is CR 614.1a's "skip that draw
-			// instead": stopping the draw IS the complete replacement, the
-			// same read the damage-prevention arm in applyNonMoveReplacements
-			// takes for a Prevent$ True DamageDone line. The class's two
-			// non-optional corpus carriers are Living Conundrum ("while your
-			// library has no cards in it, skip that draw") and Possessed
-			// Portal ("if a player would draw a card, that player skips that
-			// draw"); both read exactly this way. An Optional$ True bodyless
-			// line (Obstinate Familiar's "you may skip that draw") is a real
-			// "may" that needs an ask this build does not yet pose, so it is
-			// left unhandled -- a decline, which is the honest default --
-			// rather than silently prevented.
+		if ev.Kind == events.Draw {
+			// A bodyless R:Event$ Draw line's complete replacement is stopping
+			// the draw (CR 614.1a). Reaching here means the election has already
+			// been made: a lone Optional$ replacement is asked at dispatch, and
+			// selecting one in a competition is itself the election.
 			return ev, true
 		}
 		return ev, false

@@ -1369,7 +1369,7 @@ func (d *Decision) Validate(in Intent) error {
 	// creatures or power, only that the picked set's total must reach a
 	// floor -- so a rules-ignorant client can enforce it without learning
 	// any rules.
-	if d.MinSum > 0 {
+	if d.MinSum > 0 && !(d.AllowNone && len(in.Choices) == 0) {
 		sum := 0
 		for _, c := range in.Choices {
 			sum += d.Options[c].Value

@@ -124,6 +124,12 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 					}
 					it := CastResolve.item(name, sc)
 					it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
+					if n := oraclegen.OptionalCostCastNo(f, mana); n > 0 {
+						// XMage asks "pay the additional cost?" at the head of the
+						// cast; gorge offered it as a declineable cast option, so
+						// answer the ask explicitly.
+						it.XAnswers = oraclegen.PrependCastNo(it.XAnswers, sc, name, n)
+					}
 					if oraclegen.SearchesLibrary(f) || strings.Contains(strings.ToLower(f.Oracle), "shuffle") {
 						it.Ignore = []string{"library_top"}
 					}

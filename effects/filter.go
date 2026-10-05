@@ -10,6 +10,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	costvocab "github.com/adams-shaun/gorge/rules/cost"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -253,6 +254,14 @@ var predicates = map[string]predFn{
 	"kicked": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.CastFlags&state.FlagKicked != 0
 	},
+	// Bargained is CR 702.166's CastFlags provenance: the object is a spell or
+	// permanent whose cast elected the optional additional sacrifice. It is
+	// the SAME state.FlagBargained bit the Count$Bargained/Count$Bargain
+	// heads, the bare Condition$ Bargain gate and the Spell.Bargain cost
+	// constraint read; a copy (never cast) fails closed.
+	"bargained": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o.CastFlags&state.FlagBargained != 0
+	},
 	// PromisedGift is Forge's Card.PromisedGift (CR 702.168): the object is a
 	// spell or permanent whose cast opted into the Gift keyword's promise.
 	// The bit is folded by events.GiftPromise from the cast-flow election and
@@ -264,6 +273,16 @@ var predicates = map[string]predFn{
 	// cast), matches neither the bare nor the '!' form's positive half.
 	"PromisedGift": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.CastFlags&state.FlagPromisedGift != 0
+	},
+	// Teamwork is Forge's Card.Self+Teamwork (CR 702.194b): the object is a
+	// spell or permanent whose cast paid the K:Teamwork:N optional additional
+	// tap cost. Object.TeamworkPaid is folded by events.Apply from the pay-time
+	// FlagTeamworkPaid and survives later CastInfo events and the
+	// stack->battlefield move, so it reads on the spell during resolution
+	// (Timeline Inquiry's ConditionPresent$ Card.Self+Teamwork) and on the
+	// permanent at its ETB. Absent a paid tap it fails closed to false.
+	"Teamwork": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o.TeamworkPaid
 	},
 	"surged": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.CastFlags&state.FlagSurged != 0
@@ -596,7 +615,7 @@ func init() {
 	for _, kw := range [...]string{"Flying", "Trample", "Deathtouch", "Lifelink",
 		"Vigilance", "Reach", "Haste", "Indestructible", "First Strike", "Double Strike", "Menace",
 		"Flanking", "Horsemanship", "Defender", "Foretell", "Shadow", "Doctor's companion",
-		"Flash", "Mutate"} {
+		"Flash", "Mutate", "Decayed"} {
 		k := kw
 		with := func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 			return objectHasKeyword(o, k)
@@ -722,6 +741,19 @@ func init() {
 	// so no twin term is owed, and UnknownPredicates classifies it through
 	// this same map, so census and matcher cannot disagree.
 	predicates["modified"] = modifiedPermanent
+	// NoAbilities: Forge's Card.hasNoAbilities (and the filter spelling
+	// `Creature.NoAbilities`), the CR 113.12 ruling directly on point for
+	// Muraganda Petroglyphs -- an Aura that grants flying stops the +2/+2,
+	// while one that only says the creature "is red" does not. The five
+	// corpus carriers are Fang-Druid Summoner (ETB search), Muraganda
+	// Petroglyphs (continuous buff), Ruxa, Patient Professor (buff and
+	// reanimation), Rise from the Wreck (graveyard target) and Jasmine Boreal
+	// of the Seven (CantBlockBy, RestrictValid and the negated
+	// `Creature.!NoAbilities` blocker clause). A recognised-shape map entry:
+	// the compiled predicate layer falls through to this textual oracle and
+	// UnknownPredicates classifies it through the same map, so census and
+	// matcher cannot disagree.
+	predicates["NoAbilities"] = noAbilitiesPermanent
 	// Soulbond's "PairedWith" and "Paired" predicates (CR 702.103): the
 	// Affected$ spec `Creature.PairedWith` names the creature a source is
 	// paired with, and `Creature.Self+Paired` names the source itself when it
@@ -2185,6 +2217,10 @@ func matchesBase(g *state.Game, base string, o *state.Object, sc SpecContext) bo
 	if neg := strings.TrimPrefix(base, "non"); neg != base {
 		return !matchesBase(g, neg, o, sc)
 	}
+	if isTargetedCardBase(base) {
+		id, bound := targetedCardSelfReferent(sc)
+		return bound && o.ID == id
+	}
 	switch matchesBaseCodes.Code(string(base)) {
 	case matchesBaseAny:
 		return hasTypeCtx(o, "Creature", sc) || hasTypeCtx(o, "Planeswalker", sc) || hasTypeCtx(o, "Battle", sc)
@@ -2668,7 +2704,7 @@ func matchesObjectText(g *state.Game, spec string, o *state.Object, sc SpecConte
 		}
 		all := true
 		for p := range strings.SplitSeq(rest, "+") {
-			if p == "" {
+			if p == "" || (isTargetedCardBase(base) && compilePredicateTermCodes.Code(p) == compilePredicateTermSelf) {
 				continue
 			}
 			// Permanent is an auxiliary part of Forge's
@@ -2799,7 +2835,7 @@ func matchesZoneSpecText(g *state.Game, spec string, o *state.Object, sc SpecCon
 		}
 		all := true
 		for p := range strings.SplitSeq(rest, "+") {
-			if p == "" {
+			if p == "" || (isTargetedCardBase(base) && compilePredicateTermCodes.Code(p) == compilePredicateTermSelf) {
 				continue
 			}
 			res, ok := matchPredicate(g, p, o, sc)
@@ -2818,6 +2854,9 @@ func matchesZoneSpecText(g *state.Game, spec string, o *state.Object, sc SpecCon
 func matchesBaseInZone(g *state.Game, base string, o *state.Object, sc SpecContext, zone state.Zone) bool {
 	if neg := strings.TrimPrefix(base, "non"); neg != base {
 		return !matchesBaseInZone(g, neg, o, sc, zone)
+	}
+	if isTargetedCardBase(base) {
+		return matchesBase(g, base, o, sc)
 	}
 	if base != "Permanent" || zone == state.ZBattlefield {
 		return matchesBase(g, base, o, sc)
@@ -3049,6 +3088,91 @@ func hasAbilityToken(p string) bool {
 		return strings.HasPrefix(p, "hasAbility ")
 	}
 	return false
+}
+
+// noAbilitiesPermanent is the CR 113.12 body for `NoAbilities`: it reports
+// whether the object has NO abilities at all, matching Forge's
+// Card.hasNoAbilities(). An ability, for this predicate, is a printed
+// keyword, an S: static, an R: replacement, a T: trigger, or an activated
+// `AB` ability -- with two exclusions Forge also makes: a land's mana
+// ability (isLandAbility) and the card's own plain cast (an `SP` entry,
+// isBasicSpell + only-a-mana-cost). Counter-granted keywords count too, the
+// same positive CounterKeyword scan objectHasKeyword uses.
+//
+// Reads the PRINTED face plus counter keywords only. A keyword or ability
+// granted by a continuous effect (CR 113.12's granted-flying case) is not
+// visible here -- predFn carries no SpecContext and this ticket does not
+// thread one through the map. That is a known deviation, recorded in the
+// commit message.
+//
+// Fail closed: a nil object or face is NOT proof of "no abilities", so it
+// answers false ("has abilities") -- the fail-closed direction, never a
+// silent widening of the selection. A face-down battlefield permanent has no
+// abilities (CR 708.2), so it answers true; that is the OPPOSITE polarity of
+// objectHasAbility's guard.
+func noAbilitiesPermanent(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+	if o == nil {
+		return false
+	}
+	f := o.Face()
+	if f == nil {
+		return false
+	}
+	if o.FaceDown && o.Zone == state.ZBattlefield {
+		return true
+	}
+	if len(f.Keywords) > 0 || len(f.Statics) > 0 || len(f.Repls) > 0 || len(f.Triggers) > 0 {
+		return false
+	}
+	for _, c := range o.Counters {
+		if c.N > 0 {
+			if _, ok := cards.CounterKeyword(c.Kind); ok {
+				return false
+			}
+		}
+	}
+	for _, a := range f.Abilities {
+		if a == nil {
+			continue
+		}
+		switch a.CompiledKind() {
+		case cards.SAKindActivated:
+			// A land's mana ability is not an ability for this
+			// predicate (Forge's isLandAbility).
+			if hasType(o, "Land") && a.APIKind() == cards.APIMana {
+				continue
+			}
+			return false
+		case cards.SAKindSpell:
+			// An SP entry is the card's own cast. Forge skips it only
+			// when it is the basic spell AND its cost is mana-only
+			// (isBasicSpell + isOnlyManaCost); an SP carrying an
+			// additional non-mana cost (Makeshift Mauler's
+			// ExileFromGrave) or any other extra spell ability counts
+			// as an ability. A DB/ST entry is not among the spell
+			// abilities hasNoAbilities reads, so it is skipped.
+			if a.APIKind() == cards.APIPermanentCreature && costOnlyMana(a.ParamStr(cards.PKCost)) {
+				continue
+			}
+			return false
+		}
+	}
+	return true
+}
+
+// costOnlyMana reports whether a Forge cost string demands nothing beyond
+// mana (Forge's Cost.isOnlyManaCost). The empty string is the no-Cost$ line
+// case: the ability is paid with the card's printed mana cost, so it is
+// mana-only. A cost carrying any non-mana component -- HasNonMana misses the
+// CollectEvidence and RollDice heads -- or any token this build does not
+// model is NOT mana-only, the fail-closed direction, so an unread token can
+// never make an ability read as absent and silently widen the selection.
+func costOnlyMana(raw string) bool {
+	c := costvocab.ParseCost(raw)
+	if c.HasNonMana() {
+		return false
+	}
+	return len(c.Unknown) == 0 && len(c.Evidence) == 0 && len(c.RollDice) == 0
 }
 
 // objectHasAbility answers a recognised hasAbility sub-spec over the

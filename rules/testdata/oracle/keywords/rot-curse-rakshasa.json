@@ -1,0 +1,115 @@
+{
+ "card": "Rot-Curse Rakshasa",
+ "family": "keywords",
+ "author": "decayed-t0",
+ "oracle_sha": "b44f50b86319",
+ "scenarios": [
+  {
+   "name": "decayed-attacker-is-sacrificed-at-end-of-combat-not-on-attack",
+   "cr": [
+    "702.147a"
+   ],
+   "why": "Rot-Curse Rakshasa is a 5/5 with Trample and Decayed. Its triggered half says: when it attacks, sacrifice it at END of combat. It attacks here (unblocked, 5 trample to the defender), and it is still on the battlefield tapped right after the declaration; only at end of combat is it sacrificed to the graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rot-Curse Rakshasa"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Rot-Curse Rakshasa"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Rot-Curse Rakshasa",
+       "zone": "battlefield",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Rot-Curse Rakshasa",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 15
+     }
+    }
+   ]
+  },
+  {
+   "name": "decayed-creature-cannot-block",
+   "cr": [
+    "702.147a"
+   ],
+   "why": "Decayed's static half means the decayed creature itself cannot block. Here p0's Grizzly Bears attacks; p1's Grizzly Bears is a legal blocker (so the blockers decision is posed) but p1's Rot-Curse Rakshasa, which has Decayed, is not a legal block.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Rot-Curse Rakshasa",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Rot-Curse Rakshasa",
+        "attacker": "p0:Grizzly Bears"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 18
+     }
+    }
+   ]
+  }
+ ]
+}

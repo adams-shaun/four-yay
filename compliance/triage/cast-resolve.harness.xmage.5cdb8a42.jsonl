@@ -1,2 +1,5 @@
-{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"AssertionError: Ability has no targets. Cast $CARD"},"key":"cast-resolve | harness | xmage | AssertionError: Ability has no targets. Cast $CARD","cards":1}
+{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"AssertionError: Ability has no targets. Cast $CARD"},"key":"cast-resolve | harness | xmage | AssertionError: Ability has no targets. Cast $CARD","cards":4}
+{"card":"Brave the Wilds","template":"cast-resolve","status":"harness","api":"Animate+ChangeZone","sets":["WOE"],"detail":"xmage: AssertionError: Ability has no targets. Cast Brave the Wilds"}
 {"card":"The Eagles Are Coming!","template":"cast-resolve","status":"harness","api":"ChangeZone+Effect+Cleanup","sets":["HOB"],"detail":"xmage: AssertionError: Ability has no targets. Cast The Eagles Are Coming!"}
+{"card":"Valley Rally","template":"cast-resolve","status":"harness","api":"PumpAll+Pump","sets":["BLB"],"detail":"xmage: AssertionError: Ability has no targets. Cast Valley Rally"}
+{"card":"Wildfire Howl","template":"cast-resolve","status":"harness","api":"DealDamage+DamageAll+DamageResolve","sets":["BLB"],"detail":"xmage: AssertionError: Ability has no targets. Cast Wildfire Howl"}

@@ -1757,6 +1757,15 @@ var foreignAbilityReaders = map[string]bool{
 	"producibleSymbols": true,
 }
 
+// handEffectsRoots are effects functions registered by function value rather
+// than through effects.Register. Their Params reads remain live through that
+// separate registry even though the call-graph scan cannot see the map edge.
+var handEffectsRoots = []string{
+	// predicates in effects/filter.go registers this predicate as a function
+	// value; its Cost$ reads inspect a candidate card's printed spell cost.
+	"noAbilitiesPermanent",
+}
+
 // apiSpecificRulesSA names the rules functions whose SA (bSA) reads execute
 // only inside the listed APIs' code paths -- NOT for every cast/activation/
 // targeting of any primitive. Their direct SA reads are REMOVED from the
@@ -2416,6 +2425,15 @@ func (s *scan) rotGuard(t *testing.T) {
 		if fi := s.fns["effects:"+fn]; fi != nil {
 			s.closureReads(fi, nil, visited, map[bucket]map[string]bool{})
 		}
+	}
+	for _, fn := range handEffectsRoots {
+		fi := s.fns["effects:"+fn]
+		if fi == nil {
+			s.guardErrs = append(s.guardErrs, fmt.Sprintf(
+				"paramcensus: handEffectsRoots entry %q names no effects function -- delete the stale entry", fn))
+			continue
+		}
+		s.closureReads(fi, nil, visited, map[bucket]map[string]bool{})
 	}
 	for key, fi := range s.fns {
 		if !strings.HasPrefix(key, "effects:") {

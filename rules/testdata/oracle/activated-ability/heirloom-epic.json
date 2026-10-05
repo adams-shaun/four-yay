@@ -29,7 +29,8 @@
           "seat": 0,
           "card": "p0:Heirloom Epic",
           "ability": "Draw",
-          "targets": []
+          "targets": [],
+          "answers": [{"kind": "choose", "pick": ["p0:Grizzly Bears", "p0:Hill Giant", "p0:Savannah Lions", "p0:Elvish Visionary"]}]
         }
       ],
       "expect": [

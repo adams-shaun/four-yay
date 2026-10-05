@@ -168,6 +168,22 @@ func (w *legalWalk) mayPlaySpellWalk() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: label, Obj: id, Mode: "mayplay", MayPlayPerm: off.key})
 			}
+			// Bargain is an additional cost on any spell cast through this
+			// permission. Price independently from the permission-adjusted raw
+			// base: the plain MayPlay option need not be affordable for the
+			// Bargain reduction to make this one legal. Compose modifiers once,
+			// in Bargain scope (the prior plain cost was already composed in
+			// MayPlay scope and must not be fed back through offerCastable).
+			if bg := &optionalSacrifices[optSacBargain]; e.stackKeywordPossibleH(id, kwhBargain) &&
+				len(e.optionalSacrificeCandidates(bg, p, id, 0)) > 0 {
+				bargainedCost := pay.WithSpellAbilityExtras(f,
+					w.offerCostFor(p, id, base, spellScope(bg.mode)))
+				if w.affordable(p, id, bargainedCost, false) {
+					*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
+						Label: "Cast " + f.Name + " (" + bg.mode + ")", Obj: id,
+						Mode: bg.mode, MayPlayPerm: off.key})
+				}
+			}
 		}
 		// Mutate half: the permission names the mutate cast. The mutate cast
 		// pays the mutate cost in place of the mana cost and targets a
@@ -258,7 +274,7 @@ func (w *legalWalk) commandZoneWalk() {
 			if !ka.cmdLoop {
 				continue
 			}
-			alt, ok := ka.faceCost(f)
+			alt, ok := ka.faceCost(f, w.e.walkFaceFactsOf(f))
 			if !ok || (!ka.untargeted && !targetsAvailable) ||
 				!w.offerCastable(p, id, alt, spellScope(ka.mode), false) {
 				continue
@@ -269,7 +285,7 @@ func (w *legalWalk) commandZoneWalk() {
 		// Bestow (CR 702.114a), the command-zone half (a bestowed commander,
 		// kestia_the_cultivator's shape): the same synthesized-attach-SA gate
 		// the hand walk applies.
-		if ba, ok := bestowCost(f); ok && e.castTargetsAvailable(p, id, bestowedAttachSA()) &&
+		if ba, ok := altCastModes[altBestow].faceCost(f, e.walkFaceFactsOf(f)); ok && e.castTargetsAvailable(p, id, bestowedAttachSA()) &&
 			w.offerCastable(p, id, ba, spellScope(altMode(altBestow)), false) {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 				Label: "Cast " + f.Name + " (" + altMode(altBestow) + ")", Obj: id, Mode: altMode(altBestow)})
@@ -707,8 +723,8 @@ func (w *legalWalk) exileCastsWalk() {
 		// plus the face's activation-phase gates, re-offered every priority
 		// round the permission holds. The offer sits BEFORE the warp gate's
 		// continue, the foretell block's own reason.
-		if _, ok := f.KeywordParam("Plot"); ok && o.PlottedTurn > 0 &&
-			e.G.Turn > o.PlottedTurn && !w.castRestricted(p, id) && !e.castSuppressed(p, id) &&
+		if o.PlottedTurn > 0 && e.G.Turn > o.PlottedTurn &&
+			!w.castRestricted(p, id) && !e.castSuppressed(p, id) &&
 			sorcery && e.spellTimingOK(p, id, f, true) &&
 			e.castTargetsAvailable(p, id, f.SpellAbility()) {
 			if w.offerCastable(p, id, Cost{}, spellScope("plot_cast"), false) {

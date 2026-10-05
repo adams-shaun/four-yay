@@ -421,6 +421,7 @@ const (
 	PKRememberFound
 	PKRememberGoaded
 	PKRememberInvestigatingPlayers
+	PKRememberKept
 	PKRememberLoser
 	PKRememberManifested
 	PKRememberMilled
@@ -688,6 +689,7 @@ const (
 	PKRepeatPlayers
 	PKRepeatSpellAbilities
 	PKRepeatTargeted
+	PKRepeatTypesFrom
 	PKReplaceDyingDefined
 	PKReplacementEffects
 	PKSetChosenNumber
@@ -742,6 +744,7 @@ const (
 	// synthesises `AB$ ClassLevelUp | Level$ N`; CR 716.2d sets the
 	// designation to N). Appended after the vocabulary inherited from main.
 	PKLevel
+	PKTapCreaturesForMana
 	paramKeyCount
 )
 
@@ -1164,6 +1167,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKRememberFound:                    "RememberFound",
 	PKRememberGoaded:                   "RememberGoaded",
 	PKRememberInvestigatingPlayers:     "RememberInvestigatingPlayers",
+	PKRememberKept:                     "RememberKept",
 	PKRememberLoser:                    "RememberLoser",
 	PKRememberManifested:               "RememberManifested",
 	PKRememberMilled:                   "RememberMilled",
@@ -1433,6 +1437,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKRepeatPlayers:                    "RepeatPlayers",
 	PKRepeatSpellAbilities:             "RepeatSpellAbilities",
 	PKRepeatTargeted:                   "RepeatTargeted",
+	PKRepeatTypesFrom:                  "RepeatTypesFrom",
 	PKReplaceDyingDefined:              "ReplaceDyingDefined",
 	PKReplacementEffects:               "ReplacementEffects",
 	PKSetChosenNumber:                  "SetChosenNumber",
@@ -1481,6 +1486,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKImprintPlayed:                    "ImprintPlayed",
 	PKShowCards:                        "ShowCards",
 	PKLevel:                            "Level",
+	PKTapCreaturesForMana:              "TapCreaturesForMana",
 }
 
 // String is the key's Forge text.
