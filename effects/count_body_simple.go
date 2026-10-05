@@ -63,6 +63,24 @@ func evalCountBodySimple(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 			return int32(len(o.Imprinted)), true, true
 		}
 		return 0, true, true
+	case countBodySimpleFinishedEndOfTurnsThisTurn:
+		// Forge's Count$FinishedEndOfTurnsThisTurn (FIN Y'shtola Rhul's "if
+		// it's the first end step of the turn" gate): getNumEndOfTurn() minus
+		// one while the walk is currently IN an end step. state.Game's
+		// EndStepsThisTurn is the event-folded count of end-step entries this
+		// turn, so the read is g.EndStepsThisTurn minus the in-step
+		// adjustment. A turn that has not reached an end step reads zero.
+		if arg != "" {
+			return 0, false, true
+		}
+		n := g.EndStepsThisTurn
+		if g.Step == state.StepEnd {
+			n--
+		}
+		if n < 0 {
+			n = 0
+		}
+		return n, true, true
 	}
 	return 0, false, false
 }
@@ -90,9 +108,11 @@ type countBodySimpleCode uint16
 const (
 	countBodySimpleIsPrime countBodySimpleCode = iota + 1
 	countBodySimpleImprintedSize
+	countBodySimpleFinishedEndOfTurnsThisTurn
 )
 
 var countBodySimpleCodes = state.NewStrCodes(
 	state.StrEntry[countBodySimpleCode]{Key: "IsPrime", Val: countBodySimpleIsPrime},
 	state.StrEntry[countBodySimpleCode]{Key: "ImprintedSize", Val: countBodySimpleImprintedSize},
+	state.StrEntry[countBodySimpleCode]{Key: "FinishedEndOfTurnsThisTurn", Val: countBodySimpleFinishedEndOfTurnsThisTurn},
 )

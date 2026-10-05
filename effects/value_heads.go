@@ -48,6 +48,7 @@ var modelledValueHeads = []string{
 	"Domain",
 	"DomainActivePlayer",
 	"FatefulHour",
+	"FinishedEndOfTurnsThisTurn",
 	"Foretold",
 	"Hellbent",
 	"IfCastInOwnMainPhase",
