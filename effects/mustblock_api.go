@@ -13,6 +13,10 @@ func init() { Register("MustBlock", effMustBlock) }
 // effMustBlock creates one scoped duty per chosen blocker. The attacker is
 // frozen at resolution, not re-resolved when the defender declares blocks.
 func effMustBlock(h Host, c *Ctx, sa *cards.SA) {
+	if !cards.MustBlockNamedTargetShape(sa) {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "MustBlock selector shape unimplemented"})
+		return
+	}
 	spec := strings.TrimSpace(sa.ParamStr(cards.PKDefinedAttacker))
 	attackers := DefinedSpec(h, c, spec)
 	if spec == "" || len(attackers) != 1 || attackers[0].IsPlayer || attackers[0].Obj == 0 {
