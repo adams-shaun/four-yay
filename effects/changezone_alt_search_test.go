@@ -53,6 +53,9 @@ func TestChangeZoneAltDestinationWaitsForSuccessfulLibrarySearch(t *testing.T) {
 			h := &altSearchHost{digMultipleHost: &digMultipleHost{fakeHost: newHost(t, 2), choices: []int{0}}, destination: 1}
 			id := h.g.AddObject(mkCard(t, tc.library), 0).ID
 			h.g.SetZone(state.ZLibrary, 0, []state.ObjID{id})
+			if obj := h.g.Obj(id); obj == nil || obj.Zone != state.ZLibrary || MatchesSpecCtx(h.g, "Land.Basic", id, NewSpecContext(0, 0)) != tc.wantAsked {
+				t.Fatalf("precondition: library object %d eligibility for Land.Basic does not match wantAsked=%v", id, tc.wantAsked)
+			}
 			sa := caravanVigilSearch(t)
 			c := &Ctx{Controller: 0, SVars: map[string]string{"One": "Number$1"}}
 			Resolve(h, c, sa)
