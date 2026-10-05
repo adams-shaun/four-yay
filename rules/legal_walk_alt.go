@@ -167,13 +167,17 @@ func (w *legalWalk) mayPlaySpellWalk() {
 				}
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: label, Obj: id, Mode: "mayplay", MayPlayPerm: off.key})
-				// Bargain is an additional cost on any spell cast, including a
-				// spell cast through a MayPlay permission. Keep the permission
-				// identity on the option so beginCast retains its riders; use the
-				// Bargain scope when pricing the otherwise-identical cast.
-				if off.key == "" && (bargain{e}).possible(id) &&
-					len((bargain{e}).candidates(p, id)) > 0 &&
-					w.offerCastable(p, id, cost, spellScope("bargained"), false) {
+			}
+			// Bargain is an additional cost on any spell cast through this
+			// permission. Price independently from the permission-adjusted raw
+			// base: the plain MayPlay option need not be affordable for the
+			// Bargain reduction to make this one legal. Compose modifiers once,
+			// in Bargain scope (the prior plain cost was already composed in
+			// MayPlay scope and must not be fed back through offerCastable).
+			if (bargain{e}).possible(id) && len((bargain{e}).candidates(p, id)) > 0 {
+				bargainedCost := pay.WithSpellAbilityExtras(f,
+					w.offerCostFor(p, id, base, spellScope("bargained")))
+				if w.affordable(p, id, bargainedCost, false) {
 					*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 						Label: "Cast " + f.Name + " (bargained)", Obj: id,
 						Mode: "bargained", MayPlayPerm: off.key})
