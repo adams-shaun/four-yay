@@ -35,7 +35,7 @@ func paysPrintedManaCost(opt *decision.Option) bool {
 	if opt.Kind != "cast" || opt.AltCostIndex > 0 {
 		return false
 	}
-	return paysPrintedManaCostSet.Has(opt.Mode)
+	return paysPrintedManaCostSet.Has(opt.Mode) || castAnswerCodes.Code(opt.Mode) == castAnswerTeamworkMode
 }
 
 // isNoManaCost reports the printed "no cost" mana cost (CR 118.6 / 202.1b).

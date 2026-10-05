@@ -285,7 +285,7 @@ func (w *legalWalk) commandZoneWalk() {
 		// Bestow (CR 702.114a), the command-zone half (a bestowed commander,
 		// kestia_the_cultivator's shape): the same synthesized-attach-SA gate
 		// the hand walk applies.
-		if ba, ok := bestowCost(f); ok && e.castTargetsAvailable(p, id, bestowedAttachSA()) &&
+		if ba, ok := altCastModes[altBestow].faceCost(f, e.walkFaceFactsOf(f)); ok && e.castTargetsAvailable(p, id, bestowedAttachSA()) &&
 			w.offerCastable(p, id, ba, spellScope(altMode(altBestow)), false) {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 				Label: "Cast " + f.Name + " (" + altMode(altBestow) + ")", Obj: id, Mode: altMode(altBestow)})

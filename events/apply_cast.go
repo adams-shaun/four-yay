@@ -50,6 +50,13 @@ func foldCastInfo(g *state.Game, e *Event) {
 		if FlagsFrom(e.Counter)&state.FlagOffspringPaid != 0 {
 			o.OffspringPaid = true
 		}
+		// Teamwork (CR 702.194b) is a BOOL fold as well: the optional
+		// additional tap cost is paid at most once, so it is set whenever the
+		// pay-time CastInfo carries FlagTeamworkPaid, whatever other tags ride
+		// the same event (the Conspired pattern).
+		if FlagsFrom(e.Counter)&state.FlagTeamworkPaid != 0 {
+			o.TeamworkPaid = true
+		}
 		if FlagsFrom(e.Counter)&state.FlagOptionalCostPaid != 0 {
 			o.OptionalCostPaid = true
 		}
@@ -97,6 +104,8 @@ func foldCastInfo(g *state.Game, e *Event) {
 		case FlagsFrom(e.Counter)&state.FlagConspired != 0:
 			// bool folded above; the Amount is deliberately unused
 		case FlagsFrom(e.Counter)&state.FlagOffspringPaid != 0:
+			// bool folded above; the Amount is deliberately unused
+		case FlagsFrom(e.Counter)&state.FlagTeamworkPaid != 0:
 			// bool folded above; the Amount is deliberately unused
 		case FlagsFrom(e.Counter)&state.FlagOptionalCostPaid != 0:
 			// bool folded above; the Amount is deliberately unused

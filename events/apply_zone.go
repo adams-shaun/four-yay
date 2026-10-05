@@ -729,6 +729,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			o.ConvergeColours = 0
 			o.TimesKicked = 0
 			o.Conspired = false
+			o.TeamworkPaid = false
 			o.Convoked = nil
 			o.ManaAddsCounterGrants = nil
 			o.ManaSpent = 0
@@ -795,6 +796,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			o.ConvergeColours = 0
 			o.TimesKicked = 0
 			o.Conspired = false
+			o.TeamworkPaid = false
 			o.Convoked = nil
 			o.ManaAddsCounterGrants = nil
 			o.ManaSpent = 0

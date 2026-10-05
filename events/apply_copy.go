@@ -116,6 +116,9 @@ func foldStackCopy(g *state.Game, e *Event) {
 	// rules/altcast.go's battlefield-entry hook has no IsCopy left to
 	// tell a never-cast token from the real cast.
 	x, castFlags := src.X, src.CastFlags&^state.CastProvenanceFlags
+	// Teamwork is a paid additional cost, like Conspire: copies carry the
+	// cost-conditioned bit AND the boolean its count/filter readers inspect.
+	teamworkPaid := src.TeamworkPaid
 	// CR 708.4: a stack COPY of a face-down (morph-family) spell stays
 	// face down. The original's stack marker was folded by the MoveZone
 	// branch above from the face-down entry Counter, but a copy is minted
@@ -161,6 +164,7 @@ func foldStackCopy(g *state.Game, e *Event) {
 	o.Remembered = remembered
 	o.ChosenModes = chosenModes
 	o.X, o.CastFlags, o.IsCopy = x, castFlags, true
+	o.TeamworkPaid = teamworkPaid
 	// A copy was never cast (CR 707.10), so it carries no rider grants:
 	// the Spell.MayPlaySource/AddsCounters provenance is a statement about
 	// the original's cast, and FlagAddsCounters is stripped from castFlags

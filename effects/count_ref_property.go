@@ -327,7 +327,8 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 // false and the caller degrades to zero.
 //
 // Properties (the heads the 81-file corpus population is dominated by and
-// that are exactly definable today): LifeTotal (the player's current
+// that are exactly definable today): Amount (the number of player targets),
+// LifeTotal (the player's current
 // life), CardsInHand/CardsInLibrary/CardsInGraveyard (zone sizes),
 // CreaturesInPlay (battlefield creatures the player controls), the Valid
 // head and its countZone family (Valid/ValidHand/ValidGraveyard/
@@ -356,7 +357,8 @@ func evalPlayerRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 	prop, op, hasOp := strings.Cut(prop, "/")
 	prop = strings.TrimSpace(prop)
 	var ts []state.Target
-	switch evalPlayerRefPropertyCodes.Code(string(ref)) {
+	refCode := evalPlayerRefPropertyCodes.Code(string(ref))
+	switch refCode {
 	case evalPlayerRefPropertyTargetedPlayer:
 		ts = c.Targets
 		if c.PickedTargets != nil {
@@ -381,9 +383,7 @@ func evalPlayerRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 		// fire-time referent capture is the ONLY binding, so a count read
 		// outside a Vote resolution fails closed to the empty list -- the
 		// same convention the vote's own Defined$ spellings take. Amount is
-		// the count of those opponents (Erestor's SVar:X, the scry size),
-		// added ONLY for this ref: TargetedPlayer$Amount stays unmodelled,
-		// its doc-listed degrade unchanged.
+		// the count of those opponents (Erestor's SVar:X, the scry size).
 		for _, p := range c.TriggeredOpponentsVotedDiff {
 			ts = append(ts, state.Target{Player: p, IsPlayer: true})
 		}
@@ -497,7 +497,9 @@ func evalPlayerRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 					n++
 				}
 			}
-		case prop == "Amount" && (ref == "TriggeredPlayersOpponentVotedDiff" || ref == "TriggeredPlayersTargets" ||
+		case prop == "Amount" && (refCode == evalPlayerRefPropertyTargetedPlayer ||
+			refCode == evalPlayerRefPropertyTriggeredPlayersOpponentVote ||
+			refCode == evalPlayerRefPropertyTriggeredPlayersTargets ||
 			ref == "TriggeredCapturedPlayers"):
 			n++
 		default:
@@ -527,7 +529,7 @@ func evalPlayerRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 		}
 	}
 	if hasOp {
-		n = applyCountOp(n, op)
+		n = applyCountOpOperand(h, c, n, op, 0)
 	}
 	return n, true
 }

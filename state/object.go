@@ -440,6 +440,18 @@ const (
 	// copy was put on the stack, never cast, so it must not inherit it --
 	// CR 707.10). Appended after FlagImpending to preserve every earlier bit.
 	FlagBargained
+	// FlagTeamworkPaid marks a cast whose K:Teamwork:N optional additional cost
+	// (CR 702.194a) was actually paid: as the spell was cast, the caster tapped
+	// untapped creatures they controlled with combined power N or more. The flag
+	// is the provenance the Count$Teamwork.<paid>.<unpaid> head and the
+	// Card.Self+Teamwork filter predicate read, so a DECLINED/plain cast emits no
+	// flag and resolves exactly like the plain cast (the Conspired pattern). It
+	// is conditioned on the additional COST having been paid -- "if this spell
+	// was cast using teamwork" means the tap was paid -- so, like FlagConspired
+	// and FlagOffspringPaid, it is deliberately NOT in CastProvenanceFlags and a
+	// copied Teamwork spell inherits it pending the same separate copy ruling.
+	// Appended after FlagBargained to preserve all bits already in main.
+	FlagTeamworkPaid
 )
 
 // CastProvenanceFlags is the ONE home for the CastFlags bits whose reader
@@ -988,6 +1000,13 @@ type Object struct {
 	// events.Move; a COPY of the spell was never cast and reads false (the
 	// same reading Count$ReplicatePaid documents).
 	Conspired bool
+	// TeamworkPaid is CR 702.194b's provenance that the spell's K:Teamwork:N
+	// optional additional cost was paid as it was cast, carried by the
+	// pay-time CastInfo's FlagTeamworkPaid (a bool: the tap is a one-shot
+	// election). It rides the same provenance window as X/CastFlags and resets
+	// alongside them in events.Move; a COPY of the spell was never cast and
+	// reads false (the same reading Count$Conspired documents).
+	TeamworkPaid bool
 	// Convoked is CR 702.66's "each creature that convoked it": the ids of
 	// the creatures the caster tapped to help pay for the spell's cast,
 	// carried by the pay-time CastInfo's FlagConvoked IDs (the
