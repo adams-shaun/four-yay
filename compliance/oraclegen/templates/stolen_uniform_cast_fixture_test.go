@@ -6,10 +6,11 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/effects"
 )
 
 // TestStolenUniformCastFixture pins the generated two-target cast fixture for
-// Stolen Uniform, whose delayed Unattach ability is compiled during replay.
+// Stolen Uniform, whose delayed Unattach ability is registered during replay.
 func TestStolenUniformCastFixture(t *testing.T) {
 	reg := oracleHarnessCorpus(t)
 	card, ok := reg.Lookup("Stolen Uniform")
@@ -23,6 +24,9 @@ func TestStolenUniformCastFixture(t *testing.T) {
 	wantSlots := []string{"Creature.YouCtrl", "Equipment"}
 	if slots := oraclegen.TargetSlots(face); !reflect.DeepEqual(slots, wantSlots) {
 		t.Fatalf("precondition: Stolen Uniform target slots = %v, want %v", slots, wantSlots)
+	}
+	if !effects.Supported()["api:Unattach"] {
+		t.Fatal("precondition: Stolen Uniform's delayed Unattach API must be registered")
 	}
 
 	item, skip := Generate(reg, "Stolen Uniform")
