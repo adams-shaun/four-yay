@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -93,8 +94,12 @@ func TestTeamworkTargetAnnouncementEligibility(t *testing.T) {
 				}
 				if tc.card == "Heroic Teamwork" {
 					min, max := e.resolvedTargetBounds(0, spell, root, 0)
-					if min != 1 || max != 2 {
-						t.Fatalf("fixed target bounds=(%d,%d), want (1,2)", min, max)
+					candidates := e.legalTargetCandidates(0, spell, spell, root)
+					if min != 1 || max != 2 || len(candidates) < 2 {
+						t.Fatalf("announcement target offer bounds/candidates=(%d,%d)/%d, want 1..2 and >=2: %+v", min, max, len(candidates), candidates)
+					}
+					if e.G.Obj(candidates[0].obj).Zone != state.ZBattlefield || e.G.Obj(candidates[1].obj).Zone != state.ZBattlefield {
+						t.Fatal("precondition: Heroic Teamwork target candidates must be on battlefield")
 					}
 				}
 				if tc.card == "Atlantis Attacks" {
@@ -102,6 +107,31 @@ func TestTeamworkTargetAnnouncementEligibility(t *testing.T) {
 					if root.ParamStr(cards.PKChoices) == "" || !strings.Contains(root.ParamStr(cards.PKCharmNum), "X") ||
 						!strings.Contains(bounce, "TargetMin$ 1") || !strings.Contains(bounce, "TargetMax$ 2") {
 						t.Fatalf("precondition: expected conditional Charm with 1-2 target bounce mode: choices=%q bounce=%q", root.ParamStr(cards.PKChoices), bounce)
+					}
+					bounceSA := face.SVars["DBBounce"]
+					if !strings.Contains(bounceSA, "Permanent.nonLand") {
+						t.Fatalf("precondition: expected bounce mode's nonland target restriction: %q", bounceSA)
+					}
+					// Charm's Teamwork announcement offers both modes; the bounce
+					// mode's own target census must expose the seeded nonland
+					// permanents and its 1..2 declaration range.
+					if !e.charmTargetsAvailable(0, spell, root, false) {
+						t.Fatal("Atlantis Attacks Charm offered no legal mode despite battlefield candidates")
+					}
+					modes := copyCharmModes(face, root, []string{"DBCreate", "DBBounce"})
+					var bounceMode *cards.SA
+					for _, mode := range modes {
+						if mode != nil && mode.API == "ChangeZone" {
+							bounceMode = mode
+						}
+					}
+					if bounceMode == nil {
+						t.Fatal("precondition: Atlantis Attacks bounce Charm mode did not compile")
+					}
+					min, max := e.resolvedTargetBounds(0, spell, bounceMode, 0)
+					candidates := e.legalTargetCandidates(0, spell, spell, bounceMode)
+					if min != 1 || max != 2 || len(candidates) < 2 {
+						t.Fatalf("Atlantis bounce announcement=(%d,%d)/%d; want 1..2 and >=2 candidates: %+v", min, max, len(candidates), candidates)
 					}
 				}
 				if paid {
@@ -158,6 +188,48 @@ func teamworkTargetEngine(t *testing.T, hero string) (*Engine, *cards.Registry) 
 	e.Advance()
 	toMain1(t, e)
 	return e, reg
+}
+
+func TestTeamworkTargetAnnouncementEligibilityIntentOnlyOption(t *testing.T) {
+	t.Parallel()
+	e, reg := teamworkTargetEngine(t, "Cruel Alliance")
+	spell := searchMoveByName(t, e, "Cruel Alliance", state.ZHand)
+	high := seedBattlefield(t, e, reg, "Hill Giant")
+	if e.G.Obj(spell) == nil || e.G.Obj(spell).Zone != state.ZHand || e.G.Obj(high).Zone != state.ZBattlefield {
+		t.Fatalf("precondition: spell must be in hand and only target candidate on battlefield: spell=%+v target=%+v", e.G.Obj(spell), e.G.Obj(high))
+	}
+	if e.G.Obj(high).Face().ManaValue() <= 3 {
+		t.Fatalf("precondition: intent-only target must exceed Cruel Alliance base limit 3, got %d", e.G.Obj(high).Face().ManaValue())
+	}
+	root := e.G.Obj(spell).Face().SpellAbility()
+	if root == nil || e.castTargetsAvailable(0, spell, root) {
+		t.Fatal("precondition: ordinary cast must be infeasible with only a mana-value-4 root candidate")
+	}
+	if !teamworkTargetsAvailable(e, 0, spell, root) {
+		t.Fatal("precondition: Teamwork-intent declaration must be feasible via its broader linked target")
+	}
+	addMana(t, e, 0, "BBB")
+	opt := castOptMode(t, e.Pending().Options, spell, "teamworked")
+	if opt.Mode != "teamworked" {
+		t.Fatalf("Teamwork-intent cast option has mode %q", opt.Mode)
+	}
+	// The ordinary mode remains unavailable, but the intent-selected mode is
+	// offered, then can still be declined at its independent payment decision.
+	for _, candidate := range e.Pending().Options {
+		if candidate.Kind == "cast" && candidate.Obj == spell && candidate.Mode == "" {
+			t.Fatal("ordinary cast unexpectedly offered despite no legal base-branch target")
+		}
+	}
+	submitChoices(t, e, opt.Index)
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KChoose || !d.AllowNone || len(d.Options) != 1 || d.Options[0].Obj != high {
+		t.Fatalf("precondition: expected later optional Teamwork ask for the qualifying creature, got %+v", d)
+	}
+	submitChoices(t, e) // CR 702.194c's later payment ask may still be declined.
+	finishTeamworkAnnouncement(t, e)
+	if o := e.G.Obj(spell); o == nil || o.Zone != state.ZStack || o.TeamworkPaid {
+		t.Fatalf("declined intent cast outcome=%+v, want stack spell without paid provenance", o)
+	}
 }
 
 func hasTargetCandidate(candidates []targetCandidate, id state.ObjID) bool {
