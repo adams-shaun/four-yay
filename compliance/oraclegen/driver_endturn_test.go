@@ -20,11 +20,12 @@ func TestScenarioReplayEndTurnSnapshotsAreConditionalAndComplete(t *testing.T) {
 		"xmageName = str(sc, \"xmage_name\");", "gorgeName = str(sc, \"card\");",
 		"setStopAt(endTurnScenario ? TURN + 1 : TURN,",
 		"endTurnScenario ? PhaseStep.UPKEEP : PhaseStep.END_TURN);",
-		"int skippedSteps = stepCount - completedSteps;",
-		"int unusedActions = unusedActionCount(msg);",
-		"unusedActions == skippedSteps",
+		"unusedActionCount(msg) >= 0",
+		"skippedActionsMatch(completedSteps, queuedA, queuedB)",
 		"for (int skipped = completedSteps; skipped < stepCount; skipped++)",
 		"snaps.add(snapshot(\"step \" + skipped + \" (\" + op + \")\", currentGame));",
+		"getActions().equals(remainingA)",
+		"getActions().equals(remainingB)",
 	} {
 		if !strings.Contains(java, required) {
 			t.Errorf("EndTurn checkpoint fallback contract missing %q", required)

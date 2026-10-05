@@ -33,6 +33,7 @@ import mage.players.Player;
 import mage.filter.FilterCard;
 import mage.target.TargetCard;
 import mage.util.CardUtil;
+import org.mage.test.player.PlayerAction;
 import org.mage.test.player.TestPlayer;
 import org.mage.test.serverside.base.CardTestPlayerBase;
 
@@ -315,6 +316,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
         snaps.clear();
         boolean endTurnScenario = false;
+        // Preserve the exact actions each step queues (including mana and
+        // combat sub-actions), not just its final checkpoint.
+        List<List<PlayerAction>> queuedA = new ArrayList<>();
+        List<List<PlayerAction>> queuedB = new ArrayList<>();
         try {
             reset();
             skipInitShuffling();
@@ -341,9 +346,13 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 if (i < xans.size() && xans.get(i).isJsonArray()) {
                     scripted(xans.get(i).getAsJsonArray());
                 }
+                int beforeA = playerA.getActions().size();
+                int beforeB = playerB.getActions().size();
                 step(st, op);
                 String cp = "step " + i + " (" + op + ")";
                 runCode(cp, TURN, phase, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
+                queuedA.add(new ArrayList<>(playerA.getActions().subList(beforeA, playerA.getActions().size())));
+                queuedB.add(new ArrayList<>(playerB.getActions().subList(beforeB, playerB.getActions().size())));
             }
             // Only EndTurn scenarios need the extended boundary. Ordinary
             // replays retain the original turn-1 stop and cannot encounter
@@ -355,13 +364,13 @@ public class ScenarioReplay extends CardTestPlayerBase {
             String msg = t.getClass().getSimpleName() + ": " + t.getMessage();
             int stepCount = sc.has("steps") ? sc.getAsJsonArray("steps").size() : 0;
             int completedSteps = snaps.size() - 1;
-            int skippedSteps = stepCount - completedSteps;
-            int unusedActions = unusedActionCount(msg);
-            if (endTurnScenario && unusedActions == skippedSteps
-                    && skippedSteps > 0 && currentGame != null && currentGame.getTurnNum() > TURN) {
-                // The harness proves every remaining queued action is exactly
-                // one of our skipped step checkpoints. Record each label so
-                // the final post-turn state aligns with the gorge snapshots.
+            if (endTurnScenario && unusedActionCount(msg) >= 0
+                    && completedSteps >= 0 && completedSteps < stepCount
+                    && currentGame != null && currentGame.getTurnNum() > TURN
+                    && skippedActionsMatch(completedSteps, queuedA, queuedB)) {
+                // Only the actions for skipped steps remain. An unconsumed
+                // action from an earlier step is still a harness error. Record
+                // every skipped label from the post-turn state for alignment.
                 for (int skipped = completedSteps; skipped < stepCount; skipped++) {
                     String op = str(sc.getAsJsonArray("steps").get(skipped).getAsJsonObject(), "op");
                     snaps.add(snapshot("step " + skipped + " (" + op + ")", currentGame));
@@ -387,6 +396,23 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
         res.add("snapshots", arr);
         return res;
+    }
+
+    private boolean skippedActionsMatch(int first, List<List<PlayerAction>> queuedA,
+                                        List<List<PlayerAction>> queuedB) {
+        if (queuedA.size() != queuedB.size() || first >= queuedA.size()) {
+            return false;
+        }
+        List<PlayerAction> remainingA = new ArrayList<>();
+        List<PlayerAction> remainingB = new ArrayList<>();
+        for (int i = first; i < queuedA.size(); i++) {
+            remainingA.addAll(queuedA.get(i));
+            remainingB.addAll(queuedB.get(i));
+        }
+        // XMage may copy TestPlayer, but its copy retains the same PlayerAction
+        // objects. Match the entire queue on both seats, not just its length.
+        return ((TestPlayer) currentGame.getPlayer(playerA.getId())).getActions().equals(remainingA)
+                && ((TestPlayer) currentGame.getPlayer(playerB.getId())).getActions().equals(remainingB);
     }
 
     private static int unusedActionCount(String message) {
