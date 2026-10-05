@@ -50,7 +50,7 @@ import (
 // mosswortEngine deals seat 0 a 40-card deck holding Mosswort Bridge, two
 // Craw Wurms (6/4 each -- 12 total power, past the bridge's GE10 gate) and
 // one Grizzly Bears, parks the Bears at the top of the library, plays the
-// Bridge onto the battlefield (the raw emit keeps the Hideaway asks alive),
+// Bridge onto the battlefield (the raw emit keeps the Hideaway trigger alive),
 // and answers both of them -- the Bears is exiled face down with the Bridge
 // as its exiling source, the rest of the window is arranged to the bottom.
 // It returns everything the two legs need: the engine, the config, the
@@ -100,10 +100,15 @@ func mosswortEngine(t *testing.T, reg *cards.Registry) (*Engine, Config, state.O
 	// Park the Bears at the very top, so the Hideaway window (top 4) offers
 	// it first and the pick answer is unambiguous.
 	bearID := seatLibraryTop(t, e, 0, "Grizzly Bears")
-	// Play the Bridge: the raw emit (searchMoveByName would clear the
-	// pending ask the Hideaway ETB replacement immediately poses). The
-	// enter is tapped (ETBTapped) and the Hideaway ask is pending.
+	// Play the Bridge with a raw emit, then put its ETB trigger on the stack
+	// and resolve it before answering the Hideaway pick. The enter is tapped
+	// (ETBTapped); the choice is not offered until the trigger resolves.
 	e.emit(events.Event{Kind: events.MoveZone, Obj: bridgeID, From: state.ZHand, To: state.ZBattlefield})
+	e.putTriggersOnStack()
+	if o := e.G.Obj(bridgeID); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("Mosswort Bridge entry = %+v, want battlefield before Hideaway resolves", o)
+	}
+	kr6ResolveTop(e)
 	d := e.Pending()
 	if d == nil || d.Kind != decision.KChoose || len(d.Options) == 0 || d.Options[0].Kind != "hideaway" {
 		t.Fatalf("after the Bridge entered: %+v, want the Hideaway pick ask", d)

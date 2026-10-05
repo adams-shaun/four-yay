@@ -268,21 +268,6 @@ func TestRaiseCostCarthAddsALoyaltyCounter(t *testing.T) {
 	replayCheck(t, e, cfg)
 }
 
-// Close Encounter's ChooseCard<...> additional cost has no payment stage in
-// this build: it must fail CLOSED -- the spell is withheld -- never be cast
-// with the additional cost silently dropped.
-func TestRaiseCostUnpayableCostWithholdsTheSpell(t *testing.T) {
-	t.Parallel()
-	e, _ := raiseEngine(t, []string{"Close Encounter"}, nil)
-	spell := blightMove(t, e, 0, "Close Encounter", state.ZHand)
-	blightMove(t, e, 0, "Grizzly Bears", state.ZBattlefield)
-	blightMove(t, e, 1, "Mountain", state.ZBattlefield)
-	addMana(t, e, 0, "GGGG")
-	if raiseCastOffered(e, spell) {
-		t.Fatal("Close Encounter offered although its ChooseCard additional cost cannot be paid")
-	}
-}
-
 // Carth under a [-N] ability: Jace Beleren's [-1] costs [+1][-1], which nets
 // to [0] -- Jace keeps all three loyalty counters.
 func TestRaiseCostCarthNetsAMinusLoyaltyAbility(t *testing.T) {

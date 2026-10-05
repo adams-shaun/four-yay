@@ -216,6 +216,16 @@ func arrangeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent, sa
 		if sa != nil && effects.SurveilOf(sa).RememberKept && len(pileA) > 0 {
 			e.emit(events.Event{Kind: events.Choose, Obj: d.Source, Counter: "remembered",
 				IDs: append([]state.ObjID(nil), pileA...)})
+			// The answer record runs inside the still-live resolution chain.
+			// The Choose event persists memory on the source object, but the
+			// chained sub-abilities read the chain's Ctx, not that object; keep
+			// both views in sync so Remembered$Amount and Defined$ Remembered
+			// observe the cards the player kept during this same resolution.
+			if c := e.resolutionCtx; c != nil {
+				for _, id := range pileA {
+					c.Remembered = append(c.Remembered, state.Target{Obj: id})
+				}
+			}
 		}
 	default:
 		// "" / "top": pile B beneath pile A, above the untouched remainder

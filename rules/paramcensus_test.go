@@ -126,7 +126,7 @@ func (b bucket) String() string {
 // the base's declared type; a name not listed here is UNCLASSIFIED and fails
 // the census (the rot guard) rather than being guessed at:
 //
-//	t       cards.Trigger (trigger-match/queue function parameters)
+//	t, tr  cards.Trigger (trigger-match/queue parameters and face trigger walks)
 //	sib     cards.Trigger (a paired sibling trigger: secondaryYields' scan)
 //	s,st,sv cards.Static / staticView (static and restriction machinery)
 //	r, repl cards.Repl; m.repl the replMatch pair (replacement machinery)
@@ -135,7 +135,8 @@ func (b bucket) String() string {
 //	pt.SA   the pendingTrigger's effect SA.
 var baseBuckets = map[string]bucket{
 	"":  bSA, // f.SpellAbility() in SpellEffectiveCost is a *cards.SA; its Params are spell-ability parameters.
-	"t": bTrig,
+	"t":  bTrig,
+	"tr": bTrig, // face trigger in the Adamant cast-spend reader; cards.Trigger Params.
 	// sib is the paired sibling trigger secondaryYields (checkFaceTriggers'
 	// Secondary$ walk) scans the same face for: a cards.Trigger like t.
 	"sib": bTrig,

@@ -149,6 +149,7 @@ func foldTurnChange(g *state.Game, e *Event) {
 			g.Objs[i].EnteredThisTurn = false
 			g.Objs[i].WasDealtDamageThisTurn = false
 			g.Objs[i].DamageReceivedThisTurn = 0
+			g.Objs[i].DamageDealtThisTurn = nil
 			g.Objs[i].DamageTakenThisTurnBy = nil
 			g.Objs[i].ActivatedThisTurn = 0
 			g.Objs[i].AttacksThisTurn = 0

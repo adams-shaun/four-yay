@@ -154,14 +154,14 @@ func TestSampleRealDeckGolden(t *testing.T) {
 		// captured frames (which marshal the projected view) change bytes and
 		// the sampled worlds move. frames 122, attempts 64, worlds 8 and the
 		// accepted/ESS shape are unchanged.
-		{"pre-optimisation sampler", true, "7b3013813ad153f107c3dab184fd061112192e01ab60175d5729e52eb9230fdd"},
+		{"pre-optimisation sampler", true, "02e4e4f6ac2b038586658e09c4f7258cf16cf958f53ef3890f227fda895eff78"},
 		// With the declined-land-drop exclusion: different proposals (so
 		// different worlds for a seed), same target distribution -- see
 		// TestLandExclusionRemovesOnlyRejectedWorlds. Re-measured for the
 		// Mausoleum Wanderer unless-cost ask label (see the test comment) and
 		// again for the damage-provenance fact (see above); see the
 		// pre-optimisation entry for the archetype-posterior re-measure.
-		{"land exclusion", false, "c018a86ab8844936dcd4f4f0063ce7abb1de1896f5dec9c2b6256cc35eaba838"},
+		{"land exclusion", false, "9230d5e27a339dfd253ac87d950e9f3b905e736b396bb782e5774da7ccfb17a0"},
 	} {
 		opts := benchSampleOptions()
 		opts.MinESS = 1 // resample worlds from the thin pool so the digest covers them
@@ -328,7 +328,7 @@ func TestTeacherChoiceRealDeckGolden(t *testing.T) {
 	// frames now marshal PlayerView.Archetype, so the sampled worlds moved
 	// and only Submits moves, 3878 -> 2995. Index, Values (all 1), Rollouts
 	// 32, Terminal 32, Capped 0 and the 8/8/8/8 wins split are unchanged.
-	const want = "ca3b4ecfd657181548903a843777863a07eb0d08e89a30832787e7ae4a6c0694"
+	const want = "4c05f4b7855aadadc6f1e8ef23805baa56207570d56cad427facc70772ac2f54"
 	for _, parallelism := range []int{0, 4} {
 		res, err := TeacherChoice(worlds, cands, TeacherOptions{Seed: 99, MaxSubmits: 5000, Parallelism: parallelism})
 		if err != nil {

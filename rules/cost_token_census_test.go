@@ -40,7 +40,7 @@ import (
 // costHeadRe matches the cost heads whose type slot can name a non-filter
 // word. It mirrors the brief's census grep, plus RevealOrChoose.
 var costHeadRe = map[string]bool{
-	"Reveal": true, "RevealOrChoose": true, "Discard": true,
+	"Reveal": true, "RevealOrChoose": true, "ChooseCard": true, "Discard": true,
 	"Exile": true, "ExileFromHand": true, "Return": true,
 	"Sac": true, "Tap": true, "PutCardToLib": true, "Mill": true,
 }
