@@ -606,7 +606,7 @@ func (w *legalWalk) handWalk() {
 		// withholds only a cost token ParseCost cannot model at all, the
 		// replicate convention.
 		if ph.has(phBestow) {
-			if ba, ok := bestowCost(f); ok && e.castTargetsAvailable(p, id, bestowedAttachSA()) &&
+			if ba, ok := altCastModes[altBestow].faceCost(f, e.walkFaceFactsOf(f)); ok && e.castTargetsAvailable(p, id, bestowedAttachSA()) &&
 				w.offerCastable(p, id, ba, spellScope(altMode(altBestow)), false) {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (" + altMode(altBestow) + ")", Obj: id, Mode: altMode(altBestow)})
