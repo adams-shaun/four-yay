@@ -122,6 +122,15 @@ func clearChangeZoneImprint(h Host, c *Ctx) {
 // OriginAlternative$ Note. It runs once per resolution: an ask answered in
 // place continues past it and never re-emits it.
 func changeZonePrelude(h Host, c *Ctx, cz *ChangeZoneParams) (to state.Zone, stop bool) {
+	// A remembered-player binding alone is not a remembered destroyed object.
+	// Krenko's Buzzcrusher's "for each land destroyed this way" search is
+	// owed only when this resolution actually remembers a land it destroyed;
+	// its RepeatEach binds the current player into Remembered, and that player
+	// target must not stand in for a destroyed card. Do not offer the optional
+	// search with nothing to supply its controller.
+	if cz.OptionalTrue && cz.DefinedPlayer.Text == "RememberedController" && !hasRememberedDestroyedLand(h.Game(), resolvedRemembered(h, c)) {
+		return 0, true
+	}
 	cz.noteUnread(h, c)
 	if exileHostGoneFor(h, c, cz.Riders.Duration) {
 		return 0, true
@@ -150,6 +159,28 @@ func changeZoneDefinedPlayerNote(h Host, c *Ctx, cz *ChangeZoneParams, originZon
 				" is unread next to Defined$ " + cz.Defined +
 				" (the move goes to the named objects alone)"})
 	}
+}
+
+// hasRememberedDestroyedLand reports whether the resolution remembers a land
+// card that is now in a graveyard -- a land destroyed this way. A remembered
+// player target is not a card and is skipped; a remembered card in any other
+// zone (a LKI read, a changed card, a still-on-battlefield permanent) is not
+// a destroyed land either, so Krenko's Buzzcrusher's optional search is not
+// offered for it.
+func hasRememberedDestroyedLand(g *state.Game, ts []state.Target) bool {
+	for _, t := range ts {
+		if t.IsPlayer || t.Obj == 0 {
+			continue
+		}
+		o := g.Obj(t.Obj)
+		if o == nil || o.Zone != state.ZGraveyard {
+			continue
+		}
+		if f := o.Face(); f != nil && f.IsLand() {
+			return true
+		}
+	}
+	return false
 }
 
 func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
