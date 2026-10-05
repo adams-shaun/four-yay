@@ -119,12 +119,14 @@ func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre prec
 	for _, fx := range oraclegen.Fixtures(extra) {
 		p0 := *fx.P0()
 		p0.Hand = append([]string{name, pre.card}, p0.Hand...)
+		targets := append([]string{"p0:" + pre.card}, fx.Targets()...)
+		groups := castTargetGroups(slots, []int{0}, targets, fx.TargetGroups())
 		sc := oraclegen.Scenario{
 			Setup: map[string]oraclegen.Seat{"p0": p0, "p1": *fx.P1()},
 			Steps: []oraclegen.Step{
 				{Op: "cast", Seat: 0, Card: "p0:" + pre.card, Mana: pre.mana, Targets: pre.targets},
 				{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana,
-					Targets: append([]string{"p0:" + pre.card}, fx.Targets()...), Answers: answers},
+					Targets: targets, TargetGroups: groups, Answers: answers},
 				{Op: "resolve"},
 			},
 		}

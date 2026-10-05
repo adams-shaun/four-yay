@@ -123,16 +123,7 @@ func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oracle
 	// Attach the per-slot groups only when the driver needs them: a
 	// multi-slot cast, or a slot short of its max. An ordinary single-slot
 	// cast leaves the field off, preserving its existing wire bytes.
-	groups := fullTargetGroups(slots, stackIdx, targets, fx.TargetGroups())
-	needsGroups := len(groups) > 1
-	for _, group := range groups {
-		if group.Max > 0 && len(group.Picks) < group.Max {
-			needsGroups = true
-		}
-	}
-	if !needsGroups {
-		groups = nil
-	}
+	groups := castTargetGroups(slots, stackIdx, targets, fx.TargetGroups())
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": *fx.P0(), "p1": *fx.P1()},
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),
@@ -146,6 +137,22 @@ func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oracle
 	}
 	oraclegen.Baseline(sc.Setup, f)
 	return sc
+}
+
+// castTargetGroups retains groups only when the driver needs per-slot bounds.
+// Both cast templates use this path so a counter's precast target participates
+// in the same slot ordering and short-group check as an ordinary stack cast.
+func castTargetGroups(slots []oraclegen.Slot, stackIdx []int, targets []string, plainGroups []oraclegen.TargetGroup) []oraclegen.TargetGroup {
+	groups := fullTargetGroups(slots, stackIdx, targets, plainGroups)
+	if len(groups) > 1 {
+		return groups
+	}
+	for _, group := range groups {
+		if group.Max > 0 && len(group.Picks) < group.Max {
+			return groups
+		}
+	}
+	return nil
 }
 
 // fullTargetGroups restores stack slots omitted from fixture construction so
