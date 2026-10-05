@@ -28,6 +28,9 @@ type PaidCost struct {
 	// Reveals, Beholds, Taps and Blights are the objects the Reveal (and
 	// RevealOrChoose), Behold, tapXType and Blight parts were paid with.
 	Reveals, Beholds, Taps, Blights []state.ObjID `clone:"deep"`
+	// TeamworkTaps is the subset of Taps elected for a spell's Teamwork cost.
+	// Other tap-cost parts retain their ordinary replay payload.
+	TeamworkTaps []state.ObjID `clone:"deep"`
 	// RevealHandArm is parallel to Reveals: true for a hand card the REVEAL
 	// arm announced, false for a permanent the CHOOSE arm of a RevealOrChoose
 	// part elected off the battlefield. Only the true entries are announced
@@ -224,7 +227,14 @@ func EmitChoiceCosts(e Engine, paid *PaidCost, player state.PlayerID, card state
 	// path, not here.)
 	e.Batch(BatchTap, true)
 	for _, id := range paid.Taps {
-		e.Emit(events.Event{Kind: events.Tap, Obj: id, Text: "tapped as a cost"})
+		text := "tapped as a cost"
+		for _, teamworkID := range paid.TeamworkTaps {
+			if id == teamworkID {
+				text = events.TapTeamworkText
+				break
+			}
+		}
+		e.Emit(events.Event{Kind: events.Tap, Obj: id, Text: text})
 	}
 	e.Batch(BatchTap, false)
 	// CR 702.122: the creatures that paid a Crew ability's tap cost crewed the
