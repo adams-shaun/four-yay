@@ -152,10 +152,11 @@ func TestGrantedTrainingOnATokenUsesElderArthurMaxson(t *testing.T) {
 	e.emit(events.Event{Kind: events.MoveZone, Obj: maxsonID, From: state.ZHand, To: state.ZBattlefield})
 	e.emit(events.Event{Kind: events.MoveZone, Obj: wurmID, From: state.ZHand, To: state.ZBattlefield})
 
-	// Mint the Cat Token onto seat 0's battlefield under Maxson. e.G.Tokens is
-	// cfg.Tokens (New copies the map reference), so replayFromLog rebuilds the
-	// same token.
+	// Mint the Cat Token onto seat 0's battlefield under Maxson. Runtime token
+	// registration belongs to the engine; the replay Config needs the same
+	// definition independently because New isolates its token map.
 	e.G.Tokens["w_2_2_cat"] = cat
+	cfg.Tokens["w_2_2_cat"] = cat
 	e.emit(events.Event{Kind: events.TokenCreate, Player: 0, Text: "w_2_2_cat"})
 	catID := e.G.NextID - 1
 	if e.G.Obj(catID) == nil || e.G.Obj(catID).Zone != state.ZBattlefield {
