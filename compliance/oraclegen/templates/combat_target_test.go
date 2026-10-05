@@ -50,6 +50,9 @@ func stepFor(sc oraclegen.Scenario, op string) *oraclegen.Step {
 // depends on: the test must prove the creature really is on the battlefield,
 // not merely that a ref string was written.
 func seatPlacement(sc oraclegen.Scenario, ref string) bool {
+	if i := strings.IndexByte(ref, '#'); i >= 0 {
+		ref = ref[:i]
+	}
 	for _, seatKey := range []string{"p0", "p1"} {
 		s := sc.Setup[seatKey]
 		named := make([]string, 0, len(s.Battlefield)+len(s.Graveyard)+len(s.Hand))

@@ -127,12 +127,7 @@ func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oracle
 	// it would snapshot gorge's pre-block declare-blockers state, and XMage
 	// selects blockers in DeclareBlockersStep.beginStep before any player
 	// gets priority, so its driver has no equivalent checkpoint to report.
-	if attacker := fx.Attacker(); attacker != "" {
-		combat := []oraclegen.Step{{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{attacker}}}
-		if blocker := fx.Blocker(); blocker != "" {
-			combat = append(combat,
-				oraclegen.Step{Op: "block", Seat: 1, Blocks: [][2]string{{blocker, attacker}}})
-		}
+	if combat := fx.CombatSteps(); len(combat) != 0 {
 		sc.Steps = append(combat, sc.Steps...)
 	}
 	oraclegen.Baseline(sc.Setup, f)

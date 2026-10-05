@@ -32,12 +32,34 @@ func (fx Fixture) Targets() []string { return fx.targets }
 // Attacker is the p0 creature the fixture must declare attacking so a target
 // filter naming an attacking or blocking creature has a legal target. Empty
 // means no attack step is needed.
-func (fx Fixture) Attacker() string { return fx.combat.attacker }
+func (fx Fixture) Attacker() string {
+	if len(fx.combat.attackers) == 0 {
+		return ""
+	}
+	return fx.combat.attackers[0]
+}
 
-// Blocker is the p1 creature that blocks the fixture's attacker, so a
-// "blocking creature" target filter has a legal target. Empty means p1
-// declares no blocks (only the attacker step is needed).
-func (fx Fixture) Blocker() string { return fx.combat.blocker }
+// Blocker is the first blocker in the fixture's combat arrangement.
+func (fx Fixture) Blocker() string {
+	if len(fx.combat.blocks) == 0 {
+		return ""
+	}
+	return fx.combat.blocks[0][0]
+}
+
+// CombatSteps returns the complete, ordered attack/block preamble.
+func (fx Fixture) CombatSteps() []Step {
+	if len(fx.combat.attackers) == 0 {
+		return nil
+	}
+	attack := Step{Op: "attack", Seat: fx.combat.attackSeat, Defender: fx.combat.defender, Attackers: append([]string(nil), fx.combat.attackers...)}
+	steps := []Step{attack}
+	if len(fx.combat.blocks) != 0 {
+		blockSeat := 1 - fx.combat.attackSeat
+		steps = append(steps, Step{Op: "block", Seat: blockSeat, Blocks: append([][2]string(nil), fx.combat.blocks...)})
+	}
+	return steps
+}
 
 // Fixtures is the capped cross product of every target slot's candidates.
 func Fixtures(slots []string) []Fixture { return fixtures(slots) }

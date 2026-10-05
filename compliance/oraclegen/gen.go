@@ -190,6 +190,20 @@ func chainSlots(f *cards.Face, svar string) []string {
 	return out
 }
 
+// targetSlotCount expands a repeated target filter to the configured target
+// maximum. The oracle generator fixes X at xValue, matching its cast payment.
+func targetSlotCount(params map[string]string) int {
+	for _, key := range []string{"TargetMax", "TargetMin"} {
+		if n, err := strconv.Atoi(strings.TrimSpace(params[key])); err == nil && n > 1 {
+			return n
+		}
+		if strings.EqualFold(strings.TrimSpace(params[key]), "X") {
+			return xValue
+		}
+	}
+	return 1
+}
+
 // targetZone is the zone a target filter draws from: an explicit TgtZone$,
 // else a non-battlefield Origin$, else Stack for a slot that names a spell
 // or ability on the stack (TargetType$ Spell/SpellAbility/Activated/
@@ -897,7 +911,10 @@ func targetSlots(f *cards.Face) []string {
 		if z := targetZone(params, false); z != "" && !playerTargetHead(v) {
 			v += "@" + z
 		}
-		out = append(out, v)
+		count := targetSlotCount(params)
+		for i := 0; i < count; i++ {
+			out = append(out, v)
+		}
 	}
 	for _, sa := range f.Abilities {
 		if sa.Kind != "SP" {
@@ -975,8 +992,10 @@ type fixture struct {
 // p0 creature to declare attacking; blocker is the p1 creature that blocks
 // it (empty = p1 declares no blocks).
 type combatPlan struct {
-	attacker string
-	blocker  string
+	attackers  []string
+	blocks     [][2]string // blocker, attacker
+	attackSeat int
+	defender   string
 }
 
 // combatRole is the combat state a target filter demands of its candidate.
@@ -1063,8 +1082,19 @@ func candidatesFor(filter string) []cand {
 	// p0's own turn and stays unpinned below.
 	seat := opp
 	if role == roleAttacker {
+		// On this scenario's turn only p0 can attack. Do not place an
+		// OppCtrl attacker under p0's control to fake the requested filter.
+		if strings.Contains(filter, "OppCtrl") {
+			return nil
+		}
 		seat = "p0"
 	} else if role == roleBlocker {
+		// A blocker controlled by p0 cannot block on p0's own turn. Keep
+		// that controller-constrained shape unsupported rather than inventing
+		// an illegal combat fixture.
+		if mine {
+			return nil
+		}
 		seat = "p1"
 	}
 	withRole := func(cs []cand) []cand {
@@ -1146,7 +1176,7 @@ func fixtures(slots []string) []fixture {
 		var next []fixture
 		for _, fx := range out {
 			for _, c := range cs {
-				n := fixture{p0: clone(fx.p0), p1: clone(fx.p1), targets: append([]string(nil), fx.targets...), combat: fx.combat}
+				n := fixture{p0: clone(fx.p0), p1: clone(fx.p1), targets: append([]string(nil), fx.targets...), combat: cloneCombat(fx.combat)}
 				if c.card == "" {
 					n.targets = append(n.targets, c.seat)
 				} else {
@@ -1177,10 +1207,24 @@ func fixtures(slots []string) []fixture {
 					n.targets = append(n.targets, ref)
 					switch c.role {
 					case roleAttacker:
-						n.combat.attacker = ref
+						n.combat.attackers = append(n.combat.attackers, ref)
+						n.combat.attackSeat, n.combat.defender = 0, "p1"
 					case roleBlocker:
-						n.combat.blocker = ref
-						n.combat.attacker = addAuxAttacker(&n.p0)
+						attackSeat := 0
+						if c.seat == "p0" {
+							attackSeat = 1
+						}
+						if len(n.combat.attackers) == 0 {
+							n.combat.attackSeat = attackSeat
+							if attackSeat == 0 {
+								n.combat.defender = "p1"
+							} else {
+								n.combat.defender = "p0"
+							}
+						}
+						attacker := addAuxAttacker(seatFor(&n.p0, &n.p1, attackSeat), attackSeat)
+						n.combat.attackers = appendUnique(n.combat.attackers, attacker)
+						n.combat.blocks = append(n.combat.blocks, [2]string{ref, attacker})
 					}
 					if c.tapped && c.zone == "battlefield" {
 						s.Tapped = append(s.Tapped, c.card)
@@ -1197,11 +1241,9 @@ func fixtures(slots []string) []fixture {
 	return out
 }
 
-// addAuxAttacker puts a spare p0 creature on the battlefield for a
-// blocking-role fixture to attack with, and returns its ref. The blocker it
-// is attacked by is the target, so this creature is never the target and
-// only has to exist and be able to attack.
-func addAuxAttacker(p0 *Seat) string {
+// addAuxAttacker puts a spare creature on the battlefield for a
+// blocking-role fixture to attack with, and returns its ref.
+func addAuxAttacker(p0 *Seat, seat int) string {
 	const name = "Grizzly Bears"
 	count := 0
 	for _, x := range p0.Battlefield {
@@ -1210,10 +1252,31 @@ func addAuxAttacker(p0 *Seat) string {
 		}
 	}
 	p0.Battlefield = append(p0.Battlefield, name)
+	prefix := fmt.Sprintf("p%d:", seat)
 	if count > 0 {
-		return fmt.Sprintf("p0:%s#%d", name, count+1)
+		return fmt.Sprintf("%s%s#%d", prefix, name, count+1)
 	}
-	return "p0:" + name
+	return prefix + name
+}
+
+func seatFor(p0, p1 *Seat, seat int) *Seat {
+	if seat == 1 {
+		return p1
+	}
+	return p0
+}
+
+func appendUnique(refs []string, ref string) []string {
+	for _, existing := range refs {
+		if existing == ref {
+			return refs
+		}
+	}
+	return append(refs, ref)
+}
+
+func cloneCombat(c combatPlan) combatPlan {
+	return combatPlan{attackers: append([]string(nil), c.attackers...), blocks: append([][2]string(nil), c.blocks...), attackSeat: c.attackSeat, defender: c.defender}
 }
 
 func clone(s Seat) Seat {
