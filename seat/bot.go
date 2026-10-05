@@ -574,7 +574,12 @@ func BoardFromView(v view.View) botpolicy.Board {
 			if cv.Produces != nil {
 				produces = *cv.Produces
 			}
+			printedName := cv.CardName
+			if printedName == "" {
+				printedName = cv.Name
+			}
 			b.Cards.Set(cv.ID, botpolicy.Card{
+				PrintedName:   printedName,
 				Creature:      isCreatureView(cv),
 				Power:         cv.Power,
 				Toughness:     cv.Toughness,
