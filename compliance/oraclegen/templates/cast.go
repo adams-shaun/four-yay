@@ -14,8 +14,22 @@ var CastResolve = Template{ID: "cast-resolve", Version: 1}
 
 // xAnswers scripts X for a spell with X in its cost.
 func xAnswers(f *cards.Face) []oraclegen.Answer {
+	if strings.Contains(strings.ToLower(f.Oracle), "blight x") {
+		// The fixture's only guaranteed creature is Llanowar Elves (1/1),
+		// which bounds Soul Immolation's payable blight value to one.
+		return []oraclegen.Answer{{Kind: "choose", Pick: []string{"X = 1"}}}
+	}
 	if strings.Contains(" "+f.ManaCost+" ", " X ") {
-		return []oraclegen.Answer{{Kind: "choose", Pick: []string{fmt.Sprintf("X = %d", oraclegen.XValue)}}}
+		x := oraclegen.XValue
+		// A TargetMin$ X spell needs X distinct candidates before payment.
+		// The generic one-slot fixture guarantees one permanent, not two.
+		for _, sa := range f.Abilities {
+			if sa.Kind == "SP" && sa.Params["TargetMin"] == "X" {
+				x = 1
+				break
+			}
+		}
+		return []oraclegen.Answer{{Kind: "choose", Pick: []string{fmt.Sprintf("X = %d", x)}}}
 	}
 	return nil
 }
@@ -71,6 +85,17 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []ora
 		// stack by then, so the discard needs a second card.
 		func(fx *oraclegen.Fixture) { fx.P0().Hand = append(fx.P0().Hand, "Forest") },
 	}
+	// Collect evidence X pays the total mana value of the selected targets.
+	// Supply enough graveyard mana value for a four-slot cast rather than
+	// treating a reversed payment as an empty-stack success.
+	for _, sa := range f.Abilities {
+		if sa.Kind == "SP" && strings.Contains(sa.Params["Cost"], "CollectEvidence<X>") {
+			extras = append(extras, func(fx *oraclegen.Fixture) {
+				fx.P0().Graveyard = append(fx.P0().Graveyard, "Serra Angel", "Hill Giant", "Grizzly Bears")
+			})
+			break
+		}
+	}
 	stackIdx := stackSlotIndexes(slots)
 	plain := nonStackSlots(slots)
 	pres := []precast{{}}
@@ -91,13 +116,22 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []ora
 					for i := 0; i < n; i++ {
 						sc.Steps = append(sc.Steps, oraclegen.Step{Op: "resolve"})
 					}
+					// The fixture over-offers targets; rewrite each cast step to
+					// exactly gorge's picks (the target decisions) so XMage's
+					// castSpell sees a target list that matches the ability, and
+					// verify the rewrite replays cleanly.
+					sc, castSteps := oraclegen.ChooseTargets(sc, res.Decisions)
+					res, ok = oraclegen.PlaysThrough(reg, sc)
+					if !ok {
+						continue
+					}
 					if yes, changed := oraclegen.MayYes(sc, res.Decisions); changed {
 						if res2, ok2 := oraclegen.PlaysThrough(reg, yes); ok2 {
 							sc, res = yes, res2
 						}
 					}
 					it := CastResolve.item(name, sc)
-					it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f))
+					it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
 					if n := oraclegen.OptionalCostCastNo(f, mana); n > 0 {
 						// XMage asks "pay the additional cost?" at the head of the
 						// cast; gorge offered it as a declineable cast option, so
@@ -120,28 +154,34 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []ora
 // slot order (a stack slot points at the precast spell on the stack).
 func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oraclegen.Fixture, slots []oraclegen.Slot, stackIdx []int, answers []oraclegen.Answer) oraclegen.Scenario {
 	targets := insertStackTargets(slots, stackIdx, fx.Targets(), pre)
-	for _, slot := range slots {
-		// A ".tapped" target slot (Push // Pull) needs its fixture tapped.
-		if strings.Contains(strings.ToLower(slot.Filter), ".tapped") {
-			fx.P1().Tapped = append(fx.P1().Tapped, fx.P1().Battlefield...)
-			break
-		}
-	}
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": *fx.P0(), "p1": *fx.P1()},
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),
 		Steps:        []oraclegen.Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: targets, Answers: answers}},
 	}
 	sc.Setup["p0"] = oraclegen.WithHand(sc.Setup["p0"], name)
-	// Prelude steps (a token-maker, an Aura, a this-turn move) run before the
-	// card's cast, after the precast spell if any.
-	if pre := fx.Prelude(); len(pre) > 0 {
-		sc.Steps = append(append([]oraclegen.Step(nil), pre...), sc.Steps...)
-	}
 	if pre.card != "" {
 		sc.Setup["p0"] = oraclegen.WithHand(sc.Setup["p0"], pre.card)
 		cast := oraclegen.Step{Op: "cast", Seat: 0, Card: "p0:" + pre.card, Mana: pre.mana, Targets: pre.targets}
 		sc.Steps = append([]oraclegen.Step{cast}, sc.Steps...)
+	}
+	// A target filter naming an attacking or blocking creature needs combat
+	// arranged before the cast: p0 declares the attacker and, for a
+	// "blocking" filter, p1 declares the block. The cast then happens in
+	// the declare-blockers step, where an instant is legal.
+	//
+	// The block follows the attack directly (the block op advances to the
+	// blockers decision itself). A pass_to step is deliberately NOT emitted:
+	// it would snapshot gorge's pre-block declare-blockers state, and XMage
+	// selects blockers in DeclareBlockersStep.beginStep before any player
+	// gets priority, so its driver has no equivalent checkpoint to report.
+	if combat := fx.CombatSteps(); len(combat) != 0 {
+		sc.Steps = append(combat, sc.Steps...)
+	}
+	// Prelude steps (a token-maker, an Aura, a this-turn move) run first,
+	// in the main phase, before any combat and the precast spell.
+	if pre := fx.Prelude(); len(pre) > 0 {
+		sc.Steps = append(append([]oraclegen.Step(nil), pre...), sc.Steps...)
 	}
 	oraclegen.Baseline(sc.Setup, f)
 	return sc

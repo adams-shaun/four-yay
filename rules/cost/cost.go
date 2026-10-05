@@ -18,11 +18,11 @@ type CostPart struct {
 	// For Exile<N/OriginalHost>, this is the grantor rather than the recipient
 	// permanent that carries the activated ability.
 	Referent state.ObjID
-	// Zone is the zone an Exile cost part pays from: ZHand for an
-	// ExileFromHand token (the default zero value), ZGraveyard for an
-	// ExileFromGrave or ExileAnyGrave token. Sac/Discard/SubCounter parts
-	// never read it.
-	Zone state.Zone
+	// Zone is the single zone an Exile cost part pays from. Zero means hand.
+	// ZoneSet is a bitset of alternative zones for ExileCtrlOrGrave; when
+	// nonzero it takes precedence over Zone.
+	Zone    state.Zone
+	ZoneSet uint8
 	// Announced marks a variable-count Sac<X/Spec> or ExileFromGrave<X/Spec>
 	// part: the player announces the count as the cast's X (CR 601.2b)
 	// and exactly that many matching objects are paid. N is unused for an Announced part.

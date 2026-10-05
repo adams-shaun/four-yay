@@ -440,11 +440,26 @@ func SpecTargetsStack(spec string) bool {
 func SpecTargetsPlayers(spec string) bool {
 	for alt := range strings.SplitSeq(spec, ",") {
 		switch base, _, _ := strings.Cut(strings.TrimSpace(alt), "."); targetsPlayersBaseCodes.Code(base) {
-		case targetsPlayersBasePlayer:
+		case targetsPlayersBasePlayer, targetsPlayersBaseAny:
 			return true
 		}
 	}
 	return false
+}
+
+// SpecTargetsOnlyPlayers reports whether every comma-separated alternative
+// names only players. Any is deliberately excluded because it also names
+// objects; unknown and object selectors fail closed.
+func SpecTargetsOnlyPlayers(spec string) bool {
+	found := false
+	for alt := range strings.SplitSeq(spec, ",") {
+		base, _, _ := strings.Cut(strings.TrimSpace(alt), ".")
+		if targetsPlayersBaseCodes.Code(base) != targetsPlayersBasePlayer {
+			return false
+		}
+		found = true
+	}
+	return found
 }
 
 // xBoundRe matches a ValidTgts$ numeric predicate whose right-hand side is
@@ -480,11 +495,12 @@ type targetsPlayersBaseCode uint16
 
 const (
 	targetsPlayersBasePlayer targetsPlayersBaseCode = iota + 1
+	targetsPlayersBaseAny
 )
 
 var targetsPlayersBaseCodes = state.NewStrCodes(
 	state.StrEntry[targetsPlayersBaseCode]{Key: "Player", Val: targetsPlayersBasePlayer},
-	state.StrEntry[targetsPlayersBaseCode]{Key: "Any", Val: targetsPlayersBasePlayer},
+	state.StrEntry[targetsPlayersBaseCode]{Key: "Any", Val: targetsPlayersBaseAny},
 	state.StrEntry[targetsPlayersBaseCode]{Key: "Opponent", Val: targetsPlayersBasePlayer},
 	state.StrEntry[targetsPlayersBaseCode]{Key: "You", Val: targetsPlayersBasePlayer},
 )

@@ -11,6 +11,7 @@ package oraclegen
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -35,7 +36,16 @@ func SlotSpecs(f *cards.Face) []Slot {
 		if z := targetZone(params, false); z != "" && !playerTargetHead(v) {
 			v += "@" + z
 		}
-		out = append(out, Slot{Filter: v, Optional: optionalTarget(params)})
+		// Only a combat-state filter is expanded to its target maximum: a
+		// plain multi-target filter keeps one fixture slot, so its setup
+		// gains no decoys the cast never names.
+		count := 1
+		if role, _ := filterCombat(params["ValidTgts"]); role != roleNone {
+			count = targetSlotCount(params)
+		}
+		for i := 0; i < count; i++ {
+			out = append(out, Slot{Filter: v, Optional: optionalTarget(params)})
+		}
 	}
 	for _, sa := range f.Abilities {
 		if sa.Kind != "SP" {
@@ -125,6 +135,20 @@ func FaceHasFixture(reg *cards.Registry, f *cards.Face) (bool, string) {
 	return true, ""
 }
 
+// targetSlotCount expands a repeated target filter to the configured target
+// maximum. The oracle generator fixes X at xValue, matching its cast payment.
+func targetSlotCount(params map[string]string) int {
+	for _, key := range []string{"TargetMax", "TargetMin"} {
+		if n, err := strconv.Atoi(strings.TrimSpace(params[key])); err == nil && n > 1 {
+			return n
+		}
+		if strings.EqualFold(strings.TrimSpace(params[key]), "X") {
+			return xValue
+		}
+	}
+	return 1
+}
+
 // svarParams splits an SVar ability body ("DB$ Pump | ValidTgts$ ...")
 // into its params.
 func svarParams(body string) map[string]string {
@@ -141,15 +165,83 @@ func svarParams(body string) map[string]string {
 type fixture struct {
 	p0, p1  Seat
 	targets []string
+	// combat is the creature p0 must attack with (and the one p1 must
+	// block with) so a target filter naming an attacking or blocking
+	// creature has a legal target. Both empty means no combat is needed.
+	combat combatPlan
 	// pre are steps that must run before the card's cast (create a token,
 	// attach an Aura, stamp a this-turn zone change).
 	pre []Step
 }
 
+// combatPlan is the attack/block preamble a fixture needs: attacker is the
+// p0 creature to declare attacking; blocker is the p1 creature that blocks
+// it (empty = p1 declares no blocks).
+type combatPlan struct {
+	attackers  []string
+	blocks     [][2]string // blocker, attacker
+	attackSeat int
+	defender   string
+}
+
+// combatRole is the combat state a target filter demands of its candidate.
+// A filter with BOTH "attacking" and "blocking" is served by the attacker
+// branch: an attacking creature is legal for it.
+type combatRole int
+
+const (
+	roleNone combatRole = iota
+	roleAttacker
+	roleBlocker
+)
+
+// filterPredicate reports whether a target filter names word as a predicate
+// (a '.'/'+'-separated component after the base type), case-insensitively.
+// A negated component ("!attacking") is a restriction the OTHER way and is
+// never a demand for the state, so it is skipped.
+func filterPredicate(filter, word string) bool {
+	for _, part := range strings.FieldsFunc(filter, func(r rune) bool { return r == '.' || r == '+' || r == ',' }) {
+		part = strings.TrimSpace(part)
+		if strings.HasPrefix(part, "!") {
+			continue
+		}
+		if strings.EqualFold(part, word) {
+			return true
+		}
+	}
+	return false
+}
+
+// filterCombat classifies a target filter: an attacking demand, else a
+// blocking demand, and whether it demands the candidate be tapped. A filter
+// that names attacking or blocking already has a combat answer, so a
+// redundant tapped branch in the same OR list (Sonar Strike's
+// "Creature.attacking,Creature.blocking,Creature.tapped") is not a tap
+// demand: the attacker satisfies the whole list.
+func filterCombat(filter string) (combatRole, bool) {
+	attacking := filterPredicate(filter, "attacking")
+	blocking := filterPredicate(filter, "blocking")
+	switch {
+	case attacking && blocking && strings.Contains(filter, "OppCtrl"):
+		// The attacking alternative cannot be an opponent-controlled
+		// attacker on p0's turn, but an opponent-controlled blocker can.
+		return roleBlocker, false
+	case attacking:
+		return roleAttacker, false
+	case blocking:
+		return roleBlocker, false
+	default:
+		return roleNone, filterPredicate(filter, "tapped")
+	}
+}
+
 // candidates for one target filter, most generic first. Each puts the
-// target on the board and names it.
+// target on the board and names it. role/tapped record the combat or tap
+// state the filter demands so the fixture builder can arrange it.
 type cand struct {
 	seat, zone, card string // seat "p0"/"p1", zone, card; card "" = the player
+	role             combatRole
+	tapped           bool
 	// ref overrides the target reference (a token has no card name in a
 	// zone: it is "pN:token:<subtype>").
 	ref string
@@ -157,65 +249,110 @@ type cand struct {
 	pre []Step
 }
 
-// candidatesFor resolves one filter's candidate setups. It reads the registry
-// for subtype and qualifier filters the fixed type list cannot see
-// (Elf/Goblin/... .YouCtrl, Villain/Hero in a graveyard, an enchanted
-// creature, a token), and marks a board-history filter (ThisTurnEntered) with
-// a move prelude.
+// It reads the registry for subtype and qualifier filters the fixed type list
+// cannot see (Elf/Goblin/... .YouCtrl, Villain/Hero in a graveyard, an
+// enchanted creature, a token), and marks a board-history filter
+// (ThisTurnEntered) with a move prelude.
 func candidatesFor(reg *cards.Registry, filter string) []cand {
 	zone := ""
 	if i := strings.LastIndexByte(filter, '@'); i >= 0 {
 		filter, zone = filter[:i], strings.ToLower(filter[i+1:])
 	}
-	if zone != "" && zone != "battlefield" && !strings.Contains(zone, "battlefield") {
-		return zoneCandidates(reg, filter, zone)
+	if zone != "" && zone != "battlefield" {
+		if strings.Contains(zone, "battlefield") {
+			// A mixed zone (Stack,Battlefield, or Origin$ Battlefield,Stack)
+			// is served on the battlefield.
+			zone = ""
+		} else {
+			return zoneCandidates(reg, filter, zone)
+		}
 	}
+	role, tapped := filterCombat(filter)
 	alt := strings.Split(filter, ",")
 	base := strings.ToLower(strings.SplitN(strings.TrimSpace(alt[0]), ".", 2)[0])
 	mine := strings.Contains(filter, "YouCtrl") || strings.Contains(filter, "YouOwn")
-	if strings.Contains(filter, "+token") || strings.Contains(filter, "token+") || base == "token" {
-		return tokenCandidates(mine)
-	}
-	if strings.Contains(filter, "+enchanted") || strings.Contains(filter, "enchanted+") {
-		return enchantedCandidates(reg, mine)
-	}
-	if strings.Contains(filter, "AttachedTo") {
-		// An attachment tied to a parent target needs an attach op the runner
-		// does not pose; the mandatory case is a real gap, the optional case
-		// is dropped by fixtures.
-		return nil
-	}
-	if !isCardTypeBase(base) {
-		return subtypeBattlefield(reg, base, mine)
+	if role == roleNone {
+		if strings.Contains(filter, "+token") || strings.Contains(filter, "token+") || base == "token" {
+			return tokenCandidates(mine)
+		}
+		if strings.Contains(filter, "+enchanted") || strings.Contains(filter, "enchanted+") {
+			return enchantedCandidates(mine)
+		}
+		if strings.Contains(filter, "AttachedTo") {
+			// An attachment tied to a parent target needs an attach op the
+			// runner does not pose; the mandatory case is a real gap, the
+			// optional case is dropped by fixtures.
+			return nil
+		}
+		if !isCardTypeBase(base) {
+			return subtypeBattlefield(reg, base, mine)
+		}
 	}
 	opp := "p1"
 	if mine {
 		opp = "p0"
 	}
+	// A combat-role candidate must be on the attacking player's seat (p0,
+	// the caster, whose turn the scenario plays) so it can be declared
+	// attacking; a blocking-role candidate is the defending player's (p1)
+	// creature that blocks p0's attacker. A role the filter restricts to
+	// its own controller (Creature.blocking+YouCtrl) cannot be arranged on
+	// p0's own turn and stays unpinned below.
+	seat := opp
+	if role == roleAttacker {
+		// On this scenario's turn only p0 can attack. Do not place an
+		// OppCtrl attacker under p0's control to fake the requested filter.
+		if strings.Contains(filter, "OppCtrl") {
+			return nil
+		}
+		seat = "p0"
+	} else if role == roleBlocker {
+		// A YouCtrl blocker cannot block on p0's own turn. Keep that
+		// controller-constrained shape unsupported rather than inventing
+		// an illegal combat fixture.
+		if strings.Contains(filter, "YouCtrl") {
+			return nil
+		}
+		seat = "p1"
+	}
+	withRole := func(cs []cand) []cand {
+		out := make([]cand, 0, len(cs))
+		for _, c := range cs {
+			c.role, c.tapped = role, tapped
+			if c.card != "" && c.zone == "battlefield" {
+				c.seat = seat
+			}
+			out = append(out, c)
+		}
+		return out
+	}
 	creatures := []cand{{seat: opp, zone: "battlefield", card: "Grizzly Bears"}, {seat: opp, zone: "battlefield", card: "Serra Angel"}, {seat: opp, zone: "battlefield", card: "Ornithopter"}, {seat: opp, zone: "battlefield", card: "Llanowar Elves"}, {seat: opp, zone: "battlefield", card: "Hill Giant"}}
 	switch base {
 	case "any":
-		return append(creatures, cand{seat: "p1", zone: "", card: ""})
-	case "creature":
-		return creatures
-	case "player", "opponent":
-		if mine && !strings.Contains(filter, "Opp") {
-			return []cand{{seat: "p0", zone: "", card: ""}}
+		if role != roleNone {
+			return withRole(creatures)
 		}
-		return []cand{{seat: "p1", zone: "", card: ""}, {seat: "p0", zone: "", card: ""}}
+		return append(creatures, cand{seat: "p1"})
+	case "creature":
+		return withRole(creatures)
+	case "player", "opponent":
+		if strings.Contains(filter, "You") && !strings.Contains(filter, "Opp") {
+			return []cand{{seat: "p0"}}
+		}
+		return []cand{{seat: "p1"}, {seat: "p0"}}
 	case "permanent", "card":
 		if strings.Contains(filter, "Graveyard") {
 			break
 		}
-		return append(creatures, cand{seat: opp, zone: "battlefield", card: "Glorious Anthem"}, cand{seat: opp, zone: "battlefield", card: "Forest"})
+		return withRole(append(creatures, cand{seat: opp, zone: "battlefield", card: "Glorious Anthem"}, cand{seat: opp, zone: "battlefield", card: "Forest"}))
 	case "artifact":
-		return []cand{{seat: opp, zone: "battlefield", card: "Ornithopter"}, {seat: opp, zone: "battlefield", card: "Sol Ring"}}
+		return withRole([]cand{{seat: opp, zone: "battlefield", card: "Ornithopter"}, {seat: opp, zone: "battlefield", card: "Sol Ring"}})
 	case "enchantment":
-		return []cand{{seat: opp, zone: "battlefield", card: "Glorious Anthem"}}
+		return withRole([]cand{{seat: opp, zone: "battlefield", card: "Glorious Anthem"}})
 	case "land":
-		return []cand{{seat: opp, zone: "battlefield", card: "Forest"}}
+		return withRole([]cand{{seat: opp, zone: "battlefield", card: "Forest"}})
 	case "planeswalker":
-		return []cand{{seat: opp, zone: "battlefield", card: "Jace Beleren"}}
+		return withRole([]cand{{seat: opp, zone: "battlefield", card: "Jace Beleren"}})
 	case "instant", "sorcery":
 		return []cand{{seat: opp, zone: "graveyard", card: "Shock"}, {seat: "p0", zone: "graveyard", card: "Shock"}}
 	}
@@ -270,7 +407,7 @@ func tokenCandidates(mine bool) []cand {
 
 // enchantedCandidates puts a creature you control on the battlefield and
 // casts an Aura on it in a prelude, so "enchanted" is true at the cast.
-func enchantedCandidates(reg *cards.Registry, mine bool) []cand {
+func enchantedCandidates(mine bool) []cand {
 	seat := "p1"
 	if mine {
 		seat = "p0"
@@ -314,6 +451,14 @@ func registryCardType(reg *cards.Registry, cardType string) (string, bool) {
 // carries the subtype.
 func registrySubtype(reg *cards.Registry, subtype string) (string, bool) {
 	if reg == nil {
+		return "", false
+	}
+	if strings.EqualFold(subtype, "mount") {
+		// XMage's driver cannot target any Mount card (Alacrian Jaguar,
+		// Bounding Felidar, Trained Arynx, Gila Courser all fail with "Can't
+		// find ability to activate command" where Grizzly Bears works), so a
+		// Mount fixture only turns One Last Job into a harness row. Leave the
+		// slot unserved until the driver question is answered.
 		return "", false
 	}
 	for i := range reg.Cards {
@@ -413,15 +558,16 @@ func zoneCandidates(reg *cards.Registry, filter, zone string) []cand {
 		}
 		return out
 	}
-	// A subtype qualifier (Villain, Hero, ...): pick a real card.
+	// A subtype qualifier (Villain, Hero, ...): pick a real card. A subtype
+	// the registry does not serve (Mount, below) keeps the legacy list.
 	if base := firstFilterBase(filter); base != "" && !isCardTypeBase(base) {
-		var out []cand
-		for _, st := range seats {
-			if name, ok := registrySubtype(reg, base); ok {
+		if name, ok := registrySubtype(reg, base); ok {
+			var out []cand
+			for _, st := range seats {
 				out = append(out, cand{seat: st, zone: zone, card: name})
 			}
+			return out
 		}
-		return out
 	}
 	var out []cand
 	for _, c := range []string{"Grizzly Bears", "Serra Angel", "Shock", "Llanowar Elves", "Glorious Anthem", "Ornithopter", "Forest", "Duress"} {
@@ -454,16 +600,47 @@ func fixtures(reg *cards.Registry, slots []Slot) []fixture {
 		var next []fixture
 		for _, fx := range out {
 			for _, c := range cs {
-				n := fixture{p0: clone(fx.p0), p1: clone(fx.p1), targets: append([]string(nil), fx.targets...), pre: append([]Step(nil), fx.pre...)}
+				if c.card != "" && fixtureAlreadyTargetsCard(fx.targets, c.seat, c.card) {
+					continue
+				}
+				n := fixture{p0: clone(fx.p0), p1: clone(fx.p1), targets: append([]string(nil), fx.targets...), combat: cloneCombat(fx.combat), pre: append([]Step(nil), fx.pre...)}
 				if c.card == "" {
 					n.targets = append(n.targets, c.seat)
 				} else {
+					s := &n.p1
+					if c.seat == "p0" {
+						s = &n.p0
+					}
 					ref := c.ref
 					if ref == "" {
 						ref = zoneRef(&n, c)
 					}
 					place(&n, c)
 					n.targets = append(n.targets, ref)
+					switch c.role {
+					case roleAttacker:
+						n.combat.attackers = append(n.combat.attackers, ref)
+						n.combat.attackSeat, n.combat.defender = 0, "p1"
+					case roleBlocker:
+						attackSeat := 0
+						if c.seat == "p0" {
+							attackSeat = 1
+						}
+						if len(n.combat.attackers) == 0 {
+							n.combat.attackSeat = attackSeat
+							if attackSeat == 0 {
+								n.combat.defender = "p1"
+							} else {
+								n.combat.defender = "p0"
+							}
+						}
+						attacker := addAuxAttacker(seatFor(&n.p0, &n.p1, attackSeat), attackSeat)
+						n.combat.attackers = appendUnique(n.combat.attackers, attacker)
+						n.combat.blocks = append(n.combat.blocks, [2]string{ref, attacker})
+					}
+					if c.tapped && c.zone == "battlefield" {
+						s.Tapped = append(s.Tapped, c.card)
+					}
 				}
 				n.pre = append(n.pre, c.pre...)
 				next = append(next, n)
@@ -530,8 +707,58 @@ func place(fx *fixture, c cand) {
 	}
 }
 
-// clone copies a Seat deeply enough that a fixture's edits cannot alias
-// another's slices.
+// addAuxAttacker puts a spare creature on the battlefield for a
+// blocking-role fixture to attack with, and returns its ref.
+func addAuxAttacker(p0 *Seat, seat int) string {
+	const name = "Grizzly Bears"
+	count := 0
+	for _, x := range p0.Battlefield {
+		if x == name {
+			count++
+		}
+	}
+	p0.Battlefield = append(p0.Battlefield, name)
+	prefix := fmt.Sprintf("p%d:", seat)
+	if count > 0 {
+		return fmt.Sprintf("%s%s#%d", prefix, name, count+1)
+	}
+	return prefix + name
+}
+
+func seatFor(p0, p1 *Seat, seat int) *Seat {
+	if seat == 1 {
+		return p1
+	}
+	return p0
+}
+
+func appendUnique(refs []string, ref string) []string {
+	for _, existing := range refs {
+		if existing == ref {
+			return refs
+		}
+	}
+	return append(refs, ref)
+}
+
+func cloneCombat(c combatPlan) combatPlan {
+	return combatPlan{attackers: append([]string(nil), c.attackers...), blocks: append([][2]string(nil), c.blocks...), attackSeat: c.attackSeat, defender: c.defender}
+}
+
+// fixtureAlreadyTargetsCard prevents two target slots from naming the same
+// card object/name. XMage's reference normalizer strips the runner's #N
+// duplicate suffix, so repeated same-name slots collapse to one object there.
+func fixtureAlreadyTargetsCard(targets []string, seat, card string) bool {
+	want := seat + ":" + card
+	for _, ref := range targets {
+		base := strings.SplitN(ref, "#", 2)[0]
+		if base == want {
+			return true
+		}
+	}
+	return false
+}
+
 func clone(s Seat) Seat {
 	return Seat{
 		Battlefield: append([]string(nil), s.Battlefield...), Tapped: append([]string(nil), s.Tapped...), Hand: append([]string(nil), s.Hand...),

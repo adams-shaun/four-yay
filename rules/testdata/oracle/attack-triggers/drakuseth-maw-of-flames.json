@@ -88,11 +88,6 @@
     },
     {
      "op": "resolve",
-     "targets": [
-      "p1",
-      "p1:Hill Giant",
-      "p1:Grizzly Bears"
-     ],
      "expect": [
       {
        "life": {
@@ -187,9 +182,6 @@
     },
     {
      "op": "resolve",
-     "targets": [
-      "p1:Craw Wurm"
-     ],
      "expect": [
       {
        "card": "p1:Craw Wurm",
@@ -243,10 +235,6 @@
     },
     {
      "op": "resolve",
-     "targets": [
-      "p1:Craw Wurm",
-      "p1"
-     ],
      "expect": [
       {
        "card": "p1:Craw Wurm",

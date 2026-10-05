@@ -31,7 +31,7 @@
         "p1": {}
       },
       "steps": [
-        {"op": "move", "seat": 0, "card": "p0:Island", "to": "graveyard", "targets": ["p0:Forest"]},
+        {"op": "move", "seat": 0, "card": "p0:Island", "to": "graveyard"},
         {"op": "resolve"}
       ],
       "expect": [

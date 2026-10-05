@@ -35,10 +35,7 @@
     {
      "op": "pass_to",
      "step": "upkeep",
-     "active": "p0",
-     "targets": [
-      "p0:Grizzly Bears"
-     ]
+     "active": "p0"
     },
     {
      "op": "resolve",
@@ -102,10 +99,7 @@
     {
      "op": "pass_to",
      "step": "upkeep",
-     "active": "p0",
-     "targets": [
-      "p0:Anthem of Champions"
-     ]
+     "active": "p0"
     },
     {
      "op": "resolve",

@@ -28,10 +28,7 @@
           "op": "cast",
           "seat": 0,
           "card": "p0:Palace Jailer",
-          "mana": "WWWW",
-          "targets": [
-            "p1:Grizzly Bears"
-          ]
+          "mana": "WWWW"
         },
         {
           "op": "resolve"

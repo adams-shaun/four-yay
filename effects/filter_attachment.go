@@ -728,14 +728,18 @@ func attachedToReferentObjects(g *state.Game, sc SpecContext, ref string) ([]sta
 // object in hand, or (b) the dotted two-token form "AttachedTo <class>.<qual>"
 // whose qualifier is evaluated against the attached object itself (the
 // counterpart of the adjacent enchantedByArg's <Type>.<qual>). The dotted
-// allowlist is exactly YouCtrl — the only measured qualifier (Umbra Mystic's
-// "Aura.AttachedTo Permanent.YouCtrl" grant; 6 occurrences / 5 files). <class>
+// qualifier is any SINGLE predicate token the build recognises
+// (recognisedPredicate): YouCtrl (Umbra Mystic's "Aura.AttachedTo
+// Permanent.YouCtrl" grant), and the attached-bearer qualifiers EnchantedBy,
+// EquippedBy and IsRemembered (With Great Power / Baki's Curse), evaluated
+// against the bearer by attachedToBearerQualifier. <class>
 // keeps the bare form's object-class / type-word validation, so
 // a player is neither an object class nor a type word in this OBJECT-side
 // grammar (the player-side EnchantedBy is handled separately). It returns false for any token that
 // is not one of these shapes: a different predicate name, no space, an empty
-// argument, an argument carrying a nested predicate ('+'/','), a dotted
-// qualifier outside the allowlist, a referent needing resolution-time context
+// argument, an argument carrying a nested predicate ('+'/','), a nested
+// dotted qualifier (a second '.', e.g. Permanent.YouCtrl), a referent needing
+// resolution-time context
 // such as "AttachedTo Targeted", or a word that is neither an object class nor
 // a corpus type word. Consuming tokens that are not these shapes keeps the
 // matcher and UnknownPredicates agreeing, because a token either becomes a
@@ -755,7 +759,16 @@ func attachedToArg(p string) (string, bool) {
 	// evaluates it there), so it is validated here once for both the matcher
 	// and the recognition path.
 	if class, qual, ok := strings.Cut(arg, "."); ok {
-		if qual != "YouCtrl" {
+		// The qualifier is any SINGLE predicate token the build recognises
+		// (YouCtrl, EnchantedBy, EquippedBy, IsRemembered, ...), evaluated
+		// against the attached bearer by wordAttachedTo through the object-
+		// filter grammar. recognisedPredicate is the same classifier the
+		// matcher and the UnknownPredicates census share, so the two cannot
+		// disagree about which qualifiers are accepted. A nested predicate
+		// (a second '.', e.g. Permanent.YouCtrl) stays fail-closed exactly
+		// as the doc comment promises, because recognisedPredicate rejects
+		// the dotted remainder.
+		if strings.Contains(qual, ".") || !recognisedPredicate(qual) {
 			return "", false
 		}
 		switch attachedToClassCodes.Code(string(class)) {

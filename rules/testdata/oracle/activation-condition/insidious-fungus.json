@@ -14,7 +14,7 @@
       },
       "steps": [
         {"op": "activate", "seat": 0, "card": "p0:Insidious Fungus", "mana": "CC"},
-        {"op": "resolve", "targets": ["p1:Bonesplitter"],
+        {"op": "resolve",
          "answers": [{"kind": "modes", "pick": ["Destroy target artifact"]}]}
       ],
       "expect": [

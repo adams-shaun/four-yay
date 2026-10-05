@@ -115,7 +115,9 @@ func foldDoorUnlock(g *state.Game, e *Event) {
 		}
 		if fi >= 0 && fi < 2 {
 			o.LockedDoors &^= 1 << uint(fi)
-			if fi != int(o.FaceIdx) {
+			if fi == int(o.FaceIdx) {
+				o.CastDoor = true
+			} else {
 				o.Unlocked = true
 			}
 		}
@@ -127,7 +129,9 @@ func foldDoorLock(g *state.Game, e *Event) {
 		fi := int(e.Amount - 1)
 		if fi >= 0 && fi < 2 {
 			o.LockedDoors |= 1 << uint(fi)
-			if fi != int(o.FaceIdx) {
+			if fi == int(o.FaceIdx) {
+				o.CastDoor = false
+			} else {
 				o.Unlocked = false
 			}
 		}

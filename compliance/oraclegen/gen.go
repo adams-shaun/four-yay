@@ -45,7 +45,17 @@ type Step struct {
 	Card    string   `json:"card,omitempty"`
 	Mana    string   `json:"mana,omitempty"`
 	Targets []string `json:"targets,omitempty"`
-	Answers []Answer `json:"answers,omitempty"`
+	// Attackers/Defender drive the attack op; Blocks the block op. They
+	// carry a creature into combat so a "target attacking or blocking
+	// creature" slot has a legal target.
+	Attackers []string    `json:"attackers,omitempty"`
+	Defender  string      `json:"defender,omitempty"`
+	Blocks    [][2]string `json:"blocks,omitempty"`
+	// Step/Decision are the pass_to op's stop conditions (a phase step name
+	// or a pending decision kind).
+	Step     string   `json:"step,omitempty"`
+	Decision string   `json:"decision,omitempty"`
+	Answers  []Answer `json:"answers,omitempty"`
 	// A scenario step may move a card into a zone; the move op stamps the
 	// object as having entered this turn (a board-history target such as
 	// ThisTurnEntered@Graveyard needs that).
@@ -136,12 +146,27 @@ func mayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
 }
 
 // playsThrough replays sc exactly and reports whether gorge performed
-// every step and ended with an empty stack.
+// every step and ended with an empty stack. Both leftover targets and
+// answers are failures here: callers must rewrite targets to gorge's actual
+// picks before replaying the generated scenario.
 func playsThrough(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
+	res, ok := probeTargets(reg, sc)
+	return res, ok && len(res.Fails) == 0
+}
+
+// probeTargets runs a preliminary fixture that may over-offer targets. Only
+// unused-target failures are excused here, before chooseTargets replaces the
+// fixture slots; a reversed cast, or any other failure, is never a success.
+func probeTargets(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
 	b, _ := json.Marshal(sc)
 	res, err := rules.RunOracleScenarioJSON(reg, b)
-	if err != nil || len(res.Fails) > 0 || len(res.Snapshots) != len(sc.Steps)+1 {
+	if err != nil || len(res.Snapshots) != len(sc.Steps)+1 || castAborted(sc, res.Snapshots, res.Transcript) {
 		return res, false
+	}
+	for _, f := range res.Fails {
+		if !strings.Contains(f, rules.OracleUnusedTargetMarker) {
+			return res, false
+		}
 	}
 	return res, len(res.Snapshots[len(res.Snapshots)-1].Stack) == 0
 }
@@ -395,9 +420,20 @@ func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) {
 			return 0, res, false
 		}
 		for _, f := range res.Fails {
+			// The static fixture over-offers targets on purpose; the generator
+			// rewrites each cast step to gorge's actual picks afterwards, and
+			// verifies the rewrite with PlaysThrough. So the runner's
+			// unused-target self-check is expected here and is not a reason to
+			// reject the fixture; every other step/harness fail is.
+			if strings.Contains(f, rules.OracleUnusedTargetMarker) {
+				continue
+			}
 			if strings.HasPrefix(f, "step ") || strings.Contains(f, "harness:") {
 				return 0, res, false
 			}
+		}
+		if castAborted(try, res.Snapshots, res.Transcript) {
+			continue
 		}
 		last := res.Snapshots[len(res.Snapshots)-1]
 		if len(res.Snapshots) == len(try.Steps)+1 && len(last.Stack) == 0 {
@@ -407,14 +443,113 @@ func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) {
 	return 0, rules.OracleResult{}, false
 }
 
+// castAborted rejects a scenario where the runner reports a cast abort or a
+// cast step leaves its card in its origin hand zone. CR 601.2c/733.1 reverses
+// an illegal cast; treating the resulting empty stack as a successful settle
+// would publish a scenario that never cast the named spell.
+func castAborted(sc Scenario, snaps []rules.OracleSnapshot, transcript []string) bool {
+	for _, line := range transcript {
+		if strings.Contains(strings.ToLower(line), "cast aborted") {
+			return true
+		}
+	}
+	if len(snaps) != len(sc.Steps)+1 {
+		return false
+	}
+	for i, st := range sc.Steps {
+		if st.Op != "cast" {
+			continue
+		}
+		seatRef, name, ok := strings.Cut(st.Card, ":")
+		if !ok || !strings.HasPrefix(seatRef, "p") {
+			continue
+		}
+		var seat int
+		if _, err := fmt.Sscanf(seatRef, "p%d", &seat); err != nil || seat < 0 || seat >= len(snaps[i].Players) {
+			continue
+		}
+		before := countName(snaps[i].Players[seat].Hand, name)
+		after := countName(snaps[i+1].Players[seat].Hand, name)
+		if before > 0 && after >= before {
+			return true
+		}
+	}
+	return false
+}
+
+func countName(names []string, want string) int {
+	n := 0
+	for _, name := range names {
+		if name == want {
+			n++
+		}
+	}
+	return n
+}
+
+// chooseTargets rewrites every cast step's Targets from the target
+// decisions gorge's deterministic runner actually made, in order. The static
+// fixture only promises a legal candidate per slot; it over-offers -- an
+// "up to N" slot gorge declines, a token slot with no token on the board, a
+// slot in a mixed chain -- and XMage's castSpell rejects a target list whose
+// count does not match the ability's, so the scenario must carry exactly
+// gorge's picks (the target decision's PickRefs, in order).
+//
+// castSteps is the set of step indices whose targets were taken from a cast
+// (the steps held on the Item): xanswers sends those through castSpell, not
+// through a scripted target answer, while a target decision posed during a
+// resolve step still needs an XMage answer. A cast step that posed no target
+// decision (every slot skipped, or a spell with no targets) has its fixture
+// targets cleared, so the surplus never reaches XMage.
+func chooseTargets(sc Scenario, ds []rules.OracleDecision) (Scenario, map[int]bool) {
+	out := sc
+	out.Steps = append([]Step(nil), sc.Steps...)
+	chosen := map[int][]string{}
+	castSteps := map[int]bool{}
+	for _, d := range ds {
+		if d.Via != "target" || d.Step < 0 || d.Step >= len(out.Steps) || out.Steps[d.Step].Op != "cast" {
+			continue
+		}
+		chosen[d.Step] = append(chosen[d.Step], d.PickRefs...)
+		castSteps[d.Step] = true
+	}
+	for i := range out.Steps {
+		if out.Steps[i].Op != "cast" {
+			continue
+		}
+		if _, ok := castSteps[i]; ok {
+			out.Steps[i].Targets = chosen[i]
+			continue
+		}
+		// A cast that posed no target decision: drop the fixture's surplus.
+		out.Steps[i].Targets = nil
+	}
+	return out, castSteps
+}
+
 // xanswers turns gorge's recorded decisions into XMage's scripted answers,
 // grouped by the step that posed them.
-func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XAnswer {
+func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSteps map[int]bool) [][]XAnswer {
 	out := make([][]XAnswer, steps)
 	any := false
+	// A step whose card name is then searched for (Ancient Vendetta's "choose
+	// a card name. Search ... for cards with that name"): XMage poses the name
+	// dialog however narrowly gorge offered it, and the search must find it.
+	namedSearch := map[int]bool{}
 	for _, d := range ds {
-		if d.Step < 0 || d.Step >= steps || d.Via == "target" {
-			// A step's own targets reach XMage through castSpell.
+		if pickKind(d, 0) == "search" {
+			namedSearch[d.Step] = true
+		}
+	}
+	for _, d := range ds {
+		if d.Step < 0 || d.Step >= steps || (d.Via == "target" && castSteps[d.Step]) {
+			// A cast step's own targets reach XMage through castSpell; a
+			// target decision posed at a resolve step is scripted below.
+			continue
+		}
+		if pickKind(d, 0) == "name" && namedSearch[d.Step] && len(d.Picks) == 1 {
+			out[d.Step] = append(out[d.Step], XAnswer{d.Seat, "choice", d.Picks[0]})
+			any = true
 			continue
 		}
 		if forcedSingleOption(d) {
@@ -546,7 +681,7 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 				as = append(as, XAnswer{d.Seat, "choice", strings.Join(labels, "^")})
 			} else {
 				for k, label := range d.Picks {
-					switch xmQueue(pickKind(d, k), label) {
+					switch pickQueue(d, k, label) {
 					case "skip":
 						// XMage resolves this pick inside its computer player (a
 						// library search) or pays it from the pool (a mana-tapping
@@ -1037,4 +1172,18 @@ func openingHandAnswers(f *cards.Face) []Answer {
 		return []Answer{{Kind: "choose", Pick: []string{"no"}}}
 	}
 	return nil
+}
+
+// pickQueue is xmQueue for the k-th pick, except that a search of ANOTHER
+// player's library (Ancient Vendetta's "search target opponent's ... library")
+// reaches XMage's choice queue: only a search of your own library is the
+// TargetCardInLibrary target ask (measured on the std pass).
+func pickQueue(d rules.OracleDecision, k int, label string) string {
+	q := xmQueue(pickKind(d, k), label)
+	if q == "target" && pickKind(d, k) == "search" && k < len(d.PickRefs) {
+		if s, ok := refSeat(d.PickRefs[k]); ok && s != d.Seat {
+			return "choice"
+		}
+	}
+	return q
 }

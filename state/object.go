@@ -1464,6 +1464,9 @@ type Object struct {
 	// halves' rules text is live (rules-side scans consult this field). Only
 	// events.Apply writes it, so a replay rebuilds it.
 	Unlocked bool
+	// CastDoor records that the FaceIdx door was designated by resolving a
+	// Room spell. FaceIdx alone also exists on Rooms that entered otherwise.
+	CastDoor bool
 	// LockedDoors overrides the default cast-face/alternate-face designation.
 	// DoorLock/DoorUnlock events alone update this per-face lock bitset.
 	LockedDoors uint8
@@ -1472,7 +1475,7 @@ type Object struct {
 	// page-aligned Objs arena every object's hot head (the fields declared
 	// first) starts on a line of its own. Purely layout: it is never read or
 	// written. A field added above must re-pad it (TestObjectCacheLinePadded).
-	_ [48]byte
+	_ [47]byte
 }
 
 // DoorUnlocked reports the designation of a printed Room face. The cast
@@ -1482,7 +1485,11 @@ func (o *Object) DoorUnlocked(fi int) bool {
 	if o == nil || o.Card == nil || fi < 0 || fi >= len(o.Card.Faces) || !o.Card.Faces[fi].IsRoom() {
 		return false
 	}
-	return o.LockedDoors&(1<<uint(fi)) == 0 && (fi == int(o.FaceIdx) || o.Unlocked)
+	designated := o.Unlocked
+	if fi == int(o.FaceIdx) {
+		designated = o.CastDoor
+	}
+	return o.LockedDoors&(1<<uint(fi)) == 0 && designated
 }
 
 // RoomOtherDoorUnlocked reports whether the non-cast Room face is live.

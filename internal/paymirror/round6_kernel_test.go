@@ -19,9 +19,10 @@ import (
 //   - 4098 seq 7828: Master of Dark Rites, equivalent. The Dig absent-
 //     ChangeNum default now moves one card rather than the whole window,
 //     changing the preceding game's event count (formerly seq 7684);
-//   - 4139 seq 6763: Urza's Incubator (damageSourceLKI cost-move mask),
-//     equivalent. Re-measured on the kernel: one event earlier than the
-//     legacy pin 6764;
+//   - 4139: CR 601.2c now announces graveyard ChangeZone sub-targets during
+//     casting, changing the bot game's path before the Urza's Incubator
+//     finding. The seed remains pinned as a clean, control-equivalent game;
+//     the old cast-specific finding is no longer reached after the rules fix.
 //   - 4129 seq 5796: Demonic Tutor, equivalent (the Ogre pay-life-only
 //     witness stays pinned by TestWitnessReadsPayLifeOnlySources).
 func TestRoundSixFindingsMirrorKernel(t *testing.T) {
@@ -39,7 +40,7 @@ func TestRoundSixFindingsMirrorKernel(t *testing.T) {
 		{4130, []string{"vivi-ornitier-cedh", "foundations-reign-of-dragons", "avengers-assemble", "valgavoth-endless-punishment"}, 0, ""},
 		{2138, []string{"vivi-ornitier-cedh", "hearthhull-worldseed-landfall", "pro-shaper", "foundations-keen-engineering"}, 1488, "expected:float_then_cast:float_trigger_precedes_cast"},
 		{4098, []string{"foundations-reign-of-dragons", "hearthhull-worldseed-landfall", "avengers-assemble", "rakdos-muscle-scam-exe"}, 7828, ""},
-		{4139, []string{"foundations-wretched-ranks", "deadly-disguise", "foundations-reign-of-dragons", "ulalek-eldrazi"}, 6763, ""},
+		{4139, []string{"foundations-wretched-ranks", "deadly-disguise", "foundations-reign-of-dragons", "ulalek-eldrazi"}, 0, ""},
 		{4129, []string{"rakdos-muscle-scam-exe", "pro-shaper", "foundations-reign-of-dragons", "foundations-wretched-ranks"}, 5796, ""},
 	} {
 		reports := round6Game(t, d, GameSpec{Seed: tc.seed, Decks: tc.decks, Commander: true, Policy: "bot"})

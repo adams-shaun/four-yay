@@ -29,6 +29,38 @@ func (fx *Fixture) P0() *Seat        { return &fx.p0 }
 func (fx *Fixture) P1() *Seat        { return &fx.p1 }
 func (fx Fixture) Targets() []string { return fx.targets }
 
+// Attacker is the p0 creature the fixture must declare attacking so a target
+// filter naming an attacking or blocking creature has a legal target. Empty
+// means no attack step is needed.
+func (fx Fixture) Attacker() string {
+	if len(fx.combat.attackers) == 0 {
+		return ""
+	}
+	return fx.combat.attackers[0]
+}
+
+// Blocker is the first blocker in the fixture's combat arrangement.
+func (fx Fixture) Blocker() string {
+	if len(fx.combat.blocks) == 0 {
+		return ""
+	}
+	return fx.combat.blocks[0][0]
+}
+
+// CombatSteps returns the complete, ordered attack/block preamble.
+func (fx Fixture) CombatSteps() []Step {
+	if len(fx.combat.attackers) == 0 {
+		return nil
+	}
+	attack := Step{Op: "attack", Seat: fx.combat.attackSeat, Defender: fx.combat.defender, Attackers: append([]string(nil), fx.combat.attackers...)}
+	steps := []Step{attack}
+	if len(fx.combat.blocks) != 0 {
+		blockSeat := 1 - fx.combat.attackSeat
+		steps = append(steps, Step{Op: "block", Seat: blockSeat, Blocks: append([][2]string(nil), fx.combat.blocks...)})
+	}
+	return steps
+}
+
 // Prelude lists the steps a fixture must run before the card's cast (create
 // a token, attach an Aura, stamp a this-turn zone change).
 func (fx Fixture) Prelude() []Step { return fx.pre }
@@ -67,13 +99,26 @@ func AbilityTargetsStack(params map[string]string) bool { return abilityTargetsS
 func ModeNumbers(f *cards.Face) map[string]int { return modeNumbers(f) }
 
 // XAnswers turns gorge's recorded decisions into XMage's scripted answers.
+// It scripts every decision as an ordinary answer; a caller that has already
+// rewritten cast-step targets (ChooseTargets) uses XAnswersForScenario so
+// those target decisions are not scripted a second time.
 func XAnswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XAnswer {
-	return xanswers(ds, steps, modes)
+	return xanswers(ds, steps, modes, nil)
+}
+
+// ChooseTargets rewrites cast steps' targets from gorge's own target
+// decisions and returns the scenario with the set of cast step indices those
+// targets came from.
+func ChooseTargets(sc Scenario, ds []rules.OracleDecision) (Scenario, map[int]bool) {
+	return chooseTargets(sc, ds)
 }
 
 // XAnswersForScenario also uses the observed result of a compound may/pick.
-func XAnswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]int) [][]XAnswer {
-	return xanswersForScenario(res, sc, modes)
+// castSteps is the set of cast step indices whose targets ChooseTargets took
+// from the cast; those target decisions travel through castSpell and are not
+// scripted a second time.
+func XAnswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]int, castSteps map[int]bool) [][]XAnswer {
+	return xanswersForScenario(res, sc, modes, castSteps)
 }
 
 // MayYes re-scripts every declined optional pick to take the first option.
@@ -83,6 +128,12 @@ func MayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) { return ma
 // and ended with an empty stack.
 func PlaysThrough(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
 	return playsThrough(reg, sc)
+}
+
+// ProbeTargets permits only surplus fixture targets before the cast rewrite;
+// a reversed cast is never a successful probe.
+func ProbeTargets(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
+	return probeTargets(reg, sc)
 }
 
 // Settle returns how many resolve steps empty the stack after sc (at most

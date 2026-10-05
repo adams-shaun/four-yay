@@ -340,6 +340,16 @@ type Game struct {
 	// combat from every combat the first one created (a measured livelock). No
 	// event or behaviour changes for any game without such a condition.
 	CombatsThisTurn int32
+	// EndStepsThisTurn counts the end steps BEGUN this turn (one per StepEnd
+	// StepChange, folded in events/apply_turn.go, reset at TurnChange): 1
+	// through the ordinary end step, 2 once an api:AddPhase-spliced extra end
+	// step begins. It backs Forge's Count$FinishedEndOfTurnsThisTurn --
+	// Y'shtola Rhul's "if it's the first end step of the turn" gate, which
+	// the head answers as EndStepsThisTurn minus one while the walk is
+	// currently IN an end step (Forge's getNumEndOfTurn() - is(END_OF_TURN)).
+	// The same event-folded, replay-exact shape CombatsThisTurn uses, so no
+	// new event or event field is needed.
+	EndStepsThisTurn int32
 	// ResolvedThisTurn counts, per resolving ability, how many times THAT
 	// ability has resolved this turn, INCLUDING the resolution whose tally is
 	// being read. It backs Forge's Count$ResolvedThisTurn (Sephiroth, Fabled

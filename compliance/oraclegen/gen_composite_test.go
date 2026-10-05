@@ -23,7 +23,7 @@ func TestCompositeMayDoesNotConsumeWholeHandElection(t *testing.T) {
 	// The engine's yes option is XMage's chooseUse: "yes" (measured on the
 	// 2026-10-05 std pass, no carrier diverged with it).
 	want := [][]XAnswer{nil, {{Seat: 0, Kind: "choice", Value: "yes"}}}
-	if got := xanswersForScenario(res, sc, nil); !reflect.DeepEqual(got, want) {
+	if got := xanswersForScenario(res, sc, nil, nil); !reflect.DeepEqual(got, want) {
 		t.Fatalf("whole-hand election = %#v, want %#v", got, want)
 	}
 }
@@ -32,7 +32,7 @@ func TestDiscardModeUsesChoiceQueueEvenForOneOption(t *testing.T) {
 	d := rules.OracleDecision{Step: 0, Seat: 0, Kind: "mode", Options: 1, Min: 1, Max: 1,
 		Picks: []string{"Discard Wastes"}, PickRefs: []string{"p0:Wastes"}, PickKinds: []string{"discard"}}
 	want := [][]XAnswer{{{Seat: 0, Kind: "choice", Value: "Wastes"}}}
-	if got := xanswers([]rules.OracleDecision{d}, 1, nil); !reflect.DeepEqual(got, want) {
+	if got := xanswers([]rules.OracleDecision{d}, 1, nil, nil); !reflect.DeepEqual(got, want) {
 		t.Fatalf("one-option discard = %#v, want %#v", got, want)
 	}
 }
@@ -46,7 +46,7 @@ func TestCompositeMayAnswerWithExplicitPick(t *testing.T) {
 		},
 	}
 	want := [][]XAnswer{nil, {{Seat: 0, Kind: "choice", Value: "Island"}}}
-	if got := xanswersForScenario(res, sc, nil); !reflect.DeepEqual(got, want) {
+	if got := xanswersForScenario(res, sc, nil, nil); !reflect.DeepEqual(got, want) {
 		t.Fatalf("explicit pick = %#v, want %#v", got, want)
 	}
 }
@@ -77,7 +77,7 @@ func TestCompositeMayAnswerPicksMovedCard(t *testing.T) {
 				answers = append(answers, XAnswer{Seat: 0, Kind: "choice", Value: "[choice_skip]"})
 			}
 			want := [][]XAnswer{nil, answers}
-			if got := xanswersForScenario(res, sc, nil); !reflect.DeepEqual(got, want) {
+			if got := xanswersForScenario(res, sc, nil, nil); !reflect.DeepEqual(got, want) {
 				t.Fatalf("xanswersForScenario = %#v, want %#v", got, want)
 			}
 		})
