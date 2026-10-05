@@ -45,12 +45,26 @@ func evalDamageHistory(h Host, c *Ctx, g *state.Game, head, arg string) (int32, 
 	return total, true, true
 }
 
-// Match each hit using the controller of its source when it dealt damage.
-// Characteristics not recorded in the ledger retain the live filter semantics.
+// Match each hit using its source's recorded characteristics when damage landed.
+// Older records without a zone/type snapshot retain the live filter semantics.
 func damageSourceMatches(g *state.Game, spec string, source *state.Object, hit state.DamageDealtRecord, c *Ctx) bool {
 	snapshot := *source
 	snapshot.Controller = hit.SourceControl
+	if hit.HasSourceZone {
+		snapshot.Zone = hit.SourceZone
+	}
 	sc := c.SpecContext(c.Controller)
+	if hit.SourceTypes != nil {
+		// The hit's complete effective type list overrides any current layer-4
+		// entry, including one that appeared after the damage was dealt.
+		types := make([]ObjectTypes, 0, len(sc.Layers.DerivedTypes)+1)
+		for _, dt := range sc.Layers.DerivedTypes {
+			if dt.ID != source.ID {
+				types = append(types, dt)
+			}
+		}
+		sc.Layers.DerivedTypes = append(types, ObjectTypes{ID: source.ID, Types: hit.SourceTypes})
+	}
 	if hit.HasSourceColors {
 		// The source's colour is read as it was when the damage was dealt
 		// (a red Ojer that later returns as its colourless Temple face still
@@ -63,13 +77,13 @@ func damageSourceMatches(g *state.Game, spec string, source *state.Object, hit s
 		}
 		sc.Layers.DerivedColors = append(colors, ObjectColors{ID: source.ID, Mask: ColorMaskFromLetters(hit.SourceColors)})
 	}
-	if source.Zone == state.ZBattlefield {
+	if snapshot.Zone == state.ZBattlefield {
 		return matchesObjectPtr(g, spec, &snapshot, &sc)
 	}
-	if source.IsCopy && source.Zone != state.ZStack {
+	if source.IsCopy && snapshot.Zone != state.ZStack {
 		return false
 	}
-	return compiledMatchZone(compiledSpecFor(spec), g, &snapshot, &sc, source.Zone)
+	return compiledMatchZone(compiledSpecFor(spec), g, &snapshot, &sc, snapshot.Zone)
 }
 
 // MaxCombatDamageThisTurn asks how much combat damage any ONE player took,
