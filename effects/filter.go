@@ -36,11 +36,18 @@ type predFn func(g *state.Game, o *state.Object, you state.PlayerID, source stat
 // grant is visible to the filter that gates it (Cavalry Master's
 // `withFlanking` lord, kw:Flanking's `withoutFlanking` blocker check).
 type keywordPredicate struct {
-	keyword string
-	negated bool
+	keyword      string
+	parameter    string
+	hasParameter bool
+	negated      bool
 }
 
 var keywordPredicates = map[string]keywordPredicate{}
+
+var parameterizedKeywordPredicateHeads = map[string]string{
+	"hasKeywordLandwalk": "Landwalk",
+	"hasKeywordEnchant":  "Enchant",
+}
 
 // keywordPredicateFor classifies a supported with<X>/without<X> token. Forge
 // scripts retain spaces in keyword names, while the registry keys are compact;
@@ -52,8 +59,18 @@ func keywordPredicateFor(p string) (keywordPredicate, bool) {
 	}
 	if strings.HasPrefix(p, "with") || strings.HasPrefix(p, "without") || strings.HasPrefix(p, "hasKeyword") {
 		compact := strings.ReplaceAll(p, " ", "")
-		kp, ok := keywordPredicates[compact]
-		return kp, ok
+		if kp, ok := keywordPredicates[compact]; ok {
+			return kp, true
+		}
+		// Landwalk and Enchant carry answerable keyword parameters in Forge
+		// filters (e.g. hasKeywordLandwalk:Island and
+		// hasKeywordEnchant:Creature). Keep this vocabulary explicit: a
+		// parameter on another keyword, or an empty parameter, is unsupported.
+		name, parameter, hasParameter := strings.Cut(compact, ":")
+		keyword, supported := parameterizedKeywordPredicateHeads[name]
+		if hasParameter && len(parameter) > 0 && supported {
+			return keywordPredicate{keyword: keyword, parameter: parameter, hasParameter: true}, true
+		}
 	}
 	return keywordPredicate{}, false
 }
@@ -539,6 +556,44 @@ type LayerTables struct {
 	// that per-candidate bind, the same immutable value-slice shape as
 	// DerivedTypes/DerivedColors and nil on the common board.
 	DerivedKeywords []ObjectKeywords
+}
+
+// keywordPredicateMatches reads bare keyword predicates through keywordInCtx
+// and parameterized Landwalk/Enchant predicates from the same derived keyword
+// binding, falling back to the printed face where no layer result is bound.
+func keywordPredicateMatches(o *state.Object, kp keywordPredicate, sc *SpecContext) bool {
+	if !kp.hasParameter {
+		return keywordInCtx(o, kp.keyword, sc)
+	}
+	list := sc.ExtraKeywords
+	if list == nil && o != nil {
+		for i := range sc.Layers.DerivedKeywords {
+			if sc.Layers.DerivedKeywords[i].ID == o.ID {
+				list = sc.Layers.DerivedKeywords[i].Keywords
+				if list == nil {
+					list = []string{}
+				}
+				break
+			}
+		}
+	}
+	if list == nil {
+		if o == nil || o.Face() == nil {
+			return false
+		}
+		list = o.Face().Keywords
+	}
+	for _, keyword := range list {
+		head, parameter, hasParameter := strings.Cut(keyword, ":")
+		// Enchant keyword parameters may continue with restrictions after the
+		// primary type (Enchant:Creature.YouCtrl); filters name that primary
+		// type. Landwalk's parameter is a single land type.
+		primary, _, _ := strings.Cut(strings.TrimSpace(parameter), ".")
+		if hasParameter && strings.EqualFold(strings.TrimSpace(head), kp.keyword) && strings.EqualFold(primary, kp.parameter) {
+			return true
+		}
+	}
+	return false
 }
 
 // keywordInCtx is THE keyword read of the with<X>/without<X> predicates. A
@@ -2121,7 +2176,7 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 	// AddKeyword$ grant. Keep this before the generic predicate map so a
 	// context-aware caller never has its bound list bypassed.
 	if kp, ok := keywordPredicateFor(p); ok {
-		has := keywordInCtx(o, kp.keyword, &sc)
+		has := keywordPredicateMatches(o, kp, &sc)
 		if kp.negated {
 			has = !has
 		}
