@@ -1093,7 +1093,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 				continue
 			}
 			if !supported {
-				if detail, bad := UnmodelledCondition(sa); bad {
+				if detail, bad := unmodelledConditionDetail(sa); bad {
 					h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 						Text: "unmodelled condition " + detail})
 					continue

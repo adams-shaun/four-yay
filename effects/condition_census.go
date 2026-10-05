@@ -42,8 +42,6 @@ var conditionSupportedDefined = state.NewNameSet(
 // carries that conditionMetCore cannot enumerate. Each entry is a real
 // carrier (counts measured 2026-10-04); a new value fails the census test.
 var conditionUnmodelledDefined = state.NewNameSet(
-	"Collected",                 // 9: evidence was collected this cast
-	"CastSA>Collected",          // 1: Crimestopper Sprite
 	"TriggeredAttackerLKICopy",  // 7
 	"DelayTriggerRememberedLKI", // 6
 	"Equipped",                  // 5
@@ -140,6 +138,26 @@ func UnmodelledCondition(sa *cards.SA) (string, bool) {
 	}
 	if cp.Bare != "" && !conditionSupportedBare.Has(cp.Bare) {
 		return "Condition$ " + cp.Bare, true
+	}
+	return "", false
+}
+
+// unmodelledConditionDetail adds value-level filter gaps to the static census.
+// A valid, recognized group can still fail to resolve when its filter contains
+// an unknown predicate; genuinely pending groups (for example a target ask not
+// answered yet) remain unresolved without being mislabeled as unsupported.
+func unmodelledConditionDetail(sa *cards.SA) (string, bool) {
+	if detail, bad := UnmodelledCondition(sa); bad {
+		return detail, true
+	}
+	if sa == nil {
+		return "", false
+	}
+	cp := &ActivationOf(sa).Cond
+	for _, spec := range []string{cp.Present.Text, cp.Present2.Text, cp.NotPresent} {
+		if len(UnknownPredicates(spec)) > 0 {
+			return "unresolved Condition* predicate", true
+		}
 	}
 	return "", false
 }
