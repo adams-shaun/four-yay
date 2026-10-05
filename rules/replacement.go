@@ -306,6 +306,9 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 	if ev.Kind == events.ManaAdd {
 		return e.continueManaReplacements(ev, manaCandidates, nil, false, e.manaFromTap, e.manaProducer)
 	}
+	if ev.Kind == events.Connive && ev.Amount < 0 {
+		return continueConniveReplacements(e, ev, matches)
+	}
 	if ev.Kind == events.Scry {
 		// CR 614.4: the held scry proposal is not logged; its continuation
 		// rewrites the held instruction's count in place (handled=true, event
@@ -722,6 +725,8 @@ func replacementEventKind(ev events.Event) cards.ReplEvent {
 		return cards.ReplCreateToken
 	case events.Explore:
 		return cards.ReplExplore
+	case events.Connive:
+		return cards.ReplConnive
 	case events.Cascade:
 		// The cascade instruction's replacement boundary (CR 614.4; Averna,
 		// the Chaos Bloom). Only the synthetic PROPOSAL (Engine.

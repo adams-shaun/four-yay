@@ -313,7 +313,7 @@ func (h *fakeHost) SurveilLookExtra(p state.PlayerID) (int32, []int32) { return 
 // replacement matching lives in rules.Engine), the same discipline as
 // SacrificeBlocked above: the double reports false rather than inventing a
 // registry it cannot answer for.
-func (h *fakeHost) ExploreReplaced(explorer state.ObjID) bool { return false }
+func (h *fakeHost) ActionReplaced(proposal events.Event) bool { return false }
 
 // Scry has no replacement registry to consult here, the same discipline as
 // ExploreReplaced above: the double reports the instruction unchanged so an

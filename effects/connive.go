@@ -125,6 +125,10 @@ func conniveOnce(h Host, c *Ctx, sa *cards.SA, conniver state.ObjID, targetIdx, 
 		return false
 	}
 	ctrl := o.Controller
+	if h.(HostReplacements).ActionReplaced(events.Event{Kind: events.Connive, Obj: conniver,
+		Player: ctrl, Amount: -1}) {
+		return false
+	}
 	base := targetIdx * n
 	for d := done; d < n; d++ {
 		// drawFor (not the bare DrawFor): the cursor and the Connive SA
