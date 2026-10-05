@@ -34,7 +34,10 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 			want: []XAnswer{{0, "target", "[target_skip]"}},
 		},
 		{
-			name: "arrange partial selection: selected, stop, then order",
+			// Regression for the driver queue sequence: the first Forest selects
+			// a card, choice_skip ends selection, and the final Forest answers
+			// the independent order prompt (even when selection used that name).
+			name: "arrange partial selection: selection skip then independent order",
 			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "order", GorgeKind: "arrange", Options: 3, Min: 0, Max: 2, Picks: []string{"Forest"}, PickIdx: []int{0}, PickKinds: []string{"graveyard"}},
 			want: []XAnswer{{0, "choice", "Forest"}, {0, "choice", "[choice_skip]"}, {0, "choice", "Forest"}},
 		},

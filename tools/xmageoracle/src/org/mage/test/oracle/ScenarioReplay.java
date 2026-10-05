@@ -175,17 +175,29 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 return null;
             }
 
-            // The remaining labels are the chosen top-card ordering. Rebuild the
-            // Cards set in that order; unmatched answers belong to a later ask.
+            // The remaining labels are the chosen top-card ordering. The
+            // generator repeats labels from the arrange decision here; a label
+            // may therefore name a card already selected for the graveyard.
+            // Match against the original look set to distinguish an answer for
+            // this order prompt from an answer belonging to a later choice,
+            // while only adding cards still available to the top of the library.
+            Set<Card> lookedAt = cards.getCards(game);
             List<Card> ordered = new ArrayList<>();
             while (!queue.isEmpty()) {
-                Card match = findByName(available, queue.get(0));
-                if (match == null) {
+                String answer = queue.get(0);
+                Card match = findByName(available, answer);
+                if (match != null) {
+                    queue.remove(0);
+                    available.remove(match);
+                    ordered.add(match);
+                    continue;
+                }
+                if (findByName(lookedAt, answer) == null) {
                     break;
                 }
+                // This order label names a card consumed during selection.
+                // Consume it even though that card cannot be put back on top.
                 queue.remove(0);
-                available.remove(match);
-                ordered.add(match);
             }
             cards.clear();
             for (Card card : ordered) {
