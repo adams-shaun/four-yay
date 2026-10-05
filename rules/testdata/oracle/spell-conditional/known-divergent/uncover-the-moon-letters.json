@@ -1,6 +1,6 @@
 {
   "card": "Uncover the Moon-Letters",
   "rows": {
-    "noncreature-spell-draws-mana-spent-then-discards-two": "X is the SVar `X:TriggeredCard$CastTotalManaSpent`, read through the trigger's `Cost$ Draw<X/You>`. The trigger paid the cost but drew X=0, so the hand stayed at 0 (want 1) and three cards reached the graveyard (want 2, one drawn then two discarded). The TriggeredCard referent is not bound while a triggered ability's cost is paid; 57 corpus cards read CastTotalManaSpent."
+    "noncreature-spell-draws-mana-spent-then-discards-two": "The engine half of this scenario is fixed: the trigger's `Cost$ Draw<X/You>` now draws X=1 (hand stays correct at 1), so the old 'hand stayed at 0' cause is closed. The scenario still diverges on its AUTHORED script, not the engine: (1) `p0 graveyard size 3, want 2` -- after Bolt resolves it is in p0's graveyard, so Bolt + the two discarded cards is 3, never the authored 2; (2) the two discard answers sit in a separate step 2 `resolve`, but the engine consumes the discard choice in the same resolution as the draw (the step-1 fallback picks both cards), so step 2's answers are left unconsumed. Both are Oracle-author-side corrections (the expected graveyard count and the step ordering); the engine must not be edited to match them. Delete this row once the scenario's `expect` and step ordering are corrected."
   }
 }

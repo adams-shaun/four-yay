@@ -10,7 +10,7 @@ func kwExtort(f *Face, i int, k, head, param string, has func(kind, line string)
 	// SpellCast trigger on the controller; the optional {W/B} payment is
 	// efectively asked in effExtort (the mid-resolution KModes ask) and
 	// the drain runs per spell cast.
-	f.addKeywordTrigger(head, k, "Mode$ SpellCast | ValidActivatingPlayer$ You | TriggerDescription$ Extort",
+	f.addKeywordTrigger(head, k, "Mode$ SpellCast | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | TriggerDescription$ Extort",
 		"DB$ Extort", has)
 }
 

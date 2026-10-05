@@ -209,6 +209,20 @@ func EmitChoiceCosts(e Engine, paid *PaidCost, player state.PlayerID, card state
 				IDs: []state.ObjID{card}})
 		}
 	}
+	// CR 702.171: the creatures that paid a Saddle ability's tap cost saddled
+	// the Mount, the exact mirror of the Crew record above. The saddle
+	// keyword rides the minted Animate SA as `Keyword$ Saddle`
+	// (cards/kw_saddle.go), so the tag -- not any card name -- marks this
+	// activation: one Saddle event per tapped saddler, pairing it with the
+	// source Mount (card). The Mode$ Saddled / BecomesSaddled matchers and the
+	// ValidCrew$ filter read this pairing; the designation itself is the
+	// separate AlterAttribute "Saddled" event.
+	if SaHasKeyword(ability(), "Saddle") {
+		for _, id := range paid.Taps {
+			e.Emit(events.Event{Kind: events.Saddle, Obj: id, Player: player,
+				IDs: []state.ObjID{card}})
+		}
+	}
 	for i, id := range paid.Blights {
 		if i < len(cost.Blight) {
 			n := cost.Blight[i].N

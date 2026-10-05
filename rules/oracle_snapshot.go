@@ -186,7 +186,7 @@ func (r *oracleRun) snapshot(checkpoint string) OracleSnapshot {
 		kws := append([]string(nil), e.Keywords(id)...)
 		sort.Strings(kws)
 		p := OracleSnapPerm{
-			Ref: r.objRef(o), Name: r.objName(o), Controller: int(o.Controller), Owner: int(o.Owner),
+			Ref: r.objRef(o), Name: r.fieldName(o), Controller: int(o.Controller), Owner: int(o.Owner),
 			Token: o.IsToken, Tapped: o.Tapped, FaceDown: o.FaceDown, Damage: o.Damage,
 			Counters: r.snapCounters(o.Counters), Types: types, Colors: e.Colors(id), Keywords: kws,
 			Attacking: o.IsAttacking, Blocking: blocking[id],

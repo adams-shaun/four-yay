@@ -25,6 +25,7 @@ const (
 	condBlessing
 	condEnduringStory
 	condFerocious
+	condEvolve
 )
 
 var staticConditionCodes = state.NewStrCodes(
@@ -38,6 +39,7 @@ var staticConditionCodes = state.NewStrCodes(
 	state.StrEntry[staticCondition]{Key: "Blessing", Val: condBlessing},
 	state.StrEntry[staticCondition]{Key: "EnduringStory", Val: condEnduringStory},
 	state.StrEntry[staticCondition]{Key: "Ferocious", Val: condFerocious},
+	state.StrEntry[staticCondition]{Key: "Evolve", Val: condEvolve},
 )
 
 func init() {

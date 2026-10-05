@@ -1,6 +1,0 @@
-{
-  "card": "Rhovanion Rampager",
-  "rows": {
-    "attack-sacrifice-pumps-by-sacrificed-power": "The sacrifice cost is paid (the sacrificed creature reaches the graveyard) but `CounterNum$ X` with `SVar:X:Sacrificed$CardPower` resolves to 0, so the Rampager gets no +1/+1 counters (P/T 3/2, want 5/4)."
-  }
-}

@@ -1,6 +1,7 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.graveyard","diff":"gorge+[] xmage+[Grizzly Bears]"},"key":"cast-resolve | resolve | p1.graveyard | gorge+[] xmage+[Grizzly Bears]","cards":5}
+{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.graveyard","diff":"gorge+[] xmage+[Grizzly Bears]"},"key":"cast-resolve | resolve | p1.graveyard | gorge+[] xmage+[Grizzly Bears]","cards":6}
 {"card":"Armaggon, Future Shark","template":"cast-resolve","status":"diverge","api":"ChangesZone:Destroy","sets":["TMT"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[]\", xmage \"[Grizzly Bears]\""}
 {"card":"Depressurize","template":"cast-resolve","status":"diverge","api":"Pump+Destroy","sets":["EOE"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[]\", xmage \"[Grizzly Bears]\""}
+{"card":"Epic Fight","template":"cast-resolve","status":"diverge","api":"Charm","sets":["MSH"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[]\", xmage \"[Grizzly Bears]\""}
 {"card":"Go Ninja Go","template":"cast-resolve","status":"diverge","api":"Charm","sets":["TMT"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[]\", xmage \"[Grizzly Bears]\""}
 {"card":"Maelstrom Pulse","template":"cast-resolve","status":"diverge","api":"Pump+DestroyAll","sets":["FDN"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[]\", xmage \"[Grizzly Bears]\""}
 {"card":"The Fire Nation Drill","template":"cast-resolve","status":"diverge","api":"ChangesZone:ImmediateTrigger","sets":["TLA"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[]\", xmage \"[Grizzly Bears]\""}

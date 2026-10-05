@@ -108,8 +108,29 @@ func foldDoorUnlock(g *state.Game, e *Event) {
 	// live (rules' trigger/static/ability scans) and what a Mode$
 	// UnlockDoor trigger matches against. Totality: an unknown object, or
 	// one already unlocked, is a no-op.
-	if o := g.Obj(e.Obj); o != nil && !o.Unlocked {
-		o.Unlocked = true
+	if o := g.Obj(e.Obj); o != nil {
+		fi := 1 - int(o.FaceIdx)
+		if e.Amount > 0 {
+			fi = int(e.Amount - 1)
+		}
+		if fi >= 0 && fi < 2 {
+			o.LockedDoors &^= 1 << uint(fi)
+			if fi != int(o.FaceIdx) {
+				o.Unlocked = true
+			}
+		}
+	}
+}
+
+func foldDoorLock(g *state.Game, e *Event) {
+	if o := g.Obj(e.Obj); o != nil {
+		fi := int(e.Amount - 1)
+		if fi >= 0 && fi < 2 {
+			o.LockedDoors |= 1 << uint(fi)
+			if fi != int(o.FaceIdx) {
+				o.Unlocked = false
+			}
+		}
 	}
 }
 

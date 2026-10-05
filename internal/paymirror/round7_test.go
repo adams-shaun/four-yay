@@ -43,7 +43,15 @@ import (
 // forward ExiledCards list over every seat, and ChangeZoneAll records it)
 // moves the same cast from seq 9979 to 9983: foundations-calling-all-angels
 // runs Oblivion Ring, whose leave-the-battlefield trigger now returns the card
-// it exiled, changing the trajectory. The Roaming Throne verdict is unchanged.
+// it exiled, changing the trajectory. The spell-copy cessation fix adds the
+// replay-visible cease event and moves this cast to seq 9985; the verdict is
+// unchanged.
+// cli-20261004T233422Z-38455ebd (ConditionZone$ now filters a battlefield
+// zone too: a Defined$ object that left the battlefield no longer satisfies
+// a ConditionZone$ Battlefield gate) moves seed 4038 so it never casts Eldrazi
+// Monument through Urza's Workshop's metalcraft ability; its pin is seq 0 --
+// the whole game is still replayed and every planned cast must mirror, but
+// no named cast is required.
 func TestRoundSevenFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -57,9 +65,9 @@ func TestRoundSevenFindingsMirror(t *testing.T) {
 		seq       uint64
 		want      string // the named cast's verdict key ("" = equivalent)
 	}{
-		{4038, []string{"ulalek-eldrazi", "rakdos-muscle-scam-exe", "vivi-ornitier-cedh", "foundations-calling-all-angels"}, true, 7696, ""},
+		{4038, []string{"ulalek-eldrazi", "rakdos-muscle-scam-exe", "vivi-ornitier-cedh", "foundations-calling-all-angels"}, true, 0, ""},
 		{6085, []string{"vivi-ornitier-cedh", "ulalek-eldrazi", "deadly-disguise", "rakdos-muscle-scam-exe"}, true, 173, "expected:float_then_cast:float_removed_every_target"},
-		{6191, []string{"foundations-wretched-ranks", "avengers-assemble", "ulalek-eldrazi", "hearthhull-worldseed-landfall"}, true, 9983, "expected:float_then_cast:float_trigger_precedes_cast"},
+		{6191, []string{"foundations-wretched-ranks", "avengers-assemble", "ulalek-eldrazi", "hearthhull-worldseed-landfall"}, true, 9985, "expected:float_then_cast:float_trigger_precedes_cast"},
 		{5108, []string{"eldrazi-stompy", "mono-red-prowess"}, false, 675, "expected:float_then_cast:float_removed_every_target"},
 	} {
 		reports := round6Game(t, d, GameSpec{Seed: tc.seed, Decks: tc.decks, Commander: tc.commander, Policy: "bot"})
@@ -80,7 +88,7 @@ func TestRoundSevenFindingsMirror(t *testing.T) {
 				t.Errorf("seed %d seq %d %q: verdict %s %q, want %q", tc.seed, r.Seq, r.Card, st, key, tc.want)
 			}
 		}
-		if !found {
+		if tc.seq != 0 && !found {
 			t.Errorf("seed %d: no planned cast at seq %d (the game no longer reaches the finding)", tc.seed, tc.seq)
 		}
 	}

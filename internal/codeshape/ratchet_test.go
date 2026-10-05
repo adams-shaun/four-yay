@@ -31,12 +31,12 @@ const (
 	// -> 1944. Slice 4 made the payer grants pay.Engine adapter methods: -> 1940. W3 dead deleted the resume-scratch setters: -> 1931.
 	// E7 slice 9 moved the payment board reads to rules/pay funcs: -> 1917.
 	// E7 flow slice 3 moved the announced-SubCounter mana stage: -> 1822.
-	engineMethodCount = 1822
+	engineMethodCount = 1821
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
 	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94. W3 clean
 	// deleted the eight Suspend* no-ops: 94 -> 86.
-	hostMethodCount = 85
+	hostMethodCount = 84
 	// hostDirectMethodCount is the number of methods effects.Host declares
 	// itself rather than takes from a role interface (W1d split it into
 	// roles; host_roles.go).
@@ -272,7 +272,7 @@ const (
 	// string literal plus strings.EqualFold calls with a literal argument: the
 	// if-chain spelling of the `case "X":` dispatch stringCaseLiterals froze
 	// at zero. Measured on main at 00363b185.
-	stringLiteralCompares = 2233
+	stringLiteralCompares = 2221
 	// rawBoolParamParses is the strings.EqualFold calls whose argument holds a
 	// Param/ParamStr call: a flag parameter re-parsed at each use. Measured on
 	// main at 00363b185.
@@ -289,7 +289,7 @@ const (
 	// string switches, and a word named in a second table is the vocabulary
 	// splitting again. Measured on main at 00363b185.
 	strCodesTables = 336
-	strCodesKeyDup = 1304
+	strCodesKeyDup = 1263
 )
 
 // longFuncCeilings freezes every non-test function in rules/ and effects/
@@ -300,9 +300,8 @@ const (
 // Regenerate the keys with `go run ./cmd/codeshape -table`.
 var longFuncCeilings = map[string]int{
 	"effects applyLibrarySearch":                            327,
-	"effects conditionMet":                                  579,
 	"effects definedSpec":                                   949,
-	"effects effAttach":                                     466,
+	"effects effAttach":                                     465,
 	"effects effChangeZone":                                 613,
 	"effects effClone":                                      595,
 	"effects effCopyPermanent":                              823,
@@ -322,15 +321,15 @@ var longFuncCeilings = map[string]int{
 	"effects handMoveOwnersWalk":                            331,
 	"effects matchPositive":                                 442,
 	"effects refTargets":                                    321,
-	"effects wordMatches":                                   522,
+	"effects wordMatches":                                   516,
 	"rules (*Engine).appendAvailableManaAbilitiesGate":      375,
 	"rules (*Engine).applyReplacementsDispatch":             327,
-	"rules (*Engine).beginCastWith":                         723,
+	"rules (*Engine).beginCastWith":                         706,
 	"rules (*Engine).checkEventDelayedTriggers":             303,
 	"rules (*Engine).checkFaceTriggers":                     811,
-	"rules (*Engine).emit":                                  727,
+	"rules (*Engine).emit":                                  704,
 	"rules (*Engine).handleChoose":                          416,
-	"rules (*Engine).payCast":                               934,
+	"rules (*Engine).payCast":                               929,
 	"rules (*Engine).pushTrigger":                           766,
 	"rules (*Engine).replacementMatchesRememberedUngatedBy": 679,
 	"rules (*Engine).resolveTop":                            664,
@@ -339,7 +338,7 @@ var longFuncCeilings = map[string]int{
 	"rules (*Engine).triggerReferents":                      386,
 	"rules (*Engine).xAsk":                                  408,
 	"rules (*legalWalk).battlefieldWalk":                    864,
-	"rules (*legalWalk).handWalk":                           677,
+	"rules (*legalWalk).handWalk":                           673,
 	"rules (*oracleRun).do":                                 319,
 	"rules/cost ParseCost":                                  581,
 	"rules/pay NonManaCastableP":                            392,

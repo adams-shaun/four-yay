@@ -75,6 +75,21 @@ func (e *Engine) restrictionApplies(ce *ContinuousEffect, id state.ObjID) bool {
 		spec = ce.RestrictParam(cards.PKValidCards)
 	}
 	if spec == "" {
+		// The creature-duty family (Mode$ MustBlock, Mode$ MustAttack) spells
+		// its affected object as ValidCreature$, not ValidCard$: the corpus
+		// delivers `StaticAbilities$ MustBlock | ValidCreature$
+		// Card.IsRemembered` from an Effect body (Culvert Ambusher, Hustle //
+		// Bustle), so the duty arrives as a registered continuous restriction
+		// whose scoping key the ValidCard$/ValidTarget$/ValidCards$ chain above
+		// never saw. Without this read the spec fell to the Remembered>0
+		// blanket and EVERY creature on the defender's board inherited the
+		// duty rather than only the remembered one. The MustAttack sibling
+		// keeps its own mustAttackLineSelects read (rules/combat/attack.go);
+		// this is the same key for the consumers routing through
+		// restrictionApplies.
+		spec = ce.RestrictParam(cards.PKValidCreature)
+	}
+	if spec == "" {
 		return len(ce.Remembered) > 0
 	}
 	sc := e.specCtx(ce.Source, ce.Controller)

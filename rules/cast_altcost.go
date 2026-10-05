@@ -224,7 +224,7 @@ func (e *Engine) blitzCosts(p state.PlayerID, id state.ObjID) []struct {
 		if len(c.Unknown) != 0 {
 			continue
 		}
-		mode := "blitzed"
+		mode := altMode(altBlitz)
 		if blitzIndex > 1 {
 			mode = fmt.Sprintf("blitzed_grant_%d", blitzIndex)
 		}

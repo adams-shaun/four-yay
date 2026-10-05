@@ -88,6 +88,11 @@ func (o *Object) PileAbilityAt(i int) (PileAbility, bool) {
 	}
 	if f := o.Face(); f != nil {
 		if i < len(f.Abilities) {
+			// A Room's cast face may be locked again. Keep its flat slots
+			// reserved for replay, but its printed abilities are inert.
+			if o.Zone == ZBattlefield && f.IsRoom() && !o.DoorUnlocked(int(o.FaceIdx)) {
+				return PileAbility{}, false
+			}
 			return PileAbility{SA: f.Abilities[i]}, true
 		}
 		i -= len(f.Abilities)

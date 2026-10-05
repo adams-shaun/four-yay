@@ -1088,10 +1088,38 @@ const (
 	// the player who bent; Obj is the permanent whose action resolved; Text is
 	// one of water, earth, fire, or air. It is a replay-visible pure marker.
 	ElementalBend
+	// SetupEntered records that an oracle harness's seeded battlefield card
+	// entered during turn 1. The harness stages permanents before the first
+	// TurnChange (to avoid incidental ETB triggers), while XMage's scenario
+	// setup enters them during turn 1. Obj is the staged permanent. This is
+	// harness provenance only: it does not change zones or fire ETB triggers.
+	SetupEntered
+	// DoorLock records a Room door becoming locked. Amount is face index + 1,
+	// preserving zero as the legacy DoorUnlock alternate-face encoding.
+	// Appended after SetupEntered so main's existing ordinals (and the oracle
+	// fixtures that encode SetupEntered) are unchanged.
+	DoorLock
+	// Saddle records one CR 702.171 saddle action (the `K:Saddle` keyword,
+	// task triage-478c51d1): Obj is the SADDLING creature (one of the
+	// creatures the saddle cost tapped), Player its controller, and IDs[0]
+	// the Mount that creature saddled. It is the exact mirror of the Crew
+	// event above -- the tap itself is its own Tap event -- and exists so
+	// the Mode$ Saddled / BecomesSaddled matchers and the ValidCrew$ filter
+	// have a crewer-to-Mount pairing to read. One event per saddling
+	// creature. It is a replay-visible pure marker: the designation itself
+	// rides the AlterAttribute "Saddled" event, whose fold stamps
+	// Object.SaddledTurn. Appended after DoorLock, following every prior
+	// Kind's own append-only precedent, so no earlier ordinal, hash chain or
+	// golden replay is affected.
+	Saddle
+	// ClassLevelChange advances a Class's level designation by Amount.
+	// Unlike LEVEL counters this cannot be proliferated, removed or counted.
+	// Appended after Saddle, preserving main's existing event ordinals.
+	ClassLevelChange
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(ElementalBend) + 1
+	NumKinds = int(ClassLevelChange) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving
@@ -1427,6 +1455,42 @@ func ManaAddsCounterGrantsFromText(text string) []state.ManaAddsCounterGrant {
 	return out
 }
 
+// ManaColorSpentText encodes a cast's per-colour spend vector (state.Mana,
+// slots W,U,B,R,G,C) into the pay-time CastInfo's Text payload. The encoding
+// is deterministic (comma-joined decimal slots) and an all-zero vector still
+// encodes to a real "0,0,0,0,0,0", so a cast that spent no mana of any
+// colour is a real zero rather than an absent capture -- the same
+// "count 0 included" contract the snow/typed captures keep.
+func ManaColorSpentText(m state.Mana) string {
+	parts := make([]string, len(m))
+	for i, v := range m {
+		parts[i] = strconv.Itoa(int(v))
+	}
+	return strings.Join(parts, ",")
+}
+
+// ManaColorSpentFromText decodes the payload ManaColorSpentText wrote. A
+// malformed payload (wrong slot count, a non-integer or a negative slot)
+// yields the zero vector -- fail closed, never a guessed spend.
+func ManaColorSpentFromText(s string) state.Mana {
+	var m state.Mana
+	if s == "" {
+		return m
+	}
+	parts := strings.Split(s, ",")
+	if len(parts) != len(m) {
+		return m
+	}
+	for i, p := range parts {
+		n, err := strconv.Atoi(strings.TrimSpace(p))
+		if err != nil || n < 0 {
+			return state.Mana{}
+		}
+		m[i] = int32(n)
+	}
+	return m
+}
+
 type Event struct {
 	Seq     uint64           `json:"seq"`
 	Kind    Kind             `json:"kind"`
@@ -1687,6 +1751,12 @@ var flagNames = [...]struct {
 	// CR 702.190b's tapped-and-attacking entry. Appended at the end per the
 	// table's own ordering rule.
 	{"sneaked", state.FlagSneaked},
+	// The PER-COLOUR mana-spend capture (Adamant, CR 702.5): a face whose
+	// SVar table or ability text reads a Count$Adamant head stamps its
+	// pay-time CastInfo with this flag, and the six-slot spend vector rides
+	// the same event's Text into Object.ManaColorSpent. Appended at the end
+	// per the table's own ordering rule.
+	{"manacolorspent", state.FlagManaColorSpent},
 	// The kw:Impending alternative-cost cast (CR 702.176a): the flag is the
 	// provenance rules/altcast.go's entry hook (impendingTickGrant) reads to place
 	// the N time counters and register the end-step removal, and the one

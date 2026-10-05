@@ -14,7 +14,7 @@
 //     text the SECOND). It is the ONE cost reader the offer gate, the charge
 //     and the potential-plan pricing call, shared with evoke/dash/overload.
 //   - the offer (rules/legal_walk_hand.go and the command-zone half in
-//     rules/legal_walk_alt.go) adds the "impended" cast mode (castModeImpended); the spell is
+//     rules/legal_walk_alt.go) adds the "impended" cast mode (the altImpending row of rules/altcast_modes.go); the spell is
 //     an ordinary creature spell on the stack, so the offer gates on the
 //     plain SpellAbility's targets LIKE the evoke/dash family.
 //   - beginCast's alternative-cost keyword arm charges the same resolved cost

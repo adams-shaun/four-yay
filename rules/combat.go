@@ -1079,10 +1079,11 @@ func (e *Engine) askBlockers() {
 				// (one creature blocks one attacker) without knowing what a
 				// blocker is. The value is internal only -- a blocker:<id>
 				// prefix plus the object id -- never a display string.
+				mustBlockPair := requiredBlockers[bid] && combat.MustBlockPairRequired(asBoard(e), bid, aid)
 				opt := decision.Option{Index: len(built), Kind: "block",
 					Label: e.G.Obj(bid).Face().Name + " blocks " + e.G.Obj(aid).Face().Name,
 					Obj:   bid, Attacker: aid, Player: defender,
-					Group: "blocker:" + strconv.FormatUint(uint64(bid), 10), Required: requiredBlockers[bid], BlockMust: requiredBlockers[bid],
+					Group: "blocker:" + strconv.FormatUint(uint64(bid), 10), Required: mustBlockPair, BlockMust: mustBlockPair,
 					AttackMust: mustBeBlocked[aid]}
 				if b, ok := scope.bounds[aid]; ok {
 					opt.MinBlockers, opt.MaxBlockers = b[0], b[1]
@@ -2419,7 +2420,9 @@ func (e *Engine) cleanupStep() {
 
 // cleanupBody is the CR 514.2 portion of the cleanup step, run exactly once
 // per cleanup step. It removes damage marked on every permanent (combat or
-// otherwise), clears this turn's Deathtouched markers (a deathtouch mark lasts
+// otherwise) EXCEPT one a stat:NoCleanupDamage static selects (CR 514.2's
+// "Damage isn't removed from this creature during cleanup steps.", Ancient
+// Adamantoise; Engine.noCleanupDamageKeeps), clears this turn's Deathtouched markers (a deathtouch mark lasts
 // only as long as the damage it accompanied, CR 702.2c), and drops every
 // "until end of turn" continuous effect the layer system is holding
 // (Engine.EndOfTurnCleanup, layers.go -- built and tested since Task 19c, but
@@ -2435,7 +2438,38 @@ func (e *Engine) cleanupBody() {
 			if o == nil {
 				continue
 			}
-			if o.Damage > 0 {
+			// A stat:NoCleanupDamage static (CR 514.2: "Damage isn't removed
+			// from this creature during cleanup steps.", Ancient Adamantoise)
+			// keeps the marked damage. Read here, at the one removal site, so a
+			// static the cleanup step cannot see never drops damage.
+			keepDamage := false
+			for _, sv := range e.activeStatics("NoCleanupDamage") {
+				// A Condition$/IsPresent$ gate is a read of arbitrary board
+				// state, so a gated static whose gate is false must NOT keep
+				// damage. staticGateHolds evaluates the same gate the layer
+				// walk does (and records it for the memo re-check).
+				if !e.staticGateHolds(sv) {
+					continue
+				}
+				spec := strings.TrimSpace(sv.ParamStr(cards.PKValidCard))
+				if spec == "" {
+					continue
+				}
+				if e.matchesSpec(spec, id, e.staticSpecCtx(sv)) {
+					keepDamage = true
+					break
+				}
+			}
+			if !keepDamage {
+				for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+					ce := &ceL[ceI]
+					if ce.Restriction == effects.ModeNoCleanupDamage && e.restrictionApplies(ce, id) {
+						keepDamage = true
+						break
+					}
+				}
+			}
+			if o.Damage > 0 && !keepDamage {
 				ev := events.Event{Kind: events.Damage, Obj: id, Amount: -o.Damage}
 				if f := o.Face(); e.IsCreature(id) && f != nil && f.IsPlaneswalker() && !f.IsCreature() {
 					ev.Counter = "creature"

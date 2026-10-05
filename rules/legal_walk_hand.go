@@ -26,7 +26,7 @@ func (w *legalWalk) handWalk() {
 			verifyPrintedHeads(f, ph)
 		}
 		if f.IsLand() {
-			if sorcery && e.G.Players[p].LandsPlayed < int32(1+e.adjustLandPlays(p)) {
+			if sorcery && !playLandForbidden(e, p, state.ZHand, id) && e.G.Players[p].LandsPlayed < int32(1+e.adjustLandPlays(p)) {
 				w.add("play_land", w.playLabel(f), id)
 				// A Modal DFC may also be played as its back land, even
 				// when its front face is itself a land (CR 712.8).
@@ -66,7 +66,7 @@ func (w *legalWalk) handWalk() {
 		// CR 712.8/712.4d: a Modal DFC in hand may be played as its back
 		// face when that face is a land.  Keep this separate from the ordinary
 		// front-face land path so its existing option remains byte-identical.
-		if sorcery && e.G.Players[p].LandsPlayed < int32(1+e.adjustLandPlays(p)) {
+		if sorcery && !playLandForbidden(e, p, state.ZHand, id) && e.G.Players[p].LandsPlayed < int32(1+e.adjustLandPlays(p)) {
 			if back := modalLandBack(o); back != nil {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "play_land",
 					Label: "Play " + back.Name, Obj: id, Mode: "modal_land"})
@@ -515,18 +515,14 @@ func (w *legalWalk) handWalk() {
 		// machinery, exactly like Miracle); warp additionally offers from the
 		// graveyard and -- after an end-step exile -- from exile, in the walks
 		// below.
-		for _, ka := range [...]struct {
-			mode, head string
-			bit        printedHeads
-		}{
-			{"evoked", "Evoke", phEvoke}, {"dashed", "Dash", phDash}, {"overloaded", "Overload", phOverload}, {"warped", "Warp", phWarp}, {"impended", "Impending", phImpending},
-		} {
-			if !ph.has(ka.bit) {
+		for i := range altCastModes {
+			ka := &altCastModes[i]
+			if !ka.handLoop || !ph.has(ka.ph) {
 				continue
 			}
-			alt, ok := keywordAltCost(f, ka.head)
+			alt, ok := ka.faceCost(f)
 			if !ok || !w.offerCastable(p, id, alt, spellScope(ka.mode), false) ||
-				(ka.mode != "overloaded" && !targetsAvailable()) {
+				(!ka.untargeted && !targetsAvailable()) {
 				continue
 			}
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
@@ -559,8 +555,8 @@ func (w *legalWalk) handWalk() {
 				if !w.offerCastable(p, id, blitz.cost, spellScope(blitz.mode), false) || !targetsAvailable() {
 					continue
 				}
-				label := "blitzed"
-				if blitz.mode != "blitzed" {
+				label := altMode(altBlitz)
+				if blitz.mode != label {
 					label += " (granted)"
 				}
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
@@ -615,9 +611,9 @@ func (w *legalWalk) handWalk() {
 		// replicate convention.
 		if ph.has(phBestow) {
 			if ba, ok := bestowCost(f); ok && e.castTargetsAvailable(p, id, bestowedAttachSA()) &&
-				w.offerCastable(p, id, ba, spellScope("bestowed"), false) {
+				w.offerCastable(p, id, ba, spellScope(altMode(altBestow)), false) {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
-					Label: "Cast " + f.Name + " (bestowed)", Obj: id, Mode: "bestowed"})
+					Label: "Cast " + f.Name + " (" + altMode(altBestow) + ")", Obj: id, Mode: altMode(altBestow)})
 			}
 		}
 		// Mutate (CR 702.140a): the mutate cast pays the mutate cost in place

@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.exile","diff":"gorge+[$CARD] xmage+[]"},"key":"cast-resolve | resolve | p0.exile | gorge+[$CARD] xmage+[]","cards":1}
-{"card":"Photon Blast Barrage","template":"cast-resolve","status":"diverge","api":"DealDamage","sets":["MSH"],"detail":"step 1 (resolve) p0.exile: gorge \"[Photon Blast Barrage, Photon Blast Barrage]\", xmage \"[]\""}

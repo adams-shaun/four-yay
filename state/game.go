@@ -9,7 +9,10 @@ type Player struct {
 	Life        int32
 	Lost        bool
 	LandsPlayed int32
-	Pool        Mana
+	// CoinFlipsThisTurn counts canonical flip-result Notes. Folded by
+	// events.Apply and cleared at TurnChange; clone copies this scalar.
+	CoinFlipsThisTurn int32
+	Pool              Mana
 
 	// RestrictedMana retains the spend restriction on mana produced by a
 	// RestrictValid$ mana ability. It is cleared with the pool at step/phase

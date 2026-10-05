@@ -182,7 +182,13 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		if !pay.PayMana(asPayer(e), in.Player, mods.Apply(cost)) {
 			return
 		}
-		e.emit(events.Event{Kind: events.DoorUnlock, Obj: opt.Obj})
+		// Preserve the legacy zero-amount event for the ordinary alternate
+		// face; an explicitly relocked cast face needs its own face index.
+		amount := int32(0)
+		if !o.DoorUnlocked(int(o.FaceIdx)) {
+			amount = int32(o.FaceIdx) + 1
+		}
+		e.emit(events.Event{Kind: events.DoorUnlock, Obj: opt.Obj, Amount: amount})
 
 	case optGranted:
 		// kw:Start your engines (CR 702.179e, rules/speed.go): a max-speed

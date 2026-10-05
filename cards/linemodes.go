@@ -104,7 +104,16 @@ const (
 	TriggerUnattached                 TriggerMode = 82
 	TriggerUntaps                     TriggerMode = 83
 	TriggerVote                       TriggerMode = 84
-	TriggerModeCount                              = 85 // one past the last; sizes a dense per-TriggerMode array
+	// set-mechanic / keyword-action trigger modes (task
+	// triage-478c51d1): the trigger modes Standard's set mechanics and
+	// keyword actions print. Appended after TriggerVote, following the
+	// vocabulary's append-only convention, so no earlier ordinal moves.
+	TriggerCrewed         TriggerMode = 85
+	TriggerSaddled        TriggerMode = 86
+	TriggerBecomesSaddled TriggerMode = 87
+	TriggerBecomesPlotted TriggerMode = 88
+	TriggerSacrificedOnce TriggerMode = 89
+	TriggerModeCount                  = 90 // one past the last; sizes a dense per-TriggerMode array
 )
 
 var triggerModeNames = [TriggerModeCount]string{
@@ -192,6 +201,11 @@ var triggerModeNames = [TriggerModeCount]string{
 	TriggerUnattached:                 "Unattached",
 	TriggerUntaps:                     "Untaps",
 	TriggerVote:                       "Vote",
+	TriggerCrewed:                     "Crewed",
+	TriggerSaddled:                    "Saddled",
+	TriggerBecomesSaddled:             "BecomesSaddled",
+	TriggerBecomesPlotted:             "BecomesPlotted",
+	TriggerSacrificedOnce:             "SacrificedOnce",
 }
 
 var triggerModeCodes = func() StrCodes[TriggerMode] {
@@ -249,7 +263,8 @@ const (
 	StaticCombatDamageToughness StaticMode = 29
 	StaticMustBlock             StaticMode = 30
 	StaticUnspentMana           StaticMode = 31
-	StaticModeCount                        = 32 // one past the last; sizes a dense per-StaticMode array
+	StaticCantPlayLand          StaticMode = 32
+	StaticModeCount                        = 33 // one past the last; sizes a dense per-StaticMode array
 )
 
 var staticModeNames = [StaticModeCount]string{
@@ -284,6 +299,7 @@ var staticModeNames = [StaticModeCount]string{
 	StaticCombatDamageToughness: "CombatDamageToughness",
 	StaticMustBlock:             "MustBlock",
 	StaticUnspentMana:           "UnspentMana",
+	StaticCantPlayLand:          "CantPlayLand",
 }
 
 var staticModeCodes = func() StrCodes[StaticMode] {

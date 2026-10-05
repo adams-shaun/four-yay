@@ -218,6 +218,17 @@ type ConditionParams struct {
 	// CheckSVar and SVarCompare are ConditionCheckSVar$/ConditionSVarCompare$.
 	CheckSVar   string
 	SVarCompare Compare
+	// Present2/Compare2 are ConditionPresent2$/ConditionCompare2$ -- Forge's
+	// SECOND presence group, evaluated independently of and AND-ed with the
+	// ConditionDefined$/ConditionPresent$ pair (Super-Adaptoid's
+	// `ConditionPresent$ Creature.targetedBy+withHaste | ConditionPresent2$
+	// Card.Self+withoutHaste`). Zone is ConditionZone$ -- the zone the
+	// ConditionPresent$ group scans (Graveyard for Kytheon's Tactics'
+	// `Instant.YouOwn,Sorcery.YouOwn | ConditionCompare$ GE2`, Stack for the
+	// gift-promise pair).
+	Present2 ParamText
+	Compare2 Compare
+	Zone     string
 	// PlayerTurn is ConditionPlayerTurn$; Phases ConditionPhases$ with its
 	// parse (PhaseSet, PhasesOK: every element resolved and the set is
 	// non-empty); FirstCombat ConditionFirstCombat$; ActivationLimit
@@ -235,7 +246,8 @@ type ConditionParams struct {
 func (c *ConditionParams) Any() bool {
 	return c.Defined != "" || c.Present.Text != "" || c.NotPresent != "" || c.Compare.Text != "" ||
 		c.CheckSVar != "" || c.Bare != "" || c.PlayerTurn != "" || c.Phases != "" ||
-		c.FirstCombat != "" || c.ActivationLimit != ""
+		c.FirstCombat != "" || c.ActivationLimit != "" ||
+		c.Present2.Text != "" || c.Compare2.Text != "" || c.Zone != ""
 }
 
 // ActivationParams is one ability's activation/condition-tier parameters,
@@ -412,6 +424,10 @@ func compileActivation(sa *cards.SA) *ActivationParams {
 	}
 	c.FirstCombat = strings.TrimSpace(sa.ParamStr(cards.PKConditionFirstCombat))
 	c.ActivationLimit = strings.TrimSpace(sa.ParamStr(cards.PKConditionActivationLimit))
+	p2, p2OK := sa.Param(cards.PKConditionPresent2)
+	c.Present2 = paramText(p2, p2OK)
+	c.Compare2 = CompareOf(sa.ParamStr(cards.PKConditionCompare2))
+	c.Zone = conditionZoneParam(sa)
 
 	p.UnlessCost = sa.ParamStr(cards.PKUnlessCost)
 	p.UnlessPayer = strings.TrimSpace(sa.ParamStr(cards.PKUnlessPayer))
@@ -470,4 +486,5 @@ var conditionEvaluatedKeys = state.NewNameSet(
 	"ConditionCompare", "ConditionCheckSVar", "ConditionSVarCompare",
 	"Condition", "ConditionPlayerTurn", "ConditionPhases",
 	"ConditionFirstCombat", "ConditionActivationLimit",
+	"ConditionPresent2", "ConditionCompare2", "ConditionZone",
 )

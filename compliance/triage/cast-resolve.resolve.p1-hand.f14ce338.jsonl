@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.hand","diff":"gorge+[] xmage+[Grizzly Bears]"},"key":"cast-resolve | resolve | p1.hand | gorge+[] xmage+[Grizzly Bears]","cards":1}
-{"card":"Renet, Temporal Apprentice","template":"cast-resolve","status":"diverge","api":"ChangesZone:ChangeZoneAll","sets":["TMT"],"detail":"step 1 (resolve) p1.hand: gorge \"[]\", xmage \"[Grizzly Bears]\""}

@@ -408,7 +408,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		// walk -- no second collection, which is what keeps this walk at its
 		// pre-mutate allocation cost (internal/searchprobe's Capture budget
 		// runs legalActions over every object on every pass).
-		manaAbilities = f.ManaAbilities()
+		manaAbilities = roomFaceManaAbilities(o, f, true)
 	default:
 		// CR 702.140d: a mutated pile's under-card mana abilities are live
 		// too. Only the pile pays for the flattening.
@@ -417,7 +417,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 			if !ok {
 				continue
 			}
-			manaAbilities = append(manaAbilities, pf.Face.ManaAbilities()...)
+			manaAbilities = append(manaAbilities, roomFaceManaAbilities(o, pf.Face, i == 0)...)
 		}
 	}
 	// CR 305.6: basic land types granted in layer 4 carry their intrinsic
@@ -527,7 +527,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		// The cost is looked up once for the CR 302.6 tap-sick gate and the
 		// payability gate (manaAbilityPayable's own tap-sick re-check is the
 		// same pure read, so it is not repeated).
-		if !pay.TapFlagsSick(asPayer(e), id, cc.Tap, cc.Untap) && !abilityRestricted(ma) && (ignorePayable || e.manaCostPayable(p, o, id, cc, nil)) &&
+		if !pay.TapFlagsSick(asPayer(e), id, cc.Tap, cc.Untap, activatesAsIfHaste(e, id)) && !abilityRestricted(ma) && (ignorePayable || e.manaCostPayable(p, o, id, cc, nil)) &&
 			// CheckSVar$/SVarCompare$ (Glistening Sphere's Corrupted "Activate
 			// only if an opponent has three or more poison counters"): the same
 			// intervening-if gate sVarGateOK applies to every non-mana
@@ -574,7 +574,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// that fails one (an opponent's Exotic Orchard, a tapped source) never
 	// mints its Ctx.
 	considerReflected := func(ma *cards.SA, ctx func() *effects.Ctx) bool {
-		if ma.Kind != "AB" || ma.API != "ManaReflected" || !abilityZoneOK(ma, o.Zone) || !e.activatorAllows(p, id, ma) || pay.ManaAbilityTapSick(asPayer(e), id, ma) || abilityRestricted(ma) || !e.manaAbilityPayable(p, id, ma) || !e.manaReflectedPresentHolds(p, id, ma) {
+		if ma.Kind != "AB" || ma.API != "ManaReflected" || !abilityZoneOK(ma, o.Zone) || !e.activatorAllows(p, id, ma) || pay.ManaAbilityTapSick(asPayer(e), id, ma, activatesAsIfHaste(e, id)) || abilityRestricted(ma) || !e.manaAbilityPayable(p, id, ma) || !e.manaReflectedPresentHolds(p, id, ma) {
 			return false
 		}
 		// Face contexts are shared across abilities; never let one cost's
@@ -892,7 +892,7 @@ func (e *Engine) manaAbilityPayablePool(p state.PlayerID, source state.ObjID, ma
 		return false
 	}
 	cc := e.compiledCostOf(ma.ParamStr(cards.PKCost))
-	if pay.TapFlagsSick(asPayer(e), source, cc.Tap, cc.Untap) {
+	if pay.TapFlagsSick(asPayer(e), source, cc.Tap, cc.Untap, activatesAsIfHaste(e, source)) {
 		return false
 	}
 	return e.manaCostPayable(p, o, source, cc, hyp)
