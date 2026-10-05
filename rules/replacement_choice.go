@@ -463,7 +463,7 @@ func scheduleSelectedOptionalDraw(rc replChoice, index int,
 
 func handleDrawReplacementChoice(rc replChoice, choice int, before *triggerSnapshot,
 	emit func(events.Event) events.Event, applying *bool, exclude *[]string,
-	triggerBefore **triggerSnapshot, askNext func()) bool {
+	restore func(*triggerSnapshot), askNext func()) bool {
 	if rc.kind == replChoiceDraw {
 		if choice == 1 {
 			if rc.drawCompetition {
@@ -475,16 +475,16 @@ func handleDrawReplacementChoice(rc replChoice, choice int, before *triggerSnaps
 				emitDeclinedDrawReplacement(emit, applying, rc.ev)
 			}
 		}
-		*triggerBefore = before
+		restore(before)
 		askNext()
 		return true
 	}
-	return handleDeclinedDrawCompetition(rc, choice, before, emit, exclude, triggerBefore, askNext)
+	return handleDeclinedDrawCompetition(rc, choice, before, emit, exclude, restore, askNext)
 }
 
 func handleDeclinedDrawCompetition(rc replChoice, choice int, before *triggerSnapshot,
 	emit func(events.Event) events.Event, exclude *[]string,
-	triggerBefore **triggerSnapshot, askNext func()) bool {
+	restore func(*triggerSnapshot), askNext func()) bool {
 	if rc.ev.Kind != events.Draw || choice != len(rc.cands) ||
 		!hasOptionalBodylessDrawReplacement(rc.cands) {
 		return false
@@ -502,7 +502,7 @@ func handleDeclinedDrawCompetition(rc replChoice, choice int, before *triggerSna
 	*exclude = append(append([]string(nil), priorExclude...), declined)
 	emit(rc.ev)
 	*exclude = priorExclude
-	*triggerBefore = before
+	restore(before)
 	askNext()
 	return true
 }
@@ -514,6 +514,25 @@ func emitDeclinedDrawReplacement(emit func(events.Event) events.Event, applying 
 	*applying = true
 	emit(ev)
 	*applying = prior
+}
+
+func handleParkedDrawAnswer(rc replChoice, index int, before *triggerSnapshot,
+	askPlayer func([]replMatch, state.PlayerID) state.PlayerID, choices *[]replChoice,
+	ask func(state.PlayerID), emit func(events.Event) events.Event, applying *bool,
+	exclude *[]string, restore func(*triggerSnapshot), apply func(events.Event, replMatch),
+	invalid, askNext func()) bool {
+	if scheduleSelectedOptionalDraw(rc, index, askPlayer, choices, ask) {
+		return true
+	}
+	if rc.kind == replChoiceDraw && !rc.drawCompetition {
+		handleDrawReplacementAnswer(rc, index, apply,
+			func(ev events.Event) { emitDeclinedDrawReplacement(emit, applying, ev) }, invalid, func() {
+				restore(before)
+				askNext()
+			})
+		return true
+	}
+	return handleDrawReplacementChoice(rc, index, before, emit, applying, exclude, restore, askNext)
 }
 
 func handleDrawReplacementAnswer(rc replChoice, index int, apply func(events.Event, replMatch), decline func(events.Event), invalid, done func()) {
@@ -590,26 +609,15 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 	}
 	before := e.triggerBefore
 	e.triggerBefore = rc.before
-	if scheduleSelectedOptionalDraw(rc, chosen[0].Index, e.replacementAskPlayer,
-		&e.replChoices, e.askReplacementChoice) {
-		return
-	}
-	// Bodyful and pre-existing single-draw choices use the body-aware handler
-	// from main. A drawCompetition is the bodyless option promoted out of an
-	// order choice; its decline must exclude that candidate and re-run the
-	// competition, which the competition helper below handles.
-	if rc.kind == replChoiceDraw && !rc.drawCompetition {
-		handleDrawReplacementAnswer(rc, chosen[0].Index, func(ev events.Event, m replMatch) { e.applyReplacement(ev, m) },
-			func(ev events.Event) { emitDeclinedDrawReplacement(e.emit, &e.applyingReplacement, ev) }, func() {
-				e.emit(events.Event{Kind: events.Note, Player: in.Player, Text: "draw replacement answer out of range"})
-			}, func() {
-				e.triggerBefore = before
-				e.askNextReplacementChoice()
-			})
-		return
-	}
-	if handleDrawReplacementChoice(rc, chosen[0].Index, before, e.emit,
-		&e.applyingReplacement, &e.replExclude, &e.triggerBefore, e.askNextReplacementChoice) {
+	// Draw order choices promote an optional bodyless candidate to its own
+	// apply/decline question; the handler keeps the declined candidate out of
+	// the ensuing CR 616.1 competition.
+	if handleParkedDrawAnswer(rc, chosen[0].Index, before, e.replacementAskPlayer,
+		&e.replChoices, e.askReplacementChoice, e.emit, &e.applyingReplacement,
+		&e.replExclude, func(snapshot *triggerSnapshot) { e.triggerBefore = snapshot },
+		func(ev events.Event, m replMatch) { e.applyReplacement(ev, m) }, func() {
+			e.emit(events.Event{Kind: events.Note, Player: in.Player, Text: "draw replacement answer out of range"})
+		}, e.askNextReplacementChoice) {
 		return
 	}
 	if damageKind {
@@ -854,9 +862,7 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		e.applyReplacement(rc.ev, rc.cands[chosen[0].Index])
 	}
 	e.triggerBefore = before
-	// A mana replacement or colour decision can interrupt CR 601.2g's mana
-	// window. Resume the parked cast only after the final rewrite is logged
-	// and no next replacement decision is pending.
+	// Resume a mana-interrupted CR 601.2g cast after its final rewrite, once no choice remains.
 	if manaDecision && e.pending == nil && len(e.replChoices) == 0 && e.cast != nil {
 		e.continueCast()
 	}
