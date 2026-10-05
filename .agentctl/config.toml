@@ -363,9 +363,47 @@ env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "8" }
 # CPU, maxRSS 3.33G -> 2.04G. Peak RSS is flat, so the unchanged 8G MemoryMax
 # still bounds the gate. GOGC only re-tunes the running test binary's GC; it
 # changes neither the test set nor any verdict.
+#
+# 2026-10-05 (cli-20261005T092335Z-fc362c4d): the `rules` half is itself the
+# gate's critical path, and inside it the wall is a SERIAL PREFIX, not CPU.
+# Go runs every top-level test that does not call t.Parallel() to completion
+# before it starts any that does, so the two rules tests that install a
+# process-global default -- TestKr8WorldsInFuzzGames and
+# TestKr8HeadsCheckpointAll -- run strictly in sequence ahead of the entire
+# parallel group (6091 top-level tests, ~355s of parallel-scoped work that
+# fits in ~16 cores in ~25s). A -json schedule of this gate showed the `rest`
+# half done at t=8s while the rules binary ran alone to t=89s, ~1 core busy
+# of the 16 the scope grants: the gate was parallel-prefix-bound, not
+# quota-bound, so raising CPUQuota again buys nothing.
+#
+# Running each of the two process-global tests in its OWN concurrent `go
+# test ./rules` invocation -- and a third invocation for every remaining
+# rules test -- lets them overlap the parallel group instead of serialising
+# ahead of it. The three invocations plus the `rest` half cover exactly the
+# test set the single `go test ./rules` did: {serial} + {all - skip - serial}
+# = {all - skip}, checked by construction from go test's documented
+# `-run`/`-skip` intersection (a test runs iff it matches every -run and no
+# -skip). Every invocation carries the same outer -skip list, so TestHeads
+# and the two deliberately-heavy fuzz tests stay excluded from ALL of them;
+# either invocation failing fails the gate.
+#
+# Measured in this worktree, in the gate's own scope
+# (MemoryMax=8G CPUQuota=1600% GOMEMLIMIT=4GiB GOMAXPROCS=16 GOGC=200,
+# forced fresh with -count=1 so both variants do identical real work,
+# interleaved old/new/new/old to level the shared box's load):
+#   old (rest + one rules invocation): 177.7s, 149.1s wall
+#   new (rest + worlds + heads + rest-of-rules): 155.3s, 146.6s wall
+#   median ~163s -> ~151s (-12s, -8%); peak RSS 6.1-7.0G -> 6.3G, under the 8G
+# On a quiet box the same split ran the module gate in 42.2s against the old
+# command's 89.1s (-47s, -53%): the two isolated tests finished in 41.5s and
+# 11.5s while the remaining-rules invocation and `rest` finished underneath
+# them. The machine this fleet runs on is rarely quiet, so the interleaved
+# load-time number above is the honest floor. A listed test that is renamed
+# simply falls back into the remaining-rules invocation (today's behaviour,
+# never worse); a new process-global test does the same.
 [[gates]]
 name = "go test (module)"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "bash", "-c", "set -euo pipefail; skip='^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$'; rest=$(go list ./... | grep -vE '/rules$'); go test -p=8 -skip \"$skip\" $rest & rest_pid=$!; go test -p=8 -skip \"$skip\" ./rules/ & rules_pid=$!; if wait \"$rules_pid\"; then rules_rc=0; else rules_rc=$?; fi; if wait \"$rest_pid\"; then rest_rc=0; else rest_rc=$?; fi; test \"$rules_rc\" -eq 0 -a \"$rest_rc\" -eq 0"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "bash", "-c", "set -euo pipefail; skip='^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$'; serial='^(TestKr8WorldsInFuzzGames|TestKr8HeadsCheckpointAll)$'; rest=$(go list ./... | grep -vE '/rules$'); go test -p=8 -skip \"$skip\" $rest & a=$!; go test -p=8 -skip \"$skip\" -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!; go test -p=8 -skip \"$skip\" -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!; go test -p=8 -skip \"$skip\" -skip \"$serial\" ./rules/ & d=$!; rc=0; for p in \"$a\" \"$b\" \"$c\" \"$d\"; do wait \"$p\" || rc=1; done; exit $rc"]
 timeout = 1200
 env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "16", GOGC = "200" }
 
