@@ -5,7 +5,11 @@
 // Apply (g, e) switch; see apply.go for the dispatch.
 package events
 
-import "github.com/adams-shaun/gorge/state"
+import (
+	"strings"
+
+	"github.com/adams-shaun/gorge/state"
+)
 
 // foldDeclareAttackers folds Kind DeclareAttackers into state.
 func foldDeclareAttackers(g *state.Game, e *Event) {
@@ -229,12 +233,19 @@ func foldDamageProvenance(g *state.Game, e *Event) {
 	}
 	src := e.Obj
 	if o := g.Obj(src); o != nil && e.Amount > 0 {
+		provenance, typeWords, hasTypes := strings.Cut(e.Text, DamageProvenanceTypeSeparator)
 		record := state.DamageDealtRecord{
-			Recipient: e.IDs[0], Amount: e.Amount, Combat: e.Text == DamageProvenanceCombat,
+			Recipient: e.IDs[0], Amount: e.Amount, Combat: provenance == DamageProvenanceCombat,
+		}
+		if hasTypes {
+			record.RecipientTypes = strings.Split(typeWords, DamageProvenanceTypeWordSeparator)
 		}
 		if recipient := g.Obj(e.IDs[0]); recipient != nil {
 			record.RecipientZone = recipient.Zone
 			record.RecipientControl = recipient.Controller
+			if face := recipient.Face(); face != nil && !hasTypes {
+				record.RecipientTypes = append([]string(nil), face.Types...)
+			}
 		}
 		o.DamageDealtThisTurn = append(o.DamageDealtThisTurn, record)
 	}

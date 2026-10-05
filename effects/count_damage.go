@@ -81,5 +81,20 @@ func damageRecipientMatches(g *state.Game, spec string, hit state.DamageDealtRec
 	snapshot.Zone = hit.RecipientZone
 	snapshot.Controller = hit.RecipientControl
 	sc := c.SpecContext(c.Controller)
+	if hit.RecipientTypes != nil {
+		types := append([]ObjectTypes(nil), sc.Layers.DerivedTypes...)
+		found := false
+		for i := range types {
+			if types[i].ID == snapshot.ID {
+				types[i].Types = hit.RecipientTypes
+				found = true
+				break
+			}
+		}
+		if !found {
+			types = append(types, ObjectTypes{ID: snapshot.ID, Types: hit.RecipientTypes})
+		}
+		sc.Layers.DerivedTypes = types
+	}
 	return matchesObjectPtr(g, spec, &snapshot, &sc)
 }

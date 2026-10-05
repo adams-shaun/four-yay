@@ -571,6 +571,7 @@ type DamageDealtRecord struct {
 	Recipient        ObjID
 	RecipientZone    Zone
 	RecipientControl PlayerID
+	RecipientTypes   []string
 	Amount           int32
 	Combat           bool
 }
@@ -2053,6 +2054,9 @@ func (o *Object) cloneDeepIntoArena(c *Object, a *cloneArena) {
 	c.DamageTakenByGame = carveClone(&a.ids, o.DamageTakenByGame)
 	c.DamageTakenThisTurnBy = carveClone(&a.ids, o.DamageTakenThisTurnBy)
 	c.DamageDealtThisTurn = append([]DamageDealtRecord(nil), o.DamageDealtThisTurn...)
+	for i := range c.DamageDealtThisTurn {
+		c.DamageDealtThisTurn[i].RecipientTypes = append([]string(nil), o.DamageDealtThisTurn[i].RecipientTypes...)
+	}
 	c.ImprintTokens = carveClone(&a.ids, o.ImprintTokens)
 	c.EncodedCards = carveClone(&a.ids, o.EncodedCards)
 	c.SeekFound = carveClone(&a.ids, o.SeekFound)

@@ -1491,7 +1491,11 @@ func ManaColorSpentFromText(s string) state.Mana {
 	return m
 }
 
-const DamageProvenanceCombat = "damage-combat"
+const (
+	DamageProvenanceCombat            = "damage-combat"
+	DamageProvenanceTypeSeparator     = "\x1e"
+	DamageProvenanceTypeWordSeparator = "\x1f"
+)
 
 // Event is one replayable state transition.
 type Event struct {
