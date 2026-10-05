@@ -64,6 +64,19 @@ func (e *Engine) ReplaceEvent(name, raw string, resolved int32) {
 		}
 		return
 	}
+	if ev.Kind == events.MillProposal {
+		if body, ok := strings.CutPrefix(raw, "ReplaceCount$"); ok {
+			field, op, hasOp := strings.Cut(body, "/")
+			if replaceEventFieldCodes.Code(field) == replaceEventFieldNumber && hasOp {
+				ev.Amount = replCountOp(ev.Amount, op)
+			}
+			return
+		}
+		if replaceEventFieldCodes.Code(name) == replaceEventFieldNumber && resolved >= 0 {
+			ev.Amount = resolved
+		}
+		return
+	}
 	if ev.Kind != events.Damage {
 		return
 	}

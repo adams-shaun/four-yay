@@ -462,24 +462,8 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
-	case cards.ReplScry:
-		// The scry replacement (R:Event$ Scry, task scryrepl — Kenessos,
-		// Priest of Thassa; Eligeth, Crossroads Augur). The event is the
-		// synthetic instruction PROPOSAL effects' effLookAndArrange builds
-		// before looking (there is no printed-forge "Scry" event); ValidPlayer$
-		// names the scrying seat, matched with the replacement source's
-		// controller as You exactly like every other player-spec gate here.
-		// The completed events.Scry record (the bottom-card marker trig:Scry
-		// matches) is emitted OUTSIDE the replacement pass, so it can never
-		// reach this case.
-		if ev.Kind != events.Scry {
-			return false
-		}
-		if v, ok := r.Param(cards.PKValidPlayer); ok &&
-			!effects.MatchesPlayerSpec(e.G, v, ev.Player, you) {
-			return false
-		}
-		return e.replacementConditionHolds(r, source, you)
+	case cards.ReplMill, cards.ReplScry:
+		return millScryProposalMatches(r, ev, func(v string) bool { return effects.MatchesPlayerSpec(e.G, v, ev.Player, you) }, func() bool { return e.replacementConditionHolds(r, source, you) })
 	case cards.ReplRollDice:
 		// The roll-action replacement (R:Event$ RollDice, task rolldice-repl
 		// -- Wyll, Blade of Frontiers; Barbarian Class; Pixie Guide; the

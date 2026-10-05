@@ -858,8 +858,12 @@ func effMill(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
 	for _, t := range actingPlayers(h, c, sa) {
 		p := t
+		count := h.CountReplacementProposed(events.Event{Kind: events.MillProposal, Player: p, Obj: c.Source, Amount: n}).Amount
+		if count < 0 {
+			count = 0
+		}
 		var milledIDs []state.ObjID
-		for i := int32(0); i < n; i++ {
+		for i := int32(0); i < count; i++ {
 			lib := zoneOf(g, state.ZLibrary, p)
 			if len(lib) == 0 {
 				break
