@@ -121,12 +121,13 @@ const (
 	// TriggerTaps/TriggerUntaps. Appended after TriggerSacrificedOnce,
 	// following the vocabulary's append-only convention, so no earlier
 	// ordinal moves.
-	TriggerTapAll    TriggerMode = 90
-	TriggerUntapAll  TriggerMode = 91
-	TriggerExiled    TriggerMode = 92
-	TriggerLosesGame TriggerMode = 93
-	TriggerTurnBegin TriggerMode = 94
-	TriggerModeCount             = 95 // one past the last; sizes a dense per-TriggerMode array
+	TriggerTapAll          TriggerMode = 90
+	TriggerUntapAll        TriggerMode = 91
+	TriggerExiled          TriggerMode = 92
+	TriggerLosesGame       TriggerMode = 93
+	TriggerTurnBegin       TriggerMode = 94
+	TriggerExcessDamageAll TriggerMode = 95
+	TriggerModeCount                   = 96 // one past the last; sizes a dense per-TriggerMode array
 )
 
 var triggerModeNames = [TriggerModeCount]string{
@@ -174,6 +175,7 @@ var triggerModeNames = [TriggerModeCount]string{
 	TriggerCounterRemoved:             "CounterRemoved",
 	TriggerCounterRemovedOnce:         "CounterRemovedOnce",
 	TriggerDamageAll:                  "DamageAll",
+	TriggerExcessDamageAll:            "ExcessDamageAll",
 	TriggerDamagePreventedOnce:        "DamagePreventedOnce",
 	TriggerDiscardedAll:               "DiscardedAll",
 	TriggerDiscover:                   "Discover",

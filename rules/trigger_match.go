@@ -1360,7 +1360,9 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 					e.secondaryYields(observer, fc.face, ti, t, id, *ev, objLKI) {
 					continue
 				}
-				if (t.Mode == "DamageDealtOnce" || t.Mode == "DamageDoneOnce" || t.Mode == "DamageAll") && ev.Amount <= 0 {
+				mk := t.ModeKind()
+				damageAmount := damageTriggerAmount(e.excessDamageBaseline, mk, *ev)
+				if damageAmount <= 0 && (mk == cards.TriggerExcessDamageAll || mk == cards.TriggerDamageDealtOnce || mk == cards.TriggerDamageDoneOnce || mk == cards.TriggerDamageAll) {
 					continue
 				}
 				key := triggerKey{Source: id, Idx: ti, Face: fc.faceIdx}
@@ -1408,7 +1410,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 						continue // ResolvedLimit$: already resolved enough this turn.
 					}
 				}
-				if t.Mode == "DamageDealtOnce" || t.Mode == "DamageDoneOnce" || t.Mode == "DamageAll" {
+				if mk == cards.TriggerDamageDealtOnce || mk == cards.TriggerDamageDoneOnce || mk == cards.TriggerDamageAll || mk == cards.TriggerExcessDamageAll {
 					// The "Once" gate latches once per DAMAGE BATCH, not per turn
 					// (CR 510.4; Forge PhaseHandler.dealAssignedDamage fires
 					// triggerDamageDoneOnce once per damage step, and one
@@ -1433,12 +1435,9 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 					// event queues the single instance and every later matching
 					// pair in the batch accumulates into it -- the "one or more"
 					// reading.
-					// Non-positive amounts (the negative-amount Damage events the
-					// cleanup/regeneration repair paths emit to clear marked
-					// damage) are not damage and never latch or queue a Once
-					// trigger.
+					// Non-positive damage never latches (including cleanup repairs).
 					if ev.Amount > 0 {
-						bk := damageBatchKey{triggerKey: key, dealt: t.Mode == "DamageDealtOnce", all: t.Mode == "DamageAll"}
+						bk := damageBatchKey{triggerKey: key, dealt: mk == cards.TriggerDamageDealtOnce, all: mk == cards.TriggerDamageAll || mk == cards.TriggerExcessDamageAll}
 						var allSrc state.ObjID
 						var allTgt state.Target
 						if bk.dealt {
@@ -1481,7 +1480,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 							}
 							if entIdx, ok := e.damageBatchIdx[bk]; ok {
 								ent := &e.damageBatchLog[entIdx]
-								ent.amount += ev.Amount
+								ent.amount += damageAmount
 								if bk.all {
 									ent.sources = batchAppendSource(ent.sources, allSrc)
 									ent.targets = batchAppendTarget(ent.targets, allTgt)
@@ -1490,7 +1489,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 							}
 							e.damageBatchIdx[bk] = len(e.damageBatchLog)
 							ent := damageBatchEntry{
-								key: bk, idx: len(e.pendingTriggers), amount: ev.Amount,
+								key: bk, idx: len(e.pendingTriggers), amount: damageAmount,
 							}
 							if bk.all {
 								ent.sources = batchAppendSource(ent.sources, allSrc)
@@ -1780,6 +1779,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 					// CardToughness must read.
 					e.attachExploitedLKI(&pt, *ev)
 				}
+				setExcessTriggerAmount(&pt, mk, damageAmount)
 				e.pendingTriggers = append(e.pendingTriggers, pt)
 				// stat:Panharmonicon (CR 702.109): "If a triggered ability of a
 				// ... permanent you control triggers, that ability triggers an
@@ -2018,6 +2018,7 @@ func (e *Engine) openDamageBatch() {
 		e.damageBatchOpen = true
 		e.damageBatchIdx = nil
 		e.damageBatchLog = nil
+		e.excessDamageBaseline = nil
 	}
 	e.damageBatchDepth++
 }
@@ -2067,6 +2068,7 @@ func (e *Engine) closeDamageBatch() {
 	}
 	e.damageBatchIdx = nil
 	e.damageBatchLog = nil
+	e.excessDamageBaseline = nil
 }
 
 // batchAppendSource appends id to a DamageAll entry's deduplicated source

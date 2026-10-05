@@ -219,6 +219,12 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			defer e.closeTriggerWindow(own, saved)
 		}
 	}
+	// Open a singleton batch before the pre-fold snapshot, not after Apply.
+	onlyEventBatch := ev.Kind == events.Damage && !e.damageBatchOpen
+	if onlyEventBatch {
+		e.openDamageBatch()
+	}
+	e.excessDamageBaseline = captureExcessBaseline(e.excessDamageBaseline, ev, e)
 	// LKI (CR 603.10 "look back in time") is captured HERE, before
 	// events.Emit runs Apply and mutates the object -- a zone-change trigger
 	// needs the object exactly as it was a moment ago (its counters, tapped
@@ -597,11 +603,6 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	// already the batch total. A prevented Damage never reaches here (emit
 	// returned the prevention Note above), and the deferred cast-trigger arm
 	// skips the trigger check entirely, so neither needs a batch.
-	onlyEventBatch := false
-	if ev.Kind == events.Damage && !e.damageBatchOpen {
-		e.openDamageBatch()
-		onlyEventBatch = true
-	}
 	if ev.Kind == events.PutOnStack && e.deferCastTrigger {
 		// CR 601.2i: the cast trigger must not fire at the up-front push
 		// (601.2a), because the spell is not yet cast -- targets (601.2c) and
