@@ -92,7 +92,7 @@ func TypesAndAllCreatureTypes(b Board, act []state.ContinuousEffect, id state.Ob
 		}
 	}
 	if !anyLType {
-		return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, base))), !faceDown && o.Face().AllCreatureTypesCDA()
+		return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, base))), !faceDown && !o.ImpendingDormant() && o.Face().AllCreatureTypesCDA()
 	}
 	// Copy-on-write: the printed list is copied only once an effect actually
 	// applies to this object (most objects are untouched by the layer-4
