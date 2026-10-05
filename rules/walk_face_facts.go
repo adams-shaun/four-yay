@@ -71,6 +71,9 @@ type walkFaceFacts struct {
 	// allocates nothing and pays only the 1-byte mask.
 	altCosts    []altFaceCost
 	altCostMask uint8
+	// impendingCount is the compiled N from K:Impending:N:cost, read under
+	// the same keyword-list identity guard as altCosts.
+	impendingCount int32
 	// name and the option labels the walk offers for this face, built once
 	// so a walk shares them instead of concatenating per option (Go strings
 	// are immutable; a shared label is the same value the concatenation
@@ -120,6 +123,7 @@ func (ff *walkFaceFacts) verifyFresh(f *cards.Face) {
 	if !ff.keywordsCurrent(f) {
 		got.kwGranted, got.kwFirst, got.kwLen, got.ph = fresh.kwGranted, fresh.kwFirst, fresh.kwLen, fresh.ph
 		got.altCosts, got.altCostMask = fresh.altCosts, fresh.altCostMask
+		got.impendingCount = fresh.impendingCount
 	}
 	if !ff.triggersCurrent(f) {
 		got.trigZones, got.trigSig, got.trigSigOther, got.trigLookBack = fresh.trigZones, fresh.trigSig, fresh.trigSigOther, fresh.trigLookBack
@@ -188,6 +192,7 @@ func computeWalkFaceFacts(f *cards.Face) walkFaceFacts {
 		ff.replFirst = &f.Repls[0]
 	}
 	ff.ph = printedHeadsOf(f)
+	ff.impendingCount = impendingCount(f)
 	for i := range altCastModes {
 		c, ok := altCastModes[i].faceCostRaw(f)
 		if !ok {

@@ -153,7 +153,7 @@ func (e *Engine) entryCounterGrants(ev events.Event) []events.EntryCounterGrant 
 		// immediately before the move folds. Include its time counters in the
 		// common entry plan so AddCounter replacements are settled before entry.
 		if !events.IsFaceDownEntry(ev.Counter) && o.CastFlags&state.FlagImpending != 0 {
-			if n := impendingCount(o.Face()); n > 0 {
+			if n := cachedImpendingCount(o.Face(), e.walkFaceFactsOf(o.Face())); n > 0 {
 				grants = append(grants, events.EntryCounterGrant{Kind: "TIME", Amount: n})
 			}
 		}
