@@ -281,6 +281,36 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
     }
 
+    /** Whether the card's spell ability has a divided-amount target. */
+    private static boolean spellTargetsDivided(String name) {
+        CardInfo info = CardRepository.instance.findCard(name);
+        Card c = info == null ? null : info.createCard();
+        if (c == null) {
+            return false;
+        }
+        for (mage.target.Target t : c.getSpellAbility().getAllSelectedTargets()) {
+            if (t instanceof mage.target.TargetAmount) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The total maximum target count of the card's spell ability (every
+     * mode's targets counted), or Integer.MAX_VALUE when it cannot be read. */
+    private static int spellMaxTargets(String name) {
+        CardInfo info = CardRepository.instance.findCard(name);
+        Card c = info == null ? null : info.createCard();
+        if (c == null) {
+            return Integer.MAX_VALUE;
+        }
+        int n = 0;
+        for (mage.target.Target t : c.getSpellAbility().getAllSelectedTargets()) {
+            n += t.getMaxNumberOfTargets();
+        }
+        return n == 0 ? Integer.MAX_VALUE : n;
+    }
+
     /** Whether the card carries an alternative cost XMage offers on a plain
      * cast (EvokeAbility, ImpendingAbility, DashAbility, ...). */
     private static boolean hasAlternativeSourceCost(String name) {
@@ -453,6 +483,20 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // each ref carries. A trailing skip closes any slot XMage
                     // offers that this scenario did not fill (a reflexive
                     // sub-ability with no legal target, say).
+                    if (spellTargetsDivided(card)) {
+                        // A divided-amount target (TargetAmount: Biogenic
+                        // Upgrade, Synchronized Charge) takes the whole set
+                        // as one castSpell string and lets XMage split it,
+                        // as the single-target form does; addTarget's alias
+                        // answers are rejected ("Must be target amount").
+                        List<String> names = new ArrayList<>();
+                        for (String t : tg) {
+                            names.add(xmageSpelling(refName(t)));
+                        }
+                        castSpell(TURN, phase, p, card, String.join("^", names));
+                        cast.add(card);
+                        return;
+                    }
                     for (String t : tg) {
                         if (isSeatRef(t)) {
                             addTarget(p, seat(seatOf(t)));
@@ -464,7 +508,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
                             addTarget(p, targetName(t));
                         }
                     }
-                    addTarget(p, TestPlayer.TARGET_SKIP);
+                    if (tg.size() < spellMaxTargets(card)) {
+                        // Close an "up to N" slot the scenario left short; a
+                        // skip after every slot is filled is rejected by an
+                        // exact-count target (Pull Through the Weft).
+                        addTarget(p, TestPlayer.TARGET_SKIP);
+                    }
                     castSpell(TURN, phase, p, card);
                 }
                 cast.add(card);
