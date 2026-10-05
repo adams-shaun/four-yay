@@ -2,6 +2,7 @@ package codeshape
 
 import (
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -261,7 +262,88 @@ const (
 	// effects/repeateach_params.go (codeshape.RepeatEachFiles, codeshape.RepeatEachOnlyKeys). It landed at
 	// zero.
 	repeatEachParamLeaks = 0
+	// engineSurface is the engine's reach beyond engineMethodCount: *Engine
+	// methods, plus free functions with a *Engine parameter, plus methods of
+	// structs holding a *Engine field (codeshape.Metrics.EngineSurface). It
+	// closes the side door of turning an Engine method into a free function
+	// or a wrapper struct's method. Measured on main at 00363b185.
+	engineSurface = 2018
+	// stringLiteralCompares is the ==/!= comparisons against a non-empty
+	// string literal plus strings.EqualFold calls with a literal argument: the
+	// if-chain spelling of the `case "X":` dispatch stringCaseLiterals froze
+	// at zero. Measured on main at 00363b185.
+	stringLiteralCompares = 2233
+	// rawBoolParamParses is the strings.EqualFold calls whose argument holds a
+	// Param/ParamStr call: a flag parameter re-parsed at each use. Measured on
+	// main at 00363b185.
+	rawBoolParamParses = 232
+	// stringKeyedParamReads is the string literals passed at the key position
+	// of a string-keyed parameter helper (effects.Num and kin, found
+	// automatically: codeshape.Metrics.StringKeyedParamHelpers): the helper
+	// spelling of the Params["X"] read stringParamReads froze at zero.
+	// Measured on main at 00363b185.
+	stringKeyedParamReads = 167
+	// strCodesTables is the NewStrCodes / NewNameSet / NewStrTable call sites
+	// in rules/ and effects/, and strCodesKeyDup the sum over string keys of
+	// (distinct tables naming the key - 1): the W4 cases tables replaced the
+	// string switches, and a word named in a second table is the vocabulary
+	// splitting again. Measured on main at 00363b185.
+	strCodesTables = 336
+	strCodesKeyDup = 1304
 )
+
+// longFuncCeilings freezes every non-test function in rules/ and effects/
+// over codeshape.LongFuncLines at its length on main (00363b185), keyed
+// "<dir> <Name>" (codeshape.Func.CeilingKey). TestLongFunctionsOnlyShrink
+// fails on a new key, on growth, and on an entry no longer over the limit;
+// lower a value when its function shrinks. NEVER add a key or raise a value.
+// Regenerate the keys with `go run ./cmd/codeshape -table`.
+var longFuncCeilings = map[string]int{
+	"effects applyLibrarySearch":                            327,
+	"effects conditionMet":                                  579,
+	"effects definedSpec":                                   949,
+	"effects effAttach":                                     466,
+	"effects effChangeZone":                                 613,
+	"effects effClone":                                      595,
+	"effects effCopyPermanent":                              823,
+	"effects effDig":                                        521,
+	"effects effDigUntil":                                   423,
+	"effects effDiscard":                                    380,
+	"effects effEffect":                                     1198,
+	"effects effHiddenPick":                                 407,
+	"effects effPlay":                                       332,
+	"effects effPutCounter":                                 373,
+	"effects effReveal":                                     431,
+	"effects effSacrifice":                                  343,
+	"effects effSearchLibrary":                              477,
+	"effects effToken":                                      307,
+	"effects evalCountBodyDotted":                           301,
+	"effects evalCountBodyPaid":                             475,
+	"effects handMoveOwnersWalk":                            331,
+	"effects matchPositive":                                 442,
+	"effects refTargets":                                    321,
+	"effects wordMatches":                                   522,
+	"rules (*Engine).appendAvailableManaAbilitiesGate":      375,
+	"rules (*Engine).applyReplacementsDispatch":             327,
+	"rules (*Engine).beginCastWith":                         723,
+	"rules (*Engine).checkEventDelayedTriggers":             303,
+	"rules (*Engine).checkFaceTriggers":                     811,
+	"rules (*Engine).emit":                                  727,
+	"rules (*Engine).handleChoose":                          416,
+	"rules (*Engine).payCast":                               934,
+	"rules (*Engine).pushTrigger":                           766,
+	"rules (*Engine).replacementMatchesRememberedUngatedBy": 679,
+	"rules (*Engine).resolveTop":                            664,
+	"rules (*Engine).staticEffectsWalk":                     678,
+	"rules (*Engine).targetAsk":                             327,
+	"rules (*Engine).triggerReferents":                      386,
+	"rules (*Engine).xAsk":                                  408,
+	"rules (*legalWalk).battlefieldWalk":                    864,
+	"rules (*legalWalk).handWalk":                           677,
+	"rules (*oracleRun).do":                                 319,
+	"rules/cost ParseCost":                                  581,
+	"rules/pay NonManaCastableP":                            392,
+}
 
 func measureRepo(t *testing.T) Metrics {
 	t.Helper()
@@ -484,10 +566,66 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"field to compileRepeatEach in effects/repeateach_params.go) instead of reading the ability's Params in " +
 				"effects/repeateach.go or a RepeatEach-only key elsewhere. " +
 				"Leaks: " + strings.Join(m.RepeatEachLeaks, ", ")},
+		{"engineSurface", m.EngineSurface, engineSurface,
+			"A free func taking *Engine is an Engine method; take a narrow interface " +
+				"(or a feature struct holding only what it needs) instead of the whole engine."},
+		{"stringLiteralCompares", m.StringLiteralCompares, stringLiteralCompares,
+			"Compare a code from the table that owns the word (a cards.StrCodes code, " +
+				"an enum or a mask compiled once) instead of a new `s == \"Literal\"`."},
+		{"rawBoolParamParses", m.RawBoolParamParses, rawBoolParamParses,
+			"Parse the flag once in the API's compiled params (a bool field of its " +
+				"*_params.go record) instead of strings.EqualFold over a ParamStr at each use."},
+		{"stringKeyedParamReads", m.StringKeyedParamReads, stringKeyedParamReads,
+			"Read through the compiled record / ParamKey (a ParamText field of the API's " +
+				"compiler, or cards.PK<Key>) instead of passing a literal key to a string-keyed " +
+				"helper. Helpers: " + strings.Join(m.StringKeyedParamHelpers, "; ")},
+		{"strCodesTables", m.StrCodesTables, strCodesTables,
+			"Extend the table that already owns this word (or the mechanism's descriptor) " +
+				"instead of naming it in another table."},
+		{"strCodesKeyDup", m.StrCodesKeyDup, strCodesKeyDup,
+			"Extend the table that already owns this word (or the mechanism's descriptor) " +
+				"instead of naming it in another table."},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +
 				"synthesized trigger's record can be declared `var tc effects.TriggerContext` " +
 				"and filled field by field."},
 	})
+}
+
+// TestLongFunctionsOnlyShrink is the per-function form of maxFuncLinesOver300:
+// the count alone lets one long function grow while another shrinks, so each
+// is frozen at its own length in longFuncCeilings.
+func TestLongFunctionsOnlyShrink(t *testing.T) {
+	m := measureRepo(t)
+	seen := map[string]bool{}
+	for _, f := range m.LongFuncs {
+		key := f.CeilingKey()
+		seen[key] = true
+		limit, ok := longFuncCeilings[key]
+		switch {
+		case !ok:
+			t.Errorf("%s (%s:%d) is a new function over %d lines (%d). Extract the concern "+
+				"behind a named helper or a descriptor entry instead; do not add it to "+
+				"longFuncCeilings.", key, f.File, f.Line, LongFuncLines, f.Lines)
+		case f.Lines > limit:
+			t.Errorf("%s (%s:%d) grew to %d lines, above its frozen ceiling of %d. Extract the "+
+				"new logic into a named helper or a descriptor entry rather than growing the "+
+				"function; do not raise its longFuncCeilings value.", key, f.File, f.Line, f.Lines, limit)
+		case f.Lines < limit:
+			t.Logf("%s shrank to %d lines (ceiling %d): lower its longFuncCeilings value to %d "+
+				"in the same commit.", key, f.Lines, limit, f.Lines)
+		}
+	}
+	keys := make([]string, 0, len(longFuncCeilings))
+	for k := range longFuncCeilings {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		if !seen[k] {
+			t.Errorf("longFuncCeilings[%q] is stale: that function is no longer over %d lines "+
+				"(or was renamed or moved). Delete the entry.", k, LongFuncLines)
+		}
+	}
 }

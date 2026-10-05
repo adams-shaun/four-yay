@@ -196,6 +196,22 @@ ignore_uncommitted = ["TEST_HISTORY.md"]
 
 # gates.py:114-148, in order; each gate's argv/timeout/env/cwd is gates.py:34-103.
 
+# 2026-10-04: ratchets-only-fall (scripts/ratchet_gate.py). FIRST and cheap
+# (git + a stdlib Python tokenizer, well under a second): it fails a branch
+# that raises or deletes a shrink-only ratchet constant, widens an allow-list,
+# drops or rewires a TestCodeShapeOnlyShrinks row, adds a longFuncCeilings key
+# or raises its value, adds a known-unsupported entry, or edits the gate
+# itself -- all measured against merge-base({base}, HEAD). The script runs
+# from the BASE copy (`git show {base}:...`), so a branch cannot weaken the
+# gate that judges it; pipefail makes a missing base copy a failure rather
+# than an empty, passing stdin. There is no escape trailer: the operator
+# raises a ratchet by landing it by hand. Deliberately NOT a [mechanical]
+# pattern: a raised ratchet is never bookkeeping.
+[[gates]]
+name = "ratchets only fall"
+cmd = ["bash", "-c", "set -o pipefail; git show {base}:scripts/ratchet_gate.py | python3 - {base}"]
+timeout = 60
+
 # 2026-09-29: the resource broker's gate bracket (design
 # docs/superpowers/specs/2026-09-29-reward-loop-and-seed-agent-design.md §3.2).
 # This gate runs FIRST and pauses every heavy and probe lease, so the whole

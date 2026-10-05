@@ -168,8 +168,19 @@ A card or parameter that newly breaks fails. So does a table entry that the
 build now supports: it is stale.
 
 **To change:** when your work closes an entry, delete it in the same commit.
-Adding an entry means a regression; it needs a stated reason in the commit
-message.
+Adding an entry means a regression, and a branch cannot land one (see below).
+
+**A ratchet is never raised by a branch.** That covers the coverage tables
+above, the shrink-only constants and `longFuncCeilings` in
+`internal/codeshape`, the constants and allow-lists of `internal/archtest`,
+and `internal/testutil/agentsdoc_test.go`. The pipeline's first gate,
+"ratchets only fall" (`scripts/ratchet_gate.py`), enforces this. It runs from
+the BASE copy (`git show <base>:scripts/ratchet_gate.py | python3 - <base>`),
+so a branch cannot weaken the gate that judges it. Measured against the
+merge-base, it fails a raised or deleted constant, an added allow-list entry,
+a removed or rewired `TestCodeShapeOnlyShrinks` row, a new or grown
+`longFuncCeilings` entry, a new known-unsupported file, and any edit to the
+gate itself. There is no escape trailer: an operator raise is landed by hand.
 
 ### 9. Golden chain heads move only with a named cause
 

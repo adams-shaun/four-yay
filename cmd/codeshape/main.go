@@ -74,6 +74,12 @@ func run(w io.Writer, root string, table bool, top int) error {
 		{"effects.TriggerContext literals (outside constructors)", m.TriggerContextLiterals},
 		{"trigmatch.Board methods", m.TrigmatchBoardMethods},
 		{"pay.Engine methods", m.PayEngineMethods},
+		{"Engine surface (methods, *Engine funcs, holder methods)", m.EngineSurface},
+		{"string-literal compares (==, !=, EqualFold)", m.StringLiteralCompares},
+		{"EqualFold over Param/ParamStr", m.RawBoolParamParses},
+		{"literal keys to string-keyed param helpers", m.StringKeyedParamReads},
+		{"StrCodes/NameSet/StrTable tables", m.StrCodesTables},
+		{"table keys named in another table", m.StrCodesKeyDup},
 		{"files parsed", m.Files},
 	}
 	for _, r := range rows {
