@@ -123,7 +123,7 @@ func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oracle
 	// Attach the per-slot groups only when the driver needs them: a
 	// multi-slot cast, or a slot short of its max. An ordinary single-slot
 	// cast leaves the field off, preserving its existing wire bytes.
-	groups := fx.TargetGroups()
+	groups := fullTargetGroups(slots, stackIdx, targets, fx.TargetGroups())
 	needsGroups := len(groups) > 1
 	for _, group := range groups {
 		if group.Max > 0 && len(group.Picks) < group.Max {
@@ -146,6 +146,26 @@ func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oracle
 	}
 	oraclegen.Baseline(sc.Setup, f)
 	return sc
+}
+
+// fullTargetGroups restores stack slots omitted from fixture construction so
+// each group remains aligned with the full cast target list and slot order.
+func fullTargetGroups(slots []oraclegen.Slot, stackIdx []int, targets []string, plainGroups []oraclegen.TargetGroup) []oraclegen.TargetGroup {
+	groups := make([]oraclegen.TargetGroup, 0, len(slots))
+	plainIndex := 0
+	for i, slot := range slots {
+		if containsInt(stackIdx, i) {
+			groups = append(groups, oraclegen.TargetGroup{Picks: []string{targets[i]}, Max: slot.Max()})
+			continue
+		}
+		if plainIndex < len(plainGroups) {
+			group := plainGroups[plainIndex]
+			group.Max = slot.Max()
+			groups = append(groups, group)
+			plainIndex++
+		}
+	}
+	return groups
 }
 
 // slotFilters projects the target slots to their filters, in slot order, for
