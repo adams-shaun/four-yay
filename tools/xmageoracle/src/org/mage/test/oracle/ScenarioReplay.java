@@ -163,11 +163,13 @@ public class ScenarioReplay extends CardTestPlayerBase {
             Set<Card> available = new java.util.LinkedHashSet<>(lookedAtOrder);
             Cards selected = new CardsImpl();
             boolean scripted = false;
+            boolean selectionEnded = false;
             while (!queue.isEmpty()) {
                 String answer = queue.get(0);
                 if (TestPlayer.CHOICE_SKIP.equals(answer)) {
                     queue.remove(0);
                     scripted = true;
+                    selectionEnded = true;
                     break;
                 }
                 Card match = findByName(available, answer);
@@ -191,7 +193,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
             // while only adding cards still available to the top of the library.
             Set<Card> lookedAt = new java.util.LinkedHashSet<>(lookedAtOrder);
             List<Card> ordered = new ArrayList<>();
-            int orderAnswersRemaining = lookedAtOrder.size();
+            // A partial arrange emits each pick once for selection, then a
+            // skip and exactly those same picks for order. The look set can
+            // be larger than the pick set; counting it steals later answers.
+            // A forced bottom order emits picks only once (no skip), so it
+            // has no separate order answers to consume.
+            int orderAnswersRemaining = selectionEnded ? selected.size() : 0;
             while (orderAnswersRemaining > 0 && !queue.isEmpty()) {
                 String answer = queue.get(0);
                 Card match = findByName(available, answer);
