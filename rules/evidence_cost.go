@@ -52,9 +52,56 @@ func evidenceReserveOrder(g *state.Game, ids []state.ObjID) []state.ObjID {
 	return ordered
 }
 
+// evidenceSafeComponentOptions returns a deterministic subset of selectable
+// component candidates such that EVERY `count`-card answer leaves enough mana
+// value for evidence. The payability gate establishes that at least one legal
+// allocation exists; seed with the lowest-value component cards, then admit
+// another option only when the greatest-value count-sized subset still fits
+// within the graveyard's evidence-preservation budget.
+func evidenceSafeComponentOptions(g *state.Game, player state.PlayerID, candidates []state.ObjID,
+	count int, need int32, reserved map[state.ObjID]bool) []state.ObjID {
+	if count <= 0 || len(candidates) < count || need <= 0 {
+		return nil
+	}
+	available := evidenceGraveCandidates(g, player, reserved)
+	budget := evidenceManaValue(g, player, available) - need
+	ordered := evidenceReserveOrder(g, candidates)
+	selected := append([]state.ObjID(nil), ordered[:count]...)
+	if evidenceOptionSum(g, player, selected, count) > budget {
+		return nil
+	}
+	for _, id := range ordered[count:] {
+		trial := append(append([]state.ObjID(nil), selected...), id)
+		if evidenceOptionSum(g, player, trial, count) <= budget {
+			selected = append(selected, id)
+		}
+	}
+	allowed := make(map[state.ObjID]bool, len(selected))
+	for _, id := range selected {
+		allowed[id] = true
+	}
+	out := make([]state.ObjID, 0, len(selected))
+	for _, id := range candidates {
+		if allowed[id] {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// evidenceOptionSum returns the sum of the greatest `count` mana values in
+// ids; this is the worst-case evidence loss across all selectable answers.
+func evidenceOptionSum(g *state.Game, player state.PlayerID, ids []state.ObjID, count int) int32 {
+	ordered := evidenceOrder(g, ids)
+	if len(ordered) > count {
+		ordered = ordered[:count]
+	}
+	return evidenceManaValue(g, player, ordered)
+}
+
 // evidenceCanReach reports whether the unreserved graveyard still reaches
 // the shared threshold. It is used both by the payability allocation and by
-// the graveyard-component answer filter.
+// the graveyard-component answer validation.
 func evidenceCanReach(g *state.Game, player state.PlayerID, need int32, reserved map[state.ObjID]bool) bool {
 	if need <= 0 {
 		return false

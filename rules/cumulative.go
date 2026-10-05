@@ -1823,23 +1823,13 @@ func (e *Engine) advanceTriggeredMandatory(tc *triggeredEffectCost) {
 		d := &decision.Decision{Player: tc.player, Kind: decision.KChoose,
 			Min: int(part.N), Max: int(part.N), Source: tc.source,
 			Prompt: name + " — choose " + strconv.FormatInt(int64(part.N), 10) + " " + noun + " to " + kind}
-		if len(tc.amount.Evidence) > 0 && part.Zone == state.ZGraveyard && part.N == 1 {
-			// A graveyard component pick cannot consume the only evidence
-			// payment. Filter incompatible answers here, before the decision,
-			// so the deterministic bot cannot repeatedly submit one.
-			reserved := tc.reservedComponents()
-			filtered := eligible[:0]
-			for _, id := range eligible {
-				trial := make(map[state.ObjID]bool, len(reserved)+1)
-				for used := range reserved {
-					trial[used] = true
-				}
-				trial[id] = true
-				if evidenceCanReach(e.G, tc.player, tc.evidenceNeed(), trial) {
-					filtered = append(filtered, id)
-				}
-			}
-			eligible = filtered
+		if len(tc.amount.Evidence) > 0 && triggeredMandatoryZone(part, isSac) == state.ZGraveyard {
+			// Every offered N-card combination must leave enough mana value
+			// for evidence. Filtering individual options is insufficient when
+			// N > 1: two individually safe cards can jointly consume the only
+			// evidence-enabling cards.
+			eligible = evidenceSafeComponentOptions(e.G, tc.player, eligible, int(part.N),
+				tc.evidenceNeed(), tc.reservedComponents())
 		}
 		for _, id := range eligible {
 			label := e.targetName(id)
@@ -1894,6 +1884,19 @@ func (e *Engine) triggeredMandatoryAnswer(chosen []decision.Option) {
 	for _, id := range ids {
 		if !allowed[id] {
 			e.triggeredCostDecline(tc)
+			return
+		}
+	}
+	if len(tc.amount.Evidence) > 0 && triggeredMandatoryZone(part, tc.part < len(tc.amount.Sac)) == state.ZGraveyard {
+		reserved := tc.reservedComponents()
+		if reserved == nil {
+			reserved = make(map[state.ObjID]bool, len(ids))
+		}
+		for _, id := range ids {
+			reserved[id] = true
+		}
+		if !evidenceCanReach(e.G, tc.player, tc.evidenceNeed(), reserved) {
+			e.advanceTriggeredMandatory(tc)
 			return
 		}
 	}
