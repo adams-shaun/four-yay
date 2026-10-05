@@ -213,13 +213,67 @@ func CheckSVarCompare(h Host, c *Ctx, check string, cmp Compare) (holds, evaluat
 // (Main1,Main2 — the Addendum family), both read through the ONE shared
 // phase-name parser state.ParsePhases and AND-ed with whatever group gate
 // the SA also carries.
+// conditionMet evaluates sa's Condition* gate against the resolving
+// context. It is conditionMetCore (the primary ConditionDefined$/
+// ConditionPresent$/ConditionCheckSVar$/bare-Condition$ shape) AND-ed with
+// Forge's SECOND presence group (ConditionPresent2$/ConditionCompare2$):
+// Super-Adaptoid's `ConditionPresent$ Creature.targetedBy+withHaste |
+// ConditionPresent2$ Card.Self+withoutHaste` needs both legs, and the two are
+// independent groups. A lone ConditionPresent2$ (no primary key) is still a
+// real gate, so the wrapper evaluates it even when the core reports "not
+// gated".
 func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
+	met, resolved = conditionMetCore(h, c, sa)
+	cp := &ActivationOf(sa).Cond
+	if cp.Present2.Text == "" && cp.Compare2.Text == "" {
+		// No second group: return the core verbatim, including the
+		// (true, false) "not gated" answer a sub with no Condition* key gets.
+		return met, resolved
+	}
+	if !resolved {
+		// The primary gate is unresolved AND a real second group is written:
+		// the whole shape is unresolved, fail-open per this file.
+		return false, false
+	}
+	if !met {
+		return false, true
+	}
+	p2met, p2resolved := conditionMetZone(h, c, "", cp.Present2.Text, cp.Compare2.Text, nil)
+	if !p2resolved {
+		return false, false
+	}
+	return p2met, true
+}
+
+// conditionMetCore is conditionMet's primary evaluator: the ConditionDefined$/
+// ConditionPresent$ (with ConditionZone$) group, the ConditionCheckSVar$ gate,
+// the player-turn/phase preconditions and the bare Condition$. See the file
+// comment for the shape census and the fail direction.
+func conditionMetCore(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 	ap := ActivationOf(sa)
 	cp := &ap.Cond
 	defined := cp.Defined
 	present := cp.Present.Text
 	notPresent := cp.NotPresent
 	compare := cp.Compare.Text
+	zone := cp.Zone
+	// The `targetedBy` qualifier (Forge's Card.targetedBy: the candidate is
+	// targeted by the resolving ability) is a membership test against the
+	// resolving ability's answered targets, not a filter predicate (Wisecrack's
+	// `Creature.targetedBy+attacking`, Super-Adaptoid's per-keyword legs). It is
+	// handled by stripping the token and filtering the group, the same split
+	// the wasCastFromHand tokens take. Computed here so the bare-present path
+	// and the ConditionDefined$ group path share the one binding.
+	hasTargetedBy := strings.Contains(present, "targetedBy")
+	var targetedBySet map[state.ObjID]bool
+	if hasTargetedBy {
+		targetedBySet = make(map[state.ObjID]bool, len(c.Targets)+len(c.PickedTargets))
+		for _, t := range targetedGateGroup(c, sa) {
+			if !t.IsPlayer && t.Obj != 0 {
+				targetedBySet[t.Obj] = true
+			}
+		}
+	}
 	// PresentDefined$/IsPresent$/PresentCompare$ are the DB-body spellings of
 	// the same defined-group presence gate ConditionDefined$/
 	// ConditionPresent$/ConditionCompare$ express. Normalize here so every
@@ -461,7 +515,7 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 			}
 			return false, false
 		}
-		return combine(conditionMetBattlefield(h, c, present, compare))
+		return combine(conditionMetZone(h, c, zone, present, compare, targetedBySet))
 	}
 	if defined != "Remembered" && defined != "Self" && defined != "TriggeredCard" &&
 		defined != "TriggeredCardLKICopy" &&
@@ -694,6 +748,31 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 	// below reads the token-STRIPPED spec — the tokens themselves are unknown
 	// to the filter (that is the whole reason for the split), and an
 	// unreadable remainder must still be unresolved.
+	// ConditionZone$ names the zone the ConditionPresent$ group scans
+	// (Kytheon's Tactics' `Instant.YouOwn,Sorcery.YouOwn | ConditionCompare$
+	// GE2 | ConditionZone$ Graveyard`, the gift-promise pair's Stack self, the
+	// discard-counts' Hand). It applies as a post-filter on the group the
+	// ConditionDefined$ branch above built; the bare-present path passes it to
+	// conditionMetZone as the default group's zone. An unresolvable zone name
+	// leaves the shape unresolved, fail-open per this file.
+	if zone != "" {
+		z, ok := parseZone(zone)
+		if !ok {
+			return false, false
+		}
+		if z != state.ZBattlefield {
+			filtered := make([]state.Target, 0, len(group))
+			for _, t := range group {
+				if t.IsPlayer {
+					continue
+				}
+				if o := g.Obj(t.Obj); o != nil && o.Zone == z {
+					filtered = append(filtered, t)
+				}
+			}
+			group = filtered
+		}
+	}
 	hasHandToken := strings.Contains(present, "wasCastFromYourHandByYou")
 	// The bare spelling is a SUBSTRING of the ByYou token, so a ByYou spec
 	// must not route to the bare helper — the ByYou branch owns it.
@@ -723,6 +802,9 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		check := present
 		if hasHandToken || hasBareHand {
 			check = stripWasCastFromHandToken(present)
+		}
+		if hasTargetedBy {
+			check = stripTargetedByToken(check)
 		}
 		if !spellTargeting && len(UnknownPredicates(check)) > 0 {
 			return false, false
@@ -792,6 +874,14 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 				continue
 			}
 			memberSpec = s
+		}
+		if hasTargetedBy {
+			// The candidate must be one the resolving ability targeted
+			// (the stripped spec keeps every other predicate).
+			if !targetedBySet[t.Obj] {
+				continue
+			}
+			memberSpec = stripTargetedByToken(memberSpec)
 		}
 		if spellTargeting {
 			// The present spec is a target filter over the member spell's
@@ -899,6 +989,47 @@ func discardedGroup(h Host, c *Ctx) ([]state.Target, bool) {
 	return out, true
 }
 
+// conditionMetZone resolves a ConditionPresent$ group against the zone named
+// by ConditionZone$: the bare-present default group is every object in that
+// zone (Kytheon's Tactics' `Instant.YouOwn,Sorcery.YouOwn | ConditionCompare$
+// GE2 | ConditionZone$ Graveyard`, the gift-promise pair's `Card.Self` on the
+// Stack, Wiretapping's Hand count), and an empty zone keeps the battlefield
+// default (conditionMetBattlefield, including its entering-object exclusion).
+// An unreadable zone name or spec is unresolved, fail-open per this file.
+func conditionMetZone(h Host, c *Ctx, zone, present, compare string, targets map[state.ObjID]bool) (met, resolved bool) {
+	if zone == "" || strings.EqualFold(zone, "Battlefield") {
+		return conditionMetBattlefield(h, c, present, compare, targets)
+	}
+	z, ok := parseZone(zone)
+	if !ok {
+		return false, false
+	}
+	spec := present
+	if targets != nil {
+		spec = stripTargetedByToken(spec)
+	}
+	if len(UnknownPredicates(spec)) > 0 {
+		return false, false
+	}
+	g := h.Game()
+	sc := c.SpecContext(c.Controller)
+	sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, spec, h)...)
+	count := 0
+	for i := range g.Objs {
+		o := &g.Objs[i]
+		if o.Zone != z || o.Face() == nil {
+			continue
+		}
+		if targets != nil && !targets[o.ID] {
+			continue
+		}
+		if MatchesObjectCtx(g, spec, o, sc) {
+			count++
+		}
+	}
+	return evalConditionCount(count, compare)
+}
+
 // conditionMetBattlefield resolves a ConditionPresent$ (with an optional
 // ConditionCompare$ but NO ConditionDefined$) against Forge's default group
 // for that shape: every permanent on the battlefield. Task fb-9d2338cc (the
@@ -922,13 +1053,17 @@ func discardedGroup(h Host, c *Ctx) ([]state.Target, bool) {
 // the object loop, mirroring the Remembered path: an empty battlefield with
 // an unknown spec must be unresolved, not a resolved "count 0" that silently
 // stops subs that used to run.
-func conditionMetBattlefield(h Host, c *Ctx, present, compare string) (met, resolved bool) {
-	if len(UnknownPredicates(present)) > 0 {
+func conditionMetBattlefield(h Host, c *Ctx, present, compare string, targets map[state.ObjID]bool) (met, resolved bool) {
+	spec := present
+	if targets != nil {
+		spec = stripTargetedByToken(spec)
+	}
+	if len(UnknownPredicates(spec)) > 0 {
 		return false, false
 	}
 	g := h.Game()
 	sc := c.SpecContext(c.Controller)
-	sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, present, h)...)
+	sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, spec, h)...)
 	count := 0
 	for i := range g.Objs {
 		o := &g.Objs[i]
@@ -940,7 +1075,10 @@ func conditionMetBattlefield(h Host, c *Ctx, present, compare string) (met, reso
 			// doc above): it is not an "other" permanent and must not count.
 			continue
 		}
-		if MatchesObjectCtx(g, present, o, sc) {
+		if targets != nil && !targets[o.ID] {
+			continue
+		}
+		if MatchesObjectCtx(g, spec, o, sc) {
 			count++
 		}
 	}
@@ -1343,6 +1481,29 @@ func stripWasCastFromHandToken(spec string) string {
 			b.WriteByte(',')
 		}
 		b.WriteString(s4)
+		first = false
+	}
+	return b.String()
+}
+
+// stripTargetedByToken removes the `targetedBy` qualifier (and its `!`
+// negation) from every comma alternative of a present spec, text-only: the
+// UnknownPredicates guard must read the token-stripped spec while the
+// per-member membership test lives in the loop (see conditionMetCore). A spec
+// without the token is returned unchanged.
+func stripTargetedByToken(spec string) string {
+	if !strings.Contains(spec, "targetedBy") {
+		return spec
+	}
+	var b strings.Builder
+	first := true
+	for alt := range FilterAlternatives(spec) {
+		s, _ := StripPredicateToken(alt, "targetedBy")
+		s, _ = StripPredicateToken(s, "!targetedBy")
+		if !first {
+			b.WriteByte(',')
+		}
+		b.WriteString(s)
 		first = false
 	}
 	return b.String()

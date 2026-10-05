@@ -116,6 +116,11 @@ const (
 	// events.Move records, which the Count$ThisTurnEntered_* heads share.
 	wordThisTurnEntered
 	wordThisTurnEnteredFrom
+	// Forge's Outlaw batch word (the reminder text on every carrier: Assassins,
+	// Mercenaries, Pirates, Rogues and Warlocks are outlaws). It is a union of
+	// creature subtypes, not a single type word, so it needs its own kind --
+	// classified here so the matcher and UnknownPredicates agree.
+	wordOutlaw
 	// The "<Colour>Source" family (Ojer Axonil's Card.RedSource+YouCtrl):
 	// the object is a source carrying that colour -- CR 700.7's "a red
 	// source" is a source with red in its colour characteristics, which for
@@ -446,6 +451,12 @@ func wordPredicate(p string) (wordKind, string) {
 	// anyway, so a bare `Card.hasABasicLandType` stays correct too).
 	case wordPredicateWordHasABasicLandType:
 		return wordHasBasicLandType, ""
+	// Forge's Outlaw batch word: the candidate carries at least one of the
+	// five outlaw creature subtypes (Assassins, Mercenaries, Pirates, Rogues,
+	// Warlocks -- the reminder text on every carrier). The matcher reads the
+	// layer-aware subtype list, so a type-changing effect is honoured.
+	case wordPredicateWordOutlaw:
+		return wordOutlaw, ""
 	}
 	if p == "TargetedPlayerOwn" {
 		return wordTargetedPlayerOwn, ""
@@ -543,6 +554,12 @@ func zoneWordKnown(z string) bool {
 	return ok
 }
 
+// outlawSubtypes are the creature subtypes Forge's Outlaw batch word names
+// (the reminder text on every carrier: "Assassins, Mercenaries, Pirates,
+// Rogues, and Warlocks are outlaws"). The order is fixed so the matcher is
+// deterministic.
+var outlawSubtypes = [...]string{"Assassin", "Mercenary", "Pirate", "Rogue", "Warlock"}
+
 // wordMatches reports whether an object satisfies a positively-evaluated
 // classifier from wordPredicate. Colorless is "no colour at all" and
 // MultiColor "more than one colour"; MonoColor is its twin, "exactly one
@@ -580,6 +597,17 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		return chosen != 0 && strings.Contains(colorsCtx(o, &sc), string(chosen))
 	case wordType:
 		return hasTypePredicateCtx(o, key, sc)
+	case wordOutlaw:
+		// Forge's Outlaw: the candidate has any of the five outlaw creature
+		// subtypes (Assassins, Mercenaries, Pirates, Rogues, Warlocks). Read
+		// through the layer-aware subtype matcher so a type-changing effect is
+		// honoured. A card with none of them never matches (no default).
+		for _, sub := range outlawSubtypes {
+			if hasTypeCtx(o, sub, sc) {
+				return true
+			}
+		}
+		return false
 	case wordColorless:
 		return colorMaskCtx(o, &sc) == 0
 	case wordControllerDealtCombatDamageBySource:
@@ -1164,7 +1192,7 @@ func nonPredicate(p string) (kind wordKind, key string, ok bool) {
 	}
 	kind, key = wordPredicate(x)
 	switch kind {
-	case wordColor, wordType, wordColorless, wordCopiedSpell:
+	case wordColor, wordType, wordColorless, wordCopiedSpell, wordOutlaw:
 		return kind, key, true
 	}
 	return wordUnknown, "", false
@@ -1215,6 +1243,7 @@ const (
 	wordPredicateWordBlockedBySource
 	wordPredicateWordHasANonBasicLandType
 	wordPredicateWordHasABasicLandType
+	wordPredicateWordOutlaw
 )
 
 var wordPredicateWordCodes = state.NewStrCodes(
@@ -1262,6 +1291,7 @@ var wordPredicateWordCodes = state.NewStrCodes(
 	state.StrEntry[wordPredicateWordCode]{Key: "blockedBySource", Val: wordPredicateWordBlockedBySource},
 	state.StrEntry[wordPredicateWordCode]{Key: "hasANonBasicLandType", Val: wordPredicateWordHasANonBasicLandType},
 	state.StrEntry[wordPredicateWordCode]{Key: "hasABasicLandType", Val: wordPredicateWordHasABasicLandType},
+	state.StrEntry[wordPredicateWordCode]{Key: "Outlaw", Val: wordPredicateWordOutlaw},
 )
 
 type wordPredicateSharesCode uint16
