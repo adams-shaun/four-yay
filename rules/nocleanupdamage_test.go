@@ -13,6 +13,7 @@ package rules
 
 import (
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -63,20 +64,17 @@ func TestNoCleanupDamagePrimitiveIsRegistered(t *testing.T) {
 // TestNoCleanupDamageClassCensus pins the corpus-wide carrier set so a
 // corpus-pin bump that adds a new carrier fails loudly.
 //
-// This is the PRINTED-STATIC class (S:Mode$ NoCleanupDamage), which is the set
-// the coverage walk emits `stat:NoCleanupDamage` for. Three further corpus
-// cards deliver the mode through `Animate | staticAbilities$` (Melt Through,
-// Switchgrass Grazer, Victory of the Pyrohammer); that delivery route is not
-// registered for this mode (effects/leavebattlefield.go
-// registerAnimateStaticAbilities accepts only the cost statics and
-// CantSacrifice/CantBlockUnless/CantAttackUnless), so those cards neither carry
-// the coverage token nor are enforced. That remainder is filed as a follow-up
-// ticket; adding a carrier to it does not move this pin.
+// Includes printed, Effect-delivered and Animate-granted static bodies.
+// The Animate path is an SVar referenced through staticAbilities$, not a
+// printed Face.Static; inspect the source table so pin bumps cannot hide one.
 var noCleanupDamageCarriers = []string{
 	"Ancient Adamantoise",
 	"Case of the Market Melee",
+	"Melt Through",
 	"Patient Zero",
+	"Switchgrass Grazer",
 	"Uthgardt Fury",
+	"Victory of the Pyrohammer",
 }
 
 func TestNoCleanupDamageClassCensus(t *testing.T) {
@@ -89,6 +87,11 @@ func TestNoCleanupDamageClassCensus(t *testing.T) {
 			}
 			for _, st := range f.Statics {
 				if st.Mode == "NoCleanupDamage" {
+					got[f.Name] = true
+				}
+			}
+			for _, body := range f.SVars {
+				if strings.Contains(body, "Mode$ NoCleanupDamage") {
 					got[f.Name] = true
 				}
 			}

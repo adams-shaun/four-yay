@@ -2459,6 +2459,15 @@ func (e *Engine) cleanupBody() {
 					break
 				}
 			}
+			if !keepDamage {
+				for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+					ce := &ceL[ceI]
+					if ce.Restriction == effects.ModeNoCleanupDamage && e.restrictionApplies(ce, id) {
+						keepDamage = true
+						break
+					}
+				}
+			}
 			if o.Damage > 0 && !keepDamage {
 				ev := events.Event{Kind: events.Damage, Obj: id, Amount: -o.Damage}
 				if f := o.Face(); e.IsCreature(id) && f != nil && f.IsPlaneswalker() && !f.IsCreature() {
