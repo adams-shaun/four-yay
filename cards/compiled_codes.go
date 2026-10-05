@@ -677,7 +677,7 @@ var triggerModeInterests = func() (t [TriggerModeCount]TriggerInterest) {
 	// by trigmatch.BecomeMonarchMatches. The dedicated bit narrows a
 	// BecomeMonarch-only face's scan set to that kind.
 	set(TriggerInterestMonarch, TriggerBecomeMonarch)
-	set(TriggerInterestTap, TriggerTaps, TriggerTapsForMana)
+	set(TriggerInterestTap, TriggerTaps, TriggerTapsForMana, TriggerTapAll, TriggerUntapAll)
 	set(TriggerInterestDamage, TriggerDamageDone, TriggerDamageDealtOnce, TriggerDamageDoneOnce)
 	set(TriggerInterestDraw, TriggerDrawn)
 	set(TriggerInterestDamage|TriggerInterestLifeChange, TriggerLifeLost)

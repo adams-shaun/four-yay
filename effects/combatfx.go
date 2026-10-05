@@ -91,6 +91,12 @@ func effTapAll(h Host, c *Ctx, sa *cards.SA) {
 	}
 	tapper := c.Controller
 	perCardTapper := strings.TrimSpace(sa.ParamStr(cards.PKTapperController)) != ""
+	// One api TapAll resolution is ONE tapping action (the "one or more"
+	// reading Forge's TriggerTapAll implements), so the Mode$ TapAll batch
+	// fires once for the whole call, not once per tapped permanent. The
+	// shared action bracket (effects/action_batch.go); TapAll does not
+	// suspend, so the deferred close is exact.
+	defer beginActionBatch(h)()
 	players := allPlayersFor(h, c, sa)
 	for _, p := range players {
 		ids := append([]state.ObjID(nil), g.Zone(state.ZBattlefield, p)...)
@@ -132,6 +138,16 @@ func effUntapAll(h Host, c *Ctx, sa *cards.SA) {
 	remember := strings.EqualFold(sa.ParamStr(cards.PKRememberUntapped), "True")
 	untapper := c.Controller
 	perCardUntapper := strings.TrimSpace(sa.ParamStr(cards.PKControllerUntaps)) != ""
+	// One api UntapAll resolution is ONE untapping action, so the Mode$
+	// UntapAll batch fires once for the whole call (the effTapAll bracket's
+	// twin). Unlike TapAll, an Untap event can be REPLACED (ReplUntap) and a
+	// CR 616.1 order choice can park inside the emit; under the resolution
+	// kernel such a choice is answered in place, so no suspension occurs in
+	// ordinary resolution and the deferred close is exact. A legacy (no-tape)
+	// park that suspends the primitive mid-loop could split one action into
+	// two batches; that resumable-bracket shape is tracked as a follow-up, as
+	// it needs an engine-surface-neutral way to read the bracket's open state.
+	defer beginActionBatch(h)()
 	players := allPlayersFor(h, c, sa)
 	for _, p := range players {
 		ids := append([]state.ObjID(nil), g.Zone(state.ZBattlefield, p)...)

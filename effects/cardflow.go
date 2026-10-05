@@ -840,19 +840,10 @@ func effMill(h Host, c *Ctx, sa *cards.SA) {
 	// One api:Mill resolution is ONE mill action (Forge's one Mill call),
 	// so the Mode$ MilledAll batch ("whenever one or more cards are
 	// milled") must fire once for the whole call, not once per milled card.
-	// The bracket is opened here and closed after every acting player's
-	// moves; the per-card Mode$ Milled trigger needs no batch and fires on
-	// each MoveZone exactly as before. The bracket is a type assertion, the
-	// zoneBatch bracket's shape (effects/choose_control.go's zoneBatcher),
-	// so a host double without it simply fires MilledAll per card rather
-	// than failing to compile.
-	if b, ok := h.(interface {
-		BeginMillBatch()
-		EndMillBatch()
-	}); ok {
-		b.BeginMillBatch()
-		defer b.EndMillBatch()
-	}
+	// The bracket is the shared action bracket (effects/action_batch.go); the
+	// per-card Mode$ Milled trigger needs no batch and fires on each MoveZone
+	// exactly as before.
+	defer beginActionBatch(h)()
 	g := h.Game()
 	for _, t := range actingPlayers(h, c, sa) {
 		p := t

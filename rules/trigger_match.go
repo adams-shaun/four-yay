@@ -1538,23 +1538,21 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 					// Fall through: the trigger queues now; closeZoneBatch patches
 					// its plural capture to the batch's moved set.
 				}
-				// MilledAll inside an open mill batch (one api:Mill resolution,
-				// effects/cardflow.go's effMill) is the mill twin of the
-				// ChangesZoneAll latch above: the batch's milled cards reach the
-				// trigger ONCE, not once per card, so it fires ONCE for the whole
-				// mill action if at least one matching card was milled. The latch
-				// keys on the trigger line ALONE (DamageAll's shape); the first
-				// matching milled card queues the single instance and every later
-				// matching card accumulates into the entry's COUNT, which
-				// closeMillBatch patches into the queued trigger's TriggerAmount
-				// (the TriggerCount$Amount head The Wise Mothman's X and
-				// Screeching Scorchbeast's "that many" read). Only cards this
-				// line's ValidCard$ matched are counted, exactly as DamageAll
-				// only accumulates matching pairs. No batch open (a mill that is
-				// not an api:Mill, e.g. a cost mill) means every mill is its own
-				// batch-of-one and the per-event referent below already carries
+				// MilledAll (one api:Mill resolution), TapAll (one api TapAll
+				// resolution, the declare-attackers taps, the untap step, or one
+				// cost that taps several permanents) and UntapAll share one latch:
+				// the batch's matching events reach the trigger ONCE, not once per
+				// card/permanent, so it fires ONCE for the whole action if at
+				// least one matching event happened. The latch keys on the trigger
+				// line ALONE (DamageAll's shape); the first match queues the
+				// single instance and later matches accumulate into the entry's
+				// COUNT, which closeMillBatch patches into the queued trigger's
+				// TriggerAmount (The Wise Mothman's, Magmakin Artillerist's and
+				// The Millennium Calendar's X all read it) and its deduplicated
+				// set into Remembered/Captured. No batch open means every event is
+				// its own batch-of-one and the referent below already carries
 				// count 1.
-				if t.Mode == "MilledAll" && e.millBatchOpen {
+				if mk := t.ModeKind(); e.millBatchOpen && (mk == cards.TriggerMilledAll || mk == cards.TriggerTapAll || mk == cards.TriggerUntapAll) {
 					if e.millBatchIdx == nil {
 						e.millBatchIdx = map[triggerKey]int{}
 					}
@@ -2106,13 +2104,15 @@ func (e *Engine) EndDamageBatch()   { e.closeDamageBatch() }
 func (e *Engine) BeginZoneBatch() { e.openZoneBatch() }
 func (e *Engine) EndZoneBatch()   { e.closeZoneBatch() }
 
-// BeginMillBatch/EndMillBatch are effects.Host's mill-batch bracket (effects/
-// cardflow.go's effMill opens them around one api:Mill resolution): the mill
-// MoveZone events emitted until the matching EndMillBatch are one mill action
-// for the Mode$ MilledAll latch. Reentrant brackets nest by depth so an inner
-// mill cannot close its caller's batch early.
-func (e *Engine) BeginMillBatch() { e.openMillBatch() }
-func (e *Engine) EndMillBatch()   { e.closeMillBatch() }
+// BeginActionBatch/EndActionBatch are effects.Host's shared action-batch bracket
+// (effects/action_batch.go's beginActionBatch, opened by effMill and by
+// effTapAll/effUntapAll, and directly by rules-side action boundaries): the
+// MoveZone (mill) or Tap/Untap events emitted until the matching EndActionBatch
+// are one action for the Mode$ MilledAll/TapAll/UntapAll latch. Reentrant
+// brackets nest by depth so an inner action cannot close its caller's batch
+// early.
+func (e *Engine) BeginActionBatch() { e.openMillBatch() }
+func (e *Engine) EndActionBatch()   { e.closeMillBatch() }
 
 // openMillBatch opens a mill batch: the mill MoveZone events emitted until
 // the matching closeMillBatch are one mill action for Mode$ MilledAll.
@@ -2693,6 +2693,10 @@ func init() {
 		"trig:ChangesZone", "trig:ChangesZoneAll", "trig:SpellCast", "trig:Attacks", "trig:AttackersDeclaredOneTarget",
 		"trig:AttackersDeclared", "trig:AttackerBlocked", "trig:AttackerBlockedByCreature", "trig:AttackerUnblocked", "trig:AttackerUnblockedOnce", "trig:Blocks", "trig:Cycled", "trig:CounterAdded", "trig:CounterAddedOnce", "trig:CounterRemoved", "trig:CounterRemovedOnce", "trig:CounterPlayerAddedAll",
 		"trig:Sacrificed", "trig:Discarded", "trig:CommitCrime", "trig:Taps", "trig:TapsForMana", "trig:Untaps",
+		// Aggregate tap trigger modes (task cli-20261005T075020Z-05241a06),
+		// matched by trigmatch.tapAllMatches/untapAllMatches off the ordinary
+		// Tap/Untap events, batched once per tapping/untapping action.
+		"trig:TapAll", "trig:UntapAll",
 		"trig:ClassLevelGained", "trig:BecomeMonstrous",
 		"trig:TokenCreated", "trig:TokenCreatedOnce",
 		"trig:DamageDone", "trig:DamageDealtOnce", "trig:DamageDoneOnce", "trig:DamageAll", "trig:Drawn", "trig:LifeLost", "trig:LifeLostAll",
