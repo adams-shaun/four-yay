@@ -645,11 +645,12 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 				h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: f.owner, Text: "entered tapped"})
 			}
 		}
-		// A resolved object list is not a library search: its members were
-		// already selected, so the CR search shuffle must not reorder the
-		// unrelated remainder of the library. RandomOrder$ on a put-back
-		// randomizes only that selected list before placement.
-		if !objectList || cz.ShuffleTrue {
+		// A resolved object list normally keeps this path's established
+		// default whole-library shuffle. Green Sun's Twilight is the narrow
+		// exception: its deferred Remembered fetch precedes a separate
+		// Imprinted RandomOrder$ put-back, so shuffling here would reorder
+		// cards outside both selected piles.
+		if !deferredDigLibraryFetch(g, c, cz) || cz.ShuffleTrue {
 			shuffleLibrary(h, cz, f.owner)
 		}
 		if objectList && cz.RandomOrder && to == state.ZLibrary && len(moved) > 1 {
@@ -666,6 +667,19 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 	}
 	scheduleAtEOT(h, c, sa, ateotMoved)
 	return true
+}
+
+// deferredDigLibraryFetch recognizes Green Sun's paired deferred move: the
+// selected Remembered cards are moved to hand unless the destination-alternate
+// threshold puts them onto the battlefield, while a separately imprinted
+// remainder is handled by the next subability.
+func deferredDigLibraryFetch(g *state.Game, c *Ctx, cz *ChangeZoneParams) bool {
+	if cz.Defined != "Remembered" || cz.Destination != state.ZHand ||
+		cz.DestinationAlt != state.ZBattlefield || cz.DestAltSVarCompare != "GE5" || c == nil {
+		return false
+	}
+	source := g.Obj(c.Source)
+	return source != nil && len(source.Imprinted) > 0
 }
 
 // changeZoneFetchSelector distinguishes a fetch player from an already chosen

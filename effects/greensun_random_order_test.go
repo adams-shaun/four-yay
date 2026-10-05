@@ -23,6 +23,11 @@ func TestGreenSunsTwilightRestBottomRandomizesOnlyImprintedRemainder(t *testing.
 	if cz := ChangeZoneOf(rest); !cz.RandomOrder || !cz.NoShuffle || cz.Defined != "Imprinted" {
 		t.Fatalf("precondition: compiled RestBottom params = %+v", cz)
 	}
+	chosen := cards.ResolveSVar(vars, "DBChangeZone")
+	if chosen == nil || chosen.Params["Defined"] != "Remembered" || chosen.Params["Destination"] != "Hand" ||
+		chosen.Params["DestinationAlternative"] != "Battlefield" || chosen.Params["DestAltSVarCompare"] != "GE5" {
+		t.Fatalf("precondition: chosen-card ChangeZone chain = %+v", chosen)
+	}
 
 	h, ids := digMultipleBoard(t)
 	tailA := h.g.AddObject(mkCard(t, "Name:TailA\nTypes:Sorcery\nOracle:x\n"), 0).ID
@@ -80,5 +85,30 @@ func TestGreenSunsTwilightRestBottomRandomizesOnlyImprintedRemainder(t *testing.
 	wantLibrary := append([]state.ObjID{tailA, tailB}, wantRandom...)
 	if !reflect.DeepEqual(placements[0].IDs, wantLibrary) || !reflect.DeepEqual(h.g.Zone(state.ZLibrary, 0), wantLibrary) {
 		t.Fatalf("bottom placement = %v / library = %v, want untouched tail then randomized remainder %v; log=%+v", placements[0].IDs, h.g.Zone(state.ZLibrary, 0), wantLibrary, h.log)
+	}
+}
+
+func TestDefinedLibraryFetchKeepsDefaultShuffleOutsideGreenSunContinuation(t *testing.T) {
+	h := newHost(t, 2)
+	source := h.g.AddObject(mkCard(t, "Name:Ordinary Fetch\nTypes:Sorcery\nOracle:x\n"), 0)
+	first := h.g.AddObject(mkCard(t, "Name:First\nTypes:Sorcery\nOracle:x\n"), 0)
+	second := h.g.AddObject(mkCard(t, "Name:Second\nTypes:Sorcery\nOracle:x\n"), 0)
+	h.g.SetZone(state.ZLibrary, 0, []state.ObjID{first.ID, second.ID})
+	if h.g.Obj(first.ID).Zone != state.ZLibrary || h.g.Obj(second.ID).Zone != state.ZLibrary || first.ID == second.ID {
+		t.Fatal("precondition: two distinct fetch targets are in the library")
+	}
+	sa := &cards.SA{API: "ChangeZone", Params: map[string]string{
+		"Defined": "Remembered", "Origin": "Library", "Destination": "Hand",
+	}}
+	ctx := &Ctx{Source: source.ID, Controller: 0, Remembered: []state.Target{{Obj: first.ID}, {Obj: second.ID}}}
+	effChangeZone(h, ctx, sa)
+	var shuffles int
+	for _, ev := range h.log {
+		if ev.Kind == events.Shuffle && ev.Player == 0 {
+			shuffles++
+		}
+	}
+	if shuffles != 1 {
+		t.Fatalf("ordinary resolved Defined fetch Shuffle events = %d, want established default 1; log=%+v", shuffles, h.log)
 	}
 }

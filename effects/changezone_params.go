@@ -501,7 +501,7 @@ func compileChangeZone(sa *cards.SA, tp *TargetParams, dr *DefinedParams) *Chang
 	p.NoShuffle = isTrue(sa.ParamStr(cards.PKNoShuffle))
 	p.ShuffleNonMandatory = isTrue(sa.ParamStr(cards.PKShuffleNonMandatory))
 	p.Reorder = isTrue(sa.ParamStr(cards.PKReorder))
-	p.RandomOrder = isTrue(sa.ParamStr(cards.PKRandomOrder))
+	p.RandomOrder = compileRandomOrder(sa)
 	p.Unread = changeZoneUnread(sa)
 	return p
 }
