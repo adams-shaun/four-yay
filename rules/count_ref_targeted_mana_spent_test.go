@@ -27,18 +27,6 @@ func unravelProbeSrc() string {
 		"Oracle:x\n"
 }
 
-// spendReaderSrc is a battlefield permanent whose face reads the
-// TRIGGER-relative spend spelling. Its presence forces the engine's pay-time
-// cast-spend capture (rules.paymentPlanBoardSpendReaderOut), so the target
-// spell's Object.ManaSpent is really stamped by the real cast -- exactly the
-// board a real game has when any spend-reading permanent is out. It is not
-// itself the reader under test; the probe reads the value through the
-// Targeted$ snapshot.
-func spendReaderSrc() string {
-	return "Name:Spend Reader\nTypes:Creature\nPT:1/1\n" +
-		"SVar:Z:TriggeredCard$CastTotalManaSpent\nOracle:x\n"
-}
-
 // TestTargetedCastTotalManaSpentSeesPaidSpendAfterCounter is the end-to-end
 // proof: a seven-mana spell is cast for real, countered by the probe before it
 // resolves, and the chained read places seven charge counters.
@@ -46,21 +34,18 @@ func TestTargetedCastTotalManaSpentSeesPaidSpendAfterCounter(t *testing.T) {
 	t.Parallel()
 	probe := card(t, unravelProbeSrc())
 	artifact := card(t, "Name:Spend Catcher\nTypes:Artifact\nOracle:x\n")
-	reader := card(t, spendReaderSrc())
 	// {5}{R}{R} = 7 mana, so the spent total is a distinctive 7.
 	target := card(t, "Name:Big Spell\nManaCost:5 R R\nTypes:Sorcery\nOracle:x\n")
-	e, _ := tokenReplGameSeats(t, 947, []*cards.Card{probe, artifact, reader, target}, nil)
+	e, _ := tokenReplGameSeats(t, 947, []*cards.Card{probe, artifact, target}, nil)
 	probeID := moveSeededCard(t, e, 0, probe, state.ZHand)
 	artifactID := moveSeededCard(t, e, 0, artifact, state.ZBattlefield)
-	readerID := moveSeededCard(t, e, 0, reader, state.ZBattlefield)
 	targetID := moveSeededCard(t, e, 0, target, state.ZHand)
 
-	// Precondition: the spend reader really is on the battlefield, so the
-	// pay-time capture gate below is genuinely open.
-	if o := e.G.Obj(readerID); o == nil || o.Zone != state.ZBattlefield {
-		t.Fatalf("precondition: spend reader = %+v, want battlefield", e.G.Obj(readerID))
+	// The only reader is the counter spell in hand. This proves the pay-time
+	// capture gate covers Targeted$ readers outside the battlefield too.
+	if o := e.G.Obj(probeID); o == nil || o.Zone != state.ZHand {
+		t.Fatalf("precondition: Targeted reader = %+v, want hand", e.G.Obj(probeID))
 	}
-
 	// Seat 0 casts the seven-mana spell for real; the engine pays its cost and
 	// returns priority to seat 0 with the spell on the stack.
 	addMana(t, e, 0, "RRRRRRR")
