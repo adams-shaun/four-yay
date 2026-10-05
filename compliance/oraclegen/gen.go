@@ -891,9 +891,8 @@ func damageSplitAnswers(d rules.OracleDecision) []XAnswer {
 				name = d.Picks[i]
 			}
 		}
-		if !isSeat(name) {
-			name = oraclediffRefName(name)
-		}
+		// Keep the scenario ref (including #N): XMage's targetName uses it
+		// to resolve two same-name permanents to distinct setup aliases.
 		as = append(as, XAnswer{d.Seat, "target", name + "^X=" + strconv.Itoa(share[i])})
 	}
 	return as

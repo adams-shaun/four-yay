@@ -29,8 +29,8 @@ func TestXAnswersDamageSplitEmitsDividedTargets(t *testing.T) {
 	}
 	got := XAnswers([]rules.OracleDecision{d}, 1, nil)[0]
 	want := []XAnswer{
-		{0, "target", "Grizzly Bears^X=1"},
-		{0, "target", "Serra Angel^X=1"},
+		{0, "target", "p1:Grizzly Bears^X=1"},
+		{0, "target", "p1:Serra Angel^X=1"},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %+v, want %+v", got, want)
@@ -56,8 +56,8 @@ func TestXAnswersDamageSplitRepeatsShareForMultiset(t *testing.T) {
 	}
 	got := XAnswers([]rules.OracleDecision{d}, 1, nil)[0]
 	want := []XAnswer{
-		{0, "target", "Grizzly Bears^X=2"},
-		{0, "target", "Serra Angel^X=1"},
+		{0, "target", "p1:Grizzly Bears^X=2"},
+		{0, "target", "p1:Serra Angel^X=1"},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %+v, want %+v", got, want)
@@ -197,7 +197,7 @@ func TestXAnswersTwinBoltEndToEnd(t *testing.T) {
 		t.Fatalf("sum of shares = %d, want 2", sum)
 	}
 	for i, ref := range split.PickRefs {
-		want := oraclediffRefName(ref) + "^X=1"
+		want := ref + "^X=1"
 		if got[i].Value != want {
 			t.Errorf("answer %d = %q, want %q", i, got[i].Value, want)
 		}
