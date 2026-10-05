@@ -1,10 +1,14 @@
 package rules
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/pay"
 )
 
 // The real activation must offer and settle four optional creature payments.
@@ -58,6 +62,32 @@ func TestHeirloomEpicMixedCreatureAndManaPayment(t *testing.T) {
 	}
 	if len(fails) != 0 {
 		t.Fatalf("mixed creature/mana activation: %s\n%s", strings.Join(fails, "; "), strings.Join(transcript, "\n"))
+	}
+}
+
+// The payment flag belongs to the generic activation tier, not Draw's
+// resolution compiler. Only an activated ability with an enabled permission
+// may omit this key from its API's unread-parameter report.
+func TestCreatureManaTypedActivationPermission(t *testing.T) {
+	ab := &cards.SA{Kind: "AB", API: "Draw", Params: map[string]string{
+		"Cost": "4 T", "TapCreaturesForMana": " True ", "NumCards": "1",
+	}}
+	if !effects.ActivationOf(ab).Has(effects.ActTapCreaturesForMana) || !pay.TapCreaturesForMana(ab) {
+		t.Fatal("activation compiler did not enable creature payment")
+	}
+	if slices.Contains(effects.DrawOf(ab).Unread, "TapCreaturesForMana") {
+		t.Fatal("valid activation payment reported as unread Draw parameter")
+	}
+	for _, invalid := range []struct{ kind, value string }{{"SP", "True"}, {"AB", "False"}} {
+		sa := &cards.SA{Kind: invalid.kind, API: "Draw", Params: map[string]string{
+			"Cost": "4 T", "TapCreaturesForMana": invalid.value, "NumCards": "1",
+		}}
+		if pay.TapCreaturesForMana(sa) {
+			t.Errorf("%s %q: invalid ability enabled payment", invalid.kind, invalid.value)
+		}
+		if !slices.Contains(effects.DrawOf(sa).Unread, "TapCreaturesForMana") {
+			t.Errorf("%s %q: invalid use was hidden from unread report", invalid.kind, invalid.value)
+		}
 	}
 }
 

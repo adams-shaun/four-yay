@@ -1,13 +1,10 @@
 package pay
 
 import (
-	"strings"
-
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
-
-const creatureManaTrue = "True"
 
 // TapCreaturesForMana is the ability's explicit alternative payment, not a
 // cost reduction: each chosen untapped creature replaces one generic mana
@@ -15,11 +12,10 @@ const creatureManaTrue = "True"
 // payment commit emits Tap events. Summoning sickness does not bar this tap:
 // the creature is not activating its own {T} ability (CR 302.6).
 func TapCreaturesForMana(sa *cards.SA) bool {
-	if sa == nil {
+	if sa == nil || sa.Kind != "AB" {
 		return false
 	}
-	value := strings.TrimSpace(sa.ParamStr(cards.PKTapCreaturesForMana))
-	return strings.EqualFold(value, creatureManaTrue)
+	return effects.ActivationOf(sa).Has(effects.ActTapCreaturesForMana)
 }
 
 // CreatureManaCandidates is shared by the offer credit and the payment ask.
