@@ -12,11 +12,7 @@ func evalDamageHistory(h Host, c *Ctx, g *state.Game, head, arg string) (int32, 
 		return 0, false, false
 	}
 	if code == evalCountBodyCostMaxCombatDamageThisTurn {
-		source := c.TriggerCard
-		if source == 0 {
-			source = c.Source
-		}
-		return maxCombatDamage(g.Obj(source)), true, true
+		return maxPlayerCombatDamage(g), true, true
 	}
 	fields := strings.Fields(arg)
 	if len(fields) == 0 {
@@ -37,6 +33,10 @@ func evalDamageHistory(h Host, c *Ctx, g *state.Game, head, arg string) (int32, 
 				continue
 			}
 			if damageRecipientMatches(g, recipientSpec, hit, c) {
+				if code == evalCountBodyCostNumDamageThisTurn {
+					total++ // A source qualifies once, regardless of hits or amount.
+					break
+				}
 				total += hit.Amount
 			}
 		}
@@ -44,23 +44,21 @@ func evalDamageHistory(h Host, c *Ctx, g *state.Game, head, arg string) (int32, 
 	return total, true, true
 }
 
-func maxCombatDamage(source *state.Object) int32 {
-	if source == nil {
-		return 0
-	}
-	var max int32
-	for i, hit := range source.DamageDealtThisTurn {
-		if !hit.Combat {
-			continue
-		}
-		var total int32
-		for _, other := range source.DamageDealtThisTurn[i:] {
-			if other.Combat && other.Recipient == hit.Recipient {
-				total += other.Amount
+// MaxCombatDamageThisTurn asks how much combat damage any ONE player took,
+// across all sources. Damage to permanents is not damage to their controller.
+func maxPlayerCombatDamage(g *state.Game) int32 {
+	perPlayer := make([]int32, len(g.Players))
+	for i := range g.Objs {
+		for _, hit := range g.Objs[i].DamageDealtThisTurn {
+			if p, ok := hit.Recipient.PlayerRef(); hit.Combat && ok && p >= 0 && int(p) < len(perPlayer) {
+				perPlayer[p] += hit.Amount
 			}
 		}
-		if total > max {
-			max = total
+	}
+	var max int32
+	for _, n := range perPlayer {
+		if n > max {
+			max = n
 		}
 	}
 	return max

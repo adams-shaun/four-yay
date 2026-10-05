@@ -25,17 +25,29 @@ func TestMaxCombatDamageCountUsesCorpusDamageEvents(t *testing.T) {
 	if body != "Count$MaxCombatDamageThisTurn" {
 		t.Fatalf("Sidequest corpus SVar X = %q", body)
 	}
-	e, ids := pcdrEngine(t, "Sidequest: Play Blitzball")
-	source := ids["Sidequest: Play Blitzball"]
+	e, ids := pcdrEngine(t, "Sidequest: Play Blitzball", "Grizzly Bears")
+	source, attacker := ids["Sidequest: Play Blitzball"], ids["Grizzly Bears"]
 	if o := e.G.Obj(source); o == nil || o.Zone != state.ZBattlefield {
 		t.Fatal("precondition: Sidequest damage source must be on the battlefield")
 	}
-	damageCountEvent(e, source, 0, 1, 2, true)
-	damageCountEvent(e, source, 0, 1, 3, true)
-	damageCountEvent(e, source, 0, 2, 4, true)
-	damageCountEvent(e, source, 0, 1, 8, false)
-	if got := effects.EvalCount(e, &effects.Ctx{Controller: 0, Source: source}, body); got != 5 {
-		t.Fatalf("Sidequest corpus count = %d, want max same-recipient combat total 5 (not 4 or 13)", got)
+	if o := e.G.Obj(attacker); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatal("precondition: attacker must be on the battlefield")
+	}
+	bear, ok := reg.Lookup("Grizzly Bears")
+	if !ok {
+		t.Fatal("corpus missing Grizzly Bears")
+	}
+	secondAttacker := onBoardCard(t, e, 0, bear)
+	if o := e.G.Obj(secondAttacker); o == nil || o.Zone != state.ZBattlefield || secondAttacker == attacker {
+		t.Fatal("precondition: second attacker must be distinct and on the battlefield")
+	}
+	damageCountEvent(e, attacker, 0, 1, 2, true)
+	damageCountEvent(e, attacker, 0, 1, 1, true)
+	damageCountEvent(e, secondAttacker, 0, 1, 3, true)
+	damageCountEvent(e, attacker, 0, 2, 5, true)
+	damageCountEvent(e, attacker, 0, 1, 8, false)
+	if got := effects.EvalCount(e, &effects.Ctx{Controller: 0, Source: source}, body); got != 6 {
+		t.Fatalf("Sidequest corpus count = %d, want player 1's six combat damage from another source (not player 2's five or noncombat)", got)
 	}
 }
 
@@ -65,8 +77,8 @@ func TestNumDamageCountUsesCorpusDamageEvents(t *testing.T) {
 		t.Fatal("precondition: excluded opponent source must be on the battlefield")
 	}
 	damageCountEvent(e, opponentSource, 0, 0, 9, true)
-	if got := effects.EvalCount(e, &effects.Ctx{Controller: 0, Source: source}, body); got != 5 {
-		t.Fatalf("Burning Masks corpus count = %d, want player + permanent damage 5", got)
+	if got := effects.EvalCount(e, &effects.Ctx{Controller: 0, Source: source}, body); got != 1 {
+		t.Fatalf("Burning Masks corpus count = %d, want one distinct qualifying source despite two damage events", got)
 	}
 }
 

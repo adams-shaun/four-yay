@@ -38,7 +38,7 @@ func TestNumDamageCountUsesRecipientAtDamageTime(t *testing.T) {
 	if o := e.G.Obj(recipient); o == nil || o.Zone != state.ZGraveyard {
 		t.Fatal("precondition: damaged permanent must have left the battlefield")
 	}
-	if got := effects.EvalCount(e, &effects.Ctx{Controller: 0, Source: source}, body); got != 3 {
-		t.Fatalf("Case corpus count after damaged permanent leaves: %d, want damage-time permanent total 3", got)
+	if got := effects.EvalCount(e, &effects.Ctx{Controller: 0, Source: source}, body); got != 1 {
+		t.Fatalf("Case corpus count after damaged permanent leaves: %d, want one source with a damage-time permanent recipient", got)
 	}
 }

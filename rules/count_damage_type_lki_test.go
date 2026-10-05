@@ -26,8 +26,8 @@ func TestNumDamageCountUsesDamageTimeRecipientType(t *testing.T) {
 	if damageTimeHasType(permanent.Face().Types, "Creature") {
 		t.Fatal("precondition: recipient's transformed face must not be a creature")
 	}
-	if got := effects.EvalCount(e, &effects.Ctx{Controller: 0, Source: source}, body); got != 3 {
-		t.Fatalf("count after creature recipient transforms = %d, want damage-time creature total 3", got)
+	if got := effects.EvalCount(e, &effects.Ctx{Controller: 0, Source: source}, body); got != 1 {
+		t.Fatalf("count after creature recipient transforms = %d, want one source with a damage-time creature recipient", got)
 	}
 }
 

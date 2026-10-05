@@ -30,16 +30,17 @@ func TestDamageCountHeadsReadTheirCorpusCarriers(t *testing.T) {
 	h, c := fixtureHost(t)
 	playerRecipient := state.PlayerRef(1)
 	c.Source = h.g.AddObject(sidequest, 0).ID
-	h.g.Obj(c.Source).DamageDealtThisTurn = []state.DamageDealtRecord{{Recipient: playerRecipient, Amount: 4, Combat: true}, {Recipient: playerRecipient, Amount: 2, Combat: false}}
+	other := h.g.AddObject(caseCard, 0).ID
+	h.g.Obj(other).DamageDealtThisTurn = []state.DamageDealtRecord{{Recipient: playerRecipient, Amount: 4, Combat: true}, {Recipient: playerRecipient, Amount: 2, Combat: false}}
 	if got := EvalCount(h, c, maxBody); got != 4 {
-		t.Fatalf("Blitzball corpus count = %d, want max combat damage 4", got)
+		t.Fatalf("Blitzball corpus count = %d, want player combat damage 4 from another source", got)
 	}
-	h.g.Obj(c.Source).DamageDealtThisTurn = nil
+	h.g.Obj(other).DamageDealtThisTurn = nil
 	caseID := h.g.AddObject(caseCard, 0).ID
 	h.g.Obj(caseID).DamageDealtThisTurn = []state.DamageDealtRecord{{Recipient: playerRecipient, Amount: 3}}
 	c.Source = caseID
-	if got := EvalCount(h, c, numBody); got != 3 {
-		t.Fatalf("Burning Masks corpus count = %d, want 3", got)
+	if got := EvalCount(h, c, numBody); got != 1 {
+		t.Fatalf("Burning Masks corpus count = %d, want one source", got)
 	}
 	h.g.Obj(caseID).DamageDealtThisTurn = nil
 	ojerID := h.g.AddObject(ojer, 0).ID
