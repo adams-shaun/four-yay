@@ -403,7 +403,7 @@ env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "8" }
 # never worse); a new process-global test does the same.
 [[gates]]
 name = "go test (module)"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "bash", "-c", "set -euo pipefail; skip='^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$'; serial='^(TestKr8WorldsInFuzzGames|TestKr8HeadsCheckpointAll)$'; rest=$(go list ./... | grep -vE '/rules$'); go test -p=8 -skip \"$skip\" $rest & a=$!; go test -p=8 -skip \"$skip\" -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!; go test -p=8 -skip \"$skip\" -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!; go test -p=8 -skip \"$skip\" -skip \"$serial\" ./rules/ & d=$!; rc=0; for p in \"$a\" \"$b\" \"$c\" \"$d\"; do wait \"$p\" || rc=1; done; exit $rc"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "bash", "-c", "set -euo pipefail; skip='^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$'; serial='^(TestKr8WorldsInFuzzGames|TestKr8HeadsCheckpointAll)$'; both='^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher|TestKr8WorldsInFuzzGames|TestKr8HeadsCheckpointAll)$'; rest=$(go list ./... | grep -vE '/rules$'); go test -p=8 -skip \"$skip\" $rest & a=$!; go test -p=8 -skip \"$skip\" -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!; go test -p=8 -skip \"$skip\" -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!; go test -p=8 -skip \"$both\" ./rules/ & d=$!; rc=0; for p in \"$a\" \"$b\" \"$c\" \"$d\"; do wait \"$p\" || rc=1; done; exit $rc"]
 timeout = 1200
 env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "16", GOGC = "200" }
 
