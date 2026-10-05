@@ -1,6 +1,9 @@
 package templates
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -259,6 +262,50 @@ func TestMixedZoneCandidateUsesARealMatchingCard(t *testing.T) {
 	}
 	if !faceHasType(t, reg, ref, "Instant") && !faceHasType(t, reg, ref, "Sorcery") {
 		t.Fatalf("target %q is neither Instant nor Sorcery", ref)
+	}
+}
+
+// TestPlainTypeAlternativesKeepRecordedFixture guards non-zone alternatives
+// against being treated as zone-specific alternatives. FRA declares this
+// scenario, so changing its fixture would invalidate its frozen verdict.
+func TestMixedZoneRegistryFallback(t *testing.T) {
+	reg := loadGenRegistry(t)
+	// Creature has no preferred shortcut in the mixed-zone selector; the
+	// first candidate must come from the registry, not the legacy zone list.
+	slots := []oraclegen.SlotSpec{{Filter: "Creature.inZoneGraveyard+YouCtrl,Instant.inZoneExile+YouCtrl@Graveyard,Exile"}}
+	fxs := oraclegen.Fixtures(reg, slots)
+	if len(fxs) == 0 || len(fxs[0].Targets()) != 1 {
+		t.Fatalf("mixed-zone fixture absent: %v", fxs)
+	}
+	ref := fxs[0].Targets()[0]
+	name := strings.TrimPrefix(ref, "p0:")
+	if !strings.HasPrefix(ref, "p0:") || !containsName(fxs[0].P0().Graveyard, name) || !faceHasType(t, reg, name, "Creature") {
+		t.Fatalf("first alternative: target %q, graveyard %v; want a real p0 Creature", ref, fxs[0].P0().Graveyard)
+	}
+}
+
+func TestPlainTypeAlternativesKeepRecordedFixture(t *testing.T) {
+	reg := loadGenRegistry(t)
+	f := faceOf(t, reg, "Rewrite Regrets")
+	slots := oraclegen.SlotSpecs(f)
+	if len(slots) != 1 || slots[0].Filter != "Creature.cmcLE6+YouOwn,Planeswalker.cmcLE6+YouOwn@Graveyard" {
+		t.Fatalf("Rewrite Regrets: unexpected filter %v", slots)
+	}
+	it, skip := Generate(reg, "Rewrite Regrets")
+	if skip != nil {
+		t.Fatalf("Rewrite Regrets: %s", skip.Reason)
+	}
+	st := castStep(t, it, "Rewrite Regrets")
+	if len(st.Targets) != 1 || st.Targets[0] != "p0:Grizzly Bears" || !containsName(it.Setup["p0"].Graveyard, "Grizzly Bears") {
+		t.Fatalf("Rewrite Regrets: target %v; graveyard %v", st.Targets, it.Setup["p0"].Graveyard)
+	}
+	b, err := json.Marshal(it)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := sha256.Sum256(b)
+	if got, want := hex.EncodeToString(h[:]), "4f493ce1d8c3fbf3d7f8479e64ba6533dcdb7b8dc881889660eed6ec1d1f6e64"; got != want {
+		t.Fatalf("Rewrite Regrets scenario SHA = %s, want %s", got, want)
 	}
 }
 

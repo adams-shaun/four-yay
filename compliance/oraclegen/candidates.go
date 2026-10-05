@@ -344,7 +344,10 @@ func faceHasSubtype(f *cards.Face, subtype string) bool {
 // registry rather than the fixed type list.
 func zoneCandidates(reg *cards.Registry, filter, zone string) []cand {
 	alts := strings.Split(filter, ",")
-	if len(alts) > 1 {
+	// A comma alone also separates ordinary type alternatives (e.g.
+	// Creature,Planeswalker in one graveyard). Only an explicit per-alt
+	// zone marker calls for mixed-zone candidate selection.
+	if len(alts) > 1 && (strings.Contains(strings.ToLower(filter), "inzonegraveyard") || strings.Contains(strings.ToLower(filter), "inzoneexile")) {
 		var out []cand
 		seats := []string{"p0", "p1"}
 		if strings.Contains(filter, "YouOwn") || strings.Contains(filter, "YouCtrl") {
@@ -368,9 +371,13 @@ func zoneCandidates(reg *cards.Registry, filter, zone string) []cand {
 						out = append(out, cand{seat: seat, zone: altZone, card: preferred})
 					}
 				}
-				if name, ok := registryCardType(reg, base); ok && name != preferred {
-					for _, seat := range seats {
-						out = append(out, cand{seat: seat, zone: altZone, card: name})
+				// Keep the established fixture for types already covered by
+				// the fixed list. Consult the registry only for other types.
+				if preferred == "" {
+					if name, ok := registryCardType(reg, base); ok {
+						for _, seat := range seats {
+							out = append(out, cand{seat: seat, zone: altZone, card: name})
+						}
 					}
 				}
 			}
