@@ -34,14 +34,34 @@ func xanswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]i
 		// recorded pick instead of inferring it from the resulting board.
 		followup := false
 		for j := i + 1; j < len(ds) && ds[j].Step == d.Step; j++ {
-			if ds[j].Seat == d.Seat && len(ds[j].PickKinds) > 0 &&
-				(ds[j].PickKinds[0] == "discard" || ds[j].PickKinds[0] == "card") {
-				followup = true
-				break
+			pick := &ds[j]
+			if pick.Seat != d.Seat || (len(pick.ObjectPicks) == 0 &&
+				(len(pick.PickKinds) == 0 || (pick.PickKinds[0] != "discard" && pick.PickKinds[0] != "card"))) {
+				continue
 			}
+			followup = true
+			if len(pick.ObjectPicks) > 0 {
+				d.Kind = pick.Kind
+				d.GorgeKind = pick.GorgeKind
+				d.Picks = make([]string, len(pick.ObjectPicks))
+				d.PickRefs = append([]string(nil), pick.ObjectPicks...)
+				d.PickKinds = make([]string, len(pick.ObjectPicks))
+				for k, ref := range pick.ObjectPicks {
+					d.Picks[k] = oraclediffRefName(ref)
+					d.PickKinds[k] = "card"
+					if zone == "graveyard" {
+						d.PickKinds[k] = "discard"
+					}
+				}
+				d.Max = pick.Max
+				pick.Kind = "composite_election" // emitted once from the correlated picks
+			} else {
+				// Older transcripts still carry the selection on the follow-up.
+				d.Kind = "composite_election" // no XMage yes/no dialog
+			}
+			break
 		}
 		if followup {
-			d.Kind = "composite_election" // no XMage yes/no dialog
 			continue
 		}
 		names := movedCards(res.Snapshots, sc, d.Step, d.Seat, zone)
