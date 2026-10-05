@@ -11,6 +11,21 @@ import (
 
 func init() { Register("UnlockDoor", effUnlockDoor) }
 
+type unlockDoorMode uint8
+
+const (
+	unlockDoorUnknown unlockDoorMode = iota
+	unlockDoorPlain
+	unlockDoorChoice
+)
+
+// Forge's mode spelling is case-insensitive; only these two shapes can
+// identify a Room door operation. A lookup, not string dispatch at resolution.
+var unlockDoorModes = map[string]unlockDoorMode{
+	"unlock":       unlockDoorPlain,
+	"lockorunlock": unlockDoorChoice,
+}
+
 // effUnlockDoor resolves Forge's `DB$ UnlockDoor` effect (CR 709.5f): the
 // resolving player chooses a locked half of a Room they control, and that
 // permanent is given the matching unlocked designation -- one DoorUnlock
@@ -32,8 +47,8 @@ func init() { Register("UnlockDoor", effUnlockDoor) }
 // action. More than one door is a seat choice (a tape-answered KChoose).
 func effUnlockDoor(h Host, c *Ctx, sa *cards.SA) {
 	mode := strings.TrimSpace(sa.ParamStr(cards.PKMode))
-	lockOrUnlock := strings.EqualFold(mode, "LockOrUnlock")
-	if !strings.EqualFold(mode, "Unlock") && !lockOrUnlock {
+	doorMode := unlockDoorModes[strings.ToLower(mode)]
+	if doorMode == unlockDoorUnknown {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "UnlockDoor: unsupported Mode$ " + mode})
 		return
@@ -43,7 +58,7 @@ func effUnlockDoor(h Host, c *Ctx, sa *cards.SA) {
 	if len(pool) == 0 {
 		return
 	}
-	lock := lockOrUnlock && !askUnlockDoorHalf(h, c, sa)
+	lock := doorMode == unlockDoorChoice && !askUnlockDoorHalf(h, c, sa)
 	// Offer doors rather than Rooms: once a Room has been relocked, either
 	// face may be the locked one. Stable pool order and face order determine
 	// the R-9 no-host answer without depending on map iteration.
@@ -109,7 +124,7 @@ func askUnlockDoorHalf(h Host, c *Ctx, sa *cards.SA) bool {
 	if !ok {
 		return true
 	}
-	return len(ans) == 0 || ans[0].Kind != "lock"
+	return len(ans) == 0 || ans[0].Index != 1
 }
 
 // unlockDoorPool is the candidate set before the "still has a locked door"

@@ -6,15 +6,28 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+type doorCountHead uint8
+
+const (
+	doorCountUnlocked doorCountHead = iota + 1
+	doorCountDistinct
+)
+
+// The two Room count heads share one evaluator and one lookup vocabulary.
+var doorCountHeads = map[string]doorCountHead{
+	"UnlockedDoors":         doorCountUnlocked,
+	"DistinctUnlockedDoors": doorCountDistinct,
+}
+
 // evalCountBodyObjHeads evaluates the object-side prefix heads
 // (DifferentCounterKinds_, CardCounters., Kicked., PromisedGift.,
 // Foretold., NotedNumber, UrzaLands., ThisTurnEntered_).
 func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, depth int) (int32, bool, bool) {
-	if head == "UnlockedDoors" || head == "DistinctUnlockedDoors" {
+	if doorHead := doorCountHeads[head]; doorHead != 0 {
 		if arg != "" {
 			return 0, false, true
 		}
-		return countUnlockedDoors(g, c.Controller, head == "DistinctUnlockedDoors"), true, true
+		return countUnlockedDoors(g, c.Controller, doorHead == doorCountDistinct), true, true
 	}
 	// DifferentCounterKinds_<spec> counts distinct real counter kinds over
 	// matching battlefield objects. These are the three corpus selectors;

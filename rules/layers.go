@@ -137,10 +137,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 				// permanent's rules text is both halves' combined after the
 				// unlock (CR 309.6), each face's Statics its own scan. A room's
 				// unlocked face exists only on the battlefield.
-				faces := []*cards.Face{f}
-				if onBattlefield && o.RoomOtherDoorUnlocked() && isRoom(o) && len(o.Card.Faces) == 2 && int(o.FaceIdx) < len(o.Card.Faces) {
-					faces = append(faces, o.Card.Faces[1-int(o.FaceIdx)])
-				}
+				faces := staticRoomFaces(o, f, onBattlefield)
 				// CR 702.140d: a mutated pile's under-card statics are live too,
 				// exactly like the Rooms alternate face above. They are appended
 				// in pile order AFTER the top face (and after the unlocked room

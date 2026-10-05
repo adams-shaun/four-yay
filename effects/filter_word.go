@@ -241,8 +241,8 @@ const (
 	// cast face is unlocked and the alternate door has been unlocked on top
 	// of it. The corpus's only filter carrier is Ghostly Dancers' UnlockDoor
 	// pool (`Room.YouCtrl+!FullyUnlocked`), which excludes a Room that has no
-	// locked door left to unlock. The body reads state.Object.Unlocked, the
-	// same bit rules' Room liveness scans and the DoorUnlock fold maintain.
+	// locked door left to unlock. The body reads both door designations from
+	// state.Object, as maintained by the DoorUnlock/DoorLock folds.
 	wordFullyUnlocked
 )
 
@@ -579,15 +579,7 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 	case wordColor:
 		return strings.Contains(colorsCtx(o, &sc), key)
 	case wordChosenColor:
-		if source == 0 {
-			return false
-		}
-		src := g.Obj(source)
-		if src == nil {
-			return false
-		}
-		chosen := colourLetter(src.ChosenColor)
-		return chosen != 0 && strings.Contains(colorsCtx(o, &sc), string(chosen))
+		return chosenColorMatches(g, o, sc)
 	case wordType:
 		return hasTypePredicateCtx(o, key, sc)
 	case wordFullyUnlocked:

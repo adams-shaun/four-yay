@@ -302,7 +302,7 @@ var longFuncCeilings = map[string]int{
 	"effects applyLibrarySearch":                            327,
 	"effects conditionMet":                                  579,
 	"effects definedSpec":                                   949,
-	"effects effAttach":                                     466,
+	"effects effAttach":                                     465,
 	"effects effChangeZone":                                 613,
 	"effects effClone":                                      595,
 	"effects effCopyPermanent":                              823,
