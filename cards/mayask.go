@@ -179,7 +179,7 @@ var askFreeAPITable = [...]askFreeAPIEntry{
 	{"GainLife", replMask(ReplGainLife)},
 	{"ImmediateTrigger", 0},
 	{"LoseLife", replMask(ReplLifeReduced)},
-	{"Mill", replMask(ReplMoved)},
+	{"Mill", replMask(ReplMill, ReplMoved)},
 	{"MultiplyCounter", replMask(ReplAddCounter)},
 	{"Pump", 0},
 	{"PumpAll", 0},

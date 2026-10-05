@@ -78,7 +78,10 @@ func TestMillUnsupportedReplacementIsNotSilent(t *testing.T) {
 				amount = 4
 			}
 			ev := events.Event{Kind: events.MillProposal, Player: 1, Amount: 2}
-			got, handled := e.continueMillReplacements(ev, matches)
+			got, handled := continueMillReplacements(e, e.G, func(d *decision.Decision) []decision.Option {
+				t.Fatal("unexpected replacement order decision")
+				return nil
+			}, ev, matches)
 			if !handled || got.Amount != amount {
 				t.Fatalf("proposal=(%+v,%v), want amount %d and handled", got, handled, amount)
 			}

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -312,7 +313,10 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 		return e.continueScryReplacements(ev, matches, nil, nil, 0)
 	}
 	if ev.Kind == events.MillProposal {
-		return e.continueMillReplacements(ev, matches)
+		return continueMillReplacements(e, e.G, func(d *decision.Decision) []decision.Option {
+			chosen, _ := effects.AskTape(e, d)
+			return chosen
+		}, ev, matches)
 	}
 	if ev.Kind == events.RollDice {
 		// The roll-action boundary (CR 614.4, task rolldice-repl): the

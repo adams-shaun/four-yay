@@ -26,41 +26,50 @@ func millScryProposalMatches(r cards.Repl, ev events.Event, playerMatches func(s
 	return conditionHolds()
 }
 
+// millReplacementHost is the narrow replacement seam needed by a held mill
+// instruction; the caller owns the game and the decision tape.
+type millReplacementHost interface {
+	replacementMatches(cards.Repl, state.ObjID, events.Event) bool
+	replCtx(replMatch, events.Event) *effects.Ctx
+	runReplaceWith(*effects.Ctx, state.ObjID, *cards.SA, *events.Event)
+	emit(events.Event) events.Event
+}
+
 // continueMillReplacements rewrites the count of one proposed Mill instruction.
 // The only supported bodies are ReplaceEffect count rewrites of Number; other
 // bodies fail closed and are surfaced with a Note.
-func (e *Engine) continueMillReplacements(ev events.Event, matches []replMatch) (events.Event, bool) {
+func continueMillReplacements(h millReplacementHost, g *state.Game, ask func(*decision.Decision) []decision.Option, ev events.Event, matches []replMatch) (events.Event, bool) {
 	used := make([]bool, len(matches))
 	unsupportedNoted := make([]bool, len(matches))
 	for {
 		var applicable []int
 		for i, m := range matches {
-			if used[i] || !e.replacementMatches(*m.repl, m.id, ev) {
+			if used[i] || !h.replacementMatches(*m.repl, m.id, ev) {
 				continue
 			}
-			ctx := e.replCtx(m, ev)
+			ctx := h.replCtx(m, ev)
 			if m.repl.With != nil && millCountBodySupported(ctx, m.repl.With) {
 				applicable = append(applicable, i)
 			} else if !unsupportedNoted[i] {
 				unsupportedNoted[i] = true
-				e.emit(events.Event{Kind: events.Note, Obj: m.id, Text: "unimplemented Mill replacement"})
+				h.emit(events.Event{Kind: events.Note, Obj: m.id, Text: "unimplemented Mill replacement"})
 			}
 		}
 		if len(applicable) == 0 {
 			return ev, true
 		}
 		i := applicable[0]
-		if len(applicable) > 1 && int(ev.Player) < len(e.G.Players) && !e.G.Players[ev.Player].Lost {
-			d := millReplacementDecision(e.G, ev, matches, applicable)
-			chosen, _ := effects.AskTape(e, d)
+		if len(applicable) > 1 && int(ev.Player) < len(g.Players) && !g.Players[ev.Player].Lost {
+			d := millReplacementDecision(g, ev, matches, applicable)
+			chosen := ask(d)
 			if len(chosen) == 1 && chosen[0].Index >= 0 && chosen[0].Index < len(applicable) {
 				i = applicable[chosen[0].Index]
 			}
 		}
 		used[i] = true
 		m := matches[i]
-		ctx := e.replCtx(m, ev)
-		e.runReplaceWith(ctx, ev.Obj, m.repl.With, &ev)
+		ctx := h.replCtx(m, ev)
+		h.runReplaceWith(ctx, ev.Obj, m.repl.With, &ev)
 	}
 }
 
