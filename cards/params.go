@@ -742,6 +742,7 @@ const (
 	// synthesises `AB$ ClassLevelUp | Level$ N`; CR 716.2d sets the
 	// designation to N). Appended after the vocabulary inherited from main.
 	PKLevel
+	PKTapCreaturesForMana
 	paramKeyCount
 )
 
@@ -1481,6 +1482,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKImprintPlayed:                    "ImprintPlayed",
 	PKShowCards:                        "ShowCards",
 	PKLevel:                            "Level",
+	PKTapCreaturesForMana:              "TapCreaturesForMana",
 }
 
 // String is the key's Forge text.

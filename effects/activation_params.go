@@ -198,6 +198,9 @@ const (
 	// set (ConditionDescription$ aside) is present -- the shape is
 	// unsupported and the gate runs the sub unconditionally.
 	ActConditionOther
+	// ActTapCreaturesForMana: an activated ability permits tapping a creature
+	// in place of each generic mana in its activation cost.
+	ActTapCreaturesForMana
 )
 
 // ConditionParams is the resolution-condition half of the tier: the keys
@@ -379,6 +382,7 @@ func compileActivation(sa *cards.SA) *ActivationParams {
 		{isTrue(sa.ParamStr(cards.PKInstantSpeed)), ActInstantSpeed},
 		{isTrue(sa.ParamStr(cards.PKUnlessSwitched)), ActUnlessSwitched},
 		{conditionOtherKey(sa), ActConditionOther},
+		{sa.KindCode() == cards.SAKindActivated && isTrue(sa.ParamStr(cards.PKTapCreaturesForMana)), ActTapCreaturesForMana},
 	} {
 		if f.on {
 			p.Flags |= f.flag

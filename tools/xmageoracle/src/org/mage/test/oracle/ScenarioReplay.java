@@ -10,6 +10,9 @@ import com.google.gson.JsonPrimitive;
 import mage.Mana;
 import mage.abilities.Ability;
 import mage.abilities.common.SimpleStaticAbility;
+import mage.abilities.costs.AlternativeSourceCosts;
+import mage.cards.repository.CardInfo;
+import mage.cards.repository.CardRepository;
 import mage.abilities.effects.common.InfoEffect;
 import mage.cards.Card;
 import mage.constants.CardType;
@@ -278,6 +281,17 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
     }
 
+    /** Whether the card carries an alternative cost XMage offers on a plain
+     * cast (EvokeAbility, ImpendingAbility, DashAbility, ...). */
+    private static boolean hasAlternativeSourceCost(String name) {
+        CardInfo info = CardRepository.instance.findCard(name);
+        if (info == null) {
+            return false;
+        }
+        Card c = info.createCard();
+        return c != null && c.getAbilities().stream().anyMatch(a -> a instanceof AlternativeSourceCosts);
+    }
+
     /** The XMage target string for one scenario target ref: its alias when
      * setup bound one, else the stripped, XMage-spelled card name. */
     private String targetName(String ref) {
@@ -407,16 +421,26 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 }
                 String card = xmageSpelling(refName(str(st, "card")));
                 List<String> tg = targets(st);
+                if (hasAlternativeSourceCost(card)) {
+                    // A plain cast step: gorge paid the mana cost, so decline
+                    // the alternative cost (evoke, impending, dash, ...)
+                    // XMage offers through its "Cast with no alternative
+                    // cost" choice, rather than leave it to the AI.
+                    setChoice(p, "Cast with no alternative cost");
+                }
                 if (tg.size() == 1 && isSeatRef(tg.get(0))) {
                     castSpell(TURN, phase, p, card, seat(seatOf(tg.get(0))));
                 } else if (tg.isEmpty()) {
                     castSpell(TURN, phase, p, card);
                     cast.add(card);
                     return;
-                } else if (tg.size() == 1 && cast.contains(tg.get(0))) {
+                } else if (tg.size() == 1 && cast.contains(xmageSpelling(refName(tg.get(0))))) {
                     // Targeting a spell cast by an earlier step: wait for it
-                    // on the stack.
-                    castSpell(TURN, phase, p, card, tg.get(0), tg.get(0));
+                    // on the stack. cast holds spelled card names and the
+                    // target is a scenario ref; the setup alias names the
+                    // card in hand, not the spell, so target by name.
+                    String spell = xmageSpelling(refName(tg.get(0)));
+                    castSpell(TURN, phase, p, card, spell, spell);
                 } else if (tg.size() == 1) {
                     // A single target goes through XMage's own string form, so
                     // a divided-damage target (TargetAmount) still lets XMage
@@ -432,6 +456,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     for (String t : tg) {
                         if (isSeatRef(t)) {
                             addTarget(p, seat(seatOf(t)));
+                        } else if (cast.contains(xmageSpelling(refName(t)))) {
+                            // A spell an earlier step cast: its setup alias
+                            // names the card in hand, not the spell.
+                            addTarget(p, xmageSpelling(refName(t)));
                         } else {
                             addTarget(p, targetName(t));
                         }
@@ -559,8 +587,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     /** "p1:token:Name#2" -> "Name". */
     static String refName(String ref) {
+        // Only a leading seat ref ("p0:") is a prefix; a card name may carry
+        // its own colon ("Summon: Bahamut").
         int i = ref.indexOf(':');
-        String n = i >= 0 ? ref.substring(i + 1) : ref;
+        String n = i >= 0 && ref.substring(0, i).matches("p[0-9]+") ? ref.substring(i + 1) : ref;
         if (n.startsWith("token:")) {
             n = n.substring("token:".length());
         }

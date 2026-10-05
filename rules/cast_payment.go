@@ -33,6 +33,8 @@ func (e *Engine) validateCastContributions(d *decision.Decision, in decision.Int
 		switch {
 		case o.Kind == "harmonize":
 			pays = append(pays, convokePayment{ID: o.Obj, Power: int32(o.Amount)})
+		case strings.HasPrefix(o.Kind, "activation_creature"):
+			pays = append(pays, convokePayment{ID: o.Obj})
 		case o.Kind == "improvise_generic":
 			pays = append(pays, convokePayment{ID: o.Obj})
 		case o.Kind == "waterbend_generic":
@@ -85,7 +87,8 @@ func (e *Engine) convokeAsk() bool {
 	// foldRaiseExtra): each untapped artifact or creature tapped while paying
 	// it pays for {1} of the waterbend amount (CR 701.67a).
 	isWaterbend := pc.mods.Waterbend > 0 || pc.mods.WaterbendX
-	if !isConvoke && !isHarmonize && !isImprovise && !isWaterbend {
+	creatureMana := isAbility && pay.TapCreaturesForMana(e.pcAbility(pc))
+	if !isConvoke && !isHarmonize && !isImprovise && !isWaterbend && !creatureMana {
 		return false
 	}
 	// Before X is announced, its generic requirement is not folded into
@@ -95,6 +98,7 @@ func (e *Engine) convokeAsk() bool {
 	return pay.ConvokeAsk(asPayer(e), &pc.CastPayment, &pc.PaidCost, pay.ConvokeOffer{
 		Player: pc.player, Card: pc.card,
 		Convoke: isConvoke, Harmonize: isHarmonize, Improvise: isImprovise, Waterbend: isWaterbend,
+		CreatureMana: creatureMana, SourceTaps: pc.cost.Tap,
 		Mana: e.manaToPay(pc), HasX: pc.cost.X > 0,
 		WaterbendN: pc.mods.Waterbend, WaterbendOpen: pc.mods.RaiseX != 0 || pc.mods.WaterbendX,
 	})
