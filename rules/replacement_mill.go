@@ -60,11 +60,7 @@ func (e *Engine) continueMillReplacements(ev events.Event, matches []replMatch) 
 		used[i] = true
 		m := matches[i]
 		ctx := e.replCtx(m, ev)
-		before := ev.Amount
 		e.runReplaceWith(ctx, ev.Obj, m.repl.With, &ev)
-		if ev.Amount == before {
-			e.emit(events.Event{Kind: events.Note, Obj: m.id, Text: "unimplemented Mill replacement"})
-		}
 	}
 }
 

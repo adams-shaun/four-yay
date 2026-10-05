@@ -60,6 +60,40 @@ func TestBruvacDoublesOpponentMill(t *testing.T) {
 	}
 }
 
+func TestBruvacZeroMillDoesNotReportUnsupportedReplacement(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e, _ := millTriggerEngine(t)
+	id := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Bruvac the Grandiloquent"))
+	if obj := e.G.Obj(id); obj == nil || obj.Zone != state.ZBattlefield {
+		t.Fatalf("Bruvac id %d is not on the battlefield", id)
+	}
+	proposal := events.Event{Kind: events.MillProposal, Player: 1, Amount: 0}
+	matched := false
+	obj := e.G.Obj(id)
+	for i := range obj.Face().Repls {
+		repl := &obj.Face().Repls[i]
+		m := replMatch{id: id, face: obj.Face(), repl: repl}
+		if e.replacementMatches(*repl, id, proposal) && millCountBodySupported(e.replCtx(m, proposal), repl.With) {
+			matched = true
+			break
+		}
+	}
+	if !matched {
+		t.Fatal("precondition: Bruvac's supported replacement matches a zero-card opponent mill")
+	}
+	before := len(e.L.Events)
+	got := e.CountReplacementProposed(proposal)
+	if got.Amount != 0 {
+		t.Fatalf("zero-card mill rewritten to %d", got.Amount)
+	}
+	for _, ev := range e.L.Events[before:] {
+		if ev.Kind == events.Note && ev.Text == "unimplemented Mill replacement" && ev.Obj == id {
+			t.Fatal("supported Twice replacement emitted an unimplemented Note for a zero-card mill")
+		}
+	}
+}
+
 func TestMillReplacementCarrierCensus(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
