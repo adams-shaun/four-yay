@@ -720,7 +720,7 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		}
 		e.resumeUpdatedComposition(rc, chosen[0].Index)
 	case replChoiceLoseMana:
-		handleLoseManaChoice(rc, chosen[0].Index, in.Player, before, e.G, e, e.emit, func(v bool) { e.applyingReplacement = v }, func(v *triggerSnapshot) { e.triggerBefore = v })
+		handleLoseManaChoice(rc, chosen[0].Index, in.Player, before, e.G, e, e.emit, func(v bool) { e.applyingReplacement = v }, func(v *triggerSnapshot) { e.triggerBefore = v }, e.poseReplacementChoice)
 	case replChoiceUntap:
 		if chosen[0].Index < 0 || chosen[0].Index >= len(rc.cands) {
 			e.triggerBefore = before

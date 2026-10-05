@@ -12,6 +12,7 @@ import (
 type loseManaRuntime interface {
 	controllerOf(state.ObjID) state.PlayerID
 	runReplaceWith(*effects.Ctx, state.ObjID, *cards.SA, *events.Event)
+	replacementMatches(cards.Repl, state.ObjID, events.Event) bool
 }
 
 func loseManaReplacementApplies(ev events.Event, playerMatches, conditionHolds bool) bool {
@@ -39,7 +40,7 @@ func emitLoseManaClear(ev events.Event, emit func(events.Event) events.Event, se
 
 func handleLoseManaChoice(rc replChoice, selected int, player state.PlayerID, before *triggerSnapshot,
 	game *state.Game, runtime loseManaRuntime, emit func(events.Event) events.Event,
-	setApplying func(bool), setBefore func(*triggerSnapshot)) {
+	setApplying func(bool), setBefore func(*triggerSnapshot), pose func(events.Event, []replMatch)) {
 	if selected < 0 || selected >= len(rc.cands) || int(rc.ev.Player) >= len(game.Players) {
 		setBefore(before)
 		emit(events.Event{Kind: events.Note, Player: player, Text: "mana replacement-order answer out of range"})
@@ -49,6 +50,26 @@ func handleLoseManaChoice(rc replChoice, selected int, player state.PlayerID, be
 	applyLoseManaReplacement(rc.ev, m, p.Pool, p.PersistentMana, p.RestrictedMana,
 		func(color byte) byte { return convertLoseManaColor(m, color, runtime) },
 		func(clear events.Event) { emitLoseManaClear(clear, emit, setApplying) }, emit)
+
+	// Applying one replacement rewrites the still-unspent pool. CR 616.1
+	// then asks again if another unused effect applies to that resulting loss.
+	remaining := make([]replMatch, 0, len(rc.cands)-1)
+	p = game.Players[rc.ev.Player]
+	if p.Pool.Total() > p.PersistentMana.Total() {
+		for i, candidate := range rc.cands {
+			if i != selected && runtime.replacementMatches(*candidate.repl, candidate.id, rc.ev) {
+				remaining = append(remaining, candidate)
+			}
+		}
+	}
+	if len(remaining) > 1 {
+		pose(rc.ev, remaining)
+	} else if len(remaining) == 1 {
+		m = remaining[0]
+		applyLoseManaReplacement(rc.ev, m, p.Pool, p.PersistentMana, p.RestrictedMana,
+			func(color byte) byte { return convertLoseManaColor(m, color, runtime) },
+			func(clear events.Event) { emitLoseManaClear(clear, emit, setApplying) }, emit)
+	}
 }
 
 func applyLoseManaBoundary(ev events.Event, matches []replMatch, game *state.Game, runtime loseManaRuntime,
