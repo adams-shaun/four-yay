@@ -14,6 +14,8 @@ func TestScenarioReplayEndTurnSnapshotsAreConditionalAndComplete(t *testing.T) {
 	java := string(source)
 	for _, required := range []string{
 		"endTurnScenario = hasEndTurnEffect(xmageName.isEmpty() ? gorgeName : xmageName);",
+		"return card.getSpellAbility() != null && abilityHasEndTurnEffect(card.getSpellAbility());",
+		"for (Ability sub : ability.getSubAbilities())",
 		// Generated scenarios omit xmage_name when the two card names match (e.g. FIN Ultima).
 		"xmageName = str(sc, \"xmage_name\");", "gorgeName = str(sc, \"card\");",
 		"setStopAt(endTurnScenario ? TURN + 1 : TURN,",

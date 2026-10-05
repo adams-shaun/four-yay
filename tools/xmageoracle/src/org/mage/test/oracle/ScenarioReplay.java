@@ -410,8 +410,19 @@ public class ScenarioReplay extends CardTestPlayerBase {
             return false;
         }
         Card card = info.createCard();
-        return card.getSpellAbility() != null
-                && card.getSpellAbility().getEffects().stream().anyMatch(EndTurnEffect.class::isInstance);
+        return card.getSpellAbility() != null && abilityHasEndTurnEffect(card.getSpellAbility());
+    }
+
+    private static boolean abilityHasEndTurnEffect(Ability ability) {
+        if (ability.getEffects().stream().anyMatch(EndTurnEffect.class::isInstance)) {
+            return true;
+        }
+        for (Ability sub : ability.getSubAbilities()) {
+            if (abilityHasEndTurnEffect(sub)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ---- setup -----------------------------------------------------------
