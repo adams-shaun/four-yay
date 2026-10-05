@@ -739,7 +739,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 	// CR 401.5's MayPlayIgnoreColor$ rider: "you may spend mana as though it
 	// were mana of any color to cast it". Recorded from the grant the offer
 	// gate consulted while the card was still in the granted zone.
-	if opt.Mode == "mayplay" || (opt.Mode == "bargained" && opt.MayPlayPerm == "") {
+	if opt.Mode == "mayplay" || opt.Mode == "bargained" {
 		rider := asEval(e).MayPlayRider(p, id)
 		e.cast.mayPlayIgnore, e.cast.mayPlayIgnoreType = rider.AnyColor, rider.AnyType
 		e.cast.mayPlayRemembered = e.mayPlayManaConvertRemembered(p, id)

@@ -52,7 +52,16 @@ func (b bargain) possible(id state.ObjID) bool {
 func (b bargain) candidates(p state.PlayerID, spell state.ObjID) []state.ObjID {
 	var out []state.ObjID
 	for _, id := range b.e.G.Zone(state.ZBattlefield, p) {
-		if b.e.matchesSpecFrom("Artifact,Enchantment,token", id, p, spell) {
+		alreadySacrificed := false
+		if b.e.cast != nil && b.e.cast.card == spell {
+			for _, sac := range b.e.cast.Sacs {
+				if sac == id {
+					alreadySacrificed = true
+					break
+				}
+			}
+		}
+		if !alreadySacrificed && b.e.matchesSpecFrom("Artifact,Enchantment,token", id, p, spell) {
 			out = append(out, id)
 		}
 	}
