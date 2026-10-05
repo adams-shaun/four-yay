@@ -132,7 +132,11 @@ func FormatCost(c Cost) string {
 	// description field is preserved when present, matching the parser's
 	// three-field form.
 	for _, part := range c.RevealOrChoose {
-		head := "RevealOrChoose<" + strconv.FormatInt(int64(part.N), 10) + "/" + part.Spec
+		headName := "RevealOrChoose"
+		if part.ChooseCard {
+			headName = "ChooseCard"
+		}
+		head := headName + "<" + strconv.FormatInt(int64(part.N), 10) + "/" + part.Spec
 		if part.Desc != "" {
 			head += "/" + part.Desc
 		}
@@ -281,7 +285,11 @@ func CostPhrase(c Cost) string {
 		clauses = append(clauses, "reveal "+ObjectPhrase(part, "card"))
 	}
 	for _, part := range c.RevealOrChoose {
-		clauses = append(clauses, "reveal "+ObjectPhrase(part, "card")+" or choose "+ObjectPhrase(part, "permanent")+" you control")
+		if part.ChooseCard {
+			clauses = append(clauses, "choose a creature you control or a warped creature card you own in exile")
+		} else {
+			clauses = append(clauses, "reveal "+ObjectPhrase(part, "card")+" or choose "+ObjectPhrase(part, "permanent")+" you control")
+		}
 	}
 	for _, part := range c.RevealChosen {
 		if strings.EqualFold(part.Spec, "Player") {
