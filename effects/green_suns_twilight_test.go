@@ -74,17 +74,17 @@ func TestDigMultipleGreenSunSelectionAndBottoming(t *testing.T) {
 	if got := h.g.Zone(state.ZHand, 0); len(got) != len(selected) || got[0] == got[1] {
 		t.Fatalf("selected hand IDs = %v, want the two distinct chosen objects %v", got, selected)
 	}
-	if got := h.g.Zone(state.ZLibrary, 0); len(got) != len(unselected)+1 {
-		t.Fatalf("library = %v, want untouched tail %d plus unselected window cards %v", got, tail, unselected)
-	} else {
-		seen := append([]state.ObjID(nil), got...)
-		want := append(append([]state.ObjID(nil), unselected...), tail)
-		sort.Slice(seen, func(i, j int) bool { return seen[i] < seen[j] })
-		sort.Slice(want, func(i, j int) bool { return want[i] < want[j] })
-		for i := range want {
-			if seen[i] != want[i] {
-				t.Fatalf("library IDs = %v, want untouched tail plus unselected IDs %v", got, want)
-			}
+	gotLibrary := h.g.Zone(state.ZLibrary, 0)
+	if len(gotLibrary) != len(unselected)+1 || gotLibrary[0] != tail {
+		t.Fatalf("library = %v, want untouched tail %d above bottom remainder %v; events=%+v", gotLibrary, tail, unselected, h.log)
+	}
+	bottom := append([]state.ObjID(nil), gotLibrary[1:]...)
+	wantBottom := append([]state.ObjID(nil), unselected...)
+	sort.Slice(bottom, func(i, j int) bool { return bottom[i] < bottom[j] })
+	sort.Slice(wantBottom, func(i, j int) bool { return wantBottom[i] < wantBottom[j] })
+	for i := range wantBottom {
+		if bottom[i] != wantBottom[i] {
+			t.Fatalf("library bottom = %v, want exactly unselected IDs %v", gotLibrary[1:], unselected)
 		}
 	}
 	for _, id := range unselected {

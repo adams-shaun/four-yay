@@ -533,6 +533,45 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 		return false
 	}
 	g := h.Game()
+	// Green Sun's Twilight temporarily associates its unselected cards with
+	// the source while they remain in the library. They are not ordinary
+	// CR 607.2a Imprinted cards (which must be exiled), but its immediate
+	// RestBottom ChangeZone must still be able to randomize just that pile.
+	// The narrow NoShuffle + bottom shape avoids widening the ordinary
+	// Defined$ Imprinted rules contract; corpus census finds this exact
+	// ChangeZone shape only on Green Sun's Twilight.
+	if DefinedRefOf(sa).Is(RefImprinted) &&
+		to == state.ZLibrary && cz.NoShuffle && effDigCodes.Code(cz.LibraryPositionText) == effDigBottom {
+		if source := g.Obj(c.Source); source != nil {
+			byOwner := make([]libraryFetch, 0, 1)
+			for _, id := range source.Imprinted {
+				obj := g.Obj(id)
+				if obj == nil || obj.Zone != state.ZLibrary || int(obj.Owner) >= len(g.Players) {
+					continue
+				}
+				ownerIndex := -1
+				for i := range byOwner {
+					if byOwner[i].owner == obj.Owner {
+						ownerIndex = i
+						break
+					}
+				}
+				if ownerIndex < 0 {
+					byOwner = append(byOwner, libraryFetch{owner: obj.Owner})
+					ownerIndex = len(byOwner) - 1
+				}
+				byOwner[ownerIndex].ids = append(byOwner[ownerIndex].ids, id)
+			}
+			for _, pile := range byOwner {
+				for i := len(pile.ids) - 1; i > 0; i-- {
+					j := h.Rand(i + 1)
+					pile.ids[i], pile.ids[j] = pile.ids[j], pile.ids[i]
+				}
+				libraryOrderPlacement(h, pile.owner, pile.ids, true)
+			}
+		}
+		return true
+	}
 	targets, known := knownDefinedTargets(h, c, cz.Defined)
 	if !known {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
