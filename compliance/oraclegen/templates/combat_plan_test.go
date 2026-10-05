@@ -17,6 +17,21 @@ func TestControllerConstrainedBlockerIsExplicitlyUnsupported(t *testing.T) {
 	}
 }
 
+func TestOpponentControlledCombatAlternativeUsesBlocker(t *testing.T) {
+	reg := oracleHarnessCorpus(t)
+	it, skip := Generate(reg, "Spirit Flare")
+	if skip != nil {
+		t.Fatalf("no generated scenario: %s", skip.Reason)
+	}
+	block := stepFor(it.Scenario, "block")
+	if block == nil || len(block.Blocks) == 0 || block.Blocks[0][0][:3] != "p1:" {
+		t.Fatalf("opponent-controlled blocking alternative was not arranged: %+v", it.Scenario.Steps)
+	}
+	if _, ok := oraclegen.PlaysThrough(reg, it.Scenario); !ok {
+		t.Fatalf("gorge cannot play opponent-controlled combat alternative: %+v", it.Scenario.Steps)
+	}
+}
+
 func TestMultipleAttackingTargetsAreAllDeclared(t *testing.T) {
 	reg := oracleHarnessCorpus(t)
 	it, skip := Generate(reg, "Vengeful Dreams")

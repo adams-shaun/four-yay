@@ -15,20 +15,22 @@ import (
 var combatCensusSets = append(append([]string(nil), censusSets...), "EOE")
 
 // combatCorpusCount pins, corpus-wide, how many nonland named-cost spell faces
-// demand a creature that is attacking, blocking or tapped. It is the class
-// replace-set: a new carrier anywhere in .cards/cardsfolder changes its bucket
-// and fails loudly. The audit-set names below are pinned alongside it so a new
-// carrier in an audited set is named, not just counted.
+// demand a creature that is attacking, blocking or tapped. OppCtrl's
+// attacking-or-blocking OR filters are bucketed as blocking: their attacking
+// branch cannot be met on p0's turn, but their blocking branch can. A new
+// carrier anywhere in .cards/cardsfolder changes its bucket and fails loudly.
+// The audit-set names below are pinned alongside it so a new carrier in an
+// audited set is named, not just counted.
 //
-// Measured 2026-10-05 at the commit that taught the generator to declare
-// attackers, block, and tap a target. A raw
+// Measured 2026-10-05 after combat planning learned to choose a feasible OR
+// alternative for controller-constrained filters. A raw
 // `/usr/bin/grep -rlE 'ValidTgts\$...attacking|blocking' .cards/cardsfolder`
 // counts 378 files and 77 tapped because it sees activated abilities and
-// non-spell targets too; the registry scan here counts the spell faces the
-// generator actually has to arrange (104 / 12 / 34).
+// non-spell targets too; the registry scan here counts the spell faces by
+// demanded-state bucket (103 / 13 / 34).
 var combatCorpusCount = map[string]int{
-	"attacking": 104,
-	"blocking":  12,
+	"attacking": 103,
+	"blocking":  13,
 	"tapped":    34,
 }
 

@@ -1033,10 +1033,16 @@ func filterPredicate(filter, word string) bool {
 // "Creature.attacking,Creature.blocking,Creature.tapped") is not a tap
 // demand: the attacker satisfies the whole list.
 func filterCombat(filter string) (combatRole, bool) {
+	attacking := filterPredicate(filter, "attacking")
+	blocking := filterPredicate(filter, "blocking")
 	switch {
-	case filterPredicate(filter, "attacking"):
+	case attacking && blocking && strings.Contains(filter, "OppCtrl"):
+		// The attacking alternative cannot be an opponent-controlled
+		// attacker on p0's turn, but an opponent-controlled blocker can.
+		return roleBlocker, false
+	case attacking:
 		return roleAttacker, false
-	case filterPredicate(filter, "blocking"):
+	case blocking:
 		return roleBlocker, false
 	default:
 		return roleNone, filterPredicate(filter, "tapped")
@@ -1089,10 +1095,10 @@ func candidatesFor(filter string) []cand {
 		}
 		seat = "p0"
 	} else if role == roleBlocker {
-		// A blocker controlled by p0 cannot block on p0's own turn. Keep
-		// that controller-constrained shape unsupported rather than inventing
+		// A YouCtrl blocker cannot block on p0's own turn. Keep that
+		// controller-constrained shape unsupported rather than inventing
 		// an illegal combat fixture.
-		if mine {
+		if strings.Contains(filter, "YouCtrl") {
 			return nil
 		}
 		seat = "p1"
