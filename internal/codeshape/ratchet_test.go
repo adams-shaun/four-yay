@@ -272,7 +272,7 @@ const (
 	// string literal plus strings.EqualFold calls with a literal argument: the
 	// if-chain spelling of the `case "X":` dispatch stringCaseLiterals froze
 	// at zero. Measured on main at 00363b185.
-	stringLiteralCompares = 2233
+	stringLiteralCompares = 2221
 	// rawBoolParamParses is the strings.EqualFold calls whose argument holds a
 	// Param/ParamStr call: a flag parameter re-parsed at each use. Measured on
 	// main at 00363b185.
@@ -289,7 +289,7 @@ const (
 	// string switches, and a word named in a second table is the vocabulary
 	// splitting again. Measured on main at 00363b185.
 	strCodesTables = 336
-	strCodesKeyDup = 1304
+	strCodesKeyDup = 1263
 )
 
 // longFuncCeilings freezes every non-test function in rules/ and effects/
@@ -324,7 +324,7 @@ var longFuncCeilings = map[string]int{
 	"effects wordMatches":                                   516,
 	"rules (*Engine).appendAvailableManaAbilitiesGate":      375,
 	"rules (*Engine).applyReplacementsDispatch":             327,
-	"rules (*Engine).beginCastWith":                         723,
+	"rules (*Engine).beginCastWith":                         706,
 	"rules (*Engine).checkEventDelayedTriggers":             303,
 	"rules (*Engine).checkFaceTriggers":                     811,
 	"rules (*Engine).emit":                                  704,
@@ -338,7 +338,7 @@ var longFuncCeilings = map[string]int{
 	"rules (*Engine).triggerReferents":                      386,
 	"rules (*Engine).xAsk":                                  408,
 	"rules (*legalWalk).battlefieldWalk":                    864,
-	"rules (*legalWalk).handWalk":                           677,
+	"rules (*legalWalk).handWalk":                           673,
 	"rules (*oracleRun).do":                                 319,
 	"rules/cost ParseCost":                                  581,
 	"rules/pay NonManaCastableP":                            392,
