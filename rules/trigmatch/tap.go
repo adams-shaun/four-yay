@@ -38,7 +38,7 @@ func tapsMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, 
 	}
 	// Only the elected Teamwork cost taps carry this replay-visible reason;
 	// ordinary Taps triggers still see every real tap as before.
-	if teamwork, ok := t.ParamCode(cards.PKTeamwork); !forMana && ok && teamwork == 1 && ev.Text != events.TapTeamworkText {
+	if teamwork, ok := t.ParamCode(cards.PKTeamwork); !forMana && ok && teamwork == 1 && ev.Counter != events.TapTeamworkCounter {
 		return false
 	}
 	actor := TapActor(e, ev)

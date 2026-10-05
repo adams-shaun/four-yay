@@ -227,14 +227,14 @@ func EmitChoiceCosts(e Engine, paid *PaidCost, player state.PlayerID, card state
 	// path, not here.)
 	e.Batch(BatchTap, true)
 	for _, id := range paid.Taps {
-		text := "tapped as a cost"
+		var reason string
 		for _, teamworkID := range paid.TeamworkTaps {
 			if id == teamworkID {
-				text = events.TapTeamworkText
+				reason = events.TapTeamworkCounter
 				break
 			}
 		}
-		e.Emit(events.Event{Kind: events.Tap, Obj: id, Text: text})
+		e.Emit(events.Event{Kind: events.Tap, Obj: id, Counter: reason, Text: "tapped as a cost"})
 	}
 	e.Batch(BatchTap, false)
 	// CR 702.122: the creatures that paid a Crew ability's tap cost crewed the

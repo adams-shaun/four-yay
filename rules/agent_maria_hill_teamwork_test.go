@@ -35,7 +35,7 @@ func TestAgentMariaHillTeamworkTapTrigger(t *testing.T) {
 			o != nil && o.Zone == state.ZBattlefield, o != nil && o.Tapped, triggerPushesFor(e, maria))
 	}
 	for _, ev := range e.L.Events {
-		if ev.Kind == events.Tap && ev.Obj == maria && ev.Text != "" {
+		if ev.Kind == events.Tap && ev.Obj == maria && ev.Counter != "" {
 			t.Fatalf("ordinary tap payload changed: %+v", ev)
 		}
 	}
@@ -59,7 +59,7 @@ func TestAgentMariaHillTeamworkTapTrigger(t *testing.T) {
 	}
 	marked := 0
 	for _, ev := range e.L.Events {
-		if ev.Kind == events.Tap && ev.Text == "tapped for teamwork" {
+		if ev.Kind == events.Tap && ev.Counter == events.TapTeamworkCounter {
 			if ev.Obj != maria && ev.Obj != bear {
 				t.Fatalf("unexpected Teamwork tap: %+v", ev)
 			}
@@ -68,6 +68,11 @@ func TestAgentMariaHillTeamworkTapTrigger(t *testing.T) {
 	}
 	if marked != 2 {
 		t.Fatalf("replay-visible Teamwork taps=%d, want 2", marked)
+	}
+	for _, ev := range e.L.Events {
+		if ev.Kind == events.Tap && (ev.Obj == maria || ev.Obj == bear) && ev.Counter == events.TapTeamworkCounter && ev.Text != "tapped as a cost" {
+			t.Fatalf("Teamwork tap changed ordinary cost text: %+v", ev)
+		}
 	}
 	beforeHand := len(e.G.Zone(state.ZHand, 0))
 	beforeCounters := e.G.Obj(maria).Counter("P1P1")
