@@ -452,12 +452,18 @@ func (e *Engine) finishAttackers(chosen []decision.Option, player state.PlayerID
 	for _, k := range keys {
 		e.emit(events.Event{Kind: events.DeclareAttackers, Player: k.player, Obj: k.battle, IDs: byDef[k]})
 	}
+	// CR 508.1f: declaring attackers is ONE turn-based action, so the taps it
+	// applies are ONE tapping action for the aggregate Mode$ TapAll trigger
+	// (task cli-20261005T075020Z-05241a06): the shared action bracket makes
+	// the trigger fire once for the whole declaration, not once per attacker.
+	e.openMillBatch()
 	for _, opt := range chosen {
 		if !e.hasKeywordH(opt.Obj, kwhVigilance) {
 			// CR 508.1f: the player declaring attackers taps them.
 			e.emitTap(opt.Obj, player, false)
 		}
 	}
+	e.closeMillBatch()
 	// CR 702.100a (task exert1): each attacking creature carrying an
 	// offerable stat:OptionalAttackCost static is offered its exert
 	// election now, still inside the declare-attackers step, before the

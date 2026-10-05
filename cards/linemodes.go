@@ -113,7 +113,17 @@ const (
 	TriggerBecomesSaddled TriggerMode = 87
 	TriggerBecomesPlotted TriggerMode = 88
 	TriggerSacrificedOnce TriggerMode = 89
-	TriggerModeCount                  = 90 // one past the last; sizes a dense per-TriggerMode array
+	// Aggregate tap trigger modes (task cli-20261005T075020Z-05241a06):
+	// Forge's batch siblings of Taps/Untaps, "whenever one or more ...
+	// become tapped/untapped". They are the "one or more" readings of the
+	// Tap/Untap events (the millBatch/discardBatch cadence), not new event
+	// kinds, so they append here rather than being aliased onto
+	// TriggerTaps/TriggerUntaps. Appended after TriggerSacrificedOnce,
+	// following the vocabulary's append-only convention, so no earlier
+	// ordinal moves.
+	TriggerTapAll    TriggerMode = 90
+	TriggerUntapAll  TriggerMode = 91
+	TriggerModeCount             = 92 // one past the last; sizes a dense per-TriggerMode array
 )
 
 var triggerModeNames = [TriggerModeCount]string{
@@ -206,6 +216,8 @@ var triggerModeNames = [TriggerModeCount]string{
 	TriggerBecomesSaddled:             "BecomesSaddled",
 	TriggerBecomesPlotted:             "BecomesPlotted",
 	TriggerSacrificedOnce:             "SacrificedOnce",
+	TriggerTapAll:                     "TapAll",
+	TriggerUntapAll:                   "UntapAll",
 }
 
 var triggerModeCodes = func() StrCodes[TriggerMode] {

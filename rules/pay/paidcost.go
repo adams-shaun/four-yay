@@ -193,9 +193,16 @@ func EmitChoiceCosts(e Engine, paid *PaidCost, player state.PlayerID, card state
 			at += n
 		}
 	}
+	// One payment's tap cost parts (tapXType<N/Spec>, Crew, Convoke already
+	// recorded by the caller) tap their elected permanents as ONE action, so
+	// the aggregate Mode$ TapAll trigger fires once for the whole cost, not
+	// once per tapped permanent (task cli-20261005T075020Z-05241a06). The
+	// bracket is the shared action bracket.
+	e.Batch(BatchTap, true)
 	for _, id := range paid.Taps {
 		e.Emit(events.Event{Kind: events.Tap, Obj: id, Text: "tapped as a cost"})
 	}
+	e.Batch(BatchTap, false)
 	// CR 702.122: the creatures that paid a Crew ability's tap cost crewed the
 	// Vehicle. The crew keyword rides the minted Animate SA as `Keyword$ Crew`
 	// (cards/kw_crew.go), so the tag -- not any card name -- is what marks this

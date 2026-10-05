@@ -230,6 +230,10 @@ func (pe *payer) Batch(kind pay.BatchKind, open bool) {
 		e.BeginMillBatch()
 	case kind == pay.BatchMill:
 		e.EndMillBatch()
+	case kind == pay.BatchTap && open:
+		e.BeginMillBatch()
+	case kind == pay.BatchTap:
+		e.EndMillBatch()
 	case open:
 		e.BeginDiscardBatch()
 	default:

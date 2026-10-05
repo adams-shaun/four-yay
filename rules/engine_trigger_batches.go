@@ -81,18 +81,24 @@ type engineTriggerBatches struct {
 	zoneBatchDepth int                  `clone:"deep"`
 	zoneBatchIdx   map[zoneBatchKey]int `clone:"deep"`
 	zoneBatchLog   []zoneBatchEntry     `clone:"deep"`
-	// millBatch (effects' api:Mill): one api:Mill resolution is ONE mill
-	// action, so the Mode$ MilledAll "whenever one or more cards are milled"
-	// trigger fires once for the whole call, not once per milled card. The
-	// damage/zone batches' shape, but keyed by trigger LINE alone (the
-	// DamageAll "one or more" reading): the first matching milled card queues
-	// the single instance and every later matching card accumulates into the
-	// entry's COUNT -- the number of cards milled this way, which the bodies
-	// read through TriggerCount$Amount (The Wise Mothman's X, Screeching
-	// Scorchbeast's "that many tokens"). Only the cards matching THIS line's
-	// ValidCard$ count, exactly as DamageAll only accumulates matching pairs.
-	// Never opened across a drain: pendingTriggers is append-only while the
-	// batch is open, so the recorded index stays valid.
+	// millBatch is the shared "one or more" ACTION batch: one api:Mill
+	// resolution (Mode$ MilledAll), one api TapAll/UntapAll resolution or
+	// turn-based tapping/untapping action (Mode$ TapAll/UntapAll, task
+	// cli-20261005T075020Z-05241a06) is ONE action, so the batch mode fires
+	// once for the whole call, not once per event. The damage/zone batches'
+	// shape, but keyed by trigger LINE alone (the DamageAll "one or more"
+	// reading): the first matching event queues the single instance and every
+	// later matching event accumulates into the entry's COUNT -- the number
+	// of cards/permanents this way, which the bodies read through
+	// TriggerCount$Amount (The Wise Mothman's X, Magmakin Artillerist's X,
+	// The Millennium Calendar's X). Only events matching THIS line's
+	// ValidCard$/ValidCards$ count, exactly as DamageAll only accumulates
+	// matching pairs. It is opened by effects/action_batch.go's
+	// beginActionBatch (effMill, effTapAll, effUntapAll) and by rules-side
+	// action boundaries (rules/combat.go's declare-attackers taps,
+	// rules/turn.go's untap step, rules/pay's BatchTap cost bracket). Never
+	// opened across a drain: pendingTriggers is append-only while the batch
+	// is open, so the recorded index stays valid.
 	millBatchOpen  bool               `clone:"reset"`
 	millBatchDepth int                `clone:"reset"`
 	millBatchIdx   map[triggerKey]int `clone:"reset"`
