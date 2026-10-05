@@ -170,6 +170,17 @@ func TestPlayUsesRealCorpusCard(t *testing.T) {
 	kr6Probe(e, func() {
 		e.emit(events.Event{Kind: events.MoveZone, Obj: kid, From: from, To: state.ZBattlefield})
 	})
+	e.putTriggersOnStack()
+	if o := e.G.Obj(kid); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("Spinerock Knoll entry = %+v, want battlefield before Hideaway resolves", o)
+	}
+	if len(e.G.Zone(state.ZExile, 0)) != 0 {
+		t.Fatalf("Hideaway exiled cards before its trigger resolved: %v", e.G.Zone(state.ZExile, 0))
+	}
+	if len(e.G.Stack) == 0 {
+		t.Fatal("Spinerock Knoll Hideaway trigger not on stack")
+	}
+	kr6ResolveTop(e)
 	pick := e.Pending()
 	if pick == nil || pick.Kind != decision.KChoose || len(pick.Options) != 4 {
 		t.Fatalf("Hideaway pick = %+v, want four-card choice", pick)
