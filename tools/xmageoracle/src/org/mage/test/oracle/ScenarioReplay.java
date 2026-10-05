@@ -529,6 +529,26 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return a != null ? a : xmageSpelling(refName(ref));
     }
 
+    /** Resolve a named setup permanent ref, preserving duplicate suffixes. */
+    private Permanent permanentRef(Game g, String ref) {
+        int seatIndex = Integer.parseInt(ref.substring(1, ref.indexOf(':')));
+        String name = xmageSpelling(refName(ref));
+        int wanted = 1;
+        int hash = ref.lastIndexOf('#');
+        if (hash >= 0 && ref.substring(hash + 1).matches("[0-9]+")) {
+            wanted = Integer.parseInt(ref.substring(hash + 1));
+        }
+        int seen = 0;
+        for (Permanent perm : g.getBattlefield().getAllPermanents()) {
+            if (perm.getControllerId().equals(seat(seatIndex).getId()) && perm.getName().equals(name)) {
+                if (++seen == wanted) {
+                    return perm;
+                }
+            }
+        }
+        throw new IllegalArgumentException("permanent ref " + ref + " is not on the battlefield");
+    }
+
     private static List<String> names(JsonObject o, String key) {
         List<String> out = new ArrayList<>();
         if (o.has(key)) {
@@ -636,6 +656,16 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     block(TURN, p, combatName(pair.get(0).getAsString()), combatName(pair.get(1).getAsString()));
                 }
                 phase = PhaseStep.DECLARE_BLOCKERS;
+                return;
+            }
+            case "attach": {
+                String card = str(st, "card");
+                String bearer = str(st, "attached_to");
+                runCode("attach " + card + " to " + bearer, TURN, phase, p, (info, pl, g) -> {
+                    Permanent attachment = permanentRef(g, card);
+                    Permanent target = permanentRef(g, bearer);
+                    attachment.attachTo(target, g);
+                });
                 return;
             }
             case "cast": {
