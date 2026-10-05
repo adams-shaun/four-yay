@@ -560,6 +560,28 @@ func zoneWordKnown(z string) bool {
 // deterministic.
 var outlawSubtypes = [...]string{"Assassin", "Mercenary", "Pirate", "Rogue", "Warlock"}
 
+func chosenColorMatches(g *state.Game, o *state.Object, sc SpecContext) bool {
+	if sc.Source == 0 {
+		return false
+	}
+	src := g.Obj(sc.Source)
+	if src == nil {
+		return false
+	}
+	chosen := colourLetter(src.ChosenColor)
+	return chosen != 0 && strings.Contains(colorsCtx(o, &sc), string(chosen))
+}
+
+// outlawMatches reads the five outlaw subtypes through the layer-aware matcher.
+func outlawMatches(o *state.Object, sc SpecContext) bool {
+	for _, sub := range outlawSubtypes {
+		if hasTypeCtx(o, sub, sc) {
+			return true
+		}
+	}
+	return false
+}
+
 // wordMatches reports whether an object satisfies a positively-evaluated
 // classifier from wordPredicate. Colorless is "no colour at all" and
 // MultiColor "more than one colour"; MonoColor is its twin, "exactly one
@@ -586,28 +608,11 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 	case wordColor:
 		return strings.Contains(colorsCtx(o, &sc), key)
 	case wordChosenColor:
-		if source == 0 {
-			return false
-		}
-		src := g.Obj(source)
-		if src == nil {
-			return false
-		}
-		chosen := colourLetter(src.ChosenColor)
-		return chosen != 0 && strings.Contains(colorsCtx(o, &sc), string(chosen))
+		return chosenColorMatches(g, o, sc)
 	case wordType:
 		return hasTypePredicateCtx(o, key, sc)
 	case wordOutlaw:
-		// Forge's Outlaw: the candidate has any of the five outlaw creature
-		// subtypes (Assassins, Mercenaries, Pirates, Rogues, Warlocks). Read
-		// through the layer-aware subtype matcher so a type-changing effect is
-		// honoured. A card with none of them never matches (no default).
-		for _, sub := range outlawSubtypes {
-			if hasTypeCtx(o, sub, sc) {
-				return true
-			}
-		}
-		return false
+		return outlawMatches(o, sc)
 	case wordColorless:
 		return colorMaskCtx(o, &sc) == 0
 	case wordControllerDealtCombatDamageBySource:

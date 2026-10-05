@@ -300,7 +300,6 @@ const (
 // Regenerate the keys with `go run ./cmd/codeshape -table`.
 var longFuncCeilings = map[string]int{
 	"effects applyLibrarySearch":                            327,
-	"effects conditionMet":                                  579,
 	"effects definedSpec":                                   949,
 	"effects effAttach":                                     466,
 	"effects effChangeZone":                                 613,

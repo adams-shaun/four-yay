@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/state"
 )
 
 // condition_census.go is the ONE classifier of which Condition* shapes this
@@ -26,11 +25,25 @@ import (
 // is enumerated in the two unmodelled sets, so the census is exhaustive by
 // construction.
 
+// conditionNames is census data, not a dispatch table: entries carry only
+// classification, while the evaluator owns the behavior of each group.
+type conditionNames map[string]bool
+
+func (names conditionNames) Has(name string) bool { return names[name] }
+
+func newConditionNames(values ...string) conditionNames {
+	result := make(conditionNames, len(values))
+	for _, value := range values {
+		result[value] = true
+	}
+	return result
+}
+
 // conditionSupportedDefined is the set of ConditionDefined$ groups
 // conditionMetCore enumerates. ThisTargetedCard is the resolving ability's own
 // answered targets, the same group Targeted reads (Throw from the Saddle,
 // Joust, Malamet Battle Glyph).
-var conditionSupportedDefined = state.NewNameSet(
+var conditionSupportedDefined = newConditionNames(
 	"Remembered", "Self", "TriggeredCard", "TriggeredCardLKICopy",
 	"Imprinted", "Discarded", "Targeted", "Returned", "ChosenCard",
 	"TriggeredSourceLKICopy", "RememberedLKI", "ParentTarget", "Sacrificed",
@@ -41,7 +54,7 @@ var conditionSupportedDefined = state.NewNameSet(
 // conditionUnmodelledDefined is every ConditionDefined$ group the corpus
 // carries that conditionMetCore cannot enumerate. Each entry is a real
 // carrier (counts measured 2026-10-04); a new value fails the census test.
-var conditionUnmodelledDefined = state.NewNameSet(
+var conditionUnmodelledDefined = newConditionNames(
 	"TriggeredAttackerLKICopy",  // 7
 	"DelayTriggerRememberedLKI", // 6
 	"Equipped",                  // 5
@@ -60,13 +73,13 @@ var conditionUnmodelledDefined = state.NewNameSet(
 
 // conditionSupportedBare is every bare Condition$ value conditionMetCore
 // evaluates (the case-insensitive switch in its bare branch).
-var conditionSupportedBare = state.NewNameSet(
+var conditionSupportedBare = newConditionNames(
 	"Kicked", "Foretold", "Revolt", "Delirium", "Metalcraft", "Blessing",
 )
 
 // conditionUnmodelledBare is every bare Condition$ value the corpus carries
 // that conditionMetCore does not evaluate. Counts measured 2026-10-04.
-var conditionUnmodelledBare = state.NewNameSet(
+var conditionUnmodelledBare = newConditionNames(
 	"PlayerTurn", "Threshold", "MaxSpeed", "NotPlayerTurn", "Hellbent",
 	"OptionalCost", "EnduringStory", "Bargain", "NoOpponentHasMoreLifeThanAttacked",
 	"Monarch", "FatefulHour", "Evolve", "Surge", "Sacrificed", "Night",
@@ -78,7 +91,7 @@ var conditionUnmodelledBare = state.NewNameSet(
 // conditionMetCore does not read (the keys are read through the raw Params
 // map; the evaluated set is conditionEvaluatedKeys). Counts measured
 // 2026-10-04.
-var conditionUnmodelledKeys = state.NewNameSet(
+var conditionUnmodelledKeys = newConditionNames(
 	"ConditionManaSpent",            // 34
 	"ConditionOptionalPaid",         // 10
 	"ConditionPlayerDefined",        // 9
