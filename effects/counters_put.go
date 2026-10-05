@@ -11,8 +11,8 @@ import (
 )
 
 func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
+	defer beginActionBatch(h)()
 	pc := PutCounterOf(sa)
-
 	noteUnreadParams(h, c, "PutCounter", pc.Unread)
 
 	// Adapt$ (CR 702.35a; task param-adapt): an AB/DB$ PutCounter carrying

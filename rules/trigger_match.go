@@ -1554,26 +1554,8 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 				// set into Remembered/Captured. No batch open means every event is
 				// its own batch-of-one and the referent below already carries
 				// count 1.
-				if mk := t.ModeKind(); e.millBatchOpen && (mk == cards.TriggerMilledAll || mk == cards.TriggerTapAll || mk == cards.TriggerUntapAll) {
-					if e.millBatchIdx == nil {
-						e.millBatchIdx = map[triggerKey]int{}
-					}
-					if entIdx, ok := e.millBatchIdx[key]; ok {
-						ent := &e.millBatchLog[entIdx]
-						ent.amount++
-						if ev.Obj != 0 {
-							ent.milled = batchAppendTarget(ent.milled, state.Target{Obj: ev.Obj})
-						}
-						continue // already queued once for this mill action.
-					}
-					ent := millBatchEntry{key: key, idx: len(e.pendingTriggers), amount: 1}
-					if ev.Obj != 0 {
-						ent.milled = batchAppendTarget(ent.milled, state.Target{Obj: ev.Obj})
-					}
-					e.millBatchIdx[key] = len(e.millBatchLog)
-					e.millBatchLog = append(e.millBatchLog, ent)
-					// Fall through: the trigger queues now; closeMillBatch patches
-					// its count and plural capture to the mill action's totals.
+				if batchTriggerAlreadyQueued(e.millBatchOpen, &e.millBatchIdx, &e.millBatchLog, len(e.pendingTriggers), t, key, ev) {
+					continue
 				}
 				// DiscardedAll inside an open discard batch (one api:Discard
 				// resolution, effects/cardflow.go's effDiscard) is the discard twin
@@ -2698,7 +2680,7 @@ func init() {
 
 	effects.RegisterNonAPI(
 		"trig:ChangesZone", "trig:ChangesZoneAll", "trig:SpellCast", "trig:Attacks", "trig:AttackersDeclaredOneTarget",
-		"trig:AttackersDeclared", "trig:AttackerBlocked", "trig:AttackerBlockedByCreature", "trig:AttackerUnblocked", "trig:AttackerUnblockedOnce", "trig:Blocks", "trig:Cycled", "trig:CounterAdded", "trig:CounterAddedOnce", "trig:CounterRemoved", "trig:CounterRemovedOnce", "trig:CounterPlayerAddedAll",
+		"trig:AttackersDeclared", "trig:AttackerBlocked", "trig:AttackerBlockedByCreature", "trig:AttackerUnblocked", "trig:AttackerUnblockedOnce", "trig:Blocks", "trig:Cycled", "trig:CounterAdded", "trig:CounterAddedOnce", "trig:CounterRemoved", "trig:CounterRemovedOnce", "trig:CounterPlayerAddedAll", "trig:CounterAddedAll", "trig:CounterTypeAddedAll",
 		"trig:Sacrificed", "trig:Discarded", "trig:CommitCrime", "trig:Taps", "trig:TapsForMana", "trig:Untaps",
 		// Aggregate tap trigger modes (task cli-20261005T075020Z-05241a06),
 		// matched by trigmatch.tapAllMatches/untapAllMatches off the ordinary
