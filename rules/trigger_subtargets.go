@@ -79,14 +79,14 @@ func (e *Engine) triggerChainPreAsks(root *cards.SA) []*cards.SA {
 			return nil
 		}
 		defined := effects.DefinedRefOf(sa)
-		if sa.CompiledAPI() == cards.APIChangeZone || sa.API == "ChangeZone" {
+		if effects.TargetAskIsChangeZone(sa) {
 			// changeZoneChosenTargetsFor owns the resolution ask and consumes
 			// this same SubPreAsk record. A Defined$ ChangeZone names its
 			// referent directly and does not pose a target ask.
 			if defined.Set() {
 				continue
 			}
-		} else if effects.DefinedIsTargetReuse(defined.Text) && sa.API != "Fight" {
+		} else if effects.TargetAskReusesPrior(sa) {
 			// Mirror chosenTargetsFor: reusing a prior target is not a new
 			// targeting choice (except Fight's two distinct declarations).
 			continue

@@ -68,12 +68,10 @@ import (
 // carrier (Kaya, Spirits' Justice's exile-each; mega_flare,
 // tasha_the_witch_queen, geths_summons) reaches its ask here.
 func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target, bool) {
-	defined := DefinedRefOf(sa).Text
-	if !TargetsOf(sa).Targeted() ||
-		(defined != "" && DefinedIsTargetReuse(defined) && sa.API != "Fight") {
+	if !TargetsOf(sa).Targeted() || TargetAskReusesPrior(sa) {
 		return nil, false
 	}
-	if sa.CompiledAPI() == cards.APIChangeZone || sa.API == "ChangeZone" {
+	if TargetAskIsChangeZone(sa) {
 		return nil, false
 	}
 	if c.SubPreAsk != nil {
@@ -156,6 +154,18 @@ func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target
 	}
 	ts, ok, _ := poseTargetsAsk(h, c, sa, chooser, candidates, min, max, "tgts")
 	return ts, ok
+}
+
+// TargetAskReusesPrior identifies a link that consumes an earlier target
+// rather than asking again. Fight declares its own distinct targets.
+func TargetAskReusesPrior(sa *cards.SA) bool {
+	return DefinedIsTargetReuse(DefinedRefOf(sa).Text) && sa.API != "Fight"
+}
+
+// TargetAskIsChangeZone identifies the link whose target chooser lives in
+// changeZoneChosenTargetsFor rather than chosenTargetsFor.
+func TargetAskIsChangeZone(sa *cards.SA) bool {
+	return sa.CompiledAPI() == cards.APIChangeZone || sa.API == "ChangeZone"
 }
 
 // DefinedIsTargetReuse reports whether a Defined$ value names one of the

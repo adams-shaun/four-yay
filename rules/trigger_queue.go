@@ -420,6 +420,23 @@ func (e *Engine) takeAnsweredTrigger(d *decision.Decision) (pendingTrigger, bool
 // is recorded, and it is the whole of what a log-only replay needs. No event
 // kind and no Event field was added for Task 27.
 func (e *Engine) pushTrigger(pt pendingTrigger) {
+	// All non-modal push paths announce root and chain targets before priority.
+	// Gained triggers retain their separate mode-drain behavior below.
+	announce := func(id state.ObjID) {
+		handled := false
+		if pt.SA.ParamStr(cards.PKChoices) != "" {
+			handled = e.askTriggerModes(pt.Controller, id, pt.SA)
+			if handled && e.Pending() != nil {
+				e.drainAwaitsModes = true
+			}
+		}
+		if !handled && effects.TargetsOf(pt.SA).Targeted() {
+			e.askTarget(pt.Controller, id, pt.SA)
+		}
+		if !handled {
+			e.startTriggerSubTargets(id, pt.Controller, pt.SA)
+		}
+	}
 	if pt.SpeedIncrease {
 		e.emit(events.Event{Kind: events.DelayedPush, Player: pt.Controller, Counter: speedTrigger})
 		return
@@ -964,19 +981,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 			}
 			e.triggerContexts[id] = pt.Ctx.TriggerContext
 			e.recordTriggerLine(id, pt)
-			handled := false
-			if pt.SA.ParamStr(cards.PKChoices) != "" {
-				handled = e.askTriggerModes(pt.Controller, id, pt.SA)
-				if handled && e.Pending() != nil {
-					e.drainAwaitsModes = true
-				}
-			}
-			if !handled && effects.TargetsOf(pt.SA).Targeted() {
-				e.askTarget(pt.Controller, id, pt.SA)
-			}
-			if !handled {
-				e.startTriggerSubTargets(id, pt.Controller, pt.SA)
-			}
+			announce(id)
 		}
 		e.drainAwaitsTarget = e.Pending() != nil && !e.drainAwaitsModes
 		return
@@ -1053,19 +1058,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 			}
 			e.bindReflexiveContext(id, &pt)
 			e.recordTriggerLine(id, pt)
-			handled := false
-			if pt.SA.ParamStr(cards.PKChoices) != "" {
-				handled = e.askTriggerModes(pt.Controller, id, pt.SA)
-				if handled && e.Pending() != nil {
-					e.drainAwaitsModes = true
-				}
-			}
-			if !handled && effects.TargetsOf(pt.SA).Targeted() {
-				e.askTarget(pt.Controller, id, pt.SA)
-			}
-			if !handled {
-				e.startTriggerSubTargets(id, pt.Controller, pt.SA)
-			}
+			announce(id)
 		}
 		e.drainAwaitsTarget = e.Pending() != nil && !e.drainAwaitsModes
 		return
@@ -1167,21 +1160,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 	if pt.SA != nil && len(e.G.Stack) > 0 &&
 		e.G.Obj(e.G.Stack[len(e.G.Stack)-1]) != nil {
 		id := e.G.Stack[len(e.G.Stack)-1]
-		handled := false
-		if pt.SA.ParamStr(cards.PKChoices) != "" {
-			handled = e.askTriggerModes(pt.Controller, id, pt.SA)
-			if handled && e.Pending() != nil {
-				e.drainAwaitsModes = true
-			}
-		}
-		if !handled && effects.TargetsOf(pt.SA).Targeted() {
-			e.askTarget(pt.Controller, id, pt.SA)
-		}
-		if !handled {
-			// CR 603.3d: the chain links' targets follow the root's
-			// (rules/trigger_subtargets.go, scoped there).
-			e.startTriggerSubTargets(id, pt.Controller, pt.SA)
-		}
+		announce(id)
 	}
 	// Fix round 1 (reviewer minor, cheap): derive drainAwaitsTarget from
 	// e.Pending() rather than clearing it first. The old form set it false
