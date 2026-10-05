@@ -254,6 +254,7 @@ const (
 	PKTargetsWithSharedCardType
 	PKTgtPrompt
 	PKTgtZone
+	PKTeamwork
 	PKThisTurn
 	PKTokenScript
 	PKTriggerDescription
@@ -1012,6 +1013,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKTargetsWithSharedCardType:        "TargetsWithSharedCardType",
 	PKTgtPrompt:                        "TgtPrompt",
 	PKTgtZone:                          "TgtZone",
+	PKTeamwork:                         "Teamwork",
 	PKThisTurn:                         "ThisTurn",
 	PKTokenScript:                      "TokenScript",
 	PKTriggerDescription:               "TriggerDescription",
