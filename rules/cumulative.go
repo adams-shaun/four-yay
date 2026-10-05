@@ -1825,6 +1825,25 @@ func (e *Engine) settleTriggeredMandatory(tc *triggeredEffectCost) {
 	rp := tc.resume
 	e.triggerCost = nil
 	e.choosing = chooseNone
+	// Capture each settled sacrifice's LKI before the Sacrifice/MoveZone
+	// events clear its counters, keyed by the stack object the parked body
+	// resumes on. resumeResolution rebuilds the body's Ctx from
+	// e.sacrificedLKI[rp.obj] (the same channel the cast flow's cost
+	// sacrifices use), so a Cost$-bearing triggered body that reads
+	// Sacrificed$CardPower/CardToughness/CardManaCost prices what THIS
+	// window just sacrificed instead of an empty list (Rhovanion Rampager).
+	var sacrificedLKI []state.SacrificedInfo
+	for _, id := range tc.sacs {
+		if o := e.G.Obj(id); o != nil && o.Zone == state.ZBattlefield {
+			sacrificedLKI = append(sacrificedLKI, effects.SacrificedLKI(e, id))
+		}
+	}
+	if len(sacrificedLKI) > 0 {
+		if e.sacrificedLKI == nil {
+			e.sacrificedLKI = make(map[state.ObjID][]state.SacrificedInfo)
+		}
+		e.sacrificedLKI[rp.obj] = append(e.sacrificedLKI[rp.obj], sacrificedLKI...)
+	}
 	for _, id := range tc.sacs {
 		if o := e.G.Obj(id); o != nil && o.Zone == state.ZBattlefield {
 			e.emit(events.Sacrifice(id))
