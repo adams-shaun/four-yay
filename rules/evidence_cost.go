@@ -37,6 +37,32 @@ func evidenceGraveCandidates(g *state.Game, player state.PlayerID, reserved map[
 	return out
 }
 
+// evidenceReserveOrder puts the least valuable graveyard candidates first,
+// so a mandatory component's existential allocation preserves as much total
+// mana value as possible for the later evidence stage.
+func evidenceReserveOrder(g *state.Game, ids []state.ObjID) []state.ObjID {
+	ordered := append([]state.ObjID(nil), ids...)
+	sort.Slice(ordered, func(i, j int) bool {
+		mi, mj := g.Obj(ordered[i]).Face().Cmc(), g.Obj(ordered[j]).Face().Cmc()
+		if mi != mj {
+			return mi < mj
+		}
+		return ordered[i] < ordered[j]
+	})
+	return ordered
+}
+
+// evidenceCanReach reports whether the unreserved graveyard still reaches
+// the shared threshold. It is used both by the payability allocation and by
+// the graveyard-component answer filter.
+func evidenceCanReach(g *state.Game, player state.PlayerID, need int32, reserved map[state.ObjID]bool) bool {
+	if need <= 0 {
+		return false
+	}
+	ids := evidenceGraveCandidates(g, player, reserved)
+	return evidenceManaValue(g, player, ids) >= need
+}
+
 // evidenceOrder copies ids and orders them by mana value DESCENDING, ties by
 // object id ascending. The order is the option order the ask poses: the
 // FIRST minimum-count options then always reach the threshold, so the

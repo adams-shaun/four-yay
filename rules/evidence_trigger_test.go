@@ -253,10 +253,14 @@ func TestEvidenceTriggerReservesAcrossParts(t *testing.T) {
 	t.Parallel()
 	reg := searchTestRegistry(t)
 	giant := searchCorpusCard(t, reg, "Hill Giant")
+	zero := card(t, "Name:Evidence Zero\nManaCost:0\nTypes:Artifact\nOracle:x\n")
 
 	e := handEngine(t)
+	// Put the evidence-enabling 4-MV card first, followed by a 0-MV card.
+	// The gate must find the disjoint allocation (reserve the zero) rather
+	// than blindly reserving the first candidate.
 	g1 := evidenceGraveCard(t, e, giant)
-	g2 := evidenceGraveCard(t, e, giant)
+	g2 := evidenceGraveCard(t, e, zero)
 
 	d := etbCostWindow(t, e, evidenceReserveLooter)
 	pay, _ := windowPayDecline(t, d)
@@ -266,11 +270,15 @@ func TestEvidenceTriggerReservesAcrossParts(t *testing.T) {
 	mark := len(e.L.Events)
 	submitChoices(t, e, pay)
 
-	// The Exile component poses a real pick (two candidates, N=1); take the
-	// first.
+	// The component choice must exclude the 4-MV card: choosing it would
+	// leave only a 0-MV card and make the already-offered evidence payment
+	// impossible. The sole legal choice is the zero-MV card.
 	d = e.Pending()
-	if d == nil || d.Kind != decision.KChoose || len(d.Options) == 0 || d.Options[0].Kind != "exile_cost" {
-		t.Fatalf("exile-component ask = %+v", d)
+	if d == nil || d.Kind != decision.KChoose || len(d.Options) != 1 || d.Options[0].Kind != "exile_cost" {
+		t.Fatalf("evidence-compatible exile ask = %+v, want only zero-MV candidate", d)
+	}
+	if d.Options[0].Obj != g2 {
+		t.Fatalf("component option = %d, want zero-MV card %d (4-MV card %d must be preserved)", d.Options[0].Obj, g2, g1)
 	}
 	submitChoices(t, e, d.Options[0].Index)
 
@@ -294,6 +302,37 @@ func TestEvidenceTriggerReservesAcrossParts(t *testing.T) {
 	}
 	if e.G.Obj(g1).Zone != state.ZExile || e.G.Obj(g2).Zone != state.ZExile {
 		t.Fatalf("after both parts: g1=%s g2=%s, want both exiled", e.G.Obj(g1).Zone, e.G.Obj(g2).Zone)
+	}
+}
+
+// TestDynamicEvidenceTriggerDeclinesLoudly checks the reachable trigger-window
+// path for CollectEvidence<X>: it is decline-only and records why, rather
+// than silently treating the unresolved amount as free.
+func TestDynamicEvidenceTriggerDeclinesLoudly(t *testing.T) {
+	t.Parallel()
+	const dynamic = "Name:Dynamic Evidence\nManaCost:2 U\nTypes:Creature Wizard\n" +
+		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigCost\n" +
+		"SVar:TrigCost:AB$ Draw | Cost$ CollectEvidence<X> | NumCards$ 1\nOracle:x\n"
+	e := handEngine(t)
+	giant := card(t, "Name:Evidence Four\nManaCost:4\nTypes:Artifact\nOracle:x\n")
+	evidenceGraveCard(t, e, giant)
+	mark := len(e.L.Events)
+	d := etbCostWindow(t, e, dynamic)
+	if d == nil || len(d.Options) != 1 || d.Options[0].Kind != "trigger_cost_decline" {
+		t.Fatalf("dynamic evidence ask = %+v, want decline-only", d)
+	}
+	submitChoices(t, e, d.Options[0].Index)
+	found := false
+	for _, ev := range e.L.Events[mark:] {
+		if ev.Kind == events.Note && strings.Contains(ev.Text, "collect evidence amount is dynamic") {
+			found = true
+		}
+		if events.IsEvidenceCost(ev) {
+			t.Fatalf("unresolved dynamic evidence was paid: %+v", ev)
+		}
+	}
+	if !found {
+		t.Fatal("declining dynamic evidence emitted no diagnostic Note")
 	}
 }
 

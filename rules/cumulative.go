@@ -1221,6 +1221,12 @@ func (e *Engine) triggeredCostComponentsPayable(tc *triggeredEffectCost) bool {
 		if int32(len(eligible)) < part.N {
 			return false
 		}
+		if len(amt.Evidence) > 0 && part.Zone == state.ZGraveyard {
+			// Preserve the evidence threshold by reserving the lowest-value
+			// eligible cards first. The player still chooses the component;
+			// this is only the existential payability allocation.
+			eligible = evidenceReserveOrder(e.G, eligible)
+		}
 		for j := int32(0); j < part.N; j++ {
 			reserved[eligible[j]] = true
 		}
@@ -1335,6 +1341,10 @@ func (e *Engine) triggeredCostPaymentAsk() {
 	// gate keeps the ask and the pay arm in lockstep.
 	payable := e.triggeredCostPayable(tc)
 	if !payable {
+		if len(tc.announcedCost().Evidence) > 0 && tc.evidenceNeed() < 0 {
+			e.emit(events.Event{Kind: events.Note, Player: tc.player,
+				Text: "collect evidence amount is dynamic and cannot be resolved in a triggered cost; declining"})
+		}
 		// An unpriceable cost (PayLife<X>, Verrak, Warped Sengir's copy
 		// trigger) is a hard decline per the ParseUnlessCost convention, and
 		// since the pool-coverability gate (triggeredCostManaHalfPayable) the
@@ -1813,6 +1823,24 @@ func (e *Engine) advanceTriggeredMandatory(tc *triggeredEffectCost) {
 		d := &decision.Decision{Player: tc.player, Kind: decision.KChoose,
 			Min: int(part.N), Max: int(part.N), Source: tc.source,
 			Prompt: name + " — choose " + strconv.FormatInt(int64(part.N), 10) + " " + noun + " to " + kind}
+		if len(tc.amount.Evidence) > 0 && part.Zone == state.ZGraveyard && part.N == 1 {
+			// A graveyard component pick cannot consume the only evidence
+			// payment. Filter incompatible answers here, before the decision,
+			// so the deterministic bot cannot repeatedly submit one.
+			reserved := tc.reservedComponents()
+			filtered := eligible[:0]
+			for _, id := range eligible {
+				trial := make(map[state.ObjID]bool, len(reserved)+1)
+				for used := range reserved {
+					trial[used] = true
+				}
+				trial[id] = true
+				if evidenceCanReach(e.G, tc.player, tc.evidenceNeed(), trial) {
+					filtered = append(filtered, id)
+				}
+			}
+			eligible = filtered
+		}
 		for _, id := range eligible {
 			label := e.targetName(id)
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: kind, Obj: id, Label: label})
