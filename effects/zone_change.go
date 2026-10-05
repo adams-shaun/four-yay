@@ -123,9 +123,12 @@ func clearChangeZoneImprint(h Host, c *Ctx) {
 // place continues past it and never re-emits it.
 func changeZonePrelude(h Host, c *Ctx, cz *ChangeZoneParams) (to state.Zone, stop bool) {
 	// A remembered-player binding alone is not a remembered destroyed object.
-	// Do not offer an optional search with no graveyard card to supply its
-	// controller (Krenko's Buzzcrusher's RepeatEach/RememberDestroyed chain).
-	if cz.OptionalTrue && cz.DefinedPlayer.Text == "RememberedController" && !hasRememberedGraveyardCard(h.Game(), c.Remembered) {
+	// Krenko's Buzzcrusher's "for each land destroyed this way" search is
+	// owed only when this resolution actually remembers a land it destroyed;
+	// its RepeatEach binds the current player into Remembered, and that player
+	// target must not stand in for a destroyed card. Do not offer the optional
+	// search with nothing to supply its controller.
+	if cz.OptionalTrue && cz.DefinedPlayer.Text == "RememberedController" && !hasRememberedDestroyedLand(h.Game(), resolvedRemembered(h, c)) {
 		return 0, true
 	}
 	cz.noteUnread(h, c)
@@ -158,12 +161,22 @@ func changeZoneDefinedPlayerNote(h Host, c *Ctx, cz *ChangeZoneParams, originZon
 	}
 }
 
-func hasRememberedGraveyardCard(g *state.Game, ts []state.Target) bool {
+// hasRememberedDestroyedLand reports whether the resolution remembers a land
+// card that is now in a graveyard -- a land destroyed this way. A remembered
+// player target is not a card and is skipped; a remembered card in any other
+// zone (a LKI read, a changed card, a still-on-battlefield permanent) is not
+// a destroyed land either, so Krenko's Buzzcrusher's optional search is not
+// offered for it.
+func hasRememberedDestroyedLand(g *state.Game, ts []state.Target) bool {
 	for _, t := range ts {
 		if t.IsPlayer || t.Obj == 0 {
 			continue
 		}
-		if o := g.Obj(t.Obj); o != nil && o.Zone == state.ZGraveyard {
+		o := g.Obj(t.Obj)
+		if o == nil || o.Zone != state.ZGraveyard {
+			continue
+		}
+		if f := o.Face(); f != nil && f.IsLand() {
 			return true
 		}
 	}

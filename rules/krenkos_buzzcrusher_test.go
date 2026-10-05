@@ -27,6 +27,7 @@ func TestKrenkosBuzzcrusherSearchRequiresADestroyedLand(t *testing.T) {
 		t.Fatalf("precondition: DBSearch = %+v, want the real ChangeZone ability", search)
 	}
 	land := card(t, "Name:Test Nonbasic Land\nTypes:Land\nOracle:x\n")
+	bear := card(t, "Name:Test Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 
 	t.Run("no destroyed land", func(t *testing.T) {
 		e, _ := linkBoard(t, reg, []string{"Krenko's Buzzcrusher"}, nil)
@@ -40,6 +41,26 @@ func TestKrenkosBuzzcrusherSearchRequiresADestroyedLand(t *testing.T) {
 			if ev.Kind == events.Note && ev.Text == "unimplemented API ChangeZone" {
 				t.Fatal("precondition: ChangeZone handler did not run")
 			}
+		}
+	})
+
+	// A remembered graveyard CARD that is not a land is not a "land destroyed
+	// this way". The guard must not treat any remembered graveyard card as
+	// proof the search is owed: Buzzcrusher only ever destroys the nonbasic
+	// land its DBChoose imprinted, so a remembered creature must fail closed.
+	t.Run("unrelated remembered graveyard card", func(t *testing.T) {
+		e, _ := linkBoard(t, reg, []string{"Krenko's Buzzcrusher"}, nil)
+		bearID := onBoardCard(t, e, 1, bear)
+		e.emit(events.Event{Kind: events.MoveZone, Obj: bearID,
+			From: state.ZBattlefield, To: state.ZGraveyard, Text: "destroyed"})
+		if e.G.Obj(bearID).Zone != state.ZGraveyard {
+			t.Fatalf("precondition: test bear is in %v, want graveyard", e.G.Obj(bearID).Zone)
+		}
+		ctx := &effects.Ctx{Source: e.G.Zone(state.ZBattlefield, 0)[0], Controller: 0,
+			Remembered: []state.Target{{Player: 1, IsPlayer: true}, {Obj: bearID}}}
+		e.probe(func() { effects.Resolve(e, ctx, search) })
+		if d := e.Pending(); d != nil {
+			t.Fatalf("search was offered for a remembered non-land graveyard card: %+v", d)
 		}
 	})
 
