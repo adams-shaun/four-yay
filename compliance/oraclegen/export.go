@@ -90,13 +90,26 @@ func AbilityTargetsStack(params map[string]string) bool { return abilityTargetsS
 func ModeNumbers(f *cards.Face) map[string]int { return modeNumbers(f) }
 
 // XAnswers turns gorge's recorded decisions into XMage's scripted answers.
+// It scripts every decision as an ordinary answer; a caller that has already
+// rewritten cast-step targets (ChooseTargets) uses XAnswersForScenario so
+// those target decisions are not scripted a second time.
 func XAnswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XAnswer {
-	return xanswers(ds, steps, modes)
+	return xanswers(ds, steps, modes, nil)
+}
+
+// ChooseTargets rewrites cast steps' targets from gorge's own target
+// decisions and returns the scenario with the set of cast step indices those
+// targets came from.
+func ChooseTargets(sc Scenario, ds []rules.OracleDecision) (Scenario, map[int]bool) {
+	return chooseTargets(sc, ds)
 }
 
 // XAnswersForScenario also uses the observed result of a compound may/pick.
-func XAnswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]int) [][]XAnswer {
-	return xanswersForScenario(res, sc, modes)
+// castSteps is the set of cast step indices whose targets ChooseTargets took
+// from the cast; those target decisions travel through castSpell and are not
+// scripted a second time.
+func XAnswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]int, castSteps map[int]bool) [][]XAnswer {
+	return xanswersForScenario(res, sc, modes, castSteps)
 }
 
 // MayYes re-scripts every declined optional pick to take the first option.
@@ -106,6 +119,12 @@ func MayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) { return ma
 // and ended with an empty stack.
 func PlaysThrough(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
 	return playsThrough(reg, sc)
+}
+
+// ProbeTargets permits only surplus fixture targets before the cast rewrite;
+// a reversed cast is never a successful probe.
+func ProbeTargets(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
+	return probeTargets(reg, sc)
 }
 
 // Settle returns how many resolve steps empty the stack after sc (at most

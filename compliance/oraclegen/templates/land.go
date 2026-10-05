@@ -22,7 +22,7 @@ func playLand(reg *cards.Registry, name string, f *cards.Face) oraclegen.Item {
 	// a basic land type") for XMage the way a cast scenario does; left
 	// unscripted, XMage's AI picks at random and the row flips run to run.
 	if res, ok := oraclegen.PlaysThrough(reg, sc); ok {
-		it.XAnswers = oraclegen.XAnswersForScenario(res, sc, nil)
+		it.XAnswers = oraclegen.XAnswersForScenario(res, sc, nil, nil)
 	}
 	return it
 }

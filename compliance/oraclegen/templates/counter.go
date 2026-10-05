@@ -96,46 +96,51 @@ func counterSpell(reg *cards.Registry, f *cards.Face, name, mana string) (oracle
 	// The extra {1} covers an optional additional cost ("behold or pay
 	// {1}"), tried only when the bare cost cannot cast.
 	xAns := xAnswers(f)
+	slots := oraclegen.TargetSlots(f)
+	stackIdx := stackSlotIndexes(slots)
+	plain := nonStackSlots(slots)
 	for _, m := range []string{mana, mana + "C", mana + "CC", mana + "CCC"} {
 		for _, pre := range precasts {
-			if it, ok := counterWith(reg, f, name, m, pre, xAns); ok {
-				return it, nil
+			if !precastFitsSlots(slots, stackIdx, pre) {
+				continue
+			}
+			for _, fx := range oraclegen.Fixtures(plain) {
+				if it, ok := counterWith(reg, f, name, m, pre, fx, slots, stackIdx, xAns); ok {
+					return it, nil
+				}
 			}
 		}
 	}
 	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "no spell fixture gorge can counter"}
 }
 
-func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre precast, answers []oraclegen.Answer) (oraclegen.Item, bool) {
-	// The first target slot is the spell the counter targets, which the
-	// precast supplies. Any later slot (Sokka's Haiku's "untap target land"
-	// after the draw and mill) needs its own fixture; without it the cast is
-	// offered but the follow-up target ask goes unanswered.
-	slots := oraclegen.TargetSlots(f)
-	var extra []string
-	if len(slots) > 1 {
-		extra = slots[1:]
+func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre precast, fx oraclegen.Fixture, slots []string, stackIdx []int, answers []oraclegen.Answer) (oraclegen.Item, bool) {
+	p0, p1 := *fx.P0(), *fx.P1()
+	// The counterspell first in hand, the spell it counters second: the
+	// order main's fixture always used, so the scenario stays the same.
+	p0 = oraclegen.WithHand(oraclegen.WithHand(p0, pre.card), name)
+	targets := insertStackTargets(slots, stackIdx, fx.Targets(), pre)
+	sc := oraclegen.Scenario{
+		Setup: map[string]oraclegen.Seat{"p0": p0, "p1": p1},
+		Steps: []oraclegen.Step{
+			{Op: "cast", Seat: 0, Card: "p0:" + pre.card, Mana: pre.mana, Targets: pre.targets},
+			{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: targets, Answers: answers},
+			{Op: "resolve"},
+		},
 	}
-	for _, fx := range oraclegen.Fixtures(extra) {
-		p0 := *fx.P0()
-		p0.Hand = append([]string{name, pre.card}, p0.Hand...)
-		sc := oraclegen.Scenario{
-			Setup: map[string]oraclegen.Seat{"p0": p0, "p1": *fx.P1()},
-			Steps: []oraclegen.Step{
-				{Op: "cast", Seat: 0, Card: "p0:" + pre.card, Mana: pre.mana, Targets: pre.targets},
-				{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana,
-					Targets: append([]string{"p0:" + pre.card}, fx.Targets()...), Answers: answers},
-				{Op: "resolve"},
-			},
-		}
-		oraclegen.Baseline(sc.Setup, f)
-		res, ok := oraclegen.PlaysThrough(reg, sc)
-		if !ok {
-			continue
-		}
-		it := CounterSpell.item(name, sc)
-		it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f))
-		return it, true
+	oraclegen.Baseline(sc.Setup, f)
+	res, ok := oraclegen.ProbeTargets(reg, sc)
+	if !ok {
+		return oraclegen.Item{}, false
 	}
-	return oraclegen.Item{}, false
+	// Rewrite the cast steps' targets to gorge's own picks (the fixture
+	// over-offers) and verify the rewrite replays cleanly.
+	sc, castSteps := oraclegen.ChooseTargets(sc, res.Decisions)
+	res, ok = oraclegen.PlaysThrough(reg, sc)
+	if !ok {
+		return oraclegen.Item{}, false
+	}
+	it := CounterSpell.item(name, sc)
+	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
+	return it, true
 }

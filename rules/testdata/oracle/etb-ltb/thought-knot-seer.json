@@ -35,7 +35,7 @@
         {"op": "cast", "seat": 0, "card": "p0:Thought-Knot Seer", "mana": "CCCC"},
         {"op": "resolve", "targets": ["p1"], "answers": [{"kind": "any", "pick": ["Shock"]}]},
         {"op": "move", "seat": 0, "card": "p0:Thought-Knot Seer", "to": "graveyard"},
-        {"op": "resolve", "targets": ["p1"]}
+        {"op": "resolve"}
       ],
       "expect": [
         {"card": "p0:Thought-Knot Seer", "zone": "graveyard"},

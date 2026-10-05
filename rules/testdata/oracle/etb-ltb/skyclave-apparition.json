@@ -28,10 +28,7 @@
           "op": "cast",
           "seat": 0,
           "card": "p0:Skyclave Apparition",
-          "mana": "WWW",
-          "targets": [
-            "p1:Grizzly Bears"
-          ]
+          "mana": "WWW"
         },
         {
           "op": "resolve",
@@ -74,10 +71,7 @@
           "op": "cast",
           "seat": 0,
           "card": "p0:Skyclave Apparition",
-          "mana": "WWW",
-          "targets": [
-            "p1:Grizzly Bears"
-          ]
+          "mana": "WWW"
         },
         {
           "op": "resolve",

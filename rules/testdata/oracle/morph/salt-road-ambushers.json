@@ -107,10 +107,7 @@
           "ability": "Turn face up"
         },
         {
-          "op": "resolve",
-          "targets": [
-            "p0:Forest"
-          ]
+          "op": "resolve"
         }
       ],
       "expect": [

@@ -114,8 +114,7 @@
     {
      "op": "resolve",
      "targets": [
-      "p1:Savannah Lions",
-      "p1:Grizzly Bears"
+      "p1:Savannah Lions"
      ]
     }
    ],

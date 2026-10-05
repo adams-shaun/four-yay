@@ -14,7 +14,7 @@
       },
       "steps": [
         {"op": "move", "seat": 0, "card": "p0:Myr Retriever", "to": "graveyard"},
-        {"op": "resolve", "targets": ["p0:Ornithopter"]}
+        {"op": "resolve"}
       ],
       "expect": [
         {"card": "p0:Myr Retriever", "zone": "graveyard"},

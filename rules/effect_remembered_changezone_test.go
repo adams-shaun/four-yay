@@ -49,6 +49,10 @@ func TestEffectRememberedTargetFromChangeZoneSubScopesEntryReplacement(t *testin
 	if o := e.G.Obj(hero); o == nil || o.Zone != state.ZGraveyard {
 		t.Fatalf("precondition: hero is not in graveyard: %+v", o)
 	}
+	// The offer census now reads the sub's graveyard pool (CR 601.2c), so the
+	// priority options cached before the move must be rebuilt.
+	e.pending = nil
+	e.priorityRound()
 	spell := find("Remembered Return")
 	if spell == 0 {
 		t.Fatal("precondition: return spell fixture missing")
@@ -74,7 +78,10 @@ func TestEffectRememberedTargetFromChangeZoneSubScopesEntryReplacement(t *testin
 	}
 	submitChoices(t, e, cast)
 
-	// Resolve to the ChangeZone sub's mid-resolution target ask.
+	// CR 601.2c: the sub's target is announced with the cast -- a cast_sub
+	// KTarget (with TargetingPlayer$ Opponent the chooser is seat 2), posed
+	// before payment. It is asked ONCE, so the answer feeds both the Effect's
+	// remembered set and the ChangeZone move.
 	for i := 0; i < 12; i++ {
 		d = e.Pending()
 		if d == nil {
@@ -93,7 +100,7 @@ func TestEffectRememberedTargetFromChangeZoneSubScopesEntryReplacement(t *testin
 			submitChoices(t, e, opponentIdx)
 			continue
 		}
-		if d.Kind == decision.KChoose && d.ResumeKind == "choice" {
+		if d.Kind == decision.KTarget && d.ResumeKind == "cast_sub" {
 			if d.Player != 2 {
 				t.Fatalf("target chooser = %d, want selected opponent 2", d.Player)
 			}
@@ -104,8 +111,8 @@ func TestEffectRememberedTargetFromChangeZoneSubScopesEntryReplacement(t *testin
 		}
 		passPriorityOnce(t, e)
 	}
-	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "choice" {
-		t.Fatalf("ChangeZone target ask missing: %+v", d)
+	if d == nil || d.Kind != decision.KTarget || d.ResumeKind != "cast_sub" {
+		t.Fatalf("ChangeZone cast-time target ask missing: %+v", d)
 	}
 	idx := -1
 	for _, option := range d.Options {

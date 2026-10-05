@@ -135,7 +135,7 @@ func TestXAnswersTerminatorShapes(t *testing.T) {
 			// A multi-pick decision with a target-kind pick is NOT one
 			// makeChoose dialog; each pick stays its own answer.
 			name: "multi-pick with a target: not joined",
-			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 2, Min: 0, Max: 2, Picks: []string{"Grizzly Bears", "Forest"}, PickIdx: []int{0, 1}, PickRefs: []string{"p1:Grizzly Bears", "p0:Forest"}, PickKinds: []string{"search", "search"}},
+			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 2, Min: 0, Max: 2, Picks: []string{"Grizzly Bears", "Forest"}, PickIdx: []int{0, 1}, PickRefs: []string{"p0:Grizzly Bears", "p0:Forest"}, PickKinds: []string{"search", "search"}},
 			want: []XAnswer{{0, "target", "Grizzly Bears"}, {0, "target", "Forest"}},
 		},
 	}

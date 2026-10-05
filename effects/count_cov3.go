@@ -318,6 +318,11 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 		return 0, false
 	}
 	var players []state.PlayerID
+	// sharedProps gates the shared property tables to the selectors no LATER
+	// arm answers: evalCov3PlayerHead runs BEFORE evalCountBodyPlayer, so a
+	// property returned here SHADOWS the group-prefixed arms (e.g.
+	// PlayerCountOpponents$CardsInHand).
+	var sharedProps bool
 	switch cov3PlayerGroupCodes.Code(string(group)) {
 	case cov3PlayerGroupPlayerCountPropertyYou:
 		if c.Controller < 0 || int(c.Controller) >= len(g.Players) {
@@ -326,8 +331,21 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 		players = []state.PlayerID{c.Controller}
 	case cov3PlayerGroupPlayerCount:
 		players = g.AliveFrom(0)
+	case cov3PlayerGroupPlayerCountBare:
+		players = g.AliveFrom(0)
+		sharedProps = true
 	case cov3PlayerGroupPlayerCountOpponents:
 		players = opponentGroup(g, c)
+	case cov3PlayerGroupPlayerCountOther:
+		// Forge's PlayerCountOther$ is every living player but the resolving
+		// controller (Kaya, Spirits' Justice's `PlayerCountOther$Amount`).
+		players = opponentGroup(g, c)
+		sharedProps = true
+	case cov3PlayerGroupPlayerCountDefinedRememberedOwner:
+		// Forge's PlayerCountDefinedRememberedOwner$ is the OWNERS of the
+		// resolution's remembered objects (Deadly Cover-Up's survivor search).
+		players = cov3RememberedOwners(g, c)
+		sharedProps = true
 	case cov3PlayerGroupPlayerCountRegisteredOpponen:
 		// Only the per-turn noncombat damage property is answered here; every
 		// other property of this group keeps its own dispatch (count.go's
@@ -442,6 +460,22 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 		return n, true
 	default:
 		return 0, false
+	}
+	// The shared property tables, so the selectors above need no property
+	// code of their own: `Amount` is the group's size (playerGroupCount), the
+	// HasProperty* family is the same read the group-prefixed arms use
+	// (hasPropertyStateBacked -- bare PlayerCount$HasPropertyHasCardsInHand_
+	// Card_LE1 is Aclazotz, Deepest Betrayal's / Naktamun Lorespinner's
+	// "for each player who has one or fewer cards in hand"), and the per-seat
+	// scalars (CardsInHand/Graveyard/Library, LifeTotal, CardsDrawn) are
+	// playerScalarProperty. Reading them here -- before the scalar switch,
+	// which only the bare PlayerCount group otherwise reaches -- keeps one
+	// property table per family. A property unknown to all three still falls
+	// through unresolvable.
+	if sharedProps {
+		if n, ok := cov3SharedPlayerProps(h, c, g, players, prop, arg); ok {
+			return n, true
+		}
 	}
 	switch cov3PlayerScalarCodes.Code(string(prop)) {
 	case cov3PlayerScalarSacrificedThisTurn:
@@ -567,6 +601,57 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 		return domainCount(h, c, c.Controller, 0), true
 	}
 	return 0, false
+}
+
+// cov3SharedPlayerProps answers the property families every selector shares:
+// `Amount` is the group's member count (playerGroupCount), the HasProperty*
+// read is the same one the group-prefixed arms use (hasPropertyStateBacked),
+// and the per-seat zone/life scalars are playerScalarProperty. It is called
+// only for the selectors no LATER count arm answers (see sharedProps at the
+// call site), so it cannot shadow PlayerCountOpponents$CardsInHand. The
+// selectors that reach it are bare PlayerCount$ (every living player, where
+// Aclazotz, Deepest Betrayal's `PlayerCount$HasPropertyHasCardsInHand_
+// Card_LE1` reads), PlayerCountOther$ (every living player but the resolving
+// controller; Kaya's per-player TargetMax$) and PlayerCountDefinedRemembered
+// Owner$ (the owners of the remembered objects; Deadly Cover-Up's
+// graveyard/hand/library search sizes).
+func cov3SharedPlayerProps(h Host, c *Ctx, g *state.Game, players []state.PlayerID, prop, arg string) (int32, bool) {
+	if n, ok := playerGroupCount(players, prop); ok {
+		return n, true
+	}
+	if n, ok := hasPropertyStateBacked(h, g, c, players, prop, arg); ok {
+		return n, true
+	}
+	if _, known := playerScalarProperty(h, g, 0, prop); known {
+		var n int32
+		for _, p := range players {
+			v, _ := playerScalarProperty(h, g, p, prop)
+			n += v
+		}
+		return n, true
+	}
+	return 0, false
+}
+
+// cov3RememberedOwners returns the distinct OWNERS of the resolution's
+// remembered objects (Ctx.Remembered), in first-seen order. A remembered
+// player entry and an object id that no longer resolves both contribute
+// nothing: fail closed rather than inventing a seat.
+func cov3RememberedOwners(g *state.Game, c *Ctx) []state.PlayerID {
+	var out []state.PlayerID
+	for _, t := range c.Remembered {
+		if t.IsPlayer || t.Obj == 0 {
+			continue
+		}
+		o := g.Obj(t.Obj)
+		if o == nil {
+			continue
+		}
+		if !slices.Contains(out, o.Owner) {
+			out = append(out, o.Owner)
+		}
+	}
+	return out
 }
 
 // sacrificedPermanentTypes counts the distinct card types among this turn's
@@ -767,7 +852,10 @@ type cov3PlayerGroupCode uint16
 const (
 	cov3PlayerGroupPlayerCountPropertyYou cov3PlayerGroupCode = iota + 1
 	cov3PlayerGroupPlayerCount
+	cov3PlayerGroupPlayerCountBare
 	cov3PlayerGroupPlayerCountOpponents
+	cov3PlayerGroupPlayerCountOther
+	cov3PlayerGroupPlayerCountDefinedRememberedOwner
 	cov3PlayerGroupPlayerCountRegisteredOpponen
 	cov3PlayerGroupPlayerCountRemembered
 	cov3PlayerGroupPlayerCountRememberedControl
@@ -775,9 +863,11 @@ const (
 
 var cov3PlayerGroupCodes = state.NewStrCodes(
 	state.StrEntry[cov3PlayerGroupCode]{Key: "PlayerCountPropertyYou", Val: cov3PlayerGroupPlayerCountPropertyYou},
-	state.StrEntry[cov3PlayerGroupCode]{Key: "PlayerCount", Val: cov3PlayerGroupPlayerCount},
+	state.StrEntry[cov3PlayerGroupCode]{Key: "PlayerCount", Val: cov3PlayerGroupPlayerCountBare},
 	state.StrEntry[cov3PlayerGroupCode]{Key: "PlayerCountPlayers", Val: cov3PlayerGroupPlayerCount},
 	state.StrEntry[cov3PlayerGroupCode]{Key: "PlayerCountOpponents", Val: cov3PlayerGroupPlayerCountOpponents},
+	state.StrEntry[cov3PlayerGroupCode]{Key: "PlayerCountOther", Val: cov3PlayerGroupPlayerCountOther},
+	state.StrEntry[cov3PlayerGroupCode]{Key: "PlayerCountDefinedRememberedOwner", Val: cov3PlayerGroupPlayerCountDefinedRememberedOwner},
 	state.StrEntry[cov3PlayerGroupCode]{Key: "PlayerCountRegisteredOpponents", Val: cov3PlayerGroupPlayerCountRegisteredOpponen},
 	state.StrEntry[cov3PlayerGroupCode]{Key: "PlayerCountRemembered", Val: cov3PlayerGroupPlayerCountRemembered},
 	state.StrEntry[cov3PlayerGroupCode]{Key: "PlayerCountRememberedController", Val: cov3PlayerGroupPlayerCountRememberedControl},

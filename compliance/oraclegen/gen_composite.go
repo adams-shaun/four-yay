@@ -11,7 +11,9 @@ import (
 // card is taken from the verified before/after checkpoint, never guessed from
 // the first library card: a spell can draw, reveal or replace that card before
 // the election is answered. Other elections remain ordinary choices.
-func xanswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]int) [][]XAnswer {
+// castSteps is passed through to xanswers so a cast step's own targets are not
+// scripted a second time.
+func xanswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]int, castSteps map[int]bool) [][]XAnswer {
 	ds := append([]rules.OracleDecision(nil), res.Decisions...)
 	for i := range ds {
 		d := &ds[i]
@@ -59,7 +61,7 @@ func xanswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]i
 			d.Max = len(names)
 		}
 	}
-	return xanswers(ds, len(sc.Steps), modes)
+	return xanswers(ds, len(sc.Steps), modes, castSteps)
 }
 
 // movedCards finds cards newly in the indicated destination during one step.

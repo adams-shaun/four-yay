@@ -17,7 +17,7 @@
         {"op": "resolve"},
         {"op": "mana", "seat": 0, "mana": "CG"},
         {"op": "activate", "seat": 0, "card": "p0:Nantuko Vigilante", "ability": "Turn face up"},
-        {"op": "resolve", "targets": ["p1:Mind Stone"]}
+        {"op": "resolve"}
       ],
       "expect": [
         {"card": "p0:Nantuko Vigilante", "zone": "battlefield", "pt": "3/2"},
@@ -37,7 +37,7 @@
         {"op": "resolve"},
         {"op": "mana", "seat": 0, "mana": "CG"},
         {"op": "activate", "seat": 0, "card": "p0:Nantuko Vigilante", "ability": "Turn face up"},
-        {"op": "resolve", "targets": ["p1:Trail of Mystery"]}
+        {"op": "resolve"}
       ],
       "expect": [
         {"card": "p0:Nantuko Vigilante", "zone": "battlefield", "pt": "3/2"},

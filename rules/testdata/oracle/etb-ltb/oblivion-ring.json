@@ -29,10 +29,7 @@
      "op": "cast",
      "seat": 0,
      "card": "p0:Oblivion Ring",
-     "mana": "CCW",
-     "targets": [
-      "p1:Centaur Courser"
-     ]
+     "mana": "CCW"
     },
     {
      "op": "resolve"

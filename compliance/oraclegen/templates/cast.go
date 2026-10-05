@@ -14,8 +14,22 @@ var CastResolve = Template{ID: "cast-resolve", Version: 1}
 
 // xAnswers scripts X for a spell with X in its cost.
 func xAnswers(f *cards.Face) []oraclegen.Answer {
+	if strings.Contains(strings.ToLower(f.Oracle), "blight x") {
+		// The fixture's only guaranteed creature is Llanowar Elves (1/1),
+		// which bounds Soul Immolation's payable blight value to one.
+		return []oraclegen.Answer{{Kind: "choose", Pick: []string{"X = 1"}}}
+	}
 	if strings.Contains(" "+f.ManaCost+" ", " X ") {
-		return []oraclegen.Answer{{Kind: "choose", Pick: []string{fmt.Sprintf("X = %d", oraclegen.XValue)}}}
+		x := oraclegen.XValue
+		// A TargetMin$ X spell needs X distinct candidates before payment.
+		// The generic one-slot fixture guarantees one permanent, not two.
+		for _, sa := range f.Abilities {
+			if sa.Kind == "SP" && sa.Params["TargetMin"] == "X" {
+				x = 1
+				break
+			}
+		}
+		return []oraclegen.Answer{{Kind: "choose", Pick: []string{fmt.Sprintf("X = %d", x)}}}
 	}
 	return nil
 }
@@ -63,6 +77,17 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 		// stack by then, so the discard needs a second card.
 		func(fx *oraclegen.Fixture) { fx.P0().Hand = append(fx.P0().Hand, "Forest") },
 	}
+	// Collect evidence X pays the total mana value of the selected targets.
+	// Supply enough graveyard mana value for a four-slot cast rather than
+	// treating a reversed payment as an empty-stack success.
+	for _, sa := range f.Abilities {
+		if sa.Kind == "SP" && strings.Contains(sa.Params["Cost"], "CollectEvidence<X>") {
+			extras = append(extras, func(fx *oraclegen.Fixture) {
+				fx.P0().Graveyard = append(fx.P0().Graveyard, "Serra Angel", "Hill Giant", "Grizzly Bears")
+			})
+			break
+		}
+	}
 	stackIdx := stackSlotIndexes(slots)
 	plain := nonStackSlots(slots)
 	pres := []precast{{}}
@@ -83,13 +108,22 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 					for i := 0; i < n; i++ {
 						sc.Steps = append(sc.Steps, oraclegen.Step{Op: "resolve"})
 					}
+					// The fixture over-offers targets; rewrite each cast step to
+					// exactly gorge's picks (the target decisions) so XMage's
+					// castSpell sees a target list that matches the ability, and
+					// verify the rewrite replays cleanly.
+					sc, castSteps := oraclegen.ChooseTargets(sc, res.Decisions)
+					res, ok = oraclegen.PlaysThrough(reg, sc)
+					if !ok {
+						continue
+					}
 					if yes, changed := oraclegen.MayYes(sc, res.Decisions); changed {
 						if res2, ok2 := oraclegen.PlaysThrough(reg, yes); ok2 {
 							sc, res = yes, res2
 						}
 					}
 					it := CastResolve.item(name, sc)
-					it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f))
+					it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
 					if n := oraclegen.OptionalCostCastNo(f, mana); n > 0 {
 						// XMage asks "pay the additional cost?" at the head of the
 						// cast; gorge offered it as a declineable cast option, so

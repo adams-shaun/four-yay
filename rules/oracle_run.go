@@ -1431,6 +1431,22 @@ func (r *oracleRun) stackDump() string {
 // shrinking known-unconsumed ratchet without hiding a real failure.
 const oracleUnconsumedMarker = "unconsumed answer(s) for this step:"
 
+// oracleUnusedTargetMarker tags the fail a step raises when its declared
+// `targets` still hold entries after the step finished: the fixture declared
+// a target the step's cast/activate never asked for (a surplus slot, an
+// optional target the engine skips), so the runner silently dropped it. XMage
+// rejects such a cast, so the runner must fail loudly for the same reason the
+// unconsumed-answer check does. Exported so the generator can identify and
+// tolerate over-offering while it learns gorge's real targets.
+const OracleUnusedTargetMarker = "unused target(s) for this step:"
+
+// oracleUnusedTargetFail formats the one fail a step gets for unused
+// targets: the step index, the op, and every leftover target ref verbatim.
+func oracleUnusedTargetFail(step int, op string, targets []string) string {
+	j, _ := json.Marshal(targets)
+	return fmt.Sprintf("step %d (%s): %s %s", step, op, OracleUnusedTargetMarker, j)
+}
+
 // oracleUnconsumedFail formats the one fail a step gets for leftovers: the
 // step index, the op, and every leftover answer verbatim (kind + pick).
 func oracleUnconsumedFail(step int, op string, answers []oracleAnswer) string {
@@ -1477,6 +1493,9 @@ func runOracleScenarioWith(reg *cards.Registry, sc oracleScenario, noSnapshot bo
 		// otherwise masks the stale fixture.
 		if len(r.answers) > 0 {
 			fails = append(fails, oracleUnconsumedFail(i, st.Op, r.answers))
+		}
+		if len(r.targets) > 0 {
+			fails = append(fails, oracleUnusedTargetFail(i, st.Op, r.targets))
 		}
 		for _, msg := range r.extraFails {
 			fails = append(fails, fmt.Sprintf("after step %d (%s): %s", i, st.Op, msg))

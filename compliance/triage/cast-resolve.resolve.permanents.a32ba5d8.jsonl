@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"$CARD gorge+[] xmage+[dmg=2]"},"key":"cast-resolve | resolve | permanents | $CARD gorge+[] xmage+[dmg=2]","cards":1}
-{"card":"Wolverine, Fierce Fighter","template":"cast-resolve","status":"diverge","api":"ChangesZone:Fight","sets":["MSH"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Wolverine, Fierce Fighter [berserker creature hero legendary mutant] {RG} 3/5\", xmage \"c0 o0 Wolverine, Fierce Fighter [berserker creature hero legendary mutant] {RG} 3/5 dmg=2\""}

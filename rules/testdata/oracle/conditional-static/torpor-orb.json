@@ -13,7 +13,7 @@
         "p1": {"battlefield": ["Grizzly Bears"]}
       },
       "steps": [
-        {"op": "move", "seat": 0, "card": "p0:Aether Adept", "to": "battlefield", "targets": ["p1:Grizzly Bears"]}
+        {"op": "move", "seat": 0, "card": "p0:Aether Adept", "to": "battlefield"}
       ],
       "expect": [
         {"card": "p1:Grizzly Bears", "zone": "battlefield"},
@@ -29,7 +29,7 @@
         "p1": {"hand": ["Aether Adept"]}
       },
       "steps": [
-        {"op": "move", "seat": 1, "card": "p1:Aether Adept", "to": "battlefield", "targets": ["p0:Grizzly Bears"]}
+        {"op": "move", "seat": 1, "card": "p1:Aether Adept", "to": "battlefield"}
       ],
       "expect": [
         {"card": "p0:Torpor Orb", "zone": "battlefield"},
