@@ -603,14 +603,22 @@ func BoardFromView(v view.View) botpolicy.Board {
 	for _, p := range v.Players {
 		if p.ID != v.Viewer {
 			for _, cv := range p.Battlefield {
+				printedName := ""
+				if !cv.FaceDown {
+					printedName = cv.CardName
+					if printedName == "" {
+						printedName = cv.Name
+					}
+				}
 				b.Cards.Set(cv.ID, botpolicy.Card{
-					Creature:  isCreatureView(cv),
-					Power:     cv.Power,
-					Toughness: cv.Toughness,
-					CMC:       botpolicy.CmcOf(cv.ManaCost),
-					Basic:     hasBasicView(cv),
-					ManaCost:  cv.ManaCost,
-					Activated: cv.ActivatedThisTurn,
+					PrintedName: printedName,
+					Creature:    isCreatureView(cv),
+					Power:       cv.Power,
+					Toughness:   cv.Toughness,
+					CMC:         botpolicy.CmcOf(cv.ManaCost),
+					Basic:       hasBasicView(cv),
+					ManaCost:    cv.ManaCost,
+					Activated:   cv.ActivatedThisTurn,
 				})
 			}
 			continue
