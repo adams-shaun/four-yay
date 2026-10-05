@@ -1492,8 +1492,13 @@ func ManaColorSpentFromText(s string) state.Mana {
 }
 
 const (
-	DamageProvenanceCombat            = "damage-combat"
-	DamageProvenanceTypeSeparator     = "\x1e"
+	DamageProvenanceCombat        = "damage-combat"
+	DamageProvenanceTypeSeparator = "\x1e"
+	// DamageProvenanceColorSeparator precedes the source's WUBRG colours
+	// at the hit (CR 608.2h: "red sources ... dealt" reads the colour the
+	// source had when it dealt the damage). Text is
+	// "<provenance>[\x1d<colours>][\x1e<recipient types>]".
+	DamageProvenanceColorSeparator    = "\x1d"
 	DamageProvenanceTypeWordSeparator = "\x1f"
 )
 

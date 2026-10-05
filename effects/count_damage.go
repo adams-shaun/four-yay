@@ -51,6 +51,18 @@ func damageSourceMatches(g *state.Game, spec string, source *state.Object, hit s
 	snapshot := *source
 	snapshot.Controller = hit.SourceControl
 	sc := c.SpecContext(c.Controller)
+	if hit.HasSourceColors {
+		// The source's colour is read as it was when the damage was dealt
+		// (a red Ojer that later returns as its colourless Temple face still
+		// counts its earlier hits as red).
+		colors := make([]ObjectColors, 0, len(sc.Layers.DerivedColors)+1)
+		for _, dc := range sc.Layers.DerivedColors {
+			if dc.ID != source.ID {
+				colors = append(colors, dc)
+			}
+		}
+		sc.Layers.DerivedColors = append(colors, ObjectColors{ID: source.ID, Mask: ColorMaskFromLetters(hit.SourceColors)})
+	}
 	if source.Zone == state.ZBattlefield {
 		return matchesObjectPtr(g, spec, &snapshot, &sc)
 	}

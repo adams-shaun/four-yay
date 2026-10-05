@@ -570,7 +570,12 @@ const (
 type DamageDealtRecord struct {
 	// SourceControl is the controller of the damage source when this hit
 	// landed; a later ControlChange cannot reattribute the damage.
-	SourceControl    PlayerID
+	SourceControl PlayerID
+	// SourceColors are the source's WUBRG colours when the hit landed
+	// (HasSourceColors false for a log recorded before they were kept: the
+	// count then reads the source's current colours).
+	SourceColors     string
+	HasSourceColors  bool
 	Recipient        ObjID
 	RecipientZone    Zone
 	RecipientControl PlayerID
