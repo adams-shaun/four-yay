@@ -49,13 +49,13 @@ func TestSetChosenModeAnswerKindFollowsTheFaceScan(t *testing.T) {
 
 	// A SetChosenMode pick answers on the choice queue with its LABEL.
 	wantSiege := [][]XAnswer{{{Seat: 0, Kind: "choice", Value: "Abzan"}}}
-	if got := xanswers([]rules.OracleDecision{siege}, 1, siegeModes); !reflect.DeepEqual(got, wantSiege) {
+	if got := xanswers([]rules.OracleDecision{siege}, 1, siegeModes, nil); !reflect.DeepEqual(got, wantSiege) {
 		t.Fatalf("SetChosenMode answer = %#v, want %#v", got, wantSiege)
 	}
 
 	// An ordinary Charm keeps the numeric mode queue.
 	wantCharm := [][]XAnswer{{{Seat: 0, Kind: "mode", Value: "1"}}}
-	if got := xanswers([]rules.OracleDecision{charm}, 1, charmModes); !reflect.DeepEqual(got, wantCharm) {
+	if got := xanswers([]rules.OracleDecision{charm}, 1, charmModes, nil); !reflect.DeepEqual(got, wantCharm) {
 		t.Fatalf("charm answer = %#v, want %#v", got, wantCharm)
 	}
 }
@@ -78,7 +78,7 @@ func TestCharmModeNumbersAreUnaffectedByTheSentinel(t *testing.T) {
 	plain := rules.OracleDecision{Step: 0, Seat: 0, Kind: "mode", Options: 3, Min: 1, Max: 1,
 		Picks: []string{"Destroy target creature."}, PickIdx: []int{2}, PickKinds: []string{"mode"}}
 	want := [][]XAnswer{{{Seat: 0, Kind: "mode", Value: "3"}}}
-	if got := xanswers([]rules.OracleDecision{plain}, 1, modes); !reflect.DeepEqual(got, want) {
+	if got := xanswers([]rules.OracleDecision{plain}, 1, modes, nil); !reflect.DeepEqual(got, want) {
 		t.Fatalf("plain modal = %#v, want %#v", got, want)
 	}
 }
