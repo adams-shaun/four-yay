@@ -467,7 +467,7 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		defined != "TriggeredCardLKICopy" &&
 		defined != "Imprinted" && defined != "Discarded" && defined != "Targeted" &&
 		defined != "Returned" && defined != "ChosenCard" && defined != "TriggeredSourceLKICopy" &&
-		defined != "RememberedLKI" &&
+		defined != "RememberedLKI" && defined != "ParentTarget" && defined != "Sacrificed" &&
 		defined != "TriggeredSpellAbility" {
 		// Only the Remembered, Self, TriggeredCard, TriggeredCardLKICopy,
 		// Imprinted, Targeted,
@@ -601,6 +601,21 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		// Self is the source object ALONE — not rememberedWithSource's
 		// Source-union with the walk's remembered set.
 		group = []state.Target{{Obj: c.Source}}
+	}
+	if defined == "ParentTarget" {
+		// The nearest targeting ancestor in this SubAbility chain, matching
+		// Defined$ ParentTarget and ParentTargeted$'s shared binding.
+		group = parentLinkTargets(c)
+	}
+	if defined == "Sacrificed" {
+		// Sacrificed carries LKI records; the object identity remains the
+		// filter referent while its current face provides printed predicates.
+		group = make([]state.Target, 0, len(c.Sacrificed))
+		for _, sacrificed := range c.Sacrificed {
+			if sacrificed.Obj != 0 {
+				group = append(group, state.Target{Obj: sacrificed.Obj})
+			}
+		}
 	}
 	if defined == "Imprinted" {
 		// The source card's persistent imprint list (state.Object.Imprinted,
