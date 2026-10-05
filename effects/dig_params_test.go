@@ -57,14 +57,17 @@ func TestCompileDig(t *testing.T) {
 	}
 }
 
-// TestDigOfIsAllocationFree: a configured record or a front-cache hit
-// allocates nothing.
+// TestDigOfIsAllocationFree verifies configured Dig records allocate nothing.
+// Front-cache hits are covered by TestCompileDig; using that process-wide,
+// direct-mapped cache here would make the allocation measurement depend on
+// unrelated DigOf calls evicting its slot.
 func TestDigOfIsAllocationFree(t *testing.T) {
 	bound := &cards.SA{API: "Dig", Params: map[string]string{"DigNum": "3", "ChangeNum": "1"}}
 	f := NewSAFacts(bound)
 	f.Publish()
 	cached := &cards.SA{API: "Dig", Params: map[string]string{"DigNum": "2"}}
-	DigOf(cached)
+	cachedFacts := NewSAFacts(cached)
+	cachedFacts.Publish()
 	if n := allocsPerRun(100, func() {
 		_ = DigOf(bound)
 		_ = DigOf(cached)
@@ -73,5 +76,8 @@ func TestDigOfIsAllocationFree(t *testing.T) {
 	}
 	if f.Dig == nil || !f.Dig.boundTo(bound.Params) {
 		t.Fatal("NewSAFacts did not compile the Dig half")
+	}
+	if cachedFacts.Dig == nil || !cachedFacts.Dig.boundTo(cached.Params) {
+		t.Fatal("NewSAFacts did not compile the cached Dig half")
 	}
 }
