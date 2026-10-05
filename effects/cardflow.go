@@ -836,6 +836,7 @@ func effMill(h Host, c *Ctx, sa *cards.SA) {
 		n = 0
 	}
 	remember := strings.EqualFold(sa.ParamStr(cards.PKRememberMilled), "True")
+	imprint := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKImprint)), "True")
 	show := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKShowMilledCards)), "True")
 	// One api:Mill resolution is ONE mill action (Forge's one Mill call),
 	// so the Mode$ MilledAll batch ("whenever one or more cards are
@@ -866,6 +867,22 @@ func effMill(h Host, c *Ctx, sa *cards.SA) {
 			h.Emit(events.Mill(id, p))
 			if remember {
 				rememberMilled(h, c, id)
+			}
+			// Imprint$ True (task mill-imprint; OTJ Patient Naturalist, BLB
+			// Blanchwood Prowler, WOE Ballad of the Black Flag, and siblings):
+			// Forge's MillEffect records every card it moved in the SOURCE's
+			// persistent imprintedCards association, so a chained
+			// `ChangeZone ... ChangeType$ Land.YouOwn+IsImprinted` (Patient
+			// Naturalist) finds exactly the milled cards rather than the whole
+			// graveyard. The card joins through the ordinary events.Imprint
+			// association -- the same one ChangeZone's Imprint$ arm and
+			// Chrome Mox use -- so replay folds it and Defined$ Imprinted
+			// reads it back. A resolution with no source (c.Source == 0) has
+			// nowhere to imprint and records nothing, the ChangeZone guard's
+			// shape. Absent the param this arm is a no-op, so every
+			// pre-existing Mill emits byte-identically.
+			if imprint && c.Source != 0 {
+				h.Emit(events.Event{Kind: events.Imprint, Obj: c.Source, IDs: []state.ObjID{id}})
 			}
 			milledIDs = append(milledIDs, id)
 		}
@@ -1132,6 +1149,24 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			// A RevealDefined object is itself the card to reveal, not a
 			// selector for the first card in that player's zone.
 			pool = []state.ObjID{t.Obj}
+		}
+		// PeekAndReveal's window (task peek-window): the peek LOOKS at the top
+		// PeekAmount$ cards, and every later filter (RevealType$,
+		// RevealValid$, RevealAllValid$) applies WITHIN that window. Cutting to
+		// the window here, before the filters, is Forge's own order --
+		// PeekAndRevealEffect peels the top PeekAmount cards off the library
+		// and filters that pile. Pre-fix the filters ran over the WHOLE
+		// library and only then did n truncate to PeekAmount, so a matching
+		// card below the window could be revealed instead of the top card
+		// (ECL Gathering Stone: PeekAmount$ 1 revealed the first creature of
+		// the chosen type anywhere in the library, while the top card was a
+		// nonmatching Jace). A window smaller than the request keeps the whole
+		// (short) library. An explicit RevealDefined$ object is its own pool
+		// and is not a peek window, so it is skipped.
+		if sa.API == "PeekAndReveal" && revealDefined == "" {
+			if int32(len(pool)) > amt {
+				pool = pool[:amt]
+			}
 		}
 		if revealType != "" {
 			// RevealType$ (Slayer's Bounty: "look at the creature cards in
@@ -1403,6 +1438,22 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			continue
 		}
 		revealed := append([]state.ObjID(nil), pool[:n]...)
+		// ImprintRevealed$ True (task peek-window; BLB Portent of Calamity's
+		// `PeekAndReveal | PeekAmount$ X | ImprintRevealed$ True`): Forge's
+		// RevealEffect.addImprintedLists links every revealed card to the
+		// resolving source. The association rides the "seek-found" list, not
+		// the ordinary Imprinted one: Portent's continuation filters
+		// `RepeatTypesFrom$ ValidLibrary Card.IsImprinted` over cards still IN
+		// THE LIBRARY, and the ordinary Imprinted list is exile-only (CR
+		// 607.2a), so only SeekFound reaches a library card. Same channel
+		// diguntil.go's ImprintRevealed$ arm uses. Gated on c.Source != 0 (a
+		// sourceless resolution has nowhere to imprint) and on the reveal not
+		// being a Look$ (nothing was publicly revealed). Absent the param this
+		// arm is a no-op, so every pre-existing reveal emits byte-identically.
+		if !look && c.Source != 0 && strings.EqualFold(strings.TrimSpace(rawParamText(sa, "ImprintRevealed").Text), "True") {
+			h.Emit(events.Event{Kind: events.Imprint, Obj: c.Source,
+				IDs: append([]state.ObjID(nil), revealed...), Text: "seek-found"})
+		}
 		if look {
 			// CR 701.20e: a card looked at this way is shown only to the
 			// player the effect specifies — the activator — so the record is
