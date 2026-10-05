@@ -2706,7 +2706,11 @@ func init() {
 		"trig:TapAll", "trig:UntapAll",
 		"trig:ClassLevelGained", "trig:BecomeMonstrous",
 		"trig:TokenCreated", "trig:TokenCreatedOnce",
-		"trig:DamageDone", "trig:DamageDealtOnce", "trig:DamageDoneOnce", "trig:DamageAll", "trig:Drawn", "trig:LifeLost", "trig:LifeLostAll",
+		"trig:DamageDone", "trig:DamageDealtOnce", "trig:DamageDoneOnce", "trig:DamageAll",
+		// ExcessDamageAll (agent-20261005T061534Z-7ace93d1): dispatched by the
+		// aggregate damage-batch matcher; declaring support keeps real card
+		// carriers eligible for deck validation and coverage.
+		"trig:ExcessDamageAll", "trig:Drawn", "trig:LifeLost", "trig:LifeLostAll",
 		"trig:LifeGained",
 		"trig:BecomesTarget", "trig:BecomesTargetOnce", "trig:LandPlayed", "trig:Phase", "trig:Attached", "trig:Unattached", "trig:FlippedCoin",
 		"trig:Vote", "trig:RolledDie", "trig:RolledDieOnce",

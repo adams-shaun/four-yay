@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
@@ -42,6 +43,32 @@ func excessGalleonBoard(t *testing.T, reg *cards.Registry) (*Engine, state.ObjID
 	e.pendingTriggers = nil
 	e.dmgSrcOverride = g
 	return e, g, targets
+}
+
+func TestExcessDamageAllMagmaticGalleonIsSupported(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	card := searchCorpusCard(t, reg, "Magmatic Galleon")
+	if d := card.Link(); len(d) != 0 {
+		t.Fatalf("link Magmatic Galleon: %v", d)
+	}
+	if !effects.Supported()["trig:ExcessDamageAll"] {
+		t.Fatal("effects.Supported() is missing trig:ExcessDamageAll")
+	}
+	found := false
+	for _, face := range card.Faces {
+		for _, trigger := range face.Triggers {
+			if trigger.Mode == "ExcessDamageAll" {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatal("precondition: Magmatic Galleon has no ExcessDamageAll trigger")
+	}
+	if unsupported := reg.Unsupported(card, effects.Supported()); len(unsupported) != 0 {
+		t.Fatalf("Magmatic Galleon still unsupported: %v", unsupported)
+	}
 }
 
 func TestExcessDamageAllAggregatesOnlyExcessPerBatch(t *testing.T) {
