@@ -102,6 +102,22 @@ func evalCountBodySimple(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 			return 0, false, true
 		}
 		return c.TriggerAmount, true, true
+	case evalCountBodyCostLastStateBattlefieldWithFallback:
+		// Forge's Count$LastStateBattlefieldWithFallback <spec> counts the
+		// battlefield objects matching <spec> as they were when the spell was
+		// CAST (castSA.getLastStateBattlefield), falling back to the CURRENT
+		// battlefield when no cast-time snapshot exists. This engine keeps no
+		// cast-time last-state snapshot (there is no copyLastState analogue),
+		// so the fallback arm is the whole read: the current battlefield,
+		// filtered by <spec> through the SAME zone-scan the Count$Valid arm
+		// uses (a rewrite to the Valid head, so filter grammar and the
+		// derived-P-T bind have one home). The /Op suffix was already peeled
+		// and applied by the generic Count$ site. An empty <spec> fails the
+		// head's verdict rather than matching everything.
+		if arg == "" {
+			return 0, false, true
+		}
+		return evalCountBodyZone(h, c, g, "Valid", arg, depth)
 	}
 	return 0, false, false
 }

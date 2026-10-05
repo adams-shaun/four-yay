@@ -57,6 +57,7 @@ var modelledValueHeads = []string{
 	"IsPrime",
 	"Kicked",
 	"Landfall",
+	"LastStateBattlefieldWithFallback",
 	"LeftBattlefieldThisTurn",
 	"LeftGraveyardThisTurn",
 	"LifeOppsLostThisTurn",
