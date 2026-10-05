@@ -157,9 +157,9 @@ type pendingCast struct {
 	// Count$Bargained head, the bare Condition$ Bargain gate, the `bargained`
 	// predicate and the Spell.Bargain cost constraint read. Plain data, so
 	// Clone carries them.
-	bargainDone bool         `clone:"deep"`
-	bargainPaid bool         `clone:"deep"`
-	bargainSac  state.ObjID  `clone:"deep"`
+	bargainDone bool        `clone:"deep"`
+	bargainPaid bool        `clone:"deep"`
+	bargainSac  state.ObjID `clone:"deep"`
 
 	cost Cost `clone:"deep"`
 
