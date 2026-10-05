@@ -405,6 +405,18 @@ const (
 	// (rules/altcast.go's altCostEnter). Appended after main's FlagWebSlinged
 	// to preserve its bit.
 	FlagSneaked
+	// FlagManaColorSpent marks a cast whose pay-time CastInfo carries the
+	// PER-COLOUR parts of the total mana spent to cast it (Adamant: "if at
+	// least N mana of colour C was spent", CR 702.5's Adamant keyword action
+	// wording). The six-slot state.Mana vector (W,U,B,R,G,C) rides the
+	// event's Text into Object.ManaColorSpent -- the FlagAddsCounters
+	// structured-payload pattern, one event for the whole vector -- and the
+	// Count$Adamant heads read it. Only a face whose SVar table or ability
+	// text reads the Adamant count emits the event, so every unrelated cast
+	// stays byte-identical. It IS a CastProvenanceFlag: the spend is a
+	// statement about the cast (a copy was never cast, CR 707.10). Appended
+	// after main's FlagSneaked to preserve its bit.
+	FlagManaColorSpent
 	// FlagImpending marks a permanent cast paid for with the card's K:Impending
 	// alternative cost (CR 702.176a): "If you cast this spell for its impending
 	// cost, it enters with N time counters on it and it isn't a creature until
@@ -415,8 +427,8 @@ const (
 	// Creature while a time counter remains (state.Object.ImpendingDormant). It
 	// IS a CastProvenanceFlag: both riders are conditioned on the spell having
 	// been CAST for its impending cost, so a stack copy -- put on the stack,
-	// never cast (CR 707.10) -- must not inherit it. Appended after main's
-	// FlagSneaked to preserve its bit.
+	// never cast (CR 707.10) -- must not inherit it. Appended after the branch's
+	// FlagManaColorSpent to preserve both bits.
 	FlagImpending
 )
 
@@ -459,10 +471,13 @@ const (
 // FlagWebSlinged joins the set: "if it was cast using web-slinging" is a
 // statement about the cast (the web-slinging cost was paid), so a stack copy
 // -- put on the stack, never cast (CR 707.10) -- must not inherit it.
+// FlagWebSlinged joins the set: "if it was cast using web-slinging" is a
+// statement about the cast (the web-slinging cost was paid), so a stack copy
+// -- put on the stack, never cast (CR 707.10) -- must not inherit it.
 // FlagImpending joins the set: both of CR 702.176a's riders are conditioned
 // on the spell having been CAST for its impending cost, so a stack copy -- put
 // on the stack, never cast (CR 707.10) -- must not inherit it.
-const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters | FlagWebSlinged | FlagSneaked | FlagImpending
+const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters | FlagWebSlinged | FlagSneaked | FlagManaColorSpent | FlagImpending
 
 // ExilesLeavingStack reports whether a cast carrying these flags is a
 // keyword cast whose card is exiled as it leaves the stack, whichever way it
@@ -1037,6 +1052,17 @@ type Object struct {
 	// ManaSpent and resets alongside it in events.Move; a copy of the spell
 	// was never cast and a cheated-in permanent reads 0.
 	ManaArtifactSpent int32
+	// ManaColorSpent is the PER-COLOUR breakdown of ManaSpent (the Adamant
+	// keyword, CR 702.5: "if at least N mana of colour C was spent to cast
+	// this spell"): slot MW..MG hold the coloured pips of that colour the
+	// payment spent and MC the colourless ({C}) pips. It is carried by the
+	// pay-time CastInfo's FlagManaColorSpent Text payload (the
+	// ManaAddsCounterGrants structured-payload pattern, one event for the
+	// whole vector) and read by the Count$Adamant heads. Like its ManaSpent
+	// siblings it rides the cast provenance window and resets in events.Move;
+	// a copy of the spell was never cast and a cheated-in permanent reads the
+	// zero vector.
+	ManaColorSpent Mana
 	// CompleatedLifePaid is the amount of life paid for Phyrexian symbols on
 	// a printed K:Compleated cast. It follows the cast provenance window and
 	// is consumed by events.Move when the spell enters as a planeswalker.
@@ -1414,7 +1440,7 @@ type Object struct {
 	// page-aligned Objs arena every object's hot head (the fields declared
 	// first) starts on a line of its own. Purely layout: it is never read or
 	// written. A field added above must re-pad it (TestObjectCacheLinePadded).
-	_ [16]byte
+	_ [56]byte
 }
 
 // DoorUnlocked reports the designation of a printed Room face. The cast

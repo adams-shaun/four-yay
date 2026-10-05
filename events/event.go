@@ -1438,6 +1438,42 @@ func ManaAddsCounterGrantsFromText(text string) []state.ManaAddsCounterGrant {
 	return out
 }
 
+// ManaColorSpentText encodes a cast's per-colour spend vector (state.Mana,
+// slots W,U,B,R,G,C) into the pay-time CastInfo's Text payload. The encoding
+// is deterministic (comma-joined decimal slots) and an all-zero vector still
+// encodes to a real "0,0,0,0,0,0", so a cast that spent no mana of any
+// colour is a real zero rather than an absent capture -- the same
+// "count 0 included" contract the snow/typed captures keep.
+func ManaColorSpentText(m state.Mana) string {
+	parts := make([]string, len(m))
+	for i, v := range m {
+		parts[i] = strconv.Itoa(int(v))
+	}
+	return strings.Join(parts, ",")
+}
+
+// ManaColorSpentFromText decodes the payload ManaColorSpentText wrote. A
+// malformed payload (wrong slot count, a non-integer or a negative slot)
+// yields the zero vector -- fail closed, never a guessed spend.
+func ManaColorSpentFromText(s string) state.Mana {
+	var m state.Mana
+	if s == "" {
+		return m
+	}
+	parts := strings.Split(s, ",")
+	if len(parts) != len(m) {
+		return m
+	}
+	for i, p := range parts {
+		n, err := strconv.Atoi(strings.TrimSpace(p))
+		if err != nil || n < 0 {
+			return state.Mana{}
+		}
+		m[i] = int32(n)
+	}
+	return m
+}
+
 type Event struct {
 	Seq     uint64           `json:"seq"`
 	Kind    Kind             `json:"kind"`
@@ -1698,6 +1734,12 @@ var flagNames = [...]struct {
 	// CR 702.190b's tapped-and-attacking entry. Appended at the end per the
 	// table's own ordering rule.
 	{"sneaked", state.FlagSneaked},
+	// The PER-COLOUR mana-spend capture (Adamant, CR 702.5): a face whose
+	// SVar table or ability text reads a Count$Adamant head stamps its
+	// pay-time CastInfo with this flag, and the six-slot spend vector rides
+	// the same event's Text into Object.ManaColorSpent. Appended at the end
+	// per the table's own ordering rule.
+	{"manacolorspent", state.FlagManaColorSpent},
 	// The kw:Impending alternative-cost cast (CR 702.176a): the flag is the
 	// provenance rules/altcast.go's entry hook (impendingTickGrant) reads to place
 	// the N time counters and register the end-step removal, and the one
