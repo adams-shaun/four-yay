@@ -10,6 +10,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	costvocab "github.com/adams-shaun/gorge/rules/cost"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -3114,17 +3115,47 @@ func noAbilitiesPermanent(_ *state.Game, o *state.Object, _ state.PlayerID, _ st
 		}
 	}
 	for _, a := range f.Abilities {
-		if a == nil || !a.IsActivated() {
+		if a == nil {
 			continue
 		}
-		// A land's mana ability is not an ability for this predicate
-		// (Forge's isLandAbility).
-		if hasType(o, "Land") && a.APIKind() == cards.APIMana {
-			continue
+		switch a.CompiledKind() {
+		case cards.SAKindActivated:
+			// A land's mana ability is not an ability for this
+			// predicate (Forge's isLandAbility).
+			if hasType(o, "Land") && a.APIKind() == cards.APIMana {
+				continue
+			}
+			return false
+		case cards.SAKindSpell:
+			// An SP entry is the card's own cast. Forge skips it only
+			// when it is the basic spell AND its cost is mana-only
+			// (isBasicSpell + isOnlyManaCost); an SP carrying an
+			// additional non-mana cost (Makeshift Mauler's
+			// ExileFromGrave) or any other extra spell ability counts
+			// as an ability. A DB/ST entry is not among the spell
+			// abilities hasNoAbilities reads, so it is skipped.
+			if a.APIKind() == cards.APIPermanentCreature && costOnlyMana(a.ParamStr(cards.PKCost)) {
+				continue
+			}
+			return false
 		}
-		return false
 	}
 	return true
+}
+
+// costOnlyMana reports whether a Forge cost string demands nothing beyond
+// mana (Forge's Cost.isOnlyManaCost). The empty string is the no-Cost$ line
+// case: the ability is paid with the card's printed mana cost, so it is
+// mana-only. A cost carrying any non-mana component -- HasNonMana misses the
+// CollectEvidence and RollDice heads -- or any token this build does not
+// model is NOT mana-only, the fail-closed direction, so an unread token can
+// never make an ability read as absent and silently widen the selection.
+func costOnlyMana(raw string) bool {
+	c := costvocab.ParseCost(raw)
+	if c.HasNonMana() {
+		return false
+	}
+	return len(c.Unknown) == 0 && len(c.Evidence) == 0 && len(c.RollDice) == 0
 }
 
 // objectHasAbility answers a recognised hasAbility sub-spec over the
