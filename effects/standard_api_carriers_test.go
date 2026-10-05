@@ -19,6 +19,7 @@ func TestStandardUnattachChangeSpeedCarriers(t *testing.T) {
 	want := map[string][]string{
 		"Unattach":    {"akiri_fearless_voyager", "carry_away", "fulgent_distraction", "ogre_geargrabber", "stolen_uniform", "tamiyos_compleation", "unexpected_request"},
 		"ChangeSpeed": {"ghirapur_grand_prix", "spikeshell_harrier"},
+		"HealDamage":  {"pyramids", "wolverine_fierce_fighter"},
 	}
 	for api, names := range want {
 		var got []string

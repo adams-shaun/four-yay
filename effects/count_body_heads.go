@@ -92,6 +92,25 @@ func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, dept
 		}
 		return dotBranch(h, c, rest, kicked, depth), true, true
 	}
+	// Teamwork.<paid>.<unpaid> is <paid> when the resolving source's
+	// K:Teamwork:N optional additional cost (CR 702.194a) was actually paid as
+	// it was cast, else <unpaid> -- Forge's Count$Teamwork.<n>.<m> family
+	// (Hulk Smash's Count$Teamwork.2.1, Cruel Alliance's Count$Teamwork.0.1).
+	// The read is Object.TeamworkPaid, the SAME one home the Card.Self+Teamwork
+	// filter predicate reads (folded by events.Apply's FlagTeamworkPaid arm),
+	// so the matcher and the count can never disagree. A missing source, a card
+	// never cast read the <unpaid> branch; a copy of a paid Teamwork spell
+	// inherits the cost-conditioned bool (as it does the FlagTeamworkPaid bit).
+	// The branch
+	// tokens resolve through dotBranch (a literal, or an SVar name), and a
+	// malformed body with a missing branch fails closed.
+	if rest, ok := strings.CutPrefix(head, "Teamwork."); ok {
+		paid := false
+		if o := g.Obj(c.Source); o != nil {
+			paid = o.TeamworkPaid
+		}
+		return dotBranch(h, c, rest, paid, depth), true, true
+	}
 	// PromisedGift.<yes>.<no> is <yes> when the source's cast promised an
 	// opponent a gift (CR 702.168), else <no> -- Forge's
 	// Count$PromisedGift.2.1 family (Wear Down's destroy-two, Long River's

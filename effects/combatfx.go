@@ -141,12 +141,9 @@ func effUntapAll(h Host, c *Ctx, sa *cards.SA) {
 	// One api UntapAll resolution is ONE untapping action, so the Mode$
 	// UntapAll batch fires once for the whole call (the effTapAll bracket's
 	// twin). Unlike TapAll, an Untap event can be REPLACED (ReplUntap) and a
-	// CR 616.1 order choice can park inside the emit; under the resolution
-	// kernel such a choice is answered in place, so no suspension occurs in
-	// ordinary resolution and the deferred close is exact. A legacy (no-tape)
-	// park that suspends the primitive mid-loop could split one action into
-	// two batches; that resumable-bracket shape is tracked as a follow-up, as
-	// it needs an engine-surface-neutral way to read the bracket's open state.
+	// CR 616.1 order choice is answered in place by the resolution kernel; if
+	// its tape is exhausted, replay starts from S0, whose cloned batch state
+	// is closed, then runs the whole primitive in one bracket.
 	defer beginActionBatch(h)()
 	players := allPlayersFor(h, c, sa)
 	for _, p := range players {

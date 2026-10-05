@@ -274,6 +274,16 @@ var predicates = map[string]predFn{
 	"PromisedGift": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.CastFlags&state.FlagPromisedGift != 0
 	},
+	// Teamwork is Forge's Card.Self+Teamwork (CR 702.194b): the object is a
+	// spell or permanent whose cast paid the K:Teamwork:N optional additional
+	// tap cost. Object.TeamworkPaid is folded by events.Apply from the pay-time
+	// FlagTeamworkPaid and survives later CastInfo events and the
+	// stack->battlefield move, so it reads on the spell during resolution
+	// (Timeline Inquiry's ConditionPresent$ Card.Self+Teamwork) and on the
+	// permanent at its ETB. Absent a paid tap it fails closed to false.
+	"Teamwork": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o.TeamworkPaid
+	},
 	"surged": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.CastFlags&state.FlagSurged != 0
 	},
@@ -2207,6 +2217,10 @@ func matchesBase(g *state.Game, base string, o *state.Object, sc SpecContext) bo
 	if neg := strings.TrimPrefix(base, "non"); neg != base {
 		return !matchesBase(g, neg, o, sc)
 	}
+	if isTargetedCardBase(base) {
+		id, bound := targetedCardSelfReferent(sc)
+		return bound && o.ID == id
+	}
 	switch matchesBaseCodes.Code(string(base)) {
 	case matchesBaseAny:
 		return hasTypeCtx(o, "Creature", sc) || hasTypeCtx(o, "Planeswalker", sc) || hasTypeCtx(o, "Battle", sc)
@@ -2690,7 +2704,7 @@ func matchesObjectText(g *state.Game, spec string, o *state.Object, sc SpecConte
 		}
 		all := true
 		for p := range strings.SplitSeq(rest, "+") {
-			if p == "" {
+			if p == "" || (isTargetedCardBase(base) && compilePredicateTermCodes.Code(p) == compilePredicateTermSelf) {
 				continue
 			}
 			// Permanent is an auxiliary part of Forge's
@@ -2821,7 +2835,7 @@ func matchesZoneSpecText(g *state.Game, spec string, o *state.Object, sc SpecCon
 		}
 		all := true
 		for p := range strings.SplitSeq(rest, "+") {
-			if p == "" {
+			if p == "" || (isTargetedCardBase(base) && compilePredicateTermCodes.Code(p) == compilePredicateTermSelf) {
 				continue
 			}
 			res, ok := matchPredicate(g, p, o, sc)
@@ -2840,6 +2854,9 @@ func matchesZoneSpecText(g *state.Game, spec string, o *state.Object, sc SpecCon
 func matchesBaseInZone(g *state.Game, base string, o *state.Object, sc SpecContext, zone state.Zone) bool {
 	if neg := strings.TrimPrefix(base, "non"); neg != base {
 		return !matchesBaseInZone(g, neg, o, sc, zone)
+	}
+	if isTargetedCardBase(base) {
+		return matchesBase(g, base, o, sc)
 	}
 	if base != "Permanent" || zone == state.ZBattlefield {
 		return matchesBase(g, base, o, sc)

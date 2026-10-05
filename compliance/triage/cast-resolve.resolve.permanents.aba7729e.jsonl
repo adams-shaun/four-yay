@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"Grizzly Bears colors gorge=G xmage="},"key":"cast-resolve | resolve | permanents | Grizzly Bears colors gorge=G xmage=","cards":1}
+{"card":"Kitesail Larcenist","template":"cast-resolve","status":"diverge","api":"ChangesZone:Animate+BecomesTarget:Ward","sets":["LCI"],"detail":"step 1 (resolve) permanents: gorge \"c1 o1 Grizzly Bears [artifact treasure] {G}\", xmage \"c1 o1 Grizzly Bears [artifact treasure] {}\""}
