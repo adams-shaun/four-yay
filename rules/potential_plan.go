@@ -400,7 +400,7 @@ func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *card
 	switch potentialModeBaseCostCodes.Code(string(mode)) {
 	case potentialModeBaseCostEmpty:
 		return pay.WithSpellAbilityExtras(f, cost), true
-	case potentialModeBaseCostMayplay:
+	case potentialModeBaseCostMayplay, potentialModeBaseCostBargained:
 		// A may-play grant (an impulse draw's exile): the printed cost, or
 		// none, plus the grant's own raise -- the same read beginCast makes.
 		free, raise, hasRaise, priced := e.mayPlayPermFreeRaise(p, id, o.MayPlayPerm)
@@ -1035,6 +1035,7 @@ type potentialModeBaseCostCode uint16
 const (
 	potentialModeBaseCostEmpty potentialModeBaseCostCode = iota + 1
 	potentialModeBaseCostMayplay
+	potentialModeBaseCostBargained
 	potentialModeBaseCostPlot
 	potentialModeBaseCostFlashback
 	potentialModeBaseCostBestowed
@@ -1048,6 +1049,7 @@ const (
 var potentialModeBaseCostCodes = state.NewStrCodes(
 	state.StrEntry[potentialModeBaseCostCode]{Key: "", Val: potentialModeBaseCostEmpty},
 	state.StrEntry[potentialModeBaseCostCode]{Key: "mayplay", Val: potentialModeBaseCostMayplay},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "bargained", Val: potentialModeBaseCostBargained},
 	state.StrEntry[potentialModeBaseCostCode]{Key: "plot", Val: potentialModeBaseCostPlot},
 	state.StrEntry[potentialModeBaseCostCode]{Key: "flashback", Val: potentialModeBaseCostFlashback},
 	state.StrEntry[potentialModeBaseCostCode]{Key: "bestowed", Val: potentialModeBaseCostBestowed},

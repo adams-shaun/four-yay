@@ -316,7 +316,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		cost = Cost{Generic: 2}
 	case castModeFlashback:
 		cost = e.flashbackCostFor(id, opt)
-	case castModeMayplay:
+	case castModeMayplay, castModeBargained:
 		// rules/mayplay.go granted this play from a non-hand zone. The
 		// printed cost is paid (the default below) unless the granting
 		// static said MayPlayWithoutManaCost$ True, in which case the mana
@@ -1177,6 +1177,7 @@ const (
 	castModeAirbendCast
 	castModeFlashback
 	castModeMayplay
+	castModeBargained
 	castModeMiracle
 	castModeEscape
 	castModeRetrace
@@ -1215,6 +1216,7 @@ var castModeCodes = state.NewStrCodes(
 	state.StrEntry[castModeCode]{Key: "airbend_cast", Val: castModeAirbendCast},
 	state.StrEntry[castModeCode]{Key: "flashback", Val: castModeFlashback},
 	state.StrEntry[castModeCode]{Key: "mayplay", Val: castModeMayplay},
+	state.StrEntry[castModeCode]{Key: "bargained", Val: castModeBargained},
 	state.StrEntry[castModeCode]{Key: "miracle", Val: castModeMiracle},
 	state.StrEntry[castModeCode]{Key: "escape", Val: castModeEscape},
 	state.StrEntry[castModeCode]{Key: "retrace", Val: castModeRetrace},

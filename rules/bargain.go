@@ -74,6 +74,7 @@ func (b bargain) ask() bool {
 	pc.bargainDone = true
 	candidates := b.candidates(pc.player, pc.card)
 	if len(candidates) == 0 {
+		pc.mode = ""
 		e.emit(events.Event{Kind: events.Note, Player: pc.player, Obj: pc.card, Text: "bargain no longer payable; casting without bargain"})
 		return false
 	}
