@@ -165,11 +165,7 @@ func chainSlots(f *cards.Face, svar string) []string {
 	for name := svar; name != ""; {
 		params := svarParams(f.SVars[name])
 		if v := params["ValidTgts"]; v != "" {
-			z := params["TgtZone"]
-			if z == "" && params["Origin"] != "" && !strings.Contains(params["Origin"], "Battlefield") {
-				z = params["Origin"]
-			}
-			if z != "" {
+			if z := targetZone(params, true); z != "" {
 				v += "@" + z
 			}
 			out = append(out, v)
@@ -177,6 +173,151 @@ func chainSlots(f *cards.Face, svar string) []string {
 		name = params["SubAbility"]
 	}
 	return out
+}
+
+// targetZone is the zone a target filter draws from: an explicit TgtZone$,
+// else a non-battlefield Origin$, else Stack for a slot that names a spell
+// or ability on the stack (TargetType$ Spell/SpellAbility/Activated/
+// Triggered, or ValidTgts$ with inZoneStack).
+//
+// charmMode selects the narrower stack rule a charm's SVar mode needs: a
+// mode whose ValidTgts$ also names a battlefield type (Icy Reception's
+// "creature or legendary spell", Theorix Charm's "noncreature card") keeps
+// its battlefield fixture, because the historical generator read it that
+// way and its verdict is pinned to the battlefield scenario. A top-level
+// Counter (Precise Redaction, Countersculpt) is routed before this by
+// targetsSpell, so its broader reading is unchanged.
+func targetZone(params map[string]string, charmMode bool) string {
+	if z := params["TgtZone"]; z != "" {
+		return z
+	}
+	if o := params["Origin"]; o != "" {
+		// An Origin$ that names the battlefield alone is the default zone
+		// and stays unsuffixed (no slot change for the common case); an
+		// Origin$ that adds Stack ("Battlefield,Stack") is kept so the
+		// slot records both alternatives.
+		if !strings.Contains(o, "Battlefield") || strings.Contains(o, "Stack") {
+			return o
+		}
+	}
+	if charmMode {
+		if charmModeTargetsStack(params) {
+			return "Stack"
+		}
+		return ""
+	}
+	if abilityTargetsStack(params) {
+		return "Stack"
+	}
+	return ""
+}
+
+// zoneNamesStack reports whether a TgtZone$ list names Stack (it may be a
+// comma-separated combo such as "Stack,Battlefield").
+func zoneNamesStack(z string) bool {
+	for _, part := range strings.Split(z, ",") {
+		if strings.EqualFold(strings.TrimSpace(part), "Stack") {
+			return true
+		}
+	}
+	return false
+}
+
+// abilityTargetsStack reports whether an ability's target is a spell or
+// ability on the stack, judged from its target vocabulary: a "Spell"-
+// family TargetType$, or a ValidTgts$ naming the inZoneStack zone. An
+// explicit non-stack zone (TgtZone$ / Origin$) wins, so a card targeting an
+// instant card in a graveyard is not mistaken for a stack target.
+func abilityTargetsStack(params map[string]string) bool {
+	if strings.Contains(params["ValidTgts"], "inZoneStack") {
+		return true
+	}
+	if params["TargetType"] == "" {
+		return false
+	}
+	for _, part := range strings.Split(params["TargetType"], ",") {
+		base := strings.SplitN(strings.TrimSpace(part), ".", 2)[0]
+		switch base {
+		case "Spell", "SpellAbility", "Activated", "Triggered", "Instant", "Sorcery":
+			return true
+		}
+	}
+	return false
+}
+
+// charmModeTargetsStack is abilityTargetsStack narrowed for a charm SVar
+// mode: an ability-type TargetType$ (SpellAbility/Activated/Triggered) is
+// always stack-only, but a Spell/Instant/Sorcery target is routed to the
+// stack only when its ValidTgts$ cannot be read as a battlefield permanent.
+// A mode whose ValidTgts$ names a battlefield base type (Creature, Card, ...)
+// keeps the battlefield fixture its committed verdict was generated for.
+func charmModeTargetsStack(params map[string]string) bool {
+	if strings.Contains(params["ValidTgts"], "inZoneStack") {
+		return true
+	}
+	if params["TargetType"] == "" {
+		return false
+	}
+	for _, part := range strings.Split(params["TargetType"], ",") {
+		base := strings.SplitN(strings.TrimSpace(part), ".", 2)[0]
+		switch base {
+		case "SpellAbility", "Activated", "Triggered":
+			return true
+		}
+	}
+	for _, part := range strings.Split(params["TargetType"], ",") {
+		base := strings.SplitN(strings.TrimSpace(part), ".", 2)[0]
+		switch base {
+		case "Spell", "Instant", "Sorcery":
+			return !validTgtsNamesBattlefield(params["ValidTgts"])
+		}
+	}
+	return false
+}
+
+// validTgtsBattlefieldBases are the ValidTgts$ base types that the
+// battlefield candidate table can serve. A filter that names any of them is
+// satisfiable on the battlefield, so a charm mode's Spell-family
+// TargetType$ on such a filter is not forced onto the stack.
+var validTgtsBattlefieldBases = map[string]bool{
+	"any": true, "creature": true, "player": true, "opponent": true,
+	"permanent": true, "card": true, "artifact": true, "enchantment": true,
+	"land": true, "planeswalker": true,
+}
+
+// validTgtsNamesBattlefield reports whether a ValidTgts$ filter names a
+// battlefield-card base type. An inZoneStack qualifier wins (the card is on
+// the stack), and only the first alternative is consulted -- the fixture
+// builder serves a filter from its first alternative's shape. An empty
+// filter names no type and is never battlefield-satisfiable here.
+func validTgtsNamesBattlefield(validTgts string) bool {
+	if strings.Contains(validTgts, "inZoneStack") {
+		return false
+	}
+	first := strings.SplitN(validTgts, ",", 2)[0]
+	base := strings.ToLower(strings.SplitN(strings.TrimSpace(first), ".", 2)[0])
+	return validTgtsBattlefieldBases[base]
+}
+
+// SlotIsStack reports whether a target filter (as TargetSlots/ChainSlots
+// encode it) draws only from the stack. A slot that also names a non-stack
+// zone ("Stack,Battlefield") is served by the ordinary fixture -- the
+// battlefield candidate -- so it is not a stack slot.
+func SlotIsStack(filter string) bool {
+	i := strings.LastIndexByte(filter, '@')
+	if i < 0 {
+		return false
+	}
+	z := filter[i+1:]
+	if !zoneNamesStack(z) {
+		return false
+	}
+	for _, part := range strings.Split(z, ",") {
+		if p := strings.TrimSpace(part); p != "" && !strings.EqualFold(p, "Stack") {
+			return false
+		}
+	}
+	return true
 }
 
 // NewItem names a template's scenario. The template's version is part of
@@ -261,7 +402,7 @@ func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) {
 			return 0, res, false
 		}
 		for _, f := range res.Fails {
-			if strings.HasPrefix(f, "step 0 ") || strings.Contains(f, "harness:") {
+			if strings.HasPrefix(f, "step ") || strings.Contains(f, "harness:") {
 				return 0, res, false
 			}
 		}
@@ -518,11 +659,7 @@ func targetSlots(f *cards.Face) []string {
 		if v == "" {
 			return
 		}
-		z := params["TgtZone"]
-		if z == "" && params["Origin"] != "" && !strings.Contains(params["Origin"], "Battlefield") {
-			z = params["Origin"]
-		}
-		if z != "" {
+		if z := targetZone(params, false); z != "" {
 			v += "@" + z
 		}
 		out = append(out, v)
@@ -549,6 +686,32 @@ func targetSlots(f *cards.Face) []string {
 		break
 	}
 	return out
+}
+
+// FaceHasFixture reports whether the static fixture builder can satisfy every
+// target the card's cast demands: each slot has at least one candidate (a
+// stack-only slot is coverable by a precast spell). The second return names
+// the first unsatisfiable slot, for the census. This is a static scan -- it
+// runs no game -- so the census ratchet can scan the whole corpus.
+func FaceHasFixture(f *cards.Face) (bool, string) {
+	plans := [][]string{targetSlots(f)}
+	if modes := charmModes(f); len(modes) > 0 {
+		plans = nil
+		for _, m := range modes {
+			plans = append(plans, chainSlots(f, m.svar))
+		}
+	}
+	for _, slots := range plans {
+		for _, s := range slots {
+			if SlotIsStack(s) {
+				continue
+			}
+			if len(candidatesFor(s)) == 0 {
+				return false, s
+			}
+		}
+	}
+	return true, ""
 }
 
 // svarParams splits an SVar ability body ("DB$ Pump | ValidTgts$ ...")
@@ -581,7 +744,13 @@ func candidatesFor(filter string) []cand {
 		filter, zone = filter[:i], strings.ToLower(filter[i+1:])
 	}
 	if zone != "" && zone != "battlefield" {
-		return zoneCandidates(filter, zone)
+		if strings.Contains(zone, "battlefield") {
+			// A mixed zone (Stack,Battlefield, or Origin$ Battlefield,Stack)
+			// is served on the battlefield.
+			zone = ""
+		} else {
+			return zoneCandidates(filter, zone)
+		}
 	}
 	alt := strings.Split(filter, ",")
 	base := strings.ToLower(strings.SplitN(alt[0], ".", 2)[0])

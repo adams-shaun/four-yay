@@ -45,6 +45,10 @@ func CharmModes(f *cards.Face) []CharmMode { return charmModes(f) }
 // ChainSlots lists the target filters along one SVar ability chain.
 func ChainSlots(f *cards.Face, svar string) []string { return chainSlots(f, svar) }
 
+// AbilityTargetsStack reports whether an ability's target vocabulary names a
+// spell or ability on the stack.
+func AbilityTargetsStack(params map[string]string) bool { return abilityTargetsStack(params) }
+
 // ModeNumbers maps each charm mode label to its 1-based Choices$ position.
 func ModeNumbers(f *cards.Face) map[string]int { return modeNumbers(f) }
 
