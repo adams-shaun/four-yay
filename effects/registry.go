@@ -1083,14 +1083,21 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// SubAbility — gated bare-Morbid; the "instead" branch only runs
 		// because the walk continues past a denial). A chain payload that
 		// must not run after its gated parent is kept out by its own
-		// population: the DigUntil's DB$ Play reads only what the chain
-		// remembered (effPlay's trigger-capture exclusion), never the
-		// triggering event's capture. An unresolved shape (supported=false)
-		// runs unconditionally, the documented pre-gate behaviour — see
-		// conditions.go for the exact boundary and the counts behind it.
+		// population. An UNMODELLED gate (UnmodelledCondition names a shape
+		// this build does not evaluate) fails CLOSED: the sub is skipped and a
+		// replay-visible Note records the gap, instead of running the rider
+		// unconditionally and diverging from the oracle.
 		if sa != nil {
-			if met, supported := conditionMet(h, c, sa); supported && !met {
+			met, supported := conditionMet(h, c, sa)
+			if supported && !met {
 				continue
+			}
+			if !supported {
+				if detail, bad := UnmodelledCondition(sa); bad {
+					h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+						Text: "unmodelled condition " + detail})
+					continue
+				}
 			}
 		}
 		var fn Effect

@@ -395,21 +395,27 @@ func conditionMetCore(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 	// (~18 corpus SAs) has no single evaluator and stays unsupported, the
 	// same fail-open run-anyway the other unsupported shapes take.
 	if check != "" {
-		if defined != "" || present != "" || notPresent != "" || compare != "" || bare != "" ||
-			playerTurn != "" || phases != "" || firstCombat != "" {
-			return false, false
-		}
 		holds, evaluated := CheckSVarCompare(h, c, check, cp.SVarCompare)
 		if !evaluated {
 			// The gate's count body is not one the evaluator models: fail
 			// OPEN, the same run-anyway the other unsupported Condition*
-			// shapes take (the doc above). Enforcing a zero would silence
-			// cards whose gates name counts this build cannot compute
-			// (Sephiroth's Count$ResolvedThisTurn transform, 52 corpus
-			// sites' worth of families).
+			// shapes take (the doc above).
 			return false, false
 		}
-		return holds, true
+		if defined == "" && present == "" && notPresent == "" && compare == "" && bare == "" &&
+			playerTurn == "" && phases == "" && firstCombat == "" {
+			return holds, true
+		}
+		// A ConditionCheckSVar$ beside a ConditionDefined$/ConditionPresent$
+		// group is a real conjunction (Coiling Rebirth's
+		// `ConditionCheckSVar$ X | ConditionDefined$ Remembered |
+		// ConditionPresent$ Card.nonLegendary`): the group gate still runs
+		// below and combine() AND-s the SVar answer via extraMet. A gate the
+		// SVar denies short-circuits here.
+		if !holds {
+			return false, true
+		}
+		extraMet = true
 	}
 	// A bare Condition$ is the cast-option family: Kicked and Foretold are
 	// evaluated over the source's CastFlags (the bit the Kicker payment / the
@@ -522,6 +528,7 @@ func conditionMetCore(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		defined != "Imprinted" && defined != "Discarded" && defined != "Targeted" &&
 		defined != "Returned" && defined != "ChosenCard" && defined != "TriggeredSourceLKICopy" &&
 		defined != "RememberedLKI" && defined != "ParentTarget" && defined != "Sacrificed" &&
+		defined != "ThisTargetedCard" &&
 		defined != "TriggeredSpellAbility" {
 		// Only the Remembered, Self, TriggeredCard, TriggeredCardLKICopy,
 		// Imprinted, Targeted,
@@ -590,9 +597,9 @@ func conditionMetCore(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 			return false, false
 		}
 	}
-	if defined == "Targeted" {
-		// ConditionDefined$ Targeted is the resolving ability's OWN answered
-		// targets: Forge's `Targeted` defined group. It reads the same two
+	if defined == "Targeted" || defined == "ThisTargetedCard" {
+		// ConditionDefined$ Targeted / ThisTargetedCard is the resolving
+		// ability's OWN answered targets: Forge's `Targeted` / `ThisTargetedCard`: Forge's `Targeted` defined group. It reads the same two
 		// channels Defined$ Targeted does (effects/context.go — the generic
 		// pre-ask's Ctx.PickedTargets while a pre-asked body dispatches, else
 		// the resolution-level Ctx.Targets), so the gate and the effects' own
@@ -841,7 +848,7 @@ func conditionMetCore(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		// still holds after the chained Destroy moved the target to the
 		// graveyard. Only the counter field is substituted; every other
 		// characteristic is read live (or via Ctx.LKI for a trigger).
-		if defined == "Targeted" {
+		if defined == "Targeted" || defined == "ThisTargetedCard" {
 			if cs, ok := targetCountersLKI(c, t.Obj, o); ok {
 				oc := *o
 				oc.Counters = cs

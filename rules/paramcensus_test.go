@@ -1157,6 +1157,14 @@ func (s *scan) scanRangeWhitelist(t *testing.T, fset *token.FileSet, fi *fnInfo,
 		if pkg == "effects" && fname == "plainManaParams" {
 			return
 		}
+		// unmodelledConditionKey (effects/condition_census.go) is the
+		// Condition* shape classifier's key scan: a structural pass over the
+		// ability's raw Params map testing membership in conditionEvaluatedKeys,
+		// not a card-parameter consumer to attribute to a primitive (its job is
+		// the census ratchet and the fail-closed Note, not to consume the key).
+		if pkg == "effects" && fname == "unmodelledConditionKey" {
+			return
+		}
 		// A copy loop (`for k, v := range src.Params { dst.Params[k] = v }`)
 		// is not a read: every use of the key sits in a write-position index.
 		if rangeKeyIsWriteOnly(rs, keyIdent.Name, writes) {
