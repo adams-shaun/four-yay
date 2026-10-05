@@ -61,27 +61,36 @@ func ManaSVarGateOK(e Engine, o *state.Object, p state.PlayerID, id state.ObjID,
 
 // TapCostSick is CR 302.6's shared source-cost predicate for {T}/{Q}.
 // Tapping another permanent to pay a cost is intentionally not checked here.
-func TapCostSick(e Engine, source state.ObjID, cost *costvocab.Cost) bool {
-	return TapFlagsSick(e, source, cost.Tap, cost.Untap)
+// asIfHaste is the caller's stat:ActivateAbilityAsIfHaste read (rules'
+// activatesAsIfHaste): true exempts the source from the summoning-sickness
+// half without granting combat haste.
+func TapCostSick(e Engine, source state.ObjID, cost *costvocab.Cost, asIfHaste bool) bool {
+	return TapFlagsSick(e, source, cost.Tap, cost.Untap, asIfHaste)
 }
 
 // TapFlagsSick is tapCostSick reading only the cost's {T}/{Q} flags, so a
 // caller holding a shared compiled cost (costRef) passes two bools rather
-// than copying the whole Cost.
-func TapFlagsSick(e Engine, source state.ObjID, tap, untap bool) bool {
+// than copying the whole Cost. asIfHaste (a stat:ActivateAbilityAsIfHaste
+// static selecting source) removes only the sickness withholding: the source
+// must still be a battlefield creature, and the combat restrictions haste
+// would lift are not touched.
+func TapFlagsSick(e Engine, source state.ObjID, tap, untap, asIfHaste bool) bool {
 	o := e.Game().Obj(source)
 	if o == nil || (!tap && !untap) || o.Zone != state.ZBattlefield || !o.SummonSick {
 		return false
 	}
-	return slices.Contains(e.Chars().DerivedTypes(source), "Creature") && !e.Chars().HasKeyword(source, chars.KWHaste)
+	if slices.Contains(e.Chars().DerivedTypes(source), "Creature") && !e.Chars().HasKeyword(source, chars.KWHaste) {
+		return !asIfHaste
+	}
+	return false
 }
 
-func ManaAbilityTapSick(e Engine, source state.ObjID, ma *cards.SA) bool {
+func ManaAbilityTapSick(e Engine, source state.ObjID, ma *cards.SA, asIfHaste bool) bool {
 	if ma == nil {
 		return false
 	}
 	c := CostRef(e, ma.ParamStr(cards.PKCost))
-	return TapFlagsSick(e, source, c.Tap, c.Untap)
+	return TapFlagsSick(e, source, c.Tap, c.Untap, asIfHaste)
 }
 
 // GainedManaRefFor reports the has-all-abilities-of identity of mana ability

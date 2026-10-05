@@ -107,6 +107,7 @@ const (
 	PKCounterNum
 	PKCounterType
 	PKDefined
+	PKDefinedAttacker
 	PKDefinedCards
 	PKDefinedPlayer
 	PKDefinedTarget
@@ -278,6 +279,7 @@ const (
 	PKValidCreature
 	PKValidDefender
 	PKValidDescription
+	PKValidEntity
 	PKValidLKI
 	PKValidMode
 	PKValidObject
@@ -840,6 +842,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKCounterNum:                       "CounterNum",
 	PKCounterType:                      "CounterType",
 	PKDefined:                          "Defined",
+	PKDefinedAttacker:                  "DefinedAttacker",
 	PKDefinedCards:                     "DefinedCards",
 	PKDefinedPlayer:                    "DefinedPlayer",
 	PKDefinedTarget:                    "DefinedTarget",
@@ -1011,6 +1014,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKValidCreature:                    "ValidCreature",
 	PKValidDefender:                    "ValidDefender",
 	PKValidDescription:                 "ValidDescription",
+	PKValidEntity:                      "ValidEntity",
 	PKValidLKI:                         "ValidLKI",
 	PKValidMode:                        "ValidMode",
 	PKValidObject:                      "ValidObject",

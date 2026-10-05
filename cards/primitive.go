@@ -33,6 +33,11 @@ func (f *Face) Primitives() []string {
 			return
 		}
 		set["api:"+sa.API] = struct{}{}
+		if sa.API == "MustBlock" && !MustBlockNamedTargetShape(sa) {
+			// API registration alone cannot certify selector grammars that the
+			// resolver cannot bind to a single attacker and a mandatory target.
+			set["api:MustBlock.OtherShape"] = struct{}{}
+		}
 		walk(sa.Sub, depth+1)
 	}
 	for _, a := range f.Abilities {
