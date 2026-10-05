@@ -735,6 +735,9 @@ const (
 	PKReplaceGraveyardValid
 	PKImprintPlayed
 	PKShowCards
+	PKValidCrew
+	PKValidSaddled
+	PKFirstTimeSaddled
 	paramKeyCount
 )
 
@@ -865,6 +868,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKFaceDown:                         "FaceDown",
 	PKFirstForetell:                    "FirstForetell",
 	PKFirstTime:                        "FirstTime",
+	PKFirstTimeSaddled:                 "FirstTimeSaddled",
 	PKForgetOtherRemembered:            "ForgetOtherRemembered",
 	PKFoundSearchingLibrary:            "FoundSearchingLibrary",
 	PKGainControl:                      "GainControl",
@@ -1328,6 +1332,8 @@ var paramKeyNames = [paramKeyCount]string{
 	PKValidCounterType:                 "ValidCounterType",
 	PKValidDefenders:                   "ValidDefenders",
 	PKValidEnlisted:                    "ValidEnlisted",
+	PKValidCrew:                        "ValidCrew",
+	PKValidSaddled:                     "ValidSaddled",
 	PKValidExplored:                    "ValidExplored",
 	PKValidExplorer:                    "ValidExplorer",
 	PKValidLoseReason:                  "ValidLoseReason",

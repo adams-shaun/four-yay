@@ -1663,6 +1663,27 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 				if t.Mode == "RolledDie" && t.Effect != nil && !e.dieRollNumberAllows(t, key) {
 					continue
 				}
+				// Mode$ SacrificedOnce (Camellia, the Seedmiser): the "whenever
+				// you sacrifice one or more ..." reading of Sacrificed. The matcher
+				// (trigmatch.SacrificedOnceMatches) already matched the sacrifice;
+				// this latch collapses a multi-permanent sacrifice action -- an
+				// api:Sacrifice loop, or a cost sacrifice paid in one payment -- to
+				// ONE queueing. It is a per-TURN latch (the ticket's sanctioned
+				// minimal alternative to a per-action batch, which needs a
+				// sacrifice batch open/close that does not exist): a second
+				// separate sacrifice action in the same turn is also collapsed.
+				// Gated at the queue point, after every later-rejected gate, so a
+				// matched-but-unqueueable event does not consume the latch. The
+				// stamp is the turn (replay-stable engine memory, no reset hook).
+				if t.Mode == "SacrificedOnce" {
+					if e.sacrificedOnceTurn[key] == e.G.Turn {
+						continue // already fired this turn.
+					}
+					if e.sacrificedOnceTurn == nil {
+						e.sacrificedOnceTurn = map[triggerKey]int32{}
+					}
+					e.sacrificedOnceTurn[key] = e.G.Turn
+				}
 				e.triggerFireCount[key]++
 				if t.Effect == nil {
 					// Execute$ named an SVar this face never defined (or one
@@ -2337,6 +2358,17 @@ func triggerRemembered(ev events.Event, source state.ObjID) []state.Target {
 	// bearer (the zero-value event a test might build) has nothing to bind, so
 	// it falls through to the ordinary source fallback below.
 	if ev.Kind == events.Unattached && len(ev.IDs) > 0 {
+		return []state.Target{{Obj: ev.IDs[0]}}
+	}
+	// Mode$ Crewed / Mode$ Saddled's trigger bodies name "that Mount or
+	// Vehicle" (Canyon Vaulter, Reckless Velocitaur: `Defined$
+	// TriggeredCardLKICopy`), which is the event's IDs[0] -- the Mount/Vehicle
+	// the crewer/saddler acted on -- NOT Obj, the crewing/saddling creature
+	// the ValidCrew$ filter and the CrewedThisTurn predicate read. This is
+	// the Unattached shape above: bind the ID referent so the body's
+	// Triggered* resolution reaches the acted-on permanent. The modes' own
+	// matchers filter ev.Obj; only the body capture moves.
+	if (ev.Kind == events.Crew || ev.Kind == events.Saddle) && len(ev.IDs) > 0 {
 		return []state.Target{{Obj: ev.IDs[0]}}
 	}
 	if ev.Obj != 0 {

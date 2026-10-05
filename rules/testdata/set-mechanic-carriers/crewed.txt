@@ -1,0 +1,7 @@
+c/canyon_vaulter.txt
+g/gearshift_ace.txt
+g/goblin_crash_pilot.txt
+r/reckless_velocitaur.txt
+s/speedway_fanatic.txt
+t/tiana_angelic_mechanic.txt
+v/veteran_motorist.txt
