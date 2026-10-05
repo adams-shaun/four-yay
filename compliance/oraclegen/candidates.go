@@ -173,7 +173,7 @@ func FaceHasFixture(reg *cards.Registry, f *cards.Face) (bool, string) {
 			if SlotIsStack(s.Filter) || s.Optional {
 				continue
 			}
-			if len(candidatesFor(reg, s.Filter)) == 0 {
+			if len(candidatesFor(reg, s.Filter, "")) == 0 {
 				return false, s.Filter
 			}
 		}
@@ -291,6 +291,8 @@ type cand struct {
 	// ref overrides the target reference (a token has no card name in a
 	// zone: it is "pN:token:<subtype>").
 	ref string
+	// attachTo is the earlier target for ParentTarget attachment filters.
+	attachTo string
 	// pre are steps inserted before the card's cast.
 	pre []Step
 }
@@ -299,7 +301,7 @@ type cand struct {
 // cannot see (Elf/Goblin/... .YouCtrl, Villain/Hero in a graveyard, an
 // enchanted creature, a token), and marks a board-history filter
 // (ThisTurnEntered) with a move prelude.
-func candidatesFor(reg *cards.Registry, filter string) []cand {
+func candidatesFor(reg *cards.Registry, filter, parentTarget string) []cand {
 	zone := ""
 	if i := strings.LastIndexByte(filter, '@'); i >= 0 {
 		filter, zone = filter[:i], strings.ToLower(filter[i+1:])
@@ -325,10 +327,14 @@ func candidatesFor(reg *cards.Registry, filter string) []cand {
 			return enchantedCandidates(mine)
 		}
 		if strings.Contains(filter, "AttachedTo") {
-			// An attachment tied to a parent target needs an attach op the
-			// runner does not pose; the mandatory case is a real gap, the
-			// optional case is dropped by fixtures.
-			return nil
+			if !strings.Contains(filter, "AttachedTo ParentTarget") || parentTarget == "" {
+				return nil
+			}
+			name, ok := registryEquipment(reg)
+			if !ok {
+				return nil
+			}
+			return []cand{{seat: "p1", zone: "battlefield", card: name, attachTo: parentTarget}}
 		}
 		if !isCardTypeBase(base) {
 			return subtypeBattlefield(reg, base, mine)
@@ -472,6 +478,15 @@ func seatIndex(seat string) int {
 		return 0
 	}
 	return 1
+}
+
+// registryEquipment finds a real Equipment, whether the IR represents the
+// supertype as a type or a subtype.
+func registryEquipment(reg *cards.Registry) (string, bool) {
+	if name, ok := registrySubtype(reg, "Equipment"); ok {
+		return name, true
+	}
+	return registryCardType(reg, "Equipment")
 }
 
 // registryCardType returns the first card (in corpus order) whose front face
@@ -636,7 +651,11 @@ func firstFilterBase(filter string) string {
 func fixtures(reg *cards.Registry, slots []Slot) []fixture {
 	out := []fixture{{}}
 	for _, s := range slots {
-		cs := candidatesFor(reg, s.Filter)
+		parentTarget := ""
+		if len(out) > 0 && len(out[0].targets) > 0 {
+			parentTarget = out[0].targets[0]
+		}
+		cs := candidatesFor(reg, s.Filter, parentTarget)
 		if len(cs) == 0 {
 			if s.Optional {
 				continue
@@ -646,6 +665,9 @@ func fixtures(reg *cards.Registry, slots []Slot) []fixture {
 		var next []fixture
 		for _, fx := range out {
 			for _, c := range cs {
+				if c.attachTo != "" && len(fx.targets) > 0 {
+					c.attachTo = fx.targets[0]
+				}
 				if s.Mirror && c.card != "" && !controllerQualified(s.Filter) {
 					c.seat = otherSeat(c.seat)
 				}
@@ -666,6 +688,9 @@ func fixtures(reg *cards.Registry, slots []Slot) []fixture {
 					}
 					place(&n, c)
 					n.targets = append(n.targets, ref)
+					if c.attachTo != "" {
+						n.pre = append(n.pre, Step{Op: "attach", Seat: seatIndex(c.seat), Card: ref, AttachedTo: c.attachTo})
+					}
 					switch c.role {
 					case roleAttacker:
 						n.combat.attackers = append(n.combat.attackers, ref)
