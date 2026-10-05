@@ -1,0 +1,207 @@
+{
+  "card": "Gollum, Riddle Master",
+  "family": "choose-type",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "8526219008de",
+  "scenarios": [
+    {
+      "name": "even-chosen-even-spell-pumps",
+      "cr": [
+        "614.12",
+        "603.2",
+        "202.3"
+      ],
+      "why": "As Gollum enters choose even; an opponent then casts a spell with even mana value (Grizzly Bears, MV 2), so Gollum's ability triggers and its first mode puts a +1/+1 counter on him.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Gollum, Riddle Master"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "setup_answers": [
+        {
+          "kind": "any",
+          "pick": [
+            "even"
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1"
+        },
+        {
+          "op": "cast",
+          "seat": 1,
+          "card": "p1:Grizzly Bears",
+          "mana": "CG",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "counter"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Gollum, Riddle Master",
+          "counters": {
+            "+1/+1": 1
+          },
+          "pt": "4/2"
+        }
+      ]
+    },
+    {
+      "name": "even-chosen-odd-spell-no-trigger",
+      "cr": [
+        "614.12",
+        "603.2"
+      ],
+      "why": "With even chosen, an odd-mana-value spell (Lightning Bolt, MV 1) does not trigger the ability; the Bolt still kills the 3/1 Gollum.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Gollum, Riddle Master"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Lightning Bolt"
+          ]
+        }
+      },
+      "setup_answers": [
+        {
+          "kind": "any",
+          "pick": [
+            "even"
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1"
+        },
+        {
+          "op": "cast",
+          "seat": 1,
+          "card": "p1:Lightning Bolt",
+          "mana": "R",
+          "targets": [
+            "p0:Gollum, Riddle Master"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Gollum, Riddle Master",
+          "zone": "graveyard"
+        }
+      ]
+    },
+    {
+      "name": "second-trigger-chooses-a-new-mode",
+      "cr": [
+        "603.2",
+        "608.2d"
+      ],
+      "why": "The modes are chosen without replacement: after the +1/+1 mode has been chosen, a second even spell offers only the remaining modes.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Gollum, Riddle Master"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Grizzly Bears",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "setup_answers": [
+        {
+          "kind": "any",
+          "pick": [
+            "even"
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1"
+        },
+        {
+          "op": "cast",
+          "seat": 1,
+          "card": "p1:Grizzly Bears",
+          "mana": "CG",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "counter"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 1,
+          "card": "p1:Grizzly Bears#2",
+          "mana": "CG",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "lose 2"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Gollum, Riddle Master",
+          "counters": {
+            "+1/+1": 1
+          }
+        },
+        {
+          "life": {
+            "p0": 22,
+            "p1": 18
+          }
+        }
+      ]
+    }
+  ]
+}

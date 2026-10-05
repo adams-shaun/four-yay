@@ -1,0 +1,106 @@
+{
+  "card": "Elrond, Moon-Reader",
+  "family": "activated-ability",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "612dd9724fda",
+  "scenarios": [
+    {
+      "name": "activate-a-creature-ability-draws-a-card-once",
+      "cr": [
+        "603.2",
+        "605.1a",
+        "603.2d"
+      ],
+      "why": "Whenever you activate an ability of a creature you draw a card, but only once each turn. Activating Prodigal Sorcerer's ability draws one card.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Elrond, Moon-Reader",
+            "Prodigal Sorcerer"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Prodigal Sorcerer",
+          "ability": "deals 1 damage",
+          "targets": [
+            "p1:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        },
+        {
+          "card": "p1:Grizzly Bears",
+          "damage": 1
+        }
+      ]
+    },
+    {
+      "name": "blink-two-permanents-return-at-end-step",
+      "cr": [
+        "603.2",
+        "603.7",
+        "611.3a"
+      ],
+      "why": "{5}{U}{U}: exile up to two other target nonland permanents you control; they return under your control at the beginning of the next end step.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Elrond, Moon-Reader",
+            "Grizzly Bears",
+            "Hill Giant"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Elrond, Moon-Reader",
+          "mana": "CCCCCUU",
+          "ability": "Exile up to two",
+          "targets": [
+            "p0:Grizzly Bears",
+            "p0:Hill Giant"
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass_to",
+          "step": "end"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield"
+        },
+        {
+          "card": "p0:Hill Giant",
+          "zone": "battlefield"
+        }
+      ]
+    }
+  ]
+}

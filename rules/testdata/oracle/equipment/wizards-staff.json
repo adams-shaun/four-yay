@@ -1,0 +1,105 @@
+{
+  "card": "Wizard's Staff",
+  "family": "equipment",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "08b047cc4a19",
+  "scenarios": [
+    {
+      "name": "equipped-creature-gains-prowess",
+      "cr": [
+        "301.5",
+        "702.108a",
+        "603.2"
+      ],
+      "why": "Equipped creature has prowess, so a noncreature spell makes the equipped 2/2 Grizzly Bears 3/3 until end of turn.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Wizard's Staff",
+            "Grizzly Bears"
+          ],
+          "hand": [
+            "Lightning Bolt"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Hill Giant"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Wizard's Staff",
+          "mana": "CCC",
+          "ability": "Equip 3",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Lightning Bolt",
+          "mana": "R",
+          "targets": [
+            "p1:Hill Giant"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "pt": "3/3"
+        }
+      ]
+    },
+    {
+      "name": "equip-wizard-costs-one",
+      "cr": [
+        "301.5",
+        "702.6a"
+      ],
+      "why": "Equip Wizard {1} attaches to a Wizard for one mana: Prodigal Sorcerer is a Wizard.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Wizard's Staff",
+            "Prodigal Sorcerer"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Wizard's Staff",
+          "mana": "C",
+          "ability": "Equip 1",
+          "targets": [
+            "p0:Prodigal Sorcerer"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Prodigal Sorcerer",
+          "keywords": [
+            "Prowess"
+          ]
+        }
+      ]
+    }
+  ]
+}
