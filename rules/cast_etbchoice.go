@@ -285,14 +285,12 @@ func (e *Engine) etbOptions(you state.PlayerID, card state.ObjID, kind, validCar
 		if spec == "" {
 			spec = "Creature.Other"
 		}
-		if !strings.Contains(spec, ".") && !strings.HasPrefix(spec, "Card") {
-			spec = "Card." + spec
-		}
+		sc := effects.NewSpecContext(you, card)
 		out := []decision.Option{}
 		for _, p := range e.G.AliveFrom(0) {
 			for _, id := range e.G.Zone(state.ZBattlefield, p) {
 				o := e.G.Obj(id)
-				if o != nil && o.Face() != nil && effects.MatchesSpecFrom(e.G, spec, id, you, card) {
+				if o != nil && o.Face() != nil && effects.CloneETBSelectorMatches(e.G, spec, id, sc) {
 					out = append(out, decision.Option{Index: len(out), Kind: "clone", Obj: id, Label: o.Face().Name})
 				}
 			}
@@ -527,12 +525,12 @@ func etbChoicePrompt(kind string) string {
 func etbCloneWhitelist(sa *cards.SA, svars map[string]string) bool {
 	// The key whitelist and the text-only value checks are compiled once
 	// (effects.CloneParams.ETBShapeOK): a supported KEY is not a supported
-	// VALUE, so a Choices$ selector whose predicate needs an SVar resolver
-	// (Mockingbird's "Creature.Other+cmcLEY") and an AddKeywords$ member whose
-	// head is not a single word (Flesh Duplicate's "IfNew Vanishing:3") are
-	// withheld there too, as is any IntoPlayTapped$ other than True.
+	// VALUE: only Mockingbird's cast-spend Y selector has a resolver on this
+	// route. Other resolver-dependent selectors, multi-word AddKeywords$
+	// heads (Flesh Duplicate's "IfNew Vanishing:3") and IntoPlayTapped$
+	// values other than True remain withheld.
 	cp := effects.CloneOf(sa)
-	if !cp.ETBShapeOK {
+	if !cp.ETBShapeOK || (effects.SpecNeedsResolver(cp.Choices) && !effects.CloneETBSpendSelector(cp.Choices, svars)) {
 		return false
 	}
 	// A named static is installed on the cloned face by CloneStatic, so
