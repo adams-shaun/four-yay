@@ -171,6 +171,10 @@ var czaFront [1 << 10]atomic.Pointer[ChangeZoneAllParams]
 
 // compileChangeZoneAll is the one reader of a ChangeZoneAll ability's
 // parameters.
+func compileChangeZoneRandomOrder(sa *cards.SA) bool {
+	return isTrue(sa.ParamStr(cards.PKRandomOrder))
+}
+
 func compileChangeZoneAll(sa *cards.SA, tp *TargetParams, dp *DefinedParams) *ChangeZoneAllParams {
 	p := &ChangeZoneAllParams{src: sa.Params, n: len(sa.Params)}
 
@@ -202,7 +206,7 @@ func compileChangeZoneAll(sa *cards.SA, tp *TargetParams, dp *DefinedParams) *Ch
 	p.LibraryPosition = strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition))
 	p.ShuffleTrue = strings.EqualFold(sa.ParamStr(cards.PKShuffle), "True")
 
-	p.RandomOrder = compileRandomOrder(sa)
+	p.RandomOrder = compileChangeZoneRandomOrder(sa)
 	p.RememberLKI = isTrue(sa.ParamStr(cards.PKRememberLKI))
 	p.RememberChanged = isTrue(sa.ParamStr(cards.PKRememberChanged))
 	p.Tapped = isTrue(sa.ParamStr(cards.PKTapped))
@@ -210,13 +214,6 @@ func compileChangeZoneAll(sa *cards.SA, tp *TargetParams, dp *DefinedParams) *Ch
 	p.Riders = compileMoveRiders(sa)
 	p.Unread = unreadKeys(sa, changeZoneAllKnownKeys[:])
 	return p
-}
-
-// compileRandomOrder is shared by ChangeZone and ChangeZoneAll; the parameter
-// belongs to the common library-ordering compiler rather than either API's
-// private parameter census.
-func compileRandomOrder(sa *cards.SA) bool {
-	return isTrue(sa.ParamStr(cards.PKRandomOrder))
 }
 
 // unreadKeys lists, sorted, the keys present on sa that are not in known (a

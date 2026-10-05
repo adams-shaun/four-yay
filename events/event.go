@@ -1502,10 +1502,12 @@ const (
 	DamageProvenanceTypeSeparator = "\x1e"
 	// DamageProvenanceColorSeparator precedes the source's WUBRG colours
 	// at the hit (CR 608.2h: "red sources ... dealt" reads the colour the
-	// source had when it dealt the damage). Text is
-	// "<provenance>[\x1d<colours>][\x1e<recipient types>]".
-	DamageProvenanceColorSeparator    = "\x1d"
-	DamageProvenanceTypeWordSeparator = "\x1f"
+	// source had when it dealt the damage). Older Text values omit the
+	// trailing source zone/types: "<provenance>[\x1d<colours>][\x1e<recipient types>][\x1c<zone>\x1b<source types>]".
+	DamageProvenanceColorSeparator      = "\x1d"
+	DamageProvenanceTypeWordSeparator   = "\x1f"
+	DamageProvenanceSourceSeparator     = "\x1c"
+	DamageProvenanceSourceTypeSeparator = "\x1b"
 )
 
 // Event is one replayable state transition.

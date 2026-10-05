@@ -181,8 +181,8 @@ type ChangeZoneParams struct {
 	ShuffleFalse        bool // Shuffle$ False
 	NoShuffle           bool
 	ShuffleNonMandatory bool
-	Reorder             bool
 	RandomOrder         bool
+	Reorder             bool
 
 	// Unread are the parameters present on the ability that no ChangeZone
 	// reader consumes (changeZoneUnread): the resolver Notes them once per
@@ -502,8 +502,8 @@ func compileChangeZone(sa *cards.SA, tp *TargetParams, dr *DefinedParams) *Chang
 	p.ShuffleFalse = strings.EqualFold(shuffle, "False")
 	p.NoShuffle = isTrue(sa.ParamStr(cards.PKNoShuffle))
 	p.ShuffleNonMandatory = isTrue(sa.ParamStr(cards.PKShuffleNonMandatory))
+	p.RandomOrder = compileChangeZoneRandomOrder(sa)
 	p.Reorder = isTrue(sa.ParamStr(cards.PKReorder))
-	p.RandomOrder = compileRandomOrder(sa)
 	p.Unread = changeZoneUnread(sa)
 	return p
 }

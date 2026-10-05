@@ -534,14 +534,47 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 		return false
 	}
 	g := h.Game()
-	targets, known := knownDefinedTargets(h, c, cz.Defined)
-	// Only Green Sun's paired return reads its deferred, still-in-library
-	// imprint pile. Other Defined$ Imprinted fetches retain CR 607.2a's
-	// ordinary exile gate, even when their objects happen to be in the library.
-	if deferredDigImprintReturn(g, c, sa, cz) {
-		targets = rawImprintTargets(g, c)
-		known = true
+	// Green Sun's Twilight temporarily associates its unselected cards with
+	// the source while they remain in the library. They are not ordinary
+	// CR 607.2a Imprinted cards (which must be exiled), but its immediate
+	// RestBottom ChangeZone must still be able to randomize just that pile.
+	// The narrow NoShuffle + bottom shape avoids widening the ordinary
+	// Defined$ Imprinted rules contract; corpus census finds this exact
+	// ChangeZone shape only on Green Sun's Twilight.
+	if deferredDigImprintReturn(g, c, sa, cz) &&
+		DefinedRefOf(sa).Is(RefImprinted) && to == state.ZLibrary &&
+		effDigCodes.Code(cz.LibraryPositionText) == effDigBottom {
+		if source := g.Obj(c.Source); source != nil {
+			byOwner := make([]libraryFetch, 0, 1)
+			for _, id := range source.Imprinted {
+				obj := g.Obj(id)
+				if obj == nil || obj.Zone != state.ZLibrary || int(obj.Owner) >= len(g.Players) {
+					continue
+				}
+				ownerIndex := -1
+				for i := range byOwner {
+					if byOwner[i].owner == obj.Owner {
+						ownerIndex = i
+						break
+					}
+				}
+				if ownerIndex < 0 {
+					byOwner = append(byOwner, libraryFetch{owner: obj.Owner})
+					ownerIndex = len(byOwner) - 1
+				}
+				byOwner[ownerIndex].ids = append(byOwner[ownerIndex].ids, id)
+			}
+			for _, pile := range byOwner {
+				for i := len(pile.ids) - 1; i > 0; i-- {
+					j := h.Rand(i + 1)
+					pile.ids[i], pile.ids[j] = pile.ids[j], pile.ids[i]
+				}
+				libraryOrderPlacement(h, pile.owner, pile.ids, true)
+			}
+		}
+		return true
 	}
+	targets, known := knownDefinedTargets(h, c, cz.Defined)
 	if !known {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unrecognised Defined library fetch " + cz.Defined})
@@ -642,16 +675,20 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 				h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: f.owner, Text: "entered tapped"})
 			}
 		}
-		// A resolved object list normally keeps this path's established
-		// default whole-library shuffle. Green Sun's Twilight is the narrow
-		// exception: its deferred Remembered fetch precedes a separate
-		// Imprinted RandomOrder$ put-back, so shuffling here would reorder
-		// cards outside both selected piles.
-		if !deferredDigLibraryFetch(g, c, cz) || cz.ShuffleTrue {
-			shuffleLibrary(h, cz, f.owner)
+		source := g.Obj(c.Source)
+		preserveDeferredRest := deferredDigLibraryFetch(g, c, cz) &&
+			!cz.ShuffleTrue && source != nil
+		if preserveDeferredRest {
+			for _, id := range source.Imprinted {
+				object := g.Obj(id)
+				if object == nil || object.Zone != state.ZLibrary || object.Owner != f.owner || containsID(moved, id) {
+					preserveDeferredRest = false
+					break
+				}
+			}
 		}
-		if objectList && cz.RandomOrder && to == state.ZLibrary && len(moved) > 1 {
-			moved = shuffleSelectedLibraryObjects(h, f.owner, moved)
+		if !preserveDeferredRest {
+			shuffleLibrary(h, cz, f.owner)
 		}
 		placeLibraryObjects(h, c, cz, f.owner, moved, to)
 		// Explicit Reveal$ on a Defined$ fetch list (Forge reveals movedCards
@@ -729,6 +766,7 @@ func deferredDigLibraryFetch(g *state.Game, c *Ctx, cz *ChangeZoneParams) bool {
 		}
 	}
 	return true
+
 }
 
 // changeZoneFetchSelector distinguishes a fetch player from an already chosen

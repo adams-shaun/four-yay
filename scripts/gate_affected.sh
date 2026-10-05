@@ -28,6 +28,12 @@ pkgs=$(git diff --name-only "$mb" HEAD | while read -r f; do
   if [ -d "$d" ] && compgen -G "$d/*.go" >/dev/null; then echo "./$d"; fi
 done | sort -u | /usr/bin/grep -v -x -E '\./rules' || true)
 others=$(printf '%s\n' $pkgs ./internal/codeshape ./view | sort -u)
+# A generator or harness change moves compliance verdicts without touching
+# compliance/gate or compliance/adopt, the two tests that notice (a407ddeff
+# staled FDN:A that way, 2026-10-05). Any compliance/ change runs them all.
+if printf '%s\n' $pkgs | /usr/bin/grep -q '^\./compliance/'; then
+  others=$(printf '%s\n' $others ./compliance/gate ./compliance/adopt | sort -u)
+fi
 echo "gate_affected: rules + $(echo $others)"
 
 go vet $others ./rules
