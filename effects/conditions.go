@@ -226,6 +226,12 @@ func CheckSVarCompare(h Host, c *Ctx, check string, cmp Compare) (holds, evaluat
 func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 	met, resolved = conditionMetCore(h, c, sa)
 	cp := &ActivationOf(sa).Cond
+	if !resolved && met && (cp.Present2.Text != "" || cp.Compare2.Text != "") {
+		// conditionMetCore's (true, false) answer means there is no primary
+		// gate. A second presence group is independently a real gate, including
+		// when it is the only Condition* group on the ability.
+		met, resolved = true, true
+	}
 	if cp.Present2.Text == "" && cp.Compare2.Text == "" {
 		// No second group: return the core verbatim, including the
 		// (true, false) "not gated" answer a sub with no Condition* key gets.
@@ -784,18 +790,16 @@ func conditionMetCore(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		if !ok {
 			return false, false
 		}
-		if z != state.ZBattlefield {
-			filtered := make([]state.Target, 0, len(group))
-			for _, t := range group {
-				if t.IsPlayer {
-					continue
-				}
-				if o := g.Obj(t.Obj); o != nil && o.Zone == z {
-					filtered = append(filtered, t)
-				}
+		filtered := make([]state.Target, 0, len(group))
+		for _, t := range group {
+			if t.IsPlayer {
+				continue
 			}
-			group = filtered
+			if o := g.Obj(t.Obj); o != nil && o.Zone == z {
+				filtered = append(filtered, t)
+			}
 		}
+		group = filtered
 	}
 	hasHandToken := strings.Contains(present, "wasCastFromYourHandByYou")
 	// The bare spelling is a SUBSTRING of the ByYou token, so a ByYou spec

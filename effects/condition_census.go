@@ -154,6 +154,21 @@ func unmodelledConditionDetail(sa *cards.SA) (string, bool) {
 		return "", false
 	}
 	cp := &ActivationOf(sa).Cond
+	if cp.Zone != "" {
+		if _, ok := parseZone(cp.Zone); !ok {
+			return "ConditionZone$ " + cp.Zone, true
+		}
+	}
+	for _, item := range []struct{ key, value string }{
+		{key: "ConditionCompare$", value: cp.Compare.Text},
+		{key: "ConditionCompare2$", value: cp.Compare2.Text},
+	} {
+		if item.value != "" {
+			if _, _, ok := parseConditionCompare(item.value); !ok {
+				return "unresolved " + item.key + " " + item.value, true
+			}
+		}
+	}
 	for _, spec := range []string{cp.Present.Text, cp.Present2.Text, cp.NotPresent} {
 		if len(UnknownPredicates(spec)) > 0 {
 			return "unresolved Condition* predicate", true
