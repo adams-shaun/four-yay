@@ -1491,6 +1491,9 @@ func ManaColorSpentFromText(s string) state.Mana {
 	return m
 }
 
+const DamageProvenanceCombat = "damage-combat"
+
+// Event is one replayable state transition.
 type Event struct {
 	Seq     uint64           `json:"seq"`
 	Kind    Kind             `json:"kind"`

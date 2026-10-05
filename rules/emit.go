@@ -420,8 +420,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			} else {
 				recipient = state.PlayerRef(stored.Player)
 			}
-			e.emit(events.Event{Kind: events.DamageProvenance, Obj: src,
-				IDs: []state.ObjID{recipient}, Amount: stored.Amount})
+			recordDamageProvenance(e.emit, src, recipient, stored.Amount, e.combatDamaging)
 		}
 	}
 	e.noteTurnsTaken(&stored)

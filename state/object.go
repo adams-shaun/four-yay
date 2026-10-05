@@ -566,6 +566,13 @@ const (
 	ModeChoiceCounterPrefix = "mode-"
 )
 
+// DamageDealtRecord is one positive damage assignment recorded for its source.
+type DamageDealtRecord struct {
+	Recipient ObjID
+	Amount    int32
+	Combat    bool
+}
+
 // Object is any game object: a card in a zone, a permanent, or a spell on the
 // stack. One struct keeps identity stable across zone changes.
 type Object struct {
@@ -667,6 +674,7 @@ type Object struct {
 	// during the current turn, before damage is marked/cleared. Used by Forge's
 	// Count$TotalDamageReceivedThisTurn trigger conditions.
 	DamageReceivedThisTurn int32
+	DamageDealtThisTurn    []DamageDealtRecord
 	// DamageTakenByGame lists, in append order, every damage SOURCE that has
 	// dealt this object damage this game (game-long; never cleared at
 	// TurnChange). Appended by events.Apply's DamageProvenance case with a
@@ -2042,6 +2050,7 @@ func (o *Object) cloneDeepIntoArena(c *Object, a *cloneArena) {
 	c.Imprinted = carveClone(&a.ids, o.Imprinted)
 	c.DamageTakenByGame = carveClone(&a.ids, o.DamageTakenByGame)
 	c.DamageTakenThisTurnBy = carveClone(&a.ids, o.DamageTakenThisTurnBy)
+	c.DamageDealtThisTurn = append([]DamageDealtRecord(nil), o.DamageDealtThisTurn...)
 	c.ImprintTokens = carveClone(&a.ids, o.ImprintTokens)
 	c.EncodedCards = carveClone(&a.ids, o.EncodedCards)
 	c.SeekFound = carveClone(&a.ids, o.SeekFound)
