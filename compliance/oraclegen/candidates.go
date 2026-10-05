@@ -162,23 +162,46 @@ func filters(slots []Slot) []string {
 // scan -- it runs no game -- so the census ratchet can scan the whole corpus.
 func FaceHasFixture(reg *cards.Registry, f *cards.Face) (bool, string) {
 	plans := [][]Slot{SlotSpecs(f)}
-	if modes := charmModes(f); len(modes) > 0 {
-		plans = nil
-		for _, m := range modes {
-			plans = append(plans, ChainSlotSpecs(f, m.svar))
+	isCharm := false
+	for _, ability := range f.Abilities {
+		if ability.Kind == "SP" && ability.API == "Charm" {
+			isCharm = true
+			break
 		}
 	}
+	if isCharm {
+		combos := CharmCombinations(f)
+		if len(combos) == 0 {
+			return false, "charm combination"
+		}
+		plans = nil
+		for _, combo := range combos {
+			plans = append(plans, combo.Slots)
+		}
+	}
+	firstReason := ""
 	for _, slots := range plans {
+		possible := true
 		for _, s := range slots {
 			if SlotIsStack(s.Filter) || s.Optional {
 				continue
 			}
 			if len(candidatesFor(reg, s.Filter)) == 0 {
-				return false, s.Filter
+				if firstReason == "" {
+					firstReason = s.Filter
+				}
+				possible = false
+				break
 			}
 		}
+		if possible && len(fixtures(reg, slots)) > 0 {
+			return true, ""
+		}
 	}
-	return true, ""
+	if firstReason == "" {
+		firstReason = "charm combination"
+	}
+	return false, firstReason
 }
 
 // targetSlotCount expands a repeated target filter to the configured target

@@ -173,6 +173,58 @@ func probeTargets(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
 
 type charmMode struct{ svar, label string }
 
+// CharmCombination is one legal, ordered set of mode picks and their target
+// chains. Combinations follow Choices$ order; repeated picks appear only when
+// CanRepeatModes$ is true.
+type CharmCombination struct {
+	Modes []CharmMode
+	Slots []Slot
+}
+
+// CharmCombinations enumerates the combinations required by the Charm ability.
+// Ordinary charms default to one pick, preserving their historical ordering.
+func CharmCombinations(f *cards.Face) []CharmCombination {
+	modes := charmModes(f)
+	if len(modes) == 0 {
+		return nil
+	}
+	pickCount, repeat := 1, false
+	for _, sa := range f.Abilities {
+		if sa.Kind != "SP" || sa.API != "Charm" {
+			continue
+		}
+		if n, err := strconv.Atoi(strings.TrimSpace(sa.Params["CharmNum"])); err == nil && n > 0 {
+			pickCount = n
+		}
+		repeat = strings.EqualFold(strings.TrimSpace(sa.Params["CanRepeatModes"]), "True")
+		break
+	}
+	var out []CharmCombination
+	var selected []CharmMode
+	var visit func(int)
+	visit = func(start int) {
+		if len(selected) == pickCount {
+			combo := CharmCombination{Modes: append([]CharmMode(nil), selected...)}
+			for _, mode := range selected {
+				combo.Slots = append(combo.Slots, ChainSlotSpecs(f, mode.svar)...)
+			}
+			out = append(out, combo)
+			return
+		}
+		for i := start; i < len(modes); i++ {
+			selected = append(selected, modes[i])
+			next := i
+			if !repeat {
+				next++
+			}
+			visit(next)
+			selected = selected[:len(selected)-1]
+		}
+	}
+	visit(0)
+	return out
+}
+
 // charmModes lists the spell's charm modes in Choices$ order.
 func charmModes(f *cards.Face) []charmMode {
 	for _, sa := range f.Abilities {
