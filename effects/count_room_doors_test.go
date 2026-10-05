@@ -171,12 +171,8 @@ func TestUnlockDoorUnlocksLockedRoomAmongLockedAndFullyUnlocked(t *testing.T) {
 	}
 }
 
-// TestUnlockDoorLockOrUnlockOnFullyUnlockedLockAnswerIsLoud is the Keys to the
-// House / Marina Vendrell shape when the target is already fully unlocked and
-// the seat elects the lock half: the printed choice is LOCK either door, both
-// of which the one-designation model cannot express (locking the alternate is
-// not modelled either -- there is no DoorLock fold). It must say so loudly,
-// never quietly unlock/relock or do nothing.
+// TestUnlockDoorLockOrUnlockOnFullyUnlockedLockAnswerIsLoud checks that the
+// fully unlocked Room can lock its first door without locking the other.
 func TestUnlockDoorLockOrUnlockOnFullyUnlockedLockAnswerIsLoud(t *testing.T) {
 	h := newTapeHost(t, 1) // option 1 = "Lock a door"
 	room := testRoomDoorCard(t, "Full Room", "Full Chamber")
@@ -192,9 +188,14 @@ func TestUnlockDoorLockOrUnlockOnFullyUnlockedLockAnswerIsLoud(t *testing.T) {
 	if got := doorUnlockEvents(h.fakeHost); len(got) != 0 {
 		t.Fatalf("a fully unlocked LockOrUnlock target emitted %d DoorUnlock event(s)", len(got))
 	}
-	notes := noteEvents(h.fakeHost)
-	if len(notes) != 1 || notes[0].Text == "" {
-		t.Fatalf("electing the lock half on a fully unlocked Room must emit one loud Note, got %+v", h.log)
+	if doorUnlocked(h.g.Obj(id), 0) || !doorUnlocked(h.g.Obj(id), 1) {
+		t.Fatalf("lock must leave only the second door live: %+v", h.g.Obj(id))
+	}
+	if got := countDoors(t, h.fakeHost, 0, "Count$UnlockedDoors"); got != 1 {
+		t.Fatalf("locked cast face still counted: %d", got)
+	}
+	if len(h.log) != 1 || h.log[0].Kind != events.DoorLock || h.log[0].Amount != 1 {
+		t.Fatalf("lock events = %+v", h.log)
 	}
 }
 

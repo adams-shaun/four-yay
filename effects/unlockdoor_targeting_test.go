@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -75,11 +76,8 @@ func TestUnlockDoorMinZeroElectedNoTargetDoesNothing(t *testing.T) {
 	}
 }
 
-// TestUnlockDoorLockOrUnlockLockAnswerIsLoud pins the MAJOR-2 fix: the seat
-// answers the posed lock/unlock choice with the LOCK half. The one-designation
-// Room model cannot lock a half, so the effect must report loudly and change
-// nothing -- never silently take the unlock half. Precondition: the target
-// Room has a locked door, so a silent unlock WOULD be observable.
+// TestUnlockDoorLockOrUnlockLockAnswerIsLoud checks the lock choice locks
+// the cast door even when the alternate door was already locked.
 func TestUnlockDoorLockOrUnlockLockAnswerIsLoud(t *testing.T) {
 	h := newTapeHost(t, 1) // option 1 = "Lock a door"
 	room := testRoomDoorCard(t, "Lock Choice Room", "Lock Choice Chamber")
@@ -98,15 +96,11 @@ func TestUnlockDoorLockOrUnlockLockAnswerIsLoud(t *testing.T) {
 	if len(h.served) != 1 || h.served[0].Options[0].Kind != "unlock" || h.served[0].Options[1].Kind != "lock" {
 		t.Fatalf("precondition: the lock/unlock choice was not posed as unlock/lock: %+v", h.served)
 	}
-	if h.g.Obj(id).Unlocked {
-		t.Fatal("the seat elected to LOCK a door, but the effect unlocked it")
+	if doorUnlocked(h.g.Obj(id), 0) || countDoors(t, h.fakeHost, 0, "Count$UnlockedDoors") != 0 {
+		t.Fatal("lock answer did not lock the cast face")
 	}
-	if got := doorUnlockEvents(h.fakeHost); len(got) != 0 {
-		t.Fatalf("DoorUnlock events = %+v, want none for the unmodelled lock half", got)
-	}
-	notes := noteEvents(h.fakeHost)
-	if len(notes) != 1 || notes[0].Text == "" {
-		t.Fatalf("electing the lock half must emit one loud Note, got %+v", h.log)
+	if len(h.log) != 1 || h.log[0].Kind != events.DoorLock || h.log[0].Amount != 1 {
+		t.Fatalf("lock event = %+v, want DoorLock of cast face", h.log)
 	}
 }
 

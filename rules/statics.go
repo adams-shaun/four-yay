@@ -360,6 +360,9 @@ func (e *Engine) scanActiveStatics(mode string, out []staticView) []staticView {
 					continue
 				}
 				st := pst.Static
+				if isRoom(o) && pst.Face == o.Face() && !o.DoorUnlocked(int(o.FaceIdx)) {
+					continue
+				}
 				if st.Mode == mode {
 					if !goneRead {
 						if gone, goneRead = e.printedAbilitiesGone(o), true; gone {

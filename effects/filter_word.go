@@ -591,7 +591,7 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 	case wordType:
 		return hasTypePredicateCtx(o, key, sc)
 	case wordFullyUnlocked:
-		return o != nil && o.Unlocked
+		return o != nil && o.RoomFullyUnlocked()
 	case wordColorless:
 		return colorMaskCtx(o, &sc) == 0
 	case wordControllerDealtCombatDamageBySource:

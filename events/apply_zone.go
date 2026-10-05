@@ -694,6 +694,9 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 		// event-backed (Choose "remembered"/"clear-remembered"), so live play
 		// and replay derive it identically either way.
 		if wasBattlefield {
+			// Room door designations belong to this battlefield incarnation.
+			o.Unlocked = false
+			o.LockedDoors = 0
 			o.Imprinted = nil
 			o.ImprintTokens = nil
 			o.SeekFound = nil

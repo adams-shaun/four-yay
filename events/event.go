@@ -1088,10 +1088,13 @@ const (
 	// the player who bent; Obj is the permanent whose action resolved; Text is
 	// one of water, earth, fire, or air. It is a replay-visible pure marker.
 	ElementalBend
+	// DoorLock records a Room door becoming locked. Amount is face index + 1,
+	// preserving zero as the legacy DoorUnlock alternate-face encoding.
+	DoorLock
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(ElementalBend) + 1
+	NumKinds = int(DoorLock) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving

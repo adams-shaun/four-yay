@@ -1205,7 +1205,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 		// eligible alternate face. Granted Ward is independent of both -- and
 		// so is a static-grant's trigger (AddTrigger$): the granted walk below
 		// runs on BOTH paths, like Ward and Dethrone do.
-		if !o.Unlocked && len(o.MergedCards) == 0 && !e.objectFaceMayTriggerHoisted(id, o.FaceIdx, f, ev.Kind, evAll, evMask) {
+		if !o.RoomOtherDoorUnlocked() && len(o.MergedCards) == 0 && !e.objectFaceMayTriggerHoisted(id, o.FaceIdx, f, ev.Kind, evAll, evMask) {
 			if grantedKeywordTriggerEvent(ev.Kind) {
 				switch ev.Kind {
 				case events.TargetsChosen:
@@ -1252,7 +1252,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 			// Ordinary (unmutated) objects keep the allocation-free [2]array
 			// path above.
 			walk = triggerFacesWithMerged(o, faces[:n])
-		} else if !o.Unlocked && !e.faceTrigSig(f).admits(ev, observer.G.Step) {
+		} else if !o.RoomOtherDoorUnlocked() && !e.faceTrigSig(f).admits(ev, observer.G.Step) {
 			// The face's exact kind mask (trigger_kinds.go) rules out every
 			// printed line for this event, so the face loop below is a no-op;
 			// the granted walks after it still run, exactly as on this path
@@ -1265,7 +1265,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 			walk = nil
 		}
 		for _, fc := range walk {
-			if o.Unlocked && !e.objectFaceMayTrigger(id, fc.faceIdx, fc.face, ev.Kind) {
+			if o.RoomOtherDoorUnlocked() && !e.objectFaceMayTrigger(id, fc.faceIdx, fc.face, ev.Kind) {
 				continue
 			}
 			for ti, t := range fc.face.Triggers {
@@ -1952,7 +1952,16 @@ func roomTriggerFaces(o *state.Object, active *cards.Face) ([2]triggerFace, int)
 	// never allocates a backing slice per object per event. merged is left 0
 	// ("not merged") on both.
 	out := [2]triggerFace{{face: active, faceIdx: o.FaceIdx, active: true}}
-	if o.Unlocked && isRoom(o) && len(o.Card.Faces) == 2 && int(o.FaceIdx) < len(o.Card.Faces) {
+	if isRoom(o) && !o.DoorUnlocked(int(o.FaceIdx)) {
+		out[0] = triggerFace{}
+		if !o.RoomOtherDoorUnlocked() {
+			return out, 0
+		}
+		other := uint8(1 - int(o.FaceIdx))
+		out[0] = triggerFace{face: o.Card.Faces[other], faceIdx: other}
+		return out, 1
+	}
+	if o.RoomOtherDoorUnlocked() && isRoom(o) && len(o.Card.Faces) == 2 && int(o.FaceIdx) < len(o.Card.Faces) {
 		other := uint8(1 - int(o.FaceIdx))
 		out[1] = triggerFace{face: o.Card.Faces[other], faceIdx: other}
 		return out, 2

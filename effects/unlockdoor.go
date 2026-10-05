@@ -14,7 +14,7 @@ func init() { Register("UnlockDoor", effUnlockDoor) }
 // effUnlockDoor resolves Forge's `DB$ UnlockDoor` effect (CR 709.5f): the
 // resolving player chooses a locked half of a Room they control, and that
 // permanent is given the matching unlocked designation -- one DoorUnlock
-// event, whose Apply flips state.Object.Unlocked and whose event the existing
+// event, whose Apply updates its per-face designation and whose event the existing
 // Mode$ UnlockDoor / Mode$ FullyUnlock trigger paths observe.
 //
 // `Mode$ Unlock` is the plain form (Ghostly Dancers, Ghostly Keybearer):
@@ -23,20 +23,13 @@ func init() { Register("UnlockDoor", effUnlockDoor) }
 // `Mode$ LockOrUnlock` is the printed lock OR unlock choice (Keys to the
 // House, Marina Vendrell, CR 709.5f/709.5g). It poses that choice to the
 // seat before doing anything, so the effect never silently takes one half.
-// The engine's Room model keeps a single `Unlocked` designation for the
-// alternate half, on top of the cast face that is unlocked from entry
-// (CR 709.5d); locking a half -- which can target the CAST face -- needs the
-// two independent left/right designations and is NOT modelled. A seat that
-// elects the lock half therefore gets a loud Note naming the unimplemented
-// half, never a silent unlock. (The state-model change is tracked by the
-// follow-up ticket "Rooms: Mode$ LockOrUnlock lock half (CR 709.5g) is not
-// modelled".)
+// Each door's designation is independent: a lock can affect the cast face
+// even if the alternate face remains unlocked.
 //
 // The candidate pool is the ability's explicit target (`ValidTgts$`) when it
 // was given one, otherwise the script's `Choices$` card pool, otherwise every
-// Room of the resolving player's. Either way the effect narrows it to Rooms
-// that still have a locked door. More than one candidate is a seat choice
-// (a tape-answered KChoose); exactly one is forced.
+// Room of the resolving player's. It narrows to doors eligible for the chosen
+// action. More than one door is a seat choice (a tape-answered KChoose).
 func effUnlockDoor(h Host, c *Ctx, sa *cards.SA) {
 	mode := strings.TrimSpace(sa.ParamStr(cards.PKMode))
 	lockOrUnlock := strings.EqualFold(mode, "LockOrUnlock")
@@ -46,71 +39,56 @@ func effUnlockDoor(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 
-	pool, targeted := unlockDoorPool(h, c, sa)
+	pool, _ := unlockDoorPool(h, c, sa)
 	if len(pool) == 0 {
-		// A LockOrUnlock ability that resolved with no Room to act on (a
-		// targetless resolution whose ValidTgts$ was never satisfied) has only
-		// the lock half left to consider; report rather than no-op silently.
-		if lockOrUnlock && targeted {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-				Text: "UnlockDoor: Mode$ LockOrUnlock cannot lock a half in this model"})
-		}
 		return
 	}
-
-	if lockOrUnlock && !askUnlockDoorHalf(h, c, sa) {
-		// The seat elected the printed lock half (CR 709.5g), which the
-		// one-designation Room model cannot express. Loud, never a silent
-		// unlock of a door the player chose instead to lock.
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "UnlockDoor: Mode$ LockOrUnlock cannot lock a half in this model"})
-		return
+	lock := lockOrUnlock && !askUnlockDoorHalf(h, c, sa)
+	// Offer doors rather than Rooms: once a Room has been relocked, either
+	// face may be the locked one. Stable pool order and face order determine
+	// the R-9 no-host answer without depending on map iteration.
+	type door struct {
+		obj  *state.Object
+		face int
 	}
-
-	var candidates []*state.Object
+	var candidates []door
 	for _, o := range pool {
-		if roomHasLockedDoor(o, c.Controller) {
-			candidates = append(candidates, o)
+		if o == nil || o.Zone != state.ZBattlefield || o.Controller != c.Controller || o.Card == nil {
+			continue
+		}
+		for fi, f := range o.Card.Faces {
+			if f.IsRoom() && o.DoorUnlocked(fi) == lock {
+				candidates = append(candidates, door{o, fi})
+			}
 		}
 	}
 	if len(candidates) == 0 {
-		// Every pooled Room is already fully unlocked, so there is no locked
-		// half to unlock. The chosen unlock half simply has no legal door.
 		return
 	}
-
-	picked := candidates
+	picked := candidates[0]
 	if len(candidates) > 1 {
 		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Source: c.Source,
 			Min: 1, Max: 1, ResumeKind: "choice", ResumeSA: sa,
-			Prompt: sa.ParamStr(cards.PKChoiceTitle)}
-		if d.Prompt == "" {
-			d.Prompt = "Choose a Room door to unlock"
+			Prompt: "Choose a Room door"}
+		for j, candidate := range candidates {
+			d.Options = append(d.Options, decision.Option{Index: j, Kind: "card", Obj: candidate.obj.ID, Label: candidate.obj.Card.Faces[candidate.face].Name, Player: c.Controller})
 		}
-		for j, o := range candidates {
-			d.Options = append(d.Options, decision.Option{Index: j, Kind: "card", Obj: o.ID, Player: c.Controller})
-		}
-		if ans, ok := AskTape(h, d); ok {
-			picked = nil
-			for _, t := range ChoiceAnswerTargets(ans) {
-				if t.IsPlayer {
-					continue
-				}
-				if o := h.Game().Obj(t.Obj); o != nil {
-					picked = append(picked, o)
+		if ans, ok := AskTape(h, d); ok && len(ans) != 0 {
+			for j, option := range d.Options {
+				if option.Index == ans[0].Index {
+					picked = candidates[j]
+					break
 				}
 			}
-		} else {
-			// No tape/host: the deterministic stand-in is the first candidate
-			// in object-id order (unlockDoorPool is already in that order).
-			picked = candidates[:1]
 		}
 	}
-	for _, o := range picked {
-		if roomHasLockedDoor(o, c.Controller) {
-			h.Emit(events.Event{Kind: events.DoorUnlock, Obj: o.ID})
-		}
+	kind := events.DoorUnlock
+	if lock {
+		kind = events.DoorLock
 	}
+	// Amount identifies the printed face (+1); zero is reserved for the
+	// original paid-unlock event's alternate-face encoding.
+	h.Emit(events.Event{Kind: kind, Obj: picked.obj.ID, Amount: int32(picked.face + 1)})
 }
 
 // askUnlockDoorHalf poses the printed `Mode$ LockOrUnlock` choice (CR
@@ -193,16 +171,13 @@ func unlockDoorPool(h Host, c *Ctx, sa *cards.SA) ([]*state.Object, bool) {
 	return out, false
 }
 
-// doorUnlocked reports whether face fi of o carries an unlocked designation
-// (CR 709.5c). The cast face (FaceIdx) is given the designation as the Room
-// enters (CR 709.5d); the alternate half is unlocked iff the permanent's
-// Unlocked flag is set by the DoorUnlock fold. A face index outside the
-// printed faces is never unlocked.
+// doorUnlocked reports whether face fi has an unlocked designation (CR 709.5c).
+// The cast face starts unlocked, but DoorLock may later lock either face.
 func doorUnlocked(o *state.Object, fi int) bool {
 	if o == nil || o.Card == nil || fi < 0 || fi >= len(o.Card.Faces) {
 		return false
 	}
-	return fi == int(o.FaceIdx) || o.Unlocked
+	return o.DoorUnlocked(fi)
 }
 
 // roomHasLockedDoor reports whether o is a battlefield Room controlled by
