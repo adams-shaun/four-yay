@@ -12,18 +12,19 @@ func init() { Register("ChangeSpeed", effChangeSpeed) }
 // decreasing one leaves speed at one (CR 702.179).
 func effChangeSpeed(h Host, c *Ctx, sa *cards.SA) {
 	delta := int32(0)
-	switch sa.ParamStr(cards.PKMode) {
-	case "Increase":
+	mode := sa.ParamStr(cards.PKMode)
+	if mode == "Increase" {
 		delta = 1
-	case "Decrease":
+	} else if mode == "Decrease" {
 		delta = -1
-	default:
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "unimplemented ChangeSpeed mode: " + sa.ParamStr(cards.PKMode)})
+	} else {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "unimplemented ChangeSpeed mode: " + mode})
 		return
 	}
-	targets, ok := knownDefinedTargets(h, c, sa.ParamStr(cards.PKDefined))
+	selector := DefinedRefOf(sa).Raw
+	targets, ok := knownDefinedTargets(h, c, selector)
 	if !ok {
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "unimplemented ChangeSpeed selector: " + sa.ParamStr(cards.PKDefined)})
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "unimplemented ChangeSpeed selector: " + selector})
 		return
 	}
 	seen := make(map[int]bool)

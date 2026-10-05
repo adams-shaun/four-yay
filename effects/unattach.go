@@ -11,9 +11,10 @@ func init() { Register("Unattach", effUnattach) }
 // effUnattach detaches each defined attachment still fastened to a permanent.
 // The former bearer travels on the event for Unattached trigger LKI and replay.
 func effUnattach(h Host, c *Ctx, sa *cards.SA) {
-	targets, ok := knownDefinedTargets(h, c, sa.ParamStr(cards.PKDefined))
+	selector := DefinedRefOf(sa).Raw
+	targets, ok := knownDefinedTargets(h, c, selector)
 	if !ok {
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "unimplemented Unattach selector: " + sa.ParamStr(cards.PKDefined)})
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "unimplemented Unattach selector: " + selector})
 		return
 	}
 	seen := make(map[state.ObjID]bool)
