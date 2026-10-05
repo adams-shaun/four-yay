@@ -376,13 +376,14 @@ const (
 	evalCountBodyCostXPaid
 	evalCountBodyCostReplicatePaid
 	evalCountBodyCostSquadPaid
-	// The three "plain" heads evalCountBodySimple claims. They share this
+	// The "plain" heads evalCountBodySimple claims. They share this
 	// vocabulary (there is a hard cap on StrCodes tables, so a new one is not
 	// an option); evalCountBodyCost's own switch has no case for them, so its
 	// matched verdict stays false and the dispatch reaches the simple phase.
 	evalCountBodyCostIsPrime
 	evalCountBodyCostImprintedSize
 	evalCountBodyCostFinishedEndOfTurnsThisTurn
+	evalCountBodyCostTriggerRememberAmount
 )
 
 var evalCountBodyCostCodes = state.NewStrCodes(
@@ -399,4 +400,5 @@ var evalCountBodyCostCodes = state.NewStrCodes(
 	state.StrEntry[evalCountBodyCostCode]{Key: "IsPrime", Val: evalCountBodyCostIsPrime},
 	state.StrEntry[evalCountBodyCostCode]{Key: "ImprintedSize", Val: evalCountBodyCostImprintedSize},
 	state.StrEntry[evalCountBodyCostCode]{Key: "FinishedEndOfTurnsThisTurn", Val: evalCountBodyCostFinishedEndOfTurnsThisTurn},
+	state.StrEntry[evalCountBodyCostCode]{Key: "TriggerRememberAmount", Val: evalCountBodyCostTriggerRememberAmount},
 )

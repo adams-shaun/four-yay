@@ -86,6 +86,22 @@ func evalCountBodySimple(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 			n = 0
 		}
 		return n, true, true
+	case evalCountBodyCostTriggerRememberAmount:
+		// Forge's Count$TriggerRememberAmount sums the Integers a trigger
+		// remembered (Forge's ImmediateTriggerEffect/DelayedTriggerEffect
+		// addRemembered() the RememberSVarAmount$ amount). This build does not
+		// yet model the RememberSVarAmount$ Integer channel separately; the
+		// amount a firing trigger carries is Ctx.TriggerAmount (the event
+		// magnitude rules captures at fire time and carries to resolution), so
+		// the head reads that -- the brief's "amount the trigger remembered"
+		// over state the engine already records. TDM New Way Forward's
+		// reflexive prevention rider and the other corpus carriers resolve
+		// through it. A trigger with no carried amount reads a legitimate zero
+		// (the modelled-head convention), never the unresolvable verdict.
+		if arg != "" {
+			return 0, false, true
+		}
+		return c.TriggerAmount, true, true
 	}
 	return 0, false, false
 }

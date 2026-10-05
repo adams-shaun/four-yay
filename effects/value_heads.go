@@ -167,6 +167,7 @@ var modelledValueHeads = []string{
 	"TotalDamageReceivedThisTurn",
 	"TotalOppPoisonCounters",
 	"TotalTurns",
+	"TriggerRememberAmount",
 	"TypesSharedWith",
 	"UnlockedDoors",
 	"UrzaLands",
