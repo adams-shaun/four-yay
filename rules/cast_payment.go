@@ -265,7 +265,7 @@ func (e *Engine) manaAsk() bool {
 // meaningful player choice and the grant may matter to a later repricing.
 func (e *Engine) manaConvertAsk() bool {
 	pc := e.cast
-	if pc == nil || pc.ManaConvertDone {
+	if pc == nil || pc.mode == "land" || pc.ManaConvertDone {
 		return false
 	}
 	_, optional := e.manaConversionParts(pc.player, pc.card, pc.isAbility())
