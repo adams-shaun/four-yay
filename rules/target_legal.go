@@ -1149,11 +1149,11 @@ func (e *Engine) filterTargetValidTargeting(in []targetCandidate, sa *cards.SA, 
 // is deliberately applied once after every zone's candidates are collected,
 // so battlefield, graveyard and stack target offers cannot drift apart.
 //
-// Only a selector this build binds narrows the offer. An unsupported selector
-// (ParentTarget, ParentTargetedController, TriggeredCauser, ...) and a
-// supported role the current trigger did not bind leave the candidates
+// Only a selector this build binds narrows the offer. Unsupported selectors
+// and a supported role the current trigger did not bind leave the candidates
 // unchanged -- the offer every such ability had before this restriction was
-// read -- so no existing ability silently loses its targets. The two roles
+// read -- so no existing ability silently loses its targets. ParentTarget
+// selectors also preserve that offer when no parent binding exists. The two roles
 // only an attack-declaration trigger binds (TriggeredAttackingPlayer,
 // TriggeredAttackedTarget: Karazikar, Firkraag, Seifer, Gornog, Whirlwind
 // Killer) and NonTriggeredCardController (Confusion in the Ranks: "target
@@ -1164,6 +1164,17 @@ func (e *Engine) filterTargetsWithDefinedController(in []targetCandidate, sa *ca
 	ref := effects.TargetsOf(sa).DefinedController
 	if ref == "" {
 		return in
+	}
+	// The parent-target referents (ParentTarget, ParentTargetedController)
+	// are classified from their one owning table in effects, so rules does
+	// not re-name the words in a second StrCodes table. Resolution-time
+	// sub-ability asks bind the referent; a cast-time offer has no parent
+	// binding yet and keeps its existing offer.
+	if effects.DefinedControllerParentReferent(ref) {
+		if !sc.ParentBound {
+			return in
+		}
+		return filterParentControllerTargets(e.G, in, sc)
 	}
 	var player state.PlayerID
 	var ok bool
@@ -1313,3 +1324,36 @@ var filterTargetsWithDefinedControllerCodes = state.NewStrCodes(
 	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "TriggeredAttackedTarget", Val: filterTargetsWithDefinedControllerTriggeredAttackedTarget},
 	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "TriggeredCardController", Val: filterTargetsWithDefinedControllerTriggeredCardController},
 )
+
+// filterParentControllerTargets keeps only the candidates controlled by a
+// player named by the bound parent targets: a player target contributes that
+// seat, an object target its controller. Graveyard cards have Controller ==
+// Owner, so this is exactly the targeted player's cards for the
+// graveyard-shuffle family (Rite of Renewal, Krosan Reclamation, Memory's
+// Journey). An empty parent set (a Min-0 parent that chose nothing) fails
+// closed to no candidates; every such sub-ability is itself TargetMin$ 0, so
+// no mandatory target pool is emptied.
+func filterParentControllerTargets(g *state.Game, in []targetCandidate, sc effects.SpecContext) []targetCandidate {
+	controllers := make(map[state.PlayerID]struct{}, len(sc.ParentTargets))
+	for _, target := range sc.ParentTargets {
+		if target.IsPlayer {
+			controllers[target.Player] = struct{}{}
+		} else if o := g.Obj(target.Obj); o != nil {
+			controllers[o.Controller] = struct{}{}
+		}
+	}
+	out := in[:0]
+	for _, candidate := range in {
+		if candidate.kind != "permanent" {
+			continue
+		}
+		o := g.Obj(candidate.obj)
+		if o == nil {
+			continue
+		}
+		if _, found := controllers[o.Controller]; found {
+			out = append(out, candidate)
+		}
+	}
+	return out
+}
