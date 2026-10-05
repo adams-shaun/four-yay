@@ -740,11 +740,11 @@ func TestKr8ConvertZone(t *testing.T) {
 			src:   tapeZoneSorcery("Tape Vanish", "A:SP$ ChangeZone | ValidTgts$ Creature | TgtPrompt$ x | AlternativeDecider$ TargetedOwner | Origin$ Battlefield | Destination$ Library | DestinationAlternative$ Library | LibraryPositionAlternative$ -1 | SubAbility$ DBGain"+gain)},
 		{name: "Tape Dread", seats: 2, served: 1, kinds: []string{"manifest_dread"},
 			src: tapeZoneSorcery("Tape Dread", "A:SP$ ManifestDread | SubAbility$ DBGain"+gain)},
-		{name: "Tape Pinger", seats: 2, served: 1, kinds: []string{"tgts"},
+		{name: "Tape Pinger", seats: 2, served: 0, kinds: []string{"trig_sub"},
 			src: tapeZoneETB("Tape Pinger", "SVar:TrigBody:DB$ GainLife | LifeAmount$ 1 | SubAbility$ DBDmg\nSVar:DBDmg:DB$ DealDamage | ValidTgts$ Player | NumDmg$ 1 | SubAbility$ DBGain"+gain)},
-		{name: "Tape Raiser", seats: 2, served: 1, kinds: []string{"choice"}, setup: tapeZoneToGraveyard(2),
+		{name: "Tape Raiser", seats: 2, served: 0, kinds: []string{"trig_sub"}, setup: tapeZoneToGraveyard(2),
 			src: tapeZoneETB("Tape Raiser", "SVar:TrigBody:DB$ GainLife | LifeAmount$ 1 | SubAbility$ DBReturn\nSVar:DBReturn:DB$ ChangeZone | ValidTgts$ Card.YouOwn | TgtPrompt$ x | TargetMin$ 0 | TargetMax$ 2 | Origin$ Graveyard | Destination$ Hand | SubAbility$ DBGain"+gain)},
-		{name: "Tape Reshuffle", seats: 2, served: 2, kinds: []string{"choice", "search_mayshuffle"}, setup: tapeZoneToGraveyard(2),
+		{name: "Tape Reshuffle", seats: 2, served: 1, kinds: []string{"trig_sub", "search_mayshuffle"}, setup: tapeZoneToGraveyard(2),
 			src: tapeZoneETB("Tape Reshuffle", "SVar:TrigBody:DB$ GainLife | LifeAmount$ 1 | SubAbility$ DBShuffle\nSVar:DBShuffle:DB$ ChangeZone | ValidTgts$ Card.YouOwn | TgtPrompt$ x | TargetMin$ 1 | TargetMax$ 2 | Origin$ Graveyard | Destination$ Library | Shuffle$ True | ShuffleNonMandatory$ True | SubAbility$ DBGain"+gain)},
 	}
 	for i, tc := range cases {
@@ -802,12 +802,16 @@ func TestKr8ConvertZoneElectionsBothWays(t *testing.T) {
 	}
 }
 
-// A roll published before a mid-resolution target ask is still published
-// after it (the Numbing Jellyfish shape): the target mills the die's result.
+// A roll published before a chain target ask is still published after it (the
+// Numbing Jellyfish shape): the target mills the die's result. The Mill's
+// ValidTgts$ link is announced at the trigger's placement (CR 603.3d), so the
+// ask is posed as an ordinary boundary decision and the tape serves the roll
+// itself (minServed 0); the assertion is that the roll's result still reaches
+// the mill.
 func TestKr8RollSurvivesTargetAsk(t *testing.T) {
 	src := tapeZoneETB("Tape Jelly", "SVar:TrigBody:DB$ RollDice | ResultSVar$ Result | SubAbility$ DBMill\nSVar:DBMill:DB$ Mill | ValidTgts$ Player | NumCards$ Result")
 	var before int
-	e, _ := kr8Run(t, 2, 33001, 1, func(t *testing.T, e *Engine) {
+	e, _ := kr8Run(t, 2, 33001, 0, func(t *testing.T, e *Engine) {
 		before = len(e.G.Zone(state.ZGraveyard, 0)) + len(e.G.Zone(state.ZGraveyard, 1))
 		tapeCastAndResolve(t, e, "Tape Jelly", "B")
 	}, src)

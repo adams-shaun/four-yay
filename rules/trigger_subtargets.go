@@ -55,9 +55,17 @@ func (t *trigSubAsk) clone() *trigSubAsk {
 
 // triggerChainPreAsks returns every chain link whose target declaration
 // would otherwise be asked during resolution. Modal roots remain owned by
-// their mode-selection flow. ChangeZone links use their dedicated resolution
-// chooser, which consumes the same SubPreAsk record; TargetingPlayer$ links are
-// excluded until placement can run its chooser-selection continuation.
+// their mode-selection flow. Optional and costed triggers still announce
+// their targets when placed on the stack; those later choices do not change
+// the CR 603.3d timing.
+// ChangeZone links use their dedicated resolution chooser, which consumes the
+// same SubPreAsk record. TargetingPlayer$ links are excluded whole: the ask
+// belongs to a NAMED chooser (the opponent, the triggered player), and the
+// trig_sub continuation assigns the decision to the trigger's controller and
+// cannot yet hand one link's ask to a different seat; the mid-resolution
+// chooser keeps that ownership. The census (triggerChainPreAskExclusions)
+// pins that reason so a future corpus chain that reaches it fails the build
+// until this continuation exists.
 func (e *Engine) triggerChainPreAsks(root *cards.SA) []*cards.SA {
 	if root == nil || root.Sub == nil || strings.TrimSpace(root.ParamStr(cards.PKChoices)) != "" {
 		return nil

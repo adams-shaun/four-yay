@@ -17,8 +17,8 @@ import (
 // 2026-10-03 at FORGE_REF over every face's T: lines. The whole point of the
 // widening is that every one of these now asks its link targets while the
 // ability is put on the stack -- before any player gets priority -- instead of
-// mid-resolution. The one chain the walk finds but the scope excludes is
-// pinned in triggerChainPreAskExclusions with its reason.
+// mid-resolution. Every chain the walk finds but the scope excludes is pinned
+// in triggerChainPreAskExclusions with its reason.
 var triggerChainPreAskCarriers = []string{
 	"A-Elderfang Ritualist",
 	"Absolving Lammasu",
@@ -147,9 +147,7 @@ var triggerChainPreAskCarriers = []string{
 	"Yosei, the Morning Star",
 	"Yoshimaru, Scrappy Stray",
 	"Éomer, King of Rohan",
-}
-
-// triggerChainPreAskExclusions is every corpus card whose trigger body carries
+} // triggerChainPreAskExclusions is every corpus card whose trigger body carries
 // a targeting SubAbility$ link but stays out of the placement announcement,
 // with the reason it does. Each reason is a shape the census test can detect:
 // a card that leaves this set, or a card that enters it for any OTHER reason,
@@ -201,7 +199,7 @@ func TestTriggerChainPreAskCensus(t *testing.T) {
 				if !chainHasTargetingLink(tr.Effect) {
 					continue
 				}
-				excluded[c.Faces[0].Name] = exclusionReason(tr.Effect)
+				excluded[c.Faces[0].Name] = exclusionReason(tr)
 			}
 		}
 	}
@@ -251,7 +249,8 @@ func chainHasTargetingLink(root *cards.SA) bool {
 // is out of the placement scope. It returns the machine-checkable reason the
 // census pins; an unrecognised shape returns a reason no pinned entry matches,
 // which fails the census above.
-func exclusionReason(root *cards.SA) string {
+func exclusionReason(tr cards.Trigger) string {
+	root := tr.Effect
 	if strings.TrimSpace(root.Params["Choices"]) != "" {
 		return "modal root (Choices$): CR 603.3c mode election owns the ask"
 	}

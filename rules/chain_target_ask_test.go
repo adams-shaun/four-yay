@@ -47,11 +47,11 @@ func chainAskDeck(t *testing.T, reg *cards.Registry, fixtures ...string) *Engine
 }
 
 // TestMoggBombersSubTargetAsked is the CLEAN shape: the ETB trigger's Execute
-// body (TrigSac, DB$ Sacrifice) declares NO ValidTgts$ -- no placement ask --
-// and its DealDamage SUB carries ValidTgts$ Player,Planeswalker. The sub must
-// pose its own KChoose at resolution (it used to read an empty target set and
-// deal its 3 damage to no one); the answered player takes the damage exactly
-// once and the sacrifice (the chain root) still happened.
+// body (TrigSac, DB$ Sacrifice) declares NO ValidTgts$ -- no root ask --
+// and its DealDamage SUB carries ValidTgts$ Player,Planeswalker. CR 603.3d
+// asks that sub target as the trigger is put on the stack (KTarget with
+// ResumeKind "trig_sub"), not mid-resolution: the answered player takes the
+// damage exactly once and the sacrifice (the chain root) still happened.
 func TestMoggBombersSubTargetAsked(t *testing.T) {
 	t.Parallel()
 	reg := searchTestRegistry(t)
@@ -62,10 +62,10 @@ func TestMoggBombersSubTargetAsked(t *testing.T) {
 
 	// The bear entering fires Mogg's "when another creature enters" trigger;
 	// its Execute body declares no targets, so the FIRST ask anywhere is the
-	// sub's own mid-resolution one.
+	// sub's own placement one (CR 603.3d).
 	d := passUntilAsk(t, e)
-	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "tgts" {
-		t.Fatalf("ask = %+v, want the sub's KChoose with ResumeKind tgts", d)
+	if d == nil || d.Kind != decision.KTarget || d.ResumeKind != "trig_sub" {
+		t.Fatalf("ask = %+v, want the sub's placement KTarget with ResumeKind trig_sub", d)
 	}
 	if d.Min != 1 || d.Max != 1 {
 		t.Fatalf("bounds %d..%d, want 1..1", d.Min, d.Max)
@@ -81,6 +81,10 @@ func TestMoggBombersSubTargetAsked(t *testing.T) {
 	}
 	submitChoices(t, e, oppIdx)
 
+	// The sub's placement answer is delivered at resolution (CR 603.3d);
+	// drive the trigger to resolve before asserting its effect.
+	drivePastResolution(t, e, 1)
+
 	// Damage once, to the chosen player; the sacrifice ran (chain root).
 	if got := e.G.Players[1].Life; got != life1-3 {
 		t.Fatalf("opponent life %d -> %d, want -3", life1, got)
@@ -93,8 +97,6 @@ func TestMoggBombersSubTargetAsked(t *testing.T) {
 			t.Fatalf("Mogg Bombers still on the battlefield (obj %d), want the chain-root sacrifice", id)
 		}
 	}
-	// No re-posed ask anywhere on the way to the opponent's turn.
-	drivePastResolution(t, e, 1)
 }
 
 // TestKorOutfitterAttachSubAsksItsOwnCreature is the CLOBBER shape: the outer
@@ -183,10 +185,12 @@ func TestRhinoPutCounterMinZeroDeclineNotReasked(t *testing.T) {
 	}
 	submitChoices(t, e, swordIdx)
 
-	// The PutCounter sub's own ask: up to three OTHER creatures, Min 0.
+	// The PutCounter sub's own ask: up to three OTHER creatures, Min 0. CR
+	// 603.3d asks it at placement (KTarget/trig_sub), before the Destroy body
+	// resolves.
 	dc := passUntilAsk(t, e)
-	if dc == nil || dc.Kind != decision.KChoose || dc.ResumeKind != "tgts" {
-		t.Fatalf("sub ask = %+v, want the PutCounter sub's KChoose with ResumeKind tgts", dc)
+	if dc == nil || dc.Kind != decision.KTarget || dc.ResumeKind != "trig_sub" {
+		t.Fatalf("sub ask = %+v, want the PutCounter sub's placement KTarget with ResumeKind trig_sub", dc)
 	}
 	if dc.Min != 0 || dc.Max < 1 || dc.Max > 3 {
 		t.Fatalf("bounds %d..%d, want Min 0 with a Max clamped into 1..3", dc.Min, dc.Max)

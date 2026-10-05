@@ -274,8 +274,15 @@ func TestEchoUnresolvableCostStaysLoud(t *testing.T) {
 	t.Parallel()
 	e, hellion := echoEntryEngine(t, "Volcano Hellion", 0)
 	// The ETB trigger's chain (ChooseNumber -> DB$ DealDamage | ValidTgts$
-	// Creature) now asks for a number before the sub's target ask. Answer 0,
-	// the former deterministic fallback, to keep this test about echo costs.
+	// Creature) now announces the DealDamage target at placement (CR 603.3d,
+	// ResumeKind trig_sub) before anyone gets priority; the ChooseNumber
+	// choice then happens at resolution. Answer the target first, then 0 (the
+	// former deterministic fallback) to keep this test about echo costs.
+	target := passUntilAsk(t, e)
+	if target == nil || target.Kind != decision.KTarget || target.ResumeKind != "trig_sub" {
+		t.Fatalf("ETB ask = %+v, want the Hellion's placement target ask", target)
+	}
+	submitChoices(t, e, 0)
 	number := passUntilAsk(t, e)
 	if number == nil || number.Kind != decision.KChoose || number.ResumeKind != "choosenumber" || number.Source != hellion {
 		t.Fatalf("ETB ask = %+v, want the Hellion's ChooseNumber ask", number)
@@ -284,11 +291,6 @@ func TestEchoUnresolvableCostStaysLoud(t *testing.T) {
 		t.Fatalf("Hellion's number ask does not offer 0 first: %+v", number.Options)
 	}
 	submitChoices(t, e, number.Options[0].Index)
-	etb := passUntilAsk(t, e)
-	if etb == nil || etb.Kind != decision.KChoose || etb.ResumeKind != "tgts" || etb.Source != hellion {
-		t.Fatalf("ETB ask = %+v, want the DealDamage sub's tgts KChoose for the Hellion", etb)
-	}
-	submitChoices(t, e, 0)
 	// Drive through the turn-3 upkeep: no election may ever be asked, one
 	// loud note names the unresolved cost, the Hellion stays.
 	driveEchoQuiet(t, e, hellion, 3, 0, state.StepDraw)
