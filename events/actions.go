@@ -116,6 +116,67 @@ func IsReturnCost(ev Event) bool {
 	return ev.Kind == MoveZone && ev.To == state.ZHand && ev.Text == ReturnCostText
 }
 
+// EvidenceCostText is the canonical zone-change marker for a card collected as
+// evidence (CR 701.30's collect-evidence action; Forge's CostCollectEvidence).
+// Every producer uses it so the collect-evidence payment and the
+// ConditionDefined$ Collected group agree on one marker. It is distinct from
+// the ward-evidence payment's text, which is not the resolving spell's own
+// collect-evidence cost.
+const EvidenceCostText = "collected as evidence"
+
+// EvidenceCost returns the canonical zone-change event for exiling a card as a
+// collect-evidence cost (CR 701.30b): the card moves from its owner's
+// graveyard to exile carrying the evidence marker.
+func EvidenceCost(obj state.ObjID) Event {
+	return Event{Kind: MoveZone, Obj: obj, From: state.ZGraveyard, To: state.ZExile,
+		Text: EvidenceCostText}
+}
+
+// IsEvidenceCost reports whether ev records a collect-evidence payment: a
+// graveyard-to-exile move carrying the evidence marker. A ward evidence
+// payment uses a different text and never matches (it is not the resolving
+// spell's own collect-evidence cost).
+func IsEvidenceCost(ev Event) bool {
+	return ev.Kind == MoveZone && ev.To == state.ZExile && ev.Text == EvidenceCostText
+}
+
+// CostMoveKind selects which cost-action marker a cost-window read enumerates.
+// It lives here, in the package that owns the markers, so both effects (the
+// Host role that declares the read) and rules (the Engine that implements it)
+// name one shared enum instead of each declaring its own. One kind per cost
+// action, so a new cost-provenance window adds a row here and to CostMoveMatcher
+// rather than a new Host method (internal/codeshape's hostMethodCount is
+// shrink-only).
+type CostMoveKind int
+
+const (
+	// CostMoveDiscard is the cost discards (IsDiscardCost) — the
+	// ConditionDefined$ Discarded group's cost-discard channel.
+	CostMoveDiscard CostMoveKind = iota
+	// CostMoveReturn is the cost returns to hand (IsReturnCost) — the
+	// ConditionDefined$ Returned group's channel.
+	CostMoveReturn
+	// CostMoveEvidence is the cards exiled as a collect-evidence cost
+	// (IsEvidenceCost) — the ConditionDefined$ Collected group's channel.
+	CostMoveEvidence
+)
+
+// CostMoveMatcher returns the event predicate CostMoveKind selects, or nil for
+// an unknown kind. A nil result is a programming error, not a corpus shape: a
+// caller treats it as an empty window (a resolved zero) rather than admitting
+// every cost move.
+func CostMoveMatcher(k CostMoveKind) func(Event) bool {
+	switch k {
+	case CostMoveDiscard:
+		return IsDiscardCost
+	case CostMoveReturn:
+		return IsReturnCost
+	case CostMoveEvidence:
+		return IsEvidenceCost
+	}
+	return nil
+}
+
 // milledText is the action marker a mill's zone change carries. Like the
 // discard/sacrifice markers it is carried on MoveZone's Text field, which is
 // otherwise unused for a library->graveyard move. A mill is a library->

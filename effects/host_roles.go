@@ -487,22 +487,17 @@ type HostCastLedger interface {
 	// the same answer; a card never put on the stack (cheated into play)
 	// reads false.
 	WasCastFromHandByYou(obj state.ObjID, p state.PlayerID) bool
-	// DiscardedInWindow reports the object ids of the COST discards
-	// (events.DiscardCost) recorded in the activation window of the
-	// resolving object obj — the cost parts obj's own activation paid,
-	// read off the event log the way WasCastFromHandByYou reads cast
-	// provenance. The ConditionDefined$ Discarded group's cost-discard
-	// channel (Moria Scavenger). Empty when the window holds none; a
-	// replay derives the same answer from the same log.
-	DiscardedInWindow(obj state.ObjID) []state.ObjID
-	// ReturnedInWindow reports the object ids of the COST returns
-	// (events.IsReturnCost) recorded in the activation window of the
-	// resolving object obj — the permanents obj's own Return<N/Spec> cost
-	// parts moved to their owner's hand, read off the event log the same way
-	// DiscardedInWindow reads cost discards. The ConditionDefined$ Returned
-	// group's channel (Wonderscape Sage). Empty when the window holds none;
-	// a replay derives the same answer from the same log.
-	ReturnedInWindow(obj state.ObjID) []state.ObjID
+	// CostMovesInWindow reports the object ids of the cost actions of kind k
+	// (events.CostMoveKind) recorded in the activation window of the resolving
+	// object obj — the cost parts obj's own activation paid, read off the
+	// event log the way WasCastFromHandByYou reads cast provenance. It is the
+	// channel behind the ConditionDefined$ Discarded (events.CostMoveDiscard —
+	// Moria Scavenger), Returned (events.CostMoveReturn — Wonderscape Sage)
+	// and Collected (events.CostMoveEvidence — Analyze the Pollen, Crimestopper
+	// Sprite) groups. One method, not one per kind, so a new cost-provenance
+	// window reuses the walk instead of widening Host again. Empty when the
+	// window holds none; a replay derives the same answer from the same log.
+	CostMovesInWindow(obj state.ObjID, k events.CostMoveKind) []state.ObjID
 	// WasCastFromHand reports whether card obj's LATEST cast came from a
 	// hand — ANY caster's hand — the bare wasCastFromYourHand filter family's
 	// backing (task castprov3: the "from anywhere other than your hand"

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -529,6 +530,7 @@ func conditionMetCore(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		defined != "Returned" && defined != "ChosenCard" && defined != "TriggeredSourceLKICopy" &&
 		defined != "RememberedLKI" && defined != "ParentTarget" && defined != "Sacrificed" &&
 		defined != "ThisTargetedCard" &&
+		defined != "Collected" && defined != "CastSA>Collected" &&
 		defined != "TriggeredSpellAbility" {
 		// Only the Remembered, Self, TriggeredCard, TriggeredCardLKICopy,
 		// Imprinted, Targeted,
@@ -652,11 +654,26 @@ func conditionMetCore(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		// the permanents THIS activation's own Return<N/Spec> cost returned
 		// to their owner's hand. It is enumerated off the event log through
 		// the same activation window DiscardedInWindow scans (effects.Host's
-		// ReturnedInWindow), so the cost payment and the gate cannot disagree.
+		// CostMovesInWindow), so the cost payment and the gate cannot disagree.
 		// An empty window is a resolved zero -- the ability really returned
 		// nothing -- never the fail-open a missing channel gets elsewhere, so
 		// the EQ0 comparison binds against a definite count.
 		group = returnedGroup(h, c)
+	}
+	if defined == "Collected" || defined == "CastSA>Collected" {
+		// ConditionDefined$ Collected (Extract a Confession's "if evidence was
+		// collected, instead...", Analyze the Pollen's second search) and its
+		// CastSA>Collected spelling (Crimestopper Sprite): Forge's group is
+		// the cards THIS cast collected as evidence -- its own
+		// CollectEvidence<N> additional cost's exiles, enumerated off the
+		// event log through the same activation window Discarded/Returned
+		// scan (effects.Host's CostMovesInWindow, events.CostMoveEvidence).
+		// The paired `ConditionPresent$ Card | ConditionCompare$ EQ0` gate
+		// then runs the plain branch only when nothing was collected, and
+		// the "instead" branch only when the group is non-empty. An empty
+		// window is a resolved zero -- the cast really collected nothing --
+		// never the fail-open a missing channel gets elsewhere.
+		group = collectedGroup(h, c)
 	}
 	if defined == "Self" {
 		// Self is the source object ALONE — not rememberedWithSource's
@@ -953,13 +970,27 @@ func specNamesPermanentBase(spec string) bool {
 // returnedGroup enumerates the ConditionDefined$ Returned group: the
 // permanents the resolving object's OWN activation returned to their owner's
 // hand as a Return<N/Spec> cost, over the activation window
-// (effects.Host.ReturnedInWindow) the Discarded group's cost channel uses.
-// An empty window is a resolved empty list, not an unresolved gate: an
-// activation that returned nothing genuinely has no returned permanents, so
-// a count comparison over it is definite.
+// (effects.Host.CostMovesInWindow, events.CostMoveReturn) the Discarded
+// group's cost channel uses. An empty window is a resolved empty list, not an
+// unresolved gate: an activation that returned nothing genuinely has no
+// returned permanents, so a count comparison over it is definite.
 func returnedGroup(h Host, c *Ctx) []state.Target {
 	var out []state.Target
-	for _, id := range h.ReturnedInWindow(c.ResolvingObj) {
+	for _, id := range h.CostMovesInWindow(c.ResolvingObj, events.CostMoveReturn) {
+		out = append(out, state.Target{Obj: id})
+	}
+	return out
+}
+
+// collectedGroup enumerates the ConditionDefined$ Collected group: the cards
+// THIS cast's own CollectEvidence<N> additional cost exiled as evidence, over
+// the same activation window (effects.Host.CostMovesInWindow,
+// events.CostMoveEvidence) the Discarded/Returned groups scan. An empty window
+// is a resolved empty list -- the cast collected nothing -- so the paired EQ0
+// comparison binds against a definite count, exactly as returnedGroup's does.
+func collectedGroup(h Host, c *Ctx) []state.Target {
+	var out []state.Target
+	for _, id := range h.CostMovesInWindow(c.ResolvingObj, events.CostMoveEvidence) {
 		out = append(out, state.Target{Obj: id})
 	}
 	return out
@@ -986,7 +1017,7 @@ func discardedGroup(h Host, c *Ctx) ([]state.Target, bool) {
 		add(t.Obj)
 	}
 	if c.ResolvingObj != 0 {
-		for _, id := range h.DiscardedInWindow(c.ResolvingObj) {
+		for _, id := range h.CostMovesInWindow(c.ResolvingObj, events.CostMoveDiscard) {
 			add(id)
 		}
 	}

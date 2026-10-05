@@ -31,12 +31,12 @@ const (
 	// -> 1944. Slice 4 made the payer grants pay.Engine adapter methods: -> 1940. W3 dead deleted the resume-scratch setters: -> 1931.
 	// E7 slice 9 moved the payment board reads to rules/pay funcs: -> 1917.
 	// E7 flow slice 3 moved the announced-SubCounter mana stage: -> 1822.
-	engineMethodCount = 1822
+	engineMethodCount = 1821
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
 	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94. W3 clean
 	// deleted the eight Suspend* no-ops: 94 -> 86.
-	hostMethodCount = 85
+	hostMethodCount = 84
 	// hostDirectMethodCount is the number of methods effects.Host declares
 	// itself rather than takes from a role interface (W1d split it into
 	// roles; host_roles.go).

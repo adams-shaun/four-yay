@@ -35,6 +35,7 @@ var conditionSupportedDefined = state.NewNameSet(
 	"Imprinted", "Discarded", "Targeted", "Returned", "ChosenCard",
 	"TriggeredSourceLKICopy", "RememberedLKI", "ParentTarget", "Sacrificed",
 	"ThisTargetedCard", "TriggeredSpellAbility",
+	"Collected", "CastSA>Collected",
 )
 
 // conditionUnmodelledDefined is every ConditionDefined$ group the corpus
