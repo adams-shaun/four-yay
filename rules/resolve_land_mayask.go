@@ -11,10 +11,11 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// tapeLandMayAsk reports whether playing land obj may pose a decision, judged
-// from the face's entry text and the replacements on the board. true is
-// always safe.
-func tapeLandMayAsk(e *Engine, obj state.ObjID) bool {
+// tapeLandMayAsk reports whether playing land obj by p may pose a decision,
+// judged from the face's entry text, the replacements on the board, and the
+// optional-mana-conversion board gate (the land play drives the ordinary cast
+// flow, whose continueCast reaches ManaConvertAsk). true is always safe.
+func tapeLandMayAsk(e *Engine, p state.PlayerID, obj state.ObjID) bool {
 	o := e.G.Obj(obj)
 	if o == nil {
 		return true
@@ -31,7 +32,24 @@ func tapeLandMayAsk(e *Engine, obj state.ObjID) bool {
 			}
 		}
 	}
+	if tapeManaConvertMayAsk(e, p, obj, false) {
+		return true
+	}
 	return tapeLandReplMayAsk(e, obj)
+}
+
+// tapeManaConvertMayAsk reports whether paying for obj would pose the
+// Optional$ ManaConvert election: an active ManaConvert static grants p a
+// non-empty Optional$ conversion set (North Star's "you may spend mana as
+// though it were mana of any type", Viconia, Night Singer's Disciple). A
+// land play reaches this ask through the ordinary cast flow's continueCast,
+// so the land predicate must include it; ability=true reads an activated
+// ability's subject, false a spell's. The predicate is conservative by
+// construction: it reads the same manaConversionParts the ask itself reads,
+// so a new optional carrier opens the gate without a new allowlist entry.
+func tapeManaConvertMayAsk(e *Engine, p state.PlayerID, obj state.ObjID, ability bool) bool {
+	_, optional := e.manaConversionParts(p, obj, ability)
+	return !optional.Empty()
 }
 
 // tapeLandReplMayAsk is tapeReplMayAsk(e, "Moved") narrowed to the lines that
