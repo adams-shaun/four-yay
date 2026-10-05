@@ -620,6 +620,32 @@ func targetSlots(f *cards.Face) []string {
 	return out
 }
 
+// FaceHasFixture reports whether the static fixture builder can satisfy every
+// target the card's cast demands: each slot has at least one candidate (a
+// stack-only slot is coverable by a precast spell). The second return names
+// the first unsatisfiable slot, for the census. This is a static scan -- it
+// runs no game -- so the census ratchet can scan the whole corpus.
+func FaceHasFixture(f *cards.Face) (bool, string) {
+	plans := [][]string{targetSlots(f)}
+	if modes := charmModes(f); len(modes) > 0 {
+		plans = nil
+		for _, m := range modes {
+			plans = append(plans, chainSlots(f, m.svar))
+		}
+	}
+	for _, slots := range plans {
+		for _, s := range slots {
+			if SlotIsStack(s) {
+				continue
+			}
+			if len(candidatesFor(s)) == 0 {
+				return false, s
+			}
+		}
+	}
+	return true, ""
+}
+
 // svarParams splits an SVar ability body ("DB$ Pump | ValidTgts$ ...")
 // into its params.
 func svarParams(body string) map[string]string {
