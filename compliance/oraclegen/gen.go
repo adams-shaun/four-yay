@@ -30,6 +30,7 @@ const xValue = 2
 // Seat is one player's setup.
 type Seat struct {
 	Battlefield []string `json:"battlefield,omitempty"`
+	Tapped      []string `json:"tapped,omitempty"`
 	Hand        []string `json:"hand,omitempty"`
 	Graveyard   []string `json:"graveyard,omitempty"`
 	Exile       []string `json:"exile,omitempty"`
@@ -1149,7 +1150,7 @@ func fixtures(slots []string) []fixture {
 
 func clone(s Seat) Seat {
 	return Seat{
-		Battlefield: append([]string(nil), s.Battlefield...), Hand: append([]string(nil), s.Hand...),
+		Battlefield: append([]string(nil), s.Battlefield...), Tapped: append([]string(nil), s.Tapped...), Hand: append([]string(nil), s.Hand...),
 		Graveyard: append([]string(nil), s.Graveyard...), Exile: append([]string(nil), s.Exile...),
 		Library: append([]string(nil), s.Library...), LibraryTop: append([]string(nil), s.LibraryTop...),
 	}

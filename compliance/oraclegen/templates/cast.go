@@ -107,6 +107,13 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 // slot order (a stack slot points at the precast spell on the stack).
 func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oraclegen.Fixture, slots []string, stackIdx []int, answers []oraclegen.Answer) oraclegen.Scenario {
 	targets := insertStackTargets(slots, stackIdx, fx.Targets(), pre)
+	for _, slot := range slots {
+		// A ".tapped" target slot (Push // Pull) needs its fixture tapped.
+		if strings.Contains(strings.ToLower(slot), ".tapped") {
+			fx.P1().Tapped = append(fx.P1().Tapped, fx.P1().Battlefield...)
+			break
+		}
+	}
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": *fx.P0(), "p1": *fx.P1()},
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),

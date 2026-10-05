@@ -65,6 +65,7 @@ type oracleScenario struct {
 type oracleSeat struct {
 	Hand        []string `json:"hand,omitempty"`
 	Battlefield []string `json:"battlefield,omitempty"`
+	Tapped      []string `json:"tapped,omitempty"`
 	Graveyard   []string `json:"graveyard,omitempty"`
 	Library     []string `json:"library,omitempty"`
 	Exile       []string `json:"exile,omitempty"`
@@ -428,6 +429,12 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			}
 			if pl.zone == state.ZBattlefield {
 				setupBattlefield = append(setupBattlefield, id)
+			}
+			for _, tapped := range sc.Setup[fmt.Sprintf("p%d", p)].Tapped {
+				if cards.NormalizeName(tapped) == cards.NormalizeName(pl.name) {
+					e.emit(events.Event{Kind: events.Tap, Obj: id})
+					break
+				}
 			}
 			if pl.top {
 				tops = append(tops, id)

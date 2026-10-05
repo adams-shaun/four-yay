@@ -299,6 +299,18 @@ func types(ts []string) string {
 	for _, t := range ts {
 		c = append(c, strings.ToLower(strings.ReplaceAll(t, " ", "")))
 	}
+	// The oracle driver represents the rules-defined “all creature types”
+	// bundle as one marker; gorge expands it to every current subtype.
+	if len(c) > 100 {
+		var kept []string
+		for _, typ := range c {
+			if typ == "creature" || typ == "artifact" || typ == "enchantment" || typ == "land" || typ == "planeswalker" || typ == "battle" || typ == "kindred" || typ == "instant" || typ == "sorcery" {
+				kept = append(kept, typ)
+			}
+		}
+		kept = append(kept, "allcreaturetypes")
+		c = kept
+	}
 	sort.Strings(c)
 	return strings.Join(c, " ")
 }
