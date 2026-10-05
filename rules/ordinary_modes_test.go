@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -66,23 +67,29 @@ func TestChangesControllerPrintedTriggerFiresOnControlChange(t *testing.T) {
 }
 
 func TestLosesGameChosenPlayerTriggerFiresOnlyForChosenPlayer(t *testing.T) {
-	e := layerEngine(t)
+	e := New(seatZeroStart(Config{Seed: 1, Names: []string{"a", "b", "c"},
+		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40), mountainDeck(t, 40)}}))
 	source := ordinaryModeSource(t, e, "LosesGame", "ValidPlayer$ Player.Chosen |")
-	e.emit(events.Event{Kind: events.Choose, Obj: source, Counter: "chosen", IDs: []state.ObjID{state.PlayerRef(2)}})
+	chosenSeat := state.PlayerID(1)
+	unchosenSeat := state.PlayerID(2)
+	if int(chosenSeat) < 0 || int(chosenSeat) >= len(e.G.Players) || int(unchosenSeat) < 0 || int(unchosenSeat) >= len(e.G.Players) || chosenSeat == unchosenSeat {
+		t.Fatalf("precondition: chosen and unchosen seats must be distinct valid players (players=%d chosen=%d unchosen=%d)", len(e.G.Players), chosenSeat, unchosenSeat)
+	}
+	e.emit(events.Event{Kind: events.Choose, Obj: source, Counter: "chosen", IDs: []state.ObjID{state.PlayerRef(chosenSeat)}})
 	chosen := e.G.Obj(source).Chosen
-	if len(chosen) != 1 || !chosen[0].IsPlayer || chosen[0].Player != 2 {
-		t.Fatalf("precondition: source must record player 2 as its chosen player: %+v", chosen)
+	if len(chosen) != 1 || !chosen[0].IsPlayer || chosen[0].Player != chosenSeat {
+		t.Fatalf("precondition: source must record valid player %d as its chosen player: %+v", chosenSeat, chosen)
 	}
 	if o := e.G.Obj(source); o == nil || o.Zone != state.ZBattlefield {
 		t.Fatalf("precondition: trigger source must be on battlefield: %+v", o)
 	}
 
-	e.emit(events.Event{Kind: events.PlayerLost, Player: 1})
+	e.emit(events.Event{Kind: events.PlayerLost, Player: unchosenSeat})
 	e.putTriggersOnStack()
 	if n := countEvents(e, func(ev events.Event) bool { return ev.Kind == events.TriggerPush }); n != 0 {
 		t.Fatalf("loss by unchosen player produced %d TriggerPush events", n)
 	}
-	e.emit(events.Event{Kind: events.PlayerLost, Player: 2})
+	e.emit(events.Event{Kind: events.PlayerLost, Player: chosenSeat})
 	assertOrdinaryTriggerPushed(t, e)
 }
 
