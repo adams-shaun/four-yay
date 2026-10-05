@@ -48,12 +48,14 @@ func effEndure(h Host, c *Ctx, sa *cards.SA) {
 		}
 		o := g.Obj(t.Obj)
 		player := c.Controller
-		if o != nil {
+		// While the permanent remains, its current controller makes the
+		// Endure choice and controls the resulting Spirit. Once it has left,
+		// events.Apply resets its live controller to its owner; the token-only
+		// branch belongs to the resolving ability's controller instead.
+		canCounter := o != nil && o.Zone == state.ZBattlefield
+		if canCounter {
 			player = o.Controller
 		}
-		// CR 701.63a: counters are only possible while the permanent is on the
-		// battlefield. Once it has departed the only branch left is the token.
-		canCounter := o != nil && o.Zone == state.ZBattlefield
 		// useCounters is the election; a departed permanent can never take
 		// counters so its only branch is the token (canCounter false).
 		useCounters := false
