@@ -321,15 +321,23 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "6" }
 # (-30s, -27%). The other gates are unchanged.
 #
 # 2026-10-05: launch the slow rules package separately alongside the rest of
-# the module. Under the exact scope, the serial ./... schedule started rules
-# at t=40s and finished at 141s; concurrently running rules + all other
-# packages finished in 93s (same -p=8, skip list, CPUQuota, MemoryMax and
-# GOMEMLIMIT). This preserves the full module coverage and the three existing
-# skips, while removing the package-build queue delay before rules. Keep each
-# invocation's status: either half failing must fail this gate.
+# the module. The `go test ./...` schedule is dependency-order, so the whole
+# `rules` package -- the longest single binary -- waited for every other
+# package to be built before it started; measured in this worktree the serial
+# schedule left rules stalled until the queue drained, while starting it
+# immediately alongside the remaining packages (same -p=8, both halves, same
+# CPUQuota/MemoryMax/GOMEMLIMIT, forced fresh with -count=1) finished the
+# module gate at 114.7s vs 142.3s serial: -27.6s (-19%), peak RSS 6.1G under
+# the unchanged 8G MemoryMax. Both halves MUST carry the same -skip list --
+# TestHeads is its own gate (non-blocking) and TestInvariantsUnderSeedFuzz /
+# TestLargeEliminationSweepDoesNotTripLivelockWatcher are deliberately
+# excluded as heavy, so un-skipping them in the rules half would duplicate
+# TestHeads and change what this gate proves. Combined, the two halves cover
+# exactly the same package/test set as the original serial ./... Gate the
+# pair on both statuses: either half failing must fail this gate.
 [[gates]]
 name = "go test (module)"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "bash", "-c", "set -euo pipefail; skip='^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$'; rest=$(go list ./... | grep -vE '/rules$'); go test -p=8 -skip \"$skip\" $rest & rest_pid=$!; go test -p=8 ./rules/ & rules_pid=$!; if wait \"$rules_pid\"; then rules_rc=0; else rules_rc=$?; fi; if wait \"$rest_pid\"; then rest_rc=0; else rest_rc=$?; fi; test \"$rules_rc\" -eq 0 -a \"$rest_rc\" -eq 0"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "bash", "-c", "set -euo pipefail; skip='^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$'; rest=$(go list ./... | grep -vE '/rules$'); go test -p=8 -skip \"$skip\" $rest & rest_pid=$!; go test -p=8 -skip \"$skip\" ./rules/ & rules_pid=$!; if wait \"$rules_pid\"; then rules_rc=0; else rules_rc=$?; fi; if wait \"$rest_pid\"; then rest_rc=0; else rest_rc=$?; fi; test \"$rules_rc\" -eq 0 -a \"$rest_rc\" -eq 0"]
 timeout = 1200
 env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "16" }
 
