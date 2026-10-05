@@ -167,25 +167,6 @@ func TestRepulsiveMutationHasCreatureAndStackTargets(t *testing.T) {
 	t.Fatal("precondition: generated scenario has no Repulsive Mutation cast")
 }
 
-func TestDiscoverFixtureSeedsNonlandLibraryCard(t *testing.T) {
-	reg := loadGenRegistry(t)
-	it, skip := Generate(reg, "Hit the Mother Lode")
-	if skip != nil {
-		t.Fatalf("Hit the Mother Lode: %s", skip.Reason)
-	}
-	library := it.Setup["p0"].LibraryTop
-	if len(library) == 0 {
-		t.Fatal("precondition: discover fixture has an empty library top")
-	}
-	for _, name := range library {
-		if name == "Wastes" || name == "Forest" || name == "Plains" {
-			continue
-		}
-		return
-	}
-	t.Fatalf("discover fixture has no nonland candidate: %v", library)
-}
-
 func TestSoulImmolationBlightXIsPositive(t *testing.T) {
 	reg := loadGenRegistry(t)
 	it, skip := Generate(reg, "Soul Immolation")

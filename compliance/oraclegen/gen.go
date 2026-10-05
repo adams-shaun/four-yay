@@ -367,7 +367,7 @@ func baseline(setup map[string]Seat, f *cards.Face) {
 		p1.Battlefield = append(p1.Battlefield, "Grizzly Bears")
 	}
 	setup["p1"] = p1
-	if searchesLibrary(f) || strings.Contains(strings.ToLower(f.Oracle), "discover") {
+	if searchesLibrary(f) {
 		p0 := setup["p0"]
 		p0.LibraryTop = []string{"Jace Beleren", "Grizzly Bears", "Forest", "Glorious Anthem", "Shock", "Plains", "Ornithopter"}
 		setup["p0"] = p0

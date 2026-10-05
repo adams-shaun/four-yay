@@ -1,4 +1,4 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.library","diff":"placement"},"key":"cast-resolve | resolve | p0.library | placement","cards":43}
+{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.library","diff":"placement"},"key":"cast-resolve | resolve | p0.library | placement","cards":45}
 {"card":"A.I.M. Synthoids","template":"cast-resolve","status":"diverge","api":"ChangesZone:Surveil","sets":["MSH"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes, Wastes]\""}
 {"card":"Break Out","template":"cast-resolve","status":"diverge","api":"PeekAndReveal+ChooseCard+ChangeZone+Pump+ChangeZoneAll+Cleanup","sets":["MKM"],"detail":"step 1 (resolve) p0.library_count: gorge \"39\", xmage \"38\""}
 {"card":"Broodspinner","template":"cast-resolve","status":"diverge","api":"ChangesZone:Surveil","sets":["DSK"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes, Wastes]\""}
@@ -16,6 +16,7 @@
 {"card":"Imperious Inkmage","template":"cast-resolve","status":"diverge","api":"ChangesZone:Surveil","sets":["SOS"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes, Wastes]\""}
 {"card":"Killer's Mask","template":"cast-resolve","status":"diverge","api":"ChangesZone:ManifestDread","sets":["DSK"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Lightshell Duo","template":"cast-resolve","status":"diverge","api":"ChangesZone:Surveil+SpellCast:Pump","sets":["BLB","FDN"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes, Wastes]\""}
+{"card":"Mind Spiral","template":"cast-resolve","status":"diverge","api":"Draw+Tap+PutCounter","sets":["BLB"],"detail":"step 1 (resolve) p0.hand: gorge \"[]\", xmage \"[Wastes, Wastes, Wastes]\""}
 {"card":"Muse's Encouragement","template":"cast-resolve","status":"diverge","api":"Token+Surveil","sets":["SOS"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Muse's Encouragement]\", xmage \"[Wastes, Wastes, Muse's Encouragement]\""}
 {"card":"Neutralize the Guards","template":"cast-resolve","status":"diverge","api":"PumpAll+Surveil","sets":["OTJ"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Neutralize the Guards]\", xmage \"[Wastes, Wastes, Neutralize the Guards]\""}
 {"card":"Patient Naturalist","template":"cast-resolve","status":"diverge","api":"ChangesZone:Mill","sets":["OTJ"],"detail":"step 1 (resolve) p0.hand: gorge \"[]\", xmage \"[Wastes]\""}
@@ -25,6 +26,7 @@
 {"card":"Rediscover the Way","template":"cast-resolve","status":"diverge","api":"-","sets":["TDM"],"detail":"step 1 (resolve) p0.hand: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[Wastes]\""}
 {"card":"Risky Research","template":"cast-resolve","status":"diverge","api":"Surveil+Draw+LoseLife","sets":["SPM"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Risky Research]\", xmage \"[Wastes, Wastes, Risky Research]\""}
 {"card":"Rubblebelt Maverick","template":"cast-resolve","status":"diverge","api":"ChangesZone:Surveil","sets":["MKM"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes, Wastes]\""}
+{"card":"Sazacap's Brew","template":"cast-resolve","status":"diverge","api":"Draw+Pump","sets":["BLB"],"detail":"step 1 (resolve) p0.hand: gorge \"[]\", xmage \"[Wastes, Wastes]\""}
 {"card":"Season of Weaving","template":"cast-resolve","status":"diverge","api":"Charm","sets":["BLB"],"detail":"step 1 (resolve) p0.hand: gorge \"[Wastes]\", xmage \"[Wastes, Wastes, Wastes, Wastes, Wastes]\""}
 {"card":"Sleight of Hand","template":"cast-resolve","status":"diverge","api":"Dig","sets":["WOE"],"detail":"step 1 (resolve) p0.hand: gorge \"[Wastes, Wastes]\", xmage \"[Wastes]\""}
 {"card":"Spellgyre","template":"cast-resolve","status":"diverge","api":"Charm","sets":["BLB"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Spellgyre]\", xmage \"[Wastes, Wastes, Spellgyre]\""}
