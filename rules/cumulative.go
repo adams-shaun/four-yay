@@ -734,6 +734,37 @@ func (e *Engine) continueCumulativeAction() {
 	}
 }
 
+// triggerCostRemembered is the Remembered set a triggered cost window's SVar
+// and count evaluation must see: the parked stack object's own trigger
+// capture, derived through resolvingRemembered exactly as resumeResolution
+// binds it on the body after the cost settles. The TriggeredCard$ referent
+// resolves through Ctx.Remembered (refTargets' refTargetsTriggeredCard arm),
+// not Ctx.TriggerCard, so an SVar read while the COST is paid -- Uncover the
+// Moon-Letters' X:TriggeredCard$CastTotalManaSpent through Cost$ Draw<X/You>
+// -- otherwise saw an empty set and counted zero. A window with no parked
+// object yields nil, the same as before the binding.
+//
+// Both the draw-count path and the fixed-X path call this so the ladder is
+// encoded once: a future change to which capture a triggered cost binds
+// cannot miss one of them.
+func (e *Engine) triggerCostRemembered(tc *triggeredEffectCost) []state.Target {
+	if tc == nil || tc.resume == nil {
+		return nil
+	}
+	triggerCard := tc.trig.TriggerCard
+	if triggerCard == 0 {
+		triggerCard = e.triggerContexts[tc.resume.obj].TriggerCard
+	}
+	if triggerCard != 0 {
+		return []state.Target{{Obj: triggerCard}}
+	}
+	o := e.G.Obj(tc.resume.obj)
+	if o == nil {
+		return nil
+	}
+	return e.resolvingRemembered(o)
+}
+
 // triggeredCostDrawCounts resolves every Draw component of a trigger's Cost$
 // at the window's source, so the ask can decide whether "pay" is answerable
 // and the pay arm can settle the draws without re-deriving them. ok=false
@@ -753,19 +784,11 @@ func (e *Engine) triggeredCostDrawCounts(tc *triggeredEffectCost) ([]int32, bool
 	} else if t, ok := e.triggerContexts[tc.resume.obj]; ok {
 		tcx = &t
 	}
-	remembered := []state.Target(nil)
-	if tc.trig.TriggerCard != 0 {
-		remembered = []state.Target{{Obj: tc.trig.TriggerCard}}
-	} else if captured, ok := e.triggerContexts[tc.resume.obj]; ok && captured.TriggerCard != 0 {
-		remembered = []state.Target{{Obj: captured.TriggerCard}}
-	} else if o := e.G.Obj(tc.resume.obj); o != nil {
-		remembered = e.resolvingRemembered(o)
-	}
 	for i, part := range tc.amount.Draw {
 		if _, ok := pay.CastFlowDrawPlayer(part.Spec, tc.player); !ok {
 			return nil, false
 		}
-		n, ok := pay.DrawCostCountTrig(asPayer(e), tc.source, tc.player, part, tcx, remembered)
+		n, ok := pay.DrawCostCountTrig(asPayer(e), tc.source, tc.player, part, tcx, e.triggerCostRemembered(tc))
 		if !ok {
 			return nil, false
 		}
@@ -790,13 +813,7 @@ func (e *Engine) evalTriggerCostFixedX(tc *triggeredEffectCost, o *state.Object,
 	// The TriggeredCard$ referent resolves through Ctx.Remembered
 	// (refTargets' refTargetsTriggeredCard arm), not Ctx.TriggerCard, so bind
 	// the parked trigger's own capture exactly as the resumed body will.
-	if tc.trig.TriggerCard != 0 {
-		ctx.Remembered = []state.Target{{Obj: tc.trig.TriggerCard}}
-	} else if captured, ok := e.triggerContexts[tc.resume.obj]; ok && captured.TriggerCard != 0 {
-		ctx.Remembered = []state.Target{{Obj: captured.TriggerCard}}
-	} else if parked := e.G.Obj(tc.resume.obj); parked != nil {
-		ctx.Remembered = e.resolvingRemembered(parked)
-	}
+	ctx.Remembered = e.triggerCostRemembered(tc)
 	n, resolvable := effects.EvalCountOK(e, ctx, body)
 	if !resolvable || n < 0 {
 		return 0, false
