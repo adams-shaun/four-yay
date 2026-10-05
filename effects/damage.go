@@ -56,7 +56,8 @@ func registerReplaceDying(h Host, c *Ctx, die string, damaged []state.Target) {
 		return
 	}
 	base, qualifier, _ := strings.Cut(die, ".")
-	if base != "Remembered" && base != "Targeted" && base != "ThisTargetedCard" {
+	selector := definedSpecCodes.Code(base)
+	if selector != definedSpecRemembered && selector != definedSpecTargeted && selector != definedSpecThisTargetedCard {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "unrecognised ReplaceDyingDefined$ " + die})
 		return
@@ -66,7 +67,7 @@ func registerReplaceDying(h Host, c *Ctx, die string, damaged []state.Target) {
 	// other batch emitters). Intersect it with the objects this API actually
 	// damaged so off-zone or otherwise unaffected targets cannot register.
 	var targeted map[state.ObjID]bool
-	if base == "ThisTargetedCard" {
+	if selector == definedSpecThisTargetedCard {
 		chosen := c.Targets
 		if c.PickedTargets != nil {
 			chosen = c.PickedTargets
