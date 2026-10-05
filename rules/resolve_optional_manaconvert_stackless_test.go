@@ -9,8 +9,8 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// A modal land selects its back face before continueCast asks for optional
-// conversions. A front-face filter read at the checkpoint can miss that ask.
+// A modal land selects its back face before the land-play flow continues. An
+// Optional$ ManaConvert election is not a land-entry choice.
 func TestOptionalManaConvertMayAskOnStacklessCast(t *testing.T) {
 	t.Parallel()
 	const modal = "Name:Quiet Front\nManaCost:0\nTypes:Creature\nPT:1/1\nAlternateMode:Modal\nOracle:x\nALTERNATE\nName:Quiet Back\nTypes:Land\nOracle:x\n"
@@ -42,20 +42,22 @@ func TestOptionalManaConvertMayAskOnStacklessCast(t *testing.T) {
 	if !asResolve(e).StartsResolution(d, in) {
 		t.Fatal("precondition: modal land does not start a tape run")
 	}
-	if !asResolve(e).MayAsk(d, in) {
-		t.Fatal("modal land's optional mana conversion must checkpoint the stackless land play")
+	if asResolve(e).MayAsk(d, in) {
+		t.Fatal("modal land's Optional$ ManaConvert election must not checkpoint the land play")
 	}
 	if err := e.Submit(in); err != nil {
 		t.Fatal(err)
-	}
-	ask := e.Pending()
-	if ask == nil || ask.Kind != decision.KChoose || ask.Prompt != "Use optional mana conversion?" {
-		t.Fatalf("modal land did not ask for optional conversion: %+v", ask)
 	}
 	if e.G.Obj(land).FaceIdx != 1 || e.G.Obj(land).Face().Name != "Quiet Back" {
 		t.Fatalf("precondition: selected face was not Quiet Back: %+v", e.G.Obj(land))
 	}
 	if _, after := e.manaConversionParts(0, land, false); after.Empty() {
 		t.Fatal("precondition: the back face must admit a conversion that the front face did not")
+	}
+	if e.G.Obj(land).Zone != state.ZBattlefield {
+		t.Fatalf("modal land did not complete: remains in %s", e.G.Obj(land).Zone)
+	}
+	if ask := e.Pending(); ask != nil && ask.Kind == decision.KChoose && ask.Prompt == "Use optional mana conversion?" {
+		t.Fatalf("modal land posed Optional$ ManaConvert election: %+v", ask)
 	}
 }
