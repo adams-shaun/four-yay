@@ -53,7 +53,8 @@ func TypesAndAllCreatureTypes(b Board, act []state.ContinuousEffect, id state.Ob
 	// 2/2 exactly as it reaches a face-up creature, while the printed face
 	// stays hidden (no printed word reappears merely from a type grant).
 	base := o.Face().Types
-	if o.FaceDown && o.Zone == state.ZBattlefield {
+	faceDown := o.FaceDown && o.Zone == state.ZBattlefield
+	if faceDown {
 		base = o.FaceDownTypeWords()
 	}
 	if o.CopyNonLegendary {
@@ -91,7 +92,7 @@ func TypesAndAllCreatureTypes(b Board, act []state.ContinuousEffect, id state.Ob
 		}
 	}
 	if !anyLType {
-		return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, base))), false
+		return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, base))), !faceDown && o.Face().AllCreatureTypesCDA()
 	}
 	// Copy-on-write: the printed list is copied only once an effect actually
 	// applies to this object (most objects are untouched by the layer-4
@@ -99,7 +100,7 @@ func TypesAndAllCreatureTypes(b Board, act []state.ContinuousEffect, id state.Ob
 	// and the appends -- runs on the owned copy, never on the face's array.
 	ty := base
 	owned := false
-	allCreatureTypes := false
+	allCreatureTypes := !faceDown && o.Face().AllCreatureTypesCDA()
 	for i := range act {
 		ce := &act[i]
 		if ce.Layer != state.LType || !matchesWithTypes(b, ce, id, ty, atStack) {

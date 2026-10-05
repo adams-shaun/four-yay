@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
@@ -26,6 +27,47 @@ func TestOracleSnapshotChangelingAllCreatureTypes(t *testing.T) {
 	}
 	if !p.AllCreatureTypes {
 		t.Fatalf("Changeling did not produce the semantic all-types snapshot flag: %+v", p)
+	}
+}
+
+func TestOracleSnapshotMistformUltimusAllCreatureTypes(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	card, ok := reg.Lookup("Mistform Ultimus")
+	if !ok || len(card.Faces) == 0 || !card.Faces[0].AllCreatureTypesCDA() {
+		t.Fatal("precondition: corpus Mistform Ultimus face lacks its all-creature-types CDA")
+	}
+	// Keep the precomputed intrinsic CDA while removing its active static
+	// carrier. This isolates the derived-characteristic path: the snapshot
+	// must not rely on a layer effect re-emitting the same semantics. Clone
+	// the face so this test never mutates the process-wide corpus registry.
+	cardCopy := *card
+	faceCopy := *card.Faces[0]
+	faceCopy.Statics = nil
+	cardCopy.Faces = []*cards.Face{&faceCopy}
+	isolated := cards.NewRegistry()
+	isolated.Add(&cardCopy)
+	if wastes, ok := reg.Lookup("Wastes"); ok {
+		isolated.Add(wastes)
+	} else {
+		t.Fatal("precondition: corpus lacks Wastes used by the oracle scenario harness")
+	}
+	scenario := `{"name":"mistform-ultimus-all-types","setup":{"p0":{"battlefield":["Mistform Ultimus"]}}}`
+	res, err := RunOracleScenarioJSON(isolated, []byte(scenario))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Fails) != 0 {
+		t.Fatalf("scenario failed: %v", res.Fails)
+	}
+	if len(res.Snapshots) == 0 || len(res.Snapshots[0].Permanents) != 1 {
+		t.Fatalf("precondition: Mistform Ultimus is not on the battlefield: %+v", res.Snapshots)
+	}
+	p := res.Snapshots[0].Permanents[0]
+	if p.Name != "Mistform Ultimus" {
+		t.Fatalf("precondition: snapshot permanent = %q", p.Name)
+	}
+	if !p.AllCreatureTypes {
+		t.Fatalf("Mistform Ultimus CDA missing from all-types snapshot flag: %+v", p)
 	}
 }
 
