@@ -34,7 +34,7 @@ func TestCompiledCodeMappings(t *testing.T) {
 			"ChangeTargets", "ChangeZone", "ChangeZoneAll", "Charm", "ChooseCard",
 			"ChangeX", "ChooseNumber", "ChoosePlayer", "ChooseType", "Cleanup",
 			"ControlSpell", "CopySpellAbility", "Counter", "CumulativeUpkeep", "DamageAll", "DealDamage",
-			"DelayedTrigger", "Destroy", "DestroyAll", "Dig", "Discard", "Draw", "Echo", "Effect",
+			"DelayedTrigger", "Destroy", "DestroyAll", "Dig", "DigMultiple", "Discard", "Draw", "Echo", "Effect",
 			"Encore", "Extort", "Fog", "GainControl", "GainLife", "Goad", "Hideaway",
 			"LoseLife", "LosesGame", "Mana", "ManaReflected", "Mill", "Myriad", "NameCard",
 			"Pair", "PeekAndReveal", "PermanentCreature", "Play", "Protection", "Pump",

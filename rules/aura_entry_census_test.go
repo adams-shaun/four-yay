@@ -219,6 +219,7 @@ var auraEntryCensusEffects = map[string]string{
 	"attach.go:emitAttach":                      "attach: helper",
 	"attach.go:emitPlayerAttach":                "attach: helper",
 	"dig.go:effDig":                             "gate: Dig's DestinationZone$ Battlefield",
+	"digmultiple.go:effDigMultiple":             "gate: DigMultiple's destination may be the battlefield",
 	"diguntil.go:effDigUntil":                   "marks: revealed-Aura bearer (its own diguntil_aura ask) precedes the move",
 	"clone.go:effClone":                         "attach: re-attaches the object becoming a copy; no zone change",
 	"context.go:moveZoneEvent":                  "gate: the shared MoveZone constructor (variable destination)",
