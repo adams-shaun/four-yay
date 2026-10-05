@@ -137,7 +137,12 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 	if digNum < 0 {
 		digNum = 0
 	}
+	// Forge defaults ChangeNum$ to one; an explicit All means the whole
+	// dig window and therefore retains DigNum$ as the cap.
 	changeNum := digNum
+	if !dp.ChangeNum.Present {
+		changeNum = 1
+	}
 	anyNum := false
 	if dp.ChangeNumAny || dp.ChangeNumCapped {
 		if dp.ChangeNumAny {
