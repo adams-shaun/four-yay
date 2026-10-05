@@ -325,6 +325,10 @@ func (e *Engine) askReplacementChoice(p state.PlayerID) {
 		d.Prompt = "Apply " + name + "'s optional draw replacement?"
 		d.Options = []decision.Option{{Index: 0, Kind: "apply", Obj: m.id, Label: "Yes — skip that draw"},
 			{Index: 1, Kind: "decline", Obj: m.id, Label: "No — draw the card"}}
+		if in, ok := parkTapeAnswer(e, d); ok {
+			e.handle(d, in)
+			return
+		}
 		e.ask(d)
 		return
 	case replChoiceFaceUp:
