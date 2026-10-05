@@ -496,6 +496,8 @@ var triggerModeEventRows = [...]struct {
 	{cards.TriggerRolledDie, 1 << events.Note},
 	{cards.TriggerRolledDieOnce, 1 << events.Note},
 	{cards.TriggerCounterAdded, 1 << events.CounterChange},
+	{cards.TriggerCounterAddedAll, 1 << events.CounterChange},
+	{cards.TriggerCounterTypeAddedAll, 1 << events.CounterChange},
 	{cards.TriggerCounterAddedOnce, 1 << events.CounterChange},
 	{cards.TriggerCounterRemoved, 1 << events.CounterChange},
 	{cards.TriggerCounterRemovedOnce, 1 << events.CounterChange},

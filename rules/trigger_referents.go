@@ -73,7 +73,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		if o := e.G.Obj(e.inFlightDamageSource()); o != nil && o.IsAttacking {
 			c.DefendingPlayer = player(o.Attacking)
 		}
-	case cards.TriggerCounterAdded, cards.TriggerCounterAddedOnce:
+	case cards.TriggerCounterAdded, cards.TriggerCounterAddedOnce, cards.TriggerCounterAddedAll, cards.TriggerCounterTypeAddedAll:
 		// The batch size the body reads as TriggerCount$Amount (Simic
 		// Ascendancy's "put that many growth counters" on CounterAddedOnce,
 		// and the same read on a plain CounterAdded line): one CounterChange
