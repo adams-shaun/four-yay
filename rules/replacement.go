@@ -374,6 +374,18 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 	if len(matches) == 1 {
 		return e.applyReplacement(ev, matches[0])
 	}
+	if ev.Kind == events.LifeChange && ev.Text == pay.PayLifeProposalText {
+		// A payment proposal has no object; CR 616.1's affected player is
+		// the payer. Unlike ordinary life-change replacements, this synthetic
+		// boundary is consumed if any one replacement is selected.
+		if int(ev.Player) < len(e.G.Players) && !e.G.Players[ev.Player].Lost {
+			e.poseReplacementChoice(ev, matches)
+			return ev, true
+		}
+		for _, m := range matches {
+			return e.applyReplacement(ev, m)
+		}
+	}
 	allUpdated := true
 	for _, m := range matches {
 		if m.repl.ParamStr(cards.PKReplacementResult) != "Updated" {

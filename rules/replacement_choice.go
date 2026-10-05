@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -182,6 +183,9 @@ type replChoice struct {
 // a life event's player (the player whose life total changes), else mana/
 // phase candidates by role, else the moving object's controller.
 func (e *Engine) replacementChoicePlayer(rc replChoice) (state.PlayerID, bool) {
+	if rc.ev.Kind == events.LifeChange && rc.ev.Text == pay.PayLifeProposalText {
+		return rc.ev.Player, int(rc.ev.Player) < len(e.G.Players)
+	}
 	if rc.life {
 		return rc.ev.Player, int(rc.ev.Player) < len(e.G.Players)
 	}
@@ -250,7 +254,7 @@ func (e *Engine) poseReplacementChoice(ev events.Event, matches []replMatch) {
 		kind = replChoiceDraw
 		p = e.replacementAskPlayer(matches, ev.Player)
 	}
-	if ev.Kind != events.Draw {
+	if ev.Kind != events.Draw && !(ev.Kind == events.LifeChange && ev.Text == pay.PayLifeProposalText) {
 		o := e.G.Obj(ev.Obj)
 		if o == nil {
 			return
