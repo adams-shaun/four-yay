@@ -179,7 +179,7 @@
             {
               "kind": "any",
               "pick": [
-                "lose 2"
+                "loses 2"
               ]
             }
           ]

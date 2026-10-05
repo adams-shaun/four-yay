@@ -54,9 +54,33 @@ func effAmass(h Host, c *Ctx, sa *cards.SA) {
 	if typ == "" {
 		typ = "Army"
 	}
-	// Find the controller's first Army in battlefield order.
+	// The amasser is the resolving ability's controller UNLESS the SA names
+	// a Defined$ player: Azog's "Its controller amasses Goblins X" is
+	// `DB$ Amass | Defined$ RememberedController`, and the discard/sacrifice
+	// amass lines name the discarded/sacrificed card's controller the same
+	// way. definedPlayers resolves the shared Defined$ grammar (a card maps
+	// to its controller), so the amass follows the printed "that player".
+	ctl := c.Controller
+	if raw := strings.TrimSpace(sa.ParamStr(cards.PKDefined)); raw != "" {
+		if strings.EqualFold(raw, "RememberedController") {
+			// The remembered card lives on the source's persistent list once
+			// the parent Destroy sub-ability has run, which c.Remembered may
+			// not carry; read the persistent-aware pool the plain Remembered
+			// selector uses so the amass follows the destroyed creature's
+			// controller.
+			for _, t := range controllersOf(g, resolvedRemembered(h, c)) {
+				if t.IsPlayer {
+					ctl = t.Player
+					break
+				}
+			}
+		} else if ps := definedPlayers(h, c, sa); len(ps) > 0 {
+			ctl = ps[0]
+		}
+	}
+	// Find the amasser's first Army in battlefield order.
 	army := state.ObjID(0)
-	for _, id := range g.Zone(state.ZBattlefield, c.Controller) {
+	for _, id := range g.Zone(state.ZBattlefield, ctl) {
 		o := g.Obj(id)
 		if o == nil || o.Face() == nil {
 			continue
@@ -83,7 +107,7 @@ func effAmass(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 		wasSuspended := h.Suspended()
-		mints := h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: c.Controller, Text: key})
+		mints := h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: ctl, Text: key})
 		if !wasSuspended && h.Suspended() {
 			// A resolution-time window opened during the mint: every mint
 			// that landed takes its riders, and the amass stops there.

@@ -1,0 +1,6 @@
+{
+  "card": "Wizard's Staff",
+  "rows": {
+    "equipped-creature-gains-prowess": "The equipped creature DOES have the granted Prowess keyword (equip-wizard-costs-one asserts it), but casting a noncreature spell never pumped it: P/T 2/2, want 3/3. A granted triggered keyword does not fire."
+  }
+}

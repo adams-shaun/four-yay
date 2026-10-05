@@ -56,16 +56,16 @@
         "603.2b",
         "702.176a"
       ],
-      "why": "With three artifacts you have an enduring story, so Bifur's own ETB ability (he is a Dwarf) triggers an additional time: two +1/+1 counters.",
+      "why": "With Thorin (a Storied legendary) and two artifacts you already have an enduring story before Bifur enters, so Bifur's own ETB ability (he is a Dwarf) triggers an additional time: two +1/+1 counters.",
       "setup": {
         "p0": {
           "hand": [
             "Bifur, Melodic Rider"
           ],
           "battlefield": [
+            "Thorin Oakenshield",
             "Sol Ring",
             "Mox Jet",
-            "Ornithopter",
             "Grizzly Bears"
           ]
         }

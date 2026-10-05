@@ -106,6 +106,10 @@
         },
         {
           "op": "pass_to",
+          "step": "end"
+        },
+        {
+          "op": "pass_to",
           "step": "main1",
           "active": "p0"
         },
