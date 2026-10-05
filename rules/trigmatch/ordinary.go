@@ -34,7 +34,7 @@ func losesGameMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Ev
 		return false
 	}
 	v := t.ParamStr(cards.PKValidPlayer)
-	return v == "" || effects.MatchesPlayerSpec(e.Game(), v, ev.Player, e.ControllerOf(source))
+	return v == "" || effects.MatchesPlayerSpecFrom(e.Game(), v, ev.Player, e.ControllerOf(source), source)
 }
 
 func turnBeginMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
