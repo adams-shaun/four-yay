@@ -304,6 +304,13 @@ func (d *Decision) blockAnswerLegal(choices []int) bool {
 		return false
 	}
 	for i, ci := range choices {
+		if !d.Repeatable {
+			for _, old := range choices[:i] {
+				if old == ci {
+					return false
+				}
+			}
+		}
 		if !d.BlockPairAdmits(choices[:i], ci) {
 			return false
 		}
