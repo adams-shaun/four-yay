@@ -730,6 +730,19 @@ func init() {
 	// so no twin term is owed, and UnknownPredicates classifies it through
 	// this same map, so census and matcher cannot disagree.
 	predicates["modified"] = modifiedPermanent
+	// NoAbilities: Forge's Card.hasNoAbilities (and the filter spelling
+	// `Creature.NoAbilities`), the CR 113.12 ruling directly on point for
+	// Muraganda Petroglyphs -- an Aura that grants flying stops the +2/+2,
+	// while one that only says the creature "is red" does not. The five
+	// corpus carriers are Fang-Druid Summoner (ETB search), Muraganda
+	// Petroglyphs (continuous buff), Ruxa, Patient Professor (buff and
+	// reanimation), Rise from the Wreck (graveyard target) and Jasmine Boreal
+	// of the Seven (CantBlockBy, RestrictValid and the negated
+	// `Creature.!NoAbilities` blocker clause). A recognised-shape map entry:
+	// the compiled predicate layer falls through to this textual oracle and
+	// UnknownPredicates classifies it through the same map, so census and
+	// matcher cannot disagree.
+	predicates["NoAbilities"] = noAbilitiesPermanent
 	// Soulbond's "PairedWith" and "Paired" predicates (CR 702.103): the
 	// Affected$ spec `Creature.PairedWith` names the creature a source is
 	// paired with, and `Creature.Self+Paired` names the source itself when it
@@ -3057,6 +3070,61 @@ func hasAbilityToken(p string) bool {
 		return strings.HasPrefix(p, "hasAbility ")
 	}
 	return false
+}
+
+// noAbilitiesPermanent is the CR 113.12 body for `NoAbilities`: it reports
+// whether the object has NO abilities at all, matching Forge's
+// Card.hasNoAbilities(). An ability, for this predicate, is a printed
+// keyword, an S: static, an R: replacement, a T: trigger, or an activated
+// `AB` ability -- with two exclusions Forge also makes: a land's mana
+// ability (isLandAbility) and the card's own plain cast (an `SP` entry,
+// isBasicSpell + only-a-mana-cost). Counter-granted keywords count too, the
+// same positive CounterKeyword scan objectHasKeyword uses.
+//
+// Reads the PRINTED face plus counter keywords only. A keyword or ability
+// granted by a continuous effect (CR 113.12's granted-flying case) is not
+// visible here -- predFn carries no SpecContext and this ticket does not
+// thread one through the map. That is a known deviation, recorded in the
+// commit message.
+//
+// Fail closed: a nil object or face is NOT proof of "no abilities", so it
+// answers false ("has abilities") -- the fail-closed direction, never a
+// silent widening of the selection. A face-down battlefield permanent has no
+// abilities (CR 708.2), so it answers true; that is the OPPOSITE polarity of
+// objectHasAbility's guard.
+func noAbilitiesPermanent(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+	if o == nil {
+		return false
+	}
+	f := o.Face()
+	if f == nil {
+		return false
+	}
+	if o.FaceDown && o.Zone == state.ZBattlefield {
+		return true
+	}
+	if len(f.Keywords) > 0 || len(f.Statics) > 0 || len(f.Repls) > 0 || len(f.Triggers) > 0 {
+		return false
+	}
+	for _, c := range o.Counters {
+		if c.N > 0 {
+			if _, ok := cards.CounterKeyword(c.Kind); ok {
+				return false
+			}
+		}
+	}
+	for _, a := range f.Abilities {
+		if a == nil || !a.IsActivated() {
+			continue
+		}
+		// A land's mana ability is not an ability for this predicate
+		// (Forge's isLandAbility).
+		if hasType(o, "Land") && a.APIKind() == cards.APIMana {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // objectHasAbility answers a recognised hasAbility sub-spec over the
