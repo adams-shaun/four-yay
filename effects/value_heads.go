@@ -151,6 +151,7 @@ var modelledValueHeads = []string{
 	"ResolvedThisTurn",
 	"Revolt",
 	"StartingPlayer",
+	"Teamwork",
 	"ThisTurnActivated",
 	"ThisTurnCast",
 	"ThisTurnEntered",

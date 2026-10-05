@@ -274,6 +274,16 @@ var predicates = map[string]predFn{
 	"PromisedGift": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.CastFlags&state.FlagPromisedGift != 0
 	},
+	// Teamwork is Forge's Card.Self+Teamwork (CR 702.194b): the object is a
+	// spell or permanent whose cast paid the K:Teamwork:N optional additional
+	// tap cost. Object.TeamworkPaid is folded by events.Apply from the pay-time
+	// FlagTeamworkPaid and survives later CastInfo events and the
+	// stack->battlefield move, so it reads on the spell during resolution
+	// (Timeline Inquiry's ConditionPresent$ Card.Self+Teamwork) and on the
+	// permanent at its ETB. Absent a paid tap it fails closed to false.
+	"Teamwork": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o.TeamworkPaid
+	},
 	"surged": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.CastFlags&state.FlagSurged != 0
 	},

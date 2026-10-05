@@ -776,17 +776,10 @@ func (e *Engine) payCast() {
 		mkFlags := events.FlagsString(events.FlagsFrom(flags) | state.FlagKicked | state.FlagMultikicked)
 		e.emit(events.Event{Kind: events.CastInfo, Obj: pc.card, Amount: mkCount, Counter: mkFlags})
 	}
-	// Conspire (CR 702.78a): the tap provenance rides its own trailing
-	// pay-time CastInfo -- FlagConspired routes the bool into
-	// Object.Conspired (events.Apply folds it outside the Amount switch, so
-	// no later event's routing is disturbed), and Count$Conspired reads it
-	// off the source. modeFlags deliberately maps "conspired" to "" -- a
-	// declined/plain cast (conspirePaid false) must stay the byte-identical
-	// plain cast, no flag and no event -- so the emission is gated on the
-	// tap having actually been paid.
-	if pc.conspirePaid {
-		cFlags := events.FlagsString(events.FlagsFrom(flags) | state.FlagConspired)
-		e.emit(events.Event{Kind: events.CastInfo, Obj: pc.card, Amount: 1, Counter: cFlags})
+	// Conspire and Teamwork are paid-cost provenance. Emit no marker when
+	// declined so plain casts retain their byte-identical CastInfo stream.
+	for _, ev := range paidTapCastInfo(pc, flags) {
+		e.emit(ev)
 	}
 	// Convoke (CR 702.66, task connive1): the creatures the caster tapped to
 	// help pay for the cast ride their own TRAILING pay-time CastInfo's IDs
