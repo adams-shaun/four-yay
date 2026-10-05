@@ -104,14 +104,15 @@ func effManifest(h Host, c *Ctx, sa *cards.SA) {
 // chooser form still emits the same loud "unimplemented API ManifestDread"
 // note and moves nothing.
 func effManifestDread(h Host, c *Ctx, sa *cards.SA) {
-	if sa.ParamStr(cards.PKChoices) != "" {
+	mp := compileManifestDread(sa)
+	if mp.Choices {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unimplemented API ManifestDread"})
 		return
 	}
 	amount := int32(1)
-	if raw, present := sa.Param(cards.PKAmount); present && strings.TrimSpace(raw) != "" {
-		n, ok := NumResolved(h, c, sa, "Amount", 1)
+	if mp.Amount.Present {
+		n, ok := numResolvedText(h, c, mp.Amount, 1)
 		if !ok {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "unimplemented API ManifestDread"})
@@ -122,7 +123,7 @@ func effManifestDread(h Host, c *Ctx, sa *cards.SA) {
 	if amount <= 0 {
 		return
 	}
-	remember := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberManifested)), "True")
+	remember := mp.Remember
 	g := h.Game()
 	for _, p := range searchPlayers(h, c, sa) {
 		for i := int32(0); i < amount; i++ {

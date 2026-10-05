@@ -836,7 +836,7 @@ func effMill(h Host, c *Ctx, sa *cards.SA) {
 		n = 0
 	}
 	remember := strings.EqualFold(sa.ParamStr(cards.PKRememberMilled), "True")
-	imprint := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKImprint)), "True")
+	imprint := compileMillParams(sa).Imprint
 	show := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKShowMilledCards)), "True")
 	// One api:Mill resolution is ONE mill action (Forge's one Mill call),
 	// so the Mode$ MilledAll batch ("whenever one or more cards are
@@ -1066,6 +1066,7 @@ func digDestPhrase(dest state.Zone) string {
 // compiled RevealHand SA today takes the whole hand. The pool is only known
 // inside the walk, so the whole-hand amount is applied per target.
 func effReveal(h Host, c *Ctx, sa *cards.SA) {
+	rp := compileRevealParams(sa)
 	_, hasNum := sa.Param(cards.PKNumCards)
 	wholeHand := sa.API == "RevealHand" && !hasNum
 	amt := int32(1)
@@ -1094,16 +1095,10 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 	// The may-reveal ask (task fb-3f1cc033, Delver of Secrets' peek; widened
 	// to Optional$ by the round-2 review's Look$ task): the deciding player
 	// is asked whether to reveal before the Note goes out. The ask is the
-	// same mid-resolution vocabulary every other asking primitive uses —
-	// KChoose yes/no with a ResumeKind, answered in place via AskTape. A
-	// host that cannot ask (an effects-package double, fuzz) keeps the pre-ask
-	// behaviour: the mandatory reveal, as the deterministic fallback (the
-	// same R-9 degradation Scry/Surveil carry). Still unread here,
-	// deliberately: NoReveal$/NoPeek$ and RememberRevealedPlayer$ — see the
-	// report's Issues section. PeekAmount$ and RevealValid$ ARE read (the
-	// PeekAndReveal arm above takes the peek window from PeekAmount$; the
-	// RevealValid$ filter below narrows the may-reveal to the matching
-	// subset for every API in this row).
+	// KChoose yes/no, answered in place via AskTape. No-host deterministically
+	// reveals; NoPeek$ and RememberRevealedPlayer$ remain unread. PeekAmount$
+	// and RevealValid$ ARE read: the window is cut before filtering, and the
+	// RevealValid$ filter below narrows the may-reveal to the matching subset.
 	look := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKLook)), "True")
 	revealType := strings.TrimSpace(sa.ParamStr(cards.PKRevealType))
 	// The may-reveal ask: PeekAndReveal poses it through RevealOptional$
@@ -1154,23 +1149,8 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			// selector for the first card in that player's zone.
 			pool = []state.ObjID{t.Obj}
 		}
-		// PeekAndReveal's window (task peek-window): the peek LOOKS at the top
-		// PeekAmount$ cards, and every later filter (RevealType$,
-		// RevealValid$, RevealAllValid$) applies WITHIN that window. Cutting to
-		// the window here, before the filters, is Forge's own order --
-		// PeekAndRevealEffect peels the top PeekAmount cards off the library
-		// and filters that pile. Pre-fix the filters ran over the WHOLE
-		// library and only then did n truncate to PeekAmount, so a matching
-		// card below the window could be revealed instead of the top card
-		// (ECL Gathering Stone: PeekAmount$ 1 revealed the first creature of
-		// the chosen type anywhere in the library, while the top card was a
-		// nonmatching Jace). A window smaller than the request keeps the whole
-		// (short) library. An explicit RevealDefined$ object is its own pool
-		// and is not a peek window, so it is skipped.
-		if sa.API == "PeekAndReveal" && revealDefined == "" {
-			if int32(len(pool)) > amt {
-				pool = pool[:amt]
-			}
+		if zone == state.ZLibrary && revealDefined == "" {
+			pool = peekRevealWindow(pool, amt)
 		}
 		if revealType != "" {
 			// RevealType$ (Slayer's Bounty: "look at the creature cards in
@@ -1442,22 +1422,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			continue
 		}
 		revealed := append([]state.ObjID(nil), pool[:n]...)
-		// ImprintRevealed$ True (task peek-window; BLB Portent of Calamity's
-		// `PeekAndReveal | PeekAmount$ X | ImprintRevealed$ True`): Forge's
-		// RevealEffect.addImprintedLists links every revealed card to the
-		// resolving source. The association rides the "seek-found" list, not
-		// the ordinary Imprinted one: Portent's continuation filters
-		// `RepeatTypesFrom$ ValidLibrary Card.IsImprinted` over cards still IN
-		// THE LIBRARY, and the ordinary Imprinted list is exile-only (CR
-		// 607.2a), so only SeekFound reaches a library card. Same channel
-		// diguntil.go's ImprintRevealed$ arm uses. Gated on c.Source != 0 (a
-		// sourceless resolution has nowhere to imprint) and on the reveal not
-		// being a Look$ (nothing was publicly revealed). Absent the param this
-		// arm is a no-op, so every pre-existing reveal emits byte-identically.
-		if !look && c.Source != 0 && strings.EqualFold(strings.TrimSpace(rawParamText(sa, "ImprintRevealed").Text), "True") {
-			h.Emit(events.Event{Kind: events.Imprint, Obj: c.Source,
-				IDs: append([]state.ObjID(nil), revealed...), Text: "seek-found"})
-		}
+		revealImprint(h, c, revealed, look, rp.ImprintRevealed)
 		if look {
 			// CR 701.20e: a card looked at this way is shown only to the
 			// player the effect specifies — the activator — so the record is
@@ -1528,6 +1493,27 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			}
 			c.Remembered = next
 		}
+	}
+}
+
+// peekRevealWindow cuts the library to the top PeekAmount cards BEFORE
+// RevealValid/RevealType filtering. An explicit RevealDefined object bypasses
+// this helper: it has its own one-card pool. ECL Gathering Stone must not
+// find a matching card below the window.
+func peekRevealWindow(pool []state.ObjID, amt int32) []state.ObjID {
+	if int32(len(pool)) > amt {
+		return pool[:amt]
+	}
+	return pool
+}
+
+// revealImprint links publicly revealed cards to the source's seek-found
+// list. Portent of Calamity scans imprinted cards still in the LIBRARY,
+// whereas the ordinary imprint list is exile-gated (CR 607.2a).
+func revealImprint(h Host, c *Ctx, revealed []state.ObjID, look, imprint bool) {
+	if imprint && !look && c.Source != 0 {
+		h.Emit(events.Event{Kind: events.Imprint, Obj: c.Source,
+			IDs: append([]state.ObjID(nil), revealed...), Text: "seek-found"})
 	}
 }
 
