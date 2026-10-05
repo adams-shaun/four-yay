@@ -677,7 +677,7 @@ func triggerTurnLimitFor(t cards.Trigger) (limit int, present bool) {
 		// same turn is also collapsed. It rides the same read-at-gate /
 		// reserve-at-queue pair as ActivationLimit$, so a matched event a
 		// later gate rejects does not consume the turn.
-		if t.Mode == "TokenCreatedOnce" || t.Mode == "SacrificedOnce" {
+		if mode := cards.TriggerModeOf(t.Mode); mode == cards.TriggerTokenCreatedOnce || mode == cards.TriggerSacrificedOnce {
 			return 1, true
 		}
 		return 0, false
@@ -688,7 +688,8 @@ func triggerTurnLimitFor(t cards.Trigger) (limit int, present bool) {
 	}
 	// The Once modes' meaning is once per turn; an explicit ActivationLimit$
 	// above 1 on such a line cannot raise it.
-	if (t.Mode == "TokenCreatedOnce" || t.Mode == "SacrificedOnce") && limit > 1 {
+	mode := cards.TriggerModeOf(t.Mode)
+	if (mode == cards.TriggerTokenCreatedOnce || mode == cards.TriggerSacrificedOnce) && limit > 1 {
 		limit = 1
 	}
 	return limit, true
