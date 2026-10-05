@@ -150,7 +150,14 @@ func askUnlockDoorHalf(h Host, c *Ctx, sa *cards.SA) bool {
 // (CLOBBER-inherited) or empty.
 func unlockDoorPool(h Host, c *Ctx, sa *cards.SA) ([]*state.Object, bool) {
 	g := h.Game()
-	if TargetsOf(sa).Targeted() || c.TargetsOffered || c.PickedTargets != nil {
+	// Ctx.TargetsOffered is resolution-wide, while Ctx.Targets may belong
+	// to an outer ability. Only consume the target list when this SA itself
+	// owns the announcement ask, or the current pre-ask explicitly recorded
+	// its answer. A nested non-targeted UnlockDoor must use its own Choices$
+	// or controlled-Room pool, not its parent's target.
+	ownAnnouncementTargets := TargetsOf(sa).Targeted() && !isLaterTargetedSub(c, sa)
+	ownOfferedTargets := c.TargetsOffered && c.OfferedSA != nil && sa.Line == c.OfferedSA.Line
+	if ownAnnouncementTargets || ownOfferedTargets || c.PickedTargets != nil {
 		ts := c.Targets
 		if c.PickedTargets != nil {
 			ts = c.PickedTargets
