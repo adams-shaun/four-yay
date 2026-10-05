@@ -165,7 +165,8 @@
 //	intentBuf, sbaIDBuf, foreachBuf,
 //	graveCandBuf, hypSpares,
 //	targetCensusBuf, ManaAbScratch,
-//	offStackSlots, offStackDepth
+//	offStackSlots, offStackDepth,
+//	auraEntryCands
 //	loop, askCount                    intent-stream watchdog and ask counter: they count the
 //	                                   route's decisions, not the game
 //	legalActionWalks                   legalActionsPriced's diagnostic call counter: the float
