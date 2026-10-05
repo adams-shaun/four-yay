@@ -103,6 +103,9 @@ const (
 	// object the referent names (Demonic Covenant's "two cards that share
 	// all their card types were milled this way").
 	wordSharesAllCardTypes
+	// sharesNameWith <referent> compares the candidate's full name set with
+	// the names of supported resolution-time object referents.
+	wordSharesNameWith
 	// The two-token space form "EnchantedBy <Type>.<qual>": the candidate
 	// bears an attached permanent of the named type whose qualifier holds
 	// against that attached object (Daybreak Coronet's "creature with
@@ -487,6 +490,9 @@ func wordPredicate(p string) (wordKind, string) {
 	// the object in hand; a referent that needs resolution-time context
 	// (AttachedTo Targeted) or a nested predicate (AttachedTo
 	// Permanent.YouCtrl) stays wordUnknown and fails closed.
+	if arg, ok := sharesNameWithArg(p); ok {
+		return wordSharesNameWith, arg
+	}
 	if arg, ok := attachedToArg(p); ok {
 		return wordAttachedTo, arg
 	}
@@ -603,6 +609,15 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		return sharesCreatureTypeWith(g, o, sc, key)
 	case wordSharesAllCardTypes:
 		return sharesAllCardTypesWithOther(g, o, sc, key)
+	case wordSharesNameWith:
+		for _, target := range sharesTypeReferents(g, sc, key) {
+			if !target.IsPlayer {
+				if referent := g.Obj(target.Obj); referent != nil && sharesNameWithObject(o, referent, sc) {
+					return true
+				}
+			}
+		}
+		return false
 	case wordColor:
 		return strings.Contains(colorsCtx(o, &sc), key)
 	case wordChosenColor:
@@ -1140,6 +1155,8 @@ func contextPredicateBound(g *state.Game, kind wordKind, key string, sc SpecCont
 		}
 		base := strings.TrimSuffix(key, ".YouCtrl")
 		return base == "Card" || base == "Giant" || base == "Spider"
+	case wordSharesNameWith:
+		return len(sharesTypeReferents(g, sc, key)) > 0
 	case wordDealtDamageThisGameBy:
 		// The argument form binds through <ref>; an unresolvable ref names no
 		// source at all, so both the positive and the '!'-negated spelling

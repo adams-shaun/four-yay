@@ -195,12 +195,7 @@ func sacTargetCardReferent(spec string, c *Ctx) (state.ObjID, bool) {
 	if base != "TargetedCard" || qual != "Self" {
 		return 0, false
 	}
-	for _, t := range c.Targets {
-		if !t.IsPlayer && t.Obj != 0 {
-			return t.Obj, true
-		}
-	}
-	return 0, false
+	return targetedCardSelfReferent(c.SpecContext(c.Controller))
 }
 
 // effSacrifice moves permanents to the graveyard. Sacrifice ignores

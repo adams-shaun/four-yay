@@ -2218,6 +2218,9 @@ func matchesBase(g *state.Game, base string, o *state.Object, sc SpecContext) bo
 		return !matchesBase(g, neg, o, sc)
 	}
 	switch matchesBaseCodes.Code(string(base)) {
+	case matchesBaseTargetedCard:
+		id, bound := targetedCardSelfReferent(sc)
+		return bound && o.ID == id
 	case matchesBaseAny:
 		return hasTypeCtx(o, "Creature", sc) || hasTypeCtx(o, "Planeswalker", sc) || hasTypeCtx(o, "Battle", sc)
 	case matchesBaseCard:
@@ -2634,6 +2637,9 @@ func matchesObjectText(g *state.Game, spec string, o *state.Object, sc SpecConte
 			continue
 		}
 		base, rest, _ := strings.Cut(alt, ".")
+		if base == "TargetedCard" && !strings.Contains("+"+rest+"+", "+Self+") {
+			continue
+		}
 		asc := sc
 		contextualSameName := sameNameContextBase(base, rest)
 		// Forge's sameName forms can name their referent in the base:
@@ -2700,7 +2706,7 @@ func matchesObjectText(g *state.Game, spec string, o *state.Object, sc SpecConte
 		}
 		all := true
 		for p := range strings.SplitSeq(rest, "+") {
-			if p == "" {
+			if p == "" || (base == "TargetedCard" && p == "Self") {
 				continue
 			}
 			// Permanent is an auxiliary part of Forge's
@@ -2796,6 +2802,9 @@ func matchesZoneSpecText(g *state.Game, spec string, o *state.Object, sc SpecCon
 			continue
 		}
 		base, rest, _ := strings.Cut(alt, ".")
+		if base == "TargetedCard" && !strings.Contains("+"+rest+"+", "+Self+") {
+			continue
+		}
 		if base == "CARDNAME" {
 			if sc.Source == 0 || o.ID != sc.Source {
 				continue
@@ -2831,7 +2840,7 @@ func matchesZoneSpecText(g *state.Game, spec string, o *state.Object, sc SpecCon
 		}
 		all := true
 		for p := range strings.SplitSeq(rest, "+") {
-			if p == "" {
+			if p == "" || (base == "TargetedCard" && p == "Self") {
 				continue
 			}
 			res, ok := matchPredicate(g, p, o, sc)
@@ -2850,6 +2859,9 @@ func matchesZoneSpecText(g *state.Game, spec string, o *state.Object, sc SpecCon
 func matchesBaseInZone(g *state.Game, base string, o *state.Object, sc SpecContext, zone state.Zone) bool {
 	if neg := strings.TrimPrefix(base, "non"); neg != base {
 		return !matchesBaseInZone(g, neg, o, sc, zone)
+	}
+	if base == "TargetedCard" {
+		return matchesBase(g, base, o, sc)
 	}
 	if base != "Permanent" || zone == state.ZBattlefield {
 		return matchesBase(g, base, o, sc)
@@ -3213,6 +3225,7 @@ type matchesBaseCode uint16
 
 const (
 	matchesBaseAny matchesBaseCode = iota + 1
+	matchesBaseTargetedCard
 	matchesBaseCard
 	matchesBasePermanent
 	matchesBaseAffinity
@@ -3222,6 +3235,7 @@ const (
 )
 
 var matchesBaseCodes = state.NewStrCodes(
+	state.StrEntry[matchesBaseCode]{Key: "TargetedCard", Val: matchesBaseTargetedCard},
 	state.StrEntry[matchesBaseCode]{Key: "Any", Val: matchesBaseAny},
 	state.StrEntry[matchesBaseCode]{Key: "Card", Val: matchesBaseCard},
 	state.StrEntry[matchesBaseCode]{Key: "Permanent", Val: matchesBasePermanent},

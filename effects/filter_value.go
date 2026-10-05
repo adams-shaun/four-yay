@@ -412,6 +412,22 @@ func hasPredicate(rest, want string) bool {
 	return false
 }
 
+// targetedCardSelfReferent resolves Forge's TargetedCard.Self base to the
+// first live object target of the resolving ability. Player targets and stale
+// object ids do not bind.
+func targetedCardSelfReferent(sc SpecContext) (state.ObjID, bool) {
+	bound, ok := sc.TargetBinding()
+	if !ok {
+		return 0, false
+	}
+	for _, t := range bound {
+		if !t.IsPlayer && t.Obj != 0 {
+			return t.Obj, true
+		}
+	}
+	return 0, false
+}
+
 // sameNameContextReferent resolves the object whose name a sameName context
 // base names. An absent binding fails closed rather than falling back to the
 // ability source.

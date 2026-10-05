@@ -175,6 +175,23 @@ func sharesTypeArg(p string) (name, arg string, ok bool) {
 	return "", "", false
 }
 
+// sharesNameWithArg recognises the supported two-token name-comparison
+// referents. Keep this narrower than sharesTypeArg: name comparison currently
+// binds Targeted, Remembered and TriggeredCard only.
+func sharesNameWithArg(p string) (string, bool) {
+	name, arg, ok := strings.Cut(p, " ")
+	if !ok || name != "sharesNameWith" {
+		return "", false
+	}
+	arg = strings.TrimSpace(arg)
+	switch arg {
+	case "Targeted", "Remembered", "RememberedCard", "TriggeredCard":
+		return arg, true
+	default:
+		return "", false
+	}
+}
+
 // SpecUsesConvokedAmount reports whether spec reads the `Convoked$Amount`
 // count head (or any future `Convoked$<Property>` sibling) -- Forge's spelling
 // for "the number of creatures that convoked it" (CR 702.66). It is the
