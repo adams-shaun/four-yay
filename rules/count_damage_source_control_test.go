@@ -78,6 +78,9 @@ func TestBurningMasksDoesNotClaimAcquiredSourceHistory(t *testing.T) {
 		t.Fatal("precondition: Case stays under seat 0 and opposing source is in play")
 	}
 	damageCountEvent(e, other, 0, 0, 3, true)
+	if hits := e.G.Obj(other).DamageDealtThisTurn; len(hits) != 1 || hits[0].Amount != 3 || hits[0].SourceControl != 1 {
+		t.Fatalf("precondition: opposing source's hit must be recorded under seat 1: %+v", hits)
+	}
 	if got := effects.EvalCount(e, ctx, body); got != 0 {
 		t.Fatalf("opponent source before theft = %d, want zero", got)
 	}
