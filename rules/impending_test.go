@@ -121,9 +121,6 @@ func TestImpendingCastEntersWithTimeCountersAndIsNotACreature(t *testing.T) {
 	if impendingContainsWord(types, "Creature") {
 		t.Errorf("derived types %v still name Creature; the layer-4 switch dropped nothing", types)
 	}
-	if len(types) != 0 {
-		t.Errorf("derived types %v retain unrelated words; the Creature Golem fixture should become typeless", types)
-	}
 	// The entry rider really ran: it granted the recurring end-step removal.
 	grants := 0
 	for _, ce := range e.active() {

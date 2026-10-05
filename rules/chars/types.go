@@ -377,9 +377,12 @@ func reconfigureTypeSwitch(o *state.Object, types []string) []string {
 
 // impendingTypeSwitch applies CR 702.176a's switch to a DERIVED type list: a
 // permanent cast for its impending cost is not a creature while it has a time
-// counter, so its creature subtypes are removed along with Creature. Other card
-// types and supertypes remain. An object not impending-dormant -- printed
-// without Impending, cast for its plain mana cost, or with its last time
+// counter, so its creature subtypes are removed along with Creature. Subtypes
+// of retained card types (e.g. Equipment on an Artifact) remain. The positive
+// creature-subtype vocabulary avoids treating every non-card-type word as a
+// creature subtype (Saga, Forest, etc.). Other card types and supertypes remain.
+// An object not impending-dormant -- printed without Impending, cast for its
+// plain mana cost, or with its last time
 // counter removed -- keeps the list unchanged, returning the SAME slice so the
 // common game stays byte-identical and allocation-free. The dormancy is
 // derived live (state.Object.ImpendingDormant), so every replay derives the
@@ -390,7 +393,7 @@ func impendingTypeSwitch(o *state.Object, types []string) []string {
 	}
 	out := make([]string, 0, len(types))
 	for _, t := range types {
-		if t == "Creature" || IsCreatureSubtype(t) {
+		if t == "Creature" || effects.CreatureTypeWords(t) {
 			continue
 		}
 		out = append(out, t)
