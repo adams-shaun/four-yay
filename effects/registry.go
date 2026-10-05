@@ -387,9 +387,6 @@ type Ctx struct {
 	// changeZoneChosenTargets), which the generic pre-ask never sees.
 	linkAnswer   []state.Target
 	linkAnswered bool
-	// chosenTargetsClaim is the SA whose body owns narrower RememberTargets
-	// semantics (Destroy/ChangeZone moved-only recording).
-	chosenTargetsClaim *cards.SA
 	// ChoiceTarget is the index of the per-player chooser currently being
 	// resumed. It keeps multi-player ChooseCard/ChoosePlayer asks from
 	// returning to the first chooser after every answer.

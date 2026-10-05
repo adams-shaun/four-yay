@@ -92,22 +92,23 @@ func (c *Ctx) ResumeParentLinks(links [][]state.Target, answer []state.Target, a
 	}
 }
 
-// noteChosenTargetsOwned marks an SA whose body has narrower RememberTargets
-// semantics than the generic chosen-target recorder (currently Destroy and
-// ChangeZone only remember objects that actually moved). The SA identity keeps
-// nested Resolve calls from consuming an outer body's claim.
-func noteChosenTargetsOwned(c *Ctx, sa *cards.SA) { c.chosenTargetsClaim = sa }
-
 // rememberChosenTargets applies Forge's handleRemembering after an SA body.
 // When there was no pre-ask, the root SA's choices are the targeting context
 // captured on Ctx and resolved through Defined.
 func rememberChosenTargets(h Host, c *Ctx, sa *cards.SA, targets []state.Target, preAsked bool) {
-	owned := c.chosenTargetsClaim == sa
-	if owned {
-		c.chosenTargetsClaim = nil
-	}
-	if owned || !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True") ||
+	if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True") ||
 		!TargetsOf(sa).Has(TgtValidPresent) {
+		return
+	}
+	// These two bodies already record only the targets actually destroyed or
+	// moved, not the complete chosen set. Dispatch identity is enough to
+	// exclude them here: no per-walk Ctx cursor is needed, even for a nested
+	// Resolve or a body that returns early.
+	code := sa.CompiledAPI()
+	if code == cards.APIUnknown {
+		code = cards.APICodeForName(sa.API)
+	}
+	if code == cards.APIDestroy || code == cards.APIChangeZone {
 		return
 	}
 	// Animate's RememberAnimated$ records the affected set, its historical

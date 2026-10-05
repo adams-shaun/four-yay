@@ -38,9 +38,6 @@ func effDestroy(h Host, c *Ctx, sa *cards.SA) {
 	// applies it only when the snapshot names the referenced object, so no
 	// other remembered read is affected.
 	rememberTargets := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True")
-	if rememberTargets {
-		noteChosenTargetsOwned(c, sa)
-	}
 	rememberDestroyed := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberDestroyed)), "True")
 	rememberLKI := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberLKI)), "True")
 	// Same pre-batch discipline as effDestroyAll: the targets Defined

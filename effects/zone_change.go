@@ -107,9 +107,6 @@ func changeZoneDefinedPlayerNote(h Host, c *Ctx, cz *ChangeZoneParams, originZon
 }
 
 func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
-	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True") {
-		noteChosenTargetsOwned(c, sa)
-	}
 	cz := ChangeZoneOf(sa)
 	to, stop := changeZonePrelude(h, c, cz)
 	if stop {
