@@ -261,7 +261,7 @@ type pendingTrigger struct {
 	// targeted grant, Iroh, Dragon of the West's counter-gated grant): the
 	// Ward/Afflict/Flanking shape. A creature granted firebending has no
 	// printed K:Firebending trigger to carry the attack body, so
-	// checkGrantedFirebendingTriggers synthesizes the ordinary Attacks trigger
+	// checkGrantedAttackKeywordTriggers synthesizes the ordinary Attacks trigger
 	// and the drain pushes a KeywordTriggerPush whose
 	// __kwFirebendingGranted:<N> payload events.Apply rebuilds into the same
 	// DB$ Mana | Produced$ R | Amount$ <N> | PersistentUntilEndOfCombat$ True
@@ -1223,7 +1223,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 					e.checkGrantedTrainingTriggers(observer, id, o, f, *ev, objLKI)
 					e.checkGrantedMeleeTriggers(observer, id, o, f, *ev, objLKI)
 					e.checkGrantedMentorTriggers(observer, id, o, f, *ev, objLKI)
-					e.checkGrantedFirebendingTriggers(observer, id, o, f, *ev, objLKI)
+					e.checkGrantedAttackKeywordTriggers(observer, id, o, f, *ev, objLKI)
 				case events.DeclareBlockers:
 					e.checkGrantedAfflictTriggers(id, o, f, *ev)
 				case events.PutOnStack:
@@ -1834,7 +1834,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 		// A granted Firebending must fire even when the object's own printed
 		// triggers are live for this event -- the same both-paths rule
 		// Afflict, Conspire, Exploit, Offspring, Training and Mentor follow.
-		e.checkGrantedFirebendingTriggers(observer, id, o, f, *ev, objLKI)
+		e.checkGrantedAttackKeywordTriggers(observer, id, o, f, *ev, objLKI)
 		// A granted cumulative upkeep must fire at the beginning of the
 		// controller's upkeep even when the object's own printed triggers are
 		// live for this step change -- the same both-paths rule Afflict,
@@ -2770,7 +2770,7 @@ func init() {
 		// CR 702.189 Firebending: an Attacks trigger (cards/kw_firebending.go)
 		// whose body adds N red with the until-end-of-combat exception
 		// (PersistentUntilEndOfCombat$), with a granted-keyword synthesis
-		// (checkGrantedFirebendingTriggers) for the layer-6 grant. Registered
+		// (checkGrantedAttackKeywordTriggers) for the layer-6 grant. Registered
 		// here so the coverage walk stops naming kw:Firebending as a gap now
 		// that the expansion and the granted walk supply the whole rule.
 		"kw:Firebending",
