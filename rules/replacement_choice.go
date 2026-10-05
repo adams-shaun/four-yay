@@ -602,7 +602,6 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		e.applyingReplacement = prior
 		return
 	}
-	damageKind := rc.kind == replChoiceDamage || rc.kind == replChoiceCounter
 	if replacementAnswerInvalid(chosen, rc) {
 		e.emit(events.Event{Kind: events.Note, Player: in.Player, Text: "replacement answer had no choice"})
 		return
@@ -614,13 +613,15 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 	// the ensuing CR 616.1 competition.
 	if handleParkedDrawAnswer(rc, chosen[0].Index, before, e.replacementAskPlayer,
 		&e.replChoices, e.askReplacementChoice, e.emit, &e.applyingReplacement,
-		&e.replExclude, func(snapshot *triggerSnapshot) { e.triggerBefore = snapshot },
+		&e.replExclude, func(snapshot *triggerSnapshot) {
+			e.triggerBefore, snapshot = snapshot, e.triggerBefore
+		},
 		func(ev events.Event, m replMatch) { e.applyReplacement(ev, m) }, func() {
 			e.emit(events.Event{Kind: events.Note, Player: in.Player, Text: "draw replacement answer out of range"})
 		}, e.askNextReplacementChoice) {
 		return
 	}
-	if damageKind {
+	if rc.kind == replChoiceDamage || rc.kind == replChoiceCounter {
 		completed := true
 		switch rc.kind {
 		case replChoiceCounter:
