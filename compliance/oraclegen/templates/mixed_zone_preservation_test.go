@@ -21,6 +21,23 @@ func TestExplicitMixedZonePreservesLegacyCreature(t *testing.T) {
 	if !faceHasType(t, reg, "Grizzly Bears", "Creature") || !strings.Contains(filter, "Instant.inZoneExile") {
 		t.Fatal("mixed-zone filter or legacy creature is not as expected")
 	}
+	// The old registry-first implementation must produce a different name,
+	// otherwise this preservation assertion would pass without the fix.
+	first := ""
+registryOrder:
+	for _, card := range reg.Cards {
+		for _, face := range card.Faces {
+			for _, typ := range face.Types {
+				if strings.EqualFold(strings.TrimSpace(typ), "Creature") {
+					first = face.Name
+					break registryOrder
+				}
+			}
+		}
+	}
+	if first == "" || first == "Grizzly Bears" {
+		t.Fatalf("first corpus Creature = %q; preservation test cannot distinguish registry from legacy", first)
+	}
 	if got := fxs[0].Targets()[0]; got != "p0:Grizzly Bears" || !containsName(fxs[0].P0().Graveyard, "Grizzly Bears") {
 		t.Fatalf("explicit mixed-zone first target = %q, graveyard %v; want legacy p0:Grizzly Bears", got, fxs[0].P0().Graveyard)
 	}
