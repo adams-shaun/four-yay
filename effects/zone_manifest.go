@@ -90,70 +90,83 @@ func effManifest(h Host, c *Ctx, sa *cards.SA) {
 // visible only to the library's player. If the host cannot ask, choose the
 // top card deterministically, matching the engine's R-9 fallback contract.
 //
-// Scope, measured over the corpus's 37 ManifestDread lines: the plain top-two
-// body (Zimone, Mystery Unraveler and 26 others) and `Amount$ 2` (identical
-// to the default). Every other parameter family -- `Amount$ 1` (a count this
-// build does not implement), `DefinedPlayer$` (only the resolving
-// controller's library is supported) and `RememberManifested$ True` (the
-// DBAttach/DBPutCounter rider family needs the manifested object remembered)
-// -- emits the SAME loud "unimplemented API ManifestDread" note the
-// unimplemented-API fallback emits and moves nothing: fail loud, never
-// silently look at the wrong count, the wrong player's library, or lose the
-// remembered card a rider needs.
+// Scope, measured over the corpus's 39 ManifestDread lines: the plain
+// top-two body (Zimone, Mystery Unraveler and 26 others), a
+// `DefinedPlayer$` selector through searchPlayers's grammar (Unwanted
+// Remake's `TargetedController`, the `RememberedOwner` shape), a
+// literal/SVar `Amount$` (the number of TIMES the whole two-card operation
+// repeats -- Forge ManifestDreadEffect's amount, NOT a window size;
+// Valgavoth's Onslaught's `Amount$ X`, whose rider then puts a counter on
+// each), and `RememberManifested$ True` (each manifested object joins the
+// resolution's Remembered, the DBAttach/DBPutCounter rider family). An
+// unresolvable `Amount$` body emits the loud note and moves nothing: fail
+// loud, never silently repeat the wrong number of times. The `Choices$`
+// chooser form still emits the same loud "unimplemented API ManifestDread"
+// note and moves nothing.
 func effManifestDread(h Host, c *Ctx, sa *cards.SA) {
-	if definedPlayerRef(sa).Set() ||
-		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberManifested)), "True") ||
-		sa.ParamStr(cards.PKChoices) != "" {
+	mp := compileManifestDread(sa)
+	if mp.Choices {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unimplemented API ManifestDread"})
 		return
 	}
-	if raw, present := sa.Param(cards.PKAmount); present && strings.TrimSpace(raw) != "2" {
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "unimplemented API ManifestDread"})
+	amount := int32(1)
+	if mp.Amount.Present {
+		n, ok := numResolvedText(h, c, mp.Amount, 1)
+		if !ok {
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+				Text: "unimplemented API ManifestDread"})
+			return
+		}
+		amount = n
+	}
+	if amount <= 0 {
 		return
 	}
+	remember := mp.Remember
 	g := h.Game()
-	p := c.Controller
-	lib := g.Zone(state.ZLibrary, p)
-	if len(lib) == 0 {
-		return
-	}
-	window := append([]state.ObjID(nil), lib[:min(2, len(lib))]...)
-	emitLook(h, []state.PlayerID{p}, state.ZLibrary, window, "looks at the top two cards of the library")
-	if len(window) == 1 {
-		manifestDreadMove(h, c, p, window, window[0])
-		return
-	}
-	d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
-		Source: c.Source, ResumeKind: "manifest_dread", ResumeSA: sa,
-		Prompt: "Choose a card to manifest dread"}
-	for _, id := range window {
-		label := "a card"
-		if o := g.Obj(id); o != nil && o.Face() != nil {
-			label = o.Face().Name
+	for _, p := range searchPlayers(h, c, sa) {
+		for i := int32(0); i < amount; i++ {
+			lib := g.Zone(state.ZLibrary, p)
+			if len(lib) == 0 {
+				break
+			}
+			window := append([]state.ObjID(nil), lib[:min(2, len(lib))]...)
+			emitLook(h, []state.PlayerID{p}, state.ZLibrary, window, "looks at the top two cards of the library")
+			if len(window) == 1 {
+				manifestDreadMove(h, c, p, window, window[0], remember)
+				continue
+			}
+			d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
+				Source: c.Source, ResumeKind: "manifest_dread", ResumeSA: sa,
+				Prompt: "Choose a card to manifest dread"}
+			for _, id := range window {
+				label := "a card"
+				if o := g.Obj(id); o != nil && o.Face() != nil {
+					label = o.Face().Name
+				}
+				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "manifest_dread", Label: label, Obj: id, Player: p})
+			}
+			if ans, ok := AskTape(h, d); ok {
+				// Answered in place: manifest the picked card.
+				var picked state.ObjID
+				if len(ans) > 0 {
+					picked = ans[0].Obj
+				}
+				manifestDreadAnswered(h, c, p, picked, remember)
+				continue
+			}
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: p,
+				Text: "manifests the top card (no engine host to ask)", Secret: true})
+			manifestDreadMove(h, c, p, window, window[0], remember)
 		}
-		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "manifest_dread", Label: label, Obj: id, Player: p})
 	}
-	if ans, ok := AskTape(h, d); ok {
-		// Answered in place: manifest the picked card.
-		var picked state.ObjID
-		if len(ans) > 0 {
-			picked = ans[0].Obj
-		}
-		manifestDreadAnswered(h, c, p, picked)
-		return
-	}
-
-	h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: p,
-		Text: "manifests the top card (no engine host to ask)", Secret: true})
-	manifestDreadMove(h, c, p, window, window[0])
 }
 
 // manifestDreadAnswered applies player p's answered pick: the picked card
 // (still on top of p's library) and the next card form the window it
 // splits.
-func manifestDreadAnswered(h Host, c *Ctx, p state.PlayerID, picked state.ObjID) {
+func manifestDreadAnswered(h Host, c *Ctx, p state.PlayerID, picked state.ObjID, remember bool) {
 	g := h.Game()
 	if o := g.Obj(picked); o != nil && o.Zone == state.ZLibrary && o.Owner == p {
 		window := []state.ObjID{picked}
@@ -162,7 +175,7 @@ func manifestDreadAnswered(h Host, c *Ctx, p state.PlayerID, picked state.ObjID)
 				window = append(window, id)
 			}
 		}
-		manifestDreadMove(h, c, p, window, picked)
+		manifestDreadMove(h, c, p, window, picked, remember)
 	}
 }
 
@@ -174,11 +187,21 @@ func manifestDreadAnswered(h Host, c *Ctx, p state.PlayerID, picked state.ObjID)
 // library-to-graveyard move does. Marking it Secret would strip Obj from
 // every non-owner projection, leaving the transcript a nameless move even
 // though the card's identity is public the moment it lands.
-func manifestDreadMove(h Host, c *Ctx, p state.PlayerID, window []state.ObjID, chosen state.ObjID) {
+//
+// remember (RememberManifested$ True) joins the manifested object to the
+// resolution's Remembered -- both the in-flight Ctx half and the source's
+// event-backed half, the same pair discardAndRemember/rememberMilled write
+// -- so a chained DBAttach/DBPutCounter reading Defined$ Remembered finds
+// it.
+func manifestDreadMove(h Host, c *Ctx, p state.PlayerID, window []state.ObjID, chosen state.ObjID, remember bool) {
 	for _, id := range window {
 		if id == chosen {
 			h.Emit(events.Event{Kind: events.MoveZone, Obj: id, Player: p, From: state.ZLibrary,
 				To: state.ZBattlefield, Counter: "entered_face_down", Secret: true})
+			if remember {
+				c.Remembered = append(c.Remembered, state.Target{Obj: id})
+				eventRemember(h, c, id)
+			}
 		} else {
 			o := h.Game().Obj(id)
 			if o != nil {

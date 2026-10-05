@@ -220,7 +220,7 @@ func compileDigUntil(sa *cards.SA, dr *DefinedParams) *DigUntilParams {
 		}
 	}
 	p.ImprintFound = digUntilTrueFlag("ImprintFound", rawParamText(sa, "ImprintFound").Text, &p.Withheld)
-	p.ImprintRevealed = digUntilTrueFlag("ImprintRevealed", rawParamText(sa, "ImprintRevealed").Text, &p.Withheld)
+	p.ImprintRevealed = digUntilTrueFlag("ImprintRevealed", digUntilImprintRevealedText(sa), &p.Withheld)
 	// FoundLibraryPosition$ places a found card whose destination IS the
 	// library: "-1" the bottom, "0"/absent the stay-in-place top default. Any
 	// other value is named loudly and the card stays on top.
@@ -277,6 +277,16 @@ func digUntilTrueFlag(key, raw string, withheld *[]string) bool {
 	}
 	*withheld = append(*withheld, key+"$ "+v)
 	return false
+}
+
+// digUntilImprintRevealedText is the one raw read of this parameter shared
+// by DigUntil and PeekAndReveal. Both compilers use this source.
+func digUntilImprintRevealedText(sa *cards.SA) string {
+	return rawParamText(sa, "ImprintRevealed").Text
+}
+
+func digUntilSharedImprintRevealed(sa *cards.SA) bool {
+	return isTrue(digUntilImprintRevealedText(sa))
 }
 
 // DigUntilKnownKeys is a copy of digUntilKnownKeys, for the census check.

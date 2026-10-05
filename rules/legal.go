@@ -180,6 +180,7 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 	w.mayPlayLandWalk()
 	w.mayhemLandWalk()
 	w.mayPlaySpellWalk()
+	plotZoneWalk(w)
 	w.commandZoneWalk()
 	w.graveyardCastsWalk()
 	w.exileCastsWalk()

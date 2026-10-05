@@ -836,6 +836,7 @@ func effMill(h Host, c *Ctx, sa *cards.SA) {
 		n = 0
 	}
 	remember := strings.EqualFold(sa.ParamStr(cards.PKRememberMilled), "True")
+	imprint := compileMillParams(sa).Imprint
 	show := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKShowMilledCards)), "True")
 	// One api:Mill resolution is ONE mill action (Forge's one Mill call),
 	// so the Mode$ MilledAll batch ("whenever one or more cards are
@@ -857,6 +858,26 @@ func effMill(h Host, c *Ctx, sa *cards.SA) {
 			h.Emit(events.Mill(id, p))
 			if remember {
 				rememberMilled(h, c, id)
+			}
+			// Imprint$ True (task mill-imprint; OTJ Patient Naturalist, BLB
+			// Blanchwood Prowler, WOE Ballad of the Black Flag, and siblings):
+			// Forge's MillEffect records every card it moved in the SOURCE's
+			// persistent imprintedCards association, so a chained
+			// `ChangeZone ... ChangeType$ Land.YouOwn+IsImprinted` (Patient
+			// Naturalist) finds exactly the milled cards rather than the whole
+			// graveyard. The milled card lands in the GRAVEYARD, and gorge's
+			// ordinary events.Imprint association is deliberately exile-gated
+			// (CR 607.2a: Card.IsImprinted stops matching once the linked card
+			// leaves exile), so this rides the non-zone-gated `seek-found`
+			// channel (state.Object.SeekFound) -- the same list the reveal/dig
+			// imprints use for looked-at cards -- which
+			// imprintAssociationContainsInZone reads without a zone test. A
+			// resolution with no source (c.Source == 0) has nowhere to imprint
+			// and records nothing, the ChangeZone guard's shape. Absent the
+			// param this arm is a no-op, so every pre-existing Mill emits
+			// byte-identically.
+			if imprint && c.Source != 0 {
+				h.Emit(events.Event{Kind: events.Imprint, Obj: c.Source, IDs: []state.ObjID{id}, Text: "seek-found"})
 			}
 			milledIDs = append(milledIDs, id)
 		}
@@ -1036,6 +1057,7 @@ func digDestPhrase(dest state.Zone) string {
 // compiled RevealHand SA today takes the whole hand. The pool is only known
 // inside the walk, so the whole-hand amount is applied per target.
 func effReveal(h Host, c *Ctx, sa *cards.SA) {
+	rp := compileRevealParams(sa)
 	_, hasNum := sa.Param(cards.PKNumCards)
 	wholeHand := sa.API == "RevealHand" && !hasNum
 	amt := int32(1)
@@ -1064,16 +1086,10 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 	// The may-reveal ask (task fb-3f1cc033, Delver of Secrets' peek; widened
 	// to Optional$ by the round-2 review's Look$ task): the deciding player
 	// is asked whether to reveal before the Note goes out. The ask is the
-	// same mid-resolution vocabulary every other asking primitive uses —
-	// KChoose yes/no with a ResumeKind, answered in place via AskTape. A
-	// host that cannot ask (an effects-package double, fuzz) keeps the pre-ask
-	// behaviour: the mandatory reveal, as the deterministic fallback (the
-	// same R-9 degradation Scry/Surveil carry). Still unread here,
-	// deliberately: NoReveal$/NoPeek$ and RememberRevealedPlayer$ — see the
-	// report's Issues section. PeekAmount$ and RevealValid$ ARE read (the
-	// PeekAndReveal arm above takes the peek window from PeekAmount$; the
-	// RevealValid$ filter below narrows the may-reveal to the matching
-	// subset for every API in this row).
+	// KChoose yes/no, answered in place via AskTape. No-host deterministically
+	// reveals; NoPeek$ and RememberRevealedPlayer$ remain unread. PeekAmount$
+	// and RevealValid$ ARE read: the window is cut before filtering, and the
+	// RevealValid$ filter below narrows the may-reveal to the matching subset.
 	look := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKLook)), "True")
 	revealType := strings.TrimSpace(sa.ParamStr(cards.PKRevealType))
 	// The may-reveal ask: PeekAndReveal poses it through RevealOptional$
@@ -1123,6 +1139,9 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			// A RevealDefined object is itself the card to reveal, not a
 			// selector for the first card in that player's zone.
 			pool = []state.ObjID{t.Obj}
+		}
+		if zone == state.ZLibrary && revealDefined == "" {
+			pool = peekRevealWindow(pool, amt)
 		}
 		if revealType != "" {
 			// RevealType$ (Slayer's Bounty: "look at the creature cards in
@@ -1394,6 +1413,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			continue
 		}
 		revealed := append([]state.ObjID(nil), pool[:n]...)
+		revealImprint(h, c, revealed, look, rp.ImprintRevealed)
 		if look {
 			// CR 701.20e: a card looked at this way is shown only to the
 			// player the effect specifies — the activator — so the record is
@@ -1464,6 +1484,27 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			}
 			c.Remembered = next
 		}
+	}
+}
+
+// peekRevealWindow cuts the library to the top PeekAmount cards BEFORE
+// RevealValid/RevealType filtering. An explicit RevealDefined object bypasses
+// this helper: it has its own one-card pool. ECL Gathering Stone must not
+// find a matching card below the window.
+func peekRevealWindow(pool []state.ObjID, amt int32) []state.ObjID {
+	if int32(len(pool)) > amt {
+		return pool[:amt]
+	}
+	return pool
+}
+
+// revealImprint links publicly revealed cards to the source's seek-found
+// list. Portent of Calamity scans imprinted cards still in the LIBRARY,
+// whereas the ordinary imprint list is exile-gated (CR 607.2a).
+func revealImprint(h Host, c *Ctx, revealed []state.ObjID, look, imprint bool) {
+	if imprint && !look && c.Source != 0 {
+		h.Emit(events.Event{Kind: events.Imprint, Obj: c.Source,
+			IDs: append([]state.ObjID(nil), revealed...), Text: "seek-found"})
 	}
 }
 
@@ -1812,6 +1853,17 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 		h.Emit(events.Event{Kind: events.LibraryOrder, Player: p,
 			IDs:    append([]state.ObjID(nil), lib...),
 			Secret: true})
+		// RememberKept$ True on the no-host path: the stand-in keeps every
+		// looked-at card on top, so each joins the source's remembered list
+		// exactly as the answered arm (rules' arrangeAnswerRecord) records
+		// pile A. Without this the deterministic replay would drop the
+		// recollection the answered path keeps, and Starving Revenant's
+		// draw/lose would differ between a tape run and a no-ask host.
+		// Bounded to the looked-at window (k).
+		if SurveilOf(sa).RememberKept && k > 0 && c.Source != 0 {
+			kept := append([]state.ObjID(nil), lib[:k]...)
+			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "remembered", IDs: kept})
+		}
 		// A Scry that completes HERE -- no-host, or the never-posted empty
 		// KArrange an empty library or ScryNum$ 0 produces -- still completed:
 		// record its zero-card bottom pile (task scrybottom) through

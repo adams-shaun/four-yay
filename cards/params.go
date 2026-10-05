@@ -421,6 +421,7 @@ const (
 	PKRememberFound
 	PKRememberGoaded
 	PKRememberInvestigatingPlayers
+	PKRememberKept
 	PKRememberLoser
 	PKRememberManifested
 	PKRememberMilled
@@ -688,6 +689,7 @@ const (
 	PKRepeatPlayers
 	PKRepeatSpellAbilities
 	PKRepeatTargeted
+	PKRepeatTypesFrom
 	PKReplaceDyingDefined
 	PKReplacementEffects
 	PKSetChosenNumber
@@ -1165,6 +1167,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKRememberFound:                    "RememberFound",
 	PKRememberGoaded:                   "RememberGoaded",
 	PKRememberInvestigatingPlayers:     "RememberInvestigatingPlayers",
+	PKRememberKept:                     "RememberKept",
 	PKRememberLoser:                    "RememberLoser",
 	PKRememberManifested:               "RememberManifested",
 	PKRememberMilled:                   "RememberMilled",
@@ -1434,6 +1437,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKRepeatPlayers:                    "RepeatPlayers",
 	PKRepeatSpellAbilities:             "RepeatSpellAbilities",
 	PKRepeatTargeted:                   "RepeatTargeted",
+	PKRepeatTypesFrom:                  "RepeatTypesFrom",
 	PKReplaceDyingDefined:              "ReplaceDyingDefined",
 	PKReplacementEffects:               "ReplacementEffects",
 	PKSetChosenNumber:                  "SetChosenNumber",

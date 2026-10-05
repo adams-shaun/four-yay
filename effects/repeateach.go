@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 
@@ -57,6 +58,96 @@ func repeatedCards(h Host, c *Ctx, rp *RepeatEachParams) ([]state.Target, bool) 
 	return out, true
 }
 
+// repeatEachTypesFrom enumerates the distinct Magic card types represented
+// by cards matching a RepeatTypesFrom$ selector, in rules-defined type order
+// (not map iteration order). The selector's leading token is Forge's
+// Valid<Zone> grammar -- the same vocabulary RepeatCards$'s Zone$ set uses --
+// so the scan reads that zone rather than always the library:
+//
+//	ValidLibrary Card.IsImprinted        (Portent of Calamity, Atraxa)
+//	ValidGraveyard Card.OwnedBy X        (Grime Gorger)
+//	Valid Permanent.OppCtrl              (Only I Know What Awaits)
+//
+// The remaining token(s) are the card selector handed to the ordinary
+// filter. A selector whose leading token is not a known zone (Hurkyl, Master
+// Wizard's `ThisTurnCast_...` cast-history form) returns ok=false so the
+// caller emits its loud "RepeatEach selector unimplemented" Note rather than
+// silently finding no types.
+func repeatEachTypesFrom(h Host, c *Ctx, spec string) ([]string, bool) {
+	types := repeatEachCardTypes()
+	zoneName, selector, ok := splitTypesFromSelector(spec)
+	if !ok {
+		return nil, false
+	}
+	seen := map[string]bool{}
+	players := h.Game().AliveFrom(c.Controller)
+	for _, p := range players {
+		for _, id := range h.Game().Zone(zoneName, p) {
+			obj := h.Game().Obj(id)
+			if obj == nil || !choiceMatches(h, h.Game(), c, selector, obj) || obj.Face() == nil {
+				continue
+			}
+			for _, typ := range types {
+				hasType := false
+				for _, printed := range obj.Face().Types {
+					if strings.EqualFold(printed, typ) {
+						hasType = true
+						break
+					}
+				}
+				if hasType {
+					seen[typ] = true
+				}
+			}
+		}
+	}
+	var out []string
+	for _, typ := range types {
+		if seen[typ] {
+			out = append(out, typ)
+		}
+	}
+	return out, true
+}
+
+// repeatEachCardTypes returns the CR 205.1 registry in deterministic order.
+// Kindred is the current name for Tribal and is accepted alongside the legacy
+// spelling. Sorting the registry keys avoids a second, drifting type list.
+func repeatEachCardTypes() []string {
+	types := make([]string, 0, len(cardTypeWords)+1)
+	for typ := range cardTypeWords {
+		types = append(types, typ)
+	}
+	types = append(types, "Kindred")
+	sort.Strings(types)
+	return types
+}
+
+// splitTypesFromSelector splits RepeatTypesFrom$'s leading Valid<Zone> token
+// from its card selector using the RepeatCards$ scan's zone vocabulary. A
+// bare `Valid` token (Forge's shorthand for the battlefield) is recognized
+// too. ok is false for a token that names no zone.
+func splitTypesFromSelector(spec string) (state.Zone, string, bool) {
+	spec = strings.TrimSpace(spec)
+	if spec == "" {
+		return 0, "", false
+	}
+	head, rest, _ := strings.Cut(spec, " ")
+	zoneName := strings.TrimPrefix(head, "Valid")
+	if zoneName == head { // no Valid prefix at all
+		return 0, "", false
+	}
+	if zoneName == "" { // bare `Valid`: the battlefield
+		return state.ZBattlefield, strings.TrimSpace(rest), true
+	}
+	for _, rz := range repeatCardsZones {
+		if rz.name == zoneName {
+			return rz.zone, strings.TrimSpace(rest), true
+		}
+	}
+	return 0, "", false
+}
+
 func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 	if c.SVars == nil {
 		return
@@ -67,6 +158,7 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	var subjects []state.Target
+	var repeatedTypes []string
 	// DamageMap$ True (Price of Progress, Wing Storm, Baki's Curse -- 87
 	// corpus files): the loop's damage is ONE damage batch. Forge accumulates
 	// every iteration's dealDamage into a per-SA damage table and deals it
@@ -138,6 +230,8 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 		subjects, ok = validStackTargets(h.Game(), rp.SpellAbilities, c), true
 	case rp.Targeted:
 		subjects, ok = copyTargets(c.Targets), true
+	case rp.TypesFrom != "":
+		repeatedTypes, ok = repeatEachTypesFrom(h, c, rp.TypesFrom)
 	default:
 		subjects, ok = repeatedCards(h, c, rp)
 		cardsSubjects = true
@@ -233,6 +327,18 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 		c.Remembered = rememberIteration(c.Remembered, cc.Remembered, base, t)
+	}
+	for _, typ := range repeatedTypes {
+		// RepeatTypesFrom binds the current type to the resolving source;
+		// predicates such as Card.ChosenType in the repeated body see this
+		// iteration through the ordinary event fold.
+		h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: typ})
+		cc := *c
+		cc.Remembered = append([]state.Target(nil), c.Remembered...)
+		Resolve(h, &cc, sub)
+		if h.Suspended() {
+			return
+		}
 	}
 	if batched && batcher != nil {
 		// The loop completed: close the batch opened for it.
