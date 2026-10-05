@@ -319,9 +319,17 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "6" }
 # because a faster gate holds fewer test binaries' heaps at once, so the
 # unchanged 8G MemoryMax still bounds it. Net module gate: ~113s -> ~83s
 # (-30s, -27%). The other gates are unchanged.
+#
+# 2026-10-05: launch the slow rules package separately alongside the rest of
+# the module. Under the exact scope, the serial ./... schedule started rules
+# at t=40s and finished at 141s; concurrently running rules + all other
+# packages finished in 93s (same -p=8, skip list, CPUQuota, MemoryMax and
+# GOMEMLIMIT). This preserves the full module coverage and the three existing
+# skips, while removing the package-build queue delay before rules. Keep each
+# invocation's status: either half failing must fail this gate.
 [[gates]]
 name = "go test (module)"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "go", "test", "-p=8", "-skip", "^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "bash", "-c", "set -euo pipefail; skip='^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$'; rest=$(go list ./... | grep -vE '/rules$'); go test -p=8 -skip \"$skip\" $rest & rest_pid=$!; go test -p=8 ./rules/ & rules_pid=$!; if wait \"$rules_pid\"; then rules_rc=0; else rules_rc=$?; fi; if wait \"$rest_pid\"; then rest_rc=0; else rest_rc=$?; fi; test \"$rules_rc\" -eq 0 -a \"$rest_rc\" -eq 0"]
 timeout = 1200
 env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "16" }
 
