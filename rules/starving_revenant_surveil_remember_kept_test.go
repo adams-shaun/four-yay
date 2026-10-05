@@ -72,11 +72,20 @@ func TestStarvingRevenantSurveilRememberKeptAnswered(t *testing.T) {
 	if got := e.G.Obj(buried); got == nil || got.Zone != state.ZGraveyard {
 		t.Fatalf("non-kept card %d is not in graveyard: %+v", buried, got)
 	}
-	if got := e.G.Obj(kept); got == nil || got.Zone != state.ZLibrary {
-		t.Fatalf("kept card %d is not on top in library: %+v", kept, got)
+	var arrangedTop state.ObjID
+	for _, ev := range e.L.Events {
+		if ev.Kind == events.LibraryOrder && ev.Player == 0 && len(ev.IDs) > 0 {
+			arrangedTop = ev.IDs[0]
+		}
+	}
+	if arrangedTop != kept {
+		t.Fatalf("answered Surveil top card = %d, want kept card %d", arrangedTop, kept)
 	}
 
 	passUntilStackEmpty(t, e, 30)
+	if got := e.G.Obj(kept); got == nil || got.Zone != state.ZHand {
+		t.Fatalf("remembered top card %d was not the rider's draw: %+v", kept, got)
+	}
 	drawsAfter := countEvents(e, func(ev events.Event) bool { return ev.Kind == events.Draw && ev.Player == 0 })
 	if got := e.G.Players[0].Life; got != lifeBefore-3 {
 		t.Fatalf("Revenant life = %d after keeping one, want %d (lose 3)", got, lifeBefore-3)
