@@ -35,18 +35,14 @@
 //     cards/kw_vanishing.go's upkeep trigger uses) stops it the moment the
 //     last counter leaves and the permanent is a creature again.
 //
-// Deviation (not closed here): the N time counters are placed by a direct
-// CounterChange emitted after the MoveZone, not by an entry replacement, so
-// an "enters with an additional counter" replacement (Doubling Season,
-// Hardened Scales) does not apply to them. An entry replacement cannot key on
-// the alternative cost at the cards layer the way K:Vanishing's printed
-// R:Event$ Moved can, because the rider is conditioned on which cost was
-// PAID, which only exists once the cast is committed; the numbers ride the
-// report.
+// The paid-cost provenance remains on the stack object until its MoveZone
+// folds. rules/entry_counters.go reads that bit into the common entry-counter
+// plan, so AddCounter replacements settle the time-counter grant before the
+// permanent enters, alongside other entry-characteristic counters.
 //
-// Every registration is a real event (DelayedRegister/AddContinuous) or a
-// CounterChange the replay re-executes, so a replayed game re-derives the
-// identical board.
+// Every registration is a real event (AddContinuous) or a staged entry grant
+// folded from the logged MoveZone and replacement-adjusted counter notice, so
+// replay re-derives the identical board.
 
 package rules
 
@@ -55,7 +51,6 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
-	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -112,28 +107,17 @@ func impendingCount(f *cards.Face) int32 {
 	return n
 }
 
-// impendingEnter is the CR 702.176a entry rider: a permanent whose impending
-// cost was paid enters with N time counters and is not a creature until the
-// last is removed. It is called from altCostEnter (a battlefield MoveZone),
-// so the registration's Source is the entering permanent and the
-// CounterChange's Counter is the canonical "TIME" kind the intrinsic switch
-// and the emitted-count guard in rules/emit.go both read.
-//
-// The counters are placed through a real CounterChange event (never a direct
-// state write) so repl:AddCounter replacements and CounterAdded triggers see
-// the placement exactly like a suspend card's. The recurring end-step removal
-// is a runtime-granted trigger (the blitzEnter AddTrigger shape) whose
+// impendingEnter is the CR 702.176a end-step trigger rider. Entry time
+// counters are placed by the shared staged entry-counter path before MoveZone
+// folds (rules/entry_counters.go), allowing the AddCounter replacement class
+// to modify them. This hook registers the recurring end-step removal as a
+// runtime-granted trigger (the blitzEnter AddTrigger shape) whose
 // IsPresent$ Card.Self+counters_GE1_TIME gate stops it the instant the last
 // counter leaves.
 func impendingEnter(e *Engine, id state.ObjID, controller state.PlayerID) {
 	o := e.G.Obj(id)
 	if o == nil || o.Face() == nil {
 		return
-	}
-	n := impendingCount(o.Face())
-	if n > 0 {
-		e.emit(events.Event{Kind: events.CounterChange, Obj: id, Player: controller,
-			Counter: "TIME", Amount: n, Text: "impending entry"})
 	}
 	// "At the beginning of your end step, remove a time counter from it."
 	// A granted trigger scoped to the permanent itself (the blitzEnter
