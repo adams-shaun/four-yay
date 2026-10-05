@@ -354,6 +354,12 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			// settles.
 			pc.casualtySac = chosen[0].Obj
 		}
+	case castAnswerBargain:
+		// CR 702.166: the answered sacrifice settles through pc.Sacs with
+		// every other cost part; the cast mode already names the election.
+		if len(chosen) == 1 {
+			pc.Sacs = append(pc.Sacs, chosen[0].Obj)
+		}
 	case castAnswerGiftDecline:
 		// CR 702.168: a declined gift is the plain cast -- no promise, and
 		// pushCast emits only the Amount-0 record. The byte-identical shape
@@ -499,6 +505,7 @@ const (
 	castAnswerSquad
 	castAnswerMutatePlace
 	castAnswerCasualty
+	castAnswerBargain
 	castAnswerGiftDecline
 	castAnswerGiftPromise
 	castAnswerConspire
@@ -525,6 +532,7 @@ var castAnswerCodes = state.NewStrCodes(
 	state.StrEntry[castAnswerCode]{Key: "squad", Val: castAnswerSquad},
 	state.StrEntry[castAnswerCode]{Key: "mutate_place", Val: castAnswerMutatePlace},
 	state.StrEntry[castAnswerCode]{Key: "casualty", Val: castAnswerCasualty},
+	state.StrEntry[castAnswerCode]{Key: "bargain", Val: castAnswerBargain},
 	state.StrEntry[castAnswerCode]{Key: "gift_decline", Val: castAnswerGiftDecline},
 	state.StrEntry[castAnswerCode]{Key: "gift_promise", Val: castAnswerGiftPromise},
 	state.StrEntry[castAnswerCode]{Key: "conspire", Val: castAnswerConspire},

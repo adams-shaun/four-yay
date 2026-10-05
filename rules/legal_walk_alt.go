@@ -168,6 +168,22 @@ func (w *legalWalk) mayPlaySpellWalk() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: label, Obj: id, Mode: "mayplay", MayPlayPerm: off.key})
 			}
+			// Bargain is an additional cost on any spell cast through this
+			// permission. Price independently from the permission-adjusted raw
+			// base: the plain MayPlay option need not be affordable for the
+			// Bargain reduction to make this one legal. Compose modifiers once,
+			// in Bargain scope (the prior plain cost was already composed in
+			// MayPlay scope and must not be fed back through offerCastable).
+			if bg := &optionalSacrifices[optSacBargain]; e.stackKeywordPossibleH(id, kwhBargain) &&
+				len(e.optionalSacrificeCandidates(bg, p, id, 0)) > 0 {
+				bargainedCost := pay.WithSpellAbilityExtras(f,
+					w.offerCostFor(p, id, base, spellScope(bg.mode)))
+				if w.affordable(p, id, bargainedCost, false) {
+					*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
+						Label: "Cast " + f.Name + " (" + bg.mode + ")", Obj: id,
+						Mode: bg.mode, MayPlayPerm: off.key})
+				}
+			}
 		}
 		// Mutate half: the permission names the mutate cast. The mutate cast
 		// pays the mutate cost in place of the mana cost and targets a

@@ -289,7 +289,7 @@ const (
 	// string switches, and a word named in a second table is the vocabulary
 	// splitting again. Measured on main at 00363b185.
 	strCodesTables = 336
-	strCodesKeyDup = 1263
+	strCodesKeyDup = 1260
 )
 
 // longFuncCeilings freezes every non-test function in rules/ and effects/

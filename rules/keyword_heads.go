@@ -18,6 +18,7 @@ func kwHeadOf(s string) kwHead { return kwHead{S: s, ID: cards.KeywordHeadIDOf(s
 var (
 	kwhAfflict          = newKWHead("Afflict")
 	kwhAscend           = newKWHead("Ascend")
+	kwhBargain          = newKWHead("Bargain")
 	kwhBlitz            = newKWHead("Blitz")
 	kwhBloodthirst      = newKWHead("Bloodthirst")
 	kwhCasualty         = newKWHead("Casualty")
@@ -27,6 +28,7 @@ var (
 	kwhCumulativeUpkeep = newKWHead("Cumulative upkeep")
 	kwhCycling          = newKWHead("Cycling")
 	kwhDeathtouch       = newKWHead("Deathtouch")
+	kwhDecayed          = newKWHead("Decayed")
 	kwhDefender         = newKWHead("Defender")
 	kwhDelve            = newKWHead("Delve")
 	kwhDemonstrate      = newKWHead("Demonstrate")

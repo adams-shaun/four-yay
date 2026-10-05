@@ -21,6 +21,8 @@ var modelledValueHeads = []string{
 	"Adamant",
 	"AllFourBend",
 	"AttackersDeclared",
+	"Bargain",
+	"Bargained",
 	"Blessing",
 	"CardBasePower",
 	"CardCounters",

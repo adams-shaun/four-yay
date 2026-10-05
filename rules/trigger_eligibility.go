@@ -462,6 +462,12 @@ var triggerModeEventRows = [...]struct {
 	{cards.TriggerEnlisted, 0},
 	{cards.TriggerTaps, 1 << events.Tap},
 	{cards.TriggerTapsForMana, 1 << events.Tap},
+	// Aggregate tap modes (task cli-20261005T075020Z-05241a06): TapAll reads
+	// the Tap events of one tapping action, UntapAll the Untap events of one
+	// untapping action. Naming them here keeps a TapAll/UntapAll-only face's
+	// mask narrow to the one kind it can fire on.
+	{cards.TriggerTapAll, 1 << events.Tap},
+	{cards.TriggerUntapAll, 1 << events.Untap},
 	{cards.TriggerDamageDone, 1 << events.Damage},
 	{cards.TriggerDamageDealtOnce, 1 << events.Damage},
 	{cards.TriggerDamageDoneOnce, 1 << events.Damage},

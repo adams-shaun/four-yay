@@ -557,16 +557,6 @@ func parseCasualtyLine(k string) (casualtyInfo, bool) {
 	return info, true
 }
 
-func (e *Engine) casualtyCandidates(p state.PlayerID, spell state.ObjID, n int32) []state.ObjID {
-	var out []state.ObjID
-	for _, id := range e.G.Zone(state.ZBattlefield, p) {
-		if e.matchesSpecFrom("Creature.YouCtrl", id, p, spell) && e.Power(id) >= n {
-			out = append(out, id)
-		}
-	}
-	return out
-}
-
 // improviseCost applies CR 702.66a greedily in stable battlefield order:
 // each untapped artifact controlled by p (not already committed by
 // convokeCost -- the two keywords never share a carrier today, but the
