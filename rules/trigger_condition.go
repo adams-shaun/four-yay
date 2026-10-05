@@ -16,9 +16,27 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
+
+// evolveConditionHolds is the bare `Condition$ Evolve` gate (CR 702.99a):
+// the entering creature's derived power OR toughness must strictly exceed
+// the source's. It is the same comparison the Evolve$ keyword gate
+// (rules/trigmatch/zone.go) makes, shared through this free function so the
+// two spellings cannot drift. The narrow powerReader parameter (rather than
+// *Engine) keeps the gate out of the engine-surface side door; *Engine
+// satisfies it.
+func evolveConditionHolds(r interface {
+	Power(state.ObjID) int32
+	Toughness(state.ObjID) int32
+}, ev events.Event, source state.ObjID) bool {
+	if ev.To != state.ZBattlefield || ev.Obj == 0 {
+		return false
+	}
+	return r.Power(ev.Obj) > r.Power(source) || r.Toughness(ev.Obj) > r.Toughness(source)
+}
 
 // noResolvingCheck reports whether the trigger carries NoResolvingCheck$ True:
 // Forge's marker that its condition clause (an intervening-if, an
@@ -169,12 +187,13 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 	}
 	if strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKCondition)), "Metalcraft") {
 		// The bare-Condition$ spelling of the same gate. The trigger path
-		// reads no OTHER bare Condition$ value (LifePaid, Evolve,
-		// Sacrificed and friends are matched by their own per-kind helpers
-		// or stay unread), and no corpus trigger carries this spelling
-		// today -- the bare Condition$ Metalcraft carriers are S: statics
-		// the Continuous gate already reads -- but the spelling is kept
-		// beside Metalcraft$ so the two cannot drift apart.
+		// reads no OTHER bare Condition$ value here (LifePaid, Sacrificed and
+		// friends stay unread; Evolve is read in triggerMatchesWithSVars,
+		// where the entering object from the event is in scope), and no
+		// corpus trigger carries this spelling today -- the bare Condition$
+		// Metalcraft carriers are S: statics the Continuous gate already
+		// reads -- but the spelling is kept beside Metalcraft$ so the two
+		// cannot drift apart.
 		if !e.metalcraftHolds(you) {
 			return false
 		}
