@@ -542,12 +542,6 @@ func cloneFieldsEngineTriggerBatches(c, e *Engine, sp *Spare, remap *cloneRemap)
 			c.discardAllTurn[k0] = v0
 		}
 	}
-	if e.sacrificedOnceTurn != nil {
-		c.sacrificedOnceTurn = make(map[triggerKey]int32, len(e.sacrificedOnceTurn))
-		for k0, v0 := range e.sacrificedOnceTurn {
-			c.sacrificedOnceTurn[k0] = v0
-		}
-	}
 	if e.phaseUnknownNoted != nil {
 		c.phaseUnknownNoted = make(map[string]bool, len(e.phaseUnknownNoted))
 		for k0, v0 := range e.phaseUnknownNoted {

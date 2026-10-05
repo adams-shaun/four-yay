@@ -217,6 +217,14 @@ func IsSacrifice(ev Event) bool {
 	return ev.Kind == MoveZone && ev.From == state.ZBattlefield && ev.Text == sacrificeText
 }
 
+// IsAlterAttribute reports whether ev is the AlterAttribute grant for the
+// named attribute ("Saddled", "Plotted", ...), the designation the trigger
+// matchers for Mode$ Becomes* read. The attribute name is a parameter so the
+// call sites' literal arguments are not a per-word dispatch.
+func IsAlterAttribute(ev Event, attr string) bool {
+	return ev.Kind == AlterAttribute && ev.Text == attr
+}
+
 // ActionMarker returns the action marker a zone change carries when it is a
 // sacrifice or a discard, and "" for every other event. A replacement that
 // substitutes a different move for such an event records this marker so the

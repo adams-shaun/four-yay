@@ -1,8 +1,6 @@
 package trigmatch
 
 import (
-	"strings"
-
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -24,15 +22,14 @@ import (
 // than player. The current event is already logged when triggers match, so
 // exactly one record means this is the first.
 func BecomesSaddledMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
-	if ev.Kind != events.AlterAttribute || !strings.EqualFold(ev.Text, "Saddled") || ev.Amount < 1 {
+	if !events.IsAlterAttribute(ev, "Saddled") || ev.Amount < 1 {
 		return false
 	}
 	ctrl := e.ControllerOf(source)
 	if v := t.ParamStr(cards.PKValidSaddled); v != "" && !e.MatchesSpec(v, ev.Obj, source, ctrl, SpecOpts{}) {
 		return false
 	}
-	if strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKFirstTimeSaddled)), "True") &&
-		!firstSaddledThisTurn(e, ev.Obj) {
+	if FirstTimeSaddled(t) && !firstSaddledThisTurn(e, ev.Obj) {
 		return false
 	}
 	return true
@@ -51,8 +48,7 @@ func firstSaddledThisTurn(e Board, obj state.ObjID) bool {
 		if ev.Kind == events.TurnChange {
 			return seen
 		}
-		if ev.Kind != events.AlterAttribute || ev.Amount < 1 || ev.Obj != obj ||
-			!strings.EqualFold(ev.Text, "Saddled") {
+		if !events.IsAlterAttribute(ev, "Saddled") || ev.Amount < 1 || ev.Obj != obj {
 			continue
 		}
 		if seen {

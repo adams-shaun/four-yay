@@ -127,22 +127,6 @@ type engineTriggerBatches struct {
 	// controller ("You"); a line naming another player's discard would need a
 	// per-player key, which no current carrier has.
 	discardAllTurn map[triggerKey]int32 `clone:"deep"`
-	// sacrificedOnceTurn is the Mode$ SacrificedOnce once-per-TURN latch:
-	// one trigger LINE's most recent firing turn, so a multi-permanent
-	// sacrifice action (an api:Sacrifice loop, or a multi-part cost) fires the
-	// "whenever you sacrifice one or more ..." trigger ONCE, not once per
-	// permanent. This is the minimal alternative the ticket sanctions for the
-	// per-ACTION batch (there is no sacrifice batch open/close the way
-	// discard/zone/damage have one): it also collapses TWO separate sacrifice
-	// actions in the same turn to one firing, which is narrower than "one or
-	// more" strictly reads for Camellia, the Seedmiser (its only corpus
-	// carrier). Keyed by trigger line, like discardAllTurn; the stamp is the
-	// turn, so it is replay-stable engine memory rebuilt by the same emit
-	// sequence and needs no reset hook (a later turn simply differs). Per
-	// trigger line is exact for Camellia, whose ValidPlayer$ is the source's
-	// own controller ("You"); a line naming another player's sacrifice would
-	// need a per-player key, which no current carrier has.
-	sacrificedOnceTurn map[triggerKey]int32 `clone:"deep"`
 	// targetBatch brackets ONE targeting action's TargetsChosen events for the
 	// Mode$ BecomesTargetOnce "one or more" latch (Forge's
 	// TriggerBecomesTargetOnce fires once per spell/ability, after it has

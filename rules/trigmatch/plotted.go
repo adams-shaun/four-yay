@@ -1,8 +1,6 @@
 package trigmatch
 
 import (
-	"strings"
-
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -19,7 +17,7 @@ import (
 // card in the right zone. Forge's ValidCard$ names the plotted card and is
 // filtered against ev.Obj.
 func BecomesPlottedMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
-	if ev.Kind != events.AlterAttribute || !strings.EqualFold(ev.Text, "Plotted") || ev.Amount < 1 {
+	if !events.IsAlterAttribute(ev, "Plotted") || ev.Amount < 1 {
 		return false
 	}
 	ctrl := e.ControllerOf(source)

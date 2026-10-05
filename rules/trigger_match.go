@@ -667,10 +667,17 @@ func (e *Engine) reserveTriggerGameActivationLimit(t cards.Trigger, key triggerK
 func triggerTurnLimitFor(t cards.Trigger) (limit int, present bool) {
 	raw, ok := t.Param(cards.PKActivationLimit)
 	if !ok {
-		// The Once mode's implicit limit reuses triggerTurnFires (which Clone
-		// already deep-copies) instead of a second latch field, keeping the two
-		// per-turn trigger counts structurally identical.
-		if t.Mode == "TokenCreatedOnce" {
+		// The Once modes' implicit limit reuses triggerTurnFires (which Clone
+		// already deep-copies) instead of a second latch field, keeping the
+		// per-turn trigger counts structurally identical. Mode$
+		// SacrificedOnce is the "whenever you sacrifice one or more ..."
+		// cadence: once per TURN (the sanctioned minimal alternative to a
+		// per-action batch, which would need a sacrifice batch open/close the
+		// engine does not have), so a second separate sacrifice action in the
+		// same turn is also collapsed. It rides the same read-at-gate /
+		// reserve-at-queue pair as ActivationLimit$, so a matched event a
+		// later gate rejects does not consume the turn.
+		if t.Mode == "TokenCreatedOnce" || t.Mode == "SacrificedOnce" {
 			return 1, true
 		}
 		return 0, false
@@ -679,9 +686,9 @@ func triggerTurnLimitFor(t cards.Trigger) (limit int, present bool) {
 	if err != nil || limit < 0 {
 		return 0, true // malformed: present, denies
 	}
-	// The Once mode's meaning is once per turn; an explicit ActivationLimit$
-	// above 1 on a TokenCreatedOnce line cannot raise it.
-	if t.Mode == "TokenCreatedOnce" && limit > 1 {
+	// The Once modes' meaning is once per turn; an explicit ActivationLimit$
+	// above 1 on such a line cannot raise it.
+	if (t.Mode == "TokenCreatedOnce" || t.Mode == "SacrificedOnce") && limit > 1 {
 		limit = 1
 	}
 	return limit, true
@@ -1662,27 +1669,6 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 				// never run, so it keeps no die count at all.
 				if t.Mode == "RolledDie" && t.Effect != nil && !e.dieRollNumberAllows(t, key) {
 					continue
-				}
-				// Mode$ SacrificedOnce (Camellia, the Seedmiser): the "whenever
-				// you sacrifice one or more ..." reading of Sacrificed. The matcher
-				// (trigmatch.SacrificedOnceMatches) already matched the sacrifice;
-				// this latch collapses a multi-permanent sacrifice action -- an
-				// api:Sacrifice loop, or a cost sacrifice paid in one payment -- to
-				// ONE queueing. It is a per-TURN latch (the ticket's sanctioned
-				// minimal alternative to a per-action batch, which needs a
-				// sacrifice batch open/close that does not exist): a second
-				// separate sacrifice action in the same turn is also collapsed.
-				// Gated at the queue point, after every later-rejected gate, so a
-				// matched-but-unqueueable event does not consume the latch. The
-				// stamp is the turn (replay-stable engine memory, no reset hook).
-				if t.Mode == "SacrificedOnce" {
-					if e.sacrificedOnceTurn[key] == e.G.Turn {
-						continue // already fired this turn.
-					}
-					if e.sacrificedOnceTurn == nil {
-						e.sacrificedOnceTurn = map[triggerKey]int32{}
-					}
-					e.sacrificedOnceTurn[key] = e.G.Turn
 				}
 				e.triggerFireCount[key]++
 				if t.Effect == nil {
