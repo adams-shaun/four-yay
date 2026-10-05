@@ -463,7 +463,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	attachedTo := tp.AttachedTo
 	var attachTo state.ObjID
 	if attachedTo != "" {
-		for _, t := range DefinedSpec(h, c, attachedTo) {
+		for _, t := range tokenAttachTargets(h, c, sa, attachedTo) {
 			if !t.IsPlayer {
 				attachTo = t.Obj
 				break
@@ -897,3 +897,20 @@ var tokenOwnerCodes = state.NewStrCodes(
 	state.StrEntry[tokenOwnerCode]{Key: "RememberedOwner", Val: tokenOwnerRememberedOwner},
 	state.StrEntry[tokenOwnerCode]{Key: "ThisTargetedPlayer", Val: tokenOwnerThisTargetedPlayer},
 )
+
+// tokenAttachTargets resolves a Token's AttachedTo$ destination. Targeted and
+// ThisTargetedCard ordinarily read the resolution's target list (the whole
+// chain for Targeted). For this destination only, a Token SA that declared
+// its own ValidTgts$ names the answer to THAT ask (Ctx.PickedTargets): the
+// WOE/WOC Role cycle's "create a Role token attached to up to one target
+// creature" is the sub's own target, not the parent spell's. Other
+// Targeted/ThisTargetedCard consumers keep their existing semantics.
+func tokenAttachTargets(h Host, c *Ctx, sa *cards.SA, attachedTo string) []state.Target {
+	switch definedSpecCodes.Code(attachedTo) {
+	case definedSpecTargeted, definedSpecThisTargetedCard:
+		if TargetsOf(sa).Has(TgtValidPresent) && c.PickedTargets != nil {
+			return copyTargets(c.PickedTargets)
+		}
+	}
+	return DefinedSpec(h, c, attachedTo)
+}
