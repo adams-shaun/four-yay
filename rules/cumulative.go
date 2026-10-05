@@ -118,6 +118,15 @@ type triggeredEffectCost struct {
 	// reservation list the other components keep) so the settle can emit the
 	// owner's-graveyard moves the picks name.
 	moveGraves []state.ObjID
+	// evidence accumulates the cards exiled as this cost's CollectEvidence
+	// payment (CR 701.30b), and evidenceSettled marks the evidence stage
+	// complete. The settle emits events.EvidenceCost for each pick (the
+	// canonical collect-evidence marker the T:Mode$ CollectEvidence trigger
+	// and the ConditionDefined$ Collected group read), so the trigger costs
+	// that carry CollectEvidence<N> genuinely exile and are never settled
+	// for free. A dynamic (Dyn) amount is unresolvable here and declines.
+	evidence        []state.ObjID
+	evidenceSettled bool
 	// pips carries this window's flexible-pip payment announcement (CR
 	// 601.2b/107.4e-f) -- Alesha's `Cost$ WB WB` and the other
 	// announcement-pip trigger costs. pipAnnounceAsk walks the cost's
@@ -379,13 +388,14 @@ func (e *Engine) triggerBodyNeedsCostWindow(sa *cards.SA) bool {
 // ... -- returns false so the body keeps today's free execution rather than
 // a decline-only ask.
 func mandatorySettleShape(c Cost) bool {
-	if len(c.Sac) == 0 && len(c.Exile) == 0 && len(c.MoveToGrave) == 0 {
+	if len(c.Sac) == 0 && len(c.Exile) == 0 && len(c.MoveToGrave) == 0 && len(c.Evidence) == 0 {
 		return false
 	}
 	stripped := c
 	stripped.Sac = nil
 	stripped.Exile = nil
 	stripped.MoveToGrave = nil
+	stripped.Evidence = nil
 	return stripped.Priceable()
 }
 
@@ -1079,10 +1089,12 @@ func (e *Engine) triggeredCostPayable(tc *triggeredEffectCost) bool {
 		return false
 	}
 	rest := amt.WithoutEnergy()
-	if len(rest.Sac)+len(rest.Discard)+len(rest.Exile)+len(rest.MoveToGrave) > 0 {
+	if len(rest.Sac)+len(rest.Discard)+len(rest.Exile)+len(rest.MoveToGrave) > 0 || len(rest.Evidence) > 0 {
 		// A component-bearing cost is payable ONLY through the settle gate
 		// (trigcost2): the Draw arm alone would offer "pay" while silently
-		// skipping the components.
+		// skipping the components. An Evidence part counts here too -- an
+		// evidence-only cost must NEVER fall through to the mana half, which
+		// is empty and would free-settle it.
 		return e.triggeredCostComponentsPayable(tc)
 	}
 	if rest.Priceable() {
@@ -1130,7 +1142,7 @@ func (e *Engine) triggeredCostManaHalfPayable(tc *triggeredEffectCost, rest Cost
 // this gate replaces.
 func (e *Engine) triggeredCostComponentsPayable(tc *triggeredEffectCost) bool {
 	amt := tc.announcedCost()
-	if len(amt.Sac)+len(amt.Discard)+len(amt.Exile)+len(amt.MoveToGrave) == 0 {
+	if len(amt.Sac)+len(amt.Discard)+len(amt.Exile)+len(amt.MoveToGrave) == 0 && len(amt.Evidence) == 0 {
 		return false
 	}
 	if amt.Tap || amt.X != 0 {
@@ -1213,9 +1225,29 @@ func (e *Engine) triggeredCostComponentsPayable(tc *triggeredEffectCost) bool {
 			reserved[eligible[j]] = true
 		}
 	}
+	// The CollectEvidence stage (CR 701.30b) runs LAST, after every
+	// choice-bearing component has reserved its candidates. An
+	// evidence-only cost reaches here with an empty parts list and must be
+	// gated on its threshold -- never free-settled. A dynamic (Dyn) amount
+	// is unresolvable in the trigger window, so it keeps the decline-only
+	// ask (a loud Note at the stage, never a free body).
+	if len(amt.Evidence) > 0 {
+		need := tc.evidenceNeed()
+		if need <= 0 {
+			return false
+		}
+		cands := evidenceOrder(e.G, evidenceGraveCandidates(e.G, tc.player, reserved))
+		if evidenceManaValue(e.G, tc.player, cands) < need {
+			return false
+		}
+		for i := 0; i < evidenceGreedyMin(e.G, cands, need); i++ {
+			reserved[cands[i]] = true
+		}
+	}
 	mana := amt
 	mana.Sac, mana.Discard, mana.Exile, mana.Draw = nil, nil, nil, nil
 	mana.MoveToGrave = nil
+	mana.Evidence = nil
 	if mana.HasManaPayment() || mana.Life > 0 || mana.Snow > 0 ||
 		len(mana.Hybrid) > 0 || len(mana.Phyrexian) > 0 ||
 		len(mana.Twobrid) > 0 || len(mana.HybridPhyrexian) > 0 {
@@ -1484,7 +1516,7 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 		// charges is exactly the cost triggeredCostPayable proved. A cost with
 		// no announcement pip returns amount unchanged.
 		announced := tc.announcedCost()
-		if len(announced.Sac)+len(announced.Discard)+len(announced.Exile)+len(announced.MoveToGrave) > 0 {
+		if len(announced.Sac)+len(announced.Discard)+len(announced.Exile)+len(announced.MoveToGrave) > 0 || len(announced.Evidence) > 0 {
 			// The settleable-component cost (trigcost2): the election is
 			// "pay"; walk the components (the mandatory walk's picks -- a
 			// real KChoose where a choice exists, the Hand/Random discard
@@ -1788,6 +1820,13 @@ func (e *Engine) advanceTriggeredMandatory(tc *triggeredEffectCost) {
 		windowAsk(e, d, chooseTriggeredMandatory)
 		return
 	}
+	if len(tc.amount.Evidence) > 0 {
+		// The collect-evidence stage runs after every component part. The
+		// stage poses a real selection (or records the whole list when no
+		// choice exists), then resumes the parked body through the settle.
+		tc.evidenceStage(e)
+		return
+	}
 	e.settleTriggeredMandatory(tc)
 }
 
@@ -1801,6 +1840,11 @@ func (e *Engine) triggeredMandatoryAnswer(chosen []decision.Option) {
 	e.choosing = chooseNone
 	parts := triggeredMandatoryParts(tc.amount)
 	if tc.part >= len(parts) {
+		// The component walk is complete; the only stage left is the
+		// collect-evidence selection (posed through this same flow).
+		if len(tc.amount.Evidence) > 0 && !tc.evidenceSettled {
+			tc.answerEvidenceStage(e, chosen)
+		}
 		return
 	}
 	part := parts[tc.part]
@@ -1844,6 +1888,7 @@ func (e *Engine) settleTriggeredMandatory(tc *triggeredEffectCost) {
 	stripped := tc.announcedCost()
 	stripped.Sac, stripped.Discard, stripped.Exile, stripped.Draw = nil, nil, nil, nil
 	stripped.MoveToGrave = nil
+	stripped.Evidence = nil
 	if (stripped.HasManaPayment() || stripped.Life > 0) &&
 		!pay.PayManaConv(asPayer(e), tc.player, stripped.WithoutEnergy(), asEval(e).Conv(tc.player, tc.source, false)) {
 		e.triggeredCostDecline(tc)
@@ -1882,6 +1927,15 @@ func (e *Engine) settleTriggeredMandatory(tc *triggeredEffectCost) {
 	for _, id := range tc.exiles {
 		if o := e.G.Obj(id); o != nil {
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone, To: state.ZExile, Text: "exiled as a cost"})
+		}
+	}
+	// The collect-evidence picks (CR 701.30b) leave the graveyard for
+	// exile carrying the canonical evidence marker -- emitted AFTER the
+	// generic Exile parts so Lamplight Phoenix's `ExileAnyGrave<1/...>
+	// CollectEvidence<4>` pays its exile first, then collects evidence.
+	for _, id := range tc.evidence {
+		if o := e.G.Obj(id); o != nil {
+			e.emit(events.EvidenceCost(id))
 		}
 	}
 	for _, id := range tc.moveGraves {

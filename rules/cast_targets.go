@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"sort"
 	"strconv"
 	"strings"
 
@@ -1074,7 +1073,7 @@ func (e *Engine) evidenceAsk() bool {
 				break
 			}
 		}
-		if valid && e.graveyardManaValue(pc.player, pc.evidence) >= pc.evidenceN {
+		if valid && evidenceManaValue(e.G, pc.player, pc.evidence) >= pc.evidenceN {
 			pc.evidenceSettled = true
 			return false
 		}
@@ -1082,36 +1081,16 @@ func (e *Engine) evidenceAsk() bool {
 		e.emit(events.Event{Kind: events.Note, Player: pc.player,
 			Text: "evidence selection's total mana value is too low; choose again"})
 	}
-	var candidates []state.ObjID
-	for _, id := range e.G.Zone(state.ZGraveyard, pc.player) {
-		if o := e.G.Obj(id); o != nil && o.Face() != nil {
-			candidates = append(candidates, id)
-		}
-	}
-	if e.graveyardManaValue(pc.player, candidates) < pc.evidenceN {
+	candidates := evidenceGraveCandidates(e.G, pc.player, nil)
+	if evidenceManaValue(e.G, pc.player, candidates) < pc.evidenceN {
 		e.abortCast(pc, "evidence cost no longer payable; cast aborted", true)
 		return true
 	}
 	// Mana value descending, ties by object id: the option order makes the
 	// greedy minimum achievable by the FIRST Min options, which is what both
 	// the deterministic bot's generic KChoose arm and Clamp's top-up take.
-	ids := append([]state.ObjID(nil), candidates...)
-	sort.Slice(ids, func(i, j int) bool {
-		mi, mj := e.G.Obj(ids[i]).Face().Cmc(), e.G.Obj(ids[j]).Face().Cmc()
-		if mi != mj {
-			return mi > mj
-		}
-		return ids[i] < ids[j]
-	})
-	need := pc.evidenceN
-	min := 0
-	for _, id := range ids {
-		if need <= 0 {
-			break
-		}
-		need -= e.G.Obj(id).Face().Cmc()
-		min++
-	}
+	ids := evidenceOrder(e.G, candidates)
+	min := evidenceGreedyMin(e.G, ids, pc.evidenceN)
 	d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: min, Max: len(ids),
 		Prompt: "Exile evidence with total mana value " + strconv.Itoa(int(pc.evidenceN)) +
 			" to cast " + e.targetName(pc.card), Source: pc.card}
@@ -1158,18 +1137,6 @@ func (e *Engine) evidenceAmount(pc *pendingCast) int32 {
 		}
 	}
 	return total
-}
-
-// graveyardManaValue sums the mana values of the named cards (the Ward
-// evidence payment's wardManaValue read, over a caller-built list).
-func (e *Engine) graveyardManaValue(p state.PlayerID, ids []state.ObjID) int32 {
-	var n int32
-	for _, id := range ids {
-		if o := e.G.Obj(id); o != nil && o.Face() != nil && o.Owner == p {
-			n = addClampedGeneric(n, int64(o.Face().Cmc()))
-		}
-	}
-	return n
 }
 
 // activationPushEvent names the replayable activation boundary for both
