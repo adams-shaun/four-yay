@@ -296,19 +296,16 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return false;
     }
 
-    /** The total maximum target count of the card's spell ability (every
-     * mode's targets counted), or Integer.MAX_VALUE when it cannot be read. */
-    private static int spellMaxTargets(String name) {
+    /** Whether the card's spell ability has exactly one target object and
+     * n answers already reach its maximum, so no slot is left to skip. */
+    private static boolean singleTargetFilled(String name, int n) {
         CardInfo info = CardRepository.instance.findCard(name);
         Card c = info == null ? null : info.createCard();
         if (c == null) {
-            return Integer.MAX_VALUE;
+            return false;
         }
-        int n = 0;
-        for (mage.target.Target t : c.getSpellAbility().getAllSelectedTargets()) {
-            n += t.getMaxNumberOfTargets();
-        }
-        return n == 0 ? Integer.MAX_VALUE : n;
+        List<mage.target.Target> ts = c.getSpellAbility().getAllSelectedTargets();
+        return ts.size() == 1 && n >= ts.get(0).getMaxNumberOfTargets();
     }
 
     /** Whether the card carries the Gift keyword (CR 702.174). */
@@ -522,10 +519,11 @@ public class ScenarioReplay extends CardTestPlayerBase {
                             addTarget(p, targetName(t));
                         }
                     }
-                    if (tg.size() < spellMaxTargets(card)) {
-                        // Close an "up to N" slot the scenario left short; a
-                        // skip after every slot is filled is rejected by an
-                        // exact-count target (Pull Through the Weft).
+                    if (!singleTargetFilled(card, tg.size())) {
+                        // Close an "up to N" slot the scenario left short,
+                        // or a later slot (Rhino's Rampage's reflexive
+                        // trigger). A skip after the one multi-target slot
+                        // is filled is rejected (Pull Through the Weft).
                         addTarget(p, TestPlayer.TARGET_SKIP);
                     }
                     castSpell(TURN, phase, p, card);

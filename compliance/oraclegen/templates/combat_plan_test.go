@@ -34,7 +34,7 @@ func TestOpponentControlledCombatAlternativeUsesBlocker(t *testing.T) {
 
 func TestMultipleAttackingTargetsAreAllDeclared(t *testing.T) {
 	reg := oracleHarnessCorpus(t)
-	it, skip := Generate(reg, "Vengeful Dreams")
+	it, skip := Generate(reg, "Command of Unsummoning")
 	if skip != nil {
 		t.Fatalf("no generated scenario: %s", skip.Reason)
 	}

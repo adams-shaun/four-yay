@@ -1212,7 +1212,13 @@ func targetSlots(f *cards.Face) []string {
 		if z := targetZone(params, false); z != "" && !playerTargetHead(v) {
 			v += "@" + z
 		}
-		count := targetSlotCount(params)
+		// Only a combat-state filter is expanded to its target maximum: a
+		// plain multi-target filter keeps one fixture slot, so its setup
+		// gains no decoys the cast never names.
+		count := 1
+		if role, _ := filterCombat(params["ValidTgts"]); role != roleNone {
+			count = targetSlotCount(params)
+		}
 		for i := 0; i < count; i++ {
 			out = append(out, v)
 		}
@@ -1418,7 +1424,10 @@ func candidatesFor(filter string) []cand {
 	creatures := []cand{{seat: opp, zone: "battlefield", card: "Grizzly Bears"}, {seat: opp, zone: "battlefield", card: "Serra Angel"}, {seat: opp, zone: "battlefield", card: "Ornithopter"}, {seat: opp, zone: "battlefield", card: "Llanowar Elves"}, {seat: opp, zone: "battlefield", card: "Hill Giant"}}
 	switch base {
 	case "any":
-		return withRole(creatures)
+		if role != roleNone {
+			return withRole(creatures)
+		}
+		return append(creatures, cand{seat: "p1"})
 	case "creature":
 		return withRole(creatures)
 	case "player", "opponent":
