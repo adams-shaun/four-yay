@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/state"
@@ -10,6 +11,11 @@ import (
 // (DifferentCounterKinds_, CardCounters., Kicked., PromisedGift.,
 // Foretold., NotedNumber, UrzaLands., ThisTurnEntered_).
 func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, depth int) (int32, bool, bool) {
+	// The two Count$Adamant head spellings are prefix heads (Adamant_<n>...
+	// and Adamant...), so they are claimed here before the dotted switch.
+	if v, ok, matched := evalCountAdamantHead(h, c, g, head, depth); matched {
+		return v, ok, true
+	}
 	// DifferentCounterKinds_<spec> counts distinct real counter kinds over
 	// matching battlefield objects. These are the three corpus selectors;
 	// other spellings are unreadable, not an evaluated zero.
@@ -161,6 +167,35 @@ func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, dept
 // (Count$<Predicate>.<yes>.<no>): the fuzz-cov3 branch predicates, the
 // wasCastFrom* provenance bits, Morbid/Monarch/Blessing and the devotion
 // spellings.
+// evalCountAdamantHead claims the two Count$Adamant head spellings ahead of
+// evalCountBodyDotted's generic dot-head switch (the CR 702.5 Adamant
+// keyword: "if at least <n> mana of <colour> was spent to cast this spell").
+// The plain spelling omits the threshold and is the keyword's standard
+// three; the explicit spelling carries it. The spend is Object.ManaColorSpent,
+// the per-colour delta the payment ACTUALLY paid (the pay-time
+// FlagManaColorSpent capture), so a generic pip paid from a coloured unit
+// counts toward that colour and a copy/cheated-in/nil source reads the zero
+// vector -- the ManaSpent siblings' fail-closed direction.
+func evalCountAdamantHead(h Host, c *Ctx, g *state.Game, head string, depth int) (int32, bool, bool) {
+	if rest, ok := strings.CutPrefix(head, "Adamant_"); ok {
+		nTok, tail, found := strings.Cut(rest, ".")
+		if !found {
+			return 0, false, true
+		}
+		n, err := strconv.Atoi(strings.TrimSpace(nTok))
+		if err != nil || n < 0 {
+			return 0, false, true
+		}
+		v, okv := evalAdamantBranch(h, c, g, int32(n), tail, depth)
+		return v, okv, true
+	}
+	if rest, ok := strings.CutPrefix(head, "Adamant."); ok {
+		v, okv := evalAdamantBranch(h, c, g, 3, rest, depth)
+		return v, okv, true
+	}
+	return 0, false, false
+}
+
 func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth int) (int32, bool, bool) {
 	// Count$<Predicate>.<yes>.<no> — Forge's yes/no branch heads: the value
 	// is the first number when the predicate holds, the second when it does
@@ -168,7 +203,7 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 	// dominant spellings). wasCastFromGraveyard is modelled below — the
 	// resolving source's graveyard-origin cast bits (the Increasing cycle's
 	// Count$wasCastFromGraveyard.10.5, 11 corpus lines); the remaining
-	// exotic predicates — Delirium, Void, Adamant_<n>.<colour> —
+	// exotic predicates — Delirium, Void —
 	// stay unmodelled and degrade to zero (Blessing is read below off the
 	// CR 702.131 latch). Morbid is
 	// CR 702.53's "a creature died this turn": a creature entered a graveyard
@@ -461,6 +496,64 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 		}
 	}
 	return 0, false, false
+}
+
+// evalAdamantBranch resolves one Adamant count body's <colour>.<yes>.<no>
+// tail against the threshold: <yes> when the source's Object.ManaColorSpent
+// for the named colour is at least n, else <no>. The non-WUBRG tokens name
+// into adamantSpecialSlots: `any` is the keyword's "at least N mana of the
+// SAME colour" form (Henge Walker's `Adamant$ Any`), which holds when ANY
+// single WUBRG slot reaches n -- never a colourless slot, since {C} is not a
+// colour; `colorless` is the MC slot. Both branch tokens resolve through
+// dotBranch (literal or SVar name), the Revolt/Morbid precedent. A malformed
+// tail or an unreadable colour returns ok=false so the caller reports the
+// body unresolvable rather than a fake zero.
+func evalAdamantBranch(h Host, c *Ctx, g *state.Game, n int32, rest string, depth int) (int32, bool) {
+	colTok, branch, found := strings.Cut(rest, ".")
+	if !found {
+		return 0, false
+	}
+	slot, ok := adamantColourSlot(colTok)
+	if !ok {
+		return 0, false
+	}
+	var spent int32
+	if o := g.Obj(c.Source); o != nil {
+		if slot == adamantSlotAny {
+			for i := state.MW; i <= state.MG; i++ {
+				if o.ManaColorSpent[i] > spent {
+					spent = o.ManaColorSpent[i]
+				}
+			}
+		} else {
+			spent = o.ManaColorSpent[slot]
+		}
+	}
+	return dotBranch(h, c, branch, spent >= n, depth), true
+}
+
+// adamantSlotAny is the sentinel slot for the keyword's "mana of the same
+// colour" token; state.MC and the WUBRG slots are the real indices.
+const adamantSlotAny = -1
+
+// adamantSpecialSlots holds the Adamant head's non-WUBRG colour tokens. One
+// table so a future token joins it here rather than as a new comparison at
+// the use site. Keys are lower-cased for the case-insensitive read.
+var adamantSpecialSlots = map[string]int{
+	"any":       adamantSlotAny,
+	"colorless": state.MC,
+}
+
+// adamantColourSlot maps one Adamant colour token to a state.Mana slot (or
+// adamantSlotAny), reporting false for a token naming no colour.
+func adamantColourSlot(s string) (int, bool) {
+	if slot, ok := adamantSpecialSlots[strings.ToLower(strings.TrimSpace(s))]; ok {
+		return slot, true
+	}
+	if l := colourLetter(s); l != 0 {
+		return state.ManaIndex(l), true
+	}
+	return 0, false
 }
 
 type evalCountBodyDottedCode uint16

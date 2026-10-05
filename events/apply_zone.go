@@ -724,6 +724,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			o.ManaCaveSpent = 0
 			o.ManaDesertSpent = 0
 			o.ManaArtifactSpent = 0
+			o.ManaColorSpent = state.Mana{}
 			o.CompleatedLifePaid = 0
 			o.NotedNumber = 0
 			// CR 400.7: the runtime SVar store is the old permanent's, not the
@@ -789,6 +790,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			o.ManaCaveSpent = 0
 			o.ManaDesertSpent = 0
 			o.ManaArtifactSpent = 0
+			o.ManaColorSpent = state.Mana{}
 			o.CompleatedLifePaid = 0
 			o.NotedNumber = 0
 			// CR 702.168: a spell leaving the stack for a non-battlefield zone
