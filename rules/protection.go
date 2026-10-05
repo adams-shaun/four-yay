@@ -112,7 +112,14 @@ func (e *Engine) hexproofBlocksTarget(id state.ObjID, targeting state.PlayerID, 
 	// gate (rather than a helper on Engine, which the engineSurface ratchet
 	// counts) so every caller -- rules/stack.go askTarget and
 	// rules/target_legal.go -- is covered by construction.
-	for _, sv := range e.activeStatics("IgnoreHexproof") {
+	statics := e.activeStatics("IgnoreHexproof")
+	for _, ce := range e.active() {
+		if ce.Restriction == effects.ModeIgnoreHexproof {
+			statics = append(statics, staticView{Source: ce.Source, Controller: ce.Controller,
+				Params: ce.RestrictParams})
+		}
+	}
+	for _, sv := range statics {
 		// A Condition$/IsPresent$ gate is a read of arbitrary board state;
 		// a gated static whose gate is false must NOT lift hexproof.
 		// staticGateHolds evaluates the same gate the layer walk does (and

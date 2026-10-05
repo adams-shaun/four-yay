@@ -1191,13 +1191,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 			effectContinuous(h, ce)
 			registered = true
 		default:
-			// A resolvable but unsupported mode is reported honestly; an
-			// unresolvable name (mode "") falls through to the generic Note
-			// below rather than emitting an empty-mode message.
-			if mode != "" {
-				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-					Text: "continuous effect " + mode + " unimplemented (" + what + ")"})
-			}
+			registered = effectUnsupportedStatic(h, c, mode, params, effectName, rawDur, dur, what)
 		}
 	}
 	// Nothing registered (an unsupported StaticAbilities$ mode, or a
