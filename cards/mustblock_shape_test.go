@@ -24,6 +24,7 @@ func TestMustBlockCoverageRejectsOtherShapes(t *testing.T) {
 		{"all defined remains fail closed", "DB$ MustBlock | ValidTgts$ Creature | DefinedAttacker$ TriggeredAttacker | BlockAllDefined$ True", false},
 		{"optional", "DB$ MustBlock | ValidTgts$ Creature | DefinedAttacker$ TriggeredAttacker | TargetMin$ 0", true},
 		{"parent target selectors", "DB$ MustBlock | Defined$ ParentTarget | DefinedAttacker$ ParentTarget", true},
+		{"unknown defined selector fails closed", "DB$ MustBlock | Defined$ Bogus", false},
 		{"choice selector fails closed", "DB$ MustBlock | Choices$ Creature.untapped+DefenderCtrl | Chooser$ TriggeredDefendingPlayer", false},
 		{"triggered attacker LKI copy", "DB$ MustBlock | ValidTgts$ Creature | DefinedAttacker$ TriggeredAttackerLKICopy", true},
 	} {

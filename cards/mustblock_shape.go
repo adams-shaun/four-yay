@@ -24,6 +24,16 @@ func MustBlockNamedTargetShape(sa *SA) bool {
 	if targets == "" && defined == "" {
 		return false
 	}
+	// Defined$ is not an arbitrary string: effects.Defined intentionally
+	// falls back to the ability's source for unknown selectors. Certify only
+	// the selector forms used by the corpus and resolved to concrete sets.
+	if defined != "" {
+		switch defined {
+		case "ParentTarget", "Valid Creature.counters_GE1_MAGNET":
+		default:
+			return false
+		}
+	}
 	attacker := strings.TrimSpace(sa.ParamStr(PKDefinedAttacker))
 	switch attacker {
 	case "", "TriggeredAttacker", "TriggeredAttackerLKICopy", "ParentTarget", "Valid Card.attacking":
