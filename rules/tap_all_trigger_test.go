@@ -46,6 +46,12 @@ const tapAllBearSrc = "Name:Fixture Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\
 const tapAllTotemSrc = "Name:Fixture Totem\nTypes:Artifact\nOracle:x\n" +
 	"A:AB$ GainLife | Cost$ tapXType<2/Creature> | LifeAmount$ 1 | SpellDescription$ Gain 1 life.\n"
 
+// tapAllManaSrc is an authored artifact whose MANA ability pays a
+// tapXType<2/Creature> cost (the mana-cost twin of the Totem): its elected
+// taps are emitted by the mana-activation path, not the cast path.
+const tapAllManaSrc = "Name:Fixture Grove\nTypes:Artifact\nOracle:x\n" +
+	"A:AB$ Mana | Cost$ tapXType<2/Creature> | Produced$ G | SpellDescription$ Add {G}.\n"
+
 // tapAllEngine builds a two-seat game with seat 0 holding want (a real corpus
 // trigger card, placed by the caller) over a Mountain deck, seat 1 on a
 // Mountain deck, and the corpus token scripts available (Deeproot mints a
@@ -357,6 +363,61 @@ func TestTapAllMultiTapCostFiresOnce(t *testing.T) {
 	}
 	if got := countTokensNamedOnSeat(t, e, 0, "Merfolk Token"); got != 1 {
 		t.Fatalf("after the tap cost seat 0 holds %d Merfolk tokens, want 1 (one action, one trigger)", got)
+	}
+}
+
+// TestTapAllManaAbilityMultiTapCostFiresOnce pins the mana-activation twin of
+// the multi-tap cost boundary: a mana ability's tapXType<2/Creature> cost is
+// emitted by the mana path (rules/mana_activation.go's commitManaDiscard), and
+// its two taps are ONE cost action, so Deeproot fires once.
+func TestTapAllManaAbilityMultiTapCostFiresOnce(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	deeproot := mustCorpusCard(t, reg, "Deeproot Pilgrimage")
+	e, _ := tapAllEngine(t, 8806, deeproot)
+
+	deeprootID := onBoardCard(t, e, 0, deeproot)
+	if o := e.G.Obj(deeprootID); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("Deeproot Pilgrimage id %d zone = %v, want battlefield (vacuous setup)", deeprootID, o)
+	}
+	grove := onBoardCard(t, e, 0, card(t, tapAllManaSrc))
+	m1 := onBoardCard(t, e, 0, card(t, tapAllMerfolkSrc))
+	m2 := onBoardCard(t, e, 0, card(t, tapAllMerfolkSrc))
+	onBoardCard(t, e, 0, card(t, tapAllBearSrc)) // makes the tapXType election a real ask
+	if m1 == m2 {
+		t.Fatalf("the two Merfolk ids are equal (%d): a batch claim would be vacuous", m1)
+	}
+
+	addMana(t, e, 0, "")
+	activateMana(t, e, grove)
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KChoose {
+		t.Fatalf("mana-ability tapXType cost ask = %+v, want a KChoose tap election", d)
+	}
+	var picks []int
+	for _, want := range []state.ObjID{m1, m2} {
+		found := -1
+		for _, o := range d.Options {
+			if o.Obj == want {
+				found = o.Index
+			}
+		}
+		if found < 0 {
+			t.Fatalf("mana tap election did not offer Merfolk %d: %+v", want, d.Options)
+		}
+		picks = append(picks, found)
+	}
+	submitChoices(t, e, picks...)
+
+	if !e.G.Obj(m1).Tapped || !e.G.Obj(m2).Tapped {
+		t.Fatalf("the mana cost did not tap both Merfolk (m1=%v m2=%v)", e.G.Obj(m1).Tapped, e.G.Obj(m2).Tapped)
+	}
+	drainMillTrigger(t, e, 40)
+	if n := triggerPushesFor(e, deeprootID); n != 1 {
+		t.Fatalf("a two-permanent mana tap cost pushed %d Deeproot triggers, want exactly 1 (one cost action)", n)
+	}
+	if got := countTokensNamedOnSeat(t, e, 0, "Merfolk Token"); got != 1 {
+		t.Fatalf("after the mana tap cost seat 0 holds %d Merfolk tokens, want 1 (one action, one trigger)", got)
 	}
 }
 
