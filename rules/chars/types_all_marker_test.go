@@ -1,6 +1,7 @@
 package chars
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -33,7 +34,7 @@ func TestTypesAllCreatureMarkerClearedByLaterSubtypeRemoval(t *testing.T) {
 		game: game,
 		active: []state.ContinuousEffect{
 			{Layer: state.LType, AddAllCreatureTypes: true},
-			{Layer: state.LType, RemoveTypes: []string{"Bear"}},
+			{Layer: state.LType, RemoveTypes: []string{"bear"}},
 		},
 	}
 
@@ -43,7 +44,7 @@ func TestTypesAllCreatureMarkerClearedByLaterSubtypeRemoval(t *testing.T) {
 	types, all := TypesAndAllCreatureTypes(board, board.active, id, 0)
 	if containsType(types, "Bear") {
 		// The later effect must actually remove the subtype; this guards
-		// against a vacuous effect setup.
+		// against a vacuous effect setup, including case-insensitive matching.
 		t.Fatalf("precondition: later type effect did not remove Bear: %v", types)
 	}
 	if all {
@@ -53,7 +54,7 @@ func TestTypesAllCreatureMarkerClearedByLaterSubtypeRemoval(t *testing.T) {
 
 func containsType(types []string, want string) bool {
 	for _, typ := range types {
-		if typ == want {
+		if strings.EqualFold(typ, want) {
 			return true
 		}
 	}

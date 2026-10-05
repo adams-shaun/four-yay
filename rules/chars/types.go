@@ -152,7 +152,11 @@ func TypesAndAllCreatureTypes(b Board, act []state.ContinuousEffect, id state.Ob
 			ty = kept
 		}
 		if len(ce.RemoveTypes) > 0 {
-			if allCreatureTypes && slices.ContainsFunc(ce.RemoveTypes, effects.CreatureTypeWords) {
+			if allCreatureTypes && slices.ContainsFunc(ce.RemoveTypes, func(remove string) bool {
+				return slices.ContainsFunc(ty, func(typ string) bool {
+					return effects.CreatureTypeWords(typ) && strings.EqualFold(typ, remove)
+				})
+			}) {
 				allCreatureTypes = false
 			}
 			kept := ty[:0]
