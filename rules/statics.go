@@ -608,6 +608,16 @@ func init() {
 		// checkExertTriggers); its IsPresent$ gate reuses the shared
 		// presentGate/countPresent grammar, whose filter now knows the
 		// notExertedThisTurn predicate (effects/filter.go).
+		// MustBlock: the CR 509.1a blocker's duty "this creature blocks this
+		// turn if able.", read by combat.MustBlockCandidates
+		// (rules/combat/block.go) through activeStatics("MustBlock") for a
+		// printed S: static and through a registered continuous restriction
+		// for the Effect-delivered `StaticAbilities$ MustBlock | ValidCreature$
+		// Card.IsRemembered` shape (Culvert Ambusher, Hustle // Bustle); the
+		// continuous path's ValidCreature$ scoping is resolved by
+		// restrictionApplies (rules/layers_restrict.go). Proof test:
+		// rules/mustblock_static_test.go.
+		"stat:MustBlock",
 		// asunblk1: the combat-damage assignment election (rules/combat.go
 		// asUnblockedNeeding / damageStep's chosenElection case, CR 509's
 		// optional "assign as though it weren't blocked"). Only the printed
