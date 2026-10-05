@@ -9,6 +9,32 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+// thisDefinedAndTgtsTargets resolves a ChangeZone's ThisDefinedAndTgts$
+// value: the named extra objects Forge adds to the ability's defined/target
+// set. Self and ParentTarget resolve through the shared Defined$ selector
+// grammar; TopOfLibrary is the top card of the resolving controller's
+// library (Suspend Aggression's "the top card of your library"). An empty
+// result -- an unknown token, or a TopOfLibrary over an empty library -- is
+// the caller's loud-degrade signal, never a silent no-op.
+func thisDefinedAndTgtsTargets(h Host, c *Ctx, value string) []state.Target {
+	var out []state.Target
+	for _, tok := range strings.FieldsFunc(value, func(r rune) bool { return r == ',' || r == '&' }) {
+		switch strings.TrimSpace(tok) {
+		case "":
+			continue
+		case "TopOfLibrary":
+			if lib := h.Game().Zone(state.ZLibrary, c.Controller); len(lib) > 0 {
+				out = append(out, state.Target{Obj: lib[0]})
+			}
+		case "Self", "ParentTarget":
+			out = append(out, DefinedSpec(h, c, strings.TrimSpace(tok))...)
+		default:
+			return nil
+		}
+	}
+	return out
+}
+
 // changeZoneAltDestination resolves ChangeZone's conditional alternate
 // destination (Forge's ChangeZoneEffect.handleAltDest): DestAltSVar$ names an
 // SVar (or inline count expression) evaluated against the resolving host card
@@ -331,6 +357,20 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		if ans != nil {
 			// This link's own answer is a later link's ParentTarget.
 			noteLinkAnswer(c, ans)
+		}
+	}
+	// ThisDefinedAndTgts$ (Suspend Aggression's "exile target nonland
+	// permanent and the top card of your library"): Forge adds the named
+	// extra objects -- Self, TopOfLibrary, ParentTarget -- to the ability's
+	// defined/target set, so the move covers both the chosen target and the
+	// extra card. A value outside that grammar is named loudly rather than
+	// silently dropping the extra object.
+	if cz.ThisDefinedAndTgts != "" {
+		if extra := thisDefinedAndTgtsTargets(h, c, cz.ThisDefinedAndTgts); len(extra) > 0 {
+			targets = append(targets, extra...)
+		} else {
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+				Text: "ThisDefinedAndTgts$ " + cz.ThisDefinedAndTgts + " is not a selector this engine can resolve; the move keeps the ordinary targets"})
 		}
 	}
 	// The O-Ring return shape (Journey to Nowhere, Leonin Relic-Warder): the

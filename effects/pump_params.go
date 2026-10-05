@@ -71,6 +71,11 @@ type PumpParams struct {
 	NumDef ParamText
 	// ForgetImprinted$, trimmed (a Defined$-grammar selector).
 	ForgetImprinted string
+	// ReplaceDyingDefined$ (Forge's "if a permanent ... would die this turn,
+	// exile it instead" rider): a Defined$-list selector ("Targeted" on every
+	// Pump carrier) naming the objects the replacement watches. Empty when the
+	// key is absent.
+	ReplaceDyingDefined string
 	// Grant is the registration's riders.
 	Grant PumpGrant
 
@@ -134,6 +139,7 @@ func compilePump(sa *cards.SA, dp *DefinedParams) *PumpParams {
 	nd, ndOK := sa.Param(cards.PKNumDef)
 	p.NumDef = ParamText{Text: nd, Present: ndOK}
 	p.ForgetImprinted = strings.TrimSpace(sa.ParamStr(cards.PKForgetImprinted))
+	p.ReplaceDyingDefined = strings.TrimSpace(sa.ParamStr(cards.PKReplaceDyingDefined))
 	p.Grant = compilePumpGrant(sa)
 	if sa.API == "Pump" {
 		p.Unread = unreadKeys(sa, pumpKnownKeys[:])
@@ -193,7 +199,7 @@ var pumpKnownKeys = [...]string{
 	"NumDmg", "OpponentTurn", "Planeswalker", "PlayCost", "PlayerTurn", "PowerUp",
 	"PrecostDesc", "PresentCompare", "PresentDefined", "PresentZone", "PumpZone", "RandomNumTargets",
 	"ReduceAmount", "ReduceCost", "RememberCostMana", "RememberObjects", "RememberPumped",
-	"RememberTargets", "ReplaceColor", "ReplaceGraveyard", "ReplaceGraveyardValid",
+	"RememberTargets", "ReplaceColor", "ReplaceDyingDefined", "ReplaceGraveyard", "ReplaceGraveyardValid",
 	"ReplaceMana", "ReplaceOnly", "ReplaceType", "SVarCompare",
 	"Secondary", "SelectPrompt", "SetChosenMode", "SetColor", "ShowCards", "SorcerySpeed",
 	"SpellDescription", "StackDescription", "SubAbility", "TargetMax",

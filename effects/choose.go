@@ -542,7 +542,7 @@ func effChooseType(h Host, c *Ctx, sa *cards.SA) {
 // not the four above) reports known=false, which is the loud-Note path.
 func chooseTypeLabels(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID, cat string) ([]string, bool) {
 	if isCreatureCategory(cat) {
-		return optionLabels(h.TypeChoices(chooser, cat)), true
+		return optionLabels(h.TypeChoices(chooser, cat, sa.ParamStr(cards.PKValidTypes), sa.ParamStr(cards.PKInvalidTypes))), true
 	}
 	switch chooseTypeLabelsCodes.Code(string(strings.ToLower(cat))) {
 	case chooseTypeLabelsShared:

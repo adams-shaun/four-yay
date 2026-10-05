@@ -548,7 +548,7 @@ func (h *fakeHost) Ask(d *decision.Decision) bool { h.askCount++; h.lastAsk = d;
 // TypeChoices serves the double's configured typeChoices list (nil by
 // default): nil leaves ChooseType on the unchanged deterministic
 // fallback, so the existing fallback pins pass untouched.
-func (h *fakeHost) TypeChoices(_ state.PlayerID, _ string) []decision.Option {
+func (h *fakeHost) TypeChoices(_ state.PlayerID, _ string, _ string, _ string) []decision.Option {
 	return h.typeChoices
 }
 

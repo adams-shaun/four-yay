@@ -163,6 +163,18 @@ func filterTypeLabels(vocabulary []string, validTypes, invalidTypes string, card
 	return out
 }
 
+// FilterTypeWords applies ValidTypes$/InvalidTypes$ to an explicit
+// vocabulary. rules' creature-type list (Engine.creatureTypeOptions) builds
+// its labels itself and calls this so a Type$ Creature ask with
+// ValidTypes$ (Dawn-Blessed Pennant's eight named types) offers exactly the
+// filtered set, the same way the static categories go through
+// TypeChoiceLabels. An empty ValidTypes$ keeps the whole vocabulary; a filter
+// that removes every value fails closed with nil, the caller's documented
+// no-list fallback.
+func FilterTypeWords(vocabulary []string, validTypes, invalidTypes string) []string {
+	return filterTypeLabels(vocabulary, validTypes, invalidTypes, false)
+}
+
 // splitTypeList splits a comma-separated Forge type list, trimming each
 // entry and dropping empties, preserving order.
 func splitTypeList(s string) []string {

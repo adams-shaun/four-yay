@@ -640,7 +640,13 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	// "All" (every colour) and "Colorless" (an overwrite to the empty set)
 	// never leak their words downstream. A value colorLetters cannot fully
 	// parse (the corpus's "ChosenColor" family, which asks its controller for
-	// a colour) fails closed: colorsGrant is false, the grant is NOT
+	// a colour) fails closed UNLESS it is exactly the ChosenColor token and the
+	// source already carries a chosen colour: then the grant uses that colour
+	// (Puca's Eye's DBChooseColor -> DBAnimate chain, 25 corpus files), so the
+	// animation becomes the colour the controller just chose rather than
+	// keeping the printed one. A mixed list ("White,ChosenColor") still fails
+	// closed -- resolving only the tail would silently drop the rest.
+	// colorsGrant is false, the grant is NOT
 	// registered and a Note says so, so the object keeps its printed colours
 	// instead of the parse's empty prefix being overwritten over them. For
 	// the same reason "Colorless" without OverwriteColors$ -- an add of the
@@ -648,6 +654,14 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	// colourless" -- is noted and skipped rather than silently registering a
 	// dead effect.
 	colors, colorsOK := colorLetters(sa.ParamStr(cards.PKColors))
+	if !colorsOK && strings.EqualFold(ag.colorsRaw, "ChosenColor") {
+		if o := h.Game().Obj(c.Source); o != nil {
+			if l := colourLetter(o.ChosenColor); l != 0 {
+				colors = []string{string(l)}
+				colorsOK = true
+			}
+		}
+	}
 	ag.colors = colors
 	ag.overwriteColors = ag.colorsRaw != "" && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOverwriteColors)), "True")
 	ag.colorsGrant = ag.colorsRaw != "" && colorsOK && (len(colors) > 0 || ag.overwriteColors)

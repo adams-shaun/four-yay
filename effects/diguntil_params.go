@@ -69,6 +69,10 @@ type DigUntilParams struct {
 	// other token is an SVar name resolved at resolution).
 	AmountRaw string
 	AmountLit int32
+	// MinTotalCMC is MinTotalCMC$ (Dream Harvest, Improvisation Capstone,
+	// Tasha's Hideous Laughter): reveal until the matching cards' cumulative
+	// mana value reaches the threshold instead of stopping at Amount$ matches.
+	MinTotalCMC ParamText
 	// NoneFoundSet reports a NoneFoundDestination$ or
 	// NoneFoundLibraryPosition$; NoneFoundDest (default Library) and
 	// NoneFoundPos ("0", "-1" or "") are the nothing-found branch's
@@ -109,7 +113,7 @@ var digUntilKnownKeys = [...]string{
 	"ForgetOtherRemembered", "FoundDestination", "FoundLibraryPosition", "GainControl",
 	"GameActivationLimit", "Image", "ImprintCards", "ImprintFound", "ImprintPlayed",
 	"ImprintRevealed", "InstantSpeed", "IsCurse", "IsPresent", "KW", "Keyword",
-	"KeywordLine", "MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor", "ModeCost",
+	"KeywordLine", "MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor", "MinTotalCMC", "ModeCost",
 	"Monstrosity", "NewController", "NoMoveFound", "NoMoveRevealed", "NoneFoundDestination",
 	"NoneFoundLibraryPosition", "NumDmg", "OpponentTurn", "OptionalFoundMove",
 	"OptionalNoDestination", "Planeswalker", "PlayCost", "PlayerTurn", "PowerUp",
@@ -196,6 +200,7 @@ func compileDigUntil(sa *cards.SA, dr *DefinedParams) *DigUntilParams {
 			p.AmountLit = int32(n)
 		}
 	}
+	p.MinTotalCMC = rawParamText(sa, "MinTotalCMC")
 	// The withheld riders, in the resolution's historical Note order.
 	// DigZone$ stays withheld: every corpus value is PlanarDeck, and this
 	// build has no planar deck or planar zone.
