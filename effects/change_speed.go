@@ -8,8 +8,8 @@ import (
 func init() { Register("ChangeSpeed", effChangeSpeed) }
 
 // effChangeSpeed changes each named player's speed by one. SpeedChange's
-// replay fold enforces the zero-to-four bounds; zero cannot be increased here
-// because starting engines is a separate action, not a speed increase.
+// replay fold enforces the zero-to-four bounds. Increasing zero starts engines;
+// decreasing one leaves speed at one (CR 702.179).
 func effChangeSpeed(h Host, c *Ctx, sa *cards.SA) {
 	delta := int32(0)
 	switch sa.ParamStr(cards.PKMode) {
@@ -33,7 +33,7 @@ func effChangeSpeed(h Host, c *Ctx, sa *cards.SA) {
 		}
 		seen[int(target.Player)] = true
 		p := h.Game().Players[target.Player]
-		if p.Lost || (delta > 0 && (p.Speed == 0 || p.Speed >= 4)) || (delta < 0 && p.Speed == 0) {
+		if p.Lost || (delta > 0 && p.Speed >= 4) || (delta < 0 && p.Speed <= 1) {
 			continue
 		}
 		h.Emit(events.Event{Kind: events.SpeedChange, Player: target.Player, Amount: delta, Text: "speed"})

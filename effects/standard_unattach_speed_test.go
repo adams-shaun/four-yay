@@ -24,6 +24,20 @@ func TestStandardUnattachDefinedEquipment(t *testing.T) {
 	}
 }
 
+func TestStandardChangeSpeedStartsEnginesAndKeepsMinimum(t *testing.T) {
+	h, c, _ := attachBoard(t)
+	c.Remembered = []state.Target{{Player: 1, IsPlayer: true}}
+	Resolve(h, c, sa(t, "DB$ ChangeSpeed | Mode$ Increase | Defined$ Remembered"))
+	if h.g.Players[1].Speed != 1 {
+		t.Fatalf("start engines = %d, want 1", h.g.Players[1].Speed)
+	}
+	before := len(h.log)
+	Resolve(h, c, sa(t, "DB$ ChangeSpeed | Mode$ Decrease | Defined$ Remembered"))
+	if h.g.Players[1].Speed != 1 || len(h.log) != before {
+		t.Fatalf("speed fell below 1: %d, events %+v", h.g.Players[1].Speed, h.log[before:])
+	}
+}
+
 func TestStandardChangeSpeedDecrease(t *testing.T) {
 	h, c, _ := attachBoard(t)
 	h.Emit(events.Event{Kind: events.SpeedChange, Player: 1, Amount: 3})
