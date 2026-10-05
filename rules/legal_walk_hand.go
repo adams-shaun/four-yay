@@ -516,7 +516,7 @@ func (w *legalWalk) handWalk() {
 			if !ka.handLoop || !ph.has(ka.ph) {
 				continue
 			}
-			alt, ok := ka.faceCost(f)
+			alt, ok := ka.faceCost(f, w.e.walkFaceFactsOf(f))
 			if !ok || !w.offerCastable(p, id, alt, spellScope(ka.mode), false) ||
 				(!ka.untargeted && !targetsAvailable()) {
 				continue

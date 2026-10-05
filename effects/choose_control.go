@@ -1892,9 +1892,23 @@ func indexTarget(ts []state.Target, want state.Target) int {
 func rememberIteration(outer, body, base []state.Target, subject state.Target) []state.Target {
 	out := copyTargets(outer)
 	start := append(copyTargets(base), subject)
+	// Any entry the iteration STARTED with (base+subject) that the body no
+	// longer holds was removed by the body (ForgetChosen$,
+	// forgetRememberedOne): that removal must persist on the outer set, else
+	// an outer Repeat's RepeatDefined$ Remembered gate never shrinks.
+	for _, t := range start {
+		if indexTarget(body, t) >= 0 {
+			continue
+		}
+		if i := indexTarget(out, t); i >= 0 {
+			out = append(out[:i], out[i+1:]...)
+		}
+	}
 	for _, t := range body {
-		if i := indexTarget(start, t); i >= 0 {
-			start = append(start[:i], start[i+1:]...)
+		if indexTarget(start, t) >= 0 {
+			continue
+		}
+		if indexTarget(out, t) >= 0 {
 			continue
 		}
 		out = append(out, t)

@@ -315,7 +315,7 @@ func (e *Engine) askMadnessCast(ability *state.Object) bool {
 		return false
 	}
 	m := &altCastModes[altMadness]
-	cost, ok := m.faceCost(card.Face())
+	cost, ok := m.faceCost(card.Face(), e.walkFaceFactsOf(card.Face()))
 	if !ok {
 		return false
 	}
