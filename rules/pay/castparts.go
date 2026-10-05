@@ -139,30 +139,39 @@ func NonManaCastableP(e Engine, p state.PlayerID, id state.ObjID, cost *costvoca
 		return false
 	}
 	for _, part := range cost.Exile {
-		zone := part.Zone
-		if zone == 0 {
-			zone = state.ZHand
+		zones := []state.Zone{part.Zone}
+		if part.ZoneSet != 0 {
+			zones = zones[:0]
+			for _, z := range []state.Zone{state.ZBattlefield, state.ZGraveyard} {
+				if part.ZoneSet&(1<<z) != 0 {
+					zones = append(zones, z)
+				}
+			}
+		} else if part.Zone == 0 {
+			zones[0] = state.ZHand
 		}
-		selfInZone := !ability && castObj != nil && castObj.Zone == zone
 		wholeZone := costvocab.IsWholeZoneExileSpec(part.Spec)
 		var avail []state.ObjID
-		for _, oid := range ExileCostCandidates(e.Game(), zone, p, part) {
-			if reserved[oid] || (selfInZone && oid == id) {
-				continue
-			}
-			// A battlefield Exile cost part (Exile<N/Spec>, Karn's Sylex,
-			// Mechtitan Core) is a COST exile: a CantExile static whose
-			// ForCost$ True restricts cost payments withholds the candidate
-			// here, while a ForCost$ False line (The Master, Multiplied)
-			// leaves it offered. exileBlockedForCost carries the pending
-			// cast/activation identity so a cost-path ValidCause$ can be
-			// evaluated, the same plumbing sacrificeCostCandidates uses.
-			if zone == state.ZBattlefield && e.CostBlocked(BlockExile, oid, CostCauseForAbility(ability)) {
-				continue
-			}
-			if wholeZone || (part.Referent != 0 && oid == part.Referent) ||
-				(part.Referent == 0 && e.MatchesSpecFrom(part.Spec, oid, p, id)) {
-				avail = append(avail, oid)
+		for _, zone := range zones {
+			selfInZone := !ability && castObj != nil && castObj.Zone == zone
+			for _, oid := range ExileCostCandidates(e.Game(), zone, p, part) {
+				if reserved[oid] || (selfInZone && oid == id) {
+					continue
+				}
+				// A battlefield Exile cost part (Exile<N/Spec>, Karn's Sylex,
+				// Mechtitan Core) is a COST exile: a CantExile static whose
+				// ForCost$ True restricts cost payments withholds the candidate
+				// here, while a ForCost$ False line (The Master, Multiplied)
+				// leaves it offered. exileBlockedForCost carries the pending
+				// cast/activation identity so a cost-path ValidCause$ can be
+				// evaluated, the same plumbing sacrificeCostCandidates uses.
+				if zone == state.ZBattlefield && e.CostBlocked(BlockExile, oid, CostCauseForAbility(ability)) {
+					continue
+				}
+				if wholeZone || (part.Referent != 0 && oid == part.Referent) ||
+					(part.Referent == 0 && e.MatchesSpecFrom(part.Spec, oid, p, id)) {
+					avail = append(avail, oid)
+				}
 			}
 		}
 		if int32(len(avail)) < part.N {

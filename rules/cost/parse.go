@@ -55,7 +55,22 @@ const sacXCost = `^Sac<X/([^/>]+)(?:/([^>]*))?>$`
 // ExileFromHand evoke costs (the MH3 evoke family: Fury, Grief, ...), the
 // AlternateAdditionalCost ExileFromGrave line and the ExileAnyGrave
 // trigger-cost family are the corpus users.
-const exileCost = `^Exile(FromHand|FromGrave|AnyGrave)<(X|\d+)/([^/>]+)(?:/([^>]*))?>$`
+const exileCost = `^Exile(FromHand|FromGrave|AnyGrave|CtrlOrGrave)<(X|\d+)/([^/>]+)(?:/([^>]*))?>$`
+
+func parseExileCtrlOrGrave(n, spec, desc string) (CostPart, bool) {
+	part := CostPart{Spec: strings.ReplaceAll(spec, ";", ","), Desc: desc,
+		ZoneSet: (1 << state.ZBattlefield) | (1 << state.ZGraveyard)}
+	if n == "X" {
+		part.Announced = true
+		return part, true
+	}
+	v, err := strconv.ParseInt(n, 10, 32)
+	if err != nil || v < 0 {
+		return CostPart{}, false
+	}
+	part.N = int32(v)
+	return part, true
+}
 
 // exileFromTopCost matches Forge's ExileFromTop<N/Card> token -- exiling the
 // top N cards of the payer's OWN library as a cast/activation cost (Storm
@@ -761,6 +776,17 @@ func ParseCost(s string) Cost {
 				continue
 			}
 			if m, ok := matchExileCost(t); ok {
+				if m[1] == "CtrlOrGrave" {
+					part, ok := parseExileCtrlOrGrave(m[2], m[3], m[4])
+					if !ok {
+						c.Generic = AddClampedGeneric(c.Generic, 1)
+						c.reportUnknown(sym)
+						continue
+					}
+					c.Generic = AddClampedGeneric(c.Generic, 1)
+					c.Exile = append(c.Exile, part)
+					continue
+				}
 				if m[2] == "X" {
 					if m[1] != "FromGrave" {
 						c.Generic = AddClampedGeneric(c.Generic, 1)

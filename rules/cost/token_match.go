@@ -41,6 +41,7 @@ const (
 	hExert
 	hExile
 	hExileAnyGrave
+	hExileCtrlOrGrave
 	hExileFromGrave
 	hExileFromHand
 	hExileFromTop
@@ -81,6 +82,7 @@ var costHeadNames = [numCostHeads]string{
 	hExert:                       "Exert",
 	hExile:                       "Exile",
 	hExileAnyGrave:               "ExileAnyGrave",
+	hExileCtrlOrGrave:            "ExileCtrlOrGrave",
 	hExileFromGrave:              "ExileFromGrave",
 	hExileFromHand:               "ExileFromHand",
 	hExileFromTop:                "ExileFromTop",
@@ -278,7 +280,7 @@ func matchSacXCost(t costTok) (groups, bool) {
 // matchExileCost is
 // ^Exile(FromHand|FromGrave|AnyGrave)<(X|\d+)/([^/>]+)(?:/([^>]*))?>$.
 func matchExileCost(t costTok) (groups, bool) {
-	if !t.angle || (t.id != hExileFromHand && t.id != hExileFromGrave && t.id != hExileAnyGrave) {
+	if !t.angle || (t.id != hExileFromHand && t.id != hExileFromGrave && t.id != hExileAnyGrave && t.id != hExileCtrlOrGrave) {
 		return groups{}, false
 	}
 	n, spec, desc, ok := countSpecDesc(t.inner, isXOrDigits)
