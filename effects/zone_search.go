@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"maps"
 	"strconv"
 	"strings"
 
@@ -540,8 +541,9 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 	// The narrow NoShuffle + bottom shape avoids widening the ordinary
 	// Defined$ Imprinted rules contract; corpus census finds this exact
 	// ChangeZone shape only on Green Sun's Twilight.
-	if DefinedRefOf(sa).Is(RefImprinted) &&
-		to == state.ZLibrary && cz.NoShuffle && effDigCodes.Code(cz.LibraryPositionText) == effDigBottom {
+	if deferredDigImprintReturn(g, c, sa, cz) &&
+		DefinedRefOf(sa).Is(RefImprinted) && to == state.ZLibrary &&
+		effDigCodes.Code(cz.LibraryPositionText) == effDigBottom {
 		if source := g.Obj(c.Source); source != nil {
 			byOwner := make([]libraryFetch, 0, 1)
 			for _, id := range source.Imprinted {
@@ -573,29 +575,6 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 		return true
 	}
 	targets, known := knownDefinedTargets(h, c, cz.Defined)
-	if known && cz.DefinedImprinted && cz.RandomOrder && cz.NoShuffle {
-		// Green Sun's Twilight imprints its deferred rest while those cards
-		// remain in the library. The ordinary CR 607.2a Defined$ Imprinted
-		// reader is exile-gated; this exact RandomOrder$ NoShuffle$ ChangeZone
-		// carrier consumes the source's library-resident rest pile instead.
-		if source := g.Obj(c.Source); source != nil {
-			for _, id := range source.Imprinted {
-				if object := g.Obj(id); object == nil || object.Zone != state.ZLibrary {
-					continue
-				}
-				present := false
-				for _, target := range targets {
-					if !target.IsPlayer && target.Obj == id {
-						present = true
-						break
-					}
-				}
-				if !present {
-					targets = append(targets, state.Target{Obj: id})
-				}
-			}
-		}
-	}
 	if !known {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unrecognised Defined library fetch " + cz.Defined})
@@ -696,17 +675,9 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 				h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: f.owner, Text: "entered tapped"})
 			}
 		}
-		// Green Sun's Twilight's first ChangeZone moves only its selected,
-		// remembered cards to hand. The companion Imprinted cards remain in
-		// the library until RestBottom places that window remainder; a default
-		// search shuffle here would also randomize cards below the revealed
-		// window. Keep this exception pinned to that compiled card chain.
-		// Require the named RestBottom chain as well as the selected-fetch
-		// shape: an arbitrary remembered fetch with a library imprint still
-		// gets its ordinary shuffle.
 		source := g.Obj(c.Source)
-		preserveDeferredRest := greenSunsTwilightSelectedFetch(h, c, sa, cz, to) &&
-			c.SVars["RestBottom"] != "" && !cz.ShuffleTrue && source != nil && len(source.Imprinted) > 0
+		preserveDeferredRest := deferredDigLibraryFetch(g, c, cz) &&
+			!cz.ShuffleTrue && source != nil
 		if preserveDeferredRest {
 			for _, id := range source.Imprinted {
 				object := g.Obj(id)
@@ -732,25 +703,70 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 	return true
 }
 
-// greenSunsTwilightSelectedFetch identifies the first half of the card's
-// ChangeLater chain: selected Remembered cards go to hand while the source
-// still owns a library-resident Imprinted remainder for RestBottom. Requiring
-// both roles avoids changing ordinary Defined$ fetches with a similar
-// destination.
-func greenSunsTwilightSelectedFetch(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.Zone) bool {
-	if to != state.ZHand || !DefinedRefOf(sa).Is(RefRemembered) {
+// deferredDigImprintReturn is the return leg of the same named deferred
+// DigMultiple pair. Requiring both the named fetch and the current ability to
+// match the named return prevents an unrelated Imprinted library fetch from
+// bypassing the ordinary exile gate just because it shares a source or shape.
+func deferredDigImprintReturn(g *state.Game, c *Ctx, sa *cards.SA, cz *ChangeZoneParams) bool {
+	if c == nil || cz.Defined != "Imprinted" || !cz.OriginExactly(state.ZLibrary) ||
+		!cz.DestinationIs(state.ZLibrary) || cz.LibraryPosition.Text != "-1" ||
+		!cz.RandomOrder || !cz.NoShuffle || cz.ShuffleTrue {
 		return false
 	}
-	source := h.Game().Obj(c.Source)
-	if source == nil {
+	fetch := cards.ResolveSVar(c.SVars, "DBChangeZone")
+	if fetch == nil || !deferredDigLibraryFetch(g, c, ChangeZoneOf(fetch)) {
 		return false
 	}
-	for _, id := range source.Imprinted {
-		if obj := h.Game().Obj(id); obj != nil && obj.Zone == state.ZLibrary {
-			return true
+	returnAbility := cards.ResolveSVar(c.SVars, ChangeZoneOf(fetch).SubAbility)
+	return returnAbility != nil && returnAbility.API == "ChangeZone" &&
+		maps.Equal(returnAbility.Params, sa.Params)
+}
+
+// deferredDigLibraryFetch recognizes Green Sun's paired deferred move: the
+// selected Remembered cards are moved to hand unless the destination-alternate
+// threshold puts them onto the battlefield, while a separately imprinted
+// remainder is handled by the next subability.
+func deferredDigLibraryFetch(g *state.Game, c *Ctx, cz *ChangeZoneParams) bool {
+	if cz.Defined != "Remembered" || cz.Destination != state.ZHand ||
+		cz.DestinationAlt != state.ZBattlefield || cz.DestAltSVarCompare != "GE5" ||
+		cz.SubAbility == "" || c == nil {
+		return false
+	}
+	// The shuffle exemption belongs only to the paired Green Sun sequence:
+	// this fetch must be followed by the exact Imprinted RandomOrder return.
+	// Match the paired continuation, not the size of its pile: when every
+	// revealed card was chosen (X=0), Imprinted is empty but the untouched
+	// library must still retain its order. Unpaired fetches keep shuffling.
+	remainder := cards.ResolveSVar(c.SVars, cz.SubAbility)
+	if remainder == nil || remainder.API != "ChangeZone" {
+		return false
+	}
+	rest := ChangeZoneOf(remainder)
+	if rest.Defined != "Imprinted" || !rest.OriginExactly(state.ZLibrary) ||
+		!rest.DestinationIs(state.ZLibrary) || !rest.RandomOrder || !rest.NoShuffle ||
+		rest.LibraryPosition.Text != "-1" {
+		return false
+	}
+	// The Remembered fetch must actually be the source's named deferred
+	// DBChangeZone leg, not merely an unrelated fetch with a matching return
+	// ability. The rest may be empty, so its pile size cannot prove pairing.
+	fetch := cards.ResolveSVar(c.SVars, "DBChangeZone")
+	if fetch == nil || fetch.API != "ChangeZone" || g.Obj(c.Source) == nil || len(c.Remembered) == 0 {
+		return false
+	}
+	paired := ChangeZoneOf(fetch)
+	if paired.Defined != cz.Defined || paired.SubAbility != cz.SubAbility ||
+		!paired.OriginExactly(state.ZLibrary) || paired.Destination != cz.Destination ||
+		paired.DestinationAlt != cz.DestinationAlt || paired.DestAltSVarCompare != cz.DestAltSVarCompare {
+		return false
+	}
+	for _, target := range c.Remembered {
+		if target.IsPlayer || g.Obj(target.Obj) == nil {
+			return false
 		}
 	}
-	return false
+	return true
+
 }
 
 // changeZoneFetchSelector distinguishes a fetch player from an already chosen
