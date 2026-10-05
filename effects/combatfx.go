@@ -257,6 +257,7 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 	zone := strings.TrimSpace(sa.ParamStr(cards.PKPumpZone))
 	grant := compilePumpGrant(sa)
 	g := h.Game()
+	scope := targetPlayerKindScope(h, c, sa)
 	var ateotIDs []state.ObjID
 	for si, p := range g.AliveFrom(0) {
 		if zone != "" {
@@ -286,7 +287,16 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 				if z == state.ZStack && si > 0 {
 					continue
 				}
+				// Non-battlefield zones are player-owned piles, so the selector
+				// chooses which player's zone to scan. The shared stack is
+				// instead filtered by each spell object's controller.
+				if z != state.ZStack && scope != nil && !scope[p] {
+					continue
+				}
 				for _, id := range g.Zone(z, p) {
+					if z == state.ZStack && !inSweepScope(g, id, scope) {
+						continue
+					}
 					if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) {
 						if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberPumped)), "True") {
 							c.Remembered = append(c.Remembered, state.Target{Obj: id})
@@ -302,6 +312,9 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 			continue
 		}
 		for _, id := range g.Zone(state.ZBattlefield, p) {
+			if !inSweepScope(g, id, scope) {
+				continue
+			}
 			if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) {
 				if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberPumped)), "True") {
 					c.Remembered = append(c.Remembered, state.Target{Obj: id})
