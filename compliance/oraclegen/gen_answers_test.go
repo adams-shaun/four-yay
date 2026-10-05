@@ -287,3 +287,19 @@ func TestPickKindSeparatesPlayerTargetFromOpponentChoice(t *testing.T) {
 		t.Fatalf("pickKind(opp_pick) = %q, want opponent_choice", got)
 	}
 }
+
+// TestForcedChainSubTargetIsNotScripted: a CR 603.3d chain link with exactly
+// one legal target is chosen by XMage without asking (Mechanical Mobster,
+// Thorin, Mountain-king); a root trigger target is still scripted.
+func TestForcedChainSubTargetIsNotScripted(t *testing.T) {
+	sub := rules.OracleDecision{Step: 0, Kind: "target", Options: 1, Min: 1, Max: 1, Resume: "trig_sub",
+		Picks: []string{"Mechanical Mobster (a)"}, PickRefs: []string{"p0:Mechanical Mobster"}, PickKinds: []string{"permanent"}}
+	if got := XAnswers([]rules.OracleDecision{sub}, 1, nil); got != nil {
+		t.Fatalf("forced chain sub-target = %#v, want nothing scripted", got)
+	}
+	root := sub
+	root.Resume = "target"
+	if got := XAnswers([]rules.OracleDecision{root}, 1, nil); got == nil {
+		t.Fatal("a forced root trigger target must still be scripted")
+	}
+}

@@ -434,6 +434,13 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 		var as []XAnswer
 		switch d.Kind {
 		case "target":
+			if d.Resume == "trig_sub" && d.Options == 1 && d.Min == 1 && d.Max == 1 {
+				// A CR 603.3d chain link's forced single target (Mechanical
+				// Mobster's "target creature you control" with only itself):
+				// XMage picks it without asking, so a scripted answer is left
+				// unused (measured on the std pass).
+				continue
+			}
 			for _, ref := range d.PickRefs {
 				v := ref
 				if !isSeat(ref) {
