@@ -256,6 +256,19 @@ env = { GORGE_REWARD_DIR = "/home/sadams/projects/gorge/.ds4/reward" }
 # gate keeps its own -p=4/800% (see the block above), unchanged by this.
 # GOMAXPROCS in env is the legible belt-and-braces for the parallel gates.
 #
+# 2026-10-05 (gate-vet1): raise the vet memory limit to stop GC thrash on
+# cache misses, then give the less GC-bound run more CPU. Measured in this
+# worktree, in the gate's systemd scope (cold = private empty GOCACHE; miss =
+# fresh rules/engine.go content with shared cache):
+#   old 4G / 800% / -p=6 / GOMAXPROCS=6 / 1GiB -> cold 60.26s, 1.83GiB RSS;
+#                                                   miss 56.63s, 1.80GiB RSS
+#   new 8G / 1600% / -p=8 / GOMAXPROCS=8 / 4GiB -> cold 45.98s, 3.13GiB RSS;
+#                                                   miss 19.87s, 2.92GiB RSS
+# Warm repeat: 1.18s, 76MiB RSS. Vet is content-cached: fleet logs had 25/40
+# runs at 0-2s, not a fixed ~50s/run. The higher memory cap cuts GC-bound miss
+# work; the higher CPU quota/parallelism further reduces cold time. Peak RSS
+# remains below MemoryMax=8G.
+#
 # 2026-10-03 (cli-20261003T052434Z-a1d15fb3): the module gate's CPUQuota is
 # raised to 800% (GOMAXPROCS 8, -p=4 kept). Measured, forced fresh
 # (`go test -p=4 -count=1 -skip ... ./...` in the systemd scope, both runs
@@ -278,9 +291,9 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4" }
 
 [[gates]]
 name = "go vet"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=800%", "go", "vet", "-p=6", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "go", "vet", "-p=8", "./..."]
 timeout = 600
-env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "6" }
+env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "8" }
 
 # The whole module, not just ./effects ./rules ./cards: a merge that broke
 # internal/searchprobe and internal/archtest passed the old core-only gate
