@@ -39,10 +39,11 @@ import (
 // the other leaves zero would be a bot that casts differently depending on
 // who asked.
 type Card struct {
-	Creature bool
-	Power    int32
-	CMC      int32
-	Basic    bool
+	PrintedName string
+	Creature    bool
+	Power       int32
+	CMC         int32
+	Basic       bool
 	// AttachedTo is the permanent this Aura or Equipment is currently
 	// attached to, 0 when unattached (state.ObjID's own zero convention).
 	// It comes straight from state.Object.AttachedTo (and the projected
