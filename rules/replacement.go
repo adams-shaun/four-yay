@@ -305,12 +305,14 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 		return e.continueManaReplacements(ev, manaCandidates, nil, false, e.manaFromTap, e.manaProducer)
 	}
 	if ev.Kind == events.Scry {
-		// The scry instruction boundary (CR 614.4): the proposal is held, not
-		// logged, so continueScryReplacements owns the whole return -- it
+		// CR 614.4: the held scry proposal is not logged; its continuation
 		// rewrites the held instruction's count in place (handled=true, event
 		// still a Scry) or replaces it whole (handled=true, zero event), so
 		// the generic single-match/CR-616.1 path below must never see it.
 		return e.continueScryReplacements(ev, matches, nil, nil, 0)
+	}
+	if ev.Kind == events.MillProposal {
+		return continueMillReplacements(e, e.G, millReplacementAsk(e), ev, matches)
 	}
 	if ev.Kind == events.RollDice {
 		// The roll-action boundary (CR 614.4, task rolldice-repl): the
@@ -716,6 +718,8 @@ func replacementEventKind(ev events.Event) cards.ReplEvent {
 		// emitted, so no logged event can ever map here. The exiled batch
 		// rides ev.IDs and becomes Ctx.ReplacedCards on the body's context.
 		return cards.ReplCascade
+	case events.MillProposal:
+		return cards.ReplMill
 	case events.Scry:
 		// The scry instruction boundary. Only the synthetic PROPOSAL
 		// (Engine.Scry) reaches the collection; the completed record is
@@ -723,7 +727,7 @@ func replacementEventKind(ev events.Event) cards.ReplEvent {
 		return cards.ReplScry
 	case events.RollDice:
 		// The roll-action boundary (task rolldice-repl). Only the synthetic
-		// PROPOSAL (Engine.RollDiceProposed) reaches the collection: the Kind
+		// PROPOSAL (effects.CountReplacementProposed) reaches the collection: the Kind
 		// is never emitted, so no logged event can ever map here.
 		return cards.ReplRollDice
 	case events.PlanarRoll:

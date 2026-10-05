@@ -68,7 +68,7 @@ func init() {
 		// path (runReplaceWith) and the DB$ Draw re-draw. repl:DrawCards shares
 		// repl:Draw's events.Draw match (replacementEventNameMatches's one
 		// alias), so both names register together.
-		"repl:Draw", "repl:DrawCards",
+		"repl:Draw", "repl:DrawCards", "repl:Mill",
 		// repl:TurnFaceUp (task cli-20260924T031747Z-6d0658fc) is the "as this
 		// is turned face up" class (Hooded Hydra's five +1/+1 counters, Karlov
 		// Watchdog's CantHappen, Gift of Doom's attach), matched by

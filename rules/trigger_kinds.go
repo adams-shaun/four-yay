@@ -480,6 +480,7 @@ var modeRejectsHighKindsTab = [cards.TriggerModeCount]bool{
 	cards.TriggerDamageDealtOnce:            true,
 	cards.TriggerDamageDoneOnce:             true,
 	cards.TriggerDamageAll:                  true,
+	cards.TriggerExcessDamageAll:            true,
 	cards.TriggerCounterAdded:               true,
 	cards.TriggerCounterAddedOnce:           true,
 	cards.TriggerCounterAddedAll:            true,

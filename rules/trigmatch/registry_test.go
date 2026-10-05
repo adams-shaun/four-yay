@@ -116,6 +116,9 @@ var addedAfterTheSplit = []string{
 	// trigger_match.go's all-latch), but the MODE name is new, so no pre-split
 	// switch arm could have dispatched it.
 	"DamageAll",
+	// agent-20261005T061534Z-7ace93d1: Magmatic Galleon's excess
+	// damage uses existing Damage events but its mode had no pre-split arm.
+	"ExcessDamageAll",
 	// trig-become-monarch: "Whenever a player becomes the monarch ..." (the
 	// 5 corpus Mode$ BecomeMonarch carriers: Knights of the Black Rose,
 	// Custodi Lich, Garland Royal Kidnapper, Starscream Power Hungry, and

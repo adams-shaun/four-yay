@@ -128,7 +128,8 @@ const (
 	TriggerTurnBegin           TriggerMode = 94
 	TriggerCounterAddedAll     TriggerMode = 95
 	TriggerCounterTypeAddedAll TriggerMode = 96
-	TriggerModeCount                       = 97 // one past the last; sizes a dense per-TriggerMode array
+	TriggerExcessDamageAll     TriggerMode = 97
+	TriggerModeCount                       = 98 // one past the last; sizes a dense per-TriggerMode array
 )
 
 var triggerModeNames = [TriggerModeCount]string{
@@ -176,6 +177,7 @@ var triggerModeNames = [TriggerModeCount]string{
 	TriggerCounterRemoved:             "CounterRemoved",
 	TriggerCounterRemovedOnce:         "CounterRemovedOnce",
 	TriggerDamageAll:                  "DamageAll",
+	TriggerExcessDamageAll:            "ExcessDamageAll",
 	TriggerDamagePreventedOnce:        "DamagePreventedOnce",
 	TriggerDiscardedAll:               "DiscardedAll",
 	TriggerDiscover:                   "Discover",
@@ -371,8 +373,9 @@ const (
 	ReplRollPlanarDice ReplEvent = 21
 	ReplScry           ReplEvent = 22
 	ReplTurnFaceUp     ReplEvent = 23
-	ReplPayLife        ReplEvent = 24
-	ReplEventCount               = 25 // one past the last; sizes a dense per-ReplEvent array
+	ReplMill           ReplEvent = 24
+	ReplPayLife        ReplEvent = 25
+	ReplEventCount               = 26 // one past the last; sizes a dense per-ReplEvent array
 )
 
 var replEventNames = [ReplEventCount]string{
@@ -399,6 +402,7 @@ var replEventNames = [ReplEventCount]string{
 	ReplRollPlanarDice: "RollPlanarDice",
 	ReplScry:           "Scry",
 	ReplTurnFaceUp:     "TurnFaceUp",
+	ReplMill:           "Mill",
 	ReplPayLife:        "PayLife",
 }
 

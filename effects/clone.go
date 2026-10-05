@@ -713,29 +713,14 @@ func cloneBecome(h Host, c *Ctx, cp *CloneParams) ([]state.Target, bool) {
 // replacement resolution. ETB choices are announced before the spell moves to
 // the stack, so the cast-time option list is not sufficient: priority can
 // remove the chosen object or change its controller before this replacement
-// applies. Its selector normalization and MatchSpecFrom arguments deliberately
-// mirror rules' etbOptions copy arm, keeping eligibility in the same filter
-// grammar at announcement and resolution.
-//
-// Both sites match through MatchesSpecFrom, which has NO SVar resolver, so a
-// selector carrying a resolver-dependent predicate (Mockingbird's cmcLEY)
-// would answer "never matches" here as well as at announcement. That is not
-// papered over: rules' etbCloneWhitelist refuses such a body outright
-// (SpecNeedsResolver), so no election is ever recorded for one and this
-// revalidation only ever sees selectors the no-resolver matcher can decide.
+// applies. The same CloneETBSelectorMatches used for the option list
+// rechecks both the filter grammar and Mockingbird's captured cast spend.
 func cloneETBTemplateLegal(g *state.Game, c *Ctx, cp *CloneParams) bool {
 	o := g.Obj(c.CloneEnter.Choice)
 	if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
 		return false
 	}
-	spec := cp.Choices
-	if spec == "" {
-		spec = "Creature.Other"
-	}
-	if !strings.Contains(spec, ".") && !strings.HasPrefix(spec, "Card") {
-		spec = "Card." + spec
-	}
-	return c.MatchSpec(g, spec, c.CloneEnter.Choice, c.Controller)
+	return CloneETBSelectorMatches(g, cp.Choices, c.CloneEnter.Choice, c.TableSpecContext(c.Controller))
 }
 
 // cloneChoiceZone classifies ChoiceZone$, the zone a Choices$ pick draws its
