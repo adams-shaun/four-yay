@@ -15,7 +15,7 @@ func TestCompositeMayDoesNotConsumeWholeHandElection(t *testing.T) {
 	res := rules.OracleResult{
 		Snapshots: []rules.OracleSnapshot{
 			{}, {Players: []rules.OracleSnapPlayer{{Seat: 0}}},
-			{Players: []rules.OracleSnapPlayer{{Seat: 0, Graveyard: []string{"Wastes", "Test Spell"}}},
+			{Players: []rules.OracleSnapPlayer{{Seat: 0, Graveyard: []string{"Wastes", "Test Spell"}}}},
 		},
 		Decisions: []rules.OracleDecision{{Step: 1, Seat: 0, Kind: "choose_n", Options: 2,
 			Picks: []string{"Yes — discard your hand"}, PickRefs: []string{"Yes — discard your hand"}, PickKinds: []string{"yes"}}},
