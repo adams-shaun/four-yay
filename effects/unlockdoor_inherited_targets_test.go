@@ -17,6 +17,7 @@ func TestUnlockDoorNonTargetedSubDoesNotUseOuterTargets(t *testing.T) {
 	outer := h.g.AddObject(testRoomDoorCard(t, "Outer Room", "Outer Chamber"), 1).ID
 	for _, id := range []state.ObjID{own, outer} {
 		h.g.Obj(id).Zone = state.ZBattlefield
+		designateRoomCastFace(h.g.Obj(id))
 		if !roomHasLockedDoor(h.g.Obj(id), h.g.Obj(id).Controller) {
 			t.Fatalf("precondition: Room %d must have a locked door", id)
 		}

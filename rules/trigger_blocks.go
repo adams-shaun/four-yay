@@ -233,6 +233,9 @@ func (e *Engine) checkAttackerBlockedTriggers(ev events.Event) {
 		if o.Zone == state.ZBattlefield && o.IsAttacking {
 			e.queueGrantedFlanking(id, o, ev)
 		}
+		if isRoom(o) && !o.DoorUnlocked(int(o.FaceIdx)) {
+			return
+		}
 		if !o.Unlocked && !e.faceMayTrigger(f, ev.Kind) {
 			return
 		}
@@ -425,6 +428,9 @@ func (e *Engine) checkAttackerUnblockedTriggers() {
 			return
 		}
 		f := o.Face()
+		if isRoom(o) && !o.DoorUnlocked(int(o.FaceIdx)) {
+			return
+		}
 		if !o.Unlocked && !e.faceMayTrigger(f, ev.Kind) {
 			return
 		}
@@ -591,6 +597,9 @@ func (e *Engine) checkAttackerUnblockedOnceTriggers() {
 		if f == nil {
 			return
 		}
+		if isRoom(o) && !o.DoorUnlocked(int(o.FaceIdx)) {
+			return
+		}
 		if !o.Unlocked && !e.faceMayTrigger(f, events.DeclareBlockers) {
 			return
 		}
@@ -750,6 +759,9 @@ func (e *Engine) checkBlocksTriggers(ev events.Event) {
 		}
 		f := o.Face()
 		if f == nil {
+			return
+		}
+		if isRoom(o) && !o.DoorUnlocked(int(o.FaceIdx)) {
 			return
 		}
 		if !o.Unlocked && !e.faceMayTrigger(f, ev.Kind) {

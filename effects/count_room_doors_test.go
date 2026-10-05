@@ -50,6 +50,10 @@ func TestCountUnlockedDoorsCountsFacesNotRooms(t *testing.T) {
 	for _, id := range []state.ObjID{aID, bID, cID, opponentID, crID} {
 		h.g.Obj(id).Zone = state.ZBattlefield
 	}
+	designateRoomCastFace(h.g.Obj(aID))
+	designateRoomCastFace(h.g.Obj(bID))
+	designateRoomCastFace(h.g.Obj(cID))
+	designateRoomCastFace(h.g.Obj(opponentID))
 	h.g.Obj(bID).Unlocked = true
 	h.g.Obj(cID).Unlocked = true
 	h.g.Obj(opponentID).Unlocked = true
@@ -103,35 +107,30 @@ func noteEvents(h *fakeHost) []events.Event {
 	return out
 }
 
-// TestUnlockDoorUnlocksLockedTargetRoom is the Mode$ Unlock target path
-// (Ghostly Keybearer): a locked target Room gets one DoorUnlock event and
-// becomes fully unlocked; a second resolution on the now-fully-unlocked Room
-// is a no-op.
+// TestUnlockDoorUnlocksLockedTargetRoom proves a Mode$ Unlock can designate a
+// door on a non-cast Room. Its other door remains locked after the first event.
 func TestUnlockDoorUnlocksLockedTargetRoom(t *testing.T) {
 	h := newHost(t, 2)
 	room := testRoomDoorCard(t, "Unlock Test Room", "Unlock Test Chamber")
 	id := h.g.AddObject(room, 0).ID
 	o := h.g.Obj(id)
 	o.Zone = state.ZBattlefield
-	if !o.Card.Faces[0].IsRoom() || o.Unlocked || !roomHasLockedDoor(o, 0) {
-		t.Fatal("precondition: target must be a battlefield Room with a locked door")
+	if !o.Card.Faces[0].IsRoom() || o.CastDoor || o.DoorUnlocked(0) || o.DoorUnlocked(1) || !roomHasLockedDoor(o, 0) {
+		t.Fatal("precondition: target must be a non-cast battlefield Room with both doors locked")
 	}
 	ability := &cards.SA{Kind: "DB", API: "UnlockDoor", Params: map[string]string{"Mode": "Unlock"}}
 	Resolve(h, &Ctx{Source: id, Controller: 0, Targets: []state.Target{{Obj: id}}}, ability)
-	if !h.g.Obj(id).Unlocked {
-		t.Fatal("a locked target Room was not unlocked")
+	if !h.g.Obj(id).DoorUnlocked(0) || h.g.Obj(id).Unlocked {
+		t.Fatal("unlocking a door on the non-cast Room did not designate exactly that door")
 	}
 	if got := doorUnlockEvents(h); len(got) != 1 {
 		t.Fatalf("DoorUnlock events = %d, want exactly 1: %+v", len(got), h.log)
 	}
-	// Precondition for the repeat: the Room is now fully unlocked and has no
-	// locked door.
-	if roomHasLockedDoor(h.g.Obj(id), 0) {
-		t.Fatal("precondition: the Room still has a locked door after unlocking")
+	if !h.g.Obj(id).DoorUnlocked(0) || h.g.Obj(id).DoorUnlocked(1) {
+		t.Fatalf("the first unlock should activate only face 0: %+v", h.g.Obj(id))
 	}
-	Resolve(h, &Ctx{Source: id, Controller: 0, Targets: []state.Target{{Obj: id}}}, ability)
-	if got := doorUnlockEvents(h); len(got) != 1 {
-		t.Fatalf("a second resolution on the fully unlocked Room emitted another DoorUnlock: %d", len(got))
+	if !roomHasLockedDoor(h.g.Obj(id), 0) {
+		t.Fatal("precondition: the non-cast Room should still have its other locked door")
 	}
 }
 
@@ -147,6 +146,8 @@ func TestUnlockDoorUnlocksLockedRoomAmongLockedAndFullyUnlocked(t *testing.T) {
 	doneID := h.g.AddObject(doneCard, 0).ID
 	h.g.Obj(lockedID).Zone = state.ZBattlefield
 	h.g.Obj(doneID).Zone = state.ZBattlefield
+	designateRoomCastFace(h.g.Obj(lockedID))
+	designateRoomCastFace(h.g.Obj(doneID))
 	h.g.Obj(doneID).Unlocked = true
 
 	// Precondition: the filter the card actually spells distinguishes the two.
@@ -179,6 +180,7 @@ func TestUnlockDoorLockOrUnlockOnFullyUnlockedLockAnswerIsLoud(t *testing.T) {
 	id := h.g.AddObject(room, 0).ID
 	o := h.g.Obj(id)
 	o.Zone = state.ZBattlefield
+	designateRoomCastFace(o)
 	o.Unlocked = true
 	if roomHasLockedDoor(o, 0) {
 		t.Fatal("precondition: the target Room must already be fully unlocked")
@@ -208,6 +210,7 @@ func TestUnlockDoorLockOrUnlockUnlocksWhenALockedDoorExists(t *testing.T) {
 	id := h.g.AddObject(room, 0).ID
 	o := h.g.Obj(id)
 	o.Zone = state.ZBattlefield
+	designateRoomCastFace(o)
 	if !roomHasLockedDoor(o, 0) {
 		t.Fatal("precondition: the target Room must have a locked door")
 	}
@@ -234,6 +237,8 @@ func TestUnlockDoorMultipleLockedRoomsPicksDeterministically(t *testing.T) {
 	secondID := h.g.AddObject(second, 0).ID
 	h.g.Obj(firstID).Zone = state.ZBattlefield
 	h.g.Obj(secondID).Zone = state.ZBattlefield
+	designateRoomCastFace(h.g.Obj(firstID))
+	designateRoomCastFace(h.g.Obj(secondID))
 
 	sa := &cards.SA{Kind: "DB", API: "UnlockDoor", Params: map[string]string{
 		"Mode":    "Unlock",

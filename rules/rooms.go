@@ -19,9 +19,9 @@ import (
 // ValidPlayer$ and ThisDoor$ True) queues off that same event, and that face's
 // rules text (triggers, statics, activated abilities) becomes live.
 //
-// Face liveness convention: a room's live faces are its cast face (FaceIdx)
-// always, plus the other face once unlocked. The room-aware scans walk both
-// live faces; other readers keep using Face(). This engine does not model the
+// Face liveness convention: a cast Room's cast face is live, plus the other
+// face once unlocked. A Room entering without being cast has no live face.
+// The room-aware scans walk live faces; other readers keep using Face(). This engine does not model the
 // CR-613 characteristic combination of both doors, but no supported Room half
 // carries P/T.
 
@@ -34,9 +34,13 @@ func roomLockedFace(o *state.Object) *cards.Face {
 	if !isRoomFace(o.Card.Faces[o.FaceIdx]) || !isRoomFace(o.Card.Faces[1-int(o.FaceIdx)]) {
 		return nil
 	}
-	for fi, f := range o.Card.Faces {
+	// Prefer the alternate face when both doors are locked (the valid
+	// non-cast-entry state). This preserves the ordinary Room unlock offer;
+	// a cast Room has only that alternate locked, while an explicitly locked
+	// cast door is found when its alternate is already unlocked.
+	for _, fi := range []int{1 - int(o.FaceIdx), int(o.FaceIdx)} {
 		if !o.DoorUnlocked(fi) {
-			return f
+			return o.Card.Faces[fi]
 		}
 	}
 	return nil
@@ -100,9 +104,9 @@ func (e *Engine) checkRoomEntryUnlockTriggers(ev events.Event) {
 		return
 	}
 	o := e.G.Obj(ev.Obj)
-	// Unlocked is false here: it means "the alternate door has been unlocked",
-	// not "the cast face is live". Only the entry designation is at issue.
-	if o == nil || o.Zone != state.ZBattlefield || !isRoom(o) || o.Unlocked {
+	// The stack-origin MoveZone has designated the cast face in the event fold;
+	// Unlocked still means the alternate door has been unlocked.
+	if o == nil || o.Zone != state.ZBattlefield || !isRoom(o) || !o.CastDoor || o.Unlocked {
 		return
 	}
 	e.queueUnlockTriggers(o, o.Face())

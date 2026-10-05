@@ -509,6 +509,13 @@ func (e *Engine) scanActiveStaticsFused(now walkKey) {
 					continue
 				}
 				st := pst.Static
+				// The same Room-door gate scanActiveStatics runs: a printed
+				// Room static is live only while its own door is unlocked. A
+				// non-cast Room designates no door (CR 709.5d), so its Face()
+				// statics are inert and both scans must exclude them.
+				if isRoom(o) && pst.Face == o.Face() && !o.DoorUnlocked(int(o.FaceIdx)) {
+					continue
+				}
 				for i := range c {
 					if c[i].mode != st.Mode {
 						continue
