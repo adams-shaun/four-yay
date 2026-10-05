@@ -923,7 +923,7 @@ func conditionMetCore(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 			count++
 		}
 	}
-	return combine(evalConditionCount(count, compare))
+	return combine(evalConditionCountSource(h, c, count, compare))
 }
 
 // targetedPermanentLKI is the CR 608.2h look-back for a `ConditionDefined$
@@ -1069,7 +1069,7 @@ func conditionMetZone(h Host, c *Ctx, zone, present, compare string, targets map
 			count++
 		}
 	}
-	return evalConditionCount(count, compare)
+	return evalConditionCountSource(h, c, count, compare)
 }
 
 // conditionMetBattlefield resolves a ConditionPresent$ (with an optional
@@ -1124,7 +1124,7 @@ func conditionMetBattlefield(h Host, c *Ctx, present, compare string, targets ma
 			count++
 		}
 	}
-	return evalConditionCount(count, compare)
+	return evalConditionCountSource(h, c, count, compare)
 }
 
 // isSpellTargetingPresent reports whether spec is exactly Forge's
@@ -1301,6 +1301,41 @@ func targetedAskCovered(c *Ctx, sa *cards.SA) bool {
 		}
 	}
 	return c.OfferedSA != nil && sa != nil && sa.Line == c.OfferedSA.Line
+}
+
+// evalConditionCountSource resolves a symbolic right-hand side against the
+// resolving source's SVar table. Gift of Estates' LTX compares our land count
+// with X = Count$Valid Land.OppCtrl; X is not the mana paid for the spell.
+// An absent or unreadable SVar stays unresolved, so the resolve walk emits
+// its unmodelled-condition Note rather than running the rider.
+func evalConditionCountSource(h Host, c *Ctx, count int, compare string) (bool, bool) {
+	cmp := CompareOf(compare)
+	if compare == "" {
+		return evalConditionCount(count, compare)
+	}
+	if _, _, literal := parseConditionCompare(compare); literal {
+		return evalConditionCount(count, compare)
+	}
+	if cmp.Fold == CmpNone || (cmp.Rhs() != "X" && cmp.Rhs() != "Y") || c == nil {
+		return false, false
+	}
+	body := ""
+	if c.SVars != nil {
+		body = c.SVars[cmp.Rhs()]
+	}
+	if body == "" {
+		if source := h.Game().Obj(c.Source); source != nil && source.Face() != nil {
+			body = source.Face().SVars[cmp.Rhs()]
+		}
+	}
+	if body == "" {
+		return false, false
+	}
+	n, ok := EvalCountOK(h, c, body)
+	if !ok {
+		return false, false
+	}
+	return cmp.Fold.Apply(count, int(n)), true
 }
 
 // evalConditionCount turns a counted group into (met, resolved) from the
