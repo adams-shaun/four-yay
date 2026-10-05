@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.graveyard","diff":"gorge+[Grizzly Bears] xmage+[]"},"key":"cast-resolve | resolve | p1.graveyard | gorge+[Grizzly Bears] xmage+[]","cards":1}
-{"card":"Lithobraking","template":"cast-resolve","status":"diverge","api":"Token+ImmediateTrigger","sets":["EOE"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}
