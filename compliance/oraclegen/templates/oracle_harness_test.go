@@ -234,3 +234,55 @@ func TestOracleSnapshotNamesFaceDownAndSetName(t *testing.T) {
 		t.Fatalf("no face-down permanent in the snapshot: %+v", last.Permanents)
 	}
 }
+
+// TestOracleCharmKeepsScriptedModesAnswer pins dropUnposedModes to its exact
+// trigger: only a step whose SOLE failure is the unconsumed-answer marker may
+// have its scripted "modes" answer dropped. A charm gains a real, mode-picked
+// target (Konstrari Charm's flying-only Serra Angel; Icy Reception's -5/-0),
+// so dropping the answer there would silently retarget and stale the verdict.
+// The test names both the answer and the mode-appropriate permanent, and it
+// fails against the pre-fix dropUnposedModes (which keyed on "zero decisions"
+// and took the charm's answer and target away).
+func TestOracleCharmKeepsScriptedModesAnswer(t *testing.T) {
+	reg := oracleHarnessCorpus(t)
+	cases := []struct {
+		name       string
+		mode       string // substring of the scripted modes pick
+		targetName string // permanent the mode's own target must name
+	}{
+		{"Icy Reception", "-5/-0", "Grizzly Bears"},
+		{"Konstrari Charm", "with flying", "Serra Angel"},
+	}
+	for _, tc := range cases {
+		it, skip := Generate(reg, tc.name)
+		if skip != nil {
+			t.Errorf("%s: %s", tc.name, skip.Reason)
+			continue
+		}
+		if len(it.Steps) == 0 {
+			t.Fatalf("%s: no steps generated", tc.name)
+		}
+		cast := it.Steps[0]
+		sawMode := false
+		for _, a := range cast.Answers {
+			if a.Kind == "modes" {
+				sawMode = true
+				if len(a.Pick) == 0 || !strings.Contains(strings.Join(a.Pick, " "), tc.mode) {
+					t.Errorf("%s: modes answer pick = %v, want one naming %q", tc.name, a.Pick, tc.mode)
+				}
+			}
+		}
+		if !sawMode {
+			t.Errorf("%s: scripted modes answer was dropped; cast answers = %+v", tc.name, cast.Answers)
+		}
+		found := false
+		for _, tg := range cast.Targets {
+			if strings.Contains(tg, tc.targetName) {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("%s: targets %v do not name the mode-appropriate %q", tc.name, cast.Targets, tc.targetName)
+		}
+	}
+}

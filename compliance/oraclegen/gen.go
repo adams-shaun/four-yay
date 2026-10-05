@@ -409,8 +409,10 @@ func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, Scenario
 		// A charm plan scripts a "modes" answer. A Spree card the engine
 		// resolves without ever posing that decision leaves it unconsumed,
 		// which fails the step for a reason the card never had. Drop the
-		// unposed answer and settle again; every other failure is real.
-		if !cleaned {
+		// unposed answer and settle again -- but ONLY when the step's sole
+		// failure is that leftover; any other fail (a charm that failed
+		// for a real, unrelated reason) must not be papered over.
+		if !cleaned && onlyUnconsumed(res.Fails) {
 			if next, changed := dropUnposedModes(sc, res.Decisions); changed {
 				sc, cleaned = next, true
 				n = 0
@@ -428,6 +430,13 @@ func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, Scenario
 		}
 	}
 	return 0, rules.OracleResult{}, sc, false
+}
+
+// onlyUnconsumed reports whether the run's sole failure is the unconsumed
+// leftover-answer marker. Only then is dropping a scripted "modes" answer
+// safe: a charm whose step failed for any other reason keeps its answer.
+func onlyUnconsumed(fails []string) bool {
+	return len(fails) == 1 && strings.Contains(fails[0], "unconsumed answer(s) for this step:")
 }
 
 // dropUnposedModes removes every scripted "modes" answer for a step whose
