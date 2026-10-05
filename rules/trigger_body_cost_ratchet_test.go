@@ -2,14 +2,13 @@ package rules
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"testing"
-
-	costmodel "github.com/adams-shaun/gorge/rules/cost"
 )
 
 // Full sorted carrier snapshot: identifiers/raw costs only, never Forge text.
@@ -878,6 +877,61 @@ var triggerFamilyHead = regexp.MustCompile(`^([A-Za-z]+)(?:<|$)`)
 
 // TestTriggerBodyCostCorpusRatchet fails closed on any new, removed, or
 // changed trigger/chapter carrier and names the card, root SVar, and raw cost.
+// triggerCostRoute classifies each carrier by the route its current cost shape
+// can take, independent of game-state availability. free-executor is the
+// intentional Mandatory carve-out, distinct from a decline-only window.
+func triggerCostRoute(row string) string {
+	parts := strings.SplitN(row, "|", 4)
+	if len(parts) != 4 {
+		return "invalid"
+	}
+	raw := parts[3]
+	mandatory := strings.HasPrefix(raw, "Mandatory ")
+	if mandatory {
+		if strings.Contains(raw, "tapXType<") {
+			return "window-settled"
+		}
+		families := costFamiliesInRaw(strings.TrimPrefix(raw, "Mandatory "))
+		settleable := map[string]bool{"Sac": true, "Exile": true, "ExiledMoveToGrave": true, "Mana": true, "PayLife": true}
+		for family := range families {
+			if !settleable[family] {
+				return "free-executor"
+			}
+		}
+		if families["Sac"] || families["Exile"] || families["ExiledMoveToGrave"] {
+			return "window-settled"
+		}
+		return "free-executor"
+	}
+	families := costFamiliesInRaw(raw)
+	settleable := map[string]bool{"Sac": true, "Discard": true, "Draw": true, "PayEnergy": true, "PayLife": true, "ExileFromGrave": true, "Exile": true, "ExileAnyGrave": true, "ExiledMoveToGrave": true, "Blight": true, "CollectEvidence": true, "Mana": true}
+	for family := range families {
+		if !settleable[family] {
+			return "decline-only"
+		}
+	}
+	return "window-settled"
+}
+
+func costFamiliesInRaw(raw string) map[string]bool {
+	seen := map[string]bool{}
+	for _, token := range strings.Fields(raw) {
+		inAngle := strings.Contains(token, "<")
+		if inAngle {
+			token = token[:strings.IndexByte(token, '<')]
+		}
+		if !inAngle && token != "" && (token[0] >= '0' && token[0] <= '9' || strings.Trim(token, "WUBRGC") == "") || token == "Mana" {
+			seen["Mana"] = true
+		}
+		for _, family := range triggerCostFamilies {
+			if token == family {
+				seen[family] = true
+			}
+		}
+	}
+	return seen
+}
+
 func TestTriggerBodyCostCorpusRatchet(t *testing.T) {
 	root := filepath.Join("..", ".cards", "cardsfolder")
 	if _, err := os.Stat(root); err != nil {
@@ -966,33 +1020,52 @@ func TestTriggerBodyCostCorpusRatchet(t *testing.T) {
 		t.Fatalf("unique trigger Cost$ carriers=%d, want 855", len(got))
 	}
 	families := map[string]int{}
+	routes := map[string]int{}
 	for row := range got {
 		raw := strings.SplitN(row, "|", 4)[3]
-		seen := map[string]bool{}
-		for _, token := range strings.Fields(raw) {
-			if strings.Contains(token, "<") {
-				token = token[:strings.IndexByte(token, '<')]
-			}
-			for _, fam := range triggerCostFamilies {
-				if token == fam {
-					seen[fam] = true
-				}
-			}
+		seen := costFamiliesInRaw(raw)
+		route := triggerCostRoute(row)
+		if route == "invalid" {
+			t.Fatalf("unclassified trigger cost carrier %s", row)
 		}
-		if costmodel.ParseCost(raw).HasManaPayment() {
-			seen["Mana"] = true
-		}
+		routes[route]++
 		for fam := range seen {
 			families[fam]++
 		}
 	}
-	wantFamilies := map[string]int{"Mana": 384, "Sac": 163, "Discard": 97, "Draw": 38, "PayEnergy": 37, "PayLife": 36, "ExileFromGrave": 22, "tapXType": 17, "ExileAnyGrave": 16, "SubCounter": 15, "ExiledMoveToGrave": 9, "Blight": 7, "Return": 7, "CollectEvidence": 6, "Forage": 5, "RemoveAnyCounter": 4, "Exile": 2, "ExileFromHand": 2, "PutCardToLibFromGrave": 2, "Behold": 1, "ExileCtrlOrGrave": 1, "Mill": 1}
-	if len(families) != len(wantFamilies) {
-		t.Fatalf("Cost$ family set=%v, want %v", families, wantFamilies)
+	wantFamilies := map[string]int{"Mana": 358, "Sac": 163, "Discard": 97, "Draw": 38, "PayEnergy": 37, "PayLife": 36, "ExileFromGrave": 22, "tapXType": 17, "ExileAnyGrave": 16, "SubCounter": 15, "ExiledMoveToGrave": 9, "Blight": 7, "Return": 7, "CollectEvidence": 6, "Forage": 5, "RemoveAnyCounter": 4, "Exile": 2, "ExileFromHand": 2, "PutCardToLibFromGrave": 2, "Behold": 1, "ExileCtrlOrGrave": 1, "Mill": 1}
+	var familyDrift []string
+	for family, want := range wantFamilies {
+		if got := families[family]; got != want {
+			familyDrift = append(familyDrift, fmt.Sprintf("%s=%d (want %d)", family, got, want))
+		}
 	}
-	// Carrier rows pin all family occurrences individually; this aggregate is
-	// a diagnostic cross-check rather than the source of the per-carrier ratchet.
-	if families["Mana"] == 0 {
-		t.Fatal("Mana family disappeared from Cost$ corpus")
+	for family, got := range families {
+		if _, ok := wantFamilies[family]; !ok {
+			familyDrift = append(familyDrift, fmt.Sprintf("%s=%d (unexpected)", family, got))
+		}
+	}
+	sort.Strings(familyDrift)
+	if len(familyDrift) > 0 {
+		t.Fatalf("Cost$ family occurrence drift: %s", strings.Join(familyDrift, ", "))
+	}
+	wantRoutes := map[string]int{"window-settled": 801, "decline-only": 54}
+	var routeDrift []string
+	for route, want := range wantRoutes {
+		if got := routes[route]; got != want {
+			routeDrift = append(routeDrift, fmt.Sprintf("%s=%d (want %d)", route, got, want))
+		}
+	}
+	for route, got := range routes {
+		if _, ok := wantRoutes[route]; !ok {
+			routeDrift = append(routeDrift, fmt.Sprintf("%s=%d (unexpected)", route, got))
+		}
+	}
+	sort.Strings(routeDrift)
+	if len(routeDrift) != 0 {
+		t.Fatalf("trigger Cost$ route classification drift: %s", strings.Join(routeDrift, ", "))
+	}
+	if len(got) != 855 {
+		t.Fatalf("Cost$ carrier aggregate changed during family census: %d", len(got))
 	}
 }
