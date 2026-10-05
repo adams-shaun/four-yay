@@ -20,6 +20,36 @@ func (h *greenSunRandomHost) Rand(n int) int {
 	return 0
 }
 
+func TestDefinedRememberedWithUnrelatedImprintStillShuffles(t *testing.T) {
+	h := newHost(t, 2)
+	source := h.g.AddObject(mkCard(t, "Name:Source\nTypes:Sorcery\nOracle:x\n"), 0)
+	fetched := h.g.AddObject(mkCard(t, "Name:Remembered\nTypes:Creature\nPT:2/2\nOracle:x\n"), 0)
+	imprinted := h.g.AddObject(mkCard(t, "Name:Imprinted\nTypes:Artifact\nOracle:x\n"), 0)
+	h.g.SetZone(state.ZLibrary, 0, []state.ObjID{fetched.ID})
+	h.g.Obj(fetched.ID).Zone = state.ZLibrary
+	h.g.SetZone(state.ZExile, 0, []state.ObjID{imprinted.ID})
+	h.g.Obj(imprinted.ID).Zone = state.ZExile
+	h.g.Obj(source.ID).Imprinted = []state.ObjID{imprinted.ID}
+	if h.g.Obj(fetched.ID).Zone != state.ZLibrary || h.g.Obj(source.ID).Imprinted[0] != imprinted.ID || h.g.Obj(imprinted.ID).Zone != state.ZExile {
+		t.Fatal("precondition: remembered fetch differs from the non-library imprint")
+	}
+
+	Resolve(h, &Ctx{Controller: 0, Source: source.ID, Remembered: []state.Target{{Obj: fetched.ID}}}, sa(t,
+		"DB$ ChangeZone | Origin$ Library | Destination$ Hand | Defined$ Remembered | Shuffle$ True"))
+	if h.g.Obj(fetched.ID).Zone != state.ZHand {
+		t.Fatalf("remembered card zone = %s, want hand", h.g.Obj(fetched.ID).Zone)
+	}
+	shuffles := 0
+	for _, event := range h.log {
+		if event.Kind == events.Shuffle {
+			shuffles++
+		}
+	}
+	if shuffles != 1 {
+		t.Fatalf("unrelated imprinted source shuffled %d times, want one explicit Shuffle$ True event: %+v", shuffles, h.log)
+	}
+}
+
 func TestDigMultipleGreenSunSelectionAndBottoming(t *testing.T) {
 	_, ability, vars := corpusRiderSA(t, "Green Sun's Twilight", "")
 	if ability.API != "DigMultiple" || ability.Params["ChangeLater"] != "True" || ability.Params["ImprintRest"] != "True" {

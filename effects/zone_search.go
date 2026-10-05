@@ -658,12 +658,23 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 			}
 		}
 		// Green Sun's Twilight's first ChangeZone consumes Remembered while
-		// the same resolving source carries the deferred, still-in-library
+		// the same resolving source carries a disjoint, library-resident
 		// Imprinted rest pile. Shuffling here would mix the untouched library
 		// into the later RandomOrder$ bottom placement before RestBottom runs.
+		// Do not suppress a stated Shuffle$ True, or an unrelated imprint set
+		// that is absent from the library or overlaps the fetched cards.
 		source := g.Obj(c.Source)
 		preserveDeferredRest := cz.DefinedRemembered && to != state.ZLibrary &&
-			source != nil && len(source.Imprinted) > 0
+			!cz.ShuffleTrue && source != nil && len(source.Imprinted) > 0
+		if preserveDeferredRest {
+			for _, id := range source.Imprinted {
+				object := g.Obj(id)
+				if object == nil || object.Zone != state.ZLibrary || object.Owner != f.owner || containsID(moved, id) {
+					preserveDeferredRest = false
+					break
+				}
+			}
+		}
 		if !preserveDeferredRest {
 			shuffleLibrary(h, cz, f.owner)
 		}
