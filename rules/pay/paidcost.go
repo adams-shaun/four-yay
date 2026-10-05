@@ -254,16 +254,20 @@ func EmitChoiceCosts(e Engine, paid *PaidCost, player state.PlayerID, card state
 				IDs: []state.ObjID{card}})
 		}
 	}
-	for i, id := range paid.Blights {
+	EmitBlightCounters(e, paid.Blights, cost, x)
+}
+
+// EmitBlightCounters places the counters for each paid Blight part. Both
+// cast/activation costs and triggered-cost windows use this event-backed
+// settlement so fixed and announced amounts cannot drift.
+func EmitBlightCounters(e Engine, blights []state.ObjID, cost *Cost, x int32) {
+	for i, id := range blights {
 		if i < len(cost.Blight) {
 			n := cost.Blight[i].N
-			// An announced Blight<X> part's count is the announced X, not the
-			// (unused) part.N.
 			if cost.Blight[i].Announced {
 				n = x
 			}
-			e.Emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: "M1M1",
-				Amount: n})
+			e.Emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: "M1M1", Amount: n})
 		}
 	}
 }

@@ -511,7 +511,7 @@ func (e *Engine) blightCostAsk() bool {
 		if pc.cost.Blight[pc.BlightPart].Announced && !pc.xDone {
 			return false
 		}
-		candidates := pay.CostCandidates(asPayer(e), pc.player, pc.card, state.ZBattlefield, "Creature.YouCtrl", false, false)
+		candidates := pay.BlightCandidates(asPayer(e), pc.player, pc.card)
 		if len(candidates) == 0 {
 			e.abortCast(pc, "blight cost no longer payable; cast aborted", true)
 			return true

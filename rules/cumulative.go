@@ -112,9 +112,11 @@ type triggeredEffectCost struct {
 	// reservation list the unless-pay and cast flows keep) so one object
 	// cannot pay two parts and the settle can emit the exact events the
 	// picks name.
-	sacs     []state.ObjID
-	exiles   []state.ObjID
-	discards []state.ObjID
+	sacs      []state.ObjID
+	exiles    []state.ObjID
+	discards  []state.ObjID
+	blights   []state.ObjID
+	blightIdx int
 	// moveGraves accumulates the settled ExiledMoveToGrave picks (the same
 	// reservation list the other components keep) so the settle can emit the
 	// owner's-graveyard moves the picks name.
@@ -1098,7 +1100,7 @@ func (e *Engine) triggeredCostPayable(tc *triggeredEffectCost) bool {
 		return false
 	}
 	rest := amt.WithoutEnergy()
-	if len(rest.Sac)+len(rest.Discard)+len(rest.Exile)+len(rest.MoveToGrave) > 0 || len(rest.Evidence) > 0 {
+	if len(rest.Sac)+len(rest.Discard)+len(rest.Exile)+len(rest.MoveToGrave) > 0 || len(rest.Evidence) > 0 || len(rest.Blight) > 0 {
 		// A component-bearing cost is payable ONLY through the settle gate
 		// (trigcost2): the Draw arm alone would offer "pay" while silently
 		// skipping the components. An Evidence part counts here too -- an
@@ -1129,7 +1131,7 @@ func (e *Engine) triggeredCostPayable(tc *triggeredEffectCost) bool {
 // unpayable window never offers a "pay" that can only fail at the charge.
 func (e *Engine) triggeredCostManaHalfPayable(tc *triggeredEffectCost, rest Cost) bool {
 	mana := rest
-	mana.Sac, mana.Discard, mana.Exile, mana.Draw, mana.MoveToGrave = nil, nil, nil, nil, nil
+	mana.Sac, mana.Discard, mana.Exile, mana.Draw, mana.MoveToGrave, mana.Blight = nil, nil, nil, nil, nil, nil
 	if !mana.HasManaPayment() && mana.Life == 0 && mana.Snow == 0 &&
 		len(mana.Hybrid) == 0 && len(mana.Phyrexian) == 0 &&
 		len(mana.Twobrid) == 0 && len(mana.HybridPhyrexian) == 0 {
@@ -1151,7 +1153,7 @@ func (e *Engine) triggeredCostManaHalfPayable(tc *triggeredEffectCost, rest Cost
 // this gate replaces.
 func (e *Engine) triggeredCostComponentsPayable(tc *triggeredEffectCost) bool {
 	amt := tc.announcedCost()
-	if len(amt.Sac)+len(amt.Discard)+len(amt.Exile)+len(amt.MoveToGrave) == 0 && len(amt.Evidence) == 0 {
+	if len(amt.Sac)+len(amt.Discard)+len(amt.Exile)+len(amt.MoveToGrave) == 0 && len(amt.Evidence) == 0 && len(amt.Blight) == 0 {
 		return false
 	}
 	if amt.Tap || amt.X != 0 {
@@ -1171,13 +1173,18 @@ func (e *Engine) triggeredCostComponentsPayable(tc *triggeredEffectCost) bool {
 	// structurally rather than by population -- the corpus carries no trigger
 	// body with one today, and if one lands it must not be silently skipped.
 	if len(amt.SubCounter) > 0 || len(amt.Reveal) > 0 || len(amt.RevealChosen) > 0 || len(amt.Behold) > 0 ||
-		len(amt.TapPermanent) > 0 || len(amt.Blight) > 0 ||
+		len(amt.TapPermanent) > 0 ||
 		len(amt.AddCounter) > 0 || len(amt.Return) > 0 || len(amt.PutToLib) > 0 ||
 		len(amt.LifeX) > 0 || len(amt.DamageYou) > 0 || len(amt.GainLife) > 0 || len(amt.Exert) > 0 || amt.Forage {
 		return false
 	}
 	if _, ok := e.triggeredCostDrawCounts(tc); !ok {
 		return false
+	}
+	for _, part := range amt.Blight {
+		if part.Announced || part.N <= 0 || len(pay.BlightCandidates(asPayer(e), tc.player, tc.source)) == 0 {
+			return false
+		}
 	}
 	parts := triggeredMandatoryParts(amt)
 	// Reserve candidates ACROSS parts while gating: parts sharing a pool must
@@ -1260,7 +1267,7 @@ func (e *Engine) triggeredCostComponentsPayable(tc *triggeredEffectCost) bool {
 		}
 	}
 	mana := amt
-	mana.Sac, mana.Discard, mana.Exile, mana.Draw = nil, nil, nil, nil
+	mana.Sac, mana.Discard, mana.Exile, mana.Draw, mana.Blight = nil, nil, nil, nil, nil
 	mana.MoveToGrave = nil
 	mana.Evidence = nil
 	if mana.HasManaPayment() || mana.Life > 0 || mana.Snow > 0 ||
@@ -1514,6 +1521,9 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 	case triggeredCostAnswerTriggerCostTap:
 		e.triggeredTapAnswer(tc, chosen)
 		return
+	case triggeredCostAnswerTriggerCostBlight:
+		e.triggeredBlightAnswer(tc, chosen)
+		return
 	case triggeredCostAnswerTriggerCostX:
 		// The X announcement's answer (the payer-chooses fold): the chosen
 		// value folds into the cost and the payment ask re-opens, now pricing
@@ -1552,7 +1562,7 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 		// charges is exactly the cost triggeredCostPayable proved. A cost with
 		// no announcement pip returns amount unchanged.
 		announced := tc.announcedCost()
-		if len(announced.Sac)+len(announced.Discard)+len(announced.Exile)+len(announced.MoveToGrave) > 0 || len(announced.Evidence) > 0 {
+		if len(announced.Sac)+len(announced.Discard)+len(announced.Exile)+len(announced.MoveToGrave) > 0 || len(announced.Evidence) > 0 || len(announced.Blight) > 0 {
 			// The settleable-component cost (trigcost2): the election is
 			// "pay"; walk the components (the mandatory walk's picks -- a
 			// real KChoose where a choice exists, the Hand/Random discard
@@ -1563,7 +1573,11 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 			// and the window is synchronous -- no priority pass runs between
 			// its asks -- so a part the walk finds unpayable is the decline,
 			// with nothing yet moved to un-pay.
-			e.advanceTriggeredMandatory(tc)
+			if len(announced.Blight) > 0 {
+				e.advanceTriggeredBlight(tc)
+			} else {
+				e.advanceTriggeredMandatory(tc)
+			}
 			return
 		}
 		if len(announced.Draw) > 0 {
@@ -1783,6 +1797,51 @@ func (tc *triggeredEffectCost) recordMandatoryPick(idx int, ids []state.ObjID) {
 // pay election, where one exists, was answered before this walk started),
 // and a Hand-spec Discard pays the whole hand and a Random-spec Discard pays
 // seeded picks without ever asking (the cast flow's discardAsk specials).
+func (e *Engine) advanceTriggeredBlight(tc *triggeredEffectCost) {
+	parts := tc.amount.Blight
+	for tc.blightIdx < len(parts) {
+		candidates := pay.BlightCandidates(asPayer(e), tc.player, tc.source)
+		if len(candidates) == 0 {
+			e.triggeredCostDecline(tc)
+			return
+		}
+		if len(candidates) == 1 {
+			tc.blights = append(tc.blights, candidates[0])
+			tc.blightIdx++
+			continue
+		}
+		name := "triggered ability"
+		if o := e.G.Obj(tc.source); o != nil && o.Face() != nil {
+			name = o.Face().Name
+		}
+		d := &decision.Decision{Player: tc.player, Kind: decision.KChoose, Min: 1, Max: 1,
+			Prompt: name + " — choose a creature to blight", Source: tc.source}
+		for _, id := range candidates {
+			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "trigger_cost_blight", Obj: id, Label: e.targetName(id)})
+		}
+		windowAsk(e, d, chooseTriggeredCost)
+		return
+	}
+	e.advanceTriggeredMandatory(tc)
+}
+
+func (e *Engine) triggeredBlightAnswer(tc *triggeredEffectCost, chosen []decision.Option) {
+	if tc.blightIdx >= len(tc.amount.Blight) || len(chosen) != 1 {
+		e.triggeredCostDecline(tc)
+		return
+	}
+	id := chosen[0].Obj
+	for _, candidate := range pay.BlightCandidates(asPayer(e), tc.player, tc.source) {
+		if candidate == id {
+			tc.blights = append(tc.blights, id)
+			tc.blightIdx++
+			e.advanceTriggeredBlight(tc)
+			return
+		}
+	}
+	e.triggeredCostDecline(tc)
+}
+
 func (e *Engine) advanceTriggeredMandatory(tc *triggeredEffectCost) {
 	parts := triggeredMandatoryParts(tc.amount)
 	for tc.part < len(parts) {
@@ -1943,7 +2002,7 @@ func (e *Engine) triggeredMandatoryAnswer(chosen []decision.Option) {
 // in which case the body is skipped rather than half paid.
 func (e *Engine) settleTriggeredMandatory(tc *triggeredEffectCost) {
 	stripped := tc.announcedCost()
-	stripped.Sac, stripped.Discard, stripped.Exile, stripped.Draw = nil, nil, nil, nil
+	stripped.Sac, stripped.Discard, stripped.Exile, stripped.Draw, stripped.Blight = nil, nil, nil, nil, nil
 	stripped.MoveToGrave = nil
 	stripped.Evidence = nil
 	if (stripped.HasManaPayment() || stripped.Life > 0) &&
@@ -2001,6 +2060,7 @@ func (e *Engine) settleTriggeredMandatory(tc *triggeredEffectCost) {
 		}
 	}
 	pay.PayDiscardCost(asPayer(e), tc.discards, "")
+	pay.EmitBlightCounters(asPayer(e), tc.blights, &tc.amount, tc.xPaid)
 	// The cost's own Draw components (the pay arm's draw half -- Ambergris'
 	// "discard your hand. If you do, draw two cards"). The pay gate resolved
 	// every count before offering "pay", so the belt-and-braces re-resolution
@@ -2285,6 +2345,7 @@ const (
 	triggeredCostAnswerActivate triggeredCostAnswerCode = iota + 1
 	triggeredCostAnswerDone
 	triggeredCostAnswerTriggerCostTap
+	triggeredCostAnswerTriggerCostBlight
 	triggeredCostAnswerTriggerCostX
 	triggeredCostAnswerPayPip
 )
@@ -2293,6 +2354,7 @@ var triggeredCostAnswerCodes = state.NewStrCodes(
 	state.StrEntry[triggeredCostAnswerCode]{Key: "activate", Val: triggeredCostAnswerActivate},
 	state.StrEntry[triggeredCostAnswerCode]{Key: "done", Val: triggeredCostAnswerDone},
 	state.StrEntry[triggeredCostAnswerCode]{Key: "trigger_cost_tap", Val: triggeredCostAnswerTriggerCostTap},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "trigger_cost_blight", Val: triggeredCostAnswerTriggerCostBlight},
 	state.StrEntry[triggeredCostAnswerCode]{Key: "trigger_cost_x", Val: triggeredCostAnswerTriggerCostX},
 	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_W", Val: triggeredCostAnswerPayPip},
 	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_U", Val: triggeredCostAnswerPayPip},
