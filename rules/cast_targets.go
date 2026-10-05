@@ -901,7 +901,7 @@ func castSubChangeZoneAnnounceable(sa *cards.SA) bool {
 			!tp.Has(effects.TgtTypeStack) && !tp.Has(effects.TgtValidPlayers) &&
 			effects.ChangeZoneOf(sa).OriginExactly(state.ZGraveyard)
 	}
-	_, ok := originImpliedTargetZone(sa)
+	_, ok, _ := originImpliedTargetZone(sa)
 	return ok
 }
 
