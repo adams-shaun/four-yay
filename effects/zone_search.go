@@ -673,7 +673,14 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 				h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: f.owner, Text: "entered tapped"})
 			}
 		}
-		shuffleLibrary(h, cz, f.owner)
+		// Green Sun's Twilight's first ChangeZone moves only its selected,
+		// remembered cards to hand. The companion Imprinted cards remain in
+		// the library until RestBottom places that window remainder; a default
+		// search shuffle here would also randomize cards below the revealed
+		// window. Keep this exception pinned to that compiled card chain.
+		if !greenSunsTwilightSelectedFetch(h, c, sa, cz, to) {
+			shuffleLibrary(h, cz, f.owner)
+		}
 		placeLibraryObjects(h, c, cz, f.owner, moved, to)
 		// Explicit Reveal$ on a Defined$ fetch list (Forge reveals movedCards
 		// whenever Reveal$ names the effect, defined or not): the same public
@@ -685,6 +692,27 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 	}
 	scheduleAtEOT(h, c, sa, ateotMoved)
 	return true
+}
+
+// greenSunsTwilightSelectedFetch identifies the first half of the card's
+// ChangeLater chain: selected Remembered cards go to hand while the source
+// still owns a library-resident Imprinted remainder for RestBottom. Requiring
+// both roles avoids changing ordinary Defined$ fetches with a similar
+// destination.
+func greenSunsTwilightSelectedFetch(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.Zone) bool {
+	if to != state.ZHand || !DefinedRefOf(sa).Is(RefRemembered) {
+		return false
+	}
+	source := h.Game().Obj(c.Source)
+	if source == nil {
+		return false
+	}
+	for _, id := range source.Imprinted {
+		if obj := h.Game().Obj(id); obj != nil && obj.Zone == state.ZLibrary {
+			return true
+		}
+	}
+	return false
 }
 
 // changeZoneFetchSelector distinguishes a fetch player from an already chosen

@@ -23,10 +23,14 @@ func TestDigMultipleGreenSunSelectionAndBottoming(t *testing.T) {
 		h.g.AddObject(mkCard(t, riderLand), 0).ID,
 		h.g.AddObject(mkCard(t, riderSurge), 0).ID,
 	}
-	tail := h.g.AddObject(mkCard(t, riderLand), 0).ID
-	library := append(append([]state.ObjID(nil), ids...), tail)
+	tail := []state.ObjID{
+		h.g.AddObject(mkCard(t, riderLand), 0).ID,
+		h.g.AddObject(mkCard(t, riderBear), 0).ID,
+		h.g.AddObject(mkCard(t, riderSurge), 0).ID,
+	}
+	library := append(append([]state.ObjID(nil), ids...), tail...)
 	h.g.SetZone(state.ZLibrary, 0, library)
-	if len(h.g.Zone(state.ZLibrary, 0)) != 5 ||
+	if len(h.g.Zone(state.ZLibrary, 0)) != 7 ||
 		!MatchesSpecCtx(h.g, "Creature", ids[0], NewSpecContext(0, 0)) ||
 		!MatchesSpecCtx(h.g, "Creature", ids[1], NewSpecContext(0, 0)) ||
 		!MatchesSpecCtx(h.g, "Land", ids[2], NewSpecContext(0, 0)) ||
@@ -75,16 +79,26 @@ func TestDigMultipleGreenSunSelectionAndBottoming(t *testing.T) {
 		t.Fatalf("selected hand IDs = %v, want the two distinct chosen objects %v", got, selected)
 	}
 	gotLibrary := h.g.Zone(state.ZLibrary, 0)
-	if len(gotLibrary) != len(unselected)+1 || gotLibrary[0] != tail {
-		t.Fatalf("library = %v, want untouched tail %d above bottom remainder %v; events=%+v", gotLibrary, tail, unselected, h.log)
+	if len(gotLibrary) != len(unselected)+len(tail) {
+		t.Fatalf("library = %v, want untouched tail %v above bottom remainder %v; events=%+v", gotLibrary, tail, unselected, h.log)
 	}
-	bottom := append([]state.ObjID(nil), gotLibrary[1:]...)
+	for i, id := range tail {
+		if gotLibrary[i] != id {
+			t.Fatalf("untouched library tail = %v, want original order %v", gotLibrary[:len(tail)], tail)
+		}
+	}
+	bottom := append([]state.ObjID(nil), gotLibrary[len(tail):]...)
 	wantBottom := append([]state.ObjID(nil), unselected...)
 	sort.Slice(bottom, func(i, j int) bool { return bottom[i] < bottom[j] })
 	sort.Slice(wantBottom, func(i, j int) bool { return wantBottom[i] < wantBottom[j] })
 	for i := range wantBottom {
 		if bottom[i] != wantBottom[i] {
-			t.Fatalf("library bottom = %v, want exactly unselected IDs %v", gotLibrary[1:], unselected)
+			t.Fatalf("library bottom = %v, want exactly unselected IDs %v", gotLibrary[len(tail):], unselected)
+		}
+	}
+	for _, ev := range h.log {
+		if ev.Kind == events.Shuffle && ev.Player == 0 {
+			t.Fatalf("Green Sun shuffled the whole library instead of only bottoming the window remainder: %+v", ev)
 		}
 	}
 	for _, id := range unselected {
