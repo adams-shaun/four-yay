@@ -37,6 +37,13 @@ const (
 	censusLabelSacrificedPower   = "count:Sacrificed$CardPower"
 	censusLabelTurnEntered       = "filter:ThisTurnEnteredFrom_Battlefield"
 	censusLabelTriggeredCardMana = "trigger-cost:TriggeredCard$CastTotalManaSpent"
+	// censusLabelEvidenceTrigger names the trigger-BODY family whose Cost$
+	// carries CollectEvidence<N> (the class agent-20261005T062256Z-dadd85ba
+	// fixed: the window free-settled an evidence-only cost). It walks the
+	// TRIGGER effect chains only, never f.Abilities -- an activated/spell
+	// ability pays evidence through the cast flow's evidenceAsk stage and is
+	// already correct.
+	censusLabelEvidenceTrigger = "trigger-cost:Cost$CollectEvidence"
 )
 
 // oracleFixCarriers walks the compiled corpus and returns, per census label,
@@ -47,6 +54,7 @@ func oracleFixCarriers(reg *cards.Registry) map[string]map[string]bool {
 		censusLabelSacrificedPower:   {},
 		censusLabelTurnEntered:       {},
 		censusLabelTriggeredCardMana: {},
+		censusLabelEvidenceTrigger:   {},
 	}
 	add := func(label, card string) {
 		if out[label] == nil {
@@ -68,6 +76,18 @@ func oracleFixCarriers(reg *cards.Registry) map[string]map[string]bool {
 	chainHasCostX := func(sa *cards.SA) bool {
 		for ; sa != nil; sa = sa.Sub {
 			if strings.Contains(sa.Params["Cost"], "X") {
+				return true
+			}
+		}
+		return false
+	}
+	// chainHasEvidence reports whether any SA in a TRIGGER effect chain
+	// carries a Cost$ naming CollectEvidence<N> -- the trigger-body evidence
+	// family. It is deliberately not applied to f.Abilities: activation and
+	// spell evidence costs go through the cast path's evidenceAsk.
+	chainHasEvidence := func(sa *cards.SA) bool {
+		for ; sa != nil; sa = sa.Sub {
+			if strings.Contains(sa.Params["Cost"], "CollectEvidence") {
 				return true
 			}
 		}
@@ -114,6 +134,11 @@ func oracleFixCarriers(reg *cards.Registry) map[string]map[string]bool {
 			for _, tr := range f.Triggers {
 				if chainHasTurnEntered(tr.Effect) {
 					add(censusLabelTurnEntered, f.Name)
+				}
+			}
+			for _, tr := range f.Triggers {
+				if chainHasEvidence(tr.Effect) {
+					add(censusLabelEvidenceTrigger, f.Name)
 				}
 			}
 			for _, sa := range f.Abilities {
@@ -189,6 +214,7 @@ func TestCorpusCensusFilesWellFormed(t *testing.T) {
 	loadCensusLabels(t, "corpus-sacrificed-power")
 	loadCensusLabels(t, "corpus-turn-entered-filter")
 	loadCensusLabels(t, "corpus-triggered-card-mana")
+	loadCensusLabels(t, "corpus-evidence-trigger")
 }
 
 // TestCorpusSacrificedPowerCensus is the ratchet for the count head whose
@@ -207,4 +233,10 @@ func TestCorpusTurnEnteredCensus(t *testing.T) {
 // TriggeredCard referent binding.
 func TestCorpusTriggeredCardManaCensus(t *testing.T) {
 	checkCensus(t, censusLabelTriggeredCardMana, "corpus-triggered-card-mana", "Uncover the Moon-Letters")
+}
+
+// TestCorpusEvidenceTriggerCensus is the ratchet for the trigger-body
+// CollectEvidence family whose free settlement this ticket fixed.
+func TestCorpusEvidenceTriggerCensus(t *testing.T) {
+	checkCensus(t, censusLabelEvidenceTrigger, "corpus-evidence-trigger", "Izoni, Center of the Web")
 }
