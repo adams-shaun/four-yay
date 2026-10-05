@@ -222,6 +222,9 @@ func (e *Engine) charmTargetsAvailable(p state.PlayerID, id state.ObjID, sa *car
 	}
 	choices := effects.CharmOf(sa).Modes
 	ctx := effects.NewCtxPtr(id, p, effects.CtxInit{})
+	if pc := e.cast; pc != nil && pc.card == id {
+		ctx.Kicker.PendingTeamwork = castAnswerCodes.Code(pc.mode) == castAnswerTeamworkMode
+	}
 	effects.SetSVars(ctx, o.Face().SVars)
 	legal := make([]string, 0, len(choices))
 	for _, name := range choices {

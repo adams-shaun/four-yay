@@ -148,6 +148,43 @@ func TestTeamworkTargetAnnouncementEligibility(t *testing.T) {
 				} else {
 					submitChoices(t, e)
 				}
+				if tc.card == "Heroic Teamwork" || tc.card == "Too Evil to Stay Dead" {
+					ask := e.Pending()
+					wantMax := 1
+					if tc.card == "Heroic Teamwork" {
+						wantMax = 2
+					}
+					if ask == nil || ask.Kind != decision.KTarget || ask.Min != 1 || ask.Max != wantMax ||
+						!decisionHasObj(ask, low) || !decisionHasObj(ask, high) {
+						t.Fatalf("Teamwork-intent target announcement for %s (payment accepted=%v) = %+v; want %d..%d with both candidates %d/%d", tc.card, paid, ask, 1, wantMax, low, high)
+					}
+				}
+				if tc.card == "Atlantis Attacks" {
+					modes := e.Pending()
+					if modes == nil || modes.Kind != decision.KModes || modes.ResumeKind != "cast_modes" || modes.Min != 2 || modes.Max != 2 || len(modes.Options) != 2 {
+						t.Fatalf("Teamwork-intent Charm announcement (payment accepted=%v) = %+v, want both modes required", paid, modes)
+					}
+					// DBCreate targets a player and DBBounce targets 1..2
+					// nonland permanents; both declarations belong to this cast.
+					submitChoices(t, e, modes.Options[0].Index, modes.Options[1].Index)
+					seenBounce := false
+					for i := 0; i < 3; i++ {
+						ask := e.Pending()
+						if ask == nil || ask.Kind != decision.KTarget {
+							break
+						}
+						if ask.Min == 1 && ask.Max == 2 {
+							seenBounce = true
+							if !decisionHasObj(ask, low) || !decisionHasObj(ask, high) || e.G.Obj(low).Zone != state.ZBattlefield || e.G.Obj(high).Zone != state.ZBattlefield {
+								t.Fatalf("bounce target ask missing battlefield candidates %d/%d: %+v", low, high, ask)
+							}
+						}
+						submitChoices(t, e, ask.Options[0].Index)
+					}
+					if !seenBounce {
+						t.Fatal("selected DBBounce never announced its 1..2 targets")
+					}
+				}
 				finishTeamworkAnnouncement(t, e)
 				o := e.G.Obj(spell)
 				if o == nil {
@@ -158,6 +195,79 @@ func TestTeamworkTargetAnnouncementEligibility(t *testing.T) {
 				}
 			})
 		}
+	}
+	// Control cast: without Teamwork intent, the same corpus Charm offers
+	// one mode, not the two required above (even on declined payment).
+	t.Run("Atlantis Attacks/ordinary", ordinaryTeamworkCharm)
+	t.Run("Atlantis Attacks/no bounce targets", teamworkCharmNoBounce)
+}
+
+// An ordinary Atlantis Attacks cast chooses one mode, unlike either
+// Teamwork-intent cast (even one whose later tap payment is declined).
+func ordinaryTeamworkCharm(t *testing.T) {
+	e, reg := teamworkTargetEngine(t, "Atlantis Attacks")
+	spell := searchMoveByName(t, e, "Atlantis Attacks", state.ZHand)
+	low := seedBattlefield(t, e, reg, "Savannah Lions")
+	high := seedBattlefield(t, e, reg, "Hill Giant")
+	if e.G.Obj(spell).Zone != state.ZHand || e.G.Obj(low).Zone != state.ZBattlefield || e.G.Obj(high).Zone != state.ZBattlefield ||
+		e.G.Obj(low).Face().ManaValue() == e.G.Obj(high).Face().ManaValue() {
+		t.Fatal("precondition: spell in hand and distinct nonland candidates on battlefield")
+	}
+	addMana(t, e, 0, "UUUUUUU")
+	opt := castOptMode(t, e.Pending().Options, spell, "")
+	submitChoices(t, e, opt.Index)
+	modes := e.Pending()
+	if modes == nil || modes.Kind != decision.KModes || modes.ResumeKind != "cast_modes" || modes.Min != 1 || modes.Max != 1 || len(modes.Options) != 2 {
+		t.Fatalf("ordinary Atlantis mode announcement = %+v, want exactly one of two modes", modes)
+	}
+	// The second corpus mode is DBBounce; no DBCreate player-target
+	// declaration may appear when only DBBounce was selected.
+	if modes.Options[1].Label == modes.Options[0].Label {
+		t.Fatalf("precondition: expected distinct corpus modes: %+v", modes.Options)
+	}
+	submitChoices(t, e, modes.Options[1].Index)
+	ask := e.Pending()
+	if ask == nil || ask.Kind != decision.KTarget || ask.Min != 1 || ask.Max != 2 || !decisionHasObj(ask, low) || !decisionHasObj(ask, high) {
+		t.Fatalf("ordinary bounce target ask = %+v, want 1..2 battlefield candidates", ask)
+	}
+	submitChoices(t, e, ask.Options[0].Index)
+	finishTeamworkAnnouncement(t, e)
+	if o := e.G.Obj(spell); o == nil || o.Zone != state.ZStack || o.TeamworkPaid {
+		t.Fatalf("ordinary Atlantis stack result = %+v", o)
+	}
+}
+
+// Both shrouded creatures can pay Teamwork 4, but neither can be a
+// DBBounce target. Choosing both modes is therefore not a legal proposal.
+func teamworkCharmNoBounce(t *testing.T) {
+	e, reg := teamworkTargetEngine(t, "Atlantis Attacks")
+	spell := searchMoveByName(t, e, "Atlantis Attacks", state.ZHand)
+	first := seedBattlefield(t, e, reg, "Kalonian Behemoth")
+	second := seedBattlefield(t, e, reg, "Kalonian Behemoth")
+	if o := e.G.Obj(spell); o == nil || o.Zone != state.ZHand || e.G.Obj(first).Zone != state.ZBattlefield || e.G.Obj(second).Zone != state.ZBattlefield ||
+		e.Power(first)+e.Power(second) < 4 || !e.G.Obj(first).Face().HasKeyword("Shroud") {
+		t.Fatalf("precondition: hand spell and two shrouded Teamwork-eligible creatures: spell=%+v first=%+v second=%+v", o, e.G.Obj(first), e.G.Obj(second))
+	}
+	root := e.G.Obj(spell).Face().SpellAbility()
+	bounce := copyCharmModes(e.G.Obj(spell).Face(), root, []string{"DBBounce"})
+	if len(bounce) != 1 || bounce[0] == nil || len(e.legalTargetCandidates(0, spell, spell, bounce[0])) != 0 {
+		t.Fatal("precondition: shrouded battlefield has no legal bounce targets")
+	}
+	addMana(t, e, 0, "UUUUUUU")
+	ordinary := false
+	for _, opt := range e.Pending().Options {
+		if opt.Kind != "cast" || opt.Obj != spell {
+			continue
+		}
+		if opt.Mode == "teamworked" {
+			t.Fatal("Teamwork-intent cast offered with only one of two required Charm modes targetable")
+		}
+		if opt.Mode == "" {
+			ordinary = true
+		}
+	}
+	if !ordinary {
+		t.Fatal("ordinary choose-one cast should still offer the player-target mode")
 	}
 }
 
@@ -174,7 +284,8 @@ func teamworkTargetEngine(t *testing.T, hero string) (*Engine, *cards.Registry) 
 	for i := 0; i < 4; i++ {
 		deck = append(deck, searchCorpusCard(t, reg, "Savannah Lions"))
 	}
-	deck = append(deck, searchCorpusCard(t, reg, "Hill Giant"), searchCorpusCard(t, reg, "Air Elemental"))
+	deck = append(deck, searchCorpusCard(t, reg, "Hill Giant"), searchCorpusCard(t, reg, "Air Elemental"),
+		searchCorpusCard(t, reg, "Kalonian Behemoth"), searchCorpusCard(t, reg, "Kalonian Behemoth"))
 	for len(deck) < 40 {
 		deck = append(deck, searchCorpusCard(t, reg, "Mountain"))
 	}
@@ -227,6 +338,15 @@ func TestTeamworkTargetAnnouncementEligibilityIntentOnlyOption(t *testing.T) {
 	if o := e.G.Obj(spell); o == nil || o.Zone != state.ZStack || o.TeamworkPaid {
 		t.Fatalf("declined intent cast outcome=%+v, want stack spell without paid provenance", o)
 	}
+}
+
+func decisionHasObj(d *decision.Decision, id state.ObjID) bool {
+	for _, opt := range d.Options {
+		if opt.Obj == id {
+			return true
+		}
+	}
+	return false
 }
 
 func hasTargetCandidate(candidates []targetCandidate, id state.ObjID) bool {
