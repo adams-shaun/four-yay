@@ -419,6 +419,7 @@ const (
 	PKRememberFound
 	PKRememberGoaded
 	PKRememberInvestigatingPlayers
+	PKRememberKept
 	PKRememberLoser
 	PKRememberManifested
 	PKRememberMilled
@@ -1153,6 +1154,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKRememberFound:                    "RememberFound",
 	PKRememberGoaded:                   "RememberGoaded",
 	PKRememberInvestigatingPlayers:     "RememberInvestigatingPlayers",
+	PKRememberKept:                     "RememberKept",
 	PKRememberLoser:                    "RememberLoser",
 	PKRememberManifested:               "RememberManifested",
 	PKRememberMilled:                   "RememberMilled",

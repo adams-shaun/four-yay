@@ -87,9 +87,12 @@ func TestMillImprintCensus(t *testing.T) {
 }
 
 // TestMillImprintRecordsMilled pins that Imprint$ True joins every milled
-// card to the source's persistent Imprinted list through events.Imprint, so
-// a chained `Defined$ Imprinted` / `IsImprinted` sub reads exactly the
-// milled cards (OTJ Patient Naturalist).
+// card to the source's persistent SeekFound list through events.Imprint with
+// the non-zone-gated "seek-found" tag, so a chained
+// `Defined$ Imprinted` / `IsImprinted` sub reads exactly the milled cards
+// (OTJ Patient Naturalist) even though they landed in the graveyard. The
+// ordinary Imprinted list is deliberately exile-gated (CR 607.2a), so a mill
+// that recorded there would satisfy `o.Imprinted` yet never match.
 func TestMillImprintRecordsMilled(t *testing.T) {
 	h, src, lib := riderBoard(t, riderBear, riderLand, riderHalo)
 	sa := &cards.SA{API: "Mill", Params: map[string]string{
@@ -107,23 +110,70 @@ func TestMillImprintRecordsMilled(t *testing.T) {
 	if o == nil {
 		t.Fatalf("source gone")
 	}
-	imp := map[state.ObjID]bool{}
-	for _, id := range o.Imprinted {
-		imp[id] = true
-	}
 	for _, id := range lib {
-		if !imp[id] {
-			t.Errorf("milled card %d not imprinted (got %v)", id, o.Imprinted)
+		found := false
+		for _, got := range o.SeekFound {
+			if got == id {
+				found = true
+			}
 		}
+		if !found {
+			t.Errorf("milled card %d not in source SeekFound (got %v)", id, o.SeekFound)
+		}
+	}
+	// The exile-gated ordinary list must NOT carry the graveyard cards: a
+	// regression back to a bare events.Imprint would make the chained
+	// ChangeType$ ...IsImprinted lookup fail while this list looked right.
+	if len(o.Imprinted) != 0 {
+		t.Errorf("milled cards recorded in exile-gated Imprinted: %v", o.Imprinted)
 	}
 	seen := 0
 	for _, e := range h.log {
 		if e.Kind == events.Imprint && e.Obj == src {
 			seen++
+			if e.Text != "seek-found" {
+				t.Errorf("mill Imprint event tag = %q, want seek-found", e.Text)
+			}
 		}
 	}
 	if seen != 3 {
 		t.Errorf("Imprint events = %d, want one per milled card (3)", seen)
+	}
+}
+
+// TestMillImprintFeedsChainedChangeZone drives the whole OTJ Patient Naturalist
+// shape: `Mill NumCards$ 3 Imprint$ True` then
+// `ChangeZone Origin$ Graveyard,Exile Destination$ Hand ChangeType$
+// Land.YouOwn+IsImprinted`. The milled land must reach the hand. Without the
+// non-zone-gated seek-found channel the chained filter matches nothing and the
+// land stays in the graveyard -- the Player Naturalist by a wrong Treasure.
+func TestMillImprintFeedsChainedChangeZone(t *testing.T) {
+	// Top of library: a land among two nonlands, exactly "a land from among
+	// the milled cards".
+	h, src, ids := riderBoard(t, riderBear, riderLand, riderBear)
+	land := ids[1]
+	mill := &cards.SA{API: "Mill", Params: map[string]string{
+		"Defined": "You", "NumCards": "3", "Imprint": "True",
+	}}
+	effMill(h, &Ctx{Source: src, Controller: 0}, mill)
+	// Precondition: the land is milled and in the graveyard before the
+	// chained pickup, else the assertion below is vacuous.
+	if o := h.g.Obj(land); o == nil || o.Zone != state.ZGraveyard {
+		t.Fatalf("land not milled to graveyard (zone %v); log=%+v", o, h.log)
+	}
+	change := &cards.SA{API: "ChangeZone", Params: map[string]string{
+		"Origin": "Graveyard,Exile", "Destination": "Hand",
+		"ChangeType": "Land.YouOwn+IsImprinted", "Hidden": "True", "Mandatory": "True",
+	}}
+	effChangeZone(h, &Ctx{Source: src, Controller: 0}, change)
+	if o := h.g.Obj(land); o == nil || o.Zone != state.ZHand {
+		t.Fatalf("milled land did not reach hand (zone %v); log=%+v", o, h.log)
+	}
+	// The two nonlands must stay milled: the filter takes only the land.
+	for _, id := range []state.ObjID{ids[0], ids[2]} {
+		if o := h.g.Obj(id); o == nil || o.Zone != state.ZGraveyard {
+			t.Errorf("nonland %d left the graveyard (zone %v)", id, o)
+		}
 	}
 }
 

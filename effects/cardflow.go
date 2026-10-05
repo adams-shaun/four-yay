@@ -874,15 +874,19 @@ func effMill(h Host, c *Ctx, sa *cards.SA) {
 			// persistent imprintedCards association, so a chained
 			// `ChangeZone ... ChangeType$ Land.YouOwn+IsImprinted` (Patient
 			// Naturalist) finds exactly the milled cards rather than the whole
-			// graveyard. The card joins through the ordinary events.Imprint
-			// association -- the same one ChangeZone's Imprint$ arm and
-			// Chrome Mox use -- so replay folds it and Defined$ Imprinted
-			// reads it back. A resolution with no source (c.Source == 0) has
-			// nowhere to imprint and records nothing, the ChangeZone guard's
-			// shape. Absent the param this arm is a no-op, so every
-			// pre-existing Mill emits byte-identically.
+			// graveyard. The milled card lands in the GRAVEYARD, and gorge's
+			// ordinary events.Imprint association is deliberately exile-gated
+			// (CR 607.2a: Card.IsImprinted stops matching once the linked card
+			// leaves exile), so this rides the non-zone-gated `seek-found`
+			// channel (state.Object.SeekFound) -- the same list the reveal/dig
+			// imprints use for looked-at cards -- which
+			// imprintAssociationContainsInZone reads without a zone test. A
+			// resolution with no source (c.Source == 0) has nowhere to imprint
+			// and records nothing, the ChangeZone guard's shape. Absent the
+			// param this arm is a no-op, so every pre-existing Mill emits
+			// byte-identically.
 			if imprint && c.Source != 0 {
-				h.Emit(events.Event{Kind: events.Imprint, Obj: c.Source, IDs: []state.ObjID{id}})
+				h.Emit(events.Event{Kind: events.Imprint, Obj: c.Source, IDs: []state.ObjID{id}, Text: "seek-found"})
 			}
 			milledIDs = append(milledIDs, id)
 		}
@@ -1879,7 +1883,7 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 		// recollection the answered path keeps, and Starving Revenant's
 		// draw/lose would differ between a tape run and a no-ask host.
 		// Bounded to the looked-at window (k).
-		if strings.EqualFold(strings.TrimSpace(rawParamText(sa, "RememberKept").Text), "True") && k > 0 && c.Source != 0 {
+		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberKept)), "True") && k > 0 && c.Source != 0 {
 			kept := append([]state.ObjID(nil), lib[:k]...)
 			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "remembered", IDs: kept})
 		}

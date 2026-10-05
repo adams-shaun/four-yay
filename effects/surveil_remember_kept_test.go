@@ -76,7 +76,7 @@ func TestSurveilRememberKeptCensus(t *testing.T) {
 			return
 		}
 		saw++
-		if strings.EqualFold(strings.TrimSpace(rawParamText(sa, "RememberKept").Text), "True") {
+		if sa.ParamStr(cards.PKRememberKept) != "" && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberKept)), "True") {
 			got[name] = true
 		}
 	}
