@@ -132,65 +132,8 @@ func NonManaCastableP(e Engine, p state.PlayerID, id state.ObjID, cost *costvoca
 	// untouched -- encore's Cost$ ExileFromGrave<1/CARDNAME> really does exile
 	// its own source. This also closes the same latent over-offer for an
 	// escape cast from the graveyard.
-	castObj := e.Game().Obj(id)
-	// Top-of-library exile parts share one ordered prefix. Check their
-	// aggregate size, not each part against the same library prefix.
-	if _, ok := ExileFromTopCards(e.Game().Zone(state.ZLibrary, p), cost.ExileFromTop); !ok {
+	if !exilePartsPayable(e.Game(), e.MatchesSpecFrom, e.CostBlocked, p, id, cost, ability, reserved) {
 		return false
-	}
-	for _, part := range cost.Exile {
-		zones := []state.Zone{part.Zone}
-		if part.ZoneSet != 0 {
-			zones = zones[:0]
-			for _, z := range []state.Zone{state.ZBattlefield, state.ZGraveyard} {
-				if part.ZoneSet&(1<<z) != 0 {
-					zones = append(zones, z)
-				}
-			}
-		} else if part.Zone == 0 {
-			zones[0] = state.ZHand
-		}
-		wholeZone := costvocab.IsWholeZoneExileSpec(part.Spec)
-		var avail []state.ObjID
-		for _, zone := range zones {
-			selfInZone := !ability && castObj != nil && castObj.Zone == zone
-			for _, oid := range ExileCostCandidates(e.Game(), zone, p, part) {
-				if reserved[oid] || (selfInZone && oid == id) {
-					continue
-				}
-				// A battlefield Exile cost part (Exile<N/Spec>, Karn's Sylex,
-				// Mechtitan Core) is a COST exile: a CantExile static whose
-				// ForCost$ True restricts cost payments withholds the candidate
-				// here, while a ForCost$ False line (The Master, Multiplied)
-				// leaves it offered. exileBlockedForCost carries the pending
-				// cast/activation identity so a cost-path ValidCause$ can be
-				// evaluated, the same plumbing sacrificeCostCandidates uses.
-				if zone == state.ZBattlefield && e.CostBlocked(BlockExile, oid, CostCauseForAbility(ability)) {
-					continue
-				}
-				if wholeZone || (part.Referent != 0 && oid == part.Referent) ||
-					(part.Referent == 0 && e.MatchesSpecFrom(part.Spec, oid, p, id)) {
-					avail = append(avail, oid)
-				}
-			}
-		}
-		if int32(len(avail)) < part.N {
-			return false
-		}
-		if wholeZone {
-			// ExileFromHand<1/All> names the WHOLE zone, not a filter (the
-			// same isWholeZoneExileSpec reading the triggered window's arm
-			// takes): every still-available card pays, so reserve every
-			// candidate, not just part.N. No cast/activation corpus carrier
-			// exists today; the wiring keeps the two paths from diverging.
-			for _, oid := range avail {
-				reserved[oid] = true
-			}
-			continue
-		}
-		for i := int32(0); i < part.N; i++ {
-			reserved[avail[i]] = true
-		}
 	}
 	// ExiledMoveToGrave cost parts: each needs N matching cards still in
 	// ANY player's exile zone (exiled cards live in their OWNER's exile
@@ -484,4 +427,60 @@ func NonManaCastableP(e Engine, p state.PlayerID, id state.ObjID, cost *costvoca
 		return false
 	}
 	return true
+}
+
+func exilePartsPayable(g *state.Game, matches func(string, state.ObjID, state.PlayerID, state.ObjID) bool, blocked func(CostBlock, state.ObjID, CostCause) bool, p state.PlayerID, id state.ObjID, cost *costvocab.Cost, ability bool, reserved map[state.ObjID]bool) bool {
+	castObj := g.Obj(id)
+	if _, ok := ExileFromTopCards(g.Zone(state.ZLibrary, p), cost.ExileFromTop); !ok {
+		return false
+	}
+	for _, part := range cost.Exile {
+		zones := exileCostZones(part)
+		wholeZone := costvocab.IsWholeZoneExileSpec(part.Spec)
+		var avail []state.ObjID
+		for _, zone := range zones {
+			selfInZone := !ability && castObj != nil && castObj.Zone == zone
+			for _, oid := range ExileCostCandidates(g, zone, p, part) {
+				if reserved[oid] || (selfInZone && oid == id) {
+					continue
+				}
+				if zone == state.ZBattlefield && blocked(BlockExile, oid, CostCauseForAbility(ability)) {
+					continue
+				}
+				if wholeZone || (part.Referent != 0 && oid == part.Referent) ||
+					(part.Referent == 0 && matches(part.Spec, oid, p, id)) {
+					avail = append(avail, oid)
+				}
+			}
+		}
+		if int32(len(avail)) < part.N {
+			return false
+		}
+		if wholeZone {
+			for _, oid := range avail {
+				reserved[oid] = true
+			}
+			continue
+		}
+		for i := int32(0); i < part.N; i++ {
+			reserved[avail[i]] = true
+		}
+	}
+	return true
+}
+
+func exileCostZones(part costvocab.CostPart) []state.Zone {
+	if part.ZoneSet == 0 {
+		if part.Zone == 0 {
+			return []state.Zone{state.ZHand}
+		}
+		return []state.Zone{part.Zone}
+	}
+	var zones []state.Zone
+	for _, zone := range []state.Zone{state.ZBattlefield, state.ZGraveyard} {
+		if part.ZoneSet&(1<<zone) != 0 {
+			zones = append(zones, zone)
+		}
+	}
+	return zones
 }
