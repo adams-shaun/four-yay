@@ -81,7 +81,12 @@ type OracleDecision struct {
 	Picks    []string `json:"picks"`
 	PickIdx  []int    `json:"pick_idx"`
 	PickRefs []string `json:"pick_refs"`
-	Via      string   `json:"via"` // how the runner answered: target, answer, or a fallback
+	// PickKinds is the engine option kind of each pick (parallel to Picks),
+	// so the generator can tell a card pick XMage poses as a target from a
+	// labelled pick XMage poses as a makeChoose choice without guessing from
+	// the label text.
+	PickKinds []string `json:"pick_kinds,omitempty"`
+	Via       string   `json:"via"` // how the runner answered: target, answer, or a fallback
 	// GorgeKind and First let a generator script the same decision for
 	// gorge's runner: the raw decision kind and option 0's label.
 	GorgeKind string `json:"gorge_kind"`

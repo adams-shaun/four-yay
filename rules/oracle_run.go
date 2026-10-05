@@ -490,6 +490,7 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 			if c < 0 || c >= len(d.Options) {
 				continue
 			}
+			od.PickKinds = append(od.PickKinds, d.Options[c].Kind)
 			switch o := d.Options[c]; {
 			case o.Obj != 0:
 				od.PickRefs = append(od.PickRefs, r.objRef(r.e.G.Obj(o.Obj)))
