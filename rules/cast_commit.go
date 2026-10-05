@@ -215,7 +215,7 @@ func (e *Engine) payCast() {
 			e.emit(events.Event{Kind: events.Choose, Obj: pc.card, Counter: "noted-mana", Text: noted})
 		}
 		if pc.PayLife != 0 {
-			e.emit(events.Event{Kind: events.LifeChange, Player: pc.player, Amount: -pc.PayLife})
+			e.emit(events.Event{Kind: events.LifeChange, Player: pc.player, Amount: -pc.PayLife, Text: "paylife proposal"})
 		}
 		// An activated ability's announced waterbend taps (pc.convoke) become
 		// tapped as part of paying the cost, the same Tap event a cast's
@@ -267,7 +267,7 @@ func (e *Engine) payCast() {
 		// life, so the payment cannot drive the total below zero here.
 		for range pc.cost.LifeX {
 			if pc.x > 0 {
-				e.emit(events.Event{Kind: events.LifeChange, Player: pc.player, Amount: -pc.x})
+				e.emit(events.Event{Kind: events.LifeChange, Player: pc.player, Amount: -pc.x, Text: "paylife proposal"})
 			}
 		}
 		// DamageYou<N> cost parts: the payer takes N damage from the source
@@ -504,7 +504,7 @@ func (e *Engine) payCast() {
 	// restricted) mana emits no rider event and stays byte-identical.
 	pc.addsCounterGrants = append([]state.ManaAddsCounterGrant(nil), e.ManaSpentAddsCounters...)
 	if pc.PayLife != 0 {
-		e.emit(events.Event{Kind: events.LifeChange, Player: pc.player, Amount: -pc.PayLife})
+		e.emit(events.Event{Kind: events.LifeChange, Player: pc.player, Amount: -pc.PayLife, Text: "paylife proposal"})
 	}
 	pay.EmitConvokeTaps(asPayer(e), pc.card, pc.player, pc.Convoke)
 	for _, id := range pc.delve {
@@ -537,7 +537,7 @@ func (e *Engine) payCast() {
 	// ability branch above for the why).
 	for range pc.cost.LifeX {
 		if pc.x > 0 {
-			e.emit(events.Event{Kind: events.LifeChange, Player: pc.player, Amount: -pc.x})
+			e.emit(events.Event{Kind: events.LifeChange, Player: pc.player, Amount: -pc.x, Text: "paylife proposal"})
 		}
 	}
 	for _, part := range pc.cost.DamageYou {

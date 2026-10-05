@@ -603,7 +603,6 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 	// accepted optional fetch that moves nothing still clears. A declined
 	// Optional$ confirmation returned above without clearing.
 	forgetOther(h, c, cz.Riders.ForgetOtherRemembered)
-
 	withKind := cz.WithCountersType
 	var withAmt int32
 	if withKind != "" && counterDestination(to) {
@@ -1013,8 +1012,7 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owne
 	// DifferentNames$ True (Realms Uncharted): the options carried a Group
 	// per card name, so a validated wire answer cannot repeat a name. A host
 	// that bypassed the wire (bot clamp top-up, a direct resume) is deduped
-	// here deterministically -- first per name in answer order -- so the
-	// engine and its clients cannot drift on what the constraint means.
+	// here deterministically -- first per name in answer order.
 	if cz.DifferentNames {
 		seenNames := make(map[string]bool, len(chosen))
 		deduped := make([]state.ObjID, 0, len(chosen))

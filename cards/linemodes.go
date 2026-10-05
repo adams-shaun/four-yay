@@ -367,8 +367,9 @@ const (
 	ReplRollPlanarDice ReplEvent = 21
 	ReplScry           ReplEvent = 22
 	ReplTurnFaceUp     ReplEvent = 23
-	ReplLoseMana       ReplEvent = 24
-	ReplEventCount               = 25 // one past the last; sizes a dense per-ReplEvent array
+	ReplPayLife        ReplEvent = 24
+	ReplLoseMana       ReplEvent = 25
+	ReplEventCount               = 26 // one past the last; sizes a dense per-ReplEvent array
 )
 
 var replEventNames = [ReplEventCount]string{
@@ -395,6 +396,7 @@ var replEventNames = [ReplEventCount]string{
 	ReplRollPlanarDice: "RollPlanarDice",
 	ReplScry:           "Scry",
 	ReplTurnFaceUp:     "TurnFaceUp",
+	ReplPayLife:        "PayLife",
 	ReplLoseMana:       "LoseMana",
 }
 

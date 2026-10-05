@@ -15,6 +15,11 @@ import (
 // run the same solver the payment does. The engine is reached only through
 // the Engine interface.
 
+// PayLifeProposalText marks a negative LifeChange emitted at a cost-payment
+// boundary. rules consumes it synchronously before logging; it is never part
+// of the replay log.
+const PayLifeProposalText = "paylife proposal"
+
 // manaTaggedLetters[t][i] is state.ManaUnitTags[t]+ManaLetters[i] and
 // manaSnowLetters[i] is "S"+ManaLetters[i]: the spend split's Counter forms,
 // built once instead of per payment.
@@ -233,7 +238,7 @@ func PayManaDescriptorForSpent(e Engine, p state.PlayerID, d Descriptor, cost Co
 	// Fixed life costs and any Phyrexian pips paid with life are deducted
 	// through the ordinary LifeChange event so a replay learns them.
 	if lifeSpent != 0 {
-		e.Emit(events.Event{Kind: events.LifeChange, Player: p, Amount: -lifeSpent})
+		e.Emit(events.Event{Kind: events.LifeChange, Player: p, Amount: -lifeSpent, Text: PayLifeProposalText})
 	}
 	return true, spentAll, spent, spentSnow, spentTyped
 }
