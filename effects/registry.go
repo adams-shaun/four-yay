@@ -1197,6 +1197,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			fn(h, c, sa)
 			c.PickedTargets = nil
 			recordParentLink(c, sa, ts, true)
+			rememberChosenTargets(h, c, sa, ts, true)
 		} else {
 			if prefetchedRememberedSub {
 				c.PickedTargets = rememberedSubTargets
@@ -1206,6 +1207,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 				c.PickedTargets = nil
 			}
 			recordParentLink(c, sa, nil, false)
+			rememberChosenTargets(h, c, sa, nil, false)
 		}
 		imprint(h, c, sa)
 		if strings.EqualFold(sa.ParamStr(cards.PKClearImprinted), "True") && c.Source != 0 {

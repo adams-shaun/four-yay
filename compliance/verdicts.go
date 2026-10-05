@@ -19,6 +19,10 @@ const (
 	StatusXMageWrong = "xmage_wrong" // triaged: XMage is wrong; gorge's result frozen, Ruling cites the CR
 	StatusDiverge    = "diverge"     // untriaged disagreement
 	StatusHarness    = "harness"     // a driver could not express the scenario
+	// StatusXMageLacks is XMage's card database not holding the card at all
+	// (a set marks it unfinished). It is the same endpoint as a card missing
+	// from the manifest: the gate's no-XMage bucket, never a harness gap.
+	StatusXMageLacks = "xmage_lacks"
 )
 
 // VerdictRow is one card x template result (spec section 5,

@@ -460,15 +460,8 @@ func effAnimate(h Host, c *Ctx, sa *cards.SA) {
 	// discipline effPumpAll's RememberTargets$ applies (eventRemember
 	// self-gates on a source-less ctx).
 	rememberAnimated := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberAnimated)), "True")
-	// RememberTargets$ True (Flourishing Grapple's root Animate): the CHOSEN
-	// TARGETS join the ability's Remembered in both halves, the discipline
-	// effPump's RememberTargets$ applies -- Forge's handleRemembering adds
-	// sa.getTargets() to the host's remembered list, which the chain's later
-	// `Defined$ Remembered` link (Grapple's DBDamage) reads. Only an SA that
-	// targets has targets to remember.
-	targeted := TargetsOf(sa).Has(TgtValidPresent)
-	rememberTargets := targeted && !rememberAnimated &&
-		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True")
+	// RememberTargets$ records the chosen set after this body in Resolve's
+	// generic recorder; RememberAnimated$ continues to record affected objects.
 	var ateotIDs []state.ObjID
 	for _, t := range Defined(h, c, sa) {
 		if t.IsPlayer {
@@ -478,7 +471,7 @@ func effAnimate(h Host, c *Ctx, sa *cards.SA) {
 		if o == nil {
 			continue
 		}
-		if rememberAnimated || rememberTargets {
+		if rememberAnimated {
 			c.Remembered = append(c.Remembered, t)
 			eventRemember(h, c, o.ID)
 		}

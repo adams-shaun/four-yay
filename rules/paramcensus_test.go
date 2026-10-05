@@ -3801,13 +3801,12 @@ func TestParamCensusCatchesSVarBodyGaps(t *testing.T) {
 	// dispatch); it then moved to RememberObjects$ until the Effect
 	// root's pre-captured ChangeZone target read (prefetchRemembered-
 	// ChangeZoneTarget, which runs before any primitive dispatch) made that
-	// parameter read for every API too. The body key below is now
-	// RememberTargets$ -- the Laquatus's Champion / Soul Scourge LoseLife
-	// spelling -- which only the ChangeZone/combat readers touch, never a
-	// LoseLife or generic path. (It was TargetingPlayer$ before all of
-	// these, until the shared target-ask read made that parameter read for
-	// every API; the SVar-body-gap fixture is only meaningful while its key
-	// stays unread.)
+	// parameter read for every API too. RememberTargets$ is now read by the
+	// shared Resolve recorder for every API, so this fixture uses Pawprint$,
+	// which remains genuinely unread by LoseLife. (It was TargetingPlayer$
+	// before all of these, until the shared target-ask read made that
+	// parameter read for every API; the SVar-body-gap fixture is only
+	// meaningful while its key stays unread.)
 	// PayEnergy<X> WAS the fixture's unmodelled
 	// cost token until ParseCost gained a real Energy field, and Waterbend<X>
 	// followed it when ParseCost learned the Waterbend head (task tla-waterbend-
@@ -3817,8 +3816,8 @@ func TestParamCensusCatchesSVarBodyGaps(t *testing.T) {
 	if !d.api["Charm"]["Choices"] || !d.api["Repeat"]["RepeatSubAbility"] {
 		t.Fatalf("outer Choices$/RepeatSubAbility$ reads lost -- fixture premise broken")
 	}
-	if d.api["LoseLife"]["RememberTargets"] {
-		t.Fatalf("api:LoseLife now reads RememberTargets$ -- re-point the fixture at a genuinely unread key")
+	if d.api["LoseLife"]["Pawprint"] {
+		t.Fatalf("api:LoseLife now reads Pawprint$ -- re-point the fixture at a genuinely unread key")
 	}
 	// The body's cost token is genuinely unmodelled (CR 701.67a's Waterbend<X>
 	// held this slot until ParseCost learned the Waterbend head); re-point it
@@ -3838,18 +3837,18 @@ func TestParamCensusCatchesSVarBodyGaps(t *testing.T) {
 			{Kind: "SP", API: "Repeat", Params: map[string]string{"RepeatNum": "2", "RepeatSubAbility": "DBMoney"}},
 		},
 		SVars: map[string]string{
-			"DBMode":  "DB$ LoseLife | RememberTargets$ True | Defined$ Remembered",
+			"DBMode":  "DB$ LoseLife | Pawprint$ True | Defined$ Remembered",
 			"DBMoney": "DB$ LoseLife | Cost$ Mana<1>",
 		},
 	}}}
-	want := []string{"param:api:LoseLife.RememberTargets", "cost:Mana"}
+	want := []string{"param:api:LoseLife.Pawprint", "cost:Mana"}
 	if got := cardCensusLabels(c, d, nil); !sameSet(got, want) {
 		t.Errorf("SVar-body census = %v, want %v -- an unread key or unmodelled token inside a Choices$/RepeatSubAbility$ body is not being reported", got, want)
 	}
 	// The drop plumbing reaches the bodies too: pretending the LoseLife
-	// RememberTargets$ read existed (it does not) must not un-report the
-	// body's gap through some other path.
-	if got := cardCensusLabels(c, d, map[string]map[string]bool{"api:LoseLife": {"RememberTargets": true}}); !sameSet(got, want) {
+	// Pawprint$ read existed (it does not) must not un-report the body's
+	// gap through some other path.
+	if got := cardCensusLabels(c, d, map[string]map[string]bool{"api:LoseLife": {"Pawprint": true}}); !sameSet(got, want) {
 		t.Errorf("drop-simulated census = %v, want %v", got, want)
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/adams-shaun/gorge/compliance"
 	"github.com/adams-shaun/gorge/rules"
 )
 
@@ -30,6 +31,11 @@ const (
 	Agree   Status = "AGREE"
 	Diverge Status = "DIVERGE"
 	Harness Status = "HARNESS"
+	// XMageLacks is not a disagreement: XMage's card database does not hold
+	// the card (a set marks it unfinished, so its SetCardInfo entry is
+	// removed from the set), and the driver's "Couldn't find a card" is not
+	// a driver gap. The card belongs in the gate's no-XMage bucket.
+	XMageLacks Status = "XMAGE_LACKS"
 )
 
 // Verdict is the first difference between the two engines, or Agree.
@@ -41,6 +47,20 @@ type Verdict struct {
 	XMage      string `json:"xmage,omitempty"`
 	Engine     string `json:"engine,omitempty"` // for Harness
 	Msg        string `json:"msg,omitempty"`    // for Harness
+}
+
+// XMageLacksCard reports an XMage database miss only when the named missing
+// card is the scenario card. Setup cards and targets can trigger the same
+// driver exception; those failures remain HARNESS rather than exempting the
+// card under test.
+func XMageLacksCard(msg, scenarioCard string) bool {
+	const marker = "Couldn't find a card:"
+	_, missing, ok := strings.Cut(msg, marker)
+	if !ok {
+		return false
+	}
+	missing = strings.TrimSpace(strings.TrimRight(missing, "]"))
+	return missing != "" && compliance.FoldName(missing) == compliance.FoldName(scenarioCard)
 }
 
 // Compare walks both engines' checkpoints in order. A harness failure on

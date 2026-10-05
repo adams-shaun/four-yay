@@ -1,6 +1,8 @@
 package effects
 
 import (
+	"strings"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -87,6 +89,31 @@ func (c *Ctx) ResumeParentLinks(links [][]state.Target, answer []state.Target, a
 	}
 	if answered {
 		c.linkAnswer, c.linkAnswered = copyTargets(answer), true
+	}
+}
+
+// rememberChosenTargets applies Forge's handleRemembering after an SA body.
+// When there was no pre-ask, the root SA's choices are the targeting context
+// captured on Ctx and resolved through Defined.
+func rememberChosenTargets(h Host, c *Ctx, sa *cards.SA, targets []state.Target, preAsked bool) {
+	if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True") ||
+		!TargetsOf(sa).Has(TgtValidPresent) {
+		return
+	}
+	// Animate's RememberAnimated$ records the affected set, its historical
+	// behavior when both flags are present; do not also add chosen targets.
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberAnimated)), "True") {
+		return
+	}
+	if !preAsked {
+		targets = Defined(h, c, sa)
+	}
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKForgetOtherTargets)), "True") {
+		c.Remembered = nil
+		clearEventRemembered(h, c)
+	}
+	for _, target := range targets {
+		rememberTarget(h, c, target)
 	}
 }
 

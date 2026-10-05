@@ -140,16 +140,29 @@ func Check(reg *cards.Registry, root, set, level string) ([]Problem, error) {
 	}
 	sup := effects.Supported()
 	has := func(n string) bool { _, ok := reg.Lookup(n); return ok }
+	folded := compliance.FoldedNames(reg)
 	var out []Problem
 	bad := func(card, format string, a ...any) {
 		out = append(out, Problem{card, fmt.Sprintf(format, a...)})
 	}
 	// The claim covers every printed card. XMage's manifest says which of
 	// them the oracle can check; the rest need a hand-authored scenario.
+	// Names are matched by fold (case, diacritics, punctuation): Forge prints
+	// "Dáin Ironfoot" where the XMage set class writes "Dain Ironfoot", and
+	// "With Great Power . . ." where XMage writes "With Great Power...".
+	// A card the set marks unfinished is in SetCardInfo but removed from
+	// XMage's card database, so it is no-XMage too.
 	inXMage := map[string]bool{}
+	unfinished := map[string]bool{}
+	for _, u := range m.Unfinished {
+		unfinished[compliance.FoldName(u)] = true
+	}
 	names := make([]string, 0, len(m.Cards))
 	for _, mc := range m.Cards {
-		inXMage[mc.Name] = true
+		if unfinished[compliance.FoldName(mc.Name)] {
+			continue
+		}
+		inXMage[compliance.FoldName(mc.Name)] = true
 		names = append(names, mc.Name)
 	}
 	if pr, err := compliance.LoadPrinted(filepath.Join(root, "compliance", "printed"), set); err == nil {
@@ -163,7 +176,7 @@ func Check(reg *cards.Registry, root, set, level string) ([]Problem, error) {
 		return nil, err
 	}
 	for _, printed := range names {
-		name, ok := compliance.CorpusName(has, printed)
+		name, ok := compliance.CorpusNameFold(has, folded, printed)
 		if !ok {
 			bad(printed, "not in the corpus")
 			continue
@@ -178,10 +191,14 @@ func Check(reg *cards.Registry, root, set, level string) ([]Problem, error) {
 		}
 		rows := verdicts[name]
 		wrong := false
+		lacks := false
 		for _, r := range rows {
-			if r.Status == compliance.StatusGorgeWrong {
+			switch r.Status {
+			case compliance.StatusGorgeWrong:
 				bad(name, "gorge_wrong verdict (%s): %s", r.Template, r.Ruling)
 				wrong = true
+			case compliance.StatusXMageLacks:
+				lacks = true
 			}
 		}
 		if wrong {
@@ -190,7 +207,7 @@ func Check(reg *cards.Registry, root, set, level string) ([]Problem, error) {
 		if hand[name] {
 			continue
 		}
-		if !inXMage[printed] {
+		if !inXMage[compliance.FoldName(printed)] || lacks {
 			bad(name, "XMage does not implement it; needs a hand-authored oracle scenario")
 			continue
 		}

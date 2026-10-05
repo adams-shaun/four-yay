@@ -242,7 +242,7 @@ var changeZoneKnownKeys = [...]string{
 	"NumDmg", "OpponentTurn", "Optional",
 	"OptionalPrompt", "Origin", "OriginAlternative", "Planeswalker", "PlayCost",
 	"PlayerTurn", "PowerUp", "PrecostDesc", "PresentCompare", "PresentDefined",
-	"PresentZone", "RandomNumTargets", "ReduceAmount", "ReduceCost", "RememberChanged", "RememberCostMana",
+	"PresentZone", "RandomNumTargets", "ReduceAmount", "ReduceCost", "RememberAnimated", "RememberChanged", "RememberCostMana",
 	"RememberLKI", "RememberObjects", "RememberSearched", "RememberTargets", "Reorder",
 	"ReplaceColor", "ReplaceGraveyard", "ReplaceGraveyardValid", "ReplaceMana",
 	"ReplaceOnly", "ReplaceType", "Reveal", "SVarCompare",
