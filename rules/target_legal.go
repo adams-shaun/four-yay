@@ -1165,11 +1165,21 @@ func (e *Engine) filterTargetsWithDefinedController(in []targetCandidate, sa *ca
 	if ref == "" {
 		return in
 	}
+	// The parent-target referents (ParentTarget, ParentTargetedController)
+	// are classified from their one owning table in effects, so rules does
+	// not re-name the words in a second StrCodes table. Resolution-time
+	// sub-ability asks bind the referent; a cast-time offer has no parent
+	// binding yet and keeps its existing offer.
+	if effects.DefinedControllerParentReferent(ref) {
+		if !sc.ParentBound {
+			return in
+		}
+		return filterParentControllerTargets(e.G, in, sc)
+	}
 	var player state.PlayerID
 	var ok bool
 	failClosed := false
 	nonTriggeredController := false
-	parentController := false
 	switch filterTargetsWithDefinedControllerCodes.Code(string(ref)) {
 	case filterTargetsWithDefinedControllerNonTriggeredCardController:
 		nonTriggeredController = true
@@ -1200,38 +1210,6 @@ func (e *Engine) filterTargetsWithDefinedController(in []targetCandidate, sa *ca
 		}
 	case filterTargetsWithDefinedControllerTriggeredCardController:
 		player, ok = effects.TriggeredCardController(e.G, sc.TriggerContext, nil)
-	case filterTargetsWithDefinedControllerParentTarget,
-		filterTargetsWithDefinedControllerParentTargetedController:
-		parentController = true
-	}
-	if parentController {
-		// Cast-time offers have no bound parent target yet. Preserve their
-		// existing offer; resolution-time sub-ability asks bind the referent.
-		if !sc.ParentBound {
-			return in
-		}
-		controllers := make(map[state.PlayerID]struct{}, len(sc.ParentTargets))
-		for _, target := range sc.ParentTargets {
-			if target.IsPlayer {
-				controllers[target.Player] = struct{}{}
-			} else if o := e.G.Obj(target.Obj); o != nil {
-				controllers[o.Controller] = struct{}{}
-			}
-		}
-		out := in[:0]
-		for _, candidate := range in {
-			if candidate.kind != "permanent" {
-				continue
-			}
-			o := e.G.Obj(candidate.obj)
-			if o == nil {
-				continue
-			}
-			if _, found := controllers[o.Controller]; found {
-				out = append(out, candidate)
-			}
-		}
-		return out
 	}
 	if !ok {
 		if failClosed || nonTriggeredController {
@@ -1335,8 +1313,6 @@ const (
 	filterTargetsWithDefinedControllerTriggeredAttackingPlayer
 	filterTargetsWithDefinedControllerTriggeredAttackedTarget
 	filterTargetsWithDefinedControllerTriggeredCardController
-	filterTargetsWithDefinedControllerParentTarget
-	filterTargetsWithDefinedControllerParentTargetedController
 )
 
 var filterTargetsWithDefinedControllerCodes = state.NewStrCodes(
@@ -1347,6 +1323,37 @@ var filterTargetsWithDefinedControllerCodes = state.NewStrCodes(
 	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "TriggeredAttackingPlayer", Val: filterTargetsWithDefinedControllerTriggeredAttackingPlayer},
 	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "TriggeredAttackedTarget", Val: filterTargetsWithDefinedControllerTriggeredAttackedTarget},
 	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "TriggeredCardController", Val: filterTargetsWithDefinedControllerTriggeredCardController},
-	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "ParentTarget", Val: filterTargetsWithDefinedControllerParentTarget},
-	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "ParentTargetedController", Val: filterTargetsWithDefinedControllerParentTargetedController},
 )
+
+// filterParentControllerTargets keeps only the candidates controlled by a
+// player named by the bound parent targets: a player target contributes that
+// seat, an object target its controller. Graveyard cards have Controller ==
+// Owner, so this is exactly the targeted player's cards for the
+// graveyard-shuffle family (Rite of Renewal, Krosan Reclamation, Memory's
+// Journey). An empty parent set (a Min-0 parent that chose nothing) fails
+// closed to no candidates; every such sub-ability is itself TargetMin$ 0, so
+// no mandatory target pool is emptied.
+func filterParentControllerTargets(g *state.Game, in []targetCandidate, sc effects.SpecContext) []targetCandidate {
+	controllers := make(map[state.PlayerID]struct{}, len(sc.ParentTargets))
+	for _, target := range sc.ParentTargets {
+		if target.IsPlayer {
+			controllers[target.Player] = struct{}{}
+		} else if o := g.Obj(target.Obj); o != nil {
+			controllers[o.Controller] = struct{}{}
+		}
+	}
+	out := in[:0]
+	for _, candidate := range in {
+		if candidate.kind != "permanent" {
+			continue
+		}
+		o := g.Obj(candidate.obj)
+		if o == nil {
+			continue
+		}
+		if _, found := controllers[o.Controller]; found {
+			out = append(out, candidate)
+		}
+	}
+	return out
+}
