@@ -382,7 +382,8 @@ func (e *Engine) askReplacementChoice(p state.PlayerID) {
 		}
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "replacement", Obj: c.id, Label: label})
 	}
-	if rc.ev.Kind == events.Damage && hasOptionalReplacement(rc.cands) {
+	if (rc.ev.Kind == events.Damage && hasOptionalReplacement(rc.cands)) ||
+		(rc.ev.Kind == events.Draw && hasOptionalBodylessDrawReplacement(rc.cands)) {
 		d.Options = append(d.Options, decision.Option{Index: len(rc.cands), Kind: "skip_replacement",
 			Label: "Do not apply an optional replacement"})
 		// A single-optional competition asked of its OptionalDecider$ is the
@@ -419,6 +420,56 @@ func (e *Engine) askReplacementChoice(p state.PlayerID) {
 		}
 	}
 	e.ask(d)
+}
+
+// hasOptionalBodylessDrawReplacement reports whether a Draw competition has
+// an optional replacement whose complete effect is to skip that draw.
+func hasOptionalBodylessDrawReplacement(matches []replMatch) bool {
+	for _, m := range matches {
+		if m.repl.With == nil && m.repl.OptionalValue() {
+			return true
+		}
+	}
+	return false
+}
+
+func handleDrawReplacementChoice(rc replChoice, choice int, before *triggerSnapshot,
+	emit func(events.Event) events.Event, applying *bool, exclude *[]string,
+	triggerBefore **triggerSnapshot, askNext func()) bool {
+	if rc.kind == replChoiceDraw {
+		if choice == 1 {
+			emitDeclinedDrawReplacement(emit, applying, rc.ev)
+		}
+		*triggerBefore = before
+		askNext()
+		return true
+	}
+	return handleDeclinedDrawCompetition(rc, choice, before, emit, exclude, triggerBefore, askNext)
+}
+
+func handleDeclinedDrawCompetition(rc replChoice, choice int, before *triggerSnapshot,
+	emit func(events.Event) events.Event, exclude *[]string,
+	triggerBefore **triggerSnapshot, askNext func()) bool {
+	if rc.ev.Kind != events.Draw || choice != len(rc.cands) ||
+		!hasOptionalBodylessDrawReplacement(rc.cands) {
+		return false
+	}
+	// Declining an optional candidate does not consume the event: exclude
+	// only that replacement and run the remaining CR 616.1 competition.
+	var declined string
+	for _, m := range rc.cands {
+		if m.repl.With == nil && m.repl.OptionalValue() {
+			declined = replIdentity(m)
+			break
+		}
+	}
+	priorExclude := *exclude
+	*exclude = append(append([]string(nil), priorExclude...), declined)
+	emit(rc.ev)
+	*exclude = priorExclude
+	*triggerBefore = before
+	askNext()
+	return true
 }
 
 // emitDeclinedDrawReplacement lets a declined optional bodyless replacement
@@ -486,12 +537,8 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 	}
 	before := e.triggerBefore
 	e.triggerBefore = rc.before
-	if rc.kind == replChoiceDraw {
-		if chosen[0].Index == 1 {
-			emitDeclinedDrawReplacement(e.emit, &e.applyingReplacement, rc.ev)
-		}
-		e.triggerBefore = before
-		e.askNextReplacementChoice()
+	if handleDrawReplacementChoice(rc, chosen[0].Index, before, e.emit,
+		&e.applyingReplacement, &e.replExclude, &e.triggerBefore, e.askNextReplacementChoice) {
 		return
 	}
 	if damageKind {

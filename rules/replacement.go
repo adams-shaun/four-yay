@@ -371,6 +371,10 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 		e.poseReplacementChoice(ev, matches)
 		return ev, true
 	}
+	if ev.Kind == events.Draw && len(matches) > 1 && hasOptionalBodylessDrawReplacement(matches) {
+		e.poseReplacementChoice(ev, matches)
+		return ev, true
+	}
 	if len(matches) == 1 {
 		return e.applyReplacement(ev, matches[0])
 	}
