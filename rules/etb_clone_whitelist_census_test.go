@@ -14,7 +14,7 @@ import (
 // ETBReplacement:Copy keyword whose DB$ Clone body's parameter set lies
 // entirely inside etbCloneWhitelist's supported scope {Choices$, AddTypes$,
 // AddKeywords$, SpellDescription$} AND whose values are inside it too (no
-// SVar-resolved selector predicate, no multi-word AddKeywords$ head -- see
+// unsupported SVar-resolved selector predicate, no multi-word AddKeywords$ head -- see
 // etbCloneWhitelist). The pin is bidirectional: a corpus-pin
 // bump or a scope change that alters membership fails here and forces a
 // deliberate re-measure, so the supported boundary cannot widen (a new
@@ -23,7 +23,7 @@ var etbCloneCleanNames = []string{
 	"Clever Impersonator", "Clone", "Copy Artifact", "Copy Enchantment", "Copy Land",
 	"Dack's Duplicate", "Deceptive Frostkite", "Glasspool Mimic",
 	"Jwari Shapeshifter", "Malleable Impostor", "Masterwork of Ingenuity", "Mirror Image",
-	"Mirrormade", "Mocking Doppelganger", "Naga Fleshcrafter", "Omni-Changeling",
+	"Mirrormade", "Mocking Doppelganger", "Mockingbird", "Naga Fleshcrafter", "Omni-Changeling",
 	"Phyrexian Metamorph", "Sakashima of a Thousand Faces", "Sakashima's Protege", "Sakashima's Student", "Sculpting Steel",
 	"Stunt Double", "Synth Infiltrator", "Vesuva", "Visage Bandit", "Waxen Shapethief",
 }
@@ -80,13 +80,9 @@ func TestETBCloneWhitelistRegressionCarriers(t *testing.T) {
 		// creature, it enters with two additional +1/+1 counters" condition),
 		// so despite its plain Choices$ selector it is out of scope.
 		{"Moritte of the Frost", false},
-		// Supported KEYS, unsupported VALUES (see etbCloneWhitelist):
-		// Mockingbird's Choices$ Creature.Other+cmcLEY needs an SVar
-		// resolver the ETB matchers do not have, and Flesh Duplicate's
-		// AddKeywords$ IfNew Vanishing:3 is a conditional this build cannot
-		// install. Both keep the loud fallback; see
-		// rules/etb_clone_unsupported_riders_test.go for the end-to-end pins.
-		{"Mockingbird", false},
+		// Mockingbird's cast-spend Y selector is supported; Flesh Duplicate's
+		// AddKeywords$ IfNew Vanishing:3 is still an unimplemented conditional.
+		{"Mockingbird", true},
 		{"Flesh Duplicate", false},
 		// staticgoad1: Mocking Doppelganger's AddStaticAbilities$ FamilyTease
 		// is a readable Goad$ static, so its ETB copy is offered and the
