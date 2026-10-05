@@ -1149,11 +1149,11 @@ func (e *Engine) filterTargetValidTargeting(in []targetCandidate, sa *cards.SA, 
 // is deliberately applied once after every zone's candidates are collected,
 // so battlefield, graveyard and stack target offers cannot drift apart.
 //
-// Only a selector this build binds narrows the offer. An unsupported selector
-// (ParentTarget, ParentTargetedController, TriggeredCauser, ...) and a
-// supported role the current trigger did not bind leave the candidates
+// Only a selector this build binds narrows the offer. Unsupported selectors
+// and a supported role the current trigger did not bind leave the candidates
 // unchanged -- the offer every such ability had before this restriction was
-// read -- so no existing ability silently loses its targets. The two roles
+// read -- so no existing ability silently loses its targets. ParentTarget
+// selectors also preserve that offer when no parent binding exists. The two roles
 // only an attack-declaration trigger binds (TriggeredAttackingPlayer,
 // TriggeredAttackedTarget: Karazikar, Firkraag, Seifer, Gornog, Whirlwind
 // Killer) and NonTriggeredCardController (Confusion in the Ranks: "target
@@ -1169,6 +1169,7 @@ func (e *Engine) filterTargetsWithDefinedController(in []targetCandidate, sa *ca
 	var ok bool
 	failClosed := false
 	nonTriggeredController := false
+	parentController := false
 	switch filterTargetsWithDefinedControllerCodes.Code(string(ref)) {
 	case filterTargetsWithDefinedControllerNonTriggeredCardController:
 		nonTriggeredController = true
@@ -1199,6 +1200,38 @@ func (e *Engine) filterTargetsWithDefinedController(in []targetCandidate, sa *ca
 		}
 	case filterTargetsWithDefinedControllerTriggeredCardController:
 		player, ok = effects.TriggeredCardController(e.G, sc.TriggerContext, nil)
+	case filterTargetsWithDefinedControllerParentTarget,
+		filterTargetsWithDefinedControllerParentTargetedController:
+		parentController = true
+	}
+	if parentController {
+		// Cast-time offers have no bound parent target yet. Preserve their
+		// existing offer; resolution-time sub-ability asks bind the referent.
+		if !sc.ParentBound {
+			return in
+		}
+		controllers := make(map[state.PlayerID]struct{}, len(sc.ParentTargets))
+		for _, target := range sc.ParentTargets {
+			if target.IsPlayer {
+				controllers[target.Player] = struct{}{}
+			} else if o := e.G.Obj(target.Obj); o != nil {
+				controllers[o.Controller] = struct{}{}
+			}
+		}
+		out := in[:0]
+		for _, candidate := range in {
+			if candidate.kind != "permanent" {
+				continue
+			}
+			o := e.G.Obj(candidate.obj)
+			if o == nil {
+				continue
+			}
+			if _, found := controllers[o.Controller]; found {
+				out = append(out, candidate)
+			}
+		}
+		return out
 	}
 	if !ok {
 		if failClosed || nonTriggeredController {
@@ -1302,6 +1335,8 @@ const (
 	filterTargetsWithDefinedControllerTriggeredAttackingPlayer
 	filterTargetsWithDefinedControllerTriggeredAttackedTarget
 	filterTargetsWithDefinedControllerTriggeredCardController
+	filterTargetsWithDefinedControllerParentTarget
+	filterTargetsWithDefinedControllerParentTargetedController
 )
 
 var filterTargetsWithDefinedControllerCodes = state.NewStrCodes(
@@ -1312,4 +1347,6 @@ var filterTargetsWithDefinedControllerCodes = state.NewStrCodes(
 	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "TriggeredAttackingPlayer", Val: filterTargetsWithDefinedControllerTriggeredAttackingPlayer},
 	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "TriggeredAttackedTarget", Val: filterTargetsWithDefinedControllerTriggeredAttackedTarget},
 	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "TriggeredCardController", Val: filterTargetsWithDefinedControllerTriggeredCardController},
+	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "ParentTarget", Val: filterTargetsWithDefinedControllerParentTarget},
+	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "ParentTargetedController", Val: filterTargetsWithDefinedControllerParentTargetedController},
 )
