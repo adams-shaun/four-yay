@@ -166,7 +166,8 @@ func TestCatharticPartingGraveyardTargetsAnnouncedOnCast(t *testing.T) {
 // SubAbility$ ChangeZone link the cast census does NOT resolve, keyed by card
 // name to the link's Origin$. It is a ratchet: the cast flow announces such a
 // link on cast only when castSubChangeZoneAnnounceable admits it (a
-// player-target link, or an explicit Origin$ Graveyard object target), so a
+// player-target link, or a Graveyard-origin object target with an inferred
+// or explicit Graveyard target zone), so a
 // card that newly becomes resolvable is stale and fails the census by name,
 // and a card that newly becomes unresolvable is a new gap that fails too.
 //
@@ -184,7 +185,6 @@ var knownUnjudgedChangeZoneSubTargets = map[string]string{
 	"Cruel Alliance":            "Battlefield",
 	"Expel the Unworthy":        "Battlefield",
 	"Fiery Annihilation":        "Battlefield",
-	"Geth's Summons":            "Graveyard",
 	"Grip of Desolation":        "Battlefield",
 	"Into the Flood Maw":        "Battlefield",
 	"Karn's Temporal Sundering": "Battlefield",
@@ -201,8 +201,8 @@ var knownUnjudgedChangeZoneSubTargets = map[string]string{
 // TestSubAbilityChangeZonePreAskCensus walks every front-face ability's
 // SubAbility$ chain and classifies each targeted ChangeZone link by whether
 // the cast census resolves it. The admitted set is exactly the corpus's
-// player-target links and explicit Origin$ Graveyard object links (Cathartic
-// Parting among them); the Battlefield-origin object links -- the same
+// player-target links and Graveyard-origin object links (Cathartic Parting
+// and Geth's Summons among them); the Battlefield-origin object links -- the same
 // announcement class, but out of this ticket's scope -- are left to the
 // mid-resolution ask and pinned in the ratchet above.
 func TestChangeZoneSubPreAskRejectsMixedPlayerObjectTargets(t *testing.T) {

@@ -869,13 +869,12 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 // (CR 601.2c). It returns true for every non-ChangeZone link -- those are
 // judged by the ordinary cast flow -- and, for a ChangeZone link, when the
 // cast census can resolve its targets: a player-target link (zone-free) or an
-// explicit Origin$ Graveyard OBJECT target (originImpliedTargetZone, the same
-// resolver targetZones feeds the offer census, the cast ask and the CR 608.2b
-// resolution recheck). Every other ChangeZone object origin (Hand, Library,
-// Exile, a multi-zone union, Any) leaves targetZones' empty-range fallback at
-// the battlefield, so announcing the link on cast would offer a wrong pool and
-// a chosen answer would fail the recheck; those links keep their mid-resolution
-// ask (changeZoneChosenTargets, which resolves the hidden zone itself).
+// explicit Origin$ Graveyard OBJECT target, either inferred by
+// originImpliedTargetZone or declared by TgtZone$ Graveyard. Both routes feed
+// targetZones for the offer census, cast ask and CR 608.2b recheck. Other
+// origins without a usable explicit zone fall back to the battlefield; other
+// explicitly zoned origins remain outside this ticket's graveyard scope.
+// Those links keep their mid-resolution ask (changeZoneChosenTargets).
 // Cathartic Parting's graveyard link is exactly the admitted shape: its four
 // "target cards from your graveyard" are announced with the spell instead of
 // asked at resolution. Battlefield-origin object links (a bounce spell's
@@ -894,14 +893,15 @@ func castSubChangeZoneAnnounceable(sa *cards.SA) bool {
 	if effects.SpecTargetsOnlyPlayers(tp.ValidTgts) {
 		return true
 	}
-	// Origin$ Graveyard is the one non-battlefield OBJECT zone the census
-	// establishes for ChangeZone (originImpliedTargetZone, which also requires
-	// no explicit TgtZone$ and an object-only ValidTgts$). Every other
-	// object-target origin (Hand, Library, Exile, a multi-zone union, Any)
-	// leaves targetZones' empty-range fallback at the battlefield, so
-	// announcing the link on cast would offer a wrong pool and a chosen answer
-	// would fail the CR 608.2b recheck; those links keep their mid-resolution
-	// ask (changeZoneChosenTargets, which resolves the hidden zone itself).
+	// A concrete Graveyard TgtZone$ is authoritative even when Origin$ is
+	// also specified (Geth's Summons). Require the matching single origin
+	// and an object-only selector: mixed player/object and multi-zone offers
+	// cannot be treated as this public-graveyard announcement shape.
+	if tp.ZoneText != "" {
+		return len(tp.Zones) == 1 && tp.Zones[0] == state.ZGraveyard &&
+			!tp.Has(effects.TgtTypeStack) && !tp.Has(effects.TgtValidPlayers) &&
+			effects.ChangeZoneOf(sa).OriginExactly(state.ZGraveyard)
+	}
 	_, ok := originImpliedTargetZone(sa)
 	return ok
 }
