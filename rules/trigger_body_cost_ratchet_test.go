@@ -926,7 +926,7 @@ func costFamiliesInRaw(raw string) map[string]bool {
 		if inAngle {
 			token = token[:strings.IndexByte(token, '<')]
 		}
-		if !inAngle && token != "" && (token[0] >= '0' && token[0] <= '9' || strings.Trim(token, "WUBRGC") == "") || token == "Mana" {
+		if !inAngle && token != "" && (token == "X" || token[0] >= '0' && token[0] <= '9' || strings.Trim(token, "WUBRGC") == "") || token == "Mana" {
 			seen["Mana"] = true
 		}
 		for _, family := range triggerCostFamilies {
@@ -1051,7 +1051,7 @@ func TestTriggerBodyCostCorpusRatchet(t *testing.T) {
 			families[fam]++
 		}
 	}
-	wantFamilies := map[string]int{"Mana": 358, "Sac": 163, "Discard": 97, "Draw": 38, "PayEnergy": 37, "PayLife": 36, "ExileFromGrave": 22, "tapXType": 17, "ExileAnyGrave": 16, "SubCounter": 15, "ExiledMoveToGrave": 9, "Blight": 7, "Return": 7, "CollectEvidence": 6, "Forage": 5, "RemoveAnyCounter": 4, "Exile": 2, "ExileFromHand": 2, "PutCardToLibFromGrave": 2, "Behold": 1, "ExileCtrlOrGrave": 1, "Mill": 1}
+	wantFamilies := map[string]int{"Mana": 384, "Sac": 163, "Discard": 97, "Draw": 38, "PayEnergy": 37, "PayLife": 36, "ExileFromGrave": 22, "tapXType": 17, "ExileAnyGrave": 16, "SubCounter": 15, "ExiledMoveToGrave": 9, "Blight": 7, "Return": 7, "CollectEvidence": 6, "Forage": 5, "RemoveAnyCounter": 4, "Exile": 2, "ExileFromHand": 2, "PutCardToLibFromGrave": 2, "Behold": 1, "ExileCtrlOrGrave": 1, "Mill": 1}
 	var familyDrift []string
 	for family, want := range wantFamilies {
 		if got := families[family]; got != want {
