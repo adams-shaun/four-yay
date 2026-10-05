@@ -1457,6 +1457,14 @@ var stringMapParams = map[string]string{
 	// consumed here, but the map originates in an SVar body, not a card's
 	// Params map.
 	"effects:compoundRememberedSpec:params": "keys of a parseStaticLine-built static line (an SVar body), not a card Params map",
+	// effects/restrictions.go CantPlayLandParamsReadable: the Origin$ value read is
+	// a parseStaticLine-built SVar static-line map (its keys are the whitelist
+	// CantPlayLandParamsReadable reports on), and it is passed the raw map from
+	// both effects' effEffect registration arm and rules' play_land_restriction,
+	// which read the SAME keys through the compiled accessors (sv.ParamStr,
+	// ce.RestrictParam) that the census attributes -- so this whitelist does not
+	// hide a card-parameter read.
+	"effects:CantPlayLandParamsReadable:params": "Origin$ value of a parseStaticLine-built static line (an SVar body); the card Params reads are the rules-side compiled accessors",
 	// rules/cast.go bodyReadsAllTargeted: svars is the source face's (or
 	// merged pile's) SVar table, walked by SVar NAME to decide whether a
 	// cost head reaches the AllTargeted$ count ref (the alltargeted1 scope

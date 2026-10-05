@@ -20,9 +20,46 @@ import (
 // well-formed client) aborts and REVERSES the push (CR 733.1): the object
 // returns to the zone it came from, nothing remains paid and no cast trigger
 // fires. The land play is also handled here (it never goes on the stack).
+func captureCastSpend(pc *pendingCast, f *cards.Face, triggeredReaderOut bool, spentMana, spentSnow state.Mana, spentTyped [7]state.Mana) {
+	if faceWantsCastSpend(f) || triggeredReaderOut {
+		pc.manaSpentOn = true
+		pc.manaSpent = manaSpentTotal(spentMana)
+		pc.manaSpentSnow = manaSpentTotal(spentSnow)
+		pc.manaSpentTreasure = manaSpentTotal(spentTyped[state.TypedTreasure]) + manaSpentTotal(spentTyped[state.TypedArtifactTreasure])
+		pc.manaSpentCave = manaSpentTotal(spentTyped[state.TypedCave]) + manaSpentTotal(spentTyped[state.TypedArtifactCave])
+		pc.manaSpentDesert = manaSpentTotal(spentTyped[state.TypedDesert]) + manaSpentTotal(spentTyped[state.TypedArtifactDesert])
+		pc.manaSpentArtifact = manaSpentTotal(spentTyped[state.TypedArtifact]) + manaSpentTotal(spentTyped[state.TypedArtifactTreasure]) + manaSpentTotal(spentTyped[state.TypedArtifactCave]) + manaSpentTotal(spentTyped[state.TypedArtifactDesert])
+	}
+	// The per-colour vector (Adamant, CR 702.5) is captured from the SAME
+	// full spent delta: spentMana[i] is exactly how much mana of slot i the
+	// payment actually paid, so a generic pip paid from a coloured unit
+	// counts toward that colour.
+	if faceWantsManaColorSpent(f) {
+		pc.manaColorSpentOn = true
+		pc.manaColorSpent = spentMana
+	}
+}
+
+// manaColorSpentCastInfo builds the trailing per-colour-spend CastInfo for a
+// cast captured with manaColorSpentOn (the Count$Adamant provenance), or
+// ok=false for an ordinary cast. The flag is a LOCAL one (not ORed into the
+// accumulating flags, the AddsCounters pattern) so the structured Text
+// payload stays off every later event and the folded Object.ManaColorSpent
+// field stays intact.
+func manaColorSpentCastInfo(pc *pendingCast, flags string) (events.Event, bool) {
+	if !pc.manaColorSpentOn {
+		return events.Event{}, false
+	}
+	csFlags := events.FlagsString(events.FlagsFrom(flags) | state.FlagManaColorSpent)
+	return events.Event{Kind: events.CastInfo, Obj: pc.card, Text: events.ManaColorSpentText(pc.manaColorSpent), Counter: csFlags}, true
+}
+
 func (e *Engine) payCast() {
 	pc := e.cast
 	if pc == nil {
+		return
+	}
+	if pc.mode == "land" && rejectLandPlay(func(p state.PlayerID, z state.Zone, id state.ObjID) bool { return playLandForbidden(e, p, z, id) }, &e.cast, pc, e.emit) {
 		return
 	}
 	if pc.mode == "land" {
@@ -33,14 +70,11 @@ func (e *Engine) payCast() {
 		e.etbLandPlay, e.etbLandObj, e.etbLandPlayer = true, pc.card, pc.player
 		card := pc.card
 		// CR 305.1/110.2: the player who plays a land puts it onto the
-		// battlefield, under their control. A land another seat controls in
-		// its current zone (Tinybones's stashed opponent card, Gonti's or
-		// Opposition Agent's exiled card, an opponent's library top played
-		// through a may-play grant) comes under the player's control BEFORE
-		// the move, so it enters on that player's battlefield and their own
-		// landfall/enters triggers see it -- the land-play twin of the cast
-		// path's CR 601.2a ControlChange (cast_targets.go). An ordinary land
-		// play's card already answers to the player, so no event rides it.
+		// battlefield under their control, even when a MayPlay grant lets them
+		// play another seat's card. Control changes before the move so their
+		// landfall/enters triggers see the right controller (the land-play twin
+		// of cast_targets.go's CR 601.2a ControlChange); ordinary plays need no
+		// event because the card already answers to that player.
 		if o := e.G.Obj(card); o != nil && o.Controller != pc.player {
 			e.emit(events.Event{Kind: events.ControlChange, Obj: card, Player: pc.player})
 		}
@@ -430,15 +464,7 @@ func (e *Engine) payCast() {
 		pc.convergeOn = true
 		pc.converge = convergeColours(spentMana)
 	}
-	if f := e.G.Obj(pc.card).Face(); faceWantsCastSpend(f) || e.triggeredCastSpendReaderOut() {
-		pc.manaSpentOn = true
-		pc.manaSpent = manaSpentTotal(spentMana)
-		pc.manaSpentSnow = manaSpentTotal(spentSnow)
-		pc.manaSpentTreasure = manaSpentTotal(spentTyped[state.TypedTreasure]) + manaSpentTotal(spentTyped[state.TypedArtifactTreasure])
-		pc.manaSpentCave = manaSpentTotal(spentTyped[state.TypedCave]) + manaSpentTotal(spentTyped[state.TypedArtifactCave])
-		pc.manaSpentDesert = manaSpentTotal(spentTyped[state.TypedDesert]) + manaSpentTotal(spentTyped[state.TypedArtifactDesert])
-		pc.manaSpentArtifact = manaSpentTotal(spentTyped[state.TypedArtifact]) + manaSpentTotal(spentTyped[state.TypedArtifactTreasure]) + manaSpentTotal(spentTyped[state.TypedArtifactCave]) + manaSpentTotal(spentTyped[state.TypedArtifactDesert])
-	}
+	captureCastSpend(pc, e.G.Obj(pc.card).Face(), e.triggeredCastSpendReaderOut(), spentMana, spentSnow, spentTyped)
 	// AddsCounters$ (task opalp): capture the rider grants from the SAME
 	// payment capture emitRestrictedManaSpend built. This must run before
 	// fireManaSpentTriggers consumes and clears e.manaSpentSources (nothing
@@ -854,6 +880,9 @@ func (e *Engine) payCast() {
 			e.emit(events.Event{Kind: events.CastInfo, Obj: pc.card, Amount: typedAmounts[t],
 				Counter: events.FlagsString(acc)})
 		}
+	}
+	if ev, ok := manaColorSpentCastInfo(pc, flags); ok {
+		e.emit(ev)
 	}
 	// ManaExpend (trig:ManaExpend): fold this cast's pool spend into the
 	// per-turn engine tally UNCONDITIONALLY -- including casts made before a

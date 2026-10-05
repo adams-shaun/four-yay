@@ -50,9 +50,22 @@ func kwEtbCounter(f *Face, i int, k, head, param string, has func(kind, line str
 				continue
 			}
 			switch strings.TrimSpace(name) {
-			case "CheckSVar", "SVarCompare":
+			case "CheckSVar", "SVarCompare", "IsPresent":
 				if val = strings.TrimSpace(val); val != "" {
 					p[strings.TrimSpace(name)] = val
+				}
+			case "Revolt":
+				if val = strings.TrimSpace(val); strings.EqualFold(val, "True") {
+					p["Revolt"] = val
+				}
+			case "Adamant":
+				// Adamant is the keyword action-word for spending at least three
+				// mana of a specified color. Route it through the common Count$
+				// gate so the replacement uses the same captured payment as other
+				// count consumers.
+				color := strings.TrimSpace(val)
+				if color != "" {
+					p["CheckSVar"] = "Count$Adamant_3." + color + ".1.0"
 				}
 			case "ValidCard":
 				// A gate field's ValidCard$ is a real match param the

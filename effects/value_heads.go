@@ -18,6 +18,7 @@ import "github.com/adams-shaun/gorge/cards"
 // or an unlisted head does. Adding an evaluator arm therefore means adding
 // its head here, and the test names it. Sorted.
 var modelledValueHeads = []string{
+	"Adamant",
 	"AllFourBend",
 	"AttackersDeclared",
 	"Blessing",

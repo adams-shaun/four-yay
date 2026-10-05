@@ -61,24 +61,37 @@ import (
 //     events.Imprint associations: Chrome Mox's Imprint$ and now api:Play's
 //     ImprintPlayed$ recording, Rashmi and Ragavan's played-exiled-card
 //     marker). The group is exactly that list — never the remembered set —
-//     and a source-less context (c.Source 0, a synthetic fixture) leaves
-//     the gate unresolved, the fail-open run-anyway this file's convention.
+//     and a source-less context (c.Source 0, a synthetic fixture) is one
+//     unresolved shape; the walk's fail direction for it is in the scope
+//     note below.
 //
-// Deliberate scope (task fb-3f1cc033): the wider Condition vocabulary —
-// Condition$ beyond Kicked, ConditionZone$ (57), ConditionManaSpent$ (34),
-// the other ConditionDefined$ values (Targeted 161, ChosenCard 90, ... —
-// Imprinted is IN since the ImprintPlayed task, shape 5 above), a bare
-// ConditionCompare$ with no group, and ConditionNotPresent$ (8) — is NOT
-// implemented. A sub carrying any of
-// those is UNRESOLVED: conditionMet reports resolved=false and Resolve's
-// walk runs the sub UNCONDITIONALLY, exactly as it did before this file
-// existed. That is the documented (not fail-closed) choice: fail-closed
-// skipping would change the behaviour of cards whose gates name specs this
-// build cannot evaluate (Fatal Push's Creature.cmcLEX, Molten Rain's
-// Land.Basic on a Targeted defined group) in ways no test asked for, while
-// ungated preserves every observable behaviour except the shapes the
-// supported set covers. Every unresolved key family is listed in the task
-// report's Issues section.
+// Scope (task fb-3f1cc033, extended by the condition-gate work): this file
+// itself enumerates the ConditionDefined$ groups in conditionSupportedDefined
+// and the bare Condition$ values in conditionSupportedBare. The wider
+// vocabulary the corpus still carries but this file does not evaluate —
+// ConditionZone$ (60), ConditionManaSpent$ (34), ConditionNotPresent$ over an
+// unenumerable group, a bare ConditionCompare$ with no group, and the other
+// ConditionDefined$/bare values — is classified unmodelled by
+// effects/condition_census.go, so the walk fails it CLOSED with a Note. A
+// supported key whose remaining gap the census does not classify stays the
+// residual fail-open described below. Whatever the shape, conditionMet
+// reports resolved=false, and Resolve's walk decides its fail direction from
+// the ONE census classifier (effects/condition_census.go) rather than
+// running the sub unconditionally: a shape the classifier names fails CLOSED
+// with a replay-visible Note; a shape it does not name still falls through.
+// Every unresolved key family is listed in the task report's Issues section.
+//
+// The classifier has two halves (UnmodelledCondition and
+// unmodelledConditionDetail): an unmodelled Condition* KEY, an unmodelled
+// ConditionDefined$ or bare Condition$ VALUE, an unparseable
+// ConditionZone$/ConditionCompare$, or an unknown predicate inside a Present
+// spec is CLOSED -- Resolve skips the sub and emits a Note ("unmodelled
+// condition <detail>"), so no rider fires on a gate this build never
+// evaluated. A shape that is unresolved WITHOUT the classifier naming it --
+// an unmodelled ConditionCheckSVar$ count body, an absent binding on a
+// supported ConditionDefined$ group -- still runs: that residual fail-OPEN is
+// deliberate and NOT this ticket's scope (the unknown-predicate extension is
+// ticket agent-20261005T013526Z's).
 //
 // The sacrifice chooser additionally needs one narrower bridge for a
 // post-sacrifice loop body: a `Defined$ Player.IsRemembered` effect — or its
@@ -239,7 +252,8 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 	}
 	if !resolved {
 		// The primary gate is unresolved AND a real second group is written:
-		// the whole shape is unresolved, fail-open per this file.
+		// the whole shape is unresolved, and its fail direction is the
+		// walk's census classifier's (see the file header).
 		return false, false
 	}
 	if !met {
@@ -348,8 +362,9 @@ func conditionMetCore(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 	// resolved set are unsupported, fail-open per this file's convention.
 	// Both are preconditions AND-ed with whatever group gate the SA also
 	// carries (combine below); a value this gate cannot read leaves the
-	// whole shape unsupported so the sub runs unconditionally, exactly as
-	// before these keys existed.
+	// whole shape unsupported, and the walk resolves what to do with it
+	// (fail closed when the census names a shape in the SA, else fall
+	// through).
 	g := h.Game()
 	extraMet := true
 	if playerTurn != "" {
@@ -386,7 +401,8 @@ func conditionMetCore(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 	// combine AND-s the group gate's answer with the player-turn/phase
 	// preconditions above: a resolved group gate that says run still stays
 	// skipped when a phase/turn precondition says no, and an unresolved
-	// group gate keeps the whole shape fail-open.
+	// group gate leaves the whole shape's fail direction to the walk's
+	// census classifier (see the file header).
 	combine := func(met, resolved bool) (bool, bool) {
 		if resolved && !extraMet {
 			return false, true
@@ -432,10 +448,11 @@ func conditionMetCore(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 	// holding four or more distinct core card types, through
 	// Host.DeliriumHolds (the same census the "Delirium —" activation,
 	// continuous and replacement gates read, so the spellings cannot drift);
-	// OptionalCost/Bargain/Threshold/Hellbent/Surge stay
-	// unresolved and run unconditionally. A bare Condition beside a group key or beside
-	// ConditionSVarCompare$ is a mixed shape no single evaluator covers (~11
-	// corpus SAs).
+	// the other corpus values (OptionalCost, Bargain, Threshold, Hellbent,
+	// Surge) are classified unmodelled (conditionUnmodelledBare) and so fail
+	// CLOSED with a Note at the walk, never running their rider. A bare
+	// Condition beside a group key or beside ConditionSVarCompare$ is a
+	// mixed shape no single evaluator covers (~11 corpus SAs).
 	if bare != "" {
 		if defined != "" || present != "" || notPresent != "" || compare != "" || svarCmp != "" ||
 			playerTurn != "" || phases != "" || firstCombat != "" {
@@ -454,9 +471,9 @@ func conditionMetCore(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		// did NOT escape, so "sacrifice it unless it escaped" runs only for a
 		// non-escape entry). A second present/compare key beside NotPresent is
 		// not a corpus shape; a defined group this build cannot enumerate
-		// (Targeted, TriggeredCardLKICopy) or an unknown predicate in the spec
-		// stays unresolved and runs the sub unconditionally, the documented
-		// pre-condition-engine behaviour.
+		// (ConditionDefined$ values absent from conditionSupportedDefined) or
+		// an unknown predicate in the spec is classified unmodelled by the
+		// census and so fails CLOSED with a Note at the walk.
 		if present != "" || compare != "" {
 			return false, false
 		}
@@ -524,7 +541,8 @@ func conditionDefinedMet(h Host, c *Ctx, sa *cards.SA, defined, present, compare
 	// discard-counts' Hand). It applies as a post-filter on the group the
 	// ConditionDefined$ branch above built; the bare-present path passes it to
 	// conditionMetZone as the default group's zone. An unresolvable zone name
-	// leaves the shape unresolved, fail-open per this file.
+	// leaves the shape unresolved, and unmodelledConditionDetail classifies it
+	// so the walk fails it CLOSED with a Note.
 	if zone != "" {
 		z, ok := parseZone(zone)
 		if !ok {
@@ -1030,7 +1048,8 @@ func discardedGroup(h Host, c *Ctx) ([]state.Target, bool) {
 // GE2 | ConditionZone$ Graveyard`, the gift-promise pair's `Card.Self` on the
 // Stack, Wiretapping's Hand count), and an empty zone keeps the battlefield
 // default (conditionMetBattlefield, including its entering-object exclusion).
-// An unreadable zone name or spec is unresolved, fail-open per this file.
+// An unreadable zone name or spec is unresolved; the walk's census classifier
+// (unmodelledConditionDetail) fails such a shape CLOSED with a Note.
 func conditionMetZone(h Host, c *Ctx, zone, present, compare string, targets map[state.ObjID]bool) (met, resolved bool) {
 	if zone == "" || strings.EqualFold(zone, "Battlefield") {
 		return conditionMetBattlefield(h, c, present, compare, targets)
@@ -1236,8 +1255,8 @@ func conditionNotPresentMet(h Host, c *Ctx, defined, spec string) (met, resolved
 			}
 		}
 	default:
-		// A defined group this build cannot enumerate (TriggeredCardLKICopy):
-		// unresolved, the sub runs unconditionally.
+		// A defined group this build cannot enumerate: unresolved, and the
+		// census classifies the value so the walk fails it CLOSED with a Note.
 		return false, false
 	}
 	return count == 0, true

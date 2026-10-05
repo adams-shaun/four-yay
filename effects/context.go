@@ -1318,27 +1318,8 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		}
 		return out, true
 	}
-	// Forge's zone-suffixed Valid filter family ("Defined$ ValidGraveyard
-	// Aura.YouOwn" -- Retether's mass return, and 16 more raw ChangeZone
-	// lines; the same spelling Count$ValidGraveyard already reads through
-	// count.go's countZone): the named zone's cards the filter admits,
-	// evaluated with the resolving controller as You -- the same walk the
-	// "Valid <filter>" battlefield branch runs, over the zone the prefix
-	// names instead of the battlefield. Unmodelled predicates fail closed
-	// INSIDE the filter (an empty set, ok=true), never a guessed fallback.
-	for _, zf := range zoneValidPrefixes {
-		if filt, ok := strings.CutPrefix(spec, zf.prefix); ok {
-			filt = strings.TrimSpace(filt)
-			sc := c.SpecContext(c.Controller)
-			sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, filt, h)...)
-			var out []state.Target
-			for _, id := range g.Zone(zf.zone, c.Controller) {
-				if MatchesSpecCtx(g, filt, id, sc) {
-					out = append(out, state.Target{Obj: id})
-				}
-			}
-			return out, true
-		}
+	if out, ok := definedZoneValidTargets(h, g, c, spec); ok {
+		return out, true
 	}
 	// Forge's bare "Defined$ Valid <filter>" form (88 raw corpus lines:
 	// Redoubled Stormsinger's "Defined$ Valid Creature.token+YouCtrl+
@@ -1365,6 +1346,37 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 	// Any Defined$ form this build does not model falls back to the chosen
 	// targets rather than silently acting on nothing (the caller decides via
 	// the bool whether that fallback is acceptable).
+	return nil, false
+}
+
+// definedZoneValidTargets resolves a zone-qualified Valid selector. Forge's
+// graveyard form ranges over every living player's graveyard; ownership and
+// control predicates decide which cards qualify from the resolving
+// controller's perspective (Supper for Spiders' OppOwn). Other zone-qualified
+// forms retain their controller-owned zone scope.
+func definedZoneValidTargets(h Host, g *state.Game, c *Ctx, spec string) ([]state.Target, bool) {
+	for _, zf := range zoneValidPrefixes {
+		filt, ok := strings.CutPrefix(spec, zf.prefix)
+		if !ok {
+			continue
+		}
+		filt = strings.TrimSpace(filt)
+		sc := c.SpecContext(c.Controller)
+		sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, filt, h)...)
+		var out []state.Target
+		players := []state.PlayerID{c.Controller}
+		if zf.zone == state.ZGraveyard {
+			players = g.AliveFrom(c.Controller)
+		}
+		for _, player := range players {
+			for _, id := range g.Zone(zf.zone, player) {
+				if MatchesSpecCtx(g, filt, id, sc) {
+					out = append(out, state.Target{Obj: id})
+				}
+			}
+		}
+		return out, true
+	}
 	return nil, false
 }
 
