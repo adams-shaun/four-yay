@@ -144,3 +144,33 @@ func TestExcessDamageAllNoncombatOnly(t *testing.T) {
 		t.Fatalf("combat: damage=%d queued=%d, want unchanged queue", e.G.Obj(b).Damage, len(e.pendingTriggers))
 	}
 }
+
+func TestExcessDamageAllUsesDeathtouchLethalThreshold(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e, _, targets := excessGalleonBoard(t, reg)
+	victim := targets[1] // Hill Giant, a 3-toughness creature.
+	if got := e.Toughness(victim); got != 3 {
+		t.Fatalf("precondition: victim toughness = %d, want 3", got)
+	}
+	source := putToken(t, e, 0, "Name:Deathtouch Source\nTypes:Creature Assassin\nPT:1/1\nK:Deathtouch\nOracle:x\n", state.ZBattlefield)
+	if o := e.G.Obj(source); o == nil || o.Zone != state.ZBattlefield || !e.HasKeyword(source, "Deathtouch") {
+		t.Fatalf("precondition: deathtouch source is not active: %+v", o)
+	}
+	if e.G.Obj(victim).Damage != 0 {
+		t.Fatalf("precondition: victim marked damage = %d, want 0", e.G.Obj(victim).Damage)
+	}
+	e.dmgSrcOverride = source
+	e.emit(events.Event{Kind: events.Damage, Obj: victim, Amount: 2})
+	e.dmgSrcOverride = 0
+	if got := e.G.Obj(victim).Damage; got != 2 {
+		t.Fatalf("precondition: damage landed = %d, want 2", got)
+	}
+	if len(e.pendingTriggers) != 1 {
+		t.Fatalf("2 deathtouch damage to 3 toughness should trigger once for 1 excess; queued=%d", len(e.pendingTriggers))
+	}
+	ctx := e.pendingTriggers[0].Ctx.TriggerContext
+	if ctx.TriggerAmount != 1 || len(ctx.TriggerDamageTargets) != 1 || ctx.TriggerDamageTargets[0].Obj != victim {
+		t.Fatalf("deathtouch excess context = %+v, want amount 1 and victim", ctx)
+	}
+}

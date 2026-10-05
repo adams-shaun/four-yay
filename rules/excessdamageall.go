@@ -6,10 +6,26 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+func damageSourceHasDeathtouch(e *Engine, ev events.Event) bool {
+	if ev.Kind != events.Damage {
+		return false
+	}
+	source := e.inFlightDamageSource()
+	if source == 0 {
+		return false
+	}
+	if cause := e.actionCause(); cause != 0 {
+		if lki, ok := e.damageSourceLKI[cause][source]; ok {
+			return lki.Deathtouch
+		}
+	}
+	return e.hasKeywordH(source, kwhDeathtouch)
+}
+
 // captureExcessBaseline runs before Apply marks the damage. It remembers the
 // first pre-fold lethal threshold for this creature, not an intermediate
 // threshold after earlier events in the same simultaneous batch.
-func captureExcessBaseline(baselines map[state.ObjID]int32, ev events.Event, board interface {
+func captureExcessBaseline(baselines map[state.ObjID]int32, ev events.Event, deathtouch bool, board interface {
 	Game() *state.Game
 	Toughness(state.ObjID) int32
 	IsCreature(state.ObjID) bool
@@ -28,7 +44,14 @@ func captureExcessBaseline(baselines map[state.ObjID]int32, ev events.Event, boa
 	if baselines == nil {
 		baselines = make(map[state.ObjID]int32)
 	}
-	baselines[id] = board.Toughness(id) - o.Damage
+	lethal := board.Toughness(id) - o.Damage
+	// CR 120.4a: one damage from a source with deathtouch is lethal for
+	// assignment purposes. Existing marked damage can make the ordinary
+	// threshold smaller, so only lower a positive threshold to one.
+	if deathtouch && lethal > 1 {
+		lethal = 1
+	}
+	baselines[id] = lethal
 	return baselines
 }
 

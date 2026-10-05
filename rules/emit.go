@@ -224,7 +224,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	if onlyEventBatch {
 		e.openDamageBatch()
 	}
-	e.excessDamageBaseline = captureExcessBaseline(e.excessDamageBaseline, ev, e)
+	e.excessDamageBaseline = captureExcessBaseline(e.excessDamageBaseline, ev, damageSourceHasDeathtouch(e, ev), e)
 	// LKI (CR 603.10 "look back in time") is captured HERE, before
 	// events.Emit runs Apply and mutates the object -- a zone-change trigger
 	// needs the object exactly as it was a moment ago (its counters, tapped
