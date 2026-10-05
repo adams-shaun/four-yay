@@ -18,6 +18,9 @@ import (
 // logging. Otherwise the event is logged and folded into state exactly as
 // before, and checkTriggers then looks for anything it just made true.
 func (e *Engine) emit(ev events.Event) events.Event {
+	if suppressSuspectedEvent(e, ev) {
+		return ev
+	} // CR 702.157
 	if bookkeepingKind(ev.Kind) && !e.applyingReplacement {
 		e.emitBookkeeping(&ev)
 		return ev
@@ -835,6 +838,3 @@ func (e *Engine) emitBookkeeping(ev *events.Event) {
 	}
 	e.checkTriggers(ev, nil, 0, 0, false)
 }
-	if suppressSuspectedEvent(e, ev) {
-		return ev
-	} // CR 702.157

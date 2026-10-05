@@ -47,6 +47,11 @@ func TestCantBeSuspectedSuppressesTheDesignation(t *testing.T) {
 		t.Fatal("precondition: the Soldier is outside ValidCard$ Creature.Bear and must not be protected")
 	}
 
+	if !suppressSuspectedEvent(e, events.Event{Kind: events.AlterAttribute, Obj: bear,
+		Text: suspectedAttribute, Amount: 1}) {
+		t.Fatal("precondition: the event-level prohibition must select the Bear's Suspected event")
+	}
+
 	suspect := func(id state.ObjID) {
 		sa := &cards.SA{Kind: "DB", API: "AlterAttribute", Params: map[string]string{"Attributes": "Suspected", "ValidTgts": "Creature"}}
 		effects.Resolve(e, &effects.Ctx{Source: 0, Controller: 0,
