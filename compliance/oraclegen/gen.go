@@ -677,6 +677,11 @@ func hasTargetPick(d rules.OracleDecision) bool {
 // choice queue.
 func pickKind(d rules.OracleDecision, k int) string {
 	if k >= 0 && k < len(d.PickKinds) {
+		if d.Resume == "opp_pick" && d.PickKinds[k] == "player" {
+			// The TargetingPlayer$ Opponent flow's controller-facing
+			// which-opponent ask: XMage's ChoicePlayer, the choice queue.
+			return "opponent_choice"
+		}
 		return d.PickKinds[k]
 	}
 	return ""

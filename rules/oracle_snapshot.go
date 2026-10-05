@@ -86,7 +86,11 @@ type OracleDecision struct {
 	// labelled pick XMage poses as a makeChoose choice without guessing from
 	// the label text.
 	PickKinds []string `json:"pick_kinds,omitempty"`
-	Via       string   `json:"via"` // how the runner answered: target, answer, or a fallback
+	// Resume is the decision's ResumeKind: it tells the controller-facing
+	// which-opponent ask ("opp_pick", XMage's ChoicePlayer) from a player
+	// target, which share the option kind "player".
+	Resume string `json:"resume,omitempty"`
+	Via    string `json:"via"` // how the runner answered: target, answer, or a fallback
 	// GorgeKind and First let a generator script the same decision for
 	// gorge's runner: the raw decision kind and option 0's label.
 	GorgeKind string `json:"gorge_kind"`

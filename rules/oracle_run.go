@@ -472,17 +472,6 @@ func pickPass(d *decision.Decision) int {
 	return -1
 }
 
-// oraclePickKind preserves the distinction between a player target and the
-// controller-facing ChoicePlayer selection in the TargetingPlayer$ Opponent
-// flow. Both decisions use the engine option kind "player"; only the latter
-// has ResumeKind "opp_pick" and reaches XMage's choice queue.
-func oraclePickKind(resumeKind, optionKind string) string {
-	if resumeKind == "opp_pick" && optionKind == "player" {
-		return "opponent_choice"
-	}
-	return optionKind
-}
-
 func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) error {
 	labels := make([]string, 0, len(choices))
 	for _, c := range choices {
@@ -493,7 +482,7 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 	r.logf("  [%s] p%d %s -> %q", why, d.Player, d.Kind, labels)
 	if kind, ok := oracleDecisionKind(d.Kind); ok {
 		od := OracleDecision{Step: r.step, Seat: int(d.Player), Kind: kind, Options: len(d.Options), Picks: labels,
-			PickIdx: append([]int{}, choices...), PickRefs: []string{}, Via: why, GorgeKind: string(d.Kind), Min: d.Min, Max: d.Max}
+			PickIdx: append([]int{}, choices...), PickRefs: []string{}, Via: why, GorgeKind: string(d.Kind), Resume: d.ResumeKind, Min: d.Min, Max: d.Max}
 		if len(d.Options) > 0 {
 			od.First = d.Options[0].Label
 		}
@@ -502,7 +491,7 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 				continue
 			}
 			o := d.Options[c]
-			od.PickKinds = append(od.PickKinds, oraclePickKind(d.ResumeKind, o.Kind))
+			od.PickKinds = append(od.PickKinds, o.Kind)
 			switch {
 			case o.Obj != 0:
 				od.PickRefs = append(od.PickRefs, r.objRef(r.e.G.Obj(o.Obj)))

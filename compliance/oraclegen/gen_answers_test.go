@@ -273,3 +273,17 @@ func TestXMQueueCensus(t *testing.T) {
 		}
 	}
 }
+
+// TestPickKindSeparatesPlayerTargetFromOpponentChoice: a player target and the
+// controller's which-opponent ask share the option kind "player"; only the
+// latter (ResumeKind "opp_pick") reaches XMage's choice queue.
+func TestPickKindSeparatesPlayerTargetFromOpponentChoice(t *testing.T) {
+	target := rules.OracleDecision{PickKinds: []string{"player"}, Resume: "target"}
+	pick := rules.OracleDecision{PickKinds: []string{"player"}, Resume: "opp_pick"}
+	if got := pickKind(target, 0); got != "player" {
+		t.Fatalf("pickKind(player target) = %q, want player", got)
+	}
+	if got := pickKind(pick, 0); got != "opponent_choice" {
+		t.Fatalf("pickKind(opp_pick) = %q, want opponent_choice", got)
+	}
+}
