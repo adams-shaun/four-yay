@@ -614,7 +614,7 @@ func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.
 		// later FlagBargained, so it is already true while the offer and the
 		// charge price the discounted cost -- the same pre-payment read the
 		// other cast-option constraints (Dash, Buyback) make.
-		return scope.Mode == "bargained"
+		return castModeCodes.Code(scope.Mode) == castModeBargained
 	case spellConstraintMatchesInstant:
 		if o := e.G.Obj(id); o != nil && o.Face() != nil {
 			return o.Face().IsInstant()

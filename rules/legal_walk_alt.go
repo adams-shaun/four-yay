@@ -174,13 +174,14 @@ func (w *legalWalk) mayPlaySpellWalk() {
 			// Bargain reduction to make this one legal. Compose modifiers once,
 			// in Bargain scope (the prior plain cost was already composed in
 			// MayPlay scope and must not be fed back through offerCastable).
-			if (bargain{e}).possible(id) && len((bargain{e}).candidates(p, id)) > 0 {
+			if bg := &optionalSacrifices[optSacBargain]; e.stackKeywordPossibleH(id, kwhBargain) &&
+				len(e.optionalSacrificeCandidates(bg, p, id, 0)) > 0 {
 				bargainedCost := pay.WithSpellAbilityExtras(f,
-					w.offerCostFor(p, id, base, spellScope("bargained")))
+					w.offerCostFor(p, id, base, spellScope(bg.mode)))
 				if w.affordable(p, id, bargainedCost, false) {
 					*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
-						Label: "Cast " + f.Name + " (bargained)", Obj: id,
-						Mode: "bargained", MayPlayPerm: off.key})
+						Label: "Cast " + f.Name + " (" + bg.mode + ")", Obj: id,
+						Mode: bg.mode, MayPlayPerm: off.key})
 				}
 			}
 		}

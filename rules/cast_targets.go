@@ -26,6 +26,25 @@ func modeIsKicked(mode string) bool {
 // modeFlags maps a pendingCast.mode to the CastInfo Counter string
 // (events.FlagsString of the matching CastFlags bit), "" for a plain cast.
 func modeFlags(mode string) string {
+	switch castModeCodes.Code(mode) {
+	// Modes whose flag is the whole of their provenance read the ONE cast
+	// mode table instead of repeating the word in modeFlagsCodes.
+	case castModeSurged:
+		return events.FlagsString(state.FlagSurged)
+	case castModeMayplay:
+		return events.FlagsString(state.FlagMayPlay)
+	case castModeHarmonize:
+		return events.FlagsString(state.FlagHarmonize)
+	}
+	if castModeCodes.Code(mode) == castModeBargained {
+		// Bargain (CR 702.166, rules/optional_sacrifice.go): the election's
+		// provenance, read by the Count$Bargained/Count$Bargain heads, the
+		// bare Condition$ Bargain gate, the `bargained` predicate and the
+		// Spell.Bargain cost constraint. A CastProvenanceFlag: a stack copy
+		// (never cast, CR 707.10) does not inherit it. A bargain whose
+		// candidates vanished resets the mode before payment.
+		return events.FlagsString(state.FlagBargained)
+	}
 	if m := altCastFor(mode); m != nil {
 		// The alternative-cost keyword family (rules/altcast_modes.go): the
 		// row's flag is what the ETB machinery reads (altCostEnter: evoke's
@@ -51,8 +70,6 @@ func modeFlags(mode string) string {
 		return events.FlagsString(state.FlagKicked | state.FlagKicked2)
 	case modeFlagsKickedboth:
 		return events.FlagsString(state.FlagKicked | state.FlagKicked1 | state.FlagKicked2)
-	case modeFlagsSurged:
-		return events.FlagsString(state.FlagSurged)
 	case modeFlagsFlashback:
 		return events.FlagsString(state.FlagFlashback)
 	// Jump-start (CR 702.84a): like flashback, the flag is what the
@@ -99,10 +116,6 @@ func modeFlags(mode string) string {
 		return events.FlagsString(state.FlagOffspringPaid)
 	case modeFlagsOptionalcost:
 		return events.FlagsString(state.FlagOptionalCostPaid)
-	case modeFlagsMayplay:
-		return events.FlagsString(state.FlagMayPlay)
-	case modeFlagsHarmonize:
-		return events.FlagsString(state.FlagHarmonize)
 	case modeFlagsSuspend:
 		return events.FlagsString(state.FlagSuspend)
 	// Foretell's later cast (CR 702.126a): the flag is the provenance an ETB
@@ -185,17 +198,6 @@ func modeFlags(mode string) string {
 		return events.FlagsString(state.FlagMegamorphed)
 	case modeFlagsDisguised:
 		return events.FlagsString(state.FlagDisguised)
-	// Bargain (CR 702.166): the optional additional sacrifice's provenance.
-	// The offer exists only when at least one artifact, enchantment, or token
-	// is payable, and the mode is the election itself (there is no separate
-	// decline answer), so the flag is unconditional the offspring shape. The
-	// pay-time CastInfo carries it to the Count$Bargained/Count$Bargain
-	// heads, the bare Condition$ Bargain gate, the `bargained` predicate and
-	// the Spell.Bargain cost-static constraint. It is a CastProvenanceFlag
-	// (state/object.go), so a stack copy -- put on the stack, never cast
-	// (CR 707.10) -- does not inherit it.
-	case modeFlagsBargained:
-		return events.FlagsString(state.FlagBargained)
 	}
 	return ""
 }
@@ -1471,7 +1473,6 @@ const (
 	modeFlagsKicked1
 	modeFlagsKicked2
 	modeFlagsKickedboth
-	modeFlagsSurged
 	modeFlagsFlashback
 	modeFlagsJumpstart
 	modeFlagsAftermath
@@ -1482,8 +1483,6 @@ const (
 	modeFlagsBuyback
 	modeFlagsOffspring
 	modeFlagsOptionalcost
-	modeFlagsMayplay
-	modeFlagsHarmonize
 	modeFlagsSuspend
 	modeFlagsForetellCast
 	modeFlagsMayhem
@@ -1493,7 +1492,6 @@ const (
 	modeFlagsMultikicked
 	modeFlagsSquadded
 	modeFlagsConspired
-	modeFlagsBargained
 	modeFlagsMorphed
 	modeFlagsMegamorphed
 	modeFlagsDisguised
@@ -1504,7 +1502,6 @@ var modeFlagsCodes = state.NewStrCodes(
 	state.StrEntry[modeFlagsCode]{Key: "kicked1", Val: modeFlagsKicked1},
 	state.StrEntry[modeFlagsCode]{Key: "kicked2", Val: modeFlagsKicked2},
 	state.StrEntry[modeFlagsCode]{Key: "kickedboth", Val: modeFlagsKickedboth},
-	state.StrEntry[modeFlagsCode]{Key: "surged", Val: modeFlagsSurged},
 	state.StrEntry[modeFlagsCode]{Key: "flashback", Val: modeFlagsFlashback},
 	state.StrEntry[modeFlagsCode]{Key: "jumpstart", Val: modeFlagsJumpstart},
 	state.StrEntry[modeFlagsCode]{Key: "aftermath", Val: modeFlagsAftermath},
@@ -1515,8 +1512,6 @@ var modeFlagsCodes = state.NewStrCodes(
 	state.StrEntry[modeFlagsCode]{Key: "buyback", Val: modeFlagsBuyback},
 	state.StrEntry[modeFlagsCode]{Key: "offspring", Val: modeFlagsOffspring},
 	state.StrEntry[modeFlagsCode]{Key: "optionalcost", Val: modeFlagsOptionalcost},
-	state.StrEntry[modeFlagsCode]{Key: "mayplay", Val: modeFlagsMayplay},
-	state.StrEntry[modeFlagsCode]{Key: "harmonize", Val: modeFlagsHarmonize},
 	state.StrEntry[modeFlagsCode]{Key: "suspend", Val: modeFlagsSuspend},
 	state.StrEntry[modeFlagsCode]{Key: "foretell_cast", Val: modeFlagsForetellCast},
 	state.StrEntry[modeFlagsCode]{Key: "mayhem", Val: modeFlagsMayhem},
@@ -1527,7 +1522,6 @@ var modeFlagsCodes = state.NewStrCodes(
 	state.StrEntry[modeFlagsCode]{Key: "squadded", Val: modeFlagsSquadded},
 	state.StrEntry[modeFlagsCode]{Key: "conspired", Val: modeFlagsConspired},
 	state.StrEntry[modeFlagsCode]{Key: "casualty", Val: modeFlagsConspired},
-	state.StrEntry[modeFlagsCode]{Key: "bargained", Val: modeFlagsBargained},
 	state.StrEntry[modeFlagsCode]{Key: "morphed", Val: modeFlagsMorphed},
 	state.StrEntry[modeFlagsCode]{Key: "megamorphed", Val: modeFlagsMegamorphed},
 	state.StrEntry[modeFlagsCode]{Key: "disguised", Val: modeFlagsDisguised},

@@ -23,7 +23,7 @@ func TestBargainCandidatesExcludeEarlierSacrifices(t *testing.T) {
 		t.Fatal("precondition: Bargain spell is in hand")
 	}
 	e.cast = &pendingCast{player: 0, card: castID, PaidCost: pay.PaidCost{Sacs: []state.ObjID{first}}}
-	got := (bargain{e}).candidates(0, castID)
+	got := e.optionalSacrificeCandidates(&optionalSacrifices[optSacBargain], 0, castID, 0)
 	if len(got) != 1 || got[0] != second {
 		t.Fatalf("Bargain candidates = %v, want only uncommitted permanent %d (exclude %d)", got, second, first)
 	}

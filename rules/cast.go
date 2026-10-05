@@ -145,22 +145,6 @@ type pendingCast struct {
 	giftPromise bool           `clone:"deep"`
 	giftTo      state.PlayerID `clone:"deep"`
 
-	// bargainDone / bargainPaid / bargainSac are the CR 702.166 Bargain
-	// sacrifice (Wilds of Eldraine): the caster's optional sacrifice of an
-	// artifact, enchantment or token as they cast the spell, announced as a
-	// cast-time choice (bargainAsk) while the "bargained" offer mode is in
-	// force. bargainDone marks the one ask already posed (the casualtyDone
-	// shape), bargainPaid records that the sacrifice was made, and bargainSac
-	// names the permanent chosen -- appended to pc.Sacs so payCast charges the
-	// sacrifice with every other cost part. payCast then stamps
-	// state.FlagBargained onto the pay-time CastInfo, the one home the
-	// Count$Bargained head, the bare Condition$ Bargain gate, the `bargained`
-	// predicate and the Spell.Bargain cost constraint read. Plain data, so
-	// Clone carries them.
-	bargainDone bool        `clone:"deep"`
-	bargainPaid bool        `clone:"deep"`
-	bargainSac  state.ObjID `clone:"deep"`
-
 	cost Cost `clone:"deep"`
 
 	// mayPlayIgnore is the may-play grant's MayPlayIgnoreColor$ rider,
@@ -321,6 +305,9 @@ type pendingCast struct {
 
 	// Casualty's optional additional cost is a single power-qualified sacrifice.
 	// The chosen object is settled with the other sacrifice costs at payment.
+	// casualtyDone marks the optional-sacrifice election already posed for
+	// whichever rules/optional_sacrifice.go row the cast mode elects
+	// (Casualty or Bargain; a cast has one mode, so one flag suffices).
 	casualtyN    int32 `clone:"deep"`
 	casualtyDone bool  `clone:"deep"`
 	casualtyPaid bool  `clone:"deep"`

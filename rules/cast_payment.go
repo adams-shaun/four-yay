@@ -356,13 +356,9 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		}
 	case castAnswerBargain:
 		// CR 702.166: the answered sacrifice settles through pc.Sacs with
-		// every other cost part; bargainPaid is not itself read -- the cast
-		// mode already names the election -- but recording it keeps the
-		// pendingCast's provenance explicit for a reader that wants it.
+		// every other cost part; the cast mode already names the election.
 		if len(chosen) == 1 {
 			pc.Sacs = append(pc.Sacs, chosen[0].Obj)
-			pc.bargainSac = chosen[0].Obj
-			pc.bargainPaid = true
 		}
 	case castAnswerGiftDecline:
 		// CR 702.168: a declined gift is the plain cast -- no promise, and
