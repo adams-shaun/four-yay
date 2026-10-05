@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"cast","field":"p0.pool","diff":"gorge= xmage=CC"},"key":"cast-resolve | cast | p0.pool | gorge= xmage=CC","cards":1}
-{"card":"Overlord of the Boilerbilges","template":"cast-resolve","status":"diverge","api":"ChangesZone:DealDamage+Attacks:DealDamage","sets":["DSK"],"detail":"step 0 (cast) p0.pool: gorge \"\", xmage \"CC\""}
