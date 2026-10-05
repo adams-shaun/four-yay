@@ -31,7 +31,8 @@ func init() {
 // than falling back to the resolving controller, the same fail-closed
 // direction definedSpecTargetedOwner documents.
 func discoverPlayer(h Host, c *Ctx, sa *cards.SA) (state.PlayerID, bool) {
-	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "" {
+	r := DefinedRefOf(sa)
+	if !r.Set() {
 		return c.Controller, true
 	}
 	ps := definedPlayers(h, c, sa)
@@ -42,25 +43,20 @@ func discoverPlayer(h Host, c *Ctx, sa *cards.SA) (state.PlayerID, bool) {
 }
 
 func discoverPlaySA(value int32, remember bool, defined string) *cards.SA {
-	play := &cards.SA{Kind: "DB", API: "Play", Params: map[string]string{
-		"Defined": "Remembered", "WithoutManaCost": "True", "Optional": "True",
-		"TriggerDescription": "Discover",
-	}}
 	// A PRESENT Defined$ names the discovering player; the Play's Controller$
 	// resolves the same spelling to the same seat (play.go routes the ask and
 	// the cast to it), so the found card is played by the player who
-	// discovered it. Absent, the Play keeps its c.Controller default.
-	if strings.TrimSpace(defined) != "" {
-		play.Params["Controller"] = defined
-	}
-	tail := map[string]string{"Amount": strconv.FormatInt(int64(value), 10)}
-	if remember {
-		tail["RememberDiscovered"] = "True"
-	}
+	// discovered it.  An empty spelling is ignored by both readers, so the
+	// Play keeps its c.Controller default for the no-Defined carriers.
+	play := &cards.SA{Kind: "DB", API: "Play", Params: map[string]string{
+		"Defined": "Remembered", "WithoutManaCost": "True", "Optional": "True",
+		"Controller": defined, "TriggerDescription": "Discover",
+	}}
 	// The tail carries the same Defined$ spelling so its own Discover marker
 	// names the discovering seat rather than the resolving controller.
-	if strings.TrimSpace(defined) != "" {
-		tail["Defined"] = defined
+	tail := map[string]string{"Amount": strconv.FormatInt(int64(value), 10), "Defined": defined}
+	if remember {
+		tail["RememberDiscovered"] = "True"
 	}
 	play.Sub = &cards.SA{Kind: "DB", API: "DiscoverBottom", Params: tail}
 	return play
@@ -86,7 +82,7 @@ func effDiscover(h Host, c *Ctx, sa *cards.SA) {
 	if int(p) >= len(g.Players) || g.Players[p].Lost {
 		return
 	}
-	defined := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
+	defined := DefinedRefOf(sa).Text
 	lib := append([]state.ObjID(nil), g.Zone(state.ZLibrary, p)...)
 	var exiled []state.ObjID
 	var found state.ObjID
