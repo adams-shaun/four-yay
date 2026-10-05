@@ -15,6 +15,7 @@ func init() {
 	Register("Discard", effDiscard)
 	Register("Mill", effMill)
 	Register("Dig", effDig)
+	Register("DigMultiple", effDigMultiple)
 	Register("Reveal", effReveal)
 	Register("RevealHand", effReveal)
 	Register("PeekAndReveal", effReveal)

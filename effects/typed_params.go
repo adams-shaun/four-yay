@@ -71,6 +71,9 @@ func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 	if isDigSA(sa) {
 		f.Dig = compileDig(sa)
 	}
+	if cards.APICodeForName(sa.API) == cards.APIDigMultiple {
+		f.DigMultiple = compileDigMultiple(sa)
+	}
 	if isDigUntilSA(sa) {
 		f.DigUntil = compileDigUntil(sa, f.Defined)
 	}

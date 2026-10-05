@@ -115,8 +115,8 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			return events.Event{}
 		}
 	}
-	if e.applyingReplacement {
-		ev = events.CarryAction(e.replAction, e.replReplaced, ev)
+	if prepareEmitReplacement(e, &ev, e.applyingReplacement, e.replAction, e.replReplaced) {
+		return events.Event{}
 	}
 	// CR 303.4g: a non-cast Aura with nothing it can legally enchant never
 	// enters -- it stays in its zone, ahead of every replacement, staging,
