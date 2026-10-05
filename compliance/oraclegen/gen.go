@@ -30,6 +30,7 @@ const xValue = 2
 // Seat is one player's setup.
 type Seat struct {
 	Battlefield []string `json:"battlefield,omitempty"`
+	Tapped      []string `json:"tapped,omitempty"`
 	Hand        []string `json:"hand,omitempty"`
 	Graveyard   []string `json:"graveyard,omitempty"`
 	Exile       []string `json:"exile,omitempty"`
@@ -59,7 +60,10 @@ type Scenario struct {
 	CR    []string        `json:"cr"`
 	Why   string          `json:"why"`
 	Setup map[string]Seat `json:"setup"`
-	Steps []Step          `json:"steps"`
+	// SetupAnswers answer decisions posed while the runner drives from
+	// genesis to turn 1 (a permanent's "may begin the game" ask).
+	SetupAnswers []Answer `json:"setup_answers,omitempty"`
+	Steps        []Step   `json:"steps"`
 }
 
 // Item is one pipeline line: the scenario plus its identity. The XMage
@@ -166,7 +170,7 @@ func chainSlots(f *cards.Face, svar string) []string {
 	for name := svar; name != ""; {
 		params := svarParams(f.SVars[name])
 		if v := params["ValidTgts"]; v != "" {
-			if z := targetZone(params, true); z != "" {
+			if z := targetZone(params, true); z != "" && !playerTargetHead(v) {
 				v += "@" + z
 			}
 			out = append(out, v)
@@ -434,6 +438,13 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 		var as []XAnswer
 		switch d.Kind {
 		case "target":
+			if d.Resume == "trig_sub" && d.Options == 1 && d.Min == 1 && d.Max == 1 {
+				// A CR 603.3d chain link's forced single target (Mechanical
+				// Mobster's "target creature you control" with only itself):
+				// XMage picks it without asking, so a scripted answer is left
+				// unused (measured on the std pass).
+				continue
+			}
 			for _, ref := range d.PickRefs {
 				v := ref
 				if !isSeat(ref) {
@@ -841,6 +852,29 @@ func poolFor(cost string) (string, string) {
 	return b.String(), ""
 }
 
+// playerTargetHead reports whether a ValidTgts$ filter names a player rather
+// than a card. A zone qualifier (Origin$/TgtZone$) describes where an effect
+// finds its cards, so it must never be appended to a player target: doing so
+// turned "Opponent" into "Opponent@Hand" (Cruelclaw's Heist, Ruthless
+// Negotiation, Soul Search, Aggressive Negotiations), which no fixture can
+// satisfy. The head is the first comma-separated alternative before its first
+// '.' predicate.
+func playerTargetHead(filter string) bool {
+	head := strings.ToLower(strings.SplitN(strings.Split(filter, ",")[0], ".", 2)[0])
+	return head == "player" || head == "opponent"
+}
+
+// openingHandAnswers declines the "you may begin the game with this card" ask
+// for a K:MayEffectFromOpeningHand card. The runner's setup fallback otherwise
+// takes option 0 ("Yes"), which starts the card on the battlefield and makes
+// the later cast step "not offered"; the scenario wants the card in hand.
+func openingHandAnswers(f *cards.Face) []Answer {
+	if _, ok := f.KeywordParam("MayEffectFromOpeningHand"); ok {
+		return []Answer{{Kind: "choose", Pick: []string{"no"}}}
+	}
+	return nil
+}
+
 // targetSlots lists the ValidTgts$ filters along the card's spell ability
 // chain (permanent spells have none), in the order the cast asks for them.
 func targetSlots(f *cards.Face) []string {
@@ -850,7 +884,7 @@ func targetSlots(f *cards.Face) []string {
 		if v == "" {
 			return
 		}
-		if z := targetZone(params, false); z != "" {
+		if z := targetZone(params, false); z != "" && !playerTargetHead(v) {
 			v += "@" + z
 		}
 		out = append(out, v)
@@ -1061,7 +1095,7 @@ func fixtures(slots []string) []fixture {
 
 func clone(s Seat) Seat {
 	return Seat{
-		Battlefield: append([]string(nil), s.Battlefield...), Hand: append([]string(nil), s.Hand...),
+		Battlefield: append([]string(nil), s.Battlefield...), Tapped: append([]string(nil), s.Tapped...), Hand: append([]string(nil), s.Hand...),
 		Graveyard: append([]string(nil), s.Graveyard...), Exile: append([]string(nil), s.Exile...),
 		Library: append([]string(nil), s.Library...), LibraryTop: append([]string(nil), s.LibraryTop...),
 	}

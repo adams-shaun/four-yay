@@ -88,13 +88,14 @@ func TestCopiedPermanentSpellEntersAsToken(t *testing.T) {
 	replayCheck(t, e, cfg)
 }
 
-// TestCopiedInstantSpellStaysACopy: a copy of an instant/sorcery spell is
-// NOT a token (CR 707.10g covers only permanent spells); it rests in exile
-// as a plain copy (CR 707.10h) -- IsCopy true, IsToken false, Ephemeral --
-// while the original goes to its owner's graveyard. This is the
-// replay-byte-identical guard for every game that only copies
-// instants/sorceries.
-func TestCopiedInstantSpellStaysACopy(t *testing.T) {
+// TestCopiedInstantSpellCeasesWhenItLeavesTheStack: a copy of an
+// instant/sorcery spell is NOT a token (CR 707.10g covers only permanent
+// spells); when it resolves off the stack it ceases to exist (CR 707.10a,
+// 704.5e) rather than resting in exile as a plain copy -- IsCopy true,
+// IsToken false, zone ZCeased -- while the original goes to its owner's
+// graveyard. This is the replay-byte-identical guard for every game that
+// only copies instants/sorceries.
+func TestCopiedInstantSpellCeasesWhenItLeavesTheStack(t *testing.T) {
 	t.Parallel()
 	e, cfg, _ := etbConfig(t, 73, []string{instantCopyRegistrarSrc, testBoltSrc}, nil)
 	moveSeeded(t, e, 0, instantCopyRegistrarSrc, state.ZBattlefield)
@@ -108,27 +109,27 @@ func TestCopiedInstantSpellStaysACopy(t *testing.T) {
 		if o.Face() == nil || o.Face().Name != "Test Bolt" {
 			continue
 		}
-		switch o.Zone {
-		case state.ZGraveyard:
+		switch {
+		case o.Zone == state.ZGraveyard:
 			original = o
-		case state.ZExile:
+		case o.IsCopy:
 			copy = o
 		}
 	}
 	if original == nil || copy == nil {
-		t.Fatalf("expected the original bolt in the graveyard and its copy in exile (original=%v copy=%v)", original != nil, copy != nil)
+		t.Fatalf("expected the original bolt in the graveyard and its copy (original=%v copy=%v)", original != nil, copy != nil)
 	}
 	if copy.ID == original.ID {
 		t.Fatalf("copy and original share id %d", copy.ID)
 	}
+	if copy.Zone != state.ZCeased {
+		t.Errorf("copy obj id=%d zone=%v, want ceased (CR 707.10a: a copy that leaves the stack ceases to exist)", copy.ID, copy.Zone)
+	}
 	if copy.IsCopy != true {
-		t.Errorf("exiled copy obj id=%d IsCopy=%v, want true (CR 707.10h)", copy.ID, copy.IsCopy)
+		t.Errorf("ceased copy obj id=%d IsCopy=%v, want true", copy.ID, copy.IsCopy)
 	}
 	if copy.IsToken != false {
-		t.Errorf("exiled copy obj id=%d IsToken=%v, want false -- only a copy of a PERMANENT spell becomes a token", copy.ID, copy.IsToken)
-	}
-	if !copy.Ephemeral() {
-		t.Errorf("exiled copy obj id=%d Ephemeral()=false, want true", copy.ID)
+		t.Errorf("ceased copy obj id=%d IsToken=%v, want false -- only a copy of a PERMANENT spell becomes a token", copy.ID, copy.IsToken)
 	}
 	if original.IsToken || original.IsCopy {
 		t.Errorf("original obj id=%d IsToken=%v IsCopy=%v, want a plain card object", original.ID, original.IsToken, original.IsCopy)

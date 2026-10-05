@@ -116,6 +116,11 @@ const (
 	// events.Move records, which the Count$ThisTurnEntered_* heads share.
 	wordThisTurnEntered
 	wordThisTurnEnteredFrom
+	// Forge's Outlaw batch word (the reminder text on every carrier: Assassins,
+	// Mercenaries, Pirates, Rogues and Warlocks are outlaws). It is a union of
+	// creature subtypes, not a single type word, so it needs its own kind --
+	// classified here so the matcher and UnknownPredicates agree.
+	wordOutlaw
 	// The "<Colour>Source" family (Ojer Axonil's Card.RedSource+YouCtrl):
 	// the object is a source carrying that colour -- CR 700.7's "a red
 	// source" is a source with red in its colour characteristics, which for
@@ -456,6 +461,12 @@ func wordPredicate(p string) (wordKind, string) {
 		return wordHasBasicLandType, ""
 	case wordPredicateWordFullyUnlocked:
 		return wordFullyUnlocked, ""
+	// Forge's Outlaw batch word: the candidate carries at least one of the
+	// five outlaw creature subtypes (Assassins, Mercenaries, Pirates, Rogues,
+	// Warlocks -- the reminder text on every carrier). The matcher reads the
+	// layer-aware subtype list, so a type-changing effect is honoured.
+	case wordPredicateWordOutlaw:
+		return wordOutlaw, ""
 	}
 	if p == "TargetedPlayerOwn" {
 		return wordTargetedPlayerOwn, ""
@@ -553,6 +564,22 @@ func zoneWordKnown(z string) bool {
 	return ok
 }
 
+// outlawSubtypes are the creature subtypes Forge's Outlaw batch word names
+// (the reminder text on every carrier: "Assassins, Mercenaries, Pirates,
+// Rogues, and Warlocks are outlaws"). The order is fixed so the matcher is
+// deterministic.
+var outlawSubtypes = [...]string{"Assassin", "Mercenary", "Pirate", "Rogue", "Warlock"}
+
+// outlawMatches reads the five outlaw subtypes through the layer-aware matcher.
+func outlawMatches(o *state.Object, sc SpecContext) bool {
+	for _, sub := range outlawSubtypes {
+		if hasTypeCtx(o, sub, sc) {
+			return true
+		}
+	}
+	return false
+}
+
 // wordMatches reports whether an object satisfies a positively-evaluated
 // classifier from wordPredicate. Colorless is "no colour at all" and
 // MultiColor "more than one colour"; MonoColor is its twin, "exactly one
@@ -584,23 +611,12 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		return hasTypePredicateCtx(o, key, sc)
 	case wordFullyUnlocked:
 		return o != nil && o.RoomFullyUnlocked()
+	case wordOutlaw:
+		return outlawMatches(o, sc)
 	case wordColorless:
 		return colorMaskCtx(o, &sc) == 0
 	case wordControllerDealtCombatDamageBySource:
-		if source == 0 || o.Controller < 0 {
-			return false
-		}
-		// During resolution Source is the ability stack object; its source
-		// permanent is the card that dealt the combat damage.
-		if ability := g.Obj(source); ability != nil && ability.Ability != nil {
-			source = ability.Source
-		}
-		for _, hit := range sc.CombatDamageHits {
-			if hit.Source == source && hit.Player == o.Controller {
-				return true
-			}
-		}
-		return false
+		return dealtCombatDamageBySource(g, o, sc, source)
 	case wordColourSource:
 		return strings.Contains(ColorsOf(o), key)
 	case wordColourSourceless:
@@ -1168,7 +1184,7 @@ func nonPredicate(p string) (kind wordKind, key string, ok bool) {
 	}
 	kind, key = wordPredicate(x)
 	switch kind {
-	case wordColor, wordType, wordColorless, wordCopiedSpell:
+	case wordColor, wordType, wordColorless, wordCopiedSpell, wordOutlaw:
 		return kind, key, true
 	}
 	return wordUnknown, "", false
@@ -1220,6 +1236,7 @@ const (
 	wordPredicateWordHasANonBasicLandType
 	wordPredicateWordHasABasicLandType
 	wordPredicateWordFullyUnlocked
+	wordPredicateWordOutlaw
 )
 
 var wordPredicateWordCodes = state.NewStrCodes(
@@ -1268,6 +1285,7 @@ var wordPredicateWordCodes = state.NewStrCodes(
 	state.StrEntry[wordPredicateWordCode]{Key: "hasANonBasicLandType", Val: wordPredicateWordHasANonBasicLandType},
 	state.StrEntry[wordPredicateWordCode]{Key: "hasABasicLandType", Val: wordPredicateWordHasABasicLandType},
 	state.StrEntry[wordPredicateWordCode]{Key: "FullyUnlocked", Val: wordPredicateWordFullyUnlocked},
+	state.StrEntry[wordPredicateWordCode]{Key: "Outlaw", Val: wordPredicateWordOutlaw},
 )
 
 type wordPredicateSharesCode uint16

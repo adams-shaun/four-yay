@@ -179,7 +179,7 @@ func (e *Engine) payCast() {
 		// action the Ward evidence payment performs.
 		for _, id := range pc.evidence {
 			if o := e.G.Obj(id); o != nil {
-				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZGraveyard, To: state.ZExile, Text: "collected as evidence"})
+				e.emit(events.EvidenceCost(id))
 			}
 		}
 		// ExiledMoveToGrave cost parts: each chosen card leaves exile for
@@ -471,7 +471,7 @@ func (e *Engine) payCast() {
 	// CollectEvidence parts (alltargeted1; see the ability branch above).
 	for _, id := range pc.evidence {
 		if o := e.G.Obj(id); o != nil {
-			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZGraveyard, To: state.ZExile, Text: "collected as evidence"})
+			e.emit(events.EvidenceCost(id))
 		}
 	}
 	// ExiledMoveToGrave cost parts (see the ability branch above for the why).

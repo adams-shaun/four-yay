@@ -178,6 +178,10 @@ func TestChangeZoneChooseFromDefinedTriggeredSourcesKernel(t *testing.T) {
 func TestChangeZoneChooseFromDefinedTargetedCmcLE4Kernel(t *testing.T) {
 	t.Parallel()
 	s := kr0Isolate(kr0ChooseFromDefinedSA(t, "Back for Seconds", "Targeted.cmcLE4"))
+	// The corpus leg also has Condition$ Bargain, which this engine cannot
+	// evaluate and now correctly fails closed. This kernel isolates the
+	// ChooseFromDefined/Optional ask contract, so remove that unrelated gate.
+	delete(s.Params, "Condition")
 	if s.API != "ChangeZone" || s.Params["Origin"] != "Graveyard" || s.Params["Destination"] != "Battlefield" {
 		t.Fatalf("corpus pin moved: leg is %+v", s)
 	}

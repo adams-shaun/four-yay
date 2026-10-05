@@ -295,8 +295,8 @@ func TestReplicatePyromaticsPaidTwiceBoundedByAffordability(t *testing.T) {
 	for _, o := range e.G.Objs {
 		if o.IsCopy {
 			copies++
-			if o.Zone != state.ZExile {
-				t.Fatalf("a resolved instant copy sits in %s", o.Zone)
+			if o.Zone != state.ZCeased {
+				t.Fatalf("a resolved instant copy sits in %s, want ceased (CR 707.10a)", o.Zone)
 			}
 		}
 	}
@@ -480,8 +480,8 @@ func TestReplicateTapCostAskBoundedByUntappedCandidates(t *testing.T) {
 	for _, o := range e.G.Objs {
 		if o.IsCopy {
 			copies++
-			if o.Zone != state.ZExile {
-				t.Fatalf("a resolved sorcery copy sits in %s", o.Zone)
+			if o.Zone != state.ZCeased {
+				t.Fatalf("a resolved sorcery copy sits in %s, want ceased (CR 707.10a)", o.Zone)
 			}
 		}
 	}
@@ -610,8 +610,8 @@ func TestReplicateEnergyCostAskBoundedByEnergyPool(t *testing.T) {
 	for _, o := range e.G.Objs {
 		if o.IsCopy {
 			copies++
-			if o.Zone != state.ZExile {
-				t.Fatalf("a resolved sorcery copy sits in %s", o.Zone)
+			if o.Zone != state.ZCeased {
+				t.Fatalf("a resolved sorcery copy sits in %s, want ceased (CR 707.10a)", o.Zone)
 			}
 		}
 	}

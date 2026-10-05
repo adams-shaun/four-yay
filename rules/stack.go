@@ -810,7 +810,7 @@ func (e *Engine) recheckCastSubTargets(id state.ObjID, root *cards.SA, controlle
 	if len(answers) == 0 {
 		return 0, 0
 	}
-	for _, sa := range e.collectSubTargetPreAsks(root) {
+	for sa := root.Sub; sa != nil; sa = sa.Sub {
 		ts, ok := answers[sa.Line]
 		if !ok {
 			continue

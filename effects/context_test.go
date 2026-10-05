@@ -49,6 +49,11 @@ type fakeHost struct {
 	// the eval-level Count$wasCastFromYourHandByYou tests flip it to pin the
 	// true branch (the real log-scan read is pinned in rules).
 	castFromHand bool
+	// evidence is the CostMovesInWindow(CostMoveEvidence) answer the double
+	// reports (task condition-collected): the cards the fake activation
+	// collected as evidence. The real engine's log-scan read is pinned in
+	// rules (Analyze the Pollen's corpus test).
+	evidence []state.ObjID
 	// wasCast is the WasCast answer the double reports (task ifcastmain1):
 	// the eval-level Count$IfCastInOwnMainPhase tests flip it to pin the
 	// true/false branches independently of the live main-phase read.
@@ -468,17 +473,19 @@ func (h *fakeHost) EachSpellCastThisTurnMatching(_ state.PlayerID, _ string, _ s
 // (the Myojin cycle's corpus tests).
 func (h *fakeHost) WasCastFromHandByYou(_ state.ObjID, _ state.PlayerID) bool { return h.castFromHand }
 
-// DiscardedInWindow: the fake has no event log, so the ConditionDefined$
-// Discarded group's cost-discard channel is always empty (the gate stays
-// unresolved, its fail-open); the channel is pinned end to end on the real
-// engine in rules (Moria Scavenger's corpus test).
-func (h *fakeHost) DiscardedInWindow(_ state.ObjID) []state.ObjID { return nil }
-
-// ReturnedInWindow: the fake has no event log either, so the
-// ConditionDefined$ Returned group resolves to an empty list (a definite
-// zero); the channel is pinned end to end on the real engine in rules
-// (Wonderscape Sage's corpus test).
-func (h *fakeHost) ReturnedInWindow(_ state.ObjID) []state.ObjID { return nil }
+// CostMovesInWindow: the fake has no event log, so every cost-provenance
+// window resolves from the configured kind: CostMoveEvidence returns the
+// evidence the test set, every other kind is empty. The Discarded/Returned
+// channels are pinned end to end on the real engine in rules (Moria
+// Scavenger's, Wonderscape Sage's corpus tests); the Collected channel is
+// pinned at this level by condition_collected_test.go and on the real engine
+// in rules (Analyze the Pollen's corpus test).
+func (h *fakeHost) CostMovesInWindow(_ state.ObjID, kind events.CostMoveKind) []state.ObjID {
+	if kind == events.CostMoveEvidence {
+		return h.evidence
+	}
+	return nil
+}
 
 // The bare wasCastFromYourHand family's read (castprov3): the fake has no
 // cast log either, so it reports the same single flag the ByYou double reads

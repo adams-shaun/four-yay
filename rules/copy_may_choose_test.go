@@ -137,8 +137,8 @@ func TestChainLightningMayChooseTargetUsesTheRealCorpus(t *testing.T) {
 	// the bear dies and the copy leaves the stack; the original still hits
 	// seat 1 for 3. A livelock (the re-ask defect) would fail here.
 	drainToEnd(t, eng, 40)
-	if z := eng.G.Obj(copyID).Zone; z != state.ZExile {
-		t.Fatalf("resolved copy sits in %s, want Exile", z)
+	if z := eng.G.Obj(copyID).Zone; z != state.ZCeased {
+		t.Fatalf("resolved copy sits in %s, want ceased (CR 707.10a)", z)
 	}
 	if z := eng.G.Obj(bear).Zone; z != state.ZGraveyard {
 		t.Fatalf("Grizzly Bears (3 damage on a 2/2) sits in %s, want Graveyard", z)
@@ -201,8 +201,8 @@ func TestChainLightningCopyKeepsCurrentTargetIsDeterministic(t *testing.T) {
 		t.Fatalf("kept copy target = %+v, want the player target kept", got)
 	}
 	drainToEnd(t, eng, 40)
-	if z := eng.G.Obj(copyID).Zone; z != state.ZExile {
-		t.Fatalf("resolved copy sits in %s, want Exile", z)
+	if z := eng.G.Obj(copyID).Zone; z != state.ZCeased {
+		t.Fatalf("resolved copy sits in %s, want ceased (CR 707.10a)", z)
 	}
 	if got := eng.G.Players[1].Life; got != life-3-3 {
 		t.Fatalf("seat 1 life = %d, want %d (original + copy both keep the player)", got, life-6)

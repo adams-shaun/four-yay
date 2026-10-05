@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.exile","diff":"gorge+[Disfigure] xmage+[]"},"key":"cast-resolve | resolve | p0.exile | gorge+[Disfigure] xmage+[]","cards":1}
-{"card":"Choreographed Sparks","template":"cast-resolve","status":"diverge","api":"Charm","sets":["SOS"],"detail":"step 2 (resolve) p0.exile: gorge \"[Disfigure]\", xmage \"[]\""}

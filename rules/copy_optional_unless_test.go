@@ -256,8 +256,8 @@ func TestOptionalUnlessCopyAcceptedElectionMakesOneCopy(t *testing.T) {
 	for _, o := range e.G.Objs {
 		if o.IsCopy {
 			copies++
-			if o.Zone != state.ZExile {
-				t.Errorf("the accepted copy sits in %s, want Exile (resolved)", o.Zone)
+			if o.Zone != state.ZCeased {
+				t.Errorf("the accepted copy sits in %s, want ceased (CR 707.10a: a copy that leaves the stack ceases to exist)", o.Zone)
 			}
 		}
 	}
