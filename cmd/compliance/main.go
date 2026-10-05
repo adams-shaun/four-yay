@@ -112,6 +112,7 @@ func runResolve(dir string, verbose bool, manifests []string) error {
 		return err
 	}
 	has := func(n string) bool { _, ok := reg.Lookup(n); return ok }
+	folded := compliance.FoldedNames(reg)
 	for _, p := range manifests {
 		b, err := os.ReadFile(p)
 		if err != nil {
@@ -123,7 +124,7 @@ func runResolve(dir string, verbose bool, manifests []string) error {
 		}
 		var missing []string
 		for _, c := range m.Cards {
-			if _, ok := compliance.CorpusName(has, c.Name); !ok {
+			if _, ok := compliance.CorpusNameFold(has, folded, c.Name); !ok {
 				missing = append(missing, c.Name)
 			}
 		}

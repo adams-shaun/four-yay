@@ -50,6 +50,10 @@ func PlanItem(reg *cards.Registry, it oraclegen.Item, row compliance.VerdictRow,
 		reason = "scenario changed"
 	case row.XMageRef != ref:
 		reason = "xmage_ref changed"
+	case row.Status == compliance.StatusXMageLacks:
+		// XMage's card database lacks the card, so the committed row is
+		// terminal: there is nothing to replay.
+		return Fresh, ""
 	case row.Status != compliance.StatusAgree && row.Status != compliance.StatusXMageWrong:
 		reason = "status " + row.Status
 	default:

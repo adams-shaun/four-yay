@@ -12,12 +12,18 @@ import (
 // Manifest is one set's card list, taken from an XMage set class at a pinned
 // XMage commit.
 type Manifest struct {
-	Code     string         `json:"code"`
-	Name     string         `json:"name"`
-	Released string         `json:"released"` // YYYY-MM-DD
-	SetType  string         `json:"set_type"` // XMage SetType, e.g. EXPANSION
-	XMageRef string         `json:"xmage_ref"`
-	Cards    []ManifestCard `json:"cards"`
+	Code     string `json:"code"`
+	Name     string `json:"name"`
+	Released string `json:"released"` // YYYY-MM-DD
+	SetType  string `json:"set_type"` // XMage SetType, e.g. EXPANSION
+	XMageRef string `json:"xmage_ref"`
+	// Unfinished names the cards the set class declares and then removes
+	// from the set (Mage.Sets/.../SecretsOfStrixhaven.java's `unfinished`
+	// list). They are in the SetCardInfo entries but NOT in XMage's card
+	// database, so the oracle has nothing to compare against and they
+	// belong in the gate's no-XMage bucket, not the harness bucket.
+	Unfinished []string       `json:"unfinished,omitempty"`
+	Cards      []ManifestCard `json:"cards"`
 }
 
 // ManifestCard is one distinct card name in a set, with every collector
@@ -38,6 +44,13 @@ var (
 	setHeaderRe = regexp.MustCompile(`super\(\s*"((?:[^"\\]|\\.)*)"\s*,\s*"([^"]+)"\s*,\s*(?:ExpansionSet\.)?buildDate\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)\s*,\s*SetType\.([A-Z_]+)`)
 	setCardRe   = regexp.MustCompile(`new\s+(?:ExpansionSet\.)?SetCardInfo\(\s*"((?:[^"\\]|\\.)*)"\s*,\s*("(?:[^"\\]|\\.)*"|\d+)\s*,\s*Rarity\.([A-Z_]+)`)
 	anyCardRe   = regexp.MustCompile(`new\s+(?:[\w.]+\.)?SetCardInfo\s*\(`)
+	// unfinishedRe matches the one shape every unfinished set uses:
+	//   private static final List<String> unfinished = Arrays.asList("A", "B");
+	// The entries are then removed from the set's cards. A set that removes
+	// cards by another spelling is not read as unfinished; the manifest
+	// regeneration census (cmd/compliance) reports how many sets parse one.
+	unfinishedRe = regexp.MustCompile(`List<String>\s+unfinished\s*=\s*Arrays\.asList\(([^)]*)\)`)
+	javaStringRe = regexp.MustCompile(`"((?:[^"\\]|\\.)*)"`)
 )
 
 // stripJavaComments blanks // and /* */ comments to spaces, keeping newlines
@@ -114,6 +127,10 @@ func ParseSetClass(src []byte, xmageRef string) (Manifest, error) {
 	if len(rows) == 0 {
 		return Manifest{}, fmt.Errorf("compliance: %s: no SetCardInfo entries", m.Code)
 	}
+	m.Unfinished, err = parseUnfinished(src)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("compliance: %s: %v", m.Code, err)
+	}
 	byName := map[string]*ManifestCard{}
 	for _, r := range rows {
 		cn, err := javaString(string(r[1]))
@@ -147,6 +164,29 @@ func ParseSetClass(src []byte, xmageRef string) (Manifest, error) {
 	return m, nil
 }
 
+// parseUnfinished reads the set class's unfinished card list. The list only
+// counts as a removal when the class also removes those names from the set
+// (`cards.removeIf(... unfinished.contains ...)`); a lone list is ignored.
+func parseUnfinished(src []byte) ([]string, error) {
+	mm := unfinishedRe.FindSubmatch(src)
+	if mm == nil {
+		return nil, nil
+	}
+	if !bytes.Contains(src, []byte("unfinished.contains")) {
+		return nil, nil
+	}
+	var out []string
+	for _, sm := range javaStringRe.FindAllSubmatch(mm[1], -1) {
+		n, err := javaString(string(sm[1]))
+		if err != nil {
+			return nil, fmt.Errorf("unfinished name %q: %v", sm[1], err)
+		}
+		out = append(out, n)
+	}
+	sort.Strings(out)
+	return dedupSorted(out), nil
+}
+
 func dedupSorted(s []string) []string {
 	out := s[:0]
 	for i, v := range s {
@@ -162,12 +202,13 @@ func dedupSorted(s []string) []string {
 func (m Manifest) MarshalLines() []byte {
 	var b bytes.Buffer
 	head := struct {
-		Code     string `json:"code"`
-		Name     string `json:"name"`
-		Released string `json:"released"`
-		SetType  string `json:"set_type"`
-		XMageRef string `json:"xmage_ref"`
-	}{m.Code, m.Name, m.Released, m.SetType, m.XMageRef}
+		Code       string   `json:"code"`
+		Name       string   `json:"name"`
+		Released   string   `json:"released"`
+		SetType    string   `json:"set_type"`
+		XMageRef   string   `json:"xmage_ref"`
+		Unfinished []string `json:"unfinished,omitempty"`
+	}{m.Code, m.Name, m.Released, m.SetType, m.XMageRef, m.Unfinished}
 	hj, _ := json.Marshal(head)
 	b.Write(hj[:len(hj)-1]) // drop the closing brace
 	b.WriteString(",\n\"cards\": [\n")

@@ -70,10 +70,16 @@ type Scenario struct {
 // both engines answer alike; a decision only one engine poses still shows
 // up, as an XMage harness error or a gorge leftover.
 type Item struct {
-	ID       string      `json:"id"`
-	Card     string      `json:"card"`
-	Template string      `json:"template"`
-	XAnswers [][]XAnswer `json:"xmage_answers,omitempty"`
+	ID       string `json:"id"`
+	Card     string `json:"card"`
+	Template string `json:"template"`
+	// XMageName is the card's spelling in XMage's card database when it
+	// differs from Card (the corpus spelling): Forge prints "Dáin Ironfoot",
+	// XMage stores "Dain Ironfoot". The XMage driver adds and casts the card
+	// under XMageName and rewrites its snapshots back to Card, so both sides
+	// name it alike. Empty means the two spellings are equal.
+	XMageName string      `json:"xmage_name,omitempty"`
+	XAnswers  [][]XAnswer `json:"xmage_answers,omitempty"`
 	// Ignore names snapshot fields the comparison leaves out for this
 	// scenario: library_top after the card shuffles a library.
 	Ignore []string `json:"ignore,omitempty"`
