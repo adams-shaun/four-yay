@@ -55,7 +55,11 @@ func castResolve(reg *cards.Registry, f *cards.Face, name, mana string) (oracleg
 			plans = append(plans, plan{slots: oraclegen.ChainSlotSpecs(f, m.SVar()), answers: append([]oraclegen.Answer{{Kind: "modes", Pick: []string{m.Label()}}}, xAns...)})
 		}
 	}
-	for _, m := range []string{mana, mana + "C", mana + "CC", mana + "CCC"} {
+	manas := []string{mana, mana + "C", mana + "CC", mana + "CCC"}
+	if hasWaterbendCost(f) {
+		manas = append(manas, mana+"CCCC", mana+"CCCCC")
+	}
+	for _, m := range manas {
 		for _, pl := range plans {
 			if it, ok := castWith(reg, f, name, m, pl.slots, pl.answers); ok {
 				return it, nil
@@ -90,6 +94,20 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []ora
 		// (Seize the Spoils, Demand Answers): the spell itself is on the
 		// stack by then, so the discard needs a second card.
 		func(fx *oraclegen.Fixture) { fx.P0().Hand = append(fx.P0().Hand, "Forest") },
+	}
+	if beholdType := requiredBeholdType(f); beholdType != "" {
+		if candidate := beholdFixture[beholdType]; candidate != "" {
+			extras = append(extras, func(fx *oraclegen.Fixture) {
+				fx.P0().Hand = appendFixtureUnique(fx.P0().Hand, candidate)
+			})
+		}
+	}
+	if tapCount := requiredTapCount(f); tapCount > 0 {
+		extras = append(extras, func(fx *oraclegen.Fixture) {
+			for _, permanent := range []string{"Llanowar Elves", "Forest", "Ornithopter", "Wastes"}[:tapCount] {
+				fx.P0().Battlefield = appendFixtureUnique(fx.P0().Battlefield, permanent)
+			}
+		})
 	}
 	// Collect evidence X pays the total mana value of the selected targets.
 	// Supply enough graveyard mana value for a four-slot cast rather than
@@ -153,6 +171,64 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []ora
 		}
 	}
 	return oraclegen.Item{}, false
+}
+
+// These fixture cards provide the creature type required by the named
+// BeholdExile costs. Keep this data explicit so the fixture is type-correct.
+var beholdFixture = map[string]string{
+	"Kithkin":   "Kithkin Greatheart",
+	"Elemental": "Mulldrifter",
+	"Goblin":    "Goblin Guide",
+	"Merfolk":   "Vodalian Merchant",
+}
+
+func requiredBeholdType(f *cards.Face) string {
+	for _, st := range f.Statics {
+		cost := st.Params["Cost"]
+		if i := strings.Index(cost, "BeholdExile<1/"); i >= 0 {
+			tail := cost[i+len("BeholdExile<1/"):]
+			if j := strings.IndexByte(tail, '>'); j >= 0 {
+				return tail[:j]
+			}
+		}
+	}
+	return ""
+}
+
+func requiredTapCount(f *cards.Face) int {
+	for _, sa := range f.Abilities {
+		if sa.Kind != "SP" {
+			continue
+		}
+		cost := sa.Params["Cost"]
+		if i := strings.Index(cost, "tapXType<"); i >= 0 {
+			tail := cost[i+len("tapXType<"):]
+			if j := strings.IndexByte(tail, '/'); j >= 0 {
+				var n int
+				fmt.Sscanf(tail[:j], "%d", &n)
+				return n
+			}
+		}
+	}
+	return 0
+}
+
+func hasWaterbendCost(f *cards.Face) bool {
+	for _, st := range f.Statics {
+		if strings.Contains(st.Params["Cost"], "Waterbend<5>") {
+			return true
+		}
+	}
+	return false
+}
+
+func appendFixtureUnique(xs []string, name string) []string {
+	for _, x := range xs {
+		if x == name {
+			return xs
+		}
+	}
+	return append(xs, name)
 }
 
 // buildStackScenario builds the scenario for one fixture: the precast spell
