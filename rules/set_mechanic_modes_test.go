@@ -132,6 +132,24 @@ func TestCrewedValidCrewFilterDirection(t *testing.T) {
 	if e.Power(vehicle) != 4 || e.HasKeyword(vehicle, "Trample") {
 		t.Fatalf("Mode$ Crewed fired although a different creature crewed: the Vehicle is %d/trample=%v, want 4/no trample", e.Power(vehicle), e.HasKeyword(vehicle, "Trample"))
 	}
+	// Positive control in the same test: a matching crew (the pilot itself)
+	// must fire, so this test fails when the Crewed registration is removed
+	// rather than passing vacuously on an absent trigger.
+	d2 := crewElection(t, e, vehicle)
+	pilotIdx := -1
+	for _, o := range d2.Options {
+		if o.Obj == velocitaur {
+			pilotIdx = o.Index
+		}
+	}
+	if pilotIdx < 0 {
+		t.Fatalf("positive control: the untapped pilot is not offered as a crew candidate: %+v", d2.Options)
+	}
+	submitChoices(t, e, pilotIdx)
+	passUntilStackEmpty(t, e, 40)
+	if e.Power(vehicle) != 6 || !e.HasKeyword(vehicle, "Trample") {
+		t.Fatalf("positive control: a matching crew did not fire Crewed (Vehicle %d/trample=%v)", e.Power(vehicle), e.HasKeyword(vehicle, "Trample"))
+	}
 }
 
 // TestSaddledFiresOnSaddleAction drives the real corpus Saddled carrier:
@@ -189,6 +207,15 @@ func TestSaddledValidCrewFilterDirection(t *testing.T) {
 	}
 	if e.HasKeyword(mount, "Flying") {
 		t.Fatal("Mode$ Saddled fired although a different creature saddled: ValidCrew$ Card.Self must filter the saddleER")
+	}
+	// Positive control in the same test: a matching saddle (the pilot itself)
+	// must fire, so this test fails when the Saddled registration is removed
+	// rather than passing vacuously on an absent trigger.
+	d2 := saddleElection(t, e, mount, 2)
+	saddlePick(t, e, d2, vaulter)
+	passUntilStackEmpty(t, e, 40)
+	if !e.HasKeyword(mount, "Flying") {
+		t.Fatal("positive control: a matching saddle did not fire Saddled")
 	}
 }
 
