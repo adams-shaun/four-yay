@@ -7,6 +7,28 @@ import (
 	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
+func TestOracleSnapshotChangelingAllCreatureTypes(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	scenario := `{"name":"changeling-all-types","setup":{"p0":{"battlefield":["Changeling Outcast"]}}}`
+	res, err := RunOracleScenarioJSON(reg, []byte(scenario))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Fails) != 0 {
+		t.Fatalf("scenario failed: %v", res.Fails)
+	}
+	if len(res.Snapshots) == 0 || len(res.Snapshots[0].Permanents) != 1 {
+		t.Fatalf("precondition: Changeling Outcast is not on the battlefield: %+v", res.Snapshots)
+	}
+	p := res.Snapshots[0].Permanents[0]
+	if p.Name != "Changeling Outcast" {
+		t.Fatalf("precondition: snapshot permanent = %q", p.Name)
+	}
+	if !p.AllCreatureTypes {
+		t.Fatalf("Changeling did not produce the semantic all-types snapshot flag: %+v", p)
+	}
+}
+
 func TestOracleSnapshotGlamerGifterAllCreatureTypes(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	scenario := `{"name":"glamer-gifter-all-types","cr":["613.1d"],"why":"snapshot carries the derived all-creature-types grant","setup":{"p0":{"hand":["Glamer Gifter"],"battlefield":["Grizzly Bears"]}},"steps":[{"op":"cast","seat":0,"card":"p0:Glamer Gifter","mana":"CU"},{"op":"resolve","seat":0,"targets":["p0:Grizzly Bears"]}]}`

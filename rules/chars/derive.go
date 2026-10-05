@@ -400,6 +400,13 @@ func Compute(b Board, s *Scratch, id state.ObjID, atStack state.Zone) effects.Ch
 	power, toughness, basePower, baseToughness := PT(b, s, id, o, f, active, kw, tyRaw, atStack == 0)
 	s.ColorsSet, s.ColorsID, s.Colors = prevStashSet, prevStashID, prevStashColors
 	s.Depth--
+	// Changeling is an intrinsic characteristic-defining ability for every
+	// creature subtype, even though the type list does not materialize that
+	// vocabulary. Preserve the same semantic bit as an AddAllCreatureTypes
+	// layer grant for consumers such as oracle snapshots.
+	allCreatureTypes = allCreatureTypes || slices.ContainsFunc(kw, func(k string) bool {
+		return cards.KeywordHeadIDOf(k) == cards.KeywordHeadIDOf("Changeling")
+	})
 	return effects.Chars{Power: power, Toughness: toughness, BasePower: basePower, BaseToughness: baseToughness,
 		Keywords: kw, Types: ty, AllCreatureTypes: allCreatureTypes, Name: name, Text: text, Colors: colors, Controller: b.ControllerOf(id)}
 }
