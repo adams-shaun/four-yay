@@ -35,24 +35,32 @@ func xAnswers(f *cards.Face) []oraclegen.Answer {
 }
 
 func castResolve(reg *cards.Registry, f *cards.Face, name, mana string) (oraclegen.Item, *oraclegen.Skip) {
-	// A charm is generated mode by mode: the first mode some fixture can
-	// cast, with the mode scripted so both engines take it.
+	// Charm plans enumerate legal mode combinations in Choices$ order. Each
+	// plan carries all selected chains and one answer containing every pick.
 	type plan struct {
 		slots   []oraclegen.Slot
 		answers []oraclegen.Answer
 	}
 	xAns := xAnswers(f)
 	plans := []plan{{slots: oraclegen.SlotSpecs(f), answers: xAns}}
-	if modes := oraclegen.CharmModes(f); len(modes) > 0 {
+	if combos := oraclegen.CharmCombinations(f); len(combos) > 0 {
 		plans = nil
-		for _, m := range modes {
-			if attachesOnReturn(f, m.SVar()) {
-				// XMage asks which creature the returned Aura/Equipment
-				// attaches to, an ask the scenario cannot script yet (One
-				// Last Job's third mode); another mode stands in.
-				continue
+		for _, combo := range combos {
+			labels := make([]string, 0, len(combo.Modes))
+			usable := true
+			for _, mode := range combo.Modes {
+				if attachesOnReturn(f, mode.SVar()) {
+					// XMage asks which creature the returned Aura/Equipment
+					// attaches to, an ask the scenario cannot script yet.
+					usable = false
+					break
+				}
+				labels = append(labels, mode.Label())
 			}
-			plans = append(plans, plan{slots: oraclegen.ChainSlotSpecs(f, m.SVar()), answers: append([]oraclegen.Answer{{Kind: "modes", Pick: []string{m.Label()}}}, xAns...)})
+			if usable {
+				answers := append([]oraclegen.Answer{{Kind: "modes", Pick: labels}}, xAns...)
+				plans = append(plans, plan{slots: combo.Slots, answers: answers})
+			}
 		}
 	}
 	manas := []string{mana, mana + "C", mana + "CC", mana + "CCC"}
@@ -66,7 +74,11 @@ func castResolve(reg *cards.Registry, f *cards.Face, name, mana string) (oracleg
 			}
 		}
 	}
-	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: fmt.Sprintf("no fixture gorge can cast (targets %v)", filterStrings(plans[0].slots))}
+	var targets []string
+	if len(plans) > 0 {
+		targets = filterStrings(plans[0].slots)
+	}
+	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: fmt.Sprintf("no fixture gorge can cast (targets %v)", targets)}
 }
 
 func filterStrings(slots []oraclegen.Slot) []string {
