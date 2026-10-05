@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/botpolicy"
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
@@ -14,7 +15,7 @@ import (
 func teamworkAskOptions(t *testing.T, e *Engine) *decision.Decision {
 	t.Helper()
 	d := e.Pending()
-	if d == nil || d.Kind != decision.KChoose || d.Min != 1 || len(d.Options) < 2 || d.Options[0].Kind != "teamwork_decline" {
+	if d == nil || d.Kind != decision.KChoose || !d.AllowNone || d.Min != 1 || len(d.Options) < 2 || d.Options[0].Kind != "teamwork" {
 		t.Fatalf("expected optional Teamwork KChoose, got %+v", d)
 	}
 	return d
@@ -32,6 +33,29 @@ func finishTeamworkAnnouncement(t *testing.T, e *Engine) {
 			continue
 		}
 		return
+	}
+}
+
+// Resolve the actual ConditionPresent/ConditionCompare gate against the cast
+// spell on the stack. The life change proves the condition ran rather than
+// just its underlying object-filter predicate.
+func teamworkConditionResult(t *testing.T, e *Engine, spell state.ObjID, wantPaid bool) {
+	t.Helper()
+	if o := e.G.Obj(spell); o == nil || o.Zone != state.ZStack {
+		t.Fatalf("precondition: spell %d must be on the stack, got %+v", spell, o)
+	}
+	gate := &cards.SA{Kind: "DB", API: "GainLife", Params: map[string]string{
+		"Defined": "You", "LifeAmount": "2", "ConditionDefined": "Self",
+		"ConditionPresent": "Card.Self+Teamwork", "ConditionCompare": "EQ1",
+	}}
+	before := e.G.Players[0].Life
+	effects.Resolve(e, &effects.Ctx{Source: spell, Controller: 0}, gate)
+	want := before
+	if wantPaid {
+		want += 2
+	}
+	if got := e.G.Players[0].Life; got != want {
+		t.Fatalf("ConditionPresent$ Card.Self+Teamwork EQ1: paid=%v life %d -> %d, want %d", wantPaid, before, got, want)
 	}
 }
 
@@ -64,9 +88,23 @@ func TestTeamworkCastCostAndPaidProvenance(t *testing.T) {
 	}
 	botAnswer := botpolicy.Decide(botpolicy.Board{}, d, rand.New(rand.NewPCG(1, 2)))
 	if err := d.Validate(botAnswer); err != nil {
-		t.Fatalf("bot's default Teamwork answer violates the shared threshold rule: %v (answer=%+v)", err, botAnswer)
+		t.Fatalf("bot's default Teamwork answer violates the shared threshold rule: %v (answer=%+v, fit=%v, max=%d options=%+v)", err, botAnswer, d.FitRequired(botAnswer.Choices), d.Max, d.Options)
 	}
 	below := teamworkOption(t, d, a)
+	// A partial client answer must be repaired from the SAME floor rule
+	// Validate enforces. There is no power-bearing decline option for the
+	// repair to combine with a creature (the former livelock).
+	for _, intent := range []decision.Intent{
+		{Seq: d.Seq, Player: d.Player, Choices: d.FitRequired([]int{below})},
+		botpolicy.Clamp(d, decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{below}}),
+	} {
+		if err := d.Validate(intent); err != nil {
+			t.Fatalf("repair returned invalid Teamwork answer %+v: %v", intent, err)
+		}
+		if len(intent.Choices) > 0 && len(intent.Choices) < 2 {
+			t.Fatalf("repair returned below-threshold subset: %+v", intent)
+		}
+	}
 	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{below}}); err == nil {
 		t.Fatal("accepted one power-2 creature below Teamwork 3 threshold")
 	}
@@ -81,9 +119,7 @@ func TestTeamworkCastCostAndPaidProvenance(t *testing.T) {
 	if !e.G.Obj(hero).TeamworkPaid {
 		t.Fatal("paid Teamwork provenance not folded onto the spell")
 	}
-	if !effects.MatchesObjectCtx(e.G, "Card.Self+Teamwork", e.G.Obj(hero), effects.SpecContext{You: 0, Source: hero}) {
-		t.Fatal("paid spell did not match Card.Self+Teamwork")
-	}
+	teamworkConditionResult(t, e, hero, true)
 	paidBranch := effects.EvalCount(e, &effects.Ctx{Source: hero}, "Count$Teamwork.2.1")
 	if paidBranch != 2 {
 		t.Fatalf("paid Count$Teamwork branch=%d, want 2", paidBranch)
@@ -113,7 +149,10 @@ func TestTeamworkDeclinedIsUnpaid(t *testing.T) {
 	cast := castOptMode(t, e.Pending().Options, hero, "teamworked")
 	submitChoices(t, e, cast.Index)
 	d := teamworkAskOptions(t, e)
-	submitChoices(t, e, d.Options[0].Index)
+	if err := d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player}); err != nil {
+		t.Fatalf("empty Teamwork decline rejected by shared decision rule: %v", err)
+	}
+	submitChoices(t, e)
 	finishTeamworkAnnouncement(t, e)
 	if e.G.Obj(hero).Zone != state.ZStack {
 		t.Fatalf("declined test did not finish casting; zone=%s pending=%+v", e.G.Obj(hero).Zone, e.Pending())
@@ -121,9 +160,7 @@ func TestTeamworkDeclinedIsUnpaid(t *testing.T) {
 	if e.G.Obj(hero).TeamworkPaid || e.G.Obj(a).Tapped {
 		t.Fatalf("declined Teamwork has paid=%v, creature tapped=%v", e.G.Obj(hero).TeamworkPaid, e.G.Obj(a).Tapped)
 	}
-	if effects.MatchesObjectCtx(e.G, "Card.Self+Teamwork", e.G.Obj(hero), effects.SpecContext{You: 0, Source: hero}) {
-		t.Fatal("declined spell matched Card.Self+Teamwork")
-	}
+	teamworkConditionResult(t, e, hero, false)
 	unpaidBranch := effects.EvalCount(e, &effects.Ctx{Source: hero}, "Count$Teamwork.2.1")
 	if paidBranch := int32(2); paidBranch == unpaidBranch {
 		t.Fatalf("precondition: paid/unpaid branch values equal: %d", unpaidBranch)

@@ -1028,9 +1028,10 @@ func (e *Engine) continueCast() {
 			}
 		}
 		if threshold > 0 && power >= threshold {
-			d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: 1, Max: len(candidates) + 1,
-				MinSum: int(threshold), Prompt: "Choose creatures to tap for teamwork", Source: pc.card}
-			d.Options = append(d.Options, decision.Option{Index: 0, Kind: "teamwork_decline", Label: "Don't use teamwork", Value: int(threshold)})
+			d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: 1, Max: len(candidates), AllowNone: true,
+				MinSum: int(threshold), Prompt: "Choose creatures to tap for teamwork (or choose none to decline)", Source: pc.card}
+			// An empty answer declines. No synthetic power-bearing option can be
+			// mixed with creatures by a client's FitRequired/Clamp repair.
 			for _, id := range candidates {
 				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "teamwork", Obj: id,
 					Label: e.targetName(id), Value: int(e.Power(id))})

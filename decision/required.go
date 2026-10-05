@@ -354,7 +354,7 @@ func (d *Decision) FitRequired(choices []int) []int {
 	if len(choices) <= d.maxChoices() &&
 		(!d.HasBudget() || sum <= d.MaxSum) &&
 		(!d.HasBudget2() || sum2 <= d.MaxSum2) &&
-		(d.MinSum <= 0 || sum >= d.MinSum) &&
+		(d.MinSum <= 0 || sum >= d.MinSum || (d.AllowNone && len(choices) == 0)) &&
 		d.RequiredChosen(choices) >= d.RequiredQuota() &&
 		d.ChargeOptionsFit(choices) &&
 		!d.groupCapExceeded(choices) &&
@@ -528,7 +528,7 @@ func (d *Decision) FitRequired(choices []int) []int {
 	// Value first keeps the repair deterministic and spends the fewest
 	// picks, and the sum is order-insensitive, so how equal Values sort in
 	// cannot reach an event.
-	if d.MinSum > 0 && sum < d.MinSum {
+	if d.MinSum > 0 && sum < d.MinSum && !(d.AllowNone && len(choices) == 0 && len(out) == 0) {
 		var rest []int
 		for i := range d.Options {
 			if !have[i] {

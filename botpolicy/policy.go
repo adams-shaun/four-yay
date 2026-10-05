@@ -732,15 +732,9 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 			break
 		}
 		switch d.Options[0].Kind {
-		case "teamwork_decline", "teamwork":
-			// A deterministic no-ask fallback declines optional Teamwork. This
-			// is always legal and avoids returning a below-threshold subset.
-			for _, o := range d.Options {
-				if o.Kind == "teamwork_decline" {
-					in.Choices = []int{o.Index}
-					break
-				}
-			}
+		case "teamwork":
+			// An empty answer is the optional-cost decline. Clamp/FitRequired
+			// preserve it via AllowNone; no artificial power-valued option exists.
 		case "gift_decline", "gift_promise":
 			// CR 702.168: the Gift election. The deterministic bot declines
 			// (the plain-cast direction, exactly the R-9 no-ask stand-in's
@@ -1355,7 +1349,7 @@ func Clamp(d *decision.Decision, in decision.Intent) decision.Intent {
 	if min < 0 {
 		min = 0
 	}
-	if len(in.Choices) < min {
+	if len(in.Choices) < min && !(d.AllowNone && len(in.Choices) == 0) {
 		have := make(map[int]bool, len(in.Choices)) // membership only -- never ranged.
 		// groups counts picked options per Group against d.GroupCap() -- the
 		// same cap Decision.Validate enforces -- so a top-up can never hand
