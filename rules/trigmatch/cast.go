@@ -703,10 +703,16 @@ func incrementAdmits(e Board, source state.ObjID, ev events.Event) bool {
 // Self, YouCtrl) or carrying no comparison is evaluated as a plain spec
 // filter over the cast spell when it is a single field, and fails closed
 // otherwise.
+const validSATeamworkClause = "Spell.Teamwork"
+
 func ValidSAMatches(e Board, source state.ObjID, ev events.Event, ctrl state.PlayerID, clause string) bool {
 	fields := strings.Fields(strings.TrimSpace(clause))
 	switch len(fields) {
 	case 1:
+		if fields[0] == validSATeamworkClause {
+			o := e.Game().Obj(ev.Obj)
+			return o != nil && o.CastFlags&state.FlagTeamworkPaid != 0
+		}
 		return e.MatchesSpec(fields[0], ev.Obj, source, ctrl, SpecOpts{})
 	case 2:
 		if fields[0] == "Spell.ManaSpent" {
