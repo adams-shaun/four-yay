@@ -427,6 +427,11 @@ func ParseCost(s string) Cost {
 			c.Hybrid = append(c.Hybrid, hybridPair(sym))
 		case isPhyrexian(sym):
 			c.Phyrexian = append(c.Phyrexian, phyrexianColor(sym))
+		case sym == "ChooseCard<1/Creature.YouCtrl+inZoneBattlefield;Creature.YouOwn+inZoneExile+warped>":
+			// Close Encounter's one supported ChooseCard RaiseCost form. Keep
+			// the source filter intact; pay.RevealOrChooseCandidates owns its
+			// exact zone/ownership/warped interpretation.
+			c.RevealOrChoose = append(c.RevealOrChoose, CostPart{N: 1, Spec: "Creature.YouCtrl+inZoneBattlefield;Creature.YouOwn+inZoneExile+warped"})
 		case isTwobrid(sym):
 			c.Twobrid = append(c.Twobrid, twobridPair(sym))
 		case isHybridPhyrexian(sym):

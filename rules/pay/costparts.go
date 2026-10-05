@@ -81,6 +81,25 @@ func TapCostCandidates(e Engine, p state.PlayerID, source state.ObjID, part cost
 // the offer gate (nonManaCastable) and the ask so the count that offered the
 // cast and the objects the payer may elect cannot disagree.
 func RevealOrChooseCandidates(e Engine, p state.PlayerID, source state.ObjID, part costvocab.CostPart) (hand, battlefield []state.ObjID) {
+	const closeEncounter = "Creature.YouCtrl+inZoneBattlefield;Creature.YouOwn+inZoneExile+warped"
+	if part.Spec == closeEncounter {
+		// ChooseCard is a choice-only cost. Build one deterministic list from
+		// the two printed alternatives; exile is indexed by owner, while the
+		// battlefield is indexed by controller.
+		for _, id := range e.Game().Zone(state.ZBattlefield, p) {
+			o := e.Game().Obj(id)
+			if o != nil && ExistsOnBattlefield(o) && o.EffectiveIsCreature() {
+				battlefield = append(battlefield, id)
+			}
+		}
+		for _, id := range e.Game().Zone(state.ZExile, p) {
+			o := e.Game().Obj(id)
+			if o != nil && o.Face() != nil && o.Face().IsCreature() && o.CastFlags&state.FlagWarped != 0 {
+				battlefield = append(battlefield, id)
+			}
+		}
+		return nil, battlefield
+	}
 	hand = CostCandidates(e, p, source, state.ZHand, part.Spec, true, false)
 	battlefield = CostCandidates(e, p, source, state.ZBattlefield, part.Spec, false, false)
 	return hand, battlefield
