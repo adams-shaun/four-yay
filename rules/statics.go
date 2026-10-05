@@ -667,6 +667,12 @@ func init() {
 		// lifts activation sickness only, never combat sickness.
 		// Proof test: rules/activateasifhaste_test.go.
 		"stat:ActivateAbilityAsIfHaste",
+		// CantBeSuspected: the CR 702.157 status prohibition (Airtight Alibi:
+		// `ValidCard$ Creature.EnchantedBy`). Read by cantBeSuspected
+		// (rules/cantbesuspected.go) at the emit mutation choke point, so every
+		// producer of the Suspected status observes the same prohibition.
+		// Proof test: rules/cantbesuspected_test.go.
+		"stat:CantBeSuspected",
 		// TapPowerValue: the Station/Crew/Saddle value static, read by the
 		// ONE value helper Engine.tapPowerValue (rules/statics.go) through
 		// tapPowerValueStatics/activeStatics("TapPowerValue"). Proof tests:

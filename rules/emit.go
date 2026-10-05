@@ -835,3 +835,6 @@ func (e *Engine) emitBookkeeping(ev *events.Event) {
 	}
 	e.checkTriggers(ev, nil, 0, 0, false)
 }
+	if suppressSuspectedEvent(e, ev) {
+		return ev
+	} // CR 702.157
