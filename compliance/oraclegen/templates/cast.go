@@ -14,6 +14,11 @@ var CastResolve = Template{ID: "cast-resolve", Version: 1}
 
 // xAnswers scripts X for a spell with X in its cost.
 func xAnswers(f *cards.Face) []oraclegen.Answer {
+	if strings.Contains(strings.ToLower(f.Oracle), "blight x") {
+		// The fixture's only guaranteed creature is Llanowar Elves (1/1),
+		// which bounds Soul Immolation's payable blight value to one.
+		return []oraclegen.Answer{{Kind: "choose", Pick: []string{"X = 1"}}}
+	}
 	if strings.Contains(" "+f.ManaCost+" ", " X ") {
 		return []oraclegen.Answer{{Kind: "choose", Pick: []string{fmt.Sprintf("X = %d", oraclegen.XValue)}}}
 	}
@@ -83,13 +88,22 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 					for i := 0; i < n; i++ {
 						sc.Steps = append(sc.Steps, oraclegen.Step{Op: "resolve"})
 					}
+					// The fixture over-offers targets; rewrite each cast step to
+					// exactly gorge's picks (the target decisions) so XMage's
+					// castSpell sees a target list that matches the ability, and
+					// verify the rewrite replays cleanly.
+					sc, castSteps := oraclegen.ChooseTargets(sc, res.Decisions)
+					res, ok = oraclegen.PlaysThrough(reg, sc)
+					if !ok {
+						continue
+					}
 					if yes, changed := oraclegen.MayYes(sc, res.Decisions); changed {
 						if res2, ok2 := oraclegen.PlaysThrough(reg, yes); ok2 {
 							sc, res = yes, res2
 						}
 					}
 					it := CastResolve.item(name, sc)
-					it.XAnswers = oraclegen.XAnswers(res.Decisions, len(sc.Steps), oraclegen.ModeNumbers(f))
+					it.XAnswers = oraclegen.XAnswers(res.Decisions, len(sc.Steps), oraclegen.ModeNumbers(f), castSteps)
 					if oraclegen.SearchesLibrary(f) || strings.Contains(strings.ToLower(f.Oracle), "shuffle") {
 						it.Ignore = []string{"library_top"}
 					}

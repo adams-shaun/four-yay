@@ -127,14 +127,19 @@ func mayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
 }
 
 // playsThrough replays sc exactly and reports whether gorge performed
-// every step and ended with an empty stack.
+// every step and ended with an empty stack. Both leftover targets and
+// answers are failures here: callers must rewrite targets to gorge's actual
+// picks before replaying the generated scenario.
 func playsThrough(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
 	b, _ := json.Marshal(sc)
 	res, err := rules.RunOracleScenarioJSON(reg, b)
-	if err != nil || len(res.Fails) > 0 || len(res.Snapshots) != len(sc.Steps)+1 {
+	if err != nil {
 		return res, false
 	}
-	return res, len(res.Snapshots[len(res.Snapshots)-1].Stack) == 0
+	if len(res.Fails) > 0 {
+		return res, false
+	}
+	return res, len(res.Snapshots) == len(sc.Steps)+1 && len(res.Snapshots[len(res.Snapshots)-1].Stack) == 0
 }
 
 type charmMode struct{ svar, label string }
@@ -347,7 +352,7 @@ func baseline(setup map[string]Seat, f *cards.Face) {
 		p1.Battlefield = append(p1.Battlefield, "Grizzly Bears")
 	}
 	setup["p1"] = p1
-	if searchesLibrary(f) {
+	if searchesLibrary(f) || strings.Contains(strings.ToLower(f.Oracle), "discover") {
 		p0 := setup["p0"]
 		p0.LibraryTop = []string{"Jace Beleren", "Grizzly Bears", "Forest", "Glorious Anthem", "Shock", "Plains", "Ornithopter"}
 		setup["p0"] = p0
@@ -402,9 +407,20 @@ func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) {
 			return 0, res, false
 		}
 		for _, f := range res.Fails {
+			// The static fixture over-offers targets on purpose; the generator
+			// rewrites each cast step to gorge's actual picks afterwards, and
+			// verifies the rewrite with PlaysThrough. So the runner's
+			// unused-target self-check is expected here and is not a reason to
+			// reject the fixture; every other step/harness fail is.
+			if strings.Contains(f, rules.OracleUnusedTargetMarker) {
+				continue
+			}
 			if strings.HasPrefix(f, "step ") || strings.Contains(f, "harness:") {
 				return 0, res, false
 			}
+		}
+		if castAborted(try, res.Snapshots, res.Transcript) {
+			continue
 		}
 		last := res.Snapshots[len(res.Snapshots)-1]
 		if len(res.Snapshots) == len(try.Steps)+1 && len(last.Stack) == 0 {
@@ -414,14 +430,99 @@ func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) {
 	return 0, rules.OracleResult{}, false
 }
 
+// castAborted rejects a scenario where the runner reports a cast abort or a
+// cast step leaves its card in its origin hand zone. CR 601.2c/733.1 reverses
+// an illegal cast; treating the resulting empty stack as a successful settle
+// would publish a scenario that never cast the named spell.
+func castAborted(sc Scenario, snaps []rules.OracleSnapshot, transcript []string) bool {
+	for _, line := range transcript {
+		if strings.Contains(strings.ToLower(line), "cast aborted") {
+			return true
+		}
+	}
+	if len(snaps) != len(sc.Steps)+1 {
+		return false
+	}
+	for i, st := range sc.Steps {
+		if st.Op != "cast" {
+			continue
+		}
+		seatRef, name, ok := strings.Cut(st.Card, ":")
+		if !ok || !strings.HasPrefix(seatRef, "p") {
+			continue
+		}
+		var seat int
+		if _, err := fmt.Sscanf(seatRef, "p%d", &seat); err != nil || seat < 0 || seat >= len(snaps[i].Players) {
+			continue
+		}
+		before := countName(snaps[i].Players[seat].Hand, name)
+		after := countName(snaps[i+1].Players[seat].Hand, name)
+		if before > 0 && after >= before {
+			return true
+		}
+	}
+	return false
+}
+
+func countName(names []string, want string) int {
+	n := 0
+	for _, name := range names {
+		if name == want {
+			n++
+		}
+	}
+	return n
+}
+
+// chooseTargets rewrites every cast step's Targets from the target
+// decisions gorge's deterministic runner actually made, in order. The static
+// fixture only promises a legal candidate per slot; it over-offers -- an
+// "up to N" slot gorge declines, a token slot with no token on the board, a
+// slot in a mixed chain -- and XMage's castSpell rejects a target list whose
+// count does not match the ability's, so the scenario must carry exactly
+// gorge's picks (the target decision's PickRefs, in order).
+//
+// castSteps is the set of step indices whose targets were taken from a cast
+// (the steps held on the Item): xanswers sends those through castSpell, not
+// through a scripted target answer, while a target decision posed during a
+// resolve step still needs an XMage answer. A cast step that posed no target
+// decision (every slot skipped, or a spell with no targets) has its fixture
+// targets cleared, so the surplus never reaches XMage.
+func chooseTargets(sc Scenario, ds []rules.OracleDecision) (Scenario, map[int]bool) {
+	out := sc
+	out.Steps = append([]Step(nil), sc.Steps...)
+	chosen := map[int][]string{}
+	castSteps := map[int]bool{}
+	for _, d := range ds {
+		if d.Via != "target" || d.Step < 0 || d.Step >= len(out.Steps) || out.Steps[d.Step].Op != "cast" {
+			continue
+		}
+		chosen[d.Step] = append(chosen[d.Step], d.PickRefs...)
+		castSteps[d.Step] = true
+	}
+	for i := range out.Steps {
+		if out.Steps[i].Op != "cast" {
+			continue
+		}
+		if _, ok := castSteps[i]; ok {
+			out.Steps[i].Targets = chosen[i]
+			continue
+		}
+		// A cast that posed no target decision: drop the fixture's surplus.
+		out.Steps[i].Targets = nil
+	}
+	return out, castSteps
+}
+
 // xanswers turns gorge's recorded decisions into XMage's scripted answers,
 // grouped by the step that posed them.
-func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XAnswer {
+func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSteps map[int]bool) [][]XAnswer {
 	out := make([][]XAnswer, steps)
 	any := false
 	for _, d := range ds {
-		if d.Step < 0 || d.Step >= steps || d.Via == "target" {
-			// A step's own targets reach XMage through castSpell.
+		if d.Step < 0 || d.Step >= steps || (d.Via == "target" && castSteps[d.Step]) {
+			// A cast step's own targets reach XMage through castSpell; a
+			// target decision posed at a resolve step is scripted below.
 			continue
 		}
 		if d.Options <= 1 && d.Kind != "target" && d.Kind != "order" {
@@ -827,6 +928,9 @@ func fixtures(slots []string) []fixture {
 		var next []fixture
 		for _, fx := range out {
 			for _, c := range cs {
+				if c.card != "" && fixtureAlreadyTargetsCard(fx.targets, c.seat, c.card) {
+					continue
+				}
 				n := fixture{p0: clone(fx.p0), p1: clone(fx.p1), targets: append([]string(nil), fx.targets...)}
 				if c.card == "" {
 					n.targets = append(n.targets, c.seat)
@@ -866,6 +970,20 @@ func fixtures(slots []string) []fixture {
 		out = next
 	}
 	return out
+}
+
+// fixtureAlreadyTargetsCard prevents two target slots from naming the same
+// card object/name. XMage's reference normalizer strips the runner's #N
+// duplicate suffix, so repeated same-name slots collapse to one object there.
+func fixtureAlreadyTargetsCard(targets []string, seat, card string) bool {
+	want := seat + ":" + card
+	for _, ref := range targets {
+		base := strings.SplitN(ref, "#", 2)[0]
+		if base == want {
+			return true
+		}
+	}
+	return false
 }
 
 func clone(s Seat) Seat {
