@@ -118,3 +118,64 @@ func TestNoCleanupDamageClassCensus(t *testing.T) {
 		}
 	}
 }
+
+// TestNoCleanupDamageFalseGateDoesNotKeepDamage is the static-gate regression:
+// a NoCleanupDamage carrier whose Condition$ PlayerTurn gate is FALSE (its
+// controller is not the active player) must NOT keep marked damage. Before the
+// fix the cleanup read matched ValidCard$ without evaluating the gate, so a
+// false-gated static preserved damage anyway.
+func TestNoCleanupDamageFalseGateDoesNotKeepDamage(t *testing.T) {
+	t.Parallel()
+	e := threeSeatEngine(t)
+	gated := "Name:Test Gated Tortoise\nManaCost:5 G G G\n" +
+		"Types:Creature Turtle\nPT:8/20\n" +
+		"S:Mode$ NoCleanupDamage | ValidCard$ Card.Self | Condition$ PlayerTurn | Description$ Damage isn't removed from this creature during cleanup steps.\n" +
+		"Oracle:x\n"
+	turtle := onBoardCard(t, e, 1, card(t, gated))
+
+	// Precondition: the static is live, selects the carrier, and its gate is
+	// genuinely false (seat 1 is not the active player).
+	if got := e.activeStatics("NoCleanupDamage"); len(got) != 1 {
+		t.Fatalf("precondition: activeStatics(NoCleanupDamage) = %d entries, want 1", len(got))
+	}
+	e.G.Active = 0
+	if e.staticGateHolds(e.activeStatics("NoCleanupDamage")[0]) {
+		t.Fatal("precondition: the fixture's Condition$ PlayerTurn gate must be false with seat 0 active")
+	}
+	e.G.Obj(turtle).Damage = 3
+
+	e.cleanupBody()
+
+	if got := e.G.Obj(turtle).Damage; got != 0 {
+		t.Fatalf("false-gated NoCleanupDamage kept marked damage: Damage = %d, want 0", got)
+	}
+}
+
+// TestNoCleanupDamageTrueGateKeepsDamage asserts the other direction of the
+// same gate: with the carrier's controller active the gate holds and the
+// damage must survive. This pins that the gate read did not simply turn the
+// static off.
+func TestNoCleanupDamageTrueGateKeepsDamage(t *testing.T) {
+	t.Parallel()
+	e := threeSeatEngine(t)
+	gated := "Name:Test Gated Tortoise\nManaCost:5 G G G\n" +
+		"Types:Creature Turtle\nPT:8/20\n" +
+		"S:Mode$ NoCleanupDamage | ValidCard$ Card.Self | Condition$ PlayerTurn | Description$ Damage isn't removed from this creature during cleanup steps.\n" +
+		"Oracle:x\n"
+	turtle := onBoardCard(t, e, 0, card(t, gated))
+
+	if got := e.activeStatics("NoCleanupDamage"); len(got) != 1 {
+		t.Fatalf("precondition: activeStatics(NoCleanupDamage) = %d entries, want 1", len(got))
+	}
+	e.G.Active = 0
+	if !e.staticGateHolds(e.activeStatics("NoCleanupDamage")[0]) {
+		t.Fatal("precondition: the fixture's Condition$ PlayerTurn gate must hold with seat 0 active")
+	}
+	e.G.Obj(turtle).Damage = 3
+
+	e.cleanupBody()
+
+	if got := e.G.Obj(turtle).Damage; got != 3 {
+		t.Fatalf("true-gated NoCleanupDamage lost marked damage: Damage = %d, want 3", got)
+	}
+}

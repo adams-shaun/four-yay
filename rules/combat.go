@@ -2443,6 +2443,13 @@ func (e *Engine) cleanupBody() {
 			// static the cleanup step cannot see never drops damage.
 			keepDamage := false
 			for _, sv := range e.activeStatics("NoCleanupDamage") {
+				// A Condition$/IsPresent$ gate is a read of arbitrary board
+				// state, so a gated static whose gate is false must NOT keep
+				// damage. staticGateHolds evaluates the same gate the layer
+				// walk does (and records it for the memo re-check).
+				if !e.staticGateHolds(sv) {
+					continue
+				}
 				spec := strings.TrimSpace(sv.ParamStr(cards.PKValidCard))
 				if spec == "" {
 					continue

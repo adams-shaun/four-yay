@@ -113,6 +113,13 @@ func (e *Engine) hexproofBlocksTarget(id state.ObjID, targeting state.PlayerID, 
 	// counts) so every caller -- rules/stack.go askTarget and
 	// rules/target_legal.go -- is covered by construction.
 	for _, sv := range e.activeStatics("IgnoreHexproof") {
+		// A Condition$/IsPresent$ gate is a read of arbitrary board state;
+		// a gated static whose gate is false must NOT lift hexproof.
+		// staticGateHolds evaluates the same gate the layer walk does (and
+		// records it for the memo re-check).
+		if !e.staticGateHolds(sv) {
+			continue
+		}
 		spec := strings.TrimSpace(sv.ParamStr(cards.PKValidEntity))
 		if spec == "" {
 			continue

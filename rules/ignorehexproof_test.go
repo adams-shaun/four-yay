@@ -164,3 +164,66 @@ func TestIgnoreHexproofCarriersCarryTheMode(t *testing.T) {
 		}
 	}
 }
+
+// TestIgnoreHexproofFalseGateDoesNotLift is the static-gate regression: an
+// IgnoreHexproof static whose Condition$ PlayerTurn gate is FALSE (its
+// controller is not the active player) must NOT lift hexproof. Before the fix
+// the read matched ValidEntity$ without evaluating the gate, so a false-gated
+// static granted the exception anyway.
+func TestIgnoreHexproofFalseGateDoesNotLift(t *testing.T) {
+	t.Parallel()
+	hexed := "Name:Hexed Elf\nManaCost:G\nTypes:Creature Elf\nK:Hexproof\nPT:2/2\nOracle:x\n"
+	gated := "Name:Test Gated Tower\nTypes:Land\n" +
+		"S:Mode$ IgnoreHexproof | Activator$ You | ValidEntity$ Creature.OppCtrl | Condition$ PlayerTurn | Description$ Creatures your opponents control with hexproof can be targeted as though they didn't have hexproof.\n" +
+		"Oracle:x\n"
+	e := handEngine(t)
+	hexID := onBoard(t, e, 1, hexed)
+	onBoard(t, e, 0, gated)
+
+	// Precondition: the carrier carries hexproof, the static is live and its
+	// gate is false (seat 1 is active, seat 0 controls the static).
+	if !e.HasKeyword(hexID, "Hexproof") {
+		t.Fatalf("precondition: fixture lacks Hexproof: %v", e.Keywords(hexID))
+	}
+	svs := e.activeStatics("IgnoreHexproof")
+	if len(svs) != 1 {
+		t.Fatalf("precondition: activeStatics(IgnoreHexproof) = %d entries, want 1", len(svs))
+	}
+	e.G.Active = 1
+	if e.staticGateHolds(svs[0]) {
+		t.Fatal("precondition: the fixture's Condition$ PlayerTurn gate must be false with seat 1 active")
+	}
+
+	if !e.hexproofBlocksTarget(hexID, 0, 0) {
+		t.Fatal("false-gated IgnoreHexproof lifted hexproof (CR 702.11 gate not evaluated)")
+	}
+}
+
+// TestIgnoreHexproofTrueGateLifts asserts the other direction: with the
+// static's controller active the gate holds and hexproof is lifted.
+func TestIgnoreHexproofTrueGateLifts(t *testing.T) {
+	t.Parallel()
+	hexed := "Name:Hexed Elf\nManaCost:G\nTypes:Creature Elf\nK:Hexproof\nPT:2/2\nOracle:x\n"
+	gated := "Name:Test Gated Tower\nTypes:Land\n" +
+		"S:Mode$ IgnoreHexproof | Activator$ You | ValidEntity$ Creature.OppCtrl | Condition$ PlayerTurn | Description$ Creatures your opponents control with hexproof can be targeted as though they didn't have hexproof.\n" +
+		"Oracle:x\n"
+	e := handEngine(t)
+	hexID := onBoard(t, e, 1, hexed)
+	onBoard(t, e, 0, gated)
+
+	if !e.HasKeyword(hexID, "Hexproof") {
+		t.Fatalf("precondition: fixture lacks Hexproof: %v", e.Keywords(hexID))
+	}
+	svs := e.activeStatics("IgnoreHexproof")
+	if len(svs) != 1 {
+		t.Fatalf("precondition: activeStatics(IgnoreHexproof) = %d entries, want 1", len(svs))
+	}
+	e.G.Active = 0
+	if !e.staticGateHolds(svs[0]) {
+		t.Fatal("precondition: the fixture's Condition$ PlayerTurn gate must hold with seat 0 active")
+	}
+
+	if e.hexproofBlocksTarget(hexID, 0, 0) {
+		t.Fatal("true-gated IgnoreHexproof failed to lift hexproof")
+	}
+}
