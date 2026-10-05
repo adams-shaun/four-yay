@@ -329,6 +329,10 @@ func ApplyPtr(g *state.Game, e *Event) {
 		foldManaClear(g, e)
 	case CounterChange:
 		foldCounterChange(g, e)
+	case ClassLevelChange:
+		if o := g.Obj(e.Obj); o != nil && o.Zone == state.ZBattlefield && e.Amount > 0 && o.ClassLevel()+e.Amount <= 255 {
+			o.ClassLevelValue = uint8(o.ClassLevel() + e.Amount)
+		}
 	case DeclareAttackers:
 		foldDeclareAttackers(g, e)
 	case DeclareBlockers:

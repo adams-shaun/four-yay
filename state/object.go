@@ -611,6 +611,9 @@ type Object struct {
 	IsToken  bool
 	IsCopy   bool
 	Counters []Counter
+	// ClassLevelValue is the event-folded Class designation (CR 716), not a
+	// counter. Zero denotes the default level 1; it resets on zone change.
+	ClassLevelValue uint8
 
 	// AtEOTTrigBody names the "at the beginning of the end step, <body> this
 	// token" triggered ability a DB$ CopyPermanent | AtEOTTrig$ grant puts on
@@ -1436,11 +1439,11 @@ type Object struct {
 	// DoorLock/DoorUnlock events alone update this per-face lock bitset.
 	LockedDoors uint8
 
-	// _ pads the Object to 1088 bytes (17 64-byte cache lines), so in the
+	// _ pads the Object to 1152 bytes (18 64-byte cache lines), so in the
 	// page-aligned Objs arena every object's hot head (the fields declared
 	// first) starts on a line of its own. Purely layout: it is never read or
 	// written. A field added above must re-pad it (TestObjectCacheLinePadded).
-	_ [56]byte
+	_ [48]byte
 }
 
 // DoorUnlocked reports the designation of a printed Room face. The cast
@@ -1748,6 +1751,14 @@ func (o *Object) PreparedExileCopy() bool {
 func (o *Object) HasPrepareSpell() bool {
 	return o != nil && o.Card != nil && o.Card.AlternateMode == "Prepare" &&
 		len(o.Card.Faces) >= 2 && o.Card.Faces[1] != nil
+}
+
+// ClassLevel returns a Class permanent's designated level; zero is level 1.
+func (o *Object) ClassLevel() int32 {
+	if o == nil || o.ClassLevelValue == 0 {
+		return 1
+	}
+	return int32(o.ClassLevelValue)
 }
 
 func (o *Object) Counter(kind string) int32 {

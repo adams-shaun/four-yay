@@ -1112,10 +1112,14 @@ const (
 	// Kind's own append-only precedent, so no earlier ordinal, hash chain or
 	// golden replay is affected.
 	Saddle
+	// ClassLevelChange advances a Class's level designation by Amount.
+	// Unlike LEVEL counters this cannot be proliferated, removed or counted.
+	// Appended after Saddle, preserving main's existing event ordinals.
+	ClassLevelChange
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(Saddle) + 1
+	NumKinds = int(ClassLevelChange) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving

@@ -211,7 +211,8 @@ func modeTrigKinds(mode cards.TriggerMode) trigKinds {
 //	Attached                      trigmatch.attachedMatches: Attach
 //	Exerted                       trigmatch.ExertedMatches: Exert
 //	DamageDone/DealtOnce/DoneOnce/All  trigmatch.DamageMatchesWithCapture: Damage
-//	CounterAdded(Once), ClassLevelGained  CounterChange
+//	CounterAdded(Once)            CounterChange
+//	ClassLevelGained             ClassLevelChange (high kind; not rejected)
 //	Transformed                   trigmatch.TransformedMatches: FlipFace
 //	TokenCreated(Once)            trigmatch.tokenCreatedMatches: TokenCreate
 //	Drawn                         trigmatch.drawnMatches: Draw
@@ -481,7 +482,6 @@ var modeRejectsHighKindsTab = [cards.TriggerModeCount]bool{
 	cards.TriggerDamageAll:                  true,
 	cards.TriggerCounterAdded:               true,
 	cards.TriggerCounterAddedOnce:           true,
-	cards.TriggerClassLevelGained:           true,
 	cards.TriggerTransformed:                true,
 	cards.TriggerTokenCreated:               true,
 	cards.TriggerTokenCreatedOnce:           true,
