@@ -44,15 +44,13 @@ func (e *Engine) zoneGate(t cards.Trigger, source state.ObjID, ev events.Event) 
 		// declared.
 		spec = t.ParamStr(cards.PKActiveZones)
 	}
-	if spec == "" && ev.Kind == events.PutOnStack && source == ev.Obj && t.Mode == "SpellCast" {
-		// CR 601.2i: the spell's OWN cast trigger fires while the source is
-		// the spell sitting on the stack -- exactly the event being walked.
-		// The battlefield default would gate it out (the source is in ZStack,
-		// and the PutOnStack look-back zone below is the zone it came FROM,
-		// the hand), so every bare "When you cast this spell" script --
-		// Hydroid Krasis, Genesis Hydra, Ulamog, World Breaker -- would
-		// never fire at all. An EXPLICIT TriggerZones$ stays authoritative:
-		// a script naming one knows where its trigger lives.
+	if spec == "" && ev.Kind == events.PutOnStack && source == ev.Obj && t.Mode == "SpellCast" &&
+		strings.Contains(t.ParamStr(cards.PKValidCard), "Card.Self") {
+		// CR 601.2i: a spell's own cast trigger can observe the spell on the
+		// stack, but only when it actually matches that spell. Without the
+		// self-card predicate this exception incorrectly admits unrelated
+		// triggers carried by a cast object (notably Extort); ordinary zone
+		// gating remains the default for those triggers.
 		return true
 	}
 	if spec == "" {
