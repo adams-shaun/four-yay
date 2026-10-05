@@ -1,10 +1,9 @@
 package rules
 
 import (
-	"strings"
-
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -214,7 +213,7 @@ func arrangeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent, sa
 		// through, rather than in the asking effect: an answered KArrange is
 		// applied by the resolution kernel (resolveBoard.Record), which the
 		// effects walk never sees.
-		if sa != nil && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberKept)), "True") && len(pileA) > 0 {
+		if sa != nil && effects.SurveilOf(sa).RememberKept && len(pileA) > 0 {
 			e.emit(events.Event{Kind: events.Choose, Obj: d.Source, Counter: "remembered",
 				IDs: append([]state.ObjID(nil), pileA...)})
 		}

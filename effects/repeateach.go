@@ -73,7 +73,7 @@ func repeatedCards(h Host, c *Ctx, rp *RepeatEachParams) ([]state.Target, bool) 
 // caller emits its loud "RepeatEach selector unimplemented" Note rather than
 // silently finding no types.
 func repeatEachTypesFrom(h Host, c *Ctx, spec string) ([]string, bool) {
-	const types = "Artifact Battle Creature Enchantment Instant Land Planeswalker Sorcery"
+	types := cards.CardTypeNames()
 	zoneName, selector, ok := splitTypesFromSelector(spec)
 	if !ok {
 		return nil, false
@@ -87,7 +87,7 @@ func repeatEachTypesFrom(h Host, c *Ctx, spec string) ([]string, bool) {
 			if obj == nil || !choiceMatches(h, h.Game(), c, selector, obj) || obj.Face() == nil {
 				continue
 			}
-			for typ := range strings.SplitSeq(types, " ") {
+			for _, typ := range types {
 				hasType := false
 				for _, printed := range obj.Face().Types {
 					if strings.EqualFold(printed, typ) {

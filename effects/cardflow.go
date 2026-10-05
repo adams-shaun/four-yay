@@ -1883,7 +1883,7 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 		// recollection the answered path keeps, and Starving Revenant's
 		// draw/lose would differ between a tape run and a no-ask host.
 		// Bounded to the looked-at window (k).
-		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberKept)), "True") && k > 0 && c.Source != 0 {
+		if SurveilOf(sa).RememberKept && k > 0 && c.Source != 0 {
 			kept := append([]state.ObjID(nil), lib[:k]...)
 			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "remembered", IDs: kept})
 		}

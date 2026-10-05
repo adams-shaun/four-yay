@@ -300,6 +300,12 @@ func APICodeForName(api string) APICode {
 
 type TypeMask uint32
 
+// CardTypeNames returns the supported card types in the engine's canonical
+// order. Supertypes and card supertypes are intentionally excluded.
+func CardTypeNames() []string {
+	return []string{"Artifact", "Battle", "Conspiracy", "Creature", "Dungeon", "Enchantment", "Instant", "Kindred", "Land", "Phenomenon", "Plane", "Planeswalker", "Scheme", "Sorcery", "Tribal", "Vanguard", "Spacecraft", "Vehicle", "Room"}
+}
+
 const (
 	TypeArtifact TypeMask = 1 << iota
 	TypeBattle
