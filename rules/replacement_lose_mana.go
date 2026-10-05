@@ -3,55 +3,121 @@ package rules
 import (
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
+type loseManaRuntime interface {
+	controllerOf(state.ObjID) state.PlayerID
+	runReplaceWith(*effects.Ctx, state.ObjID, *cards.SA, *events.Event)
+}
+
 func loseManaReplacementApplies(ev events.Event, playerMatches, conditionHolds bool) bool {
 	return ev.Kind == events.ManaClear && playerMatches && conditionHolds
 }
 
-// applyLoseManaReplacement applies the corpus's ReplaceMana conversion to
-// each unit that the pending ManaClear would actually remove. The clear is
-// logged first, then converted units are added, so persistent and
-// stat:UnspentMana-protected units retain their existing event-fold behavior.
-func (e *Engine) applyLoseManaReplacement(ev events.Event, m replMatch) (events.Event, bool) {
-	if m.repl == nil || m.repl.With == nil || int(ev.Player) >= len(e.G.Players) {
+func convertLoseManaColor(m replMatch, color byte, runtime loseManaRuntime) byte {
+	ctx := effects.NewCtxPtr(m.id, runtime.controllerOf(m.id), effects.CtxInit{})
+	ctx.Mana.Amount, ctx.Mana.Type = 1, string(color)
+	if m.face != nil {
+		effects.SetSVars(ctx, m.face.SVars)
+	}
+	runtime.runReplaceWith(ctx, m.id, m.repl.With, nil)
+	if len(ctx.Mana.Type) != 1 {
+		return 0
+	}
+	return ctx.Mana.Type[0]
+}
+
+func emitLoseManaClear(ev events.Event, emit func(events.Event) events.Event, setApplying func(bool)) {
+	setApplying(true)
+	defer setApplying(false)
+	emit(ev)
+}
+
+func handleLoseManaChoice(rc replChoice, selected int, player state.PlayerID, before *triggerSnapshot,
+	game *state.Game, runtime loseManaRuntime, emit func(events.Event) events.Event,
+	setApplying func(bool), setBefore func(*triggerSnapshot)) {
+	if selected < 0 || selected >= len(rc.cands) || int(rc.ev.Player) >= len(game.Players) {
+		setBefore(before)
+		emit(events.Event{Kind: events.Note, Player: player, Text: "mana replacement-order answer out of range"})
+		return
+	}
+	m, p := rc.cands[selected], game.Players[rc.ev.Player]
+	applyLoseManaReplacement(rc.ev, m, p.Pool, p.PersistentMana, p.RestrictedMana,
+		func(color byte) byte { return convertLoseManaColor(m, color, runtime) },
+		func(clear events.Event) { emitLoseManaClear(clear, emit, setApplying) }, emit)
+}
+
+func applyLoseManaBoundary(ev events.Event, matches []replMatch, game *state.Game, runtime loseManaRuntime,
+	emit func(events.Event) events.Event, setApplying func(bool), pose func(events.Event, []replMatch)) (events.Event, bool) {
+	if len(matches) > 1 {
+		pose(ev, matches)
+		return ev, true
+	}
+	if len(matches) == 0 || int(ev.Player) >= len(game.Players) {
 		return ev, false
 	}
-	pool := e.G.Players[ev.Player].Pool
-	persistent := e.G.Players[ev.Player].PersistentMana
-	var converted state.Mana
+	m, p := matches[0], game.Players[ev.Player]
+	return applyLoseManaReplacement(ev, m, p.Pool, p.PersistentMana, p.RestrictedMana,
+		func(color byte) byte { return convertLoseManaColor(m, color, runtime) },
+		func(clear events.Event) { emitLoseManaClear(clear, emit, setApplying) }, emit)
+}
+
+func restrictedBatchesForSlot(restrictions []state.ManaRestriction, slot int, limit int32) []state.ManaRestriction {
+	var batches []state.ManaRestriction
+	for _, batch := range restrictions {
+		if batch.Persistent || state.ManaSlot(batch.Color) != slot || limit <= 0 {
+			continue
+		}
+		if batch.Amount > limit {
+			batch.Amount = limit
+		}
+		batches = append(batches, batch)
+		limit -= batch.Amount
+	}
+	return batches
+}
+
+// applyLoseManaReplacement applies one conversion to the mana a boundary
+// would remove. Engine-specific work is supplied as callbacks so this helper
+// owns only the pool calculation and event sequence, not the Engine surface.
+func applyLoseManaReplacement(ev events.Event, m replMatch, pool, persistent state.Mana, restrictions []state.ManaRestriction,
+	convert func(byte) byte, emitClear func(events.Event), emitMana func(events.Event) events.Event) (events.Event, bool) {
+	if m.repl == nil || m.repl.With == nil {
+		return ev, false
+	}
 	chars := [...]byte{'W', 'U', 'B', 'R', 'G', 'C'}
+	var converted []events.Event
 	for slot, color := range chars {
 		if strings.ContainsRune(ev.Text, rune(color)) {
 			continue
 		}
-		count := pool[slot] - persistent[slot]
-		if count <= 0 {
+		available := pool[slot] - persistent[slot]
+		if available <= 0 {
 			continue
 		}
-		ctx := effects.NewCtxPtr(m.id, e.controllerOf(m.id), effects.CtxInit{})
-		ctx.Mana.Amount, ctx.Mana.Type = 1, string(color)
-		if m.face != nil {
-			effects.SetSVars(ctx, m.face.SVars)
+		out := convert(color)
+		if out == 0 {
+			continue
 		}
-		e.runReplaceWith(ctx, m.id, m.repl.With, nil)
-		if len(ctx.Mana.Type) == 1 {
-			converted[state.ManaIndex(ctx.Mana.Type[0])] += count
+		for _, batch := range restrictedBatchesForSlot(restrictions, slot, available) {
+			text := events.ManaRestrictionTextNC(batch.Valid, batch.Source, batch.NoCounter)
+			text = events.ManaAddsCountersText(text, batch.AddsCounters)
+			converted = append(converted, events.Event{Kind: events.ManaAdd, Player: ev.Player,
+				Amount: batch.Amount, Counter: string(out), Text: text})
+			available -= batch.Amount
+		}
+		if available > 0 {
+			converted = append(converted, events.Event{Kind: events.ManaAdd, Player: ev.Player,
+				Amount: available, Counter: string(out), Text: "converted from unspent mana"})
 		}
 	}
-	// The original clear is still the event that empties the at-risk units.
-	// applyingReplacement prevents it re-entering this same replacement.
-	saved := e.applyingReplacement
-	e.applyingReplacement = true
-	e.emit(ev)
-	e.applyingReplacement = saved
-	for slot, n := range converted {
-		if n > 0 {
-			e.emit(events.Event{Kind: events.ManaAdd, Player: ev.Player, Amount: n, Counter: string(chars[slot]), Text: "converted from unspent mana"})
-		}
+	emitClear(ev)
+	for _, event := range converted {
+		emitMana(event)
 	}
 	return ev, true
 }

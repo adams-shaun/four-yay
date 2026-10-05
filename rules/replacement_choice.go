@@ -67,6 +67,7 @@ const (
 	// replChoiceDraw asks whether to apply a bodyless optional draw replacement.
 	// It is appended so existing in-memory enum values remain unchanged.
 	replChoiceDraw
+	replChoiceLoseMana
 )
 
 type replChoice struct {
@@ -185,7 +186,7 @@ func (e *Engine) replacementChoicePlayer(rc replChoice) (state.PlayerID, bool) {
 		return rc.ev.Player, int(rc.ev.Player) < len(e.G.Players)
 	}
 	switch rc.kind {
-	case replChoiceMana, replChoiceManaColor, replChoiceScry:
+	case replChoiceMana, replChoiceManaColor, replChoiceScry, replChoiceLoseMana:
 		return rc.ev.Player, int(rc.ev.Player) < len(e.G.Players)
 	case replChoicePhaseOrder, replChoicePhaseOptional:
 		return e.G.Active, int(e.G.Active) < len(e.G.Players)
@@ -245,12 +246,15 @@ func (e *Engine) poseUntapReplacementChoice(ev events.Event, matches []replMatch
 func (e *Engine) poseReplacementChoice(ev events.Event, matches []replMatch) {
 	p := ev.Player
 	kind := replChoiceMove
+	if ev.Kind == events.ManaClear {
+		kind = replChoiceLoseMana
+	}
 	if ev.Kind == events.Draw && len(matches) == 1 && matches[0].repl.With == nil &&
 		matches[0].repl.OptionalValue() {
 		kind = replChoiceDraw
 		p = e.replacementAskPlayer(matches, ev.Player)
 	}
-	if ev.Kind != events.Draw {
+	if ev.Kind != events.Draw && ev.Kind != events.ManaClear {
 		o := e.G.Obj(ev.Obj)
 		if o == nil {
 			return
@@ -276,6 +280,8 @@ func (e *Engine) askReplacementChoice(p state.PlayerID) {
 		indices[i] = i
 	}
 	switch rc.kind {
+	case replChoiceLoseMana:
+		d.Prompt = "Several replacement effects would convert unspent mana: choose which applies."
 	case replChoiceDamage:
 		d.Prompt = "Several replacement effects would modify damage: choose which applies next."
 	case replChoiceCounter:
@@ -477,8 +483,7 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		e.applyingReplacement = prior
 		return
 	}
-	damageKind := rc.kind == replChoiceDamage || rc.kind == replChoiceCounter
-	if len(chosen) == 0 || (damageKind && (chosen[0].Index < 0 || chosen[0].Index > len(rc.cands) ||
+	if len(chosen) == 0 || ((rc.kind == replChoiceDamage || rc.kind == replChoiceCounter) && (chosen[0].Index < 0 || chosen[0].Index > len(rc.cands) ||
 		(chosen[0].Index == len(rc.cands) && !(rc.kind == replChoiceDamage && hasOptionalReplacement(rc.cands))))) {
 		e.emit(events.Event{Kind: events.Note, Player: in.Player,
 			Text: "replacement answer had no choice"})
@@ -494,7 +499,7 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		e.askNextReplacementChoice()
 		return
 	}
-	if damageKind {
+	if rc.kind == replChoiceDamage || rc.kind == replChoiceCounter {
 		completed := true
 		switch rc.kind {
 		case replChoiceCounter:
@@ -592,7 +597,6 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		e.askNextReplacementChoice()
 		return
 	}
-	manaDecision := rc.kind == replChoiceMana || rc.kind == replChoiceManaColor
 	switch rc.kind {
 	case replChoiceMana:
 		if chosen[0].Index < 0 || chosen[0].Index >= len(rc.applicable) {
@@ -715,6 +719,8 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 			return
 		}
 		e.resumeUpdatedComposition(rc, chosen[0].Index)
+	case replChoiceLoseMana:
+		handleLoseManaChoice(rc, chosen[0].Index, in.Player, before, e.G, e, e.emit, func(v bool) { e.applyingReplacement = v }, func(v *triggerSnapshot) { e.triggerBefore = v })
 	case replChoiceUntap:
 		if chosen[0].Index < 0 || chosen[0].Index >= len(rc.cands) {
 			e.triggerBefore = before
@@ -739,7 +745,7 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 	// A mana replacement or colour decision can interrupt CR 601.2g's mana
 	// window. Resume the parked cast only after the final rewrite is logged
 	// and no next replacement decision is pending.
-	if manaDecision && e.pending == nil && len(e.replChoices) == 0 && e.cast != nil {
+	if (rc.kind == replChoiceMana || rc.kind == replChoiceManaColor) && e.pending == nil && len(e.replChoices) == 0 && e.cast != nil {
 		e.continueCast()
 	}
 	e.askNextReplacementChoice()

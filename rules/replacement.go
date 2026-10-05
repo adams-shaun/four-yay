@@ -329,7 +329,8 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 		return ev, false
 	}
 	if ev.Kind == events.ManaClear {
-		return e.applyLoseManaReplacement(ev, matches[0])
+		return applyLoseManaBoundary(ev, matches, e.G, e, e.emit,
+			func(value bool) { e.applyingReplacement = value }, e.poseReplacementChoice)
 	}
 	switch ev.Kind {
 	case events.Untap:
