@@ -20,11 +20,12 @@ func TestMustBlockCoverageRejectsOtherShapes(t *testing.T) {
 		{"any target", "DB$ MustBlock | ValidTgts$ Any | DefinedAttacker$ TriggeredAttacker", false},
 		{"unknown creature qualifier", "DB$ MustBlock | ValidTgts$ Creature.UnknownSelector | DefinedAttacker$ TriggeredAttacker", false},
 		{"unknown duration", "DB$ MustBlock | ValidTgts$ Creature.OppCtrl | DefinedAttacker$ TriggeredAttacker | Duration$ UntilYourNextTurn", false},
-		{"no attacker", "DB$ MustBlock | ValidTgts$ Creature", false},
-		{"all defined", "DB$ MustBlock | ValidTgts$ Creature | DefinedAttacker$ TriggeredAttacker | BlockAllDefined$ True", false},
-		{"optional", "DB$ MustBlock | ValidTgts$ Creature | DefinedAttacker$ TriggeredAttacker | TargetMin$ 0", false},
-		{"selector", "DB$ MustBlock | Defined$ ParentTarget | DefinedAttacker$ ParentTarget", false},
-		{"other attacker", "DB$ MustBlock | ValidTgts$ Creature | DefinedAttacker$ TriggeredAttackerLKICopy", false},
+		{"implicit source attacker", "DB$ MustBlock | ValidTgts$ Creature", true},
+		{"all defined remains fail closed", "DB$ MustBlock | ValidTgts$ Creature | DefinedAttacker$ TriggeredAttacker | BlockAllDefined$ True", false},
+		{"optional", "DB$ MustBlock | ValidTgts$ Creature | DefinedAttacker$ TriggeredAttacker | TargetMin$ 0", true},
+		{"parent target selectors", "DB$ MustBlock | Defined$ ParentTarget | DefinedAttacker$ ParentTarget", true},
+		{"choice selector fails closed", "DB$ MustBlock | Choices$ Creature.untapped+DefenderCtrl | Chooser$ TriggeredDefendingPlayer", false},
+		{"triggered attacker LKI copy", "DB$ MustBlock | ValidTgts$ Creature | DefinedAttacker$ TriggeredAttackerLKICopy", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c, err := ParseBytes("test.txt", []byte("Name:Test\nTypes:Sorcery\nA:"+tc.body+"\nOracle:x\n"))

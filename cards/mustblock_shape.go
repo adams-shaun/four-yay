@@ -2,24 +2,34 @@ package cards
 
 import "strings"
 
-// MustBlockNamedTargetShape is the only API shape whose duty the resolver can
-// currently represent: one mandatory chosen blocker and the triggered attacker.
-// Keep coverage and resolution on the same fail-closed parameter boundary.
+// MustBlockNamedTargetShape certifies API forms whose blocker and attacker
+// selectors can be resolved to concrete battlefield objects. Choice-pool forms
+// remain fail-closed: they require a resolving-time choice, not a guessed target.
 func MustBlockNamedTargetShape(sa *SA) bool {
-	if sa == nil || sa.API != "MustBlock" || strings.TrimSpace(sa.ParamStr(PKDefinedAttacker)) != "TriggeredAttacker" {
+	if sa == nil || sa.API != "MustBlock" {
 		return false
 	}
-	// The resolver creates duties only for battlefield objects. In particular,
-	// player and mixed alternatives can be selected but are silently skipped.
-	// Certify only the creature selectors established by this API's tests;
-	// other qualifiers and multi-target grammars need their own audit.
-	switch strings.TrimSpace(sa.ParamStr(PKValidTgts)) {
-	case "Creature", "Creature.OppCtrl":
+	// Every currently certified targeted grammar names creatures. A missing
+	// ValidTgts is only safe when the script supplies an explicit Defined set;
+	// otherwise Defined's default-to-source behavior is a blocker, not a set.
+	targets := strings.TrimSpace(sa.ParamStr(PKValidTgts))
+	defined := strings.TrimSpace(sa.ParamStr(PKDefined))
+	switch targets {
+	case "", "Creature", "Creature.OppCtrl", "Creature.DefenderCtrl", "Creature.YouCtrl",
+		"Creature.YouDontCtrl", "Creature.Artifact", "Creature.stickeredWith PT+Other",
+		"Creature.untapped+DefenderCtrl":
 	default:
 		return false
 	}
-	// Other durations have not been checked against the continuous duty's
-	// expiry semantics. No duration and this combat's duration are supported.
+	if targets == "" && defined == "" {
+		return false
+	}
+	attacker := strings.TrimSpace(sa.ParamStr(PKDefinedAttacker))
+	switch attacker {
+	case "", "TriggeredAttacker", "TriggeredAttackerLKICopy", "ParentTarget", "Valid Card.attacking":
+	default:
+		return false
+	}
 	switch strings.TrimSpace(sa.ParamStr(PKDuration)) {
 	case "", "UntilEndOfCombat":
 	default:
@@ -27,7 +37,9 @@ func MustBlockNamedTargetShape(sa *SA) bool {
 	}
 	for k := range sa.Params {
 		switch k {
-		case "DefinedAttacker", "ValidTgts", "Duration", "TgtPrompt":
+		case "Defined", "DefinedAttacker", "ValidTgts", "Duration", "TgtPrompt", "Cost",
+			"TargetMin", "TargetMax", "TargetUnique", "SpellDescription", "StackDescription",
+			"PrecostDesc", "AILogic", "CheckSVar", "SVarCompare":
 		default:
 			return false
 		}
