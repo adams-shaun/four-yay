@@ -82,7 +82,10 @@ type pendingTrigger struct {
 	// state.DelayedTrigger.ID (so the fired event can remove exactly it), and
 	// Execute is the Execute$ SVar name (which events.Apply's DelayedPush case
 	// resolves from the source's SVar table).
-	Delayed   bool
+	Delayed bool
+	// Chapter marks a Saga chapter ability: it is a triggered ability even
+	// though its delayed-shape stack object has no T: line to record.
+	Chapter   bool
 	DelayedID uint32
 	// MonarchDraw is the CR 724.2a beginning-of-end-step triggered draw.
 	// It is represented as a real stack ability through the existing delayed
