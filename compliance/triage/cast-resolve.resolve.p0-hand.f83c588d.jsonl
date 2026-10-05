@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.hand","diff":"gorge+[Grizzly Bears] xmage+[]"},"key":"cast-resolve | resolve | p0.hand | gorge+[Grizzly Bears] xmage+[]","cards":1}
-{"card":"Gathering Stone","template":"cast-resolve","status":"diverge","api":"ChangesZone:PeekAndReveal+Phase:PeekAndReveal","sets":["ECL"],"detail":"step 1 (resolve) p0.hand: gorge \"[Grizzly Bears]\", xmage \"[]\""}
