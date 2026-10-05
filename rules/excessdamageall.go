@@ -2,6 +2,7 @@ package rules
 
 import (
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -9,11 +10,10 @@ import (
 type damageSourceCharacteristics interface {
 	inFlightDamageSource() state.ObjID
 	actionCause() state.ObjID
-	sourceDeathtouch(state.ObjID, state.ObjID) (bool, bool)
 	hasKeywordH(state.ObjID, kwHead) bool
 }
 
-func damageSourceHasDeathtouch(source damageSourceCharacteristics, ev events.Event) bool {
+func damageSourceHasDeathtouch(source damageSourceCharacteristics, sourceLKI map[state.ObjID]map[state.ObjID]effects.DamageSourceLKI, ev events.Event) bool {
 	if ev.Kind != events.Damage {
 		return false
 	}
@@ -22,8 +22,10 @@ func damageSourceHasDeathtouch(source damageSourceCharacteristics, ev events.Eve
 		return false
 	}
 	if cause := source.actionCause(); cause != 0 {
-		if deathtouch, found := source.sourceDeathtouch(cause, sourceID); found {
-			return deathtouch
+		if bySource, ok := sourceLKI[cause]; ok {
+			if lki, found := bySource[sourceID]; found {
+				return lki.Deathtouch
+			}
 		}
 	}
 	return source.hasKeywordH(sourceID, kwhDeathtouch)

@@ -18,11 +18,6 @@ func (e *Engine) inFlightDamageSource() state.ObjID {
 	return e.damaging
 }
 
-func (e *Engine) sourceDeathtouch(cause, source state.ObjID) (bool, bool) {
-	lki, ok := e.damageSourceLKI[cause][source]
-	return lki.Deathtouch, ok
-}
-
 // SetDamageSource implements effects.Host: publish the damage source for the
 // Damage events the calling emitter is about to emit, returning the previous
 // value so the emitter restores it. See dmgSrcOverride's field doc for the
