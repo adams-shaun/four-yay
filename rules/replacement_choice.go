@@ -64,6 +64,9 @@ const (
 	// appended so existing in-memory enum values remain unchanged.
 	replChoiceEntryOrder
 	replChoiceFaceUp
+	// replChoiceDraw asks whether to apply a bodyless optional draw replacement.
+	// It is appended so existing in-memory enum values remain unchanged.
+	replChoiceDraw
 )
 
 type replChoice struct {
@@ -186,7 +189,7 @@ func (e *Engine) replacementChoicePlayer(rc replChoice) (state.PlayerID, bool) {
 		return rc.ev.Player, int(rc.ev.Player) < len(e.G.Players)
 	case replChoicePhaseOrder, replChoicePhaseOptional:
 		return e.G.Active, int(e.G.Active) < len(e.G.Players)
-	case replChoiceDamage, replChoiceCounter:
+	case replChoiceDamage, replChoiceCounter, replChoiceDraw:
 		// Already resolved by poseDamageReplacementChoice/the recomputation
 		// cycle (replacementAskPlayer over the freshly recomputed CR 616.1e
 		// affected player), never re-derived from rc.ev.Obj's controller here
@@ -241,6 +244,12 @@ func (e *Engine) poseUntapReplacementChoice(ev events.Event, matches []replMatch
 // ruled out a departed controller, which makes no choices under CR 800.4a).
 func (e *Engine) poseReplacementChoice(ev events.Event, matches []replMatch) {
 	p := ev.Player
+	kind := replChoiceMove
+	if ev.Kind == events.Draw && len(matches) == 1 && matches[0].repl.With == nil &&
+		matches[0].repl.OptionalValue() {
+		kind = replChoiceDraw
+		p = e.replacementAskPlayer(matches, ev.Player)
+	}
 	if ev.Kind != events.Draw {
 		o := e.G.Obj(ev.Obj)
 		if o == nil {
@@ -251,8 +260,8 @@ func (e *Engine) poseReplacementChoice(ev events.Event, matches []replMatch) {
 	if int(p) >= len(e.G.Players) {
 		return
 	}
-	e.replChoices = append(e.replChoices, replChoice{kind: replChoiceMove,
-		ev: ev, cands: matches, before: e.retainTriggerBefore(), inResolution: e.resolvingObj != 0 || e.answerInResolution})
+	e.replChoices = append(e.replChoices, replChoice{kind: kind,
+		ev: ev, cands: matches, player: p, before: e.retainTriggerBefore(), inResolution: e.resolvingObj != 0 || e.answerInResolution})
 	if e.pending == nil {
 		e.askReplacementChoice(p)
 	}
@@ -304,6 +313,21 @@ func (e *Engine) askReplacementChoice(p state.PlayerID) {
 		d.Options = []decision.Option{
 			{Index: 0, Kind: "apply", Obj: m.id, Label: "Yes — skip this step"},
 			{Index: 1, Kind: "decline", Obj: m.id, Label: "No — do not apply this replacement"},
+		}
+		e.ask(d)
+		return
+	case replChoiceDraw:
+		m := rc.cands[rc.selected]
+		name := "this replacement effect"
+		if o := e.G.Obj(m.id); o != nil && o.Face() != nil && o.Face().Name != "" {
+			name = o.Face().Name
+		}
+		d.Prompt = "Apply " + name + "'s optional draw replacement?"
+		d.Options = []decision.Option{{Index: 0, Kind: "apply", Obj: m.id, Label: "Yes — skip that draw"},
+			{Index: 1, Kind: "decline", Obj: m.id, Label: "No — draw the card"}}
+		if in, ok := parkTapeAnswer(e, d); ok {
+			e.handle(d, in)
+			return
 		}
 		e.ask(d)
 		return
@@ -397,6 +421,15 @@ func (e *Engine) askReplacementChoice(p state.PlayerID) {
 	e.ask(d)
 }
 
+// emitDeclinedDrawReplacement lets a declined optional bodyless replacement
+// continue the proposed draw without matching the same effect again.
+func emitDeclinedDrawReplacement(emit func(events.Event) events.Event, applying *bool, ev events.Event) {
+	prior := *applying
+	*applying = true
+	emit(ev)
+	*applying = prior
+}
+
 // handleReplacement applies an answered CR 616.1 order choice: the front
 // parked competition's chosen replacement is applied for real -- the SAME
 // applyReplacement a lone matching replacement would run -- and, if more
@@ -435,9 +468,7 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 			e.turnUpMove = nil
 		}
 		if e.pending != nil {
-			// The body asked (the copy election): resolveReplacementBody
-			// already parked the marker's re-emit on the body's chain, so
-			// the transition folds only after that answer.
+			// The body parked the transition's re-emit on its continuation.
 			return
 		}
 		prior := e.applyingReplacement
@@ -455,6 +486,14 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 	}
 	before := e.triggerBefore
 	e.triggerBefore = rc.before
+	if rc.kind == replChoiceDraw {
+		if chosen[0].Index == 1 {
+			emitDeclinedDrawReplacement(e.emit, &e.applyingReplacement, rc.ev)
+		}
+		e.triggerBefore = before
+		e.askNextReplacementChoice()
+		return
+	}
 	if damageKind {
 		completed := true
 		switch rc.kind {
