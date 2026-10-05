@@ -56,6 +56,7 @@ func TestUnlockDoorMinZeroElectedNoTargetDoesNothing(t *testing.T) {
 	id := h.g.AddObject(room, 0).ID
 	o := h.g.Obj(id)
 	o.Zone = state.ZBattlefield
+	designateRoomCastFace(o)
 	if !roomHasLockedDoor(o, 0) {
 		t.Fatal("precondition: the controlled Room must have a locked door for the wide fallback to reach")
 	}
@@ -84,6 +85,7 @@ func TestUnlockDoorLockOrUnlockLockAnswerIsLoud(t *testing.T) {
 	id := h.g.AddObject(room, 0).ID
 	o := h.g.Obj(id)
 	o.Zone = state.ZBattlefield
+	designateRoomCastFace(o)
 	if !roomHasLockedDoor(o, 0) {
 		t.Fatal("precondition: the target Room must have a locked door")
 	}
@@ -112,6 +114,7 @@ func TestUnlockDoorLockOrUnlockUnlockAnswerUnlocks(t *testing.T) {
 	id := h.g.AddObject(room, 0).ID
 	o := h.g.Obj(id)
 	o.Zone = state.ZBattlefield
+	designateRoomCastFace(o)
 	if !roomHasLockedDoor(o, 0) {
 		t.Fatal("precondition: the target Room must have a locked door")
 	}
@@ -146,6 +149,7 @@ func TestUnlockDoorLockOrUnlockOnFullyUnlockedAsksBeforeActing(t *testing.T) {
 	id := h.g.AddObject(room, 0).ID
 	o := h.g.Obj(id)
 	o.Zone = state.ZBattlefield
+	designateRoomCastFace(o)
 	o.Unlocked = true
 	if roomHasLockedDoor(o, 0) {
 		t.Fatal("precondition: the target Room must already be fully unlocked")
@@ -176,6 +180,7 @@ func TestUnlockDoorUnlockModeDoesNotPoseLockChoice(t *testing.T) {
 	id := h.g.AddObject(room, 0).ID
 	o := h.g.Obj(id)
 	o.Zone = state.ZBattlefield
+	designateRoomCastFace(o)
 	if !roomHasLockedDoor(o, 0) {
 		t.Fatal("precondition: the target Room must have a locked door")
 	}

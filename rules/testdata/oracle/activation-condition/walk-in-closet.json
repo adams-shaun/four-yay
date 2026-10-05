@@ -7,8 +7,12 @@
       "name": "play-land-from-graveyard",
       "cr": ["305.2", "604.1"],
       "why": "Walk-In Closet lets its controller play lands from their graveyard, so the Forest in the graveyard may be played as the turn's land drop and enters untapped.",
-      "setup": {"p0": {"battlefield": ["Walk-In Closet"], "graveyard": ["Forest"]}},
-      "steps": [{"op": "play", "seat": 0, "card": "p0:Forest"}],
+      "setup": {"p0": {"hand": ["Walk-In Closet"], "graveyard": ["Forest"]}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Walk-In Closet", "mana": "CCG"},
+        {"op": "resolve", "expect": [{"card": "p0:Walk-In Closet", "zone": "battlefield"}]},
+        {"op": "play", "seat": 0, "card": "p0:Forest"}
+      ],
       "expect": [{"card": "p0:Forest", "zone": "battlefield", "tapped": false}]
     },
     {
