@@ -235,8 +235,12 @@ func TestUmbraMysticGrantsUmbraArmorToYourAuras(t *testing.T) {
 
 // TestAttachedToDottedYouCtrlGrammar pins the Part 2 filter grammar
 // directly: the dotted two-token "AttachedTo <class>.YouCtrl" matches
-// exactly when the attached object is controlled by the spec's you, and the
-// remaining dotted qualifiers stay unknown (fail closed).
+// exactly when the attached object is controlled by the spec's you. A
+// dotted qualifier that is itself a recognised predicate is now consumed by
+// the grammar (the With Great Power ticket widened the old YouCtrl-only
+// allowlist to every qualifier recognisedPredicate knows), so this test also
+// pins that widening and the shapes that still fail closed: a nested dotted
+// qualifier and a player-side class.
 func TestAttachedToDottedYouCtrlGrammar(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	strength := mustCorpusCard(t, reg, "Unholy Strength")
@@ -253,8 +257,16 @@ func TestAttachedToDottedYouCtrlGrammar(t *testing.T) {
 	if effects.MatchesSpecFrom(e.G, "Aura.AttachedTo Permanent.YouCtrl", strengthID, 1, 0) {
 		t.Fatal("dotted AttachedTo Permanent.YouCtrl must not match when the attached permanent is the opponent's")
 	}
-	if got := effects.UnknownPredicates("Aura.AttachedTo Permanent.EnchantedBy"); len(got) == 0 {
-		t.Fatalf("dotted qualifiers outside the YouCtrl allowlist must stay unknown: %v", got)
+	// The qualifier set is now every recognised predicate, so the
+	// attached-bearer qualifiers that the With Great Power / Baki's Curse
+	// filters use are recognised rather than failing closed.
+	if got := effects.UnknownPredicates("Aura.AttachedTo Permanent.EnchantedBy"); len(got) != 0 {
+		t.Fatalf("dotted AttachedTo Permanent.EnchantedBy must be recognised after the bearer-qualifier widening: %v", got)
+	}
+	// A nested dotted qualifier (a second '.') still fails closed: the
+	// qualifier must be a SINGLE predicate token.
+	if got := effects.UnknownPredicates("Aura.AttachedTo Permanent.YouCtrl.Foo"); len(got) == 0 {
+		t.Fatalf("a nested dotted qualifier must stay unknown: %v", got)
 	}
 	if got := effects.UnknownPredicates("Aura.AttachedTo Player.YouCtrl"); len(got) == 0 {
 		t.Fatalf("AttachedTo Player.* (a curse's player attachment) must stay unknown: %v", got)
