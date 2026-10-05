@@ -533,6 +533,45 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 		return false
 	}
 	g := h.Game()
+	// Green Sun's Twilight temporarily associates its unselected cards with
+	// the source while they remain in the library. They are not ordinary
+	// CR 607.2a Imprinted cards (which must be exiled), but its immediate
+	// RestBottom ChangeZone must still be able to randomize just that pile.
+	// The narrow NoShuffle + bottom shape avoids widening the ordinary
+	// Defined$ Imprinted rules contract; corpus census finds this exact
+	// ChangeZone shape only on Green Sun's Twilight.
+	if DefinedRefOf(sa).Is(RefImprinted) &&
+		to == state.ZLibrary && cz.NoShuffle && effDigCodes.Code(cz.LibraryPositionText) == effDigBottom {
+		if source := g.Obj(c.Source); source != nil {
+			byOwner := make([]libraryFetch, 0, 1)
+			for _, id := range source.Imprinted {
+				obj := g.Obj(id)
+				if obj == nil || obj.Zone != state.ZLibrary || int(obj.Owner) >= len(g.Players) {
+					continue
+				}
+				ownerIndex := -1
+				for i := range byOwner {
+					if byOwner[i].owner == obj.Owner {
+						ownerIndex = i
+						break
+					}
+				}
+				if ownerIndex < 0 {
+					byOwner = append(byOwner, libraryFetch{owner: obj.Owner})
+					ownerIndex = len(byOwner) - 1
+				}
+				byOwner[ownerIndex].ids = append(byOwner[ownerIndex].ids, id)
+			}
+			for _, pile := range byOwner {
+				for i := len(pile.ids) - 1; i > 0; i-- {
+					j := h.Rand(i + 1)
+					pile.ids[i], pile.ids[j] = pile.ids[j], pile.ids[i]
+				}
+				libraryOrderPlacement(h, pile.owner, pile.ids, true)
+			}
+		}
+		return true
+	}
 	targets, known := knownDefinedTargets(h, c, cz.Defined)
 	if known && cz.DefinedImprinted && cz.RandomOrder && cz.NoShuffle {
 		// Green Sun's Twilight imprints its deferred rest while those cards
@@ -657,13 +696,16 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 				h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: f.owner, Text: "entered tapped"})
 			}
 		}
-		// Green Sun's Twilight's DBChangeZone is the first step of a named
-		// deferred RestBottom chain. Only that carrier may leave its disjoint
-		// Imprinted library pile in place for the chained RandomOrder bottoming
-		// step; an arbitrary remembered fetch with an imprint still gets its
-		// ordinary mandatory search shuffle.
+		// Green Sun's Twilight's first ChangeZone moves only its selected,
+		// remembered cards to hand. The companion Imprinted cards remain in
+		// the library until RestBottom places that window remainder; a default
+		// search shuffle here would also randomize cards below the revealed
+		// window. Keep this exception pinned to that compiled card chain.
+		// Require the named RestBottom chain as well as the selected-fetch
+		// shape: an arbitrary remembered fetch with a library imprint still
+		// gets its ordinary shuffle.
 		source := g.Obj(c.Source)
-		preserveDeferredRest := cz.DefinedRemembered && to != state.ZLibrary &&
+		preserveDeferredRest := greenSunsTwilightSelectedFetch(h, c, sa, cz, to) &&
 			c.SVars["RestBottom"] != "" && !cz.ShuffleTrue && source != nil && len(source.Imprinted) > 0
 		if preserveDeferredRest {
 			for _, id := range source.Imprinted {
@@ -688,6 +730,27 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 	}
 	scheduleAtEOT(h, c, sa, ateotMoved)
 	return true
+}
+
+// greenSunsTwilightSelectedFetch identifies the first half of the card's
+// ChangeLater chain: selected Remembered cards go to hand while the source
+// still owns a library-resident Imprinted remainder for RestBottom. Requiring
+// both roles avoids changing ordinary Defined$ fetches with a similar
+// destination.
+func greenSunsTwilightSelectedFetch(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.Zone) bool {
+	if to != state.ZHand || !DefinedRefOf(sa).Is(RefRemembered) {
+		return false
+	}
+	source := h.Game().Obj(c.Source)
+	if source == nil {
+		return false
+	}
+	for _, id := range source.Imprinted {
+		if obj := h.Game().Obj(id); obj != nil && obj.Zone == state.ZLibrary {
+			return true
+		}
+	}
+	return false
 }
 
 // changeZoneFetchSelector distinguishes a fetch player from an already chosen

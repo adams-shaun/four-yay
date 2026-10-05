@@ -372,18 +372,11 @@ type HostReplacements interface {
 	// the effects test double -- reports false, the same discipline as its
 	// Scry above). The proposal is never logged.
 	CascadeReplacement(source state.ObjID, controller state.PlayerID, batch []state.ObjID, residue *cards.SA) bool
-	// RollDiceProposed is the pre-roll replacement boundary effRollDice
-	// consults before any die of ONE roll action is rolled (CR 614.4): the
-	// host holds a synthetic events.RollDice proposal out to the R:Event$
-	// RollDice replacement class and returns the rewritten dice count and
-	// ignored-low count (the proposal seeds the ignored-low base from the
-	// rolling body's own IgnoreLower$, so a replacement's
-	// ReplaceCount$Ignore/Plus.1 is one ADDITIONAL low result). A host with
-	// no replacement registry (the effects-package double) returns the
-	// proposal unchanged, the same discipline as its Scry above. Neither
-	// suspends: the corpus's supported replacement bodies are ReplaceEffect
-	// rewrites, which never ask.
-	RollDiceProposed(p state.PlayerID, source state.ObjID, amount, ignore int32) (int32, int32)
+	// CountReplacementProposed holds one synthetic count-bearing action
+	// proposal through the replacement registry and returns the rewritten
+	// proposal. It is used for the Mill instruction count and ordinary dice
+	// roll count; the test double returns it unchanged.
+	CountReplacementProposed(ev events.Event) events.Event
 	// ReplaceEvent applies a ReplaceEffect body's requested change to the
 	// event currently being replaced. It is inert outside replacement
 	// resolution; rules owns the event and records the resulting delta.

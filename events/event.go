@@ -909,7 +909,7 @@ const (
 	// every earlier Kind, so no earlier ordinal, hash chain or golden replay
 	// is affected.
 	GiveGift
-	// RollDice is the SYNTHETIC roll-action PROPOSAL rules' RollDiceProposed
+	// RollDice is the SYNTHETIC roll-action PROPOSAL effects' count-replacement hook
 	// hook holds out to R:Event$ RollDice replacement matching before any die
 	// of one roll action is rolled (CR 614.4's before-the-action window, task
 	// rolldice-repl; the Scry proposal's discipline). Player is the roller,
@@ -1116,10 +1116,16 @@ const (
 	// Unlike LEVEL counters this cannot be proliferated, removed or counted.
 	// Appended after Saddle, preserving main's existing event ordinals.
 	ClassLevelChange
+	// MillProposal is the synthetic pre-action proposal for a single Mill
+	// instruction. Player is the affected player and Amount is the requested
+	// card count. It is never logged; completed cards still emit ordinary
+	// per-card Mill events. Appended after ClassLevelChange to preserve all
+	// existing event ordinals and replay hashes.
+	MillProposal
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(ClassLevelChange) + 1
+	NumKinds = int(MillProposal) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving
@@ -1496,10 +1502,12 @@ const (
 	DamageProvenanceTypeSeparator = "\x1e"
 	// DamageProvenanceColorSeparator precedes the source's WUBRG colours
 	// at the hit (CR 608.2h: "red sources ... dealt" reads the colour the
-	// source had when it dealt the damage). Text is
-	// "<provenance>[\x1d<colours>][\x1e<recipient types>]".
-	DamageProvenanceColorSeparator    = "\x1d"
-	DamageProvenanceTypeWordSeparator = "\x1f"
+	// source had when it dealt the damage). Older Text values omit the
+	// trailing source zone/types: "<provenance>[\x1d<colours>][\x1e<recipient types>][\x1c<zone>\x1b<source types>]".
+	DamageProvenanceColorSeparator      = "\x1d"
+	DamageProvenanceTypeWordSeparator   = "\x1f"
+	DamageProvenanceSourceSeparator     = "\x1c"
+	DamageProvenanceSourceTypeSeparator = "\x1b"
 )
 
 // Event is one replayable state transition.

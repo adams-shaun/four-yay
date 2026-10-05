@@ -252,6 +252,8 @@ func (w *legalWalk) handWalk() {
 			}
 		}
 		if !e.spellTimingOK(p, id, f, sorcery) {
+			// Quantum Reduction's permission is offered only with Teamwork.
+			teamworkFlashOffer(w, id, f)
 			// MayFlashCost (Forge's K:MayFlashCost, CR 702.8): when the ordinary
 			// timing gate fails, a face printed with the keyword is NOT skipped
 			// outright -- it may be cast at instant timing by paying the extra.

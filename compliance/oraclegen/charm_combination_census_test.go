@@ -1,0 +1,125 @@
+package oraclegen
+
+import (
+	"strconv"
+	"testing"
+
+	"github.com/adams-shaun/gorge/cards"
+)
+
+// TestCharmCombinationFixtureCensus keeps Choose-N charms distinct from the
+// per-slot census: every reported carrier must have a fixture for a complete
+// legal combination, not merely for each mode considered in isolation.
+func TestCharmCombinationFixtureCensus(t *testing.T) {
+	reg := censusRegistry(t)
+	t.Run("non-charm fixture cross-product gap", func(t *testing.T) {
+		face := &cards.Face{Abilities: []*cards.SA{{
+			Kind: "SP",
+			API:  "Destroy",
+			Params: map[string]string{
+				"ValidTgts": "Creature.YouCtrl",
+				"TargetMin": "6",
+			},
+		}}}
+		slots := SlotSpecs(face)
+		if len(slots) != 6 {
+			t.Fatalf("synthetic non-Charm precondition: got %d target slots, want 6", len(slots))
+		}
+		if len(candidatesFor(reg, slots[0].Filter, "")) == 0 {
+			t.Fatalf("synthetic precondition: %q has no individual candidates", slots[0].Filter)
+		}
+		if len(fixtures(reg, slots)) != 0 {
+			t.Fatal("synthetic precondition: expected no joint fixture for six distinct targets")
+		}
+		if ok, reason := FaceHasFixture(reg, face); ok || reason != "fixture combination" {
+			t.Fatalf("non-Charm cross-product gap = (%v, %q), want (false, fixture combination)", ok, reason)
+		}
+	})
+	t.Run("stack target non-charm", func(t *testing.T) {
+		card, ok := reg.Lookup("Cancel")
+		if !ok || len(card.Faces) == 0 {
+			t.Fatal("Cancel missing from corpus")
+		}
+		face := card.Faces[0]
+		slots := SlotSpecs(face)
+		if len(slots) == 0 || !SlotIsStack(slots[0].Filter) {
+			t.Fatalf("Cancel precondition: expected a stack-target slot, got %+v", slots)
+		}
+		for _, ability := range face.Abilities {
+			if ability.Kind == "SP" && ability.API == "Charm" {
+				t.Fatal("Cancel precondition: expected a non-Charm spell")
+			}
+		}
+		if fixtureable, reason := FaceHasFixture(reg, face); !fixtureable {
+			t.Fatalf("stack target should be covered by a precast, got no fixture (%s)", reason)
+		}
+	})
+	cases := []struct {
+		name  string
+		count int
+	}{
+		{"Ashling's Command", 2},
+		{"Brigid's Command", 2},
+		{"Grub's Command", 2},
+		{"Sygg's Command", 2},
+		{"Trystan's Command", 2},
+		{"Return from the Wilds", 2},
+		{"Cosmium Confluence", 3},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			card, ok := reg.Lookup(tc.name)
+			if !ok || len(card.Faces) == 0 {
+				t.Fatalf("card %q missing from corpus", tc.name)
+			}
+			face := card.Faces[0]
+			var charm *cards.SA
+			charmIndex := -1
+			for i, ability := range face.Abilities {
+				if ability.Kind == "SP" && ability.API == "Charm" {
+					charm = ability
+					charmIndex = i
+					break
+				}
+			}
+			if charm == nil || charm.Params["CharmNum"] != strconv.Itoa(tc.count) {
+				t.Fatalf("loaded face does not have expected CharmNum$ %d", tc.count)
+			}
+			combos := CharmCombinations(face)
+			if len(combos) == 0 {
+				t.Fatal("no legal mode combinations")
+			}
+			foundFixture := false
+			for _, combo := range combos {
+				if len(combo.Modes) != tc.count {
+					t.Fatalf("combination has %d modes, want %d", len(combo.Modes), tc.count)
+				}
+				if len(fixtures(reg, combo.Slots)) > 0 {
+					foundFixture = true
+				}
+			}
+			if !foundFixture {
+				t.Fatalf("no complete combination fixture; independent modes are insufficient")
+			}
+			if ok, reason := FaceHasFixture(reg, face); !ok {
+				t.Fatalf("FaceHasFixture rejected supported combination: %s", reason)
+			}
+
+			// The old census accepted any independently fixtureable mode,
+			// even if the Charm demanded more picks than it offered.
+			impossible := *face
+			impossible.Abilities = append([]*cards.SA(nil), face.Abilities...)
+			copyCharm := *charm
+			copyCharm.Params = make(map[string]string, len(charm.Params))
+			for key, value := range charm.Params {
+				copyCharm.Params[key] = value
+			}
+			copyCharm.Params["CharmNum"] = strconv.Itoa(len(CharmModes(face)) + 1)
+			copyCharm.Params["CanRepeatModes"] = "False"
+			impossible.Abilities[charmIndex] = &copyCharm
+			if ok, reason := FaceHasFixture(reg, &impossible); ok {
+				t.Fatalf("census accepted a charm with no legal complete combination (reason %q)", reason)
+			}
+		})
+	}
+}

@@ -326,11 +326,8 @@ func (h *fakeHost) Scry(p state.PlayerID, source state.ObjID, count int32, sa *c
 // replacement pipeline to bypass, the same discipline as its Scry above.
 func (h *fakeHost) EmitScryRecord(e events.Event) { h.Emit(e) }
 
-// RollDiceProposed has no replacement registry to consult here, the same
-// discipline as the double's Scry above: the proposal returns unchanged.
-func (h *fakeHost) RollDiceProposed(_ state.PlayerID, _ state.ObjID, amount, ignore int32) (int32, int32) {
-	return amount, ignore
-}
+// CountReplacementProposed has no replacement registry in the effects test double.
+func (h *fakeHost) CountReplacementProposed(ev events.Event) events.Event { return ev }
 
 // CascadeReplacement has no replacement registry to consult here, the same
 // discipline as the double's Scry above: it reports that nothing replaced the

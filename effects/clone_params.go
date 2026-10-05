@@ -105,8 +105,9 @@ type CloneParams struct {
 
 	// ETBShapeOK is the text half of rules' ETB copy whitelist
 	// (etbCloneWhitelist): every key inside the supported set, a Choices$
-	// selector the no-resolver matcher can decide, single-word AddKeywords$
-	// heads and an absent-or-True IntoPlayTapped$. The SVar-table half (each
+	// selector the matcher can decide (including Mockingbird's cast-spend Y),
+	// single-word AddKeywords$ heads and an absent-or-True IntoPlayTapped$.
+	// The SVar-table half (each
 	// StaticNames member readable) is the caller's.
 	ETBShapeOK bool
 
@@ -257,7 +258,7 @@ func cloneETBShapeOK(sa *cards.SA, p *CloneParams) bool {
 			return false
 		}
 	}
-	if SpecNeedsResolver(p.Choices) {
+	if SpecNeedsResolver(p.Choices) && p.Choices != mockingbirdETBSelector {
 		return false
 	}
 	for _, kw := range p.AddKeywords {
