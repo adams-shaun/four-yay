@@ -26,9 +26,16 @@ func TestCantPlayLandHandLocked(t *testing.T) {
 	if got := countPlayLand(e, land); got != 1 {
 		t.Fatalf("precondition: unlocked hand land offers = %d, want 1", got)
 	}
-	source := onBoardGrant(t, e, 0, "Name:Memory Vessel\nTypes:Artifact\nOracle:x\n")
-	e.AddContinuous(ContinuousEffect{Source: source, Controller: 0, Restriction: "CantPlayLand",
-		RestrictParams: map[string]string{"Player": "Player", "Origin": "Hand"}})
+	source := onBoardGrant(t, e, 0, "Name:Memory Vessel\nTypes:Artifact\n"+
+		"SVar:NoLand:Mode$ CantPlayLand | Player$ Player | Origin$ Hand | Description$ Players can't play lands from their hand.\n"+
+		"SVar:DBEffect:DB$ Effect | StaticAbilities$ NoLand | RememberObjects$ Remembered | Duration$ UntilYourNextTurn | SubAbility$ DBCleanup | ForgetOnMoved$ Exile\n"+
+		"Oracle:x\n")
+	vessel := e.G.Obj(source)
+	effects.Resolve(e, &effects.Ctx{Source: source, Controller: 0, SVars: vessel.Face().SVars},
+		cards.ResolveSVar(vessel.Face().SVars, "DBEffect"))
+	if !playLandForbidden(e, 0, state.ZHand, land) {
+		t.Fatal("Memory Vessel DB$ Effect did not deliver an active CantPlayLand restriction")
+	}
 	if got := countPlayLand(e, land); got != 0 {
 		t.Fatalf("hand-locked land offers = %d, want 0", got)
 	}
