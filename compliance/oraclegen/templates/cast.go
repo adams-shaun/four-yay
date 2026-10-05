@@ -35,7 +35,7 @@ func castResolve(reg *cards.Registry, f *cards.Face, name, mana string) (oracleg
 			plans = append(plans, plan{slots: oraclegen.ChainSlots(f, m.SVar()), answers: append([]oraclegen.Answer{{Kind: "modes", Pick: []string{m.Label()}}}, xAns...)})
 		}
 	}
-	for _, m := range []string{mana, mana + "C"} {
+	for _, m := range []string{mana, mana + "C", mana + "CC", mana + "CCC"} {
 		for _, pl := range plans {
 			if it, ok := castWith(reg, f, name, m, pl.slots, pl.answers); ok {
 				return it, nil
@@ -58,6 +58,10 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 			fx.P0().Graveyard = append(fx.P0().Graveyard, oraclegen.Repeat("Wastes", 7)...)
 		},
 		func(fx *oraclegen.Fixture) { fx.P0().Battlefield = append(fx.P0().Battlefield, "Llanowar Elves") },
+		// A spare card in hand pays an additional "discard a card" cost
+		// (Seize the Spoils, Demand Answers): the spell itself is on the
+		// stack by then, so the discard needs a second card.
+		func(fx *oraclegen.Fixture) { fx.P0().Hand = append(fx.P0().Hand, "Forest") },
 	}
 	stackIdx := stackSlotIndexes(slots)
 	plain := nonStackSlots(slots)

@@ -96,7 +96,7 @@ func counterSpell(reg *cards.Registry, f *cards.Face, name, mana string) (oracle
 	// The extra {1} covers an optional additional cost ("behold or pay
 	// {1}"), tried only when the bare cost cannot cast.
 	xAns := xAnswers(f)
-	for _, m := range []string{mana, mana + "C"} {
+	for _, m := range []string{mana, mana + "C", mana + "CC", mana + "CCC"} {
 		for _, pre := range precasts {
 			if it, ok := counterWith(reg, f, name, m, pre, xAns); ok {
 				return it, nil
