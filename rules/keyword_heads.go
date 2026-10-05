@@ -70,6 +70,7 @@ var (
 	kwhSunburst         = newKWHead("Sunburst")
 	kwhTraining         = newKWHead("Training")
 	kwhTrample          = newKWHead("Trample")
+	kwhTeamwork         = newKWHead("Teamwork")
 	kwhTypeCycling      = newKWHead("TypeCycling")
 	kwhUmbraArmor       = newKWHead("Umbra armor")
 	kwhUnleash          = newKWHead("Unleash")

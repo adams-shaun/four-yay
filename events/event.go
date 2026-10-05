@@ -1617,6 +1617,7 @@ var flagNames = [...]struct {
 	// Conspire emits no flag and resolves like the plain cast. Appended at
 	// the end per the table's own ordering rule.
 	{"conspired", state.FlagConspired},
+	{"teamwork_paid", state.FlagTeamworkPaid},
 	// Convoke's creature provenance (CR 702.66, task connive1): the flag is
 	// what Defined$ Convoked reads -- the creatures tapped to help pay for
 	// the cast ride the pay-time CastInfo's IDs. Emitted only for a face

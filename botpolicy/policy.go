@@ -732,6 +732,15 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 			break
 		}
 		switch d.Options[0].Kind {
+		case "teamwork_decline", "teamwork":
+			// A deterministic no-ask fallback declines optional Teamwork. This
+			// is always legal and avoids returning a below-threshold subset.
+			for _, o := range d.Options {
+				if o.Kind == "teamwork_decline" {
+					in.Choices = []int{o.Index}
+					break
+				}
+			}
 		case "gift_decline", "gift_promise":
 			// CR 702.168: the Gift election. The deterministic bot declines
 			// (the plain-cast direction, exactly the R-9 no-ask stand-in's

@@ -24,6 +24,27 @@ func (e *Engine) validateCastContributions(d *decision.Decision, in decision.Int
 	if pc == nil || len(in.Choices) == 0 {
 		return nil
 	}
+	if len(d.Options) > 0 && (castAnswerCodes.Code(d.Options[0].Kind) == castAnswerTeamworkDecline || castAnswerCodes.Code(d.Options[0].Kind) == castAnswerTeamwork) {
+		declined := false
+		paid := false
+		for _, choice := range in.Choices {
+			o := d.Options[choice]
+			switch castAnswerCodes.Code(o.Kind) {
+			case castAnswerTeamworkDecline:
+				declined = true
+			case castAnswerTeamwork:
+				paid = true
+				creature := e.G.Obj(o.Obj)
+				if creature == nil || creature.Tapped || creature.Controller != pc.player || !e.matchesSpecFrom("Creature.YouCtrl", o.Obj, pc.player, pc.card) {
+					return fmt.Errorf("teamwork creature is no longer an untapped creature you control")
+				}
+			}
+		}
+		if declined && paid {
+			return fmt.Errorf("cannot decline and pay teamwork together")
+		}
+		return nil
+	}
 	var pays []convokePayment
 	for _, c := range in.Choices {
 		if c < 0 || c >= len(d.Options) {
@@ -366,6 +387,13 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			pc.giftPromise = true
 			pc.giftTo = chosen[0].Player
 		}
+	case castAnswerTeamworkDecline:
+		// A decline is a plain cast: no taps and no paid provenance.
+	case castAnswerTeamwork:
+		for _, o := range chosen {
+			pc.Taps = append(pc.Taps, o.Obj)
+		}
+		pc.teamworkPaid = len(chosen) > 0
 	case castAnswerConspire:
 		// CR 702.78a: the two chosen creatures are the tap the conspired cast
 		// pays. They settle through pc.taps (payCast taps them) and
@@ -498,6 +526,9 @@ const (
 	castAnswerGiftDecline
 	castAnswerGiftPromise
 	castAnswerConspire
+	castAnswerTeamworkDecline
+	castAnswerTeamwork
+	castAnswerTeamworkMode
 	castAnswerExile
 	castAnswerAltaddcost
 	castAnswerEvidence
@@ -524,6 +555,9 @@ var castAnswerCodes = state.NewStrCodes(
 	state.StrEntry[castAnswerCode]{Key: "gift_decline", Val: castAnswerGiftDecline},
 	state.StrEntry[castAnswerCode]{Key: "gift_promise", Val: castAnswerGiftPromise},
 	state.StrEntry[castAnswerCode]{Key: "conspire", Val: castAnswerConspire},
+	state.StrEntry[castAnswerCode]{Key: "teamwork_decline", Val: castAnswerTeamworkDecline},
+	state.StrEntry[castAnswerCode]{Key: "teamwork", Val: castAnswerTeamwork},
+	state.StrEntry[castAnswerCode]{Key: "teamworked", Val: castAnswerTeamworkMode},
 	state.StrEntry[castAnswerCode]{Key: "exile", Val: castAnswerExile},
 	state.StrEntry[castAnswerCode]{Key: "altaddcost", Val: castAnswerAltaddcost},
 	state.StrEntry[castAnswerCode]{Key: "evidence", Val: castAnswerEvidence},

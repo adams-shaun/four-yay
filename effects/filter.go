@@ -265,6 +265,18 @@ var predicates = map[string]predFn{
 	"PromisedGift": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.CastFlags&state.FlagPromisedGift != 0
 	},
+	// Teamwork is Forge's Card.Self+Teamwork (CR 702.194b): the object is a
+	// spell or permanent whose cast paid the K:Teamwork:N optional additional
+	// tap cost. The bit is folded by events.Apply's CastInfo arm from the
+	// pay-time FlagTeamworkPaid and preserved across the stack->battlefield
+	// move, so it reads on the spell during resolution (Timeline Inquiry's
+	// ConditionPresent$ Card.Self+Teamwork on its discard sub-ability) and on
+	// the permanent at its ETB. Absent a paid tap it fails closed to false -- a
+	// card that never carried the keyword, or a copy, matches neither the bare
+	// nor the '!' form's positive half.
+	"Teamwork": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o.CastFlags&state.FlagTeamworkPaid != 0
+	},
 	"surged": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.CastFlags&state.FlagSurged != 0
 	},

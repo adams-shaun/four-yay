@@ -328,8 +328,6 @@ func (w *legalWalk) handWalk() {
 		} else if w.offerCastable(p, id, pay.WithSpellAbilityExtras(f, convokeBase), spellScope(""), false) && targetsAvailable() {
 			w.add("cast", w.castLabel(f), id)
 		}
-		// Self-spell OptionalCost is a separate paid offer; the plain
-		// cast above remains the decline path. Preserve static order.
 		if views := e.optionalCostViews(costStatics.get(), p, id); len(views) > 0 {
 			for i, extra := range views {
 				if w.offerCastable(p, id, pay.WithSpellAbilityExtras(f, convokeBase).Plus(extra), spellScope("optionalcost"), false) && targetsAvailable() {
@@ -485,6 +483,7 @@ func (w *legalWalk) handWalk() {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 				Label: "Cast " + f.Name + " (conspired)", Obj: id, Mode: "conspired"})
 		}
+		teamworkOffer(w, id, f, convokeBase, targetsAvailable())
 		// Casualty is an optional additional sacrifice, not a mana cost.
 		// Price the ordinary spell and require at least one creature whose
 		// derived power meets the printed or layer-granted threshold. The
