@@ -129,6 +129,7 @@ func (e *Engine) checkChapterTriggers(ev events.Event) {
 			Source:     ev.Obj,
 			Controller: o.Controller,
 			Delayed:    true,
+			Chapter:    true,
 			DelayedID:  ^uint32(0),
 			Execute:    name,
 			SA:         sa,
