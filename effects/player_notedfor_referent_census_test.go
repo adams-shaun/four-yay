@@ -126,3 +126,33 @@ func lineHasNotedForControlReferent(line string) bool {
 func isIdentByte(b byte) bool {
 	return b == '_' || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
 }
+
+// TestNotedForControlReferentCensusParserIsNotVacuous proves the census can
+// actually fail: it detects the two corpus spellings, the two spellings the
+// grammar reaches, and rejects near-misses (an empty label, the same operator
+// with an unrelated argument, and a substring operator) so a real carrier
+// cannot slip through and a coincidental token cannot inflate the list.
+func TestNotedForControlReferentCensusParserIsNotVacuous(t *testing.T) {
+	detect := []string{
+		"S:Mode$ Continuous | Affected$ Creature.ControlledBy Player.NotedForWar | Description$x",
+		"SVar:DBBounce:DB$ ChangeZoneAll | ChangeType$ Card.targetedBy+ControlledBy Player.NotedForDiversion | ...",
+		"SVar:DBTimetwister:DB$ ChangeZoneAll | ChangeType$ Card.OwnedBy Player.NotedForStargate | ...,",
+	}
+	for _, line := range detect {
+		if !lineHasNotedForControlReferent(line) {
+			t.Fatalf("census missed a real carrier line: %q", line)
+		}
+	}
+	reject := []string{
+		"S:Mode$ Continuous | Affected$ Creature.ControlledBy Player.EnchantedBy | Description$x", // unrelated ref
+		"S:Mode$ Continuous | Affected$ Creature.ControlledBy Player.NotedFor | Description$x",    // empty label
+		"S:Mode$ Continuous | Affected$ Creature.ControlledBy You.NotedForWar | Description$x",    // wrong base
+		"SVar:X:DB$ ChangeZoneAll | ChangeType$ Card.CoOwnedBy Player.NotedForWar | ...",          // substring operator
+		"S:Mode$ Continuous | Affected$ Creature.OwnedBy Player | Description$x",                  // bare player
+	}
+	for _, line := range reject {
+		if lineHasNotedForControlReferent(line) {
+			t.Fatalf("census admitted a non-carrier line: %q", line)
+		}
+	}
+}
