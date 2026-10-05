@@ -195,6 +195,9 @@ func placeTargetedLibraryObjects(h Host, c *Ctx, cz *ChangeZoneParams, moved []s
 		groups[idx].ids = append(groups[idx].ids, id)
 	}
 	for _, grp := range groups {
+		if position < 0 && cz.RandomOrder && cz.NoShuffle {
+			randomizeLibraryPile(h, grp.ids)
+		}
 		libraryOrderPlacementAt(h, grp.owner, grp.ids, position)
 	}
 }
@@ -230,6 +233,9 @@ func placeLibraryObjects(h Host, c *Ctx, cz *ChangeZoneParams, owner state.Playe
 		return
 	}
 	if position == "0" || position == "-1" {
+		if position[0] == '-' && cz.RandomOrder && cz.NoShuffle {
+			randomizeLibraryPile(h, moved)
+		}
 		libraryOrderPlacement(h, owner, moved, position == "-1")
 		return
 	}
@@ -246,6 +252,13 @@ func placeLibraryObjects(h Host, c *Ctx, cz *ChangeZoneParams, owner state.Playe
 		return
 	}
 	libraryOrderPlacementAt(h, owner, moved, p)
+}
+
+func randomizeLibraryPile(h Host, ids []state.ObjID) {
+	for i := len(ids) - 1; i > 0; i-- {
+		j := h.Rand(i + 1)
+		ids[i], ids[j] = ids[j], ids[i]
+	}
 }
 
 // libraryOrderPlacement is the one LibraryPosition$ placement both

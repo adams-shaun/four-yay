@@ -9,7 +9,7 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-func TestDigMultipleGreenSunSelectionAndBottoming(t *testing.T) {
+func TestDigMultipleGreenSunSelectionAndBottomingCorpusWindow(t *testing.T) {
 	card, ability, vars := corpusRiderSA(t, "Green Sun's Twilight", "")
 	if ability.API != "DigMultiple" || ability.Params["ChangeLater"] != "True" ||
 		ability.Params["RememberChanged"] != "True" || ability.Params["ImprintRest"] != "True" ||

@@ -573,6 +573,29 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 		return true
 	}
 	targets, known := knownDefinedTargets(h, c, cz.Defined)
+	if known && cz.DefinedImprinted && cz.RandomOrder && cz.NoShuffle {
+		// Green Sun's Twilight imprints its deferred rest while those cards
+		// remain in the library. The ordinary CR 607.2a Defined$ Imprinted
+		// reader is exile-gated; this exact RandomOrder$ NoShuffle$ ChangeZone
+		// carrier consumes the source's library-resident rest pile instead.
+		if source := g.Obj(c.Source); source != nil {
+			for _, id := range source.Imprinted {
+				if object := g.Obj(id); object == nil || object.Zone != state.ZLibrary {
+					continue
+				}
+				present := false
+				for _, target := range targets {
+					if !target.IsPlayer && target.Obj == id {
+						present = true
+						break
+					}
+				}
+				if !present {
+					targets = append(targets, state.Target{Obj: id})
+				}
+			}
+		}
+	}
 	if !known {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unrecognised Defined library fetch " + cz.Defined})
@@ -678,7 +701,22 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 		// the library until RestBottom places that window remainder; a default
 		// search shuffle here would also randomize cards below the revealed
 		// window. Keep this exception pinned to that compiled card chain.
-		if !greenSunsTwilightSelectedFetch(h, c, sa, cz, to) {
+		// Require the named RestBottom chain as well as the selected-fetch
+		// shape: an arbitrary remembered fetch with a library imprint still
+		// gets its ordinary shuffle.
+		source := g.Obj(c.Source)
+		preserveDeferredRest := greenSunsTwilightSelectedFetch(h, c, sa, cz, to) &&
+			c.SVars["RestBottom"] != "" && !cz.ShuffleTrue && source != nil && len(source.Imprinted) > 0
+		if preserveDeferredRest {
+			for _, id := range source.Imprinted {
+				object := g.Obj(id)
+				if object == nil || object.Zone != state.ZLibrary || object.Owner != f.owner || containsID(moved, id) {
+					preserveDeferredRest = false
+					break
+				}
+			}
+		}
+		if !preserveDeferredRest {
 			shuffleLibrary(h, cz, f.owner)
 		}
 		placeLibraryObjects(h, c, cz, f.owner, moved, to)
