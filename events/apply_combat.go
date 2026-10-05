@@ -235,7 +235,7 @@ func foldDamageProvenance(g *state.Game, e *Event) {
 	if o := g.Obj(src); o != nil && e.Amount > 0 {
 		provenance, typeWords, hasTypes := strings.Cut(e.Text, DamageProvenanceTypeSeparator)
 		record := state.DamageDealtRecord{
-			Recipient: e.IDs[0], Amount: e.Amount, Combat: provenance == DamageProvenanceCombat,
+			SourceControl: o.Controller, Recipient: e.IDs[0], Amount: e.Amount, Combat: provenance == DamageProvenanceCombat,
 		}
 		if hasTypes {
 			record.RecipientTypes = strings.Split(typeWords, DamageProvenanceTypeWordSeparator)

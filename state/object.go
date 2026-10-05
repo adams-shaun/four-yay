@@ -568,6 +568,9 @@ const (
 
 // DamageDealtRecord is one positive damage assignment recorded for its source.
 type DamageDealtRecord struct {
+	// SourceControl is the controller of the damage source when this hit
+	// landed; a later ControlChange cannot reattribute the damage.
+	SourceControl    PlayerID
 	Recipient        ObjID
 	RecipientZone    Zone
 	RecipientControl PlayerID

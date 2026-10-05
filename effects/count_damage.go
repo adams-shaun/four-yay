@@ -25,11 +25,12 @@ func evalDamageHistory(h Host, c *Ctx, g *state.Game, head, arg string) (int32, 
 	var total int32
 	for i := range g.Objs {
 		source := &g.Objs[i]
-		if source.ID == 0 || !matchesZoneSpecCtx(g, sourceSpec, source.ID, c.SpecContext(c.Controller), source.Zone) {
+		if source.ID == 0 {
 			continue
 		}
 		for _, hit := range source.DamageDealtThisTurn {
-			if code == evalCountBodyCostNonCombatDamageThisTurn && hit.Combat {
+			if !damageSourceMatches(g, sourceSpec, source, hit, c) ||
+				code == evalCountBodyCostNonCombatDamageThisTurn && hit.Combat {
 				continue
 			}
 			if damageRecipientMatches(g, recipientSpec, hit, c) {
@@ -42,6 +43,21 @@ func evalDamageHistory(h Host, c *Ctx, g *state.Game, head, arg string) (int32, 
 		}
 	}
 	return total, true, true
+}
+
+// Match each hit using the controller of its source when it dealt damage.
+// Characteristics not recorded in the ledger retain the live filter semantics.
+func damageSourceMatches(g *state.Game, spec string, source *state.Object, hit state.DamageDealtRecord, c *Ctx) bool {
+	snapshot := *source
+	snapshot.Controller = hit.SourceControl
+	sc := c.SpecContext(c.Controller)
+	if source.Zone == state.ZBattlefield {
+		return matchesObjectPtr(g, spec, &snapshot, &sc)
+	}
+	if source.IsCopy && source.Zone != state.ZStack {
+		return false
+	}
+	return compiledMatchZone(compiledSpecFor(spec), g, &snapshot, &sc, source.Zone)
 }
 
 // MaxCombatDamageThisTurn asks how much combat damage any ONE player took,
