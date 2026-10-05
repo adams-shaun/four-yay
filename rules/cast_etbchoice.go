@@ -153,8 +153,18 @@ func (e *Engine) entryETBChoice(ev events.Event, ordinal int) (etbChoice, bool) 
 		// dropping an exception rider is worse than retaining today's loud
 		// unimplemented-API fallback. A body outside the whitelist is not a
 		// choice at all, so it is skipped before the ordinal is counted.
-		if kind == "copy" && !etbCloneWhitelist(r.With, o.Face().SVars) {
-			continue
+		if kind == "copy" {
+			cp := effects.CloneOf(r.With)
+			// A resolver-dependent copy selector is supportable only when this
+			// entry carries the cast-time total its SVar reads. Without provenance
+			// (blink/reanimation), retain the loud fallback rather than asking a
+			// copy election whose candidate matcher must reject everything.
+			if effects.CloneETBSpendSelector(cp.Choices, o.Face().SVars) && o.CastFlags&state.FlagManaSpent == 0 {
+				continue
+			}
+			if !etbCloneWhitelist(r.With, o.Face().SVars) {
+				continue
+			}
 		}
 		if seen == ordinal {
 			// The fifth filter slot means different things per kind: Choices$

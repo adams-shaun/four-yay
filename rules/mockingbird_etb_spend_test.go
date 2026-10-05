@@ -88,3 +88,31 @@ func TestMockingbirdETBSpendSelector(t *testing.T) {
 		})
 	}
 }
+
+// A non-cast entry has no Count$CastTotalManaSpent value. It must retain the
+// unsupported Clone fallback rather than pose a useless election with no
+// eligible candidates.
+func TestMockingbirdETBWithoutCastSpendDoesNotAsk(t *testing.T) {
+	t.Parallel()
+	e := handEngine(t, corpusAlternativeCard(t, "Mockingbird"))
+	bear := e.G.AddObject(corpusAlternativeCard(t, "Grizzly Bears"), 1)
+	bear.Zone = state.ZBattlefield
+	e.G.SetZone(state.ZBattlefield, 1, []state.ObjID{bear.ID})
+	id := e.G.Zone(state.ZHand, 0)[0]
+	o := e.G.Obj(id)
+	o.Zone = state.ZBattlefield
+	e.G.SetZone(state.ZBattlefield, 0, []state.ObjID{id})
+	if o.CastFlags&state.FlagManaSpent != 0 {
+		t.Fatal("precondition: non-cast entry unexpectedly has cast-spend provenance")
+	}
+	if bear.Zone != state.ZBattlefield || bear.Face().ManaValue() == 0 {
+		t.Fatalf("precondition: candidate is not on battlefield: %+v", bear)
+	}
+	ev := events.Event{Kind: events.MoveZone, Obj: id, From: state.ZHand, To: state.ZBattlefield}
+	if choice, ok := e.entryETBChoice(ev, 0); ok {
+		t.Fatalf("non-cast Mockingbird posed an unevaluable ETB choice: %+v", choice)
+	}
+	if !etbCloneWhitelist(o.Face().Repls[0].With, o.Face().SVars) {
+		t.Fatal("precondition: Mockingbird carrier was not otherwise supported")
+	}
+}
