@@ -650,7 +650,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		}
 		eventForgetChanged(h, c, sa, o.ID)
 		if withKind != "" && counterDestination(to) {
-			h.Emit(events.Event{Kind: events.CounterChange, Obj: o.ID, Counter: withKind, Amount: withAmt})
+			emitChangeZoneCounters(h, o.ID, withKind, withAmt)
 		}
 		// GainControl$ hands the moved object to the named player (Reanimate:
 		// "return target creature card... to the battlefield under your
@@ -1417,7 +1417,7 @@ func settleChangeZoneMoveAs(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, 
 		c.Remembered = append(c.Remembered, state.Target{Obj: id})
 	}
 	if withKind != "" && counterDestination(to) {
-		h.Emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: withKind, Amount: withAmt})
+		emitChangeZoneCounters(h, id, withKind, withAmt)
 	}
 	// GainControl$ hands the moved object to the named player. Only a
 	// battlefield entry can carry a control change (CR 701.22a controls

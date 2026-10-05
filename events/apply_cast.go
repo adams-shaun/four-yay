@@ -74,6 +74,17 @@ func foldCastInfo(g *state.Game, e *Event) {
 		if FlagsFrom(e.Counter)&state.FlagAddsCounters != 0 {
 			o.ManaAddsCounterGrants = ManaAddsCounterGrantsFromText(e.Text)
 		}
+		// The per-colour spend vector (Adamant, CR 702.5) is a
+		// structured-payload fold: the six state.Mana slots ride the
+		// CastInfo's Text payload into Object.ManaColorSpent, alongside the
+		// flag (the ManaAddsCounterGrants pattern). The non-empty Text guard
+		// keeps a later event that merely ACCUMULATED the flag -- the
+		// Compleated capture rides a trailing CastInfo with an empty Text --
+		// from resetting the folded vector to zero. Folded OUTSIDE the
+		// exclusive switch below so the Amount stays for its own consume arm.
+		if FlagsFrom(e.Counter)&state.FlagManaColorSpent != 0 && e.Text != "" {
+			o.ManaColorSpent = ManaColorSpentFromText(e.Text)
+		}
 		switch {
 		// Conspire's Amount is a marker, never data: the bool was folded
 		// above, and the flag rides a LOCAL counter at the emission site
@@ -94,6 +105,9 @@ func foldCastInfo(g *state.Game, e *Event) {
 			// deliberately unused (the Conspired arm's consume shape)
 		case FlagsFrom(e.Counter)&state.FlagAddsCounters != 0:
 			// the rider-source id list was folded above; the Amount is
+			// deliberately unused (the Conspired arm's consume shape)
+		case FlagsFrom(e.Counter)&state.FlagManaColorSpent != 0:
+			// the per-colour spend vector was folded above; the Amount is
 			// deliberately unused (the Conspired arm's consume shape)
 		case FlagsFrom(e.Counter)&state.FlagCompleated != 0:
 			o.CompleatedLifePaid = e.Amount

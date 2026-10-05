@@ -288,6 +288,8 @@ func ApplyPtr(g *state.Game, e *Event) {
 		foldExtraPhase(g, e)
 	case DoorUnlock:
 		foldDoorUnlock(g, e)
+	case DoorLock:
+		foldDoorLock(g, e)
 	case SpeedChange:
 		foldSpeedChange(g, e)
 	case RingTemptsYou:

@@ -1,3 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.graveyard","diff":"gorge+[] xmage+[Grizzly Bears]"},"key":"cast-resolve | resolve | p0.graveyard | gorge+[] xmage+[Grizzly Bears]","cards":2}
-{"card":"Cut In","template":"cast-resolve","status":"diverge","api":"DealDamage+Token","sets":["WOE"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Cut In]\", xmage \"[Cut In, Grizzly Bears]\""}
-{"card":"Epic Fight","template":"cast-resolve","status":"diverge","api":"Charm","sets":["MSH"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Epic Fight]\", xmage \"[Epic Fight, Grizzly Bears]\""}

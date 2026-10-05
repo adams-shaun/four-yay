@@ -703,6 +703,9 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 		// event-backed (Choose "remembered"/"clear-remembered"), so live play
 		// and replay derive it identically either way.
 		if wasBattlefield {
+			// Room door designations belong to this battlefield incarnation.
+			o.Unlocked = false
+			o.LockedDoors = 0
 			o.Imprinted = nil
 			o.ImprintTokens = nil
 			o.SeekFound = nil
@@ -733,6 +736,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			o.ManaCaveSpent = 0
 			o.ManaDesertSpent = 0
 			o.ManaArtifactSpent = 0
+			o.ManaColorSpent = state.Mana{}
 			o.CompleatedLifePaid = 0
 			o.NotedNumber = 0
 			// CR 400.7: the runtime SVar store is the old permanent's, not the
@@ -798,6 +802,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			o.ManaCaveSpent = 0
 			o.ManaDesertSpent = 0
 			o.ManaArtifactSpent = 0
+			o.ManaColorSpent = state.Mana{}
 			o.CompleatedLifePaid = 0
 			o.NotedNumber = 0
 			// CR 702.168: a spell leaving the stack for a non-battlefield zone

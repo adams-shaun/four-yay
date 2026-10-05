@@ -39,6 +39,11 @@ func PoolFor(cost string) (string, string) { return poolFor(cost) }
 // TargetSlots lists the ValidTgts$ filters along the spell ability chain.
 func TargetSlots(f *cards.Face) []string { return targetSlots(f) }
 
+// OpeningHandAnswers declines a K:MayEffectFromOpeningHand ask, so a
+// generated scenario casts the card from hand rather than starting it on the
+// battlefield. Nil when the card has no such keyword.
+func OpeningHandAnswers(f *cards.Face) []Answer { return openingHandAnswers(f) }
+
 // CharmModes lists the spell's charm modes in Choices$ order.
 func CharmModes(f *cards.Face) []CharmMode { return charmModes(f) }
 

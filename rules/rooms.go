@@ -28,14 +28,18 @@ import (
 // roomLockedFace returns the other, still locked face of a room permanent,
 // or nil when the object is not a two-door room or is already unlocked.
 func roomLockedFace(o *state.Object) *cards.Face {
-	if o == nil || o.Unlocked || o.Card == nil || len(o.Card.Faces) != 2 || int(o.FaceIdx) >= len(o.Card.Faces) {
+	if o == nil || o.Card == nil || len(o.Card.Faces) != 2 || int(o.FaceIdx) >= len(o.Card.Faces) {
 		return nil
 	}
-	locked := 1 - int(o.FaceIdx)
-	if !isRoomFace(o.Card.Faces[o.FaceIdx]) || !isRoomFace(o.Card.Faces[locked]) {
+	if !isRoomFace(o.Card.Faces[o.FaceIdx]) || !isRoomFace(o.Card.Faces[1-int(o.FaceIdx)]) {
 		return nil
 	}
-	return o.Card.Faces[locked]
+	for fi, f := range o.Card.Faces {
+		if !o.DoorUnlocked(fi) {
+			return f
+		}
+	}
+	return nil
 }
 
 // roomAlternateCastFace reports the other castable Room half. Both halves
@@ -64,19 +68,21 @@ func isRoom(o *state.Object) bool {
 
 // checkUnlockTriggers queues the newly unlocked face's T:Mode$ UnlockDoor
 // triggers (CR 309.5's "when you unlock this door"). Only the DoorUnlock
-// event's own room is scanned; after Apply, Unlocked is true and the face whose
-// trigger fires is the one other than the face the Room was cast as.
-func (e *Engine) checkUnlockTriggers(ev events.Event) {
+// event's own room is scanned; the pre-fold LKI must designate the selected
+// face as locked and the post-fold state must designate it as unlocked.
+func (e *Engine) checkUnlockTriggers(ev events.Event, lki *state.Object) {
 	o := e.G.Obj(ev.Obj)
-	if o == nil || o.Zone != state.ZBattlefield || !isRoom(o) || !o.Unlocked {
+	if o == nil || o.Zone != state.ZBattlefield || !isRoom(o) || len(o.Card.Faces) != 2 || int(o.FaceIdx) >= len(o.Card.Faces) {
 		return
 	}
-	if o.Card == nil || len(o.Card.Faces) != 2 || int(o.FaceIdx) >= len(o.Card.Faces) {
+	fi := 1 - int(o.FaceIdx)
+	if ev.Amount > 0 {
+		fi = int(ev.Amount - 1)
+	}
+	if fi < 0 || fi >= len(o.Card.Faces) || lki == nil || lki.ID != ev.Obj || lki.DoorUnlocked(fi) || !o.DoorUnlocked(fi) {
 		return
 	}
-	// DoorUnlock has already set Unlocked, so the face whose trigger fires is
-	// the one other than the face the Room was cast as.
-	e.queueUnlockTriggers(o, o.Card.Faces[1-int(o.FaceIdx)])
+	e.queueUnlockTriggers(o, o.Card.Faces[fi])
 }
 
 // checkRoomEntryUnlockTriggers queues the CAST face's T:Mode$ UnlockDoor

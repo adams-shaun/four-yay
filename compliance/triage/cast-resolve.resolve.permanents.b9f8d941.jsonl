@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"$CARD gorge+[3/4] xmage+[4/5]"},"key":"cast-resolve | resolve | permanents | $CARD gorge+[3/4] xmage+[4/5]","cards":1}
+{"card":"Catharsis","template":"cast-resolve","status":"diverge","api":"ChangesZone:Token+ChangesZone:PumpAll","sets":["ECL"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Catharsis [creature elemental incarnation] {WR} 3/4\", xmage \"c0 o0 Catharsis [creature elemental incarnation] {WR} 4/5\""}

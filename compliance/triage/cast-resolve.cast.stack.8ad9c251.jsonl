@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"cast","field":"stack","diff":"gorge=[ability:$CARD@p0, spell:$CARD@p0] xmage=[spell:$CARD@p0]"},"key":"cast-resolve | cast | stack | gorge=[ability:$CARD@p0, spell:$CARD@p0] xmage=[spell:$CARD@p0]","cards":1}
-{"card":"The Kingpin of Crime","template":"cast-resolve","status":"diverge","api":"AttackersDeclared:Effect+SpellCast:Extort","sets":["MSH"],"detail":"step 0 (cast) stack: gorge \"[ability:The Kingpin of Crime@p0, spell:The Kingpin of Crime@p0]\", xmage \"[spell:The Kingpin of Crime@p0]\""}
