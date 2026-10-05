@@ -294,6 +294,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 	sideboards := make([][]*cards.Card, seats)
 	commanders := make([][]int, seats)
 	places := make([][]placement, seats)
+	var setupBattlefield []state.ObjID
 	for key := range sc.Setup {
 		if p, ok := parseSeatRef(key); !ok || int(p) >= seats {
 			return harnessf("setup key %q (want p0 or p1)", key)
@@ -397,6 +398,9 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			if from := e.G.Obj(id).Zone; from != pl.zone {
 				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: from, To: pl.zone})
 			}
+			if pl.zone == state.ZBattlefield {
+				setupBattlefield = append(setupBattlefield, id)
+			}
 			if pl.top {
 				tops = append(tops, id)
 			}
@@ -443,6 +447,12 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		}
 	}
 	e.Advance()
+	// TurnChange cleared the pre-turn placement history. XMage's seeded
+	// battlefield counts as entered on turn 1; log that provenance explicitly
+	// without a second zone move or an artificial enter-the-battlefield trigger.
+	for _, id := range setupBattlefield {
+		e.emit(events.Event{Kind: events.SetupEntered, Obj: id})
+	}
 	r.answers = append([]oracleAnswer(nil), sc.SetupAnswers...)
 	// Drive to seat 0's first main phase. Triggers that setup placements
 	// caused resolve here under the fallback answers; the transcript names
