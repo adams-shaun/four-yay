@@ -81,26 +81,25 @@ type oracleSeat struct {
 }
 
 type oracleStep struct {
-	Op         string         `json:"op"`
-	Seat       int            `json:"seat"`
-	Card       string         `json:"card,omitempty"`
-	Mana       string         `json:"mana,omitempty"`
-	Targets    []string       `json:"targets,omitempty"`
-	Kicked     bool           `json:"kicked,omitempty"`
-	CastMode   string         `json:"cast_mode,omitempty"`
-	Ability    string         `json:"ability,omitempty"`
-	Attackers  []string       `json:"attackers,omitempty"`
-	Defender   string         `json:"defender,omitempty"`
-	Blocks     [][2]string    `json:"blocks,omitempty"`
-	Step       string         `json:"step,omitempty"`
-	Active     string         `json:"active,omitempty"`
-	Decision   string         `json:"decision,omitempty"`
-	To         string         `json:"to,omitempty"`
-	AttachedTo string         `json:"attached_to,omitempty"`
-	Amount     int32          `json:"amount,omitempty"`
-	Answers    []oracleAnswer `json:"answers,omitempty"`
-	Observe    *oracleObserve `json:"observe,omitempty"`
-	Expect     []oracleExpect `json:"expect,omitempty"`
+	Op        string         `json:"op"`
+	Seat      int            `json:"seat"`
+	Card      string         `json:"card,omitempty"`
+	Mana      string         `json:"mana,omitempty"`
+	Targets   []string       `json:"targets,omitempty"`
+	Kicked    bool           `json:"kicked,omitempty"`
+	CastMode  string         `json:"cast_mode,omitempty"`
+	Ability   string         `json:"ability,omitempty"`
+	Attackers []string       `json:"attackers,omitempty"`
+	Defender  string         `json:"defender,omitempty"`
+	Blocks    [][2]string    `json:"blocks,omitempty"`
+	Step      string         `json:"step,omitempty"`
+	Active    string         `json:"active,omitempty"`
+	Decision  string         `json:"decision,omitempty"`
+	To        string         `json:"to,omitempty"`
+	Amount    int32          `json:"amount,omitempty"`
+	Answers   []oracleAnswer `json:"answers,omitempty"`
+	Observe   *oracleObserve `json:"observe,omitempty"`
+	Expect    []oracleExpect `json:"expect,omitempty"`
 }
 
 type oracleObserve struct {
@@ -878,26 +877,6 @@ func (r *oracleRun) priorityFor(seat state.PlayerID, op string) (*decision.Decis
 	return d, nil
 }
 
-func oracleLife(r *oracleRun, seat state.PlayerID, amount int32) error {
-	r.e.emit(events.Event{Kind: events.LifeChange, Player: seat, Amount: amount})
-	r.e.priorityRound()
-	return r.untilPriority("life")
-}
-
-func oracleAttach(r *oracleRun, st oracleStep) error {
-	equipment, err := r.resolve(st.Card)
-	if err != nil {
-		return err
-	}
-	bearer, err := r.resolve(st.AttachedTo)
-	if err != nil {
-		return err
-	}
-	r.e.emit(events.Event{Kind: events.Attach, Obj: equipment, IDs: []state.ObjID{bearer}})
-	r.e.priorityRound()
-	return r.untilPriority("attach")
-}
-
 func (r *oracleRun) do(st oracleStep) error {
 	e := r.e
 	r.targets = append([]string(nil), st.Targets...)
@@ -1210,10 +1189,10 @@ func (r *oracleRun) do(st oracleStep) error {
 		e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: e.G.Obj(id).Zone, To: to})
 		e.priorityRound()
 		return r.untilPriority("move")
-	case oracleOpAttach:
-		return oracleAttach(r, st)
 	case oracleOpLife:
-		return oracleLife(r, seat, st.Amount)
+		e.emit(events.Event{Kind: events.LifeChange, Player: seat, Amount: st.Amount})
+		e.priorityRound()
+		return r.untilPriority("life")
 	}
 	return harnessf("unknown op %q", st.Op)
 }
@@ -1600,7 +1579,6 @@ const (
 	oracleOpPassTo
 	oracleOpMove
 	oracleOpLife
-	oracleOpAttach
 )
 
 var oracleOpCodes = state.NewStrCodes(
@@ -1615,5 +1593,4 @@ var oracleOpCodes = state.NewStrCodes(
 	state.StrEntry[oracleOpCode]{Key: "pass_to", Val: oracleOpPassTo},
 	state.StrEntry[oracleOpCode]{Key: "move", Val: oracleOpMove},
 	state.StrEntry[oracleOpCode]{Key: "life", Val: oracleOpLife},
-	state.StrEntry[oracleOpCode]{Key: "attach", Val: oracleOpAttach},
 )

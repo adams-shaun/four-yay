@@ -92,18 +92,19 @@ func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, dept
 		}
 		return dotBranch(h, c, rest, kicked, depth), true, true
 	}
-	// Teamwork.<paid>.<unpaid> is the paid branch after payment, but during
-	// CR 601.2c it follows the announced intention (CR 702.194b-c): target
-	// eligibility is chosen before the additional cost is paid. A later
-	// declined payment does not retroactively change the announced target set.
-	// The pending cast binding is present only for its own pre-payment target
-	// ask; other reads continue to use Object.TeamworkPaid, including copies.
-	// The branch tokens resolve through dotBranch (a literal, or an SVar name),
-	// and a malformed body with a missing branch fails closed.
+	// Teamwork.<paid>.<unpaid> is <paid> when the optional cost was paid, else
+	// <unpaid> (Forge's Count$Teamwork.<n>.<m> family). The object's
+	// TeamworkPaid field is authoritative after payment and is shared with the
+	// Card.Self+Teamwork predicate. During CR 601.2c, however, targets are
+	// announced before payment: PendingTeamwork supplies the declared intent
+	// (CR 702.194b-c), and a later declined payment does not retroactively
+	// change that target set. Copies use the paid provenance on their object.
+	// Branch tokens resolve through dotBranch (literal or SVar); malformed
+	// bodies fail closed.
 	if rest, ok := strings.CutPrefix(head, "Teamwork."); ok {
 		paid := c.Kicker.PendingTeamwork
 		if o := g.Obj(c.Source); o != nil {
-			paid = paid || o.TeamworkPaid
+			paid = o.TeamworkPaid || c.Kicker.PendingTeamwork
 		}
 		return dotBranch(h, c, rest, paid, depth), true, true
 	}
