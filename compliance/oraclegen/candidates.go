@@ -292,7 +292,7 @@ func seatIndex(seat string) int {
 }
 
 // registryCardType returns the first card (in corpus order) whose front face
-// carries a card type named by a mixed-zone filter alternative.
+// carries a card type not served by the legacy zone fixture list.
 func registryCardType(reg *cards.Registry, cardType string) (string, bool) {
 	if reg == nil {
 		return "", false
@@ -365,19 +365,19 @@ func zoneCandidates(reg *cards.Registry, filter, zone string) []cand {
 			}
 			base := firstFilterBase(alt)
 			if isCardTypeBase(base) && base != "card" && base != "permanent" && base != "any" {
-				preferred := map[string]string{"instant": "Shock", "sorcery": "Duress"}[base]
+				// Prefer the cards already in the legacy zone fixture list;
+				// registry order must not change recorded scenarios for them.
+				preferred := map[string]string{
+					"creature": "Grizzly Bears", "artifact": "Ornithopter",
+					"enchantment": "Glorious Anthem", "land": "Forest",
+					"instant": "Shock", "sorcery": "Duress",
+				}[base]
+				if preferred == "" {
+					preferred, _ = registryCardType(reg, base)
+				}
 				if preferred != "" {
 					for _, seat := range seats {
 						out = append(out, cand{seat: seat, zone: altZone, card: preferred})
-					}
-				}
-				// Keep the established fixture for types already covered by
-				// the fixed list. Consult the registry only for other types.
-				if preferred == "" {
-					if name, ok := registryCardType(reg, base); ok {
-						for _, seat := range seats {
-							out = append(out, cand{seat: seat, zone: altZone, card: name})
-						}
 					}
 				}
 			}

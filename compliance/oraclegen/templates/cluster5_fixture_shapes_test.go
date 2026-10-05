@@ -265,22 +265,20 @@ func TestMixedZoneCandidateUsesARealMatchingCard(t *testing.T) {
 	}
 }
 
-// TestPlainTypeAlternativesKeepRecordedFixture guards non-zone alternatives
-// against being treated as zone-specific alternatives. FRA declares this
-// scenario, so changing its fixture would invalidate its frozen verdict.
+// TestMixedZoneRegistryFallback guards types absent from the historical
+// graveyard fixture list: they still need a registry-selected candidate.
 func TestMixedZoneRegistryFallback(t *testing.T) {
 	reg := loadGenRegistry(t)
-	// Creature has no preferred shortcut in the mixed-zone selector; the
-	// first candidate must come from the registry, not the legacy zone list.
-	slots := []oraclegen.SlotSpec{{Filter: "Creature.inZoneGraveyard+YouCtrl,Instant.inZoneExile+YouCtrl@Graveyard,Exile"}}
+	// No planeswalker is in the legacy zone candidate list.
+	slots := []oraclegen.SlotSpec{{Filter: "Planeswalker.inZoneGraveyard+YouCtrl,Instant.inZoneExile+YouCtrl@Graveyard,Exile"}}
 	fxs := oraclegen.Fixtures(reg, slots)
 	if len(fxs) == 0 || len(fxs[0].Targets()) != 1 {
 		t.Fatalf("mixed-zone fixture absent: %v", fxs)
 	}
 	ref := fxs[0].Targets()[0]
 	name := strings.TrimPrefix(ref, "p0:")
-	if !strings.HasPrefix(ref, "p0:") || !containsName(fxs[0].P0().Graveyard, name) || !faceHasType(t, reg, name, "Creature") {
-		t.Fatalf("first alternative: target %q, graveyard %v; want a real p0 Creature", ref, fxs[0].P0().Graveyard)
+	if !strings.HasPrefix(ref, "p0:") || !containsName(fxs[0].P0().Graveyard, name) || !faceHasType(t, reg, name, "Planeswalker") {
+		t.Fatalf("first alternative: target %q, graveyard %v; want a real p0 Planeswalker", ref, fxs[0].P0().Graveyard)
 	}
 }
 
