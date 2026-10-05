@@ -468,15 +468,17 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
 			}
 		case "mode":
-			if d.Resume == "unless_pay" || d.Resume == "unless_decline" {
+			if (d.Resume == "unless_pay" || d.Resume == "unless_decline") && unlessPolarity(d) == "no" {
 				// An unless-pay (UnlessCost$) is XMage's boolean chooseUse,
 				// not a mode ask; the engine models it as a one-option mode
 				// decision whose label is the decline ("Don't pay"). The
 				// driver routes only the literals "yes"/"no" to setChoice
 				// (boolean), so the raw label reaches setChoice(String) and
 				// never answers the ask (std3: Dispelling Exhale, Spectral
-				// Denial).
-				as = append(as, XAnswer{d.Seat, "choice", unlessPolarity(d)})
+				// Denial). Only the DECLINE is answered this way: a paid unless
+				// cost (Lithobraking, Rottenmouth Viper, Meathook Massacre II)
+				// agrees with XMage only as the ordinary mode pick below.
+				as = append(as, XAnswer{d.Seat, "choice", "no"})
 				break
 			}
 			if pickKind(d, 0) == "discard" || d.Resume == "discard" {
@@ -742,6 +744,13 @@ func perPlayerTargetAnswers(d rules.OracleDecision) []XAnswer {
 	for s := 0; s < n; s++ {
 		if v, ok := seatPick[s]; ok {
 			out = append(out, XAnswer{d.Seat, "target", v})
+		} else if s == d.Seat && d.PerOpponent {
+			// The controller's own seat without a pick: the corpus's
+			// per-player targets are "for each opponent" (Celebrate the
+			// Mountain-king, Omega, Riptide Gearhulk), which XMage never
+			// asks the controller for -- a skip here would be consumed as
+			// the opponent's answer (measured on the std pass).
+			continue
 		} else {
 			out = append(out, XAnswer{d.Seat, "target", "[target_skip]"})
 		}

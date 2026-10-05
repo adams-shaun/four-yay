@@ -109,10 +109,12 @@ func TestXAnswersTerminatorShapes(t *testing.T) {
 			want: []XAnswer{{0, "choice", "no"}},
 		},
 		{
-			// An unless-pay gorge PAID is the boolean yes.
-			name: "unless-pay mode payment: normalises to yes",
+			// An unless-pay gorge PAID stays the mode pick: measured on the
+			// std pass, Lithobraking, Rottenmouth Viper and Meathook Massacre
+			// II agree with XMage only that way; only a decline is "no".
+			name: "unless-pay mode payment: the mode pick",
 			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "mode", GorgeKind: "modes", Resume: "unless_pay", Options: 2, Min: 1, Max: 1, Picks: []string{"Pay {2}"}, PickIdx: []int{0}, PickRefs: []string{"p0:Spectral Denial"}, PickKinds: []string{"mode"}},
-			want: []XAnswer{{0, "choice", "yes"}},
+			want: []XAnswer{{0, "mode", "1"}},
 		},
 		{
 			// One decision's multi-card pick is ONE makeChoose definition: the

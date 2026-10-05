@@ -105,6 +105,9 @@ type OracleDecision struct {
 	// unchanged for them.
 	PerPlayer bool `json:"per_player,omitempty"`
 	SeatCount int  `json:"seat_count,omitempty"`
+	// PerOpponent marks a per-player target ask whose filter admits only
+	// opponents' objects: XMage asks no target for the controller's seat.
+	PerOpponent bool `json:"per_opponent,omitempty"`
 }
 
 const oracleLibraryTopN = 5

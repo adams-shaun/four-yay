@@ -539,6 +539,10 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 			// pose it per player.
 			od.PerPlayer = true
 			od.SeatCount = len(r.e.G.Players)
+			// An opponents-only filter (Celebrate the Mountain-king's
+			// Permanent.nonLand+OppCtrl): XMage poses no ask for the
+			// controller's own seat.
+			od.PerOpponent = strings.Contains(effects.TargetsOf(d.ResumeSA).ValidTgts, "OppCtrl")
 		}
 		if len(d.Options) > 0 {
 			od.First = d.Options[0].Label
