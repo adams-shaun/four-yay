@@ -81,6 +81,9 @@ type OracleDecision struct {
 	Picks    []string `json:"picks"`
 	PickIdx  []int    `json:"pick_idx"`
 	PickRefs []string `json:"pick_refs"`
+	// ObjectPicks records only selected game-object identities, in submission
+	// order. Unlike a snapshot delta, these are the objects the player chose.
+	ObjectPicks []string `json:"object_picks,omitempty"`
 	// PickKinds is the engine option kind of each pick (parallel to Picks),
 	// so the generator can tell a card pick XMage poses as a target from a
 	// labelled pick XMage poses as a makeChoose choice without guessing from

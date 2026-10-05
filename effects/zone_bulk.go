@@ -134,9 +134,13 @@ func effDestroyAll(h Host, c *Ctx, sa *cards.SA) {
 	var victims []state.ObjID
 	sc := c.SpecContext(c.Controller)
 	sc.CombatDamageHits = h.CombatDamageToPlayersThisTurn()
+	scope := targetPlayerKindScope(h, c, sa)
 	for _, p := range g.AliveFrom(0) {
 		ids := append([]state.ObjID(nil), g.Zone(zone, p)...)
 		for _, id := range ids {
+			if zone == state.ZBattlefield && !inSweepScope(g, id, scope) {
+				continue
+			}
 			if zone == state.ZBattlefield && h.HasKeyword(id, "Indestructible") {
 				continue
 			}

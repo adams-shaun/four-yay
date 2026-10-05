@@ -61,8 +61,17 @@ func (fx Fixture) CombatSteps() []Step {
 	return steps
 }
 
+// Prelude lists the steps a fixture must run before the card's cast (create
+// a token, attach an Aura, stamp a this-turn zone change).
+func (fx Fixture) Prelude() []Step { return fx.pre }
+
+// SlotSpec is one target slot: its filter and whether the cast may omit it.
+type SlotSpec = Slot
+
 // Fixtures is the capped cross product of every target slot's candidates.
-func Fixtures(slots []string) []Fixture { return fixtures(slots) }
+// An optional slot with no candidate is omitted rather than sinking the
+// fixture.
+func Fixtures(reg *cards.Registry, slots []SlotSpec) []Fixture { return fixtures(reg, slots) }
 
 // PoolFor turns a Forge mana cost into the exact pool letters that pay it,
 // or says why it cannot.

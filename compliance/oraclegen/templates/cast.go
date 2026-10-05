@@ -38,15 +38,21 @@ func castResolve(reg *cards.Registry, f *cards.Face, name, mana string) (oracleg
 	// A charm is generated mode by mode: the first mode some fixture can
 	// cast, with the mode scripted so both engines take it.
 	type plan struct {
-		slots   []string
+		slots   []oraclegen.Slot
 		answers []oraclegen.Answer
 	}
 	xAns := xAnswers(f)
-	plans := []plan{{slots: oraclegen.TargetSlots(f), answers: xAns}}
+	plans := []plan{{slots: oraclegen.SlotSpecs(f), answers: xAns}}
 	if modes := oraclegen.CharmModes(f); len(modes) > 0 {
 		plans = nil
 		for _, m := range modes {
-			plans = append(plans, plan{slots: oraclegen.ChainSlots(f, m.SVar()), answers: append([]oraclegen.Answer{{Kind: "modes", Pick: []string{m.Label()}}}, xAns...)})
+			if attachesOnReturn(f, m.SVar()) {
+				// XMage asks which creature the returned Aura/Equipment
+				// attaches to, an ask the scenario cannot script yet (One
+				// Last Job's third mode); another mode stands in.
+				continue
+			}
+			plans = append(plans, plan{slots: oraclegen.ChainSlotSpecs(f, m.SVar()), answers: append([]oraclegen.Answer{{Kind: "modes", Pick: []string{m.Label()}}}, xAns...)})
 		}
 	}
 	for _, m := range []string{mana, mana + "C", mana + "CC", mana + "CCC"} {
@@ -56,14 +62,22 @@ func castResolve(reg *cards.Registry, f *cards.Face, name, mana string) (oracleg
 			}
 		}
 	}
-	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: fmt.Sprintf("no fixture gorge can cast (targets %v)", plans[0].slots)}
+	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: fmt.Sprintf("no fixture gorge can cast (targets %v)", filterStrings(plans[0].slots))}
+}
+
+func filterStrings(slots []oraclegen.Slot) []string {
+	out := make([]string, 0, len(slots))
+	for _, s := range slots {
+		out = append(out, s.Filter)
+	}
+	return out
 }
 
 // castWith tries every fixture for one target plan. A slot that targets the
 // stack needs a spell on the stack to point at, so such a plan also casts a
 // precast spell first (CR 117.3c: the caster keeps priority and responds),
 // exactly as the counter template does.
-func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []string, answers []oraclegen.Answer) (oraclegen.Item, bool) {
+func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []oraclegen.Slot, answers []oraclegen.Answer) (oraclegen.Item, bool) {
 	// Extras satisfy casting conditions the target fixture does not: a
 	// threshold graveyard, a creature of your own to sacrifice for a cost.
 	extras := []func(*oraclegen.Fixture){
@@ -101,7 +115,7 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 	}
 	for _, pre := range pres {
 		for _, extra := range extras {
-			for _, fx := range oraclegen.Fixtures(plain) {
+			for _, fx := range oraclegen.Fixtures(reg, plain) {
 				extra(&fx)
 				sc := buildStackScenario(f, name, mana, pre, fx, slots, stackIdx, answers)
 				if n, res, ok := oraclegen.Settle(reg, sc); ok {
@@ -144,7 +158,7 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 // buildStackScenario builds the scenario for one fixture: the precast spell
 // (if any) is cast first, then the card under test with its targets placed in
 // slot order (a stack slot points at the precast spell on the stack).
-func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oraclegen.Fixture, slots []string, stackIdx []int, answers []oraclegen.Answer) oraclegen.Scenario {
+func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oraclegen.Fixture, slots []oraclegen.Slot, stackIdx []int, answers []oraclegen.Answer) oraclegen.Scenario {
 	targets := insertStackTargets(slots, stackIdx, fx.Targets(), pre)
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": *fx.P0(), "p1": *fx.P1()},
@@ -170,15 +184,20 @@ func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oracle
 	if combat := fx.CombatSteps(); len(combat) != 0 {
 		sc.Steps = append(combat, sc.Steps...)
 	}
+	// Prelude steps (a token-maker, an Aura, a this-turn move) run first,
+	// in the main phase, before any combat and the precast spell.
+	if pre := fx.Prelude(); len(pre) > 0 {
+		sc.Steps = append(append([]oraclegen.Step(nil), pre...), sc.Steps...)
+	}
 	oraclegen.Baseline(sc.Setup, f)
 	return sc
 }
 
 // stackSlotIndexes lists the positions in slots that draw from the stack.
-func stackSlotIndexes(slots []string) []int {
+func stackSlotIndexes(slots []oraclegen.Slot) []int {
 	var out []int
 	for i, s := range slots {
-		if oraclegen.SlotIsStack(s) {
+		if oraclegen.SlotIsStack(s.Filter) {
 			out = append(out, i)
 		}
 	}
@@ -186,10 +205,10 @@ func stackSlotIndexes(slots []string) []int {
 }
 
 // nonStackSlots keeps every slot that does not draw from the stack.
-func nonStackSlots(slots []string) []string {
-	var out []string
+func nonStackSlots(slots []oraclegen.Slot) []oraclegen.Slot {
+	var out []oraclegen.Slot
 	for _, s := range slots {
-		if !oraclegen.SlotIsStack(s) {
+		if !oraclegen.SlotIsStack(s.Filter) {
 			out = append(out, s)
 		}
 	}
@@ -198,7 +217,7 @@ func nonStackSlots(slots []string) []string {
 
 // insertStackTargets interleaves plain-slot targets with a stack slot's ref
 // to the precast spell, preserving slot order.
-func insertStackTargets(slots []string, stackIdx []int, plain []string, pre precast) []string {
+func insertStackTargets(slots []oraclegen.Slot, stackIdx []int, plain []string, pre precast) []string {
 	out := make([]string, 0, len(slots))
 	pi := 0
 	for i := range slots {
@@ -224,11 +243,29 @@ func containsInt(xs []int, x int) bool {
 }
 
 // precastFitsSlots reports whether one precast can satisfy every stack slot.
-func precastFitsSlots(slots []string, stackIdx []int, p precast) bool {
+func precastFitsSlots(slots []oraclegen.Slot, stackIdx []int, p precast) bool {
 	for _, i := range stackIdx {
-		if !precastFits(slots[i], p) {
+		if !precastFits(slots[i].Filter, p) {
 			return false
 		}
 	}
 	return true
+}
+
+// attachesOnReturn reports whether a charm mode's ability chain puts a card
+// onto the battlefield attached to a chosen object (an AttachedTo$ param).
+func attachesOnReturn(f *cards.Face, svar string) bool {
+	for name := svar; name != ""; {
+		body := f.SVars[name]
+		if strings.Contains(body, "AttachedTo$") {
+			return true
+		}
+		name = ""
+		for _, part := range strings.Split(body, "|") {
+			if k, v, ok := strings.Cut(strings.TrimSpace(part), "$"); ok && strings.TrimSpace(k) == "SubAbility" {
+				name = strings.TrimSpace(v)
+			}
+		}
+	}
+	return false
 }

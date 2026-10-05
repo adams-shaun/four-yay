@@ -555,7 +555,9 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 			od.PickKinds = append(od.PickKinds, o.Kind)
 			switch {
 			case o.Obj != 0:
-				od.PickRefs = append(od.PickRefs, r.objRef(r.e.G.Obj(o.Obj)))
+				ref := r.objRef(r.e.G.Obj(o.Obj))
+				od.PickRefs = append(od.PickRefs, ref)
+				od.ObjectPicks = append(od.ObjectPicks, ref)
 			case strings.Contains(o.Kind, "player"):
 				od.PickRefs = append(od.PickRefs, fmt.Sprintf("p%d", o.Player))
 			default:

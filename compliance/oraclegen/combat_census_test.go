@@ -227,7 +227,7 @@ func TestCombatFixtureCensusArranges(t *testing.T) {
 					continue
 				}
 				checked = true
-				fxs := fixtures(TargetSlots(f))
+				fxs := fixtures(reg, SlotSpecs(f))
 				arranged := false
 				for _, fx := range fxs {
 					if fx.Attacker() == "" {
