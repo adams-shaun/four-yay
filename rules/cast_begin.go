@@ -399,7 +399,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 				}
 			}
 		} else if m != nil {
-			if c, ok := m.faceCost(f); ok {
+			if c, ok := m.faceCost(f, e.walkFaceFactsOf(f)); ok {
 				cost = c
 			}
 		}
