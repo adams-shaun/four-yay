@@ -90,6 +90,14 @@ func evalCountBodyProvenance(h Host, c *Ctx, body string, depth int) (int32, boo
 // Convoked$/TargetedByTarget$ forms, the fuzz-cov3 heads and the first
 // switch-arm group (YouDescendedThisTurn through SquadPaid).
 func evalCountBodyCost(h Host, c *Ctx, g *state.Game, head, arg string, depth int) (int32, bool, bool) {
+	// The recipient matcher may retain its context for damage-time type
+	// filtering. Keep the caller's Ctx on the stack for every other count
+	// head (in particular the allocation-free Valid zone scan).
+	code := evalCountBodyCostCodes.Code(head)
+	if code == evalCountBodyCostMaxCombatDamageThisTurn || code == evalCountBodyCostNumDamageThisTurn || code == evalCountBodyCostNonCombatDamageThisTurn {
+		damageCtx := *c
+		return evalDamageHistory(h, &damageCtx, g, head, arg)
+	}
 	if head == "TotalDamageReceivedThisTurn" && arg == "" {
 		self := c.TriggerCard
 		if self == 0 {
@@ -383,6 +391,9 @@ const (
 	evalCountBodyCostIsPrime
 	evalCountBodyCostImprintedSize
 	evalCountBodyCostFinishedEndOfTurnsThisTurn
+	evalCountBodyCostMaxCombatDamageThisTurn
+	evalCountBodyCostNumDamageThisTurn
+	evalCountBodyCostNonCombatDamageThisTurn
 )
 
 var evalCountBodyCostCodes = state.NewStrCodes(
@@ -399,4 +410,7 @@ var evalCountBodyCostCodes = state.NewStrCodes(
 	state.StrEntry[evalCountBodyCostCode]{Key: "IsPrime", Val: evalCountBodyCostIsPrime},
 	state.StrEntry[evalCountBodyCostCode]{Key: "ImprintedSize", Val: evalCountBodyCostImprintedSize},
 	state.StrEntry[evalCountBodyCostCode]{Key: "FinishedEndOfTurnsThisTurn", Val: evalCountBodyCostFinishedEndOfTurnsThisTurn},
+	state.StrEntry[evalCountBodyCostCode]{Key: "MaxCombatDamageThisTurn", Val: evalCountBodyCostMaxCombatDamageThisTurn},
+	state.StrEntry[evalCountBodyCostCode]{Key: "NumDamageThisTurn", Val: evalCountBodyCostNumDamageThisTurn},
+	state.StrEntry[evalCountBodyCostCode]{Key: "NonCombatDamageThisTurn", Val: evalCountBodyCostNonCombatDamageThisTurn},
 )

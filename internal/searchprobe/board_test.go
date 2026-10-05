@@ -26,7 +26,7 @@ func TestHistoryDigestMatchesTheJSONBoardEncoding(t *testing.T) {
 		1:   "330a781b80ed97b4141f15a314e571ac53933c9428d6b15ab50943c9cd1f521b",
 		2:   "1ab358dc07e782e1f9ed1d210dd76e3d2d2b4b9269b1491946401737631d8c04",
 		17:  "1403af6d5b8bbc7c3cf52e070c2a810fb537ed2237b60dec5dedae983ea1a19e",
-		122: "0226a5fa47bbf27d006d62011fe676ea2f6f399d0df38cf23a20c552afeb75a9",
+		122: "2f2ebeef32c050c13724f5b1fa91fa051d631edd3db2265d1c8bebe07103d9cf",
 	}
 	if len(f.h.Frames) != 122 {
 		t.Fatalf("bench fixture has %d frames, the goldens were measured on 122", len(f.h.Frames))
