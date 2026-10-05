@@ -164,7 +164,7 @@ func sharesTypeArg(p string) (name, arg string, ok bool) {
 		return "", "", false
 	}
 	switch sharesTypeArgCodes.Code(string(arg)) {
-	case sharesTypeArgRememberedCard:
+	case sharesTypeArgRememberedCard, sharesTypeArgRemembered, sharesTypeArgTriggeredCard, sharesTypeArgTargeted:
 		return name, arg, true
 	case sharesTypeArgImprinted:
 		// Forge special-cases only sharesCardTypeWith Imprinted (Semblance
