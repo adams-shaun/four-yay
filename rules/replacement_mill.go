@@ -4,8 +4,10 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // millScryProposalMatches scopes either held instruction proposal by player
@@ -28,22 +30,52 @@ func millScryProposalMatches(r cards.Repl, ev events.Event, playerMatches func(s
 // The only supported bodies are ReplaceEffect count rewrites of Number; other
 // bodies fail closed and are surfaced with a Note.
 func (e *Engine) continueMillReplacements(ev events.Event, matches []replMatch) (events.Event, bool) {
-	for _, m := range matches {
-		if !e.replacementMatches(*m.repl, m.id, ev) {
-			continue
+	used := make([]bool, len(matches))
+	for {
+		var applicable []int
+		for i, m := range matches {
+			if !used[i] && e.replacementMatches(*m.repl, m.id, ev) {
+				ctx := e.replCtx(m, ev)
+				if m.repl.With != nil && millCountBodySupported(ctx, m.repl.With) {
+					applicable = append(applicable, i)
+				}
+			}
 		}
+		if len(applicable) == 0 {
+			return ev, true
+		}
+		i := applicable[0]
+		if len(applicable) > 1 && int(ev.Player) < len(e.G.Players) && !e.G.Players[ev.Player].Lost {
+			d := millReplacementDecision(e.G, ev, matches, applicable)
+			chosen, _ := effects.AskTape(e, d)
+			if len(chosen) == 1 && chosen[0].Index >= 0 && chosen[0].Index < len(applicable) {
+				i = applicable[chosen[0].Index]
+			}
+		}
+		used[i] = true
+		m := matches[i]
 		ctx := e.replCtx(m, ev)
-		if m.repl.With == nil || !millCountBodySupported(ctx, m.repl.With) {
-			e.emit(events.Event{Kind: events.Note, Obj: m.id, Text: "unimplemented Mill replacement"})
-			continue
-		}
 		before := ev.Amount
 		e.runReplaceWith(ctx, ev.Obj, m.repl.With, &ev)
 		if ev.Amount == before {
 			e.emit(events.Event{Kind: events.Note, Obj: m.id, Text: "unimplemented Mill replacement"})
 		}
 	}
-	return ev, true
+}
+
+func millReplacementDecision(g *state.Game, ev events.Event, matches []replMatch, applicable []int) *decision.Decision {
+	d := &decision.Decision{Player: ev.Player, Kind: decision.KReplacement, Min: 1, Max: 1,
+		Source: ev.Obj, ResumeKind: "mill_replacement",
+		Prompt: "Several replacement effects would modify this mill: choose which applies next."}
+	for _, i := range applicable {
+		m := matches[i]
+		label := "Apply a replacement"
+		if o := g.Obj(m.id); o != nil && o.Face() != nil {
+			label = "Apply " + o.Face().Name + "'s replacement"
+		}
+		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "replacement", Obj: m.id, Label: label})
+	}
+	return d
 }
 
 const millReplaceCountNumberPrefix = "ReplaceCount$Number/"
