@@ -240,14 +240,14 @@ func MustBlockPairRequired(b Board, blocker, attacker state.ObjID) bool {
 	return false
 }
 
-// MustBlockAllAttackers reports whether an applicable api:MustBlock effect
-// explicitly permits this blocker to block multiple attackers. This is not
-// inferred from the number of independent duties: only BlockAllDefined$ grants
-// the CR 509.1a exception.
-func MustBlockAllAttackers(b Board, blocker state.ObjID) bool {
+// MustBlockAllPair reports whether the SAME active BlockAllDefined$ duty
+// names this blocker and attacker. An unrelated ordinary MustBlock duty cannot
+// borrow the multiple-block permission from another effect on the blocker.
+func MustBlockAllPair(b Board, blocker, attacker state.ObjID) bool {
 	for ceI, ces := 0, b.Active(); ceI < len(ces); ceI++ {
 		ce := &ces[ceI]
-		if ce.Restriction == effects.ModeMustBlock && ce.MustBlockAllAttackers && b.RestrictionApplies(ce, blocker) {
+		if ce.Restriction == effects.ModeMustBlock && ce.MustBlockAllAttackers &&
+			ce.MustBlockAttacker == attacker && b.RestrictionApplies(ce, blocker) {
 			return true
 		}
 	}

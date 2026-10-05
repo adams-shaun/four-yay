@@ -872,12 +872,12 @@ func (e *Engine) validateBlockers(d *decision.Decision, in decision.Intent) erro
 	byAttacker := make(map[state.ObjID]int, len(chosen))
 	for _, o := range chosen {
 		blockCounts[o.Obj]++
-		if blockCounts[o.Obj] > 1 {
-			if !o.BlockMustAll || !combat.MustBlockPairRequired(asBoard(e), o.Obj, o.Attacker) {
-				return fmt.Errorf("blocker %d declared against more than one attacker without pair-specific BlockAllDefined permission", o.Obj)
-			}
-		}
 		byAttacker[o.Attacker]++
+	}
+	for _, o := range chosen {
+		if blockCounts[o.Obj] > 1 && (!o.BlockMustAll || !combat.MustBlockAllPair(asBoard(e), o.Obj, o.Attacker)) {
+			return fmt.Errorf("blocker %d declared against more than one attacker without pair-specific BlockAllDefined permission", o.Obj)
+		}
 	}
 	// CR 509.1c: the same whole-team maximum used by the client repair.
 	// Min/Max bounds, group exclusivity and total block costs all constrain
@@ -1088,7 +1088,7 @@ func (e *Engine) askBlockers() {
 				// blocker is. The value is internal only -- a blocker:<id>
 				// prefix plus the object id -- never a display string.
 				mustBlockPair := requiredBlockers[bid] && combat.MustBlockPairRequired(asBoard(e), bid, aid)
-				mustBlockAllPair := mustBlockPair && combat.MustBlockAllAttackers(asBoard(e), bid)
+				mustBlockAllPair := mustBlockPair && combat.MustBlockAllPair(asBoard(e), bid, aid)
 				opt := decision.Option{Index: len(built), Kind: "block",
 					Label: e.G.Obj(bid).Face().Name + " blocks " + e.G.Obj(aid).Face().Name,
 					Obj:   bid, Attacker: aid, Player: defender,
@@ -1152,7 +1152,7 @@ func (e *Engine) askBlockers() {
 		}
 		groupLimits := make(map[string]int)
 		for _, opt := range opts {
-			if !combat.MustBlockAllAttackers(asBoard(e), opt.Obj) || !opt.BlockMust {
+			if !opt.BlockMustAll {
 				continue
 			}
 			group := opt.Group

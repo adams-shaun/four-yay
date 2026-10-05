@@ -132,16 +132,12 @@ func (d *Decision) blockRequiredCore() []int {
 			// ordinary pairs are exclusive per blocker, while BlockAllDefined
 			// permits multiple pairs only up to the explicit group cap.
 			groupN := 0
+			if !d.BlockPairAdmits(chosen, ci) {
+				return
+			}
 			for _, old := range chosen {
-				q := d.Options[old]
-				if q.Obj == o.Obj && (!o.BlockMustAll || !q.BlockMustAll) {
-					return
-				}
-				if o.Group != "" && q.Group == o.Group && (o.BlockMustAll || q.BlockMustAll) {
+				if o.Group != "" && d.Options[old].Group == o.Group {
 					groupN++
-					if !o.BlockMustAll || !q.BlockMustAll {
-						return
-					}
 				}
 			}
 			if o.BlockMustAll && o.Group != "" && groupN >= d.GroupCapFor(o.Group) {
@@ -283,18 +279,43 @@ func (d *Decision) blockRequiredCoreChargeFeasible() []int {
 	return d.blockRequiredCore()
 }
 
+// BlockPairAdmits is the shared incremental KBlockers multi-block rule:
+// only two pairs explicitly marked BlockAllDefined may share a blocker.
+// GroupCapFor remains the separate upper bound on how many such pairs fit.
+func (d *Decision) BlockPairAdmits(chosen []int, ci int) bool {
+	if d.Kind != KBlockers || ci < 0 || ci >= len(d.Options) {
+		return true
+	}
+	o := d.Options[ci]
+	for _, old := range chosen {
+		if old < 0 || old >= len(d.Options) {
+			continue
+		}
+		q := d.Options[old]
+		if q.Obj == o.Obj && (!q.BlockMustAll || !o.BlockMustAll) {
+			return false
+		}
+	}
+	return true
+}
+
 func (d *Decision) blockAnswerLegal(choices []int) bool {
 	if len(choices) > d.maxChoices() || !d.blockCountLegal(choices) {
 		return false
 	}
-	sum := 0
-	groups := make(map[string]bool)
-	for _, ci := range choices {
-		o := d.Options[ci]
-		if o.Group != "" && groups[o.Group] {
+	for i, ci := range choices {
+		if !d.BlockPairAdmits(choices[:i], ci) {
 			return false
 		}
-		groups[o.Group] = true
+	}
+	sum := 0
+	groups := make(map[string]int)
+	for _, ci := range choices {
+		o := d.Options[ci]
+		if o.Group != "" && !d.GroupAdmits(groups, o.Group) {
+			return false
+		}
+		groups[o.Group]++
 		sum += o.Value
 	}
 	return !d.HasBudget() || sum <= d.MaxSum

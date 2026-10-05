@@ -1309,7 +1309,7 @@ func (d *Decision) Validate(in Intent) error {
 			acc = SetPropMerge(d.SetPropMode, acc, add)
 		}
 	}
-	for _, c := range in.Choices {
+	for choicePos, c := range in.Choices {
 		if c < 0 || c >= len(d.Options) {
 			return fmt.Errorf("choice %d out of range (%d options)", c, len(d.Options))
 		}
@@ -1342,8 +1342,11 @@ func (d *Decision) Validate(in Intent) error {
 			}
 			tally[i].count++
 		}
+		if d.Kind == KBlockers && !d.BlockPairAdmits(in.Choices[:choicePos], c) {
+			return fmt.Errorf("blocker %d cannot block multiple attackers outside BlockAllDefined pairs", d.Options[c].Obj)
+		}
 	}
-	// The cumulative-budget rule (Decision.MaxSum): the chosen options'
+	// The cumulative-budget rule: (Decision.MaxSum): the chosen options'
 	// Value fields sum to at most MaxSum. This is a general wire contract --
 	// the field says nothing about cards or mana values, only that the picked
 	// set's total price is capped -- so a client can enforce it without

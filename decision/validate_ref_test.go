@@ -77,7 +77,7 @@ func (d *Decision) validateRef(in Intent) error {
 			acc = SetPropMerge(d.SetPropMode, acc, add)
 		}
 	}
-	for _, c := range in.Choices {
+	for choicePos, c := range in.Choices {
 		if c < 0 || c >= len(d.Options) {
 			return fmt.Errorf("choice %d out of range (%d options)", c, len(d.Options))
 		}
@@ -108,6 +108,9 @@ func (d *Decision) validateRef(in Intent) error {
 				seenGroups[g] = c
 			}
 			groupCount[g]++
+		}
+		if d.Kind == KBlockers && !d.BlockPairAdmits(in.Choices[:choicePos], c) {
+			return fmt.Errorf("blocker %d cannot block multiple attackers outside BlockAllDefined pairs", d.Options[c].Obj)
 		}
 	}
 	// The cumulative-budget rule (Decision.MaxSum): the chosen options'
