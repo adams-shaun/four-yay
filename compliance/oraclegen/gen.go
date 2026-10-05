@@ -650,10 +650,20 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			// gorge offers only the modes with legal targets, so an option
 			// index is not always the mode number; the label is when it names
 			// a charm mode. A label outside the charm map is still a mode ask
-			// for a non-charm modal (a Siege's ChooseModeEffect, a plain
-			// modal), so fall back to the option's 1-based position; the
-			// discard-style picker that shares the kind is routed above.
+			// for a non-charm modal (a plain modal), so fall back to the
+			// option's 1-based position; the discard-style picker that shares
+			// the kind is routed above.
 			for k, i := range d.PickIdx {
+				if m, ok := modeNumberFor(d, k, modes); ok && m == ModeChoiceQueue {
+					// A DB$ GenericChoice | SetChosenMode$ True body (a
+					// Theros-style Siege): XMage reads the pick through its
+					// ChooseModeEffect -> controller.choose(Outcome.Neutral,
+					// Choice, game), the CHOICE queue, showing the option
+					// LABEL ("Abzan", "Khans") -- never a numeric mode. The
+					// label is what gorge's mode decision already carries.
+					as = append(as, XAnswer{d.Seat, "choice", d.Picks[k]})
+					continue
+				}
 				n := i + 1
 				if m, ok := modeNumberFor(d, k, modes); ok {
 					n = m
@@ -868,7 +878,9 @@ func unlessPolarity(d rules.OracleDecision) string {
 // modeNumberFor resolves the k-th pick's 1-based XMage mode number from its
 // label. ok is false when the pick's label names no charm mode -- a
 // non-charm modal or a discard-style picker sharing the "mode" kind; the
-// caller then falls back to the option's own 1-based position.
+// caller then falls back to the option's own 1-based position. A label that
+// names a SetChosenMode$ True GenericChoice returns ModeChoiceQueue, telling
+// the caller to answer on XMage's choice queue instead of the mode queue.
 func modeNumberFor(d rules.OracleDecision, k int, modes map[string]int) (int, bool) {
 	if k < 0 || k >= len(d.Picks) {
 		return 0, false
@@ -950,8 +962,6 @@ func refSeat(ref string) (int, bool) {
 	return n, true
 }
 
-// modeNumbers maps each charm mode's label (as gorge's mode decision
-// shows it) to its 1-based position in its Choices$ list, for every Charm
 // damageSplitAnswers turns a "damage_split" KChoose into one target answer
 // per chosen target, its Value the ref plus "^X=<share>". The engine's split
 // answer is a multiset over option indexes: a target receiving k damage has
@@ -1028,10 +1038,27 @@ func allocationColour(d rules.OracleDecision, k int) (byte, bool) {
 // yesNo recognises a bare two-way boolean choice. The engine's option kind
 // and exact label/ref identity must both agree; composed choices such as
 
-// on the face -- the spell's own and any modal trigger's.
+// ModeChoiceQueue is the sentinel position modeNumbers stores for a mode
+// label that reaches XMage through its CHOICE queue (controller.choose)
+// rather than the numeric mode queue: the Choices$ label of a
+// DB$ GenericChoice | SetChosenMode$ True body (the Theros-style Sieges).
+// XMage's ChooseModeEffect does controller.choose(Outcome.Neutral, Choice,
+// game), which shows the option LABEL; chooseMode/setModeChoice (the numeric
+// queue) is never posed for it. A real charm position is 1-based, so 0 is
+// never a valid mode number and is unambiguous.
+const ModeChoiceQueue = 0
+
+// modeNumbers maps each charm mode's label (as gorge's mode decision
+// shows it) to its 1-based position in its Choices$ list, for every Charm
+// on the face -- the spell's own and any modal trigger's. It ALSO carries
+// every DB$ GenericChoice | SetChosenMode$ True label, mapped to the
+// ModeChoiceQueue sentinel: those picks are the same "mode" decision kind
+// to gorge but a different XMage queue, and no in-band discriminator on the
+// decision separates them (a mid-resolution Charm shares Resume "modes"),
+// so the face shape is the authority.
 func modeNumbers(f *cards.Face) map[string]int {
 	out := map[string]int{}
-	add := func(choices string) {
+	addCharm := func(choices string) {
 		for i, name := range strings.Split(choices, ",") {
 			name = strings.TrimSpace(name)
 			if name == "" {
@@ -1040,15 +1067,30 @@ func modeNumbers(f *cards.Face) map[string]int {
 			out[effects.CharmModeLabel(cards.ResolveSVar(f.SVars, name), name)] = i + 1
 		}
 	}
+	// The SetChosenMode labels first, so a real Charm mode of the same
+	// label (a corpus impossibility) would keep its numeric position below.
+	for _, body := range f.SVars {
+		p := svarParams(body)
+		if p["DB"] != "GenericChoice" || !strings.EqualFold(p["SetChosenMode"], "True") {
+			continue
+		}
+		for _, name := range strings.Split(p["Choices"], ",") {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			out[effects.CharmModeLabel(cards.ResolveSVar(f.SVars, name), name)] = ModeChoiceQueue
+		}
+	}
 	for _, sa := range f.Abilities {
 		if sa.API == "Charm" {
-			add(sa.Params["Choices"])
+			addCharm(sa.Params["Choices"])
 		}
 	}
 	for _, body := range f.SVars {
 		if strings.Contains(body, "Charm") {
 			if c := svarParams(body)["Choices"]; c != "" {
-				add(c)
+				addCharm(c)
 			}
 		}
 	}
