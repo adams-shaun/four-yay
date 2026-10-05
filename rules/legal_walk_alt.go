@@ -274,7 +274,7 @@ func (w *legalWalk) commandZoneWalk() {
 			if !ka.cmdLoop {
 				continue
 			}
-			alt, ok := ka.faceCost(f)
+			alt, ok := ka.faceCost(f, w.e.walkFaceFactsOf(f))
 			if !ok || (!ka.untargeted && !targetsAvailable) ||
 				!w.offerCastable(p, id, alt, spellScope(ka.mode), false) {
 				continue
