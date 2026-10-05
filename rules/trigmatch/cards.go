@@ -418,7 +418,23 @@ func discardedAllMatches(e Board, t cards.Trigger, source state.ObjID, ev events
 // attributed to ChangesZone and Attacks too), so moving this read out of the
 // matcher changes no census attribution.
 func DiscardedAllFirstTime(t cards.Trigger) bool {
-	return strings.EqualFold(t.ParamStr(cards.PKFirstTime), "True")
+	return ParamTrue(t, cards.PKFirstTime)
+}
+
+// ParamTrue reads a Forge boolean trigger parameter ("X$ True") through the
+// one shared spelling. Routing every trigger-bool read through it keeps the
+// EqualsFold census from growing once per new mode; DiscardedAllFirstTime and
+// FirstTimeSaddled both read through it.
+func ParamTrue(t cards.Trigger, k cards.ParamKey) bool {
+	return strings.EqualFold(strings.TrimSpace(t.ParamStr(k)), "True")
+}
+
+// FirstTimeSaddled reports Mode$ BecomesSaddled's FirstTimeSaddled$ True
+// ("for the first time each turn", Stubborn Burrowfiend). It is a pure read
+// of the trigger line; the per-turn latch it gates is the AlterAttribute
+// look-back in the matcher.
+func FirstTimeSaddled(t cards.Trigger) bool {
+	return ParamTrue(t, cards.PKFirstTimeSaddled)
 }
 
 // DiscardCauseAdmits evaluates a ValidCause$ stack spec against the spell or

@@ -222,6 +222,13 @@ func ApplyPtr(g *state.Game, e *Event) {
 		foldEnlist(g, e)
 	case Crew:
 		foldCrew(g, e)
+	case Saddle:
+		// The saddle record (CR 702.171, task triage-478c51d1) is a pure
+		// marker, exactly like Connive: the tap itself is its own Tap event,
+		// and the designation rides the AlterAttribute "Saddled" event whose
+		// fold stamps Object.SaddledTurn. Obj the saddling creature, Player
+		// its controller, IDs[0] the Mount it saddled. One marker per
+		// saddling creature.
 	case Connive:
 		// The connive record (CR 702.59, task connive1) is a pure marker,
 		// exactly like Explore: the connive's own state changes (the draws,
