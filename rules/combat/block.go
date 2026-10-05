@@ -240,6 +240,20 @@ func MustBlockPairRequired(b Board, blocker, attacker state.ObjID) bool {
 	return false
 }
 
+// MustBlockAllAttackers reports whether an applicable api:MustBlock effect
+// explicitly permits this blocker to block multiple attackers. This is not
+// inferred from the number of independent duties: only BlockAllDefined$ grants
+// the CR 509.1a exception.
+func MustBlockAllAttackers(b Board, blocker state.ObjID) bool {
+	for ceI, ces := 0, b.Active(); ceI < len(ces); ceI++ {
+		ce := &ces[ceI]
+		if ce.Restriction == effects.ModeMustBlock && ce.MustBlockAllAttackers && b.RestrictionApplies(ce, blocker) {
+			return true
+		}
+	}
+	return false
+}
+
 // ValidateMinMaxBlockers enforces CR 509.1a's MinMaxBlocker bounds on ONE
 // attacker's declared blocker count n (already non-zero). A Min$ bound admits
 // only 0 or at least min blockers; a Max$ bound admits only at most max; Min$

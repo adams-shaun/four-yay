@@ -215,6 +215,9 @@ type Option struct {
 	// the same maximum with a different blocker or attacker; the quota must
 	// count that alternative too. Server-side only.
 	BlockMust bool `json:"-"`
+	// BlockMustAll makes this particular blocker-attacker pair a separate
+	// required unit for a BlockAllDefined$ effect (not one unit per blocker).
+	BlockMustAll bool `json:"-"`
 	// AttackMust marks a block option whose ATTACKER carries a CR 509.1c
 	// requirement to be blocked if able ("CARDNAME must be blocked if
 	// able."): at least one legal blocker must be declared against that

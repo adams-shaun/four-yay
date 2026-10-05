@@ -108,8 +108,22 @@ func TestMustBlockCorpusBlazeOfGloryAllDefinedAttackers(t *testing.T) {
 	if len(indexes) != 2 {
 		t.Fatalf("precondition: expected two offered required pairs, got %d", len(indexes))
 	}
-	if err := e.validateBlockers(d, decision.Intent{Player: 0, Choices: []int{indexes[0]}}); err != nil {
-		t.Fatalf("validator rejected a declared all-defined pair: %v", err)
+	if d.GroupCapFor(d.Options[indexes[0]].Group) != 2 {
+		t.Fatalf("BlockAllDefined group cap = %d, want 2", d.GroupCapFor(d.Options[indexes[0]].Group))
+	}
+	team := d.BlockRequiredTeam()
+	if len(team) != 2 || team[0] == team[1] {
+		t.Fatalf("decision required team = %v, want both BlockAllDefined pairs", team)
+	}
+	both := decision.Intent{Player: 0, Seq: d.Seq, Choices: indexes}
+	if err := d.Validate(both); err != nil {
+		t.Fatalf("decision rejected blocking both defined attackers: %v", err)
+	}
+	if err := e.validateBlockers(d, both); err != nil {
+		t.Fatalf("validator rejected blocking both defined attackers: %v", err)
+	}
+	if err := e.validateBlockers(d, decision.Intent{Player: 0, Choices: []int{indexes[0]}}); err == nil {
+		t.Fatal("validator accepted declaration omitting one BlockAllDefined duty")
 	}
 	if err := e.validateBlockers(d, decision.Intent{Player: 0}); err == nil {
 		t.Fatal("validator accepted declaration omitting all-defined duties")

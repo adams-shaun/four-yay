@@ -47,6 +47,7 @@ func effMustBlock(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	dur := sa.ParamStr(cards.PKDuration)
+	blockAll := isTrue(sa.ParamStr(cards.PKBlockAllDefined))
 	for _, target := range Defined(h, c, sa) {
 		if target.IsPlayer {
 			continue
@@ -60,6 +61,7 @@ func effMustBlock(h Host, c *Ctx, sa *cards.SA) {
 				Source: c.Source, Controller: c.Controller, UntilEOT: effectUntilEOT(h, c.Source, dur), Duration: dur,
 				Restriction: "MustBlock", RestrictParams: map[string]string{"ValidCreature": "Card.IsRemembered"},
 				Remembered: []state.ObjID{target.Obj}, MustBlockAttacker: attacker,
+				MustBlockAllAttackers: blockAll,
 			})
 		}
 	}

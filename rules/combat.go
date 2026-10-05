@@ -22,10 +22,9 @@
 //     Combat damage remains an automatic step.
 //   - An ordinary blocking creature may block only one attacker (CR 509.1a).
 //     askBlockers still offers every individually legal (blocker, attacker)
-//     pair, while validateBlockers rejects a declaration that chooses two
-//     pairs for the same blocker. The build does not model any keyword or
-//     capability that grants additional blocks; validateBlockers must account
-//     for such a capability if one is added.
+//     pair, while validateBlockers rejects multiple pairs unless an applicable
+//     BlockAllDefined$ MustBlock effect explicitly permits that blocker to
+//     block its defined attacker set.
 package rules
 
 import (
@@ -844,15 +843,16 @@ func (e *Engine) attackRestrictGroup(defender state.PlayerID) (string, int) {
 // validateBlockers is the KBlockers whole-declaration legality guard. The
 // cross-product option list correctly offers each blocker against every
 // attacker it may block, but choosing two of those individually legal options
-// for one ordinary blocker violates CR 509.1a. Decision.Validate only checks
-// the shape of each selected option, so reject the combination here before the
-// intent is recorded or the pending decision is consumed. Multiple blockers
+// for one ordinary blocker violates CR 509.1a. BlockAllDefined$ explicitly
+// grants a multiple-block exception for its required attacker pairs.
+// Decision.Validate only checks the shape of each selected option, so reject
+// other combinations here before the intent is recorded or consumed. Multiple blockers
 // may still choose the same attacker, but CR 702.111b requires either zero or
 // at least two of them when that attacker has Menace. The build has no model
 // for effects that let one creature block additional attackers; this limit
 // must become capability-aware when such effects are implemented.
 func (e *Engine) validateBlockers(d *decision.Decision, in decision.Intent) error {
-	seen := make(map[state.ObjID]bool, len(in.Choices))
+	blockCounts := make(map[state.ObjID]int, len(in.Choices))
 	chosen := d.Chosen(in)
 	// The whole-declaration charge, priced by the same blockPairCharge the
 	// offer list and the payment use, checked against the same
@@ -871,10 +871,12 @@ func (e *Engine) validateBlockers(d *decision.Decision, in decision.Intent) erro
 	}
 	byAttacker := make(map[state.ObjID]int, len(chosen))
 	for _, o := range chosen {
-		if seen[o.Obj] {
-			return fmt.Errorf("blocker %d declared against more than one attacker", o.Obj)
+		blockCounts[o.Obj]++
+		if blockCounts[o.Obj] > 1 {
+			if !combat.MustBlockAllAttackers(asBoard(e), o.Obj) || !o.BlockMust {
+				return fmt.Errorf("blocker %d declared against more than one attacker without BlockAllDefined permission", o.Obj)
+			}
 		}
-		seen[o.Obj] = true
 		byAttacker[o.Attacker]++
 	}
 	// CR 509.1c: the same whole-team maximum used by the client repair.
@@ -1086,10 +1088,11 @@ func (e *Engine) askBlockers() {
 				// blocker is. The value is internal only -- a blocker:<id>
 				// prefix plus the object id -- never a display string.
 				mustBlockPair := requiredBlockers[bid] && combat.MustBlockPairRequired(asBoard(e), bid, aid)
+				mustBlockAllPair := mustBlockPair && combat.MustBlockAllAttackers(asBoard(e), bid)
 				opt := decision.Option{Index: len(built), Kind: "block",
 					Label: e.G.Obj(bid).Face().Name + " blocks " + e.G.Obj(aid).Face().Name,
 					Obj:   bid, Attacker: aid, Player: defender,
-					Group: "blocker:" + strconv.FormatUint(uint64(bid), 10), Required: mustBlockPair, BlockMust: mustBlockPair,
+					Group: "blocker:" + strconv.FormatUint(uint64(bid), 10), Required: mustBlockPair, BlockMust: mustBlockPair, BlockMustAll: mustBlockAllPair,
 					AttackMust: mustBeBlocked[aid]}
 				if b, ok := scope.bounds[aid]; ok {
 					opt.MinBlockers, opt.MaxBlockers = b[0], b[1]
@@ -1147,8 +1150,24 @@ func (e *Engine) askBlockers() {
 				break
 			}
 		}
+		groupLimits := make(map[string]int)
+		for _, opt := range opts {
+			if !combat.MustBlockAllAttackers(asBoard(e), opt.Obj) || !opt.BlockMust {
+				continue
+			}
+			group := opt.Group
+			groupLimits[group]++
+		}
+		for group, limit := range groupLimits {
+			if limit < 2 {
+				delete(groupLimits, group)
+			}
+		}
+		if len(groupLimits) == 0 {
+			groupLimits = nil
+		}
 		d := &decision.Decision{Player: defender, Kind: decision.KBlockers, Min: 0, Max: len(opts),
-			Prompt: "turn " + strconv.Itoa(int(e.G.Turn)) + " — declare blockers", Options: opts, MaxSum: maxSum, PayerLife: payerLife}
+			Prompt: "turn " + strconv.Itoa(int(e.G.Turn)) + " — declare blockers", Options: opts, MaxSum: maxSum, PayerLife: payerLife, GroupLimits: groupLimits}
 		// First find the maximum legal declaration with every candidate
 		// duty flagged. Publish only the required pairs in that team; the
 		// other members remain optional helpers needed to meet a Min$ bound.

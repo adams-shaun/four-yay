@@ -49,32 +49,36 @@ func (d *Decision) blockRequiredCore() []int {
 		blocks[p].required = blocks[p].required || o.BlockMust || o.Required
 		blocks[p].opts = append(blocks[p].opts, i)
 	}
-	// Required creatures first; ordinary blockers need only be considered
-	// as helpers for a required block with a multi-blocker minimum, or as a
-	// satisfier of an attacker requirement.
-	var candidates []blocker
+	// Required creatures first; BlockMustAll options are separate required
+	// blocker-attacker pairs, allowing one explicitly permitted blocker to
+	// satisfy several defined attacker duties. Ordinary MustBlock options
+	// remain one unit per blocker. Other blockers are helpers only for a
+	// multi-blocker minimum or an attacker-oriented requirement.
+	var candidates, helpers []blocker
 	for _, b := range blocks {
-		if b.required {
-			candidates = append(candidates, b)
+		var ordinary blocker
+		ordinary.id = b.id
+		for _, i := range b.opts {
+			o := d.Options[i]
+			if o.BlockMustAll {
+				candidates = append(candidates, blocker{id: b.id, opts: []int{i}, required: true})
+				continue
+			}
+			if o.BlockMust || o.Required {
+				ordinary.required = true
+				ordinary.opts = append(ordinary.opts, i)
+			} else if minAttackers[o.Attacker] || atkReq[o.Attacker] {
+				ordinary.opts = append(ordinary.opts, i)
+			}
+		}
+		if ordinary.required {
+			candidates = append(candidates, ordinary)
+		} else if len(ordinary.opts) != 0 {
+			helpers = append(helpers, ordinary)
 		}
 	}
 	requiredCount := len(candidates)
-	for _, b := range blocks {
-		if b.required {
-			continue
-		}
-		var helper blocker
-		helper.id = b.id
-		for _, i := range b.opts {
-			o := d.Options[i]
-			if minAttackers[o.Attacker] || atkReq[o.Attacker] {
-				helper.opts = append(helper.opts, i)
-			}
-		}
-		if len(helper.opts) != 0 {
-			candidates = append(candidates, helper)
-		}
-	}
+	candidates = append(candidates, helpers...)
 	counts := make(map[state.ObjID]int)
 	satAtk := make(map[state.ObjID]bool)
 	lifeBound := d.PayerLifeBound()
@@ -206,23 +210,26 @@ func (d *Decision) blockRequirementsSatisfied(choices []int) int {
 			continue
 		}
 		o := &d.Options[c]
-		blockUnit, atkUnit := o.BlockMust || o.Required, o.AttackMust
+		blockUnit, allPairUnit, atkUnit := !o.BlockMustAll && (o.BlockMust || o.Required), o.BlockMustAll, o.AttackMust
 		for _, p := range choices[:k] {
-			if !blockUnit && !atkUnit {
+			if !blockUnit && !allPairUnit && !atkUnit {
 				break
 			}
 			if p < 0 || p >= len(d.Options) {
 				continue
 			}
 			q := &d.Options[p]
-			if blockUnit && (q.BlockMust || q.Required) && q.Obj == o.Obj {
+			if blockUnit && !q.BlockMustAll && (q.BlockMust || q.Required) && q.Obj == o.Obj {
 				blockUnit = false
+			}
+			if allPairUnit && q.BlockMustAll && q.Obj == o.Obj && q.Attacker == o.Attacker {
+				allPairUnit = false
 			}
 			if atkUnit && q.AttackMust && q.Attacker == o.Attacker {
 				atkUnit = false
 			}
 		}
-		if blockUnit {
+		if blockUnit || allPairUnit {
 			n++
 		}
 		if atkUnit {
