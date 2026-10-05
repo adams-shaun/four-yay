@@ -401,5 +401,6 @@ var replEventBits = [cards.ReplEventCount]uint32{
 	cards.ReplBeginTurn:   1 << 19,
 	cards.ReplGameLoss:    1 << 20,
 	cards.ReplGameWin:     1 << 21,
-	cards.ReplPayLife:     1 << 22,
+	cards.ReplMill:        1 << 22,
+	cards.ReplPayLife:     1 << 23,
 }

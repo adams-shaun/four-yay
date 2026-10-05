@@ -449,7 +449,12 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 	// ignored-low base with THIS body's own IgnoreLower$, so a replacement's
 	// ReplaceCount$Ignore/Plus.1 is one ADDITIONAL low result; every roll
 	// body seeds its own fresh proposal.
-	amount, ignoreLower = h.RollDiceProposed(c.Controller, c.Source, amount, ignoreLower)
+	proposal := h.CountReplacementProposed(events.Event{Kind: events.RollDice, Player: c.Controller, Obj: c.Source,
+		Amount: amount, Counter: strconv.FormatInt(int64(ignoreLower), 10)})
+	amount = proposal.Amount
+	if n, err := strconv.Atoi(proposal.Counter); err == nil && n >= 0 {
+		ignoreLower = int32(n)
+	}
 	modifier := Num(h, c, sa, "Modifier", 0)
 	chosenName := strings.TrimSpace(sa.ParamStr(cards.PKChosenSVar))
 	otherName := strings.TrimSpace(sa.ParamStr(cards.PKOtherSVar))

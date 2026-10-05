@@ -909,7 +909,7 @@ const (
 	// every earlier Kind, so no earlier ordinal, hash chain or golden replay
 	// is affected.
 	GiveGift
-	// RollDice is the SYNTHETIC roll-action PROPOSAL rules' RollDiceProposed
+	// RollDice is the SYNTHETIC roll-action PROPOSAL effects' count-replacement hook
 	// hook holds out to R:Event$ RollDice replacement matching before any die
 	// of one roll action is rolled (CR 614.4's before-the-action window, task
 	// rolldice-repl; the Scry proposal's discipline). Player is the roller,
@@ -1116,10 +1116,16 @@ const (
 	// Unlike LEVEL counters this cannot be proliferated, removed or counted.
 	// Appended after Saddle, preserving main's existing event ordinals.
 	ClassLevelChange
+	// MillProposal is the synthetic pre-action proposal for a single Mill
+	// instruction. Player is the affected player and Amount is the requested
+	// card count. It is never logged; completed cards still emit ordinary
+	// per-card Mill events. Appended after ClassLevelChange to preserve all
+	// existing event ordinals and replay hashes.
+	MillProposal
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(ClassLevelChange) + 1
+	NumKinds = int(MillProposal) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving
