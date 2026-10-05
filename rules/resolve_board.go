@@ -146,6 +146,9 @@ func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent
 	return false
 }
 
+// modalLandMode is the priority option's back-face selection (legal_walk_hand.go).
+const modalLandMode = "modal_land"
+
 func (b *resolveBoard) MayAsk(d *decision.Decision, in decision.Intent) bool {
 	e := (*Engine)(b)
 	if d.Kind == decision.KChoose && e.choosing == chooseTurnUp {
@@ -156,6 +159,12 @@ func (b *resolveBoard) MayAsk(d *decision.Decision, in decision.Intent) bool {
 	case optActivate, optTurnFaceUp:
 		return true // StartsResolution already proved the rider may ask
 	case optPlayLand:
+		// A modal land flips to its selected face before continueCast checks
+		// ManaConvert. The current face may fail a ValidCard$ filter that the
+		// selected face passes; never exempt that pre-flip payment window.
+		if first.Mode == modalLandMode {
+			return true
+		}
 		// in.Player, not the option's Player field: a play_land option
 		// leaves Player at its zero value, so a seat-1 land play judged a
 		// You-scoped ManaConvert static (North Star) as seat 0's.
