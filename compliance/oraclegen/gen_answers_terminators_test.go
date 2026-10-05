@@ -48,13 +48,14 @@ func TestXAnswersTerminatorShapes(t *testing.T) {
 			want:  []XAnswer{{0, "mode", "1"}},
 		},
 		{
-			// A "mode" decision whose pick label is not one of the face's
-			// modes (the discard picker shares the decision kind) is a
-			// makeChoose choice, never a mode number.
-			name:  "mode label not a mode: choice queue",
-			d:     rules.OracleDecision{Step: 0, Seat: 0, Kind: "mode", GorgeKind: "modes", Options: 2, Min: 1, Max: 1, Picks: []string{"Wastes"}, PickIdx: []int{0}, PickRefs: []string{"p0:Wastes#27"}, PickKinds: []string{"card"}},
+			// A "mode" decision whose pick label names no charm mode is
+			// still a mode ask for a non-charm modal (a Siege's
+			// ChooseModeEffect), so it falls back to the option's own
+			// 1-based position; the discard-style picker is routed above.
+			name:  "mode label not a charm: option index fallback",
+			d:     rules.OracleDecision{Step: 0, Seat: 0, Kind: "mode", GorgeKind: "modes", Options: 2, Min: 1, Max: 1, Picks: []string{"Abzan"}, PickIdx: []int{0}, PickRefs: []string{"p0:Barrensteppe Siege"}, PickKinds: []string{"mode"}},
 			modes: map[string]int{"A": 1},
-			want:  []XAnswer{{0, "choice", "Wastes"}},
+			want:  []XAnswer{{0, "mode", "1"}},
 		},
 		{
 			// Fewer picks than an "up to N" target ask allows: stop XMage.
@@ -90,10 +91,28 @@ func TestXAnswersTerminatorShapes(t *testing.T) {
 		},
 		{
 			// A min-0 single option is a real decline XMage still asks
-			// (MKM Break Out, TLA Destined Confrontation).
+			// (MKM Break Out, TLA Destined Confrontation). A zero-pick ask
+			// scripts both a boolean no and an up-to target skip.
 			name: "min-0 single option: decline scripted",
 			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 1, Min: 0, Max: 1, Picks: nil, PickKinds: nil},
 			want: []XAnswer{{0, "choice", "no"}, {0, "target", "[target_skip]"}},
+		},
+		{
+			// The shape that actually occurs for an unless-pay: the engine
+			// models UnlessCost$ as a one-option mode decision whose label
+			// is the decline ("Don't pay"). XMage's ask is a boolean
+			// chooseUse, so it normalises to "no"; the raw label reaches
+			// setChoice(String) and never satisfies the dialog (std3:
+			// Dispelling Exhale, Spectral Denial).
+			name: "unless-pay mode decline: normalises to no",
+			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "mode", GorgeKind: "modes", Resume: "unless_pay", Options: 1, Min: 1, Max: 1, Picks: []string{"Don't pay"}, PickIdx: []int{0}, PickRefs: []string{"p0:Dispelling Exhale"}, PickKinds: []string{"mode"}},
+			want: []XAnswer{{0, "choice", "no"}},
+		},
+		{
+			// An unless-pay gorge PAID is the boolean yes.
+			name: "unless-pay mode payment: normalises to yes",
+			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "mode", GorgeKind: "modes", Resume: "unless_pay", Options: 2, Min: 1, Max: 1, Picks: []string{"Pay {2}"}, PickIdx: []int{0}, PickRefs: []string{"p0:Spectral Denial"}, PickKinds: []string{"mode"}},
+			want: []XAnswer{{0, "choice", "yes"}},
 		},
 		{
 			// One decision's multi-card pick is ONE makeChoose definition: the
@@ -193,7 +212,7 @@ var mechanismFamilies = map[string]int{
 	"Offspring":         21,
 	"OptionalCost":      40,
 	"Spree":             21,
-	"MinCharmNum":       121,
+	"MinCharmNum":       153,
 	"TargetMinZeroUpTo": 405,
 }
 
@@ -260,9 +279,23 @@ func faceHasMinCharmNum(f *cards.Face) bool {
 		if strings.TrimSpace(sa.Params["MinCharmNum"]) != "" {
 			return true
 		}
+		for s := sa.Sub; s != nil; s = s.Sub {
+			if strings.TrimSpace(s.Params["MinCharmNum"]) != "" {
+				return true
+			}
+		}
 	}
 	for i := range f.Statics {
 		if strings.TrimSpace(f.Statics[i].Params["MinCharmNum"]) != "" {
+			return true
+		}
+	}
+	// A modal SVar body carries the keyword too ("DB$ Charm | MinCharmNum$
+	// 2"); modeNumbers reads those bodies, so the census must count them
+	// or a new SVar-body carrier slips past the ratchet (measured: 121 vs
+	// 153 corpus files).
+	for _, body := range f.SVars {
+		if strings.TrimSpace(svarParams(body)["MinCharmNum"]) != "" {
 			return true
 		}
 	}

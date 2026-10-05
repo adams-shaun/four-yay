@@ -468,6 +468,17 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
 			}
 		case "mode":
+			if d.Resume == "unless_pay" || d.Resume == "unless_decline" {
+				// An unless-pay (UnlessCost$) is XMage's boolean chooseUse,
+				// not a mode ask; the engine models it as a one-option mode
+				// decision whose label is the decline ("Don't pay"). The
+				// driver routes only the literals "yes"/"no" to setChoice
+				// (boolean), so the raw label reaches setChoice(String) and
+				// never answers the ask (std3: Dispelling Exhale, Spectral
+				// Denial).
+				as = append(as, XAnswer{d.Seat, "choice", unlessPolarity(d)})
+				break
+			}
 			if pickKind(d, 0) == "discard" || d.Resume == "discard" {
 				// Gorge's discard card picker is KModes; XMage uses
 				// TargetDiscard.choose -> makeChoose (not chooseMode).
@@ -480,23 +491,17 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 				break
 			}
 			// gorge offers only the modes with legal targets, so an option
-			// index is not the mode number; the label is. A pick whose label
-			// is not one of the face's modes (a decision sharing the "mode"
-			// kind for a discard-style picker) is a makeChoose choice, never
-			// a mode number.
-			for k := range d.PickIdx {
+			// index is not always the mode number; the label is when it names
+			// a charm mode. A label outside the charm map is still a mode ask
+			// for a non-charm modal (a Siege's ChooseModeEffect, a plain
+			// modal), so fall back to the option's 1-based position; the
+			// discard-style picker that shares the kind is routed above.
+			for k, i := range d.PickIdx {
+				n := i + 1
 				if m, ok := modeNumberFor(d, k, modes); ok {
-					as = append(as, XAnswer{d.Seat, "mode", fmt.Sprint(m)})
-					continue
+					n = m
 				}
-				label := ""
-				if k < len(d.Picks) {
-					label = d.Picks[k]
-				}
-				if label == "" && k < len(d.PickRefs) {
-					label = oraclediffRefName(d.PickRefs[k])
-				}
-				as = append(as, XAnswer{d.Seat, "choice", label})
+				as = append(as, XAnswer{d.Seat, "mode", fmt.Sprint(n)})
 			}
 			if d.Max > len(d.Picks) {
 				// XMage keeps choosing modes up to Max; stop it with the mode
@@ -663,10 +668,31 @@ func forcedSingleOption(d rules.OracleDecision) bool {
 	return d.Options == 1 && d.Min == 1 && d.Max == 1
 }
 
+// unlessPolarity is the yes/no answer to an unless-pay boolean ask: the
+// picked option's label says whether the cost was paid. A decline wording
+// ("Don't pay", "Decline") is "no"; a payment wording is "yes".
+func unlessPolarity(d rules.OracleDecision) string {
+	if len(d.Picks) == 0 {
+		return "no"
+	}
+	l := strings.ToLower(strings.TrimSpace(d.Picks[0]))
+	for _, neg := range []string{"don't", "do not", "decline", "no", "refuse"} {
+		if strings.HasPrefix(l, neg) {
+			return "no"
+		}
+	}
+	for _, aff := range []string{"yes", "pay", "accept"} {
+		if strings.HasPrefix(l, aff) {
+			return "yes"
+		}
+	}
+	return "no"
+}
+
 // modeNumberFor resolves the k-th pick's 1-based XMage mode number from its
-// label. ok is false when the pick's label is not one of the face's modes --
-// a decision sharing the "mode" kind for a discard-style picker, which XMage
-// answers on the choice queue, not the mode queue.
+// label. ok is false when the pick's label names no charm mode -- a
+// non-charm modal or a discard-style picker sharing the "mode" kind; the
+// caller then falls back to the option's own 1-based position.
 func modeNumberFor(d rules.OracleDecision, k int, modes map[string]int) (int, bool) {
 	if k < 0 || k >= len(d.Picks) {
 		return 0, false
