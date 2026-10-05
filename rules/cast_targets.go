@@ -876,13 +876,15 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 // The spell's SVar table, rather than a card-name list or a broad change to
 // ChangeZone target inference, identifies this announcement shape.
 func teamworkBattlefieldSub(f *cards.Face, root, sub *cards.SA) bool {
-	if f == nil || root == nil || sub == nil || sub.API != "ChangeZone" || !f.HasKeyword("Teamwork") {
+	if f == nil || root == nil || sub == nil || sub.CompiledAPI() != cards.APIChangeZone || !f.HasKeyword("Teamwork") {
 		return false
 	}
 	r := effects.TargetsOf(root)
 	s := effects.TargetsOf(sub)
-	if r.Min.Text == "" || r.Min.Text != r.Max.Text || s.Min.Text == "" || s.Min.Text != s.Max.Text ||
-		f.SVars[r.Min.Text] != "Count$Teamwork.0.1" || f.SVars[s.Min.Text] != "Count$Teamwork.1.0" ||
+	baseRest, baseTeamwork := strings.CutPrefix(f.SVars[r.Min.Text], "Count$Teamwork.0.1")
+	extraRest, extraTeamwork := strings.CutPrefix(f.SVars[s.Min.Text], "Count$Teamwork.1.0")
+	if len(r.Min.Text) == 0 || r.Min.Text != r.Max.Text || len(s.Min.Text) == 0 || s.Min.Text != s.Max.Text ||
+		!baseTeamwork || len(baseRest) != 0 || !extraTeamwork || len(extraRest) != 0 ||
 		s.ZoneText != "" || s.Has(effects.TgtTypeStack) || s.Has(effects.TgtValidPlayers) {
 		return false
 	}

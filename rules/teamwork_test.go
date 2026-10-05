@@ -29,7 +29,35 @@ func finishTeamworkAnnouncement(t *testing.T, e *Engine) {
 			return
 		}
 		if len(d.Options) > 0 && (d.Kind == decision.KTarget || d.Kind == decision.KModes || d.Kind == decision.KChoose) {
-			submitChoices(t, e, d.Options[0].Index)
+			choices := []int{d.Options[0].Index}
+			if d.Kind == decision.KModes {
+				if len(d.Options) < d.Min {
+					t.Fatalf("precondition: not enough legal modes for cast: %+v", d)
+				}
+				for _, opt := range d.Options[1:d.Min] {
+					choices = append(choices, opt.Index)
+				}
+			}
+			if d.Kind == decision.KTarget && d.ResumeKind == "charm_targets" {
+				for _, opt := range d.Options[1:] {
+					if len(choices) >= d.Min {
+						break
+					}
+					seen := false
+					for _, chosen := range choices {
+						if d.Options[chosen].Group == opt.Group {
+							seen = true
+						}
+					}
+					if !seen {
+						choices = append(choices, opt.Index)
+					}
+				}
+			}
+			if len(choices) < d.Min {
+				t.Fatalf("precondition: not enough distinct Charm target groups: %+v", d)
+			}
+			submitChoices(t, e, choices...)
 			continue
 		}
 		return
