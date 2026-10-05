@@ -52,6 +52,8 @@ func endureDrive(t *testing.T, e *Engine, branch int) *decision.Decision {
 func TestEndureEngineCounterBranch(t *testing.T) {
 	t.Parallel()
 	e, cfg, find := etbConfig(t, 201, []string{endureCritterSrc}, nil)
+	cfg.Tokens = fixtureTokenMap(cfg.Tokens)
+	e.G.Tokens = cfg.Tokens
 	e.G.Tokens["w_x_x_spirit"] = card(t, endureSpiritTokSrc)
 	id := find("Endure Test Critter", 0)
 	addMana(t, e, 0, "G")
@@ -80,6 +82,8 @@ func TestEndureEngineCounterBranch(t *testing.T) {
 func TestEndureEngineSpiritBranch(t *testing.T) {
 	t.Parallel()
 	e, cfg, find := etbConfig(t, 202, []string{endureCritterSrc}, nil)
+	cfg.Tokens = fixtureTokenMap(cfg.Tokens)
+	e.G.Tokens = cfg.Tokens
 	e.G.Tokens["w_x_x_spirit"] = card(t, endureSpiritTokSrc)
 	id := find("Endure Test Critter", 0)
 	addMana(t, e, 0, "G")
