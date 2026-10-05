@@ -55,6 +55,11 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private static final PhaseStep MAIN = PhaseStep.PRECOMBAT_MAIN;
 
     private final List<JsonObject> snaps = new ArrayList<>();
+    // The step a cast/resolve/checkpoint is registered at. MAIN until an
+    // attack or block op moves the scenario into combat; gorge plays the
+    // cast in the declare-attackers (attacking-only) or declare-blockers
+    // (blocking) step, so the driver must too.
+    private PhaseStep phase = MAIN;
 
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
@@ -119,6 +124,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             xmageName = str(sc, "xmage_name");
             cast.clear();
             refAlias.clear();
+            phase = MAIN;
             build(sc);
             runCode("setup", TURN, MAIN, playerA, (info, p, g) -> {
                 registerAliases(g);
@@ -135,7 +141,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 }
                 step(st, op);
                 String cp = "step " + i + " (" + op + ")";
-                runCode(cp, TURN, MAIN, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
+                runCode(cp, TURN, phase, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
             }
             setStopAt(TURN, PhaseStep.END_TURN);
             execute();
@@ -345,13 +351,53 @@ public class ScenarioReplay extends CardTestPlayerBase {
         switch (op) {
             case "mana": {
                 String mana = str(st, "mana");
-                runCode("mana " + mana, TURN, MAIN, p, (info, pl, g) -> addPool(pl, g, mana));
+                runCode("mana " + mana, TURN, phase, p, (info, pl, g) -> addPool(pl, g, mana));
+                return;
+            }
+            case "attack": {
+                // gorge's attack op declares the listed creatures attacking
+                // the defender. XMage's attack() queues a selectAttackers
+                // command at DECLARE_ATTACKERS; the scenario's later cast and
+                // checkpoint happen in that same step.
+                for (String a : names(st, "attackers")) {
+                    attack(TURN, p, combatName(a), seat(seatOf(str(st, "defender"))));
+                }
+                phase = PhaseStep.DECLARE_ATTACKERS;
+                return;
+            }
+            case "pass_to": {
+                // Only the phase matters here; the scenario has already run
+                // the ops that reach it. gorge's generated scenarios never
+                // emit pass_to (a pre-block declare-blockers checkpoint is
+                // not observable in XMage, whose engine selects blockers in
+                // beginStep before any priority), so this is for completeness.
+                String stepName = str(st, "step");
+                String decision = str(st, "decision");
+                if (decision.equals("blockers") || stepName.equals("declare-blockers")) {
+                    phase = PhaseStep.DECLARE_BLOCKERS;
+                } else if (stepName.equals("declare-attackers")) {
+                    phase = PhaseStep.DECLARE_ATTACKERS;
+                } else if (stepName.equals("main2")) {
+                    phase = PhaseStep.POSTCOMBAT_MAIN;
+                } else if (stepName.equals("main1") || stepName.isEmpty()) {
+                    phase = MAIN;
+                }
+                return;
+            }
+            case "block": {
+                // gorge's blocks are [blocker, attacker] pairs. XMage's
+                // block() queues a declareBlockers command at DECLARE_BLOCKERS.
+                for (JsonElement e : st.getAsJsonArray("blocks")) {
+                    JsonArray pair = e.getAsJsonArray();
+                    block(TURN, p, combatName(pair.get(0).getAsString()), combatName(pair.get(1).getAsString()));
+                }
+                phase = PhaseStep.DECLARE_BLOCKERS;
                 return;
             }
             case "cast": {
                 if (st.has("mana")) {
                     String mana = str(st, "mana");
-                    runCode("mana " + mana, TURN, MAIN, p, (info, pl, g) -> addPool(pl, g, mana));
+                    runCode("mana " + mana, TURN, phase, p, (info, pl, g) -> addPool(pl, g, mana));
                 }
                 if (st.has("kicked") || st.has("cast_mode")) {
                     throw new IllegalArgumentException("kicked/cast_mode unsupported");
@@ -362,20 +408,20 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 String card = xmageSpelling(refName(str(st, "card")));
                 List<String> tg = targets(st);
                 if (tg.size() == 1 && isSeatRef(tg.get(0))) {
-                    castSpell(TURN, MAIN, p, card, seat(seatOf(tg.get(0))));
+                    castSpell(TURN, phase, p, card, seat(seatOf(tg.get(0))));
                 } else if (tg.isEmpty()) {
-                    castSpell(TURN, MAIN, p, card);
+                    castSpell(TURN, phase, p, card);
                     cast.add(card);
                     return;
                 } else if (tg.size() == 1 && cast.contains(tg.get(0))) {
                     // Targeting a spell cast by an earlier step: wait for it
                     // on the stack.
-                    castSpell(TURN, MAIN, p, card, tg.get(0), tg.get(0));
+                    castSpell(TURN, phase, p, card, tg.get(0), tg.get(0));
                 } else if (tg.size() == 1) {
                     // A single target goes through XMage's own string form, so
                     // a divided-damage target (TargetAmount) still lets XMage
                     // pick the split as it always did.
-                    castSpell(TURN, MAIN, p, card, targetName(tg.get(0)));
+                    castSpell(TURN, phase, p, card, targetName(tg.get(0)));
                 } else {
                     // Two or more targets: queue each through addTarget and
                     // cast with no $target, so an "up to N" slot stays open
@@ -391,17 +437,17 @@ public class ScenarioReplay extends CardTestPlayerBase {
                         }
                     }
                     addTarget(p, TestPlayer.TARGET_SKIP);
-                    castSpell(TURN, MAIN, p, card);
+                    castSpell(TURN, phase, p, card);
                 }
                 cast.add(card);
                 return;
             }
             case "play":
-                playLand(TURN, MAIN, p, xmageSpelling(refName(str(st, "card"))));
+                playLand(TURN, phase, p, xmageSpelling(refName(str(st, "card"))));
                 return;
             case "resolve":
                 // gorge's resolve op passes priority until the stack is empty.
-                waitStackResolved(TURN, MAIN, p);
+                waitStackResolved(TURN, phase, p);
                 return;
             default:
                 throw new IllegalArgumentException("op " + op + " unsupported");
@@ -493,6 +539,22 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     private static int seatOf(String s) {
         return Integer.parseInt(s.substring(1));
+    }
+
+    /** The name form XMage's attack/block command takes. Unlike a cast
+     * target, the command does not accept the driver's "@" aliases, so it
+     * must be the card name, with the legacy zero-based "<name>:<index>"
+     * suffix for a duplicate ("p0:Grizzly Bears#2" -> "Grizzly Bears:1"). */
+    private static String combatName(String ref) {
+        String n = refName(ref);
+        int hash = ref.lastIndexOf('#');
+        if (hash >= 0 && ref.substring(hash + 1).matches("[0-9]+")) {
+            int k = Integer.parseInt(ref.substring(hash + 1)) - 1;
+            if (k > 0) {
+                return n + ":" + k;
+            }
+        }
+        return n;
     }
 
     /** "p1:token:Name#2" -> "Name". */

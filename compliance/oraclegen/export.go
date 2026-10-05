@@ -29,6 +29,16 @@ func (fx *Fixture) P0() *Seat        { return &fx.p0 }
 func (fx *Fixture) P1() *Seat        { return &fx.p1 }
 func (fx Fixture) Targets() []string { return fx.targets }
 
+// Attacker is the p0 creature the fixture must declare attacking so a target
+// filter naming an attacking or blocking creature has a legal target. Empty
+// means no attack step is needed.
+func (fx Fixture) Attacker() string { return fx.combat.attacker }
+
+// Blocker is the p1 creature that blocks the fixture's attacker, so a
+// "blocking creature" target filter has a legal target. Empty means p1
+// declares no blocks (only the attacker step is needed).
+func (fx Fixture) Blocker() string { return fx.combat.blocker }
+
 // Fixtures is the capped cross product of every target slot's candidates.
 func Fixtures(slots []string) []Fixture { return fixtures(slots) }
 

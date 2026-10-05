@@ -792,6 +792,32 @@ func (r *oracleRun) answer(d *decision.Decision, why string) error {
 	return r.submit(d, choices, why+" fallback")
 }
 
+// blockersDecision answers non-blockers decisions until the declare-blockers
+// decision (KBlockers) is pending, then returns it. The generated blocking
+// scenario declares the block directly after the attack, because XMage's
+// driver cannot snapshot the pre-block declare-blockers state (its engine
+// selects blockers in DeclareBlockersStep.beginStep before any player gets
+// priority), so the generator emits no pass_to checkpoint there and the block
+// op must advance from the post-attack priority itself. A scenario that
+// already stopped at KBlockers (a hand-written one following a pass_to) finds
+// it pending on the first pass. A free function, not a method: oracleRun holds
+// a *Engine, so a method would grow engineSurface.
+func blockersDecision(r *oracleRun) (*decision.Decision, error) {
+	for i := 0; i < 200; i++ {
+		d := r.e.Pending()
+		if d == nil || r.e.G.Over {
+			return nil, harnessf("block: game stopped before the blockers decision")
+		}
+		if d.Kind == decision.KBlockers {
+			return d, nil
+		}
+		if err := r.answer(d, "to-block"); err != nil {
+			return nil, err
+		}
+	}
+	return nil, harnessf("block: no blockers decision pending")
+}
+
 // untilPriority answers non-priority decisions until a priority decision
 // (or the end of the game) is pending.
 func (r *oracleRun) untilPriority(why string) error {
@@ -1069,9 +1095,9 @@ func (r *oracleRun) do(st oracleStep) error {
 			}
 		}
 	case oracleOpBlock:
-		d := e.Pending()
-		if d == nil || d.Kind != decision.KBlockers {
-			return harnessf("block: no blockers decision pending")
+		d, err := blockersDecision(r)
+		if err != nil {
+			return err
 		}
 		used := map[int]bool{}
 		var choices []int

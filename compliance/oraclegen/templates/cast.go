@@ -106,13 +106,6 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 // slot order (a stack slot points at the precast spell on the stack).
 func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oraclegen.Fixture, slots []string, stackIdx []int, answers []oraclegen.Answer) oraclegen.Scenario {
 	targets := insertStackTargets(slots, stackIdx, fx.Targets(), pre)
-	for _, slot := range slots {
-		// A ".tapped" target slot (Push // Pull) needs its fixture tapped.
-		if strings.Contains(strings.ToLower(slot), ".tapped") {
-			fx.P1().Tapped = append(fx.P1().Tapped, fx.P1().Battlefield...)
-			break
-		}
-	}
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": *fx.P0(), "p1": *fx.P1()},
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),
@@ -123,6 +116,24 @@ func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oracle
 		sc.Setup["p0"] = oraclegen.WithHand(sc.Setup["p0"], pre.card)
 		cast := oraclegen.Step{Op: "cast", Seat: 0, Card: "p0:" + pre.card, Mana: pre.mana, Targets: pre.targets}
 		sc.Steps = append([]oraclegen.Step{cast}, sc.Steps...)
+	}
+	// A target filter naming an attacking or blocking creature needs combat
+	// arranged before the cast: p0 declares the attacker and, for a
+	// "blocking" filter, p1 declares the block. The cast then happens in
+	// the declare-blockers step, where an instant is legal.
+	//
+	// The block follows the attack directly (the block op advances to the
+	// blockers decision itself). A pass_to step is deliberately NOT emitted:
+	// it would snapshot gorge's pre-block declare-blockers state, and XMage
+	// selects blockers in DeclareBlockersStep.beginStep before any player
+	// gets priority, so its driver has no equivalent checkpoint to report.
+	if attacker := fx.Attacker(); attacker != "" {
+		combat := []oraclegen.Step{{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{attacker}}}
+		if blocker := fx.Blocker(); blocker != "" {
+			combat = append(combat,
+				oraclegen.Step{Op: "block", Seat: 1, Blocks: [][2]string{{blocker, attacker}}})
+		}
+		sc.Steps = append(combat, sc.Steps...)
 	}
 	oraclegen.Baseline(sc.Setup, f)
 	return sc
