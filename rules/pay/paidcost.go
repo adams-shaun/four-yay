@@ -193,11 +193,13 @@ func EmitChoiceCosts(e Engine, paid *PaidCost, player state.PlayerID, card state
 			at += n
 		}
 	}
-	// One payment's tap cost parts (tapXType<N/Spec>, Crew, Convoke already
-	// recorded by the caller) tap their elected permanents as ONE action, so
-	// the aggregate Mode$ TapAll trigger fires once for the whole cost, not
-	// once per tapped permanent (task cli-20261005T075020Z-05241a06). The
-	// bracket is the shared action bracket.
+	// One payment's tap cost parts (paid.Taps: the tapXType<N/Spec> parts,
+	// including a Crew ability's tapped crewers) tap their elected permanents
+	// as ONE action, so the aggregate Mode$ TapAll trigger fires once for the
+	// whole cost, not once per tapped permanent (task
+	// cli-20261005T075020Z-05241a06). The bracket is the shared action
+	// bracket. (Convoke/Harmonize/Improvise taps are emitted by the cast
+	// path, not here.)
 	e.Batch(BatchTap, true)
 	for _, id := range paid.Taps {
 		e.Emit(events.Event{Kind: events.Tap, Obj: id, Text: "tapped as a cost"})

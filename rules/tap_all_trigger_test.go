@@ -39,6 +39,13 @@ const tapAllRockSrc = "Name:Fixture Rock\nTypes:Artifact\nOracle:x\n"
 // it alone can never fire the trigger.
 const tapAllBearSrc = "Name:Fixture Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 
+// tapAllTotemSrc is an authored artifact whose activated ability pays a
+// tapXType<2/Creature> cost: paying it taps two creatures as ONE cost action,
+// the "one cost that taps several permanents" boundary the aggregate TapAll
+// batch must treat as one action.
+const tapAllTotemSrc = "Name:Fixture Totem\nTypes:Artifact\nOracle:x\n" +
+	"A:AB$ GainLife | Cost$ tapXType<2/Creature> | LifeAmount$ 1 | SpellDescription$ Gain 1 life.\n"
+
 // tapAllEngine builds a two-seat game with seat 0 holding want (a real corpus
 // trigger card, placed by the caller) over a Mountain deck, seat 1 on a
 // Mountain deck, and the corpus token scripts available (Deeproot mints a
@@ -285,6 +292,71 @@ func TestTapAllDeeprootValidCardsFilterRejectsNonMerfolk(t *testing.T) {
 	}
 	if n := tapPendingFor(e, deeprootID); n != 0 {
 		t.Fatalf("tapping a non-Merfolk Bear queued %d Deeproot triggers, want 0 (ValidCards$ Merfolk must reject it)", n)
+	}
+}
+
+// TestTapAllMultiTapCostFiresOnce pins the "one cost that taps several
+// permanents" boundary: paying a tapXType<2/Creature> cost taps two
+// permanents as ONE action, so Deeproot creates ONE token, not two.
+func TestTapAllMultiTapCostFiresOnce(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	deeproot := mustCorpusCard(t, reg, "Deeproot Pilgrimage")
+	e, _ := tapAllEngine(t, 8805, deeproot)
+
+	deeprootID := onBoardCard(t, e, 0, deeproot)
+	if o := e.G.Obj(deeprootID); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("Deeproot Pilgrimage id %d zone = %v, want battlefield (vacuous setup)", deeprootID, o)
+	}
+	totem := onBoardCard(t, e, 0, card(t, tapAllTotemSrc))
+	m1 := onBoardCard(t, e, 0, card(t, tapAllMerfolkSrc))
+	m2 := onBoardCard(t, e, 0, card(t, tapAllMerfolkSrc))
+	if m1 == m2 {
+		t.Fatalf("the two Merfolk ids are equal (%d): a batch claim would be vacuous", m1)
+	}
+	// A third creature makes the tapXType<2/Creature> election a real ask
+	// (exactly-two candidates would be forced): pick the two Merfolk so the
+	// one-action claim is about a chosen pair.
+	onBoardCard(t, e, 0, card(t, tapAllBearSrc))
+	if got := countTokensNamedOnSeat(t, e, 0, "Merfolk Token"); got != 0 {
+		t.Fatalf("seat 0 already holds %d Merfolk tokens (vacuous setup)", got)
+	}
+
+	// Activate the Totem's tapXType ability, then answer the tap election
+	// with both Merfolk.
+	addMana(t, e, 0, "")
+	opt := abilityOption(t, e, totem, 0)
+	submitChoices(t, e, opt.Index)
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KChoose {
+		t.Fatalf("tapXType cost ask = %+v, want a KChoose tap election", d)
+	}
+	var picks []int
+	for _, want := range []state.ObjID{m1, m2} {
+		found := -1
+		for _, o := range d.Options {
+			if o.Obj == want {
+				found = o.Index
+			}
+		}
+		if found < 0 {
+			t.Fatalf("tap election did not offer Merfolk %d: %+v", want, d.Options)
+		}
+		picks = append(picks, found)
+	}
+	submitChoices(t, e, picks...)
+
+	if !e.G.Obj(m1).Tapped || !e.G.Obj(m2).Tapped {
+		t.Fatalf("the tap cost did not tap both Merfolk (m1=%v m2=%v)", e.G.Obj(m1).Tapped, e.G.Obj(m2).Tapped)
+	}
+	// The activation's payment flow may already have put the trigger on the
+	// stack, so count the pushes, not the pending queue.
+	drainMillTrigger(t, e, 40)
+	if n := triggerPushesFor(e, deeprootID); n != 1 {
+		t.Fatalf("a two-permanent tap cost pushed %d Deeproot triggers, want exactly 1 (one cost action)", n)
+	}
+	if got := countTokensNamedOnSeat(t, e, 0, "Merfolk Token"); got != 1 {
+		t.Fatalf("after the tap cost seat 0 holds %d Merfolk tokens, want 1 (one action, one trigger)", got)
 	}
 }
 

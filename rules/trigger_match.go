@@ -2694,7 +2694,7 @@ func init() {
 		"trig:AttackersDeclared", "trig:AttackerBlocked", "trig:AttackerBlockedByCreature", "trig:AttackerUnblocked", "trig:AttackerUnblockedOnce", "trig:Blocks", "trig:Cycled", "trig:CounterAdded", "trig:CounterAddedOnce", "trig:CounterRemoved", "trig:CounterRemovedOnce", "trig:CounterPlayerAddedAll",
 		"trig:Sacrificed", "trig:Discarded", "trig:CommitCrime", "trig:Taps", "trig:TapsForMana", "trig:Untaps",
 		// Aggregate tap trigger modes (task cli-20261005T075020Z-05241a06),
-		// matched by trigmatch.tapsMatches/untapsMatches off the ordinary
+		// matched by trigmatch.tapAllMatches/untapAllMatches off the ordinary
 		// Tap/Untap events, batched once per tapping/untapping action.
 		"trig:TapAll", "trig:UntapAll",
 		"trig:ClassLevelGained", "trig:BecomeMonstrous",
