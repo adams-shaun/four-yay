@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 
@@ -73,12 +74,11 @@ func repeatedCards(h Host, c *Ctx, rp *RepeatEachParams) ([]state.Target, bool) 
 // caller emits its loud "RepeatEach selector unimplemented" Note rather than
 // silently finding no types.
 func repeatEachTypesFrom(h Host, c *Ctx, spec string) ([]string, bool) {
-	types := cards.CardTypeNames()
+	types := repeatEachCardTypes()
 	zoneName, selector, ok := splitTypesFromSelector(spec)
 	if !ok {
 		return nil, false
 	}
-	var out []string
 	seen := map[string]bool{}
 	players := h.Game().AliveFrom(c.Controller)
 	for _, p := range players {
@@ -95,14 +95,32 @@ func repeatEachTypesFrom(h Host, c *Ctx, spec string) ([]string, bool) {
 						break
 					}
 				}
-				if hasType && !seen[typ] {
+				if hasType {
 					seen[typ] = true
-					out = append(out, typ)
 				}
 			}
 		}
 	}
+	var out []string
+	for _, typ := range types {
+		if seen[typ] {
+			out = append(out, typ)
+		}
+	}
 	return out, true
+}
+
+// repeatEachCardTypes returns the CR 205.1 registry in deterministic order.
+// Kindred is the current name for Tribal and is accepted alongside the legacy
+// spelling. Sorting the registry keys avoids a second, drifting type list.
+func repeatEachCardTypes() []string {
+	types := make([]string, 0, len(cardTypeWords)+1)
+	for typ := range cardTypeWords {
+		types = append(types, typ)
+	}
+	types = append(types, "Kindred")
+	sort.Strings(types)
+	return types
 }
 
 // splitTypesFromSelector splits RepeatTypesFrom$'s leading Valid<Zone> token
