@@ -580,6 +580,13 @@ func (e *Engine) setStep(s state.Step) {
 		return
 	}
 	e.finishStepBoundary(leaving, s, 0)
+	if e.pending != nil && len(e.replChoices) > 0 {
+		// The caller returns instead of running the new step's turn-based
+		// action. The last boundary choice resumes it after mana cleanup.
+		if b := e.replChoices[len(e.replChoices)-1].manaBoundary; b != nil {
+			b.finishEntry = true
+		}
+	}
 }
 
 func (e *Engine) finishStepBoundary(leaving, entering state.Step, start ...int) {
