@@ -420,9 +420,9 @@ func compileActivation(sa *cards.SA) *ActivationParams {
 	}
 	c.FirstCombat = strings.TrimSpace(sa.ParamStr(cards.PKConditionFirstCombat))
 	c.ActivationLimit = strings.TrimSpace(sa.ParamStr(cards.PKConditionActivationLimit))
-	p2, p2OK := sa.Params["ConditionPresent2"]
+	p2, p2OK := sa.Param(cards.PKConditionPresent2)
 	c.Present2 = paramText(p2, p2OK)
-	c.Compare2 = CompareOf(sa.Params["ConditionCompare2"])
+	c.Compare2 = CompareOf(sa.ParamStr(cards.PKConditionCompare2))
 	c.Zone = conditionZoneParam(sa)
 
 	p.UnlessCost = sa.ParamStr(cards.PKUnlessCost)
