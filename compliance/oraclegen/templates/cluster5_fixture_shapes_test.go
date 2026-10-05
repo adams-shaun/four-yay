@@ -41,8 +41,11 @@ func castStep(t *testing.T, it oraclegen.Item, name string) oraclegen.Step {
 	return oraclegen.Step{}
 }
 
-// TestOptionalTargetSlots keeps the optional Equipment target when a supported
-// attached Equipment fixture is available, without changing its optionality.
+// TestOptionalTargetSlots: Fiery Annihilation's Equipment slot is TargetMin$0,
+// so its fixture must cast with exactly the one mandatory creature target and
+// omit the optional slot (no Equipment, no second target). Without the
+// optional-slot handling the empty Equipment candidate list sinks the whole
+// fixture and Generate returns a skip.
 func TestOptionalTargetSlots(t *testing.T) {
 	reg := loadGenRegistry(t)
 	f := faceOf(t, reg, "Fiery Annihilation")
@@ -63,10 +66,10 @@ func TestOptionalTargetSlots(t *testing.T) {
 	}
 	st := castStep(t, it, "Fiery Annihilation")
 	if len(st.Targets) != 1 {
-		t.Fatalf("Fiery Annihilation cast targets = %v, want its mandatory creature target", st.Targets)
+		t.Fatalf("Fiery Annihilation cast targets = %v, want exactly the mandatory creature", st.Targets)
 	}
 	if !strings.Contains(st.Targets[0], "Grizzly Bears") {
-		t.Errorf("Fiery Annihilation first target = %q, want a creature", st.Targets[0])
+		t.Errorf("Fiery Annihilation target = %q, want a creature", st.Targets[0])
 	}
 }
 
