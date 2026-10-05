@@ -446,6 +446,10 @@ func ParseCost(s string) Cost {
 				continue
 			}
 			t := splitTok(sym)
+			if matchChooseCardCost(t) {
+				c.RevealOrChoose = append(c.RevealOrChoose, CostPart{N: 1, Spec: CloseEncounterChooseSpec, ChooseCard: true})
+				continue
+			}
 			if m, ok := matchWaterbendCost(t); ok {
 				// Waterbend<N> / Waterbend<X> (the keyword action "waterbend
 				// {N}": pay {N}; while paying it, each untapped artifact or
