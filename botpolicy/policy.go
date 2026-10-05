@@ -642,9 +642,12 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 		// "replacement" options by the same standing-worth proxy the
 		// trigger-order arm uses (cardWorth), descending, with the offered
 		// index as the deterministic tie-break. A "skip_replacement" opt-out
-		// is bypassed while at least one real replacement is offered. Every
-		// other KReplacement shape (a colour-valued "mana" pick, an optional
-		// "apply"/"decline") keeps the ordinary fallback below.
+		// is bypassed while at least one real replacement is offered. The
+		// Obstinate Familiar hint is handled below; other non-order shapes keep
+		// the ordinary deterministic fallback.
+		if pick := b.chooseObstinateFamiliarDraw(d); pick >= 0 {
+			in.Choices = []int{pick}
+		}
 		if pick := b.chooseReplacementOrder(d); pick >= 0 {
 			in.Choices = []int{pick}
 		}
