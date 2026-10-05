@@ -86,7 +86,7 @@ func choiceZones(sa *cards.SA) map[state.Zone]bool {
 func definedCardPool(g *state.Game, c *Ctx, raw string) ([]state.Target, string) {
 	root, qualifier, _ := strings.Cut(strings.TrimSpace(raw), ".")
 	switch definedCardPoolCodes.Code(string(root)) {
-	case definedCardPoolTargeted:
+	case definedCardPoolTargeted, definedCardPoolTargetedCard:
 		return objectsOf(c.Targets), qualifier
 	case definedCardPoolParentTargeted:
 		return objectsOf(parentLinkTargets(c)), qualifier
@@ -1976,6 +1976,7 @@ type definedCardPoolCode uint16
 
 const (
 	definedCardPoolTargeted definedCardPoolCode = iota + 1
+	definedCardPoolTargetedCard
 	definedCardPoolParentTargeted
 	definedCardPoolRemembered
 	definedCardPoolTriggeredCards
@@ -1985,7 +1986,7 @@ const (
 
 var definedCardPoolCodes = state.NewStrCodes(
 	state.StrEntry[definedCardPoolCode]{Key: "Targeted", Val: definedCardPoolTargeted},
-	state.StrEntry[definedCardPoolCode]{Key: "TargetedCard", Val: definedCardPoolTargeted},
+	state.StrEntry[definedCardPoolCode]{Key: "TargetedCard", Val: definedCardPoolTargetedCard},
 	state.StrEntry[definedCardPoolCode]{Key: "ParentTargeted", Val: definedCardPoolParentTargeted},
 	state.StrEntry[definedCardPoolCode]{Key: "Remembered", Val: definedCardPoolRemembered},
 	state.StrEntry[definedCardPoolCode]{Key: "RememberedLKI", Val: definedCardPoolRemembered},

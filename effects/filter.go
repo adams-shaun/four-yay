@@ -2217,6 +2217,10 @@ func matchesBase(g *state.Game, base string, o *state.Object, sc SpecContext) bo
 	if neg := strings.TrimPrefix(base, "non"); neg != base {
 		return !matchesBase(g, neg, o, sc)
 	}
+	if isTargetedCardBase(base) {
+		id, bound := targetedCardSelfReferent(sc)
+		return bound && o.ID == id
+	}
 	switch matchesBaseCodes.Code(string(base)) {
 	case matchesBaseAny:
 		return hasTypeCtx(o, "Creature", sc) || hasTypeCtx(o, "Planeswalker", sc) || hasTypeCtx(o, "Battle", sc)
@@ -2700,7 +2704,7 @@ func matchesObjectText(g *state.Game, spec string, o *state.Object, sc SpecConte
 		}
 		all := true
 		for p := range strings.SplitSeq(rest, "+") {
-			if p == "" {
+			if p == "" || (isTargetedCardBase(base) && compilePredicateTermCodes.Code(p) == compilePredicateTermSelf) {
 				continue
 			}
 			// Permanent is an auxiliary part of Forge's
@@ -2831,7 +2835,7 @@ func matchesZoneSpecText(g *state.Game, spec string, o *state.Object, sc SpecCon
 		}
 		all := true
 		for p := range strings.SplitSeq(rest, "+") {
-			if p == "" {
+			if p == "" || (isTargetedCardBase(base) && compilePredicateTermCodes.Code(p) == compilePredicateTermSelf) {
 				continue
 			}
 			res, ok := matchPredicate(g, p, o, sc)
@@ -2850,6 +2854,9 @@ func matchesZoneSpecText(g *state.Game, spec string, o *state.Object, sc SpecCon
 func matchesBaseInZone(g *state.Game, base string, o *state.Object, sc SpecContext, zone state.Zone) bool {
 	if neg := strings.TrimPrefix(base, "non"); neg != base {
 		return !matchesBaseInZone(g, neg, o, sc, zone)
+	}
+	if isTargetedCardBase(base) {
+		return matchesBase(g, base, o, sc)
 	}
 	if base != "Permanent" || zone == state.ZBattlefield {
 		return matchesBase(g, base, o, sc)
