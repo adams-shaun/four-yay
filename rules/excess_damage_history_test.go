@@ -93,6 +93,22 @@ func TestExcessDamageHistory(t *testing.T) {
 	}
 }
 
+func TestExcessDamageCombatPath(t *testing.T) {
+	e := layerEngine(t)
+	attacker := excessTestPermanent(t, e, "Name:Attacker\nTypes:Creature Beast\nPT:5/5\nOracle:x\n", 0)
+	blocker := excessTestPermanent(t, e, "Name:Blocker\nTypes:Creature Beast\nPT:4/4\nOracle:x\n", 1)
+	if e.G.Obj(attacker).Zone != state.ZBattlefield || e.G.Obj(blocker).Zone != state.ZBattlefield || e.Toughness(blocker) != 4 {
+		t.Fatalf("precondition combat permanents: attacker=%v blocker=%v toughness=%d", e.G.Obj(attacker).Zone, e.G.Obj(blocker).Zone, e.Toughness(blocker))
+	}
+	e.G.Active = 0
+	e.emit(events.Event{Kind: events.DeclareAttackers, Player: 0, IDs: []state.ObjID{attacker}})
+	e.emit(events.Event{Kind: events.DeclareBlockers, Pairs: [][2]state.ObjID{{attacker, blocker}}})
+	e.dealCombatDamage()
+	if got := e.G.Obj(blocker).Damage; got != 5 || !e.G.Obj(blocker).WasDealtExcessDamageThisTurn {
+		t.Fatalf("combat assignment marked damage=%d excess=%v; want 5 and true", got, e.G.Obj(blocker).WasDealtExcessDamageThisTurn)
+	}
+}
+
 func TestRithExcessDamageToken(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	rith := mustCorpusCard(t, reg, "Rith, Liberated Primeval")
