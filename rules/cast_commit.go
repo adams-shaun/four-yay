@@ -59,6 +59,9 @@ func (e *Engine) payCast() {
 	if pc == nil {
 		return
 	}
+	if pc.mode == "land" && rejectLandPlay(func(p state.PlayerID, z state.Zone, id state.ObjID) bool { return playLandForbidden(e, p, z, id) }, &e.cast, pc, e.emit) {
+		return
+	}
 	if pc.mode == "land" {
 		// A land's as-enters choice is now asked by the MoveZone replacement
 		// boundary, not during this proposal. Keep LandPlayed behind that
@@ -67,14 +70,11 @@ func (e *Engine) payCast() {
 		e.etbLandPlay, e.etbLandObj, e.etbLandPlayer = true, pc.card, pc.player
 		card := pc.card
 		// CR 305.1/110.2: the player who plays a land puts it onto the
-		// battlefield, under their control. A land another seat controls in
-		// its current zone (Tinybones's stashed opponent card, Gonti's or
-		// Opposition Agent's exiled card, an opponent's library top played
-		// through a may-play grant) comes under the player's control BEFORE
-		// the move, so it enters on that player's battlefield and their own
-		// landfall/enters triggers see it -- the land-play twin of the cast
-		// path's CR 601.2a ControlChange (cast_targets.go). An ordinary land
-		// play's card already answers to the player, so no event rides it.
+		// battlefield under their control, even when a MayPlay grant lets them
+		// play another seat's card. Control changes before the move so their
+		// landfall/enters triggers see the right controller (the land-play twin
+		// of cast_targets.go's CR 601.2a ControlChange); ordinary plays need no
+		// event because the card already answers to that player.
 		if o := e.G.Obj(card); o != nil && o.Controller != pc.player {
 			e.emit(events.Event{Kind: events.ControlChange, Obj: card, Player: pc.player})
 		}

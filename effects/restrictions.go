@@ -545,6 +545,17 @@ func CantGainLifeParamsReadable(params map[string]string) bool {
 	return true
 }
 
+// CantPlayLandParamsReadable limits the registered restriction to the player,
+// land-filter and origin fields enforced by rules.playLandForbidden.
+func CantPlayLandParamsReadable(params map[string]string) bool {
+	for k := range params {
+		if _, ok := cantPlayLandParamsReadableKeys[k]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
 // UnspentManaParamsReadable is the parameter whitelist an UnspentMana static
 // must pass before this build enforces it -- used BOTH by the face-static
 // reader (rules/statics.go's unspentManaKeep activeStatics walk) and by
@@ -1089,6 +1100,11 @@ var cantExileRestrictionParamsReadableKeys = state.NewNameSet("Mode", "ValidCard
 var cantPutCounterParamsReadableKeys = state.NewNameSet("Mode", "ValidCard", "ValidObject", "ValidPlayer", "CounterType", "AffectedZone", "Duration", "Description", "Secondary")
 
 var cantGainLifeParamsReadableKeys = state.NewNameSet("Mode", "ValidPlayer", "Description", "Secondary")
+
+var cantPlayLandParamsReadableKeys = map[string]struct{}{
+	"Mode": {}, "Player": {}, "ValidPlayer": {}, "ValidCard": {},
+	"ValidCards": {}, "Origin": {}, "Description": {}, "Secondary": {},
+}
 
 var unspentManaParamsReadableKeys = state.NewNameSet("Mode", "ValidPlayer", "ManaType", "Description", "Secondary")
 

@@ -526,7 +526,7 @@ func (e *Engine) assignmentStaticSpecCtx(sv staticView) effects.SpecContext {
 func init() {
 	effects.RegisterNonAPI("stat:CantBeCast", "stat:CantBeActivated", "stat:CantBeCopied", "stat:RaiseCost", "stat:CastWithFlash",
 		"stat:ReduceCost", "stat:AlternativeCost", "stat:OptionalCost", "stat:CantBlock", "stat:CantBlockBy",
-		"stat:CantGainLife", "stat:Continuous", "stat:ManaConvert", "stat:NumLoyaltyAct",
+		"stat:CantGainLife", "stat:CantPlayLand", "stat:Continuous", "stat:ManaConvert", "stat:NumLoyaltyAct",
 		// cantdraw1 / cantdraw-drawlimit-cap: CR 121.6 CantDraw statics
 		// (rules/replacement.go drawForbidden, consulted by applyReplacements
 		// before any Draw replacement). ValidPlayer$ scopes total prohibitions
