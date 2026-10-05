@@ -1329,7 +1329,8 @@ func (e *Engine) triggeredCostPaymentAsk() {
 		}
 		// fall through: the unpayable-cost decline-only ask below
 	}
-	if len(tc.amount.TapPermanent) > 0 && !costCarriesDynTap(tc.amount) {
+	if len(tc.amount.TapPermanent) > 0 && !costCarriesDynTap(tc.amount) &&
+		(tc.tapIdx > 0 || e.triggeredCostPayable(tc)) {
 		parts := tc.amount.TapPermanent
 		if tc.tapIdx < len(parts) {
 			part := parts[tc.tapIdx]

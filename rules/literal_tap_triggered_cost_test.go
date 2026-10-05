@@ -18,6 +18,45 @@ func TestLiteralTapTriggeredCostFireNationDrill(t *testing.T) {
 	literalTapTriggeredCostCase(t, "The Fire Nation Drill")
 }
 
+func TestLiteralTapTriggeredCostMixedCostStaysDeclineOnly(t *testing.T) {
+	t.Parallel()
+	reg := searchTestRegistry(t)
+	e, _ := searchEngine(t, reg, "Spider-Man, To the Rescue", "Grizzly Bears")
+	searchMoveByName(t, e, "Spider-Man, To the Rescue", state.ZBattlefield)
+	for i := 0; i < 8; i++ {
+		d := passUntilNonPriority(t, e, 40)
+		if d.Kind == decision.KChoose && len(d.Options) > 0 && d.Options[0].Kind == "trigger_cost_tap" {
+			break
+		}
+		if d.Kind == decision.KTriggerOptional {
+			submitChoices(t, e, 0)
+			continue
+		}
+		t.Fatalf("unexpected decision before literal tap election: %+v", d)
+	}
+	if e.triggerCost == nil {
+		t.Fatal("precondition: triggered-cost window is not live")
+	}
+	// Add a mana component the literal-tap settlement path cannot pay. The
+	// subsequent ask must not expose the tap election, which would otherwise
+	// tap the source and resume the body while skipping this component.
+	e.triggerCost.amount.Generic = 1
+	e.pending = nil
+	e.triggeredCostPaymentAsk()
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KChoose {
+		t.Fatalf("mixed cost ask = %+v, want decline-only choice", d)
+	}
+	for _, option := range d.Options {
+		if option.Kind == "trigger_cost_tap" || option.Kind == "trigger_cost_pay" {
+			t.Fatalf("mixed cost offered a partial payment path: %+v", d.Options)
+		}
+	}
+	if len(d.Options) != 1 || d.Options[0].Kind != "trigger_cost_decline" {
+		t.Fatalf("mixed cost options = %+v, want decline only", d.Options)
+	}
+}
+
 func literalTapTriggeredCostCase(t *testing.T, name string) {
 	t.Helper()
 	reg := searchTestRegistry(t)
