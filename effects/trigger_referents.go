@@ -261,6 +261,21 @@ func spawnerChain(spec string) (string, bool) {
 	return strings.TrimSpace(inner), true
 }
 
+// controlReferentNotedForLabel reports the label of a `Player.NotedFor<label>`
+// control/ownership referent argument (Forge's PlayerProperty.NotedFor), or
+// "" when ref is not that shape. The label is dynamic (NotedForStargate,
+// NotedForWar, ...), so it cannot be a fixed StrCodes key; a prefix split is
+// the same shape wordPredicate uses for the card-side `NotedFor<label>` word.
+// It keeps the classifier and the resolver on one predicate, so the matcher
+// and the UnknownPredicates census cannot drift.
+func controlReferentNotedForLabel(ref string) string {
+	label, ok := strings.CutPrefix(ref, "Player.NotedFor")
+	if !ok {
+		return ""
+	}
+	return label
+}
+
 // controlReferent is the single classifier for the two-token ownership and
 // control grammar. The Triggered* arms read event provenance; the Targeted*
 // arms read only the targets of the resolving object. A "Spawner>" chain is
@@ -277,6 +292,15 @@ func controlReferent(p string) (op, ref string, ok bool) {
 	}
 	switch controlReferentCodes.Code(string(ref)) {
 	case controlReferentTriggeredTarget:
+		return op, ref, true
+	}
+	// Player.NotedFor<label> is a global player property resolved by the
+	// shared player-spec evaluator (controlReferentPlayers below), exactly like
+	// Player.EnchantedBy. The label is dynamic, so it is a prefix arm rather
+	// than a table key, and it is deliberately the ONLY delegated Player.*
+	// qualifier: the other unrecognised refs (Player.Opponent, Player.Other,
+	// Player.Active) stay unknown and keep failing closed.
+	if controlReferentNotedForLabel(ref) != "" {
 		return op, ref, true
 	}
 	return "", "", false
@@ -310,6 +334,25 @@ func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]st
 	// this grammar does not know stays unbound; fail closed.
 	if inner, isChain := spawnerChain(ref); isChain {
 		return controlReferentPlayers(g, sc, op, inner)
+	}
+	// NotedFor is a global player property (Forge's PlayerProperty.NotedFor):
+	// the seat qualifies when its event-backed note set names the <label>.
+	// Resolve it through the shared player-spec evaluator, so the note
+	// grammar has one home and every consumer that reaches this arm (the
+	// object filter, the Continuous statics' Affected$, the count and draw
+	// readers) agrees by construction. It returns before the fixed-key switch
+	// below because the label is dynamic and can never be a table key.
+	if controlReferentNotedForLabel(ref) != "" {
+		var players []state.PlayerID
+		for p := range g.Players {
+			if MatchesPlayerSpecCtx(g, ref, state.PlayerID(p), sc.You, PlayerSpecCtx{}) {
+				players = append(players, state.PlayerID(p))
+			}
+		}
+		if len(players) == 0 {
+			return nil, false
+		}
+		return players, true
 	}
 	var targets []state.Target
 	switch controlReferentPlayersCodes.Code(string(ref)) {

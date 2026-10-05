@@ -1821,7 +1821,7 @@ func (e *Engine) askTriggerModes(p state.PlayerID, obj state.ObjID, sa *cards.SA
 	// VillainousChoice.
 	if sa.API == "GenericChoice" {
 		defined := effects.CharmOf(sa).Defined
-		if defined != "" && defined != "You" {
+		if (defined != "" && defined != "You") || effects.GenericChoicePlayerChoosers(sa) {
 			return false
 		}
 		// param:api:GenericChoice.AtRandom: the engine picks at resolution
