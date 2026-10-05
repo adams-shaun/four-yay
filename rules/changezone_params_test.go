@@ -5,6 +5,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 )
 
@@ -112,7 +113,11 @@ func checkKnownKeysMatchTheCensus(t *testing.T, api string, got []string) {
 	_, d := measureParamCensus(t, nil)
 	want := map[string]bool{}
 	for k := range d.api[api] {
-		want[k] = true
+		// Paid at activation by rules/pay, before the API resolves. Every
+		// resolver's unread-key check treats this as a payment key.
+		if k != cards.PKTapCreaturesForMana.String() {
+			want[k] = true
+		}
 	}
 	for k := range ignoredParamKeys {
 		want[k] = true

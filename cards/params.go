@@ -731,6 +731,7 @@ const (
 	PKReplaceGraveyardValid
 	PKImprintPlayed
 	PKShowCards
+	PKTapCreaturesForMana
 	paramKeyCount
 )
 
@@ -1462,6 +1463,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKReplaceGraveyardValid:            "ReplaceGraveyardValid",
 	PKImprintPlayed:                    "ImprintPlayed",
 	PKShowCards:                        "ShowCards",
+	PKTapCreaturesForMana:              "TapCreaturesForMana",
 }
 
 // String is the key's Forge text.

@@ -217,6 +217,12 @@ func compileChangeZoneAll(sa *cards.SA, tp *TargetParams, dp *DefinedParams) *Ch
 func unreadKeys(sa *cards.SA, known []string) []string {
 	var out []string
 	for k := range sa.Params {
+		// Payment permissions belong to rules/pay, not the resolving API.
+		// Do not report Heirloom Epic's activation payment as an unread
+		// parameter of its Draw effect (or demand it in every API table).
+		if k == cards.PKTapCreaturesForMana.String() {
+			continue
+		}
 		if _, ok := slices.BinarySearch(known, k); !ok {
 			out = append(out, k)
 		}
