@@ -624,6 +624,9 @@ func init() {
 		// cleanupBody, activeStatics + ValidCard$ through the shared spec walk).
 		// Proof test: rules/nocleanupdamage_test.go.
 		"stat:NoCleanupDamage",
+		// Edgar's first coin flip each turn is forced heads. Both FlipCoin
+		// producers use effects.FlipCoinWin; events.Apply counts the results.
+		"stat:FlipCoinMod",
 		// asunblk1: the combat-damage assignment election (rules/combat.go
 		// asUnblockedNeeding / damageStep's chosenElection case, CR 509's
 		// optional "assign as though it weren't blocked"). Only the printed
