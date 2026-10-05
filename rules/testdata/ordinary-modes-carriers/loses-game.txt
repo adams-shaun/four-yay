@@ -1,0 +1,7 @@
+b/blood_tyrant.txt
+c/curse_of_vengeance.txt
+e/elbrus_the_binding_blade_withengar_unbound.txt
+r/ramses_assassin_lord.txt
+s/sengir_the_dark_baron.txt
+s/share_the_spoils.txt
+z/zenos_yae_galvus_shinryu_transcendent_rival.txt
