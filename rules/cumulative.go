@@ -1528,22 +1528,6 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 		}
 		e.advanceTriggeredMandatory(tc)
 	}
-	if len(chosen) == 1 && chosen[0].Kind == "trigger_cost_blight" {
-		if tc.blightIdx >= len(tc.amount.Blight) {
-			e.triggeredCostDecline(tc)
-			return
-		}
-		for _, candidate := range pay.BlightCandidates(asPayer(e), tc.player, tc.source) {
-			if candidate == chosen[0].Obj {
-				tc.blights = append(tc.blights, candidate)
-				tc.blightIdx++
-				advanceBlight()
-				return
-			}
-		}
-		e.triggeredCostDecline(tc)
-		return
-	}
 	if len(chosen) == 0 {
 		// The empty answer of the Min-0 tap election (the dynamic tapXType
 		// window) is the decline: tapping nothing pays nothing. A Min-0 KChoose
@@ -1564,6 +1548,18 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 		e.triggeredTapAnswer(tc, chosen)
 		return
 	case triggeredCostAnswerTriggerCostBlight:
+		if len(chosen) != 1 || tc.blightIdx >= len(tc.amount.Blight) {
+			e.triggeredCostDecline(tc)
+			return
+		}
+		for _, candidate := range pay.BlightCandidates(asPayer(e), tc.player, tc.source) {
+			if candidate == chosen[0].Obj {
+				tc.blights = append(tc.blights, candidate)
+				tc.blightIdx++
+				advanceBlight()
+				return
+			}
+		}
 		e.triggeredCostDecline(tc)
 		return
 	case triggeredCostAnswerTriggerCostX:
