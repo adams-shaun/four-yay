@@ -878,24 +878,23 @@ func (r *oracleRun) priorityFor(seat state.PlayerID, op string) (*decision.Decis
 	return d, nil
 }
 
-func oracleLife(r *oracleRun, seat state.PlayerID, amount int32) error {
-	r.e.emit(events.Event{Kind: events.LifeChange, Player: seat, Amount: amount})
+func oraclePrelude(r *oracleRun, st oracleStep, seat state.PlayerID) error {
+	if oracleOpCodes.Code(st.Op) == oracleOpAttach {
+		equipment, err := r.resolve(st.Card)
+		if err != nil {
+			return err
+		}
+		bearer, err := r.resolve(st.AttachedTo)
+		if err != nil {
+			return err
+		}
+		r.e.emit(events.Event{Kind: events.Attach, Obj: equipment, IDs: []state.ObjID{bearer}})
+		r.e.priorityRound()
+		return r.untilPriority("attach")
+	}
+	r.e.emit(events.Event{Kind: events.LifeChange, Player: seat, Amount: st.Amount})
 	r.e.priorityRound()
 	return r.untilPriority("life")
-}
-
-func oracleAttach(r *oracleRun, st oracleStep) error {
-	equipment, err := r.resolve(st.Card)
-	if err != nil {
-		return err
-	}
-	bearer, err := r.resolve(st.AttachedTo)
-	if err != nil {
-		return err
-	}
-	r.e.emit(events.Event{Kind: events.Attach, Obj: equipment, IDs: []state.ObjID{bearer}})
-	r.e.priorityRound()
-	return r.untilPriority("attach")
 }
 
 func (r *oracleRun) do(st oracleStep) error {
@@ -1210,10 +1209,8 @@ func (r *oracleRun) do(st oracleStep) error {
 		e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: e.G.Obj(id).Zone, To: to})
 		e.priorityRound()
 		return r.untilPriority("move")
-	case oracleOpAttach:
-		return oracleAttach(r, st)
-	case oracleOpLife:
-		return oracleLife(r, seat, st.Amount)
+	case oracleOpAttach, oracleOpLife:
+		return oraclePrelude(r, st, seat)
 	}
 	return harnessf("unknown op %q", st.Op)
 }
