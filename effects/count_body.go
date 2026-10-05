@@ -383,8 +383,6 @@ const (
 	evalCountBodyCostIsPrime
 	evalCountBodyCostImprintedSize
 	evalCountBodyCostFinishedEndOfTurnsThisTurn
-	evalCountBodyCostTriggerRememberAmount
-	evalCountBodyCostLastStateBattlefieldWithFallback
 )
 
 var evalCountBodyCostCodes = state.NewStrCodes(
@@ -401,6 +399,4 @@ var evalCountBodyCostCodes = state.NewStrCodes(
 	state.StrEntry[evalCountBodyCostCode]{Key: "IsPrime", Val: evalCountBodyCostIsPrime},
 	state.StrEntry[evalCountBodyCostCode]{Key: "ImprintedSize", Val: evalCountBodyCostImprintedSize},
 	state.StrEntry[evalCountBodyCostCode]{Key: "FinishedEndOfTurnsThisTurn", Val: evalCountBodyCostFinishedEndOfTurnsThisTurn},
-	state.StrEntry[evalCountBodyCostCode]{Key: "TriggerRememberAmount", Val: evalCountBodyCostTriggerRememberAmount},
-	state.StrEntry[evalCountBodyCostCode]{Key: "LastStateBattlefieldWithFallback", Val: evalCountBodyCostLastStateBattlefieldWithFallback},
 )

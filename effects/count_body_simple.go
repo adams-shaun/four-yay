@@ -21,6 +21,29 @@ import (
 // Each arm follows the dispatch's verdict convention: a recognised head is
 // modelled (ok true) even when it legitimately counts zero, and only a
 // malformed argument this build cannot parse fails the head's own verdict.
+//
+// Count$TriggerRememberAmount and Count$LastStateBattlefieldWithFallback are
+// deliberately NOT here. Both name state this engine does not carry:
+//
+//   - TriggerRememberAmount is Forge's per-trigger remembered-Integer sum
+//     (ImmediateTriggerEffect addRemembered()s the RememberSVarAmount$ value;
+//     a DelayedTrigger RememberNumber$ copies the chain's rememberedNumber).
+//     Ctx.TriggerAmount is NOT that channel: rules only writes it from a real
+//     triggering event's magnitude, and the replacement/reflexive path every
+//     carrier uses (replCtx -> DBImmediateTrigger -> QueueReflexiveTrigger)
+//     never assigns it, so the three seeds the 22 carriers actually use
+//     (RememberSVarAmount$ X/Result/NumTimes, RememberCounteredCMC$,
+//     RememberNumber$) do not reach the read. Registering the head would
+//     unsupport the compliance gate while the cards still resolve to zero.
+//   - LastStateBattlefieldWithFallback is a CAST-TIME battlefield snapshot
+//     (castSA.getLastStateBattlefield) with a current-battlefield fallback.
+//     No cast-time snapshot exists anywhere in state/rules/effects, so the
+//     fallback would be the whole read and a permanent that entered after the
+//     cast but before resolution would be miscounted.
+//
+// Both stay out of effects.modelledValueHeads and out of the evaluator until
+// the remembered-amount channel and the cast-time snapshot exist; the callers
+// keep their pre-existing degrade-to-zero behaviour.
 func evalCountBodySimple(h Host, c *Ctx, g *state.Game, head, arg string, depth int) (int32, bool, bool) {
 	switch evalCountBodyCostCodes.Code(string(head)) {
 	case evalCountBodyCostIsPrime:
@@ -86,38 +109,6 @@ func evalCountBodySimple(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 			n = 0
 		}
 		return n, true, true
-	case evalCountBodyCostTriggerRememberAmount:
-		// Forge's Count$TriggerRememberAmount sums the Integers a trigger
-		// remembered (Forge's ImmediateTriggerEffect/DelayedTriggerEffect
-		// addRemembered() the RememberSVarAmount$ amount). This build does not
-		// yet model the RememberSVarAmount$ Integer channel separately; the
-		// amount a firing trigger carries is Ctx.TriggerAmount (the event
-		// magnitude rules captures at fire time and carries to resolution), so
-		// the head reads that -- the brief's "amount the trigger remembered"
-		// over state the engine already records. TDM New Way Forward's
-		// reflexive prevention rider and the other corpus carriers resolve
-		// through it. A trigger with no carried amount reads a legitimate zero
-		// (the modelled-head convention), never the unresolvable verdict.
-		if arg != "" {
-			return 0, false, true
-		}
-		return c.TriggerAmount, true, true
-	case evalCountBodyCostLastStateBattlefieldWithFallback:
-		// Forge's Count$LastStateBattlefieldWithFallback <spec> counts the
-		// battlefield objects matching <spec> as they were when the spell was
-		// CAST (castSA.getLastStateBattlefield), falling back to the CURRENT
-		// battlefield when no cast-time snapshot exists. This engine keeps no
-		// cast-time last-state snapshot (there is no copyLastState analogue),
-		// so the fallback arm is the whole read: the current battlefield,
-		// filtered by <spec> through the SAME zone-scan the Count$Valid arm
-		// uses (a rewrite to the Valid head, so filter grammar and the
-		// derived-P-T bind have one home). The /Op suffix was already peeled
-		// and applied by the generic Count$ site. An empty <spec> fails the
-		// head's verdict rather than matching everything.
-		if arg == "" {
-			return 0, false, true
-		}
-		return evalCountBodyZone(h, c, g, "Valid", arg, depth)
 	}
 	return 0, false, false
 }
