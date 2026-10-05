@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -1086,20 +1087,12 @@ func (tc *triggeredEffectCost) announcedCost() Cost {
 func (e *Engine) triggeredCostPayable(tc *triggeredEffectCost) bool {
 	amt := tc.announcedCost()
 	if len(amt.TapPermanent) > 0 && !costCarriesDynTap(amt) {
-		if amt.Tap || amt.X != 0 || len(amt.Sac)+len(amt.Discard)+len(amt.Exile)+len(amt.MoveToGrave)+len(amt.Evidence)+len(amt.Draw) > 0 {
-			return false
-		}
+		// Only literal taps can be settled by triggeredTapAnswer. Check the
+		// entire remainder, including fields Priceable does not read (Exert,
+		// RollDice, etc.), before any irreversible tap is offered.
 		rest := amt
 		rest.TapPermanent = nil
-		if !rest.Priceable() || rest.HasManaPayment() || rest.Life != 0 || rest.Snow != 0 || len(rest.Hybrid)+len(rest.Phyrexian)+len(rest.Twobrid)+len(rest.HybridPhyrexian) > 0 {
-			return false
-		}
-		for _, part := range amt.TapPermanent {
-			if part.N <= 0 || int32(len(pay.TapCostCandidates(asPayer(e), tc.player, tc.source, part))) < part.N {
-				return false
-			}
-		}
-		return true
+		return reflect.ValueOf(rest).IsZero() && len(literalTapOptions(asPayer(e), tc.player, tc.source, amt.TapPermanent, 0)) > 0
 	}
 	if !pay.EnergyPayable(e.G, tc.player, &amt) {
 		return false
@@ -1334,8 +1327,8 @@ func (e *Engine) triggeredCostPaymentAsk() {
 		parts := tc.amount.TapPermanent
 		if tc.tapIdx < len(parts) {
 			part := parts[tc.tapIdx]
-			candidates := pay.TapCostCandidates(asPayer(e), tc.player, tc.source, part)
-			if int32(len(candidates)) >= part.N {
+			candidates := literalTapOptions(asPayer(e), tc.player, tc.source, parts, tc.tapIdx)
+			if len(candidates) > 0 {
 				d := &decision.Decision{Player: tc.player, Kind: decision.KChoose, Min: int(part.N), Max: int(part.N),
 					Prompt: tc.costLabel, Source: tc.source}
 				for _, id := range candidates {
