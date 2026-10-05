@@ -72,16 +72,29 @@ public class ScenarioReplay extends CardTestPlayerBase {
     // (blocking) step, so the driver must too.
     private PhaseStep phase = MAIN;
 
+    // Override the factory the base class calls BEFORE it adds the player to
+    // the game. Wrapping createPlayer(Game, ...)'s result instead copies a
+    // player the game already holds, so scripted actions go to a player the
+    // game never runs and every scenario ends with no snapshots.
     @Override
-    protected TestPlayer createPlayer(Game game, String name, String deckName) throws mage.game.GameException {
-        return new ScriptedChoicePlayer(super.createPlayer(game, name, deckName));
+    protected TestPlayer createPlayer(String name, mage.constants.RangeOfInfluence rangeOfInfluence) {
+        return new ScriptedChoicePlayer(new org.mage.test.player.TestComputerPlayer(name, rangeOfInfluence));
     }
 
     /** TestPlayer normally delegates these library decisions directly to its AI,
      * bypassing the scripted target/choice queues. Route them through this player. */
     private static final class ScriptedChoicePlayer extends TestPlayer {
-        ScriptedChoicePlayer(TestPlayer player) {
+        ScriptedChoicePlayer(org.mage.test.player.TestComputerPlayer computerPlayer) {
+            super(computerPlayer);
+        }
+
+        ScriptedChoicePlayer(final ScriptedChoicePlayer player) {
             super(player);
+        }
+
+        @Override
+        public ScriptedChoicePlayer copy() {
+            return new ScriptedChoicePlayer(this);
         }
 
         @Override
