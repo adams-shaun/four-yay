@@ -39,6 +39,11 @@ func PoolFor(cost string) (string, string) { return poolFor(cost) }
 // TargetSlots lists the ValidTgts$ filters along the spell ability chain.
 func TargetSlots(f *cards.Face) []string { return targetSlots(f) }
 
+// OpeningHandAnswers declines a K:MayEffectFromOpeningHand ask, so a
+// generated scenario casts the card from hand rather than starting it on the
+// battlefield. Nil when the card has no such keyword.
+func OpeningHandAnswers(f *cards.Face) []Answer { return openingHandAnswers(f) }
+
 // CharmModes lists the spell's charm modes in Choices$ order.
 func CharmModes(f *cards.Face) []CharmMode { return charmModes(f) }
 
@@ -72,8 +77,11 @@ func PlaysThrough(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
 }
 
 // Settle returns how many resolve steps empty the stack after sc (at most
-// 4); ok is false when gorge cannot play sc.
-func Settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) { return settle(reg, sc) }
+// 4), sc with any unposed "modes" answer dropped, and whether gorge could
+// play it.
+func Settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, Scenario, bool) {
+	return settle(reg, sc)
+}
 
 // Baseline adds the opposing creature and library top every cast scenario
 // offers to "up to one" asks and library searches.

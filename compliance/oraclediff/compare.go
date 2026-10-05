@@ -307,6 +307,14 @@ func types(ts []string) string {
 // cards match by controller and name (the multiset), tokens by
 // characteristics, since the engines name tokens differently.
 func permKeys(ps []rules.OracleSnapPerm) []string {
+	// attached_to names its host the way XMage's driver does: the host
+	// permanent's CURRENT name (its layer-3 SetName$ name, or "" while face
+	// down, CR 708.2a), never the printed name the ref encodes. An empty
+	// host name is omitted, matching the driver's absent field.
+	hostName := map[string]string{}
+	for _, p := range ps {
+		hostName[p.Ref] = p.Name
+	}
 	out := make([]string, 0, len(ps))
 	for _, p := range ps {
 		name := p.Name
@@ -330,7 +338,11 @@ func permKeys(ps []rules.OracleSnapPerm) []string {
 			k += " counters=" + c
 		}
 		if p.AttachedTo != "" {
-			k += " on=" + RefName(p.AttachedTo)
+			if host, ok := hostName[p.AttachedTo]; !ok {
+				k += " on=" + RefName(p.AttachedTo)
+			} else if host != "" {
+				k += " on=" + host
+			}
 		}
 		if p.Attacking {
 			k += " attacking"

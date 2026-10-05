@@ -79,7 +79,8 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 			for _, fx := range oraclegen.Fixtures(plain) {
 				extra(&fx)
 				sc := buildStackScenario(f, name, mana, pre, fx, slots, stackIdx, answers)
-				if n, res, ok := oraclegen.Settle(reg, sc); ok {
+				if n, res, settled, ok := oraclegen.Settle(reg, sc); ok {
+					sc = settled
 					for i := 0; i < n; i++ {
 						sc.Steps = append(sc.Steps, oraclegen.Step{Op: "resolve"})
 					}
@@ -107,8 +108,9 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oraclegen.Fixture, slots []string, stackIdx []int, answers []oraclegen.Answer) oraclegen.Scenario {
 	targets := insertStackTargets(slots, stackIdx, fx.Targets(), pre)
 	sc := oraclegen.Scenario{
-		Setup: map[string]oraclegen.Seat{"p0": *fx.P0(), "p1": *fx.P1()},
-		Steps: []oraclegen.Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: targets, Answers: answers}},
+		Setup:        map[string]oraclegen.Seat{"p0": *fx.P0(), "p1": *fx.P1()},
+		SetupAnswers: oraclegen.OpeningHandAnswers(f),
+		Steps:        []oraclegen.Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: targets, Answers: answers}},
 	}
 	sc.Setup["p0"] = oraclegen.WithHand(sc.Setup["p0"], name)
 	if pre.card != "" {

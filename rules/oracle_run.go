@@ -241,6 +241,28 @@ func (r *oracleRun) objName(o *state.Object) string {
 	return o.Face().Name
 }
 
+// fieldName is the name the snapshot reports for a permanent. A face-down
+// battlefield permanent has no name (CR 708.2a), so it reports the empty
+// string, exactly as the XMage driver's perm.getName() does. Otherwise a
+// battlefield object wears its layer-3 name (a SetName$ effect, CR 613.1b),
+// which may differ from its printed face name (Honest Work's Humble
+// Merchant). Every other zone names the printed face, since a continuous
+// effect only applies on the battlefield.
+func (r *oracleRun) fieldName(o *state.Object) string {
+	if o == nil || o.Face() == nil {
+		return ""
+	}
+	if o.Zone == state.ZBattlefield {
+		if o.FaceDown {
+			return ""
+		}
+		if n := r.e.Derived(o.ID).Name; n != "" {
+			return n
+		}
+	}
+	return o.Face().Name
+}
+
 // resolve maps a card ref to an object id: setup-bound refs first (a card
 // keeps its ObjID across zones), then the k-th matching object in id order.
 func (r *oracleRun) resolve(ref string) (state.ObjID, error) {
@@ -382,7 +404,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 					continue
 				}
 				for _, cand := range e.G.Zone(z, pid) {
-					if o := e.G.Obj(cand); !bound[cand] && r.objName(o) == pl.name {
+					if o := e.G.Obj(cand); !bound[cand] && cards.NormalizeName(r.objName(o)) == cards.NormalizeName(pl.name) {
 						id = cand
 						break
 					}
@@ -416,7 +438,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		for _, n := range sc.Setup[fmt.Sprintf("p%d", p)].Sideboard {
 			var id state.ObjID
 			for _, cand := range e.G.Zone(state.ZSideboard, pid) {
-				if o := e.G.Obj(cand); !bound[cand] && r.objName(o) == n {
+				if o := e.G.Obj(cand); !bound[cand] && cards.NormalizeName(r.objName(o)) == cards.NormalizeName(n) {
 					id = cand
 					break
 				}

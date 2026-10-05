@@ -59,7 +59,10 @@ type Scenario struct {
 	CR    []string        `json:"cr"`
 	Why   string          `json:"why"`
 	Setup map[string]Seat `json:"setup"`
-	Steps []Step          `json:"steps"`
+	// SetupAnswers answer decisions posed while the runner drives from
+	// genesis to turn 1 (a permanent's "may begin the game" ask).
+	SetupAnswers []Answer `json:"setup_answers,omitempty"`
+	Steps        []Step   `json:"steps"`
 }
 
 // Item is one pipeline line: the scenario plus its identity. The XMage
@@ -166,7 +169,7 @@ func chainSlots(f *cards.Face, svar string) []string {
 	for name := svar; name != ""; {
 		params := svarParams(f.SVars[name])
 		if v := params["ValidTgts"]; v != "" {
-			if z := targetZone(params, true); z != "" {
+			if z := targetZone(params, true); z != "" && !playerTargetHead(v) {
 				v += "@" + z
 			}
 			out = append(out, v)
@@ -388,9 +391,10 @@ func withHand(s Seat, name string) Seat {
 }
 
 // settle runs the cast in gorge and returns how many resolve steps empty
-// the stack (at most 4); ok is false when gorge cannot cast with this
-// fixture.
-func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) {
+// the stack (at most 4), the scenario it settled (with any unposed "modes"
+// answer dropped, see dropUnposedModes) and whether gorge could play it.
+func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, Scenario, bool) {
+	cleaned := false
 	for n := 1; n <= 4; n++ {
 		try := sc
 		try.Steps = append(append([]Step(nil), sc.Steps...), make([]Step, n)...)
@@ -400,19 +404,64 @@ func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) {
 		b, _ := json.Marshal(try)
 		res, err := rules.RunOracleScenarioJSON(reg, b)
 		if err != nil || len(res.Snapshots) == 0 {
-			return 0, res, false
+			return 0, res, sc, false
+		}
+		// A charm plan scripts a "modes" answer. A Spree card the engine
+		// resolves without ever posing that decision leaves it unconsumed,
+		// which fails the step for a reason the card never had. Drop the
+		// unposed answer and settle again; every other failure is real.
+		if !cleaned {
+			if next, changed := dropUnposedModes(sc, res.Decisions); changed {
+				sc, cleaned = next, true
+				n = 0
+				continue
+			}
 		}
 		for _, f := range res.Fails {
 			if strings.HasPrefix(f, "step ") || strings.Contains(f, "harness:") {
-				return 0, res, false
+				return 0, res, sc, false
 			}
 		}
 		last := res.Snapshots[len(res.Snapshots)-1]
 		if len(res.Snapshots) == len(try.Steps)+1 && len(last.Stack) == 0 {
-			return n, res, true
+			return n, res, sc, true
 		}
 	}
-	return 0, rules.OracleResult{}, false
+	return 0, rules.OracleResult{}, sc, false
+}
+
+// dropUnposedModes removes every scripted "modes" answer for a step whose
+// run posed no modes decision: the answer could never be consumed, and the
+// runner reports it as a leftover that fails the step. The remaining answers
+// (X, targets) are untouched, and the boolean reports whether anything moved.
+func dropUnposedModes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
+	posed := map[int]bool{}
+	for _, d := range ds {
+		if d.GorgeKind == "modes" {
+			posed[d.Step] = true
+		}
+	}
+	out := sc
+	out.Steps = append([]Step(nil), sc.Steps...)
+	changed := false
+	for i := range out.Steps {
+		if posed[i] {
+			continue
+		}
+		as := out.Steps[i].Answers
+		keep := make([]Answer, 0, len(as))
+		for _, a := range as {
+			if a.Kind == "modes" {
+				changed = true
+				continue
+			}
+			keep = append(keep, a)
+		}
+		if len(keep) != len(as) {
+			out.Steps[i].Answers = keep
+		}
+	}
+	return out, changed
 }
 
 // xanswers turns gorge's recorded decisions into XMage's scripted answers,
@@ -848,6 +897,29 @@ func poolFor(cost string) (string, string) {
 	return b.String(), ""
 }
 
+// playerTargetHead reports whether a ValidTgts$ filter names a player rather
+// than a card. A zone qualifier (Origin$/TgtZone$) describes where an effect
+// finds its cards, so it must never be appended to a player target: doing so
+// turned "Opponent" into "Opponent@Hand" (Cruelclaw's Heist, Ruthless
+// Negotiation, Soul Search, Aggressive Negotiations), which no fixture can
+// satisfy. The head is the first comma-separated alternative before its first
+// '.' predicate.
+func playerTargetHead(filter string) bool {
+	head := strings.ToLower(strings.SplitN(strings.Split(filter, ",")[0], ".", 2)[0])
+	return head == "player" || head == "opponent"
+}
+
+// openingHandAnswers declines the "you may begin the game with this card" ask
+// for a K:MayEffectFromOpeningHand card. The runner's setup fallback otherwise
+// takes option 0 ("Yes"), which starts the card on the battlefield and makes
+// the later cast step "not offered"; the scenario wants the card in hand.
+func openingHandAnswers(f *cards.Face) []Answer {
+	if _, ok := f.KeywordParam("MayEffectFromOpeningHand"); ok {
+		return []Answer{{Kind: "choose", Pick: []string{"no"}}}
+	}
+	return nil
+}
+
 // targetSlots lists the ValidTgts$ filters along the card's spell ability
 // chain (permanent spells have none), in the order the cast asks for them.
 func targetSlots(f *cards.Face) []string {
@@ -857,7 +929,7 @@ func targetSlots(f *cards.Face) []string {
 		if v == "" {
 			return
 		}
-		if z := targetZone(params, false); z != "" {
+		if z := targetZone(params, false); z != "" && !playerTargetHead(v) {
 			v += "@" + z
 		}
 		out = append(out, v)
