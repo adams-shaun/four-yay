@@ -143,7 +143,10 @@ func changeZonePrelude(h Host, c *Ctx, cz *ChangeZoneParams) (to state.Zone, sto
 	if cz.Unimprint {
 		clearChangeZoneImprint(h, c)
 	}
-	to = changeZoneAltDestination(h, c, cz, cz.Destination)
+	to = cz.Destination
+	if !cz.OriginPresent || !zoneIn(cz.Origin, state.ZLibrary) {
+		to = changeZoneAltDestination(h, c, cz, to)
+	}
 	if cz.OriginPresent && cz.OriginAltPresent && !cz.OriginAltOK {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unrecognised ChangeZone OriginAlternative " + cz.OriginAltText})
