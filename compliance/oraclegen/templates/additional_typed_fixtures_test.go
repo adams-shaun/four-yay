@@ -86,7 +86,10 @@ func TestCounterSpellAdditionalFixturesGenerate(t *testing.T) {
 		if len(stackSlots) == 0 {
 			t.Fatalf("%s: slots %v contain no stack target", name, slots)
 		}
-		var ownCast, precast *oraclegen.Step
+		if precastFits(slots[stackSlots[0]].Filter, precast{card: "not-a-spell"}) {
+			t.Fatalf("%s: stack slot %q accepted a non-spell precast", name, slots[stackSlots[0]].Filter)
+		}
+		var ownCast, precastStep *oraclegen.Step
 		for i := range it.Scenario.Steps {
 			step := &it.Scenario.Steps[i]
 			if step.Op != "cast" {
@@ -94,19 +97,32 @@ func TestCounterSpellAdditionalFixturesGenerate(t *testing.T) {
 			}
 			if step.Card == "p0:"+name {
 				ownCast = step
-			} else if precast == nil {
-				precast = step
+			} else if precastStep == nil {
+				precastStep = step
 			}
 		}
-		if ownCast == nil || precast == nil {
+		if ownCast == nil || precastStep == nil {
 			t.Fatalf("%s scenario has no own cast and preceding precast: %+v", name, it.Scenario.Steps)
 		}
 		if len(ownCast.Targets) != len(slots) {
 			t.Fatalf("%s targets %v do not satisfy all slots %v", name, ownCast.Targets, slots)
 		}
+		var precastFixture precast
+		for _, candidate := range precasts {
+			if "p0:"+candidate.card == precastStep.Card {
+				precastFixture = candidate
+				break
+			}
+		}
+		if precastFixture.card == "" {
+			t.Fatalf("%s used unregistered precast %q", name, precastStep.Card)
+		}
 		for _, idx := range stackSlots {
-			if ownCast.Targets[idx] != precast.Card {
-				t.Errorf("%s stack slot %d target %q, want precast %q", name, idx, ownCast.Targets[idx], precast.Card)
+			if !precastFits(slots[idx].Filter, precastFixture) {
+				t.Errorf("%s precast %q does not satisfy stack filter %q", name, precastStep.Card, slots[idx].Filter)
+			}
+			if ownCast.Targets[idx] != precastStep.Card {
+				t.Errorf("%s stack slot %d target %q, want precast %q", name, idx, ownCast.Targets[idx], precastStep.Card)
 			}
 		}
 		if name == "Repulsive Mutation" {
