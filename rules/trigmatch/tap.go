@@ -36,6 +36,11 @@ func tapsMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, 
 		(forMana && e.Facts().TappingForMana != ev.Obj) {
 		return false
 	}
+	// Only the elected Teamwork cost taps carry this replay-visible reason;
+	// ordinary Taps triggers still see every real tap as before.
+	if teamwork, ok := t.ParamCode(cards.PKTeamwork); !forMana && ok && teamwork == 1 && ev.Counter != events.TapTeamworkCounter {
+		return false
+	}
 	actor := TapActor(e, ev)
 	if v := t.ParamStr(cards.PKActivator); v != "" && !effects.MatchesPlayerSpec(e.Game(), v, actor, e.ControllerOf(source)) {
 		return false
@@ -195,6 +200,12 @@ func untapAllMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Eve
 }
 
 func init() {
+	cards.RegisterParamCoder(cards.PKTeamwork, "trigmatch.Teamwork", func(v string) uint16 {
+		if enabled, err := strconv.ParseBool(v); err == nil && enabled {
+			return 1
+		}
+		return 0
+	})
 	// Taps and TapsForMana are one matcher behind a forMana flag.
 	registerTrigMatcher(func(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
 		return tapsMatches(e, t, source, ev, false)

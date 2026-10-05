@@ -668,6 +668,7 @@ func cloneFieldsEngineContinuation(c, e *Engine, sp *Spare, remap *cloneRemap) {
 		p0.PaidCost.Beholds = append([]state.ObjID(nil), e.cast.PaidCost.Beholds...)
 		p0.PaidCost.Taps = append([]state.ObjID(nil), e.cast.PaidCost.Taps...)
 		p0.PaidCost.Blights = append([]state.ObjID(nil), e.cast.PaidCost.Blights...)
+		p0.PaidCost.TeamworkTaps = append([]state.ObjID(nil), e.cast.PaidCost.TeamworkTaps...)
 		p0.PaidCost.RevealHandArm = append([]bool(nil), e.cast.PaidCost.RevealHandArm...)
 		p0.mods = cloneCastMods(e.cast.mods)
 		p0.preModes = append([]string(nil), e.cast.preModes...)
@@ -873,6 +874,7 @@ func cloneFieldsEngineParked(c, e *Engine, sp *Spare, remap *cloneRemap) {
 		p0.sacs = append([]state.ObjID(nil), e.triggerCost.sacs...)
 		p0.exiles = append([]state.ObjID(nil), e.triggerCost.exiles...)
 		p0.discards = append([]state.ObjID(nil), e.triggerCost.discards...)
+		p0.blights = append([]state.ObjID(nil), e.triggerCost.blights...)
 		p0.moveGraves = append([]state.ObjID(nil), e.triggerCost.moveGraves...)
 		p0.evidence = append([]state.ObjID(nil), e.triggerCost.evidence...)
 		c.triggerCost = &p0

@@ -38,6 +38,10 @@ func CastFlowDrawPlayer(spec string, payer state.PlayerID) (state.PlayerID, bool
 	return 0, false
 }
 
+func BlightCandidates(e Engine, p state.PlayerID, source state.ObjID) []state.ObjID {
+	return CostCandidates(e, p, source, state.ZBattlefield, "Creature.YouCtrl", false, false)
+}
+
 func CostCandidates(e Engine, p state.PlayerID, source state.ObjID, zone state.Zone, spec string, excludeSource, untapped bool) []state.ObjID {
 	var out []state.ObjID
 	for _, id := range e.Game().Zone(zone, p) {
