@@ -19,9 +19,9 @@ import (
 // ValidPlayer$ and ThisDoor$ True) queues off that same event, and that face's
 // rules text (triggers, statics, activated abilities) becomes live.
 //
-// Face liveness convention: a room's live faces are its cast face (FaceIdx)
-// always, plus the other face once unlocked. The room-aware scans walk both
-// live faces; other readers keep using Face(). This engine does not model the
+// Face liveness convention: a cast Room's cast face is live, plus the other
+// face once unlocked. A Room entering without being cast has no live face.
+// The room-aware scans walk live faces; other readers keep using Face(). This engine does not model the
 // CR-613 characteristic combination of both doors, but no supported Room half
 // carries P/T.
 
@@ -100,8 +100,8 @@ func (e *Engine) checkRoomEntryUnlockTriggers(ev events.Event) {
 		return
 	}
 	o := e.G.Obj(ev.Obj)
-	// Unlocked is false here: it means "the alternate door has been unlocked",
-	// not "the cast face is live". Only the entry designation is at issue.
+	// The stack-origin MoveZone has designated the cast face in the event fold;
+	// Unlocked still means the alternate door has been unlocked.
 	if o == nil || o.Zone != state.ZBattlefield || !isRoom(o) || o.Unlocked {
 		return
 	}

@@ -373,7 +373,7 @@ type faceTrigCache struct {
 // current one. It answers for o as a NON-referent: a referent is always
 // visited in place.
 func (e *Engine) objectTrigSig(o *state.Object) trigSig {
-	if o.Unlocked || len(o.MergedCards) > 0 {
+	if o.RoomOtherDoorUnlocked() || len(o.MergedCards) > 0 {
 		return allTrigSig
 	}
 	var m trigSig
@@ -400,7 +400,7 @@ func (e *Engine) objectLookBackHot(o *state.Object) bool {
 	if o == nil || o.PhasedOut || o.Face() == nil {
 		return false
 	}
-	if o.Unlocked || len(o.MergedCards) > 0 {
+	if o.RoomOtherDoorUnlocked() || len(o.MergedCards) > 0 {
 		return true
 	}
 	slot := trigZoneSlot(o.Zone)

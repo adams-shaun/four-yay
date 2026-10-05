@@ -545,6 +545,9 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 	// state even from a malformed caller-supplied From.
 	o.EnteredThisTurn = true
 	o.EnteredFrom = enteredFrom
+	if to == state.ZBattlefield && enteredFrom != state.ZBattlefield && o.Card != nil && len(o.Card.Faces) > 0 && o.Card.Faces[0].IsRoom() {
+		o.CastDoor = enteredFrom == state.ZStack
+	}
 	// Record the per-add entry the Count$ThisTurnEntered_* heads and the
 	// ThisTurnEntered* filter predicates read (Forge's per-zone
 	// getCardsAddedThisTurn lists, one append per add). Every Move routes
@@ -706,6 +709,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 		if wasBattlefield {
 			// Room door designations belong to this battlefield incarnation.
 			o.Unlocked = false
+			o.CastDoor = false
 			o.LockedDoors = 0
 			o.Imprinted = nil
 			o.ImprintTokens = nil

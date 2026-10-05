@@ -17,6 +17,7 @@ func TestRoomLockedCastFaceHidesActivatedAbilitiesUntilUnlocked(t *testing.T) {
 	room := card(t, "Name:Ability Door\nManaCost:0\nTypes:Enchantment Room\nA:AB$ Draw | Cost$ 0 | NumCards$ 1\nA:AB$ Mana | Cost$ T | Produced$ W\nOracle:x\nALTERNATE\nName:Quiet Door\nManaCost:0\nTypes:Enchantment Room\nOracle:x\nAlternateMode:Split\n")
 	e := corpusEngine(t, reg, []*cards.Card{room}, nil)
 	id := moveByName(t, e, 0, "Ability Door", state.ZBattlefield)
+	designateRoomCastFace(e, id)
 	o := e.G.Obj(id)
 	if o == nil || o.Zone != state.ZBattlefield || !isRoom(o) || !o.DoorUnlocked(int(o.FaceIdx)) || len(o.Face().Abilities) < 2 {
 		t.Fatalf("precondition: cast face lacks unlocked activated text: %+v", o)
@@ -55,6 +56,7 @@ func TestRoomRepeatFaceUnlockDoesNotQueueUnlockDoorTrigger(t *testing.T) {
 	room := card(t, "Name:Quiet Door\nManaCost:0\nTypes:Enchantment Room\nOracle:x\nALTERNATE\nName:Triggered Door\nManaCost:0\nTypes:Enchantment Room\nT:Mode$ UnlockDoor | ThisDoor$ True | Execute$ Gain\nSVar:Gain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:x\nAlternateMode:Split\n")
 	e := corpusEngine(t, reg, []*cards.Card{room}, nil)
 	id := moveByName(t, e, 0, "Quiet Door", state.ZBattlefield)
+	designateRoomCastFace(e, id)
 	o := e.G.Obj(id)
 	if o == nil || !isRoom(o) || o.DoorUnlocked(1) || len(o.Card.Faces[1].Triggers) == 0 || o.Card.Faces[1].Triggers[0].Mode != "UnlockDoor" {
 		t.Fatalf("precondition: alternate locked face has no UnlockDoor trigger: %+v", o)

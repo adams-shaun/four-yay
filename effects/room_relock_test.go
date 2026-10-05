@@ -15,6 +15,7 @@ func TestRoomRelockCastFaceThenUnlock(t *testing.T) {
 	card := testRoomDoorCard(t, "Front Door", "Back Door")
 	id := h.g.AddObject(card, 0).ID
 	h.g.Obj(id).Zone = state.ZBattlefield
+	designateRoomCastFace(h.g.Obj(id))
 	h.Emit(events.Event{Kind: events.DoorUnlock, Obj: id})
 	if !doorUnlocked(h.g.Obj(id), 0) || !doorUnlocked(h.g.Obj(id), 1) {
 		t.Fatal("precondition: both doors must start unlocked")
