@@ -60,6 +60,29 @@ func TestBruvacDoublesOpponentMill(t *testing.T) {
 	}
 }
 
+func TestWaterCrystalZeroMillDoesNotBecomeFour(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e, _ := millTriggerEngine(t)
+	id := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "The Water Crystal"))
+	if obj := e.G.Obj(id); obj == nil || obj.Zone != state.ZBattlefield {
+		t.Fatalf("precondition: Water Crystal id %d is not on the battlefield", id)
+	}
+	if len(e.G.Zone(state.ZLibrary, 1)) < 6 {
+		t.Fatal("precondition: opponent library cannot supply six cards")
+	}
+	before := millEventCount(e)
+	resolveMill(t, e, 1, 0)
+	if got := millEventCount(e) - before; got != 0 {
+		t.Fatalf("zero-card mill moved %d cards, want 0", got)
+	}
+	before = millEventCount(e)
+	resolveMill(t, e, 1, 2)
+	if got := millEventCount(e) - before; got != 6 {
+		t.Fatalf("precondition: nonzero opponent mill moved %d cards, want 6 (not 2)", got)
+	}
+}
+
 func TestBruvacZeroMillDoesNotReportUnsupportedReplacement(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)

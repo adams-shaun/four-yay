@@ -859,7 +859,12 @@ func effMill(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
 	for _, t := range actingPlayers(h, c, sa) {
 		p := t
-		count := h.CountReplacementProposed(events.Event{Kind: events.MillProposal, Player: p, Obj: c.Source, Amount: n}).Amount
+		// A zero-card instruction is not a mill action: Water Crystal's
+		// "one or more" replacement must not turn it into four cards.
+		count := n
+		if count > 0 {
+			count = h.CountReplacementProposed(events.Event{Kind: events.MillProposal, Player: p, Obj: c.Source, Amount: count}).Amount
+		}
 		if count < 0 {
 			count = 0
 		}
