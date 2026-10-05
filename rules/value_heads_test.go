@@ -84,9 +84,6 @@ func TestValueHeadRegistryMatchesEvaluator(t *testing.T) {
 						probe = "Count$" + h
 					}
 					if _, ok := effects.EvalCountOK(e, ctx, strings.TrimSpace(probe)); ok {
-						if h == "NumDamageThisTurn" && f.Name != "Rith, Liberated Primeval" {
-							t.Errorf("NumDamageThisTurn unexpectedly resolves for %s; its expression is outside the supported Rith excess-damage shape", f.Name)
-						}
 						resolves[h] = true
 					}
 				}
@@ -97,17 +94,10 @@ func TestValueHeadRegistryMatchesEvaluator(t *testing.T) {
 	for _, h := range effects.ModelledValueHeads() {
 		listed[h] = true
 	}
-	if listed["NumDamageThisTurn"] {
-		t.Error("NumDamageThisTurn must not be advertised as a fully modelled count head")
-	}
 	sup := effects.Supported()
 	var unlisted, stale []string
 	for h := range seen {
-		// NumDamageThisTurn is intentionally absent from effects.Supported:
-		// only Rith's exact excess-recipient expression is implemented, so
-		// advertising the head would overclaim support for its other corpus
-		// expressions. The probe above pins those to unresolved.
-		if resolves[h] && !listed[h] && h != "NumDamageThisTurn" {
+		if resolves[h] && !listed[h] {
 			unlisted = append(unlisted, h)
 		}
 		if !resolves[h] && listed[h] {

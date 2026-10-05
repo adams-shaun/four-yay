@@ -109,6 +109,30 @@ func TestExcessDamageCombatPath(t *testing.T) {
 	}
 }
 
+// TestExcessDamageNoncombatPath drives the real DealDamage primitive through
+// its event emitter; excess must use the recipient's remaining toughness.
+func TestExcessDamageNoncombatPath(t *testing.T) {
+	e := layerEngine(t)
+	source := excessTestPermanent(t, e, "Name:Burn Source\nTypes:Creature Wizard\nPT:1/1\nOracle:x\n", 0)
+	victim := excessTestPermanent(t, e, "Name:Burn Victim\nTypes:Creature Beast\nPT:4/4\nOracle:x\n", 1)
+	o := e.G.Obj(victim)
+	if e.G.Obj(source).Zone != state.ZBattlefield || o.Zone != state.ZBattlefield || e.Toughness(victim) != 4 || o.Damage != 0 {
+		t.Fatalf("precondition: source=%v victim=%v toughness=%d damage=%d", e.G.Obj(source).Zone, o.Zone, e.Toughness(victim), o.Damage)
+	}
+	ctx := effects.NewCtxPtr(source, 0, effects.CtxInit{Targets: []state.Target{{Obj: victim}}})
+	sa := &cards.SA{Kind: "DB", API: "DealDamage", Params: map[string]string{"Defined": "Targeted", "NumDmg": "2"}}
+	effects.Resolve(e, ctx, sa)
+	if o.Damage != 2 || o.WasDealtExcessDamageThisTurn {
+		t.Fatalf("below lethal: damage=%d excess=%v", o.Damage, o.WasDealtExcessDamageThisTurn)
+	}
+	// Remaining lethal is two; the next three damage must record excess.
+	sa = &cards.SA{Kind: "DB", API: "DealDamage", Params: map[string]string{"Defined": "Targeted", "NumDmg": "3"}}
+	effects.Resolve(e, ctx, sa)
+	if o.Damage != 5 || !o.WasDealtExcessDamageThisTurn {
+		t.Fatalf("above remaining lethal: damage=%d excess=%v", o.Damage, o.WasDealtExcessDamageThisTurn)
+	}
+}
+
 func TestRithExcessDamageToken(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	rith := mustCorpusCard(t, reg, "Rith, Liberated Primeval")

@@ -327,7 +327,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			wasTapped = o.Tapped
 		}
 	}
-	stored := e.foldAndMarkExcess(ev)
+	stored := foldAndMarkExcess(e, ev, e.damaging)
 	e.expireClonesOnEvent(stored, wasTapped)
 	// CR 303.4f: a non-cast Aura enters attached to its chosen bearer.
 	if stored.Kind == events.MoveZone {
