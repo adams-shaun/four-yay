@@ -663,6 +663,9 @@ type Object struct {
 	EnteredThisTurn        bool
 	EnteredFrom            Zone
 	WasDealtDamageThisTurn bool
+	// WasDealtExcessDamageThisTurn records whether damage exceeded the
+	// recipient's lethal threshold at the time it was dealt this turn.
+	WasDealtExcessDamageThisTurn bool
 	// DamageReceivedThisTurn is the total positive damage dealt to this object
 	// during the current turn, before damage is marked/cleared. Used by Forge's
 	// Count$TotalDamageReceivedThisTurn trigger conditions.

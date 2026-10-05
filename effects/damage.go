@@ -350,10 +350,14 @@ func emitObjectDamage(r damageRider, target state.ObjID) int32 {
 	} else if creature && o.Face() != nil && o.Face().IsPlaneswalker() && !o.Face().IsCreature() {
 		ev.Counter = "creature"
 	}
+	lethal, hasLethal := excessLethal(h, o)
 	applied := h.EmitDamage(ev)
 	dealt := int32(0)
 	if applied.Kind == events.Damage {
 		dealt = applied.Amount
+		if hasLethal && applied.Obj == target && dealt > lethal {
+			h.Emit(events.Event{Kind: events.ExcessDamage, Obj: target})
+		}
 	}
 	if dealt > 0 && applied.Obj != 0 && r.hasDeathtouch {
 		h.Emit(events.Event{Kind: events.CounterChange, Obj: applied.Obj,

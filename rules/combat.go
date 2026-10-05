@@ -2151,10 +2151,28 @@ func (e *Engine) runCombatAssignments() {
 				// Engine.emit recomputes the recipient half after redirects.
 				dam.Counter = "wither"
 			}
+			lethal, hasLethal := int32(0), false
+			if o := e.G.Obj(x.toObj); o != nil {
+				switch {
+				case e.IsCreature(x.toObj):
+					lethal, hasLethal = e.Toughness(x.toObj)-o.Damage, true
+					if x.deathtouch && lethal > 1 {
+						lethal = 1
+					}
+					if lethal < 0 {
+						lethal = 0
+					}
+				case o.Face() != nil && o.Face().IsPlaneswalker():
+					lethal, hasLethal = o.Counter("LOYALTY"), true
+				}
+			}
 			ev := e.emit(dam)
 			prevented = ev.Kind != events.Damage
 			if !prevented {
 				dealt = ev.Amount
+				if hasLethal && ev.Obj == x.toObj && dealt > lethal {
+					e.emit(events.Event{Kind: events.ExcessDamage, Obj: x.toObj})
+				}
 			}
 			if x.deathtouch && !prevented && ev.Obj != 0 {
 				e.emit(events.Event{Kind: events.CounterChange, Obj: ev.Obj,

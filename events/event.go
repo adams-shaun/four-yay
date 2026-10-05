@@ -1116,10 +1116,14 @@ const (
 	// Unlike LEVEL counters this cannot be proliferated, removed or counted.
 	// Appended after Saddle, preserving main's existing event ordinals.
 	ClassLevelChange
+	// ExcessDamage records that one Damage event exceeded the recipient's
+	// lethal threshold at damage time. Obj is the recipient; appended to keep
+	// all existing event ordinals and encodings stable.
+	ExcessDamage
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(ClassLevelChange) + 1
+	NumKinds = int(ExcessDamage) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving
