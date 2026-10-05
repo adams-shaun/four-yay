@@ -464,7 +464,7 @@ func (e *Engine) payCast() {
 		pc.convergeOn = true
 		pc.converge = convergeColours(spentMana)
 	}
-	captureCastSpend(pc, e.G.Obj(pc.card).Face(), e.triggeredCastSpendReaderOut(), spentMana, spentSnow, spentTyped)
+	captureCastSpend(pc, e.G.Obj(pc.card).Face(), e.triggeredCastSpendReaderOut() || targetedCastSpendReaderOut(e.G), spentMana, spentSnow, spentTyped)
 	// AddsCounters$ (task opalp): capture the rider grants from the SAME
 	// payment capture emitRestrictedManaSpend built. This must run before
 	// fireManaSpentTriggers consumes and clears e.manaSpentSources (nothing

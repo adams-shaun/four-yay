@@ -2,7 +2,7 @@
 // expansion appends each level's granted body to the face and stamps the body
 // with a dedicated ClassBand$ N parameter; this file holds the ONE evaluator
 // every gate family calls beside its own IsPresent$ read, so a granted body is
-// live exactly while its source Class carries at least N LEVEL counters.
+// live exactly while its source Class's designated level is at least N.
 //
 // Why a dedicated parameter rather than IsPresent$: the band is a SELF-check
 // of the source permanent (it counts the source object, not the battlefield),
@@ -25,7 +25,7 @@ import (
 )
 
 // classBandGateHolds evaluates a granted body's ClassBand$ band: the source
-// object carries at least N LEVEL counters. A body without the parameter is
+// object has reached level N. A body without the parameter is
 // ungated (true), so every non-Class static/trigger/replacement is unaffected.
 // A malformed or unreadable band fails closed -- a granted body whose level is
 // not proven is never live, the family's fail-closed direction.
@@ -42,5 +42,5 @@ func (e *Engine) classBandGateHolds(band string, source state.ObjID) bool {
 	if o == nil {
 		return false
 	}
-	return int(o.Counter("LEVEL")) >= n
+	return int(o.ClassLevel()) >= n
 }

@@ -259,6 +259,17 @@ var addedAfterTheSplit = []string{
 	// bend-action marker; the pre-split switch had no way to distinguish the
 	// four actions' otherwise ordinary state-change events.
 	"ElementalBend",
+	// triage-478c51d1: the set-mechanic / keyword-action trigger modes.
+	// Crewed and Saddled read per-crewer action markers (events.Crew, which
+	// the pre-split switch never dispatched as a MODE, and the new
+	// events.Saddle appended for this ticket); BecomesSaddled and
+	// BecomesPlotted read the events.AlterAttribute grants the K:Saddle and
+	// K:Plot bodies emit (the Kind predates the modes, but neither name was
+	// in the pre-split switch); SacrificedOnce reads the ordinary sacrifice
+	// MoveZone marker whose BATCH cadence the pre-split switch could not
+	// express. None of the five names existed in the pre-split switch, so no
+	// arm there could have dispatched them.
+	"Crewed", "Saddled", "BecomesSaddled", "BecomesPlotted", "SacrificedOnce",
 }
 
 func allRegisteredModeNames() []string {

@@ -430,6 +430,16 @@ const (
 	// never cast (CR 707.10) -- must not inherit it. Appended after the branch's
 	// FlagManaColorSpent to preserve both bits.
 	FlagImpending
+	// FlagBargained marks a spell cast with the CR 702.166 Bargain additional
+	// cost paid: the caster sacrificed an artifact, enchantment or token as
+	// they cast it. It is folded by payCast's CastInfo from the cast-flow
+	// bargain election and read by the `bargained` filter predicate, the
+	// Count$Bargained/Count$Bargain heads, the bare Condition$ Bargain gate and
+	// the Spell.Bargain cost-static constraint. It is a CastProvenanceFlag
+	// because "if this spell was bargained" is a statement about the CAST (a
+	// copy was put on the stack, never cast, so it must not inherit it --
+	// CR 707.10). Appended after FlagImpending to preserve every earlier bit.
+	FlagBargained
 )
 
 // CastProvenanceFlags is the ONE home for the CastFlags bits whose reader
@@ -477,7 +487,7 @@ const (
 // FlagImpending joins the set: both of CR 702.176a's riders are conditioned
 // on the spell having been CAST for its impending cost, so a stack copy -- put
 // on the stack, never cast (CR 707.10) -- must not inherit it.
-const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters | FlagWebSlinged | FlagSneaked | FlagManaColorSpent | FlagImpending
+const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters | FlagWebSlinged | FlagSneaked | FlagManaColorSpent | FlagImpending | FlagBargained
 
 // ExilesLeavingStack reports whether a cast carrying these flags is a
 // keyword cast whose card is exiled as it leaves the stack, whichever way it
@@ -611,6 +621,9 @@ type Object struct {
 	IsToken  bool
 	IsCopy   bool
 	Counters []Counter
+	// ClassLevelValue is the event-folded Class designation (CR 716), not a
+	// counter. Zero denotes the default level 1; it resets on zone change.
+	ClassLevelValue uint8
 
 	// AtEOTTrigBody names the "at the beginning of the end step, <body> this
 	// token" triggered ability a DB$ CopyPermanent | AtEOTTrig$ grant puts on
@@ -1436,11 +1449,11 @@ type Object struct {
 	// DoorLock/DoorUnlock events alone update this per-face lock bitset.
 	LockedDoors uint8
 
-	// _ pads the Object to 1088 bytes (17 64-byte cache lines), so in the
+	// _ pads the Object to 1152 bytes (18 64-byte cache lines), so in the
 	// page-aligned Objs arena every object's hot head (the fields declared
 	// first) starts on a line of its own. Purely layout: it is never read or
 	// written. A field added above must re-pad it (TestObjectCacheLinePadded).
-	_ [56]byte
+	_ [48]byte
 }
 
 // DoorUnlocked reports the designation of a printed Room face. The cast
@@ -1748,6 +1761,14 @@ func (o *Object) PreparedExileCopy() bool {
 func (o *Object) HasPrepareSpell() bool {
 	return o != nil && o.Card != nil && o.Card.AlternateMode == "Prepare" &&
 		len(o.Card.Faces) >= 2 && o.Card.Faces[1] != nil
+}
+
+// ClassLevel returns a Class permanent's designated level; zero is level 1.
+func (o *Object) ClassLevel() int32 {
+	if o == nil || o.ClassLevelValue == 0 {
+		return 1
+	}
+	return int32(o.ClassLevelValue)
 }
 
 func (o *Object) Counter(kind string) int32 {

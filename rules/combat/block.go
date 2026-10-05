@@ -220,6 +220,26 @@ func MustBlockCandidates(b Board, defender state.PlayerID) map[state.ObjID]bool 
 	return required
 }
 
+// MustBlockPairRequired checks a blocker's duty against this PARTICULAR
+// attacker. An api:MustBlock DefinedAttacker$ duty must not be discharged by
+// blocking a different creature; printed/statics without that binding allow
+// any attacker. The option flags feed both the ask and the team validator.
+func MustBlockPairRequired(b Board, blocker, attacker state.ObjID) bool {
+	for _, sv := range b.Statics("MustBlock") {
+		spec := sv.ParamStr(cards.PKValidCreature)
+		if (len(spec) == 0 || b.MatchesStaticSpec(spec, blocker, sv)) && b.StaticGateHolds(sv) {
+			return true
+		}
+	}
+	for ceI, ces := 0, b.Active(); ceI < len(ces); ceI++ {
+		ce := &ces[ceI]
+		if ce.Restriction == effects.ModeMustBlock && (ce.MustBlockAttacker == 0 || ce.MustBlockAttacker == attacker) && b.RestrictionApplies(ce, blocker) {
+			return true
+		}
+	}
+	return false
+}
+
 // ValidateMinMaxBlockers enforces CR 509.1a's MinMaxBlocker bounds on ONE
 // attacker's declared blocker count n (already non-zero). A Min$ bound admits
 // only 0 or at least min blockers; a Max$ bound admits only at most max; Min$

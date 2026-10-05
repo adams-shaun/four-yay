@@ -397,7 +397,13 @@ func (e *Engine) paymentPlanCensusTotal(p state.PlayerID) int32 {
 func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *cards.Face, o decision.Option) (Cost, bool) {
 	cost := pay.RawBaseCost(asPayer(e), p, id)
 	mode := o.Mode
-	switch potentialModeBaseCostCodes.Code(string(mode)) {
+	code := potentialModeBaseCostCodes.Code(string(mode))
+	if castModeCodes.Code(string(mode)) == castModeBargained {
+		// A bargained cast prices like the may-play cast it may ride: the
+		// printed cost plus any grant raise (Bargain adds only a sacrifice).
+		code = potentialModeBaseCostMayplay
+	}
+	switch code {
 	case potentialModeBaseCostEmpty:
 		return pay.WithSpellAbilityExtras(f, cost), true
 	case potentialModeBaseCostMayplay:
@@ -423,8 +429,6 @@ func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *card
 		return ParseCost(raw), true
 	case potentialModeBaseCostFlashback:
 		return pay.WithSpellAbilityExtras(f, e.flashbackCostFor(id, o)), true
-	case potentialModeBaseCostBestowed:
-		return bestowCost(f)
 	case potentialModeBaseCostKicked:
 		kc, ok := kickerCost(f)
 		return cost.Plus(kc), ok
@@ -436,17 +440,17 @@ func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *card
 		return cost.Plus(ec), ok
 	case potentialModeBaseCostSurged:
 		return surgeCost(f)
-	case potentialModeBaseCostAltCostKeyword:
-		head := map[string]string{"evoked": "Evoke", "dashed": "Dash", "overloaded": "Overload", "warped": "Warp",
-			"madness": "Madness", "miracle": "Miracle"}[mode]
-		mc, ok := f.KeywordParam(head)
+	case potentialModeBaseCostMiracle:
+		mc, ok := f.KeywordParam("Miracle")
 		if !ok {
 			return Cost{}, false
 		}
 		return ParseCost(mc), true
 	}
-	if castModeCodes.Code(string(mode)) == castModeImpended {
-		return keywordAltCost(f, "Impending")
+	if m := altCastFor(string(mode)); m != nil && m.potential {
+		// The alternative-cost keyword family (rules/altcast_modes.go): the
+		// same reader the offer and beginCast use.
+		return m.faceCost(f)
 	}
 	return Cost{}, false
 }
@@ -1040,12 +1044,11 @@ const (
 	potentialModeBaseCostMayplay
 	potentialModeBaseCostPlot
 	potentialModeBaseCostFlashback
-	potentialModeBaseCostBestowed
 	potentialModeBaseCostKicked
 	potentialModeBaseCostBuyback
 	potentialModeBaseCostEntwined
 	potentialModeBaseCostSurged
-	potentialModeBaseCostAltCostKeyword
+	potentialModeBaseCostMiracle
 )
 
 var potentialModeBaseCostCodes = state.NewStrCodes(
@@ -1053,15 +1056,9 @@ var potentialModeBaseCostCodes = state.NewStrCodes(
 	state.StrEntry[potentialModeBaseCostCode]{Key: "mayplay", Val: potentialModeBaseCostMayplay},
 	state.StrEntry[potentialModeBaseCostCode]{Key: "plot", Val: potentialModeBaseCostPlot},
 	state.StrEntry[potentialModeBaseCostCode]{Key: "flashback", Val: potentialModeBaseCostFlashback},
-	state.StrEntry[potentialModeBaseCostCode]{Key: "bestowed", Val: potentialModeBaseCostBestowed},
 	state.StrEntry[potentialModeBaseCostCode]{Key: "kicked", Val: potentialModeBaseCostKicked},
 	state.StrEntry[potentialModeBaseCostCode]{Key: "buyback", Val: potentialModeBaseCostBuyback},
 	state.StrEntry[potentialModeBaseCostCode]{Key: "entwined", Val: potentialModeBaseCostEntwined},
 	state.StrEntry[potentialModeBaseCostCode]{Key: "surged", Val: potentialModeBaseCostSurged},
-	state.StrEntry[potentialModeBaseCostCode]{Key: "evoked", Val: potentialModeBaseCostAltCostKeyword},
-	state.StrEntry[potentialModeBaseCostCode]{Key: "dashed", Val: potentialModeBaseCostAltCostKeyword},
-	state.StrEntry[potentialModeBaseCostCode]{Key: "overloaded", Val: potentialModeBaseCostAltCostKeyword},
-	state.StrEntry[potentialModeBaseCostCode]{Key: "warped", Val: potentialModeBaseCostAltCostKeyword},
-	state.StrEntry[potentialModeBaseCostCode]{Key: "madness", Val: potentialModeBaseCostAltCostKeyword},
-	state.StrEntry[potentialModeBaseCostCode]{Key: "miracle", Val: potentialModeBaseCostAltCostKeyword},
+	state.StrEntry[potentialModeBaseCostCode]{Key: "miracle", Val: potentialModeBaseCostMiracle},
 )

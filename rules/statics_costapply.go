@@ -557,8 +557,9 @@ func (e *Engine) validSpellMatches(sv staticView, scope costScope, p state.Playe
 // source of truth for "how is this spell being cast": Blitz (Henzie, Toolbox
 // Torre), Dash (Warbringer), Buyback (Memory Crystal), isCastFaceDown (Dream
 // Chisel) -- and MayPlaySource the may-play permission the "mayplay" cast
-// rides (castRidesMayPlayOf). Bargain denies: this build implements no
-// Bargain keyword, so no cast is ever bargained. Anything else denies.
+// rides (castRidesMayPlayOf). Bargain reads the "bargained" cast mode, so a
+// cost static gated on `Spell.Bargain` (Hamlet Glutton, Ice Out, Johann's
+// Stopgap) prices the discounted bargained cast. Anything else denies.
 func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.PlayerID, id state.ObjID, constraint string, targets []state.Target) bool {
 	c := strings.TrimSpace(constraint)
 	if strings.HasPrefix(c, "IsTargeting") {
@@ -587,11 +588,11 @@ func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.
 	case spellConstraintMatchesMiracle:
 		return scope.Mode == "miracle"
 	case spellConstraintMatchesBlitz:
-		return scope.Mode == "blitzed" || strings.HasPrefix(scope.Mode, "blitzed_grant_")
+		return altCastIs(scope.Mode, altBlitz) || strings.HasPrefix(scope.Mode, "blitzed_grant_")
 	case spellConstraintMatchesDash:
 		// Forge's isDash: the dash alternative cast, the "dashed" mode the
 		// hand walk offers and beginCast charges (Warbringer).
-		return scope.Mode == "dashed"
+		return altCastIs(scope.Mode, altDash)
 	case spellConstraintMatchesBuyback:
 		// Forge's isBuyback: the cast that pays the Buyback additional cost,
 		// the "buyback" mode (Memory Crystal). Like Forge, the reduction
@@ -606,6 +607,14 @@ func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.
 		// host is this static's own host (Urianger Augurelt's Play Arcanum
 		// effect grants the permission AND carries the reduction).
 		return e.castRidesMayPlayOf(p, id, sv.Source, scope)
+	case spellConstraintMatchesBargain:
+		// CR 702.166's Bargain: the cast elected the optional additional
+		// sacrifice (the "bargained" cast mode the hand walk offers and
+		// beginCast charges). Read as a SCOPE read rather than the object's
+		// later FlagBargained, so it is already true while the offer and the
+		// charge price the discounted cost -- the same pre-payment read the
+		// other cast-option constraints (Dash, Buyback) make.
+		return castModeCodes.Code(scope.Mode) == castModeBargained
 	case spellConstraintMatchesInstant:
 		if o := e.G.Obj(id); o != nil && o.Face() != nil {
 			return o.Face().IsInstant()
@@ -845,6 +854,7 @@ const (
 	spellConstraintMatchesBuyback
 	spellConstraintMatchesIsCastFaceDown
 	spellConstraintMatchesMayPlaySource
+	spellConstraintMatchesBargain
 	spellConstraintMatchesInstant
 	spellConstraintMatchesSorcery
 )
@@ -860,6 +870,7 @@ var spellConstraintMatchesCodes = state.NewStrCodes(
 	state.StrEntry[spellConstraintMatchesCode]{Key: "Buyback", Val: spellConstraintMatchesBuyback},
 	state.StrEntry[spellConstraintMatchesCode]{Key: "isCastFaceDown", Val: spellConstraintMatchesIsCastFaceDown},
 	state.StrEntry[spellConstraintMatchesCode]{Key: "MayPlaySource", Val: spellConstraintMatchesMayPlaySource},
+	state.StrEntry[spellConstraintMatchesCode]{Key: "Bargain", Val: spellConstraintMatchesBargain},
 	state.StrEntry[spellConstraintMatchesCode]{Key: "Instant", Val: spellConstraintMatchesInstant},
 	state.StrEntry[spellConstraintMatchesCode]{Key: "Sorcery", Val: spellConstraintMatchesSorcery},
 )

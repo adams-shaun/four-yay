@@ -81,7 +81,7 @@ func (e *Engine) castStageSA(pc *pendingCast, o *state.Object, f *cards.Face) *c
 		return nil
 	}
 	sa := f.SpellAbility()
-	if sa == nil && pc.mode == "bestowed" {
+	if sa == nil && altCastIs(pc.mode, altBestow) {
 		sa = bestowedAttachSA()
 	}
 	if sa == nil && pc.mode == "mutated" {

@@ -1099,10 +1099,27 @@ const (
 	// Appended after SetupEntered so main's existing ordinals (and the oracle
 	// fixtures that encode SetupEntered) are unchanged.
 	DoorLock
+	// Saddle records one CR 702.171 saddle action (the `K:Saddle` keyword,
+	// task triage-478c51d1): Obj is the SADDLING creature (one of the
+	// creatures the saddle cost tapped), Player its controller, and IDs[0]
+	// the Mount that creature saddled. It is the exact mirror of the Crew
+	// event above -- the tap itself is its own Tap event -- and exists so
+	// the Mode$ Saddled / BecomesSaddled matchers and the ValidCrew$ filter
+	// have a crewer-to-Mount pairing to read. One event per saddling
+	// creature. It is a replay-visible pure marker: the designation itself
+	// rides the AlterAttribute "Saddled" event, whose fold stamps
+	// Object.SaddledTurn. Appended after DoorLock, following every prior
+	// Kind's own append-only precedent, so no earlier ordinal, hash chain or
+	// golden replay is affected.
+	Saddle
+	// ClassLevelChange advances a Class's level designation by Amount.
+	// Unlike LEVEL counters this cannot be proliferated, removed or counted.
+	// Appended after Saddle, preserving main's existing event ordinals.
+	ClassLevelChange
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(DoorLock) + 1
+	NumKinds = int(ClassLevelChange) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving
@@ -1746,6 +1763,12 @@ var flagNames = [...]struct {
 	// state.Object.ImpendingDormant reads to strip Creature while a time
 	// counter remains. Appended at the end per the table's own ordering rule.
 	{"impending", state.FlagImpending},
+	// The CR 702.166 Bargain additional-cost cast: the caster sacrificed an
+	// artifact, enchantment or token as they cast the spell. Read by the
+	// `bargained` predicate, the Count$Bargained/Count$Bargain heads, the
+	// bare Condition$ Bargain gate and the Spell.Bargain cost constraint.
+	// Appended at the end per the table's own ordering rule.
+	{"bargained", state.FlagBargained},
 }
 
 // FlagsFrom parses a comma-separated flag list (CastInfo.Counter's shape)

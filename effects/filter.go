@@ -253,6 +253,14 @@ var predicates = map[string]predFn{
 	"kicked": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.CastFlags&state.FlagKicked != 0
 	},
+	// Bargained is CR 702.166's CastFlags provenance: the object is a spell or
+	// permanent whose cast elected the optional additional sacrifice. It is
+	// the SAME state.FlagBargained bit the Count$Bargained/Count$Bargain
+	// heads, the bare Condition$ Bargain gate and the Spell.Bargain cost
+	// constraint read; a copy (never cast) fails closed.
+	"bargained": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o.CastFlags&state.FlagBargained != 0
+	},
 	// PromisedGift is Forge's Card.PromisedGift (CR 702.168): the object is a
 	// spell or permanent whose cast opted into the Gift keyword's promise.
 	// The bit is folded by events.GiftPromise from the cast-flow election and

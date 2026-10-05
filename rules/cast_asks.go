@@ -1239,26 +1239,3 @@ func (e *Engine) conspireAsk() bool {
 	e.ask(d)
 	return true
 }
-
-// casualtyAsk announces the optional sacrifice before payment. The chosen
-// creature remains on the battlefield until payCast, after target selection.
-func (e *Engine) casualtyAsk() bool {
-	pc := e.cast
-	if pc.mode != "casualty" || pc.casualtyDone {
-		return false
-	}
-	pc.casualtyDone = true
-	candidates := e.casualtyCandidates(pc.player, pc.card, pc.casualtyN)
-	if pc.casualtyN < 0 || len(candidates) == 0 {
-		e.emit(events.Event{Kind: events.Note, Player: pc.player, Obj: pc.card, Text: "casualty no longer payable; casting without casualty"})
-		return false
-	}
-	d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: 1, Max: 1,
-		Prompt: "Choose a creature to sacrifice for casualty", Source: pc.card}
-	for _, id := range candidates {
-		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "casualty", Obj: id, Label: e.targetName(id)})
-	}
-	e.choosing = chooseCast
-	e.ask(d)
-	return true
-}

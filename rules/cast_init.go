@@ -131,13 +131,10 @@ func init() {
 		// rules/outlast_test.go.
 		"kw:Outlast",
 		// kw:Class: CR 702.118, expanded by cards/keywords.go into one
-		// sorcery-speed level-up activator per level (the kw:Level up shape,
-		// gated on the Class's level being below that level) plus the level's
-		// granted static/trigger/replacement, appended with its own ClassBand$
-		// band so it is live from level N on (read as an independent AND gate
-		// by rules/class_level.go's classBandGateHolds). The entry
-		// counter (a Class enters at level 1) is the same etbCounter
-		// PutCounter replacement shape. Proof: rules/class_test.go.
+		// sorcery-speed designation activator per level (gated below N), plus
+		// the level's granted static/trigger/replacement, appended with its own
+		// ClassBand$ band (rules/class_level.go). Level 1 is intrinsic; no
+		// entry counter or replacement is created. Proof: rules/class_test.go.
 		"kw:Class",
 		// kw:Replicate: CR 702.55, expanded by cards/keywords.go into the
 		// Storm-shaped copy trigger whose Amount$ Count$ReplicatePaid reads
@@ -199,5 +196,15 @@ func init() {
 		// exile-zone walk; no upkeep ask, unlike Suspend's cast-if-able). No
 		// keyword expansion: the K:Plot line is read directly. Proof:
 		// rules/plot_test.go.
+		// kw:Bargain: CR 702.166, the optional additional cost "you may
+		// sacrifice an artifact, enchantment, or token as you cast this
+		// spell". The offer lives in legal.go's hand cast walk (the
+		// "bargained" mode, priced through the same Spell.Bargain cost
+		// statics), the election in bargainAsk (rules/cast.go), and the
+		// pay-time FlagBargained provenance in modeFlags -- read by the
+		// Count$Bargained/Count$Bargain heads, the bare Condition$ Bargain
+		// gate, the `bargained` predicate and the Spell.Bargain constraint.
+		// Proof: rules/bargain_test.go.
+		"kw:Bargain",
 		"kw:Plot")
 }

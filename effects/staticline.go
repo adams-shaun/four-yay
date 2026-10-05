@@ -330,6 +330,33 @@ func effectGainsAbilitiesOfDefined(h Host, c *Ctx, params staticLineParams, reme
 	}, true
 }
 
+// Implemented delivery-mode names shared by effects registration and rules
+// consultation. Keep comparisons against these named mode identifiers.
+const (
+	ModeIgnoreHexproof  = "IgnoreHexproof"
+	ModeNoCleanupDamage = "NoCleanupDamage"
+	ModeMustBlock       = "MustBlock"
+	ModeFlipCoinMod     = "FlipCoinMod"
+)
+
+// staticKeysReadable fails closed when a delivered static carries an unread
+// condition or selector; registration must never turn one into a blanket rule.
+func staticKeysReadable(params map[string]string, keys ...string) bool {
+	for k := range params {
+		found := false
+		for _, allowed := range keys {
+			if k == allowed {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
 func parseStaticLine(svars map[string]string, name string) (string, staticLineParams) {
 	body := strings.TrimSpace(svars[name])
 	if body == "" {

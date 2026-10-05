@@ -612,6 +612,10 @@ type ContinuousEffect struct {
 	// replay like every other continuous-effect field.
 	ForgetOnCast string
 
+	// MustBlockAttacker binds an api:MustBlock duty to the attacker named by
+	// DefinedAttacker$. Zero means a generic MustBlock static duty.
+	MustBlockAttacker ObjID
+
 	// AssignmentStaticMode carries an Effect-delivered combat-assignment
 	// static's mode (currently CombatDamageToughness). Its consumer joins this
 	// registration with printed assignment statics in the shared deterministic

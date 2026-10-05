@@ -335,7 +335,7 @@ func TestSetAudit_tmt_LeaderTalent_Level2LeavesTrigger(t *testing.T) {
 	e, _ := classEngine(t, reg, "Leader's Talent", "Grizzly Bears")
 	lt := classMove(t, e, "Leader's Talent", state.ZBattlefield)
 	bear := classMove(t, e, "Grizzly Bears", state.ZBattlefield)
-	if got := e.G.Obj(lt).Counter("LEVEL"); got != 1 {
+	if got := e.G.Obj(lt).ClassLevel(); got != 1 {
 		t.Fatalf("precondition: Leader's Talent at level %d, want 1", got)
 	}
 	// Preconditions the post-assertions depend on: the creature is a live
@@ -350,7 +350,7 @@ func TestSetAudit_tmt_LeaderTalent_Level2LeavesTrigger(t *testing.T) {
 
 	// Drive the real {2}{W}: Level 2 activation.
 	classLevelUp(t, e, lt, 0) // -> level 2
-	if got := e.G.Obj(lt).Counter("LEVEL"); got != 2 {
+	if got := e.G.Obj(lt).ClassLevel(); got != 2 {
 		t.Fatalf("precondition: LEVEL=%d after the level-2 activation, want 2", got)
 	}
 	// The creature must have a counter for the trigger's rider to hold.

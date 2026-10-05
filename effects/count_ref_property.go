@@ -242,6 +242,11 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 			arg := strings.TrimSpace(strings.TrimPrefix(prop, "CastTotalManaSpent"))
 			if c.TriggerCard != 0 && t.Obj == c.TriggerCard {
 				n += castManaSpentTotals{total: c.TriggerManaSpent, snow: c.TriggerManaSnowSpent, typed: c.TriggerManaTyped}.byTag(arg)
+			} else if snap, ok := targetManaSpentLKI(c, o); ok {
+				// The target has left the stack (a Counter earlier in this
+				// chain): its live captures are zeroed by the move, so read the
+				// resolution-start snapshot instead (CR 608.2b/h).
+				n += snap.byTag(arg)
 			} else {
 				n += manaSpentTotalsOf(o).byTag(arg)
 			}

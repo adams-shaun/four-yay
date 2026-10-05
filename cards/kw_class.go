@@ -14,12 +14,11 @@ import (
 //
 //	K:Class:<level>:<cost>:Add<Kind>$ <SVar-name> [ | Add<Kind>$ <SVar-name> ]...
 //
-// A Class enters with one level counter (CR 702.118a: "each Class ... has
-// level 1"), and each line adds two things:
+// A Class has level 1 by default (CR 716.2b), without a counter or an
+// entry replacement. Each line adds two things:
 //
 //   - a level-up activator, "<cost>: Gain the next level as a sorcery" --
-//     the same ordinary sorcery-speed PutCounter | CounterType$ LEVEL shape
-//     kw:Level up (CR 702.87) already expands to, gated on the Class's level
+//     a sorcery-speed ClassLevelUp designation change, gated on the Class's level
 //     being BELOW this line's level (CR 702.118b: "you may activate a level
 //     ability ... only if this Class's level is less than N"), so a Class at
 //     level 2 is offered the level-3 activator and no longer the level-2 one;
@@ -42,9 +41,8 @@ import (
 // the cost-static collector and a directly-appended `Mode$ Continuous` by the
 // layer walk.
 //
-// The keyword is idempotent per LINE (KeywordLine tag) and the entry counter
-// once per face, so a second Link() of a cached face neither double-adds a
-// level-up activator nor re-grants an ability.
+// The keyword is idempotent per LINE (KeywordLine tag), so a second Link()
+// of a cached face neither double-adds an activator nor re-grants an ability.
 func kwClass(f *Face, i int, k, head, param string, has func(kind, line string) bool) {
 	// param is "<level>:<cost>:<body>"; more than three colon fields do not
 	// occur (the body itself may carry further ` | Key$ value` segments).
@@ -54,8 +52,8 @@ func kwClass(f *Face, i int, k, head, param string, has func(kind, line string) 
 	}
 	level, err := strconv.Atoi(strings.TrimSpace(levelStr))
 	if err != nil || level < 2 {
-		// A malformed level (or level 1, which the entry counter already
-		// provides) grants nothing -- fail closed rather than guess a band.
+		// A malformed level (or level 1, the intrinsic default designation)
+		// grants nothing -- fail closed rather than guess a band.
 		return
 	}
 	cost, body, _ := strings.Cut(rest, ":")
@@ -64,24 +62,14 @@ func kwClass(f *Face, i int, k, head, param string, has func(kind, line string) 
 		return
 	}
 
-	// 1. The Class enters at level 1 (CR 702.118a). One replacement per face,
-	// keyed on its own canonical tag so several K:Class lines -- each of which
-	// runs this expander -- share the single entry counter.
-	const entryTag = "Class#entry"
-	if !has("R", entryTag) {
-		const sv = "__kwClassEntry"
-		f.setSVar(sv, "DB$ PutCounter | Defined$ Self | CounterType$ LEVEL | CounterNum$ 1 | ETB$ True")
-		rp := parseParams("Event$ Moved | Destination$ Battlefield | ValidCard$ Card.Self | ReplacementResult$ Updated | ReplaceWith$ " + sv +
-			" | Keyword$ Class | Description$ (This Class enters at level 1.)")
-		rp["KeywordLine"] = entryTag
-		f.Repls = append(f.Repls, Repl{Event: "Moved", Params: rp})
-	}
-
-	// 2. The level-up activator: an ordinary sorcery-speed counter placement,
-	// offered only while this Class's level is below N.
+	// Level 1 is the default designation, not an entry replacement or counter.
+	// The level-up activator sets the designation to this line's level, never a
+	// counter, and is offered only while the Class is at exactly N-1 (CR 716.2d,
+	// matching Constructed's class level-up activation status).
 	if !has("A", k) {
-		gate := "Card.Self+counters_LT" + strconv.Itoa(level) + "_LEVEL"
-		sa, _ := parseSA("", "AB$ PutCounter | Cost$ "+cost+" | Defined$ Self | CounterType$ LEVEL | CounterNum$ 1 | IsPresent$ "+gate+
+		gate := "Card.Self+classLevel_EQ" + strconv.Itoa(level-1)
+		sa, _ := parseSA("", "AB$ ClassLevelUp | Cost$ "+cost+" | IsPresent$ "+gate+
+			" | Level$ "+strconv.Itoa(level)+
 			" | SorcerySpeed$ True | Keyword$ Class | SpellDescription$ Level "+strconv.Itoa(level))
 		if sa != nil {
 			sa.Params["KeywordLine"] = k

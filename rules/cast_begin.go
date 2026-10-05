@@ -166,7 +166,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 	if strings.HasPrefix(selectedMode, "blitzed_grant_") {
 		// Keep a unique offer mode for each grant cost, but use canonical Blitz
 		// semantics for the rest of the cast pipeline.
-		opt.Mode = "blitzed"
+		opt.Mode = altMode(altBlitz)
 	}
 	if strings.HasPrefix(selectedMode, "webslinged_grant_") {
 		// Web-slinging (CR 702.186a-family): the same grant-cost convention as
@@ -316,7 +316,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		cost = Cost{Generic: 2}
 	case castModeFlashback:
 		cost = e.flashbackCostFor(id, opt)
-	case castModeMayplay:
+	case castModeMayplay, castModeBargained:
 		// rules/mayplay.go granted this play from a non-hand zone. The
 		// printed cost is paid (the default below) unless the granting
 		// static said MayPlayWithoutManaCost$ True, in which case the mana
@@ -382,43 +382,26 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		if e.hasKeywordH(id, kwhJumpStart) {
 			cost = cost.Plus(jumpstartExtra())
 		}
-	case castModeAltCostKeyword, castModeImpended:
-		// Grant instances use distinct modes so their cost remains selectable
-		// beside printed Blitz, but share Blitz's cast semantics.
-		// The alternative-cost keyword family (altcosts): each mode's cost is
-		// the printed keyword parameter in place of the mana cost, exactly the
-		// Miracle shape. Evoke and Madness casts come from hand and exile
-		// respectively via the pending-trigger/cast-offer machinery; a stale
-		// option whose keyword is gone (the face cannot change, so in practice
-		// only a hand-built option) falls back to the empty cost rather than
-		// charging the printed mana cost.
-		head := map[string]string{"evoked": "Evoke", "dashed": "Dash", "overloaded": "Overload",
-			"warped": "Warp", "madness": "Madness", "blitzed": "Blitz", "impended": "Impending"}[opt.Mode]
-		if opt.Mode == "bestowed" {
-			// Bestow goes through the ONE resolver the offer gate used
-			// (rules/bestow.go's bestowCost: the colon cut and the Unknown
-			// withhold), so the charge and the offer can never disagree about
-			// what a bestowed cast costs -- a raw ParseCost here would price
-			// hypnotic_siren's ":GainControl" suffix as a phantom generic.
-			if bc, ok := bestowCost(f); ok {
-				cost = bc
-			} else {
-				cost = Cost{}
-			}
-			break
-		}
-		if opt.Mode == "blitzed" {
-			cost = Cost{}
+	case castModeAltCostKeyword:
+		// The alternative-cost keyword family (rules/altcast_modes.go): the
+		// row's printed keyword parameter in place of the mana cost, read by
+		// the ONE reader the offer gate used, so charge and offer cannot
+		// drift. Blitz grant instances keep distinct offer modes so each
+		// grant's cost stays selectable beside printed Blitz. A stale option
+		// whose keyword is gone falls back to the empty cost rather than the
+		// printed mana cost.
+		cost = Cost{}
+		if m := altCastFor(opt.Mode); m != nil && m.cost == altCostBlitzInstance {
 			for _, bc := range e.blitzCosts(p, id) {
 				if bc.mode == selectedMode {
 					cost = bc.cost
 					break
 				}
 			}
-		} else if mc, ok := keywordAltCost(f, head); ok {
-			cost = mc
-		} else {
-			cost = Cost{}
+		} else if m != nil {
+			if c, ok := m.faceCost(f); ok {
+				cost = c
+			}
 		}
 	case castModeWebSlinging:
 		// Web-slinging (CR 702.186a-family, Marvel's Spider-Man): the
@@ -565,7 +548,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		optionalCost = parts[opt.AltCostIndex-1]
 	}
 	if opt.AltCostIndex == 0 && (opt.Mode == "" || opt.Mode == "mayplay" || opt.Mode == "modal_spell" || opt.Mode == "room_alt" ||
-		opt.Mode == "adventure_alt" || opt.Mode == "aftermath" || opt.Mode == "split_alt" || opt.Mode == "conspired" || opt.Mode == "casualty" || opt.Mode == "mayflash" || opt.Mode == "retrace" || opt.Mode == "jumpstart" ||
+		opt.Mode == "adventure_alt" || opt.Mode == "aftermath" || opt.Mode == "split_alt" || opt.Mode == "conspired" || opt.Mode == "casualty" || castModeCodes.Code(opt.Mode) == castModeBargained || opt.Mode == "mayflash" || opt.Mode == "retrace" || opt.Mode == "jumpstart" ||
 		// CR 702.34a/601.2f: flashback replaces only the mana cost; the
 		// spell's own additional cost (Eviscerator's Insight's sacrifice,
 		// Electric Revelation's discard) is still paid. The offer gate
@@ -739,7 +722,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 	// CR 401.5's MayPlayIgnoreColor$ rider: "you may spend mana as though it
 	// were mana of any color to cast it". Recorded from the grant the offer
 	// gate consulted while the card was still in the granted zone.
-	if opt.Mode == "mayplay" {
+	if opt.Mode == "mayplay" || castModeCodes.Code(opt.Mode) == castModeBargained {
 		rider := asEval(e).MayPlayRider(p, id)
 		e.cast.mayPlayIgnore, e.cast.mayPlayIgnoreType = rider.AnyColor, rider.AnyType
 		e.cast.mayPlayRemembered = e.mayPlayManaConvertRemembered(p, id)
@@ -1018,7 +1001,7 @@ func (e *Engine) continueCast() {
 	// CR 702.78a: the Conspire tap election (two untapped creatures that
 	// share a colour with the spell) is posed before Convoke/X so an elected
 	// creature cannot also be announced as a payment source. See conspireAsk.
-	if e.conspireAsk() || e.casualtyAsk() {
+	if e.conspireAsk() || e.optionalSacrificeAsk() {
 		return
 	}
 	// CR 601.2b announces Convoke/Harmonize before X: an announced creature
@@ -1177,15 +1160,12 @@ const (
 	castModeAirbendCast
 	castModeFlashback
 	castModeMayplay
+	castModeBargained
 	castModeMiracle
 	castModeEscape
 	castModeRetrace
 	castModeJumpstart
 	castModeAltCostKeyword
-	// castModeImpended is Impending (CR 702.176a): an alternative-cost keyword
-	// cast like castModeAltCostKeyword, with its own code so modeFlags and
-	// potentialModeBaseCost key on this ONE table rather than repeating the word.
-	castModeImpended
 	castModeWebSlinging
 	castModeSneak
 	castModeMayhem
@@ -1195,7 +1175,7 @@ const (
 	castModeEmerged
 )
 
-var castModeCodes = state.NewStrCodes(
+var castModeCodes = state.NewStrCodes(append([]state.StrEntry[castModeCode]{
 	state.StrEntry[castModeCode]{Key: "kicked", Val: castModeKicked},
 	state.StrEntry[castModeCode]{Key: "fuse", Val: castModeFuse},
 	state.StrEntry[castModeCode]{Key: "kicked1", Val: castModeKickedParts},
@@ -1223,14 +1203,6 @@ var castModeCodes = state.NewStrCodes(
 	state.StrEntry[castModeCode]{Key: "escape", Val: castModeEscape},
 	state.StrEntry[castModeCode]{Key: "retrace", Val: castModeRetrace},
 	state.StrEntry[castModeCode]{Key: "jumpstart", Val: castModeJumpstart},
-	state.StrEntry[castModeCode]{Key: "evoked", Val: castModeAltCostKeyword},
-	state.StrEntry[castModeCode]{Key: "dashed", Val: castModeAltCostKeyword},
-	state.StrEntry[castModeCode]{Key: "overloaded", Val: castModeAltCostKeyword},
-	state.StrEntry[castModeCode]{Key: "warped", Val: castModeAltCostKeyword},
-	state.StrEntry[castModeCode]{Key: "madness", Val: castModeAltCostKeyword},
-	state.StrEntry[castModeCode]{Key: "bestowed", Val: castModeAltCostKeyword},
-	state.StrEntry[castModeCode]{Key: "blitzed", Val: castModeAltCostKeyword},
-	state.StrEntry[castModeCode]{Key: "impended", Val: castModeImpended},
 	state.StrEntry[castModeCode]{Key: "web-slinging", Val: castModeWebSlinging},
 	state.StrEntry[castModeCode]{Key: "sneak", Val: castModeSneak},
 	state.StrEntry[castModeCode]{Key: "mayhem", Val: castModeMayhem},
@@ -1240,7 +1212,9 @@ var castModeCodes = state.NewStrCodes(
 	state.StrEntry[castModeCode]{Key: "disguised", Val: castModeMorphed},
 	state.StrEntry[castModeCode]{Key: "mayflash", Val: castModeMayflash},
 	state.StrEntry[castModeCode]{Key: "emerged", Val: castModeEmerged},
-)
+}, append(altCastModeEntries(),
+	// The Bargain row's mode word lives in rules/optional_sacrifice.go.
+	state.StrEntry[castModeCode]{Key: optionalSacrifices[optSacBargain].mode, Val: castModeBargained})...)...)
 
 type castKickerModeCode uint16
 

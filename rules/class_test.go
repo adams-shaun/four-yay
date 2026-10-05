@@ -89,7 +89,7 @@ func TestPaladinClassEntersAtLevel1LevelsUpAndTurnsOnItsStatic(t *testing.T) {
 	bear := classMove(t, e, "Grizzly Bears", state.ZBattlefield)
 
 	// CR 702.118a: a Class enters at level 1.
-	if got := e.G.Obj(class).Counter("LEVEL"); got != 1 {
+	if got := e.G.Obj(class).ClassLevel(); got != 1 {
 		t.Fatalf("precondition: Class entered with LEVEL=%d, want 1", got)
 	}
 	// Precondition: the lord is NOT live at level 1, and the bear is a real
@@ -114,7 +114,7 @@ func TestPaladinClassEntersAtLevel1LevelsUpAndTurnsOnItsStatic(t *testing.T) {
 	passUntilStackEmpty(t, e, 20)
 
 	// CR 702.118b: the level counter is on, the next level's ability is live.
-	if got := e.G.Obj(class).Counter("LEVEL"); got != 2 {
+	if got := e.G.Obj(class).ClassLevel(); got != 2 {
 		t.Fatalf("after activating level 2: LEVEL=%d, want 2", got)
 	}
 	if got := e.Power(bear); got != 3 {
@@ -177,7 +177,7 @@ func TestCaretakersTalentLevelGainedTriggerFiresOnTheLevelUp(t *testing.T) {
 	reg := searchTestRegistry(t)
 	e, _ := classEngine(t, reg, "Caretaker's Talent")
 	class := classMove(t, e, "Caretaker's Talent", state.ZBattlefield)
-	if got := e.G.Obj(class).Counter("LEVEL"); got != 1 {
+	if got := e.G.Obj(class).ClassLevel(); got != 1 {
 		t.Fatalf("precondition: Class at level %d, want 1", got)
 	}
 	// Precondition: the level-2 ability here is a TRIGGER, not a static, so
@@ -195,7 +195,7 @@ func TestCaretakersTalentLevelGainedTriggerFiresOnTheLevelUp(t *testing.T) {
 	submitChoices(t, e, opt.Index)
 	passUntilStackEmpty(t, e, 20)
 
-	if got := e.G.Obj(class).Counter("LEVEL"); got != 2 {
+	if got := e.G.Obj(class).ClassLevel(); got != 2 {
 		t.Fatalf("LEVEL=%d after level-up, want 2", got)
 	}
 	// The ClassLevelGained trigger fired: its push names the Class as source.
@@ -249,7 +249,7 @@ func TestFortuneTellersTalentLevelTwoGrantsPlayFromTop(t *testing.T) {
 	reg := searchTestRegistry(t)
 	e, _ := classEngine(t, reg, "Fortune Teller's Talent", "Grizzly Bears", "Forest", "Forest")
 	class := classMove(t, e, "Fortune Teller's Talent", state.ZBattlefield)
-	if got := e.G.Obj(class).Counter("LEVEL"); got != 1 {
+	if got := e.G.Obj(class).ClassLevel(); got != 1 {
 		t.Fatalf("precondition: Class at level %d, want 1", got)
 	}
 
@@ -263,7 +263,7 @@ func TestFortuneTellersTalentLevelTwoGrantsPlayFromTop(t *testing.T) {
 	}
 	submitChoices(t, e, opt.Index)
 	passUntilStackEmpty(t, e, 20)
-	if got := e.G.Obj(class).Counter("LEVEL"); got != 2 {
+	if got := e.G.Obj(class).ClassLevel(); got != 2 {
 		t.Fatalf("LEVEL=%d after level-up, want 2", got)
 	}
 
@@ -323,7 +323,7 @@ func TestFortuneTellersTalentLevelTwoGrantsPlayFromTop(t *testing.T) {
 // misinterpret a later assertion.
 func classLevelUp(t *testing.T, e *Engine, class state.ObjID, idx int) {
 	t.Helper()
-	before := e.G.Obj(class).Counter("LEVEL")
+	before := e.G.Obj(class).ClassLevel()
 	addMana(t, e, 0, "WWWWWWGGGGGG")
 	opt, ok := findAbilityOption(e, class, idx)
 	if !ok {
@@ -331,7 +331,7 @@ func classLevelUp(t *testing.T, e *Engine, class state.ObjID, idx int) {
 	}
 	submitChoices(t, e, opt.Index)
 	passUntilStackEmpty(t, e, 20)
-	if got := e.G.Obj(class).Counter("LEVEL"); got != before+1 {
+	if got := e.G.Obj(class).ClassLevel(); got != before+1 {
 		t.Fatalf("level-up did not advance the Class: LEVEL %d -> %d, want %d", before, got, before+1)
 	}
 }
@@ -354,7 +354,7 @@ func TestHuntersTalentEndStepTriggerIsGatedByItsOwnIsPresentAndTheLevelBand(t *t
 	// Preconditions: the Class is at level 1, the trigger exists, its body
 	// has its own IsPresent$ (so the union reading would over-fire), and the
 	// power-4 creature is on the battlefield satisfying THAT clause.
-	if got := e.G.Obj(class).Counter("LEVEL"); got != 1 {
+	if got := e.G.Obj(class).ClassLevel(); got != 1 {
 		t.Fatalf("precondition: Class at level %d, want 1", got)
 	}
 	if !classHasTriggerMode(e.G.Obj(class).Face(), "Phase") {
@@ -381,7 +381,7 @@ func TestHuntersTalentEndStepTriggerIsGatedByItsOwnIsPresentAndTheLevelBand(t *t
 	driveToStepAll(t, e, nextMain1, 0, state.StepMain1)
 	classLevelUp(t, e, class, 0) // -> level 2
 	classLevelUp(t, e, class, 1) // -> level 3
-	if got := e.G.Obj(class).Counter("LEVEL"); got != 3 {
+	if got := e.G.Obj(class).ClassLevel(); got != 3 {
 		t.Fatalf("precondition: Class at level %d, want 3", got)
 	}
 	driveToStepAll(t, e, nextMain1, 0, state.StepEnd)
@@ -406,12 +406,12 @@ func TestPaladinClassBandThreeGrantFires(t *testing.T) {
 	class := classMove(t, e, "Paladin Class", state.ZBattlefield)
 	classMove(t, e, "Grizzly Bears", state.ZBattlefield)
 
-	if got := e.G.Obj(class).Counter("LEVEL"); got != 1 {
+	if got := e.G.Obj(class).ClassLevel(); got != 1 {
 		t.Fatalf("precondition: Class at level %d, want 1", got)
 	}
 	classLevelUp(t, e, class, 0) // -> level 2
 	classLevelUp(t, e, class, 1) // -> level 3
-	if got := e.G.Obj(class).Counter("LEVEL"); got != 3 {
+	if got := e.G.Obj(class).ClassLevel(); got != 3 {
 		t.Fatalf("precondition: Class at level %d, want 3", got)
 	}
 	if !classHasTriggerMode(e.G.Obj(class).Face(), "AttackersDeclared") {
@@ -463,7 +463,7 @@ func TestClassBandBandGatesGrantedReplacement(t *testing.T) {
 	e, _ := classEngine(t, reg, "Paladin Class", "Grizzly Bears")
 	class := classMove(t, e, "Paladin Class", state.ZBattlefield)
 	classMove(t, e, "Grizzly Bears", state.ZBattlefield)
-	if got := e.G.Obj(class).Counter("LEVEL"); got != 1 {
+	if got := e.G.Obj(class).ClassLevel(); got != 1 {
 		t.Fatalf("precondition: Class at level %d, want 1", got)
 	}
 
@@ -483,7 +483,7 @@ func TestClassBandBandGatesGrantedReplacement(t *testing.T) {
 	}
 
 	classLevelUp(t, e, class, 0) // -> level 2
-	if got := e.G.Obj(class).Counter("LEVEL"); got != 2 {
+	if got := e.G.Obj(class).ClassLevel(); got != 2 {
 		t.Fatalf("precondition: Class at level %d, want 2", got)
 	}
 	if !e.replacementConditionHolds(gated, class, 0) {

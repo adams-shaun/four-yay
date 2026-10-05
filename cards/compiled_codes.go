@@ -19,6 +19,15 @@ const (
 	SAKindStatic    SAKind = 4
 )
 
+// KindCode classifies the live ability kind, including unbound and copied
+// abilities whose Kind may differ from the original compiled catalog entry.
+func (s *SA) KindCode() SAKind {
+	if s == nil {
+		return SAKindUnknown
+	}
+	return saKindCode(s.Kind)
+}
+
 func saKindCode(kind string) SAKind {
 	switch kind {
 	case "SP":
