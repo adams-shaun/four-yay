@@ -46,6 +46,12 @@ func castResolve(reg *cards.Registry, f *cards.Face, name, mana string) (oracleg
 	if modes := oraclegen.CharmModes(f); len(modes) > 0 {
 		plans = nil
 		for _, m := range modes {
+			if attachesOnReturn(f, m.SVar()) {
+				// XMage asks which creature the returned Aura/Equipment
+				// attaches to, an ask the scenario cannot script yet (One
+				// Last Job's third mode); another mode stands in.
+				continue
+			}
 			plans = append(plans, plan{slots: oraclegen.ChainSlotSpecs(f, m.SVar()), answers: append([]oraclegen.Answer{{Kind: "modes", Pick: []string{m.Label()}}}, xAns...)})
 		}
 	}
@@ -244,4 +250,22 @@ func precastFitsSlots(slots []oraclegen.Slot, stackIdx []int, p precast) bool {
 		}
 	}
 	return true
+}
+
+// attachesOnReturn reports whether a charm mode's ability chain puts a card
+// onto the battlefield attached to a chosen object (an AttachedTo$ param).
+func attachesOnReturn(f *cards.Face, svar string) bool {
+	for name := svar; name != ""; {
+		body := f.SVars[name]
+		if strings.Contains(body, "AttachedTo$") {
+			return true
+		}
+		name = ""
+		for _, part := range strings.Split(body, "|") {
+			if k, v, ok := strings.Cut(strings.TrimSpace(part), "$"); ok && strings.TrimSpace(k) == "SubAbility" {
+				name = strings.TrimSpace(v)
+			}
+		}
+	}
+	return false
 }
