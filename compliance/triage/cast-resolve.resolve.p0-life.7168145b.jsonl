@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.life","diff":"gorge-xmage=4"},"key":"cast-resolve | resolve | p0.life | gorge-xmage=4","cards":1}
-{"card":"Rankle's Prank","template":"cast-resolve","status":"diverge","api":"Charm","sets":["WOE"],"detail":"step 1 (resolve) p0.life: gorge \"20\", xmage \"16\""}

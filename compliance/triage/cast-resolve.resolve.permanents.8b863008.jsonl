@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"$CARD gorge+[tapped] xmage+[]"},"key":"cast-resolve | resolve | permanents | $CARD gorge+[tapped] xmage+[]","cards":1}
-{"card":"Flash Thompson, Spider-Fan","template":"cast-resolve","status":"diverge","api":"ChangesZone:Charm","sets":["SPM"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Flash Thompson, Spider-Fan [citizen creature human legendary] {W} 2/2 tapped\", xmage \"c0 o0 Flash Thompson, Spider-Fan [citizen creature human legendary] {W} 2/2\""}

@@ -453,10 +453,11 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 			// A step's own targets reach XMage through castSpell.
 			continue
 		}
-		if d.Options <= 1 && d.Kind != "target" && d.Kind != "order" && !hasTargetPick(d) && !(d.Kind == "mode" && pickKind(d, 0) == "discard") {
+		if forcedSingleOption(d) {
 			// A forced one-option ask: XMage does not pose it. A forced
 			// target-kind pick is the exception -- one legal opponent is still
-			// a chooseTarget XMage asks for.
+			// a chooseTarget XMage asks for -- and so is a mode ask, which
+			// XMage keeps posing even when only one mode is affordable.
 			continue
 		}
 		var as []XAnswer
@@ -469,6 +470,14 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 				// unused (measured on the std pass).
 				continue
 			}
+			if d.PerPlayer {
+				// TargetsForEachPlayer$ (CR 601.2c): XMage asks one target
+				// per player, in seat order starting at seat 0. Answer each
+				// seat with the pick its controller made, or a target skip
+				// when the seat chose none.
+				as = append(as, perPlayerTargetAnswers(d)...)
+				break
+			}
 			for _, ref := range d.PickRefs {
 				v := ref
 				if !isSeat(ref) {
@@ -476,11 +485,27 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 				}
 				as = append(as, XAnswer{d.Seat, "target", v})
 			}
-			if len(d.PickRefs) == 0 {
+			if len(d.PickRefs) < d.Max {
+				// Fewer picks than the "up to N" ask allows: XMage keeps
+				// asking, so stop it with the target queue's skip token. This
+				// also covers a slot gorge never posed at all (zero picks).
 				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
 			}
 		case "mode":
-			if pickKind(d, 0) == "discard" {
+			if (d.Resume == "unless_pay" || d.Resume == "unless_decline") && unlessPolarity(d) == "no" {
+				// An unless-pay (UnlessCost$) is XMage's boolean chooseUse,
+				// not a mode ask; the engine models it as a one-option mode
+				// decision whose label is the decline ("Don't pay"). The
+				// driver routes only the literals "yes"/"no" to setChoice
+				// (boolean), so the raw label reaches setChoice(String) and
+				// never answers the ask (std3: Dispelling Exhale, Spectral
+				// Denial). Only the DECLINE is answered this way: a paid unless
+				// cost (Lithobraking, Rottenmouth Viper, Meathook Massacre II)
+				// agrees with XMage only as the ordinary mode pick below.
+				as = append(as, XAnswer{d.Seat, "choice", "no"})
+				break
+			}
+			if pickKind(d, 0) == "discard" || d.Resume == "discard" {
 				// Gorge's discard card picker is KModes; XMage uses
 				// TargetDiscard.choose -> makeChoose (not chooseMode).
 				for _, ref := range d.PickRefs {
@@ -492,15 +517,22 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 				break
 			}
 			// gorge offers only the modes with legal targets, so an option
-			// index is not the mode number; the label is.
+			// index is not always the mode number; the label is when it names
+			// a charm mode. A label outside the charm map is still a mode ask
+			// for a non-charm modal (a Siege's ChooseModeEffect, a plain
+			// modal), so fall back to the option's 1-based position; the
+			// discard-style picker that shares the kind is routed above.
 			for k, i := range d.PickIdx {
 				n := i + 1
-				if k < len(d.Picks) {
-					if m, ok := modes[d.Picks[k]]; ok {
-						n = m
-					}
+				if m, ok := modeNumberFor(d, k, modes); ok {
+					n = m
 				}
 				as = append(as, XAnswer{d.Seat, "mode", fmt.Sprint(n)})
+			}
+			if d.Max > len(d.Picks) {
+				// XMage keeps choosing modes up to Max; stop it with the mode
+				// queue's skip token (including when gorge picked none).
+				as = append(as, XAnswer{d.Seat, "mode", "[mode_skip]"})
 			}
 		case "yesno":
 			yes := len(d.PickIdx) > 0 && d.PickIdx[0] == 0
@@ -531,33 +563,52 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 				as = append(as, XAnswer{d.Seat, "choice", yn})
 				break
 			}
-			for k, label := range d.Picks {
-				switch xmQueue(pickKind(d, k), label) {
-				case "skip":
-					// XMage resolves this pick inside its computer player (a
-					// library search) or pays it from the pool (a mana-tapping
-					// cost); a scripted answer would only be an unused leftover.
-					continue
-				case "target":
-					v := label
-					if k < len(d.PickRefs) {
-						v = d.PickRefs[k]
+			if len(d.Picks) > 1 && allChoiceQueue(d) {
+				// One makeChoose dialog consumes ONE definition, whose own
+				// parser splits on '^' into the multi-card selection (Dig's
+				// "put two of them into your hand", a discard-two). Emitting
+				// one answer per pick would let each pick answer a separate
+				// dialog and leave the rest as an unused leftover.
+				labels := make([]string, 0, len(d.Picks))
+				for k, label := range d.Picks {
+					if label == "" && k < len(d.PickRefs) {
+						label = oraclediffRefName(d.PickRefs[k])
 					}
-					if !isSeat(v) {
-						v = oraclediffRefName(v)
+					if colour, ok := manaColourLabel(label); ok {
+						label = colour
 					}
-					as = append(as, XAnswer{d.Seat, "target", v})
-					continue
+					labels = append(labels, label)
 				}
-				// The choice queue: makeChoose shows the option's label, which
-				// for an unlabelled object pick is the object's name.
-				if label == "" && k < len(d.PickRefs) {
-					label = oraclediffRefName(d.PickRefs[k])
+				as = append(as, XAnswer{d.Seat, "choice", strings.Join(labels, "^")})
+			} else {
+				for k, label := range d.Picks {
+					switch xmQueue(pickKind(d, k), label) {
+					case "skip":
+						// XMage resolves this pick inside its computer player (a
+						// library search) or pays it from the pool (a mana-tapping
+						// cost); a scripted answer would only be an unused leftover.
+						continue
+					case "target":
+						v := label
+						if k < len(d.PickRefs) {
+							v = d.PickRefs[k]
+						}
+						if !isSeat(v) {
+							v = oraclediffRefName(v)
+						}
+						as = append(as, XAnswer{d.Seat, "target", v})
+						continue
+					}
+					// The choice queue: makeChoose shows the option's label, which
+					// for an unlabelled object pick is the object's name.
+					if label == "" && k < len(d.PickRefs) {
+						label = oraclediffRefName(d.PickRefs[k])
+					}
+					if colour, ok := manaColourLabel(label); ok {
+						label = colour
+					}
+					as = append(as, XAnswer{d.Seat, "choice", label})
 				}
-				if colour, ok := manaColourLabel(label); ok {
-					label = colour
-				}
-				as = append(as, XAnswer{d.Seat, "choice", label})
 			}
 			switch {
 			case len(d.Picks) == 0:
@@ -625,6 +676,131 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 		return nil
 	}
 	return out
+}
+
+// forcedSingleOption reports a one-option ask XMage never poses: exactly one
+// legal answer (Min==Max==Options==1) that is not a target, order or mode ask.
+// A target pick is still a chooseTarget XMage asks for even with one legal
+// option, a mode ask is posed up to Max picks even when only one mode is
+// affordable, and a min-0 single option is a real decline XMage still asks
+// (Break Out, Destined Confrontation).
+func forcedSingleOption(d rules.OracleDecision) bool {
+	if d.Kind == "mode" && d.Resume == "generic_players" && d.Options == 1 && d.Min == 1 && d.Max == 1 {
+		// A per-player punisher's forced one-mode ask (Rottenmouth Viper's
+		// "you lose 4 life unless ..."): XMage does not pose it; the unless
+		// choice that follows is the real decision.
+		return true
+	}
+	if d.Kind == "target" || d.Kind == "order" || d.Kind == "mode" {
+		return false
+	}
+	if hasTargetPick(d) {
+		return false
+	}
+	return d.Options == 1 && d.Min == 1 && d.Max == 1
+}
+
+// unlessPolarity is the yes/no answer to an unless-pay boolean ask: the
+// picked option's label says whether the cost was paid. A decline wording
+// ("Don't pay", "Decline") is "no"; a payment wording is "yes".
+func unlessPolarity(d rules.OracleDecision) string {
+	if len(d.Picks) == 0 {
+		return "no"
+	}
+	l := strings.ToLower(strings.TrimSpace(d.Picks[0]))
+	for _, neg := range []string{"don't", "do not", "decline", "no", "refuse"} {
+		if strings.HasPrefix(l, neg) {
+			return "no"
+		}
+	}
+	// Any other label names the cost being paid ("Pay {2}", "Sacrifice an
+	// artifact").
+	return "yes"
+}
+
+// modeNumberFor resolves the k-th pick's 1-based XMage mode number from its
+// label. ok is false when the pick's label names no charm mode -- a
+// non-charm modal or a discard-style picker sharing the "mode" kind; the
+// caller then falls back to the option's own 1-based position.
+func modeNumberFor(d rules.OracleDecision, k int, modes map[string]int) (int, bool) {
+	if k < 0 || k >= len(d.Picks) {
+		return 0, false
+	}
+	m, ok := modes[d.Picks[k]]
+	return m, ok
+}
+
+// allChoiceQueue reports whether every pick in a decision reaches XMage's
+// choice queue (makeChoose). A decision with a target or skipped pick is not
+// one makeChoose dialog and must not be joined with '^'.
+func allChoiceQueue(d rules.OracleDecision) bool {
+	for k, label := range d.Picks {
+		if xmQueue(pickKind(d, k), label) != "choice" {
+			return false
+		}
+	}
+	return true
+}
+
+// perPlayerTargetAnswers answers a TargetsForEachPlayer$ ask: one target for
+// each seat in the match, in seat order starting at 0, using the pick that
+// seat's controller made or a target skip when the seat chose none. XMage's
+// ForEachPlayerTargetsAdjuster poses every seat's ask, even a seat with no
+// legal candidate.
+func perPlayerTargetAnswers(d rules.OracleDecision) []XAnswer {
+	seatPick := map[int]string{}
+	for _, ref := range d.PickRefs {
+		s, ok := refSeat(ref)
+		if !ok {
+			continue
+		}
+		if _, dup := seatPick[s]; dup {
+			continue
+		}
+		v := ref
+		if !isSeat(ref) {
+			v = oraclediffRefName(ref)
+		}
+		seatPick[s] = v
+	}
+	n := d.SeatCount
+	if n < 1 {
+		n = 1
+	}
+	out := make([]XAnswer, 0, n)
+	for s := 0; s < n; s++ {
+		if v, ok := seatPick[s]; ok {
+			out = append(out, XAnswer{d.Seat, "target", v})
+		} else if s == d.Seat && d.PerOpponent {
+			// The controller's own seat without a pick: the corpus's
+			// per-player targets are "for each opponent" (Celebrate the
+			// Mountain-king, Omega, Riptide Gearhulk), which XMage never
+			// asks the controller for -- a skip here would be consumed as
+			// the opponent's answer (measured on the std pass).
+			continue
+		} else {
+			out = append(out, XAnswer{d.Seat, "target", "[target_skip]"})
+		}
+	}
+	return out
+}
+
+// refSeat returns the seat a scenario ref belongs to ("p1:Grizzly Bears" or
+// "p1" -> 1). It is how a per-player target answer finds the seat whose ask
+// the pick answers.
+func refSeat(ref string) (int, bool) {
+	if !strings.HasPrefix(ref, "p") {
+		return 0, false
+	}
+	r := ref[1:]
+	if i := strings.IndexByte(r, ':'); i >= 0 {
+		r = r[:i]
+	}
+	n, err := strconv.Atoi(r)
+	if err != nil {
+		return 0, false
+	}
+	return n, true
 }
 
 // modeNumbers maps each charm mode's label (as gorge's mode decision
