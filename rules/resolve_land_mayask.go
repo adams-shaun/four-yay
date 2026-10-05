@@ -32,24 +32,11 @@ func tapeLandMayAsk(e *Engine, p state.PlayerID, obj state.ObjID) bool {
 			}
 		}
 	}
-	if tapeManaConvertMayAsk(e, p, obj, false) {
+	_, optional := e.manaConversionParts(p, obj, false)
+	if !optional.Empty() {
 		return true
 	}
 	return tapeLandReplMayAsk(e, obj)
-}
-
-// tapeManaConvertMayAsk reports whether paying for obj would pose the
-// Optional$ ManaConvert election: an active ManaConvert static grants p a
-// non-empty Optional$ conversion set (North Star's "you may spend mana as
-// though it were mana of any type", Viconia, Night Singer's Disciple). A
-// land play reaches this ask through the ordinary cast flow's continueCast,
-// so the land predicate must include it; ability=true reads an activated
-// ability's subject, false a spell's. The predicate is conservative by
-// construction: it reads the same manaConversionParts the ask itself reads,
-// so a new optional carrier opens the gate without a new allowlist entry.
-func tapeManaConvertMayAsk(e *Engine, p state.PlayerID, obj state.ObjID, ability bool) bool {
-	_, optional := e.manaConversionParts(p, obj, ability)
-	return !optional.Empty()
 }
 
 // tapeLandReplMayAsk is tapeReplMayAsk(e, "Moved") narrowed to the lines that

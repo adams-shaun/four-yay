@@ -73,8 +73,10 @@ type Repl struct {
 	// bound at load; not serialized.
 	ps *ParamSet
 	// event is Event resolved at load (eventBound); see EventKind.
-	event      ReplEvent
-	eventBound bool
+	event         ReplEvent
+	eventBound    bool
+	optional      bool
+	optionalBound bool
 }
 
 // Face is one printed face. Most cards have exactly one; ALTERNATE starts

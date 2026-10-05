@@ -1090,7 +1090,7 @@ func (e *Engine) applyReplacement(ev events.Event, m replMatch) (events.Event, b
 			// not reach the battlefield, so report it handled.
 			return ev, true
 		}
-		if ev.Kind == events.Draw && !strings.EqualFold(strings.TrimSpace(m.repl.ParamStr(cards.PKOptional)), "True") {
+		if ev.Kind == events.Draw && !m.repl.OptionalValue() {
 			// A bodyless R:Event$ Draw line is CR 614.1a's "skip that draw
 			// instead": stopping the draw IS the complete replacement, the
 			// same read the damage-prevention arm in applyNonMoveReplacements
