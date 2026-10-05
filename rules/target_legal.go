@@ -260,8 +260,11 @@ func targetZones(sa *cards.SA) []state.Zone {
 		// resolution, so the ~37 corpus specs carrying non-battlefield inZone<X>
 		// outside this API are untouched. An explicit Origin$ outranks this
 		// inference even when the two declarations disagree.
-		if z, ok := originImpliedTargetZone(sa); ok {
+		z, originOK, isChangeZone := originImpliedTargetZone(sa)
+		if originOK {
 			zones = singleZone(z)
+		} else if zs, ok := changeZoneTargetZones(sa, isChangeZone); ok {
+			zones = zs
 		} else if sa.API == "Attach" {
 			// Attach's ValidTgts$ inZone<X> zones, compiled once
 			// (effects.AttachParams.ValidTgtsZones).
@@ -284,14 +287,12 @@ func targetZones(sa *cards.SA) []state.Zone {
 	return zones
 }
 
-// originImpliedTargetZone reports the implicit target zone for a ChangeZone
-// or Attach with an explicit Origin$. For Attach it only arbitrates against
-// an inZone<X> ValidTgts$ inference: a single concrete Origin$ wins over the
-// conflicting inferred zone. ChangeZone remains limited to the established
-// unambiguous public-graveyard object-targeted shape: extending it to
-// Hand/Library/Exile needs hidden-information and mixed-zone semantics that
-// this does not establish (Origin$ Hand's mixed multi-zone handling lives in
-// effects/zone.go). It admits an SA when ALL of these hold:
+// originImpliedTargetZone reports the implicit single target zone for a
+// ChangeZone or Attach with an explicit Origin$. For Attach it only arbitrates
+// against an inZone<X> ValidTgts$ inference: a single concrete Origin$ wins
+// over the conflicting inferred zone. Multi-zone ChangeZone inference lives
+// in changeZoneTargetZones. The third result tells that helper which API was
+// checked here, avoiding a second API-string dispatch.
 //
 //  1. it is API$ ChangeZone, or Attach with inZone<X> ValidTgts$;
 //  2. it has no explicit TgtZone$ (explicit TgtZone$ stays authoritative;
@@ -305,40 +306,96 @@ func targetZones(sa *cards.SA) []state.Zone {
 //     classifier, so a player-targeted ChangeZone keeps its existing
 //     player-target route untouched.
 //
-// The zone feeds both legalTargetCandidates (offer time) and legalTargets
-// (the CR 608.2b resolution recheck) through their shared targetZones calls,
-// and effChangeZone's own Origin$ guard -- unchanged -- then accepts the
-// chosen graveyard object at resolution.
-func originImpliedTargetZone(sa *cards.SA) (state.Zone, bool) {
+// The inferred zones feed both legalTargetCandidates (offer time) and
+// legalTargets (the CR 608.2b resolution recheck) through their shared
+// targetZones calls; effChangeZone's own Origin$ guard remains unchanged.
+func originImpliedTargetZone(sa *cards.SA) (state.Zone, bool, bool) {
 	changeZone := sa.API == "ChangeZone"
 	if !changeZone {
 		if sa.API != "Attach" {
-			return 0, false
+			return 0, false, changeZone
 		}
 		if len(effects.AttachOf(sa).ValidTgtsZones) == 0 {
-			return 0, false
+			return 0, false, changeZone
 		}
 	}
 	tp := effects.TargetsOf(sa)
 	if tp.ZoneText != "" || tp.Has(effects.TgtTypeStack) {
-		return 0, false
+		return 0, false, changeZone
 	}
 	if tp.Has(effects.TgtValidPlayers) {
-		return 0, false
+		return 0, false, changeZone
 	}
 	if changeZone {
 		// ChangeZone's Origin$ is read through its compiled parameters, the
 		// same parse effChangeZone's Origin$ precondition applies.
-		if !effects.ChangeZoneOf(sa).OriginExactly(state.ZGraveyard) {
-			return 0, false
+		if effects.ChangeZoneOf(sa).OriginExactly(state.ZGraveyard) {
+			return state.ZGraveyard, true, changeZone
 		}
-		return state.ZGraveyard, true
+		return 0, false, changeZone
 	}
 	// Attach's Origin$ through its compiled parameters.
 	if a := effects.AttachOf(sa); a.OriginSingle {
-		return a.OriginZone, true
+		return a.OriginZone, true, changeZone
 	}
-	return 0, false
+	return 0, false, changeZone
+}
+
+// changeZoneTargetZones infers a multi-zone ChangeZone census only when every
+// ValidTgts$ alternative names its zone with a recognized inZone<X> word, and
+// every such zone is in the parsed Origin$ set. This keeps arbitrary filters,
+// incomplete alternatives, unknown zones and zones outside Origin$ fail-closed.
+func changeZoneTargetZones(sa *cards.SA, isChangeZone bool) ([]state.Zone, bool) {
+	if !isChangeZone {
+		return nil, false
+	}
+	tp := effects.TargetsOf(sa)
+	if tp.ZoneText != "" || tp.Has(effects.TgtTypeStack) || tp.Has(effects.TgtValidPlayers) {
+		return nil, false
+	}
+	cz := effects.ChangeZoneOf(sa)
+	if !cz.OriginPresent || !cz.OriginOwnOK || cz.OriginOwnAll || len(cz.OriginOwn) < 2 {
+		return nil, false
+	}
+	var zones []state.Zone
+	for _, alt := range strings.Split(tp.ValidTgts, ",") {
+		var altZones []state.Zone
+		for _, term := range strings.Split(alt, ".") {
+			for _, word := range strings.Split(term, "+") {
+				word = strings.TrimSpace(word)
+				name, has := strings.CutPrefix(word, "inZone")
+				if !has {
+					continue
+				}
+				z, ok := effects.ParseZoneWord(name)
+				if !ok {
+					return nil, false
+				}
+				if !containsZone(cz.OriginOwn, z) {
+					return nil, false
+				}
+				if !containsZone(altZones, z) {
+					altZones = append(altZones, z)
+				}
+				if !containsZone(zones, z) {
+					zones = append(zones, z)
+				}
+			}
+		}
+		if len(altZones) == 0 {
+			return nil, false
+		}
+	}
+	return zones, len(zones) > 0
+}
+
+func containsZone(zones []state.Zone, want state.Zone) bool {
+	for _, z := range zones {
+		if z == want {
+			return true
+		}
+	}
+	return false
 }
 
 // singleZones backs singleZone: one shared one-element slice per zone.
@@ -1149,11 +1206,11 @@ func (e *Engine) filterTargetValidTargeting(in []targetCandidate, sa *cards.SA, 
 // is deliberately applied once after every zone's candidates are collected,
 // so battlefield, graveyard and stack target offers cannot drift apart.
 //
-// Only a selector this build binds narrows the offer. An unsupported selector
-// (ParentTarget, ParentTargetedController, TriggeredCauser, ...) and a
-// supported role the current trigger did not bind leave the candidates
+// Only a selector this build binds narrows the offer. Unsupported selectors
+// and a supported role the current trigger did not bind leave the candidates
 // unchanged -- the offer every such ability had before this restriction was
-// read -- so no existing ability silently loses its targets. The two roles
+// read -- so no existing ability silently loses its targets. ParentTarget
+// selectors also preserve that offer when no parent binding exists. The two roles
 // only an attack-declaration trigger binds (TriggeredAttackingPlayer,
 // TriggeredAttackedTarget: Karazikar, Firkraag, Seifer, Gornog, Whirlwind
 // Killer) and NonTriggeredCardController (Confusion in the Ranks: "target
@@ -1164,6 +1221,17 @@ func (e *Engine) filterTargetsWithDefinedController(in []targetCandidate, sa *ca
 	ref := effects.TargetsOf(sa).DefinedController
 	if ref == "" {
 		return in
+	}
+	// The parent-target referents (ParentTarget, ParentTargetedController)
+	// are classified from their one owning table in effects, so rules does
+	// not re-name the words in a second StrCodes table. Resolution-time
+	// sub-ability asks bind the referent; a cast-time offer has no parent
+	// binding yet and keeps its existing offer.
+	if effects.DefinedControllerParentReferent(ref) {
+		if !sc.ParentBound {
+			return in
+		}
+		return filterParentControllerTargets(e.G, in, sc)
 	}
 	var player state.PlayerID
 	var ok bool
@@ -1313,3 +1381,36 @@ var filterTargetsWithDefinedControllerCodes = state.NewStrCodes(
 	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "TriggeredAttackedTarget", Val: filterTargetsWithDefinedControllerTriggeredAttackedTarget},
 	state.StrEntry[filterTargetsWithDefinedControllerCode]{Key: "TriggeredCardController", Val: filterTargetsWithDefinedControllerTriggeredCardController},
 )
+
+// filterParentControllerTargets keeps only the candidates controlled by a
+// player named by the bound parent targets: a player target contributes that
+// seat, an object target its controller. Graveyard cards have Controller ==
+// Owner, so this is exactly the targeted player's cards for the
+// graveyard-shuffle family (Rite of Renewal, Krosan Reclamation, Memory's
+// Journey). An empty parent set (a Min-0 parent that chose nothing) fails
+// closed to no candidates; every such sub-ability is itself TargetMin$ 0, so
+// no mandatory target pool is emptied.
+func filterParentControllerTargets(g *state.Game, in []targetCandidate, sc effects.SpecContext) []targetCandidate {
+	controllers := make(map[state.PlayerID]struct{}, len(sc.ParentTargets))
+	for _, target := range sc.ParentTargets {
+		if target.IsPlayer {
+			controllers[target.Player] = struct{}{}
+		} else if o := g.Obj(target.Obj); o != nil {
+			controllers[o.Controller] = struct{}{}
+		}
+	}
+	out := in[:0]
+	for _, candidate := range in {
+		if candidate.kind != "permanent" {
+			continue
+		}
+		o := g.Obj(candidate.obj)
+		if o == nil {
+			continue
+		}
+		if _, found := controllers[o.Controller]; found {
+			out = append(out, candidate)
+		}
+	}
+	return out
+}

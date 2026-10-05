@@ -14,7 +14,7 @@
       },
       "steps": [
         {"op": "cast", "seat": 0, "card": "p0:Sowing Mycospawn", "mana": "GGGGGC", "kicked": true},
-        {"op": "resolve", "targets": ["p1:Swamp"], "answers": [{"kind": "choose", "pick": ["Plains"]}]}
+        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["Plains"]}]}
       ],
       "expect": [
         {"card": "p1:Swamp", "zone": "exile"},

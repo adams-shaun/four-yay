@@ -17,7 +17,7 @@
         {"op": "resolve"},
         {"op": "mana", "seat": 0, "mana": "CG"},
         {"op": "activate", "seat": 0, "card": "p0:Den Protector", "ability": "Turn face up"},
-        {"op": "resolve", "targets": ["p0:Forest"]}
+        {"op": "resolve"}
       ],
       "expect": [
         {"card": "p0:Den Protector", "zone": "battlefield", "pt": "3/2"},
@@ -37,7 +37,7 @@
         {"op": "resolve"},
         {"op": "mana", "seat": 0, "mana": "CG"},
         {"op": "activate", "seat": 0, "card": "p0:Den Protector", "ability": "Turn face up"},
-        {"op": "resolve", "targets": ["p0:Forest"]},
+        {"op": "resolve"},
         {"op": "pass_to", "step": "upkeep", "active": "p0"},
         {"op": "attack", "seat": 0, "attackers": ["p0:Den Protector"], "defender": "p1"},
         {"op": "pass_to", "decision": "blockers"}

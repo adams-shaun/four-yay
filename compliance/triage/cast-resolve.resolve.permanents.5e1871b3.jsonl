@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"gorge+token"},"key":"cast-resolve | resolve | permanents | gorge+token","cards":1}
-{"card":"Izoni, Center of the Web","template":"cast-resolve","status":"diverge","api":"ChangesZone:Token+Attacks:Token","sets":["MKM"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 token [creature spider] {BG} 2/1; c0 o0 token [creature spider] {BG} 2/1\", xmage \"\""}

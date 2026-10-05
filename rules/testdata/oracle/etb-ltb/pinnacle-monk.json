@@ -28,10 +28,7 @@
           "op": "cast",
           "seat": 0,
           "card": "p0:Pinnacle Monk",
-          "mana": "CCCRR",
-          "targets": [
-            "p0:Lightning Bolt"
-          ]
+          "mana": "CCCRR"
         },
         {
           "op": "resolve"

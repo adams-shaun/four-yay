@@ -199,7 +199,7 @@ func (e *Engine) objectTriggerHotIn(o *state.Object, slot int) bool {
 	if o == nil || o.Face() == nil {
 		return false
 	}
-	if o.Unlocked || len(o.MergedCards) > 0 {
+	if o.RoomOtherDoorUnlocked() || len(o.MergedCards) > 0 {
 		return true
 	}
 	if slot < 0 {

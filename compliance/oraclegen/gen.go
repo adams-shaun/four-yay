@@ -45,21 +45,32 @@ type Step struct {
 	Card    string   `json:"card,omitempty"`
 	Mana    string   `json:"mana,omitempty"`
 	Targets []string `json:"targets,omitempty"`
-	// TargetGroups is the per-slot target shape for a multi-target cast:
-	// one group per ValidTgts$ slot in the order the cast asks for them,
-	// each carrying the refs this scenario picked and the slot's max
-	// (TargetMax$, at least the number of picks). XMage consumes a fixed
-	// and optional target list positionally, so the driver can only close
-	// an "up to N" slot from the group it belongs to -- Targets alone
-	// cannot say which decision a TARGET_SKIP terminates. Gorge's runner
-	// ignores the field (it reads Targets).
+	// Attackers/Defender drive the attack op; Blocks the block op. They
+	// carry a creature into combat so a "target attacking or blocking
+	// creature" slot has a legal target.
+	Attackers []string    `json:"attackers,omitempty"`
+	Defender  string      `json:"defender,omitempty"`
+	Blocks    [][2]string `json:"blocks,omitempty"`
+	// Step/Decision are the pass_to op's stop conditions (a phase step name
+	// or a pending decision kind).
+	Step     string   `json:"step,omitempty"`
+	Decision string   `json:"decision,omitempty"`
+	Answers  []Answer `json:"answers,omitempty"`
+	// TargetGroups is the per-decision target shape of a cast step whose
+	// targets span several target decisions or leave one short of its max:
+	// one group per decision, in the order gorge posed them, carrying the
+	// refs it picked and the decision's Max. XMage consumes queued targets
+	// positionally, so the driver can only close an "up to N" decision from
+	// the group it belongs to. Gorge's runner ignores the field.
 	TargetGroups []TargetGroup `json:"target_groups,omitempty"`
-	Answers      []Answer      `json:"answers,omitempty"`
+	// A scenario step may move a card into a zone; the move op stamps the
+	// object as having entered this turn (a board-history target such as
+	// ThisTurnEntered@Graveyard needs that).
+	To string `json:"to,omitempty"`
 }
 
-// TargetGroup is one slot's chosen targets and its cap: Picks are the refs
-// this scenario answers, Max the slot's TargetMax$ (0 means unlimited, a
-// group that is never short). Picks may be empty when a slot's minimum is 0.
+// TargetGroup is one target decision's picks and its cap (Max 0 = unlimited,
+// never short). Picks may be empty when the decision's minimum is 0.
 type TargetGroup struct {
 	Picks []string `json:"picks,omitempty"`
 	Max   int      `json:"max"`
@@ -149,12 +160,27 @@ func mayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
 }
 
 // playsThrough replays sc exactly and reports whether gorge performed
-// every step and ended with an empty stack.
+// every step and ended with an empty stack. Both leftover targets and
+// answers are failures here: callers must rewrite targets to gorge's actual
+// picks before replaying the generated scenario.
 func playsThrough(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
+	res, ok := probeTargets(reg, sc)
+	return res, ok && len(res.Fails) == 0
+}
+
+// probeTargets runs a preliminary fixture that may over-offer targets. Only
+// unused-target failures are excused here, before chooseTargets replaces the
+// fixture slots; a reversed cast, or any other failure, is never a success.
+func probeTargets(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
 	b, _ := json.Marshal(sc)
 	res, err := rules.RunOracleScenarioJSON(reg, b)
-	if err != nil || len(res.Fails) > 0 || len(res.Snapshots) != len(sc.Steps)+1 {
+	if err != nil || len(res.Snapshots) != len(sc.Steps)+1 || castAborted(sc, res.Snapshots, res.Transcript) {
 		return res, false
+	}
+	for _, f := range res.Fails {
+		if !strings.Contains(f, rules.OracleUnusedTargetMarker) {
+			return res, false
+		}
 	}
 	return res, len(res.Snapshots[len(res.Snapshots)-1].Stack) == 0
 }
@@ -179,41 +205,6 @@ func charmModes(f *cards.Face) []charmMode {
 		return out
 	}
 	return nil
-}
-
-// slot is one ValidTgts$ target slot: its filter (with a "@zone" suffix)
-// and its TargetMin$/TargetMax$ as written (0 for absent).
-type slot struct {
-	filter string
-	min    int
-	max    int
-}
-
-// parseSlotMax reads a TargetMax$ value for the group cap. An absent or
-// non-numeric value ("any", an SVar reference) means unlimited, which a
-// one-pick group never makes short, so the driver never needs a skip.
-func parseSlotMax(s string) int {
-	n, err := strconv.Atoi(strings.TrimSpace(s))
-	if err != nil || n < 0 {
-		return 0
-	}
-	return n
-}
-
-// chainSlots lists the target slots along one SVar ability chain.
-func chainSlots(f *cards.Face, svar string) []slot {
-	var out []slot
-	for name := svar; name != ""; {
-		params := svarParams(f.SVars[name])
-		if v := params["ValidTgts"]; v != "" {
-			if z := targetZone(params, true); z != "" && !playerTargetHead(v) {
-				v += "@" + z
-			}
-			out = append(out, slot{filter: v, min: parseSlotMax(params["TargetMin"]), max: parseSlotMax(params["TargetMax"])})
-		}
-		name = params["SubAbility"]
-	}
-	return out
 }
 
 // targetZone is the zone a target filter draws from: an explicit TgtZone$,
@@ -443,9 +434,20 @@ func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) {
 			return 0, res, false
 		}
 		for _, f := range res.Fails {
+			// The static fixture over-offers targets on purpose; the generator
+			// rewrites each cast step to gorge's actual picks afterwards, and
+			// verifies the rewrite with PlaysThrough. So the runner's
+			// unused-target self-check is expected here and is not a reason to
+			// reject the fixture; every other step/harness fail is.
+			if strings.Contains(f, rules.OracleUnusedTargetMarker) {
+				continue
+			}
 			if strings.HasPrefix(f, "step ") || strings.Contains(f, "harness:") {
 				return 0, res, false
 			}
+		}
+		if castAborted(try, res.Snapshots, res.Transcript) {
+			continue
 		}
 		last := res.Snapshots[len(res.Snapshots)-1]
 		if len(res.Snapshots) == len(try.Steps)+1 && len(last.Stack) == 0 {
@@ -455,14 +457,131 @@ func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) {
 	return 0, rules.OracleResult{}, false
 }
 
+// castAborted rejects a scenario where the runner reports a cast abort or a
+// cast step leaves its card in its origin hand zone. CR 601.2c/733.1 reverses
+// an illegal cast; treating the resulting empty stack as a successful settle
+// would publish a scenario that never cast the named spell.
+func castAborted(sc Scenario, snaps []rules.OracleSnapshot, transcript []string) bool {
+	for _, line := range transcript {
+		if strings.Contains(strings.ToLower(line), "cast aborted") {
+			return true
+		}
+	}
+	if len(snaps) != len(sc.Steps)+1 {
+		return false
+	}
+	for i, st := range sc.Steps {
+		if st.Op != "cast" {
+			continue
+		}
+		seatRef, name, ok := strings.Cut(st.Card, ":")
+		if !ok || !strings.HasPrefix(seatRef, "p") {
+			continue
+		}
+		var seat int
+		if _, err := fmt.Sscanf(seatRef, "p%d", &seat); err != nil || seat < 0 || seat >= len(snaps[i].Players) {
+			continue
+		}
+		before := countName(snaps[i].Players[seat].Hand, name)
+		after := countName(snaps[i+1].Players[seat].Hand, name)
+		if before > 0 && after >= before {
+			return true
+		}
+	}
+	return false
+}
+
+func countName(names []string, want string) int {
+	n := 0
+	for _, name := range names {
+		if name == want {
+			n++
+		}
+	}
+	return n
+}
+
+// chooseTargets rewrites every cast step's Targets from the target
+// decisions gorge's deterministic runner actually made, in order. The static
+// fixture only promises a legal candidate per slot; it over-offers -- an
+// "up to N" slot gorge declines, a token slot with no token on the board, a
+// slot in a mixed chain -- and XMage's castSpell rejects a target list whose
+// count does not match the ability's, so the scenario must carry exactly
+// gorge's picks (the target decision's PickRefs, in order).
+//
+// castSteps is the set of step indices whose targets were taken from a cast
+// (the steps held on the Item): xanswers sends those through castSpell, not
+// through a scripted target answer, while a target decision posed during a
+// resolve step still needs an XMage answer. A cast step that posed no target
+// decision (every slot skipped, or a spell with no targets) has its fixture
+// targets cleared, so the surplus never reaches XMage.
+func chooseTargets(sc Scenario, ds []rules.OracleDecision) (Scenario, map[int]bool) {
+	out := sc
+	out.Steps = append([]Step(nil), sc.Steps...)
+	chosen := map[int][]string{}
+	groups := map[int][]TargetGroup{}
+	castSteps := map[int]bool{}
+	for _, d := range ds {
+		if d.Via != "target" || d.Step < 0 || d.Step >= len(out.Steps) || out.Steps[d.Step].Op != "cast" {
+			continue
+		}
+		chosen[d.Step] = append(chosen[d.Step], d.PickRefs...)
+		groups[d.Step] = append(groups[d.Step], TargetGroup{Picks: append([]string(nil), d.PickRefs...), Max: d.Max})
+		castSteps[d.Step] = true
+	}
+	for i := range out.Steps {
+		if out.Steps[i].Op != "cast" {
+			continue
+		}
+		if _, ok := castSteps[i]; ok {
+			out.Steps[i].Targets = chosen[i]
+			out.Steps[i].TargetGroups = neededGroups(groups[i])
+			continue
+		}
+		// A cast that posed no target decision: drop the fixture's surplus.
+		out.Steps[i].Targets = nil
+	}
+	return out, castSteps
+}
+
+// neededGroups keeps a cast step's per-decision groups only when the driver
+// needs them: two or more target decisions, or one left short of its max. A
+// single full decision leaves the field off, so its wire bytes do not change.
+func neededGroups(gs []TargetGroup) []TargetGroup {
+	if len(gs) > 1 {
+		return gs
+	}
+	for _, g := range gs {
+		if g.Max > 0 && len(g.Picks) < g.Max {
+			return gs
+		}
+	}
+	return nil
+}
+
 // xanswers turns gorge's recorded decisions into XMage's scripted answers,
 // grouped by the step that posed them.
-func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XAnswer {
+func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSteps map[int]bool) [][]XAnswer {
 	out := make([][]XAnswer, steps)
 	any := false
+	// A step whose card name is then searched for (Ancient Vendetta's "choose
+	// a card name. Search ... for cards with that name"): XMage poses the name
+	// dialog however narrowly gorge offered it, and the search must find it.
+	namedSearch := map[int]bool{}
 	for _, d := range ds {
-		if d.Step < 0 || d.Step >= steps || d.Via == "target" {
-			// A step's own targets reach XMage through castSpell.
+		if pickKind(d, 0) == "search" {
+			namedSearch[d.Step] = true
+		}
+	}
+	for _, d := range ds {
+		if d.Step < 0 || d.Step >= steps || (d.Via == "target" && castSteps[d.Step]) {
+			// A cast step's own targets reach XMage through castSpell; a
+			// target decision posed at a resolve step is scripted below.
+			continue
+		}
+		if pickKind(d, 0) == "name" && namedSearch[d.Step] && len(d.Picks) == 1 {
+			out[d.Step] = append(out[d.Step], XAnswer{d.Seat, "choice", d.Picks[0]})
+			any = true
 			continue
 		}
 		if forcedSingleOption(d) {
@@ -610,7 +729,7 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 				as = append(as, XAnswer{d.Seat, "choice", strings.Join(labels, "^")})
 			} else {
 				for k, label := range d.Picks {
-					switch xmQueue(pickKind(d, k), label) {
+					switch pickQueue(d, k, label) {
 					case "skip":
 						// XMage resolves this pick inside its computer player (a
 						// library search) or pays it from the pool (a mana-tapping
@@ -833,33 +952,6 @@ func refSeat(ref string) (int, bool) {
 
 // modeNumbers maps each charm mode's label (as gorge's mode decision
 // shows it) to its 1-based position in its Choices$ list, for every Charm
-// on the face -- the spell's own and any modal trigger's.
-func modeNumbers(f *cards.Face) map[string]int {
-	out := map[string]int{}
-	add := func(choices string) {
-		for i, name := range strings.Split(choices, ",") {
-			name = strings.TrimSpace(name)
-			if name == "" {
-				continue
-			}
-			out[effects.CharmModeLabel(cards.ResolveSVar(f.SVars, name), name)] = i + 1
-		}
-	}
-	for _, sa := range f.Abilities {
-		if sa.API == "Charm" {
-			add(sa.Params["Choices"])
-		}
-	}
-	for _, body := range f.SVars {
-		if strings.Contains(body, "Charm") {
-			if c := svarParams(body)["Choices"]; c != "" {
-				add(c)
-			}
-		}
-	}
-	return out
-}
-
 // damageSplitAnswers turns a "damage_split" KChoose into one target answer
 // per chosen target, its Value the ref plus "^X=<share>". The engine's split
 // answer is a multiset over option indexes: a target receiving k damage has
@@ -931,6 +1023,36 @@ func allocationColour(d rules.OracleDecision, k int) (byte, bool) {
 		return "WUBRG"[d.PickIdx[k]%5], true
 	}
 	return 0, false
+}
+
+// yesNo recognises a bare two-way boolean choice. The engine's option kind
+// and exact label/ref identity must both agree; composed choices such as
+
+// on the face -- the spell's own and any modal trigger's.
+func modeNumbers(f *cards.Face) map[string]int {
+	out := map[string]int{}
+	add := func(choices string) {
+		for i, name := range strings.Split(choices, ",") {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			out[effects.CharmModeLabel(cards.ResolveSVar(f.SVars, name), name)] = i + 1
+		}
+	}
+	for _, sa := range f.Abilities {
+		if sa.API == "Charm" {
+			add(sa.Params["Choices"])
+		}
+	}
+	for _, body := range f.SVars {
+		if strings.Contains(body, "Charm") {
+			if c := svarParams(body)["Choices"]; c != "" {
+				add(c)
+			}
+		}
+	}
+	return out
 }
 
 // yesNo recognises a bare two-way boolean choice. The engine's option kind
@@ -1176,243 +1298,16 @@ func openingHandAnswers(f *cards.Face) []Answer {
 	return nil
 }
 
-// targetSlots lists the target slots along the card's spell ability chain
-// (permanent spells have none), in the order the cast asks for them.
-func targetSlots(f *cards.Face) []slot {
-	var out []slot
-	add := func(params map[string]string) {
-		v := params["ValidTgts"]
-		if v == "" {
-			return
-		}
-		if z := targetZone(params, false); z != "" && !playerTargetHead(v) {
-			v += "@" + z
-		}
-		out = append(out, slot{filter: v, min: parseSlotMax(params["TargetMin"]), max: parseSlotMax(params["TargetMax"])})
-	}
-	for _, sa := range f.Abilities {
-		if sa.Kind != "SP" {
-			continue
-		}
-		if sa.API == "Charm" {
-			// The runner and XMage both take the first mode; its chain
-			// carries the targets.
-			if first := strings.TrimSpace(strings.Split(sa.Params["Choices"], ",")[0]); first != "" {
-				for name := first; name != ""; {
-					params := svarParams(f.SVars[name])
-					add(params)
-					name = params["SubAbility"]
-				}
-			}
-			break
-		}
-		for s := sa; s != nil; s = s.Sub {
-			add(s.Params)
-		}
-		break
-	}
-	return out
-}
-
-// FaceHasFixture reports whether the static fixture builder can satisfy every
-// target the card's cast demands: each slot has at least one candidate (a
-// stack-only slot is coverable by a precast spell). The second return names
-// the first unsatisfiable slot, for the census. This is a static scan -- it
-// runs no game -- so the census ratchet can scan the whole corpus.
-func FaceHasFixture(f *cards.Face) (bool, string) {
-	plans := [][]slot{targetSlots(f)}
-	if modes := charmModes(f); len(modes) > 0 {
-		plans = nil
-		for _, m := range modes {
-			plans = append(plans, chainSlots(f, m.svar))
+// pickQueue is xmQueue for the k-th pick, except that a search of ANOTHER
+// player's library (Ancient Vendetta's "search target opponent's ... library")
+// reaches XMage's choice queue: only a search of your own library is the
+// TargetCardInLibrary target ask (measured on the std pass).
+func pickQueue(d rules.OracleDecision, k int, label string) string {
+	q := xmQueue(pickKind(d, k), label)
+	if q == "target" && pickKind(d, k) == "search" && k < len(d.PickRefs) {
+		if s, ok := refSeat(d.PickRefs[k]); ok && s != d.Seat {
+			return "choice"
 		}
 	}
-	for _, slots := range plans {
-		for _, s := range slots {
-			if SlotIsStack(s.filter) {
-				continue
-			}
-			if len(candidatesFor(s.filter)) == 0 {
-				return false, s.filter
-			}
-		}
-	}
-	return true, ""
-}
-
-// svarParams splits an SVar ability body ("DB$ Pump | ValidTgts$ ...")
-// into its params.
-func svarParams(body string) map[string]string {
-	out := map[string]string{}
-	for _, part := range strings.Split(body, "|") {
-		k, v, ok := strings.Cut(strings.TrimSpace(part), "$")
-		if ok {
-			out[strings.TrimSpace(k)] = strings.TrimSpace(v)
-		}
-	}
-	return out
-}
-
-type fixture struct {
-	p0, p1  Seat
-	targets []string
-	// groups is one TargetGroup per slot, in slot order: the refs this
-	// fixture picked from that slot and the slot's max. A group whose
-	// len(Picks) < max is short, so XMage must be told to stop offering
-	// that slot's further picks before the cast reaches the next slot.
-	groups []TargetGroup
-}
-
-// candidates for one target filter, most generic first. Each puts the
-// target on the board and names it.
-type cand struct {
-	seat, zone, card string // seat "p0"/"p1", zone, card; card "" = the player
-}
-
-func candidatesFor(filter string) []cand {
-	zone := ""
-	if i := strings.LastIndexByte(filter, '@'); i >= 0 {
-		filter, zone = filter[:i], strings.ToLower(filter[i+1:])
-	}
-	if zone != "" && zone != "battlefield" {
-		if strings.Contains(zone, "battlefield") {
-			// A mixed zone (Stack,Battlefield, or Origin$ Battlefield,Stack)
-			// is served on the battlefield.
-			zone = ""
-		} else {
-			return zoneCandidates(filter, zone)
-		}
-	}
-	alt := strings.Split(filter, ",")
-	base := strings.ToLower(strings.SplitN(alt[0], ".", 2)[0])
-	mine := strings.Contains(filter, "YouCtrl") || strings.Contains(filter, "YouOwn")
-	opp := "p1"
-	if mine {
-		opp = "p0"
-	}
-	creatures := []cand{{opp, "battlefield", "Grizzly Bears"}, {opp, "battlefield", "Serra Angel"}, {opp, "battlefield", "Ornithopter"}, {opp, "battlefield", "Llanowar Elves"}, {opp, "battlefield", "Hill Giant"}}
-	switch base {
-	case "any":
-		return append(creatures, cand{"p1", "", ""})
-	case "creature":
-		return creatures
-	case "player", "opponent":
-		if strings.Contains(filter, "You") && !strings.Contains(filter, "Opp") {
-			return []cand{{"p0", "", ""}}
-		}
-		return []cand{{"p1", "", ""}, {"p0", "", ""}}
-	case "permanent", "card":
-		if strings.Contains(filter, "Graveyard") {
-			break
-		}
-		return append(creatures, cand{opp, "battlefield", "Glorious Anthem"}, cand{opp, "battlefield", "Forest"})
-	case "artifact":
-		return []cand{{opp, "battlefield", "Ornithopter"}, {opp, "battlefield", "Sol Ring"}}
-	case "enchantment":
-		return []cand{{opp, "battlefield", "Glorious Anthem"}}
-	case "land":
-		return []cand{{opp, "battlefield", "Forest"}}
-	case "planeswalker":
-		return []cand{{opp, "battlefield", "Jace Beleren"}}
-	case "instant", "sorcery":
-		return []cand{{opp, "graveyard", "Shock"}, {"p0", "graveyard", "Shock"}}
-	}
-	return nil
-}
-
-// zoneCandidates offers cards in a non-battlefield zone (TgtZone$): the
-// owner from YouOwn/OppOwn, else both seats.
-func zoneCandidates(filter, zone string) []cand {
-	if strings.Contains(zone, ",") {
-		zone = strings.Split(zone, ",")[0]
-	}
-	switch zone {
-	case "graveyard", "exile", "hand":
-	default:
-		return nil
-	}
-	seats := []string{"p0", "p1"}
-	switch {
-	case strings.Contains(filter, "YouOwn") || strings.Contains(filter, "YouCtrl"):
-		seats = []string{"p0"}
-	case strings.Contains(filter, "OppOwn") || strings.Contains(filter, "OppCtrl"):
-		seats = []string{"p1"}
-	}
-	var out []cand
-	for _, c := range []string{"Grizzly Bears", "Serra Angel", "Shock", "Llanowar Elves", "Glorious Anthem", "Ornithopter", "Forest", "Duress"} {
-		for _, st := range seats {
-			out = append(out, cand{st, zone, c})
-		}
-	}
-	return out
-}
-
-// fixtures is the cross product of every slot's candidates, capped. One
-// target is picked per slot (a short group when the slot's max is larger),
-// and each fixture carries the per-slot TargetGroups the XMage driver needs
-// to place a TARGET_SKIP inside the right decision.
-func fixtures(slots []slot) []fixture {
-	out := []fixture{{}}
-	for si, s := range slots {
-		cs := candidatesFor(s.filter)
-		if len(cs) == 0 {
-			return nil
-		}
-		var next []fixture
-		for _, fx := range out {
-			for _, c := range cs {
-				n := fixture{p0: clone(fx.p0), p1: clone(fx.p1), targets: append([]string(nil), fx.targets...),
-					groups: append([]TargetGroup(nil), fx.groups...)}
-				for len(n.groups) <= si {
-					n.groups = append(n.groups, TargetGroup{Max: 0})
-				}
-				n.groups[si].Max = s.max
-				if c.card == "" {
-					n.targets = append(n.targets, c.seat)
-					n.groups[si].Picks = append(n.groups[si].Picks, c.seat)
-				} else {
-					s := &n.p1
-					if c.seat == "p0" {
-						s = &n.p0
-					}
-					count := 0
-					for _, x := range append(append(append(append([]string(nil), s.Battlefield...), s.Graveyard...), s.Exile...), s.Hand...) {
-						if x == c.card {
-							count++
-						}
-					}
-					switch c.zone {
-					case "battlefield":
-						s.Battlefield = append(s.Battlefield, c.card)
-					case "graveyard":
-						s.Graveyard = append(s.Graveyard, c.card)
-					case "exile":
-						s.Exile = append(s.Exile, c.card)
-					case "hand":
-						s.Hand = append(s.Hand, c.card)
-					}
-					ref := c.seat + ":" + c.card
-					if count > 0 {
-						ref = fmt.Sprintf("%s#%d", ref, count+1)
-					}
-					n.targets = append(n.targets, ref)
-					n.groups[si].Picks = append(n.groups[si].Picks, ref)
-				}
-				next = append(next, n)
-				if len(next) >= 24 {
-					break
-				}
-			}
-		}
-		out = next
-	}
-	return out
-}
-
-func clone(s Seat) Seat {
-	return Seat{
-		Battlefield: append([]string(nil), s.Battlefield...), Tapped: append([]string(nil), s.Tapped...), Hand: append([]string(nil), s.Hand...),
-		Graveyard: append([]string(nil), s.Graveyard...), Exile: append([]string(nil), s.Exile...),
-		Library: append([]string(nil), s.Library...), LibraryTop: append([]string(nil), s.LibraryTop...),
-	}
+	return q
 }

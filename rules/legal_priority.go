@@ -182,10 +182,12 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		if !pay.PayMana(asPayer(e), in.Player, mods.Apply(cost)) {
 			return
 		}
-		// Preserve the legacy zero-amount event for the ordinary alternate
-		// face; an explicitly relocked cast face needs its own face index.
+		// Preserve the legacy zero-amount event when the selected locked
+		// face is the alternate. A non-cast Room has both doors locked, so
+		// testing the cast-face designation alone would misidentify which
+		// face this offer actually unlocked.
 		amount := int32(0)
-		if !o.DoorUnlocked(int(o.FaceIdx)) {
+		if locked := roomLockedFace(o); locked == o.Card.Faces[o.FaceIdx] {
 			amount = int32(o.FaceIdx) + 1
 		}
 		e.emit(events.Event{Kind: events.DoorUnlock, Obj: opt.Obj, Amount: amount})

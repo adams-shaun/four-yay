@@ -11,7 +11,9 @@ import (
 // card is taken from the verified before/after checkpoint, never guessed from
 // the first library card: a spell can draw, reveal or replace that card before
 // the election is answered. Other elections remain ordinary choices.
-func xanswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]int) [][]XAnswer {
+// castSteps is passed through to xanswers so a cast step's own targets are not
+// scripted a second time.
+func xanswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]int, castSteps map[int]bool) [][]XAnswer {
 	ds := append([]rules.OracleDecision(nil), res.Decisions...)
 	for i := range ds {
 		d := &ds[i]
@@ -32,14 +34,33 @@ func xanswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]i
 		// recorded pick instead of inferring it from the resulting board.
 		followup := false
 		for j := i + 1; j < len(ds) && ds[j].Step == d.Step; j++ {
-			if ds[j].Seat == d.Seat && len(ds[j].PickKinds) > 0 &&
-				(ds[j].PickKinds[0] == "discard" || ds[j].PickKinds[0] == "card") {
-				followup = true
-				break
+			pick := &ds[j]
+			if pick.Seat != d.Seat || !compositeCardPick(*pick, zone) {
+				continue
 			}
+			followup = true
+			if len(pick.ObjectPicks) > 0 {
+				d.Kind = pick.Kind
+				d.GorgeKind = pick.GorgeKind
+				d.Picks = make([]string, len(pick.ObjectPicks))
+				d.PickRefs = append([]string(nil), pick.ObjectPicks...)
+				d.PickKinds = make([]string, len(pick.ObjectPicks))
+				for k, ref := range pick.ObjectPicks {
+					d.Picks[k] = oraclediffRefName(ref)
+					d.PickKinds[k] = "card"
+					if zone == "graveyard" {
+						d.PickKinds[k] = "discard"
+					}
+				}
+				d.Max = pick.Max
+				pick.Kind = "composite_election" // emitted once from the correlated picks
+			} else {
+				// Older transcripts still carry the selection on the follow-up.
+				d.Kind = "composite_election" // no XMage yes/no dialog
+			}
+			break
 		}
 		if followup {
-			d.Kind = "composite_election" // no XMage yes/no dialog
 			continue
 		}
 		names := movedCards(res.Snapshots, sc, d.Step, d.Seat, zone)
@@ -59,7 +80,32 @@ func xanswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]i
 			d.Max = len(names)
 		}
 	}
-	return xanswers(ds, len(sc.Steps), modes)
+	return xanswers(ds, len(sc.Steps), modes, castSteps)
+}
+
+// compositeCardPick distinguishes the follow-up card selector from any other
+// same-seat object-valued decision in the step. ObjectPicks alone is not a role:
+// targets, costs, and replacement choices also record object identities.
+func compositeCardPick(d rules.OracleDecision, zone string) bool {
+	if d.Kind != "choose_n" && d.Kind != "mode" {
+		return false
+	}
+	want := "card"
+	if zone == "graveyard" {
+		want = "discard"
+	}
+	if len(d.ObjectPicks) == 0 {
+		return len(d.PickKinds) > 0 && d.PickKinds[0] == want
+	}
+	if len(d.PickKinds) != len(d.ObjectPicks) {
+		return false
+	}
+	for _, kind := range d.PickKinds {
+		if kind != want {
+			return false
+		}
+	}
+	return true
 }
 
 // movedCards finds cards newly in the indicated destination during one step.

@@ -23,17 +23,16 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 		want []XAnswer
 	}{
 		{
-			// Surveil/scry keeping every card: XMage's selection is a
-			// TargetCard on the target queue and a skip dismisses it.
-			// Measured on the 2026-10-05 std pass: 25 surveil/scry carriers
-			// (Refute Destiny, Proctor of Potential, ...) agree with XMage
-			// only with this answer; a choice skip plus ORDER picks diverged.
+			// Generic all-kept arrange routing shape. This synthetic decision
+			// pins xanswers only; generated card coverage is pinned separately.
 			name: "arrange keeps all cards: target skip",
 			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "order", GorgeKind: "arrange", Options: 2, Min: 0, Max: 2, Picks: []string{"Forest", "Island"}, PickIdx: []int{0, 1}, PickKinds: []string{"graveyard", "graveyard"}},
 			want: []XAnswer{{0, "target", "[target_skip]"}},
 		},
 		{
-			name: "arrange partial selection: selected, stop, then order",
+			// Generic partial arrange queue shape: selection, terminator, then
+			// the emitted order labels. The driver must preserve that order.
+			name: "arrange partial selection: selection skip then independent order",
 			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "order", GorgeKind: "arrange", Options: 3, Min: 0, Max: 2, Picks: []string{"Forest"}, PickIdx: []int{0}, PickKinds: []string{"graveyard"}},
 			want: []XAnswer{{0, "choice", "Forest"}, {0, "choice", "[choice_skip]"}, {0, "choice", "Forest"}},
 		},
@@ -70,7 +69,7 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 			// Roots, Nature's Rhythm, ...) agree only with the target answer;
 			// leaving the search to XMage's AI diverged.
 			name: "choose_n library search: target queue",
-			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 39, Max: 1, Picks: []string{"Wastes"}, PickRefs: []string{"p1:Wastes#9"}, PickIdx: []int{0}, PickKinds: []string{"search"}},
+			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 39, Max: 1, Picks: []string{"Wastes"}, PickRefs: []string{"p0:Wastes#9"}, PickIdx: []int{0}, PickKinds: []string{"search"}},
 			want: []XAnswer{{0, "target", "Wastes"}},
 		},
 		{
@@ -301,5 +300,19 @@ func TestForcedChainSubTargetIsNotScripted(t *testing.T) {
 	root.Resume = "target"
 	if got := XAnswers([]rules.OracleDecision{root}, 1, nil); got == nil {
 		t.Fatal("a forced root trigger target must still be scripted")
+	}
+}
+
+// TestNamedOpponentSearchUsesChoiceQueue pins Ancient Vendetta's shape
+// (measured on the std pass): the card-name dialog is scripted even when gorge
+// offered one name, and a search of another player's library is a choice.
+func TestNamedOpponentSearchUsesChoiceQueue(t *testing.T) {
+	ds := []rules.OracleDecision{
+		{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 1, Min: 1, Max: 1, Picks: []string{"Wastes"}, PickRefs: []string{"Wastes"}, PickIdx: []int{0}, PickKinds: []string{"name"}},
+		{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 39, Min: 0, Max: 4, Picks: []string{"Wastes"}, PickRefs: []string{"p1:Wastes#9"}, PickIdx: []int{0}, PickKinds: []string{"search"}},
+	}
+	want := [][]XAnswer{{{0, "choice", "Wastes"}, {0, "choice", "Wastes"}, {0, "choice", "[choice_skip]"}}}
+	if got := XAnswers(ds, 1, nil); !reflect.DeepEqual(got, want) {
+		t.Fatalf("XAnswers = %#v, want %#v", got, want)
 	}
 }

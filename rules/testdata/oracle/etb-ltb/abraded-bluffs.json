@@ -14,7 +14,7 @@
       },
       "steps": [
         {"op": "play", "seat": 0, "card": "p0:Abraded Bluffs"},
-        {"op": "resolve", "targets": ["p1"]}
+        {"op": "resolve"}
       ],
       "expect": [
         {"card": "p0:Abraded Bluffs", "zone": "battlefield", "tapped": true},
@@ -31,7 +31,7 @@
       },
       "steps": [
         {"op": "play", "seat": 0, "card": "p0:Abraded Bluffs"},
-        {"op": "resolve", "targets": ["p1"]},
+        {"op": "resolve"},
         {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
         {"op": "resolve"}
       ],

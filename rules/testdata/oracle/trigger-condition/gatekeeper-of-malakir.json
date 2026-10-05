@@ -29,10 +29,7 @@
           "seat": 0,
           "card": "p0:Gatekeeper of Malakir",
           "mana": "BBB",
-          "kicked": true,
-          "targets": [
-            "p1"
-          ]
+          "kicked": true
         },
         {
           "op": "resolve",

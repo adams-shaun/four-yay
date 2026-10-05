@@ -26,10 +26,7 @@
      "op": "cast",
      "seat": 0,
      "card": "p0:Titania, Protector of Argoth",
-     "mana": "GGGGG",
-     "targets": [
-      "p0:Forest"
-     ]
+     "mana": "GGGGG"
     },
     {
      "op": "resolve"

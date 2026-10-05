@@ -42,6 +42,7 @@ func TestFearOfSleepParalysisFullyUnlockTapsOnceOnFinalDoor(t *testing.T) {
 	// The room enters first, with NO Eerie permanent yet watching, so the
 	// only FullyUnlock carrier in play is added afterwards.
 	room := moveByName(t, e, 0, "Dazzling Theater", state.ZBattlefield)
+	designateRoomCastFace(e, room)
 	bearID := moveByName(t, e, 1, "Bear", state.ZBattlefield)
 	fear := moveByName(t, e, 0, "Fear of Sleep Paralysis", state.ZBattlefield)
 

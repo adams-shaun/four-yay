@@ -29,10 +29,7 @@
      "op": "cast",
      "seat": 0,
      "card": "p0:Faebloom Trick",
-     "mana": "CCU",
-     "targets": [
-      "p1:Centaur Courser"
-     ]
+     "mana": "CCU"
     },
     {
      "op": "resolve",
@@ -241,10 +238,7 @@
      "op": "cast",
      "seat": 0,
      "card": "p0:Faebloom Trick",
-     "mana": "CCU",
-     "targets": [
-      "p1:Tolarian Terror"
-     ]
+     "mana": "CCU"
     },
     {
      "op": "resolve",
@@ -358,10 +352,7 @@
      "op": "cast",
      "seat": 0,
      "card": "p0:Faebloom Trick",
-     "mana": "CCU",
-     "targets": [
-      "p1:Centaur Courser"
-     ]
+     "mana": "CCU"
     },
     {
      "op": "resolve",

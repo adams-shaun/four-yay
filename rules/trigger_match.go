@@ -82,7 +82,10 @@ type pendingTrigger struct {
 	// state.DelayedTrigger.ID (so the fired event can remove exactly it), and
 	// Execute is the Execute$ SVar name (which events.Apply's DelayedPush case
 	// resolves from the source's SVar table).
-	Delayed   bool
+	Delayed bool
+	// Chapter marks a Saga chapter ability: it is a triggered ability even
+	// though its delayed-shape stack object has no T: line to record.
+	Chapter   bool
 	DelayedID uint32
 	// MonarchDraw is the CR 724.2a beginning-of-end-step triggered draw.
 	// It is represented as a real stack ability through the existing delayed
@@ -1951,8 +1954,10 @@ type triggerFace struct {
 }
 
 // roomTriggerFaces returns the faces whose Triggers a scan walks for object
-// o: its cast face always, plus the other face once unlocked (CR 309.6).
-// FaceIdx need not be zero: CR 309.4b permits casting either Room door.
+// o: a cast Room's cast face, plus its other face once unlocked (CR 309.6).
+// A Room that entered without being cast has no live face and returns none
+// (CR 709.5d). FaceIdx need not be zero: CR 309.4b permits casting either
+// Room door.
 func roomTriggerFaces(o *state.Object, active *cards.Face) ([2]triggerFace, int) {
 	// At most two faces, returned by value so the ordinary single-face walk
 	// never allocates a backing slice per object per event. merged is left 0

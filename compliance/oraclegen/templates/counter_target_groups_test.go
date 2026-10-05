@@ -14,8 +14,8 @@ import (
 func TestCounterSpellEmitsPerSlotTargetGroups(t *testing.T) {
 	reg := loadGenRegistry(t)
 	f := faceOf(t, reg, "Sokka's Haiku")
-	slots := oraclegen.SlotInfos(f)
-	if len(slots) != 2 || slots[1].Filter() != "Land" {
+	slots := oraclegen.SlotSpecs(f)
+	if len(slots) != 2 || slots[1].Filter != "Land" {
 		t.Fatalf("precondition: Sokka's Haiku must have counter and land slots, got %+v", slots)
 	}
 	it, skip := Generate(reg, "Sokka's Haiku")
@@ -33,8 +33,8 @@ func TestCounterSpellEmitsPerSlotTargetGroups(t *testing.T) {
 		t.Fatalf("counter groups = %+v, want one per slot", counter.TargetGroups)
 	}
 	for i, want := range counter.Targets {
-		if !reflect.DeepEqual(counter.TargetGroups[i].Picks, []string{want}) || counter.TargetGroups[i].Max != slots[i].Max() {
-			t.Errorf("group %d = %+v, want target %q max %d", i, counter.TargetGroups[i], want, slots[i].Max())
+		if !reflect.DeepEqual(counter.TargetGroups[i].Picks, []string{want}) {
+			t.Errorf("group %d = %+v, want target %q", i, counter.TargetGroups[i], want)
 		}
 	}
 	wire, err := json.Marshal(counter)

@@ -24,47 +24,61 @@ func (m CharmMode) SVar() string { return m.svar }
 // Fixture is one target fixture: both seats' setup and the cast's targets.
 type Fixture = fixture
 
-// P0 and P1 are the fixture's seats; Targets the cast's target refs;
-// TargetGroups the per-slot target shape.
+// P0 and P1 are the fixture's seats; Targets the cast's target refs.
 func (fx *Fixture) P0() *Seat        { return &fx.p0 }
 func (fx *Fixture) P1() *Seat        { return &fx.p1 }
 func (fx Fixture) Targets() []string { return fx.targets }
 
-// TargetGroups is one TargetGroup per slot, in slot order: the refs the
-// fixture picked from that slot and the slot's cap.
-func (fx Fixture) TargetGroups() []TargetGroup { return fx.groups }
+// Attacker is the p0 creature the fixture must declare attacking so a target
+// filter naming an attacking or blocking creature has a legal target. Empty
+// means no attack step is needed.
+func (fx Fixture) Attacker() string {
+	if len(fx.combat.attackers) == 0 {
+		return ""
+	}
+	return fx.combat.attackers[0]
+}
+
+// Blocker is the first blocker in the fixture's combat arrangement.
+func (fx Fixture) Blocker() string {
+	if len(fx.combat.blocks) == 0 {
+		return ""
+	}
+	return fx.combat.blocks[0][0]
+}
+
+// CombatSteps returns the complete, ordered attack/block preamble.
+func (fx Fixture) CombatSteps() []Step {
+	if len(fx.combat.attackers) == 0 {
+		return nil
+	}
+	attack := Step{Op: "attack", Seat: fx.combat.attackSeat, Defender: fx.combat.defender, Attackers: append([]string(nil), fx.combat.attackers...)}
+	steps := []Step{attack}
+	if len(fx.combat.blocks) != 0 {
+		blockSeat := 1 - fx.combat.attackSeat
+		steps = append(steps, Step{Op: "block", Seat: blockSeat, Blocks: append([][2]string(nil), fx.combat.blocks...)})
+	}
+	return steps
+}
+
+// Prelude lists the steps a fixture must run before the card's cast (create
+// a token, attach an Aura, stamp a this-turn zone change).
+func (fx Fixture) Prelude() []Step { return fx.pre }
+
+// SlotSpec is one target slot: its filter and whether the cast may omit it.
+type SlotSpec = Slot
 
 // Fixtures is the capped cross product of every target slot's candidates.
-func Fixtures(slots []Slot) []Fixture { return fixtures(slots) }
+// An optional slot with no candidate is omitted rather than sinking the
+// fixture.
+func Fixtures(reg *cards.Registry, slots []SlotSpec) []Fixture { return fixtures(reg, slots) }
 
 // PoolFor turns a Forge mana cost into the exact pool letters that pay it,
 // or says why it cannot.
 func PoolFor(cost string) (string, string) { return poolFor(cost) }
 
-// Slot is one ValidTgts$ target slot: its filter and its TargetMax$.
-type Slot = slot
-
-// Filter is the slot's ValidTgts$ filter (with its "@zone" suffix).
-func (s Slot) Filter() string { return s.filter }
-
-// Max is the slot's TargetMax$ (0 means unlimited).
-func (s Slot) Max() int { return s.max }
-
-// SlotInfos returns the card's spell-ability target slots with their caps.
-func SlotInfos(f *cards.Face) []Slot { return targetSlots(f) }
-
 // TargetSlots lists the ValidTgts$ filters along the spell ability chain.
-func TargetSlots(f *cards.Face) []string {
-	ss := targetSlots(f)
-	out := make([]string, 0, len(ss))
-	for _, s := range ss {
-		out = append(out, s.filter)
-	}
-	return out
-}
-
-// ChainSlotInfos returns one SVar chain's target slots with their caps.
-func ChainSlotInfos(f *cards.Face, svar string) []Slot { return chainSlots(f, svar) }
+func TargetSlots(f *cards.Face) []string { return targetSlots(f) }
 
 // OpeningHandAnswers declines a K:MayEffectFromOpeningHand ask, so a
 // generated scenario casts the card from hand rather than starting it on the
@@ -75,14 +89,7 @@ func OpeningHandAnswers(f *cards.Face) []Answer { return openingHandAnswers(f) }
 func CharmModes(f *cards.Face) []CharmMode { return charmModes(f) }
 
 // ChainSlots lists the target filters along one SVar ability chain.
-func ChainSlots(f *cards.Face, svar string) []string {
-	ss := chainSlots(f, svar)
-	out := make([]string, 0, len(ss))
-	for _, s := range ss {
-		out = append(out, s.filter)
-	}
-	return out
-}
+func ChainSlots(f *cards.Face, svar string) []string { return chainSlots(f, svar) }
 
 // AbilityTargetsStack reports whether an ability's target vocabulary names a
 // spell or ability on the stack.
@@ -92,13 +99,26 @@ func AbilityTargetsStack(params map[string]string) bool { return abilityTargetsS
 func ModeNumbers(f *cards.Face) map[string]int { return modeNumbers(f) }
 
 // XAnswers turns gorge's recorded decisions into XMage's scripted answers.
+// It scripts every decision as an ordinary answer; a caller that has already
+// rewritten cast-step targets (ChooseTargets) uses XAnswersForScenario so
+// those target decisions are not scripted a second time.
 func XAnswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XAnswer {
-	return xanswers(ds, steps, modes)
+	return xanswers(ds, steps, modes, nil)
+}
+
+// ChooseTargets rewrites cast steps' targets from gorge's own target
+// decisions and returns the scenario with the set of cast step indices those
+// targets came from.
+func ChooseTargets(sc Scenario, ds []rules.OracleDecision) (Scenario, map[int]bool) {
+	return chooseTargets(sc, ds)
 }
 
 // XAnswersForScenario also uses the observed result of a compound may/pick.
-func XAnswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]int) [][]XAnswer {
-	return xanswersForScenario(res, sc, modes)
+// castSteps is the set of cast step indices whose targets ChooseTargets took
+// from the cast; those target decisions travel through castSpell and are not
+// scripted a second time.
+func XAnswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]int, castSteps map[int]bool) [][]XAnswer {
+	return xanswersForScenario(res, sc, modes, castSteps)
 }
 
 // MayYes re-scripts every declined optional pick to take the first option.
@@ -108,6 +128,12 @@ func MayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) { return ma
 // and ended with an empty stack.
 func PlaysThrough(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
 	return playsThrough(reg, sc)
+}
+
+// ProbeTargets permits only surplus fixture targets before the cast rewrite;
+// a reversed cast is never a successful probe.
+func ProbeTargets(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
+	return probeTargets(reg, sc)
 }
 
 // Settle returns how many resolve steps empty the stack after sc (at most

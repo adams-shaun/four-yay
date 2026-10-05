@@ -568,7 +568,9 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 			od.PickKinds = append(od.PickKinds, o.Kind)
 			switch {
 			case o.Obj != 0:
-				od.PickRefs = append(od.PickRefs, r.objRef(r.e.G.Obj(o.Obj)))
+				ref := r.objRef(r.e.G.Obj(o.Obj))
+				od.PickRefs = append(od.PickRefs, ref)
+				od.ObjectPicks = append(od.ObjectPicks, ref)
 			case strings.Contains(o.Kind, "player"):
 				od.PickRefs = append(od.PickRefs, fmt.Sprintf("p%d", o.Player))
 			default:
@@ -817,6 +819,32 @@ func (r *oracleRun) answer(d *decision.Decision, why string) error {
 		}
 	}
 	return r.submit(d, choices, why+" fallback")
+}
+
+// blockersDecision answers non-blockers decisions until the declare-blockers
+// decision (KBlockers) is pending, then returns it. The generated blocking
+// scenario declares the block directly after the attack, because XMage's
+// driver cannot snapshot the pre-block declare-blockers state (its engine
+// selects blockers in DeclareBlockersStep.beginStep before any player gets
+// priority), so the generator emits no pass_to checkpoint there and the block
+// op must advance from the post-attack priority itself. A scenario that
+// already stopped at KBlockers (a hand-written one following a pass_to) finds
+// it pending on the first pass. A free function, not a method: oracleRun holds
+// a *Engine, so a method would grow engineSurface.
+func blockersDecision(r *oracleRun) (*decision.Decision, error) {
+	for i := 0; i < 200; i++ {
+		d := r.e.Pending()
+		if d == nil || r.e.G.Over {
+			return nil, harnessf("block: game stopped before the blockers decision")
+		}
+		if d.Kind == decision.KBlockers {
+			return d, nil
+		}
+		if err := r.answer(d, "to-block"); err != nil {
+			return nil, err
+		}
+	}
+	return nil, harnessf("block: no blockers decision pending")
 }
 
 // untilPriority answers non-priority decisions until a priority decision
@@ -1096,9 +1124,9 @@ func (r *oracleRun) do(st oracleStep) error {
 			}
 		}
 	case oracleOpBlock:
-		d := e.Pending()
-		if d == nil || d.Kind != decision.KBlockers {
-			return harnessf("block: no blockers decision pending")
+		d, err := blockersDecision(r)
+		if err != nil {
+			return err
 		}
 		used := map[int]bool{}
 		var choices []int
@@ -1418,6 +1446,22 @@ func (r *oracleRun) stackDump() string {
 // shrinking known-unconsumed ratchet without hiding a real failure.
 const oracleUnconsumedMarker = "unconsumed answer(s) for this step:"
 
+// oracleUnusedTargetMarker tags the fail a step raises when its declared
+// `targets` still hold entries after the step finished: the fixture declared
+// a target the step's cast/activate never asked for (a surplus slot, an
+// optional target the engine skips), so the runner silently dropped it. XMage
+// rejects such a cast, so the runner must fail loudly for the same reason the
+// unconsumed-answer check does. Exported so the generator can identify and
+// tolerate over-offering while it learns gorge's real targets.
+const OracleUnusedTargetMarker = "unused target(s) for this step:"
+
+// oracleUnusedTargetFail formats the one fail a step gets for unused
+// targets: the step index, the op, and every leftover target ref verbatim.
+func oracleUnusedTargetFail(step int, op string, targets []string) string {
+	j, _ := json.Marshal(targets)
+	return fmt.Sprintf("step %d (%s): %s %s", step, op, OracleUnusedTargetMarker, j)
+}
+
 // oracleUnconsumedFail formats the one fail a step gets for leftovers: the
 // step index, the op, and every leftover answer verbatim (kind + pick).
 func oracleUnconsumedFail(step int, op string, answers []oracleAnswer) string {
@@ -1464,6 +1508,9 @@ func runOracleScenarioWith(reg *cards.Registry, sc oracleScenario, noSnapshot bo
 		// otherwise masks the stale fixture.
 		if len(r.answers) > 0 {
 			fails = append(fails, oracleUnconsumedFail(i, st.Op, r.answers))
+		}
+		if len(r.targets) > 0 {
+			fails = append(fails, oracleUnusedTargetFail(i, st.Op, r.targets))
 		}
 		for _, msg := range r.extraFails {
 			fails = append(fails, fmt.Sprintf("after step %d (%s): %s", i, st.Op, msg))

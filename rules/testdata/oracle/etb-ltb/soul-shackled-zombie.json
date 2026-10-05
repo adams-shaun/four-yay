@@ -297,8 +297,7 @@
     {
      "op": "resolve",
      "targets": [
-      "p1:Lightning Bolt",
-      "p0:Savannah Lions"
+      "p1:Lightning Bolt"
      ]
     }
    ],

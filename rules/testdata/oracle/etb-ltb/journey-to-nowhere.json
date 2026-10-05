@@ -28,10 +28,7 @@
      "op": "cast",
      "seat": 0,
      "card": "p0:Journey to Nowhere",
-     "mana": "CW",
-     "targets": [
-      "p1:Grizzly Bears"
-     ]
+     "mana": "CW"
     },
     {
      "op": "resolve"

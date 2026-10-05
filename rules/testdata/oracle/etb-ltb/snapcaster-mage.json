@@ -27,10 +27,7 @@
      "op": "cast",
      "seat": 0,
      "card": "p0:Snapcaster Mage",
-     "mana": "CU",
-     "targets": [
-      "p0:Lightning Bolt"
-     ]
+     "mana": "CU"
     },
     {
      "op": "resolve"

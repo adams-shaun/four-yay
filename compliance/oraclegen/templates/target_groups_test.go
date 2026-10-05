@@ -11,9 +11,9 @@ import (
 // TestCastResolveEmitsPerSlotTargetGroups: a multi-slot cast must carry the
 // per-slot target shape the XMage driver needs to place a TARGET_SKIP inside
 // the decision it belongs to. Allies at Last is "Up to two target creatures
-// you control ... target creature an opponent controls": slot 0 is a
-// Creature.YouCtrl slot capped at 2 (the fixture picks one, so it is short),
-// slot 1 is an uncapped Creature.OppCtrl slot (never short). Without the
+// you control ... target creature an opponent controls": gorge's first target
+// decision is capped at 2 and answered with one pick (short), its second is a
+// one-target decision answered in full. Without the
 // groups the driver cannot tell which decision a trailing skip terminates.
 func TestCastResolveEmitsPerSlotTargetGroups(t *testing.T) {
 	reg, err := cards.LoadRegistry(cards.CachePath(filepath.Join("..", "..", "..", ".cards")))
@@ -39,8 +39,8 @@ func TestCastResolveEmitsPerSlotTargetGroups(t *testing.T) {
 	if got := st.TargetGroups[0]; len(got.Picks) != 1 || got.Max != 2 {
 		t.Errorf("slot 0 = %+v, want one pick and max 2 (short)", got)
 	}
-	if got := st.TargetGroups[1]; len(got.Picks) != 1 || got.Max != 0 {
-		t.Errorf("slot 1 = %+v, want one pick and max 0 (uncapped)", got)
+	if got := st.TargetGroups[1]; len(got.Picks) != 1 || got.Max != 1 {
+		t.Errorf("slot 1 = %+v, want one pick and max 1 (full)", got)
 	}
 	// Every target ref must appear in exactly one group, so the driver's
 	// addTarget walk covers the same picks the runner's Targets does.
