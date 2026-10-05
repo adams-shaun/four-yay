@@ -2483,6 +2483,24 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 	if !trigmatch.Match(boardOf(e), t, source, ev, lki) {
 		return false
 	}
+	// Condition$ Evolve (CR 702.99a): the evolve ability word written as a
+	// bare trigger condition rather than the K:Evolve keyword (MKM
+	// Sharp-Eyed Rookie, EOE Evolving Adaptive -- the corpus's only two).
+	// Before this arm the clause was unread, so the trigger fired
+	// UNCONDITIONALLY: an equal-or-smaller creature entering evolved the
+	// source, and so did the source's own entry. The comparison is
+	// event-relative (it names the entering creature), so it is evaluated
+	// here, beside trigmatch.Match, where ev is in scope -- not in the
+	// shared triggerConditionHolds walk above (which has no event). Like
+	// Evolve$, it is fire-time only; the resolution-time CR 603.4 recheck
+	// has no entering object to re-derive it from. The word is dispatched
+	// through the PKCondition vocabulary (rules/static_condition.go), not a
+	// literal, so the codeshape dispatch ratchet is untouched.
+	if code, ok := t.ParamCode(cards.PKCondition); ok && staticCondition(code) == condEvolve {
+		if !evolveConditionHolds(e, ev, source) {
+			return false
+		}
+	}
 	// FirstCombat$ True -- the "if it's the first combat phase of the turn"
 	// trigger gate (8 corpus T: lines: hexplate_wallbreaker, genji_glove,
 	// finest_hour, balthier_and_fran, raph_leo_sibling_rivals on Mode$ Attacks,
