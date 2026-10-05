@@ -13,8 +13,8 @@
         "p1": {}
       },
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Flickerwisp", "mana": "WWW", "targets": ["p0:Grizzly Bears"]},
-        {"op": "resolve",
+        {"op": "cast", "seat": 0, "card": "p0:Flickerwisp", "mana": "WWW"},
+        {"op": "resolve", "targets": ["p0:Grizzly Bears"],
          "expect": [{"card": "p0:Grizzly Bears", "zone": "exile"}, {"card": "p0:Flickerwisp", "zone": "battlefield"}]},
         {"op": "pass_to", "step": "end"},
         {"op": "resolve"}
@@ -32,8 +32,8 @@
         "p1": {"battlefield": ["Savannah Lions"]}
       },
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Flickerwisp", "mana": "WWW", "targets": ["p1:Savannah Lions"]},
-        {"op": "resolve",
+        {"op": "cast", "seat": 0, "card": "p0:Flickerwisp", "mana": "WWW"},
+        {"op": "resolve", "targets": ["p1:Savannah Lions"],
          "expect": [{"card": "p1:Savannah Lions", "zone": "exile"}]},
         {"op": "pass_to", "step": "end"},
         {"op": "resolve"}
