@@ -42,21 +42,11 @@
               "pick": [
                 "Draw X cards"
               ]
-            }
-          ]
-        },
-        {
-          "op": "resolve",
-          "answers": [
-            {
-              "kind": "any",
-              "pick": [
-                "p0:Grizzly Bears"
-              ]
             },
             {
               "kind": "any",
               "pick": [
+                "p0:Grizzly Bears",
                 "p0:Hill Giant"
               ]
             }
@@ -71,7 +61,7 @@
         },
         {
           "graveyard_size": {
-            "p0": 2
+            "p0": 3
           }
         }
       ]
