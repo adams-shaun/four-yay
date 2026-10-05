@@ -92,22 +92,18 @@ func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, dept
 		}
 		return dotBranch(h, c, rest, kicked, depth), true, true
 	}
-	// Teamwork.<paid>.<unpaid> is <paid> when the resolving source's
-	// K:Teamwork:N optional additional cost (CR 702.194a) was actually paid as
-	// it was cast, else <unpaid> -- Forge's Count$Teamwork.<n>.<m> family
-	// (Hulk Smash's Count$Teamwork.2.1, Cruel Alliance's Count$Teamwork.0.1).
-	// The read is Object.TeamworkPaid, the SAME one home the Card.Self+Teamwork
-	// filter predicate reads (folded by events.Apply's FlagTeamworkPaid arm),
-	// so the matcher and the count can never disagree. A missing source, a card
-	// never cast read the <unpaid> branch; a copy of a paid Teamwork spell
-	// inherits the cost-conditioned bool (as it does the FlagTeamworkPaid bit).
-	// The branch
-	// tokens resolve through dotBranch (a literal, or an SVar name), and a
-	// malformed body with a missing branch fails closed.
+	// Teamwork.<paid>.<unpaid> is the paid branch after payment, but during
+	// CR 601.2c it follows the announced intention (CR 702.194b-c): target
+	// eligibility is chosen before the additional cost is paid. A later
+	// declined payment does not retroactively change the announced target set.
+	// The pending cast binding is present only for its own pre-payment target
+	// ask; other reads continue to use Object.TeamworkPaid, including copies.
+	// The branch tokens resolve through dotBranch (a literal, or an SVar name),
+	// and a malformed body with a missing branch fails closed.
 	if rest, ok := strings.CutPrefix(head, "Teamwork."); ok {
-		paid := false
+		paid := c.Kicker.PendingTeamwork
 		if o := g.Obj(c.Source); o != nil {
-			paid = o.TeamworkPaid
+			paid = paid || o.TeamworkPaid
 		}
 		return dotBranch(h, c, rest, paid, depth), true, true
 	}
