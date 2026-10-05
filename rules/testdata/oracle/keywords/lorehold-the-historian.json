@@ -1,0 +1,101 @@
+{
+  "card": "Lorehold, the Historian",
+  "family": "keywords",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "a2e0a74100e0",
+  "scenarios": [
+    {
+      "name": "has-flying-and-haste",
+      "cr": [
+        "702.9a",
+        "702.10a",
+        "302.5"
+      ],
+      "why": "Lorehold has flying and haste; with haste it may attack the turn it enters.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Lorehold, the Historian"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Lorehold, the Historian",
+          "mana": "CCCRW"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Lorehold, the Historian"
+          ],
+          "defender": "p1"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Lorehold, the Historian",
+          "keywords": [
+            "Flying",
+            "Haste"
+          ],
+          "tapped": true
+        }
+      ]
+    },
+    {
+      "name": "opponents-upkeep-may-discard-then-draw",
+      "cr": [
+        "603.2",
+        "701.8a"
+      ],
+      "why": "At the beginning of each opponent's upkeep you may discard a card; if you do, draw a card.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Lorehold, the Historian"
+          ],
+          "hand": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "upkeep",
+          "active": "p1"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Discard 1 card"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        },
+        {
+          "graveyard_size": {
+            "p0": 1
+          }
+        }
+      ]
+    }
+  ]
+}

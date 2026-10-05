@@ -108,6 +108,16 @@ func (e *Engine) altCostEnter(ev events.Event) {
 		// trigger, and is sacrificed at the beginning of the next end step.
 		e.blitzEnter(ev.Obj, o.Controller)
 	}
+	if o.CastFlags&state.FlagImpending != 0 {
+		// Impending (CR 702.176a): a permanent cast for its impending cost
+		// enters with N time counters and is not a creature until the last is
+		// removed. The pay-time flag is the replayable provenance; a plain
+		// mana-cost cast of the same card carries none and enters with no
+		// counters, staying a creature.
+		if ce, ok := impendingTickGrant(o, o.Controller); ok {
+			e.AddContinuous(ce)
+		}
+	}
 	if o.CastFlags&state.FlagWarped != 0 {
 		e.emit(events.Event{Kind: events.DelayedRegister, Obj: ev.Obj,
 			Player: o.Controller, Step: state.StepEnd, Counter: "__kwWarpExile"})

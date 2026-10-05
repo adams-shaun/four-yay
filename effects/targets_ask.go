@@ -68,12 +68,10 @@ import (
 // carrier (Kaya, Spirits' Justice's exile-each; mega_flare,
 // tasha_the_witch_queen, geths_summons) reaches its ask here.
 func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target, bool) {
-	defined := DefinedRefOf(sa).Text
-	if !TargetsOf(sa).Targeted() ||
-		(defined != "" && definedIsTargetReuse(defined) && sa.API != "Fight") {
+	if !TargetsOf(sa).Targeted() || TargetAskReusesPrior(sa) {
 		return nil, false
 	}
-	if sa.CompiledAPI() == cards.APIChangeZone || sa.API == "ChangeZone" {
+	if TargetAskIsChangeZone(sa) {
 		return nil, false
 	}
 	if c.SubPreAsk != nil {
@@ -158,10 +156,22 @@ func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target
 	return ts, ok
 }
 
-// definedIsTargetReuse reports whether a Defined$ value names one of the
-// parent-target-reuse referents -- the documented reason the blanket
-// Defined$ suppression above exists (a sub that names its PARENT's target;
-// task tgtplayer1 narrowed the guard to exactly that shape). Any other
+// TargetAskReusesPrior identifies a link that consumes an earlier target
+// rather than asking again. Fight declares its own distinct targets.
+func TargetAskReusesPrior(sa *cards.SA) bool {
+	return DefinedIsTargetReuse(DefinedRefOf(sa).Text) && sa.API != "Fight"
+}
+
+// TargetAskIsChangeZone identifies the link whose target chooser lives in
+// changeZoneChosenTargetsFor rather than chosenTargetsFor.
+func TargetAskIsChangeZone(sa *cards.SA) bool {
+	return sa.CompiledAPI() == cards.APIChangeZone || sa.API == "ChangeZone"
+}
+
+// DefinedIsTargetReuse reports whether a Defined$ value names one of the
+// parent-target-reuse referents -- the reason chosenTargetsFor suppresses a
+// duplicate target ask (a sub that names its PARENT's target; task tgtplayer1
+// narrowed the guard to exactly that shape). Any other
 // Defined$ value -- `You`, `Self`, a battlefield `Valid` sweep, a fire-time
 // `Triggered*` referent -- is the beneficiary/actor half of the SA, not its
 // targeting, so the SA's own ValidTgts$ is a REAL targeting this build must
@@ -174,7 +184,7 @@ func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target
 // head before its first `.`; `TargetedController` and friends are NOT in
 // the set (they are derived referents this engine resolves through its own
 // machinery, measured corpus-unreachable at the reachable dispatch sites).
-func definedIsTargetReuse(defined string) bool {
+func DefinedIsTargetReuse(defined string) bool {
 	for tok := range strings.SplitSeq(defined, ",") {
 		tok = strings.TrimSpace(tok)
 		if i := strings.IndexByte(tok, '.'); i >= 0 {

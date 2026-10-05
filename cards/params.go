@@ -3,6 +3,7 @@ package cards
 import (
 	"math/bits"
 	"slices"
+	"strings"
 	"sync/atomic"
 	"unsafe"
 )
@@ -91,12 +92,14 @@ const (
 	PKConditionActivationLimit
 	PKConditionCheckSVar
 	PKConditionCompare
+	PKConditionCompare2
 	PKConditionDefined
 	PKConditionFirstCombat
 	PKConditionNotPresent
 	PKConditionPhases
 	PKConditionPlayerTurn
 	PKConditionPresent
+	PKConditionPresent2
 	PKConditionSVarCompare
 	PKConditionZone
 	PKController
@@ -824,12 +827,14 @@ var paramKeyNames = [paramKeyCount]string{
 	PKConditionActivationLimit:         "ConditionActivationLimit",
 	PKConditionCheckSVar:               "ConditionCheckSVar",
 	PKConditionCompare:                 "ConditionCompare",
+	PKConditionCompare2:                "ConditionCompare2",
 	PKConditionDefined:                 "ConditionDefined",
 	PKConditionFirstCombat:             "ConditionFirstCombat",
 	PKConditionNotPresent:              "ConditionNotPresent",
 	PKConditionPhases:                  "ConditionPhases",
 	PKConditionPlayerTurn:              "ConditionPlayerTurn",
 	PKConditionPresent:                 "ConditionPresent",
+	PKConditionPresent2:                "ConditionPresent2",
 	PKConditionSVarCompare:             "ConditionSVarCompare",
 	PKConditionZone:                    "ConditionZone",
 	PKController:                       "Controller",
@@ -1740,6 +1745,17 @@ func (r Repl) ParamCode(k ParamKey) (uint16, bool) { return paramCode(r.ps, r.Pa
 // HasParam reports whether key k is present.
 func (r Repl) HasParam(k ParamKey) bool { _, ok := paramGet(r.ps, r.Params, k); return ok }
 
+// OptionalValue reports the compiled Optional$ True replacement election flag.
+// Parsed faces bind it once; an unbound synthetic Repl reads its raw parameter
+// exactly, matching the script's canonical spelling.
+func (r Repl) OptionalValue() bool {
+	if r.optionalBound {
+		return r.optional
+	}
+	v, ok := r.Param(PKOptional)
+	return ok && v == "True"
+}
+
 // ParamSetParam reads key k of m through ps (a view carrying a node's Params
 // map and its ParamSet side by side).
 func ParamSetParam(ps *ParamSet, m map[string]string, k ParamKey) (string, bool) {
@@ -1814,6 +1830,8 @@ func (f *Face) deriveParamSets() {
 		r := &f.Repls[i]
 		r.ps = newParamSet(r.Params)
 		r.event, r.eventBound = ReplEventOf(r.Event), true
+		r.optional = strings.EqualFold(strings.TrimSpace(r.Params[paramKeyNames[PKOptional]]), "True")
+		r.optionalBound = true
 	}
 	bindSA := func(sa *SA) {
 		for d := 0; sa != nil && d <= maxSVarDepth+1; d++ {

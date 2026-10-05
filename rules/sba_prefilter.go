@@ -19,8 +19,10 @@ import (
 // no LType effect in the active list a battlefield permanent's derived type
 // list is its base list (the printed face, or the CR 708.5 face-down words)
 // put through CopyNonLegendary's Legendary strip, chars.bestowedTypeSwitch (drops
-// Creature, adds Aura) and chars.reconfigureTypeSwitch (drops Creature). None of the
-// three can ADD World or Legendary, and only the bestow switch can add Aura,
+// Creature, adds Aura), chars.reconfigureTypeSwitch (drops Creature) and
+// chars.impendingTypeSwitch (drops Creature while the permanent is
+// impending-dormant). None of the four can ADD World or Legendary, and only
+// the bestow switch can add Aura,
 // so on a face-up permanent the derived answer for those words is the face
 // answer (plus the bestow switch for Aura). A face-down permanent and any
 // board with a layer-4 effect take the full derived read.
@@ -162,6 +164,15 @@ func (e *Engine) sbaTableTypes(o *state.Object) (types []string, entry, ok bool)
 // prints no Creature word (fold) has none derived either. Everything else
 // takes the derived read; sbaQuietVerify holds every fast answer to it.
 func (e *Engine) sbaIsCreature(o *state.Object, f *cards.Face, anyLType bool) bool {
+	// CR 702.176a: an impending-dormant permanent is not a creature regardless
+	// of the layer-4 fast path (the no-LType arm below reads the printed face,
+	// which still names Creature). The counter-derived switch is a rules
+	// intrinsic like the bestow/reconfigure switches, not a layer-4 effect, so
+	// anyLType says nothing about it. EffectiveIsCreature folds the same
+	// check; this fast path bypasses that function, so it repeats the read.
+	if o.ImpendingDormant() {
+		return false
+	}
 	r, ok := false, false
 	switch {
 	case o.FaceDown:

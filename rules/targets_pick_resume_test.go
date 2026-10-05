@@ -1,10 +1,10 @@
 package rules
 
-// The generic ValidTgts$ pre-ask (task mvts1, the "tgts" decision kind) is
-// CONSUMED by chosenTargetsFor before the body runs. When the body then asks
-// again on its own, the pre-ask's answer must still be in hand for the rest
-// of the resolution; under the removed suspend/resume protocol it was not,
-// the pre-ask was re-posed, and the two asks alternated forever.
+// The generic ValidTgts$ pre-ask is CONSUMED by chosenTargetsFor before the
+// body runs. When the body then asks again on its own, the pre-ask's answer
+// must still be in hand for the rest of the resolution; under the removed
+// suspend/resume protocol it was not, the pre-ask was re-posed, and the two
+// asks alternated forever.
 //
 // That livelock was once fixed, for MoveCounter alone, by the per-object
 // moveCounterAsk cursor (the movecounter1 fix). It is a defect of the SHARED
@@ -12,17 +12,19 @@ package rules
 // Command: its CharmNum$ 2 election can pick `DBScry` (`DB$ Scry | ScryNum$ X
 // | ValidTgts$ Player`) alongside another targeting mode, so the stack
 // object's one undivided target list is not DBScry's player, the pre-ask
-// fires at resolution, and the Scry's own KArrange is the second ask -- which
-// loops arrange -> tgts -> arrange until the livelock watcher panics.
+// fires, and the Scry's own KArrange is the second ask -- which loops
+// arrange -> tgts -> arrange until the livelock watcher panics.
 //
 // The carrier below is a SYNTHETIC script of the same shape (never a .cards
 // file -- the licensing rule), reduced to the minimum that reproduces it: a
-// trigger whose Execute$ root carries no ValidTgts$ (so the CR 603.3c
-// placement ask covers nothing) and whose depth-1 SubAbility$ is a
-// ValidTgts$-bearing Scry (so the pre-ask fires there, and the Scry then
-// asks its KArrange). Kozilek's Command reaches the identical pair
-// through its Charm election; this fixture reaches it without needing an
-// announced X, a two-mode election or a 19-card library.
+// trigger whose Execute$ root carries no ValidTgts$ and whose depth-1
+// SubAbility$ is a ValidTgts$-bearing Scry. The Scry's link target is now
+// announced at placement (CR 603.3d, KTarget/trig_sub) and recorded as the
+// shared SubPreAsk; at resolution the Scry reads that record instead of
+// re-posing, and asks its KArrange -- the second ask the fix must survive.
+// Kozilek's Command reaches the identical pair through its Charm election;
+// this fixture reaches it without needing an announced X, a two-mode election
+// or a 19-card library.
 
 import (
 	"testing"
@@ -32,9 +34,9 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// scryPreAskScript: the root DB$ Draw carries no ValidTgts$, so the trigger's
-// placement ask is posed over nothing and the depth-1 DB$ Scry arrives at
-// resolution with the shared pre-ask still owed.
+// scryPreAskScript: the root DB$ Draw carries no ValidTgts$, but the depth-1
+// DB$ Scry does, so the trigger's placement ask announces that link's target
+// and the Scry's resolution consumes that record before asking its KArrange.
 const scryPreAskScript = "Name:Scry Probe\nManaCost:1 U\nTypes:Creature Human Wizard\nPT:1/1\n" +
 	"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigRoot | TriggerDescription$ x\n" +
 	"SVar:TrigRoot:DB$ Draw | Defined$ You | NumCards$ 0 | SubAbility$ DBScry\n" +
@@ -53,12 +55,13 @@ func asksOfKind(e *Engine, n0 int, kind decision.Kind) int {
 }
 
 // TestTargetsPickSurvivesALaterSuspension pins the fix: an answered generic
-// ValidTgts$ pre-ask stays answered across a LATER ask of the same SA, so the
-// pre-ask is posed exactly ONCE and the arrange answer completes the
-// resolution instead of re-posing the pre-ask.
+// ValidTgts$ pre-ask (now the placement trig_sub announcement) stays answered
+// across a LATER ask of the same SA, so the pre-ask is posed exactly ONCE and
+// the arrange answer completes the resolution instead of re-posing it.
 //
-// Losing the pre-ask answer across the arrange ask makes this leaf fail on the second `choose` ask (and, driven further, the
-// livelock watcher panics) -- it is not a leaf that passes against a no-op.
+// Losing the pre-ask answer across the arrange ask makes this leaf fail on the
+// second ask (and, driven further, the livelock watcher panics) -- it is not a
+// leaf that passes against a no-op.
 func TestTargetsPickSurvivesALaterSuspension(t *testing.T) {
 	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 7401, scryPreAskScript)
@@ -79,19 +82,28 @@ func TestTargetsPickSurvivesALaterSuspension(t *testing.T) {
 	if len(e.G.Stack) != 1 {
 		t.Fatalf("stack = %v, want exactly the probe's ETB trigger", e.G.Stack)
 	}
-	e.resolveTop()
 
-	// First ask: the shared ValidTgts$ pre-ask for the depth-1 Scry.
+	// First ask: the chain link's placement announcement for the depth-1 Scry.
 	d := e.Pending()
-	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "tgts" {
-		t.Fatalf("pending = %+v, want the generic ValidTgts$ pre-ask (KChoose/tgts)", d)
+	if d == nil || d.Kind != decision.KTarget || d.ResumeKind != "trig_sub" {
+		t.Fatalf("pending = %+v, want the placement trig_sub target ask for the Scry link", d)
 	}
 	submitChoices(t, e, 0)
 
 	// Second ask: the Scry's own KArrange, posed by the body the pre-ask
-	// answer unblocked. That it is posed at all is what makes this fixture
-	// the two-ask shape the defect needs.
+	// answer unblocked once the trigger resolves. Pass priority until it
+	// surfaces. That it is posed at all is what makes this fixture the
+	// two-ask shape the defect needs.
 	d = e.Pending()
+	for i := 0; i < 30 && d != nil && d.Kind == decision.KPriority; i++ {
+		for _, o := range d.Options {
+			if o.Kind == "pass" {
+				submitChoices(t, e, o.Index)
+				break
+			}
+		}
+		d = e.Pending()
+	}
 	if d == nil || d.Kind != decision.KArrange || d.ResumeKind != "arrange" {
 		t.Fatalf("pending = %+v, want the Scry's KArrange", d)
 	}
@@ -99,11 +111,11 @@ func TestTargetsPickSurvivesALaterSuspension(t *testing.T) {
 
 	// The fix: the arrange answer completes the resolution. Without it the
 	// pre-ask is re-posed and the pair alternates forever.
-	if d := e.Pending(); d != nil && d.Kind == decision.KChoose && d.ResumeKind == "tgts" {
-		t.Fatal("the arrange answer re-posed the ValidTgts$ pre-ask: the pre-ask answer was lost (livelock)")
+	if d := e.Pending(); d != nil && d.Kind == decision.KTarget && d.ResumeKind == "trig_sub" {
+		t.Fatal("the arrange answer re-posed the placement pre-ask: the pre-ask answer was lost (livelock)")
 	}
-	if got := asksOfKind(e, n0, decision.KChoose); got != 1 {
-		t.Fatalf("ValidTgts$ pre-ask posed %d times, want exactly 1", got)
+	if got := asksOfKind(e, n0, decision.KTarget); got != 1 {
+		t.Fatalf("chain pre-ask posed %d times, want exactly 1", got)
 	}
 	if got := asksOfKind(e, n0, decision.KArrange); got != 1 {
 		t.Fatalf("KArrange posed %d times, want exactly 1", got)

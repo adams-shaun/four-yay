@@ -405,6 +405,31 @@ const (
 	// (rules/altcast.go's altCostEnter). Appended after main's FlagWebSlinged
 	// to preserve its bit.
 	FlagSneaked
+	// FlagManaColorSpent marks a cast whose pay-time CastInfo carries the
+	// PER-COLOUR parts of the total mana spent to cast it (Adamant: "if at
+	// least N mana of colour C was spent", CR 702.5's Adamant keyword action
+	// wording). The six-slot state.Mana vector (W,U,B,R,G,C) rides the
+	// event's Text into Object.ManaColorSpent -- the FlagAddsCounters
+	// structured-payload pattern, one event for the whole vector -- and the
+	// Count$Adamant heads read it. Only a face whose SVar table or ability
+	// text reads the Adamant count emits the event, so every unrelated cast
+	// stays byte-identical. It IS a CastProvenanceFlag: the spend is a
+	// statement about the cast (a copy was never cast, CR 707.10). Appended
+	// after main's FlagSneaked to preserve its bit.
+	FlagManaColorSpent
+	// FlagImpending marks a permanent cast paid for with the card's K:Impending
+	// alternative cost (CR 702.176a): "If you cast this spell for its impending
+	// cost, it enters with N time counters on it and it isn't a creature until
+	// the last time counter is removed. At the beginning of your end step,
+	// remove a time counter from it." The flag is the provenance the battlefield
+	// entry hook reads to place the N time counters (rules/impending.go's
+	// impendingTickGrant) and the one the intrinsic type switch reads to strip
+	// Creature while a time counter remains (state.Object.ImpendingDormant). It
+	// IS a CastProvenanceFlag: both riders are conditioned on the spell having
+	// been CAST for its impending cost, so a stack copy -- put on the stack,
+	// never cast (CR 707.10) -- must not inherit it. Appended after the branch's
+	// FlagManaColorSpent to preserve both bits.
+	FlagImpending
 )
 
 // CastProvenanceFlags is the ONE home for the CastFlags bits whose reader
@@ -446,7 +471,13 @@ const (
 // FlagWebSlinged joins the set: "if it was cast using web-slinging" is a
 // statement about the cast (the web-slinging cost was paid), so a stack copy
 // -- put on the stack, never cast (CR 707.10) -- must not inherit it.
-const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters | FlagWebSlinged | FlagSneaked
+// FlagWebSlinged joins the set: "if it was cast using web-slinging" is a
+// statement about the cast (the web-slinging cost was paid), so a stack copy
+// -- put on the stack, never cast (CR 707.10) -- must not inherit it.
+// FlagImpending joins the set: both of CR 702.176a's riders are conditioned
+// on the spell having been CAST for its impending cost, so a stack copy -- put
+// on the stack, never cast (CR 707.10) -- must not inherit it.
+const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters | FlagWebSlinged | FlagSneaked | FlagManaColorSpent | FlagImpending
 
 // ExilesLeavingStack reports whether a cast carrying these flags is a
 // keyword cast whose card is exiled as it leaves the stack, whichever way it
@@ -1021,6 +1052,17 @@ type Object struct {
 	// ManaSpent and resets alongside it in events.Move; a copy of the spell
 	// was never cast and a cheated-in permanent reads 0.
 	ManaArtifactSpent int32
+	// ManaColorSpent is the PER-COLOUR breakdown of ManaSpent (the Adamant
+	// keyword, CR 702.5: "if at least N mana of colour C was spent to cast
+	// this spell"): slot MW..MG hold the coloured pips of that colour the
+	// payment spent and MC the colourless ({C}) pips. It is carried by the
+	// pay-time CastInfo's FlagManaColorSpent Text payload (the
+	// ManaAddsCounterGrants structured-payload pattern, one event for the
+	// whole vector) and read by the Count$Adamant heads. Like its ManaSpent
+	// siblings it rides the cast provenance window and resets in events.Move;
+	// a copy of the spell was never cast and a cheated-in permanent reads the
+	// zero vector.
+	ManaColorSpent Mana
 	// CompleatedLifePaid is the amount of life paid for Phyrexian symbols on
 	// a printed K:Compleated cast. It follows the cast provenance window and
 	// is consumed by events.Move when the spell enters as a planeswalker.
@@ -1390,12 +1432,35 @@ type Object struct {
 	// halves' rules text is live (rules-side scans consult this field). Only
 	// events.Apply writes it, so a replay rebuilds it.
 	Unlocked bool
+	// LockedDoors overrides the default cast-face/alternate-face designation.
+	// DoorLock/DoorUnlock events alone update this per-face lock bitset.
+	LockedDoors uint8
 
 	// _ pads the Object to 1088 bytes (17 64-byte cache lines), so in the
 	// page-aligned Objs arena every object's hot head (the fields declared
 	// first) starts on a line of its own. Purely layout: it is never read or
 	// written. A field added above must re-pad it (TestObjectCacheLinePadded).
-	_ [16]byte
+	_ [56]byte
+}
+
+// DoorUnlocked reports the designation of a printed Room face. The cast
+// face starts unlocked, and the alternate face starts locked; later events
+// can lock either face independently.
+func (o *Object) DoorUnlocked(fi int) bool {
+	if o == nil || o.Card == nil || fi < 0 || fi >= len(o.Card.Faces) || !o.Card.Faces[fi].IsRoom() {
+		return false
+	}
+	return o.LockedDoors&(1<<uint(fi)) == 0 && (fi == int(o.FaceIdx) || o.Unlocked)
+}
+
+// RoomOtherDoorUnlocked reports whether the non-cast Room face is live.
+func (o *Object) RoomOtherDoorUnlocked() bool {
+	return o != nil && o.Card != nil && len(o.Card.Faces) == 2 && int(o.FaceIdx) < 2 && o.DoorUnlocked(1-int(o.FaceIdx))
+}
+
+// RoomFullyUnlocked is true only when both printed Room doors are unlocked.
+func (o *Object) RoomFullyUnlocked() bool {
+	return o != nil && o.Card != nil && len(o.Card.Faces) == 2 && o.DoorUnlocked(0) && o.DoorUnlocked(1)
 }
 
 // MergedCard is one card stacked beneath a mutated permanent's top card
@@ -1458,6 +1523,22 @@ func (o *Object) BestowedAuraSpell() bool {
 // Reconfigure, is never "reconfigured attached".
 func (o *Object) ReconfiguredAttached() bool {
 	return o.AttachedTo != 0 && o.Face() != nil && o.Face().HasKeyword("Reconfigure")
+}
+
+// ImpendingDormant reports whether o is a permanent cast for its impending
+// cost (CR 702.176a) that still carries a time counter, so it is not a
+// creature until the last one is removed. Derived from live state -- the
+// pay-time FlagImpending provenance and the object's current TIME counters --
+// the same derive-don't-store discipline BestowedAttached/ReconfiguredAttached
+// practise, so every replay and every read site derives the switch identically
+// and no event field carries a marker. The counter read (not the flag alone)
+// is what ends the dormancy: the flag persists on the permanent for the rest
+// of its incarnation, while the last CounterChange removal drops the TIME
+// count to zero and the permanent is a creature again. An object printed
+// without Impending, or one cast for its plain mana cost (no FlagImpending),
+// is never impending-dormant even if counters named TIME sit on it.
+func (o *Object) ImpendingDormant() bool {
+	return o.CastFlags&FlagImpending != 0 && o.Counter("TIME") > 0
 }
 
 func (o *Object) Face() *cards.Face {
@@ -1560,7 +1641,19 @@ func (o *Object) FaceDownTypeWords() []string {
 // a creature rule (combat, the creature SBAs, convoke, protection) must go
 // through here, or a manifested non-creature or a face-down set type that
 // drops Creature reads the wrong answer.
+//
+// CR 702.176a is folded in here rather than repeated at each caller: an
+// impending-dormant permanent (cast for its impending cost, still carrying a
+// time counter) is not a creature, and every printed-face creature read in
+// the engine reaches the answer through this one function. The derived-type
+// path has its own twin (rules/chars/types.go's impendingTypeSwitch, which
+// e.IsCreature/b.IsCreature read), so the layer-4 answer agrees; a reader that
+// bypasses both (rules/sba_prefilter.go's no-layer-4 fast path) checks
+// ImpendingDormant explicitly.
 func (o *Object) EffectiveIsCreature() bool {
+	if o.ImpendingDormant() {
+		return false
+	}
 	if o.faceDownEffective() {
 		for _, w := range o.FaceDownTypeWords() {
 			if w == "Creature" {
@@ -1634,6 +1727,18 @@ func (o *Object) MergedFaceAt(i int) *cards.Face {
 func (o *Object) Ephemeral() bool {
 	return (o.IsCopy && o.Zone != ZStack && o.Zone != ZBattlefield) ||
 		(o.IsToken && o.Zone != ZBattlefield) || o.Card == nil
+}
+
+// PreparedExileCopy reports whether this object is the exile copy CR 722.3c's
+// prepared grant minted: an IsCopy object whose PreparedSource still names a
+// permanent and which remains in exile. Such a copy was created directly in
+// exile (never on the stack) and is castable there, so it is the ONE off-stack
+// copy that does not cease to exist. Once cast it leaves exile, and if it
+// later leaves the stack CR 707.10a requires it to cease. Every consumer of
+// the cease rule reads this single predicate instead of re-deriving it from
+// PreparedSource.
+func (o *Object) PreparedExileCopy() bool {
+	return o != nil && o.IsCopy && o.PreparedSource != 0 && o.Zone == ZExile
 }
 
 // HasPrepareSpell reports whether this object carries CR 722.2's prepare

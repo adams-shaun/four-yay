@@ -1,0 +1,109 @@
+{
+  "card": "Rhovanion Rampager",
+  "family": "attack-triggers",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "67f0c3cb1150",
+  "scenarios": [
+    {
+      "name": "attack-sacrifice-pumps-by-sacrificed-power",
+      "cr": [
+        "603.2",
+        "701.21a",
+        "122.1"
+      ],
+      "why": "On attacking you may sacrifice another creature; sacrificing a 2/2 puts two +1/+1 counters on the Rampager (3/2 becomes 5/4).",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Rhovanion Rampager",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Rhovanion Rampager"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Sacrifice another creature"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Rhovanion Rampager",
+          "counters": {
+            "+1/+1": 2
+          },
+          "pt": "5/4"
+        },
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "graveyard"
+        }
+      ]
+    },
+    {
+      "name": "dies-amasses-goblins-equal-to-power",
+      "cr": [
+        "603.6a",
+        "701.44a",
+        "122.1"
+      ],
+      "why": "When the 3/2 Rampager dies it amasses Goblins X where X is its power, creating a 0/0 Army with three +1/+1 counters.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Rhovanion Rampager"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Lightning Bolt"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass",
+          "seat": 0
+        },
+        {
+          "op": "cast",
+          "seat": 1,
+          "card": "p1:Lightning Bolt",
+          "mana": "R",
+          "targets": [
+            "p0:Rhovanion Rampager"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Rhovanion Rampager",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:token:Army",
+          "zone": "battlefield",
+          "pt": "3/3"
+        }
+      ]
+    }
+  ]
+}

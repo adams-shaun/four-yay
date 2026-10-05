@@ -1087,9 +1087,22 @@ func (e *Engine) applyReplacement(ev events.Event, m replMatch) (events.Event, b
 			// the move, the Layer$ CantHappen shape Grafdigger's Cage,
 			// Kunoros, Hound of Athreos, Soulless Jailer, Weathered Runestone
 			// and Worms of the Earth all carry (CR 614.1a). The event must
-			// not reach the battlefield, so report it handled. Scoped to
-			// MoveZone deliberately: the bodyless R:Event$ Draw lines are a
-			// different defect and keep their old behaviour.
+			// not reach the battlefield, so report it handled.
+			return ev, true
+		}
+		if ev.Kind == events.Draw && !m.repl.OptionalValue() {
+			// A bodyless R:Event$ Draw line is CR 614.1a's "skip that draw
+			// instead": stopping the draw IS the complete replacement, the
+			// same read the damage-prevention arm in applyNonMoveReplacements
+			// takes for a Prevent$ True DamageDone line. The class's two
+			// non-optional corpus carriers are Living Conundrum ("while your
+			// library has no cards in it, skip that draw") and Possessed
+			// Portal ("if a player would draw a card, that player skips that
+			// draw"); both read exactly this way. An Optional$ True bodyless
+			// line (Obstinate Familiar's "you may skip that draw") is a real
+			// "may" that needs an ask this build does not yet pose, so it is
+			// left unhandled -- a decline, which is the honest default --
+			// rather than silently prevented.
 			return ev, true
 		}
 		return ev, false

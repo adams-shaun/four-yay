@@ -287,6 +287,15 @@ func foldAlterAttribute(g *state.Game, e *Event) {
 				}
 			} else {
 				o.Prepared = false
+				// Once a prepared copy is cast, the designation is removed at
+				// cast time. Retire its exemption provenance in the same replayed
+				// event fold, so when the spell later leaves the stack it ceases
+				// instead of being mistaken for an uncast exile copy.
+				for i := range g.Objs {
+					if cp := &g.Objs[i]; cp.IsCopy && cp.PreparedSource == o.ID {
+						cp.PreparedSource = 0
+					}
+				}
 			}
 		case "Monstrous":
 			// CR 701.31b's monstrous designation (Giggling Skitterspike's

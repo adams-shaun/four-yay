@@ -31,12 +31,12 @@ const (
 	// -> 1944. Slice 4 made the payer grants pay.Engine adapter methods: -> 1940. W3 dead deleted the resume-scratch setters: -> 1931.
 	// E7 slice 9 moved the payment board reads to rules/pay funcs: -> 1917.
 	// E7 flow slice 3 moved the announced-SubCounter mana stage: -> 1822.
-	engineMethodCount = 1822
+	engineMethodCount = 1821
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
 	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94. W3 clean
 	// deleted the eight Suspend* no-ops: 94 -> 86.
-	hostMethodCount = 85
+	hostMethodCount = 84
 	// hostDirectMethodCount is the number of methods effects.Host declares
 	// itself rather than takes from a role interface (W1d split it into
 	// roles; host_roles.go).
@@ -300,9 +300,8 @@ const (
 // Regenerate the keys with `go run ./cmd/codeshape -table`.
 var longFuncCeilings = map[string]int{
 	"effects applyLibrarySearch":                            327,
-	"effects conditionMet":                                  579,
 	"effects definedSpec":                                   949,
-	"effects effAttach":                                     466,
+	"effects effAttach":                                     465,
 	"effects effChangeZone":                                 613,
 	"effects effClone":                                      595,
 	"effects effCopyPermanent":                              823,
@@ -322,7 +321,7 @@ var longFuncCeilings = map[string]int{
 	"effects handMoveOwnersWalk":                            331,
 	"effects matchPositive":                                 442,
 	"effects refTargets":                                    321,
-	"effects wordMatches":                                   522,
+	"effects wordMatches":                                   516,
 	"rules (*Engine).appendAvailableManaAbilitiesGate":      375,
 	"rules (*Engine).applyReplacementsDispatch":             327,
 	"rules (*Engine).beginCastWith":                         723,
@@ -330,7 +329,7 @@ var longFuncCeilings = map[string]int{
 	"rules (*Engine).checkFaceTriggers":                     811,
 	"rules (*Engine).emit":                                  704,
 	"rules (*Engine).handleChoose":                          416,
-	"rules (*Engine).payCast":                               934,
+	"rules (*Engine).payCast":                               929,
 	"rules (*Engine).pushTrigger":                           766,
 	"rules (*Engine).replacementMatchesRememberedUngatedBy": 679,
 	"rules (*Engine).resolveTop":                            664,

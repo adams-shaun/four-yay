@@ -1,0 +1,115 @@
+{
+  "card": "Supper for Spiders",
+  "family": "etb-ltb",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "fc226fbff004",
+  "scenarios": [
+    {
+      "name": "reanimates-a-creature-that-died-this-turn",
+      "cr": [
+        "608.2b",
+        "702.39a",
+        "205.3"
+      ],
+      "why": "All creature cards in opponents' graveyards put there from the battlefield this turn are put onto the battlefield under your control as Food artifacts and lose all other types.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Lightning Bolt",
+            "Supper for Spiders"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Lightning Bolt",
+          "mana": "R",
+          "targets": [
+            "p1:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Supper for Spiders",
+          "mana": "BC"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Grizzly Bears",
+          "zone": "battlefield",
+          "types": [
+            "Artifact"
+          ],
+          "no_types": [
+            "Creature"
+          ]
+        },
+        {
+          "graveyard_size": {
+            "p1": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "older-graveyard-creature-not-returned",
+      "cr": [
+        "608.2b",
+        "702.39a"
+      ],
+      "why": "Only creature cards put into a graveyard from the battlefield THIS TURN qualify; a creature already in the graveyard before this turn stays there.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Supper for Spiders"
+          ]
+        },
+        "p1": {
+          "graveyard": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Supper for Spiders",
+          "mana": "BC"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Grizzly Bears",
+          "zone": "graveyard"
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Grizzly Bears"
+          },
+          "eq": 0
+        }
+      ]
+    }
+  ]
+}

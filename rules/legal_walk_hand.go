@@ -26,7 +26,7 @@ func (w *legalWalk) handWalk() {
 			verifyPrintedHeads(f, ph)
 		}
 		if f.IsLand() {
-			if sorcery && e.G.Players[p].LandsPlayed < int32(1+e.adjustLandPlays(p)) {
+			if sorcery && !playLandForbidden(e, p, state.ZHand, id) && e.G.Players[p].LandsPlayed < int32(1+e.adjustLandPlays(p)) {
 				w.add("play_land", w.playLabel(f), id)
 				// A Modal DFC may also be played as its back land, even
 				// when its front face is itself a land (CR 712.8).
@@ -66,7 +66,7 @@ func (w *legalWalk) handWalk() {
 		// CR 712.8/712.4d: a Modal DFC in hand may be played as its back
 		// face when that face is a land.  Keep this separate from the ordinary
 		// front-face land path so its existing option remains byte-identical.
-		if sorcery && e.G.Players[p].LandsPlayed < int32(1+e.adjustLandPlays(p)) {
+		if sorcery && !playLandForbidden(e, p, state.ZHand, id) && e.G.Players[p].LandsPlayed < int32(1+e.adjustLandPlays(p)) {
 			if back := modalLandBack(o); back != nil {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "play_land",
 					Label: "Play " + back.Name, Obj: id, Mode: "modal_land"})
@@ -519,7 +519,7 @@ func (w *legalWalk) handWalk() {
 			mode, head string
 			bit        printedHeads
 		}{
-			{"evoked", "Evoke", phEvoke}, {"dashed", "Dash", phDash}, {"overloaded", "Overload", phOverload}, {"warped", "Warp", phWarp},
+			{"evoked", "Evoke", phEvoke}, {"dashed", "Dash", phDash}, {"overloaded", "Overload", phOverload}, {"warped", "Warp", phWarp}, {"impended", "Impending", phImpending},
 		} {
 			if !ph.has(ka.bit) {
 				continue

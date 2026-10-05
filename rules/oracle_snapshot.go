@@ -81,7 +81,16 @@ type OracleDecision struct {
 	Picks    []string `json:"picks"`
 	PickIdx  []int    `json:"pick_idx"`
 	PickRefs []string `json:"pick_refs"`
-	Via      string   `json:"via"` // how the runner answered: target, answer, or a fallback
+	// PickKinds is the engine option kind of each pick (parallel to Picks),
+	// so the generator can tell a card pick XMage poses as a target from a
+	// labelled pick XMage poses as a makeChoose choice without guessing from
+	// the label text.
+	PickKinds []string `json:"pick_kinds,omitempty"`
+	// Resume is the decision's ResumeKind: it tells the controller-facing
+	// which-opponent ask ("opp_pick", XMage's ChoicePlayer) from a player
+	// target, which share the option kind "player".
+	Resume string `json:"resume,omitempty"`
+	Via    string `json:"via"` // how the runner answered: target, answer, or a fallback
 	// GorgeKind and First let a generator script the same decision for
 	// gorge's runner: the raw decision kind and option 0's label.
 	GorgeKind string `json:"gorge_kind"`
@@ -177,7 +186,7 @@ func (r *oracleRun) snapshot(checkpoint string) OracleSnapshot {
 		kws := append([]string(nil), e.Keywords(id)...)
 		sort.Strings(kws)
 		p := OracleSnapPerm{
-			Ref: r.objRef(o), Name: r.objName(o), Controller: int(o.Controller), Owner: int(o.Owner),
+			Ref: r.objRef(o), Name: r.fieldName(o), Controller: int(o.Controller), Owner: int(o.Owner),
 			Token: o.IsToken, Tapped: o.Tapped, FaceDown: o.FaceDown, Damage: o.Damage,
 			Counters: r.snapCounters(o.Counters), Types: types, Colors: e.Colors(id), Keywords: kws,
 			Attacking: o.IsAttacking, Blocking: blocking[id],

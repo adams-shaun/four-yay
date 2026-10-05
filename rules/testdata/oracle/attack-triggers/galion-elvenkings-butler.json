@@ -1,0 +1,84 @@
+{
+  "card": "Galion, Elvenking's Butler",
+  "family": "attack-triggers",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "861fb68b6704",
+  "scenarios": [
+    {
+      "name": "attack-sets-base-pt-to-galion",
+      "cr": [
+        "603.2",
+        "613.4b",
+        "611.3a"
+      ],
+      "why": "On attacking, another target creature you control has its base P/T set to Galion's 4/4 until end of turn.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Galion, Elvenking's Butler",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Galion, Elvenking's Butler"
+          ],
+          "defender": "p1",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "pt": "4/4"
+        }
+      ]
+    },
+    {
+      "name": "base-pt-set-not-a-bonus",
+      "cr": [
+        "613.4b"
+      ],
+      "why": "Setting base P/T is not a +1/+1 counter or pump: the creature is exactly 4/4.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Galion, Elvenking's Butler",
+            "Hill Giant"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Galion, Elvenking's Butler"
+          ],
+          "defender": "p1",
+          "targets": [
+            "p0:Hill Giant"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Hill Giant",
+          "pt": "4/4"
+        }
+      ]
+    }
+  ]
+}

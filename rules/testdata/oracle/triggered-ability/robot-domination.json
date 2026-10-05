@@ -1,0 +1,83 @@
+{
+  "card": "Robot Domination",
+  "family": "triggered-ability",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "f00be84e1fcb",
+  "scenarios": [
+    {
+      "name": "third-creature-card-sacrifices-and-makes-three-robots",
+      "cr": [
+        "603.2",
+        "701.7a",
+        "111.1"
+      ],
+      "why": "Three creature cards put into your graveyard each trigger the Plan for a plan counter; the third counter sacrifices it and creates three 2/2 colorless Robot Villain artifact creature tokens.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Robot Domination"
+          ],
+          "hand": [
+            "Grizzly Bears",
+            "Grizzly Bears",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "move",
+          "seat": 0,
+          "card": "p0:Grizzly Bears",
+          "to": "graveyard"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "move",
+          "seat": 0,
+          "card": "p0:Grizzly Bears#2",
+          "to": "graveyard"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "move",
+          "seat": 0,
+          "card": "p0:Grizzly Bears#3",
+          "to": "graveyard"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Robot Domination",
+          "zone": "graveyard"
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Robot",
+            "token": true
+          },
+          "eq": 3
+        },
+        {
+          "life": {
+            "p0": 17
+          }
+        },
+        {
+          "hand_size": {
+            "p0": 3
+          }
+        }
+      ]
+    }
+  ]
+}

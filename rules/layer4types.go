@@ -1035,16 +1035,14 @@ func (e *Engine) objectStaticsMayChangeTypes(o *state.Object) bool {
 		return false
 	}
 	onBF := o.Zone == state.ZBattlefield
-	if o.Face().StaticsMayChangeTypes(onBF) {
+	if (!onBF || !isRoom(o) || o.DoorUnlocked(int(o.FaceIdx))) && o.Face().StaticsMayChangeTypes(onBF) {
 		return true
 	}
 	if !onBF {
 		return false
 	}
-	if o.Unlocked && o.Card != nil && len(o.Card.Faces) == 2 {
-		if o.Card.Faces[0].StaticsMayChangeTypes(true) || o.Card.Faces[1].StaticsMayChangeTypes(true) {
-			return true
-		}
+	if o.RoomOtherDoorUnlocked() && o.Card.Faces[1-int(o.FaceIdx)].StaticsMayChangeTypes(true) {
+		return true
 	}
 	for j := range o.MergedCards {
 		if o.MergedFaceAt(j).StaticsMayChangeTypes(true) {

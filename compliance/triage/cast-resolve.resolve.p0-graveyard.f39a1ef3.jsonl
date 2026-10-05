@@ -1,4 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.graveyard","diff":"gorge+[] xmage+[Grizzly Bears]"},"key":"cast-resolve | resolve | p0.graveyard | gorge+[] xmage+[Grizzly Bears]","cards":3}
-{"card":"Cut In","template":"cast-resolve","status":"diverge","api":"DealDamage+Token","sets":["WOE"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Cut In]\", xmage \"[Cut In, Grizzly Bears]\""}
-{"card":"Longstalk Brawl","template":"cast-resolve","status":"diverge","api":"PutCounter+Fight","sets":["BLB"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Longstalk Brawl]\", xmage \"[Longstalk Brawl, Grizzly Bears]\""}
-{"card":"Piercing Exhale","template":"cast-resolve","status":"diverge","api":"Pump+DealDamage+Surveil","sets":["TDM"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Piercing Exhale]\", xmage \"[Piercing Exhale, Grizzly Bears]\""}

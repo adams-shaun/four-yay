@@ -408,7 +408,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		// walk -- no second collection, which is what keeps this walk at its
 		// pre-mutate allocation cost (internal/searchprobe's Capture budget
 		// runs legalActions over every object on every pass).
-		manaAbilities = f.ManaAbilities()
+		manaAbilities = roomFaceManaAbilities(o, f, true)
 	default:
 		// CR 702.140d: a mutated pile's under-card mana abilities are live
 		// too. Only the pile pays for the flattening.
@@ -417,7 +417,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 			if !ok {
 				continue
 			}
-			manaAbilities = append(manaAbilities, pf.Face.ManaAbilities()...)
+			manaAbilities = append(manaAbilities, roomFaceManaAbilities(o, pf.Face, i == 0)...)
 		}
 	}
 	// CR 305.6: basic land types granted in layer 4 carry their intrinsic

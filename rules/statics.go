@@ -360,6 +360,9 @@ func (e *Engine) scanActiveStatics(mode string, out []staticView) []staticView {
 					continue
 				}
 				st := pst.Static
+				if isRoom(o) && pst.Face == o.Face() && !o.DoorUnlocked(int(o.FaceIdx)) {
+					continue
+				}
 				if st.Mode == mode {
 					if !goneRead {
 						if gone, goneRead = e.printedAbilitiesGone(o), true; gone {
@@ -523,7 +526,7 @@ func (e *Engine) assignmentStaticSpecCtx(sv staticView) effects.SpecContext {
 func init() {
 	effects.RegisterNonAPI("stat:CantBeCast", "stat:CantBeActivated", "stat:CantBeCopied", "stat:RaiseCost", "stat:CastWithFlash",
 		"stat:ReduceCost", "stat:AlternativeCost", "stat:OptionalCost", "stat:CantBlock", "stat:CantBlockBy",
-		"stat:CantGainLife", "stat:Continuous", "stat:ManaConvert", "stat:NumLoyaltyAct",
+		"stat:CantGainLife", "stat:CantPlayLand", "stat:Continuous", "stat:ManaConvert", "stat:NumLoyaltyAct",
 		// cantdraw1 / cantdraw-drawlimit-cap: CR 121.6 CantDraw statics
 		// (rules/replacement.go drawForbidden, consulted by applyReplacements
 		// before any Draw replacement). ValidPlayer$ scopes total prohibitions
@@ -655,13 +658,6 @@ func init() {
 		// through; ValidEntity$ selects the target and Activator$ scopes whose
 		// spells benefit. Proof test: rules/ignorehexproof_test.go.
 		"stat:IgnoreHexproof",
-		// CantPlayLand: the CR 305.1 land-play prohibition (Memory Vessel:
-		// `Player$ Player | Origin$ Hand`; 17 more corpus-wide). Read by
-		// Engine.cantPlayLand (rules/cantplayland.go), the ONE predicate every
-		// land-play walk consults -- the hand walk and both may-play-from-zone
-		// walks -- so a prohibition without Origin$ Hand covers every zone.
-		// Proof test: rules/cantplayland_test.go.
-		"stat:CantPlayLand",
 		// ActivateAbilityAsIfHaste: the CR 302.6 {T}/{Q} activation exception
 		// (Shang-Chi, Master of Kung Fu; Dynaheir; Thousand-Year Elixir; Tyvar
 		// Kell). Read by activatesAsIfHaste (rules/activateasifhaste.go), a

@@ -26,6 +26,11 @@ func modeIsKicked(mode string) bool {
 // modeFlags maps a pendingCast.mode to the CastInfo Counter string
 // (events.FlagsString of the matching CastFlags bit), "" for a plain cast.
 func modeFlags(mode string) string {
+	if castModeCodes.Code(mode) == castModeImpended {
+		// Impending (CR 702.176a): the provenance altCostEnter's entry rider
+		// and state.Object.ImpendingDormant read; a CastProvenanceFlag.
+		return events.FlagsString(state.FlagImpending)
+	}
 	switch modeFlagsCodes.Code(string(mode)) {
 	case modeFlagsKicked:
 		return events.FlagsString(state.FlagKicked)

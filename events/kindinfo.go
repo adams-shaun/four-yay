@@ -209,6 +209,8 @@ var kindInfo = [NumKinds]KindInfo{
 	ControlPlayerChange:  {Name: "control_player_change", Trigger: TriggerNone},                                        // CR 720 bookkeeping read back through state.Game.ControlledBy
 	Crew:                 {Name: "crew", Trigger: TriggerNone},                                                         // read through Creature.CrewedThisTurn, never a mode
 	ElementalBend:        {Name: "elemental_bend", Trigger: TriggerFullMatch},
+	SetupEntered:         {Name: "setup_entered", Trigger: TriggerNone, Describe: "{obj} counts as having entered this turn"}, // compliance fixture provenance; no ETB trigger
+	DoorLock:             {Name: "door_lock", Trigger: TriggerNone, Describe: "{obj}'s door is locked"},
 }
 
 // Info returns k's descriptor; ok is false for a value past the enum.

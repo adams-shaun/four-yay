@@ -1,2 +1,0 @@
-{"shape":{"template":"counter-spell","op":"resolve","field":"p0.library","diff":"placement"},"key":"counter-spell | resolve | p0.library | placement","cards":1}
-{"card":"Unravel","template":"counter-spell","status":"diverge","api":"Counter+Draw","sets":["EOE"],"detail":"step 2 (resolve) p0.hand: gorge \"[Wastes]\", xmage \"[]\""}

@@ -39,6 +39,11 @@ func PoolFor(cost string) (string, string) { return poolFor(cost) }
 // TargetSlots lists the ValidTgts$ filters along the spell ability chain.
 func TargetSlots(f *cards.Face) []string { return targetSlots(f) }
 
+// OpeningHandAnswers declines a K:MayEffectFromOpeningHand ask, so a
+// generated scenario casts the card from hand rather than starting it on the
+// battlefield. Nil when the card has no such keyword.
+func OpeningHandAnswers(f *cards.Face) []Answer { return openingHandAnswers(f) }
+
 // CharmModes lists the spell's charm modes in Choices$ order.
 func CharmModes(f *cards.Face) []CharmMode { return charmModes(f) }
 
@@ -55,6 +60,11 @@ func ModeNumbers(f *cards.Face) map[string]int { return modeNumbers(f) }
 // XAnswers turns gorge's recorded decisions into XMage's scripted answers.
 func XAnswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XAnswer {
 	return xanswers(ds, steps, modes)
+}
+
+// XAnswersForScenario also uses the observed result of a compound may/pick.
+func XAnswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]int) [][]XAnswer {
+	return xanswersForScenario(res, sc, modes)
 }
 
 // MayYes re-scripts every declined optional pick to take the first option.

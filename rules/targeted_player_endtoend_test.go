@@ -93,14 +93,11 @@ func TestKnollspineDragonDrawsTheDamageDealtToTargetOpponent(t *testing.T) {
 			addMana(t, e, 0, "RRRRRRR")
 			id := searchMoveByName(t, e, "Knollspine Dragon", state.ZHand)
 			d := castFixture(t, e, id, -1)
-			if d == nil || d.Kind != decision.KTriggerOptional {
-				t.Fatalf("after casting: %+v, want the optional trigger ask", d)
-			}
-			n0 := len(e.L.Events)
-			submitChoices(t, e, 0) // accept the "you may discard your hand" trigger
-			d = e.Pending()
-			if d == nil || d.Kind != decision.KChoose {
-				t.Fatalf("after accepting: %+v, want the DBDraw target ask", d)
+			// CR 603.3d: the depth-2 DBDraw's `ValidTgts$ Opponent` is announced
+			// as the ETB trigger is put on the stack, BEFORE the optional
+			// discard election (which the trigger resolves to at CR 603.5).
+			if d == nil || d.Kind != decision.KTarget || d.ResumeKind != "trig_sub" {
+				t.Fatalf("after casting: %+v, want the DBDraw placement target ask", d)
 			}
 			idx := -1
 			for _, o := range d.Options {
@@ -112,6 +109,12 @@ func TestKnollspineDragonDrawsTheDamageDealtToTargetOpponent(t *testing.T) {
 				t.Fatalf("seat 1 not offered as the DBDraw target: %+v", d.Options)
 			}
 			submitChoices(t, e, idx)
+			d = passUntilAsk(t, e)
+			if d == nil || d.Kind != decision.KTriggerOptional {
+				t.Fatalf("after the placement target: %+v, want the optional trigger ask", d)
+			}
+			n0 := len(e.L.Events)
+			submitChoices(t, e, 0) // accept the "you may discard your hand" trigger
 			passUntilStackEmpty(t, e, 20)
 			// The whole hand was discarded, then exactly dmg cards were drawn.
 			discards, draws := 0, 0

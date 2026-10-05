@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"Grizzly Bears colors gorge= xmage=G"},"key":"cast-resolve | resolve | permanents | Grizzly Bears colors gorge= xmage=G","cards":1}
-{"card":"Sugar Coat","template":"cast-resolve","status":"diverge","api":"Attach","sets":["BLB"],"detail":"step 1 (resolve) permanents: gorge \"c1 o1 Grizzly Bears [artifact food] {}\", xmage \"c1 o1 Grizzly Bears [artifact food] {G}\""}

@@ -41,13 +41,13 @@ func fullyUnlockMatches(e Board, t cards.Trigger, source state.ObjID, ev events.
 		return false
 	}
 	room := e.Game().Obj(ev.Obj)
-	if room == nil || room.Zone != state.ZBattlefield || !isRoomObject(room) || !room.Unlocked {
+	if room == nil || room.Zone != state.ZBattlefield || !isRoomObject(room) || !room.RoomFullyUnlocked() {
 		return false
 	}
 	// Transition gate: the room must have been locked immediately before the
 	// event. lki is the pre-Apply snapshot emit captured for DoorUnlock; a
 	// missing or already-unlocked snapshot is not a full unlock.
-	if lki == nil || lki.ID != ev.Obj || lki.Unlocked {
+	if lki == nil || lki.ID != ev.Obj || lki.RoomFullyUnlocked() {
 		return false
 	}
 	you := e.ControllerOf(source)

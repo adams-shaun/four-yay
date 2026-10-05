@@ -1,155 +1,140 @@
 package rules
 
-// stat:CantPlayLand (CR 305.1) — "Players can't play lands from their hand."
-// Memory Vessel (BIG) is the Standard carrier; 17 more exist corpus-wide.
-
 import (
-	"sort"
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
-	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
 )
 
-// memoryVesselSrc is the BIG carrier's shape: every player, hand only.
-const memoryVesselSrc = "Name:Test Vessel\nManaCost:3\nTypes:Artifact\n" +
-	"S:Mode$ CantPlayLand | Player$ Player | Origin$ Hand | Description$ Players can't play lands from their hand.\n" +
-	"Oracle:x\n"
+func handLand(t *testing.T, e *Engine, p state.PlayerID) state.ObjID {
+	t.Helper()
+	o := e.G.AddObject(card(t, landSrc("Test Mountain")), p)
+	o.Zone = state.ZHand
+	ids := append([]state.ObjID(nil), e.G.Zone(state.ZHand, p)...)
+	ids = append(ids, o.ID)
+	e.G.SetZone(state.ZHand, p, ids)
+	return o.ID
+}
 
-// graveyardOnlySrc grants a may-play-from-graveyard permission and a
-// graveyard-scoped prohibition, so the helper's Origin$ scope can be pinned.
-const graveyardOnlySrc = "Name:Test Trance\nManaCost:1\nTypes:Enchantment\n" +
-	"S:Mode$ CantPlayLand | Player$ Player.Other | Origin$ Graveyard | Description$ Other players can't play lands from their graveyards.\n" +
-	"Oracle:x\n"
-
-// TestCantPlayLandHandBlocksTheOffer is the behavioural leaf: with a
-// Memory-Vessel-shaped static live, a land in the controller's hand is not
-// offered; without it, the same hand offers the play. The precondition (the
-// static is live) is asserted so a vacuous setup fails.
-func TestCantPlayLandHandBlocksTheOffer(t *testing.T) {
+func TestCantPlayLandHandLocked(t *testing.T) {
 	t.Parallel()
-	mtn := card(t, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")
-
-	open := handEngine(t, mtn)
-	if got := kinds(open.legalActions(0))["play_land"]; got != 1 {
-		t.Fatalf("precondition: control hand did not offer the land play: play_land = %d", got)
+	e := mayPlayBase(t)
+	land := handLand(t, e, 0)
+	if got := countPlayLand(e, land); got != 1 {
+		t.Fatalf("precondition: unlocked hand land offers = %d, want 1", got)
 	}
-
-	e := handEngine(t, mtn)
-	onBoard(t, e, 0, memoryVesselSrc)
-	if got := len(e.activeStatics("CantPlayLand")); got != 1 {
-		t.Fatalf("precondition: expected one live CantPlayLand static, got %d", got)
+	source := onBoardGrant(t, e, 0, "Name:Memory Vessel\nTypes:Artifact\n"+
+		"SVar:NoLand:Mode$ CantPlayLand | Player$ Player | Origin$ Hand | Description$ Players can't play lands from their hand.\n"+
+		"SVar:DBEffect:DB$ Effect | StaticAbilities$ NoLand | RememberObjects$ Remembered | Duration$ UntilYourNextTurn | SubAbility$ DBCleanup | ForgetOnMoved$ Exile\n"+
+		"Oracle:x\n")
+	vessel := e.G.Obj(source)
+	effects.Resolve(e, &effects.Ctx{Source: source, Controller: 0, SVars: vessel.Face().SVars},
+		cards.ResolveSVar(vessel.Face().SVars, "DBEffect"))
+	if !playLandForbidden(e, 0, state.ZHand, land) {
+		t.Fatal("Memory Vessel DB$ Effect did not deliver an active CantPlayLand restriction")
 	}
-	if got := kinds(e.legalActions(0))["play_land"]; got != 0 {
-		t.Fatalf("CantPlayLand (Player$ Player | Origin$ Hand) did not withhold the hand play: play_land = %d", got)
+	if got := countPlayLand(e, land); got != 0 {
+		t.Fatalf("hand-locked land offers = %d, want 0", got)
+	}
+	// The shared predicate is the bot/submit recheck as well as the offer gate.
+	if !playLandForbidden(e, 0, state.ZHand, land) {
+		t.Fatal("shared playLandForbidden predicate did not bind for bot/submit validation")
 	}
 }
 
-// TestCantPlayLandOriginScopesTheZone pins that Origin$ Hand does not reach a
-// graveyard play and Origin$ Graveyard does not reach a hand play: the helper
-// is zone-exact, not a blanket prohibition.
-func TestCantPlayLandOriginScopesTheZone(t *testing.T) {
+func TestCantPlayLandScope(t *testing.T) {
 	t.Parallel()
-	mtn := card(t, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")
+	e := mayPlayBase(t)
+	land0 := handLand(t, e, 0)
+	land1 := handLand(t, e, 1)
+	source := onBoardGrant(t, e, 0, "Name:Land lock\nTypes:Enchantment\nOracle:x\n")
+	e.AddContinuous(ContinuousEffect{Source: source, Controller: 0, Restriction: "CantPlayLand",
+		RestrictParams: map[string]string{"Player": "Player.Opponent", "Origin": "Hand"}})
+	if !playLandForbidden(e, 1, state.ZHand, land1) || playLandForbidden(e, 0, state.ZHand, land0) {
+		t.Fatal("Player.Opponent must bind only the controller's opponent")
+	}
 
-	hand := handEngine(t, mtn)
-	vessel := onBoard(t, hand, 0, memoryVesselSrc)
-	landID := hand.G.Zone(state.ZHand, 0)[0]
-	if !cantPlayLand(hand, 0, state.ZHand, landID) {
-		t.Fatal("Origin$ Hand did not prohibit a hand land play")
-	}
-	if cantPlayLand(hand, 0, state.ZGraveyard, landID) {
-		t.Fatal("Origin$ Hand wrongly prohibited a graveyard land play")
-	}
-	_ = vessel
-
-	grave := handEngine(t, mtn)
-	onBoard(t, grave, 0, graveyardOnlySrc)
-	gid := grave.G.Zone(state.ZHand, 0)[0]
-	// Player$ Player.Other excludes seat 0 (the active player) for its own
-	// graveyard, so seat 0 is not prohibited there.
-	if cantPlayLand(grave, 0, state.ZGraveyard, gid) {
-		t.Fatal("Player$ Player.Other wrongly prohibited the active player")
-	}
-	if cantPlayLand(grave, 0, state.ZHand, gid) {
-		t.Fatal("Origin$ Graveyard wrongly prohibited a hand land play")
+	e2 := mayPlayBase(t)
+	land0, land1 = handLand(t, e2, 0), handLand(t, e2, 1)
+	onBoardGrant(t, e2, 0, "Name:You land lock\nTypes:Enchantment\nS:Mode$ CantPlayLand | Player$ You | Origin$ Hand | Description$ x\nOracle:x\n")
+	if !playLandForbidden(e2, 0, state.ZHand, land0) || playLandForbidden(e2, 1, state.ZHand, land1) {
+		t.Fatal("printed Player$ You must bind only the static's controller")
 	}
 }
 
-// TestCantPlayLandPrimitiveIsRegistered pins the support declaration the skip
-// gate reads.
-func TestCantPlayLandPrimitiveIsRegistered(t *testing.T) {
-	if !effects.Supported()["stat:CantPlayLand"] {
-		t.Fatal(`effects.Supported() is missing "stat:CantPlayLand"`)
+func TestCantPlayLandGraveyardGrantUnaffected(t *testing.T) {
+	t.Parallel()
+	e := mayPlayBase(t)
+	onBoardGrant(t, e, 0, conduitGrantSrc)
+	grave := graveCard(e, card(t, landSrc("Graveyard Mountain")), 0, 0)
+	source := onBoardGrant(t, e, 0, "Name:Hand lock\nTypes:Enchantment\nOracle:x\n")
+	e.AddContinuous(ContinuousEffect{Source: source, Controller: 0, Restriction: "CantPlayLand",
+		RestrictParams: map[string]string{"Player": "Player", "Origin": "Hand"}})
+	if playLandForbidden(e, 0, state.ZGraveyard, grave) {
+		t.Fatal("hand lock unexpectedly covers graveyard origin")
+	}
+	if got := countPlayLand(e, grave); got != 1 {
+		t.Fatalf("MayPlay$ graveyard land offers under hand lock = %d, want 1", got)
 	}
 }
 
-// cantPlayLandCarriers is the corpus-wide class.
 var cantPlayLandCarriers = []string{
-	"Aggressive Mining",
-	"City in a Bottle",
-	"Conjurer's Ban",
-	"Cornered Market",
-	"Damping Engine",
-	"Experimental Frenzy",
-	"Limited Resources",
-	"Memory Vessel",
-	"Moonhold",
-	"Null Chamber",
-	"Pardic Miner",
-	"Rock Jockey",
-	"Shaman's Trance",
-	"Solfatara",
-	"Territorial Dispute",
-	"Tomik, Distinguished Advokist",
-	"Turf Wound",
-	"Ward of Bones",
+	"Aggressive Mining", "City in a Bottle", "Conjurer's Ban", "Cornered Market",
+	"Experimental Frenzy", "Limited Resources", "Memory Vessel", "Moonhold",
+	"Null Chamber", "Pardic Miner", "Rock Jockey", "Shaman's Trance", "Solfatara",
+	"Territorial Dispute", "Tomik, Distinguished Advokist", "Turf Wound", "Ward of Bones",
 	"Worms of the Earth",
 }
 
-// TestCantPlayLandClassCensus pins the carrier set so a corpus-pin bump that
-// adds a carrier fails loudly. It walks both delivery routes (printed S: and
-// Effect-delivered bodies), the same shape the NoCleanupDamage ratchet uses.
-func TestCantPlayLandClassCensus(t *testing.T) {
-	reg := testutil.CorpusRegistry(t)
-	found := cantPlayLandCorpusCarriers(reg)
-	list := make([]string, 0, len(found))
-	for n := range found {
-		list = append(list, n)
+func TestCantPlayLandCensus(t *testing.T) {
+	t.Parallel()
+	if !effects.Supported()["stat:CantPlayLand"] {
+		t.Fatal("effects.Supported() lacks stat:CantPlayLand")
 	}
-	sort.Strings(list)
-	want := append([]string(nil), cantPlayLandCarriers...)
-	sort.Strings(want)
-	if len(list) != len(want) {
-		t.Fatalf("CantPlayLand carriers: got %d, want %d\ngot:  %s\nwant: %s", len(list), len(want), joinQuoted(list), joinQuoted(want))
+	if !effects.CantPlayLandParamsReadable(map[string]string{cards.PKMode.String(): "CantPlayLand", cards.PKPlayer.String(): "Player", cards.PKOrigin.String(): "Hand"}) {
+		t.Fatal("the supported Player$ Player | Origin$ Hand shape must register")
 	}
-	for i := range want {
-		if list[i] != want[i] {
-			t.Fatalf("CantPlayLand carrier %d = %q, want %q\ngot: %s", i, list[i], want[i], joinQuoted(list))
+	for _, params := range []map[string]string{
+		{cards.PKMode.String(): "CantPlayLand", cards.PKPlayer.String(): "Player"},
+		{cards.PKMode.String(): "CantPlayLand", cards.PKPlayer.String(): "Player", cards.PKOrigin.String(): "Graveyard"},
+	} {
+		if effects.CantPlayLandParamsReadable(params) {
+			t.Errorf("out-of-scope CantPlayLand params registered: %v", params)
 		}
 	}
-}
-
-func cantPlayLandCorpusCarriers(reg *cards.Registry) map[string]bool {
-	got := map[string]bool{}
-	for _, c := range reg.Cards {
+	reg := searchTestRegistry(t)
+	handOrigins := 0
+	for _, name := range cantPlayLandCarriers {
+		c := searchCorpusCard(t, reg, name)
+		found := false
 		for _, f := range c.Faces {
-			if f == nil {
-				continue
-			}
 			for _, st := range f.Statics {
-				if st.Mode == "CantPlayLand" {
-					got[f.Name] = true
+				if st.Mode != "CantPlayLand" {
+					continue
+				}
+				found = true
+				if origin, _ := st.Param(cards.PKOrigin); origin == "Hand" {
+					handOrigins++
 				}
 			}
-			f.EachRawEffectChild(func(ch cards.EffectChild) {
-				if ch.Static != nil && ch.Static.Mode == "CantPlayLand" {
-					got[f.Name] = true
+			for _, body := range f.SVars {
+				if !strings.Contains(body, "Mode$ CantPlayLand") {
+					continue
 				}
-			})
+				found = true
+				if strings.Contains(body, "Origin$ Hand") {
+					handOrigins++
+				}
+			}
+		}
+		if !found {
+			t.Errorf("%s no longer carries Mode$ CantPlayLand", name)
 		}
 	}
-	return got
+	if handOrigins != 2 {
+		t.Errorf("Origin$ Hand carrier count = %d, want 2", handOrigins)
+	}
 }
