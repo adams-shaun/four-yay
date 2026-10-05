@@ -87,3 +87,26 @@ func TestLandPlayMayAskUnderOptionalManaConvert(t *testing.T) {
 		t.Fatalf("land play did not pose the Optional$ ManaConvert election: %+v", ask)
 	}
 }
+
+// TestLandPlayMayAskReadsTheIntentsPlayer pins MayAsk's seat: a play_land
+// option carries no Player (legal_walk_hand.go), so judging the predicate
+// with the option's Player read every land play as seat 0's and missed a
+// seat-1 North Star (cardfuzz census seed 16418859190892582841).
+func TestLandPlayMayAskReadsTheIntentsPlayer(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e := corpusEngine(t, reg, nil,
+		[]*cards.Card{manaConvertCard(t, reg, "North Star"), manaConvertCard(t, reg, "Mountain")})
+	star := moveByName(t, e, 1, "North Star", state.ZBattlefield)
+	land := moveByName(t, e, 1, "Mountain", state.ZHand)
+	face := e.G.Obj(star).Face()
+	effects.Resolve(e, &effects.Ctx{Source: star, Controller: 1, SVars: face.SVars}, face.Abilities[0])
+	if _, opt := e.manaConversionParts(1, land, false); opt.Empty() {
+		t.Fatal("precondition: North Star grants seat 1 no Optional$ conversion")
+	}
+	d := &decision.Decision{Player: 1, Kind: decision.KPriority,
+		Options: []decision.Option{{Index: 0, Kind: "play_land", Obj: land}}}
+	if !(*resolveBoard)(e).MayAsk(d, decision.Intent{Player: 1, Choices: []int{0}}) {
+		t.Fatal("MayAsk = false for seat 1's land play under its own Optional$ ManaConvert static")
+	}
+}
