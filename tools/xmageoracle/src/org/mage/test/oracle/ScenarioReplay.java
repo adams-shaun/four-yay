@@ -275,6 +275,13 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
     }
 
+    /** Whether the card carries the Gift keyword (CR 702.174). */
+    private static boolean hasGift(String name) {
+        CardInfo info = CardRepository.instance.findCard(name);
+        Card c = info == null ? null : info.createCard();
+        return c != null && c.getAbilities().stream().anyMatch(a -> a.getClass().getSimpleName().startsWith("Gift"));
+    }
+
     /** Whether the card carries an alternative cost XMage offers on a plain
      * cast (EvokeAbility, ImpendingAbility, DashAbility, ...). */
     private static boolean hasAlternativeSourceCost(String name) {
@@ -382,8 +389,15 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // cost" choice, rather than leave it to the AI.
                     setChoice(p, "Cast with no alternative cost");
                 }
-                if (tg.size() == 1 && isSeatRef(tg.get(0))) {
+                if (tg.size() == 1 && isSeatRef(tg.get(0)) && !hasGift(card)) {
                     castSpell(TURN, MAIN, p, card, seat(seatOf(tg.get(0))));
+                } else if (tg.size() == 1 && isSeatRef(tg.get(0))) {
+                    // A Gift spell (Mind Spiral, Sazacap's Brew): the castSpell
+                    // player form binds the wrong ask, so queue the spell's
+                    // own player target and close the rest.
+                    addTarget(p, seat(seatOf(tg.get(0))));
+                    addTarget(p, TestPlayer.TARGET_SKIP);
+                    castSpell(TURN, MAIN, p, card);
                 } else if (tg.isEmpty()) {
                     castSpell(TURN, MAIN, p, card);
                     cast.add(card);
