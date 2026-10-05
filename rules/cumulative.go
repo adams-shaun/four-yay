@@ -702,7 +702,7 @@ func (e *Engine) continueCumulativeAction() {
 		// cost-side flip fires "whenever you win/lose a coin flip" exactly
 		// like an effect-side one (Karplusan Minotaur).
 		for i := 0; i < total; i++ {
-			e.emit(effects.FlipCoinNote(cu.source, cu.player, e.Rand(2) == 0))
+			e.emit(effects.FlipCoinNote(cu.source, cu.player, effects.FlipCoinWin(e, cu.player)))
 		}
 		cu.actionRemaining = 0
 		e.finishCumulative()

@@ -1,0 +1,2 @@
+c/canyon_vaulter.txt
+r/reckless_velocitaur.txt

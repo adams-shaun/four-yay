@@ -3,11 +3,13 @@ package cards
 import "testing"
 
 // TestClassExpandsEntryCounterActivatorsAndGrants pins the kw:Class expansion
-// on Fortune Teller's Talent's real script shape: one entry counter (a Class
-// enters at level 1, CR 702.118a), one sorcery-speed level-up activator per
-// level gated on the Class's level being BELOW that level (CR 702.118b), and
-// the level's granted static appended with a counters_GE<N>_LEVEL gate so it
-// is live from level N on.
+// on Fortune Teller's Talent's real script shape: level 1 is intrinsic (no
+// entry counter or replacement), one sorcery-speed level-up activator per
+// level gated on the Class being at EXACTLY that level minus one (CR
+// 716.2b/716.2d: "activate only if this Class's level is less than N" is
+// Constructed's exact N-1 rule), each carrying its target Level$ N, and the
+// level's granted static appended with a ClassBand$<N> gate so it is live
+// from level N on.
 func TestClassExpandsEntryCounterActivatorsAndGrants(t *testing.T) {
 	f := expanded(t, "Name:Fortune Teller's Talent\nManaCost:U\nTypes:Enchantment Class\n"+
 		"K:Class:2:3 U:AddStaticAbility$ SFutureSight\n"+
@@ -16,12 +18,9 @@ func TestClassExpandsEntryCounterActivatorsAndGrants(t *testing.T) {
 		"SVar:SReduceCost:Mode$ ReduceCost | ValidCard$ Card.!wasCastFromYourHand | Type$ Spell | Activator$ You | Amount$ 2\n"+
 		"SVar:X:Count$ThisTurnCast_Card.YouCtrl\nOracle:x\n")
 
-	// 1. The entry counter, once.
-	if len(f.Repls) != 1 || f.Repls[0].Event != "Moved" || f.Repls[0].With == nil {
-		t.Fatalf("want one entry replacement, got %+v", f.Repls)
-	}
-	if w := f.Repls[0].With; w.API != "PutCounter" || w.Params["CounterType"] != "LEVEL" || w.Params["CounterNum"] != "1" {
-		t.Fatalf("entry counter wrong: %+v", w.Params)
+	// Level 1 is intrinsic: there is no counter-placing entry replacement.
+	if len(f.Repls) != 0 {
+		t.Fatalf("Class entry installed counter replacement: %+v", f.Repls)
 	}
 
 	// 2. One activator per level, at the named cost, the right level gate.
@@ -30,8 +29,8 @@ func TestClassExpandsEntryCounterActivatorsAndGrants(t *testing.T) {
 	}
 	byCost := map[string]*SA{}
 	for _, a := range f.Abilities {
-		if a.API != "PutCounter" {
-			t.Fatalf("level-up activator is not a PutCounter: %+v", a)
+		if a.API != "ClassLevelUp" {
+			t.Fatalf("level-up activator is not ClassLevelUp: %+v", a)
 		}
 		byCost[a.Params["Cost"]] = a
 	}
@@ -39,11 +38,17 @@ func TestClassExpandsEntryCounterActivatorsAndGrants(t *testing.T) {
 	if l2 == nil || l3 == nil {
 		t.Fatalf("activator costs wrong: %+v", byCost)
 	}
-	if l2.Params["IsPresent"] != "Card.Self+counters_LT2_LEVEL" {
+	if l2.Params["IsPresent"] != "Card.Self+classLevel_EQ1" {
 		t.Fatalf("level-2 activator gate: %q", l2.Params["IsPresent"])
 	}
-	if l3.Params["IsPresent"] != "Card.Self+counters_LT3_LEVEL" {
+	if l3.Params["IsPresent"] != "Card.Self+classLevel_EQ2" {
 		t.Fatalf("level-3 activator gate: %q", l3.Params["IsPresent"])
+	}
+	if l2.Params["Level"] != "2" {
+		t.Fatalf("level-2 activator target level: %q", l2.Params["Level"])
+	}
+	if l3.Params["Level"] != "3" {
+		t.Fatalf("level-3 activator target level: %q", l3.Params["Level"])
 	}
 	for _, a := range f.Abilities {
 		if a.Params["SorcerySpeed"] != "True" {
@@ -179,7 +184,7 @@ func TestClassExpansionIsIdempotent(t *testing.T) {
 	}
 	f := c.Faces[0]
 	repls, abilities, statics := len(f.Repls), len(f.Abilities), len(f.Statics)
-	if repls != 1 || abilities != 1 || statics != 1 {
+	if repls != 0 || abilities != 1 || statics != 1 {
 		t.Fatalf("first Link: repls=%d abilities=%d statics=%d", repls, abilities, statics)
 	}
 	if d := c.Link(); len(d) > 0 {

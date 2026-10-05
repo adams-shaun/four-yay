@@ -107,6 +107,7 @@ const (
 	PKCounterNum
 	PKCounterType
 	PKDefined
+	PKDefinedAttacker
 	PKDefinedCards
 	PKDefinedPlayer
 	PKDefinedTarget
@@ -278,6 +279,7 @@ const (
 	PKValidCreature
 	PKValidDefender
 	PKValidDescription
+	PKValidEntity
 	PKValidLKI
 	PKValidMode
 	PKValidObject
@@ -733,6 +735,13 @@ const (
 	PKReplaceGraveyardValid
 	PKImprintPlayed
 	PKShowCards
+	PKValidCrew
+	PKValidSaddled
+	PKFirstTimeSaddled
+	// PKLevel is the target level of a Class level-up activator (kw:Class
+	// synthesises `AB$ ClassLevelUp | Level$ N`; CR 716.2d sets the
+	// designation to N). Appended after the vocabulary inherited from main.
+	PKLevel
 	paramKeyCount
 )
 
@@ -840,6 +849,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKCounterNum:                       "CounterNum",
 	PKCounterType:                      "CounterType",
 	PKDefined:                          "Defined",
+	PKDefinedAttacker:                  "DefinedAttacker",
 	PKDefinedCards:                     "DefinedCards",
 	PKDefinedPlayer:                    "DefinedPlayer",
 	PKDefinedTarget:                    "DefinedTarget",
@@ -862,6 +872,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKFaceDown:                         "FaceDown",
 	PKFirstForetell:                    "FirstForetell",
 	PKFirstTime:                        "FirstTime",
+	PKFirstTimeSaddled:                 "FirstTimeSaddled",
 	PKForgetOtherRemembered:            "ForgetOtherRemembered",
 	PKFoundSearchingLibrary:            "FoundSearchingLibrary",
 	PKGainControl:                      "GainControl",
@@ -1011,6 +1022,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKValidCreature:                    "ValidCreature",
 	PKValidDefender:                    "ValidDefender",
 	PKValidDescription:                 "ValidDescription",
+	PKValidEntity:                      "ValidEntity",
 	PKValidLKI:                         "ValidLKI",
 	PKValidMode:                        "ValidMode",
 	PKValidObject:                      "ValidObject",
@@ -1324,6 +1336,8 @@ var paramKeyNames = [paramKeyCount]string{
 	PKValidCounterType:                 "ValidCounterType",
 	PKValidDefenders:                   "ValidDefenders",
 	PKValidEnlisted:                    "ValidEnlisted",
+	PKValidCrew:                        "ValidCrew",
+	PKValidSaddled:                     "ValidSaddled",
 	PKValidExplored:                    "ValidExplored",
 	PKValidExplorer:                    "ValidExplorer",
 	PKValidLoseReason:                  "ValidLoseReason",
@@ -1466,6 +1480,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKReplaceGraveyardValid:            "ReplaceGraveyardValid",
 	PKImprintPlayed:                    "ImprintPlayed",
 	PKShowCards:                        "ShowCards",
+	PKLevel:                            "Level",
 }
 
 // String is the key's Forge text.

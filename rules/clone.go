@@ -245,6 +245,9 @@ func clonePendingTriggers(src []pendingTrigger) []pendingTrigger {
 		if pt.Ctx.Snap.TargetSpell != nil {
 			pt.Ctx.Snap.TargetSpell = effects.CloneTargetSpellLKI(pt.Ctx.Snap.TargetSpell)
 		}
+		if pt.Ctx.Snap.TargetManaSpent != nil {
+			pt.Ctx.Snap.TargetManaSpent = effects.CloneTargetManaSpentLKI(pt.Ctx.Snap.TargetManaSpent)
+		}
 		if pt.Ctx.SVars != nil {
 			m := make(map[string]string, len(pt.Ctx.SVars))
 			for k, v := range pt.Ctx.SVars {

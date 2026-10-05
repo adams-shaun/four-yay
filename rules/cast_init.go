@@ -131,13 +131,10 @@ func init() {
 		// rules/outlast_test.go.
 		"kw:Outlast",
 		// kw:Class: CR 702.118, expanded by cards/keywords.go into one
-		// sorcery-speed level-up activator per level (the kw:Level up shape,
-		// gated on the Class's level being below that level) plus the level's
-		// granted static/trigger/replacement, appended with its own ClassBand$
-		// band so it is live from level N on (read as an independent AND gate
-		// by rules/class_level.go's classBandGateHolds). The entry
-		// counter (a Class enters at level 1) is the same etbCounter
-		// PutCounter replacement shape. Proof: rules/class_test.go.
+		// sorcery-speed designation activator per level (gated below N), plus
+		// the level's granted static/trigger/replacement, appended with its own
+		// ClassBand$ band (rules/class_level.go). Level 1 is intrinsic; no
+		// entry counter or replacement is created. Proof: rules/class_test.go.
 		"kw:Class",
 		// kw:Replicate: CR 702.55, expanded by cards/keywords.go into the
 		// Storm-shaped copy trigger whose Amount$ Count$ReplicatePaid reads
