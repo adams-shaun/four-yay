@@ -192,6 +192,9 @@ type KickerInputs struct {
 	// (no pending cast, the flag actually stamped) is unaffected. Zero (false)
 	// everywhere else; it is derived data, never event-encoded.
 	PendingKicked bool
+	// PendingTeamwork is the cast's elected Teamwork payment while target
+	// bounds are announced before payCast stamps TeamworkPaid on the stack object.
+	PendingTeamwork bool
 }
 
 // VoteInputs is a Vote's tally and the RollPub-style publication state its sub-abilities read.

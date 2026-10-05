@@ -166,23 +166,18 @@ func TestCatharticPartingGraveyardTargetsAnnouncedOnCast(t *testing.T) {
 // SubAbility$ ChangeZone link the cast census does NOT resolve, keyed by card
 // name to the link's Origin$. It is a ratchet: the cast flow announces such a
 // link on cast only when castSubChangeZoneAnnounceable admits it (a
-// player-target link, or a Graveyard-origin object target with an inferred
-// or explicit Graveyard target zone), so a
+// player-target link, or a single-zone Graveyard/Battlefield object target
+// with a matching inferred or explicit target zone), so a
 // card that newly becomes resolvable is stale and fails the census by name,
 // and a card that newly becomes unresolvable is a new gap that fails too.
 //
-// Every entry here is a Battlefield-origin object link -- a bounce spell's
-// second "target creature" (Peel from Reality, Withdraw), an exile/return
-// rider (Expel the Unworthy, Grip of Desolation). Those ARE the same
-// CR 601.2c announcement class as Cathartic Parting's graveyard link; the
-// cast census resolves their zone (the battlefield default) correctly, but
-// admitting them is a wider change than this ticket scopes. They are filed as
-// a follow-up (see the report's Issues section) and pinned here so the count
-// can only shrink.
+// Remaining entries are unsupported Battlefield-origin object links. The
+// admitted Battlefield shape is deliberately narrow: one battlefield target
+// zone matching a single Battlefield Origin$; multi-zone and other origins
+// remain pinned here.
 var knownUnjudgedChangeZoneSubTargets = map[string]string{
 	"Aether Tradewinds":         "Battlefield",
 	"Churning Eddy":             "Battlefield",
-	"Cruel Alliance":            "Battlefield",
 	"Expel the Unworthy":        "Battlefield",
 	"Fiery Annihilation":        "Battlefield",
 	"Grip of Desolation":        "Battlefield",
@@ -201,10 +196,9 @@ var knownUnjudgedChangeZoneSubTargets = map[string]string{
 // TestSubAbilityChangeZonePreAskCensus walks every front-face ability's
 // SubAbility$ chain and classifies each targeted ChangeZone link by whether
 // the cast census resolves it. The admitted set is exactly the corpus's
-// player-target links and Graveyard-origin object links (Cathartic Parting
-// and Geth's Summons among them); the Battlefield-origin object links -- the same
-// announcement class, but out of this ticket's scope -- are left to the
-// mid-resolution ask and pinned in the ratchet above.
+// player-target links and matching single-zone Graveyard/Battlefield-origin
+// object links (including Cruel Alliance); unsupported shapes remain pinned
+// in the ratchet above.
 func TestChangeZoneSubPreAskRejectsMixedPlayerObjectTargets(t *testing.T) {
 	for _, tc := range []struct {
 		name string
