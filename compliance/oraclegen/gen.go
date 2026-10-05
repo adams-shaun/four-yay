@@ -558,7 +558,7 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 				as = append(as, XAnswer{d.Seat, "choice", strings.Join(labels, "^")})
 			} else {
 				for k, label := range d.Picks {
-					switch xmQueue(pickKind(d, k), label) {
+					switch pickQueue(d, k, label) {
 					case "skip":
 						// XMage resolves this pick inside its computer player (a
 						// library search) or pays it from the pool (a mana-tapping
@@ -670,7 +670,9 @@ func forcedSingleOption(d rules.OracleDecision) bool {
 	if d.Kind == "target" || d.Kind == "order" || d.Kind == "mode" {
 		return false
 	}
-	if hasTargetPick(d) {
+	if hasTargetPick(d) || pickKind(d, 0) == "name" {
+		// A "choose a card name" ask is a real dialog in XMage however
+		// narrowly gorge offered it (Ancient Vendetta).
 		return false
 	}
 	return d.Options == 1 && d.Min == 1 && d.Max == 1
@@ -1275,4 +1277,18 @@ func clone(s Seat) Seat {
 		Graveyard: append([]string(nil), s.Graveyard...), Exile: append([]string(nil), s.Exile...),
 		Library: append([]string(nil), s.Library...), LibraryTop: append([]string(nil), s.LibraryTop...),
 	}
+}
+
+// pickQueue is xmQueue for the k-th pick, except that a search of ANOTHER
+// player's library (Ancient Vendetta's "search target opponent's ... library")
+// reaches XMage's choice queue: only a search of your own library is the
+// TargetCardInLibrary target ask (measured on the std pass).
+func pickQueue(d rules.OracleDecision, k int, label string) string {
+	q := xmQueue(pickKind(d, k), label)
+	if q == "target" && pickKind(d, k) == "search" && k < len(d.PickRefs) {
+		if s, ok := refSeat(d.PickRefs[k]); ok && s != d.Seat {
+			return "choice"
+		}
+	}
+	return q
 }
