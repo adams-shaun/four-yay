@@ -175,6 +175,66 @@ func probeTargets(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
 
 type charmMode struct{ svar, label string }
 
+// CharmCombination is one legal, ordered set of mode picks and their target
+// chains. Combinations follow Choices$ order; repeated picks appear only when
+// CanRepeatModes$ is true.
+type CharmCombination struct {
+	Modes []CharmMode
+	Slots []Slot
+}
+
+// CharmCombinations enumerates legal combinations from the minimum pick count
+// upward, in Choices$ order within each size. Ordinary charms default to one
+// pick, preserving their historical ordering.
+func CharmCombinations(f *cards.Face) []CharmCombination {
+	modes := charmModes(f)
+	if len(modes) == 0 {
+		return nil
+	}
+	pickCount, minCount, repeat := 1, 1, false
+	for _, sa := range f.Abilities {
+		if sa.Kind != "SP" || sa.API != "Charm" {
+			continue
+		}
+		if n, err := strconv.Atoi(strings.TrimSpace(sa.Params["CharmNum"])); err == nil && n > 0 {
+			pickCount = n
+		}
+		if n, err := strconv.Atoi(strings.TrimSpace(sa.Params["MinCharmNum"])); err == nil && n > 0 {
+			minCount = n
+		} else if strings.TrimSpace(sa.Params["MinCharmNum"]) == "" {
+			minCount = pickCount
+		}
+		repeat = strings.EqualFold(strings.TrimSpace(sa.Params["CanRepeatModes"]), "True")
+		break
+	}
+	var out []CharmCombination
+	var selected []CharmMode
+	var visit func(int, int)
+	visit = func(start, count int) {
+		if len(selected) == count {
+			combo := CharmCombination{Modes: append([]CharmMode(nil), selected...)}
+			for _, mode := range selected {
+				combo.Slots = append(combo.Slots, ChainSlotSpecs(f, mode.svar)...)
+			}
+			out = append(out, combo)
+			return
+		}
+		for i := start; i < len(modes); i++ {
+			selected = append(selected, modes[i])
+			next := i
+			if !repeat {
+				next++
+			}
+			visit(next, count)
+			selected = selected[:len(selected)-1]
+		}
+	}
+	for count := minCount; count <= pickCount; count++ {
+		visit(0, count)
+	}
+	return out
+}
+
 // charmModes lists the spell's charm modes in Choices$ order.
 func charmModes(f *cards.Face) []charmMode {
 	for _, sa := range f.Abilities {
