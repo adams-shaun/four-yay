@@ -1682,13 +1682,14 @@ func (o *Object) Ephemeral() bool {
 
 // PreparedExileCopy reports whether this object is the exile copy CR 722.3c's
 // prepared grant minted: an IsCopy object whose PreparedSource still names a
-// permanent. Such a copy was created directly in exile (never on the stack)
-// and is castable from there, so it is the ONE off-stack copy that does not
-// cease to exist -- CR 707.10a's "a copy that leaves the stack ceases" has
-// not happened to it. Every consumer of the cease rule reads this single
-// predicate instead of re-deriving it from PreparedSource.
+// permanent and which remains in exile. Such a copy was created directly in
+// exile (never on the stack) and is castable there, so it is the ONE off-stack
+// copy that does not cease to exist. Once cast it leaves exile, and if it
+// later leaves the stack CR 707.10a requires it to cease. Every consumer of
+// the cease rule reads this single predicate instead of re-deriving it from
+// PreparedSource.
 func (o *Object) PreparedExileCopy() bool {
-	return o != nil && o.IsCopy && o.PreparedSource != 0
+	return o != nil && o.IsCopy && o.PreparedSource != 0 && o.Zone == ZExile
 }
 
 // HasPrepareSpell reports whether this object carries CR 722.2's prepare
