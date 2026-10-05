@@ -46,6 +46,15 @@ import (
 // keep their pre-existing degrade-to-zero behaviour.
 func evalCountBodySimple(h Host, c *Ctx, g *state.Game, head, arg string, depth int) (int32, bool, bool) {
 	switch evalCountBodyCostCodes.Code(string(head)) {
+	case evalCountBodyCostManaPoolAll, evalCountBodyCostManaPoolGreen:
+		if c == nil || int(c.Controller) >= len(g.Players) {
+			return 0, false, true
+		}
+		pool := g.Players[c.Controller].Pool
+		if evalCountBodyCostCodes.Code(string(head)) == evalCountBodyCostManaPoolAll {
+			return pool.Total(), true, true
+		}
+		return pool[state.MG], true, true
 	case evalCountBodyCostIsPrime:
 		// Forge's Count$IsPrime <SVar>.<True>.<False> (DSK Zimone,
 		// All-Questioning): evaluate <SVar>, then answer the <True> operand

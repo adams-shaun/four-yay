@@ -328,6 +328,9 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 	if len(matches) == 0 {
 		return ev, false
 	}
+	if ev.Kind == events.ManaClear {
+		return e.applyLoseManaReplacement(ev, matches[0])
+	}
 	switch ev.Kind {
 	case events.Untap:
 		return e.continueUntapReplacements(ev, matches)
@@ -689,6 +692,8 @@ func replacementEventKind(ev events.Event) cards.ReplEvent {
 		return cards.ReplTransform
 	case events.ManaAdd:
 		return cards.ReplProduceMana
+	case events.ManaClear:
+		return cards.ReplLoseMana
 	case events.Damage:
 		return cards.ReplDamageDone
 	case events.Draw:
