@@ -40,9 +40,13 @@ func TestTargetedCardSameNameParity(t *testing.T) {
 		for _, c := range []struct {
 			name string
 			o    *state.Object
-		}{{"target", target}, {"namesake", namesake}, {"bystander", other}} {
+			self bool
+		}{{"target", target, true}, {"namesake", namesake, false}, {"bystander", other, false}} {
 			text := MatchesObjectTextOracle(g, spec, c.o, sc)
 			compiled := MatchesObjectCompiledCached(g, spec, c.o, sc)
+			if spec == "TargetedCard.Self" && (text != c.self || compiled != c.self) {
+				t.Errorf("%s %s: textual=%v compiled=%v, want both %v", spec, c.name, text, compiled, c.self)
+			}
 			if text != compiled {
 				t.Errorf("%s %s: textual=%v compiled=%v (parity broken)", spec, c.name, text, compiled)
 			}
