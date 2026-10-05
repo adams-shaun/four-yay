@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"Grizzly Bears gorge+[] xmage+[tapped]"},"key":"cast-resolve | resolve | permanents | Grizzly Bears gorge+[] xmage+[tapped]","cards":1}
-{"card":"Eddymurk Crab","template":"cast-resolve","status":"diverge","api":"ChangesZone:Tap","sets":["BLB"],"detail":"step 1 (resolve) permanents: gorge \"c1 o1 Grizzly Bears [bear creature] {G} 2/2\", xmage \"c1 o1 Grizzly Bears [bear creature] {G} 2/2 tapped\""}
