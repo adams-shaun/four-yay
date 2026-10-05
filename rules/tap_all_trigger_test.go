@@ -477,3 +477,60 @@ func TestAggregateTapModeCensus(t *testing.T) {
 		t.Fatalf("effects.Supported() missing trig:TapAll/trig:UntapAll: %v", supported)
 	}
 }
+
+// TestTapAllConvokeMultiTapCostFiresOnce pins the convoke boundary: the
+// creatures a caster taps for Convoke/Harmonize/Improvise/waterbend are
+// emitted by the CAST path (rules/cast_commit.go's emitConvokeTaps), and all
+// of one cast's announced taps are ONE cost action, so Deeproot Pilgrimage
+// creates ONE token for a two-creature convoke, not two. Without the bracket
+// the newly registered Mode$ TapAll fires once per tapped crewer.
+func TestTapAllConvokeMultiTapCostFiresOnce(t *testing.T) {
+	t.Parallel()
+	e, _ := conniveEngine(t, []string{"Deeproot Pilgrimage", "Venerated Loxodon"}, nil)
+
+	// PRECONDITION: Deeproot is on seat 0's battlefield, so its
+	// TriggerZones$ Battlefield trigger is live for the scan.
+	deeprootID := conniveMoveTo(t, e, 0, "Deeproot Pilgrimage", state.ZBattlefield)
+	if o := e.G.Obj(deeprootID); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("Deeproot Pilgrimage id %d zone = %v, want battlefield (vacuous setup)", deeprootID, o)
+	}
+	// Two distinct untapped nontoken Merfolk creatures, the convokers.
+	m1 := onBoardCard(t, e, 0, card(t, tapAllMerfolkSrc))
+	m2 := onBoardCard(t, e, 0, card(t, tapAllMerfolkSrc))
+	if m1 == m2 {
+		t.Fatalf("the two Merfolk ids are equal (%d): a batch claim would be vacuous", m1)
+	}
+	for _, id := range []state.ObjID{m1, m2} {
+		o := e.G.Obj(id)
+		if o == nil || o.Zone != state.ZBattlefield || o.Tapped {
+			t.Fatalf("Merfolk id %d = %+v, want an untapped battlefield creature (vacuous setup)", id, o)
+		}
+		if !o.EffectiveIsCreature() {
+			t.Fatalf("Merfolk id %d is not a creature; convoke would not offer it", id)
+		}
+	}
+	if got := countTokensNamedOnSeat(t, e, 0, "Merfolk Token"); got != 0 {
+		t.Fatalf("seat 0 already holds %d Merfolk tokens (vacuous setup)", got)
+	}
+	loxodon := conniveMoveTo(t, e, 0, "Venerated Loxodon", state.ZHand)
+	if o := e.G.Obj(loxodon); o == nil || o.Zone != state.ZHand {
+		t.Fatalf("Venerated Loxodon id %d = %+v, want it in hand (vacuous setup)", loxodon, o)
+	}
+
+	// Cast it and announce BOTH Merfolk for convoke (the {3}{W}{W} cost is
+	// funded by three mana and the two creatures).
+	castWithConvokeAt(t, e, loxodon, "WWW", m1, m2)
+	if !e.G.Obj(m1).Tapped || !e.G.Obj(m2).Tapped {
+		t.Fatalf("the convoke cost did not tap both Merfolk (m1=%v m2=%v); the action must really tap them",
+			e.G.Obj(m1).Tapped, e.G.Obj(m2).Tapped)
+	}
+	// The cast's payment flow may already have pushed the trigger, so count
+	// the pushes rather than the pending queue.
+	passUntilStackEmpty(t, e, 40)
+	if n := triggerPushesFor(e, deeprootID); n != 1 {
+		t.Fatalf("a two-creature convoke pushed %d Deeproot triggers, want exactly 1 (one cost action)", n)
+	}
+	if got := countTokensNamedOnSeat(t, e, 0, "Merfolk Token"); got != 1 {
+		t.Fatalf("after the two-creature convoke seat 0 holds %d Merfolk tokens, want 1 (one action, one trigger)", got)
+	}
+}
