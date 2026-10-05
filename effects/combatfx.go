@@ -1096,6 +1096,13 @@ func effAnimateAll(h Host, c *Ctx, sa *cards.SA) {
 		spec = "Creature"
 	}
 	g := h.Game()
+	// A player-kind ValidTgts$ (Curious Colossus's `ValidTgts$ Opponent`)
+	// scopes the sweep to the targeted player's objects (CR 611.2c: the
+	// effect applies to the objects matching the filter THAT PLAYER controls),
+	// through the same shared helper DamageAll uses.  A non-nil scope that
+	// resolves to no player sweeps nothing (fail closed); a non-player or
+	// absent ValidTgts$ leaves it nil and the sweep is unrestricted.
+	scope := targetPlayerKindScope(h, c, sa)
 	for si, p := range g.AliveFrom(0) {
 		if ag.zone != "" {
 			zones, all, ok := ParseZones(ag.zone)
@@ -1122,7 +1129,7 @@ func effAnimateAll(h Host, c *Ctx, sa *cards.SA) {
 					continue
 				}
 				for _, id := range g.Zone(z, p) {
-					if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) {
+					if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) && inSweepScope(g, id, scope) {
 						registerAnimateEffects(h, c, id, ag)
 						ateotIDs = append(ateotIDs, id)
 					}
@@ -1131,7 +1138,7 @@ func effAnimateAll(h Host, c *Ctx, sa *cards.SA) {
 			continue
 		}
 		for _, id := range g.Zone(state.ZBattlefield, p) {
-			if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) {
+			if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) && inSweepScope(g, id, scope) {
 				registerAnimateEffects(h, c, id, ag)
 				ateotIDs = append(ateotIDs, id)
 			}
