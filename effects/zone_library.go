@@ -144,6 +144,14 @@ func shuffleLibraryOrder(h Host, owner state.PlayerID) {
 	h.Emit(events.Event{Kind: events.Shuffle, Player: owner, IDs: order, Secret: true})
 }
 
+// shuffleSelectedLibraryObjects randomizes only a resolved object subset that
+// is about to be placed in its owner's library. Shuffle events replace an
+// owner's whole library order, so the subset permutation is recorded by the
+// subsequent full LibraryOrder placement event instead.
+func shuffleSelectedLibraryObjects(h Host, owner state.PlayerID, selected []state.ObjID) []state.ObjID {
+	return h.ShuffleLibrary(owner, selected)
+}
+
 // placeTargetedLibraryObjects implements LibraryPosition$ for the
 // object-target path of effChangeZone (golgari_thug1): the one placement the
 // targeted movers never reached. Each moved card is placed in ITS OWNER's

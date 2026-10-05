@@ -80,7 +80,7 @@ var ChangeZoneAllFiles = []string{"effects/zone_changeall.go"}
 
 // ChangeZoneAllOnlyKeys are the parameter keys only ChangeZoneAll's compiler
 // reads.
-var ChangeZoneAllOnlyKeys = []string{"RandomOrder", "UseAllOriginZones"}
+var ChangeZoneAllOnlyKeys = []string{"UseAllOriginZones"}
 
 // AttachCompilerFile is api:Attach's parameter compiler (W4 step 3): the one
 // file allowed to read an Attach ability's parameters.

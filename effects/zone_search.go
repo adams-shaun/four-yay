@@ -534,6 +534,15 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 	}
 	g := h.Game()
 	targets, known := knownDefinedTargets(h, c, cz.Defined)
+	// ChangeZone's explicit Imprinted fetch is a continuation over the
+	// source's recorded pile (Green Sun's Twilight imprints revealed cards
+	// that remain in the library). The ordinary Defined$ Imprinted reader
+	// applies CR 607.2a's exile gate, which would discard this already-selected
+	// fetch list here. Keep that exception local to this mover.
+	if cz.Defined == "Imprinted" {
+		targets = rawImprintTargets(h.Game(), c)
+		known = true
+	}
 	if !known {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unrecognised Defined library fetch " + cz.Defined})
@@ -623,7 +632,9 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 			if o == nil || o.Zone != state.ZLibrary || o.Owner != f.owner {
 				continue
 			}
-			settleChangeZoneMove(h, c, sa, cz, id, state.ZLibrary, to, withKind, withAmt, &rider)
+			if to != state.ZLibrary {
+				settleChangeZoneMove(h, c, sa, cz, id, state.ZLibrary, to, withKind, withAmt, &rider)
+			}
 			if cz.RememberChanged {
 				eventRemember(h, c, id)
 			}
@@ -634,7 +645,16 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 				h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: f.owner, Text: "entered tapped"})
 			}
 		}
-		shuffleLibrary(h, cz, f.owner)
+		// A resolved object list is not a library search: its members were
+		// already selected, so the CR search shuffle must not reorder the
+		// unrelated remainder of the library. RandomOrder$ on a put-back
+		// randomizes only that selected list before placement.
+		if !objectList || cz.ShuffleTrue {
+			shuffleLibrary(h, cz, f.owner)
+		}
+		if objectList && cz.RandomOrder && to == state.ZLibrary && len(moved) > 1 {
+			moved = shuffleSelectedLibraryObjects(h, f.owner, moved)
+		}
 		placeLibraryObjects(h, c, cz, f.owner, moved, to)
 		// Explicit Reveal$ on a Defined$ fetch list (Forge reveals movedCards
 		// whenever Reveal$ names the effect, defined or not): the same public
