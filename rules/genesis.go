@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"maps"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/deck"
@@ -205,6 +207,10 @@ func NewStartingPlayerChoice(cfg Config) *Engine {
 }
 
 func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
+	// Config token definitions may be shared (for example, CorpusRegistry's
+	// immutable registry). The game owns its map before genesis scans it or
+	// exposes it through G.Tokens, since runtime token registrations mutate it.
+	cfg.Tokens = maps.Clone(cfg.Tokens)
 	e := newEngineShell(cfg, random)
 	e.emit(events.Event{Kind: events.GameStart, Amount: int32(len(cfg.Names))})
 	return e.genesisDeal(cfg, tossAsk)
