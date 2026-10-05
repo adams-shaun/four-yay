@@ -89,7 +89,7 @@ func TestLoseManaVocabularyPinned(t *testing.T) {
 	if got := cards.ReplEventOf("LoseMana"); got != cards.ReplLoseMana {
 		t.Fatalf("LoseMana code = %d, want %d", got, cards.ReplLoseMana)
 	}
-	if cards.ReplLoseMana != 25 {
-		t.Fatalf("LoseMana ordinal = %d, want appended code 25", cards.ReplLoseMana)
+	if cards.ReplLoseMana != 26 {
+		t.Fatalf("LoseMana ordinal = %d, want appended code 26", cards.ReplLoseMana)
 	}
 }

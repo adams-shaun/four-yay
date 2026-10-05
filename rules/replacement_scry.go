@@ -322,34 +322,29 @@ func rollDiceBodyChainSupported(with *cards.SA) bool {
 	return true
 }
 
-// RollDiceProposed is the effects.Host hook effRollDice consults before any
-// die of one roll action is rolled (CR 614.4). It builds the synthetic
-// events.RollDice PROPOSAL -- Player the roller, Obj the rolling source,
-// Amount the proposed dice count, Counter the proposed ignored-low count --
-// and runs it through the ordinary replacement collection and dispatch (the
-// Scry proposal's discipline): a matching R:Event$ RollDice replacement's
-// body rewrites the proposal synchronously inside this call and the
-// rewritten Amount/Counter come back to the caller. The proposal is NEVER
-// logged. Mirrors emit's own guard: while a replacement body is already
-// resolving (applyingReplacement), no replacement applies -- a body's own
-// rolls are fresh, un-replaced events.
-func (e *Engine) RollDiceProposed(p state.PlayerID, source state.ObjID, amount, ignore int32) (int32, int32) {
+// CountReplacementProposed is the effects hook for a held synthetic
+// count-bearing action. The proposal is never logged; its specialized
+// replacement continuation returns the rewritten event to the effects layer.
+// RollDice retains its historical minimum count and ignored-low normalization.
+func (e *Engine) CountReplacementProposed(ev events.Event) events.Event {
 	if e.applyingReplacement {
-		return amount, ignore
+		return ev
 	}
-	if ignore < 0 {
-		ignore = 0
+	if ev.Kind == events.RollDice {
+		if n, err := strconv.Atoi(ev.Counter); err != nil || n < 0 {
+			ev.Counter = "0"
+		}
 	}
-	ev, _ := e.applyReplacements(events.Event{Kind: events.RollDice, Player: p, Obj: source,
-		Amount: amount, Counter: strconv.FormatInt(int64(ignore), 10)})
-	n, err := strconv.Atoi(ev.Counter)
-	if err != nil || n < 0 {
-		n = 0
+	ev, _ = e.applyReplacements(ev)
+	if ev.Kind == events.RollDice {
+		if n, err := strconv.Atoi(ev.Counter); err != nil || n < 0 {
+			ev.Counter = "0"
+		}
+		if ev.Amount < 1 {
+			ev.Amount = 1
+		}
 	}
-	if ev.Amount < 1 {
-		ev.Amount = 1
-	}
-	return ev.Amount, int32(n)
+	return ev
 }
 
 // emitScryRecord logs a completed scry instruction's events.Scry record

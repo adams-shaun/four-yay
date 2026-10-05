@@ -121,12 +121,13 @@ const (
 	// TriggerTaps/TriggerUntaps. Appended after TriggerSacrificedOnce,
 	// following the vocabulary's append-only convention, so no earlier
 	// ordinal moves.
-	TriggerTapAll    TriggerMode = 90
-	TriggerUntapAll  TriggerMode = 91
-	TriggerExiled    TriggerMode = 92
-	TriggerLosesGame TriggerMode = 93
-	TriggerTurnBegin TriggerMode = 94
-	TriggerModeCount             = 95 // one past the last; sizes a dense per-TriggerMode array
+	TriggerTapAll          TriggerMode = 90
+	TriggerUntapAll        TriggerMode = 91
+	TriggerExiled          TriggerMode = 92
+	TriggerLosesGame       TriggerMode = 93
+	TriggerTurnBegin       TriggerMode = 94
+	TriggerExcessDamageAll TriggerMode = 95
+	TriggerModeCount                   = 96 // one past the last; sizes a dense per-TriggerMode array
 )
 
 var triggerModeNames = [TriggerModeCount]string{
@@ -174,6 +175,7 @@ var triggerModeNames = [TriggerModeCount]string{
 	TriggerCounterRemoved:             "CounterRemoved",
 	TriggerCounterRemovedOnce:         "CounterRemovedOnce",
 	TriggerDamageAll:                  "DamageAll",
+	TriggerExcessDamageAll:            "ExcessDamageAll",
 	TriggerDamagePreventedOnce:        "DamagePreventedOnce",
 	TriggerDiscardedAll:               "DiscardedAll",
 	TriggerDiscover:                   "Discover",
@@ -367,9 +369,10 @@ const (
 	ReplRollPlanarDice ReplEvent = 21
 	ReplScry           ReplEvent = 22
 	ReplTurnFaceUp     ReplEvent = 23
-	ReplPayLife        ReplEvent = 24
-	ReplLoseMana       ReplEvent = 25
-	ReplEventCount               = 26 // one past the last; sizes a dense per-ReplEvent array
+	ReplMill           ReplEvent = 24
+	ReplPayLife        ReplEvent = 25
+	ReplLoseMana       ReplEvent = 26
+	ReplEventCount               = 27 // one past the last; sizes a dense per-ReplEvent array
 )
 
 var replEventNames = [ReplEventCount]string{
@@ -396,6 +399,7 @@ var replEventNames = [ReplEventCount]string{
 	ReplRollPlanarDice: "RollPlanarDice",
 	ReplScry:           "Scry",
 	ReplTurnFaceUp:     "TurnFaceUp",
+	ReplMill:           "Mill",
 	ReplPayLife:        "PayLife",
 	ReplLoseMana:       "LoseMana",
 }

@@ -1,13 +1,8 @@
 package rules
 
-// The land-play ask-free predicate's optional-mana-conversion gate. A land
-// play drives the ordinary cast flow (legal_priority.go optPlayLand ->
-// continueCast -> manaConvertAsk -> pay.ManaConvertAsk), so a board with an
-// active Optional$ ManaConvert static (North Star) makes the play pose a real
-// election. tapeLandMayAsk must say "may ask" for it; otherwise the cardfuzz
-// predicate-miss census (cmd/cardfuzz TestTapeMissCensus) catches a land play
-// exempted with no checkpoint and reports
-// `nostack -> choose "Use optional mana conversion?"`.
+// Land plays drive the ordinary cast flow but pay no spell mana cost. An
+// Optional$ ManaConvert static must neither offer an election nor make the
+// land-play may-ask predicate report a possible ask.
 
 import (
 	"strings"
@@ -35,9 +30,9 @@ func activateNorthStarConvert(t *testing.T, e *Engine, star state.ObjID) {
 	}
 }
 
-// TestLandPlayMayAskUnderOptionalManaConvert pins the predicate and the real
-// decision it protects: a land play under North Star's Optional$ conversion
-// must be a may-ask (checkpointed) and must pose the ManaConvert election.
+// TestLandPlayMayAskUnderOptionalManaConvert pins both the predicate and the
+// real land-play flow under North Star's Optional$ conversion: no election,
+// and the land enters the battlefield.
 func TestLandPlayMayAskUnderOptionalManaConvert(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
@@ -59,12 +54,12 @@ func TestLandPlayMayAskUnderOptionalManaConvert(t *testing.T) {
 	if _, opt := e.manaConversionParts(0, land, false); opt.Empty() {
 		t.Fatal("precondition: North Star grants no Optional$ conversion for the land play")
 	}
-	if !tapeLandMayAsk(e, 0, land) {
-		t.Fatal("tapeLandMayAsk = false under an active Optional$ ManaConvert static; the land play reaches ManaConvertAsk through continueCast, so the predicate must say may-ask")
+	if tapeLandMayAsk(e, 0, land) {
+		t.Fatal("tapeLandMayAsk = true solely because of an Optional$ ManaConvert static")
 	}
 
-	// The predicate claims a decision; prove the claim. Playing the land must
-	// pose the ManaConvert election synchronously at priority.
+	// Even though the conversion matches the land, land play pays no spell
+	// mana cost and must complete without presenting its inert election.
 	e.priorityRound()
 	d := e.Pending()
 	if d == nil || d.Kind != decision.KPriority || d.Player != 0 {
@@ -82,16 +77,16 @@ func TestLandPlayMayAskUnderOptionalManaConvert(t *testing.T) {
 	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: 0, Choices: []int{idx}}); err != nil {
 		t.Fatalf("submit play_land: %v", err)
 	}
-	ask := e.Pending()
-	if ask == nil || ask.Kind != decision.KChoose || ask.Prompt != "Use optional mana conversion?" {
-		t.Fatalf("land play did not pose the Optional$ ManaConvert election: %+v", ask)
+	if e.G.Obj(land).Zone != state.ZBattlefield {
+		t.Fatalf("land play did not complete: Mountain remains in %s", e.G.Obj(land).Zone)
+	}
+	if ask := e.Pending(); ask != nil && ask.Kind == decision.KChoose && ask.Prompt == "Use optional mana conversion?" {
+		t.Fatalf("land play posed the Optional$ ManaConvert election: %+v", ask)
 	}
 }
 
-// TestLandPlayMayAskReadsTheIntentsPlayer pins MayAsk's seat: a play_land
-// option carries no Player (legal_walk_hand.go), so judging the predicate
-// with the option's Player read every land play as seat 0's and missed a
-// seat-1 North Star (cardfuzz census seed 16418859190892582841).
+// TestLandPlayMayAskReadsTheIntentsPlayer confirms the land-play predicate
+// stays ask-free for a seat-1 land even when only that seat controls North Star.
 func TestLandPlayMayAskReadsTheIntentsPlayer(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
@@ -106,7 +101,7 @@ func TestLandPlayMayAskReadsTheIntentsPlayer(t *testing.T) {
 	}
 	d := &decision.Decision{Player: 1, Kind: decision.KPriority,
 		Options: []decision.Option{{Index: 0, Kind: "play_land", Obj: land}}}
-	if !(*resolveBoard)(e).MayAsk(d, decision.Intent{Player: 1, Choices: []int{0}}) {
-		t.Fatal("MayAsk = false for seat 1's land play under its own Optional$ ManaConvert static")
+	if (*resolveBoard)(e).MayAsk(d, decision.Intent{Player: 1, Choices: []int{0}}) {
+		t.Fatal("MayAsk = true for seat 1's land play solely under its own Optional$ ManaConvert static")
 	}
 }
