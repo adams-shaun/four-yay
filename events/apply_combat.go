@@ -6,6 +6,7 @@
 package events
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/state"
@@ -233,7 +234,8 @@ func foldDamageProvenance(g *state.Game, e *Event) {
 	}
 	src := e.Obj
 	if o := g.Obj(src); o != nil && e.Amount > 0 {
-		head, typeWords, hasTypes := strings.Cut(e.Text, DamageProvenanceTypeSeparator)
+		oldText, sourceWords, hasSource := strings.Cut(e.Text, DamageProvenanceSourceSeparator)
+		head, typeWords, hasTypes := strings.Cut(oldText, DamageProvenanceTypeSeparator)
 		provenance, colours, hasColours := strings.Cut(head, DamageProvenanceColorSeparator)
 		record := state.DamageDealtRecord{
 			SourceControl: o.Controller, Recipient: e.IDs[0], Amount: e.Amount, Combat: provenance == DamageProvenanceCombat,
@@ -241,6 +243,14 @@ func foldDamageProvenance(g *state.Game, e *Event) {
 		}
 		if hasTypes {
 			record.RecipientTypes = strings.Split(typeWords, DamageProvenanceTypeWordSeparator)
+		}
+		if hasSource {
+			zoneWord, sourceTypes, hasSourceTypes := strings.Cut(sourceWords, DamageProvenanceSourceTypeSeparator)
+			if zone, err := strconv.ParseUint(zoneWord, 10, 8); err == nil && hasSourceTypes {
+				record.SourceZone = state.Zone(zone)
+				record.HasSourceZone = true
+				record.SourceTypes = strings.Split(sourceTypes, DamageProvenanceTypeWordSeparator)
+			}
 		}
 		if recipient := g.Obj(e.IDs[0]); recipient != nil {
 			record.RecipientZone = recipient.Zone
