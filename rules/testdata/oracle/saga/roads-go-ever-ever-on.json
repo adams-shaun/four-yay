@@ -72,7 +72,7 @@
         "714.2b",
         "714.3c"
       ],
-      "why": "Chapter II puts a card exiled with this Saga into its owner's hand; the Plains exiled in chapter I returns to hand on the next turn.",
+      "why": "Chapter II returns exactly one of the two Plains exiled with this Saga. The turn-2 draw step also draws a card before chapter II resolves.",
       "setup": {
         "p0": {
           "hand": [
@@ -120,13 +120,14 @@
       "expect": [
         {
           "hand_size": {
-            "p0": 1
+            "p0": 2
           }
         },
         {
           "card": "p0:Plains",
           "zone": "hand"
         },
+        {"card": "p0:Plains#2", "zone": "exile"},
         {
           "card": "p0:Roads Go Ever, Ever On",
           "counters": {
