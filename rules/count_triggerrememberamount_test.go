@@ -21,6 +21,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
 // TestTriggerRememberAmountHeadOnNewWayForward pins the head against New Way
@@ -72,5 +73,40 @@ func TestTriggerRememberAmountHeadOnNewWayForward(t *testing.T) {
 		// Consume the queued trigger so the next iteration's precondition
 		// count is deterministic.
 		e.pendingTriggers = e.pendingTriggers[:len(e.pendingTriggers)-1]
+	}
+}
+
+// TestTriggerRememberAmountCarriersArePinned asserts every corpus card that
+// carries the head still carries it, so the census this ticket measured cannot
+// silently drift. The head is read both bare (`SVar:X:Count$TriggerRememberAmount`)
+// and inside an effect body (`NumDmg$ Count$TriggerRememberAmount`), so the
+// check is a substring over each face's SVar values.
+func TestTriggerRememberAmountCarriersArePinned(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	carriers := []string{
+		"Ancient Brass Dragon", "Ancient Bronze Dragon", "Bloodthirsty Adversary",
+		"Borborygmos and Fblthp", "Hawkeye, Master Marksman", "Incinerator of the Guilty",
+		"Intrepid Adversary", "Invasion of New Phyrexia", "Magma Pummeler", "Mana Drain",
+		"New Way Forward", "Phyrexian Vindicator", "Plasm Capture", "Primal Adversary",
+		"Pygmy Hippo", "Rose Room Treasurer", "Scattering Stroke", "Spectral Adversary",
+		"Tainted Adversary", "Tranquil Frillback", "Unleash the Inferno", "Wolf in _____ Clothing",
+	}
+	for _, name := range carriers {
+		card, ok := reg.Lookup(name)
+		if !ok {
+			t.Fatalf("corpus carrier %q is missing", name)
+		}
+		found := false
+		for fi := range card.Faces {
+			for _, b := range card.Faces[fi].SVars {
+				if strings.Contains(b, "Count$TriggerRememberAmount") {
+					found = true
+				}
+			}
+		}
+		if !found {
+			t.Errorf("%s no longer carries Count$TriggerRememberAmount", name)
+		}
 	}
 }
