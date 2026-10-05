@@ -424,9 +424,23 @@ func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) {
 func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XAnswer {
 	out := make([][]XAnswer, steps)
 	any := false
+	// A step whose card name is then searched for (Ancient Vendetta's "choose
+	// a card name. Search ... for cards with that name"): XMage poses the name
+	// dialog however narrowly gorge offered it, and the search must find it.
+	namedSearch := map[int]bool{}
+	for _, d := range ds {
+		if pickKind(d, 0) == "search" {
+			namedSearch[d.Step] = true
+		}
+	}
 	for _, d := range ds {
 		if d.Step < 0 || d.Step >= steps || d.Via == "target" {
 			// A step's own targets reach XMage through castSpell.
+			continue
+		}
+		if pickKind(d, 0) == "name" && namedSearch[d.Step] && len(d.Picks) == 1 {
+			out[d.Step] = append(out[d.Step], XAnswer{d.Seat, "choice", d.Picks[0]})
+			any = true
 			continue
 		}
 		if forcedSingleOption(d) {
@@ -670,9 +684,7 @@ func forcedSingleOption(d rules.OracleDecision) bool {
 	if d.Kind == "target" || d.Kind == "order" || d.Kind == "mode" {
 		return false
 	}
-	if hasTargetPick(d) || pickKind(d, 0) == "name" {
-		// A "choose a card name" ask is a real dialog in XMage however
-		// narrowly gorge offered it (Ancient Vendetta).
+	if hasTargetPick(d) {
 		return false
 	}
 	return d.Options == 1 && d.Min == 1 && d.Max == 1
