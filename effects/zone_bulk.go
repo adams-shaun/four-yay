@@ -18,17 +18,14 @@ import (
 // targeting and resolution is not rechecked. See the Task 18 report.
 func effDestroy(h Host, c *Ctx, sa *cards.SA) {
 	// Forge's ForgetOtherTargets$ replaces the prior remembered set before
-	// this Destroy, while RememberTargets$ records only objects that actually
-	// leave the battlefield (not targets spared by regeneration or
-	// indestructibility).  Keep both the resolution-local and event-backed
-	// halves in sync, as the chained sub-ability may read either one.
+	// this Destroy. Resolve records chosen targets after the body, including
+	// those spared by regeneration or indestructibility.
 	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKForgetOtherTargets)), "True") {
 		c.Remembered = nil
 		clearEventRemembered(h, c)
 	}
-	// RememberTargets$ records only objects that actually leave the
-	// battlefield. RememberDestroyed$ True (Transforming Flourish) is Forge's
-	// spelling of the same "this permanent was destroyed this way" record.
+	// RememberDestroyed$ True (Transforming Flourish) records permanents
+	// actually destroyed this way; RememberTargets$ is independent of outcome.
 	// RememberLKI$ True (Noxious Gearhulk) does BOTH -- it records the object
 	// and captures its last-known-information snapshot (CR 603.10 look-back),
 	// because the chained read (RememberedLKI$CardToughness) needs the
@@ -37,7 +34,6 @@ func effDestroy(h Host, c *Ctx, sa *cards.SA) {
 	// and evalRefProperty reads for a zone-change trigger; evalRefProperty
 	// applies it only when the snapshot names the referenced object, so no
 	// other remembered read is affected.
-	rememberTargets := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True")
 	rememberDestroyed := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberDestroyed)), "True")
 	rememberLKI := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberLKI)), "True")
 	// Same pre-batch discipline as effDestroyAll: the targets Defined
@@ -100,7 +96,7 @@ func effDestroy(h Host, c *Ctx, sa *cards.SA) {
 		// Host.Emit applies move replacements before folding the move. Only
 		// remember a permanent that actually ended up in the graveyard; a
 		// replacement such as exile must not feed a later IsRemembered search.
-		if rememberTargets || rememberDestroyed || rememberLKI {
+		if rememberDestroyed || rememberLKI {
 			if moved := h.Game().Obj(id); moved != nil && moved.Zone == state.ZGraveyard {
 				if rememberLKI {
 					c.LKI = lki

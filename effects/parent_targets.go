@@ -100,17 +100,6 @@ func rememberChosenTargets(h Host, c *Ctx, sa *cards.SA, targets []state.Target,
 		!TargetsOf(sa).Has(TgtValidPresent) {
 		return
 	}
-	// These two bodies already record only the targets actually destroyed or
-	// moved, not the complete chosen set. Dispatch identity is enough to
-	// exclude them here: no per-walk Ctx cursor is needed, even for a nested
-	// Resolve or a body that returns early.
-	code := sa.CompiledAPI()
-	if code == cards.APIUnknown {
-		code = cards.APICodeForName(sa.API)
-	}
-	if code == cards.APIDestroy || code == cards.APIChangeZone {
-		return
-	}
 	// Animate's RememberAnimated$ records the affected set, its historical
 	// behavior when both flags are present; do not also add chosen targets.
 	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberAnimated)), "True") {

@@ -536,8 +536,8 @@ func TestDestroyMovesToGraveyard(t *testing.T) {
 	}
 }
 
-// TestDestroySkipsIndestructible is the brief's own worked-example test.
-func TestDestroyRememberTargetsRecordsDestroyedSurvivorsOnly(t *testing.T) {
+// A target spared by indestructible is still CHOSEN and must be remembered.
+func TestDestroyRememberTargetsRecordsChosenEvenWhenSpared(t *testing.T) {
 	g, ids := board(t)
 	h := &fakeHost{g: g}
 	source := g.Obj(ids["myLand"])
@@ -557,11 +557,11 @@ func TestDestroyRememberTargetsRecordsDestroyedSurvivorsOnly(t *testing.T) {
 	if g.Obj(ids["myFlier"]).Zone != state.ZBattlefield {
 		t.Fatal("indestructible target was not spared")
 	}
-	if len(ctx.Remembered) != 1 || ctx.Remembered[0].Obj != ids["myBear"] {
-		t.Fatalf("ctx remembered = %#v, want only destroyed target", ctx.Remembered)
+	if len(ctx.Remembered) != 2 || ctx.Remembered[0].Obj != ids["myBear"] || ctx.Remembered[1].Obj != ids["myFlier"] {
+		t.Fatalf("ctx remembered = %#v, want both chosen targets", ctx.Remembered)
 	}
-	if len(source.Remembered) != 1 || source.Remembered[0].Obj != ids["myBear"] {
-		t.Fatalf("source remembered = %#v, want only destroyed target", source.Remembered)
+	if len(source.Remembered) != 2 || source.Remembered[0].Obj != ids["myBear"] || source.Remembered[1].Obj != ids["myFlier"] {
+		t.Fatalf("source remembered = %#v, want both chosen targets", source.Remembered)
 	}
 }
 

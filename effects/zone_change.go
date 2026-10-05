@@ -588,12 +588,6 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 			c.Remembered = append(c.Remembered, state.Target{Obj: o.ID})
 			eventRemember(h, c, o.ID)
 		}
-		// RememberTargets$ is handled here only for objects the move actually
-		// moved; Resolve's generic recorder stands down for this SA.
-		if cz.RememberTargets {
-			c.Remembered = append(c.Remembered, state.Target{Obj: o.ID})
-			eventRemember(h, c, o.ID)
-		}
 		eventForgetChanged(h, c, sa, o.ID)
 		if withKind != "" && counterDestination(to) {
 			h.Emit(events.Event{Kind: events.CounterChange, Obj: o.ID, Counter: withKind, Amount: withAmt})
