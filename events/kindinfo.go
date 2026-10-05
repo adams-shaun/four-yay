@@ -211,6 +211,7 @@ var kindInfo = [NumKinds]KindInfo{
 	ElementalBend:        {Name: "elemental_bend", Trigger: TriggerFullMatch},
 	SetupEntered:         {Name: "setup_entered", Trigger: TriggerNone, Describe: "{obj} counts as having entered this turn"}, // compliance fixture provenance; no ETB trigger
 	DoorLock:             {Name: "door_lock", Trigger: TriggerNone, Describe: "{obj}'s door is locked"},
+	Saddle:               {Name: "saddle", Trigger: TriggerFullMatch}, // trig:Saddled reads the crewer-to-Mount pairing; the designation itself is AlterAttribute "Saddled"
 	ClassLevelChange:     {Name: "class_level", Trigger: TriggerNone, Describe: "{obj} gains a Class level"},
 }
 

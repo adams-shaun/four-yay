@@ -22,7 +22,40 @@ func init() {
 // trigger). The Note is a replayable event: the random draw is the engine's
 // seeded Rand, and a replay folds the Note without re-flipping, the same
 // shape RollDice's per-roll Notes use.
-const FlipNotePrefix = "flips a coin: "
+const FlipNotePrefix = events.FlipNotePrefix
+
+// FlipCoinWin is the shared outcome oracle for effect and cost-action flips.
+// Edgar's exact first-flip static replaces the random outcome; later flips
+// (including the next one in the same batch) use the seeded RNG again.
+const (
+	flipModPlayer  = "You"
+	flipModCheck   = "Count$YouFlipThisTurn"
+	flipModCompare = "EQ0"
+	flipModResult  = "True"
+)
+
+func FlipCoinWin(h Host, p state.PlayerID) bool {
+	g := h.Game()
+	if int(p) >= 0 && int(p) < len(g.Players) && g.Players[p].CoinFlipsThisTurn == 0 {
+		for _, controller := range g.Players {
+			for _, id := range g.Zone(state.ZBattlefield, controller.ID) {
+				o := g.Obj(id)
+				if o == nil || o.PhasedOut || o.FaceDown || o.Face() == nil || o.Controller != p {
+					continue
+				}
+				for _, st := range o.Face().Statics {
+					if st.Mode == ModeFlipCoinMod && st.ParamStr(cards.PKValidPlayer) == flipModPlayer &&
+						st.ParamStr(cards.PKCheckSVar) == flipModCheck && st.ParamStr(cards.PKSVarCompare) == flipModCompare &&
+						st.ParamStr(cards.PKResult) == flipModResult &&
+						staticKeysReadable(st.Params, "Mode", "ValidPlayer", "CheckSVar", "SVarCompare", "Result", "Description") {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return h.Rand(2) == 0
+}
 
 // FlipCoinNote builds the canonical coin-flip result event: Player is the
 // flipper, Obj the flipping source, Amount 1 = win/heads and 0 = lose/tails
@@ -281,7 +314,7 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 			continue
 		}
 		for i := int32(0); untilLose || i < amount; i++ {
-			win := h.Rand(2) == 0
+			win := FlipCoinWin(h, p)
 			h.Emit(FlipCoinNote(c.Source, p, win))
 			flipRecord(h, c, p, win, rememberResult, rememberKind)
 			if win {

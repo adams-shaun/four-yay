@@ -138,6 +138,16 @@ func registerAnimateStaticAbilities(h Host, c *Ctx, id state.ObjID, names []stri
 				Text: "Animate staticAbilities$ " + name + " has no static body; ignored"})
 			continue
 		}
+		if mode == ModeNoCleanupDamage && len(params["ValidCard"]) > 0 &&
+			staticKeysReadable(params, "Mode", "ValidCard", "Description") {
+			h.AddContinuous(state.ContinuousEffect{
+				Source: id, Controller: c.Controller, Duration: dur,
+				Permanent: permanent, UntilEOT: untilEOT, DurationSource: durSource,
+				ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso,
+				Restriction: mode, RestrictParams: params,
+			})
+			continue
+		}
 		if IsGrantableCostStaticMode(mode) {
 			// A granted cost-modifier static (Chronicler of Worship's "It
 			// perpetually gains 'This spell costs {1} less to cast.'",

@@ -145,7 +145,7 @@ func ApplyPtr(g *state.Game, e *Event) {
 	// RollDice is the proposal-only roll-action Kind (task rolldice-repl): it
 	// is held out to replacement matching, never emitted, so it folds nothing
 	// -- the marker shape PlanarRoll keeps.
-	case GameStart, DecisionAsk, DecisionMade, Note, ModeChosen, ManaActivate, RollDice:
+	case GameStart, DecisionAsk, DecisionMade, ModeChosen, ManaActivate, RollDice:
 		// Markers. ModeChosen is a marker too: rules carries
 		// its answer in a cast/trigger cache or suspended-resolution context, so
 		// Apply writes nothing; the log lets replay re-derive the same branch.
@@ -222,6 +222,13 @@ func ApplyPtr(g *state.Game, e *Event) {
 		foldEnlist(g, e)
 	case Crew:
 		foldCrew(g, e)
+	case Saddle:
+		// The saddle record (CR 702.171, task triage-478c51d1) is a pure
+		// marker, exactly like Connive: the tap itself is its own Tap event,
+		// and the designation rides the AlterAttribute "Saddled" event whose
+		// fold stamps Object.SaddledTurn. Obj the saddling creature, Player
+		// its controller, IDs[0] the Mount it saddled. One marker per
+		// saddling creature.
 	case Connive:
 		// The connive record (CR 702.59, task connive1) is a pure marker,
 		// exactly like Explore: the connive's own state changes (the draws,
@@ -382,6 +389,10 @@ func ApplyPtr(g *state.Game, e *Event) {
 		// reveal. Amount carries the Won$ orientation (1 = won, 0 = lost or
 		// tied), already read off the live event by trigmatch.ClashMatches, so Apply
 		// stores nothing.
+	case Note:
+		if validPlayer(g, e.Player) && len(e.Text) >= len(FlipNotePrefix) && e.Text[:len(FlipNotePrefix)] == FlipNotePrefix {
+			g.Players[e.Player].CoinFlipsThisTurn++
+		}
 	case NoteNumber:
 		foldNoteNumber(g, e)
 	case StoreSVar:

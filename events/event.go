@@ -1099,9 +1099,22 @@ const (
 	// Appended after SetupEntered so main's existing ordinals (and the oracle
 	// fixtures that encode SetupEntered) are unchanged.
 	DoorLock
+	// Saddle records one CR 702.171 saddle action (the `K:Saddle` keyword,
+	// task triage-478c51d1): Obj is the SADDLING creature (one of the
+	// creatures the saddle cost tapped), Player its controller, and IDs[0]
+	// the Mount that creature saddled. It is the exact mirror of the Crew
+	// event above -- the tap itself is its own Tap event -- and exists so
+	// the Mode$ Saddled / BecomesSaddled matchers and the ValidCrew$ filter
+	// have a crewer-to-Mount pairing to read. One event per saddling
+	// creature. It is a replay-visible pure marker: the designation itself
+	// rides the AlterAttribute "Saddled" event, whose fold stamps
+	// Object.SaddledTurn. Appended after DoorLock, following every prior
+	// Kind's own append-only precedent, so no earlier ordinal, hash chain or
+	// golden replay is affected.
+	Saddle
 	// ClassLevelChange advances a Class's level designation by Amount.
 	// Unlike LEVEL counters this cannot be proliferated, removed or counted.
-	// Appended after DoorLock to preserve all previous replay ordinals.
+	// Appended after Saddle, preserving main's existing event ordinals.
 	ClassLevelChange
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or

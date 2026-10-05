@@ -50,6 +50,19 @@ type LKISnapshots struct {
 	// the stack, so a re-capture would wrongly lose it). Nil when the chain's
 	// targets were never spells.
 	TargetSpell map[state.ObjID]bool
+	// TargetManaSpentLKI is the CR 608.2b/h look-back for the mana actually
+	// spent to cast a targeted spell: each object target's cast-time spend
+	// breakdown (Object.ManaSpent / ManaSnowSpent / the typed captures) as it
+	// was on the stack. events.Apply's Move zeroes those captures when the
+	// spell leaves the stack (CR 400.7), so a Counter earlier in a chain makes
+	// the live read a legitimate-looking 0. EOE Unravel's chained
+	// "if the amount of mana spent to cast that spell was less than its mana
+	// value, you draw a card" reads Targeted$CastTotalManaSpent after exactly
+	// that move. Captured at Resolve entry for every object target on the
+	// stack (including a zero spend -- a convoke-only cast is a legitimate 0,
+	// not an absent snapshot); an existing map is kept on re-entry, since the
+	// target has by then already left the stack. Keyed by target ObjID.
+	TargetManaSpent map[state.ObjID]castManaSpentTotals
 	// SourceLifelinkLKI is the source permanent's derived lifelink state at
 	// the last moment it existed on the battlefield. The validity bit is
 	// separate because "it did not have lifelink" is authoritative LKI too.
