@@ -102,7 +102,7 @@ func (e *Engine) checkRoomEntryUnlockTriggers(ev events.Event) {
 	o := e.G.Obj(ev.Obj)
 	// The stack-origin MoveZone has designated the cast face in the event fold;
 	// Unlocked still means the alternate door has been unlocked.
-	if o == nil || o.Zone != state.ZBattlefield || !isRoom(o) || o.Unlocked {
+	if o == nil || o.Zone != state.ZBattlefield || !isRoom(o) || !o.CastDoor || o.Unlocked {
 		return
 	}
 	e.queueUnlockTriggers(o, o.Face())
