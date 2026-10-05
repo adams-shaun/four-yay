@@ -139,6 +139,10 @@ var addedAfterTheSplit = []string{
 	// existed already but the MODE did not -- no pre-split switch arm could
 	// have dispatched it.
 	"CounterPlayerAddedAll",
+	// agent-20261005T061522Z-9024c29e: CounterAddedAll and
+	// CounterTypeAddedAll match existing CounterChange events, but the
+	// pre-split dispatcher had no arms for these mode names.
+	"CounterAddedAll", "CounterTypeAddedAll",
 	// monstrosity (task agent-20260919T190014Z): "When CARDNAME becomes
 	// monstrous, ..." (CR 701.31; Hydra Broodmaster, Fleecemane Lion,
 	// Polukranos and the mode's 19 corpus carrier files). It matches the
