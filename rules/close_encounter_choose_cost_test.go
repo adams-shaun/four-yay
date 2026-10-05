@@ -133,6 +133,12 @@ func TestCloseEncounterRaiseCostChooseCardIneligible(t *testing.T) {
 		{"no candidate", false, false}, {"opponent creature", true, false}, {"ordinary exile", false, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			// An absent cast offer alone is vacuous if the cost was never
+			// registered. Require the supported cost before testing its gate.
+			parsed := cost.ParseCost("ChooseCard<1/" + cost.CloseEncounterChooseSpec + ">")
+			if len(parsed.Unknown) != 0 || len(parsed.RevealOrChoose) != 1 || !parsed.RevealOrChoose[0].ChooseCard {
+				t.Fatalf("precondition: ChooseCard cost not modelled: %+v", parsed)
+			}
 			e, _ := paidCostEngine(t, []string{"Close Encounter", "Hill Giant"}, []string{"Ancient Brontodon"})
 			spell := paidCostMoveTo(t, e, 0, "Close Encounter", state.ZHand)
 			if tc.opponent {
