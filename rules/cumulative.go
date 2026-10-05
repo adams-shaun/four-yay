@@ -1502,6 +1502,48 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 		return
 	}
 	e.choosing = chooseNone
+	advanceBlight := func() {
+		for tc.blightIdx < len(tc.amount.Blight) {
+			candidates := pay.BlightCandidates(asPayer(e), tc.player, tc.source)
+			if len(candidates) == 0 {
+				e.triggeredCostDecline(tc)
+				return
+			}
+			if len(candidates) == 1 {
+				tc.blights = append(tc.blights, candidates[0])
+				tc.blightIdx++
+				continue
+			}
+			name := "triggered ability"
+			if o := e.G.Obj(tc.source); o != nil && o.Face() != nil {
+				name = o.Face().Name
+			}
+			d := &decision.Decision{Player: tc.player, Kind: decision.KChoose, Min: 1, Max: 1,
+				Prompt: name + " — choose a creature to blight", Source: tc.source}
+			for _, id := range candidates {
+				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "trigger_cost_blight", Obj: id, Label: e.targetName(id)})
+			}
+			windowAsk(e, d, chooseTriggeredCost)
+			return
+		}
+		e.advanceTriggeredMandatory(tc)
+	}
+	if len(chosen) == 1 && chosen[0].Kind == "trigger_cost_blight" {
+		if tc.blightIdx >= len(tc.amount.Blight) {
+			e.triggeredCostDecline(tc)
+			return
+		}
+		for _, candidate := range pay.BlightCandidates(asPayer(e), tc.player, tc.source) {
+			if candidate == chosen[0].Obj {
+				tc.blights = append(tc.blights, candidate)
+				tc.blightIdx++
+				advanceBlight()
+				return
+			}
+		}
+		e.triggeredCostDecline(tc)
+		return
+	}
 	if len(chosen) == 0 {
 		// The empty answer of the Min-0 tap election (the dynamic tapXType
 		// window) is the decline: tapping nothing pays nothing. A Min-0 KChoose
@@ -1522,7 +1564,7 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 		e.triggeredTapAnswer(tc, chosen)
 		return
 	case triggeredCostAnswerTriggerCostBlight:
-		e.triggeredBlightAnswer(tc, chosen)
+		e.triggeredCostDecline(tc)
 		return
 	case triggeredCostAnswerTriggerCostX:
 		// The X announcement's answer (the payer-chooses fold): the chosen
@@ -1574,7 +1616,7 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 			// its asks -- so a part the walk finds unpayable is the decline,
 			// with nothing yet moved to un-pay.
 			if len(announced.Blight) > 0 {
-				e.advanceTriggeredBlight(tc)
+				advanceBlight()
 			} else {
 				e.advanceTriggeredMandatory(tc)
 			}
@@ -1797,51 +1839,6 @@ func (tc *triggeredEffectCost) recordMandatoryPick(idx int, ids []state.ObjID) {
 // pay election, where one exists, was answered before this walk started),
 // and a Hand-spec Discard pays the whole hand and a Random-spec Discard pays
 // seeded picks without ever asking (the cast flow's discardAsk specials).
-func (e *Engine) advanceTriggeredBlight(tc *triggeredEffectCost) {
-	parts := tc.amount.Blight
-	for tc.blightIdx < len(parts) {
-		candidates := pay.BlightCandidates(asPayer(e), tc.player, tc.source)
-		if len(candidates) == 0 {
-			e.triggeredCostDecline(tc)
-			return
-		}
-		if len(candidates) == 1 {
-			tc.blights = append(tc.blights, candidates[0])
-			tc.blightIdx++
-			continue
-		}
-		name := "triggered ability"
-		if o := e.G.Obj(tc.source); o != nil && o.Face() != nil {
-			name = o.Face().Name
-		}
-		d := &decision.Decision{Player: tc.player, Kind: decision.KChoose, Min: 1, Max: 1,
-			Prompt: name + " — choose a creature to blight", Source: tc.source}
-		for _, id := range candidates {
-			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "trigger_cost_blight", Obj: id, Label: e.targetName(id)})
-		}
-		windowAsk(e, d, chooseTriggeredCost)
-		return
-	}
-	e.advanceTriggeredMandatory(tc)
-}
-
-func (e *Engine) triggeredBlightAnswer(tc *triggeredEffectCost, chosen []decision.Option) {
-	if tc.blightIdx >= len(tc.amount.Blight) || len(chosen) != 1 {
-		e.triggeredCostDecline(tc)
-		return
-	}
-	id := chosen[0].Obj
-	for _, candidate := range pay.BlightCandidates(asPayer(e), tc.player, tc.source) {
-		if candidate == id {
-			tc.blights = append(tc.blights, id)
-			tc.blightIdx++
-			e.advanceTriggeredBlight(tc)
-			return
-		}
-	}
-	e.triggeredCostDecline(tc)
-}
-
 func (e *Engine) advanceTriggeredMandatory(tc *triggeredEffectCost) {
 	parts := triggeredMandatoryParts(tc.amount)
 	for tc.part < len(parts) {
