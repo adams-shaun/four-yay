@@ -9,6 +9,24 @@ func MustBlockNamedTargetShape(sa *SA) bool {
 	if sa == nil || sa.API != "MustBlock" {
 		return false
 	}
+	if strings.Compare(strings.TrimSpace(sa.ParamStr(PKChoices)), "Creature.untapped+DefenderCtrl") == 0 {
+		if strings.Compare(strings.TrimSpace(sa.ParamStr(PKChooser)), "TriggeredDefendingPlayer") != 0 ||
+			strings.TrimSpace(sa.ParamStr(PKDefinedAttacker)) != "" {
+			return false
+		}
+		dur := strings.TrimSpace(sa.ParamStr(PKDuration))
+		if dur != "" && strings.Compare(dur, "UntilEndOfCombat") != 0 {
+			return false
+		}
+		for k := range sa.Params {
+			switch k {
+			case "Choices", "Chooser", "Duration":
+			default:
+				return false
+			}
+		}
+		return true
+	}
 	attacker := strings.TrimSpace(sa.ParamStr(PKDefinedAttacker))
 	valid := strings.TrimSpace(sa.ParamStr(PKValidTgts))
 	duration := strings.TrimSpace(sa.ParamStr(PKDuration))
