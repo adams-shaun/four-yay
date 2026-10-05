@@ -28,6 +28,7 @@ type ParamKey uint16
 
 const (
 	pkNone ParamKey = iota
+	PKAdamant
 	PKAILogic
 	PKActivation
 	PKActivationAfterBlockers
@@ -260,6 +261,7 @@ const (
 	PKTriggers
 	PKType
 	PKTypes
+	PKTypeLimit
 	PKUnattach
 	PKUnlessCost
 	PKUnlessPayer
@@ -745,6 +747,16 @@ const (
 	// designation to N). Appended after the vocabulary inherited from main.
 	PKLevel
 	PKTapCreaturesForMana
+	// DigMultiple's distinct choice and remainder grammar (append-only).
+	PKDigNum
+	PKChangeValid
+	PKDestinationZone
+	PKDestinationZone2
+	PKChosenZone
+	PKRestRandomOrder
+	PKImprintRest
+	PKChangeLater
+	PKChooseAmount
 	paramKeyCount
 )
 
@@ -773,6 +785,7 @@ const paramMaskWords = (int(paramKeyCount) + 63) / 64
 
 // paramKeyNames maps each ParamKey to its Forge key text.
 var paramKeyNames = [paramKeyCount]string{
+	PKAdamant:                          "Adamant",
 	PKAILogic:                          "AILogic",
 	PKActivation:                       "Activation",
 	PKActivationAfterBlockers:          "ActivationAfterBlockers",
@@ -1006,6 +1019,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKTriggers:                         "Triggers",
 	PKType:                             "Type",
 	PKTypes:                            "Types",
+	PKTypeLimit:                        "TypeLimit",
 	PKUnattach:                         "Unattach",
 	PKUnlessCost:                       "UnlessCost",
 	PKUnlessPayer:                      "UnlessPayer",
@@ -1487,6 +1501,15 @@ var paramKeyNames = [paramKeyCount]string{
 	PKShowCards:                        "ShowCards",
 	PKLevel:                            "Level",
 	PKTapCreaturesForMana:              "TapCreaturesForMana",
+	PKDigNum:                           "DigNum",
+	PKChangeValid:                      "ChangeValid",
+	PKDestinationZone:                  "DestinationZone",
+	PKDestinationZone2:                 "DestinationZone2",
+	PKChosenZone:                       "ChosenZone",
+	PKRestRandomOrder:                  "RestRandomOrder",
+	PKImprintRest:                      "ImprintRest",
+	PKChangeLater:                      "ChangeLater",
+	PKChooseAmount:                     "ChooseAmount",
 }
 
 // String is the key's Forge text.

@@ -259,6 +259,11 @@ func canonicalCounterKind(kind string) string {
 // counters). Registering the API removed the generic "unimplemented API"
 // fallback, so without these notes the shapes would silently place nothing.
 func effPutCounterAll(h Host, c *Ctx, sa *cards.SA) {
+	// All matching CounterChange events from this API resolution are one
+	// multi-recipient placement action. Keep both sweeps inside this bracket;
+	// beginActionBatch is depth-counted, so a nested PutCounterAll remains part
+	// of its caller's action without closing that outer boundary.
+	defer beginActionBatch(h)()
 	var exotic []string
 	if strings.TrimSpace(sa.ParamStr(cards.PKPlacer)) != "" {
 		exotic = append(exotic, "Placer$")

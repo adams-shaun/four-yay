@@ -11,7 +11,6 @@ package rules
 //
 // BROKEN: the engine can never apply the static (a fail-closed shape).
 var knownBrokenCostStatics = map[string]string{
-	"Close Encounter":       "RaiseCost Cost$ unmodelled",
 	"Moonrager's Slash":     "Condition$ Night unsupported",
 	"Seal of the Guildpact": "Amount$ unevaluable by EvalCountOK; Relative$ ReduceCost amount unresolvable, no {X}",
 }

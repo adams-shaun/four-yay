@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"strconv"
+
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules/pay"
@@ -163,15 +165,14 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		e.askStation(in.Player, opt)
 
 	case optUnlock:
-		// Room unlock (CR 309.5, rules/rooms.go): pay the locked half's mana
-		// cost and emit the DoorUnlock event. The offer gated on castable,
-		// so the payment here cannot disagree with the offer; a stale option
-		// (the room left play or was unlocked between offer and answer -- the
-		// same seat's answer, so the board cannot have moved) degrades to a
-		// no-op through unlockRoomCost's nil face.
+		// The option's Mode identifies the exact locked Room face selected.
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
 		o := e.G.Obj(opt.Obj)
-		cost, ok := e.unlockRoomCost(o)
+		fi, err := strconv.Atoi(opt.Mode)
+		if err != nil {
+			return
+		}
+		cost, ok := e.unlockRoomFaceCost(o, fi)
 		if !ok {
 			return
 		}
@@ -182,13 +183,10 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		if !pay.PayMana(asPayer(e), in.Player, mods.Apply(cost)) {
 			return
 		}
-		// Preserve the legacy zero-amount event when the selected locked
-		// face is the alternate. A non-cast Room has both doors locked, so
-		// testing the cast-face designation alone would misidentify which
-		// face this offer actually unlocked.
+		// Zero denotes the alternate face; positive values encode cast face + 1.
 		amount := int32(0)
-		if locked := roomLockedFace(o); locked == o.Card.Faces[o.FaceIdx] {
-			amount = int32(o.FaceIdx) + 1
+		if fi == int(o.FaceIdx) {
+			amount = int32(fi) + 1
 		}
 		e.emit(events.Event{Kind: events.DoorUnlock, Obj: opt.Obj, Amount: amount})
 

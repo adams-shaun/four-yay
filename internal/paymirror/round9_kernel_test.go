@@ -21,8 +21,9 @@ import (
 //   - 11056: the Artisan finding is no longer reached; a clean,
 //     control-equivalent game;
 //   - 10056 seq 6128: Lagomos, Hand of Hatred, equivalent;
-//   - 8175 seq 3695: Songs of the Damned, float_trigger_precedes_cast.
-//     Re-measured on the kernel: one event earlier than the legacy pin 3696.
+//   - 8175: the Hideaway ETB timing correction changes this game before the
+//     former Songs of the Damned finding, so that planned cast is no longer
+//     reached (verified against the pre-fix keyword expansion).
 func TestRoundNineFindingsMirrorKernel(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -50,12 +51,11 @@ func TestRoundNineFindingsMirrorKernel(t *testing.T) {
 	if len(specs) != 4 {
 		t.Fatalf("testdata holds %d specs, want 4", len(specs))
 	}
-	const precedes = "expected:float_then_cast:float_trigger_precedes_cast"
 	want := map[uint64]map[uint64]string{ // seed -> seq -> verdict key ("" = equivalent)
 		10860: {3238: ""},
 		11056: {},
 		10056: {6128: ""},
-		8175:  {3695: precedes},
+		8175:  {},
 	}
 	for _, spec := range specs {
 		reports := round6Game(t, d, spec)

@@ -56,13 +56,12 @@ func tapeMayAsk(e *Engine) bool {
 }
 
 // tapeBoardCompetes is the board gate every otherwise ask-free resolution
-// meets: counters-put replacements competing for one event (CR 616.1's order
-// choice: a permanent entering with counters under Doubling Season and
-// Hardened Scales) and any replacement that elects or whose body asks. Each
-// test prunes on the replacement arena's event mask, so it costs a load when
-// no such line is in play.
+// meets: counters-put or PayLife cost replacements competing for one event
+// (CR 616.1's order choice), and any replacement that elects or whose body
+// asks. Each test prunes on the replacement arena's event mask, so it costs a
+// load when no such line is in play.
 func tapeBoardCompetes(e *Engine) bool {
-	return tapeReplMayAsk(e, "AddCounter") || tapeAnyReplBodyMayAsk(e)
+	return tapeReplMayAsk(e, "AddCounter") || tapeReplMayAsk(e, "PayLife") || tapeAnyReplBodyMayAsk(e)
 }
 
 func tapeTextMayAsk(e *Engine) bool {

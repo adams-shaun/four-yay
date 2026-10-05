@@ -33,6 +33,7 @@ var replEventGates = [cards.ReplEventCount]replEventGate{
 	cards.ReplAddCounter:  {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "AddCounter") }},
 	cards.ReplGainLife:    {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "GainLife") }},
 	cards.ReplLifeReduced: {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "LifeReduced") }},
+	cards.ReplPayLife:     {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "PayLife") }},
 	cards.ReplDamageDone:  {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "DamageDone") }},
 	cards.ReplCreateToken: {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "CreateToken") }},
 	cards.ReplAttached:    {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "Attached") }},
@@ -40,6 +41,7 @@ var replEventGates = [cards.ReplEventCount]replEventGate{
 	// graveyard offering its election (CR 702.55).
 	cards.ReplDraw:      {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "Draw") || tapeDredgeMayAsk(e) }},
 	cards.ReplDrawCards: {unreachable: "an alias of Draw: replEventBit shares Draw's bit and the Draw gate counts both"},
+	cards.ReplMill:      {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "Mill") }},
 
 	cards.ReplBeginPhase:     {unreachable: "turn structure; no allowlisted API begins a phase"},
 	cards.ReplBeginTurn:      {unreachable: "turn structure; no allowlisted API begins a turn"},

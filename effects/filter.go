@@ -3003,9 +3003,9 @@ func possessionPredicate(p string) bool {
 // such predicate, so the spec silently admits NOTHING rather than failing
 // loudly. This function is how such a caller tells that empty answer apart
 // from a genuinely empty match set: rules' ETB-copy whitelist withholds the
-// election entirely for a selector this reports true for, instead of offering
-// a list that can only ever be empty (Mockingbird's
-// "Choices$ Creature.Other+cmcLEY", whose Y is Count$CastTotalManaSpent).
+// election for resolver-dependent selectors it cannot supply. Mockingbird's
+// "Choices$ Creature.Other+cmcLEY" is the supported exception: its Y resolves
+// through the source's captured Count$CastTotalManaSpent at both ETB points.
 //
 // The walk mirrors UnknownPredicates' -- EACH split, alternatives, '+'
 // conjuncts, a leading '!' stripped -- so the two censuses see the same token
