@@ -1555,7 +1555,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 				// set into Remembered/Captured. No batch open means every event is
 				// its own batch-of-one and the referent below already carries
 				// count 1.
-				if batchTriggerAlreadyQueued(e, t, key, ev) {
+				if batchTriggerAlreadyQueued(e.millBatchOpen, &e.millBatchIdx, &e.millBatchLog, len(e.pendingTriggers), t, key, ev) {
 					continue
 				}
 				// DiscardedAll inside an open discard batch (one api:Discard
