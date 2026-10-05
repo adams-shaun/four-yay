@@ -507,7 +507,7 @@ func init() {
 	}, "Exerted")
 	registerTrigMatcher(func(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
 		return DamageMatches(e, t, source, ev)
-	}, "DamageDone", "DamageDealtOnce", "DamageDoneOnce", "DamageAll")
+	}, "DamageDone", "DamageDealtOnce", "DamageDoneOnce", "DamageAll", "ExcessDamageAll")
 	registerTrigMatcher(func(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
 		return DamagePreventedMatches(e, t, source, ev)
 	}, "DamagePreventedOnce")
