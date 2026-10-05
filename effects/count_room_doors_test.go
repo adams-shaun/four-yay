@@ -171,12 +171,14 @@ func TestUnlockDoorUnlocksLockedRoomAmongLockedAndFullyUnlocked(t *testing.T) {
 	}
 }
 
-// TestUnlockDoorLockOrUnlockOnFullyUnlockedIsLoud is the Keys to the House /
-// Marina Vendrell shape: Mode$ LockOrUnlock on a target that is already fully
-// unlocked has only the (unmodelled) lock half left. It must say so, not
-// quietly do nothing.
-func TestUnlockDoorLockOrUnlockOnFullyUnlockedIsLoud(t *testing.T) {
-	h := newHost(t, 2)
+// TestUnlockDoorLockOrUnlockOnFullyUnlockedLockAnswerIsLoud is the Keys to the
+// House / Marina Vendrell shape when the target is already fully unlocked and
+// the seat elects the lock half: the printed choice is LOCK either door, both
+// of which the one-designation model cannot express (locking the alternate is
+// not modelled either -- there is no DoorLock fold). It must say so loudly,
+// never quietly unlock/relock or do nothing.
+func TestUnlockDoorLockOrUnlockOnFullyUnlockedLockAnswerIsLoud(t *testing.T) {
+	h := newTapeHost(t, 1) // option 1 = "Lock a door"
 	room := testRoomDoorCard(t, "Full Room", "Full Chamber")
 	id := h.g.AddObject(room, 0).ID
 	o := h.g.Obj(id)
@@ -187,12 +189,12 @@ func TestUnlockDoorLockOrUnlockOnFullyUnlockedIsLoud(t *testing.T) {
 	}
 	ability := &cards.SA{Kind: "DB", API: "UnlockDoor", Params: map[string]string{"Mode": "LockOrUnlock"}}
 	Resolve(h, &Ctx{Source: id, Controller: 0, Targets: []state.Target{{Obj: id}}}, ability)
-	if got := doorUnlockEvents(h); len(got) != 0 {
+	if got := doorUnlockEvents(h.fakeHost); len(got) != 0 {
 		t.Fatalf("a fully unlocked LockOrUnlock target emitted %d DoorUnlock event(s)", len(got))
 	}
-	notes := noteEvents(h)
+	notes := noteEvents(h.fakeHost)
 	if len(notes) != 1 || notes[0].Text == "" {
-		t.Fatalf("LockOrUnlock on a fully unlocked Room must emit one loud Note, got %+v", h.log)
+		t.Fatalf("electing the lock half on a fully unlocked Room must emit one loud Note, got %+v", h.log)
 	}
 }
 

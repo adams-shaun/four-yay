@@ -17,16 +17,20 @@ func init() { Register("UnlockDoor", effUnlockDoor) }
 // event, whose Apply flips state.Object.Unlocked and whose event the existing
 // Mode$ UnlockDoor / Mode$ FullyUnlock trigger paths observe.
 //
-// `Mode$ Unlock` is the plain form (Ghostly Dancers, Ghostly Keybearer).
-// `Mode$ LockOrUnlock` is the Keys to the House / Marina Vendrell form whose
-// printed choice is lock OR unlock (CR 709.5f/709.5g). The engine's Room model
-// keeps a single `Unlocked` designation for the alternate half, on top of the
-// cast face that is unlocked from entry (CR 709.5d); at any state exactly one
-// of the two printed actions is representable -- a Room with a locked
-// alternate half can be unlocked, and only a fully unlocked Room could be
-// locked. Locking a half is NOT modelled: a LockOrUnlock instruction that
-// lands on a fully unlocked Room reports that loudly (one Note naming the
-// unimplemented half) rather than silently doing nothing.
+// `Mode$ Unlock` is the plain form (Ghostly Dancers, Ghostly Keybearer):
+// unlock a locked half.
+//
+// `Mode$ LockOrUnlock` is the printed lock OR unlock choice (Keys to the
+// House, Marina Vendrell, CR 709.5f/709.5g). It poses that choice to the
+// seat before doing anything, so the effect never silently takes one half.
+// The engine's Room model keeps a single `Unlocked` designation for the
+// alternate half, on top of the cast face that is unlocked from entry
+// (CR 709.5d); locking a half -- which can target the CAST face -- needs the
+// two independent left/right designations and is NOT modelled. A seat that
+// elects the lock half therefore gets a loud Note naming the unimplemented
+// half, never a silent unlock. (The state-model change is tracked by the
+// follow-up ticket "Rooms: Mode$ LockOrUnlock lock half (CR 709.5g) is not
+// modelled".)
 //
 // The candidate pool is the ability's explicit target (`ValidTgts$`) when it
 // was given one, otherwise the script's `Choices$` card pool, otherwise every
@@ -42,19 +46,36 @@ func effUnlockDoor(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 
+	pool, targeted := unlockDoorPool(h, c, sa)
+	if len(pool) == 0 {
+		// A LockOrUnlock ability that resolved with no Room to act on (a
+		// targetless resolution whose ValidTgts$ was never satisfied) has only
+		// the lock half left to consider; report rather than no-op silently.
+		if lockOrUnlock && targeted {
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+				Text: "UnlockDoor: Mode$ LockOrUnlock cannot lock a half in this model"})
+		}
+		return
+	}
+
+	if lockOrUnlock && !askUnlockDoorHalf(h, c, sa) {
+		// The seat elected the printed lock half (CR 709.5g), which the
+		// one-designation Room model cannot express. Loud, never a silent
+		// unlock of a door the player chose instead to lock.
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "UnlockDoor: Mode$ LockOrUnlock cannot lock a half in this model"})
+		return
+	}
+
 	var candidates []*state.Object
-	for _, o := range unlockDoorPool(h, c, sa) {
+	for _, o := range pool {
 		if roomHasLockedDoor(o, c.Controller) {
 			candidates = append(candidates, o)
 		}
 	}
 	if len(candidates) == 0 {
-		// A LockOrUnlock ability whose only target is fully unlocked has only
-		// the lock half of its printed choice left, which is not modelled.
-		if lockOrUnlock && len(c.Targets) != 0 {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-				Text: "UnlockDoor: Mode$ LockOrUnlock cannot lock a half in this model"})
-		}
+		// Every pooled Room is already fully unlocked, so there is no locked
+		// half to unlock. The chosen unlock half simply has no legal door.
 		return
 	}
 
@@ -92,14 +113,50 @@ func effUnlockDoor(h Host, c *Ctx, sa *cards.SA) {
 	}
 }
 
+// askUnlockDoorHalf poses the printed `Mode$ LockOrUnlock` choice (CR
+// 709.5f/709.5g) to the resolving player and reports whether the UNLOCK half
+// was elected. The option order is fixed -- index 0 unlocked, index 1 locked
+// -- so the R-9 no-answer stand-in (the productive unlock half) is option 0,
+// the same default every KChoose seat stand-in takes. A seat that elects the
+// lock half returns false; the caller reports the unimplemented half loudly.
+func askUnlockDoorHalf(h Host, c *Ctx, sa *cards.SA) bool {
+	d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Source: c.Source,
+		Min: 1, Max: 1, ResumeKind: "choice", ResumeSA: sa,
+		Prompt: "Lock or unlock a door?",
+		Options: []decision.Option{
+			{Index: 0, Kind: "unlock", Label: "Unlock a door", Player: c.Controller},
+			{Index: 1, Kind: "lock", Label: "Lock a door", Player: c.Controller},
+		}}
+	ans, ok := AskTape(h, d)
+	if !ok {
+		return true
+	}
+	return len(ans) == 0 || ans[0].Kind != "lock"
+}
+
 // unlockDoorPool is the candidate set before the "still has a locked door"
-// narrowing: the ability's chosen targets, else its Choices$ card pool, else
-// every battlefield permanent the resolving player controls.
-func unlockDoorPool(h Host, c *Ctx, sa *cards.SA) []*state.Object {
+// narrowing, plus whether the ability declared its own `ValidTgts$` targeting
+// (the flag the caller reports on when the pool comes back empty).
+//
+// A `ValidTgts$`-targeted ability's pool is EXACTLY the announcement/placement
+// ask's answer, never the Choices$/all-controlled fallbacks: a Min-0 chooser
+// that elected ZERO targets leaves Ctx.Targets empty (and, for a mid-
+// resolution pre-ask, Ctx.PickedTargets empty-but-non-nil), and falling
+// through to the wider pools would unlock a Room the player did NOT choose
+// (Ghostly Keybearer's `ValidTgts$ Room.YouCtrl | TargetMin$ 0 | TargetMax$ 1`).
+// Ctx.PickedTargets is the pre-ask's own set (the ONE home for that
+// precedence: effects/context.go Defined, effects/counters.go moveCounterChosen);
+// it outranks Ctx.Targets because Ctx.Targets is either the outer SA's
+// (CLOBBER-inherited) or empty.
+func unlockDoorPool(h Host, c *Ctx, sa *cards.SA) ([]*state.Object, bool) {
 	g := h.Game()
-	if len(c.Targets) != 0 {
-		out := make([]*state.Object, 0, len(c.Targets))
-		for _, t := range c.Targets {
+	if TargetsOf(sa).Targeted() || c.TargetsOffered || c.PickedTargets != nil {
+		ts := c.Targets
+		if c.PickedTargets != nil {
+			ts = c.PickedTargets
+		}
+		out := make([]*state.Object, 0, len(ts))
+		for _, t := range ts {
 			if t.IsPlayer {
 				continue
 			}
@@ -107,7 +164,7 @@ func unlockDoorPool(h Host, c *Ctx, sa *cards.SA) []*state.Object {
 				out = append(out, o)
 			}
 		}
-		return out
+		return out, true
 	}
 	if strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" {
 		choices := cardChoices(h, c, sa, c.Controller)
@@ -117,7 +174,7 @@ func unlockDoorPool(h Host, c *Ctx, sa *cards.SA) []*state.Object {
 				out = append(out, o)
 			}
 		}
-		return out
+		return out, false
 	}
 	out := make([]*state.Object, 0, len(g.Objs))
 	for i := range g.Objs {
@@ -126,7 +183,7 @@ func unlockDoorPool(h Host, c *Ctx, sa *cards.SA) []*state.Object {
 			out = append(out, o)
 		}
 	}
-	return out
+	return out, false
 }
 
 // doorUnlocked reports whether face fi of o carries an unlocked designation
@@ -162,6 +219,15 @@ func roomHasLockedDoor(o *state.Object, controller state.PlayerID) bool {
 // its cast face, a fully unlocked one both faces (CR 709.5j, "a door is a
 // half of a Room permanent"). distinct collapses the faces to their names, so
 // two fully unlocked copies of one Room count once.
+//
+// Oracle divergence (flagged for controller triage, not a code bug): XMage's
+// CentralElevatorPromisingStairs.UnlockedDoorNamesYouControlCount iterates
+// every Room you control and adds BOTH printed names regardless of lock
+// state, so it answers the number of door names among Rooms, not among
+// UNLOCKED doors. CR 709.5j's card text ("different names among unlocked
+// doors of Rooms you control") supports this reading -- gorge is likely
+// right and XMage wrong -- but a compliance scenario will show the gap and
+// the controller owns the xmage_wrong verdict (compliance/verdicts.go).
 func countUnlockedDoors(g *state.Game, p state.PlayerID, distinct bool) int32 {
 	var n int32
 	names := make(map[string]struct{})
