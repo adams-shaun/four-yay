@@ -18,6 +18,8 @@ func TestMustBlockUnimplementedSelectorFailsLoud(t *testing.T) {
 		{"ValidTgts": "Creature"},
 		{"ValidTgts": "Creature", "DefinedAttacker": "TriggeredAttacker", "TargetMin": "0"},
 		{"ValidTgts": "Creature", "DefinedAttacker": "TriggeredAttacker", "BlockAllDefined": "True"},
+		{"ValidTgts": "Player", "DefinedAttacker": "TriggeredAttacker", "Duration": "UntilEndOfCombat"},
+		{"ValidTgts": "Creature.OppCtrl,Player", "DefinedAttacker": "TriggeredAttacker", "Duration": "UntilEndOfCombat"},
 	} {
 		sa := &cards.SA{API: "MustBlock", Params: params}
 		if cards.MustBlockNamedTargetShape(sa) {
