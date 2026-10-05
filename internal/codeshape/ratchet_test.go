@@ -301,7 +301,7 @@ const (
 var longFuncCeilings = map[string]int{
 	"effects applyLibrarySearch":                            327,
 	"effects definedSpec":                                   949,
-	"effects effAttach":                                     466,
+	"effects effAttach":                                     465,
 	"effects effChangeZone":                                 613,
 	"effects effClone":                                      595,
 	"effects effCopyPermanent":                              823,
@@ -321,7 +321,7 @@ var longFuncCeilings = map[string]int{
 	"effects handMoveOwnersWalk":                            331,
 	"effects matchPositive":                                 442,
 	"effects refTargets":                                    321,
-	"effects wordMatches":                                   522,
+	"effects wordMatches":                                   516,
 	"rules (*Engine).appendAvailableManaAbilitiesGate":      375,
 	"rules (*Engine).applyReplacementsDispatch":             327,
 	"rules (*Engine).beginCastWith":                         723,
