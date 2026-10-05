@@ -320,6 +320,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
         // combat sub-actions), not just its final checkpoint.
         List<List<PlayerAction>> queuedA = new ArrayList<>();
         List<List<PlayerAction>> queuedB = new ArrayList<>();
+        List<List<String>> choicesA = new ArrayList<>();
+        List<List<String>> choicesB = new ArrayList<>();
+        List<List<String>> targetsA = new ArrayList<>();
+        List<List<String>> targetsB = new ArrayList<>();
         try {
             reset();
             skipInitShuffling();
@@ -343,6 +347,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
             for (int i = 0; i < steps.size(); i++) {
                 JsonObject st = steps.get(i).getAsJsonObject();
                 String op = str(st, "op");
+                int beforeChoicesA = playerA.getChoices().size();
+                int beforeChoicesB = playerB.getChoices().size();
+                int beforeTargetsA = playerA.getTargets().size();
+                int beforeTargetsB = playerB.getTargets().size();
                 if (i < xans.size() && xans.get(i).isJsonArray()) {
                     scripted(xans.get(i).getAsJsonArray());
                 }
@@ -353,6 +361,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 runCode(cp, TURN, phase, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
                 queuedA.add(new ArrayList<>(playerA.getActions().subList(beforeA, playerA.getActions().size())));
                 queuedB.add(new ArrayList<>(playerB.getActions().subList(beforeB, playerB.getActions().size())));
+                choicesA.add(new ArrayList<>(playerA.getChoices().subList(beforeChoicesA, playerA.getChoices().size())));
+                choicesB.add(new ArrayList<>(playerB.getChoices().subList(beforeChoicesB, playerB.getChoices().size())));
+                targetsA.add(new ArrayList<>(playerA.getTargets().subList(beforeTargetsA, playerA.getTargets().size())));
+                targetsB.add(new ArrayList<>(playerB.getTargets().subList(beforeTargetsB, playerB.getTargets().size())));
             }
             // Only EndTurn scenarios need the extended boundary. Ordinary
             // replays retain the original turn-1 stop and cannot encounter
@@ -367,7 +379,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
             if (endTurnScenario && unusedActionCount(msg) >= 0
                     && completedSteps >= 0 && completedSteps < stepCount
                     && currentGame != null && currentGame.getTurnNum() > TURN
-                    && skippedActionsMatch(completedSteps, queuedA, queuedB)) {
+                    && skippedActionsMatch(completedSteps, queuedA, queuedB)
+                    && skippedAnswersMatch(completedSteps, choicesA, choicesB, targetsA, targetsB)) {
                 // Only the actions for skipped steps remain. An unconsumed
                 // action from an earlier step is still a harness error. Record
                 // every skipped label from the post-turn state for alignment.
@@ -413,6 +426,29 @@ public class ScenarioReplay extends CardTestPlayerBase {
         // objects. Match the entire queue on both seats, not just its length.
         return ((TestPlayer) currentGame.getPlayer(playerA.getId())).getActions().equals(remainingA)
                 && ((TestPlayer) currentGame.getPlayer(playerB.getId())).getActions().equals(remainingB);
+    }
+
+    private boolean skippedAnswersMatch(int first, List<List<String>> choicesA, List<List<String>> choicesB,
+                                        List<List<String>> targetsA, List<List<String>> targetsB) {
+        TestPlayer actualA = (TestPlayer) currentGame.getPlayer(playerA.getId());
+        TestPlayer actualB = (TestPlayer) currentGame.getPlayer(playerB.getId());
+        // assertAllCommandsUsed checks actions first. Do not hide its failure
+        // if a completed step also left an unused choice or target behind.
+        return remainingIsSkipped(actualA.getChoices(), choicesA, first)
+                && remainingIsSkipped(actualB.getChoices(), choicesB, first)
+                && remainingIsSkipped(actualA.getTargets(), targetsA, first)
+                && remainingIsSkipped(actualB.getTargets(), targetsB, first);
+    }
+
+    private static <T> boolean remainingIsSkipped(List<T> actual, List<List<T>> queued, int first) {
+        if (first < 0 || first >= queued.size()) {
+            return false;
+        }
+        List<T> expected = new ArrayList<>();
+        for (int i = first; i < queued.size(); i++) {
+            expected.addAll(queued.get(i));
+        }
+        return actual.equals(expected);
     }
 
     private static int unusedActionCount(String message) {
