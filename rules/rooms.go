@@ -68,9 +68,9 @@ func isRoom(o *state.Object) bool {
 
 // checkUnlockTriggers queues the newly unlocked face's T:Mode$ UnlockDoor
 // triggers (CR 309.5's "when you unlock this door"). Only the DoorUnlock
-// event's own room is scanned; after Apply, Unlocked is true and the face whose
-// trigger fires is the one other than the face the Room was cast as.
-func (e *Engine) checkUnlockTriggers(ev events.Event) {
+// event's own room is scanned; the pre-fold LKI must designate the selected
+// face as locked and the post-fold state must designate it as unlocked.
+func (e *Engine) checkUnlockTriggers(ev events.Event, lki *state.Object) {
 	o := e.G.Obj(ev.Obj)
 	if o == nil || o.Zone != state.ZBattlefield || !isRoom(o) || len(o.Card.Faces) != 2 || int(o.FaceIdx) >= len(o.Card.Faces) {
 		return
@@ -79,7 +79,7 @@ func (e *Engine) checkUnlockTriggers(ev events.Event) {
 	if ev.Amount > 0 {
 		fi = int(ev.Amount - 1)
 	}
-	if fi < 0 || fi >= len(o.Card.Faces) || !o.DoorUnlocked(fi) {
+	if fi < 0 || fi >= len(o.Card.Faces) || lki == nil || lki.ID != ev.Obj || lki.DoorUnlocked(fi) || !o.DoorUnlocked(fi) {
 		return
 	}
 	e.queueUnlockTriggers(o, o.Card.Faces[fi])

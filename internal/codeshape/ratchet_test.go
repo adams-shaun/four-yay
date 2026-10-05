@@ -322,7 +322,7 @@ var longFuncCeilings = map[string]int{
 	"effects handMoveOwnersWalk":                            331,
 	"effects matchPositive":                                 442,
 	"effects refTargets":                                    321,
-	"effects wordMatches":                                   522,
+	"effects wordMatches":                                   516,
 	"rules (*Engine).appendAvailableManaAbilitiesGate":      375,
 	"rules (*Engine).applyReplacementsDispatch":             327,
 	"rules (*Engine).beginCastWith":                         723,

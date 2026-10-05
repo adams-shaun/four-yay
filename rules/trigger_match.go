@@ -935,7 +935,7 @@ func (e *Engine) checkTriggers(ev *events.Event, lki *state.Object,
 	// alternate face (FaceIdx 1), which the ordinary face scan above does
 	// not walk.
 	if ev.Kind == events.DoorUnlock {
-		e.checkUnlockTriggers(*ev)
+		e.checkUnlockTriggers(*ev, lki)
 	}
 	// Rooms (CR 709.5d/709.5h): the CAST face is given the unlocked
 	// designation as it enters, so its own "when you unlock this door"
