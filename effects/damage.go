@@ -56,14 +56,31 @@ func registerReplaceDying(h Host, c *Ctx, die string, damaged []state.Target) {
 		return
 	}
 	base, qualifier, _ := strings.Cut(die, ".")
-	if base != "Remembered" && base != "Targeted" {
+	if base != "Remembered" && base != "Targeted" && base != "ThisTargetedCard" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "unrecognised ReplaceDyingDefined$ " + die})
 		return
 	}
+	// ThisTargetedCard is the resolving ability's own chosen target set, not
+	// every permanent that happened to receive damage (notably in Fight and
+	// other batch emitters). Intersect it with the objects this API actually
+	// damaged so off-zone or otherwise unaffected targets cannot register.
+	var targeted map[state.ObjID]bool
+	if base == "ThisTargetedCard" {
+		chosen := c.Targets
+		if c.PickedTargets != nil {
+			chosen = c.PickedTargets
+		}
+		targeted = make(map[state.ObjID]bool, len(chosen))
+		for _, t := range chosen {
+			if !t.IsPlayer && t.Obj != 0 {
+				targeted[t.Obj] = true
+			}
+		}
+	}
 	var ids []state.ObjID
 	for _, t := range damaged {
-		if t.IsPlayer || t.Obj == 0 {
+		if t.IsPlayer || t.Obj == 0 || (targeted != nil && !targeted[t.Obj]) {
 			continue
 		}
 		if qualifier != "" && !MatchesSpecCtx(h.Game(), qualifier, t.Obj, c.SpecContext(c.Controller)) {
