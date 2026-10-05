@@ -14,6 +14,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -731,6 +732,11 @@ func replacementEventKind(ev events.Event) cards.ReplEvent {
 		// These match the marker events.TurnFaceUp that the morph-family
 		// special action and the SetState effect's turn-up arm emit.
 		return cards.ReplTurnFaceUp
+	case events.LifeChange:
+		if ev.Text == pay.PayLifeProposalText && ev.Amount > 0 {
+			return cards.ReplPayLife
+		}
+		return 0
 	default:
 		return 0
 	}

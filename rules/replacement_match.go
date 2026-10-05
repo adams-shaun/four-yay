@@ -373,27 +373,10 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
+	case cards.ReplPayLife:
+		return payLifeReplacementMatches(e, r, source, ev, you)
 	case cards.ReplGainLife:
-		if ev.Kind != events.LifeChange || ev.Amount <= 0 {
-			return false
-		}
-		if vp := strings.TrimSpace(r.ParamStr(cards.PKValidPlayer)); vp != "" {
-			if vp == "Player.IsRemembered" {
-				found := false
-				for _, p := range rememberedPlayers {
-					if p == ev.Player {
-						found = true
-						break
-					}
-				}
-				if !found {
-					return false
-				}
-			} else if !effects.MatchesPlayerSpec(e.G, vp, ev.Player, you) {
-				return false
-			}
-		}
-		return e.replacementConditionHolds(r, source, you)
+		return gainLifeReplacementMatches(e, r, source, ev, rememberedPlayers, you)
 	case cards.ReplDamageDone:
 		// A Damage event with a non-positive Amount is not damage being
 		// dealt: it is the cleanup step's CR 514.2 removal of marked damage

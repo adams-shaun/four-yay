@@ -55,6 +55,7 @@ type ChangeZoneAllParams struct {
 	// ChangeType$ ("Card" when absent) and ChangeNum$; ChangeNumCapped is a
 	// ChangeNum$ that names a cap (present, non-empty, not "All").
 	ChangeType      string
+	TypeLimit       ParamText
 	ChangeNum       ParamText
 	ChangeNumCapped bool
 
@@ -127,7 +128,7 @@ var changeZoneAllKnownKeys = [...]string{
 	"TargetsWithEqualToughness", "TargetsWithSameCardType",
 	"TargetsWithSameController", "TargetsWithSameCreatureType",
 	"TargetsWithSharedCardType", "TargetsWithSharedTypes", "TgtPrompt", "TgtZone",
-	"TokenScript", "Transformed", "TriggerDescription", "Type",
+	"TokenScript", "Transformed", "TriggerDescription", "Type", "TypeLimit",
 	"Ultimate", "Unearth", "UnlessAI", "UnlessCost", "UnlessPayer",
 	"UnlessResolveSubs", "UnlessSwitched", "UseAllOriginZones", "ValidCard",
 	"ValidCards", "ValidCardsDesc", "ValidChoices", "ValidCounterType",
@@ -191,6 +192,8 @@ func compileChangeZoneAll(sa *cards.SA, tp *TargetParams, dp *DefinedParams) *Ch
 	cn, cnOK := sa.Param(cards.PKChangeNum)
 	p.ChangeNum = paramText(cn, cnOK)
 	p.ChangeNumCapped = p.ChangeNum.Text != "" && !strings.EqualFold(p.ChangeNum.Text, "All")
+	typeLimit, typeLimitOK := sa.Param(cards.PKTypeLimit)
+	p.TypeLimit = paramText(typeLimit, typeLimitOK)
 
 	p.UseAllOriginZones = isTrue(sa.ParamStr(cards.PKUseAllOriginZones))
 	p.ValidTgtsText, p.Targeting = tp.ValidTgts, tp.Has(TgtValidPresent)

@@ -261,6 +261,7 @@ const (
 	PKTriggers
 	PKType
 	PKTypes
+	PKTypeLimit
 	PKUnattach
 	PKUnlessCost
 	PKUnlessPayer
@@ -1018,6 +1019,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKTriggers:                         "Triggers",
 	PKType:                             "Type",
 	PKTypes:                            "Types",
+	PKTypeLimit:                        "TypeLimit",
 	PKUnattach:                         "Unattach",
 	PKUnlessCost:                       "UnlessCost",
 	PKUnlessPayer:                      "UnlessPayer",
