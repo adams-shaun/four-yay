@@ -1680,6 +1680,17 @@ func (o *Object) Ephemeral() bool {
 		(o.IsToken && o.Zone != ZBattlefield) || o.Card == nil
 }
 
+// PreparedExileCopy reports whether this object is the exile copy CR 722.3c's
+// prepared grant minted: an IsCopy object whose PreparedSource still names a
+// permanent. Such a copy was created directly in exile (never on the stack)
+// and is castable from there, so it is the ONE off-stack copy that does not
+// cease to exist -- CR 707.10a's "a copy that leaves the stack ceases" has
+// not happened to it. Every consumer of the cease rule reads this single
+// predicate instead of re-deriving it from PreparedSource.
+func (o *Object) PreparedExileCopy() bool {
+	return o != nil && o.IsCopy && o.PreparedSource != 0
+}
+
 // HasPrepareSpell reports whether this object carries CR 722.2's prepare
 // spell: a preparation card (AlternateMode "Prepare") with an inset face.
 // The prepared designation can only be granted to such an object (CR

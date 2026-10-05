@@ -1357,7 +1357,10 @@ func (e *Engine) ceaseDeadTokens(tried *sbaAttempts) bool {
 		o := &e.G.Objs[i]
 		// The field test first: the attempt memory is only consulted for a
 		// token that would otherwise be ceased (the same set as before).
-		if (o.IsToken || o.IsCopy) && o.Zone != state.ZBattlefield && o.Zone != state.ZStack && o.Zone != state.ZCeased {
+		// CR 722.3c's prepared exile copy is excluded: it was minted directly
+		// in exile and is castable there, so it has not left the stack and
+		// does not cease.
+		if (o.IsToken || o.IsCopy) && !o.PreparedExileCopy() && o.Zone != state.ZBattlefield && o.Zone != state.ZStack && o.Zone != state.ZCeased {
 			if tried.tokens[o.ID] {
 				tried.skips++
 				continue
