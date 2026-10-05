@@ -448,6 +448,12 @@ func handleDrawReplacementAnswer(rc replChoice, index int, apply func(events.Eve
 	done()
 }
 
+func replacementAnswerInvalid(chosen []decision.Option, rc replChoice) bool {
+	damageKind := rc.kind == replChoiceDamage || rc.kind == replChoiceCounter
+	return len(chosen) == 0 || (damageKind && (chosen[0].Index < 0 || chosen[0].Index > len(rc.cands) ||
+		(chosen[0].Index == len(rc.cands) && !(rc.kind == replChoiceDamage && hasOptionalReplacement(rc.cands)))))
+}
+
 // handleReplacement applies an answered CR 616.1 order choice: the front
 // parked competition's chosen replacement is applied for real -- the SAME
 // applyReplacement a lone matching replacement would run -- and, if more
@@ -496,10 +502,8 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		return
 	}
 	damageKind := rc.kind == replChoiceDamage || rc.kind == replChoiceCounter
-	if len(chosen) == 0 || (damageKind && (chosen[0].Index < 0 || chosen[0].Index > len(rc.cands) ||
-		(chosen[0].Index == len(rc.cands) && !(rc.kind == replChoiceDamage && hasOptionalReplacement(rc.cands))))) {
-		e.emit(events.Event{Kind: events.Note, Player: in.Player,
-			Text: "replacement answer had no choice"})
+	if replacementAnswerInvalid(chosen, rc) {
+		e.emit(events.Event{Kind: events.Note, Player: in.Player, Text: "replacement answer had no choice"})
 		return
 	}
 	before := e.triggerBefore
@@ -508,7 +512,10 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		handleDrawReplacementAnswer(rc, chosen[0].Index, func(ev events.Event, m replMatch) { e.applyReplacement(ev, m) },
 			func(ev events.Event) { emitDeclinedDrawReplacement(e.emit, &e.applyingReplacement, ev) }, func() {
 				e.emit(events.Event{Kind: events.Note, Player: in.Player, Text: "draw replacement answer out of range"})
-			}, func() { e.triggerBefore = before; e.askNextReplacementChoice() })
+			}, func() {
+				e.triggerBefore = before
+				e.askNextReplacementChoice()
+			})
 		return
 	}
 	if damageKind {
