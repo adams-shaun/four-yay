@@ -30,6 +30,9 @@ func TestOracleAttachPrelude(t *testing.T) {
 	if attachStep < 0 || len(castTargets) != 1 || equipmentRef == "" {
 		t.Fatalf("steps missing attach or mandatory creature target: attach=%d targets=%q", attachStep, castTargets)
 	}
+	if attachStep >= 0 && item.Scenario.Steps[attachStep].AttachedTo != castTargets[0] {
+		t.Fatalf("attach bearer %q, want parent creature target %q", item.Scenario.Steps[attachStep].AttachedTo, castTargets[0])
+	}
 	if equipmentRef == castTargets[0] {
 		t.Fatalf("Equipment ref %q must differ from its creature bearer", equipmentRef)
 	}
