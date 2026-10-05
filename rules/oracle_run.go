@@ -29,6 +29,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
@@ -530,6 +531,15 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 	if kind, ok := oracleDecisionKind(d.Kind); ok {
 		od := OracleDecision{Step: r.step, Seat: int(d.Player), Kind: kind, Options: len(d.Options), Picks: labels,
 			PickIdx: append([]int{}, choices...), PickRefs: []string{}, Via: why, GorgeKind: string(d.Kind), Resume: d.ResumeKind, Min: d.Min, Max: d.Max}
+		if d.Kind == decision.KTarget && d.ResumeSA != nil && effects.TargetsOf(d.ResumeSA).Has(effects.TgtForEachPlayer) {
+			// TargetsForEachPlayer$ (CR 601.2c): XMage asks one target per
+			// player in seat order, so the generator answers per seat. Only
+			// this shape expands -- the sibling TargetsWithDifferentControllers$
+			// shares the wire's per-controller exclusivity but XMage does not
+			// pose it per player.
+			od.PerPlayer = true
+			od.SeatCount = len(r.e.G.Players)
+		}
 		if len(d.Options) > 0 {
 			od.First = d.Options[0].Label
 		}
