@@ -83,7 +83,7 @@ func Types(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.
 		}
 	}
 	if !anyLType {
-		return reconfigureTypeSwitch(o, bestowedTypeSwitch(o, base))
+		return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, base)))
 	}
 	// Copy-on-write: the printed list is copied only once an effect actually
 	// applies to this object (most objects are untouched by the layer-4
@@ -167,7 +167,7 @@ func Types(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.
 		// The copy of an empty list was nil; keep that exact value.
 		ty = nil
 	}
-	return reconfigureTypeSwitch(o, bestowedTypeSwitch(o, ty))
+	return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, ty)))
 }
 
 // landTypeWordsCache memoises CorpusLandTypeWords per universe, keyed by the
@@ -365,14 +365,41 @@ func reconfigureTypeSwitch(o *state.Object, types []string) []string {
 	if !o.ReconfiguredAttached() || (o.FaceDown && o.Zone == state.ZBattlefield) {
 		return types
 	}
+	return withoutCreature(types, false)
+}
+
+// withoutCreature drops Creature from a derived type list and, with
+// subtypes, every creature subtype too; other card types, their subtypes and
+// the supertypes remain. The shared strip behind the reconfigure and
+// impending switches.
+func withoutCreature(types []string, subtypes bool) []string {
 	out := make([]string, 0, len(types))
 	for _, t := range types {
-		if t == "Creature" {
+		if t == "Creature" || (subtypes && effects.CreatureTypeWords(t)) {
 			continue
 		}
 		out = append(out, t)
 	}
 	return out
+}
+
+// impendingTypeSwitch applies CR 702.176a's switch to a DERIVED type list: a
+// permanent cast for its impending cost is not a creature while it has a time
+// counter, so its creature subtypes are removed along with Creature. Subtypes
+// of retained card types (e.g. Equipment on an Artifact) remain. The positive
+// creature-subtype vocabulary avoids treating every non-card-type word as a
+// creature subtype (Saga, Forest, etc.). Other card types and supertypes remain.
+// An object not impending-dormant -- printed without Impending, cast for its
+// plain mana cost, or with its last time
+// counter removed -- keeps the list unchanged, returning the SAME slice so the
+// common game stays byte-identical and allocation-free. The dormancy is
+// derived live (state.Object.ImpendingDormant), so every replay derives the
+// switch identically.
+func impendingTypeSwitch(o *state.Object, types []string) []string {
+	if !o.ImpendingDormant() {
+		return types
+	}
+	return withoutCreature(types, true)
 }
 
 // cardTypeWords are the card types; supertypeWords the supertypes. Every

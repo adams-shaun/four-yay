@@ -364,8 +364,23 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	spec := cp.Defined
 	hasTgts := cp.HasTgts
 	populate := cp.Populate
+	// DefinedName$ selects the copy source as a CARD from the compiled
+	// universe rather than an object on the battlefield. Validate the name
+	// up front so an unresolvable one is a loud Note and no copy (the same
+	// stance the object-source errors take), and let the mint loop below
+	// branch on it.
+	definedName := cp.DefinedName
+	if definedName != "" && g.NamedCard(definedName) == nil {
+		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			Text: "CopyPermanent DefinedName$ " + definedName + " is not in the card universe; no copy"})
+		return
+	}
 	var targets []state.Target
 	switch {
+	case definedName != "":
+		// One virtual destination; the mint loop emits the name-carried
+		// CopyToken and the fold resolves the card.
+		targets = []state.Target{{}}
 	case populate && spec == "" && !hasTgts:
 		cands := DefinedSpec(h, c, "Valid Creature.token+YouCtrl")
 		if len(cands) > 1 {
@@ -786,15 +801,24 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	for d, destination := range destinations {
 		owner, t := destination.owner, destination.target
 		for i := int32(0); i < counts[d]; i++ {
-			if t.IsPlayer || g.Obj(t.Obj) == nil {
+			if t.IsPlayer || (definedName == "" && g.Obj(t.Obj) == nil) {
 				continue
 			}
 			// want is the ID the mint will get if Apply's CopyToken case
 			// actually mints one (state.Game.AddObject assigns NextID then
 			// increments it) -- the effToken/effMyriad prediction pattern.
 			want := g.NextID
-			h.Emit(events.Event{Kind: events.CopyToken, Obj: t.Obj, Player: owner,
-				Amount: amount, IDs: ids, Counter: atEOTTrigBody})
+			if definedName != "" {
+				// A named-card copy: the source is the card definition, so the
+				// event carries the name in Text and leaves Obj zero. The fold
+				// resolves it through the same state.Game.NamedCard the reach
+				// check above used.
+				h.Emit(events.Event{Kind: events.CopyToken, Obj: 0, Player: owner,
+					Amount: amount, IDs: ids, Counter: atEOTTrigBody, Text: definedName})
+			} else {
+				h.Emit(events.Event{Kind: events.CopyToken, Obj: t.Obj, Player: owner,
+					Amount: amount, IDs: ids, Counter: atEOTTrigBody})
+			}
 			if g.Obj(want) == nil {
 				continue
 			}

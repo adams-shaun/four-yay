@@ -18,6 +18,9 @@ import (
 // logging. Otherwise the event is logged and folded into state exactly as
 // before, and checkTriggers then looks for anything it just made true.
 func (e *Engine) emit(ev events.Event) events.Event {
+	if suppressSuspectedEvent(e, ev) {
+		return ev
+	} // CR 702.157
 	if bookkeepingKind(ev.Kind) && !e.applyingReplacement {
 		e.emitBookkeeping(&ev)
 		return ev
@@ -25,23 +28,10 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	if ev.Kind == events.EndTurn {
 		e.endTurnRequested = true
 	}
-	// Task 15 protection (CR 702.16d/e): a Damage event dealt to a
-	// protection-bearer by a source it is protected from is prevented -- the
-	// damage never happens, reported as a Note rather than silently dropped.
-	// Same for an Attach whose target is protected from the attachment -- CR
-	// 702.16e: attachment points defer to protection before an Equip/Enchant
-	// resolves onto a protected permanent. Both are checked BEFORE
-	// replacement substitution: prevention is unconditional and must not be
-	// handed to card text as if it had actually happened (and the recursive
-	// emit for the Note re-enters cleanly because a Note matches neither
-	// clause). The damage source is the published override when a
-	// DamageSource$ emitter set one, else e.damaging; a zero source (no
-	// source recorded) never suppresses a Damage event. A planeswalker's
-	// Damage event is protected exactly like any other now -- its CR 306.8
-	// loyalty conversion happens one fold later, in events.Apply, so a
-	// prevented hit converts nothing. stat:CantPreventDamage (Spider-Punk)
-	// overrides protection's own damage-prevention arm exactly like every
-	// other prevention path, so the same cantPreventDamage gate applies here.
+	// Task 15 (CR 702.16d/e): prevent protected Damage and Attach events before
+	// replacement, reporting prevention as a Note. Damage uses the published
+	// source (or e.damaging); zero means no source. This precedes planeswalker
+	// loyalty conversion, and CantPreventDamage bypasses the prevention gate.
 	if ev.Kind == events.Damage {
 		src := e.inFlightDamageSource()
 		protected := ev.Obj != 0 && e.protectedFrom(ev.Obj, src)
@@ -49,30 +39,17 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			protected = e.playerProtectedFrom(ev.Player, src)
 		}
 		if src != 0 && protected && !e.cantPreventDamage(src, ev.Obj) {
-			// Amount rides the stored Note (task dponce1): a prevention is a
-			// game action a triggered ability can see, and Mode$
-			// DamagePreventedOnce keys on these Notes' Amount.
+			// The stored Note carries Amount for DamagePreventedOnce triggers.
 			return e.emit(events.Event{Kind: events.Note, Obj: ev.Obj, Player: ev.Player,
 				Amount: ev.Amount, Text: "prevented: protection"})
 		}
 	}
 	if ev.Kind == events.Attach && ev.Obj != 0 && len(ev.IDs) > 0 &&
 		e.protectedFrom(ev.IDs[0], ev.Obj) {
-		// Task 15 fix round 1 (Important I1): this clause is defence-in-depth.
-		// Under the five registered colour protections there is NO reachable
-		// path that fires it -- askTarget withholds a coloured Aura from ever
-		// targeting a protected permanent (CR 702.16c) so no such Attach is
-		// ever offered to resolve, and for Equip the legalTargets fizzle in
-		// resolveTop fires first (the equipment's source is colourless, so a
-		// colour-protected permanent was never going to be non-legal by
-		// protection anyway). The clause stays because it is the engine's one
-		// guard for the moment a future task registers type or "everything"
-		// protection (or an Aura that enters the battlefield pre-attached, or
-		// any Attach emit produced without a targeting step) makes a actually
-		// protected permanent the direct object of an Attach; removing it now
-		// would silently re-open that hole. Do not test it by driving emit
-		// directly -- that would prove only that the if-lookup works, not that
-		// a game state reaches it.
+		// Defence in depth: current targeting rules make this unreachable, but
+		// future protection types, pre-attached Auras or Attach paths without a
+		// targeting step may reach it. Keep the guard central; tests must prove
+		// a reachable game state rather than calling emit directly.
 		return e.emit(events.Event{Kind: events.Note, Obj: ev.Obj, Text: "cannot attach: protected"})
 	}
 	if ev.Kind == events.Attach && ev.Obj != 0 && ev.Text == "attach to player" {

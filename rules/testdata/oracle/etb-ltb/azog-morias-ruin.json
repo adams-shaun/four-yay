@@ -1,0 +1,73 @@
+{
+  "card": "Azog, Moria's Ruin",
+  "family": "etb-ltb",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "849c0f362490",
+  "scenarios": [
+    {
+      "name": "destroys-opponent-creature-its-controller-amasses",
+      "cr": ["608.2b", "701.44a", "122.1"],
+      "why": "The ETB destroys another target creature; its controller amasses Goblins X where X is that creature's power. Destroying the opponent's 2/2 makes that player create a 0/0 Army and put two +1/+1 counters on it. Because Azog's controller did not control the destroyed creature, no card is drawn.",
+      "setup": {
+        "p0": {"hand": ["Azog, Moria's Ruin"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Azog, Moria's Ruin",
+          "mana": "BCC"
+        },
+        {"op": "resolve", "targets": ["p1:Grizzly Bears"]}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "graveyard"},
+        {"card": "p0:Azog, Moria's Ruin", "zone": "battlefield", "pt": "1/3"},
+        {"card": "p1:token:Army", "zone": "battlefield", "pt": "2/2"},
+        {"hand_size": {"p0": 0}}
+      ]
+    },
+    {
+      "name": "destroying-your-own-creature-draws-a-card",
+      "cr": ["608.2b", "701.44a", "121.1"],
+      "why": "If you controlled the destroyed creature, you draw a card in addition to amassing. Your own 2/2 dies, you create an Army and put two +1/+1 counters on it, and you draw.",
+      "setup": {
+        "p0": {
+          "hand": ["Azog, Moria's Ruin"],
+          "battlefield": ["Grizzly Bears"]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Azog, Moria's Ruin",
+          "mana": "BCC"
+        },
+        {"op": "resolve", "targets": ["p0:Grizzly Bears"]}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "graveyard"},
+        {"card": "p0:token:Army", "pt": "2/2"},
+        {"hand_size": {"p0": 1}}
+      ]
+    },
+    {
+      "name": "up-to-one-target-may-decline",
+      "cr": ["601.2c", "608.2b"],
+      "why": "'Up to one other target creature' is optional; with no other creature on the battlefield Azog simply resolves and no card is drawn.",
+      "setup": {
+        "p0": {"hand": ["Azog, Moria's Ruin"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Azog, Moria's Ruin", "mana": "BCC"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Azog, Moria's Ruin", "zone": "battlefield"},
+        {"hand_size": {"p0": 0}}
+      ]
+    }
+  ]
+}

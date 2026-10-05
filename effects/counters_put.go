@@ -45,6 +45,13 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	var kindsAns, kindAnswers []string
 
 	kind := pc.Kind
+	// CounterTypes$ (plural) entries this build does not model as a plain kind
+	// (ChosenFromList, EachType_*) are named loudly; the plain entries still
+	// place. One loud Note per resolution, never a silent drop.
+	if len(pc.SpecialTypes) > 0 {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			Text: "PutCounter CounterTypes$ " + strings.Join(pc.SpecialTypes, ", ") + " is not a counter-kind list this engine can place; those entries are skipped"})
+	}
 	if placer := pc.Placer; placer != "" {
 		if _, ok := putCounterPlacerFor(h, c, placer); !ok {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -257,8 +264,10 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 			// behaviour) silently dropped the whole instruction -- the corpus
 			// carries 156 player-targeted PutCounter lines.
 			if p := PlayerOf(h, c, t); int(p) >= 0 && int(p) < len(h.Game().Players) {
-				emitPutCounterChange(h, c, sa, events.Event{Kind: events.PlayerCounterChange, Player: p,
-					Counter: kind, Amount: n})
+				for _, k := range putCounterKindsFor(pc, kind) {
+					emitPutCounterChange(h, c, sa, events.Event{Kind: events.PlayerCounterChange, Player: p,
+						Counter: k, Amount: n})
+				}
 				if n > 0 && pc.RememberPut {
 					placed = append(placed, state.Target{Player: p, IsPlayer: true})
 				}
@@ -331,6 +340,12 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 			for _, chosenKind := range kindsAns {
 				emitPutCounterChange(h, c, sa, events.Event{Kind: events.CounterChange, Obj: o.ID, Counter: chosenKind, Amount: amount})
 			}
+		} else if len(pc.OneOfEach) > 0 {
+			// CounterTypes$: one counter of each listed kind (repeats
+			// accumulate), never a single default P1P1.
+			for _, k := range pc.OneOfEach {
+				emitPutCounterChange(h, c, sa, events.Event{Kind: events.CounterChange, Obj: o.ID, Counter: k, Amount: amount})
+			}
 		} else {
 			emitPutCounterChange(h, c, sa, events.Event{Kind: events.CounterChange, Obj: o.ID, Counter: kind, Amount: amount})
 		}
@@ -367,6 +382,17 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	rememberPlaced(c, sa, placed)
+}
+
+// putCounterKindsFor is the ONE home for "which counter kinds does this
+// PutCounter place on one recipient": a CounterTypes$ one-of-each list when
+// present, else the single resolved kind. The object and player placement
+// branches share it, so the two can never disagree.
+func putCounterKindsFor(pc *PutCounterParams, kind string) []string {
+	if len(pc.OneOfEach) > 0 {
+		return pc.OneOfEach
+	}
+	return []string{kind}
 }
 
 // putCounterEachFromSource runs the CounterType$ EachFromSource shape (task

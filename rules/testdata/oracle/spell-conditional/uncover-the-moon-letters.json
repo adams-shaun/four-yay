@@ -1,0 +1,70 @@
+{
+  "card": "Uncover the Moon-Letters",
+  "family": "spell-conditional",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "ebd513988d8c",
+  "scenarios": [
+    {
+      "name": "noncreature-spell-draws-mana-spent-then-discards-two",
+      "cr": [
+        "603.2",
+        "118.8",
+        "701.8a"
+      ],
+      "why": "Casting a noncreature spell (Lightning Bolt, one mana spent) lets you draw one card and then discard two.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Uncover the Moon-Letters"
+          ],
+          "hand": [
+            "Lightning Bolt",
+            "Grizzly Bears",
+            "Hill Giant"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Lightning Bolt",
+          "mana": "R",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Draw X cards"
+              ]
+            },
+            {
+              "kind": "any",
+              "pick": [
+                "p0:Grizzly Bears",
+                "p0:Hill Giant"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        },
+        {
+          "graveyard_size": {
+            "p0": 3
+          }
+        }
+      ]
+    }
+  ]
+}

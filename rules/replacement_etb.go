@@ -484,7 +484,7 @@ func (e *Engine) askAttachedType() bool {
 		return false
 	}
 	ch.stage = 1
-	opts := e.creatureTypeOptions(o.Controller)
+	opts := e.creatureTypeOptions(o.Controller, "", "")
 	if len(opts) <= 1 {
 		if len(opts) == 1 {
 			e.emit(events.Event{Kind: events.Choose, Obj: ch.source, Counter: "type", Text: opts[0].Label})

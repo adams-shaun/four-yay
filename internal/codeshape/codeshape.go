@@ -363,6 +363,10 @@ type Func struct {
 	Lines int    `json:"lines"` // end line - start line + 1
 }
 
+// CeilingKey is the function's longFuncCeilings key: "<dir> <Name>", the
+// file's directory and the receiver-qualified name ("rules (*Engine).payCast").
+func (f Func) CeilingKey() string { return path.Dir(f.File) + " " + f.Name }
+
 // Metrics is one measurement. The JSON names are the contract
 // scripts/reward_collect.py reads; extend, never rename.
 type Metrics struct {
@@ -525,6 +529,31 @@ type Metrics struct {
 	// (rules/pay/engine.go): the payment layer's whole view of the engine
 	// (W5 E7). Zero when the package is absent.
 	PayEngineMethods int `json:"pay_engine_methods"`
+	// EngineSurface counts, under rules/ (recursive, non-test), the *Engine
+	// methods plus the free functions with a *Engine parameter plus the
+	// methods of struct types holding a *Engine field: the reach of the
+	// engine that EngineMethods alone misses (sidedoor.go).
+	EngineSurface int `json:"engine_surface"`
+	// StringLiteralCompares counts ==/!= against a non-empty string literal
+	// plus strings.EqualFold calls with a literal argument: the if-chain
+	// spelling of the `case "X":` dispatch StringCaseLiterals counts.
+	StringLiteralCompares int `json:"string_literal_compares"`
+	// RawBoolParamParses counts strings.EqualFold calls whose argument holds
+	// a Param/ParamStr call: a parameter flag re-parsed at each use.
+	RawBoolParamParses int `json:"raw_bool_param_parses"`
+	// StringKeyedParamReads counts string literals passed at the key position
+	// of a string-keyed parameter helper: StringKeyedParamHelpers, found
+	// automatically as the functions whose string parameter indexes a
+	// <x>Params map (effects.Num and kin), closed over helpers forwarding
+	// their key to another helper. Each is listed "name/arity key args i,j".
+	StringKeyedParamReads   int      `json:"string_keyed_param_reads"`
+	StringKeyedParamHelpers []string `json:"string_keyed_param_helpers"`
+	// StrCodesTables counts the NewStrCodes / NewNameSet / NewStrTable call
+	// sites (cards/strtab.go, re-exported by state). StrCodesKeyDup is the sum
+	// over string keys of (distinct tables naming the key - 1): one word
+	// spread over several tables.
+	StrCodesTables int `json:"str_codes_tables"`
+	StrCodesKeyDup int `json:"str_codes_key_dup"`
 	// Files is how many non-test .go files were parsed.
 	Files int `json:"files"`
 	// LongFuncs lists every function counted by FuncsOver300, longest first
@@ -546,6 +575,7 @@ func Measure(root string) (Metrics, error) {
 	// assertedNames are the named types effects asserts to; the optional
 	// interfaces among them are counted once ifaces is complete.
 	var assertedNames []string
+	var parsed []parsedFile
 	for _, dir := range ScannedDirs {
 		files, err := goFiles(root, dir)
 		if err != nil {
@@ -558,6 +588,7 @@ func Measure(root string) (Metrics, error) {
 				return m, fmt.Errorf("codeshape: parse %s: %w", rel, err)
 			}
 			m.Files++
+			parsed = append(parsed, parsedFile{fset: fset, f: f, rel: rel, dir: dir})
 			inEffectsTop := dir == "effects" && strings.Count(rel, "/") == 1
 			if !isCtxConstructorFile(rel) {
 				countCtxLiterals(f, inEffectsTop, &m)
@@ -730,6 +761,7 @@ func Measure(root string) (Metrics, error) {
 		}
 	}
 	m.StringParamKeys = len(keys)
+	measureSideDoors(parsed, &m)
 	m.ChangeZoneParamLeaks, m.ChangeZoneLeaks = finishLeaks(m.ChangeZoneLeaks)
 	m.ChangeZoneAllParamLeaks, m.ChangeZoneAllLeaks = finishLeaks(m.ChangeZoneAllLeaks)
 	m.AttachParamLeaks, m.AttachLeaks = finishLeaks(m.AttachLeaks)

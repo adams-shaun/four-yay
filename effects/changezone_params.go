@@ -129,6 +129,10 @@ type ChangeZoneParams struct {
 	ChooseFromDefined string
 	AttachedTo        string
 	AttachedToPlayer  string
+	// ThisDefinedAndTgts$ adds the named extra objects (Self, TopOfLibrary,
+	// ParentTarget) to the ability's defined/target set (Suspend Aggression's
+	// "exile target nonland permanent AND the top card of your library").
+	ThisDefinedAndTgts string
 
 	// The filter and the count.
 	ChangeType         string // ChangeType$, "Card" when absent
@@ -221,9 +225,9 @@ var changeZoneKnownKeys = [...]string{
 	"CharacteristicDefining", "CheckSVar", "ChoiceOptional", "ChoiceTitle", "ChoiceZone",
 	"Choices", "ChooseFromDefined", "ChooseFromList", "Chooser", "ClassBand",
 	"ClearImprinted", "Condition", "ConditionActivationLimit", "ConditionCheckSVar",
-	"ConditionCompare", "ConditionDefined", "ConditionDescription",
+	"ConditionCompare", "ConditionCompare2", "ConditionDefined", "ConditionDescription",
 	"ConditionFirstCombat", "ConditionNotPresent", "ConditionPhases",
-	"ConditionPlayerTurn", "ConditionPresent", "ConditionSVarCompare", "CopyCard", "Cost",
+	"ConditionPlayerTurn", "ConditionPresent", "ConditionPresent2", "ConditionSVarCompare", "ConditionZone", "CopyCard", "Cost",
 	"CostDesc", "Defined", "DefinedCards",
 	"DefinedPlayer", "DefinedTarget", "Description", "DestAltSVar", "DestAltSVarCompare",
 	"Destination", "DestinationAlternative", "DifferentNames", "Duration",
@@ -238,7 +242,7 @@ var changeZoneKnownKeys = [...]string{
 	"NumDmg", "OpponentTurn", "Optional",
 	"OptionalPrompt", "Origin", "OriginAlternative", "Planeswalker", "PlayCost",
 	"PlayerTurn", "PowerUp", "PrecostDesc", "PresentCompare", "PresentDefined",
-	"PresentZone", "RandomNumTargets", "ReduceAmount", "ReduceCost", "RememberChanged", "RememberCostMana",
+	"PresentZone", "RandomNumTargets", "ReduceAmount", "ReduceCost", "RememberAnimated", "RememberChanged", "RememberCostMana",
 	"RememberLKI", "RememberObjects", "RememberSearched", "RememberTargets", "Reorder",
 	"ReplaceColor", "ReplaceGraveyard", "ReplaceGraveyardValid", "ReplaceMana",
 	"ReplaceOnly", "ReplaceType", "Reveal", "SVarCompare",
@@ -252,7 +256,7 @@ var changeZoneKnownKeys = [...]string{
 	"TargetsWithDifferentControllers", "TargetsWithDifferentNames",
 	"TargetsWithEqualToughness", "TargetsWithSameCardType", "TargetsWithSameController",
 	"TargetsWithSameCreatureType", "TargetsWithSharedCardType", "TargetsWithSharedTypes",
-	"TgtPrompt", "TgtZone", "TokenScript", "Transformed", "TriggerDescription",
+	"TgtPrompt", "TgtZone", "ThisDefinedAndTgts", "TokenScript", "Transformed", "TriggerDescription",
 	"Type", "Ultimate", "Unearth",
 	"Unimprint", "UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs",
 	"UnlessSwitched", "ValidCard", "ValidCards", "ValidCardsDesc", "ValidChoices",
@@ -435,6 +439,7 @@ func compileChangeZone(sa *cards.SA, tp *TargetParams, dr *DefinedParams) *Chang
 		p.handChooser = handChooserUnknown
 	}
 	p.ChooseFromDefined = strings.TrimSpace(sa.ParamStr(cards.PKChooseFromDefined))
+	p.ThisDefinedAndTgts = strings.TrimSpace(rawParamText(sa, "ThisDefinedAndTgts").Text)
 	p.AttachedTo = strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo))
 	p.AttachedToPlayer = strings.TrimSpace(sa.ParamStr(cards.PKAttachedToPlayer))
 

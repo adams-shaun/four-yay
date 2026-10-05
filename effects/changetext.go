@@ -83,7 +83,7 @@ func textChooserLabels(h Host, chooser state.PlayerID, token, forbidden string) 
 			labels = append(labels, strings.ToLower(cl.name))
 		}
 	case textChooserLabelsChooseCreatureType:
-		for _, o := range h.TypeChoices(chooser, "Creature") {
+		for _, o := range h.TypeChoices(chooser, "Creature", "", "") {
 			labels = append(labels, o.Label)
 		}
 	case textChooserLabelsChooseBasicLandType:

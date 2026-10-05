@@ -360,6 +360,9 @@ func (e *Engine) scanActiveStatics(mode string, out []staticView) []staticView {
 					continue
 				}
 				st := pst.Static
+				if isRoom(o) && pst.Face == o.Face() && !o.DoorUnlocked(int(o.FaceIdx)) {
+					continue
+				}
 				if st.Mode == mode {
 					if !goneRead {
 						if gone, goneRead = e.printedAbilitiesGone(o), true; gone {
@@ -523,7 +526,7 @@ func (e *Engine) assignmentStaticSpecCtx(sv staticView) effects.SpecContext {
 func init() {
 	effects.RegisterNonAPI("stat:CantBeCast", "stat:CantBeActivated", "stat:CantBeCopied", "stat:RaiseCost", "stat:CastWithFlash",
 		"stat:ReduceCost", "stat:AlternativeCost", "stat:OptionalCost", "stat:CantBlock", "stat:CantBlockBy",
-		"stat:CantGainLife", "stat:Continuous", "stat:ManaConvert", "stat:NumLoyaltyAct",
+		"stat:CantGainLife", "stat:CantPlayLand", "stat:Continuous", "stat:ManaConvert", "stat:NumLoyaltyAct",
 		// cantdraw1 / cantdraw-drawlimit-cap: CR 121.6 CantDraw statics
 		// (rules/replacement.go drawForbidden, consulted by applyReplacements
 		// before any Draw replacement). ValidPlayer$ scopes total prohibitions
@@ -608,6 +611,25 @@ func init() {
 		// checkExertTriggers); its IsPresent$ gate reuses the shared
 		// presentGate/countPresent grammar, whose filter now knows the
 		// notExertedThisTurn predicate (effects/filter.go).
+		// MustBlock: the CR 509.1a blocker's duty "this creature blocks this
+		// turn if able.", read by combat.MustBlockCandidates
+		// (rules/combat/block.go) through activeStatics("MustBlock") for a
+		// printed S: static and through a registered continuous restriction
+		// for the Effect-delivered `StaticAbilities$ MustBlock | ValidCreature$
+		// Card.IsRemembered` shape (Culvert Ambusher, Hustle // Bustle); the
+		// continuous path's ValidCreature$ scoping is resolved by
+		// restrictionApplies (rules/layers_restrict.go). Proof test:
+		// rules/mustblock_static_test.go.
+		"stat:MustBlock",
+		// NoCleanupDamage: the CR 514.2 exception "Damage isn't removed from
+		// this creature during cleanup steps." (Ancient Adamantoise). Read at
+		// the one removal site in the cleanup step's damage pass (rules/combat.go
+		// cleanupBody, activeStatics + ValidCard$ through the shared spec walk).
+		// Proof test: rules/nocleanupdamage_test.go.
+		"stat:NoCleanupDamage",
+		// Edgar's first coin flip each turn is forced heads. Both FlipCoin
+		// producers use effects.FlipCoinWin; events.Apply counts the results.
+		"stat:FlipCoinMod",
 		// asunblk1: the combat-damage assignment election (rules/combat.go
 		// asUnblockedNeeding / damageStep's chosenElection case, CR 509's
 		// optional "assign as though it weren't blocked"). Only the printed
@@ -629,6 +651,27 @@ func init() {
 		// ValidCard$/Condition$ are matched through the shared static walk).
 		// Proof test: rules/ignorelegendrule_test.go.
 		"stat:IgnoreLegendRule",
+		// IgnoreHexproof: the CR 702.11 targeting exemption (Nowhere to Run,
+		// Detection Tower, Glaring Spotlight, Kaya, Bane of the Dead). Read by
+		// Engine.ignoreHexproofApplies (rules/protection.go), consulted at the
+		// ONE hexproof gate hexproofBlocksTarget every targeting path flows
+		// through; ValidEntity$ selects the target and Activator$ scopes whose
+		// spells benefit. Proof test: rules/ignorehexproof_test.go.
+		"stat:IgnoreHexproof",
+		// ActivateAbilityAsIfHaste: the CR 302.6 {T}/{Q} activation exception
+		// (Shang-Chi, Master of Kung Fu; Dynaheir; Thousand-Year Elixir; Tyvar
+		// Kell). Read by activatesAsIfHaste (rules/activateasifhaste.go), a
+		// free function whose bool every {T}/{Q} cost site threads into
+		// pay.TapFlagsSick -- the ONE activation-sickness predicate -- so it
+		// lifts activation sickness only, never combat sickness.
+		// Proof test: rules/activateasifhaste_test.go.
+		"stat:ActivateAbilityAsIfHaste",
+		// CantBeSuspected: the CR 702.157 status prohibition (Airtight Alibi:
+		// `ValidCard$ Creature.EnchantedBy`). Read by cantBeSuspected
+		// (rules/cantbesuspected.go) at the emit mutation choke point, so every
+		// producer of the Suspected status observes the same prohibition.
+		// Proof test: rules/cantbesuspected_test.go.
+		"stat:CantBeSuspected",
 		// TapPowerValue: the Station/Crew/Saddle value static, read by the
 		// ONE value helper Engine.tapPowerValue (rules/statics.go) through
 		// tapPowerValueStatics/activeStatics("TapPowerValue"). Proof tests:

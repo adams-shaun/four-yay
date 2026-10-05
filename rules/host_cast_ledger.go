@@ -241,22 +241,16 @@ func (e *Engine) WasCastFromExile(obj state.ObjID) bool {
 	return ok && from == state.ZExile
 }
 
-// DiscardedInWindow satisfies effects.Host's DiscardedInWindow for the
-// ConditionDefined$ Discarded group's cost-discard channel (task
-// mordorparams1, Moria Scavenger's "If the discarded card was a creature
-// card"): the events.DiscardCost records of obj's own activation. The walk
-// itself (and the activation-window boundary rule) is costMovesInWindow's.
-func (e *Engine) DiscardedInWindow(obj state.ObjID) []state.ObjID {
-	return e.costMovesInWindow(obj, events.IsDiscardCost)
-}
-
-// ReturnedInWindow satisfies effects.Host's ReturnedInWindow: the
-// Return<N/Spec> cost parts obj's own activation paid (events.IsReturnCost),
-// enumerated over the same activation window DiscardedInWindow scans. It is
-// the ONE other user of costMovesInWindow, so a third cost-provenance window
-// (a new cost action marker) reuses the walk rather than copying it.
-func (e *Engine) ReturnedInWindow(obj state.ObjID) []state.ObjID {
-	return e.costMovesInWindow(obj, events.IsReturnCost)
+// CostMovesInWindow satisfies effects.Host's CostMovesInWindow: the cost
+// parts obj's own activation paid, selected by kind. It is the ONE channel
+// behind the ConditionDefined$ Discarded (CostMoveDiscard, Moria Scavenger's
+// "If the discarded card was a creature card"), Returned (CostMoveReturn,
+// Wonderscape Sage) and Collected (CostMoveEvidence, Analyze the Pollen's
+// "if evidence was collected, instead...") groups. The walk itself (and the
+// activation-window boundary rule) is costMovesInWindow's; a new cost kind
+// adds a row here rather than a new Host method.
+func (e *Engine) CostMovesInWindow(obj state.ObjID, k events.CostMoveKind) []state.ObjID {
+	return e.costMovesInWindow(obj, events.CostMoveMatcher(k))
 }
 
 // costMovesInWindow walks obj's activation window backward over the event log

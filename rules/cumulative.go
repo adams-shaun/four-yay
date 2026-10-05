@@ -91,6 +91,19 @@ type triggeredEffectCost struct {
 	// fail-closed default: a referent-bearing spec matches nothing and the
 	// cost is unpayable. A value struct, so the window clone carries it.
 	trig effects.TriggerContext
+	// costRemembered is the Remembered set this window's SVar and count
+	// evaluation must see WHILE THE COST IS PAID: the parked ability's own
+	// fire-time trigger capture, resolved through resolvingRemembered exactly
+	// as the resumed body will bind it. The TriggeredCard$ referent resolves
+	// through Ctx.Remembered (refTargets' refTargetsTriggeredCard arm), not
+	// Ctx.TriggerCard, so an SVar read while the cost is paid -- Uncover the
+	// Moon-Letters' X:TriggeredCard$CastTotalManaSpent through Cost$
+	// Draw<X/You> -- otherwise saw an empty set and counted zero. Bound once,
+	// at the window's creation, so the draw-count path and the fixed-X path
+	// share one encoding of which capture a triggered cost binds; the parked
+	// capture is stable for the window's life (runners only append to a
+	// body's Remembered during resolution, after the cost settles).
+	costRemembered []state.Target
 	// part is the cursor into the flat choice-bearing component list
 	// (triggeredMandatoryParts: Sac then Exile then Discard) a settle walks.
 	part int
@@ -433,9 +446,20 @@ func (e *Engine) startTriggeredEffectCost(rp *resumePoint, source state.ObjID) {
 	}
 	label := rp.sa.ParamStr(cards.PKCost)
 	amount := e.parseCost(label)
+	// Bind the trigger capture the window's SVar and count reads will see,
+	// once, at creation -- the only encoding of which capture a triggered
+	// cost binds: the parked ability's TriggeredCard capture, else the parked
+	// object's own resolution Remembered.
+	var remembered []state.Target
+	if captured := e.triggerContexts[rp.obj]; captured.TriggerCard != 0 {
+		remembered = []state.Target{{Obj: captured.TriggerCard}}
+	} else {
+		remembered = e.resolvingRemembered(o)
+	}
 	e.triggerCost = &triggeredEffectCost{resume: rp, source: source,
 		player: o.Controller, amount: amount, costLabel: costPhrase(amount),
-		mandatory: strings.HasPrefix(label, "Mandatory"), trig: e.triggerContexts[rp.obj]}
+		mandatory: strings.HasPrefix(label, "Mandatory"), trig: e.triggerContexts[rp.obj],
+		costRemembered: remembered}
 	if e.triggerCost.mandatory {
 		e.advanceTriggeredMandatory(e.triggerCost)
 		return
@@ -678,7 +702,7 @@ func (e *Engine) continueCumulativeAction() {
 		// cost-side flip fires "whenever you win/lose a coin flip" exactly
 		// like an effect-side one (Karplusan Minotaur).
 		for i := 0; i < total; i++ {
-			e.emit(effects.FlipCoinNote(cu.source, cu.player, e.Rand(2) == 0))
+			e.emit(effects.FlipCoinNote(cu.source, cu.player, effects.FlipCoinWin(e, cu.player)))
 		}
 		cu.actionRemaining = 0
 		e.finishCumulative()
@@ -748,14 +772,16 @@ func (e *Engine) triggeredCostDrawCounts(tc *triggeredEffectCost) ([]int32, bool
 	// like evalTriggerCostFixedX does, else the count fails closed and the
 	// window offers decline only.
 	var tcx *effects.TriggerContext
-	if t, ok := e.triggerContexts[tc.resume.obj]; ok {
+	if tc.trig.TriggerCard != 0 {
+		tcx = &tc.trig
+	} else if t, ok := e.triggerContexts[tc.resume.obj]; ok {
 		tcx = &t
 	}
 	for i, part := range tc.amount.Draw {
 		if _, ok := pay.CastFlowDrawPlayer(part.Spec, tc.player); !ok {
 			return nil, false
 		}
-		n, ok := pay.DrawCostCountTrig(asPayer(e), tc.source, tc.player, part, tcx)
+		n, ok := pay.DrawCostCountTrig(asPayer(e), tc.source, tc.player, part, tcx, tc.costRemembered)
 		if !ok {
 			return nil, false
 		}
@@ -777,6 +803,10 @@ func (e *Engine) evalTriggerCostFixedX(tc *triggeredEffectCost, o *state.Object,
 	if tcx, ok := e.triggerContexts[tc.resume.obj]; ok {
 		ctx.TriggerContext = tcx
 	}
+	// The TriggeredCard$ referent resolves through Ctx.Remembered
+	// (refTargets' refTargetsTriggeredCard arm), not Ctx.TriggerCard, so bind
+	// the parked trigger's own capture exactly as the resumed body will.
+	ctx.Remembered = tc.costRemembered
 	n, resolvable := effects.EvalCountOK(e, ctx, body)
 	if !resolvable || n < 0 {
 		return 0, false
@@ -1825,6 +1855,25 @@ func (e *Engine) settleTriggeredMandatory(tc *triggeredEffectCost) {
 	rp := tc.resume
 	e.triggerCost = nil
 	e.choosing = chooseNone
+	// Capture each settled sacrifice's LKI before the Sacrifice/MoveZone
+	// events clear its counters, keyed by the stack object the parked body
+	// resumes on. resumeResolution rebuilds the body's Ctx from
+	// e.sacrificedLKI[rp.obj] (the same channel the cast flow's cost
+	// sacrifices use), so a Cost$-bearing triggered body that reads
+	// Sacrificed$CardPower/CardToughness/CardManaCost prices what THIS
+	// window just sacrificed instead of an empty list (Rhovanion Rampager).
+	var sacrificedLKI []state.SacrificedInfo
+	for _, id := range tc.sacs {
+		if o := e.G.Obj(id); o != nil && o.Zone == state.ZBattlefield {
+			sacrificedLKI = append(sacrificedLKI, effects.SacrificedLKI(e, id))
+		}
+	}
+	if len(sacrificedLKI) > 0 {
+		if e.sacrificedLKI == nil {
+			e.sacrificedLKI = make(map[state.ObjID][]state.SacrificedInfo)
+		}
+		e.sacrificedLKI[rp.obj] = append(e.sacrificedLKI[rp.obj], sacrificedLKI...)
+	}
 	for _, id := range tc.sacs {
 		if o := e.G.Obj(id); o != nil && o.Zone == state.ZBattlefield {
 			e.emit(events.Sacrifice(id))

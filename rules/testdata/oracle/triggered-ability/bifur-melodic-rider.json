@@ -1,0 +1,99 @@
+{
+  "card": "Bifur, Melodic Rider",
+  "family": "triggered-ability",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "6199e6f33b7e",
+  "scenarios": [
+    {
+      "name": "enters-puts-counter-on-target-creature",
+      "cr": [
+        "603.2",
+        "122.1"
+      ],
+      "why": "The ETB trigger puts a +1/+1 counter on target creature; with no enduring story it triggers once.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Bifur, Melodic Rider"
+          ],
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Bifur, Melodic Rider",
+          "mana": "CCCCRW"
+        },
+        {
+          "op": "resolve",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Bifur, Melodic Rider",
+          "zone": "battlefield",
+          "pt": "4/5"
+        },
+        {
+          "card": "p0:Grizzly Bears",
+          "pt": "3/3",
+          "counters": {
+            "+1/+1": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "enduring-story-doubles-a-dwarf-trigger",
+      "cr": [
+        "603.2b",
+        "702.176a"
+      ],
+      "why": "With Thorin (a Storied legendary) and two artifacts you already have an enduring story before Bifur enters, so Bifur's own ETB ability (he is a Dwarf) triggers an additional time: two +1/+1 counters.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Bifur, Melodic Rider"
+          ],
+          "battlefield": [
+            "Thorin Oakenshield",
+            "Sol Ring",
+            "Mox Jet",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Bifur, Melodic Rider",
+          "mana": "CCCCRW"
+        },
+        {
+          "op": "resolve",
+          "targets": [
+            "p0:Grizzly Bears",
+            "p0:Grizzly Bears"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "counters": {
+            "+1/+1": 2
+          },
+          "pt": "4/4"
+        }
+      ]
+    }
+  ]
+}

@@ -231,11 +231,30 @@ func foldCopyToken(g *state.Game, e *Event) {
 	if !validPlayer(g, e.Player) {
 		return
 	}
-	src := g.Obj(e.Obj)
-	if src == nil || src.Card == nil {
-		return
+	// A DefinedName$ copy has no battlefield source object: Text names a
+	// card in the game's NameUniverse, resolved through the same
+	// state.Game.NamedCard the effect's reach check used. The named-card
+	// branch and the object branch share every line below, so the two mint
+	// identically.
+	var card *cards.Card
+	var faceIdx uint8
+	srcAtEOTTrigBody := ""
+	if e.Obj == 0 {
+		if e.Text == "" {
+			return
+		}
+		card = g.NamedCard(e.Text)
+		if card == nil {
+			return
+		}
+	} else {
+		src := g.Obj(e.Obj)
+		if src == nil || src.Card == nil {
+			return
+		}
+		card, faceIdx = src.Card, src.FaceIdx
+		srcAtEOTTrigBody = src.AtEOTTrigBody
 	}
-	card, faceIdx := src.Card, src.FaceIdx
 	o := g.AddObject(card, e.Player)
 	o.IsToken = true
 	o.IsCopy = true
@@ -243,10 +262,11 @@ func foldCopyToken(g *state.Game, e *Event) {
 	// AtEOTTrig$ is a copiable value (CR 707.2): the mint's own body when
 	// the copying spell carries one (Counter), else the source object's --
 	// a token copy of an AtEOTTrig$ token still sacrifices itself at the
-	// end step. See state.Object.AtEOTTrigBody.
+	// end step. See state.Object.AtEOTTrigBody. A named-card copy has no
+	// source object, so only the spell's own body applies.
 	o.AtEOTTrigBody = e.Counter
 	if o.AtEOTTrigBody == "" {
-		o.AtEOTTrigBody = src.AtEOTTrigBody
+		o.AtEOTTrigBody = srcAtEOTTrigBody
 	}
 	if e.Amount&CopyTokenTapped != 0 {
 		o.Tapped = true

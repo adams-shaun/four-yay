@@ -85,6 +85,13 @@ type PutCounterParams struct {
 	// RememberPut$ True, RememberCards$ True.
 	RememberPut   bool
 	RememberCards bool
+	// CounterTypes$ (plural, distinct from CounterType$): one counter of each
+	// listed kind. OneOfEach is its canonical list when every entry is a plain
+	// counter kind; SpecialTypes names entries this build does not model as a
+	// plain kind (ChosenFromList, EachType_*), named loudly at resolution.
+	CounterTypes string
+	OneOfEach    []string
+	SpecialTypes []string
 
 	// EntryFoldBlocked reports that the ability carries an asking or
 	// per-recipient modifier the entry-counter fold must leave to the
@@ -114,22 +121,22 @@ var putCounterKnownKeys = [...]string{
 	"Bolster", "ChangeTypeDesc", "CharacteristicDefining", "CheckSVar",
 	"ChoiceAmount", "ChoiceTitle", "ChoiceZone", "Choices", "ChooseDifferent",
 	"ChooseFromList", "Chooser", "ClassBand", "ClearImprinted", "Condition",
-	"ConditionActivationLimit", "ConditionCheckSVar", "ConditionCompare",
+	"ConditionActivationLimit", "ConditionCheckSVar", "ConditionCompare", "ConditionCompare2",
 	"ConditionDefined", "ConditionDescription", "ConditionFirstCombat",
 	"ConditionNotPresent", "ConditionPhases", "ConditionPlayerTurn",
-	"ConditionPresent", "ConditionSVarCompare", "CopyCard", "Cost", "CostDesc",
-	"CounterNum", "CounterNumPerDefined", "CounterType", "CounterTypePerDefined",
+	"ConditionPresent", "ConditionPresent2", "ConditionSVarCompare", "ConditionZone", "CopyCard", "Cost", "CostDesc",
+	"CounterNum", "CounterNumPerDefined", "CounterType", "CounterTypePerDefined", "CounterTypes",
 	"Defined", "DefinedCards", "DefinedTarget", "Description", "Divided",
 	"DividedAsYouChoose", "DividedRandomly", "ETB", "EachFromSource", "Exclude",
-	"Exhaust", "GameActivationLimit", "Image", "ImprintCards", "ImprintPlayed",
+	"Exhaust", "ForgetOtherTargets", "GameActivationLimit", "Image", "ImprintCards", "ImprintPlayed",
 	"InstantSpeed", "IsCurse", "IsPresent", "KW",
 	"Keyword", "KeywordLine", "MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor",
 	"MinChoiceAmount", "ModeCost", "Monstrosity", "NewController",
 	"NumDmg", "OpponentTurn", "Optional", "PerDefined",
 	"Placer", "Planeswalker", "PlayCost", "PlayerTurn", "PowerUp", "PrecostDesc",
 	"PresentCompare", "PresentDefined", "PresentZone", "RandomNumTargets", "RandomType", "ReduceAmount",
-	"ReduceCost", "RememberCards", "RememberCostMana", "RememberObjects",
-	"RememberPut", "Renown", "ReplaceColor", "ReplaceGraveyard",
+	"ReduceCost", "RememberAnimated", "RememberCards", "RememberCostMana", "RememberObjects",
+	"RememberPut", "RememberTargets", "Renown", "ReplaceColor", "ReplaceGraveyard",
 	"ReplaceGraveyardValid", "ReplaceMana", "ReplaceOnly", "ReplaceType",
 	"SVarCompare", "SelectPrompt", "SetChosenMode", "SetColor",
 	"ShowCards", "SorcerySpeed", "SpellDescription", "StackDescription",
@@ -215,6 +222,21 @@ func compilePutCounter(sa *cards.SA) *PutCounterParams {
 	}
 	kinds := splitCounterKinds(p.Kind)
 	p.Kinds = kinds[:len(kinds):len(kinds)]
+	// CounterTypes$ (plural) is a DIFFERENT key from CounterType$: one counter
+	// of each listed kind, accumulating repeats (Scavenged Brawler's four P1P1
+	// entries). An entry outside that grammar (ChosenFromList, EachType_*) is
+	// kept in SpecialTypes so the resolution names it loudly rather than
+	// silently dropping it.
+	p.CounterTypes = strings.TrimSpace(rawParamText(sa, "CounterTypes").Text)
+	if p.CounterTypes != "" {
+		for _, k := range splitCounterKinds(canonicalCounterKind(p.CounterTypes)) {
+			if strings.Contains(k, "_") || strings.EqualFold(k, "ChosenFromList") {
+				p.SpecialTypes = append(p.SpecialTypes, k)
+				continue
+			}
+			p.OneOfEach = append(p.OneOfEach, k)
+		}
+	}
 
 	p.Placer = strings.TrimSpace(sa.ParamStr(cards.PKPlacer))
 	optional, optionalOK := sa.Param(cards.PKOptional)

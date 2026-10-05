@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"$CARD gorge+[counters=STUN=1] xmage+[]"},"key":"cast-resolve | resolve | permanents | $CARD gorge+[counters=STUN=1] xmage+[]","cards":1}
-{"card":"Crimestopper Sprite","template":"cast-resolve","status":"diverge","api":"ChangesZone:Tap","sets":["MKM"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Crimestopper Sprite [creature detective faerie] {U} 2/2 tapped counters=STUN=1\", xmage \"c0 o0 Crimestopper Sprite [creature detective faerie] {U} 2/2 tapped\""}

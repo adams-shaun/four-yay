@@ -243,6 +243,12 @@ func Describe(g *state.Game, ev events.Event) string {
 			return obj(g, ev.Obj) + " crews a Vehicle"
 		}
 		return obj(g, ev.Obj) + " crews " + obj(g, ev.IDs[0])
+	case events.Saddle:
+		// CR 702.171: Obj is the creature that saddled, IDs[0] the Mount.
+		if len(ev.IDs) == 0 {
+			return obj(g, ev.Obj) + " saddles a Mount"
+		}
+		return obj(g, ev.Obj) + " saddles " + obj(g, ev.IDs[0])
 	case events.PlanarRoll:
 		// CR 901.3 (task rollplanar1): the roll record. The per-die faces ride
 		// the die-roll Notes rules emits beside this event; Amount > 1 names

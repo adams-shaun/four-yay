@@ -25,14 +25,14 @@ func TestNinjaTeenLevelThreeSneaksCreatureFromGraveyard(t *testing.T) {
 	e.Advance()
 	toMain1(t, e)
 	class := classMove(t, e, "Ninja Teen", state.ZBattlefield)
-	if got := e.G.Obj(class).Counter("LEVEL"); got != 1 {
+	if got := e.G.Obj(class).ClassLevel(); got != 1 {
 		t.Fatalf("precondition: Ninja Teen level=%d, want 1", got)
 	}
 	addMana(t, e, 0, "B")
 	classLevelUp(t, e, class, 0)
 	addMana(t, e, 0, "B")
 	classLevelUp(t, e, class, 1)
-	if got := e.G.Obj(class).Counter("LEVEL"); got != 3 {
+	if got := e.G.Obj(class).ClassLevel(); got != 3 {
 		t.Fatalf("precondition: Ninja Teen level=%d, want 3", got)
 	}
 

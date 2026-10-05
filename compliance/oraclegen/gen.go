@@ -16,6 +16,7 @@ package oraclegen
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -29,6 +30,7 @@ const xValue = 2
 // Seat is one player's setup.
 type Seat struct {
 	Battlefield []string `json:"battlefield,omitempty"`
+	Tapped      []string `json:"tapped,omitempty"`
 	Hand        []string `json:"hand,omitempty"`
 	Graveyard   []string `json:"graveyard,omitempty"`
 	Exile       []string `json:"exile,omitempty"`
@@ -58,7 +60,10 @@ type Scenario struct {
 	CR    []string        `json:"cr"`
 	Why   string          `json:"why"`
 	Setup map[string]Seat `json:"setup"`
-	Steps []Step          `json:"steps"`
+	// SetupAnswers answer decisions posed while the runner drives from
+	// genesis to turn 1 (a permanent's "may begin the game" ask).
+	SetupAnswers []Answer `json:"setup_answers,omitempty"`
+	Steps        []Step   `json:"steps"`
 }
 
 // Item is one pipeline line: the scenario plus its identity. The XMage
@@ -70,10 +75,16 @@ type Scenario struct {
 // both engines answer alike; a decision only one engine poses still shows
 // up, as an XMage harness error or a gorge leftover.
 type Item struct {
-	ID       string      `json:"id"`
-	Card     string      `json:"card"`
-	Template string      `json:"template"`
-	XAnswers [][]XAnswer `json:"xmage_answers,omitempty"`
+	ID       string `json:"id"`
+	Card     string `json:"card"`
+	Template string `json:"template"`
+	// XMageName is the card's spelling in XMage's card database when it
+	// differs from Card (the corpus spelling): Forge prints "Dáin Ironfoot",
+	// XMage stores "Dain Ironfoot". The XMage driver adds and casts the card
+	// under XMageName and rewrites its snapshots back to Card, so both sides
+	// name it alike. Empty means the two spellings are equal.
+	XMageName string      `json:"xmage_name,omitempty"`
+	XAnswers  [][]XAnswer `json:"xmage_answers,omitempty"`
 	// Ignore names snapshot fields the comparison leaves out for this
 	// scenario: library_top after the card shuffles a library.
 	Ignore []string `json:"ignore,omitempty"`
@@ -108,7 +119,7 @@ func mayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
 	out.Steps = append([]Step(nil), sc.Steps...)
 	changed := false
 	for _, d := range ds {
-		if d.Step < 0 || d.Step >= len(out.Steps) || len(d.PickIdx) > 0 || d.Options == 0 || d.First == "" ||
+		if d.Step < 0 || d.Step >= len(out.Steps) || d.Options == 0 || d.First == "" ||
 			d.Via == "target" || d.Via == "answer" || (d.GorgeKind != "choose" && d.GorgeKind != "target") {
 			continue
 		}
@@ -159,11 +170,7 @@ func chainSlots(f *cards.Face, svar string) []string {
 	for name := svar; name != ""; {
 		params := svarParams(f.SVars[name])
 		if v := params["ValidTgts"]; v != "" {
-			z := params["TgtZone"]
-			if z == "" && params["Origin"] != "" && !strings.Contains(params["Origin"], "Battlefield") {
-				z = params["Origin"]
-			}
-			if z != "" {
+			if z := targetZone(params, true); z != "" && !playerTargetHead(v) {
 				v += "@" + z
 			}
 			out = append(out, v)
@@ -171,6 +178,151 @@ func chainSlots(f *cards.Face, svar string) []string {
 		name = params["SubAbility"]
 	}
 	return out
+}
+
+// targetZone is the zone a target filter draws from: an explicit TgtZone$,
+// else a non-battlefield Origin$, else Stack for a slot that names a spell
+// or ability on the stack (TargetType$ Spell/SpellAbility/Activated/
+// Triggered, or ValidTgts$ with inZoneStack).
+//
+// charmMode selects the narrower stack rule a charm's SVar mode needs: a
+// mode whose ValidTgts$ also names a battlefield type (Icy Reception's
+// "creature or legendary spell", Theorix Charm's "noncreature card") keeps
+// its battlefield fixture, because the historical generator read it that
+// way and its verdict is pinned to the battlefield scenario. A top-level
+// Counter (Precise Redaction, Countersculpt) is routed before this by
+// targetsSpell, so its broader reading is unchanged.
+func targetZone(params map[string]string, charmMode bool) string {
+	if z := params["TgtZone"]; z != "" {
+		return z
+	}
+	if o := params["Origin"]; o != "" {
+		// An Origin$ that names the battlefield alone is the default zone
+		// and stays unsuffixed (no slot change for the common case); an
+		// Origin$ that adds Stack ("Battlefield,Stack") is kept so the
+		// slot records both alternatives.
+		if !strings.Contains(o, "Battlefield") || strings.Contains(o, "Stack") {
+			return o
+		}
+	}
+	if charmMode {
+		if charmModeTargetsStack(params) {
+			return "Stack"
+		}
+		return ""
+	}
+	if abilityTargetsStack(params) {
+		return "Stack"
+	}
+	return ""
+}
+
+// zoneNamesStack reports whether a TgtZone$ list names Stack (it may be a
+// comma-separated combo such as "Stack,Battlefield").
+func zoneNamesStack(z string) bool {
+	for _, part := range strings.Split(z, ",") {
+		if strings.EqualFold(strings.TrimSpace(part), "Stack") {
+			return true
+		}
+	}
+	return false
+}
+
+// abilityTargetsStack reports whether an ability's target is a spell or
+// ability on the stack, judged from its target vocabulary: a "Spell"-
+// family TargetType$, or a ValidTgts$ naming the inZoneStack zone. An
+// explicit non-stack zone (TgtZone$ / Origin$) wins, so a card targeting an
+// instant card in a graveyard is not mistaken for a stack target.
+func abilityTargetsStack(params map[string]string) bool {
+	if strings.Contains(params["ValidTgts"], "inZoneStack") {
+		return true
+	}
+	if params["TargetType"] == "" {
+		return false
+	}
+	for _, part := range strings.Split(params["TargetType"], ",") {
+		base := strings.SplitN(strings.TrimSpace(part), ".", 2)[0]
+		switch base {
+		case "Spell", "SpellAbility", "Activated", "Triggered", "Instant", "Sorcery":
+			return true
+		}
+	}
+	return false
+}
+
+// charmModeTargetsStack is abilityTargetsStack narrowed for a charm SVar
+// mode: an ability-type TargetType$ (SpellAbility/Activated/Triggered) is
+// always stack-only, but a Spell/Instant/Sorcery target is routed to the
+// stack only when its ValidTgts$ cannot be read as a battlefield permanent.
+// A mode whose ValidTgts$ names a battlefield base type (Creature, Card, ...)
+// keeps the battlefield fixture its committed verdict was generated for.
+func charmModeTargetsStack(params map[string]string) bool {
+	if strings.Contains(params["ValidTgts"], "inZoneStack") {
+		return true
+	}
+	if params["TargetType"] == "" {
+		return false
+	}
+	for _, part := range strings.Split(params["TargetType"], ",") {
+		base := strings.SplitN(strings.TrimSpace(part), ".", 2)[0]
+		switch base {
+		case "SpellAbility", "Activated", "Triggered":
+			return true
+		}
+	}
+	for _, part := range strings.Split(params["TargetType"], ",") {
+		base := strings.SplitN(strings.TrimSpace(part), ".", 2)[0]
+		switch base {
+		case "Spell", "Instant", "Sorcery":
+			return !validTgtsNamesBattlefield(params["ValidTgts"])
+		}
+	}
+	return false
+}
+
+// validTgtsBattlefieldBases are the ValidTgts$ base types that the
+// battlefield candidate table can serve. A filter that names any of them is
+// satisfiable on the battlefield, so a charm mode's Spell-family
+// TargetType$ on such a filter is not forced onto the stack.
+var validTgtsBattlefieldBases = map[string]bool{
+	"any": true, "creature": true, "player": true, "opponent": true,
+	"permanent": true, "card": true, "artifact": true, "enchantment": true,
+	"land": true, "planeswalker": true,
+}
+
+// validTgtsNamesBattlefield reports whether a ValidTgts$ filter names a
+// battlefield-card base type. An inZoneStack qualifier wins (the card is on
+// the stack), and only the first alternative is consulted -- the fixture
+// builder serves a filter from its first alternative's shape. An empty
+// filter names no type and is never battlefield-satisfiable here.
+func validTgtsNamesBattlefield(validTgts string) bool {
+	if strings.Contains(validTgts, "inZoneStack") {
+		return false
+	}
+	first := strings.SplitN(validTgts, ",", 2)[0]
+	base := strings.ToLower(strings.SplitN(strings.TrimSpace(first), ".", 2)[0])
+	return validTgtsBattlefieldBases[base]
+}
+
+// SlotIsStack reports whether a target filter (as TargetSlots/ChainSlots
+// encode it) draws only from the stack. A slot that also names a non-stack
+// zone ("Stack,Battlefield") is served by the ordinary fixture -- the
+// battlefield candidate -- so it is not a stack slot.
+func SlotIsStack(filter string) bool {
+	i := strings.LastIndexByte(filter, '@')
+	if i < 0 {
+		return false
+	}
+	z := filter[i+1:]
+	if !zoneNamesStack(z) {
+		return false
+	}
+	for _, part := range strings.Split(z, ",") {
+		if p := strings.TrimSpace(part); p != "" && !strings.EqualFold(p, "Stack") {
+			return false
+		}
+	}
+	return true
 }
 
 // NewItem names a template's scenario. The template's version is part of
@@ -255,7 +407,7 @@ func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) {
 			return 0, res, false
 		}
 		for _, f := range res.Fails {
-			if strings.HasPrefix(f, "step 0 ") || strings.Contains(f, "harness:") {
+			if strings.HasPrefix(f, "step ") || strings.Contains(f, "harness:") {
 				return 0, res, false
 			}
 		}
@@ -277,13 +429,22 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 			// A step's own targets reach XMage through castSpell.
 			continue
 		}
-		if d.Options <= 1 && d.Kind != "target" && d.Kind != "order" {
-			// A forced one-option ask: XMage does not pose it.
+		if d.Options <= 1 && d.Kind != "target" && d.Kind != "order" && !hasTargetPick(d) && !(d.Kind == "mode" && pickKind(d, 0) == "discard") {
+			// A forced one-option ask: XMage does not pose it. A forced
+			// target-kind pick is the exception -- one legal opponent is still
+			// a chooseTarget XMage asks for.
 			continue
 		}
 		var as []XAnswer
 		switch d.Kind {
 		case "target":
+			if d.Resume == "trig_sub" && d.Options == 1 && d.Min == 1 && d.Max == 1 {
+				// A CR 603.3d chain link's forced single target (Mechanical
+				// Mobster's "target creature you control" with only itself):
+				// XMage picks it without asking, so a scripted answer is left
+				// unused (measured on the std pass).
+				continue
+			}
 			for _, ref := range d.PickRefs {
 				v := ref
 				if !isSeat(ref) {
@@ -295,6 +456,17 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
 			}
 		case "mode":
+			if pickKind(d, 0) == "discard" {
+				// Gorge's discard card picker is KModes; XMage uses
+				// TargetDiscard.choose -> makeChoose (not chooseMode).
+				for _, ref := range d.PickRefs {
+					as = append(as, XAnswer{d.Seat, "choice", oraclediffRefName(ref)})
+				}
+				if d.Max > len(d.PickRefs) {
+					as = append(as, XAnswer{d.Seat, "choice", "[choice_skip]"})
+				}
+				break
+			}
 			// gorge offers only the modes with legal targets, so an option
 			// index is not the mode number; the label is.
 			for k, i := range d.PickIdx {
@@ -323,45 +495,107 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 				as = append(as, XAnswer{d.Seat, "choice", "X=" + strings.TrimPrefix(d.Picks[0], "X = ")})
 				break
 			}
+			if len(d.Picks) == 1 && pickKind(d, 0) == "number" {
+				if _, err := strconv.Atoi(d.Picks[0]); err == nil {
+					// "Choose a number": XMage's getAmount reads an "X=<n>"
+					// choice, exactly like announceX (TestPlayer.getAmount).
+					as = append(as, XAnswer{d.Seat, "choice", "X=" + d.Picks[0]})
+					break
+				}
+			}
 			if yn, ok := yesNo(d); ok {
 				as = append(as, XAnswer{d.Seat, "choice", yn})
 				break
 			}
-			for k, ref := range d.PickRefs {
-				label := ""
-				if k < len(d.Picks) {
-					label = d.Picks[k]
+			for k, label := range d.Picks {
+				switch xmQueue(pickKind(d, k), label) {
+				case "skip":
+					// XMage resolves this pick inside its computer player (a
+					// library search) or pays it from the pool (a mana-tapping
+					// cost); a scripted answer would only be an unused leftover.
+					continue
+				case "target":
+					v := label
+					if k < len(d.PickRefs) {
+						v = d.PickRefs[k]
+					}
+					if !isSeat(v) {
+						v = oraclediffRefName(v)
+					}
+					as = append(as, XAnswer{d.Seat, "target", v})
+					continue
 				}
-				// An option naming an object is a card pick (XMage: a
-				// target); one whose Obj is only the source is a labelled
-				// choice.
-				if name := oraclediffRefName(ref); ref != label && strings.HasPrefix(label, name) {
-					as = append(as, XAnswer{d.Seat, "target", name})
-				} else {
-					as = append(as, XAnswer{d.Seat, "choice", label})
+				// The choice queue: makeChoose shows the option's label, which
+				// for an unlabelled object pick is the object's name.
+				if label == "" && k < len(d.PickRefs) {
+					label = oraclediffRefName(d.PickRefs[k])
 				}
+				if colour, ok := manaColourLabel(label); ok {
+					label = colour
+				}
+				as = append(as, XAnswer{d.Seat, "choice", label})
 			}
-			if len(d.PickRefs) == 0 {
-				// Declined: XMage may ask it as a yes/no or as an "up to"
-				// pick; script both, a leftover is harmless.
+			switch {
+			case len(d.Picks) == 0:
+				// Declined: XMage may pose it as a yes/no or as an "up to"
+				// pick; script both (measured: Zimone's Experiment agrees
+				// only with this pair).
 				as = append(as, XAnswer{d.Seat, "choice", "no"}, XAnswer{d.Seat, "target", "[target_skip]"})
-			} else if d.Max > len(d.PickRefs) && len(as) > 0 && as[len(as)-1].Kind == "target" {
-				// Fewer than "up to N": stop XMage picking more.
+			case d.Max > len(d.Picks) && len(as) > 0 && as[len(as)-1].Kind == "target":
+				// Fewer than "up to N" on the target queue: stop XMage
+				// picking more.
 				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
+			case d.Max > len(d.Picks) && len(as) > 0:
+				// A short makeChoose; its queue has its own skip token.
+				as = append(as, XAnswer{d.Seat, "choice", "[choice_skip]"})
 			}
 		case "order":
-			// Scry/surveil (arrange): XMage asks which cards to move; keeping
-			// every card where it is is a skip.
-			if d.Via != "" && len(d.PickIdx) == d.Options {
-				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
+			if d.GorgeKind == "trigger_order" {
+				// chooseTriggeredAbility compares the choice against the ability's
+				// rule text (getRule) or its source's name, not gorge's
+				// "<Source>: <text>" label, so drop the source prefix here.
+				for _, label := range d.Picks {
+					as = append(as, XAnswer{d.Seat, "choice", triggerRule(label)})
+				}
+				break
+			}
+			// Arrange first asks which cards move; its follow-up ordering is
+			// also on XMage's choice queue. Keeping all cards is a choice skip.
+			if d.GorgeKind == "arrange" {
+				forcedOrder := d.Min == d.Max && d.Max == d.Options
+				if !forcedOrder && len(d.PickIdx) == d.Options {
+					// Keeping every card where it is: XMage's surveil/scry
+					// selection is a TargetCard on the target queue, and a
+					// skip dismisses it. Measured against XMage on the std
+					// pass (Refute Destiny, Proctor of Potential, ... -- 25
+					// cards that agree only with this answer); no ORDER
+					// answer follows, XMage keeps the cards in place.
+					as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
+					break
+				}
+				if !forcedOrder {
+					// A proper subset is selected on the choice queue,
+					// then choice_skip terminates that dialog.
+					for _, label := range d.Picks {
+						as = append(as, XAnswer{d.Seat, "choice", label})
+					}
+					as = append(as, XAnswer{d.Seat, "choice", "[choice_skip]"})
+				}
+				// The subsequent ORDER prompt consumes one choice for each
+				// kept card, in the order gorge selected them.
+				for _, label := range d.Picks {
+					as = append(as, XAnswer{d.Seat, "choice", label})
+				}
 			} else {
 				continue
 			}
 		default:
 			continue
 		}
-		out[d.Step] = append(out[d.Step], as...)
-		any = true
+		if len(as) > 0 {
+			out[d.Step] = append(out[d.Step], as...)
+			any = true
+		}
 	}
 	if !any {
 		return nil
@@ -398,25 +632,140 @@ func modeNumbers(f *cards.Face) map[string]int {
 	return out
 }
 
-// yesNo recognises a two-way "do it / don't" choice and returns XMage's
-// boolean answer for gorge's pick.
+// yesNo recognises a bare two-way boolean choice. The engine's option kind
+// and exact label/ref identity must both agree; composed choices such as
+// "Yes — discard" are ordinary makeChoose picks, not boolean answers. Older
+// snapshots without PickKinds use the same exact-label/ref rule.
 func yesNo(d rules.OracleDecision) (string, bool) {
-	if d.Options != 2 || len(d.Picks) != 1 || len(d.PickRefs) != 1 || isSeat(d.PickRefs[0]) ||
-		(d.PickRefs[0] != d.Picks[0] && strings.HasPrefix(d.Picks[0], oraclediffRefName(d.PickRefs[0]))) {
-		// Only a labelled two-way choice (its option may carry the source
-		// object); a player or card pick is not a yes/no.
+	if d.Options != 2 || len(d.Picks) != 1 || len(d.PickRefs) != 1 {
 		return "", false
 	}
-	l := strings.ToLower(d.Picks[0])
-	for _, neg := range []string{"do not", "don't", "no", "decline", "skip"} {
-		if strings.HasPrefix(l, neg) {
-			return "no", true
+	switch kind := pickKind(d, 0); kind {
+	case "yes", "no":
+		// The engine's own boolean option ("Yes — shuffle", a may
+		// trigger): XMage's chooseUse.
+		return kind, true
+	case "altaddcost", "gift_decline", "gift_promise", "primary":
+		// An optional additional cost, a gift promise and a two-way
+		// primary/secondary pick are chooseUse asks in XMage too
+		// (measured: Silence the Echo, Kitnap, Lost in Space agree only
+		// with a yes/no answer). Option 0 is the "do it" side.
+		l := strings.ToLower(d.Picks[0])
+		for _, neg := range []string{"do not", "don't", "no", "decline", "skip"} {
+			if strings.HasPrefix(l, neg) {
+				return "no", true
+			}
+		}
+		if len(d.PickIdx) == 1 && d.PickIdx[0] == 0 {
+			return "yes", true
+		}
+		return "no", true
+	case "":
+		// A snapshot without PickKinds: only an exact Yes/No label.
+		label := strings.ToLower(strings.TrimSpace(d.Picks[0]))
+		if d.Picks[0] == d.PickRefs[0] && (label == "yes" || label == "no") {
+			return label, true
 		}
 	}
-	if len(d.PickIdx) == 1 && d.PickIdx[0] == 0 && !strings.Contains(l, "(") {
-		return "yes", true
+	return "", false
+}
+
+// hasTargetPick reports whether any picked option reaches XMage's target
+// queue (a real TargetXxx), which XMage poses even when the engine offered
+// exactly one legal option.
+func hasTargetPick(d rules.OracleDecision) bool {
+	for k := range d.Picks {
+		switch pickKind(d, k) {
+		case "permanent", "player":
+			return true
+		}
+	}
+	return false
+}
+
+// pickKind is the engine option kind of the k-th pick. A snapshot written
+// before PickKinds existed returns "", which every caller treats as the
+// choice queue.
+func pickKind(d rules.OracleDecision, k int) string {
+	if k >= 0 && k < len(d.PickKinds) {
+		if d.Resume == "opp_pick" && d.PickKinds[k] == "player" {
+			// The TargetingPlayer$ Opponent flow's controller-facing
+			// which-opponent ask: XMage's ChoicePlayer, the choice queue.
+			return "opponent_choice"
+		}
+		return d.PickKinds[k]
+	}
+	return ""
+}
+
+// xmQueue says which TestPlayer queue an engine option kind reaches. The
+// choice queue is makeChoose/setChoice -- XMage's choose(Cards, TargetCard),
+// choose(Choice) and choose(ChoicePlayer) all land there. The target queue is
+// addTarget/chooseTarget, reached by a real TargetXxx. "skip" is for a pick
+// XMage never asks TestPlayer about: a library search (TestPlayer.searchLibrary
+// delegates to the computer player, exactly as doSurveil does) and a
+// mana-tapping cost (paid from the pool). The engine option kind, not the
+// label text, is the authority -- the mechanism the census test pins.
+func xmQueue(kind, label string) string {
+	switch kind {
+	case "search", "exilecost":
+		// A library search (TargetCardInLibrary) and an exile-from-graveyard
+		// cost (TargetCardInYourGraveyard) are answered from the target
+		// queue: measured on the std pass, 47 search carriers (Shared Roots,
+		// Nature's Rhythm, Solemn Simulacrum, ...) and Feed the Cycle /
+		// Soaring Stoneglider agree only with a target answer.
+		return "target"
+	case "trigger_cost_pay":
+		return "skip"
+	case "mana":
+		if _, ok := manaColourLabel(label); ok {
+			// A mana ability's "add one mana of any colour" pick is a real
+			// choice dialog; only a mana-tapping cost is paid silently.
+			return "choice"
+		}
+		return "skip"
+	case "permanent", "player":
+		return "target"
+	case "opponent_choice":
+		return "choice"
+	}
+	return "choice"
+}
+
+// triggerRule drops gorge's "<SourceName>: " prefix from a trigger-order
+// label: XMage's chooseTriggeredAbility compares its choice against the
+// ability's rule text (getRule), which carries no source prefix.
+func triggerRule(label string) string {
+	if i := strings.Index(label, ": "); i >= 0 {
+		return label[i+2:]
+	}
+	return label
+}
+
+// manaColourLabel maps gorge's "Add W" mana option to the colour name
+// XMage's colour chooser shows (its Choice key is "White", not "Add W").
+func manaColourLabel(label string) (string, bool) {
+	if strings.HasPrefix(label, "Add ") && len(label) == 5 {
+		return manaColour(label[4])
 	}
 	return "", false
+}
+
+func manaColour(code byte) (string, bool) {
+	switch code {
+	case 'W':
+		return "White", true
+	case 'U':
+		return "Blue", true
+	case 'B':
+		return "Black", true
+	case 'R':
+		return "Red", true
+	case 'G':
+		return "Green", true
+	default:
+		return "", false
+	}
 }
 
 func payment(picks []string) bool {
@@ -503,6 +852,29 @@ func poolFor(cost string) (string, string) {
 	return b.String(), ""
 }
 
+// playerTargetHead reports whether a ValidTgts$ filter names a player rather
+// than a card. A zone qualifier (Origin$/TgtZone$) describes where an effect
+// finds its cards, so it must never be appended to a player target: doing so
+// turned "Opponent" into "Opponent@Hand" (Cruelclaw's Heist, Ruthless
+// Negotiation, Soul Search, Aggressive Negotiations), which no fixture can
+// satisfy. The head is the first comma-separated alternative before its first
+// '.' predicate.
+func playerTargetHead(filter string) bool {
+	head := strings.ToLower(strings.SplitN(strings.Split(filter, ",")[0], ".", 2)[0])
+	return head == "player" || head == "opponent"
+}
+
+// openingHandAnswers declines the "you may begin the game with this card" ask
+// for a K:MayEffectFromOpeningHand card. The runner's setup fallback otherwise
+// takes option 0 ("Yes"), which starts the card on the battlefield and makes
+// the later cast step "not offered"; the scenario wants the card in hand.
+func openingHandAnswers(f *cards.Face) []Answer {
+	if _, ok := f.KeywordParam("MayEffectFromOpeningHand"); ok {
+		return []Answer{{Kind: "choose", Pick: []string{"no"}}}
+	}
+	return nil
+}
+
 // targetSlots lists the ValidTgts$ filters along the card's spell ability
 // chain (permanent spells have none), in the order the cast asks for them.
 func targetSlots(f *cards.Face) []string {
@@ -512,11 +884,7 @@ func targetSlots(f *cards.Face) []string {
 		if v == "" {
 			return
 		}
-		z := params["TgtZone"]
-		if z == "" && params["Origin"] != "" && !strings.Contains(params["Origin"], "Battlefield") {
-			z = params["Origin"]
-		}
-		if z != "" {
+		if z := targetZone(params, false); z != "" && !playerTargetHead(v) {
 			v += "@" + z
 		}
 		out = append(out, v)
@@ -543,6 +911,32 @@ func targetSlots(f *cards.Face) []string {
 		break
 	}
 	return out
+}
+
+// FaceHasFixture reports whether the static fixture builder can satisfy every
+// target the card's cast demands: each slot has at least one candidate (a
+// stack-only slot is coverable by a precast spell). The second return names
+// the first unsatisfiable slot, for the census. This is a static scan -- it
+// runs no game -- so the census ratchet can scan the whole corpus.
+func FaceHasFixture(f *cards.Face) (bool, string) {
+	plans := [][]string{targetSlots(f)}
+	if modes := charmModes(f); len(modes) > 0 {
+		plans = nil
+		for _, m := range modes {
+			plans = append(plans, chainSlots(f, m.svar))
+		}
+	}
+	for _, slots := range plans {
+		for _, s := range slots {
+			if SlotIsStack(s) {
+				continue
+			}
+			if len(candidatesFor(s)) == 0 {
+				return false, s
+			}
+		}
+	}
+	return true, ""
 }
 
 // svarParams splits an SVar ability body ("DB$ Pump | ValidTgts$ ...")
@@ -575,7 +969,13 @@ func candidatesFor(filter string) []cand {
 		filter, zone = filter[:i], strings.ToLower(filter[i+1:])
 	}
 	if zone != "" && zone != "battlefield" {
-		return zoneCandidates(filter, zone)
+		if strings.Contains(zone, "battlefield") {
+			// A mixed zone (Stack,Battlefield, or Origin$ Battlefield,Stack)
+			// is served on the battlefield.
+			zone = ""
+		} else {
+			return zoneCandidates(filter, zone)
+		}
 	}
 	alt := strings.Split(filter, ",")
 	base := strings.ToLower(strings.SplitN(alt[0], ".", 2)[0])
@@ -695,7 +1095,7 @@ func fixtures(slots []string) []fixture {
 
 func clone(s Seat) Seat {
 	return Seat{
-		Battlefield: append([]string(nil), s.Battlefield...), Hand: append([]string(nil), s.Hand...),
+		Battlefield: append([]string(nil), s.Battlefield...), Tapped: append([]string(nil), s.Tapped...), Hand: append([]string(nil), s.Hand...),
 		Graveyard: append([]string(nil), s.Graveyard...), Exile: append([]string(nil), s.Exile...),
 		Library: append([]string(nil), s.Library...), LibraryTop: append([]string(nil), s.LibraryTop...),
 	}

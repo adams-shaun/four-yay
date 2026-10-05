@@ -53,10 +53,10 @@ func TestSorinDestroyRememberTargetsReturnsDestroyedPermanents(t *testing.T) {
 	}
 }
 
-// TestSorinDestroyRememberTargetsExcludesReplacedMoves pins the replacement
-// boundary: a destroy redirected to exile was not actually put into a
-// graveyard and must therefore not be returned by Sorin's follower.
-func TestSorinDestroyRememberTargetsExcludesReplacedMoves(t *testing.T) {
+// TestSorinDestroyRememberTargetsIncludesReplacedMoves pins the chosen-target
+// boundary: even when a destruction is redirected to exile, the chosen target
+// is remembered (Forge's handleRemembering is API-independent).
+func TestSorinDestroyRememberTargetsIncludesReplacedMoves(t *testing.T) {
 	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	sorin := choiceCorpusCard(t, "Sorin, Lord of Innistrad")
@@ -75,7 +75,10 @@ func TestSorinDestroyRememberTargetsExcludesReplacedMoves(t *testing.T) {
 	if e.G.Obj(target).Zone != state.ZExile {
 		t.Fatalf("destroy replacement left target in %v, want exile", e.G.Obj(target).Zone)
 	}
-	if len(ctx.Remembered) != 0 {
-		t.Fatalf("replaced target was remembered: %#v", ctx.Remembered)
+	if len(ctx.Remembered) != 1 || ctx.Remembered[0].Obj != target {
+		t.Fatalf("replaced target not remembered: %#v", ctx.Remembered)
+	}
+	if mem := e.G.Obj(sorinID).Remembered; len(mem) != 1 || mem[0].Obj != target {
+		t.Fatalf("source did not persist chosen target: %#v", mem)
 	}
 }

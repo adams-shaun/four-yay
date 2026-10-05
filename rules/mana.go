@@ -208,6 +208,24 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	if mods.Waterbend != 0 || mods.WaterbendPartX != 0 {
 		mods = e.withWaterbendOfferCredit(p, id, base.XMin, mods)
 	}
+	// Heirloom Epic's ability replaces generic mana with elected creature taps.
+	// Offer only a conservative bound: never count a creature also relied on as
+	// a mana ability by the ordinary pool/window feasibility probe. The real
+	// cost is unchanged; the selected contributions are charged at payment.
+	if pay.TapCreaturesForMana(scope.Ab) && base.Generic > 0 {
+		var credit int32
+		for _, oid := range pay.CreatureManaCandidates(e.G, p, id, base.Tap) {
+			if !e.untappedManaSource(p, oid) {
+				credit++
+			}
+		}
+		if credit > base.Generic {
+			credit = base.Generic
+		}
+		if credit > 0 {
+			mods.Reduces = append(append([]costMod(nil), mods.Reduces...), costMod{Generic: credit})
+		}
+	}
 	tax := int32(0)
 	if scope.Kind != "Ability" && scope.Kind != "Foretell" && scope.Kind != "Static" {
 		tax = e.commanderTaxAmount(p, id)

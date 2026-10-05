@@ -210,9 +210,9 @@ func (w *legalWalk) mayPlaySpellWalk() {
 		if off.key == "" && blitz {
 			if bc, ok := keywordAltCost(f, "Blitz"); ok &&
 				e.castTargetsAvailable(p, id, f.SpellAbility()) &&
-				w.offerCastable(p, id, bc, spellScope("blitzed"), false) {
+				w.offerCastable(p, id, bc, spellScope(altMode(altBlitz)), false) {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
-					Label: "Cast " + f.Name + " (blitzed)", Obj: id, Mode: "blitzed"})
+					Label: "Cast " + f.Name + " (" + altMode(altBlitz) + ")", Obj: id, Mode: altMode(altBlitz)})
 			}
 		}
 	}
@@ -268,11 +268,13 @@ func (w *legalWalk) commandZoneWalk() {
 		// costs such as commander tax (CR 118.9d, 903.8). Dash and the other
 		// cast alternatives therefore remain available from the command zone;
 		// offerCostFor applies the same tax beginCast later charges.
-		for _, ka := range [...]struct{ mode, head string }{
-			{"evoked", "Evoke"}, {"dashed", "Dash"}, {"overloaded", "Overload"},
-		} {
-			alt, ok := keywordAltCost(f, ka.head)
-			if !ok || (ka.mode != "overloaded" && !targetsAvailable) ||
+		for i := range altCastModes {
+			ka := &altCastModes[i]
+			if !ka.cmdLoop {
+				continue
+			}
+			alt, ok := ka.faceCost(f)
+			if !ok || (!ka.untargeted && !targetsAvailable) ||
 				!w.offerCastable(p, id, alt, spellScope(ka.mode), false) {
 				continue
 			}
@@ -283,9 +285,9 @@ func (w *legalWalk) commandZoneWalk() {
 		// kestia_the_cultivator's shape): the same synthesized-attach-SA gate
 		// the hand walk applies.
 		if ba, ok := bestowCost(f); ok && e.castTargetsAvailable(p, id, bestowedAttachSA()) &&
-			w.offerCastable(p, id, ba, spellScope("bestowed"), false) {
+			w.offerCastable(p, id, ba, spellScope(altMode(altBestow)), false) {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
-				Label: "Cast " + f.Name + " (bestowed)", Obj: id, Mode: "bestowed"})
+				Label: "Cast " + f.Name + " (" + altMode(altBestow) + ")", Obj: id, Mode: altMode(altBestow)})
 		}
 		// Mutate (CR 702.140a), the command-zone half (a commander printed
 		// with mutate may be cast for its mutate cost, CR 903.3d): the same
@@ -481,9 +483,9 @@ func (w *legalWalk) graveyardCastsOver(grave []state.ObjID) {
 		if !e.castTargetsAvailable(p, id, f.SpellAbility()) {
 			continue
 		}
-		if w.offerCastable(p, id, wc, spellScope("warped"), false) {
+		if w.offerCastable(p, id, wc, spellScope(altMode(altWarp)), false) {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
-				Label: "Cast " + f.Name + " (warped)", Obj: id, Mode: "warped"})
+				Label: "Cast " + f.Name + " (" + altMode(altWarp) + ")", Obj: id, Mode: altMode(altWarp)})
 		}
 	}
 

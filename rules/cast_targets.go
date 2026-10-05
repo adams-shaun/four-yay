@@ -26,6 +26,18 @@ func modeIsKicked(mode string) bool {
 // modeFlags maps a pendingCast.mode to the CastInfo Counter string
 // (events.FlagsString of the matching CastFlags bit), "" for a plain cast.
 func modeFlags(mode string) string {
+	if m := altCastFor(mode); m != nil {
+		// The alternative-cost keyword family (rules/altcast_modes.go): the
+		// row's flag is what the ETB machinery reads (altCostEnter: evoke's
+		// sacrifice, dash's haste + return, blitz's riders, warp's exile,
+		// impending's counters; resolveTop's bestow substitution). Blitz,
+		// warp and impending are CastProvenanceFlags, so a stack copy does
+		// not inherit them. A row without a flag (madness) records nothing.
+		if m.flag == 0 {
+			return ""
+		}
+		return events.FlagsString(m.flag)
+	}
 	switch modeFlagsCodes.Code(string(mode)) {
 	case modeFlagsKicked:
 		return events.FlagsString(state.FlagKicked)
@@ -65,26 +77,8 @@ func modeFlags(mode string) string {
 		return events.FlagsString(state.FlagFused)
 	case modeFlagsMiracle:
 		return events.FlagsString(state.FlagMiracle)
-	// The alternative-cost keyword family: the flag is what the ETB machinery
-	// (evoke's sacrifice trigger, dash's haste + delayed return, warp's
-	// delayed exile) and the warp recast offer read.
 	case modeFlagsEscape:
 		return events.FlagsString(state.FlagEscaped)
-	case modeFlagsEvoked:
-		return events.FlagsString(state.FlagEvoked)
-	case modeFlagsDashed:
-		return events.FlagsString(state.FlagDashed)
-	// Blitz (CR 702.152a): the flag is what the ETB machinery
-	// (altCostEnter -> blitzEnter) reads for the haste grant, the dies-draw
-	// granted trigger and the next-end-step sacrifice. It is a
-	// CastProvenanceFlag (state/object.go), so a stack copy does not inherit
-	// it.
-	case modeFlagsBlitzed:
-		return events.FlagsString(state.FlagBlitzed)
-	case modeFlagsOverloaded:
-		return events.FlagsString(state.FlagOverloaded)
-	case modeFlagsWarped:
-		return events.FlagsString(state.FlagWarped)
 	// The Adventure spell face's cast (CR 714.3a): the flag is what the
 	// resolution reader (spellRestZone) uses to exile the spell into the
 	// adventure zone instead of the graveyard. adventure_recast deliberately
@@ -148,11 +142,6 @@ func modeFlags(mode string) string {
 	// this switch is reached.
 	case modeFlagsSneak:
 		return events.FlagsString(state.FlagSneaked)
-	// Bestow (CR 702.114a): the flag is the provenance the resolution
-	// reader (resolveTop) uses to substitute the synthesized Aura attach
-	// spell, and what keeps a bestowed cast distinguishable on the wire.
-	case modeFlagsBestowed:
-		return events.FlagsString(state.FlagBestowed)
 	// Mutate (CR 702.140a): the flag is the provenance the resolution reader
 	// uses to merge the spell into its target. modeFlags maps "mutated" to
 	// the bare flag; payCast ORs FlagMutatedTop in when the answered placement
@@ -365,7 +354,7 @@ func (e *Engine) targetAsk() bool {
 	// announcement time: the current matching set is derived at resolution,
 	// so permanents entering or changing controller in response are handled.
 	// No target decision/event is emitted and zero objects is legal.
-	if pc.mode == "overloaded" {
+	if altCastIs(pc.mode, altOverload) {
 		return false
 	}
 	// CR 601.2c: distinct modal modes each declare and choose their own
@@ -1489,11 +1478,6 @@ const (
 	modeFlagsFuse
 	modeFlagsMiracle
 	modeFlagsEscape
-	modeFlagsEvoked
-	modeFlagsDashed
-	modeFlagsBlitzed
-	modeFlagsOverloaded
-	modeFlagsWarped
 	modeFlagsAdventureAlt
 	modeFlagsBuyback
 	modeFlagsOffspring
@@ -1505,7 +1489,6 @@ const (
 	modeFlagsMayhem
 	modeFlagsWebSlinging
 	modeFlagsSneak
-	modeFlagsBestowed
 	modeFlagsMutated
 	modeFlagsMultikicked
 	modeFlagsSquadded
@@ -1528,11 +1511,6 @@ var modeFlagsCodes = state.NewStrCodes(
 	state.StrEntry[modeFlagsCode]{Key: "fuse", Val: modeFlagsFuse},
 	state.StrEntry[modeFlagsCode]{Key: "miracle", Val: modeFlagsMiracle},
 	state.StrEntry[modeFlagsCode]{Key: "escape", Val: modeFlagsEscape},
-	state.StrEntry[modeFlagsCode]{Key: "evoked", Val: modeFlagsEvoked},
-	state.StrEntry[modeFlagsCode]{Key: "dashed", Val: modeFlagsDashed},
-	state.StrEntry[modeFlagsCode]{Key: "blitzed", Val: modeFlagsBlitzed},
-	state.StrEntry[modeFlagsCode]{Key: "overloaded", Val: modeFlagsOverloaded},
-	state.StrEntry[modeFlagsCode]{Key: "warped", Val: modeFlagsWarped},
 	state.StrEntry[modeFlagsCode]{Key: "adventure_alt", Val: modeFlagsAdventureAlt},
 	state.StrEntry[modeFlagsCode]{Key: "buyback", Val: modeFlagsBuyback},
 	state.StrEntry[modeFlagsCode]{Key: "offspring", Val: modeFlagsOffspring},
@@ -1544,7 +1522,6 @@ var modeFlagsCodes = state.NewStrCodes(
 	state.StrEntry[modeFlagsCode]{Key: "mayhem", Val: modeFlagsMayhem},
 	state.StrEntry[modeFlagsCode]{Key: "web-slinging", Val: modeFlagsWebSlinging},
 	state.StrEntry[modeFlagsCode]{Key: "sneak", Val: modeFlagsSneak},
-	state.StrEntry[modeFlagsCode]{Key: "bestowed", Val: modeFlagsBestowed},
 	state.StrEntry[modeFlagsCode]{Key: "mutated", Val: modeFlagsMutated},
 	state.StrEntry[modeFlagsCode]{Key: "multikicked", Val: modeFlagsMultikicked},
 	state.StrEntry[modeFlagsCode]{Key: "squadded", Val: modeFlagsSquadded},

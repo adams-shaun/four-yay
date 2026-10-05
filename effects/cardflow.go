@@ -1097,11 +1097,6 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True")
 	remember := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberRevealed)), "True")
 	revealDefined := sa.ParamStr(cards.PKRevealDefined)
-	// RememberTargets$ remembers the CHOSEN targets (Forge's sa.getTargets()),
-	// so it applies only where the walk's subjects are those targets: a
-	// targeting SA with no Defined$/RevealDefined$ override.
-	rememberTargets := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True") &&
-		TargetsOf(sa).Targeted() && DefinedRefOf(sa).Raw == "" && revealDefined == ""
 	random := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRandom)), "True")
 	g := h.Game()
 	// Forge's RevealDefined$ is the reveal family's equivalent of Defined$:
@@ -1130,16 +1125,6 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			// only; a remembered card must not widen the reveal's library/hand
 			// scope to its controller (Summon: Valefor's per-opponent loop).
 			continue
-		}
-		if rememberTargets {
-			// RememberTargets$ True (Struggle for Sanity, Hint of Insanity,
-			// Dreams of Steel and Oil -- every corpus Reveal-family carrier is
-			// a targeted RevealHand): the chosen target player joins both
-			// remembered halves, so a later Defined$ Player.IsRemembered
-			// chooser (Struggle's "that player exiles a card") and a
-			// RememberedPlayerCtrl/Own filter name them. It was unread here,
-			// so Struggle's opponent was never asked.
-			rememberTarget(h, c, t)
 		}
 		p := PlayerOf(h, c, t)
 		pool := zoneOf(g, zone, p)

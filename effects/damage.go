@@ -605,24 +605,13 @@ func effDamageAll(h Host, c *Ctx, sa *cards.SA) {
 	spec := strings.TrimSpace(sa.ParamStr(cards.PKValidCards))
 	remember := strings.TrimSpace(sa.ParamStr(cards.PKRememberDamaged)) != ""
 	// A player-kind ValidTgts$ scopes the object sweep to that target
-	// player's permanents ("each creature target player controls"): the
+	// player's permanents ("each creature target player controls"); the
 	// restriction is carried by ValidTgts$, never by ValidCards$, so the
 	// plain spellings (Aggravate, Simoon, Chandra, Bold Pyromancer) would
-	// otherwise sweep every seat. Resolve it through the same referent the
-	// TargetedPlayerCtrl filter predicate uses so the two cannot drift. A
-	// non-nil scope that resolves to no player fails CLOSED, matching the
-	// Defined/TargetedPlayerCtrl direction. ValidTgts$ Creature (a
-	// non-player spec) leaves scope nil, so the filter-only sweep stands.
-	var scope map[state.PlayerID]bool
-	if tg := TargetsOf(sa).ValidTgts; tg != "" && playerSpecBaseKnown(tg) {
-		sc := c.SpecContext(c.Controller)
-		sc.ResolutionTargets = targetedGroup(c)
-		players, _ := controlReferentPlayers(h.Game(), sc, "ControlledBy", "TargetedPlayer")
-		scope = make(map[state.PlayerID]bool, len(players))
-		for _, p := range players {
-			scope[p] = true
-		}
-	}
+	// otherwise sweep every seat.  Resolved by the ONE shared helper so an
+	// *All sibling (AnimateAll's Curious Colossus) cannot drift from it.  A
+	// non-nil scope that resolves to no player fails CLOSED.
+	scope := targetPlayerKindScope(h, c, sa)
 	g := h.Game()
 	rider := newDamageRider(h, c, damageSourceParam(sa), n)
 	prev := h.SetDamageSource(rider.source)
@@ -635,12 +624,7 @@ func effDamageAll(h Host, c *Ctx, sa *cards.SA) {
 	if spec != "" {
 		for _, p := range g.AliveFrom(0) {
 			for _, id := range g.Zone(state.ZBattlefield, p) {
-				if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) {
-					if scope != nil {
-						if o := g.Obj(id); o == nil || !scope[o.Controller] {
-							continue
-						}
-					}
+				if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) && inSweepScope(g, id, scope) {
 					emitObjectDamage(rider, id)
 					damaged = append(damaged, state.Target{Obj: id})
 					if remember {

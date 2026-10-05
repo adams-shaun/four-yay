@@ -734,6 +734,20 @@ func CloneTargetPTLKI(m map[state.ObjID]TargetPT) map[state.ObjID]TargetPT {
 	return out
 }
 
+// CloneTargetManaSpentLKI returns an independent copy of a target
+// mana-spend LKI map threaded across a suspension (rules' resumePoint), for
+// the reason CloneTargetCountersLKI gives.
+func CloneTargetManaSpentLKI(m map[state.ObjID]castManaSpentTotals) map[state.ObjID]castManaSpentTotals {
+	if m == nil {
+		return nil
+	}
+	out := make(map[state.ObjID]castManaSpentTotals, len(m))
+	for id, t := range m {
+		out[id] = t
+	}
+	return out
+}
+
 // targetPTLKI returns a departed object target's last battlefield
 // power/toughness, when this chain captured one and the object is no longer
 // on the battlefield; a live permanent (or an uncaptured object) reads live.
@@ -743,6 +757,75 @@ func targetPTLKI(c *Ctx, o *state.Object) (TargetPT, bool) {
 	}
 	pt, ok := c.Snap.TargetPT[o.ID]
 	return pt, ok
+}
+
+// targetManaSpentLKI returns a departed object target's cast-time spend
+// breakdown, when this chain captured one and the object is no longer on the
+// stack; a spell still on the stack (or an uncaptured object) reads live,
+// exactly the targetPTLKI discipline. A resolved permanent on the battlefield
+// keeps its live spend across the stack->battlefield move, so the live read
+// stays authoritative there too.
+func targetManaSpentLKI(c *Ctx, o *state.Object) (castManaSpentTotals, bool) {
+	if c == nil || c.Snap.TargetManaSpent == nil || o == nil || o.Zone == state.ZStack {
+		return castManaSpentTotals{}, false
+	}
+	t, ok := c.Snap.TargetManaSpent[o.ID]
+	return t, ok
+}
+
+// captureStackTargetSnapshots records the resolution-start stack-kind and
+// cast-spend snapshots for every object target on the stack, over the same
+// target set (Ctx.Targets plus the AllTargets chain union). Both maps are
+// kept on re-entry: a resumed chain's target has already left the stack, so a
+// re-capture would wrongly answer "never a spell" for TargetSpell and would
+// overwrite the real spend with the zeroed live fields for TargetManaSpent.
+//
+// TargetSpell: a Counter/ChangeZone later in the chain moves the spell off
+// the stack and no field records that it ever was one, so the SpellTargeted
+// count ref must read this resolution-start snapshot (Reject Imperfection's
+// proliferate gate, Gale's Redirection's roll modifier, Press the Enemy's Z).
+//
+// TargetManaSpent: events.Apply zeroes ManaSpent/ManaSnowSpent/the typed
+// captures when a spell leaves the stack (CR 400.7), so
+// Targeted$CastTotalManaSpent (EOE Unravel's draw gate) must read this
+// snapshot once the spell is gone. EVERY stack target is captured, including
+// a zero spend -- a convoke-only cast is a legitimate 0, not an absent
+// snapshot.
+func captureStackTargetSnapshots(h Host, c *Ctx) {
+	if c.Snap.TargetSpell == nil {
+		c.Snap.TargetSpell = make(map[state.ObjID]bool)
+		captureTargetSpells := func(ts []state.Target) {
+			for _, target := range ts {
+				if target.IsPlayer || target.Obj == 0 {
+					continue
+				}
+				if object := h.Game().Obj(target.Obj); object != nil && object.Zone == state.ZStack {
+					c.Snap.TargetSpell[target.Obj] = true
+				}
+			}
+		}
+		captureTargetSpells(c.Targets)
+		if c.AllTargets != nil {
+			captureTargetSpells(c.AllTargets)
+		}
+	}
+	if c.Snap.TargetManaSpent == nil {
+		c.Snap.TargetManaSpent = make(map[state.ObjID]castManaSpentTotals)
+		captureTargetManaSpent := func(ts []state.Target) {
+			for _, target := range ts {
+				if target.IsPlayer || target.Obj == 0 {
+					continue
+				}
+				if object := h.Game().Obj(target.Obj); object != nil && object.Zone == state.ZStack {
+					c.Snap.TargetManaSpent[target.Obj] = manaSpentTotalsOf(object)
+				}
+			}
+		}
+		captureTargetManaSpent(c.Targets)
+		if c.AllTargets != nil {
+			captureTargetManaSpent(c.AllTargets)
+		}
+	}
 }
 
 // Resolve runs an ability and every sub-ability chained beneath it.
@@ -1025,32 +1108,9 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 				}
 			}
 		}
-		// Capture which object targets are spells on the stack at the same
-		// instant: a Counter/ChangeZone later in the chain moves the spell off
-		// the stack and no field records that it ever was one, so the
-		// SpellTargeted count ref must read this resolution-start snapshot
-		// (Reject Imperfection's proliferate gate, Gale's Redirection's roll
-		// modifier, Press the Enemy's Z). Keep an existing map on re-entry:
-		// a resumed chain's target has already left the stack, so a re-capture
-		// would wrongly answer "never a spell". The refTargetUnion set is what
-		// SpellTargeted itself enumerates, so both bindings are captured.
-		if c.Snap.TargetSpell == nil {
-			c.Snap.TargetSpell = make(map[state.ObjID]bool)
-			captureTargetSpells := func(ts []state.Target) {
-				for _, target := range ts {
-					if target.IsPlayer || target.Obj == 0 {
-						continue
-					}
-					if object := h.Game().Obj(target.Obj); object != nil && object.Zone == state.ZStack {
-						c.Snap.TargetSpell[target.Obj] = true
-					}
-				}
-			}
-			captureTargetSpells(c.Targets)
-			if c.AllTargets != nil {
-				captureTargetSpells(c.AllTargets)
-			}
-		}
+		// Capture the stack-kind and cast-spend snapshots for the same set of
+		// object targets, at the same instant (see captureStackTargetSnapshots).
+		captureStackTargetSnapshots(h, c)
 		// Publish the live Ctx to the host for the whole of this chain
 		// (restored on return), so rules' tape seams (unless payment, Ward,
 		// Play) read the chain's current Ctx.
@@ -1083,14 +1143,21 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// SubAbility — gated bare-Morbid; the "instead" branch only runs
 		// because the walk continues past a denial). A chain payload that
 		// must not run after its gated parent is kept out by its own
-		// population: the DigUntil's DB$ Play reads only what the chain
-		// remembered (effPlay's trigger-capture exclusion), never the
-		// triggering event's capture. An unresolved shape (supported=false)
-		// runs unconditionally, the documented pre-gate behaviour — see
-		// conditions.go for the exact boundary and the counts behind it.
+		// population. An UNMODELLED gate (UnmodelledCondition names a shape
+		// this build does not evaluate) fails CLOSED: the sub is skipped and a
+		// replay-visible Note records the gap, instead of running the rider
+		// unconditionally and diverging from the oracle.
 		if sa != nil {
-			if met, supported := conditionMet(h, c, sa); supported && !met {
+			met, supported := conditionMet(h, c, sa)
+			if supported && !met {
 				continue
+			}
+			if !supported {
+				if detail, bad := unmodelledConditionDetail(sa); bad {
+					h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+						Text: "unmodelled condition " + detail})
+					continue
+				}
 			}
 		}
 		var fn Effect
@@ -1197,6 +1264,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			fn(h, c, sa)
 			c.PickedTargets = nil
 			recordParentLink(c, sa, ts, true)
+			rememberChosenTargets(h, c, sa, ts, true)
 		} else {
 			if prefetchedRememberedSub {
 				c.PickedTargets = rememberedSubTargets
@@ -1206,6 +1274,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 				c.PickedTargets = nil
 			}
 			recordParentLink(c, sa, nil, false)
+			rememberChosenTargets(h, c, sa, nil, false)
 		}
 		imprint(h, c, sa)
 		if strings.EqualFold(sa.ParamStr(cards.PKClearImprinted), "True") && c.Source != 0 {

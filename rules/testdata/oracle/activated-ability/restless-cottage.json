@@ -95,18 +95,13 @@
      "attackers": [
       "p0:Restless Cottage"
      ],
-     "defender": "p1"
+     "defender": "p1",
+     "targets": [
+      "p0:Lightning Bolt"
+     ]
     },
     {
-     "op": "resolve",
-     "answers": [
-      {
-       "kind": "choose",
-       "pick": [
-        "p0:Lightning Bolt"
-       ]
-      }
-     ]
+     "op": "resolve"
     }
    ],
    "expect": [

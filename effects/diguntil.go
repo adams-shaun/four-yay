@@ -123,6 +123,14 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 	noMoveFound := dp.NoMoveFound
 	shuffle := dp.Shuffle
 	shuffleNoneFound := dp.ShuffleNoneFound
+	// MinTotalCMC$ N (Dream Harvest, Improvisation Capstone, Tasha's Hideous
+	// Laughter): reveal until the MATCHING cards' cumulative mana value
+	// reaches N, instead of stopping at Amount$ matches. Zero (absent or an
+	// unresolvable value) keeps the ordinary Amount$-bounded scan.
+	minTotalCMC := int32(0)
+	if dp.MinTotalCMC.Present {
+		minTotalCMC = numText(h, c, dp.MinTotalCMC, 0)
+	}
 	imprintFound := dp.ImprintFound
 	imprintRevealed := dp.ImprintRevealed
 	foundPos := dp.FoundPos
@@ -191,10 +199,24 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 		// A zero Amount$ (an SVar tally of 0) reveals nothing: the loop's own
 		// `len(found) >= amount` would otherwise stop on the first card.
 		if amount > 0 {
+			cmcSum := int32(0)
 			for _, id := range lib {
 				revealed = append(revealed, id)
 				if MatchesSpecCtx(g, spec, id, forgetOtherPreClearContext(&selection, c)) {
 					found = append(found, id)
+					if minTotalCMC > 0 {
+						// MinTotalCMC$: keep revealing until the matching cards'
+						// cumulative mana value reaches the threshold (XMage's
+						// loop and the Oracles' "until they have exiled cards
+						// with total mana value 5 or greater this way").
+						if o := g.Obj(id); o != nil && o.Face() != nil {
+							cmcSum += o.Face().ManaValue()
+						}
+						if cmcSum >= minTotalCMC {
+							break
+						}
+						continue
+					}
 					if int32(len(found)) >= amount {
 						break
 					}

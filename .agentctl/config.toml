@@ -196,6 +196,22 @@ ignore_uncommitted = ["TEST_HISTORY.md"]
 
 # gates.py:114-148, in order; each gate's argv/timeout/env/cwd is gates.py:34-103.
 
+# 2026-10-04: ratchets-only-fall (scripts/ratchet_gate.py). FIRST and cheap
+# (git + a stdlib Python tokenizer, well under a second): it fails a branch
+# that raises or deletes a shrink-only ratchet constant, widens an allow-list,
+# drops or rewires a TestCodeShapeOnlyShrinks row, adds a longFuncCeilings key
+# or raises its value, adds a known-unsupported entry, or edits the gate
+# itself -- all measured against merge-base({base}, HEAD). The script runs
+# from the BASE copy (`git show {base}:...`), so a branch cannot weaken the
+# gate that judges it; pipefail makes a missing base copy a failure rather
+# than an empty, passing stdin. There is no escape trailer: the operator
+# raises a ratchet by landing it by hand. Deliberately NOT a [mechanical]
+# pattern: a raised ratchet is never bookkeeping.
+[[gates]]
+name = "ratchets only fall"
+cmd = ["bash", "-c", "set -o pipefail; git show {base}:scripts/ratchet_gate.py | python3 - {base}"]
+timeout = 60
+
 # 2026-09-29: the resource broker's gate bracket (design
 # docs/superpowers/specs/2026-09-29-reward-loop-and-seed-agent-design.md §3.2).
 # This gate runs FIRST and pauses every heavy and probe lease, so the whole
@@ -240,6 +256,19 @@ env = { GORGE_REWARD_DIR = "/home/sadams/projects/gorge/.ds4/reward" }
 # gate keeps its own -p=4/800% (see the block above), unchanged by this.
 # GOMAXPROCS in env is the legible belt-and-braces for the parallel gates.
 #
+# 2026-10-05 (gate-vet1): raise the vet memory limit to stop GC thrash on
+# cache misses, then give the less GC-bound run more CPU. Measured in this
+# worktree, in the gate's systemd scope (cold = private empty GOCACHE; miss =
+# fresh rules/engine.go content with shared cache):
+#   old 4G / 800% / -p=6 / GOMAXPROCS=6 / 1GiB -> cold 60.26s, 1.83GiB RSS;
+#                                                   miss 56.63s, 1.80GiB RSS
+#   new 8G / 1600% / -p=8 / GOMAXPROCS=8 / 4GiB -> cold 45.98s, 3.13GiB RSS;
+#                                                   miss 19.87s, 2.92GiB RSS
+# Warm repeat: 1.18s, 76MiB RSS. Vet is content-cached: fleet logs had 25/40
+# runs at 0-2s, not a fixed ~50s/run. The higher memory cap cuts GC-bound miss
+# work; the higher CPU quota/parallelism further reduces cold time. Peak RSS
+# remains below MemoryMax=8G.
+#
 # 2026-10-03 (cli-20261003T052434Z-a1d15fb3): the module gate's CPUQuota is
 # raised to 800% (GOMAXPROCS 8, -p=4 kept). Measured, forced fresh
 # (`go test -p=4 -count=1 -skip ... ./...` in the systemd scope, both runs
@@ -262,9 +291,9 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4" }
 
 [[gates]]
 name = "go vet"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=800%", "go", "vet", "-p=6", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "go", "vet", "-p=8", "./..."]
 timeout = 600
-env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "6" }
+env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "8" }
 
 # The whole module, not just ./effects ./rules ./cards: a merge that broke
 # internal/searchprobe and internal/archtest passed the old core-only gate
@@ -303,24 +332,58 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "6" }
 # because a faster gate holds fewer test binaries' heaps at once, so the
 # unchanged 8G MemoryMax still bounds it. Net module gate: ~113s -> ~83s
 # (-30s, -27%). The other gates are unchanged.
+#
+# 2026-10-05: launch the slow rules package separately alongside the rest of
+# the module. The `go test ./...` schedule is dependency-order, so the whole
+# `rules` package -- the longest single binary -- waited for every other
+# package to be built before it started; measured in this worktree the serial
+# schedule left rules stalled until the queue drained, while starting it
+# immediately alongside the remaining packages (same -p=8, both halves, same
+# CPUQuota/MemoryMax/GOMEMLIMIT, forced fresh with -count=1) finished the
+# module gate at 114.7s vs 142.3s serial: -27.6s (-19%), peak RSS 6.1G under
+# the unchanged 8G MemoryMax. Both halves MUST carry the same -skip list --
+# TestHeads is its own gate (non-blocking) and TestInvariantsUnderSeedFuzz /
+# TestLargeEliminationSweepDoesNotTripLivelockWatcher are deliberately
+# excluded as heavy, so un-skipping them in the rules half would duplicate
+# TestHeads and change what this gate proves. Combined, the two halves cover
+# exactly the same package/test set as the original serial ./... Gate the
+# pair on both statuses: either half failing must fail this gate.
+#
+# GOGC=200 (2026-10-05, cli-20261005T030320Z): `make test` has run with
+# GOGC=200 since 54e132f6b ("trade ~0.4 GB RSS per rules.test for ~8% CPU"),
+# but the gate's own `go test` calls never picked it up, so every landing paid
+# the default GOGC=100. On the current corpus the win is larger than that
+# commit measured and costs no RSS. Paired, same box, gate's exact scope
+# (MemoryMax=8G CPUQuota=1600% GOMEMLIMIT=4GiB GOMAXPROCS=16, -count=1,
+# both halves concurrent as this gate runs them):
+#   GOGC=100 module gate: 112.3s wall
+#   GOGC=200 module gate:  90.3s wall  (-22s, -19.6%)
+# Isolated halves: `rest` 93.4s -> 72.3s wall, 1191.5s -> 830.9s user CPU,
+# maxRSS 6.32G -> 6.30G; `rules` 109.0s -> 93.2s wall, 492.8s -> 383.6s user
+# CPU, maxRSS 3.33G -> 2.04G. Peak RSS is flat, so the unchanged 8G MemoryMax
+# still bounds the gate. GOGC only re-tunes the running test binary's GC; it
+# changes neither the test set nor any verdict.
 [[gates]]
 name = "go test (module)"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "go", "test", "-p=8", "-skip", "^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "bash", "-c", "set -euo pipefail; skip='^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$'; rest=$(go list ./... | grep -vE '/rules$'); go test -p=8 -skip \"$skip\" $rest & rest_pid=$!; go test -p=8 -skip \"$skip\" ./rules/ & rules_pid=$!; if wait \"$rules_pid\"; then rules_rc=0; else rules_rc=$?; fi; if wait \"$rest_pid\"; then rest_rc=0; else rest_rc=$?; fi; test \"$rules_rc\" -eq 0 -a \"$rest_rc\" -eq 0"]
 timeout = 1200
-env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "16" }
+env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "16", GOGC = "200" }
 
 [[gates]]
 name = "CR conformance"
 cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "go", "test", "-p=1", "./rules", "-run", "TestCR", "-v"]
 timeout = 300
-env = { GORGE_CR_CONFORMANCE = "1", GOMEMLIMIT = "1GiB" }
+# GOGC=200: same setting as the module gate above, for the same reason -- this
+# runs the same rules test binary, whose GC cost GOGC=200 cuts ~20%.
+env = { GORGE_CR_CONFORMANCE = "1", GOMEMLIMIT = "1GiB", GOGC = "200" }
 accept = "orchestrator.hooks:cr_no_fail_lines"
 
 [[gates]]
 name = "TestHeads"
 cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "go", "test", "./rules", "-run", "TestHeads", "-v"]
 timeout = 120
-env = { GOMEMLIMIT = "1GiB" }
+# GOGC=200: as for the module and CR gates -- same rules test binary.
+env = { GOMEMLIMIT = "1GiB", GOGC = "200" }
 blocking = false          # the TestHeads policy (hooks.testheads_policy) decides
 
 [[gates]]

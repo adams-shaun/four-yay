@@ -194,9 +194,10 @@ func (e *Engine) sbaInputsQuietSince(q *sbaQuietKey) bool {
 //   - LibraryOrder and Shuffle: Apply writes only a library list, whose
 //     order no state-based action reads;
 //   - an off-battlefield move (offBattlefieldMove: library, hand, graveyard
-//     and stack, or into exile) of a non-token no battlefield permanent is
-//     attached to. The pass loop reads hidden and stack objects only to cease
-//     a token (CR 704.5d), to sweep a departed player and to judge an Aura
+//     and stack, or into exile) of a non-token, non-copy object no
+//     battlefield permanent is attached to. The pass loop reads hidden and
+//     stack objects only to cease a token (CR 704.5d) or a spell copy off
+//     the stack (CR 704.5e), to sweep a departed player and to judge an Aura
 //     whose bearer left the battlefield (auraEnchantZoneAdmits, the Animate
 //     Dead family) -- and a Saga's or dungeon's "busy" test, whose deferral
 //     never records a quiet key. Positive damage to an object is NOT
@@ -243,7 +244,13 @@ func (e *Engine) sbaQuietEvent(ev *events.Event) bool {
 		return false
 	}
 	o := e.G.Obj(ev.Obj)
-	if o == nil || o.IsToken {
+	// A spell copy that leaves the stack ceases to exist (CR 704.5e), so its
+	// move is NOT quiet: the pass loop's ceaseDeadTokens must run to emit the
+	// cessation. A copy off the stack moves through this same off-battlefield
+	// branch, exactly as a token does, so it is excluded here for the same
+	// reason -- EXCEPT CR 722.3c's prepared exile copy, which was minted
+	// directly in exile and does not cease (state.Object.PreparedExileCopy).
+	if o == nil || o.IsToken || (o.IsCopy && !o.PreparedExileCopy()) {
 		return false
 	}
 	for _, p := range e.G.AliveFrom(0) {

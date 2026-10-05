@@ -158,7 +158,7 @@ func modeTargetsAvailable(e *Engine, p state.PlayerID, id state.ObjID, sub *card
 // reads the same list before subTargetAsk collects it, so the pruning below
 // and the asks it protects see one chain.
 func castSubAskLinks(e *Engine, pc *pendingCast, root *cards.SA) []*cards.SA {
-	if pc.mode == "fuse" || pc.mode == "overloaded" {
+	if pc.mode == "fuse" || altCastIs(pc.mode, altOverload) {
 		return nil
 	}
 	var out []*cards.SA

@@ -1,6 +1,8 @@
 package templates
 
 import (
+	"strings"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
@@ -9,13 +11,22 @@ import (
 // while holding priority (CR 117.3c), and resolves.
 var CounterSpell = Template{ID: "counter-spell", Version: 1}
 
-// targetsSpell reports whether the spell's first target is a spell on the
-// stack (TargetType$ Spell, a Counter).
+// targetsSpell reports whether the card counters a spell on the stack: a
+// Counter ability anywhere along a spell ability's chain (the top ability or
+// a SubAbility) whose target names the stack. A card whose leading ability
+// is not a Counter (Swallowed by Leviathan surveils, then counters) still
+// belongs on the counter path.
 func targetsSpell(f *cards.Face) bool {
 	for _, sa := range f.Abilities {
-		if sa.Kind == "SP" {
-			return sa.Params["TargetType"] == "Spell" || (sa.API == "Counter" && sa.Params["ValidTgts"] != "")
+		if sa.Kind != "SP" {
+			continue
 		}
+		for s := sa; s != nil; s = s.Sub {
+			if s.API == "Counter" && s.Params["ValidTgts"] != "" && oraclegen.AbilityTargetsStack(s.Params) {
+				return true
+			}
+		}
+		return false
 	}
 	return false
 }
@@ -23,26 +34,69 @@ func targetsSpell(f *cards.Face) bool {
 type precast struct {
 	card, mana string
 	targets    []string
+	// types are the card's spell types (lower-case), used to match a stack
+	// slot's filter (an "instant or sorcery" target wants Shock, not Grizzly
+	// Bears); singleTarget marks a spell with exactly one target, the shape
+	// a TargetType$ SpellAbility.singleTarget slot needs.
+	types        []string
+	singleTarget bool
 }
 
 // precasts are the spells a counterspell scenario counters, one per
 // colour and type a counter's filter commonly names.
 var precasts = []precast{
-	{"Disfigure", "B", []string{"p1:Grizzly Bears"}},
-	{"Raise the Alarm", "CW", nil},
-	{"Shock", "R", []string{"p1"}},
-	{"Opt", "U", nil},
-	{"Giant Growth", "G", []string{"p1:Grizzly Bears"}},
-	{"Grizzly Bears", "CG", nil},
-	{"Ornithopter", "", nil},
-	{"Serra Angel", "CCCWW", nil},
+	{card: "Disfigure", mana: "B", targets: []string{"p1:Grizzly Bears"}, types: []string{"instant"}, singleTarget: true},
+	{card: "Raise the Alarm", mana: "CW", types: []string{"instant"}},
+	{card: "Shock", mana: "R", targets: []string{"p1"}, types: []string{"instant"}, singleTarget: true},
+	{card: "Opt", mana: "U", types: []string{"instant"}},
+	{card: "Giant Growth", mana: "G", targets: []string{"p1:Grizzly Bears"}, types: []string{"instant"}, singleTarget: true},
+	{card: "Grizzly Bears", mana: "CG", types: []string{"creature"}},
+	{card: "Ornithopter", types: []string{"artifact", "creature"}},
+	{card: "Serra Angel", mana: "CCCWW", types: []string{"creature"}},
+}
+
+// precastFits reports whether a precast can stand in for a stack slot with
+// this filter: an "instant or sorcery" target needs such a spell, a creature
+// target a creature spell, and a single-target slot a spell that targets
+// exactly one object.
+func precastFits(filter string, p precast) bool {
+	f := strings.ToLower(filter)
+	if strings.Contains(f, "instant") && !hasPrecastType(p, "instant") && !hasPrecastType(p, "sorcery") {
+		return false
+	}
+	if strings.Contains(f, "sorcery") && !hasPrecastType(p, "sorcery") && !hasPrecastType(p, "instant") {
+		// A filter naming both instant and sorcery is satisfied by either,
+		// handled by the instant branch above; a sorcery-only filter wants a
+		// sorcery.
+		if !strings.Contains(f, "instant") {
+			return false
+		}
+	}
+	if strings.Contains(f, "singleTarget") && !p.singleTarget {
+		return false
+	}
+	base := strings.ToLower(strings.SplitN(strings.Split(filter, "@")[0], ",", 2)[0])
+	base = strings.SplitN(strings.TrimSpace(base), ".", 2)[0]
+	if base == "creature" && !hasPrecastType(p, "creature") {
+		return false
+	}
+	return true
+}
+
+func hasPrecastType(p precast, t string) bool {
+	for _, x := range p.types {
+		if x == t {
+			return true
+		}
+	}
+	return false
 }
 
 func counterSpell(reg *cards.Registry, f *cards.Face, name, mana string) (oraclegen.Item, *oraclegen.Skip) {
 	// The extra {1} covers an optional additional cost ("behold or pay
 	// {1}"), tried only when the bare cost cannot cast.
 	xAns := xAnswers(f)
-	for _, m := range []string{mana, mana + "C"} {
+	for _, m := range []string{mana, mana + "C", mana + "CC", mana + "CCC"} {
 		for _, pre := range precasts {
 			if it, ok := counterWith(reg, f, name, m, pre, xAns); ok {
 				return it, nil
@@ -53,20 +107,35 @@ func counterSpell(reg *cards.Registry, f *cards.Face, name, mana string) (oracle
 }
 
 func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre precast, answers []oraclegen.Answer) (oraclegen.Item, bool) {
-	sc := oraclegen.Scenario{
-		Setup: map[string]oraclegen.Seat{"p0": {Hand: []string{name, pre.card}}, "p1": {}},
-		Steps: []oraclegen.Step{
-			{Op: "cast", Seat: 0, Card: "p0:" + pre.card, Mana: pre.mana, Targets: pre.targets},
-			{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: []string{"p0:" + pre.card}, Answers: answers},
-			{Op: "resolve"},
-		},
+	// The first target slot is the spell the counter targets, which the
+	// precast supplies. Any later slot (Sokka's Haiku's "untap target land"
+	// after the draw and mill) needs its own fixture; without it the cast is
+	// offered but the follow-up target ask goes unanswered.
+	slots := oraclegen.TargetSlots(f)
+	var extra []string
+	if len(slots) > 1 {
+		extra = slots[1:]
 	}
-	oraclegen.Baseline(sc.Setup, f)
-	res, ok := oraclegen.PlaysThrough(reg, sc)
-	if !ok {
-		return oraclegen.Item{}, false
+	for _, fx := range oraclegen.Fixtures(extra) {
+		p0 := *fx.P0()
+		p0.Hand = append([]string{name, pre.card}, p0.Hand...)
+		sc := oraclegen.Scenario{
+			Setup: map[string]oraclegen.Seat{"p0": p0, "p1": *fx.P1()},
+			Steps: []oraclegen.Step{
+				{Op: "cast", Seat: 0, Card: "p0:" + pre.card, Mana: pre.mana, Targets: pre.targets},
+				{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana,
+					Targets: append([]string{"p0:" + pre.card}, fx.Targets()...), Answers: answers},
+				{Op: "resolve"},
+			},
+		}
+		oraclegen.Baseline(sc.Setup, f)
+		res, ok := oraclegen.PlaysThrough(reg, sc)
+		if !ok {
+			continue
+		}
+		it := CounterSpell.item(name, sc)
+		it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f))
+		return it, true
 	}
-	it := CounterSpell.item(name, sc)
-	it.XAnswers = oraclegen.XAnswers(res.Decisions, len(sc.Steps), oraclegen.ModeNumbers(f))
-	return it, true
+	return oraclegen.Item{}, false
 }

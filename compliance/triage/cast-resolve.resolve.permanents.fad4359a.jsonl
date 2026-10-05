@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"$CARD colors gorge= xmage=W"},"key":"cast-resolve | resolve | permanents | $CARD colors gorge= xmage=W","cards":1}
-{"card":"Puca's Eye","template":"cast-resolve","status":"diverge","api":"ChangesZone:Draw","sets":["ECL"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Puca's Eye [artifact] {}\", xmage \"c0 o0 Puca's Eye [artifact] {W}\""}

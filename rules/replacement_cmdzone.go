@@ -57,6 +57,18 @@ func init() {
 		// rules/cantlose.go; this registration is what makes the coverage
 		// ratchet see the heads as supported.
 		"repl:GameLoss", "repl:GameWin",
+		// repl:Draw / repl:DrawCards (task cli-20261004T233421Z-ff9b2344) are
+		// the draw-replacement class (Bard King of Dale's "draw two instead",
+		// Notion Thief's redirect, Breathstealer's Crypt's unless-pay, and the
+		// DrawCards multi-card alias Quantum Riddler and Alms Collector read as
+		// "draw that many plus one"). replacementMatches's ReplDraw/ReplDrawCards
+		// arm reads ValidPlayer$/NotFirstCardInDrawStep$/ActivePhases$/
+		// FirstExtraCardDrawnThisTurn$/ValidCause$/CheckSVar$ and the shared
+		// condition gate; the bodies apply through the ordinary ReplaceWith$
+		// path (runReplaceWith) and the DB$ Draw re-draw. repl:DrawCards shares
+		// repl:Draw's events.Draw match (replacementEventNameMatches's one
+		// alias), so both names register together.
+		"repl:Draw", "repl:DrawCards",
 		// repl:TurnFaceUp (task cli-20260924T031747Z-6d0658fc) is the "as this
 		// is turned face up" class (Hooded Hydra's five +1/+1 counters, Karlov
 		// Watchdog's CantHappen, Gift of Doom's attach), matched by

@@ -254,6 +254,15 @@ func foldMoveZone(g *state.Game, e *Event) {
 			// castable because its PreparedSource no longer answers true.
 			o.Prepared = false
 		}
+		// The prepared exile copy's cessation exemption is linked to this
+		// battlefield permanent. Once it leaves, retire that provenance in
+		// the same replayed zone-change fold so the orphaned copy ceases.
+		for i := range g.Objs {
+			cp := &g.Objs[i]
+			if cp.IsCopy && cp.PreparedSource == e.Obj {
+				cp.PreparedSource = 0
+			}
+		}
 	}
 }
 
@@ -657,6 +666,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 		// exists while a permanent or spell is in play.
 		o.Tapped = false
 		o.Damage = 0
+		o.ClassLevelValue = 0
 		o.IsAttacking = false
 		o.AttackingBattle = 0
 		o.BlockedBy = nil
@@ -694,6 +704,9 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 		// event-backed (Choose "remembered"/"clear-remembered"), so live play
 		// and replay derive it identically either way.
 		if wasBattlefield {
+			// Room door designations belong to this battlefield incarnation.
+			o.Unlocked = false
+			o.LockedDoors = 0
 			o.Imprinted = nil
 			o.ImprintTokens = nil
 			o.SeekFound = nil
@@ -724,6 +737,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			o.ManaCaveSpent = 0
 			o.ManaDesertSpent = 0
 			o.ManaArtifactSpent = 0
+			o.ManaColorSpent = state.Mana{}
 			o.CompleatedLifePaid = 0
 			o.NotedNumber = 0
 			// CR 400.7: the runtime SVar store is the old permanent's, not the
@@ -789,6 +803,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			o.ManaCaveSpent = 0
 			o.ManaDesertSpent = 0
 			o.ManaArtifactSpent = 0
+			o.ManaColorSpent = state.Mana{}
 			o.CompleatedLifePaid = 0
 			o.NotedNumber = 0
 			// CR 702.168: a spell leaving the stack for a non-battlefield zone

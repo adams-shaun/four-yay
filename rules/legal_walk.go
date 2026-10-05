@@ -6,6 +6,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -115,7 +116,7 @@ func (w *legalWalk) offerFloorRefuses(statics *costStaticViews, p state.PlayerID
 		return false
 	}
 	if ab := scope.Ab; ab != nil {
-		if own := ab.HasParam(cards.PKReduceCost); own || costAnnouncesX(*base) {
+		if own := ab.HasParam(cards.PKReduceCost); own || costAnnouncesX(*base) || pay.TapCreaturesForMana(ab) {
 			return false
 		}
 	}

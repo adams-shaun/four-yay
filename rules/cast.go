@@ -368,6 +368,16 @@ type pendingCast struct {
 	manaSpentDesert   int32 `clone:"deep"`
 	manaSpentArtifact int32 `clone:"deep"`
 
+	// manaColorSpentOn/manaColorSpent (Adamant, CR 702.5) capture the
+	// PER-COLOUR parts of the same payment (the six state.Mana slots
+	// W,U,B,R,G,C), from the same full spent delta payManaCastSpent returns.
+	// manaColorSpentOn is the heads-safety gate (faceWantsManaColorSpent):
+	// the pay-time CastInfo is emitted ONLY for a face whose SVar table or
+	// ability text reads a Count$Adamant head, so no game that casts no such
+	// card changes an event. Plain data, so Clone copies it like converge.
+	manaColorSpentOn bool       `clone:"deep"`
+	manaColorSpent   state.Mana `clone:"deep"`
+
 	// PaidCost (rules/pay) is the cast's payment slice: the objects each
 	// non-mana cost part was paid with (Sacs, Discards, Exiles, Reveals with
 	// RevealHandArm and RevealedEmptyHand, Beholds, Taps, Blights), recorded

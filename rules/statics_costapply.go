@@ -588,11 +588,11 @@ func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.
 	case spellConstraintMatchesMiracle:
 		return scope.Mode == "miracle"
 	case spellConstraintMatchesBlitz:
-		return scope.Mode == "blitzed" || strings.HasPrefix(scope.Mode, "blitzed_grant_")
+		return altCastIs(scope.Mode, altBlitz) || strings.HasPrefix(scope.Mode, "blitzed_grant_")
 	case spellConstraintMatchesDash:
 		// Forge's isDash: the dash alternative cast, the "dashed" mode the
 		// hand walk offers and beginCast charges (Warbringer).
-		return scope.Mode == "dashed"
+		return altCastIs(scope.Mode, altDash)
 	case spellConstraintMatchesBuyback:
 		// Forge's isBuyback: the cast that pays the Buyback additional cost,
 		// the "buyback" mode (Memory Crystal). Like Forge, the reduction

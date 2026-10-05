@@ -225,6 +225,7 @@ var auraEntryCensusEffects = map[string]string{
 	"copypermanent.go:effCopyPermanent":         "marks: AttachedTo$ copy token",
 	"empower.go:effEmpower":                     "noentry: library/hand moves",
 	"encore.go:effEncore":                       "token: CardToken copy",
+	"endure.go:endureCreateSpirit":              "token: white Spirit mint; w_x_x_spirit is never an Aura, and the TokenCreate gate covers any Aura a future rider mints",
 	"explore.go:exploreOnce":                    "noentry: hand/graveyard",
 	"incubate.go:incubateLoop":                  "token: Incubator mint",
 	"investigate.go:investigateFor":             "token: Clue mint",

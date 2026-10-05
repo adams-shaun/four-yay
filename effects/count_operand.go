@@ -32,11 +32,27 @@ func applyCountOpOperandOK(h Host, c *Ctx, n int32, op string, depth int) (int32
 			continue
 		}
 		operand = strings.TrimSpace(operand)
-		if _, err := strconv.Atoi(operand); err == nil {
+		if value, err := strconv.Atoi(operand); err == nil {
+			if prefix == "Pow." && value < 0 {
+				return 0, false
+			}
 			return applyCountOp(n, op), true
 		}
+		if prefix == "Pow." && c != nil {
+			if body, named := c.SVars[operand]; named {
+				if _, evaluated := evalCountExprOK(h, c, body, depth+1); !evaluated {
+					return 0, false
+				}
+			}
+		}
 		if value, resolved := countOperandValue(h, c, operand, depth); resolved {
+			if prefix == "Pow." && value < 0 {
+				return 0, false
+			}
 			return applyCountOp(n, prefix+strconv.FormatInt(int64(value), 10)), true
+		}
+		if prefix == "Pow." {
+			return 0, false // an unknown exponent is not a power of zero
 		}
 		return applyCountOp(n, op), true
 	}
@@ -48,7 +64,7 @@ func applyCountOpOperandOK(h Host, c *Ctx, n int32, op string, depth int) (int32
 // Forgotten Lore's SVar$ChoiceNum/Times.CheckNotPaid) and Forge's clamp
 // pair LimitMax./LimitMin. (Face to Face's SVar$Wins/LimitMin.Losses,
 // Snowblind's SVar$EnchantedDef/LimitMax.AttackingX).
-var countOperandOps = [...]string{"Plus.", "Minus.", "Times.", "LimitMax.", "LimitMin."}
+var countOperandOps = [...]string{"Plus.", "Minus.", "Times.", "LimitMax.", "LimitMin.", "Pow."}
 
 // countOperandValue resolves a named arithmetic operand, in the order the
 // SVar$ head reads a name: a Count$ expression; a runtime write
@@ -384,6 +400,22 @@ func applyCountOp(n int32, op string) int32 {
 		if x, err := strconv.Atoi(op[len("Times."):]); err == nil {
 			v *= int64(x)
 		}
+	case strings.HasPrefix(op, "Pow."):
+		if x, err := strconv.Atoi(op[len("Pow."):]); err == nil && x >= 0 {
+			// Saturating integer exponentiation, logarithmic even for a very
+			// large paid X. Clamp at each multiply to avoid int64 overflow.
+			base, result := v, int64(1)
+			for x > 0 {
+				if x&1 != 0 {
+					result = saturatingCountMultiply(result, base)
+				}
+				x >>= 1
+				if x > 0 {
+					base = saturatingCountMultiply(base, base)
+				}
+			}
+			v = result
+		}
 	case strings.HasPrefix(op, "LimitMax."):
 		// Forge's clamp pair (AbilityUtils.doXMath): LimitMax.N caps the
 		// value at N -- min(v, N), Sword of Hours' TriggerCount$DamageAmount/
@@ -450,6 +482,19 @@ func applyCountOp(n int32, op string) int32 {
 		return math.MinInt32
 	}
 	return int32(v)
+}
+
+// saturatingCountMultiply bounds both operands to int32 (as the Pow loop
+// does), so their product fits int64 before the shared int32 clamp.
+func saturatingCountMultiply(a, b int64) int64 {
+	v := a * b
+	if v > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if v < math.MinInt32 {
+		return math.MinInt32
+	}
+	return v
 }
 
 // divisionOperand returns the divisor text of a Divide-family op suffix: the

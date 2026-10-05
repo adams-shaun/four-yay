@@ -9,6 +9,52 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+// thisDefinedAndTgtsKindTab maps a ThisDefinedAndTgts$ token to the kind of
+// resolution it needs (the codeshape ratchet's compiled-vocabulary rule: a
+// value set dispatches through a table, never a string case list).
+var thisDefinedAndTgtsKindTab = state.NewStrTable[thisDefinedAndTgtsKind](
+	state.StrEntry[thisDefinedAndTgtsKind]{Key: "TopOfLibrary", Val: thisDefinedAndTgtsTopOfLibrary},
+	state.StrEntry[thisDefinedAndTgtsKind]{Key: "Self", Val: thisDefinedAndTgtsDefined},
+	state.StrEntry[thisDefinedAndTgtsKind]{Key: "ParentTarget", Val: thisDefinedAndTgtsDefined},
+)
+
+type thisDefinedAndTgtsKind int
+
+const (
+	thisDefinedAndTgtsDefined thisDefinedAndTgtsKind = iota
+	thisDefinedAndTgtsTopOfLibrary
+)
+
+// thisDefinedAndTgtsTargets resolves a ChangeZone's ThisDefinedAndTgts$
+// value: the named extra objects Forge adds to the ability's defined/target
+// set. Self and ParentTarget resolve through the shared Defined$ selector
+// grammar; TopOfLibrary is the top card of the resolving controller's
+// library (Suspend Aggression's "the top card of your library"). An empty
+// result -- an unknown token, or a TopOfLibrary over an empty library -- is
+// the caller's loud-degrade signal, never a silent no-op.
+func thisDefinedAndTgtsTargets(h Host, c *Ctx, value string) []state.Target {
+	var out []state.Target
+	for _, tok := range strings.FieldsFunc(value, func(r rune) bool { return r == ',' || r == '&' }) {
+		tok = strings.TrimSpace(tok)
+		if tok == "" {
+			continue
+		}
+		kind, ok := thisDefinedAndTgtsKindTab.Get(tok)
+		if !ok {
+			return nil
+		}
+		switch kind {
+		case thisDefinedAndTgtsTopOfLibrary:
+			if lib := h.Game().Zone(state.ZLibrary, c.Controller); len(lib) > 0 {
+				out = append(out, state.Target{Obj: lib[0]})
+			}
+		case thisDefinedAndTgtsDefined:
+			out = append(out, DefinedSpec(h, c, tok)...)
+		}
+	}
+	return out
+}
+
 // changeZoneAltDestination resolves ChangeZone's conditional alternate
 // destination (Forge's ChangeZoneEffect.handleAltDest): DestAltSVar$ names an
 // SVar (or inline count expression) evaluated against the resolving host card
@@ -76,6 +122,15 @@ func clearChangeZoneImprint(h Host, c *Ctx) {
 // OriginAlternative$ Note. It runs once per resolution: an ask answered in
 // place continues past it and never re-emits it.
 func changeZonePrelude(h Host, c *Ctx, cz *ChangeZoneParams) (to state.Zone, stop bool) {
+	// A remembered-player binding alone is not a remembered destroyed object.
+	// Krenko's Buzzcrusher's "for each land destroyed this way" search is
+	// owed only when this resolution actually remembers a land it destroyed;
+	// its RepeatEach binds the current player into Remembered, and that player
+	// target must not stand in for a destroyed card. Do not offer the optional
+	// search with nothing to supply its controller.
+	if cz.OptionalTrue && cz.DefinedPlayer.Text == "RememberedController" && !hasRememberedDestroyedLand(h.Game(), resolvedRemembered(h, c)) {
+		return 0, true
+	}
 	cz.noteUnread(h, c)
 	if exileHostGoneFor(h, c, cz.Riders.Duration) {
 		return 0, true
@@ -104,6 +159,28 @@ func changeZoneDefinedPlayerNote(h Host, c *Ctx, cz *ChangeZoneParams, originZon
 				" is unread next to Defined$ " + cz.Defined +
 				" (the move goes to the named objects alone)"})
 	}
+}
+
+// hasRememberedDestroyedLand reports whether the resolution remembers a land
+// card that is now in a graveyard -- a land destroyed this way. A remembered
+// player target is not a card and is skipped; a remembered card in any other
+// zone (a LKI read, a changed card, a still-on-battlefield permanent) is not
+// a destroyed land either, so Krenko's Buzzcrusher's optional search is not
+// offered for it.
+func hasRememberedDestroyedLand(g *state.Game, ts []state.Target) bool {
+	for _, t := range ts {
+		if t.IsPlayer || t.Obj == 0 {
+			continue
+		}
+		o := g.Obj(t.Obj)
+		if o == nil || o.Zone != state.ZGraveyard {
+			continue
+		}
+		if f := o.Face(); f != nil && f.IsLand() {
+			return true
+		}
+	}
+	return false
 }
 
 func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
@@ -331,6 +408,20 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		if ans != nil {
 			// This link's own answer is a later link's ParentTarget.
 			noteLinkAnswer(c, ans)
+		}
+	}
+	// ThisDefinedAndTgts$ (Suspend Aggression's "exile target nonland
+	// permanent and the top card of your library"): Forge adds the named
+	// extra objects -- Self, TopOfLibrary, ParentTarget -- to the ability's
+	// defined/target set, so the move covers both the chosen target and the
+	// extra card. A value outside that grammar is named loudly rather than
+	// silently dropping the extra object.
+	if cz.ThisDefinedAndTgts != "" {
+		if extra := thisDefinedAndTgtsTargets(h, c, cz.ThisDefinedAndTgts); len(extra) > 0 {
+			targets = append(targets, extra...)
+		} else {
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+				Text: "ThisDefinedAndTgts$ " + cz.ThisDefinedAndTgts + " is not a selector this engine can resolve; the move keeps the ordinary targets"})
 		}
 	}
 	// The O-Ring return shape (Journey to Nowhere, Leonin Relic-Warder): the
@@ -588,22 +679,9 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 			c.Remembered = append(c.Remembered, state.Target{Obj: o.ID})
 			eventRemember(h, c, o.ID)
 		}
-		// RememberTargets$ True (Journey to Nowhere's exile trigger, Bile
-		// Blight's Pump sibling): the CHOSEN TARGETS join the ability's
-		// Remembered, in both halves -- the ctx list the chain's later
-		// sub-abilities read (Bile Blight's PumpAll Remembered.sameName) and
-		// the source's event-backed persistent list, which a LATER, separate
-		// resolution reads through Defined$ Remembered via the O-Ring rescue
-		// above (Journey's leave-battlefield return trigger). Only a target
-		// the move actually moved is remembered: a target skipped by the
-		// Origin$ precondition was never exiled and must never come back.
-		if cz.RememberTargets {
-			c.Remembered = append(c.Remembered, state.Target{Obj: o.ID})
-			eventRemember(h, c, o.ID)
-		}
 		eventForgetChanged(h, c, sa, o.ID)
 		if withKind != "" && counterDestination(to) {
-			h.Emit(events.Event{Kind: events.CounterChange, Obj: o.ID, Counter: withKind, Amount: withAmt})
+			emitChangeZoneCounters(h, o.ID, withKind, withAmt)
 		}
 		// GainControl$ hands the moved object to the named player (Reanimate:
 		// "return target creature card... to the battlefield under your
@@ -1370,7 +1448,7 @@ func settleChangeZoneMoveAs(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, 
 		c.Remembered = append(c.Remembered, state.Target{Obj: id})
 	}
 	if withKind != "" && counterDestination(to) {
-		h.Emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: withKind, Amount: withAmt})
+		emitChangeZoneCounters(h, id, withKind, withAmt)
 	}
 	// GainControl$ hands the moved object to the named player. Only a
 	// battlefield entry can carry a control change (CR 701.22a controls

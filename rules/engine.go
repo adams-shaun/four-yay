@@ -90,6 +90,13 @@ type Config struct {
 	Tokens map[string]*cards.Card
 	// NameUniverse is the compiled corpus used by NameCard decisions.
 	NameUniverse []*cards.Card
+	// NamedCorpus is a compiled corpus consulted ONLY by the "copy the card
+	// named N" mechanic (CopyPermanent DefinedName$, state.Game.NamedCard),
+	// the oracle-compliance harness -- which must not gain NameCard asks
+	// its recorded verdicts predate -- supplies it without setting
+	// NameUniverse. NameUniverse is searched first, so an embedder that sets
+	// it needs no second field.
+	NamedCorpus []*cards.Card
 	// NameUniverseNames pins a persisted match's sorted name list. A live
 	// match leaves it nil and derives it from NameUniverse at genesis.
 	NameUniverseNames []string

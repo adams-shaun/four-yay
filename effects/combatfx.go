@@ -460,15 +460,8 @@ func effAnimate(h Host, c *Ctx, sa *cards.SA) {
 	// discipline effPumpAll's RememberTargets$ applies (eventRemember
 	// self-gates on a source-less ctx).
 	rememberAnimated := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberAnimated)), "True")
-	// RememberTargets$ True (Flourishing Grapple's root Animate): the CHOSEN
-	// TARGETS join the ability's Remembered in both halves, the discipline
-	// effPump's RememberTargets$ applies -- Forge's handleRemembering adds
-	// sa.getTargets() to the host's remembered list, which the chain's later
-	// `Defined$ Remembered` link (Grapple's DBDamage) reads. Only an SA that
-	// targets has targets to remember.
-	targeted := TargetsOf(sa).Has(TgtValidPresent)
-	rememberTargets := targeted && !rememberAnimated &&
-		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True")
+	// RememberTargets$ records the chosen set after this body in Resolve's
+	// generic recorder; RememberAnimated$ continues to record affected objects.
 	var ateotIDs []state.ObjID
 	for _, t := range Defined(h, c, sa) {
 		if t.IsPlayer {
@@ -478,7 +471,7 @@ func effAnimate(h Host, c *Ctx, sa *cards.SA) {
 		if o == nil {
 			continue
 		}
-		if rememberAnimated || rememberTargets {
+		if rememberAnimated {
 			c.Remembered = append(c.Remembered, t)
 			eventRemember(h, c, o.ID)
 		}
@@ -640,7 +633,13 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	// "All" (every colour) and "Colorless" (an overwrite to the empty set)
 	// never leak their words downstream. A value colorLetters cannot fully
 	// parse (the corpus's "ChosenColor" family, which asks its controller for
-	// a colour) fails closed: colorsGrant is false, the grant is NOT
+	// a colour) fails closed UNLESS it is exactly the ChosenColor token and the
+	// source already carries a chosen colour: then the grant uses that colour
+	// (Puca's Eye's DBChooseColor -> DBAnimate chain, 25 corpus files), so the
+	// animation becomes the colour the controller just chose rather than
+	// keeping the printed one. A mixed list ("White,ChosenColor") still fails
+	// closed -- resolving only the tail would silently drop the rest.
+	// colorsGrant is false, the grant is NOT
 	// registered and a Note says so, so the object keeps its printed colours
 	// instead of the parse's empty prefix being overwritten over them. For
 	// the same reason "Colorless" without OverwriteColors$ -- an add of the
@@ -648,6 +647,14 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	// colourless" -- is noted and skipped rather than silently registering a
 	// dead effect.
 	colors, colorsOK := colorLetters(sa.ParamStr(cards.PKColors))
+	if !colorsOK && strings.EqualFold(ag.colorsRaw, "ChosenColor") {
+		if o := h.Game().Obj(c.Source); o != nil {
+			if l := colourLetter(o.ChosenColor); l != 0 {
+				colors = []string{string(l)}
+				colorsOK = true
+			}
+		}
+	}
 	ag.colors = colors
 	ag.overwriteColors = ag.colorsRaw != "" && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOverwriteColors)), "True")
 	ag.colorsGrant = ag.colorsRaw != "" && colorsOK && (len(colors) > 0 || ag.overwriteColors)
@@ -1089,6 +1096,13 @@ func effAnimateAll(h Host, c *Ctx, sa *cards.SA) {
 		spec = "Creature"
 	}
 	g := h.Game()
+	// A player-kind ValidTgts$ (Curious Colossus's `ValidTgts$ Opponent`)
+	// scopes the sweep to the targeted player's objects (CR 611.2c: the
+	// effect applies to the objects matching the filter THAT PLAYER controls),
+	// through the same shared helper DamageAll uses.  A non-nil scope that
+	// resolves to no player sweeps nothing (fail closed); a non-player or
+	// absent ValidTgts$ leaves it nil and the sweep is unrestricted.
+	scope := targetPlayerKindScope(h, c, sa)
 	for si, p := range g.AliveFrom(0) {
 		if ag.zone != "" {
 			zones, all, ok := ParseZones(ag.zone)
@@ -1115,7 +1129,7 @@ func effAnimateAll(h Host, c *Ctx, sa *cards.SA) {
 					continue
 				}
 				for _, id := range g.Zone(z, p) {
-					if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) {
+					if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) && inSweepScope(g, id, scope) {
 						registerAnimateEffects(h, c, id, ag)
 						ateotIDs = append(ateotIDs, id)
 					}
@@ -1124,7 +1138,7 @@ func effAnimateAll(h Host, c *Ctx, sa *cards.SA) {
 			continue
 		}
 		for _, id := range g.Zone(state.ZBattlefield, p) {
-			if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) {
+			if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) && inSweepScope(g, id, scope) {
 				registerAnimateEffects(h, c, id, ag)
 				ateotIDs = append(ateotIDs, id)
 			}

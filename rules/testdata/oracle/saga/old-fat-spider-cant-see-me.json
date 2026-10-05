@@ -1,0 +1,137 @@
+{
+  "card": "Old Fat Spider Can't See Me",
+  "family": "saga",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "94299020ea14",
+  "scenarios": [
+    {
+      "name": "chapter-one-grants-hexproof",
+      "cr": [
+        "714.2b",
+        "714.3a",
+        "702.11a"
+      ],
+      "why": "Chapter I grants target creature you control hexproof for as long as the Saga remains on the battlefield.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Old Fat Spider Can't See Me"
+          ],
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Old Fat Spider Can't See Me",
+          "mana": "CCU"
+        },
+        {
+          "op": "resolve",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "keywords": [
+            "Hexproof"
+          ]
+        },
+        {
+          "card": "p0:Old Fat Spider Can't See Me",
+          "zone": "battlefield",
+          "counters": {
+            "lore": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "chapter-three-and-four-draw-a-card",
+      "cr": [
+        "714.2b",
+        "714.3c",
+        "121.1"
+      ],
+      "why": "Chapters III and IV each draw a card. The three draw steps on turns 2, 3 and 4 also draw normally; chapter IV sacrifices the Saga after resolving.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Old Fat Spider Can't See Me"
+          ],
+          "battlefield": [
+            "Grizzly Bears"
+          ],
+          "library_top": ["Island", "Mountain", "Forest"]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Old Fat Spider Can't See Me",
+          "mana": "CCU"
+        },
+        {
+          "op": "resolve",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "pass_to",
+          "step": "end"
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p0"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass_to",
+          "step": "end"
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p0"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass_to",
+          "step": "end"
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p0"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p0": 5
+          }
+        },
+        {"card": "p0:Island", "zone": "hand"},
+        {"card": "p0:Mountain", "zone": "hand"},
+        {"card": "p0:Forest", "zone": "hand"},
+        {"card": "p0:Old Fat Spider Can't See Me", "zone": "graveyard"}
+      ]
+    }
+  ]
+}

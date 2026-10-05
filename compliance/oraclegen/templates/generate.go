@@ -38,7 +38,7 @@ func Generate(reg *cards.Registry, name string) (oraclegen.Item, *oraclegen.Skip
 	}
 	f := c.Faces[0]
 	if oraclegen.HasType(f, "Land") {
-		return playLand(name), nil
+		return playLand(reg, name, f), nil
 	}
 	mana, why := oraclegen.PoolFor(f.ManaCost)
 	if why != "" {

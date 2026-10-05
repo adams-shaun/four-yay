@@ -930,6 +930,59 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 			}),
 		})
 	}
+	// A keyword-granted triggered ability (CR 613.1f): a layer-6 AddKeyword$
+	// grant of a keyword whose rules text is a triggered ability (Prowess --
+	// Wizard's Staff's "Equipped creature has prowess") gives the recipient
+	// the same rules text a printed K: line would, but the printed expansion
+	// (cards/kw_prowess.go) only covers printed lines and a granted keyword
+	// has no face trigger. The trigger is synthesized from the keyword LINE
+	// (grantedKeywordTrigger) exactly as the printed expansion builds
+	// it, so the two cannot drift. It rides the existing Granted/
+	// GrantTriggerPush path (no new pushTrigger arm): its body is rebuilt
+	// structurally by foldGrantTriggerPush from the __kwProwessGranted
+	// payload, so a log-only replay mints the identical ability. Source is
+	// the GRANTED creature, so the body's Defined$ Self pumps it. The
+	// keyword-granting static reaches this loop because
+	// grantedTriggerStaticsFor includes it (a granted triggered keyword is a
+	// granted trigger), which also disables the zone-skip so the non-referent
+	// recipient is visited.
+	for _, ce := range statics {
+		if len(ce.AddKeywords) == 0 {
+			continue
+		}
+		if !observer.matchesSpecFrom(ce.Affects, id, ce.Controller, ce.Source) || observer.grantLostTo(ce, o) {
+			continue
+		}
+		for _, line := range ce.AddKeywords {
+			t := grantedKeywordTrigger(line)
+			if t == nil {
+				continue
+			}
+			if !observer.triggerMatches(*t, id, ev, objLKI) {
+				continue
+			}
+			key := triggerKey{Source: id, Idx: -1}
+			if e.triggerFireCount == nil {
+				e.triggerFireCount = map[triggerKey]int32{}
+			}
+			if e.triggerFireCount[key] >= maxTriggerFires {
+				continue // cascade bound: see maxTriggerFires.
+			}
+			e.triggerFireCount[key]++
+			e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
+				Source:     id,
+				Controller: o.Controller,
+				Granted:    true,
+				Grantor:    ce.Source,
+				Execute:    "__kwProwessGranted",
+				Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
+					Remembered:     triggerRemembered(ev, id),
+					LKI:            objLKI,
+					TriggerContext: observer.triggerReferents(*t, id, ev, objLKI),
+				}),
+			})
+		}
+	}
 }
 
 // grantedTriggerStaticsFor returns, in active()'s order, pointers to the
@@ -953,10 +1006,18 @@ func grantedTriggerStaticsFor(statics []ContinuousEffect, kind events.Kind, buf 
 }
 
 // grantedTriggerStaticObserves reports whether any trigger ce grants could
-// pass triggerMatches' leading event-kind gate for kind.
+// pass triggerMatches' leading event-kind gate for kind. A layer-6 AddKeyword$
+// grant of a triggered keyword (grantedKeywordTrigger) counts: its
+// synthesized trigger is matched from the keyword line exactly as a printed
+// one would be.
 func grantedTriggerStaticObserves(ce *ContinuousEffect, kind events.Kind) bool {
 	if ce.AddTrigger != nil && triggerLineEvents(ce.AddTrigger).allows(kind) {
 		return true
+	}
+	for _, line := range ce.AddKeywords {
+		if t := grantedKeywordTrigger(line); t != nil && triggerLineEvents(t).allows(kind) {
+			return true
+		}
 	}
 	for _, gf := range ce.GainedTriggerFaces {
 		if gf.Face == nil {

@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.life","diff":"gorge-xmage=-3"},"key":"cast-resolve | resolve | p1.life | gorge-xmage=-3","cards":1}
-{"card":"Blooming Blast","template":"cast-resolve","status":"diverge","api":"DealDamage","sets":["BLB"],"detail":"step 1 (resolve) p1.life: gorge \"17\", xmage \"20\""}

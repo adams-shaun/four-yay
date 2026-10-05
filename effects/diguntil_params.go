@@ -69,6 +69,10 @@ type DigUntilParams struct {
 	// other token is an SVar name resolved at resolution).
 	AmountRaw string
 	AmountLit int32
+	// MinTotalCMC is MinTotalCMC$ (Dream Harvest, Improvisation Capstone,
+	// Tasha's Hideous Laughter): reveal until the matching cards' cumulative
+	// mana value reaches the threshold instead of stopping at Amount$ matches.
+	MinTotalCMC ParamText
 	// NoneFoundSet reports a NoneFoundDestination$ or
 	// NoneFoundLibraryPosition$; NoneFoundDest (default Library) and
 	// NoneFoundPos ("0", "-1" or "") are the nothing-found branch's
@@ -101,21 +105,21 @@ var digUntilKnownKeys = [...]string{
 	"AlternativeCost", "Amount", "Announce", "AnnounceTitle", "Attacking", "Boast",
 	"ChangeTypeDesc", "CharacteristicDefining", "CheckSVar", "ChoiceTitle", "ChoiceZone",
 	"Choices", "ChooseFromList", "ClassBand", "ClearImprinted", "Condition",
-	"ConditionActivationLimit", "ConditionCheckSVar", "ConditionCompare",
+	"ConditionActivationLimit", "ConditionCheckSVar", "ConditionCompare", "ConditionCompare2",
 	"ConditionDefined", "ConditionDescription", "ConditionFirstCombat",
-	"ConditionNotPresent", "ConditionPhases", "ConditionPlayerTurn", "ConditionPresent",
-	"ConditionSVarCompare", "CopyCard", "Cost", "CostDesc", "Defined", "DefinedCards",
+	"ConditionNotPresent", "ConditionPhases", "ConditionPlayerTurn", "ConditionPresent", "ConditionPresent2",
+	"ConditionSVarCompare", "ConditionZone", "CopyCard", "Cost", "CostDesc", "Defined", "DefinedCards",
 	"DefinedTarget", "Description", "DigZone", "Exclude", "Exhaust",
-	"ForgetOtherRemembered", "FoundDestination", "FoundLibraryPosition", "GainControl",
+	"ForgetOtherRemembered", "ForgetOtherTargets", "FoundDestination", "FoundLibraryPosition", "GainControl",
 	"GameActivationLimit", "Image", "ImprintCards", "ImprintFound", "ImprintPlayed",
 	"ImprintRevealed", "InstantSpeed", "IsCurse", "IsPresent", "KW", "Keyword",
-	"KeywordLine", "MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor", "ModeCost",
+	"KeywordLine", "MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor", "MinTotalCMC", "ModeCost",
 	"Monstrosity", "NewController", "NoMoveFound", "NoMoveRevealed", "NoneFoundDestination",
 	"NoneFoundLibraryPosition", "NumDmg", "OpponentTurn", "OptionalFoundMove",
 	"OptionalNoDestination", "Planeswalker", "PlayCost", "PlayerTurn", "PowerUp",
 	"PrecostDesc", "PresentCompare", "PresentDefined", "PresentZone", "RandomNumTargets",
-	"ReduceAmount", "ReduceCost", "RememberCostMana", "RememberFound", "RememberObjects",
-	"RememberRevealed", "ReplaceColor", "ReplaceGraveyard", "ReplaceGraveyardValid",
+	"ReduceAmount", "ReduceCost", "RememberAnimated", "RememberCostMana", "RememberFound", "RememberObjects",
+	"RememberRevealed", "RememberTargets", "ReplaceColor", "ReplaceGraveyard", "ReplaceGraveyardValid",
 	"ReplaceMana", "ReplaceOnly", "ReplaceType", "RevealRandomOrder", "RevealedDestination",
 	"RevealedLibraryPosition", "SVarCompare", "SelectPrompt", "SetChosenMode", "SetColor",
 	"ShowCards", "Shuffle", "ShuffleCondition", "SorcerySpeed", "SpellDescription",
@@ -196,6 +200,7 @@ func compileDigUntil(sa *cards.SA, dr *DefinedParams) *DigUntilParams {
 			p.AmountLit = int32(n)
 		}
 	}
+	p.MinTotalCMC = rawParamText(sa, "MinTotalCMC")
 	// The withheld riders, in the resolution's historical Note order.
 	// DigZone$ stays withheld: every corpus value is PlanarDeck, and this
 	// build has no planar deck or planar zone.

@@ -148,7 +148,10 @@ func free()          {}
 		TokenLeaks:          []string{},
 		VoteLeaks:           []string{},
 		RepeatEachLeaks:     []string{},
-		Files:               4,
+		EngineSurface:       4, // the four Engine methods; free() takes no *Engine
+		// f's string parameter s indexes sa.Params.
+		StringKeyedParamHelpers: []string{"f/2 key args 1"},
+		Files:                   4,
 		LongFuncs: []Func{
 			{Name: "deep", File: "rules/sub/deep.go", Line: 6, Lines: 402},
 			{Name: "long301", File: "effects/long.go", Line: 303, Lines: 301},
@@ -351,5 +354,76 @@ func z(sa *SA) {
 	}
 	if m.DefinedParamLeaks != len(want) || !reflect.DeepEqual(m.DefinedLeaks, want) {
 		t.Errorf("defined leaks = %d %v, want %v", m.DefinedParamLeaks, m.DefinedLeaks, want)
+	}
+}
+
+// TestMeasureCountsSideDoors pins the side-door censuses of sidedoor.go.
+func TestMeasureCountsSideDoors(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"effects/registry.go": effectsSrc,
+		// Num is a string-keyed helper (key at 3); numStrict forwards its own
+		// key to Num at position 1, so it is one too. Literal keys: 2 at Num,
+		// 1 at numStrict; a variable key is not counted.
+		"effects/count.go": `package effects
+
+import "strings"
+
+func Num(h, c any, sa *SA, key string, def int32) int32 { _ = sa.Params[key]; return def }
+func numStrict(sa *SA, key string) int32 { return Num(nil, nil, sa, key, 0) }
+
+func use(sa *SA, k string) {
+	_ = Num(nil, nil, sa, "A", 1)
+	_ = Num(nil, nil, sa, "B", 1)
+	_ = Num(nil, nil, sa, k, 1)
+	_ = numStrict(sa, "C")
+	if k == "X" || k != "Y" || k == "" {
+	}
+	_ = strings.EqualFold(k, "true")
+	_ = strings.EqualFold(sa.ParamStr(cards.PKFoo), "True")
+	_ = strings.EqualFold(k, k)
+}
+
+var t1 = state.NewStrCodes(
+	state.StrEntry[code]{Key: "Hand", Val: 1},
+	state.StrEntry[code]{Key: "Exile", Val: 2},
+)
+var t2 = cards.NewStrTable[int](cards.StrEntry[int]{"Hand", 1}, cards.StrEntry[int]{"Library", 2})
+var t3 = state.NewNameSet("Hand", "Exile", "Hand")
+`,
+		"rules/engine.go": `package rules
+
+type Engine struct{ self *Engine }
+type resumePoint struct{ a int }
+type board struct{ e *Engine }
+type plain struct{ n int }
+
+func (e *Engine) A()        {}
+func (b *board) Read()      {}
+func (b board) Read2()      {}
+func (p *plain) N()         {}
+func free(x int, e *Engine) {}
+func none(x int)            {}
+`,
+	})
+	m, err := Measure(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// EngineSurface: A, Read, Read2, free = 4.
+	// StringLiteralCompares: "X", "Y" (never ""), EqualFold(k, "true"),
+	// EqualFold(ParamStr, "True") = 4. RawBoolParamParses: 1.
+	// StringKeyedParamReads: "A", "B", "C" = 3 (effectsSrc's f has no literal callers).
+	// StrCodesTables: 3. Keys: Hand in 3 tables (+2), Exile in 2 (+1),
+	// Library in 1 = 3.
+	got := []int{m.EngineSurface, m.StringLiteralCompares, m.RawBoolParamParses,
+		m.StringKeyedParamReads, m.StrCodesTables, m.StrCodesKeyDup}
+	want := []int{4, 4, 1, 3, 3, 3}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("side doors [surface compares boolparses keyedreads tables keydup] = %v, want %v", got, want)
+	}
+	// use forwards its own k at Num's key position, so it is a helper too.
+	wantHelpers := []string{"Num/5 key args 3", "f/2 key args 1", "numStrict/2 key args 1", "use/2 key args 1"}
+	if !reflect.DeepEqual(m.StringKeyedParamHelpers, wantHelpers) {
+		t.Errorf("helpers = %v, want %v", m.StringKeyedParamHelpers, wantHelpers)
 	}
 }

@@ -602,7 +602,7 @@ func init() {
 	// for every keyword in this list. Any other hasKeyword<X> (Landwalk,
 	// Enchant, ...) stays unknown and fails closed.
 	for _, kw := range [...]string{"Flying", "Trample", "Deathtouch", "Lifelink",
-		"Vigilance", "Reach", "Haste", "Indestructible", "First Strike", "Menace",
+		"Vigilance", "Reach", "Haste", "Indestructible", "First Strike", "Double Strike", "Menace",
 		"Flanking", "Horsemanship", "Defender", "Foretell", "Shadow", "Doctor's companion",
 		"Flash", "Mutate"} {
 		k := kw

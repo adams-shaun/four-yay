@@ -1,0 +1,140 @@
+{
+  "card": "Roads Go Ever, Ever On",
+  "family": "saga",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "ecc60815b6ff",
+  "scenarios": [
+    {
+      "name": "chapter-one-tutors-two-plains-and-gains-two-life",
+      "cr": [
+        "714.2b",
+        "714.3a",
+        "701.19a"
+      ],
+      "why": "Chapter I searches the library for up to two basic Plains cards, exiles them, shuffles, and gains 2 life.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Roads Go Ever, Ever On"
+          ],
+          "library": [
+            "Plains",
+            "Plains",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Roads Go Ever, Ever On",
+          "mana": "CW"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "p0:Plains",
+                "p0:Plains#2"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 22
+          }
+        },
+        {
+          "card": "p0:Plains",
+          "zone": "exile"
+        },
+        {
+          "card": "p0:Plains#2",
+          "zone": "exile"
+        },
+        {
+          "card": "p0:Roads Go Ever, Ever On",
+          "counters": {
+            "lore": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "chapter-two-returns-an-exiled-plain-to-hand",
+      "cr": [
+        "714.2b",
+        "714.3c"
+      ],
+      "why": "Chapter II returns exactly one of the two Plains exiled with this Saga. The turn-2 draw step also draws a card before chapter II resolves.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Roads Go Ever, Ever On"
+          ],
+          "library": [
+            "Plains",
+            "Plains",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Roads Go Ever, Ever On",
+          "mana": "CW"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "p0:Plains",
+                "p0:Plains#2"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "pass_to",
+          "step": "end"
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p0"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p0": 2
+          }
+        },
+        {
+          "card": "p0:Plains",
+          "zone": "hand"
+        },
+        {"card": "p0:Plains#2", "zone": "exile"},
+        {
+          "card": "p0:Roads Go Ever, Ever On",
+          "counters": {
+            "lore": 2
+          }
+        }
+      ]
+    }
+  ]
+}

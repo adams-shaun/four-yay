@@ -58,6 +58,7 @@ var (
 	kwhModular          = newKWHead("Modular")
 	kwhOffspring        = newKWHead("Offspring")
 	kwhPhasing          = newKWHead("Phasing")
+	kwhProwess          = newKWHead("Prowess")
 	kwhReach            = newKWHead("Reach")
 	kwhRetrace          = newKWHead("Retrace")
 	kwhSaddle           = newKWHead("Saddle")

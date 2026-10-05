@@ -848,6 +848,7 @@ func cloneFieldsEngineParked(c, e *Engine, sp *Spare, remap *cloneRemap) {
 		p0 := *e.triggerCost
 		p0.resume = remap.resume(e.triggerCost.resume)
 		p0.amount = cloneCost(e.triggerCost.amount)
+		p0.costRemembered = append([]state.Target(nil), e.triggerCost.costRemembered...)
 		p0.sacs = append([]state.ObjID(nil), e.triggerCost.sacs...)
 		p0.exiles = append([]state.ObjID(nil), e.triggerCost.exiles...)
 		p0.discards = append([]state.ObjID(nil), e.triggerCost.discards...)

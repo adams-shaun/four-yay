@@ -6,9 +6,13 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 import mage.Mana;
 import mage.abilities.Ability;
 import mage.abilities.common.SimpleStaticAbility;
+import mage.abilities.costs.AlternativeSourceCosts;
+import mage.cards.repository.CardInfo;
+import mage.cards.repository.CardRepository;
 import mage.abilities.effects.common.InfoEffect;
 import mage.cards.Card;
 import mage.constants.CardType;
@@ -30,6 +34,8 @@ import java.io.PrintWriter;
 import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -112,9 +118,15 @@ public class ScenarioReplay extends CardTestPlayerBase {
             skipInitShuffling();
             setStrictChooseMode(strict);
             sc0 = sc;
+            gorgeName = str(sc, "card");
+            xmageName = str(sc, "xmage_name");
             cast.clear();
+            refAlias.clear();
             build(sc);
-            runCode("setup", TURN, MAIN, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
+            runCode("setup", TURN, MAIN, playerA, (info, p, g) -> {
+                registerAliases(g);
+                snaps.add(snapshot(info, g));
+            });
             JsonArray steps = sc.has("steps") ? sc.getAsJsonArray("steps") : new JsonArray();
             JsonArray xans = sc.has("xmage_answers") && sc.get("xmage_answers").isJsonArray()
                     ? sc.getAsJsonArray("xmage_answers") : new JsonArray();
@@ -132,6 +144,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
             execute();
         } catch (Throwable t) {
             String msg = t.getClass().getSimpleName() + ": " + t.getMessage();
+            if (!xmageName.isEmpty()) {
+                // Name the card the way the scenario (and gorge) does.
+                msg = msg.replace(xmageName, gorgeName);
+            }
             int want = (sc.has("steps") ? sc.getAsJsonArray("steps").size() : 0) + 1;
             if (snaps.size() == want && msg.contains("Count are not equal")) {
                 res.addProperty("leftover", msg.length() > 300 ? msg.substring(0, 300) : msg);
@@ -154,6 +170,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
     }
 
     private void build(JsonObject sc) {
+        buildCounts.clear();
         String format = str(sc, "format");
         if (!format.isEmpty() && !format.equals("constructed")) {
             throw new IllegalArgumentException("unsupported format " + format);
@@ -192,10 +209,88 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     private int add(JsonObject s, String key, Zone zone, TestPlayer p) {
         List<String> ns = names(s, key);
+        // "tapped" names battlefield cards that start tapped (gorge's runner
+        // taps every placement whose name it lists, oraclegen's ".tapped"
+        // target slots: Push // Pull, Keep Out, Radiant Strike).
+        List<String> tapped = zone == Zone.BATTLEFIELD ? names(s, "tapped") : new ArrayList<>();
+        int i = p == playerA ? 0 : 1;
         for (String n : ns) {
-            addCard(zone, p, n);
+            int k = buildCounts.merge(i + "|" + n, 1, Integer::sum);
+            String ref = "p" + i + ":" + n + (k > 1 ? "#" + k : "");
+            refAlias.put(ref, "@" + ref);
+            addCard(zone, p, xmageSpelling(n), 1, tapped.contains(n));
         }
         return ns.size();
+    }
+
+    /** Binds one XMage alias per setup ref (the string build() recorded) to
+     * the setup object itself, so a target ref naming two same-name cards
+     * ("p0:Grizzly Bears#2") reaches exactly one of them. Counts follow the
+     * zone order build() added them in. */
+    private void registerAliases(Game g) {
+        for (int i = 0; i < 2; i++) {
+            TestPlayer pl = seat(i);
+            Map<String, Integer> counts = new HashMap<>();
+            Map<String, Integer> scenarioCounts = new HashMap<>();
+            List<mage.MageObject> objs = new ArrayList<>();
+            for (Permanent perm : g.getBattlefield().getAllPermanents()) {
+                if (pl.getId().equals(perm.getControllerId())) {
+                    objs.add(perm);
+                }
+            }
+            for (Card c : pl.getHand().getCards(g)) objs.add(c);
+            for (Card c : pl.getGraveyard().getCards(g)) objs.add(c);
+            for (Card c : g.getExile().getAllCards(g)) {
+                if (pl.getId().equals(c.getOwnerId())) objs.add(c);
+            }
+            for (Card c : pl.getLibrary().getCards(g)) objs.add(c);
+            for (mage.MageObject o : objs) {
+                String xmageCardName = o.getName();
+                int k = counts.merge(xmageCardName, 1, Integer::sum);
+                String xmageRef = "p" + i + ":" + xmageCardName + (k > 1 ? "#" + k : "");
+                String scenarioCardName = !xmageName.isEmpty() && xmageCardName.equals(xmageName)
+                        ? gorgeName : xmageCardName;
+                int scenarioOccurrence = scenarioCounts.merge(scenarioCardName, 1, Integer::sum);
+                String scenarioRef = "p" + i + ":" + scenarioCardName
+                        + (scenarioOccurrence > 1 ? "#" + scenarioOccurrence : "");
+                refAlias.put(scenarioRef, "@" + scenarioRef);
+                refAlias.putIfAbsent(xmageRef, "@" + scenarioRef);
+                // Both players must know every alias: the choosing player
+                // resolves the target string, and it may be either seat.
+                for (int j = 0; j < 2; j++) {
+                    try {
+                        seat(j).addAlias(scenarioRef, o.getId());
+                    } catch (IllegalArgumentException ignored) {
+                        // already bound on this player
+                    }
+                    if (!xmageRef.equals(scenarioRef)) {
+                        try {
+                            seat(j).addAlias(xmageRef, o.getId());
+                        } catch (IllegalArgumentException ignored) {
+                            // already bound on this player
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** Whether the card carries an alternative cost XMage offers on a plain
+     * cast (EvokeAbility, ImpendingAbility, DashAbility, ...). */
+    private static boolean hasAlternativeSourceCost(String name) {
+        CardInfo info = CardRepository.instance.findCard(name);
+        if (info == null) {
+            return false;
+        }
+        Card c = info.createCard();
+        return c != null && c.getAbilities().stream().anyMatch(a -> a instanceof AlternativeSourceCosts);
+    }
+
+    /** The XMage target string for one scenario target ref: its alias when
+     * setup bound one, else the stripped, XMage-spelled card name. */
+    private String targetName(String ref) {
+        String a = refAlias.get(ref);
+        return a != null ? a : xmageSpelling(refName(ref));
     }
 
     private static List<String> names(JsonObject o, String key) {
@@ -212,6 +307,51 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     private JsonObject sc0 = new JsonObject();
     private final List<String> cast = new ArrayList<>();
+    // Setup objects the scenario can name by ref ("p0:Grizzly Bears#2"): the
+    // XMage alias each ref is registered under, so two same-name permanents
+    // are told apart. Filled during setup, read by step targeting.
+    private final java.util.Map<String, String> refAlias = new java.util.LinkedHashMap<>();
+    // Per-seat per-name occurrence counter build() uses to spell setup refs
+    // ("p0:Grizzly Bears", "p0:Grizzly Bears#2") in the same order XMage
+    // adds the cards, so registerAliases can bind each to its object.
+    private final java.util.Map<String, Integer> buildCounts = new java.util.HashMap<>();
+    // The card under test's two spellings: the scenario's (gorge/corpus) name
+    // and XMage's card-database name when they differ (Forge prints "Dáin
+    // Ironfoot", XMage stores "Dain Ironfoot"). xmageName is empty when equal.
+    private String gorgeName = "";
+    private String xmageName = "";
+
+    /** The spelling to give XMage for a scenario card: the card under test's
+     * XMage spelling, else the name unchanged. */
+    private String xmageSpelling(String n) {
+        return (!xmageName.isEmpty() && n.equals(gorgeName)) ? xmageName : n;
+    }
+
+    /** Rewrites XMage's spelling of the card under test back to the scenario's
+     * (gorge) spelling throughout a value, so the comparator sees one name. */
+    private JsonElement gorgeSpellings(JsonElement e) {
+        if (xmageName.isEmpty()) {
+            return e;
+        }
+        if (e.isJsonPrimitive() && e.getAsJsonPrimitive().isString()) {
+            return e.getAsString().equals(xmageName) ? new JsonPrimitive(gorgeName) : e;
+        }
+        if (e.isJsonArray()) {
+            JsonArray a = new JsonArray();
+            for (JsonElement x : e.getAsJsonArray()) {
+                a.add(gorgeSpellings(x));
+            }
+            return a;
+        }
+        if (e.isJsonObject()) {
+            JsonObject o = new JsonObject();
+            for (Map.Entry<String, JsonElement> en : e.getAsJsonObject().entrySet()) {
+                o.add(en.getKey(), gorgeSpellings(en.getValue()));
+            }
+            return o;
+        }
+        return e;
+    }
 
     private void step(JsonObject st, String op) {
         int seatIdx = st.has("seat") ? st.get("seat").getAsInt() : 0;
@@ -233,30 +373,59 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 if (!sc0.has("xmage_answers")) {
                     answers(st, p);
                 }
-                String card = refName(str(st, "card"));
+                String card = xmageSpelling(refName(str(st, "card")));
                 List<String> tg = targets(st);
+                if (hasAlternativeSourceCost(card)) {
+                    // A plain cast step: gorge paid the mana cost, so decline
+                    // the alternative cost (evoke, impending, dash, ...)
+                    // XMage offers through its "Cast with no alternative
+                    // cost" choice, rather than leave it to the AI.
+                    setChoice(p, "Cast with no alternative cost");
+                }
                 if (tg.size() == 1 && isSeatRef(tg.get(0))) {
                     castSpell(TURN, MAIN, p, card, seat(seatOf(tg.get(0))));
                 } else if (tg.isEmpty()) {
                     castSpell(TURN, MAIN, p, card);
                     cast.add(card);
                     return;
-                } else if (tg.size() == 1 && cast.contains(tg.get(0))) {
+                } else if (tg.size() == 1 && cast.contains(xmageSpelling(refName(tg.get(0))))) {
                     // Targeting a spell cast by an earlier step: wait for it
-                    // on the stack.
-                    castSpell(TURN, MAIN, p, card, tg.get(0), tg.get(0));
+                    // on the stack. cast holds spelled card names and the
+                    // target is a scenario ref; the setup alias names the
+                    // card in hand, not the spell, so target by name.
+                    String spell = xmageSpelling(refName(tg.get(0)));
+                    castSpell(TURN, MAIN, p, card, spell, spell);
+                } else if (tg.size() == 1) {
+                    // A single target goes through XMage's own string form, so
+                    // a divided-damage target (TargetAmount) still lets XMage
+                    // pick the split as it always did.
+                    castSpell(TURN, MAIN, p, card, targetName(tg.get(0)));
                 } else {
-                    List<String> ts = new ArrayList<>();
+                    // Two or more targets: queue each through addTarget and
+                    // cast with no $target, so an "up to N" slot stays open
+                    // and same-name permanents are told apart by the alias
+                    // each ref carries. A trailing skip closes any slot XMage
+                    // offers that this scenario did not fill (a reflexive
+                    // sub-ability with no legal target, say).
                     for (String t : tg) {
-                        ts.add(isSeatRef(t) ? "targetPlayer=" + seat(seatOf(t)).getName() : t);
+                        if (isSeatRef(t)) {
+                            addTarget(p, seat(seatOf(t)));
+                        } else if (cast.contains(xmageSpelling(refName(t)))) {
+                            // A spell an earlier step cast: its setup alias
+                            // names the card in hand, not the spell.
+                            addTarget(p, xmageSpelling(refName(t)));
+                        } else {
+                            addTarget(p, targetName(t));
+                        }
                     }
-                    castSpell(TURN, MAIN, p, card, String.join("^", ts));
+                    addTarget(p, TestPlayer.TARGET_SKIP);
+                    castSpell(TURN, MAIN, p, card);
                 }
                 cast.add(card);
                 return;
             }
             case "play":
-                playLand(TURN, MAIN, p, refName(str(st, "card")));
+                playLand(TURN, MAIN, p, xmageSpelling(refName(str(st, "card"))));
                 return;
             case "resolve":
                 // gorge's resolve op passes priority until the stack is empty.
@@ -278,9 +447,17 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 case "target":
                     if (isSeatRef(v)) {
                         addTarget(p, seat(seatOf(v)));
+                    } else if (v.contains("^X=")) {
+                        // Divided damage: the ref carries its share.
+                        String[] parts = v.split("\\^X=", 2);
+                        String nm = isSeatRef(parts[0]) ? "targetPlayer=" + seat(seatOf(parts[0])).getName() : targetName(parts[0]);
+                        addTarget(p, nm + "^X=" + parts[1]);
                     } else {
-                        addTarget(p, v.equals("[target_skip]") ? TestPlayer.TARGET_SKIP : v);
+                        addTarget(p, v.equals("[target_skip]") ? TestPlayer.TARGET_SKIP : targetName(v));
                     }
+                    break;
+                case "amount":
+                    setChoiceAmount(p, Integer.parseInt(v));
                     break;
                 case "mode":
                     setModeChoice(p, v);
@@ -288,6 +465,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 case "choice":
                     if (v.equals("yes") || v.equals("no")) {
                         setChoice(p, v.equals("yes"));
+                    } else if (isSeatRef(v)) {
+                        setChoice(p, seat(seatOf(v)).getName());
                     } else {
                         setChoice(p, v.equals("[choice_skip]") ? TestPlayer.CHOICE_SKIP : v);
                     }
@@ -312,7 +491,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                         if (isSeatRef(t)) {
                             addTarget(p, seat(seatOf(t)));
                         } else {
-                            addTarget(p, refName(t));
+                            addTarget(p, targetName(t));
                         }
                     }
                     break;
@@ -333,11 +512,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
     }
 
     private List<String> targets(JsonObject st) {
-        List<String> out = new ArrayList<>();
-        for (String t : names(st, "targets")) {
-            out.add(isSeatRef(t) ? t : refName(t));
-        }
-        return out;
+        return new ArrayList<>(names(st, "targets"));
     }
 
     private static boolean isSeatRef(String s) {
@@ -350,8 +525,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     /** "p1:token:Name#2" -> "Name". */
     static String refName(String ref) {
+        // Only a leading seat ref ("p0:") is a prefix; a card name may carry
+        // its own colon ("Summon: Bahamut").
         int i = ref.indexOf(':');
-        String n = i >= 0 ? ref.substring(i + 1) : ref;
+        String n = i >= 0 && ref.substring(0, i).matches("p[0-9]+") ? ref.substring(i + 1) : ref;
         if (n.startsWith("token:")) {
             n = n.substring("token:".length());
         }
@@ -464,6 +641,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
             perm.getSuperType(g).forEach(st -> types.add(st.toString()));
             Collections.sort(types);
             o.add("types", GSON.toJsonTree(types));
+            if (perm.isAllCreatureTypes(g)) {
+                // Changeling / "is every creature type": the type list above
+                // is the printed subtypes only, so the comparator needs this
+                // marker to see the all-types state.
+                o.addProperty("all_creature_types", true);
+            }
             o.addProperty("colors", perm.getColor(g).toString());
             if (perm.getAttachedTo() != null) {
                 Permanent to = g.getPermanent(perm.getAttachedTo());
@@ -493,7 +676,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             stack.add(o);
         }
         s.add("stack", stack);
-        return s;
+        return (JsonObject) gorgeSpellings(s);
     }
 
     private static JsonArray sortedNames(java.util.Collection<Card> cs) {

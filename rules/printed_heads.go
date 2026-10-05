@@ -38,6 +38,7 @@ const (
 	phDisguise
 	phMayFlashCost
 	phAlternateAdditionalCost
+	phImpending
 	// phAll answers "maybe" for every head.
 	phAll printedHeads = 1<<iota - 1
 )
@@ -118,6 +119,8 @@ func printedHeadsOf(f *cards.Face) printedHeads {
 			m |= phMayFlashCost
 		case printedHeadsOfAlternateAdditionalCost:
 			m |= phAlternateAdditionalCost
+		case printedHeadsOfImpending:
+			m |= phImpending
 		}
 	}
 	return m
@@ -134,7 +137,7 @@ var printedHeadNames = [...]struct {
 	{phOverload, "Overload"}, {phWarp, "Warp"}, {phEmerge, "Emerge"}, {phBestow, "Bestow"},
 	{phMutate, "Mutate"}, {phBuyback, "Buyback"}, {phSuspend, "Suspend"}, {phPlot, "Plot"},
 	{phMorph, "Morph"}, {phMegamorph, "Megamorph"}, {phDisguise, "Disguise"},
-	{phMayFlashCost, "MayFlashCost"}, {phAlternateAdditionalCost, "AlternateAdditionalCost"},
+	{phMayFlashCost, "MayFlashCost"}, {phAlternateAdditionalCost, "AlternateAdditionalCost"}, {phImpending, "Impending"},
 }
 
 // verifyPrintedHeads panics when a clear bit of ph is contradicted by
@@ -172,6 +175,7 @@ const (
 	printedHeadsOfDisguise
 	printedHeadsOfMayflashcost
 	printedHeadsOfAlternateAdditionalCost
+	printedHeadsOfImpending
 )
 
 var printedHeadsOfCodes = state.NewStrCodes(
@@ -196,4 +200,5 @@ var printedHeadsOfCodes = state.NewStrCodes(
 	state.StrEntry[printedHeadsOfCode]{Key: "disguise", Val: printedHeadsOfDisguise},
 	state.StrEntry[printedHeadsOfCode]{Key: "mayflashcost", Val: printedHeadsOfMayflashcost},
 	state.StrEntry[printedHeadsOfCode]{Key: "alternateadditionalcost", Val: printedHeadsOfAlternateAdditionalCost},
+	state.StrEntry[printedHeadsOfCode]{Key: "impending", Val: printedHeadsOfImpending},
 )

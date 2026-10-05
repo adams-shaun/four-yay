@@ -69,8 +69,9 @@ def _commit_all(wt: Path, message: str) -> bool:
 def _broker(repo: Path, verb: str) -> None:
     """Tell the resource broker a gate run has ended.
 
-    The matching gate-begin is the FIRST entry in `[[gates]]`, so the whole
-    suite runs with heavy work paused. This is the release half. It is
+    The matching gate-begin follows only the cheap "ratchets only fall" gate
+    in `[[gates]]`, so the whole suite runs with heavy work paused (a gate-end
+    after a ratchet-gate failure, with no gate-begin, is a no-op resume). This is the release half. It is
     best-effort on purpose: a broker that is missing or failing must never be
     the reason a passing gate run does not land, and the broker's own stale-flag
     TTL resumes heavy work if this call never happens at all.

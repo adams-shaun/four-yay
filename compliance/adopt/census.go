@@ -149,9 +149,10 @@ func (cs *Census) FormatSets(f string) []string {
 }
 
 // corpusName is the single place the census maps a printed or XMage name
-// onto the corpus.
-func corpusName(reg *cards.Registry, name string) (string, bool) {
-	return compliance.CorpusName(func(n string) bool { _, ok := reg.Lookup(n); return ok }, name)
+// onto the corpus, folding diacritics and punctuation so Forge's "Dáin
+// Ironfoot" resolves to the same card XMage spells "Dain Ironfoot".
+func corpusName(reg *cards.Registry, folded map[string]string, name string) (string, bool) {
+	return compliance.CorpusNameFold(func(n string) bool { _, ok := reg.Lookup(n); return ok }, folded, name)
 }
 
 // Build reads every committed manifest and printed list under root and
@@ -171,9 +172,10 @@ func Build(reg *cards.Registry, root string) (*Census, error) {
 		return nil, fmt.Errorf("no manifests under %s", root)
 	}
 	sup := effects.Supported()
+	folded := compliance.FoldedNames(reg)
 	tournamentSet := map[string]bool{}
 	card := func(printed string) *Card {
-		name, ok := corpusName(reg, printed)
+		name, ok := corpusName(reg, folded, printed)
 		if !ok {
 			name = printed
 		}

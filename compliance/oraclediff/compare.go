@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/adams-shaun/gorge/compliance"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/rules"
 )
 
@@ -30,6 +32,11 @@ const (
 	Agree   Status = "AGREE"
 	Diverge Status = "DIVERGE"
 	Harness Status = "HARNESS"
+	// XMageLacks is not a disagreement: XMage's card database does not hold
+	// the card (a set marks it unfinished, so its SetCardInfo entry is
+	// removed from the set), and the driver's "Couldn't find a card" is not
+	// a driver gap. The card belongs in the gate's no-XMage bucket.
+	XMageLacks Status = "XMAGE_LACKS"
 )
 
 // Verdict is the first difference between the two engines, or Agree.
@@ -41,6 +48,20 @@ type Verdict struct {
 	XMage      string `json:"xmage,omitempty"`
 	Engine     string `json:"engine,omitempty"` // for Harness
 	Msg        string `json:"msg,omitempty"`    // for Harness
+}
+
+// XMageLacksCard reports an XMage database miss only when the named missing
+// card is the scenario card. Setup cards and targets can trigger the same
+// driver exception; those failures remain HARNESS rather than exempting the
+// card under test.
+func XMageLacksCard(msg, scenarioCard string) bool {
+	const marker = "Couldn't find a card:"
+	_, missing, ok := strings.Cut(msg, marker)
+	if !ok {
+		return false
+	}
+	missing = strings.TrimSpace(strings.TrimRight(missing, "]"))
+	return missing != "" && compliance.FoldName(missing) == compliance.FoldName(scenarioCard)
 }
 
 // Compare walks both engines' checkpoints in order. A harness failure on
@@ -276,8 +297,43 @@ func colors(s string) string {
 
 func types(ts []string) string {
 	c := make([]string, 0, len(ts))
+	subtypeWords := make(map[string]bool, len(effects.CreatureTypeWordList()))
+	for _, subtype := range effects.CreatureTypeWordList() {
+		subtypeWords[strings.ToLower(strings.ReplaceAll(subtype, " ", ""))] = true
+	}
+	seenSubtypes := make(map[string]bool, len(ts))
+	subtypeCount := 0
 	for _, t := range ts {
-		c = append(c, strings.ToLower(strings.ReplaceAll(t, " ", "")))
+		normalized := strings.ToLower(strings.ReplaceAll(t, " ", ""))
+		c = append(c, normalized)
+		if subtypeWords[normalized] {
+			subtypeCount++
+			seenSubtypes[normalized] = true
+		}
+	}
+	// XMage's oracle driver prints one marker for the rules-defined
+	// “all creature types” bundle, while gorge materializes the exact shared
+	// creature-subtype vocabulary. Collapse only when every vocabulary word
+	// occurs exactly once; a large but incomplete or extended list must retain
+	// its distinguishing subtype names.
+	allCreatureTypes := len(seenSubtypes) == len(effects.CreatureTypeWordList()) && subtypeCount == len(seenSubtypes)
+	if allCreatureTypes {
+		for _, subtype := range effects.CreatureTypeWordList() {
+			if !seenSubtypes[strings.ToLower(strings.ReplaceAll(subtype, " ", ""))] {
+				allCreatureTypes = false
+				break
+			}
+		}
+	}
+	if allCreatureTypes {
+		kept := make([]string, 0, len(c)-subtypeCount+1)
+		for _, typ := range c {
+			if !subtypeWords[typ] {
+				kept = append(kept, typ)
+			}
+		}
+		kept = append(kept, "allcreaturetypes")
+		c = kept
 	}
 	sort.Strings(c)
 	return strings.Join(c, " ")
@@ -287,6 +343,14 @@ func types(ts []string) string {
 // cards match by controller and name (the multiset), tokens by
 // characteristics, since the engines name tokens differently.
 func permKeys(ps []rules.OracleSnapPerm) []string {
+	// attached_to names its host the way XMage's driver does: the host
+	// permanent's CURRENT name (its layer-3 SetName$ name, or "" while face
+	// down, CR 708.2a), never the printed name the ref encodes. An empty
+	// host name is omitted, matching the driver's absent field.
+	hostName := map[string]string{}
+	for _, p := range ps {
+		hostName[p.Ref] = p.Name
+	}
 	out := make([]string, 0, len(ps))
 	for _, p := range ps {
 		name := p.Name
@@ -310,7 +374,11 @@ func permKeys(ps []rules.OracleSnapPerm) []string {
 			k += " counters=" + c
 		}
 		if p.AttachedTo != "" {
-			k += " on=" + RefName(p.AttachedTo)
+			if host, ok := hostName[p.AttachedTo]; !ok {
+				k += " on=" + RefName(p.AttachedTo)
+			} else if host != "" {
+				k += " on=" + host
+			}
 		}
 		if p.Attacking {
 			k += " attacking"

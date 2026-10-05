@@ -99,22 +99,22 @@ var changeZoneAllKnownKeys = [...]string{
 	"ChangeNum", "ChangeType", "ChangeTypeDesc", "CharacteristicDefining",
 	"CheckSVar", "ChoiceTitle", "ChoiceZone", "Choices", "ChooseFromList",
 	"ClassBand", "ClearImprinted", "Condition", "ConditionActivationLimit",
-	"ConditionCheckSVar", "ConditionCompare", "ConditionDefined",
+	"ConditionCheckSVar", "ConditionCompare", "ConditionCompare2", "ConditionDefined",
 	"ConditionDescription", "ConditionFirstCombat", "ConditionNotPresent",
-	"ConditionPhases", "ConditionPlayerTurn", "ConditionPresent",
-	"ConditionSVarCompare", "CopyCard", "Cost", "CostDesc",
+	"ConditionPhases", "ConditionPlayerTurn", "ConditionPresent", "ConditionPresent2",
+	"ConditionSVarCompare", "ConditionZone", "CopyCard", "Cost", "CostDesc",
 	"Defined", "DefinedCards", "DefinedTarget", "Description", "Destination",
 	"Duration", "Exclude", "Exhaust", "ExileFaceDown", "FaceDown",
 	"FaceDownPower", "FaceDownSetType", "FaceDownToughness", "Foretold",
-	"ForgetOtherRemembered", "GainControl", "GameActivationLimit", "Image",
+	"ForgetOtherRemembered", "ForgetOtherTargets", "GainControl", "GameActivationLimit", "Image",
 	"ImprintCards", "ImprintPlayed", "InstantSpeed", "IsCurse",
 	"IsPresent", "KW", "Keyword", "KeywordLine", "LibraryPosition",
 	"MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor", "ModeCost", "Monstrosity",
 	"NewController", "NumDmg", "OpponentTurn",
 	"Origin", "Planeswalker", "PlayCost", "PlayerTurn", "PowerUp", "PrecostDesc",
 	"PresentCompare", "PresentDefined", "PresentZone", "RandomNumTargets", "RandomOrder", "ReduceAmount",
-	"ReduceCost", "RememberChanged", "RememberCostMana", "RememberLKI",
-	"RememberObjects", "ReplaceColor", "ReplaceGraveyard", "ReplaceGraveyardValid",
+	"ReduceCost", "RememberAnimated", "RememberChanged", "RememberCostMana", "RememberLKI",
+	"RememberObjects", "RememberTargets", "ReplaceColor", "ReplaceGraveyard", "ReplaceGraveyardValid",
 	"ReplaceMana", "ReplaceOnly", "ReplaceType", "SVarCompare",
 	"SelectPrompt", "SetChosenMode", "SetColor", "ShowCards", "Shuffle",
 	"SorcerySpeed", "SpellDescription", "StackDescription",
@@ -217,6 +217,14 @@ func compileChangeZoneAll(sa *cards.SA, tp *TargetParams, dp *DefinedParams) *Ch
 func unreadKeys(sa *cards.SA, known []string) []string {
 	var out []string
 	for k := range sa.Params {
+		// This generic activation-cost permission is consumed before resolution,
+		// not by any particular API. Ignore it only on an activated ability
+		// whose typed activation record actually enables the permission; an
+		// unrelated or malformed use must still be reported as unread.
+		if k == cards.PKTapCreaturesForMana.String() &&
+			ActivationOf(sa).Has(ActTapCreaturesForMana) {
+			continue
+		}
 		if _, ok := slices.BinarySearch(known, k); !ok {
 			out = append(out, k)
 		}
