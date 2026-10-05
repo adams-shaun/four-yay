@@ -1,0 +1,8 @@
+a/arboria.txt
+b/bell_borca_spectral_sergeant.txt
+c/cobra_trap.txt
+d/desert_were_worm.txt
+k/krovikan_vampire.txt
+m/monitor_monitor.txt
+n/night_shift_of_the_living_dead.txt
+p/planetarium_of_wan_shi_tong.txt

@@ -123,7 +123,10 @@ const (
 	// ordinal moves.
 	TriggerTapAll    TriggerMode = 90
 	TriggerUntapAll  TriggerMode = 91
-	TriggerModeCount             = 92 // one past the last; sizes a dense per-TriggerMode array
+	TriggerExiled    TriggerMode = 92
+	TriggerLosesGame TriggerMode = 93
+	TriggerTurnBegin TriggerMode = 94
+	TriggerModeCount             = 95 // one past the last; sizes a dense per-TriggerMode array
 )
 
 var triggerModeNames = [TriggerModeCount]string{
@@ -218,6 +221,9 @@ var triggerModeNames = [TriggerModeCount]string{
 	TriggerSacrificedOnce:             "SacrificedOnce",
 	TriggerTapAll:                     "TapAll",
 	TriggerUntapAll:                   "UntapAll",
+	TriggerExiled:                     "Exiled",
+	TriggerLosesGame:                  "LosesGame",
+	TriggerTurnBegin:                  "TurnBegin",
 }
 
 var triggerModeCodes = func() StrCodes[TriggerMode] {

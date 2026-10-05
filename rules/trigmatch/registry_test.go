@@ -280,6 +280,10 @@ var addedAfterTheSplit = []string{
 	// dispatched them; their "one or more" cadence rides the shared action
 	// bracket (rules/trigger_match.go's zoneBatch latch).
 	"TapAll", "UntapAll",
+	// triage-925cbe09: ordinary event-backed modes absent from the pre-split
+	// dispatcher (TurnChange, PlayerLost, ControlChange, MoveZone), plus
+	// ChangesController which had vocabulary but no matcher.
+	"TurnBegin", "LosesGame", "ChangesController", "Exiled",
 }
 
 func allRegisteredModeNames() []string {

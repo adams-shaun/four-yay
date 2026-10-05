@@ -1,0 +1,6 @@
+c/coffin_queen.txt
+d/duplicity.txt
+g/gusthas_scepter.txt
+k/kharn_the_betrayer.txt
+r/risky_move.txt
+z/zidane_tantalus_thief.txt
