@@ -34,9 +34,13 @@ func roomLockedFace(o *state.Object) *cards.Face {
 	if !isRoomFace(o.Card.Faces[o.FaceIdx]) || !isRoomFace(o.Card.Faces[1-int(o.FaceIdx)]) {
 		return nil
 	}
-	for fi, f := range o.Card.Faces {
+	// Prefer the alternate face when both doors are locked (the valid
+	// non-cast-entry state). This preserves the ordinary Room unlock offer;
+	// a cast Room has only that alternate locked, while an explicitly locked
+	// cast door is found when its alternate is already unlocked.
+	for _, fi := range []int{1 - int(o.FaceIdx), int(o.FaceIdx)} {
 		if !o.DoorUnlocked(fi) {
-			return f
+			return o.Card.Faces[fi]
 		}
 	}
 	return nil
