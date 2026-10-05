@@ -1,0 +1,42 @@
+package effects
+
+import (
+	"testing"
+
+	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/state"
+)
+
+func TestStandardUnattachDefinedEquipment(t *testing.T) {
+	h, c, ids := attachBoard(t)
+	h.Emit(events.Event{Kind: events.Attach, Obj: ids["eq"], IDs: []state.ObjID{ids["bear"]}})
+	if h.g.Obj(ids["eq"]).AttachedTo != ids["bear"] {
+		t.Fatal("precondition: equipment not attached")
+	}
+	c.Remembered = []state.Target{{Obj: ids["eq"]}, {Obj: ids["bear"]}}
+	before := len(h.log)
+	Resolve(h, c, sa(t, "DB$ Unattach | Defined$ Remembered"))
+	if h.g.Obj(ids["eq"]).AttachedTo != 0 || h.g.Obj(ids["eq"]).LastBearer != ids["bear"] {
+		t.Fatalf("equipment not detached: %+v", h.g.Obj(ids["eq"]))
+	}
+	if len(h.log) != before+1 || h.log[before].Kind != events.Unattached || h.log[before].Obj != ids["eq"] || len(h.log[before].IDs) != 1 || h.log[before].IDs[0] != ids["bear"] {
+		t.Fatalf("detach events: %+v", h.log[before:])
+	}
+}
+
+func TestStandardChangeSpeedDecrease(t *testing.T) {
+	h, c, _ := attachBoard(t)
+	h.Emit(events.Event{Kind: events.SpeedChange, Player: 1, Amount: 3})
+	if h.g.Players[1].Speed != 3 {
+		t.Fatal("precondition: speed not three")
+	}
+	c.Targets = []state.Target{{Player: 1, IsPlayer: true}}
+	before := len(h.log)
+	Resolve(h, c, sa(t, "DB$ ChangeSpeed | Mode$ Decrease | Defined$ TargetedController"))
+	if h.g.Players[1].Speed != 2 || h.g.Players[0].Speed != 0 {
+		t.Fatalf("speed: %d, %d", h.g.Players[1].Speed, h.g.Players[0].Speed)
+	}
+	if len(h.log) != before+1 || h.log[before].Kind != events.SpeedChange || h.log[before].Player != 1 || h.log[before].Amount != -1 {
+		t.Fatalf("speed events: %+v", h.log[before:])
+	}
+}
