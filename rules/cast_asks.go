@@ -878,6 +878,7 @@ func (e *Engine) castModeAsk() bool {
 	}
 	ctx := effects.NewCtxPtr(pc.card, pc.player, effects.CtxInit{})
 	ctx.Kicker.PendingKicked = modeIsKicked(pc.mode)
+	ctx.Kicker.PendingTeamwork = pc.teamworkPaid
 	effects.SetSVars(ctx, f.SVars)
 	if effects.CharmRandomChosen(e, ctx, sa) {
 		// param:api:Charm.Random: a random Charm's mode announcement is not

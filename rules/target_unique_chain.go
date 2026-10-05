@@ -161,10 +161,31 @@ func castSubAskLinks(e *Engine, pc *pendingCast, root *cards.SA) []*cards.SA {
 	if pc.mode == "fuse" || altCastIs(pc.mode, altOverload) {
 		return nil
 	}
+	var roots []*cards.SA
+	var charm *cards.SA
+	if !pc.isAbility() {
+		if o := e.G.Obj(pc.card); o != nil && o.Face() != nil {
+			charm = o.Face().SpellAbility()
+			if effects.CharmOf(charm).HasChoices {
+				for _, name := range o.ChosenModes {
+					if mode := cards.ResolveSVar(o.Face().SVars, name); mode != nil {
+						roots = append(roots, mode)
+					}
+				}
+			}
+		}
+	}
+	if !effects.CharmOf(charm).HasChoices {
+		if root != nil {
+			roots = append(roots, root)
+		}
+	}
 	var out []*cards.SA
-	for _, sub := range e.collectSubTargetPreAsks(root) {
-		if e.castSubPreAskable(pc, sub) {
-			out = append(out, sub)
+	for _, mode := range roots {
+		for _, sub := range e.collectSubTargetPreAsks(mode) {
+			if e.castSubPreAskable(pc, sub) {
+				out = append(out, sub)
+			}
 		}
 	}
 	return out
