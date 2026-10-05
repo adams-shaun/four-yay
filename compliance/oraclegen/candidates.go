@@ -21,6 +21,58 @@ import (
 type Slot struct {
 	Filter   string
 	Optional bool
+	// Mirror places this slot's candidate on the other seat: the second
+	// pick of a TargetsWithDifferentControllers$ slot (Run Away Together)
+	// needs a different controller than the first.
+	Mirror bool
+}
+
+// requiredSlotCount is how many distinct targets one ability demands: its
+// TargetMin$ when that is a literal above one, or the paid X when it names
+// a Count$xPaid SVar (the generator casts X at xValue). Any other dynamic
+// minimum (Count$Kicked, Count$Teamwork) is not priceable here and keeps one
+// slot. The repeated slots get distinct objects from fixtures' same-card
+// check, so N slots are N distinct targets.
+func requiredSlotCount(f *cards.Face, params map[string]string) int {
+	raw := strings.TrimSpace(params["TargetMin"])
+	if n, err := strconv.Atoi(raw); err == nil {
+		if n > 1 {
+			return n
+		}
+		return 1
+	}
+	if raw == "X" {
+		// templates.xAnswers casts a TargetMin$ X spell with X = 1, so it
+		// demands one target; more slots would only add decoys.
+		return 1
+	}
+	if body, ok := f.SVars[raw]; ok && strings.EqualFold(strings.TrimSpace(body), "Count$xPaid") {
+		return xValue
+	}
+	return 1
+}
+
+// paramTrue reports whether a boolean ability param is set.
+func paramTrue(params map[string]string, key string) bool {
+	return strings.EqualFold(strings.TrimSpace(params[key]), "True")
+}
+
+// repeatedSlots expands one ability's slot to the number of targets it
+// demands (requiredSlotCount, or the combat expansion when combat is set),
+// marking the mirror picks of a different-controllers slot.
+func repeatedSlots(f *cards.Face, params map[string]string, v string, combat bool) []Slot {
+	count := requiredSlotCount(f, params)
+	if combat {
+		if role, _ := filterCombat(params["ValidTgts"]); role != roleNone {
+			count = targetSlotCount(params)
+		}
+	}
+	diff := paramTrue(params, "TargetsWithDifferentControllers")
+	out := make([]Slot, 0, count)
+	for i := 0; i < count; i++ {
+		out = append(out, Slot{Filter: v, Optional: optionalTarget(params), Mirror: diff && i%2 == 1})
+	}
+	return out
 }
 
 // SlotSpecs lists the ValidTgts$ filters along the card's spell-ability chain
@@ -36,16 +88,10 @@ func SlotSpecs(f *cards.Face) []Slot {
 		if z := targetZone(params, false); z != "" && !playerTargetHead(v) {
 			v += "@" + z
 		}
-		// Only a combat-state filter is expanded to its target maximum: a
-		// plain multi-target filter keeps one fixture slot, so its setup
-		// gains no decoys the cast never names.
-		count := 1
-		if role, _ := filterCombat(params["ValidTgts"]); role != roleNone {
-			count = targetSlotCount(params)
-		}
-		for i := 0; i < count; i++ {
-			out = append(out, Slot{Filter: v, Optional: optionalTarget(params)})
-		}
+		// A combat-state filter is expanded to its target maximum, any
+		// other filter only to its required minimum: an "up to N" slot keeps
+		// one fixture slot, so its setup gains no decoys the cast never names.
+		out = append(out, repeatedSlots(f, params, v, true)...)
 	}
 	for _, sa := range f.Abilities {
 		if sa.Kind != "SP" {
@@ -80,7 +126,7 @@ func ChainSlotSpecs(f *cards.Face, svar string) []Slot {
 			if z := targetZone(params, true); z != "" && !playerTargetHead(v) {
 				v += "@" + z
 			}
-			out = append(out, Slot{Filter: v, Optional: optionalTarget(params)})
+			out = append(out, repeatedSlots(f, params, v, false)...)
 		}
 		name = params["SubAbility"]
 	}
@@ -600,6 +646,9 @@ func fixtures(reg *cards.Registry, slots []Slot) []fixture {
 		var next []fixture
 		for _, fx := range out {
 			for _, c := range cs {
+				if s.Mirror && c.card != "" && !controllerQualified(s.Filter) {
+					c.seat = otherSeat(c.seat)
+				}
 				if c.card != "" && fixtureAlreadyTargetsCard(fx.targets, c.seat, c.card) {
 					continue
 				}
@@ -765,4 +814,22 @@ func clone(s Seat) Seat {
 		Graveyard: append([]string(nil), s.Graveyard...), Exile: append([]string(nil), s.Exile...),
 		Library: append([]string(nil), s.Library...), LibraryTop: append([]string(nil), s.LibraryTop...),
 	}
+}
+
+// controllerQualified reports whether a filter pins its target's controller
+// or owner, so a candidate cannot be mirrored onto the other seat.
+func controllerQualified(filter string) bool {
+	for _, q := range []string{"YouCtrl", "OppCtrl", "YouOwn", "OppOwn", "YouDontCtrl"} {
+		if strings.Contains(filter, q) {
+			return true
+		}
+	}
+	return false
+}
+
+func otherSeat(seat string) string {
+	if seat == "p1" {
+		return "p0"
+	}
+	return "p1"
 }
