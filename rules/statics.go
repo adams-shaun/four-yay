@@ -659,6 +659,14 @@ func init() {
 		// walks -- so a prohibition without Origin$ Hand covers every zone.
 		// Proof test: rules/cantplayland_test.go.
 		"stat:CantPlayLand",
+		// ActivateAbilityAsIfHaste: the CR 302.6 {T}/{Q} activation exception
+		// (Shang-Chi, Master of Kung Fu; Dynaheir; Thousand-Year Elixir; Tyvar
+		// Kell). Read by activatesAsIfHaste (rules/activateasifhaste.go), a
+		// free function whose bool every {T}/{Q} cost site threads into
+		// pay.TapFlagsSick -- the ONE activation-sickness predicate -- so it
+		// lifts activation sickness only, never combat sickness.
+		// Proof test: rules/activateasifhaste_test.go.
+		"stat:ActivateAbilityAsIfHaste",
 		// TapPowerValue: the Station/Crew/Saddle value static, read by the
 		// ONE value helper Engine.tapPowerValue (rules/statics.go) through
 		// tapPowerValueStatics/activeStatics("TapPowerValue"). Proof tests:
