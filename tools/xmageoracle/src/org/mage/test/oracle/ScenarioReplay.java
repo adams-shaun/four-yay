@@ -152,7 +152,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
             if (queue.isEmpty()) {
                 return null;
             }
-            Set<Card> available = cards.getCards(game);
+            List<Card> lookedAtOrder = new ArrayList<>(cards.getCards(game));
+            Set<Card> available = new java.util.LinkedHashSet<>(lookedAtOrder);
             Cards selected = new CardsImpl();
             boolean scripted = false;
             while (!queue.isEmpty()) {
@@ -181,7 +182,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             // Match against the original look set to distinguish an answer for
             // this order prompt from an answer belonging to a later choice,
             // while only adding cards still available to the top of the library.
-            Set<Card> lookedAt = cards.getCards(game);
+            Set<Card> lookedAt = new java.util.LinkedHashSet<>(lookedAtOrder);
             List<Card> ordered = new ArrayList<>();
             while (!queue.isEmpty()) {
                 String answer = queue.get(0);
@@ -203,8 +204,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
             for (Card card : ordered) {
                 cards.add(card);
             }
-            for (Card card : available) {
-                cards.add(card);
+            // Any kept card without a distinct ordering label retains its
+            // original look order; never let Set iteration determine library order.
+            for (Card card : lookedAtOrder) {
+                if (available.remove(card)) {
+                    cards.add(card);
+                }
             }
             return selected;
         }

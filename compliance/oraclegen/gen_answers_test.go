@@ -23,20 +23,15 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 		want []XAnswer
 	}{
 		{
-			// DSK Broodspinner's enter trigger is the named surveil-2 carrier.
-			// Keeping every card makes XMage's selection a TargetCard on the
-			// target queue; the scripted target skip dismisses it. This is the
-			// answer shape measured for the 25 standard surveil/scry carriers
-			// (including Refute Destiny and Proctor of Potential); a choice skip
-			// plus ORDER picks leaves an answer queued and fails the next choice.
-			name: "Broodspinner surveil keeps all cards: target skip",
+			// Generic all-kept arrange routing shape. This synthetic decision
+			// pins xanswers only; generated card coverage is pinned separately.
+			name: "arrange keeps all cards: target skip",
 			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "order", GorgeKind: "arrange", Options: 2, Min: 0, Max: 2, Picks: []string{"Forest", "Island"}, PickIdx: []int{0, 1}, PickKinds: []string{"graveyard", "graveyard"}},
 			want: []XAnswer{{0, "target", "[target_skip]"}},
 		},
 		{
-			// Regression for the driver queue sequence: the first Forest selects
-			// a card, choice_skip ends selection, and the final Forest answers
-			// the independent order prompt (even when selection used that name).
+			// Generic partial arrange queue shape: selection, terminator, then
+			// the emitted order labels. The driver must preserve that order.
 			name: "arrange partial selection: selection skip then independent order",
 			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "order", GorgeKind: "arrange", Options: 3, Min: 0, Max: 2, Picks: []string{"Forest"}, PickIdx: []int{0}, PickKinds: []string{"graveyard"}},
 			want: []XAnswer{{0, "choice", "Forest"}, {0, "choice", "[choice_skip]"}, {0, "choice", "Forest"}},
