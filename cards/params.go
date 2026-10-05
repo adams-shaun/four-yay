@@ -275,6 +275,7 @@ const (
 	PKValidCreature
 	PKValidDefender
 	PKValidDescription
+	PKValidEntity
 	PKValidLKI
 	PKValidMode
 	PKValidObject
@@ -1006,6 +1007,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKValidCreature:                    "ValidCreature",
 	PKValidDefender:                    "ValidDefender",
 	PKValidDescription:                 "ValidDescription",
+	PKValidEntity:                      "ValidEntity",
 	PKValidLKI:                         "ValidLKI",
 	PKValidMode:                        "ValidMode",
 	PKValidObject:                      "ValidObject",

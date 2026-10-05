@@ -106,6 +106,35 @@ func (e *Engine) hexproofBlocksTarget(id state.ObjID, targeting state.PlayerID, 
 	if o == nil || o.Controller == targeting {
 		return false
 	}
+	// Mode$ IgnoreHexproof (CR 702.11): an active static whose ValidEntity$
+	// selects id and whose Activator$ admits the targeting player lets that
+	// player target it as though it had no hexproof. Read inline at this one
+	// gate (rather than a helper on Engine, which the engineSurface ratchet
+	// counts) so every caller -- rules/stack.go askTarget and
+	// rules/target_legal.go -- is covered by construction.
+	for _, sv := range e.activeStatics("IgnoreHexproof") {
+		spec := strings.TrimSpace(sv.ParamStr(cards.PKValidEntity))
+		if spec == "" {
+			continue
+		}
+		// Activator$ scopes whose spells and abilities benefit; absent means
+		// the static's own controller.
+		if act := strings.TrimSpace(sv.ParamStr(cards.PKActivator)); act != "" &&
+			!effects.MatchesPlayerSpecCtx(e.G, act, targeting, sv.Controller, e.playerSpecCtx(sv.Source)) {
+			continue
+		}
+		matched := false
+		for _, clause := range strings.Split(spec, ",") {
+			clause = strings.TrimSpace(clause)
+			if clause != "" && e.matchesSpec(clause, id, e.staticSpecCtx(sv)) {
+				matched = true
+				break
+			}
+		}
+		if matched {
+			return false
+		}
+	}
 	for _, kw := range e.Keywords(id) {
 		q, ok := hexproofQuality(kw)
 		if !ok {

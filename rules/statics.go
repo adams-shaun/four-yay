@@ -502,24 +502,6 @@ func (e *Engine) verifySpecDerivedSkip(spec string, id state.ObjID, sc effects.S
 	return bound
 }
 
-// noCleanupDamageKeeps reports whether a stat:NoCleanupDamage static selects id
-// (CR 514.2: "Damage isn't removed from this creature during cleanup steps.").
-// Read by the cleanup step's damage-removal pass (rules/combat.go
-// cleanupBody). The static's ValidCard$ (Card.Self on every corpus carrier) is
-// matched through the same spec walk every other static read uses.
-func (e *Engine) noCleanupDamageKeeps(id state.ObjID) bool {
-	for _, sv := range e.activeStatics("NoCleanupDamage") {
-		spec := strings.TrimSpace(sv.ParamStr(cards.PKValidCard))
-		if spec == "" {
-			continue
-		}
-		if e.matchesSpec(spec, id, e.staticSpecCtx(sv)) {
-			return true
-		}
-	}
-	return false
-}
-
 // staticSpecCtx is the SpecContext a staticView's spec match resolves against:
 // its own SVar table when the view carries one (an under-card static), else the
 // source object's top face.
@@ -637,9 +619,9 @@ func init() {
 		// rules/mustblock_static_test.go.
 		"stat:MustBlock",
 		// NoCleanupDamage: the CR 514.2 exception "Damage isn't removed from
-		// this creature during cleanup steps." (Ancient Adamantoise). Read by
-		// Engine.noCleanupDamageKeeps (rules/statics.go) and consulted by the
-		// cleanup step's damage-removal pass (rules/combat.go cleanupBody).
+		// this creature during cleanup steps." (Ancient Adamantoise). Read at
+		// the one removal site in the cleanup step's damage pass (rules/combat.go
+		// cleanupBody, activeStatics + ValidCard$ through the shared spec walk).
 		// Proof test: rules/nocleanupdamage_test.go.
 		"stat:NoCleanupDamage",
 		// asunblk1: the combat-damage assignment election (rules/combat.go
@@ -663,6 +645,13 @@ func init() {
 		// ValidCard$/Condition$ are matched through the shared static walk).
 		// Proof test: rules/ignorelegendrule_test.go.
 		"stat:IgnoreLegendRule",
+		// IgnoreHexproof: the CR 702.11 targeting exemption (Nowhere to Run,
+		// Detection Tower, Glaring Spotlight, Kaya, Bane of the Dead). Read by
+		// Engine.ignoreHexproofApplies (rules/protection.go), consulted at the
+		// ONE hexproof gate hexproofBlocksTarget every targeting path flows
+		// through; ValidEntity$ selects the target and Activator$ scopes whose
+		// spells benefit. Proof test: rules/ignorehexproof_test.go.
+		"stat:IgnoreHexproof",
 		// TapPowerValue: the Station/Crew/Saddle value static, read by the
 		// ONE value helper Engine.tapPowerValue (rules/statics.go) through
 		// tapPowerValueStatics/activeStatics("TapPowerValue"). Proof tests:
