@@ -165,11 +165,7 @@ func chainSlots(f *cards.Face, svar string) []string {
 	for name := svar; name != ""; {
 		params := svarParams(f.SVars[name])
 		if v := params["ValidTgts"]; v != "" {
-			z := params["TgtZone"]
-			if z == "" && params["Origin"] != "" && !strings.Contains(params["Origin"], "Battlefield") {
-				z = params["Origin"]
-			}
-			if z != "" {
+			if z := targetZone(params); z != "" {
 				v += "@" + z
 			}
 			out = append(out, v)
@@ -177,6 +173,83 @@ func chainSlots(f *cards.Face, svar string) []string {
 		name = params["SubAbility"]
 	}
 	return out
+}
+
+// targetZone is the zone a target filter draws from: an explicit TgtZone$,
+// else a non-battlefield Origin$, else Stack for a slot that names a spell
+// or ability on the stack (TargetType$ Spell/SpellAbility/Activated/
+// Triggered, or ValidTgts$ with inZoneStack).
+func targetZone(params map[string]string) string {
+	if z := params["TgtZone"]; z != "" {
+		return z
+	}
+	if o := params["Origin"]; o != "" {
+		// An Origin$ that names the battlefield alone is the default zone
+		// and stays unsuffixed (no slot change for the common case); an
+		// Origin$ that adds Stack ("Battlefield,Stack") is kept so the
+		// slot records both alternatives.
+		if !strings.Contains(o, "Battlefield") || strings.Contains(o, "Stack") {
+			return o
+		}
+	}
+	if abilityTargetsStack(params) {
+		return "Stack"
+	}
+	return ""
+}
+
+// zoneNamesStack reports whether a TgtZone$ list names Stack (it may be a
+// comma-separated combo such as "Stack,Battlefield").
+func zoneNamesStack(z string) bool {
+	for _, part := range strings.Split(z, ",") {
+		if strings.EqualFold(strings.TrimSpace(part), "Stack") {
+			return true
+		}
+	}
+	return false
+}
+
+// abilityTargetsStack reports whether an ability's target is a spell or
+// ability on the stack, judged from its target vocabulary: a "Spell"-
+// family TargetType$, or a ValidTgts$ naming the inZoneStack zone. An
+// explicit non-stack zone (TgtZone$ / Origin$) wins, so a card targeting an
+// instant card in a graveyard is not mistaken for a stack target.
+func abilityTargetsStack(params map[string]string) bool {
+	if strings.Contains(params["ValidTgts"], "inZoneStack") {
+		return true
+	}
+	if params["TargetType"] == "" {
+		return false
+	}
+	for _, part := range strings.Split(params["TargetType"], ",") {
+		base := strings.SplitN(strings.TrimSpace(part), ".", 2)[0]
+		switch base {
+		case "Spell", "SpellAbility", "Activated", "Triggered", "Instant", "Sorcery":
+			return true
+		}
+	}
+	return false
+}
+
+// SlotIsStack reports whether a target filter (as TargetSlots/ChainSlots
+// encode it) draws only from the stack. A slot that also names a non-stack
+// zone ("Stack,Battlefield") is served by the ordinary fixture -- the
+// battlefield candidate -- so it is not a stack slot.
+func SlotIsStack(filter string) bool {
+	i := strings.LastIndexByte(filter, '@')
+	if i < 0 {
+		return false
+	}
+	z := filter[i+1:]
+	if !zoneNamesStack(z) {
+		return false
+	}
+	for _, part := range strings.Split(z, ",") {
+		if p := strings.TrimSpace(part); p != "" && !strings.EqualFold(p, "Stack") {
+			return false
+		}
+	}
+	return true
 }
 
 // NewItem names a template's scenario. The template's version is part of
@@ -261,7 +334,7 @@ func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) {
 			return 0, res, false
 		}
 		for _, f := range res.Fails {
-			if strings.HasPrefix(f, "step 0 ") || strings.Contains(f, "harness:") {
+			if strings.HasPrefix(f, "step ") || strings.Contains(f, "harness:") {
 				return 0, res, false
 			}
 		}
@@ -518,11 +591,7 @@ func targetSlots(f *cards.Face) []string {
 		if v == "" {
 			return
 		}
-		z := params["TgtZone"]
-		if z == "" && params["Origin"] != "" && !strings.Contains(params["Origin"], "Battlefield") {
-			z = params["Origin"]
-		}
-		if z != "" {
+		if z := targetZone(params); z != "" {
 			v += "@" + z
 		}
 		out = append(out, v)
@@ -581,7 +650,13 @@ func candidatesFor(filter string) []cand {
 		filter, zone = filter[:i], strings.ToLower(filter[i+1:])
 	}
 	if zone != "" && zone != "battlefield" {
-		return zoneCandidates(filter, zone)
+		if strings.Contains(zone, "battlefield") {
+			// A mixed zone (Stack,Battlefield, or Origin$ Battlefield,Stack)
+			// is served on the battlefield.
+			zone = ""
+		} else {
+			return zoneCandidates(filter, zone)
+		}
 	}
 	alt := strings.Split(filter, ",")
 	base := strings.ToLower(strings.SplitN(alt[0], ".", 2)[0])
