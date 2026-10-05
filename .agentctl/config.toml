@@ -335,24 +335,42 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "6" }
 # TestHeads and change what this gate proves. Combined, the two halves cover
 # exactly the same package/test set as the original serial ./... Gate the
 # pair on both statuses: either half failing must fail this gate.
+#
+# GOGC=200 (2026-10-05, cli-20261005T030320Z): `make test` has run with
+# GOGC=200 since 54e132f6b ("trade ~0.4 GB RSS per rules.test for ~8% CPU"),
+# but the gate's own `go test` calls never picked it up, so every landing paid
+# the default GOGC=100. On the current corpus the win is larger than that
+# commit measured and costs no RSS. Paired, same box, gate's exact scope
+# (MemoryMax=8G CPUQuota=1600% GOMEMLIMIT=4GiB GOMAXPROCS=16, -count=1,
+# both halves concurrent as this gate runs them):
+#   GOGC=100 module gate: 112.3s wall
+#   GOGC=200 module gate:  90.3s wall  (-22s, -19.6%)
+# Isolated halves: `rest` 93.4s -> 72.3s wall, 1191.5s -> 830.9s user CPU,
+# maxRSS 6.32G -> 6.30G; `rules` 109.0s -> 93.2s wall, 492.8s -> 383.6s user
+# CPU, maxRSS 3.33G -> 2.04G. Peak RSS is flat, so the unchanged 8G MemoryMax
+# still bounds the gate. GOGC only re-tunes the running test binary's GC; it
+# changes neither the test set nor any verdict.
 [[gates]]
 name = "go test (module)"
 cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "bash", "-c", "set -euo pipefail; skip='^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$'; rest=$(go list ./... | grep -vE '/rules$'); go test -p=8 -skip \"$skip\" $rest & rest_pid=$!; go test -p=8 -skip \"$skip\" ./rules/ & rules_pid=$!; if wait \"$rules_pid\"; then rules_rc=0; else rules_rc=$?; fi; if wait \"$rest_pid\"; then rest_rc=0; else rest_rc=$?; fi; test \"$rules_rc\" -eq 0 -a \"$rest_rc\" -eq 0"]
 timeout = 1200
-env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "16" }
+env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "16", GOGC = "200" }
 
 [[gates]]
 name = "CR conformance"
 cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "go", "test", "-p=1", "./rules", "-run", "TestCR", "-v"]
 timeout = 300
-env = { GORGE_CR_CONFORMANCE = "1", GOMEMLIMIT = "1GiB" }
+# GOGC=200: same setting as the module gate above, for the same reason -- this
+# runs the same rules test binary, whose GC cost GOGC=200 cuts ~20%.
+env = { GORGE_CR_CONFORMANCE = "1", GOMEMLIMIT = "1GiB", GOGC = "200" }
 accept = "orchestrator.hooks:cr_no_fail_lines"
 
 [[gates]]
 name = "TestHeads"
 cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "go", "test", "./rules", "-run", "TestHeads", "-v"]
 timeout = 120
-env = { GOMEMLIMIT = "1GiB" }
+# GOGC=200: as for the module and CR gates -- same rules test binary.
+env = { GOMEMLIMIT = "1GiB", GOGC = "200" }
 blocking = false          # the TestHeads policy (hooks.testheads_policy) decides
 
 [[gates]]
