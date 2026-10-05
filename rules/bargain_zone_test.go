@@ -15,13 +15,11 @@ func TestBargainMayPlayFromGraveyard(t *testing.T) {
 		t.Fatal("precondition: MayPlay grant is not on the battlefield")
 	}
 	spell := e.G.AddObject(card(t, "Name:Barter Bolt\nManaCost:0\nTypes:Instant\nK:Bargain\nA:SP$ Draw | NumCards$ 1\nOracle:x\n"), 0)
-	e.G.Obj(spell.ID).Zone = state.ZLibrary
 	ids := append([]state.ObjID(nil), e.G.Zone(state.ZLibrary, 0)...)
 	ids = append(ids, spell.ID)
 	e.G.SetZone(state.ZLibrary, 0, ids)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: spell.ID, From: state.ZLibrary, To: state.ZGraveyard})
 	artifact := e.G.AddObject(card(t, "Name:Sacrifice Rock\nTypes:Artifact\nOracle:x\n"), 0)
-	artifact.Zone = state.ZLibrary
 	ids = append([]state.ObjID(nil), e.G.Zone(state.ZLibrary, 0)...)
 	ids = append(ids, artifact.ID)
 	e.G.SetZone(state.ZLibrary, 0, ids)
