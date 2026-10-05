@@ -342,19 +342,35 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 String cp = "step " + i + " (" + op + ")";
                 runCode(cp, TURN, phase, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
             }
-            setStopAt(TURN, PhaseStep.END_TURN);
+            // EndTurn skips the remaining turn-1 checkpoints. Let the game reach
+            // the next upkeep so a skipped final checkpoint can be represented
+            // by the actual post-turn state rather than an unused-action error.
+            setStopAt(TURN + 1, PhaseStep.UPKEEP);
             execute();
         } catch (Throwable t) {
             String msg = t.getClass().getSimpleName() + ": " + t.getMessage();
-            if (!xmageName.isEmpty()) {
-                // Name the card the way the scenario (and gorge) does.
-                msg = msg.replace(xmageName, gorgeName);
+            int stepCount = sc.has("steps") ? sc.getAsJsonArray("steps").size() : 0;
+            if (msg.contains("must have 0 actions but found")
+                    && currentGame != null && currentGame.getTurnNum() > TURN
+                    && snaps.size() < stepCount + 1) {
+                int skipped = snaps.size() - 1;
+                if (skipped >= 0 && skipped < stepCount) {
+                    String op = str(sc.getAsJsonArray("steps").get(skipped).getAsJsonObject(), "op");
+                    snaps.add(snapshot("step " + skipped + " (" + op + ")", currentGame));
+                    msg = null;
+                }
             }
-            int want = (sc.has("steps") ? sc.getAsJsonArray("steps").size() : 0) + 1;
-            if (snaps.size() == want && msg.contains("Count are not equal")) {
-                res.addProperty("leftover", msg.length() > 300 ? msg.substring(0, 300) : msg);
-            } else {
-                res.addProperty("harness", msg.length() > 800 ? msg.substring(0, 800) : msg);
+            if (msg != null) {
+                if (!xmageName.isEmpty()) {
+                    // Name the card the way the scenario (and gorge) does.
+                    msg = msg.replace(xmageName, gorgeName);
+                }
+                int want = stepCount + 1;
+                if (snaps.size() == want && msg.contains("Count are not equal")) {
+                    res.addProperty("leftover", msg.length() > 300 ? msg.substring(0, 300) : msg);
+                } else {
+                    res.addProperty("harness", msg.length() > 800 ? msg.substring(0, 800) : msg);
+                }
             }
         }
         JsonArray arr = new JsonArray();
