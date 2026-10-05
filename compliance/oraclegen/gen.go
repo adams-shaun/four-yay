@@ -45,7 +45,21 @@ type Step struct {
 	Card    string   `json:"card,omitempty"`
 	Mana    string   `json:"mana,omitempty"`
 	Targets []string `json:"targets,omitempty"`
-	Answers []Answer `json:"answers,omitempty"`
+	// Attackers/Defender drive the attack op; Blocks the block op. They
+	// carry a creature into combat so a "target attacking or blocking
+	// creature" slot has a legal target.
+	Attackers []string    `json:"attackers,omitempty"`
+	Defender  string      `json:"defender,omitempty"`
+	Blocks    [][2]string `json:"blocks,omitempty"`
+	// Step/Decision are the pass_to op's stop conditions (a phase step name
+	// or a pending decision kind).
+	Step     string   `json:"step,omitempty"`
+	Decision string   `json:"decision,omitempty"`
+	Answers  []Answer `json:"answers,omitempty"`
+	// A scenario step may move a card into a zone; the move op stamps the
+	// object as having entered this turn (a board-history target such as
+	// ThisTurnEntered@Graveyard needs that).
+	To string `json:"to,omitempty"`
 }
 
 // Answer is a queued answer for gorge's runner (kind = decision kind).
@@ -177,22 +191,6 @@ func charmModes(f *cards.Face) []charmMode {
 		return out
 	}
 	return nil
-}
-
-// chainSlots lists the target filters along one SVar ability chain.
-func chainSlots(f *cards.Face, svar string) []string {
-	var out []string
-	for name := svar; name != ""; {
-		params := svarParams(f.SVars[name])
-		if v := params["ValidTgts"]; v != "" {
-			if z := targetZone(params, true); z != "" && !playerTargetHead(v) {
-				v += "@" + z
-			}
-			out = append(out, v)
-		}
-		name = params["SubAbility"]
-	}
-	return out
 }
 
 // targetZone is the zone a target filter draws from: an explicit TgtZone$,
@@ -620,10 +618,20 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			// gorge offers only the modes with legal targets, so an option
 			// index is not always the mode number; the label is when it names
 			// a charm mode. A label outside the charm map is still a mode ask
-			// for a non-charm modal (a Siege's ChooseModeEffect, a plain
-			// modal), so fall back to the option's 1-based position; the
-			// discard-style picker that shares the kind is routed above.
+			// for a non-charm modal (a plain modal), so fall back to the
+			// option's 1-based position; the discard-style picker that shares
+			// the kind is routed above.
 			for k, i := range d.PickIdx {
+				if m, ok := modeNumberFor(d, k, modes); ok && m == ModeChoiceQueue {
+					// A DB$ GenericChoice | SetChosenMode$ True body (a
+					// Theros-style Siege): XMage reads the pick through its
+					// ChooseModeEffect -> controller.choose(Outcome.Neutral,
+					// Choice, game), the CHOICE queue, showing the option
+					// LABEL ("Abzan", "Khans") -- never a numeric mode. The
+					// label is what gorge's mode decision already carries.
+					as = append(as, XAnswer{d.Seat, "choice", d.Picks[k]})
+					continue
+				}
 				n := i + 1
 				if m, ok := modeNumberFor(d, k, modes); ok {
 					n = m
@@ -822,7 +830,9 @@ func unlessPolarity(d rules.OracleDecision) string {
 // modeNumberFor resolves the k-th pick's 1-based XMage mode number from its
 // label. ok is false when the pick's label names no charm mode -- a
 // non-charm modal or a discard-style picker sharing the "mode" kind; the
-// caller then falls back to the option's own 1-based position.
+// caller then falls back to the option's own 1-based position. A label that
+// names a SetChosenMode$ True GenericChoice returns ModeChoiceQueue, telling
+// the caller to answer on XMage's choice queue instead of the mode queue.
 func modeNumberFor(d rules.OracleDecision, k int, modes map[string]int) (int, bool) {
 	if k < 0 || k >= len(d.Picks) {
 		return 0, false
@@ -904,12 +914,27 @@ func refSeat(ref string) (int, bool) {
 	return n, true
 }
 
+// ModeChoiceQueue is the sentinel position modeNumbers stores for a mode
+// label that reaches XMage through its CHOICE queue (controller.choose)
+// rather than the numeric mode queue: the Choices$ label of a
+// DB$ GenericChoice | SetChosenMode$ True body (the Theros-style Sieges).
+// XMage's ChooseModeEffect does controller.choose(Outcome.Neutral, Choice,
+// game), which shows the option LABEL; chooseMode/setModeChoice (the numeric
+// queue) is never posed for it. A real charm position is 1-based, so 0 is
+// never a valid mode number and is unambiguous.
+const ModeChoiceQueue = 0
+
 // modeNumbers maps each charm mode's label (as gorge's mode decision
 // shows it) to its 1-based position in its Choices$ list, for every Charm
-// on the face -- the spell's own and any modal trigger's.
+// on the face -- the spell's own and any modal trigger's. It ALSO carries
+// every DB$ GenericChoice | SetChosenMode$ True label, mapped to the
+// ModeChoiceQueue sentinel: those picks are the same "mode" decision kind
+// to gorge but a different XMage queue, and no in-band discriminator on the
+// decision separates them (a mid-resolution Charm shares Resume "modes"),
+// so the face shape is the authority.
 func modeNumbers(f *cards.Face) map[string]int {
 	out := map[string]int{}
-	add := func(choices string) {
+	addCharm := func(choices string) {
 		for i, name := range strings.Split(choices, ",") {
 			name = strings.TrimSpace(name)
 			if name == "" {
@@ -918,15 +943,30 @@ func modeNumbers(f *cards.Face) map[string]int {
 			out[effects.CharmModeLabel(cards.ResolveSVar(f.SVars, name), name)] = i + 1
 		}
 	}
+	// The SetChosenMode labels first, so a real Charm mode of the same
+	// label (a corpus impossibility) would keep its numeric position below.
+	for _, body := range f.SVars {
+		p := svarParams(body)
+		if p["DB"] != "GenericChoice" || !strings.EqualFold(p["SetChosenMode"], "True") {
+			continue
+		}
+		for _, name := range strings.Split(p["Choices"], ",") {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			out[effects.CharmModeLabel(cards.ResolveSVar(f.SVars, name), name)] = ModeChoiceQueue
+		}
+	}
 	for _, sa := range f.Abilities {
 		if sa.API == "Charm" {
-			add(sa.Params["Choices"])
+			addCharm(sa.Params["Choices"])
 		}
 	}
 	for _, body := range f.SVars {
 		if strings.Contains(body, "Charm") {
 			if c := svarParams(body)["Choices"]; c != "" {
-				add(c)
+				addCharm(c)
 			}
 		}
 	}
@@ -1174,249 +1214,6 @@ func openingHandAnswers(f *cards.Face) []Answer {
 		return []Answer{{Kind: "choose", Pick: []string{"no"}}}
 	}
 	return nil
-}
-
-// targetSlots lists the ValidTgts$ filters along the card's spell ability
-// chain (permanent spells have none), in the order the cast asks for them.
-func targetSlots(f *cards.Face) []string {
-	var out []string
-	add := func(params map[string]string) {
-		v := params["ValidTgts"]
-		if v == "" {
-			return
-		}
-		if z := targetZone(params, false); z != "" && !playerTargetHead(v) {
-			v += "@" + z
-		}
-		out = append(out, v)
-	}
-	for _, sa := range f.Abilities {
-		if sa.Kind != "SP" {
-			continue
-		}
-		if sa.API == "Charm" {
-			// The runner and XMage both take the first mode; its chain
-			// carries the targets.
-			if first := strings.TrimSpace(strings.Split(sa.Params["Choices"], ",")[0]); first != "" {
-				for name := first; name != ""; {
-					params := svarParams(f.SVars[name])
-					add(params)
-					name = params["SubAbility"]
-				}
-			}
-			break
-		}
-		for s := sa; s != nil; s = s.Sub {
-			add(s.Params)
-		}
-		break
-	}
-	return out
-}
-
-// FaceHasFixture reports whether the static fixture builder can satisfy every
-// target the card's cast demands: each slot has at least one candidate (a
-// stack-only slot is coverable by a precast spell). The second return names
-// the first unsatisfiable slot, for the census. This is a static scan -- it
-// runs no game -- so the census ratchet can scan the whole corpus.
-func FaceHasFixture(f *cards.Face) (bool, string) {
-	plans := [][]string{targetSlots(f)}
-	if modes := charmModes(f); len(modes) > 0 {
-		plans = nil
-		for _, m := range modes {
-			plans = append(plans, chainSlots(f, m.svar))
-		}
-	}
-	for _, slots := range plans {
-		for _, s := range slots {
-			if SlotIsStack(s) {
-				continue
-			}
-			if len(candidatesFor(s)) == 0 {
-				return false, s
-			}
-		}
-	}
-	return true, ""
-}
-
-// svarParams splits an SVar ability body ("DB$ Pump | ValidTgts$ ...")
-// into its params.
-func svarParams(body string) map[string]string {
-	out := map[string]string{}
-	for _, part := range strings.Split(body, "|") {
-		k, v, ok := strings.Cut(strings.TrimSpace(part), "$")
-		if ok {
-			out[strings.TrimSpace(k)] = strings.TrimSpace(v)
-		}
-	}
-	return out
-}
-
-type fixture struct {
-	p0, p1  Seat
-	targets []string
-}
-
-// candidates for one target filter, most generic first. Each puts the
-// target on the board and names it.
-type cand struct {
-	seat, zone, card string // seat "p0"/"p1", zone, card; card "" = the player
-}
-
-func candidatesFor(filter string) []cand {
-	zone := ""
-	if i := strings.LastIndexByte(filter, '@'); i >= 0 {
-		filter, zone = filter[:i], strings.ToLower(filter[i+1:])
-	}
-	if zone != "" && zone != "battlefield" {
-		if strings.Contains(zone, "battlefield") {
-			// A mixed zone (Stack,Battlefield, or Origin$ Battlefield,Stack)
-			// is served on the battlefield.
-			zone = ""
-		} else {
-			return zoneCandidates(filter, zone)
-		}
-	}
-	alt := strings.Split(filter, ",")
-	base := strings.ToLower(strings.SplitN(alt[0], ".", 2)[0])
-	mine := strings.Contains(filter, "YouCtrl") || strings.Contains(filter, "YouOwn")
-	opp := "p1"
-	if mine {
-		opp = "p0"
-	}
-	creatures := []cand{{opp, "battlefield", "Grizzly Bears"}, {opp, "battlefield", "Serra Angel"}, {opp, "battlefield", "Ornithopter"}, {opp, "battlefield", "Llanowar Elves"}, {opp, "battlefield", "Hill Giant"}}
-	switch base {
-	case "any":
-		return append(creatures, cand{"p1", "", ""})
-	case "creature":
-		return creatures
-	case "player", "opponent":
-		if strings.Contains(filter, "You") && !strings.Contains(filter, "Opp") {
-			return []cand{{"p0", "", ""}}
-		}
-		return []cand{{"p1", "", ""}, {"p0", "", ""}}
-	case "permanent", "card":
-		if strings.Contains(filter, "Graveyard") {
-			break
-		}
-		return append(creatures, cand{opp, "battlefield", "Glorious Anthem"}, cand{opp, "battlefield", "Forest"})
-	case "artifact":
-		return []cand{{opp, "battlefield", "Ornithopter"}, {opp, "battlefield", "Sol Ring"}}
-	case "enchantment":
-		return []cand{{opp, "battlefield", "Glorious Anthem"}}
-	case "land":
-		return []cand{{opp, "battlefield", "Forest"}}
-	case "planeswalker":
-		return []cand{{opp, "battlefield", "Jace Beleren"}}
-	case "instant", "sorcery":
-		return []cand{{opp, "graveyard", "Shock"}, {"p0", "graveyard", "Shock"}}
-	}
-	return nil
-}
-
-// zoneCandidates offers cards in a non-battlefield zone (TgtZone$): the
-// owner from YouOwn/OppOwn, else both seats.
-func zoneCandidates(filter, zone string) []cand {
-	if strings.Contains(zone, ",") {
-		zone = strings.Split(zone, ",")[0]
-	}
-	switch zone {
-	case "graveyard", "exile", "hand":
-	default:
-		return nil
-	}
-	seats := []string{"p0", "p1"}
-	switch {
-	case strings.Contains(filter, "YouOwn") || strings.Contains(filter, "YouCtrl"):
-		seats = []string{"p0"}
-	case strings.Contains(filter, "OppOwn") || strings.Contains(filter, "OppCtrl"):
-		seats = []string{"p1"}
-	}
-	var out []cand
-	for _, c := range []string{"Grizzly Bears", "Serra Angel", "Shock", "Llanowar Elves", "Glorious Anthem", "Ornithopter", "Forest", "Duress"} {
-		for _, st := range seats {
-			out = append(out, cand{st, zone, c})
-		}
-	}
-	return out
-}
-
-// fixtures is the cross product of every slot's candidates, capped.
-func fixtures(slots []string) []fixture {
-	out := []fixture{{}}
-	for _, s := range slots {
-		cs := candidatesFor(s)
-		if len(cs) == 0 {
-			return nil
-		}
-		var next []fixture
-		for _, fx := range out {
-			for _, c := range cs {
-				if c.card != "" && fixtureAlreadyTargetsCard(fx.targets, c.seat, c.card) {
-					continue
-				}
-				n := fixture{p0: clone(fx.p0), p1: clone(fx.p1), targets: append([]string(nil), fx.targets...)}
-				if c.card == "" {
-					n.targets = append(n.targets, c.seat)
-				} else {
-					s := &n.p1
-					if c.seat == "p0" {
-						s = &n.p0
-					}
-					count := 0
-					for _, x := range append(append(append(append([]string(nil), s.Battlefield...), s.Graveyard...), s.Exile...), s.Hand...) {
-						if x == c.card {
-							count++
-						}
-					}
-					switch c.zone {
-					case "battlefield":
-						s.Battlefield = append(s.Battlefield, c.card)
-					case "graveyard":
-						s.Graveyard = append(s.Graveyard, c.card)
-					case "exile":
-						s.Exile = append(s.Exile, c.card)
-					case "hand":
-						s.Hand = append(s.Hand, c.card)
-					}
-					ref := c.seat + ":" + c.card
-					if count > 0 {
-						ref = fmt.Sprintf("%s#%d", ref, count+1)
-					}
-					n.targets = append(n.targets, ref)
-				}
-				next = append(next, n)
-				if len(next) >= 24 {
-					break
-				}
-			}
-		}
-		out = next
-	}
-	return out
-}
-
-// fixtureAlreadyTargetsCard prevents two target slots from naming the same
-// card object/name. XMage's reference normalizer strips the runner's #N
-// duplicate suffix, so repeated same-name slots collapse to one object there.
-func fixtureAlreadyTargetsCard(targets []string, seat, card string) bool {
-	want := seat + ":" + card
-	for _, ref := range targets {
-		base := strings.SplitN(ref, "#", 2)[0]
-		if base == want {
-			return true
-		}
-	}
-	return false
-}
-
-func clone(s Seat) Seat {
-	return Seat{
-		Battlefield: append([]string(nil), s.Battlefield...), Tapped: append([]string(nil), s.Tapped...), Hand: append([]string(nil), s.Hand...),
-		Graveyard: append([]string(nil), s.Graveyard...), Exile: append([]string(nil), s.Exile...),
-		Library: append([]string(nil), s.Library...), LibraryTop: append([]string(nil), s.LibraryTop...),
-	}
 }
 
 // pickQueue is xmQueue for the k-th pick, except that a search of ANOTHER

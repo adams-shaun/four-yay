@@ -28,15 +28,16 @@ var censusSets = []string{
 // Measured 2026-10-04 at the commit that fixed stack targets and additional
 // costs. The list may only shrink; a fix deletes its entries, and a new
 // carrier must be added deliberately (which is the point -- it fails first).
-var fixtureCensus = map[string][]string{
-	"Elf.YouCtrl":                       {"Trystan's Command"},
-	"Equipment":                         {"Stolen Uniform"},
-	"Equipment.AttachedTo ParentTarget": {"Fiery Annihilation"},
-	"Goblin.YouCtrl":                    {"Grub's Command"},
-	"Kithkin.YouCtrl":                   {"Brigid's Command"},
-	"Merfolk.YouCtrl":                   {"Sygg's Command"},
-	"Saga.YouCtrl":                      {"Clash of the Eikons"},
-}
+//
+// Empty as of 2026-10-05 (cluster-5 fixture shapes): the registry-driven
+// candidate table now serves the subtype and qualifier filters the fixed type
+// list could not see (Elf/Goblin/Kithkin/Merfolk/Saga/Equipment .YouCtrl,
+// Villain/Hero in a graveyard), and an optional slot with no candidate is
+// dropped instead of sinking the fixture, so every filter pinned here is now
+// satisfiable. An empty map is the ratchet's only shrinking direction: a new
+// unsatisfiable filter fails the second loop below and must be added here
+// deliberately.
+var fixtureCensus = map[string][]string{}
 
 func censusRegistry(t *testing.T) *cards.Registry {
 	t.Helper()
@@ -98,7 +99,7 @@ func censusGaps(t *testing.T) map[string][]string {
 			if hasType(f, "Land") || strings.TrimSpace(f.ManaCost) == "" || strings.EqualFold(f.ManaCost, "no cost") {
 				continue
 			}
-			if ok, reason := FaceHasFixture(f); !ok {
+			if ok, reason := FaceHasFixture(reg, f); !ok {
 				gaps[reason] = append(gaps[reason], f.Name)
 			}
 		}

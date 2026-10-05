@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -119,9 +120,8 @@ func LoadVerdicts(dir string) (map[string]map[string]VerdictRow, error) {
 
 // MergeVerdicts writes rows into dir, replacing any row with the same card
 // and template, and keeps each shard sorted so diffs read card by card. A
-// replaced row keeps its Ruling when the new row has the same status, and a
-// triaged row (gorge_wrong/xmage_wrong) is kept over an untriaged diverge
-// for the same scenario.
+// classified disagreement carries its ruling forward only while its
+// divergence signature (field and engine values) is unchanged.
 func MergeVerdicts(dir string, rows []VerdictRow) error {
 	all, err := LoadVerdicts(dir)
 	if err != nil {
@@ -132,19 +132,94 @@ func MergeVerdicts(dir string, rows []VerdictRow) error {
 			all[r.Card] = map[string]VerdictRow{}
 		}
 		if old, ok := all[r.Card][r.Template]; ok {
-			triaged := old.Status == StatusGorgeWrong || old.Status == StatusXMageWrong
-			if triaged && r.Status == StatusDiverge && old.ScenarioSHA == r.ScenarioSHA {
-				// A re-run of the same scenario still disagreeing keeps its
-				// triage ruling.
-				continue
-			}
-			if old.Status == r.Status && r.Ruling == "" {
+			if hasRuling(old) {
+				oldSig, oldOK := divergenceSignature(old)
+				newSig, newOK := divergenceSignature(r)
+				if oldOK && newOK && oldSig == newSig {
+					// Keep the operator's classification only while the underlying
+					// field and values being classified are unchanged.
+					r.Status, r.Ruling, r.RulingID, r.Review = old.Status, old.Ruling, old.RulingID, old.Review
+					r.CanonSHA, r.Frozen = old.CanonSHA, old.Frozen
+				} else {
+					fmt.Printf("dropped ruling for %s (%s): divergence changed\n", r.Card, r.Template)
+				}
+			} else if old.Status == r.Status && r.Ruling == "" {
 				r.Ruling = old.Ruling
 			}
 		}
 		all[r.Card][r.Template] = r
 	}
 	return writeVerdicts(dir, all)
+}
+
+// hasRuling reports whether the row carries an operator-authored or
+// shape-applied classification worth preserving across an identical divergence.
+func hasRuling(r VerdictRow) bool {
+	return r.Ruling != "" || r.RulingID != "" || r.Review == "confirmed"
+}
+
+type divergence struct {
+	field, gorge, xmage string
+}
+
+// divergenceSignature extracts the comparator identity from the diff detail.
+// The checkpoint is intentionally excluded: a ruling concerns the field and
+// the two observed values, not where a scenario happened to observe them.
+func divergenceSignature(r VerdictRow) (divergence, bool) {
+	if (r.Status != StatusDiverge && r.Status != StatusGorgeWrong && r.Status != StatusXMageWrong) || r.Detail == "" {
+		return divergence{}, false
+	}
+	marker := ": gorge "
+	i := strings.Index(r.Detail, marker)
+	if i < 0 {
+		return divergence{}, false
+	}
+	left := strings.TrimSpace(r.Detail[:i])
+	space := strings.LastIndexByte(left, ' ')
+	if space < 0 || space == len(left)-1 {
+		return divergence{}, false
+	}
+	field := left[space+1:]
+	gorgeStart := i + len(marker)
+	gorgeEnd := quotedEnd(r.Detail, gorgeStart)
+	if gorgeEnd < 0 || !strings.HasPrefix(r.Detail[gorgeEnd:], ", xmage ") {
+		return divergence{}, false
+	}
+	xmageStart := gorgeEnd + len(", xmage ")
+	xmageEnd := quotedEnd(r.Detail, xmageStart)
+	if xmageEnd < 0 || xmageEnd != len(r.Detail) {
+		return divergence{}, false
+	}
+	gorge, err := strconv.Unquote(r.Detail[gorgeStart:gorgeEnd])
+	if err != nil {
+		return divergence{}, false
+	}
+	xmage, err := strconv.Unquote(r.Detail[xmageStart:xmageEnd])
+	if err != nil {
+		return divergence{}, false
+	}
+	return divergence{field: field, gorge: gorge, xmage: xmage}, true
+}
+
+// quotedEnd returns the index after a Go-quoted string beginning at start.
+func quotedEnd(s string, start int) int {
+	if start >= len(s) || s[start] != '"' {
+		return -1
+	}
+	escaped := false
+	for i := start + 1; i < len(s); i++ {
+		if escaped {
+			escaped = false
+			continue
+		}
+		switch s[i] {
+		case '\\':
+			escaped = true
+		case '"':
+			return i + 1
+		}
+	}
+	return -1
 }
 
 // ReplaceVerdicts writes rows into dir, replacing any row with the same

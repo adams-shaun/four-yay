@@ -96,7 +96,7 @@ func counterSpell(reg *cards.Registry, f *cards.Face, name, mana string) (oracle
 	// The extra {1} covers an optional additional cost ("behold or pay
 	// {1}"), tried only when the bare cost cannot cast.
 	xAns := xAnswers(f)
-	slots := oraclegen.TargetSlots(f)
+	slots := oraclegen.SlotSpecs(f)
 	stackIdx := stackSlotIndexes(slots)
 	plain := nonStackSlots(slots)
 	for _, m := range []string{mana, mana + "C", mana + "CC", mana + "CCC"} {
@@ -104,7 +104,7 @@ func counterSpell(reg *cards.Registry, f *cards.Face, name, mana string) (oracle
 			if !precastFitsSlots(slots, stackIdx, pre) {
 				continue
 			}
-			for _, fx := range oraclegen.Fixtures(plain) {
+			for _, fx := range oraclegen.Fixtures(reg, plain) {
 				if it, ok := counterWith(reg, f, name, m, pre, fx, slots, stackIdx, xAns); ok {
 					return it, nil
 				}
@@ -114,7 +114,7 @@ func counterSpell(reg *cards.Registry, f *cards.Face, name, mana string) (oracle
 	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "no spell fixture gorge can counter"}
 }
 
-func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre precast, fx oraclegen.Fixture, slots []string, stackIdx []int, answers []oraclegen.Answer) (oraclegen.Item, bool) {
+func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre precast, fx oraclegen.Fixture, slots []oraclegen.Slot, stackIdx []int, answers []oraclegen.Answer) (oraclegen.Item, bool) {
 	p0, p1 := *fx.P0(), *fx.P1()
 	// The counterspell first in hand, the spell it counters second: the
 	// order main's fixture always used, so the scenario stays the same.

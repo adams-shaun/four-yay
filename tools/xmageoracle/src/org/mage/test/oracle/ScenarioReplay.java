@@ -15,16 +15,23 @@ import mage.cards.repository.CardInfo;
 import mage.cards.repository.CardRepository;
 import mage.abilities.effects.common.InfoEffect;
 import mage.cards.Card;
+import mage.cards.Cards;
+import mage.cards.CardsImpl;
 import mage.constants.CardType;
+import mage.constants.Outcome;
 import mage.constants.PhaseStep;
 import mage.constants.Zone;
 import mage.counters.Counter;
 import mage.game.Game;
+import mage.game.events.GameEvent;
 import mage.game.permanent.Permanent;
 import mage.game.stack.Spell;
 import mage.game.stack.StackObject;
 import mage.players.ManaPool;
 import mage.players.Player;
+import mage.filter.FilterCard;
+import mage.target.TargetCard;
+import mage.util.CardUtil;
 import org.mage.test.player.TestPlayer;
 import org.mage.test.serverside.base.CardTestPlayerBase;
 
@@ -38,6 +45,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 
@@ -58,6 +66,193 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private static final PhaseStep MAIN = PhaseStep.PRECOMBAT_MAIN;
 
     private final List<JsonObject> snaps = new ArrayList<>();
+    // The step a cast/resolve/checkpoint is registered at. MAIN until an
+    // attack or block op moves the scenario into combat; gorge plays the
+    // cast in the declare-attackers (attacking-only) or declare-blockers
+    // (blocking) step, so the driver must too.
+    private PhaseStep phase = MAIN;
+
+    // Override the factory the base class calls BEFORE it adds the player to
+    // the game. Wrapping createPlayer(Game, ...)'s result instead copies a
+    // player the game already holds, so scripted actions go to a player the
+    // game never runs and every scenario ends with no snapshots.
+    @Override
+    protected TestPlayer createPlayer(String name, mage.constants.RangeOfInfluence rangeOfInfluence) {
+        return new ScriptedChoicePlayer(new org.mage.test.player.TestComputerPlayer(name, rangeOfInfluence));
+    }
+
+    /** TestPlayer normally delegates these library decisions directly to its AI,
+     * bypassing the scripted target/choice queues. Route them through this player. */
+    private static final class ScriptedChoicePlayer extends TestPlayer {
+        ScriptedChoicePlayer(org.mage.test.player.TestComputerPlayer computerPlayer) {
+            super(computerPlayer);
+        }
+
+        ScriptedChoicePlayer(final ScriptedChoicePlayer player) {
+            super(player);
+        }
+
+        @Override
+        public ScriptedChoicePlayer copy() {
+            return new ScriptedChoicePlayer(this);
+        }
+
+        @Override
+        public boolean scry(int value, Ability source, Game game) {
+            if (game.getTurnNum() == 1 && game.getStep() == null) {
+                return false;
+            }
+            GameEvent event = new GameEvent(GameEvent.EventType.SCRY, getId(), source, getId(), value, true);
+            if (game.replaceEvent(event)) {
+                return false;
+            }
+            game.informPlayers(getLogName() + " scries " + event.getAmount() + CardUtil.getSourceLogName(game, source));
+            Cards cards = new CardsImpl();
+            cards.addAllCards(getLibrary().getTopCards(game, event.getAmount()));
+            if (!cards.isEmpty()) {
+                TargetCard target = new TargetCard(0, cards.size(), Zone.LIBRARY,
+                        new FilterCard("card" + (cards.size() == 1 ? "" : "s") + " to PUT on the BOTTOM of your library (Scry)"));
+                Cards selected = scriptedLibrarySelection(cards, game);
+                if (selected == null) {
+                    chooseTarget(Outcome.Benefit, cards, target, source, game);
+                    selected = new CardsImpl(target.getTargets());
+                }
+                putCardsOnBottomOfLibrary(selected, game, source, true);
+                if (!selected.isEmpty()) {
+                    game.fireEvent(GameEvent.getEvent(GameEvent.EventType.SCRY_TO_BOTTOM, getId(), source, getId(), selected.size()));
+                }
+                cards.removeAll(selected);
+                putCardsOnTopOfLibrary(cards, game, source, true);
+            }
+            game.fireEvent(new GameEvent(GameEvent.EventType.SCRIED, getId(), source, getId(), event.getAmount(), true));
+            return true;
+        }
+
+        @Override
+        public Player.SurveilResult doSurveil(int value, Ability source, Game game) {
+            GameEvent event = new GameEvent(GameEvent.EventType.SURVEIL, getId(), source, getId(), value, true);
+            if (game.replaceEvent(event) || event.getAmount() < 1) {
+                return Player.SurveilResult.noSurveil();
+            }
+            game.informPlayers(getLogName() + " surveils " + event.getAmount() + CardUtil.getSourceLogName(game, source));
+            Cards cards = new CardsImpl();
+            cards.addAllCards(getLibrary().getTopCards(game, event.getAmount()));
+            Cards graveyard = new CardsImpl();
+            Cards top = new CardsImpl();
+            if (!cards.isEmpty()) {
+                TargetCard target = new TargetCard(0, cards.size(), Zone.LIBRARY,
+                        new FilterCard("card" + (cards.size() == 1 ? "" : "s") + " to PUT into your GRAVEYARD (Surveil)"));
+                Cards selected = scriptedLibrarySelection(cards, game);
+                if (selected == null) {
+                    chooseTarget(Outcome.Benefit, cards, target, source, game);
+                    selected = new CardsImpl(target.getTargets());
+                }
+                if (!selected.isEmpty()) {
+                    graveyard.addAllCards(moveCardsToGraveyardWithInfo(selected.getCards(game), source, game, Zone.LIBRARY));
+                }
+                cards.removeAll(selected);
+                putCardsOnTopOfLibrary(cards, game, source, true);
+                top.addAll(cards);
+            }
+            game.fireEvent(new GameEvent(GameEvent.EventType.SURVEILED, getId(), source, getId(), event.getAmount(), true));
+            return Player.SurveilResult.surveil(graveyard, top);
+        }
+
+        /** Consume the generator's choice-queue selection and kept-card order.
+         * Null means this decision was scripted through the ordinary target queue. */
+        private Cards scriptedLibrarySelection(Cards cards, Game game) {
+            List<String> queue = getChoices();
+            if (queue.isEmpty()) {
+                return null;
+            }
+            // Cards#getCards is a Set and does not promise library order.
+            // Reconstruct the looked-at prefix from Library's ordered view.
+            List<Card> lookedAtOrder = new ArrayList<>();
+            for (Card card : getLibrary().getCards(game)) {
+                if (cards.contains(card.getId())) {
+                    lookedAtOrder.add(card);
+                }
+            }
+            Set<Card> available = new java.util.LinkedHashSet<>(lookedAtOrder);
+            Cards selected = new CardsImpl();
+            boolean scripted = false;
+            boolean selectionEnded = false;
+            while (!queue.isEmpty()) {
+                String answer = queue.get(0);
+                if (TestPlayer.CHOICE_SKIP.equals(answer)) {
+                    queue.remove(0);
+                    scripted = true;
+                    selectionEnded = true;
+                    break;
+                }
+                Card match = findByName(available, answer);
+                if (match == null) {
+                    break;
+                }
+                queue.remove(0);
+                available.remove(match);
+                selected.add(match);
+                scripted = true;
+            }
+            if (!scripted) {
+                return null;
+            }
+
+            // The remaining labels are the chosen top-card ordering. The
+            // generator repeats labels from the arrange decision here; a label
+            // may therefore name a card already selected for the graveyard.
+            // Match against the original look set to distinguish an answer for
+            // this order prompt from an answer belonging to a later choice,
+            // while only adding cards still available to the top of the library.
+            Set<Card> lookedAt = new java.util.LinkedHashSet<>(lookedAtOrder);
+            List<Card> ordered = new ArrayList<>();
+            // A partial arrange emits each pick once for selection, then a
+            // skip and exactly those same picks for order. The look set can
+            // be larger than the pick set; counting it steals later answers.
+            // A forced bottom order emits picks only once (no skip), so it
+            // has no separate order answers to consume.
+            int orderAnswersRemaining = selectionEnded ? selected.size() : 0;
+            while (orderAnswersRemaining > 0 && !queue.isEmpty()) {
+                String answer = queue.get(0);
+                Card match = findByName(available, answer);
+                if (match != null) {
+                    queue.remove(0);
+                    available.remove(match);
+                    ordered.add(match);
+                    orderAnswersRemaining--;
+                    continue;
+                }
+                if (findByName(lookedAt, answer) == null) {
+                    break;
+                }
+                // This order label names a card consumed during selection.
+                // Consume it even though that card cannot be put back on top.
+                queue.remove(0);
+                orderAnswersRemaining--;
+            }
+            cards.clear();
+            for (Card card : ordered) {
+                cards.add(card);
+            }
+            // Any kept card without a distinct ordering label retains its
+            // original look order; never let Set iteration determine library order.
+            for (Card card : lookedAtOrder) {
+                if (available.remove(card)) {
+                    cards.add(card);
+                }
+            }
+            return selected;
+        }
+
+        private Card findByName(Set<Card> cards, String name) {
+            for (Card card : cards) {
+                if (card.getName().equals(name)) {
+                    return card;
+                }
+            }
+            return null;
+        }
+    }
 
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
@@ -122,6 +317,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             xmageName = str(sc, "xmage_name");
             cast.clear();
             refAlias.clear();
+            phase = MAIN;
             build(sc);
             runCode("setup", TURN, MAIN, playerA, (info, p, g) -> {
                 registerAliases(g);
@@ -138,7 +334,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 }
                 step(st, op);
                 String cp = "step " + i + " (" + op + ")";
-                runCode(cp, TURN, MAIN, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
+                runCode(cp, TURN, phase, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
             }
             setStopAt(TURN, PhaseStep.END_TURN);
             execute();
@@ -275,6 +471,33 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
     }
 
+    /** Whether the card's spell ability has a divided-amount target. */
+    private static boolean spellTargetsDivided(String name) {
+        CardInfo info = CardRepository.instance.findCard(name);
+        Card c = info == null ? null : info.createCard();
+        if (c == null) {
+            return false;
+        }
+        for (mage.target.Target t : c.getSpellAbility().getAllSelectedTargets()) {
+            if (t instanceof mage.target.TargetAmount) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether the card's spell ability has exactly one target object and
+     * n answers already reach its maximum, so no slot is left to skip. */
+    private static boolean singleTargetFilled(String name, int n) {
+        CardInfo info = CardRepository.instance.findCard(name);
+        Card c = info == null ? null : info.createCard();
+        if (c == null) {
+            return false;
+        }
+        List<mage.target.Target> ts = c.getSpellAbility().getAllSelectedTargets();
+        return ts.size() == 1 && n >= ts.get(0).getMaxNumberOfTargets();
+    }
+
     /** Whether the card carries the Gift keyword (CR 702.174). */
     private static boolean hasGift(String name) {
         CardInfo info = CardRepository.instance.findCard(name);
@@ -366,13 +589,53 @@ public class ScenarioReplay extends CardTestPlayerBase {
         switch (op) {
             case "mana": {
                 String mana = str(st, "mana");
-                runCode("mana " + mana, TURN, MAIN, p, (info, pl, g) -> addPool(pl, g, mana));
+                runCode("mana " + mana, TURN, phase, p, (info, pl, g) -> addPool(pl, g, mana));
+                return;
+            }
+            case "attack": {
+                // gorge's attack op declares the listed creatures attacking
+                // the defender. XMage's attack() queues a selectAttackers
+                // command at DECLARE_ATTACKERS; the scenario's later cast and
+                // checkpoint happen in that same step.
+                for (String a : names(st, "attackers")) {
+                    attack(TURN, p, combatName(a), seat(seatOf(str(st, "defender"))));
+                }
+                phase = PhaseStep.DECLARE_ATTACKERS;
+                return;
+            }
+            case "pass_to": {
+                // Only the phase matters here; the scenario has already run
+                // the ops that reach it. gorge's generated scenarios never
+                // emit pass_to (a pre-block declare-blockers checkpoint is
+                // not observable in XMage, whose engine selects blockers in
+                // beginStep before any priority), so this is for completeness.
+                String stepName = str(st, "step");
+                String decision = str(st, "decision");
+                if (decision.equals("blockers") || stepName.equals("declare-blockers")) {
+                    phase = PhaseStep.DECLARE_BLOCKERS;
+                } else if (stepName.equals("declare-attackers")) {
+                    phase = PhaseStep.DECLARE_ATTACKERS;
+                } else if (stepName.equals("main2")) {
+                    phase = PhaseStep.POSTCOMBAT_MAIN;
+                } else if (stepName.equals("main1") || stepName.isEmpty()) {
+                    phase = MAIN;
+                }
+                return;
+            }
+            case "block": {
+                // gorge's blocks are [blocker, attacker] pairs. XMage's
+                // block() queues a declareBlockers command at DECLARE_BLOCKERS.
+                for (JsonElement e : st.getAsJsonArray("blocks")) {
+                    JsonArray pair = e.getAsJsonArray();
+                    block(TURN, p, combatName(pair.get(0).getAsString()), combatName(pair.get(1).getAsString()));
+                }
+                phase = PhaseStep.DECLARE_BLOCKERS;
                 return;
             }
             case "cast": {
                 if (st.has("mana")) {
                     String mana = str(st, "mana");
-                    runCode("mana " + mana, TURN, MAIN, p, (info, pl, g) -> addPool(pl, g, mana));
+                    runCode("mana " + mana, TURN, phase, p, (info, pl, g) -> addPool(pl, g, mana));
                 }
                 if (st.has("kicked") || st.has("cast_mode")) {
                     throw new IllegalArgumentException("kicked/cast_mode unsupported");
@@ -390,16 +653,16 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     setChoice(p, "Cast with no alternative cost");
                 }
                 if (tg.size() == 1 && isSeatRef(tg.get(0)) && !hasGift(card)) {
-                    castSpell(TURN, MAIN, p, card, seat(seatOf(tg.get(0))));
+                    castSpell(TURN, phase, p, card, seat(seatOf(tg.get(0))));
                 } else if (tg.size() == 1 && isSeatRef(tg.get(0))) {
                     // A Gift spell (Mind Spiral, Sazacap's Brew): the castSpell
                     // player form binds the wrong ask, so queue the spell's
                     // own player target and close the rest.
                     addTarget(p, seat(seatOf(tg.get(0))));
                     addTarget(p, TestPlayer.TARGET_SKIP);
-                    castSpell(TURN, MAIN, p, card);
+                    castSpell(TURN, phase, p, card);
                 } else if (tg.isEmpty()) {
-                    castSpell(TURN, MAIN, p, card);
+                    castSpell(TURN, phase, p, card);
                     cast.add(card);
                     return;
                 } else if (tg.size() == 1 && cast.contains(xmageSpelling(refName(tg.get(0))))) {
@@ -408,12 +671,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // target is a scenario ref; the setup alias names the
                     // card in hand, not the spell, so target by name.
                     String spell = xmageSpelling(refName(tg.get(0)));
-                    castSpell(TURN, MAIN, p, card, spell, spell);
+                    castSpell(TURN, phase, p, card, spell, spell);
                 } else if (tg.size() == 1) {
                     // A single target goes through XMage's own string form, so
                     // a divided-damage target (TargetAmount) still lets XMage
                     // pick the split as it always did.
-                    castSpell(TURN, MAIN, p, card, targetName(tg.get(0)));
+                    castSpell(TURN, phase, p, card, targetName(tg.get(0)));
                 } else {
                     // Two or more targets: queue each through addTarget and
                     // cast with no $target, so an "up to N" slot stays open
@@ -421,6 +684,20 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // each ref carries. A trailing skip closes any slot XMage
                     // offers that this scenario did not fill (a reflexive
                     // sub-ability with no legal target, say).
+                    if (spellTargetsDivided(card)) {
+                        // A divided-amount target (TargetAmount: Biogenic
+                        // Upgrade, Synchronized Charge) takes the whole set
+                        // as one castSpell string and lets XMage split it,
+                        // as the single-target form does; addTarget's alias
+                        // answers are rejected ("Must be target amount").
+                        List<String> names = new ArrayList<>();
+                        for (String t : tg) {
+                            names.add(xmageSpelling(refName(t)));
+                        }
+                        castSpell(TURN, phase, p, card, String.join("^", names));
+                        cast.add(card);
+                        return;
+                    }
                     for (String t : tg) {
                         if (isSeatRef(t)) {
                             addTarget(p, seat(seatOf(t)));
@@ -432,18 +709,24 @@ public class ScenarioReplay extends CardTestPlayerBase {
                             addTarget(p, targetName(t));
                         }
                     }
-                    addTarget(p, TestPlayer.TARGET_SKIP);
-                    castSpell(TURN, MAIN, p, card);
+                    if (!singleTargetFilled(card, tg.size())) {
+                        // Close an "up to N" slot the scenario left short,
+                        // or a later slot (Rhino's Rampage's reflexive
+                        // trigger). A skip after the one multi-target slot
+                        // is filled is rejected (Pull Through the Weft).
+                        addTarget(p, TestPlayer.TARGET_SKIP);
+                    }
+                    castSpell(TURN, phase, p, card);
                 }
                 cast.add(card);
                 return;
             }
             case "play":
-                playLand(TURN, MAIN, p, xmageSpelling(refName(str(st, "card"))));
+                playLand(TURN, phase, p, xmageSpelling(refName(str(st, "card"))));
                 return;
             case "resolve":
                 // gorge's resolve op passes priority until the stack is empty.
-                waitStackResolved(TURN, MAIN, p);
+                waitStackResolved(TURN, phase, p);
                 return;
             default:
                 throw new IllegalArgumentException("op " + op + " unsupported");
@@ -535,6 +818,22 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     private static int seatOf(String s) {
         return Integer.parseInt(s.substring(1));
+    }
+
+    /** The name form XMage's attack/block command takes. Unlike a cast
+     * target, the command does not accept the driver's "@" aliases, so it
+     * must be the card name, with the legacy zero-based "<name>:<index>"
+     * suffix for a duplicate ("p0:Grizzly Bears#2" -> "Grizzly Bears:1"). */
+    private static String combatName(String ref) {
+        String n = refName(ref);
+        int hash = ref.lastIndexOf('#');
+        if (hash >= 0 && ref.substring(hash + 1).matches("[0-9]+")) {
+            int k = Integer.parseInt(ref.substring(hash + 1)) - 1;
+            if (k > 0) {
+                return n + ":" + k;
+            }
+        }
+        return n;
     }
 
     /** "p1:token:Name#2" -> "Name". */

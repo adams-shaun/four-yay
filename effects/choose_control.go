@@ -129,7 +129,13 @@ func definedCardQualifierMatches(h Host, g *state.Game, c *Ctx, qualifier string
 		}
 		return false
 	}
-	return choiceMatches(h, g, c, "Card."+qualifier, o)
+	spec := "Card." + qualifier
+	sc := c.SpecContext(c.Controller)
+	sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, spec, h)...)
+	if strings.Contains(qualifier, "power") || strings.Contains(qualifier, "toughness") {
+		sc.DerivedPower, sc.DerivedToughness, sc.HasDerivedPT = h.Power(o.ID), h.Toughness(o.ID), true
+	}
+	return MatchesObjectCtx(g, spec, o, sc)
 }
 
 // chooseCardControl is the effective ControlledByPlayer$ a cardChoices walk

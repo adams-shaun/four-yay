@@ -29,8 +29,49 @@ func (fx *Fixture) P0() *Seat        { return &fx.p0 }
 func (fx *Fixture) P1() *Seat        { return &fx.p1 }
 func (fx Fixture) Targets() []string { return fx.targets }
 
+// Attacker is the p0 creature the fixture must declare attacking so a target
+// filter naming an attacking or blocking creature has a legal target. Empty
+// means no attack step is needed.
+func (fx Fixture) Attacker() string {
+	if len(fx.combat.attackers) == 0 {
+		return ""
+	}
+	return fx.combat.attackers[0]
+}
+
+// Blocker is the first blocker in the fixture's combat arrangement.
+func (fx Fixture) Blocker() string {
+	if len(fx.combat.blocks) == 0 {
+		return ""
+	}
+	return fx.combat.blocks[0][0]
+}
+
+// CombatSteps returns the complete, ordered attack/block preamble.
+func (fx Fixture) CombatSteps() []Step {
+	if len(fx.combat.attackers) == 0 {
+		return nil
+	}
+	attack := Step{Op: "attack", Seat: fx.combat.attackSeat, Defender: fx.combat.defender, Attackers: append([]string(nil), fx.combat.attackers...)}
+	steps := []Step{attack}
+	if len(fx.combat.blocks) != 0 {
+		blockSeat := 1 - fx.combat.attackSeat
+		steps = append(steps, Step{Op: "block", Seat: blockSeat, Blocks: append([][2]string(nil), fx.combat.blocks...)})
+	}
+	return steps
+}
+
+// Prelude lists the steps a fixture must run before the card's cast (create
+// a token, attach an Aura, stamp a this-turn zone change).
+func (fx Fixture) Prelude() []Step { return fx.pre }
+
+// SlotSpec is one target slot: its filter and whether the cast may omit it.
+type SlotSpec = Slot
+
 // Fixtures is the capped cross product of every target slot's candidates.
-func Fixtures(slots []string) []Fixture { return fixtures(slots) }
+// An optional slot with no candidate is omitted rather than sinking the
+// fixture.
+func Fixtures(reg *cards.Registry, slots []SlotSpec) []Fixture { return fixtures(reg, slots) }
 
 // PoolFor turns a Forge mana cost into the exact pool letters that pay it,
 // or says why it cannot.
@@ -54,7 +95,9 @@ func ChainSlots(f *cards.Face, svar string) []string { return chainSlots(f, svar
 // spell or ability on the stack.
 func AbilityTargetsStack(params map[string]string) bool { return abilityTargetsStack(params) }
 
-// ModeNumbers maps each charm mode label to its 1-based Choices$ position.
+// ModeNumbers maps each charm mode label to its 1-based Choices$ position,
+// and each DB$ GenericChoice | SetChosenMode$ True label to ModeChoiceQueue
+// (answered on XMage's choice queue, not the numeric mode queue).
 func ModeNumbers(f *cards.Face) map[string]int { return modeNumbers(f) }
 
 // XAnswers turns gorge's recorded decisions into XMage's scripted answers.
