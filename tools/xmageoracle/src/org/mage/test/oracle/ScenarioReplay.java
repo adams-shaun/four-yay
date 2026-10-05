@@ -199,8 +199,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     private int add(JsonObject s, String key, Zone zone, TestPlayer p) {
         List<String> ns = names(s, key);
+        // "tapped" names battlefield cards that start tapped (gorge's runner
+        // taps every placement whose name it lists, oraclegen's ".tapped"
+        // target slots: Push // Pull, Keep Out, Radiant Strike).
+        List<String> tapped = zone == Zone.BATTLEFIELD ? names(s, "tapped") : new ArrayList<>();
         for (String n : ns) {
-            addCard(zone, p, xmageSpelling(n));
+            addCard(zone, p, xmageSpelling(n), 1, tapped.contains(n));
         }
         return ns.size();
     }

@@ -140,8 +140,6 @@ func TestOracleNamedHarnessCardsGenerate(t *testing.T) {
 		"Cruelclaw's Heist", "Ruthless Negotiation", "Soul Search", "Aggressive Negotiations",
 		// Counter template's later target slot.
 		"Sokka's Haiku",
-		// Unposed spree modes answer.
-		"Phantom Interference", "Shifting Grift",
 		// Opening-hand ask.
 		"Quicksilver, Brash Blur", "Leyline of Hope", "Leyline of Mutation",
 		"Leyline of Resonance", "Leyline of Transformation", "Leyline of the Void",

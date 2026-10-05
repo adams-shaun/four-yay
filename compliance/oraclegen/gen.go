@@ -392,10 +392,9 @@ func withHand(s Seat, name string) Seat {
 }
 
 // settle runs the cast in gorge and returns how many resolve steps empty
-// the stack (at most 4), the scenario it settled (with any unposed "modes"
-// answer dropped, see dropUnposedModes) and whether gorge could play it.
-func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, Scenario, bool) {
-	cleaned := false
+// the stack (at most 4); ok is false when gorge cannot cast with this
+// fixture.
+func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) {
 	for n := 1; n <= 4; n++ {
 		try := sc
 		try.Steps = append(append([]Step(nil), sc.Steps...), make([]Step, n)...)
@@ -405,73 +404,19 @@ func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, Scenario
 		b, _ := json.Marshal(try)
 		res, err := rules.RunOracleScenarioJSON(reg, b)
 		if err != nil || len(res.Snapshots) == 0 {
-			return 0, res, sc, false
-		}
-		// A charm plan scripts a "modes" answer. A Spree card the engine
-		// resolves without ever posing that decision leaves it unconsumed,
-		// which fails the step for a reason the card never had. Drop the
-		// unposed answer and settle again -- but ONLY when the step's sole
-		// failure is that leftover; any other fail (a charm that failed
-		// for a real, unrelated reason) must not be papered over.
-		if !cleaned && onlyUnconsumed(res.Fails) {
-			if next, changed := dropUnposedModes(sc, res.Decisions); changed {
-				sc, cleaned = next, true
-				n = 0
-				continue
-			}
+			return 0, res, false
 		}
 		for _, f := range res.Fails {
 			if strings.HasPrefix(f, "step ") || strings.Contains(f, "harness:") {
-				return 0, res, sc, false
+				return 0, res, false
 			}
 		}
 		last := res.Snapshots[len(res.Snapshots)-1]
 		if len(res.Snapshots) == len(try.Steps)+1 && len(last.Stack) == 0 {
-			return n, res, sc, true
+			return n, res, true
 		}
 	}
-	return 0, rules.OracleResult{}, sc, false
-}
-
-// onlyUnconsumed reports whether the run's sole failure is the unconsumed
-// leftover-answer marker. Only then is dropping a scripted "modes" answer
-// safe: a charm whose step failed for any other reason keeps its answer.
-func onlyUnconsumed(fails []string) bool {
-	return len(fails) == 1 && strings.Contains(fails[0], "unconsumed answer(s) for this step:")
-}
-
-// dropUnposedModes removes every scripted "modes" answer for a step whose
-// run posed no modes decision: the answer could never be consumed, and the
-// runner reports it as a leftover that fails the step. The remaining answers
-// (X, targets) are untouched, and the boolean reports whether anything moved.
-func dropUnposedModes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
-	posed := map[int]bool{}
-	for _, d := range ds {
-		if d.GorgeKind == "modes" {
-			posed[d.Step] = true
-		}
-	}
-	out := sc
-	out.Steps = append([]Step(nil), sc.Steps...)
-	changed := false
-	for i := range out.Steps {
-		if posed[i] {
-			continue
-		}
-		as := out.Steps[i].Answers
-		keep := make([]Answer, 0, len(as))
-		for _, a := range as {
-			if a.Kind == "modes" {
-				changed = true
-				continue
-			}
-			keep = append(keep, a)
-		}
-		if len(keep) != len(as) {
-			out.Steps[i].Answers = keep
-		}
-	}
-	return out, changed
+	return 0, rules.OracleResult{}, false
 }
 
 // xanswers turns gorge's recorded decisions into XMage's scripted answers,

@@ -79,8 +79,7 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 			for _, fx := range oraclegen.Fixtures(plain) {
 				extra(&fx)
 				sc := buildStackScenario(f, name, mana, pre, fx, slots, stackIdx, answers)
-				if n, res, settled, ok := oraclegen.Settle(reg, sc); ok {
-					sc = settled
+				if n, res, ok := oraclegen.Settle(reg, sc); ok {
 					for i := 0; i < n; i++ {
 						sc.Steps = append(sc.Steps, oraclegen.Step{Op: "resolve"})
 					}
