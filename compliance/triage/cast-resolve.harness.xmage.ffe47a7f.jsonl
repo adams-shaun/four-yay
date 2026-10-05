@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"IllegalArgumentException: op attach unsupported"},"key":"cast-resolve | harness | xmage | IllegalArgumentException: op attach unsupported","cards":1}
+{"card":"Fiery Annihilation","template":"cast-resolve","status":"harness","api":"DealDamage+ChangeZone","sets":["FDN"],"detail":"xmage: IllegalArgumentException: op attach unsupported"}
