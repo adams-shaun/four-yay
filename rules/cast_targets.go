@@ -196,6 +196,17 @@ func modeFlags(mode string) string {
 		return events.FlagsString(state.FlagMegamorphed)
 	case modeFlagsDisguised:
 		return events.FlagsString(state.FlagDisguised)
+	// Bargain (CR 702.166): the optional additional sacrifice's provenance.
+	// The offer exists only when at least one artifact, enchantment, or token
+	// is payable, and the mode is the election itself (there is no separate
+	// decline answer), so the flag is unconditional the offspring shape. The
+	// pay-time CastInfo carries it to the Count$Bargained/Count$Bargain
+	// heads, the bare Condition$ Bargain gate, the `bargained` predicate and
+	// the Spell.Bargain cost-static constraint. It is a CastProvenanceFlag
+	// (state/object.go), so a stack copy -- put on the stack, never cast
+	// (CR 707.10) -- does not inherit it.
+	case modeFlagsBargained:
+		return events.FlagsString(state.FlagBargained)
 	}
 	return ""
 }
@@ -1499,6 +1510,7 @@ const (
 	modeFlagsMultikicked
 	modeFlagsSquadded
 	modeFlagsConspired
+	modeFlagsBargained
 	modeFlagsMorphed
 	modeFlagsMegamorphed
 	modeFlagsDisguised
@@ -1538,6 +1550,7 @@ var modeFlagsCodes = state.NewStrCodes(
 	state.StrEntry[modeFlagsCode]{Key: "squadded", Val: modeFlagsSquadded},
 	state.StrEntry[modeFlagsCode]{Key: "conspired", Val: modeFlagsConspired},
 	state.StrEntry[modeFlagsCode]{Key: "casualty", Val: modeFlagsConspired},
+	state.StrEntry[modeFlagsCode]{Key: "bargained", Val: modeFlagsBargained},
 	state.StrEntry[modeFlagsCode]{Key: "morphed", Val: modeFlagsMorphed},
 	state.StrEntry[modeFlagsCode]{Key: "megamorphed", Val: modeFlagsMegamorphed},
 	state.StrEntry[modeFlagsCode]{Key: "disguised", Val: modeFlagsDisguised},

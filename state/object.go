@@ -405,6 +405,16 @@ const (
 	// (rules/altcast.go's altCostEnter). Appended after main's FlagWebSlinged
 	// to preserve its bit.
 	FlagSneaked
+	// FlagBargained marks a spell cast with the CR 702.166 Bargain additional
+	// cost paid: the caster sacrificed an artifact, enchantment or token as
+	// they cast it. It is folded by payCast's CastInfo from the cast-flow
+	// bargain election and read by the `bargained` filter predicate, the
+	// Count$Bargained/Count$Bargain heads, the bare Condition$ Bargain gate and
+	// the Spell.Bargain cost-static constraint. It is a CastProvenanceFlag
+	// because "if this spell was bargained" is a statement about the CAST (a
+	// copy was put on the stack, never cast, so it must not inherit it --
+	// CR 707.10). Appended per the enum's own append-only precedent.
+	FlagBargained
 )
 
 // CastProvenanceFlags is the ONE home for the CastFlags bits whose reader
@@ -446,7 +456,7 @@ const (
 // FlagWebSlinged joins the set: "if it was cast using web-slinging" is a
 // statement about the cast (the web-slinging cost was paid), so a stack copy
 // -- put on the stack, never cast (CR 707.10) -- must not inherit it.
-const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters | FlagWebSlinged | FlagSneaked
+const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters | FlagWebSlinged | FlagSneaked | FlagBargained
 
 // ExilesLeavingStack reports whether a cast carrying these flags is a
 // keyword cast whose card is exiled as it leaves the stack, whichever way it

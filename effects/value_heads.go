@@ -20,6 +20,8 @@ import "github.com/adams-shaun/gorge/cards"
 var modelledValueHeads = []string{
 	"AllFourBend",
 	"AttackersDeclared",
+	"Bargain",
+	"Bargained",
 	"Blessing",
 	"CardBasePower",
 	"CardCounters",

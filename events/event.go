@@ -1687,6 +1687,12 @@ var flagNames = [...]struct {
 	// CR 702.190b's tapped-and-attacking entry. Appended at the end per the
 	// table's own ordering rule.
 	{"sneaked", state.FlagSneaked},
+	// The CR 702.166 Bargain additional-cost cast: the caster sacrificed an
+	// artifact, enchantment or token as they cast the spell. Read by the
+	// `bargained` predicate, the Count$Bargained/Count$Bargain heads, the
+	// bare Condition$ Bargain gate and the Spell.Bargain cost constraint.
+	// Appended at the end per the table's own ordering rule.
+	{"bargained", state.FlagBargained},
 }
 
 // FlagsFrom parses a comma-separated flag list (CastInfo.Counter's shape)

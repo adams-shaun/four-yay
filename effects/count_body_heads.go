@@ -394,6 +394,26 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 			// controller denies, the fail-closed direction its siblings take.
 			blessed := int(c.Controller) < len(g.Players) && g.Players[c.Controller].Blessing
 			return dotBranch(h, c, head[dot+1:], blessed, depth), true, true
+		case evalCountBodyDottedBargained:
+			// CR 702.166's "if this spell was bargained" branch head: the
+			// corpus's two spellings, Count$Bargained.<yes>.<no> and
+			// Count$Bargain.<yes>.<no> (Candy Grapple's Count$Bargained.5.3,
+			// Torch the Tower's Count$Bargain.3.2, Brave the Wilds/
+			// Farsight Ritual/Stone-splitter Bolt/Kellan's Lightblades), read
+			// the very same provenance bit the `bargained` filter predicate,
+			// the bare Condition$ Bargain gate and the Spell.Bargain cost
+			// constraint share: state.FlagBargained on the resolving source's
+			// CastFlags, stamped by the pay-time CastInfo of the "bargained"
+			// cast mode. The branch tokens resolve through resolveCountOperand
+			// (a literal or an SVar name), the sibling branch heads'
+			// machinery; a copy -- was never cast (CR 707.10), so its flags
+			// carry no FlagBargained -- reads the <no> branch.
+			yesTok, noTok, _ := strings.Cut(head[dot+1:], ".")
+			bargained := false
+			if o := g.Obj(c.Source); o != nil {
+				bargained = o.CastFlags&state.FlagBargained != 0
+			}
+			return countBranchOperand(h, c, bargained, yesTok, noTok, depth), true, true
 		case evalCountBodyDottedThreshold:
 			// CR 702.24's Threshold branch head (7 corpus carriers: Cabal
 			// Ritual's Count$Threshold.5.3 mana ritual, Thermal Blast and
@@ -474,6 +494,7 @@ const (
 	evalCountBodyDottedMorbidOrMonarch
 	evalCountBodyDottedRevolt
 	evalCountBodyDottedBlessing
+	evalCountBodyDottedBargained
 	evalCountBodyDottedThreshold
 	evalCountBodyDottedDevotion
 	evalCountBodyDottedDevotionDual
@@ -490,6 +511,8 @@ var evalCountBodyDottedCodes = state.NewStrCodes(
 	state.StrEntry[evalCountBodyDottedCode]{Key: "Monarch", Val: evalCountBodyDottedMorbidOrMonarch},
 	state.StrEntry[evalCountBodyDottedCode]{Key: "Revolt", Val: evalCountBodyDottedRevolt},
 	state.StrEntry[evalCountBodyDottedCode]{Key: "Blessing", Val: evalCountBodyDottedBlessing},
+	state.StrEntry[evalCountBodyDottedCode]{Key: "Bargained", Val: evalCountBodyDottedBargained},
+	state.StrEntry[evalCountBodyDottedCode]{Key: "Bargain", Val: evalCountBodyDottedBargained},
 	state.StrEntry[evalCountBodyDottedCode]{Key: "Threshold", Val: evalCountBodyDottedThreshold},
 	state.StrEntry[evalCountBodyDottedCode]{Key: "Devotion", Val: evalCountBodyDottedDevotion},
 	state.StrEntry[evalCountBodyDottedCode]{Key: "DevotionDual", Val: evalCountBodyDottedDevotionDual},

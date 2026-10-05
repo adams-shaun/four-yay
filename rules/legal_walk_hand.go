@@ -502,6 +502,18 @@ func (w *legalWalk) handWalk() {
 					Label: "Cast " + f.Name + " (casualty)", Obj: id, Mode: "casualty"})
 			}
 		}
+		// Bargain (CR 702.166) is an optional additional sacrifice too -- an
+		// artifact, enchantment, or token -- so the option prices the ordinary
+		// spell (the casualty shape, never a substitution) and requires at
+		// least one eligible permanent. The mode rides spellScope("bargained")
+		// so the Spell.Bargain ReduceCost statics (Hamlet Glutton, Ice Out,
+		// Johann's Stopgap) price the discounted cast and the charge agrees.
+		if (bargain{e}).possible(id) &&
+			w.offerCastable(p, id, pay.WithSpellAbilityExtras(f, convokeBase), spellScope("bargained"), false) &&
+			len((bargain{e}).candidates(p, id)) > 0 && targetsAvailable() {
+			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
+				Label: "Cast " + f.Name + " (bargained)", Obj: id, Mode: "bargained"})
+		}
 		// The alternative-cost keyword family (altcosts), from the hand: evoke
 		// (CR 702), dash, overload and warp each become their own "cast" mode
 		// option paying the printed keyword cost in place of the mana cost.
