@@ -10,6 +10,9 @@ func TestCraftShapeAndExpansion(t *testing.T) {
 	if !CraftUniformShape(uniform) {
 		t.Fatalf("uniform corpus form rejected: %q", uniform)
 	}
+	if !CraftUniformShape("5 XMin1 ExileCtrlOrGrave<X/Permanent.Other/permanent>") {
+		t.Fatal("uniform material with Forge's display description rejected")
+	}
 	for _, exotic := range []string{
 		"3 R R XMin4 ExileFromGrave<X/Instant.Red+Other;Sorcery.Red+Other>",
 		"4 ExileCtrlOrGrave<1/Dinosaur.Other> ExileCtrlOrGrave<1/Merfolk.Other>",

@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-var craftUniform = regexp.MustCompile(`^\s*(?:(?:\d+|[WUBRGCX]|[WUBRGC]/[WUBRGC]|XMin\d+)\s+)*ExileCtrlOrGrave<(?:X|\d+)/[A-Za-z0-9_.]+>\s*$`)
+var craftUniform = regexp.MustCompile(`^\s*(?:(?:\d+|[WUBRGCX]|[WUBRGC]/[WUBRGC]|XMin\d+)\s+)*ExileCtrlOrGrave<(?:X|\d+)/[A-Za-z0-9_.]+(?:/[^>]*)?>\s*$`)
 
 // CraftUniformShape certifies only the single-material form implemented by
 // this slice. Keeping this classifier beside the expander makes the primitive
