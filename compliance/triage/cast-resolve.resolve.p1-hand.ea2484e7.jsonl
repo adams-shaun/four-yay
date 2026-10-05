@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.hand","diff":"gorge+[Grizzly Bears] xmage+[$LIB]"},"key":"cast-resolve | resolve | p1.hand | gorge+[Grizzly Bears] xmage+[$LIB]","cards":1}
+{"card":"Turtles in Time","template":"cast-resolve","status":"diverge","api":"ChangeZoneAll+GenericChoice+Draw+Pump+ChangeZone","sets":["TMT"],"detail":"step 1 (resolve) p1.hand: gorge \"[Grizzly Bears, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes]\", xmage \"[Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes]\""}
