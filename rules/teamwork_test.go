@@ -81,6 +81,9 @@ func TestTeamworkCastCostAndPaidProvenance(t *testing.T) {
 	if !e.G.Obj(hero).TeamworkPaid {
 		t.Fatal("paid Teamwork provenance not folded onto the spell")
 	}
+	if !effects.MatchesObjectCtx(e.G, "Card.Self+Teamwork", e.G.Obj(hero), effects.SpecContext{You: 0, Source: hero}) {
+		t.Fatal("paid spell did not match Card.Self+Teamwork")
+	}
 	paidBranch := effects.EvalCount(e, &effects.Ctx{Source: hero}, "Count$Teamwork.2.1")
 	if paidBranch != 2 {
 		t.Fatalf("paid Count$Teamwork branch=%d, want 2", paidBranch)
@@ -117,6 +120,9 @@ func TestTeamworkDeclinedIsUnpaid(t *testing.T) {
 	}
 	if e.G.Obj(hero).TeamworkPaid || e.G.Obj(a).Tapped {
 		t.Fatalf("declined Teamwork has paid=%v, creature tapped=%v", e.G.Obj(hero).TeamworkPaid, e.G.Obj(a).Tapped)
+	}
+	if effects.MatchesObjectCtx(e.G, "Card.Self+Teamwork", e.G.Obj(hero), effects.SpecContext{You: 0, Source: hero}) {
+		t.Fatal("declined spell matched Card.Self+Teamwork")
 	}
 	unpaidBranch := effects.EvalCount(e, &effects.Ctx{Source: hero}, "Count$Teamwork.2.1")
 	if paidBranch := int32(2); paidBranch == unpaidBranch {
