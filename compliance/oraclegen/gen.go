@@ -60,8 +60,6 @@ type Step struct {
 	// object as having entered this turn (a board-history target such as
 	// ThisTurnEntered@Graveyard needs that).
 	To string `json:"to,omitempty"`
-	// AttachedTo is the bearer ref for an attach setup operation.
-	AttachedTo string `json:"attached_to,omitempty"`
 }
 
 // Answer is a queued answer for gorge's runner (kind = decision kind).
