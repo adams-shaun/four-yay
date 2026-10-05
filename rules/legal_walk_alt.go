@@ -723,8 +723,8 @@ func (w *legalWalk) exileCastsWalk() {
 		// plus the face's activation-phase gates, re-offered every priority
 		// round the permission holds. The offer sits BEFORE the warp gate's
 		// continue, the foretell block's own reason.
-		if _, ok := f.KeywordParam("Plot"); ok && o.PlottedTurn > 0 &&
-			e.G.Turn > o.PlottedTurn && !w.castRestricted(p, id) && !e.castSuppressed(p, id) &&
+		if o.PlottedTurn > 0 && e.G.Turn > o.PlottedTurn &&
+			!w.castRestricted(p, id) && !e.castSuppressed(p, id) &&
 			sorcery && e.spellTimingOK(p, id, f, true) &&
 			e.castTargetsAvailable(p, id, f.SpellAbility()) {
 			if w.offerCastable(p, id, Cost{}, spellScope("plot_cast"), false) {
