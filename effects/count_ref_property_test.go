@@ -141,12 +141,11 @@ func TestTargetedPlayerRefProperty(t *testing.T) {
 		{"TargetedPlayer$LifeTotal", 17, &Ctx{Source: ids["myBear"], Controller: 0,
 			Targets:       []state.Target{{Player: 0, IsPlayer: true}},
 			PickedTargets: []state.Target{player}}},
-		// An out-of-scope property (StartingLife, DomainPlayer, CardsDrawn,
-		// Amount, ...) and an unknown ref stay zero (fall through unresolved).
+		// Out-of-scope properties and an unknown ref stay zero (fall through unresolved).
 		{"TargetedPlayer$StartingLife", 0, base},
 		{"TargetedPlayer$DomainPlayer", 0, base},
 		{"TargetedPlayer$CardsDrawn", 0, base},
-		{"TargetedPlayer$Amount", 0, base},
+		{"TargetedPlayer$Amount", 1, base},
 		{"BogusPlayer$CardsInHand", 0, base},
 		// A body naming no player target counts nothing (the object target in
 		// the fixture's list is skipped, never dereferenced).
