@@ -1,6 +1,5 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.library","diff":"placement"},"key":"cast-resolve | resolve | p0.library | placement","cards":46}
+{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.library","diff":"placement"},"key":"cast-resolve | resolve | p0.library | placement","cards":43}
 {"card":"A.I.M. Synthoids","template":"cast-resolve","status":"diverge","api":"ChangesZone:Surveil","sets":["MSH"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes, Wastes]\""}
-{"card":"Analyze the Pollen","template":"cast-resolve","status":"diverge","api":"ChangeZone","sets":["MKM"],"detail":"step 1 (resolve) p0.hand: gorge \"[Forest, Wastes]\", xmage \"[Forest]\""}
 {"card":"Break Out","template":"cast-resolve","status":"diverge","api":"PeekAndReveal+ChooseCard+ChangeZone+Pump+ChangeZoneAll+Cleanup","sets":["MKM"],"detail":"step 1 (resolve) p0.library_count: gorge \"39\", xmage \"38\""}
 {"card":"Broodspinner","template":"cast-resolve","status":"diverge","api":"ChangesZone:Surveil","sets":["DSK"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes, Wastes]\""}
 {"card":"Cephalid Inkmage","template":"cast-resolve","status":"diverge","api":"ChangesZone:Surveil","sets":["FDN"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes, Wastes, Wastes]\""}
@@ -13,14 +12,12 @@
 {"card":"Dissection Tools","template":"cast-resolve","status":"diverge","api":"ChangesZone:ManifestDread","sets":["DSK"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Esper Origins","template":"cast-resolve","status":"diverge","api":"Surveil+GainLife+ChangeZone+Cleanup","sets":["FIN"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Esper Origins]\", xmage \"[Wastes, Wastes, Esper Origins]\""}
 {"card":"Fangkeeper's Familiar","template":"cast-resolve","status":"diverge","api":"ChangesZone:Charm","sets":["TDM"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes, Wastes, Wastes]\""}
-{"card":"Hellish Sideswipe","template":"cast-resolve","status":"diverge","api":"Destroy+Draw","sets":["DFT"],"detail":"step 1 (resolve) p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
 {"card":"Hollow Marauder","template":"cast-resolve","status":"diverge","api":"ChangesZone:Discard","sets":["OTJ"],"detail":"step 1 (resolve) p0.hand: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Imperious Inkmage","template":"cast-resolve","status":"diverge","api":"ChangesZone:Surveil","sets":["SOS"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes, Wastes]\""}
 {"card":"Killer's Mask","template":"cast-resolve","status":"diverge","api":"ChangesZone:ManifestDread","sets":["DSK"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Lightshell Duo","template":"cast-resolve","status":"diverge","api":"ChangesZone:Surveil+SpellCast:Pump","sets":["BLB","FDN"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes, Wastes]\""}
 {"card":"Muse's Encouragement","template":"cast-resolve","status":"diverge","api":"Token+Surveil","sets":["SOS"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Muse's Encouragement]\", xmage \"[Wastes, Wastes, Muse's Encouragement]\""}
 {"card":"Neutralize the Guards","template":"cast-resolve","status":"diverge","api":"PumpAll+Surveil","sets":["OTJ"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Neutralize the Guards]\", xmage \"[Wastes, Wastes, Neutralize the Guards]\""}
-{"card":"Outlaws' Fury","template":"cast-resolve","status":"diverge","api":"PumpAll+Dig+Effect+Cleanup","sets":["OTJ"],"detail":"step 1 (resolve) p0.exile: gorge \"[Wastes]\", xmage \"[]\""}
 {"card":"Patient Naturalist","template":"cast-resolve","status":"diverge","api":"ChangesZone:Mill","sets":["OTJ"],"detail":"step 1 (resolve) p0.hand: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Plan the Heist","template":"cast-resolve","status":"diverge","api":"Surveil+Draw","sets":["OTJ"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Plan the Heist]\", xmage \"[Wastes, Wastes, Wastes, Plan the Heist]\""}
 {"card":"Prismari Charm","template":"cast-resolve","status":"diverge","api":"Charm","sets":["SOS"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Prismari Charm]\", xmage \"[Wastes, Wastes, Prismari Charm]\""}

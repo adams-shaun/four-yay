@@ -1088,10 +1088,16 @@ const (
 	// the player who bent; Obj is the permanent whose action resolved; Text is
 	// one of water, earth, fire, or air. It is a replay-visible pure marker.
 	ElementalBend
+	// SetupEntered records that an oracle harness's seeded battlefield card
+	// entered during turn 1. The harness stages permanents before the first
+	// TurnChange (to avoid incidental ETB triggers), while XMage's scenario
+	// setup enters them during turn 1. Obj is the staged permanent. This is
+	// harness provenance only: it does not change zones or fire ETB triggers.
+	SetupEntered
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(ElementalBend) + 1
+	NumKinds = int(SetupEntered) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving

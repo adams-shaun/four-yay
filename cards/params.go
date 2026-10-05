@@ -92,12 +92,14 @@ const (
 	PKConditionActivationLimit
 	PKConditionCheckSVar
 	PKConditionCompare
+	PKConditionCompare2
 	PKConditionDefined
 	PKConditionFirstCombat
 	PKConditionNotPresent
 	PKConditionPhases
 	PKConditionPlayerTurn
 	PKConditionPresent
+	PKConditionPresent2
 	PKConditionSVarCompare
 	PKConditionZone
 	PKController
@@ -823,12 +825,14 @@ var paramKeyNames = [paramKeyCount]string{
 	PKConditionActivationLimit:         "ConditionActivationLimit",
 	PKConditionCheckSVar:               "ConditionCheckSVar",
 	PKConditionCompare:                 "ConditionCompare",
+	PKConditionCompare2:                "ConditionCompare2",
 	PKConditionDefined:                 "ConditionDefined",
 	PKConditionFirstCombat:             "ConditionFirstCombat",
 	PKConditionNotPresent:              "ConditionNotPresent",
 	PKConditionPhases:                  "ConditionPhases",
 	PKConditionPlayerTurn:              "ConditionPlayerTurn",
 	PKConditionPresent:                 "ConditionPresent",
+	PKConditionPresent2:                "ConditionPresent2",
 	PKConditionSVarCompare:             "ConditionSVarCompare",
 	PKConditionZone:                    "ConditionZone",
 	PKController:                       "Controller",

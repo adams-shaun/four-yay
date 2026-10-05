@@ -68,7 +68,7 @@ func TestCompileActivation(t *testing.T) {
 	if !p.Phases.Present || !p.PhasesValid || !p.PhaseSet.Has(state.StepUpkeep) || p.PhaseSet.Has(state.StepDraw) {
 		t.Fatalf("phases = %+v %v %b", p.Phases, p.PhasesValid, p.PhaseSet)
 	}
-	want := ActPlayerTurnTrue | ActFirstCombat | ActFirstCombatTrue | ActPhaseGate | ActSorcerySpeed | ActUnlessSwitched | ActConditionOther
+	want := ActPlayerTurnTrue | ActFirstCombat | ActFirstCombatTrue | ActPhaseGate | ActSorcerySpeed | ActUnlessSwitched
 	if p.Flags != want {
 		t.Fatalf("flags = %b, want %b", p.Flags, want)
 	}
@@ -77,7 +77,7 @@ func TestCompileActivation(t *testing.T) {
 	}
 	c := &p.Cond
 	if c.Defined != "Remembered" || !c.Present.Present || c.Present.Text != "Card" || !c.Compare.Holds(0) ||
-		!c.PhasesOK || !c.PhaseSet.Has(state.StepMain2) || !c.Any() {
+		!c.PhasesOK || !c.PhaseSet.Has(state.StepMain2) || c.Zone != "Graveyard" || !c.Any() {
 		t.Fatalf("condition = %+v", c)
 	}
 	if z := conditionZoneParam(sa); z != "Graveyard" {

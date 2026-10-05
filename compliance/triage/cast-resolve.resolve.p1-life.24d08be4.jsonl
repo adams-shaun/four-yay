@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.life","diff":"gorge-xmage=-2"},"key":"cast-resolve | resolve | p1.life | gorge-xmage=-2","cards":1}
-{"card":"Wisecrack","template":"cast-resolve","status":"diverge","api":"DealDamage","sets":["SPM"],"detail":"step 1 (resolve) p1.life: gorge \"18\", xmage \"20\""}
