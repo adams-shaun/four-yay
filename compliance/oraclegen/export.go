@@ -57,6 +57,11 @@ func XAnswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 	return xanswers(ds, steps, modes)
 }
 
+// XAnswersForScenario also uses the observed result of a compound may/pick.
+func XAnswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]int) [][]XAnswer {
+	return xanswersForScenario(res, sc, modes)
+}
+
 // MayYes re-scripts every declined optional pick to take the first option.
 func MayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) { return mayYes(sc, ds) }
 

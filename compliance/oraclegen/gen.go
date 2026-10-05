@@ -424,7 +424,7 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 			// A step's own targets reach XMage through castSpell.
 			continue
 		}
-		if d.Options <= 1 && d.Kind != "target" && d.Kind != "order" && !hasTargetPick(d) {
+		if d.Options <= 1 && d.Kind != "target" && d.Kind != "order" && !hasTargetPick(d) && !(d.Kind == "mode" && pickKind(d, 0) == "discard") {
 			// A forced one-option ask: XMage does not pose it. A forced
 			// target-kind pick is the exception -- one legal opponent is still
 			// a chooseTarget XMage asks for.
@@ -444,6 +444,17 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
 			}
 		case "mode":
+			if pickKind(d, 0) == "discard" {
+				// Gorge's discard card picker is KModes; XMage uses
+				// TargetDiscard.choose -> makeChoose (not chooseMode).
+				for _, ref := range d.PickRefs {
+					as = append(as, XAnswer{d.Seat, "choice", oraclediffRefName(ref)})
+				}
+				if d.Max > len(d.PickRefs) {
+					as = append(as, XAnswer{d.Seat, "choice", "[choice_skip]"})
+				}
+				break
+			}
 			// gorge offers only the modes with legal targets, so an option
 			// index is not the mode number; the label is.
 			for k, i := range d.PickIdx {

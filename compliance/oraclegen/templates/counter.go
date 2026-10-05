@@ -121,6 +121,6 @@ func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre prec
 		return oraclegen.Item{}, false
 	}
 	it := CounterSpell.item(name, sc)
-	it.XAnswers = oraclegen.XAnswers(res.Decisions, len(sc.Steps), oraclegen.ModeNumbers(f))
+	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f))
 	return it, true
 }
