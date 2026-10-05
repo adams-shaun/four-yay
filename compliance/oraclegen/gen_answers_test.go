@@ -23,12 +23,13 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 		want []XAnswer
 	}{
 		{
-			// Surveil/scry keeping every card: XMage's selection is a
-			// TargetCard on the target queue and a skip dismisses it.
-			// Measured on the 2026-10-05 std pass: 25 surveil/scry carriers
-			// (Refute Destiny, Proctor of Potential, ...) agree with XMage
-			// only with this answer; a choice skip plus ORDER picks diverged.
-			name: "arrange keeps all cards: target skip",
+			// DSK Broodspinner's enter trigger is the named surveil-2 carrier.
+			// Keeping every card makes XMage's selection a TargetCard on the
+			// target queue; the scripted target skip dismisses it. This is the
+			// answer shape measured for the 25 standard surveil/scry carriers
+			// (including Refute Destiny and Proctor of Potential); a choice skip
+			// plus ORDER picks leaves an answer queued and fails the next choice.
+			name: "Broodspinner surveil keeps all cards: target skip",
 			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "order", GorgeKind: "arrange", Options: 2, Min: 0, Max: 2, Picks: []string{"Forest", "Island"}, PickIdx: []int{0, 1}, PickKinds: []string{"graveyard", "graveyard"}},
 			want: []XAnswer{{0, "target", "[target_skip]"}},
 		},

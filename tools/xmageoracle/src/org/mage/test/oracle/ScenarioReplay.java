@@ -15,16 +15,23 @@ import mage.cards.repository.CardInfo;
 import mage.cards.repository.CardRepository;
 import mage.abilities.effects.common.InfoEffect;
 import mage.cards.Card;
+import mage.cards.Cards;
+import mage.cards.CardsImpl;
 import mage.constants.CardType;
+import mage.constants.Outcome;
 import mage.constants.PhaseStep;
 import mage.constants.Zone;
 import mage.counters.Counter;
 import mage.game.Game;
+import mage.game.events.GameEvent;
 import mage.game.permanent.Permanent;
 import mage.game.stack.Spell;
 import mage.game.stack.StackObject;
 import mage.players.ManaPool;
 import mage.players.Player;
+import mage.filter.FilterCard;
+import mage.target.TargetCard;
+import mage.util.CardUtil;
 import org.mage.test.player.TestPlayer;
 import org.mage.test.serverside.base.CardTestPlayerBase;
 
@@ -38,6 +45,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 
@@ -63,6 +71,141 @@ public class ScenarioReplay extends CardTestPlayerBase {
     // cast in the declare-attackers (attacking-only) or declare-blockers
     // (blocking) step, so the driver must too.
     private PhaseStep phase = MAIN;
+
+    @Override
+    protected TestPlayer createPlayer(Game game, String name, String deckName) throws mage.game.GameException {
+        return new ScriptedChoicePlayer(super.createPlayer(game, name, deckName));
+    }
+
+    /** TestPlayer normally delegates these library decisions directly to its AI,
+     * bypassing the scripted target/choice queues. Route them through this player. */
+    private static final class ScriptedChoicePlayer extends TestPlayer {
+        ScriptedChoicePlayer(TestPlayer player) {
+            super(player);
+        }
+
+        @Override
+        public boolean scry(int value, Ability source, Game game) {
+            if (game.getTurnNum() == 1 && game.getStep() == null) {
+                return false;
+            }
+            GameEvent event = new GameEvent(GameEvent.EventType.SCRY, getId(), source, getId(), value, true);
+            if (game.replaceEvent(event)) {
+                return false;
+            }
+            game.informPlayers(getLogName() + " scries " + event.getAmount() + CardUtil.getSourceLogName(game, source));
+            Cards cards = new CardsImpl();
+            cards.addAllCards(getLibrary().getTopCards(game, event.getAmount()));
+            if (!cards.isEmpty()) {
+                TargetCard target = new TargetCard(0, cards.size(), Zone.LIBRARY,
+                        new FilterCard("card" + (cards.size() == 1 ? "" : "s") + " to PUT on the BOTTOM of your library (Scry)"));
+                Cards selected = scriptedLibrarySelection(cards, game);
+                if (selected == null) {
+                    chooseTarget(Outcome.Benefit, cards, target, source, game);
+                    selected = new CardsImpl(target.getTargets());
+                }
+                putCardsOnBottomOfLibrary(selected, game, source, true);
+                if (!selected.isEmpty()) {
+                    game.fireEvent(GameEvent.getEvent(GameEvent.EventType.SCRY_TO_BOTTOM, getId(), source, getId(), selected.size()));
+                }
+                cards.removeAll(selected);
+                putCardsOnTopOfLibrary(cards, game, source, true);
+            }
+            game.fireEvent(new GameEvent(GameEvent.EventType.SCRIED, getId(), source, getId(), event.getAmount(), true));
+            return true;
+        }
+
+        @Override
+        public Player.SurveilResult doSurveil(int value, Ability source, Game game) {
+            GameEvent event = new GameEvent(GameEvent.EventType.SURVEIL, getId(), source, getId(), value, true);
+            if (game.replaceEvent(event) || event.getAmount() < 1) {
+                return Player.SurveilResult.noSurveil();
+            }
+            game.informPlayers(getLogName() + " surveils " + event.getAmount() + CardUtil.getSourceLogName(game, source));
+            Cards cards = new CardsImpl();
+            cards.addAllCards(getLibrary().getTopCards(game, event.getAmount()));
+            Cards graveyard = new CardsImpl();
+            Cards top = new CardsImpl();
+            if (!cards.isEmpty()) {
+                TargetCard target = new TargetCard(0, cards.size(), Zone.LIBRARY,
+                        new FilterCard("card" + (cards.size() == 1 ? "" : "s") + " to PUT into your GRAVEYARD (Surveil)"));
+                Cards selected = scriptedLibrarySelection(cards, game);
+                if (selected == null) {
+                    chooseTarget(Outcome.Benefit, cards, target, source, game);
+                    selected = new CardsImpl(target.getTargets());
+                }
+                if (!selected.isEmpty()) {
+                    graveyard.addAllCards(moveCardsToGraveyardWithInfo(selected.getCards(game), source, game, Zone.LIBRARY));
+                }
+                cards.removeAll(selected);
+                putCardsOnTopOfLibrary(cards, game, source, true);
+                top.addAll(cards);
+            }
+            game.fireEvent(new GameEvent(GameEvent.EventType.SURVEILED, getId(), source, getId(), event.getAmount(), true));
+            return Player.SurveilResult.surveil(graveyard, top);
+        }
+
+        /** Consume the generator's choice-queue selection and kept-card order.
+         * Null means this decision was scripted through the ordinary target queue. */
+        private Cards scriptedLibrarySelection(Cards cards, Game game) {
+            List<String> queue = getChoices();
+            if (queue.isEmpty()) {
+                return null;
+            }
+            Set<Card> available = cards.getCards(game);
+            Cards selected = new CardsImpl();
+            boolean scripted = false;
+            while (!queue.isEmpty()) {
+                String answer = queue.get(0);
+                if (TestPlayer.CHOICE_SKIP.equals(answer)) {
+                    queue.remove(0);
+                    scripted = true;
+                    break;
+                }
+                Card match = findByName(available, answer);
+                if (match == null) {
+                    break;
+                }
+                queue.remove(0);
+                available.remove(match);
+                selected.add(match);
+                scripted = true;
+            }
+            if (!scripted) {
+                return null;
+            }
+
+            // The remaining labels are the chosen top-card ordering. Rebuild the
+            // Cards set in that order; unmatched answers belong to a later ask.
+            List<Card> ordered = new ArrayList<>();
+            while (!queue.isEmpty()) {
+                Card match = findByName(available, queue.get(0));
+                if (match == null) {
+                    break;
+                }
+                queue.remove(0);
+                available.remove(match);
+                ordered.add(match);
+            }
+            cards.clear();
+            for (Card card : ordered) {
+                cards.add(card);
+            }
+            for (Card card : available) {
+                cards.add(card);
+            }
+            return selected;
+        }
+
+        private Card findByName(Set<Card> cards, String name) {
+            for (Card card : cards) {
+                if (card.getName().equals(name)) {
+                    return card;
+                }
+            }
+            return null;
+        }
+    }
 
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
