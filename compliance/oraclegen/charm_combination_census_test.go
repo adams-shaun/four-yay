@@ -12,6 +12,29 @@ import (
 // legal combination, not merely for each mode considered in isolation.
 func TestCharmCombinationFixtureCensus(t *testing.T) {
 	reg := censusRegistry(t)
+	t.Run("non-charm fixture cross-product gap", func(t *testing.T) {
+		face := &cards.Face{Abilities: []*cards.SA{{
+			Kind: "SP",
+			API:  "Destroy",
+			Params: map[string]string{
+				"ValidTgts": "Creature.YouCtrl",
+				"TargetMin": "6",
+			},
+		}}}
+		slots := SlotSpecs(face)
+		if len(slots) != 6 {
+			t.Fatalf("synthetic non-Charm precondition: got %d target slots, want 6", len(slots))
+		}
+		if len(candidatesFor(reg, slots[0].Filter)) == 0 {
+			t.Fatalf("synthetic precondition: %q has no individual candidates", slots[0].Filter)
+		}
+		if len(fixtures(reg, slots)) != 0 {
+			t.Fatal("synthetic precondition: expected no joint fixture for six distinct targets")
+		}
+		if ok, reason := FaceHasFixture(reg, face); ok || reason != "fixture combination" {
+			t.Fatalf("non-Charm cross-product gap = (%v, %q), want (false, fixture combination)", ok, reason)
+		}
+	})
 	t.Run("stack target non-charm", func(t *testing.T) {
 		card, ok := reg.Lookup("Cancel")
 		if !ok || len(card.Faces) == 0 {

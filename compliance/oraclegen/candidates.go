@@ -211,7 +211,11 @@ func FaceHasFixture(reg *cards.Registry, f *cards.Face) (bool, string) {
 		}
 	}
 	if firstReason == "" {
-		firstReason = "charm combination"
+		if isCharm {
+			firstReason = "charm combination"
+		} else {
+			firstReason = "fixture combination"
+		}
 	}
 	return false, firstReason
 }
