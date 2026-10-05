@@ -267,7 +267,7 @@ const (
 	// structs holding a *Engine field (codeshape.Metrics.EngineSurface). It
 	// closes the side door of turning an Engine method into a free function
 	// or a wrapper struct's method. Measured on main at 00363b185.
-	engineSurface = 2017
+	engineSurface = 2018
 	// stringLiteralCompares is the ==/!= comparisons against a non-empty
 	// string literal plus strings.EqualFold calls with a literal argument: the
 	// if-chain spelling of the `case "X":` dispatch stringCaseLiterals froze
