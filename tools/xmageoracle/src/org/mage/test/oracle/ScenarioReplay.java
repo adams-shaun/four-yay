@@ -712,25 +712,6 @@ public class ScenarioReplay extends CardTestPlayerBase {
                         cast.add(card);
                         return;
                     }
-                    List<JsonObject> groups = targetGroups(st);
-                    if (!groups.isEmpty()) {
-                        // gorge's per-decision groups: queue each decision's
-                        // picks and close ONLY a decision left short of its
-                        // max, in decision order. XMage consumes queued
-                        // targets positionally, so a skip after a full
-                        // decision would leak into the next one.
-                        for (JsonObject grp : groups) {
-                            for (String t : names(grp, "picks")) {
-                                queueCastTarget(p, t);
-                            }
-                            if (groupIsShort(grp)) {
-                                addTarget(p, TestPlayer.TARGET_SKIP);
-                            }
-                        }
-                        castSpell(TURN, phase, p, card);
-                        cast.add(card);
-                        return;
-                    }
                     for (String t : tg) {
                         queueCastTarget(p, t);
                     }
@@ -856,26 +837,6 @@ public class ScenarioReplay extends CardTestPlayerBase {
         } else {
             addTarget(p, targetName(t));
         }
-    }
-
-    /** The step's per-decision target groups, in order; empty when none. */
-    private static List<JsonObject> targetGroups(JsonObject st) {
-        List<JsonObject> out = new ArrayList<>();
-        if (st.has("target_groups") && st.get("target_groups").isJsonArray()) {
-            for (JsonElement e : st.getAsJsonArray("target_groups")) {
-                out.add(e.getAsJsonObject());
-            }
-        }
-        return out;
-    }
-
-    /** A decision is short when it has a finite max the scenario did not
-     * fill (max 0 = unlimited, never short). */
-    private static boolean groupIsShort(JsonObject grp) {
-        int max = grp.has("max") ? grp.get("max").getAsInt() : 0;
-        int picks = grp.has("picks") && grp.get("picks").isJsonArray()
-                ? grp.getAsJsonArray("picks").size() : 0;
-        return max > 0 && picks < max;
     }
 
     /** The name form XMage's attack/block command takes. Unlike a cast

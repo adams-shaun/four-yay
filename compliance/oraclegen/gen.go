@@ -56,24 +56,10 @@ type Step struct {
 	Step     string   `json:"step,omitempty"`
 	Decision string   `json:"decision,omitempty"`
 	Answers  []Answer `json:"answers,omitempty"`
-	// TargetGroups is the per-decision target shape of a cast step whose
-	// targets span several target decisions or leave one short of its max:
-	// one group per decision, in the order gorge posed them, carrying the
-	// refs it picked and the decision's Max. XMage consumes queued targets
-	// positionally, so the driver can only close an "up to N" decision from
-	// the group it belongs to. Gorge's runner ignores the field.
-	TargetGroups []TargetGroup `json:"target_groups,omitempty"`
 	// A scenario step may move a card into a zone; the move op stamps the
 	// object as having entered this turn (a board-history target such as
 	// ThisTurnEntered@Graveyard needs that).
 	To string `json:"to,omitempty"`
-}
-
-// TargetGroup is one target decision's picks and its cap (Max 0 = unlimited,
-// never short). Picks may be empty when the decision's minimum is 0.
-type TargetGroup struct {
-	Picks []string `json:"picks,omitempty"`
-	Max   int      `json:"max"`
 }
 
 // Answer is a queued answer for gorge's runner (kind = decision kind).
@@ -519,14 +505,12 @@ func chooseTargets(sc Scenario, ds []rules.OracleDecision) (Scenario, map[int]bo
 	out := sc
 	out.Steps = append([]Step(nil), sc.Steps...)
 	chosen := map[int][]string{}
-	groups := map[int][]TargetGroup{}
 	castSteps := map[int]bool{}
 	for _, d := range ds {
 		if d.Via != "target" || d.Step < 0 || d.Step >= len(out.Steps) || out.Steps[d.Step].Op != "cast" {
 			continue
 		}
 		chosen[d.Step] = append(chosen[d.Step], d.PickRefs...)
-		groups[d.Step] = append(groups[d.Step], TargetGroup{Picks: append([]string(nil), d.PickRefs...), Max: d.Max})
 		castSteps[d.Step] = true
 	}
 	for i := range out.Steps {
@@ -535,28 +519,12 @@ func chooseTargets(sc Scenario, ds []rules.OracleDecision) (Scenario, map[int]bo
 		}
 		if _, ok := castSteps[i]; ok {
 			out.Steps[i].Targets = chosen[i]
-			out.Steps[i].TargetGroups = neededGroups(groups[i])
 			continue
 		}
 		// A cast that posed no target decision: drop the fixture's surplus.
 		out.Steps[i].Targets = nil
 	}
 	return out, castSteps
-}
-
-// neededGroups keeps a cast step's per-decision groups only when the driver
-// needs them: two or more target decisions, or one left short of its max. A
-// single full decision leaves the field off, so its wire bytes do not change.
-func neededGroups(gs []TargetGroup) []TargetGroup {
-	if len(gs) > 1 {
-		return gs
-	}
-	for _, g := range gs {
-		if g.Max > 0 && len(g.Picks) < g.Max {
-			return gs
-		}
-	}
-	return nil
 }
 
 // xanswers turns gorge's recorded decisions into XMage's scripted answers,
