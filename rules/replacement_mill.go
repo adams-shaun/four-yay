@@ -31,14 +31,19 @@ func millScryProposalMatches(r cards.Repl, ev events.Event, playerMatches func(s
 // bodies fail closed and are surfaced with a Note.
 func (e *Engine) continueMillReplacements(ev events.Event, matches []replMatch) (events.Event, bool) {
 	used := make([]bool, len(matches))
+	unsupportedNoted := make([]bool, len(matches))
 	for {
 		var applicable []int
 		for i, m := range matches {
-			if !used[i] && e.replacementMatches(*m.repl, m.id, ev) {
-				ctx := e.replCtx(m, ev)
-				if m.repl.With != nil && millCountBodySupported(ctx, m.repl.With) {
-					applicable = append(applicable, i)
-				}
+			if used[i] || !e.replacementMatches(*m.repl, m.id, ev) {
+				continue
+			}
+			ctx := e.replCtx(m, ev)
+			if m.repl.With != nil && millCountBodySupported(ctx, m.repl.With) {
+				applicable = append(applicable, i)
+			} else if !unsupportedNoted[i] {
+				unsupportedNoted[i] = true
+				e.emit(events.Event{Kind: events.Note, Obj: m.id, Text: "unimplemented Mill replacement"})
 			}
 		}
 		if len(applicable) == 0 {
