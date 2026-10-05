@@ -13,6 +13,7 @@ import mage.abilities.common.SimpleStaticAbility;
 import mage.abilities.costs.AlternativeSourceCosts;
 import mage.cards.repository.CardInfo;
 import mage.cards.repository.CardRepository;
+import mage.abilities.effects.common.EndTurnEffect;
 import mage.abilities.effects.common.InfoEffect;
 import mage.cards.Card;
 import mage.cards.Cards;
@@ -313,6 +314,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             res.add("id", sc.get("id"));
         }
         snaps.clear();
+        boolean endTurnScenario = false;
         try {
             reset();
             skipInitShuffling();
@@ -320,6 +322,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             sc0 = sc;
             gorgeName = str(sc, "card");
             xmageName = str(sc, "xmage_name");
+            endTurnScenario = hasEndTurnEffect(xmageName);
             cast.clear();
             refAlias.clear();
             phase = MAIN;
@@ -342,23 +345,28 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 String cp = "step " + i + " (" + op + ")";
                 runCode(cp, TURN, phase, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
             }
-            // EndTurn skips the remaining turn-1 checkpoints. Let the game reach
-            // the next upkeep so a skipped final checkpoint can be represented
-            // by the actual post-turn state rather than an unused-action error.
-            setStopAt(TURN + 1, PhaseStep.UPKEEP);
+            // Only EndTurn scenarios need the extended boundary. Ordinary
+            // replays retain the original turn-1 stop and cannot encounter
+            // unrelated turn-2 upkeep triggers or decisions.
+            setStopAt(endTurnScenario ? TURN + 1 : TURN,
+                    endTurnScenario ? PhaseStep.UPKEEP : PhaseStep.END_TURN);
             execute();
         } catch (Throwable t) {
             String msg = t.getClass().getSimpleName() + ": " + t.getMessage();
             int stepCount = sc.has("steps") ? sc.getAsJsonArray("steps").size() : 0;
-            if (msg.contains("must have 0 actions but found")
-                    && currentGame != null && currentGame.getTurnNum() > TURN
-                    && snaps.size() < stepCount + 1) {
-                int skipped = snaps.size() - 1;
-                if (skipped >= 0 && skipped < stepCount) {
+            int completedSteps = snaps.size() - 1;
+            int skippedSteps = stepCount - completedSteps;
+            int unusedActions = unusedActionCount(msg);
+            if (endTurnScenario && unusedActions == skippedSteps
+                    && skippedSteps > 0 && currentGame != null && currentGame.getTurnNum() > TURN) {
+                // The harness proves every remaining queued action is exactly
+                // one of our skipped step checkpoints. Record each label so
+                // the final post-turn state aligns with the gorge snapshots.
+                for (int skipped = completedSteps; skipped < stepCount; skipped++) {
                     String op = str(sc.getAsJsonArray("steps").get(skipped).getAsJsonObject(), "op");
                     snaps.add(snapshot("step " + skipped + " (" + op + ")", currentGame));
-                    msg = null;
                 }
+                msg = null;
             }
             if (msg != null) {
                 if (!xmageName.isEmpty()) {
@@ -379,6 +387,31 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
         res.add("snapshots", arr);
         return res;
+    }
+
+    private static int unusedActionCount(String message) {
+        String marker = "must have 0 actions but found ";
+        if (message == null || !message.contains(marker)) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(message.substring(message.indexOf(marker) + marker.length()).trim());
+        } catch (NumberFormatException ignored) {
+            return -1;
+        }
+    }
+
+    private static boolean hasEndTurnEffect(String name) {
+        if (name == null || name.isEmpty()) {
+            return false;
+        }
+        CardInfo info = CardRepository.instance.findCard(name);
+        if (info == null) {
+            return false;
+        }
+        Card card = info.createCard();
+        return card.getSpellAbility() != null
+                && card.getSpellAbility().getEffects().stream().anyMatch(EndTurnEffect.class::isInstance);
     }
 
     // ---- setup -----------------------------------------------------------
