@@ -471,32 +471,63 @@ func (e *Engine) checkGrantedMentorTriggers(observer *Engine, id state.ObjID, o 
 	}
 }
 
-// checkGrantedFirebendingTriggers synthesizes Firebending's attack trigger
-// (CR 702.189a) for a creature that currently HAS the keyword but does not
-// print it: a layer-6 AddKeyword$ Firebending:<N> grant (Sozin's Comet's
-// "Each creature you control gains firebending 5 until end of turn", Fire
-// Nation Palace's targeted grant, Iroh, Dragon of the West's counter-gated
-// grant) gives the creature the same rules text as a printed keyword, and
-// the printed K:Firebending expansion (cards/kw_firebending.go) only covers
-// printed lines. The synthesized trigger reuses the printed shape exactly
-// (Mode$ Attacks | ValidCard$ Card.Self), so it is byte-identical to the
-// printed path: its body is the same DB$ Mana producing the granted N red
-// with the end-of-combat exception, which rules.pushTrigger builds and
-// events.Apply rebuilds from the KeywordTriggerPush payload alone. It skips
-// the object entirely when its printed face already carries Firebending, so
-// a creature printing the keyword and also granted it fires once (the
-// Dethrone dedup). The amount is the derived keyword's parameter text (a
-// literal for every measured grant); a blank or unreadable parameter is not
-// an instance this build can price, so it queues nothing. Like the
-// Dethrone/Afflict/Mentor walks this is a read-only derived-characteristics
-// check; granting stays in the continuous-effect system. Runs on BOTH the
-// early-return and the live printed-trigger paths.
-func (e *Engine) checkGrantedFirebendingTriggers(observer *Engine, id state.ObjID, o *state.Object, f *cards.Face, ev events.Event, objLKI *state.Object) {
-	// The synthesized trigger is Attacks + ValidCard$ Card.Self, so only an
-	// object this declaration names as an attacker can match it. Apply that
+// checkGrantedAttackKeywordTriggers synthesizes the attack-triggered half of
+// two keywords for a creature that currently HAS the keyword but does not
+// print it. Both are read-only derived-characteristics checks; granting stays
+// in the continuous-effect system. Runs on BOTH the early-return and the
+// live printed-trigger paths (rules/trigger_match.go).
+//
+//   - Firebending (CR 702.189a): a layer-6 AddKeyword$ Firebending:<N> grant
+//     (Sozin's Comet's "Each creature you control gains firebending 5 until
+//     end of turn", Fire Nation Palace's targeted grant, Iroh, Dragon of the
+//     West's counter-gated grant) gives the creature the same rules text as a
+//     printed keyword, and the printed K:Firebending expansion
+//     (cards/kw_firebending.go) only covers printed lines. The synthesized
+//     trigger reuses the printed shape exactly (Mode$ Attacks | ValidCard$
+//     Card.Self), so it is byte-identical to the printed path: its body is
+//     the same DB$ Mana producing the granted N red with the end-of-combat
+//     exception, which rules.pushTrigger builds and events.Apply rebuilds
+//     from the KeywordTriggerPush payload alone. It skips the object entirely
+//     when its printed face already carries Firebending, so a creature
+//     printing the keyword and also granted it fires once (the Dethrone
+//     dedup). The amount is the derived keyword's parameter text (a literal
+//     for every measured grant); a blank or unreadable parameter is not an
+//     instance this build can price, so it queues nothing.
+//
+//   - Decayed (CR 702.147a): "When this creature attacks, sacrifice it at end
+//     of combat." The keyword reaches the derived list from a printed
+//     K:Decayed line, a decayed counter (cards.CounterKeyword, CR 122.1b) or
+//     a KW$ Decayed grant, and all three must arm the same promise. The walk
+//     arms a real one-shot DelayedRegister (the unearth/blitz shape) rather
+//     than sacrificing at declaration, so the creature is still on the
+//     battlefield through blockers and combat damage and is sacrificed at
+//     the EndCombat step by the builtin __kwDecayedSacrifice body
+//     (cards/link.go). rules/decayed.go registers the coverage marker.
+func (e *Engine) checkGrantedAttackKeywordTriggers(observer *Engine, id state.ObjID, o *state.Object, f *cards.Face, ev events.Event, objLKI *state.Object) {
+	// Both synthesized triggers are Attacks + ValidCard$ Card.Self, so only an
+	// object this declaration names as an attacker can match one. Apply that
 	// gate before deriving characteristics for every object in every zone.
 	if ev.Kind != events.DeclareAttackers || !slices.Contains(ev.IDs, id) {
 		return
+	}
+	// Decayed's promise is armed first and is independent of the Firebending
+	// branch below (an object may hold both keywords).
+	if e.hasKeywordH(id, kwhDecayed) {
+		// Arm only when no live __kwDecayed promise already names this object
+		// -- a second registration would sacrifice it twice (an extra combat
+		// phase can declare the same attacker again).
+		armed := false
+		for i := range e.G.Delayed {
+			dt := &e.G.Delayed[i]
+			if dt.Source == id && strings.HasPrefix(dt.Execute, "__kwDecayed") {
+				armed = true
+				break
+			}
+		}
+		if !armed {
+			e.emit(events.Event{Kind: events.DelayedRegister, Obj: id,
+				Player: o.Controller, Step: state.StepEndCombat, Counter: "__kwDecayedSacrifice"})
+		}
 	}
 	if !e.hasKeywordH(id, kwhFirebending) || f.HasKeyword("Firebending") {
 		return
@@ -930,6 +961,59 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 			}),
 		})
 	}
+	// A keyword-granted triggered ability (CR 613.1f): a layer-6 AddKeyword$
+	// grant of a keyword whose rules text is a triggered ability (Prowess --
+	// Wizard's Staff's "Equipped creature has prowess") gives the recipient
+	// the same rules text a printed K: line would, but the printed expansion
+	// (cards/kw_prowess.go) only covers printed lines and a granted keyword
+	// has no face trigger. The trigger is synthesized from the keyword LINE
+	// (grantedKeywordTrigger) exactly as the printed expansion builds
+	// it, so the two cannot drift. It rides the existing Granted/
+	// GrantTriggerPush path (no new pushTrigger arm): its body is rebuilt
+	// structurally by foldGrantTriggerPush from the __kwProwessGranted
+	// payload, so a log-only replay mints the identical ability. Source is
+	// the GRANTED creature, so the body's Defined$ Self pumps it. The
+	// keyword-granting static reaches this loop because
+	// grantedTriggerStaticsFor includes it (a granted triggered keyword is a
+	// granted trigger), which also disables the zone-skip so the non-referent
+	// recipient is visited.
+	for _, ce := range statics {
+		if len(ce.AddKeywords) == 0 {
+			continue
+		}
+		if !observer.matchesSpecFrom(ce.Affects, id, ce.Controller, ce.Source) || observer.grantLostTo(ce, o) {
+			continue
+		}
+		for _, line := range ce.AddKeywords {
+			t := grantedKeywordTrigger(line)
+			if t == nil {
+				continue
+			}
+			if !observer.triggerMatches(*t, id, ev, objLKI) {
+				continue
+			}
+			key := triggerKey{Source: id, Idx: -1}
+			if e.triggerFireCount == nil {
+				e.triggerFireCount = map[triggerKey]int32{}
+			}
+			if e.triggerFireCount[key] >= maxTriggerFires {
+				continue // cascade bound: see maxTriggerFires.
+			}
+			e.triggerFireCount[key]++
+			e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
+				Source:     id,
+				Controller: o.Controller,
+				Granted:    true,
+				Grantor:    ce.Source,
+				Execute:    "__kwProwessGranted",
+				Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
+					Remembered:     triggerRemembered(ev, id),
+					LKI:            objLKI,
+					TriggerContext: observer.triggerReferents(*t, id, ev, objLKI),
+				}),
+			})
+		}
+	}
 }
 
 // grantedTriggerStaticsFor returns, in active()'s order, pointers to the
@@ -953,10 +1037,18 @@ func grantedTriggerStaticsFor(statics []ContinuousEffect, kind events.Kind, buf 
 }
 
 // grantedTriggerStaticObserves reports whether any trigger ce grants could
-// pass triggerMatches' leading event-kind gate for kind.
+// pass triggerMatches' leading event-kind gate for kind. A layer-6 AddKeyword$
+// grant of a triggered keyword (grantedKeywordTrigger) counts: its
+// synthesized trigger is matched from the keyword line exactly as a printed
+// one would be.
 func grantedTriggerStaticObserves(ce *ContinuousEffect, kind events.Kind) bool {
 	if ce.AddTrigger != nil && triggerLineEvents(ce.AddTrigger).allows(kind) {
 		return true
+	}
+	for _, line := range ce.AddKeywords {
+		if t := grantedKeywordTrigger(line); t != nil && triggerLineEvents(t).allows(kind) {
+			return true
+		}
 	}
 	for _, gf := range ce.GainedTriggerFaces {
 		if gf.Face == nil {

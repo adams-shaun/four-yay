@@ -5,6 +5,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 )
 
@@ -112,7 +113,12 @@ func checkKnownKeysMatchTheCensus(t *testing.T, api string, got []string) {
 	_, d := measureParamCensus(t, nil)
 	want := map[string]bool{}
 	for k := range d.api[api] {
-		want[k] = true
+		// This key is read by the generic activation-cost tier, not the
+		// resolving API's compiler. Its unread suppression is conditional
+		// on an AB carrying a valid typed permission.
+		if k != cards.PKTapCreaturesForMana.String() {
+			want[k] = true
+		}
 	}
 	for k := range ignoredParamKeys {
 		want[k] = true

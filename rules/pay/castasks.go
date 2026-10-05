@@ -27,6 +27,8 @@ type ConvokeOffer struct {
 	// Convoke, Harmonize, Improvise and Waterbend are the contributions the
 	// cast may announce (the cast-only keywords are false for an ability).
 	Convoke, Harmonize, Improvise, Waterbend bool
+	CreatureMana                             bool // ability-only: one untapped creature for one generic
+	SourceTaps                               bool // exclude the ability source if its own cost includes {T}
 	// Mana is the composed mana cost still owed; HasX is an unannounced {X}
 	// (every generic contribution stays possible until X is announced).
 	Mana Cost
@@ -52,6 +54,13 @@ func ConvokeAsk(e Engine, cp *CastPayment, paid *PaidCost, in ConvokeOffer) bool
 	name := g.Obj(in.Card).Face().Name
 	d := &decision.Decision{Player: in.Player, Kind: decision.KChoose, Min: 0, Source: in.Card}
 	sawCreature, sawArtifact := false, false
+	var creatureMana map[state.ObjID]bool
+	if in.CreatureMana {
+		creatureMana = make(map[state.ObjID]bool)
+		for _, id := range CreatureManaCandidates(g, in.Player, in.Card, in.SourceTaps) {
+			creatureMana[id] = true
+		}
+	}
 	for _, id := range g.Zone(state.ZBattlefield, in.Player) {
 		o := g.Obj(id)
 		if o == nil || o.Tapped || o.Face() == nil || o.BestowedAttached() || o.ReconfiguredAttached() || cp.Committed(paid, id) {
@@ -68,6 +77,11 @@ func ConvokeAsk(e Engine, cp *CastPayment, paid *PaidCost, in ConvokeOffer) bool
 					Group: group, Amount: int(p), Label: "Tap " + o.Face().Name + " (reduce by " + strconv.Itoa(int(p)) + ")"})
 				sawCreature = true
 			}
+		}
+		if creatureMana[id] && (mana.Generic > 0 || hasX) {
+			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "activation_creature", Obj: id,
+				Group: group, Label: "Tap " + o.Face().Name + " instead of paying 1"})
+			sawCreature = true
 		}
 		if in.Convoke && o.EffectiveIsCreature() {
 			for _, color := range []byte{'W', 'U', 'B', 'R', 'G'} {
@@ -431,6 +445,7 @@ var castPayCodes = state.NewStrCodes(
 	state.StrEntry[castPayCode]{Key: "convoke_R", Val: castPayConvoke},
 	state.StrEntry[castPayCode]{Key: "convoke_G", Val: castPayConvoke},
 	state.StrEntry[castPayCode]{Key: "convoke_generic", Val: castPayConvoke},
+	state.StrEntry[castPayCode]{Key: "activation_creature", Val: castPayConvoke},
 	state.StrEntry[castPayCode]{Key: "improvise_generic", Val: castPayConvoke},
 	state.StrEntry[castPayCode]{Key: "waterbend_generic", Val: castPayConvoke},
 	state.StrEntry[castPayCode]{Key: "harmonize", Val: castPayHarmonize},

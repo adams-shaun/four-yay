@@ -19,7 +19,8 @@
 //     OWN attack trigger (DigNum$ 1 exile) as the single-card control: one
 //     move is exactly one batch, one counter;
 //   - Scion of Halaster (SVar:DBDig:DB$ Dig | DigNum$ 2 | DestinationZone$
-//     Graveyard) driving two creature cards into the graveyard under
+//     Graveyard), with an explicit ChangeNum$ All test override, driving two
+//     creature cards into the graveyard under
 //     Dreadhound (Mode$ ChangesZone | Origin$ Library | Destination$
 //     Graveyard | ValidCard$ Creature), the per-move control: the singular
 //     mode is never batch-scoped, so two moves are two firings, two life --
@@ -183,7 +184,7 @@ func p1p1Count(e *Engine, id state.ObjID) int {
 // fixture's effects.Resolve shape) and asserts the SA really is the Dig the
 // test's reading rides on.
 func resolveDigSA(t *testing.T, e *Engine, reg *cards.Registry, card, svar string, source state.ObjID,
-	wantDigNum, wantChangeNum, wantDest string) {
+	wantDigNum, wantChangeNum, wantDest string, override ...string) {
 	t.Helper()
 	sa := corpusSA(t, reg, card, svar)
 	if sa.API != "Dig" {
@@ -197,6 +198,19 @@ func resolveDigSA(t *testing.T, e *Engine, reg *cards.Registry, card, svar strin
 	}
 	if got := strings.TrimSpace(sa.Params["DestinationZone"]); got != wantDest {
 		t.Fatalf("precondition: %s SVar %q DestinationZone = %q, want %q", card, svar, got, wantDest)
+	}
+	if len(override) != 0 {
+		// Scion's printed Dig defaults to one take. To exercise two per-move
+		// observers within ONE zone batch, explicitly widen the test SA's
+		// cap without changing the corpus card or its other parameters.
+		params := make(map[string]string, len(sa.Params)+1)
+		for k, v := range sa.Params {
+			params[k] = v
+		}
+		params["ChangeNum"] = override[0]
+		copySA := *sa
+		copySA.Params = params
+		sa = &copySA
 	}
 	effects.Resolve(e, &effects.Ctx{Source: source, Controller: 0,
 		SVars: e.G.Obj(source).Face().SVars}, sa)
@@ -237,8 +251,9 @@ func TestDigBatchesChangesZoneAll(t *testing.T) {
 //
 //   - Laelia's OWN attack trigger (DigNum$ 1, one card exiled) is exactly
 //     one batch -- one counter, single-card control;
-//   - Scion of Halaster's two-card Dig into the GRAVEYARD fires Dreadhound's
-//     per-move Mode$ ChangesZone ONCE PER MOVE (two moves, two life) even
+//   - Scion of Halaster's Dig, widened explicitly to ChangeNum$ All for
+//     this batch control, fires Dreadhound's per-move Mode$ ChangesZone
+//     ONCE PER MOVE (two moves, two life) even
 //     while the Dig's batch bracket is open -- the singular mode is never
 //     batch-scoped -- and leaves Laelia untouched (her clause names exile);
 //   - Wild Wasteland's two-card Dig into exile then adds exactly ONE more
@@ -266,7 +281,7 @@ func TestDigSingleCardIsOneBatchAndChangesZoneStaysPerMove(t *testing.T) {
 	if life := e.G.Players[1].Life; life != 20 {
 		t.Fatalf("test precondition: seat 1 at %d life before the graveyard dig, want 20", life)
 	}
-	resolveDigSA(t, e, reg, "Scion of Halaster", "DBDig", scion, "2", "", "Graveyard")
+	resolveDigSA(t, e, reg, "Scion of Halaster", "DBDig", scion, "2", "", "Graveyard", "All")
 	for _, id := range bears[1:3] {
 		if o := e.G.Obj(id); o == nil || o.Zone != state.ZGraveyard {
 			t.Fatalf("test precondition: bear %d in %v, want Graveyard", id, o)

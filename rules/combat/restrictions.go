@@ -23,6 +23,12 @@ type HiddenKeywordFlags struct {
 	UntapNextStep bool
 }
 
+// decayedHead is CR 702.147's keyword head. Named once so the switch below
+// compares against an identifier rather than a bare literal and the meaning
+// lives with the arm; Decayed shares the "can't block" meaning with the
+// sentence spelling.
+const decayedHead = "Decayed"
+
 // ParseHiddenKeyword reads one derived keyword line (already the head, via
 // cards.KeywordHead) into its combat meaning, normalising Forge's optional
 // "HIDDEN " marker away first because the corpus spells the SAME restriction
@@ -48,7 +54,16 @@ func ParseHiddenKeyword(k string) HiddenKeywordFlags {
 		return HiddenKeywordFlags{CantAttack: true, CantBlock: true}
 	case strings.EqualFold(head, "CARDNAME can't attack."):
 		return HiddenKeywordFlags{CantAttack: true}
-	case strings.EqualFold(head, "CARDNAME can't block."):
+	case strings.EqualFold(head, "CARDNAME can't block."),
+		strings.EqualFold(head, decayedHead):
+		// Decayed (CR 702.147a) is "This creature can't block" plus the
+		// attack-triggered end-of-combat sacrifice (the Decayed arm of
+		// checkGrantedAttackKeywordTriggers owns the sacrifice half). It
+		// reaches this reader as the canonical head from a printed
+		// K:Decayed line, from a decayed counter (cards.CounterKeyword,
+		// CR 122.1b) and from a KW$ Decayed grant; all three must forbid
+		// the block identically, so the arm sits beside the sentence
+		// spelling rather than in a printed-only path.
 		return HiddenKeywordFlags{CantBlock: true}
 	case strings.EqualFold(head, "CARDNAME must be blocked if able."):
 		return HiddenKeywordFlags{MustBlock: true}

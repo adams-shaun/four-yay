@@ -19,6 +19,15 @@ const (
 	SAKindStatic    SAKind = 4
 )
 
+// KindCode classifies the live ability kind, including unbound and copied
+// abilities whose Kind may differ from the original compiled catalog entry.
+func (s *SA) KindCode() SAKind {
+	if s == nil {
+		return SAKindUnknown
+	}
+	return saKindCode(s.Kind)
+}
+
 func saKindCode(kind string) SAKind {
 	switch kind {
 	case "SP":
@@ -668,7 +677,7 @@ var triggerModeInterests = func() (t [TriggerModeCount]TriggerInterest) {
 	// by trigmatch.BecomeMonarchMatches. The dedicated bit narrows a
 	// BecomeMonarch-only face's scan set to that kind.
 	set(TriggerInterestMonarch, TriggerBecomeMonarch)
-	set(TriggerInterestTap, TriggerTaps, TriggerTapsForMana)
+	set(TriggerInterestTap, TriggerTaps, TriggerTapsForMana, TriggerTapAll, TriggerUntapAll)
 	set(TriggerInterestDamage, TriggerDamageDone, TriggerDamageDealtOnce, TriggerDamageDoneOnce)
 	set(TriggerInterestDraw, TriggerDrawn)
 	set(TriggerInterestDamage|TriggerInterestLifeChange, TriggerLifeLost)

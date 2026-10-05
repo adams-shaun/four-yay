@@ -484,22 +484,18 @@ func (w *legalWalk) handWalk() {
 				Label: "Cast " + f.Name + " (conspired)", Obj: id, Mode: "conspired"})
 		}
 		teamworkOffer(w, id, f, convokeBase, targetsAvailable())
-		// Casualty is an optional additional sacrifice, not a mana cost.
-		// Price the ordinary spell and require at least one creature whose
-		// derived power meets the printed or layer-granted threshold. The
-		// variable form (Casualty:X, Ob Nixilis, the Adversary) has no
-		// threshold: the sacrificed creature's own power names the amount, so
-		// any creature qualifies and the ask's power gate reads 0.
-		if info, ok := e.casualtySpec(id); ok {
-			n := info.threshold
-			if info.variable {
-				n = 0
+		// The optional additional sacrifices (rules/optional_sacrifice.go:
+		// Casualty, Bargain) price the ordinary spell -- never a substitution
+		// -- and require at least one eligible permanent.
+		for i := range optionalSacrifices {
+			r := &optionalSacrifices[i]
+			n, ok := r.offered(e, id)
+			if !ok || !w.offerCastable(p, id, pay.WithSpellAbilityExtras(f, convokeBase), spellScope(r.scope), false) ||
+				len(e.optionalSacrificeCandidates(r, p, id, n)) == 0 || !targetsAvailable() {
+				continue
 			}
-			if w.offerCastable(p, id, pay.WithSpellAbilityExtras(f, convokeBase), spellScope(""), false) &&
-				len(e.casualtyCandidates(p, id, n)) > 0 && targetsAvailable() {
-				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
-					Label: "Cast " + f.Name + " (casualty)", Obj: id, Mode: "casualty"})
-			}
+			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
+				Label: "Cast " + f.Name + " (" + r.mode + ")", Obj: id, Mode: r.mode})
 		}
 		// The alternative-cost keyword family (altcosts), from the hand: evoke
 		// (CR 702), dash, overload and warp each become their own "cast" mode
@@ -519,7 +515,7 @@ func (w *legalWalk) handWalk() {
 			if !ka.handLoop || !ph.has(ka.ph) {
 				continue
 			}
-			alt, ok := ka.faceCost(f)
+			alt, ok := ka.faceCost(f, w.e.walkFaceFactsOf(f))
 			if !ok || !w.offerCastable(p, id, alt, spellScope(ka.mode), false) ||
 				(!ka.untargeted && !targetsAvailable()) {
 				continue

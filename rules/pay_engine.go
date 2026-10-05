@@ -227,9 +227,13 @@ func (pe *payer) Batch(kind pay.BatchKind, open bool) {
 	e := (*Engine)(pe)
 	switch {
 	case kind == pay.BatchMill && open:
-		e.BeginMillBatch()
+		e.BeginActionBatch()
 	case kind == pay.BatchMill:
-		e.EndMillBatch()
+		e.EndActionBatch()
+	case kind == pay.BatchTap && open:
+		e.BeginActionBatch()
+	case kind == pay.BatchTap:
+		e.EndActionBatch()
 	case open:
 		e.BeginDiscardBatch()
 	default:

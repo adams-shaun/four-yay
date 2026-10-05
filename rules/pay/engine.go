@@ -110,6 +110,12 @@ const (
 	BatchDiscard BatchKind = iota
 	// BatchMill brackets one mill action (Mode$ MilledAll).
 	BatchMill
+	// BatchTap brackets one tapping action (Mode$ TapAll): the tap cost parts
+	// of one payment tap their elected permanents as ONE action, so the
+	// aggregate trigger fires once for the whole cost (task
+	// cli-20261005T075020Z-05241a06). It rides the shared action bracket the
+	// rules engine already exposes to effects.
+	BatchTap
 )
 
 // CostBlock names the cost action Engine.CostBlocked asks about.

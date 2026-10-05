@@ -397,7 +397,13 @@ func (e *Engine) paymentPlanCensusTotal(p state.PlayerID) int32 {
 func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *cards.Face, o decision.Option) (Cost, bool) {
 	cost := pay.RawBaseCost(asPayer(e), p, id)
 	mode := o.Mode
-	switch potentialModeBaseCostCodes.Code(string(mode)) {
+	code := potentialModeBaseCostCodes.Code(string(mode))
+	if castModeCodes.Code(string(mode)) == castModeBargained {
+		// A bargained cast prices like the may-play cast it may ride: the
+		// printed cost plus any grant raise (Bargain adds only a sacrifice).
+		code = potentialModeBaseCostMayplay
+	}
+	switch code {
 	case potentialModeBaseCostEmpty:
 		return pay.WithSpellAbilityExtras(f, cost), true
 	case potentialModeBaseCostMayplay:
@@ -444,7 +450,7 @@ func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *card
 	if m := altCastFor(string(mode)); m != nil && m.potential {
 		// The alternative-cost keyword family (rules/altcast_modes.go): the
 		// same reader the offer and beginCast use.
-		return m.faceCost(f)
+		return m.faceCost(f, e.walkFaceFactsOf(f))
 	}
 	return Cost{}, false
 }

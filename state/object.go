@@ -430,6 +430,16 @@ const (
 	// never cast (CR 707.10) -- must not inherit it. Appended after the branch's
 	// FlagManaColorSpent to preserve both bits.
 	FlagImpending
+	// FlagBargained marks a spell cast with the CR 702.166 Bargain additional
+	// cost paid: the caster sacrificed an artifact, enchantment or token as
+	// they cast it. It is folded by payCast's CastInfo from the cast-flow
+	// bargain election and read by the `bargained` filter predicate, the
+	// Count$Bargained/Count$Bargain heads, the bare Condition$ Bargain gate and
+	// the Spell.Bargain cost-static constraint. It is a CastProvenanceFlag
+	// because "if this spell was bargained" is a statement about the CAST (a
+	// copy was put on the stack, never cast, so it must not inherit it --
+	// CR 707.10). Appended after FlagImpending to preserve every earlier bit.
+	FlagBargained
 	// FlagTeamworkPaid marks a cast whose K:Teamwork:N optional additional cost
 	// (CR 702.194a) was actually paid: as the spell was cast, the caster tapped
 	// untapped creatures they controlled with combined power N or more. The flag
@@ -440,7 +450,7 @@ const (
 	// was cast using teamwork" means the tap was paid -- so, like FlagConspired
 	// and FlagOffspringPaid, it is deliberately NOT in CastProvenanceFlags and a
 	// copied Teamwork spell inherits it pending the same separate copy ruling.
-	// Appended after FlagImpending per the enum's own append-only precedent.
+	// Appended after FlagBargained to preserve all bits already in main.
 	FlagTeamworkPaid
 )
 
@@ -489,7 +499,7 @@ const (
 // FlagImpending joins the set: both of CR 702.176a's riders are conditioned
 // on the spell having been CAST for its impending cost, so a stack copy -- put
 // on the stack, never cast (CR 707.10) -- must not inherit it.
-const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters | FlagWebSlinged | FlagSneaked | FlagManaColorSpent | FlagImpending
+const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters | FlagWebSlinged | FlagSneaked | FlagManaColorSpent | FlagImpending | FlagBargained
 
 // ExilesLeavingStack reports whether a cast carrying these flags is a
 // keyword cast whose card is exiled as it leaves the stack, whichever way it

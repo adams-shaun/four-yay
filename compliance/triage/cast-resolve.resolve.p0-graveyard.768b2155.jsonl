@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.graveyard","diff":"gorge+[$LIB] xmage+[Jace Beleren]"},"key":"cast-resolve | resolve | p0.graveyard | gorge+[$LIB] xmage+[Jace Beleren]","cards":1}
+{"card":"Gathering Stone","template":"cast-resolve","status":"diverge","api":"ChangesZone:PeekAndReveal+Phase:PeekAndReveal","sets":["ECL"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Wastes]\", xmage \"[Jace Beleren]\""}

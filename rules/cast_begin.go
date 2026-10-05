@@ -316,7 +316,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		cost = Cost{Generic: 2}
 	case castModeFlashback:
 		cost = e.flashbackCostFor(id, opt)
-	case castModeMayplay:
+	case castModeMayplay, castModeBargained:
 		// rules/mayplay.go granted this play from a non-hand zone. The
 		// printed cost is paid (the default below) unless the granting
 		// static said MayPlayWithoutManaCost$ True, in which case the mana
@@ -399,7 +399,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 				}
 			}
 		} else if m != nil {
-			if c, ok := m.faceCost(f); ok {
+			if c, ok := m.faceCost(f, e.walkFaceFactsOf(f)); ok {
 				cost = c
 			}
 		}
@@ -548,7 +548,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		optionalCost = parts[opt.AltCostIndex-1]
 	}
 	if opt.AltCostIndex == 0 && (opt.Mode == "" || opt.Mode == "mayplay" || opt.Mode == "modal_spell" || opt.Mode == "room_alt" ||
-		opt.Mode == "adventure_alt" || opt.Mode == "aftermath" || opt.Mode == "split_alt" || opt.Mode == "conspired" || castAnswerCodes.Code(opt.Mode) == castAnswerTeamworkMode || opt.Mode == "casualty" || opt.Mode == "mayflash" || opt.Mode == "retrace" || opt.Mode == "jumpstart" ||
+		opt.Mode == "adventure_alt" || opt.Mode == "aftermath" || opt.Mode == "split_alt" || opt.Mode == "conspired" || castAnswerCodes.Code(opt.Mode) == castAnswerTeamworkMode || opt.Mode == "casualty" || castModeCodes.Code(opt.Mode) == castModeBargained || opt.Mode == "mayflash" || opt.Mode == "retrace" || opt.Mode == "jumpstart" ||
 		// CR 702.34a/601.2f: flashback replaces only the mana cost; the
 		// spell's own additional cost (Eviscerator's Insight's sacrifice,
 		// Electric Revelation's discard) is still paid. The offer gate
@@ -722,7 +722,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 	// CR 401.5's MayPlayIgnoreColor$ rider: "you may spend mana as though it
 	// were mana of any color to cast it". Recorded from the grant the offer
 	// gate consulted while the card was still in the granted zone.
-	if opt.Mode == "mayplay" {
+	if opt.Mode == "mayplay" || castModeCodes.Code(opt.Mode) == castModeBargained {
 		rider := asEval(e).MayPlayRider(p, id)
 		e.cast.mayPlayIgnore, e.cast.mayPlayIgnoreType = rider.AnyColor, rider.AnyType
 		e.cast.mayPlayRemembered = e.mayPlayManaConvertRemembered(p, id)
@@ -1043,7 +1043,7 @@ func (e *Engine) continueCast() {
 		e.emit(events.Event{Kind: events.Note, Player: pc.player, Obj: pc.card,
 			Text: "teamwork no longer payable; casting without teamwork"})
 	}
-	if e.casualtyAsk() {
+	if e.optionalSacrificeAsk() {
 		return
 	}
 	// CR 601.2b announces Convoke/Harmonize before X: an announced creature
@@ -1202,6 +1202,7 @@ const (
 	castModeAirbendCast
 	castModeFlashback
 	castModeMayplay
+	castModeBargained
 	castModeMiracle
 	castModeEscape
 	castModeRetrace
@@ -1253,7 +1254,9 @@ var castModeCodes = state.NewStrCodes(append([]state.StrEntry[castModeCode]{
 	state.StrEntry[castModeCode]{Key: "disguised", Val: castModeMorphed},
 	state.StrEntry[castModeCode]{Key: "mayflash", Val: castModeMayflash},
 	state.StrEntry[castModeCode]{Key: "emerged", Val: castModeEmerged},
-}, altCastModeEntries()...)...)
+}, append(altCastModeEntries(),
+	// The Bargain row's mode word lives in rules/optional_sacrifice.go.
+	state.StrEntry[castModeCode]{Key: optionalSacrifices[optSacBargain].mode, Val: castModeBargained})...)...)
 
 type castKickerModeCode uint16
 

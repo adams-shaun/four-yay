@@ -986,10 +986,14 @@ func (e *Engine) commitManaDiscard() {
 	// the source's own {T} (the cast path's pay.EmitChoiceCosts/payCast order), so
 	// a TapsForMana trigger on one of them matches the same way in both
 	// paths. The Tap events carry the same "tapped as a cost" text the cast
-	// path uses, so a replay rebuilds the identical chain.
+	// path uses, so a replay rebuilds the identical chain. One mana ability's
+	// elected taps are ONE cost action, so the aggregate Mode$ TapAll trigger
+	// fires once for the whole cost (task cli-20261005T075020Z-05241a06).
+	e.openMillBatch()
 	for _, id := range md.Taps {
 		e.emit(events.Event{Kind: events.Tap, Obj: id, Text: "tapped as a cost"})
 	}
+	e.closeMillBatch()
 	var manaTriggers []pendingTrigger
 	if md.Cost.Tap {
 		manaTriggers = e.emitManaTap(md.Player, md.Source, md.Ability)

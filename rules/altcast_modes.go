@@ -16,6 +16,8 @@ package rules
 // on the mode string.
 
 import (
+	"math/bits"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -52,6 +54,9 @@ const (
 
 // altCastMode is one row of the family.
 type altCastMode struct {
+	// id is the row's index, so a reader with only a *altCastMode (altCastFor,
+	// the offer-loop rows) can address its sidecar entry in walkFaceFacts.
+	id altCastID
 	// mode is the decision.Option.Mode word the offer carries and beginCast
 	// reads (the past participle the wire has always used).
 	mode string
@@ -77,14 +82,14 @@ type altCastMode struct {
 // the hand and command-zone loops offer the modes, so it is part of the
 // replayed option list: do not reorder rows.
 var altCastModes = [altCastCount]altCastMode{
-	altEvoke:     {mode: "evoked", head: "Evoke", flag: state.FlagEvoked, ph: phEvoke, handLoop: true, cmdLoop: true, potential: true},
-	altDash:      {mode: "dashed", head: "Dash", flag: state.FlagDashed, ph: phDash, handLoop: true, cmdLoop: true, potential: true},
-	altOverload:  {mode: "overloaded", head: "Overload", flag: state.FlagOverloaded, ph: phOverload, handLoop: true, cmdLoop: true, untargeted: true, potential: true},
-	altWarp:      {mode: "warped", head: "Warp", flag: state.FlagWarped, ph: phWarp, handLoop: true, potential: true},
-	altImpending: {mode: "impended", head: "Impending", flag: state.FlagImpending, ph: phImpending, handLoop: true, cmdLoop: true, potential: true},
-	altMadness:   {mode: "madness", head: "Madness", potential: true},
-	altBestow:    {mode: "bestowed", head: "Bestow", flag: state.FlagBestowed, cost: altCostBestow, potential: true},
-	altBlitz:     {mode: "blitzed", head: "Blitz", flag: state.FlagBlitzed, cost: altCostBlitzInstance},
+	altEvoke:     {id: altEvoke, mode: "evoked", head: "Evoke", flag: state.FlagEvoked, ph: phEvoke, handLoop: true, cmdLoop: true, potential: true},
+	altDash:      {id: altDash, mode: "dashed", head: "Dash", flag: state.FlagDashed, ph: phDash, handLoop: true, cmdLoop: true, potential: true},
+	altOverload:  {id: altOverload, mode: "overloaded", head: "Overload", flag: state.FlagOverloaded, ph: phOverload, handLoop: true, cmdLoop: true, untargeted: true, potential: true},
+	altWarp:      {id: altWarp, mode: "warped", head: "Warp", flag: state.FlagWarped, ph: phWarp, handLoop: true, potential: true},
+	altImpending: {id: altImpending, mode: "impended", head: "Impending", flag: state.FlagImpending, ph: phImpending, handLoop: true, cmdLoop: true, potential: true},
+	altMadness:   {id: altMadness, mode: "madness", head: "Madness", potential: true},
+	altBestow:    {id: altBestow, mode: "bestowed", head: "Bestow", flag: state.FlagBestowed, cost: altCostBestow, potential: true},
+	altBlitz:     {id: altBlitz, mode: "blitzed", head: "Blitz", flag: state.FlagBlitzed, cost: altCostBlitzInstance},
 }
 
 // altMode is row id's mode word.
@@ -105,14 +110,43 @@ func altCastFor(mode string) *altCastMode {
 // altCastIs reports whether mode is row id's mode.
 func altCastIs(mode string, id altCastID) bool { return mode == altCastModes[id].mode }
 
-// faceCost is the row's printed cost on f; ok is false when the face does
-// not carry the keyword (or carries an unpriceable bestow). A Blitz row's
-// grants are ID-aware: beginCast and the walks read e.blitzCosts for it.
-func (m *altCastMode) faceCost(f *cards.Face) (Cost, bool) {
+// altFaceCost is one row's compiled printed cost on a face: walkFaceFacts'
+// sidecar entry. ok is faceCostRaw's ok at compile time; only present rows
+// (ok true) are stored in walkFaceFacts.altCosts, indexed via altCostMask.
+type altFaceCost struct {
+	cost Cost
+	ok   bool
+}
+
+// faceCostRaw is the row's printed cost on f, parsed; ok is false when the
+// face does not carry the keyword (or carries an unpriceable bestow). A
+// Blitz row's grants are ID-aware: beginCast and the walks read e.blitzCosts
+// for it. This is the per-face compile's source (computeWalkFaceFacts) and
+// faceCost's fallback for a face with no current sidecar.
+func (m *altCastMode) faceCostRaw(f *cards.Face) (Cost, bool) {
 	if m.cost == altCostBestow {
 		return bestowCost(f)
 	}
 	return keywordAltCost(f, m.head)
+}
+
+// faceCost is faceCostRaw read from the sidecar ff (walkFaceFacts) when its
+// keyword half is current for f, and parsed fresh otherwise. The parameter
+// is a pure function of the face, so the offer walk, the command-zone offer,
+// the potential-plan pricing and the charge all share ONE compiled parse per
+// face instead of reparsing on every offer. The sidecar is sparse: m.id's
+// entry sits at the population count of altCostMask's lower bits, and an
+// absent bit means the face does not carry the keyword (no reparse).
+func (m *altCastMode) faceCost(f *cards.Face, ff *walkFaceFacts) (Cost, bool) {
+	if ff == nil || !ff.keywordsCurrent(f) {
+		return m.faceCostRaw(f)
+	}
+	bit := uint8(1) << m.id
+	if ff.altCostMask&bit == 0 {
+		return Cost{}, false
+	}
+	c := ff.altCosts[bits.OnesCount8(ff.altCostMask&(bit-1))]
+	return c.cost, c.ok
 }
 
 // altCastModeEntries are castModeCodes' rows for the family, all sharing the
