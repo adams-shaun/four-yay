@@ -55,8 +55,12 @@ func TestSingularityRuptureRememberedPlayerOwn(t *testing.T) {
 	if !effects.MatchesObjectCtx(e.G, "Card.RememberedPlayerOwn", stolen, remembered) {
 		t.Fatal("RememberedPlayerOwn must match owner despite a different controller")
 	}
-	if effects.MatchesObjectCtx(e.G, "Card.RememberedPlayerOwn", stolen, effects.SpecContext{Resolving: true}) {
+	unbound := effects.SpecContext{Resolving: true}
+	if effects.MatchesObjectCtx(e.G, "Card.RememberedPlayerOwn", stolen, unbound) {
 		t.Fatal("RememberedPlayerOwn must fail closed with no remembered player")
+	}
+	if effects.MatchesObjectCtx(e.G, "Card.!RememberedPlayerOwn", stolen, unbound) {
+		t.Fatal("negated RememberedPlayerOwn must fail closed with no remembered player")
 	}
 	if effects.MatchesObjectCtx(e.G, "Card.!RememberedPlayerOwn", stolen, remembered) {
 		t.Fatal("negated RememberedPlayerOwn must reject a remembered player's owner")

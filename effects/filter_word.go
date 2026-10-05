@@ -1179,6 +1179,9 @@ func contextPredicateBound(g *state.Game, kind wordKind, key string, sc SpecCont
 		return base == "Card" || base == "Giant" || base == "Spider"
 	case wordSharesNameWith:
 		return len(sharesTypeReferents(g, sc, key)) > 0
+	case wordRememberedPlayerOwn:
+		_, bound := controlReferentPlayers(g, sc, "OwnedBy", "RememberedPlayer")
+		return bound
 	case wordDealtDamageThisGameBy:
 		// The argument form binds through <ref>; an unresolvable ref names no
 		// source at all, so both the positive and the '!'-negated spelling
