@@ -522,8 +522,20 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 			// Arrange first asks which cards move; its follow-up ordering is
 			// also on XMage's choice queue. Keeping all cards is a choice skip.
 			if d.GorgeKind == "arrange" {
-				if len(d.PickIdx) == d.Options && !(d.Min == d.Max && d.Max == d.Options) {
-					as = append(as, XAnswer{d.Seat, "choice", "[choice_skip]"})
+				forcedOrder := d.Min == d.Max && d.Max == d.Options
+				if !forcedOrder {
+					if len(d.PickIdx) == d.Options {
+						// Keeping every card means the selection dialog is
+						// dismissed immediately.
+						as = append(as, XAnswer{d.Seat, "choice", "[choice_skip]"})
+					} else {
+						// A proper subset is selected on the choice queue,
+						// then choice_skip terminates that dialog.
+						for _, label := range d.Picks {
+							as = append(as, XAnswer{d.Seat, "choice", label})
+						}
+						as = append(as, XAnswer{d.Seat, "choice", "[choice_skip]"})
+					}
 				}
 				// The subsequent ORDER prompt consumes one choice for each
 				// kept card, in the order gorge selected them.
@@ -576,33 +588,23 @@ func modeNumbers(f *cards.Face) map[string]int {
 	return out
 }
 
-// yesNo recognises a two-way "do it / don't" choice and returns XMage's
-// boolean answer for gorge's pick. The engine's own option kind is the
-// authority -- a boolean ask carries "yes"/"no", and every other two-option
-// pick (a pile, an alternative cost, a card pick) carries something else
-// however its label happens to read. A snapshot written before PickKinds
-// existed (empty PickKinds) falls back to an exact boolean label, never a
-// prefix, so "Yes — discard" is not silently taken for a bare yes.
+// yesNo recognises a bare two-way boolean choice. The engine's option kind
+// and exact label/ref identity must both agree; composed choices such as
+// "Yes — discard" are ordinary makeChoose picks, not boolean answers. Older
+// snapshots without PickKinds use the same exact-label/ref rule.
 func yesNo(d rules.OracleDecision) (string, bool) {
-	if d.Options != 2 || len(d.Picks) != 1 {
+	if d.Options != 2 || len(d.Picks) != 1 || len(d.PickRefs) != 1 || d.Picks[0] != d.PickRefs[0] {
 		return "", false
 	}
-	switch pickKind(d, 0) {
-	case "yes":
-		return "yes", true
-	case "no":
-		return "no", true
-	}
-	if len(d.PickKinds) > 0 {
+	label := strings.ToLower(strings.TrimSpace(d.Picks[0]))
+	if label != "yes" && label != "no" {
 		return "", false
 	}
-	switch strings.ToLower(strings.TrimSpace(d.Picks[0])) {
-	case "yes":
-		return "yes", true
-	case "no":
-		return "no", true
+	kind := pickKind(d, 0)
+	if kind != "" && kind != label {
+		return "", false
 	}
-	return "", false
+	return label, true
 }
 
 // hasTargetPick reports whether any picked option reaches XMage's target
@@ -648,6 +650,8 @@ func xmQueue(kind, label string) string {
 		return "skip"
 	case "permanent", "player":
 		return "target"
+	case "opponent_choice":
+		return "choice"
 	}
 	return "choice"
 }

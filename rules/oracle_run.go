@@ -472,6 +472,17 @@ func pickPass(d *decision.Decision) int {
 	return -1
 }
 
+// oraclePickKind preserves the distinction between a player target and the
+// controller-facing ChoicePlayer selection in the TargetingPlayer$ Opponent
+// flow. Both decisions use the engine option kind "player"; only the latter
+// has ResumeKind "opp_pick" and reaches XMage's choice queue.
+func oraclePickKind(resumeKind, optionKind string) string {
+	if resumeKind == "opp_pick" && optionKind == "player" {
+		return "opponent_choice"
+	}
+	return optionKind
+}
+
 func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) error {
 	labels := make([]string, 0, len(choices))
 	for _, c := range choices {
@@ -490,8 +501,9 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 			if c < 0 || c >= len(d.Options) {
 				continue
 			}
-			od.PickKinds = append(od.PickKinds, d.Options[c].Kind)
-			switch o := d.Options[c]; {
+			o := d.Options[c]
+			od.PickKinds = append(od.PickKinds, oraclePickKind(d.ResumeKind, o.Kind))
+			switch {
 			case o.Obj != 0:
 				od.PickRefs = append(od.PickRefs, r.objRef(r.e.G.Obj(o.Obj)))
 			case strings.Contains(o.Kind, "player"):

@@ -30,6 +30,11 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 			want: []XAnswer{{0, "choice", "[choice_skip]"}, {0, "choice", "Forest"}, {0, "choice", "Island"}},
 		},
 		{
+			name: "arrange partial selection: selected, stop, then order",
+			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "order", GorgeKind: "arrange", Options: 3, Min: 0, Max: 2, Picks: []string{"Forest"}, PickIdx: []int{0}, PickKinds: []string{"graveyard"}},
+			want: []XAnswer{{0, "choice", "Forest"}, {0, "choice", "[choice_skip]"}, {0, "choice", "Forest"}},
+		},
+		{
 			// A forced bottom order (Min==Max==Options) never offers a skip.
 			name: "arrange forced order: picks only",
 			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "order", GorgeKind: "arrange", Options: 2, Min: 2, Max: 2, Picks: []string{"Forest", "Island"}, PickIdx: []int{1, 0}, PickKinds: []string{"bottom", "dig_bottom"}},
@@ -72,18 +77,22 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 			want: []XAnswer{{0, "target", "p1"}},
 		},
 		{
+			name: "controller chooses which opponent: choice queue, not target",
+			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 2, Max: 1, Picks: []string{"Player 2"}, PickRefs: []string{"p1"}, PickIdx: []int{0}, PickKinds: []string{"opponent_choice"}},
+			want: []XAnswer{{0, "choice", "Player 2"}},
+		},
+		{
 			// A bare yes/no is an engine option whose kind is "yes".
 			name: "yes/no boolean: choice yes",
 			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 2, Max: 1, Picks: []string{"Yes"}, PickRefs: []string{"Yes"}, PickIdx: []int{0}, PickKinds: []string{"yes"}},
 			want: []XAnswer{{0, "choice", "yes"}},
 		},
 		{
-			// "Yes — discard" is the same boolean ask; the verb rides XMage's
-			// own discard resolution, so the answer is the boolean, not the
-			// composed label.
-			name: "yes/no with verb: collapsed to the boolean",
+			// A yes-like verb option is a real pick, not the bare yes/no
+			// response. Keep its label so XMage can resolve the follow-up.
+			name: "yes with verb: preserve the selected option label",
 			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 2, Max: 1, Picks: []string{"Yes — discard"}, PickRefs: []string{"Yes — discard"}, PickIdx: []int{0}, PickKinds: []string{"yes"}},
-			want: []XAnswer{{0, "choice", "yes"}},
+			want: []XAnswer{{0, "choice", "Yes — discard"}},
 		},
 		{
 			// A pile pick is not a boolean however yes-like "First pile" reads.
@@ -142,20 +151,21 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 	}
 }
 
-// TestYesNoRequiresAnEngineBoolean proves the yes/no test reads the engine's
-// option kind, not the label: every two-option pick whose kind is not "yes" or
-// "no" is rejected however its label reads, and a real boolean is accepted
-// even when its label carries a trailing verb.
+// TestYesNoRequiresAnEngineBoolean proves yesNo accepts only an exact boolean
+// option whose ref is the same exact label. A composed option such as
+// "Yes — discard" is a makeChoose pick, not a bare boolean response.
 func TestYesNoRequiresAnEngineBoolean(t *testing.T) {
-	valid := rules.OracleDecision{Options: 2, Picks: []string{"Yes — discard"}, PickRefs: []string{"Yes — discard"}, PickIdx: []int{0}, PickKinds: []string{"yes"}}
+	valid := rules.OracleDecision{Options: 2, Picks: []string{"Yes"}, PickRefs: []string{"Yes"}, PickIdx: []int{0}, PickKinds: []string{"yes"}}
 	if got, ok := yesNo(valid); !ok || got != "yes" {
-		t.Fatalf("yesNo(yes-kind) = %q, %v; want yes", got, ok)
+		t.Fatalf("yesNo(exact yes) = %q, %v; want yes", got, ok)
 	}
 	for name, d := range map[string]rules.OracleDecision{
 		"card type":     {Options: 2, Picks: []string{"Artifact"}, PickRefs: []string{"Artifact"}, PickIdx: []int{0}, PickKinds: []string{"type"}},
 		"first pile":    {Options: 2, Picks: []string{"First pile"}, PickRefs: []string{"First pile"}, PickIdx: []int{0}, PickKinds: []string{"pile-a"}},
 		"alt cost":      {Options: 2, Picks: []string{"Sacrifice 1 permanent"}, PickRefs: []string{"Sacrifice 1 permanent"}, PickIdx: []int{0}, PickKinds: []string{"altaddcost"}},
 		"empty label":   {Options: 2, Picks: []string{""}, PickRefs: []string{"p0:Wastes#27"}, PickIdx: []int{0}, PickKinds: []string{"card"}},
+		"yes with verb": {Options: 2, Picks: []string{"Yes — discard"}, PickRefs: []string{"Yes — discard"}, PickIdx: []int{0}, PickKinds: []string{"yes"}},
+		"ref differs":   {Options: 2, Picks: []string{"Yes"}, PickRefs: []string{"p0:Yes"}, PickIdx: []int{0}, PickKinds: []string{"yes"}},
 		"three options": {Options: 3, Picks: []string{"Yes"}, PickRefs: []string{"Yes"}, PickIdx: []int{0}, PickKinds: []string{"yes"}},
 		"two picks":     {Options: 2, Picks: []string{"Yes", "No"}, PickRefs: []string{"Yes", "No"}, PickIdx: []int{0, 1}, PickKinds: []string{"yes", "no"}},
 	} {
@@ -171,7 +181,7 @@ func TestYesNoRequiresAnEngineBoolean(t *testing.T) {
 		})
 	}
 
-	// A snapshot written before PickKinds existed carries no kind; its exact
+	// A snapshot written before PickKinds existed carries no kind; an exact
 	// boolean label with ref==label is still a true yes/no.
 	legacy := rules.OracleDecision{Options: 2, Picks: []string{"Yes"}, PickRefs: []string{"Yes"}, PickIdx: []int{0}}
 	if got, ok := yesNo(legacy); !ok || got != "yes" {
@@ -212,6 +222,7 @@ func TestXMQueueCensus(t *testing.T) {
 		{"mana", "Add U", "choice"},
 		{"permanent", "Grizzly Bears (b)", "target"},
 		{"player", "p1", "target"},
+		{"opponent_choice", "Player 2", "choice"},
 		{"type", "Artifact", "choice"},
 		{"color", "White", "choice"},
 		{"yes", "Yes — discard", "choice"},
