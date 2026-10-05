@@ -221,7 +221,7 @@ func unreadKeys(sa *cards.SA, known []string) []string {
 		// not by any particular API. Ignore it only on an activated ability
 		// whose typed activation record actually enables the permission; an
 		// unrelated or malformed use must still be reported as unread.
-		if k == cards.PKTapCreaturesForMana.String() && sa.Kind == "AB" &&
+		if k == cards.PKTapCreaturesForMana.String() &&
 			ActivationOf(sa).Has(ActTapCreaturesForMana) {
 			continue
 		}

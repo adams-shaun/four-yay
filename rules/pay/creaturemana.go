@@ -12,7 +12,7 @@ import (
 // payment commit emits Tap events. Summoning sickness does not bar this tap:
 // the creature is not activating its own {T} ability (CR 302.6).
 func TapCreaturesForMana(sa *cards.SA) bool {
-	if sa == nil || sa.Kind != "AB" {
+	if sa == nil {
 		return false
 	}
 	return effects.ActivationOf(sa).Has(effects.ActTapCreaturesForMana)

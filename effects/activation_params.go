@@ -370,7 +370,7 @@ func compileActivation(sa *cards.SA) *ActivationParams {
 		{isTrue(sa.ParamStr(cards.PKInstantSpeed)), ActInstantSpeed},
 		{isTrue(sa.ParamStr(cards.PKUnlessSwitched)), ActUnlessSwitched},
 		{conditionOtherKey(sa), ActConditionOther},
-		{isTrue(sa.ParamStr(cards.PKTapCreaturesForMana)), ActTapCreaturesForMana},
+		{sa.KindCode() == cards.SAKindActivated && isTrue(sa.ParamStr(cards.PKTapCreaturesForMana)), ActTapCreaturesForMana},
 	} {
 		if f.on {
 			p.Flags |= f.flag
