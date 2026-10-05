@@ -481,7 +481,7 @@ func (e *Engine) applyNonMoveReplacements(ev events.Event, matches []replMatch) 
 			// next modifier applies to the result.
 			continue
 		}
-		if strings.EqualFold(m.repl.ParamStr(cards.PKReplacementResult), "Updated") {
+		if m.repl.ParamStr(cards.PKReplacementResult) == "Updated" {
 			// ReplacementResult$ Updated (CR 616.1: "modifies how an event
 			// occurs") keeps the event even though the body did not rewrite
 			// it. The body's own emissions already happened; the held event

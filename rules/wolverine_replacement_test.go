@@ -48,6 +48,13 @@ func TestWolverineHealsOldDamageKeepsNew(t *testing.T) {
 	e := layerEngine(t)
 	w := onBoardCard(t, e, 0, corpusCard(t, "Wolverine, Fierce Fighter"))
 
+	// Precondition: the replacement's ActiveZones$ Battlefield scope reads a
+	// battlefield permanent; an off-battlefield Wolverine would make the
+	// replacement never fire and the assertion below vacuous.
+	if got := e.G.Obj(w).Zone; got != state.ZBattlefield {
+		t.Fatalf("Wolverine zone = %v, want battlefield", got)
+	}
+
 	// Seed 3 marked damage as setup, then read it back so the test cannot
 	// pass on a seed that did not land.
 	e.G.Obj(w).Damage = 3
