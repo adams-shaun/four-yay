@@ -873,8 +873,8 @@ func (e *Engine) validateBlockers(d *decision.Decision, in decision.Intent) erro
 	for _, o := range chosen {
 		blockCounts[o.Obj]++
 		if blockCounts[o.Obj] > 1 {
-			if !combat.MustBlockAllAttackers(asBoard(e), o.Obj) || !o.BlockMust {
-				return fmt.Errorf("blocker %d declared against more than one attacker without BlockAllDefined permission", o.Obj)
+			if !o.BlockMustAll || !combat.MustBlockPairRequired(asBoard(e), o.Obj, o.Attacker) {
+				return fmt.Errorf("blocker %d declared against more than one attacker without pair-specific BlockAllDefined permission", o.Obj)
 			}
 		}
 		byAttacker[o.Attacker]++

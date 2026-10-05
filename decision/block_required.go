@@ -58,20 +58,25 @@ func (d *Decision) blockRequiredCore() []int {
 	for _, b := range blocks {
 		var ordinary blocker
 		ordinary.id = b.id
+		var allOrdinary []int
 		for _, i := range b.opts {
 			o := d.Options[i]
 			if o.BlockMustAll {
 				candidates = append(candidates, blocker{id: b.id, opts: []int{i}, required: true})
 				continue
 			}
+			allOrdinary = append(allOrdinary, i)
 			if o.BlockMust || o.Required {
 				ordinary.required = true
-				ordinary.opts = append(ordinary.opts, i)
-			} else if minAttackers[o.Attacker] || atkReq[o.Attacker] {
+			}
+			if minAttackers[o.Attacker] || atkReq[o.Attacker] {
 				ordinary.opts = append(ordinary.opts, i)
 			}
 		}
 		if ordinary.required {
+			// A required blocker may legally choose any offered attacker, not
+			// only the pair that carries the requirement (CR 509.1c).
+			ordinary.opts = allOrdinary
 			candidates = append(candidates, ordinary)
 		} else if len(ordinary.opts) != 0 {
 			helpers = append(helpers, ordinary)
@@ -121,6 +126,25 @@ func (d *Decision) blockRequiredCore() []int {
 		try := func(ci int) {
 			o := d.Options[ci]
 			if len(chosen) >= d.maxChoices() || (d.HasBudget() && spent+o.Value > d.MaxSum) {
+				return
+			}
+			// The search must publish a declaration accepted by Validate:
+			// ordinary pairs are exclusive per blocker, while BlockAllDefined
+			// permits multiple pairs only up to the explicit group cap.
+			groupN := 0
+			for _, old := range chosen {
+				q := d.Options[old]
+				if q.Obj == o.Obj && (!o.BlockMustAll || !q.BlockMustAll) {
+					return
+				}
+				if o.Group != "" && q.Group == o.Group && (o.BlockMustAll || q.BlockMustAll) {
+					groupN++
+					if !o.BlockMustAll || !q.BlockMustAll {
+						return
+					}
+				}
+			}
+			if o.BlockMustAll && o.Group != "" && groupN >= d.GroupCapFor(o.Group) {
 				return
 			}
 			// The combined non-mana LIFE charge bound is enforced INSIDE the
