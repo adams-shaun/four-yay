@@ -54,6 +54,12 @@ type oracleScenario struct {
 	SetupAnswers []oracleAnswer `json:"setup_answers,omitempty"`
 	Steps        []oracleStep   `json:"steps"`
 	Expect       []oracleExpect `json:"expect"`
+	// xmageFixture marks a generated compliance scenario
+	// (RunOracleScenarioJSON): XMage's fixture puts the setup battlefield
+	// into play during turn 1, so those cards count as having entered this
+	// turn. A hand-authored Oracle scenario keeps them present from before
+	// the turn (rules/testdata/oracle). Never decoded from JSON.
+	xmageFixture bool
 }
 
 type oracleSeat struct {
@@ -450,8 +456,10 @@ func (r *oracleRun) build(sc oracleScenario) error {
 	// TurnChange cleared the pre-turn placement history. XMage's seeded
 	// battlefield counts as entered on turn 1; log that provenance explicitly
 	// without a second zone move or an artificial enter-the-battlefield trigger.
-	for _, id := range setupBattlefield {
-		e.emit(events.Event{Kind: events.SetupEntered, Obj: id})
+	if sc.xmageFixture {
+		for _, id := range setupBattlefield {
+			e.emit(events.Event{Kind: events.SetupEntered, Obj: id})
+		}
 	}
 	r.answers = append([]oracleAnswer(nil), sc.SetupAnswers...)
 	// Drive to seat 0's first main phase. Triggers that setup placements

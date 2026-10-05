@@ -38,6 +38,7 @@ func RunOracleScenarioJSON(reg *cards.Registry, raw []byte) (OracleResult, error
 	if err != nil {
 		return OracleResult{}, err
 	}
+	sc.xmageFixture = true
 	fails, transcript, run := runOracleScenario(reg, sc)
 	return OracleResult{
 		Fails: fails, Transcript: transcript,
