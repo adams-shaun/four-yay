@@ -205,9 +205,6 @@ func TestTeamworkTargetAnnouncementEligibilityIntentOnlyOption(t *testing.T) {
 	if root == nil || e.castTargetsAvailable(0, spell, root) {
 		t.Fatal("precondition: ordinary cast must be infeasible with only a mana-value-4 root candidate")
 	}
-	if !teamworkTargetsAvailable(e, 0, spell, root) {
-		t.Fatal("precondition: Teamwork-intent declaration must be feasible via its broader linked target")
-	}
 	addMana(t, e, 0, "BBB")
 	opt := castOptMode(t, e.Pending().Options, spell, "teamworked")
 	if opt.Mode != "teamworked" {

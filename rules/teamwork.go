@@ -14,21 +14,19 @@ import (
 
 func init() { effects.RegisterNonAPI("kw:Teamwork", "count:Teamwork") }
 
-func teamworkTargetsAvailable(e *Engine, p state.PlayerID, id state.ObjID, sa *cards.SA) bool {
-	// The cast option declares the Teamwork branch before target announcement
-	// (CR 601.2b-c). Its target census must therefore resolve Count$Teamwork
-	// as intent-paid, even though the player may still decline at the later
-	// optional-cost ask. Reuse the normal target census and its target-bound
-	// context rather than maintaining a second Teamwork-specific evaluator.
-	previous := e.cast
-	e.cast = &pendingCast{player: p, card: id, mode: "teamworked"}
-	defer func() { e.cast = previous }()
-	return e.castTargetsAvailable(p, id, sa)
-}
-
-func teamworkOffer(w *legalWalk, id state.ObjID, face *cards.Face, base Cost, targets bool) {
+func teamworkOffer(w *legalWalk, id state.ObjID, face *cards.Face, base Cost) {
 	e := w.e
-	if !e.stackKeywordPossibleH(id, kwhTeamwork) || !targets {
+	if !e.stackKeywordPossibleH(id, kwhTeamwork) {
+		return
+	}
+	// The cast option declares the Teamwork branch before target announcement
+	// (CR 601.2b-c). Resolve target feasibility with that intent even though
+	// the player may still decline at the later optional-cost ask.
+	previous := e.cast
+	e.cast = &pendingCast{player: w.p, card: id, mode: "teamworked"}
+	available := e.castTargetsAvailable(w.p, id, face.SpellAbility())
+	e.cast = previous
+	if !available {
 		return
 	}
 	var threshold int32
