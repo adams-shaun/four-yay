@@ -18,7 +18,6 @@ package rules
 import (
 	"testing"
 
-	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
@@ -102,9 +101,7 @@ func TestYouDescendedThisTurnHeadFoldsTheLedger(t *testing.T) {
 		t.Fatal("test precondition: corpus token b_1_1_fungus_noblock missing")
 	}
 	const tokKey = "fixture:descend_token"
-	if e.G.Tokens == nil {
-		e.G.Tokens = map[string]*cards.Card{}
-	}
+	e.G.Tokens = fixtureTokenMap(e.G.Tokens)
 	e.G.Tokens[tokKey] = tokDef
 	e.emit(events.Event{Kind: events.TokenCreate, Player: 0, Text: tokKey})
 	var tokID state.ObjID
