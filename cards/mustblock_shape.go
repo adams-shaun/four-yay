@@ -45,10 +45,14 @@ func MustBlockNamedTargetShape(sa *SA) bool {
 	default:
 		return false
 	}
+	blockAll := strings.TrimSpace(sa.Params["BlockAllDefined"])
+	if blockAll != "" && blockAll != "True" {
+		return false
+	}
 	for k := range sa.Params {
 		switch k {
 		case "Defined", "DefinedAttacker", "ValidTgts", "Duration", "TgtPrompt", "Cost",
-			"TargetMin", "TargetMax", "TargetUnique", "SpellDescription", "StackDescription",
+			"BlockAllDefined", "TargetMin", "TargetMax", "TargetUnique", "SpellDescription", "StackDescription",
 			"PrecostDesc", "AILogic", "CheckSVar", "SVarCompare":
 		default:
 			return false
