@@ -359,6 +359,21 @@ func foldGrantTriggerPush(g *state.Game, e *Event) {
 		}
 	}
 	sa := ResolveSVarAcrossFaces(resolver, e.Counter)
+	if sa == nil && e.Counter == "__kwProwessGranted" {
+		// A granted prowess keyword (a layer-6 AddKeyword$ Prowess, e.g.
+		// Wizard's Staff's "Equipped creature has prowess") has no printed
+		// SVar -- the keyword lives only in the layer system -- so its body
+		// is rebuilt structurally into the same DB$ Pump | Defined$ Self |
+		// NumAtt$ +1 | NumDef$ +1 body the printed K:Prowess expansion
+		// carries (cards/kw_prowess.go). Source is the granted creature, so
+		// Defined$ Self pumps it. The Granted/GrantTriggerPush path is
+		// reused unchanged: rules' granted-keyword walk queues the same
+		// pendingTrigger shape an AddTrigger$ grant does, with the body name
+		// in Counter, and this arm is what makes live and replay mint the
+		// identical ability.
+		sa = &cards.SA{Kind: "DB", API: "Pump", Params: map[string]string{
+			"Defined": "Self", "NumAtt": "+1", "NumDef": "+1"}}
+	}
 	if sa == nil {
 		return
 	}
