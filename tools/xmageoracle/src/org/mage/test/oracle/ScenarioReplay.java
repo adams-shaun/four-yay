@@ -224,6 +224,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
         for (int i = 0; i < 2; i++) {
             TestPlayer pl = seat(i);
             Map<String, Integer> counts = new HashMap<>();
+            Map<String, Integer> scenarioCounts = new HashMap<>();
             List<mage.MageObject> objs = new ArrayList<>();
             for (Permanent perm : g.getBattlefield().getAllPermanents()) {
                 if (pl.getId().equals(perm.getControllerId())) {
@@ -237,16 +238,30 @@ public class ScenarioReplay extends CardTestPlayerBase {
             }
             for (Card c : pl.getLibrary().getCards(g)) objs.add(c);
             for (mage.MageObject o : objs) {
-                int k = counts.merge(o.getName(), 1, Integer::sum);
-                String ref = "p" + i + ":" + o.getName() + (k > 1 ? "#" + k : "");
-                refAlias.putIfAbsent(ref, "@" + ref);
+                String xmageCardName = o.getName();
+                int k = counts.merge(xmageCardName, 1, Integer::sum);
+                String xmageRef = "p" + i + ":" + xmageCardName + (k > 1 ? "#" + k : "");
+                String scenarioCardName = !xmageName.isEmpty() && xmageCardName.equals(xmageName)
+                        ? gorgeName : xmageCardName;
+                int scenarioOccurrence = scenarioCounts.merge(scenarioCardName, 1, Integer::sum);
+                String scenarioRef = "p" + i + ":" + scenarioCardName
+                        + (scenarioOccurrence > 1 ? "#" + scenarioOccurrence : "");
+                refAlias.put(scenarioRef, "@" + scenarioRef);
+                refAlias.putIfAbsent(xmageRef, "@" + scenarioRef);
                 // Both players must know every alias: the choosing player
                 // resolves the target string, and it may be either seat.
                 for (int j = 0; j < 2; j++) {
                     try {
-                        seat(j).addAlias(ref, o.getId());
+                        seat(j).addAlias(scenarioRef, o.getId());
                     } catch (IllegalArgumentException ignored) {
                         // already bound on this player
+                    }
+                    if (!xmageRef.equals(scenarioRef)) {
+                        try {
+                            seat(j).addAlias(xmageRef, o.getId());
+                        } catch (IllegalArgumentException ignored) {
+                            // already bound on this player
+                        }
                     }
                 }
             }
@@ -356,7 +371,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // A single target goes through XMage's own string form, so
                     // a divided-damage target (TargetAmount) still lets XMage
                     // pick the split as it always did.
-                    castSpell(TURN, MAIN, p, card, xmageSpelling(refName(tg.get(0))));
+                    castSpell(TURN, MAIN, p, card, targetName(tg.get(0)));
                 } else {
                     // Two or more targets: queue each through addTarget and
                     // cast with no $target, so an "up to N" slot stays open
@@ -444,7 +459,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                         if (isSeatRef(t)) {
                             addTarget(p, seat(seatOf(t)));
                         } else {
-                            addTarget(p, xmageSpelling(refName(t)));
+                            addTarget(p, targetName(t));
                         }
                     }
                     break;
