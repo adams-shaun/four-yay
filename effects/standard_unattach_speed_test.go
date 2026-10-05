@@ -38,6 +38,42 @@ func TestStandardChangeSpeedStartsEnginesAndKeepsMinimum(t *testing.T) {
 	}
 }
 
+func TestStandardChangeSpeedGrandPrixStartsOnlyAtZero(t *testing.T) {
+	h, c, _ := attachBoard(t)
+	c.Remembered = []state.Target{{Player: 1, IsPlayer: true}}
+	body := sa(t, "DB$ ChangeSpeed | Mode$ Increase | Defined$ Remembered | ConditionCheckSVar$ PlayerCountDefinedRemembered$Speed | ConditionSVarCompare$ EQ0")
+	Resolve(h, c, body)
+	if h.g.Players[1].Speed != 1 {
+		t.Fatalf("did not start engines: %d", h.g.Players[1].Speed)
+	}
+	before := len(h.log)
+	Resolve(h, c, body)
+	if h.g.Players[1].Speed != 1 || len(h.log) != before {
+		t.Fatalf("restarted engines: %d, events %+v", h.g.Players[1].Speed, h.log[before:])
+	}
+}
+
+func TestStandardChangeSpeedHarrierHighestOnly(t *testing.T) {
+	h, c, _ := attachBoard(t)
+	h.Emit(events.Event{Kind: events.SpeedChange, Player: 0, Amount: 2})
+	h.Emit(events.Event{Kind: events.SpeedChange, Player: 1, Amount: 2})
+	if h.g.Players[0].Speed != 2 || h.g.Players[1].Speed != 2 {
+		t.Fatal("precondition: speeds not tied at two")
+	}
+	c.Targets = []state.Target{{Player: 1, IsPlayer: true}}
+	body := sa(t, "DB$ ChangeSpeed | Mode$ Decrease | Defined$ TargetedController | ConditionCheckSVar$ TargetedController$Speed | ConditionSVarCompare$ GTPlayerCountDefinedNonTargetedController$HighestSpeed")
+	before := len(h.log)
+	Resolve(h, c, body)
+	if h.g.Players[1].Speed != 2 || len(h.log) != before {
+		t.Fatalf("tie decreased speed: %d, events %+v", h.g.Players[1].Speed, h.log[before:])
+	}
+	h.Emit(events.Event{Kind: events.SpeedChange, Player: 1, Amount: 1})
+	Resolve(h, c, body)
+	if h.g.Players[1].Speed != 2 {
+		t.Fatalf("highest speed not decreased: %d", h.g.Players[1].Speed)
+	}
+}
+
 func TestStandardChangeSpeedDecrease(t *testing.T) {
 	h, c, _ := attachBoard(t)
 	h.Emit(events.Event{Kind: events.SpeedChange, Player: 1, Amount: 3})
