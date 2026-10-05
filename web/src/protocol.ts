@@ -1324,6 +1324,12 @@ export interface Decision {
    */
   repeatable?: boolean;
   /**
+   * DistinctTypePicks requires each picked card to be assigned a different
+   * matching ChangeValid alternative (DigMultiple). SetProps lists the
+   * alternatives each option satisfies, including overlapping types.
+   */
+  distinctTypePicks?: boolean;
+  /**
    * AllowNone makes the EMPTY answer legal beside the Min..Max range: the
    * legal answer sizes are {0} and Min..Max. It is the "you may ... exactly
    * N" shape -- Forge's Exactly$ True search ("You may reveal exactly two
