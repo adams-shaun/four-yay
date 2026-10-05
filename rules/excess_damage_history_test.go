@@ -58,6 +58,20 @@ func TestExcessDamageHistory(t *testing.T) {
 	if belowObj.WasDealtExcessDamageThisTurn {
 		t.Fatal("damage equal to planeswalker loyalty recorded as excess")
 	}
+	killer := excessTestPermanent(t, e, "Name:Touch of Death\nTypes:Creature Assassin\nPT:1/1\nK:Deathtouch\nOracle:x\n", 1)
+	if !e.HasKeyword(killer, "Deathtouch") {
+		t.Fatal("precondition: damage source lacks deathtouch")
+	}
+	lethalTouch := excessTestPermanent(t, e, "Name:Untouched Four\nTypes:Creature Beast\nPT:4/4\nOracle:x\n", 1)
+	if e.Toughness(lethalTouch) != 4 || e.G.Obj(lethalTouch).Damage != 0 {
+		t.Fatal("precondition: deathtouch recipient is not an undamaged 4/4")
+	}
+	e.damaging = killer
+	e.emit(events.Event{Kind: events.Damage, Obj: lethalTouch, Amount: 2})
+	e.damaging = 0
+	if !e.G.Obj(lethalTouch).WasDealtExcessDamageThisTurn {
+		t.Fatal("one deathtouch damage was not classified as excess over lethal damage")
+	}
 	e.emit(events.Event{Kind: events.TurnChange, Player: 0})
 	if priorObj.WasDealtExcessDamageThisTurn || two.WasDealtExcessDamageThisTurn {
 		t.Fatal("excess-damage history survived TurnChange")
@@ -86,15 +100,16 @@ func TestRithExcessDamageToken(t *testing.T) {
 	if !e.phaseGate(rith.Faces[0].Triggers[0]) {
 		t.Fatal("fixture did not reach Rith's end step")
 	}
-	// Queue the real parsed corpus trigger after proving the damage predicate
-	// on its opponent-controlled battlefield recipient. This isolates the
-	// trigger body/DragonCheck path from phase queue timing in this fixture.
-	e.pushTrigger(pendingTrigger{Source: rithID, Controller: 0, Idx: 0})
-	e.putTriggersOnStack()
-	if len(e.G.Stack) == 0 {
-		t.Fatal("Rith's parsed trigger body was not put on the stack")
+	// Enter the end step through the ordinary StepChange trigger scan; no
+	// synthetic pendingTrigger is injected. Clear setup-time pending triggers
+	// before the event whose normal trigger match is under test.
+	e.pending = nil
+	e.emit(events.Event{Kind: events.StepChange, Step: state.StepEnd})
+	e.priorityRound()
+	if n := crTriggerStackCount(e, rithID); n != 1 {
+		t.Fatalf("Rith's real end-step trigger queued %d stack objects, want 1", n)
 	}
-	e.resolveTop()
+	passUntilStackEmpty(t, e, 20)
 	if n := countTokensNamedOnSeat(t, e, 0, "Dragon Token"); n != 1 {
 		t.Fatalf("Rith created %d Dragon tokens, want 1", n)
 	}

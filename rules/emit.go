@@ -321,7 +321,22 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			wasTapped = o.Tapped
 		}
 	}
-	stored := foldEventAndTrackExcess(e, ev, wasTapped)
+	var lethal int32
+	hasLethal := false
+	if ev.Kind == events.Damage && ev.Amount > 0 && ev.Obj != 0 {
+		if o := e.G.Obj(ev.Obj); o != nil && o.Zone == state.ZBattlefield {
+			src := e.inFlightDamageSource()
+			if src == 0 {
+				src = e.damaging
+			}
+			lethal, hasLethal = excessDamageLethal(o, e.IsCreature(ev.Obj), e.Toughness(ev.Obj), src != 0 && e.hasKeywordH(src, kwhDeathtouch))
+		}
+	}
+	stored, _ := e.foldEntryMove(ev)
+	if stored.Kind == events.Damage && hasLethal && stored.Amount > lethal {
+		e.emit(events.Event{Kind: events.ExcessDamage, Obj: stored.Obj})
+	}
+	e.expireClonesOnEvent(stored, wasTapped)
 	// CR 303.4f: a non-cast Aura enters attached to its chosen bearer.
 	if stored.Kind == events.MoveZone {
 		settleAuraEntry(e, &stored)
@@ -799,31 +814,14 @@ func bookkeepingKind(k events.Kind) bool {
 // It works in place: on return *ev is the stored event (Seq assigned, IDs and
 // Pairs detached), with no by-value copy of the 120-byte event on the way.
 // ev must point at the caller's own event, never into the log.
-func foldEventAndTrackExcess(e *Engine, ev events.Event, wasTapped bool) events.Event {
-	lethal, hasLethal := excessDamageThreshold(e, ev)
-	stored, _ := e.foldEntryMove(ev)
-	if stored.Kind == events.Damage && hasLethal && stored.Amount > lethal {
-		e.emit(events.Event{Kind: events.ExcessDamage, Obj: stored.Obj})
-	}
-	e.expireClonesOnEvent(stored, wasTapped)
-	return stored
-}
-
-// excessDamageThreshold reads the final recipient's lethal threshold after
-// replacement effects but before the Damage fold changes marked damage or
-// loyalty, including redirected damage.
-func excessDamageThreshold(e *Engine, ev events.Event) (int32, bool) {
-	if ev.Kind != events.Damage || ev.Amount <= 0 || ev.Obj == 0 {
-		return 0, false
-	}
-	o := e.G.Obj(ev.Obj)
-	if o == nil || o.Zone != state.ZBattlefield {
-		return 0, false
-	}
+func excessDamageLethal(o *state.Object, creature bool, toughness int32, deathtouch bool) (int32, bool) {
 	var lethal int32
 	switch {
-	case e.IsCreature(ev.Obj):
-		lethal = e.Toughness(ev.Obj) - o.Damage
+	case creature:
+		lethal = toughness - o.Damage
+		if deathtouch {
+			lethal = 1
+		}
 	case o.Face() != nil && o.Face().IsPlaneswalker():
 		lethal = o.Counter("LOYALTY")
 	default:
