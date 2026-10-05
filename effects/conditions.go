@@ -417,8 +417,8 @@ func conditionMetCore(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		// group is a real conjunction (Coiling Rebirth's
 		// `ConditionCheckSVar$ X | ConditionDefined$ Remembered |
 		// ConditionPresent$ Card.nonLegendary`): the group gate still runs
-		// below if the SVar holds. A denying SVar short-circuits here;
-		// a passing SVar is the identity for the remaining conjunction.
+		// below and combine() AND-s the SVar answer via extraMet. A gate the
+		// SVar denies short-circuits here.
 		if !holds {
 			return false, true
 		}

@@ -151,16 +151,6 @@ func ApplyPtr(g *state.Game, e *Event) {
 		// Apply writes nothing; the log lets replay re-derive the same branch.
 		// ManaActivate is the ActivationLimit$ scan marker (see the Kind's own
 		// comment): the mana itself lands through the nearby ManaAdd events.
-	case SetupEntered:
-		// The oracle harness stages battlefield cards before the initial
-		// TurnChange. Restore their first-turn entry history after that reset
-		// without moving them (which would fire an artificial ETB trigger).
-		if o := g.Obj(e.Obj); o != nil && o.Zone == state.ZBattlefield && g.Turn == 1 {
-			o.EnteredThisTurn = true
-			o.EnteredFrom = state.ZLibrary
-			g.Entered = append(g.Entered, state.ZoneEntry{Obj: o.ID, To: state.ZBattlefield,
-				From: state.ZLibrary, Owner: o.Owner, PermanentCard: !o.IsToken && !o.IsCopy && o.Card != nil})
-		}
 	case EndTurn:
 		foldEndTurn(g, e)
 	case Resolve:
