@@ -2016,6 +2016,10 @@ func (e *Engine) settleTriggeredMandatory(tc *triggeredEffectCost) {
 	// sacrifices use), so a Cost$-bearing triggered body that reads
 	// Sacrificed$CardPower/CardToughness/CardManaCost prices what THIS
 	// window just sacrificed instead of an empty list (Rhovanion Rampager).
+	// Blight is paid on a creature while it is still on the battlefield.
+	// A cost can select the same creature for Blight and a zone-changing
+	// component, so place its counters before settling sacrifices/exiles.
+	pay.EmitBlightCounters(asPayer(e), tc.blights, &tc.amount, tc.xPaid)
 	var sacrificedLKI []state.SacrificedInfo
 	for _, id := range tc.sacs {
 		if o := e.G.Obj(id); o != nil && o.Zone == state.ZBattlefield {
@@ -2053,7 +2057,6 @@ func (e *Engine) settleTriggeredMandatory(tc *triggeredEffectCost) {
 		}
 	}
 	pay.PayDiscardCost(asPayer(e), tc.discards, "")
-	pay.EmitBlightCounters(asPayer(e), tc.blights, &tc.amount, tc.xPaid)
 	// The cost's own Draw components (the pay arm's draw half -- Ambergris'
 	// "discard your hand. If you do, draw two cards"). The pay gate resolved
 	// every count before offering "pay", so the belt-and-braces re-resolution
