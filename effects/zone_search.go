@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"maps"
 	"strconv"
 	"strings"
 
@@ -534,13 +535,11 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 	}
 	g := h.Game()
 	targets, known := knownDefinedTargets(h, c, cz.Defined)
-	// ChangeZone's explicit Imprinted fetch is a continuation over the
-	// source's recorded pile (Green Sun's Twilight imprints revealed cards
-	// that remain in the library). The ordinary Defined$ Imprinted reader
-	// applies CR 607.2a's exile gate, which would discard this already-selected
-	// fetch list here. Keep that exception local to this mover.
-	if cz.Defined == "Imprinted" {
-		targets = rawImprintTargets(h.Game(), c)
+	// Only Green Sun's paired return reads its deferred, still-in-library
+	// imprint pile. Other Defined$ Imprinted fetches retain CR 607.2a's
+	// ordinary exile gate, even when their objects happen to be in the library.
+	if deferredDigImprintReturn(g, c, sa, cz) {
+		targets = rawImprintTargets(g, c)
 		known = true
 	}
 	if !known {
@@ -665,6 +664,25 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 	}
 	scheduleAtEOT(h, c, sa, ateotMoved)
 	return true
+}
+
+// deferredDigImprintReturn is the return leg of the same named deferred
+// DigMultiple pair. Requiring both the named fetch and the current ability to
+// match the named return prevents an unrelated Imprinted library fetch from
+// bypassing the ordinary exile gate just because it shares a source or shape.
+func deferredDigImprintReturn(g *state.Game, c *Ctx, sa *cards.SA, cz *ChangeZoneParams) bool {
+	if c == nil || cz.Defined != "Imprinted" || !cz.OriginExactly(state.ZLibrary) ||
+		!cz.DestinationIs(state.ZLibrary) || cz.LibraryPosition.Text != "-1" ||
+		!cz.RandomOrder || !cz.NoShuffle || cz.ShuffleTrue {
+		return false
+	}
+	fetch := cards.ResolveSVar(c.SVars, "DBChangeZone")
+	if fetch == nil || !deferredDigLibraryFetch(g, c, ChangeZoneOf(fetch)) {
+		return false
+	}
+	returnAbility := cards.ResolveSVar(c.SVars, ChangeZoneOf(fetch).SubAbility)
+	return returnAbility != nil && returnAbility.API == "ChangeZone" &&
+		maps.Equal(returnAbility.Params, sa.Params)
 }
 
 // deferredDigLibraryFetch recognizes Green Sun's paired deferred move: the
