@@ -321,7 +321,7 @@ func (e *Engine) chainTargetsAvailable(p state.PlayerID, id, excludeSelf state.O
 	var svars map[string]string
 	svarsRead := false
 	var uniq []*cards.SA
-	for _, sub := range e.collectSubTargetPreAsks(sa) {
+	for _, sub := range e.collectSubTargetPreAsks(sa, id) {
 		if cond := strings.TrimSpace(sub.ParamStr(cards.PKCondition)); strings.EqualFold(cond, "Kicked") ||
 			strings.EqualFold(cond, "OptionalCost") {
 			continue

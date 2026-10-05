@@ -594,8 +594,8 @@ func (pc *pendingCast) allTargets() []state.Target {
 // a ChangeZone link whose target zone this census cannot resolve
 // (castSubChangeZoneAnnounceable -- effChangeZone's own mid-resolution ask,
 // changeZoneChosenTargets, still owns those shapes -- a later stage). The
-// graveyard-origin ChangeZone link is announced, not excluded: its public
-// graveyard is the one non-battlefield zone the cast census establishes.
+// graveyard-origin ChangeZone link and the Teamwork-conditional battlefield
+// link are announced when their target zones are established.
 //
 // A link's Defined$ does not excuse it. `Defined$ You | ValidTgts$ Player`
 // (Biomantic Mastery's "another target player", Humble Defector's "target
@@ -611,20 +611,26 @@ func (pc *pendingCast) allTargets() []state.Target {
 // castModeAsk/AskCopyTargets own their targeting -- and trigger bodies (this
 // walks the cast flow only; a trigger's chain is CR 603.3d's, announced when
 // the trigger is put on the stack, a later stage).
-func (e *Engine) collectSubTargetPreAsks(root *cards.SA) []*cards.SA {
+func (e *Engine) collectSubTargetPreAsks(root *cards.SA, card ...state.ObjID) []*cards.SA {
 	if root == nil || root.Sub == nil || root.API == "Charm" || root.API == "CopySpellAbility" {
 		return nil
+	}
+	var face *cards.Face
+	if len(card) != 0 && e.G != nil {
+		if o := e.G.Obj(card[0]); o != nil {
+			face = o.Face()
+		}
 	}
 	var out []*cards.SA
 	for sa := root.Sub; sa != nil; sa = sa.Sub {
 		if !effects.TargetsOf(sa).Targeted() {
 			continue
 		}
-		// CR 601.2c: a targeted ChangeZone link announces on cast only when
-		// the cast census can resolve its target zone (see
-		// castSubChangeZoneAnnounceable); the unjudgeable ChangeZone shapes
-		// keep their mid-resolution ask (changeZoneChosenTargets).
-		if !castSubChangeZoneAnnounceable(sa) {
+		// Offer census and cast ask use this same walk. The Teamwork-only
+		// battlefield branch has a definite zone even though the general
+		// ChangeZone sub-link census leaves other battlefield shapes unjudged.
+		if !castSubChangeZoneAnnounceable(sa) &&
+			!teamworkBattlefieldSub(face, root, sa) {
 			continue
 		}
 		out = append(out, sa)
@@ -864,6 +870,25 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 	return false
 }
 
+// teamworkBattlefieldSub admits only the mutually exclusive target branch of
+// a Teamwork spell: X names the ordinary target and Y the Teamwork-only one.
+// Its explicit single battlefield Origin$ agrees with targetZones' default.
+// The spell's SVar table, rather than a card-name list or a broad change to
+// ChangeZone target inference, identifies this announcement shape.
+func teamworkBattlefieldSub(f *cards.Face, root, sub *cards.SA) bool {
+	if f == nil || root == nil || sub == nil || sub.API != "ChangeZone" || !f.HasKeyword("Teamwork") {
+		return false
+	}
+	r := effects.TargetsOf(root)
+	s := effects.TargetsOf(sub)
+	if r.Min.Text == "" || r.Min.Text != r.Max.Text || s.Min.Text == "" || s.Min.Text != s.Max.Text ||
+		f.SVars[r.Min.Text] != "Count$Teamwork.0.1" || f.SVars[s.Min.Text] != "Count$Teamwork.1.0" ||
+		s.ZoneText != "" || s.Has(effects.TgtTypeStack) || s.Has(effects.TgtValidPlayers) {
+		return false
+	}
+	return effects.ChangeZoneOf(sub).OriginExactly(state.ZBattlefield)
+}
+
 // castSubChangeZoneAnnounceable reports whether the cast flow can announce a
 // targeted ChangeZone chain link's targets while the spell is being cast
 // (CR 601.2c). It returns true for every non-ChangeZone link -- those are
@@ -873,14 +898,12 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 // originImpliedTargetZone or declared by TgtZone$ Graveyard. Both routes feed
 // targetZones for the offer census, cast ask and CR 608.2b recheck. Other
 // origins without a usable explicit zone fall back to the battlefield; other
-// explicitly zoned origins remain outside this ticket's graveyard scope.
-// Those links keep their mid-resolution ask (changeZoneChosenTargets).
-// Cathartic Parting's graveyard link is exactly the admitted shape: its four
-// "target cards from your graveyard" are announced with the spell instead of
-// asked at resolution. Battlefield-origin object links (a bounce spell's
-// second "target creature") are the same announcement class but are NOT
-// admitted here: that is a wider change than this ticket scopes, and the
-// castCensusChangeZoneCarriers ratchet pins them.
+// explicitly zoned origins remain outside this gate. Those links keep their
+// mid-resolution ask (changeZoneChosenTargets). Cathartic Parting's graveyard
+// link is admitted here. Battlefield-origin links remain excluded by this
+// general gate and pinned by castCensusChangeZoneCarriers; the mutually
+// exclusive Teamwork target branch is admitted by teamworkBattlefieldSub
+// instead, at both the offer census and the cast ask.
 func castSubChangeZoneAnnounceable(sa *cards.SA) bool {
 	if sa.API != "ChangeZone" && sa.CompiledAPI() != cards.APIChangeZone {
 		return true

@@ -148,6 +148,17 @@ func TestTeamworkTargetAnnouncementEligibility(t *testing.T) {
 				} else {
 					submitChoices(t, e)
 				}
+				if tc.card == "Cruel Alliance" {
+					ask := e.Pending()
+					if ask == nil || ask.Kind != decision.KTarget || ask.ResumeKind != "cast_sub" || ask.Min != 1 || ask.Max != 1 ||
+						!decisionHasObj(ask, low) || !decisionHasObj(ask, high) {
+						t.Fatalf("Teamwork linked battlefield target announcement (payment accepted=%v) = %+v; want both candidates %d/%d", paid, ask, low, high)
+					}
+					submitChoices(t, e, decisionObjIndex(t, ask, high))
+					if o := e.G.Obj(spell); o == nil || len(o.SubTargets) == 0 || o.SubTargets[0].Obj != high {
+						t.Fatalf("linked target declaration not recorded on spell: %+v", o)
+					}
+				}
 				if tc.card == "Heroic Teamwork" || tc.card == "Too Evil to Stay Dead" {
 					ask := e.Pending()
 					wantMax := 1
@@ -334,10 +345,29 @@ func TestTeamworkTargetAnnouncementEligibilityIntentOnlyOption(t *testing.T) {
 		t.Fatalf("precondition: expected later optional Teamwork ask for the qualifying creature, got %+v", d)
 	}
 	submitChoices(t, e) // CR 702.194c's later payment ask may still be declined.
+	ask := e.Pending()
+	if ask == nil || ask.Kind != decision.KTarget || ask.ResumeKind != "cast_sub" || ask.Min != 1 || ask.Max != 1 || !decisionHasObj(ask, high) {
+		t.Fatalf("intent-only linked target ask = %+v, want high-value battlefield creature %d", ask, high)
+	}
+	submitChoices(t, e, decisionObjIndex(t, ask, high))
+	if o := e.G.Obj(spell); o == nil || len(o.SubTargets) != 1 || o.SubTargets[0].Obj != high {
+		t.Fatalf("intent-only target not declared on stack spell: %+v", o)
+	}
 	finishTeamworkAnnouncement(t, e)
 	if o := e.G.Obj(spell); o == nil || o.Zone != state.ZStack || o.TeamworkPaid {
 		t.Fatalf("declined intent cast outcome=%+v, want stack spell without paid provenance", o)
 	}
+}
+
+func decisionObjIndex(t *testing.T, d *decision.Decision, id state.ObjID) int {
+	t.Helper()
+	for _, opt := range d.Options {
+		if opt.Obj == id {
+			return opt.Index
+		}
+	}
+	t.Fatalf("target %d absent from %+v", id, d)
+	return -1
 }
 
 func decisionHasObj(d *decision.Decision, id state.ObjID) bool {
