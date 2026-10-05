@@ -62,9 +62,8 @@ type PumpParams struct {
 	PumpZones   []state.Zone
 	PumpZoneAll bool
 	PumpZoneOK  bool
-	// RememberTargets$ True and RememberPumped$ True.
-	RememberTargets bool
-	RememberPumped  bool
+	// RememberPumped$ True.
+	RememberPumped bool
 	// NumAtt$ / NumDef$ (numForObjectText: "Double" reads the object's own
 	// power/toughness).
 	NumAtt ParamText
@@ -127,7 +126,6 @@ func compilePump(sa *cards.SA, dp *DefinedParams) *PumpParams {
 	if p.PumpZone != "" {
 		p.PumpZones, p.PumpZoneAll, p.PumpZoneOK = ParseZones(p.PumpZone)
 	}
-	p.RememberTargets = isTrue(sa.ParamStr(cards.PKRememberTargets))
 	p.RememberPumped = isTrue(sa.ParamStr(cards.PKRememberPumped))
 	na, naOK := sa.Param(cards.PKNumAtt)
 	p.NumAtt = ParamText{Text: na, Present: naOK}
@@ -185,14 +183,14 @@ var pumpKnownKeys = [...]string{
 	"ConditionNotPresent", "ConditionPhases", "ConditionPlayerTurn", "ConditionPresent",
 	"ConditionSVarCompare", "CopyCard", "Cost", "CostDesc",
 	"Defined", "DefinedCards", "DefinedTarget", "Description", "Duration",
-	"Exclude", "Exhaust", "ForgetImprinted", "GameActivationLimit", "Image",
+	"Exclude", "Exhaust", "ForgetImprinted", "ForgetOtherTargets", "GameActivationLimit", "Image",
 	"ImprintCards", "ImprintPlayed", "InstantSpeed", "IsCurse",
 	"IsPresent", "KW", "KWChoice", "Keyword", "KeywordLine", "LeaveBattlefield",
 	"MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor", "ModeCost", "Monstrosity",
 	"NewController", "NoteCards", "NoteCardsFor", "NoteNumber", "NumAtt", "NumDef",
 	"NumDmg", "OpponentTurn", "Planeswalker", "PlayCost", "PlayerTurn", "PowerUp",
 	"PrecostDesc", "PresentCompare", "PresentDefined", "PresentZone", "PumpZone", "RandomNumTargets",
-	"ReduceAmount", "ReduceCost", "RememberCostMana", "RememberObjects", "RememberPumped",
+	"ReduceAmount", "ReduceCost", "RememberAnimated", "RememberCostMana", "RememberObjects", "RememberPumped",
 	"RememberTargets", "ReplaceColor", "ReplaceGraveyard", "ReplaceGraveyardValid",
 	"ReplaceMana", "ReplaceOnly", "ReplaceType", "SVarCompare",
 	"Secondary", "SelectPrompt", "SetChosenMode", "SetColor", "ShowCards", "SorcerySpeed",

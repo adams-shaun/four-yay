@@ -588,19 +588,6 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 			c.Remembered = append(c.Remembered, state.Target{Obj: o.ID})
 			eventRemember(h, c, o.ID)
 		}
-		// RememberTargets$ True (Journey to Nowhere's exile trigger, Bile
-		// Blight's Pump sibling): the CHOSEN TARGETS join the ability's
-		// Remembered, in both halves -- the ctx list the chain's later
-		// sub-abilities read (Bile Blight's PumpAll Remembered.sameName) and
-		// the source's event-backed persistent list, which a LATER, separate
-		// resolution reads through Defined$ Remembered via the O-Ring rescue
-		// above (Journey's leave-battlefield return trigger). Only a target
-		// the move actually moved is remembered: a target skipped by the
-		// Origin$ precondition was never exiled and must never come back.
-		if cz.RememberTargets {
-			c.Remembered = append(c.Remembered, state.Target{Obj: o.ID})
-			eventRemember(h, c, o.ID)
-		}
 		eventForgetChanged(h, c, sa, o.ID)
 		if withKind != "" && counterDestination(to) {
 			h.Emit(events.Event{Kind: events.CounterChange, Obj: o.ID, Counter: withKind, Amount: withAmt})
