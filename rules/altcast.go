@@ -301,7 +301,7 @@ func (e *Engine) castMadness(p state.PlayerID, id state.ObjID) bool {
 	if o == nil || o.Zone != state.ZExile || o.Owner != p {
 		return false
 	}
-	e.beginCast(p, decision.Option{Kind: "cast", Obj: id, Mode: "madness"})
+	e.beginCast(p, decision.Option{Kind: "cast", Obj: id, Mode: altMode(altMadness)})
 	return true
 }
 
@@ -314,7 +314,8 @@ func (e *Engine) askMadnessCast(ability *state.Object) bool {
 		int(card.Owner) >= len(e.G.Players) || e.G.Players[card.Owner].Lost {
 		return false
 	}
-	cost, ok := keywordAltCost(card.Face(), "Madness")
+	m := &altCastModes[altMadness]
+	cost, ok := m.faceCost(card.Face())
 	if !ok {
 		return false
 	}
@@ -322,8 +323,8 @@ func (e *Engine) askMadnessCast(ability *state.Object) bool {
 	d := &decision.Decision{Player: card.Owner, Kind: decision.KTriggerOptional,
 		Min: 1, Max: 1, Source: card.ID, ResumeKind: "madness",
 		Prompt: "Cast " + name + " for its madness cost?"}
-	if e.offerCastable(card.Owner, card.ID, cost, spellScope("madness"), false) {
-		raw, _ := card.Face().KeywordParam("Madness")
+	if e.offerCastable(card.Owner, card.ID, cost, spellScope(m.mode), false) {
+		raw, _ := card.Face().KeywordParam(m.head)
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "yes",
 			Label: "Cast " + name + " for " + raw, Obj: card.ID})
 	}
