@@ -99,8 +99,9 @@ func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, dept
 	// The read is Object.TeamworkPaid, the SAME one home the Card.Self+Teamwork
 	// filter predicate reads (folded by events.Apply's FlagTeamworkPaid arm),
 	// so the matcher and the count can never disagree. A missing source, a card
-	// never cast, and a stack copy all read the <unpaid> branch, the
-	// modelled-head convention (the Kicked/PromisedGift sibling). The branch
+	// never cast read the <unpaid> branch; a copy of a paid Teamwork spell
+	// inherits the cost-conditioned bool (as it does the FlagTeamworkPaid bit).
+	// The branch
 	// tokens resolve through dotBranch (a literal, or an SVar name), and a
 	// malformed body with a missing branch fails closed.
 	if rest, ok := strings.CutPrefix(head, "Teamwork."); ok {
