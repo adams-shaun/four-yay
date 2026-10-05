@@ -191,13 +191,15 @@ public class ScenarioReplay extends CardTestPlayerBase {
             // while only adding cards still available to the top of the library.
             Set<Card> lookedAt = new java.util.LinkedHashSet<>(lookedAtOrder);
             List<Card> ordered = new ArrayList<>();
-            while (!queue.isEmpty()) {
+            int orderAnswersRemaining = lookedAtOrder.size();
+            while (orderAnswersRemaining > 0 && !queue.isEmpty()) {
                 String answer = queue.get(0);
                 Card match = findByName(available, answer);
                 if (match != null) {
                     queue.remove(0);
                     available.remove(match);
                     ordered.add(match);
+                    orderAnswersRemaining--;
                     continue;
                 }
                 if (findByName(lookedAt, answer) == null) {
@@ -206,6 +208,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 // This order label names a card consumed during selection.
                 // Consume it even though that card cannot be put back on top.
                 queue.remove(0);
+                orderAnswersRemaining--;
             }
             cards.clear();
             for (Card card : ordered) {
