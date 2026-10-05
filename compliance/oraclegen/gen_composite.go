@@ -35,8 +35,7 @@ func xanswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]i
 		followup := false
 		for j := i + 1; j < len(ds) && ds[j].Step == d.Step; j++ {
 			pick := &ds[j]
-			if pick.Seat != d.Seat || (len(pick.ObjectPicks) == 0 &&
-				(len(pick.PickKinds) == 0 || (pick.PickKinds[0] != "discard" && pick.PickKinds[0] != "card"))) {
+			if pick.Seat != d.Seat || !compositeCardPick(*pick, zone) {
 				continue
 			}
 			followup = true
@@ -82,6 +81,31 @@ func xanswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]i
 		}
 	}
 	return xanswers(ds, len(sc.Steps), modes, castSteps)
+}
+
+// compositeCardPick distinguishes the follow-up card selector from any other
+// same-seat object-valued decision in the step. ObjectPicks alone is not a role:
+// targets, costs, and replacement choices also record object identities.
+func compositeCardPick(d rules.OracleDecision, zone string) bool {
+	if d.Kind != "choose_n" && d.Kind != "mode" {
+		return false
+	}
+	want := "card"
+	if zone == "graveyard" {
+		want = "discard"
+	}
+	if len(d.ObjectPicks) == 0 {
+		return len(d.PickKinds) > 0 && d.PickKinds[0] == want
+	}
+	if len(d.PickKinds) != len(d.ObjectPicks) {
+		return false
+	}
+	for _, kind := range d.PickKinds {
+		if kind != want {
+			return false
+		}
+	}
+	return true
 }
 
 // movedCards finds cards newly in the indicated destination during one step.
