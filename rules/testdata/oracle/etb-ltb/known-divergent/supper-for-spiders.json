@@ -1,6 +1,0 @@
-{
-  "card": "Supper for Spiders",
-  "rows": {
-    "reanimates-a-creature-that-died-this-turn": "The opponent's Grizzly Bears died this turn, yet Supper returned nothing: it stayed in p1's graveyard (size 1, want 0) and was never made a Food Artifact. The 'put there from the battlefield this turn' graveyard filter matches nothing."
-  }
-}
