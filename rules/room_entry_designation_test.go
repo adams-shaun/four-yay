@@ -48,3 +48,44 @@ func TestNonCastRoomHasNoLiveDoorsAndCastEntryDesignatesFace(t *testing.T) {
 		t.Fatalf("cast Room has %d live trigger faces, want 1", count)
 	}
 }
+
+// TestNonCastRoomContinuousStaticExcludedFromCachedScan proves the entry
+// designation reaches the walk-scoped static cache as well as the fresh scan.
+// activeStaticsCached serves the battlefield pass from scanActiveStaticsFused;
+// if that fused pass did not carry the same Room-door gate scanActiveStatics
+// has, a non-cast Room's printed static would be served live in production and
+// the verify-mode test binary (walkCacheVerify) would panic on the divergence.
+func TestNonCastRoomContinuousStaticExcludedFromCachedScan(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	room := card(t, "Name:Static Room\nManaCost:0\nTypes:Enchantment Room\n"+
+		"S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Flying | Description$ x\n"+
+		"Oracle:x\nALTERNATE\nName:Static Chamber\nManaCost:0\nTypes:Enchantment Room\nOracle:y\nAlternateMode:Split\n")
+	e := corpusEngine(t, reg, []*cards.Card{room, room}, nil)
+
+	// A hand-to-battlefield move is explicitly non-cast entry.
+	noncast := moveByName(t, e, 0, "Static Room", state.ZBattlefield)
+	n := e.G.Obj(noncast)
+	if n == nil || n.Zone != state.ZBattlefield || n.CastDoor {
+		t.Fatalf("precondition: expected non-cast battlefield Room, got %+v", n)
+	}
+	// Enter a memo scope so activeStatics serves the fused battlefield pass.
+	e.beginDerivedMemo()
+	got := e.activeStatics("Continuous")
+	e.endDerivedMemo()
+	if len(got) != 0 {
+		t.Fatalf("non-cast Room served %d Continuous static(s), want 0: %+v", len(got), got)
+	}
+
+	// The stack-origin transit is the only cast-entry path the fold sees.
+	castID := moveByName(t, e, 0, "Static Room", state.ZBattlefield)
+	designateRoomCastFace(e, castID)
+	if e.G.Obj(castID).Zone != state.ZBattlefield || !e.G.Obj(castID).CastDoor {
+		t.Fatalf("precondition: cast control did not designate a door: %+v", e.G.Obj(castID))
+	}
+	e.beginDerivedMemo()
+	got = e.activeStatics("Continuous")
+	e.endDerivedMemo()
+	if len(got) != 1 {
+		t.Fatalf("cast Room served %d Continuous static(s), want 1", len(got))
+	}
+}

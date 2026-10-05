@@ -229,6 +229,10 @@ func TestPotentialActionsFloatGatedRoomUnlock(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Dazzling Theater")}, nil)
 	room := moveByName(t, e, 0, "Dazzling Theater", state.ZBattlefield)
+	// moveByName is a hand-to-battlefield (non-cast) entry; designate the cast
+	// face so the fixture models the intended cast Room, whose alternate door
+	// (Prop Room) is the locked one.
+	designateRoomCastFace(e, room)
 	if roomLockedFace(e.G.Obj(room)) == nil {
 		t.Fatal("precondition: Dazzling Theater has no locked door")
 	}
