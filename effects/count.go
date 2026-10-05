@@ -668,6 +668,9 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 	if v, ok, matched := evalCountBodyDotted(h, c, g, head, arg, depth); matched {
 		return v, ok
 	}
+	if v, ok, matched := evalCountBodySimple(h, c, g, head, arg, depth); matched {
+		return v, ok
+	}
 	if v, ok, matched := evalCountBodyZone(h, c, g, head, arg, depth); matched {
 		return v, ok
 	}

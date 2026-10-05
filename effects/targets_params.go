@@ -60,6 +60,10 @@ func SpecTargetsStack(spec string) bool { return params.SpecTargetsStack(spec) }
 // (params.SpecTargetsPlayers).
 func SpecTargetsPlayers(spec string) bool { return params.SpecTargetsPlayers(spec) }
 
+// SpecTargetsOnlyPlayers reports whether every ValidTgts$ alternative names
+// only players (params.SpecTargetsOnlyPlayers).
+func SpecTargetsOnlyPlayers(spec string) bool { return params.SpecTargetsOnlyPlayers(spec) }
+
 // SpecNamesXBound reports whether spec carries an X-bounded numeric predicate
 // (params.SpecNamesXBound).
 func SpecNamesXBound(spec string) bool { return params.SpecNamesXBound(spec) }

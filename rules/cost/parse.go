@@ -55,7 +55,59 @@ const sacXCost = `^Sac<X/([^/>]+)(?:/([^>]*))?>$`
 // ExileFromHand evoke costs (the MH3 evoke family: Fury, Grief, ...), the
 // AlternateAdditionalCost ExileFromGrave line and the ExileAnyGrave
 // trigger-cost family are the corpus users.
-const exileCost = `^Exile(FromHand|FromGrave|AnyGrave)<(X|\d+)/([^/>]+)(?:/([^>]*))?>$`
+const exileCost = `^Exile(FromHand|FromGrave|AnyGrave|CtrlOrGrave)<(X|\d+)/([^/>]+)(?:/([^>]*))?>$`
+
+func appendParsedExileCost(c *Cost, token string, m groups) {
+	if m[1] == "CtrlOrGrave" {
+		appendExileCtrlOrGrave(c, token, m)
+		return
+	}
+	if m[2] == "X" {
+		if m[1] != "FromGrave" {
+			c.Generic = AddClampedGeneric(c.Generic, 1)
+			c.reportUnknown(token)
+			return
+		}
+		c.Exile = append(c.Exile, CostPart{Spec: strings.ReplaceAll(m[3], ";", ","), Zone: state.ZGraveyard, Announced: true, Desc: m[4]})
+		return
+	}
+	n, err := strconv.ParseInt(m[2], 10, 64)
+	if err != nil || n < 0 || n > int64(math.MaxInt32) {
+		c.Generic = AddClampedGeneric(c.Generic, 1)
+		c.reportUnknown(token)
+		return
+	}
+	part := CostPart{N: int32(n), Spec: strings.ReplaceAll(m[3], ";", ","), Desc: m[4]}
+	if m[1] != "FromHand" {
+		part.Zone = state.ZGraveyard
+	}
+	c.Exile = append(c.Exile, part)
+}
+
+func appendExileCtrlOrGrave(c *Cost, token string, match groups) {
+	part, ok := parseExileCtrlOrGrave(match[2], match[3], match[4])
+	c.Generic = AddClampedGeneric(c.Generic, 1)
+	if !ok {
+		c.reportUnknown(token)
+		return
+	}
+	c.Exile = append(c.Exile, part)
+}
+
+func parseExileCtrlOrGrave(n, spec, desc string) (CostPart, bool) {
+	part := CostPart{Spec: strings.ReplaceAll(spec, ";", ","), Desc: desc,
+		ZoneSet: (1 << state.ZBattlefield) | (1 << state.ZGraveyard)}
+	if n == "X" {
+		part.Announced = true
+		return part, true
+	}
+	v, err := strconv.ParseInt(n, 10, 32)
+	if err != nil || v < 0 {
+		return CostPart{}, false
+	}
+	part.N = int32(v)
+	return part, true
+}
 
 // exileFromTopCost matches Forge's ExileFromTop<N/Card> token -- exiling the
 // top N cards of the payer's OWN library as a cast/activation cost (Storm
@@ -761,31 +813,7 @@ func ParseCost(s string) Cost {
 				continue
 			}
 			if m, ok := matchExileCost(t); ok {
-				if m[2] == "X" {
-					if m[1] != "FromGrave" {
-						c.Generic = AddClampedGeneric(c.Generic, 1)
-						c.reportUnknown(sym)
-						continue
-					}
-					spec := strings.ReplaceAll(m[3], ";", ",")
-					c.Exile = append(c.Exile, CostPart{Spec: spec, Zone: state.ZGraveyard, Announced: true, Desc: m[4]})
-					continue
-				}
-				n, err := strconv.ParseInt(m[2], 10, 64)
-				if err != nil || n < 0 || n > int64(math.MaxInt32) {
-					// Same safe fallback as every other malformed cost token --
-					// and REPORT it: the head is recognised, this instance is
-					// not modelled.
-					c.Generic = AddClampedGeneric(c.Generic, 1)
-					c.reportUnknown(sym)
-					continue
-				}
-				spec := strings.ReplaceAll(m[3], ";", ",")
-				part := CostPart{N: int32(n), Spec: spec, Desc: m[4]}
-				if m[1] != "FromHand" {
-					part.Zone = state.ZGraveyard
-				}
-				c.Exile = append(c.Exile, part)
+				appendParsedExileCost(&c, sym, m)
 				continue
 			}
 			if m, ok := matchAddCounterCost(t); ok {

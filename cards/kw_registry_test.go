@@ -40,6 +40,8 @@ var expandedHeads = []string{
 	// the split (cards/kw_mentor.go). The strict power restriction rides the
 	// body's Mentor$ marker (rules/mentor.go), not a powerLTX spec.
 	"Mentor",
+	// Craft (CR 702.167, Slice 1) expands uniform ExileCtrlOrGrave carriers.
+	"Craft",
 	// Appended after the split (each is a keyword whose expansion the
 	// pre-split switch never had): Exploit (CR 702.58, task exploit1).
 	"Exploit",

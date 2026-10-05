@@ -99,6 +99,14 @@ func FormatCost(c Cost) string {
 	appendCostParts("SubCounter", c.SubCounter)
 	appendCostParts("AddCounter", c.AddCounter)
 	for _, part := range c.Exile {
+		if part.ZoneSet != 0 {
+			n := strconv.FormatInt(int64(part.N), 10)
+			if part.Announced {
+				n = "X"
+			}
+			add("ExileCtrlOrGrave<" + n + "/" + part.Spec + ">")
+			continue
+		}
 		var head string
 		switch part.Zone {
 		case state.ZBattlefield:

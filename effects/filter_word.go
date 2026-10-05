@@ -1085,12 +1085,8 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		if a == nil {
 			return false
 		}
-		if class, qual, ok := strings.Cut(key, "."); ok {
-			fn, is := predicates[qual]
-			if !is {
-				return false
-			}
-			return matchesBase(g, class, a, sc) && fn(g, a, sc.You, sc.Source)
+		if _, _, ok := strings.Cut(key, "."); ok {
+			return attachedToBearerQualifier(g, key, a, sc)
 		}
 		return matchesBase(g, key, a, sc)
 	case wordEnchantedBy:
@@ -1114,6 +1110,21 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		return hasAttachmentMatching(g, o.ID, sc, typ, fn)
 	}
 	return false
+}
+
+// attachedToBearerQualifier evaluates the dotted two-token
+// "<class>.<qual>" argument of wordAttachedTo against a, the bearer the
+// candidate object is attached to. It runs the whole term through the
+// object-filter grammar rather than the legacy `predicates` map, because the
+// qualifier may be a word-kind predicate that map does not hold
+// (IsRemembered) and because the grammar already reads EnchantedBy/
+// EquippedBy/YouCtrl with the same SpecContext the count binds (Source,
+// Remembered). The key carries no AttachedTo token, so there is no recursion
+// back into wordAttachedTo; attachedToArg validated the dotted shape, so the
+// class/qualifier split is guaranteed present. Extracted from wordMatches so
+// that function's frozen line budget does not grow.
+func attachedToBearerQualifier(g *state.Game, key string, a *state.Object, sc SpecContext) bool {
+	return MatchesObjectCtx(g, key, a, sc)
 }
 
 // contextPredicateBound reports whether a context-bound classifier word has

@@ -55,7 +55,11 @@ func (f *Face) Primitives() []string {
 		walk(r.With, 0)
 	}
 	for _, k := range f.Keywords {
-		set["kw:"+KeywordHead(k)] = struct{}{}
+		head := KeywordHead(k)
+		set["kw:"+head] = struct{}{}
+		if head == "Craft" && !CraftUniformShape(keywordParam(k)) {
+			set["api:Craft.OtherShape"] = struct{}{}
+		}
 	}
 	// Blanket SVar walk: the shared reachability point so this coverage walk
 	// and rules' param census (cardCensusLabels) cannot disagree about which

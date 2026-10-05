@@ -109,6 +109,15 @@ func foldStepChange(g *state.Game, e *Event) {
 	if e.Step == state.StepDraw && validPlayer(g, g.Active) {
 		g.Players[g.Active].LastUpkeepTurn = g.Turn
 	}
+	// The per-turn end-step count (Forge PhaseHandler.getNumEndOfTurn): one
+	// increment per End-of-Turn ENTRY, so an api:AddPhase-spliced extra end
+	// step counts a second time. TurnChange resets it below. Reading the
+	// count while currently in the end step and subtracting one reproduces
+	// Forge's `getNumEndOfTurn() - (is(END_OF_TURN) ? 1 : 0)`, the figure
+	// Count$FinishedEndOfTurnsThisTurn answers (Y'shtola Rhul).
+	if e.Step.Valid() && e.Step == state.StepEnd {
+		g.EndStepsThisTurn++
+	}
 }
 
 // foldTurnChange folds Kind TurnChange into state.
@@ -187,6 +196,9 @@ func foldTurnChange(g *state.Game, e *Event) {
 		// per-turn combat-phase count resets with them.
 		g.ExtraPhases = nil
 		g.CombatsThisTurn = 0
+		// The per-turn end-step count is a per-turn fact, dropped at the
+		// boundary exactly as CombatsThisTurn is.
+		g.EndStepsThisTurn = 0
 		// The per-ability resolution tally is a per-turn fact (CR 608.2m
 		// counts resolutions in the turn), so it is dropped at the turn
 		// boundary exactly as CombatsThisTurn is. Clearing (rather than

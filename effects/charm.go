@@ -437,7 +437,7 @@ func charmGenericPlayers(h Host, c *Ctx, sa *cards.SA) bool {
 		return charmGenericPlayersRun(h, c, sa, choices)
 	}
 	defined := p.Defined
-	if defined == "" {
+	if defined == "" && !GenericChoicePlayerChoosers(sa) {
 		return false
 	}
 	resolved := Defined(h, c, sa)

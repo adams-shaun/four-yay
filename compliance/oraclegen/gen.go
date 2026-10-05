@@ -534,10 +534,24 @@ func chooseTargets(sc Scenario, ds []rules.OracleDecision) (Scenario, map[int]bo
 func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSteps map[int]bool) [][]XAnswer {
 	out := make([][]XAnswer, steps)
 	any := false
+	// A step whose card name is then searched for (Ancient Vendetta's "choose
+	// a card name. Search ... for cards with that name"): XMage poses the name
+	// dialog however narrowly gorge offered it, and the search must find it.
+	namedSearch := map[int]bool{}
+	for _, d := range ds {
+		if pickKind(d, 0) == "search" {
+			namedSearch[d.Step] = true
+		}
+	}
 	for _, d := range ds {
 		if d.Step < 0 || d.Step >= steps || (d.Via == "target" && castSteps[d.Step]) {
 			// A cast step's own targets reach XMage through castSpell; a
 			// target decision posed at a resolve step is scripted below.
+			continue
+		}
+		if pickKind(d, 0) == "name" && namedSearch[d.Step] && len(d.Picks) == 1 {
+			out[d.Step] = append(out[d.Step], XAnswer{d.Seat, "choice", d.Picks[0]})
+			any = true
 			continue
 		}
 		if forcedSingleOption(d) {
@@ -669,7 +683,7 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 				as = append(as, XAnswer{d.Seat, "choice", strings.Join(labels, "^")})
 			} else {
 				for k, label := range d.Picks {
-					switch xmQueue(pickKind(d, k), label) {
+					switch pickQueue(d, k, label) {
 					case "skip":
 						// XMage resolves this pick inside its computer player (a
 						// library search) or pays it from the pool (a mana-tapping
@@ -1403,4 +1417,18 @@ func clone(s Seat) Seat {
 		Graveyard: append([]string(nil), s.Graveyard...), Exile: append([]string(nil), s.Exile...),
 		Library: append([]string(nil), s.Library...), LibraryTop: append([]string(nil), s.LibraryTop...),
 	}
+}
+
+// pickQueue is xmQueue for the k-th pick, except that a search of ANOTHER
+// player's library (Ancient Vendetta's "search target opponent's ... library")
+// reaches XMage's choice queue: only a search of your own library is the
+// TargetCardInLibrary target ask (measured on the std pass).
+func pickQueue(d rules.OracleDecision, k int, label string) string {
+	q := xmQueue(pickKind(d, k), label)
+	if q == "target" && pickKind(d, k) == "search" && k < len(d.PickRefs) {
+		if s, ok := refSeat(d.PickRefs[k]); ok && s != d.Seat {
+			return "choice"
+		}
+	}
+	return q
 }
