@@ -60,6 +60,11 @@ func TestNumDamageCountUsesCorpusDamageEvents(t *testing.T) {
 	// Combat damage avoids Ojer's unrelated noncombat-damage replacement.
 	damageCountEvent(e, source, 0, 1, 3, true)
 	damageCountEvent(e, source, permanent, 0, 2, true)
+	opponentSource := onBoardCard(t, e, 1, card)
+	if o := e.G.Obj(opponentSource); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatal("precondition: excluded opponent source must be on the battlefield")
+	}
+	damageCountEvent(e, opponentSource, 0, 0, 9, true)
 	if got := effects.EvalCount(e, &effects.Ctx{Controller: 0, Source: source}, body); got != 5 {
 		t.Fatalf("Burning Masks corpus count = %d, want player + permanent damage 5", got)
 	}
