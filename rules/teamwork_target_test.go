@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -96,8 +97,12 @@ func TestTeamworkTargetAnnouncementEligibility(t *testing.T) {
 						t.Fatalf("fixed target bounds=(%d,%d), want (1,2)", min, max)
 					}
 				}
-				if tc.card == "Atlantis Attacks" && (root == nil || root.ParamStr(cards.PKChoices) == "") {
-					t.Fatal("precondition: expected conditional Charm modes")
+				if tc.card == "Atlantis Attacks" {
+					bounce := face.SVars["DBBounce"]
+					if root.ParamStr(cards.PKChoices) == "" || !strings.Contains(root.ParamStr(cards.PKCharmNum), "X") ||
+						!strings.Contains(bounce, "TargetMin$ 1") || !strings.Contains(bounce, "TargetMax$ 2") {
+						t.Fatalf("precondition: expected conditional Charm with 1-2 target bounce mode: choices=%q bounce=%q", root.ParamStr(cards.PKChoices), bounce)
+					}
 				}
 				if paid {
 					var choices []int
