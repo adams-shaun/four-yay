@@ -16,12 +16,9 @@ func TestClassExpandsEntryCounterActivatorsAndGrants(t *testing.T) {
 		"SVar:SReduceCost:Mode$ ReduceCost | ValidCard$ Card.!wasCastFromYourHand | Type$ Spell | Activator$ You | Amount$ 2\n"+
 		"SVar:X:Count$ThisTurnCast_Card.YouCtrl\nOracle:x\n")
 
-	// 1. The entry counter, once.
-	if len(f.Repls) != 1 || f.Repls[0].Event != "Moved" || f.Repls[0].With == nil {
-		t.Fatalf("want one entry replacement, got %+v", f.Repls)
-	}
-	if w := f.Repls[0].With; w.API != "PutCounter" || w.Params["CounterType"] != "LEVEL" || w.Params["CounterNum"] != "1" {
-		t.Fatalf("entry counter wrong: %+v", w.Params)
+	// Level 1 is intrinsic: there is no counter-placing entry replacement.
+	if len(f.Repls) != 0 {
+		t.Fatalf("Class entry installed counter replacement: %+v", f.Repls)
 	}
 
 	// 2. One activator per level, at the named cost, the right level gate.
@@ -30,8 +27,8 @@ func TestClassExpandsEntryCounterActivatorsAndGrants(t *testing.T) {
 	}
 	byCost := map[string]*SA{}
 	for _, a := range f.Abilities {
-		if a.API != "PutCounter" {
-			t.Fatalf("level-up activator is not a PutCounter: %+v", a)
+		if a.API != "ClassLevelUp" {
+			t.Fatalf("level-up activator is not ClassLevelUp: %+v", a)
 		}
 		byCost[a.Params["Cost"]] = a
 	}
@@ -39,10 +36,10 @@ func TestClassExpandsEntryCounterActivatorsAndGrants(t *testing.T) {
 	if l2 == nil || l3 == nil {
 		t.Fatalf("activator costs wrong: %+v", byCost)
 	}
-	if l2.Params["IsPresent"] != "Card.Self+counters_LT2_LEVEL" {
+	if l2.Params["IsPresent"] != "Card.Self+classLevel_LT2" {
 		t.Fatalf("level-2 activator gate: %q", l2.Params["IsPresent"])
 	}
-	if l3.Params["IsPresent"] != "Card.Self+counters_LT3_LEVEL" {
+	if l3.Params["IsPresent"] != "Card.Self+classLevel_LT3" {
 		t.Fatalf("level-3 activator gate: %q", l3.Params["IsPresent"])
 	}
 	for _, a := range f.Abilities {
@@ -179,7 +176,7 @@ func TestClassExpansionIsIdempotent(t *testing.T) {
 	}
 	f := c.Faces[0]
 	repls, abilities, statics := len(f.Repls), len(f.Abilities), len(f.Statics)
-	if repls != 1 || abilities != 1 || statics != 1 {
+	if repls != 0 || abilities != 1 || statics != 1 {
 		t.Fatalf("first Link: repls=%d abilities=%d statics=%d", repls, abilities, statics)
 	}
 	if d := c.Link(); len(d) > 0 {

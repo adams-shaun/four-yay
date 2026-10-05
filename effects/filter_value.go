@@ -164,6 +164,23 @@ func numericPred(name string, g *state.Game, o *state.Object, sc SpecContext) (r
 	if resolve == nil {
 		resolve = noResolve
 	}
+	// classLevel_<CMP><n> reads a Class's designation, independently of counters.
+	if rest, ok := strings.CutPrefix(name, "classLevel_"); ok {
+		if len(rest) < 3 {
+			return false, false
+		}
+		n, err := strconv.Atoi(rest[2:])
+		if err != nil {
+			return false, false
+		}
+		switch CmpOpOf(rest[:2]) {
+		case CmpLT:
+			return o.ClassLevel() < int32(n), true
+		case CmpGE:
+			return o.ClassLevel() >= int32(n), true
+		}
+		return false, false
+	}
 	// counters_<CMP><n>_<KIND>: a counter-kind comparison, e.g. counters_EQ0_P1P1
 	// ("no +1/+1 counters", the Undying condition). Reads the object's current
 	// counter count of KIND off the object it is applied to -- which for a

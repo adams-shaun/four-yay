@@ -666,6 +666,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 		// exists while a permanent or spell is in play.
 		o.Tapped = false
 		o.Damage = 0
+		o.ClassLevelValue = 0
 		o.IsAttacking = false
 		o.AttackingBattle = 0
 		o.BlockedBy = nil

@@ -1099,10 +1099,14 @@ const (
 	// Appended after SetupEntered so main's existing ordinals (and the oracle
 	// fixtures that encode SetupEntered) are unchanged.
 	DoorLock
+	// ClassLevelChange advances a Class's level designation by Amount.
+	// Unlike LEVEL counters this cannot be proliferated, removed or counted.
+	// Appended after DoorLock to preserve all previous replay ordinals.
+	ClassLevelChange
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(DoorLock) + 1
+	NumKinds = int(ClassLevelChange) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving

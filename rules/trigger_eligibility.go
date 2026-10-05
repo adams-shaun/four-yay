@@ -498,10 +498,9 @@ var triggerModeEventRows = [...]struct {
 	// AND player placement events the matcher
 	// (trigmatch.counterPlayerAddedAllMatches) reads.
 	{cards.TriggerCounterPlayerAddedAll, 1<<events.CounterChange | 1<<events.PlayerCounterChange},
-	// CR 702.118c: the same CounterChange event the level-up
-	// activator's PutCounter emits carries the level band crossing
-	// (matcher: trigmatch.classLevelGainedMatches).
-	{cards.TriggerClassLevelGained, 1 << events.CounterChange},
+	// CR 716: the designation change is past this 64-bit mask's reach;
+	// the ClassLevelGained matcher alone admits the new event.
+	{cards.TriggerClassLevelGained, 0}, // ClassLevelChange is beyond the 64-bit mask; allows fails open.
 	// CR 702.140f: "whenever this creature mutates". The event is the
 	// mutate-spell merge fold (events.Mutate), fired once per mutation --
 	// whose ordinal (71) is past the 64-bit mask's reach, the
