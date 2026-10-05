@@ -38,11 +38,10 @@ func emitLoseManaClear(ev events.Event, emit func(events.Event) events.Event, se
 	emit(ev)
 }
 
-func handleLoseManaChoice(rc replChoice, selected int, player state.PlayerID, before *triggerSnapshot,
+func handleLoseManaChoice(rc replChoice, selected int, player state.PlayerID,
 	game *state.Game, runtime loseManaRuntime, emit func(events.Event) events.Event,
-	setApplying func(bool), setBefore func(*triggerSnapshot), pose func(events.Event, []replMatch)) {
+	setApplying func(bool), pose func(events.Event, []replMatch)) {
 	if selected < 0 || selected >= len(rc.cands) || int(rc.ev.Player) >= len(game.Players) {
-		setBefore(before)
 		emit(events.Event{Kind: events.Note, Player: player, Text: "mana replacement-order answer out of range"})
 		return
 	}
