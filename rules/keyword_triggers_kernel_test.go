@@ -76,17 +76,26 @@ func TestRiotAndHideawayUseRealCorpusCards(t *testing.T) {
 	cfg := seatZeroStart(Config{Seed: 188, Names: []string{"knoll", "other"}, Decks: [][]*cards.Card{deck, deck}})
 	e2 := New(cfg)
 	kid := e2.G.Objs[0].ID
-	// Kernel era: the Hideaway entry replacement's asks are tape asks, so
-	// the raw entry runs as a kernel probe.
-	kr6Probe(e2, func() {
-		e2.emit(events.Event{Kind: events.MoveZone, Obj: kid, From: state.ZLibrary, To: state.ZBattlefield})
-	})
+	// Hideaway is an ETB trigger: the land enters before the look/choose
+	// sequence begins resolving.
+	e2.emit(events.Event{Kind: events.MoveZone, Obj: kid, From: state.ZLibrary, To: state.ZBattlefield})
+	e2.putTriggersOnStack()
+	if o := e2.G.Obj(kid); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("Spinerock Knoll entry = %+v, want battlefield before trigger resolution", o)
+	}
+	if len(e2.G.Stack) == 0 {
+		t.Fatalf("Hideaway ETB trigger not on stack: stack=%v", e2.G.Stack)
+	}
+	if len(e2.G.Zone(state.ZExile, 0)) != 0 {
+		t.Fatalf("Hideaway exiled a card before trigger resolution: %v", e2.G.Zone(state.ZExile, 0))
+	}
+	kr6ResolveTop(e2)
 	pick := e2.Pending()
 	if pick == nil || pick.Kind != decision.KChoose || len(pick.Options) != 4 {
 		t.Fatalf("Hideaway pick = %+v, want four-card choice", pick)
 	}
 	// Exile the second card, then put the other three on the bottom in the
-	// answer's order. This drives Spinerock Knoll's real Hideaway replacement.
+	// answer's order. This resolves Spinerock Knoll's real Hideaway trigger.
 	exiledID := pick.Options[1].Obj
 	if err := e2.Submit(decision.Intent{Seq: pick.Seq, Player: 0, Choices: []int{1}}); err != nil {
 		t.Fatalf("submit Hideaway pick: %v", err)
