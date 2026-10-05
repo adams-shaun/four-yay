@@ -237,6 +237,14 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "sbaIDBuf"}:     true,
 	{"rules.Engine", "graveCandBuf"}: true,
 	{"rules.Engine", "foreachBuf"}:   true,
+	// auraEntryCands (rules/aura_entry.go) is auraEnchantCandidates' reused
+	// candidate buffer -- its doc calls it "the scratch buffer the result
+	// reuses", the field is clone:"reset", and its contents after a walk
+	// are garbage. A route that ends at a different walk (or on a cloned
+	// engine that restarted the buffer) would otherwise read a candidate
+	// list the other side has already overwritten. The meaningful transient
+	// (auraEntry, the chosen bearer) is compared normally.
+	{"rules.Engine", "auraEntryCands"}: true,
 	// The target census and priority mana member-set scratch lists, and the
 	// off-stack mana frame slots (empty between Submits).
 	{"rules.Engine", "targetCensusBuf"}: true,
