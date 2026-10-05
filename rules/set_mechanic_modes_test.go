@@ -309,6 +309,59 @@ func TestBecomesSaddledSelfTrigger(t *testing.T) {
 	}
 }
 
+// TestBecomesSaddledFirstTimeOncePerTurn proves FirstTimeSaddled$ True: a
+// SECOND saddle of the same Mount in one turn must not fire the trigger
+// again. The body mills two cards, so the graveyard growth is the witness:
+// exactly one mill (2 cards) across two saddle actions, not two (4 cards).
+func TestBecomesSaddledFirstTimeOncePerTurn(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	burrow := corpusAlternativeCard(t, "Stubborn Burrowfiend")
+	e := handEngine(t)
+	mount := addToBattlefield(t, e, burrow, 0)
+	bears := make([]state.ObjID, 4)
+	for i := range bears {
+		bears[i] = addToBattlefield(t, e, lookup(t, reg, "Runeclaw Bear"), 0)
+		e.G.Obj(bears[i]).SummonSick = false
+	}
+	e.G.Obj(mount).SummonSick = false
+	// Precondition: four separate bears so the Mount can pay Saddle 2 twice.
+	if e.G.Obj(bears[0]).ID == e.G.Obj(bears[1]).ID {
+		t.Fatal("precondition: the bears are not distinct objects")
+	}
+	if n := len(e.G.Zone(state.ZBattlefield, 0)); n != 5 {
+		t.Fatalf("precondition: battlefield holds %d objects, want 5 (mount + four bears)", n)
+	}
+	before := len(e.G.Zone(state.ZGraveyard, 0))
+
+	saddleTwice := func(first, second state.ObjID) {
+		t.Helper()
+		d := saddleElection(t, e, mount, 2)
+		var choices []int
+		for _, o := range d.Options {
+			if o.Obj == first || o.Obj == second {
+				choices = append(choices, o.Index)
+			}
+		}
+		if len(choices) != 2 {
+			t.Fatalf("saddle election offered %d of the two intended bears: %+v", len(choices), d.Options)
+		}
+		submitChoices(t, e, choices...)
+		passUntilStackEmpty(t, e, 40)
+	}
+	saddleTwice(bears[0], bears[1])
+	if got := e.G.Obj(mount).SaddledTurn; got != e.G.Turn {
+		t.Fatalf("precondition: first saddle did not stamp SaddledTurn (got %d, turn %d)", got, e.G.Turn)
+	}
+	if got := len(e.G.Zone(state.ZGraveyard, 0)); got != before+2 {
+		t.Fatalf("first saddle: graveyard grew by %d, want 2 (one Mill 2)", got-before)
+	}
+	saddleTwice(bears[2], bears[3])
+	if got := len(e.G.Zone(state.ZGraveyard, 0)); got != before+2 {
+		t.Fatalf("FirstTimeSaddled$: graveyard grew by %d across two saddles, want 2 (the second must not fire)", got-before)
+	}
+}
+
 // TestBecomesPlottedSelfTrigger plots Aloe Alchemist, whose BecomesPlotted
 // trigger ("When CARDNAME becomes plotted, target creature gets +3/+2 and
 // gains trample until end of turn") must fire from exile and pump the chosen
