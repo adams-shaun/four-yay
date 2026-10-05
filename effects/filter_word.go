@@ -80,6 +80,7 @@ const (
 	// binding comes from SpecContext rather than a new state tracker.
 	wordTargetedPlayerCtrl
 	wordTargetedPlayerOwn
+	wordRememberedPlayerOwn
 	// The two-token space form "AttachedTo <X>": <X> is a literal type or
 	// object class answerable from the object in hand (the base grammar).
 	wordAttachedTo
@@ -464,6 +465,8 @@ func wordPredicate(p string) (wordKind, string) {
 		return wordHasBasicLandType, ""
 	case wordPredicateWordFullyUnlocked:
 		return wordFullyUnlocked, ""
+	case wordPredicateWordRememberedPlayerOwn:
+		return wordRememberedPlayerOwn, ""
 	// Forge's Outlaw batch word: the candidate carries at least one of the
 	// five outlaw creature subtypes (Assassins, Mercenaries, Pirates, Rogues,
 	// Warlocks -- the reminder text on every carrier). The matcher reads the
@@ -847,6 +850,9 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		return ok && matched
 	case wordTargetedPlayerOwn:
 		matched, ok := matchTargetedPlayerOwn(g, o, sc)
+		return ok && matched
+	case wordRememberedPlayerOwn:
+		matched, ok := matchControlReferent(g, o, sc, "OwnedBy", "RememberedPlayer")
 		return ok && matched
 	case wordThisTurnEntered:
 		// Forge's ThisTurnEntered: the object entered a zone this turn (any
@@ -1270,6 +1276,7 @@ const (
 	wordPredicateWordHasABasicLandType
 	wordPredicateWordFullyUnlocked
 	wordPredicateWordOutlaw
+	wordPredicateWordRememberedPlayerOwn
 )
 
 var wordPredicateWordCodes = state.NewStrCodes(
@@ -1319,6 +1326,7 @@ var wordPredicateWordCodes = state.NewStrCodes(
 	state.StrEntry[wordPredicateWordCode]{Key: "hasABasicLandType", Val: wordPredicateWordHasABasicLandType},
 	state.StrEntry[wordPredicateWordCode]{Key: "FullyUnlocked", Val: wordPredicateWordFullyUnlocked},
 	state.StrEntry[wordPredicateWordCode]{Key: "Outlaw", Val: wordPredicateWordOutlaw},
+	state.StrEntry[wordPredicateWordCode]{Key: "RememberedPlayerOwn", Val: wordPredicateWordRememberedPlayerOwn},
 )
 
 type wordPredicateSharesCode uint16
