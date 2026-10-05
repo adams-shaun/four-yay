@@ -181,14 +181,15 @@ type CharmCombination struct {
 	Slots []Slot
 }
 
-// CharmCombinations enumerates the combinations required by the Charm ability.
-// Ordinary charms default to one pick, preserving their historical ordering.
+// CharmCombinations enumerates legal combinations from the minimum pick count
+// upward, in Choices$ order within each size. Ordinary charms default to one
+// pick, preserving their historical ordering.
 func CharmCombinations(f *cards.Face) []CharmCombination {
 	modes := charmModes(f)
 	if len(modes) == 0 {
 		return nil
 	}
-	pickCount, repeat := 1, false
+	pickCount, minCount, repeat := 1, 1, false
 	for _, sa := range f.Abilities {
 		if sa.Kind != "SP" || sa.API != "Charm" {
 			continue
@@ -196,14 +197,19 @@ func CharmCombinations(f *cards.Face) []CharmCombination {
 		if n, err := strconv.Atoi(strings.TrimSpace(sa.Params["CharmNum"])); err == nil && n > 0 {
 			pickCount = n
 		}
+		if n, err := strconv.Atoi(strings.TrimSpace(sa.Params["MinCharmNum"])); err == nil && n > 0 {
+			minCount = n
+		} else if strings.TrimSpace(sa.Params["MinCharmNum"]) == "" {
+			minCount = pickCount
+		}
 		repeat = strings.EqualFold(strings.TrimSpace(sa.Params["CanRepeatModes"]), "True")
 		break
 	}
 	var out []CharmCombination
 	var selected []CharmMode
-	var visit func(int)
-	visit = func(start int) {
-		if len(selected) == pickCount {
+	var visit func(int, int)
+	visit = func(start, count int) {
+		if len(selected) == count {
 			combo := CharmCombination{Modes: append([]CharmMode(nil), selected...)}
 			for _, mode := range selected {
 				combo.Slots = append(combo.Slots, ChainSlotSpecs(f, mode.svar)...)
@@ -217,11 +223,13 @@ func CharmCombinations(f *cards.Face) []CharmCombination {
 			if !repeat {
 				next++
 			}
-			visit(next)
+			visit(next, count)
 			selected = selected[:len(selected)-1]
 		}
 	}
-	visit(0)
+	for count := minCount; count <= pickCount; count++ {
+		visit(0, count)
+	}
 	return out
 }
 

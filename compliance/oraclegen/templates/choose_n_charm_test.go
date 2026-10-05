@@ -9,6 +9,61 @@ import (
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
 
+// Some charms permit fewer than CharmNum$ picks. The minimum must be tried
+// first: requiring all three modes can demand mutually unsatisfiable targets.
+func TestGenerateOptionalChooseNCharmModes(t *testing.T) {
+	reg := oracleHarnessCorpus(t)
+	for _, tc := range []struct {
+		name string
+		max  string
+	}{
+		{"Shifting Grift", "3"},
+		{"Choreographed Sparks", "2"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			card, ok := reg.Lookup(tc.name)
+			if !ok || len(card.Faces) == 0 {
+				t.Fatalf("missing corpus card %s", tc.name)
+			}
+			face := card.Faces[0]
+			var charmFound bool
+			for _, ability := range face.Abilities {
+				if ability.Kind == "SP" && ability.API == "Charm" {
+					charmFound = true
+					if ability.Params["MinCharmNum"] != "1" || ability.Params["CharmNum"] != tc.max {
+						t.Fatalf("corpus pick range changed: %+v", ability.Params)
+					}
+				}
+			}
+			if !charmFound {
+				t.Fatal("corpus no longer has a Charm spell")
+			}
+			combos := oraclegen.CharmCombinations(face)
+			if len(combos) == 0 || len(combos[0].Modes) != 1 {
+				t.Fatalf("first legal combination should select one mode: %+v", combos)
+			}
+			item, skip := Generate(reg, tc.name)
+			if skip != nil {
+				t.Fatalf("Generate: %s", skip.Reason)
+			}
+			var picks []string
+			for _, step := range item.Steps {
+				for _, answer := range step.Answers {
+					if answer.Kind == "modes" {
+						picks = answer.Pick
+					}
+				}
+			}
+			if len(picks) != 1 {
+				t.Fatalf("expected one legal mode pick, got %v", picks)
+			}
+			if _, ok := oraclegen.PlaysThrough(reg, item.Scenario); !ok {
+				t.Fatalf("scenario does not replay: %v", picks)
+			}
+		})
+	}
+}
+
 func TestGenerateChooseNCharmModes(t *testing.T) {
 	reg := oracleHarnessCorpus(t)
 	cases := []struct {
