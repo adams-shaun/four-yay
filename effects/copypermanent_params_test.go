@@ -55,8 +55,12 @@ func TestCompileCopyPermanent(t *testing.T) {
 	}
 	bl := CopyPermanentOf(&cards.SA{API: "CopyPermanent", Params: map[string]string{
 		"DefinedName": "X", "Choices": "Creature", "Chooser": "You"}})
-	if !bl.Blocked || bl.SupportsChoice ||
-		bl.SkippedNote != "CopyPermanent does not implement DefinedName$, Choices$, Chooser$; the copy keeps the original's printed characteristics" {
+	// DefinedName$ is now CONSUMED (the copy is the named card from the
+	// corpus); this shape still blocks because its Choices$/Chooser$ pair is
+	// not the supported Zndrsplt form. The skipped Note therefore no longer
+	// names DefinedName$.
+	if !bl.Blocked || bl.SupportsChoice || bl.DefinedName != "X" ||
+		bl.SkippedNote != "CopyPermanent does not implement Choices$, Chooser$; the copy keeps the original's printed characteristics" {
 		t.Fatalf("blocked shape = %+v", bl)
 	}
 }

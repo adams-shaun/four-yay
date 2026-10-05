@@ -171,8 +171,41 @@ func filterTypeLabels(vocabulary []string, validTypes, invalidTypes string, card
 // TypeChoiceLabels. An empty ValidTypes$ keeps the whole vocabulary; a filter
 // that removes every value fails closed with nil, the caller's documented
 // no-list fallback.
+//
+// Order is the VOCABULARY's, not ValidTypes$'s: the caller's ordering carries
+// meaning (creatureTypeOptions puts the chooser's own battlefield types
+// first), and a filter must not reshuffle the list it filters. That also
+// keeps a chosen answer stable against a pre-fix recording (A Killer Among
+// Us's Goblin stayed first once ValidTypes$ narrowed the 362-type offer).
 func FilterTypeWords(vocabulary []string, validTypes, invalidTypes string) []string {
-	return filterTypeLabels(vocabulary, validTypes, invalidTypes, false)
+	valid := strings.TrimSpace(validTypes)
+	allow := map[string]bool{}
+	if valid != "" {
+		for _, v := range splitTypeList(valid) {
+			allow[strings.ToLower(v)] = true
+		}
+	}
+	invalid := map[string]bool{}
+	for _, v := range splitTypeList(invalidTypes) {
+		invalid[strings.ToLower(v)] = true
+	}
+	out := make([]string, 0, len(vocabulary))
+	seen := map[string]bool{}
+	for _, c := range vocabulary {
+		key := strings.ToLower(c)
+		if invalid[key] || seen[key] {
+			continue
+		}
+		if valid != "" && !allow[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, c)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // splitTypeList splits a comma-separated Forge type list, trimming each

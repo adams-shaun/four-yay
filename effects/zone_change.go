@@ -9,6 +9,22 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+// thisDefinedAndTgtsKindTab maps a ThisDefinedAndTgts$ token to the kind of
+// resolution it needs (the codeshape ratchet's compiled-vocabulary rule: a
+// value set dispatches through a table, never a string case list).
+var thisDefinedAndTgtsKindTab = state.NewStrTable[thisDefinedAndTgtsKind](
+	state.StrEntry[thisDefinedAndTgtsKind]{Key: "TopOfLibrary", Val: thisDefinedAndTgtsTopOfLibrary},
+	state.StrEntry[thisDefinedAndTgtsKind]{Key: "Self", Val: thisDefinedAndTgtsDefined},
+	state.StrEntry[thisDefinedAndTgtsKind]{Key: "ParentTarget", Val: thisDefinedAndTgtsDefined},
+)
+
+type thisDefinedAndTgtsKind int
+
+const (
+	thisDefinedAndTgtsDefined thisDefinedAndTgtsKind = iota
+	thisDefinedAndTgtsTopOfLibrary
+)
+
 // thisDefinedAndTgtsTargets resolves a ChangeZone's ThisDefinedAndTgts$
 // value: the named extra objects Forge adds to the ability's defined/target
 // set. Self and ParentTarget resolve through the shared Defined$ selector
@@ -19,17 +35,21 @@ import (
 func thisDefinedAndTgtsTargets(h Host, c *Ctx, value string) []state.Target {
 	var out []state.Target
 	for _, tok := range strings.FieldsFunc(value, func(r rune) bool { return r == ',' || r == '&' }) {
-		switch strings.TrimSpace(tok) {
-		case "":
+		tok = strings.TrimSpace(tok)
+		if tok == "" {
 			continue
-		case "TopOfLibrary":
+		}
+		kind, ok := thisDefinedAndTgtsKindTab.Get(tok)
+		if !ok {
+			return nil
+		}
+		switch kind {
+		case thisDefinedAndTgtsTopOfLibrary:
 			if lib := h.Game().Zone(state.ZLibrary, c.Controller); len(lib) > 0 {
 				out = append(out, state.Target{Obj: lib[0]})
 			}
-		case "Self", "ParentTarget":
-			out = append(out, DefinedSpec(h, c, strings.TrimSpace(tok))...)
-		default:
-			return nil
+		case thisDefinedAndTgtsDefined:
+			out = append(out, DefinedSpec(h, c, tok)...)
 		}
 	}
 	return out
