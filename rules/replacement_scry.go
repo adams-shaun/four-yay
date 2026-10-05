@@ -51,7 +51,7 @@ func planarDieFaceName(result int32) string {
 // continueExploreReplacements is the events.Explore replacement dispatch.
 // Two event shapes reach it:
 //
-//   - the SYNTHETIC PROPOSAL effects/explore.go's ExploreReplaced hook builds
+//   - the SYNTHETIC PROPOSAL effects/explore.go's ActionReplaced hook builds
 //     (no revealed card yet — IDs empty): this is CR 701.35a's "would
 //     explore" moment, exactly the window CR 614.4 puts replacement
 //     effects in, and a matching replacement's ReplaceWith$ body replaces
@@ -83,8 +83,8 @@ func (e *Engine) continueExploreReplacements(ev events.Event, matches []replMatc
 	return ev, true
 }
 
-// ExploreReplaced is the effects.Host hook effects/explore.go consults before
-// it would process one explorer's explore (CR 614.4: the replacement window
+// ExploreReplaced is a legacy Explore-only wrapper. effects/explore.go now
+// uses ActionReplaced before it would process one explorer's explore (CR 614.4: the replacement window
 // is before the process). It builds the synthetic Explore proposal — Obj the
 // explorer, Player its controller, no revealed card (the replacee never
 // reveals) — and runs it through the ordinary replacement collection and
