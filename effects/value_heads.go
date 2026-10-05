@@ -52,6 +52,7 @@ var modelledValueHeads = []string{
 	"Hellbent",
 	"IfCastInOwnMainPhase",
 	"InOwnMainPhase",
+	"IsPrime",
 	"Kicked",
 	"Landfall",
 	"LeftBattlefieldThisTurn",
