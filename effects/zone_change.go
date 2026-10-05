@@ -122,6 +122,12 @@ func clearChangeZoneImprint(h Host, c *Ctx) {
 // OriginAlternative$ Note. It runs once per resolution: an ask answered in
 // place continues past it and never re-emits it.
 func changeZonePrelude(h Host, c *Ctx, cz *ChangeZoneParams) (to state.Zone, stop bool) {
+	// A remembered-player binding alone is not a remembered destroyed object.
+	// Do not offer an optional search with no graveyard card to supply its
+	// controller (Krenko's Buzzcrusher's RepeatEach/RememberDestroyed chain).
+	if cz.OptionalTrue && cz.DefinedPlayer.Text == "RememberedController" && !hasRememberedGraveyardCard(h.Game(), c.Remembered) {
+		return 0, true
+	}
 	cz.noteUnread(h, c)
 	if exileHostGoneFor(h, c, cz.Riders.Duration) {
 		return 0, true
@@ -150,6 +156,18 @@ func changeZoneDefinedPlayerNote(h Host, c *Ctx, cz *ChangeZoneParams, originZon
 				" is unread next to Defined$ " + cz.Defined +
 				" (the move goes to the named objects alone)"})
 	}
+}
+
+func hasRememberedGraveyardCard(g *state.Game, ts []state.Target) bool {
+	for _, t := range ts {
+		if t.IsPlayer || t.Obj == 0 {
+			continue
+		}
+		if o := g.Obj(t.Obj); o != nil && o.Zone == state.ZGraveyard {
+			return true
+		}
+	}
+	return false
 }
 
 func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
