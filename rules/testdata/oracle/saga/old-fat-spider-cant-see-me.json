@@ -59,7 +59,7 @@
         "714.3c",
         "121.1"
       ],
-      "why": "Chapters III and IV each draw a card. Chapter I resolves on turn 1, chapter II on turn 2, and chapter III on turn 3 draws a card; chapter IV on turn 4 draws another.",
+      "why": "Chapters III and IV each draw a card. The three draw steps on turns 2, 3 and 4 also draw normally; chapter IV sacrifices the Saga after resolving.",
       "setup": {
         "p0": {
           "hand": [
@@ -67,7 +67,8 @@
           ],
           "battlefield": [
             "Grizzly Bears"
-          ]
+          ],
+          "library_top": ["Island", "Mountain", "Forest"]
         }
       },
       "steps": [
@@ -123,15 +124,13 @@
       "expect": [
         {
           "hand_size": {
-            "p0": 2
+            "p0": 5
           }
         },
-        {
-          "card": "p0:Old Fat Spider Can't See Me",
-          "counters": {
-            "lore": 4
-          }
-        }
+        {"card": "p0:Island", "zone": "hand"},
+        {"card": "p0:Mountain", "zone": "hand"},
+        {"card": "p0:Forest", "zone": "hand"},
+        {"card": "p0:Old Fat Spider Can't See Me", "zone": "graveyard"}
       ]
     }
   ]

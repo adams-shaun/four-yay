@@ -217,6 +217,14 @@ func compileChangeZoneAll(sa *cards.SA, tp *TargetParams, dp *DefinedParams) *Ch
 func unreadKeys(sa *cards.SA, known []string) []string {
 	var out []string
 	for k := range sa.Params {
+		// This generic activation-cost permission is consumed before resolution,
+		// not by any particular API. Ignore it only on an activated ability
+		// whose typed activation record actually enables the permission; an
+		// unrelated or malformed use must still be reported as unread.
+		if k == cards.PKTapCreaturesForMana.String() &&
+			ActivationOf(sa).Has(ActTapCreaturesForMana) {
+			continue
+		}
 		if _, ok := slices.BinarySearch(known, k); !ok {
 			out = append(out, k)
 		}
