@@ -209,6 +209,11 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 	if e.splitSecondHolds() {
 		out = e.filterSplitSecondActions(out)
 	}
+	// Mode$ CantPlayLand (CR 305.1): prune every play_land offer whose object
+	// an active prohibition forbids this player from playing from its zone.
+	// Applied here, after every land-play source has populated out, so the
+	// next source added to the walk is covered by construction.
+	out = filterCantPlayLand(e, p, out)
 
 	// Pass is second-to-last. A client that wants to do nothing must choose
 	// it explicitly: from M2d-3 the FINAL option is "concede" (R-M3, always

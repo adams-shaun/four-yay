@@ -652,6 +652,13 @@ func init() {
 		// through; ValidEntity$ selects the target and Activator$ scopes whose
 		// spells benefit. Proof test: rules/ignorehexproof_test.go.
 		"stat:IgnoreHexproof",
+		// CantPlayLand: the CR 305.1 land-play prohibition (Memory Vessel:
+		// `Player$ Player | Origin$ Hand`; 17 more corpus-wide). Read by
+		// Engine.cantPlayLand (rules/cantplayland.go), the ONE predicate every
+		// land-play walk consults -- the hand walk and both may-play-from-zone
+		// walks -- so a prohibition without Origin$ Hand covers every zone.
+		// Proof test: rules/cantplayland_test.go.
+		"stat:CantPlayLand",
 		// TapPowerValue: the Station/Crew/Saddle value static, read by the
 		// ONE value helper Engine.tapPowerValue (rules/statics.go) through
 		// tapPowerValueStatics/activeStatics("TapPowerValue"). Proof tests:
