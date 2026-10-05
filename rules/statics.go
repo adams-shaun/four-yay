@@ -502,6 +502,24 @@ func (e *Engine) verifySpecDerivedSkip(spec string, id state.ObjID, sc effects.S
 	return bound
 }
 
+// noCleanupDamageKeeps reports whether a stat:NoCleanupDamage static selects id
+// (CR 514.2: "Damage isn't removed from this creature during cleanup steps.").
+// Read by the cleanup step's damage-removal pass (rules/combat.go
+// cleanupBody). The static's ValidCard$ (Card.Self on every corpus carrier) is
+// matched through the same spec walk every other static read uses.
+func (e *Engine) noCleanupDamageKeeps(id state.ObjID) bool {
+	for _, sv := range e.activeStatics("NoCleanupDamage") {
+		spec := strings.TrimSpace(sv.ParamStr(cards.PKValidCard))
+		if spec == "" {
+			continue
+		}
+		if e.matchesSpec(spec, id, e.staticSpecCtx(sv)) {
+			return true
+		}
+	}
+	return false
+}
+
 // staticSpecCtx is the SpecContext a staticView's spec match resolves against:
 // its own SVar table when the view carries one (an under-card static), else the
 // source object's top face.
@@ -618,6 +636,12 @@ func init() {
 		// restrictionApplies (rules/layers_restrict.go). Proof test:
 		// rules/mustblock_static_test.go.
 		"stat:MustBlock",
+		// NoCleanupDamage: the CR 514.2 exception "Damage isn't removed from
+		// this creature during cleanup steps." (Ancient Adamantoise). Read by
+		// Engine.noCleanupDamageKeeps (rules/statics.go) and consulted by the
+		// cleanup step's damage-removal pass (rules/combat.go cleanupBody).
+		// Proof test: rules/nocleanupdamage_test.go.
+		"stat:NoCleanupDamage",
 		// asunblk1: the combat-damage assignment election (rules/combat.go
 		// asUnblockedNeeding / damageStep's chosenElection case, CR 509's
 		// optional "assign as though it weren't blocked"). Only the printed

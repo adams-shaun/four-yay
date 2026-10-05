@@ -2419,7 +2419,9 @@ func (e *Engine) cleanupStep() {
 
 // cleanupBody is the CR 514.2 portion of the cleanup step, run exactly once
 // per cleanup step. It removes damage marked on every permanent (combat or
-// otherwise), clears this turn's Deathtouched markers (a deathtouch mark lasts
+// otherwise) EXCEPT one a stat:NoCleanupDamage static selects (CR 514.2's
+// "Damage isn't removed from this creature during cleanup steps.", Ancient
+// Adamantoise; Engine.noCleanupDamageKeeps), clears this turn's Deathtouched markers (a deathtouch mark lasts
 // only as long as the damage it accompanied, CR 702.2c), and drops every
 // "until end of turn" continuous effect the layer system is holding
 // (Engine.EndOfTurnCleanup, layers.go -- built and tested since Task 19c, but
@@ -2435,7 +2437,7 @@ func (e *Engine) cleanupBody() {
 			if o == nil {
 				continue
 			}
-			if o.Damage > 0 {
+			if o.Damage > 0 && !e.noCleanupDamageKeeps(id) {
 				ev := events.Event{Kind: events.Damage, Obj: id, Amount: -o.Damage}
 				if f := o.Face(); e.IsCreature(id) && f != nil && f.IsPlaneswalker() && !f.IsCreature() {
 					ev.Counter = "creature"
