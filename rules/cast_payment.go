@@ -394,6 +394,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		// An empty answer declines: no taps and no paid provenance.
 		for _, o := range chosen {
 			pc.Taps = append(pc.Taps, o.Obj)
+			pc.TeamworkTaps = append(pc.TeamworkTaps, o.Obj)
 		}
 		pc.teamworkPaid = len(chosen) > 0
 	case castAnswerConspire:

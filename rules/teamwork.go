@@ -14,6 +14,15 @@ import (
 
 func init() { effects.RegisterNonAPI("kw:Teamwork", "count:Teamwork") }
 
+func teamworkFlashOffer(w *legalWalk, id state.ObjID, face *cards.Face) {
+	if !w.e.stackKeywordPossibleH(id, kwhTeamwork) || face == nil || !w.e.activationPhasesOK(w.p, face.SpellAbility()) ||
+		!w.e.castWithFlashTargets(w.p, id, w.e.costPotentialTargets(w.p, id, spellScope("")), true) ||
+		!w.e.castTargetsAvailable(w.p, id, face.SpellAbility()) {
+		return
+	}
+	teamworkOffer(w, id, face, w.e.castOfferBase(w.p, id), true)
+}
+
 func teamworkOffer(w *legalWalk, id state.ObjID, face *cards.Face, base Cost, targets bool) {
 	e := w.e
 	if !e.stackKeywordPossibleH(id, kwhTeamwork) || !targets {

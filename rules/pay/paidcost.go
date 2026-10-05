@@ -28,6 +28,9 @@ type PaidCost struct {
 	// Reveals, Beholds, Taps and Blights are the objects the Reveal (and
 	// RevealOrChoose), Behold, tapXType and Blight parts were paid with.
 	Reveals, Beholds, Taps, Blights []state.ObjID `clone:"deep"`
+	// TeamworkTaps is the subset of Taps elected for a spell's Teamwork cost.
+	// Other tap-cost parts retain their ordinary replay payload.
+	TeamworkTaps []state.ObjID `clone:"deep"`
 	// RevealHandArm is parallel to Reveals: true for a hand card the REVEAL
 	// arm announced, false for a permanent the CHOOSE arm of a RevealOrChoose
 	// part elected off the battlefield. Only the true entries are announced
@@ -224,7 +227,14 @@ func EmitChoiceCosts(e Engine, paid *PaidCost, player state.PlayerID, card state
 	// path, not here.)
 	e.Batch(BatchTap, true)
 	for _, id := range paid.Taps {
-		e.Emit(events.Event{Kind: events.Tap, Obj: id, Text: "tapped as a cost"})
+		var reason string
+		for _, teamworkID := range paid.TeamworkTaps {
+			if id == teamworkID {
+				reason = events.TapTeamworkCounter
+				break
+			}
+		}
+		e.Emit(events.Event{Kind: events.Tap, Obj: id, Counter: reason, Text: "tapped as a cost"})
 	}
 	e.Batch(BatchTap, false)
 	// CR 702.122: the creatures that paid a Crew ability's tap cost crewed the
@@ -254,16 +264,20 @@ func EmitChoiceCosts(e Engine, paid *PaidCost, player state.PlayerID, card state
 				IDs: []state.ObjID{card}})
 		}
 	}
-	for i, id := range paid.Blights {
+	EmitBlightCounters(e, paid.Blights, cost, x)
+}
+
+// EmitBlightCounters places the counters for each paid Blight part. Both
+// cast/activation costs and triggered-cost windows use this event-backed
+// settlement so fixed and announced amounts cannot drift.
+func EmitBlightCounters(e Engine, blights []state.ObjID, cost *Cost, x int32) {
+	for i, id := range blights {
 		if i < len(cost.Blight) {
 			n := cost.Blight[i].N
-			// An announced Blight<X> part's count is the announced X, not the
-			// (unused) part.N.
 			if cost.Blight[i].Announced {
 				n = x
 			}
-			e.Emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: "M1M1",
-				Amount: n})
+			e.Emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: "M1M1", Amount: n})
 		}
 	}
 }
