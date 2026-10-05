@@ -568,9 +568,11 @@ const (
 
 // DamageDealtRecord is one positive damage assignment recorded for its source.
 type DamageDealtRecord struct {
-	Recipient ObjID
-	Amount    int32
-	Combat    bool
+	Recipient        ObjID
+	RecipientZone    Zone
+	RecipientControl PlayerID
+	Amount           int32
+	Combat           bool
 }
 
 // Object is any game object: a card in a zone, a permanent, or a spell on the

@@ -36,7 +36,7 @@ func evalDamageHistory(h Host, c *Ctx, g *state.Game, head, arg string) (int32, 
 			if code == evalCountBodyCostNonCombatDamageThisTurn && hit.Combat {
 				continue
 			}
-			if damageRecipientMatches(g, recipientSpec, hit.Recipient, c) {
+			if damageRecipientMatches(g, recipientSpec, hit, c) {
 				total += hit.Amount
 			}
 		}
@@ -66,10 +66,20 @@ func maxCombatDamage(source *state.Object) int32 {
 	return max
 }
 
-func damageRecipientMatches(g *state.Game, spec string, id state.ObjID, c *Ctx) bool {
-	if player, ok := id.PlayerRef(); ok {
+func damageRecipientMatches(g *state.Game, spec string, hit state.DamageDealtRecord, c *Ctx) bool {
+	if player, ok := hit.Recipient.PlayerRef(); ok {
 		return MatchesPlayerSpec(g, spec, player, c.Controller)
 	}
-	o := g.Obj(id)
-	return o != nil && matchesZoneSpecCtx(g, spec, id, c.SpecContext(c.Controller), o.Zone)
+	o := g.Obj(hit.Recipient)
+	if o == nil {
+		return false
+	}
+	// Damage filters describe the recipient when damage was dealt. In
+	// particular, a permanent remains a permanent for this count after lethal
+	// damage moves it to another zone.
+	snapshot := *o
+	snapshot.Zone = hit.RecipientZone
+	snapshot.Controller = hit.RecipientControl
+	sc := c.SpecContext(c.Controller)
+	return matchesObjectPtr(g, spec, &snapshot, &sc)
 }

@@ -229,9 +229,14 @@ func foldDamageProvenance(g *state.Game, e *Event) {
 	}
 	src := e.Obj
 	if o := g.Obj(src); o != nil && e.Amount > 0 {
-		o.DamageDealtThisTurn = append(o.DamageDealtThisTurn, state.DamageDealtRecord{
+		record := state.DamageDealtRecord{
 			Recipient: e.IDs[0], Amount: e.Amount, Combat: e.Text == DamageProvenanceCombat,
-		})
+		}
+		if recipient := g.Obj(e.IDs[0]); recipient != nil {
+			record.RecipientZone = recipient.Zone
+			record.RecipientControl = recipient.Controller
+		}
+		o.DamageDealtThisTurn = append(o.DamageDealtThisTurn, record)
 	}
 	if p, isPlayer := e.IDs[0].PlayerRef(); isPlayer {
 		if !validPlayer(g, p) {
