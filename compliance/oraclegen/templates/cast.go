@@ -24,15 +24,15 @@ func castResolve(reg *cards.Registry, f *cards.Face, name, mana string) (oracleg
 	// A charm is generated mode by mode: the first mode some fixture can
 	// cast, with the mode scripted so both engines take it.
 	type plan struct {
-		slots   []string
+		slots   []oraclegen.Slot
 		answers []oraclegen.Answer
 	}
 	xAns := xAnswers(f)
-	plans := []plan{{slots: oraclegen.TargetSlots(f), answers: xAns}}
+	plans := []plan{{slots: oraclegen.SlotInfos(f), answers: xAns}}
 	if modes := oraclegen.CharmModes(f); len(modes) > 0 {
 		plans = nil
 		for _, m := range modes {
-			plans = append(plans, plan{slots: oraclegen.ChainSlots(f, m.SVar()), answers: append([]oraclegen.Answer{{Kind: "modes", Pick: []string{m.Label()}}}, xAns...)})
+			plans = append(plans, plan{slots: oraclegen.ChainSlotInfos(f, m.SVar()), answers: append([]oraclegen.Answer{{Kind: "modes", Pick: []string{m.Label()}}}, xAns...)})
 		}
 	}
 	for _, m := range []string{mana, mana + "C", mana + "CC", mana + "CCC"} {
@@ -42,14 +42,14 @@ func castResolve(reg *cards.Registry, f *cards.Face, name, mana string) (oracleg
 			}
 		}
 	}
-	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: fmt.Sprintf("no fixture gorge can cast (targets %v)", plans[0].slots)}
+	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: fmt.Sprintf("no fixture gorge can cast (targets %v)", oraclegen.TargetSlots(f))}
 }
 
 // castWith tries every fixture for one target plan. A slot that targets the
 // stack needs a spell on the stack to point at, so such a plan also casts a
 // precast spell first (CR 117.3c: the caster keeps priority and responds),
 // exactly as the counter template does.
-func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []string, answers []oraclegen.Answer) (oraclegen.Item, bool) {
+func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []oraclegen.Slot, answers []oraclegen.Answer) (oraclegen.Item, bool) {
 	// Extras satisfy casting conditions the target fixture does not: a
 	// threshold graveyard, a creature of your own to sacrifice for a cost.
 	extras := []func(*oraclegen.Fixture){
@@ -63,13 +63,13 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 		// stack by then, so the discard needs a second card.
 		func(fx *oraclegen.Fixture) { fx.P0().Hand = append(fx.P0().Hand, "Forest") },
 	}
-	stackIdx := stackSlotIndexes(slots)
-	plain := nonStackSlots(slots)
+	stackIdx := stackSlotIndexes(slotFilters(slots))
+	plain := nonStackSlotInfos(slots)
 	pres := []precast{{}}
 	if len(stackIdx) > 0 {
 		pres = nil
 		for _, p := range precasts {
-			if precastFitsSlots(slots, stackIdx, p) {
+			if precastFitsSlots(slotFilters(slots), stackIdx, p) {
 				pres = append(pres, p)
 			}
 		}
@@ -110,19 +110,33 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 // buildStackScenario builds the scenario for one fixture: the precast spell
 // (if any) is cast first, then the card under test with its targets placed in
 // slot order (a stack slot points at the precast spell on the stack).
-func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oraclegen.Fixture, slots []string, stackIdx []int, answers []oraclegen.Answer) oraclegen.Scenario {
-	targets := insertStackTargets(slots, stackIdx, fx.Targets(), pre)
-	for _, slot := range slots {
+func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oraclegen.Fixture, slots []oraclegen.Slot, stackIdx []int, answers []oraclegen.Answer) oraclegen.Scenario {
+	filters := slotFilters(slots)
+	targets := insertStackTargets(filters, stackIdx, fx.Targets(), pre)
+	for _, slot := range filters {
 		// A ".tapped" target slot (Push // Pull) needs its fixture tapped.
 		if strings.Contains(strings.ToLower(slot), ".tapped") {
 			fx.P1().Tapped = append(fx.P1().Tapped, fx.P1().Battlefield...)
 			break
 		}
 	}
+	// Attach the per-slot groups only when the driver needs them: a
+	// multi-slot cast, or a slot short of its max. An ordinary single-slot
+	// cast leaves the field off, preserving its existing wire bytes.
+	groups := fx.TargetGroups()
+	needsGroups := len(groups) > 1
+	for _, group := range groups {
+		if group.Max > 0 && len(group.Picks) < group.Max {
+			needsGroups = true
+		}
+	}
+	if !needsGroups {
+		groups = nil
+	}
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": *fx.P0(), "p1": *fx.P1()},
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),
-		Steps:        []oraclegen.Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: targets, Answers: answers}},
+		Steps:        []oraclegen.Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: targets, TargetGroups: groups, Answers: answers}},
 	}
 	sc.Setup["p0"] = oraclegen.WithHand(sc.Setup["p0"], name)
 	if pre.card != "" {
@@ -132,6 +146,16 @@ func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oracle
 	}
 	oraclegen.Baseline(sc.Setup, f)
 	return sc
+}
+
+// slotFilters projects the target slots to their filters, in slot order, for
+// the stack-detection and target-placement helpers.
+func slotFilters(slots []oraclegen.Slot) []string {
+	out := make([]string, 0, len(slots))
+	for _, s := range slots {
+		out = append(out, s.Filter())
+	}
+	return out
 }
 
 // stackSlotIndexes lists the positions in slots that draw from the stack.
@@ -150,6 +174,18 @@ func nonStackSlots(slots []string) []string {
 	var out []string
 	for _, s := range slots {
 		if !oraclegen.SlotIsStack(s) {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// nonStackSlotInfos keeps every target slot that does not draw from the stack,
+// so its fixtures are built for the ordinary (non-stack) slots only.
+func nonStackSlotInfos(slots []oraclegen.Slot) []oraclegen.Slot {
+	var out []oraclegen.Slot
+	for _, s := range slots {
+		if !oraclegen.SlotIsStack(s.Filter()) {
 			out = append(out, s)
 		}
 	}

@@ -111,8 +111,8 @@ func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre prec
 	// precast supplies. Any later slot (Sokka's Haiku's "untap target land"
 	// after the draw and mill) needs its own fixture; without it the cast is
 	// offered but the follow-up target ask goes unanswered.
-	slots := oraclegen.TargetSlots(f)
-	var extra []string
+	slots := oraclegen.SlotInfos(f)
+	var extra []oraclegen.Slot
 	if len(slots) > 1 {
 		extra = slots[1:]
 	}

@@ -24,20 +24,47 @@ func (m CharmMode) SVar() string { return m.svar }
 // Fixture is one target fixture: both seats' setup and the cast's targets.
 type Fixture = fixture
 
-// P0 and P1 are the fixture's seats; Targets the cast's target refs.
+// P0 and P1 are the fixture's seats; Targets the cast's target refs;
+// TargetGroups the per-slot target shape.
 func (fx *Fixture) P0() *Seat        { return &fx.p0 }
 func (fx *Fixture) P1() *Seat        { return &fx.p1 }
 func (fx Fixture) Targets() []string { return fx.targets }
 
+// TargetGroups is one TargetGroup per slot, in slot order: the refs the
+// fixture picked from that slot and the slot's cap.
+func (fx Fixture) TargetGroups() []TargetGroup { return fx.groups }
+
 // Fixtures is the capped cross product of every target slot's candidates.
-func Fixtures(slots []string) []Fixture { return fixtures(slots) }
+func Fixtures(slots []Slot) []Fixture { return fixtures(slots) }
 
 // PoolFor turns a Forge mana cost into the exact pool letters that pay it,
 // or says why it cannot.
 func PoolFor(cost string) (string, string) { return poolFor(cost) }
 
+// Slot is one ValidTgts$ target slot: its filter and its TargetMax$.
+type Slot = slot
+
+// Filter is the slot's ValidTgts$ filter (with its "@zone" suffix).
+func (s Slot) Filter() string { return s.filter }
+
+// Max is the slot's TargetMax$ (0 means unlimited).
+func (s Slot) Max() int { return s.max }
+
+// SlotInfos returns the card's spell-ability target slots with their caps.
+func SlotInfos(f *cards.Face) []Slot { return targetSlots(f) }
+
 // TargetSlots lists the ValidTgts$ filters along the spell ability chain.
-func TargetSlots(f *cards.Face) []string { return targetSlots(f) }
+func TargetSlots(f *cards.Face) []string {
+	ss := targetSlots(f)
+	out := make([]string, 0, len(ss))
+	for _, s := range ss {
+		out = append(out, s.filter)
+	}
+	return out
+}
+
+// ChainSlotInfos returns one SVar chain's target slots with their caps.
+func ChainSlotInfos(f *cards.Face, svar string) []Slot { return chainSlots(f, svar) }
 
 // OpeningHandAnswers declines a K:MayEffectFromOpeningHand ask, so a
 // generated scenario casts the card from hand rather than starting it on the
@@ -48,7 +75,14 @@ func OpeningHandAnswers(f *cards.Face) []Answer { return openingHandAnswers(f) }
 func CharmModes(f *cards.Face) []CharmMode { return charmModes(f) }
 
 // ChainSlots lists the target filters along one SVar ability chain.
-func ChainSlots(f *cards.Face, svar string) []string { return chainSlots(f, svar) }
+func ChainSlots(f *cards.Face, svar string) []string {
+	ss := chainSlots(f, svar)
+	out := make([]string, 0, len(ss))
+	for _, s := range ss {
+		out = append(out, s.filter)
+	}
+	return out
+}
 
 // AbilityTargetsStack reports whether an ability's target vocabulary names a
 // spell or ability on the stack.

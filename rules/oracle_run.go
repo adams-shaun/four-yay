@@ -81,25 +81,38 @@ type oracleSeat struct {
 }
 
 type oracleStep struct {
-	Op        string         `json:"op"`
-	Seat      int            `json:"seat"`
-	Card      string         `json:"card,omitempty"`
-	Mana      string         `json:"mana,omitempty"`
-	Targets   []string       `json:"targets,omitempty"`
-	Kicked    bool           `json:"kicked,omitempty"`
-	CastMode  string         `json:"cast_mode,omitempty"`
-	Ability   string         `json:"ability,omitempty"`
-	Attackers []string       `json:"attackers,omitempty"`
-	Defender  string         `json:"defender,omitempty"`
-	Blocks    [][2]string    `json:"blocks,omitempty"`
-	Step      string         `json:"step,omitempty"`
-	Active    string         `json:"active,omitempty"`
-	Decision  string         `json:"decision,omitempty"`
-	To        string         `json:"to,omitempty"`
-	Amount    int32          `json:"amount,omitempty"`
-	Answers   []oracleAnswer `json:"answers,omitempty"`
-	Observe   *oracleObserve `json:"observe,omitempty"`
-	Expect    []oracleExpect `json:"expect,omitempty"`
+	Op      string   `json:"op"`
+	Seat    int      `json:"seat"`
+	Card    string   `json:"card,omitempty"`
+	Mana    string   `json:"mana,omitempty"`
+	Targets []string `json:"targets,omitempty"`
+	// TargetGroups mirrors oraclegen.TargetGroup: the per-slot target
+	// shape the XMage driver consumes (one group per ValidTgts$ slot, its
+	// picks and its cap). The runner selects targets from Targets and
+	// ignores the groups, but decodeOracleScenario rejects unknown fields,
+	// so the field must be accepted here for a generated cast to decode.
+	TargetGroups []oracleTargetGroup `json:"target_groups,omitempty"`
+	Kicked       bool                `json:"kicked,omitempty"`
+	CastMode     string              `json:"cast_mode,omitempty"`
+	Ability      string              `json:"ability,omitempty"`
+	Attackers    []string            `json:"attackers,omitempty"`
+	Defender     string              `json:"defender,omitempty"`
+	Blocks       [][2]string         `json:"blocks,omitempty"`
+	Step         string              `json:"step,omitempty"`
+	Active       string              `json:"active,omitempty"`
+	Decision     string              `json:"decision,omitempty"`
+	To           string              `json:"to,omitempty"`
+	Amount       int32               `json:"amount,omitempty"`
+	Answers      []oracleAnswer      `json:"answers,omitempty"`
+	Observe      *oracleObserve      `json:"observe,omitempty"`
+	Expect       []oracleExpect      `json:"expect,omitempty"`
+}
+
+// oracleTargetGroup is oraclegen.TargetGroup on the wire: one target slot's
+// chosen refs and its TargetMax$ cap.
+type oracleTargetGroup struct {
+	Picks []string `json:"picks,omitempty"`
+	Max   int      `json:"max"`
 }
 
 type oracleObserve struct {

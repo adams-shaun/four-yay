@@ -45,7 +45,24 @@ type Step struct {
 	Card    string   `json:"card,omitempty"`
 	Mana    string   `json:"mana,omitempty"`
 	Targets []string `json:"targets,omitempty"`
-	Answers []Answer `json:"answers,omitempty"`
+	// TargetGroups is the per-slot target shape for a multi-target cast:
+	// one group per ValidTgts$ slot in the order the cast asks for them,
+	// each carrying the refs this scenario picked and the slot's max
+	// (TargetMax$, at least the number of picks). XMage consumes a fixed
+	// and optional target list positionally, so the driver can only close
+	// an "up to N" slot from the group it belongs to -- Targets alone
+	// cannot say which decision a TARGET_SKIP terminates. Gorge's runner
+	// ignores the field (it reads Targets).
+	TargetGroups []TargetGroup `json:"target_groups,omitempty"`
+	Answers      []Answer      `json:"answers,omitempty"`
+}
+
+// TargetGroup is one slot's chosen targets and its cap: Picks are the refs
+// this scenario answers, Max the slot's TargetMax$ (0 means unlimited, a
+// group that is never short). Picks may be empty when a slot's minimum is 0.
+type TargetGroup struct {
+	Picks []string `json:"picks,omitempty"`
+	Max   int      `json:"max"`
 }
 
 // Answer is a queued answer for gorge's runner (kind = decision kind).
@@ -164,16 +181,35 @@ func charmModes(f *cards.Face) []charmMode {
 	return nil
 }
 
-// chainSlots lists the target filters along one SVar ability chain.
-func chainSlots(f *cards.Face, svar string) []string {
-	var out []string
+// slot is one ValidTgts$ target slot: its filter (with a "@zone" suffix)
+// and its TargetMin$/TargetMax$ as written (0 for absent).
+type slot struct {
+	filter string
+	min    int
+	max    int
+}
+
+// parseSlotMax reads a TargetMax$ value for the group cap. An absent or
+// non-numeric value ("any", an SVar reference) means unlimited, which a
+// one-pick group never makes short, so the driver never needs a skip.
+func parseSlotMax(s string) int {
+	n, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
+}
+
+// chainSlots lists the target slots along one SVar ability chain.
+func chainSlots(f *cards.Face, svar string) []slot {
+	var out []slot
 	for name := svar; name != ""; {
 		params := svarParams(f.SVars[name])
 		if v := params["ValidTgts"]; v != "" {
 			if z := targetZone(params, true); z != "" && !playerTargetHead(v) {
 				v += "@" + z
 			}
-			out = append(out, v)
+			out = append(out, slot{filter: v, min: parseSlotMax(params["TargetMin"]), max: parseSlotMax(params["TargetMax"])})
 		}
 		name = params["SubAbility"]
 	}
@@ -518,6 +554,22 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 			}
 			as = append(as, XAnswer{d.Seat, "choice", map[bool]string{true: "yes", false: "no"}[yes]})
 		case "choose_n":
+			if d.Resume == "damage_split" {
+				// Divided damage: the engine's split ask repeats one option index
+				// per damage assigned (Fury, Forked Bolt, Twin Bolt). XMage's
+				// chooseTargetAmount consumes one "<ref>^X=<share>" per chosen
+				// target on the target queue, not makeChoose choices.
+				as = damageSplitAnswers(d)
+				break
+			}
+			if d.Resume == "mana_color" && d.Min == d.Max && d.Max > 1 {
+				// A multi-amount allocation (Combo Any, Desolation of Smaug):
+				// one unit per picked option, options laid out unit*5+colour
+				// over WUBRG. XMage poses one multi-amount message per colour
+				// and needs every one filled, zeroes included.
+				as = manaAllocationAnswers(d)
+				break
+			}
 			if payment(d.Picks) {
 				// Hybrid/phyrexian halves are payment UI; XMage pays from
 				// the pool without asking.
@@ -808,6 +860,80 @@ func modeNumbers(f *cards.Face) map[string]int {
 	return out
 }
 
+// damageSplitAnswers turns a "damage_split" KChoose into one target answer
+// per chosen target, its Value the ref plus "^X=<share>". The engine's split
+// answer is a multiset over option indexes: a target receiving k damage has
+// its index repeated k times, and PickIdx/Picks/PickRefs are parallel. Targets
+// are emitted in first-appearance order of the option index, exactly as the
+// engine assigns them.
+func damageSplitAnswers(d rules.OracleDecision) []XAnswer {
+	share := map[int]int{}
+	var order []int
+	for _, i := range d.PickIdx {
+		if _, seen := share[i]; !seen {
+			order = append(order, i)
+		}
+		share[i]++
+	}
+	ref := map[int]string{}
+	for k, i := range d.PickIdx {
+		if k < len(d.PickRefs) {
+			ref[i] = d.PickRefs[k]
+		}
+	}
+	as := make([]XAnswer, 0, len(order))
+	for _, i := range order {
+		name := ref[i]
+		if name == "" {
+			// A snapshot without refs: fall back to the option label, which
+			// for a damage-split permanent is the card name.
+			if i < len(d.Picks) {
+				name = d.Picks[i]
+			}
+		}
+		if !isSeat(name) {
+			name = oraclediffRefName(name)
+		}
+		as = append(as, XAnswer{d.Seat, "target", name + "^X=" + strconv.Itoa(share[i])})
+	}
+	return as
+}
+
+// manaAllocationAnswers turns a "mana_color" allocation (Min==Max>1) into one
+// amount answer per WUBRG colour, zeroes included: XMage's
+// getMultiAmountWithIndividualConstraints iterates the effect's manaSymbols in
+// ColoredManaSymbol order and requires an "X=<n>" for each. A pick's colour is
+// its option label ("Add W", the authority), falling back to its index mod 5
+// (the effects/mana_effect.go layout: unit*5 + colourIndex).
+func manaAllocationAnswers(d rules.OracleDecision) []XAnswer {
+	counts := map[byte]int{}
+	for k := range d.Picks {
+		if code, ok := allocationColour(d, k); ok {
+			counts[code]++
+		}
+	}
+	as := make([]XAnswer, 0, 5)
+	for _, code := range "WUBRG" {
+		as = append(as, XAnswer{d.Seat, "amount", strconv.Itoa(counts[byte(code)])})
+	}
+	return as
+}
+
+// allocationColour names the WUBRG colour one picked option allocates.
+func allocationColour(d rules.OracleDecision, k int) (byte, bool) {
+	if k < len(d.Picks) {
+		if label := d.Picks[k]; strings.HasPrefix(label, "Add ") && len(label) == 5 {
+			if strings.IndexByte("WUBRG", label[4]) >= 0 {
+				return label[4], true
+			}
+		}
+	}
+	if k < len(d.PickIdx) {
+		return "WUBRG"[d.PickIdx[k]%5], true
+	}
+	return 0, false
+}
+
 // yesNo recognises a bare two-way boolean choice. The engine's option kind
 // and exact label/ref identity must both agree; composed choices such as
 // "Yes — discard" are ordinary makeChoose picks, not boolean answers. Older
@@ -1051,10 +1177,10 @@ func openingHandAnswers(f *cards.Face) []Answer {
 	return nil
 }
 
-// targetSlots lists the ValidTgts$ filters along the card's spell ability
-// chain (permanent spells have none), in the order the cast asks for them.
-func targetSlots(f *cards.Face) []string {
-	var out []string
+// targetSlots lists the target slots along the card's spell ability chain
+// (permanent spells have none), in the order the cast asks for them.
+func targetSlots(f *cards.Face) []slot {
+	var out []slot
 	add := func(params map[string]string) {
 		v := params["ValidTgts"]
 		if v == "" {
@@ -1063,7 +1189,7 @@ func targetSlots(f *cards.Face) []string {
 		if z := targetZone(params, false); z != "" && !playerTargetHead(v) {
 			v += "@" + z
 		}
-		out = append(out, v)
+		out = append(out, slot{filter: v, min: parseSlotMax(params["TargetMin"]), max: parseSlotMax(params["TargetMax"])})
 	}
 	for _, sa := range f.Abilities {
 		if sa.Kind != "SP" {
@@ -1095,7 +1221,7 @@ func targetSlots(f *cards.Face) []string {
 // the first unsatisfiable slot, for the census. This is a static scan -- it
 // runs no game -- so the census ratchet can scan the whole corpus.
 func FaceHasFixture(f *cards.Face) (bool, string) {
-	plans := [][]string{targetSlots(f)}
+	plans := [][]slot{targetSlots(f)}
 	if modes := charmModes(f); len(modes) > 0 {
 		plans = nil
 		for _, m := range modes {
@@ -1104,11 +1230,11 @@ func FaceHasFixture(f *cards.Face) (bool, string) {
 	}
 	for _, slots := range plans {
 		for _, s := range slots {
-			if SlotIsStack(s) {
+			if SlotIsStack(s.filter) {
 				continue
 			}
-			if len(candidatesFor(s)) == 0 {
-				return false, s
+			if len(candidatesFor(s.filter)) == 0 {
+				return false, s.filter
 			}
 		}
 	}
@@ -1131,6 +1257,11 @@ func svarParams(body string) map[string]string {
 type fixture struct {
 	p0, p1  Seat
 	targets []string
+	// groups is one TargetGroup per slot, in slot order: the refs this
+	// fixture picked from that slot and the slot's max. A group whose
+	// len(Picks) < max is short, so XMage must be told to stop offering
+	// that slot's further picks before the cast reaches the next slot.
+	groups []TargetGroup
 }
 
 // candidates for one target filter, most generic first. Each puts the
@@ -1217,20 +1348,29 @@ func zoneCandidates(filter, zone string) []cand {
 	return out
 }
 
-// fixtures is the cross product of every slot's candidates, capped.
-func fixtures(slots []string) []fixture {
+// fixtures is the cross product of every slot's candidates, capped. One
+// target is picked per slot (a short group when the slot's max is larger),
+// and each fixture carries the per-slot TargetGroups the XMage driver needs
+// to place a TARGET_SKIP inside the right decision.
+func fixtures(slots []slot) []fixture {
 	out := []fixture{{}}
-	for _, s := range slots {
-		cs := candidatesFor(s)
+	for si, s := range slots {
+		cs := candidatesFor(s.filter)
 		if len(cs) == 0 {
 			return nil
 		}
 		var next []fixture
 		for _, fx := range out {
 			for _, c := range cs {
-				n := fixture{p0: clone(fx.p0), p1: clone(fx.p1), targets: append([]string(nil), fx.targets...)}
+				n := fixture{p0: clone(fx.p0), p1: clone(fx.p1), targets: append([]string(nil), fx.targets...),
+					groups: append([]TargetGroup(nil), fx.groups...)}
+				for len(n.groups) <= si {
+					n.groups = append(n.groups, TargetGroup{Max: 0})
+				}
+				n.groups[si].Max = s.max
 				if c.card == "" {
 					n.targets = append(n.targets, c.seat)
+					n.groups[si].Picks = append(n.groups[si].Picks, c.seat)
 				} else {
 					s := &n.p1
 					if c.seat == "p0" {
@@ -1257,6 +1397,7 @@ func fixtures(slots []string) []fixture {
 						ref = fmt.Sprintf("%s#%d", ref, count+1)
 					}
 					n.targets = append(n.targets, ref)
+					n.groups[si].Picks = append(n.groups[si].Picks, ref)
 				}
 				next = append(next, n)
 				if len(next) >= 24 {
