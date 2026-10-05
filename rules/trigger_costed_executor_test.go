@@ -48,6 +48,23 @@ func costedEnergyPayDecline(d *decision.Decision) (pay, decline int) {
 	return pay, decline
 }
 
+// answerRocPlacementChainAsk answers Aetherstorm Roc's chained `DB$ Tap |
+// TargetMin$ 0` announcement, which CR 603.3d poses as each attacking Roc's
+// trigger is put on the stack (KTarget, ResumeKind "trig_sub") rather than
+// mid-resolution. The link is optional, so the test declines it; the costed
+// body this file is about then resolves and opens the pay/decline window.
+func answerRocPlacementChainAsk(t *testing.T, e *Engine) {
+	t.Helper()
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KTarget || d.ResumeKind != "trig_sub" {
+		t.Fatalf("expected the Roc's placement chain ask, got %+v", d)
+	}
+	if d.Min != 0 {
+		t.Fatalf("the optional DB$ Tap link reports Min %d, want 0 so the test can decline", d.Min)
+	}
+	submitChoices(t, e)
+}
+
 // drainCostedStack drains the stack after a paid body, answering any
 // mid-resolution target ask with its empty answer when the ask permits one
 // (Aetherstorm Roc's chained `DB$ Tap | TargetMin$ 0` is the carrier: after
@@ -178,7 +195,7 @@ func TestAetherstormRocAttackPaysEnergyAndAddsCounter(t *testing.T) {
 	e.emit(events.Event{Kind: events.PlayerCounterChange, Player: 0, Counter: "ENERGY", Amount: 2})
 	e.emit(events.Event{Kind: events.DeclareAttackers, Player: 0, IDs: []state.ObjID{roc}})
 	e.putTriggersOnStack()
-	e.resolveTop()
+	answerRocPlacementChainAsk(t, e)
 
 	d := costedEnergyWindow(t, e)
 	pay, _ := costedEnergyPayDecline(d)
@@ -208,7 +225,7 @@ func TestAetherstormRocAttackDeclineKeepsEnergyAndCounter(t *testing.T) {
 	e.emit(events.Event{Kind: events.PlayerCounterChange, Player: 0, Counter: "ENERGY", Amount: 2})
 	e.emit(events.Event{Kind: events.DeclareAttackers, Player: 0, IDs: []state.ObjID{roc}})
 	e.putTriggersOnStack()
-	e.resolveTop()
+	answerRocPlacementChainAsk(t, e)
 
 	d := costedEnergyWindow(t, e)
 	_, decline := costedEnergyPayDecline(d)

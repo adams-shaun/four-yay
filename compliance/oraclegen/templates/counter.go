@@ -107,20 +107,35 @@ func counterSpell(reg *cards.Registry, f *cards.Face, name, mana string) (oracle
 }
 
 func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre precast, answers []oraclegen.Answer) (oraclegen.Item, bool) {
-	sc := oraclegen.Scenario{
-		Setup: map[string]oraclegen.Seat{"p0": {Hand: []string{name, pre.card}}, "p1": {}},
-		Steps: []oraclegen.Step{
-			{Op: "cast", Seat: 0, Card: "p0:" + pre.card, Mana: pre.mana, Targets: pre.targets},
-			{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: []string{"p0:" + pre.card}, Answers: answers},
-			{Op: "resolve"},
-		},
+	// The first target slot is the spell the counter targets, which the
+	// precast supplies. Any later slot (Sokka's Haiku's "untap target land"
+	// after the draw and mill) needs its own fixture; without it the cast is
+	// offered but the follow-up target ask goes unanswered.
+	slots := oraclegen.TargetSlots(f)
+	var extra []string
+	if len(slots) > 1 {
+		extra = slots[1:]
 	}
-	oraclegen.Baseline(sc.Setup, f)
-	res, ok := oraclegen.PlaysThrough(reg, sc)
-	if !ok {
-		return oraclegen.Item{}, false
+	for _, fx := range oraclegen.Fixtures(extra) {
+		p0 := *fx.P0()
+		p0.Hand = append([]string{name, pre.card}, p0.Hand...)
+		sc := oraclegen.Scenario{
+			Setup: map[string]oraclegen.Seat{"p0": p0, "p1": *fx.P1()},
+			Steps: []oraclegen.Step{
+				{Op: "cast", Seat: 0, Card: "p0:" + pre.card, Mana: pre.mana, Targets: pre.targets},
+				{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana,
+					Targets: append([]string{"p0:" + pre.card}, fx.Targets()...), Answers: answers},
+				{Op: "resolve"},
+			},
+		}
+		oraclegen.Baseline(sc.Setup, f)
+		res, ok := oraclegen.PlaysThrough(reg, sc)
+		if !ok {
+			continue
+		}
+		it := CounterSpell.item(name, sc)
+		it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f))
+		return it, true
 	}
-	it := CounterSpell.item(name, sc)
-	it.XAnswers = oraclegen.XAnswers(res.Decisions, len(sc.Steps), oraclegen.ModeNumbers(f))
-	return it, true
+	return oraclegen.Item{}, false
 }

@@ -54,11 +54,18 @@ type oracleScenario struct {
 	SetupAnswers []oracleAnswer `json:"setup_answers,omitempty"`
 	Steps        []oracleStep   `json:"steps"`
 	Expect       []oracleExpect `json:"expect"`
+	// xmageFixture marks a generated compliance scenario
+	// (RunOracleScenarioJSON): XMage's fixture puts the setup battlefield
+	// into play during turn 1, so those cards count as having entered this
+	// turn. A hand-authored Oracle scenario keeps them present from before
+	// the turn (rules/testdata/oracle). Never decoded from JSON.
+	xmageFixture bool
 }
 
 type oracleSeat struct {
 	Hand        []string `json:"hand,omitempty"`
 	Battlefield []string `json:"battlefield,omitempty"`
+	Tapped      []string `json:"tapped,omitempty"`
 	Graveyard   []string `json:"graveyard,omitempty"`
 	Library     []string `json:"library,omitempty"`
 	Exile       []string `json:"exile,omitempty"`
@@ -235,6 +242,28 @@ func (r *oracleRun) objName(o *state.Object) string {
 	return o.Face().Name
 }
 
+// fieldName is the name the snapshot reports for a permanent. A face-down
+// battlefield permanent has no name (CR 708.2a), so it reports the empty
+// string, exactly as the XMage driver's perm.getName() does. Otherwise a
+// battlefield object wears its layer-3 name (a SetName$ effect, CR 613.1b),
+// which may differ from its printed face name (Honest Work's Humble
+// Merchant). Every other zone names the printed face, since a continuous
+// effect only applies on the battlefield.
+func (r *oracleRun) fieldName(o *state.Object) string {
+	if o == nil || o.Face() == nil {
+		return ""
+	}
+	if o.Zone == state.ZBattlefield {
+		if o.FaceDown {
+			return ""
+		}
+		if n := r.e.Derived(o.ID).Name; n != "" {
+			return n
+		}
+	}
+	return o.Face().Name
+}
+
 // resolve maps a card ref to an object id: setup-bound refs first (a card
 // keeps its ObjID across zones), then the k-th matching object in id order.
 func (r *oracleRun) resolve(ref string) (state.ObjID, error) {
@@ -294,6 +323,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 	sideboards := make([][]*cards.Card, seats)
 	commanders := make([][]int, seats)
 	places := make([][]placement, seats)
+	var setupBattlefield []state.ObjID
 	for key := range sc.Setup {
 		if p, ok := parseSeatRef(key); !ok || int(p) >= seats {
 			return harnessf("setup key %q (want p0 or p1)", key)
@@ -375,7 +405,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 					continue
 				}
 				for _, cand := range e.G.Zone(z, pid) {
-					if o := e.G.Obj(cand); !bound[cand] && r.objName(o) == pl.name {
+					if o := e.G.Obj(cand); !bound[cand] && cards.NormalizeName(r.objName(o)) == cards.NormalizeName(pl.name) {
 						id = cand
 						break
 					}
@@ -397,6 +427,15 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			if from := e.G.Obj(id).Zone; from != pl.zone {
 				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: from, To: pl.zone})
 			}
+			if pl.zone == state.ZBattlefield {
+				setupBattlefield = append(setupBattlefield, id)
+			}
+			for _, tapped := range sc.Setup[fmt.Sprintf("p%d", p)].Tapped {
+				if cards.NormalizeName(tapped) == cards.NormalizeName(pl.name) {
+					e.emit(events.Event{Kind: events.Tap, Obj: id})
+					break
+				}
+			}
 			if pl.top {
 				tops = append(tops, id)
 			}
@@ -406,7 +445,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		for _, n := range sc.Setup[fmt.Sprintf("p%d", p)].Sideboard {
 			var id state.ObjID
 			for _, cand := range e.G.Zone(state.ZSideboard, pid) {
-				if o := e.G.Obj(cand); !bound[cand] && r.objName(o) == n {
+				if o := e.G.Obj(cand); !bound[cand] && cards.NormalizeName(r.objName(o)) == cards.NormalizeName(n) {
 					id = cand
 					break
 				}
@@ -443,6 +482,14 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		}
 	}
 	e.Advance()
+	// TurnChange cleared the pre-turn placement history. XMage's seeded
+	// battlefield counts as entered on turn 1; log that provenance explicitly
+	// without a second zone move or an artificial enter-the-battlefield trigger.
+	if sc.xmageFixture {
+		for _, id := range setupBattlefield {
+			e.emit(events.Event{Kind: events.SetupEntered, Obj: id})
+		}
+	}
 	r.answers = append([]oracleAnswer(nil), sc.SetupAnswers...)
 	// Drive to seat 0's first main phase. Triggers that setup placements
 	// caused resolve here under the fallback answers; the transcript names
@@ -482,7 +529,7 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 	r.logf("  [%s] p%d %s -> %q", why, d.Player, d.Kind, labels)
 	if kind, ok := oracleDecisionKind(d.Kind); ok {
 		od := OracleDecision{Step: r.step, Seat: int(d.Player), Kind: kind, Options: len(d.Options), Picks: labels,
-			PickIdx: append([]int{}, choices...), PickRefs: []string{}, Via: why, GorgeKind: string(d.Kind), Min: d.Min, Max: d.Max}
+			PickIdx: append([]int{}, choices...), PickRefs: []string{}, Via: why, GorgeKind: string(d.Kind), Resume: d.ResumeKind, Min: d.Min, Max: d.Max}
 		if len(d.Options) > 0 {
 			od.First = d.Options[0].Label
 		}
@@ -490,7 +537,9 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 			if c < 0 || c >= len(d.Options) {
 				continue
 			}
-			switch o := d.Options[c]; {
+			o := d.Options[c]
+			od.PickKinds = append(od.PickKinds, o.Kind)
+			switch {
 			case o.Obj != 0:
 				od.PickRefs = append(od.PickRefs, r.objRef(r.e.G.Obj(o.Obj)))
 			case strings.Contains(o.Kind, "player"):

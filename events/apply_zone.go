@@ -254,6 +254,15 @@ func foldMoveZone(g *state.Game, e *Event) {
 			// castable because its PreparedSource no longer answers true.
 			o.Prepared = false
 		}
+		// The prepared exile copy's cessation exemption is linked to this
+		// battlefield permanent. Once it leaves, retire that provenance in
+		// the same replayed zone-change fold so the orphaned copy ceases.
+		for i := range g.Objs {
+			cp := &g.Objs[i]
+			if cp.IsCopy && cp.PreparedSource == e.Obj {
+				cp.PreparedSource = 0
+			}
+		}
 	}
 }
 

@@ -1,0 +1,108 @@
+{
+  "card": "Silvan Reveler",
+  "family": "etb-ltb",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "0bb3551b68a5",
+  "scenarios": [
+    {
+      "name": "etb-draw-discard-land-onto-battlefield-tapped",
+      "cr": [
+        "603.2",
+        "701.8a",
+        "614.1"
+      ],
+      "why": "The ETB draws a card then discards a card; discarding a land card puts it from the graveyard onto the battlefield tapped.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Silvan Reveler",
+            "Forest"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Silvan Reveler",
+          "mana": "CCGU"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "p0:Forest"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Forest",
+          "zone": "battlefield",
+          "tapped": true
+        },
+        {
+          "card": "p0:Silvan Reveler",
+          "zone": "battlefield"
+        },
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "landfall-returns-from-graveyard-for-one-green-blue",
+      "cr": [
+        "603.2",
+        "605.3a",
+        "701.8a"
+      ],
+      "why": "Landfall: whenever a land you control enters you may pay {1}{G}{U} to return this card from its graveyard to your hand.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Forest"
+          ],
+          "graveyard": [
+            "Silvan Reveler"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "CGU"
+        },
+        {
+          "op": "play",
+          "seat": 0,
+          "card": "p0:Forest"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Pay 1 U G"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Silvan Reveler",
+          "zone": "hand"
+        }
+      ]
+    }
+  ]
+}

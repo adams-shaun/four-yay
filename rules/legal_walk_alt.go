@@ -254,7 +254,7 @@ func (w *legalWalk) commandZoneWalk() {
 		// cast alternatives therefore remain available from the command zone;
 		// offerCostFor applies the same tax beginCast later charges.
 		for _, ka := range [...]struct{ mode, head string }{
-			{"evoked", "Evoke"}, {"dashed", "Dash"}, {"overloaded", "Overload"},
+			{"evoked", "Evoke"}, {"dashed", "Dash"}, {"overloaded", "Overload"}, {"impended", "Impending"},
 		} {
 			alt, ok := keywordAltCost(f, ka.head)
 			if !ok || (ka.mode != "overloaded" && !targetsAvailable) ||

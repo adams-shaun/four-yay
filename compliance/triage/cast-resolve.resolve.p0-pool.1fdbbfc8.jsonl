@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.pool","diff":"gorge=WWWW xmage="},"key":"cast-resolve | resolve | p0.pool | gorge=WWWW xmage=","cards":1}
+{"card":"Boommobile","template":"cast-resolve","status":"diverge","api":"ChangesZone:Mana","sets":["DFT"],"detail":"step 1 (resolve) p0.pool: gorge \"WWWW\", xmage \"\""}

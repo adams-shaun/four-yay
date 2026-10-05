@@ -64,12 +64,15 @@ func gravestormCast(t *testing.T, e *Engine, id state.ObjID, want state.PlayerID
 	passUntilStackEmpty(t, e, 60)
 }
 
-// copiesInExile counts the resolved copy objects (CR 707.10a: a copy that
-// resolves to a non-permanent spell is exiled, CR 608.2m/111.7).
+// copiesResolvedIntoExileThenCeased counts the copies this game made. Under
+// CR 707.10a/704.5e a copy of a non-permanent spell is exiled when it resolves
+// (CR 608.2m/111.7) and then ceases to exist as a state-based action, so the
+// object is observed either resting in exile or already ceased; both mean the
+// copy was created and left the stack.
 func copiesInExile(e *Engine) int {
 	n := 0
 	for _, o := range e.G.Objs {
-		if o.IsCopy && o.Zone == state.ZExile {
+		if o.IsCopy && (o.Zone == state.ZExile || o.Zone == state.ZCeased) {
 			n++
 		}
 	}
@@ -112,7 +115,7 @@ func TestOminousHarvestGravestormCopiesPerDeath(t *testing.T) {
 		t.Errorf("one permanent died this turn: seat 1 lost %d life, want 2 (original + one copy)", lost)
 	}
 	if copies != 1 {
-		t.Errorf("one permanent died this turn: %d copies in exile, want 1", copies)
+		t.Errorf("one permanent died this turn: %d copies created, want 1", copies)
 	}
 
 	lost, copies = run(t, false)
@@ -120,6 +123,6 @@ func TestOminousHarvestGravestormCopiesPerDeath(t *testing.T) {
 		t.Errorf("nothing died this turn: seat 1 lost %d life, want 1", lost)
 	}
 	if copies != 0 {
-		t.Errorf("nothing died this turn: %d copies in exile, want 0", copies)
+		t.Errorf("nothing died this turn: %d copies created, want 0", copies)
 	}
 }

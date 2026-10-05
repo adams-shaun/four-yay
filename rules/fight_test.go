@@ -159,10 +159,10 @@ func TestWarbriarBlessingFightDeclineDealsNothing(t *testing.T) {
 }
 
 // TestKraulHarpoonerFightSubPosesItsOwnAsk pins the SUB-shaped Fight carrier
-// (Kraul Harpooner: DB$ Pump | SubAbility$ DBFight): the carve-out in
-// effects' chosenTargetsFor poses the fight's own KChoose "tgts" ask at
-// resolution — the placement ask cannot reach a depth-2 sub — and the
-// answered fight resolves.
+// (Kraul Harpooner: DB$ Pump | SubAbility$ DBFight): the placement walk now
+// reaches the depth-2 Fight link, so the fight's target is announced at
+// placement (CR 603.3d, KTarget/trig_sub) before anyone gets priority, and
+// the answered fight resolves without re-posing the ask mid-resolution.
 func TestKraulHarpoonerFightSubPosesItsOwnAsk(t *testing.T) {
 	kraulSrc := corpusCardText(t, "k/kraul_harpooner.txt")
 	e, cfg, _ := newFixtureDeck(t, 5, kraulSrc)
@@ -171,21 +171,22 @@ func TestKraulHarpoonerFightSubPosesItsOwnAsk(t *testing.T) {
 	e.pending = nil
 	e.Advance()
 
-	// The ETB trigger has no ValidTgts$ (TrigPump), so no placement ask: the
-	// fight's own ask surfaces mid-resolution, as a "tgts" KChoose.
+	// The ETB trigger has no ValidTgts$ (TrigPump), but its depth-2 Fight
+	// link does: the announced ask surfaces at placement as KTarget/trig_sub.
 	for i := 0; i < 30 && len(e.G.Stack) > 0 && !e.G.Over; i++ {
 		d := e.Pending()
 		if d == nil {
 			t.Fatalf("no decision while draining (stack depth %d)", len(e.G.Stack))
 		}
 		switch {
-		case d.Kind == decision.KChoose && len(d.Options) == 1 && d.Options[0].Obj == dragon:
-			// The fight sub's own ask: Min 0 / Max 1 over the flying creature.
+		case d.Kind == decision.KTarget && len(d.Options) == 1 && d.Options[0].Obj == dragon:
+			// The Fight link's announcement: Min 0 / Max 1 over the flying
+			// creature, posed before priority rather than at resolution.
 			if d.Min != 0 || d.Max != 1 {
 				t.Fatalf("fight sub ask bounds = %d..%d, want 0..1", d.Min, d.Max)
 			}
-			if d.ResumeKind != "tgts" {
-				t.Fatalf("fight sub ask ResumeKind = %q, want tgts", d.ResumeKind)
+			if d.ResumeKind != "trig_sub" {
+				t.Fatalf("fight sub ask ResumeKind = %q, want trig_sub", d.ResumeKind)
 			}
 			submitChoices(t, e, 0)
 		case d.Kind == decision.KPriority:

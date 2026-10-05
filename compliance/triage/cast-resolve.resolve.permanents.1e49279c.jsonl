@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"$CARD gorge+[10/10] xmage+[2/5]"},"key":"cast-resolve | resolve | permanents | $CARD gorge+[10/10] xmage+[2/5]","cards":1}
+{"card":"Living Conundrum","template":"cast-resolve","status":"diverge","api":"-","sets":["MKM"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Living Conundrum [creature elemental] {U} 10/10\", xmage \"c0 o0 Living Conundrum [creature elemental] {U} 2/5\""}

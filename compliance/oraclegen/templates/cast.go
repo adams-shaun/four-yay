@@ -89,7 +89,7 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 						}
 					}
 					it := CastResolve.item(name, sc)
-					it.XAnswers = oraclegen.XAnswers(res.Decisions, len(sc.Steps), oraclegen.ModeNumbers(f))
+					it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f))
 					if oraclegen.SearchesLibrary(f) || strings.Contains(strings.ToLower(f.Oracle), "shuffle") {
 						it.Ignore = []string{"library_top"}
 					}
@@ -106,9 +106,17 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 // slot order (a stack slot points at the precast spell on the stack).
 func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oraclegen.Fixture, slots []string, stackIdx []int, answers []oraclegen.Answer) oraclegen.Scenario {
 	targets := insertStackTargets(slots, stackIdx, fx.Targets(), pre)
+	for _, slot := range slots {
+		// A ".tapped" target slot (Push // Pull) needs its fixture tapped.
+		if strings.Contains(strings.ToLower(slot), ".tapped") {
+			fx.P1().Tapped = append(fx.P1().Tapped, fx.P1().Battlefield...)
+			break
+		}
+	}
 	sc := oraclegen.Scenario{
-		Setup: map[string]oraclegen.Seat{"p0": *fx.P0(), "p1": *fx.P1()},
-		Steps: []oraclegen.Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: targets, Answers: answers}},
+		Setup:        map[string]oraclegen.Seat{"p0": *fx.P0(), "p1": *fx.P1()},
+		SetupAnswers: oraclegen.OpeningHandAnswers(f),
+		Steps:        []oraclegen.Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: targets, Answers: answers}},
 	}
 	sc.Setup["p0"] = oraclegen.WithHand(sc.Setup["p0"], name)
 	if pre.card != "" {

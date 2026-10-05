@@ -1,0 +1,85 @@
+{
+  "card": "Woodland Weavemaster",
+  "family": "activated-ability",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "74e6d576e1ec",
+  "scenarios": [
+    {
+      "name": "another-elf-enters-pumps-weavemaster",
+      "cr": [
+        "603.2",
+        "611.3a"
+      ],
+      "why": "Whenever another Elf you control enters, this creature gets +1/+1 until end of turn; casting Elvish Visionary (an Elf Shaman) makes the 1/2 Weavemaster 2/3.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Elvish Visionary"
+          ],
+          "battlefield": [
+            "Woodland Weavemaster"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Elvish Visionary",
+          "mana": "CG"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Woodland Weavemaster",
+          "pt": "2/3"
+        }
+      ]
+    },
+    {
+      "name": "mana-ability-produces-mana-equal-to-power",
+      "cr": [
+        "605.1a",
+        "605.3a"
+      ],
+      "why": "{T}: add X mana of any one color where X is this creature's power (1), restricted to Elf spells and abilities.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Woodland Weavemaster"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Woodland Weavemaster",
+          "ability": "Add",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "G"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Woodland Weavemaster",
+          "tapped": true
+        },
+        {
+          "pool": {
+            "p0": "G"
+          }
+        }
+      ]
+    }
+  ]
+}

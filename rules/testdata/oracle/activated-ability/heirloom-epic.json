@@ -1,0 +1,64 @@
+{
+  "card": "Heirloom Epic",
+  "family": "activated-ability",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "023056b35e7b",
+  "scenarios": [
+    {
+      "name": "tap-four-creatures-instead-of-mana",
+      "cr": [
+        "601.2f",
+        "118.1",
+        "601.2h"
+      ],
+      "why": "{4}, {T}: draw a card, and each of the four mana in the cost may be paid by tapping an untapped creature instead; tapping four creatures draws the card with no mana spent.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Heirloom Epic",
+            "Grizzly Bears",
+            "Hill Giant",
+            "Savannah Lions",
+            "Elvish Visionary"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Heirloom Epic",
+          "ability": "Draw",
+          "targets": []
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Heirloom Epic",
+          "tapped": true
+        },
+        {
+          "card": "p0:Grizzly Bears",
+          "tapped": true
+        },
+        {
+          "card": "p0:Hill Giant",
+          "tapped": true
+        },
+        {
+          "card": "p0:Savannah Lions",
+          "tapped": true
+        },
+        {
+          "card": "p0:Elvish Visionary",
+          "tapped": true
+        },
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    }
+  ]
+}

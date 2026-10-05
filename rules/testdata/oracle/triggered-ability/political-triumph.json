@@ -1,0 +1,90 @@
+{
+  "card": "Political Triumph",
+  "family": "triggered-ability",
+  "author": "cli-20261004T233421Z-27b538d6 (Oracle + CR only)",
+  "oracle_sha": "324f123817b0",
+  "scenarios": [
+    {
+      "name": "fourth-plan-counter-sacrifices-and-pumps",
+      "cr": [
+        "603.2",
+        "704.5",
+        "122.1"
+      ],
+      "why": "Each creature that enters your control scries 1 and adds a plan counter; the fourth counter sacrifices the Plan, draws a card, and puts a +1/+1 counter on each creature you control.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Political Triumph"
+          ],
+          "hand": [
+            "Savannah Lions",
+            "Savannah Lions",
+            "Savannah Lions",
+            "Savannah Lions"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Savannah Lions",
+          "mana": "W"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Savannah Lions#2",
+          "mana": "W"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Savannah Lions#3",
+          "mana": "W"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Savannah Lions#4",
+          "mana": "W"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Political Triumph",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:Savannah Lions",
+          "pt": "3/2"
+        },
+        {
+          "card": "p0:Savannah Lions#2",
+          "pt": "3/2"
+        },
+        {
+          "card": "p0:Savannah Lions#3",
+          "pt": "3/2"
+        },
+        {
+          "card": "p0:Savannah Lions#4",
+          "pt": "3/2"
+        }
+      ]
+    }
+  ]
+}
