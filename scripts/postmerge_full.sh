@@ -12,6 +12,9 @@ wt=${1:?worktree}; sha=${2:?sha}
 git -C "$wt" switch -q --detach "$sha"
 cd "$wt"
 skip='^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$'
+# Opt-in exhaustive audits that the lean per-ticket gate leaves out
+# (db57ab8e6 made the oraclegen target audit opt-in); the full suite runs them.
+export GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1
 go vet -p=8 ./...
 go test -p=8 -skip "$skip" ./...
 go test ./rules -run '^TestHeads$'
