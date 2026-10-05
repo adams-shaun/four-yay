@@ -1617,6 +1617,7 @@ var flagNames = [...]struct {
 	// Conspire emits no flag and resolves like the plain cast. Appended at
 	// the end per the table's own ordering rule.
 	{"conspired", state.FlagConspired},
+	{"teamwork_paid", state.FlagTeamworkPaid},
 	// Convoke's creature provenance (CR 702.66, task connive1): the flag is
 	// what Defined$ Convoked reads -- the creatures tapped to help pay for
 	// the cast ride the pay-time CastInfo's IDs. Emitted only for a face
@@ -1763,6 +1764,12 @@ var flagNames = [...]struct {
 	// state.Object.ImpendingDormant reads to strip Creature while a time
 	// counter remains. Appended at the end per the table's own ordering rule.
 	{"impending", state.FlagImpending},
+	// The CR 702.166 Bargain additional-cost cast: the caster sacrificed an
+	// artifact, enchantment or token as they cast the spell. Read by the
+	// `bargained` predicate, the Count$Bargained/Count$Bargain heads, the
+	// bare Condition$ Bargain gate and the Spell.Bargain cost constraint.
+	// Appended at the end per the table's own ordering rule.
+	{"bargained", state.FlagBargained},
 }
 
 // FlagsFrom parses a comma-separated flag list (CastInfo.Counter's shape)

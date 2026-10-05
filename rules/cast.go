@@ -303,8 +303,14 @@ type pendingCast struct {
 	conspireDone bool `clone:"deep"`
 	conspirePaid bool `clone:"deep"`
 
+	teamworkDone bool `clone:"deep"`
+	teamworkPaid bool `clone:"deep"`
+
 	// Casualty's optional additional cost is a single power-qualified sacrifice.
 	// The chosen object is settled with the other sacrifice costs at payment.
+	// casualtyDone marks the optional-sacrifice election already posed for
+	// whichever rules/optional_sacrifice.go row the cast mode elects
+	// (Casualty or Bargain; a cast has one mode, so one flag suffices).
 	casualtyN    int32 `clone:"deep"`
 	casualtyDone bool  `clone:"deep"`
 	casualtyPaid bool  `clone:"deep"`

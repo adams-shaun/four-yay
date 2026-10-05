@@ -84,6 +84,16 @@ func impendingCount(f *cards.Face) int32 {
 	return n
 }
 
+// cachedImpendingCount serves the compiled keyword count when the face's
+// keyword list still matches the facts; uncompiled/runtime faces use the same
+// parser as the facts builder.
+func cachedImpendingCount(f *cards.Face, ff *walkFaceFacts) int32 {
+	if ff != nil && ff.keywordsCurrent(f) {
+		return ff.impendingCount
+	}
+	return impendingCount(f)
+}
+
 // impendingTickGrant is the CR 702.176a end-step trigger rider. Entry time
 // counters are placed by the shared staged entry-counter path before MoveZone
 // folds (rules/entry_counters.go), allowing the AddCounter replacement class

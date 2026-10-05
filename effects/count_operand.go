@@ -91,6 +91,11 @@ func countOperandValue(h Host, c *Ctx, operand string, depth int) (int32, bool) 
 			return value, true
 		}
 	}
+	if strings.IndexByte(operand, '$') >= 0 {
+		if value, ok := evalCountExprOK(h, c, operand, depth+1); ok {
+			return value, true
+		}
+	}
 	return runtimePublished(c, operand)
 }
 

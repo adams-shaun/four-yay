@@ -147,7 +147,7 @@ const grantedFirebendingStatic = "Name:Blazing Banner\nManaCost:0\nTypes:Enchant
 // Iroh, Dragon of the West's pump-all) has the same rules text as a printed
 // keyword, so attacking must add the granted N red. The printed expansion
 // (cards/kw_firebending.go) only covers printed lines, so before
-// checkGrantedFirebendingTriggers the grant sat in the derived list with no
+// checkGrantedAttackKeywordTriggers the grant sat in the derived list with no
 // attack trigger to carry it. The preconditions keep this from passing with
 // the whole granted path missing: the keyword must be in the DERIVED list and
 // absent from the printed face, and the mana must arrive both in the pool and

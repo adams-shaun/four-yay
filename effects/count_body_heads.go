@@ -92,6 +92,25 @@ func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, dept
 		}
 		return dotBranch(h, c, rest, kicked, depth), true, true
 	}
+	// Teamwork.<paid>.<unpaid> is <paid> when the resolving source's
+	// K:Teamwork:N optional additional cost (CR 702.194a) was actually paid as
+	// it was cast, else <unpaid> -- Forge's Count$Teamwork.<n>.<m> family
+	// (Hulk Smash's Count$Teamwork.2.1, Cruel Alliance's Count$Teamwork.0.1).
+	// The read is Object.TeamworkPaid, the SAME one home the Card.Self+Teamwork
+	// filter predicate reads (folded by events.Apply's FlagTeamworkPaid arm),
+	// so the matcher and the count can never disagree. A missing source, a card
+	// never cast read the <unpaid> branch; a copy of a paid Teamwork spell
+	// inherits the cost-conditioned bool (as it does the FlagTeamworkPaid bit).
+	// The branch
+	// tokens resolve through dotBranch (a literal, or an SVar name), and a
+	// malformed body with a missing branch fails closed.
+	if rest, ok := strings.CutPrefix(head, "Teamwork."); ok {
+		paid := false
+		if o := g.Obj(c.Source); o != nil {
+			paid = o.TeamworkPaid
+		}
+		return dotBranch(h, c, rest, paid, depth), true, true
+	}
 	// PromisedGift.<yes>.<no> is <yes> when the source's cast promised an
 	// opponent a gift (CR 702.168), else <no> -- Forge's
 	// Count$PromisedGift.2.1 family (Wear Down's destroy-two, Long River's
@@ -139,6 +158,13 @@ func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, dept
 			return evalCountOperand(h, c, yes, depth), true, true
 		}
 		return evalCountOperand(h, c, no, depth), true, true
+	}
+	// Bargained/Bargain.<yes>.<no>: CR 702.166 (countBargainedBranch).
+	if rest, ok := strings.CutPrefix(head, "Bargained."); ok {
+		return countBargainedBranch(h, c, g, rest, depth), true, true
+	}
+	if rest, ok := strings.CutPrefix(head, "Bargain."); ok {
+		return countBargainedBranch(h, c, g, rest, depth), true, true
 	}
 	// NotedNumber is the number a trigger's Execute$ body last noted onto
 	// the source card (DB$ Pump | NoteNumber$ <expr> -- Lupine Harbingers'
@@ -606,3 +632,23 @@ var evalCountBodyDottedCodes = state.NewStrCodes(
 	state.StrEntry[evalCountBodyDottedCode]{Key: "Devotion", Val: evalCountBodyDottedDevotion},
 	state.StrEntry[evalCountBodyDottedCode]{Key: "DevotionDual", Val: evalCountBodyDottedDevotionDual},
 )
+
+// countBargainedBranch is CR 702.166's "if this spell was bargained" branch
+// head: the corpus's two spellings, Count$Bargained.<yes>.<no> and
+// Count$Bargain.<yes>.<no> (Candy Grapple's Count$Bargained.5.3, Torch the
+// Tower's Count$Bargain.3.2, Brave the Wilds, Farsight Ritual, Stone-splitter
+// Bolt, Kellan's Lightblades), read the very same provenance bit the
+// `bargained` filter predicate, the bare Condition$ Bargain gate and the
+// Spell.Bargain cost constraint share: state.FlagBargained on the resolving
+// source's CastFlags. The branch tokens resolve through resolveCountOperand
+// (a literal or an SVar name), the sibling branch heads' machinery; a copy
+// -- never cast (CR 707.10), so its flags carry no FlagBargained -- reads
+// the <no> branch.
+func countBargainedBranch(h Host, c *Ctx, g *state.Game, branches string, depth int) int32 {
+	yesTok, noTok, _ := strings.Cut(branches, ".")
+	bargained := false
+	if o := g.Obj(c.Source); o != nil {
+		bargained = o.CastFlags&state.FlagBargained != 0
+	}
+	return countBranchOperand(h, c, bargained, yesTok, noTok, depth)
+}

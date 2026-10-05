@@ -448,7 +448,7 @@ func conditionMetCore(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 	// holding four or more distinct core card types, through
 	// Host.DeliriumHolds (the same census the "Delirium —" activation,
 	// continuous and replacement gates read, so the spellings cannot drift);
-	// the other corpus values (OptionalCost, Bargain, Threshold, Hellbent,
+	// the other corpus values (OptionalCost, Threshold, Hellbent,
 	// Surge) are classified unmodelled (conditionUnmodelledBare) and so fail
 	// CLOSED with a Note at the walk, never running their rider. A bare
 	// Condition beside a group key or beside ConditionSVarCompare$ is a
@@ -894,6 +894,14 @@ func conditionBareMet(h Host, c *Ctx, bare string) (bool, bool) {
 	case strings.EqualFold(bare, "Kicked"):
 		o := h.Game().Obj(c.Source)
 		return o != nil && o.CastFlags&state.FlagKicked != 0, true
+	case strings.EqualFold(bare, "Bargain"):
+		// CR 702.166: the "if this spell was bargained" gate (Beseech the
+		// Mirror's DBPlay, Thunderous Debut's DBPutBattlefield, Torch the
+		// Tower's DBScry) -- the same state.FlagBargained provenance the
+		// Count$Bargained/Count$Bargain heads read. A copy was never cast
+		// (CR 707.10) and reads false.
+		o := h.Game().Obj(c.Source)
+		return o != nil && o.CastFlags&state.FlagBargained != 0, true
 	case strings.EqualFold(bare, "Foretold"):
 		// CR 702.126: the "if this spell was foretold" gate (Poison the
 		// Cup's conditional scry, Alrund's Epiphany's conditional tokens) --

@@ -127,6 +127,73 @@ func tapsForManaProduced(want, produced string) bool {
 	return false
 }
 
+// aggregateTapSpec is the ValidCards$/ValidCard$ filter of the aggregate tap
+// modes: the PLURAL key all three corpus carriers use (Rewrite History,
+// Deeproot Pilgrimage, The Millennium Calendar), with the singular fallback
+// the shared Taps/Untaps matcher reads. Returns ok=false when the line names
+// neither (no card filter).
+func aggregateTapSpec(t cards.Trigger) (string, bool) {
+	if v, ok := t.Param(cards.PKValidCards); ok {
+		return v, true
+	}
+	return t.Param(cards.PKValidCard)
+}
+
+// tapAllMatches matches a Mode$ TapAll trigger ("whenever one or more ...
+// become tapped") against one Tap event. It is the per-event half of the
+// batch reading: the dispatcher (rules/trigger_match.go) collapses the events
+// of one tapping action into a single instance, and this matcher still has to
+// return true for EVERY matching event so the latch can count them. The
+// clauses are the Taps matcher's (entry-state exclusion, the tapper's
+// ValidPlayer$/Activator$, the Attacker$ gate, and the card filter) except
+// the card filter reads the plural ValidCards$ the aggregate modes print.
+func tapAllMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+	if ev.Kind != events.Tap || ev.Obj == 0 || TapIsEntryState(e, ev) {
+		return false
+	}
+	ctrl := e.ControllerOf(source)
+	actor := TapActor(e, ev)
+	if v := t.ParamStr(cards.PKActivator); v != "" && !effects.MatchesPlayerSpec(e.Game(), v, actor, ctrl) {
+		return false
+	}
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.Game(), v, actor, ctrl) {
+		return false
+	}
+	if v := t.ParamStr(cards.PKAttacker); v != "" {
+		want, err := strconv.ParseBool(v)
+		if err != nil || e.Game().Obj(ev.Obj) == nil || e.Game().Obj(ev.Obj).IsAttacking != want {
+			return false
+		}
+	}
+	if spec, ok := aggregateTapSpec(t); ok && strings.TrimSpace(spec) != "" {
+		if !e.MatchesSpec(spec, ev.Obj, source, ctrl, SpecOpts{}) {
+			return false
+		}
+	}
+	return true
+}
+
+// untapAllMatches matches a Mode$ UntapAll trigger ("whenever one or more ...
+// become untapped") against one Untap event, the untap twin of tapAllMatches:
+// the same plural-then-singular card filter, and ValidPlayer$ naming the
+// player who untapped the permanent (its controller), exactly as Untaps does.
+func untapAllMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+	if ev.Kind != events.Untap || ev.Obj == 0 {
+		return false
+	}
+	ctrl := e.ControllerOf(source)
+	actor := e.ControllerOf(ev.Obj)
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.Game(), v, actor, ctrl) {
+		return false
+	}
+	if spec, ok := aggregateTapSpec(t); ok && strings.TrimSpace(spec) != "" {
+		if !e.MatchesSpec(spec, ev.Obj, source, ctrl, SpecOpts{}) {
+			return false
+		}
+	}
+	return true
+}
+
 func init() {
 	// Taps and TapsForMana are one matcher behind a forMana flag.
 	registerTrigMatcher(func(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
@@ -138,4 +205,17 @@ func init() {
 	registerTrigMatcher(func(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
 		return untapsMatches(e, t, source, ev)
 	}, "Untaps")
+	// TapAll/UntapAll (task cli-20261005T075020Z-05241a06) are the batch
+	// siblings: one trigger per tapping/untapping ACTION, not per permanent.
+	// Their per-event matchers read the plural ValidCards$ the aggregate modes
+	// print; the "one or more" cadence is the dispatcher's batch latch
+	// (rules/trigger_match.go, keyed on the trigger line inside the open
+	// zone/action bracket), which still requires the matcher to return true
+	// for every matching event so the latch can accumulate its count.
+	registerTrigMatcher(func(e Board, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
+		return tapAllMatches(e, t, source, ev, lki)
+	}, "TapAll")
+	registerTrigMatcher(func(e Board, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
+		return untapAllMatches(e, t, source, ev, lki)
+	}, "UntapAll")
 }

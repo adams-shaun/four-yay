@@ -12,17 +12,21 @@ import (
 // TestUncoverTheMoonLettersCostBindsTriggeredCard runs the real Oracle
 // scenario and pins the effect of its Cost$ Draw<X/You> on the actual card:
 // after casting Lightning Bolt, the trigger draws one filler card, then its
-// body discards two cards. The scenario's separate resolve step for the
-// discard answers is stale (that choice occurs in the same resolution), so
-// this test asserts the observable draw directly rather than ratcheting that
-// answer-script mismatch as an engine defect.
+// body discards two cards in the SAME resolution. The scenario's answer
+// script now carries the draw and the two-pick discard decision in one
+// resolve step, and this test asserts the scenario runs cleanly (no diverged
+// expectation and no unconsumed answer), then checks the observable draw.
 func TestUncoverTheMoonLettersCostBindsTriggeredCard(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	sc, ok := oracleScenarioByName(t, "Uncover the Moon-Letters", "noncreature-spell-draws-mana-spent-then-discards-two")
 	if !ok {
 		t.Fatal("scenario noncreature-spell-draws-mana-spent-then-discards-two not found")
 	}
-	_, transcript, run := runOracleScenario(reg, sc)
+	fails, transcript, run := runOracleScenario(reg, sc)
+	if len(fails) > 0 {
+		t.Fatalf("Uncover the Moon-Letters scenario diverged:\n  %s\n  transcript:\n    %s",
+			joinLines(fails), joinLines(transcript))
+	}
 	if run == nil || run.e == nil {
 		t.Fatalf("scenario did not initialize its engine:\n  %s", joinLines(transcript))
 	}

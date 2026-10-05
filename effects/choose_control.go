@@ -86,7 +86,7 @@ func choiceZones(sa *cards.SA) map[state.Zone]bool {
 func definedCardPool(g *state.Game, c *Ctx, raw string) ([]state.Target, string) {
 	root, qualifier, _ := strings.Cut(strings.TrimSpace(raw), ".")
 	switch definedCardPoolCodes.Code(string(root)) {
-	case definedCardPoolTargeted:
+	case definedCardPoolTargeted, definedCardPoolTargetedCard:
 		return objectsOf(c.Targets), qualifier
 	case definedCardPoolParentTargeted:
 		return objectsOf(parentLinkTargets(c)), qualifier
@@ -1892,9 +1892,23 @@ func indexTarget(ts []state.Target, want state.Target) int {
 func rememberIteration(outer, body, base []state.Target, subject state.Target) []state.Target {
 	out := copyTargets(outer)
 	start := append(copyTargets(base), subject)
+	// Any entry the iteration STARTED with (base+subject) that the body no
+	// longer holds was removed by the body (ForgetChosen$,
+	// forgetRememberedOne): that removal must persist on the outer set, else
+	// an outer Repeat's RepeatDefined$ Remembered gate never shrinks.
+	for _, t := range start {
+		if indexTarget(body, t) >= 0 {
+			continue
+		}
+		if i := indexTarget(out, t); i >= 0 {
+			out = append(out[:i], out[i+1:]...)
+		}
+	}
 	for _, t := range body {
-		if i := indexTarget(start, t); i >= 0 {
-			start = append(start[:i], start[i+1:]...)
+		if indexTarget(start, t) >= 0 {
+			continue
+		}
+		if indexTarget(out, t) >= 0 {
 			continue
 		}
 		out = append(out, t)
@@ -1962,6 +1976,7 @@ type definedCardPoolCode uint16
 
 const (
 	definedCardPoolTargeted definedCardPoolCode = iota + 1
+	definedCardPoolTargetedCard
 	definedCardPoolParentTargeted
 	definedCardPoolRemembered
 	definedCardPoolTriggeredCards
@@ -1971,7 +1986,7 @@ const (
 
 var definedCardPoolCodes = state.NewStrCodes(
 	state.StrEntry[definedCardPoolCode]{Key: "Targeted", Val: definedCardPoolTargeted},
-	state.StrEntry[definedCardPoolCode]{Key: "TargetedCard", Val: definedCardPoolTargeted},
+	state.StrEntry[definedCardPoolCode]{Key: "TargetedCard", Val: definedCardPoolTargetedCard},
 	state.StrEntry[definedCardPoolCode]{Key: "ParentTargeted", Val: definedCardPoolParentTargeted},
 	state.StrEntry[definedCardPoolCode]{Key: "Remembered", Val: definedCardPoolRemembered},
 	state.StrEntry[definedCardPoolCode]{Key: "RememberedLKI", Val: definedCardPoolRemembered},

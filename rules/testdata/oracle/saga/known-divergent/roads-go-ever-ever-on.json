@@ -1,6 +1,0 @@
-{
-  "card": "Roads Go Ever, Ever On",
-  "rows": {
-    "chapter-two-returns-an-exiled-plain-to-hand": "Chapter II returns more than one card exiled with the Saga: two Plains came back to hand (hand size 2, want 1). The chapter should return exactly one card exiled with that Saga."
-  }
-}

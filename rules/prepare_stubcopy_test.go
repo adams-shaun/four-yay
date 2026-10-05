@@ -91,6 +91,11 @@ func TestPrepareStubBackPreparedCopyCastable(t *testing.T) {
 		t.Fatal("prepared copy: no removal of Osteomancer's Prepared designation immediately after casting, before resolution")
 	}
 	sosDrain(t, e, bear, 30)
+	// Regression pin for 102db461c: after the prepared copy is cast and
+	// resolves, it has left exile and must cease under CR 707.10a.
+	if o := e.G.Obj(copyID); o == nil || o.Zone != state.ZCeased {
+		t.Fatalf("prepared copy: resolved spell copy zone = %v, want ceased", zoneOf(o))
+	}
 	if o := e.G.Obj(bear); o == nil || o.Zone != state.ZHand {
 		t.Fatalf("prepared copy: Raise Dead target zone = %v, want hand (the resolved spell must return it)", zoneOf(o))
 	}

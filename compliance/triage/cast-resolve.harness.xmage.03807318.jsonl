@@ -1,3 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"IllegalStateException: Error in unit tests: Choice key […] not found in […]"},"key":"cast-resolve | harness | xmage | IllegalStateException: Error in unit tests: Choice key […] not found in […]","cards":2}
-{"card":"Overlord of the Balemurk","template":"cast-resolve","status":"harness","api":"ChangesZone:Mill+Attacks:Mill","sets":["DSK"],"detail":"xmage: IllegalStateException: Error in unit tests: Choice key [Yes] not found in []"}
-{"card":"Overlord of the Floodpits","template":"cast-resolve","status":"harness","api":"ChangesZone:Draw+Attacks:Draw","sets":["DSK"],"detail":"xmage: IllegalStateException: Error in unit tests: Choice key [Wastes] not found in []"}

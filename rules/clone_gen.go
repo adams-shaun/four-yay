@@ -519,6 +519,21 @@ func cloneFieldsEngineTriggerBatches(c, e *Engine, sp *Spare, remap *cloneRemap)
 			}
 		}
 	}
+	c.millBatchOpen = e.millBatchOpen
+	c.millBatchDepth = e.millBatchDepth
+	if e.millBatchIdx != nil {
+		c.millBatchIdx = make(map[triggerKey]int, len(e.millBatchIdx))
+		for k0, v0 := range e.millBatchIdx {
+			c.millBatchIdx[k0] = v0
+		}
+	}
+	if e.millBatchLog != nil {
+		c.millBatchLog = make([]millBatchEntry, len(e.millBatchLog))
+		for i0 := range e.millBatchLog {
+			c.millBatchLog[i0] = e.millBatchLog[i0]
+			c.millBatchLog[i0].milled = append([]state.Target(nil), e.millBatchLog[i0].milled...)
+		}
+	}
 	if e.discardBatchOpen {
 		c.discardBatchOpen = e.discardBatchOpen
 		c.discardBatchDepth = e.discardBatchDepth

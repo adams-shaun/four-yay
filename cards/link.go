@@ -148,6 +148,11 @@ var builtinSVars = map[string]string{
 	// the beginning of the next end step. The registration's Source is the
 	// permanent itself, so Defined$ Self is it.
 	"__kwBlitzSacrifice": "DB$ Sacrifice | Defined$ Self",
+	// Decayed (CR 702.147a): "When this creature attacks, sacrifice it at
+	// end of combat." The registered source is the attacking decayed
+	// permanent itself, so Defined$ Self is it -- the __kwBlitzSacrifice
+	// shape, registered for the end-of-COMBAT step rather than end step.
+	"__kwDecayedSacrifice": "DB$ Sacrifice | Defined$ Self",
 	// Blitz (CR 702.152c): the cast-for-blitz permanent has "When this
 	// creature dies, draw a card." rules/altcast.go's blitzEnter registers a
 	// ContinuousEffect whose AddTrigger$ names this SVar, so the body is
