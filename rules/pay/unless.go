@@ -121,7 +121,7 @@ func FixLifeXCost(e Engine, p state.PlayerID, id state.ObjID, c costvocab.Cost) 
 // the source face, the SVar, or the body is unavailable -- the cost is
 // unpayable (the fail-closed direction), never a silent zero draw.
 func DrawCostCount(e Engine, id state.ObjID, you state.PlayerID, part costvocab.CostPart) (int32, bool) {
-	return DrawCostCountTrig(e, id, you, part, nil)
+	return DrawCostCountTrig(e, id, you, part, nil, nil)
 }
 
 // DrawCostCountTrig is drawCostCount with an optional fire-time trigger
@@ -131,7 +131,16 @@ func DrawCostCount(e Engine, id state.ObjID, you state.PlayerID, part costvocab.
 // reads the DAMAGE BATCH the triggering event captured, which the bare
 // cast-flow context carries nothing of. A nil context is the ordinary
 // cast/activation read, unchanged.
-func DrawCostCountTrig(e Engine, id state.ObjID, you state.PlayerID, part costvocab.CostPart, tcx *effects.TriggerContext) (int32, bool) {
+//
+// remembered is the trigger's own capture (the parked stack object's
+// Remembered, as rules.resolvingRemembered derives it). Ctx.TriggeredCard$
+// referents resolve through Ctx.Remembered (refTargets' refTargetsTriggeredCard
+// arm), not Ctx.TriggerCard, so a triggered cost whose SVar names
+// TriggeredCard$CastTotalManaSpent (Uncover the Moon-Letters' Cost$ Draw<X/You>)
+// saw an empty set and counted zero. The window passes the same set the body
+// reads after the cost settles; the ordinary cast/activation callers pass nil,
+// which leaves the cast flow's own Remembered untouched.
+func DrawCostCountTrig(e Engine, id state.ObjID, you state.PlayerID, part costvocab.CostPart, tcx *effects.TriggerContext, remembered []state.Target) (int32, bool) {
 	if part.Dyn == "" {
 		return part.N, true
 	}
@@ -146,6 +155,9 @@ func DrawCostCountTrig(e Engine, id state.ObjID, you state.PlayerID, part costvo
 	ctx := effects.NewCtxPtr(id, you, effects.CtxInit{SVars: o.Face().SVars})
 	if tcx != nil {
 		ctx.TriggerContext = *tcx
+	}
+	if len(remembered) > 0 {
+		ctx.Remembered = remembered
 	}
 	n, resolvable := e.Eval().EvalCount(ctx, body)
 	if !resolvable || n < 0 {

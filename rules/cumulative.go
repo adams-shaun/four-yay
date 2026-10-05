@@ -748,14 +748,24 @@ func (e *Engine) triggeredCostDrawCounts(tc *triggeredEffectCost) ([]int32, bool
 	// like evalTriggerCostFixedX does, else the count fails closed and the
 	// window offers decline only.
 	var tcx *effects.TriggerContext
-	if t, ok := e.triggerContexts[tc.resume.obj]; ok {
+	if tc.trig.TriggerCard != 0 {
+		tcx = &tc.trig
+	} else if t, ok := e.triggerContexts[tc.resume.obj]; ok {
 		tcx = &t
+	}
+	remembered := []state.Target(nil)
+	if tc.trig.TriggerCard != 0 {
+		remembered = []state.Target{{Obj: tc.trig.TriggerCard}}
+	} else if captured, ok := e.triggerContexts[tc.resume.obj]; ok && captured.TriggerCard != 0 {
+		remembered = []state.Target{{Obj: captured.TriggerCard}}
+	} else if o := e.G.Obj(tc.resume.obj); o != nil {
+		remembered = e.resolvingRemembered(o)
 	}
 	for i, part := range tc.amount.Draw {
 		if _, ok := pay.CastFlowDrawPlayer(part.Spec, tc.player); !ok {
 			return nil, false
 		}
-		n, ok := pay.DrawCostCountTrig(asPayer(e), tc.source, tc.player, part, tcx)
+		n, ok := pay.DrawCostCountTrig(asPayer(e), tc.source, tc.player, part, tcx, remembered)
 		if !ok {
 			return nil, false
 		}
@@ -776,6 +786,16 @@ func (e *Engine) evalTriggerCostFixedX(tc *triggeredEffectCost, o *state.Object,
 	ctx := effects.NewCtxPtr(tc.source, tc.player, effects.CtxInit{SVars: o.Face().SVars})
 	if tcx, ok := e.triggerContexts[tc.resume.obj]; ok {
 		ctx.TriggerContext = tcx
+	}
+	// The TriggeredCard$ referent resolves through Ctx.Remembered
+	// (refTargets' refTargetsTriggeredCard arm), not Ctx.TriggerCard, so bind
+	// the parked trigger's own capture exactly as the resumed body will.
+	if tc.trig.TriggerCard != 0 {
+		ctx.Remembered = []state.Target{{Obj: tc.trig.TriggerCard}}
+	} else if captured, ok := e.triggerContexts[tc.resume.obj]; ok && captured.TriggerCard != 0 {
+		ctx.Remembered = []state.Target{{Obj: captured.TriggerCard}}
+	} else if parked := e.G.Obj(tc.resume.obj); parked != nil {
+		ctx.Remembered = e.resolvingRemembered(parked)
 	}
 	n, resolvable := effects.EvalCountOK(e, ctx, body)
 	if !resolvable || n < 0 {
