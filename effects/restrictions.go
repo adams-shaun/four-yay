@@ -553,7 +553,8 @@ func CantPlayLandParamsReadable(params map[string]string) bool {
 			return false
 		}
 	}
-	return true
+	origin, ok := params[cards.PKOrigin.String()]
+	return ok && strings.EqualFold(strings.TrimSpace(origin), "Hand")
 }
 
 // UnspentManaParamsReadable is the parameter whitelist an UnspentMana static

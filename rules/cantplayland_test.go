@@ -87,6 +87,17 @@ func TestCantPlayLandCensus(t *testing.T) {
 	if !effects.Supported()["stat:CantPlayLand"] {
 		t.Fatal("effects.Supported() lacks stat:CantPlayLand")
 	}
+	if !effects.CantPlayLandParamsReadable(map[string]string{cards.PKMode.String(): "CantPlayLand", cards.PKPlayer.String(): "Player", cards.PKOrigin.String(): "Hand"}) {
+		t.Fatal("the supported Player$ Player | Origin$ Hand shape must register")
+	}
+	for _, params := range []map[string]string{
+		{cards.PKMode.String(): "CantPlayLand", cards.PKPlayer.String(): "Player"},
+		{cards.PKMode.String(): "CantPlayLand", cards.PKPlayer.String(): "Player", cards.PKOrigin.String(): "Graveyard"},
+	} {
+		if effects.CantPlayLandParamsReadable(params) {
+			t.Errorf("out-of-scope CantPlayLand params registered: %v", params)
+		}
+	}
 	reg := searchTestRegistry(t)
 	handOrigins := 0
 	for _, name := range cantPlayLandCarriers {

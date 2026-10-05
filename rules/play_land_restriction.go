@@ -22,6 +22,9 @@ type landRestrictionReader interface {
 // playLandForbidden is the common offer and commit-time rule for a land play.
 func playLandForbidden(e landRestrictionReader, p state.PlayerID, from state.Zone, land state.ObjID) bool {
 	for _, sv := range e.activeStatics("CantPlayLand") {
+		if !effects.CantPlayLandParamsReadable(sv.Params) {
+			continue
+		}
 		playerScopeMatches := true
 		for _, key := range [...]cards.ParamKey{cards.PKPlayer, cards.PKValidPlayer} {
 			if spec := sv.ParamStr(key); spec != "" && !effects.MatchesPlayerSpecCtx(e.Game(), spec, p, sv.Controller, e.playerSpecCtx(sv.Source)) {
@@ -47,7 +50,7 @@ func playLandForbidden(e landRestrictionReader, p state.PlayerID, from state.Zon
 		}
 	}
 	for _, ce := range e.active() {
-		if cards.StaticModeOf(ce.Restriction) != cards.StaticCantPlayLand {
+		if cards.StaticModeOf(ce.Restriction) != cards.StaticCantPlayLand || !effects.CantPlayLandParamsReadable(ce.RestrictParams) {
 			continue
 		}
 		if origin, ok := ce.RestrictParamOk(cards.PKOrigin); ok {
