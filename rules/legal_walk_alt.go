@@ -254,7 +254,7 @@ func (w *legalWalk) commandZoneWalk() {
 		// cast alternatives therefore remain available from the command zone;
 		// offerCostFor applies the same tax beginCast later charges.
 		for _, ka := range [...]struct{ mode, head string }{
-			{"evoked", "Evoke"}, {"dashed", "Dash"}, {"overloaded", "Overload"},
+			{"evoked", "Evoke"}, {"dashed", "Dash"}, {"overloaded", "Overload"}, {"impended", "Impending"},
 		} {
 			alt, ok := keywordAltCost(f, ka.head)
 			if !ok || (ka.mode != "overloaded" && !targetsAvailable) ||
@@ -271,14 +271,6 @@ func (w *legalWalk) commandZoneWalk() {
 			w.offerCastable(p, id, ba, spellScope("bestowed"), false) {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 				Label: "Cast " + f.Name + " (bestowed)", Obj: id, Mode: "bestowed"})
-		}
-		// Impending (CR 702.176a), the command-zone half (a commander printed
-		// with impending may be cast for its impending cost, CR 903.3d): the
-		// same ordinary-spell targets gate the hand walk applies.
-		if ic, ok := impendingCost(f); ok && targetsAvailable &&
-			w.offerCastable(p, id, ic, spellScope("impending"), false) {
-			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
-				Label: "Cast " + f.Name + " (impending)", Obj: id, Mode: "impending"})
 		}
 		// Mutate (CR 702.140a), the command-zone half (a commander printed
 		// with mutate may be cast for its mutate cost, CR 903.3d): the same

@@ -365,9 +365,17 @@ func reconfigureTypeSwitch(o *state.Object, types []string) []string {
 	if !o.ReconfiguredAttached() || (o.FaceDown && o.Zone == state.ZBattlefield) {
 		return types
 	}
+	return withoutCreature(types, false)
+}
+
+// withoutCreature drops Creature from a derived type list and, with
+// subtypes, every creature subtype too; other card types, their subtypes and
+// the supertypes remain. The shared strip behind the reconfigure and
+// impending switches.
+func withoutCreature(types []string, subtypes bool) []string {
 	out := make([]string, 0, len(types))
 	for _, t := range types {
-		if t == "Creature" {
+		if t == "Creature" || (subtypes && effects.CreatureTypeWords(t)) {
 			continue
 		}
 		out = append(out, t)
@@ -391,14 +399,7 @@ func impendingTypeSwitch(o *state.Object, types []string) []string {
 	if !o.ImpendingDormant() {
 		return types
 	}
-	out := make([]string, 0, len(types))
-	for _, t := range types {
-		if t == "Creature" || effects.CreatureTypeWords(t) {
-			continue
-		}
-		out = append(out, t)
-	}
-	return out
+	return withoutCreature(types, true)
 }
 
 // cardTypeWords are the card types; supertypeWords the supertypes. Every

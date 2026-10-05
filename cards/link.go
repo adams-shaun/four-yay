@@ -154,7 +154,7 @@ var builtinSVars = map[string]string{
 	// resolved against the permanent's own face (or this builtin fallback).
 	"__kwBlitzDraw": "DB$ Draw | NumCards$ 1",
 	// Impending (CR 702.176a): "At the beginning of your end step, remove a
-	// time counter from it." rules/impending.go's impendingEnter registers a
+	// time counter from it." rules/impending.go's impendingTickGrant registers a
 	// ContinuousEffect whose AddTrigger$ names this SVar; the body is resolved
 	// against the permanent's own face (or this builtin fallback), and
 	// Defined$ Self is the permanent itself -- the __kwBlitzSacrifice shape.

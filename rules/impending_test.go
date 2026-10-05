@@ -61,9 +61,9 @@ func castImpending(t *testing.T, e *Engine) state.ObjID {
 		t.Fatalf("setup: Impending param = %q, want 2:1 G", got)
 	}
 	// {1}{G} exactly -- not the printed {3}{G}: the (impending) offer exists
-	// only because beginCast's "impending" case charged the keyword cost.
+	// only because beginCast's impended (alternative-cost keyword) case charged the keyword cost.
 	addMana(t, e, 0, "CG")
-	submitChoices(t, e, castModeOption(t, e, id, "impending"))
+	submitChoices(t, e, castModeOption(t, e, id, "impended"))
 	passUntilStackEmpty(t, e, 40)
 	return id
 }
@@ -272,7 +272,7 @@ func TestImpendingCensusPinsCorpusCarriers(t *testing.T) {
 			}
 			name := c.Faces[0].Name
 			got = append(got, name)
-			if _, ok := impendingCost(f); !ok {
+			if _, ok := keywordAltCost(f, "Impending"); !ok {
 				t.Errorf("%s: K:Impending did not parse to a priceable cost", f.Name)
 			}
 			if n := impendingCount(f); n <= 0 {

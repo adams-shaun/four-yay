@@ -382,7 +382,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		if e.hasKeywordH(id, kwhJumpStart) {
 			cost = cost.Plus(jumpstartExtra())
 		}
-	case castModeAltCostKeyword:
+	case castModeAltCostKeyword, castModeImpended:
 		// Grant instances use distinct modes so their cost remains selectable
 		// beside printed Blitz, but share Blitz's cast semantics.
 		// The alternative-cost keyword family (altcosts): each mode's cost is
@@ -392,8 +392,8 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// option whose keyword is gone (the face cannot change, so in practice
 		// only a hand-built option) falls back to the empty cost rather than
 		// charging the printed mana cost.
-		head := map[string]string{"evoked": "Evoke", "dashed": "Dash",
-			"overloaded": "Overload", "warped": "Warp", "madness": "Madness", "blitzed": "Blitz"}[opt.Mode]
+		head := map[string]string{"evoked": "Evoke", "dashed": "Dash", "overloaded": "Overload",
+			"warped": "Warp", "madness": "Madness", "blitzed": "Blitz", "impended": "Impending"}[opt.Mode]
 		if opt.Mode == "bestowed" {
 			// Bestow goes through the ONE resolver the offer gate used
 			// (rules/bestow.go's bestowCost: the colon cut and the Unknown
@@ -407,18 +407,6 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 			}
 			break
 		}
-		if opt.Mode == "impending" {
-			// Impending (CR 702.176a) goes through the ONE resolver the offer
-			// gate used (rules/impending.go's impendingCost: the N:cost colon
-			// cut and the Unknown withhold), so the charge and the offer can
-			// never disagree about what an impending cast costs.
-			if ic, ok := impendingCost(f); ok {
-				cost = ic
-			} else {
-				cost = Cost{}
-			}
-			break
-		}
 		if opt.Mode == "blitzed" {
 			cost = Cost{}
 			for _, bc := range e.blitzCosts(p, id) {
@@ -427,8 +415,8 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 					break
 				}
 			}
-		} else if mc, ok := f.KeywordParam(head); ok {
-			cost = ParseCost(mc)
+		} else if mc, ok := keywordAltCost(f, head); ok {
+			cost = mc
 		} else {
 			cost = Cost{}
 		}
@@ -1194,6 +1182,10 @@ const (
 	castModeRetrace
 	castModeJumpstart
 	castModeAltCostKeyword
+	// castModeImpended is Impending (CR 702.176a): an alternative-cost keyword
+	// cast like castModeAltCostKeyword, with its own code so modeFlags and
+	// potentialModeBaseCost key on this ONE table rather than repeating the word.
+	castModeImpended
 	castModeWebSlinging
 	castModeSneak
 	castModeMayhem
@@ -1238,7 +1230,7 @@ var castModeCodes = state.NewStrCodes(
 	state.StrEntry[castModeCode]{Key: "madness", Val: castModeAltCostKeyword},
 	state.StrEntry[castModeCode]{Key: "bestowed", Val: castModeAltCostKeyword},
 	state.StrEntry[castModeCode]{Key: "blitzed", Val: castModeAltCostKeyword},
-	state.StrEntry[castModeCode]{Key: "impending", Val: castModeAltCostKeyword},
+	state.StrEntry[castModeCode]{Key: "impended", Val: castModeImpended},
 	state.StrEntry[castModeCode]{Key: "web-slinging", Val: castModeWebSlinging},
 	state.StrEntry[castModeCode]{Key: "sneak", Val: castModeSneak},
 	state.StrEntry[castModeCode]{Key: "mayhem", Val: castModeMayhem},

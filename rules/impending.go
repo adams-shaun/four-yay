@@ -9,23 +9,22 @@
 //
 // The pieces:
 //
-//   - impendingCost resolves the printed K:Impending parameter (the colon cut
+//   - keywordAltCost resolves the printed K:Impending parameter (the colon cut
 //     is the TWO-field form N:cost; the count is the FIRST field, the cost
-//     text the SECOND). It is the ONE cost reader the offer gate and the
-//     charge call, the bestowCost convention: an unpriceable cost token
-//     withholds the offer rather than charging a degraded generic.
+//     text the SECOND). It is the ONE cost reader the offer gate, the charge
+//     and the potential-plan pricing call, shared with evoke/dash/overload.
 //   - the offer (rules/legal_walk_hand.go and the command-zone half in
-//     rules/legal_walk_alt.go) adds the "impending" cast mode; the spell is
+//     rules/legal_walk_alt.go) adds the "impended" cast mode (castModeImpended); the spell is
 //     an ordinary creature spell on the stack, so the offer gates on the
 //     plain SpellAbility's targets LIKE the evoke/dash family.
-//   - beginCast's "impending" arm charges the same resolved cost in place of
-//     the printed mana cost.
+//   - beginCast's alternative-cost keyword arm charges the same resolved cost
+//     in place of the printed mana cost.
 //   - the pay-time CastInfo carries state.FlagImpending (rules/cast_targets.go's
 //     modeFlags), the provenance the battlefield entry hook reads here and the
 //     intrinsic type switch (state.Object.ImpendingDormant) reads while a time
 //     counter remains. It is a CastProvenanceFlag, so a stack copy never
 //     inherits it (CR 707.10).
-//   - the entry rider (impendingEnter, called from altCostEnter for every
+//   - the entry rider (impendingTickGrant, registered by altCostEnter for every
 //     battlefield MoveZone) places the N time counters through a real
 //     CounterChange and registers the recurring end-step removal as a
 //     runtime-granted AddTrigger$ carrying the builtin __kwImpendingTick
@@ -63,28 +62,6 @@ func init() {
 	effects.RegisterNonAPI("kw:Impending")
 }
 
-// impendingCost resolves the printed Impending keyword's alternative cost and
-// count (CR 702.176a, Forge's K:Impending:<N>:<cost>). The count and cost are
-// the TWO colon-separated fields after the head; only those two are read, so
-// no trailing Forge metadata can leak into either. An unpriceable cost token
-// (ParseCost's Unknown set) withholds the offer rather than charging a
-// degraded generic, the bestowCost fail-closed convention.
-func impendingCost(f *cards.Face) (Cost, bool) {
-	s, ok := f.KeywordParam("Impending")
-	if !ok {
-		return Cost{}, false
-	}
-	count, costText, ok := strings.Cut(s, ":")
-	if !ok || strings.TrimSpace(count) == "" {
-		return Cost{}, false
-	}
-	c := ParseCost(strings.TrimSpace(costText))
-	if len(c.Unknown) > 0 {
-		return Cost{}, false
-	}
-	return c, true
-}
-
 // impendingCount reads the N of a printed K:Impending:N:cost line. It is the
 // entry hook's own reader (impendingCost owns the CAST's price, this owns the
 // COUNTERS), kept separate so neither depends on the other's parse shape. A
@@ -107,30 +84,24 @@ func impendingCount(f *cards.Face) int32 {
 	return n
 }
 
-// impendingEnter is the CR 702.176a end-step trigger rider. Entry time
+// impendingTickGrant is the CR 702.176a end-step trigger rider. Entry time
 // counters are placed by the shared staged entry-counter path before MoveZone
 // folds (rules/entry_counters.go), allowing the AddCounter replacement class
-// to modify them. This hook registers the recurring end-step removal as a
-// runtime-granted trigger (the blitzEnter AddTrigger shape) whose
-// IsPresent$ Card.Self+counters_GE1_TIME gate stops it the instant the last
-// counter leaves.
-func impendingEnter(e *Engine, id state.ObjID, controller state.PlayerID) {
-	o := e.G.Obj(id)
+// to modify them. This builds the recurring end-step removal as a
+// runtime-granted trigger (the blitzEnter AddTrigger shape) that
+// altCostEnter registers: Affects$ Card.Self pins it to this permanent, the
+// Phase/End-of-Turn gate plus ValidPlayer$ You makes it the controller's own
+// end step, and the counters_GE1_TIME intervening-if (the exact gate
+// cards/kw_vanishing.go's upkeep trigger uses, with PresentCompare$ GE1 and
+// PresentDefined$ Self) ends it with the last counter.
+func impendingTickGrant(o *state.Object, controller state.PlayerID) (state.ContinuousEffect, bool) {
 	if o == nil || o.Face() == nil {
-		return
+		return state.ContinuousEffect{}, false
 	}
-	// "At the beginning of your end step, remove a time counter from it."
-	// A granted trigger scoped to the permanent itself (the blitzEnter
-	// AddTrigger shape): Affects$ Card.Self pins it to this permanent, the
-	// Phase/End-of-Turn gate plus ValidPlayer$ You makes it the controller's
-	// own end step, and the counters_GE1_TIME intervening-if (the exact gate
-	// cards/kw_vanishing.go's upkeep trigger uses, with PresentCompare$ GE1 and
-	// PresentDefined$ Self) ends it with the last counter.
-	if t, ok := cards.ParseTriggerLine(
-		"Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Card.Self+counters_GE1_TIME | PresentCompare$ GE1 | PresentDefined$ Self | Execute$ __kwImpendingTick | TriggerDescription$ At the beginning of your end step, remove a time counter from it."); ok {
-		e.AddContinuous(state.ContinuousEffect{
-			Source: id, Affects: "Card.Self", Controller: controller,
-			AddTrigger: &t,
-		})
+	t, ok := cards.ParseTriggerLine(
+		"Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Card.Self+counters_GE1_TIME | PresentCompare$ GE1 | PresentDefined$ Self | Execute$ __kwImpendingTick | TriggerDescription$ At the beginning of your end step, remove a time counter from it.")
+	if !ok {
+		return state.ContinuousEffect{}, false
 	}
+	return state.ContinuousEffect{Source: o.ID, Affects: "Card.Self", Controller: controller, AddTrigger: &t}, true
 }

@@ -26,6 +26,11 @@ func modeIsKicked(mode string) bool {
 // modeFlags maps a pendingCast.mode to the CastInfo Counter string
 // (events.FlagsString of the matching CastFlags bit), "" for a plain cast.
 func modeFlags(mode string) string {
+	if castModeCodes.Code(mode) == castModeImpended {
+		// Impending (CR 702.176a): the provenance altCostEnter's entry rider
+		// and state.Object.ImpendingDormant read; a CastProvenanceFlag.
+		return events.FlagsString(state.FlagImpending)
+	}
 	switch modeFlagsCodes.Code(string(mode)) {
 	case modeFlagsKicked:
 		return events.FlagsString(state.FlagKicked)
@@ -153,8 +158,6 @@ func modeFlags(mode string) string {
 	// spell, and what keeps a bestowed cast distinguishable on the wire.
 	case modeFlagsBestowed:
 		return events.FlagsString(state.FlagBestowed)
-	case modeFlagsImpending:
-		return events.FlagsString(state.FlagImpending)
 	// Mutate (CR 702.140a): the flag is the provenance the resolution reader
 	// uses to merge the spell into its target. modeFlags maps "mutated" to
 	// the bare flag; payCast ORs FlagMutatedTop in when the answered placement
@@ -1497,7 +1500,6 @@ const (
 	modeFlagsWebSlinging
 	modeFlagsSneak
 	modeFlagsBestowed
-	modeFlagsImpending
 	modeFlagsMutated
 	modeFlagsMultikicked
 	modeFlagsSquadded
@@ -1536,7 +1538,6 @@ var modeFlagsCodes = state.NewStrCodes(
 	state.StrEntry[modeFlagsCode]{Key: "web-slinging", Val: modeFlagsWebSlinging},
 	state.StrEntry[modeFlagsCode]{Key: "sneak", Val: modeFlagsSneak},
 	state.StrEntry[modeFlagsCode]{Key: "bestowed", Val: modeFlagsBestowed},
-	state.StrEntry[modeFlagsCode]{Key: "impending", Val: modeFlagsImpending},
 	state.StrEntry[modeFlagsCode]{Key: "mutated", Val: modeFlagsMutated},
 	state.StrEntry[modeFlagsCode]{Key: "multikicked", Val: modeFlagsMultikicked},
 	state.StrEntry[modeFlagsCode]{Key: "squadded", Val: modeFlagsSquadded},

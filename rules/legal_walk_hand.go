@@ -519,7 +519,7 @@ func (w *legalWalk) handWalk() {
 			mode, head string
 			bit        printedHeads
 		}{
-			{"evoked", "Evoke", phEvoke}, {"dashed", "Dash", phDash}, {"overloaded", "Overload", phOverload}, {"warped", "Warp", phWarp},
+			{"evoked", "Evoke", phEvoke}, {"dashed", "Dash", phDash}, {"overloaded", "Overload", phOverload}, {"warped", "Warp", phWarp}, {"impended", "Impending", phImpending},
 		} {
 			if !ph.has(ka.bit) {
 				continue
@@ -618,21 +618,6 @@ func (w *legalWalk) handWalk() {
 				w.offerCastable(p, id, ba, spellScope("bestowed"), false) {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (bestowed)", Obj: id, Mode: "bestowed"})
-			}
-		}
-		// Impending (CR 702.176a): the cast pays the impending cost in place of
-		// the mana cost and the permanent enters with N time counters and is
-		// not a creature until the last is removed. The spell itself is an
-		// ordinary creature spell on the stack, so the offer gates on the
-		// plain SpellAbility's targets LIKE the evoke/dash family.
-		// impendingCost prices every printed shape and withholds only a cost
-		// token ParseCost cannot model at all (the bestow/replicate
-		// convention).
-		if ph.has(phImpending) {
-			if ic, ok := impendingCost(f); ok && targetsAvailable() &&
-				w.offerCastable(p, id, ic, spellScope("impending"), false) {
-				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
-					Label: "Cast " + f.Name + " (impending)", Obj: id, Mode: "impending"})
 			}
 		}
 		// Mutate (CR 702.140a): the mutate cast pays the mutate cost in place

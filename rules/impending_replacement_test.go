@@ -26,7 +26,7 @@ func TestImpendingEntryTimeCountersApplyDoublingSeason(t *testing.T) {
 		t.Fatal("precondition: impending Golem lost its keyword")
 	}
 	addMana(t, e, 0, "CG")
-	submitChoices(t, e, castModeOption(t, e, id, "impending"))
+	submitChoices(t, e, castModeOption(t, e, id, "impended"))
 	passUntilStackEmpty(t, e, 40)
 
 	o := e.G.Obj(id)

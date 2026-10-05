@@ -163,7 +163,12 @@ func keywordAltCost(f *cards.Face, head string) (Cost, bool) {
 	if !ok {
 		return Cost{}, false
 	}
-	return ParseCost(s), true
+	// Forge's two-field K:<Head>:<N>:<cost> form (Impending, CR 702.176a)
+	// leads with the count; the cost is the second field.
+	if n, rest, cut := strings.Cut(s, ":"); cut && n != "" && strings.Trim(n, "0123456789") == "" {
+		s = rest
+	}
+	return ParseCost(strings.TrimSpace(s)), true
 }
 
 // blitzCosts is the shared offer/charge reader for every printed or granted

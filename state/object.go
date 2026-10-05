@@ -411,7 +411,7 @@ const (
 	// the last time counter is removed. At the beginning of your end step,
 	// remove a time counter from it." The flag is the provenance the battlefield
 	// entry hook reads to place the N time counters (rules/impending.go's
-	// impendingEnter) and the one the intrinsic type switch reads to strip
+	// impendingTickGrant) and the one the intrinsic type switch reads to strip
 	// Creature while a time counter remains (state.Object.ImpendingDormant). It
 	// IS a CastProvenanceFlag: both riders are conditioned on the spell having
 	// been CAST for its impending cost, so a stack copy -- put on the stack,
