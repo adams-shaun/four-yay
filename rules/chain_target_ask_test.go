@@ -131,22 +131,24 @@ func TestKorOutfitterAttachSubAsksItsOwnCreature(t *testing.T) {
 	}
 	submitChoices(t, e, swordIdx)
 
+	// CR 603.3d: the Attach sub's own creature ask is announced at placement,
+	// right after the root equipment ask -- not mid-resolution. CR 603.5's
+	// optional election follows once the trigger resolves.
+	dc := passUntilAsk(t, e)
+	if dc == nil || dc.Kind != decision.KTarget || dc.ResumeKind != "trig_sub" {
+		t.Fatalf("sub ask = %+v, want the Attach sub's placement KTarget with ResumeKind trig_sub", dc)
+	}
+	if len(dc.Options) == 0 || dc.Options[0].Obj != kor {
+		t.Fatalf("options %+v, want Kor Outfitter offered", dc.Options)
+	}
+	submitChoices(t, e, dc.Options[0].Index)
+
 	// CR 603.5: the optional trigger's election at resolution.
 	dopt := passUntilAsk(t, e)
 	if dopt == nil || dopt.Kind != decision.KTriggerOptional {
 		t.Fatalf("optional ask = %+v, want KTriggerOptional", dopt)
 	}
 	submitChoices(t, e, 0) // yes
-
-	// The Attach sub's own creature ask -- the ask this task exists for.
-	dc := passUntilAsk(t, e)
-	if dc == nil || dc.Kind != decision.KChoose || dc.ResumeKind != "tgts" {
-		t.Fatalf("sub ask = %+v, want the Attach sub's KChoose with ResumeKind tgts", dc)
-	}
-	if len(dc.Options) == 0 || dc.Options[0].Obj != kor {
-		t.Fatalf("options %+v, want Kor Outfitter offered", dc.Options)
-	}
-	submitChoices(t, e, dc.Options[0].Index)
 
 	if got := e.G.Obj(sword); got == nil || got.AttachedTo != kor {
 		t.Fatalf("sword AttachedTo = %+v, want attached to Kor Outfitter (%d)", got, kor)
