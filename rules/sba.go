@@ -1347,7 +1347,9 @@ func (e *Engine) battleZeroDefense(tried *sbaAttempts) bool {
 // the same as its siblings.
 //
 // Walks e.G.Objs by index -- the dense arena, never a map -- so multiple
-// tokens dying at once cease in a fixed, reproducible order.
+// tokens or spell copies leaving their applicable zones cease in a fixed,
+// reproducible order. A spell copy in any zone other than the stack ceases
+// under CR 704.5e; permanent spell copies are converted to tokens on entry.
 func (e *Engine) ceaseDeadTokens(tried *sbaAttempts) bool {
 	tried.rearm(e.G.AliveCount())
 	var dead []tokenCasualty
@@ -1355,7 +1357,10 @@ func (e *Engine) ceaseDeadTokens(tried *sbaAttempts) bool {
 		o := &e.G.Objs[i]
 		// The field test first: the attempt memory is only consulted for a
 		// token that would otherwise be ceased (the same set as before).
-		if o.IsToken && o.Zone != state.ZBattlefield && o.Zone != state.ZStack && o.Zone != state.ZCeased {
+		// CR 722.3c's prepared exile copy is excluded: it was minted directly
+		// in exile and is castable there, so it has not left the stack and
+		// does not cease.
+		if (o.IsToken || o.IsCopy) && !o.PreparedExileCopy() && o.Zone != state.ZBattlefield && o.Zone != state.ZStack && o.Zone != state.ZCeased {
 			if tried.tokens[o.ID] {
 				tried.skips++
 				continue

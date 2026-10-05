@@ -43,7 +43,9 @@ import (
 // forward ExiledCards list over every seat, and ChangeZoneAll records it)
 // moves the same cast from seq 9979 to 9983: foundations-calling-all-angels
 // runs Oblivion Ring, whose leave-the-battlefield trigger now returns the card
-// it exiled, changing the trajectory. The Roaming Throne verdict is unchanged.
+// it exiled, changing the trajectory. The spell-copy cessation fix adds the
+// replay-visible cease event and moves this cast to seq 9985; the verdict is
+// unchanged.
 func TestRoundSevenFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -59,7 +61,7 @@ func TestRoundSevenFindingsMirror(t *testing.T) {
 	}{
 		{4038, []string{"ulalek-eldrazi", "rakdos-muscle-scam-exe", "vivi-ornitier-cedh", "foundations-calling-all-angels"}, true, 7696, ""},
 		{6085, []string{"vivi-ornitier-cedh", "ulalek-eldrazi", "deadly-disguise", "rakdos-muscle-scam-exe"}, true, 173, "expected:float_then_cast:float_removed_every_target"},
-		{6191, []string{"foundations-wretched-ranks", "avengers-assemble", "ulalek-eldrazi", "hearthhull-worldseed-landfall"}, true, 9983, "expected:float_then_cast:float_trigger_precedes_cast"},
+		{6191, []string{"foundations-wretched-ranks", "avengers-assemble", "ulalek-eldrazi", "hearthhull-worldseed-landfall"}, true, 9985, "expected:float_then_cast:float_trigger_precedes_cast"},
 		{5108, []string{"eldrazi-stompy", "mono-red-prowess"}, false, 675, "expected:float_then_cast:float_removed_every_target"},
 	} {
 		reports := round6Game(t, d, GameSpec{Seed: tc.seed, Decks: tc.decks, Commander: tc.commander, Policy: "bot"})

@@ -80,8 +80,8 @@ func TestStormCopiesTheSpellOncePerSpellCastBefore(t *testing.T) {
 	for _, o := range e.G.Objs {
 		if o.IsCopy {
 			copies++
-			if o.Zone != state.ZExile {
-				t.Fatalf("a resolved copy sits in %s", o.Zone)
+			if o.Zone != state.ZCeased {
+				t.Fatalf("a resolved copy sits in %s, want ceased (CR 707.10a)", o.Zone)
 			}
 		}
 	}
@@ -162,8 +162,8 @@ func TestChainLightningAsksForThePayAndMakesTheCopyWhenPaid(t *testing.T) {
 	for _, o := range e.G.Objs {
 		if o.IsCopy {
 			copies++
-			if o.Zone != state.ZExile {
-				t.Errorf("a resolved copy sits in %s", o.Zone)
+			if o.Zone != state.ZCeased {
+				t.Errorf("a resolved copy sits in %s, want ceased (CR 707.10a)", o.Zone)
 			}
 		}
 	}
