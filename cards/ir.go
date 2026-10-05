@@ -36,6 +36,11 @@ func (s *SA) APIKind() APICode {
 	return APICodeForName(s.API)
 }
 
+// IsActivated reports whether s is an activated (AB) ability. It is the enum
+// spelling of `s.Kind == "AB"` so a kind dispatch shares the one classifier
+// (saKindCode) instead of adding another string-literal comparison.
+func (s *SA) IsActivated() bool { return saKindCode(s.Kind) == SAKindActivated }
+
 // Trigger is a T: line. Execute$ names an SVar holding the effect.
 type Trigger struct {
 	Mode   string
