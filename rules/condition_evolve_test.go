@@ -115,10 +115,16 @@ func TestSharpEyedRookieEvolvesOnlyForABiggerCreature(t *testing.T) {
 // `ValidCard$ Creature.YouCtrl+Other` with the same `Condition$ Evolve`, so
 // the same fix must gate it too. Its counter is OIL (not P1P1), so the test
 // proves the gate is shared, not a Sharp-Eyed-Rookie special case.
+//
+// The equal-size step is load-bearing: before the gate was read the trigger
+// fired UNCONDITIONALLY, so an equal-size creature (Llanowar Elves 1/1) also
+// added the counter. The strictly-bigger step alone cannot tell the two
+// behaviours apart -- both increment the counter -- so the negative assertion
+// is the one that fails with the fix reverted.
 func TestEvolvingAdaptiveEvolvesOnlyForABiggerCreature(t *testing.T) {
 	t.Parallel()
-	const adaptiveName, bigName = "Evolving Adaptive", "Craw Wurm"
-	e, _, _ := conditionEvolveGame(t, 72, adaptiveName, bigName)
+	const adaptiveName, equalName, bigName = "Evolving Adaptive", "Llanowar Elves", "Craw Wurm"
+	e, cfg, _ := conditionEvolveGame(t, 72, adaptiveName, equalName, bigName)
 
 	adaptive := enterFromLibrary(t, e, 0, adaptiveName)
 	e.priorityRound()
@@ -127,12 +133,26 @@ func TestEvolvingAdaptiveEvolvesOnlyForABiggerCreature(t *testing.T) {
 		t.Fatalf("precondition: Evolving Adaptive not on the battlefield: %+v", o)
 	}
 	// It enters with one oil counter (K:etbCounter:OIL:1); its P/T is 0/0
-	// plus one per oil counter, so it is 1/1 on entry. A Grizzly Bears 2/2 is
-	// therefore strictly bigger and MUST evolve it.
+	// plus one per oil counter, so it is 1/1 on entry.
 	if got := e.G.Obj(adaptive).Counter("OIL"); got != 1 {
 		t.Fatalf("precondition: Evolving Adaptive oil counters = %d, want 1", got)
 	}
 
+	// An equal-size creature (1/1) must NOT evolve it: CR 702.99a requires
+	// strictly greater power OR toughness. Before the gate was read the
+	// trigger fired unconditionally and left a second oil counter here.
+	equal := enterFromLibrary(t, e, 0, equalName)
+	if e.Power(equal) > e.Power(adaptive) || e.Toughness(equal) > e.Toughness(adaptive) {
+		t.Fatalf("precondition: %s (%d/%d) must not exceed Evolving Adaptive (%d/%d)",
+			equalName, e.Power(equal), e.Toughness(equal), e.Power(adaptive), e.Toughness(adaptive))
+	}
+	e.priorityRound()
+	passUntilStackEmpty(t, e, 40)
+	if got := e.G.Obj(adaptive).Counter("OIL"); got != 1 {
+		t.Fatalf("Evolving Adaptive evolved for an equal-size creature: %d oil counters, want 1", got)
+	}
+
+	// A strictly bigger creature MUST evolve it.
 	big := enterFromLibrary(t, e, 0, bigName)
 	if e.Power(big) <= e.Power(adaptive) && e.Toughness(big) <= e.Toughness(adaptive) {
 		t.Fatalf("precondition: %s (%d/%d) must be strictly bigger than Evolving Adaptive (%d/%d)",
@@ -144,6 +164,7 @@ func TestEvolvingAdaptiveEvolvesOnlyForABiggerCreature(t *testing.T) {
 		t.Fatalf("Evolving Adaptive oil counters = %d after a bigger creature entered, want 2", got)
 	}
 	noUnimplementedAPI(t, e)
+	replayCheck(t, e, cfg)
 }
 
 // clueTokenCount counts Clue tokens on the battlefield (Sharp-Eyed Rookie's
