@@ -120,6 +120,7 @@ func TypesAndAllCreatureTypes(b Board, act []state.ContinuousEffect, id state.Ob
 			// its subtypes, and the flat type list cannot attribute a subtype
 			// word to a surviving type. Both flags together are therefore
 			// "everything but supertypes" -- Darksteel Mutation's oracle.
+			allCreatureTypes = false
 			kept := ty[:0]
 			for _, t := range ty {
 				if IsSupertype(t) {
@@ -129,6 +130,11 @@ func TypesAndAllCreatureTypes(b Board, act []state.ContinuousEffect, id state.Ob
 			ty = kept
 		}
 		if ce.RemoveCreatureTypes || ce.RemoveSubTypes || ce.SetCreatureTypes {
+			// The semantic marker follows the same timestamp-ordered type
+			// changes as the materialized list. A later strip invalidates an
+			// earlier all-types grant; a subsequent AddAllCreatureTypes below
+			// can establish it again.
+			allCreatureTypes = false
 			kept := ty[:0]
 			for _, t := range ty {
 				if ce.RemoveSubTypes {
@@ -146,6 +152,9 @@ func TypesAndAllCreatureTypes(b Board, act []state.ContinuousEffect, id state.Ob
 			ty = kept
 		}
 		if len(ce.RemoveTypes) > 0 {
+			if allCreatureTypes && slices.ContainsFunc(ce.RemoveTypes, effects.CreatureTypeWords) {
+				allCreatureTypes = false
+			}
 			kept := ty[:0]
 			for _, t := range ty {
 				if !slices.ContainsFunc(ce.RemoveTypes, func(remove string) bool { return strings.EqualFold(t, remove) }) {
@@ -176,6 +185,11 @@ func TypesAndAllCreatureTypes(b Board, act []state.ContinuousEffect, id state.Ob
 	if !owned && len(ty) == 0 {
 		// The copy of an empty list was nil; keep that exact value.
 		ty = nil
+	}
+	if o.ImpendingDormant() {
+		// The impending switch removes every creature subtype along with
+		// Creature, so it also invalidates the semantic all-types marker.
+		allCreatureTypes = false
 	}
 	return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, ty))), allCreatureTypes
 }
