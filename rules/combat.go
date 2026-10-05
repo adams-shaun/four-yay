@@ -1079,10 +1079,11 @@ func (e *Engine) askBlockers() {
 				// (one creature blocks one attacker) without knowing what a
 				// blocker is. The value is internal only -- a blocker:<id>
 				// prefix plus the object id -- never a display string.
+				mustBlockPair := requiredBlockers[bid] && combat.MustBlockPairRequired(asBoard(e), bid, aid)
 				opt := decision.Option{Index: len(built), Kind: "block",
 					Label: e.G.Obj(bid).Face().Name + " blocks " + e.G.Obj(aid).Face().Name,
 					Obj:   bid, Attacker: aid, Player: defender,
-					Group: "blocker:" + strconv.FormatUint(uint64(bid), 10), Required: requiredBlockers[bid], BlockMust: requiredBlockers[bid],
+					Group: "blocker:" + strconv.FormatUint(uint64(bid), 10), Required: mustBlockPair, BlockMust: mustBlockPair,
 					AttackMust: mustBeBlocked[aid]}
 				if b, ok := scope.bounds[aid]; ok {
 					opt.MinBlockers, opt.MaxBlockers = b[0], b[1]

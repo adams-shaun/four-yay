@@ -104,6 +104,7 @@ const (
 	PKCounterNum
 	PKCounterType
 	PKDefined
+	PKDefinedAttacker
 	PKDefinedCards
 	PKDefinedPlayer
 	PKDefinedTarget
@@ -836,6 +837,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKCounterNum:                       "CounterNum",
 	PKCounterType:                      "CounterType",
 	PKDefined:                          "Defined",
+	PKDefinedAttacker:                  "DefinedAttacker",
 	PKDefinedCards:                     "DefinedCards",
 	PKDefinedPlayer:                    "DefinedPlayer",
 	PKDefinedTarget:                    "DefinedTarget",
