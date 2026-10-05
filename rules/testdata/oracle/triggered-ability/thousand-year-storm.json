@@ -32,10 +32,7 @@
      ]
     },
     {
-     "op": "resolve",
-     "targets": [
-      "p1"
-     ]
+     "op": "resolve"
     }
    ],
    "expect": [
@@ -284,10 +281,7 @@
      ]
     },
     {
-     "op": "resolve",
-     "targets": [
-      "p1"
-     ]
+     "op": "resolve"
     }
    ],
    "expect": [
@@ -336,10 +330,7 @@
      ]
     },
     {
-     "op": "resolve",
-     "targets": [
-      "p1"
-     ]
+     "op": "resolve"
     }
    ],
    "expect": [

@@ -14,7 +14,7 @@
       },
       "steps": [
         {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
-        {"op": "resolve", "targets": ["p0:Forest"]}
+        {"op": "resolve"}
       ],
       "expect": [
         {"life": {"p1": 17}},
@@ -32,7 +32,7 @@
       },
       "steps": [
         {"op": "cast", "seat": 0, "card": "p0:Boomerang Basics", "mana": "U", "targets": ["p1:Grizzly Bears"]},
-        {"op": "resolve", "targets": ["p0:Forest"]}
+        {"op": "resolve"}
       ],
       "expect": [
         {"card": "p1:Grizzly Bears", "zone": "hand"},

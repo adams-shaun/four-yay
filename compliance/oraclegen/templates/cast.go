@@ -20,7 +20,16 @@ func xAnswers(f *cards.Face) []oraclegen.Answer {
 		return []oraclegen.Answer{{Kind: "choose", Pick: []string{"X = 1"}}}
 	}
 	if strings.Contains(" "+f.ManaCost+" ", " X ") {
-		return []oraclegen.Answer{{Kind: "choose", Pick: []string{fmt.Sprintf("X = %d", oraclegen.XValue)}}}
+		x := oraclegen.XValue
+		// A TargetMin$ X spell needs X distinct candidates before payment.
+		// The generic one-slot fixture guarantees one permanent, not two.
+		for _, sa := range f.Abilities {
+			if sa.Kind == "SP" && sa.Params["TargetMin"] == "X" {
+				x = 1
+				break
+			}
+		}
+		return []oraclegen.Answer{{Kind: "choose", Pick: []string{fmt.Sprintf("X = %d", x)}}}
 	}
 	return nil
 }
@@ -67,6 +76,17 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []str
 		// (Seize the Spoils, Demand Answers): the spell itself is on the
 		// stack by then, so the discard needs a second card.
 		func(fx *oraclegen.Fixture) { fx.P0().Hand = append(fx.P0().Hand, "Forest") },
+	}
+	// Collect evidence X pays the total mana value of the selected targets.
+	// Supply enough graveyard mana value for a four-slot cast rather than
+	// treating a reversed payment as an empty-stack success.
+	for _, sa := range f.Abilities {
+		if sa.Kind == "SP" && strings.Contains(sa.Params["Cost"], "CollectEvidence<X>") {
+			extras = append(extras, func(fx *oraclegen.Fixture) {
+				fx.P0().Graveyard = append(fx.P0().Graveyard, "Serra Angel", "Hill Giant", "Grizzly Bears")
+			})
+			break
+		}
 	}
 	stackIdx := stackSlotIndexes(slots)
 	plain := nonStackSlots(slots)

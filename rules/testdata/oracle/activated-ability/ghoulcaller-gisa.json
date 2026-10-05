@@ -15,7 +15,7 @@
       "steps": [
         {"op": "mana", "seat": 0, "mana": "B"},
         {"op": "activate", "seat": 0, "card": "p0:Ghoulcaller Gisa", "ability": "Create X 2/2"},
-        {"op": "resolve", "targets": ["p0:Centaur Courser"]}
+        {"op": "resolve"}
       ],
       "expect": [
         {"card": "p0:Centaur Courser", "zone": "graveyard"},

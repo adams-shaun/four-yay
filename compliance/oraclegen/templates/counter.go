@@ -127,7 +127,7 @@ func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre prec
 		},
 	}
 	oraclegen.Baseline(sc.Setup, f)
-	res, ok := oraclegen.PlaysThrough(reg, sc)
+	res, ok := oraclegen.ProbeTargets(reg, sc)
 	if !ok {
 		return oraclegen.Item{}, false
 	}

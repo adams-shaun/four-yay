@@ -17,7 +17,7 @@
         {"op": "resolve"},
         {"op": "mana", "seat": 0, "mana": "CCW"},
         {"op": "activate", "seat": 0, "card": "p0:Hidden Dragonslayer", "ability": "Turn face up"},
-        {"op": "resolve", "targets": ["p1:Vastwood Gorger"]}
+        {"op": "resolve"}
       ],
       "expect": [
         {"card": "p0:Hidden Dragonslayer", "zone": "battlefield", "pt": "3/2", "keywords": ["Lifelink"]},

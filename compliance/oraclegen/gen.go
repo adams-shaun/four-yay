@@ -132,15 +132,25 @@ func mayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
 // answers are failures here: callers must rewrite targets to gorge's actual
 // picks before replaying the generated scenario.
 func playsThrough(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
+	res, ok := probeTargets(reg, sc)
+	return res, ok && len(res.Fails) == 0
+}
+
+// probeTargets runs a preliminary fixture that may over-offer targets. Only
+// unused-target failures are excused here, before chooseTargets replaces the
+// fixture slots; a reversed cast, or any other failure, is never a success.
+func probeTargets(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
 	b, _ := json.Marshal(sc)
 	res, err := rules.RunOracleScenarioJSON(reg, b)
-	if err != nil {
+	if err != nil || len(res.Snapshots) != len(sc.Steps)+1 || castAborted(sc, res.Snapshots, res.Transcript) {
 		return res, false
 	}
-	if len(res.Fails) > 0 {
-		return res, false
+	for _, f := range res.Fails {
+		if !strings.Contains(f, rules.OracleUnusedTargetMarker) {
+			return res, false
+		}
 	}
-	return res, len(res.Snapshots) == len(sc.Steps)+1 && len(res.Snapshots[len(res.Snapshots)-1].Stack) == 0
+	return res, len(res.Snapshots[len(res.Snapshots)-1].Stack) == 0
 }
 
 type charmMode struct{ svar, label string }

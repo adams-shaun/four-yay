@@ -49,7 +49,7 @@
         "p1": {}
       },
       "steps": [
-        {"op": "move", "card": "p0:Elder Owyn Lyons", "to": "graveyard", "targets": ["p0:Mind Stone"]}
+        {"op": "move", "card": "p0:Elder Owyn Lyons", "to": "graveyard"}
       ],
       "expect": [
         {"card": "p0:Elder Owyn Lyons", "zone": "graveyard"},

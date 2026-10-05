@@ -84,6 +84,12 @@ func PlaysThrough(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
 	return playsThrough(reg, sc)
 }
 
+// ProbeTargets permits only surplus fixture targets before the cast rewrite;
+// a reversed cast is never a successful probe.
+func ProbeTargets(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
+	return probeTargets(reg, sc)
+}
+
 // Settle returns how many resolve steps empty the stack after sc (at most
 // 4); ok is false when gorge cannot play sc.
 func Settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) { return settle(reg, sc) }

@@ -33,7 +33,7 @@
       "steps": [
         {"op": "cast", "seat": 0, "card": "p0:Orcish Bowmasters", "mana": "BB"},
         {"op": "resolve", "targets": ["p1"]},
-        {"op": "cast", "seat": 0, "card": "p0:Orcish Bowmasters#2", "mana": "BB", "targets": ["p0:Orcish Bowmasters#2"]},
+        {"op": "cast", "seat": 0, "card": "p0:Orcish Bowmasters#2", "mana": "BB"},
         {"op": "resolve"}
       ],
       "expect": [

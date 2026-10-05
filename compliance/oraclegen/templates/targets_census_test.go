@@ -114,10 +114,8 @@ func TestDivergentEquationTargetsAreEmpty(t *testing.T) {
 	}
 }
 
-// TestConductElectricityDropsTheTokenSlot: the ticket's model card -- one
-// mandatory creature target and one optional "up to one target creature
-// token". With no token on the board gorge poses only the first target, so
-// the scenario must list one, not the fixture's two same-named Grizzlies.
+// TestGeneratedReversedCastsAreRejected verifies a cast survived the engine's
+// CR 601 reversal, even if the stack was empty when generation settled.
 func TestGeneratedReversedCastsAreRejected(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, name := range []string{"Long River's Pull", "Urgent Necropsy", "Doppelgang"} {
@@ -244,6 +242,8 @@ func TestDistinctTargetSlotsDoNotReuseSameNamedObject(t *testing.T) {
 	}
 }
 
+// TestConductElectricityDropsTheTokenSlot: one mandatory creature target and
+// one optional token target; the fixture has no token, so only the first stays.
 func TestConductElectricityDropsTheTokenSlot(t *testing.T) {
 	reg := loadGenRegistry(t)
 	it, skip := Generate(reg, "Conduct Electricity")
