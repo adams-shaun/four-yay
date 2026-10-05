@@ -36,11 +36,18 @@ type predFn func(g *state.Game, o *state.Object, you state.PlayerID, source stat
 // grant is visible to the filter that gates it (Cavalry Master's
 // `withFlanking` lord, kw:Flanking's `withoutFlanking` blocker check).
 type keywordPredicate struct {
-	keyword string
-	negated bool
+	keyword      string
+	parameter    string
+	hasParameter bool
+	negated      bool
 }
 
 var keywordPredicates = map[string]keywordPredicate{}
+
+var parameterizedKeywordPredicateHeads = map[string]string{
+	"hasKeywordLandwalk": "Landwalk",
+	"hasKeywordEnchant":  "Enchant",
+}
 
 // keywordPredicateFor classifies a supported with<X>/without<X> token. Forge
 // scripts retain spaces in keyword names, while the registry keys are compact;
@@ -52,8 +59,18 @@ func keywordPredicateFor(p string) (keywordPredicate, bool) {
 	}
 	if strings.HasPrefix(p, "with") || strings.HasPrefix(p, "without") || strings.HasPrefix(p, "hasKeyword") {
 		compact := strings.ReplaceAll(p, " ", "")
-		kp, ok := keywordPredicates[compact]
-		return kp, ok
+		if kp, ok := keywordPredicates[compact]; ok {
+			return kp, true
+		}
+		// Landwalk and Enchant carry answerable keyword parameters in Forge
+		// filters (e.g. hasKeywordLandwalk:Island and
+		// hasKeywordEnchant:Creature). Keep this vocabulary explicit: a
+		// parameter on another keyword, or an empty parameter, is unsupported.
+		name, parameter, hasParameter := strings.Cut(compact, ":")
+		keyword, supported := parameterizedKeywordPredicateHeads[name]
+		if hasParameter && len(parameter) > 0 && supported {
+			return keywordPredicate{keyword: keyword, parameter: parameter, hasParameter: true}, true
+		}
 	}
 	return keywordPredicate{}, false
 }
@@ -541,6 +558,44 @@ type LayerTables struct {
 	DerivedKeywords []ObjectKeywords
 }
 
+// keywordPredicateMatches reads bare keyword predicates through keywordInCtx
+// and parameterized Landwalk/Enchant predicates from the same derived keyword
+// binding, falling back to the printed face where no layer result is bound.
+func keywordPredicateMatches(o *state.Object, kp keywordPredicate, sc *SpecContext) bool {
+	if !kp.hasParameter {
+		return keywordInCtx(o, kp.keyword, sc)
+	}
+	list := sc.ExtraKeywords
+	if list == nil && o != nil {
+		for i := range sc.Layers.DerivedKeywords {
+			if sc.Layers.DerivedKeywords[i].ID == o.ID {
+				list = sc.Layers.DerivedKeywords[i].Keywords
+				if list == nil {
+					list = []string{}
+				}
+				break
+			}
+		}
+	}
+	if list == nil {
+		if o == nil || o.Face() == nil {
+			return false
+		}
+		list = o.Face().Keywords
+	}
+	for _, keyword := range list {
+		head, parameter, hasParameter := strings.Cut(keyword, ":")
+		// Enchant keyword parameters may continue with restrictions after the
+		// primary type (Enchant:Creature.YouCtrl); filters name that primary
+		// type. Landwalk's parameter is a single land type.
+		primary, _, _ := strings.Cut(strings.TrimSpace(parameter), ".")
+		if hasParameter && strings.EqualFold(strings.TrimSpace(head), kp.keyword) && strings.EqualFold(primary, kp.parameter) {
+			return true
+		}
+	}
+	return false
+}
+
 // keywordInCtx is THE keyword read of the with<X>/without<X> predicates. A
 // caller-bound ExtraKeywords (rules' matchesSpec, the ONE candidate's full
 // derived list) is authoritative; otherwise a published DerivedKeywords
@@ -603,19 +658,19 @@ func init() {
 	// a gap on every changeling carrier.
 	RegisterNonAPI("kw:Changeling")
 
-	// Flash and Mutate (task costfilter): Cunning Nightbonder's
-	// `Card.hasKeywordFlash` and Pollywog Symbiote's `Creature.withMutate`
-	// cost reductions, plus every other corpus withFlash/hasKeywordFlash
-	// filter. Forge's hasKeyword<X> is the exact-keyword spelling of the same
-	// test (CardProperty: card.hasKeyword(X), introduced so "withFlash" could
-	// not prefix-match Flashback); this matcher's KeywordHead comparison is
-	// already exact, so hasKeyword<X> registers as a plain alias of with<X>
-	// for every keyword in this list. Any other hasKeyword<X> (Landwalk,
-	// Enchant, ...) stays unknown and fails closed.
+	// Register keyword predicates only for heads the exact keyword reader can
+	// answer. Forge's hasKeyword<X> is the exact-keyword spelling of with<X>
+	// (CardProperty: card.hasKeyword(X)); keywordPredicateFor and
+	// UnknownPredicates share this registry, so unsupported names remain
+	// unknown to both matching and census. Keep the recognized vocabulary
+	// explicit: InternKeywordHead assigns ids but cannot enumerate valid heads.
 	for _, kw := range [...]string{"Flying", "Trample", "Deathtouch", "Lifelink",
 		"Vigilance", "Reach", "Haste", "Indestructible", "First Strike", "Double Strike", "Menace",
 		"Flanking", "Horsemanship", "Defender", "Foretell", "Shadow", "Doctor's companion",
-		"Flash", "Mutate", "Decayed"} {
+		"Flash", "Mutate", "Decayed", "Hexproof", "Ward", "Toxic", "Infect",
+		"Morph", "Megamorph", "Devoid", "Madness", "Persist", "Phasing", "Unearth",
+		"Cascade", "Convoke", "Cycling", "Disturb", "Flashback", "Kicker", "Multikicker",
+		"Landwalk", "Enchant"} {
 		k := kw
 		with := func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 			return objectHasKeyword(o, k)
@@ -2121,7 +2176,7 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 	// AddKeyword$ grant. Keep this before the generic predicate map so a
 	// context-aware caller never has its bound list bypassed.
 	if kp, ok := keywordPredicateFor(p); ok {
-		has := keywordInCtx(o, kp.keyword, &sc)
+		has := keywordPredicateMatches(o, kp, &sc)
 		if kp.negated {
 			has = !has
 		}
