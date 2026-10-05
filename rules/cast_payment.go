@@ -247,7 +247,9 @@ func (e *Engine) manaAsk() bool {
 // meaningful player choice and the grant may matter to a later repricing.
 func (e *Engine) manaConvertAsk() bool {
 	pc := e.cast
-	if pc == nil || pc.ManaConvertDone {
+	if pc == nil || pc.ManaConvertDone || pc.mode == "land" {
+		// Playing a land is not casting a spell (CR 601.2); even a
+		// Spell-scoped Optional$ conversion cannot elect on this flow.
 		return false
 	}
 	_, optional := e.manaConversionParts(pc.player, pc.card, pc.isAbility())
