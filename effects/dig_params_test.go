@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 
@@ -57,17 +58,30 @@ func TestCompileDig(t *testing.T) {
 	}
 }
 
-// TestDigOfIsAllocationFree verifies configured Dig records allocate nothing.
-// Front-cache hits are covered by TestCompileDig; using that process-wide,
-// direct-mapped cache here would make the allocation measurement depend on
-// unrelated DigOf calls evicting its slot.
+// TestDigOfIsAllocationFree pins both configured-record and front-cache hits.
+// Pick a currently empty direct-mapped slot so earlier Dig compiles cannot
+// evict the entry during testing.AllocsPerRun; this test is not parallel, and
+// no other test should have a live DigOf caller.
 func TestDigOfIsAllocationFree(t *testing.T) {
 	bound := &cards.SA{API: "Dig", Params: map[string]string{"DigNum": "3", "ChangeNum": "1"}}
 	f := NewSAFacts(bound)
 	f.Publish()
-	cached := &cards.SA{API: "Dig", Params: map[string]string{"DigNum": "2"}}
-	cachedFacts := NewSAFacts(cached)
-	cachedFacts.Publish()
+
+	var cached *cards.SA
+	for i := 0; i < len(digFront); i++ {
+		candidate := &cards.SA{API: "Dig", Params: map[string]string{"DigNum": "2", "slot": fmt.Sprint(i)}}
+		if digFront[paramMapSlot(candidate.Params)].Load() == nil {
+			cached = candidate
+			break
+		}
+	}
+	if cached == nil {
+		t.Fatal("no empty Dig front-cache slot available for allocation check")
+	}
+	cachedParams := DigOf(cached)
+	if cachedParams == nil || DigOf(cached) != cachedParams {
+		t.Fatal("could not prime and verify Dig front-cache hit")
+	}
 	if n := allocsPerRun(100, func() {
 		_ = DigOf(bound)
 		_ = DigOf(cached)
@@ -76,8 +90,5 @@ func TestDigOfIsAllocationFree(t *testing.T) {
 	}
 	if f.Dig == nil || !f.Dig.boundTo(bound.Params) {
 		t.Fatal("NewSAFacts did not compile the Dig half")
-	}
-	if cachedFacts.Dig == nil || !cachedFacts.Dig.boundTo(cached.Params) {
-		t.Fatal("NewSAFacts did not compile the cached Dig half")
 	}
 }
