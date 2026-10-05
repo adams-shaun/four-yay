@@ -675,7 +675,23 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 // remainder is handled by the next subability.
 func deferredDigLibraryFetch(g *state.Game, c *Ctx, cz *ChangeZoneParams) bool {
 	if cz.Defined != "Remembered" || cz.Destination != state.ZHand ||
-		cz.DestinationAlt != state.ZBattlefield || cz.DestAltSVarCompare != "GE5" || c == nil {
+		cz.DestinationAlt != state.ZBattlefield || cz.DestAltSVarCompare != "GE5" ||
+		cz.SubAbility == "" || c == nil {
+		return false
+	}
+	// The shuffle exemption belongs only to the paired Green Sun sequence:
+	// this fetch must be followed by the exact Imprinted RandomOrder return.
+	// Matching only the fetch's shape and a nonempty imprint would suppress
+	// established shuffles for unrelated abilities that happen to share those
+	// parameters.
+	remainder := cards.ResolveSVar(c.SVars, cz.SubAbility)
+	if remainder == nil || remainder.API != "ChangeZone" {
+		return false
+	}
+	rest := ChangeZoneOf(remainder)
+	if rest.Defined != "Imprinted" || !rest.OriginExactly(state.ZLibrary) ||
+		!rest.DestinationIs(state.ZLibrary) || !rest.RandomOrder || !rest.NoShuffle ||
+		rest.LibraryPosition.Text != "-1" {
 		return false
 	}
 	source := g.Obj(c.Source)

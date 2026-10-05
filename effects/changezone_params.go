@@ -124,6 +124,7 @@ type ChangeZoneParams struct {
 	changeZoneTargeting
 	DefinedPlayer ParamText
 	Chooser       string
+	SubAbility    string
 	handChooser   handChooserKind
 	// ChooseFromDefined$, AttachedTo$, AttachedToPlayer$.
 	ChooseFromDefined string
@@ -472,6 +473,7 @@ func compileChangeZone(sa *cards.SA, tp *TargetParams, dr *DefinedParams) *Chang
 	mand := strings.TrimSpace(sa.ParamStr(cards.PKMandatory))
 	p.MandatoryPresent = mand != ""
 	p.Mandatory = strings.EqualFold(mand, "True")
+	p.SubAbility = strings.TrimSpace(sa.ParamStr(cards.PKSubAbility))
 	p.ChoiceOptional = isTrue(sa.ParamStr(cards.PKChoiceOptional))
 	p.OptionalPrompt = strings.TrimSpace(sa.ParamStr(cards.PKOptionalPrompt))
 	p.SelectPrompt = strings.TrimSpace(sa.ParamStr(cards.PKSelectPrompt))

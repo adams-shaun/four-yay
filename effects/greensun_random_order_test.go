@@ -25,7 +25,8 @@ func TestGreenSunsTwilightRestBottomRandomizesOnlyImprintedRemainder(t *testing.
 	}
 	chosen := cards.ResolveSVar(vars, "DBChangeZone")
 	if chosen == nil || chosen.Params["Defined"] != "Remembered" || chosen.Params["Destination"] != "Hand" ||
-		chosen.Params["DestinationAlternative"] != "Battlefield" || chosen.Params["DestAltSVarCompare"] != "GE5" {
+		chosen.Params["DestinationAlternative"] != "Battlefield" || chosen.Params["DestAltSVarCompare"] != "GE5" ||
+		chosen.Params["SubAbility"] != "RestBottom" {
 		t.Fatalf("precondition: chosen-card ChangeZone chain = %+v", chosen)
 	}
 
@@ -97,8 +98,13 @@ func TestDefinedLibraryFetchKeepsDefaultShuffleOutsideGreenSunContinuation(t *te
 	if h.g.Obj(first.ID).Zone != state.ZLibrary || h.g.Obj(second.ID).Zone != state.ZLibrary || first.ID == second.ID {
 		t.Fatal("precondition: two distinct fetch targets are in the library")
 	}
+	h.Emit(events.Event{Kind: events.Imprint, Obj: source.ID, IDs: []state.ObjID{first.ID}})
+	if len(h.g.Obj(source.ID).Imprinted) == 0 {
+		t.Fatal("precondition: near-match source has a pre-existing imprint")
+	}
 	sa := &cards.SA{API: "ChangeZone", Params: map[string]string{
 		"Defined": "Remembered", "Origin": "Library", "Destination": "Hand",
+		"DestinationAlternative": "Battlefield", "DestAltSVarCompare": "GE5",
 	}}
 	ctx := &Ctx{Source: source.ID, Controller: 0, Remembered: []state.Target{{Obj: first.ID}, {Obj: second.ID}}}
 	effChangeZone(h, ctx, sa)
