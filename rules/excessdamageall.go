@@ -6,26 +6,33 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-func damageSourceHasDeathtouch(e *Engine, ev events.Event) bool {
+type damageSourceCharacteristics interface {
+	inFlightDamageSource() state.ObjID
+	actionCause() state.ObjID
+	sourceDeathtouch(state.ObjID, state.ObjID) (bool, bool)
+	hasKeywordH(state.ObjID, kwHead) bool
+}
+
+func damageSourceHasDeathtouch(source damageSourceCharacteristics, ev events.Event) bool {
 	if ev.Kind != events.Damage {
 		return false
 	}
-	source := e.inFlightDamageSource()
-	if source == 0 {
+	sourceID := source.inFlightDamageSource()
+	if sourceID == 0 {
 		return false
 	}
-	if cause := e.actionCause(); cause != 0 {
-		if lki, ok := e.damageSourceLKI[cause][source]; ok {
-			return lki.Deathtouch
+	if cause := source.actionCause(); cause != 0 {
+		if deathtouch, found := source.sourceDeathtouch(cause, sourceID); found {
+			return deathtouch
 		}
 	}
-	return e.hasKeywordH(source, kwhDeathtouch)
+	return source.hasKeywordH(sourceID, kwhDeathtouch)
 }
 
 // captureExcessBaseline runs before Apply marks the damage. It remembers the
 // first pre-fold lethal threshold for this creature, not an intermediate
 // threshold after earlier events in the same simultaneous batch.
-func captureExcessBaseline(baselines map[state.ObjID]int32, ev events.Event, deathtouch bool, board interface {
+func captureExcessBaseline(baselines map[state.ObjID]int32, ev events.Event, board interface {
 	Game() *state.Game
 	Toughness(state.ObjID) int32
 	IsCreature(state.ObjID) bool
@@ -44,20 +51,13 @@ func captureExcessBaseline(baselines map[state.ObjID]int32, ev events.Event, dea
 	if baselines == nil {
 		baselines = make(map[state.ObjID]int32)
 	}
-	lethal := board.Toughness(id) - o.Damage
-	// CR 120.4a: one damage from a source with deathtouch is lethal for
-	// assignment purposes. Existing marked damage can make the ordinary
-	// threshold smaller, so only lower a positive threshold to one.
-	if deathtouch && lethal > 1 {
-		lethal = 1
-	}
-	baselines[id] = lethal
+	baselines[id] = board.Toughness(id) - o.Damage
 	return baselines
 }
 
 // damageTriggerAmount leaves ordinary modes unchanged. When already lethal,
 // the whole hit is excess. Each simultaneous hit compares to the same base.
-func damageTriggerAmount(baselines map[state.ObjID]int32, mode cards.TriggerMode, ev events.Event) int32 {
+func damageTriggerAmount(baselines map[state.ObjID]int32, mode cards.TriggerMode, ev events.Event, deathtouch bool) int32 {
 	if mode != cards.TriggerExcessDamageAll {
 		return ev.Amount
 	}
@@ -65,7 +65,15 @@ func damageTriggerAmount(baselines map[state.ObjID]int32, mode cards.TriggerMode
 		return 0
 	}
 	baseline, ok := baselines[ev.Obj]
-	if !ok || ev.Amount <= baseline {
+	if !ok {
+		return 0
+	}
+	// CR 120.4a: deathtouch makes this event's lethal assignment threshold
+	// one, without changing the recipient's fixed pre-batch baseline.
+	if deathtouch && baseline > 1 {
+		baseline = 1
+	}
+	if ev.Amount <= baseline {
 		return 0
 	}
 	if baseline <= 0 {
