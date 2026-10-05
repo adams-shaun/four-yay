@@ -2437,7 +2437,22 @@ func (e *Engine) cleanupBody() {
 			if o == nil {
 				continue
 			}
-			if o.Damage > 0 && !e.noCleanupDamageKeeps(id) {
+			// A stat:NoCleanupDamage static (CR 514.2: "Damage isn't removed
+			// from this creature during cleanup steps.", Ancient Adamantoise)
+			// keeps the marked damage. Read here, at the one removal site, so a
+			// static the cleanup step cannot see never drops damage.
+			keepDamage := false
+			for _, sv := range e.activeStatics("NoCleanupDamage") {
+				spec := strings.TrimSpace(sv.ParamStr(cards.PKValidCard))
+				if spec == "" {
+					continue
+				}
+				if e.matchesSpec(spec, id, e.staticSpecCtx(sv)) {
+					keepDamage = true
+					break
+				}
+			}
+			if o.Damage > 0 && !keepDamage {
 				ev := events.Event{Kind: events.Damage, Obj: id, Amount: -o.Damage}
 				if f := o.Face(); e.IsCreature(id) && f != nil && f.IsPlaneswalker() && !f.IsCreature() {
 					ev.Counter = "creature"
