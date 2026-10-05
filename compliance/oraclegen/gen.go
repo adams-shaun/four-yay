@@ -661,6 +661,12 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XA
 // affordable, and a min-0 single option is a real decline XMage still asks
 // (Break Out, Destined Confrontation).
 func forcedSingleOption(d rules.OracleDecision) bool {
+	if d.Kind == "mode" && d.Resume == "generic_players" && d.Options == 1 && d.Min == 1 && d.Max == 1 {
+		// A per-player punisher's forced one-mode ask (Rottenmouth Viper's
+		// "you lose 4 life unless ..."): XMage does not pose it; the unless
+		// choice that follows is the real decision.
+		return true
+	}
 	if d.Kind == "target" || d.Kind == "order" || d.Kind == "mode" {
 		return false
 	}
@@ -683,12 +689,9 @@ func unlessPolarity(d rules.OracleDecision) string {
 			return "no"
 		}
 	}
-	for _, aff := range []string{"yes", "pay", "accept"} {
-		if strings.HasPrefix(l, aff) {
-			return "yes"
-		}
-	}
-	return "no"
+	// Any other label names the cost being paid ("Pay {2}", "Sacrifice an
+	// artifact").
+	return "yes"
 }
 
 // modeNumberFor resolves the k-th pick's 1-based XMage mode number from its
