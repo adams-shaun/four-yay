@@ -603,26 +603,6 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 	// accepted optional fetch that moves nothing still clears. A declined
 	// Optional$ confirmation returned above without clearing.
 	forgetOther(h, c, cz.Riders.ForgetOtherRemembered)
-	// A Defined$ fetch is already selected by an earlier effect, but it still
-	// must not ask for an alternate destination when every remembered object
-	// has left the library. Resolve the conditional destination once for the
-	// complete fetch, after rechecking that at least one card can move.
-	found := false
-	for i := range fetches {
-		for _, id := range fetches[i].ids {
-			if o := g.Obj(id); o != nil && o.Zone == state.ZLibrary && o.Owner == fetches[i].owner {
-				found = true
-				break
-			}
-		}
-		if found {
-			break
-		}
-	}
-	if found {
-		to = changeZoneAltDestination(h, c, cz, to)
-	}
-
 	withKind := cz.WithCountersType
 	var withAmt int32
 	if withKind != "" && counterDestination(to) {
@@ -1009,15 +989,6 @@ func totalCardTypesSatisfied(g *state.Game, ids []state.ObjID, need int) bool {
 	return len(seen) >= need
 }
 
-// changeZoneAltForFound asks about a conditional destination only when this
-// search actually found a card to move.
-func changeZoneAltForFound(h Host, c *Ctx, cz *ChangeZoneParams, to state.Zone, found []state.ObjID) state.Zone {
-	if len(found) == 0 {
-		return to
-	}
-	return changeZoneAltDestination(h, c, cz, to)
-}
-
 // applyLibrarySearch moves one search player's chosen cards and runs the
 // search's shuffle-and-place tail.
 func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owner state.PlayerID, to state.Zone, chosen []state.ObjID, zones []state.Zone) {
@@ -1135,7 +1106,6 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owne
 			valid = append(valid, id)
 		}
 	}
-	to = changeZoneAltForFound(h, c, cz, to, valid)
 	// The search's fetch is entered: Forge clears the source's remembered
 	// cards before the choose (ChangeZoneEffect.changeHiddenOriginResolve
 	// 1103), so a search that yields no card still clears. The valid set above
