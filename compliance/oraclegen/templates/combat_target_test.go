@@ -14,16 +14,17 @@ import (
 // refused the target and every one of these cards was a
 // "no generated scenario (no fixture gorge can cast ...)" skip.
 var attackingTargetCards = []string{
-	"Protective Response", // ECL
-	"Focus Fire",          // EOE
-	"Elspeth's Smite",     // FDN
-	"Cosmium Blast",       // LCI
-	"Sudden Strike",       // SPM
-	"Osseous Exhale",      // TDM
-	"Razor Rings",         // TLA
-	"Sonar Strike",        // BLB
-	"Dreadmaw's Ire",      // LCI
-	"Not on My Watch",     // MKM
+	"Protective Response",  // ECL
+	"Focus Fire",           // EOE
+	"Elspeth's Smite",      // FDN
+	"Cosmium Blast",        // LCI
+	"Sudden Strike",        // SPM
+	"Osseous Exhale",       // TDM
+	"Razor Rings",          // TLA
+	"Sonar Strike",         // BLB
+	"Dreadmaw's Ire",       // LCI
+	"Not on My Watch",      // MKM
+	"Kellan's Lightblades", // WOE
 }
 
 // These demand a tapped creature; the fixture must start the target tapped and
