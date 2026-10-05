@@ -733,6 +733,10 @@ const (
 	PKReplaceGraveyardValid
 	PKImprintPlayed
 	PKShowCards
+	// PKLevel is the target level of a Class level-up activator (kw:Class
+	// synthesises `AB$ ClassLevelUp | Level$ N`; CR 716.2d sets the
+	// designation to N). Appended last so no prior ordinal shifts.
+	PKLevel
 	paramKeyCount
 )
 
@@ -1466,6 +1470,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKReplaceGraveyardValid:            "ReplaceGraveyardValid",
 	PKImprintPlayed:                    "ImprintPlayed",
 	PKShowCards:                        "ShowCards",
+	PKLevel:                            "Level",
 }
 
 // String is the key's Forge text.

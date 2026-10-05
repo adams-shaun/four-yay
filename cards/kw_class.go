@@ -52,8 +52,8 @@ func kwClass(f *Face, i int, k, head, param string, has func(kind, line string) 
 	}
 	level, err := strconv.Atoi(strings.TrimSpace(levelStr))
 	if err != nil || level < 2 {
-		// A malformed level (or level 1, which the entry counter already
-		// provides) grants nothing -- fail closed rather than guess a band.
+		// A malformed level (or level 1, the intrinsic default designation)
+		// grants nothing -- fail closed rather than guess a band.
 		return
 	}
 	cost, body, _ := strings.Cut(rest, ":")
@@ -63,11 +63,13 @@ func kwClass(f *Face, i int, k, head, param string, has func(kind, line string) 
 	}
 
 	// Level 1 is the default designation, not an entry replacement or counter.
-	// The level-up activator advances that designation, never a counter.
-	// offered only while this Class's level is below N.
+	// The level-up activator sets the designation to this line's level, never a
+	// counter, and is offered only while the Class is at exactly N-1 (CR 716.2d,
+	// matching Constructed's class level-up activation status).
 	if !has("A", k) {
-		gate := "Card.Self+classLevel_LT" + strconv.Itoa(level)
+		gate := "Card.Self+classLevel_EQ" + strconv.Itoa(level-1)
 		sa, _ := parseSA("", "AB$ ClassLevelUp | Cost$ "+cost+" | IsPresent$ "+gate+
+			" | Level$ "+strconv.Itoa(level)+
 			" | SorcerySpeed$ True | Keyword$ Class | SpellDescription$ Level "+strconv.Itoa(level))
 		if sa != nil {
 			sa.Params["KeywordLine"] = k

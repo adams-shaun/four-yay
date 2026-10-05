@@ -176,6 +176,10 @@ func numericPred(name string, g *state.Game, o *state.Object, sc SpecContext) (r
 		switch CmpOpOf(rest[:2]) {
 		case CmpLT:
 			return o.ClassLevel() < int32(n), true
+		case CmpLE:
+			return o.ClassLevel() <= int32(n), true
+		case CmpEQ:
+			return o.ClassLevel() == int32(n), true
 		case CmpGE:
 			return o.ClassLevel() >= int32(n), true
 		}
