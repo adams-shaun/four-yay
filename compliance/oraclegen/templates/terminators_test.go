@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
 
@@ -71,20 +72,24 @@ func TestGeneratedTerminatorsAndOptionalCosts(t *testing.T) {
 			},
 		},
 		{
-			// HOB Kicker: same head-of-cast decline.
+			// HOB Kicker {2}{W}{W}: the cast fixture has too little
+			// white mana to pay this optional cost, so XMage does not ask.
 			card: "The Eagles Are Coming!",
 			check: func(t *testing.T, it oraclegen.Item) {
-				if !hasAnswer(it.XAnswers, 0, "choice", "no") {
-					t.Fatalf("cast-step no missing: %+v", it.XAnswers)
+				assertUnpayableCastCost(t, reg, it, "2 W W")
+				if hasAnswer(it.XAnswers, 0, "choice", "no") {
+					t.Fatalf("unpayable kicker queued a decline: %+v", it.XAnswers)
 				}
 			},
 		},
 		{
-			// TLA waterbend (a self-spell OptionalCost static).
+			// TLA waterbend {4}: the base-cost fixture cannot pay four
+			// additional mana, so no decline belongs on this cast step.
 			card: "Ruinous Waterbending",
 			check: func(t *testing.T, it oraclegen.Item) {
-				if !hasAnswer(it.XAnswers, 0, "choice", "no") {
-					t.Fatalf("cast-step no missing: %+v", it.XAnswers)
+				assertUnpayableCastCost(t, reg, it, "4")
+				if hasAnswer(it.XAnswers, 0, "choice", "no") {
+					t.Fatalf("unpayable waterbend queued a decline: %+v", it.XAnswers)
 				}
 			},
 		},
@@ -100,6 +105,26 @@ func TestGeneratedTerminatorsAndOptionalCosts(t *testing.T) {
 			}
 			tt.check(t, it)
 		})
+	}
+}
+
+func assertUnpayableCastCost(t *testing.T, reg *cards.Registry, it oraclegen.Item, cost string) {
+	t.Helper()
+	card, ok := reg.Lookup(it.Card)
+	if !ok || len(card.Faces) == 0 {
+		t.Fatalf("missing card face for %s", it.Card)
+	}
+	found := false
+	for _, c := range oraclegen.CastOptionalCosts(card.Faces[0]) {
+		if c == cost {
+			found = true
+		}
+	}
+	if !found || len(it.Steps) == 0 || it.Steps[0].Op != "cast" || it.Steps[0].Card != "p0:"+it.Card {
+		t.Fatalf("optional cost %q / cast step missing for %s: %+v", cost, it.Card, it.Steps)
+	}
+	if got := oraclegen.OptionalCostCastNo(card.Faces[0], it.Steps[0].Mana); got != 0 {
+		t.Fatalf("cost %q was payable from pool %q (%d asks)", cost, it.Steps[0].Mana, got)
 	}
 }
 

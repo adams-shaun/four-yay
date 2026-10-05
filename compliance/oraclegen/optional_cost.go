@@ -115,48 +115,79 @@ func PrependCastNo(xans [][]XAnswer, sc Scenario, card string, n int) [][]XAnswe
 	return out
 }
 
-// poolPaysCost reports whether a pool of mana letters (as oraclegen spells it:
-// C for generic/colorless, WUBRG for coloured) can pay a Forge mana cost. It
-// mirrors XMage's ManaCostsImpl.canPay, which checks each symbol separately
-// against the pool: a generic or colorless symbol is always payable, a
-// coloured pip needs its colour present (duplicates reuse the same check).
+// poolPaysCost counts actual mana letters (C is colorless, WUBRG coloured).
+// Reserve fixed pips first, then spend the remaining mana on generic costs.
+// Hybrid choices are tried both ways so a scarce colour is not consumed by
+// a flexible pip when another pip needs it. An unknown symbol fails closed.
 func poolPaysCost(pool, cost string) bool {
 	cost = strings.TrimSpace(cost)
 	if cost == "" || strings.EqualFold(cost, "no cost") {
 		return true
 	}
-	for _, sym := range strings.Fields(cost) {
-		switch {
-		case strings.Trim(sym, "0123456789") == "": // generic
-		case sym == "C" || sym == "0": // colorless
-		case len(sym) == 1 && strings.Contains("WUBRG", sym):
-			if !strings.Contains(pool, sym) {
-				return false
-			}
-		case len(sym) == 2 && strings.Contains("WUBRG", sym[:1]) && strings.Contains("WUBRG", sym[1:]):
-			// hybrid {W/B}: either half is enough
-			if !strings.Contains(pool, sym[:1]) && !strings.Contains(pool, sym[1:]) {
-				return false
-			}
-		case len(sym) == 2 && sym[0] == '2' && strings.Contains("WUBRG", sym[1:]):
-			if !strings.Contains(pool, sym[1:]) {
-				return false
-			}
-		case strings.Contains(sym, "/"):
-			h := strings.SplitN(sym, "/", 2)
-			if strings.EqualFold(h[1], "P") {
-				continue // phyrexian: 2 life is always payable
-			}
-			if len(h[0]) == 1 && strings.Contains(pool, h[0]) {
-				continue
-			}
-			if len(h[1]) == 1 && strings.Contains(pool, h[1]) {
-				continue
-			}
-			return false
-		default:
+	var mana [6]int // W U B R G C
+	for _, c := range pool {
+		i := strings.IndexRune("WUBRGC", c)
+		if i < 0 {
 			return false
 		}
+		mana[i]++
 	}
-	return true
+	syms := strings.Fields(cost)
+	var pay func(int, int) bool
+	pay = func(at, generic int) bool {
+		if at == len(syms) {
+			for _, n := range mana {
+				generic -= n
+			}
+			return generic <= 0
+		}
+		sym := syms[at]
+		if n, err := strconv.Atoi(sym); err == nil && n >= 0 {
+			return pay(at+1, generic+n)
+		}
+		// Each choice is either a fixed mana colour, a generic payment
+		// (encoded as '2'), or life ('P').
+		choices := []string{sym}
+		if len(sym) == 2 && strings.ContainsRune("WUBRG", rune(sym[0])) && strings.ContainsRune("WUBRG", rune(sym[1])) {
+			choices = []string{sym[:1], sym[1:]}
+		} else if len(sym) == 2 && sym[0] == '2' && strings.ContainsRune("WUBRG", rune(sym[1])) {
+			choices = []string{sym[1:], "2"}
+		} else if strings.Contains(sym, "/") {
+			choices = strings.Split(sym, "/")
+			if len(choices) != 2 || (choices[1] == "P" && (len(choices[0]) != 1 || !strings.Contains("WUBRGC", choices[0]))) {
+				return false
+			}
+		} else if sym == "P" {
+			return false
+		}
+		for _, option := range choices {
+			if option == "P" { // Phyrexian life payment
+				if pay(at+1, generic) {
+					return true
+				}
+				continue
+			}
+			if option == "2" {
+				if pay(at+1, generic+2) {
+					return true
+				}
+				continue
+			}
+			if len(option) != 1 {
+				continue
+			}
+			i := strings.IndexByte("WUBRGC", option[0])
+			if i < 0 || mana[i] == 0 {
+				continue
+			}
+			mana[i]--
+			ok := pay(at+1, generic)
+			mana[i]++
+			if ok {
+				return true
+			}
+		}
+		return false
+	}
+	return pay(0, 0)
 }

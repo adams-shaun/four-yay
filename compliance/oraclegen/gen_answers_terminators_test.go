@@ -178,18 +178,18 @@ func TestForcedSingleOptionOnlyExactOne(t *testing.T) {
 }
 
 // TestOptionalCostCastNoShapes pins the optional-additional-cost families and
-// the pool-affordability rule: XMage asks whenever the additional cost alone
-// is payable from the cast's pool (ManaCostImpl.canPay is unconditionally
-// true for generic/colorless, and a coloured pip needs its colour present),
-// so only an affordable cost gets a scripted "no".
+// the pool-affordability rule: XMage asks only when the additional cost alone
+// can be paid from the cast's pool, including generic and repeated pips.
+// Only an affordable cost gets a scripted "no".
 func TestOptionalCostCastNoShapes(t *testing.T) {
 	cases := []struct {
 		name, pool, cost string
 		want             bool
 	}{
-		{name: "generic always payable", pool: "R", cost: "4", want: true},
+		{name: "generic insufficient", pool: "R", cost: "4", want: false},
 		{name: "generic payable from coloured", pool: "CG", cost: "2", want: true},
-		{name: "coloured pip present", pool: "CW", cost: "2 W W", want: true},
+		{name: "coloured pip insufficient", pool: "CW", cost: "2 W W", want: false},
+		{name: "coloured pip sufficient", pool: "CCWW", cost: "2 W W", want: true},
 		{name: "coloured pip absent", pool: "CG", cost: "B", want: false},
 		{name: "hybrid either half", pool: "G", cost: "W/U", want: false},
 		{name: "hybrid first half", pool: "U", cost: "W/U", want: true},
