@@ -159,11 +159,13 @@ func (b *resolveBoard) MayAsk(d *decision.Decision, in decision.Intent) bool {
 	case optActivate, optTurnFaceUp:
 		return true // StartsResolution already proved the rider may ask
 	case optPlayLand:
-		// Modal lands flip before entering the ordinary land-play flow. Judge
-		// possible asks across either face and the land's entry replacements;
-		// ManaConvert elections are not land-play asks.
+		// Modal lands flip before entering the ordinary land-play flow. The
+		// replacement predicate reads only the currently selected face, so it
+		// cannot safely rule out an ask on the selectable back face. Keep the
+		// checkpoint conservative; ManaConvert elections are still suppressed
+		// by the land cast flow itself.
 		if first.Mode == modalLandMode {
-			return tapeLandMayAsk(e, in.Player, first.Obj)
+			return true
 		}
 		// in.Player, not the option's Player field: a play_land option
 		// leaves Player at its zero value, so a seat-1 land play judged a
