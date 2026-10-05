@@ -270,6 +270,16 @@ var addedAfterTheSplit = []string{
 	// express. None of the five names existed in the pre-split switch, so no
 	// arm there could have dispatched them.
 	"Crewed", "Saddled", "BecomesSaddled", "BecomesPlotted", "SacrificedOnce",
+	// cli-20261005T075020Z-05241a06: the aggregate tap trigger modes, the
+	// "whenever one or more ... become tapped/untapped" batch siblings of
+	// Taps/Untaps (MSH Rewrite History and LCI Deeproot Pilgrimage on TapAll,
+	// LCI The Millennium Calendar on UntapAll -- the corpus's only three
+	// carriers). They match the ordinary Tap/Untap events the pre-split
+	// switch already carried for Taps/Untaps -- no new event Kind -- but the
+	// MODE names did not exist, so no pre-split switch arm could have
+	// dispatched them; their "one or more" cadence rides the shared action
+	// bracket (rules/trigger_match.go's zoneBatch latch).
+	"TapAll", "UntapAll",
 }
 
 func allRegisteredModeNames() []string {
