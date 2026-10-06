@@ -10,6 +10,7 @@ import com.google.gson.JsonPrimitive;
 import mage.Mana;
 import mage.abilities.Ability;
 import mage.abilities.common.SimpleStaticAbility;
+import mage.abilities.mana.ActivatedManaAbilityImpl;
 import mage.abilities.costs.AlternativeSourceCosts;
 import mage.cards.repository.CardInfo;
 import mage.cards.repository.CardRepository;
@@ -344,6 +345,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
             JsonArray xans = sc.has("xmage_answers") && sc.get("xmage_answers").isJsonArray()
                     ? sc.getAsJsonArray("xmage_answers") : new JsonArray();
             splitScripted = xans.toString().contains("^X=");
+            xabilities = sc.has("xmage_ability") && sc.get("xmage_ability").isJsonArray()
+                    ? sc.getAsJsonArray("xmage_ability") : new JsonArray();
             for (int i = 0; i < steps.size(); i++) {
                 JsonObject st = steps.get(i).getAsJsonObject();
                 String op = str(st, "op");
@@ -356,7 +359,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 }
                 int beforeA = playerA.getActions().size();
                 int beforeB = playerB.getActions().size();
-                step(st, op);
+                step(st, op, i);
                 String cp = "step " + i + " (" + op + ")";
                 runCode(cp, TURN, phase, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
                 queuedA.add(new ArrayList<>(playerA.getActions().subList(beforeA, playerA.getActions().size())));
@@ -731,7 +734,36 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return e;
     }
 
-    private void step(JsonObject st, String op) {
+    // The item's per-step XMage ability text (parallel to the steps; empty
+    // except on activate steps). XMage's TestPlayer selects an activated
+    // ability by a prefix of its rule text (ability.toString().startsWith).
+    private JsonArray xabilities = new JsonArray();
+
+    /** Step i's XMage ability text, or "" when the item carries none. */
+    private String xabilityAt(int i) {
+        if (i < xabilities.size() && xabilities.get(i).isJsonPrimitive()) {
+            return xabilities.get(i).getAsString();
+        }
+        return "";
+    }
+
+    /** Whether the named card has an activated mana ability whose rule text
+     * starts with text; XMage activates those through activateManaAbility. */
+    private static boolean isManaAbilityText(String name, String text) {
+        CardInfo info = CardRepository.instance.findCard(name);
+        Card c = info == null ? null : info.createCard();
+        if (c == null) {
+            return false;
+        }
+        for (Ability a : c.getAbilities()) {
+            if (a.toString().startsWith(text)) {
+                return a instanceof ActivatedManaAbilityImpl;
+            }
+        }
+        return false;
+    }
+
+    private void step(JsonObject st, String op, int stepIdx) {
         int seatIdx = st.has("seat") ? st.get("seat").getAsInt() : 0;
         TestPlayer p = seat(seatIdx);
         switch (op) {
@@ -884,6 +916,29 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     castSpell(TURN, phase, p, card);
                 }
                 cast.add(card);
+                return;
+            }
+            case "activate": {
+                String text = xabilityAt(stepIdx);
+                if (text.isEmpty()) {
+                    throw new IllegalArgumentException("activate step " + stepIdx + " has no xmage_ability");
+                }
+                if (st.has("mana")) {
+                    String mana = str(st, "mana");
+                    runCode("mana " + mana, TURN, phase, p, (info, pl, g) -> addPool(pl, g, mana));
+                }
+                if (!sc0.has("xmage_answers")) {
+                    answers(st, p);
+                }
+                String card = xmageSpelling(refName(str(st, "card")));
+                if (isManaAbilityText(card, text)) {
+                    activateManaAbility(TURN, phase, p, text);
+                    return;
+                }
+                for (String t : targets(st)) {
+                    queueCastTarget(p, t);
+                }
+                activateAbility(TURN, phase, p, text);
                 return;
             }
             case "play":

@@ -19,7 +19,7 @@ func TestScenarioReplayEndTurnTracksMultiActionSkippedStep(t *testing.T) {
 	for _, required := range []string{
 		"int beforeA = playerA.getActions().size();",
 		"int beforeB = playerB.getActions().size();",
-		"step(st, op);",
+		"step(st, op, i);",
 		"runCode(cp, TURN, phase, playerA,",
 		"playerA.getActions().subList(beforeA, playerA.getActions().size())",
 		"playerB.getActions().subList(beforeB, playerB.getActions().size())",
@@ -33,8 +33,8 @@ func TestScenarioReplayEndTurnTracksMultiActionSkippedStep(t *testing.T) {
 	// Check the queue capture surrounds the whole step (and its checkpoint),
 	// not just the checkpoint; cast-with-mana has more than one action.
 	for _, ordered := range [][]string{
-		{"int beforeA =", "step(st, op);", "runCode(cp, TURN", "queuedA.add("},
-		{"int beforeB =", "step(st, op);", "runCode(cp, TURN", "queuedB.add("},
+		{"int beforeA =", "step(st, op, i);", "runCode(cp, TURN", "queuedA.add("},
+		{"int beforeB =", "step(st, op, i);", "runCode(cp, TURN", "queuedB.add("},
 	} {
 		at := 0
 		for _, s := range ordered {
