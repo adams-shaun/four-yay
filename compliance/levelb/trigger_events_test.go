@@ -1,0 +1,71 @@
+package levelb
+
+import (
+	"testing"
+
+	"github.com/adams-shaun/gorge/cards"
+)
+
+// TestEventTriggerSubFamilies classifies the FRA shapes the event recipes
+// serve, and the near-misses that must stay gaps. Every row is one trigger on
+// a creature face, so a reclassification shows as a changed Sub with the
+// requirement count still 1.
+func TestEventTriggerSubFamilies(t *testing.T) {
+	for _, tc := range []struct {
+		name, mode string
+		params     map[string]string
+		wantSub    string
+		wantGap    bool
+		covered    bool
+	}{
+		{"Edgar", "ChangesZone", map[string]string{"Origin": "Battlefield", "Destination": "Graveyard", "ValidCard": "Creature.Other+YouCtrl,Planeswalker.Other+YouCtrl"}, "trigger.dies-other", false, false},
+		{"Gardenize", "ChangesZone", map[string]string{"Origin": "Battlefield", "Destination": "Graveyard", "ValidCard": "Creature.YouCtrl"}, "trigger.dies-other", false, false},
+		{"Ferocity aura", "ChangesZone", map[string]string{"Origin": "Battlefield", "Destination": "Graveyard", "ValidCard": "Card.AttachedBy"}, "trigger.dies-other", false, false},
+		{"opponent creature dies", "ChangesZone", map[string]string{"Origin": "Battlefield", "Destination": "Graveyard", "ValidCard": "Creature.OppCtrl"}, "trigger.gap:ChangesZone", true, false},
+		{"self dies stays dies", "ChangesZone", map[string]string{"Origin": "Battlefield", "Destination": "Graveyard", "ValidCard": "Card.Self"}, "trigger.dies", false, false},
+		{"scry", "Scry", map[string]string{"ValidPlayer": "You"}, "trigger.scry", false, false},
+		{"surveil", "Surveil", map[string]string{"ValidPlayer": "You"}, "trigger.surveil", false, false},
+		{"opponent scries", "Scry", map[string]string{"ValidPlayer": "Opponent"}, "trigger.gap:Scry", true, false},
+		{"Master of Barbs", "DamageAll", map[string]string{"CombatDamage": "False", "ValidTarget": "Opponent"}, "trigger.noncombat-damage", false, false},
+		{"Massacre Girl", "DamageDone", map[string]string{"CombatDamage": "False", "ValidSource": "Card,Emblem", "ValidTarget": "Opponent"}, "trigger.noncombat-damage", false, false},
+		{"Hexhaven", "DamageDoneOnce", map[string]string{"ValidTarget": "Card.Self"}, "trigger.noncombat-damage", false, false},
+		{"Fblthp", "DamageAll", map[string]string{"CombatDamage": "True", "ValidTarget": "Opponent", "PlayerTurn": "True"}, "trigger.combat-damage-all", false, false},
+		{"damage to a creature", "DamageDone", map[string]string{"CombatDamage": "False", "ValidTarget": "Creature"}, "trigger.gap:DamageDone", true, false},
+		{"Ajani Unrelenting", "AbilityCast", map[string]string{"ValidActivatingPlayer": "You", "ValidSA": "Activated.Loyalty"}, "trigger.loyalty-activated", false, false},
+		{"Gideon the Oathless", "AbilityCast", map[string]string{"ValidSA": "Activated.Loyalty+OppCtrl"}, "trigger.gap:AbilityCast", true, false},
+		{"Way of the Mind Sculptor", "AbilityCast", map[string]string{"ValidActivatingPlayer": "You", "ValidSA": "Activated.Loyalty+CountersRemovedToPayGE2"}, "trigger.gap:AbilityCast", true, false},
+		{"Inspired Tethermage", "CounterAddedOnce", map[string]string{"CounterType": "LOYALTY", "ValidCard": "Planeswalker", "ValidSource": "You"}, "trigger.loyalty-activated", false, false},
+		{"other counters", "CounterAddedOnce", map[string]string{"CounterType": "P1P1", "ValidSource": "You"}, "trigger.gap:CounterAddedOnce", true, false},
+		{"Titanbones", "Discarded", map[string]string{"ValidCard": "Card.Self"}, "trigger.discarded", false, false},
+		{"Tinybones", "DiscardedAll", map[string]string{"ValidPlayer": "Player"}, "trigger.discarded", false, false},
+		{"Yuriko", "AttackersDeclaredOneTarget", map[string]string{"AttackedTarget": "Player", "ValidAttackers": "Creature.YouCtrl", "ValidAttackersAmount": "EQ1"}, "trigger.attacks-one-target", false, false},
+		{"Solarium Sentry", "SpellCast", map[string]string{"ValidActivatingPlayer": "Opponent", "ValidCard": "Card.cmcLE2"}, "trigger.gap:SpellCast", true, false},
+		{"Emrakul", "SpellCast", map[string]string{"Execute": "TrigUntapAll", "TriggerDescription": "When you cast this spell, untap all lands you control.", "ValidCard": "Card.Self"}, "trigger.spell-cast-self", false, true},
+		{"conditional cast trigger", "SpellCast", map[string]string{"Execute": "TrigDraw", "CheckSVar": "Y", "ValidCard": "Card.Self"}, "trigger.gap:SpellCast", true, false},
+		{"Gardenize main1", "Phase", map[string]string{"Phase": "Main1", "ValidPlayer": "You"}, "trigger.phase", false, false},
+		{"each player's main1", "Phase", map[string]string{"Phase": "Main1", "ValidPlayer": "Player"}, "trigger.gap:Phase", true, false},
+		{"Theorist", "Phase", map[string]string{"Phase": "Draw", "ValidPlayer": "Opponent"}, "trigger.phase", false, false},
+		{"opponent's end step", "Phase", map[string]string{"Phase": "End of Turn", "ValidPlayer": "Opponent"}, "trigger.gap:Phase", true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := Requirements(cardOf(&cards.Face{Types: []string{"Creature"}, Triggers: []cards.Trigger{trig(tc.mode, tc.params)}}))
+			if len(got) != 1 {
+				t.Fatalf("got %d requirements, want exactly 1 (a reclassification never adds or drops one): %+v", len(got), got)
+			}
+			r := got[0]
+			if r.Sub != tc.wantSub || (r.Gap != "") != tc.wantGap || r.CoveredByA != tc.covered {
+				t.Fatalf("got Sub=%q Gap=%q Covered=%v, want Sub=%q gap=%v covered=%v", r.Sub, r.Gap, r.CoveredByA, tc.wantSub, tc.wantGap, tc.covered)
+			}
+		})
+	}
+}
+
+// TestSelfCastTriggerNeedsASpellFace: a land is never cast, so a Card.Self
+// cast trigger on a land face is never covered by the cast-resolve scenario.
+func TestSelfCastTriggerNeedsASpellFace(t *testing.T) {
+	tr := trig("SpellCast", map[string]string{"Execute": "TrigDraw", "ValidCard": "Card.Self"})
+	got := Requirements(cardOf(&cards.Face{Types: []string{"Land"}, Triggers: []cards.Trigger{tr}}))
+	if len(got) != 1 || got[0].CoveredByA {
+		t.Fatalf("land cast trigger = %+v, want not covered", got)
+	}
+}
