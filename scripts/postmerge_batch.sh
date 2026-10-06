@@ -32,7 +32,10 @@ PAUSE=${PAUSE:-$repo/.ds4/orchestrator/pause}
 wt=$repo/.worktrees/postmerge-full
 # postmerge_full runs up to eight test binaries concurrently (-p=8). Keep
 # their aggregate soft heap limit below this scope's hard cap, with per-test
-# runtime settings matching the operator's 2 GiB / 2 vCPU budget.
+# runtime settings matching the operator's 2 GiB / 2 vCPU budget. Two host tests
+# measured just over 2 GiB are pinned in the shrink-only exception inventory at
+# internal/testutil/testdata/rss_exceptions.txt; operator full-scope measurement
+# is required before relying on these proposed limits.
 SCOPE=(systemd-run --user --scope -q -p MemoryMax=16G -p CPUQuota=1600% env GOMEMLIMIT=1536MiB GOMAXPROCS=2 GOGC=200 GOFLAGS="-p=2 -trimpath" GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1)
 
 say() { echo "$(date '+%F %T') $*" | tee -a "$LOG"; }

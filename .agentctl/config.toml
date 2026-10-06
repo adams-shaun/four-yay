@@ -344,7 +344,10 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4", GOFLAGS = "-p=2 -trimpath" }
 name = "go test (affected)"
 # gate_affected bounds the test phase to four concurrent test binaries
 # (each invocation uses -p=1); its vet phase is sequential and uses -p=2.
-# Four binaries x 1536MiB stays below the 8G scope with headroom.
+# Four binaries x 1536MiB stays below the 8G scope with headroom. The
+# measured >2GiB test exceptions are pinned (shrink-only) in
+# internal/testutil/testdata/rss_exceptions.txt; the operator must remeasure
+# both full scopes before enabling these proposed limits.
 cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=800%", "bash", "-c", "set -o pipefail; git show {base}:scripts/gate_affected.sh | bash -s {base}"]
 timeout = 600
 env = { GOMEMLIMIT = "1536MiB", GOMAXPROCS = "2", GOGC = "200", GOFLAGS = "-p=2 -trimpath" }
