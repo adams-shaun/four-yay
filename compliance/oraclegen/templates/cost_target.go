@@ -32,19 +32,21 @@ func costTargetProbe(reg *cards.Registry, f *cards.Face, st cards.Static, p cost
 	if strings.Contains(lower, "blocking") {
 		return p, "combat target fixture unavailable (" + filter + ")"
 	}
-	if strings.Contains(lower, "spell.creature") {
-		spell := "Grizzly Bears"
+	if strings.HasPrefix(lower, "spell.") {
+		// A target that names a spell on the stack ("this spell costs less
+		// if it targets a creature spell") is satisfied the way counterSpell
+		// satisfies its own stack slot: cast a probe spell and hold priority,
+		// then cast the discounted spell targeting it (CR 117.3c). No
+		// opponent turn or response window is needed, so this holds for any
+		// Spell.<type> filter the precast table covers.
+		pre, reason := costStackPrecast(filter)
+		if reason != "" {
+			return p, reason
+		}
 		p.opponent = false
 		p.opponentBattlefield = nil
-		p.pre = append(p.pre, oraclegen.Step{Op: "pass_to", Step: "main1", Active: "p1"})
-		p.first = &oraclegen.Step{Op: "cast", Seat: 1, Card: "p1:" + spell, Mana: "CG"}
-		p.firstNoResolve = true
-		p.skipReason = "opponent creature-spell response fixture unavailable"
-		p.targets = []string{"p1:" + spell}
+		p.precast = pre
 		return p, ""
-	}
-	if strings.Contains(lower, "spell.") {
-		return p, "spell target fixture unavailable (" + filter + ")"
 	}
 	owner, zone := "p1", "Battlefield"
 	if strings.Contains(lower, "youctrl") {
@@ -67,6 +69,53 @@ func costTargetProbe(reg *cards.Registry, f *cards.Face, st cards.Static, p cost
 		}
 	}
 	return p, "target fixture unavailable (" + filter + ")"
+}
+
+// costStackPrecast picks the spell p0 casts before the discounted probe so a
+// stack-target requirement is satisfied: the first precast whose type the
+// filter admits (a creature filter wants a creature spell, an instant one an
+// instant). It is the same precast table counterSpell uses, so a new
+// stack-target shape is a new row there, not a per-card branch here.
+func costStackPrecast(filter string) (*precast, string) {
+	for i := range precasts {
+		p := precasts[i]
+		if precastFits(spellFilterForPrecast(filter), p) {
+			return &p, ""
+		}
+	}
+	return nil, "no stack-spell fixture for " + filter
+}
+
+// spellFilterForPrecast strips a static's "Spell." prefix so precastFits can
+// read the type word: "Spell.Creature" admits a creature spell, and
+// "Spell.Instant,Spell.Sorcery" either. A @Zone suffix is preserved.
+func spellFilterForPrecast(filter string) string {
+	zone := ""
+	if i := strings.LastIndexByte(filter, '@'); i >= 0 {
+		zone = filter[i:]
+		filter = filter[:i]
+	}
+	var out []string
+	for _, alt := range strings.Split(filter, ",") {
+		parts := strings.Split(strings.TrimSpace(alt), ".")
+		if len(parts) > 1 && strings.EqualFold(parts[0], "Spell") {
+			parts = parts[1:]
+		}
+		out = append(out, strings.Join(parts, "."))
+	}
+	return strings.Join(out, ",") + zone
+}
+
+// stackTargetFilter is the filter of the face's first target slot that draws
+// from the stack (a counterspell's "Card"+TargetType$ Spell), or "" when the
+// face targets no spell.
+func stackTargetFilter(f *cards.Face) string {
+	for _, s := range oraclegen.SlotSpecs(f) {
+		if oraclegen.SlotIsStack(s.Filter) {
+			return s.Filter
+		}
+	}
+	return ""
 }
 
 // elfBeholdFixture chooses a known, printable Elf from the corpus rather than

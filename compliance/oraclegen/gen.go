@@ -111,6 +111,11 @@ type Step struct {
 	// step name an ability without pasting the script's SpellDescription
 	// text. Nil on every level-A step, so level-A items are byte-identical.
 	AbilityIndex *int `json:"ability_index,omitempty"`
+	// CastMode elects a cast option by its decision.Option.Mode ("bargained"
+	// for a Bargain, a Kicker's "kicked", etc.), the same anchor the runner's
+	// oracleCastWantMode reads. Empty selects the ordinary cast. Nil on every
+	// level-A step, so level-A items are byte-identical.
+	CastMode string `json:"cast_mode,omitempty"`
 	// A scenario step may move a card into a zone; the move op stamps the
 	// object as having entered this turn (a board-history target such as
 	// ThisTurnEntered@Graveyard needs that).

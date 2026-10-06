@@ -49,6 +49,14 @@ func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.R
 			p1.Hand = appendUnique(p1.Hand, strings.TrimPrefix(p.first.Card, "p1:"))
 		}
 	}
+	if p.precast != nil {
+		p0.Hand = appendUnique(p0.Hand, p.precast.card)
+		for _, target := range p.precast.targets {
+			if strings.HasPrefix(target, "p0:") {
+				p0.Battlefield = appendUnique(p0.Battlefield, strings.TrimPrefix(target, "p0:"))
+			}
+		}
+	}
 	if p.seat != nil {
 		p.seat(&p0)
 	}
@@ -60,9 +68,6 @@ func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.R
 	sc.Steps = append(sc.Steps, fx.Prelude()...)
 	sc.Steps = append(sc.Steps, p.pre...)
 	if p.first != nil {
-		if p.first.Seat == 1 {
-			sc.Steps = append(sc.Steps, oraclegen.Step{Op: "pass", Seat: 0})
-		}
 		sc.Steps = append(sc.Steps, *p.first)
 		if !p.firstNoResolve {
 			sc.Steps = append(sc.Steps, oraclegen.Step{Op: "resolve"})
@@ -73,6 +78,13 @@ func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.R
 	targets := fx.Targets()
 	if len(p.targets) > 0 {
 		targets = append([]string(nil), p.targets...)
+	}
+	if p.precast != nil {
+		// The probe targets the precast spell on the stack; interleave it at
+		// the stack slot positions with the fixture's plain-slot targets.
+		slots := oraclegen.SlotSpecs(f)
+		stackIdx := stackSlotIndexes(slots)
+		targets = insertStackTargets(slots, stackIdx, fx.Targets(), *p.precast)
 	}
 	if p.targeted {
 		targets = []string{"p1"}
@@ -90,13 +102,18 @@ func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.R
 	if p.opponent {
 		castSeat, castRef = 1, "p1:"+p.spell
 	}
-	step := oraclegen.Step{Op: "cast", Seat: castSeat, Card: castRef, Mana: p.mana, Targets: targets}
+	step := oraclegen.Step{Op: "cast", Seat: castSeat, Card: castRef, Mana: p.mana, Targets: targets, CastMode: p.castMode, Answers: p.answers}
 	if a := p.activate; a != nil {
 		index := a.index
 		step = oraclegen.Step{Op: "activate", Seat: 0, Card: "p0:" + p.spell, Mana: p.mana, Targets: a.targets, AbilityIndex: &index}
 	}
 	if p.opponent {
 		sc.Steps = append(sc.Steps, oraclegen.Step{Op: "pass", Seat: 0})
+	}
+	if p.precast != nil {
+		// p0 casts the precast and holds priority (CR 117.3c), so no pass
+		// separates it from the discounted probe.
+		sc.Steps = append(sc.Steps, oraclegen.Step{Op: "cast", Seat: 0, Card: "p0:" + p.precast.card, Mana: p.precast.mana, Targets: p.precast.targets})
 	}
 	sc.Steps = append(sc.Steps, step)
 	oraclegen.Baseline(sc.Setup, f)

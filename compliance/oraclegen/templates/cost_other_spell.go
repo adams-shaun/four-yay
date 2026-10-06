@@ -444,6 +444,13 @@ func costTermMatches(face *cards.Face, term string) (matches, known bool) {
 		}
 		return strings.Contains(strings.ToLower(face.Colors), lower) || strings.Contains(face.ManaCost, letter), true
 	}
+	if strings.HasPrefix(lower, "chosen") || strings.HasPrefix(lower, "remembered") || strings.HasPrefix(lower, "revealed") {
+		// A filter over a chosen/remembered/revealed value is dynamic: the
+		// probe cannot know it, so fail closed as an unmodelled term rather
+		// than silently treating the word as a card type that matches
+		// nothing (which produced a bare, unnamed skip).
+		return false, false
+	}
 	if strings.HasPrefix(lower, "cmc") && len(lower) > 5 {
 		n, err := strconv.Atoi(lower[5:])
 		if err != nil {

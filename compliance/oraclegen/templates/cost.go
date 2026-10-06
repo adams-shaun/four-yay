@@ -38,8 +38,18 @@ type costProbe struct {
 	activate *costActivation
 	// targeted offers the probe cast a surplus player target; gorge's own
 	// target decision rewrites it to the exact pick before the item is kept.
-	targeted   bool
-	targets    []string
+	targeted bool
+	targets  []string
+	// precast is a spell p0 casts and holds priority over, so a probe that
+	// must target a spell on the stack (a counterspell, or a discount whose
+	// ValidTarget$ names Spell.*) has a legal stack target. It is cast with
+	// no pass in between (CR 117.3c), exactly counterSpell's own-priority
+	// shape.
+	precast *precast
+	// castMode elects a cast option by its Mode ("bargained" for Bargain);
+	// answers scripts the mid-cast asks that election poses (the sacrifice).
+	castMode   string
+	answers    []oraclegen.Answer
 	mustReplay bool
 	skipReason string
 	// full is the probe's printed price, set when the probe is a candidate
@@ -185,8 +195,20 @@ func parameterCostProbes(reg *cards.Registry, f *cards.Face, name string, idx in
 		return nil, "", false
 	}
 	if strings.EqualFold(st.Params["ValidSpell"], "Spell.Bargain") {
+		// Bargain (CR 702.166) is a cast MODE: elect it, then answer the
+		// mid-cast choose that names the artifact to sacrifice. Ornithopter
+		// is a token-free artifact in p0's setup. A bargained counter still
+		// needs a spell on the stack to target (Ice Out).
 		p.battlefield = appendUnique(p.battlefield, "Ornithopter")
-		p.skipReason = "Bargain payment answer unavailable"
+		p.castMode = "bargained"
+		p.answers = append(p.answers, oraclegen.Answer{Kind: "choose", Pick: []string{"Ornithopter"}})
+		if filter := stackTargetFilter(f); filter != "" {
+			pre, reason := costStackPrecast(filter)
+			if reason != "" {
+				return nil, reason, true
+			}
+			p.precast = pre
+		}
 	}
 	// The amount, the count it tallies and every gate come from the static's
 	// own parameters (costConditionProbes); unknown grammars are named gaps.
