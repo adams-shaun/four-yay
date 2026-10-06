@@ -26,7 +26,7 @@ import (
 // battlefield through moveSeededCard (the seeded harness, a real logged
 // MoveZone), so every event in the log is engine-produced and replayCheck
 // stays honest.
-func conspireEngine(t *testing.T, hero string) (*Engine, Config, *cards.Registry) {
+func conspireEngine(t *testing.T, hero string, opponentCards ...string) (*Engine, Config, *cards.Registry) {
 	t.Helper()
 	reg := searchTestRegistry(t)
 	mountain := searchCorpusCard(t, reg, "Mountain")
@@ -50,6 +50,12 @@ func conspireEngine(t *testing.T, hero string) (*Engine, Config, *cards.Registry
 	opp := make([]*cards.Card, 40)
 	for i := range opp {
 		opp[i] = mountain
+	}
+	for i, name := range opponentCards {
+		if i >= len(opp) {
+			break
+		}
+		opp[i] = searchCorpusCard(t, reg, name)
 	}
 	cfg := seatZeroStart(Config{Seed: 44207, Names: []string{"consp", "opp"},
 		Decks: [][]*cards.Card{deck, opp}, Tokens: reg.Tokens})
