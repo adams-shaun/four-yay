@@ -1855,6 +1855,16 @@ func (sa *SA) HasParam(k ParamKey) bool { _, ok := paramGet(sa.ps, sa.Params, k)
 // mask.
 func (sa *SA) MayHaveAnyParam(mask ParamMask) bool { return paramMayHaveAny(sa.ps, sa.Params, mask) }
 
+// ExhaustValue reports the compiled Exhaust$ True activation qualifier.
+// Parsed abilities bind it once; synthetic abilities read their parameter.
+func (sa *SA) ExhaustValue() bool {
+	if sa.exhaustBound {
+		return sa.exhaust
+	}
+	v, ok := sa.Param(PKExhaust)
+	return ok && strings.EqualFold(strings.TrimSpace(v), "True")
+}
+
 // SetParam writes key k into the ability's own Params map (allocating it
 // when nil). The compiled set no longer describes the map, so reads go to
 // the map from here on. Write only to a node the caller owns -- a copy or a
@@ -1903,6 +1913,8 @@ func (f *Face) deriveParamSets() {
 		for d := 0; sa != nil && d <= maxSVarDepth+1; d++ {
 			sa.ps = newParamSet(sa.Params)
 			sa.api, sa.apiBound = APICodeForName(sa.API), true
+			sa.exhaust = strings.EqualFold(strings.TrimSpace(sa.Params[paramKeyNames[PKExhaust]]), "True")
+			sa.exhaustBound = true
 			if sa.extSlot == nil {
 				sa.extSlot = &ExtSlot{}
 			}

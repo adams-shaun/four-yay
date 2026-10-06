@@ -25,8 +25,10 @@ type SA struct {
 	// ability (slot.go), allocated at load. Not serialized.
 	extSlot *ExtSlot
 	// api is API resolved at load (apiBound); see APIKind.
-	api      APICode
-	apiBound bool
+	api          APICode
+	apiBound     bool
+	exhaust      bool
+	exhaustBound bool
 }
 
 // APIKind is s.API as an APICode (APIUnknown for an API outside the

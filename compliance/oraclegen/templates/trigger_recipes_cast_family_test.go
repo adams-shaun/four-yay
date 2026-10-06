@@ -4,8 +4,55 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/compliance/levelb"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
+
+func TestCastFamilyBackFaceAndNamedOwnershipSkip(t *testing.T) {
+	reg := loadGenRegistry(t)
+
+	card, ok := reg.Lookup("The Enigma Jewel")
+	if !ok || len(card.Faces) < 2 || card.Faces[1].Name != "Locus of Enlightenment" {
+		t.Fatalf("precondition: expected The Enigma Jewel's Locus back face, got %+v", card)
+	}
+	var locusReq *levelb.Requirement
+	for _, req := range levelb.Requirements(card) {
+		if req.Key == "trigger#1.0" {
+			copy := req
+			locusReq = &copy
+			break
+		}
+	}
+	if locusReq == nil {
+		t.Fatal("precondition: Locus trigger requirement trigger#1.0 missing")
+	}
+	item, skip := GenerateB(reg, "The Enigma Jewel", *locusReq)
+	if skip != nil {
+		t.Fatalf("Locus back-face trigger skipped: %s", skip.Reason)
+	}
+	if !triggerShownOnStack(t, reg, item.Scenario, "Locus of Enlightenment") {
+		t.Fatal("Locus of Enlightenment's trigger never appears on stack")
+	}
+
+	gonti, ok := reg.Lookup("Gonti, Night Minister")
+	if !ok || len(gonti.Faces) == 0 || len(gonti.Faces[0].Triggers) == 0 {
+		t.Fatal("precondition: Gonti trigger fixture missing")
+	}
+	var gontiReq *levelb.Requirement
+	for _, req := range levelb.Requirements(gonti) {
+		if req.Family == "trigger" && req.Sub == "trigger.spell-cast" {
+			copy := req
+			gontiReq = &copy
+			break
+		}
+	}
+	if gontiReq == nil {
+		t.Fatal("precondition: Gonti SpellCast requirement missing")
+	}
+	if _, skip := GenerateB(reg, "Gonti, Night Minister", *gontiReq); skip == nil || skip.Reason != "trigger spell-cast unsupported ownership provenance" {
+		t.Fatalf("Gonti skip = %v, want named ownership-provenance skip", skip)
+	}
+}
 
 func TestCastFamilyTriggerRecipes(t *testing.T) {
 	reg := loadGenRegistry(t)

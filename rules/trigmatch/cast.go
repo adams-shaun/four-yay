@@ -578,7 +578,7 @@ func abilityCastConstraintHolds(b Board, ab *cards.SA, constraint string, abCtrl
 		case abilityCastConstraintHoldsLoyaltyX:
 			ok = !b.IsLoyaltyAbility(ab)
 		case abilityCastConstraintHoldsExhaust:
-			ok = strings.EqualFold(ab.ParamStr(cards.PKExhaust), "True")
+			ok = ab.ExhaustValue()
 		default:
 			if cmp, found := strings.CutPrefix(term, "CountersRemovedToPay"); found && removed >= 0 {
 				if op, n, valid := SplitCompare(cmp); valid {
