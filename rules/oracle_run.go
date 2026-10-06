@@ -1304,7 +1304,7 @@ func (r *oracleRun) do(st oracleStep) error {
 				}
 				return r.untilPriority("attack")
 			}
-			if d.Kind == decision.KPriority && len(e.G.Stack) == 0 && e.G.Step > state.StepDeclareAttackers {
+			if d.Kind == decision.KPriority && len(e.G.Stack) == 0 && e.G.Active == seat && e.G.Step > state.StepDeclareAttackers {
 				return harnessf("attack: passed declare-attackers without being asked")
 			}
 			if err := r.answer(d, "to-attack"); err != nil {
