@@ -26,11 +26,12 @@ func canAttackDefenderItem(reg *cards.Registry, f *cards.Face, name string, req 
 		if !ok || len(res.Fails) != 0 {
 			return staticSkip(name, "CanAttackDefender", fmt.Sprintf("surveil-enabled attack did not replay: %v", res.Fails))
 		}
-		controlStep := oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:" + defenderProbe}}
-		control := staticScenario(f, name, []string{defenderProbe}, nil, []oraclegen.Step{controlStep})
+		// Same card, same attack, minus the surveil activation: the SVar is
+		// false so the defender must not be offered as an attacker.
+		control := staticScenario(f, name, []string{name, "Island", "Island", "Island", "Island"}, nil, steps[2:])
 		controlRes, controlOK := runStatic(reg, control)
-		if !controlOK || len(controlRes.Fails) == 0 || (!strings.Contains(strings.Join(controlRes.Fails, " "), "attack: p0:"+defenderProbe) && !strings.Contains(strings.Join(controlRes.Fails, " "), "passed declare-attackers without being asked")) {
-			return staticSkip(name, "CanAttackDefender", "defender control did not reject the attack")
+		if !controlOK || len(controlRes.Fails) == 0 || (!strings.Contains(strings.Join(controlRes.Fails, " "), "attack: p0:"+name) && !strings.Contains(strings.Join(controlRes.Fails, " "), "passed declare-attackers without being asked")) {
+			return staticSkip(name, "CanAttackDefender", "no-surveil control did not reject the attack")
 		}
 		it := oraclegen.NewLevelBItem(name, req.Key, StaticObserved.Version, []string{"702.3"}, sc)
 		it.Compare = []string{"offered"}
@@ -97,11 +98,8 @@ func cantBeActivatedItem(reg *cards.Registry, f *cards.Face, name string, req le
 	if !ok || len(res.Fails) != 0 {
 		return staticSkip(name, "CantBeActivated", "non-mana ability remains offered in combat")
 	}
-	controlWant := true
-	controlStep := oraclegen.Step{Op: "pass_to", Seat: 0, Decision: "priority", Expect: []oraclegen.Expect{{Offered: &oraclegen.Offered{Seat: 0, Kind: "activate", Card: "p0:" + activatedProbe}, Want: &controlWant}}}
-	control := staticScenario(f, name, []string{activatedProbe}, nil, []oraclegen.Step{controlStep})
-	if controlRes, ok := runStatic(reg, control); !ok || len(controlRes.Fails) != 0 {
-		return staticSkip(name, "CantBeActivated", fmt.Sprintf("main-phase control does not offer ability: %v", controlRes.Fails))
+	if why := sourceRemovedControlFails(reg, sc, name); why != "" {
+		return staticSkip(name, "CantBeActivated", "begin-combat control does not offer ability: "+why)
 	}
 	it := oraclegen.NewLevelBItem(name, req.Key, StaticObserved.Version, []string{"602.2"}, sc)
 	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), nil)
@@ -116,7 +114,10 @@ func staticCastOffer(reg *cards.Registry, f *cards.Face, name string, req levelb
 	}
 	spell := name
 	if combat {
-		spell = "Lightning Bolt"
+		// Floating mana empties between steps and lands' mana is only offered
+		// as separate abilities, so a paid spell is never offered at
+		// begin-combat. Gut Shot's Phyrexian {R/P} is payable with life.
+		spell = "Gut Shot"
 	}
 	seat := oraclegen.Seat{Hand: []string{spell}, Graveyard: grave}
 	if combat {
@@ -134,34 +135,22 @@ func staticCastOffer(reg *cards.Registry, f *cards.Face, name string, req levelb
 		stepName, want = "begin-combat", false
 	}
 	pool := "BBB"
-	if combat {
-		pool = "R"
-	}
 	step := oraclegen.Step{Op: "pass_to", Seat: 0, Step: stepName, Expect: []oraclegen.Expect{{Offered: &oraclegen.Offered{Seat: 0, Kind: "cast", Card: "p0:" + spell}, Want: &want}}}
 	if !combat {
 		step.Decision = "priority"
 	}
-	sc := oraclegen.Scenario{Name: name, CR: []string{"601.2"}, Why: "generated level-B scenario", Setup: map[string]oraclegen.Seat{"p0": seat, "p1": {}}, Steps: []oraclegen.Step{{Op: "mana", Seat: 0, Mana: pool}, step}}
+	sc := oraclegen.Scenario{Name: name, CR: []string{"601.2"}, Why: "generated level-B scenario", Setup: map[string]oraclegen.Seat{"p0": seat, "p1": {}}, Steps: []oraclegen.Step{step}}
+	if !combat {
+		sc.Steps = []oraclegen.Step{{Op: "mana", Seat: 0, Mana: pool}, step}
+	}
 	oraclegen.Baseline(sc.Setup, f)
 	res, ok := runStatic(reg, sc)
 	if !ok || len(res.Fails) != 0 {
 		return staticSkip(name, "CantBeCast", fmt.Sprintf("cast offer assertion does not hold (ok=%v fails=%v snaps=%+v)", ok, res.Fails, res.Snapshots))
 	}
 	if combat {
-		control := sc
-		control.Name = name + " main-phase control"
-		controlSeat := control.Setup["p0"]
-		var controlBoard []string
-		for _, permanent := range controlSeat.Battlefield {
-			if permanent != name {
-				controlBoard = append(controlBoard, permanent)
-			}
-		}
-		controlSeat.Battlefield = append(controlBoard, "Mountain")
-		control.Setup["p0"] = controlSeat
-		control.Steps = []oraclegen.Step{{Op: "mana", Seat: 0, Mana: pool}, {Op: "pass_to", Seat: 0, Decision: "priority", Expect: []oraclegen.Expect{{Offered: &oraclegen.Offered{Seat: 0, Kind: "cast", Card: "p0:Lightning Bolt"}, Want: boolPtr(true)}}}}
-		if controlRes, ok := runStatic(reg, control); !ok || len(controlRes.Fails) != 0 {
-			return staticSkip(name, "CantBeCast", fmt.Sprintf("main-phase control does not offer cast: %v", controlRes.Fails))
+		if why := sourceRemovedControlFails(reg, sc, name); why != "" {
+			return staticSkip(name, "CantBeCast", "begin-combat control does not offer cast: "+why)
 		}
 	}
 	if name == "Proft, Sinister Mastermind" {
@@ -176,6 +165,47 @@ func staticCastOffer(reg *cards.Registry, f *cards.Face, name string, req levelb
 	it := oraclegen.NewLevelBItem(name, req.Key, StaticObserved.Version, []string{"601.2"}, sc)
 	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), nil)
 	return it, nil
+}
+
+// sourceRemovedControlFails replays sc at the IDENTICAL checkpoint with the
+// static's source gone from p0's battlefield and the final offered assertion
+// flipped to want=true. It returns "" when the option is offered there, so
+// the observation's want=false can only be the static's doing.
+func sourceRemovedControlFails(reg *cards.Registry, sc oraclegen.Scenario, source string) string {
+	control := sc
+	control.Setup = make(map[string]oraclegen.Seat, len(sc.Setup))
+	for k, v := range sc.Setup {
+		control.Setup[k] = v
+	}
+	p0 := control.Setup["p0"]
+	p0.Battlefield = nil
+	removed := false
+	for _, perm := range sc.Setup["p0"].Battlefield {
+		if perm == source && !removed {
+			removed = true
+			continue
+		}
+		p0.Battlefield = append(p0.Battlefield, perm)
+	}
+	if !removed {
+		return "source " + source + " not on the battlefield"
+	}
+	control.Setup["p0"] = p0
+	control.Steps = append([]oraclegen.Step(nil), sc.Steps...)
+	last := &control.Steps[len(control.Steps)-1]
+	last.Expect = append([]oraclegen.Expect(nil), last.Expect...)
+	if len(last.Expect) != 1 || last.Expect[0].Offered == nil {
+		return "last step has no single offered assertion"
+	}
+	last.Expect[0].Want = boolPtr(true)
+	res, ok := runStatic(reg, control)
+	if !ok {
+		return "control did not run"
+	}
+	if len(res.Fails) != 0 {
+		return fmt.Sprintf("%v", res.Fails)
+	}
+	return ""
 }
 
 func staticSkip(name, mode, why string) (oraclegen.Item, *oraclegen.Skip) {

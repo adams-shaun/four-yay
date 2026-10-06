@@ -67,22 +67,21 @@ func TestCantBeCastYuriko(t *testing.T) {
 	if len(last.Expect) != 1 || last.Expect[0].Offered == nil || last.Expect[0].Want == nil || *last.Expect[0].Want {
 		t.Fatalf("item lacks offered-cast want=false assertion: %+v", last.Expect)
 	}
-	control := it.Scenario
-	control.Setup = cloneOracleSetup(control.Setup)
-	p0 := control.Setup["p0"]
-	p0.Battlefield = removeFixture(p0.Battlefield, it.Card)
-	p0.Battlefield = append(p0.Battlefield, "Mountain")
-	control.Setup["p0"] = p0
-	control.Steps = append([]oraclegen.Step(nil), control.Steps...)
-	control.Steps[len(control.Steps)-1] = oraclegen.Step{Op: "pass_to", Seat: 0, Decision: "priority", Expect: []oraclegen.Expect{{Offered: &oraclegen.Offered{Seat: 0, Kind: "cast", Card: "p0:Lightning Bolt"}, Want: boolPtr(true)}}}
-	if res, ok := runStatic(reg, control); !ok || len(res.Fails) != 0 {
-		t.Fatalf("precondition: outside-combat control does not offer cast: %v", res.Fails)
+	if why := sourceRemovedControlFails(reg, it.Scenario, it.Card); why != "" {
+		t.Fatalf("precondition: Gut Shot not offered at begin-combat without Yuriko: %s", why)
+	}
+	// The control must be the identical checkpoint: it flips only want.
+	if last.Step != "begin-combat" || last.Decision != "" {
+		t.Fatalf("checkpoint drifted: %+v", last)
 	}
 }
 
 func TestCantBeActivatedYuriko(t *testing.T) {
 	reg := loadGenRegistry(t)
-	staticItemFor(t, reg, "Yuriko, Blade of the Mighty", "static#0.1", "static.cant-be-activated-combat")
+	it := staticItemFor(t, reg, "Yuriko, Blade of the Mighty", "static#0.1", "static.cant-be-activated-combat")
+	if why := sourceRemovedControlFails(reg, it.Scenario, it.Card); why != "" {
+		t.Fatalf("precondition: Mogg Fanatic not offered at begin-combat without Yuriko: %s", why)
+	}
 }
 
 func TestCanAttackDefenderSurveillance(t *testing.T) {
