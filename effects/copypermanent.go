@@ -396,6 +396,9 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	case supportsChoice:
 		chooser := c.Controller
 		for _, t := range c.Remembered {
+			if !cp.ChooserRemembered {
+				break
+			}
 			if t.IsPlayer {
 				chooser = t.Player
 				break
@@ -413,7 +416,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		// by the remembered friend. Passing the bare filter as a Defined$
 		// selector would fall through Defined's per-member fallback to the
 		// resolving SOURCE, offering the chooser the spell itself.
-		pick := DefinedSpec(h, c, "Valid Creature.RememberedPlayerCtrl")
+		pick := DefinedSpec(h, c, "Valid "+cp.ChoiceFilter)
 		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,
 			Source: c.Source, ResumeKind: "copypermanent_choice", ResumeSA: sa,
 			Prompt: "Choose a creature to copy"}
@@ -426,9 +429,11 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		if len(d.Options) == 0 {
 			return
 		}
-		if cp.TokenAttacking == "" {
-			// (A TokenAttacking$ rider emits its own Notes before the ask,
-			// outside preNotes, so that shape stays on the legacy path.)
+		{
+			// (A TokenAttacking$ rider's own Notes are emitted before the ask
+			// and again by the re-run after the answer: only its rare
+			// no-defender diagnostics repeat, and the copy is still minted
+			// from the answered pick.)
 			if ans, ok := AskTape(h, d); ok {
 				// The resolution kernel's answer in hand: the
 				// "copypermanent_choice" re-entry, after the Notes its re-run
