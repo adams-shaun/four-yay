@@ -348,21 +348,26 @@ func keywordPrefix(f *cards.Face, sa *cards.SA) (string, bool) {
 			// Job-named equipment prints "Job — Equip {N}". Match the
 			// keyword after that printed header, while preserving the whole
 			// XMage selector text.
-			candidate := line
-			if dash := strings.LastIndex(candidate, " — "); dash >= 0 {
-				candidate = strings.TrimSpace(candidate[dash+len(" — "):])
-			}
-			if keywordLineStartsWith(candidate, display) {
-				cost := strings.TrimSpace(sa.ParamStr(cards.PKCost))
-				if cost != "" && candidate != display && hasPrintedManaCost(candidate, display, cost) {
-					matches = append(matches, line)
-				} else if cost == "" || candidate == display || !manaCostSymbols(cost) {
-					// Non-mana / unparsed costs have no uniform brace spelling;
-					// preserve the prior role-based match for those keywords.
-					matches = append(matches, line)
-				}
+			if keywordLineStartsWith(keywordCandidate(line), display) {
+				matches = append(matches, line)
 			}
 		}
+	}
+	// Prose that merely names the keyword ("Equip abilities you activate of
+	// other Equipment cost {1} less...") also starts with it, and a face may
+	// print the keyword twice ("Equip Detective {1}", "Equip {3}"). Only when
+	// that leaves several candidates does the printed line decide: first the
+	// line that spells this ability's leading cost symbol, then the line whose
+	// cost follows the keyword name directly. Forge's cost spelling is never
+	// required to round-trip -- it collapses hybrid, Phyrexian, tap and
+	// min-count symbols -- so a narrowing that finds nothing is skipped.
+	if len(matches) > 1 {
+		if symbol := leadingCostSymbol(sa.ParamStr(cards.PKCost)); symbol != "" {
+			matches = narrowMatches(matches, func(line string) bool { return strings.Contains(line, symbol) })
+		}
+	}
+	if len(matches) > 1 {
+		matches = narrowMatches(matches, func(line string) bool { return costLed(keywordCandidate(line), head) })
 	}
 	if len(matches) != 1 {
 		return "", false
@@ -370,36 +375,44 @@ func keywordPrefix(f *cards.Face, sa *cards.SA) (string, bool) {
 	return matches[0], true
 }
 
-// hasPrintedManaCost checks the Oracle selector for Forge's space-separated
-// mana-cost symbols in their printed, individually-braced form. This keeps a
-// keyword name in ordinary prose (for example "Ninjutsu abilities...") from
-// becoming a second candidate, while accepting multi-symbol costs such as
-// Forge's "1 R" and Oracle's "{1}{R}".
-func hasPrintedManaCost(line, display, cost string) bool {
-	fields := strings.Fields(cost)
-	var rendered strings.Builder
-	for _, symbol := range fields {
-		if !isManaCostSymbol(symbol) {
-			break
-		}
-		rendered.WriteByte('{')
-		rendered.WriteString(symbol)
-		rendered.WriteByte('}')
+// keywordCandidate strips a Job-style header ("Perseus's Bow — Equip {6}")
+// from a printed line, leaving the text that begins with the keyword name.
+func keywordCandidate(line string) string {
+	if dash := strings.LastIndex(line, " — "); dash >= 0 {
+		return strings.TrimSpace(line[dash+len(" — "):])
 	}
-	return rendered.Len() > 0 && strings.Contains(line[len(display):], rendered.String())
+	return line
 }
 
-// manaCostSymbols reports whether Forge's cost begins with mana-cost symbols.
-// Some keyword costs append non-mana actions (Ninjutsu's return cost, for
-// example), so only the leading symbols are used for printed-line matching.
-func manaCostSymbols(cost string) bool {
-	for _, field := range strings.Fields(cost) {
-		if !isManaCostSymbol(field) {
-			break
-		}
-		return true
+// costLed reports whether the keyword's cost follows its printed name
+// directly ("Equip {1}{R}", "Equip—Sacrifice a creature"), as opposed to prose.
+func costLed(line, display string) bool {
+	rest := strings.TrimSpace(line[len(display):])
+	return rest == "" || strings.HasPrefix(rest, "{") || strings.HasPrefix(rest, "—") || strings.HasPrefix(rest, "-")
+}
+
+// leadingCostSymbol renders the first symbol of Forge's cost as a printed
+// "{X}", or "" when it is not a plain symbol.
+func leadingCostSymbol(cost string) string {
+	fields := strings.Fields(cost)
+	if len(fields) == 0 || !isManaCostSymbol(fields[0]) {
+		return ""
 	}
-	return false
+	return "{" + fields[0] + "}"
+}
+
+// narrowMatches keeps the lines keep accepts, or all of them when none does.
+func narrowMatches(lines []string, keep func(string) bool) []string {
+	var out []string
+	for _, line := range lines {
+		if keep(line) {
+			out = append(out, line)
+		}
+	}
+	if len(out) == 0 {
+		return lines
+	}
+	return out
 }
 
 func isManaCostSymbol(symbol string) bool {
