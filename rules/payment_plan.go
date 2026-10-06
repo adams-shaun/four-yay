@@ -424,11 +424,41 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 	// options in the same order, without pricing every battlefield ability.
 	// The walk is shared with the decision's other potential readers
 	// (potential_walk_cache.go), which may hand back the full walk.
-	_, candidates := e.potentialWalkOf(p, false)
+	hyp, candidates := e.potentialWalkOf(p, false)
 	statics := costStaticSource{e: e}
 	legal := paymentCastCandidates{e: e, p: p, priced: true}
 	var out []decision.PaymentAction
 	var unpayable []state.ObjID
+	// The planner's "insufficient" is a PROOF only when the source census
+	// prices every mana ability p could activate, or when a relaxation of the
+	// abilities it misses (paymentPlanRelaxProof) still cannot pay. The cast
+	// planner's raw verdict (planCastPaymentMemo) does no such post-processing,
+	// so a cast payable only through an uncovered source's scripted prefix
+	// (Saruli Caretaker, Wall of Roots, Heap Gate's filter) reaches the builder
+	// as "insufficient" while PotentialPaymentPlans proves it payable. Marking
+	// that a proof would hide a genuinely playable cast's "tap other mana
+	// first" row, so the census gate below is the same proof the planner
+	// reports (PotentialPaymentPlans), minus its script search: a
+	// census-incomplete, non-relaxable insufficiency is not appended.
+	var (
+		census   paymentPlanCensus
+		censused bool
+	)
+	provesUnpayable := func(cast decision.PlannedCast) bool {
+		verdict := func() PaymentPlanOutcome {
+			return e.planCastPaymentMemo(p, cast, &statics, &legal)
+		}
+		if got := verdict(); got.Reason != pay.ReasonInsufficient {
+			return false
+		}
+		if !censused {
+			census, censused = e.paymentPlanCensusOf(p, &hyp), true
+		}
+		if census.complete {
+			return true
+		}
+		return census.relaxable && e.paymentPlanRelaxProof(census, verdict).Reason == pay.ReasonInsufficient
+	}
 	for _, opt := range candidates {
 		// A V1 PlannedCast records the ordinary printed-cost cast only.  An
 		// AlternativeCost has no Mode marker, but AltCostIndex identifies it;
@@ -458,7 +488,7 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 		got := e.planCastPaymentMemo(p, cast, &statics, &legal)
 		e.PaymentStats.RecordOutcome(got)
 		if got.Plan == nil {
-			if got.Reason == pay.ReasonInsufficient {
+			if got.Reason == pay.ReasonInsufficient && provesUnpayable(cast) {
 				unpayable = append(unpayable, opt.Obj)
 			}
 			continue
