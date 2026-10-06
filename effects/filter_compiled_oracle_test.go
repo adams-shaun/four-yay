@@ -161,7 +161,7 @@ func contextsFor(g *state.Game) []effects.SpecContext {
 		Remembered:        []state.Target{{Obj: at(5)}, {IsPlayer: true, Player: 1}},
 		ResolutionTargets: []state.Target{{Obj: at(7)}},
 		Chosen:            []state.Target{{Obj: at(5)}}, ChosenValid: true,
-		ExtraKeywords: []string{"Flying", "Trample"},
+		ExtraKeywords: []string{"Flying", "Trample"}, ExtraKeywordsOwner: at(2),
 	}
 	rich.TriggerCard = at(9)
 	rich.TriggerPlayer = state.Target{IsPlayer: true, Player: 1}

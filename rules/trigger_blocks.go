@@ -70,7 +70,7 @@ func (e *Engine) attackerBlockedByPairCandidates(t cards.Trigger, source state.O
 		}
 		if v := t.ParamStr(cards.PKValidCard); v != "" {
 			asc := sc
-			asc.ExtraKeywords = e.Derived(pr[0]).Keywords
+			asc.ExtraKeywords, asc.ExtraKeywordsOwner = e.Derived(pr[0]).Keywords, pr[0]
 			asc.PredicatePrograms = nil
 			if !e.matchesSpec(v, pr[0], asc) {
 				continue
@@ -83,7 +83,7 @@ func (e *Engine) attackerBlockedByPairCandidates(t cards.Trigger, source state.O
 			// takes no -1/-1. The object-alone read the filter would otherwise
 			// use sees only the printed face plus marker counters.
 			bsc := sc
-			bsc.ExtraKeywords = e.Derived(pr[1]).Keywords
+			bsc.ExtraKeywords, bsc.ExtraKeywordsOwner = e.Derived(pr[1]).Keywords, pr[1]
 			bsc.PredicatePrograms = nil
 			if !e.matchesSpec(v, pr[1], bsc) {
 				continue

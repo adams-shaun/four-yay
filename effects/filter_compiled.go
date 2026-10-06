@@ -381,7 +381,7 @@ func compiledBaseMatch(g *state.Game, a *compiledAlt, o *state.Object, sc *SpecC
 			m = o.Zone == state.ZBattlefield
 		}
 	case cbAffinity:
-		if sc.ExtraKeywords != nil {
+		if sc.ExtraKeywords != nil && o.ID == sc.ExtraKeywordsOwner {
 			for _, k := range sc.ExtraKeywords {
 				if strings.EqualFold(cards.KeywordHead(k), "Affinity") {
 					m = true
