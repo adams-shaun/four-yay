@@ -93,6 +93,15 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 		}
 	}
 	if !fired {
+		if attackTriggerSub(req.Sub) {
+			for _, cause := range causes {
+				for _, step := range append(append([]oraclegen.Step(nil), cause.prelude...), cause.steps...) {
+					if step.Op == "activate" {
+						return skip("attack activation did not fire")
+					}
+				}
+			}
+		}
 		if req.Sub == "trigger.spell-cast" {
 			if reason := spellCastNarrowSkip(&f.Triggers[idx]); reason != "" {
 				return skip(reason)
