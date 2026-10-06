@@ -360,6 +360,14 @@ func TestRequirementsClassificationTable(t *testing.T) {
 			}},
 		},
 		{
+			name: "static panharmonicon is served",
+			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("Panharmonicon", map[string]string{"ValidCard": "Creature.YouCtrl"})}}),
+			want: []Requirement{{
+				Key: "static#0.0", Family: "static", Face: 0, Slot: "0",
+				Sub: "static.panharmonicon",
+			}},
+		},
+		{
 			name: "static combat damage toughness is served",
 			c: cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{
 				stat("CombatDamageToughness", nil),
