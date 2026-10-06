@@ -98,7 +98,7 @@ func putToken(t *testing.T, e *Engine, p state.PlayerID, src string, to state.Zo
 		if e.G.Tokens == nil {
 			e.G.Tokens = map[string]*cards.Card{}
 		}
-		e.G.Tokens[key] = c
+		setFixtureToken(e, key, c)
 		e.emit(events.Event{Kind: events.TokenCreate, Player: p, Text: key})
 		e.pending = nil
 		return e.G.NextID - 1

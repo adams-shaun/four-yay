@@ -155,7 +155,7 @@ func TestGrantedTrainingOnATokenUsesElderArthurMaxson(t *testing.T) {
 	// Mint the Cat Token onto seat 0's battlefield under Maxson. Runtime token
 	// registration belongs to the engine; the replay Config needs the same
 	// definition independently because New isolates its token map.
-	e.G.Tokens["w_2_2_cat"] = cat
+	setFixtureToken(e, "w_2_2_cat", cat)
 	cfg.Tokens["w_2_2_cat"] = cat
 	e.emit(events.Event{Kind: events.TokenCreate, Player: 0, Text: "w_2_2_cat"})
 	catID := e.G.NextID - 1
@@ -201,7 +201,7 @@ func TestTrainingGrantAndPrintedKeywordDoNotStack(t *testing.T) {
 	e.emit(events.Event{Kind: events.MoveZone, Obj: wurmID, From: state.ZHand, To: state.ZBattlefield})
 	// Replay Config needs the runtime token definition independently because
 	// New isolates the engine's token map.
-	e.G.Tokens["gw_1_1_human_soldier_training"] = token
+	setFixtureToken(e, "gw_1_1_human_soldier_training", token)
 	cfg.Tokens["gw_1_1_human_soldier_training"] = token
 	e.emit(events.Event{Kind: events.TokenCreate, Player: 0, Text: "gw_1_1_human_soldier_training"})
 	tokID := e.G.NextID - 1

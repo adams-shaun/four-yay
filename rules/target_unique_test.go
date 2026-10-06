@@ -189,7 +189,7 @@ const robotScript = "Name:Robot\nManaCost:\nTypes:Artifact Creature Robot\nPT:4/
 // ThisTargetedPlayer reads the sub's answered target).
 func TestCyberneticaTokenSubTargetExcludesParentTarget(t *testing.T) {
 	e, cfg, _ := newFixtureDeck(t, 7003, cyberneticaScript)
-	e.G.Tokens["c_4_4_a_robot_noblock"] = card(t, robotScript)
+	setFixtureToken(e, "c_4_4_a_robot_noblock", card(t, robotScript))
 	addMana(t, e, 0, "C")
 	castFirst(t, e, "cast")
 

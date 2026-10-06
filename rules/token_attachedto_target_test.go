@@ -145,7 +145,7 @@ func TestTokenAttachedToThisTargetedCardUsesItsOwnTarget(t *testing.T) {
 	e, cfg, spell := newFixtureDeckWithOpponentCard(t, 301, atThisTargetedSpell, atTokenBearSrc, atTokenBearSrc)
 	cfg.Tokens = fixtureTokenMap(cfg.Tokens)
 	e.G.Tokens = cfg.Tokens
-	e.G.Tokens["role_wicked"] = card(t, roleTokenSrc)
+	setFixtureToken(e, "role_wicked", card(t, roleTokenSrc))
 	myBear := moveSeeded(t, e, 0, atTokenBearSrc, state.ZBattlefield)
 	oppBear := moveSeeded(t, e, 1, atTokenBearSrc, state.ZBattlefield)
 	addMana(t, e, 0, "RRRR")
@@ -167,7 +167,7 @@ func TestTokenAttachedToTargetedUsesItsOwnTarget(t *testing.T) {
 	e, cfg, spell := newFixtureDeckWithOpponentCard(t, 302, atTargetedSpell, atTokenBearSrc, atTokenBearSrc)
 	cfg.Tokens = fixtureTokenMap(cfg.Tokens)
 	e.G.Tokens = cfg.Tokens
-	e.G.Tokens["role_wicked"] = card(t, roleTokenSrc)
+	setFixtureToken(e, "role_wicked", card(t, roleTokenSrc))
 	myBear := moveSeeded(t, e, 0, atTokenBearSrc, state.ZBattlefield)
 	oppBear := moveSeeded(t, e, 1, atTokenBearSrc, state.ZBattlefield)
 	addMana(t, e, 0, "RRRR")
@@ -190,7 +190,7 @@ func TestTokenAttachedToTargetedInheritsParentWhenSubHasNoTargets(t *testing.T) 
 	e, cfg, spell := newFixtureDeck(t, 303, atInheritSpell, atTokenBearSrc)
 	cfg.Tokens = fixtureTokenMap(cfg.Tokens)
 	e.G.Tokens = cfg.Tokens
-	e.G.Tokens["role_wicked"] = card(t, roleTokenSrc)
+	setFixtureToken(e, "role_wicked", card(t, roleTokenSrc))
 	myBear := moveSeeded(t, e, 0, atTokenBearSrc, state.ZBattlefield)
 	addMana(t, e, 0, "R")
 	e.Advance()
@@ -234,7 +234,7 @@ func TestTokenRememberedAttachSelfAttaches(t *testing.T) {
 	e, cfg, spell := newFixtureDeck(t, 304, atRememberedSpell)
 	cfg.Tokens = fixtureTokenMap(cfg.Tokens)
 	e.G.Tokens = cfg.Tokens
-	e.G.Tokens["sturdy_shield"] = card(t, shieldTokenSrc)
+	setFixtureToken(e, "sturdy_shield", card(t, shieldTokenSrc))
 	bearer := moveSeeded(t, e, 0, atRememberedSpell, state.ZBattlefield)
 	_ = spell
 	// The ETB trigger is queued by the entry; drive priority rounds until it

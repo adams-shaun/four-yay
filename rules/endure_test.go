@@ -54,7 +54,7 @@ func TestEndureEngineCounterBranch(t *testing.T) {
 	e, cfg, find := etbConfig(t, 201, []string{endureCritterSrc}, nil)
 	cfg.Tokens = fixtureTokenMap(cfg.Tokens)
 	e.G.Tokens = cfg.Tokens
-	e.G.Tokens["w_x_x_spirit"] = card(t, endureSpiritTokSrc)
+	setFixtureToken(e, "w_x_x_spirit", card(t, endureSpiritTokSrc))
 	id := find("Endure Test Critter", 0)
 	addMana(t, e, 0, "G")
 	castFirst(t, e, "cast")
@@ -84,7 +84,7 @@ func TestEndureEngineSpiritBranch(t *testing.T) {
 	e, cfg, find := etbConfig(t, 202, []string{endureCritterSrc}, nil)
 	cfg.Tokens = fixtureTokenMap(cfg.Tokens)
 	e.G.Tokens = cfg.Tokens
-	e.G.Tokens["w_x_x_spirit"] = card(t, endureSpiritTokSrc)
+	setFixtureToken(e, "w_x_x_spirit", card(t, endureSpiritTokSrc))
 	id := find("Endure Test Critter", 0)
 	addMana(t, e, 0, "G")
 	castFirst(t, e, "cast")
