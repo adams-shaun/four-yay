@@ -109,6 +109,61 @@ def held_issue_ids(repo: Path, branches: tuple[str, ...]) -> list[str]:
     return out
 
 
+_DEPENDS_LINE_RE = re.compile(r"^Depends-On:[ \t]*(.+)$", re.M)
+
+
+def issue_depends(repo: Path, issue_id: str) -> list[str]:
+    """The ids a ticket's `Depends-On:` lines name (first token of each
+    comma part, as agentctl's Issue.depends_on reads them)."""
+    path = repo / ".ds4" / "issues" / f"{issue_id}.md"
+    try:
+        text = path.read_text(errors="replace")
+    except OSError:
+        return []
+    out: list[str] = []
+    for m in _DEPENDS_LINE_RE.finditer(text):
+        for part in m.group(1).split(","):
+            tok = part.strip().split()[0] if part.strip() else ""
+            if _ISSUE_ID_RE.fullmatch(tok) and tok not in out:
+                out.append(tok)
+    return out
+
+
+def already_sequenced(repo: Path, branches: tuple[str, ...]) -> bool:
+    """True when every contending branch is a ticket and those tickets are
+    already totally ordered by Depends-On chains (for each pair, one reaches
+    the other). Such a group's contention is already resolved by sequencing:
+    a contention ticket would itself depend on all of them, dispatch only
+    after the last lands, and find nothing left to un-contend -- 119 of 172
+    such tickets ended superseded by 2026-10-06 for exactly that reason."""
+    holders = held_issue_ids(repo, branches)
+    if len(holders) != len(branches) or len(holders) < 2:
+        return False
+    memo: dict[str, set[str]] = {}
+
+    def reach(i: str) -> set[str]:
+        if i in memo:
+            return memo[i]
+        memo[i] = set()
+        seen: set[str] = set()
+        stack = list(issue_depends(repo, i))
+        while stack:
+            d = stack.pop()
+            if d in seen:
+                continue
+            seen.add(d)
+            stack.extend(issue_depends(repo, d))
+        memo[i] = seen
+        return seen
+
+    for x in range(len(holders)):
+        for y in range(x + 1, len(holders)):
+            a, b = holders[x], holders[y]
+            if b not in reach(a) and a not in reach(b):
+                return False
+    return True
+
+
 SEQUENCING_PARA = """\nSequencing: this ticket is filed with a `Depends-On:` line naming the tickets
 whose branches hold the group's files right now. The daemon holds a ticket with
 unmet dependencies out of dispatch until they close, so this work lands AFTER
@@ -174,6 +229,10 @@ def generate(repo: Path, state_dir: Path, ledger_path: Path) -> list[dict]:
     for f, branches in rc.hotspots(repo):
         live = tuple(sorted(b for b in branches if b not in idle_names))
         if len(live) < rc.HOTSPOT_BRANCHES:
+            continue
+        # Already sequenced by Depends-On: the holders land one after
+        # another, so there is no contention left to file a ticket about.
+        if already_sequenced(repo, live):
             continue
         groups.setdefault(live, []).append(f)
     # The candidate ID is keyed on the sorted FILE SET, not the branch set:

@@ -7,6 +7,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
+import mage.ConditionalMana;
 import mage.Mana;
 import mage.abilities.Ability;
 import mage.abilities.common.SimpleStaticAbility;
@@ -22,6 +23,7 @@ import mage.abilities.effects.common.InfoEffect;
 import mage.cards.Card;
 import mage.cards.Cards;
 import mage.cards.CardsImpl;
+import mage.cards.DoubleFacedCard;
 import mage.constants.CardType;
 import mage.constants.Outcome;
 import mage.constants.PhaseStep;
@@ -29,6 +31,7 @@ import mage.constants.Zone;
 import mage.counters.Counter;
 import mage.counters.CounterType;
 import mage.game.Game;
+import mage.game.PutToBattlefieldInfo;
 import mage.game.events.GameEvent;
 import mage.game.permanent.Permanent;
 import mage.game.stack.Spell;
@@ -723,6 +726,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private void build(JsonObject sc) {
         buildCounts.clear();
         setupBattlefield.clear();
+        setupNames.clear();
+        backFaceNames.clear();
         String format = str(sc, "format");
         if (!format.isEmpty() && !format.equals("constructed")) {
             throw new IllegalArgumentException("unsupported format " + format);
@@ -771,21 +776,48 @@ public class ScenarioReplay extends CardTestPlayerBase {
         // taps every placement whose name it lists, oraclegen's ".tapped"
         // target slots: Push // Pull, Keep Out, Radiant Strike).
         List<String> tapped = zone == Zone.BATTLEFIELD ? names(s, "tapped") : new ArrayList<>();
+        List<String> backFace = zone == Zone.BATTLEFIELD ? names(s, "back_face") : new ArrayList<>();
         int i = p == playerA ? 0 : 1;
         for (String n : ns) {
             int k = buildCounts.merge(i + "|" + n, 1, Integer::sum);
             String ref = "p" + i + ":" + n + (k > 1 ? "#" + k : "");
             refAlias.put(ref, "@" + ref);
             String xmageName = xmageSpelling(n);
+            addCard(zone, p, xmageName, 1, tapped.contains(n));
+            if (backFace.contains(n)) {
+                stageBackFace(p, n);
+                xmageName = backFaceNames.get("p" + i + ":" + xmageName);
+            }
             if (zone == Zone.BATTLEFIELD) {
-                // Record the seeded permanents by (controller id, XMage name)
-                // so the entry-history normalizer ages exactly these, never a
-                // permanent that genuinely entered during turn 1.
+                // Record the seeded permanents by (controller id, current XMage
+                // name), including staged back faces, so the entry-history
+                // normalizer ages exactly these, never a genuine turn-1 entry.
                 setupBattlefield.merge(p.getId() + "|" + xmageName, 1, Integer::sum);
             }
-            addCard(zone, p, xmageName, 1, tapped.contains(n));
         }
         return ns.size();
+    }
+
+    /** Setup is not a transform action: place the right half without firing
+     * TRANSFORMED triggers. XMage's transforming and modal DFCs both extend
+     * DoubleFacedCard; its test framework accepts either half directly. */
+    private void stageBackFace(TestPlayer p, String name) {
+        List<PutToBattlefieldInfo> placements = getBattlefieldCards(p);
+        int last = placements.size() - 1;
+        PutToBattlefieldInfo placed = placements.get(last);
+        Card card = placed.getMainCard();
+        if (!(card instanceof DoubleFacedCard)) {
+            throw new IllegalArgumentException("setup back_face: " + name + " is not double-faced");
+        }
+        Card back = ((DoubleFacedCard) card).getRightHalfCard();
+        if (!back.isPermanent()) {
+            throw new IllegalArgumentException("setup back_face: " + name + " has no permanent back face");
+        }
+        placements.set(last, new PutToBattlefieldInfo(back, placed.isTapped()));
+        // Scenario refs/counters still name the front, even though snapshots
+        // and XMage's attack/block commands must name the current back face.
+        setupNames.put(back.getId(), xmageSpelling(name));
+        backFaceNames.put("p" + (p == playerA ? 0 : 1) + ":" + xmageSpelling(name), back.getName());
     }
 
     /** Puts each seat's setup "counters" (card name -> gorge counter kind ->
@@ -804,7 +836,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 String name = xmageSpelling(card.getKey());
                 boolean placed = false;
                 for (Permanent perm : g.getBattlefield().getAllPermanents()) {
-                    if (!pl.getId().equals(perm.getControllerId()) || !perm.getName().equals(name)) {
+                    if (!pl.getId().equals(perm.getControllerId()) || !setupNames.getOrDefault(perm.getId(), perm.getName()).equals(name)) {
                         continue;
                     }
                     placed = true;
@@ -861,7 +893,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             }
             for (Card c : pl.getLibrary().getCards(g)) objs.add(c);
             for (mage.MageObject o : objs) {
-                String xmageCardName = o.getName();
+                String xmageCardName = setupNames.getOrDefault(o.getId(), o.getName());
                 int k = counts.merge(xmageCardName, 1, Integer::sum);
                 String xmageRef = "p" + i + ":" + xmageCardName + (k > 1 ? "#" + k : "");
                 String scenarioCardName = !xmageName.isEmpty() && xmageCardName.equals(xmageName)
@@ -1031,7 +1063,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
         int seen = 0;
         for (Permanent perm : g.getBattlefield().getAllPermanents()) {
-            if (perm.getControllerId().equals(seat(seatIndex).getId()) && perm.getName().equals(name)) {
+            if (perm.getControllerId().equals(seat(seatIndex).getId())
+                    && setupNames.getOrDefault(perm.getId(), perm.getName()).equals(name)) {
                 if (++seen == wanted) {
                     return perm;
                 }
@@ -1069,6 +1102,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private final java.util.Map<String, Integer> buildCounts = new java.util.HashMap<>();
     // Seeded setup permanents keyed "controllerId|xmageName" -> count (build()).
     private final java.util.Map<String, Integer> setupBattlefield = new java.util.HashMap<>();
+    private final Map<UUID, String> setupNames = new HashMap<>();
+    private final Map<String, String> backFaceNames = new HashMap<>();
     // The card under test's two spellings: the scenario's (gorge/corpus) name
     // and XMage's card-database name when they differ (Forge prints "Dáin
     // Ironfoot", XMage stores "Dain Ironfoot"). xmageName is empty when equal.
@@ -1145,10 +1180,13 @@ public class ScenarioReplay extends CardTestPlayerBase {
     /** Whether the named card has an activated mana ability whose rule text
      * starts with text; XMage activates those through activateManaAbility. */
     private static boolean isManaAbilityText(String name, String text) {
-        CardInfo info = CardRepository.instance.findCard(name);
+        CardInfo info = CardRepository.instance.findCard(name, true);
         Card c = info == null ? null : info.createCard();
         if (c == null) {
             return false;
+        }
+        if (c instanceof DoubleFacedCard && ((DoubleFacedCard) c).getRightHalfCard().getName().equals(name)) {
+            c = ((DoubleFacedCard) c).getRightHalfCard();
         }
         for (Ability a : c.getAbilities()) {
             if (a.toString().startsWith(text)) {
@@ -1373,7 +1411,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 if (!sc0.has("xmage_answers")) {
                     answers(st, p);
                 }
-                String card = xmageSpelling(refName(str(st, "card")));
+                String card = battlefieldName(str(st, "card"));
                 if (isManaAbilityText(card, text)) {
                     activateManaAbility(turn, phase, p, text);
                     return;
@@ -1509,14 +1547,25 @@ public class ScenarioReplay extends CardTestPlayerBase {
      * target, the command does not accept the driver's "@" aliases, so it
      * must be the card name, with the legacy zero-based "<name>:<index>"
      * suffix for a duplicate ("p0:Grizzly Bears#2" -> "Grizzly Bears:1"). */
-    private static String combatName(String ref) {
-        String n = refName(ref);
+    private String combatName(String ref) {
+        String n = battlefieldName(ref);
         int hash = ref.lastIndexOf('#');
         if (hash >= 0 && ref.substring(hash + 1).matches("[0-9]+")) {
             int k = Integer.parseInt(ref.substring(hash + 1)) - 1;
             if (k > 0) {
                 return n + ":" + k;
             }
+        }
+        return n;
+    }
+
+    /** Front-name setup refs keep their identity; name-based battlefield
+     * commands instead need the face setup actually placed on that seat. */
+    private String battlefieldName(String ref) {
+        String n = xmageSpelling(refName(ref));
+        int colon = ref.indexOf(':');
+        if (colon >= 0 && ref.substring(0, colon).matches("p[0-9]+")) {
+            return backFaceNames.getOrDefault(ref.substring(0, colon + 1) + n, n);
         }
         return n;
     }
@@ -1562,6 +1611,35 @@ public class ScenarioReplay extends CardTestPlayerBase {
             return -1;
         }
         return id.equals(playerA.getId()) ? 0 : id.equals(playerB.getId()) ? 1 : -1;
+    }
+
+    /** The permanent's keyword names, sorted and de-duplicated. Spec H5
+     * (confirmed against the XMage source): a keyword ability's getRule() is
+     * its lower-case name ("flying", "first strike"), which the comparator
+     * case-folds onto its evergreen set (compliance/oraclediff/keywords.go).
+     * Some rules carry HTML-wrapped reminder text ("menace <i>(This creature
+     * can't be blocked ...)</i>", MenaceAbility.showAbilityHint), so tags are
+     * stripped and the rule is cut at the first "(". getAbilities(g) includes
+     * abilities gained from continuous effects, so a granted keyword shows
+     * here. Only classes of mage.abilities.keyword count, so
+     * triggered/activated/static rule text never reaches the list. */
+    private static List<String> keywordNames(Permanent perm, Game g) {
+        java.util.TreeSet<String> names = new java.util.TreeSet<>();
+        for (Ability a : perm.getAbilities(g)) {
+            if (!a.getClass().getName().startsWith("mage.abilities.keyword.")) {
+                continue;
+            }
+            String rule = a.getRule().replaceAll("<[^>]*>", "");
+            int paren = rule.indexOf("(");
+            if (paren >= 0) {
+                rule = rule.substring(0, paren);
+            }
+            rule = rule.trim();
+            if (!rule.isEmpty()) {
+                names.add(rule);
+            }
+        }
+        return new ArrayList<>(names);
     }
 
     private JsonObject snapshot(String checkpoint, Game g) {
@@ -1646,6 +1724,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 o.addProperty("all_creature_types", true);
             }
             o.addProperty("colors", perm.getColor(g).toString());
+            o.add("keywords", GSON.toJsonTree(keywordNames(perm, g)));
             if (perm.getAttachedTo() != null) {
                 Permanent to = g.getPermanent(perm.getAttachedTo());
                 if (to != null) {
@@ -1688,14 +1767,34 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return a;
     }
 
-    private static String pool(ManaPool mp) {
+    // ManaPool.getWhite() and the other colour getters sum only unconditional
+    // pool items: a restricted add ("spend only on Dragon spells") is a
+    // ConditionalMana whose ManaPoolItem keeps its plain counters at zero. Add
+    // those in too, so the snapshot matches gorge's letters-only pool. The
+    // restriction itself is not compared.
+    static String pool(ManaPool mp) {
+        int w = mp.getWhite();
+        int u = mp.getBlue();
+        int bl = mp.getBlack();
+        int r = mp.getRed();
+        int g = mp.getGreen();
+        int c = mp.getColorless();
+        for (ConditionalMana cm : mp.getConditionalMana()) {
+            w += cm.getWhite();
+            u += cm.getBlue();
+            bl += cm.getBlack();
+            r += cm.getRed();
+            g += cm.getGreen();
+            // ManaPool.addMana folds generic into colorless for plain mana.
+            c += cm.getColorless() + cm.getGeneric();
+        }
         StringBuilder b = new StringBuilder();
-        rep(b, 'W', mp.getWhite());
-        rep(b, 'U', mp.getBlue());
-        rep(b, 'B', mp.getBlack());
-        rep(b, 'R', mp.getRed());
-        rep(b, 'G', mp.getGreen());
-        rep(b, 'C', mp.getColorless());
+        rep(b, 'W', w);
+        rep(b, 'U', u);
+        rep(b, 'B', bl);
+        rep(b, 'R', r);
+        rep(b, 'G', g);
+        rep(b, 'C', c);
         return b.toString();
     }
 
