@@ -64,6 +64,15 @@ func foldStepChange(g *state.Game, e *Event) {
 				p.PersistentMana[j] -= d
 				p.CombatMana[j] = 0
 			}
+			// A restricted combat-persistent batch is demoted with its
+			// units: kept Persistent, the boundary's ManaClear would keep
+			// the batch while emptying the units it describes.
+			for j := range p.RestrictedMana {
+				if p.RestrictedMana[j].Combat {
+					p.RestrictedMana[j].Persistent = false
+					p.RestrictedMana[j].Combat = false
+				}
+			}
 		}
 	}
 	g.Step = e.Step
@@ -238,6 +247,7 @@ func foldTurnChange(g *state.Game, e *Event) {
 		g.Players[i].CombatMana = state.Mana{}
 		for j := range g.Players[i].RestrictedMana {
 			g.Players[i].RestrictedMana[j].Persistent = false
+			g.Players[i].RestrictedMana[j].Combat = false
 		}
 	}
 }

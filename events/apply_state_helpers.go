@@ -315,7 +315,7 @@ func applyManaAdd(g *state.Game, e *Event) {
 			if e.Amount > 0 {
 				player.RestrictedMana = append(player.RestrictedMana, state.ManaRestriction{
 					Color: e.Counter, Amount: e.Amount, Valid: valid, Source: srcID,
-					NoCounter: cond, Persistent: persistent, AddsCounters: addsCounters,
+					NoCounter: cond, Persistent: persistent, Combat: persistent && combat, AddsCounters: addsCounters,
 				})
 			} else if e.Amount < 0 {
 				// A restricted spend event names exactly the restriction batch it
@@ -330,7 +330,7 @@ func applyManaAdd(g *state.Game, e *Event) {
 				// actually survived. The " pm" marker is meaningless on a
 				// restricted spend; the batch flags are authoritative.
 				need := -e.Amount
-				perUsed := int32(0)
+				perUsed, combatUsed := int32(0), int32(0)
 				for i := 0; i < len(player.RestrictedMana) && need > 0; {
 					r := &player.RestrictedMana[i]
 					if r.Color != e.Counter || r.Valid != valid {
@@ -346,6 +346,9 @@ func applyManaAdd(g *state.Game, e *Event) {
 					if r.Persistent {
 						perUsed += used
 					}
+					if r.Combat {
+						combatUsed += used
+					}
 					if r.Amount == 0 {
 						player.RestrictedMana = append(player.RestrictedMana[:i], player.RestrictedMana[i+1:]...)
 						continue
@@ -358,6 +361,13 @@ func applyManaAdd(g *state.Game, e *Event) {
 						d = player.PersistentMana[idx]
 					}
 					player.PersistentMana[idx] -= d
+				}
+				// The combat-persistent subset follows the same batch
+				// flags: a spent Combat batch's units leave CombatMana, so
+				// the end-of-combat demotion cannot strip an unrelated
+				// turn-persistent unit of the same colour instead.
+				if combatUsed > 0 {
+					player.CombatMana[idx] -= min(player.CombatMana[idx], combatUsed)
 				}
 			}
 		} else if e.Amount < 0 && persistent {
