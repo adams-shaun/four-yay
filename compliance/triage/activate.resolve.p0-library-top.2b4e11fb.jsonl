@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Glorious Anthem, Jace Beleren] xmage+[Plains, Shock]"},"key":"activate | resolve | p0.library_top | gorge+[Glorious Anthem, Jace Beleren] xmage+[Plains, Shock]","cards":1}
+{"card":"Fabled Passage","template":"activate#0.0","status":"diverge","api":"-","sets":["BLB"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Glorious Anthem, Wastes]\", xmage \"[Shock, Wastes, Plains, Wastes, Wastes]\""}

@@ -290,8 +290,13 @@ func effPutCounterAll(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	putCounterAllSweep(h, c, sa, sa.ParamStr(cards.PKValidCards), sa.ParamStr(cards.PKCounterType), Num(h, c, sa, "CounterNum", 1))
-	if strings.TrimSpace(sa.ParamStr(cards.PKValidCards2)) != "" {
-		putCounterAllSweep(h, c, sa, sa.ParamStr(cards.PKValidCards2), sa.ParamStr(cards.PKCounterType2), Num(h, c, sa, "CounterNum2", 1))
+	validCards2 := strings.TrimSpace(sa.ParamStr(cards.PKValidCards2))
+	counterType2 := strings.TrimSpace(sa.ParamStr(cards.PKCounterType2))
+	if validCards2 != "" || counterType2 != "" {
+		if validCards2 == "" {
+			validCards2 = sa.ParamStr(cards.PKValidCards)
+		}
+		putCounterAllSweep(h, c, sa, validCards2, counterType2, Num(h, c, sa, "CounterNum2", 1))
 	}
 }
 

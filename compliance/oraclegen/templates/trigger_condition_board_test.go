@@ -66,7 +66,7 @@ func triggerItem(t *testing.T, reg *cards.Registry, name, key string) oraclegen.
 			if !ok {
 				t.Fatalf("%s %s: gorge cannot play the served scenario minus its last resolve", name, key)
 			}
-			onStack = abilityOnStack(res.Snapshots, name, req.Slot)
+			onStack = abilityOnStack(res.Snapshots, name, card.Faces[0].Name, req.Slot)
 		}
 		if !onStack {
 			t.Fatalf("%s %s: the trigger ability is never on the stack in %+v", name, key, it.Scenario.Steps)

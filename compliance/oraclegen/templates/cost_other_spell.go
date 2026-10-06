@@ -46,8 +46,17 @@ func otherCostProbes(reg *cards.Registry, source *cards.Face, name string, idx i
 	if strings.Contains(filter, "token") {
 		return nil, "token fixture unavailable"
 	}
-	if st.Params["ClassBand"] != "" {
-		return nil, "class-level prelude unsupported"
+	base := costProbe{battlefield: []string{name}}
+	if band := classStaticBand(&st); band >= 2 {
+		// The cost static is live only from the Class's level on, so the
+		// probe first raises the Class through its own level-up activators.
+		// A face that cannot build the prelude keeps the named skip.
+		steps, xab, ok := classLevelPrelude(source, name, band)
+		if !ok {
+			return nil, "class-level prelude unsupported"
+		}
+		base.pre = append(base.pre, steps...)
+		base.preXAbility = append(base.preXAbility, xab...)
 	}
 	if strings.Contains(filter, "wasCast") || strings.Contains(filter, "AdventureCard") {
 		return nil, "cast-provenance probe unsupported"
@@ -55,7 +64,7 @@ func otherCostProbes(reg *cards.Registry, source *cards.Face, name string, idx i
 	if !spellFilterSupported(filter) {
 		return nil, "ValidCard filter unsupported"
 	}
-	base := costProbe{battlefield: []string{name}, mustReplay: true}
+	base.mustReplay = true
 	// Melek's characteristic-defining ability sets its toughness to twice
 	// the number of instant and sorcery cards in its controller's graveyard.
 	// Keep the reducer alive during setup and the probe cast; the cost static

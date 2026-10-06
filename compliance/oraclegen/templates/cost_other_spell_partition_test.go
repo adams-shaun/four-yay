@@ -5,8 +5,10 @@ import (
 )
 
 // TestCostStaticOtherSpellAppendixPartition pins the exact disposition of the
-// brief's 45 "cost static probe not supported" rows: 36 produce a generated
-// scenario and the remaining nine are narrower named skips. The sibling
+// brief's 45 "cost static probe not supported" rows: 37 produce a generated
+// scenario and the remaining eight are narrower named skips. Artist's Talent
+// moved from the named-skip column to served when the shared Class level-up
+// prelude landed (its ReduceCost static is live from level 2 on). The sibling
 // TestCostStaticOtherSpellAppendixRows asserts only the aggregate (>= 30); a
 // regression that turned a served row back into a skip, or changed a named
 // skip's reason to the bare form, would still satisfy that aggregate, so this
@@ -52,11 +54,11 @@ func TestCostStaticOtherSpellAppendixPartition(t *testing.T) {
 		"Agatha of the Vile Cauldron":    true,
 		"Blossoming Tortoise":            true,
 		"Raging Battle Mouse":            true,
+		"Artist's Talent":                true, // ClassBand$ 2 ReduceCost, served by the Class-level prelude
 	}
 	// skipped is keyed by "<name>/<key>" because two cards have a served face
 	// and a skipped face.
 	skipped := map[string]string{
-		"Artist's Talent/static#0.0":              "class-level prelude unsupported",
 		"Samut, the Driving Force/static#0.1":     "speed fixture unavailable",
 		"Inquisitive Glimmer/static#0.1":          "static-ability cost probe unsupported",
 		"Doc Aurlock, Grizzled Genius/static#0.0": "cast-provenance probe unsupported",
@@ -117,7 +119,7 @@ func TestCostStaticOtherSpellAppendixPartition(t *testing.T) {
 		}
 		scenarios++
 	}
-	if scenarios != 36 || named != 9 {
-		t.Errorf("partition = %d scenarios + %d named skips, want 36 + 9", scenarios, named)
+	if scenarios != 37 || named != 8 {
+		t.Errorf("partition = %d scenarios + %d named skips, want 37 + 8", scenarios, named)
 	}
 }

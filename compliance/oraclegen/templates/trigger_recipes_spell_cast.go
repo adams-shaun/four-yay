@@ -198,7 +198,7 @@ func spellProbeTarget(probe, filter, source string, t *cards.Trigger) string {
 }
 
 func spellCastNarrowSkip(t *cards.Trigger) string {
-	filter := strings.ToLower(t.ParamStr(cards.PKValidCard))
+	filter := strings.ToLower(t.ParamStr(cards.PKValidCard) + "," + t.ParamStr(cards.PKValidSAonCard))
 	for _, shape := range []struct{ text, reason string }{
 		{"wascastfromexile", "cast-from-exile provenance"},
 		{"wascastfromyourhand", "cast-from-hand provenance"},

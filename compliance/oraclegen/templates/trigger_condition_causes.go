@@ -104,10 +104,17 @@ func etbDiscardFiller(f *cards.Face) string {
 // variants of each base cause that make the trigger's own condition true.
 func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger, sub string) ([]triggerCause, string) {
 	causes, why := baseTriggerRecipe(reg, f, name, t, sub)
-	if why != "" || !conditionTriggerSub(sub) {
+	if why != "" {
 		return causes, why
 	}
-	return append(causes, conditionCauses(reg, f, name, t, sub, causes)...), ""
+	if conditionTriggerSub(sub) {
+		causes = append(causes, conditionCauses(reg, f, name, t, sub, causes)...)
+	}
+	// A ClassBand$ trigger's granted body is live only from its level on, so
+	// every cause first raises the Class to that level. Prepending after the
+	// condition variants keeps the sorcery-speed level-up ahead of any
+	// condition prelude that might leave turn 1's first main phase.
+	return classLevelBandCausePrepends(f, name, t, sub, causes), ""
 }
 
 var (
@@ -165,6 +172,7 @@ func applyPrelude(base triggerCause, p conditionPrelude) triggerCause {
 	c.opponentBattlefield = append(append([]string(nil), base.opponentBattlefield...), p.opponentBattlefield...)
 	c.counters = mergeCounters(base.counters, p.counters)
 	c.prelude = append(append([]oraclegen.Step(nil), base.prelude...), p.steps...)
+	c.preludeXAbility = append(append([]string(nil), base.preludeXAbility...), p.xability...)
 	return c
 }
 

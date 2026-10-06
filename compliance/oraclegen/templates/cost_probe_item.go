@@ -108,10 +108,16 @@ func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.R
 		if len(it.XAnswers) == 0 {
 			it.XAnswers = make([][]oraclegen.XAnswer, len(it.Steps))
 		}
-		it.XAbility = make([]string, len(it.Steps))
-		for i, s := range it.Steps {
-			if s.Op == "activate" {
-				it.XAbility[i] = p.activate.prefix
+	}
+	if p.activate != nil || len(p.preXAbility) > 0 {
+		it.XAbility = growXAbility(it.XAbility, len(it.Steps))
+		offset := len(fx.CombatSteps()) + len(fx.Prelude())
+		copy(it.XAbility[offset:], p.preXAbility)
+		if p.activate != nil {
+			for i, s := range it.Steps {
+				if s.Op == "activate" && i >= offset+len(p.preXAbility) {
+					it.XAbility[i] = p.activate.prefix
+				}
 			}
 		}
 	}

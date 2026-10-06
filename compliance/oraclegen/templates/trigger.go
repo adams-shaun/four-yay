@@ -29,7 +29,8 @@ func triggerSubs(sub string) bool {
 	case "trigger.etb-other", "trigger.etb-land", "trigger.dies", "trigger.attacks", "trigger.combat-damage",
 		"trigger.spell-cast", "trigger.spell-cast-self", "trigger.becomes-target", "trigger.life-gained", "trigger.drawn", "trigger.phase",
 		"trigger.dies-other", "trigger.scry", "trigger.surveil", "trigger.noncombat-damage", "trigger.combat-damage-all",
-		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target":
+		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target", classLevelGainedSub,
+		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.commit-crime", "trigger.ability-activated":
 		return true
 	}
 	return false
@@ -102,7 +103,7 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 				}
 			}
 		}
-		if req.Sub == "trigger.spell-cast" {
+		if req.Sub == "trigger.spell-cast" || req.Sub == "trigger.spell-cast-opponent" {
 			if reason := spellCastNarrowSkip(&f.Triggers[idx]); reason != "" {
 				return skip(reason)
 			}
@@ -112,8 +113,15 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 				return skip(reason)
 			}
 		}
-		if f.Triggers[idx].ParamStr(cards.PKClassBand) != "" {
-			return skip("condition: class level")
+		if band := classBandLevel(&f.Triggers[idx]); band >= 2 {
+			// The cause prepends the level-up prelude; only when that prelude
+			// could not be built is the class level itself the reason the
+			// trigger did not fire. Once the prelude ran, a non-firing trigger
+			// is its own cause's failure, reported below.
+			_, _, preludeOK := classLevelPrelude(f, name, band)
+			if !preludeOK {
+				return skip("condition: class level")
+			}
 		}
 		// A graveyard-source trigger keeps its own, narrower reason below.
 		if req.Sub == "trigger.phase" || (conditionTriggerSub(req.Sub) && !triggerFromGraveyard(f, req)) {
@@ -222,7 +230,7 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 	// the spell resolves and the trigger it caused is on the stack.
 	passes := []oraclegen.Step{{Op: "pass", Seat: 0}, {Op: "pass", Seat: 1}}
 	for _, steps := range [][]oraclegen.Step{probe, append(append([]oraclegen.Step(nil), probe...), passes...)} {
-		if _, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, req, steps, fx)); ok && abilityOnStack(res.Snapshots, name, req.Slot) {
+		if _, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, req, steps, fx)); ok && abilityOnStack(res.Snapshots, name, f.Name, req.Slot) {
 			fired = true
 			break
 		}
@@ -264,10 +272,13 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 			}
 		}
 	}
-	if c.xability != nil {
+	if c.xability != nil || len(c.preludeXAbility) > 0 {
 		it.XAbility = make([]string, len(sc.Steps))
-		offset := len(c.prelude) + len(triggerSteps(f, name, c, nil, fx))
-		copy(it.XAbility[offset:], c.xability)
+		copy(it.XAbility, c.preludeXAbility)
+		if c.xability != nil {
+			offset := len(c.prelude) + len(triggerSteps(f, name, c, nil, fx))
+			copy(it.XAbility[offset:], c.xability)
+		}
 	}
 	return it, true, true
 }
@@ -289,12 +300,18 @@ func triggerFromGraveyard(f *cards.Face, req levelb.Requirement) bool {
 // whose source is the named card and that the card's trigger at slot put
 // there: a card with several triggers (Kolodin's Mount and Vehicle ETBs) is
 // not served by a probe that fires only a different one.
-func abilityOnStack(snaps []rules.OracleSnapshot, name, slot string) bool {
-	want := strings.ToLower(name)
+func abilityOnStack(snaps []rules.OracleSnapshot, name, faceName, slot string) bool {
+	wants := []string{strings.ToLower(name), strings.ToLower(faceName)}
 	for _, s := range snaps {
 		for _, e := range s.Stack {
-			if e.Kind == "ability" && e.Trigger == slot && strings.Contains(strings.ToLower(e.Source), want) {
-				return true
+			if e.Kind != "ability" || e.Trigger != slot {
+				continue
+			}
+			source := strings.ToLower(e.Source)
+			for _, want := range wants {
+				if want != "" && strings.Contains(source, want) {
+					return true
+				}
 			}
 		}
 	}

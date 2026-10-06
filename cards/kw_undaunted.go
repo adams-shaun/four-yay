@@ -5,10 +5,13 @@ import (
 )
 
 func kwUndaunted(f *Face, i int, k, head, param string, has func(kind, line string) bool) {
-	for _, st := range f.Statics {
-		if st.Params["KeywordLine"] == k {
-			return
-		}
+	// Like Affinity, Undaunted mints a cost-reduction static rather than an
+	// ability, so its idempotence rides the shared has("S", ...) arm
+	// (which reads f.Statics) on the KeywordLine tag. One shared check, so
+	// a second Link() of a cached face does not double the discount and
+	// two identical K:Undaunted lines each expand (CR 702.2).
+	if has("S", k) {
+		return
 	}
 	sv := "__kwUndaunted" + strconv.Itoa(i)
 	f.setSVar(sv, "PlayerCountOpponents")

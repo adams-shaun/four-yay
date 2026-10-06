@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"resolve","field":"p0.library_top","diff":"gorge+[$LIB, Jace Beleren] xmage+[Ornithopter, Shock]"},"key":"trigger | resolve | p0.library_top | gorge+[$LIB, Jace Beleren] xmage+[Ornithopter, Shock]","cards":1}
-{"card":"Gloryheath Lynx","template":"trigger#0.0","status":"diverge","api":"Attacks:ChangeZone","sets":["DFT"],"detail":"step 3 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Wastes, Jace Beleren, Wastes]\", xmage \"[Wastes, Shock, Wastes, Ornithopter, Wastes]\""}
