@@ -150,6 +150,9 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		return it, nil
 	}
 	if st.HasParam(cards.PKMayLookAt) {
+		if it, ok := lookAtLibraryTopItem(reg, f, name, req); ok {
+			return it, nil
+		}
 		return skip(staticLookAtReason)
 	}
 	if it, ok := staticSpellLifelinkItem(reg, c, f, name, req, st); ok {

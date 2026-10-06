@@ -2,7 +2,6 @@ package rules
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -222,7 +221,7 @@ func verifyCastsOnlyWalk(got, full []decision.Option) {
 	for i := 0; same && i < len(want); i++ {
 		a, b := casts[i], want[i]
 		a.Index, b.Index = 0, 0
-		same = reflect.DeepEqual(a, b)
+		same = optionEqual(&a, &b)
 	}
 	if !same {
 		panic(fmt.Sprintf("rules: castsOnly walk casts %+v, full walk casts %+v", casts, want))

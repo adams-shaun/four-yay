@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"p1.hand","diff":"gorge+[] xmage+[Grizzly Bears]"},"key":"trigger | setup | p1.hand | gorge+[] xmage+[Grizzly Bears]","cards":1}
-{"card":"Summon: Leviathan","template":"trigger#0.0","status":"diverge","api":"BecomesTarget:Ward","sets":["FIN"],"detail":"setup p1.hand: gorge \"[Shock]\", xmage \"[Grizzly Bears, Shock]\""}

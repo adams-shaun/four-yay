@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"pass","field":"stack","diff":"gorge=[] xmage=[ability:Cathedral Sanctifier@p0, ability:Cathedral Sanctifier@p0]"},"key":"static | pass | stack | gorge=[] xmage=[ability:Cathedral Sanctifier@p0, ability:Cathedral Sanctifier@p0]","cards":1}
+{"card":"Delney, Streetwise Lookout","template":"static#0.1","status":"diverge","api":"-","sets":["MKM"],"detail":"step 2 (pass) stack: gorge \"[]\", xmage \"[ability:Cathedral Sanctifier@p0, ability:Cathedral Sanctifier@p0]\""}

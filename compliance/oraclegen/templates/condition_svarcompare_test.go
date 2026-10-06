@@ -26,7 +26,7 @@ func TestConditionSVarComparePreludes(t *testing.T) {
 	}{
 		// Neither GE2 case contains an alternative two-spell needle.
 		{"entered artifacts", "Count$ThisTurnEntered_Battlefield_Artifact.YouCtrl", "GE2", []string{"Sol Ring", "Arcane Signet"}},
-		{"cast cards", "Count$ThisTurnCast_Card.YouCtrl", "GE2", []string{"Shock", "Shock"}},
+		{"cast cards", "Count$ThisTurnCast_Card.YouCtrl", "GE2", []string{"Shock", "Lightning Bolt"}},
 		{"drawn cards", "Count$YouDrewThisTurn", "GE3", []string{"Divination", "Concentrate"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

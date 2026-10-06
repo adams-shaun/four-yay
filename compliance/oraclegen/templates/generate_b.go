@@ -7,7 +7,6 @@
 package templates
 
 import (
-	"strconv"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/levelb"
@@ -36,8 +35,11 @@ func GenerateB(reg *cards.Registry, name string, req levelb.Requirement) (item o
 		if !oraclegen.CanShuffleLibrary(c.Faces[req.Face]) {
 			// A search-and-shuffle of a fixture library holding distinct
 			// names (the search pool) leaves an order XMage randomises:
-			// compare the counts, not the order.
-			if requirementShufflesSearched(c.Faces[req.Face], req) && oraclegen.NamedLibrary(&item.Scenario) &&
+			// compare the counts, not the order. Any search on the face
+			// counts, not only the exercised one: the scenario runs the
+			// whole card (an ETB tutor under a static item, a combat-damage
+			// search under a combat item).
+			if oraclegen.FaceShufflesSearched(c.Faces[req.Face]) && oraclegen.NamedLibrary(&item.Scenario) &&
 				!hasCompareOption(item.Compare, oraclegen.CompareNoLibraryOrder) {
 				item.Compare = append(item.Compare, oraclegen.CompareNoLibraryOrder)
 			}
@@ -109,23 +111,6 @@ func hasCompareOption(options []string, want string) bool {
 		if option == want {
 			return true
 		}
-	}
-	return false
-}
-
-// requirementShufflesSearched reports whether the activated ability or
-// trigger a requirement exercises can search-and-shuffle a library. Statics
-// and combat never run the effect, so their scenarios keep comparing order.
-func requirementShufflesSearched(f *cards.Face, req levelb.Requirement) bool {
-	i, err := strconv.Atoi(req.Slot)
-	if err != nil || i < 0 {
-		return false
-	}
-	switch req.Family {
-	case "activate":
-		return i < len(f.Abilities) && oraclegen.ShufflesSearchedLibrary(f.Abilities[i])
-	case "trigger":
-		return i < len(f.Triggers) && oraclegen.ShufflesSearchedLibrary(f.Triggers[i].Effect)
 	}
 	return false
 }
