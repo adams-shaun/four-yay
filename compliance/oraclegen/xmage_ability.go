@@ -14,9 +14,10 @@
 //     keyword line's text ("Equip {2}"), found by the keyword's printed name.
 //   - A loyalty cost prints as XMage does ("+1", "-3", "0", "-X"), without
 //     the Oracle brackets.
-//   - When two lines share the exact same prefix, each is extended a word at
-//     a time into its own {this}-rewritten rule text until no other line
-//     starts with it ("+1: Exile" vs "+1: Add").
+//   - Loyalty, shared-cost and line-less intrinsic mappings must select
+//     uniquely under startsWith: conflicting prefixes extend a word at a
+//     time in {this}-rewritten text ("+1: Exile" vs "+1: Add", "-1:").
+//     Other faces retain their legacy cost-only mappings.
 //   - An injected basic-land-type mana ability with no printed line maps to
 //     XMage's "{T}: Add {C}." text.
 //   - When the two ordinal counts differ, a keyword line cannot be found, or
@@ -59,6 +60,7 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 	}
 	out := make(map[int]string, len(f.Abilities))
 	seen := make(map[string]bool)
+	needsUnique := !intrinsicHasLine
 	// full and base live in the same {this}-rewritten text space, so a shared
 	// self-referential cost ("{T}, Sacrifice {this}") is seen as shared and an
 	// extension into the rule text never copies the printed name.
@@ -68,6 +70,7 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 		full[k] = selfRef(lines[k], f.Name)
 		base[k] = linePrefix(lines[k], f.Name)
 		if loyalty := loyaltyCost(f.Abilities[i].ParamStr(cards.PKCost)); loyalty != "" {
+			needsUnique = true
 			colon := strings.Index(full[k], ": ")
 			if colon < 0 {
 				return nil, "activate xmage text ambiguous"
@@ -76,9 +79,36 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 			base[k] = loyalty
 		}
 	}
+	for k := range base {
+		needsUnique = needsUnique || sharedBase(base, k)
+	}
+	// Ordinal matching excludes line-less intrinsics, but startsWith selection
+	// must include them. Assemble EVERY selectable line before extending any
+	// prefix, including keyword abilities, so insertion order cannot hide a
+	// conflict (Murmuring Bosk's printed {T} versus its Forest intrinsic).
+	for i, sa := range f.Abilities {
+		if !sa.IsActivated() {
+			continue
+		}
+		var text string
+		if !intrinsicHasLine && intrinsicLandMana(sa) {
+			text = intrinsicManaText(sa)
+		} else if keyword := sa.ParamStr(cards.PKKeyword); keyword != "" {
+			var ok bool
+			text, ok = keywordPrefix(f, keyword)
+			if !ok {
+				return nil, "activate xmage text ambiguous"
+			}
+		} else {
+			continue
+		}
+		nonKeyword = append(nonKeyword, i)
+		base = append(base, text)
+		full = append(full, text)
+	}
 	for k, i := range nonKeyword {
 		prefix := base[k]
-		if sharedBase(base, k) {
+		if needsUnique {
 			prefix = extendPrefix(prefix, full, k)
 			if conflictsWithOtherLine(prefix, k, full) || namesShortName(prefix[len(base[k]):], f.Name) {
 				return nil, "activate xmage text ambiguous"
@@ -90,28 +120,18 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 		seen[prefix] = true
 		out[i] = prefix
 	}
-	if !intrinsicHasLine {
-		for i, sa := range f.Abilities {
-			if sa.IsActivated() && intrinsicLandMana(sa) {
-				text := intrinsicManaText(sa)
-				if seen[text] {
-					return nil, "activate xmage text ambiguous"
-				}
-				seen[text] = true
-				out[i] = text
+	// A unique full-line match must also be unique against every emitted
+	// prefix; fail closed if a prefix ever leaves its own line's text space.
+	if needsUnique {
+		prefixes := make([]string, len(nonKeyword))
+		for k, i := range nonKeyword {
+			prefixes[k] = out[i]
+		}
+		for k, prefix := range prefixes {
+			if !strings.HasPrefix(full[k], prefix) || conflictsWithOtherLine(prefix, k, prefixes) {
+				return nil, "activate xmage text ambiguous"
 			}
 		}
-	}
-	for i, sa := range f.Abilities {
-		if !sa.IsActivated() || sa.ParamStr(cards.PKKeyword) == "" {
-			continue
-		}
-		prefix, ok := keywordPrefix(f, sa.ParamStr(cards.PKKeyword))
-		if !ok || seen[prefix] {
-			return nil, "activate xmage text ambiguous"
-		}
-		seen[prefix] = true
-		out[i] = prefix
 	}
 	return out, ""
 }
@@ -141,11 +161,9 @@ func loyaltyCost(cost string) string {
 	return ""
 }
 
-// sharedBase reports whether another ability line has exactly the same cost
-// prefix as line own (two "+1" loyalty abilities, two "{T}, Sacrifice
-// {this}" costs). Only such a shared prefix is extended; a cost that merely
-// starts another line's cost ("{T}" beside "{T}, Sacrifice {this}") keeps
-// its ordinal mapping.
+// sharedBase identifies faces that the legacy mapper skipped for duplicate
+// costs. Together with loyalty and line-less intrinsics, these faces need a
+// startsWith-unique mapping. Other faces preserve their legacy prefixes.
 func sharedBase(base []string, own int) bool {
 	for i, b := range base {
 		if i != own && b == base[own] {
@@ -157,7 +175,7 @@ func sharedBase(base []string, own int) bool {
 
 // extendPrefix lengthens prefix one word at a time into its own full line
 // until no other line starts with it, the longer prefix XMage's startsWith
-// selection needs to tell two same-cost abilities apart.
+// selection needs to tell abilities apart, including -1 versus -10 costs.
 func extendPrefix(prefix string, full []string, own int) string {
 	line := full[own]
 	for len(prefix) < len(line) && conflictsWithOtherLine(prefix, own, full) {
