@@ -9,6 +9,7 @@ import (
 
 	"github.com/adams-shaun/gorge/compliance"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/rules"
 )
 
 func TestLevelBScenarioUsesXMageSpelling(t *testing.T) {
@@ -49,6 +50,9 @@ func TestLevelBScenarioUsesXMageSpelling(t *testing.T) {
 		found = true
 		if it.XMageName != "Dain Ironfoot" {
 			t.Fatalf("level-B %s card=%q XMageName = %q, want Dain Ironfoot", it.Template, it.Card, it.XMageName)
+		}
+		if _, err := rules.RunOracleScenarioJSON(reg, it.Raw()); err != nil {
+			t.Fatalf("stamped level-B scenario does not run in gorge: %v", err)
 		}
 	}
 	if err := s.Err(); err != nil {

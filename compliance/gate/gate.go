@@ -221,10 +221,15 @@ func loadSet(reg *cards.Registry, root, set string) (*setScan, []Problem, error)
 }
 
 // rowCountsAtLevel reports whether a verdict row belongs to the claim level.
-// The cast-resolve row is the sole level-A row; template-key rows are level B.
+// Level A has one row for whichever level-A template generated the card.
 func rowCountsAtLevel(r compliance.VerdictRow, level string) bool {
 	if level == "A" {
-		return r.Template == "cast-resolve"
+		for _, tmpl := range templates.All {
+			if r.Template == tmpl.ID {
+				return true
+			}
+		}
+		return false
 	}
 	return true
 }
