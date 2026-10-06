@@ -125,6 +125,7 @@ var wantCensus = map[string]map[string]int{
 		"trigger.phase":                27,
 		"trigger.spell-cast":           22,
 	},
+	// Ruric Thar, Biomagus has two prowess instances (CR 702.108b).
 	"FRA": {
 		"activate.battlefield":                         74,
 		"activate.mana":                                27,
@@ -162,7 +163,7 @@ var wantCensus = map[string]map[string]int{
 		"trigger.noncombat-damage":                     3,
 		"trigger.phase":                                17,
 		"trigger.scry":                                 5,
-		"trigger.spell-cast":                           19,
+		"trigger.spell-cast":                           20,
 		"trigger.surveil":                              5,
 	},
 }
