@@ -59,7 +59,7 @@ func eligibleRandom(c *cards.Card) bool {
 func NewRandomPool(reg *cards.Registry) *RandomPool {
 	sup := effects.Supported()
 	p := &RandomPool{}
-	for _, c := range reg.AllCards() {
+	for _, c := range reg.Cards {
 		if !eligibleRandom(c) || len(reg.Unsupported(c, sup)) > 0 {
 			continue
 		}

@@ -236,10 +236,7 @@ func ApplyPtr(g *state.Game, e *Event) {
 		// and the designation rides the AlterAttribute "Saddled" event whose
 		// fold stamps Object.SaddledTurn. Obj the saddling creature, Player
 		// its controller, IDs[0] the Mount it saddled. One marker per
-		// saddling creature. The fold also records the saddler-to-Mount
-		// pairing the Creature.SaddledThisTurn filter reads, in the same
-		// per-turn list the Crew fold keeps (see foldCrew).
-		foldCrew(g, e)
+		// saddling creature.
 	case Connive:
 		// The connive record (CR 702.59, task connive1) is a pure marker,
 		// exactly like Explore: the connive's own state changes (the draws,

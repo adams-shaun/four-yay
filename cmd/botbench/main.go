@@ -860,7 +860,10 @@ func playMatchTraced(cfg rules.Config, pols []string, seats []seat.Seat, maxTurn
 	if cov != nil {
 		cov.game()
 	}
-	spare := sparePool.Get()
+	spare, _ := sparePool.Get().(*rules.Spare)
+	if spare == nil {
+		spare = new(rules.Spare)
+	}
 	cfg.Spare = spare
 	o, e, err := playMatchOnceTraced(cfg, pols, seats, maxTurns, maxIntents, collect, cov, trace, meta)
 	if err == nil && cov != nil {
@@ -876,7 +879,8 @@ func playMatchTraced(cfg rules.Config, pols []string, seats []seat.Seat, maxTurn
 		// This is the finished engine's last use: its seats, trace and
 		// coverage walk are done with it, so its log and object arrays go
 		// back for the next game (rules.Spare -- reuse never changes a game).
-		sparePool.Put(spare, e)
+		*spare = e.Release()
+		sparePool.Put(spare)
 	}
 	return o, err
 }
@@ -885,7 +889,7 @@ func playMatchTraced(cfg rules.Config, pols []string, seats []seat.Seat, maxTurn
 // between the games a worker plays back to back. Which spare a game draws
 // is scheduling-dependent, but invisible (rules.Spare's contract), so the
 // run's output is byte-identical with or without it.
-var sparePool gbench.SparePool
+var sparePool sync.Pool
 
 // playMatchOnce is playMatch's game loop; it returns the engine so the
 // action-coverage walk can read the finished log and state.
@@ -2183,7 +2187,7 @@ func runMatrixTraced(baseSeed uint64, games, seats int, aName, bName, dir, forma
 		cfg := buildGameConfig(seed, []string{pd.a, pd.b},
 			[][]*cards.Card{deckByName[pd.a], deckByName[pd.b]}, commanders, commander)
 		cfg.Tokens = reg.Tokens
-		cfg.NameUniverse = reg.AllCards()
+		cfg.NameUniverse = reg.Cards
 		if onpol != nil {
 			// The on-policy recorder only observes the policynet seats'
 			// scored decisions; the game itself is the plain playMatch.
@@ -2410,7 +2414,7 @@ func run(baseSeed uint64, games, seats, rotate, workers int, aName, bName, dir s
 		}
 		cfg := buildGameConfig(s, seated, decks, commanders, commander)
 		cfg.Tokens = reg.Tokens
-		cfg.NameUniverse = reg.AllCards()
+		cfg.NameUniverse = reg.Cards
 		return playMatch(cfg, pols, botSeats, maxTurns, maxIntents, collect, cov)
 	}
 	if workers <= 0 {

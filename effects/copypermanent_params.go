@@ -36,15 +36,9 @@ type CopyPermanentParams struct {
 	// them is a source-selection family, so the call mints nothing.
 	SkippedNote string
 	Blocked     bool
-	// SupportsChoice is set for the Choices$ shapes the chooser ask
-	// implements: the measured Zndrsplt Choices$/Chooser$/Controller$ shape
-	// (ChooserRemembered), and a bare Choices$ filter over the creatures that
-	// saddled the source this turn (Calamity, Galloping Inferno), whose
-	// chooser and controller are the ability's controller. ChoiceFilter is
-	// the Choices$ filter the ask offers.
-	SupportsChoice    bool
-	ChooserRemembered bool
-	ChoiceFilter      string
+	// SupportsChoice is the measured Zndrsplt Choices$/Chooser$/Controller$
+	// shape the chooser ask implements.
+	SupportsChoice bool
 
 	// AtEOT$ and AtEOTTrig$.
 	AtEOT     string
@@ -226,14 +220,8 @@ func compileCopyPermanent(sa *cards.SA, dp *DefinedParams) *CopyPermanentParams 
 	choices, choicesOK := sa.Param(cards.PKChoices)
 	chooser, chooserOK := sa.Param(cards.PKChooser)
 	p.Controller = strings.TrimSpace(sa.ParamStr(cards.PKController))
-	choiceFilter := strings.TrimSpace(choices)
-	p.ChooserRemembered = choiceFilter == "Creature.RememberedPlayerCtrl" &&
+	p.SupportsChoice = strings.TrimSpace(choices) == "Creature.RememberedPlayerCtrl" &&
 		strings.TrimSpace(chooser) == "Remembered" && p.Controller == "Remembered"
-	p.SupportsChoice = p.ChooserRemembered ||
-		(choicesOK && strings.Contains(choiceFilter, "SaddledThisTurn") && !chooserOK && p.Controller == "")
-	if p.SupportsChoice {
-		p.ChoiceFilter = choiceFilter
-	}
 	if choicesOK && !p.SupportsChoice {
 		note("Choices$")
 		p.Blocked = true

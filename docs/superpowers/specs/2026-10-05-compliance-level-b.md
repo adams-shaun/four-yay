@@ -211,18 +211,6 @@ Indestructible, Lifelink, Menace, Reach, Trample, Vigilance) keeps the two
 engines' vocabularies comparable (**H5**: XMage's ability names fold to these).
 The driver emits a `keywords` array per permanent.
 
-A second, opt-in vocabulary, `compare: ["keywords_named"]`, adds the
-permanent keyword abilities whose NAMES the two engines agree on — `ward`,
-`prowess`, `wither`, `persist`, `firebending` — to the evergreen set. Each such
-keyword folds to its bare name: gorge cuts at the first `:` (`Ward:PayLife<2>`
-→ `ward`), while the driver's rule-text string cuts at the first `{`, HTML
-entity or em dash, or a space followed by a digit (`ward&mdash;Pay 2 life.` and
-`firebending 2` → `ward`, `firebending`). A quality-parameterised keyword never
-folds onto its base, so `hexproof from <quality>` and `protection` stay outside
-both sets. A static item served only by a named keyword names
-`keywords_named`; an item the evergreen set already serves keeps `keywords`,
-so its frozen bytes are unchanged.
-
 ### 2.4 combat
 
 - `combat#F.attack`: setup the card on p0's battlefield and a fixture blocker

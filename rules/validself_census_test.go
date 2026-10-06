@@ -54,9 +54,7 @@ func sortedParamKeys(m map[string]string) []string {
 //
 //   - `Card.!IsPrepared` -- the prepared mechanic's per-object boolean
 //     (Woodwork Prodigy, Paradox Shaper, Stingerquill Voxmancer), an
-//     upkeep-trigger CheckSVar gate, not a type count. The IsPrepared filter
-//     predicate is modelled (effects/filter.go), so the gate reads the real
-//     designation rather than failing closed.
+//     upkeep-trigger CheckSVar gate, not a type count.
 //   - `Card.IsSuspected` -- the suspected designation (Frantic Scapegoat),
 //     another per-object boolean gate.
 //   - `Creature.greatestPowerControlledByCardController` (Kraven the

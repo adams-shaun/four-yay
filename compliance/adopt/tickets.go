@@ -230,7 +230,7 @@ type carrierIndex map[string][]string
 
 func newCarrierIndex(reg *cards.Registry) carrierIndex {
 	idx := carrierIndex{}
-	for _, c := range reg.AllCards() {
+	for _, c := range reg.Cards {
 		if len(c.Faces) == 0 || c.Faces[0] == nil || c.Faces[0].Name == "" {
 			continue
 		}
@@ -325,7 +325,7 @@ func (cs *Census) primitiveBody(idx carrierIndex, t Ticket, r Impact) string {
 	fmt.Fprintf(&b, "```go\npackage rules\n\nimport (\n\t\"sort\"\n\t\"strings\"\n\t\"testing\"\n\n\t\"github.com/adams-shaun/gorge/effects\"\n\t\"github.com/adams-shaun/gorge/internal/testutil\"\n)\n\n")
 	fmt.Fprintf(&b, "// %s walks the whole corpus for every carrier of %s\n// and asserts the class is registered, no carrier is still blocked by it,\n// and every card whose only gap was the class is now fully supported.\n//\n// TODO(ticket): assert the class's parameters are read (measureParamCensus /\n// cardCensusLabels, as TestRealityFractureGap2ClassCensus does), and add one\n// behaviour test per distinct shape the census finds.\n", name, strings.Join(t.Primitives, ", "))
 	fmt.Fprintf(&b, "func %s(t *testing.T) {\n\tt.Parallel()\n\tclass := map[string]bool{\n%s\t}\n\tsup := effects.Supported()\n\tfor p := range class {\n\t\tif !sup[p] {\n\t\t\tt.Errorf(\"%%s is not registered as supported\", p)\n\t\t}\n\t}\n", name, quoteKeys(t.Primitives, "\t\t"))
-	fmt.Fprintf(&b, "\treg := testutil.CorpusRegistry(t)\n\tvar carriers, blocked []string\n\tfor _, c := range reg.AllCards() {\n\t\tif len(c.Faces) == 0 || c.Faces[0] == nil || c.Faces[0].Name == \"\" {\n\t\t\tcontinue\n\t\t}\n\t\tcarries := false\n\t\tfor _, p := range append(c.Primitives(), c.ValueHeads()...) {\n\t\t\tcarries = carries || class[p]\n\t\t}\n\t\tif !carries {\n\t\t\tcontinue\n\t\t}\n\t\tcarriers = append(carriers, c.Faces[0].Name)\n\t\tfor _, p := range reg.Unsupported(c, sup) {\n\t\t\tif class[p] {\n\t\t\t\tblocked = append(blocked, c.Faces[0].Name+\": \"+p)\n\t\t\t}\n\t\t}\n\t}\n\tsort.Strings(blocked)\n\tif len(blocked) > 0 {\n\t\tt.Errorf(\"class carriers still blocked by the class:\\n  %%s\", strings.Join(blocked, \"\\n  \"))\n\t}\n")
+	fmt.Fprintf(&b, "\treg := testutil.CorpusRegistry(t)\n\tvar carriers, blocked []string\n\tfor _, c := range reg.Cards {\n\t\tif len(c.Faces) == 0 || c.Faces[0] == nil || c.Faces[0].Name == \"\" {\n\t\t\tcontinue\n\t\t}\n\t\tcarries := false\n\t\tfor _, p := range append(c.Primitives(), c.ValueHeads()...) {\n\t\t\tcarries = carries || class[p]\n\t\t}\n\t\tif !carries {\n\t\t\tcontinue\n\t\t}\n\t\tcarriers = append(carriers, c.Faces[0].Name)\n\t\tfor _, p := range reg.Unsupported(c, sup) {\n\t\t\tif class[p] {\n\t\t\t\tblocked = append(blocked, c.Faces[0].Name+\": \"+p)\n\t\t\t}\n\t\t}\n\t}\n\tsort.Strings(blocked)\n\tif len(blocked) > 0 {\n\t\tt.Errorf(\"class carriers still blocked by the class:\\n  %%s\", strings.Join(blocked, \"\\n  \"))\n\t}\n")
 	fmt.Fprintf(&b, "\tif len(carriers) != %d {\n\t\tt.Errorf(\"carrier count moved (re-census the new shapes): %%d, want %d\", len(carriers))\n\t}\n", len(car), len(car))
 	if len(unlock) > 0 {
 		fmt.Fprintf(&b, "\t// The tournament cards whose only gap was this class.\n\tfor _, n := range []string{\n%s\t} {\n\t\tc, ok := reg.Lookup(n)\n\t\tif !ok {\n\t\t\tt.Errorf(\"%%s: not in the corpus\", n)\n\t\t\tcontinue\n\t\t}\n\t\tif u := reg.Unsupported(c, sup); len(u) > 0 {\n\t\t\tt.Errorf(\"%%s: unsupported %%v\", n, u)\n\t\t}\n\t}\n", quoteList(unlock, "\t\t"))

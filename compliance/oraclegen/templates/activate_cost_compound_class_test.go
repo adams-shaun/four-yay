@@ -82,9 +82,7 @@ func TestActivateCostCompoundClassDropped(t *testing.T) {
 				if d.Step != step || d.Seat != 0 || d.Kind != "choose_n" || len(d.Picks) < 2 || !allCostPicks(d) {
 					continue
 				}
-				for k := range d.Picks {
-					// An ambiguous same-name pick is queued by its exact ref.
-					pick := observedCostPick(d, k)
+				for _, pick := range d.Picks {
 					found := false
 					for _, a := range answers {
 						if strings.EqualFold(a.Value, pick) {

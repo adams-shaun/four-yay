@@ -84,15 +84,15 @@ func TestCountValidSelfUnreadableArgumentFailsClosed(t *testing.T) {
 	// The head is RECOGNISED even for an argument the filter grammar cannot
 	// read, and such an argument evaluates to 0 (an evaluated zero), never to
 	// an unresolvable body a CheckSVar gate would fail open on and never to a
-	// silent 1 that would make a negated predicate gate-true. A genuinely
-	// unreadable predicate stays the fail-closed class; `Card.!IsPrepared` is
-	// MODELLED now and is covered separately below.
+	// silent 1 that would make a negated predicate gate-true. IsPrepared is
+	// not a modelled filter predicate, so `Card.!IsPrepared` is the unreadable
+	// class and its negation must not read as a match.
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Kraven the Hunter")
 	src := crAbortMove(t, e, 0, "Kraven the Hunter", state.ZBattlefield)
 	svars := e.G.Obj(src).Face().SVars
-	for _, arg := range []string{"Card.!someUnmodelledPredicate"} {
+	for _, arg := range []string{"Card.!IsPrepared"} {
 		body := "Count$ValidSelf " + arg
 		if got, ok := effects.EvalCountOK(e, &effects.Ctx{Source: src, Controller: 0, SVars: svars}, body); !ok || got != 0 {
 			t.Fatalf("Count$ValidSelf %q = %d, resolved=%v; want 0, true (fail closed)", arg, got, ok)
@@ -112,14 +112,6 @@ func TestCountValidSelfUnreadableArgumentFailsClosed(t *testing.T) {
 	// fail-closed 0 here is the Zookeeper defect this assertion catches.
 	if got, ok := effects.EvalCountOK(e, &effects.Ctx{Source: src, Controller: 0, SVars: svars}, "Count$ValidSelf Card$CreatureType"); !ok || got <= 0 {
 		t.Fatalf("Count$ValidSelf Card$CreatureType = %d, resolved=%v; want > 0, true (the property read must not be preempted by the event-anchored matcher)", got, ok)
-	}
-	// `Card.!IsPrepared` is MODELLED too: Kraven is not prepared, so the
-	// negation is a real evaluated 1 and `Card.IsPrepared` a real 0.
-	if got, ok := effects.EvalCountOK(e, &effects.Ctx{Source: src, Controller: 0, SVars: svars}, "Count$ValidSelf Card.!IsPrepared"); !ok || got != 1 {
-		t.Fatalf("Count$ValidSelf Card.!IsPrepared = %d, resolved=%v; want 1, true", got, ok)
-	}
-	if got, ok := effects.EvalCountOK(e, &effects.Ctx{Source: src, Controller: 0, SVars: svars}, "Count$ValidSelf Card.IsPrepared"); !ok || got != 0 {
-		t.Fatalf("Count$ValidSelf Card.IsPrepared = %d, resolved=%v; want 0, true", got, ok)
 	}
 	// `Card.IsSuspected` is a MODELLED predicate and routes through the
 	// event-anchored matcher: Suspected is not a status Kraven's source has,

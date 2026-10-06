@@ -89,33 +89,9 @@ tmpdir=$(realpath -m "${FORGE_ORACLE_TMP:-$root/tmp}")
 mkdir -p "$tmpdir"
 out=$(realpath -m "$out")
 in=$(realpath "$in")
-chunk_size=${FORGE_ORACLE_CHUNK:-1000}
-[[ "$chunk_size" =~ ^[1-9][0-9]*$ ]] || die "FORGE_ORACLE_CHUNK must be a positive integer (got: $chunk_size)"
-run_tmp=$(mktemp -d "$tmpdir/forge-oracle-run.XXXXXX")
-trap 'rm -rf "$run_tmp"' EXIT
-mkdir -p "$(dirname "$out")"
-: > "$run_tmp/combined.out"
-: > "$out.log"
-split -d -a 8 -l "$chunk_size" -- "$in" "$run_tmp/input."
-chunk_number=0
 cd "$tmpdir"
-for chunk in "$run_tmp"/input.*; do
-  [ -f "$chunk" ] || continue
-  chunk_number=$((chunk_number + 1))
-  chunk_name=$(printf 'chunk %d' "$chunk_number")
-  chunk_out="$run_tmp/output.$(printf '%08d' "$chunk_number")"
-  chunk_log="$run_tmp/log.$(printf '%08d' "$chunk_number")"
-  if ! systemd-run --user --scope --quiet -p MemoryMax="${FORGE_ORACLE_MEM:-3G}" -p CPUQuota=200% -- \
-    env FORGE_RES="$top/forge-gui/res" FORGE_ORACLE_REF="$ref" \
-    "$jdk/bin/java" -Djava.awt.headless=true -Xmx"${FORGE_ORACLE_HEAP:-1536m}" -XX:+UseSerialGC \
-      -Djava.io.tmpdir="$tmpdir" -cp "$classes:$cp" "${FORGE_ORACLE_MAIN:-forge.oracle.ScenarioReplay}" \
-      "$chunk" "$chunk_out" >"$chunk_log" 2>&1; then
-    cat "$chunk_log" >> "$out.log"
-    echo "forge-oracle-run: $chunk_name failed (input $(basename "$chunk"))" >&2
-    cat "$chunk_log" >&2
-    exit 1
-  fi
-  cat "$chunk_log" >> "$out.log"
-  cat "$chunk_out" >> "$run_tmp/combined.out"
-done
-cat "$run_tmp/combined.out" > "$out"
+exec systemd-run --user --scope --quiet -p MemoryMax="${FORGE_ORACLE_MEM:-3G}" -p CPUQuota=200% -- \
+  env FORGE_RES="$top/forge-gui/res" FORGE_ORACLE_REF="$ref" \
+  "$jdk/bin/java" -Djava.awt.headless=true -Xmx"${FORGE_ORACLE_HEAP:-1536m}" -XX:+UseSerialGC \
+    -Djava.io.tmpdir="$tmpdir" -cp "$classes:$cp" "${FORGE_ORACLE_MAIN:-forge.oracle.ScenarioReplay}" \
+    "$in" "$out" >"$out.log" 2>&1

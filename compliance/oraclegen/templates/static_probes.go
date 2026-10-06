@@ -151,13 +151,12 @@ func staticProbeCapGap(plan staticProbePlan) string {
 
 // staticProbeSpec is a probe's printed observable state, read from the
 // registry: the P/T of a creature ("" for a non-creature, whose P/T the
-// snapshot omits) and its keywords under both vocabularies.
+// snapshot omits) and its evergreen keywords.
 type staticProbeSpec struct {
-	pt            string
-	keywords      string // the evergreen fold
-	namedKeywords string // the wider named fold
-	creature      bool
-	chars         staticChars
+	pt       string
+	keywords string
+	creature bool
+	chars    staticChars
 }
 
 // staticProbeSpecs reads each probe's printed spec. A probe missing from the
@@ -171,12 +170,7 @@ func staticProbeSpecs(reg *cards.Registry, names []string) map[string]staticProb
 			continue
 		}
 		f := c.Faces[0]
-		spec := staticProbeSpec{
-			keywords:      oraclediff.ComparedKeywords(f.Keywords, false),
-			namedKeywords: oraclediff.ComparedKeywords(f.Keywords, true),
-			creature:      f.IsCreature(),
-			chars:         printedStaticChars(f),
-		}
+		spec := staticProbeSpec{keywords: oraclediff.EvergreenKeywords(f.Keywords), creature: f.IsCreature(), chars: printedStaticChars(f)}
 		if spec.creature {
 			spec.pt = f.PT
 		}
@@ -222,7 +216,7 @@ func staticGap(st cards.Static, affected string) string {
 		for _, k := range pumps {
 			pumped = pumped || st.HasParam(k)
 		}
-		if !pumped && oraclediff.ComparedKeywords(kws, true) == "" {
+		if !pumped && oraclediff.EvergreenKeywords(kws) == "" {
 			return "grants only keywords outside the compared evergreen set"
 		}
 	}

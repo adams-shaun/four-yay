@@ -32,13 +32,7 @@ const (
 // nothing.
 var syncAnswer = os.Getenv("GORGE_TAPE_SYNC") == "1" || syncAnswerBuild == "1"
 
-// syncAnswerBuild and sparePool sit beside the row helpers: sparePool
-// recycles finished games' storage (rules.Spare) between the games a row
-// plays back to back, so the random and bot rows measure reuse the way
-// production self-play does.
 var syncAnswerBuild string
-
-var sparePool bench.SparePool
 
 type randomStats struct {
 	Games, Turns, Decisions, Rejected, Fallbacks, Stalls int
@@ -91,19 +85,7 @@ func randomIntent(d *decision.Decision, r *rand.Rand) decision.Intent {
 // redrawn (Submit preserves the pending decision on a rejection); after
 // `retries` rejections the decision is answered by the heuristic bot.
 func playRandom(cfg rules.Config, st *randomStats) {
-	playRandomWithPool(cfg, st, &sparePool)
-}
-
-func playRandomWithPool(cfg rules.Config, st *randomStats, pool *bench.SparePool) {
 	r := rand.New(rand.NewPCG(cfg.Seed, cfg.Seed^0x5bd1e9955bd1e995))
-	// The finished game's log and object arrays back the next game this run
-	// plays (rules.Spare; reuse never changes a game). The pooled spare is
-	// returned only after the stats below read the finished engine.
-	var spare *rules.Spare
-	if pool != nil {
-		spare = pool.Get()
-		cfg.Spare = spare
-	}
 	e := rules.New(cfg)
 	var fb [2]*seat.Bot
 	board := botpolicy.NewBoard(2)
@@ -191,12 +173,6 @@ func playRandomWithPool(cfg rules.Config, st *randomStats, pool *bench.SparePool
 		}
 		st.StallKinds[stall]++
 	}
-	// A clean engine is at its last use here (nothing reads e.L or e.G past
-	// this function); a panicked one is dropped rather than recycled, so a
-	// suspect log never backs a later game.
-	if stall != "panic" && pool != nil {
-		pool.Put(spare, e)
-	}
 }
 
 func runRandom(r *result, w workload, pair string, base uint64, secs float64) error {
@@ -226,10 +202,6 @@ type botStats struct {
 }
 
 func playBot(cfg rules.Config, autopay bool, st *botStats) error {
-	return playBotWithPool(cfg, autopay, st, &sparePool)
-}
-
-func playBotWithPool(cfg rules.Config, autopay bool, st *botStats, pool *bench.SparePool) error {
 	seats := make([]seat.Seat, 2)
 	for i := range seats {
 		b := seat.NewBot(cfg.Seed ^ uint64(i+1))
@@ -238,13 +210,7 @@ func playBotWithPool(cfg rules.Config, autopay bool, st *botStats, pool *bench.S
 		}
 		seats[i] = b
 	}
-	var o bench.Outcome
-	var err error
-	if pool == nil {
-		o, _, err = bench.PlayGame(cfg, seats, maxTurns, maxIntents, bench.Hooks{SyncAnswer: syncAnswer})
-	} else {
-		o, err = pool.PlayGameRecycled(cfg, seats, maxTurns, maxIntents, bench.Hooks{SyncAnswer: syncAnswer}, nil)
-	}
+	o, _, err := bench.PlayGame(cfg, seats, maxTurns, maxIntents, bench.Hooks{SyncAnswer: syncAnswer})
 	if err != nil {
 		return err
 	}

@@ -264,7 +264,6 @@ func foldMoveZone(g *state.Game, e *Event) {
 			// permanent; the exempted exile copy (CR 722.3c) ceases to be
 			// castable because its PreparedSource no longer answers true.
 			o.Prepared = false
-			o.Harnessed = false
 		}
 		// The prepared exile copy's cessation exemption is linked to this
 		// battlefield permanent. Once it leaves, retire that provenance in
@@ -827,9 +826,6 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			// CR 702.160: enlist is the old permanent's fact, not the new
 			// object's -- a re-entering creature carries no enlist stamp.
 			o.EnlistedTurn, o.EnlistedCombat = 0, 0
-			// A re-entering creature is a new object: it has not attacked this
-			// combat (CR 400.7).
-			o.AttackedTurn, o.AttackedCombat = 0, 0
 			// CR 400.7 / 702.122: crew status is the old permanent's, not the
 			// new object's -- a re-entering creature carries no crew stamp.
 			if len(o.CrewedVehicles) != 0 {
