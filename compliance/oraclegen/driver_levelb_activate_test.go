@@ -145,8 +145,14 @@ func TestDriverStepSwitchCoversLevelBActivateOps(t *testing.T) {
 			}
 			if st.Op == "activate" {
 				sawActivate = true
+				// XMage at XMAGE_REF renders this as "{1}, Sacrifice {this}":
+				// SacrificeSourceCost.getText() is "sacrifice {this}", but
+				// CostsImpl.getText() upper-cases each cost's first letter,
+				// and TestPlayer matches ability.toString() with a
+				// case-sensitive startsWith. Mage.Tests spells it the same way
+				// (GrinningTotemTest, AngelOfJubilationTest: "Sacrifice {this}").
 				if tc.card == "Cathar Commando" && it.XAbility[n] != "{1}, Sacrifice {this}" {
-					t.Errorf("Cathar Commando self-sacrifice prefix = %q, want XMage's literal {this} form", it.XAbility[n])
+					t.Errorf("Cathar Commando self-sacrifice prefix = %q, want XMage's \"{1}, Sacrifice {this}\"", it.XAbility[n])
 				}
 			}
 			if (it.XAbility[n] != "") != (st.Op == "activate") {
