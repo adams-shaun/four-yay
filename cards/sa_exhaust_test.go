@@ -29,4 +29,12 @@ func TestSAExhaustValueCompiled(t *testing.T) {
 	if !(&SA{Params: map[string]string{"Exhaust": "True"}}).ExhaustValue() {
 		t.Fatal("unbound synthetic Exhaust$ True was not recognized")
 	}
+	// A write after binding must not be shadowed by the stale compiled fact.
+	if abilities[1].ExhaustValue() {
+		t.Fatal("precondition: parsed Exhaust$ False should read false before SetParam")
+	}
+	abilities[1].SetParam(PKExhaust, "True")
+	if !abilities[1].ExhaustValue() {
+		t.Fatal("SetParam(PKExhaust, True) after binding was shadowed by the compiled fact")
+	}
 }

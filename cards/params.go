@@ -1875,6 +1875,10 @@ func (sa *SA) SetParam(k ParamKey, v string) {
 	}
 	sa.Params[paramKeyNames[k]] = v
 	sa.ps = nil
+	if k == PKExhaust {
+		// The compiled Exhaust$ fact would otherwise shadow the write.
+		sa.exhaustBound = false
+	}
 }
 
 // SetParam is SA.SetParam for a replacement line.
