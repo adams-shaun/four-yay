@@ -33,7 +33,7 @@ func triggerSubs(sub string) bool {
 		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.commit-crime", "trigger.ability-activated":
 		return true
 	}
-	return false
+	return tapCombatSub(sub)
 }
 
 // PassToSteps returns the exact pass_to checkpoints emitted by current
@@ -156,6 +156,9 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 	}
 	for _, card := range c.graveyard {
 		p0.Graveyard = appendFixtureUnique(p0.Graveyard, card)
+	}
+	for _, card := range c.opponentBattlefield {
+		p1.Battlefield = appendFixtureUnique(p1.Battlefield, card)
 	}
 	for _, card := range c.opponentHand {
 		p1.Hand = appendFixtureUnique(p1.Hand, card)

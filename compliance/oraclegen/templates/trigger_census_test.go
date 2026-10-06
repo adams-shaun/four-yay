@@ -25,6 +25,9 @@ var wantTriggerCensus = map[string]map[string]int{
 	},
 	"EOE": {
 		"served:trigger.attacks":                                      7,
+		"served:trigger.attacks-attached":                             2,
+		"served:trigger.blocks":                                       1,
+		"served:trigger.tapped":                                       8,
 		"served:trigger.combat-damage":                                1,
 		"served:trigger.dies":                                         6,
 		"served:trigger.dies-other":                                   3,
@@ -43,6 +46,8 @@ var wantTriggerCensus = map[string]map[string]int{
 	},
 	"FDN": {
 		"served:trigger.attacks":                                26,
+		"served:trigger.attacks-attached":                       1,
+		"served:trigger.tapped":                                 1,
 		"served:trigger.combat-damage":                          8,
 		"served:trigger.dies":                                   13,
 		"served:trigger.dies-other":                             5,
