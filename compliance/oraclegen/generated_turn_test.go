@@ -13,7 +13,7 @@ import (
 
 func TestGeneratedFirstThreeTurnClausesOnFourthControllerTurn(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
-	for _, name := range []string{"Jace Reawakened", "Spider-Man 2099"} {
+	for _, name := range []string{"Jace Reawakened", "Spider-Man 2099", "Serra Avenger"} {
 		t.Run(name, func(t *testing.T) {
 			item, skip := templates.Generate(reg, name)
 			if skip != nil {

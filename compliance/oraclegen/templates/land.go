@@ -26,7 +26,8 @@ func playLandWith(reg *cards.Registry, name string, f *cards.Face, prep func(map
 	if prep != nil {
 		prep(sc.Setup)
 	}
-	it := PlayLand.item(name, sc)
+	it := PlayLand.item(f, name, sc)
+	sc = it.Scenario
 	// Script the land's own entry decisions (Multiversal Passage's "choose
 	// a basic land type") for XMage the way a cast scenario does; left
 	// unscripted, XMage's AI picks at random and the row flips run to run.
