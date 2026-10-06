@@ -40,8 +40,11 @@ func TestTriggerAttackPreludeCensus(t *testing.T) {
 			t.Errorf("precondition: %s has no trigger.attacks requirement", name)
 		}
 	}
-	if served != 49 || len(skips) != 2 || skips["Giant Beaver: trigger attack activation did not fire"] != 1 || skips["Restless Vinestalk: trigger did not fire"] != 1 {
-		t.Fatalf("attack-prelude census: served=%d skips=%v, want served=49 with named Giant Beaver and Restless Vinestalk skips", served, skips)
+	// Restless Vinestalk's "{3}{G}{U}:Until end of turn..." line prints no space
+	// after the colon, which the activate mapping used to count as no ability
+	// line (activate xmage text ambiguous); it is served now.
+	if served != 50 || len(skips) != 1 || skips["Giant Beaver: trigger attack activation did not fire"] != 1 {
+		t.Fatalf("attack-prelude census: served=%d skips=%v, want served=50 with only the named Giant Beaver skip", served, skips)
 	}
 }
 
