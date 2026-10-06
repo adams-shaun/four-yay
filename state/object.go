@@ -787,6 +787,23 @@ type Object struct {
 	EnlistedTurn   int32
 	EnlistedCombat int32
 
+	// AttackedTurn and AttackedCombat stamp the (turn, combat phase) in which
+	// this creature was last declared as an attacker. They are set together by
+	// events.Apply's DeclareAttackers fold, so the attackedThisCombat filter
+	// predicate (Tolsimir, Midnight's Light) answers "attacked THIS combat"
+	// against the live g.Turn/g.CombatsThisTurn -- true for a creature that has
+	// since been removed from combat, false in a later extra combat. Cleared at
+	// TurnChange and when the permanent leaves the battlefield (CR 400.7).
+	AttackedTurn   int32
+	AttackedCombat int32
+
+	// Harnessed is the Infinity Stone designation (the `AlterAttribute |
+	// Attributes$ Harnessed` ability of The Mind Stone / The Soul Stone): once
+	// harnessed, the permanent's ∞ ability is active. A plain status field like
+	// Suspected -- only events.AlterAttribute sets it, and it ends when the
+	// permanent leaves the battlefield (a new object is not harnessed).
+	Harnessed bool
+
 	// CrewedVehicles and CrewedTurn record CR 702.122's crew action on the
 	// CREWING creature: the turn it last crewed, and the Vehicles it crewed
 	// that turn. Forge's Creature.CrewedThisTurn / Card.CrewedThisTurn filter
