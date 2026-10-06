@@ -7,15 +7,15 @@ package rules
 // checkpoints dropped unused; skipping those is what brings the kernel's cost
 // within noise.
 //
-// It is a PERFORMANCE HINT, never a correctness input. Text cannot see
+// It must never say "ask-free" for a resolution that asks. Text cannot see
 // board-dependent engine-posed asks (a CR 616.1 replacement-order choice, an
 // as-enters choice on a permanent another effect moves, a CR 903.9
-// commander-zone choice), and its per-API rules can be wrong. Either way the
-// miss is caught at the one choke point every decision passes through
-// (Engine.ask -> resolve.Kernel.OnAsk): the resolution has no checkpoint, so
-// while the legacy path exists it continues on it in place -- sound because
-// nothing has been served from a tape yet. Misses are counted
-// (resolve.Stats.Misses) and classed by the cardfuzz miss census.
+// commander-zone choice), so each of those needs a board gate
+// (tapeBoardCompetes). A miss is caught at the one choke point every
+// decision passes through (Engine.ask -> resolve.Kernel.OnAsk) and, with the
+// legacy path gone, FAILS HARD: the exempted resolution has no checkpoint to
+// pose the ask from, so Engine.ask panics with resolve.MissFailure. Misses
+// are counted (resolve.Stats.Misses) and classed by the cardfuzz miss census.
 //
 // The text half is cards.SAChainMayAsk, a pure function of the ability's
 // immutable text, memoised here on the ability's facts record (sa_facts.go),
@@ -63,8 +63,46 @@ func tapeMayAsk(e *Engine) bool {
 // (CR 616.1's order choice), and any replacement that elects or whose body
 // asks. Each test prunes on the replacement arena's event mask, so it costs a
 // load when no such line is in play.
+//
+// The last gate is an Oblivion Ring style return (ChangeZone Duration$
+// UntilHostLeavesPlay, sweepExileReturn): any resolution that moves the
+// holder off the battlefield -- a bounce, a destroy, a sacrifice -- returns
+// its exiled cards inside the same emit, and a card coming back onto the
+// battlefield asks as it enters exactly as a targeted entry would (an Aura
+// choosing what it enchants, CR 303.4f: Mischievous Pup bouncing a Banishing
+// Light that holds Imprisoned in the Moon). The exile zones are read first,
+// so the battlefield is walked only when an exiled card could ask.
 func tapeBoardCompetes(e *Engine) bool {
-	return tapeReplMayAsk(e, "AddCounter") || tapeReplMayAsk(e, "PayLife") || tapeAnyReplBodyMayAsk(e)
+	if tapeReplMayAsk(e, "AddCounter") || tapeReplMayAsk(e, "PayLife") || tapeAnyReplBodyMayAsk(e) {
+		return true
+	}
+	cand := false
+	for p := 0; p < len(e.G.Players) && !cand; p++ {
+		for _, id := range e.G.Zone(state.ZExile, state.PlayerID(p)) {
+			if tapeEntryMayAsk(e, id) {
+				cand = true
+				break
+			}
+		}
+	}
+	if !cand {
+		return false
+	}
+	for p := range e.G.Players {
+		for _, hid := range e.G.Zone(state.ZBattlefield, state.PlayerID(p)) {
+			h := e.G.Obj(hid)
+			if h == nil {
+				continue
+			}
+			for _, en := range h.ExileReturn {
+				if o := e.G.Obj(en.Obj); en.From == state.ZBattlefield && o != nil && o.Zone == state.ZExile &&
+					tapeEntryMayAsk(e, en.Obj) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func tapeTextMayAsk(e *Engine) bool {
@@ -159,47 +197,44 @@ func saMayAskState(e *Engine, sa *cards.SA, svars map[string]string, self *cards
 
 // mayAskObjOnBoard is mayAskOnBoard for the resolving stack object o whose
 // root ability is sa: a conditional reason of the chain (cards.MayAskCond*)
-// is settled from o's chosen targets and the board.
+// is settled from o's chosen targets and the board. MayAskCondTargetEntry:
+// the root moves its chosen targets onto the battlefield, so it asks only if
+// one of them asks as it enters (tapeEntryMayAsk).
 func mayAskObjOnBoard(e *Engine, st uint32, id state.ObjID, o *state.Object, sa *cards.SA) bool {
 	if mayAskOnBoard(e, st) {
 		return true
 	}
 	cond := st >> mayAskCondShift
-	if cond&cards.MayAskCondTargetEntry != 0 && tapeTargetEntryMayAsk(e, o) {
-		return true
+	if cond&cards.MayAskCondTargetEntry != 0 {
+		for _, t := range o.Targets {
+			if !t.IsPlayer && tapeEntryMayAsk(e, t.Obj) {
+				return true
+			}
+		}
 	}
 	return cond&cards.MayAskCondParentSub != 0 && tapeParentSubMayAsk(e, id, o, sa)
 }
 
-// tapeTargetEntryMayAsk settles cards.MayAskCondTargetEntry: the root moves
-// its chosen targets onto the battlefield, so it asks only if one of them
-// asks as it enters -- its own entry text on any face it could enter as, or
-// the entry replacements on the board that can apply to it
-// (tapeLandReplMayAsk: an election, or two competing).
-func tapeTargetEntryMayAsk(e *Engine, o *state.Object) bool {
-	for _, t := range o.Targets {
-		if t.IsPlayer {
-			continue
-		}
-		obj := e.G.Obj(t.Obj)
-		if obj == nil {
-			continue
-		}
-		if f := obj.CopyFace; f != nil && cards.FaceEntryOrEnchantMayAsk(f) {
-			return true
-		}
-		if obj.Card != nil {
-			for _, f := range obj.Card.Faces {
-				if f != nil && cards.FaceEntryOrEnchantMayAsk(f) {
-					return true
-				}
+// tapeEntryMayAsk reports whether the object id asks as it enters the
+// battlefield: its own entry text on any face it could enter as, or the
+// entry replacements on the board that can apply to it (tapeLandReplMayAsk:
+// an election, or two competing).
+func tapeEntryMayAsk(e *Engine, id state.ObjID) bool {
+	obj := e.G.Obj(id)
+	if obj == nil {
+		return false
+	}
+	if f := obj.CopyFace; f != nil && cards.FaceEntryOrEnchantMayAsk(f) {
+		return true
+	}
+	if obj.Card != nil {
+		for _, f := range obj.Card.Faces {
+			if f != nil && cards.FaceEntryOrEnchantMayAsk(f) {
+				return true
 			}
 		}
-		if tapeLandReplMayAsk(e, t.Obj) {
-			return true
-		}
 	}
-	return false
+	return tapeLandReplMayAsk(e, id)
 }
 
 // tapeParentSubMayAsk settles cards.MayAskCondParentSub for a spell: a
