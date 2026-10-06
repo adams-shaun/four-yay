@@ -190,7 +190,7 @@ func matchesPlayerSingleSpec(g *state.Game, alts []playerAlt, p, you state.Playe
 			if !a.innerKnown {
 				continue
 			}
-			if !playerInnerSourceFree.Has(inner) && g.Obj(pc.Source) == nil {
+			if !playerInnerSourceFree.Has(inner) && playerSpecQualifierCodes.Code(inner) != playerSpecQualifierMaxSpeed && g.Obj(pc.Source) == nil {
 				continue
 			}
 			if matchesPlayerSingleSpec(g, a.baseOnly, p, you, pc) && !matchesPlayerSingleSpec(g, a.positive, p, you, pc) {
@@ -849,7 +849,7 @@ var isBarePlayerPropertySet = state.NewNameSet(
 	"IsCorrupted",
 )
 
-var matchesPlayerSingleSpecKeys = state.NewNameSet("CardOwner", "Owner", "IsRemembered", "EnchantedBy", "MaxSpeed")
+var matchesPlayerSingleSpecKeys = state.NewNameSet("CardOwner", "Owner", "IsRemembered", "EnchantedBy")
 
 // playerInnerSourceFree is the set of negated (inner) player qualifiers that
 // are pure player-state reads and therefore evaluate with NO source object
@@ -857,7 +857,7 @@ var matchesPlayerSingleSpecKeys = state.NewNameSet("CardOwner", "Owner", "IsReme
 // reads the source object, so the negInner branch in matchesPlayerSingleSpec
 // fails it closed when no source is bound. A new source-free qualifier adds
 // one entry here rather than another inline literal test.
-var playerInnerSourceFree = state.NewNameSet("EnchantedBy", "MaxSpeed")
+var playerInnerSourceFree = state.NewNameSet("EnchantedBy")
 
 type matchesPlayerClauseCtxCode uint16
 
