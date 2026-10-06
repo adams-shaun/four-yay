@@ -37,7 +37,7 @@ wt=$repo/.worktrees/postmerge-full
 # measured just over 2 GiB are pinned in the shrink-only exception inventory at
 # internal/testutil/testdata/rss_exceptions.txt; operator full-scope measurement
 # is required before relying on these proposed limits.
-SCOPE=(systemd-run --user --scope -q -p MemoryMax=16G -p CPUQuota=1600% env GOMEMLIMIT=1536MiB GOMAXPROCS=2 GOGC=200 GOFLAGS="-p=2" GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1)
+SCOPE=(systemd-run --user --scope -q -p MemoryMax=16G -p CPUQuota=1600% env GOMEMLIMIT=1536MiB GOMAXPROCS=2 GOGC=200 GOFLAGS="-p=2 -trimpath" GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1)
 
 say() { echo "$(date '+%F %T') $*" | tee -a "$LOG"; }
 
