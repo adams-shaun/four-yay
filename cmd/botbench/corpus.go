@@ -30,9 +30,9 @@ func openCorpusForDecks(dir string, decks []deck.File, log io.Writer) (*cards.Re
 		return reg, err
 	}
 	if reg.IsSubset() {
-		fmt.Fprintf(log, "corpus: %d-card subset (+%d tokens) for %d decks\n", len(reg.Cards), len(reg.Tokens), len(decks))
+		fmt.Fprintf(log, "corpus: %d-card subset (+%d tokens) for %d decks\n", reg.Len(), len(reg.Tokens), len(decks))
 	} else {
-		fmt.Fprintf(log, "corpus: full, %d cards (the decks' cards need the whole name universe, or the subset could not be opened)\n", len(reg.Cards))
+		fmt.Fprintf(log, "corpus: full, %d cards (the decks' cards need the whole name universe, or the subset could not be opened)\n", reg.Len())
 	}
 	return reg, nil
 }

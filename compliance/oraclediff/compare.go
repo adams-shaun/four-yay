@@ -351,10 +351,12 @@ func permKeys(ps []rules.OracleSnapPerm) []string {
 }
 
 // permKeysOpts is permKeys with the item's opt-in field list: when it names
-// "keywords" the line gains the permanent's folded evergreen keywords
+// "keywords" the line gains the permanent's folded evergreen keywords, and
+// when it names "keywords_named" it gains the wider named vocabulary
 // (spec 2026-10-05-compliance-level-b section 2.3).
 func permKeysOpts(ps []rules.OracleSnapPerm, compare []string) []string {
-	wantKeywords := wantsCompare(compare, CompareKeywords)
+	wantNamed := wantsCompare(compare, CompareKeywordsNamed)
+	wantKeywords := wantNamed || wantsCompare(compare, CompareKeywords)
 	// attached_to names its host the way XMage's driver does: the host
 	// permanent's CURRENT name (its layer-3 SetName$ name, or "" while face
 	// down, CR 708.2a), never the printed name the ref encodes. An empty
@@ -386,7 +388,7 @@ func permKeysOpts(ps []rules.OracleSnapPerm, compare []string) []string {
 			k += " counters=" + c
 		}
 		if wantKeywords {
-			if kw := evergreenList(p.Keywords); kw != "" {
+			if kw := ComparedKeywords(p.Keywords, wantNamed); kw != "" {
 				k += " kw=" + kw
 			}
 		}

@@ -285,7 +285,7 @@ func config(m matchJSON, reg *cards.Registry, tokens map[string]*cards.Card) (ru
 	// always does; a size-stripped committed fixture does not, and then the
 	// engine derives the list from this corpus at genesis.
 	if m.NameUniverse {
-		cfg.NameUniverse = reg.Cards
+		cfg.NameUniverse = reg.AllCards()
 		cfg.NameUniverseNames = append([]string(nil), m.NameUniverseNames...)
 	}
 	return cfg, nil

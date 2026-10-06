@@ -97,7 +97,7 @@ func newGame(srv *Server, gameID string, secret []byte, decks [2][]*cards.Card, 
 		seed = *srv.seedOverride
 	}
 	cfg := rules.Config{Seed: seed, Names: []string{"p0", "p1"},
-		Decks: [][]*cards.Card{decks[0], decks[1]}, Tokens: srv.opts.Registry.Tokens, NameUniverse: srv.opts.Registry.Cards}
+		Decks: [][]*cards.Card{decks[0], decks[1]}, Tokens: srv.opts.Registry.Tokens, NameUniverse: srv.opts.Registry.AllCards()}
 	g.e = rules.NewStartingPlayerChoice(cfg)
 	// host_assigned (spec 7.6): the engine answers CR 103.1's choice itself.
 	if d := g.e.AskStartingPlayer(); d != nil {

@@ -92,8 +92,8 @@ var latinFold = map[rune]rune{
 // first in corpus order wins, the same first-wins rule the registry's own
 // name index uses.
 func FoldedNames(reg *cards.Registry) map[string]string {
-	out := make(map[string]string, len(reg.Cards))
-	for _, c := range reg.Cards {
+	out := make(map[string]string, reg.Len())
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			k := FoldName(f.Name)
 			if k == "" {

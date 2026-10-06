@@ -104,14 +104,24 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		if withHost {
 			specs = staticWithAttachHost(reg, snap, f.Name, specs)
 		}
-		if !staticObserved(snap, f, name, st, specs) {
+		observed, namedOnly := staticObservedNamed(snap, f, name, st, specs)
+		if !observed {
 			return oraclegen.Item{}, false
 		}
 		it := oraclegen.NewLevelBItem(name, req.Key, StaticApplies.Version, []string{"611.3", "613"}, base.Scenario)
 		it.XAnswers = base.XAnswers
 		it.Ignore = base.Ignore
 		it.XAbility = base.XAbility
-		it.Compare = []string{oraclediff.CompareKeywords}
+		// An evergreen grant keeps the evergreen opt-in; a grant of a named
+		// ability (Ward, Prowess, Wither, Persist, Firebending) is observable
+		// only under the wider vocabulary, so the item names it. The
+		// evergreen check is tried first, so an item the evergreen set
+		// already serves is untouched.
+		if namedOnly {
+			it.Compare = []string{oraclediff.CompareKeywordsNamed}
+		} else {
+			it.Compare = []string{oraclediff.CompareKeywords}
+		}
 		return it, true
 	}
 	// Candidates that replayed and showed nothing on the plain probes are
@@ -389,7 +399,29 @@ func staticBackFaceScenario(f *cards.Face, name string, req levelb.Requirement, 
 // Spacecraft's station, a Vehicle's crew condition) shows up in its types, the
 // same staticCharsMoved comparison every other card uses.
 func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, st cards.Static, probes map[string]staticProbeSpec) bool {
-	printedKW := oraclediff.EvergreenKeywords(f.Keywords)
+	return staticObservedWith(s, f, name, st, probes, false)
+}
+
+// staticObservedNamed reports whether the snapshot shows a continuous effect
+// and, when it does, whether only the wider named-keyword vocabulary sees it.
+// It tries the evergreen vocabulary first, so an item the evergreen set
+// already observes keeps CompareKeywords; a grant of a named ability
+// (Ward, Prowess, Wither, Persist, Firebending) is observed only under the
+// named fold and makes the item opt in to CompareKeywordsNamed.
+func staticObservedNamed(s rules.OracleSnapshot, f *cards.Face, name string, st cards.Static, probes map[string]staticProbeSpec) (observed, namedOnly bool) {
+	if staticObservedWith(s, f, name, st, probes, false) {
+		return true, false
+	}
+	if staticObservedWith(s, f, name, st, probes, true) {
+		return true, true
+	}
+	return false, false
+}
+
+// staticObservedWith is staticObserved under a chosen keyword vocabulary.
+// named selects the wider fold (ComparedKeywords(..., true)).
+func staticObservedWith(s rules.OracleSnapshot, f *cards.Face, name string, st cards.Static, probes map[string]staticProbeSpec, named bool) bool {
+	printedKW := oraclediff.ComparedKeywords(f.Keywords, named)
 	printedChars := printedStaticChars(f)
 	cardName := f.Name
 	if cardName == "" {
@@ -399,7 +431,7 @@ func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, st cards
 		spec, isProbe := probes[p.Name]
 		switch {
 		case isProbe:
-			if p.PT != spec.pt || oraclediff.EvergreenKeywords(p.Keywords) != spec.keywords || staticCharsMoved(p, spec.chars) {
+			if p.PT != spec.pt || oraclediff.ComparedKeywords(p.Keywords, named) != spec.keywordsFor(named) || staticCharsMoved(p, spec.chars) {
 				return true
 			}
 		case p.Controller == 0 && p.Name == cardName:
@@ -409,7 +441,7 @@ func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, st cards
 			if p.PT != "" && strings.Contains(f.PT, "*") && staticSelfCDA(st) {
 				return true
 			}
-			if oraclediff.EvergreenKeywords(p.Keywords) != printedKW || staticCharsMoved(p, printedChars) {
+			if oraclediff.ComparedKeywords(p.Keywords, named) != printedKW || staticCharsMoved(p, printedChars) {
 				return true
 			}
 		}
@@ -418,6 +450,15 @@ func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, st cards
 		}
 	}
 	return false
+}
+
+// keywordsFor returns the probe's printed keyword fold under the chosen
+// vocabulary.
+func (spec staticProbeSpec) keywordsFor(named bool) string {
+	if named {
+		return spec.namedKeywords
+	}
+	return spec.keywords
 }
 
 // counterGatedBase is the scenario for a static gated on its own counters:
