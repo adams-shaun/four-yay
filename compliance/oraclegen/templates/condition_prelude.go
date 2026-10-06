@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -51,7 +52,9 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 			add(conditionPrelude{battlefield: []string{"Town of Orazca", "Plains", "Island", "Swamp", "Mountain"}})
 		}
 		if contains("tapped") {
-			add(conditionPrelude{battlefield: []string{"Grizzly Bears", "Llanowar Elves"}, tapped: []string{"__SOURCE__", "Grizzly Bears"}})
+			// Setup-tapped permanents untap before the phase checkpoint. Attack
+			// after the untap step so these creatures remain tapped at end step.
+			add(conditionPrelude{battlefield: []string{"Grizzly Bears", "Llanowar Elves"}, steps: []oraclegen.Step{{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:Grizzly Bears", "p0:Llanowar Elves"}}, {Op: "pass_to", Step: "main2"}}})
 		}
 		if contains("powerge4", "creature.youctrl ge", "count$valid creature.youctrl") {
 			add(conditionPrelude{battlefield: []string{"Nessian Asp", "Grizzly Bears", "Llanowar Elves"}})
@@ -78,14 +81,62 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 			add(conditionPrelude{hand: []string{"Angel's Mercy"}, steps: steps})
 		}
 	}
+	// Entered-this-turn predicates need actual cast/resolve events: setup
+	// permanents are deliberately not counted as having entered this turn.
+	if contains("count$thisturnentered_battlefield") {
+		card := "Grizzly Bears"
+		if contains("_land", "land.youctrl") {
+			card = "Plains"
+		} else if contains("_artifact", "artifact.youctrl") {
+			card = "Sol Ring"
+		}
+		if steps := resolvedCast(card); len(steps) > 0 {
+			add(conditionPrelude{hand: []string{card}, steps: steps})
+		}
+		if contains("count_ge2", "svarcompare:ge2", "celebration", "thisturnentered_battlefield_creature.youctrl", "thisturnentered_battlefield_permanent.nonland") {
+			card2 := "Llanowar Elves"
+			if card == "Plains" {
+				card2 = "Island"
+			}
+			if card == "Sol Ring" {
+				card2 = "Arcane Signet"
+			}
+			if a, ok := cast(card); ok {
+				if b, ok := cast(card2); ok {
+					add(conditionPrelude{hand: []string{card, card2}, steps: []oraclegen.Step{a, {Op: "resolve"}, b, {Op: "resolve"}}})
+				}
+			}
+		}
+	}
 	if contains("count$youdrewthisturn") {
 		if steps := resolvedCast("Divination"); len(steps) > 0 {
 			add(conditionPrelude{hand: []string{"Divination"}, steps: steps})
+		}
+		if contains("svarcompare:ge3", "count$youdrewthisturn/", "count$youdrewthisturn") {
+			if a, ok := cast("Divination"); ok {
+				if b, ok := cast("Concentrate"); ok {
+					add(conditionPrelude{hand: []string{"Divination", "Concentrate"}, steps: []oraclegen.Step{a, {Op: "resolve"}, b, {Op: "resolve"}}})
+				}
+			}
 		}
 	}
 	if contains("count$thisturncast", "count$void") {
 		if steps := resolvedCast("Grizzly Bears"); len(steps) > 0 {
 			add(conditionPrelude{hand: []string{"Grizzly Bears"}, steps: steps})
+		}
+		if contains("count$thisturncast_card.noncreature", "count$thisturncast_instant", "count$thisturncast_sorcery", "svarcompare:ge2") {
+			if a, ok := cast("Shock"); ok {
+				if b, ok := cast("Shock"); ok {
+					add(conditionPrelude{hand: []string{"Shock", "Shock"}, steps: []oraclegen.Step{a, {Op: "resolve"}, b, {Op: "resolve"}}})
+				}
+			}
+		}
+		if contains("creature.youctrl/limitmax.1", "card.noncreature+youctrl/limitmax.1") {
+			if a, ok := cast("Grizzly Bears"); ok {
+				if b, ok := cast("Shock"); ok {
+					add(conditionPrelude{hand: []string{"Grizzly Bears", "Shock"}, steps: []oraclegen.Step{a, {Op: "resolve"}, b, {Op: "resolve"}}})
+				}
+			}
 		}
 	}
 	if contains("count$attackersdeclared") {
@@ -115,15 +166,26 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 			combined.tapped = append(combined.tapped, candidate.tapped...)
 			combined.graveyard = append(combined.graveyard, candidate.graveyard...)
 			combined.steps = append(combined.steps, candidate.steps...)
-			for card, kinds := range candidate.counters {
+			counterCards := make([]string, 0, len(candidate.counters))
+			for card := range candidate.counters {
+				counterCards = append(counterCards, card)
+			}
+			sort.Strings(counterCards)
+			for _, card := range counterCards {
+				kinds := candidate.counters[card]
 				if combined.counters == nil {
 					combined.counters = map[string]map[string]int{}
 				}
 				if combined.counters[card] == nil {
 					combined.counters[card] = map[string]int{}
 				}
-				for kind, count := range kinds {
-					combined.counters[card][kind] += count
+				counterKinds := make([]string, 0, len(kinds))
+				for kind := range kinds {
+					counterKinds = append(counterKinds, kind)
+				}
+				sort.Strings(counterKinds)
+				for _, kind := range counterKinds {
+					combined.counters[card][kind] += kinds[kind]
 				}
 			}
 		}
@@ -132,16 +194,61 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 	return out
 }
 
+// phaseConditionSkip names the known gate class when no offered fixture made
+// it true. This keeps an unavailable setup condition distinct from a trigger
+// that had no recognized condition at all.
+func phaseConditionSkip(t *cards.Trigger, svars map[string]string) string {
+	check := t.ParamStr(cards.PKCheckSVar)
+	if check != "" {
+		body := strings.ToLower(svars[check])
+		switch {
+		case strings.Contains(body, "count$") && strings.Contains(body, "validgraveyard"), strings.Contains(body, "count$validgraveyard"):
+			return "condition: graveyard contents (" + check + ")"
+		case strings.Contains(body, "count$") && (strings.Contains(body, "valid ") || strings.Contains(body, "valid$")):
+			return "condition: board count (" + check + ")"
+		case strings.Contains(body, "count$"), strings.Contains(body, "playercountproperty"), strings.Contains(body, "playercountopponents"):
+			return "condition: turn history (" + check + ")"
+		default:
+			return "condition: SVar gate (" + check + ")"
+		}
+	}
+	if t.ParamStr(cards.PKRevolt) != "" {
+		return "condition: revolt history"
+	}
+	present := t.ParamStr(cards.PKIsPresent)
+	if present == "" {
+		present = t.ParamStr(cards.PKIsPresent2)
+	}
+	if present != "" {
+		if strings.Contains(strings.ToLower(present), "card.self") {
+			return "condition: self state"
+		}
+		return "condition: board presence"
+	}
+	return ""
+}
+
 func conditionText(params, svars map[string]string) []string {
 	out := make([]string, 0, len(params)+len(svars))
-	for key, value := range params {
+	keys := make([]string, 0, len(params))
+	for key := range params {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		value := params[key]
 		out = append(out, key+" "+value)
 		if sv, ok := svars[value]; ok {
 			out = append(out, sv)
 		}
 	}
-	for _, value := range svars {
-		out = append(out, value)
+	keys = keys[:0]
+	for key := range svars {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		out = append(out, svars[key])
 	}
 	return out
 }

@@ -1,12 +1,24 @@
 package templates
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/compliance/levelb"
+	"github.com/adams-shaun/gorge/compliance/oraclegen"
 	"github.com/adams-shaun/gorge/internal/testutil"
 )
+
+func assertStepCard(t *testing.T, steps []oraclegen.Step, card string) {
+	t.Helper()
+	for _, step := range steps {
+		if step.Card == "p0:"+card {
+			return
+		}
+	}
+	t.Fatalf("expected %s cast prelude, got %+v", card, steps)
+}
 
 func TestConditionPreludePhaseExamples(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
@@ -32,7 +44,11 @@ func TestConditionPreludePhaseExamples(t *testing.T) {
 			if req.Key == "" {
 				t.Fatalf("precondition: %s has no phase trigger requirement", tc.name)
 			}
-			trigger := &face.Triggers[0]
+			idx, err := strconv.Atoi(req.Slot)
+			if err != nil || idx < 0 || idx >= len(face.Triggers) {
+				t.Fatalf("invalid trigger slot %q", req.Slot)
+			}
+			trigger := &face.Triggers[idx]
 			candidates := conditionPreludes(reg, trigger.Params, face.SVars)
 			var candidateEvidence bool
 			for _, c := range candidates {
@@ -46,19 +62,6 @@ func TestConditionPreludePhaseExamples(t *testing.T) {
 			if !candidateEvidence {
 				t.Fatalf("no condition candidate contains %q: %+v", tc.evidence, candidates)
 			}
-			// Frontline's tapped-board predicate is offered with the expected
-			// setup fixture, but currently does not fire in the engine probe.
-			// Keep the classifier regression explicit without claiming it is served.
-			if tc.name == "Frontline War-Rager" {
-				foundTapped := false
-				for _, c := range candidates {
-					foundTapped = foundTapped || len(c.tapped) >= 2
-				}
-				if !foundTapped {
-					t.Fatalf("no two-tapped-creature candidate: %+v", candidates)
-				}
-				return
-			}
 			item, skip := GenerateB(reg, tc.name, req)
 			if skip != nil {
 				t.Fatalf("%s: %s", tc.name, skip.Reason)
@@ -67,6 +70,25 @@ func TestConditionPreludePhaseExamples(t *testing.T) {
 			if !containsString(p0.Battlefield, tc.name) {
 				t.Fatalf("precondition: source is not on battlefield: %v", p0.Battlefield)
 			}
+			switch tc.name {
+			case "Lunar Convocation":
+				assertStepCard(t, item.Scenario.Steps, "Angel's Mercy")
+			case "Insectoid Exterminator":
+				assertStepCard(t, item.Scenario.Steps, "Murder")
+			case "Frontline War-Rager":
+				foundAttack := false
+				for _, step := range item.Scenario.Steps {
+					foundAttack = foundAttack || step.Op == "attack"
+				}
+				if !foundAttack {
+					t.Fatalf("expected attack prelude for tapped-board condition: %+v", item.Scenario.Steps)
+				}
+			case "Creakwood Safewright":
+				if !containsString(p0.Graveyard, "Llanowar Elves") {
+					t.Fatalf("expected Elf graveyard fixture, got %v", p0.Graveyard)
+				}
+			}
+
 		})
 	}
 }
