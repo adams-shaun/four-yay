@@ -69,12 +69,16 @@ func TestTriggerTargetFixtures(t *testing.T) {
 			if skip != nil {
 				t.Fatalf("%s not served: %s", tc.card, skip.Reason)
 			}
+			p0, ok := item.Scenario.Setup["p0"]
+			if !ok || !containsString(p0.Battlefield, tc.card) {
+				t.Fatalf("trigger source is not on p0's battlefield: %+v", item.Scenario.Setup)
+			}
 			found := false
-			for _, seat := range item.Scenario.Setup {
-				for _, n := range tc.zone(seat) {
-					if n != tc.card && tc.want(n) {
-						found = true
-					}
+			// These targets must be supplied on the controller's side, not
+			// merely somewhere on the board (YouCtrl / YourGraveyard).
+			for _, n := range tc.zone(p0) {
+				if n != tc.card && tc.want(n) {
+					found = true
 				}
 			}
 			if !found {
