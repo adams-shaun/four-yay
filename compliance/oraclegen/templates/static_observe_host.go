@@ -19,7 +19,10 @@ import (
 const staticProbeStandIn = "Runeclaw Bear"
 
 // staticIsProbeCard reports whether card is staticProbe or a staticProbeTable
-// row's card.
+// row's card. It is the collision test for a fixture prelude's hand or cast
+// step, which is always the probe on the battlefield (staticProbe) or a probe
+// the Affected$ filter names (staticProbeTable); a probe plan's own probes are
+// drawn from the same two sources (staticPlanFor).
 func staticIsProbeCard(card string) bool {
 	if card == staticProbe {
 		return true

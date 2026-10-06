@@ -93,10 +93,18 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		plans = append(plans, probePlan)
 	}
 	// served is the item for a scenario that replays and shows an effect.
-	served := func(base oraclegen.Item, res rules.OracleResult, plan staticProbePlan) (oraclegen.Item, bool) {
+	// withHost widens the compared probes with the permanent the card is
+	// attached to (an Aura or Equipment's effect lands on its host, which a
+	// fixture such as p1's Ornithopter can be). It is tried only in the final
+	// fallback pass, never on a candidate an earlier path already served, so a
+	// row that served without it keeps its scenario bytes (Zoetic Glyph).
+	served := func(base oraclegen.Item, res rules.OracleResult, plan staticProbePlan, withHost bool) (oraclegen.Item, bool) {
 		specs := staticProbeSpecs(reg, append([]string{staticProbe}, plan.probes...))
-		specs = staticWithAttachHost(reg, res.Snapshots[len(res.Snapshots)-1], f.Name, specs)
-		if !staticObserved(res.Snapshots[len(res.Snapshots)-1], f, name, st, specs) {
+		snap := res.Snapshots[len(res.Snapshots)-1]
+		if withHost {
+			specs = staticWithAttachHost(reg, snap, f.Name, specs)
+		}
+		if !staticObserved(snap, f, name, st, specs) {
 			return oraclegen.Item{}, false
 		}
 		it := oraclegen.NewLevelBItem(name, req.Key, StaticApplies.Version, []string{"611.3", "613"}, base.Scenario)
@@ -106,6 +114,15 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		it.Compare = []string{oraclediff.CompareKeywords}
 		return it, true
 	}
+	// Candidates that replayed and showed nothing on the plain probes are
+	// kept so the attach-host fallback can retry observation on their own
+	// snapshot without rebuilding or replaying the scenario.
+	type staticCandidate struct {
+		base oraclegen.Item
+		res  rules.OracleResult
+		plan staticProbePlan
+	}
+	var candidates []staticCandidate
 	for i, plan := range plans {
 		base, why := staticBase(reg, c, f, name, req, plan, nil)
 		if why != "" && i == 0 {
@@ -121,9 +138,10 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			}
 			break
 		}
-		if it, ok := served(base, res, plan); ok {
+		if it, ok := served(base, res, plan, false); ok {
 			return it, nil
 		}
+		candidates = append(candidates, staticCandidate{base, res, plan})
 	}
 	// A condition or count the bare scenario leaves false or zero: retry each
 	// candidate fixture with each probe plan. This runs only after every bare
@@ -138,9 +156,19 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			if err != nil || len(res.Fails) != 0 || len(res.Snapshots) == 0 {
 				continue
 			}
-			if it, ok := served(base, res, plan); ok {
+			if it, ok := served(base, res, plan, false); ok {
 				return it, nil
 			}
+			candidates = append(candidates, staticCandidate{base, res, plan})
+		}
+	}
+	// Fallback: a static that lands on the permanent the card is attached to
+	// rather than on a probe (Puppet Crafting, Shimmerwilds Growth). This
+	// runs only after every existing candidate failed, so it can never win an
+	// earlier candidate and change an already-served row's scenario bytes.
+	for _, cand := range candidates {
+		if it, ok := served(cand.base, cand.res, cand.plan, true); ok {
+			return it, nil
 		}
 	}
 	// A static that acts on cards outside the battlefield changes nothing a

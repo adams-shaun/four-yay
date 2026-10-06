@@ -142,6 +142,41 @@ func TestStaticNotObservableShapes(t *testing.T) {
 		}
 	})
 
+	t.Run("rows served only through a new path", func(t *testing.T) {
+		// The census (TestStaticContinuousCensus) pins only BIG, EOE, FDN,
+		// FRA and DFT. These rows newly serve in the other sets this ticket
+		// touched; pinning them here is what derives the driver-replay
+		// batch's list from an assertion instead of a report sentence.
+		for _, row := range []struct{ card, key string }{
+			{"Goddric, Cloaked Reveler", "static#0.0"}, // WOE, grants an activated ability
+			{"Kinbinding", "static#0.0"},               // ECL, computed count
+			{"Stop Cold", "static#0.0"},                // OTJ, removes abilities
+			{"Dire Flail", "static#1.0"},               // LCI, back-face Equipment
+			{"Armory Mice", "static#0.0"},              // WOE, B1
+			{"Bristlebane Outrider", "static#0.1"},     // ECL, B1
+			{"Tuinvale Guide", "static#0.0"},           // WOE, B1
+		} {
+			if _, skip := gen(t, row.card, row.key); skip != nil {
+				t.Errorf("%s %s skipped: %s", row.card, row.key, skip.Reason)
+			}
+		}
+	})
+
+	t.Run("an already-served row keeps its scenario bytes", func(t *testing.T) {
+		// Zoetic Glyph served before this ticket through its Affected$ probe
+		// plan (p0 also holds an Ornithopter), because the Aura's own target
+		// was already a probe. The attach-host fallback must not let the bare
+		// plan win that earlier candidate and re-emit a different scenario:
+		// applying the host inside the served check for every candidate did
+		// exactly that (review finding, scenario hash 9845e981571a1302 ->
+		// 56c7e13aad8e8f1c). Pin the probe-plan scenario here.
+		sc := served(t, "Zoetic Glyph", "static#0.0")
+		bf := sc.Setup["p0"].Battlefield
+		if !has(bf, staticProbe) || !has(bf, "Ornithopter") {
+			t.Errorf("Zoetic Glyph p0 battlefield = %v, want the Bear and the Ornithopter probe", bf)
+		}
+	})
+
 	t.Run("an out-of-scope row keeps the generic skip", func(t *testing.T) {
 		_, skip := gen(t, "Crystal Barricade", "static#0.0")
 		if skip == nil {

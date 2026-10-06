@@ -34,7 +34,9 @@ import (
 // scenario itself broke (a prelude casting the probe card, a counter-gated base
 // without the filter's probes, an Aura whose effect lands on a non-probe host,
 // a back-face Equipment never attached): FRA Puppet Crafting moves from skip to
-// served.
+// served. This table pins only BIG, EOE, FDN, FRA and DFT; the rows the same
+// ticket newly serves in the other sets (WOE, ECL, MSH, LCI, FIN, TLA, OTJ) are
+// pinned by TestStaticNotObservableShapes instead.
 // It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
