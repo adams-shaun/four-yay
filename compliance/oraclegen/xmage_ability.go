@@ -328,9 +328,12 @@ func keywordPrefix(f *cards.Face, sa *cards.SA) (string, bool) {
 		switch head {
 		case "TypeCycling":
 			// Forge's TypeCycling covers basic-landcycling and arbitrary
-			// typecycling (for example Halflingcycling); use its ChangeType
-			// rather than assuming the printed word is "Basic landcycling".
+			// typecycling (for example Halflingcycling). Basic is the one
+			// exception where the printed keyword includes "land".
 			word := strings.TrimSpace(sa.ParamStr(cards.PKChangeType))
+			if strings.EqualFold(word, "Basic") {
+				word = "Basic land"
+			}
 			if word != "" && strings.HasPrefix(strings.ToLower(line), strings.ToLower(word+"cycling")) {
 				matches = append(matches, line)
 			}
@@ -350,8 +353,12 @@ func keywordPrefix(f *cards.Face, sa *cards.SA) (string, bool) {
 				candidate = strings.TrimSpace(candidate[dash+len(" — "):])
 			}
 			if keywordLineStartsWith(candidate, display) {
-				cost := sa.ParamStr(cards.PKCost)
-				if head != "Equip" || cost == "" || strings.Contains(line, "{"+cost+"}") || candidate == display {
+				cost := strings.TrimSpace(sa.ParamStr(cards.PKCost))
+				if cost != "" && candidate != display && hasPrintedManaCost(candidate, display, cost) {
+					matches = append(matches, line)
+				} else if cost == "" || candidate == display || !manaCostSymbols(cost) {
+					// Non-mana / unparsed costs have no uniform brace spelling;
+					// preserve the prior role-based match for those keywords.
 					matches = append(matches, line)
 				}
 			}
@@ -361,6 +368,50 @@ func keywordPrefix(f *cards.Face, sa *cards.SA) (string, bool) {
 		return "", false
 	}
 	return matches[0], true
+}
+
+// hasPrintedManaCost checks the Oracle selector for Forge's space-separated
+// mana-cost symbols in their printed, individually-braced form. This keeps a
+// keyword name in ordinary prose (for example "Ninjutsu abilities...") from
+// becoming a second candidate, while accepting multi-symbol costs such as
+// Forge's "1 R" and Oracle's "{1}{R}".
+func hasPrintedManaCost(line, display, cost string) bool {
+	fields := strings.Fields(cost)
+	var rendered strings.Builder
+	for _, symbol := range fields {
+		if !isManaCostSymbol(symbol) {
+			break
+		}
+		rendered.WriteByte('{')
+		rendered.WriteString(symbol)
+		rendered.WriteByte('}')
+	}
+	return rendered.Len() > 0 && strings.Contains(line[len(display):], rendered.String())
+}
+
+// manaCostSymbols reports whether Forge's cost begins with mana-cost symbols.
+// Some keyword costs append non-mana actions (Ninjutsu's return cost, for
+// example), so only the leading symbols are used for printed-line matching.
+func manaCostSymbols(cost string) bool {
+	for _, field := range strings.Fields(cost) {
+		if !isManaCostSymbol(field) {
+			break
+		}
+		return true
+	}
+	return false
+}
+
+func isManaCostSymbol(symbol string) bool {
+	if symbol == "" {
+		return false
+	}
+	for _, r := range symbol {
+		if !((r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '/') {
+			return false
+		}
+	}
+	return true
 }
 
 // keywordLineStartsWith reports whether line begins with the printed keyword

@@ -18,6 +18,10 @@ func TestXMageAbilityKeywordShapes(t *testing.T) {
 		{"Leader's Talent", map[int]string{0: "{2}{W}: Level 2", 1: "{3}{W}: Level 3"}},
 		{"Bard's Bow", map[int]string{0: "Perseus's Bow — Equip {6}"}},
 		{"Dragoon's Lance", map[int]string{0: "Gae Bolg — Equip {4}"}},
+		{"Cori-Steel Cutter", map[int]string{0: "Equip {1}{R}"}},
+		{"Caduceus Staff of Hermes", map[int]string{0: "Equip {W}{W}"}},
+		{"A.I.M. Scientists", map[int]string{0: "Basic landcycling {2}"}},
+		{"Silver-Fur Master", map[int]string{0: "Ninjutsu {U}{B}"}},
 	} {
 		t.Run(tc.card, func(t *testing.T) {
 			c, ok := reg.Lookup(tc.card)
