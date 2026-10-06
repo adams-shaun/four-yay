@@ -250,6 +250,7 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 	}
 	it = oraclegen.NewLevelBItem(name, req.Key, TriggerFires.Version, []string{"603.2"}, sc)
 	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
+	it.XAnswers = scriptPreludeSacrifice(it.XAnswers, c.prelude, len(sc.Steps))
 	// Ward is caused by targeting; decline its unless-pay mode so the probe
 	// does not depend on the opponent's ability to pay the ward cost.
 	for _, d := range res.Decisions {
