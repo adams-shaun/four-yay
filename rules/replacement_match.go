@@ -767,7 +767,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		}
 		return e.replacementConditionHolds(r, source, you)
 	}
-	return false
+	return r.EventKind() == cards.ReplLoseMana && loseManaReplacementApplies(ev, replacementPlayerMatches(e, source, &r, ev.Player), e.replacementConditionHolds(r, source, you))
 }
 
 // replacementConditionHolds evaluates the condition parameters a replacement
