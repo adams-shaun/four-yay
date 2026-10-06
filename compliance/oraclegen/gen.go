@@ -31,11 +31,17 @@ const xValue = 2
 type Seat struct {
 	Battlefield []string `json:"battlefield,omitempty"`
 	Tapped      []string `json:"tapped,omitempty"`
-	Hand        []string `json:"hand,omitempty"`
-	Graveyard   []string `json:"graveyard,omitempty"`
-	Exile       []string `json:"exile,omitempty"`
-	Library     []string `json:"library,omitempty"`
-	LibraryTop  []string `json:"library_top,omitempty"`
+	// BackFace names battlefield cards setup places on their back face (face
+	// index 1). It is emitted as a FlipFace event, so the placement replays
+	// from the log like every other setup op. A name that is not also in
+	// Battlefield is an error: only a permanent already on the battlefield can
+	// be flipped.
+	BackFace   []string `json:"back_face,omitempty"`
+	Hand       []string `json:"hand,omitempty"`
+	Graveyard  []string `json:"graveyard,omitempty"`
+	Exile      []string `json:"exile,omitempty"`
+	Library    []string `json:"library,omitempty"`
+	LibraryTop []string `json:"library_top,omitempty"`
 	// Counters puts counters on this seat's battlefield cards at setup:
 	// card name -> counter kind (LOYALTY, P1P1) -> how many, added to what
 	// the card enters with. Like Tapped it names every placement of that

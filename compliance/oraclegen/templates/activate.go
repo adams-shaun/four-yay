@@ -81,6 +81,7 @@ func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 		if extra := loyaltyHeadroom(f, f.Abilities[idx]); extra > 0 {
 			p0 = oraclegen.WithCounters(p0, name, "LOYALTY", extra)
 		}
+		setupBackFace(&p0, name, req)
 		sc := oraclegen.Scenario{
 			Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": *fx.P1()},
 			SetupAnswers: oraclegen.OpeningHandAnswers(f),
