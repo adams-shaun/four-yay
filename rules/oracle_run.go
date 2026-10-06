@@ -190,6 +190,7 @@ type oracleExpect struct {
 	StackSize      *int              `json:"stack_size,omitempty"`
 	Offered        *oracleOffered    `json:"offered,omitempty"`
 	CanBlock       *oracleCanBlock   `json:"can_block,omitempty"`
+	CanAttack      *oracleCanAttack  `json:"can_attack,omitempty"`
 	Count          *oracleCount      `json:"count,omitempty"`
 	Eq             *int              `json:"eq,omitempty"`
 	Want           *bool             `json:"want,omitempty"`
@@ -1715,6 +1716,13 @@ func (r *oracleRun) check(x oracleExpect) []string {
 				failf("%s can block %s = %v, want %v", x.CanBlock.Blocker, x.CanBlock.Attacker, found, r.wantBool(x))
 			}
 		}
+	}
+	if x.CanAttack != nil {
+		id, err := r.resolve(x.CanAttack.Attacker)
+		if err != nil {
+			return []string{err.Error()}
+		}
+		bad = append(bad, canAttackFails(e.Pending(), id, x.CanAttack.Attacker, r.wantBool(x))...)
 	}
 	if x.Count != nil {
 		z, ok := oracleZones[x.Count.Zone]
