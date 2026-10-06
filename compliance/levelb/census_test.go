@@ -109,7 +109,7 @@ var wantCensus = map[string]map[string]int{
 		"trigger.drawn":                4,
 		"trigger.etb-land":             20,
 		"trigger.etb-other":            24,
-		"trigger.gap:Always":           1,
+		"trigger.state-self-counters":  1, // Mazemind Tome: the self page-counter state trigger, formerly trigger.gap:Always
 		"trigger.gap:CounterAddedOnce": 2,
 		"trigger.gap:DamageDealtOnce":  1,
 		"trigger.gap:DamageDone":       3,
