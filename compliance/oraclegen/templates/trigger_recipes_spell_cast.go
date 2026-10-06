@@ -7,7 +7,8 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/state"
 )
 
 var spellCastGE = regexp.MustCompile(`(?i)(?:ManaSpent|cmc)\s*GE\s*(\d+)`)
@@ -20,10 +21,7 @@ func spellCastProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) []
 	targets := t.ParamStr(cards.PKTargetsValid)
 	targetProbe := strings.Contains(targets, "Creature") || strings.Contains(targets, "Self") || strings.Contains(t.ParamStr(cards.PKValidTgts), "Creature")
 
-	count := 1
-	if strings.Contains(strings.ToUpper(t.ParamStr(cards.PKActivatorThisTurnCast)), "EQ2") {
-		count = 2
-	}
+	count := activatorCastCount(t.ParamStr(cards.PKActivatorThisTurnCast))
 	minCMC := 0
 	for _, key := range []cards.ParamKey{cards.PKValidSA, cards.PKValidSAonCard} {
 		if m := spellCastGE.FindStringSubmatch(t.ParamStr(key)); len(m) == 2 {
@@ -66,6 +64,8 @@ func spellCastProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) []
 	if targetProbe {
 		candidates = append([]string{growthProbe}, candidates...)
 	}
+	fp := newFilterProbe(filter, state.ZStack)
+	candidates = filterAcceptedFirst(reg, candidates, fp)
 	for _, probe := range candidates {
 		if seen[probe] || probe == name {
 			continue
@@ -79,7 +79,9 @@ func spellCastProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) []
 		if face.IsLand() || face.IsCreature() && strings.Contains(strings.ToLower(filter), "noncreature") || int(face.Cmc()) < minCMC {
 			continue
 		}
-		if filter != "" && !spellProbeMatchesType(face, filter) {
+		// The matcher, when it decided the filter, outranks the type-line
+		// heuristic: an Outlaw or a Turtle is a subtype group it cannot see.
+		if filter != "" && !fp.decided && !spellProbeMatchesType(face, filter) {
 			continue
 		}
 		validSA := t.ParamStr(cards.PKValidSA)
@@ -100,19 +102,81 @@ func spellCastProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) []
 			if c, ok := castCause(reg, name, probe, probeTargets...); ok {
 				out = append(out, c)
 			}
-		} else {
-			first, ok1 := castProbe(reg, probe, probeTargets...)
-			second, ok2 := castProbe(reg, probe, probeTargets...)
-			if ok1 && ok2 {
-				second.Card += "#2"
-				out = append(out, triggerCause{hand: []string{probe, probe}, steps: []oraclegen.Step{first, second}})
-			}
+		} else if c, ok := repeatedCastCause(reg, probe, count, probeTargets); ok {
+			out = append(out, c)
 		}
 		if len(out) == 8 {
 			break
 		}
 	}
 	return out
+}
+
+// filterAcceptedFirst moves the probes gorge's own matcher accepts for the
+// trigger's ValidCard$ filter ahead of the rest, keeping each group's order.
+// Only eight causes are kept, and a Shock the filter rejects would otherwise
+// fill them before the first card that can fire the trigger.
+func filterAcceptedFirst(reg *cards.Registry, candidates []string, fp *filterProbe) []string {
+	if !fp.decided {
+		return candidates
+	}
+	var accepted, rest []string
+	for _, probe := range candidates {
+		if card, ok := reg.Lookup(probe); ok && fp.accepts(card) {
+			accepted = append(accepted, probe)
+		} else {
+			rest = append(rest, probe)
+		}
+	}
+	// A filter that reads state the scratch game lacks (a mana value equal to
+	// the source's power) rejects every card: that is no verdict, so the
+	// type-line heuristic and the old order stand.
+	if len(accepted) == 0 {
+		fp.decided = false
+		return candidates
+	}
+	return append(accepted, rest...)
+}
+
+// activatorCastCount is how many spells the trigger's ActivatorThisTurnCast$
+// needs cast in a turn (EQ2 two, GT1 two, EQ3 three), 1 when it is absent or
+// not a shape this reads.
+func activatorCastCount(cond string) int {
+	m := activatorCastRe.FindStringSubmatch(strings.ToUpper(cond))
+	if len(m) != 3 {
+		return 1
+	}
+	n, err := strconv.Atoi(m[2])
+	if err != nil {
+		return 1
+	}
+	if m[1] == "GT" {
+		n++
+	}
+	if n < 1 || n > 4 {
+		return 1
+	}
+	return n
+}
+
+var activatorCastRe = regexp.MustCompile(`^(EQ|GT|GE)(\d+)$`)
+
+// repeatedCastCause casts one probe count times, the later copies named
+// probe#2, probe#3 so each step finds its own card in hand.
+func repeatedCastCause(reg *cards.Registry, probe string, count int, targets []string) (triggerCause, bool) {
+	c := triggerCause{}
+	for i := 1; i <= count; i++ {
+		step, ok := castProbe(reg, probe, targets...)
+		if !ok {
+			return triggerCause{}, false
+		}
+		if i > 1 {
+			step.Card += "#" + strconv.Itoa(i)
+		}
+		c.hand = append(c.hand, probe)
+		c.steps = append(c.steps, step)
+	}
+	return c, true
 }
 
 func spellCastTriggerTarget(source string, t *cards.Trigger) string {
@@ -147,6 +211,9 @@ func spellCastNarrowSkip(t *cards.Trigger) string {
 	}
 	if strings.EqualFold(t.ParamStr(cards.PKOpponentTurn), "True") {
 		return "spell-cast opponent-turn condition"
+	}
+	if unknown := effects.UnknownPredicates(t.ParamStr(cards.PKValidCard)); len(unknown) > 0 {
+		return "spell-cast filter predicate gorge does not implement (" + strings.Join(unknown, ",") + ")"
 	}
 	if t.ParamStr(cards.PKIsPresent) != "" || t.ParamStr(cards.PKIsPresent2) != "" {
 		return "spell-cast IsPresent condition"
