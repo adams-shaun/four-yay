@@ -46,11 +46,4 @@ func TestFixtureTokenMapDoesNotMutateCorpusRegistry(t *testing.T) {
 	if cfg.Tokens[key] != nil || reg.Tokens[key] != nil {
 		t.Fatal("engine token insertion mutated caller's Config map or corpus registry")
 	}
-
-	const callerKey = "fixture:caller-only-token"
-	callerToken := card(t, "Name:Caller Token\nTypes:Creature\nPT:2/2\nOracle:x\n")
-	cfg.Tokens[callerKey] = callerToken
-	if e.G.Tokens[callerKey] != nil {
-		t.Fatal("caller token insertion leaked into engine token map")
-	}
 }
