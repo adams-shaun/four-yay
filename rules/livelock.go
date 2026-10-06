@@ -193,7 +193,7 @@ type livelockWatcher struct {
 	// recent is the trailing event window, newest last, capped at
 	// MaxPeriod, so an abort can render one real period. recentHead is the
 	// oldest logical entry once the bounded slice is full.
-	recent     []events.Event
+	recent     []livelockRecent
 	recentHead int
 	// runPeriod/runEvents track the active periodic run: runEvents counts
 	// the consecutive events (>= 2*runPeriod at detection) matching the
@@ -251,7 +251,7 @@ func (w *livelockWatcher) unshare() {
 	w.sigs = append(make([]uint64, 0, cap(w.sigs)), w.sigs...)
 	w.prevPos = append(make([]uint32, 0, cap(w.prevPos)), w.prevPos...)
 	w.hs = append(make([]uint64, 0, cap(w.hs)), w.hs...)
-	w.recent = append(make([]events.Event, 0, cap(w.recent)), w.recent...)
+	w.recent = append(make([]livelockRecent, 0, cap(w.recent)), w.recent...)
 	if w.slotHead != nil {
 		w.slotHead = append([]uint32(nil), w.slotHead...)
 	}
@@ -283,7 +283,7 @@ func newLivelockWatcher(g *LoopGuard) livelockWatcher {
 
 // newLivelockWatcherInto is newLivelockWatcher over recycled window arrays
 // (Config.Spare); see newLivelockWatcherFromGuard.
-func newLivelockWatcherInto(g *LoopGuard, sigs []uint64, recent []events.Event, prev, heads []uint32, hs []uint64) livelockWatcher {
+func newLivelockWatcherInto(g *LoopGuard, sigs []uint64, recent []livelockRecent, prev, heads []uint32, hs []uint64) livelockWatcher {
 	return newLivelockWatcherFromGuard(g.filled(), sigs, recent, prev, heads, hs)
 }
 
@@ -293,7 +293,7 @@ func newLivelockWatcherInto(g *LoopGuard, sigs []uint64, recent []events.Event, 
 // reads only their length, which starts at zero, so a recycled array's
 // capacity and old contents are invisible -- it only saves the regrowth
 // from nil every clone otherwise pays as its windows fill.
-func newLivelockWatcherFromGuard(g LoopGuard, sigs []uint64, recent []events.Event, prev, heads []uint32, hs []uint64) livelockWatcher {
+func newLivelockWatcherFromGuard(g LoopGuard, sigs []uint64, recent []livelockRecent, prev, heads []uint32, hs []uint64) livelockWatcher {
 	// prev is read only below its length (which starts at zero) and heads
 	// is zeroed here, so a recycled pair is invisible like sigs/recent.
 	if cap(heads) >= livelockCandSlots {
@@ -388,17 +388,17 @@ func (w *livelockWatcher) observeFrom(ev *events.Event, damageSource state.ObjID
 	}
 	sig := eventSignature(ev)
 	if ev.Kind == events.Damage && damageSource != 0 {
-		sig = fnvU32(sig, uint32(damageSource))
+		sig = sigMix(sig, uint64(damageSource)|livelockDamageTag)
 	}
 	if mintingKinds.has(ev.Kind) {
 		w.mints++
-		sig = fnvU64(sig, w.mints)
+		sig = sigMix(sigMix(sig, livelockMintTag), w.mints)
 	}
 	w.pushSig(sig)
 	if len(w.recent) < w.guard.MaxPeriod {
-		w.recent = append(w.recent, *ev)
+		w.recent = append(w.recent, recentOf(ev))
 	} else {
-		w.recent[w.recentHead] = *ev
+		w.recent[w.recentHead] = recentOf(ev)
 		if w.recentHead++; w.recentHead == w.guard.MaxPeriod {
 			w.recentHead = 0
 		}
@@ -466,7 +466,7 @@ func (w *livelockWatcher) sigAt(i int) uint64 {
 	return w.sigs[i]
 }
 
-func (w *livelockWatcher) recentAt(i int) events.Event {
+func (w *livelockWatcher) recentAt(i int) livelockRecent {
 	i += w.recentHead
 	if i >= len(w.recent) {
 		i -= len(w.recent)
@@ -674,7 +674,7 @@ func (w *livelockWatcher) abort() {
 	cycle := make([]string, 0, p)
 	for i := len(w.recent) - p; i < len(w.recent); i++ {
 		ev := w.recentAt(i)
-		cycle = append(cycle, describeEvent(ev))
+		cycle = append(cycle, ev.describe())
 	}
 	panic(&LivelockError{
 		Reason:   "repeating cycle",
@@ -692,61 +692,95 @@ func (w *livelockWatcher) abort() {
 // identifies the event's shape (kind, seat, object, zone/step movement,
 // counter name, secret bit, id and pair payloads), and deliberately NOT
 // Seq (every event has a fresh one), Amount and Text (a stuck loop whose
-// payload drifts must still be caught). Length-prefixing keeps adjacent
-// fields unambiguous.
+// payload drifts must still be caught).
+//
+// The fields are packed injectively into 64-bit words -- the fixed header
+// in two words that also carry the three variable lengths, then the
+// counter name eight bytes a word, the IDs two a word and one word per
+// pair -- and each word is folded by one multiply (sigMix), instead of the
+// byte-wise FNV-1a fold this replaced (four multiplies per uint32). The
+// watcher only ever compares signatures for equality, so the change of
+// hash function leaves every verdict identical up to 64-bit collisions,
+// exactly as the FNV formulation did (TestEventSignatureEquivalence holds
+// the two to the same equality classes).
 func eventSignature(ev *events.Event) uint64 {
-	h := uint64(fnvOffset)
-	h = fnvByte(h, byte(ev.Kind))
-	h = fnvByte(h, byte(ev.Player))
-	h = fnvByte(h, byte(ev.From))
-	h = fnvByte(h, byte(ev.To))
-	h = fnvByte(h, byte(ev.Step))
+	h := sigMix(sigSeed, uint64(ev.Kind)|uint64(ev.Player)<<8|uint64(ev.From)<<16|uint64(ev.To)<<24|uint64(ev.Obj)<<32)
+	nc, ni, np := len(ev.Counter), len(ev.IDs), len(ev.Pairs)
+	w1 := uint64(ev.Step) | uint64(uint16(nc))<<16 | uint64(uint16(ni))<<32 | uint64(uint16(np))<<48
 	if ev.Secret {
-		h = fnvByte(h, 1)
-	} else {
-		h = fnvByte(h, 0)
+		w1 |= 1 << 8
 	}
-	h = fnvU32(h, uint32(ev.Obj))
-	h = fnvU32(h, uint32(len(ev.Counter)))
-	for i := 0; i < len(ev.Counter); i++ {
-		h = fnvByte(h, ev.Counter[i])
+	if nc|ni|np >= 1<<16 {
+		// A length past 16 bits (never seen in play): flag it and carry
+		// the full lengths in one more word, so the packing stays injective.
+		w1 |= 1 << 9
+		h = sigMix(sigMix(h, w1), uint64(nc)|uint64(ni)<<32)
+		w1 = uint64(np)
 	}
-	h = fnvU32(h, uint32(len(ev.IDs)))
-	for _, id := range ev.IDs {
-		h = fnvU32(h, uint32(id))
+	h = sigMix(h, w1)
+	c := ev.Counter
+	for len(c) >= 8 {
+		h = sigMix(h, uint64(c[0])|uint64(c[1])<<8|uint64(c[2])<<16|uint64(c[3])<<24|
+			uint64(c[4])<<32|uint64(c[5])<<40|uint64(c[6])<<48|uint64(c[7])<<56)
+		c = c[8:]
 	}
-	h = fnvU32(h, uint32(len(ev.Pairs)))
+	if len(c) > 0 {
+		var w uint64
+		for i := 0; i < len(c); i++ {
+			w |= uint64(c[i]) << (8 * i)
+		}
+		h = sigMix(h, w)
+	}
+	ids := ev.IDs
+	for len(ids) >= 2 {
+		h = sigMix(h, uint64(ids[0])|uint64(ids[1])<<32)
+		ids = ids[2:]
+	}
+	if len(ids) == 1 {
+		h = sigMix(h, uint64(ids[0]))
+	}
 	for _, pr := range ev.Pairs {
-		h = fnvU32(h, uint32(pr[0]))
-		h = fnvU32(h, uint32(pr[1]))
+		h = sigMix(h, uint64(pr[0])|uint64(pr[1])<<32)
 	}
 	return h
 }
 
-// The signature's FNV-1a parameters. The fold is byte-wise, little-endian
-// for integers (fnvU32 is four fnvByte steps in that order), so the value
-// is the one the byte-slice formulation produced.
 const (
-	fnvOffset = 14695981039346656037
-	fnvPrime  = 1099511628211
+	sigSeed  = 14695981039346656037
+	sigPrime = 0x9FB21C651E98DF25
+	// livelockDamageTag and livelockMintTag separate the damage-source and
+	// mint-ordinal suffixes from each other (they apply to disjoint kinds
+	// anyway, and the kind is in the header word).
+	livelockDamageTag = 1 << 62
+	livelockMintTag   = 0x6D696E74
 )
 
-func fnvByte(h uint64, b byte) uint64 { return (h ^ uint64(b)) * fnvPrime }
-
-func fnvU32(h uint64, v uint32) uint64 {
-	h = fnvByte(h, byte(v))
-	h = fnvByte(h, byte(v>>8))
-	h = fnvByte(h, byte(v>>16))
-	return fnvByte(h, byte(v>>24))
+// sigMix folds one 64-bit word into the running signature: xor, an odd
+// multiply (a bijection for a fixed h), and an xorshift so high bits feed
+// the next word's low bits.
+func sigMix(h, w uint64) uint64 {
+	h = (h ^ w) * sigPrime
+	return h ^ h>>32
 }
 
-func fnvU64(h uint64, v uint64) uint64 {
-	return fnvU32(fnvU32(h, uint32(v)), uint32(v>>32))
+// livelockRecent is the slice of an event the watcher's diagnostic window
+// keeps: exactly what abort and describe read, instead of a whole
+// events.Event copy per observed event.
+type livelockRecent struct {
+	Seq    uint64
+	Text   string
+	Obj    state.ObjID
+	Kind   events.Kind
+	Player state.PlayerID
 }
 
-// describeEvent renders one event for the diagnostic: compact, stable, and
+func recentOf(ev *events.Event) livelockRecent {
+	return livelockRecent{Seq: ev.Seq, Text: ev.Text, Obj: ev.Obj, Kind: ev.Kind, Player: ev.Player}
+}
+
+// describe renders one event for the diagnostic: compact, stable, and
 // enough to name the object and what was being done to it.
-func describeEvent(ev events.Event) string {
+func (ev livelockRecent) describe() string {
 	s := fmt.Sprintf("seq %d %s", ev.Seq, ev.Kind)
 	if ev.Obj != 0 {
 		s += fmt.Sprintf(" obj=%d", ev.Obj)

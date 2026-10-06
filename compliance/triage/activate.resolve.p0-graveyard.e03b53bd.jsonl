@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"p0.graveyard","diff":"gorge+[Joo Dee, One of Many] xmage+[]"},"key":"activate | resolve | p0.graveyard | gorge+[Joo Dee, One of Many] xmage+[]","cards":1}
-{"card":"Joo Dee, One of Many","template":"activate#0.0","status":"diverge","api":"-","sets":["TLA"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Joo Dee, One of Many]\", xmage \"[]\""}

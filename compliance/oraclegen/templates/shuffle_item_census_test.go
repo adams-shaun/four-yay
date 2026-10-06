@@ -18,7 +18,7 @@ var wantShuffleItemCensus = map[string]int{
 	"BIG": 0, "BLB": 0, "DFT": 0, "DSK": 3, "ECL": 0,
 	"EOE": 1, "FDN": 3, "FIN": 1, "FRA": 2, "HOB": 2,
 	"LCI": 0, "MKM": 0, "MSH": 0, "OTJ": 0, "SOS": 0,
-	"SPM": 0, "TDM": 0, "TLA": 0, "TMT": 0, "WOE": 0,
+	"SPM": 0, "TDM": 0, "TLA": 1, "TMT": 0, "WOE": 0,
 }
 
 func TestShuffleEmittedItemCensus(t *testing.T) {

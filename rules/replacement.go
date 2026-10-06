@@ -1140,7 +1140,8 @@ func (e *Engine) applyReplacement(ev events.Event, m replMatch) (events.Event, b
 		// so a Tap lands on an object already in its new zone (an object
 		// still on the stack is a no-op to effTap).
 		departing, link, controller := e.captureSourceLifelinkLKI(ev)
-		stored, absorbed := e.foldEntryMove(ev)
+		stored := ev
+		absorbed := e.foldEntryMove(&stored, false)
 		e.loop.observeFrom(&stored, e.damaging, len(e.G.Objs))
 		// The move-driven Effect lifetimes (the ExileOnMoved$/ForgetOnMoved$
 		// sweep) run on Engine.emit's own MoveZone path right here in the

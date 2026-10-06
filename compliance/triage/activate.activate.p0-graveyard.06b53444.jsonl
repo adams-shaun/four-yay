@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"activate","field":"p0.graveyard","diff":"gorge+[] xmage+[Craw Wurm]"},"key":"activate | activate | p0.graveyard | gorge+[] xmage+[Craw Wurm]","cards":1}
+{"card":"Visage of Dread","template":"activate#0.0","status":"diverge","api":"ChangesZone:Discard","sets":["LCI"],"detail":"step 0 (activate) p0.graveyard: gorge \"[]\", xmage \"[Craw Wurm]\""}

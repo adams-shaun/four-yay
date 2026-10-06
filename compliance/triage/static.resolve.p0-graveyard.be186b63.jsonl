@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"resolve","field":"p0.graveyard","diff":"gorge+[] xmage+[]"},"key":"static | resolve | p0.graveyard | gorge+[] xmage+[]","cards":1}
+{"card":"Dispelling Exhale","template":"static#0.0","status":"diverge","api":"Counter","sets":["TDM"],"detail":"step 2 (resolve) p0.graveyard: gorge \"[Disfigure, Dispelling Exhale]\", xmage \"[Dispelling Exhale, Disfigure]\""}

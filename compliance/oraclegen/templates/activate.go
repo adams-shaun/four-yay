@@ -303,35 +303,7 @@ func activateStepIndex(steps []oraclegen.Step) int {
 // `<...>` payload together: Sac<1/CARDNAME/this creature> and
 // tapXType<Any/Creature.Other+withTotalPowerGE1> carry spaces a naive
 // Fields split would break.
-func costTokens(cost string) []string {
-	var out []string
-	depth, start := 0, -1
-	for i, r := range cost {
-		switch r {
-		case '<':
-			depth++
-		case '>':
-			if depth > 0 {
-				depth--
-			}
-		case ' ', '\t':
-			if depth == 0 {
-				if start >= 0 {
-					out = append(out, cost[start:i])
-					start = -1
-				}
-				continue
-			}
-		}
-		if start < 0 {
-			start = i
-		}
-	}
-	if start >= 0 {
-		out = append(out, cost[start:])
-	}
-	return out
-}
+func costTokens(cost string) []string { return levelb.CostTokens(cost) }
 
 // isNumericBracket reports whether tok is `Head<N>` with a literal N.
 func isNumericBracket(tok string) bool {

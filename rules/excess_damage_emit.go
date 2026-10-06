@@ -94,7 +94,7 @@ func (t *excessTally) entry(id state.ObjID) *excessBatchEntry {
 
 // noteExcessHit runs before the Damage event folds: it fixes the recipient's
 // pre-batch thresholds at its first hit and notes a deathtouch source.
-func noteExcessHit(t *excessTally, h excessHost, lki map[state.ObjID]map[state.ObjID]effects.DamageSourceLKI, ev events.Event, batchOpen bool) {
+func noteExcessHit(t *excessTally, h excessHost, lki map[state.ObjID]map[state.ObjID]effects.DamageSourceLKI, ev *events.Event, batchOpen bool) {
 	if ev.Kind != events.Damage || ev.Amount <= 0 || ev.Obj == 0 || !batchOpen {
 		return
 	}
@@ -126,14 +126,14 @@ func noteExcessHit(t *excessTally, h excessHost, lki map[state.ObjID]map[state.O
 		t.entries = append(t.entries, fresh)
 		en = &t.entries[len(t.entries)-1]
 	}
-	if en.types&excessTypeCreature != 0 && damageSourceHasDeathtouch(h, lki, ev) {
+	if en.types&excessTypeCreature != 0 && damageSourceHasDeathtouch(h, lki, *ev) {
 		en.deathtouch = true
 	}
 }
 
 // add adds the folded (post-replacement) amount to the recipient's batch
 // total.
-func (t *excessTally) add(stored events.Event) {
+func (t *excessTally) add(stored *events.Event) {
 	if stored.Kind != events.Damage || stored.Amount <= 0 || stored.Obj == 0 {
 		return
 	}
@@ -164,17 +164,3 @@ func flushExcessBatch(t *excessTally, emit func(events.Event) events.Event) {
 	}
 }
 
-// excessFolder is excessHost plus the fold itself.
-type excessFolder interface {
-	excessHost
-	foldEntryMove(events.Event) (events.Event, []string)
-}
-
-// foldTallyingExcess folds ev (Engine.foldEntryMove) between the excess
-// tally's pre-fold threshold read and its post-fold amount add.
-func foldTallyingExcess(h excessFolder, t *excessTally, lki map[state.ObjID]map[state.ObjID]effects.DamageSourceLKI, batchOpen bool, ev events.Event) events.Event {
-	noteExcessHit(t, h, lki, ev, batchOpen)
-	stored, _ := h.foldEntryMove(ev)
-	t.add(stored)
-	return stored
-}

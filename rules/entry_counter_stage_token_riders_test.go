@@ -248,7 +248,7 @@ func TestTokenRewriteSettlesBeforeEntryStaging(t *testing.T) {
 	e.SetCounterAdder(0)
 	// Precondition: without the rewrite this mint stages (the same token and
 	// modifiers TestEntryCounterStageTokenEffectRiders asks over).
-	if grants := e.entryBodyCandidates(events.Event{Kind: events.TokenCreate, Player: 0, Text: "rewritten_entry"}); !grants {
+	if grants := e.entryBodyCandidates(&events.Event{Kind: events.TokenCreate, Player: 0, Text: "rewritten_entry"}); !grants {
 		t.Fatal("precondition: the unrewritten token carries no entry grant")
 	}
 	ids := e.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: 0, Text: "rewritten_entry"})

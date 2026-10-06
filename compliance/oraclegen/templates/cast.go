@@ -220,10 +220,11 @@ func castWithProbes(reg *cards.Registry, f *cards.Face, name, mana string, slots
 						// correspondence for an omitted object is unproven.
 						continue
 					}
-					if n := oraclegen.OptionalCostCastNo(f, mana); n > 0 {
+					if n := oraclegen.OptionalCostCastNo(f, mana); n > 0 && fx.CastMode() == "" {
 						// XMage asks "pay the additional cost?" at the head of the
 						// cast; gorge offered it as a declineable cast option, so
-						// answer the ask explicitly.
+						// answer the ask explicitly. A paid cast (cast_mode) is
+						// answered "yes" by its own template instead.
 						it.XAnswers = oraclegen.PrependCastNo(it.XAnswers, sc, name, n)
 					}
 					if oraclegen.SearchesLibrary(f) || strings.Contains(strings.ToLower(f.Oracle), "shuffle") {
@@ -244,6 +245,7 @@ var beholdFixture = map[string]string{
 	"Elemental": "Mulldrifter",
 	"Goblin":    "Goblin Guide",
 	"Merfolk":   "Vodalian Merchant",
+	"Dragon":    "Shivan Dragon",
 }
 
 func requiredBeholdType(f *cards.Face) string {
@@ -337,7 +339,7 @@ func buildStackScenario(f *cards.Face, name, hand, mana string, pre precast, fx 
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": *fx.P0(), "p1": *fx.P1()},
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),
-		Steps:        []oraclegen.Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: targets, Answers: answers}},
+		Steps:        []oraclegen.Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: targets, Answers: answers, CastMode: fx.CastMode()}},
 	}
 	sc.Setup["p0"] = oraclegen.WithHand(sc.Setup["p0"], hand)
 	if pre.card != "" {

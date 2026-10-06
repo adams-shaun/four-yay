@@ -1,0 +1,7 @@
+{"shape":{"template":"static","op":"cast","field":"p0.graveyard","diff":"gorge+[] xmage+[Colossal Dreadmaw]"},"key":"static | cast | p0.graveyard | gorge+[] xmage+[Colossal Dreadmaw]","cards":6}
+{"card":"Behind the Mask","template":"static#0.0","status":"diverge","api":"Animate","sets":["MKM"],"detail":"step 0 (cast) p0.graveyard: gorge \"[]\", xmage \"[Colossal Dreadmaw]\""}
+{"card":"Bite Down on Crime","template":"static#0.0","status":"diverge","api":"Pump+DealDamage","sets":["MKM"],"detail":"step 0 (cast) p0.graveyard: gorge \"[]\", xmage \"[Colossal Dreadmaw]\""}
+{"card":"Crimestopper Sprite","template":"static#0.0","status":"diverge","api":"ChangesZone:Tap","sets":["MKM"],"detail":"step 0 (cast) p0.graveyard: gorge \"[]\", xmage \"[Colossal Dreadmaw]\""}
+{"card":"Deadly Cover-Up","template":"static#0.0","status":"diverge","api":"DestroyAll+ChangeZone+Draw+Cleanup","sets":["MKM"],"detail":"step 0 (cast) p0.graveyard: gorge \"[]\", xmage \"[Colossal Dreadmaw]\""}
+{"card":"Extract a Confession","template":"static#0.0","status":"diverge","api":"Sacrifice+RepeatEach+SacrificeAll+Cleanup","sets":["MKM"],"detail":"step 0 (cast) p0.graveyard: gorge \"[]\", xmage \"[Colossal Dreadmaw]\""}
+{"card":"Vitu-Ghazi Inspector","template":"static#0.0","status":"diverge","api":"ChangesZone:PutCounter","sets":["MKM"],"detail":"step 0 (cast) p0.graveyard: gorge \"[]\", xmage \"[Colossal Dreadmaw]\""}

@@ -10,7 +10,8 @@ import "github.com/adams-shaun/gorge/state"
 // from the hand through the engine's own "adventure_alt" offer
 // (rules/adventure.go), so the runner chooses exactly the offer a player
 // would. Setup names stay physical-card names; a setup that names an
-// Adventure face is still "not dealt".
+// Adventure face is still "not dealt". A Room's other door (CR 709.5) binds
+// the same way and is cast through the engine's "room_alt" offer.
 
 // oracleAltFaceMode returns the cast mode that casts name as an alternate
 // spell face of o's card, or "" when name is not such a face of o (or is
@@ -21,6 +22,9 @@ func oracleAltFaceMode(o *state.Object, name string) string {
 	}
 	if f := adventureSpellFace(o); f != nil && f.Name == name {
 		return "adventure_alt"
+	}
+	if f := roomAlternateCastFace(o); f != nil && f.Name == name {
+		return "room_alt"
 	}
 	return ""
 }
