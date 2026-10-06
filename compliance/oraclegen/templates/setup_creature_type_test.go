@@ -99,14 +99,15 @@ var wantSetupTypeCensus = map[string][2]int{
 	"FRA": {0, 0},
 }
 
+// The printed lists are frozen copies under testdata/printed so the test reads
+// only its own package directory and stays cacheable.
 func TestSetupCreatureTypeCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
-	root := filepath.Join("..", "..", "..")
 	has := func(n string) bool { _, ok := reg.Lookup(n); return ok }
 	folded := compliance.FoldedNames(reg)
 	got := map[string][2]int{}
 	for _, set := range activateCensusSets {
-		printed, err := compliance.LoadPrinted(filepath.Join(root, "compliance", "printed"), set)
+		printed, err := compliance.LoadPrinted(filepath.Join("testdata", "printed"), set)
 		if err != nil {
 			t.Fatalf("%s: %v", set, err)
 		}
