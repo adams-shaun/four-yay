@@ -69,6 +69,20 @@ var panharmoniconParams = map[string]bool{
 	"Destination": true, "Description": true,
 }
 
+// panharmoniconUnmodelledParams returns the static's parameter keys outside
+// panharmoniconParams, sorted so the skip reason written to the skips file is
+// the same on every run (map order must not reach it).
+func panharmoniconUnmodelledParams(params map[string]string) []string {
+	var extra []string
+	for k := range params {
+		if !panharmoniconParams[k] {
+			extra = append(extra, k)
+		}
+	}
+	sort.Strings(extra)
+	return extra
+}
+
 // panharmoniconItem serves one Panharmonicon static requirement.
 func panharmoniconItem(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
 	skip := func(why string) (oraclegen.Item, *oraclegen.Skip) {
@@ -79,10 +93,8 @@ func panharmoniconItem(reg *cards.Registry, f *cards.Face, name string, req leve
 		return skip("static slot not found")
 	}
 	valid := strings.ToLower(st.ParamStr(cards.PKValidCard))
-	for k := range st.Params {
-		if !panharmoniconParams[k] {
-			return skip("parameter " + k + " is not modelled by the probes")
-		}
+	if extra := panharmoniconUnmodelledParams(st.Params); len(extra) != 0 {
+		return skip("parameters " + strings.Join(extra, ",") + " are not modelled by the probes")
 	}
 	switch {
 	case valid == "":
@@ -98,7 +110,10 @@ func panharmoniconItem(reg *cards.Registry, f *cards.Face, name string, req leve
 		cr      = []string{"603.2d"}
 	)
 	if modes := st.ParamStr(cards.PKValidMode); modes != "" {
-		if !strings.Contains(","+modes+",", ",ChangesZone,") || !strings.EqualFold(st.ParamStr(cards.PKDestination), "Battlefield") {
+		if !strings.Contains(","+modes+",", ",ChangesZone,") {
+			return skip("cause mode " + modes + " has no single-card ChangesZone trigger the cast probe fires")
+		}
+		if !strings.EqualFold(st.ParamStr(cards.PKDestination), "Battlefield") {
 			return skip("cause mode " + modes + " is not an enters-the-battlefield cause")
 		}
 		recipes = panharmoniconETBRuns(reg)

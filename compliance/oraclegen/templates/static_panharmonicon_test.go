@@ -118,3 +118,42 @@ func TestStaticPanharmoniconNamedSkips(t *testing.T) {
 		}
 	}
 }
+
+// TestStaticPanharmoniconUnmodelledParamsSkipIsDeterministic: a static with
+// several unmodelled parameters names all of them, sorted, so the reason that
+// reaches the skips file does not depend on map order. Each card is generated
+// repeatedly; with map-order selection a multi-key static varies run to run.
+func TestStaticPanharmoniconUnmodelledParamsSkipIsDeterministic(t *testing.T) {
+	reg := loadGenRegistry(t)
+	cases := []struct{ card, key, want string }{
+		{"Felix Five-Boots", "static#0.0", "static Panharmonicon parameters CombatDamage,ValidSource,ValidTarget are not modelled by the probes"},
+		{"Gandalf the White", "static#0.2", "static Panharmonicon parameters Origin,Secondary are not modelled by the probes"},
+	}
+	for _, tc := range cases {
+		c, ok := reg.Lookup(tc.card)
+		if !ok {
+			t.Fatalf("%s not in the corpus", tc.card)
+		}
+		var req *levelb.Requirement
+		for _, r := range levelb.Requirements(c) {
+			if r.Key == tc.key && r.Sub == "static.panharmonicon" {
+				req = &r
+			}
+		}
+		if req == nil {
+			t.Fatalf("precondition: %s has no static.panharmonicon requirement %s", tc.card, tc.key)
+		}
+		for i := 0; i < 20; i++ {
+			_, skip := GenerateB(reg, tc.card, *req)
+			if skip == nil || skip.Reason != tc.want {
+				t.Fatalf("%s %s run %d: skip %+v, want %q", tc.card, tc.key, i, skip, tc.want)
+			}
+		}
+	}
+	params := map[string]string{"Mode": "Panharmonicon", "Zeta": "x", "Alpha": "x", "Mid": "x", "Beta": "x"}
+	for i := 0; i < 50; i++ {
+		if got := strings.Join(panharmoniconUnmodelledParams(params), ","); got != "Alpha,Beta,Mid,Zeta" {
+			t.Fatalf("run %d: unmodelled params %q, want Alpha,Beta,Mid,Zeta", i, got)
+		}
+	}
+}
