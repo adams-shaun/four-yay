@@ -194,6 +194,23 @@ func cardChoices(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID) []state.T
 		}
 	}
 
+	// `targetedBy` (Forge's Card.targetedBy) is a membership test against the
+	// resolving ability's OWN answered targets, not a filter predicate: the
+	// filter tier strips it (conditions.go's stripTargetedByToken) because it
+	// has no object to test against, so a Choices$ carrying it would otherwise
+	// fail closed and offer nothing. Compute the set once from the ability's
+	// answered targets -- the same read the ConditionDefined$/ConditionPresent$
+	// gate uses -- and apply it per candidate below.
+	targetedBySet := map[state.ObjID]bool{}
+	hasTargetedBy := strings.Contains(spec, "targetedBy")
+	if hasTargetedBy {
+		for _, t := range targetedGateGroup(c, sa) {
+			if !t.IsPlayer && t.Obj != 0 {
+				targetedBySet[t.Obj] = true
+			}
+		}
+	}
+
 	var out []state.Target
 	for _, t := range candidates {
 		o := g.Obj(t.Obj)
@@ -216,7 +233,7 @@ func cardChoices(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID) []state.T
 		// player predicate instead. Reading the chooser here offered those
 		// choosers an empty or wrong pool (Shrouded Lore's opponent was never
 		// asked at all).
-		if spec == "" || choiceSpecAdmits(h, g, c, spec, o) {
+		if spec == "" || choiceSpecAdmits(h, g, c, spec, o, targetedBySet, hasTargetedBy) {
 			out = append(out, t)
 		}
 	}
@@ -241,14 +258,18 @@ func cardChoices(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID) []state.T
 // the positive form.
 const canBeSacrificedByToken = "CanBeSacrificedBy"
 
-func choiceSpecAdmits(h Host, g *state.Game, c *Ctx, spec string, o *state.Object) bool {
-	if !strings.Contains(spec, canBeSacrificedByToken) {
+func choiceSpecAdmits(h Host, g *state.Game, c *Ctx, spec string, o *state.Object, targetedBySet map[state.ObjID]bool, hasTargetedBy bool) bool {
+	if !strings.Contains(spec, canBeSacrificedByToken) && !hasTargetedBy {
 		return choiceMatches(h, g, c, spec, o)
 	}
 	matched := false
 	for alt := range filterAlternatives(spec) {
 		alt = strings.TrimSpace(alt)
 		if alt == "" {
+			continue
+		}
+		if admits, carried := targetedByAlternative(h, g, c, alt, o, targetedBySet); carried {
+			matched = matched || admits
 			continue
 		}
 		if admits, carried := sacrificeableAlternative(h, g, c, alt, o); carried {
@@ -258,6 +279,26 @@ func choiceSpecAdmits(h Host, g *state.Game, c *Ctx, spec string, o *state.Objec
 		matched = matched || choiceMatches(h, g, c, alt, o)
 	}
 	return matched
+}
+
+// targetedByAlternative evaluates ONE comma alternative of a ChooseCard
+// Choices$ spec that carries the `targetedBy` token: the candidate must be one
+// of the resolving ability's answered targets (or not, for the `!` form), and
+// the token-stripped remainder -- base plus any other predicates -- must still
+// match it. carried is false when the alternative never names the token, so
+// the caller evaluates it verbatim.
+func targetedByAlternative(h Host, g *state.Game, c *Ctx, alt string, o *state.Object, set map[state.ObjID]bool) (admits, carried bool) {
+	if !strings.Contains(alt, "targetedBy") {
+		return false, false
+	}
+	neg := strings.Contains(alt, "!targetedBy")
+	stripped, _ := StripPredicateToken(alt, "targetedBy")
+	stripped, _ = StripPredicateToken(stripped, "!targetedBy")
+	member := set[o.ID]
+	if neg {
+		member = !member
+	}
+	return member && choiceMatches(h, g, c, stripped, o), true
 }
 
 // sacrificeableAlternative evaluates ONE comma alternative of a ChooseCard
