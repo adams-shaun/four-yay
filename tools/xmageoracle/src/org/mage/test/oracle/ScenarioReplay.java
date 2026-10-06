@@ -735,8 +735,13 @@ public class ScenarioReplay extends CardTestPlayerBase {
     }
 
     // The item's per-step XMage ability text (parallel to the steps; empty
-    // except on activate steps). XMage's TestPlayer selects an activated
-    // ability by a prefix of its rule text (ability.toString().startsWith).
+    // except on activate steps). H1, confirmed against the XMage source:
+    // TestPlayer.hasAbilityTargetNameOrAlias (Mage.Tests .../player/
+    // TestPlayer.java) selects an activated ability with
+    // `ability.toString().startsWith(nameOrAlias)`, and AbilityImpl.toString()
+    // is getRule(), so the item's value is the printed rule text's prefix
+    // ("{T}", "Equip {2}"). The activate: / manaActivate: handlers route it
+    // through that match before activating.
     private JsonArray xabilities = new JsonArray();
 
     /** Step i's XMage ability text, or "" when the item carries none. */

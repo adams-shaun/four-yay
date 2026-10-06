@@ -23,17 +23,60 @@ func TestDriverActivateCasePinsXMageAbility(t *testing.T) {
 		t.Fatal(err)
 	}
 	java := string(b)
+	// Precondition: the step signature carries the step index the activate
+	// case reads its xmage_ability entry by.
+	if !strings.Contains(java, "step(st, op, i);") {
+		t.Fatalf("ScenarioReplay.java no longer passes the step index: missing %q", "step(st, op, i);")
+	}
+	body, ok := caseBody(java, "activate")
+	if !ok {
+		t.Fatalf("ScenarioReplay.java has no `case \"activate\":` in the step switch")
+	}
+	// The file must read the item's xmage_ability, and the activate case
+	// itself must resolve its step's entry and call both API forms, not
+	// merely mention them somewhere in the file.
+	if !strings.Contains(java, `"xmage_ability"`) {
+		t.Errorf("ScenarioReplay.java does not read the item's xmage_ability")
+	}
 	for _, required := range []string{
-		`case "activate":`,
-		`"xmage_ability"`,
+		"xabilityAt(stepIdx)",
 		"activateAbility(TURN, phase, p, text)",
 		"activateManaAbility(TURN, phase, p, text)",
-		"step(st, op, i);",
 	} {
-		if !strings.Contains(java, required) {
-			t.Errorf("ScenarioReplay.java lacks the activate contract %q", required)
+		if !strings.Contains(body, required) {
+			t.Errorf("the activate case does not %q", required)
 		}
 	}
+}
+
+// caseBody returns the source of a step-switch `case "name":` from its
+// label through the matching closing brace. It scans brace depth so the
+// case's own blocks (an if, a nested lambda) are included and the next case
+// is not. ok is false when the label is absent.
+func caseBody(java, name string) (string, bool) {
+	label := `case "` + name + `":`
+	i := strings.Index(java, label)
+	if i < 0 {
+		return "", false
+	}
+	rest := java[i:]
+	open := strings.IndexByte(rest, '{')
+	if open < 0 {
+		return rest, true
+	}
+	depth := 0
+	for j := open; j < len(rest); j++ {
+		switch rest[j] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return rest[:j+1], true
+			}
+		}
+	}
+	return rest, true
 }
 
 // TestDriverStepSwitchCoversLevelBActivateOps builds the activate items for
@@ -59,10 +102,19 @@ func TestDriverStepSwitchCoversLevelBActivateOps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the generator needs the corpus: %v", err)
 	}
+	// Every card the L5 activate tests exercise, so the driver contract
+	// covers each shape: a true mana ability, a {T} ability with a target,
+	// a keyword-expanded Equip, a plain mana cost with a self-sacrifice, a
+	// planeswalker's +/-N loyalty, and a loyalty-cost MANA-API ability that
+	// is not a mana ability (Chandra, CR 605.1b).
 	cases := []struct{ card, key string }{
 		{"Druid of the Cowl", "activate#0.0"},
 		{"Axgard Cavalry", "activate#0.0"},
 		{"Basilisk Collar", "activate#0.0"},
+		{"Ajani, Caller of the Pride", "activate#0.0"},
+		{"Ajani, Caller of the Pride", "activate#0.1"},
+		{"Cathar Commando", "activate#0.0"},
+		{"Chandra, Flameshaper", "activate#0.0"},
 	}
 	sawActivate := false
 	for _, tc := range cases {
