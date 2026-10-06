@@ -103,6 +103,9 @@ func diesOtherRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.T
 		return nil, "dies-other probe is the card"
 	}
 	filter := levelb.ZoneChangeFilter(t)
+	if damagedByVictim(filter) {
+		return damagedByCauses(f, name, filter)
+	}
 	var pre, prelude []oraclegen.Step
 	aura := strings.Contains(filter, "AttachedBy") || strings.Contains(filter, "EnchantedBy")
 	equip := strings.Contains(filter, "EquippedBy")
@@ -164,4 +167,42 @@ func diesOtherRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.T
 		}
 	}
 	return causes, ""
+}
+
+// damagedByBlocker is the victim a "creature dealt damage by CARDNAME this
+// turn dies" trigger needs: a 1/1 the card's combat damage kills when it
+// blocks the attacking card.
+const damagedByBlocker = "Llanowar Elves"
+
+// damagedByVictim reports whether a dies filter demands a victim the card
+// itself damaged this turn (a bare DamagedBy qualifier: Creature.DamagedBy,
+// Creature.OppCtrl+DamagedBy). DamagedBy<Something> and "DamagedBy Equipped"
+// name another damage source and are not this shape.
+func damagedByVictim(filter string) bool {
+	for _, alt := range strings.Split(filter, ",") {
+		for _, tok := range strings.FieldsFunc(alt, func(r rune) bool { return r == '.' || r == '+' }) {
+			if strings.TrimSpace(tok) == "DamagedBy" {
+				return !strings.Contains(filter, "YouCtrl")
+			}
+		}
+	}
+	return false
+}
+
+// damagedByCauses builds the combat that makes the card damage its victim:
+// the card attacks, p1's 1/1 blocks it and dies to its combat damage. The
+// trigger is put on the stack in the combat-damage step, so the probe stops
+// in end-combat (as the combat-damage recipe's does) and the emitted item
+// passes to main2. A card with no power to kill the blocker has no cause.
+func damagedByCauses(f *cards.Face, name, filter string) ([]triggerCause, string) {
+	if !f.IsCreature() || strings.Contains(f.PT, "*") || f.Power() < 1 {
+		return nil, "dies victim must be damaged by the card (the card deals no combat damage)"
+	}
+	attack := oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:" + name}}
+	block := oraclegen.Step{Op: "block", Seat: 1, Blocks: [][2]string{{"p1:" + damagedByBlocker, "p0:" + name}}}
+	return []triggerCause{{
+		opponentBattlefield: []string{damagedByBlocker},
+		steps:               []oraclegen.Step{attack, block, {Op: "pass_to", Step: "main2"}},
+		probeSteps:          []oraclegen.Step{attack, block, {Op: "pass_to", Step: "end-combat"}},
+	}}, ""
 }

@@ -504,6 +504,12 @@ func candidatesFor(reg *cards.Registry, filter, parentTarget string) []cand {
 	case "enchantment":
 		return withRole([]cand{{seat: opp, zone: "battlefield", card: "Glorious Anthem"}})
 	case "land":
+		if filterPredicate(strings.TrimSpace(alt[0]), "nonBasic") {
+			// "Target nonbasic land": Forest is basic and never legal. Crystal
+			// Vein is a plain nonbasic land (two mana abilities, no trigger,
+			// no static) both engines know.
+			return withRole([]cand{{seat: opp, zone: "battlefield", card: "Crystal Vein"}})
+		}
 		return withRole([]cand{{seat: opp, zone: "battlefield", card: "Forest"}})
 	case "planeswalker":
 		return withRole([]cand{{seat: opp, zone: "battlefield", card: "Jace Beleren"}})
@@ -1052,7 +1058,7 @@ func fixtureAlreadyTargetsCard(targets []string, seat, card string) bool {
 
 func clone(s Seat) Seat {
 	return Seat{
-		Counters: cloneCounters(s.Counters), Speed: s.Speed,
+		Counters: cloneCounters(s.Counters), Speed: s.Speed, Life: s.Life,
 		Battlefield: append([]string(nil), s.Battlefield...), Tapped: append([]string(nil), s.Tapped...), Hand: append([]string(nil), s.Hand...),
 		Graveyard: append([]string(nil), s.Graveyard...), Exile: append([]string(nil), s.Exile...),
 		Library: append([]string(nil), s.Library...), LibraryTop: append([]string(nil), s.LibraryTop...),
