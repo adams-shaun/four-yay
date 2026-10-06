@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: I've Come Up with a New Recipe! — {N}{G}{U}, {T}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: I've Come Up with a New Recipe! — {N}{G}{U}, {T}","cards":1}
-{"card":"Ignis Scientia","template":"activate#0.0","status":"harness","api":"ChangesZone:Dig","sets":["FIN"],"detail":"xmage: AssertionError: Can't find ability to activate command: I've Come Up with a New Recipe! — {1}{G}{U}, {T}"}

@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Fathomless descent — {T}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Fathomless descent — {T}","cards":1}
-{"card":"Matzalantli, the Great Door","template":"activate#1.0","status":"harness","api":"-","sets":["LCI"],"detail":"xmage: AssertionError: Can't find ability to activate command: Fathomless descent — {T}"}

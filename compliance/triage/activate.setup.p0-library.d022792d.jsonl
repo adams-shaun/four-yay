@@ -1,3 +1,5 @@
-{"shape":{"template":"activate","op":"setup","field":"p0.library","diff":"placement"},"key":"activate | setup | p0.library | placement","cards":2}
+{"shape":{"template":"activate","op":"setup","field":"p0.library","diff":"placement"},"key":"activate | setup | p0.library | placement","cards":4}
+{"card":"Broodheart Engine","template":"activate#0.0","status":"diverge","api":"Phase:Surveil","sets":["DFT"],"detail":"setup p0.graveyard: gorge \"[Grizzly Bears]\", xmage \"[Grizzly Bears, Wastes]\""}
+{"card":"Morcant's Eyes","template":"activate#0.0","status":"diverge","api":"Phase:Surveil","sets":["ECL"],"detail":"setup p0.graveyard: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"The Legend of Kyoshi","template":"activate#1.0","status":"diverge","api":"-","sets":["TLA"],"detail":"setup p0.hand: gorge \"[Wastes, Wastes, Wastes, Wastes, Wastes]\", xmage \"[]\""}
 {"card":"The Legend of Roku","template":"activate#1.0","status":"diverge","api":"-","sets":["TLA"],"detail":"setup p0.exile: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[]\""}

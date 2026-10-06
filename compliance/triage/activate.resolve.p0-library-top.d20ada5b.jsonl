@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Glorious Anthem, Jace Beleren] xmage+[Ornithopter, Shock]"},"key":"activate | resolve | p0.library_top | gorge+[Glorious Anthem, Jace Beleren] xmage+[Ornithopter, Shock]","cards":1}
+{"card":"Stratosoarer","template":"activate#0.0","status":"diverge","api":"ChangesZone:Pump","sets":["ECL"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Glorious Anthem, Wastes]\", xmage \"[Shock, Wastes, Ornithopter, Wastes, Wastes]\""}

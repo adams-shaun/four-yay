@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{U}, {T}, Sacrifice this land"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{U}, {T}, Sacrifice this land","cards":1}
-{"card":"Reef Roads","template":"activate#0.1","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: {1}{U}, {T}, Sacrifice this land"}

@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Power-up — {N}{B}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Power-up — {N}{B}","cards":1}
-{"card":"Ninja of the Hand","template":"activate#0.0","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: AssertionError: Can't find ability to activate command: Power-up — {4}{B}"}

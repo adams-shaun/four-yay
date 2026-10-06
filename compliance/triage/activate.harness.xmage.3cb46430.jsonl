@@ -1,3 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Exhaust — {N}{R}{G}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Exhaust — {N}{R}{G}","cards":2}
-{"card":"Boom Scholar","template":"activate#0.0","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {4}{R}{G}"}
-{"card":"Redshift, Rocketeer Chief","template":"activate#0.1","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {10}{R}{G}"}

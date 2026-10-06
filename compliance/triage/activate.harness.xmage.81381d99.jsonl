@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Power-up — {C}{W}{U}{B}{R}{G}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Power-up — {C}{W}{U}{B}{R}{G}","cards":1}
-{"card":"Thanos, the Mad Titan","template":"activate#0.0","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: AssertionError: Can't find ability to activate command: Power-up — {C}{W}{U}{B}{R}{G}"}

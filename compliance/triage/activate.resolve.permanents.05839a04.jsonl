@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"permanents","diff":"Grizzly Bears gorge+[counters=P1P1=2] xmage+[counters=P1P1=2,REACH=1]"},"key":"activate | resolve | permanents | Grizzly Bears gorge+[counters=P1P1=2] xmage+[counters=P1P1=2,REACH=1]","cards":1}
+{"card":"Sagu Pummeler","template":"activate#0.0","status":"diverge","api":"-","sets":["TDM"],"detail":"step 1 (resolve) permanents: gorge \"c1 o1 Grizzly Bears [bear creature] {G} 4/4 counters=P1P1=2\", xmage \"c1 o1 Grizzly Bears [bear creature] {G} 4/4 counters=P1P1=2,REACH=1\""}

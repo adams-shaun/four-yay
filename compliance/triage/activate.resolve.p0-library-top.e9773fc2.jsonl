@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[] xmage+[]"},"key":"activate | resolve | p0.library_top | gorge+[] xmage+[]","cards":1}
+{"card":"Ugin, Eye of the Storms","template":"activate#0.2","status":"diverge","api":"SpellCast:ChangeZone","sets":["TDM"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Forest, Wastes]\", xmage \"[Forest, Wastes, Wastes, Jace Beleren, Wastes]\""}

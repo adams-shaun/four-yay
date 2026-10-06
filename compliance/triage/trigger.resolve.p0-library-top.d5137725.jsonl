@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"resolve","field":"p0.library_top","diff":"gorge+[] xmage+[]"},"key":"trigger | resolve | p0.library_top | gorge+[] xmage+[]","cards":1}
-{"card":"Guardian Sunmare","template":"trigger#0.0","status":"diverge","api":"Attacks:ChangeZone+BecomesTarget:Ward","sets":["DFT"],"detail":"step 3 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Wastes, Grizzly Bears, Wastes]\", xmage \"[Wastes, Wastes, Grizzly Bears, Wastes, Wastes]\""}

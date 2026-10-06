@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{G}{G}, Sacrifice this enchantment"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{G}{G}, Sacrifice this enchantment","cards":1}
-{"card":"Morcant's Eyes","template":"activate#0.0","status":"harness","api":"Phase:Surveil","sets":["ECL"],"detail":"xmage: AssertionError: Can't find ability to activate command: {4}{G}{G}, Sacrifice this enchantment"}
