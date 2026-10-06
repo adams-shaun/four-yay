@@ -11,11 +11,15 @@ import (
 	"github.com/adams-shaun/gorge/compliance/oraclegen/templates"
 )
 
+// corpus is the process-shared registry (cards.SharedCorpus): a registry is
+// read-only after open, and a fresh LoadRegistry per test cost ~600 MB and
+// ~1 s and re-derived every card-keyed memo.
+//
+// SharedCorpus (not bare LoadRegistry) so an absent fingerprint-keyed IR
+// cache is compiled on demand instead of failing: see the note on
+// TestDeclaredSetsCompliant.
 func corpus(t *testing.T) *cards.Registry {
 	t.Helper()
-	// SharedCorpus (not bare LoadRegistry) so an absent fingerprint-keyed IR
-	// cache is compiled on demand instead of failing: see the note on
-	// TestDeclaredSetsCompliant.
 	reg, err := cards.SharedCorpus(filepath.Join("..", "..", ".cards"))
 	if err != nil {
 		t.Fatalf("the compliance gate needs the corpus (make fetch-cards compile-cards): %v", err)
