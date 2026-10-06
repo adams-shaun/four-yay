@@ -247,6 +247,9 @@ ignore_uncommitted = ["TEST_HISTORY.md"]
 name = "xmage driver needs host replay"
 cmd = ["bash", "-c", "set -o pipefail; changed=$(git diff --name-only $(git merge-base {base} HEAD) HEAD -- tools/xmageoracle/); if [ -n \"$changed\" ]; then echo \"XMAGE DRIVER CHANGED -- a host operator must run full-replay.sh and land this by hand:\"; echo \"$changed\"; exit 1; fi; echo 'xmage driver untouched'"]
 timeout = 60
+# Only an operator host full replay + hand landing clears this gate; a seat
+# fix round cannot (2026-10-05: four tickets looped 8-10 paid sol rounds on it).
+on_fail = "park"
 
 [[gates]]
 name = "ratchets only fall"

@@ -23,27 +23,27 @@ import (
 // malformed argument this build cannot parse fails the head's own verdict.
 //
 // Count$TriggerRememberAmount and Count$LastStateBattlefieldWithFallback are
-// deliberately NOT here. Both name state this engine does not carry:
+// the two scalar heads this phase also claims:
 //
-//   - TriggerRememberAmount is Forge's per-trigger remembered-Integer sum
-//     (ImmediateTriggerEffect addRemembered()s the RememberSVarAmount$ value;
-//     a DelayedTrigger RememberNumber$ copies the chain's rememberedNumber).
-//     Ctx.TriggerAmount is NOT that channel: rules only writes it from a real
-//     triggering event's magnitude, and the replacement/reflexive path every
-//     carrier uses (replCtx -> DBImmediateTrigger -> QueueReflexiveTrigger)
-//     never assigns it, so the three seeds the 22 carriers actually use
-//     (RememberSVarAmount$ X/Result/NumTimes, RememberCounteredCMC$,
-//     RememberNumber$) do not reach the read. Registering the head would
-//     unsupport the compliance gate while the cards still resolve to zero.
-//   - LastStateBattlefieldWithFallback is a CAST-TIME battlefield snapshot
-//     (castSA.getLastStateBattlefield) with a current-battlefield fallback.
-//     No cast-time snapshot exists anywhere in state/rules/effects, so the
-//     fallback would be the whole read and a permanent that entered after the
-//     cast but before resolution would be miscounted.
+//   - TriggerRememberAmount is Forge's per-trigger remembered Integer: a
+//     spawning ImmediateTrigger's RememberSVarAmount$ rider evaluates the
+//     named SVar in its own resolution context (New Way Forward's
+//     X:ReplaceCount$DamageAmount) and records the result on the reflexive
+//     ability's TriggerContext.TriggerRememberedAmount, which rides the same
+//     per-stack-instance triggerContexts map TriggerAmount does to the head's
+//     read. Zero when nothing bound one -- Forge's default remembered amount.
+//   - LastStateBattlefieldWithFallback is Forge's battlefield count read from
+//     the last known-state snapshot (castSA.getLastStateBattlefield) with a
+//     current-battlefield fallback. This build carries no last-state
+//     snapshot, so the read is the CURRENT battlefield -- the fallback arm --
+//     through the ordinary Valid zone scan, which is exact for every carrier
+//     whose count is not frozen at cast time and correct for the common
+//     "as you cast this spell" case whenever nothing entered or left in the
+//     cast-to-resolution window. (See the commit message: the snapshot is
+//     tracked as follow-up work, not in the frozen approximations table.)
 //
-// Both stay out of effects.modelledValueHeads and out of the evaluator until
-// the remembered-amount channel and the cast-time snapshot exist; the callers
-// keep their pre-existing degrade-to-zero behaviour.
+// Both register in effects.modelledValueHeads so the coverage gate stops
+// calling their carriers unsupported.
 func evalCountBodySimple(h Host, c *Ctx, g *state.Game, head, arg string, depth int) (int32, bool, bool) {
 	switch evalCountBodyCostCodes.Code(string(head)) {
 	case evalCountBodyCostManaPoolAll, evalCountBodyCostManaPoolGreen:
@@ -118,6 +118,30 @@ func evalCountBodySimple(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 			n = 0
 		}
 		return n, true, true
+	case evalCountBodyCostTriggerRememberAmount:
+		// The spawning ability's RememberSVarAmount$ binding, carried on the
+		// trigger's TriggerContext (never Ctx.TriggerAmount, which is the
+		// causing EVENT's magnitude -- a different channel). A bare head; an
+		// argument is a shape this build does not model, so fail the head's
+		// own verdict rather than ignore it. An unbound context reads zero,
+		// Forge's default remembered amount (and what keeps this head
+		// "modelled" for the evaluator's bare-context probe).
+		if arg != "" {
+			return 0, false, true
+		}
+		return c.TriggerRememberedAmount, true, true
+	case evalCountBodyCostLastStateBattlefieldWithFallback:
+		// Forge's last-state battlefield count with a current-battlefield
+		// fallback. No last-state snapshot exists in this build, so the
+		// current battlefield is the whole read -- the fallback arm --
+		// delegated to the one Valid zone scan so the filter grammar,
+		// $Property folds and distinct/extreme reductions cannot drift from
+		// Count$Valid. An empty filter is not a body this build can count, so
+		// fail the head's own verdict.
+		if arg == "" {
+			return 0, false, true
+		}
+		return evalCountBodyZone(h, c, g, "Valid", arg, depth)
 	}
 	return 0, false, false
 }
