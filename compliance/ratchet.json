@@ -120,7 +120,7 @@
 "E01": {"outstanding":82},
 "E02": {"outstanding":38},
 "ECC": {"outstanding":131},
-"ECL": {"outstanding":1},
+"ECL": {"outstanding":0},
 "ELD": {"outstanding":252},
 "EMA": {"outstanding":201},
 "EMN": {"outstanding":204},
