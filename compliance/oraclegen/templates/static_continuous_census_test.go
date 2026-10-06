@@ -21,22 +21,26 @@ import (
 // shows nothing on with the probes its Affected$ filter names, and by
 // levelb-setup-counters-speed, which serves a self-counter-gated static with
 // its counters and a MaxSpeed static at speed 4. Measured 2026-10-06 after the
-// counter/speed merge onto the probe work: EOE served 16 -> 37 and its
-// "needs counters on the affected permanent" skip bucket 30 -> 0, with 9 of
-// those 30 granting only an ability (the named staticGrantWaits skip); FDN
-// served 39 -> 40 and its needs-counters bucket 3 -> 2. It fails in both
-// directions.
+// counter/speed merge onto the probe work. A counter-gated static whose card
+// has its own ETB trigger (staticSelfETB) stays on the cast path instead: XMage
+// cheats setup permanents onto the battlefield pre-game and never fires the
+// trigger, so the counter setup diverges, while the cast path fires it in both
+// engines. EOE served 16 -> 23, its needs-counters bucket 30 -> 10, with 13 of
+// the counter/speed-gated rows granting only an ability (the named
+// staticGrantWaits skip). FDN served 39 -> 40 and its needs-counters bucket
+// 3 -> 2. It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
 		"served": 2,
 		"skip:static effect not observable on a probe or the card": 1,
 	},
 	"EOE": {
-		"served": 37,
+		"served": 23,
 		"skip:static effect not observable on a probe or the card":                     14,
 		"skip:static amount is a computed count the fixture does not make observable":  3,
-		"skip:static grants an ability, which waits for levelb-static-granted-ability": 9,
+		"skip:static grants an ability, which waits for levelb-static-granted-ability": 13,
 		"skip:static grants only keywords outside the compared evergreen set":          1,
+		"skip:static needs counters on the affected permanent":                         10,
 	},
 	"FDN": {
 		"served": 40,

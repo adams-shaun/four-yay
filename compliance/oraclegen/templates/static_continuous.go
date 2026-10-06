@@ -127,9 +127,12 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 	probes := append([]string{staticProbe}, plan.probes...)
 	var base oraclegen.Item
 	switch {
-	case staticCounterGated(&st):
+	case staticCounterGated(&st) && !staticSelfETB(f):
 		// The card starts on the battlefield holding the counters its gate
-		// names, so the effect is already on at the first checkpoint.
+		// names, so the effect is already on at the first checkpoint. A card
+		// with its own ETB trigger cannot use this path: XMage never fires a
+		// setup-placed permanent's ETB (see staticSelfETB), so it stays on
+		// the cast path below.
 		kind, need, _ := staticCounterGate(&st)
 		base = counterGatedBase(f, name, kind, need)
 	case req.Face > 0 || plan.self:

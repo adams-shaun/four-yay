@@ -64,6 +64,26 @@ func withMaxSpeed(setup map[string]oraclegen.Seat) {
 	setup["p0"] = p0
 }
 
+// staticSelfETB reports whether f has its own enters-the-battlefield trigger
+// (ValidCard$ Card.Self, Destination$ Battlefield). A setup placement fires
+// such a trigger in gorge, but XMage cheats setup permanents onto the
+// battlefield before the game starts and never fires it, so its effect is
+// gorge-only and the two engines diverge (Atmospheric Greenhouse's +1/+1
+// counter, Kefka's discard). A counter-gated static on such a card therefore
+// stays on the cast path, which fires the trigger in both engines.
+func staticSelfETB(f *cards.Face) bool {
+	for i := range f.Triggers {
+		tr := &f.Triggers[i]
+		if !strings.Contains(strings.ToLower(tr.ParamStr(cards.PKValidCard)), "card.self") {
+			continue
+		}
+		if strings.Contains(strings.ToLower(tr.ParamStr(cards.PKDestination)), "battlefield") {
+			return true
+		}
+	}
+	return false
+}
+
 // staticGrantsAbility reports whether st grants an ability, trigger, static or
 // replacement effect (the shapes the probes cannot observe).
 func staticGrantsAbility(st *cards.Static) bool {
