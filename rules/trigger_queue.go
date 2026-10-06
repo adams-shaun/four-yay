@@ -1086,7 +1086,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 	}
 	stackLen := len(e.G.Stack)
 	e.emit(events.Event{Kind: events.TriggerPush, Player: pt.Controller,
-		Obj: pt.Source, Amount: int32(pt.Idx), IDs: ids, Text: "triggered ability"})
+		Obj: pt.Source, Amount: triggerPushAmount(e.G.Obj(pt.Source), pt), IDs: ids, Text: "triggered ability"})
 	if len(e.G.Stack) > stackLen {
 		id := e.G.Stack[len(e.G.Stack)-1]
 		if e.triggerContexts == nil {
@@ -1165,6 +1165,16 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 	e.drainAwaitsTarget = e.Pending() != nil && !e.drainAwaitsModes
 }
 
+// triggerPushAmount is the TriggerPush Amount for pt: its line index, tagged
+// with the printed face when the source src no longer shows that face.
+func triggerPushAmount(src *state.Object, pt pendingTrigger) int32 {
+	if src != nil && pt.FaceTag != 0 && pt.printed() &&
+		src.FaceIdx+1 != pt.FaceTag {
+		return events.TriggerPushAmount(pt.FaceTag-1, pt.Idx)
+	}
+	return int32(pt.Idx)
+}
+
 // triggerOf re-reads the T: line a pending trigger came from, so nothing has
 // to be cached on pendingTrigger for it.
 //
@@ -1191,6 +1201,8 @@ func (e *Engine) triggerOf(pt pendingTrigger) (cards.Trigger, bool) {
 	var f *cards.Face
 	if pt.Merged > 0 {
 		f = o.MergedFaceAt(pt.Merged - 1)
+	} else if pt.FaceTag != 0 && pt.printed() && o.Card != nil && int(pt.FaceTag) <= len(o.Card.Faces) {
+		f = o.Card.Faces[pt.FaceTag-1]
 	} else {
 		f = o.Face()
 	}
@@ -1283,6 +1295,20 @@ func (e *Engine) findTriggerForAbilityFace(source state.ObjID, sa *cards.SA) (ca
 	for _, t := range f.Triggers {
 		if t.Effect == sa {
 			return t, f, true
+		}
+	}
+	// A trigger pushed from a face the source no longer shows (a transformed
+	// double-faced card that left the battlefield is front face up, CR 712.8a).
+	if o.Card != nil {
+		for _, cf := range o.Card.Faces {
+			if cf == nil || cf == f {
+				continue
+			}
+			for _, t := range cf.Triggers {
+				if t.Effect == sa {
+					return t, cf, true
+				}
+			}
 		}
 	}
 	for i := range o.MergedCards {

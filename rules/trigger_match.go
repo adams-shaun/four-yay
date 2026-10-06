@@ -43,6 +43,12 @@ type pendingTrigger struct {
 	Controller state.PlayerID
 	Idx        int
 	SA         *cards.SA
+	// FaceTag is the printed face Idx indexes, plus one (0 = the source's
+	// active face), set for a matched T: line. The leaves-the-battlefield
+	// look-back reads the face the permanent had before it left, which a
+	// transformed double-faced card no longer shows once it is front face up
+	// (CR 712.8a), so the push must say which face's line it is.
+	FaceTag uint8
 	// sourceCharLKI is the source's last-known characteristics when it left
 	// the battlefield while this trigger waited (source_char_lki.go); it
 	// moves onto the stack object at TriggerPush.
@@ -1740,6 +1746,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 					Controller: controller,
 					Idx:        ti,
 					SA:         t.Effect,
+					FaceTag:    fc.faceIdx + 1,
 					Ctx: effects.NewCtx(id, controller, effects.CtxInit{
 						Remembered:     e.triggerRememberedFor(t, *ev, id),
 						Captured:       e.triggerRememberedFor(t, *ev, id),

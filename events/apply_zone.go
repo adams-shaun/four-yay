@@ -544,6 +544,15 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 		o.Card.Faces[0] != nil && o.Card.Faces[1] != nil {
 		o.SetFaceIdx(0)
 	}
+	// CR 712.8a, 712.14: a transforming double-faced card that is not on the
+	// battlefield has only its front face's characteristics, so a permanent
+	// that leaves transformed is front face up in the new zone, and a return
+	// that says "transformed" flips it again after this move (applyTransformed).
+	// Meld cards are unmelded by their own fold above.
+	if wasBattlefield && to != state.ZBattlefield && o.Card != nil &&
+		o.Card.AlternateMode == "DoubleFaced" && o.FaceIdx != 0 {
+		o.SetFaceIdx(0)
+	}
 	// The incarnation stamp is used by promises tied to a particular
 	// permanent (evoke/dash/warp), so only crossing the battlefield
 	// boundary advances it. A provisional hand->stack->hand CR 733 reversal
