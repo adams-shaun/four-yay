@@ -82,6 +82,8 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		}}, ""
 	case "trigger.etb-other":
 		return etbProbeCauses(reg, name, t)
+	case "trigger.leaves-graveyard", "trigger.ltb-other", "trigger.zone-change-residue":
+		return zoneTriggerRecipe(reg, name, t, sub)
 	case "trigger.dies":
 		if !creature {
 			return nil, "dies needs a creature"

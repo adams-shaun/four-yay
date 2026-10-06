@@ -62,8 +62,9 @@ var etbAuraProbes = map[string]bool{"Rancor": true, "Pacifism": true}
 // any cast or played probe, or "". The filter's comma-separated alternatives
 // are each tested, and only a filter every alternative of which is
 // unservable is reported: "Creature.YouCtrl,Land.OppCtrl" is still served by
-// a creature. In one alternative, token means a TOKEN must enter (a cast card
-// is never a token), faceDown a face-down permanent, ChosenType a permanent
+// a creature. In one alternative, token means a TOKEN must enter; etbProbeCauses
+// offers a token-maker for that filter. faceDown means a face-down permanent,
+// ChosenType a permanent
 // of a type chosen earlier, and OppCtrl an opponent's permanent. A negated
 // qualifier (!token) is satisfied by an ordinary non-token probe, so it is
 // stripped before the test.
@@ -84,14 +85,12 @@ func etbUnservableFilter(filter string) string {
 func etbUnservableAlternative(alt string) string {
 	rest := strings.ReplaceAll(strings.ToLower(alt), "!token", "")
 	switch {
-	case strings.Contains(rest, "token"):
-		return "token"
+	case strings.Contains(rest, "oppctrl"):
+		return "OppCtrl"
 	case strings.Contains(rest, "facedown"):
 		return "faceDown"
 	case strings.Contains(rest, "chosentype"):
 		return "ChosenType"
-	case strings.Contains(rest, "oppctrl"):
-		return "OppCtrl"
 	}
 	return ""
 }
@@ -99,7 +98,7 @@ func etbUnservableAlternative(alt string) string {
 // etbProbeCauses builds the candidate causes for an etb-other trigger, or the
 // named reason no probe can serve its filter.
 func etbProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) ([]triggerCause, string) {
-	filter := t.ParamStr(cards.PKValidCard)
+	filter := zoneChangeFilter(t)
 	if bad := etbUnservableFilter(filter); bad != "" {
 		return nil, "etb filter " + bad + " (" + filter + ")"
 	}
@@ -139,6 +138,11 @@ func etbProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) ([]trigg
 	}
 	if c, ok := castCause(reg, name, bearsProbe); ok {
 		out = append(out, c)
+	}
+	if strings.Contains(strings.ToLower(filter), "token") {
+		if c, ok := castCause(reg, name, "Raise the Alarm"); ok {
+			out = append(out, c)
+		}
 	}
 	if len(out) == 0 {
 		return nil, "probe not in corpus"

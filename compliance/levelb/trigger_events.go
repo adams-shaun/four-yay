@@ -17,6 +17,9 @@ import (
 // requirement only between sub-families, never in or out of the requirement
 // set.
 func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
+	if sub, ok := classifyZoneChangeTrigger(t); ok {
+		return sub, true
+	}
 	switch t.ModeKind() {
 	case cards.TriggerChangesZone:
 		if strings.EqualFold(t.ParamStr(cards.PKOrigin), "Battlefield") &&
