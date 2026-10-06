@@ -131,3 +131,49 @@ func TestOracleAbilityIndexSelectsSecondManaAbility(t *testing.T) {
 		t.Fatalf("Whisperer = %+v, want tapped (ability 1 costs {T})", p)
 	}
 }
+
+// Regression: ability_index 0 on a source that ALSO offers the generic
+// "Activate <card> for mana" placeholder. The placeholder is Kind "activate"
+// and leaves decision.Option.Ability at the zero value, so its anchor equals
+// index 0 -- indistinguishable from the first real ability. Before the fix,
+// ability_index 0 selected the placeholder (activating a mana ability) instead
+// of the first non-mana ability. White Mana Battery's IR order is
+//
+//	AB 0: {2}, {T}: Put a charge counter on CARDNAME. (non-mana)
+//	AB 1: {T}, Remove any number of charge counters: Add {W}... (mana)
+//
+// untapped with no counters, both are offered, and the mana placeholder sorts
+// first in the priority option list.
+func TestOracleAbilityIndexZeroSelectsAbilityNotManaPlaceholder(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	const sc = `{"name":"ability-index-zero-vs-mana","cr":["602.2"],"why":"ability_index 0 must not select the generic for-mana placeholder","setup":{"p0":{"battlefield":["White Mana Battery"]}},"steps":[{"op":"activate","seat":0,"card":"p0:White Mana Battery","mana":"RR","ability_index":0},{"op":"resolve","seat":0}]}`
+	res, err := RunOracleScenarioJSON(reg, []byte(sc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Fails) != 0 {
+		t.Fatalf("scenario failed: %v\n%s", res.Fails, strings.Join(res.Transcript, "\n"))
+	}
+	if len(res.Snapshots) != 3 {
+		t.Fatalf("%d snapshots, want 3 (setup + activate + resolve)", len(res.Snapshots))
+	}
+	setup := res.Snapshots[0]
+	if p, ok := snapPerm(setup, "p0:White Mana Battery"); !ok || p.Tapped || len(p.Counters) != 0 {
+		t.Fatalf("precondition: White Mana Battery = %+v, want an untapped permanent with no counters", p)
+	}
+	final := res.Snapshots[len(res.Snapshots)-1]
+	p, ok := snapPerm(final, "p0:White Mana Battery")
+	if !ok {
+		t.Fatal("White Mana Battery left the battlefield")
+	}
+	// Ability 0's effect: a charge counter, and {2} spent from the pool.
+	if got := p.Counters["CHARGE"]; got != 1 {
+		t.Fatalf("charge counters = %d, want 1 (ability_index 0 = PutCounter); counters=%v", got, p.Counters)
+	}
+	if !p.Tapped {
+		t.Fatal("White Mana Battery is untapped, want tapped (ability 0 costs {T})")
+	}
+	if got := final.Players[0].Pool; got != "" {
+		t.Fatalf("pool = %q, want empty (the {2} cast fee was spent)", got)
+	}
+}

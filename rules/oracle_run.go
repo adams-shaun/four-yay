@@ -997,6 +997,13 @@ func oraclePickActivateByIndex(r *oracleRun, st oracleStep, seat state.PlayerID,
 	if o == nil || o.Face() == nil {
 		return -1, notOffered
 	}
+	// The generic "Activate <card> for mana" placeholder is labelled with
+	// the engine's cached manaActivateLabel for the source's face name; a
+	// genuine ability option never shares that label. Matching the label
+	// exactly is how the placeholder -- whose Kind is "activate" and whose
+	// Ability anchor is the zero value, aliasing index 0 -- is excluded from
+	// the non-mana accept below.
+	manaLabel := r.e.manaActivateLabel(o.Face().Name)
 	pa, ok := o.PileAbilityAt(k)
 	if !ok || pa.SA == nil {
 		return -1, notOffered
@@ -1006,14 +1013,17 @@ func oraclePickActivateByIndex(r *oracleRun, st oracleStep, seat state.PlayerID,
 			continue
 		}
 		for _, opt := range d.Options {
-			if opt.Obj == id && strings.Contains(strings.ToLower(opt.Label), "for mana") {
+			if opt.Obj == id && opt.Label == manaLabel {
 				return opt.Index, nil
 			}
 		}
 		return -1, notOffered
 	}
 	for _, opt := range d.Options {
-		if opt.Obj != id || !oracleActivateKind(opt.Kind) || opt.Ability != k {
+		// Exclude the generic mana placeholder by identity: only a genuine
+		// ability option can satisfy an index, so index 0 selects the first
+		// real ability instead of the mana placeholder.
+		if opt.Obj != id || opt.Label == manaLabel || !oracleActivateKind(opt.Kind) || opt.Ability != k {
 			continue
 		}
 		if st.Ability != "" && !oracleLabelMatches(opt.Label, st.Ability) {
