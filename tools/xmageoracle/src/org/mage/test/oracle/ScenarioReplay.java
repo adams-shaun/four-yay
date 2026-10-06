@@ -23,6 +23,7 @@ import mage.constants.Outcome;
 import mage.constants.PhaseStep;
 import mage.constants.Zone;
 import mage.counters.Counter;
+import mage.counters.CounterType;
 import mage.game.Game;
 import mage.game.events.GameEvent;
 import mage.game.permanent.Permanent;
@@ -337,6 +338,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             phase = MAIN;
             build(sc);
             runCode("setup", TURN, MAIN, playerA, (info, p, g) -> {
+                applySetupState(g);
                 registerAliases(g);
                 snaps.add(snapshot(info, g));
             });
@@ -527,6 +529,50 @@ public class ScenarioReplay extends CardTestPlayerBase {
             }
             if (s.has("life")) {
                 setLife(p, s.get("life").getAsInt());
+            }
+        }
+    }
+
+    /** The setup's per-seat "counters" and "speed" (gorge's runner emits the same
+     * CounterChange / SpeedChange events when it places the cards). Runs inside
+     * the "setup" checkpoint, before the first snapshot, because a counter or a
+     * speed needs a live game. "counters" is card name -> counter kind (the
+     * CounterType enum name: CHARGE, P1P1, M1M1, ...) -> amount, applied to every
+     * battlefield placement of the name, like "tapped"; a name or kind XMage does
+     * not know fails the scenario rather than placing nothing. */
+    private void applySetupState(Game g) {
+        JsonObject setup = sc0.has("setup") ? sc0.getAsJsonObject("setup") : new JsonObject();
+        for (int i = 0; i < 2; i++) {
+            if (!setup.has("p" + i)) {
+                continue;
+            }
+            JsonObject s = setup.getAsJsonObject("p" + i);
+            TestPlayer pl = seat(i);
+            if (s.has("counters")) {
+                for (Map.Entry<String, JsonElement> byCard : s.getAsJsonObject("counters").entrySet()) {
+                    String name = xmageSpelling(byCard.getKey());
+                    boolean placed = false;
+                    for (Permanent perm : g.getBattlefield().getAllPermanents()) {
+                        if (!pl.getId().equals(perm.getControllerId()) || !perm.getName().equals(name)) {
+                            continue;
+                        }
+                        for (Map.Entry<String, JsonElement> byKind : byCard.getValue().getAsJsonObject().entrySet()) {
+                            CounterType kind = CounterType.valueOf(byKind.getKey());
+                            perm.addCounters(kind.createInstance(byKind.getValue().getAsInt()), pl.getId(), null, g);
+                        }
+                        placed = true;
+                    }
+                    if (!placed) {
+                        throw new IllegalArgumentException("counters name " + byCard.getKey() + ", which is not on p" + i + "'s battlefield");
+                    }
+                }
+            }
+            if (s.has("speed") && s.get("speed").getAsInt() > 0) {
+                // CR 702.179: speed starts at 1 and rises one step at a time to 4.
+                pl.initSpeed(g);
+                for (int k = 1; k < s.get("speed").getAsInt(); k++) {
+                    pl.increaseSpeed(g);
+                }
             }
         }
     }
