@@ -31,6 +31,28 @@ type Slot struct {
 	// earlier parent target names, or the cast-time ask (CR 601.2c) offers
 	// nothing and the generated scenario never names the card.
 	ParentTarget bool
+	// ZeroOrOne marks a slot that is exactly one independently targeted
+	// literal 0..1 object (TargetMin$ 0, TargetMax$ 1, no cross-target or
+	// divided restriction), so XMage models it as its own optional target
+	// object. Only such a slot may be omitted between filled ones through an
+	// explicit skip (XTargetSkip); a repeated, combat-expanded or "up to N"
+	// slot is never one.
+	ZeroOrOne bool
+}
+
+// zeroOrOneTarget reports whether an ability's target is one independent
+// literal 0..1 object: both bounds spelled out, and no param that ties the
+// target to another, divides an amount over it or selects it per player.
+func zeroOrOneTarget(params map[string]string) bool {
+	if strings.TrimSpace(params["TargetMin"]) != "0" || strings.TrimSpace(params["TargetMax"]) != "1" {
+		return false
+	}
+	for k := range params {
+		if strings.HasPrefix(k, "Targets") || strings.HasPrefix(k, "Divide") || k == "TargetUnique" || k == "TargetRestriction" {
+			return false
+		}
+	}
+	return true
 }
 
 // parentTargetSlot reports whether an ability's target restriction reads an
@@ -82,8 +104,9 @@ func repeatedSlots(f *cards.Face, params map[string]string, v string, combat boo
 	diff := paramTrue(params, "TargetsWithDifferentControllers")
 	parent := parentTargetSlot(params)
 	out := make([]Slot, 0, count)
+	single := count == 1 && zeroOrOneTarget(params)
 	for i := 0; i < count; i++ {
-		out = append(out, Slot{Filter: v, Optional: optionalTarget(params), Mirror: diff && i%2 == 1, ParentTarget: parent})
+		out = append(out, Slot{Filter: v, Optional: optionalTarget(params), Mirror: diff && i%2 == 1, ParentTarget: parent, ZeroOrOne: single})
 	}
 	return out
 }
@@ -270,6 +293,10 @@ func svarParams(body string) map[string]string {
 type fixture struct {
 	p0, p1  Seat
 	targets []string
+	// omitted lists, ascending, the indices into the slot list of every
+	// optional slot with no candidate: it contributes no target, and this is
+	// the only place its position survives the flattening of targets.
+	omitted []int
 	// combat is the creature p0 must attack with (and the one p1 must
 	// block with) so a target filter naming an attacking or blocking
 	// creature has a legal target. Both empty means no combat is needed.
@@ -819,7 +846,8 @@ func filterHasComponent(filter, word string) bool {
 // cannot sink the whole card; a mandatory slot with no candidate returns nil.
 func fixtures(reg *cards.Registry, slots []Slot) []fixture {
 	out := []fixture{{}}
-	for _, s := range slots {
+	var omitted []int
+	for si, s := range slots {
 		parentTarget := ""
 		if len(out) > 0 && len(out[0].targets) > 0 {
 			parentTarget = out[0].targets[0]
@@ -827,6 +855,7 @@ func fixtures(reg *cards.Registry, slots []Slot) []fixture {
 		cs := candidatesFor(reg, s.Filter, parentTarget)
 		if len(cs) == 0 {
 			if s.Optional {
+				omitted = append(omitted, si)
 				continue
 			}
 			return nil
@@ -901,6 +930,9 @@ func fixtures(reg *cards.Registry, slots []Slot) []fixture {
 			}
 		}
 		out = next
+	}
+	for i := range out {
+		out[i].omitted = omitted
 	}
 	return out
 }

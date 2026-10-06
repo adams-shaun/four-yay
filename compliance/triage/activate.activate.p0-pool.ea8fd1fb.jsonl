@@ -1,0 +1,3 @@
+{"shape":{"template":"activate","op":"activate","field":"p0.pool","diff":"gorge=W xmage=B"},"key":"activate | activate | p0.pool | gorge=W xmage=B","cards":2}
+{"card":"Rootrider Faun","template":"activate#0.1","status":"diverge","api":"-","sets":["WOE"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"B\""}
+{"card":"Surveillance Room","template":"activate#0.1","status":"diverge","api":"ChangesZone:Surveil","sets":["MSH"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"B\""}

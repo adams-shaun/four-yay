@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"harness","field":"xmage","diff":"IllegalStateException: Error in unit tests: Choice key […] not found in […]"},"key":"trigger | harness | xmage | IllegalStateException: Error in unit tests: Choice key […] not found in […]","cards":1}
+{"card":"Berta, Wise Extrapolator","template":"trigger#0.1","status":"harness","api":"CounterAddedOnce:Mana+SpellCast:PutCounter","sets":["SOS"],"detail":"xmage: IllegalStateException: Error in unit tests: Choice key [Yes] not found in [White, Blue, Black, Red, Green]"}

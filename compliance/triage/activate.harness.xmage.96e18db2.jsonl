@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}, {T}, Sacrifice Pizza Face"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}, {T}, Sacrifice Pizza Face","cards":1}
+{"card":"Pizza Face, Gastromancer","template":"activate#0.0","status":"harness","api":"ChangesZone:Token+Phase:PutCounter","sets":["TMT"],"detail":"xmage: AssertionError: Can't find ability to activate command: {10}, {T}, Sacrifice Pizza Face"}

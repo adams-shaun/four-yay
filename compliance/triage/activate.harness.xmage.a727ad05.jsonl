@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Exhaust — {N}{G}{G}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Exhaust — {N}{G}{G}","cards":1}
+{"card":"Afterburner Expert","template":"activate#0.0","status":"harness","api":"AbilityCast:ChangeZone","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {2}{G}{G}"}

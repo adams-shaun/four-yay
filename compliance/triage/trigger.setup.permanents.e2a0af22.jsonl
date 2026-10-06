@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"setup","field":"permanents","diff":"$CARD gorge+[5/4, counters=P1P1=2] xmage+[3/2]"},"key":"trigger | setup | permanents | $CARD gorge+[5/4, counters=P1P1=2] xmage+[3/2]","cards":1}
+{"card":"Inspirited Vanguard","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Endure+Attacks:Endure","sets":["TDM"],"detail":"setup permanents: gorge \"c0 o0 Inspirited Vanguard [creature human soldier] {G} 5/4 counters=P1P1=2\", xmage \"c0 o0 Inspirited Vanguard [creature human soldier] {G} 3/2\""}

@@ -1,0 +1,3 @@
+{"shape":{"template":"combat","op":"setup","field":"p0.graveyard","diff":"gorge+[Forest, Glorious Anthem, Grizzly Bears, Jace Beleren, Shock] xmage+[]"},"key":"combat | setup | p0.graveyard | gorge+[Forest, Glorious Anthem, Grizzly Bears, Jace Beleren, Shock] xmage+[]","cards":2}
+{"card":"Curator of Destinies","template":"combat#0.attack","status":"diverge","api":"ChangesZone:PeekAndReveal","sets":["FDN"],"detail":"setup p0.graveyard: gorge \"[Jace Beleren, Grizzly Bears, Forest, Glorious Anthem, Shock]\", xmage \"[]\""}
+{"card":"Curator of Destinies","template":"combat#0.block","status":"diverge","api":"ChangesZone:PeekAndReveal","sets":["FDN"],"detail":"setup p0.graveyard: gorge \"[Jace Beleren, Grizzly Bears, Forest, Glorious Anthem, Shock]\", xmage \"[]\""}

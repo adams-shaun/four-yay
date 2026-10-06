@@ -1,0 +1,3 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Waterbend {N}, {T}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Waterbend {N}, {T}","cards":2}
+{"card":"North Pole Patrol","template":"activate#0.1","status":"harness","api":"-","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Waterbend {3}, {T}"}
+{"card":"Yue, the Moon Spirit","template":"activate#0.0","status":"harness","api":"-","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Waterbend {5}, {T}"}

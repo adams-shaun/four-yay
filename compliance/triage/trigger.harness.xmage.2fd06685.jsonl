@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"harness","field":"xmage","diff":"IllegalArgumentException: […] Couldn't find a card: A-Pyre-Sledge Arsonist"},"key":"trigger | harness | xmage | IllegalArgumentException: […] Couldn't find a card: A-Pyre-Sledge Arsonist","cards":1}
+{"card":"Gev, Scaled Scorch","template":"trigger#0.0","status":"harness","api":"SpellCast:DealDamage+BecomesTarget:Ward","sets":["BLB"],"detail":"xmage: IllegalArgumentException: [TEST] Couldn't find a card: A-Pyre-Sledge Arsonist"}

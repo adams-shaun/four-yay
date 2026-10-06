@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"IllegalArgumentException: […] Couldn't find a card: A Golden Opportunity"},"key":"activate | harness | xmage | IllegalArgumentException: […] Couldn't find a card: A Golden Opportunity","cards":1}
+{"card":"Rydia, Summoner of Mist","template":"activate#0.0","status":"harness","api":"ChangesZone:Draw","sets":["FIN"],"detail":"xmage: IllegalArgumentException: [TEST] Couldn't find a card: A Golden Opportunity"}

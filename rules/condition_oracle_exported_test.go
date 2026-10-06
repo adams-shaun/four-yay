@@ -25,16 +25,16 @@ func TestMalametBattleGlyphOracleFixtureAgreesThroughExportedPath(t *testing.T) 
 	if got := strings.Join(checkpoints, "|"); got != "setup|step 0 (cast)|step 1 (resolve)" {
 		t.Fatalf("checkpoints %q", got)
 	}
-	if _, ok := snapPerm(res.Snapshots[0], "p0:Grizzly Bears"); !ok {
-		t.Fatal("setup target p0:Grizzly Bears is not on the battlefield")
+	for _, ref := range []string{"p0:Grizzly Bears", "p1:Grizzly Bears"} {
+		if _, ok := snapPerm(res.Snapshots[0], ref); !ok {
+			t.Fatalf("setup target %s is not on the battlefield", ref)
+		}
 	}
 	final := res.Snapshots[2]
-	bear, ok := snapPerm(final, "p0:Grizzly Bears")
-	if !ok || bear.PT != "3/3" || bear.Counters["P1P1"] != 1 {
-		t.Fatalf("p0 Bear after resolve = %+v (present=%v), want 3/3 with one P1P1 counter", bear, ok)
-	}
-	if _, ok := snapPerm(final, "p1:Grizzly Bears"); ok {
-		t.Fatal("p1 Bear remains after the fight; expected the 3/3 countered Bear to survive")
+	for _, ref := range []string{"p0:Grizzly Bears", "p1:Grizzly Bears"} {
+		if _, ok := snapPerm(final, ref); ok {
+			t.Fatalf("setup creature %s survived; neither setup creature entered this turn", ref)
+		}
 	}
 }
 

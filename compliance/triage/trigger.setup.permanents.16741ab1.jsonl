@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"setup","field":"permanents","diff":"$CARD gorge+[counters=QUEST=4] xmage+[]"},"key":"trigger | setup | permanents | $CARD gorge+[counters=QUEST=4] xmage+[]","cards":1}
+{"card":"Airbender Ascension","template":"trigger#0.2","status":"diverge","api":"ChangesZone:Airbend+ChangesZone:PutCounter+Phase:ChangeZone","sets":["TLA"],"detail":"setup permanents: gorge \"c0 o0 Airbender Ascension [enchantment] {W} counters=QUEST=4\", xmage \"c0 o0 Airbender Ascension [enchantment] {W}\""}

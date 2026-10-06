@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"resolve","field":"permanents","diff":"$CARD gorge+[5/5] xmage+[3/5]"},"key":"static | resolve | permanents | $CARD gorge+[5/5] xmage+[3/5]","cards":1}
+{"card":"Bristlebane Outrider","template":"static#0.1","status":"diverge","api":"-","sets":["ECL"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Bristlebane Outrider [creature kithkin knight] {G} 5/5\", xmage \"c0 o0 Bristlebane Outrider [creature kithkin knight] {G} 3/5\""}

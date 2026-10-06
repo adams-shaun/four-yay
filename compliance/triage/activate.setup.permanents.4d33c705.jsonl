@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"setup","field":"permanents","diff":"Colossal Dreadmaw gorge+[8/6] xmage+[6/6]"},"key":"activate | setup | permanents | Colossal Dreadmaw gorge+[8/6] xmage+[6/6]","cards":1}
+{"card":"Burner Rocket","template":"activate#0.0","status":"diverge","api":"ChangesZone:Pump","sets":["DFT"],"detail":"setup permanents: gorge \"c0 o0 Colossal Dreadmaw [creature dinosaur] {G} 8/6\", xmage \"c0 o0 Colossal Dreadmaw [creature dinosaur] {G} 6/6\""}

@@ -1,0 +1,3 @@
+{"shape":{"template":"combat","op":"setup","field":"p0.life","diff":"gorge-xmage=5"},"key":"combat | setup | p0.life | gorge-xmage=5","cards":2}
+{"card":"Twinmaw Stormbrood","template":"combat#0.attack","status":"diverge","api":"ChangesZone:GainLife","sets":["TDM"],"detail":"setup p0.life: gorge \"25\", xmage \"20\""}
+{"card":"Twinmaw Stormbrood","template":"combat#0.block","status":"diverge","api":"ChangesZone:GainLife","sets":["TDM"],"detail":"setup p0.life: gorge \"25\", xmage \"20\""}

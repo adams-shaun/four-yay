@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{R}, Discard {this}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{R}, Discard {this}","cards":1}
+{"card":"Trumpeting Carnosaur","template":"activate#0.0","status":"harness","api":"ChangesZone:Discover","sets":["LCI"],"detail":"xmage: AssertionError: Can't find ability to activate command: {2}{R}, Discard {this}"}

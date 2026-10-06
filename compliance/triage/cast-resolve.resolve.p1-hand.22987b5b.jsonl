@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.hand","diff":"gorge+[Sol Ring] xmage+[]"},"key":"cast-resolve | resolve | p1.hand | gorge+[Sol Ring] xmage+[]","cards":1}
-{"card":"Zoyowa's Justice","template":"cast-resolve","status":"diverge","api":"ChangeZone+Discover","sets":["LCI"],"detail":"step 1 (resolve) p1.hand: gorge \"[Sol Ring]\", xmage \"[]\""}

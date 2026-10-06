@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.UUID;
 import mage.cards.CardSetInfo;
 import mage.cards.t.TheEaglesAreComing;
+import mage.constants.PhaseStep;
 import mage.constants.Rarity;
 import mage.constants.Zone;
 import mage.filter.FilterPermanent;
@@ -25,6 +26,19 @@ public final class ScenarioReplaySplitRoomTest {
         String dealt;
         Zone dealtZone;
         int dealtCount;
+        // Unsafe allocation skips initialisers; driver() fills these.
+        java.util.List<String> queued;
+        java.util.List<String> casts;
+
+        @Override
+        public void addTarget(TestPlayer player, String target) {
+            queued.add(target);
+        }
+
+        @Override
+        public void castSpell(int turnNum, PhaseStep step, TestPlayer player, String cardName) {
+            casts.add(cardName);
+        }
 
         @Override
         public void addCard(Zone zone, TestPlayer player, String name, int count, boolean tapped) {
@@ -46,6 +60,22 @@ public final class ScenarioReplaySplitRoomTest {
         return m.invoke(driver, args);
     }
 
+    private static final Class<?>[] ROUTE_TYPES = {int.class, PhaseStep.class, TestPlayer.class, String.class,
+            java.util.List.class, mage.abilities.Ability.class};
+
+    private static Object field(ScenarioReplay driver, String name) throws Exception {
+        Field f = ScenarioReplay.class.getDeclaredField(name);
+        f.setAccessible(true);
+        return f.get(driver);
+    }
+
+    private static RecordingDriver routeDriver() throws Exception {
+        RecordingDriver d = driver("", "");
+        set(d, "cast", new java.util.ArrayList<String>());
+        set(d, "adjustedCasts", new java.util.HashSet<String>());
+        return d;
+    }
+
     private static void equal(Object want, Object got) {
         if (!want.equals(got)) {
             throw new AssertionError("expected " + want + ", got " + got);
@@ -59,6 +89,8 @@ public final class ScenarioReplaySplitRoomTest {
         Field f = Unsafe.class.getDeclaredField("theUnsafe");
         f.setAccessible(true);
         RecordingDriver d = (RecordingDriver) ((Unsafe) f.get(null)).allocateInstance(RecordingDriver.class);
+        d.queued = new java.util.ArrayList<>();
+        d.casts = new java.util.ArrayList<>();
         set(d, "gorgeName", half);
         set(d, "xmageName", whole);
         set(d, "buildCounts", new LinkedHashMap<String, Integer>());
@@ -126,6 +158,57 @@ public final class ScenarioReplaySplitRoomTest {
         equal(true, ScenarioReplay.hasTargetAdjuster(withBaseTarget.getSpellAbility()));
         equal(false, withBaseTarget.getSpellAbility().getAllSelectedTargets().isEmpty());
         equal(false, ScenarioReplay.needsQueuedCastTargets(withBaseTarget.getSpellAbility()));
+        // A modal spell whose only target is in a later mode (Cosmium Confluence:
+        // modes 1 and 2 targetless, mode 3 destroys target enchantment) fails the
+        // inline $target= check against the first mode, so it is queued instead.
+        mage.cards.c.CosmiumConfluence confluence = new mage.cards.c.CosmiumConfluence(UUID.randomUUID(),
+                new CardSetInfo("Cosmium Confluence", "LCI", "1", Rarity.RARE));
+        equal(true, confluence.getSpellAbility().getModes().getMode().getTargets().isEmpty());
+        equal(true, confluence.getSpellAbility().getModes().size() > 1);
+        equal(true, ScenarioReplay.firstTargetInLaterMode(confluence.getSpellAbility()));
+        // Unaffected shapes: a modal spell whose first mode already has a target
+        // (Cryptic Command's first mode, Abrade) keeps the inline path, as does a
+        // single-mode targeted spell and a single-mode targetless one.
+        mage.cards.a.Abrade abrade = new mage.cards.a.Abrade(UUID.randomUUID(),
+                new CardSetInfo("Abrade", "LCI", "1", Rarity.COMMON));
+        equal(true, abrade.getSpellAbility().getModes().size() > 1);
+        equal(false, abrade.getSpellAbility().getModes().getMode().getTargets().isEmpty());
+        equal(false, ScenarioReplay.firstTargetInLaterMode(abrade.getSpellAbility()));
+        equal(false, ScenarioReplay.firstTargetInLaterMode(eagles.getSpellAbility()));
+        equal(false, ScenarioReplay.firstTargetInLaterMode(null));
+        // The production cast routing (castQueuedTargets, the cast step's first
+        // branch), driven through the SAME method the cast step calls, with the
+        // real spell ability each card produces. The routing decision derives
+        // every flag from that ability inside castQueuedTargets, so dropping the
+        // modal term anywhere in it fails this test instead of passing silently.
+        // Cosmium: the target is queued and the cast carries no inline target.
+        java.util.List<String> tgt = java.util.List.of("p1:Glorious Anthem");
+        RecordingDriver route = routeDriver();
+        equal(true, call(route, "castQueuedTargets", ROUTE_TYPES, 1, PhaseStep.PRECOMBAT_MAIN, null,
+                "Cosmium Confluence", tgt, confluence.getSpellAbility()));
+        equal(java.util.List.of("Glorious Anthem"), route.queued);
+        equal(java.util.List.of("Cosmium Confluence"), route.casts);
+        equal(false, ((java.util.Set<?>) field(route, "adjustedCasts")).contains("Cosmium Confluence"));
+        // An adjuster card is queued AND registered as adjusted.
+        RecordingDriver adj = routeDriver();
+        equal(true, call(adj, "castQueuedTargets", ROUTE_TYPES, 1, PhaseStep.PRECOMBAT_MAIN, null,
+                "The Eagles Are Coming!", tgt, eagles.getSpellAbility()));
+        equal(java.util.List.of("Glorious Anthem"), adj.queued);
+        equal(true, ((java.util.Set<?>) field(adj, "adjustedCasts")).contains("The Eagles Are Coming!"));
+        // Ordinary (Abrade), divided (Biogenic Upgrade's TargetAmount), and
+        // targetless casts keep their own routes: nothing queued, nothing cast.
+        mage.cards.b.BiogenicUpgrade biogenic = new mage.cards.b.BiogenicUpgrade(UUID.randomUUID(),
+                new CardSetInfo("Biogenic Upgrade", "RNA", "1", Rarity.UNCOMMON));
+        equal(true, ScenarioReplay.targetsDivided(biogenic.getSpellAbility()));
+        for (Object[] c : new Object[][]{
+                {abrade.getSpellAbility(), tgt}, {biogenic.getSpellAbility(), tgt},
+                {confluence.getSpellAbility(), java.util.List.<String>of()}}) {
+            RecordingDriver other = routeDriver();
+            equal(false, call(other, "castQueuedTargets", ROUTE_TYPES, 1, PhaseStep.PRECOMBAT_MAIN, null,
+                    "Abrade", c[1], c[0]));
+            equal(java.util.List.of(), other.queued);
+            equal(java.util.List.of(), other.casts);
+        }
         equal(true, ScenarioReplay.targetSlotNeedsSkip(
                 java.util.List.of(new TargetPermanent(0, Integer.MAX_VALUE, new FilterPermanent())), 1));
         equal(false, ScenarioReplay.targetSlotNeedsSkip(java.util.List.of(new TargetPermanent()), 1));

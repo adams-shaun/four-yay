@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{W}{U}{B}{R}{G}, Sacrifice this artifact"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{W}{U}{B}{R}{G}, Sacrifice this artifact","cards":1}
+{"card":"Dragonbroods' Relic","template":"activate#0.1","status":"harness","api":"-","sets":["TDM"],"detail":"xmage: AssertionError: Can't find ability to activate command: {3}{W}{U}{B}{R}{G}, Sacrifice this artifact"}

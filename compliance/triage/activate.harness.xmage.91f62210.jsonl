@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Camouflage — {N}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Camouflage — {N}","cards":1}
+{"card":"Miles Morales","template":"activate#1.0","status":"harness","api":"ChangesZone:PutCounter","sets":["SPM"],"detail":"xmage: AssertionError: Can't find ability to activate command: Camouflage — {2}"}

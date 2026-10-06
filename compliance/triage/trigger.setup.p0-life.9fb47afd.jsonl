@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"setup","field":"p0.life","diff":"gorge-xmage=6"},"key":"trigger | setup | p0.life | gorge-xmage=6","cards":1}
+{"card":"Greed's Gambit","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Draw+Phase:Discard+ChangesZone:Discard","sets":["BIG"],"detail":"setup p0.life: gorge \"26\", xmage \"20\""}

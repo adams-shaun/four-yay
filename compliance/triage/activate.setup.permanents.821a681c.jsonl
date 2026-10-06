@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"setup","field":"permanents","diff":"$CARD gorge+[on=Dwarf Token] xmage+[]; gorge+token"},"key":"activate | setup | permanents | $CARD gorge+[on=Dwarf Token] xmage+[]; gorge+token","cards":1}
+{"card":"Dwarven Shortsword","template":"activate#0.0","status":"diverge","api":"ChangesZone:Token","sets":["HOB"],"detail":"setup permanents: gorge \"c0 o0 Dwarven Shortsword [artifact equipment] {W} on=Dwarf Token; c0 o0 token [creature dwarf] {R} 3/4\", xmage \"c0 o0 Dwarven Shortsword [artifact equipment] {W}\""}

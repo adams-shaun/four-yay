@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"activate","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Cooking Campsite@p0]"},"key":"activate | activate | stack | gorge=[ability:$CARD@p0] xmage=[ability:Cooking Campsite@p0]","cards":1}
+{"card":"Sidequest: Catch a Fish","template":"activate#1.1","status":"diverge","api":"Phase:PeekAndReveal","sets":["FIN"],"detail":"step 0 (activate) stack: gorge \"[ability:Sidequest: Catch a Fish@p0]\", xmage \"[ability:Cooking Campsite@p0]\""}

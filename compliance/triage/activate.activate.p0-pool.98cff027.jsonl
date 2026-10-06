@@ -1,0 +1,8 @@
+{"shape":{"template":"activate","op":"activate","field":"p0.pool","diff":"gorge=W xmage=R"},"key":"activate | activate | p0.pool | gorge=W xmage=R","cards":7}
+{"card":"Conduit Pylons","template":"activate#0.1","status":"diverge","api":"ChangesZone:Surveil","sets":["OTJ"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
+{"card":"Gene Pollinator","template":"activate#0.0","status":"diverge","api":"-","sets":["EOE"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
+{"card":"Giant's Boulder","template":"activate#0.0","status":"diverge","api":"ChangesZone:Scry","sets":["HOB"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
+{"card":"Heraldic Banner","template":"activate#0.0","status":"diverge","api":"-","sets":["FDN"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
+{"card":"Molt Tender","template":"activate#0.1","status":"diverge","api":"-","sets":["DFT"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
+{"card":"Rumble Arena","template":"activate#0.1","status":"diverge","api":"ChangesZone:Scry","sets":["TLA"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
+{"card":"Starting Town","template":"activate#0.1","status":"diverge","api":"-","sets":["FIN"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
