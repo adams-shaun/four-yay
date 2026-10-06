@@ -42,13 +42,25 @@ func TestLuxuriousLocomotiveNestedTokenAmountValueHead(t *testing.T) {
 	}
 
 	// Check the exact nested amount at the same evaluator boundary used by
-	// TokenAmount. CrewSize is currently not an implemented evaluator head;
-	// false is the expected fail-closed verdict that this new attribution
-	// makes visible to Registry.Unsupported.
+	// TokenAmount. CrewSize is an implemented evaluator head (the creatures
+	// that crewed the source this turn), so it must resolve at this boundary
+	// and be registered as a coverage primitive: a card whose amount reads an
+	// unregistered head would join the playable pool with a gate that can
+	// never pass.
 	e := layerEngine(t)
 	source := e.G.AddObject(card, 0).ID
+	if source == 0 {
+		t.Fatal("precondition: the source object was not created, so the evaluator would read no source")
+	}
 	ctx := &effects.Ctx{Source: source, Controller: 0, SVars: face.SVars}
-	if _, resolved := effects.EvalCountOK(e, ctx, cards.ValueHeadRecipeExpressions(body)["CrewSize"]); resolved {
-		t.Fatal("Count$CrewSize unexpectedly resolved; update the evaluator-alignment expectation and coverage registration")
+	amount, resolved := effects.EvalCountOK(e, ctx, cards.ValueHeadRecipeExpressions(body)["CrewSize"])
+	if !resolved {
+		t.Fatal("Count$CrewSize no longer resolves; the D8 evaluator arm or its modelled-head registration regressed")
+	}
+	if amount != 0 {
+		t.Fatalf("Count$CrewSize = %d with no crewer this turn, want 0", amount)
+	}
+	if !effects.Supported()["count:CrewSize"] {
+		t.Fatal("count:CrewSize is not a registered coverage primitive; add it to effects.modelledValueHeads")
 	}
 }
