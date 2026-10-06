@@ -111,6 +111,9 @@ type offerTry struct {
 	// reduce with (an artifact to affinity or improvise, a graveyard card to
 	// delve): the reduction is exactly one short of what mana pays for.
 	extraBF, extraGY []string
+	// firstPlay is a land p0 plays before the assertion (the extra land drop
+	// is observed on the SECOND land); it is also in extraHand.
+	firstPlay string
 }
 
 // staticOfferItem serves a play-permission or granted-Flashback static as an
@@ -150,6 +153,8 @@ func offerTries(reg *cards.Registry, f *cards.Face, name string, st cards.Static
 	self := strings.Contains(affected, "Card.Self")
 	var tries []offerTry
 	switch {
+	case grantOfferable(f, st):
+		tries = grantTries(reg, f, st)
 	case st.HasParam(cards.PKMayPlay):
 		// An alternative cost the scenario cannot pay (exile from the card's
 		// own zone) is not an observation of the permission; collect evidence
@@ -318,6 +323,9 @@ func offerScenario(f *cards.Face, name string, t offerTry, want bool, base *orac
 		{Offered: &oraclegen.Offered{Seat: 0, Kind: t.kind, Card: "p0:" + t.probe, Label: t.label}, Want: boolPtr(want)},
 	}
 	var tail []oraclegen.Step
+	if t.firstPlay != "" {
+		tail = append(tail, oraclegen.Step{Op: "play", Seat: 0, Card: "p0:" + t.firstPlay})
+	}
 	if t.mana != "" {
 		tail = append(tail, oraclegen.Step{Op: "mana", Seat: 0, Mana: t.mana})
 	}
