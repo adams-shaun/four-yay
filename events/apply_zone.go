@@ -258,10 +258,13 @@ func foldMoveZone(g *state.Game, e *Event) {
 		// The prepared exile copy's cessation exemption is linked to this
 		// battlefield permanent. Once it leaves, retire that provenance in
 		// the same replayed zone-change fold so the orphaned copy ceases.
-		for i := range g.Objs {
-			cp := &g.Objs[i]
-			if cp.IsCopy && cp.PreparedSource == e.Obj {
-				cp.PreparedSource = 0
+		if g.PreparedSourcesLive() {
+			for i := range g.Objs {
+				cp := &g.Objs[i]
+				if cp.IsCopy && cp.PreparedSource == e.Obj {
+					cp.PreparedSource = 0
+					g.ClearPreparedSource()
+				}
 			}
 		}
 	}
@@ -667,15 +670,18 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 		// OWN list is cleared below with the rest of its leaving-the-battlefield
 		// state.) Totality: the id can appear at most once (the Crew case folds a
 		// set), so the first hit is removed and the loop stops.
-		if wasBattlefield {
+		if wasBattlefield && g.CrewedObjectsLive() {
 			for i := range g.Objs {
 				cr := &g.Objs[i] // a read: never copy the ~1 KB Object per arena slot
 				if cr.ID == id || cr.Zone != state.ZBattlefield || len(cr.CrewedVehicles) == 0 {
 					continue
 				}
-				for j, v := range g.Objs[i].CrewedVehicles {
+				for j, v := range cr.CrewedVehicles {
 					if v == id {
-						g.Objs[i].CrewedVehicles = append(g.Objs[i].CrewedVehicles[:j], g.Objs[i].CrewedVehicles[j+1:]...)
+						cr.CrewedVehicles = append(cr.CrewedVehicles[:j], cr.CrewedVehicles[j+1:]...)
+						if len(cr.CrewedVehicles) == 0 {
+							g.ClearCrewedObject()
+						}
 						break
 					}
 				}
@@ -795,6 +801,9 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			o.EnlistedTurn, o.EnlistedCombat = 0, 0
 			// CR 400.7 / 702.122: crew status is the old permanent's, not the
 			// new object's -- a re-entering creature carries no crew stamp.
+			if len(o.CrewedVehicles) != 0 {
+				g.ClearCrewedObject()
+			}
 			o.CrewedVehicles, o.CrewedTurn = nil, 0
 		}
 		// CR 107.3m: the paid X belongs to the spell on the stack and to the
