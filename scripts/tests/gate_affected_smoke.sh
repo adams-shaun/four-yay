@@ -37,19 +37,18 @@ trap cleanup EXIT
 # running the gate. A syntax error or a removed definition fails loudly here.
 [ -f "$GATE" ]
 check "gate script exists at scripts/gate_affected.sh" $?
-( GATE_AFFECTED_SOURCE_LIB=1 bash "$GATE" >/dev/null 2>&1 )
-check "gate script sources cleanly with GATE_AFFECTED_SOURCE_LIB=1 (precondition)" $? \
-	"bash $GATE exited $?"
+( bash -c "source '$GATE'" >/dev/null 2>&1 )
+check "gate script sources cleanly without running the gate (precondition)" $? \
+	"bash -c source '$GATE' exited $?"
 grep -q 'gate_affected_default_build_pkgs' "$GATE"
 check "gate_affected.sh defines gate_affected_default_build_pkgs" $?
-# The definition must run under `set -u` in the real gate too: invoking the
-# library guard must not exit non-zero for a missing $1.
-lib_rc=$(GATE_AFFECTED_SOURCE_LIB=1 bash -c "source '$GATE'" >/dev/null 2>&1; echo $?)
-[ "$lib_rc" = 0 ]
-check "sourcing the script with the library guard returns 0 (no missing-\$1 error)" $? "rc=$lib_rc"
+# A caller-controlled environment variable must not skip normal gate work.
+GATE_AFFECTED_SOURCE_LIB=1 bash "$GATE" definitely-not-a-valid-base >/dev/null 2>&1
+[ "$?" -ne 0 ]
+check "environment variable cannot bypass base validation" $?
 
 # --- the helper itself, against the real repo --------------------------------
-filter() ( GATE_AFFECTED_SOURCE_LIB=1 bash -c "source '$GATE'; gate_affected_default_build_pkgs" )
+filter() ( bash -c "source '$GATE'; gate_affected_default_build_pkgs" )
 
 # Precondition: cmd/autopayaudit really is build-constrained-only (if it ever
 # gains a default-build file this test's positive case is stale, not silently
@@ -111,7 +110,6 @@ EOF
 # the class instance.
 (
 	cd "$M"
-	export GATE_AFFECTED_SOURCE_LIB=1
 	source "$GATE"
 	printf './taggedonly\n./plain\n./taggedtest\n' | gate_affected_default_build_pkgs
 ) >"$TMP/out.txt" 2>&1
@@ -128,10 +126,10 @@ got=$(tr '\n' ',' <"$TMP/out.txt")
 [ "$got" = "./plain,./taggedtest," ]
 check "helper preserves input order" $? "got=$got"
 
-# --- the wiring: the real derivation must call the helper, so a later edit
-# that drops it (making ./cmd/autopayaudit testable-shaped again) fails here.
-grep -q 'go list -e -f' "$GATE" && grep -q 'gate_affected_default_build_pkgs' "$GATE"
-check "gate_affected.sh still routes candidates through the default-build filter" $?
+# --- the wiring: match the candidate assignment itself, not the helper's
+# definition. Removing the call from this pipeline must fail this assertion.
+grep -Eq '^  pkgs=\$\(printf .+ \| gate_affected_default_build_pkgs\)$' "$GATE"
+check "candidate derivation pipes pkgs through the default-build filter" $?
 
 printf '\ngate_affected_smoke: %s\n' "$([ $fails = 0 ] && echo ALL GREEN || echo FAILURES ABOVE)"
 exit "$fails"

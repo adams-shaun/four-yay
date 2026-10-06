@@ -40,10 +40,10 @@ gate_affected_default_build_pkgs() {
   return 0
 }
 
-# Test seam (scripts/tests/gate_affected_smoke.sh): define the helper above and
-# stop, so a smoke test can exercise the default-build filter without running
-# the gate. The real gate never sets this.
-if [ -n "${GATE_AFFECTED_SOURCE_LIB:-}" ]; then return 0 2>/dev/null || exit 0; fi
+# When sourced by scripts/tests/gate_affected_smoke.sh, expose the helper
+# without running the gate. Detect sourcing structurally: an environment
+# variable must never bypass the gate when the script is executed normally.
+if (return 0 2>/dev/null); then return 0; fi
 
 base=${1:?usage: gate_affected.sh <base>}
 mb=$(git merge-base "$base" HEAD)
