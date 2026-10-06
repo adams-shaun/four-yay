@@ -56,6 +56,13 @@ func otherCostProbes(reg *cards.Registry, source *cards.Face, name string, idx i
 		return nil, "ValidCard filter unsupported"
 	}
 	base := costProbe{battlefield: []string{name}, mustReplay: true}
+	// Melek's characteristic-defining ability sets its toughness to twice
+	// the number of instant and sorcery cards in its controller's graveyard.
+	// Keep the reducer alive during setup and the probe cast; the cost static
+	// itself remains the only mechanic being measured.
+	if name == "Melek, Reforged Researcher" {
+		base.graveyard = appendUnique(base.graveyard, "Opt")
+	}
 	if reason := costStaticConditions(reg, st, &base); reason != "" {
 		return nil, reason
 	}

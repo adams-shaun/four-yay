@@ -75,6 +75,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private int TURN = 1;
     private int turn = 1;
     private int activeSeat = 0;
+    private boolean attackAdvancedTurn = false;
     private static final PhaseStep MAIN = PhaseStep.PRECOMBAT_MAIN;
     private static final Set<String> SPREE_CARDS = Set.of(
             "Dance of the Tumbleweeds", "Getaway Glamer", "Great Train Heist",
@@ -520,6 +521,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             TURN = scenarioTurn(sc);
             turn = TURN;
             activeSeat = (TURN - 1) % 2;
+            attackAdvancedTurn = false;
             build(sc);
             runCode("setup", TURN, MAIN, playerA, (info, p, g) -> {
                 addSetupCounters(g);
@@ -1254,10 +1256,15 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 return;
             }
             case "attack": {
-                // gorge's attack op declares the listed creatures attacking
-                // the defender. XMage's attack() queues a selectAttackers
-                // command at DECLARE_ATTACKERS; the scenario's later cast and
-                // checkpoint happen in that same step.
+                // gorge's attack op passes the current player's turn when the
+                // scripted attacker belongs to the other seat.
+                if (seatIdx != activeSeat) {
+                    turn++;
+                    activeSeat = seatIdx;
+                    attackAdvancedTurn = true;
+                }
+                // XMage's attack() queues a selectAttackers command at
+                // DECLARE_ATTACKERS; the checkpoint stays on this turn.
                 for (String a : names(st, "attackers")) {
                     attack(turn, p, combatName(a), seat(seatOf(str(st, "defender"))));
                 }
@@ -1276,10 +1283,18 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     String active = str(st, "active");
                     int nextActiveSeat = active.equals("p1") ? 1 : active.equals("p0") ? 0 : -1;
                     if (nextActiveSeat >= 0) {
-                        // pass_to asks for the next turn on this seat, not merely
-                        // the next distinct seat: p0 after p0 skips p1's turn too.
-                        turn += nextActiveSeat == activeSeat ? 2 : 1;
-                        activeSeat = nextActiveSeat;
+                        // An off-turn attack has already advanced to its
+                        // attacker's turn; its matching main2 checkpoint must
+                        // not advance a second time.
+                        if (attackAdvancedTurn && nextActiveSeat == activeSeat) {
+                            attackAdvancedTurn = false;
+                        } else {
+                            // pass_to asks for the next turn on this seat, not merely
+                            // the next distinct seat: p0 after p0 skips p1's turn too.
+                            turn += nextActiveSeat == activeSeat ? 2 : 1;
+                            activeSeat = nextActiveSeat;
+                            attackAdvancedTurn = false;
+                        }
                     }
                 }
                 if (decision.equals("blockers") || stepName.equals("declare-blockers")) {
