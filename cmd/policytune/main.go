@@ -145,6 +145,10 @@ func openDevSuite(dir string, pairs []bench.PairDef, games, workers, maxTurns, m
 // player returns the gbench.PairPlayer that builds one game's Config from the
 // pair's decks and runs it.
 func (d *devSuite) player() bench.PairPlayer {
+	return d.playerWithPool(&sparePool)
+}
+
+func (d *devSuite) playerWithPool(pool *bench.SparePool) bench.PairPlayer {
 	return func(pos int, seed uint64, g int, seats [2]seat.Seat) (bench.Outcome, error) {
 		pd := d.pairs[pos]
 		cfg := rules.Config{
@@ -153,7 +157,11 @@ func (d *devSuite) player() bench.PairPlayer {
 			Decks: [][]*cards.Card{d.deckByName[pd.A], d.deckByName[pd.B]},
 		}
 		cfg.Tokens = d.reg.Tokens
-		o, err := sparePool.PlayGameRecycled(cfg, seats[:], d.maxTurns, d.maxIntents, bench.Hooks{}, nil)
+		if pool == nil {
+			o, _, err := bench.PlayGame(cfg, seats[:], d.maxTurns, d.maxIntents, bench.Hooks{})
+			return o, err
+		}
+		o, err := pool.PlayGameRecycled(cfg, seats[:], d.maxTurns, d.maxIntents, bench.Hooks{}, nil)
 		return o, err
 	}
 }

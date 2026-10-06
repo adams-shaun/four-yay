@@ -91,12 +91,19 @@ func randomIntent(d *decision.Decision, r *rand.Rand) decision.Intent {
 // redrawn (Submit preserves the pending decision on a rejection); after
 // `retries` rejections the decision is answered by the heuristic bot.
 func playRandom(cfg rules.Config, st *randomStats) {
+	playRandomWithPool(cfg, st, &sparePool)
+}
+
+func playRandomWithPool(cfg rules.Config, st *randomStats, pool *bench.SparePool) {
 	r := rand.New(rand.NewPCG(cfg.Seed, cfg.Seed^0x5bd1e9955bd1e995))
 	// The finished game's log and object arrays back the next game this run
 	// plays (rules.Spare; reuse never changes a game). The pooled spare is
 	// returned only after the stats below read the finished engine.
-	spare := sparePool.Get()
-	cfg.Spare = spare
+	var spare *rules.Spare
+	if pool != nil {
+		spare = pool.Get()
+		cfg.Spare = spare
+	}
 	e := rules.New(cfg)
 	var fb [2]*seat.Bot
 	board := botpolicy.NewBoard(2)
@@ -187,8 +194,8 @@ func playRandom(cfg rules.Config, st *randomStats) {
 	// A clean engine is at its last use here (nothing reads e.L or e.G past
 	// this function); a panicked one is dropped rather than recycled, so a
 	// suspect log never backs a later game.
-	if stall != "panic" {
-		sparePool.Put(spare, e)
+	if stall != "panic" && pool != nil {
+		pool.Put(spare, e)
 	}
 }
 
@@ -219,6 +226,10 @@ type botStats struct {
 }
 
 func playBot(cfg rules.Config, autopay bool, st *botStats) error {
+	return playBotWithPool(cfg, autopay, st, &sparePool)
+}
+
+func playBotWithPool(cfg rules.Config, autopay bool, st *botStats, pool *bench.SparePool) error {
 	seats := make([]seat.Seat, 2)
 	for i := range seats {
 		b := seat.NewBot(cfg.Seed ^ uint64(i+1))
@@ -227,7 +238,13 @@ func playBot(cfg rules.Config, autopay bool, st *botStats) error {
 		}
 		seats[i] = b
 	}
-	o, err := sparePool.PlayGameRecycled(cfg, seats, maxTurns, maxIntents, bench.Hooks{SyncAnswer: syncAnswer}, nil)
+	var o bench.Outcome
+	var err error
+	if pool == nil {
+		o, _, err = bench.PlayGame(cfg, seats, maxTurns, maxIntents, bench.Hooks{SyncAnswer: syncAnswer})
+	} else {
+		o, err = pool.PlayGameRecycled(cfg, seats, maxTurns, maxIntents, bench.Hooks{SyncAnswer: syncAnswer}, nil)
+	}
 	if err != nil {
 		return err
 	}
