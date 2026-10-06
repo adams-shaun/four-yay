@@ -14,6 +14,12 @@ func TestActivateCostTokenShapes(t *testing.T) {
 		{"2 T Sac<1/Artifact.Other/another artifact>", "CC", ""},
 		{"5 T Exile<1/CARDNAME>", "CCCCC", ""},
 		{"tapXType<2/Artifact>", "", ""},
+		{"tapXType<Any/Creature.Other+withTotalPowerGE 3>", "", ""},
+		{"tapXType<1/Elf>", "", ""},
+		{"tapXType<2/Permanent>", "", ""},
+		{"tapXType<X/Artifact>", "", "tapXType<X>"},
+		{"tapXType<2/Permanent.token>", "", "tapXType<token-filter>"},
+		{"tapXType<1/Mount.Other;Vehicle.Other>", "", "tapXType<unsupported-filter>"},
 		{"Return<1/CARDNAME>", "", "Return<...>"},
 	}
 	for _, tc := range cases {
