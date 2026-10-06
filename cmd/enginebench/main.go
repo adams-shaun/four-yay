@@ -92,7 +92,20 @@ func main() {
 	rep := flag.Int("rep", 0, "repetition index recorded in the output")
 	out := flag.String("out", "", "append the JSON result line here (default stdout)")
 	cpuprof := flag.String("cpuprofile", "", "write a CPU profile of the whole run here")
+	memprof := flag.String("memprofile", "", "write an allocation profile of the whole run here (MemProfileRate 64KiB)")
 	flag.Parse()
+	if *memprof != "" {
+		runtime.MemProfileRate = 64 << 10
+		defer func() {
+			f, err := os.Create(*memprof)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return
+			}
+			pprof.Lookup("allocs").WriteTo(f, 0)
+			f.Close()
+		}()
+	}
 	if *cpuprof != "" {
 		f, err := os.Create(*cpuprof)
 		if err != nil {
