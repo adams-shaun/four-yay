@@ -139,7 +139,7 @@ func (e *Engine) matchesWithCharsPTSlow(ce *ContinuousEffect, id state.ObjID, ty
 	sc := e.specCtx(ce.Source, ce.Controller)
 	sc.AsStack = atStack != 0
 	sc.ExtraTypes, sc.ExtraTypesOwner = types, id
-	sc.ExtraKeywords = keywords
+	sc.ExtraKeywords, sc.ExtraKeywordsOwner = keywords, id
 	if hasPT {
 		sc.DerivedPower, sc.DerivedToughness, sc.HasDerivedPT = power, toughness, true
 		sc.BasePower, sc.BaseToughness, sc.HasBasePT = basePower, baseToughness, true

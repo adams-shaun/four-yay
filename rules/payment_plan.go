@@ -95,7 +95,7 @@ func (e *Engine) planCastPaymentChecked(p state.PlayerID, cast decision.PlannedC
 	if global, detail := e.paymentPlanGlobalManaEffect(p, cast.Object); global {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: detail}
 	}
-	return pay.PlanPaymentCost(asPayer(e), p, cast, cost)
+	return pay.PlanPaymentCost(asPayer(e), p, cast, pay.PlanManaHalf(cost))
 }
 
 // paymentPlanCastCandidate deliberately delegates timing, mandatory-target
@@ -571,7 +571,7 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	if lastResort && !pay.PlanUsesLastResort(*got.Plan) {
 		return fmt.Errorf("payment plan uses a last-resort source while a normal plan exists")
 	}
-	cost := e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(e.G.Obj(cast.Object).Face(), pay.RawBaseCost(asPayer(e), p, cast.Object)), spellScope(""))
+	cost := pay.PlanManaHalf(e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(e.G.Obj(cast.Object).Face(), pay.RawBaseCost(asPayer(e), p, cast.Object)), spellScope("")))
 	payment, ok := resolveManaWith(cost, pool, state.Mana{}, [7]state.Mana{}, e.G.Players[p].Life, false, pipRider{}, nil)
 	expected := pay.Witness(cost, e.G.Players[p].Pool, produced, nil, payment.Pool)
 	if !ok || pay.ManaAmount(payment.Pool) != plan.PoolAfter || expected.PoolSpend != plan.PoolSpend {

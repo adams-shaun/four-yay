@@ -274,8 +274,12 @@ func classifyStatic(f *cards.Face, st *cards.Static) (sub, gap string) {
 	case cards.StaticReduceCost:
 		return "static.cost", ""
 	case cards.StaticRaiseCost:
-		// v1 can only probe our own cast. Opponent-cast taxation needs a
-		// p1 turn, which the level-B cast recipes do not yet provide.
+		// Own additional costs are exercised by the spell's own cast probe;
+		// opponent taxes still need an opponent-turn recipe.
+		activator := st.ParamStr(cards.PKActivator)
+		if strings.EqualFold(st.ParamStr(cards.PKValidCard), "Card.Self") && (activator == "" || strings.EqualFold(activator, "You")) {
+			return "static.cost", ""
+		}
 		return "static.cost", "opponent-cast cost static"
 	}
 	for _, s := range servableStaticModes {

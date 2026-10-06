@@ -37,6 +37,12 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // combat-prelude shape is still a named skip, and the remaining hand- and
 // graveyard-zone requirements merge into the no-fixture bucket.
 //
+// Re-measured for the Sac<N/filter> fixture-table ticket
+// (cli-20261006T071710Z-750ea5c3) merged onto that zone work: the Sac costs
+// main pinned as a coarse Sac<...> gap are now cellable from the shared
+// fixture table, so EOE and FDN battlefield counts rise (EOE +2, FDN +5) and
+// the Sac gap bucket names its own cause (Sac<token>).
+//
 // Re-measured for the XMage loyalty/duplicate-cost/intrinsic-mana text ticket
 // (cli-20261006T035108Z-9e077b0e): the activate requirements formerly skipped
 // as "xmage text ambiguous" (planeswalkers, the shared-cost Chandras, the
@@ -47,30 +53,29 @@ var wantActivateCensus = map[string]map[string]int{
 		"served:activate.battlefield":             10,
 		"served:activate.hand":                    2,
 		"served:activate.mana":                    4,
-		"skip:activate cost gap: Sac<...>":        1,
+		"skip:activate cost gap: Sac<token>":      1,
 		"skip:activate cost gap: SubCounter<...>": 1,
 		"skip:activate no fixture":                1,
 	},
 	"EOE": {
-		"served:activate.battlefield":                 33,
+		"served:activate.battlefield":                 35,
 		"served:activate.mana":                        16,
 		"skip:activate cost gap: ExileFromGrave<...>": 1,
-		"skip:activate cost gap: Sac<...>":            3,
+		"skip:activate cost gap: Sac<token>":          1,
 		"skip:activate cost gap: SubCounter<...>":     1,
 		"skip:activate cost gap: tapXType<X>":         1,
 		"skip:activate no fixture":                    1,
 		"skip:activate xmage text ambiguous":          6,
 	},
 	"FDN": {
-		"served:activate.battlefield":                          73,
+		"served:activate.battlefield":                          78,
 		"served:activate.graveyard":                            2,
 		"served:activate.mana":                                 52,
 		"skip:activate cost gap: AddCounter<...>":              2,
 		"skip:activate cost gap: Return<...>":                  1,
-		"skip:activate cost gap: Sac<...>":                     6,
 		"skip:activate cost gap: SubCounter<...>":              4,
 		"skip:activate cost gap: tapXType<unsupported-filter>": 1,
-		"skip:activate no fixture":                             5,
+		"skip:activate no fixture":                             6,
 	},
 	"FRA": {
 		"served:activate.battlefield":             71,

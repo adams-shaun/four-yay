@@ -272,18 +272,6 @@ func isNumericBracket(tok string) bool {
 	return err == nil
 }
 
-// sacSelf reports whether a Sac<...> token sacrifices the source itself:
-// Sac<1/CARDNAME> or Sac<1/CARDNAME/this creature>. A Sac<N/Spec> naming any
-// other permanent is out of v1's scope (a cost gap).
-func sacSelf(tok string) bool {
-	i := strings.IndexByte(tok, '<')
-	if i < 0 || !strings.HasSuffix(tok, ">") {
-		return false
-	}
-	fields := strings.Split(tok[i+1:len(tok)-1], "/")
-	return len(fields) >= 2 && strings.EqualFold(fields[1], "CARDNAME")
-}
-
 // discardFixtureSupported covers the two v1 discard selectors: any card and
 // a legendary card. Both use a single card, so one deterministic hand fixture
 // is sufficient and the engine/XMage answer translation selects it.
@@ -295,21 +283,6 @@ func discardFixtureSupported(tok string) bool {
 	parts := strings.Split(payload, "/")
 	return len(parts) >= 2 && parts[0] == "1" &&
 		(strings.EqualFold(parts[1], "Card") || strings.EqualFold(parts[1], "Card.Legendary"))
-}
-
-// sacOtherFixtureSupported recognizes the filtered other-permanent costs the
-// template can satisfy with an explicit fixture permanent.
-func sacOtherFixtureSupported(tok string) bool {
-	payload, ok := bracketPayload(tok)
-	if !ok {
-		return false
-	}
-	parts := strings.Split(payload, "/")
-	if len(parts) < 2 || parts[0] != "1" {
-		return false
-	}
-	filter := strings.ToLower(parts[1])
-	return filter == "creature.other;planeswalker.other" || filter == "artifact.other" || filter == "artifact;land"
 }
 
 func selfZoneCost(tok string) bool {
@@ -369,14 +342,29 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 				picks = []string{"Grizzly Bears"}
 			}
 		case "Sac":
-			if !sacSelf(tok) {
-				payload, _ := bracketPayload(tok)
-				if strings.Contains(strings.ToLower(payload), "creature") || strings.Contains(strings.ToLower(payload), "planeswalker") {
-					picks = []string{"Llanowar Elves"}
-				} else if strings.Contains(strings.ToLower(payload), "artifact") {
-					picks = []string{"Ornithopter"}
-				} else if strings.Contains(strings.ToLower(payload), "land") {
-					picks = []string{"Forest"}
+			// The engine's observed pick is authoritative. A broad filter can
+			// include the ability's source, so a catalogue fixture is not
+			// necessarily the permanent the payment path actually sacrificed.
+			observed := false
+			for _, d := range decisions {
+				if d.Step != step || d.Seat != 0 || d.Kind != "choose_n" {
+					continue
+				}
+				for i, kind := range d.PickKinds {
+					if kind != "sacrifice" {
+						continue
+					}
+					observed = true
+					if i < len(d.Picks) {
+						picks = append(picks, d.Picks[i])
+					}
+				}
+			}
+			// A self-sacrifice is usually a singleton with no ask. For cases
+			// with no observed sacrifice decision, use the deterministic fixture.
+			if !observed {
+				if card, ok := sacFilterFixture(tok); ok {
+					picks = []string{card}
 				}
 			}
 		}
@@ -422,15 +410,10 @@ func addActivationCostFixtures(p0 *oraclegen.Seat, cost string) {
 				p0.Graveyard = appendFixtureUnique(p0.Graveyard, "Grizzly Bears")
 			}
 		case "Sac":
-			if !sacSelf(tok) {
-				payload, _ := bracketPayload(tok)
-				if strings.Contains(strings.ToLower(payload), "creature") || strings.Contains(strings.ToLower(payload), "planeswalker") {
-					p0.Battlefield = appendFixtureUnique(p0.Battlefield, "Llanowar Elves")
-				} else if strings.Contains(strings.ToLower(payload), "artifact") {
-					p0.Battlefield = appendFixtureUnique(p0.Battlefield, "Ornithopter")
-				} else if strings.Contains(strings.ToLower(payload), "land") {
-					p0.Battlefield = appendFixtureUnique(p0.Battlefield, "Forest")
-				}
+			// The fixture table is the single authority; a self-sacrifice
+			// places nothing (the source is already on the battlefield).
+			if card, ok := sacFilterFixture(tok); ok {
+				p0.Battlefield = appendFixtureUnique(p0.Battlefield, card)
 			}
 		}
 	}

@@ -1373,6 +1373,9 @@ func (e *Engine) pushCast() bool {
 		ev.Secret = true
 	}
 	e.emit(ev)
+	if fz, ok := castBattlefieldEvent(e.G, e, pc.card, pc.player); ok {
+		e.emit(fz)
+	}
 	// CR 702.190b: a sneak cast captured the defender its returned attacker
 	// was attacking. Fold it onto the now-existing stack object's dedicated
 	// SneakDefender field (a Choose "sneak-defender" event, NOT the generic

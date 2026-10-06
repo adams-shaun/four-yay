@@ -100,6 +100,9 @@ func foldStackCopy(g *state.Game, e *Event) {
 	// is the engine's one mutation path, so it does not get to rely on
 	// that happening to remain true.
 	card, faceIdx, ability, source := src.Card, src.FaceIdx, src.Ability, src.Source
+	// The as-cast battlefield is immutable, so the copy shares the pointer: it
+	// answers "as you cast this spell" with the ORIGINAL cast's facts.
+	castBattlefield := src.CastBattlefield
 	stackKind, stackKindKnown := src.StackKind, src.StackKindKnown
 	// A copy of a HAS-ALL-ABILITIES-OF wrapper keeps the minted foreign-face
 	// provenance (r3): the copy resolves the same compiled SA, so it reads
@@ -158,6 +161,7 @@ func foldStackCopy(g *state.Game, e *Event) {
 	Move(g, o.ID, state.ZLibrary, state.ZStack)
 	o.SetFaceIdx(faceIdx)
 	o.Ability, o.Source = ability, source
+	o.CastBattlefield = castBattlefield
 	o.StackKind, o.StackKindKnown = stackKind, stackKindKnown
 	o.GainedFace, o.GainedFrom = gainedFace, gainedFrom
 	o.Targets = targets
