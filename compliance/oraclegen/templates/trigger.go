@@ -29,7 +29,8 @@ func triggerSubs(sub string) bool {
 	case "trigger.etb-other", "trigger.etb-land", "trigger.dies", "trigger.attacks", "trigger.combat-damage",
 		"trigger.spell-cast", "trigger.spell-cast-self", "trigger.becomes-target", "trigger.life-gained", "trigger.drawn", "trigger.phase",
 		"trigger.dies-other", "trigger.scry", "trigger.surveil", "trigger.noncombat-damage", "trigger.combat-damage-all",
-		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target":
+		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target",
+		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.commit-crime", "trigger.ability-activated":
 		return true
 	}
 	return false
@@ -102,7 +103,7 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 				}
 			}
 		}
-		if req.Sub == "trigger.spell-cast" {
+		if req.Sub == "trigger.spell-cast" || req.Sub == "trigger.spell-cast-opponent" {
 			if reason := spellCastNarrowSkip(&f.Triggers[idx]); reason != "" {
 				return skip(reason)
 			}
