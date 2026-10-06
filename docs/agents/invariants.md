@@ -239,8 +239,11 @@ This is an operator rule for code on the per-intent or per-simulation path:
 **Why:** search and training throughput is the engine's step cost multiplied
 by millions.
 
-**Enforced by:** the per-package `ALLOC_HISTORY.md` budgets (`make
-alloc-gate`) and `make gc-gate`, both run by hand. Otherwise convention.
+**Enforced by:** convention, plus `make gc-gate` (by hand). The per-test
+resource budget (2 GB RSS, 2 vCPU, 1 min wall) is enforced by `cmd/testbudget`
+in `scripts/postmerge_full.sh`: any test over budget that
+`internal/testutil/testdata/wall_exceptions.txt` / `rss_exceptions.txt` (both
+shrink-only) do not list fails the post-merge batch.
 
 ## Contributor guidelines
 
@@ -287,9 +290,10 @@ alloc-gate`) and `make gc-gate`, both run by hand. Otherwise convention.
 - No issue-tracker trailers or references (`Ref:` and the like).
 - Stage explicit paths. Never `git add -A`: it sweeps in peers' in-flight
   files.
-- Raising a `budget_s` in a `TEST_HISTORY.md` needs a `Test-Budget-Approved:
-  <who> — <why>` trailer. Those files are stale (last written 2026-09-22) and
-  no gate reads them; the live budget is the per-test one in Workflow step 4.
+- There is no budget trailer. The per-package `TEST_HISTORY.md` /
+  `ALLOC_HISTORY.md` files and the `Test-Budget-Approved:` check are gone; the
+  live budget is the per-test one in Workflow step 4, enforced post-merge by
+  `cmd/testbudget`.
 - The commit body carries the measured *why*: the moved-head cause, a closed
   ratchet entry, and any deviation you could not close.
 

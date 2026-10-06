@@ -22,7 +22,7 @@ func TestTriggerETBProbeGraveyardSources(t *testing.T) {
 		{"Shambling Cie'th", "trigger.spell-cast", ""},
 		{"Wolfbat", "trigger.drawn", ""},
 		{"Furious Forebear", "trigger.dies-other", ""},
-		{"Darklight Phoenix", "trigger.phase", "trigger condition: turn history (X)"},
+		{"Darklight Phoenix", "trigger.phase", "trigger condition: turn history (Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature)"},
 		{"Persistent Marshstalker", "trigger.attacks", "trigger did not fire from the graveyard"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

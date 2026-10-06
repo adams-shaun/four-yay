@@ -16,9 +16,13 @@
 #   4. verdict-compare against main: "regressed 0" lands everything;
 #   5. otherwise each regressed row is replayed 4x on the integration driver --
 #      not all equal = FLAKY (main's verdict row is kept, .ds4/driver-flakes.log
-#      gets a line); stable = attributed by replaying that row on the batch
-#      WITHOUT each branch in turn (newest first). The branch whose removal
-#      clears it is the CULPRIT: it is re-parked with a History line and the
+#      gets a line; a row id already in that log is FLAKY without re-testing,
+#      so a known flake is never named CULPRIT); stable = attributed by
+#      replaying that row on the batch WITHOUT each branch in turn (newest
+#      first). A branch that changes compliance/oraclegen/ or cmd/oraclediff/
+#      changes the scenario itself, so for it the row is REGENERATED on the
+#      batch without that branch (oraclediff gen, that set) before the replay.
+#      The branch whose removal clears the row is the CULPRIT: it is re-parked with a History line and the
 #      rest land after a fresh full replay. A row no single branch clears lands
 #      NOTHING and every ticket stays parked with the findings.
 #
@@ -48,7 +52,7 @@
 # Test seams (scripts/tests/driver_replay_batch_smoke.sh): DRB_REPO DRB_MAIN
 # DRB_LOG DRB_FLAKE_LOG DRB_POSTMERGE_LOG DRB_ISSUES DRB_RUNS DRB_POLL DRB_ONCE
 # DRB_COOLDOWN DRB_LOCKRUN DRB_WORKTREE_CMD DRB_REPLAY_CMD DRB_COMPARE_CMD
-# DRB_SCENARIO_CMD DRB_DIFF_CMD DRB_CHECK_CMD DRB_RATCHET_CMD DRB_ISSUE_TOOL.
+# DRB_SCENARIO_CMD DRB_GEN_CMD DRB_DIFF_CMD DRB_CHECK_CMD DRB_RATCHET_CMD DRB_ISSUE_TOOL.
 set -uo pipefail
 repo=${DRB_REPO:-$(git rev-parse --show-toplevel)}
 cd "$repo" || exit 1
@@ -69,6 +73,7 @@ read -ra WORKTREE_CMD <<<"${DRB_WORKTREE_CMD:-scripts/agent-worktree.sh}"
 read -ra REPLAY_CMD <<<"${DRB_REPLAY_CMD:-validation/oracle/full-replay.sh}"
 read -ra COMPARE_CMD <<<"${DRB_COMPARE_CMD:-python3 validation/oracle/verdict-compare.py}"
 read -ra SCEN_CMD <<<"${DRB_SCENARIO_CMD:-scripts/xmage-oracle-run.sh}"
+read -ra GEN_CMD <<<"${DRB_GEN_CMD:-}"
 read -ra RATCHET_CMD <<<"${DRB_RATCHET_CMD:-go run ./cmd/oraclediff status -all -write-ratchet}"
 
 mkdir -p "$(dirname "$LOG")" "$(dirname "$FLAKES")"
@@ -176,6 +181,14 @@ elif cmd == "row":
         for line in open(p):
             if line.strip() and json.loads(line).get("id") == args[0]:
                 print(line.rstrip("\n"))
+                sys.exit(0)
+    sys.exit(1)
+elif cmd == "rowfile":
+    # rowfile ID scen.jsonl... -> the first file holding a scenario row for that id
+    for p in args[1:]:
+        for line in open(p):
+            if line.strip() and json.loads(line).get("id") == args[0]:
+                print(p)
                 sys.exit(0)
     sys.exit(1)
 elif cmd == "same":
@@ -305,14 +318,50 @@ cleanup_pass() { # cleanup_pass <landed 0|1>
   done
 }
 
-# one_scenario <wtdir> <id> <outfile>: replay ONE scenario row on that tree's
-# driver (xmage-oracle-run.sh compiles the driver of the tree it runs from).
+# one_scenario <wtdir> <id> <outfile> [scen.jsonl]: replay ONE scenario row on
+# that tree's driver (xmage-oracle-run.sh compiles the driver of the tree it
+# runs from). The row comes from the batch's replay unless a scen.jsonl is given.
 one_scenario() {
-  local dir=$1 id=$2 out=$3 in
+  local dir=$1 id=$2 out=$3 src=${4:-} in
   in="$out.in.jsonl"
   rm -f -- "$out"
-  py row "$id" "$SCEN_ROOT"/*/scen.jsonl >"$in" || return 1
+  if [ -n "$src" ]; then py row "$id" "$src" >"$in" || return 1
+  else py row "$id" "$SCEN_ROOT"/*/scen.jsonl >"$in" || return 1; fi
   (cd "$dir" && GOFLAGS="-p=2 -trimpath" XMAGE_ORACLE_MEM=6G "${LOCKRUN[@]}" "${SCEN_CMD[@]}" "$in" "$out") >/dev/null 2>&1
+  [ -s "$out" ]
+}
+
+# known_flaky <id>: 0 iff .ds4/driver-flakes.log already lists that row id. A row
+# that varied once is not re-tested: four equal replays prove nothing about it
+# (92a06b05 was HELD for a row flaked in the pass before).
+known_flaky() {
+  local line
+  [ -e "$FLAKES" ] || return 1
+  while IFS= read -r line; do
+    case $line in *" $1 "* | *" $1") return 0 ;; esac
+  done <"$FLAKES"
+  return 1
+}
+
+# touches_generator <ticket>: 0 iff that branch changes the scenario generator.
+touches_generator() {
+  git diff --name-only "$MAIN"..."${BR[$1]}" -- compliance/oraclegen cmd/oraclediff 2>/dev/null | /usr/bin/grep -q .
+}
+
+# regen_row <probe> <id> <outfile>: regenerate the scenario row <id> on <probe>'s
+# generator (level B, that row's set only) into <outfile> (a one-row scen.jsonl).
+regen_row() {
+  local dir=$1 id=$2 out=$3 f set gen
+  f=$(py rowfile "$id" "$SCEN_ROOT"/*/scen.jsonl) || return 1
+  set=$(basename "$(dirname "$f")")
+  gen="$out.gen.jsonl"
+  rm -f -- "$gen" "$out"
+  if [ "${#GEN_CMD[@]}" -gt 0 ]; then
+    (cd "$dir" && "${GEN_CMD[@]}" "$set" "$gen") >/dev/null 2>&1 || return 1
+  else
+    (cd "$dir" && capped go run ./cmd/oraclediff gen -level "${ORACLE_LEVEL:-B}" -manifest "compliance/manifests/$set.json" -out "$gen") >/dev/null 2>&1 || return 1
+  fi
+  py row "$id" "$gen" >"$out" || return 1
   [ -s "$out" ]
 }
 
@@ -365,10 +414,18 @@ attribute() {
     done
     [ "$ok" = 1 ] || { say "ATTRIBUTE cannot build the batch without $cand (conflict); skipping it as a candidate"; continue; }
     local -a left=()
+    local gen=0
+    touches_generator "$cand" && gen=1
     for r in "${todo[@]}"; do
-      local tag
+      local tag src=""
       tag=$(echo "$r" | tr -c 'A-Za-z0-9\n' _)
-      if one_scenario "$probe" "$r" "$d/without-$cand-$tag.jsonl" &&
+      if [ "$gen" = 1 ]; then
+        # The branch changes the scenario itself: replaying the batch's row
+        # without it can never clear, so regenerate the row without it.
+        src="$d/regen-$cand-$tag.jsonl"
+        regen_row "$probe" "$r" "$src" || { say "ATTRIBUTE cannot regenerate row $r without $cand; skipping it as a candidate"; left+=("$r"); continue; }
+      fi
+      if one_scenario "$probe" "$r" "$d/without-$cand-$tag.jsonl" "$src" &&
         cleared "$r" "$d/without-$cand-$tag.jsonl" "$d/without-$cand-$tag.jsonl.in.jsonl"; then
         CULPRIT[$r]=$cand
       else
@@ -458,13 +515,59 @@ pass() {
   build_batch "${PIDS[@]}" || { infra_fail "could not reset the batch to $MAIN"; cleanup_pass 0; return 0; }
   if [ "${#MERGED[@]}" -eq 0 ]; then say "NOTHING mergeable this pass"; cleanup_pass 0; return 0; fi
 
-  # Pre-checks: a red check drops the most recently merged branch and retries
-  # (each branch is dropped at most once: the list only shrinks).
+  # Pre-checks: attribute a red batch to branches that fail alone before
+  # blaming an otherwise-green branch for a combination regression.
   until checks pre "$run.checks.log"; do
-    id=${MERGED[$((${#MERGED[@]} - 1))]}
-    say "CHECKS-RED with $id merged last (see $run.checks.log); dropping it"
-    hold "$id" "build/tests red with it merged last" "$M0"
-    build_batch "${MERGED[@]:0:$((${#MERGED[@]} - 1))}" || { infra_fail "rebuild failed"; cleanup_pass 0; return 0; }
+    local -a batch=() red_alone=() remaining=()
+    local n i j later earlier found_pair=0
+    batch=("${MERGED[@]}")
+    n=${#batch[@]}
+    if [ "$n" -eq 1 ]; then
+      id=${batch[0]}
+      say "CHECKS-RED with $id alone (see $run.checks.log); dropping it"
+      hold "$id" "build/tests red alone" "$M0"
+      build_batch || { infra_fail "rebuild failed"; cleanup_pass 0; return 0; }
+    else
+      # Probe one branch at a time, newest first, using the same capped checks.
+      for ((i = n - 1; i >= 0; i--)); do
+        id=${batch[$i]}
+        build_batch "$id" || { infra_fail "rebuild failed during pre-check attribution"; cleanup_pass 0; return 0; }
+        if ! checks pre "$run.checks-alone-$id.log"; then red_alone+=("$id"); fi
+      done
+      if [ "${#red_alone[@]}" -gt 0 ]; then
+        for id in "${red_alone[@]}"; do
+          say "CHECKS-RED-ALONE $id; holding it"
+          hold "$id" "build/tests red alone" "$M0"
+        done
+        for id in "${batch[@]}"; do
+          case " ${red_alone[*]} " in *" $id "*) ;; *) remaining+=("$id") ;; esac
+        done
+      else
+        # All singles passed. Find an interacting pair, newest member first.
+        for ((i = n - 1; i >= 1 && found_pair == 0; i--)); do
+          later=${batch[$i]}
+          for ((j = i - 1; j >= 0; j--)); do
+            earlier=${batch[$j]}
+            build_batch "$earlier" "$later" || { infra_fail "rebuild failed during combination attribution"; cleanup_pass 0; return 0; }
+            if ! checks pre "$run.checks-pair-$earlier-$later.log"; then
+              say "CHECKS-RED-COMBINATION $earlier $later; holding later branch $later"
+              hold "$later" "build/tests red in combination with $earlier" "$M0"
+              found_pair=1
+              break
+            fi
+          done
+        done
+        if [ "$found_pair" -eq 0 ]; then
+          # A higher-order interaction remains unattributed; conservatively
+          # remove the newest member, with the pair we last tested recorded.
+          later=${batch[$((n - 1))]}; earlier=${batch[$((n - 2))]}
+          say "CHECKS-RED-COMBINATION $earlier $later; holding later branch $later"
+          hold "$later" "build/tests red in combination with $earlier" "$M0"
+        fi
+        for id in "${batch[@]}"; do [ "$id" = "$later" ] || remaining+=("$id"); done
+      fi
+      build_batch "${remaining[@]}" || { infra_fail "rebuild failed"; cleanup_pass 0; return 0; }
+    fi
     if [ "${#MERGED[@]}" -eq 0 ]; then say "NOTHING left after pre-checks"; cleanup_pass 0; return 0; fi
   done
 
@@ -495,6 +598,11 @@ pass() {
     local -A DET=()
     while IFS=$'\t' read -r id status detail; do
       DET[$id]="$status $detail"
+      if known_flaky "$id"; then
+        say "FLAKY $id (listed in $(basename "$FLAKES")): known flake, not re-tested; keeping main's row"
+        flaky+=("$id")
+        continue
+      fi
       flaky_check "$id"; rc=$?
       if [ "$rc" -eq 2 ]; then infra_fail "could not replay single scenario $id"; cleanup_pass 0; return 0; fi
       if [ "$rc" -eq 0 ]; then

@@ -265,10 +265,6 @@ GC_BUDGET ?= 0.30
 gc-gate:
 	go run ./cmd/gcgate -pkg $(GC_PKG) -maxprocs $(GC_PROCS) -budget $(GC_BUDGET)
 
-# test-time measures every package's test wall time and records it, plus its
-# budget, in each package's TEST_HISTORY.md (Task TT). The pre-commit hook
-# enforces the budget on changed packages.
-.PHONY: test-time
 # fuzz runs the opt-in fuzz tests (build tag `fuzz`): the rules seed-fuzz
 # acceptance sweep, the ManaBrew decoder fuzz target's seed corpus, and the
 # ManaBrew response translator fuzz target. They are excluded from `make
@@ -283,18 +279,6 @@ fuzz:
 .PHONY: test-manabrew
 test-manabrew:
 	go test $(GO_TEST_FLAGS) -tags manabrew -count=1 ./protocol/manabrew ./internal/manabrew/... ./host/manabrewhttp ./cmd/gorged ./cmd/cardfuzz
-
-test-time:
-	go run ./cmd/testtime -all
-
-# alloc-gate measures every package's test peak RSS and total allocation and
-# records them, plus hard budgets, in each package's ALLOC_HISTORY.md (Task
-# A4). The budgets bind: a package over its alloc_budget_mb (total GC work)
-# or rss_budget_mb (what actually OOMs a shared box) fails the gate. This is
-# the absolute-scale counterpart to gc-gate's ratio budget.
-.PHONY: alloc-gate
-alloc-gate:
-	go run ./cmd/allocgate -all
 
 # Engine-speed benchmarking (cmd/enginebench; scripts in cmd/enginebench/scripts,
 # workload decks committed in cmd/enginebench/testdata/decks). Every run is
@@ -381,7 +365,7 @@ lint-web: web/node_modules/.package-lock.json
 # no browser and no live servers; threading smoke into the default tree would
 # make `make test` need Playwright + three gorged on this shared box. CI and
 # the merge gate run it explicitly, exactly like the other opt-in lanes
-# (conformance, gc-gate, alloc-gate).
+# (conformance, gc-gate).
 .PHONY: smoke
 smoke:
 	scripts/smoke.sh

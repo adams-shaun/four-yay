@@ -18,43 +18,50 @@ import (
 // evergreen keywords, an amount counted from state the fixture does not make
 // observable, or a counter/speed-gated static that only grants an ability).
 // Re-pinned by levelb-static-probe-from-filter, which retries a row the Bear
-// shows nothing on with the probes its Affected$ filter names, and by
+// shows nothing on with the probes its Affected$ filter names; by
+// levelb-static-cda-types-control, which also observes a card's own
+// characteristic-defining P/T, a type or colour change and a control change
+// (Eluge-style CDAs, Tractor Beam, Ygra move out of the skips; a removal of
+// abilities from the vanilla fixture creature is a named skip); and by
 // levelb-setup-counters-speed, which serves a self-counter-gated static with
 // its counters and a MaxSpeed static at speed 4. Measured 2026-10-06 after the
-// counter/speed merge onto the probe work. A counter-gated static whose card
-// has its own ETB trigger (staticSelfETB) stays on the cast path instead: XMage
-// cheats setup permanents onto the battlefield pre-game and never fires the
-// trigger, so the counter setup diverges, while the cast path fires it in both
-// engines. EOE served 16 -> 23, its needs-counters bucket 30 -> 10, with 13 of
-// the counter/speed-gated rows granting only an ability (the named
-// staticGrantWaits skip). FDN served 39 -> 40 and its needs-counters bucket
-// 3 -> 2. It fails in both directions.
+// counter/speed work merged onto the probe and CDA/type/control observation. A
+// counter-gated static whose card has its own ETB trigger (staticSelfETB)
+// stays on the cast path instead: XMage cheats setup permanents onto the
+// battlefield pre-game and never fires the trigger, so the counter setup
+// diverges, while the cast path fires it in both engines; a counter- or
+// speed-gated row that only grants an ability takes the named staticGrantWaits
+// skip. It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
 		"served": 2,
-		"skip:static effect not observable on a probe or the card": 1,
+		"skip:static counts cards exiled with the source": 1,
 	},
 	"EOE": {
-		"served": 23,
-		"skip:static effect not observable on a probe or the card":                     14,
-		"skip:static amount is a computed count the fixture does not make observable":  3,
+		"served": 31,
+		"skip:static changes a player rule (hand size, land plays), not a permanent":   1,
+		"skip:static effect not observable on a probe or the card":                     8,
 		"skip:static grants an ability, which waits for levelb-static-granted-ability": 13,
 		"skip:static grants only keywords outside the compared evergreen set":          1,
 		"skip:static needs counters on the affected permanent":                         10,
 	},
 	"FDN": {
-		"served": 40,
-		"skip:static effect not observable on a probe or the card":                    29,
-		"skip:static amount is a computed count the fixture does not make observable": 4,
+		"served": 55,
+		"skip:static amount is a computed count the fixture does not make observable": 1,
+		"skip:static changes a player rule (hand size, land plays), not a permanent":  1,
+		"skip:static effect not observable on a probe or the card":                    14,
+		"skip:static hand size is not observable in the permanent snapshot":           1,
 		"skip:static needs counters on the affected permanent":                        2,
+		"skip:static removes the abilities of a permanent the fixture gives none":     1,
 	},
 	"FRA": {
-		"served": 13,
-		"skip:static effect not observable on a probe or the card":                    19,
-		"skip:static amount is a computed count the fixture does not make observable": 3,
-		"skip:static grants only keywords outside the compared evergreen set":         1,
-		"skip:static needs a token (setup places none)":                               1,
-		"skip:static needs counters on the affected permanent":                        2,
+		"served": 19,
+		"skip:static effect not observable on a probe or the card":                14,
+		"skip:static removes the abilities of a permanent the fixture gives none": 1,
+		"skip:static counts cards exiled with the source":                         1,
+		"skip:static grants only keywords outside the compared evergreen set":     1,
+		"skip:static needs a token (setup places none)":                           1,
+		"skip:static needs counters on the affected permanent":                    2,
 	},
 }
 

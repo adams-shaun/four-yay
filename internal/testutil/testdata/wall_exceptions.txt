@@ -1,0 +1,16 @@
+# Top-level tests whose wall time exceeds the 1-minute per-test budget as
+# measured by `testbudget check` in scripts/postmerge_full.sh (go test -p=8
+# under the post-merge scope: GOMAXPROCS=2, GOMEMLIMIT=1536MiB). SHRINK-ONLY:
+# rows are deleted when the test is fixed, never added; the exact
+# package/test pairs are pinned by wallExceptionPins in
+# wall_exceptions_test.go. A new offender is split into chunk tests, not
+# pinned. Columns: package, test, wall_s (rounded up). The peak-RSS twin is
+# rss_exceptions.txt.
+#
+# `!unseeded` below means no whole-suite run has populated this list yet (a
+# seat may not run one). While it is present `testbudget check` still names
+# every offender, with its measured numbers and a ready-to-paste row, but does
+# not fail the batch. The first post-merge batch after this landed prints them;
+# paste them here, add their pins, and delete the marker line. From then on a
+# test over budget that is not listed here fails post-merge.
+!unseeded

@@ -1,9 +1,0 @@
-{"Time":"2026-09-08T23:23:00Z","Action":"run","Package":"github.com/adams-shaun/gorge/rules","Test":"TestEveryRepoDeck"}
-{"Time":"2026-09-08T23:23:00Z","Action":"skip","Package":"github.com/adams-shaun/gorge/rules","Test":"TestEveryRepoDeck"}
-{"Time":"2026-09-08T23:23:00Z","Action":"run","Package":"github.com/adams-shaun/gorge/rules","Test":"TestRepoDecks"}
-{"Time":"2026-09-08T23:23:00Z","Action":"skip","Package":"github.com/adams-shaun/gorge/rules","Test":"TestRepoDecks"}
-{"Time":"2026-09-08T23:23:00Z","Action":"run","Package":"github.com/adams-shaun/gorge/rules","Test":"TestRepoDecks/2"}
-{"Time":"2026-09-08T23:23:00Z","Action":"skip","Package":"github.com/adams-shaun/gorge/rules","Test":"TestRepoDecks/2"}
-{"Time":"2026-09-08T23:23:00Z","Action":"run","Package":"github.com/adams-shaun/gorge/rules","Test":"TestHeads"}
-{"Time":"2026-09-08T23:23:00Z","Action":"run","Package":"github.com/adams-shaun/gorge/rules","Test":"TestAcceptance"}
-{"Time":"2026-09-08T23:23:00Z","Action":"pass","Package":"github.com/adams-shaun/gorge/rules","Elapsed":3.6}

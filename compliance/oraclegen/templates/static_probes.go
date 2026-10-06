@@ -156,6 +156,7 @@ type staticProbeSpec struct {
 	pt       string
 	keywords string
 	creature bool
+	chars    staticChars
 }
 
 // staticProbeSpecs reads each probe's printed spec. A probe missing from the
@@ -169,7 +170,7 @@ func staticProbeSpecs(reg *cards.Registry, names []string) map[string]staticProb
 			continue
 		}
 		f := c.Faces[0]
-		spec := staticProbeSpec{keywords: oraclediff.EvergreenKeywords(f.Keywords), creature: f.IsCreature()}
+		spec := staticProbeSpec{keywords: oraclediff.EvergreenKeywords(f.Keywords), creature: f.IsCreature(), chars: printedStaticChars(f)}
 		if spec.creature {
 			spec.pt = f.PT
 		}

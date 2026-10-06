@@ -7,8 +7,7 @@ package main
 //
 // This is a MEASUREMENT vehicle, not a shipped test: it is behind the
 // `policyexp` build tag (so `go test` without it never compiles it and it
-// never counts as a skipped top-level test -- cmd/testtime refuses a package
-// whose skip rate rises) and the test itself additionally skips unless
+// never counts as a skipped top-level test) and the test itself additionally skips unless
 // POLICYNET_EXP_CORPUS names a real searchteacher label corpus. It answers
 // the ticket's "Done means" item 1 -- does any additional feature family lift
 // the `priority` (the corpus's cast kind) holdout top-1 above the bot

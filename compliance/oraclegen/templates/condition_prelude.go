@@ -170,7 +170,12 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 	if contains("count$attackersdeclared") {
 		add(conditionPrelude{battlefield: []string{"Grizzly Bears"}, steps: []oraclegen.Step{{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:Grizzly Bears"}}, {Op: "pass_to", Step: "main2"}}})
 	}
-	if contains("revolt", "sacrificedthisturn", "thisturnentered_graveyard_from_battlefield_creature", "morbid", "count$void") {
+	if contains("sacrificedthisturn") {
+		if prelude, ok := sacrificeConditionPrelude(reg); ok {
+			add(prelude)
+		}
+	}
+	if contains("revolt", "thisturnentered_graveyard_from_battlefield_creature", "morbid", "count$void") {
 		steps := resolvedCast("Grizzly Bears")
 		if len(steps) > 0 {
 			if destroy, ok := castProbe(reg, "Murder", "p0:Grizzly Bears"); ok {
@@ -228,16 +233,24 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 func triggerConditionSkip(t *cards.Trigger, svars map[string]string) string {
 	check := t.ParamStr(cards.PKCheckSVar)
 	if check != "" {
-		body := strings.ToLower(svars[check])
+		body, hasBody := svars[check]
+		label := check
+		if hasBody {
+			head := strings.Fields(body)
+			if len(head) > 0 {
+				label = strings.SplitN(head[0], ".", 2)[0]
+			}
+		}
+		lowerBody := strings.ToLower(body)
 		switch {
-		case strings.Contains(body, "count$") && strings.Contains(body, "validgraveyard"), strings.Contains(body, "count$validgraveyard"):
-			return "condition: graveyard contents (" + check + ")"
-		case strings.Contains(body, "count$") && (strings.Contains(body, "valid ") || strings.Contains(body, "valid$")):
-			return "condition: board count (" + check + ")"
-		case strings.Contains(body, "count$"), strings.Contains(body, "playercountproperty"), strings.Contains(body, "playercountopponents"):
-			return "condition: turn history (" + check + ")"
+		case strings.Contains(lowerBody, "count$") && strings.Contains(lowerBody, "validgraveyard"), strings.Contains(lowerBody, "count$validgraveyard"):
+			return "condition: graveyard contents (" + label + ")"
+		case strings.Contains(lowerBody, "count$") && (strings.Contains(lowerBody, "valid ") || strings.Contains(lowerBody, "valid$")):
+			return "condition: board count (" + label + ")"
+		case strings.Contains(lowerBody, "count$"), strings.Contains(lowerBody, "playercountproperty"), strings.Contains(lowerBody, "playercountopponents"):
+			return "condition: turn history (" + label + ")"
 		default:
-			return "condition: SVar gate (" + check + ")"
+			return "condition: SVar gate (" + label + ")"
 		}
 	}
 	if t.ParamStr(cards.PKRevolt) != "" {
@@ -268,6 +281,52 @@ func triggerConditionSkip(t *cards.Trigger, svars map[string]string) string {
 		return "condition: attacker property"
 	}
 	return ""
+}
+
+// sacrificeConditionPrelude gives the engine an actual sacrifice event. The
+// Bears are distinct from the trigger source, and the explicit choice prevents
+// the deterministic fallback from sacrificing the source instead.
+func sacrificeConditionPrelude(reg *cards.Registry) (conditionPrelude, bool) {
+	cast, ok := castProbe(reg, "Village Rites")
+	if !ok {
+		return conditionPrelude{}, false
+	}
+	cast.Answers = []oraclegen.Answer{{Kind: "choose", Pick: []string{"Grizzly Bears"}}}
+	return conditionPrelude{
+		hand:        []string{"Village Rites"},
+		battlefield: []string{"Grizzly Bears"},
+		steps:       []oraclegen.Step{cast, {Op: "resolve"}},
+	}, true
+}
+
+// scriptPreludeSacrifice carries a prelude step's scripted sacrifice choice to
+// XMage. Gorge's own decision log drops a sole sacrifice candidate as a forced
+// ask, but XMage still poses the TargetControlledPermanent ask for it, so the
+// prelude's explicit pick is exported as the step's choice answer (the shape
+// the activation Sac cost path records). The prelude opens the scenario, so a
+// prelude step index is the scenario step index.
+func scriptPreludeSacrifice(xa [][]oraclegen.XAnswer, prelude []oraclegen.Step, steps int) [][]oraclegen.XAnswer {
+	for i, st := range prelude {
+		if i >= steps {
+			break
+		}
+		for _, a := range st.Answers {
+			if a.Kind != "choose" || len(a.Pick) != 1 {
+				continue
+			}
+			if xa == nil {
+				xa = make([][]oraclegen.XAnswer, steps)
+			}
+			have := false
+			for _, x := range xa[i] {
+				have = have || x.Kind == "choice" && x.Value == a.Pick[0]
+			}
+			if !have {
+				xa[i] = append(xa[i], oraclegen.XAnswer{Seat: st.Seat, Kind: "choice", Value: a.Pick[0]})
+			}
+		}
+	}
+	return xa
 }
 
 func conditionText(params, svars map[string]string) []string {

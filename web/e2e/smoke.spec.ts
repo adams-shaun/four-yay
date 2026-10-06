@@ -357,18 +357,27 @@ async function matchOfTable(request: APIRequestContext, base: string, table: str
 }
 
 /**
- * dockPromptInRail waits for the prompt dock to reach the rail and, only if
- * it is still near-table, presses the dock's own placement toggle until it
- * does. The PRIMARY mechanism is the near-table auto-yield (promptdock2): a
- * near-table dock that would FULLY cover a board option carrier with one of
- * its interactive rows latches itself into the rail for that decision
- * (dockYields in web/src/lib/prompts/dock.ts, latched per decision by
- * PromptDock.svelte; partial overlap never yields). At the ui24 fixture's
- * 1000x700 viewport with the seven-attacker ask, the seat-0 collapsed-pile
- * badge (~28x22 px at ~430,307) lies entirely inside option row 3, so the
- * dock reaches the rail on its own and the badge underneath is directly
- * clickable; this test asserts a board interaction, so it asks for the
- * board-first layout before clicking.
+ * dockPromptInRail waits for the prompt dock to reach either rail slot and,
+ * only if it is still near-table, presses the dock's own placement toggle
+ * until it does. The shipped default is now the rail's LOWER slot
+ * ('dock-bottom', layoutprofile.ts defaultProfile), so a fresh fixture — the
+ * smoke run opens each page in a new context with no saved layout — reports
+ * data-placement 'rail-bottom' on the first poll and returns without a
+ * click. 'rail-bottom' is as much "out of the board's way" as 'rail': both
+ * mount the dock inside the rail column, never over the board, which is all
+ * this helper's board-first ask needs.
+ *
+ * For an explicit near-table profile the PRIMARY mechanism is still the
+ * near-table auto-yield (promptdock2): a near-table dock that would FULLY
+ * cover a board option carrier with one of its interactive rows latches
+ * itself into the rail for that decision (dockYields in
+ * web/src/lib/prompts/dock.ts, latched per decision by PromptDock.svelte;
+ * partial overlap never yields). At the ui24 fixture's 1000x700 viewport
+ * with the seven-attacker ask, the seat-0 collapsed-pile badge (~28x22 px at
+ * ~430,307) lies entirely inside option row 3, so the dock reaches the rail
+ * on its own and the badge underneath is directly clickable; this test
+ * asserts a board interaction, so it asks for the board-first layout before
+ * clicking.
  *
  * (promptdock1 history, still true: the dock's CHROME — root frame, art
  * spine, title/plain text, body padding — is pointer-transparent while
@@ -382,12 +391,16 @@ async function matchOfTable(request: APIRequestContext, base: string, table: str
  * data-placement briefly (~300 ms) for the auto-yield, and only presses the
  * toggle if the dock is STILL near-table — i.e. the fixture's geometry no
  * longer produces full coverage, or the latch was not yet applied. (A toggle
- * press would land the dock in the rail either way; the poll merely keeps
+ * press would land the dock in a rail slot either way; the poll merely keeps
  * the fallback quiet when the latch wins the race.) The toggle cycles
  * table -> rail -> rail-bottom -> floating -> table (nextPlacement in
- * web/src/lib/prompts/dock.ts), so step to 'rail' (bounded) rather than
- * assuming one press. A page with no prompt to answer has no dock to move,
- * and returns.
+ * web/src/lib/prompts/dock.ts), so stop once the dock is in EITHER rail slot
+ * (bounded presses) rather than assuming one press or one particular slot.
+ * It deliberately never steps PAST a rail slot into 'floating': a floating
+ * dock's tools sit at its top-right edge, which clampPosition (dock.ts) may
+ * let overhang the viewport's right edge, so its placement toggle is not a
+ * reliable click target — and a floating dock is not wanted here. A page
+ * with no prompt to answer has no dock to move, and returns.
  */
 async function dockPromptInRail(page: Page, label: string): Promise<void> {
   const dock = page.locator('[data-prompt-dock]');
@@ -400,19 +413,23 @@ async function dockPromptInRail(page: Page, label: string): Promise<void> {
   await dock.waitFor({ state: 'attached', timeout: 3_000 }).catch(() => {
     throw new Error(`${label}: no prompt dock attached within 3s — the caller should have a decision pending, so the dock must exist`);
   });
+  // Both rail slots keep the dock out of the board's way; 'table' and
+  // 'floating' do not, so only the rail slots satisfy this helper.
+  const inRail = (placement: string | null): boolean => placement === 'rail' || placement === 'rail-bottom';
   // The auto-yield latch is decided one requestAnimationFrame after the dock
-  // mounts; poll briefly for it before reaching for the toggle.
+  // mounts; poll briefly for it (or for the shipped lower-rail default)
+  // before reaching for the toggle.
   for (let i = 0; i < 6; i++) {
-    if ((await dock.getAttribute('data-placement')) === 'rail') return;
+    if (inRail(await dock.getAttribute('data-placement'))) return;
     await page.waitForTimeout(50);
   }
   for (let i = 0; i < 4; i++) {
-    const placement = await dock.getAttribute('data-placement');
-    if (placement === 'rail') return;
+    if (inRail(await dock.getAttribute('data-placement'))) return;
     await page.locator('[data-dock-placement-toggle]').click({ timeout: WAIT_MS });
     await page.waitForTimeout(30);
   }
-  expect(await dock.getAttribute('data-placement'), `${label}: the prompt dock should reach the rail`).toBe('rail');
+  const landed = await dock.getAttribute('data-placement');
+  expect(inRail(landed), `${label}: the prompt dock should reach a rail slot (rail or rail-bottom)`).toBe(true);
 }
 
 /**

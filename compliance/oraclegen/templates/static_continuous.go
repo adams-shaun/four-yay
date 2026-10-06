@@ -28,14 +28,16 @@
 // observability reason, because the probes cannot observe a granted ability
 // (ticket levelb-static-granted-ability).
 //
-// A candidate is served only when gorge shows an effect: a probe's P/T or
-// evergreen keywords differ from its printed ones (Grizzly Bears: 2/2, none), or the
-// card's own P/T or evergreen keywords differ from its printed ones (a self
-// static whose condition the fixture makes true), or -- for a counter-gated
-// static -- the card has become a creature it is not printed as (a Spacecraft's
-// station, a Vehicle's crew condition). A static that lands on nothing
-// observable stays a skip, so no item asserts a static the engine does not
-// implement.
+// A candidate is served only when gorge shows an effect: a probe's P/T,
+// evergreen keywords, types or colours differ from its printed ones (Grizzly
+// Bears: 2/2, none), or the card's own differ from its printed ones (a self
+// static whose condition the fixture makes true), or the card shows the P/T of
+// its own characteristic-defining static, or a GainControl$ static leaves a
+// permanent under a controller who is not its owner (static_observe.go). A
+// counter-gated static whose card has become a creature it is not printed as
+// (a Spacecraft's station, a Vehicle's crew condition) is caught the same way,
+// by the card's types moving. A static that lands on nothing observable stays
+// a skip, so no item asserts a static the engine does not implement.
 package templates
 
 import (
@@ -76,8 +78,20 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	if !probePlan.empty() {
 		plans = append(plans, probePlan)
 	}
+	// served is the item for a scenario that replays and shows an effect.
+	served := func(base oraclegen.Item, res rules.OracleResult, plan staticProbePlan) (oraclegen.Item, bool) {
+		specs := staticProbeSpecs(reg, append([]string{staticProbe}, plan.probes...))
+		if !staticObserved(res.Snapshots[len(res.Snapshots)-1], f, name, st, specs) {
+			return oraclegen.Item{}, false
+		}
+		it := oraclegen.NewLevelBItem(name, req.Key, StaticApplies.Version, []string{"611.3", "613"}, base.Scenario)
+		it.XAnswers = base.XAnswers
+		it.Ignore = base.Ignore
+		it.Compare = []string{oraclediff.CompareKeywords}
+		return it, true
+	}
 	for i, plan := range plans {
-		base, why := staticBase(reg, c, f, name, req, plan)
+		base, why := staticBase(reg, c, f, name, req, plan, nil)
 		if why != "" && i == 0 {
 			return skip(why)
 		}
@@ -91,15 +105,27 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			}
 			break
 		}
-		specs := staticProbeSpecs(reg, append([]string{staticProbe}, plan.probes...))
-		if !staticObserved(res.Snapshots[len(res.Snapshots)-1], f, name, specs, gated) {
-			continue
+		if it, ok := served(base, res, plan); ok {
+			return it, nil
 		}
-		it := oraclegen.NewLevelBItem(name, req.Key, StaticApplies.Version, []string{"611.3", "613"}, base.Scenario)
-		it.XAnswers = base.XAnswers
-		it.Ignore = base.Ignore
-		it.Compare = []string{oraclediff.CompareKeywords}
-		return it, nil
+	}
+	// A condition or count the bare scenario leaves false or zero: retry each
+	// candidate fixture with each probe plan. This runs only after every bare
+	// scenario failed, so a row the bare scenarios serve keeps its bytes.
+	for _, cond := range staticFixtures(reg, f, st) {
+		for _, plan := range plans {
+			base, why := staticBase(reg, c, f, name, req, plan, &cond)
+			if why != "" {
+				continue
+			}
+			res, err := rules.RunOracleScenarioJSON(reg, base.Raw())
+			if err != nil || len(res.Fails) != 0 || len(res.Snapshots) == 0 {
+				continue
+			}
+			if it, ok := served(base, res, plan); ok {
+				return it, nil
+			}
+		}
 	}
 	// A counter- or speed-gated static that grants only an ability, trigger,
 	// static or replacement is a named wait: the probes compare P/T and
@@ -110,7 +136,16 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	if gap := staticProbeCapGap(probePlan); gap != "" {
 		return skip(gap)
 	}
+	if st.HasParam(cards.PKClassBand) {
+		return skip(staticClassReason)
+	}
+	if gap := staticObserveGap(f, st); gap != "" {
+		return skip(gap)
+	}
 	if gap := staticGap(st, affected); gap != "" {
+		return skip(gap)
+	}
+	if gap := staticConditionGap(f, st); gap != "" {
 		return skip(gap)
 	}
 	return skip("effect not observable on a probe or the card")
@@ -122,7 +157,7 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 // with the counters its gate names (counterGatedBase) before any cast path,
 // because the condition is a state the fixture must supply; a static gated on
 // Condition$ MaxSpeed gets p0 at speed 4.
-func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, req levelb.Requirement, plan staticProbePlan) (oraclegen.Item, string) {
+func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, req levelb.Requirement, plan staticProbePlan, cond *staticFixture) (oraclegen.Item, string) {
 	st, _ := staticSlotOf(f, req)
 	probes := append([]string{staticProbe}, plan.probes...)
 	var base oraclegen.Item
@@ -135,13 +170,15 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 		// the cast path below.
 		kind, need, _ := staticCounterGate(&st)
 		base = counterGatedBase(f, name, kind, need)
-	case req.Face > 0 || plan.self:
+	case cond != nil && !cond.setupOnly() && (req.Face > 0 || plan.self || oraclegen.HasType(f, "Land")) && !cond.place:
+		return base, "fixture needs steps the scenario has no cast for"
+	case req.Face > 0 || plan.self || (cond != nil && cond.place):
 		// A face-1 static is served by setup-on-back-face, not by casting:
 		// the card cannot be cast on its back face (that is out of scope),
 		// so it is placed there directly and observed from genesis. A self
 		// static that needs the card attacking is placed the same way: a
 		// cast creature is summoning sick and cannot attack.
-		base = staticBackFaceScenario(f, name, req, probes)
+		base = staticBackFaceScenario(f, name, req, probes, cond)
 	case requestedFace(c, name) != f:
 		return base, "face is not the castable face"
 	case oraclegen.HasType(f, "Land"):
@@ -150,7 +187,11 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 			for _, probe := range probes {
 				p0.Battlefield = appendFixtureUnique(p0.Battlefield, probe)
 			}
-			setup["p0"] = p0
+			p1 := setup["p1"]
+			if cond != nil {
+				cond.seats(&p0, &p1)
+			}
+			setup["p0"], setup["p1"] = p0, p1
 			oraclegen.Baseline(setup, f)
 		})
 	default:
@@ -158,7 +199,11 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 		if why != "" {
 			return base, why
 		}
-		it, sk := castResolveWith(reg, f, name, mana, probes)
+		var setup func(*oraclegen.Fixture)
+		if cond != nil {
+			setup = cond.apply
+		}
+		it, sk := castResolveWith(reg, f, name, mana, probes, setup)
 		if sk != nil {
 			return base, sk.Reason
 		}
@@ -217,14 +262,17 @@ func staticAttackers(reg *cards.Registry, name string, probes []string, self boo
 // seats, and no steps. The static is live from the first checkpoint, so the
 // final snapshot is where its effect shows. The probe is placed by Baseline on
 // p1 and appended here on p0, matching the cast-based path's probe layout.
-func staticBackFaceScenario(f *cards.Face, name string, req levelb.Requirement, probes []string) oraclegen.Item {
-	p0 := oraclegen.Seat{Battlefield: []string{name}}
+func staticBackFaceScenario(f *cards.Face, name string, req levelb.Requirement, probes []string, cond *staticFixture) oraclegen.Item {
+	p0, p1 := oraclegen.Seat{Battlefield: []string{name}}, oraclegen.Seat{}
 	setupBackFace(&p0, name, req)
 	for _, probe := range probes {
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, probe)
 	}
+	if cond != nil {
+		cond.seats(&p0, &p1)
+	}
 	sc := oraclegen.Scenario{
-		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": {}},
+		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": p1},
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),
 		// Observed from genesis, so no steps -- but an empty array, not
 		// JSON null: the XMage driver reads "steps" as an array, and a null
@@ -236,15 +284,18 @@ func staticBackFaceScenario(f *cards.Face, name string, req levelb.Requirement, 
 }
 
 // staticObserved reports whether the final snapshot shows a continuous effect:
-// a probe off its printed P/T or keywords, or the card (p0's) off its printed
-// P/T or evergreen keywords. The card is matched by its active face's printed
-// name (f.Name), so a face-after-0 static whose permanent reports the
-// back-face name is still recognised. typed also counts the card turning into
-// a creature it is not printed as (a Spacecraft's station, a Vehicle's crew
-// condition); only the counter-gated path asks for it, so every other static
-// is judged exactly as before.
-func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, probes map[string]staticProbeSpec, typed bool) bool {
+// a probe off its printed P/T, evergreen keywords, types or colours; the card
+// (p0's) off its printed P/T, evergreen keywords, types or colours, or showing
+// the P/T of its own characteristic-defining static; or any permanent whose
+// controller is not its owner under a GainControl$ static. The card is
+// matched by its active face's printed name (f.Name), so a face-after-0 static
+// whose permanent reports the back-face name is still recognised. A
+// counter-gated card that became a creature it is not printed as (a
+// Spacecraft's station, a Vehicle's crew condition) shows up in its types, the
+// same staticCharsMoved comparison every other card uses.
+func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, st cards.Static, probes map[string]staticProbeSpec) bool {
 	printedKW := oraclediff.EvergreenKeywords(f.Keywords)
+	printedChars := printedStaticChars(f)
 	cardName := f.Name
 	if cardName == "" {
 		cardName = name
@@ -253,19 +304,22 @@ func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, probes m
 		spec, isProbe := probes[p.Name]
 		switch {
 		case isProbe:
-			if p.PT != spec.pt || oraclediff.EvergreenKeywords(p.Keywords) != spec.keywords {
+			if p.PT != spec.pt || oraclediff.EvergreenKeywords(p.Keywords) != spec.keywords || staticCharsMoved(p, spec.chars) {
 				return true
 			}
 		case p.Controller == 0 && p.Name == cardName:
 			if p.PT != "" && f.PT != "" && !strings.Contains(f.PT, "*") && p.PT != f.PT {
 				return true
 			}
-			if oraclediff.EvergreenKeywords(p.Keywords) != printedKW {
+			if p.PT != "" && strings.Contains(f.PT, "*") && staticSelfCDA(st) {
 				return true
 			}
-			if typed && !f.IsCreature() && hasString(p.Types, "Creature") {
+			if oraclediff.EvergreenKeywords(p.Keywords) != printedKW || staticCharsMoved(p, printedChars) {
 				return true
 			}
+		}
+		if p.Controller != p.Owner && st.HasParam(cards.PKGainControl) {
+			return true
 		}
 	}
 	return false

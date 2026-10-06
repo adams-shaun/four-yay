@@ -11,6 +11,8 @@
 #   tools/xmageoracle/*.regress  ids a branch makes regress, STABLY (bad output)
 #   tools/xmageoracle/*.flaky    ids a branch makes regress with a VARYING output
 #   tools/xmageoracle/*.badtest  the pre-check command fails while it exists
+#   compliance/oraclegen/*.genregress  ids whose GENERATED scenario is bad (the
+#                                generator changed; the driver is fine)
 #   $STUB_ALWAYS                 ids that regress whatever the branches are
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
@@ -51,7 +53,7 @@ fi
 python3 - "$rdir/S/scen.jsonl" <<'PY'
 import glob, json, os, sys
 bad = set()
-for pat in ("tools/xmageoracle/*.regress", "tools/xmageoracle/*.flaky"):
+for pat in ("tools/xmageoracle/*.regress", "tools/xmageoracle/*.flaky", "compliance/oraclegen/*.genregress"):
     for f in glob.glob(pat):
         bad |= set(open(f).read().split("\n")) - {""}
 if os.environ.get("STUB_ALWAYS") and os.path.exists(os.environ["STUB_ALWAYS"]):
@@ -60,7 +62,10 @@ with open(sys.argv[1], "w") as sc:
     for f in glob.glob("compliance/verdicts/*.jsonl"):
         rows = [json.loads(l) for l in open(f) if l.strip()]
         for r in rows:
-            sc.write(json.dumps({"id": r["id"], "card": r["card"]}) + "\n")
+            gb = set()
+            for g in glob.glob("compliance/oraclegen/*.genregress"):
+                gb |= set(open(g).read().split("\n")) - {""}
+            sc.write(json.dumps({"id": r["id"], "card": r["card"], "scen": "bad" if r["id"] in gb else "ok"}) + "\n")
             if r["id"] in bad:
                 r["status"] = "diverge"
             elif r["card"] == "Gamma":
@@ -78,7 +83,24 @@ d=tools/xmageoracle
 for f in $d/*.regress; do [ -e "$f" ] && /usr/bin/grep -qxF -- "$id" "$f" && state=bad; done
 [ -n "${STUB_ALWAYS:-}" ] && [ -e "$STUB_ALWAYS" ] && /usr/bin/grep -qxF -- "$id" "$STUB_ALWAYS" && state=bad
 for f in $d/*.flaky; do [ -e "$f" ] && /usr/bin/grep -qxF -- "$id" "$f" && state="r$(date +%N)$RANDOM"; done
+/usr/bin/grep -q '"scen": "bad"' "$1" && state=bad
 printf '{"id":"%s","state":"%s","ms":%s}\n' "$id" "$state" "$((RANDOM + 1))" >"$2"
+EOF
+cat >"$S/gen.sh" <<'EOF'
+#!/usr/bin/env bash
+# gen.sh SET OUT, in the tree whose generator is being tried: regenerate the set.
+python3 - "$2" <<'PY'
+import glob, json, sys
+gb = set()
+for g in glob.glob("compliance/oraclegen/*.genregress"):
+    gb |= set(open(g).read().split("\n")) - {""}
+with open(sys.argv[1], "w") as sc:
+    for f in glob.glob("compliance/verdicts/*.jsonl"):
+        for l in open(f):
+            if l.strip():
+                r = json.loads(l)
+                sc.write(json.dumps({"id": r["id"], "card": r["card"], "scen": "bad" if r["id"] in gb else "ok"}) + "\n")
+PY
 EOF
 cat >"$S/diff.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -89,7 +111,10 @@ printf '{"id":"%s","card":"x","verdict":{"status":"%s"}}\n' "$id" "$st" >"$3"
 EOF
 cat >"$S/check.sh" <<'EOF'
 #!/usr/bin/env bash
-[ "$1" = pre ] && ls tools/xmageoracle/*.badtest >/dev/null 2>&1 && { echo "stub test red"; exit 1; }
+[ "$1" = pre ] || exit 0
+ls tools/xmageoracle/*.badtest >/dev/null 2>&1 && { echo "stub test red"; exit 1; }
+ls tools/xmageoracle/*.redalone >/dev/null 2>&1 && { echo "stub branch red alone"; exit 1; }
+[ -e tools/xmageoracle/t1.combo ] && [ -e tools/xmageoracle/t3.combo ] && { echo "stub combination red"; exit 1; }
 exit 0
 EOF
 cat >"$S/issue.sh" <<'EOF'
@@ -157,7 +182,7 @@ runpass() {
 		export DRB_REPO=$R DRB_ONCE=1 DRB_RUNS=$TMP/runs-$(basename "$R") DRB_LOCKRUN=env \
 			DRB_WORKTREE_CMD=$S/worktree.sh DRB_REPLAY_CMD=$S/replay.sh \
 			DRB_COMPARE_CMD="python3 $ROOT/validation/oracle/verdict-compare.py" \
-			DRB_SCENARIO_CMD=$S/scen.sh DRB_DIFF_CMD=$S/diff.sh DRB_CHECK_CMD=$S/check.sh \
+			DRB_SCENARIO_CMD=$S/scen.sh DRB_GEN_CMD=$S/gen.sh DRB_DIFF_CMD=$S/diff.sh DRB_CHECK_CMD=$S/check.sh \
 			DRB_RATCHET_CMD=true DRB_ISSUE_TOOL=$S/issue.sh DRB_ISSUES=$R/.ds4/issues \
 			STUB_ALWAYS=$R/always.txt
 		timeout 120 bash "$SCRIPT" >"$R/pass.out" 2>&1
@@ -287,12 +312,34 @@ mkrepo E
 mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
 mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/x.badtest broken
 runpass
-has "$L" 'CHECKS-RED with t3 merged last'
-check "E the most recently merged branch is dropped on a red pre-check" $?
+has "$L" 'CHECKS-RED-ALONE t3'
+check "E the red branch is identified by an alone pre-check" $?
 /usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1$' "$L"
 check "E the rest lands" $?
-[ "$(status_of t3)" = human_needed ] && has "$R/.ds4/issues/t3.md" 'driver_replay_batch: HELD build/tests red'
+[ "$(status_of t3)" = human_needed ] && has "$R/.ds4/issues/t3.md" 'driver_replay_batch: HELD build/tests red alone'
 check "E the dropped ticket stays parked, HELD" $?
+
+# ---- E2: the first merged branch is red alone; the second lands -------------------
+mkrepo E2
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.redalone red
+mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/t3.txt green
+runpass
+has "$L" 'CHECKS-RED-ALONE t1'
+check "E2 the first-merged red branch is isolated and held" $?
+[ "$(status_of t1)" = human_needed ] && has "$R/.ds4/issues/t1.md" 'driver_replay_batch: HELD build/tests red alone'
+check "E2 only the red branch is held" $?
+[ "$(status_of t3)" = merged ] && git -C "$R" cat-file -e main:tools/xmageoracle/t3.txt
+check "E2 the green branch lands" $?
+
+# ---- E3: green singles with a red combination hold only the later branch ----------
+mkrepo E3
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.combo first
+mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/t3.combo second
+runpass
+has "$L" 'CHECKS-RED-COMBINATION t1 t3'
+check "E3 a red pair is reported as a combination" $?
+[ "$(status_of t1)" = merged ] && [ "$(status_of t3)" = human_needed ]
+check "E3 only the later combination branch is held" $?
 
 # ---- F: when not to act ------------------------------------------------------------
 mkrepo F1
@@ -333,6 +380,36 @@ has "$L" 'REDO main moved' && hasnt "$L" 'LANDED'
 check "G a conflicting main move redoes the pass without landing" $?
 [ "$(status_of t1)" = human_needed ] && hasnt "$R/.ds4/issues/t1.md" 'driver_replay_batch:'
 check "G the ticket is untouched, so the redo selects it again" $?
+
+# ---- H: a row already in driver-flakes.log is never a CULPRIT -----------------------
+mkrepo H
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/x.regress 'Beta/cast-resolve/v1'
+echo "2026-10-06 10:05:03 driver-batch-20261006T100503Z Beta Beta/cast-resolve/v1 varies: /state" >"$R/.ds4/driver-flakes.log"
+runpass
+has "$L" 'FLAKY Beta/cast-resolve/v1 (listed in driver-flakes.log)'
+check "H a stable-looking row listed in the flakes log is FLAKY without re-testing" $?
+hasnt "$L" 'CULPRIT'
+check "H a known-flaky row is never named CULPRIT" $?
+git -C "$R" show main:compliance/verdicts/a.jsonl | /usr/bin/grep -q '{"id":"Beta/cast-resolve/v1","card":"Beta","status":"agree"}'
+check "H main's verdict row is kept for the known flake" $?
+/usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1 t3$' "$L" && [ "$(status_of t3)" = merged ]
+check "H the branch that only looked guilty lands with the rest" $?
+
+# ---- I: a generator-caused regression is attributed by regenerating the row ---------
+mkrepo I
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+mkticket t3 2026-10-06T04:00:00Z compliance/oraclegen/x.genregress 'Beta/cast-resolve/v1'
+mkticket t8 2026-10-06T05:00:00Z tools/xmageoracle/t8.txt eight
+runpass
+has "$L" 'CULPRIT t3 row Beta/cast-resolve/v1'
+check "I a row whose scenario the branch's generator changed is attributed to that branch" $?
+hasnt "$L" 'UNATTRIBUTED'
+check "I a generator-caused row is not UNATTRIBUTED" $?
+[ "$(status_of t3)" = human_needed ] && [ "$(status_of t1)" = merged ] && [ "$(status_of t8)" = merged ]
+check "I only the generator branch stays parked" $?
+/usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1 t8$' "$L"
+check "I the others land" $?
 
 echo
 [ "$fails" = 0 ] && echo "driver_replay_batch smoke: all passed" || echo "driver_replay_batch smoke: $fails FAILED"

@@ -222,7 +222,7 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 		return gapMode()
 
 	case cards.TriggerBecomesTarget:
-		if namesSelf(t.ParamStr(cards.PKValidTarget)) {
+		if namesSelf(t.ParamStr(cards.PKValidTarget)) || strings.EqualFold(t.ParamStr(cards.PKValidSource), "SpellAbility.OppCtrl") {
 			return "trigger.becomes-target", "", false
 		}
 		return gapMode()
@@ -274,10 +274,16 @@ func classifyStatic(f *cards.Face, st *cards.Static) (sub, gap string) {
 	case cards.StaticReduceCost:
 		return "static.cost", ""
 	case cards.StaticRaiseCost:
-		// Own additional costs are exercised by the spell's own cast probe;
-		// opponent taxes still need an opponent-turn recipe.
+		// Opponent-side taxes use the opponent-cast probe; own additional
+		// costs remain served by the source's own cast probe.
 		activator := st.ParamStr(cards.PKActivator)
 		if strings.EqualFold(st.ParamStr(cards.PKValidCard), "Card.Self") && (activator == "" || strings.EqualFold(activator, "You")) {
+			return "static.cost", ""
+		}
+		if strings.EqualFold(activator, "Opponent") || strings.EqualFold(activator, "Player.Opponent") {
+			if strings.EqualFold(f.Name, "Aven Interrupter") {
+				return "static.cost", "opponent-cast cost static: graveyard/exile cast zone unsupported"
+			}
 			return "static.cost", ""
 		}
 		return "static.cost", "opponent-cast cost static"

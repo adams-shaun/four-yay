@@ -127,7 +127,7 @@ while true; do
         say "RED ${head:0:9} ($(( $(date +%s) - s ))s): $(/usr/bin/grep -E '^(--- FAIL|FAIL|panic)' "$OUT" | head -n5 | tr '\n' ' ')"
         red_fails=$(parse_fails "$OUT")
         if [ -z "$red_fails" ]; then
-          say "RED ${head:0:9}: no failing package parsed (vet/TestHeads/sim step?) -- see $OUT; not bisected"
+          say "RED ${head:0:9}: no failing package parsed (vet/testbudget/TestHeads/sim step?) -- see $OUT; not bisected"
         fi
         while read -r pkg re; do
           [ -n "$pkg" ] || continue

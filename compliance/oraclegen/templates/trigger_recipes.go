@@ -10,17 +10,18 @@ import (
 // triggerCause is one candidate way of making a trigger's cause happen on
 // turn 1 with ops the XMage driver already has (cast, attack, pass_to).
 type triggerCause struct {
-	hand        []string                  // probe cards added to p0's hand
-	battlefield []string                  // extra p0 permanents (an attacker for a non-creature card)
-	tapped      []string                  // extra p0 permanents that start tapped
-	graveyard   []string                  // extra p0 graveyard cards
-	counters    map[string]map[string]int // counters on setup permanents
-	prelude     []oraclegen.Step          // steps before the actual trigger cause
-	steps       []oraclegen.Step          // the cause steps emitted into the item
-	probeSteps  []oraclegen.Step          // steps whose snapshots show the trigger on the stack; nil means steps
-	selfInHand  bool                      // the card starts in p0's hand (a "when you discard this card" trigger), not on the battlefield
-	xability    []string                  // XMage rule-text prefix per step (an activate step); nil when no step activates
-	castSelfX   bool                      // the card is cast from hand with X first (an X creature that setup would leave 0/0)
+	hand         []string                  // probe cards added to p0's hand
+	battlefield  []string                  // extra p0 permanents (an attacker for a non-creature card)
+	tapped       []string                  // extra p0 permanents that start tapped
+	graveyard    []string                  // extra p0 graveyard cards
+	counters     map[string]map[string]int // counters on setup permanents
+	prelude      []oraclegen.Step          // steps before the actual trigger cause
+	steps        []oraclegen.Step          // the cause steps emitted into the item
+	probeSteps   []oraclegen.Step          // steps whose snapshots show the trigger on the stack; nil means steps
+	selfInHand   bool                      // the card starts in p0's hand (a "when you discard this card" trigger), not on the battlefield
+	xability     []string                  // XMage rule-text prefix per step (an activate step); nil when no step activates
+	castSelfX    bool                      // the card is cast from hand with X first (an X creature that setup would leave 0/0)
+	opponentHand []string                  // probes held by p1 for opponent-cast causes
 }
 
 // Probe cards, each named with why. Spec hypothesis H4: the probe exists in
@@ -37,8 +38,8 @@ var (
 	// Inspiration are the fallbacks.
 	drawProbes = []string{"Divination", "Concentrate", "Inspiration"}
 	// Shock (instant, {R}, 2 damage to any target) is the instant/sorcery
-	// cast cause and Grizzly Bears ({1}{G}) the creature one; Giant Growth
-	// ({G}) is the becomes-target cause. All three are level-A fixtures.
+	// cast cause; Grizzly Bears ({1}{G}) the creature one; and Giant Growth
+	// ({G}) the self-controlled becomes-target cause. All three are level-A fixtures.
 	shockProbe, bearsProbe, growthProbe = "Shock", "Grizzly Bears", "Giant Growth"
 )
 
@@ -87,6 +88,11 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		}
 		attack := oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{attacker}}
 		c := triggerCause{battlefield: extra, steps: []oraclegen.Step{attack}}
+		if !combatDamage {
+			if prepared, ok := attackActivationCause(reg, f, name, t); ok {
+				c = prepared
+			}
+		}
 		if combatDamage {
 			// The trigger resolves inside the pass to main2, so the emitted
 			// item shows no stack; the probe stops in end-combat, where the
@@ -101,7 +107,13 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		if !creature {
 			return nil, "becomes-target needs a creature"
 		}
+		// Keep both controller shapes: YouCtrl target triggers need p0's own
+		// spell, while ward and OppCtrl triggers need p1's spell.
 		cast(growthProbe, "p0:"+name)
+		if st, ok := castProbe(reg, shockProbe, "p0:"+name); ok {
+			st.Seat, st.Card = 1, "p1:"+shockProbe
+			out = append(out, triggerCause{opponentHand: []string{shockProbe}, steps: []oraclegen.Step{{Op: "pass", Seat: 0}, st}})
+		}
 	case "trigger.life-gained":
 		for _, p := range lifegainProbes {
 			cast(p)
@@ -156,6 +168,50 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		return nil, "probe not in corpus"
 	}
 	return out, ""
+}
+
+// attackActivationCause builds the activation-and-attack cause for saddled
+// creatures, Vehicles and self-animating lands. The existing activate cost
+// fixture machinery supplies Crew/Saddle's tapped creatures and XMage answers.
+func attackActivationCause(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger) (triggerCause, bool) {
+	needsSaddle := strings.Contains(strings.ToLower(t.ParamStr(cards.PKValidCard)), "issaddled")
+	abilityIndex := -1
+	for i, sa := range f.Abilities {
+		if !sa.IsActivated() {
+			continue
+		}
+		keyword := strings.ToLower(sa.Params["Keyword"])
+		defined := strings.EqualFold(sa.Params["Defined"], "Self")
+		animatesCreature := strings.Contains(strings.ToLower(sa.Params["Types"]), "creature") && sa.Params["Power"] != ""
+		if (needsSaddle && strings.HasPrefix(keyword, "saddle")) || (!needsSaddle && strings.HasPrefix(keyword, "crew")) || (!needsSaddle && defined && animatesCreature && f.IsLand()) {
+			abilityIndex = i
+			break
+		}
+	}
+	if abilityIndex < 0 {
+		return triggerCause{}, false
+	}
+	sa := f.Abilities[abilityIndex]
+	cost := sa.ParamStr(cards.PKCost)
+	mana, gap := activationCostIn(cost, "battlefield")
+	if gap != "" {
+		return triggerCause{}, false
+	}
+	prefixes, why := oraclegen.XMageAbility(f)
+	if why != "" {
+		return triggerCause{}, false
+	}
+	prefix, ok := prefixes[abilityIndex]
+	if !ok {
+		return triggerCause{}, false
+	}
+	idx := abilityIndex
+	activate := oraclegen.Step{Op: "activate", Seat: 0, Card: "p0:" + name, Mana: mana, AbilityIndex: &idx, Answers: activationXAnswers(cost)}
+	setup := oraclegen.Seat{}
+	addActivationCostFixtures(&setup, cost)
+	battlefield := append([]string(nil), setup.Battlefield...)
+	attack := oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:" + name}}
+	return triggerCause{battlefield: battlefield, steps: []oraclegen.Step{activate, {Op: "resolve"}, attack}, xability: []string{prefix}}, true
 }
 
 // phaseStep maps the Phase$ vocabulary admitted by levelb to ParseStep's

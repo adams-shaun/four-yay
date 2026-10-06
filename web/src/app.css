@@ -65,6 +65,12 @@
   --sp-4: 1rem;
   --sp-6: 1.5rem;
   --sp-8: 2rem;
+  /* The persistent Feedback button is fixed in the viewport's bottom-right
+     corner (FeedbackButton.svelte): --feedback-h is its height and
+     --feedback-clear the whole corner it owns (its bottom offset, height and
+     one more gap above). A prompt that can reach that corner reserves it. */
+  --feedback-h: 1.75rem;
+  --feedback-clear: calc(var(--sp-2) + var(--feedback-h) + var(--sp-2));
 
   /* The board clock is one compact instrument row in a real centre lane.
      The clearance is named because card rows must never be allowed to consume

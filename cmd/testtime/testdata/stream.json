@@ -1,7 +1,0 @@
-{"Time":"2026-09-05T20:10:00Z","Action":"run","Package":"github.com/adams-shaun/gorge/host","Test":"TestSession"}
-{"Time":"2026-09-05T20:10:00Z","Action":"run","Package":"github.com/adams-shaun/gorge/host","Test":"TestHost"}
-{"Time":"2026-09-05T20:10:00Z","Action":"run","Package":"github.com/adams-shaun/gorge/host","Test":"TestHost/Sub"}
-{"Time":"2026-09-05T20:10:57Z","Action":"pass","Package":"github.com/adams-shaun/gorge/host","Elapsed":57.4}
-{"Time":"2026-09-05T20:10:00Z","Action":"run","Package":"github.com/adams-shaun/gorge/state","Test":"TestGame"}
-{"Time":"2026-09-05T20:10:00Z","Action":"run","Package":"github.com/adams-shaun/gorge/state","Test":"TestGame/Sub"}
-{"Time":"2026-09-05T20:10:02Z","Action":"pass","Package":"github.com/adams-shaun/gorge/state","Elapsed":2.1}

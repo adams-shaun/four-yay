@@ -33,7 +33,11 @@ func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.R
 	p0.Exile = appendUnique(p0.Exile, p.exile...)
 	p0.Hand = append(p0.Hand, p.hand...)
 	if p.activate == nil {
-		p0.Hand = appendUnique(p0.Hand, p.spell)
+		if p.opponent {
+			p1.Hand = appendUnique(p1.Hand, p.spell)
+		} else {
+			p0.Hand = appendUnique(p0.Hand, p.spell)
+		}
 	}
 	if p.first != nil && p.first.Card == "p0:Shock" {
 		p0.Hand = appendUnique(p0.Hand, "Shock")
@@ -54,6 +58,9 @@ func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.R
 	targets := fx.Targets()
 	if p.targeted {
 		targets = []string{"p1"}
+		if p.opponent {
+			targets = []string{"p0:" + name}
+		}
 	}
 	if strings.Contains(f.Statics[idx].Params["ValidTarget"], "tapped") {
 		for _, target := range targets {
@@ -61,10 +68,17 @@ func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.R
 		}
 		sc.Setup["p0"], sc.Setup["p1"] = p0, p1
 	}
-	step := oraclegen.Step{Op: "cast", Seat: 0, Card: "p0:" + p.spell, Mana: p.mana, Targets: targets}
+	castSeat, castRef := 0, "p0:"+p.spell
+	if p.opponent {
+		castSeat, castRef = 1, "p1:"+p.spell
+	}
+	step := oraclegen.Step{Op: "cast", Seat: castSeat, Card: castRef, Mana: p.mana, Targets: targets}
 	if a := p.activate; a != nil {
 		index := a.index
 		step = oraclegen.Step{Op: "activate", Seat: 0, Card: "p0:" + p.spell, Mana: p.mana, Targets: a.targets, AbilityIndex: &index}
+	}
+	if p.opponent {
+		sc.Steps = append(sc.Steps, oraclegen.Step{Op: "pass", Seat: 0})
 	}
 	sc.Steps = append(sc.Steps, step)
 	oraclegen.Baseline(sc.Setup, f)

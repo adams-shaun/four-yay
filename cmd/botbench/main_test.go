@@ -265,7 +265,7 @@ func TestTheSummaryReportsSeatWins(t *testing.T) {
 // whole point of the interval test above is that you do not need many to
 // prove the harness works, and every game here is a full 2-seat engine
 // play, measured at ~60ms each against the warm corpus cache on this box
-// (TEST_HISTORY.md records what the whole suite costs at commit time).
+// (the per-test budget is 1 minute wall; see cmd/testbudget).
 // It asserts the report's arithmetic: the win/draw counts partition the
 // games played, the stated rate is the wins over games, the CI brackets
 // that rate, the seat split partitions the non-draw wins, and the mean

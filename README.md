@@ -26,16 +26,15 @@ described by its config plus its event log, so replaying a log and resuming a
 match from any point in it are the same operation, not separate features to
 maintain.
 
-## Test-time budgets
+## Test budgets
 
-Every Go package with tests carries a `TEST_HISTORY.md` recording how long its
-tests take and a hard `budget_s` that a commit cannot exceed. `make test-time`
-(`go run ./cmd/testtime -all`) measures every package and appends a row, and
-`go run ./cmd/testtime -changed` checks only the packages with staged `.go`
-changes. Run it by hand: the pre-commit hook stopped running it in 412c06a53.
-The commit-msg hook still requires the approval trailer below. To raise a budget, edit
-`budget_s` in the package's `TEST_HISTORY.md` and add a
-`Test-Budget-Approved: <who> — <why>` trailer to the commit message.
+Every single test fits 2 GB RSS, 2 vCPU and 1 minute wall. `cmd/testbudget`
+enforces it in the post-merge full suite (`scripts/postmerge_full.sh`): it
+names every top-level test over 60 s and every test binary whose peak RSS is
+over 2 GB, and fails the batch on any that the shrink-only inventories
+`internal/testutil/testdata/wall_exceptions.txt` and `rss_exceptions.txt` do
+not already list. Fix an offender by splitting it into chunk tests; never add a
+row. Run tests focused and capped (see `docs/agents/`), one package at a time.
 
 ## Package layout
 
@@ -101,9 +100,8 @@ and the deterministic gates to a merged fix (see `orchestrator/README.md`).
 - `cmd/mtgsim` — headless self-play over the repo decks, verifying replay
 - `cmd/botbench` — plays N matches between two bot policies, reports the split
 - `cmd/keywordbench` — measures keyword presence separately from event-log use
-- `cmd/testtime` — measures package test wall time and enforces its budget
-- `cmd/gcgate` — budgets the CPU share a package's tests spend on GC
-- `cmd/allocgate` — budgets a package's total allocation and peak RSS
+- `cmd/testbudget` — enforces the per-test wall and peak-RSS budgets post-merge
+- `cmd/gcgate` — by-hand check of the CPU share a package's tests spend on GC
 - `cmd/deckimport` — converts a plain-text decklist into a repo deck JSON
 - `cmd/ledger` — rebuilds the CR-conformance issue ledger (`.ds4/ledger.json`)
 - `cmd/repro` — replays a player-submitted feedback snapshot and can emit a

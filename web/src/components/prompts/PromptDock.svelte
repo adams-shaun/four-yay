@@ -5,7 +5,7 @@
   import { promptAnatomy } from '../../lib/prompts/anatomy';
   import { dockAnswers } from '../../lib/prompts/renderer';
   import { promptHover, type HoverEnd } from '../../lib/prompts/hover.svelte';
-  import { clampPosition, dockFromProfile, dockYields, effectivePlacement, fractionOf, nextPlacement, profilePlacement, tableAnchor, type Box, type DockPlacement, type DockPoint, type TableAnchor } from '../../lib/prompts/dock';
+  import { dockFromProfile, dockYields, effectivePlacement, fractionOf, nextPlacement, placeFloating, profilePlacement, tableAnchor, type Box, type DockPlacement, type DockPoint, type TableAnchor } from '../../lib/prompts/dock';
   import { layoutStore } from '../../lib/layouts.svelte';
   import { pointerRelease } from '../../lib/pointer';
   import ArtCrop from './ArtCrop.svelte';
@@ -17,7 +17,7 @@
    * serif title that asks the question, one plain-language line, the
    * decision's renderer (numbered options), and the renderer's footer.
    *
-   * Placement: rail top by default, rail bottom, near-table or floating
+   * Placement: rail bottom by default, rail top, near-table or floating
    * (dragged by its grip). For older saved layouts with near-table selected,
    * payment decisions still dock in the rail to leave the board unobscured.
    * The layout profile owns placement (`layoutStore.prompt`: the
@@ -29,6 +29,10 @@
    * London mulligan (dockAnswers). While mounted it bumps the seat's
    * dockCount, so the ACTIONS strip points here instead of drawing a second
    * answer surface.
+   *
+   * No placement covers the persistent Feedback button: the rail's lower slot
+   * reserves its corner (PromptRailSlot), and floating / near-table docks are
+   * kept clear of it by placeFloating / tableAnchor.
    */
   let { view, logic, seat, placement: placementProp = undefined, position: positionProp = undefined, onPlacementChange = undefined, onPositionChange = undefined }: {
     view: View;
@@ -97,6 +101,15 @@
   function viewport() {
     return { w: window.innerWidth, h: window.innerHeight };
   }
+  /** The persistent Feedback button's rect: the one obstacle no placement may cover. Null when none is mounted. */
+  function feedbackBox(): Box | null {
+    const r = document.querySelector('[data-feedback-button]')?.getBoundingClientRect();
+    return r && r.width > 0 && r.height > 0 ? { left: r.left, right: r.right, top: r.top, bottom: r.bottom } : null;
+  }
+  /** place is the single position rule for restore, resize, drag and nudge (see placeFloating). */
+  function place(p: DockPoint): DockPoint {
+    return placeFloating(p, size(), viewport(), feedbackBox());
+  }
   function size() {
     const r = root?.getBoundingClientRect();
     return { w: r?.width ?? 420, h: r?.height ?? 320 };
@@ -106,11 +119,11 @@
   $effect(() => {
     if (placement !== 'floating' || root === null || decision === null) return;
     if (drag !== null) return;
-    pos = clampPosition(saved ?? { x: 0, y: 0 }, size(), viewport());
+    pos = place(saved ?? { x: 0, y: 0 });
   });
   onMount(() => {
     const onResize = () => {
-      if (placement === 'floating' && pos !== null) pos = clampPosition(pos, size(), viewport());
+      if (placement === 'floating' && pos !== null) pos = place(pos);
     };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
@@ -125,7 +138,7 @@
   }
   function gripMove(e: PointerEvent): void {
     if (drag === null || e.pointerId !== drag.id) return;
-    pos = clampPosition({ x: e.clientX - drag.dx, y: e.clientY - drag.dy }, size(), viewport());
+    pos = place({ x: e.clientX - drag.dx, y: e.clientY - drag.dy });
   }
   function gripUp(e: PointerEvent): void {
     if (drag === null || e.pointerId !== drag.id) return;
@@ -139,7 +152,7 @@
     const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
     if (!d) return;
     e.preventDefault();
-    pos = clampPosition({ x: pos.x + d[0], y: pos.y + d[1] }, size(), viewport());
+    pos = place({ x: pos.x + d[0], y: pos.y + d[1] });
     setPosition(pos);
   }
 
@@ -202,7 +215,7 @@
       const board = document.querySelector('.board');
       if (board === null) return;
       const action = document.querySelector('[data-action-cluster]');
-      anchor = tableAnchor(action?.getBoundingClientRect() ?? null, board.getBoundingClientRect(), viewport());
+      anchor = tableAnchor(action?.getBoundingClientRect() ?? null, board.getBoundingClientRect(), viewport(), feedbackBox());
       // The anchor is applied by Svelte's flush after this effect; read the
       // dock's rects on the next frame, when they reflect the table layout.
       requestAnimationFrame(() => {
@@ -348,7 +361,8 @@
     left: 50%;
     top: 55%;
     width: min(36rem, calc(100vw - 2rem));
-    max-height: min(70vh, 40rem);
+    /* Never taller than the room above the Feedback button's corner. */
+    max-height: min(70vh, 40rem, max(6rem, calc(100vh - var(--feedback-clear, 0px))));
     grid-template-columns: 7rem 1fr;
     border: 1px solid #394150;
     border-radius: 14px;

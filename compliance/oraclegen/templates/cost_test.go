@@ -106,7 +106,8 @@ func TestCostStaticProbesAreFullyScripted(t *testing.T) {
 					continue
 				}
 				casts++
-				if targeted[strings.TrimPrefix(st.Card, "p0:")] {
+				card := strings.TrimPrefix(strings.TrimPrefix(st.Card, "p0:"), "p1:")
+				if targeted[card] {
 					if len(st.Targets) != 1 || st.Targets[0] == "" {
 						t.Errorf("step %d %s targets = %v, want exactly gorge's one pick", i, st.Card, st.Targets)
 					}
@@ -188,22 +189,63 @@ func TestCostStaticProfilesAndOpponentGap(t *testing.T) {
 			t.Errorf("%s reduced-price cast failed: %v", name, res.Fails)
 		}
 	}
-	c, ok := reg.Lookup("Thalia, the Survivor")
+	for _, name := range []string{"Thalia, the Survivor", "Terror of the Peaks"} {
+		it := staticCostItem(t, reg, name)
+		castByOpponent := false
+		for _, step := range it.Steps {
+			castByOpponent = castByOpponent || (step.Op == "cast" && step.Seat == 1)
+		}
+		if !castByOpponent {
+			t.Fatalf("%s probe does not cast as p1: %+v", name, it.Steps)
+		}
+		res, ok := oraclegen.PlaysThrough(reg, it.Scenario)
+		if !ok || len(res.Fails) != 0 {
+			t.Fatalf("%s opponent-tax probe does not play through: ok=%v fails=%v", name, ok, res.Fails)
+		}
+		if name == "Thalia, the Survivor" {
+			cast := probeCast(t, it)
+			cast.Mana = "R"
+			for i := range it.Steps {
+				if it.Steps[i].Op == "cast" {
+					it.Steps[i] = cast
+				}
+			}
+			if res := runSteps(t, reg, it.Scenario, it.Steps); len(res.Fails) == 0 {
+				t.Fatal("precondition: Thalia's additional generic mana was not required")
+			}
+			if res := runSteps(t, withoutStatics(reg, name), it.Scenario, it.Steps); len(res.Fails) != 0 {
+				t.Fatalf("Thalia's underpriced cast still failed with the static muted: %v", res.Fails)
+			}
+		} else {
+			p1Life := int32(-1)
+			for _, snap := range res.Snapshots {
+				for _, player := range snap.Players {
+					if player.Seat == 1 {
+						p1Life = player.Life
+					}
+				}
+			}
+			if p1Life != 17 {
+				t.Fatalf("Terror opponent-cast tax left p1 at %d life, want 17", p1Life)
+			}
+		}
+	}
+	c, ok := reg.Lookup("Aven Interrupter")
 	if !ok {
-		t.Fatal("precondition: Thalia, the Survivor missing from corpus")
+		t.Fatal("precondition: Aven Interrupter missing from corpus")
 	}
 	for _, req := range levelb.Requirements(c) {
 		if req.Key == "static#0.0" {
 			if req.Sub != "static.cost" || !strings.Contains(req.Gap, "opponent-cast") {
-				t.Fatalf("Thalia gap = %+v, want named opponent-cast gap", req)
+				t.Fatalf("Aven Interrupter gap = %+v, want named opponent-cast gap", req)
 			}
-			if _, skip := GenerateB(reg, "Thalia, the Survivor", req); skip == nil || !strings.Contains(skip.Reason, "opponent-cast") {
-				t.Fatalf("Thalia did not remain a named gap: %v", skip)
+			if _, skip := GenerateB(reg, "Aven Interrupter", req); skip == nil || !strings.Contains(skip.Reason, "opponent-cast") {
+				t.Fatalf("Aven Interrupter did not remain a named gap: %v", skip)
 			}
 			return
 		}
 	}
-	t.Fatal("precondition: Thalia has no static#0.0")
+	t.Fatal("precondition: Aven Interrupter has no static#0.0")
 }
 
 // A gorge that ignores the reduction cannot cast at the reduced price. The
