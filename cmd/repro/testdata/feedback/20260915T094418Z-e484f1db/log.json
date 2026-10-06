@@ -11833,13 +11833,6 @@
     },
     {
       "seq": 2122,
-      "kind": 126,
-      "player": 1,
-      "obj": 101,
-      "amount": 1
-    },
-    {
-      "seq": 2123,
       "kind": 93,
       "obj": 6,
       "amount": 5,
@@ -11849,20 +11842,13 @@
       ]
     },
     {
-      "seq": 2124,
+      "seq": 2123,
       "kind": 5,
       "obj": 206,
       "amount": 5
     },
     {
-      "seq": 2125,
-      "kind": 126,
-      "player": 1,
-      "obj": 206,
-      "amount": 1
-    },
-    {
-      "seq": 2126,
+      "seq": 2124,
       "kind": 93,
       "obj": 6,
       "amount": 5,
@@ -11872,20 +11858,13 @@
       ]
     },
     {
-      "seq": 2127,
+      "seq": 2125,
       "kind": 5,
       "obj": 207,
       "amount": 5
     },
     {
-      "seq": 2128,
-      "kind": 126,
-      "player": 1,
-      "obj": 207,
-      "amount": 1
-    },
-    {
-      "seq": 2129,
+      "seq": 2126,
       "kind": 93,
       "obj": 6,
       "amount": 5,
@@ -11895,20 +11874,13 @@
       ]
     },
     {
-      "seq": 2130,
+      "seq": 2127,
       "kind": 5,
       "obj": 212,
       "amount": 5
     },
     {
-      "seq": 2131,
-      "kind": 126,
-      "player": 1,
-      "obj": 212,
-      "amount": 1
-    },
-    {
-      "seq": 2132,
+      "seq": 2128,
       "kind": 93,
       "obj": 6,
       "amount": 5,
@@ -11918,20 +11890,13 @@
       ]
     },
     {
-      "seq": 2133,
+      "seq": 2129,
       "kind": 5,
       "obj": 213,
       "amount": 5
     },
     {
-      "seq": 2134,
-      "kind": 126,
-      "player": 1,
-      "obj": 213,
-      "amount": 1
-    },
-    {
-      "seq": 2135,
+      "seq": 2130,
       "kind": 93,
       "obj": 6,
       "amount": 5,
@@ -11939,6 +11904,41 @@
       "ids": [
         213
       ]
+    },
+    {
+      "seq": 2131,
+      "kind": 127,
+      "player": 1,
+      "obj": 101,
+      "amount": 1
+    },
+    {
+      "seq": 2132,
+      "kind": 127,
+      "player": 1,
+      "obj": 206,
+      "amount": 1
+    },
+    {
+      "seq": 2133,
+      "kind": 127,
+      "player": 1,
+      "obj": 207,
+      "amount": 1
+    },
+    {
+      "seq": 2134,
+      "kind": 127,
+      "player": 1,
+      "obj": 212,
+      "amount": 1
+    },
+    {
+      "seq": 2135,
+      "kind": 127,
+      "player": 1,
+      "obj": 213,
+      "amount": 1
     },
     {
       "seq": 2136,
@@ -14678,7 +14678,7 @@
       ]
     }
   ],
-  "head": "d7dd76f605e93e1d",
+  "head": "4101482cdae7fccc",
   "intent_count": 378,
   "turn": 14,
   "step": "main1",

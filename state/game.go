@@ -265,17 +265,17 @@ func (p Player) ManaUnits() [7]Mana {
 	return units
 }
 
-// Game is the complete authoritative state. Everything a client sees is a
-// projection of this. Only the events package may mutate it.
 // ExcessDamageVictim is the damage-time recipient snapshot for historical
 // checks after the permanent has left the battlefield. Type is a bitmask:
-// 1 = creature, 2 = planeswalker (both may apply).
+// 1 = creature, 2 = planeswalker, 4 = battle (several may apply).
 type ExcessDamageVictim struct {
 	Obj        ObjID
 	Controller PlayerID
 	Type       int32
 }
 
+// Game is the complete authoritative state. Everything a client sees is a
+// projection of this. Only the events package may mutate it.
 type Game struct {
 	// goadsSeen is set the first time any object gains a goad (events.Apply's
 	// Goad fold calls NoteGoad) and is never cleared, so while it is false no

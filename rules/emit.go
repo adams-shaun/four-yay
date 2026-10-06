@@ -327,7 +327,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			wasTapped = o.Tapped
 		}
 	}
-	stored := foldAndMarkExcess(e, ev, e.damaging)
+	stored := foldTallyingExcess(e, &e.excessBatch, e.damageSourceLKI, e.damageBatchOpen, ev)
 	e.expireClonesOnEvent(stored, wasTapped)
 	// CR 303.4f: a non-cast Aura enters attached to its chosen bearer.
 	if stored.Kind == events.MoveZone {
@@ -800,25 +800,6 @@ func bookkeepingKind(k events.Kind) bool {
 // It works in place: on return *ev is the stored event (Seq assigned, IDs and
 // Pairs detached), with no by-value copy of the 120-byte event on the way.
 // ev must point at the caller's own event, never into the log.
-func excessDamageLethal(o *state.Object, creature bool, toughness int32, deathtouch bool) (int32, bool) {
-	var lethal int32
-	switch {
-	case creature:
-		lethal = toughness - o.Damage
-		if deathtouch && lethal > 1 {
-			lethal = 1
-		}
-	case o.Face() != nil && o.Face().IsPlaneswalker():
-		lethal = o.Counter("LOYALTY")
-	default:
-		return 0, false
-	}
-	if lethal < 0 {
-		lethal = 0
-	}
-	return lethal, true
-}
-
 func (e *Engine) emitBookkeeping(ev *events.Event) {
 	events.EmitPtr(e.G, e.L, ev)
 	e.noteTurnsTaken(ev)

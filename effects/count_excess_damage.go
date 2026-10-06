@@ -20,11 +20,22 @@ func countExcessDamagedOpponents(g *state.Game, c *Ctx, arg string) (int32, bool
 	// The victim may have left play by the end step (a planeswalker with
 	// zero loyalty always does). Match the type and controller captured by
 	// ExcessDamage, not the recipient's current zone or its new controller.
-	seen := make(map[state.ObjID]bool)
-	for _, v := range g.ExcessDamageVictims {
-		if v.Controller != c.Controller && v.Type&3 != 0 && !seen[v.Obj] {
-			seen[v.Obj] = true
+	// Type bit 1 is creature, bit 2 planeswalker (rules/excess_damage_emit.go).
+	var n int32
+	for i, v := range g.ExcessDamageVictims {
+		if v.Controller == c.Controller || v.Type&3 == 0 || excessVictimSeen(g.ExcessDamageVictims[:i], v.Obj, c.Controller) {
+			continue
+		}
+		n++
+	}
+	return n, true
+}
+
+func excessVictimSeen(prior []state.ExcessDamageVictim, id state.ObjID, you state.PlayerID) bool {
+	for _, p := range prior {
+		if p.Obj == id && p.Controller != you && p.Type&3 != 0 {
+			return true
 		}
 	}
-	return int32(len(seen)), true
+	return false
 }

@@ -627,10 +627,11 @@ func TestCrashedMatchFeedbackCaptureStillTrims(t *testing.T) {
 // damage_provenance event. Re-recorded via TestGenerateOvershootCapture:
 // 2142 events, 378 intents (unchanged), head f8d6151ddd8d7d50.
 // Excess-damage history (2026-10-05): the burst's five 5-damage hits on
-// opposing creatures exceed their damage-time lethal thresholds. Each now
-// emits an ExcessDamage fact before DamageProvenance (first at seq 2122).
-// Re-recorded via TestGenerateOvershootCapture: 2147 events, 378 intents
-// (unchanged), head d7dd76f605e93e1d.
+// opposing creatures exceed their pre-batch lethal thresholds, so the batch
+// close appends five ExcessDamage facts after its last Damage (seq
+// 2131-2135); every other event is unchanged. Re-recorded via
+// TestGenerateOvershootCapture: 2147 events, 378 intents (unchanged), head
+// 4101482cdae7fccc.
 const committedCaptureRel = "../cmd/repro/testdata/feedback/20260915T094418Z-e484f1db"
 
 // requireCommittedCapture skips when the worktree has no .cards/ corpus:
