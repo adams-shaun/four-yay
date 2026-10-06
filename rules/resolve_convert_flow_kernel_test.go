@@ -29,6 +29,10 @@ func kr7RunFlowCases(t *testing.T, base uint64, seeds int, cases []tapeFlowCase)
 				tapeCheckpointAll = true
 				t.Cleanup(func() { tapeCheckpointAll = false })
 			}
+			if tc.pick != nil {
+				tapeFlowPick = tc.pick
+				t.Cleanup(func() { tapeFlowPick = nil })
+			}
 			seen := map[string]int{}
 			for s := 0; s < seeds; s++ {
 				kinds := map[string]int{}
@@ -81,7 +85,7 @@ func TestKernelAskFlowDiscard(t *testing.T) {
 		{name: "Tape Thirst", src: "A:SP$ Discard | Defined$ You | Mode$ TgtChoose | NumCards$ 2 | UnlessType$ Land",
 			kinds: []string{"discard_unless", "discard"}, served: 2},
 		{name: "Tape Maybe Discard", src: "A:SP$ Discard | Defined$ Player | Mode$ TgtChoose | NumCards$ 1 | Optional$ True | SubAbility$ DBGain\nSVar:DBGain:DB$ GainLife | LifeAmount$ 2",
-			kinds: []string{"discard_may", "discard"}, served: 2},
+			kinds: []string{"discard_may", "discard"}, served: 2, pick: tapePickYes},
 		{name: "Tape Wheel Maybe", src: "A:SP$ Discard | Defined$ Player | Mode$ Hand | Optional$ True | SubAbility$ DBDraw\nSVar:DBDraw:DB$ Draw | NumCards$ 1 | Defined$ Player",
 			kinds: []string{"discard_hand"}, served: 2},
 		{name: "Tape Recruit", src: "A:SP$ Recruit",
@@ -171,7 +175,10 @@ func TestKernelAskFlowDredgeOptionalDraw(t *testing.T) {
 	dredger := []string{tapeDredgerSrc}
 	kr7RunFlowCases(t, 37500, 3, []tapeFlowCase{
 		{name: "Tape Dredge Remora", src: "A:SP$ Draw | NumCards$ 2 | OptionalDecider$ You",
-			kinds: []string{"draw_optional", "dredge"}, served: 2, extra: dredger, setup: inYard},
+			kinds: []string{"draw_optional", "dredge"}, served: 2, extra: dredger, setup: inYard,
+			// The case needs the election answered yes (a no draws nothing
+			// and never reaches the dredge ask).
+			pick: tapePickYes},
 	})
 }
 
