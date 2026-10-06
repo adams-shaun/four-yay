@@ -449,6 +449,11 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			}
 		}
 	}
+	// CR 712.4: a melded permanent that goes anywhere but the battlefield
+	// splits back into its two cards (events/apply_meld.go).
+	if to != state.ZBattlefield && o.MeldedWith != 0 {
+		unmeld(g, o, enteredFrom, to)
+	}
 	// CR 400.7: leaving the battlefield makes the object a new object in
 	// its next zone, so control-changing effects do not follow it. Reset
 	// before choosing the destination's zone owner: a later graveyard/hand
