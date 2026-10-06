@@ -816,7 +816,12 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			// Setup ETB replacement choices are answered before XMage places the
 			// seeded permanents. Keep them in step zero's answer stream with a
 			// distinct kind so the driver can queue them before build().
-			if d.Resume == "etb" && d.Kind == "choose_n" && len(d.Picks) == 1 && len(d.PickKinds) == 1 && d.PickKinds[0] == "color" && steps > 0 {
+			if d.Resume == "etb" && d.Kind == "choose_n" && len(d.Picks) == 1 && len(d.PickKinds) == 1 && d.PickKinds[0] == "color" {
+				// Setup answers are read from xmage_answers[0] before build(),
+				// even when the scenario has no gameplay steps.
+				if len(out) == 0 {
+					out = append(out, nil)
+				}
 				out[0] = append(out[0], XAnswer{d.Seat, "setup_choice", d.Picks[0]})
 				any = true
 			}

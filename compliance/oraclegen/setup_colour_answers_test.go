@@ -22,6 +22,18 @@ func TestXAnswersSetupETBColourIsQueuedBeforeSetup(t *testing.T) {
 	}
 }
 
+func TestXAnswersSetupETBColourWorksWithoutGameplaySteps(t *testing.T) {
+	d := rules.OracleDecision{
+		Step: -1, Seat: 0, Kind: "choose_n", Resume: "etb",
+		Picks: []string{"Green"}, PickKinds: []string{"color"},
+	}
+	got := XAnswers([]rules.OracleDecision{d}, 0, nil)
+	want := [][]XAnswer{{{Seat: 0, Kind: "setup_choice", Value: "Green"}}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("zero-step setup colour answers = %#v, want %#v", got, want)
+	}
+}
+
 func TestXAnswersDoesNotTreatGameplayColourAsSetup(t *testing.T) {
 	d := rules.OracleDecision{
 		Step: 0, Seat: 0, Kind: "choose_n", Resume: "etb",

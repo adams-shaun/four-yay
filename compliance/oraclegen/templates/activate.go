@@ -437,9 +437,8 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 // type) poses no colour dialog in XMage, and a queued colour is then consumed
 // by an unrelated dialog (XMage throws "Choice key [White] not found"). The
 // pool after the activate step is the ground truth: a colour choice is
-// scripted only when the mana it names was actually added. Called before
-// addSetupColourAnswers, so a setup-placed permanent's ETB colour (which no
-// activation produces) is never stripped here.
+// scripted only when the mana it names was actually added. Setup ETB colour
+// answers use the distinct setup_choice kind and are never stripped here.
 func dropUnproducedManaColours(answers [][]oraclegen.XAnswer, step int, res rules.OracleResult) {
 	if step < 0 || step >= len(answers) || len(res.Snapshots) <= step+1 {
 		return
