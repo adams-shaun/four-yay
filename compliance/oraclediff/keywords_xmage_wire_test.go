@@ -9,7 +9,9 @@ import (
 
 // xmageKeywordLine is a hand-written XMage result line in the driver's shape:
 // the permanent carries the `keywords` array ScenarioReplay.keywordNames
-// emits (getRule() spellings, sorted), with one non-evergreen keyword.
+// emits (lower-case getRule() names with reminder text already cut, e.g.
+// MenaceAbility's "menace <i>(...)</i>" arrives as "menace"; sorted), with one
+// non-evergreen keyword.
 const xmageKeywordLine = `{"name":"Garruk's Uprising","strict":true,"ms":1,"snapshots":[{
  "checkpoint":"setup","turn":1,"step":"PRECOMBAT_MAIN","active":0,"priority":0,
  "players":[
@@ -17,7 +19,7 @@ const xmageKeywordLine = `{"name":"Garruk's Uprising","strict":true,"ms":1,"snap
   {"seat":1,"life":20,"hand":[],"graveyard":[],"library_count":38,"library_top":["Shock"]}],
  "permanents":[{"ref":"p1:Grizzly Bears","name":"Grizzly Bears","controller":1,"owner":1,
   "pt":"2/2","types":["Bear","Creature"],"colors":"G",
-  "keywords":["First strike","Flying","Ward {2}"]}]}]}`
+  "keywords":["first strike","flying","menace","ward {2}"]}]}]}`
 
 // TestKeywordXMageWireLineDecodesAndCompares decodes the line through
 // XResult and compares it with a gorge snapshot under the opt-in. It can
@@ -29,14 +31,14 @@ func TestKeywordXMageWireLineDecodesAndCompares(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := x.Snapshots[0].Permanents[0].Keywords
-	if len(got) != 3 || got[0] != "First strike" {
+	if len(got) != 4 || got[0] != "first strike" || got[2] != "menace" {
 		t.Fatalf("keywords did not decode from the wire line: %v", got)
 	}
 
-	g := rules.OracleResult{Snapshots: []rules.OracleSnapshot{kwSnap("setup", "Flying", "First Strike")}}
+	g := rules.OracleResult{Snapshots: []rules.OracleSnapshot{kwSnap("setup", "Flying", "First Strike", "Menace")}}
 	g.Snapshots[0].Checkpoint = x.Snapshots[0].Checkpoint
 	if v := CompareOpts(g, nil, x, []string{CompareKeywords}); v.Status != Agree {
-		t.Fatalf("gorge Flying/First Strike vs XMage wire keywords: %+v, want AGREE", v)
+		t.Fatalf("gorge Flying/First Strike/Menace vs XMage wire keywords: %+v, want AGREE", v)
 	}
 
 	x.Snapshots[0].Permanents[0].Keywords = nil

@@ -1397,21 +1397,24 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return id.equals(playerA.getId()) ? 0 : id.equals(playerB.getId()) ? 1 : -1;
     }
 
-    /** The permanent's keyword names, sorted and de-duplicated. Spec H5: a
-     * keyword ability's getRule() is its printed name ("Flying", "First
-     * strike"), which the comparator case-folds onto its evergreen set
-     * (compliance/oraclediff/keywords.go). getAbilities(g) includes abilities
-     * gained from continuous effects, so a granted keyword shows here. Only
-     * classes of mage.abilities.keyword count, so triggered/activated/static
-     * rule text never reaches the list; any reminder text is cut. */
+    /** The permanent's keyword names, sorted and de-duplicated. Spec H5
+     * (confirmed against the XMage source): a keyword ability's getRule() is
+     * its lower-case name ("flying", "first strike"), which the comparator
+     * case-folds onto its evergreen set (compliance/oraclediff/keywords.go).
+     * Some rules carry HTML-wrapped reminder text ("menace <i>(This creature
+     * can't be blocked ...)</i>", MenaceAbility.showAbilityHint), so tags are
+     * stripped and the rule is cut at the first "(". getAbilities(g) includes
+     * abilities gained from continuous effects, so a granted keyword shows
+     * here. Only classes of mage.abilities.keyword count, so
+     * triggered/activated/static rule text never reaches the list. */
     private static List<String> keywordNames(Permanent perm, Game g) {
         java.util.TreeSet<String> names = new java.util.TreeSet<>();
         for (Ability a : perm.getAbilities(g)) {
             if (!a.getClass().getName().startsWith("mage.abilities.keyword.")) {
                 continue;
             }
-            String rule = a.getRule();
-            int paren = rule.indexOf(" (");
+            String rule = a.getRule().replaceAll("<[^>]*>", "");
+            int paren = rule.indexOf("(");
             if (paren >= 0) {
                 rule = rule.substring(0, paren);
             }

@@ -53,6 +53,8 @@ func TestDriverSnapshotEmitsPermanentKeywords(t *testing.T) {
 		"takes the ability's rule name":                             "a.getRule()",
 		"restricts to keyword ability classes":                      `"mage.abilities.keyword."`,
 		"sorts and de-duplicates":                                   "java.util.TreeSet<String>",
+		"strips HTML tags (menace's <i>(reminder)</i> hint)":        `replaceAll("<[^>]*>", "")`,
+		"cuts reminder text at the first paren":                     `rule.indexOf("(")`,
 	} {
 		if !strings.Contains(helper, needle) {
 			t.Errorf("keywordNames does not do this: %s (want %q)", what, needle)
