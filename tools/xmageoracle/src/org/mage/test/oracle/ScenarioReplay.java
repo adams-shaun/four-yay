@@ -259,6 +259,59 @@ public class ScenarioReplay extends CardTestPlayerBase {
             }
             return null;
         }
+
+        /**
+         * The base TestPlayer handles a TargetSpellOrPermanent's stack half
+         * only: its "stack" branch in chooseTarget searches game.getStack()
+         * and then asserts when the queue is still non-empty, so a
+         * battlefield permanent answer can never be matched through the
+         * addTarget queue (Aang, Swift Savior's airbend "up to one other
+         * target creature or spell" is a resolve-step trigger; Jeskai
+         * Revelation's multi-target cast is the same gap). The cast/activate
+         * path (handleNonPlayerTargetTarget) already matches such an answer
+         * by name or alias against the target's own possibleTargets, so
+         * mirror that here for the battlefield half the base omits, and leave
+         * every other class -- including a spell on the stack, which the base
+         * does handle -- to super. This lives in the tracked driver, not in
+         * the out-of-tree TestPlayer, so it survives an XMAGE_REF bump.
+         */
+        @Override
+        public boolean chooseTarget(Outcome outcome, mage.target.Target target, Ability source, Game game) {
+            mage.target.Target orig = target.getOriginalTarget();
+            if (orig instanceof mage.target.common.TargetSpellOrPermanent
+                    && !getTargets().isEmpty()
+                    && !TestPlayer.TARGET_SKIP.equals(getTargets().get(0))) {
+                // The base's own controller derivation (TestPlayer.chooseTarget):
+                // the target's ability controller when set, else this choosing
+                // player. A trigger made on another player's behalf must filter
+                // its legal set by the ability's controller, not by the source
+                // controller, or the permanent can fall outside possibleTargets.
+                UUID abilityControllerId = target.getAffectedAbilityControllerId(this.getId());
+                Permanent match = findBattlefieldTarget(target, abilityControllerId, source, game, getTargets().get(0));
+                if (match != null) {
+                    target.addTarget(match.getId(), source, game);
+                    getTargets().remove(0);
+                    return true;
+                }
+            }
+            return super.chooseTarget(outcome, target, source, game);
+        }
+
+        /** The battlefield permanent in the target's own legal set that the
+         * queued name or alias names, or null when the answer is not a
+         * permanent (a spell on the stack, which the base handles). */
+        private Permanent findBattlefieldTarget(mage.target.Target target, UUID abilityControllerId, Ability source, Game game, String name) {
+            for (UUID id : target.possibleTargets(abilityControllerId, source, game)) {
+                Permanent p = game.getPermanent(id);
+                if (p == null || target.contains(id)) {
+                    continue;
+                }
+                if (hasObjectTargetNameOrAlias(p, name)) {
+                    return p;
+                }
+            }
+            return null;
+        }
     }
 
     public static void main(String[] args) throws Exception {
