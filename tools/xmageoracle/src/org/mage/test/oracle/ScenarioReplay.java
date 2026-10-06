@@ -34,6 +34,7 @@ import mage.players.Player;
 import mage.filter.FilterCard;
 import mage.target.TargetCard;
 import mage.util.CardUtil;
+import mage.watchers.common.PermanentsEnteredBattlefieldWatcher;
 import org.mage.test.player.PlayerAction;
 import org.mage.test.player.TestPlayer;
 import org.mage.test.serverside.base.CardTestPlayerBase;
@@ -415,6 +416,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             build(sc);
             runCode("setup", TURN, MAIN, playerA, (info, p, g) -> {
                 registerAliases(g);
+                clearSetupEntryHistory(g);
                 snaps.add(snapshot(info, g));
             });
             JsonArray steps = sc.has("steps") ? sc.getAsJsonArray("steps") : new JsonArray();
@@ -567,6 +569,33 @@ public class ScenarioReplay extends CardTestPlayerBase {
     }
 
     // ---- setup -----------------------------------------------------------
+
+    /**
+     * CardTestPlayerAPIImpl cheats setup permanents onto the battlefield
+     * before the game starts, but XMage leaves their turnsOnBattlefield at
+     * zero. Normalize both the permanent predicate and the ETB watcher
+     * history so setup means "already present" in oracle snapshots.
+     */
+    private static void clearSetupEntryHistory(Game game) {
+        try {
+            java.lang.reflect.Field turns = mage.game.permanent.PermanentImpl.class
+                    .getDeclaredField("turnsOnBattlefield");
+            turns.setAccessible(true);
+            for (Permanent permanent : game.getBattlefield().getAllPermanents()) {
+                turns.setInt(permanent, Math.max(1, permanent.getTurnsOnBattlefield()));
+            }
+            PermanentsEnteredBattlefieldWatcher watcher = game.getState()
+                    .getWatcher(PermanentsEnteredBattlefieldWatcher.class);
+            if (watcher != null) {
+                // reset() shifts this-turn entries into last-turn history;
+                // a second reset clears that shifted setup history too.
+                watcher.reset();
+                watcher.reset();
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("cannot normalize setup entry history", e);
+        }
+    }
 
     private TestPlayer seat(int i) {
         return i == 0 ? playerA : playerB;
