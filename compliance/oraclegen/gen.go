@@ -781,7 +781,7 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			any = true
 			continue
 		}
-		if forcedSingleOption(d) {
+		if forcedSingleOption(d) && !(d.Kind == "choose_n" && d.Resume == "choice") {
 			// A forced one-option ask: XMage does not pose it. A forced
 			// target-kind pick is the exception -- one legal opponent is still
 			// a chooseTarget XMage asks for -- and so is a mode ask, which
@@ -1640,12 +1640,6 @@ func openingHandAnswers(f *cards.Face) []Answer {
 // TargetCardInLibrary target ask (measured on the std pass).
 func pickQueue(d rules.OracleDecision, k int, label string) string {
 	q := xmQueue(pickKind(d, k), label)
-	if d.Resume == "choice" {
-		// Resolution-time Choice asks can internally use a TargetPermanent
-		// option, but XMage's controller.choose queues that selection through
-		// makeChoose rather than chooseTarget (for example Trial of Agony).
-		return "choice"
-	}
 	if q == "target" && pickKind(d, k) == "search" && k < len(d.PickRefs) {
 		if s, ok := refSeat(d.PickRefs[k]); ok && s != d.Seat {
 			return "choice"

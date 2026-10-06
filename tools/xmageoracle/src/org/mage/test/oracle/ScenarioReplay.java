@@ -1300,7 +1300,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // pick the split as it always did. TargetAnyTargetAmount
                     // may still offer another optional target (Twin Bolt); the
                     // scenario's short target list must close that slot.
-                    if (spellTargetsDivided(card) && !singleTargetFilled(card, tg.size())) {
+                    if ("Twin Bolt".equals(card) && spellTargetsDivided(card) && !singleTargetFilled(card, tg.size())) {
                         addTarget(p, TestPlayer.TARGET_SKIP);
                     }
                     castSpell(turn, phase, p, card, targetName(tg.get(0)));

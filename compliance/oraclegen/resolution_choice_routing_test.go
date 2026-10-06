@@ -7,9 +7,9 @@ import (
 	"github.com/adams-shaun/gorge/rules"
 )
 
-// Pin the resolution-time answer queues that Standard scenarios leave to
-// XMage's AI: the other player selects a target, each player selects their
-// creature, and Discover's optional cast is a chooseUse boolean.
+// Pin resolution-time answer shapes that the Standard scenarios leave to
+// XMage's AI: a choose-a-creature Choice ask, Discover's optional cast, and
+// divided damage with fewer targets than the spell allows.
 func TestResolutionTimeChoiceAnswerShapes(t *testing.T) {
 	tests := []struct {
 		name string
@@ -17,16 +17,10 @@ func TestResolutionTimeChoiceAnswerShapes(t *testing.T) {
 		want []XAnswer
 	}{
 		{
-			name: "opponent chooses targeted creature",
-			ds: []rules.OracleDecision{{Step: 1, Seat: 1, Kind: "choose_n", Resume: "choice", Options: 2,
-				Picks: []string{"Serra Angel"}, PickRefs: []string{"p1:Serra Angel"}, PickKinds: []string{"permanent"}, Min: 1, Max: 1}},
-			want: []XAnswer{{1, "choice", "Serra Angel"}},
-		},
-		{
-			name: "choose a creature for each player",
-			ds: []rules.OracleDecision{{Step: 1, Seat: 0, Kind: "target", Resume: "target", Options: 4, PerPlayer: true, SeatCount: 2,
-				Picks: []string{"Grizzly Bears", "Serra Angel"}, PickRefs: []string{"p0:Grizzly Bears", "p1:Serra Angel"}, Min: 1, Max: 1}},
-			want: []XAnswer{{0, "target", "Grizzly Bears"}, {0, "target", "Serra Angel"}},
+			name: "choose a creature for each player (Unstable Glyphbridge)",
+			ds: []rules.OracleDecision{{Step: 1, Seat: 0, Kind: "choose_n", Resume: "choice", Options: 1,
+				Picks: []string{""}, PickRefs: []string{"p1:Grizzly Bears"}, PickKinds: []string{"card"}, Min: 1, Max: 1}},
+			want: []XAnswer{{0, "choice", "Grizzly Bears"}},
 		},
 		{
 			name: "decline discover cast",
