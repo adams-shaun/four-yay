@@ -84,28 +84,29 @@ func ValueHead(body string) (string, bool) {
 // about the grammar.
 func ValueHeadOperands(body string) []string {
 	body = strings.TrimSpace(body)
-	if _, ok := strings.CutPrefix(body, "Count$"); !ok {
-		return nil
-	}
-	_, op, hasOp := strings.Cut(body, "/")
-	if !hasOp {
-		return nil
-	}
 	seen := map[string]struct{}{}
-	for _, suffix := range strings.Split(op, "/") {
-		for _, prefix := range []string{"Plus.", "Minus.", "Times."} {
-			operand, ok := strings.CutPrefix(suffix, prefix)
-			if !ok {
-				continue
-			}
-			operand = strings.TrimSpace(operand)
-			if !strings.HasPrefix(operand, "Count$") {
-				continue
-			}
-			if head, ok := ValueHead(operand); ok {
-				seen[head] = struct{}{}
+	if _, ok := strings.CutPrefix(body, "Count$"); ok {
+		_, op, hasOp := strings.Cut(body, "/")
+		if hasOp {
+			for _, suffix := range strings.Split(op, "/") {
+				for _, prefix := range []string{"Plus.", "Minus.", "Times."} {
+					operand, ok := strings.CutPrefix(suffix, prefix)
+					if !ok {
+						continue
+					}
+					operand = strings.TrimSpace(operand)
+					if !strings.HasPrefix(operand, "Count$") {
+						continue
+					}
+					if head, ok := ValueHead(operand); ok {
+						seen[head] = struct{}{}
+					}
+				}
 			}
 		}
+	}
+	for head := range ValueHeadRecipeExpressions(body) {
+		seen[head] = struct{}{}
 	}
 	out := make([]string, 0, len(seen))
 	for head := range seen {
@@ -113,6 +114,29 @@ func ValueHeadOperands(body string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// ValueHeadRecipeExpressions returns nested heads and the exact numeric
+// parameter expressions the recipe passes to the evaluator. Keep this
+// deliberately keyed to evaluator-read API/parameter pairs; scanning arbitrary
+// recipe text attributes labels in descriptions and nonnumeric parameters.
+func ValueHeadRecipeExpressions(body string) map[string]string {
+	body = strings.TrimSpace(body)
+	apiLine := strings.SplitN(body, "|", 2)[0]
+	kind, api, ok := strings.Cut(apiLine, "$")
+	if !ok || (strings.TrimSpace(kind) != "DB" && strings.TrimSpace(kind) != "AB" && strings.TrimSpace(kind) != "SP") || strings.TrimSpace(api) != "Token" {
+		return nil
+	}
+	params := parseParams(body)
+	expr, ok := params["TokenAmount"]
+	if !ok {
+		return nil
+	}
+	head, ok := ValueHead(expr)
+	if !ok || !strings.HasPrefix(strings.TrimSpace(expr), "Count$") {
+		return nil
+	}
+	return map[string]string{head: strings.TrimSpace(expr)}
 }
 
 // ValueHeads lists the "count:<head>" primitives this face's REFERENCED
