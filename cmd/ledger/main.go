@@ -16,7 +16,7 @@
 //
 // Usage:
 //
-//	go test -count=1 ./rules -run TestCR -v > lane.txt
+//	scripts/ledger-lane.sh lane.txt   # cached, capped, under the heavy lock
 //	go run ./cmd/ledger -lane lane.txt -out .ds4/ledger.json
 //
 // -lane may be repeated for lanes in more than one package. -issues defaults to

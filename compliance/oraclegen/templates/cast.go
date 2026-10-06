@@ -35,6 +35,12 @@ func xAnswers(f *cards.Face) []oraclegen.Answer {
 }
 
 func castResolve(reg *cards.Registry, f *cards.Face, name, mana string) (oraclegen.Item, *oraclegen.Skip) {
+	return castResolveWith(reg, f, name, mana, nil)
+}
+
+// castResolveWith is castResolve with probe permanents added to p0's
+// battlefield in every fixture it tries. nil probes is castResolve exactly.
+func castResolveWith(reg *cards.Registry, f *cards.Face, name, mana string, probes []string) (oraclegen.Item, *oraclegen.Skip) {
 	// Charm plans enumerate legal mode combinations in Choices$ order. Each
 	// plan carries all selected chains and one answer containing every pick.
 	type plan struct {
@@ -69,7 +75,7 @@ func castResolve(reg *cards.Registry, f *cards.Face, name, mana string) (oracleg
 	}
 	for _, m := range manas {
 		for _, pl := range plans {
-			if it, ok := castWith(reg, f, name, m, pl.slots, pl.answers); ok {
+			if it, ok := castWithProbes(reg, f, name, m, pl.slots, pl.answers, probes); ok {
 				return it, nil
 			}
 		}
@@ -94,6 +100,13 @@ func filterStrings(slots []oraclegen.Slot) []string {
 // precast spell first (CR 117.3c: the caster keeps priority and responds),
 // exactly as the counter template does.
 func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []oraclegen.Slot, answers []oraclegen.Answer) (oraclegen.Item, bool) {
+	return castWithProbes(reg, f, name, mana, slots, answers, nil)
+}
+
+// castWithProbes is castWith with probe permanents added to p0's battlefield
+// after each fixture extra, so a static the card brings is observable on
+// them. nil probes is castWith exactly.
+func castWithProbes(reg *cards.Registry, f *cards.Face, name, mana string, slots []oraclegen.Slot, answers []oraclegen.Answer, probes []string) (oraclegen.Item, bool) {
 	// Extras satisfy casting conditions the target fixture does not: a
 	// threshold graveyard, a creature of your own to sacrifice for a cost.
 	extras := []func(*oraclegen.Fixture){
@@ -162,6 +175,9 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []ora
 		for _, extra := range extras {
 			for _, fx := range oraclegen.Fixtures(reg, plain) {
 				extra(&fx)
+				for _, probe := range probes {
+					fx.P0().Battlefield = appendFixtureUnique(fx.P0().Battlefield, probe)
+				}
 				sc := buildStackScenario(f, name, physicalName(reg, name), mana, pre, fx, slots, stackIdx, answers)
 				if n, res, ok := oraclegen.Settle(reg, sc); ok {
 					for i := 0; i < n; i++ {

@@ -196,15 +196,15 @@ func (e *Engine) abilityPresentHolds(p state.PlayerID, id state.ObjID, ab *cards
 	}
 	n := 0
 	if pz := strings.TrimSpace(ab.ParamStr(cards.PKPresentZone)); pz != "" {
-		// PresentZone$ (Greater Gargadon's "Activate only if this is
-		// suspended": IsPresent$ Card.Self+suspended | PresentZone$ Exile)
-		// counts the named zone in every living seat, the trigger clause's
-		// presentZoneCount; an unknown zone word fails closed.
-		zone, known := effects.ParseZoneWord(pz)
+		// PresentZone$ counts the named zones in every living seat, using
+		// the trigger clause's presentZoneCount; unknown words fail closed.
+		zones, known := presentZoneFromParam(pz)
 		if !known {
 			return false
 		}
-		n = e.presentZoneCount(zone, spec, id, p)
+		for _, zone := range zones {
+			n += e.presentZoneCount(zone, spec, id, p)
+		}
 	} else {
 		n = e.countPresent(spec, id, p)
 	}

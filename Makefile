@@ -414,10 +414,10 @@ clean-worktrees:
 # Derived, never hand-maintained: the conformance lane's own -v output, AGENTS.md's
 # approximations table, and the orchestrator's tracked issue files (.ds4/issues/*,
 # top level only — inbox/ is the un-triaged drop zone). Writes .ds4/ledger.json
-# (git-excluded).
+# (git-excluded). The lane runs cached (no -count=1), capped and under the heavy
+# lock: see scripts/ledger-lane.sh.
 ledger:
-	GOMEMLIMIT=5GiB go test -p=2 -count=1 ./rules -run TestCR -v \
-	  > .ds4/lane-rules.txt || true
+	scripts/ledger-lane.sh .ds4/lane-rules.txt
 	go run ./cmd/ledger -lane .ds4/lane-rules.txt -out .ds4/ledger.json
 
 # coverage writes the card-support tables -- .coverage/summary.md and

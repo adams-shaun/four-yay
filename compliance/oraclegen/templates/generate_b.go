@@ -50,5 +50,12 @@ func GenerateB(reg *cards.Registry, name string, req levelb.Requirement) (oracle
 		}
 		return staticRequirement(reg, c.Faces[req.Face], name, req)
 	}
+	if req.Sub == "static.continuous" {
+		c, ok := reg.Lookup(name)
+		if !ok || req.Face < 0 || req.Face >= len(c.Faces) {
+			return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "not in corpus"}
+		}
+		return staticContinuous(reg, c.Faces[req.Face], name, req)
+	}
 	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "level B: no template for " + req.Sub}
 }

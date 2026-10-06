@@ -250,15 +250,27 @@ alloc-gate`) and `make gc-gate`, both run by hand. Otherwise convention.
    `.cards/` missing executed nothing. If `.cards/` is absent, say so. Do not
    report green.
 3. **Run the right gates before merging.**
-   - `go test ./...` (or `make test`): a hand merge runs the full suite.
+   - Focused, capped tests of the packages you touched (step 4). The full
+     suite is `scripts/postmerge_batch.sh`'s: it runs once per batch of
+     landings on main, pauses the pipeline on red, bisects and logs `CULPRIT`
+     lines to `.ds4/postmerge-culprits.log`. Never run an uncapped
+     `go test ./...` or `./compliance/...` by hand.
    - `make lint`: gofmt, vet, `gentypes -check`, plus web lint.
    - `make sim`: 20/20 `replay OK`.
    - If you touched `web/` or changed when a decision is posed, also run the
      `./view` package and the web gates.
-4. **Keep heavy jobs capped.** Run one heavy Go job at a time, under
-   `systemd-run --user --scope -p MemoryMax=4G`, with `GOMEMLIMIT` set and
-   `-p 1` where the Makefile doesn't already cap it. The box has been OOMed
-   twice.
+4. **Every test fits the budget: 2 GB RSS, 2 vCPU, 1 minute wall** (operator,
+   2026-10-05). Run tests focused and capped, one package per invocation:
+   `systemd-run --user --scope -q -p MemoryMax=2G -p CPUQuota=200% env GOMAXPROCS=2 GOMEMLIMIT=1536MiB go test -timeout 2m -run X ./pkg`. Never `-count=1` (it defeats the
+   test cache). A test outside the budget is a defect: split it into chunk
+   tests that share fixtures, never cut coverage, and never run it whole "for
+   a baseline". Tests load the corpus only via
+   `internal/testutil.CorpusRegistry`, never `cards.LoadRegistry` (~600 MB per
+   fresh registry). A sweep too big for the budget is split into fixed index
+   chunks with a partition test (e.g. `TestTargetAuditChunk00..11`,
+   `TestCensusChunksCoverEverySubject`). Never set
+   `GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1` yourself: post-merge runs it. The box
+   has been OOMed several times.
 5. **Red on `main` is yours.** A failing test that is committed on `main` is
    bisected and fixed now, not labelled "pre-existing". A red run in a
    *shared* checkout may be a peer's half-written file: check `git status` and
@@ -273,7 +285,8 @@ alloc-gate`) and `make gc-gate`, both run by hand. Otherwise convention.
 - Stage explicit paths. Never `git add -A`: it sweeps in peers' in-flight
   files.
 - Raising a `budget_s` in a `TEST_HISTORY.md` needs a `Test-Budget-Approved:
-  <who> — <why>` trailer.
+  <who> — <why>` trailer. Those files are stale (last written 2026-09-22) and
+  no gate reads them; the live budget is the per-test one in Workflow step 4.
 - The commit body carries the measured *why*: the moved-head cause, a closed
   ratchet entry, and any deviation you could not close.
 

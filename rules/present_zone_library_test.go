@@ -2,6 +2,7 @@ package rules
 
 import (
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -59,7 +60,7 @@ func TestLivingConundrumPresentZoneLibrary(t *testing.T) {
 func TestCorpusPresentZoneHiddenZones(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
-	hidden := map[string]state.Zone{"Library": state.ZLibrary, "Hand": state.ZHand}
+	hidden := map[string][]state.Zone{"Library": {state.ZLibrary}, "Hand": {state.ZHand}, "Battlefield,Graveyard": {state.ZBattlefield, state.ZGraveyard}}
 	svarZone := regexp.MustCompile(`PresentZone\$ ([A-Za-z,]+)`)
 	counts := map[string]int{}
 	var carriers []string
@@ -71,7 +72,7 @@ func TestCorpusPresentZoneHiddenZones(t *testing.T) {
 		}
 		counts[zone]++
 		carriers = append(carriers, name+" "+kind+" "+zone)
-		if got, known := presentZoneFromParam(zone); !known || got != want {
+		if got, known := presentZoneFromParam(zone); !known || !slices.Equal(got, want) {
 			t.Errorf("%s %s: PresentZone$ %s maps to (%v, %v), want (%v, true)", name, kind, zone, got, known, want)
 		}
 	}
@@ -116,11 +117,10 @@ func TestCorpusPresentZoneHiddenZones(t *testing.T) {
 			}
 		}
 	}
-	// Floors measured 2026-10-05 with
-	// grep -rhoE 'PresentZone\$ [A-Za-z,]+' .cards/cardsfolder | sort | uniq -c:
-	// 10 Library lines, 24 Hand lines. A census below them read nothing.
-	if counts["Library"] < 10 || counts["Hand"] < 24 {
-		t.Fatalf("census precondition: Library=%d (want >= 10), Hand=%d (want >= 24) carriers", counts["Library"], counts["Hand"])
+	// Floors measured 2026-10-06 with
+	// /usr/bin/grep -rhoE 'PresentZone$ [A-Za-z,]+' .cards/cardsfolder | sort | uniq -c.
+	if counts["Library"] < 10 || counts["Hand"] < 24 || counts["Battlefield,Graveyard"] < 8 {
+		t.Fatalf("census precondition: Library=%d (want >= 10), Hand=%d (want >= 24), Battlefield,Graveyard=%d (want >= 8) carriers", counts["Library"], counts["Hand"], counts["Battlefield,Graveyard"])
 	}
 	sort.Strings(carriers)
 	for _, c := range carriers {

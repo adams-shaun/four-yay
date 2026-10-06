@@ -52,9 +52,10 @@ func uniqueSorted(names []string) []string {
 	return out
 }
 
-// TestGeneratedTargetsAreGorgeChoices checks representative target scenarios
-// by default. Set GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1 to run the exhaustive
-// generation/replay audit over every identity in target-carriers.json.
+// TestGeneratedTargetsAreGorgeChoices checks the representative target
+// scenarios. The exhaustive generation/replay audit over every identity in
+// target-carriers.json is the TestTargetAuditChunkN family
+// (GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1, target_audit_test.go).
 //
 // Without the rewrite this fails loudly: the fixture's over-offered targets
 // (an "up to N" slot gorge declines, a token slot with no token, a wrong-type
@@ -62,22 +63,14 @@ func uniqueSorted(names []string) []string {
 // OracleUnusedTargetMarker for each.
 func TestGeneratedTargetsAreGorgeChoices(t *testing.T) {
 	reg := loadGenRegistry(t)
-	carriers := targetAuditCards(t, reg)
+	carriers := representativeTargetCards
 	checked := 0
 	for _, c := range targetAuditCases(t, reg, carriers) {
 		if c.skip != nil {
 			continue // Census still pins skipped carriers; no scenario was emitted.
 		}
 		checked++
-		if c.err != nil {
-			t.Errorf("%s: replay: %v", c.name, c.err)
-			continue
-		}
-		for _, f := range c.fails {
-			if strings.Contains(f, rules.OracleUnusedTargetMarker) {
-				t.Errorf("%s emitted a scenario with a target gorge did not choose: %s", c.name, f)
-			}
-		}
+		checkGorgeChoseTargets(t, c)
 	}
 	t.Logf("target audit: %d carriers, %d scenarios replayed", len(carriers), checked)
 	if len(carriers) == 0 || checked == 0 {

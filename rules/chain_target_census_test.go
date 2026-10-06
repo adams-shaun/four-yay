@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"slices"
 	"strings"
 	"testing"
 
@@ -47,7 +46,7 @@ func chainTargetCensusSubject(c *cards.Card) bool {
 	return false
 }
 
-// TestChainTargetOfferCensusAgreesWithCastFlow is the class census behind
+// TestChainTargetOfferCensusAgreesWithCastFlow<k> is the class census behind
 // cardfuzz fuzz-1003's planrev "no legal target for a chained ability"
 // (Stand Together, Rookie Mistake, Incremental Growth, Swift Kick, Compel
 // Brutality): every corpus spell that announces chained targets on cast is
@@ -57,27 +56,43 @@ func chainTargetCensusSubject(c *cards.Card) bool {
 // options. A cast the offer admitted must never reverse for want of a legal
 // target (CR 601.2c/733.1): the offer census, the payment planner's candidate
 // walk (which reads it) and the cast flow's subTargetAsk must agree.
-func TestChainTargetOfferCensusAgreesWithCastFlow(t *testing.T) {
+//
+// The census is sharded into chainTargetCensusChunks independent tests (the
+// operator's per-test budget, 2026-10-05: 2 GB, 2 vCPU, 1 min): chunk k
+// covers its contiguous slice of the sorted subject list, every subject is
+// in exactly one chunk, and each cast keeps the seed it had unsharded.
+func TestChainTargetOfferCensusAgreesWithCastFlow0(t *testing.T) { chainTargetCensusChunk(t, 0) }
+func TestChainTargetOfferCensusAgreesWithCastFlow1(t *testing.T) { chainTargetCensusChunk(t, 1) }
+func TestChainTargetOfferCensusAgreesWithCastFlow2(t *testing.T) { chainTargetCensusChunk(t, 2) }
+func TestChainTargetOfferCensusAgreesWithCastFlow3(t *testing.T) { chainTargetCensusChunk(t, 3) }
+
+// chainTargetCensusChunks is the number of
+// TestChainTargetOfferCensusAgreesWithCastFlow<k> tests above;
+// TestCensusChunksCoverEverySubject holds the two in step.
+const chainTargetCensusChunks = 4
+
+// chainTargetCensusSubjects is the census's sorted subject list, computed
+// once per process for every chunk.
+var chainTargetCensusSubjects = censusSubjects(chainTargetCensusSubject)
+
+func chainTargetCensusChunk(t *testing.T, k int) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bears := mustCorpusCard(t, reg, "Grizzly Bears")
-	var subjects []*cards.Card
-	for _, c := range reg.Cards {
-		if chainTargetCensusSubject(c) {
-			subjects = append(subjects, c)
-		}
-	}
-	slices.SortFunc(subjects, func(a, b *cards.Card) int { return strings.Compare(a.Faces[0].Name, b.Faces[0].Name) })
+	subjects := chainTargetCensusSubjects(t)
 	if len(subjects) < 500 {
 		t.Fatalf("census found %d chained-target spells, want the corpus's several hundred", len(subjects))
 	}
+	lo, hi := censusChunkRange(len(subjects), k, chainTargetCensusChunks)
 	boards := []struct{ mine, theirs int }{{0, 0}, {1, 0}, {0, 1}, {1, 1}, {2, 0}}
 	var gaps []string
 	offered := 0
-	for ci, c := range subjects {
+	var sp Spare
+	for ci := lo; ci < hi; ci++ {
+		c := subjects[ci]
 		name := c.Faces[0].Name
 		for bi, b := range boards {
-			if reason, cast := chainCensusCast(t, c, bears, b.mine, b.theirs, uint64(70000+ci*len(boards)+bi)); cast {
+			if reason, cast := chainCensusCast(t, c, bears, b.mine, b.theirs, uint64(70000+ci*len(boards)+bi), &sp); cast {
 				offered++
 				if reason != "" && !knownChainTargetOfferGaps[name] {
 					gaps = append(gaps, name+": "+reason)
@@ -85,7 +100,7 @@ func TestChainTargetOfferCensusAgreesWithCastFlow(t *testing.T) {
 			}
 		}
 	}
-	t.Logf("chain-target census: %d spells, %d offered casts", len(subjects), offered)
+	t.Logf("chain-target census chunk %d/%d: spells [%d,%d) of %d, %d offered casts", k, chainTargetCensusChunks, lo, hi, len(subjects), offered)
 	if len(gaps) != 0 {
 		t.Fatalf("%d offered casts reversed for want of a legal target:\n%s", len(gaps), strings.Join(gaps, "\n"))
 	}
@@ -95,7 +110,11 @@ func TestChainTargetOfferCensusAgreesWithCastFlow(t *testing.T) {
 // funds the pool and, when the plain cast is offered, casts it with the first
 // legal answers. cast reports whether it was offered; reason is the abort
 // note when the announcement reversed for want of a legal target.
-func chainCensusCast(t *testing.T, c, bears *cards.Card, mine, theirs int, seed uint64) (reason string, cast bool) {
+//
+// The engine is built on sp's recycled storage and Released back into it on
+// return, so the census allocates one engine's log and arena, not one per
+// board.
+func chainCensusCast(t *testing.T, c, bears *cards.Card, mine, theirs int, seed uint64, sp *Spare) (reason string, cast bool) {
 	t.Helper()
 	deck0 := []*cards.Card{c}
 	for i := 0; i < mine; i++ {
@@ -107,7 +126,9 @@ func chainCensusCast(t *testing.T, c, bears *cards.Card, mine, theirs int, seed 
 	}
 	cfg := Config{Seed: seed, Names: []string{"a", "b"},
 		Decks: [][]*cards.Card{append(deck0, mountainDeck(t, 40-len(deck0))...), append(deck1, mountainDeck(t, 40-len(deck1))...)}}
+	cfg.Spare = sp
 	e := New(cfg)
+	defer func() { *sp = e.Release() }()
 	id := moveByName(t, e, 0, c.Faces[0].Name, state.ZHand)
 	for i := 0; i < mine; i++ {
 		moveByName(t, e, 0, "Grizzly Bears", state.ZBattlefield)

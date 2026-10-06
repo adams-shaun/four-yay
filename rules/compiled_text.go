@@ -3,6 +3,8 @@ package rules
 import (
 	"sort"
 	"sync"
+	"unsafe"
+	"weak"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
@@ -26,6 +28,38 @@ type compiledText struct {
 	// faces holds every configured face's offer-walk facts
 	// (walk_face_facts.go).
 	faces walkFaceTable
+	// base is the token-script layer (tokenCompiledText): the compiled text
+	// of cfg.Tokens, shared by every configuration over the same token map.
+	// Every table above covers only the configuration's deck cards and falls
+	// back to base, so a new deck compiles its own few cards instead of
+	// every token script again. Each entry is a pure function of its key
+	// (cost text, ability, face, spec), so the layered answer is the union
+	// table's. nil for a configuration without tokens, and on base itself.
+	base *compiledText
+	// pin holds the configured cards this layer was compiled from, so a
+	// memo entry that finds this text alive knows every card it recorded by
+	// address is alive too (compiledTextConfig).
+	pin [][]*cards.Card
+}
+
+// costOf is the configured frozen parse of raw in this layer or its base.
+func (ct *compiledText) costOf(raw string) (*compiledCost, bool) {
+	if c, ok := ct.costs[raw]; ok {
+		return c, true
+	}
+	if ct.base != nil {
+		c, ok := ct.base.costs[raw]
+		return c, ok
+	}
+	return nil, false
+}
+
+// faceFacts is the layered walk-face table lookup.
+func (ct *compiledText) faceFacts(f *cards.Face) *walkFaceFacts {
+	if ff := ct.faces.lookup(f); ff != nil || ct.base == nil {
+		return ff
+	}
+	return ct.base.faces.lookup(f)
 }
 
 // compiledCost is one configured cost text's frozen parse plus its facts
@@ -34,24 +68,36 @@ type compiledCost = pay.CompiledCost
 
 func newCompiledCost(text string) *compiledCost { return pay.NewCompiledCost(text) }
 
-// compiledTextConfig snapshots exactly the card pointers whose text feeds a
-// compiledText. It intentionally excludes runtime and replay configuration:
-// sidecars are keyed only by immutable configured card text.
+// compiledTextConfig records exactly the deck card identities whose text
+// feeds a compiledText's own layer (its token layer is matched by identity,
+// compiledText.base). It intentionally excludes runtime and replay
+// configuration: sidecars are keyed only by immutable configured card text.
+//
+// The identities are addresses, not pointers, so the memo pins nothing (see
+// compiledTextCacheEntry). An address is compared only after the entry's
+// text was loaded alive, and a live text holds its deck cards (pin), so no
+// recorded card can have died and had its address reused.
 type compiledTextConfig struct {
-	decks  [][]*cards.Card
-	tokens map[string]*cards.Card
+	decks [][]uintptr
 }
 
 type compiledTextCacheEntry struct {
-	key    *cards.Card
+	key    uintptr
 	config compiledTextConfig
-	text   *compiledText
+	// text is held WEAKLY. Every Face and SA points at its registry's
+	// catalog, which lists every face and ability of the corpus, so a strong
+	// entry pinned its whole registry (~400 MB) for the life of the process:
+	// a test binary that loads the corpus per test kept the last 64
+	// configurations' registries -- measured 2026-10-05 at 7.9 GB in use at
+	// the end of compliance/oraclegen/templates. Held weakly, an entry
+	// serves every engine built while another engine (or a clone, or a
+	// replay) still uses its text, and is dropped once none does.
+	text weak.Pointer[compiledText]
 }
 
-// compiledTextCacheLimit bounds the shared sidecar memo. Each entry holds
-// every configured deck card's AND every token script's compiled text, so an
-// embedder that starts many games from distinct decks (cardfuzz: fresh random
-// decks every game) grew it without bound -- measured 2026-09-27 at 3-4 GB per
+// compiledTextCacheLimit bounds the shared sidecar memo. An embedder that
+// starts many games from distinct decks (cardfuzz: fresh random decks every
+// game) otherwise grows it without bound -- measured 2026-09-27 at 3-4 GB per
 // fuzz run before the process hit its memory cap. A server's tables reuse a
 // handful of deck configurations, and a game's replay reuses its own, so a
 // small bound keeps every real hit. On overflow, the oldest inserted entry
@@ -61,18 +107,24 @@ const compiledTextCacheLimit = 64
 
 var compiledTextCache = struct {
 	sync.Mutex
-	entries map[*cards.Card][]*compiledTextCacheEntry
+	entries map[uintptr][]*compiledTextCacheEntry
 	order   []*compiledTextCacheEntry
 	n       int
-}{entries: make(map[*cards.Card][]*compiledTextCacheEntry)}
+}{entries: make(map[uintptr][]*compiledTextCacheEntry)}
+
+func cardAddr(c *cards.Card) uintptr { return uintptr(unsafe.Pointer(c)) }
 
 func newCompiledText(cfg Config) *compiledText {
-	key := firstConfiguredCard(cfg)
+	var base *compiledText
+	if len(cfg.Tokens) > 0 {
+		base = tokenCompiledText(cfg.Tokens)
+	}
+	key := cardAddr(firstConfiguredCard(cfg))
 	compiledTextCache.Lock()
 	for _, entry := range compiledTextCache.entries[key] {
-		if entry.config.matchesConfig(cfg) {
+		if text := entry.text.Value(); text != nil && text.base == base && entry.config.matchesConfig(cfg) {
 			compiledTextCache.Unlock()
-			return entry.text
+			return text
 		}
 	}
 	compiledTextCache.Unlock()
@@ -82,12 +134,12 @@ func newCompiledText(cfg Config) *compiledText {
 	// Two racing builds of one configuration are the same pure function of
 	// the same immutable card text; the first to insert wins below.
 	config := snapshotCompiledTextConfig(cfg)
-	text := buildCompiledText(cfg)
+	text := buildCompiledTextOver(cfg, base)
 	compiledTextCache.Lock()
 	defer compiledTextCache.Unlock()
 	for _, entry := range compiledTextCache.entries[key] {
-		if entry.config.matchesConfig(cfg) {
-			return entry.text
+		if text := entry.text.Value(); text != nil && text.base == base && entry.config.matchesConfig(cfg) {
+			return text
 		}
 	}
 	if compiledTextCache.n >= compiledTextCacheLimit {
@@ -108,7 +160,7 @@ func newCompiledText(cfg Config) *compiledText {
 		}
 		compiledTextCache.n--
 	}
-	entry := &compiledTextCacheEntry{key: key, config: config, text: text}
+	entry := &compiledTextCacheEntry{key: key, config: config, text: weak.Make(text)}
 	compiledTextCache.entries[key] = append(compiledTextCache.entries[key], entry)
 	compiledTextCache.order = append(compiledTextCache.order, entry)
 	compiledTextCache.n++
@@ -127,36 +179,31 @@ func firstConfiguredCard(cfg Config) *cards.Card {
 }
 
 func snapshotCompiledTextConfig(cfg Config) compiledTextConfig {
-	config := compiledTextConfig{
-		decks:  make([][]*cards.Card, len(cfg.Decks)),
-		tokens: make(map[string]*cards.Card, len(cfg.Tokens)),
-	}
+	config := compiledTextConfig{decks: make([][]uintptr, len(cfg.Decks))}
 	for i, deck := range cfg.Decks {
-		config.decks[i] = append([]*cards.Card(nil), deck...)
-	}
-	for key, token := range cfg.Tokens {
-		config.tokens[key] = token
+		ids := make([]uintptr, len(deck))
+		for j, c := range deck {
+			ids[j] = cardAddr(c)
+		}
+		config.decks[i] = ids
 	}
 	return config
 }
 
+// matchesConfig compares cfg's deck card identities; the caller has already
+// loaded the entry's text alive and matched its token layer.
 func (c compiledTextConfig) matchesConfig(cfg Config) bool {
-	if len(c.decks) != len(cfg.Decks) || len(c.tokens) != len(cfg.Tokens) {
+	if len(c.decks) != len(cfg.Decks) {
 		return false
 	}
 	for i, deck := range c.decks {
 		if len(deck) != len(cfg.Decks[i]) {
 			return false
 		}
-		for j, card := range deck {
-			if card != cfg.Decks[i][j] {
+		for j, id := range deck {
+			if id != cardAddr(cfg.Decks[i][j]) {
 				return false
 			}
-		}
-	}
-	for key, token := range c.tokens {
-		if otherToken, ok := cfg.Tokens[key]; !ok || token != otherToken {
-			return false
 		}
 	}
 	return true
@@ -343,21 +390,122 @@ func buildCardText(c *cards.Card) *cardText {
 }
 
 func buildCompiledText(cfg Config) *compiledText {
+	var base *compiledText
+	if len(cfg.Tokens) > 0 {
+		base = tokenCompiledText(cfg.Tokens)
+	}
+	return buildCompiledTextOver(cfg, base)
+}
+
+// buildCompiledTextOver compiles cfg's deck cards into one layer over base
+// (cfg.Tokens' layer).
+func buildCompiledTextOver(cfg Config, base *compiledText) *compiledText {
+	var list []*cards.Card
+	pin := make([][]*cards.Card, len(cfg.Decks))
+	for i, deck := range cfg.Decks {
+		list = append(list, deck...)
+		pin[i] = append([]*cards.Card(nil), deck...)
+	}
+	text := compileCards(list, base)
+	text.pin = pin
+	return text
+}
+
+// tokenLayerCacheLimit bounds the token-layer memo's entry count. A
+// process normally holds one token map (its registry's); tests that load
+// several registries hold a few.
+const tokenLayerCacheLimit = 8
+
+// tokenLayerEntry holds its layer WEAKLY, for the reason
+// compiledTextCacheEntry does: a strong process-wide entry would pin a dead
+// registry for the life of the process. A layer lives exactly as long as
+// some engine, or some deck layer (compiledText.base), still uses it.
+type tokenLayerEntry struct {
+	// tokens records the map's cards by address; a live text pins them
+	// (compiledText.pin), so they are compared only once text is loaded.
+	tokens map[string]uintptr
+	text   weak.Pointer[compiledText]
+}
+
+var tokenLayerCache struct {
+	sync.Mutex
+	entries []tokenLayerEntry // oldest first
+}
+
+func (en *tokenLayerEntry) matches(tokens map[string]*cards.Card) bool {
+	if len(en.tokens) != len(tokens) {
+		return false
+	}
+	for key, token := range tokens {
+		if id, ok := en.tokens[key]; !ok || id != cardAddr(token) {
+			return false
+		}
+	}
+	return true
+}
+
+// tokenCompiledText is the compiled text of a token map, memoised by its
+// content (key -> card pointer), so every configuration over one registry's
+// tokens shares one layer. The text is immutable, so a hit or a rebuild can
+// never reach an event.
+func tokenCompiledText(tokens map[string]*cards.Card) *compiledText {
+	tokenLayerCache.Lock()
+	defer tokenLayerCache.Unlock()
+	live := tokenLayerCache.entries[:0]
+	var hit *compiledText
+	for _, entry := range tokenLayerCache.entries {
+		text := entry.text.Value()
+		if text == nil {
+			continue // collected: drop the entry
+		}
+		live = append(live, entry)
+		if hit == nil && entry.matches(tokens) {
+			hit = text
+		}
+	}
+	clear(tokenLayerCache.entries[len(live):])
+	tokenLayerCache.entries = live
+	if hit != nil {
+		return hit
+	}
+	keys := make([]string, 0, len(tokens))
+	for key := range tokens {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	list := make([]*cards.Card, 0, len(keys))
+	snap := make(map[string]uintptr, len(keys))
+	for _, key := range keys {
+		list = append(list, tokens[key])
+		snap[key] = cardAddr(tokens[key])
+	}
+	text := compileCards(list, nil)
+	text.pin = [][]*cards.Card{list}
+	if len(tokenLayerCache.entries) >= tokenLayerCacheLimit {
+		copy(tokenLayerCache.entries, tokenLayerCache.entries[1:])
+		tokenLayerCache.entries = tokenLayerCache.entries[:len(tokenLayerCache.entries)-1]
+	}
+	tokenLayerCache.entries = append(tokenLayerCache.entries, tokenLayerEntry{tokens: snap, text: weak.Make(text)})
+	return text
+}
+
+// compileCards compiles list's cards (in order, each once) into one layer
+// over base.
+func compileCards(list []*cards.Card, base *compiledText) *compiledText {
 	predicateTexts := make(map[string]struct{})
 	costTexts := make(map[string]struct{})
 	seen := make(map[*cards.SA]struct{})
 	cardsSeen := make(map[*cards.Card]struct{})
 	var faces []*cards.Face
 	// Each card's contribution is compiled once (cardTextOf); a config is
-	// the union of its cards', so repeat configurations -- and the token
-	// scripts every configuration shares -- cost a merge, not a re-walk of
-	// every parameter map.
-	addCard := func(c *cards.Card) {
+	// the union of its cards', so repeat configurations cost a merge, not a
+	// re-walk of every parameter map.
+	for _, c := range list {
 		if c == nil {
-			return
+			continue
 		}
 		if _, ok := cardsSeen[c]; ok {
-			return
+			continue
 		}
 		cardsSeen[c] = struct{}{}
 		faces = append(faces, c.Faces...)
@@ -371,19 +519,6 @@ func buildCompiledText(cfg Config) *compiledText {
 		for _, sa := range ct.sas {
 			seen[sa] = struct{}{}
 		}
-	}
-	for _, deck := range cfg.Decks {
-		for _, c := range deck {
-			addCard(c)
-		}
-	}
-	tokenKeys := make([]string, 0, len(cfg.Tokens))
-	for key := range cfg.Tokens {
-		tokenKeys = append(tokenKeys, key)
-	}
-	sort.Strings(tokenKeys)
-	for _, key := range tokenKeys {
-		addCard(cfg.Tokens[key])
 	}
 	preds := make([]string, 0, len(predicateTexts))
 	for text := range predicateTexts {
@@ -415,8 +550,12 @@ func buildCompiledText(cfg Config) *compiledText {
 		saFacts[sa] = f
 		publishSAFacts(f)
 	}
-	return &compiledText{predicates: effects.CompilePredicatePrograms(preds), costs: costs, saFacts: saFacts,
-		faces: buildWalkFaceTable(faces)}
+	var parentPreds *effects.PredicatePrograms
+	if base != nil {
+		parentPreds = base.predicates
+	}
+	return &compiledText{predicates: effects.CompilePredicateProgramsOver(parentPreds, preds), costs: costs, saFacts: saFacts,
+		faces: buildWalkFaceTable(faces), base: base}
 }
 
 func freezeCost(c Cost) Cost { return pay.FreezeCost(c) }
@@ -471,7 +610,7 @@ func (e *Engine) matchesSpecFrom(spec string, id state.ObjID, you state.PlayerID
 // text outside the configured set (or an engine without a sidecar).
 func (e *Engine) configuredCost(raw string) *compiledCost {
 	if e != nil && e.compiledText != nil {
-		if c, ok := e.compiledText.costs[raw]; ok {
+		if c, ok := e.compiledText.costOf(raw); ok {
 			return c
 		}
 	}
