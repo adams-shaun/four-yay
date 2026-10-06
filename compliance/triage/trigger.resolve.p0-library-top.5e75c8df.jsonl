@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"resolve","field":"p0.library_top","diff":"gorge+[$LIB, Jace Beleren] xmage+[Grizzly Bears, Ornithopter]"},"key":"trigger | resolve | p0.library_top | gorge+[$LIB, Jace Beleren] xmage+[Grizzly Bears, Ornithopter]","cards":1}
-{"card":"Kyoshi Island Plaza","template":"trigger#0.1","status":"diverge","api":"ChangesZone:ChangeZone","sets":["TLA"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Wastes, Jace Beleren, Wastes]\", xmage \"[Grizzly Bears, Wastes, Ornithopter, Wastes, Wastes]\""}
