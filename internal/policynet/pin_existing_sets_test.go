@@ -109,7 +109,9 @@ func TestExistingFeatureSetsArePinnedOverARealGame(t *testing.T) {
 	for i := range sets {
 		digests[i] = hs[i].Sum64()
 	}
-	want := []uint64{0xcac79503fd1dfdf3, 0xd44562beb3d4bedd, 0xf616a5e5b8a6dce1}
+	// Re-pinned at 0e5196eb7 (CR 103.8a: the starting player skips the whole
+	// turn-1 draw step): the pinned GAME changed, not any set's encoding.
+	want := []uint64{0xaa14d019fe36aee3, 0xd9a7ed8af91a4a83, 0xca51959b21684b69}
 	t.Logf("decisions %d, digests v1=%#016x mz=%#016x entity=%#016x", decisions, digests[0], digests[1], digests[2])
 	if decisions < 200 {
 		t.Fatalf("only %d decisions encoded; the pin is too thin", decisions)
