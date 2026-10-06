@@ -7,7 +7,7 @@ import (
 
 // cardProbes is the memoised answer of the per-card pool probes the rules
 // engine asks at every genesis over the match's decks and its whole token
-// table (MayCarryControlStatic, ChangesTypes). Each is a pure function of
+// table (MayCarryControlStatic, ChangesTypes, SetsName). Each is a pure function of
 // the card's text, which is immutable once the card is linked, but a scan
 // walks every SVar body with strings.Contains: a search that builds an
 // engine per sample attempt paid the 800-token scan thousands of times.
@@ -15,6 +15,7 @@ type cardProbes struct {
 	card          *Card // the card these answers were computed for
 	controlStatic bool
 	changesTypes  bool
+	setsName      bool
 }
 
 // probe returns c's probe answers, computing and publishing them on first
@@ -28,7 +29,7 @@ func (c *Card) probe() *cardProbes {
 	if p := (*cardProbes)(atomic.LoadPointer(&c.probes)); p != nil && p.card == c {
 		return p
 	}
-	p := &cardProbes{card: c, controlStatic: c.mayCarryControlStaticScan(), changesTypes: c.changesTypesScan()}
+	p := &cardProbes{card: c, controlStatic: c.mayCarryControlStaticScan(), changesTypes: c.changesTypesScan(), setsName: c.setsNameScan()}
 	atomic.CompareAndSwapPointer(&c.probes, nil, unsafe.Pointer(p))
 	return p
 }
