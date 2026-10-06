@@ -30,6 +30,9 @@ const (
 // leaks into the gate-off control. Both bases are the PLACED card: a setup
 // permanent is not summoning sick, a cast one is.
 func staticGatedGrantedAbilityItem(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, req levelb.Requirement, st cards.Static) (it oraclegen.Item, why string, ok bool) {
+	if !staticSelfGrantedAbility(&st) {
+		return oraclegen.Item{}, "", false
+	}
 	var sa *cards.SA
 	if ability := strings.TrimSpace(st.ParamStr(cards.PKAddAbility)); ability != "" {
 		sa = cards.ResolveSVar(f.SVars, ability)
@@ -108,6 +111,17 @@ func staticGatedGrantedAbilityItem(reg *cards.Registry, c *cards.Card, f *cards.
 	item := oraclegen.NewLevelBItem(name, req.Key, StaticApplies.Version, []string{"611.3", "613"}, sc)
 	item.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), nil)
 	return item, "", true
+}
+
+// staticSelfGrantedAbility reports whether st's grant lands on the card itself
+// on the battlefield: an Affected$ filter naming Self, or no Affected$ at all
+// (the engine's Card.Self default for a self-only static, rules/layers.go). A
+// grant whose Affected$ names other cards (a subtype, another controller's
+// creature, a counter-marked creature) is not a self grant, and the
+// self-offer observation this helper builds would assert the wrong recipient.
+func staticSelfGrantedAbility(st *cards.Static) bool {
+	aff := strings.TrimSpace(st.ParamStr(cards.PKAffected))
+	return aff == "" || strings.Contains(aff, "Self")
 }
 
 func gatedGrantExpectation(name, kind, label string, want bool) oraclegen.Step {

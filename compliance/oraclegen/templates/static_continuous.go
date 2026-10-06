@@ -71,14 +71,21 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	st, affected := staticSlotOf(f, req)
 	_, _, gated := staticCounterGate(&st)
 	speedGated := staticGatedOnMaxSpeed(&st)
-	if (gated || speedGated) && st.HasParam(cards.PKAddAbility) {
+	// A gated self grant is observed as an offered ability on the card
+	// itself. Try that first, but on failure fall through to the generic
+	// probe and fixture paths: a gated grant that also carries an
+	// observable effect (a level creature's SetPower/SetToughness, Echo
+	// Mage, Joraga Treespeaker) is served by the generic path and must not
+	// be converted into a skip. The helper's specific reason is kept for
+	// the final gap. A grant whose Affected$ names other cards is not a self
+	// grant and is not this helper's to claim.
+	var gatedGrantWhy string
+	if (gated || speedGated) && st.HasParam(cards.PKAddAbility) && staticSelfGrantedAbility(&st) {
 		it, why, ok := staticGatedGrantedAbilityItem(reg, c, f, name, req, st)
 		if ok {
 			return it, nil
 		}
-		if why != "" {
-			return skip(why)
-		}
+		gatedGrantWhy = why
 	}
 	plans := []staticProbePlan{{}}
 	probePlan := staticPlanFor(affected)
@@ -155,6 +162,9 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		return skip(gap)
 	}
 	if gated || speedGated {
+		if gatedGrantWhy != "" {
+			return skip(gatedGrantWhy)
+		}
 		if gap := staticGrantGap(f, st); gap != "" {
 			return skip(gap)
 		}
