@@ -14,6 +14,8 @@ import mage.counters.CounterType;
 import mage.game.FakeGame;
 import mage.game.permanent.Permanent;
 import mage.game.permanent.PermanentCard;
+import mage.players.PlayerImpl;
+import mage.player.ai.ComputerPlayer;
 import org.mage.test.player.TestPlayer;
 import sun.misc.Unsafe;
 
@@ -58,21 +60,15 @@ public final class ScenarioReplaySetupCounterTest {
         field.setAccessible(true);
         Unsafe unsafe = (Unsafe) field.get(null);
         TestPlayer p = (TestPlayer) unsafe.allocateInstance(TestPlayer.class);
-        // PlayerImpl.playerId is final, so write it through Unsafe; it is
-        // declared on PlayerImpl, not TestPlayer.
-        Field idField = null;
-        for (Class<?> type = TestPlayer.class; type != null; type = type.getSuperclass()) {
-            try {
-                idField = type.getDeclaredField("playerId");
-                break;
-            } catch (NoSuchFieldException ignored) {
-                // keep walking the hierarchy
-            }
-        }
-        if (idField == null) {
-            throw new NoSuchFieldException("playerId");
-        }
-        unsafe.putObject(p, unsafe.objectFieldOffset(idField), id);
+        // TestPlayer.getId() delegates to its final computerPlayer field, and
+        // the id lives on PlayerImpl.playerId (also final) of that real
+        // player. Neither is on TestPlayer's own hierarchy, so build a
+        // ComputerPlayer shell with Unsafe and write both fields through it.
+        ComputerPlayer real = (ComputerPlayer) unsafe.allocateInstance(ComputerPlayer.class);
+        Field idField = PlayerImpl.class.getDeclaredField("playerId");
+        unsafe.putObject(real, unsafe.objectFieldOffset(idField), id);
+        Field realField = TestPlayer.class.getDeclaredField("computerPlayer");
+        unsafe.putObject(p, unsafe.objectFieldOffset(realField), real);
         equal(id, p.getId());
         return p;
     }
