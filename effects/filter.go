@@ -246,6 +246,19 @@ var predicates = map[string]predFn{
 	"IsSuspected": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.Suspected
 	},
+	// IsPrepared is CR 722.3a's prepared designation, read from the status
+	// maintained by events.AlterAttribute and cleared when the permanent leaves.
+	"IsPrepared": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o.Prepared
+	},
+	// harnessed is the Infinity Stone designation set by AlterAttribute.
+	"harnessed": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o.Harnessed
+	},
+	// attackedThisCombat uses the event-folded attack stamp and live combat clock.
+	"attackedThisCombat": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o.AttackedCombat != 0 && o.AttackedTurn == g.Turn && o.AttackedCombat == g.CombatsThisTurn
+	},
 	// IsSaddled is CR 702.171b's until-end-of-turn designation. The turn
 	// stamp makes it expire without a cleanup event and is preserved by
 	// controller changes.

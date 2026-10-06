@@ -34,6 +34,7 @@ func foldDeclareAttackers(g *state.Game, e *Event) {
 			// zero -- the same discriminator a Numeric TargetChosen pair uses.
 			o.AttackingBattle = e.Obj
 			o.AttacksThisTurn++
+			o.AttackedTurn, o.AttackedCombat = g.Turn, g.CombatsThisTurn
 		}
 	}
 }

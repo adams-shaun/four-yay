@@ -307,8 +307,9 @@ Oracle:synthetic AllValid probe
 }
 
 // TestAlterAttributeUnsupportedAttributeStaysLoud pins the scoping: a body
-// naming an attribute the engine does not model (Harnessed, the corpus's
-// remaining population -- Prepared, Suspected and Solved are modelled now) records
+// naming an attribute the engine does not model (Commander, the corpus's
+// remaining population -- Prepared, Harnessed, Suspected and Solved are
+// modelled now) records
 // the loud Note and moves nothing -- the Manifest/Cloak out-of-shape
 // convention.
 func TestAlterAttributeUnsupportedAttributeStaysLoud(t *testing.T) {
@@ -318,7 +319,7 @@ func TestAlterAttributeUnsupportedAttributeStaysLoud(t *testing.T) {
 Types:Creature
 PT:1/1
 T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ Prep
-SVar:Prep:DB$ AlterAttribute | Defined$ Self | Attributes$ Harnessed
+SVar:Prep:DB$ AlterAttribute | Defined$ Self | Attributes$ Commander
 Oracle:synthetic unsupported-attribute probe
 `))
 	e.pending = nil
