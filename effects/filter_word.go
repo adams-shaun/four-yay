@@ -205,6 +205,7 @@ const (
 	wordImprinted
 	wordDefenderCtrl
 	wordNotDefinedTargeted
+	wordTargetedBy
 	wordOpponentCtrl
 	// wordEnchantedControllerCtrl is Forge's EnchantedControllerCtrl -- the
 	// candidate is controlled by the controller of the permanent the SOURCE
@@ -447,6 +448,8 @@ func wordPredicate(p string) (wordKind, string) {
 		return wordEnchantedControllerCtrl, ""
 	case wordPredicateWordNotDefinedTargeted:
 		return wordNotDefinedTargeted, ""
+	case wordPredicateWordTargetedBy:
+		return wordTargetedBy, ""
 	case wordPredicateWordOpponent:
 		return wordOpponentCtrl, ""
 	case wordPredicateWordOppProtect:
@@ -967,6 +970,19 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		// defender. The unbound case is refused beneath '!' too
 		// (contextPredicateBound).
 		return o.Controller == sc.DefendingPlayer.Player
+	case wordTargetedBy:
+		// Forge's targetedBy: the candidate is among the resolving ability's
+		// object targets. Player targets are distinct referents and never match.
+		bound, ok := sc.TargetBinding()
+		if !ok {
+			return false
+		}
+		for _, target := range bound {
+			if !target.IsPlayer && target.Obj == o.ID {
+				return true
+			}
+		}
+		return false
 	case wordNotDefinedTargeted:
 		// Forge's NotDefinedTargeted: the candidate is NOT one of the
 		// resolving ability's targets (SpecContext.ResolutionTargets, the
@@ -1183,7 +1199,7 @@ func attachedToBearerQualifier(g *state.Game, key string, a *state.Object, sc Sp
 // empty for the families that carry none.
 func contextPredicateBound(g *state.Game, kind wordKind, key string, sc SpecContext) bool {
 	switch kind {
-	case wordNotDefinedTargeted:
+	case wordNotDefinedTargeted, wordTargetedBy:
 		return sc.Resolving || sc.ParentBound
 	case wordDefenderCtrl:
 		return sc.DefendingPlayer.IsPlayer
@@ -1303,6 +1319,7 @@ const (
 	wordPredicateWordDefenderCtrl
 	wordPredicateWordEnchantedControllerCtrl
 	wordPredicateWordNotDefinedTargeted
+	wordPredicateWordTargetedBy
 	wordPredicateWordOpponent
 	wordPredicateWordOppProtect
 	wordPredicateWordHistoric
@@ -1355,6 +1372,7 @@ var wordPredicateWordCodes = state.NewStrCodes(
 	state.StrEntry[wordPredicateWordCode]{Key: "DefenderCtrl", Val: wordPredicateWordDefenderCtrl},
 	state.StrEntry[wordPredicateWordCode]{Key: "EnchantedControllerCtrl", Val: wordPredicateWordEnchantedControllerCtrl},
 	state.StrEntry[wordPredicateWordCode]{Key: "NotDefinedTargeted", Val: wordPredicateWordNotDefinedTargeted},
+	state.StrEntry[wordPredicateWordCode]{Key: "targetedBy", Val: wordPredicateWordTargetedBy},
 	state.StrEntry[wordPredicateWordCode]{Key: "Opponent", Val: wordPredicateWordOpponent},
 	state.StrEntry[wordPredicateWordCode]{Key: "OppProtect", Val: wordPredicateWordOppProtect},
 	state.StrEntry[wordPredicateWordCode]{Key: "Historic", Val: wordPredicateWordHistoric},
