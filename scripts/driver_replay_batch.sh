@@ -666,7 +666,11 @@ land() { # land <regressed count> <flaky count>; returns 0 landed, 1 aborted/hel
 pass() {
   local ids rc n r id status detail i attempt landed=0
   select_parked
-  [ "${#PIDS[@]}" -ge 1 ] || { drift_pass; return 0; }
+  # Main's own drift is replayed before any ticket batch: a drifted row
+  # regresses in every batch, no branch clears it, and the batch HOLDs every
+  # ticket (df2d53b8, 2026-10-06) while the drift pass that would refresh it
+  # waited for an empty queue.
+  if [ "${#PIDS[@]}" -lt 1 ] || drift_due; then drift_pass; return 0; fi
   if [ -e "$PAUSE" ]; then say "IDLE pipeline paused (${#PIDS[@]} parked)"; return 0; fi
   if ! main_green; then say "IDLE main is not GREEN in $PMLOG (${#PIDS[@]} parked)"; return 0; fi
   if [ "$INFRA_FAIL_AT" -gt 0 ] && [ $(($(date +%s) - INFRA_FAIL_AT)) -lt "$COOLDOWN" ]; then return 0; fi
@@ -802,7 +806,17 @@ pass() {
   infra_fail "gave up after $attempt replays"; cleanup_pass 0
 }
 
-# drift_pass: no ticket is parked. When the scenario generator changed on main
+# drift_due: 0 iff a replayed main is on record and the scenario generator
+# changed on main since it (drift_pass has a replay to run). With no record,
+# drift_pass only initialises it, which an idle loop does.
+drift_due() {
+  local last
+  last=$(last_main)
+  [ -n "$last" ] || return 1
+  ! git diff --quiet "$last" "$MAIN" -- "${GEN_PATHS[@]}"
+}
+
+# drift_pass: runs before any ticket batch while drift_due. When the scenario generator changed on main
 # since the last replayed main, replay main itself (see the header), land the
 # refreshed verdicts and file one ticket per regressed template class.
 drift_pass() {

@@ -117,7 +117,10 @@ func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 	return classLevelBandCausePrepends(f, name, t, sub, causes), ""
 }
 
-var attackersAmountRE = regexp.MustCompile(`validattackersamount ge(\d+)`)
+var (
+	attackersAmountRE = regexp.MustCompile(`validattackersamount ge(\d+)`)
+	counterFilterRE   = regexp.MustCompile(`counters_ge(\d+)_([a-z0-9]+)`)
+)
 
 // conditionCauses derives variants of base. A shape variant (attackers,
 // counters, Equipment) comes first, bare and then with each prelude; with no
@@ -125,7 +128,7 @@ var attackersAmountRE = regexp.MustCompile(`validattackersamount ge(\d+)`)
 func conditionCauses(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger, sub string, base []triggerCause) []triggerCause {
 	text := strings.ToLower(strings.Join(conditionText(t.Params, f.SVars), " "))
 	var preludes []conditionPrelude
-	for _, p := range conditionPreludes(reg, t.Params, f.SVars) {
+	for _, p := range append(conditionPreludes(reg, t.Params, f.SVars), triggerConditionFixtures(reg, f, t)...) {
 		if !preludeAttacks(p) {
 			preludes = append(preludes, p)
 		}
@@ -165,6 +168,8 @@ func applyPrelude(base triggerCause, p conditionPrelude) triggerCause {
 	c.battlefield = append(append([]string(nil), base.battlefield...), p.battlefield...)
 	c.tapped = append(append([]string(nil), base.tapped...), p.tapped...)
 	c.graveyard = append(append([]string(nil), base.graveyard...), p.graveyard...)
+	c.opponentHand = append(append([]string(nil), base.opponentHand...), p.opponentHand...)
+	c.opponentBattlefield = append(append([]string(nil), base.opponentBattlefield...), p.opponentBattlefield...)
 	c.counters = mergeCounters(base.counters, p.counters)
 	c.prelude = append(append([]oraclegen.Step(nil), base.prelude...), p.steps...)
 	c.preludeXAbility = append(append([]string(nil), base.preludeXAbility...), p.xability...)
@@ -205,14 +210,20 @@ func conditionShape(reg *cards.Registry, f *cards.Face, name string, t *cards.Tr
 	if creature && sub != "trigger.dies-other" {
 		subject = name
 	}
-	if kind := counterKind(text); kind != "" {
+	counterText := text
+	if kind := counterKind(text); kind != "" && kind != "P1P1" && kind != "M1M1" {
+		// Any other counter kind is the trigger's own filter, not an SVar
+		// elsewhere on the card (Eluge's Y counts flood counters).
+		counterText = strings.ToLower(strings.Join(conditionText(t.Params, nil), " "))
+	}
+	if kind := counterKind(counterText); kind != "" {
 		key := subject
 		if subject == name {
 			key = "__SOURCE__"
 		} else {
 			c.battlefield = appendFixtureUnique(c.battlefield, subject)
 		}
-		c.counters = mergeCounters(base.counters, map[string]map[string]int{key: {kind: 1}})
+		c.counters = mergeCounters(base.counters, map[string]map[string]int{key: {kind: counterAmount(counterText)}})
 		changed = true
 	}
 	if attackTriggerSub(sub) {
@@ -225,13 +236,26 @@ func conditionShape(reg *cards.Registry, f *cards.Face, name string, t *cards.Tr
 
 // counterKind is the counter a "with a counter" filter wants on its subject.
 func counterKind(text string) string {
-	switch {
-	case strings.Contains(text, "counters_ge1_m1m1"):
-		return "M1M1"
-	case strings.Contains(text, "counters_ge1_p1p1"), strings.Contains(text, "hascounters"):
+	if strings.Contains(text, "hascounters") {
 		return "P1P1"
 	}
+	m := counterFilterRE.FindStringSubmatch(text)
+	if m != nil {
+		return strings.ToUpper(m[2])
+	}
 	return ""
+}
+
+func counterAmount(text string) int {
+	m := counterFilterRE.FindStringSubmatch(text)
+	if m == nil {
+		return 1
+	}
+	n, err := strconv.Atoi(m[1])
+	if err != nil || n < 1 {
+		return 1
+	}
+	return n
 }
 
 // attackShape widens c's attack step to satisfy attacker-count and
@@ -260,6 +284,9 @@ func attackShape(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigg
 	filter := strings.ToLower(t.ParamStr(cards.PKValidCard) + " " + t.ParamStr(cards.PKValidAttackers))
 	if strings.Contains(filter, "powerge4") {
 		add(powerProbe)
+	}
+	for _, card := range powerAttackers(attackPowerNeeded(t, text)) {
+		add(card)
 	}
 	if strings.Contains(filter, "withmenace") {
 		add(menaceProbe)

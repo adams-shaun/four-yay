@@ -145,7 +145,8 @@ func restrictCandidates(sources [][]conditionPrelude) []conditionPrelude {
 
 func (c conditionPrelude) empty() bool {
 	return len(c.hand) == 0 && len(c.battlefield) == 0 && len(c.tapped) == 0 &&
-		len(c.graveyard) == 0 && len(c.steps) == 0 && len(c.counters) == 0
+		len(c.graveyard) == 0 && len(c.steps) == 0 && len(c.counters) == 0 &&
+		len(c.opponentHand) == 0 && len(c.opponentBattlefield) == 0
 }
 
 // activationPresentPrelude builds candidate setups for an IsPresent$ filter.

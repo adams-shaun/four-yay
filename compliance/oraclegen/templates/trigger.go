@@ -158,18 +158,10 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 	} else if !grave {
 		setupBackFace(&p0, name, req)
 	}
-	for _, b := range c.battlefield {
-		p0.Battlefield = appendFixtureUnique(p0.Battlefield, b)
-	}
-	for _, card := range c.graveyard {
-		p0.Graveyard = appendFixtureUnique(p0.Graveyard, card)
-	}
-	for _, card := range c.opponentBattlefield {
-		p1.Battlefield = appendFixtureUnique(p1.Battlefield, card)
-	}
-	for _, card := range c.opponentHand {
-		p1.Hand = appendFixtureUnique(p1.Hand, card)
-	}
+	p0.Battlefield = appendFixtureCounts(p0.Battlefield, c.battlefield)
+	p0.Graveyard = appendFixtureCounts(p0.Graveyard, c.graveyard)
+	p1.Hand = appendFixtureCounts(p1.Hand, c.opponentHand)
+	p1.Battlefield = appendFixtureCounts(p1.Battlefield, c.opponentBattlefield)
 	for _, card := range c.tapped {
 		if card == "__SOURCE__" {
 			card = name
