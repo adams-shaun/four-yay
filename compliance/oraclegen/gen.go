@@ -208,9 +208,8 @@ type Item struct {
 	// Ignore names snapshot fields the comparison leaves out for this
 	// scenario: library_top after the card shuffles a library.
 	Ignore []string `json:"ignore,omitempty"`
-	// Compare opts a snapshot field into the comparison. The one legal value
-	// for now is "keywords": a permanent's key gains its folded evergreen
-	// keywords. Empty (omitempty) keeps a level-A item byte-identical.
+	// Compare opts a snapshot field into the comparison. Empty (omitempty)
+	// keeps a level-A item byte-identical.
 	Compare []string `json:"compare,omitempty"`
 	Scenario
 }
@@ -600,7 +599,11 @@ func NewItem(f *cards.Face, card, template string, version int, sc Scenario) Ite
 	sc.Name = fmt.Sprintf("gen%d-%s", version, template)
 	sc.CR = []string{"601.2"}
 	sc.Why = "generated level-A scenario"
-	return Item{ID: fmt.Sprintf("%s/%s/v%d", card, template, version), Card: card, Template: template, Scenario: sc}
+	it := Item{ID: fmt.Sprintf("%s/%s/v%d", card, template, version), Card: card, Template: template, Scenario: sc}
+	if CanShuffleLibrary(f) {
+		it.Compare = []string{CompareNoLibraryOrder}
+	}
+	return it
 }
 
 // baseline gives every cast scenario something for "up to one target"

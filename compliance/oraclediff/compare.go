@@ -74,7 +74,8 @@ func Compare(g rules.OracleResult, gerr error, x XResult, ignore ...string) Verd
 }
 
 // CompareOpts is Compare with the item's opt-in comparison fields
-// (oraclegen.Item.Compare, e.g. ["keywords"]). A nil list is exactly
+// (oraclegen.Item.Compare, e.g. ["keywords"] or ["no_library_order"]). A nil
+// list is exactly
 // Compare, so every level-A comparison is unchanged.
 func CompareOpts(g rules.OracleResult, gerr error, x XResult, compare []string, ignore ...string) Verdict {
 	if gerr != nil {
@@ -127,6 +128,7 @@ func fields(s rules.OracleSnapshot, xmage bool, compare []string) []field {
 		{"active", fmt.Sprint(s.Active)}, {"over", fmt.Sprint(s.Over)},
 		{"players", fmt.Sprint(len(s.Players))},
 	}
+	noLibraryOrder := wantsCompare(compare, CompareNoLibraryOrder)
 	for i, p := range s.Players {
 		pf := func(f string) string { return fmt.Sprintf("p%d.%s", i, f) }
 		out = append(out,
@@ -136,7 +138,11 @@ func fields(s rules.OracleSnapshot, xmage bool, compare []string) []field {
 			field{pf("graveyard"), list(p.Graveyard, false)},
 			field{pf("exile"), list(p.Exile, true)},
 			field{pf("library_count"), fmt.Sprint(p.LibraryCount)},
-			field{pf("library_top"), list(p.LibraryTop, false)},
+		)
+		if !noLibraryOrder {
+			out = append(out, field{pf("library_top"), list(p.LibraryTop, false)})
+		}
+		out = append(out,
 			field{pf("pool"), sortMana(p.Pool)},
 		)
 	}
