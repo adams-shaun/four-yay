@@ -17,7 +17,7 @@ func TestZoneChangeTriggerFamilies(t *testing.T) {
 		{"all enters plural filter", "ChangesZoneAll", "trigger.etb-other", map[string]string{"Origin": "Any", "Destination": "Battlefield", "ValidCards": "Creature.YouCtrl"}},
 		{"self ltb remains gap", "ChangesZone", "trigger.gap:ChangesZone", map[string]string{"Origin": "Battlefield", "Destination": "Hand", "ValidCard": "Card.Self"}},
 		{"dies delegated", "ChangesZone", "trigger.dies-other", map[string]string{"Origin": "Battlefield", "Destination": "Graveyard", "ValidCard": "Creature.YouCtrl"}},
-		{"all dies excluded", "ChangesZoneAll", "trigger.gap:ChangesZoneAll", map[string]string{"Origin": "Battlefield", "Destination": "Graveyard", "ValidCards": "Creature.YouCtrl"}},
+		{"all dies is dies-other", "ChangesZoneAll", "trigger.dies-other", map[string]string{"Origin": "Battlefield", "Destination": "Graveyard", "ValidCards": "Creature.YouCtrl"}},
 		{"other changes-zone-all shape is named", "ChangesZoneAll", "trigger.zone-change-residue", map[string]string{"Origin": "Library", "Destination": "Exile", "ValidCards": "Card.YouOwn"}},
 		{"chosen-card residue is named", "ChangesZone", "trigger.zone-change-residue", map[string]string{"Origin": "Any", "Destination": "Graveyard", "ValidCard": "ChosenCardStrict"}},
 		{"library residue is named", "ChangesZone", "trigger.zone-change-residue", map[string]string{"Origin": "Library", "Destination": "Graveyard", "ValidCard": "Land"}},

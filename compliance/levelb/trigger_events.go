@@ -28,10 +28,13 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 		return sub, true
 	}
 	switch t.ModeKind() {
-	case cards.TriggerChangesZone:
+	case cards.TriggerChangesZone, cards.TriggerChangesZoneAll:
+		// Any non-self Battlefield->Graveyard trigger, whichever side, type
+		// or qualifier its filter names: the recipe picks the victim the
+		// filter accepts and names its own skip for one it cannot place.
 		if strings.EqualFold(t.ParamStr(cards.PKOrigin), "Battlefield") &&
 			strings.EqualFold(t.ParamStr(cards.PKDestination), "Graveyard") &&
-			!namesSelf(t.ParamStr(cards.PKValidCard)) && diesOther(t.ParamStr(cards.PKValidCard)) {
+			!namesSelf(ZoneChangeFilter(t)) {
 			return "trigger.dies-other", true
 		}
 	case cards.TriggerScry, cards.TriggerSurveil:
@@ -89,22 +92,6 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 		}
 	}
 	return "", false
-}
-
-// diesOther reports whether a ValidCard filter names a creature the card's
-// controller controls (`Creature.YouCtrl`, `Creature.Other+YouCtrl`) or the
-// creature the card is attached to (`Card.AttachedBy`): in either case a
-// Grizzly Bears on p0's battlefield that dies is the cause.
-func diesOther(filter string) bool {
-	for _, alt := range strings.Split(filter, ",") {
-		if filterHasToken(alt, "Creature") && filterHasToken(alt, "YouCtrl") {
-			return true
-		}
-		if filterHasToken(alt, "AttachedBy") {
-			return true
-		}
-	}
-	return false
 }
 
 // selfCastTrigger reports the narrow self-cast shape that the level-A
