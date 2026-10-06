@@ -27,7 +27,10 @@ type triggerCause struct {
 	preludeXAbility []string
 	castSelfX       bool     // the card is cast from hand with X first (an X creature that setup would leave 0/0)
 	opponentHand    []string // probes held by p1 for opponent-cast causes
-	activateCost    string   // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
+	// opponentBattlefield are p1 permanents (a blocker, an attacker, a tap
+	// target) the cause needs on the other side of the table.
+	opponentBattlefield []string
+	activateCost        string // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
 }
 
 // Probe cards, each named with why. Spec hypothesis H4: the probe exists in
@@ -182,6 +185,9 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 			return causes, why
 		}
 		if causes, why, ok := castFamilyRecipe(reg, f, name, t, sub); ok {
+			return causes, why
+		}
+		if causes, why, ok := tapCombatRecipe(reg, f, name, t, sub); ok {
 			return causes, why
 		}
 		return nil, "no recipe for " + sub

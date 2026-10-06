@@ -24,7 +24,7 @@ import (
 func conditionTriggerSub(sub string) bool {
 	switch sub {
 	case "trigger.attacks", "trigger.attacks-one-target", "trigger.dies", "trigger.dies-other",
-		"trigger.drawn", "trigger.etb-other", "trigger.noncombat-damage":
+		"trigger.drawn", "trigger.etb-other", "trigger.noncombat-damage", "trigger.tapped", "trigger.blocks":
 		return true
 	}
 	return false
