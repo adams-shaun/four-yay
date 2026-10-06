@@ -77,6 +77,15 @@ var wantTriggerCensus = map[string]map[string]int{
 	},
 }
 
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
 func TestTriggerCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	root := filepath.Join("..", "..", "..")
@@ -101,7 +110,21 @@ func TestTriggerCensus(t *testing.T) {
 				if r.Family != "trigger" || r.Gap != "" {
 					continue
 				}
-				_, skip := GenerateB(reg, card, r)
+				item, skip := GenerateB(reg, card, r)
+				if skip == nil {
+					for _, step := range item.Scenario.Steps {
+						if step.Op != "pass_to" {
+							continue
+						}
+						checkpoint := step.Step
+						if step.Active != "" {
+							checkpoint += "@" + step.Active
+						}
+						if !containsString(PassToSteps(), checkpoint) {
+							t.Errorf("%s %s emitted unadvertised pass_to checkpoint %q", set, r.Key, checkpoint)
+						}
+					}
+				}
 				switch {
 				case skip == nil:
 					counts["served:"+r.Sub]++
