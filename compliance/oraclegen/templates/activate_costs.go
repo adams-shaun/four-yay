@@ -13,6 +13,16 @@ import (
 // whitelist. pool is the mana part's pool letters (PoolFor), or "" for a
 // cost with no mana. gap names the offending token with its payload folded.
 func activationCost(cost string) (pool, gap string) {
+	return activationCostIn(cost, "battlefield")
+}
+
+// activationCostIn is activationCost for a source activated from zone
+// ("battlefield", "hand" or "graveyard"). The channel-style self costs name
+// their own zone: Discard<1/CARDNAME> and ExileFromHand<1/CARDNAME> are
+// payable only from the hand, ExileFromGrave<1/CARDNAME> (or one other
+// Creature.Other card) only from the graveyard. Anywhere else they stay a
+// named cost gap.
+func activationCostIn(cost, zone string) (pool, gap string) {
 	var mana []string
 	for _, tok := range costTokens(cost) {
 		head := tok
@@ -31,7 +41,15 @@ func activationCost(cost string) (pool, gap string) {
 				continue
 			}
 		case "Discard":
-			if discardFixtureSupported(tok) {
+			if discardFixtureSupported(tok) || (zone == "hand" && selfZoneCost(tok)) {
+				continue
+			}
+		case "ExileFromHand":
+			if zone == "hand" && selfZoneCost(tok) {
+				continue
+			}
+		case "ExileFromGrave":
+			if zone == "graveyard" && (selfZoneCost(tok) || graveyardCreatureCost(tok)) {
 				continue
 			}
 		case "Exile":
