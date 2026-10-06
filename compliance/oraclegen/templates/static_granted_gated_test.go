@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
@@ -106,6 +107,12 @@ func TestStaticGatedGrantControlRejectsGateOff(t *testing.T) {
 			}
 			// The gate-on board really holds the gate the control removes.
 			on := sc.Setup["p0"]
+			if !slices.Contains(on.Battlefield, card) {
+				t.Fatalf("precondition: %s is absent from p0's battlefield: %v", card, on.Battlefield)
+			}
+			if counterGated && need <= 0 {
+				t.Fatalf("precondition: counter gate needs %d; want a positive threshold", need)
+			}
 			if counterGated && on.Counters[card][ckind] < need {
 				t.Fatalf("gate-on board has %d %s counters on %s; the gate needs %d", on.Counters[card][ckind], ckind, card, need)
 			}
@@ -132,6 +139,16 @@ func TestStaticGatedGrantControlRejectsGateOff(t *testing.T) {
 			}
 			if len(res.Fails) != 0 {
 				t.Fatalf("gate-off control still offers %q (%s) with the gate removed: %v", off.Label, off.Kind, res.Fails)
+			}
+			// Removing the control's gate must not alter the positive fixture.
+			if !slices.Contains(p0.Battlefield, card) {
+				t.Fatalf("control lost its battlefield source %s", card)
+			}
+			if counterGated && (p0.Counters[card][ckind] != 0 || on.Counters[card][ckind] < need) {
+				t.Fatalf("counter gates must differ: on=%d, off=%d, need=%d", on.Counters[card][ckind], p0.Counters[card][ckind], need)
+			}
+			if speedGated && (p0.Speed != 0 || on.Speed != maxSpeed) {
+				t.Fatalf("speed gates must differ: on=%d, off=%d", on.Speed, p0.Speed)
 			}
 		})
 	}
