@@ -83,7 +83,18 @@ trap 'rm -f "$BRIEF"' EXIT
 	printf '   data source for every number it shows (no placeholder charts), and a\n'
 	printf '   dashboard proposal says which existing ledger/log it reads.\n'
 	printf '5. Names the resource cost of the work (games played, wall time, files\n'
-	printf '   touched) so this ask'"'"'s own cost is visible next to its payoff.\n'
+	printf '   touched) so this ask'"'"'s own cost is visible next to its payoff.\n\n'
+	printf '## Brief context and test budget (operator, 2026-10-05)\n\n'
+	printf 'The triage seat turns this ask into a brief that carries: measured facts with\n'
+	printf 'the command and numbers behind them; the exact file:line of the mechanism; the\n'
+	printf 'commands to run and their caps; what is already ruled out; and who is working\n'
+	printf 'nearby (live tickets/branches on the same files). Unverified premises go under\n'
+	printf 'a `Hypothesis:` label. Every test fits 2 GB RSS, 2 vCPU, 1 min wall and runs\n'
+	printf 'focused and capped:\n'
+	printf '`systemd-run --user --scope -q -p MemoryMax=2G -p CPUQuota=200%% env GOMAXPROCS=2 GOMEMLIMIT=1536MiB go test -timeout 2m -run X ./pkg`.\n'
+	printf 'Never `go test ./...`, `./compliance/...`, `-count=1`, full sweeps or long\n'
+	printf 'seeded runs; a measurement that needs many games uses smoke-sized runs under\n'
+	printf 'the same cap and says how the CI was obtained.\n'
 } >"$BRIEF"
 
 cd "$AGENTCTL" && python3 -m agentctl issue add "$REPO" \
