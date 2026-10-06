@@ -1,8 +1,7 @@
-{"shape":{"template":"activate","op":"activate","field":"p0.pool","diff":"gorge=W xmage=U"},"key":"activate | activate | p0.pool | gorge=W xmage=U","cards":7}
+{"shape":{"template":"activate","op":"activate","field":"p0.pool","diff":"gorge=W xmage=U"},"key":"activate | activate | p0.pool | gorge=W xmage=U","cards":6}
 {"card":"Barrels of Blasting Jelly","template":"activate#0.0","status":"diverge","api":"-","sets":["TLA"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"U\""}
 {"card":"Buried Treasure","template":"activate#0.0","status":"diverge","api":"-","sets":["LCI"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"U\""}
 {"card":"Gravestone Strider","template":"activate#0.0","status":"diverge","api":"-","sets":["MKM"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"U\""}
-{"card":"Hidden Grotto","template":"activate#0.1","status":"diverge","api":"ChangesZone:Surveil","sets":["BLB"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"U\""}
 {"card":"Scarecrow Guide","template":"activate#0.0","status":"diverge","api":"-","sets":["WOE"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"U\""}
 {"card":"Springleaf Drum","template":"activate#0.0","status":"diverge","api":"-","sets":["ECL"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"U\""}
 {"card":"Valgavoth's Lair","template":"activate#0.0","status":"diverge","api":"-","sets":["DSK"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"U\""}
