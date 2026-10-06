@@ -191,6 +191,17 @@ type ContinuousEffect struct {
 	// staticEffects) and the Animate primitive (AddAllCreatureTypes$ on
 	// Mutavault's animation line).
 	AddAllCreatureTypes bool
+	// CDAAllCreatureTypes marks a COPY EXCEPTION's "...except it has
+	// changeling" (Omni-Changeling, Moritte) as a copiable
+	// characteristic-defining ability rather than an ordinary timestamped
+	// layer-4 grant. A CDA applies before every ordinary layer-4 effect
+	// (CR 613.2/613.3), so rules' type walk seeds its semantic all-types
+	// marker from a matching CDAAllCreatureTypes effect BEFORE the walk --
+	// while an effect with the ordinary AddAllCreatureTypes flag applies in
+	// timestamp order and can be undone by a later strip. The effect carries
+	// no type list of its own; the seeded marker is the whole contribution.
+	// Written only by the api:Clone copy-exception path.
+	CDAAllCreatureTypes bool
 	// RemoveCardTypes is the S:Mode$ Continuous RemoveCardTypes$ True strip
 	// (Darksteel Mutation, Kenrith's Transformation, Witness Protection):
 	// while this effect applies, the affected object loses every card type

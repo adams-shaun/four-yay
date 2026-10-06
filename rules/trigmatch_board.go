@@ -78,6 +78,7 @@ func (b *trigBoard) MatchesSpec(spec string, id, source state.ObjID, you state.P
 	e := b.eng()
 	sc := e.specCtx(source, you)
 	sc.DelayedRemembered, sc.ExtraTypes, sc.Layers.StaticGoads = o.DelayedRemembered, o.ExtraTypes, o.StaticGoads
+	sc.ExtraTypesOwner = id
 	return e.matchesSpec(spec, id, sc)
 }
 
@@ -85,6 +86,9 @@ func (b *trigBoard) MatchesObject(spec string, obj *state.Object, source state.O
 	e := b.eng()
 	sc := e.specCtx(source, you)
 	sc.DelayedRemembered, sc.ExtraTypes, sc.Layers.StaticGoads = o.DelayedRemembered, o.ExtraTypes, o.StaticGoads
+	if obj != nil {
+		sc.ExtraTypesOwner = obj.ID
+	}
 	return effects.MatchesObjectCtx(e.G, spec, obj, sc)
 }
 
