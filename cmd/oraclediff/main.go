@@ -205,6 +205,9 @@ func runGen(dir, manifest, out, level string) error {
 	if err := json.Unmarshal(raw, &m); err != nil {
 		return err
 	}
+	if err := installXMageKnown(filepath.Dir(manifest)); err != nil {
+		return err
+	}
 	reg, err := loadReg(dir)
 	if err != nil {
 		return err
@@ -588,6 +591,9 @@ func runStatus(dir, set, level string) error {
 // review, as checked; -shape-id writes the ruling as a reusable shape
 // ruling instead of on this one row.
 func runRule(dir, card, status, ruling, shapeID, template string, confirm bool) error {
+	if err := installXMageKnown(filepath.Join("compliance", "manifests")); err != nil {
+		return err
+	}
 	if card == "" {
 		return fmt.Errorf("rule needs -card")
 	}
@@ -746,4 +752,16 @@ func xmageSpelling(reg *cards.Registry, card string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// installXMageKnown installs the union of the committed XMage manifests.
+// Requiring a non-empty, successfully parsed manifest set prevents generation
+// from silently falling back to the permissive name heuristic.
+func installXMageKnown(manifestDir string) error {
+	names, err := compliance.LoadXMageNames(manifestDir)
+	if err != nil {
+		return err
+	}
+	oraclegen.SetXMageKnown(names)
+	return nil
 }

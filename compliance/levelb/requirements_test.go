@@ -320,11 +320,11 @@ func TestRequirementsClassificationTable(t *testing.T) {
 		{
 			name: "trigger unknown mode is a gap",
 			c: cardOf(&cards.Face{Types: []string{"Creature"}, Triggers: []cards.Trigger{
-				trig("Taps", map[string]string{"ValidCard": "Card.Self"}),
+				trig("Untaps", map[string]string{"ValidCard": "Card.Self"}),
 			}}),
 			want: []Requirement{{
 				Key: "trigger#0.0", Family: "trigger", Face: 0, Slot: "0",
-				Sub: "trigger.gap:Taps", Gap: "trigger mode Taps",
+				Sub: "trigger.gap:Untaps", Gap: "trigger mode Untaps",
 			}},
 		},
 		{

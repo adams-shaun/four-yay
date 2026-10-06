@@ -25,11 +25,15 @@ var wantTriggerCensus = map[string]map[string]int{
 	},
 	"EOE": {
 		"served:trigger.attacks":                                      7,
+		"served:trigger.attacks-attached":                             2,
+		"served:trigger.blocks":                                       1,
+		"served:trigger.tapped":                                       8,
 		"served:trigger.combat-damage":                                1,
 		"served:trigger.dies":                                         6,
 		"served:trigger.dies-other":                                   3,
 		"served:trigger.etb-land":                                     1,
 		"served:trigger.etb-other":                                    18,
+		"served:trigger.ltb-other":                                    1,
 		"served:trigger.phase":                                        19,
 		"served:trigger.spell-cast":                                   6,
 		"skip:trigger.attacks: trigger did not fire":                  0,
@@ -43,6 +47,8 @@ var wantTriggerCensus = map[string]map[string]int{
 	},
 	"FDN": {
 		"served:trigger.attacks":                                26,
+		"served:trigger.attacks-attached":                       1,
+		"served:trigger.tapped":                                 1,
 		"served:trigger.combat-damage":                          8,
 		"served:trigger.dies":                                   14,
 		"served:trigger.dies-other":                             5,
@@ -81,7 +87,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.noncombat-damage":                    3,
 		"served:trigger.phase":                               11,
 		"served:trigger.scry":                                5,
-		"served:trigger.spell-cast":                          18,
+		"served:trigger.spell-cast":                          18, // Ruric Thar, Biomagus: both prowess instances are served.
 		"served:trigger.spell-cast-opponent":                 1,
 		"served:trigger.surveil":                             5,
 		"skip:trigger.attacks: trigger did not fire":         0,
