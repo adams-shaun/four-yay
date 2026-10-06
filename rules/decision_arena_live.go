@@ -143,7 +143,13 @@ func arenaRelocateDecision(a *decisionArena, d *decision.Decision) *decision.Dec
 	}
 	nd := a.gens[a.cur].decs.one(arenaDecChunk)
 	*nd = *d
-	if n := len(d.Options); n > 0 {
+	// Only a request that fits a chunk may be carved from the option slab,
+	// exactly as arenaOptions decides: a larger walk was never arena-backed
+	// (arenaOptions and the in-place tail both fall back to a heap array), so
+	// d.Options is already heap and nd's copy of the pointer (above) is the
+	// safe fallback. Calling opts.take unguarded would slice past the chunk
+	// and panic.
+	if n := len(d.Options); n > 0 && n <= arenaOptChunk {
 		opts := a.gens[a.cur].opts.take(n, arenaOptChunk)
 		copy(opts, d.Options)
 		nd.Options = opts
