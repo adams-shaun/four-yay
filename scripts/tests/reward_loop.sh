@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# reward_loop.sh — every test for the reward loop, in one command.
+# reward_loop.sh — every shell smoke, plus the reward-loop Python selftests.
 #
-# The loop is shell and Python, so it is outside the Go gate list; this is the
-# command a reviewer (or the seed's own steward ticket) runs to believe it.
+# All scripts/tests/*.sh smokes run here; none are manual-only. Their measured
+# combined wall time is ~63s, so this is called by the post-merge full suite,
+# not the per-ticket gate. Keep this entry list in sync with the directory.
 #
 #   scripts/tests/reward_loop.sh
 set -uo pipefail
@@ -24,5 +25,12 @@ run "cleanup_orphan_smoke.sh" bash "$ROOT/scripts/tests/cleanup_orphan_smoke.sh"
 run "seed_gorged_reap_smoke.sh" bash "$ROOT/scripts/tests/seed_gorged_reap_smoke.sh"
 run "seed_smoke.sh" bash "$ROOT/scripts/tests/seed_smoke.sh"
 run "sb_gauntlet_retain_smoke.sh" bash "$ROOT/scripts/tests/sb_gauntlet_retain_smoke.sh"
+run "gorged_reap_smoke.sh" bash "$ROOT/scripts/tests/gorged_reap_smoke.sh"
+run "ledger_lane_smoke.sh" bash "$ROOT/scripts/tests/ledger_lane_smoke.sh"
+run "park_branch_registry_only_smoke.sh" bash "$ROOT/scripts/tests/park_branch_registry_only_smoke.sh"
+run "park_idle_scheduled_smoke.sh" bash "$ROOT/scripts/tests/park_idle_scheduled_smoke.sh"
+run "seed_brief_premise.sh" bash "$ROOT/scripts/tests/seed_brief_premise.sh"
+run "seed_reap_smoke.sh" bash "$ROOT/scripts/tests/seed_reap_smoke.sh"
+run "storm_brief_asserts_endpoint.sh" bash "$ROOT/scripts/tests/storm_brief_asserts_endpoint.sh"
 printf '\n=== reward loop: %s\n' "$([ $rc = 0 ] && echo ALL GREEN || echo FAILURES ABOVE)"
 exit $rc
