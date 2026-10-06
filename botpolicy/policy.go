@@ -735,6 +735,17 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 			break
 		}
 		switch d.Options[0].Kind {
+		case "destination":
+			// A non-MANDATORY DestAltSVar$ "may put it onto the battlefield
+			// instead" (Green Sun's Twilight, Caravan Vigil, Emeria
+			// Shepherd): take the alternate, the R-9 no-host stand-in's
+			// direction, so an answered ask moves the same cards.
+			in.Choices = []int{d.Options[0].Index}
+			for _, o := range d.Options {
+				if o.Mode == "alternate" {
+					in.Choices = []int{o.Index}
+				}
+			}
 		case "teamwork":
 			// An empty answer is the optional-cost decline. Clamp/FitRequired
 			// preserve it via AllowNone; no artificial power-valued option exists.
