@@ -50,7 +50,7 @@ func TestTriggerPhaseRecipes(t *testing.T) {
 		})
 	}
 
-	want := []string{"begin-combat", "draw@p0", "draw@p1", "end", "end-combat", "main2", "upkeep@p0", "upkeep@p1"}
+	want := []string{"begin-combat", "draw@p0", "draw@p1", "end", "end-combat", "main1@p0", "main2", "upkeep@p0", "upkeep@p1"}
 	got := PassToSteps()
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("PassToSteps() = %v, want %v", got, want)

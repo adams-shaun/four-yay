@@ -26,7 +26,9 @@ var TriggerFires = Template{ID: "trigger", Version: 1}
 func triggerSubs(sub string) bool {
 	switch sub {
 	case "trigger.etb-other", "trigger.dies", "trigger.attacks", "trigger.combat-damage",
-		"trigger.spell-cast", "trigger.becomes-target", "trigger.life-gained", "trigger.drawn", "trigger.phase":
+		"trigger.spell-cast", "trigger.spell-cast-self", "trigger.becomes-target", "trigger.life-gained", "trigger.drawn", "trigger.phase",
+		"trigger.dies-other", "trigger.scry", "trigger.surveil", "trigger.noncombat-damage", "trigger.combat-damage-all",
+		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target":
 		return true
 	}
 	return false
@@ -43,6 +45,7 @@ func PassToSteps() []string {
 		"draw@p1",
 		"end",
 		"end-combat",
+		"main1@p0",
 		"main2",
 		"upkeep@p0",
 		"upkeep@p1",
@@ -81,6 +84,9 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 
 func triggerScenario(f *cards.Face, name string, c triggerCause, steps []oraclegen.Step) oraclegen.Scenario {
 	p0 := oraclegen.Seat{Battlefield: []string{name}, Hand: append([]string(nil), c.hand...)}
+	if c.selfInHand {
+		p0.Battlefield = nil
+	}
 	for _, b := range c.battlefield {
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, b)
 	}
@@ -134,6 +140,10 @@ func triggerWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Req
 	}
 	it = oraclegen.NewLevelBItem(name, req.Key, TriggerFires.Version, []string{"603.2"}, sc)
 	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
+	if c.xability != nil {
+		it.XAbility = make([]string, len(sc.Steps))
+		copy(it.XAbility, c.xability)
+	}
 	return it, true, true
 }
 

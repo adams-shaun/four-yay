@@ -58,7 +58,7 @@ func TestRequirementsClassificationTable(t *testing.T) {
 	drawn := map[string]string{"ValidPlayer": "You"}
 	drawnByCard := map[string]string{"ValidCard": "Card.YouCtrl"}
 	phaseEnd := map[string]string{"Phase": "End of Turn", "ValidPlayer": "You"}
-	phaseEndOpp := map[string]string{"Phase": "Draw", "ValidPlayer": "Opponent"}
+	phaseEndOpp := map[string]string{"Phase": "End of Turn", "ValidPlayer": "Opponent"}
 	phaseUntap := map[string]string{"Phase": "Untap", "ValidPlayer": "You"}
 
 	tests := []struct {
