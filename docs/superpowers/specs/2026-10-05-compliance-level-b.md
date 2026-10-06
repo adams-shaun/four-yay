@@ -309,3 +309,237 @@ statics (needs an `offered` observation in both engines — gorge has
 opponent-caused triggers, replacement effects (`Face.Repls`) and level-B
 coverage for hand-scenario cards. Each is a visible `gap` sub-family in the
 census, so its size is measured before anyone schedules it.
+
+## 7. The `offered` observation (legality statics)
+
+Status: design + the two positive-observable rows served (ticket
+cli-20261006T035109Z-1f44e455). Base `main@8da804429`. Sections 1-6 stay as
+written; this section replaces section 6's sketch ("legality statics need an
+`offered` observation in both engines"). Every `path:line` in the XMage source
+below was read at `$XMAGE_ORACLE_DIR/mage` (2026-10-06); the gorge paths at the
+base SHA.
+
+### 7.0 The problem
+
+A legality static decides whether an action is legal. A scripted declaration
+(`cast`, `attack`, `block`, `activate`) cannot observe a prohibition: if the
+driver declares an illegal action XMage throws, and if it declares nothing the
+scenario proves nothing. The FRA level-B pass left eight requirements that
+observe something NOT happening or NOT being offered:
+
+| card (requirement) | static | observation |
+|---|---|---|
+| Karn, Argent Defender `static#0.0` | DisableTriggers | a probe's ETB trigger does not reach the stack (**served**, §7.5) |
+| Ghalta, the Immovable `static#0.2` | CombatDamageToughness | a power<toughness creature assigns its toughness in combat (**served**, §7.5) |
+| Ghalta, the Immovable `static#0.1` | CanAttackDefender `Creature.YouCtrl` | which attackers are offered |
+| Surveillance Phantasm `static#0.0` | CanAttackDefender `Card.Self` (CheckSVar) | which defenders it may attack |
+| Tetsuko Umezawa, Fugitive `static#0.0` | CantBlockBy (p/t ≤ 1) | that a blocker is NOT offered |
+| Proft, Sinister Mastermind `static#0.0` | CantBeCast unless X ≥ 7 | that the cast is not offered |
+| Yuriko, Blade of the Mighty `static#0.0` | CantBeCast during combat | that a spell is not offered |
+| Yuriko, Blade of the Mighty `static#0.1` | CantBeActivated during combat | that a non-mana ability is not offered |
+
+Two of the eight are observable through an existing checkpoint and are served
+now (§7.5). The other six need one new checkpoint, `offered`, in both engines.
+The rest of this section specifies it.
+
+### 7.1 The checkpoint
+
+`offered` is a **snapshot field**, not a step op: it is a fact about the state
+at a checkpoint, so every existing checkpoint (after setup and after each step)
+can carry it, exactly as `stack` and `permanents` already do. It is a list of
+the priority holder's legal actions, each keyed by what the two engines can
+both name:
+
+```
+offered: [ {source: <card ref>, kind: cast|play|activate, label: <rule text>} ]
+```
+
+- `source` is the object's scenario ref (`p0:Proft, Sinister Mastermind`),
+  which both engines already produce (`rules/oracle_snapshot.go`'s refs; the
+  driver's `permanentRef`/aliases).
+- `kind` is `cast` (a hand spell), `play` (a land), or `activate` (a
+  battlefield/zone ability). It is the coarser, comparable vocabulary; a
+  keyword ability folds to `activate`.
+- `label` is the ability's rule text, as both engines render it. The driver
+  gets it from `AbilityImpl.toString()` (`Mage/src/main/java/mage/abilities/AbilityImpl.java:1468`,
+  which returns `getRule()`), the same string `TestPlayer.printAbilities`
+  prints (`Mage.Tests/src/test/java/org/mage/test/player/TestPlayer.java:1333`).
+  It is optional in the comparator (a match on `source` + `kind` is enough for
+  "is X offered"; `label` distinguishes two abilities on one source).
+
+Because `offered` is a list, "X is not offered" is the absence of an entry,
+not a new field. A scenario asks it two ways, both already supported by the
+frozen-expectation machinery:
+
+- **Positive, by state:** the checkpoint's `offered` list contains/omits the
+  entry. Compared like any other snapshot field (§7.4).
+- **Negative, by assertion:** a step carries an expectation
+  `expect: [{offered: {source, kind, label}, want: false}]`, which the runner
+  checks and `Freeze` records as a `fails` field, so a later regression fails
+  `Meets` (`compliance/oraclediff/freeze.go:79-106`).
+
+The assertion form is the one the six rows need: a legality static suppresses
+an option, and a suppressed option leaves no other trace.
+
+### 7.2 gorge (the generator and the runner)
+
+The runner already implements the assertion. `oracleExpect.Offered`
+(`rules/oracle_run.go:148-153`, `:155-159`) carries `{seat, kind, card,
+label}`; `r.check` (`:1540-1565`) fails unless the seat holds priority and the
+pending `decision.Option` list contains (or, with `want:false`, omits) an
+option whose object is `card`, whose kind matches (`o.Kind == kind`, with
+`activate` accepting `o.Kind == "ability"`), and whose label matches
+`oracleLabelMatches`; for `activate` it also scans the mana-ability labels
+(`r.manaAbilityLabels`). That is exactly the legal-option walk this checkpoint
+needs, already tested by the hand-authored `rules/testdata/oracle/**`
+scenarios.
+
+The generator gains one thing: an `Expect` on `oraclegen.Step`
+(compliance/oraclegen/gen.go), omitted when empty so every level-A item stays
+byte-identical. A level-B legality template then:
+
+1. builds the scenario that would offer X absent the static;
+2. replays it through the runner (`rules.RunOracleScenarioJSON`) and reads the
+   pending priority decision's `Options` -- the **control**, proving X is
+   offered without the static;
+3. builds the scenario with the static's source on the battlefield, appends
+   `expect: [{offered: {source, kind, label}, want: false}]` to the checkpoint
+   step, and replays it -- the expectation must hold (the option is gone);
+4. emits the item only when the two differ, so a scenario never asserts a
+   static the engine does not implement.
+
+`oraclegen.Step.Expect` (a subset of `oracleExpect`, marshalled under the same
+JSON keys) is threaded to the runner by the existing `Item.Raw()`; no runner
+change is needed. `oracleOffered`'s `Card` is a scenario ref and `Kind` a
+string, so the generator emits exactly what the runner already decodes.
+
+Choosing the checkpoint: for `CantBeCast`/`CantBeActivated` during combat
+(`Phases$ BeginCombat->EndCombat`) the step that carries the expectation is a
+`pass_to` into begin-combat (or any step whose checkpoint is inside combat),
+and the control uses the same step outside combat. For `CantBlockBy`, the
+checkpoint is a pending `decision.KBlockers`; the runner's existing
+`CanBlock` expectation (`:1567-1594`) already names a (blocker, attacker) pair
+and is the cheaper observation there -- the template should prefer it and use
+`offered` only where `CanBlock` does not reach (which attacker is offered).
+
+### 7.3 XMage (the driver and the playable list)
+
+XMage's playable list is the mirror of gorge's option list. `TestPlayer`
+exposes it (all delegates to the wrapped `TestComputerPlayer`/`PlayerImpl`):
+
+- `TestPlayer.getPlayable(Game game, boolean hidden)` --
+  `TestPlayer.java:3775-3777`; delegates to
+  `PlayerImpl.getPlayable(Game originalGame, boolean hidden, Zone fromZone,
+  boolean hideDuplicatedAbilities)` (`PlayerImpl.java:4356-4462`). It returns
+  `List<ActivatedAbility>`: every spell and ability the player can currently
+  cast or activate, already filtered by the engine's rule-modification checks
+  (`game.getContinuousEffects().preventedByRuleModification(...)` at
+  `PlayerImpl.java:4388,4397,4405`) -- so a `CantBeCast` static removes the
+  entry here, exactly the fact to observe.
+- `TestPlayer.getPlayableObjects(Game game, Zone zone)` --
+  `TestPlayer.java:3780-3782`; `PlayerImpl.getPlayableObjects` at
+  `PlayerImpl.java:4566`. It returns `PlayableObjectsList`, whose
+  `getObjects()` (`PlayableObjectsList.java:67`) is a
+  `Map<UUID, PlayableObjectStats>` keyed by source id, with
+  `containsObject(UUID)` (`:43`) and `getPlayableAmount(UUID)` (`:59`). This is
+  the shape to emit: one entry per playable source.
+- `TestPlayer.canPlayLand()` -- `TestPlayer.java:3237-3239`;
+  `PlayerImpl.canPlayLand()` at `PlayerImpl.java:1941` (`landsPlayed <
+  landsPerTurn`). It answers `play` for the single-relevant-land case.
+
+The driver emits `offered` in `snapshot(...)`
+(`tools/xmageoracle/src/org/mage/test/oracle/ScenarioReplay.java:1060-1170`),
+where the other per-checkpoint fields are built. For the checkpoint's priority
+player (`g.getPriorityPlayerId()`, already computed at `:1066`):
+
+```
+for (ActivatedAbility a : seat(priority).getPlayable(g, true)) {
+  o = { source: refName/controller of a.getSourceId(),   // a.getSourceId(), AbilityImpl.java:917
+        kind: a instanceof PlayLandAbility ? "play"
+              : a instanceof SpellAbility ? "cast" : "activate",
+        label: a.toString() }                            // AbilityImpl.java:1468
+}
+```
+
+The source ref is resolved with the same `seatIndex`/alias machinery the
+permanents block uses (`:1096-1158`), and the `gorgeSpellings` rewrite at the
+end of `snapshot` keeps the card-under-test's two spellings aligned. A
+priority-holder change (the driver's `pass_to`) is already a step, so the
+checkpoint after it carries the right player's list.
+
+Cost note: `getPlayable` calls `originalGame.createSimulationForPlayableCalc()`
+and `getManaAvailable` (`PlayerImpl.java:4357-4358`), so it is not free. The
+driver should emit it only for checkpoints the item requests (the `compare`
+list, §7.4), not for every snapshot of every scenario; a level-A item never
+asks for it.
+
+### 7.4 The comparator
+
+`offered` joins the comparator's snapshot vocabulary
+(`compliance/oraclediff/compare.go`) as a **non-default** field, behind the
+item's existing opt-in `compare` list (`oraclegen.Item.Compare`,
+`compliance/oraclegen/gen.go`), exactly as `keywords` is planned to
+(section 2.3). Rules:
+
+- Canonical form: sort entries by `(source, kind, label)` and join; the two
+  engines emit their list in engine order, so the comparator must sort both
+  sides (no map range may reach it -- the minted order is deterministic).
+- A level-A item has `compare` empty, so its bytes and `ScenarioSHA` are
+  unchanged and no level-A verdict moves.
+- For an item with `compare: ["offered"]`, `FreezeOpts`/`MeetsOpts` treat the
+  sorted `offered` string as one field per checkpoint, like `stack`. The
+  assertion form (`expect.want:false`) still rides `fails`, independent of
+  `compare`: the generator only needs `compare` for the positive, by-state
+  form (the `CanAttackDefender` rows ask *which* defenders, not *whether* one
+  is offered).
+
+Label matching: XMage's rule text and gorge's option label are not
+byte-identical (XMage prints "{2}, {T}: ..."). Like the runner's
+`oracleLabelMatches`, the comparator should match a label by a normalised
+prefix, and treat `label` as advisory: `source` + `kind` is the load-bearing
+pair. The comparator records a mismatch as an ordinary field difference, so
+the existing triage (`shape.Of`, `adopt.Bucket`) classifies it unchanged.
+
+### 7.5 The two positive-observable rows (served now)
+
+Neither needs the `offered` checkpoint; both are served by the new
+`static` template (`compliance/oraclegen/templates/static.go`, template id
+`static`, version 1), dispatched by `GenerateB` for the two new sub-families
+`static.disable-triggers` and `static.combat-damage-toughness`
+(`compliance/levelb/levelb.go`, `servableStaticModes`):
+
+- **Karn, Argent Defender `static#0.0`** (DisableTriggers). Setup Karn on
+  p0's battlefield and Elvish Visionary in hand; cast the Visionary, then two
+  `pass` steps. Its ETB trigger reaches the stack after the spell resolves.
+  The control (the Visionary alone) shows the trigger on the stack; with Karn
+  it does not. Because an unchanged `stack` field is never frozen, the item's
+  last step carries `expect: [{trigger_on_stack: "p0:Elvish Visionary",
+  want: false}]`, so a regression fails the frozen `fails` field. The
+  `want:false` assertion is the same negative-observation idea `offered` will
+  generalise.
+- **Ghalta, the Immovable `static#0.2`** (CombatDamageToughness). Setup Ghalta
+  and Giant Spider (2/4, no defender) on p0's battlefield; `attack` Giant
+  Spider at p1, then `pass_to main2`. Control: Giant Spider alone deals its
+  power, 2 (p1 life 18). With Ghalta: it assigns its toughness, 4 (p1 life
+  16). The damage is a change from setup, so it is frozen and `Meets` holds
+  the static with no new field.
+
+Both builders verify the control differs from the observation before emitting
+the item, so neither passes vacuously. **Premise check:** section 2.4's
+`combat` template (L13) is not landed at this base, so Ghalta `static#0.2` is
+served by the `static` template, not by a combat template; the combat family
+(L13) stays the home for the `combat#F.attack`/`combat#F.block` requirements.
+
+### 7.6 Remaining work (not this ticket)
+
+- **gorge generator:** a legality template per static shape that emits the
+  `offered` expectation and its control (`CantBeCast`, `CantBeActivated`
+  during combat, `CantBlockBy`, `CanAttackDefender`). `CanBlock` covers
+  `CantBlockBy`; `offered` covers the rest.
+- **XMage driver:** emit `offered` at a requested checkpoint (§7.3), mapped
+  step names for begin-combat and the turn counter (section 3, H3), then a
+  forced full host replay.
+- **comparator:** the `compare: ["offered"]` field and its sorted canonical
+  form (§7.4).
+- Face > 0, non-battlefield activation and the other section 6 gaps are
+  unchanged.
