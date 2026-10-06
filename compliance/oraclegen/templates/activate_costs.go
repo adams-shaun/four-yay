@@ -42,7 +42,7 @@ func activationCostIn(cost, zone string) (pool, gap string) {
 			}
 			return "", sacGapClass(tok)
 		case "Discard":
-			if discardFixtureSupported(tok) || (zone == "hand" && selfZoneCost(tok)) {
+			if discardFixtureSupported(tok) || discardZoneFixtureSupported(tok) || (zone == "hand" && selfZoneCost(tok)) {
 				continue
 			}
 		case "ExileFromHand":
@@ -50,10 +50,26 @@ func activationCostIn(cost, zone string) (pool, gap string) {
 				continue
 			}
 		case "ExileFromGrave":
-			if zone == "graveyard" && (selfZoneCost(tok) || graveyardCreatureCost(tok)) {
+			if selfZoneCost(tok) {
+				if zone == "graveyard" {
+					continue
+				}
+			} else if graveyardCreatureCost(tok) || graveyardCostFixtures(tok) != nil {
+				continue
+			}
+		case "ExileCtrlOrGrave":
+			if craftCostFixtures(tok) != nil {
+				continue
+			}
+		case "CollectEvidence":
+			if evidenceCostFixtures(tok) != nil {
 				continue
 			}
 		case "Exile":
+			if selfZoneCost(tok) || exileCreatureCostFixtures(tok) != nil {
+				continue
+			}
+		case "Return":
 			if selfZoneCost(tok) {
 				continue
 			}
@@ -90,8 +106,147 @@ func activationCostIn(cost, zone string) (pool, gap string) {
 	return p, ""
 }
 
-// tapXTypeFixtures is deliberately a small fixture catalogue, not a general
-// Forge filter evaluator. Ordered names also make selection deterministic.
+// discardZoneFixtureSupported recognizes the exact hand/land discard shapes
+// served by this template; it is not a general Forge filter evaluator.
+func discardZoneFixtureSupported(tok string) bool {
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return false
+	}
+	parts := strings.Split(payload, "/")
+	return len(parts) >= 2 && parts[0] == "1" &&
+		(strings.EqualFold(parts[1], "Hand") || strings.EqualFold(parts[1], "Land"))
+}
+
+func discardCostFixtures(tok string) []string {
+	if !discardZoneFixtureSupported(tok) {
+		return nil
+	}
+	payload, _ := bracketPayload(tok)
+	parts := strings.Split(payload, "/")
+	if strings.EqualFold(parts[1], "Land") {
+		return []string{"Wastes"}
+	}
+	return []string{"Wastes"}
+}
+
+func filterCostFixtures(tok string) []string {
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return nil
+	}
+	parts := strings.Split(payload, "/")
+	if len(parts) < 2 {
+		return nil
+	}
+	n, err := strconv.Atoi(parts[0])
+	if err != nil || n < 1 {
+		return nil
+	}
+	filter := strings.ToLower(parts[1])
+	var candidates []string
+	for _, clause := range strings.Split(filter, "|") {
+		clause = strings.TrimSpace(clause)
+		switch {
+		case strings.Contains(clause, "card"):
+			candidates = append(candidates, "Colossal Dreadmaw", "Sol Ring", "Grizzly Bears", "Wastes")
+		case strings.Contains(clause, "artifact"):
+			candidates = append(candidates, "Sol Ring", "Ornithopter")
+		case strings.Contains(clause, "creature"):
+			candidates = append(candidates, "Colossal Dreadmaw", "Craw Wurm", "Siege Wurm", "Nessian Asp", "Grizzly Bears", "Llanowar Elves")
+		case strings.Contains(clause, "island"):
+			candidates = append(candidates, "Island")
+		case strings.Contains(clause, "land"):
+			candidates = append(candidates, "Evolving Wilds", "Wastes", "Island")
+		case strings.Contains(clause, "instant"):
+			candidates = append(candidates, "Lightning Bolt", "Cancel")
+		case strings.Contains(clause, "sorcery"):
+			candidates = append(candidates, "Lava Spike", "Divination")
+		case strings.Contains(clause, "enchantment"):
+			candidates = append(candidates, "Pacifism", "Oblivion Ring")
+		case strings.Contains(clause, "cave"):
+			candidates = append(candidates, "Captivating Cave")
+		default:
+			return nil
+		}
+	}
+	candidates = uniqueFixtureNames(candidates)
+	if len(candidates) < n {
+		return nil
+	}
+	return candidates[:n]
+}
+
+func craftCostFixtures(tok string) []string {
+	return filterCostFixtures(tok)
+}
+
+func graveyardCostFixtures(tok string) []string {
+	return filterCostFixtures(tok)
+}
+
+func exileCreatureCostFixtures(tok string) []string {
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return nil
+	}
+	parts := strings.Split(payload, "/")
+	if len(parts) < 2 || !(strings.EqualFold(parts[1], "Creature") || strings.EqualFold(parts[1], "Creature.Other")) {
+		return nil
+	}
+	return filterCostFixtures(tok)
+}
+
+func activationCostFixtures(tok string) []string {
+	head := tok
+	if i := strings.IndexByte(tok, '<'); i >= 0 {
+		head = tok[:i]
+	}
+	switch head {
+	case "Discard":
+		return discardCostFixtures(tok)
+	case "ExileCtrlOrGrave":
+		return craftCostFixtures(tok)
+	case "ExileFromGrave":
+		if graveyardCreatureCost(tok) {
+			return []string{"Grizzly Bears"}
+		}
+		return graveyardCostFixtures(tok)
+	case "CollectEvidence":
+		return evidenceCostFixtures(tok)
+	case "Exile":
+		return exileCreatureCostFixtures(tok)
+	}
+	return nil
+}
+
+func evidenceCostFixtures(tok string) []string {
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return nil
+	}
+	threshold, err := strconv.Atoi(strings.TrimSpace(payload))
+	if err != nil || threshold < 0 {
+		return nil
+	}
+	// Take the fewest catalogue cards whose total mana value covers the
+	// requested threshold. Keep the ordered values local and deterministic.
+	candidates := []struct {
+		name string
+		mv   int
+	}{{"Colossal Dreadmaw", 6}, {"Craw Wurm", 6}, {"Siege Wurm", 6}, {"Grizzly Bears", 2}, {"Sol Ring", 1}}
+	var selected []string
+	total := 0
+	for _, candidate := range candidates {
+		selected = append(selected, candidate.name)
+		total += candidate.mv
+		if total >= threshold {
+			return selected
+		}
+	}
+	return nil
+}
+
 func tapXTypeFixtures(tok string) ([]string, bool) {
 	payload, ok := bracketPayload(tok)
 	if !ok {

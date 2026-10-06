@@ -338,12 +338,13 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 			if strings.Contains(strings.ToLower(payload), "legendary") {
 				picks = []string{"Ajani, Caller of the Pride"}
 			} else {
-				picks = []string{"Wastes"}
+				picks = discardCostFixtures(tok)
+				if len(picks) == 0 {
+					picks = []string{"Wastes"}
+				}
 			}
-		case "ExileFromGrave":
-			if graveyardCreatureCost(tok) {
-				picks = []string{"Grizzly Bears"}
-			}
+		case "ExileFromGrave", "ExileCtrlOrGrave", "CollectEvidence", "Exile":
+			picks = activationCostFixtures(tok)
 		case "Sac":
 			// The engine's observed pick is authoritative. A broad filter can
 			// include the ability's source, so a catalogue fixture is not
@@ -406,11 +407,20 @@ func addActivationCostFixtures(p0 *oraclegen.Seat, cost string) {
 			if strings.Contains(strings.ToLower(payload), "legendary") {
 				p0.Hand = appendFixtureUnique(p0.Hand, "Ajani, Caller of the Pride")
 			} else {
-				p0.Hand = appendFixtureUnique(p0.Hand, "Wastes")
+				for _, name := range discardCostFixtures(tok) {
+					p0.Hand = appendFixtureUnique(p0.Hand, name)
+				}
+				if len(discardCostFixtures(tok)) == 0 {
+					p0.Hand = appendFixtureUnique(p0.Hand, "Wastes")
+				}
 			}
-		case "ExileFromGrave":
-			if graveyardCreatureCost(tok) {
-				p0.Graveyard = appendFixtureUnique(p0.Graveyard, "Grizzly Bears")
+		case "ExileFromGrave", "ExileCtrlOrGrave", "CollectEvidence":
+			for _, name := range activationCostFixtures(tok) {
+				p0.Graveyard = appendFixtureUnique(p0.Graveyard, name)
+			}
+		case "Exile":
+			for _, name := range activationCostFixtures(tok) {
+				p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
 			}
 		case "Sac":
 			// The fixture table is the single authority; a self-sacrifice
