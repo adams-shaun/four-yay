@@ -291,6 +291,12 @@ var addedAfterTheSplit = []string{
 	// dispatcher (TurnChange, PlayerLost, ControlChange, MoveZone), plus
 	// ChangesController which had vocabulary but no matcher.
 	"TurnBegin", "LosesGame", "ChangesController", "Exiled",
+	// cli-20261006T024354Z-e5dc4abb: "whenever you solve a Case" (MKM Case
+	// File Auditor). It matches the AlterAttribute "Solved" grant, which the
+	// effect only began emitting when the Case's solved designation was
+	// modelled -- before that the attribute was a Note -- so the pre-split
+	// switch had nothing to dispatch it on.
+	"CaseSolved",
 }
 
 func allRegisteredModeNames() []string {

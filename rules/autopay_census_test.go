@@ -1210,7 +1210,7 @@ func (cz *autopayCensus) v1WindowGate(e *Engine, id state.ObjID, ma *cards.SA) s
 		return "loyalty"
 	case !e.activatorAllows(0, id, ma):
 		return "Activator$"
-	case !e.activationConditionOK(0, ma):
+	case !e.activationConditionOK(0, id, ma):
 		return "Activation$ " + ma.Params["Activation"]
 	case ma.API == "Mana" && !pay.ManaActivationGateHolds(asPayer(e), 0, id, ma):
 		return "IsPresent$/ActivationPhases$"

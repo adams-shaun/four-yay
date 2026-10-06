@@ -33,15 +33,14 @@ var coreCardTypes = []string{"Artifact", "Battle", "Creature", "Enchantment",
 //     one-way state.Player.Blessing latch rules/ascend.go's Ascend scan and
 //     events.Apply's BlessingChange fold maintain). This is the gate half of
 //     the city's-blessing family; Count$Blessing.<yes>.<no> (effects/count.go)
-//     and the Condition$ Blessing gate read the same bit.
+//     and the Condition$ Blessing gate read the same bit;
+//   - Solved: the SOURCE is a solved Case (CR 702.169d, "Activate only if
+//     this Case is solved"), the event-backed state.Object.Solved flag the
+//     events.AlterAttribute fold sets (CR 719.3b).
 //
-// Solved (the Case permanents' solved flag) names state this build does not
-// track, so that gate FAILS CLOSED -- the conservative direction for an
-// "only if" condition whose meeting cannot be verified. Blessing is the
-// city's-blessing latch in state.Player and is read by the same offer-time
-// gate as the other conditions. No repo-deck card carries Solved or Blessing
-// (measured at the current corpus pin: 3 raw lines each, none in the decks).
-func (e *Engine) activationConditionOK(p state.PlayerID, ab *cards.SA) bool {
+// No repo-deck card carries Solved or Blessing (measured at the current
+// corpus pin: 3 raw Activation$ Solved lines, none in the decks).
+func (e *Engine) activationConditionOK(p state.PlayerID, src state.ObjID, ab *cards.SA) bool {
 	raw, ok := ab.Param(cards.PKActivation)
 	if !ok || strings.TrimSpace(raw) == "" {
 		return true
@@ -65,6 +64,9 @@ func (e *Engine) activationConditionOK(p state.PlayerID, ab *cards.SA) bool {
 		// read. An out-of-range activator denies -- the fail-closed
 		// direction a blessing gate that cannot name its seat must take.
 		return int(p) < len(e.G.Players) && !e.G.Players[p].Lost && e.G.Players[p].Blessing
+	case activationConditionOKSolved:
+		o := e.G.Obj(src)
+		return o != nil && o.Solved
 	case activationConditionOKDelirium:
 		seen := map[string]bool{}
 		for _, id := range e.G.Zone(state.ZGraveyard, p) {
@@ -523,6 +525,7 @@ const (
 	activationConditionOKMetalcraft
 	activationConditionOKBlessing
 	activationConditionOKDelirium
+	activationConditionOKSolved
 )
 
 var activationConditionOKCodes = state.NewStrCodes(
@@ -531,6 +534,7 @@ var activationConditionOKCodes = state.NewStrCodes(
 	state.StrEntry[activationConditionOKCode]{Key: "Metalcraft", Val: activationConditionOKMetalcraft},
 	state.StrEntry[activationConditionOKCode]{Key: "Blessing", Val: activationConditionOKBlessing},
 	state.StrEntry[activationConditionOKCode]{Key: "Delirium", Val: activationConditionOKDelirium},
+	state.StrEntry[activationConditionOKCode]{Key: "Solved", Val: activationConditionOKSolved},
 )
 
 type abilityZoneOKCode uint16
