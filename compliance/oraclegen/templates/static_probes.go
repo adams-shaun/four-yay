@@ -15,17 +15,25 @@ import (
 )
 
 // maxExtraProbes bounds how many table probes one scenario adds to p0's
-// battlefield beyond Grizzly Bears.
+// battlefield beyond Grizzly Bears. A filter naming more words than the cap
+// (Spider-Ham, Peter Porker, names 18 subtypes) tests only the first cap many,
+// so a static whose affected subset is only among the dropped words is never
+// observed: a coverage loss, never a false serve, since staticObserved still
+// fires only on a real change.
 const maxExtraProbes = 3
 
 // staticProbeTable maps one word of an Affected$ filter to the printed card
 // placed on p0's battlefield to stand in for it. The first row for a word
 // wins; two words may share a probe (Pirate, Goblin and Outlaw share Swab
-// Goblin). A probe is chosen for being near-vanilla (nothing that fires while
-// idle, no static of its own), present in the Forge corpus and printed in a
-// set both engines know; its P/T and keywords are read from the registry, not
-// restated here. Vehicle names an uncrewed Vehicle: its P/T is not in the
-// snapshot (creatures only), so only a granted keyword shows on it.
+// Goblin). A probe is chosen for being near-vanilla: no static or replacement
+// of its own, and nothing an idle placement fires that moves its own P/T or
+// evergreen keywords -- otherwise a probe's own enter, begin-combat or attack
+// trigger would satisfy staticObserved with no static at all. Its P/T and
+// keywords are read from the registry, not restated here.
+// TestStaticProbeTableIsInert holds every row to that contract by casting each
+// probe alone and by placing it and attacking with it. Vehicle names an
+// uncrewed Vehicle: its P/T is not in the snapshot (creatures only), so only a
+// granted keyword shows on it.
 var staticProbeTable = []struct{ word, card string }{
 	{"Ally", "South Pole Voyager"},
 	{"Angel", "Archway Angel"},
@@ -33,7 +41,7 @@ var staticProbeTable = []struct{ word, card string }{
 	{"Bat", "Lifecreed Duo"},
 	{"Bird", "Lifecreed Duo"},
 	{"Cat", "Savannah Lions"},
-	{"Demon", "Gurmag Rakshasa"},
+	{"Demon", "Renegade Demon"},
 	{"Detective", "Tunnel Surveyor"},
 	{"Dinosaur", "Gigantosaurus"},
 	{"Dragon", "Shivan Dragon"},
@@ -44,15 +52,15 @@ var staticProbeTable = []struct{ word, card string }{
 	{"Hero", "Hero in Training"},
 	{"Kithkin", "Eclipsed Kithkin"},
 	{"Land", "Dryad Arbor"},
-	{"Merfolk", "Cenote Scout"},
+	{"Merfolk", "Coral Merfolk"},
 	{"Mount", "Gila Courser"},
-	{"Mouse", "Pests of Honor"},
+	{"Mouse", "Veteran Guardmouse"},
 	{"Ninja", "Foot Elite"},
 	{"Noble", "Charming Prince"},
 	{"Outlaw", "Swab Goblin"},
-	{"Ox", "Spirit Mascot"},
+	{"Ox", "Pillarfield Ox"},
 	{"Pirate", "Swab Goblin"},
-	{"Rabbit", "Nasty Little Rabbit"},
+	{"Rabbit", "Vizzerdrix"},
 	{"Rhino", "Zoo Escapees"},
 	{"Skeleton", "Skeleton Archer"},
 	{"Sliver", "Metallic Sliver"},

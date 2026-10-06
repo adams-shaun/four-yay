@@ -1,12 +1,15 @@
 package templates
 
 import (
+	"encoding/json"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/levelb"
+	"github.com/adams-shaun/gorge/compliance/oraclediff"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
@@ -232,6 +235,84 @@ func TestStaticContinuousNamedSkips(t *testing.T) {
 		if !strings.Contains(skip.Reason, tc.want) || strings.Contains(skip.Reason, "not observable") {
 			t.Fatalf("%s: skip %q, want a named reason mentioning %q", tc.card, skip.Reason, tc.want)
 		}
+	}
+}
+
+// TestStaticProbeTableIsInert: a probe must not move itself off its printed
+// P/T or evergreen keywords, in any shape the template puts it in -- otherwise
+// staticObserved would report the probe's self-change as the static's effect
+// and an item would assert a static the engine never applied. Each probe is
+// checked three ways, all stricter than the served scenario (no Grizzly Bears
+// control): cast alone, so its own enter trigger fires; placed on the
+// battlefield, because a served scenario places probes by setup; and placed
+// and attacking, so its own begin-combat or attacks trigger fires.
+func TestStaticProbeTableIsInert(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	seen := map[string]bool{}
+	for _, row := range staticProbeTable {
+		if seen[row.card] {
+			continue
+		}
+		seen[row.card] = true
+		row := row
+		t.Run(row.word, func(t *testing.T) {
+			specs := staticProbeSpecs(reg, []string{row.card})
+			spec, ok := specs[row.card]
+			if !ok {
+				t.Fatalf("precondition: probe %s missing from the corpus", row.card)
+			}
+			check := func(shape string, final rules.OracleSnapshot) {
+				t.Helper()
+				p, ok := permanent(final, 0, row.card)
+				if !ok {
+					t.Fatalf("%s: probe %s is not on p0's battlefield", shape, row.card)
+				}
+				if p.PT != spec.pt || oraclediff.EvergreenKeywords(p.Keywords) != spec.keywords {
+					t.Errorf("%s: probe %s changed itself: PT=%q (printed %q) keywords=%q (printed %q)",
+						shape, row.card, p.PT, spec.pt, oraclediff.EvergreenKeywords(p.Keywords), spec.keywords)
+				}
+			}
+			// Cast alone: enter triggers fire against an otherwise empty board,
+			// which is how a self-targeting enter ability (Gurmag Rakshasa's
+			// "target creature you control gets +2/+2") pumps the probe itself.
+			c, ok := reg.Lookup(row.card)
+			if !ok || len(c.Faces) == 0 {
+				t.Fatalf("precondition: probe %s missing from the corpus", row.card)
+			}
+			f := c.Faces[0]
+			if mana, why := oraclegen.PoolFor(f.ManaCost); why == "" {
+				if it, sk := castResolveWith(reg, f, row.card, mana, nil); sk == nil {
+					res, err := rules.RunOracleScenarioJSON(reg, it.Raw())
+					if err != nil || len(res.Fails) != 0 || len(res.Snapshots) == 0 {
+						t.Fatalf("cast-alone scenario does not replay: err=%v fails=%v", err, res.Fails)
+					}
+					check("cast alone", res.Snapshots[len(res.Snapshots)-1])
+				}
+			}
+			for _, attack := range []bool{false, true} {
+				if attack && !spec.creature {
+					continue // a non-creature probe never attacks
+				}
+				sc := oraclegen.Scenario{
+					Setup: map[string]oraclegen.Seat{
+						"p0": {Battlefield: []string{row.card}},
+						"p1": {},
+					},
+				}
+				if attack {
+					sc.Steps = append(sc.Steps, oraclegen.Step{
+						Op: "attack", Seat: 0, Defender: "p1",
+						Attackers: []string{"p0:" + row.card},
+					})
+				}
+				b, _ := json.Marshal(sc)
+				res, err := rules.RunOracleScenarioJSON(reg, b)
+				if err != nil || len(res.Fails) != 0 || len(res.Snapshots) == 0 {
+					t.Fatalf("attack=%v: probe-alone scenario does not replay: err=%v fails=%v", attack, err, res.Fails)
+				}
+				check(fmt.Sprintf("attack=%v", attack), res.Snapshots[len(res.Snapshots)-1])
+			}
+		})
 	}
 }
 
