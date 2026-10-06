@@ -1282,20 +1282,9 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     return;
                 }
                 boolean adjusted = spellNeedsQueuedCastTargets(card);
-                if (!tg.isEmpty() && queueAdjustedCastTargets(adjusted || spellFirstTargetInLaterMode(card), spellTargetsDivided(card), tg.size())) {
-                    // An adjuster may add the SpellAbility's target slots only
-                    // after cast setup, and a modal spell's first target may
-                    // live in a mode after the first. Inline $target is
-                    // validated too early (against the unadjusted ability's
-                    // first mode, which has no target), so queue scenario
-                    // targets for the chooser that runs during casting.
-                    for (String t : tg) {
-                        queueCastTarget(p, t);
-                    }
-                    if (adjusted) {
-                        adjustedCasts.add(card);
-                    }
-                    castSpell(turn, phase, p, card);
+                if (!tg.isEmpty() && castQueuedTargets(turn, phase, p, card, tg, adjusted,
+                        spellFirstTargetInLaterMode(card), spellTargetsDivided(card))) {
+                    // Cast with its targets queued: see castQueuedTargets.
                 } else if (tg.size() == 1 && isSeatRef(tg.get(0)) && !hasGift(card)) {
                     castSpell(turn, phase, p, card, seat(seatOf(tg.get(0))));
                 } else if (tg.size() == 1 && isSeatRef(tg.get(0))) {
@@ -1485,6 +1474,30 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     private static int seatOf(String s) {
         return Integer.parseInt(s.substring(1));
+    }
+
+    /**
+     * Cast through the target queue when the inline {@code $target=} form
+     * cannot work: an adjuster may add the SpellAbility's target slots only
+     * after cast setup, and a modal spell's first target may live in a mode
+     * after the first. Inline $target is validated too early (against the
+     * unadjusted ability's first mode, which has no target), so the scenario
+     * targets are queued for the chooser that runs during casting and the
+     * cast carries none. Returns false, doing nothing, for every other cast.
+     */
+    boolean castQueuedTargets(int turn, PhaseStep phase, TestPlayer p, String card, List<String> tg,
+            boolean adjusted, boolean firstTargetInLaterMode, boolean divided) {
+        if (!queueAdjustedCastTargets(adjusted || firstTargetInLaterMode, divided, tg.size())) {
+            return false;
+        }
+        for (String t : tg) {
+            queueCastTarget(p, t);
+        }
+        if (adjusted) {
+            adjustedCasts.add(card);
+        }
+        castSpell(turn, phase, p, card);
+        return true;
     }
 
     /** Queue one cast target ref on the target queue. */
