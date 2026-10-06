@@ -633,15 +633,6 @@ func (e *Engine) forEachTriggerObject(ev *events.Event, skip, kindOnly bool, fn 
 // the list itself, visiting the selected ids and verifying the rest.
 func (e *Engine) trigHotMerge(buf []state.ObjID, ev *events.Event, cur, hotIDs []state.ObjID, hotSigs []trigSig,
 	kindOnly, step bool, p state.PlayerID, slot int, fn, verify func(id state.ObjID)) []state.ObjID {
-	if !step {
-		if verify == nil && !trigHotMergeVerify {
-			if out, ok := trigHotMergeRefs(e.G, buf, ev, cur, hotIDs, hotSigs, kindOnly, slot); ok {
-				return out
-			}
-		} else {
-			verifyTrigHotMergeRefs(e.G, ev, cur, hotIDs, hotSigs, kindOnly, p, slot)
-		}
-	}
 	if verify != nil {
 		buf = append(buf[:0], cur...)
 		j := 0
