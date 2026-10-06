@@ -54,6 +54,7 @@ type Step struct {
 	// Step/Decision are the pass_to op's stop conditions (a phase step name
 	// or a pending decision kind).
 	Step     string   `json:"step,omitempty"`
+	Active   string   `json:"active,omitempty"`
 	Decision string   `json:"decision,omitempty"`
 	Answers  []Answer `json:"answers,omitempty"`
 	// AbilityIndex selects an activated ability by its IR index (the index
