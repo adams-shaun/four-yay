@@ -615,6 +615,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             turn = TURN;
             activeSeat = (TURN - 1) % 2;
             attackAdvancedTurn = false;
+            queueSetupChoices(sc);
             build(sc);
             if (TURN == 1) {
                 // Turn 1's first priority is in upkeep, before any gameplay
@@ -1982,6 +1983,28 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
     }
 
+    /** Queue as-enters choices before addCard places setup permanents. */
+    private void queueSetupChoices(JsonObject scenario) {
+        if (!scenario.has("xmage_answers") || !scenario.get("xmage_answers").isJsonArray()) {
+            return;
+        }
+        JsonArray answers = scenario.getAsJsonArray("xmage_answers");
+        if (answers.size() == 0 || !answers.get(0).isJsonArray()) {
+            return;
+        }
+        for (JsonElement e : answers.get(0).getAsJsonArray()) {
+            JsonObject a = e.getAsJsonObject();
+            if (!str(a, "kind").equals("setup_choice")) {
+                continue;
+            }
+            queueSetupChoices(seat(a.get("seat").getAsInt()), str(a, "value"));
+        }
+    }
+
+    static void queueSetupChoices(TestPlayer player, String value) {
+        queueChoice(player, value);
+    }
+
     /** Applies the generator's scripted answers (oraclegen.XAnswer). */
     private void scripted(JsonArray as) {
         for (JsonElement e : as) {
@@ -2014,6 +2037,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     } else {
                         setModeChoice(p, v);
                     }
+                    break;
+                case "setup_choice":
+                    // Queued before setup placement; never enqueue it again at
+                    // the corresponding gameplay step.
                     break;
                 case "choice":
                     if (v.equals("yes") || v.equals("no")) {

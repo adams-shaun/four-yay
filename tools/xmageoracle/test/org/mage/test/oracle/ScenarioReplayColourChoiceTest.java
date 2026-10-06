@@ -11,10 +11,11 @@ import org.mage.test.player.TestComputerPlayer;
 import org.mage.test.player.TestPlayer;
 
 /** Executable check of how the driver queues a scripted colour, without H2 or a
- * full game. Run scripts/xmage-oracle-test-colour-choice.sh. A level-B
- * "add one mana of any color" activation and a setup-placed "choose a color"
- * permanent both reach TestPlayer.choose(Outcome, ChoiceColor, Game); with an
- * empty queue TestPlayer picks at random, which flaked six replayed rows. */
+ * full game. Run scripts/xmage-oracle-test-colour-choice.sh. This exercises
+ * the exact ChoiceColor answer path with a queue populated as build() does
+ * before placing setup permanents; the actual addCard/build integration is
+ * covered only by the XMage batch replay, which cannot run in the H2-less seat.
+ * With an empty queue TestPlayer picks at random, which flaked replayed rows. */
 public final class ScenarioReplayColourChoiceTest {
     private static void equal(Object want, Object got) {
         if (!want.equals(got)) {
@@ -47,8 +48,17 @@ public final class ScenarioReplayColourChoiceTest {
         }
         System.out.println("PASS each colour name answers ChoiceColor and is consumed");
 
-        // A setup ETB colour is queued ahead of the activation's colour: the
-        // queue is first-in first-out, so each dialog gets its own answer.
+        // Isolate the setup-placement answer path: build() queues this before
+        // addCard. This deliberately tests the ChoiceColor consumer, not the
+        // addCard integration (the batch replay is the integration check).
+        TestPlayer setupPlayer = new TestPlayer(new TestComputerPlayer("Setup", RangeOfInfluence.ONE));
+        Game setupGame = game(setupPlayer);
+        ScenarioReplay.queueSetupChoices(setupPlayer, "Green");
+        equal("Green", ask(setupPlayer, setupGame));
+        equal(0, setupPlayer.getChoices().size());
+        System.out.println("PASS setup-placement ETB ChoiceColor consumes its scripted answer");
+
+        // Setup ETB answer precedes later step colours in the FIFO queue.
         TestPlayer p = new TestPlayer(new TestComputerPlayer("A", RangeOfInfluence.ONE));
         Game g = game(p);
         ScenarioReplay.queueChoice(p, "Green");

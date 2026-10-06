@@ -88,8 +88,8 @@ func TestActivateSetupChosenColourIsScripted(t *testing.T) {
 			t.Fatalf("%s: no step 0 answers: %v", card, it.XAnswers)
 		}
 		first := it.XAnswers[0][0]
-		if first.Kind != "choice" || first.Value != colourNames[pool[0]] {
-			t.Errorf("%s: step 0 leads with %+v, want choice %s (gorge's pool %q)", card, first, colourNames[pool[0]], pool)
+		if first.Kind != "setup_choice" || first.Value != colourNames[pool[0]] {
+			t.Errorf("%s: step 0 leads with %+v, want setup_choice %s (gorge's pool %q)", card, first, colourNames[pool[0]], pool)
 		}
 	}
 }
