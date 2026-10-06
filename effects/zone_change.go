@@ -62,14 +62,10 @@ func thisDefinedAndTgtsTargets(h Host, c *Ctx, value string) []state.Target {
 // condition holds, the move takes DestinationAlternative$ instead of
 // Destination$.
 //
-// The optional "MANDATORY " prefix is stripped. Forge reads MANDATORY as the
-// difference between forcing the alternate and offering the player a
-// confirmAction; this engine has no destination-confirm ask, so BOTH branches
-// take the alternate deterministically when the condition holds, and the
-// non-mandatory shape records one Note disclosing the dropped confirm (the
-// expansion-specific riders of six corpus carriers, all Destination$ Hand ->
-// DestinationAlternative$ Battlefield). MANDATORY itself therefore changes no
-// behaviour today; it is parsed so the two spellings cannot drift.
+// The optional "MANDATORY " prefix is stripped. A mandatory alternate takes
+// the alternate directly; otherwise the controller chooses between the two
+// destinations. If no answer is available, R-9 preserves the historical
+// deterministic alternate-destination behavior.
 //
 // Unlike CheckSVarHolds's other call sites, an unreadable condition here fails
 // CLOSED to the primary destination (plus a Note): moving a card to a zone the
@@ -96,12 +92,25 @@ func changeZoneAltDestination(h Host, c *Ctx, cz *ChangeZoneParams, primary stat
 				" is not a zone this engine models; the move takes the primary destination"})
 		return primary
 	}
-	if !cz.DestAltMandatory {
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-			Text: "DestAltSVar$ " + cz.DestAltSVarText +
-				" holds: the alternate destination " + cz.DestinationAltText +
-				" is taken (Forge would ask which destination; this engine does not ask)"})
+	if cz.DestAltMandatory {
+		return cz.DestinationAlt
 	}
+	d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
+		Source: c.Source, ResumeKind: "changezone_dest_alt",
+		Prompt: "Choose where to put the selected cards"}
+	d.Options = []decision.Option{
+		{Index: 0, Kind: "destination", Label: primary.String(), Player: c.Controller, Mode: "primary"},
+		{Index: 1, Kind: "destination", Label: cz.DestinationAlt.String(), Player: c.Controller, Mode: "alternate"},
+	}
+	if ans, ok := AskTape(h, d); ok {
+		if len(ans) > 0 && ans[0].Index == 0 {
+			return primary
+		}
+		return cz.DestinationAlt
+	}
+	h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+		Text: "DestAltSVar$ " + cz.DestAltSVarText +
+			" holds: no destination answer was available; the alternate destination " + cz.DestinationAltText + " is taken"})
 	return cz.DestinationAlt
 }
 
