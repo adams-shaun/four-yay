@@ -107,13 +107,14 @@ var wantSetupTypeCensus = map[string][2]int{
 	"BLB": {3, 3},
 	"ECL": {6, 6},
 	"DFT": {1, 1},
+	"LCI": {3, 3},
 }
 
 // setupTypeCensusSets is the level-A census list plus the level-B sets whose
 // as-enters type permanents this brief measured. Kept separate from
 // activateCensusSets, which the activate/combat/colour censuses share.
 func setupTypeCensusSets() []string {
-	return append(append([]string{}, activateCensusSets...), "BLB", "ECL", "DFT")
+	return append(append([]string{}, activateCensusSets...), "BLB", "ECL", "DFT", "LCI")
 }
 
 // The printed lists are frozen copies under testdata/printed so the test reads
