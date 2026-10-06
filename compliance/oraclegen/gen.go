@@ -1024,6 +1024,10 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 						if !isSeat(v) {
 							v = oraclediffRefName(v)
 						}
+						// XMage's chooseTarget parses the same copy marker as
+						// makeChoose, so a target among same-named objects needs
+						// the discriminator too.
+						v = disambiguatedObjectChoice(d, k, v)
 						as = append(as, XAnswer{d.Seat, "target", v})
 						continue
 					}
@@ -1283,11 +1287,16 @@ func targetDecisionAnswers(r *answerRouting, i int) []XAnswer {
 		// completes when the allocation is answered.
 		as = append(as, dividedTargetAnswers(r, i)...)
 	default:
-		for _, ref := range d.PickRefs {
+		for k, ref := range d.PickRefs {
 			v := ref
 			if !isSeat(ref) {
 				v = oraclediffRefName(ref)
 			}
+			// XMage's chooseTarget parses the same copy marker as
+			// makeChoose and filters on isCopy(), so a target that shares its
+			// name with another offered object needs the discriminator here
+			// too (a token copy of a card, Extravagant Replication).
+			v = disambiguatedObjectChoice(d, k, v)
 			as = append(as, XAnswer{d.Seat, "target", v})
 		}
 		if len(d.PickRefs) < d.Max {

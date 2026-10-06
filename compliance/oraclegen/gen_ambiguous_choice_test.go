@@ -60,3 +60,24 @@ func TestXAnswersOriginalAmongTokenCopyIsNoCopy(t *testing.T) {
 		t.Fatalf("original answer = %#v, want %#v", got, want)
 	}
 }
+
+// A same-name pick on the TARGET queue carries the discriminator too: XMage's
+// chooseTarget parses the same marker and filters on isCopy() (Extravagant
+// Replication targets a token copy of a card on the battlefield). The choice
+// path is not the only emission site.
+func TestXAnswersDisambiguateSameNamedCopyTarget(t *testing.T) {
+	d := rules.OracleDecision{
+		Step: 0, Seat: 0, Kind: "target", GorgeKind: "target", Options: 2, Min: 1, Max: 1,
+		Picks: []string{"Grizzly Bears (a)"}, PickRefs: []string{"p0:Grizzly Bears"},
+		PickIdx: []int{0}, PickKinds: []string{"card"},
+		OptionRefs: []string{"p0:Grizzly Bears", "p0:token:Grizzly Bears"},
+	}
+	if len(d.OptionRefs) != 2 {
+		t.Fatalf("fixture must offer two same-named objects: %+v", d)
+	}
+	got := XAnswers([]rules.OracleDecision{d}, 1, nil)
+	want := [][]XAnswer{{{Seat: 0, Kind: "target", Value: "Grizzly Bears[no copy]"}}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("same-name target answer = %#v, want %#v", got, want)
+	}
+}
