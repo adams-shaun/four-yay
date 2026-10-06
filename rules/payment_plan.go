@@ -587,7 +587,11 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	// submit; the seat then falls back to the manual window instead of
 	// committing a cast whose additional cost can no longer be paid.
 	if o := e.G.Obj(cast.Object); o != nil && o.Face() != nil {
-		composed := e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(o.Face(), pay.RawBaseCost(asPayer(e), p, cast.Object)), spellScope(""))
+		scope := spellScope("")
+		if plannedMayPlayZone(o.Zone) {
+			scope = spellScope("mayplay")
+		}
+		composed := e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(o.Face(), pay.RawBaseCost(asPayer(e), p, cast.Object)), scope)
 		if len(composed.Sac) != 0 && !pay.NonManaCastable(asPayer(e), p, cast.Object, composed, false, "") {
 			return fmt.Errorf("payment plan sacrifice cost no longer payable")
 		}
