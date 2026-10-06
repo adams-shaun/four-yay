@@ -147,6 +147,9 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	if gap := staticConditionGap(f, st); gap != "" {
 		return skip(gap)
 	}
+	if gap := staticGrantGap(f, st); gap != "" {
+		return skip(gap)
+	}
 	return skip("effect not observable on a probe or the card")
 }
 
