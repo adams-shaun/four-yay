@@ -1555,7 +1555,7 @@ type Object struct {
 	// page-aligned Objs arena every object's hot head (the fields declared
 	// first) starts on a line of its own. Purely layout: it is never read or
 	// written. A field added above must re-pad it (TestObjectCacheLinePadded).
-	_ [123]byte
+	_ [114]byte
 }
 
 // DoorUnlocked reports the designation of a printed Room face. The cast

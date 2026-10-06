@@ -68,24 +68,14 @@ func effGoad(h Host, c *Ctx, sa *cards.SA) {
 	}
 }
 
-type alterAttributeCode uint16
+// alterAttributeNames lists the supported designation names in their
+// canonical spelling; the index is the alterAttribute* code below. Matching is
+// case-insensitive, like Forge's Attributes$ spelling.
+var alterAttributeNames = [...]string{"Suspected", "Prepared", "Saddled", "Solved", "Harnessed"}
 
 const (
-	alterAttributeSuspected alterAttributeCode = iota + 1
-	alterAttributePrepared
-	alterAttributeSaddled
-	alterAttributeSolved
-	alterAttributeHarnessed
-)
-
-// alterAttributeCodes dispatches supported designation names. Lower-case
-// lookup preserves Forge's case-insensitive Attributes$ spelling.
-var alterAttributeCodes = state.NewStrCodes(
-	state.StrEntry[alterAttributeCode]{Key: "suspected", Val: alterAttributeSuspected},
-	state.StrEntry[alterAttributeCode]{Key: "prepared", Val: alterAttributePrepared},
-	state.StrEntry[alterAttributeCode]{Key: "saddled", Val: alterAttributeSaddled},
-	state.StrEntry[alterAttributeCode]{Key: "solved", Val: alterAttributeSolved},
-	state.StrEntry[alterAttributeCode]{Key: "harnessed", Val: alterAttributeHarnessed},
+	alterAttributePrepared = 1
+	alterAttributeSolved   = 3
 )
 
 // effAlterAttribute applies Forge's AlterAttribute effect: it flips a
@@ -124,23 +114,19 @@ func effAlterAttribute(h Host, c *Ctx, sa *cards.SA) {
 	}
 	activate := !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKActivate)), "False")
 	for _, name := range strings.FieldsFunc(attr, func(r rune) bool { return r == ',' || r == ' ' }) {
-		code := alterAttributeCodes.Code(strings.ToLower(name))
-		if code == 0 {
+		code := -1
+		for i, known := range alterAttributeNames {
+			if strings.EqualFold(name, known) {
+				code = i
+				break
+			}
+		}
+		if code < 0 {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "AlterAttribute: attribute " + name + " not modelled"})
 			continue
 		}
-		text := "Suspected"
-		switch code {
-		case alterAttributePrepared:
-			text = "Prepared"
-		case alterAttributeSaddled:
-			text = "Saddled"
-		case alterAttributeSolved:
-			text = "Solved"
-		case alterAttributeHarnessed:
-			text = "Harnessed"
-		}
+		text := alterAttributeNames[code]
 		prepared, solved := code == alterAttributePrepared, code == alterAttributeSolved
 		amount := int32(1)
 		if !activate {
