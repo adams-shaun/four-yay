@@ -339,7 +339,6 @@ var longFuncCeilings = map[string]int{
 	"rules (*Engine).xAsk":                                  408,
 	"rules (*legalWalk).battlefieldWalk":                    864,
 	"rules (*legalWalk).handWalk":                           673,
-	"rules (*oracleRun).do":                                 317,
 	"rules/cost ParseCost":                                  581,
 	"rules/pay NonManaCastableP":                            392,
 }

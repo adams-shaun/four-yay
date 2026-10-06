@@ -87,25 +87,32 @@ type oracleSeat struct {
 }
 
 type oracleStep struct {
-	Op        string         `json:"op"`
-	Seat      int            `json:"seat"`
-	Card      string         `json:"card,omitempty"`
-	Mana      string         `json:"mana,omitempty"`
-	Targets   []string       `json:"targets,omitempty"`
-	Kicked    bool           `json:"kicked,omitempty"`
-	CastMode  string         `json:"cast_mode,omitempty"`
-	Ability   string         `json:"ability,omitempty"`
-	Attackers []string       `json:"attackers,omitempty"`
-	Defender  string         `json:"defender,omitempty"`
-	Blocks    [][2]string    `json:"blocks,omitempty"`
-	Step      string         `json:"step,omitempty"`
-	Active    string         `json:"active,omitempty"`
-	Decision  string         `json:"decision,omitempty"`
-	To        string         `json:"to,omitempty"`
-	Amount    int32          `json:"amount,omitempty"`
-	Answers   []oracleAnswer `json:"answers,omitempty"`
-	Observe   *oracleObserve `json:"observe,omitempty"`
-	Expect    []oracleExpect `json:"expect,omitempty"`
+	Op       string   `json:"op"`
+	Seat     int      `json:"seat"`
+	Card     string   `json:"card,omitempty"`
+	Mana     string   `json:"mana,omitempty"`
+	Targets  []string `json:"targets,omitempty"`
+	Kicked   bool     `json:"kicked,omitempty"`
+	CastMode string   `json:"cast_mode,omitempty"`
+	Ability  string   `json:"ability,omitempty"`
+	// AbilityIndex names an activated ability by its IR index -- the index
+	// into the source's Face().Abilities, the same anchor
+	// decision.Option.Ability carries -- so a level-B activate template can
+	// select an ability without pasting the script's SpellDescription text
+	// into the step. It wins over Ability; when both are given the label must
+	// also match or the step fails.
+	AbilityIndex *int           `json:"ability_index,omitempty"`
+	Attackers    []string       `json:"attackers,omitempty"`
+	Defender     string         `json:"defender,omitempty"`
+	Blocks       [][2]string    `json:"blocks,omitempty"`
+	Step         string         `json:"step,omitempty"`
+	Active       string         `json:"active,omitempty"`
+	Decision     string         `json:"decision,omitempty"`
+	To           string         `json:"to,omitempty"`
+	Amount       int32          `json:"amount,omitempty"`
+	Answers      []oracleAnswer `json:"answers,omitempty"`
+	Observe      *oracleObserve `json:"observe,omitempty"`
+	Expect       []oracleExpect `json:"expect,omitempty"`
 }
 
 type oracleObserve struct {
@@ -896,6 +903,225 @@ func (r *oracleRun) priorityFor(seat state.PlayerID, op string) (*decision.Decis
 	return d, nil
 }
 
+// oraclePickStepOption resolves the option index a `cast` or `activate` step
+// selects. A cast picks the option whose Mode matches ("kicked" for a kicked
+// cast, an explicit cast_mode when given, the Adventure offer for a ref naming
+// an Adventure face, and otherwise the plain/only cast). An activate picks by
+// the step's ability label, or -- when ability_index is set -- by the source's
+// IR ability index, which wins over the label but must still agree with it
+// when both are given. A named mana ability lives behind the generic
+// "Activate <card> for mana" priority option, so for it this returns that
+// option and oracleAnswerManaStage answers the second-stage wheel. A free
+// function, not a method: oracleRun holds a *Engine, so a method would grow
+// engineSurface.
+func oraclePickStepOption(r *oracleRun, st oracleStep, seat state.PlayerID, id state.ObjID, d *decision.Decision) (int, error) {
+	e := r.e
+	if st.Op == "activate" && st.AbilityIndex != nil {
+		return oraclePickActivateByIndex(r, st, seat, id, d)
+	}
+	idx, fallback, manaFallback := -1, -1, -1
+	wantMode := oracleCastWantMode(st, e.G.Obj(id))
+	// A named mana ability lives behind the generic "Activate <card> for
+	// mana" priority option: the engine asks a second-stage KChoose over
+	// the source's available mana abilities (or, when exactly one is
+	// available, resolves it with no ask at all). The generic option may
+	// stand in for a requested label only when that label names an ability
+	// the source can currently produce -- the same authoritative set the
+	// offer and the second stage are built from -- otherwise the step must
+	// fail loudly below instead of silently activating a different ability
+	// (or a mana ability when a non-mana label was requested).
+	manaLabels := []string(nil)
+	requestedManaAbility := false
+	if st.Op == "activate" && st.Ability != "" {
+		manaLabels = r.manaAbilityLabels(seat, id)
+		for _, label := range manaLabels {
+			if oracleLabelMatches(label, st.Ability) {
+				requestedManaAbility = true
+				break
+			}
+		}
+	}
+	for _, o := range d.Options {
+		if o.Obj != id {
+			continue
+		}
+		if st.Op == "cast" && o.Kind == "cast" {
+			if o.Mode == wantMode {
+				idx = o.Index
+				break
+			}
+			if wantMode == "" && fallback < 0 && !strings.HasPrefix(o.Mode, "kicked") {
+				fallback = o.Index
+			}
+		}
+		if st.Op == "activate" && oracleActivateKind(o.Kind) {
+			if st.Ability == "" || oracleLabelMatches(o.Label, st.Ability) {
+				idx = o.Index
+				break
+			}
+			if o.Kind == "activate" && requestedManaAbility && strings.Contains(strings.ToLower(o.Label), "for mana") && manaFallback < 0 {
+				manaFallback = o.Index
+			}
+		}
+	}
+	if idx < 0 {
+		idx = manaFallback
+	}
+	if idx < 0 {
+		idx = fallback
+	}
+	if idx < 0 {
+		want := ""
+		if st.Ability != "" {
+			want = fmt.Sprintf(" (ability: %q)", st.Ability)
+		}
+		return -1, harnessf("%s %s not offered%s: %s", st.Op, st.Card, want, optionDump(d))
+	}
+	return idx, nil
+}
+
+// oraclePickActivateByIndex selects the `activate` option for the ability
+// st.AbilityIndex names, the index into the source's Face().Abilities (the
+// same anchor decision.Option.Ability carries). A mana ability -- one of the
+// source's currently available mana abilities -- sits behind the generic
+// "Activate <card> for mana" option, which carries no index, so this returns
+// that option for the second stage to resolve; it does NOT fall through to a
+// non-mana option, so a gated-out mana ability fails loudly instead of
+// activating a different ability. Any other ability is an "ability" option
+// carrying that index; when the step also names a label, the label must agree
+// with the indexed option or the step fails.
+func oraclePickActivateByIndex(r *oracleRun, st oracleStep, seat state.PlayerID, id state.ObjID, d *decision.Decision) (int, error) {
+	k := *st.AbilityIndex
+	notOffered := harnessf("%s %s not offered (ability_index: %d): %s", st.Op, st.Card, k, optionDump(d))
+	o := r.e.G.Obj(id)
+	if o == nil || o.Face() == nil {
+		return -1, notOffered
+	}
+	pa, ok := o.PileAbilityAt(k)
+	if !ok || pa.SA == nil {
+		return -1, notOffered
+	}
+	for _, ma := range r.e.availableManaAbilities(seat, id) {
+		if ma != pa.SA {
+			continue
+		}
+		for _, opt := range d.Options {
+			if opt.Obj == id && strings.Contains(strings.ToLower(opt.Label), "for mana") {
+				return opt.Index, nil
+			}
+		}
+		return -1, notOffered
+	}
+	for _, opt := range d.Options {
+		if opt.Obj != id || !oracleActivateKind(opt.Kind) || opt.Ability != k {
+			continue
+		}
+		if st.Ability != "" && !oracleLabelMatches(opt.Label, st.Ability) {
+			continue
+		}
+		return opt.Index, nil
+	}
+	return -1, notOffered
+}
+
+// oracleAnswerManaStage answers the second-stage KChoose (or verifies the
+// no-ask single-ability resolution) that follows the generic "for mana"
+// option when a step names a mana ability by label or by ability_index.
+// abilities is the source's available mana abilities as they were BEFORE the
+// generic option was submitted -- after it the ability may already have
+// resolved, so a post-submit recomputation would see an empty list.
+// decision.Option.Ability on the wheel is the index into that AVAILABLE list
+// (Face().ManaAbilities plus intrinsic and granted ones), so it need not
+// equal the Face().Abilities index ability_index names; the requested ability
+// is located in the list by identity and, when no option carries that index,
+// by its wheel label (pay.ManaAbilityLabel). A step that cannot name an
+// available ability fails loudly, never silently activating a different one.
+func oracleAnswerManaStage(r *oracleRun, st oracleStep, seat state.PlayerID, id state.ObjID, abilities []*cards.SA) error {
+	e := r.e
+	manaLabels := make([]string, 0, len(abilities))
+	for _, ma := range abilities {
+		manaLabels = append(manaLabels, pay.ManaAbilityLabel(ma, pay.ChosenProducedColour(e.G, id)))
+	}
+	wantSA, wantIdx := (*cards.SA)(nil), -1
+	if st.AbilityIndex != nil {
+		if pa, ok := e.G.Obj(id).PileAbilityAt(*st.AbilityIndex); ok {
+			wantSA = pa.SA
+		}
+		for i, ma := range abilities {
+			if ma == wantSA {
+				wantIdx = i
+				break
+			}
+		}
+	}
+	choice := e.Pending()
+	if choice != nil && choice.Kind == decision.KChoose && choice.Source == id {
+		// A queued answer owns the pending decision: fall back to selection
+		// only when the scenario did not queue one, so a costed any-colour
+		// wheel behaves like every other colour wheel.
+		if hasOracleAnswer(r.answers, choice.Kind) {
+			return nil
+		}
+		want := oracleRequestedManaLabel(st, wantSA, e.G, id)
+		idx, sawMana := -1, false
+		for _, o := range choice.Options {
+			if o.Kind != "mana" {
+				continue
+			}
+			sawMana = true
+			if idx < 0 && wantIdx >= 0 && o.Obj == id && o.Ability == wantIdx {
+				idx = o.Index
+				continue
+			}
+			if idx < 0 && want != "" && oracleLabelMatches(o.Label, want) {
+				idx = o.Index
+			}
+		}
+		if !sawMana {
+			// The KChoose is not the mana wheel (some other ask of this
+			// source): leave it to the ordinary answer machinery.
+			return nil
+		}
+		if idx < 0 {
+			if st.AbilityIndex != nil {
+				return harnessf("mana ability_index %d not offered: %s", *st.AbilityIndex, optionDump(choice))
+			}
+			return harnessf("mana ability %q not offered: %s", st.Ability, optionDump(choice))
+		}
+		return r.submit(choice, []int{idx}, "mana ability")
+	}
+	// No second stage: exactly one available ability was resolved with no ask.
+	// It must have been the one the step named.
+	if st.AbilityIndex != nil {
+		ok := len(abilities) == 1 && abilities[0] == wantSA
+		if ok && st.Ability != "" && !oracleLabelMatches(manaLabels[0], st.Ability) {
+			ok = false
+		}
+		if !ok {
+			return harnessf("mana ability_index %d not offered (available: %v)", *st.AbilityIndex, manaLabels)
+		}
+		return nil
+	}
+	if len(manaLabels) != 1 || !oracleLabelMatches(manaLabels[0], st.Ability) {
+		return harnessf("mana ability %q not offered (available: %v)", st.Ability, manaLabels)
+	}
+	return nil
+}
+
+// oracleRequestedManaLabel is the wheel label the stage carries for the
+// ability a step names: the label of the ability_index's own SA when the step
+// gives an index, else the step's own ability string (so the label path keeps
+// its existing oracleLabelMatches semantics).
+func oracleRequestedManaLabel(st oracleStep, sa *cards.SA, g *state.Game, id state.ObjID) string {
+	if st.AbilityIndex == nil {
+		return st.Ability
+	}
+	if sa == nil {
+		return ""
+	}
+	return pay.ManaAbilityLabel(sa, pay.ChosenProducedColour(g, id))
+}
+
 func (r *oracleRun) do(st oracleStep) error {
 	e := r.e
 	r.targets = append([]string(nil), st.Targets...)
@@ -919,68 +1145,13 @@ func (r *oracleRun) do(st oracleStep) error {
 		if err != nil {
 			return err
 		}
-		// A cast picks the option whose Mode matches: "kicked" for a kicked
-		// cast, an explicit cast_mode (flashback, evoke, ...) when given, the
-		// Adventure offer for a ref naming an Adventure face, and otherwise
-		// the plain cast -- or, when the card offers only a
-		// permission-mode cast (a graveyard "mayplay"), that one.
-		idx, fallback, manaFallback := -1, -1, -1
-		wantMode := oracleCastWantMode(st, e.G.Obj(id))
-		// A named mana ability lives behind the generic "Activate <card> for
-		// mana" priority option: the engine asks a second-stage KChoose over
-		// the source's available mana abilities (or, when exactly one is
-		// available, resolves it with no ask at all). The generic option may
-		// stand in for a requested label only when that label names an ability
-		// the source can currently produce -- the same authoritative set the
-		// offer and the second stage are built from -- otherwise the step must
-		// fail loudly below instead of silently activating a different ability
-		// (or a mana ability when a non-mana label was requested).
-		manaLabels := []string(nil)
-		requestedManaAbility := false
-		if st.Op == "activate" && st.Ability != "" {
-			manaLabels = r.manaAbilityLabels(seat, id)
-			for _, label := range manaLabels {
-				if oracleLabelMatches(label, st.Ability) {
-					requestedManaAbility = true
-					break
-				}
-			}
+		manaAbilities := []*cards.SA(nil)
+		if st.Op == "activate" && (st.Ability != "" || st.AbilityIndex != nil) {
+			manaAbilities = e.availableManaAbilities(seat, id)
 		}
-		for _, o := range d.Options {
-			if o.Obj != id {
-				continue
-			}
-			if st.Op == "cast" && o.Kind == "cast" {
-				if o.Mode == wantMode {
-					idx = o.Index
-					break
-				}
-				if wantMode == "" && fallback < 0 && !strings.HasPrefix(o.Mode, "kicked") {
-					fallback = o.Index
-				}
-			}
-			if st.Op == "activate" && oracleActivateKind(o.Kind) {
-				if st.Ability == "" || oracleLabelMatches(o.Label, st.Ability) {
-					idx = o.Index
-					break
-				}
-				if o.Kind == "activate" && requestedManaAbility && strings.Contains(strings.ToLower(o.Label), "for mana") && manaFallback < 0 {
-					manaFallback = o.Index
-				}
-			}
-		}
-		if idx < 0 {
-			idx = manaFallback
-		}
-		if idx < 0 {
-			idx = fallback
-		}
-		if idx < 0 {
-			want := ""
-			if st.Ability != "" {
-				want = fmt.Sprintf(" (ability: %q)", st.Ability)
-			}
-			return harnessf("%s %s not offered%s: %s", st.Op, st.Card, want, optionDump(d))
+		idx, err := oraclePickStepOption(r, st, seat, id, d)
+		if err != nil {
+			return err
 		}
 		if err := r.submit(d, []int{idx}, st.Op); err != nil {
 			return err
@@ -1005,50 +1176,10 @@ func (r *oracleRun) do(st oracleStep) error {
 			}
 			r.extraFails = append(r.extraFails, oracleObserveMismatches(pending, *st.Observe)...)
 		}
-		if st.Op == "activate" && st.Ability != "" && d.Options[idx].Kind == "activate" &&
-			!oracleLabelMatches(d.Options[idx].Label, st.Ability) {
-			// The generic mana option was submitted for a named ability. When
-			// the engine poses the second-stage wheel, the requested label must
-			// be among its options. When it does NOT -- exactly one ability was
-			// available and the engine resolved it with no ask -- the requested
-			// label must have been that single ability (checked above against
-			// the same set); a multi-ability source that never asks, or a single
-			// ability that does not match, is an error, never a silent
-			// different-ability activation.
-			choice := e.Pending()
-			if choice != nil && choice.Kind == decision.KChoose && choice.Source == id {
-				manaOptions := false
-				for _, o := range choice.Options {
-					if o.Kind == "mana" {
-						manaOptions = true
-						break
-					}
-				}
-				// A queued answer owns the pending decision: fall back to label
-				// matching only when the scenario did not queue one, so a costed
-				// any-colour wheel behaves like every other colour wheel.
-				if manaOptions && !hasOracleAnswer(r.answers, choice.Kind) {
-					for _, o := range choice.Options {
-						if o.Kind == "mana" && oracleLabelMatches(o.Label, st.Ability) {
-							if err := r.submit(choice, []int{o.Index}, "mana ability"); err != nil {
-								return err
-							}
-							break
-						}
-					}
-					matched := false
-					for _, o := range choice.Options {
-						if o.Kind == "mana" && oracleLabelMatches(o.Label, st.Ability) {
-							matched = true
-							break
-						}
-					}
-					if !matched {
-						return harnessf("mana ability %q not offered: %s", st.Ability, optionDump(choice))
-					}
-				}
-			} else if len(manaLabels) != 1 || !oracleLabelMatches(manaLabels[0], st.Ability) {
-				return harnessf("mana ability %q not offered (available: %v)", st.Ability, manaLabels)
+		if st.Op == "activate" && d.Options[idx].Kind == "activate" &&
+			(st.AbilityIndex != nil || (st.Ability != "" && !oracleLabelMatches(d.Options[idx].Label, st.Ability))) {
+			if err := oracleAnswerManaStage(r, st, seat, id, manaAbilities); err != nil {
+				return err
 			}
 		}
 		return r.untilPriority(st.Op)
