@@ -1280,6 +1280,13 @@ type Object struct {
 	// re-asking -- copy it with CloneChosenModes, which keeps that
 	// distinction.
 	ChosenModes []string
+	// CastBattlefield is the frozen as-cast battlefield of a spell whose
+	// script reads Count$LastStateBattlefieldWithFallback (see
+	// CastBattlefield): nil when no snapshot was taken, non-nil-and-empty for
+	// an authoritative empty battlefield. Immutable and shared by clones and
+	// stack copies; folded only by events.Apply and cleared when the object
+	// leaves the stack.
+	CastBattlefield *CastBattlefield
 
 	// ModeChoices is the persistent per-object log a Charm's ChoiceRestriction$
 	// reads (task charm-choice-restriction): every mode this object has chosen

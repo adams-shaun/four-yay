@@ -383,6 +383,10 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 	// not drawn. The Draw fold re-stamps it after this Move.
 	if to != state.ZStack {
 		o.DrawnTurn = 0
+		// The as-cast battlefield snapshot belongs to the spell on the stack:
+		// any move off it (resolution, counter, fizzle, an aborted cast's
+		// reversal) ends it, so a stable ObjID never reuses a stale freeze.
+		o.CastBattlefield = nil
 	}
 	if enteredFrom == state.ZExile && to != state.ZExile {
 		// Forge's exiledCards association is a zone relationship, not an

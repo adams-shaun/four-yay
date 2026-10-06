@@ -193,6 +193,8 @@ func ApplyPtr(g *state.Game, e *Event) {
 		// Pure marker: the TriggerPush just before it minted the ability;
 		// this record only carries the causing trigger's mode for
 		// trig:AbilityTriggered.
+	case CastBattlefield:
+		foldCastBattlefield(g, e)
 	case SearchedLibrary:
 		// Pure marker for one completed library search; all resulting card
 		// moves and the shuffle have their own events.
