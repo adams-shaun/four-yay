@@ -21,7 +21,11 @@ import (
 // and by levelb-static-cda-types-control, which also observes a card's own
 // characteristic-defining P/T, a type or colour change and a control change
 // (Eluge-style CDAs, Tractor Beam, Ygra move out of the skips; a removal of
-// abilities from the vanilla fixture creature is a named skip).
+// abilities from the vanilla fixture creature is a named skip), and by
+// levelb-static-zone-permissions, which observes a static acting outside the
+// battlefield (a play permission or a granted Flashback, Plot or cost
+// reduction) as an offered option, a lifelink grant to spells through the
+// life it gains, and gives MayLookAt$ its own named skip.
 // It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
@@ -29,16 +33,15 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static counts cards exiled with the source": 1,
 	},
 	"EOE": {
-		"served": 25,
-		"skip:static effect not observable on a probe or the card":                   6,
+		"served": 29,
+		"skip:static effect not observable on a probe or the card":                   3,
 		"skip:static look-at not observable":                                         1,
 		"skip:static changes a player rule (hand size, land plays), not a permanent": 1,
-		"skip:static grants only keywords outside the compared evergreen set":        1,
 		"skip:static needs counters on the affected permanent":                       30,
 	},
 	"FDN": {
-		"served": 57,
-		"skip:static effect not observable on a probe or the card":                    10,
+		"served": 62,
+		"skip:static effect not observable on a probe or the card":                    5,
 		"skip:static look-at not observable":                                          1,
 		"skip:static amount is a computed count the fixture does not make observable": 1,
 		"skip:static removes the abilities of a permanent the fixture gives none":     1,
@@ -47,8 +50,8 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static needs counters on the affected permanent":                        3,
 	},
 	"FRA": {
-		"served": 19,
-		"skip:static effect not observable on a probe or the card":                14,
+		"served": 20,
+		"skip:static effect not observable on a probe or the card":                13,
 		"skip:static removes the abilities of a permanent the fixture gives none": 1,
 		"skip:static counts cards exiled with the source":                         1,
 		"skip:static grants only keywords outside the compared evergreen set":     1,
