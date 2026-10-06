@@ -26,6 +26,20 @@ func (e *Engine) ActionReplaced(proposal events.Event) bool {
 	return handled
 }
 
+// continueActionReplacements dispatches a synthetic pre-action proposal
+// (ActionReplaced) that met at least one replacement: Explore keeps its own
+// continuation; a Connive proposal resolves the first match's body.
+func continueActionReplacements(e interface {
+	continueExploreReplacements(events.Event, []replMatch) (events.Event, bool)
+	replCtx(replMatch, events.Event) *effects.Ctx
+	runReplaceWith(*effects.Ctx, state.ObjID, *cards.SA, *events.Event)
+}, ev events.Event, matches []replMatch) (events.Event, bool) {
+	if ev.Kind == events.Explore {
+		return e.continueExploreReplacements(ev, matches)
+	}
+	return continueConniveReplacements(e, ev, matches)
+}
+
 func continueConniveReplacements(e interface {
 	replCtx(replMatch, events.Event) *effects.Ctx
 	runReplaceWith(*effects.Ctx, state.ObjID, *cards.SA, *events.Event)

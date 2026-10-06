@@ -49,6 +49,7 @@ var replEventGates = [cards.ReplEventCount]replEventGate{
 	cards.ReplProduceMana:    {unreachable: "mana abilities are not allowlisted; a mana rider has its own tape gate (offstack_mana_rider_tape.go)"},
 	cards.ReplCascade:        {unreachable: "cascade is a cast trigger body outside the allowlist"},
 	cards.ReplExplore:        {unreachable: "no allowlisted API explores"},
+	cards.ReplConnive:        {unreachable: "no allowlisted API connives"},
 	cards.ReplGameLoss:       {unreachable: "a game loss is a state-based action after the resolution, or a LosesGame body outside the allowlist"},
 	cards.ReplGameWin:        {unreachable: "a WinsGame body is outside the allowlist"},
 	cards.ReplRollDice:       {unreachable: "RollDice is not allowlisted"},

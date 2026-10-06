@@ -306,9 +306,6 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 	if ev.Kind == events.ManaAdd {
 		return e.continueManaReplacements(ev, manaCandidates, nil, false, e.manaFromTap, e.manaProducer)
 	}
-	if ev.Kind == events.Connive && ev.Amount < 0 {
-		return continueConniveReplacements(e, ev, matches)
-	}
 	if ev.Kind == events.Scry {
 		// CR 614.4: the held scry proposal is not logged; its continuation
 		// rewrites the held instruction's count in place (handled=true, event
@@ -347,8 +344,8 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 		return e.applyTransformReplacement(ev, matches)
 	case events.TokenCreate:
 		return e.continueCreateTokenReplacements(ev, matches)
-	case events.Explore:
-		return e.continueExploreReplacements(ev, matches)
+	case events.Explore, events.Connive:
+		return continueActionReplacements(e, ev, matches)
 	case events.Damage:
 		matches = e.applicableDamageReplacements(ev, matches)
 		if len(matches) == 0 {

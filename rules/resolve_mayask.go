@@ -48,6 +48,10 @@ const (
 	mayAskGateMask  = uint32(1)<<cards.ReplEventCount - 1
 )
 
+// The highest conditional reason must still fit the uint32 cache state: a
+// constant overflow here is a compile error, not a silent alias.
+const _ uint32 = cards.MayAskCondParentSub << mayAskCondShift
+
 // tapeMayAsk reports whether resolving the top of the stack may pose a
 // decision, judged from text and the stack object. true is always safe.
 func tapeMayAsk(e *Engine) bool {

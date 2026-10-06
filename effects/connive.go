@@ -125,7 +125,7 @@ func conniveOnce(h Host, c *Ctx, sa *cards.SA, conniver state.ObjID, targetIdx, 
 		return false
 	}
 	ctrl := o.Controller
-	if h.(HostReplacements).ActionReplaced(events.Event{Kind: events.Connive, Obj: conniver,
+	if h.ActionReplaced(events.Event{Kind: events.Connive, Obj: conniver,
 		Player: ctrl, Amount: -1}) {
 		return false
 	}
