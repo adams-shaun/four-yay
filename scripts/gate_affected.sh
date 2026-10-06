@@ -29,6 +29,15 @@ pkgs=$(git diff --name-only "$mb" HEAD | while read -r f; do
   d=$(dirname "$f"); d=${d%%/testdata*}
   if [ -d "$d" ] && compgen -G "$d/*.go" >/dev/null; then echo "./$d"; fi
 done | sort -u | /usr/bin/grep -v -x -E '\./rules' || true)
+# A package whose every file is build-tagged (cmd/autopayaudit) has nothing to
+# vet or test in a default build, and naming it fails the whole run with
+# "build constraints exclude all Go files" (9b9bd27a, 2026-10-06). Keep only
+# packages with at least one default-build file.
+if [ -n "$pkgs" ]; then
+  pkgs=$(for p in $pkgs; do
+    [ -n "$(go list -e -f '{{if or .GoFiles .TestGoFiles .XTestGoFiles}}y{{end}}' "$p" 2>/dev/null)" ] && echo "$p"
+  done || true)
+fi
 others=$(printf '%s\n' $pkgs ./internal/codeshape ./view | sort -u)
 # Any change can move compliance verdicts: generator/harness edits did
 # (a407ddeff, FDN:A) and so did rules edits that reshape target asks
