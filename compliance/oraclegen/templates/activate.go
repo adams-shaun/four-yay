@@ -194,7 +194,12 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	it.XAnswers = scriptPreludeSacrifice(it.XAnswers, prelude, len(sc.Steps))
 	it.XAbility = make([]string, len(sc.Steps))
 	copy(it.XAbility, pre.xability)
-	it.XAbility[activateStepIndex(sc.Steps)] = prefix
+	activateStep := activateStepIndex(sc.Steps)
+	it.XAbility[activateStep] = prefix
+	if comboPrefix, ok := comboManaColourPrefix(f.Abilities[idx], cost, activateStep, res); ok {
+		it.XAbility[activateStep] = comboPrefix
+		dropColourChoices(it.XAnswers, activateStep)
+	}
 	return it, true
 }
 
