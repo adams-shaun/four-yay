@@ -281,7 +281,13 @@ public class ScenarioReplay extends CardTestPlayerBase {
             if (orig instanceof mage.target.common.TargetSpellOrPermanent
                     && !getTargets().isEmpty()
                     && !TestPlayer.TARGET_SKIP.equals(getTargets().get(0))) {
-                Permanent match = findBattlefieldTarget(target, source, game, getTargets().get(0));
+                // The base's own controller derivation (TestPlayer.chooseTarget):
+                // the target's ability controller when set, else this choosing
+                // player. A trigger made on another player's behalf must filter
+                // its legal set by the ability's controller, not by the source
+                // controller, or the permanent can fall outside possibleTargets.
+                UUID abilityControllerId = target.getAffectedAbilityControllerId(this.getId());
+                Permanent match = findBattlefieldTarget(target, abilityControllerId, source, game, getTargets().get(0));
                 if (match != null) {
                     target.addTarget(match.getId(), source, game);
                     getTargets().remove(0);
@@ -294,8 +300,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
         /** The battlefield permanent in the target's own legal set that the
          * queued name or alias names, or null when the answer is not a
          * permanent (a spell on the stack, which the base handles). */
-        private Permanent findBattlefieldTarget(mage.target.Target target, Ability source, Game game, String name) {
-            for (UUID id : target.possibleTargets(source.getControllerId(), source, game)) {
+        private Permanent findBattlefieldTarget(mage.target.Target target, UUID abilityControllerId, Ability source, Game game, String name) {
+            for (UUID id : target.possibleTargets(abilityControllerId, source, game)) {
                 Permanent p = game.getPermanent(id);
                 if (p == null || target.contains(id)) {
                     continue;
