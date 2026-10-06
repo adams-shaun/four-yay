@@ -62,6 +62,7 @@ func TestValueHeadRegistryMatchesEvaluator(t *testing.T) {
 				for _, h := range cards.ValueHeadOperands(body) {
 					set[h] = struct{}{}
 				}
+				recipeExpressions := cards.ValueHeadRecipeExpressions(body)
 				if len(set) == 0 {
 					continue
 				}
@@ -77,10 +78,13 @@ func TestValueHeadRegistryMatchesEvaluator(t *testing.T) {
 					}
 					seen[h] = true
 					probe := body
-					if h != outer {
-						// An operand head is read through its own bare
-						// Count$ expression at run time, so that is the
-						// body whose resolution this check verifies.
+					if expression, nested := recipeExpressions[h]; nested {
+						// A recipe parameter is passed to Num as this exact
+						// expression, not evaluated as a bare SVar body.
+						probe = expression
+					} else if h != outer {
+						// An arithmetic operand head is read through its own
+						// bare Count$ expression at run time.
 						probe = "Count$" + h
 					}
 					if _, ok := effects.EvalCountOK(e, ctx, strings.TrimSpace(probe)); ok {
