@@ -392,6 +392,12 @@ touches_gorge() {
   git diff --name-only "$MAIN"..."${BR[$1]}" -- compliance/oraclegen cmd/oraclediff compliance/manifests '*.go' ':!tools/xmageoracle/**' 2>/dev/null | /usr/bin/grep -q .
 }
 
+# touches_generator <ticket>: generator/manifest changes can change the
+# scenario itself, so the retained XMage snapshot may not describe the row.
+touches_generator() {
+  git diff --name-only "$MAIN"..."${BR[$1]}" -- compliance/oraclegen cmd/oraclediff compliance/manifests 2>/dev/null | /usr/bin/grep -q .
+}
+
 # regen_row <probe> <id> <outfile>: regenerate the scenario row <id> on <probe>'s
 # generator (level B, that row's set only) into <outfile> (a one-row scen.jsonl).
 regen_row() {
@@ -431,9 +437,12 @@ flaky_check() {
 # so agree again is exactly "no longer regressed"; a snapshot merely equal to
 # main's driver would also pass when the regression is not the driver's at all).
 cleared() {
-  local id=$1 xm=$2 scen=$3 v="$2.verdict.jsonl"
+  local id=$1 xm=$2 scen=$3 tree=${4:-} v="$d/cleared-$(echo "$id" | tr -c 'A-Za-z0-9\n' _).verdict.jsonl"
   if [ -n "${DRB_DIFF_CMD:-}" ]; then
-    $DRB_DIFF_CMD "$scen" "$xm" "$v" >/dev/null 2>&1
+    if [ -n "$tree" ]; then (cd "$tree" && $DRB_DIFF_CMD "$scen" "$xm" "$v") >/dev/null 2>&1
+    else $DRB_DIFF_CMD "$scen" "$xm" "$v" >/dev/null 2>&1; fi
+  elif [ -n "$tree" ]; then
+    (cd "$tree" && capped go run ./cmd/oraclediff diff -cards "$repo/.cards" -scenarios "$scen" -xmage "$xm" -out "$v" -xmage-ref "$(sed -n 's/^XMAGE_REF *?= *//p' "$wt/Makefile")") >/dev/null 2>&1
   else
     "$SCEN_ROOT/oraclediff" diff -scenarios "$scen" -xmage "$xm" -out "$v" -xmage-ref "$(sed -n 's/^XMAGE_REF *?= *//p' "$wt/Makefile")" >/dev/null 2>&1
   fi
@@ -459,8 +468,9 @@ attribute() {
     done
     [ "$ok" = 1 ] || { say "ATTRIBUTE cannot build the batch without $cand (conflict); skipping it as a candidate"; continue; }
     local -a left=()
-    local gorge=0
+    local gorge=0 generator=0
     touches_gorge "$cand" && gorge=1
+    touches_generator "$cand" && generator=1
     for r in "${todo[@]}"; do
       local tag src=""
       tag=$(echo "$r" | tr -c 'A-Za-z0-9\n' _)
@@ -476,8 +486,9 @@ attribute() {
         rowfile=$(py rowfile "$r" "$SCEN_ROOT"/*/scen.jsonl) || { left+=("$r"); continue; }
         setname=$(basename "$(dirname "$rowfile")")
         xm="$SCEN_ROOT/$setname/xmage.jsonl"
-        if [ ! -s "$xm" ]; then
-          # Older replay layouts may not retain the batch XMage snapshot.
+        if [ "$generator" = 1 ] || [ ! -s "$xm" ]; then
+          # A generator/manifest candidate may regenerate a different scenario;
+          # only reuse the batch snapshot when the scenario is unchanged.
           one_scenario "$probe" "$r" "$candidate" "$src" || { left+=("$r"); continue; }
           xm="$candidate"
         fi
@@ -485,7 +496,13 @@ attribute() {
         one_scenario "$probe" "$r" "$candidate" || { left+=("$r"); continue; }
         src="$candidate.in.jsonl"
       fi
-      if cleared "$r" "$xm" "$src"; then
+      if [ "$gorge" = 1 ]; then
+        if cleared "$r" "$xm" "$src" "$probe"; then
+          CULPRIT[$r]=$cand
+        else
+          left+=("$r")
+        fi
+      elif cleared "$r" "$xm" "$src"; then
         CULPRIT[$r]=$cand
       else
         left+=("$r")

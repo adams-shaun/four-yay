@@ -69,21 +69,24 @@ with open(sys.argv[1], "w") as sc:
             gb = set()
             for g in glob.glob("compliance/oraclegen/*.genregress"):
                 gb |= set(open(g).read().split("\n")) - {""}
-            if os.path.exists("rules/oracle_run.go"):
-                gb |= set(open("rules/oracle_run.go").read().split("\n")) - {""}
             sc.write(json.dumps({"id": r["id"], "card": r["card"], "scen": "bad" if r["id"] in gb else "ok"}) + "\n")
             if r["id"] in bad:
                 r["status"] = "diverge"
             elif r["card"] == "Gamma":
                 r["status"] = "agree"   # an improvement
         open(f, "w").write("\n".join(json.dumps(r) for r in rows) + "\n")
+    scenarios = {}
+    for line in open(sys.argv[1]):
+        if line.strip():
+            row = json.loads(line)
+            scenarios[row["id"]] = row.get("scen", "ok")
     os.makedirs(os.path.join(rdir, "S"), exist_ok=True)
     with open(os.path.join(rdir, "S", "xmage.jsonl"), "w") as xm:
         for f in glob.glob("compliance/verdicts/*.jsonl"):
             for line in open(f):
                 if line.strip():
                     r = json.loads(line)
-                    xm.write(json.dumps({"id": r["id"], "state": "good", "ms": 1}) + "\n")
+                    xm.write(json.dumps({"id": r["id"], "scen": scenarios.get(r["id"], "ok"), "state": "good", "ms": 1}) + "\n")
 PY
 echo "S ok"; echo done
 EOF
@@ -91,13 +94,16 @@ cat >"$S/scen.sh" <<'EOF'
 #!/usr/bin/env bash
 # scen.sh IN OUT, in the tree whose driver is being tried.
 id=$(python3 -c 'import json,sys; print(json.loads(open(sys.argv[1]).readline())["id"])' "$1")
+scenario=$(python3 -c 'import json,sys; print(json.loads(open(sys.argv[1]).readline()).get("scen", "ok"))' "$1")
+[ -z "${DRB_SCENARIO_TRACE:-}" ] || printf '%s %s %s\n' "$PWD" "$id" "$scenario" >>"$DRB_SCENARIO_TRACE"
 state=good
 d=tools/xmageoracle
 for f in $d/*.regress; do [ -e "$f" ] && /usr/bin/grep -qxF -- "$id" "$f" && state=bad; done
 [ -n "${STUB_ALWAYS:-}" ] && [ -e "$STUB_ALWAYS" ] && /usr/bin/grep -qxF -- "$id" "$STUB_ALWAYS" && state=bad
+[ -e rules/oracle_run.go ] && /usr/bin/grep -qxF -- "$id" rules/oracle_run.go && state=bad
 for f in $d/*.flaky; do [ -e "$f" ] && /usr/bin/grep -qxF -- "$id" "$f" && state="r$(date +%N)$RANDOM"; done
 /usr/bin/grep -q '"scen": "bad"' "$1" && state=bad
-printf '{"id":"%s","state":"%s","ms":%s}\n' "$id" "$state" "$((RANDOM + 1))" >"$2"
+printf '{"id":"%s","scen":"%s","state":"%s","ms":%s}\n' "$id" "$scenario" "$state" "$((RANDOM + 1))" >"$2"
 EOF
 cat >"$S/gen.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -115,15 +121,32 @@ with open(sys.argv[1], "w") as sc:
         for l in open(f):
             if l.strip():
                 r = json.loads(l)
-                runner_bad = set(open("rules/oracle_run.go").read().split("\n")) - {""} if os.path.exists("rules/oracle_run.go") else set()
-                sc.write(json.dumps({"id": r["id"], "card": r["card"], "scen": "bad" if r["id"] in gb | runner_bad else "ok"}) + "\n")
+                sc.write(json.dumps({"id": r["id"], "card": r["card"], "scen": "bad" if r["id"] in gb else "ok"}) + "\n")
 PY
 EOF
 cat >"$S/diff.sh" <<'EOF'
 #!/usr/bin/env bash
 # diff.sh SCEN XMAGE OUT: the oraclediff verdict for one snapshot.
 id=$(python3 -c 'import json,sys; print(json.loads(open(sys.argv[1]).readline())["id"])' "$1")
-st=DIVERGE; /usr/bin/grep -q '"state": *"good"' "$2" && st=agree
+scenario=$(python3 -c 'import json,sys; print(json.loads(open(sys.argv[1]).readline()).get("scen", "ok"))' "$1")
+state=$(python3 -c 'import json,sys; print(json.loads(open(sys.argv[1]).readline()).get("state", "good"))' "$1")
+xmage=$(python3 - "$2" "$id" <<'PY'
+import json, sys
+for line in open(sys.argv[1]):
+    row = json.loads(line)
+    if row["id"] == sys.argv[2]:
+        print(row.get("scen", "ok"), row.get("state", "good"))
+        break
+PY
+)
+st=DIVERGE
+if [ "${STUB_RUNNER_ROW:-}" = "$id" ] && [[ "$PWD" != *-probe ]]; then st=DIVERGE
+elif [ "$scenario" = "$(echo "$xmage" | cut -d' ' -f1)" ] && [ "$(echo "$xmage" | cut -d' ' -f2)" = "good" ] && [ "$state" = "good" ]; then
+  st=agree
+  for f in compliance/oraclegen/*.genregress rules/oracle_run.go; do
+    [ -e "$f" ] && /usr/bin/grep -qxF -- "$id" "$f" && st=DIVERGE
+  done
+fi
 printf '{"id":"%s","card":"x","verdict":{"status":"%s"}}\n' "$id" "$st" >"$3"
 EOF
 cat >"$S/check.sh" <<'EOF'
@@ -429,14 +452,16 @@ mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
 mkticket t3 2026-10-06T04:00:00Z compliance/oraclegen/x.genregress 'Beta/cast-resolve/v1'
 mkticket t8 2026-10-06T05:00:00Z tools/xmageoracle/t8.txt eight
 mkdir -p "$R/.cards"
-export STUB_REQUIRE_CARDS=1
+export STUB_REQUIRE_CARDS=1 DRB_SCENARIO_TRACE=$R/scenario.trace
 runpass
-unset STUB_REQUIRE_CARDS
+unset STUB_REQUIRE_CARDS DRB_SCENARIO_TRACE
 has "$L" 'CULPRIT t3 row Beta/cast-resolve/v1'
 check "I a row whose scenario the branch's generator changed is attributed to that branch" $?
 hasnt "$L" 'UNATTRIBUTED'
 check "I a generator-caused row is not UNATTRIBUTED" $?
 [ "$(status_of t3)" = human_needed ] && [ "$(status_of t1)" = merged ] && [ "$(status_of t8)" = merged ]
+check "I the regenerated scenario is replayed on the probe, not paired with a stale snapshot" \
+  $(/usr/bin/grep -q '/\.worktrees/.*-probe Beta/cast-resolve/v1 ok$' "$R/scenario.trace"; echo $?)
 check "I only the generator branch stays parked" $?
 /usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1 t8$' "$L"
 check "I the others land" $?
@@ -446,7 +471,9 @@ mkrepo I2
 mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
 mkticket t3 2026-10-06T04:00:00Z rules/oracle_run.go 'Beta/cast-resolve/v1'
 mkticket t8 2026-10-06T05:00:00Z tools/xmageoracle/t8.txt eight
+export STUB_RUNNER_ROW='Beta/cast-resolve/v1'
 runpass
+unset STUB_RUNNER_ROW
 has "$L" 'CULPRIT t3 row Beta/cast-resolve/v1'
 check "I2 a rules/oracle_run.go-only cause is attributed to its branch" $?
 hasnt "$L" 'UNATTRIBUTED'
