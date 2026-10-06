@@ -746,8 +746,55 @@ func projectInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, d *d
 		// a Seat (Task 25) holds this View in-process and must not be able
 		// to corrupt the live decision through it.
 		v.Decision = copyDecisionInto(dec, d, pr.text)
+		fillVisibleOptionLabels(v)
 	}
 	scratchPool.Put(sc)
+}
+
+// fillVisibleOptionLabels derives missing card-option labels only from card
+// identities already admitted to this viewer's projection. In particular,
+// hidden hands and libraries are never read here: their cards are absent from
+// the corresponding PlayerView slices.
+func fillVisibleOptionLabels(v *View) {
+	if v == nil || v.Decision == nil {
+		return
+	}
+	for i := range v.Decision.Options {
+		o := &v.Decision.Options[i]
+		if o.Kind != "card" || o.Label != "" || o.Obj == 0 {
+			continue
+		}
+		name := visibleCardName(v, o.Obj)
+		if name != "" {
+			o.Label = name
+		}
+	}
+}
+
+func visibleCardName(v *View, id state.ObjID) string {
+	for i := range v.Players {
+		p := &v.Players[i]
+		for _, cards := range [][]CardView{p.Battlefield, p.Graveyard, p.Exile, p.Command, p.Hand, p.Library} {
+			for j := range cards {
+				if cards[j].ID == id {
+					return cards[j].Name
+				}
+			}
+		}
+		if p.LibraryTop != nil && p.LibraryTop.ID == id {
+			return p.LibraryTop.Name
+		}
+	}
+	for i := range v.Stack {
+		s := &v.Stack[i]
+		if s.ID == id {
+			return s.Name
+		}
+		if s.Card != nil && s.Card.ID == id {
+			return s.Card.Name
+		}
+	}
+	return ""
 }
 
 // cmdDamageView is the CmdDamage map of one player's tallies (Player.CmdDamage,
