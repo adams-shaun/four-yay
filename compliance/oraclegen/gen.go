@@ -68,6 +68,24 @@ type Step struct {
 	To string `json:"to,omitempty"`
 	// AttachedTo is the bearer ref for an attach setup operation.
 	AttachedTo string `json:"attached_to,omitempty"`
+	// Expect asserts an observation at this step (the runner's oracleExpect
+	// vocabulary, rules/oracle_run.go). Nil or empty on every level-A step,
+	// so level-A items are byte-identical. A generated scenario uses it to
+	// hold gorge to a "nothing happens" static: with no state change, the
+	// frozen snapshot has no field to compare, so the claim rides an
+	// explicit expectation instead.
+	Expect []Expect `json:"expect,omitempty"`
+}
+
+// Expect is one assertion attached to a Step. It is the subset of the
+// runner's oracleExpect vocabulary a generated level-B scenario emits.
+// TriggerOnStack names a source ref whose trigger must (Want true, the
+// default) or must not (Want false) be a stack entry; StackSize pins the
+// stack length. Both read as rules/oracle_run.go's oracleExpect fields do.
+type Expect struct {
+	TriggerOnStack string `json:"trigger_on_stack,omitempty"`
+	StackSize      *int   `json:"stack_size,omitempty"`
+	Want           *bool  `json:"want,omitempty"`
 }
 
 // Answer is a queued answer for gorge's runner (kind = decision kind).
