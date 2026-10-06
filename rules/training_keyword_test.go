@@ -199,7 +199,10 @@ func TestTrainingGrantAndPrintedKeywordDoNotStack(t *testing.T) {
 	wurmID := battlefieldID(t, e, "Craw Wurm")
 	e.emit(events.Event{Kind: events.MoveZone, Obj: maxsonID, From: state.ZHand, To: state.ZBattlefield})
 	e.emit(events.Event{Kind: events.MoveZone, Obj: wurmID, From: state.ZHand, To: state.ZBattlefield})
+	// Replay Config needs the runtime token definition independently because
+	// New isolates the engine's token map.
 	e.G.Tokens["gw_1_1_human_soldier_training"] = token
+	cfg.Tokens["gw_1_1_human_soldier_training"] = token
 	e.emit(events.Event{Kind: events.TokenCreate, Player: 0, Text: "gw_1_1_human_soldier_training"})
 	tokID := e.G.NextID - 1
 	if !e.HasKeyword(tokID, "Training") {
