@@ -47,6 +47,9 @@ func finishTeamworkAnnouncement(t *testing.T, e *Engine) {
 					break
 				}
 			}
+			if len(choices) < d.Min {
+				t.Fatalf("precondition: not enough distinct options for decision: %+v", d)
+			}
 			submitChoices(t, e, choices...)
 			continue
 		}

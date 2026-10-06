@@ -222,6 +222,9 @@ func (e *Engine) charmTargetsAvailable(p state.PlayerID, id state.ObjID, sa *car
 	}
 	choices := effects.CharmOf(sa).Modes
 	ctx := effects.NewCtxPtr(id, p, effects.CtxInit{})
+	if pc := e.cast; pc != nil && pc.card == id {
+		ctx.Kicker.PendingTeamwork = castAnswerCodes.Code(pc.mode) == castAnswerTeamworkMode
+	}
 	effects.SetSVars(ctx, o.Face().SVars)
 	legal := make([]string, 0, len(choices))
 	for _, name := range choices {
@@ -318,7 +321,7 @@ func (e *Engine) chainTargetsAvailable(p state.PlayerID, id, excludeSelf state.O
 	var svars map[string]string
 	svarsRead := false
 	var uniq []*cards.SA
-	for _, sub := range e.collectSubTargetPreAsks(sa) {
+	for _, sub := range e.collectSubTargetPreAsks(sa, id) {
 		if cond := strings.TrimSpace(sub.ParamStr(cards.PKCondition)); strings.EqualFold(cond, "Kicked") ||
 			strings.EqualFold(cond, "OptionalCost") {
 			continue

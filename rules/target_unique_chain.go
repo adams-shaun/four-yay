@@ -182,7 +182,7 @@ func castSubAskLinks(e *Engine, pc *pendingCast, root *cards.SA) []*cards.SA {
 	}
 	var out []*cards.SA
 	for _, mode := range roots {
-		for _, sub := range e.collectSubTargetPreAsks(mode) {
+		for _, sub := range e.collectSubTargetPreAsks(mode, pc.card) {
 			if e.castSubPreAskable(pc, sub) {
 				out = append(out, sub)
 			}

@@ -3,6 +3,7 @@ package rules
 import (
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -14,9 +15,13 @@ func TestAgentMariaHillTeamworkTapTrigger(t *testing.T) {
 	mariaCard := searchCorpusCard(t, reg, "Agent Maria Hill")
 	spellCard := searchCorpusCard(t, reg, "Go Nuts!")
 	bearCard := searchCorpusCard(t, reg, "Grizzly Bears")
-	e, cfg := tokenReplGame(t, 64271, mariaCard, spellCard, bearCard)
+	e, cfg := tokenReplGameSeats(t, 64271, []*cards.Card{mariaCard, spellCard, bearCard}, []*cards.Card{bearCard})
 	maria := moveSeededCard(t, e, 0, mariaCard, state.ZBattlefield)
 	bear := moveSeededCard(t, e, 0, bearCard, state.ZBattlefield)
+	opponent := moveSeededCard(t, e, 1, bearCard, state.ZBattlefield)
+	if o := e.G.Obj(opponent); o == nil || o.Zone != state.ZBattlefield || o.Controller != 1 {
+		t.Fatalf("precondition: Go Nuts! second Teamwork Charm mode needs an opponent creature: %+v", o)
+	}
 	spell := searchMoveByName(t, e, "Go Nuts!", state.ZHand)
 	if o := e.G.Obj(maria); o == nil || o.Zone != state.ZBattlefield || o.Tapped || o.Counter("P1P1") != 0 {
 		t.Fatalf("precondition: Maria must be untapped, counterless, on battlefield: %+v", o)

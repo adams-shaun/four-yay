@@ -69,6 +69,7 @@ const (
 	// or without a ReplaceWith body. It is appended so existing in-memory enum
 	// values remain unchanged.
 	replChoiceDraw
+	replChoiceLoseMana
 )
 
 type replChoice struct {
@@ -178,6 +179,26 @@ type replChoice struct {
 	// and a stale frame makes it abandon a resolution that actually finished,
 	// re-resolving it on every pass.
 	resumeAtPose *resumePoint
+	// Set on whichever replacement choice currently owns step-boundary cleanup.
+	manaBoundary *manaBoundaryContinuation
+}
+
+type manaBoundaryContinuation struct {
+	leaving, entering state.Step
+	next              int
+	phase             *parkedPhaseFinish
+	phaseSelected     int
+	// A setStep caller returned on the parked boundary; its entered-step
+	// turn-based action is still owed once cleanup and any phase finish settle.
+	finishEntry bool
+}
+
+// Only the proposed step and its replacement candidates are needed after
+// boundary cleanup; holding a replChoice here would recursively embed another
+// manaBoundaryContinuation and make a parked choice impossible to clone.
+type parkedPhaseFinish struct {
+	ev    events.Event
+	cands []replMatch
 }
 
 // replacementChoicePlayer is the affected player a parked competition asks:
@@ -191,7 +212,7 @@ func (e *Engine) replacementChoicePlayer(rc replChoice) (state.PlayerID, bool) {
 		return rc.ev.Player, int(rc.ev.Player) < len(e.G.Players)
 	}
 	switch rc.kind {
-	case replChoiceMana, replChoiceManaColor, replChoiceScry:
+	case replChoiceMana, replChoiceManaColor, replChoiceScry, replChoiceLoseMana:
 		return rc.ev.Player, int(rc.ev.Player) < len(e.G.Players)
 	case replChoicePhaseOrder, replChoicePhaseOptional:
 		return e.G.Active, int(e.G.Active) < len(e.G.Players)
@@ -251,11 +272,15 @@ func (e *Engine) poseUntapReplacementChoice(ev events.Event, matches []replMatch
 func (e *Engine) poseReplacementChoice(ev events.Event, matches []replMatch) {
 	p := ev.Player
 	kind := replChoiceMove
+	if ev.Kind == events.ManaClear {
+		kind = replChoiceLoseMana
+	}
 	if ev.Kind == events.Draw && len(matches) == 1 && matches[0].repl.OptionalValue() {
 		kind = replChoiceDraw
 		p = e.replacementAskPlayer(matches, ev.Player)
 	}
-	if ev.Kind != events.Draw && !(ev.Kind == events.LifeChange && ev.Text == pay.PayLifeProposalText) {
+	if ev.Kind != events.Draw && ev.Kind != events.ManaClear &&
+		!(ev.Kind == events.LifeChange && ev.Text == pay.PayLifeProposalText) {
 		o := e.G.Obj(ev.Obj)
 		if o == nil {
 			return
@@ -281,6 +306,8 @@ func (e *Engine) askReplacementChoice(p state.PlayerID) {
 		indices[i] = i
 	}
 	switch rc.kind {
+	case replChoiceLoseMana:
+		d.Prompt = "Several replacement effects would convert unspent mana: choose which applies."
 	case replChoiceDamage:
 		d.Prompt = "Several replacement effects would modify damage: choose which applies next."
 	case replChoiceCounter:
@@ -575,14 +602,12 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		return
 	}
 	if len(e.replChoices) == 0 {
-		e.emit(events.Event{Kind: events.Note, Player: in.Player,
-			Text: "replacement decision answered with no event parked"})
+		e.emit(events.Event{Kind: events.Note, Player: in.Player, Text: "replacement decision answered with no event parked"})
 		return
 	}
 	rc := e.replChoices[0]
-	e.replChoices = e.replChoices[1:]
 	savedAnswerInRes := e.answerInResolution
-	e.answerInResolution = savedAnswerInRes || rc.inResolution
+	e.replChoices, e.answerInResolution = e.replChoices[1:], savedAnswerInRes || rc.inResolution
 	defer func() { e.answerInResolution = savedAnswerInRes }()
 	chosen := d.Chosen(in)
 	if rc.kind == replChoiceFaceUp {
@@ -770,17 +795,11 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 			e.finishParkedPhase(rc, i)
 		}
 	case replChoicePhaseOptional:
-		if rc.selected < 0 || rc.selected >= len(rc.cands) {
+		if !answerParkedOptionalPhase(rc, chosen[0].Kind == "apply", e.finishParkedPhase, e.resumeParkedPhase) {
 			e.triggerBefore = before
 			e.emit(events.Event{Kind: events.Note, Player: in.Player,
 				Text: "optional phase replacement answer out of range"})
 			return
-		}
-		if chosen[0].Kind == "apply" {
-			e.finishParkedPhase(rc, rc.selected)
-		} else {
-			rc.applied[rc.selected] = true
-			e.resumeParkedPhase(rc)
 		}
 	case replChoiceAddCounter:
 		if chosen[0].Index < 0 || chosen[0].Index >= len(rc.cands) {
@@ -842,6 +861,9 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 			return
 		}
 		e.resumeUpdatedComposition(rc, chosen[0].Index)
+	case replChoiceLoseMana:
+		handleLoseManaChoice(rc, chosen[0].Index, in.Player, e.G, e, e.emit,
+			func(v bool) { e.applyingReplacement = v }, e.poseReplacementChoice)
 	case replChoiceUntap:
 		if chosen[0].Index < 0 || chosen[0].Index >= len(rc.cands) {
 			e.triggerBefore = before
@@ -863,11 +885,42 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		e.applyReplacement(rc.ev, rc.cands[chosen[0].Index])
 	}
 	e.triggerBefore = before
-	// Resume a mana-interrupted CR 601.2g cast after its final rewrite, once no choice remains.
+	continueLoseManaBoundary(rc.manaBoundary, func() bool { return e.pending != nil }, &e.replChoices, func(leaving, entering state.Step, next int) { e.finishStepBoundary(leaving, entering, next) }, e.finishParkedPhase, e.finishEnteredStep)
+	// A mana replacement or colour decision can interrupt CR 601.2g's mana
+	// window. Resume the parked cast only after the final rewrite is logged
+	// and no next replacement decision is pending.
 	if manaDecision && e.pending == nil && len(e.replChoices) == 0 && e.cast != nil {
 		e.continueCast()
 	}
 	e.askNextReplacementChoice()
+}
+
+// continueLoseManaBoundary resumes only after all competing replacements of
+// this seat's loss have settled. Callbacks keep Engine bookkeeping at its owner.
+func continueLoseManaBoundary(b *manaBoundaryContinuation, pending func() bool, queue *[]replChoice,
+	finish func(state.Step, state.Step, int), phase func(replChoice, int), entered func()) {
+	if b == nil {
+		return
+	}
+	if pending() {
+		(*queue)[len(*queue)-1].manaBoundary = b
+		return
+	}
+	if len(*queue) > 0 {
+		// A mana-order answer can queue its colour answer before posing it.
+		(*queue)[0].manaBoundary = b
+		return
+	}
+	finish(b.leaving, b.entering, b.next)
+	if pending() {
+		next := (*queue)[len(*queue)-1].manaBoundary
+		next.phase, next.phaseSelected = b.phase, b.phaseSelected
+		next.finishEntry = b.finishEntry
+	} else if b.phase != nil {
+		phase(replChoice{ev: b.phase.ev, cands: b.phase.cands}, b.phaseSelected)
+	} else if b.finishEntry {
+		entered()
+	}
 }
 
 // askNextReplacementChoice hands over to either an ordinary replacement

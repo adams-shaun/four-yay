@@ -42,10 +42,9 @@ const (
 	mayAskKnown     uint32 = 1
 	mayAskText      uint32 = 2
 	mayAskGateShift        = 2
-	// mayAskCondShift places the chain's conditional reasons
-	// (cards.MayAskCond*), which the stack object's targets settle, above
-	// the gates.
-	mayAskCondShift = 28
+	// Keep the conditional reasons above every replacement-event gate bit:
+	// adding a new ReplEvent must not masquerade as a target-entry reason.
+	mayAskCondShift = mayAskGateShift + cards.ReplEventCount
 	mayAskGateMask  = uint32(1)<<cards.ReplEventCount - 1
 )
 

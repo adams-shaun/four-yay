@@ -485,7 +485,7 @@ func (w *legalWalk) handWalk() {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 				Label: "Cast " + f.Name + " (conspired)", Obj: id, Mode: "conspired"})
 		}
-		teamworkOffer(w, id, f, convokeBase, targetsAvailable())
+		teamworkOffer(w, id, f, convokeBase, true)
 		// The optional additional sacrifices (rules/optional_sacrifice.go:
 		// Casualty, Bargain) price the ordinary spell -- never a substitution
 		// -- and require at least one eligible permanent.
