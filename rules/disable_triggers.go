@@ -112,11 +112,8 @@ func (e *Engine) disableTriggersExcludes(t cards.Trigger, source state.ObjID, ev
 				continue
 			}
 		}
-		if raw, ok := sv.Param(cards.PKDestination); ok && raw != "Any" {
-			zone, valid := effects.ParseZoneWord(raw)
-			if !valid || to != zone {
-				continue
-			}
+		if code, ok := sv.ParamCode(cards.PKDestination); ok && !effects.Destination(code).Admits(to) {
+			continue
 		}
 		if raw, ok := sv.Param(cards.PKOrigin); ok && raw != "Any" {
 			zone, valid := effects.ParseZoneWord(raw)

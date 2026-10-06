@@ -105,6 +105,9 @@ func playRandomWithPool(cfg rules.Config, st *randomStats, pool *bench.SparePool
 		cfg.Spare = spare
 	}
 	e := rules.New(cfg)
+	if walkStatsFlag {
+		wm.reset()
+	}
 	var fb [2]*seat.Bot
 	board := botpolicy.NewBoard(2)
 	stall := ""
@@ -157,6 +160,9 @@ func playRandomWithPool(cfg rules.Config, st *randomStats, pool *bench.SparePool
 				return
 			}
 			d := e.Pending()
+			if walkStatsFlag {
+				wm.observe(e, d)
+			}
 			ok := false
 			for try := 0; try < retries; try++ {
 				if err := e.Submit(randomIntent(d, r)); err == nil {
@@ -238,12 +244,30 @@ func playBotWithPool(cfg rules.Config, autopay bool, st *botStats, pool *bench.S
 		}
 		seats[i] = b
 	}
+	hooks := bench.Hooks{SyncAnswer: syncAnswer}
+	if walkStatsFlag {
+		// A Decision hook disables the kernel's synchronous answerer; it does
+		// not change priority asks. It is how the observer sees each posed
+		// decision on the bot row (spec §9.1).
+		var eng *rules.Engine
+		hooks.SyncAnswer = false
+		hooks.Setup = func(e *rules.Engine) { eng = e; wm.reset() }
+		hooks.Decision = func(_ int, d *decision.Decision, _ decision.Intent, _ *botpolicy.Board) error {
+			wm.observe(eng, d)
+			return nil
+		}
+	}
+	// The finished game's log and object arrays back the next game this run
+	// plays (rules.Spare; reuse never changes a game). Nothing reads the
+	// engine after the hooks above, so a clean game is recycled as the last
+	// use; the walkStats observer runs during the game (Setup/Decision), not
+	// after it.
 	var o bench.Outcome
 	var err error
 	if pool == nil {
-		o, _, err = bench.PlayGame(cfg, seats, maxTurns, maxIntents, bench.Hooks{SyncAnswer: syncAnswer})
+		o, _, err = bench.PlayGame(cfg, seats, maxTurns, maxIntents, hooks)
 	} else {
-		o, err = pool.PlayGameRecycled(cfg, seats, maxTurns, maxIntents, bench.Hooks{SyncAnswer: syncAnswer}, nil)
+		o, err = pool.PlayGameRecycled(cfg, seats, maxTurns, maxIntents, hooks, nil)
 	}
 	if err != nil {
 		return err

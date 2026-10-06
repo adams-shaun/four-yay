@@ -719,7 +719,7 @@ func (g config) hostOptions(reg *cards.Registry, load func(string) (host.Deck, e
 	// stall-turns); the count-based design keeps a match's outcome a pure
 	// function of its seed on every machine and every replay, exactly like
 	// the engine and the bots themselves.
-	return host.Options{Dir: g.dir, LoadDeck: load, Tokens: reg.Tokens, NameUniverse: reg.Cards, Sync: true, Cooldown: g.cooldown,
+	return host.Options{Dir: g.dir, LoadDeck: load, Tokens: reg.Tokens, NameUniverse: reg.AllCards(), Sync: true, Cooldown: g.cooldown,
 		MaxDecisionsPerTurn: host.DefaultMaxDecisionsPerTurn, DefaultBotAutoPayMana: g.botAutoPayMana,
 		MaxOnDemandTables: g.maxOnDemandTables, ThinkTimeout: g.manabrewThinkTimeout(),
 		// BP-18 (spec §7): the §9.4 search-CPU flags reach the host here.

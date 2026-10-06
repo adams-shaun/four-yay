@@ -939,7 +939,7 @@ func mainExit(args []string, stdout, stderr io.Writer) int {
 			cfg.Commanders = [][]int{cmdrs[pd.A], cmdrs[pd.B]}
 		}
 		cfg.Tokens = reg.Tokens
-		cfg.NameUniverse = reg.Cards
+		cfg.NameUniverse = reg.AllCards()
 		res := &gameResult{counts: [2]map[string]int64{{}, {}}}
 		gs := &gameState{res: res, cf: seat.NewBot(0), pairID: pd.String(), seed: s, deck: [2]string{pd.A, pd.B},
 			modes: map[[2]int32]*turnMode{}, maxEx: *maxEx, maxObjs: *maxObjs, exCount: map[string]int{}}
