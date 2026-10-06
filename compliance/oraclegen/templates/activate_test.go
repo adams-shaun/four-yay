@@ -165,7 +165,7 @@ func TestActivateSacrificeSelf(t *testing.T) {
 		t.Fatalf("precondition: Cathar Commando cost %q is not Sac<.../CARDNAME>", cost)
 	}
 	assertActivateItem(t, reg, "Cathar Commando", "activate#0.0",
-		"{1}, Sacrifice Cathar Commando")
+		"{1}, Sacrifice {this}")
 	it, _ := activateRequirement(t, reg, "Cathar Commando", "activate#0.0")
 	resolves := 0
 	for _, st := range it.Scenario.Steps {
