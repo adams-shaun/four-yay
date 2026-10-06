@@ -375,8 +375,6 @@ func staticConditionGap(f *cards.Face, st cards.Static) string {
 		return false
 	}
 	switch {
-	case descendsFromGraveyard(st):
-		return "counts permanent cards in a graveyard (gorge's Permanent filter matches only the battlefield)"
 	case has("setmaxhandsize"):
 		return "hand size is not observable in the permanent snapshot"
 	case has("adjustlandplays"):
@@ -402,12 +400,3 @@ func staticConditionGap(f *cards.Face, st cards.Static) string {
 // staticClassReason is the skip for a static a Class level gates: the
 // level-up is an activated ability the scenario driver has no op for.
 const staticClassReason = "needs a class level (the driver has no level-up op)"
-
-// descendsFromGraveyard reports a gate counting permanent cards in a
-// graveyard (Descend). The engine's "Permanent" filter base matches only
-// battlefield objects, so the count is always zero and the static never
-// applies: no fixture can make it observable.
-func descendsFromGraveyard(st cards.Static) bool {
-	words := affectedWords(st.ParamStr(cards.PKIsPresent))
-	return hasWord(words, "Permanent") && strings.EqualFold(st.ParamStr(cards.PKPresentZone), "Graveyard")
-}

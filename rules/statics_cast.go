@@ -602,7 +602,7 @@ func (e *Engine) countStaticPresent(sv staticView, spec string) int {
 		}
 		e.forEachObject(func(id state.ObjID) {
 			o := e.G.Obj(id)
-			if o != nil && o.Zone == zone && e.matchesSpec(spec, id, sc) {
+			if o != nil && o.Zone == zone && e.matchesSpec(presentSpecForZone(spec, zone), id, sc) {
 				n++
 			}
 		})

@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"activate","field":"p0.pool","diff":"gorge=G xmage=R"},"key":"activate | activate | p0.pool | gorge=G xmage=R","cards":1}
-{"card":"Temur Devotee","template":"activate#0.0","status":"diverge","api":"-","sets":["TDM"],"detail":"step 0 (activate) p0.pool: gorge \"G\", xmage \"R\""}
