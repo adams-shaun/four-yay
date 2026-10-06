@@ -250,9 +250,11 @@ func Sample(setup PublicGame, h History, opts SampleOptions) (out SampleResult, 
 	// object arena, ~0.7 MB) into the next attempt's genesis: most attempts
 	// are rejected, and a rejected world's engine is referenced by nothing
 	// (frames hold owned values, never engine memory). Reuse is invisible to
-	// the game (rules.Spare, TestSpareReuseIsInvisible).
+	// the game (rules.Spare, TestSpareReuseIsInvisible). Like the plan cache,
+	// a spare is owned by one goroutine: the probe rounds and frozen worker 0
+	// share this one, every other frozen worker owns its own.
 	var spare rules.Spare
-	runAttempt := func(res *SampleResult, plans *constraintPlanCache, store *exclusionStore, staging *exclusionStore, attempt int) (_ World, _ float64, kept bool, _ error) {
+	runAttempt := func(res *SampleResult, plans *constraintPlanCache, spare *rules.Spare, store *exclusionStore, staging *exclusionStore, attempt int) (_ World, _ float64, kept bool, _ error) {
 		res.Attempts++
 		seed := taggedSeed(opts.Seed, digest, attempt, seedEngine)
 		cfg := rules.Config{Seed: seed[0], Names: setup.Names, Decks: setup.Decks, Tokens: setup.Tokens, StartingLife: setup.StartingLife}
@@ -261,12 +263,12 @@ func Sample(setup PublicGame, h History, opts SampleOptions) (out SampleResult, 
 		// The Spare rides a private copy: a kept World's Config must not
 		// alias the recycling slot.
 		hcfg := cfg
-		hcfg.Spare = &spare
+		hcfg.Spare = spare
 		e, err := rules.NewHypotheticalPlanned(hcfg, tape, proposal.plan)
 		if e != nil {
 			defer func() {
 				if !kept {
-					spare = e.Release()
+					*spare = e.Release()
 				}
 			}()
 		}
@@ -431,7 +433,7 @@ func Sample(setup PublicGame, h History, opts SampleOptions) (out SampleResult, 
 		before := store.size()
 		roundStart := len(probeWorlds)
 		for i := 0; i < probesPerRound && attemptsUsed < probeCap && opts.Attempts-attemptsUsed > 1; i++ {
-			world, lw, accepted, err := runAttempt(&result, plans, store, staging, attemptsUsed)
+			world, lw, accepted, err := runAttempt(&result, plans, &spare, store, staging, attemptsUsed)
 			if err != nil {
 				return result, err
 			}
@@ -467,22 +469,22 @@ func Sample(setup PublicGame, h History, opts SampleOptions) (out SampleResult, 
 	// goroutines: each worker owns one (worker 0 inherits the probe rounds').
 	// A cache only saves rebuilding a plan; a plan is a pure function of its
 	// constraints, so which cache served an attempt cannot change its draw.
-	runFrozen := func(i int, plans *constraintPlanCache) {
+	runFrozen := func(i int, plans *constraintPlanCache, sp *rules.Spare) {
 		o := &frozen[i]
 		defer func() {
 			if p := recover(); p != nil {
 				o.panicked = p
 			}
 		}()
-		o.world, o.lw, o.accepted, o.err = runAttempt(&o.res, plans, store, nil, attemptsUsed+i)
+		o.world, o.lw, o.accepted, o.err = runAttempt(&o.res, plans, sp, store, nil, attemptsUsed+i)
 	}
 	if workers := min(opts.Parallelism, len(frozen)); workers > 1 {
 		var wg sync.WaitGroup
 		var next atomic.Int64
 		for w := 0; w < workers; w++ {
-			workerPlans := plans
+			workerPlans, workerSpare := plans, &spare
 			if w > 0 {
-				workerPlans = newConstraintPlanCache()
+				workerPlans, workerSpare = newConstraintPlanCache(), new(rules.Spare)
 			}
 			wg.Add(1)
 			go func() {
@@ -492,14 +494,14 @@ func Sample(setup PublicGame, h History, opts SampleOptions) (out SampleResult, 
 					if i >= len(frozen) {
 						return
 					}
-					runFrozen(i, workerPlans)
+					runFrozen(i, workerPlans, workerSpare)
 				}
 			}()
 		}
 		wg.Wait()
 	} else {
 		for i := range frozen {
-			runFrozen(i, plans)
+			runFrozen(i, plans, &spare)
 			if frozen[i].err != nil || frozen[i].panicked != nil {
 				break
 			}
