@@ -653,6 +653,27 @@ func zoneCandidates(reg *cards.Registry, filter, zone string) []cand {
 			}
 			return out
 		}
+		// An unserved subtype (the registry has no card of it, or the
+		// subtype is a deliberately unserved one such as Mount) fails
+		// closed: offering a non-matching card would declare a target the
+		// engine never offers. subtypeBattlefield already fails closed the
+		// same way; a mandatory slot then sinks the card and an optional one
+		// is omitted by fixtures.
+		return nil
+	}
+	// A NoAbilities qualifier demands a vanilla creature (Forge's
+	// Creature.NoAbilities); the fixed legacy list is all ability-bearing
+	// creatures but one, so offering it would declare a target the engine's
+	// NoAbilities target decision never offers. Both Grizzly Bears and Hill
+	// Giant are vanilla in the corpus.
+	if filterHasComponent(filter, "NoAbilities") {
+		var out []cand
+		for _, c := range []string{"Grizzly Bears", "Hill Giant"} {
+			for _, st := range seats {
+				out = append(out, cand{seat: st, zone: zone, card: c})
+			}
+		}
+		return out
 	}
 	var out []cand
 	for _, c := range []string{"Grizzly Bears", "Serra Angel", "Shock", "Llanowar Elves", "Glorious Anthem", "Ornithopter", "Forest", "Duress"} {
@@ -667,6 +688,25 @@ func zoneCandidates(reg *cards.Registry, filter, zone string) []cand {
 func firstFilterBase(filter string) string {
 	first := strings.SplitN(filter, ",", 2)[0]
 	return strings.ToLower(strings.SplitN(strings.TrimSpace(first), ".", 2)[0])
+}
+
+// filterHasComponent reports whether any of the filter's comma-separated
+// alternatives names the word as a '.'/'+'-separated component (a qualifier
+// such as NoAbilities), case-insensitively. A negated component
+// ("!NoAbilities") is a restriction the other way and never a demand.
+func filterHasComponent(filter, word string) bool {
+	for _, alt := range strings.Split(filter, ",") {
+		for _, part := range strings.FieldsFunc(alt, func(r rune) bool { return r == '.' || r == '+' }) {
+			part = strings.TrimSpace(part)
+			if strings.HasPrefix(part, "!") {
+				continue
+			}
+			if strings.EqualFold(part, word) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // fixtures is the cross product of every slot's candidates, capped. An

@@ -438,6 +438,13 @@ func baseline(setup map[string]Seat, f *cards.Face) {
 
 func searchesLibrary(f *cards.Face) bool {
 	for _, sa := range f.Abilities {
+		if sa.Kind == "SP" && sa.API == "Discover" {
+			// Discover (CR 701.57) exiles from the top of the library until a
+			// nonland card is found, so the scenario must seed a discoverable
+			// card; otherwise gorge finds none and no Treasures are made while
+			// XMage, whose library is not empty, creates them.
+			return true
+		}
 		if strings.Contains(sa.Line, "Origin$ Library") {
 			return true
 		}
