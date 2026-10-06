@@ -354,7 +354,7 @@ func TestRequirementsClassificationTable(t *testing.T) {
 			},
 		},
 		{
-			name: "static combat legality both requirement and gap",
+			name: "static combat legality requirement and gap",
 			c: cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{
 				stat("CantBlock", nil),
 			}}),
@@ -376,11 +376,11 @@ func TestRequirementsClassificationTable(t *testing.T) {
 		{
 			name: "static unrecognized mode is a gap",
 			c: cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{
-				stat("CantBeCast", nil),
+				stat("UnknownStatic", nil),
 			}}),
 			want: []Requirement{{
 				Key: "static#0.0", Family: "static", Face: 0, Slot: "0",
-				Sub: "static.gap:CantBeCast", Gap: "static mode CantBeCast",
+				Sub: "static.gap:UnknownStatic", Gap: "static mode UnknownStatic",
 			}},
 		},
 		{

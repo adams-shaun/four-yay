@@ -32,7 +32,7 @@ var StaticObserved = Template{ID: "static", Version: 1}
 // staticSubs are the level-B static sub-families this template serves.
 func staticSubs(sub string) bool {
 	switch sub {
-	case "static.disable-triggers", "static.combat-damage-toughness":
+	case "static.disable-triggers", "static.combat-damage-toughness", "static.can-attack-defender", "static.cant-block-by", "static.cant-be-cast", "static.cant-be-activated":
 		return true
 	}
 	return false
@@ -59,6 +59,14 @@ func staticRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 		return disableTriggersItem(reg, f, name, req)
 	case "static.combat-damage-toughness":
 		return combatDamageToughnessItem(reg, f, name, req)
+	case "static.can-attack-defender":
+		return canAttackDefenderItem(reg, f, name, req)
+	case "static.cant-block-by":
+		return cantBlockByItem(reg, f, name, req)
+	case "static.cant-be-cast":
+		return cantBeCastItem(reg, f, name, req)
+	case "static.cant-be-activated":
+		return cantBeActivatedItem(reg, f, name, req)
 	}
 	return skip("no observation for " + req.Sub)
 }

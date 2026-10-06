@@ -56,6 +56,10 @@ var combatKeywords = []string{
 var servableStaticModes = []struct{ mode, sub string }{
 	{"DisableTriggers", "static.disable-triggers"},
 	{"CombatDamageToughness", "static.combat-damage-toughness"},
+	{"CanAttackDefender", "static.can-attack-defender"},
+	{"CantBlockBy", "static.cant-block-by"},
+	{"CantBeCast", "static.cant-be-cast"},
+	{"CantBeActivated", "static.cant-be-activated"},
 }
 
 // combatStaticModes are the combat-legality statics whose presence on a face

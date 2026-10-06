@@ -144,6 +144,14 @@ func fields(s rules.OracleSnapshot, xmage bool, compare []string) []field {
 		field{"permanents", strings.Join(permKeysOpts(s.Permanents, compare), "\n")},
 		field{"stack", stackKeys(s.Stack)},
 	)
+	if wantsCompare(compare, CompareOffered) {
+		parts := make([]string, 0, len(s.Offered))
+		for _, o := range s.Offered {
+			parts = append(parts, o.Source+"|"+o.Kind+"|"+o.Label)
+		}
+		sort.Strings(parts)
+		out = append(out, field{"offered", strings.Join(parts, "\n")})
+	}
 	return out
 }
 
