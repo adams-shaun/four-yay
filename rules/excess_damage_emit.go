@@ -163,4 +163,3 @@ func flushExcessBatch(t *excessTally, emit func(events.Event) events.Event) {
 		t.entries = batch[:0]
 	}
 }
-
