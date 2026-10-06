@@ -1,7 +1,6 @@
 package host
 
 import (
-	"os"
 	"strings"
 	"sync"
 	"testing"

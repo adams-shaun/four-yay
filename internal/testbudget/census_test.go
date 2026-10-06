@@ -24,7 +24,7 @@ func TestEveryTestPackageRecordsRSS(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if entry.IsDir() && path != root && (strings.HasPrefix(entry.Name(), ".") || entry.Name() == "vendor") {
+		if entry.IsDir() && path != root && (strings.HasPrefix(entry.Name(), ".") || strings.HasPrefix(entry.Name(), "_") || entry.Name() == "vendor" || entry.Name() == "testdata") {
 			return filepath.SkipDir
 		}
 		if !entry.IsDir() && strings.HasSuffix(entry.Name(), "_test.go") {

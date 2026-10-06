@@ -28,7 +28,7 @@ func Main(m *testing.M, after ...func()) {
 			if code == 0 {
 				code = 1
 			}
-		} else if err := RecordRSS(dir, usage.Maxrss); err != nil {
+		} else if err := RecordRSS(dir, int64(usage.Maxrss)); err != nil {
 			fmt.Fprintf(os.Stderr, "testbudget: record RSS: %v\n", err)
 			if code == 0 {
 				code = 1
