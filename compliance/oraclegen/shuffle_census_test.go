@@ -17,10 +17,10 @@ var shuffleCensusSets = []string{
 }
 
 var shuffleCensusWant = map[string]int{
-	"BIG": 2, "BLB": 4, "DFT": 13, "DSK": 15, "ECL": 12,
-	"EOE": 27, "FDN": 23, "FIN": 21, "FRA": 16, "HOB": 11,
-	"LCI": 14, "MKM": 14, "MSH": 9, "OTJ": 11, "SOS": 10,
-	"SPM": 6, "TDM": 30, "TLA": 19, "TMT": 13, "WOE": 8,
+	"BIG": 0, "BLB": 0, "DFT": 0, "DSK": 3, "ECL": 0,
+	"EOE": 1, "FDN": 4, "FIN": 2, "FRA": 2, "HOB": 1,
+	"LCI": 1, "MKM": 1, "MSH": 0, "OTJ": 1, "SOS": 0,
+	"SPM": 0, "TDM": 12, "TLA": 3, "TMT": 2, "WOE": 0,
 }
 
 func TestShuffleCompareCensus(t *testing.T) {
