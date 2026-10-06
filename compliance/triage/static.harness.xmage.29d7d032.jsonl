@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"harness","field":"xmage","diff":"AssertionError: PlayerA - Targets list was setup by addTarget with […], but not used"},"key":"static | harness | xmage | AssertionError: PlayerA - Targets list was setup by addTarget with […], but not used","cards":1}
+{"card":"Allies at Last","template":"static#0.0","status":"harness","api":"Pump+EachDamage","sets":["TLA"],"detail":"xmage: AssertionError: PlayerA - Targets list was setup by addTarget with [@p1:Grizzly Bears], but not used"}

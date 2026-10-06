@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"setup","field":"permanents","diff":"Grizzly Bears gorge+[tapped] xmage+[]"},"key":"activate | setup | permanents | Grizzly Bears gorge+[tapped] xmage+[]","cards":1}
+{"card":"Skateboard","template":"activate#0.0","status":"diverge","api":"ChangesZone:Tap","sets":["TMT"],"detail":"setup permanents: gorge \"c0 o0 Grizzly Bears [bear creature] {G} 2/2 tapped\", xmage \"c0 o0 Grizzly Bears [bear creature] {G} 2/2\""}

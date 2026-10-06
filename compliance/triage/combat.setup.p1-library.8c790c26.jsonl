@@ -1,0 +1,3 @@
+{"shape":{"template":"combat","op":"setup","field":"p1.library","diff":"placement"},"key":"combat | setup | p1.library | placement","cards":2}
+{"card":"Maralen, Fae Ascendant","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Dig","sets":["ECL"],"detail":"setup p1.exile: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Maralen, Fae Ascendant","template":"combat#0.block","status":"diverge","api":"ChangesZone:Dig","sets":["ECL"],"detail":"setup p1.exile: gorge \"[Wastes, Wastes]\", xmage \"[]\""}

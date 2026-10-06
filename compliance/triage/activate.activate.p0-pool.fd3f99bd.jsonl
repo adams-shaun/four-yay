@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"activate","field":"p0.pool","diff":"gorge=G xmage="},"key":"activate | activate | p0.pool | gorge=G xmage=","cards":1}
+{"card":"Growing Rites of Itlimoc","template":"activate#1.1","status":"diverge","api":"ChangesZone:Dig+Phase:SetState","sets":["LCI"],"detail":"step 0 (activate) p0.pool: gorge \"G\", xmage \"\""}

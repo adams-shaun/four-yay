@@ -1,0 +1,2 @@
+{"shape":{"template":"combat","op":"attack","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Cecil, Redeemed Paladin@p0]"},"key":"combat | attack | stack | gorge=[ability:$CARD@p0] xmage=[ability:Cecil, Redeemed Paladin@p0]","cards":1}
+{"card":"Cecil, Dark Knight","template":"combat#1.attack","status":"diverge","api":"DamageDealtOnce:LoseLife","sets":["FIN"],"detail":"step 0 (attack) stack: gorge \"[ability:Cecil, Dark Knight@p0]\", xmage \"[ability:Cecil, Redeemed Paladin@p0]\""}

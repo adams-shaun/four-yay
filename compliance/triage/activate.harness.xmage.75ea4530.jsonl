@@ -1,0 +1,3 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}, Sacrifice this enchantment"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}, Sacrifice this enchantment","cards":2}
+{"card":"Momentum Breaker","template":"activate#0.0","status":"harness","api":"ChangesZone:Sacrifice","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: {2}, Sacrifice this enchantment"}
+{"card":"Outpace Oblivion","template":"activate#0.0","status":"harness","api":"ChangesZone:DealDamage","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: {2}, Sacrifice this enchantment"}

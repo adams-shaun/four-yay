@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Dinosaur Formula — {N}{R}, Discard this card"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Dinosaur Formula — {N}{R}, Discard this card","cards":1}
+{"card":"Stegron the Dinosaur Man","template":"activate#0.0","status":"harness","api":"-","sets":["SPM"],"detail":"xmage: AssertionError: Can't find ability to activate command: Dinosaur Formula — {1}{R}, Discard this card"}

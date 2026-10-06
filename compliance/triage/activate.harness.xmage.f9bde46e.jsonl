@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Crew N"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Crew N","cards":1}
+{"card":"Skyseer's Chariot","template":"activate#0.0","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Crew 2"}

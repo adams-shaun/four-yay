@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}, {T}, Sacrifice Syr Ginger"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}, {T}, Sacrifice Syr Ginger","cards":1}
+{"card":"Syr Ginger, the Meal Ender","template":"activate#0.0","status":"harness","api":"ChangesZone:PutCounter","sets":["WOE"],"detail":"xmage: AssertionError: Can't find ability to activate command: {2}, {T}, Sacrifice Syr Ginger"}

@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"harness","field":"xmage","diff":"IllegalArgumentException: […] Couldn't find a card: \"Lifetime\" Pass Holder"},"key":"trigger | harness | xmage | IllegalArgumentException: […] Couldn't find a card: \"Lifetime\" Pass Holder","cards":1}
+{"card":"Jackal, Genius Geneticist","template":"trigger#0.0","status":"harness","api":"SpellCast:CopySpellAbility","sets":["SPM"],"detail":"xmage: IllegalArgumentException: [TEST] Couldn't find a card: \"Lifetime\" Pass Holder"}

@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"gorge+token"},"key":"trigger | resolve | permanents | gorge+token","cards":1}
+{"card":"Innocent Bystander","template":"trigger#0.0","status":"diverge","api":"DamageDoneOnce:Investigate","sets":["MKM"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 token [artifact clue] {}\", xmage \"\""}

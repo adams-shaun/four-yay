@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"$CARD gorge+[2/3] xmage+[0/3]"},"key":"trigger | resolve | permanents | $CARD gorge+[2/3] xmage+[0/3]","cards":1}
+{"card":"Reckless Detective","template":"trigger#0.0","status":"diverge","api":"Attacks:GenericChoice","sets":["MKM"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Reckless Detective [creature detective devil] {R} 2/3 tapped attacking\", xmage \"c0 o0 Reckless Detective [creature detective devil] {R} 0/3 tapped attacking\""}

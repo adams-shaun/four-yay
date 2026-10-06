@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"setup","field":"permanents","diff":"Nessian Asp gorge+[6/7, counters=P1P1=2] xmage+[4/5]"},"key":"trigger | setup | permanents | Nessian Asp gorge+[6/7, counters=P1P1=2] xmage+[4/5]","cards":1}
+{"card":"Case of the Trampled Garden","template":"trigger#0.1","status":"diverge","api":"ChangesZone:PutCounter+Phase:AlterAttribute+AttackersDeclared:PutCounter","sets":["MKM"],"detail":"setup permanents: gorge \"c0 o0 Nessian Asp [creature snake] {G} 6/7 counters=P1P1=2\", xmage \"c0 o0 Nessian Asp [creature snake] {G} 4/5\""}

@@ -1,0 +1,5 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Exhaust — {N}{R}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Exhaust — {N}{R}","cards":4}
+{"card":"Draconautics Engineer","template":"activate#0.1","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {3}{R}"}
+{"card":"Greasewrench Goblin","template":"activate#0.0","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {2}{R}"}
+{"card":"Pacesetter Paragon","template":"activate#0.0","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {2}{R}"}
+{"card":"Prowcatcher Specialist","template":"activate#0.0","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {3}{R}"}

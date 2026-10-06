@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"cast","field":"stack","diff":"gorge=[ability:$CARD@p0, spell:Air Elemental@p0] xmage=[spell:Air Elemental@p0]"},"key":"trigger | cast | stack | gorge=[ability:$CARD@p0, spell:Air Elemental@p0] xmage=[spell:Air Elemental@p0]","cards":1}
+{"card":"Chronicle of Victory","template":"trigger#0.0","status":"diverge","api":"SpellCast:Draw","sets":["ECL"],"detail":"step 0 (cast) stack: gorge \"[ability:Chronicle of Victory@p0, spell:Air Elemental@p0]\", xmage \"[spell:Air Elemental@p0]\""}

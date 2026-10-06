@@ -1,0 +1,8 @@
+{"shape":{"template":"static","op":"setup","field":"p0.library","diff":"placement"},"key":"static | setup | p0.library | placement","cards":7}
+{"card":"Avengers Assemble!","template":"static#0.0","status":"diverge","api":"Phase:Draw","sets":["MSH"],"detail":"setup p0.hand: gorge \"[Avengers Assemble!, Wastes]\", xmage \"[Avengers Assemble!]\""}
+{"card":"Blossoming Tortoise","template":"static#0.0","status":"diverge","api":"ChangesZone:Mill+Attacks:Mill","sets":["WOE"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Captain America, Super-Soldier","template":"static#0.0","status":"diverge","api":"-","sets":["MSH"],"detail":"setup p0.hand: gorge \"[Captain America, Super-Soldier, Wastes]\", xmage \"[Captain America, Super-Soldier]\""}
+{"card":"Cid, Timeless Artificer","template":"static#0.0","status":"diverge","api":"-","sets":["FIN"],"detail":"setup p0.hand: gorge \"[Cid, Timeless Artificer, Wastes]\", xmage \"[Cid, Timeless Artificer]\""}
+{"card":"Ghalta the Immovable","template":"static#0.1","status":"diverge","api":"-","sets":["FRA"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"The Legend of Kyoshi","template":"static#1.0","status":"diverge","api":"-","sets":["TLA"],"detail":"setup p0.hand: gorge \"[Wastes, Wastes, Wastes, Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Wall Crawl","template":"static#0.0","status":"diverge","api":"ChangesZone:Token","sets":["SPM"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}

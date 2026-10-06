@@ -1,0 +1,7 @@
+{"shape":{"template":"combat","op":"setup","field":"p0.graveyard","diff":"gorge+[Jace Beleren] xmage+[]"},"key":"combat | setup | p0.graveyard | gorge+[Jace Beleren] xmage+[]","cards":6}
+{"card":"Curse-Marred Demon","template":"combat#0.attack","status":"diverge","api":"ChangesZone:ChangeZone","sets":["FRA"],"detail":"setup p0.graveyard: gorge \"[Jace Beleren]\", xmage \"[]\""}
+{"card":"Curse-Marred Demon","template":"combat#0.block","status":"diverge","api":"ChangesZone:ChangeZone","sets":["FRA"],"detail":"setup p0.graveyard: gorge \"[Jace Beleren]\", xmage \"[]\""}
+{"card":"Stockman, Mad Fly-entist","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Draw","sets":["TMT"],"detail":"setup p0.graveyard: gorge \"[Jace Beleren]\", xmage \"[]\""}
+{"card":"Stockman, Mad Fly-entist","template":"combat#0.block","status":"diverge","api":"ChangesZone:Draw","sets":["TMT"],"detail":"setup p0.graveyard: gorge \"[Jace Beleren]\", xmage \"[]\""}
+{"card":"Vile Entomber","template":"combat#0.attack","status":"diverge","api":"ChangesZone:ChangeZone","sets":["FDN"],"detail":"setup p0.graveyard: gorge \"[Jace Beleren]\", xmage \"[]\""}
+{"card":"Vile Entomber","template":"combat#0.block","status":"diverge","api":"ChangesZone:ChangeZone","sets":["FDN"],"detail":"setup p0.graveyard: gorge \"[Jace Beleren]\", xmage \"[]\""}

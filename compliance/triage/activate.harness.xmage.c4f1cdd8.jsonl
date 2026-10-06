@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Web Support — {N}{G}, {T}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Web Support — {N}{G}, {T}","cards":1}
+{"card":"Guy in the Chair","template":"activate#0.1","status":"harness","api":"-","sets":["SPM"],"detail":"xmage: AssertionError: Can't find ability to activate command: Web Support — {2}{G}, {T}"}

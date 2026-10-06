@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{B}, Discard {this}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{B}, Discard {this}","cards":1}
+{"card":"Harvester of Misery","template":"activate#0.0","status":"harness","api":"ChangesZone:PumpAll","sets":["BIG"],"detail":"xmage: AssertionError: Can't find ability to activate command: {1}{B}, Discard {this}"}

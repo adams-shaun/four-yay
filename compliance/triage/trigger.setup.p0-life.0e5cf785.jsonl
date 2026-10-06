@@ -1,0 +1,5 @@
+{"shape":{"template":"trigger","op":"setup","field":"p0.life","diff":"gorge-xmage=1"},"key":"trigger | setup | p0.life | gorge-xmage=1","cards":4}
+{"card":"Haliya, Guided by Light","template":"trigger#0.1","status":"diverge","api":"ChangesZone:GainLife+Phase:Draw","sets":["EOE"],"detail":"setup p0.life: gorge \"21\", xmage \"20\""}
+{"card":"Northern Air Temple","template":"trigger#0.1","status":"diverge","api":"ChangesZone:LoseLife","sets":["TLA"],"detail":"setup p0.life: gorge \"21\", xmage \"20\""}
+{"card":"Tithing Blade","template":"trigger#1.0","status":"diverge","api":"ChangesZone:Sacrifice","sets":["LCI"],"detail":"setup p0.life: gorge \"22\", xmage \"21\""}
+{"card":"Wreck Remover","template":"trigger#0.1","status":"diverge","api":"ChangesZone:ChangeZone+Attacks:ChangeZone","sets":["DFT"],"detail":"setup p0.life: gorge \"21\", xmage \"20\""}

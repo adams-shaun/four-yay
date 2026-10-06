@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"setup","field":"permanents","diff":"Brigid, Doun's Mind gorge+[tapped] xmage+[]"},"key":"trigger | setup | permanents | Brigid, Doun's Mind gorge+[tapped] xmage+[]","cards":1}
+{"card":"Brigid, Clachan's Heart","template":"trigger#1.0","status":"diverge","api":"ChangesZone:Token+Transformed:Token+Phase:SetState","sets":["ECL"],"detail":"setup permanents: gorge \"c0 o0 Brigid, Doun's Mind [creature kithkin legendary soldier] {G} 3/2 tapped\", xmage \"c0 o0 Brigid, Doun's Mind [creature kithkin legendary soldier] {G} 3/2\""}

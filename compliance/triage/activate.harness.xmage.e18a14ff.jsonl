@@ -1,0 +1,5 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Power-up — {N}{G}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Power-up — {N}{G}","cards":4}
+{"card":"Hercules, Prince of Power","template":"activate#0.0","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: AssertionError: Can't find ability to activate command: Power-up — {4}{G}"}
+{"card":"Pet Avengers","template":"activate#0.0","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: AssertionError: Can't find ability to activate command: Power-up — {6}{G}"}
+{"card":"Serpent Specialist","template":"activate#0.0","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: AssertionError: Can't find ability to activate command: Power-up — {3}{G}"}
+{"card":"White Tiger, Ava Ayala","template":"activate#0.0","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: AssertionError: Can't find ability to activate command: Power-up — {5}{G}"}

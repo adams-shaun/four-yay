@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalArgumentException: […] Couldn't find a card: Adorable Kitten"},"key":"static | harness | xmage | IllegalArgumentException: […] Couldn't find a card: Adorable Kitten","cards":1}
+{"card":"Claws Out","template":"static#0.0","status":"harness","api":"PumpAll","sets":["FDN"],"detail":"xmage: IllegalArgumentException: [TEST] Couldn't find a card: Adorable Kitten"}

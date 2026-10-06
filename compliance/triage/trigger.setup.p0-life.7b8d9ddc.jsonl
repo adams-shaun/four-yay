@@ -1,0 +1,7 @@
+{"shape":{"template":"trigger","op":"setup","field":"p0.life","diff":"gorge-xmage=-1"},"key":"trigger | setup | p0.life | gorge-xmage=-1","cards":6}
+{"card":"Blighted Blackthorn","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Draw+Attacks:Draw","sets":["ECL"],"detail":"setup p0.life: gorge \"19\", xmage \"20\""}
+{"card":"Conciliator's Duelist","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Draw+SpellCast:ChangeZone","sets":["SOS"],"detail":"setup p0.life: gorge \"19\", xmage \"20\""}
+{"card":"Lord Skitter's Blessing","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Token+Phase:LoseLife","sets":["WOE"],"detail":"setup p0.life: gorge \"19\", xmage \"20\""}
+{"card":"Namazu Trader","template":"trigger#0.1","status":"diverge","api":"ChangesZone:LoseLife+Attacks:Surveil","sets":["FIN"],"detail":"setup p0.life: gorge \"19\", xmage \"20\""}
+{"card":"Obsessive Pursuit","template":"trigger#0.1","status":"diverge","api":"ChangesZone:LoseLife+Phase:LoseLife+AttackersDeclared:PutCounter","sets":["TLA"],"detail":"setup p0.life: gorge \"18\", xmage \"19\""}
+{"card":"Obsessive Pursuit","template":"trigger#0.2","status":"diverge","api":"ChangesZone:LoseLife+Phase:LoseLife+AttackersDeclared:PutCounter","sets":["TLA"],"detail":"setup p0.life: gorge \"18\", xmage \"19\""}

@@ -1,0 +1,11 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Exhaust — {N}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Exhaust — {N}","cards":10}
+{"card":"Bitter Work","template":"activate#0.0","status":"harness","api":"AttackersDeclaredOneTarget:Draw","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {4}"}
+{"card":"Camera Launcher","template":"activate#0.0","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {3}"}
+{"card":"Hog-Monkey","template":"activate#0.0","status":"harness","api":"Phase:Pump","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {5}"}
+{"card":"Jeong Jeong, the Deserter","template":"activate#0.0","status":"harness","api":"Attacks:Mana","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {3}"}
+{"card":"Mai, Jaded Edge","template":"activate#0.0","status":"harness","api":"SpellCast:Pump","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {3}"}
+{"card":"Rangers' Refueler","template":"activate#0.0","status":"harness","api":"AbilityCast:Draw","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {4}"}
+{"card":"Rebellious Captives","template":"activate#0.0","status":"harness","api":"-","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {6}"}
+{"card":"Rocketeer Boostbuggy","template":"activate#0.0","status":"harness","api":"Attacks:Token","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {3}"}
+{"card":"Rough Rhino Cavalry","template":"activate#0.0","status":"harness","api":"Attacks:Mana","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {8}"}
+{"card":"Skyserpent Seeker","template":"activate#0.0","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {4}"}

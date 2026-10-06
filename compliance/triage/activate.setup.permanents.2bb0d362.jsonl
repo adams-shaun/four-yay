@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"setup","field":"permanents","diff":"$CARD gorge+[counters=STASH=1] xmage+[]"},"key":"activate | setup | permanents | $CARD gorge+[counters=STASH=1] xmage+[]","cards":1}
+{"card":"Hoarder's Overflow","template":"activate#0.0","status":"diverge","api":"ChangesZone:PutCounter+ManaExpend:PutCounter","sets":["BLB"],"detail":"setup permanents: gorge \"c0 o0 Hoarder's Overflow [enchantment] {R} counters=STASH=1\", xmage \"c0 o0 Hoarder's Overflow [enchantment] {R}\""}

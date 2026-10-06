@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{W}{U}{B}{R}{G}, {T}, Sacrifice this artifact"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{W}{U}{B}{R}{G}, {T}, Sacrifice this artifact","cards":1}
+{"card":"Everything Pizza","template":"activate#0.0","status":"harness","api":"ChangesZone:ChangeZone","sets":["TMT"],"detail":"xmage: AssertionError: Can't find ability to activate command: {2}{W}{U}{B}{R}{G}, {T}, Sacrifice this artifact"}

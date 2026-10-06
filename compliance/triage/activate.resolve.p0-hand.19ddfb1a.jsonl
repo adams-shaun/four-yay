@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"p0.hand","diff":"gorge+[Jace Beleren] xmage+[Grizzly Bears]"},"key":"activate | resolve | p0.hand | gorge+[Jace Beleren] xmage+[Grizzly Bears]","cards":1}
+{"card":"Ashiok, Wicked Manipulator","template":"activate#0.0","status":"diverge","api":"-","sets":["WOE"],"detail":"step 1 (resolve) p0.hand: gorge \"[Jace Beleren]\", xmage \"[Grizzly Bears]\""}

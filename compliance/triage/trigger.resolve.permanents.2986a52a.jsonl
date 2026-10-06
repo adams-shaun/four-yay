@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"$CARD types gorge+[enchantment] xmage+[]"},"key":"trigger | resolve | permanents | $CARD types gorge+[enchantment] xmage+[]","cards":1}
+{"card":"Emergent Haunting","template":"trigger#0.0","status":"diverge","api":"Phase:Animate","sets":["OTJ"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Emergent Haunting [creature enchantment spirit] {U} 3/3\", xmage \"c0 o0 Emergent Haunting [creature spirit] {U} 3/3\""}

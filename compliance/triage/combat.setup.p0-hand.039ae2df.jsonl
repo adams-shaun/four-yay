@@ -1,0 +1,3 @@
+{"shape":{"template":"combat","op":"setup","field":"p0.hand","diff":"gorge+[Jace Beleren] xmage+[]"},"key":"combat | setup | p0.hand | gorge+[Jace Beleren] xmage+[]","cards":2}
+{"card":"Rune-Scarred Demon","template":"combat#0.attack","status":"diverge","api":"ChangesZone:ChangeZone","sets":["FDN"],"detail":"setup p0.hand: gorge \"[Jace Beleren]\", xmage \"[]\""}
+{"card":"Rune-Scarred Demon","template":"combat#0.block","status":"diverge","api":"ChangesZone:ChangeZone","sets":["FDN"],"detail":"setup p0.hand: gorge \"[Jace Beleren]\", xmage \"[]\""}

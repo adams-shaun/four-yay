@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}, {T}, Sacrifice Professor Zei"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}, {T}, Sacrifice Professor Zei","cards":1}
+{"card":"Professor Zei, Anthropologist","template":"activate#0.1","status":"harness","api":"-","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: {1}, {T}, Sacrifice Professor Zei"}

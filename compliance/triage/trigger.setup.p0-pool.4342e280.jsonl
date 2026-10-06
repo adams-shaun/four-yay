@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"setup","field":"p0.pool","diff":"gorge=GG xmage="},"key":"trigger | setup | p0.pool | gorge=GG xmage=","cards":1}
+{"card":"Hulking Raptor","template":"trigger#0.0","status":"diverge","api":"Phase:Mana+BecomesTarget:Ward","sets":["LCI"],"detail":"setup p0.pool: gorge \"GG\", xmage \"\""}

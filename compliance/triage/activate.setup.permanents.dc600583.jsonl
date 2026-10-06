@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"setup","field":"permanents","diff":"Colossal Dreadmaw gorge+[8/8, counters=P1P1=2] xmage+[6/6]"},"key":"activate | setup | permanents | Colossal Dreadmaw gorge+[8/8, counters=P1P1=2] xmage+[6/6]","cards":1}
+{"card":"Cloudspire Skycycle","template":"activate#0.0","status":"diverge","api":"ChangesZone:PutCounter","sets":["DFT"],"detail":"setup permanents: gorge \"c0 o0 Colossal Dreadmaw [creature dinosaur] {G} 8/8 counters=P1P1=2\", xmage \"c0 o0 Colossal Dreadmaw [creature dinosaur] {G} 6/6\""}

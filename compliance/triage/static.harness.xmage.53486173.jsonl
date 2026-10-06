@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Cast Gray Ogre"},"key":"static | harness | xmage | AssertionError: Can't find ability to activate command: Cast Gray Ogre","cards":1}
+{"card":"Avatar Aang","template":"static#1.0","status":"harness","api":"ElementalBend:Draw+Attacks:Mana","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Gray Ogre"}

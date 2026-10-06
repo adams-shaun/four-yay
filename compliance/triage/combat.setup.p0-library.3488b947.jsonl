@@ -1,0 +1,64 @@
+{"shape":{"template":"combat","op":"setup","field":"p0.library","diff":"placement"},"key":"combat | setup | p0.library | placement","cards":63}
+{"card":"Aurora Awakener","template":"combat#0.attack","status":"diverge","api":"ChangesZone:DigUntil","sets":["ECL"],"detail":"setup p0.library_count: gorge \"38\", xmage \"39\""}
+{"card":"Aurora Awakener","template":"combat#0.block","status":"diverge","api":"ChangesZone:DigUntil","sets":["ECL"],"detail":"setup p0.library_count: gorge \"38\", xmage \"39\""}
+{"card":"Billowing Shriekmass","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Mill","sets":["FDN"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Billowing Shriekmass","template":"combat#0.block","status":"diverge","api":"ChangesZone:Mill","sets":["FDN"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Clifftop Lookout","template":"combat#0.attack","status":"diverge","api":"ChangesZone:DigUntil","sets":["BLB"],"detail":"setup p0.library_count: gorge \"38\", xmage \"39\""}
+{"card":"Clifftop Lookout","template":"combat#0.block","status":"diverge","api":"ChangesZone:DigUntil","sets":["BLB"],"detail":"setup p0.library_count: gorge \"38\", xmage \"39\""}
+{"card":"Crow of Dark Tidings","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Mill","sets":["FDN"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Crow of Dark Tidings","template":"combat#0.block","status":"diverge","api":"ChangesZone:Mill","sets":["FDN"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Daggerfang Duo","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Mill","sets":["BLB"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Daggerfang Duo","template":"combat#0.block","status":"diverge","api":"ChangesZone:Mill","sets":["BLB"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Dawnhand Eulogist","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Mill","sets":["ECL"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Dawnhand Eulogist","template":"combat#0.block","status":"diverge","api":"ChangesZone:Mill","sets":["ECL"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Deathcap Marionette","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Mill","sets":["LCI"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Deathcap Marionette","template":"combat#0.block","status":"diverge","api":"ChangesZone:Mill","sets":["LCI"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Desperate Bloodseeker","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Mill","sets":["OTJ"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Desperate Bloodseeker","template":"combat#0.block","status":"diverge","api":"ChangesZone:Mill","sets":["OTJ"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Dragonhawk, Fate's Tempest","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Dig+Attacks:Dig","sets":["BLB"],"detail":"setup p0.exile: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Dragonhawk, Fate's Tempest","template":"combat#0.block","status":"diverge","api":"ChangesZone:Dig+Attacks:Dig","sets":["BLB"],"detail":"setup p0.exile: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Dreadwing Scavenger","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Draw+Attacks:Draw","sets":["FDN"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Dreadwing Scavenger","template":"combat#0.block","status":"diverge","api":"ChangesZone:Draw+Attacks:Draw","sets":["FDN"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Emet-Selch, Unsundered","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Draw+Attacks:Draw+Phase:SetState","sets":["FIN"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Emet-Selch, Unsundered","template":"combat#0.block","status":"diverge","api":"ChangesZone:Draw+Attacks:Draw+Phase:SetState","sets":["FIN"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Fecund Greenshell","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Dig","sets":["BLB"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Fecund Greenshell","template":"combat#0.block","status":"diverge","api":"ChangesZone:Dig","sets":["BLB"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"H.E.R.B.I.E. Scout Unit","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Draw","sets":["MSH"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"H.E.R.B.I.E. Scout Unit","template":"combat#0.block","status":"diverge","api":"ChangesZone:Draw","sets":["MSH"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Icewind Elemental","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Draw","sets":["FDN"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Icewind Elemental","template":"combat#0.block","status":"diverge","api":"ChangesZone:Draw","sets":["FDN"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Jecht, Reluctant Guardian","template":"combat#1.attack","status":"diverge","api":"DamageDone:ChangeZone","sets":["FIN"],"detail":"setup p0.hand: gorge \"[]\", xmage \"[Wastes]\""}
+{"card":"Jecht, Reluctant Guardian","template":"combat#1.block","status":"diverge","api":"DamageDone:ChangeZone","sets":["FIN"],"detail":"setup p0.hand: gorge \"[]\", xmage \"[Wastes]\""}
+{"card":"Kinjalli's Dawnrunner","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Explore","sets":["LCI"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Kinjalli's Dawnrunner","template":"combat#0.block","status":"diverge","api":"ChangesZone:Explore","sets":["LCI"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Long Lake Nuisance","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Recruit","sets":["HOB"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Long Lake Nuisance","template":"combat#0.block","status":"diverge","api":"ChangesZone:Recruit","sets":["HOB"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Mineshaft Spider","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Mill","sets":["LCI"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Mineshaft Spider","template":"combat#0.block","status":"diverge","api":"ChangesZone:Mill","sets":["LCI"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Overlord of the Floodpits","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Draw+Attacks:Draw","sets":["DSK"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Overlord of the Floodpits","template":"combat#0.block","status":"diverge","api":"ChangesZone:Draw+Attacks:Draw","sets":["DSK"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Patient Instructor","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Recruit","sets":["HOB"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Patient Instructor","template":"combat#0.block","status":"diverge","api":"ChangesZone:Recruit","sets":["HOB"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Platypus-Bear","template":"combat#0.block","status":"diverge","api":"ChangesZone:Mill","sets":["TLA"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Primal Witchstalker","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Mill","sets":["FRA"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Primal Witchstalker","template":"combat#0.block","status":"diverge","api":"ChangesZone:Mill","sets":["FRA"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Quantum Riddler","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Draw","sets":["EOE"],"detail":"setup p0.hand: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Quantum Riddler","template":"combat#0.block","status":"diverge","api":"ChangesZone:Draw","sets":["EOE"],"detail":"setup p0.hand: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"River Herald Guide","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Explore","sets":["LCI"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"River Herald Guide","template":"combat#0.block","status":"diverge","api":"ChangesZone:Explore","sets":["LCI"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Satoru, the Infiltrator","template":"combat#0.attack","status":"diverge","api":"ChangesZoneAll:Draw","sets":["OTJ"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Satoru, the Infiltrator","template":"combat#0.block","status":"diverge","api":"ChangesZoneAll:Draw","sets":["OTJ"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Scarblade Scout","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Mill","sets":["ECL"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Scarblade Scout","template":"combat#0.block","status":"diverge","api":"ChangesZone:Mill","sets":["ECL"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Shinestriker","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Draw","sets":["ECL"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Shinestriker","template":"combat#0.block","status":"diverge","api":"ChangesZone:Draw","sets":["ECL"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Steamcore Scholar","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Draw","sets":["MKM"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Steamcore Scholar","template":"combat#0.block","status":"diverge","api":"ChangesZone:Draw","sets":["MKM"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Trystan, Callous Cultivator","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Mill+Transformed:Mill+Phase:SetState","sets":["ECL"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Trystan, Callous Cultivator","template":"combat#0.block","status":"diverge","api":"ChangesZone:Mill+Transformed:Mill+Phase:SetState","sets":["ECL"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Trystan, Callous Cultivator","template":"combat#1.attack","status":"diverge","api":"ChangesZone:Mill+Transformed:Mill+Phase:SetState","sets":["ECL"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Trystan, Callous Cultivator","template":"combat#1.block","status":"diverge","api":"ChangesZone:Mill+Transformed:Mill+Phase:SetState","sets":["ECL"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Venomized Cat","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Mill","sets":["SPM"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Venomized Cat","template":"combat#0.block","status":"diverge","api":"ChangesZone:Mill","sets":["SPM"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Visage of Dread","template":"combat#1.attack","status":"diverge","api":"ChangesZone:Discard","sets":["LCI"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Visage of Dread","template":"combat#1.block","status":"diverge","api":"ChangesZone:Discard","sets":["LCI"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
