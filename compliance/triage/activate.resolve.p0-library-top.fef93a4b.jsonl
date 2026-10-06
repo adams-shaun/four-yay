@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[$LIB, Glorious Anthem] xmage+[Grizzly Bears, Ornithopter]"},"key":"activate | resolve | p0.library_top | gorge+[$LIB, Glorious Anthem] xmage+[Grizzly Bears, Ornithopter]","cards":1}
+{"card":"World Map","template":"activate#0.0","status":"diverge","api":"-","sets":["FIN"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Glorious Anthem, Wastes]\", xmage \"[Ornithopter, Grizzly Bears, Wastes, Wastes, Jace Beleren]\""}

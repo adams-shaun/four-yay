@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Forest, Jace Beleren] xmage+[$LIB, Shock]"},"key":"activate | resolve | p0.library_top | gorge+[Forest, Jace Beleren] xmage+[$LIB, Shock]","cards":1}
+{"card":"Rampaging Spiketail","template":"activate#0.0","status":"diverge","api":"ChangesZone:Pump","sets":["LCI"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Wastes, Shock, Wastes, Wastes, Wastes]\""}
