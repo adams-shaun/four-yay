@@ -1,7 +1,10 @@
 package templates
 
 import (
+	"fmt"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/levelb"
@@ -49,7 +52,11 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 	case "Wrath of the Bloodmane":
 		p = costProbe{spell: name, mana: "CR", hand: []string{name}, battlefield: []string{"Tam, the Possibility"}}
 	default:
-		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "cost static probe not supported"}
+		var ok bool
+		p, ok = parameterCostProbe(reg, f, name, idx)
+		if !ok {
+			return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "cost static probe not supported: unsupported self-cost shape"}
+		}
 	}
 	slots := oraclegen.SlotSpecs(f)
 	fixtures := oraclegen.Fixtures(reg, slots)
@@ -75,6 +82,12 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 		targets := fx.Targets()
 		if p.targeted {
 			targets = []string{"p1"}
+		}
+		if strings.Contains(f.Statics[idx].Params["ValidTarget"], "tapped") {
+			for _, target := range targets {
+				tapFixtureTarget(target, &p0, &p1)
+			}
+			sc.Setup["p0"], sc.Setup["p1"] = p0, p1
 		}
 		cast := oraclegen.Step{Op: "cast", Seat: 0, Card: "p0:" + p.spell, Mana: p.mana, Targets: targets}
 		sc.Steps = append(sc.Steps, cast)
@@ -103,6 +116,158 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 		return it, nil
 	}
 	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "cost static has no fixture"}
+}
+
+// parameterCostProbe derives the simple own-spell cost shapes from the static
+// itself. Unsupported conditions fail with a specific skip rather than
+// silently guessing a fixture.
+func parameterCostProbe(reg *cards.Registry, f *cards.Face, name string, idx int) (costProbe, bool) {
+	st := f.Statics[idx]
+	if !strings.EqualFold(st.Params["ValidCard"], "Card.Self") || !strings.EqualFold(st.Params["Type"], "Spell") || (st.Params["EffectZone"] != "" && !strings.EqualFold(st.Params["EffectZone"], "All")) {
+		return costProbe{}, false
+	}
+	base, why := oraclegen.PoolFor(f.ManaCost)
+	if why != "" {
+		return costProbe{}, false
+	}
+	p := costProbe{spell: name, hand: []string{name}, mana: base}
+	if st.ModeKind() == cards.StaticRaiseCost {
+		var increase int
+		if _, err := fmt.Sscanf(st.Params["Amount"], "%d", &increase); err == nil && increase > 0 {
+			p.mana = strings.Repeat("C", increase) + base
+		} else if st.Params["Amount"] == "IncreaseCost" && st.Params["Cost"] != "" {
+			if extra, why := oraclegen.PoolFor(st.Params["Cost"]); why == "" {
+				p.mana = extra + base
+			}
+		}
+		if cost := st.Params["Cost"]; strings.Contains(cost, "BeholdExile<1/") {
+			for typ, card := range beholdFixture {
+				if strings.Contains(cost, "BeholdExile<1/"+typ+">") {
+					p.hand = append(p.hand, card)
+					break
+				}
+			}
+		}
+		return p, true
+	}
+	if st.ModeKind() != cards.StaticReduceCost {
+		return costProbe{}, false
+	}
+	reduction := 0
+	amount := st.Params["Amount"]
+	switch {
+	case strings.HasPrefix(st.Params["KeywordLine"], "Affinity:"):
+		typ := strings.TrimPrefix(st.Params["KeywordLine"], "Affinity:")
+		// A small, deterministic board turns affinity on without depending on
+		// the corpus-specific maximum reduction.
+		fixtures := affinityFixtures(reg, typ, 3)
+		if len(fixtures) < 3 {
+			return costProbe{}, false
+		}
+		p.battlefield = fixtures
+		reduction = 3
+	case strings.HasPrefix(amount, "__kwAffinity"):
+		return costProbe{}, false
+	case amount == "X" || amount == "Y" || amount == "Z":
+		// X/Y/Z reductions are fixture-dependent; one unit is the minimal
+		// positive probe and a gorge refusal remains visible in the item.
+		reduction = 1
+	case amount != "":
+		if _, err := fmt.Sscanf(amount, "%d", &reduction); err != nil || reduction < 1 {
+			return costProbe{}, false
+		}
+	default:
+		// A condition-gated reduction still gets the same self-cast probe;
+		// if the condition fixture is not modelled, the exact cast refusal is
+		// intentionally retained as a generated host-replay scenario.
+		reduction = 1
+	}
+	// Presence conditions in the common self-cost family are represented by
+	// a matching permanent. Other condition grammars remain explicit skips.
+	present := st.Params["IsPresent"]
+	if present != "" {
+		head := strings.SplitN(present, ".", 2)[0]
+		fixtures := map[string]string{"Otter": "Mischievous Snappers", "Frog": "Frog Lizard", "Creature": "Grizzly Bears", "Artifact": "Silver Myr", "Kithkin": "Kithkin Greatheart", "land": "Forest", "Land": "Forest", "Card": "Grizzly Bears"}
+		card := fixtures[head]
+		if card != "" {
+			p.battlefield = appendUnique(p.battlefield, card)
+		}
+	}
+	if target := st.Params["ValidTarget"]; target != "" {
+		// SlotSpecs/Fixtures provides the target objects for ValidTarget. Do not
+		// replace those object refs with the player target used by legacy probes.
+		if strings.Contains(target, "tapped") {
+			p.battlefield = appendUnique(p.battlefield, "Grizzly Bears")
+		}
+	}
+	if available := strings.Count(base, "C"); reduction > available {
+		reduction = available
+	}
+	var ok bool
+	p.mana, ok = removeGenericMana(base, reduction)
+	if !ok {
+		return costProbe{}, false
+	}
+	return p, true
+}
+
+func affinityFixtures(reg *cards.Registry, typ string, count int) []string {
+	// Sort by printed name so fixture selection does not depend on corpus
+	// compilation order. Distinct permanents are required: appendUnique removes
+	// duplicate names from setup and each permanent reduces the cost once.
+	cardsInOrder := append([]*cards.Card(nil), reg.Cards...)
+	firstName := func(c *cards.Card) string {
+		if len(c.Faces) == 0 || c.Faces[0] == nil {
+			return ""
+		}
+		return c.Faces[0].Name
+	}
+	sort.Slice(cardsInOrder, func(i, j int) bool {
+		return firstName(cardsInOrder[i]) < firstName(cardsInOrder[j])
+	})
+	var fixtures []string
+	for _, c := range cardsInOrder {
+		if len(c.Faces) == 0 {
+			continue
+		}
+		for _, face := range c.Faces {
+			for _, cardType := range face.Types {
+				if strings.EqualFold(cardType, typ) {
+					fixtures = appendUnique(fixtures, face.Name)
+					break
+				}
+			}
+			if len(fixtures) == count {
+				return fixtures
+			}
+		}
+	}
+	return fixtures
+}
+
+func removeGenericMana(pool string, n int) (string, bool) {
+	for n > 0 {
+		i := strings.IndexByte(pool, 'C')
+		if i < 0 {
+			return "", false
+		}
+		pool = pool[:i] + pool[i+1:]
+		n--
+	}
+	return pool, true
+}
+
+func tapFixtureTarget(ref string, p0, p1 *oraclegen.Seat) {
+	owner, card, ok := strings.Cut(ref, ":")
+	if !ok {
+		return
+	}
+	switch owner {
+	case "p0":
+		p0.Tapped = appendUnique(p0.Tapped, card)
+	case "p1":
+		p1.Tapped = appendUnique(p1.Tapped, card)
+	}
 }
 
 func appendUnique(dst []string, names ...string) []string {
