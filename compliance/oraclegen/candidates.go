@@ -304,6 +304,9 @@ type fixture struct {
 	// pre are steps that must run before the card's cast (create a token,
 	// attach an Aura, stamp a this-turn zone change).
 	pre []Step
+	// castMode is the cast option the card's own cast step selects (the
+	// runner's cast_mode); empty is the ordinary cast.
+	castMode string
 }
 
 // combatPlan is the attack/block preamble a fixture needs: attacker is the

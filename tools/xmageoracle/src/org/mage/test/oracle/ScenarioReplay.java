@@ -1876,7 +1876,11 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     String mana = str(st, "mana");
                     runCode("mana " + mana, turn, phase, p, (info, pl, g) -> addPool(pl, g, mana));
                 }
-                if (st.has("kicked") || st.has("cast_mode")) {
+                // cast_mode "optionalcost" is a plain cast on this side: XMage poses
+                // the "pay the additional cost?" chooseUse itself, and the yes and the
+                // cost's picks come from xmage_answers. Every other cast_mode, and
+                // kicked, stay unsupported.
+                if (st.has("kicked") || (st.has("cast_mode") && !"optionalcost".equals(str(st, "cast_mode")))) {
                     throw new IllegalArgumentException("kicked/cast_mode unsupported");
                 }
                 if (!sc0.has("xmage_answers")) {

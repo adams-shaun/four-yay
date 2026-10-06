@@ -318,6 +318,9 @@ func classifyStatic(f *cards.Face, st *cards.Static) (sub, gap string) {
 	if sub, ok := cantBeShape(f, st); ok {
 		return sub, ""
 	}
+	if optionalCostSelfShape(st) {
+		return "static.optional-cost", ""
+	}
 	if gap := cantBeNamedGap(st); gap != "" {
 		return "static.gap:" + st.Mode, gap
 	}
