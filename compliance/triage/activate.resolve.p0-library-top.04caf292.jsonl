@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Glorious Anthem, Grizzly Bears] xmage+[$LIB, Forest]"},"key":"activate | resolve | p0.library_top | gorge+[Glorious Anthem, Grizzly Bears] xmage+[$LIB, Forest]","cards":1}
-{"card":"Wishclaw Talisman","template":"activate#0.0","status":"diverge","api":"-","sets":["FDN"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Grizzly Bears, Glorious Anthem, Wastes]\", xmage \"[Wastes, Wastes, Wastes, Wastes, Forest]\""}

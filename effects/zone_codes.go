@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"math/bits"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -25,7 +26,9 @@ const (
 )
 
 // ZoneListOf compiles s with ParseZones' grammar.
-func ZoneListOf(s string) ZoneList {
+func ZoneListOf(s string) ZoneList { return zoneSetOf(s, false) }
+
+func zoneSetOf(s string, ignoreUnknown bool) ZoneList {
 	var c ZoneList
 	for part := range strings.SplitSeq(s, ",") {
 		part = strings.TrimSpace(part)
@@ -35,7 +38,9 @@ func ZoneListOf(s string) ZoneList {
 		}
 		z, known := parseZone(part)
 		if !known {
-			c |= zoneListInvalid
+			if !ignoreUnknown {
+				c |= zoneListInvalid
+			}
 			continue
 		}
 		c |= 1 << z
@@ -80,51 +85,44 @@ func ZoneWordsOf(s string) ZoneWords {
 // Has reports that z is named.
 func (c ZoneWords) Has(z state.Zone) bool { return z < 16 && c&(1<<z) != 0 }
 
-// Destination is a Destination$ value compiled once: a bit per named zone
-// (Destination$ is a comma list in the corpus: "Graveyard,Exile", "Ante,
-// Command,Exile,Hand,Library"), plus whether the text is exactly "Any" (the
-// matchers' wildcard spelling) or empty. A word ParseZone does not know
-// (Ante, PlanarDeck, TopOfLibrary...) names no zone this engine models, so it
-// contributes no bit; a text that names no modelled zone at all keeps ParseZone's
-// legacy degrade to the graveyard.
+// Destination is a Destination$ value compiled once as a lenient zone set:
+// unknown words are ignored rather than poisoning the list. Its bit layout
+// uses ZoneList's zone and wildcard bits plus an empty-text marker.
 type Destination uint16
 
 const (
-	destinationAny   Destination = 1 << 14
+	destinationAny               = Destination(zoneListAll)
 	destinationEmpty Destination = 1 << 15
 )
 
 // DestinationOf compiles s.
 func DestinationOf(s string) Destination {
-	var d Destination
-	for part := range strings.SplitSeq(s, ",") {
-		if z, ok := parseZone(part); ok {
-			d |= 1 << z
-		}
+	if strings.TrimSpace(s) == "" {
+		return destinationEmpty
 	}
-	if d == 0 {
-		d = 1 << state.ZGraveyard
-	}
-	if s == "Any" {
-		d |= destinationAny
-	}
-	if s == "" {
-		d |= destinationEmpty
-	}
-	return d
+	return Destination(zoneSetOf(s, true))
 }
 
-// Has reports that z is a named destination.
-func (d Destination) Has(z state.Zone) bool { return z < 14 && d&(1<<z) != 0 }
+// Admits reports that z is named or the list is a wildcard.
+func (d Destination) Admits(z state.Zone) bool {
+	return d&destinationAny != 0 || (z < 14 && d&(1<<z) != 0)
+}
 
-// Zones is the named destinations as a bitmask over state.Zone values.
-func (d Destination) Zones() uint32 { return uint32(d &^ (destinationAny | destinationEmpty)) }
+// Zones is the named zones as a bitmask over state.Zone values.
+func (d Destination) Zones() uint32 {
+	return uint32(d &^ (destinationAny | destinationEmpty))
+}
 
-// Admits reports that a move into z satisfies the Destination$ gate: the
-// text is exactly "Any", or z is named.
-func (d Destination) Admits(z state.Zone) bool { return d.IsAny() || d.Has(z) }
+// SoleZone reports the single named zone, if exactly one is named.
+func (d Destination) SoleZone() (state.Zone, bool) {
+	m := d.Zones()
+	if m == 0 || m&(m-1) != 0 {
+		return 0, false
+	}
+	return state.Zone(bits.TrailingZeros32(m)), true
+}
 
-// IsAny reports the text is exactly "Any".
+// IsAny reports the list contains the wildcard.
 func (d Destination) IsAny() bool { return d&destinationAny != 0 }
 
 // IsEmpty reports the text is empty.

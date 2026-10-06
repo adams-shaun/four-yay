@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"harness","field":"xmage","diff":"IllegalArgumentException: […] Couldn't find a card: A Golden Opportunity"},"key":"trigger | harness | xmage | IllegalArgumentException: […] Couldn't find a card: A Golden Opportunity","cards":1}
-{"card":"Guru Pathik","template":"trigger#0.1","status":"harness","api":"ChangesZone:Dig+SpellCast:PutCounter","sets":["TLA"],"detail":"xmage: IllegalArgumentException: [TEST] Couldn't find a card: A Golden Opportunity"}

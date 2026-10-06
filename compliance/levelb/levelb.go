@@ -197,6 +197,11 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 		if strings.EqualFold(origin, "Battlefield") && strings.EqualFold(dest, "Graveyard") && self {
 			return "trigger.dies", "", false
 		}
+		if selfLeavesBattlefield(t) {
+			// classifyZoneChangeTrigger served the stack-using shape; a
+			// Static$ cleanup never uses the stack, so it is a named gap.
+			return "trigger.gap:ChangesZone", "static trigger", false
+		}
 		return gapMode()
 
 	case cards.TriggerAttacks:

@@ -668,7 +668,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	var printed map[string]bool // allocated on the first printed grant
 	for _, sv := range continuous {
 		name := strings.TrimSpace(sv.ParamStr(cards.PKAddAbility))
-		if name == "" || !e.matchesSpec(sv.ParamStr(cards.PKAffected), id, e.specCtx(sv.Source, sv.Controller)) {
+		if name == "" || !manaGrantConditionHolds(e.G, sv) || !e.matchesSpec(sv.ParamStr(cards.PKAffected), id, e.specCtx(sv.Source, sv.Controller)) {
 			continue
 		}
 		source := e.G.Obj(sv.Source)

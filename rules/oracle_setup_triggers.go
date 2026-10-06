@@ -42,7 +42,8 @@ func setupPlacementDropsTrigger(t cards.Trigger, chapter bool) bool {
 		// read the merge-base filter used), so this is a trip through the
 		// compiled zone enum rather than a fresh string comparison.
 		d, ok := t.ParamCode(cards.PKDestination)
-		return ok && effects.Destination(d).Has(state.ZBattlefield)
+		z, sole := effects.Destination(d).SoleZone()
+		return ok && sole && z == state.ZBattlefield
 	case cards.TriggerChangesZoneAll:
 		return true
 	}

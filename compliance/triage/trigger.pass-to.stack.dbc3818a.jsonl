@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"pass_to","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Hydaelyn, the Mothercrystal@p0]"},"key":"trigger | pass_to | stack | gorge=[ability:$CARD@p0] xmage=[ability:Hydaelyn, the Mothercrystal@p0]","cards":1}
-{"card":"Venat, Heart of Hydaelyn","template":"trigger#1.0","status":"diverge","api":"SpellCast:Draw","sets":["FIN"],"detail":"step 0 (pass_to) stack: gorge \"[ability:Venat, Heart of Hydaelyn@p0]\", xmage \"[ability:Hydaelyn, the Mothercrystal@p0]\""}

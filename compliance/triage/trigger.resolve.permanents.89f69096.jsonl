@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"token colors gorge= xmage=WUBRG"},"key":"trigger | resolve | permanents | token colors gorge= xmage=WUBRG","cards":1}
+{"card":"The Wandering Minstrel","template":"trigger#0.0","status":"diverge","api":"Phase:Token","sets":["FIN"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 token [creature elemental] {} 2/2\", xmage \"c0 o0 token [creature elemental] {WUBRG} 2/2\""}

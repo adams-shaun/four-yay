@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"attack","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Ultimate Spider-Man@p0]"},"key":"trigger | attack | stack | gorge=[ability:$CARD@p0] xmage=[ability:Ultimate Spider-Man@p0]","cards":1}
-{"card":"Miles Morales","template":"trigger#1.0","status":"diverge","api":"ChangesZone:PutCounter","sets":["SPM"],"detail":"step 0 (attack) stack: gorge \"[ability:Miles Morales@p0]\", xmage \"[ability:Ultimate Spider-Man@p0]\""}

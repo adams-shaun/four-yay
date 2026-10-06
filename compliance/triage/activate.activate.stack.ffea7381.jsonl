@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"activate","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:$CARD@p0, ability:$CARD@p0]"},"key":"activate | activate | stack | gorge=[ability:$CARD@p0] xmage=[ability:$CARD@p0, ability:$CARD@p0]","cards":1}
-{"card":"Rangers' Refueler","template":"activate#0.0","status":"diverge","api":"AbilityCast:Draw","sets":["DFT"],"detail":"step 0 (activate) stack: gorge \"[ability:Rangers' Refueler@p0]\", xmage \"[ability:Rangers' Refueler@p0, ability:Rangers' Refueler@p0]\""}

@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"stack","diff":"gorge=[] xmage=[ability:Oko, Shadowmoor Scion@p0]"},"key":"trigger | setup | stack | gorge=[] xmage=[ability:Oko, Shadowmoor Scion@p0]","cards":1}
-{"card":"Oko, Lorwyn Liege","template":"trigger#1.0","status":"diverge","api":"Phase:SetState","sets":["ECL"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Oko, Shadowmoor Scion@p0]\""}

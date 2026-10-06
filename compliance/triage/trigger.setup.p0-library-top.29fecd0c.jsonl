@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"p0.library_top","diff":"gorge+[$LIB] xmage+[Glorious Anthem, Grizzly Bears, Shock]"},"key":"trigger | setup | p0.library_top | gorge+[$LIB] xmage+[Glorious Anthem, Grizzly Bears, Shock]","cards":1}
-{"card":"Sidequest: Raise a Chocobo","template":"trigger#1.1","status":"diverge","api":"ChangesZone:Token+Phase:SetState","sets":["FIN"],"detail":"setup p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Forest, Wastes]\", xmage \"[Jace Beleren, Grizzly Bears, Forest, Glorious Anthem, Shock]\""}

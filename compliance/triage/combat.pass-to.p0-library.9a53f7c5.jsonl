@@ -1,2 +1,0 @@
-{"shape":{"template":"combat","op":"pass_to","field":"p0.library","diff":"placement"},"key":"combat | pass_to | p0.library | placement","cards":1}
-{"card":"Aclazotz, Deepest Betrayal","template":"combat#0.attack","status":"diverge","api":"Attacks:Discard+Discarded:Token+ChangesZone:ChangeZone","sets":["LCI"],"detail":"step 1 (pass_to) p0.hand: gorge \"[]\", xmage \"[Wastes]\""}

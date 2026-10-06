@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"setup","field":"permanents","diff":"Avatar Kuruk gorge+[counters=LORE=1] xmage+[]"},"key":"trigger | setup | permanents | Avatar Kuruk gorge+[counters=LORE=1] xmage+[]","cards":1}
+{"card":"The Legend of Kuruk","template":"trigger#1.0","status":"diverge","api":"-","sets":["TLA"],"detail":"setup permanents: gorge \"c0 o0 Avatar Kuruk [avatar creature legendary] {} 4/3 counters=LORE=1\", xmage \"c0 o0 Avatar Kuruk [avatar creature legendary] {} 4/3\""}
