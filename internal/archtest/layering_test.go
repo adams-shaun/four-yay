@@ -94,6 +94,47 @@ func TestTrigmatchImportsStayBelowL5(t *testing.T) {
 	}
 }
 
+// scriptfactsImports is the closed set of module packages rules/scriptfacts
+// may import directly (the standard library is always allowed). rules/scriptfacts
+// is the pure card-fact leaf of the rules-split plan (2026-10-06): facts a
+// card's printed text and compiled script imply, derived with no *rules.Engine
+// and no game state. It reads the L0/L1 vocabulary (cards, state) and the L2
+// cost vocabulary (rules/cost); anything wider -- effects, events, decision,
+// rules or a rules subsystem package -- would pull a game-state reader into a
+// package whose whole contract is that a moving game cannot change an answer.
+//
+// To widen it, add the package here with a sentence arguing it is at or below
+// L2; a package above L2 never belongs in this list.
+var scriptfactsImports = map[string]bool{
+	module + "/cards":      true,
+	module + "/state":      true,
+	module + "/rules/cost": true,
+}
+
+// TestScriptFactsImportsStayBelowRules pins rules/scriptfacts' direct module
+// imports to scriptfactsImports.
+func TestScriptFactsImportsStayBelowRules(t *testing.T) {
+	const sub = module + "/rules/scriptfacts"
+	p, ok := packages(t)[sub]
+	if !ok {
+		t.Skip("rules/scriptfacts is not built yet")
+	}
+	var bad []string
+	for imp := range p.imports {
+		if !strings.HasPrefix(imp, module+"/") {
+			continue // the standard library (go.mod has no requires)
+		}
+		if !scriptfactsImports[imp] {
+			bad = append(bad, imp)
+		}
+	}
+	sort.Strings(bad)
+	for _, imp := range bad {
+		t.Errorf("%s imports %s; the card-fact leaf may import only %v "+
+			"(internal/archtest/layering_test.go scriptfactsImports)", sub, imp, sortedKeys(scriptfactsImports))
+	}
+}
+
 func sortedKeys(m map[string]bool) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {
