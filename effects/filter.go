@@ -444,15 +444,18 @@ var predicates = map[string]predFn{
 	// so no twin term is owed), and UnknownPredicates classifies it through
 	// the same predicates map, so the census and the matcher cannot disagree.
 	"CrewedThisTurn": func(g *state.Game, o *state.Object, _ state.PlayerID, src state.ObjID) bool {
-		if src == 0 || o.CrewedTurn != g.Turn {
-			return false
-		}
-		for _, v := range o.CrewedVehicles {
-			if v == src {
-				return true
-			}
-		}
-		return false
+		return pairedWithSourceThisTurn(g, o, src)
+	},
+	// SaddledThisTurn is CR 702.171's saddler marker (Forge's
+	// Creature.SaddledThisTurn: "a creature that saddled it this turn"), the
+	// exact twin of CrewedThisTurn: the creature tapped to pay the Mount's
+	// Saddle cost this turn. SOURCE-RELATIVE and fail-closed on a missing
+	// source for the same reason. events.Apply's Saddle fold records the
+	// pairing in the same per-turn list the Crew fold keeps. Calamity,
+	// Galloping Inferno, Rambling Possum, Fortune, the Gitrog's ride and
+	// Giant Beaver are the corpus carriers.
+	"SaddledThisTurn": func(g *state.Game, o *state.Object, _ state.PlayerID, src state.ObjID) bool {
+		return pairedWithSourceThisTurn(g, o, src)
 	},
 	// Permanent is Forge's CardProperty.Permanent (card.isPermanent()): the
 	// printed face is a permanent type, in ANY zone (CR 109.2). This is the
@@ -3342,3 +3345,19 @@ var objectHasAbilityCodes = state.NewStrCodes(
 	state.StrEntry[objectHasAbilityCode]{Key: "Activated.hasTapCost", Val: objectHasAbilityActivatedHasTapCost},
 	state.StrEntry[objectHasAbilityCode]{Key: "Activated.Exhaust", Val: objectHasAbilityActivatedExhaust},
 )
+
+// pairedWithSourceThisTurn reports whether o paid, this turn, a Crew or Saddle
+// cost for the permanent src: the pairing events.Apply's Crew and Saddle folds
+// record in o.CrewedVehicles, stamped with o.CrewedTurn. A missing source
+// fails closed.
+func pairedWithSourceThisTurn(g *state.Game, o *state.Object, src state.ObjID) bool {
+	if src == 0 || o == nil || o.CrewedTurn != g.Turn {
+		return false
+	}
+	for _, v := range o.CrewedVehicles {
+		if v == src {
+			return true
+		}
+	}
+	return false
+}

@@ -128,6 +128,25 @@ func evalCountBodySimple(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 			return 0, false, true
 		}
 		return c.TriggerRememberedAmount, true, true
+	case evalCountBodyCostCrewSize:
+		// Forge's Count$CrewSize (Luxurious Locomotive: "a Treasure token for
+		// each creature that crewed it this turn"): the creatures that paid a
+		// Crew cost for the host this turn -- the pairing events.Apply's Crew
+		// fold records, the same read Creature.CrewedThisTurn makes. A bare
+		// head; an argument is a shape this build does not model. No host, or
+		// no crewer, is a legitimate zero.
+		if arg != "" {
+			return 0, false, true
+		}
+		var n int32
+		if c != nil && c.Source != 0 {
+			for i := range g.Objs {
+				if pairedWithSourceThisTurn(g, &g.Objs[i], c.Source) {
+					n++
+				}
+			}
+		}
+		return n, true, true
 	case evalCountBodyCostLastStateBattlefieldWithFallback:
 		// The battlefield as the spell was cast, from its frozen snapshot,
 		// else the live battlefield (see evalCastBattlefieldCount).
