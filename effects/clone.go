@@ -899,8 +899,11 @@ var cloneDurationCodes = state.NewStrCodes(
 // cloneTypeEffect is a Clone copy's layer-four modifier, if any. A copy
 // exception "except it has changeling" (Omni-Changeling, Moritte) is a
 // copiable value, so its characteristic-defining ability applies in layer four
-// at the copy's timestamp -- before a later type strip -- not from the
-// layer-six keyword grant.
+// before EVERY ordinary layer-four effect, regardless of timestamps -- an
+// earlier creature-type strip or setter must survive it (CR 707.9b,
+// 613.2/613.3). It is therefore marked CDAAllCreatureTypes, which rules' type
+// walk seeds ahead of the walk, not AddAllCreatureTypes, which would apply at
+// the copy's timestamp after an older strip.
 func cloneTypeEffect(cp *CloneParams, addTypes, addKeywords []string, removeCardTypes, removeCreatureTypes, nonLegendary, removeSubTypes bool) (state.ContinuousEffect, bool) {
 	grantsChangeling := slices.ContainsFunc(addKeywords, func(k string) bool {
 		return cards.KeywordHeadIDOf(k) == cards.KeywordHeadIDOf("Changeling")
@@ -908,7 +911,7 @@ func cloneTypeEffect(cp *CloneParams, addTypes, addKeywords []string, removeCard
 	if len(addTypes) == 0 && !removeCardTypes && !removeCreatureTypes && !nonLegendary && !removeSubTypes && !cp.SetCreatureTypes && !grantsChangeling {
 		return state.ContinuousEffect{}, false
 	}
-	return state.ContinuousEffect{Layer: state.LType, AddTypes: slices.Clone(addTypes), AddAllCreatureTypes: grantsChangeling,
+	return state.ContinuousEffect{Layer: state.LType, AddTypes: slices.Clone(addTypes), CDAAllCreatureTypes: grantsChangeling,
 		RemoveCardTypes: removeCardTypes, RemoveCreatureTypes: removeCreatureTypes, SetCreatureTypes: cp.SetCreatureTypes,
 		RemoveLegendary: nonLegendary, RemoveSubTypes: removeSubTypes}, true
 }

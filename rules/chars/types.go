@@ -95,6 +95,23 @@ func TypesAndAllCreatureTypes(b Board, act []state.ContinuousEffect, id state.Ob
 	if !anyLType {
 		return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, base))), !o.ImpendingDormant() && allCreatureTypes
 	}
+	// A copy exception "...except it has changeling" is a copiable
+	// characteristic-defining ability (CR 707.9b): it applies before every
+	// ordinary timestamped layer-4 effect (CR 613.2/613.3), so an OLDER
+	// creature-type strip or setter must not be undone by it. Seed the
+	// semantic marker here, before the walk, rather than letting the walk
+	// apply it in timestamp order like an AddAllCreatureTypes grant; a later
+	// settlement below (a strip or setter, or a real all-types grant) still
+	// overrides the seed in its own turn. A CDA effect carries Layer LType,
+	// so the anyLType early return above already proves one can exist here.
+	for i := range act {
+		ce := &act[i]
+		if ce.Layer == state.LType && ce.CDAAllCreatureTypes &&
+			matchesWithTypes(b, ce, id, effects.TypeMatchWords(base, false), atStack) {
+			allCreatureTypes = true
+			break
+		}
+	}
 	// Copy-on-write: the printed list is copied only once an effect actually
 	// applies to this object (most objects are untouched by the layer-4
 	// effects in play). Every modification below -- the in-place filters
