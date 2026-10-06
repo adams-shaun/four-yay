@@ -442,6 +442,71 @@ func TestRequirementsClassificationTable(t *testing.T) {
 			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.cant-be-activated-combat"}},
 		},
 		{
+			name: "Kutzil CantBeCast opponent-turn shape is served",
+			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("CantBeCast", map[string]string{"ValidCard": "Card", "Condition": "PlayerTurn", "Caster": "Opponent"})}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.cant-be-cast-opponent-turn"}},
+		},
+		{
+			name: "opponent-turn CantBeCast with an extra Phases param is a gap",
+			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("CantBeCast", map[string]string{"ValidCard": "Card", "Condition": "PlayerTurn", "Caster": "Opponent", "Phases": "Upkeep"})}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.gap:CantBeCast", Gap: "static mode CantBeCast"}},
+		},
+		{
+			name: "Grand Abolisher CantBeActivated opponent-turn shape is served",
+			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("CantBeActivated", map[string]string{"ValidCard": "Artifact,Creature,Enchantment", "AffectedZone": "Battlefield", "Condition": "PlayerTurn", "Activator": "Opponent"})}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.cant-be-activated-opponent-turn"}},
+		},
+		{
+			name: "Clarion Conqueror CantBeActivated unconditional shape is served",
+			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("CantBeActivated", map[string]string{"AffectedZone": "Battlefield", "ValidCard": "Artifact,Creature,Planeswalker", "ValidSA": "Activated"})}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.cant-be-activated-all"}},
+		},
+		{
+			name: "CantBeActivated unconditional shape not naming creatures is a gap",
+			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("CantBeActivated", map[string]string{"ValidCard": "Artifact", "ValidSA": "Activated"})}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.gap:CantBeActivated", Gap: "static mode CantBeActivated"}},
+		},
+		{
+			name: "Stuck in Summoner's Sanctum CantBeActivated enchanted shape is served",
+			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("CantBeActivated", map[string]string{"ValidCard": "Permanent.EnchantedBy", "Secondary": "True"})}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.cant-be-activated-enchanted"}},
+		},
+		{
+			name: "Petrify CantBeActivated Card.EnchantedBy shape is served",
+			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("CantBeActivated", map[string]string{"ValidCard": "Card.EnchantedBy"})}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.cant-be-activated-enchanted"}},
+		},
+		{
+			name: "Jace CantBeCast first-turns shape (inline SVar) is served",
+			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("CantBeCast", map[string]string{"ValidCard": "Card.Self", "EffectZone": "All", "Caster": "Player.Active", "CheckSVar": "Count$YourTurns", "SVarCompare": "LE3"})}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.cant-be-cast-first-turns"}},
+		},
+		{
+			name: "Spider-Man 2099 CantBeCast first-turns shape (Z SVar) is served",
+			c:    cardOf(&cards.Face{Types: []string{"Creature"}, SVars: map[string]string{"Z": "Count$YourTurns"}, Statics: []cards.Static{stat("CantBeCast", map[string]string{"ValidCard": "Card.Self", "EffectZone": "All", "Caster": "Player.Active", "CheckSVar": "Z", "SVarCompare": "LE3"})}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.cant-be-cast-first-turns"}},
+		},
+		{
+			name: "first-turns CantBeCast whose SVar is not YourTurns is a gap",
+			c:    cardOf(&cards.Face{Types: []string{"Creature"}, SVars: map[string]string{"Z": "Count$Devotion"}, Statics: []cards.Static{stat("CantBeCast", map[string]string{"ValidCard": "Card.Self", "EffectZone": "All", "Caster": "Player.Active", "CheckSVar": "Z", "SVarCompare": "LE3"})}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.gap:CantBeCast", Gap: "static mode CantBeCast"}},
+		},
+		{
+			name: "High Noon CantBeCast NumLimitEachTurn is served",
+			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("CantBeCast", map[string]string{"ValidCard": "Card", "Caster": "Player", "NumLimitEachTurn": "1"})}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.cant-be-cast-limit"}},
+		},
+		{
+			name: "Sorcerous Spyglass CantBeActivated chosen name is a named gap",
+			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("CantBeActivated", map[string]string{"ValidCard": "Card.NamedCard", "ValidSA": "Activated.!ManaAbility"})}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.gap:CantBeActivated", Gap: "static CantBeActivated chosen-name needs an as-enters name choice"}},
+		},
+		{
+			name: "Unstable Glyphbridge CantBeCast attacked-you is a named gap",
+			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("CantBeCast", map[string]string{"ValidCard": "Card", "Caster": "Player.Opponent+attackedYouThisTurn"})}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.gap:CantBeCast", Gap: "static CantBeCast attacked-you condition"}},
+		},
+		{
 			name: "CantBeCast generic shape remains a gap",
 			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("CantBeCast", map[string]string{"ValidCard": "Card"})}}),
 			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.gap:CantBeCast", Gap: "static mode CantBeCast"}},

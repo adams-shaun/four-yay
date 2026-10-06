@@ -73,6 +73,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"skip:trigger.etb-other: trigger no recipe: etb filter OppCtrl (Creature.OppCtrl)": 1,
 		"skip:trigger.dies: trigger condition: counters":                                   0,
 	},
+	// Both of Ruric Thar, Biomagus's prowess instances are served.
 	"FRA": {
 		"served:trigger.attacks":                             5,
 		"served:trigger.attacks-one-target":                  2,
