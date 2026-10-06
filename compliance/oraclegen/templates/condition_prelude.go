@@ -28,6 +28,10 @@ type conditionPrelude struct {
 	// lets the activate and trigger templates label the prelude's activations
 	// for XMage exactly as they label their own.
 	xability []string
+	// life is p0's setup life total when nonzero: an activation gated on
+	// "at least N life" (Count$YourLifeTotal against a literal or a
+	// starting-life offset) sets it rather than gaining the life by a cast.
+	life int32
 }
 
 // conditionPreludes offers condition setup candidates in stable order. It
@@ -164,8 +168,10 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 		}
 		if contains("count$thisturncast_card.noncreature", "count$thisturncast_instant", "count$thisturncast_sorcery", conditionParamText("SVarCompare", "GE2")) {
 			if a, ok := cast("Shock"); ok {
-				if b, ok := cast("Shock"); ok {
-					add(conditionPrelude{hand: []string{"Shock", "Shock"}, steps: []oraclegen.Step{a, {Op: "resolve"}, b, {Op: "resolve"}}})
+				if b, ok := cast("Lightning Bolt"); ok {
+					// Distinct names: a second cast of one name is an
+					// ambiguous reference to the first.
+					add(conditionPrelude{hand: []string{"Shock", "Lightning Bolt"}, steps: []oraclegen.Step{a, {Op: "resolve"}, b, {Op: "resolve"}}})
 				}
 			}
 		}
@@ -274,6 +280,9 @@ func triggerConditionSkip(t *cards.Trigger, svars map[string]string) string {
 		case strings.Contains(lowerBody, "count$") && (strings.Contains(lowerBody, "valid ") || strings.Contains(lowerBody, "valid$")):
 			return "condition: board count (" + label + ")"
 		case strings.Contains(lowerBody, "count$"), strings.Contains(lowerBody, "playercountproperty"), strings.Contains(lowerBody, "playercountopponents"):
+			if gap := historyNamedGap(lowerBody); gap != "" {
+				return "condition: turn history, " + gap + " (" + label + ")"
+			}
 			return "condition: turn history (" + label + ")"
 		default:
 			return "condition: SVar gate (" + label + ")"

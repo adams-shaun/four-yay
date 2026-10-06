@@ -29,9 +29,12 @@ func TestCanonicalPlanOfTheViewIsSupported(t *testing.T) {
 // canonGameViews plays a real game and returns every remapped observation
 // view (with and without its potential actions) it captures.
 func canonGameViews(t *testing.T, frames int) []view.View {
+	return canonGameViewsOf(t, frames, 30_000_002, "mono-red-prowess", "mono-blue-tempo")
+}
+
+func canonGameViewsOf(t *testing.T, frames int, seed uint64, names ...string) []view.View {
 	t.Helper()
 	reg := testutil.CorpusRegistry(t)
-	names := []string{"mono-red-prowess", "mono-blue-tempo"}
 	decks := make([][]*cards.Card, len(names))
 	for i, n := range names {
 		var err error
@@ -39,7 +42,7 @@ func canonGameViews(t *testing.T, frames int) []view.View {
 			t.Fatal(err)
 		}
 	}
-	e := rules.New(rules.Config{Seed: 30_000_002, Names: names, Decks: decks, Tokens: reg.Tokens})
+	e := rules.New(rules.Config{Seed: seed, Names: names, Decks: decks, Tokens: reg.Tokens})
 	e.Advance()
 	c := NewCollector(0)
 	rngs := BotRandoms(11, len(names))
@@ -78,6 +81,13 @@ func canonOf(t *testing.T, v *view.View) []byte {
 	}
 	if !bytes.Equal(e.buf, at.buf) {
 		t.Fatal("encodeAt and encode disagree on a view")
+	}
+	var gen canonEncoder
+	if err := gen.encodeView(v); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(e.buf, gen.buf) {
+		t.Fatal("the generated encoder and the reflective oracle disagree on a view")
 	}
 	return e.buf
 }

@@ -111,7 +111,10 @@ func TestCantBeCastFirstTurns(t *testing.T) {
 func TestStaticCantBeNamedSkips(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for name, want := range map[string]string{
-		"Sorcerous Spyglass": "chosen-name needs an as-enters name choice",
+		// Sorcerous Spyglass's castable shape is served
+		// (static.cant-be-activated-named); the land that names as it
+		// enters keeps the gap.
+		"Petrified Hamlet": "chosen-name needs an as-enters name choice",
 	} {
 		c, ok := reg.Lookup(name)
 		if !ok {

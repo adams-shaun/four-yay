@@ -172,6 +172,17 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 			steps = append([]oraclegen.Step{{Op: "pass_to", Step: "main2"}}, steps...)
 		}
 		base := triggerCause{steps: steps}
+		if active == "p0" && step != "main1" && remembersOwnChoices(t.Effect) {
+			// "Choose one that hasn't been chosen" (Demonic Pact): setup
+			// passes turn 1's upkeep with the card in place, so the trigger
+			// fires there first on a fallback answer and narrows the modes the
+			// observed firing offers -- a hidden setup choice XMage's driver
+			// does not make alike. Cast the card on turn 1 so the observed
+			// firing is its first.
+			cast := base
+			cast.castSelfX = true
+			out = append(out, cast)
+		}
 		out = append(out, base)
 		for _, condition := range conditionPreludes(reg, t.Params, f.SVars) {
 			out = append(out, applyPrelude(base, condition))
@@ -198,6 +209,9 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 			return causes, why
 		}
 		if causes, why, ok := tapCombatRecipe(reg, f, name, t, sub); ok {
+			return causes, why
+		}
+		if causes, why, ok := stateTriggerRecipe(reg, f, name, t, sub); ok {
 			return causes, why
 		}
 		return nil, "no recipe for " + sub
@@ -294,4 +308,18 @@ func phaseStep(phase string) (string, bool) {
 	default:
 		return "", false
 	}
+}
+
+// remembersOwnChoices reports whether an effect chain's choices depend on
+// its own earlier resolutions: a Charm whose ChoiceRestriction$ removes the
+// modes already chosen this game.
+func remembersOwnChoices(sa *cards.SA) bool {
+	seen := map[*cards.SA]bool{}
+	for ; sa != nil && !seen[sa]; sa = sa.Sub {
+		seen[sa] = true
+		if strings.EqualFold(sa.ParamStr(cards.PKChoiceRestriction), "ThisGame") {
+			return true
+		}
+	}
+	return false
 }

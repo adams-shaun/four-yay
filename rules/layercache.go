@@ -2,7 +2,6 @@ package rules
 
 import (
 	"fmt"
-	"reflect"
 	"sync"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -393,7 +392,7 @@ func (e *Engine) restampStatic(n int) {
 	e.staticEpoch = n
 	e.staticVersion, e.staticObjs = e.continuousVersion, len(e.G.Objs)
 	if layerInertVerify {
-		if fresh := e.staticEffects(nil); !reflect.DeepEqual(fresh, e.staticContinuous[:len(e.staticContinuous):len(e.staticContinuous)]) && !(len(fresh) == 0 && len(e.staticContinuous) == 0) {
+		if fresh := e.staticEffects(nil); !continuousEffectsEqual(fresh, e.staticContinuous[:len(e.staticContinuous):len(e.staticContinuous)]) && !(len(fresh) == 0 && len(e.staticContinuous) == 0) {
 			panic(fmt.Sprintf("rules: layer-inert static memo reuse at log %d disagrees with a rescan (%d vs %d effects)", n, len(e.staticContinuous), len(fresh)))
 		}
 	}
@@ -449,7 +448,7 @@ func (e *Engine) verifyInertActive() {
 	e.derivedPrevEpoch, e.derivedPrevVersion, e.derivedPrevObjs = savedPrevEpoch, savedPrevVersion, savedPrevObjs
 	e.derivedPrevEntered, e.derivedBFSeq = savedPrevEntered, savedBFSeq
 	e.activeList = savedList
-	if len(cached) != len(fresh) || (len(cached) > 0 && !reflect.DeepEqual(cached, fresh)) {
+	if len(cached) != len(fresh) || (len(cached) > 0 && !continuousEffectsEqual(cached, fresh)) {
 		panic(fmt.Sprintf("rules: layer-inert active() reuse at log %d disagrees with a rebuild (%d vs %d effects)", len(e.L.Events), len(cached), len(fresh)))
 	}
 }

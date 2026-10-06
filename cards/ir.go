@@ -377,8 +377,12 @@ func (c *Card) ColourIdentity() uint8 {
 // positive costs only the rename refresh's own anySetNameActive
 // short-circuit; a false negative would leave a resolving effect's name
 // filter reading the printed name (the Curse of Fenric's own chapter III
-// `Creature.namedFenric` target is exactly that case).
-func (c *Card) SetsName() bool {
+// `Creature.namedFenric` target is exactly that case). The answer is
+// memoised per card (card_probes.go): every genesis asks it over the decks
+// and the whole token table.
+func (c *Card) SetsName() bool { return c.probe().setsName }
+
+func (c *Card) setsNameScan() bool {
 	if c == nil {
 		return false
 	}

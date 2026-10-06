@@ -30,13 +30,20 @@ func generateBKey(t *testing.T, name, key string) oraclegen.Item {
 // A search-and-shuffle over the activate fixture's named search pool leaves an
 // order XMage randomises (measured: Expedition Map, Maze's End, Wishclaw
 // Talisman diverged on library_top only); the item compares counts, not order.
-// A static or combat item of a searching card never runs the search and keeps
-// comparing order.
+// The search need not be the exercised ability: a static item still casts the
+// card (Prismatic Undercurrents' and Lo and Li's ETB search), a combat item
+// still deals damage (Tempest Hawk's damage search), and an activate item's
+// sacrifice cost fires a search trigger (Heaped Harvest). Those four flipped
+// library_top between two identical XMage runs (2026-10-06).
 func TestSearchShuffleOverNamedLibrarySkipsLibraryOrder(t *testing.T) {
 	for _, c := range []struct{ name, key string }{
 		{"Expedition Map", "activate#0.0"},
 		{"Maze's End", "activate#0.1"},
 		{"Wishclaw Talisman", "activate#0.0"},
+		{"Heaped Harvest", "activate#0.0"},
+		{"Prismatic Undercurrents", "static#0.0"},
+		{"Tempest Hawk", "combat#0.attack"},
+		{"Lo and Li, Twin Tutors", "static#0.1"},
 	} {
 		it := generateBKey(t, c.name, c.key)
 		if !oraclegen.NamedLibrary(&it.Scenario) {
@@ -67,5 +74,19 @@ func TestAcceptedOptionalSacrificeScriptsYesFirst(t *testing.T) {
 	}
 	if len(got) != 2 || got[0] != (oraclegen.XAnswer{Seat: 1, Kind: "choice", Value: "yes"}) || got[1].Value != "Grizzly Bears" {
 		t.Fatalf("xmage answers = %+v, want seat-1 yes then Grizzly Bears", got)
+	}
+}
+
+// A p0 upkeep trigger whose modes depend on its own earlier choices ("choose
+// one that hasn't been chosen") is cast on turn 1, so the observed firing is
+// its first in both engines (setup would otherwise fire it on turn 1 on a
+// fallback answer).
+func TestRememberedChoiceUpkeepTriggerCastsTheCardFirst(t *testing.T) {
+	it := generateBKey(t, "Demonic Pact", "trigger#0.0")
+	if len(it.Steps) == 0 || it.Steps[0].Op != "cast" || it.Steps[0].Card != "p0:Demonic Pact" {
+		t.Fatalf("first step = %+v, want the card's own cast", it.Steps)
+	}
+	if len(it.Setup["p0"].Battlefield) != 0 {
+		t.Fatalf("p0 battlefield at setup = %v, want empty", it.Setup["p0"].Battlefield)
 	}
 }

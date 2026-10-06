@@ -1,0 +1,2 @@
+{"shape":{"template":"combat","op":"pass_to","field":"p1.life","diff":"gorge-xmage=2"},"key":"combat | pass_to | p1.life | gorge-xmage=2","cards":1}
+{"card":"Grub, Storied Matriarch","template":"combat#1.attack","status":"diverge","api":"ChangesZone:ChangeZone+Transformed:ChangeZone+Phase:SetState","sets":["ECL"],"detail":"step 1 (pass_to) p1.life: gorge \"20\", xmage \"18\""}

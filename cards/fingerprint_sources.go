@@ -28,6 +28,7 @@ import "embed"
 //go:embed control_static_probe.go
 //go:embed counter_keyword.go
 //go:embed doc.go
+//go:embed equal.go
 //go:embed face.go
 //go:embed fetch.go
 //go:embed fingerprint.go
@@ -105,6 +106,7 @@ import "embed"
 //go:embed kw_unearth.go
 //go:embed kw_vanishing.go
 //go:embed kw_ward.go
+//go:embed layout.go
 //go:embed linemodes.go
 //go:embed link.go
 //go:embed mana_production.go

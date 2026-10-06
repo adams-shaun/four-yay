@@ -132,8 +132,8 @@ func (e *Engine) finishEnteredStep() {
 	// same every-entry-site convention the planeswalker starting loyalty
 	// uses); advanceSagas here is the precombat-main half -- one lore counter
 	// per Saga the ACTIVE player controls, once per turn, including the
-	// game's first turn (whose draw CR 103.8a skips, but whose Saga action is
-	// unaffected). The chapter triggers queue off the CounterChange events it
+	// game's first turn (which in a two-player game has no draw step,
+	// CR 103.8a, but whose Saga action is unaffected). The chapter triggers queue off the CounterChange events it
 	// emits (rules' chapter check). If an AddCounter replacement parks a
 	// CR 616.1 order choice on one of those placements, the step's priority
 	// is deferred to the answer's resume, exactly as the draw's Dredge ask
@@ -381,12 +381,10 @@ func (e *Engine) finishUntapStep(next int) bool {
 //	resolving later in the step can also produce, makes it run exactly once
 //	no matter what resolves afterward.
 //
-//	Ruling F45: CR 103.8a skips the starting player's first draw only in a
-//	two-player game. Multiplayer free-for-all games take that draw normally
-//	(CR 800.7). len(e.G.Players) is the constructed seat count; eliminated
-//	players remain in the slice, so the rule cannot change as players lose.
-//	e.G.Turn > 1 preserves the draw on every later turn. !Lost keeps an
-//	eliminated active player from drawing.
+//	CR 103.8a's first-turn skip is not a gate here: in a two-player game
+//	the starting player's first turn never ENTERS the draw step at all
+//	(skipFirstDrawStep), so this action is never reached for it. !Lost
+//	keeps an eliminated active player from drawing.
 //
 //	Ruling T28-b (fix round 1): the Lost guard is REACHABLE in ordinary
 //	play, not a defensive leftover -- an earlier draft of this comment
@@ -421,10 +419,32 @@ func (e *Engine) finishUntapStep(next int) bool {
 // The Saga lore counter is NOT part of this action (CR 505.4/703.4f puts it
 // at the beginning of the precombat main phase, not after the draw step):
 // advanceSagas is run from finishEnteredStep's StepMain1 branch, so the
-// game's first turn -- whose draw CR 103.8a skips -- still takes it.
+// game's first turn -- which has no draw step in a two-player game -- still
+// takes it.
+
+// skipFirstDrawStep applies CR 103.8a: "In a two-player game, the player
+// who plays first skips the draw step (see rule 504) of their first turn."
+// The whole STEP is skipped, not only its draw -- no StepChange to the draw
+// step is emitted, so no "at the beginning of the draw step" trigger fires
+// and no player receives priority in it; the turn goes from upkeep straight
+// to the precombat main phase. CR 103.8c: in every other multiplayer game no
+// player skips it (gorge models no Two-Headed Giant teams, so CR 103.8b's
+// team case does not arise). len(g.Players) is the constructed seat count
+// -- eliminated players stay in the slice, so the rule cannot change as
+// players lose -- and Turn 1 is the game's first turn, the starting
+// player's. Every site that would enter the draw step from the walk's
+// natural advance (advanceStep, and a BeginPhase replacement that skips the
+// upkeep step) routes the proposed step through here; the replay folds the
+// StepChange the engine actually emitted, so it needs no separate rule.
+func skipFirstDrawStep(g *state.Game, next state.Step) state.Step {
+	if next == state.StepDraw && len(g.Players) == 2 && g.Turn <= 1 {
+		return state.StepMain1
+	}
+	return next
+}
+
 func (e *Engine) drawStepTurnAction() bool {
-	if e.G.Step != state.StepDraw || (len(e.G.Players) == 2 && e.G.Turn <= 1) ||
-		e.G.Players[e.G.Active].Lost {
+	if e.G.Step != state.StepDraw || e.G.Players[e.G.Active].Lost {
 		return false
 	}
 	e.drawCardTurn(e.G.Active)
@@ -1154,6 +1174,8 @@ func (e *Engine) advanceStep() {
 	next := e.G.Step + 1
 	if s, ok := e.extraPhaseBoundary(); ok {
 		next = s
+	} else {
+		next = skipFirstDrawStep(e.G, next)
 	}
 	e.setStep(next)
 	if e.pending != nil {

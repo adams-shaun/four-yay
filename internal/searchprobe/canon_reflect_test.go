@@ -1,0 +1,541 @@
+package searchprobe
+
+// The reflective canonical encoder, kept in a test file as the oracle the
+// generated typed encoder (canon_gen.go) is held to byte for byte, and as
+// the type walker canon_gen_test.go generates that encoder from. Production
+// code never reaches reflect.
+
+import (
+	"encoding"
+	"encoding/binary"
+	"encoding/json"
+	"fmt"
+	"math"
+	"reflect"
+	"slices"
+	"strings"
+	"sync"
+	"unsafe"
+
+	"github.com/adams-shaun/gorge/view"
+)
+
+type canonKind uint8
+
+const (
+	canonUnsupported canonKind = iota
+	canonBool
+	canonInt
+	canonUint
+	canonFloat
+	canonString
+	canonSlice
+	canonArray
+	canonMap
+	canonPointer
+	canonStruct
+)
+
+type canonPlan struct {
+	kind   canonKind
+	typ    reflect.Type
+	elem   *canonPlan // slice, array, pointer: element; map: value
+	key    canonKind  // map: canonString or canonInt/canonUint
+	fields []canonField
+	why    string // unsupported: the reason
+	// size is the width in bytes of a bool, integer or float (typ.Size());
+	// for a slice or array it is the element's size, and n an array's
+	// length. encodeAt reads values through them.
+	size uintptr
+	n    int
+}
+
+type canonField struct {
+	index     int
+	offset    uintptr // the field's offset in its struct (encodeAt)
+	omitEmpty bool
+	plan      *canonPlan
+}
+
+var (
+	jsonMarshaler = reflect.TypeFor[json.Marshaler]()
+	textMarshaler = reflect.TypeFor[encoding.TextMarshaler]()
+	canonPlans    sync.Map // reflect.Type -> *canonPlan, built once per type
+)
+
+// canonPlanOf returns t's plan, building it (and every type it reaches) on
+// first use.
+func canonPlanOf(t reflect.Type) *canonPlan {
+	if p, ok := canonPlans.Load(t); ok {
+		return p.(*canonPlan)
+	}
+	building := make(map[reflect.Type]*canonPlan)
+	p := buildCanonPlan(t, building)
+	actual, _ := canonPlans.LoadOrStore(t, p)
+	return actual.(*canonPlan)
+}
+
+func buildCanonPlan(t reflect.Type, building map[reflect.Type]*canonPlan) *canonPlan {
+	if p := building[t]; p != nil {
+		return p
+	}
+	p := &canonPlan{typ: t}
+	building[t] = p
+	if t.Implements(jsonMarshaler) || reflect.PointerTo(t).Implements(jsonMarshaler) {
+		p.why = "implements json.Marshaler"
+		return p
+	}
+	if t.Implements(textMarshaler) || reflect.PointerTo(t).Implements(textMarshaler) {
+		p.why = "implements encoding.TextMarshaler"
+		return p
+	}
+	p.size = t.Size()
+	switch t.Kind() {
+	case reflect.Bool:
+		p.kind = canonBool
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		p.kind = canonInt
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		p.kind = canonUint
+	case reflect.Float32, reflect.Float64:
+		p.kind = canonFloat
+	case reflect.String:
+		p.kind = canonString
+	case reflect.Slice:
+		p.kind, p.elem, p.size = canonSlice, buildCanonPlan(t.Elem(), building), t.Elem().Size()
+	case reflect.Array:
+		p.kind, p.elem, p.size, p.n = canonArray, buildCanonPlan(t.Elem(), building), t.Elem().Size(), t.Len()
+	case reflect.Pointer:
+		p.kind, p.elem = canonPointer, buildCanonPlan(t.Elem(), building)
+	case reflect.Map:
+		kt := t.Key()
+		switch {
+		case kt.Implements(textMarshaler) || reflect.PointerTo(kt).Implements(textMarshaler):
+			p.why = "map key implements encoding.TextMarshaler"
+			return p
+		case kt.Kind() == reflect.String:
+			p.key = canonString
+		case kt.Kind() >= reflect.Int && kt.Kind() <= reflect.Int64:
+			p.key = canonInt
+		case kt.Kind() >= reflect.Uint && kt.Kind() <= reflect.Uintptr:
+			p.key = canonUint
+		default:
+			p.why = "map key kind " + kt.Kind().String()
+			return p
+		}
+		p.kind, p.elem = canonMap, buildCanonPlan(t.Elem(), building)
+	case reflect.Struct:
+		names := make(map[string]bool)
+		for i := 0; i < t.NumField(); i++ {
+			f := t.Field(i)
+			if f.Anonymous {
+				p.why = "embedded field " + f.Name
+				return p
+			}
+			if !f.IsExported() {
+				continue
+			}
+			tag := f.Tag.Get("json")
+			if tag == "-" {
+				continue
+			}
+			name, opts, _ := strings.Cut(tag, ",")
+			if name == "" {
+				name = f.Name
+			}
+			if names[name] {
+				p.why = "two fields named " + name
+				return p
+			}
+			names[name] = true
+			omit := false
+			for _, o := range strings.Split(opts, ",") {
+				switch o {
+				case "omitempty":
+					omit = true
+				case "omitzero":
+					p.why = "omitzero field " + f.Name
+					return p
+				}
+			}
+			p.fields = append(p.fields, canonField{index: i, offset: f.Offset, omitEmpty: omit, plan: buildCanonPlan(f.Type, building)})
+		}
+		p.kind = canonStruct
+	default:
+		p.why = "kind " + t.Kind().String()
+	}
+	return p
+}
+
+// unsupported lists every unsupported node reachable from p, as
+// "<path>: <type> <why>".
+func (p *canonPlan) unsupported() []string {
+	var out []string
+	seen := make(map[*canonPlan]bool)
+	var walk func(p *canonPlan, path string)
+	walk = func(p *canonPlan, path string) {
+		if seen[p] {
+			return
+		}
+		seen[p] = true
+		switch p.kind {
+		case canonUnsupported:
+			out = append(out, fmt.Sprintf("%s: %s %s", path, p.typ, p.why))
+		case canonSlice, canonArray, canonPointer, canonMap:
+			walk(p.elem, path+"[]")
+		case canonStruct:
+			for _, f := range p.fields {
+				walk(f.plan, path+"."+p.typ.Field(f.index).Name)
+			}
+		}
+	}
+	walk(p, p.typ.String())
+	return out
+}
+
+// encode appends v's canonical encoding under plan p.
+func (e *canonEncoder) encode(v reflect.Value, p *canonPlan) error {
+	switch p.kind {
+	case canonBool:
+		if v.Bool() {
+			e.buf = append(e.buf, 1)
+		} else {
+			e.buf = append(e.buf, 0)
+		}
+	case canonInt:
+		e.buf = binary.AppendVarint(e.buf, v.Int())
+	case canonUint:
+		e.buf = binary.AppendUvarint(e.buf, v.Uint())
+	case canonFloat:
+		// encoding/json writes the shortest text that round-trips the value
+		// at its own width, so equal text is equal value (and -0 is "-0");
+		// it refuses NaN and infinities, and so does this.
+		f := v.Float()
+		if math.IsInf(f, 0) || math.IsNaN(f) {
+			return fmt.Errorf("canonical encoding: unsupported value %v", f)
+		}
+		e.buf = binary.LittleEndian.AppendUint64(e.buf, math.Float64bits(f))
+	case canonString:
+		e.appendString(v.String())
+	case canonSlice:
+		if v.IsNil() {
+			e.buf = append(e.buf, 0)
+			return nil
+		}
+		e.buf = append(e.buf, 1)
+		fallthrough
+	case canonArray:
+		n := v.Len()
+		e.buf = binary.AppendUvarint(e.buf, uint64(n))
+		for i := 0; i < n; i++ {
+			if err := e.encode(v.Index(i), p.elem); err != nil {
+				return err
+			}
+		}
+	case canonPointer:
+		if v.IsNil() {
+			e.buf = append(e.buf, 0)
+			return nil
+		}
+		e.buf = append(e.buf, 1)
+		return e.encode(v.Elem(), p.elem)
+	case canonMap:
+		return e.encodeMap(v, p)
+	case canonStruct:
+		for _, f := range p.fields {
+			fv := v.Field(f.index)
+			if f.omitEmpty {
+				if canonEmpty(fv) {
+					e.buf = append(e.buf, 0)
+					continue
+				}
+				e.buf = append(e.buf, 1)
+			}
+			if err := e.encode(fv, f.plan); err != nil {
+				return err
+			}
+		}
+	default:
+		if canonEmpty(v) && (v.Kind() == reflect.Interface || v.Kind() == reflect.Pointer || v.Kind() == reflect.Map || v.Kind() == reflect.Slice) {
+			// A nil value of an unmodelled type encodes to JSON null.
+			e.buf = append(e.buf, 0)
+			return nil
+		}
+		return fmt.Errorf("canonical encoding: %s: %s", p.typ, p.why)
+	}
+	return nil
+}
+
+// encodeAt is encode of the value of p's type at ptr, read in place: the
+// plan's offsets and widths stand in for reflect's per-field Value walk on
+// the hot path (every observed board is encoded once per probe or capture).
+// It appends exactly the bytes encode appends -- TestCanonEncodeAtIsEncode
+// holds the two together on real boards -- and defers to encode for a map
+// and for anything unsupported, so every error is encode's own.
+func (e *canonEncoder) encodeAt(ptr unsafe.Pointer, p *canonPlan) error {
+	switch p.kind {
+	case canonBool:
+		if *(*bool)(ptr) {
+			e.buf = append(e.buf, 1)
+		} else {
+			e.buf = append(e.buf, 0)
+		}
+	case canonInt:
+		e.buf = binary.AppendVarint(e.buf, canonIntAt(ptr, p.size))
+	case canonUint:
+		e.buf = binary.AppendUvarint(e.buf, canonUintAt(ptr, p.size))
+	case canonFloat:
+		f := canonFloatAt(ptr, p.size)
+		if math.IsInf(f, 0) || math.IsNaN(f) {
+			return fmt.Errorf("canonical encoding: unsupported value %v", f)
+		}
+		e.buf = binary.LittleEndian.AppendUint64(e.buf, math.Float64bits(f))
+	case canonString:
+		e.appendString(*(*string)(ptr))
+	case canonSlice:
+		h := (*canonSliceHeader)(ptr)
+		if h.data == nil {
+			e.buf = append(e.buf, 0)
+			return nil
+		}
+		e.buf = append(e.buf, 1)
+		e.buf = binary.AppendUvarint(e.buf, uint64(h.len))
+		for i := 0; i < h.len; i++ {
+			if err := e.encodeAt(unsafe.Add(h.data, uintptr(i)*p.size), p.elem); err != nil {
+				return err
+			}
+		}
+	case canonArray:
+		e.buf = binary.AppendUvarint(e.buf, uint64(p.n))
+		for i := 0; i < p.n; i++ {
+			if err := e.encodeAt(unsafe.Add(ptr, uintptr(i)*p.size), p.elem); err != nil {
+				return err
+			}
+		}
+	case canonPointer:
+		q := *(*unsafe.Pointer)(ptr)
+		if q == nil {
+			e.buf = append(e.buf, 0)
+			return nil
+		}
+		e.buf = append(e.buf, 1)
+		return e.encodeAt(q, p.elem)
+	case canonStruct:
+		for i := range p.fields {
+			f := &p.fields[i]
+			fp := unsafe.Add(ptr, f.offset)
+			if f.omitEmpty {
+				var empty bool
+				switch f.plan.kind {
+				case canonString:
+					empty = len(*(*string)(fp)) == 0
+				case canonSlice:
+					empty = (*canonSliceHeader)(fp).len == 0
+				case canonBool:
+					empty = !*(*bool)(fp)
+				case canonPointer:
+					empty = *(*unsafe.Pointer)(fp) == nil
+				default:
+					empty = canonEmptyAt(fp, f.plan)
+				}
+				if empty {
+					e.buf = append(e.buf, 0)
+					continue
+				}
+				e.buf = append(e.buf, 1)
+			}
+			if err := e.encodeAt(fp, f.plan); err != nil {
+				return err
+			}
+		}
+	default: // canonMap, canonUnsupported
+		return e.encode(reflect.NewAt(p.typ, ptr).Elem(), p)
+	}
+	return nil
+}
+
+// canonSliceHeader is a slice's runtime layout (data, len, cap).
+type canonSliceHeader struct {
+	data     unsafe.Pointer
+	len, cap int
+}
+
+func canonIntAt(ptr unsafe.Pointer, size uintptr) int64 {
+	switch size {
+	case 1:
+		return int64(*(*int8)(ptr))
+	case 2:
+		return int64(*(*int16)(ptr))
+	case 4:
+		return int64(*(*int32)(ptr))
+	}
+	return *(*int64)(ptr)
+}
+
+func canonUintAt(ptr unsafe.Pointer, size uintptr) uint64 {
+	switch size {
+	case 1:
+		return uint64(*(*uint8)(ptr))
+	case 2:
+		return uint64(*(*uint16)(ptr))
+	case 4:
+		return uint64(*(*uint32)(ptr))
+	}
+	return *(*uint64)(ptr)
+}
+
+func canonFloatAt(ptr unsafe.Pointer, size uintptr) float64 {
+	if size == 4 {
+		return float64(*(*float32)(ptr))
+	}
+	return *(*float64)(ptr)
+}
+
+// canonEmptyAt is canonEmpty of the value of p's type at ptr.
+func canonEmptyAt(ptr unsafe.Pointer, p *canonPlan) bool {
+	switch p.kind {
+	case canonBool:
+		return !*(*bool)(ptr)
+	case canonInt:
+		return canonIntAt(ptr, p.size) == 0
+	case canonUint:
+		return canonUintAt(ptr, p.size) == 0
+	case canonFloat:
+		return canonFloatAt(ptr, p.size) == 0
+	case canonString:
+		return len(*(*string)(ptr)) == 0
+	case canonSlice:
+		return (*canonSliceHeader)(ptr).len == 0
+	case canonArray:
+		return p.n == 0
+	case canonPointer:
+		return *(*unsafe.Pointer)(ptr) == nil
+	case canonStruct:
+		return false
+	}
+	return canonEmpty(reflect.NewAt(p.typ, ptr).Elem())
+}
+
+func (e *canonEncoder) encodeMap(v reflect.Value, p *canonPlan) error {
+	if v.IsNil() {
+		e.buf = append(e.buf, 0)
+		return nil
+	}
+	e.buf = append(e.buf, 1)
+	e.buf = binary.AppendUvarint(e.buf, uint64(v.Len()))
+	switch p.key {
+	case canonString:
+		// The common map[string]int32 shape (pools, counters) skips reflect
+		// iteration entirely.
+		if m, ok := v.Interface().(map[string]int32); ok {
+			keys := e.strKeys[:0]
+			for k := range m {
+				keys = append(keys, k)
+			}
+			slices.Sort(keys)
+			for _, k := range keys {
+				e.appendString(k)
+				e.buf = binary.AppendVarint(e.buf, int64(m[k]))
+			}
+			clear(keys)
+			e.strKeys = keys[:0]
+			return nil
+		}
+		// So does the archetype posterior's map[string]float64.
+		if m, ok := v.Interface().(map[string]float64); ok {
+			keys := e.strKeys[:0]
+			for k := range m {
+				keys = append(keys, k)
+			}
+			slices.Sort(keys)
+			for _, k := range keys {
+				e.appendString(k)
+				f := m[k]
+				if math.IsInf(f, 0) || math.IsNaN(f) {
+					return fmt.Errorf("canonical encoding: unsupported value %v", f)
+				}
+				e.buf = binary.LittleEndian.AppendUint64(e.buf, math.Float64bits(f))
+			}
+			clear(keys)
+			e.strKeys = keys[:0]
+			return nil
+		}
+		keys := make([]reflect.Value, 0, v.Len())
+		it := v.MapRange()
+		for it.Next() {
+			keys = append(keys, it.Key())
+		}
+		slices.SortFunc(keys, func(a, b reflect.Value) int { return strings.Compare(a.String(), b.String()) })
+		for _, k := range keys {
+			e.appendString(k.String())
+			if err := e.encode(v.MapIndex(k), p.elem); err != nil {
+				return err
+			}
+		}
+	case canonInt:
+		keys := make([]reflect.Value, 0, v.Len())
+		it := v.MapRange()
+		for it.Next() {
+			keys = append(keys, it.Key())
+		}
+		slices.SortFunc(keys, func(a, b reflect.Value) int {
+			switch x, y := a.Int(), b.Int(); {
+			case x < y:
+				return -1
+			case x > y:
+				return 1
+			}
+			return 0
+		})
+		for _, k := range keys {
+			e.buf = binary.AppendVarint(e.buf, k.Int())
+			if err := e.encode(v.MapIndex(k), p.elem); err != nil {
+				return err
+			}
+		}
+	case canonUint:
+		keys := make([]reflect.Value, 0, v.Len())
+		it := v.MapRange()
+		for it.Next() {
+			keys = append(keys, it.Key())
+		}
+		slices.SortFunc(keys, func(a, b reflect.Value) int {
+			switch x, y := a.Uint(), b.Uint(); {
+			case x < y:
+				return -1
+			case x > y:
+				return 1
+			}
+			return 0
+		})
+		for _, k := range keys {
+			e.buf = binary.AppendUvarint(e.buf, k.Uint())
+			if err := e.encode(v.MapIndex(k), p.elem); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// canonEmpty is encoding/json's isEmptyValue.
+func canonEmpty(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
+		return v.Len() == 0
+	case reflect.Bool:
+		return !v.Bool()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int() == 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return v.Uint() == 0
+	case reflect.Float32, reflect.Float64:
+		return v.Float() == 0
+	case reflect.Interface, reflect.Pointer:
+		return v.IsNil()
+	}
+	return false
+}
+
+// viewPlan is the canonical plan of view.View, built once.
+var viewPlan = sync.OnceValue(func() *canonPlan { return canonPlanOf(reflect.TypeFor[view.View]()) })

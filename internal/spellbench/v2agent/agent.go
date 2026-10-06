@@ -209,10 +209,7 @@ func (a *Agent) gameStart(requestID string, line []byte, top map[string]json.Raw
 	gs.GameID = gameID
 	_, gs.seatIsString = rawString(top["seat"])
 	if !a.opts.SkipStrictCheck {
-		a.strictCheck("game_start", line, &struct {
-			envelope
-			GameStart
-		}{})
+		a.strictCheck("game_start", line, &gameStartRequest{})
 	}
 	if err := a.call(func() error { a.policy.GameStart(gs); return nil }); err != nil {
 		// The game did not start, so a later game_start is still welcome.

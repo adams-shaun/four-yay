@@ -504,6 +504,12 @@ func candidatesFor(reg *cards.Registry, filter, parentTarget string) []cand {
 	case "enchantment":
 		return withRole([]cand{{seat: opp, zone: "battlefield", card: "Glorious Anthem"}})
 	case "land":
+		if filterPredicate(strings.TrimSpace(alt[0]), "nonBasic") {
+			// "Target nonbasic land": Forest is basic and never legal. Crystal
+			// Vein is a plain nonbasic land (two mana abilities, no trigger,
+			// no static) both engines know.
+			return withRole([]cand{{seat: opp, zone: "battlefield", card: "Crystal Vein"}})
+		}
 		return withRole([]cand{{seat: opp, zone: "battlefield", card: "Forest"}})
 	case "planeswalker":
 		return withRole([]cand{{seat: opp, zone: "battlefield", card: "Jace Beleren"}})
@@ -640,10 +646,10 @@ func registrySubtype(reg *cards.Registry, subtype string) (string, bool) {
 	}
 	for i := range reg.Cards {
 		c := reg.Cards[i]
-		for fi := range c.Faces {
-			if faceHasSubtype(c.Faces[fi], subtype) && XMageKnown(c.Faces[fi].Name) {
-				return c.Faces[fi].Name, true
-			}
+		// Only the front face: setup deals a card by its front name, so a back
+		// face (Tecutlan, the Searing Rift) is "not dealt".
+		if len(c.Faces) > 0 && faceHasSubtype(c.Faces[0], subtype) && XMageKnown(c.Faces[0].Name) {
+			return c.Faces[0].Name, true
 		}
 	}
 	return "", false
@@ -673,12 +679,30 @@ func registryQuietSubtype(reg *cards.Registry, subtype string) (string, bool) {
 		}
 		f := c.Faces[0]
 		if !XMageKnown(f.Name) || !faceHasSubtype(f, subtype) || !faceHasSubtype(f, "Creature") ||
-			faceHasSubtype(f, "Legendary") || len(f.Triggers) != 0 || len(f.Statics) != 0 {
+			faceHasSubtype(f, "Legendary") || len(f.Triggers) != 0 || len(f.Statics) != 0 || entersWithCounters(f) {
 			continue
 		}
 		return f.Name, true
 	}
 	return "", false
+}
+
+// entersWithCounters reports a face that would die as a 0/0 without its
+// etbCounter counters (Academy Elite, a 0/0 Wizard): it dies on the
+// battlefield unless it enters through a cast, so it is not an inert setup
+// fixture. The printed-P/T gate matters: a 1/1 etbCounter creature (Arctic
+// Merfolk, whose counter keyword is conditional) survives setup fine, and
+// excluding it would move an already-frozen verdict for no reason.
+func entersWithCounters(f *cards.Face) bool {
+	if !strings.HasPrefix(strings.TrimSpace(f.PT), "0/0") {
+		return false
+	}
+	for _, kw := range f.Keywords {
+		if strings.HasPrefix(strings.ToLower(kw), "etbcounter") {
+			return true
+		}
+	}
+	return false
 }
 
 // faceHasSubtype reports whether the face's printed types include the
@@ -1052,7 +1076,7 @@ func fixtureAlreadyTargetsCard(targets []string, seat, card string) bool {
 
 func clone(s Seat) Seat {
 	return Seat{
-		Counters: cloneCounters(s.Counters), Speed: s.Speed,
+		Counters: cloneCounters(s.Counters), Speed: s.Speed, Life: s.Life,
 		Battlefield: append([]string(nil), s.Battlefield...), Tapped: append([]string(nil), s.Tapped...), Hand: append([]string(nil), s.Hand...),
 		Graveyard: append([]string(nil), s.Graveyard...), Exile: append([]string(nil), s.Exile...),
 		Library: append([]string(nil), s.Library...), LibraryTop: append([]string(nil), s.LibraryTop...),

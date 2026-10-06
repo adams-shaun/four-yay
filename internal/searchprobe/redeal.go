@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math/rand/v2"
-	"reflect"
 	"slices"
 	"sort"
 
@@ -135,7 +134,7 @@ func NewRedealer(setup PublicGame, h History, known KnownCards, base RedealBase)
 		owned.Options = slices.Clone(nowDec.Options)
 		nowDec = &owned
 	}
-	if sha256.Sum256(nowBoard) != last.Board.Sum || !reflect.DeepEqual(nowDec, last.Decision) {
+	if sha256.Sum256(nowBoard) != last.Board.Sum || !ObservedDecisionEqual(nowDec, last.Decision) {
 		return nil, "base engine is not at the observed boundary"
 	}
 	if err := known.holds(e, base.Observer); err != nil {
@@ -332,7 +331,7 @@ func (r *Redealer) Deal(seed [2]uint64, sp *rules.Spare) (*rules.Engine, string)
 		return w, ""
 	}
 	board, dec, err := r.probe.probeBoundary(w)
-	if err != nil || !bytes.Equal(board, r.nowBoard) || !reflect.DeepEqual(dec, r.nowDecision) {
+	if err != nil || !bytes.Equal(board, r.nowBoard) || !ObservedDecisionEqual(dec, r.nowDecision) {
 		if r.blind {
 			panic(fmt.Sprintf("searchprobe: a hidden-blind redeal (seed %v) changed the observation (err %v)", seed, err))
 		}

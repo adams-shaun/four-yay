@@ -93,9 +93,18 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		plans = append(plans, probePlan)
 	}
 	// served is the item for a scenario that replays and shows an effect.
-	served := func(base oraclegen.Item, res rules.OracleResult, plan staticProbePlan) (oraclegen.Item, bool) {
+	// withHost widens the compared probes with the permanent the card is
+	// attached to (an Aura or Equipment's effect lands on its host, which a
+	// fixture such as p1's Ornithopter can be). It is tried only in the final
+	// fallback pass, never on a candidate an earlier path already served, so a
+	// row that served without it keeps its scenario bytes (Zoetic Glyph).
+	served := func(base oraclegen.Item, res rules.OracleResult, plan staticProbePlan, withHost bool) (oraclegen.Item, bool) {
 		specs := staticProbeSpecs(reg, append([]string{staticProbe}, plan.probes...))
-		if !staticObserved(res.Snapshots[len(res.Snapshots)-1], f, name, st, specs) {
+		snap := res.Snapshots[len(res.Snapshots)-1]
+		if withHost {
+			specs = staticWithAttachHost(reg, snap, f.Name, specs)
+		}
+		if !staticObserved(snap, f, name, st, specs) {
 			return oraclegen.Item{}, false
 		}
 		it := oraclegen.NewLevelBItem(name, req.Key, StaticApplies.Version, []string{"611.3", "613"}, base.Scenario)
@@ -105,6 +114,15 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		it.Compare = []string{oraclediff.CompareKeywords}
 		return it, true
 	}
+	// Candidates that replayed and showed nothing on the plain probes are
+	// kept so the attach-host fallback can retry observation on their own
+	// snapshot without rebuilding or replaying the scenario.
+	type staticCandidate struct {
+		base oraclegen.Item
+		res  rules.OracleResult
+		plan staticProbePlan
+	}
+	var candidates []staticCandidate
 	for i, plan := range plans {
 		base, why := staticBase(reg, c, f, name, req, plan, nil)
 		if why != "" && i == 0 {
@@ -120,9 +138,10 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			}
 			break
 		}
-		if it, ok := served(base, res, plan); ok {
+		if it, ok := served(base, res, plan, false); ok {
 			return it, nil
 		}
+		candidates = append(candidates, staticCandidate{base, res, plan})
 	}
 	// A condition or count the bare scenario leaves false or zero: retry each
 	// candidate fixture with each probe plan. This runs only after every bare
@@ -137,9 +156,19 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			if err != nil || len(res.Fails) != 0 || len(res.Snapshots) == 0 {
 				continue
 			}
-			if it, ok := served(base, res, plan); ok {
+			if it, ok := served(base, res, plan, false); ok {
 				return it, nil
 			}
+			candidates = append(candidates, staticCandidate{base, res, plan})
+		}
+	}
+	// Fallback: a static that lands on the permanent the card is attached to
+	// rather than on a probe (Puppet Crafting, Shimmerwilds Growth). This
+	// runs only after every existing candidate failed, so it can never win an
+	// earlier candidate and change an already-served row's scenario bytes.
+	for _, cand := range candidates {
+		if it, ok := served(cand.base, cand.res, cand.plan, true); ok {
+			return it, nil
 		}
 	}
 	// A static that acts on cards outside the battlefield changes nothing a
@@ -150,6 +179,9 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		return it, nil
 	}
 	if st.HasParam(cards.PKMayLookAt) {
+		if it, ok := lookAtLibraryTopItem(reg, f, name, req); ok {
+			return it, nil
+		}
 		return skip(staticLookAtReason)
 	}
 	if it, ok := staticSpellLifelinkItem(reg, c, f, name, req, st); ok {
@@ -202,7 +234,7 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 		// setup-placed permanent's ETB (see staticSelfETB), so it stays on
 		// the cast path below.
 		kind, need, _ := staticCounterGate(&st)
-		base = counterGatedBase(f, name, kind, need)
+		base = counterGatedBase(f, name, kind, need, plan.probes)
 	case cond != nil && !cond.setupOnly() && (req.Face > 0 || plan.self || oraclegen.HasType(f, "Land")) && !cond.place:
 		return base, "fixture needs steps the scenario has no cast for"
 	case req.Face > 0 || plan.self || (cond != nil && cond.place):
@@ -212,6 +244,9 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 		// static that needs the card attacking is placed the same way: a
 		// cast creature is summoning sick and cannot attack.
 		base = staticBackFaceScenario(f, name, req, probes, cond)
+		if req.Face > 0 {
+			staticBackFaceAttach(&base, f, name, st.ParamStr(cards.PKAffected))
+		}
 	case requestedFace(c, name) != f:
 		return base, "face is not the castable face"
 	case oraclegen.HasType(f, "Land"):
@@ -374,9 +409,13 @@ func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, st cards
 
 // counterGatedBase is the scenario for a static gated on its own counters:
 // the card and the probe on p0's battlefield, the card holding need counters
-// of kind, and no steps -- the first checkpoint already shows the effect.
-func counterGatedBase(f *cards.Face, name, kind string, need int32) oraclegen.Item {
+// of kind plus the plan's extra probes, and no steps -- the first checkpoint
+// already shows the effect.
+func counterGatedBase(f *cards.Face, name, kind string, need int32, probes []string) oraclegen.Item {
 	p0 := oraclegen.Seat{Battlefield: []string{name, staticProbe}}
+	for _, probe := range probes {
+		p0.Battlefield = appendFixtureUnique(p0.Battlefield, probe)
+	}
 	p0 = withSetupCounters(p0, name, kind, need)
 	sc := oraclegen.Scenario{
 		Setup: map[string]oraclegen.Seat{"p0": p0, "p1": {}},

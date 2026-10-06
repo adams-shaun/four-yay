@@ -137,7 +137,9 @@ func TestActivateKeywordCostScenarios(t *testing.T) {
 		}
 	})
 
+	// The Oracle's short name "Basri" is XMage's {this} in a cost
+	// (021c4ba5e: shortSelfRef in xmage_ability_cost_text.go).
 	t.Run("Basri, Tomorrow's Champion", func(t *testing.T) {
-		assertActivateItem(t, reg, "Basri, Tomorrow's Champion", "activate#0.0", "{W}, {T}, Exert Basri")
+		assertActivateItem(t, reg, "Basri, Tomorrow's Champion", "activate#0.0", "{W}, {T}, Exert {this}")
 	})
 }

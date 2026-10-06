@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"gorge+Galian Beast; xmage+$CARD"},"key":"trigger | resolve | permanents | gorge+Galian Beast; xmage+$CARD","cards":1}
-{"card":"Vincent Valentine","template":"trigger#1.0","status":"diverge","api":"ChangesZone:PutCounter+Attacks:SetState","sets":["FIN"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Galian Beast [beast creature legendary werewolf] {B} 3/2 tapped\", xmage \"c0 o0 Vincent Valentine [assassin creature legendary] {B} 2/2 tapped\""}

@@ -14,7 +14,6 @@ import (
 	"io"
 	"math"
 	"math/rand/v2"
-	"reflect"
 	"sort"
 	"strings"
 
@@ -259,18 +258,60 @@ func clampInt32(v int64) int32 {
 	return int32(v)
 }
 
+// weightFields lists every int32 CastWeights field the fitter can tune, in
+// Go struct order (deterministic), each with a typed accessor.
+// TestWeightFieldsCoverCastWeights fails when CastWeights gains an int32
+// field this table misses.
+var weightFields = []struct {
+	name string
+	ptr  func(*Weights) *int32
+}{
+	{"CreatureBase", func(w *Weights) *int32 { return &w.CreatureBase }},
+	{"CreaturePower", func(w *Weights) *int32 { return &w.CreaturePower }},
+	{"NonCreatureCMC", func(w *Weights) *int32 { return &w.NonCreatureCMC }},
+	{"Kicked", func(w *Weights) *int32 { return &w.Kicked }},
+	{"Flashback", func(w *Weights) *int32 { return &w.Flashback }},
+	{"ReserveScale", func(w *Weights) *int32 { return &w.ReserveScale }},
+	{"CommanderTaxScale", func(w *Weights) *int32 { return &w.CommanderTaxScale }},
+	{"CastThreshold", func(w *Weights) *int32 { return &w.CastThreshold }},
+	{"CreatureToughness", func(w *Weights) *int32 { return &w.CreatureToughness }},
+	{"CurveFit", func(w *Weights) *int32 { return &w.CurveFit }},
+	{"ManaLeft", func(w *Weights) *int32 { return &w.ManaLeft }},
+	{"Precombat", func(w *Weights) *int32 { return &w.Precombat }},
+	{"InstantOnOwnTurn", func(w *Weights) *int32 { return &w.InstantOnOwnTurn }},
+	{"OppCreatures", func(w *Weights) *int32 { return &w.OppCreatures }},
+	{"OwnCreatures", func(w *Weights) *int32 { return &w.OwnCreatures }},
+	{"LifeDelta", func(w *Weights) *int32 { return &w.LifeDelta }},
+	{"CreaturePrecombat", func(w *Weights) *int32 { return &w.CreaturePrecombat }},
+	{"CreatureOppCreatures", func(w *Weights) *int32 { return &w.CreatureOppCreatures }},
+	{"NonCreatureOppCreatures", func(w *Weights) *int32 { return &w.NonCreatureOppCreatures }},
+	{"CreatureLifeDelta", func(w *Weights) *int32 { return &w.CreatureLifeDelta }},
+	{"InstantSpeedOffTurnHold", func(w *Weights) *int32 { return &w.InstantSpeedOffTurnHold }},
+	{"InstantOwnPreMain", func(w *Weights) *int32 { return &w.InstantOwnPreMain }},
+	{"InstantOwnCombat", func(w *Weights) *int32 { return &w.InstantOwnCombat }},
+	{"InstantOppTurn", func(w *Weights) *int32 { return &w.InstantOppTurn }},
+	{"InstantOppEnd", func(w *Weights) *int32 { return &w.InstantOppEnd }},
+	{"SetValue", func(w *Weights) *int32 { return &w.SetValue }},
+}
+
 // weightFieldNames lists the CastWeights fields the fitter can tune, in Go
-// struct order (deterministic). All are int32 by construction; a future
-// non-int32 field is skipped rather than mis-tuned.
+// struct order (deterministic).
 func weightFieldNames() []string {
-	t := reflect.TypeOf(Weights{})
-	names := make([]string, 0, t.NumField())
-	for i := 0; i < t.NumField(); i++ {
-		if t.Field(i).Type.Kind() == reflect.Int32 {
-			names = append(names, t.Field(i).Name)
-		}
+	names := make([]string, len(weightFields))
+	for i, f := range weightFields {
+		names[i] = f.name
 	}
 	return names
+}
+
+// weightPtr returns the field named name, or nil for an unknown name.
+func weightPtr(w *Weights, name string) *int32 {
+	for _, f := range weightFields {
+		if f.name == name {
+			return f.ptr(w)
+		}
+	}
+	return nil
 }
 
 // resolveFitFields turns a -fit comma list into the field names to tune,
@@ -308,14 +349,10 @@ func resolveFitFields(fit []string) ([]string, error) {
 
 // getWeight reads one int32 field by name. The caller validated the name.
 func getWeight(w Weights, name string) int32 {
-	v := reflect.ValueOf(w)
-	f := v.FieldByName(name)
-	return int32(f.Int())
+	return *weightPtr(&w, name)
 }
 
 // setWeight writes one int32 field by name. The caller validated the name.
 func setWeight(w *Weights, name string, val int32) {
-	v := reflect.ValueOf(w).Elem()
-	f := v.FieldByName(name)
-	f.SetInt(int64(val))
+	*weightPtr(w, name) = val
 }
