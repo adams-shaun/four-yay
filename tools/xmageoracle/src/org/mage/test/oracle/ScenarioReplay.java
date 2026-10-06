@@ -812,6 +812,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
      * not know fails the scenario rather than placing nothing. */
     private void applySetupState(Game g) {
         JsonObject setup = sc0.has("setup") ? sc0.getAsJsonObject("setup") : new JsonObject();
+        boolean changed = false;
         for (int i = 0; i < 2; i++) {
             if (!setup.has("p" + i)) {
                 continue;
@@ -832,6 +833,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                             perm.addCounters(kind.createInstance(byKind.getValue().getAsInt()), pl.getId(), null, g);
                         }
                         placed = true;
+                        changed = true;
                     }
                     if (!placed) {
                         throw new IllegalArgumentException("counters name " + byCard.getKey() + ", which is not on p" + i + "'s battlefield");
@@ -844,7 +846,19 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 for (int k = 1; k < s.get("speed").getAsInt(); k++) {
                     pl.increaseSpeed(g);
                 }
+                changed = true;
             }
+        }
+        if (changed) {
+            // A counter-gated static -- a Spacecraft's StationLevelAbility, "has
+            // indestructible as long as it has a divinity counter on it" -- is a
+            // ContinuousEffect whose condition reads the source's counters when
+            // XMage last applied effects, which was before these setup adds.
+            // addCounters does not itself recompute, and the snapshot below reads
+            // the stale set, so XMage would show the card still uncounted (no P/T,
+            // no keyword) where gorge shows it live. Apply once with the counters
+            // in place, exactly as the game loop does at the start of a step.
+            g.applyEffects();
         }
     }
 
