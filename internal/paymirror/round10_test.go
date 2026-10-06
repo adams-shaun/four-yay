@@ -18,18 +18,19 @@ import (
 // or misses its witness, the live-vs-clone control is equivalent, and each
 // named cast gets its root-caused verdict.
 //
-//   - 12468 seq 6402 (Homarid Spawning Bed), random4 state_differs on
-//     G.Objs[*].Remembered[*].Obj: Veiled Crocodile's CR 603.8 state trigger
+//   - 12468, random4: the state_differs finding on
+//     G.Objs[*].Remembered[*].Obj (Veiled Crocodile's CR 603.8 state trigger
 //     remembered the Island tapped in run A's CR 601.2g window but itself on
-//     the float route. A rules fix: a state trigger remembers its source
-//     (stateTriggerRemembered). The token-entry fix
-//     (agent-20261001T043732Z-8f099a06: a token mint now fires ChangesZone)
-//     moved the game's trajectory, so the Veiled Crocodile cast no longer
-//     occurs and the state_differs route no longer reproduces end to end; the
-//     Homarid Spawning Bed cast survives at seq 6402 (was 5830 before the
-//     October 5 main merge), equivalent
-//     on its float_then_cast route, and the root cause stays pinned by the
-//     unit test rules/state_trigger_remembered_test.go.
+//     the float route) has been displaced from the game entirely. A rules fix
+//     (stateTriggerRemembered) first moved it to the Homarid Spawning Bed
+//     cast, and ticket agent-20261006T052735Z-5c29adb5 then shifted the seed's
+//     trajectory again: a Defined$ TopOfLibrary/BottomOfLibrary fetch is a
+//     position read and no longer emits a mandatory shuffle (CR 401.4), which
+//     changes the libraries the bots draw through, so the Homarid Spawning Bed
+//     cast (seq 6402 after the October 5 main merge) is no longer reached.
+//     The seed keeps an empty pin and asserts a clean, control-equivalent
+//     game; the root cause stays pinned by the unit test
+//     rules/state_trigger_remembered_test.go.
 //   - 11828 seq 4243 (Vorinclex, Voice of Hunger), random2
 //     a_fallback=source_changed: the plan's Fanatic of Rhonas step ("Activate
 //     only if you control a creature with power 4 or greater") held only
@@ -64,7 +65,9 @@ import (
 // Spawning Bed cast moves from seq 7211 to 7227, verdict unchanged. The
 // token-entry fix (agent-20261001T043732Z-8f099a06) then moves seed 12468's
 // trajectory again, from seq 7227 to 5830; verdict unchanged. After the
-// October 5 main merge it reaches seq 6402, with the same card and verdict.
+// October 5 main merge it reaches seq 6402, with the same card and verdict,
+// and ticket agent-20261006T052735Z-5c29adb5 then removes the cast from the
+// game (see the 12468 entry above), so the seed's pin is now empty.
 func TestRoundTenFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -93,7 +96,7 @@ func TestRoundTenFindingsMirror(t *testing.T) {
 		t.Fatalf("testdata holds %d specs, want 4", len(specs))
 	}
 	want := map[uint64]map[uint64]string{ // seed -> seq -> verdict key ("" = equivalent)
-		12468: {6402: ""},
+		12468: {},
 		11828: {},
 		12603: {2298: ""},
 		10877: {2834: ""},
