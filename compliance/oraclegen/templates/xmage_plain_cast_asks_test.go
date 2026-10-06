@@ -40,6 +40,10 @@ func TestPlainCastAsksScenarioShape(t *testing.T) {
 						Hand []string `json:"hand"`
 					} `json:"p0"`
 				} `json:"setup"`
+				SetupAnswers []struct {
+					Kind string   `json:"kind"`
+					Pick []string `json:"pick"`
+				} `json:"setup_answers"`
 				Steps []map[string]any `json:"steps"`
 			}
 			if err := json.Unmarshal(it.Raw(), &sc); err != nil {
@@ -70,16 +74,40 @@ func TestPlainCastAsksScenarioShape(t *testing.T) {
 				if !inHand {
 					t.Errorf("%s: the Leyline is not in p0's opening hand: %s", name, it.Raw())
 				}
-			}
-			if class == "orcost" {
-				picked := false
-				for _, a := range it.Steps[cast].Answers {
+				// The recorded opening-hand answer the driver's hardcoded No
+				// must agree with: gorge declines the battlefield move, so the
+				// card stays in hand and the cast step exists at all.
+				declined := false
+				for _, a := range sc.SetupAnswers {
 					for _, p := range a.Pick {
-						picked = picked || (a.Kind == "choose" && p == "Sacrifice artifact or creature")
+						declined = declined || (a.Kind == "choose" && p == "no")
 					}
 				}
-				if !picked {
-					t.Errorf("%s: the cast step records no sacrifice cost pick: %s", name, it.Raw())
+				if !declined {
+					t.Errorf("%s: setup_answers records no opening-hand decline; the driver's No disagrees with the scenario: %s", name, it.Raw())
+				}
+			}
+			if class == "orcost" {
+				// Deadly Precision's cast step records the OrCost option gorge
+				// took ("Sacrifice artifact or creature", which the driver's
+				// costKey matches to XMage's falseText) and then the sacrifice
+				// target name, which must stay queued for the sacrifice target
+				// ask after the driver answers the OrCost chooseUse itself.
+				var picks []string
+				for _, a := range it.Steps[cast].Answers {
+					if a.Kind == "choose" {
+						picks = append(picks, a.Pick...)
+					}
+				}
+				want := []string{"Sacrifice artifact or creature", "Llanowar Elves"}
+				if len(picks) != len(want) {
+					t.Errorf("%s: cast-step choose picks = %q, want %q: %s", name, picks, want, it.Raw())
+				} else {
+					for i := range want {
+						if picks[i] != want[i] {
+							t.Errorf("%s: cast-step choose pick %d = %q, want %q: %s", name, i, picks[i], want[i], it.Raw())
+						}
+					}
 				}
 			}
 			seen++
