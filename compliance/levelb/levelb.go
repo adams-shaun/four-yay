@@ -179,11 +179,12 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 			if !self {
 				return "trigger.etb-other", "", false
 			}
-			// A self-ETB trigger is the one shape the level-A cast-resolve
-			// scenario settles, but only off a non-land: a land's play-land
-			// scenario never puts a spell on the stack.
+			// A self-ETB trigger on a non-land is the one shape the level-A
+			// cast-resolve scenario settles. A land is played, never cast, so
+			// its self-ETB gets its own sub-family with a play-land cause
+			// (the level-A scenario never puts a spell on the stack for it).
 			if f.IsLand() {
-				return gapMode()
+				return "trigger.etb-land", "", false
 			}
 			return "trigger.etb-other", "", true
 		}
