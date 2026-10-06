@@ -17,6 +17,7 @@ import mage.abilities.costs.AlternativeSourceCosts;
 import mage.abilities.costs.OptionalAdditionalSourceCosts;
 import mage.abilities.costs.OrCost;
 import mage.abilities.keyword.LeylineAbility;
+import mage.abilities.keyword.SpreeAbility;
 import mage.cards.repository.CardInfo;
 import mage.cards.repository.CardRepository;
 import mage.abilities.effects.common.EndTurnEffect;
@@ -52,6 +53,7 @@ import java.io.FileReader;
 import java.io.PrintWriter;
 import java.io.FileWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -79,11 +81,6 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private int activeSeat = 0;
     private boolean attackAdvancedTurn = false;
     private static final PhaseStep MAIN = PhaseStep.PRECOMBAT_MAIN;
-    private static final Set<String> SPREE_CARDS = Set.of(
-            "Dance of the Tumbleweeds", "Getaway Glamer", "Great Train Heist",
-            "Insatiable Avarice", "Jailbreak Scheme", "Lively Dirge",
-            "Metamorphic Blast", "Rush of Dread", "Shifting Grift",
-            "Smuggler's Surprise", "Unfortunate Accident");
 
     private final List<JsonObject> snaps = new ArrayList<>();
     // The step a cast/resolve/checkpoint is registered at. MAIN until an
@@ -365,6 +362,40 @@ public class ScenarioReplay extends CardTestPlayerBase {
             }
         }
 
+        /** XMage represents attach prompts either with a "to attach" hint or,
+         * as One Last Job does, an unhinted non-targeting TargetPermanent ask. */
+        static boolean isAttachmentChoice(mage.target.Target target) {
+            return target.getChooseHint() != null && target.getChooseHint().startsWith("to attach ")
+                    || target instanceof mage.target.TargetPermanent && target.isNotTarget()
+                    && target.getTargetName().contains("can be attached to");
+        }
+
+        /** The candidate an XMage attach ask should take, or null when the ask
+         * must fall through to the base player. A scripted answer at the queue
+         * front is honored first and consumed, so an attachment ask never
+         * silently overrides the scenario or leaves its answer queued for a
+         * later decision. Automatic selection happens only for an unscripted
+         * ask whose candidate set is uniquely determined. A scripted answer
+         * that names no candidate is left in place, so the base's strict
+         * unused-command check still reports the scenario error. */
+        static UUID attachmentChoice(List<String> queue, List<UUID> candidates,
+                java.util.function.BiPredicate<UUID, String> matches) {
+            if (!queue.isEmpty() && !TestPlayer.TARGET_SKIP.equals(queue.get(0))) {
+                String answer = queue.get(0);
+                for (UUID id : candidates) {
+                    if (matches.test(id, answer)) {
+                        queue.remove(0);
+                        return id;
+                    }
+                }
+                return null;
+            }
+            if (queue.isEmpty() && candidates.size() == 1) {
+                return candidates.get(0);
+            }
+            return null;
+        }
+
         /** Detaches and returns the queue's suffix that starts at its next
          * "[target_skip]" so only the contiguous segment that precedes it is
          * visible. A skip at the front (consumed by this ask) or no skip at all
@@ -387,6 +418,16 @@ public class ScenarioReplay extends CardTestPlayerBase {
             // unused and fail assertAllCommandsUsed.
             closeAskedAgain(getTargets(), owner.isAdjustedSpellAsk(source, game));
             mage.target.Target orig = target.getOriginalTarget();
+            if (isAttachmentChoice(target)) {
+                UUID abilityControllerId = target.getAffectedAbilityControllerId(this.getId());
+                List<UUID> candidates = new ArrayList<>(target.possibleTargets(abilityControllerId, source, game));
+                UUID chosen = attachmentChoice(getTargets(), candidates,
+                        (id, answer) -> hasObjectTargetNameOrAlias(game.getPermanent(id), answer));
+                if (chosen != null) {
+                    target.addTarget(chosen, source, game);
+                    return true;
+                }
+            }
             if (orig instanceof mage.target.common.TargetSpellOrPermanent
                     && !getTargets().isEmpty()
                     && !TestPlayer.TARGET_SKIP.equals(getTargets().get(0))) {
@@ -1057,6 +1098,83 @@ public class ScenarioReplay extends CardTestPlayerBase {
     }
 
     /**
+     * Whether the named spell is a Spree card. XMage models Spree as a
+     * SpreeAbility on the card (it sets the spell's modes to 1..unbounded), so
+     * this is exact and structural: every Spree card is covered, including one
+     * printed after this driver. The old hardcoded name set listed 11 of the
+     * 21 Spree cards the corpus carries (One Last Job among the missing), so
+     * its cast never got the closing mode skip and XMage failed the scenario
+     * with "Missing MODE def".
+     */
+    private static boolean isSpreeSpell(String name) {
+        CardInfo info = CardRepository.instance.findCard(name);
+        Card c = info == null ? null : info.createCard();
+        return isSpreeCard(c);
+    }
+
+    /** Whether the card itself is a Spree card: XMage models Spree as a
+     * SpreeAbility on it, so this is exact and structural. Card-based and
+     * package-private so a contract test can pin it without the card
+     * repository (which needs H2). */
+    static boolean isSpreeCard(Card c) {
+        return c != null && c.getAbilities().containsClass(SpreeAbility.class);
+    }
+
+    /** The XMage Zone a `move` step's lowercase destination names. XMage's
+     * enum member is EXILED, not EXILE, so a bare valueOf(upper) throws on
+     * gorge's "exile"; every other zone name upper-cases straight to its
+     * member. Static and package-private for the driver contract test. */
+    static Zone moveDestination(String to) {
+        return to.equals("exile") ? Zone.EXILED : Zone.valueOf(to.toUpperCase(java.util.Locale.ROOT));
+    }
+
+    /** The Card-bearing zones a `move` step's source card may start in, in
+     * search order. gorge's generator currently stages every moved card in
+     * hand (candidates.go emits hand -> destination), but the op is not
+     * hand-specific: a future shape that moves a card already in a graveyard,
+     * library or exile must not fall into a hand-only search and throw. A
+     * battlefield permanent is a Permanent, not a Card, so it is not a move
+     * source (XMage moves those with Permanent.moveToZone). Package-private
+     * and pure so the driver contract test can pin the coverage. */
+    static List<Zone> moveSourceZones() {
+        return Arrays.asList(Zone.HAND, Zone.GRAVEYARD, Zone.LIBRARY, Zone.EXILED);
+    }
+
+    /** The first card named {@code name} in any of {@link #moveSourceZones()},
+     * or null. Hand is searched first, so today's generated hand -> zone move
+     * is unchanged. */
+    private static Card findMoveCard(Player player, Game game, String name) {
+        for (Zone zone : moveSourceZones()) {
+            if (zone == Zone.HAND) {
+                for (Card c : player.getHand().getCards(game)) {
+                    if (c.getName().equals(name)) {
+                        return c;
+                    }
+                }
+            } else if (zone == Zone.GRAVEYARD) {
+                for (Card c : player.getGraveyard().getCards(game)) {
+                    if (c.getName().equals(name)) {
+                        return c;
+                    }
+                }
+            } else if (zone == Zone.LIBRARY) {
+                for (Card c : player.getLibrary().getCards(game)) {
+                    if (c.getName().equals(name)) {
+                        return c;
+                    }
+                }
+            } else if (zone == Zone.EXILED) {
+                for (Card c : game.getExile().getCardsOwned(game, player.getId())) {
+                    if (c.getName().equals(name)) {
+                        return c;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * Whether a modal spell's first target lives in a later mode: the card's
      * first mode (the one XMage's up-front {@code $target=} check reads, since
      * the scenario's chosen modes are not selected yet) has no target, but
@@ -1514,6 +1632,24 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 phase = PhaseStep.DECLARE_BLOCKERS;
                 return;
             }
+            case "move": {
+                String ref = str(st, "card");
+                String name = xmageSpelling(refName(ref));
+                // gorge names the exile zone "exile"; XMage's enum member is EXILED.
+                String to = str(st, "to");
+                Zone destination = moveDestination(to);
+                runCode("move " + ref + " to " + destination, turn, phase, p, (info, pl, g) -> {
+                    Card moving = findMoveCard(pl, g, name);
+                    if (moving == null) {
+                        throw new IllegalArgumentException("move card " + ref + " is not in "
+                                + pl.getName() + "'s " + moveSourceZones());
+                    }
+                    if (!pl.moveCards(moving, destination, null, g)) {
+                        throw new IllegalStateException("move " + ref + " to " + destination + " refused");
+                    }
+                });
+                return;
+            }
             case "attach": {
                 String card = str(st, "card");
                 String bearer = str(st, "attached_to");
@@ -1545,7 +1681,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 // Spree permits choosing further modes after the first. Its
                 // generated answer records the chosen mode, not the decision
                 // to stop, so close XMage's repeated mode prompt explicitly.
-                if (SPREE_CARDS.contains(xmageName.isEmpty() ? refName(str(st, "card")) : xmageName)) {
+                if (isSpreeSpell(xmageName.isEmpty() ? refName(str(st, "card")) : xmageName)) {
                     setModeChoice(p, TestPlayer.MODE_SKIP);
                 }
                 castCostPicks = new ArrayList<>();
