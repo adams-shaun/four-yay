@@ -18,10 +18,12 @@ func recordDamageProvenance(emit func(events.Event) events.Event, source, recipi
 		text = events.DamageProvenanceCombat
 	}
 	text += events.DamageProvenanceColorSeparator + sourceColors
-	if recipientObject != nil {
-		if types := damageSnapshotTypes(recipient, recipientObject, derived); types != nil {
-			text += events.DamageProvenanceTypeSeparator + strings.Join(types, events.DamageProvenanceTypeWordSeparator)
-		}
+	// The recipient segment exists only when its damage-time types differ from
+	// the printed face (a layer-4 entry, or an intrinsic all-types CDA), so a
+	// plain recipient's event bytes stay as recorded logs have them.
+	if recipientObject != nil && damageRecipientTypesDiffer(recipient, recipientObject, derived) {
+		types := damageSnapshotTypes(recipient, recipientObject, derived)
+		text += events.DamageProvenanceTypeSeparator + strings.Join(types, events.DamageProvenanceTypeWordSeparator)
 	}
 	// The layer-4 table is available only in rules, not in events.Apply. Store
 	// the complete damage-time type words, materializing an all-types marker
@@ -30,6 +32,15 @@ func recordDamageProvenance(emit func(events.Event) events.Event, source, recipi
 	text += events.DamageProvenanceSourceSeparator + strconv.Itoa(int(source.Zone)) +
 		events.DamageProvenanceSourceTypeSeparator + strings.Join(types, events.DamageProvenanceTypeWordSeparator)
 	emit(events.Event{Kind: events.DamageProvenance, Obj: source.ID, IDs: []state.ObjID{recipient}, Amount: amount, Text: text})
+}
+
+func damageRecipientTypesDiffer(id state.ObjID, object *state.Object, derived []effects.ObjectTypes) bool {
+	for _, entry := range derived {
+		if entry.ID == id {
+			return true
+		}
+	}
+	return effects.IntrinsicAllCreatureTypes(object)
 }
 
 func damageSnapshotTypes(id state.ObjID, object *state.Object, derived []effects.ObjectTypes) []string {

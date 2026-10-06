@@ -568,10 +568,8 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 		reg := func(ce state.ContinuousEffect) {
 			regDur(ce, dur, untilEOT, untilTurn)
 		}
-		if len(addTypes) > 0 || removeCardTypes || removeCreatureTypes || nonLegendary || removeSubTypes || cp.SetCreatureTypes {
-			reg(state.ContinuousEffect{Layer: state.LType, AddTypes: slices.Clone(addTypes),
-				RemoveCardTypes: removeCardTypes, RemoveCreatureTypes: removeCreatureTypes, SetCreatureTypes: cp.SetCreatureTypes,
-				RemoveLegendary: nonLegendary, RemoveSubTypes: removeSubTypes})
+		if ce, ok := cloneTypeEffect(cp, addTypes, addKeywords, removeCardTypes, removeCreatureTypes, nonLegendary, removeSubTypes); ok {
+			reg(ce)
 		}
 		if len(grantSVars) > 0 || len(grantTriggers) > 0 {
 			reg(state.ContinuousEffect{Layer: state.LAbilities, AddSVars: grantSVars,
@@ -897,3 +895,20 @@ var cloneDurationCodes = state.NewStrCodes(
 	state.StrEntry[cloneDurationCode]{Key: "untilfacedown", Val: cloneDurationUntilEvent},
 	state.StrEntry[cloneDurationCode]{Key: "untiltargeteduntaps", Val: cloneDurationUntilEvent},
 )
+
+// cloneTypeEffect is a Clone copy's layer-four modifier, if any. A copy
+// exception "except it has changeling" (Omni-Changeling, Moritte) is a
+// copiable value, so its characteristic-defining ability applies in layer four
+// at the copy's timestamp -- before a later type strip -- not from the
+// layer-six keyword grant.
+func cloneTypeEffect(cp *CloneParams, addTypes, addKeywords []string, removeCardTypes, removeCreatureTypes, nonLegendary, removeSubTypes bool) (state.ContinuousEffect, bool) {
+	grantsChangeling := slices.ContainsFunc(addKeywords, func(k string) bool {
+		return cards.KeywordHeadIDOf(k) == cards.KeywordHeadIDOf("Changeling")
+	})
+	if len(addTypes) == 0 && !removeCardTypes && !removeCreatureTypes && !nonLegendary && !removeSubTypes && !cp.SetCreatureTypes && !grantsChangeling {
+		return state.ContinuousEffect{}, false
+	}
+	return state.ContinuousEffect{Layer: state.LType, AddTypes: slices.Clone(addTypes), AddAllCreatureTypes: grantsChangeling,
+		RemoveCardTypes: removeCardTypes, RemoveCreatureTypes: removeCreatureTypes, SetCreatureTypes: cp.SetCreatureTypes,
+		RemoveLegendary: nonLegendary, RemoveSubTypes: removeSubTypes}, true
+}

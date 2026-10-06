@@ -211,7 +211,7 @@ func hasTypeCtxPtrID(o *state.Object, t string, id cards.TypeWordID, sc *SpecCon
 	// LATER effect grants, which would break the walk's ordering (rules/layers.go
 	// clears sc.DerivedTypes for the same reason, but this guard keeps the
 	// contract even for a caller that sets ExtraTypes without clearing it).
-	if sc.ExtraTypes != nil {
+	if sc.ExtraTypes != nil && o.ID == sc.ExtraTypesOwner {
 		return false
 	}
 	// Outside the walk a published layer-4 entry makes the object's DERIVED
@@ -244,7 +244,7 @@ func hasTypeCtxSub(o *state.Object, t string, id cards.TypeWordID, sub bool, sc 
 			return true
 		}
 	}
-	if sc.ExtraTypes != nil {
+	if sc.ExtraTypes != nil && o.ID == sc.ExtraTypesOwner {
 		return false
 	}
 	for _, d := range sc.Layers.DerivedTypes {

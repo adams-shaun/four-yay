@@ -2433,6 +2433,10 @@ type SpecContext struct {
 	// SpecContext field makes escape analysis leak the whole context (its
 	// Resolve closure included) to the heap on every hot-path construction.
 	ExtraTypes []string
+	// ExtraTypesOwner is the ONE object ExtraTypes describes. Only that object
+	// reads the list as authoritative; any other object a predicate inspects
+	// (Aura.Other, a Self/Other comparison) keeps the printed-face read.
+	ExtraTypesOwner state.ObjID
 	// ExtraKeywords optionally supplies the layer-derived KEYWORD list for the
 	// ONE object the spec is being matched against (a value slice, same
 	// rationale as ExtraTypes). When non-nil it is authoritative for the
