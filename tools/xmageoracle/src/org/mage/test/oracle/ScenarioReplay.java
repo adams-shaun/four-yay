@@ -42,6 +42,7 @@ import mage.players.Player;
 import mage.filter.FilterCard;
 import mage.target.TargetCard;
 import mage.util.CardUtil;
+import mage.watchers.common.PermanentsEnteredBattlefieldWatcher;
 import org.mage.test.player.PlayerAction;
 import org.mage.test.player.TestPlayer;
 import org.mage.test.serverside.base.CardTestPlayerBase;
@@ -495,6 +496,14 @@ public class ScenarioReplay extends CardTestPlayerBase {
             activeSeat = (TURN - 1) % 2;
             attackAdvancedTurn = false;
             build(sc);
+            if (TURN == 1) {
+                // Turn 1's first priority is in upkeep, before any gameplay
+                // entry (Bitterblossom's token is still on the stack). Age
+                // only the seeded setup permanents recorded by build().
+                java.util.Map<String, Integer> seeded = new java.util.HashMap<>(setupBattlefield);
+                runCode("setup entry history", TURN, PhaseStep.UPKEEP, playerA,
+                        (info, p, g) -> clearSetupEntryHistory(g, seeded));
+            }
             runCode("setup", TURN, MAIN, playerA, (info, p, g) -> {
                 addSetupCounters(g);
                 registerAliases(g);
@@ -654,12 +663,72 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     // ---- setup -----------------------------------------------------------
 
+    /**
+     * CardTestPlayerAPIImpl cheats setup permanents onto the battlefield
+     * before the game starts, but XMage leaves their turnsOnBattlefield at
+     * zero (so EnteredThisTurnPredicate matches them) and the ETB watcher
+     * shifts them into its last-turn history. Run only at turn 1's first
+     * priority, before any gameplay entry: age the seeded permanents and
+     * drop their last-turn history. Both passes match the recorded
+     * (controller id, XMage name) multiset, so a permanent that genuinely
+     * entered this turn -- an upkeep token -- keeps its zero age and its
+     * watcher entry. At a later requested turn the setup permanents age
+     * naturally, so this is not called.
+     */
+    private static void clearSetupEntryHistory(Game game, java.util.Map<String, Integer> seeded) {
+        try {
+            // Remaining seeded (controller|name) counts, decremented as
+            // permanents are matched so duplicate names each age exactly once.
+            java.util.Map<String, Integer> remaining = new java.util.HashMap<>(seeded);
+            java.lang.reflect.Field turns = mage.game.permanent.PermanentImpl.class
+                    .getDeclaredField("turnsOnBattlefield");
+            turns.setAccessible(true);
+            for (Permanent permanent : game.getBattlefield().getAllPermanents()) {
+                String key = permanent.getControllerId() + "|" + permanent.getName();
+                Integer left = remaining.get(key);
+                if (left == null || left <= 0) {
+                    continue; // genuinely entered this turn, or not a setup card
+                }
+                remaining.put(key, left - 1);
+                turns.setInt(permanent, Math.max(1, permanent.getTurnsOnBattlefield()));
+            }
+            PermanentsEnteredBattlefieldWatcher watcher = game.getState()
+                    .getWatcher(PermanentsEnteredBattlefieldWatcher.class);
+            if (watcher != null) {
+                java.lang.reflect.Field last = PermanentsEnteredBattlefieldWatcher.class
+                        .getDeclaredField("enteringBattlefieldLastTurn");
+                last.setAccessible(true);
+                @SuppressWarnings("unchecked")
+                java.util.Map<java.util.UUID, java.util.List<Permanent>> lastTurn =
+                        (java.util.Map<java.util.UUID, java.util.List<Permanent>>) last.get(watcher);
+                // Drop only the seeded setup entries recorded pre-game; any
+                // other last-turn entry is left for its owning card.
+                java.util.Map<String, Integer> watcherRemaining = new java.util.HashMap<>(seeded);
+                for (java.util.List<Permanent> list : lastTurn.values()) {
+                    java.util.Iterator<Permanent> it = list.iterator();
+                    while (it.hasNext()) {
+                        Permanent entry = it.next();
+                        String key = entry.getControllerId() + "|" + entry.getName();
+                        Integer left = watcherRemaining.get(key);
+                        if (left != null && left > 0) {
+                            watcherRemaining.put(key, left - 1);
+                            it.remove();
+                        }
+                    }
+                }
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("cannot normalize setup entry history", e);
+        }
+    }
+
     private TestPlayer seat(int i) {
         return i == 0 ? playerA : playerB;
     }
 
     private void build(JsonObject sc) {
         buildCounts.clear();
+        setupBattlefield.clear();
         setupNames.clear();
         backFaceNames.clear();
         String format = str(sc, "format");
@@ -716,9 +785,17 @@ public class ScenarioReplay extends CardTestPlayerBase {
             int k = buildCounts.merge(i + "|" + n, 1, Integer::sum);
             String ref = "p" + i + ":" + n + (k > 1 ? "#" + k : "");
             refAlias.put(ref, "@" + ref);
-            addCard(zone, p, xmageSpelling(n), 1, tapped.contains(n));
+            String xmageName = xmageSpelling(n);
+            addCard(zone, p, xmageName, 1, tapped.contains(n));
             if (backFace.contains(n)) {
                 stageBackFace(p, n);
+                xmageName = backFaceNames.get("p" + i + ":" + xmageName);
+            }
+            if (zone == Zone.BATTLEFIELD) {
+                // Record the seeded permanents by (controller id, current XMage
+                // name), including staged back faces, so the entry-history
+                // normalizer ages exactly these, never a genuine turn-1 entry.
+                setupBattlefield.merge(p.getId() + "|" + xmageName, 1, Integer::sum);
             }
         }
         return ns.size();
@@ -1053,6 +1130,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
     // ("p0:Grizzly Bears", "p0:Grizzly Bears#2") in the same order XMage
     // adds the cards, so registerAliases can bind each to its object.
     private final java.util.Map<String, Integer> buildCounts = new java.util.HashMap<>();
+    // Seeded setup permanents keyed "controllerId|xmageName" -> count (build()).
+    private final java.util.Map<String, Integer> setupBattlefield = new java.util.HashMap<>();
     private final Map<UUID, String> setupNames = new HashMap<>();
     private final Map<String, String> backFaceNames = new HashMap<>();
     // The card under test's two spellings: the scenario's (gorge/corpus) name
