@@ -28,32 +28,42 @@ func triggerPushAmount(g *state.Game, pt pendingTrigger) int32 {
 	if src == nil || !inactiveFaceLayout(src.Card) || pt.SA == nil || idx < 0 {
 		return int32(idx)
 	}
-	if live := src.Face(); live != nil && idx < len(live.Triggers) && live.Triggers[idx].Effect == pt.SA {
-		return int32(idx)
-	}
-	for fi, f := range src.Card.Faces {
-		if f != nil && fi != int(src.FaceIdx) && idx < len(f.Triggers) && f.Triggers[idx].Effect == pt.SA {
-			return events.TriggerPushFaceAmount(fi, idx)
+	_, _, face, faceIdx, ok := printedFaceTrigger(src, pt.SA)
+	if ok {
+		if face == int(src.FaceIdx) {
+			return int32(faceIdx)
 		}
+		return events.TriggerPushFaceAmount(face, faceIdx)
 	}
 	return int32(idx)
 }
 
-// inactiveFaceTrigger finds the printed trigger whose compiled body is sa on
-// the card face that is NOT o's live face (see inactiveFaceLayout).
-func inactiveFaceTrigger(o *state.Object, sa *cards.SA) (cards.Trigger, *cards.Face, bool) {
+// printedFaceTrigger finds the owning face and trigger index for a compiled
+// printed trigger body. Both event encoding and resolution-time lookup use
+// this one live-face-first ownership rule.
+func printedFaceTrigger(o *state.Object, sa *cards.SA) (cards.Trigger, *cards.Face, int, int, bool) {
+	if o == nil || sa == nil || o.Card == nil {
+		return cards.Trigger{}, nil, 0, 0, false
+	}
+	if live := o.Face(); live != nil {
+		for ti, t := range live.Triggers {
+			if t.Effect == sa {
+				return t, live, int(o.FaceIdx), ti, true
+			}
+		}
+	}
 	if !inactiveFaceLayout(o.Card) {
-		return cards.Trigger{}, nil, false
+		return cards.Trigger{}, nil, 0, 0, false
 	}
 	for fi, f := range o.Card.Faces {
 		if f == nil || fi == int(o.FaceIdx) {
 			continue
 		}
-		for _, t := range f.Triggers {
+		for ti, t := range f.Triggers {
 			if t.Effect == sa {
-				return t, f, true
+				return t, f, fi, ti, true
 			}
 		}
 	}
-	return cards.Trigger{}, nil, false
+	return cards.Trigger{}, nil, 0, 0, false
 }

@@ -96,4 +96,17 @@ func TestTriggerPushFaceAmountMintsBackFaceLine(t *testing.T) {
 	if len(g.Stack) != n {
 		t.Fatalf("an out-of-range face minted an ability")
 	}
+
+	Emit(g, l, Event{Kind: FlipFace, Obj: o.ID, Amount: 1})
+	if o.FaceIdx != 1 || o.Face().Name != "Back" {
+		t.Fatalf("precondition: expected live face 1, got face %d %q", o.FaceIdx, o.Face().Name)
+	}
+	Emit(g, l, Event{Kind: TriggerPush, Obj: o.ID, Player: 0, Amount: TriggerPushFaceAmount(0, 0)})
+	if top().Ability != front {
+		t.Fatalf("face-0 amount minted %v, want front-face line %p while face 1 is live", top().Ability, front)
+	}
+	Emit(g, l, Event{Kind: TriggerPush, Obj: o.ID, Player: 0, Amount: 0})
+	if top().Ability != back {
+		t.Fatalf("plain live-face amount minted %v, want back-face line %p", top().Ability, back)
+	}
 }

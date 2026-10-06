@@ -1276,17 +1276,12 @@ func (e *Engine) findTriggerForAbilityFace(source state.ObjID, sa *cards.SA) (ca
 	if o == nil {
 		return cards.Trigger{}, nil, false
 	}
+	if t, tf, _, _, ok := printedFaceTrigger(o, sa); ok {
+		return t, tf, true
+	}
 	f := o.Face()
 	if f == nil {
 		return cards.Trigger{}, nil, false
-	}
-	for _, t := range f.Triggers {
-		if t.Effect == sa {
-			return t, f, true
-		}
-	}
-	if t, tf, ok := inactiveFaceTrigger(o, sa); ok {
-		return t, tf, true
 	}
 	for i := range o.MergedCards {
 		mf := o.MergedFaceAt(i)

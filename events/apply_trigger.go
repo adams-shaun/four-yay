@@ -17,24 +17,41 @@ import (
 // lives on face `face` of the source card rather than the source's live face
 // (the back-face "when this dies" line of a transforming double-faced card,
 // which is front face up again by the time the push is minted, CR 712.8a).
-// A face-0 line, or one on the live face, keeps the plain index so every
-// ordinary push is byte-identical to before. Reuses MergedTriggerAmount's
-// 16-bit split; an oversized value yields -1 (Apply degrades it to a no-op).
+// Face-specific indices reuse MergedTriggerAmount's 16-bit split. Existing
+// face>0 encodings remain byte-identical; a reserved face code represents
+// face 0 without aliasing a plain live-face index. Oversized values yield -1
+// (Apply degrades them to a no-op).
+const triggerPushFrontFaceCode = (1 << (mergedTriggerShift - 1)) - 1
+
 func TriggerPushFaceAmount(face, trigIdx int) int32 {
-	if face <= 0 {
-		return int32(trigIdx)
+	if face == 0 {
+		if trigIdx < 0 || trigIdx >= 1<<mergedTriggerShift {
+			return -1
+		}
+		return int32(triggerPushFrontFaceCode<<mergedTriggerShift | trigIdx)
+	}
+	if face < 0 {
+		return -1
 	}
 	return MergedTriggerAmount(face, trigIdx)
 }
 
-// triggerPushIndexes unpacks TriggerPushFaceAmount: face 0 is the source's
-// live face (the plain-index encoding), any other value names a face of the
-// source Card. -1 (the sentinel Dethrone grant) passes through as idx -1.
+// triggerPushIndexes unpacks TriggerPushFaceAmount. A plain index names the
+// source's live face; packed values name a specific card face. -1 (the
+// sentinel Dethrone grant) passes through as idx -1.
 func triggerPushIndexes(amount int32) (face, idx int) {
-	if amount < 0 {
-		return 0, int(amount)
+	if amount == -1 {
+		return 0, -1
 	}
-	return int(amount >> mergedTriggerShift), int(amount & (1<<mergedTriggerShift - 1))
+	if amount < 0 {
+		return -2, int(amount)
+	}
+	code := int(amount >> mergedTriggerShift)
+	idx = int(amount & (1<<mergedTriggerShift - 1))
+	if code == triggerPushFrontFaceCode {
+		return -1, idx
+	}
+	return code, idx
 }
 
 // foldTriggerPush folds Kind TriggerPush into state.
@@ -68,8 +85,12 @@ func foldTriggerPush(g *state.Game, e *Event) {
 	f := src.Face()
 	if face != 0 {
 		f = nil
-		if src.Card != nil && face < len(src.Card.Faces) {
-			f = src.Card.Faces[face]
+		faceIdx := face
+		if face == -1 { // face-specific encoding for the front face
+			faceIdx = 0
+		}
+		if src.Card != nil && faceIdx >= 0 && faceIdx < len(src.Card.Faces) {
+			f = src.Card.Faces[faceIdx]
 		}
 	}
 	if f == nil || idx < -1 || idx >= len(f.Triggers) {
