@@ -261,7 +261,7 @@ func probeNameUsable(name string) bool {
 func spellCostProbes(reg *cards.Registry, name string, st cards.Static, filter string, reduction int, base costProbe) []costProbe {
 	var cands []costCandidate
 	pay, full := map[*cards.Face]string{}, map[*cards.Face]string{}
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		if len(card.Faces) != 1 || card.Faces[0] == nil {
 			continue
 		}
@@ -314,7 +314,7 @@ func abilityCostProbes(reg *cards.Registry, name string, st cards.Static, filter
 	targetsSource := strings.EqualFold(st.Params["ValidTarget"], "Card.Self")
 	var cands []costCandidate
 	found := map[*cards.Face]costProbe{}
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		if len(card.Faces) == 0 || card.Faces[0] == nil {
 			continue
 		}

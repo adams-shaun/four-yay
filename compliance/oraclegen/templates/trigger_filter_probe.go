@@ -76,8 +76,8 @@ func (p *filterProbe) accepts(card *cards.Card) bool {
 // trigger, a fixed toughness so setup does not kill them, and no way to resist
 // destruction. Capped, since each costs a full scenario run.
 func (p *filterProbe) victimProbes(reg *cards.Registry, skip string, limit int) []string {
-	names := make([]string, 0, len(reg.Cards))
-	for _, c := range reg.Cards {
+	names := make([]string, 0, reg.Len())
+	for _, c := range reg.AllCards() {
 		if len(c.Faces) != 0 {
 			names = append(names, c.Faces[0].Name)
 		}
