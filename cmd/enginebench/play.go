@@ -32,7 +32,13 @@ const (
 // nothing.
 var syncAnswer = os.Getenv("GORGE_TAPE_SYNC") == "1" || syncAnswerBuild == "1"
 
+// syncAnswerBuild and sparePool sit beside the row helpers: sparePool
+// recycles finished games' storage (rules.Spare) between the games a row
+// plays back to back, so the random and bot rows measure reuse the way
+// production self-play does.
 var syncAnswerBuild string
+
+var sparePool bench.SparePool
 
 type randomStats struct {
 	Games, Turns, Decisions, Rejected, Fallbacks, Stalls int
@@ -86,6 +92,11 @@ func randomIntent(d *decision.Decision, r *rand.Rand) decision.Intent {
 // `retries` rejections the decision is answered by the heuristic bot.
 func playRandom(cfg rules.Config, st *randomStats) {
 	r := rand.New(rand.NewPCG(cfg.Seed, cfg.Seed^0x5bd1e9955bd1e995))
+	// The finished game's log and object arrays back the next game this run
+	// plays (rules.Spare; reuse never changes a game). The pooled spare is
+	// returned only after the stats below read the finished engine.
+	spare := sparePool.Get()
+	cfg.Spare = spare
 	e := rules.New(cfg)
 	var fb [2]*seat.Bot
 	board := botpolicy.NewBoard(2)
@@ -173,6 +184,12 @@ func playRandom(cfg rules.Config, st *randomStats) {
 		}
 		st.StallKinds[stall]++
 	}
+	// A clean engine is at its last use here (nothing reads e.L or e.G past
+	// this function); a panicked one is dropped rather than recycled, so a
+	// suspect log never backs a later game.
+	if stall != "panic" {
+		sparePool.Put(spare, e)
+	}
 }
 
 func runRandom(r *result, w workload, pair string, base uint64, secs float64) error {
@@ -210,7 +227,7 @@ func playBot(cfg rules.Config, autopay bool, st *botStats) error {
 		}
 		seats[i] = b
 	}
-	o, _, err := bench.PlayGame(cfg, seats, maxTurns, maxIntents, bench.Hooks{SyncAnswer: syncAnswer})
+	o, err := sparePool.PlayGameRecycled(cfg, seats, maxTurns, maxIntents, bench.Hooks{SyncAnswer: syncAnswer}, nil)
 	if err != nil {
 		return err
 	}

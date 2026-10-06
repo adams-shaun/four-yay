@@ -62,6 +62,11 @@ var defaultMonoDecks = []string{
 	"mono-white-equipment",
 }
 
+// sparePool recycles finished games' storage (rules.Spare) between the games
+// a fit plays back to back, the way every other batch runner does; the
+// outcome is a pure function of the seeds, so reuse is invisible to the fit.
+var sparePool bench.SparePool
+
 // committer converts one game's seat assignment into a rules.Config and runs
 // it. It is the gbench.PairPlayer used by both the fit evaluation and the
 // bot bench.
@@ -148,7 +153,7 @@ func (d *devSuite) player() bench.PairPlayer {
 			Decks: [][]*cards.Card{d.deckByName[pd.A], d.deckByName[pd.B]},
 		}
 		cfg.Tokens = d.reg.Tokens
-		o, _, err := bench.PlayGame(cfg, seats[:], d.maxTurns, d.maxIntents, bench.Hooks{})
+		o, err := sparePool.PlayGameRecycled(cfg, seats[:], d.maxTurns, d.maxIntents, bench.Hooks{}, nil)
 		return o, err
 	}
 }

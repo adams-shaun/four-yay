@@ -323,10 +323,7 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 	// A finished game's storage backs the next game this worker plays
 	// (rules.Spare; reuse never changes a game -- the same contract
 	// playMatch's sparePool relies on).
-	spare, _ := sbSparePool.Get().(*rules.Spare)
-	if spare == nil {
-		spare = new(rules.Spare)
-	}
+	spare := sbSparePool.Get()
 	cfg.Spare = spare
 	// The decision arena backs the game's priority decisions, resolution
 	// contexts and LKI copies with chunks the Spare recycles. It is sound
@@ -395,8 +392,7 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 	if err == nil && e != nil && !gbench.IsAbort(o.StallOn) {
 		// The engine's last use: the outcome, corpus and stats above are
 		// plain values, and the seats that held it die with this call.
-		*spare = e.Release()
-		sbSparePool.Put(spare)
+		sbSparePool.Put(spare, e)
 	}
 	return res
 }
@@ -404,7 +400,7 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 // sbSparePool recycles finished spellbench games' storage (rules.Spare)
 // between the games a worker plays back to back. Which spare a game draws is
 // scheduling-dependent but invisible (rules.Spare's contract).
-var sbSparePool sync.Pool
+var sbSparePool gbench.SparePool
 
 // sbCorpusMember stamps each record with the recording seat's outcome and
 // encodes the game's records as one gzip member. A halted or truncated game's
