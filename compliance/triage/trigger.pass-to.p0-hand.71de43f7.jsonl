@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"pass_to","field":"p0.hand","diff":"gorge+[Jace Beleren] xmage+[]"},"key":"trigger | pass_to | p0.hand | gorge+[Jace Beleren] xmage+[]","cards":1}
+{"card":"Servant of the Stinger","template":"trigger#0.0","status":"diverge","api":"DamageDone:ChangeZone","sets":["OTJ"],"detail":"step 1 (pass_to) p0.hand: gorge \"[Jace Beleren]\", xmage \"[]\""}

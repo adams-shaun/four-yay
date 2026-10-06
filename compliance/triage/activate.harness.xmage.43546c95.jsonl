@@ -1,0 +1,3 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Exhaust — {N}{U}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Exhaust — {N}{U}","cards":2}
+{"card":"Keen Buccaneer","template":"activate#0.0","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {1}{U}"}
+{"card":"Skystreak Engineer","template":"activate#0.0","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {4}{U}"}

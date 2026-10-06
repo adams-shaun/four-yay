@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"activate","field":"p0.pool","diff":"gorge= xmage=W"},"key":"activate | activate | p0.pool | gorge= xmage=W","cards":1}
+{"card":"Foraging Wickermaw","template":"activate#0.0","status":"diverge","api":"ChangesZone:Surveil","sets":["ECL"],"detail":"step 0 (activate) p0.pool: gorge \"\", xmage \"W\""}

@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {T}, Pay N life, Sacrifice this land"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {T}, Pay N life, Sacrifice this land","cards":1}
+{"card":"Elven Passage","template":"activate#0.0","status":"harness","api":"-","sets":["HOB"],"detail":"xmage: AssertionError: Can't find ability to activate command: {T}, Pay 1 life, Sacrifice this land"}

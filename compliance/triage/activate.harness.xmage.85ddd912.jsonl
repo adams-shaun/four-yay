@@ -1,0 +1,3 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{B}, Exile {this} from your graveyard"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{B}, Exile {this} from your graveyard","cards":2}
+{"card":"Bonebind Orator","template":"activate#0.0","status":"harness","api":"-","sets":["BLB"],"detail":"xmage: AssertionError: Can't find ability to activate command: {3}{B}, Exile {this} from your graveyard"}
+{"card":"Faerie Dreamthief","template":"activate#0.0","status":"harness","api":"ChangesZone:Surveil","sets":["WOE"],"detail":"xmage: AssertionError: Can't find ability to activate command: {2}{B}, Exile {this} from your graveyard"}

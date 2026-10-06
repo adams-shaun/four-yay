@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"setup","field":"permanents","diff":"$CARD gorge+[2/1, counters=M1M1=1] xmage+[3/2]; gorge+token"},"key":"trigger | setup | permanents | $CARD gorge+[2/1, counters=M1M1=1] xmage+[3/2]; gorge+token","cards":1}
+{"card":"Scuzzback Scrounger","template":"trigger#0.0","status":"diverge","api":"Phase:Token","sets":["ECL"],"detail":"setup permanents: gorge \"c0 o0 Scuzzback Scrounger [creature goblin warrior] {R} 2/1 counters=M1M1=1; c0 o0 token [artifact treasure] {}\", xmage \"c0 o0 Scuzzback Scrounger [creature goblin warrior] {R} 3/2\""}

@@ -57,9 +57,9 @@ func castProbe(reg *cards.Registry, probe string, targets ...string) (oraclegen.
 	return oraclegen.Step{Op: "cast", Seat: 0, Card: "p0:" + probe, Mana: pool, Targets: targets}, true
 }
 
-// triggerRecipe returns the candidate causes for one trigger sub-family, or
+// baseTriggerRecipe returns the candidate causes for one trigger sub-family, or
 // the reason none exists for this card.
-func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger, sub string) ([]triggerCause, string) {
+func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger, sub string) ([]triggerCause, string) {
 	var out []triggerCause
 	cast := func(probe string, targets ...string) {
 		if c, ok := castCause(reg, name, probe, targets...); ok {

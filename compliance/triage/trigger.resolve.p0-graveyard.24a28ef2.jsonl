@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"p0.graveyard","diff":"gorge+[Shock] xmage+[]"},"key":"trigger | resolve | p0.graveyard | gorge+[Shock] xmage+[]","cards":1}
+{"card":"Ojer Pakpatiq, Deepest Epoch","template":"trigger#0.0","status":"diverge","api":"SpellCast:Pump+ChangesZone:ChangeZone","sets":["LCI"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Shock]\", xmage \"[]\""}

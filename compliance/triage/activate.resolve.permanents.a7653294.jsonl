@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"permanents","diff":"gorge+Ornithopter; xmage+Sol Ring"},"key":"activate | resolve | permanents | gorge+Ornithopter; xmage+Sol Ring","cards":1}
+{"card":"Shuri, Wakandan Inventor","template":"activate#0.0","status":"diverge","api":"-","sets":["MSH"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Ornithopter [artifact creature thopter] {} 0/2\", xmage \"c0 o0 Sol Ring [artifact] {}\""}

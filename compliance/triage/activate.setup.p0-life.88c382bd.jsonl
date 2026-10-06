@@ -1,0 +1,7 @@
+{"shape":{"template":"activate","op":"setup","field":"p0.life","diff":"gorge-xmage=2"},"key":"activate | setup | p0.life | gorge-xmage=2","cards":6}
+{"card":"Adventurer's Inn","template":"activate#0.0","status":"diverge","api":"ChangesZone:GainLife","sets":["FIN"],"detail":"setup p0.life: gorge \"22\", xmage \"20\""}
+{"card":"Clay-Fired Bricks","template":"activate#0.0","status":"diverge","api":"ChangesZone:ChangeZone","sets":["LCI"],"detail":"setup p0.life: gorge \"22\", xmage \"20\""}
+{"card":"Oasis Gardener","template":"activate#0.0","status":"diverge","api":"ChangesZone:GainLife","sets":["OTJ"],"detail":"setup p0.life: gorge \"22\", xmage \"20\""}
+{"card":"Veloheart Bike","template":"activate#0.0","status":"diverge","api":"ChangesZone:GainLife","sets":["DFT"],"detail":"setup p0.life: gorge \"22\", xmage \"20\""}
+{"card":"Veloheart Bike","template":"activate#0.1","status":"diverge","api":"ChangesZone:GainLife","sets":["DFT"],"detail":"setup p0.life: gorge \"22\", xmage \"20\""}
+{"card":"Well-Worn Spatula","template":"activate#0.0","status":"diverge","api":"ChangesZone:GainLife","sets":["HOB"],"detail":"setup p0.life: gorge \"22\", xmage \"20\""}

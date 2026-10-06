@@ -204,6 +204,16 @@ func castWithProbes(reg *cards.Registry, f *cards.Face, name, mana string, slots
 					}
 					it.Scenario = sc
 					it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
+					if len(stackIdx) == 0 {
+						// A stack slot shifts the fixture's slot indices, so the
+						// explicit-skip plan covers plain slot lists only.
+						it.XTargetSkips = oraclegen.TargetSkipsFor(slots, fx, sc, res.Decisions, castSteps)
+					}
+					if len(fx.Omitted()) > 0 && it.XTargetSkips == nil {
+						// Do not fall back to a speculative trailing skip when
+						// correspondence for an omitted object is unproven.
+						continue
+					}
 					if n := oraclegen.OptionalCostCastNo(f, mana); n > 0 {
 						// XMage asks "pay the additional cost?" at the head of the
 						// cast; gorge offered it as a declineable cast option, so

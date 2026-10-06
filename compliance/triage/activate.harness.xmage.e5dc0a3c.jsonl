@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{G}, Sacrifice this enchantment"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{G}, Sacrifice this enchantment","cards":1}
+{"card":"Point the Way","template":"activate#0.0","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: {3}{G}, Sacrifice this enchantment"}

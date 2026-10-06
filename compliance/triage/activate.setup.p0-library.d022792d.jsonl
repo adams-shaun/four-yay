@@ -1,0 +1,24 @@
+{"shape":{"template":"activate","op":"setup","field":"p0.library","diff":"placement"},"key":"activate | setup | p0.library | placement","cards":23}
+{"card":"Aftermath Analyst","template":"activate#0.0","status":"diverge","api":"ChangesZone:Mill","sets":["MKM"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Carrion Cruiser","template":"activate#0.0","status":"diverge","api":"ChangesZone:Mill","sets":["DFT"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Clive's Hideaway","template":"activate#0.0","status":"diverge","api":"ChangesZone:Hideaway","sets":["FIN"],"detail":"setup p0.exile: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Clive's Hideaway","template":"activate#0.1","status":"diverge","api":"ChangesZone:Hideaway","sets":["FIN"],"detail":"setup p0.exile: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Clive, Ifrit's Dominant","template":"activate#0.0","status":"diverge","api":"ChangesZone:Discard","sets":["FIN"],"detail":"setup p0.hand: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Collector's Cage","template":"activate#0.0","status":"diverge","api":"ChangesZone:Hideaway","sets":["BIG"],"detail":"setup p0.exile: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Conductive Machete","template":"activate#0.0","status":"diverge","api":"ChangesZone:ManifestDread","sets":["DSK"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Cryptic Coat","template":"activate#0.0","status":"diverge","api":"ChangesZone:Cloak","sets":["MKM"],"detail":"setup p0.library_count: gorge \"38\", xmage \"39\""}
+{"card":"Cursed Windbreaker","template":"activate#0.0","status":"diverge","api":"ChangesZone:ManifestDread","sets":["DSK"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Guidelight Matrix","template":"activate#0.1","status":"diverge","api":"ChangesZone:Draw","sets":["DFT"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Gwen Stacy","template":"activate#0.0","status":"diverge","api":"ChangesZone:Dig","sets":["SPM"],"detail":"setup p0.exile: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"High Perfect Morcant","template":"activate#0.0","status":"diverge","api":"ChangesZone:Blight","sets":["ECL"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Hulldrifter","template":"activate#0.0","status":"diverge","api":"ChangesZone:Draw","sets":["DFT"],"detail":"setup p0.hand: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Inverted Iceberg","template":"activate#0.0","status":"diverge","api":"ChangesZone:Mill","sets":["LCI"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Killer's Mask","template":"activate#0.0","status":"diverge","api":"ChangesZone:ManifestDread","sets":["DSK"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Lluwen, Imperfect Naturalist","template":"activate#0.0","status":"diverge","api":"ChangesZone:Mill","sets":["ECL"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes, Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Prophetic Prism","template":"activate#0.0","status":"diverge","api":"ChangesZone:Draw","sets":["WOE"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Rainveil Rejuvenator","template":"activate#0.0","status":"diverge","api":"ChangesZone:Mill","sets":["TDM"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[]\""}
+{"card":"Tablet of Discovery","template":"activate#0.0","status":"diverge","api":"ChangesZone:Mill","sets":["SOS"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Tablet of Discovery","template":"activate#0.1","status":"diverge","api":"ChangesZone:Mill","sets":["SOS"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"The Echoverse Fulcrum","template":"activate#0.0","status":"diverge","api":"ChangesZone:Draw","sets":["FRA"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"The Legend of Kyoshi","template":"activate#1.0","status":"diverge","api":"-","sets":["TLA"],"detail":"setup p0.hand: gorge \"[Wastes, Wastes, Wastes, Wastes, Wastes]\", xmage \"[]\""}
+{"card":"The Legend of Roku","template":"activate#1.0","status":"diverge","api":"-","sets":["TLA"],"detail":"setup p0.exile: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[]\""}

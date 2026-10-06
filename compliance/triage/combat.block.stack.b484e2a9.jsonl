@@ -1,0 +1,2 @@
+{"shape":{"template":"combat","op":"block","field":"stack","diff":"gorge=[] xmage=[ability:$CARD@p0]"},"key":"combat | block | stack | gorge=[] xmage=[ability:$CARD@p0]","cards":1}
+{"card":"Skewer Slinger","template":"combat#0.block","status":"diverge","api":"AttackerBlockedByCreature:DealDamage","sets":["WOE"],"detail":"step 1 (block) stack: gorge \"[]\", xmage \"[ability:Skewer Slinger@p0]\""}

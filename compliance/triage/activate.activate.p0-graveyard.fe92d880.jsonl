@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"activate","field":"p0.graveyard","diff":"gorge+[Elvish Mystic, Llanowar Elves, Mind Stone, Sol Ring] xmage+[]"},"key":"activate | activate | p0.graveyard | gorge+[Elvish Mystic, Llanowar Elves, Mind Stone, Sol Ring] xmage+[]","cards":1}
+{"card":"The Enigma Jewel","template":"activate#0.1","status":"diverge","api":"-","sets":["LCI"],"detail":"step 0 (activate) p0.graveyard: gorge \"[Sol Ring, Llanowar Elves, Elvish Mystic, Mind Stone]\", xmage \"[]\""}

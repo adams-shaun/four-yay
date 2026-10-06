@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"pass_to","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:The Invincible Iron Man@p0]"},"key":"trigger | pass_to | stack | gorge=[ability:$CARD@p0] xmage=[ability:The Invincible Iron Man@p0]","cards":1}
+{"card":"Tony Stark","template":"trigger#1.0","status":"diverge","api":"-","sets":["MSH"],"detail":"step 0 (pass_to) stack: gorge \"[ability:Tony Stark@p0]\", xmage \"[ability:The Invincible Iron Man@p0]\""}

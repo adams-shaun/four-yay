@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Smear Campaign — {N}, {T}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Smear Campaign — {N}, {T}","cards":1}
+{"card":"Daily Bugle Building","template":"activate#0.2","status":"harness","api":"-","sets":["SPM"],"detail":"xmage: AssertionError: Can't find ability to activate command: Smear Campaign — {1}, {T}"}

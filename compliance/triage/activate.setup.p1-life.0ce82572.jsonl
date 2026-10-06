@@ -1,0 +1,11 @@
+{"shape":{"template":"activate","op":"setup","field":"p1.life","diff":"gorge-xmage=-1"},"key":"activate | setup | p1.life | gorge-xmage=-1","cards":10}
+{"card":"Abraded Bluffs","template":"activate#0.0","status":"diverge","api":"ChangesZone:DealDamage","sets":["OTJ"],"detail":"setup p1.life: gorge \"19\", xmage \"20\""}
+{"card":"Bristling Backwoods","template":"activate#0.0","status":"diverge","api":"ChangesZone:DealDamage","sets":["OTJ"],"detail":"setup p1.life: gorge \"19\", xmage \"20\""}
+{"card":"Creosote Heath","template":"activate#0.0","status":"diverge","api":"ChangesZone:DealDamage","sets":["OTJ"],"detail":"setup p1.life: gorge \"19\", xmage \"20\""}
+{"card":"Eroded Canyon","template":"activate#0.0","status":"diverge","api":"ChangesZone:DealDamage","sets":["OTJ"],"detail":"setup p1.life: gorge \"19\", xmage \"20\""}
+{"card":"Festering Gulch","template":"activate#0.0","status":"diverge","api":"ChangesZone:DealDamage","sets":["OTJ"],"detail":"setup p1.life: gorge \"19\", xmage \"20\""}
+{"card":"Forlorn Flats","template":"activate#0.0","status":"diverge","api":"ChangesZone:DealDamage","sets":["OTJ"],"detail":"setup p1.life: gorge \"19\", xmage \"20\""}
+{"card":"Jagged Barrens","template":"activate#0.0","status":"diverge","api":"ChangesZone:DealDamage","sets":["OTJ"],"detail":"setup p1.life: gorge \"19\", xmage \"20\""}
+{"card":"Lonely Arroyo","template":"activate#0.0","status":"diverge","api":"ChangesZone:DealDamage","sets":["OTJ"],"detail":"setup p1.life: gorge \"19\", xmage \"20\""}
+{"card":"Lush Oasis","template":"activate#0.0","status":"diverge","api":"ChangesZone:DealDamage","sets":["OTJ"],"detail":"setup p1.life: gorge \"19\", xmage \"20\""}
+{"card":"Soured Springs","template":"activate#0.0","status":"diverge","api":"ChangesZone:DealDamage","sets":["OTJ"],"detail":"setup p1.life: gorge \"19\", xmage \"20\""}

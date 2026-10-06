@@ -1,0 +1,7 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}, Sacrifice this creature"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}, Sacrifice this creature","cards":6}
+{"card":"Curious Farm Animals","template":"activate#0.0","status":"harness","api":"ChangesZone:GainLife","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: {2}, Sacrifice this creature"}
+{"card":"Illvoi Galeblade","template":"activate#0.0","status":"harness","api":"-","sets":["EOE"],"detail":"xmage: AssertionError: Can't find ability to activate command: {2}, Sacrifice this creature"}
+{"card":"Living Library","template":"activate#0.0","status":"harness","api":"-","sets":["FRA"],"detail":"xmage: AssertionError: Can't find ability to activate command: {6}, Sacrifice this creature"}
+{"card":"Shattered Acolyte","template":"activate#0.0","status":"harness","api":"-","sets":["SOS"],"detail":"xmage: AssertionError: Can't find ability to activate command: {1}, Sacrifice this creature"}
+{"card":"Survey Mechan","template":"activate#0.0","status":"harness","api":"-","sets":["EOE"],"detail":"xmage: AssertionError: Can't find ability to activate command: {10}, Sacrifice this creature"}
+{"card":"Undergrowth Leopard","template":"activate#0.0","status":"harness","api":"-","sets":["TDM"],"detail":"xmage: AssertionError: Can't find ability to activate command: {1}, Sacrifice this creature"}

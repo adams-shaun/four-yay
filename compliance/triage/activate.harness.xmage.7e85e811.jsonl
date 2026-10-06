@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}, Exile this card from your hand"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}, Exile this card from your hand","cards":1}
+{"card":"Emrakul, the Exigent Doom","template":"activate#0.0","status":"harness","api":"SpellCast:UntapAll+BecomesTarget:Ward","sets":["FRA"],"detail":"xmage: AssertionError: Can't find ability to activate command: {3}, Exile this card from your hand"}

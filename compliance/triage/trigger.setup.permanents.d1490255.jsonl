@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"setup","field":"permanents","diff":"Grizzly Bears gorge+[counters=STUN=1, tapped] xmage+[]"},"key":"trigger | setup | permanents | Grizzly Bears gorge+[counters=STUN=1, tapped] xmage+[]","cards":1}
+{"card":"Deluge Virtuoso","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Tap+SpellCast:Pump","sets":["SOS"],"detail":"setup permanents: gorge \"c1 o1 Grizzly Bears [bear creature] {G} 2/2 tapped counters=STUN=1\", xmage \"c1 o1 Grizzly Bears [bear creature] {G} 2/2\""}

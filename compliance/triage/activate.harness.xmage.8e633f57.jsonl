@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Exhaust — {X}{U}{U}, {T}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Exhaust — {X}{U}{U}, {T}","cards":1}
+{"card":"Mindspring Merfolk","template":"activate#0.0","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {X}{U}{U}, {T}"}

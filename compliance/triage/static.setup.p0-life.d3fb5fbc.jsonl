@@ -1,0 +1,4 @@
+{"shape":{"template":"static","op":"setup","field":"p0.life","diff":"gorge-xmage=-1"},"key":"static | setup | p0.life | gorge-xmage=-1","cards":3}
+{"card":"Corpses of the Lost","template":"static#0.0","status":"diverge","api":"ChangesZone:Token+Phase:ChangeZone","sets":["LCI"],"detail":"setup p0.life: gorge \"19\", xmage \"20\""}
+{"card":"Death Baron","template":"static#0.0","status":"diverge","api":"-","sets":["FDN"],"detail":"setup p0.life: gorge \"19\", xmage \"20\""}
+{"card":"Gisa, the Hellraiser","template":"static#0.0","status":"diverge","api":"CommitCrime:Token+BecomesTarget:Ward","sets":["OTJ"],"detail":"setup p0.life: gorge \"19\", xmage \"20\""}

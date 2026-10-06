@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"setup","field":"stack","diff":"gorge=[] xmage=[ability:Sygg, Wanderbrine Shield@p0]"},"key":"trigger | setup | stack | gorge=[] xmage=[ability:Sygg, Wanderbrine Shield@p0]","cards":1}
+{"card":"Sygg, Wanderwine Wisdom","template":"trigger#1.1","status":"diverge","api":"ChangesZone:Animate+Transformed:Animate+Phase:SetState","sets":["ECL"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Sygg, Wanderbrine Shield@p0]\""}

@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"activate","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:World Champion, Celestial Weapon@p0]"},"key":"activate | activate | stack | gorge=[ability:$CARD@p0] xmage=[ability:World Champion, Celestial Weapon@p0]","cards":1}
+{"card":"Sidequest: Play Blitzball","template":"activate#1.0","status":"diverge","api":"Phase:Pump+Phase:SetState","sets":["FIN"],"detail":"step 0 (activate) stack: gorge \"[ability:Sidequest: Play Blitzball@p0]\", xmage \"[ability:World Champion, Celestial Weapon@p0]\""}

@@ -9,9 +9,24 @@ import (
 	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
+// wantCombatCensus pins, per set, every non-gap combat requirement's outcome.
+//
+// Re-measured for the setup-entry-provenance ticket
+// (cli-20261005T142245Z-5f9ed803): setup permanents no longer read as
+// entered this turn in either engine, so EOE Mechan Shieldmate lost its
+// combat.attack row and moved to the scenario-does-not-replay bucket. The
+// creature has defender and "As long as an artifact entered the battlefield
+// under your control this turn, this creature can attack as though it didn't
+// have defender" (CanAttackDefender gated on
+// Count$ThisTurnEntered_Battlefield_Artifact.YouCtrl); the attack row was
+// served only BECAUSE a setup battlefield artifact wrongly read as entered
+// this turn. With the artifact correctly old, X = 0 and the defender cannot
+// attack, so the scenario no longer replays. EOE attack 48 -> 47 and
+// scenario-does-not-replay 1 -> 2 (the other is Monoist Sentry, whose plain
+// Defender genuinely cannot attack).
 var wantCombatCensus = map[string]map[string]int{
 	"BIG": {"served:combat.attack": 4, "served:combat.block": 3, "skip:combat block not offered": 1},
-	"EOE": {"served:combat.attack": 48, "served:combat.block": 48, "skip:combat block not offered": 1, "skip:combat scenario does not replay": 1},
+	"EOE": {"served:combat.attack": 47, "served:combat.block": 48, "skip:combat block not offered": 1, "skip:combat scenario does not replay": 2},
 	"FDN": {"served:combat.attack": 123, "served:combat.block": 122, "skip:combat block not offered": 5, "skip:combat scenario does not replay": 4},
 	"FRA": {"served:combat.attack": 62, "served:combat.block": 62, "skip:combat block not offered": 1, "skip:combat scenario does not replay": 1},
 }

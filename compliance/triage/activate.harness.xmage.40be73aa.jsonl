@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {W}, {T}, Exert Basri"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {W}, {T}, Exert Basri","cards":1}
+{"card":"Basri, Tomorrow's Champion","template":"activate#0.0","status":"harness","api":"Cycled:PumpAll","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: {W}, {T}, Exert Basri"}

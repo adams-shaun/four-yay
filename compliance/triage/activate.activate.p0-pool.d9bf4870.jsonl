@@ -1,0 +1,11 @@
+{"shape":{"template":"activate","op":"activate","field":"p0.pool","diff":"gorge=W xmage=G"},"key":"activate | activate | p0.pool | gorge=W xmage=G","cards":10}
+{"card":"Crossroads Village","template":"activate#0.0","status":"diverge","api":"-","sets":["FIN"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"G\""}
+{"card":"Daily Bugle Building","template":"activate#0.1","status":"diverge","api":"-","sets":["SPM"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"G\""}
+{"card":"Dragonbroods' Relic","template":"activate#0.0","status":"diverge","api":"-","sets":["TDM"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"G\""}
+{"card":"Great Hall of the Biblioplex","template":"activate#0.1","status":"diverge","api":"-","sets":["SOS"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"G\""}
+{"card":"Hydro-Channeler","template":"activate#0.1","status":"diverge","api":"-","sets":["SOS"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"G\""}
+{"card":"Mirage Mesa","template":"activate#0.0","status":"diverge","api":"-","sets":["OTJ"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"G\""}
+{"card":"Night Market","template":"activate#0.0","status":"diverge","api":"-","sets":["DFT"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"G\""}
+{"card":"Scene of the Crime","template":"activate#0.1","status":"diverge","api":"-","sets":["MKM"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"G\""}
+{"card":"Three Tree Mascot","template":"activate#0.0","status":"diverge","api":"-","sets":["BLB","FDN"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"G\""}
+{"card":"White Lotus Hideout","template":"activate#0.2","status":"diverge","api":"-","sets":["TLA"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"G\""}

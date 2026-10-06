@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{R}{W}{B}, {T}, Sacrifice this artifact"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{R}{W}{B}, {T}, Sacrifice this artifact","cards":1}
+{"card":"Mardu Monument","template":"activate#0.0","status":"harness","api":"ChangesZone:ChangeZone","sets":["TDM"],"detail":"xmage: AssertionError: Can't find ability to activate command: {2}{R}{W}{B}, {T}, Sacrifice this artifact"}
