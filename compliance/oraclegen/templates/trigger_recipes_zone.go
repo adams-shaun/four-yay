@@ -63,10 +63,25 @@ func zoneTriggerRecipe(reg *cards.Registry, name string, t *cards.Trigger, sub s
 		return nil, "zone-change destination " + dest
 	}
 	victims := []string{bearsProbe}
+	withCounter := false
 	if bears, ok := reg.Lookup(bearsProbe); ok {
 		fp := newFilterProbe(filter, zone)
 		if fp.decided && !fp.accepts(bears) {
-			victims = fp.victimProbes(reg, name, 4)
+			// One +1/+1 counter serves modified/HasCounters/counters_GE1
+			// without interpreting those predicates here. The same matcher
+			// checks the fixture we will actually emit.
+			fp.p1p1 = zone == state.ZBattlefield
+			if fp.accepts(bears) {
+				withCounter = fp.p1p1
+			} else {
+				fp.p1p1 = false
+				victims = fp.victimProbes(reg, name, 4)
+				if len(victims) == 0 && zone == state.ZBattlefield {
+					fp.p1p1 = true
+					victims = fp.victimProbes(reg, name, 4)
+					withCounter = true
+				}
+			}
 		}
 	}
 	if len(victims) == 0 {
@@ -86,6 +101,9 @@ func zoneTriggerRecipe(reg *cards.Registry, name string, t *cards.Trigger, sub s
 				c.graveyard = []string{victim}
 			} else {
 				c.battlefield = []string{victim}
+				if withCounter {
+					c.counters = map[string]map[string]int{victim: {"P1P1": 1}}
+				}
 			}
 			out = append(out, c)
 		}
