@@ -249,8 +249,13 @@ func appendFixtureUnique(xs []string, name string) []string {
 // is the physical card setup deals (physicalName).
 func buildStackScenario(f *cards.Face, name, hand, mana string, pre precast, fx oraclegen.Fixture, slots []oraclegen.Slot, stackIdx []int, answers []oraclegen.Answer) oraclegen.Scenario {
 	targets := insertStackTargets(slots, stackIdx, fx.Targets(), pre)
+	turn := 0
+	if oraclegen.RequiresTurnFour(name) {
+		turn = 7
+	}
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": *fx.P0(), "p1": *fx.P1()},
+		Turn:         turn,
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),
 		Steps:        []oraclegen.Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: targets, Answers: answers}},
 	}

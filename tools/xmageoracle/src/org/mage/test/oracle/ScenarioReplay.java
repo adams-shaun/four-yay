@@ -64,7 +64,7 @@ import java.util.UUID;
 public class ScenarioReplay extends CardTestPlayerBase {
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().serializeNulls().create();
-    private static final int TURN = 1;
+    private int TURN = 1;
     private static final PhaseStep MAIN = PhaseStep.PRECOMBAT_MAIN;
 
     private final List<JsonObject> snaps = new ArrayList<>();
@@ -335,6 +335,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
             cast.clear();
             refAlias.clear();
             phase = MAIN;
+            TURN = sc.has("turn") ? sc.get("turn").getAsInt() : 1;
+            if (TURN < 1 || TURN > 100) {
+                throw new IllegalArgumentException("invalid scenario turn " + TURN + " (want 1..100)");
+            }
             build(sc);
             runCode("setup", TURN, MAIN, playerA, (info, p, g) -> {
                 registerAliases(g);

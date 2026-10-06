@@ -45,6 +45,7 @@ type oracleFile struct {
 
 type oracleScenario struct {
 	Name   string                `json:"name"`
+	Turn   *int                  `json:"turn,omitempty"`
 	CR     []string              `json:"cr"`
 	Why    string                `json:"why"`
 	Format string                `json:"format,omitempty"`
@@ -321,6 +322,14 @@ func (r *oracleRun) resolve(ref string) (state.ObjID, error) {
 // TurnChange means seat 0's battlefield is not summoning sick on turn 1.
 func (r *oracleRun) build(sc oracleScenario) error {
 	const seats = 2
+	turn := 1
+	if sc.Turn != nil {
+		turn = *sc.Turn
+	}
+	if turn < 1 || turn > 100 {
+		return harnessf("invalid scenario turn %d (want 1..100)", turn)
+	}
+	targetTurn := int32(turn)
 	lookup := func(name string) (*cards.Card, error) {
 		c, ok := r.reg.Lookup(name)
 		if !ok {
@@ -506,25 +515,24 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		}
 	}
 	e.Advance()
-	// TurnChange cleared the pre-turn placement history. XMage's seeded
-	// battlefield counts as entered on turn 1; log that provenance explicitly
-	// without a second zone move or an artificial enter-the-battlefield trigger.
-	if sc.xmageFixture {
-		for _, id := range setupBattlefield {
-			e.emit(events.Event{Kind: events.SetupEntered, Obj: id})
-		}
-	}
 	r.answers = append([]oracleAnswer(nil), sc.SetupAnswers...)
 	// A setup mana seed lands the moment the drive enters turn 1's first main
 	// phase (before the trigger it funds is answered) and never earlier: a
 	// pool added during an earlier step would empty at that step's end
 	// (CR 500.4), and the first-main-phase trigger is posed in main1.
 	seededMana := false
-	// Drive to seat 0's first main phase. Triggers that setup placements
-	// caused resolve here under the fallback answers; the transcript names
+	// Drive to the requested turn's first main phase. Triggers that setup
+	// placements caused resolve here under the fallback answers; the transcript names
 	// every one.
+	setupEntered := false
 	for i := 0; i < 400; i++ {
-		if !seededMana && e.G.Turn == 1 && e.G.Step == state.StepMain1 {
+		if sc.xmageFixture && !setupEntered && e.G.Turn == targetTurn && e.G.Step == state.StepMain1 {
+			for _, id := range setupBattlefield {
+				e.emit(events.Event{Kind: events.SetupEntered, Obj: id})
+			}
+			setupEntered = true
+		}
+		if !seededMana && e.G.Turn == targetTurn && e.G.Step == state.StepMain1 {
 			seededMana = true
 			for p := 0; p < 2; p++ {
 				for _, c := range sc.Setup[fmt.Sprintf("p%d", p)].Mana {
@@ -536,7 +544,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		if d == nil || e.G.Over {
 			return harnessf("game stopped during setup")
 		}
-		if d.Kind == decision.KPriority && e.G.Step == state.StepMain1 && e.G.Turn == 1 && len(e.G.Stack) == 0 {
+		if d.Kind == decision.KPriority && e.G.Step == state.StepMain1 && e.G.Turn == targetTurn && len(e.G.Stack) == 0 {
 			r.logf("setup done: turn %d %s, stack empty", e.G.Turn, e.G.Step)
 			return nil
 		}
@@ -544,7 +552,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			return err
 		}
 	}
-	return harnessf("setup never reached turn 1 main1")
+	return harnessf("setup never reached turn %d main1", turn)
 }
 
 func pickPass(d *decision.Decision) int {
