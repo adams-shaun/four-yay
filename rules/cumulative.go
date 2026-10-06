@@ -2,7 +2,6 @@ package rules
 
 import (
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -1098,7 +1097,7 @@ func (e *Engine) triggeredCostPayable(tc *triggeredEffectCost) bool {
 		// RollDice, etc.), before any irreversible tap is offered.
 		rest := amt
 		rest.TapPermanent = nil
-		return reflect.ValueOf(rest).IsZero() && len(literalTapOptions(asPayer(e), tc.player, tc.source, amt.TapPermanent, 0)) > 0
+		return rest.IsZero() && len(literalTapOptions(asPayer(e), tc.player, tc.source, amt.TapPermanent, 0)) > 0
 	}
 	if !pay.EnergyPayable(e.G, tc.player, &amt) {
 		return false

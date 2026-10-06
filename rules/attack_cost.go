@@ -29,7 +29,6 @@ package rules
 
 import (
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -1488,7 +1487,7 @@ func (e *Engine) atkOffersKeyHolds() bool {
 // and panics on a difference. Callers never mutate the list.
 func (e *Engine) attackOffersReused() []attackOffer {
 	if layerInertVerify {
-		if fresh := e.attackOffersCompute(); !reflect.DeepEqual(fresh, e.atkOffers) {
+		if fresh := e.attackOffersCompute(); !attackOffersEqual(fresh, e.atkOffers) {
 			panic(fmt.Sprintf("rules: reused attack offer list at log %d (derived at %d) disagrees with a rebuild (%d vs %d offers)",
 				len(e.L.Events), e.atkOffersEp, len(e.atkOffers), len(fresh)))
 		}
