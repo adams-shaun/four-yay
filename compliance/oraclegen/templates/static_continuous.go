@@ -72,8 +72,12 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	_, _, gated := staticCounterGate(&st)
 	speedGated := staticGatedOnMaxSpeed(&st)
 	if (gated || speedGated) && st.HasParam(cards.PKAddAbility) {
-		if it, ok := staticGatedGrantedAbilityItem(reg, c, f, name, req, st); ok {
+		it, why, ok := staticGatedGrantedAbilityItem(reg, c, f, name, req, st)
+		if ok {
 			return it, nil
+		}
+		if why != "" {
+			return skip(why)
 		}
 	}
 	plans := []staticProbePlan{{}}
@@ -151,9 +155,6 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		return skip(gap)
 	}
 	if gated || speedGated {
-		if sa := cards.ResolveSVar(f.SVars, strings.TrimSpace(st.ParamStr(cards.PKAddAbility))); sa != nil && sa.API == "Mana" && grantedLoyaltyCost(sa) < 0 {
-			return skip(staticGrantSelfManaReason)
-		}
 		if gap := staticGrantGap(f, st); gap != "" {
 			return skip(gap)
 		}

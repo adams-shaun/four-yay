@@ -172,7 +172,6 @@ func grantTries(reg *cards.Registry, f *cards.Face, st cards.Static) []offerTry 
 // The named skips for a grant no observation here serves, one per shape.
 const (
 	staticGrantManaReason        = "grants a mana ability to a recipient the fixture cannot give it (a token or a chosen-name recipient)"
-	staticGrantSelfManaReason    = "gated self mana ability is also offered in the gate-off control"
 	staticGrantLoyaltyReason     = "grants a loyalty ability the probe planeswalkers cannot pay for"
 	staticGrantLoyaltyManaReason = "grants a loyalty ability that adds mana (its offered label names no text to assert)"
 	staticGrantActivateReason    = "grants an activated ability (needs the driver's activate on a granted ability)"

@@ -8,12 +8,24 @@ import (
 
 func TestStaticGatedGrantOffered(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
-	for _, card := range []string{
-		"Evendo, Waking Haven", "The Eternity Elevator", "Kavaron, Memorial World",
-		"Susur Secundi, Void Altar",
+	for _, tc := range []struct{ card, key, kind string }{
+		{"Evendo, Waking Haven", "static#0.0", "activate"},
+		{"The Eternity Elevator", "static#0.0", "activate"},
+		{"Kavaron, Memorial World", "static#0.0", "activate"},
+		{"Susur Secundi, Void Altar", "static#0.0", "activate"},
+		// Max-speed grants are the engine's "granted" option kind, which an
+		// "activate" assertion does not match.
+		{"Muraganda Raceway", "static#0.0", "granted"},
+		{"Amonkhet Raceway", "static#0.0", "granted"},
+		{"Endrider Catalyzer", "static#0.0", "granted"},
+		{"Howlsquad Heavy", "static#0.1", "granted"},
+		// A speed-gated card with its own ETB is cast, not placed.
+		{"Kickoff Celebrations", "static#0.0", "granted"},
+		{"Perilous Snare", "static#0.0", "granted"},
 	} {
+		card := tc.card
 		t.Run(card, func(t *testing.T) {
-			req := counterReq(t, reg, card, "static#0.0")
+			req := counterReq(t, reg, card, tc.key)
 			item, skip := GenerateB(reg, card, req)
 			if skip != nil {
 				t.Fatalf("GenerateB skip = %v; want a served self offered observation", skip)
@@ -24,7 +36,7 @@ func TestStaticGatedGrantOffered(t *testing.T) {
 			found := false
 			for _, step := range item.Scenario.Steps {
 				for _, ex := range step.Expect {
-					if ex.Offered != nil && ex.Offered.Card == "p0:"+card && ex.Offered.Kind == "activate" && ex.Want != nil && *ex.Want {
+					if ex.Offered != nil && ex.Offered.Card == "p0:"+card && ex.Offered.Kind == tc.kind && ex.Want != nil && *ex.Want {
 						found = true
 					}
 				}
@@ -39,8 +51,7 @@ func TestStaticGatedGrantOffered(t *testing.T) {
 func TestStaticGatedGrantFallsThroughToNamedGap(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct{ card, key, reason string }{
-		{"Muraganda Raceway", "static#0.0", staticGrantSelfManaReason},
-		{"Amonkhet Raceway", "static#0.0", staticGrantActivateReason},
+		{"Debris Field Crusher", "static#0.0", staticGatedSelfETBCounterReason},
 		{"Dawnsire, Sunstar Dreadnought", "static#0.0", staticGrantTriggerReason},
 		{"Far Fortune, End Boss", "static#0.0", staticGrantReplacementReason},
 	} {
