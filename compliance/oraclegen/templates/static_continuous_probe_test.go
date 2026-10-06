@@ -217,15 +217,15 @@ func TestStaticContinuousBearRowUnchanged(t *testing.T) {
 }
 
 // TestStaticContinuousNamedSkips: a qualifier the setup cannot give a probe
-// (counters, a token) is a named skip, not the generic one; so is a grant
-// outside the compared keyword set. Each card's static must otherwise show
-// nothing, so the test pins the reason text.
+// (counters, a token) is a named skip, not the generic one. Each card's static
+// must otherwise show nothing, so the test pins the reason text. A grant of a
+// named ability (Bria's Prowess, Ward) is no longer here: the named-keyword
+// vocabulary serves those, pinned by TestStaticNamedKeywordGrant.
 func TestStaticContinuousNamedSkips(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct{ card, key, want string }{
 		{"Vigorbloom Vanguard", "static#0.0", "counters"},
 		{"Gideon's Memorial", "static#0.0", "token"},
-		{"Bria, Riptide Rogue", "static#0.0", "evergreen"},
 		{"Firion, Wild Rose Warrior", "static#0.0", "equipped"},
 	} {
 		_, skip := GenerateB(reg, tc.card, probeRequirement(t, reg, tc.card, tc.key))
