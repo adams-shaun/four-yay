@@ -68,6 +68,16 @@ func effGoad(h Host, c *Ctx, sa *cards.SA) {
 	}
 }
 
+// alterAttributeNames lists the supported designation names in their
+// canonical spelling; the index is the alterAttribute* code below. Matching is
+// case-insensitive, like Forge's Attributes$ spelling.
+var alterAttributeNames = [...]string{"Suspected", "Prepared", "Saddled", "Solved", "Harnessed"}
+
+const (
+	alterAttributePrepared = 1
+	alterAttributeSolved   = 3
+)
+
 // effAlterAttribute applies Forge's AlterAttribute effect: it flips a
 // designation attribute on each resolved target (task alterattr1). Targets
 // come through the ordinary Defined path, so a body with no Defined$ asks
@@ -76,8 +86,8 @@ func effGoad(h Host, c *Ctx, sa *cards.SA) {
 // from the trigger's placement ask, Hot Pursuit's ETB the same way, and a
 // deeper sub (the DBDebuff family) through Resolve's generic pre-ask.
 //
-// The engine models FOUR attributes: Suspected (CR 702.157, the Blame Game
-// precon family), Prepared (CR 722.3a, the Secrets of Strixhaven
+// The engine models FIVE attributes: Suspected (CR 702.157, the Blame Game
+// precon family), Harnessed (the Infinity Stones), Prepared (CR 722.3a, the Secrets of Strixhaven
 // preparation cards), Saddled (CR 702.171b) and Solved (CR 719.3b, the MKM
 // Case cycle's "To solve --" end-step trigger). Each designation lives on
 // state.Object behind the events.AlterAttribute fold; Suspected's two end
@@ -88,7 +98,7 @@ func effGoad(h Host, c *Ctx, sa *cards.SA) {
 // a controller. Solved never ends while the Case stays on the battlefield,
 // so an already-solved Case emits no second grant: the grant IS the "you
 // solve a Case" event Mode$ CaseSolved matches, and a Case is solved once.
-// A body naming any other attribute (Plotted, Commander, Harnessed -- the
+// A body naming any other attribute (Plotted, Commander -- the
 // corpus's remaining populations) emits the loud unsupported-attribute Note
 // and moves nothing, exactly like the Manifest/Cloak out-of-scope shapes:
 // registration claims the API, the Note claims the gap.
@@ -104,23 +114,20 @@ func effAlterAttribute(h Host, c *Ctx, sa *cards.SA) {
 	}
 	activate := !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKActivate)), "False")
 	for _, name := range strings.FieldsFunc(attr, func(r rune) bool { return r == ',' || r == ' ' }) {
-		prepared := strings.EqualFold(name, "Prepared")
-		saddled := strings.EqualFold(name, "Saddled")
-		solved := strings.EqualFold(name, "Solved")
-		if !strings.EqualFold(name, "Suspected") && !prepared && !saddled && !solved {
+		code := -1
+		for i, known := range alterAttributeNames {
+			if strings.EqualFold(name, known) {
+				code = i
+				break
+			}
+		}
+		if code < 0 {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "AlterAttribute: attribute " + name + " not modelled"})
 			continue
 		}
-		text := "Suspected"
-		switch {
-		case prepared:
-			text = "Prepared"
-		case saddled:
-			text = "Saddled"
-		case solved:
-			text = "Solved"
-		}
+		text := alterAttributeNames[code]
+		prepared, solved := code == alterAttributePrepared, code == alterAttributeSolved
 		amount := int32(1)
 		if !activate {
 			amount = -1
