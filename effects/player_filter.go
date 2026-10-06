@@ -190,7 +190,7 @@ func matchesPlayerSingleSpec(g *state.Game, alts []playerAlt, p, you state.Playe
 			if !a.innerKnown {
 				continue
 			}
-			if inner != "EnchantedBy" && g.Obj(pc.Source) == nil {
+			if !playerInnerSourceFree.Has(inner) && g.Obj(pc.Source) == nil {
 				continue
 			}
 			if matchesPlayerSingleSpec(g, a.baseOnly, p, you, pc) && !matchesPlayerSingleSpec(g, a.positive, p, you, pc) {
@@ -337,6 +337,18 @@ func matchesPlayerSingleSpec(g *state.Game, alts []playerAlt, p, you state.Playe
 			// NonActive is the complement of Active, evaluated after the
 			// Player/You/Opponent/Other base has matched.
 			if p != g.Active {
+				return true
+			}
+		case playerSpecQualifierMaxSpeed:
+			// CR 702.179e's max speed read as a player property (Forge's
+			// Player.MaxSpeed / Player.!MaxSpeed): Outpace Oblivion's
+			// Defined$ Player.!MaxSpeed "deals 2 damage to each player who
+			// doesn't have max speed" is the corpus carrier. A pure
+			// player-state read (state.Player.Speed, the same event-folded
+			// latch the count head HasPropertyMaxSpeed reads), so it needs
+			// no source object and evaluates on every base the grammar
+			// reaches. An out-of-range seat fails closed.
+			if int(p) < len(g.Players) && g.Players[p].Speed >= maxSpeed {
 				return true
 			}
 		case playerSpecQualifierIsMonarch:
@@ -837,7 +849,15 @@ var isBarePlayerPropertySet = state.NewNameSet(
 	"IsCorrupted",
 )
 
-var matchesPlayerSingleSpecKeys = state.NewNameSet("CardOwner", "Owner", "IsRemembered", "EnchantedBy")
+var matchesPlayerSingleSpecKeys = state.NewNameSet("CardOwner", "Owner", "IsRemembered", "EnchantedBy", "MaxSpeed")
+
+// playerInnerSourceFree is the set of negated (inner) player qualifiers that
+// are pure player-state reads and therefore evaluate with NO source object
+// bound. Every other negatable qualifier (CardOwner, Owner, IsRemembered)
+// reads the source object, so the negInner branch in matchesPlayerSingleSpec
+// fails it closed when no source is bound. A new source-free qualifier adds
+// one entry here rather than another inline literal test.
+var playerInnerSourceFree = state.NewNameSet("EnchantedBy", "MaxSpeed")
 
 type matchesPlayerClauseCtxCode uint16
 
@@ -879,6 +899,7 @@ const (
 	playerSpecQualifierActive
 	playerSpecQualifierNonActive
 	playerSpecQualifierIsMonarch
+	playerSpecQualifierMaxSpeed
 	playerSpecQualifierEnchantedBy
 	playerSpecQualifierEnchantedController
 	playerSpecQualifierDescended
@@ -894,6 +915,7 @@ var playerSpecQualifierCodes = state.NewStrCodes(
 	state.StrEntry[playerSpecQualifierCode]{Key: "Active", Val: playerSpecQualifierActive},
 	state.StrEntry[playerSpecQualifierCode]{Key: "NonActive", Val: playerSpecQualifierNonActive},
 	state.StrEntry[playerSpecQualifierCode]{Key: "isMonarch", Val: playerSpecQualifierIsMonarch},
+	state.StrEntry[playerSpecQualifierCode]{Key: "MaxSpeed", Val: playerSpecQualifierMaxSpeed},
 	state.StrEntry[playerSpecQualifierCode]{Key: "EnchantedBy", Val: playerSpecQualifierEnchantedBy},
 	state.StrEntry[playerSpecQualifierCode]{Key: "EnchantedController", Val: playerSpecQualifierEnchantedController},
 	state.StrEntry[playerSpecQualifierCode]{Key: "descended", Val: playerSpecQualifierDescended},

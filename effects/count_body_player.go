@@ -259,6 +259,8 @@ func evalCountBodyPlayer(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 				return 1, true, true
 			}
 			return 0, true, true
+		case evalCountBodyPlayerHasPropertyMaxSpeed:
+			return playerMaxSpeedProperty(g, c.Controller)
 		case evalCountBodyPlayerCardsDiscardedThisTurn:
 			// The log-derived discard count (trigcost2): how many cards the
 			// RESOLVING controller discarded this turn — every
@@ -306,6 +308,25 @@ func evalCountBodyPlayer(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 	return 0, false, false
 }
 
+// playerMaxSpeedProperty is the PlayerCountPropertyYou$HasPropertyMaxSpeed
+// read (effects.EvalCountOK's evaluator, reached by a CheckSVar$ raw body):
+// 1 when the controller's speed is max speed (CR 702.179e), else 0. Hazoret,
+// Godseeker's "NICKNAME can't attack or block unless you have max speed"
+// reads it and compares NE1, so the property is 1 exactly at speed 4 and 0
+// otherwise -- the same state.Player.Speed the speed family folds and
+// rules/speed.go's maxSpeedAbilities gates on. An out-of-range controller
+// reads 0 but still resolves (the modelled-zero verdict), like every other
+// controller read in evalCountBodyPlayer.
+func playerMaxSpeedProperty(g *state.Game, controller state.PlayerID) (int32, bool, bool) {
+	if controller < 0 || int(controller) >= len(g.Players) {
+		return 0, true, true
+	}
+	if g.Players[controller].Speed >= maxSpeed {
+		return 1, true, true
+	}
+	return 0, true, true
+}
+
 type evalCountBodyPlayerCode uint16
 
 const (
@@ -314,6 +335,7 @@ const (
 	evalCountBodyPlayerLifeLostThisTurn
 	evalCountBodyPlayerLandsPlayed
 	evalCountBodyPlayerRingTemptedYou
+	evalCountBodyPlayerHasPropertyMaxSpeed
 )
 
 var evalCountBodyPlayerCodes = state.NewStrCodes(
@@ -322,4 +344,5 @@ var evalCountBodyPlayerCodes = state.NewStrCodes(
 	state.StrEntry[evalCountBodyPlayerCode]{Key: "LifeLostThisTurn", Val: evalCountBodyPlayerLifeLostThisTurn},
 	state.StrEntry[evalCountBodyPlayerCode]{Key: "LandsPlayed", Val: evalCountBodyPlayerLandsPlayed},
 	state.StrEntry[evalCountBodyPlayerCode]{Key: "RingTemptedYou", Val: evalCountBodyPlayerRingTemptedYou},
+	state.StrEntry[evalCountBodyPlayerCode]{Key: "HasPropertyMaxSpeed", Val: evalCountBodyPlayerHasPropertyMaxSpeed},
 )
