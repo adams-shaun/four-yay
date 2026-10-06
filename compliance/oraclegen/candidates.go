@@ -687,10 +687,16 @@ func registryQuietSubtype(reg *cards.Registry, subtype string) (string, bool) {
 	return "", false
 }
 
-// entersWithCounters reports a face with an etbCounter keyword (Academy Elite,
-// a 0/0 Wizard): it dies on the battlefield unless it enters through a cast, so
-// it is not an inert setup fixture.
+// entersWithCounters reports a face that would die as a 0/0 without its
+// etbCounter counters (Academy Elite, a 0/0 Wizard): it dies on the
+// battlefield unless it enters through a cast, so it is not an inert setup
+// fixture. The printed-P/T gate matters: a 1/1 etbCounter creature (Arctic
+// Merfolk, whose counter keyword is conditional) survives setup fine, and
+// excluding it would move an already-frozen verdict for no reason.
 func entersWithCounters(f *cards.Face) bool {
+	if !strings.HasPrefix(strings.TrimSpace(f.PT), "0/0") {
+		return false
+	}
 	for _, kw := range f.Keywords {
 		if strings.HasPrefix(strings.ToLower(kw), "etbcounter") {
 			return true
