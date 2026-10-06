@@ -152,6 +152,10 @@ type oracleStep struct {
 	Expect       []oracleExpect `json:"expect,omitempty"`
 }
 
+// oracleOfferedKindAlias maps an offered kind a scenario names to the option
+// kind gorge poses it as: playing a land is the "play" the XMage side offers.
+var oracleOfferedKindAlias = map[string]string{"play": "play_land"}
+
 type oracleObserve struct {
 	Kind   string   `json:"kind"`
 	Source string   `json:"source,omitempty"`
@@ -1644,8 +1648,9 @@ func (r *oracleRun) check(x oracleExpect) []string {
 			failf("offered: p%d does not hold priority", x.Offered.Seat)
 		} else {
 			found := false
+			alias, aliased := oracleOfferedKindAlias[x.Offered.Kind]
 			for _, o := range d.Options {
-				kindOK := o.Kind == x.Offered.Kind || (x.Offered.Kind == "activate" && o.Kind == "ability")
+				kindOK := o.Kind == x.Offered.Kind || (x.Offered.Kind == "activate" && o.Kind == "ability") || (aliased && o.Kind == alias)
 				if o.Obj == id && kindOK && oracleLabelMatches(o.Label, x.Offered.Label) {
 					found = true
 				}
