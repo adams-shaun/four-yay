@@ -214,6 +214,7 @@ func refBoardFromGame(g *state.Game, ch Chars, me state.PlayerID) refBoard {
 				instantSpeed = f.TypeLineHas("Instant", twInstant) || hasFlash(ch.Keywords(id))
 			}
 			b.Cards[id] = Card{
+				PrintedName:   f.Name,
 				Creature:      f.IsCreature(),
 				Power:         power,
 				Toughness:     toughness,
@@ -286,13 +287,14 @@ func refBoardFromGame(g *state.Game, ch Chars, me state.PlayerID) refBoard {
 			}
 			f := o.Face()
 			b.Cards[id] = Card{
-				Creature:  f.IsCreature(),
-				Power:     power,
-				CMC:       cmcOfFace(f),
-				Basic:     f.TypeLineHas("Basic", twBasic),
-				ManaCost:  f.ManaCost,
-				Toughness: toughness,
-				Activated: o.ActivatedThisTurn,
+				PrintedName: f.Name,
+				Creature:    f.IsCreature(),
+				Power:       power,
+				CMC:         cmcOfFace(f),
+				Basic:       f.TypeLineHas("Basic", twBasic),
+				ManaCost:    f.ManaCost,
+				Toughness:   toughness,
+				Activated:   o.ActivatedThisTurn,
 			}
 		}
 	}

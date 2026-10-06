@@ -2,6 +2,33 @@ package botpolicy
 
 import "github.com/adams-shaun/gorge/decision"
 
+const obstinateFamiliarName = "Obstinate Familiar"
+
+// chooseObstinateFamiliarDraw applies the card's AIHandling Count$ValidLibrary
+// Card.YouOwn EQ0 hint only to its own optional draw replacement ask.
+func (b Board) chooseObstinateFamiliarDraw(d *decision.Decision) int {
+	var apply, decline *decision.Option
+	for i := range d.Options {
+		o := &d.Options[i]
+		switch o.Kind {
+		case "apply":
+			apply = o
+		case "decline":
+			decline = o
+		}
+	}
+	if apply == nil || decline == nil || apply.Obj == 0 || apply.Obj != decline.Obj {
+		return -1
+	}
+	if b.Cards.Get(apply.Obj).PrintedName != obstinateFamiliarName {
+		return -1
+	}
+	if b.LibrarySize == 0 {
+		return apply.Index
+	}
+	return decline.Index
+}
+
 // chooseReplacementOrder answers a CR 616.1 KReplacement order decision: it
 // ranks the real "replacement" options by their source permanent's standing
 // worth (cardWorth, the same feature dot the trigger-order arm reads),

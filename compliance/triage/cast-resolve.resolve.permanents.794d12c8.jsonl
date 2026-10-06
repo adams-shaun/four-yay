@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"$CARD gorge+[] xmage+[tapped]"},"key":"cast-resolve | resolve | permanents | $CARD gorge+[] xmage+[tapped]","cards":1}
-{"card":"Spider-Man, To the Rescue","template":"cast-resolve","status":"diverge","api":"ChangesZone:ImmediateTrigger","sets":["MSH"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Spider-Man, To the Rescue [creature hero human legendary spider] {WG} 3/2\", xmage \"c0 o0 Spider-Man, To the Rescue [creature hero human legendary spider] {WG} 3/2 tapped\""}

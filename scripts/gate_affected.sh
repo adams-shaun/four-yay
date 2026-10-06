@@ -41,6 +41,11 @@ go test -p=8 -skip "^($global|$kr8|$postmerge)$" ./rules/ & a=$!
 go test -p=8 -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!
 go test -p=8 -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!
 go test -p=8 -skip "^($global)$" $others & d=$!
+# Event-text changes (any new or reworded event) move the committed
+# overshoot capture and the searchprobe digests; e2e19ebae and 5fa9f31a both
+# broke them unseen by this gate on 2026-10-05. Both checks are seconds.
+go test -p=8 ./internal/searchprobe/ & e=$!
+go test -p=8 -run '^TestCommittedOvershootCaptureReplaysToTheParkedAsk$' ./host/ & f=$!
 rc=0
-for p in "$a" "$b" "$c" "$d"; do wait "$p" || rc=1; done
+for p in "$a" "$b" "$c" "$d" "$e" "$f"; do wait "$p" || rc=1; done
 exit $rc

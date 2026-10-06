@@ -868,19 +868,12 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 // targeted ChangeZone chain link's targets while the spell is being cast
 // (CR 601.2c). It returns true for every non-ChangeZone link -- those are
 // judged by the ordinary cast flow -- and, for a ChangeZone link, when the
-// cast census can resolve its targets: a player-target link (zone-free) or an
-// explicit Origin$ Graveyard OBJECT target, either inferred by
-// originImpliedTargetZone or declared by TgtZone$ Graveyard. Both routes feed
-// targetZones for the offer census, cast ask and CR 608.2b recheck. Other
-// origins without a usable explicit zone fall back to the battlefield; other
-// explicitly zoned origins remain outside this ticket's graveyard scope.
-// Those links keep their mid-resolution ask (changeZoneChosenTargets).
-// Cathartic Parting's graveyard link is exactly the admitted shape: its four
-// "target cards from your graveyard" are announced with the spell instead of
-// asked at resolution. Battlefield-origin object links (a bounce spell's
-// second "target creature") are the same announcement class but are NOT
-// admitted here: that is a wider change than this ticket scopes, and the
-// castCensusChangeZoneCarriers ratchet pins them.
+// cast census can resolve its targets: a player-target link (zone-free), or
+// a single-zone Graveyard/Battlefield object target matching its Origin$,
+// inferred by originImpliedTargetZone or declared by matching TgtZone$.
+// Both routes feed targetZones for the offer census, cast ask and CR 608.2b
+// recheck. Other origins and multi-zone shapes remain fail-closed and keep
+// their mid-resolution ask (changeZoneChosenTargets).
 func castSubChangeZoneAnnounceable(sa *cards.SA) bool {
 	if sa.API != "ChangeZone" && sa.CompiledAPI() != cards.APIChangeZone {
 		return true
@@ -893,17 +886,34 @@ func castSubChangeZoneAnnounceable(sa *cards.SA) bool {
 	if effects.SpecTargetsOnlyPlayers(tp.ValidTgts) {
 		return true
 	}
-	// A concrete Graveyard TgtZone$ is authoritative even when Origin$ is
-	// also specified (Geth's Summons). Require the matching single origin
-	// and an object-only selector: mixed player/object and multi-zone offers
-	// cannot be treated as this public-graveyard announcement shape.
+	// An explicit single TgtZone$ remains authoritative. Only the two
+	// judgeable single-zone shapes matching Origin$ are admitted; mixed
+	// player/object and multi-zone offers fail closed.
 	if tp.ZoneText != "" {
-		return len(tp.Zones) == 1 && tp.Zones[0] == state.ZGraveyard &&
-			!tp.Has(effects.TgtTypeStack) && !tp.Has(effects.TgtValidPlayers) &&
-			effects.ChangeZoneOf(sa).OriginExactly(state.ZGraveyard)
+		if len(tp.Zones) != 1 || tp.Has(effects.TgtTypeStack) || tp.Has(effects.TgtValidPlayers) {
+			return false
+		}
+		z := tp.Zones[0]
+		if z == state.ZBattlefield && !castSubBattlefieldChangeZoneShape(sa) {
+			return false
+		}
+		return (z == state.ZGraveyard || z == state.ZBattlefield) &&
+			effects.ChangeZoneOf(sa).OriginExactly(z)
 	}
-	_, ok, _ := originImpliedTargetZone(sa)
-	return ok
+	z, ok, _ := originImpliedTargetZone(sa)
+	return ok && (z != state.ZBattlefield || castSubBattlefieldChangeZoneShape(sa))
+}
+
+// castSubBattlefieldChangeZoneShape is the narrow public-target form supported
+// here: an unconditional Creature link with an explicit, equal target bound.
+// Cruel Alliance's Teamwork SVar supplies that bound at cast time; the broad
+// family of other battlefield ChangeZone links remains on its existing path.
+func castSubBattlefieldChangeZoneShape(sa *cards.SA) bool {
+	tp := effects.TargetsOf(sa)
+	min, max := strings.TrimSpace(tp.Min.Text), strings.TrimSpace(tp.Max.Text)
+	return tp.ValidTgts == "Creature" && min != "" && min == max &&
+		strings.TrimSpace(sa.ParamStr(cards.PKCondition)) == "" &&
+		!tp.Has(effects.TgtTypeStack) && !tp.Has(effects.TgtValidPlayers)
 }
 
 // castSubPreAskable reports whether the cast flow can announce this chain

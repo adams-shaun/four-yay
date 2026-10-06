@@ -11,7 +11,6 @@ package rules
 import (
 	"testing"
 
-	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
@@ -145,9 +144,7 @@ func TestWhirlerVirtuosoFixedEnergyCostGatesAndPays(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, corpusAlternativeCard(t, "Whirler Virtuoso"))
 	if thopter := reg.Tokens["c_1_1_a_thopter_flying"]; thopter != nil {
-		if e.G.Tokens == nil {
-			e.G.Tokens = map[string]*cards.Card{}
-		}
+		e.G.Tokens = fixtureTokenMap(e.G.Tokens)
 		e.G.Tokens["c_1_1_a_thopter_flying"] = thopter
 	}
 	virt := e.G.Zone(state.ZHand, 0)[0]
