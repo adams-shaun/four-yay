@@ -1847,12 +1847,27 @@ func SameNameAmbiguity(d rules.OracleDecision, k int) (ambiguous bool, marker st
 	return p.Ambiguous, p.CopyMarker
 }
 
+// namesObject reports whether a choice LABEL is an object-name answer (or
+// empty, meaning "use the object's name"). An activated ability or mana
+// choice carries an action label ("Activate Llanowar Elves for mana") that
+// XMage's makeChoose matches literally, exactly like an endure choice
+// (TestYesNoRequiresAnEngineBoolean); replacing it with the object's scenario
+// ref would answer a different question. The exact-ref alias is an
+// object-NAME answer, so it is only correct when the label names the object.
+func namesObject(label, ref string) bool {
+	if label == "" || label == ref || strings.HasPrefix(label, "@") {
+		return true
+	}
+	return strings.EqualFold(label, oraclediffRefName(ref))
+}
+
 // disambiguatedObjectChoice returns the choice-queue answer for pick k: the
-// exact-ref alias when the copy marker cannot separate the candidates, else
-// the label with the copy marker appended (no space before the bracket).
+// exact-ref alias when the copy marker cannot separate the candidates AND the
+// label is an object-name answer, else the label with the copy marker
+// appended (no space before the bracket).
 func disambiguatedObjectChoice(d rules.OracleDecision, k int, label string) string {
 	p := ClassifySameName(d, k)
-	if p.Alias != "" {
+	if p.Alias != "" && k < len(d.PickRefs) && namesObject(label, d.PickRefs[k]) {
 		return p.Alias
 	}
 	return label + p.CopyMarker

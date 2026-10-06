@@ -86,7 +86,7 @@ var wantSameNameCensus = map[string]string{
 	"LCI": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
 	"MKM": `{"alias":1,"copy":0,"unresolved":0,"unproven":0,"items":null}`,
 	"MSH": `{"alias":1,"copy":0,"unresolved":0,"unproven":3,"items":null}`,
-	"OTJ": `{"alias":1,"copy":1,"unresolved":0,"unproven":1,"items":null}`,
+	"OTJ": `{"alias":0,"copy":1,"unresolved":0,"unproven":1,"items":null}`,
 	"SOS": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
 	"SPM": `{"alias":1,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
 	"TDM": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
