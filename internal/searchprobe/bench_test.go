@@ -154,14 +154,19 @@ func TestSampleRealDeckGolden(t *testing.T) {
 		// captured frames (which marshal the projected view) change bytes and
 		// the sampled worlds move. frames 122, attempts 64, worlds 8 and the
 		// accepted/ESS shape are unchanged.
-		{"pre-optimisation sampler", true, "e59a80e0f343597fb7a3be7f991f1658f6fcea793c04cc2630f317a554817a07"},
+		// Re-measured for CR 103.8a's turn-1 draw STEP skip (2026-10-06):
+		// the fixture game loses the starting player's turn-1 draw-step
+		// priority frames (122 -> 120 frames), so the captured history that
+		// seeds the sampler moves. Measured after: attempts 64, accepted 4,
+		// worlds 8, ESS 4 (land exclusion: accepted 27, ESS 27).
+		{"pre-optimisation sampler", true, "21569d4bdab784abffb877980eff8f14805840353e5ae3f00d2f29a13b368ed6"},
 		// With the declined-land-drop exclusion: different proposals (so
 		// different worlds for a seed), same target distribution -- see
 		// TestLandExclusionRemovesOnlyRejectedWorlds. Re-measured for the
 		// Mausoleum Wanderer unless-cost ask label (see the test comment) and
 		// again for the damage-provenance fact (see above); see the
 		// pre-optimisation entry for the archetype-posterior re-measure.
-		{"land exclusion", false, "31b8b9abcbaf2411cac3b3bd13fdcebb5474bd48adacdfd4b4d67be2be748612"},
+		{"land exclusion", false, "f3ce01cb27c179289b698dd2cb97d386324285adfeea27bc1a5b3f78e9e18589"},
 	} {
 		opts := benchSampleOptions()
 		opts.MinESS = 1 // resample worlds from the thin pool so the digest covers them
@@ -328,7 +333,11 @@ func TestTeacherChoiceRealDeckGolden(t *testing.T) {
 	// frames now marshal PlayerView.Archetype, so the sampled worlds moved
 	// and only Submits moves, 3878 -> 2995. Index, Values (all 1), Rollouts
 	// 32, Terminal 32, Capped 0 and the 8/8/8/8 wins split are unchanged.
-	const want = "96abfed85a82a34738039be8293fc3fdb94ba10f0eb454c0a8359e3c1841eccf"
+	// Re-measured for CR 103.8a's turn-1 draw STEP skip (2026-10-06): the
+	// sampled worlds moved with the fixture's frames (above), so only Submits
+	// moves, 2995 -> 3450; Index 0, Values all 1, Rollouts 32, Terminal 32,
+	// Capped 0 and the 8/8/8/8 wins split are unchanged.
+	const want = "4b26415741b821965323d6fdae60d17859f0b45e1642cb26ca287289d7c01841"
 	for _, parallelism := range []int{0, 4} {
 		res, err := TeacherChoice(worlds, cands, TeacherOptions{Seed: 99, MaxSubmits: 5000, Parallelism: parallelism})
 		if err != nil {

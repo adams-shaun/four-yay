@@ -54,8 +54,8 @@ FORGE_REF  ?= ab2a79bd87b87df17c32a4eef77c4a6f3fdc998e
 # docs/superpowers/specs/2026-10-02-xmage-compliance-oracle-design.md
 XMAGE_REF  ?= 6b602a1c85e8ed738a4b40b1ef44c54845b57f68
 XMAGE_ORACLE_DIR ?= /mnt/sata/gorge-training/xmageoracle
-# Forge oracle driver commit (fork, branch oracle-harness-spike until P1-1 lands): a descendant of FORGE_REF with identical script trees.
-FORGE_ORACLE_REF ?= bf3241d49f287efc4a4d505c41a21a5242bce2e5
+# Forge oracle driver commit (fork, branch oracle-harness): a descendant of FORGE_REF with identical script trees.
+FORGE_ORACLE_REF ?= d23c840392784dde3fdd8a8241a4044a379b5ec2
 FORGE_ORACLE_DIR ?= /mnt/sata/gorge-training/forgeoracle
 
 .PHONY: help

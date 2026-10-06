@@ -93,6 +93,8 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		return etbProbeCauses(reg, name, t)
 	case "trigger.leaves-graveyard", "trigger.ltb-other", "trigger.zone-change-residue":
 		return zoneTriggerRecipe(reg, name, t, sub)
+	case ltbSelfSub:
+		return ltbSelfRecipe(reg, f, name, t)
 	case "trigger.dies":
 		if !creature {
 			return nil, "dies needs a creature"
@@ -196,6 +198,9 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 			return causes, why
 		}
 		if causes, why, ok := tapCombatRecipe(reg, f, name, t, sub); ok {
+			return causes, why
+		}
+		if causes, why, ok := stateTriggerRecipe(reg, f, name, t, sub); ok {
 			return causes, why
 		}
 		return nil, "no recipe for " + sub

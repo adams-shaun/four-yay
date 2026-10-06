@@ -81,9 +81,9 @@ func effEarthbend(h Host, c *Ctx, sa *cards.SA) {
 // registerEarthbendReturn lays the land's "when it dies or is exiled, return
 // it to the battlefield tapped" promise. It mints ONE one-shot delayed
 // registration naming BOTH destinations in a comma-separated Destination$
-// clause; the delayed-trigger path's ChangesZone arm splits that list
-// (rules.zoneDelayedDestinationAdmits), so the promise is consumed exactly
-// once at its first fire. Registering two single-zone siblings instead is
+// clause; the compiled Destination$ zone set (Destination.Admits, read by
+// trigmatch.ZoneChangeMatchesWithCapture) admits either zone, so the promise
+// is consumed exactly once at its first fire. Registering two single-zone siblings instead is
 // the shape that looks safer but is wrong: the DelayedPush consumes only the
 // registration whose ID it carries, so the un-fired sibling survives and
 // returns the land a SECOND time when it later departs to the other zone.
