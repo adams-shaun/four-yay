@@ -32,13 +32,6 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 )
 
-// keywordDisplay names the printed words a keyword-expanded AB's line starts
-// with when they differ from the keyword's IR head. Every other head prints
-// as itself (Equip -> "Equip", Crew -> "Crew").
-var keywordDisplay = map[string]string{
-	"TypeCycling": "Basic landcycling",
-}
-
 // XMageAbility maps every activated ability of f (by index into
 // f.Abilities) to the XMage rule-text prefix that selects it, or returns a
 // non-empty reason the whole face's mapping is ambiguous. A caller that only
@@ -46,6 +39,10 @@ var keywordDisplay = map[string]string{
 // mapping is derived from the whole face.
 func XMageAbility(f *cards.Face) (map[int]string, string) {
 	lines := abilityLines(f.Oracle)
+	// Keyword-expanded activations can also have colon-bearing printed
+	// selector lines (Class: "{cost}: Level N"). They belong to that
+	// keyword AB, not to the ordinal list of ordinary activated abilities.
+	lines = removeKeywordAbilityLines(f, lines)
 	// An injected basic-land-type mana ability usually has no printed line (a
 	// dual land's second type), but a face whose Oracle prints "{T}: Add {B}."
 	// (the Gates) has one. Keep the intrinsic in the ordinal match when that is
@@ -90,7 +87,7 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 			text = intrinsicManaText(sa)
 		} else if keyword := sa.ParamStr(cards.PKKeyword); keyword != "" {
 			var ok bool
-			text, ok = keywordPrefix(f, keyword)
+			text, ok = keywordPrefix(f, sa)
 			if !ok {
 				return nil, "activate xmage text ambiguous"
 			}
@@ -300,24 +297,70 @@ func selfRef(text, sourceName string) string {
 	return text
 }
 
-// keywordPrefix finds the keyword-expanded AB's printed line and returns its
-// reminder-stripped text. display is the keyword's printed name (Equip,
-// Cycling, Basic landcycling for TypeCycling). The line must start with that
-// name followed by a space, a brace or the end of line, so "Crew" does not
-// match "Crewmate".
-func keywordPrefix(f *cards.Face, head string) (string, bool) {
-	display := head
-	if alias, ok := keywordDisplay[head]; ok {
-		display = alias
-	}
-	for _, raw := range oracleLines(f.Oracle) {
-		line := stripReminder(strings.TrimSpace(raw))
-		if !keywordLineStartsWith(line, display) {
+func removeKeywordAbilityLines(f *cards.Face, lines []string) []string {
+	owned := make(map[string]bool)
+	for _, sa := range f.Abilities {
+		if !sa.IsActivated() || sa.ParamStr(cards.PKKeyword) == "" {
 			continue
 		}
-		return line, true
+		if line, ok := keywordPrefix(f, sa); ok {
+			owned[line] = true
+		}
 	}
-	return "", false
+	out := lines[:0]
+	for _, line := range lines {
+		if !owned[strings.TrimSpace(line)] {
+			out = append(out, line)
+		}
+	}
+	return out
+}
+
+// keywordPrefix finds the keyword-expanded AB's printed line and returns its
+// reminder-stripped text. For ordinary keyword abilities the line starts with
+// the keyword's printed name, bounded so "Crew" does not match "Crewmate";
+// Class, TypeCycling and job-named Equip use their distinct Oracle shapes.
+func keywordPrefix(f *cards.Face, sa *cards.SA) (string, bool) {
+	head := sa.ParamStr(cards.PKKeyword)
+	var matches []string
+	for _, raw := range oracleLines(f.Oracle) {
+		line := stripReminder(strings.TrimSpace(raw))
+		switch head {
+		case "TypeCycling":
+			// Forge's TypeCycling covers basic-landcycling and arbitrary
+			// typecycling (for example Halflingcycling); use its ChangeType
+			// rather than assuming the printed word is "Basic landcycling".
+			word := strings.TrimSpace(sa.ParamStr(cards.PKChangeType))
+			if word != "" && strings.HasPrefix(strings.ToLower(line), strings.ToLower(word+"cycling")) {
+				matches = append(matches, line)
+			}
+		case "Class":
+			// A Class level-up AB is printed as "{cost}: Level N", not as
+			// a line beginning with the keyword name.
+			if strings.HasSuffix(strings.ToLower(line), ": level "+sa.ParamStr(cards.PKLevel)) {
+				matches = append(matches, line)
+			}
+		default:
+			display := head
+			// Job-named equipment prints "Job — Equip {N}". Match the
+			// keyword after that printed header, while preserving the whole
+			// XMage selector text.
+			candidate := line
+			if dash := strings.LastIndex(candidate, " — "); dash >= 0 {
+				candidate = strings.TrimSpace(candidate[dash+len(" — "):])
+			}
+			if keywordLineStartsWith(candidate, display) {
+				cost := sa.ParamStr(cards.PKCost)
+				if head != "Equip" || cost == "" || strings.Contains(line, "{"+cost+"}") || candidate == display {
+					matches = append(matches, line)
+				}
+			}
+		}
+	}
+	if len(matches) != 1 {
+		return "", false
+	}
+	return matches[0], true
 }
 
 // keywordLineStartsWith reports whether line begins with the printed keyword
