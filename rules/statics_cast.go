@@ -628,6 +628,28 @@ func presentZoneFromParam(zone string) ([]state.Zone, bool) {
 	return zones, ok && !all
 }
 
+// presentZoneCounter is the one engine capability presentCountInZones needs,
+// so the free helper below does not take an *Engine.
+type presentZoneCounter interface {
+	presentZoneCount(zone state.Zone, spec string, source state.ObjID, you state.PlayerID) int
+}
+
+// presentCountInZones counts spec matches in every zone a PresentZone$ value
+// names (the battlefield when absent), the single read the IsPresent$ gates
+// that carry no static-specific context share. known is false for a
+// PresentZone$ word presentZoneFromParam does not map; the caller must then
+// fail closed (n is 0), including past a PresentCompare$ a zero would satisfy.
+func presentCountInZones(c presentZoneCounter, zoneParam, spec string, source state.ObjID, you state.PlayerID) (n int, known bool) {
+	zones, known := presentZoneFromParam(zoneParam)
+	if !known {
+		return 0, false
+	}
+	for _, zone := range zones {
+		n += c.presentZoneCount(zone, spec, source, you)
+	}
+	return n, true
+}
+
 // spellMatchesValidSA checks the spell-side subset of Forge's ValidSA grammar.
 // Activated-only constraints are not knowable before announcing a spell and
 // therefore do not accidentally grant flash timing. id is the card the cast
