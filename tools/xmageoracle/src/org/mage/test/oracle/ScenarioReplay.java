@@ -835,11 +835,26 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return ability != null && ability.getTargetAdjuster() != null;
     }
 
-    /** Whether the card's spell ability gets its targets from a target adjuster. */
-    private static boolean spellHasTargetAdjuster(String name) {
+    /**
+     * Whether a spell ability is *targetless until its adjuster runs*: it has a
+     * target adjuster AND no base target. Only this shape breaks the inline
+     * {@code $target=} form -- the up-front check reads the unadjusted ability
+     * ({@code handleNonPlayerTargetTarget}'s empty {@code selectedMode.getTargets()})
+     * and throws "Ability has no targets" (The Eagles Are Coming!: no base
+     * target, {@code ConditionalTargetAdjuster} supplies it during casting).
+     * An adjuster card that already declares a base target (Dominate,
+     * Distorting Wake) validates inline and keeps its old path, so this change
+     * cannot reroute it.
+     */
+    static boolean needsQueuedCastTargets(Ability ability) {
+        return hasTargetAdjuster(ability) && ability.getAllSelectedTargets().isEmpty();
+    }
+
+    /** Whether the card's spell ability is targetless until its adjuster runs. */
+    private static boolean spellNeedsQueuedCastTargets(String name) {
         CardInfo info = CardRepository.instance.findCard(name);
         Card c = info == null ? null : info.createCard();
-        return c != null && hasTargetAdjuster(c.getSpellAbility());
+        return c != null && needsQueuedCastTargets(c.getSpellAbility());
     }
 
     /** Whether the card's spell ability has a divided-amount target. */
@@ -1183,7 +1198,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     cast.add(card);
                     return;
                 }
-                if (!tg.isEmpty() && queueAdjustedCastTargets(spellHasTargetAdjuster(card), spellTargetsDivided(card), tg.size())) {
+                if (!tg.isEmpty() && queueAdjustedCastTargets(spellNeedsQueuedCastTargets(card), spellTargetsDivided(card), tg.size())) {
                     // An adjuster may add the SpellAbility's target slots only
                     // after cast setup. Inline $target is validated too early
                     // (against the unadjusted, targetless ability), so queue

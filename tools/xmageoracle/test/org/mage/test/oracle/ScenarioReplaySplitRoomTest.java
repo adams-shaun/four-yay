@@ -112,7 +112,20 @@ public final class ScenarioReplaySplitRoomTest {
         equal(false, ScenarioReplay.queueAdjustedCastTargets(true, false, 0));
         TheEaglesAreComing eagles = new TheEaglesAreComing(UUID.randomUUID(),
                 new CardSetInfo("The Eagles Are Coming!", "HOB", "1", Rarity.RARE));
+        // Precondition the production predicate depends on: the motivating card's
+        // spell ability is targetless until its adjuster runs. If a future edit
+        // adds a base target, this fails loudly instead of silently rerouting.
         equal(true, ScenarioReplay.hasTargetAdjuster(eagles.getSpellAbility()));
+        equal(true, eagles.getSpellAbility().getAllSelectedTargets().isEmpty());
+        equal(true, ScenarioReplay.needsQueuedCastTargets(eagles.getSpellAbility()));
+        // An adjuster card that already declares a base target (Dominate,
+        // Distorting Wake) is NOT targetless: it keeps the inline $target path and
+        // must not be rerouted through the queue+skip branch.
+        mage.cards.d.Dominate withBaseTarget = new mage.cards.d.Dominate(UUID.randomUUID(),
+                new CardSetInfo("Dominate", "DTK", "1", Rarity.UNCOMMON));
+        equal(true, ScenarioReplay.hasTargetAdjuster(withBaseTarget.getSpellAbility()));
+        equal(false, withBaseTarget.getSpellAbility().getAllSelectedTargets().isEmpty());
+        equal(false, ScenarioReplay.needsQueuedCastTargets(withBaseTarget.getSpellAbility()));
         equal(true, ScenarioReplay.targetSlotNeedsSkip(
                 java.util.List.of(new TargetPermanent(0, Integer.MAX_VALUE, new FilterPermanent())), 1));
         equal(false, ScenarioReplay.targetSlotNeedsSkip(java.util.List.of(new TargetPermanent()), 1));
