@@ -183,7 +183,6 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []ora
 					}
 					it := CastResolve.item(name, sc)
 					it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
-					queueEntryTriggerTargetsWithCast(f, sc, it.XAnswers)
 					if n := oraclegen.OptionalCostCastNo(f, mana); n > 0 {
 						// XMage asks "pay the additional cost?" at the head of the
 						// cast; gorge offered it as a declineable cast option, so
