@@ -146,10 +146,11 @@ func uniqueChainTargetsFeasible(e *Engine, p state.PlayerID, id, excludeSelf sta
 // both filter modes through it, so a mode the ask offers can always be
 // announced in full.
 func modeTargetsAvailable(e *Engine, p state.PlayerID, id state.ObjID, sub *cards.SA, x int32, xPending bool) bool {
-	if sub == nil || !effects.TargetsOf(sub).Targeted() {
+	if sub == nil {
 		return true
 	}
-	return e.targetSAAvailable(p, id, id, sub, x, xPending) && e.chainTargetsAvailable(p, id, id, sub, x, xPending, nil)
+	return (!effects.TargetsOf(sub).Targeted() || e.targetSAAvailable(p, id, id, sub, x, xPending)) &&
+		e.chainTargetsAvailable(p, id, id, sub, x, xPending, nil)
 }
 
 // castSubAskLinks is the chain links subTargetAsk announces for this cast,
@@ -161,6 +162,10 @@ func castSubAskLinks(e *Engine, pc *pendingCast, root *cards.SA) []*cards.SA {
 	if pc.mode == "fuse" || altCastIs(pc.mode, altOverload) {
 		return nil
 	}
+	// For a Charm cast, announce every selected mode's SubAbility$ chain;
+	// the Charm itself is only the mode-election root. This handles a single
+	// selected mode as well as multi-mode casts while leaving non-cast Charm
+	// callers on their existing resolution-time path.
 	var roots []*cards.SA
 	var charm *cards.SA
 	if !pc.isAbility() {
@@ -175,10 +180,8 @@ func castSubAskLinks(e *Engine, pc *pendingCast, root *cards.SA) []*cards.SA {
 			}
 		}
 	}
-	if !effects.CharmOf(charm).HasChoices {
-		if root != nil {
-			roots = append(roots, root)
-		}
+	if !effects.CharmOf(charm).HasChoices && root != nil {
+		roots = append(roots, root)
 	}
 	var out []*cards.SA
 	for _, mode := range roots {

@@ -404,4 +404,5 @@ var replEventBits = [cards.ReplEventCount]uint32{
 	cards.ReplMill:        1 << 22,
 	cards.ReplPayLife:     1 << 23,
 	cards.ReplLoseMana:    1 << 24,
+	cards.ReplConnive:     1 << 25,
 }

@@ -51,7 +51,7 @@ func planarDieFaceName(result int32) string {
 // continueExploreReplacements is the events.Explore replacement dispatch.
 // Two event shapes reach it:
 //
-//   - the SYNTHETIC PROPOSAL effects/explore.go's ExploreReplaced hook builds
+//   - the SYNTHETIC PROPOSAL effects/explore.go builds for the ActionReplaced hook
 //     (no revealed card yet — IDs empty): this is CR 701.35a's "would
 //     explore" moment, exactly the window CR 614.4 puts replacement
 //     effects in, and a matching replacement's ReplaceWith$ body replaces
@@ -81,28 +81,6 @@ func (e *Engine) continueExploreReplacements(ev events.Event, matches []replMatc
 		e.runReplaceWith(e.replCtx(m, ev), ev.Obj, m.repl.With, nil)
 	}
 	return ev, true
-}
-
-// ExploreReplaced is the effects.Host hook effects/explore.go consults before
-// it would process one explorer's explore (CR 614.4: the replacement window
-// is before the process). It builds the synthetic Explore proposal — Obj the
-// explorer, Player its controller, no revealed card (the replacee never
-// reveals) — and runs it through the ordinary replacement collection and
-// dispatch: a matching R:Event$ Explore replacement's body resolves
-// synchronously inside this call and the hook returns true, telling the
-// effect its explore was replaced whole. Mirrors emit's own guard: while a
-// replacement body is already resolving (applyingReplacement), no replacement
-// applies — the body's own explores are fresh, un-replaced events.
-func (e *Engine) ExploreReplaced(explorer state.ObjID) bool {
-	if e.applyingReplacement {
-		return false
-	}
-	o := e.G.Obj(explorer)
-	if o == nil {
-		return false
-	}
-	_, handled := e.applyReplacements(events.Event{Kind: events.Explore, Obj: explorer, Player: o.Controller})
-	return handled
 }
 
 // Scry is the effects.Host hook effects/cardflow.go's effLookAndArrange
