@@ -25,7 +25,7 @@ func classifyZoneChangeTrigger(t *cards.Trigger) (string, bool) {
 			return "trigger.leaves-graveyard", true
 		case strings.Contains(strings.ToLower(origin), "battlefield") && !strings.EqualFold(dest, "Graveyard"):
 			return "trigger.ltb-other", true
-		case !strings.EqualFold(dest, "Graveyard"), strings.EqualFold(origin, "Library"):
+		case !strings.EqualFold(dest, "Graveyard"), !strings.Contains(strings.ToLower(origin), "battlefield"):
 			return "trigger.zone-change-residue", true
 		}
 		return "", false
