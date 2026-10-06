@@ -344,8 +344,8 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 		return e.applyTransformReplacement(ev, matches)
 	case events.TokenCreate:
 		return e.continueCreateTokenReplacements(ev, matches)
-	case events.Explore:
-		return e.continueExploreReplacements(ev, matches)
+	case events.Explore, events.Connive:
+		return continueActionReplacements(e, ev, matches)
 	case events.Damage:
 		matches = e.applicableDamageReplacements(ev, matches)
 		if len(matches) == 0 {
@@ -722,6 +722,8 @@ func replacementEventKind(ev events.Event) cards.ReplEvent {
 		return cards.ReplCreateToken
 	case events.Explore:
 		return cards.ReplExplore
+	case events.Connive:
+		return cards.ReplConnive
 	case events.Cascade:
 		// The cascade instruction's replacement boundary (CR 614.4; Averna,
 		// the Chaos Bloom). Only the synthetic PROPOSAL (Engine.

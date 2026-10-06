@@ -431,12 +431,12 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			}
 		}
 		return e.replacementConditionHolds(r, source, you)
+	case cards.ReplConnive:
+		return replacementMatchesConnive(e, r, source, ev, you)
 	case cards.ReplExplore:
 		// The explore replacement (R:Event$ Explore, task explore1 —
-		// Topography Tracker, Twists and Turns). ValidExplorer$ names the
-		// creature that would explore (the synthetic proposal's Obj), matched
-		// with the replacement source's controller as You exactly like every
-		// other object-spec gate here.
+		// Topography Tracker, Twists and Turns); ValidExplorer$ names the
+		// proposed creature, using the replacement source's controller as You.
 		if ev.Kind != events.Explore {
 			return false
 		}

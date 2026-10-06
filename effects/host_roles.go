@@ -331,21 +331,11 @@ type HostReplacements interface {
 	// (rules/statics.go); the effects test double reports zero/nil (no engine
 	// static registry to consult).
 	SurveilLookExtra(p state.PlayerID) (mandatory int32, optional []int32)
-	// ExploreReplaced reports whether a replacement effect replaces the
-	// named explorer's explore (R:Event$ Explore — Topography Tracker's
-	// "instead it explores, then it explores again", Twists and Turns'
-	// "instead you scry 1, then that creature explores") and, when one
-	// does, RESOLVES that replacement body in place: the original explore
-	// is replaced whole (the caller must not reveal, counter or move
-	// anything for it) and the body's own explores run under the
-	// replacement guard, so they cannot re-match the same replacement (the
-	// same once-per-event discipline the CreateToken path applies).
-	// Rules-implemented because replacement matching lives in the rules
-	// tier; the effects test double reports false (no engine to consult).
-	// No replacement applies when the engine is already inside one (the
-	// emit path skips replacement application there, and the body's own
-	// explores are fresh events).
-	ExploreReplaced(explorer state.ObjID) bool
+	// ActionReplaced checks a synthetic pre-action proposal (currently Explore
+	// and Connive). The proposal is never logged; true means the whole action
+	// was replaced in place. Rules implements replacement matching and runs
+	// the body's own action under the replacement guard.
+	ActionReplaced(proposal events.Event) bool
 	// Scry proposes one scry instruction BEFORE any card of the player's
 	// library is looked at (CR 614.4: an R:Event$ Scry replacement applies to
 	// the scry action itself), so the proposed count can be adjusted
