@@ -394,20 +394,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		}
 		targets = cands[:1]
 	case supportsChoice:
-		chooser := c.Controller
-		for _, t := range c.Remembered {
-			if !cp.ChooserRemembered {
-				break
-			}
-			if t.IsPlayer {
-				chooser = t.Player
-				break
-			}
-			if o := g.Obj(t.Obj); o != nil {
-				chooser = o.Controller
-				break
-			}
-		}
+		chooser := copyChooser(g, c, cp.ChooserRemembered)
 		// Choices$ names a CARD FILTER, not a Defined$ selector (Forge's
 		// CopyPermanent Choices$ is "the pool the chooser picks from"), so
 		// it is spelled with the established `Defined$ Valid <filter>` form
@@ -1032,3 +1019,20 @@ var copyPermanentAtEOTTrigCodes = state.NewStrCodes(
 	state.StrEntry[copyPermanentAtEOTTrigCode]{Key: "Sacrifice", Val: copyPermanentAtEOTTrigSacrifice},
 	state.StrEntry[copyPermanentAtEOTTrigCode]{Key: "Exile", Val: copyPermanentAtEOTTrigExile},
 )
+
+// copyChooser is Chooser$ Remembered's chooser: the first remembered player,
+// or the controller of the first remembered object still known; otherwise
+// (or when the spec does not name a remembered chooser) the controller.
+func copyChooser(g *state.Game, c *Ctx, remembered bool) state.PlayerID {
+	if remembered {
+		for _, t := range c.Remembered {
+			if t.IsPlayer {
+				return t.Player
+			}
+			if o := g.Obj(t.Obj); o != nil {
+				return o.Controller
+			}
+		}
+	}
+	return c.Controller
+}
