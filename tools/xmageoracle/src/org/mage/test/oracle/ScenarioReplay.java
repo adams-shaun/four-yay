@@ -1429,9 +1429,25 @@ public class ScenarioReplay extends CardTestPlayerBase {
     /** Step i's XMage ability text, or "" when the item carries none. */
     private String xabilityAt(int i) {
         if (i < xabilities.size() && xabilities.get(i).isJsonPrimitive()) {
-            return xabilities.get(i).getAsString();
+            return activationCommandText(xabilities.get(i).getAsString());
         }
         return "";
+    }
+
+    /**
+     * CrewAbility and SaddleAbility render their rule prefix followed by
+     * HTML-wrapped reminder text. Keep the identifying ability-class prefix:
+     * TestPlayer matches activated commands against ability.toString().startsWith
+     * (command), and these reminders have differed between Forge and XMage.
+     */
+    static String activationCommandText(String text) {
+        java.util.regex.Matcher keyword = java.util.regex.Pattern
+                .compile("^(Crew|Saddle)\\s+\\d+\\b", java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(text);
+        if (keyword.find()) {
+            return keyword.group();
+        }
+        return text;
     }
 
     // The item's xmage_target_skips: parallel to the steps, entry i lists the

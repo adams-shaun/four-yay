@@ -138,6 +138,19 @@ public final class ScenarioReplaySplitRoomTest {
         equal("Dain Ironfoot", call(alias, "castSpelling", new Class<?>[]{String.class}, "Dáin Ironfoot"));
         RecordingDriver plain = driver("Shock", "");
         equal("Shock", call(plain, "castSpelling", new Class<?>[]{String.class}, "Shock"));
+        // Crew/Saddle abilities include HTML reminder text in getRule(). The
+        // driver must issue the ability-class prefix accepted by TestPlayer.
+        String crewRule = "Crew 1 <i>(Tap any number of untapped creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)</i>";
+        equal("Crew 1", ScenarioReplay.activationCommandText(crewRule));
+        RecordingDriver activation = driver("", "");
+        JsonArray abilityTexts = new JsonArray();
+        abilityTexts.add(crewRule);
+        set(activation, "xabilities", abilityTexts);
+        equal("Crew 1", call(activation, "xabilityAt", new Class<?>[]{int.class}, 0));
+        equal("Crew 2", ScenarioReplay.activationCommandText("Crew 2"));
+        equal("Saddle 3", ScenarioReplay.activationCommandText(
+                "Saddle 3 <i>(Tap any number of other creatures you control with total power 3 or more: This Mount becomes saddled until end of turn. Saddle only as a sorcery.)</i>"));
+        equal("Equip {2}", ScenarioReplay.activationCommandText("Equip {2}"));
         equal(true, ScenarioReplay.queueAdjustedCastTargets(true, false, 1));
         equal(false, ScenarioReplay.queueAdjustedCastTargets(false, false, 1));
         equal(false, ScenarioReplay.queueAdjustedCastTargets(true, true, 1));
