@@ -30,6 +30,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.dies-other":                                   3,
 		"served:trigger.etb-land":                                     1,
 		"served:trigger.etb-other":                                    18,
+		"served:trigger.ltb-other":                                    1,
 		"served:trigger.phase":                                        19,
 		"served:trigger.spell-cast":                                   6,
 		"skip:trigger.attacks: trigger did not fire":                  0,

@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/compliance/levelb"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
 
@@ -62,9 +63,9 @@ var etbAuraProbes = map[string]bool{"Rancor": true, "Pacifism": true}
 // any cast or played probe, or "". The filter's comma-separated alternatives
 // are each tested, and only a filter every alternative of which is
 // unservable is reported: "Creature.YouCtrl,Land.OppCtrl" is still served by
-// a creature. In one alternative, token means a TOKEN must enter; etbProbeCauses
-// offers a token-maker for that filter. faceDown means a face-down permanent,
-// ChosenType a permanent
+// a creature. In one alternative, token means a TOKEN must enter (a cast card
+// is never a token; a ChangesZoneAll filter a token maker serves is handled
+// by etbTokenServed), faceDown a face-down permanent, ChosenType a permanent
 // of a type chosen earlier, and OppCtrl an opponent's permanent. A negated
 // qualifier (!token) is satisfied by an ordinary non-token probe, so it is
 // stripped before the test.
@@ -85,22 +86,46 @@ func etbUnservableFilter(filter string) string {
 func etbUnservableAlternative(alt string) string {
 	rest := strings.ReplaceAll(strings.ToLower(alt), "!token", "")
 	switch {
-	case strings.Contains(rest, "oppctrl"):
-		return "OppCtrl"
+	case strings.Contains(rest, "token"):
+		return "token"
 	case strings.Contains(rest, "facedown"):
 		return "faceDown"
 	case strings.Contains(rest, "chosentype"):
 		return "ChosenType"
+	case strings.Contains(rest, "oppctrl"):
+		return "OppCtrl"
 	}
 	return ""
+}
+
+// etbTokenServed reports whether some alternative of a ChangesZoneAll filter
+// is a creature token the player controls, which a token-maker probe supplies:
+// a token needs a plain Card/Creature/Permanent base and no qualifier no
+// token probe can meet. "Artifact.token+YouCtrl" stays unservable.
+func etbTokenServed(filter string) bool {
+	for _, alt := range strings.Split(filter, ",") {
+		rest := strings.ReplaceAll(strings.ReplaceAll(strings.ToLower(alt), "!token", ""), "nontoken", "")
+		base, _, _ := strings.Cut(rest, ".")
+		if strings.Contains(rest, "token") && !strings.Contains(rest, "oppctrl") &&
+			!strings.Contains(rest, "facedown") && !strings.Contains(rest, "chosentype") &&
+			(base == "card" || base == "creature" || base == "permanent") {
+			return true
+		}
+	}
+	return false
 }
 
 // etbProbeCauses builds the candidate causes for an etb-other trigger, or the
 // named reason no probe can serve its filter.
 func etbProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) ([]triggerCause, string) {
-	filter := zoneChangeFilter(t)
+	filter := levelb.ZoneChangeFilter(t)
+	tokenServed := t.ModeKind() == cards.TriggerChangesZoneAll && etbTokenServed(filter)
 	if bad := etbUnservableFilter(filter); bad != "" {
-		return nil, "etb filter " + bad + " (" + filter + ")"
+		if !tokenServed {
+			return nil, "etb filter " + bad + " (" + filter + ")"
+		}
+		// Only a token satisfies the filter: the token maker is the one cause.
+		return tokenCauses(reg, name)
 	}
 	// Try the specific land and spell probes before the generic fallback. The
 	// old vanilla Bear remains last so it can still serve broad creature filters.
@@ -139,8 +164,21 @@ func etbProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) ([]trigg
 	if c, ok := castCause(reg, name, bearsProbe); ok {
 		out = append(out, c)
 	}
-	if strings.Contains(strings.ToLower(filter), "token") {
-		if c, ok := castCause(reg, name, "Raise the Alarm"); ok {
+	if tokenServed {
+		tokens, _ := tokenCauses(reg, name)
+		out = append(out, tokens...)
+	}
+	if len(out) == 0 {
+		return nil, "probe not in corpus"
+	}
+	return out, ""
+}
+
+// tokenCauses casts a one-token maker (tokenProbes).
+func tokenCauses(reg *cards.Registry, name string) ([]triggerCause, string) {
+	var out []triggerCause
+	for _, p := range tokenProbes {
+		if c, ok := castCause(reg, name, p); ok {
 			out = append(out, c)
 		}
 	}

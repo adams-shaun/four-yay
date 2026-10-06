@@ -4,39 +4,63 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/compliance/levelb"
 	"github.com/adams-shaun/gorge/state"
 )
-
-func zoneChangeFilter(t *cards.Trigger) string {
-	if t.ModeKind() == cards.TriggerChangesZoneAll {
-		return t.ParamStr(cards.PKValidCards)
-	}
-	return t.ParamStr(cards.PKValidCard)
-}
 
 var (
 	bounceProbes    = []string{"Unsummon"}
 	exileZoneProbes = []string{"Swords to Plowshares", "Path to Exile"}
 	reanimateProbes = []string{"Raise Dead", "Disentomb"}
+	// tokenProbes make ONE token: a ChangesZoneAll "one or more enter"
+	// trigger fires once per token in gorge, so a two-token maker queues two
+	// triggers behind a trigger_order ask and none reaches the stack.
+	tokenProbes = []string{"Sprout"}
 )
+
+// zoneProbes lists the spells whose destination satisfies a trigger's
+// Destination$: Any is bounced, exiled or destroyed; a list takes the probes
+// of each member it names. A destination no probe reaches yields nil.
+func zoneProbes(dest string) []string {
+	var out []string
+	for _, d := range strings.Split(strings.ToLower(dest), ",") {
+		switch strings.TrimSpace(d) {
+		case "", "any":
+			out = append(out, bounceProbes...)
+			out = append(out, exileZoneProbes...)
+			out = append(out, destroyProbes...)
+		case "hand":
+			out = append(out, bounceProbes...)
+		case "exile":
+			out = append(out, exileZoneProbes...)
+		case "graveyard":
+			out = append(out, destroyProbes...)
+		}
+	}
+	return out
+}
 
 // zoneTriggerRecipe builds p0-only causes for another card changing zones.
 // The engine remains the authority on filters; this selects a legal candidate
 // victim and spells whose destinations can satisfy the trigger.
 func zoneTriggerRecipe(reg *cards.Registry, name string, t *cards.Trigger, sub string) ([]triggerCause, string) {
-	filter := zoneChangeFilter(t)
+	filter := levelb.ZoneChangeFilter(t)
 	if sub == "trigger.zone-change-residue" {
 		return nil, zoneChangeSkip(filter, t)
 	}
+	dest := t.ParamStr(cards.PKDestination)
 	zone := state.ZBattlefield
-	probes := bounceProbes
+	probes := zoneProbes(dest)
 	if sub == "trigger.leaves-graveyard" {
-		zone, probes = state.ZGraveyard, reanimateProbes
-	} else {
-		dest := strings.ToLower(t.ParamStr(cards.PKDestination))
-		if strings.Contains(dest, "exile") {
-			probes = exileZoneProbes
+		// Only a return to hand takes a card out of a graveyard for these
+		// probes; Any admits it.
+		zone, probes = state.ZGraveyard, nil
+		if strings.EqualFold(dest, "Any") || strings.Contains(","+strings.ToLower(dest)+",", ",hand,") {
+			probes = reanimateProbes
 		}
+	}
+	if len(probes) == 0 {
+		return nil, "zone-change destination " + dest
 	}
 	victims := []string{bearsProbe}
 	if bears, ok := reg.Lookup(bearsProbe); ok {

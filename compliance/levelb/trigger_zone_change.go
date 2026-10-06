@@ -13,7 +13,7 @@ func classifyZoneChangeTrigger(t *cards.Trigger) (string, bool) {
 	mode := t.ModeKind()
 	origin := t.ParamStr(cards.PKOrigin)
 	dest := t.ParamStr(cards.PKDestination)
-	filter := zoneChangeFilter(t)
+	filter := ZoneChangeFilter(t)
 	if mode == cards.TriggerChangesZoneAll {
 		if namesSelf(filter) {
 			return "", false
@@ -25,7 +25,7 @@ func classifyZoneChangeTrigger(t *cards.Trigger) (string, bool) {
 			return "trigger.leaves-graveyard", true
 		case strings.Contains(strings.ToLower(origin), "battlefield") && !strings.EqualFold(dest, "Graveyard"):
 			return "trigger.ltb-other", true
-		case !strings.EqualFold(dest, "Graveyard"):
+		case !strings.EqualFold(dest, "Graveyard"), strings.EqualFold(origin, "Library"):
 			return "trigger.zone-change-residue", true
 		}
 		return "", false
@@ -38,7 +38,7 @@ func classifyZoneChangeTrigger(t *cards.Trigger) (string, bool) {
 		(strings.EqualFold(origin, "Any") && strings.EqualFold(dest, "Graveyard")) {
 		return "trigger.zone-change-residue", true
 	}
-	if strings.EqualFold(origin, "Graveyard") && !namesSelf(filter) {
+	if strings.EqualFold(origin, "Graveyard") && !strings.EqualFold(dest, "Battlefield") && !namesSelf(filter) {
 		return "trigger.leaves-graveyard", true
 	}
 	if strings.EqualFold(origin, "Battlefield") && !namesSelf(filter) && !strings.EqualFold(dest, "Graveyard") {
@@ -47,8 +47,10 @@ func classifyZoneChangeTrigger(t *cards.Trigger) (string, bool) {
 	return "", false
 }
 
-// zoneChangeFilter handles the singular and plural Forge parameter forms.
-func zoneChangeFilter(t *cards.Trigger) string {
+// ZoneChangeFilter is the card filter of a ChangesZone (ValidCard$) or
+// ChangesZoneAll (ValidCards$) trigger: the one reader of that rule, shared
+// with the oraclegen recipes.
+func ZoneChangeFilter(t *cards.Trigger) string {
 	if t.ModeKind() == cards.TriggerChangesZoneAll {
 		return t.ParamStr(cards.PKValidCards)
 	}
