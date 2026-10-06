@@ -7,7 +7,10 @@
 # (affected)" gate and the post-merge `make ledger` hook. Seats stay unlocked
 # (they are capped separately). The path is <main checkout>/.ds4/heavy.lock,
 # derived from the shared git dir so a worktree copy of a script resolves to the
-# same file as the main one. GORGE_HEAVY_LOCK overrides it (tests do).
+# same file as the main one. GORGE_HEAVY_LOCK overrides it (tests do). This file
+# is the ONE definition; the affected gate cannot `git show {base}:...` it (it
+# does not exist in any ancestor base) so it reproduces the same two-line
+# derivation and `flock -o -E 75` inline -- see .agentctl/config.toml.
 #
 # Sourced:   . scripts/heavy_lock.sh        # sets and exports GORGE_HEAVY_LOCK
 # Executed:

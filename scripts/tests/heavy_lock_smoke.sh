@@ -58,14 +58,58 @@ bad=$(printf '%s\n' "$paths" | grep -v -F "=$want" || true)
 [ -z "$bad" ]
 check "heavy.sh, broker.sh, postmerge_batch.sh, sb-gauntlet.sh, m1b-distill.sh resolve the same default lock" $? "want $want; got: $paths"
 # The two config.toml callers go through heavy_lock.sh, so they cannot drift:
-# no literal lock path may appear in the config.
-! grep -n 'heavy\.lock' "$ROOT/.agentctl/config.toml" | grep -v '^[0-9]*:#' | grep -q .
-check "config.toml names no literal heavy lock path outside comments" $?
-# The affected gate's wrapper must come from the BASE copy too: if it invoked
-# the branch's scripts/heavy_lock.sh, a branch could edit the helper into a
-# no-op and neuter its own gate's serialisation.
-grep -qF 'git show {base}:scripts/heavy_lock.sh' "$ROOT/.agentctl/config.toml"
-check "config.toml extracts the affected gate's heavy_lock.sh from {base}" $?
+# the affected gate may name the lock ONLY as the inline-derived
+# <git-common-dir>/../.ds4/heavy.lock; no other literal path may appear.
+bad=$(/usr/bin/grep -n 'heavy\.lock' "$ROOT/.agentctl/config.toml" | /usr/bin/grep -v '^[0-9]*:#' | /usr/bin/grep -vF '.ds4/heavy.lock' || true)
+[ -z "$bad" ]
+check "config.toml names no heavy lock path other than the derived <common-dir>/.ds4/heavy.lock" $? "$bad"
+# The affected gate must take the ONE lock without depending on a file that
+# exists only in the branch. Extracting scripts/heavy_lock.sh from {base} fails
+# on the very ticket that introduces the helper ({base} is an ancestor that has
+# no such file), so the gate derives the lock INLINE. Assert both halves: no
+# {base} helper extraction, and a merge-base really lacks the file (the reason
+# the inline form is required).
+! grep -qF 'git show {base}:scripts/heavy_lock.sh' "$ROOT/.agentctl/config.toml"
+check "config.toml does not extract the branch-only heavy_lock.sh from {base}" $?
+mb=$(git merge-base main HEAD 2>/dev/null || git rev-parse main)
+! git show "$mb":scripts/heavy_lock.sh >/dev/null 2>&1
+check "precondition: the merge-base has no scripts/heavy_lock.sh (so {base} extraction would fail)" $? "mb=$mb"
+
+# Run the REAL affected-gate command with {base}=merge-base, not HEAD. Only the
+# inner `systemd-run ... gate_affected` body is stubbed (bwrap cannot run the
+# 8G scope and the full gate is far over a seat's budget); every lock line is
+# the gate's own. A free lock must run the body; a held lock must exit 75.
+gatecmd=$(python3 - "$ROOT/.agentctl/config.toml" "$mb" <<'PY'
+import sys, tomllib
+cfg, mb = sys.argv[1], sys.argv[2]
+for g in tomllib.load(open(cfg, 'rb'))['gates']:
+    if g['name'] == 'go test (affected)':
+        c = g['cmd'][2]
+        # stub the systemd-run scope + the heavy gate body; keep every lock line
+        c = c.replace('systemd-run --user --scope -q -p MemoryMax=8G -p CPUQuota=1600% ', '')
+        c = c.replace('git show {base}:scripts/gate_affected.sh | bash -s {base}', 'echo GATE-BODY-RAN')
+        c = c.replace('{base}', mb)
+        print(c)
+PY
+)
+[ -n "$gatecmd" ]
+check "read the affected gate command from config.toml" $?
+stub=$gatecmd
+printf '%s' "$stub" | grep -qF 'echo GATE-BODY-RAN'
+check "stubbed the gate body with {base}=merge-base (precondition)" $?
+GORGE_HEAVY_LOCK=$TMP/gate.lock bash -c "$stub" >"$TMP/gatebody.out" 2>&1
+rc=$?
+[ "$rc" = 0 ] && grep -qF 'GATE-BODY-RAN' "$TMP/gatebody.out"
+check "real affected gate command (base=merge-base) takes the lock and runs its body" $? "rc=$rc $(cat "$TMP/gatebody.out")"
+# The same command on a HELD lock must not run the body and must exit 75.
+flock -o -E 0 "$TMP/gate.lock" -c 'sleep 3' &
+HLPID=$!
+sleep 0.3
+GORGE_HEAVY_LOCK=$TMP/gate.lock bash -c "${stub/1500/1}" >"$TMP/gateheld.out" 2>&1
+rc=$?
+wait "$HLPID" 2>/dev/null || true
+[ "$rc" = 75 ] && ! grep -qF 'GATE-BODY-RAN' "$TMP/gateheld.out" && grep -qF 'still held' "$TMP/gateheld.out"
+check "real affected gate command exits 75 without running on a held lock" $? "rc=$rc $(cat "$TMP/gateheld.out")"
 
 # ---- B: two different scripts contend on it ----------------------------------
 export GORGE_ROOT=$ROOT GORGE_REWARD_DIR=$TMP/reward
