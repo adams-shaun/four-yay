@@ -3,6 +3,7 @@ package rules
 import (
 	"fmt"
 	"reflect"
+	"sync"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
@@ -398,10 +399,22 @@ func (e *Engine) restampStatic(n int) {
 	}
 }
 
+var verifyActivePool = sync.Pool{New: func() any { return new([]ContinuousEffect) }}
+
 // verifyInertActive is active()'s layer-inert reuse check: it rebuilds the
 // list from scratch under a forced miss and compares.
 func (e *Engine) verifyInertActive() {
-	cached := append([]ContinuousEffect(nil), e.activeBuf...)
+	// cached is a defensive copy of the served list (the forced rebuild is
+	// given fresh storage, so it should never write it); its array comes
+	// from a pool because this check runs on every reuse in the rules test
+	// binary and the copies were gigabytes per suite run.
+	cp := verifyActivePool.Get().(*[]ContinuousEffect)
+	cached := append((*cp)[:0], e.activeBuf...)
+	defer func() {
+		clear(cached)
+		*cp = cached[:0]
+		verifyActivePool.Put(cp)
+	}()
 	savedEpoch, savedBuf := e.activeEpoch, e.activeBuf
 	savedHeads, savedSeq := e.activeKWHeads, e.activeBuildSeq
 	savedHeadSet, savedHeadSetOK := e.activeKWHeadSet, e.activeKWHeadSetOK
@@ -420,7 +433,10 @@ func (e *Engine) verifyInertActive() {
 	// depth 0 so the forced rebuild is an ordinary outermost build.
 	depth := e.activeDepth
 	e.activeDepth = 0
-	fresh := append([]ContinuousEffect(nil), e.active()...)
+	// The rebuilt list is the forced build's own fresh array, which nothing
+	// else holds once the served state is restored below and nothing writes
+	// before the comparison: compare it in place rather than copying it.
+	fresh := e.active()
 	e.activeDepth = depth
 	// The forced rebuild is a check, not a rebuild of the served list: the
 	// build count and head set stay the served list's (derivedmemo.go's
