@@ -49,9 +49,10 @@ func (b *CastBattlefield) DerivedPT(id ObjID) (power, toughness int32, ok bool) 
 // FreezeBattlefield deep-copies the named battlefield permanents of src into
 // a CastBattlefield. ids is the capture order (it fixes each controller's
 // zone-list order); an id that is not a battlefield object of src is skipped.
-// pt is the parallel slice of derived powers/toughnesses (a shorter slice
-// freezes the missing entries as printed-face reads: the entry is simply
-// absent from PT). The result shares nothing mutable with src.
+// pt is the parallel slice of derived powers/toughnesses; an id with no
+// matching pt entry simply has no frozen derived P/T, so a reader falls back
+// to its own live/printed read for that id. The result shares nothing mutable
+// with src.
 func FreezeBattlefield(src *Game, ids []ObjID, pt []FrozenPT) *CastBattlefield {
 	names := make([]string, len(src.Players))
 	for i := range src.Players {

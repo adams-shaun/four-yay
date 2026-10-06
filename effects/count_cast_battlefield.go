@@ -23,8 +23,15 @@ func SVarsReadCastBattlefield(svars map[string]string) bool {
 	return false
 }
 
-// frozenHost answers the layer-derived P/T reads of a frozen battlefield from
-// the values captured at cast, and every other read from the live host.
+// frozenHost answers the derived-P/T reads of a frozen battlefield from the
+// values captured at cast (readers that go through Host.Power/Toughness, e.g.
+// zoneCountFold.extremePropertyValue and P/T comparisons in the filter
+// grammar), while every other Host read is promoted from the live host. The
+// frozen game itself is scanned for membership, controller and printed
+// characteristics, so the eight carriers' clauses (printed type/colour +
+// controller + modified + $GreatestCardPower) all read frozen data. A
+// layer-derived characteristic beyond P/T (a granted type/colour/keyword) still
+// reads the live host and is out of this fix's scope.
 type frozenHost struct {
 	Host
 	snap *state.CastBattlefield
