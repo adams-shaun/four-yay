@@ -240,10 +240,6 @@ public class ScenarioReplay extends CardTestPlayerBase {
         /** Consume the generator's choice-queue selection and kept-card order.
          * Null means this decision was scripted through the ordinary target queue. */
         private Cards scriptedLibrarySelection(Cards cards, Game game) {
-            List<String> queue = getChoices();
-            if (queue.isEmpty()) {
-                return null;
-            }
             // Cards#getCards is a Set and does not promise library order.
             // Reconstruct the looked-at prefix from Library's ordered view.
             List<Card> lookedAtOrder = new ArrayList<>();
@@ -253,12 +249,17 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 }
             }
             Set<Card> available = new java.util.LinkedHashSet<>(lookedAtOrder);
+            List<String> queue = librarySelectionQueue(getChoices(), getTargets(),
+                    answer -> findByName(available, answer) != null);
+            if (queue == null) {
+                return null;
+            }
             Cards selected = new CardsImpl();
             boolean scripted = false;
             boolean selectionEnded = false;
             while (!queue.isEmpty()) {
                 String answer = queue.get(0);
-                if (TestPlayer.CHOICE_SKIP.equals(answer)) {
+                if (isLibrarySelectionSkip(answer)) {
                     queue.remove(0);
                     scripted = true;
                     selectionEnded = true;
@@ -321,6 +322,31 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 }
             }
             return selected;
+        }
+
+        /**
+         * Library selection is exposed by XMage's chooser as a target-shaped
+         * generator answer, but surveil/scry are implemented here through the
+         * choice queue. Move only a leading target skip into that queue when no
+         * card/skip answer already addresses this library selection; ordinary
+         * target skips remain on their target queue.
+         */
+        static List<String> librarySelectionQueue(List<String> choices, List<String> targets,
+                java.util.function.Predicate<String> namesLookedAtCard) {
+            if (!choices.isEmpty() && (TestPlayer.CHOICE_SKIP.equals(choices.get(0))
+                    || namesLookedAtCard.test(choices.get(0)))) {
+                return choices;
+            }
+            if (!targets.isEmpty() && TestPlayer.TARGET_SKIP.equals(targets.get(0))) {
+                targets.remove(0);
+                choices.add(0, TestPlayer.CHOICE_SKIP);
+                return choices;
+            }
+            return choices.isEmpty() ? null : choices;
+        }
+
+        private static boolean isLibrarySelectionSkip(String answer) {
+            return TestPlayer.CHOICE_SKIP.equals(answer) || TestPlayer.TARGET_SKIP.equals(answer);
         }
 
         private Card findByName(Set<Card> cards, String name) {
