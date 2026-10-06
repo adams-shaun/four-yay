@@ -17,25 +17,20 @@ skip='^(TestHeads|TestInvariantsUnderSeedFuzz[0-9]*)$'
 export GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1
 go vet -p=8 ./...
 # Per-test budget (operator, 2026-10-05): every test fits 2 GB RSS, 2 vCPU,
-# 1 min wall. cmd/testbudget probes each test binary's peak RSS (a `go test
-# -exec` wrapper), reads each top-level test's wall from the -json stream
-# (`tee` reprints the plain text the batch's failure parser reads) and fails
-# the run on any test over budget that the shrink-only exception inventories
-# in internal/testutil/testdata/ do not name. -exec switches go test's result
-# cache off (measured 2026-10-06), so GORGE_TESTBUDGET_RSS=0 keeps the cache
-# and checks wall only (a cached package replays its recorded elapsed).
+# 1 min wall. Test binaries record their own peak RSS through internal/testbudget;
+# cmd/testbudget reads those persistent records and the per-test wall from the
+# -json stream (tee reprints the plain text the batch's failure parser reads).
+# The RSS directory survives runs so cached packages retain their valid record;
+# GORGE_TESTBUDGET_RSS=0 keeps the cache and checks wall only.
 budget=$PWD/.ds4/scratch/testbudget
-rm -rf "$budget"
 mkdir -p "$budget"
 go build -o "$budget/testbudget" ./cmd/testbudget
-exec_flag=()
 rss_flag=()
 if [ "${GORGE_TESTBUDGET_RSS:-1}" = 1 ]; then
 	export GORGE_TESTBUDGET_RSS_DIR=$budget/rss
-	exec_flag=(-exec "$budget/testbudget exec")
 	rss_flag=(-rss-dir "$budget/rss")
 fi
-go test -p=8 -json "${exec_flag[@]}" -skip "$skip" ./... | "$budget/testbudget" tee -events "$budget/events.json"
+go test -p=8 -json -skip "$skip" ./... | "$budget/testbudget" tee -events "$budget/events.json"
 "$budget/testbudget" check -events "$budget/events.json" "${rss_flag[@]}"
 go test ./rules -run '^TestHeads$'
 make sim
